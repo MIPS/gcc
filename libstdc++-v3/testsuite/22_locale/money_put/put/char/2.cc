@@ -32,13 +32,13 @@ void test02()
   typedef money_base::pattern pattern;
   typedef ostreambuf_iterator<char> iterator_type;
 
-  bool test = true;
+  bool test __attribute__((unused)) = true;
 
   // basic construction
   locale loc_c = locale::classic();
-  locale loc_hk = __gnu_cxx_test::try_named_locale("en_HK");
-  locale loc_fr = __gnu_cxx_test::try_named_locale("fr_FR@euro");
-  locale loc_de = __gnu_cxx_test::try_named_locale("de_DE@euro");
+  locale loc_hk = __gnu_test::try_named_locale("en_HK");
+  locale loc_fr = __gnu_test::try_named_locale("fr_FR@euro");
+  locale loc_de = __gnu_test::try_named_locale("de_DE@euro");
   VERIFY( loc_c != loc_de );
   VERIFY( loc_hk != loc_fr );
   VERIFY( loc_hk != loc_de );
@@ -47,12 +47,6 @@ void test02()
   // cache the moneypunct facets
   typedef moneypunct<char, true> __money_true;
   typedef moneypunct<char, false> __money_false;
-  const __money_true& monpunct_c_t = use_facet<__money_true>(loc_c); 
-  const __money_true& monpunct_de_t = use_facet<__money_true>(loc_de); 
-  const __money_false& monpunct_c_f = use_facet<__money_false>(loc_c); 
-  const __money_false& monpunct_de_f = use_facet<__money_false>(loc_de); 
-  const __money_true& monpunct_hk_t = use_facet<__money_true>(loc_hk); 
-  const __money_false& monpunct_hk_f = use_facet<__money_false>(loc_hk); 
 
   // sanity check the data is correct.
   const string empty;

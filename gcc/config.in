@@ -1,4 +1,4 @@
-/* config.in.  Generated automatically from configure.in by autoheader 2.13.  */
+/* config.in.  Generated automatically from configure.in by autoheader.  */
 
 /* Define to the type of elements in the array set by `getgroups'.
    Usually this is either `int' or `gid_t'.  */
@@ -72,9 +72,6 @@
 
 /* Define if you have the kill function.  */
 #undef HAVE_KILL
-
-/* Define if you have the lstat function.  */
-#undef HAVE_LSTAT
 
 /* Define if you have the mbstowcs function.  */
 #undef HAVE_MBSTOWCS
@@ -235,6 +232,10 @@
    paranoid mode, validating the entire heap and collecting garbage at
    every opportunity.  This is extremely expensive. */
 #undef ENABLE_GC_ALWAYS_COLLECT
+
+/* Define if you want fold checked that it never destructs its argument.
+   This is quite expensive. */
+#undef ENABLE_FOLD_CHECKING
 
 /* Define if you want to run subprograms and generated programs
    through valgrind (a memory checker).  This is extremely expensive. */
@@ -452,7 +453,7 @@
 /* Define if your assembler mis-optimizes .eh_frame data. */
 #undef USE_AS_TRADITIONAL_FORMAT
 
-/* Define if your assembler supports marking sections with SHF_MERGE flag. */
+/* Define 0/1 if your assembler supports marking sections with SHF_MERGE flag. */
 #undef HAVE_GAS_SHF_MERGE
 
 /* Define if your assembler supports thread-local storage. */
@@ -478,6 +479,9 @@
 
 /* Define if your assembler uses the new HImode fild and fist notation. */
 #undef HAVE_GAS_FILDS_FISTS
+
+/* Define if your assembler supports the Sun syntax for cmov. */
+#undef HAVE_AS_IX86_CMOV_SUN_SYNTAX
 
 /* Define true if the assembler supports '.long foo@GOTOFF'. */
 #undef HAVE_AS_GOTOFF_IN_DATA

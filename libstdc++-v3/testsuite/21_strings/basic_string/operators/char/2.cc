@@ -115,7 +115,7 @@ template<class charT, class traits, class Allocator>
 
 int test01(void)
 {
-  bool 		test = true;
+  bool test __attribute__((unused)) = true;
   std::string 	str_0("costa rica");
   std::string 	str_1("costa marbella");
   std::string 	str_2("cost");
@@ -285,11 +285,6 @@ template<class charT, class traits, class Allocator>
   str_4 = 'o' + str_4;
   str_4 = 'c' + str_4;
   VERIFY( str_4 == str_3 );
-
-#ifdef DEBUG_ASSERT
-  assert(test);
-#endif
-
   return 0;
 }
 

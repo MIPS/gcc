@@ -55,7 +55,7 @@ extern enum debug_info_level debug_info_level;
 
 /* Nonzero means use GNU-only extensions in the generated symbolic
    debugging information.  */
-extern int use_gnu_debug_info_extensions;
+extern bool use_gnu_debug_info_extensions;
 
 /* Nonzero means emit debugging information only for symbols which are used.  */
 extern int flag_debug_only_used_symbols;
@@ -362,6 +362,11 @@ extern int flag_finite_math_only;
    IEEE 754 arithmetic.  */
 
 extern int flag_trapping_math;
+
+/* Nonzero means disable transformations that assume default floating
+   point rounding behavior.  */
+
+extern int flag_rounding_math;
 
 /* 0 means straightforward implementation of complex divide acceptable.
    1 means wide ranges of inputs must work for complex divide.
@@ -755,6 +760,6 @@ extern const char *flag_random_seed;
 /* Like HONOR_NANS, but true if given mode supports sign-dependent rounding,
    and the rounding mode is important.  */
 #define HONOR_SIGN_DEPENDENT_ROUNDING(MODE) \
-  (MODE_HAS_SIGN_DEPENDENT_ROUNDING (MODE) && !flag_unsafe_math_optimizations)
+  (MODE_HAS_SIGN_DEPENDENT_ROUNDING (MODE) && flag_rounding_math)
 
 #endif /* ! GCC_FLAGS_H */

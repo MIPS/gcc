@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O1 -fdump-tree-ssa" } */
+/* { dg-options "-O1 -fdump-tree-dom2" } */
      
 
 extern const unsigned char mode_size[];
@@ -17,9 +17,9 @@ subreg_highpart_offset (outermode, innermode)
   return offset;
 }
 
-/* There should be one mask with the value 3.
-/* { dg-final { scan-tree-dump-times " \& 3" 1 "ssa"} } */
+/* There should be one mask with the value 3.  */
+/* { dg-final { scan-tree-dump-times " \& 3" 1 "dom2"} } */
   
-/* There should be one right shift by 2 places.
-/* { dg-final { scan-tree-dump-times " >> 2" 1 "ssa"} } */
+/* There should be one right shift by 2 places.  */
+/* { dg-final { scan-tree-dump-times " >> 2" 1 "dom2"} } */
 

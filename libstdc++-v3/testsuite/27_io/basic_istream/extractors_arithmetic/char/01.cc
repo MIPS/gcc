@@ -46,11 +46,10 @@ std::stringstream ss_01(str_01);
 // minimal sanity check
 bool test01() {
 
-  bool test = true;
+  bool test __attribute__((unused)) = true;
 
   // Integral Types:
   bool 			b1  = false;
-  bool 			b2  = false;
   short 		s1  = 0;
   int	 		i1  = 0;
   long	 		l1  = 0;
@@ -117,13 +116,8 @@ bool test01() {
 
   ss_01 << po;
   ss_01 >> pi;
-  std::printf ("%x %x\n", pi, po);
+  std::printf ("%p %p\n", pi, po);
   VERIFY( po == pi );
-  
-#ifdef DEBUG_ASSERT
-  assert(test);
-#endif
- 
   return test;
 }
 

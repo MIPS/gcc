@@ -73,10 +73,6 @@ static FILE *dump_file;
 static int dump_flags;
 
 static varray_type worklist;
-#if 0
-static dominance_info dom_info = NULL;
-static dominance_info pdom_info = NULL;
-#endif
 
 static struct stmt_stats
 {
@@ -86,44 +82,47 @@ static struct stmt_stats
   int removed_phis;
 } stats;
 
-static htab_t needed_stmts;
-
 /* Forward function prototypes.  */
-static bool necessary_p (tree);
-static int mark_tree_necessary (tree);
+static inline bool necessary_p (tree);
+static inline void clear_necessary (tree);
+static inline void mark_necessary (tree);
 static void print_stats (void);
 static bool need_to_preserve_store (tree);
 static void find_useful_stmts (void);
 static bool stmt_useful_p (tree);
 static void process_worklist (void);
 static void remove_dead_stmts (void);
-static void remove_dead_stmt (block_stmt_iterator *, basic_block);
+static void remove_dead_stmt (block_stmt_iterator *);
 static void remove_dead_phis (basic_block);
-#if 0
-static void remove_conditional (basic_block);
-#endif
 
+#define NECESSARY(stmt)	   stmt->common.unused_1
 
 /* Is a tree necessary?  */
 
 static inline bool
 necessary_p (tree t)
 {
-  return htab_find (needed_stmts, t) != NULL;
+  return NECESSARY (t);
 }
 
-
-/* Mark a tree as necessary.  Return 1 if it was not already marked.  */
-
-static int
-mark_tree_necessary (tree t)
+static inline void
+clear_necessary (tree t)
 {
-  void **slot;
+  NECESSARY (t) = 0;
+}
 
-  if (t == NULL
-      || t == error_mark_node
-      || necessary_p (t))
-    return 0;
+/* Mark a tree as necessary.  */
+
+static inline void
+mark_necessary (tree t)
+{
+#ifdef ENABLE_CHECKING
+  if (t == NULL || t == error_mark_node)
+    abort ();
+#endif 
+
+  if (necessary_p (t))
+    return;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -132,11 +131,8 @@ mark_tree_necessary (tree t)
       fprintf (dump_file, "\n");
     }
 
-  slot = htab_find_slot (needed_stmts, t, INSERT);
-  *slot = (void *) t;
+  NECESSARY (t) = 1;
   VARRAY_PUSH_TREE (worklist, t);
-
-  return 1;
 }
 
 /* Print out removed statement statistics.  */
@@ -208,16 +204,20 @@ find_useful_stmts (void)
 
       /* Check any PHI nodes in the block.  */
       for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
-	if (need_to_preserve_store (PHI_RESULT (phi)))
-	  mark_tree_necessary (phi);
+        {
+	  clear_necessary (phi);
+	  if (need_to_preserve_store (PHI_RESULT (phi)))
+	    mark_necessary (phi);
+	}
 
       /* Check all statements in the block.  */
       for (i = bsi_start (bb); !bsi_end_p (i); bsi_next (&i))
 	{
 	  tree stmt = bsi_stmt (i);
 
+	  clear_necessary (stmt);
 	  if (stmt_useful_p (stmt))
-	    mark_tree_necessary (stmt);
+	    mark_necessary (stmt);
 	}
     }
 }
@@ -232,49 +232,50 @@ stmt_useful_p (tree stmt)
   size_t i;
 
   /* Instructions that are implicitly live.  Function calls, asm and return
-     statements are required.  Labels are kept because they are control flow,
-     and we have no way of knowing whether they can be removed.   DCE can
-     eliminate all the other statements in a block, and CFG can then remove the
-     labels.  */
-  if (
-      /* The first three should be removed if unnecessary condition replacing
-	 is readded.  */
-      (TREE_CODE (stmt) == COND_EXPR)
-      || (TREE_CODE (stmt) == SWITCH_EXPR)
-      || (TREE_CODE (stmt) == GOTO_EXPR)
-      || (TREE_CODE (stmt) == ASM_EXPR)
-      || (TREE_CODE (stmt) == RETURN_EXPR)
-      || (TREE_CODE (stmt) == LABEL_EXPR)
-      || (TREE_CODE (stmt) == CALL_EXPR)
-      || ((TREE_CODE (stmt) == MODIFY_EXPR)
-	  && (TREE_CODE (TREE_OPERAND (stmt, 1)) == CALL_EXPR)))
-    return true;
-
-  /* GOTO_EXPR nodes to nonlocal labels need to be kept (This fixes
-     gcc.c-torture/execute/920501-7.c and others that have nested functions
-     with nonlocal gotos).  FIXME: If we were doing IPA we could determine
-     if the label is actually reachable.  */
-  if (TREE_CODE (stmt) == GOTO_EXPR)
+     statements are required.  Labels and BIND_EXPR nodes are kept because
+     they are control flow, and we have no way of knowing whether they can
+     be removed.   DCE can eliminate all the other statements in a block,
+     and CFG can then remove the block and labels.  */
+  switch (TREE_CODE (stmt))
     {
-      edge e;
-      basic_block bb = bb_for_stmt (stmt);
+    case ASM_EXPR:
+    case RETURN_EXPR:
+    case CASE_LABEL_EXPR:
+    case LABEL_EXPR:
+    case BIND_EXPR:
+    case CALL_EXPR:
+    case RESX_EXPR:
+      return true;
 
-      if (bb)
-	for (e = bb->succ; e; e = e->succ_next)
-	  if (e->dest == EXIT_BLOCK_PTR && (e->flags & EDGE_ABNORMAL))
-	    return true;
+    case MODIFY_EXPR:
+      if (TREE_CODE (TREE_OPERAND (stmt, 1)) == CALL_EXPR)
+	return true;
+
+      /* These values are mildly magic bits of the EH runtime.  We can't
+	 see the entire lifetime of these values until landing pads are
+	 generated.  */
+      if (TREE_CODE (TREE_OPERAND (stmt, 0)) == EXC_PTR_EXPR)
+	return true;
+      if (TREE_CODE (TREE_OPERAND (stmt, 0)) == FILTER_EXPR)
+	return true;
+      break;
+
+    default:
+      break;
     }
 
-  /* Examine all the stores in this statement.  */
-  get_stmt_operands (stmt);
+  if (is_ctrl_stmt (stmt) || is_ctrl_altering_stmt (stmt))
+    return true;
 
   /* If the statement has volatile operands, it needs to be preserved.  */
   if (stmt_ann (stmt)->has_volatile_ops)
     return true;
 
+  get_stmt_operands (stmt);
+
   ops = def_ops (stmt);
   for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
-    if (need_to_preserve_store (*((tree *) VARRAY_GENERIC_PTR (ops, i))))
+    if (need_to_preserve_store (*(VARRAY_TREE_PTR (ops, i))))
       return true;
 
   ops = vdef_ops (stmt);
@@ -294,15 +295,6 @@ static void
 process_worklist (void)
 {
   tree i;
-#if 0
-  basic_block bb;
-  tree j;
-  edge e;
-  bitmap cond_checked, goto_checked;
-
-  cond_checked = BITMAP_XMALLOC ();
-  goto_checked = BITMAP_XMALLOC ();
-#endif
 
   while (VARRAY_ACTIVE_SIZE (worklist) > 0)
     {
@@ -317,27 +309,6 @@ process_worklist (void)
 	  fprintf (dump_file, "\n");
 	}
 
-#if 0
-      /* Find any predecessor which 'goto's this block, and mark the goto
-	 as necessary since it is control flow.  A block's predecessors only
-	 need to be checked once.  */
-      bb = bb_for_stmt (i);
-      if (bb && !bitmap_bit_p (goto_checked, bb->index))
-        {
-	  bitmap_set_bit (goto_checked, bb->index);
-	  for (e = bb->pred; e != NULL; e = e->pred_next)
-	    {
-	      basic_block p = e->src;
-	      if (p == ENTRY_BLOCK_PTR)
-		continue;
-	      j = last_stmt (p);
-	      if ((e->flags & EDGE_ABNORMAL)
-		  || (j && TREE_CODE (j) == GOTO_EXPR))
-		mark_necessary (j);
-	    }
-	}
-#endif
-      
       if (TREE_CODE (i) == PHI_NODE)
 	{
 	  int k;
@@ -348,40 +319,8 @@ process_worklist (void)
 	    {
 	      tree arg = PHI_ARG_DEF (i, k);
 	      if (TREE_CODE (arg) == SSA_NAME)
-		mark_tree_necessary (SSA_NAME_DEF_STMT (PHI_ARG_DEF (i, k)));
+		mark_necessary (SSA_NAME_DEF_STMT (PHI_ARG_DEF (i, k)));
 	    }
-
-#if 0
-	  /* Look at all the predecessors, and if this PHI is being fed
-	     from a conditional expression, mark that conditional
-	     as necessary.   Copies may be needed on an edge later. 
-	     This only needs to be done once per block.  */
-
-	  k = bb_for_stmt (i)->index;
-	  if (!bitmap_bit_p (cond_checked, k))
-	    {
-	      bitmap_set_bit (cond_checked, k);
-	      for (e = bb->pred; e; e = e->pred_next)
-		{
-		  basic_block pred, par;
-		  pred = e->src;
-		  if (pred != ENTRY_BLOCK_PTR)
-		    {
-		      par = parent_block (pred);
-		      if (par)
-			{
-			  tree last;
-			  last = last_stmt (par);
-			  if (last && (TREE_CODE (last) == COND_EXPR
-				       || TREE_CODE (last) == SWITCH_EXPR))
-			    {
-			      mark_tree_necessary (last);
-			    }
-			}
-		    }
-		}
-	    }
-#endif
 	}
       else
 	{
@@ -396,15 +335,15 @@ process_worklist (void)
 	  ops = use_ops (i);
 	  for (k = 0; ops && k < VARRAY_ACTIVE_SIZE (ops); k++)
 	    {
-	      tree *use_p = VARRAY_GENERIC_PTR (ops, k);
-	      mark_tree_necessary (SSA_NAME_DEF_STMT (*use_p));
+	      tree *use_p = VARRAY_TREE_PTR (ops, k);
+	      mark_necessary (SSA_NAME_DEF_STMT (*use_p));
 	    }
 
 	  ops = vuse_ops (i);
 	  for (k = 0; ops && k < VARRAY_ACTIVE_SIZE (ops); k++)
 	    {
 	      tree vuse = VARRAY_TREE (ops, k);
-	      mark_tree_necessary (SSA_NAME_DEF_STMT (vuse));
+	      mark_necessary (SSA_NAME_DEF_STMT (vuse));
 	    }
 
 	  /* The operands of VDEF expressions are also needed as they
@@ -414,14 +353,10 @@ process_worklist (void)
 	  for (k = 0; ops && k < VARRAY_ACTIVE_SIZE (ops); k++)
 	    {
 	      tree vdef = VARRAY_TREE (ops, k);
-	      mark_tree_necessary (SSA_NAME_DEF_STMT (VDEF_OP (vdef)));
+	      mark_necessary (SSA_NAME_DEF_STMT (VDEF_OP (vdef)));
 	    }
 	}
     }
-#if 0
-  BITMAP_XFREE (cond_checked);
-  BITMAP_XFREE (goto_checked);
-#endif
 }
 
 
@@ -435,12 +370,7 @@ remove_dead_stmts (void)
   tree t;
   block_stmt_iterator i;
 
-#if 0
-  dom_info = NULL;
-  pdom_info = NULL;
-#endif
-
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_REVERSE (bb)
     {
       /* Remove dead PHI nodes.  */
       remove_dead_phis (bb);
@@ -453,20 +383,11 @@ remove_dead_stmts (void)
 
 	  /* If `i' is not in `necessary' then remove from B.  */
 	  if (!necessary_p (t))
-	    remove_dead_stmt (&i, bb);
+	    remove_dead_stmt (&i);
 	  else
 	    bsi_next (&i);
 	}
     }
-
-#if 0
-  /* If we needed the dominance info, free it now.  */
-  if (dom_info != NULL)
-    free_dominance_info (dom_info);
-
-  if (pdom_info != NULL)
-    free_dominance_info (pdom_info);
-#endif
 }
 
 
@@ -510,7 +431,7 @@ remove_dead_phis (basic_block bb)
 /* Remove dead statement pointed by iterator I from block BB.  */
 
 static void
-remove_dead_stmt (block_stmt_iterator *i, basic_block bb ATTRIBUTE_UNUSED)
+remove_dead_stmt (block_stmt_iterator *i)
 {
   tree t;
 
@@ -525,26 +446,21 @@ remove_dead_stmt (block_stmt_iterator *i, basic_block bb ATTRIBUTE_UNUSED)
 
   stats.removed++;
 
-#if 0
-  /* If we have determined that a conditional branch statement contributes
-     nothing to the program, then we not only remove it, but change the
-     flowgraph so that the block points directly to the immediate
-     post-dominator.  The flow graph will remove the blocks we are
-     circumventing, and this block will then simply fall-thru to the
-     post-dominator.  This prevents us from having to add any branch
-     instuctions to replace the conditional statement.  */
-
-  if (TREE_CODE (t) == COND_EXPR || TREE_CODE (t) == SWITCH_EXPR)
-    remove_conditional (bb);
+#ifdef ENABLE_CHECKING
+  if (is_ctrl_stmt (t) || is_ctrl_altering_stmt (t))
+    abort ();
 #endif
 
   bsi_remove (i);
 }
 
-/* Main routine to eliminate dead code.  */
+/* Main routine to eliminate dead code.
+
+   PHASE indicates which dump file from the DUMP_FILES array to use when
+   dumping debugging information.  */
 
 void
-tree_ssa_dce (tree fndecl)
+tree_ssa_dce (tree fndecl, enum tree_dump_index phase)
 {
   tree fnbody;
 
@@ -558,10 +474,8 @@ tree_ssa_dce (tree fndecl)
 
   VARRAY_TREE_INIT (worklist, 64, "work list");
 
-  needed_stmts = htab_create (64, htab_hash_pointer, htab_eq_pointer, NULL);
-
   /* Initialize dump_file for debugging dumps.  */
-  dump_file = dump_begin (TDI_dce, &dump_flags);
+  dump_file = dump_begin (phase, &dump_flags);
 
   find_useful_stmts ();
 
@@ -579,63 +493,10 @@ tree_ssa_dce (tree fndecl)
   /* Debugging dumps.  */
   if (dump_file)
     {
-      dump_function_to_file (fndecl, dump_file, dump_flags);
+      dump_cfg_function_to_file (fndecl, dump_file, dump_flags);
       print_stats ();
-      dump_end (TDI_dce, dump_file);
+      dump_end (phase, dump_file);
     }
-
-  htab_delete (needed_stmts);
 
   timevar_pop (TV_TREE_DCE);
 }
-
-
-#if 0
-/* Remove the conditional statement starting at block BB.  */
-
-static void
-remove_conditional (basic_block bb)
-{
-  basic_block pdom_bb;
-  edge e;
-
-  /* Calculate dominance info, if it hasn't been computed yet.  */
-  if (pdom_info == NULL)
-    pdom_info = calculate_dominance_info (CDI_POST_DOMINATORS);
-
-  if (dom_info == NULL)
-    dom_info = calculate_dominance_info (CDI_DOMINATORS);
-
-  pdom_bb = get_immediate_dominator (pdom_info, bb);
-
-  /* Remove all outgoing edges.  */
-  for (e = bb->succ; e; )
-    {
-      edge tmp = e->succ_next;
-      ssa_remove_edge (e);
-      e = tmp;
-    }
-
-  /* If there is no post dominator, then this block is going to the
-     exit node.  */
-  if (pdom_bb == NULL)
-    pdom_bb = EXIT_BLOCK_PTR;
-
-  /* If the post dominator has any PHI nodes in it at all, the 
-     conditional has been marked as necessary. This means no PHI
-     node updating is required. If there are any PHI nodes, its a bug
-     in DCE.  */
-
-#ifdef ENABLE_CHECKING
-  {
-    tree phi;
-    for (phi = phi_nodes (pdom_bb); phi; phi = TREE_CHAIN (phi))
-      if (necessary_p (phi))
-        abort ();
-  }
-#endif
-
-  /* Add an edge to BB's post dominator.  */
-  make_edge (bb, pdom_bb, EDGE_FALLTHRU);
-}
-#endif

@@ -82,6 +82,7 @@ enum varray_data_enum {
   VARRAY_DATA_BB,
   VARRAY_DATA_TE,
   VARRAY_DATA_EDGE,
+  VARRAY_DATA_TREE_PTR,
   NUM_VARRAY_DATA
 };
 
@@ -129,6 +130,8 @@ typedef union varray_data_tag GTY (()) {
 				tag ("VARRAY_DATA_TE")))	te[1];
   struct edge_def        *GTY ((length ("%0.num_elements"), skip (""),
 	                        tag ("VARRAY_DATA_EDGE")))	e[1];
+  tree                   *GTY ((length ("%0.num_elements"), skip (""),
+	                        tag ("VARRAY_DATA_TREE_PTR")))	tp[1];
 } varray_data;
 
 /* Virtual array of pointers header.  */
@@ -210,6 +213,9 @@ extern varray_type varray_init (size_t, enum varray_data_enum, const char *);
 #define VARRAY_EDGE_INIT(va, num, name) \
   va = varray_init (num, VARRAY_DATA_EDGE, name)
 
+#define VARRAY_TREE_PTR_INIT(va, num, name) \
+  va = varray_init (num, VARRAY_DATA_TREE_PTR, name)
+
 /* Free up memory allocated by the virtual array, but do not free any of the
    elements involved.  */
 #define VARRAY_FREE(vp) \
@@ -228,6 +234,7 @@ extern varray_type varray_grow (varray_type, size_t);
 #define VARRAY_CLEAR(VA) varray_clear(VA)
 
 extern void varray_clear (varray_type);
+extern void varray_copy (varray_type v1, varray_type v2);
 
 /* Check for VARRAY_xxx macros being in bound.  */
 #if defined ENABLE_CHECKING && (GCC_VERSION >= 2007)
@@ -283,6 +290,7 @@ extern void varray_check_failed (varray_type, size_t, const char *, int,
 #define VARRAY_BB(VA, N)		VARRAY_CHECK (VA, N, bb)
 #define VARRAY_ELT_LIST(VA, N)		VARRAY_CHECK (VA, N, te)
 #define VARRAY_EDGE(VA, N)		VARRAY_CHECK (VA, N, e)
+#define VARRAY_TREE_PTR(VA, N)		VARRAY_CHECK (VA, N, tp)
 
 /* Push a new element on the end of VA, extending it if necessary.  */
 #define VARRAY_PUSH_CHAR(VA, X)		VARRAY_PUSH (VA, c, X)
@@ -305,6 +313,7 @@ extern void varray_check_failed (varray_type, size_t, const char *, int,
 #define VARRAY_PUSH_CONST_EQUIV(VA, X)	VARRAY_PUSH (VA, const_equiv, X)
 #define VARRAY_PUSH_BB(VA, X)		VARRAY_PUSH (VA, bb, X)
 #define VARRAY_PUSH_EDGE(VA, X)		VARRAY_PUSH (VA, e, X)
+#define VARRAY_PUSH_TREE_PTR(VA, X)	VARRAY_PUSH (VA, tp, X)
 
 /* Return the last element of VA.  */
 #define VARRAY_TOP_CHAR(VA)		VARRAY_TOP (VA, c)
@@ -327,5 +336,6 @@ extern void varray_check_failed (varray_type, size_t, const char *, int,
 #define VARRAY_TOP_CONST_EQUIV(VA)	VARRAY_TOP (VA, const_equiv)
 #define VARRAY_TOP_BB(VA)		VARRAY_TOP (VA, bb)
 #define VARRAY_TOP_EDGE(VA)		VARRAY_TOP (VA, e)
+#define VARRAY_TOP_TREE_PTR(VA)		VARRAY_TOP (VA, tp)
 
 #endif /* ! GCC_VARRAY_H */

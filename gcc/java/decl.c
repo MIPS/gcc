@@ -1040,21 +1040,12 @@ pushdecl (tree x)
     DECL_CONTEXT (x) = current_function_decl;
   if (name)
     {
-      const char *file;
-      int line;
-
       t = lookup_name_current_level (name);
       if (t != 0 && t == error_mark_node)
 	/* error_mark_node is 0 for a while during initialization!  */
 	{
 	  t = 0;
-	  error_with_decl (x, "`%s' used prior to declaration");
-	}
-
-      if (t != 0)
-	{
-	  file = TREE_FILENAME (t);
-	  line = TREE_LINENO (t);
+	  error ("%J'%D' used prior to declaration", x, x);
 	}
 
       /* If we're naming a hitherto-unnamed type, set its TYPE_NAME
@@ -1105,7 +1096,7 @@ pushdecl (tree x)
 	  /* Maybe warn if shadowing something else.  */
 	  else if (warn_shadow && !DECL_EXTERNAL (x)
 		   /* No shadow warnings for internally generated vars.  */
-		   && TREE_LINENO (x) != 0
+		   && DECL_SOURCE_LINE (x) != 0
 		   /* No shadow warnings for vars made for inlining.  */
 		   && ! DECL_FROM_INLINE (x))
 	    {
@@ -1434,12 +1425,12 @@ poplevel (int keep, int reverse, int functionbody)
 
 	  if (DECL_INITIAL (label) == 0)
 	    {
-	      error_with_decl (label, "label `%s' used but not defined");
+	      error ("%Jlabel '%D' used but not defined", label, label);
 	      /* Avoid crashing later.  */
 	      define_label (input_location, DECL_NAME (label));
 	    }
 	  else if (warn_unused[UNUSED_LABEL] && !TREE_USED (label))
-	    warning_with_decl (label, "label `%s' defined but not used");
+	    warning ("%Jlabel '%D' defined but not used", label, label);
 	  IDENTIFIER_LABEL_VALUE (DECL_NAME (label)) = 0;
 
 	  /* Put the labels into the "variables" of the
@@ -1556,9 +1547,10 @@ force_poplevels (int start_pc)
   while (current_binding_level->start_pc > start_pc)
     {
       if (pedantic && current_binding_level->start_pc > start_pc)
-	warning_with_decl (current_function_decl, 
-			   "In %s: overlapped variable and exception ranges at %d",
-			   current_binding_level->start_pc);
+	warning ("%JIn %D: overlapped variable and exception ranges at %d",
+                 current_function_decl, current_function_decl,
+		 current_binding_level->start_pc);
+      expand_end_bindings (getdecls (), 1, 0);
       poplevel (1, 0, 0);
     }
 }
@@ -1642,8 +1634,8 @@ give_name_to_locals (JCF *jcf)
 	  tree decl = build_decl (VAR_DECL, name, type);
 	  if (end_pc > DECL_CODE_LENGTH (current_function_decl))
 	    {
-	      warning_with_decl (decl,
-			 "bad PC range for debug info for local `%s'");
+	      warning ("%Jbad PC range for debug info for local '%D'",
+                       decl, decl);
 	      end_pc = DECL_CODE_LENGTH (current_function_decl);
 	    }
 

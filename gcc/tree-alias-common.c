@@ -53,6 +53,20 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
    @file tree-alias-common.c
    This file contains the implementation of the common parts of the
    tree points-to analysis infrastructure.
+
+   Overview:
+
+   This file contains the points-to analysis driver.  It does two main things:
+   1. Keeps track of the PTA data for each variable (IE the data each
+      specific PTA implementation wants to keep associated with a
+      variable).
+   2. Walks the function trees, calling the approriate functions that
+      each PTA implementation has implemented.
+
+   In order to speed up PTA queries, the PTA specific data is stored
+   in the tree for *_DECL's, in DECL_PTA_TYPEVAR.  This way, we only
+   need to use the hash table for non-DECL's.
+   
 */
 #define FIELD_BASED 0
 
@@ -91,6 +105,7 @@ static void get_values_from_constructor (tree, varray_type *);
 static bool call_may_clobber (tree);
 bool we_created_global_var = false;
 
+/* Return true if a EXPR, which is a CALL_EXPR, may clobber variables.  */
 static bool
 call_may_clobber (tree expr)
 {
@@ -273,7 +288,6 @@ get_alias_var (tree expr)
     case FIX_FLOOR_EXPR:
     case FIX_ROUND_EXPR:
     case ADDR_EXPR:
-    case REFERENCE_EXPR:
     case INDIRECT_REF:
       /* If it's a ref or cast or conversion of sometmhing, get the
          alias var of the something. */
@@ -321,14 +335,11 @@ intra_function_call (varray_type args)
 	  alias_typevar tempvar;
 	  tree temp = create_tmp_alias_var (void_type_node, "aliastmp");
 	  tempvar = current_alias_ops->add_var (current_alias_ops, temp);
-	  if (!we_created_global_var)
-	    {
-	      /* Arguments can alias globals, and whatever they point to
-		 can point to a global as well. */
-	      current_alias_ops->addr_assign (current_alias_ops, argav, av);
-	      current_alias_ops->addr_assign (current_alias_ops, tempvar, av);
-	      current_alias_ops->assign_ptr (current_alias_ops, argav, tempvar);
-	    }
+	  /* Arguments can alias globals, and whatever they point to
+	     can point to a global as well. */
+	  current_alias_ops->addr_assign (current_alias_ops, argav, av);
+	  current_alias_ops->addr_assign (current_alias_ops, tempvar, av);
+	  current_alias_ops->assign_ptr (current_alias_ops, argav, tempvar);
 	}
     }
   /* We assume assignments among the actual parameters. */
@@ -352,8 +363,7 @@ intra_function_call (varray_type args)
     }
 }
 
-/** @brief Put all pointers in a constructor in an array.
- */
+/** @brief Put all pointers in a constructor in an array.  */
 static void
 get_values_from_constructor (tree constructor, varray_type *vals)
 {
@@ -422,7 +432,7 @@ find_func_aliases (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
       return NULL_TREE;
     }
 
-  if (is_gimple_modify_expr (stp)
+  if (TREE_CODE (stp) == MODIFY_EXPR
       || (DECL_P (stp) && DECL_INITIAL (stp) != NULL_TREE ))
     {
       tree op0, op1;
@@ -444,16 +454,6 @@ find_func_aliases (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
       /* rhsAV might not have one, c.f. c = 5 */
       rhsAV = get_alias_var (op1);
 
-      if (we_created_global_var)
-	{
-	  rhsAV = rhsAV == get_alias_var (global_var) ? NULL : rhsAV;
-	  if (lhsAV == get_alias_var (global_var))
-	    {
-	      *walk_subtrees = 0;
-	      return NULL_TREE;
-	    }
-	}
-
       /* You would think we could test rhsAV at the top, rather than
 	 50 separate times, but we can't, because it can be NULL for
 	 operator assignments, where we'd still collect the individual
@@ -463,10 +463,10 @@ find_func_aliases (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	 variable, since we can disambiguate based on TBAA first,
 	 and fall back on points-to. */
       /* x = <something> */
-      if (is_gimple_varname (op0))
+      if (is_gimple_variable (op0))
 	{
 	  /* x = y or x = foo.y */
-	  if (is_gimple_varname (op1))
+	  if (is_gimple_variable (op1))
 	    {
 	      if (rhsAV != NULL)
 		current_alias_ops->simple_assign (current_alias_ops, lhsAV,
@@ -482,8 +482,8 @@ find_func_aliases (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	      *walk_subtrees = 0;
 	    }
 	  /* x = *y or x = foo->y */
-	  else if (TREE_CODE (op1) == INDIRECT_REF
-		   && is_gimple_varname (TREE_OPERAND (op1, 0)))
+	  else if (TREE_CODE (op1) == INDIRECT_REF 
+		   || TREE_CODE (op1) == ARRAY_REF)
 	    {
 	      if (rhsAV != NULL)
 		current_alias_ops->ptr_assign (current_alias_ops, lhsAV,
@@ -491,9 +491,7 @@ find_func_aliases (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	      *walk_subtrees = 0;
 	    }
 	  /* x = &y = x = &foo.y */
-	  else if ((TREE_CODE (op1) == ADDR_EXPR
-		    || TREE_CODE (op1) == REFERENCE_EXPR)
-		   && is_gimple_varname (TREE_OPERAND (op1, 0)))
+	  else if (TREE_CODE (op1) == ADDR_EXPR)
 	    {
 	      if (rhsAV != NULL)
 		current_alias_ops->addr_assign (current_alias_ops, lhsAV,
@@ -501,7 +499,7 @@ find_func_aliases (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	      *walk_subtrees = 0;
 	    }
 	  /* x = func(...) */
-	  else if (is_gimple_call_expr (op1))
+	  else if (TREE_CODE (op1) == CALL_EXPR)
 	    {
 	      /* Heap assignment. These are __attribute__ malloc or
 		 something, i'll deal with it later. */
@@ -577,6 +575,7 @@ find_func_aliases (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 		    }
 		    break;
 		  default:
+        *walk_subtrees = 0;
 		    break;
 		  }
 	    }
@@ -585,16 +584,27 @@ find_func_aliases (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
       else
 	{
 	  /* x.f = y  or x->f = y */
-	  if (TREE_CODE (op0) == COMPONENT_REF)
+	  if (TREE_CODE (op0) == COMPONENT_REF 
+	      && is_gimple_variable (op1))
 	    {
 	      if (rhsAV != NULL)
 		current_alias_ops->simple_assign (current_alias_ops, lhsAV,
 						  rhsAV);
 	      *walk_subtrees = 0;
 	    }
+	  else if (TREE_CODE (op0) == COMPONENT_REF 
+		   && TREE_CODE (op1) == ADDR_EXPR)
+	    {
+	      if (rhsAV != NULL)
+		current_alias_ops->addr_assign (current_alias_ops, lhsAV,
+						rhsAV);
+	      *walk_subtrees = 0;
+	    }
 	  /* *x.f = y or *x->f = y */
-	  else if (TREE_CODE (op0) == INDIRECT_REF
-		   && TREE_CODE (TREE_OPERAND (op0, 0)) == COMPONENT_REF)
+	  else if ((TREE_CODE (op0) == INDIRECT_REF 
+		    || TREE_CODE (op0) == ARRAY_REF)
+		   && TREE_CODE (TREE_OPERAND (op0, 0)) == COMPONENT_REF
+		   && is_gimple_variable (op1))
 	    {
 	      if (rhsAV != NULL)
 		current_alias_ops->assign_ptr (current_alias_ops, lhsAV,
@@ -602,9 +612,9 @@ find_func_aliases (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	      *walk_subtrees = 0;
 	    }
 	  /* *x = &y */
-	  else if (TREE_CODE (op0) == INDIRECT_REF
-		   && (TREE_CODE (op1) == ADDR_EXPR
-		       || TREE_CODE (op1) == REFERENCE_EXPR))
+	  else if ((TREE_CODE (op0) == INDIRECT_REF
+		    || TREE_CODE (op0) == ARRAY_REF)
+		   && TREE_CODE (op1) == ADDR_EXPR)
 	    {
 	      /* This becomes temp = &y and *x = temp . */
 	      alias_typevar tempvar;
@@ -618,8 +628,10 @@ find_func_aliases (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	    }
 
 	  /* *x = *y */
-	  else if (TREE_CODE (op0) == INDIRECT_REF
-		   && TREE_CODE (op1) == INDIRECT_REF)
+	  else if ((TREE_CODE (op0) == INDIRECT_REF 
+		    || TREE_CODE (op0) == ARRAY_REF)
+		   && (TREE_CODE (op1) == INDIRECT_REF
+		       || TREE_CODE (op1) == ARRAY_REF))
 	    {
 	      /* This becomes temp = *y and *x = temp . */
 	      alias_typevar tempvar;
@@ -634,7 +646,8 @@ find_func_aliases (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	    }
 
 	  /* *x = (cast) y */
-	  else if (TREE_CODE (op0) == INDIRECT_REF
+	  else if ((TREE_CODE (op0) == INDIRECT_REF 
+		    || TREE_CODE (op0) == ARRAY_REF)
 		   && is_gimple_cast (op1))
 	    {
 	      if (rhsAV != NULL)
@@ -663,7 +676,7 @@ find_func_aliases (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	}
     }
   /* Calls without return values. */
-  else if (is_gimple_call_expr (stp))
+  else if (TREE_CODE (stp) == CALL_EXPR)
     {
       varray_type args;
       tree arg;
@@ -747,7 +760,7 @@ create_fun_alias_var (tree decl, int force)
 	      /* FIXME: Need to let analyzer decide in partial case. */
 	      && (!current_alias_ops->ip_partial
 		  || !TREE_STATIC (decl)
-		  || TREE_PUBLIC (decl)) && !we_created_global_var)
+		  || TREE_PUBLIC (decl)))
 	    current_alias_ops->addr_assign (current_alias_ops, tvar,
 					    get_alias_var (global_var));
 	}
@@ -930,7 +943,7 @@ create_alias_var (tree decl)
 
   return avar;
 }
-
+tree old_global_var = NULL_TREE;
 /**
    @brief Create points-to sets for a function.
    @param fndecl Function we are creating alias variables for.
@@ -954,6 +967,7 @@ create_alias_vars (tree fndecl)
 
   if (!global_var)
     {
+      old_global_var = NULL_TREE;
       create_global_var ();
       we_created_global_var = true;
     }
@@ -995,12 +1009,14 @@ create_alias_vars (tree fndecl)
 	}
     }
   for (block = bti_start (); !bti_end_p (block); bti_next (&block))
-    if (block->type == BT_BIND)
-      walk_tree_without_duplicates (&BIND_EXPR_VARS (block->bind),
-				    find_func_aliases, NULL);
+    walk_tree_without_duplicates (&BIND_EXPR_VARS (block->bind),
+				  find_func_aliases, NULL);
 
   if (we_created_global_var)
-    global_var = NULL_TREE;
+    {  
+      old_global_var = global_var;
+      global_var = NULL_TREE;
+    }
 
 }
 

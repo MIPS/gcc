@@ -32,15 +32,14 @@ const char name_01[] = "seekoff-1io.tst";
 void test05() 
 {
   using namespace std;
-  using namespace __gnu_cxx_test;
+  using namespace __gnu_test;
 
   typedef filebuf::int_type 	int_type;
   typedef filebuf::pos_type 	pos_type;
   typedef filebuf::off_type 	off_type;
 
-  bool 				test = true;
+  bool test __attribute__((unused)) = true;
   streamsize 			strmsz_1, strmsz_2;
-  streamoff  			strmof_1, strmof_2;
 
   int_type c1;
   int_type c2;
@@ -116,7 +115,7 @@ void test05()
   }
 }
 
-main() 
+int main() 
 {
   test05();
   return 0;

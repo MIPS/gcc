@@ -385,7 +385,7 @@ may_trap_exp (rtx x, int is_store)
    moved speculatively, by examining it's patterns, returning:
    TRAP_RISKY: store, or risky non-load insn (e.g. division by variable).
    TRAP_FREE: non-load insn.
-   IFREE: load from a globaly safe location.
+   IFREE: load from a globally safe location.
    IRISKY: volatile load.
    PFREE_CANDIDATE, PRISKY_CANDIDATE: load that need to be checked for
    being either PFREE or PRISKY.  */
@@ -2138,8 +2138,7 @@ schedule_block (int b, int rgn_n_insns)
     {
       /* It is used for first cycle multipass scheduling.  */
       temp_state = alloca (dfa_state_size);
-      ready_try = xmalloc ((rgn_n_insns + 1) * sizeof (char));
-      memset (ready_try, 0, (rgn_n_insns + 1) * sizeof (char));
+      ready_try = xcalloc ((rgn_n_insns + 1), sizeof (char));
       choice_stack = xmalloc ((rgn_n_insns + 1)
 			      * sizeof (struct choice_entry));
       for (i = 0; i <= rgn_n_insns; i++)
@@ -2247,7 +2246,7 @@ schedule_block (int b, int rgn_n_insns)
 	      if (ready.n_ready == 0 || !can_issue_more
 		  || !(*current_sched_info->schedule_more_p) ())
 		break;
-	      insn = choose_ready (&ready);
+	      insn = ready_remove_first (&ready);
 	      cost = actual_hazard (insn_unit (insn), insn, clock_var, 0);
 	    }
 	  else

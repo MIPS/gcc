@@ -58,6 +58,7 @@ static const struct {
   { sizeof (struct basic_block_def *), 0 },
   { sizeof (struct elt_list *), 1 },
   { sizeof (struct edge_def *), 0 },
+  { sizeof (tree *), 1 },
 };
 
 /* Allocate a virtual array with NUM_ELEMENT elements, each of which is
@@ -131,3 +132,23 @@ varray_check_failed (varray_type va, size_t n, const char *file, int line,
 }
 
 #endif
+
+
+/* Copy varray V2 into varray V1.  Both arrays must be the same size
+   and type.  */
+
+void
+varray_copy (varray_type v1, varray_type v2)
+{
+  size_t data_size;
+  
+  if (v1->type != v2->type)
+    abort ();
+
+  if (v1->num_elements != v2->num_elements)
+    abort ();
+
+  data_size = element[v2->type].size * v2->num_elements;
+  memcpy (v1->data.c, v2->data.c, data_size);
+  v1->elements_used = v2->elements_used;
+}

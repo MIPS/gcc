@@ -73,15 +73,16 @@ do { \
   "%{shared:-shared} \
    %{!static: \
      %{rdynamic:-export-dynamic} \
-     %{!dynamic-linker:-dynamic-linker /lib/ld-linux.so.2} \
-     %{!rpath:-rpath /lib}} \
+     %{!dynamic-linker:-dynamic-linker /lib/ld-linux.so.2}} \
    %{static:-static}"
 
 #undef LIB_SPEC
 #define LIB_SPEC \
-  "%{shared: -lc} \
+  "%{pthread:-lpthread} \
+   %{shared: -lc} \
    %{!static:-rpath-link %R/lib:%R/usr/lib} \
-   %{!shared: %{pthread:-lthread} \
+   %{!shared: \
+     %{mieee-fp:-lieee} \
      %{profile:-lc_p} %{!profile: -lc}}"
 
 #if defined(HAVE_LD_EH_FRAME_HDR)
@@ -103,6 +104,9 @@ do { \
 #undef	ENDFILE_SPEC
 #define ENDFILE_SPEC \
   "%{shared|pie:crtendS.o%s;:crtend.o%s} crtn.o%s"
+
+#define LINK_GCC_C_SEQUENCE_SPEC \
+  "%{static:--start-group} %G %L %{static:--end-group}%{!static:%G}"
 
 /* Output assembler code to STREAM to call the profiler.  */
 
@@ -170,11 +174,11 @@ do { \
 #define SH_DWARF_FRAME_FPSCR	24
 #endif /* defined (__SH5__) */
 
-#if defined (__SH5__) && __SH5__ != 32
+#if defined (__SH5__)
 /* MD_FALLBACK_FRAME_STATE_FOR is not yet defined for SHMEDIA.  */
-#else /* defined (__SH5__) && __SH5__ != 32 */
+#else /* defined (__SH5__) */
 
-#if defined (__SH3E__) || defined (__SH4__) || defined (__SH5__)
+#if defined (__SH3E__) || defined (__SH4__)
 #define SH_FALLBACK_FRAME_FLOAT_STATE(SC, FS, CFA)			\
   do {									\
     int i_, r_;								\
@@ -274,5 +278,16 @@ do { \
     goto SUCCESS;							\
   } while (0)
 
-#endif /* defined (__SH5__) && __SH5__ != 32 */
+#endif /* defined (__SH5__) */
 #endif /* IN_LIBGCC2 */
+
+/* For SH3 and SH4, we use a slot of the unwind frame which correspond
+   to a fake register number 16 as a placeholder for the return address
+   in MD_FALLBACK_FRAME_STATE_FOR and its content will be read with
+   _Unwind_GetGR which uses dwarf_reg_size_table to get the size of
+   the register.  So the entry of dwarf_reg_size_table corresponding to
+   this slot must be set.  To do this, we redefine DBX_REGISTER_NUMBER
+   so as to return itself for 16.  */
+#undef DBX_REGISTER_NUMBER
+#define DBX_REGISTER_NUMBER(REGNO) \
+  ((! TARGET_SH5 && (REGNO) == 16) ? 16 : SH_DBX_REGISTER_NUMBER (REGNO))

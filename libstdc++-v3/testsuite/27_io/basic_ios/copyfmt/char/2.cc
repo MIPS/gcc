@@ -36,14 +36,14 @@
 // copyfmt and locales.
 void test03()
 {
-  bool test = true;
+  bool test __attribute__((unused)) = true;
 
   using namespace std;
 
   typedef std::ios_base::fmtflags fmtflags;
   typedef std::ios_base::iostate iostate;
   locale loc_c = locale::classic();
-  locale loc_de = __gnu_cxx_test::try_named_locale("de_DE");
+  locale loc_de = __gnu_test::try_named_locale("de_DE");
   std::ios ios_01(NULL);
   std::ios ios_02(NULL);
   ios_01.imbue(loc_c);

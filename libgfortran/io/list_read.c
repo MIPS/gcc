@@ -1,20 +1,20 @@
 /* Copyright (C) 2002-2003 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
-This file is part of GNU G95.
+This file is part of the GNU Fortran 95 runtime library (libgfortran).
 
-GNU G95 is free software; you can redistribute it and/or modify
+Libgfortran is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU G95 is distributed in the hope that it will be useful,
+Libgfortran is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU G95; see the file COPYING.  If not, write to
+along with Libgfortran; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -82,6 +82,7 @@ push_char (char c)
   if (saved_string == NULL)
     {
       saved_string = scratch;
+      memset (saved_string,0,SCRATCH_SIZE);
       saved_length = SCRATCH_SIZE;
       saved_used = 0;
     }
@@ -90,6 +91,8 @@ push_char (char c)
     {
       saved_length = 2 * saved_length;
       new = get_mem (2 * saved_length);
+
+      memset (new,0,2 * saved_length);
 
       memcpy (new, saved_string, saved_used);
       if (saved_string != scratch)
@@ -126,6 +129,7 @@ next_char (void)
 
   if (last_char != '\0')
     {
+      at_eol = 0;
       c = last_char;
       last_char = '\0';
       goto done;
@@ -296,7 +300,8 @@ static int
 convert_integer (int length, int negative)
 {
   char c, *buffer, message[100];
-  int m, v, max, max10;
+  int m;
+  int64_t v, max, max10;
 
   buffer = saved_string;
   v = 0;
@@ -501,7 +506,7 @@ read_logical (int length)
 
   unget_char (c);
   eat_separator ();
-
+  free_saved ();
   set_integer ((int *) value, v, length);
 
   return;
@@ -636,8 +641,12 @@ done:
 
   push_char ('\0');
   if (convert_integer (length, negative))
-    return;
+    {
+       free_saved ();
+       return;
+    }
 
+  free_saved ();
   saved_type = BT_INTEGER;
 }
 
@@ -773,6 +782,7 @@ done:
     {
       unget_char (c);
       eat_separator ();
+      free_saved ();
       saved_type = BT_CHARACTER;
     }
   else
@@ -949,6 +959,7 @@ read_complex (int length)
   unget_char (c);
   eat_separator ();
 
+  free_saved ();
   saved_type = BT_COMPLEX;
   return;
 
@@ -978,6 +989,7 @@ read_real (int length)
       break;
 
     case '.':
+      push_char (c);
       seen_dp = 1;
       break;
 
@@ -1031,7 +1043,8 @@ read_real (int length)
 	  goto got_repeat;
 
 	CASE_SEPARATORS:
-	  unget_char (c);	/* Real number that is just a digit-string */
+          if (c != '\n')
+            unget_char (c);        /* Real number that is just a digit-string */
 	  goto done;
 
 	default:
@@ -1156,6 +1169,7 @@ done:
   if (convert_real (value, saved_string, length))
     return;
 
+  free_saved ();
   saved_type = BT_REAL;
   return;
 
@@ -1311,6 +1325,11 @@ set_value:
     free_saved ();
 }
 
+void
+init_at_eol()
+{
+  at_eol = 0;
+}
 
 /* finish_list_read()-- Finish a list read */
 
@@ -1322,7 +1341,11 @@ finish_list_read (void)
   free_saved ();
 
   if (at_eol)
-    return;
+    {
+      at_eol = 0;
+      return;
+    }
+
 
   do
     {
@@ -1331,6 +1354,46 @@ finish_list_read (void)
   while (c != '\n');
 }
 
+namelist_info *
+find_nml_node (char * var_name)
+{
+   namelist_info * t = ionml;
+   while (t != NULL)
+     {
+       if (strcmp (var_name,t->var_name) == 0)
+         {
+           t->value_acquired = 1;
+           return t;
+         }
+       t = t->next;
+     }
+  return NULL;
+}
+
+void
+match_namelist_name (char *name, int len)
+{
+  int name_len;
+  char c;
+  char * namelist_name = name;
+
+  name_len = 0;
+  /* Match the name of the namelist */
+
+  if (tolower (next_char ()) != tolower (namelist_name[name_len++]))
+    {
+    wrong_name:
+      generate_error (ERROR_READ_VALUE, "Wrong namelist name found");
+      return;
+    }
+
+  while (name_len < len)
+    {
+      c = next_char ();
+      if (tolower (c) != tolower (namelist_name[name_len++]))
+        goto wrong_name;
+    }
+}
 
 
 /********************************************************************
@@ -1343,7 +1406,11 @@ finish_list_read (void)
 void
 namelist_read (void)
 {
-  char c, *namelist_name;
+  char c;
+  int name_matched, next_name ;
+  namelist_info * nl;
+  int len, m;
+  void * p;
 
   namelist_mode = 1;
 
@@ -1359,10 +1426,9 @@ restart:
     {
     case ' ':
       goto restart;
-
     case '!':
       do
-	c = next_char ();
+        c = next_char ();
       while (c != '\n');
 
       goto restart;
@@ -1376,22 +1442,87 @@ restart:
     }
 
   /* Match the name of the namelist */
-
-  if (tolower (next_char ()) != tolower (*namelist_name++))
-    {
-    wrong_name:
-      generate_error (ERROR_READ_VALUE, "Wrong namelist name found");
-      return;
-    }
-
-  while (*namelist_name)
-    {
-      if (tolower (c) != tolower (*namelist_name))
-	goto wrong_name;
-    }
+  match_namelist_name(ioparm.namelist_name, ioparm.namelist_name_len);
 
   /* Ready to read namelist elements */
+  for (;;)
+    {
+      c = next_char ();
+      switch (c)
+        {
+        case '&':
+          match_namelist_name("end",3);
+          return;
+        case '\\':
+          return;
+        case ' ':
+        case '\n':
+        case '\t':
+          break;
+        case ',':
+          next_name = 1;
+          break;
 
+        case '=':
+          name_matched = 1;
+          nl = find_nml_node (saved_string);
+          if (nl == NULL)
+            internal_error ("Can not found a valid namelist var!");
+          free_saved();
 
+          len = nl->len;
+          p = nl->mem_pos;
+          switch (nl->type)
+            {
+            case BT_INTEGER:
+              read_integer (len);
+              break;
+            case BT_LOGICAL:
+              read_logical (len);
+              break;
+            case BT_CHARACTER:
+              read_character (len);
+              break;
+            case BT_REAL:
+              read_real (len);
+              break;
+            case BT_COMPLEX:
+              read_complex (len);
+              break;
+            default:
+              internal_error ("Bad type for namelist read");
+            }
 
+           switch (saved_type)
+            {
+            case BT_COMPLEX:
+              len = 2 * len;
+              /* Fall through */
+
+            case BT_INTEGER:
+            case BT_REAL:
+            case BT_LOGICAL:
+              memcpy (p, value, len);
+              break;
+
+            case BT_CHARACTER:
+              m = (len < saved_used) ? len : saved_used;
+              memcpy (p, saved_string, m);
+
+              if (m < len)
+                memset (((char *) p) + m, ' ', len - m);
+              break;
+
+            case BT_NULL:
+              break;
+            }
+
+          break;
+
+        default :
+          push_char(c);
+          break;
+        }
+   }
 }
+

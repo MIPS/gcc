@@ -29,13 +29,13 @@ void test01()
   using namespace std;
   typedef std::collate<wchar_t>::string_type string_type;
 
-  bool test = true;
+  bool test __attribute__((unused)) = true;
 
   // basic construction
   locale loc_c = locale::classic();
-  locale loc_us = __gnu_cxx_test::try_named_locale("en_US");
-  locale loc_fr = __gnu_cxx_test::try_named_locale("fr_FR");
-  locale loc_de = __gnu_cxx_test::try_named_locale("de_DE");
+  locale loc_us = __gnu_test::try_named_locale("en_US");
+  locale loc_fr = __gnu_test::try_named_locale("fr_FR");
+  locale loc_de = __gnu_test::try_named_locale("de_DE");
   VERIFY( loc_c != loc_de );
   VERIFY( loc_us != loc_fr );
   VERIFY( loc_us != loc_de );
@@ -43,9 +43,6 @@ void test01()
 
   // cache the collate facets
   const collate<wchar_t>& coll_c = use_facet<collate<wchar_t> >(loc_c); 
-  const collate<wchar_t>& coll_us = use_facet<collate<wchar_t> >(loc_us); 
-  const collate<wchar_t>& coll_fr = use_facet<collate<wchar_t> >(loc_fr); 
-  const collate<wchar_t>& coll_de = use_facet<collate<wchar_t> >(loc_de); 
 
   // int compare(const charT*, const charT*, const charT*, const charT*) const
 

@@ -792,7 +792,6 @@ check_init (tree exp, words before)
     case FIX_FLOOR_EXPR:
     case FIX_ROUND_EXPR:
     case ABS_EXPR:
-    case FFS_EXPR:
       /* Avoid needless recursion. */
       exp = TREE_OPERAND (exp, 0);
       goto again;
@@ -977,7 +976,8 @@ check_for_initialization (tree body, tree mdecl)
 	      if (index >= 0 && ! ASSIGNED_P (before, index))
 		{
 		  if (! is_finit_method)
-		    error_with_decl (decl, "final field '%s' may not have been initialized");
+		    error ("%Jfinal field '%D' may not have been initialized",
+                           decl, decl);
 		}
 	      else if (is_finit_method)
 		DECL_FIELD_FINAL_IUD (decl) = 1;

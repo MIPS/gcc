@@ -329,10 +329,12 @@ dim_check (gfc_expr * dim, int n, int optional)
 
 
 /* If a DIM parameter is a constant, make sure that it is greater than
-   zero and less than the rank of the given array.  */
+   zero and less than or equal to the rank of the given array.  If
+   allow_assumed is zero then dim must be less than the rank of the array
+   for assumed size arrays.  */
 
 static try
-dim_rank_check (gfc_expr * dim, gfc_expr * array)
+dim_rank_check (gfc_expr * dim, gfc_expr * array, int allow_assumed)
 {
   gfc_array_ref *ar;
   int rank;
@@ -342,7 +344,7 @@ dim_rank_check (gfc_expr * dim, gfc_expr * array)
 
   ar = gfc_find_array_ref (array);
   rank = array->rank;
-  if (ar->as->type == AS_ASSUMED_SIZE)
+  if (ar->as->type == AS_ASSUMED_SIZE && !allow_assumed)
     rank--;
 
   if (mpz_cmp_ui (dim->value.integer, 1) < 0
@@ -917,9 +919,15 @@ gfc_check_lbound (gfc_expr * array, gfc_expr * dim)
 
   if (array_check (array, 0) == FAILURE)
     return FAILURE;
-  if (dim_check (dim, 1, 1) == FAILURE)
-    return FAILURE;
 
+  if (dim != NULL)
+    {
+      if (dim_check (dim, 1, 1) == FAILURE)
+	return FAILURE;
+
+      if (dim_rank_check (dim, array, 1) == FAILURE)
+	return FAILURE;
+    }
   return SUCCESS;
 }
 
@@ -1506,7 +1514,7 @@ gfc_check_size (gfc_expr * array, gfc_expr * dim)
       if (kind_value_check (dim, 1, gfc_default_integer_kind ()) == FAILURE)
 	return FAILURE;
 
-      if (dim_rank_check (dim, array) == FAILURE)
+      if (dim_rank_check (dim, array, 0) == FAILURE)
 	return FAILURE;
     }
 
@@ -1610,9 +1618,14 @@ gfc_check_ubound (gfc_expr * array, gfc_expr * dim)
   if (array_check (array, 0) == FAILURE)
     return FAILURE;
 
-  if (dim_check (dim, 1, 1) == FAILURE)
-    return FAILURE;
+  if (dim != NULL)
+    {
+      if (dim_check (dim, 1, 1) == FAILURE)
+	return FAILURE;
 
+      if (dim_rank_check (dim, array, 0) == FAILURE)
+	return FAILURE;
+    }
   return SUCCESS;
 }
 

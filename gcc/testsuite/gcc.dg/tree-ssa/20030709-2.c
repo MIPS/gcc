@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O1 -fdump-tree-ssa" } */
+/* { dg-options "-O1 -fdump-tree-dom2" } */
   
 struct rtx_def;
 typedef struct rtx_def *rtx;
@@ -40,12 +40,12 @@ get_alias_set (t)
 
 /* There should be precisely one load of ->decl.rtl.  If there is
    more than, then the dominator optimizations failed.  */
-/* { dg-final { scan-tree-dump-times "->decl\\.rtl" 1 "ssa"} } */
+/* { dg-final { scan-tree-dump-times "->decl\\.rtl" 1 "dom2"} } */
   
 /* There should be precisely one load of .rtmem.  If there is
    more than, then the dominator optimizations failed.  */
-/* { dg-final { scan-tree-dump-times ".rtmem" 1 "ssa"} } */
+/* { dg-final { scan-tree-dump-times ".rtmem" 1 "dom2"} } */
   
-/* There should be two IF statements.
-/* { dg-final { scan-tree-dump-times "if " 2 "ssa"} } */
+/* There should be two IF statements.  */
+/* { dg-final { scan-tree-dump-times "if " 2 "dom2"} } */
 

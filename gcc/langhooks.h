@@ -53,9 +53,10 @@ struct lang_hooks_for_tree_inlining
 
 struct lang_hooks_for_callgraph
 {
-  /* Function passed as argument is needed and will be compiled.
-     Lower the representation so the calls are explicit.  */
-  void (*lower_function) (tree);
+  /* The node passed is a language-specific tree node.  If its contents
+     are relevant to use of other declarations, mark them.  */
+  tree (*analyze_expr) (tree *, int *, tree);
+
   /* Produce RTL for function passed as argument.  */
   void (*expand_function) (tree);
 };
@@ -75,6 +76,19 @@ struct lang_hooks_for_functions
 
   /* Called when leaving a nested function.  */
   void (*leave_nested) (struct function *);
+};
+
+/* Lang hooks for rtl code generation.  */
+struct lang_hooks_for_rtl_expansion
+{
+  /* Called after expand_function_start, but before expanding the body.  */
+  void (*start) (void);
+
+  /* Called to expand each statement.  */
+  void (*stmt) (tree);
+
+  /* Called after expanding the body but before expand_function_end.  */
+  void (*end) (void);
 };
 
 /* The following hooks are used by tree-dump.c.  */
@@ -123,6 +137,15 @@ struct lang_hooks_for_types
      arguments.  The default hook aborts.  */
   tree (*type_promotes_to) (tree);
 
+  /* Register TYPE as a builtin type with the indicated NAME.  The
+     TYPE is placed in the outermost lexical scope.  The semantics
+     should be analogous to:
+
+       typedef TYPE NAME;
+
+     in C.  The default hook ignores the declaration.  */
+  void (*register_builtin_type) (tree, const char *);
+
   /* This routine is called in tree.c to print an error message for
      invalid use of an incomplete type.  VALUE is the expression that
      was used (or 0 if that isn't known) and TYPE is the type that was
@@ -166,6 +189,9 @@ struct lang_hooks_for_decls
   /* Returns the chain of decls so far in the current scope level.  */
   tree (*getdecls) (void);
 
+  /* Returns a chain of TYPE_DECLs for built-in types.  */
+  tree (*builtin_type_decls) (void);
+
   /* Returns true when we should warn for an unused global DECL.
      We will already have checked that it has static binding.  */
   bool (*warn_unused_global) (tree);
@@ -202,6 +228,10 @@ struct lang_hooks
      the language mask to filter the switch array with.  */
   unsigned int (*init_options) (unsigned int argc, const char **argv);
 
+  /* Callback used to perform language-specific initialization for the
+     global diagnostic context structure.  */
+  void (*initialize_diagnostics) (struct diagnostic_context *);
+
   /* Handle the switch CODE, which has real type enum opt_code from
      options.h.  If the switch takes an argument, it is passed in ARG
      which points to permanent storage.  The handler is responsible for
@@ -212,9 +242,6 @@ struct lang_hooks
      Return 1 if the switch is valid, 0 if invalid, and -1 if it's
      valid and should not be treated as language-independent too.  */
   int (*handle_option) (size_t code, const char *arg, int value);
-
-  /* Handle a filename on the command line.  */
-  void (*handle_filename) (const char *filename);
 
   /* Return false to use the default complaint about a missing
      argument, otherwise output a complaint and return true.  */
@@ -274,10 +301,6 @@ struct lang_hooks
      The result should be an expression of boolean type (if not an
      error_mark_node).  */
   tree (*truthvalue_conversion) (tree);
-
-  /* Possibly apply default attributes to a function (represented by
-     a FUNCTION_DECL).  */
-  void (*insert_default_attributes) (tree);
 
   /* Hook called by safe_from_p for language-specific tree codes.  It is
      up to the language front-end to install a hook if it has any such
@@ -368,6 +391,10 @@ struct lang_hooks
      semantics in cases that it doesn't want to handle specially.  */
   tree (*expr_size) (tree);
 
+  /* Called from uninitialized_vars_warning to find out if a variable is
+     uninitialized based on DECL_INITIAL.  */
+  bool (*decl_uninit) (tree);
+
   /* Pointers to machine-independent attribute tables, for front ends
      using attribs.c.  If one is NULL, it is ignored.  Respectively, a
      table of attributes specific to the language, a table of
@@ -389,6 +416,8 @@ struct lang_hooks
   struct lang_hooks_for_decls decls;
 
   struct lang_hooks_for_types types;
+
+  struct lang_hooks_for_rtl_expansion rtl_expand;
 
   /* Perform language-specific gimplification on the argument.  Returns
      1 if gimplification is complete, or 0 to use default gimplification

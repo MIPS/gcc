@@ -28,11 +28,11 @@ void test01()
   using namespace std;
   typedef std::collate<char>::string_type string_type;
 
-  bool test = true;
+  bool test __attribute__((unused)) = true;
   string str;
   locale loc_c = locale::classic();
 
-  locale loc_de = __gnu_cxx_test::try_named_locale("de_DE");
+  locale loc_de = __gnu_test::try_named_locale("de_DE");
   str = loc_de.name();
 
   locale loc_byname(locale::classic(), new collate_byname<char>("de_DE"));
@@ -41,7 +41,6 @@ void test01()
   VERIFY( loc_de != loc_byname );
 
   // cache the collate facets
-  const collate<char>& coll_byname = use_facet<collate<char> >(loc_byname); 
   const collate<char>& coll_de = use_facet<collate<char> >(loc_de); 
 
   // Check German "de_DE" locale.

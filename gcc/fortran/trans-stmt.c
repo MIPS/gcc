@@ -2934,15 +2934,12 @@ gfc_trans_allocate (gfc_code * code)
 
       ref = expr->ref;
 
-	  /* Find the last reference in the chain.  */
-	  while (ref->next != NULL)
-	    {
-	      assert (ref->type != REF_ARRAY || ref->u.ar.type == AR_ELEMENT);
-	      ref = ref->next;
-	    }
-
-      if (ref != NULL && ref->type != REF_ARRAY)
-	ref = NULL;
+      /* Find the last reference in the chain.  */
+      while (ref && ref->next != NULL)
+	{
+	  assert (ref->type != REF_ARRAY || ref->u.ar.type == AR_ELEMENT);
+	  ref = ref->next;
+	}
 
       if (ref != NULL && ref->type == REF_ARRAY)
 	{
@@ -2958,7 +2955,7 @@ gfc_trans_allocate (gfc_code * code)
 	  tmp = build1 (ADDR_EXPR, TREE_TYPE (val), se.expr);
 	  gfc_add_modify_expr (&se.pre, val, tmp);
 
-	  tmp = TYPE_SIZE_UNIT (TREE_TYPE (se.expr));
+	  tmp = TYPE_SIZE_UNIT (TREE_TYPE (TREE_TYPE (se.expr)));
 	  parm = gfc_chainon_list (NULL_TREE, val);
 	  parm = gfc_chainon_list (parm, tmp);
 	  parm = gfc_chainon_list (parm, pstat);

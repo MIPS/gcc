@@ -73,10 +73,10 @@ ffi_call_LINUX64:
 	ld	%r5, -32-(6*8)(%r28)
 	ld	%r6, -32-(5*8)(%r28)
 	bf-	5, 1f
-	ld	%r7, -32-(4*4)(%r28)
-	ld	%r8, -32-(3*4)(%r28)
-	ld	%r9, -32-(2*4)(%r28)
-	ld	%r10, -32-(1*4)(%r28)
+	ld	%r7, -32-(4*8)(%r28)
+	ld	%r8, -32-(3*8)(%r28)
+	ld	%r9, -32-(2*8)(%r28)
+	ld	%r10, -32-(1*8)(%r28)
 1:
 
 	/* Load all the FP registers.  */
@@ -95,17 +95,6 @@ ffi_call_LINUX64:
 	lfd	%f12, -32-(10*8)(%r28)
 	lfd	%f13, -32-(9*8)(%r28)
 2:
-	/* FIXME: Shouldn't gcc use %r3-%r10 in this case
-	   and not the parm save area?  */
-	std	%r3, 48+(0*8)(%r1)
-	std	%r4, 48+(1*8)(%r1)
-	std	%r5, 48+(2*8)(%r1)
-	std	%r6, 48+(3*8)(%r1)
-	std	%r7, 48+(4*8)(%r1)
-	std	%r8, 48+(5*8)(%r1)
-	std	%r9, 48+(6*8)(%r1)
-	std	%r10, 48+(7*8)(%r1)
-	/* end of FIXME.  */
 
 	/* Make the call.  */
 	bctrl

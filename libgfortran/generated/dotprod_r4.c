@@ -4,12 +4,12 @@
 
 This file is part of the GNU Fortran 95 runtime library (libgfor).
 
-GNU G95 is free software; you can redistribute it and/or
+Libgfortran is free software; you can redistribute it and/or
 modify it under the terms of the GNU Lesser General Public
 License as published by the Free Software Foundation; either
 version 2.1 of the License, or (at your option) any later version.
 
-GNU G95 is distributed in the hope that it will be useful,
+Libgfortran is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU Lesser General Public License for more details.
@@ -24,21 +24,21 @@ Boston, MA 02111-1307, USA.  */
 #include <assert.h>
 #include "libgfortran.h"
 
-typedef G95_ARRAY_DESCRIPTOR(G95_MAX_DIMENSIONS, char) char_array;
+typedef GFC_ARRAY_DESCRIPTOR(GFC_MAX_DIMENSIONS, char) char_array;
 
 /* Both parameters will already have been converted to the result type.  */
-G95_REAL_4
-__dot_product_r4 (g95_array_r4 * a, g95_array_r4 * b)
+GFC_REAL_4
+__dot_product_r4 (gfc_array_r4 * a, gfc_array_r4 * b)
 {
-  G95_REAL_4 *pa;
-  G95_REAL_4 *pb;
-  G95_REAL_4 res;
+  GFC_REAL_4 *pa;
+  GFC_REAL_4 *pb;
+  GFC_REAL_4 res;
   index_type count;
   index_type astride;
   index_type bstride;
 
-  assert (G95_DESCRIPTOR_RANK (a) == 1
-          && G95_DESCRIPTOR_RANK (b) == 1);
+  assert (GFC_DESCRIPTOR_RANK (a) == 1
+          && GFC_DESCRIPTOR_RANK (b) == 1);
 
   if (a->dim[0].stride == 0)
     a->dim[0].stride = 1;

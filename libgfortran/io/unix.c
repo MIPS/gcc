@@ -1,20 +1,20 @@
 /* Copyright (C) 2002-2003 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
-This file is part of GNU G95.
+This file is part of the GNU Fortran 95 runtime library (libgfortran).
 
-GNU G95 is free software; you can redistribute it and/or modify
+Libgfortran is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU G95 is distributed in the hope that it will be useful,
+Libgfortran is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU G95; see the file COPYING.  If not, write to
+along with Libgfortran; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -558,7 +558,7 @@ mmap_alloc (unix_stream * s, offset_t where, int *len)
 
   offset = where & page_mask;	/* Round down to the next page */
 
-  length = ((where + *len - offset) & page_mask) + 2 * page_size;
+  length = ((where - offset) & page_mask) + 2 * page_size;
 
   p = mmap (NULL, length, s->prot, MAP_SHARED, s->fd, offset);
   if (p == MAP_FAILED)
@@ -725,6 +725,9 @@ mem_alloc_r_at (unix_stream * s, int *len, offset_t where)
   if (where < s->buffer_offset || where > s->buffer_offset + s->active)
     return NULL;
 
+  if (is_internal_unit() && where + *len > s->file_length)
+    return NULL;
+
   s->logical_offset = where + *len;
 
   n = (where - s->buffer_offset) - s->active;
@@ -799,6 +802,15 @@ mem_sfree (unix_stream * s)
   define functional equivalents of the following.
 *********************************************************************/
 
+/* empty_internal_buffer()-- Zero the buffer of Internal file */
+
+void
+empty_internal_buffer(stream *strm)
+{
+   unix_stream * s = (unix_stream *) strm;
+   memset(s->buffer, '\n', s->file_length);
+}
+
 /* open_internal()-- Returns a stream structure from an internal file */
 
 stream *
@@ -862,7 +874,7 @@ fd_to_stream (int fd, int prot)
  * C string in the buffer.  Returns nonzero if this is not possible.  */
 
 static int
-unpack_filename (char *cstring, char *fstring, int len)
+unpack_filename (char *cstring, const char *fstring, int len)
 {
 
   len = fstrlen (fstring, len);
@@ -890,7 +902,7 @@ tempfile (void)
   char *template;
   int fd;
 
-  tempdir = getenv ("G95_TMPDIR");
+  tempdir = getenv ("GFORTRAN_TMPDIR");
   if (tempdir == NULL)
     tempdir = getenv ("TMP");
   if (tempdir == NULL)
@@ -898,7 +910,7 @@ tempfile (void)
 
   template = get_mem (strlen (tempdir) + 20);
 
-  st_sprintf (template, "%s/g95tmpXXXXXX", tempdir);
+  st_sprintf (template, "%s/gfortantmpXXXXXX", tempdir);
 
   fd = mkstemp (template);
 
@@ -1074,7 +1086,7 @@ init_error_stream (void)
  * filename. */
 
 int
-compare_file_filename (stream * s, char *name, int len)
+compare_file_filename (stream * s, const char *name, int len)
 {
   char path[PATH_MAX + 1];
   struct stat st1, st2;
@@ -1212,14 +1224,14 @@ file_exists (void)
 
 
 
-static char yes[] = "YES", no[] = "NO", unknown[] = "UNKNOWN";
+static const char *yes = "YES", *no = "NO", *unknown = "UNKNOWN";
 
 /* inquire_sequential()-- Given a fortran string, determine if the
  * file is suitable for sequential access.  Returns a C-style
  * string. */
 
-char *
-inquire_sequential (char *string, int len)
+const char *
+inquire_sequential (const char *string, int len)
 {
   char path[PATH_MAX + 1];
   struct stat statbuf;
@@ -1242,8 +1254,8 @@ inquire_sequential (char *string, int len)
 /* inquire_direct()-- Given a fortran string, determine if the file is
  * suitable for direct access.  Returns a C-style string. */
 
-char *
-inquire_direct (char *string, int len)
+const char *
+inquire_direct (const char *string, int len)
 {
   char path[PATH_MAX + 1];
   struct stat statbuf;
@@ -1266,8 +1278,8 @@ inquire_direct (char *string, int len)
 /* inquire_formatted()-- Given a fortran string, determine if the file
  * is suitable for formatted form.  Returns a C-style string. */
 
-char *
-inquire_formatted (char *string, int len)
+const char *
+inquire_formatted (const char *string, int len)
 {
   char path[PATH_MAX + 1];
   struct stat statbuf;
@@ -1291,8 +1303,8 @@ inquire_formatted (char *string, int len)
 /* inquire_unformatted()-- Given a fortran string, determine if the file
  * is suitable for unformatted form.  Returns a C-style string. */
 
-char *
-inquire_unformatted (char *string, int len)
+const char *
+inquire_unformatted (const char *string, int len)
 {
 
   return inquire_formatted (string, len);
@@ -1302,8 +1314,8 @@ inquire_unformatted (char *string, int len)
 /* inquire_access()-- Given a fortran string, determine if the file is
  * suitable for access. */
 
-static char *
-inquire_access (char *string, int len, int mode)
+static const char *
+inquire_access (const char *string, int len, int mode)
 {
   char path[PATH_MAX + 1];
 
@@ -1318,8 +1330,8 @@ inquire_access (char *string, int len, int mode)
 /* inquire_read()-- Given a fortran string, determine if the file is
  * suitable for READ access. */
 
-char *
-inquire_read (char *string, int len)
+const char *
+inquire_read (const char *string, int len)
 {
 
   return inquire_access (string, len, R_OK);
@@ -1329,8 +1341,8 @@ inquire_read (char *string, int len)
 /* inquire_write()-- Given a fortran string, determine if the file is
  * suitable for READ access. */
 
-char *
-inquire_write (char *string, int len)
+const char *
+inquire_write (const char *string, int len)
 {
 
   return inquire_access (string, len, W_OK);
@@ -1340,8 +1352,8 @@ inquire_write (char *string, int len)
 /* inquire_readwrite()-- Given a fortran string, determine if the file is
  * suitable for read and write access. */
 
-char *
-inquire_readwrite (char *string, int len)
+const char *
+inquire_readwrite (const char *string, int len)
 {
 
   return inquire_access (string, len, R_OK | W_OK);

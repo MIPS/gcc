@@ -1,3 +1,85 @@
+2003-09-20  Richard Henderson  <rth@redhat.com>
+
+        * check-init.c, class.c, decl.c, expr.c: Use %J in diagnostics.
+
+2003-08-13  Tom Tromey  <tromey@redhat.com>
+
+	* gcj.texi (Invoking gij): Document -X and -?.
+
+2003-08-13  Mohan Embar  <gnustuff@thisiscool.com>
+
+	* Make-lang.in: Added missing win32-host.o to JAVA_OBJS,
+	GCJH_OBJS, JCFDUMP_OBJS
+	* win32-host.c: Removed the unnecessary and broken dependency
+	on jcf.h
+
+2003-08-11  Tom Tromey  <tromey@redhat.com>
+
+	* parse.y (java_check_regular_methods): Typo fixes.  Call
+	check_interface_throws_clauses.  Use
+	check_concrete_throws_clauses.
+	(check_interface_throws_clauses): New function.
+	(check_concrete_throws_clauses): New function.
+	(hack_is_accessible_p): New function.
+	(find_most_specific_methods_list): Added FIXME.
+	* typeck.c (lookup_do): Use `flags' argument to decide what to
+	do.  Reimplemented.
+	(lookup_argument_method_generic): New function.
+	(lookup_argument_method2): Removed.
+	* jcf.h (ACC_INVISIBLE): New define.
+	* jcf-write.c (generate_classfile): Skip invisible methods.
+	* class.c (add_miranda_methods): New function.
+	(layout_class_methods): Use it.
+	(get_access_flags_from_decl): Use ACC_INVISIBLE.
+	* java-tree.h (METHOD_INVISIBLE): New define.
+	(lang_decl_func) [invisible]: New field.
+	(lookup_argument_method_generic): Declare.
+	(SEARCH_INTERFACE): New define.
+	(SEARCH_SUPER): Likewise.
+	(SEARCH_ONLY_INTERFACE): Likewise.
+	(SEARCH_VISIBLE): Likewise.
+	(lookup_argument_method2): Removed declaration.
+
+2003-08-05  Tom Tromey  <tromey@redhat.com>
+
+	Fix for PR java/11600:
+	* parse.y (java_complete_lhs): See whether we're calling a method
+	on an array.
+	(check_thrown_exceptions): Added `is_array_call' argument;
+	fixed `clone' checking; updated all callers.
+
+2003-08-05  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* java-tree.h (DECL_ESTIMATED_INSNS): Remove (moved to tree.h).
+
+2003-08-03  Tom Tromey  <tromey@redhat.com>
+
+	* java-tree.h (METHOD_TRANSIENT): Removed.
+	* decl.c (pushdecl): Removed some dead code.
+	* class.c (get_access_flags_from_decl): Can't have transient
+	method.
+	(add_method_1): Can't have a transient method.
+
+2003-07-28  Andreas Jaeger  <aj@suse.de>
+
+	* jvspec.c: Convert to ISO C90 prototypes.
+
+2003-07-25  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* decl.c (force_poplevels): Fix warning call.
+
+2003-07-25  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* expr.c (expand_java_field_op): Don't use xxx_with_decl
+	(expand_java_field_op): Likewise.
+	* class.c (layout_class_method): Likewise
+	(emit_register_classes): Likewise.
+	* decl.c (pushdecl): Likewise.
+	(poplevel): Likewise.
+	(force_poplevels): Likewise.
+	(give_name_to_locals): Likewise.
+	* check-init.c (check_for_initialization): Likewise.
+
 2003-07-24  Jason Merrill  <jason@redhat.com>
 
 	* java-tree.h: Move boolean_type_node et al to the back end.

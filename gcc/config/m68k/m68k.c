@@ -49,23 +49,22 @@ Boston, MA 02111-1307, USA.  */
    if SGS_SWITCH_TABLE.  */
 int switch_table_difference_label_flag;
 
-static rtx find_addr_reg PARAMS ((rtx));
-static const char *singlemove_string PARAMS ((rtx *));
-static void m68k_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
-static void m68k_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
-static void m68k_coff_asm_named_section PARAMS ((const char *, unsigned int));
-#ifdef CTOR_LIST_BEGIN
-static void m68k_svr3_asm_out_constructor PARAMS ((rtx, int));
-#endif
+static rtx find_addr_reg (rtx);
+static const char *singlemove_string (rtx *);
+static void m68k_output_function_prologue (FILE *, HOST_WIDE_INT);
+static void m68k_output_function_epilogue (FILE *, HOST_WIDE_INT);
+#ifdef M68K_TARGET_COFF
+static void m68k_coff_asm_named_section (const char *, unsigned int);
+#endif /* M68K_TARGET_COFF */
 #ifdef HPUX_ASM
-static void m68k_hp320_internal_label PARAMS ((FILE *, const char *, unsigned long));
-static void m68k_hp320_file_start PARAMS ((void));
+static void m68k_hp320_internal_label (FILE *, const char *, unsigned long);
+static void m68k_hp320_file_start (void);
 #endif
-static void m68k_output_mi_thunk PARAMS ((FILE *, tree, HOST_WIDE_INT,
-					  HOST_WIDE_INT, tree));
-static int m68k_save_reg PARAMS ((unsigned int));
-static int const_int_cost PARAMS ((rtx));
-static bool m68k_rtx_costs PARAMS ((rtx, int, int, int *));
+static void m68k_output_mi_thunk (FILE *, tree, HOST_WIDE_INT,
+					  HOST_WIDE_INT, tree);
+static int m68k_save_reg (unsigned int);
+static int const_int_cost (rtx);
+static bool m68k_rtx_costs (rtx, int, int, int *);
 
 
 /* Alignment to use for loops and jumps */
@@ -150,7 +149,7 @@ struct gcc_target targetm = TARGET_INITIALIZER;
    `-O'.  That is what `OPTIMIZATION_OPTIONS' is for.  */
 
 void
-override_options ()
+override_options (void)
 {
   int def_align;
   int i;
@@ -216,10 +215,87 @@ override_options ()
   real_format_for_mode[XFmode - QFmode] = &ieee_extended_motorola_format;
 }
 
+/* Structure describing stack frame layout. */
+struct m68k_frame {
+  HOST_WIDE_INT offset;
+  HOST_WIDE_INT size;
+  /* data and address register */
+  int reg_no;
+  unsigned int reg_mask;
+  unsigned int reg_rev_mask;
+  /* fpu registers */
+  int fpu_no;
+  unsigned int fpu_mask;
+  unsigned int fpu_rev_mask;
+  /* fpa registers */
+  int fpa_no;
+  /* offsets relative to ARG_POINTER.  */
+  HOST_WIDE_INT frame_pointer_offset;
+  HOST_WIDE_INT stack_pointer_offset;
+};
+
+static void
+m68k_compute_frame_layout (struct m68k_frame *frame)
+{
+  int regno, saved;
+  unsigned int mask, rmask;
+
+  frame->size = (get_frame_size () + 3) & -4;
+
+  mask = rmask = saved = 0;
+  for (regno = 0; regno < 16; regno++)
+    if (m68k_save_reg (regno))
+      {
+	mask |= 1 << regno;
+	rmask |= 1 << (15 - regno);
+	saved++;
+      }
+  frame->offset = saved * 4;
+  frame->reg_no = saved;
+  frame->reg_mask = mask;
+  frame->reg_rev_mask = rmask;
+
+  if (TARGET_68881 /* || TARGET_CFV4E */)
+    {
+      mask = rmask = saved = 0;
+      for (regno = 16; regno < 24; regno++)
+	if (regs_ever_live[regno] && ! call_used_regs[regno])
+	  {
+	    mask |= 1 << (23 - regno);
+	    rmask |= 1 << (regno - 16);
+	    saved++;
+	  }
+      frame->offset += saved * 12 /* (TARGET_CFV4E ? 8 : 12) */;
+      frame->fpu_no = saved;
+      frame->fpu_mask = mask;
+      frame->fpu_rev_mask = rmask;
+    }
+}
+
+HOST_WIDE_INT
+m68k_initial_elimination_offset (int from, int to)
+{
+  struct m68k_frame frame;
+
+  /* FIXME: The correct offset to compute here would appear to be
+       (frame_pointer_needed ? -UNITS_PER_WORD * 2 : -UNITS_PER_WORD);
+     but for some obscure reason, this must be 0 to get correct code.  */
+  if (from == ARG_POINTER_REGNUM && to == FRAME_POINTER_REGNUM)
+    return 0;
+
+  m68k_compute_frame_layout (&frame);
+
+  if (from == ARG_POINTER_REGNUM && to == STACK_POINTER_REGNUM)
+    return frame.offset + frame.size + (frame_pointer_needed ? -UNITS_PER_WORD * 2 : -UNITS_PER_WORD);
+  else if (from == FRAME_POINTER_REGNUM && to == STACK_POINTER_REGNUM)
+    return frame.offset + frame.size;
+
+  abort();
+}
+
 /* Return 1 if we need to save REGNO.  */
 static int
-m68k_save_reg (regno)
-     unsigned int regno;
+m68k_save_reg (unsigned int regno)
 {
   if (flag_pic && current_function_uses_pic_offset_table
       && regno == PIC_OFFSET_TABLE_REGNUM)
@@ -257,16 +333,14 @@ m68k_save_reg (regno)
    of the order for movem!  */
 
 static void
-m68k_output_function_prologue (stream, size)
-     FILE *stream;
-     HOST_WIDE_INT size;
+m68k_output_function_prologue (FILE *stream, HOST_WIDE_INT size)
 {
   register int regno;
   register int mask = 0;
   int num_saved_regs = 0;
   HOST_WIDE_INT fsize = (size + 3) & -4;
+  HOST_WIDE_INT fsize_with_regs;
   HOST_WIDE_INT cfa_offset = INCOMING_FRAME_SP_OFFSET;
-  HOST_WIDE_INT cfa_store_offset = cfa_offset;
   
   /* If the stack limit is a symbol, we can check it here,
      before actually allocating the space.  */
@@ -282,6 +356,21 @@ m68k_output_function_prologue (stream, size)
 #endif
     }
 
+  if (TARGET_COLDFIRE)
+    {
+      /* on Coldfire add register save into initial stack frame setup, if possible */
+      for (regno = 0; regno < 16; regno++)
+        if (m68k_save_reg (regno))
+          num_saved_regs++;
+
+      if (num_saved_regs <= 2)
+        num_saved_regs = 0;
+    }
+  else
+      num_saved_regs = 0;
+
+  fsize_with_regs = fsize + num_saved_regs * 4;
+  
   if (frame_pointer_needed)
     {
       if (fsize == 0 && TARGET_68040)
@@ -299,75 +388,73 @@ m68k_output_function_prologue (stream, size)
 		   reg_names[FRAME_POINTER_REGNUM]);
 #endif
 	}
-      else if (fsize < 0x8000)
+      else if (fsize_with_regs < 0x8000)
 	{
 #ifdef MOTOROLA
-	  asm_fprintf (stream, "\tlink.w %s,%I%wd\n",
-		       reg_names[FRAME_POINTER_REGNUM], -fsize);
+	      asm_fprintf (stream, "\tlink.w %s,%I%wd\n",
+		reg_names[FRAME_POINTER_REGNUM], -fsize_with_regs);
 #else
-	  asm_fprintf (stream, "\tlink %s,%I%wd\n",
-		       reg_names[FRAME_POINTER_REGNUM], -fsize);
+	      asm_fprintf (stream, "\tlink %s,%I%wd\n",
+		reg_names[FRAME_POINTER_REGNUM], -fsize_with_regs);
 #endif
 	}
       else if (TARGET_68020)
 	{
 #ifdef MOTOROLA
 	  asm_fprintf (stream, "\tlink.l %s,%I%wd\n",
-		       reg_names[FRAME_POINTER_REGNUM], -fsize);
+		       reg_names[FRAME_POINTER_REGNUM], -fsize_with_regs);
 #else
 	  asm_fprintf (stream, "\tlink %s,%I%wd\n",
-		       reg_names[FRAME_POINTER_REGNUM], -fsize);
+		       reg_names[FRAME_POINTER_REGNUM], -fsize_with_regs);
 #endif
 	}
       else
 	{
-      /* Adding negative number is faster on the 68040.  */
+          /* Adding negative number is faster on the 68040.  */
 #ifdef MOTOROLA
 	  asm_fprintf (stream, "\tlink.w %s,%I0\n\tadd.l %I%wd,%Rsp\n",
-		       reg_names[FRAME_POINTER_REGNUM], -fsize);
+		       reg_names[FRAME_POINTER_REGNUM], -fsize_with_regs);
 #else
 	  asm_fprintf (stream, "\tlink %s,%I0\n\taddl %I%wd,%Rsp\n",
-		       reg_names[FRAME_POINTER_REGNUM], -fsize);
+		       reg_names[FRAME_POINTER_REGNUM], -fsize_with_regs);
 #endif
 	}
       if (dwarf2out_do_frame ())
 	{
 	  char *l;
           l = (char *) dwarf2out_cfi_label ();   
-	  cfa_store_offset += 4;
-	  cfa_offset = cfa_store_offset;
-	  dwarf2out_reg_save (l, FRAME_POINTER_REGNUM, -cfa_store_offset);
+	  cfa_offset += 4;
+	  dwarf2out_reg_save (l, FRAME_POINTER_REGNUM, -cfa_offset);
 	  dwarf2out_def_cfa (l, FRAME_POINTER_REGNUM, cfa_offset);
-	  cfa_store_offset += fsize;
+	  cfa_offset += fsize;
 	}
     }
-  else if (fsize)
+  else if (fsize_with_regs) /* !frame_pointer_needed */
     {
-      if (fsize + 4 < 0x8000)
+      if (fsize_with_regs < 0x8000)
 	{
-#ifndef NO_ADDSUB_Q
-	  if (fsize + 4 <= 8)
+	  if (fsize_with_regs <= 8)
 	    {
-	      if (!TARGET_5200)
+	      if (!TARGET_COLDFIRE)
 		{
 		  /* asm_fprintf() cannot handle %.  */
 #ifdef MOTOROLA
-		  asm_fprintf (stream, "\tsubq.w %I%wd,%Rsp\n", fsize + 4);
+		  asm_fprintf (stream, "\tsubq.w %I%wd,%Rsp\n", fsize_with_regs);
 #else
-		  asm_fprintf (stream, "\tsubqw %I%wd,%Rsp\n", fsize + 4);
+		  asm_fprintf (stream, "\tsubqw %I%wd,%Rsp\n", fsize_with_regs);
 #endif
 		}
 	      else
 		{
 		  /* asm_fprintf() cannot handle %.  */
 #ifdef MOTOROLA
-		  asm_fprintf (stream, "\tsubq.l %I%wd,%Rsp\n", fsize + 4);
+		  asm_fprintf (stream, "\tsubq.l %I%wd,%Rsp\n", fsize_with_regs);
 #else
-		  asm_fprintf (stream, "\tsubql %I%wd,%Rsp\n", fsize + 4);
+		  asm_fprintf (stream, "\tsubql %I%wd,%Rsp\n", fsize_with_regs);
 #endif
 		}
 	    }
-	  else if (fsize + 4 <= 16 && TARGET_CPU32)
+	  else if (fsize_with_regs <= 16 && TARGET_CPU32)
 	    {
 	      /* On the CPU32 it is faster to use two subqw instructions to
 		 subtract a small integer (8 < N <= 16) to a register.  */
@@ -375,49 +462,48 @@ m68k_output_function_prologue (stream, size)
 #ifdef MOTOROLA
 	      asm_fprintf (stream,
 			   "\tsubq.w %I8,%Rsp\n\tsubq.w %I%wd,%Rsp\n",
-			   fsize + 4 - 8);
+			   fsize_with_regs - 8);
 #else
 	      asm_fprintf (stream, "\tsubqw %I8,%Rsp\n\tsubqw %I%wd,%Rsp\n",
-			   fsize + 4 - 8);
+			   fsize_with_regs - 8);
 #endif
 	    }
-	  else 
-#endif /* not NO_ADDSUB_Q */
-	  if (TARGET_68040)
+	  else if (TARGET_68040)
 	    {
 	      /* Adding negative number is faster on the 68040.  */
 	      /* asm_fprintf() cannot handle %.  */
 #ifdef MOTOROLA
-	      asm_fprintf (stream, "\tadd.w %I%wd,%Rsp\n", - (fsize + 4));
+	      asm_fprintf (stream, "\tadd.w %I%wd,%Rsp\n", -fsize_with_regs);
 #else
-	      asm_fprintf (stream, "\taddw %I%wd,%Rsp\n", - (fsize + 4));
+	      asm_fprintf (stream, "\taddw %I%wd,%Rsp\n", -fsize_with_regs);
 #endif
 	    }
 	  else
 	    {
 #ifdef MOTOROLA
-	      asm_fprintf (stream, "\tlea (%wd,%Rsp),%Rsp\n", - (fsize + 4));
+	      asm_fprintf (stream, "\tlea (%wd,%Rsp),%Rsp\n", -fsize_with_regs);
 #else
-	      asm_fprintf (stream, "\tlea %Rsp@(%wd),%Rsp\n", - (fsize + 4));
+	      asm_fprintf (stream, "\tlea %Rsp@(%wd),%Rsp\n", -fsize_with_regs);
 #endif
 	    }
 	}
-      else
+      else /* fsize_with_regs >= 0x8000 */
 	{
-	/* asm_fprintf() cannot handle %.  */
 #ifdef MOTOROLA
-	  asm_fprintf (stream, "\tadd.l %I%wd,%Rsp\n", - (fsize + 4));
+	  asm_fprintf (stream, "\tadd.l %I%wd,%Rsp\n", -fsize_with_regs);
 #else
-	  asm_fprintf (stream, "\taddl %I%wd,%Rsp\n", - (fsize + 4));
+	  asm_fprintf (stream, "\taddl %I%wd,%Rsp\n", -fsize_with_regs);
 #endif
 	}
       if (dwarf2out_do_frame ())
 	{
-	  cfa_store_offset += fsize + 4;
-	  cfa_offset = cfa_store_offset;
+	  cfa_offset += fsize + 4;
 	  dwarf2out_def_cfa ("", STACK_POINTER_REGNUM, cfa_offset);
 	}
-    }
+    } /* !frame_pointer_needed */
+
+  num_saved_regs = 0;
+
   if (TARGET_68881)
     {
       for (regno = 16; regno < 24; regno++)
@@ -438,16 +524,13 @@ m68k_output_function_prologue (stream, size)
 	      char *l = (char *) dwarf2out_cfi_label ();
 	      int n_regs;
 
-	      cfa_store_offset += num_saved_regs * 12;
+	      cfa_offset += num_saved_regs * 12;
 	      if (! frame_pointer_needed)
-		{
-		  cfa_offset = cfa_store_offset;
-		  dwarf2out_def_cfa (l, STACK_POINTER_REGNUM, cfa_offset);
-		}
+		dwarf2out_def_cfa (l, STACK_POINTER_REGNUM, cfa_offset);
 	      for (regno = 16, n_regs = 0; regno < 24; regno++)
 		if (mask & (1 << (regno - 16)))
 		  dwarf2out_reg_save (l, regno,
-				      -cfa_store_offset + n_regs++ * 12);
+				      -cfa_offset + n_regs++ * 12);
 	    }
 	}
       mask = 0;
@@ -502,29 +585,24 @@ m68k_output_function_prologue (stream, size)
 	      {
 		char *l = (char *) dwarf2out_cfi_label ();
 
-		cfa_store_offset += 4;
+		cfa_offset += 4;
  		if (! frame_pointer_needed)
- 		  {
- 		    cfa_offset = cfa_store_offset;
- 		    dwarf2out_def_cfa (l, STACK_POINTER_REGNUM, cfa_offset);
- 		  }
- 		dwarf2out_reg_save (l, 15 - i, -cfa_store_offset);
+ 		  dwarf2out_def_cfa (l, STACK_POINTER_REGNUM, cfa_offset);
+ 		dwarf2out_reg_save (l, 15 - i, -cfa_offset);
 	      }
 	  }
     }
   else if (mask)
     {
-      if (TARGET_5200)
+      if (TARGET_COLDFIRE)
 	{
 	  /* The coldfire does not support the predecrement form of the 
 	     movml instruction, so we must adjust the stack pointer and
 	     then use the plain address register indirect mode.  We also
 	     have to invert the register save mask to use the new mode.
 
-	     FIXME: if num_saved_regs was calculated earlier, we could
-	     combine the stack pointer adjustment with any adjustment
-	     done when the initial stack frame is created.  This would
-	     save an instruction */
+	     The required register save space was combined earlier with
+	     the fsize amount.  Don't add it again.  */
 	     
 	  int newmask = 0;
 	  int i;
@@ -534,10 +612,8 @@ m68k_output_function_prologue (stream, size)
 		newmask |= (1 << (15-i));
 
 #ifdef MOTOROLA
-	  asm_fprintf (stream, "\tlea (%d,%Rsp),%Rsp\n", -num_saved_regs*4);
 	  asm_fprintf (stream, "\tmovm.l %I0x%x,(%Rsp)\n", newmask);
 #else
-	  asm_fprintf (stream, "\tlea %Rsp@(%d),%Rsp\n", -num_saved_regs*4);
 	  asm_fprintf (stream, "\tmoveml %I0x%x,%Rsp@\n", newmask);
 #endif
 	}
@@ -554,16 +630,13 @@ m68k_output_function_prologue (stream, size)
 	  char *l = (char *) dwarf2out_cfi_label ();
 	  int n_regs;
 
-	  cfa_store_offset += num_saved_regs * 4;
+	  cfa_offset += num_saved_regs * 4;
 	  if (! frame_pointer_needed)
-	    {
-	      cfa_offset = cfa_store_offset;
-	      dwarf2out_def_cfa (l, STACK_POINTER_REGNUM, cfa_offset);
-	    }
+	    dwarf2out_def_cfa (l, STACK_POINTER_REGNUM, cfa_offset);
 	  for (regno = 0, n_regs = 0; regno < 16; regno++)
 	    if (mask & (1 << (15 - regno)))
 	      dwarf2out_reg_save (l, regno,
-				  -cfa_store_offset + n_regs++ * 4);
+				  -cfa_offset + n_regs++ * 4);
 	}
     }
   if (flag_pic && current_function_uses_pic_offset_table)
@@ -572,7 +645,7 @@ m68k_output_function_prologue (stream, size)
       asm_fprintf (stream, "\t%Olea (%Rpc, %U_GLOBAL_OFFSET_TABLE_@GOTPC), %s\n",
 		   reg_names[PIC_OFFSET_TABLE_REGNUM]);
 #else
-      asm_fprintf (stream, "\tmovel %I__GLOBAL_OFFSET_TABLE_, %s\n",
+      asm_fprintf (stream, "\tmovel %I%U_GLOBAL_OFFSET_TABLE_, %s\n",
 		   reg_names[PIC_OFFSET_TABLE_REGNUM]);
       asm_fprintf (stream, "\tlea %Rpc@(0,%s:l),%s\n",
 		   reg_names[PIC_OFFSET_TABLE_REGNUM],
@@ -607,15 +680,14 @@ use_return_insn ()
    omit stack adjustments before returning.  */
 
 static void
-m68k_output_function_epilogue (stream, size)
-     FILE *stream;
-     HOST_WIDE_INT size;
+m68k_output_function_epilogue (FILE *stream, HOST_WIDE_INT size)
 {
   register int regno;
   register int mask, fmask;
   register int nregs;
   HOST_WIDE_INT offset, foffset;
   HOST_WIDE_INT fsize = (size + 3) & -4;
+  HOST_WIDE_INT fsize_with_regs;
   int big = 0;
   rtx insn = get_last_insn ();
   int restore_from_sp = 0;
@@ -658,18 +730,45 @@ m68k_output_function_epilogue (stream, size)
      stack adjustment needed at that point.  */
   restore_from_sp = ! frame_pointer_needed
 	     || (! current_function_calls_alloca && leaf_function_p ());
+
+  /* fsize_with_regs is the size we need to adjust the sp when
+     popping the frame */
+  fsize_with_regs = fsize;
+
+  /* Because the ColdFire doesn't support moveml with
+     complex address modes, we must adjust the stack manually
+     after restoring registers. When the frame pointer isn't used,
+     we can merge movem adjustment into frame unlinking
+     made immediately after it. */
+  if (TARGET_COLDFIRE && restore_from_sp && (nregs > 2))
+    fsize_with_regs += nregs * 4;
+
   if (offset + fsize >= 0x8000
       && ! restore_from_sp
       && (mask || fmask))
     {
+      /* Because the ColdFire doesn't support moveml with
+         complex address modes we make an extra correction here */
+      if (TARGET_COLDFIRE)
+        {
 #ifdef MOTOROLA
-      asm_fprintf (stream, "\t%Omove.l %I%wd,%Ra1\n", -fsize);
+          asm_fprintf (stream, "\t%Omove.l %I%d,%Ra1\n", -fsize - offset);
 #else
-      asm_fprintf (stream, "\tmovel %I%wd,%Ra1\n", -fsize);
+          asm_fprintf (stream, "\tmovel %I%d,%Ra1\n", -fsize - offset);
 #endif
+        }
+      else
+        {
+#ifdef MOTOROLA
+          asm_fprintf (stream, "\t%Omove.l %I%wd,%Ra1\n", -fsize);
+#else
+          asm_fprintf (stream, "\tmovel %I%wd,%Ra1\n", -fsize);
+#endif
+        }
+
       fsize = 0, big = 1;
     }
-  if (TARGET_5200 || nregs <= 2)
+  if (nregs <= 2)
     {
       /* Restore each separately in the same order moveml does.
          Using two movel instructions instead of a single moveml
@@ -713,10 +812,9 @@ m68k_output_function_epilogue (stream, size)
 			     reg_names[FRAME_POINTER_REGNUM],
 			     reg_names[i]);
 #else
-		fprintf (stream,
-			 "\tmovel %s@(-" HOST_WIDE_INT_PRINT_DEC "),%s\n",
-			 reg_names[FRAME_POINTER_REGNUM],
-			 offset + fsize, reg_names[i]);
+		asm_fprintf (stream, "\tmovel %s@(-%wd),%s\n",
+			     reg_names[FRAME_POINTER_REGNUM],
+			     offset + fsize, reg_names[i]);
 #endif
 	      }
             offset = offset - 4;
@@ -724,39 +822,77 @@ m68k_output_function_epilogue (stream, size)
     }
   else if (mask)
     {
-      if (big)
-	{
+      /* The ColdFire requires special handling due to its limited moveml insn */
+      if (TARGET_COLDFIRE)
+        {
+          if (big)
+            {
 #ifdef MOTOROLA
-	  asm_fprintf (stream, "\tmovm.l -%wd(%s,%Ra1.l),%I0x%x\n",
-		       offset + fsize,
-		       reg_names[FRAME_POINTER_REGNUM],
-		       mask);
+              asm_fprintf (stream, "\tadd.l %s,%Ra1\n", reg_names[FRAME_POINTER_REGNUM]);
+              asm_fprintf (stream, "\tmovm.l (%Ra1),%I0x%x\n", mask);
 #else
-	  asm_fprintf (stream, "\tmoveml %s@(-%wd,%Ra1:l),%I0x%x\n",
-		       reg_names[FRAME_POINTER_REGNUM],
-		       offset + fsize, mask);
+              asm_fprintf (stream, "\taddl %s,%Ra1\n", reg_names[FRAME_POINTER_REGNUM]);
+              asm_fprintf (stream, "\tmoveml %Ra1@,%I0x%x\n", mask);
 #endif
-	}
-      else if (restore_from_sp)
-	{
+	     }
+	   else if (restore_from_sp)
+	     {
 #ifdef MOTOROLA
-	  asm_fprintf (stream, "\tmovm.l (%Rsp)+,%I0x%x\n", mask);
+	       asm_fprintf (stream, "\tmovm.l (%Rsp),%I0x%x\n", mask);
 #else
-	  asm_fprintf (stream, "\tmoveml %Rsp@+,%I0x%x\n", mask);
+	       asm_fprintf (stream, "\tmoveml %Rsp@,%I0x%x\n", mask);
 #endif
-	}
-      else
-	{
+            }
+          else
+            {
 #ifdef MOTOROLA
-	  asm_fprintf (stream, "\tmovm.l -%wd(%s),%I0x%x\n",
-		       offset + fsize,
-		       reg_names[FRAME_POINTER_REGNUM],
-		       mask);
+              asm_fprintf (stream, "\tmovm.l -%wd(%s),%I0x%x\n",
+                           offset + fsize,
+                           reg_names[FRAME_POINTER_REGNUM],
+                           mask);
 #else
-	  asm_fprintf (stream, "\tmoveml %s@(-%wd),%I0x%x\n",
-		       reg_names[FRAME_POINTER_REGNUM],
-		       offset + fsize, mask);
+              asm_fprintf (stream, "\tmoveml %s@(-%wd),%I0x%x\n",
+                           reg_names[FRAME_POINTER_REGNUM],
+                           offset + fsize, mask);
 #endif
+	    }
+        }
+      else /* !TARGET_COLDFIRE */
+	{
+	  if (big)
+	    {
+#ifdef MOTOROLA
+	      asm_fprintf (stream, "\tmovm.l -%wd(%s,%Ra1.l),%I0x%x\n",
+			   offset + fsize,
+			   reg_names[FRAME_POINTER_REGNUM],
+			   mask);
+#else
+	      asm_fprintf (stream, "\tmoveml %s@(-%wd,%Ra1:l),%I0x%x\n",
+			   reg_names[FRAME_POINTER_REGNUM],
+			   offset + fsize, mask);
+#endif
+	    }
+	  else if (restore_from_sp)
+	    {
+#ifdef MOTOROLA
+	      asm_fprintf (stream, "\tmovm.l (%Rsp)+,%I0x%x\n", mask);
+#else
+	      asm_fprintf (stream, "\tmoveml %Rsp@+,%I0x%x\n", mask);
+#endif
+	    }
+	  else
+	    {
+#ifdef MOTOROLA
+	      asm_fprintf (stream, "\tmovm.l -%wd(%s),%I0x%x\n",
+			   offset + fsize,
+			   reg_names[FRAME_POINTER_REGNUM],
+			   mask);
+#else
+	      asm_fprintf (stream, "\tmoveml %s@(-%wd),%I0x%x\n",
+			   reg_names[FRAME_POINTER_REGNUM],
+			   offset + fsize, mask);
+#endif
+	    }
 	}
     }
   if (fmask)
@@ -799,60 +935,57 @@ m68k_output_function_epilogue (stream, size)
   if (frame_pointer_needed)
     fprintf (stream, "\tunlk %s\n",
 	     reg_names[FRAME_POINTER_REGNUM]);
-  else if (fsize)
+  else if (fsize_with_regs)
     {
-#ifndef NO_ADDSUB_Q
-      if (fsize + 4 <= 8) 
+      if (fsize_with_regs <= 8)
 	{
-	  if (!TARGET_5200)
+	  if (!TARGET_COLDFIRE)
 	    {
 #ifdef MOTOROLA
-	      asm_fprintf (stream, "\taddq.w %I%wd,%Rsp\n", fsize + 4);
+	      asm_fprintf (stream, "\taddq.w %I%wd,%Rsp\n", fsize_with_regs);
 #else
-	      asm_fprintf (stream, "\taddqw %I%wd,%Rsp\n", fsize + 4);
+	      asm_fprintf (stream, "\taddqw %I%wd,%Rsp\n", fsize_with_regs);
 #endif
 	    }
-	  else
+	  else /* TARGET_COLDFIRE */
 	    {
 #ifdef MOTOROLA
-	      asm_fprintf (stream, "\taddq.l %I%wd,%Rsp\n", fsize + 4);
+	      asm_fprintf (stream, "\taddq.l %I%wd,%Rsp\n", fsize_with_regs);
 #else
-	      asm_fprintf (stream, "\taddql %I%wd,%Rsp\n", fsize + 4);
+	      asm_fprintf (stream, "\taddql %I%wd,%Rsp\n", fsize_with_regs);
 #endif
 	    }
 	}
-      else if (fsize + 4 <= 16 && TARGET_CPU32)
+      else if (fsize_with_regs <= 16 && TARGET_CPU32)
 	{
 	  /* On the CPU32 it is faster to use two addqw instructions to
 	     add a small integer (8 < N <= 16) to a register.  */
 	  /* asm_fprintf() cannot handle %.  */
 #ifdef MOTOROLA
 	  asm_fprintf (stream, "\taddq.w %I8,%Rsp\n\taddq.w %I%wd,%Rsp\n",
-		       fsize + 4 - 8);
+		       fsize_with_regs - 8);
 #else
 	  asm_fprintf (stream, "\taddqw %I8,%Rsp\n\taddqw %I%wd,%Rsp\n",
-		       fsize + 4 - 8);
+		       fsize_with_regs - 8);
 #endif
 	}
-      else
-#endif /* not NO_ADDSUB_Q */
-      if (fsize + 4 < 0x8000)
+      else if (fsize_with_regs < 0x8000)
 	{
 	  if (TARGET_68040)
 	    { 
 	      /* asm_fprintf() cannot handle %.  */
 #ifdef MOTOROLA
-	      asm_fprintf (stream, "\tadd.w %I%wd,%Rsp\n", fsize + 4);
+	      asm_fprintf (stream, "\tadd.w %I%wd,%Rsp\n", fsize_with_regs);
 #else
-	      asm_fprintf (stream, "\taddw %I%wd,%Rsp\n", fsize + 4);
+	      asm_fprintf (stream, "\taddw %I%wd,%Rsp\n", fsize_with_regs);
 #endif
 	    }
 	  else
 	    {
 #ifdef MOTOROLA
-	      asm_fprintf (stream, "\tlea (%wd,%Rsp),%Rsp\n", fsize + 4);
+	      asm_fprintf (stream, "\tlea (%wd,%Rsp),%Rsp\n", fsize_with_regs);
 #else
-	      asm_fprintf (stream, "\tlea %Rsp@(%wd),%Rsp\n", fsize + 4);
+	      asm_fprintf (stream, "\tlea %Rsp@(%wd),%Rsp\n", fsize_with_regs);
 #endif
 	    }
 	}
@@ -860,9 +993,9 @@ m68k_output_function_epilogue (stream, size)
 	{
 	/* asm_fprintf() cannot handle %.  */
 #ifdef MOTOROLA
-	  asm_fprintf (stream, "\tadd.l %I%wd,%Rsp\n", fsize + 4);
+	  asm_fprintf (stream, "\tadd.l %I%wd,%Rsp\n", fsize_with_regs);
 #else
-	  asm_fprintf (stream, "\taddl %I%wd,%Rsp\n", fsize + 4);
+	  asm_fprintf (stream, "\taddl %I%wd,%Rsp\n", fsize_with_regs);
 #endif
 	}
     }
@@ -883,14 +1016,12 @@ m68k_output_function_epilogue (stream, size)
 /* Similar to general_operand, but exclude stack_pointer_rtx.  */
 
 int
-not_sp_operand (op, mode)
-     register rtx op;
-     enum machine_mode mode;
+not_sp_operand (rtx op, enum machine_mode mode)
 {
   return op != stack_pointer_rtx && nonimmediate_operand (op, mode);
 }
 
-/* Return TRUE if X is a valid comparison operator for the dbcc 
+/* Return true if X is a valid comparison operator for the dbcc 
    instruction.  
 
    Note it rejects floating point comparison operators.
@@ -899,9 +1030,7 @@ not_sp_operand (op, mode)
    It also rejects some comparisons when CC_NO_OVERFLOW is set.  */
    
 int
-valid_dbcc_comparison_p (x, mode)
-     rtx x;
-     enum machine_mode mode ATTRIBUTE_UNUSED;
+valid_dbcc_comparison_p (rtx x, enum machine_mode mode ATTRIBUTE_UNUSED)
 {
   switch (GET_CODE (x))
     {
@@ -920,7 +1049,7 @@ valid_dbcc_comparison_p (x, mode)
 
 /* Return nonzero if flags are currently in the 68881 flag register.  */
 int
-flags_in_68881 ()
+flags_in_68881 (void)
 {
   /* We could add support for these in the future */
   return cc_status.flags & CC_IN_68881;
@@ -933,8 +1062,7 @@ flags_in_68881 ()
    kick those out before we get here.  */
 
 void
-output_dbcc_and_branch (operands)
-     rtx *operands;
+output_dbcc_and_branch (rtx *operands)
 {
   switch (GET_CODE (operands[3]))
     {
@@ -1043,11 +1171,7 @@ output_dbcc_and_branch (operands)
 }
 
 const char *
-output_scc_di(op, operand1, operand2, dest)
-     rtx op;
-     rtx operand1;
-     rtx operand2;
-     rtx dest;
+output_scc_di(rtx op, rtx operand1, rtx operand2, rtx dest)
 {
   rtx loperands[7];
   enum rtx_code op_code = GET_CODE (op);
@@ -1098,7 +1222,7 @@ output_scc_di(op, operand1, operand2, dest)
     }
   else
     {
-      if (TARGET_68020 || TARGET_5200 || ! ADDRESS_REG_P (loperands[0]))
+      if (TARGET_68020 || TARGET_COLDFIRE || ! ADDRESS_REG_P (loperands[0]))
 	output_asm_insn ("tst%.l %0", loperands);
       else
 	{
@@ -1115,7 +1239,7 @@ output_scc_di(op, operand1, operand2, dest)
       output_asm_insn ("jne %l4", loperands);
 #endif
 
-      if (TARGET_68020 || TARGET_5200 || ! ADDRESS_REG_P (loperands[1]))
+      if (TARGET_68020 || TARGET_COLDFIRE || ! ADDRESS_REG_P (loperands[1]))
 	output_asm_insn ("tst%.l %1", loperands);
       else
 	{
@@ -1230,11 +1354,7 @@ output_scc_di(op, operand1, operand2, dest)
 }
 
 const char *
-output_btst (operands, countop, dataop, insn, signpos)
-     rtx *operands;
-     rtx countop, dataop;
-     rtx insn;
-     int signpos;
+output_btst (rtx *operands, rtx countop, rtx dataop, rtx insn, int signpos)
 {
   operands[0] = countop;
   operands[1] = dataop;
@@ -1272,19 +1392,17 @@ output_btst (operands, countop, dataop, insn, signpos)
   return "btst %0,%1";
 }
 
-/* Returns 1 if OP is either a symbol reference or a sum of a symbol
+/* Returns true if OP is either a symbol reference or a sum of a symbol
    reference and a constant.  */
 
-int
-symbolic_operand (op, mode)
-     register rtx op;
-     enum machine_mode mode ATTRIBUTE_UNUSED;
+bool
+symbolic_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 {
   switch (GET_CODE (op))
     {
     case SYMBOL_REF:
     case LABEL_REF:
-      return 1;
+      return true;
 
     case CONST:
       op = XEXP (op, 0);
@@ -1299,16 +1417,14 @@ symbolic_operand (op, mode)
 #endif
 
     default:
-      return 0;
+      return false;
     }
 }
 
 /* Check for sign_extend or zero_extend.  Used for bit-count operands.  */
 
 int
-extend_operator(x, mode)
-     rtx x;
-     enum machine_mode mode;
+extend_operator(rtx x, enum machine_mode mode)
 {
     if (mode != VOIDmode && GET_MODE(x) != mode)
 	return 0;
@@ -1364,9 +1480,8 @@ extend_operator(x, mode)
    handled.  */
 
 rtx
-legitimize_pic_address (orig, mode, reg)
-     rtx orig, reg;
-     enum machine_mode mode ATTRIBUTE_UNUSED;
+legitimize_pic_address (rtx orig, enum machine_mode mode ATTRIBUTE_UNUSED,
+		        rtx reg)
 {
   rtx pic_ref = orig;
 
@@ -1416,13 +1531,12 @@ legitimize_pic_address (orig, mode, reg)
 
 typedef enum { MOVL, SWAP, NEGW, NOTW, NOTB, MOVQ } CONST_METHOD;
 
-static CONST_METHOD const_method PARAMS ((rtx));
+static CONST_METHOD const_method (rtx);
 
 #define USE_MOVQ(i)	((unsigned)((i) + 128) <= 255)
 
 static CONST_METHOD
-const_method (constant)
-     rtx constant;
+const_method (rtx constant)
 {
   int i;
   unsigned u;
@@ -1433,7 +1547,7 @@ const_method (constant)
 
   /* The Coldfire doesn't have byte or word operations.  */
   /* FIXME: This may not be useful for the m68060 either */
-  if (!TARGET_5200) 
+  if (!TARGET_COLDFIRE) 
     {
       /* if -256 < N < 256 but N is not in range for a moveq
 	 N^ff will be, so use moveq #N^ff, dreg; not.b dreg.  */
@@ -1455,8 +1569,7 @@ const_method (constant)
 }
 
 static int
-const_int_cost (constant)
-     rtx constant;
+const_int_cost (rtx constant)
 {
   switch (const_method (constant))
     {
@@ -1477,10 +1590,7 @@ const_int_cost (constant)
 }
 
 static bool
-m68k_rtx_costs (x, code, outer_code, total)
-     rtx x;
-     int code, outer_code;
-     int *total;
+m68k_rtx_costs (rtx x, int code, int outer_code, int *total)
 {
   switch (code)
     {
@@ -1514,9 +1624,10 @@ m68k_rtx_costs (x, code, outer_code, total)
        for add and the time for shift, taking away a little more because
        sometimes move insns are needed.  */
     /* div?.w is relatively cheaper on 68000 counted in COSTS_N_INSNS terms.  */
-#define MULL_COST (TARGET_68060 ? 2 : TARGET_68040 ? 5 : 13)
-#define MULW_COST (TARGET_68060 ? 2 : TARGET_68040 ? 3 : TARGET_68020 ? 8 : 5)
-#define DIVW_COST (TARGET_68020 ? 27 : 12)
+#define MULL_COST (TARGET_68060 ? 2 : TARGET_68040 ? 5 : TARGET_CFV3 ? 3 : TARGET_COLDFIRE ? 10 : 13)
+#define MULW_COST (TARGET_68060 ? 2 : TARGET_68040 ? 3 : TARGET_68020 ? 8 : \
+			TARGET_CFV3 ? 2 : 5)
+#define DIVW_COST (TARGET_68020 ? 27 : TARGET_CF_HWDIV ? 11 : 12)
 
     case PLUS:
       /* An lea costs about three times as much as a simple add.  */
@@ -1528,7 +1639,11 @@ m68k_rtx_costs (x, code, outer_code, total)
 	  && (INTVAL (XEXP (XEXP (x, 0), 1)) == 2
 	      || INTVAL (XEXP (XEXP (x, 0), 1)) == 4
 	      || INTVAL (XEXP (XEXP (x, 0), 1)) == 8))
-	*total = COSTS_N_INSNS (3);	 /* lea an@(dx:l:i),am */
+	{
+	    /* lea an@(dx:l:i),am */
+	    *total = COSTS_N_INSNS (TARGET_COLDFIRE ? 2 : 3);
+	    return true;
+	}
       return false;
 
     case ASHIFT:
@@ -1539,7 +1654,7 @@ m68k_rtx_costs (x, code, outer_code, total)
           *total = COSTS_N_INSNS(1);
 	  return true;
 	}
-      if (! TARGET_68020)
+      if (! TARGET_68020 && ! TARGET_COLDFIRE)
         {
 	  if (GET_CODE (XEXP (x, 1)) == CONST_INT)
 	    {
@@ -1564,7 +1679,7 @@ m68k_rtx_costs (x, code, outer_code, total)
 	  && !(INTVAL (XEXP (x, 1)) > 0
 	       && INTVAL (XEXP (x, 1)) <= 8))
 	{
-	  *total = COSTS_N_INSNS (3);	 /* lsr #i,dn */
+	  *total = COSTS_N_INSNS (TARGET_COLDFIRE ? 1 : 3);	 /* lsr #i,dn */
 	  return true;
 	}
       return false;
@@ -1586,6 +1701,8 @@ m68k_rtx_costs (x, code, outer_code, total)
     case UMOD:
       if (GET_MODE (x) == QImode || GET_MODE (x) == HImode)
         *total = COSTS_N_INSNS (DIVW_COST);	/* div.w */
+      else if (TARGET_CF_HWDIV)
+        *total = COSTS_N_INSNS (18);
       else
 	*total = COSTS_N_INSNS (43);		/* div.l */
       return true;
@@ -1596,8 +1713,7 @@ m68k_rtx_costs (x, code, outer_code, total)
 }
 
 const char *
-output_move_const_into_data_reg (operands)
-     rtx *operands;
+output_move_const_into_data_reg (rtx *operands)
 {
   int i;
 
@@ -1605,41 +1721,21 @@ output_move_const_into_data_reg (operands)
   switch (const_method (operands[1]))
     {
     case MOVQ :
-#if defined (MOTOROLA)
-      return "moveq%.l %1,%0";
-#else
       return "moveq %1,%0";
-#endif
     case NOTB :
       operands[1] = GEN_INT (i ^ 0xff);
-#if defined (MOTOROLA)
-      return "moveq%.l %1,%0\n\tnot%.b %0";
-#else
       return "moveq %1,%0\n\tnot%.b %0";
-#endif	 
     case NOTW :
       operands[1] = GEN_INT (i ^ 0xffff);
-#if defined (MOTOROLA)
-      return "moveq%.l %1,%0\n\tnot%.w %0";
-#else
       return "moveq %1,%0\n\tnot%.w %0";
-#endif	 
     case NEGW :
-#if defined (MOTOROLA)
-      return "moveq%.l %#-128,%0\n\tneg%.w %0";
-#else
       return "moveq %#-128,%0\n\tneg%.w %0";
-#endif	 
     case SWAP :
       {
 	unsigned u = i;
 
 	operands[1] = GEN_INT ((u << 16) | (u >> 16));
-#if defined (MOTOROLA)
-	return "moveq%.l %1,%0\n\tswap %0";
-#else
 	return "moveq %1,%0\n\tswap %0";
-#endif	 
       }
     case MOVL :
 	return "move%.l %1,%0";
@@ -1649,15 +1745,14 @@ output_move_const_into_data_reg (operands)
 }
 
 const char *
-output_move_simode_const (operands)
-     rtx *operands;
+output_move_simode_const (rtx *operands)
 {
   if (operands[1] == const0_rtx
       && (DATA_REG_P (operands[0])
 	  || GET_CODE (operands[0]) == MEM)
       /* clr insns on 68000 read before writing.
 	 This isn't so on the 68010, but we have no TARGET_68010.  */
-      && ((TARGET_68020 || TARGET_5200)
+      && ((TARGET_68020 || TARGET_COLDFIRE)
 	  || !(GET_CODE (operands[0]) == MEM
 	       && MEM_VOLATILE_P (operands[0]))))
     return "clr%.l %0";
@@ -1680,8 +1775,7 @@ output_move_simode_const (operands)
 }
 
 const char *
-output_move_simode (operands)
-     rtx *operands;
+output_move_simode (rtx *operands)
 {
   if (GET_CODE (operands[1]) == CONST_INT)
     return output_move_simode_const (operands);
@@ -1697,8 +1791,7 @@ output_move_simode (operands)
 }
 
 const char *
-output_move_himode (operands)
-     rtx *operands;
+output_move_himode (rtx *operands)
 {
  if (GET_CODE (operands[1]) == CONST_INT)
     {
@@ -1707,7 +1800,7 @@ output_move_himode (operands)
 	      || GET_CODE (operands[0]) == MEM)
 	  /* clr insns on 68000 read before writing.
 	     This isn't so on the 68010, but we have no TARGET_68010.  */
-	  && ((TARGET_68020 || TARGET_5200)
+	  && ((TARGET_68020 || TARGET_COLDFIRE)
 	      || !(GET_CODE (operands[0]) == MEM
 		   && MEM_VOLATILE_P (operands[0]))))
 	return "clr%.w %0";
@@ -1718,11 +1811,7 @@ output_move_himode (operands)
 	       && INTVAL (operands[1]) < 128
 	       && INTVAL (operands[1]) >= -128)
 	{
-#if defined(MOTOROLA)
-	  return "moveq%.l %1,%0";
-#else
 	  return "moveq %1,%0";
-#endif
 	}
       else if (INTVAL (operands[1]) < 0x8000
 	       && INTVAL (operands[1]) >= -0x8000)
@@ -1730,7 +1819,6 @@ output_move_himode (operands)
     }
   else if (CONSTANT_P (operands[1]))
     return "move%.l %1,%0";
-#ifndef SGS_NO_LI
   /* Recognize the insn before a tablejump, one that refers
      to a table of offsets.  Such an insn will need to refer
      to a label on the insn.  So output one.  Use the label-number
@@ -1761,13 +1849,11 @@ output_move_himode (operands)
 #endif /* SGS_SWITCH_TABLES */
 #endif /* SGS_SWITCH_TABLES or not MOTOROLA */
     }
-#endif /* SGS_NO_LI */
   return "move%.w %1,%0";
 }
 
 const char *
-output_move_qimode (operands)
-     rtx *operands;
+output_move_qimode (rtx *operands)
 {
   rtx xoperands[4];
 
@@ -1779,7 +1865,7 @@ output_move_qimode (operands)
       && GET_CODE (XEXP (operands[0], 0)) == PRE_DEC
       && XEXP (XEXP (operands[0], 0), 0) == stack_pointer_rtx
       && ! ADDRESS_REG_P (operands[1])
-      && ! TARGET_5200)
+      && ! TARGET_COLDFIRE)
     {
       xoperands[1] = operands[1];
       xoperands[2]
@@ -1790,11 +1876,7 @@ output_move_qimode (operands)
       if (!reg_mentioned_p (stack_pointer_rtx, operands[1]))
 	{
 	  xoperands[3] = stack_pointer_rtx;
-#ifndef NO_ADDSUB_Q
 	  output_asm_insn ("subq%.l %#2,%3\n\tmove%.b %1,%2", xoperands);
-#else
-	  output_asm_insn ("sub%.l %#2,%3\n\tmove%.b %1,%2", xoperands);
-#endif
 	}
       else
 	output_asm_insn ("move%.b %1,%-\n\tmove%.b %@,%2", xoperands);
@@ -1804,12 +1886,12 @@ output_move_qimode (operands)
   /* clr and st insns on 68000 read before writing.
      This isn't so on the 68010, but we have no TARGET_68010.  */
   if (!ADDRESS_REG_P (operands[0])
-      && ((TARGET_68020 || TARGET_5200)
+      && ((TARGET_68020 || TARGET_COLDFIRE)
 	  || !(GET_CODE (operands[0]) == MEM && MEM_VOLATILE_P (operands[0]))))
     {
       if (operands[1] == const0_rtx)
 	return "clr%.b %0";
-      if ((!TARGET_5200 || DATA_REG_P (operands[0]))
+      if ((!TARGET_COLDFIRE || DATA_REG_P (operands[0]))
 	  && GET_CODE (operands[1]) == CONST_INT
 	  && (INTVAL (operands[1]) & 255) == 255)
 	{
@@ -1822,11 +1904,7 @@ output_move_qimode (operands)
       && INTVAL (operands[1]) < 128
       && INTVAL (operands[1]) >= -128)
     {
-#if defined(MOTOROLA)
-      return "moveq%.l %1,%0";
-#else
       return "moveq %1,%0";
-#endif
     }
   if (operands[1] == const0_rtx && ADDRESS_REG_P (operands[0]))
     return "sub%.l %0,%0";
@@ -1840,26 +1918,24 @@ output_move_qimode (operands)
 }
 
 const char *
-output_move_stricthi (operands)
-     rtx *operands;
+output_move_stricthi (rtx *operands)
 {
   if (operands[1] == const0_rtx
       /* clr insns on 68000 read before writing.
 	 This isn't so on the 68010, but we have no TARGET_68010.  */
-      && ((TARGET_68020 || TARGET_5200)
+      && ((TARGET_68020 || TARGET_COLDFIRE)
 	  || !(GET_CODE (operands[0]) == MEM && MEM_VOLATILE_P (operands[0]))))
     return "clr%.w %0";
   return "move%.w %1,%0";
 }
 
 const char *
-output_move_strictqi (operands)
-     rtx *operands;
+output_move_strictqi (rtx *operands)
 {
   if (operands[1] == const0_rtx
       /* clr insns on 68000 read before writing.
          This isn't so on the 68010, but we have no TARGET_68010.  */
-      && ((TARGET_68020 || TARGET_5200)
+      && ((TARGET_68020 || TARGET_COLDFIRE)
           || !(GET_CODE (operands[0]) == MEM && MEM_VOLATILE_P (operands[0]))))
     return "clr%.b %0";
   return "move%.b %1,%0";
@@ -1869,8 +1945,7 @@ output_move_strictqi (operands)
    for moving operands[1] into operands[0] as a fullword.  */
 
 static const char *
-singlemove_string (operands)
-     rtx *operands;
+singlemove_string (rtx *operands)
 {
   if (GET_CODE (operands[1]) == CONST_INT)
     return output_move_simode_const (operands);
@@ -1882,8 +1957,7 @@ singlemove_string (operands)
    with operands OPERANDS.  */
 
 const char *
-output_move_double (operands)
-     rtx *operands;
+output_move_double (rtx *operands)
 {
   enum
     {
@@ -2236,8 +2310,7 @@ compadr:
    ADDR can be effectively incremented by incrementing REG.  */
 
 static rtx
-find_addr_reg (addr)
-     rtx addr;
+find_addr_reg (rtx addr)
 {
   while (GET_CODE (addr) == PLUS)
     {
@@ -2260,8 +2333,7 @@ find_addr_reg (addr)
 /* Output assembler code to perform a 32 bit 3 operand add.  */
 
 const char *
-output_addsi3 (operands)
-     rtx *operands;
+output_addsi3 (rtx *operands)
 {
   if (! operands_match_p (operands[0], operands[1]))
     {
@@ -2283,8 +2355,7 @@ output_addsi3 (operands)
 	return "lea 0(%1,%2.l),%0";
       else
 	return "lea %c2(%1),%0";
-#else /* not SGS */
-#ifdef MOTOROLA
+#elif defined(MOTOROLA)
       if (GET_CODE (operands[2]) == REG)
 	return "lea (%1,%2.l),%0";
       else
@@ -2295,11 +2366,9 @@ output_addsi3 (operands)
       else
 	return "lea %1@(%c2),%0";
 #endif /* not MOTOROLA */
-#endif /* not SGS */
     }
   if (GET_CODE (operands[2]) == CONST_INT)
     {
-#ifndef NO_ADDSUB_Q
       if (INTVAL (operands[2]) > 0
 	  && INTVAL (operands[2]) <= 8)
 	return "addq%.l %2,%0";
@@ -2327,7 +2396,6 @@ output_addsi3 (operands)
 	      return "subq%.l %#8,%0\n\tsubq%.l %2,%0";
 	    }
 	}
-#endif
       if (ADDRESS_REG_P (operands[0])
 	  && INTVAL (operands[2]) >= -0x8000
 	  && INTVAL (operands[2]) < 0x8000)
@@ -2355,9 +2423,7 @@ output_addsi3 (operands)
    some or all of the saved cc's so they won't be used.  */
 
 void
-notice_update_cc (exp, insn)
-     rtx exp;
-     rtx insn;
+notice_update_cc (rtx exp, rtx insn)
 {
   if (GET_CODE (exp) == SET)
     {
@@ -2452,8 +2518,7 @@ notice_update_cc (exp, insn)
 }
 
 const char *
-output_move_const_double (operands)
-     rtx *operands;
+output_move_const_double (rtx *operands)
 {
   int code = standard_68881_constant_p (operands[1]);
 
@@ -2468,8 +2533,7 @@ output_move_const_double (operands)
 }
 
 const char *
-output_move_const_single (operands)
-     rtx *operands;
+output_move_const_single (rtx *operands)
 {
   int code = standard_68881_constant_p (operands[1]);
 
@@ -2518,7 +2582,7 @@ REAL_VALUE_TYPE values_68881[7];
    strings_68881 to binary.  */
 
 void
-init_68881_table ()
+init_68881_table (void)
 {
   int i;
   REAL_VALUE_TYPE r;
@@ -2536,15 +2600,10 @@ init_68881_table ()
 }
 
 int
-standard_68881_constant_p (x)
-     rtx x;
+standard_68881_constant_p (rtx x)
 {
   REAL_VALUE_TYPE r;
   int i;
-
-#ifdef NO_ASM_FMOVECR
-  return 0;
-#endif
 
   /* fmovecr must be emulated on the 68040 and 68060, so it shouldn't be
      used at all on those chips.  */
@@ -2579,8 +2638,7 @@ standard_68881_constant_p (x)
    or 0 if X is not a power of 2.  */
 
 int
-floating_exact_log2 (x)
-     rtx x;
+floating_exact_log2 (rtx x)
 {
   REAL_VALUE_TYPE r, r1;
   int exp;
@@ -2645,10 +2703,7 @@ floating_exact_log2 (x)
    */
 
 void
-print_operand (file, op, letter)
-     FILE *file;		/* file to write to */
-     rtx op;			/* operand to print */
-     int letter;		/* %<letter> or 0 */
+print_operand (FILE *file, rtx op, int letter)
 {
   if (letter == '.')
     {
@@ -2817,9 +2872,7 @@ print_operand (file, op, letter)
 #endif /* ASM_OUTPUT_CASE_FETCH */
 
 void
-print_operand_address (file, addr)
-     FILE *file;
-     rtx addr;
+print_operand_address (FILE *file, rtx addr)
 {
   register rtx reg1, reg2, breg, ireg;
   rtx offset;
@@ -3125,11 +3178,9 @@ print_operand_address (file, addr)
    insn we are checking for redundancy.  TARGET is the register set by the
    clear insn.  */
 
-int
-strict_low_part_peephole_ok (mode, first_insn, target)
-     enum machine_mode mode;
-     rtx first_insn;
-     rtx target;
+bool
+strict_low_part_peephole_ok (enum machine_mode mode, rtx first_insn,
+                             rtx target)
 {
   rtx p;
 
@@ -3139,7 +3190,7 @@ strict_low_part_peephole_ok (mode, first_insn, target)
     {
       /* If it isn't an insn, then give up.  */
       if (GET_CODE (p) != INSN)
-	return 0;
+	return false;
 
       if (reg_set_p (target, p))
 	{
@@ -3148,7 +3199,7 @@ strict_low_part_peephole_ok (mode, first_insn, target)
 
 	  /* If it isn't an easy to recognize insn, then give up.  */
 	  if (! set)
-	    return 0;
+	    return false;
 
 	  dest = SET_DEST (set);
 
@@ -3156,7 +3207,7 @@ strict_low_part_peephole_ok (mode, first_insn, target)
 	     first_insn is redundant.  */
 	  if (rtx_equal_p (dest, target)
 	      && SET_SRC (set) == const0_rtx)
-	    return 1;
+	    return true;
 	  else if (GET_CODE (dest) == STRICT_LOW_PART
 		   && GET_CODE (XEXP (dest, 0)) == REG
 		   && REGNO (XEXP (dest, 0)) == REGNO (target)
@@ -3166,14 +3217,14 @@ strict_low_part_peephole_ok (mode, first_insn, target)
 	       we are using, so it is safe.  */
 	    ;
 	  else
-	    return 0;
+	    return false;
 	}
 
       p = prev_nonnote_insn (p);
 
     }
 
-  return 0;
+  return false;
 }
 
 /* Accept integer operands in the range 0..0xffffffff.  We have to check the
@@ -3181,9 +3232,7 @@ strict_low_part_peephole_ok (mode, first_insn, target)
    need some extra crud to make it work when hosted on 64-bit machines.  */
 
 int
-const_uint32_operand (op, mode)
-     rtx op;
-     enum machine_mode mode;
+const_uint32_operand (rtx op, enum machine_mode mode)
 {
   /* It doesn't make sense to ask this question with a mode that is
      not larger than 32 bits.  */
@@ -3205,9 +3254,7 @@ const_uint32_operand (op, mode)
    contexts.  */
 
 int
-const_sint32_operand (op, mode)
-     rtx op;
-     enum machine_mode mode;
+const_sint32_operand (rtx op, enum machine_mode mode)
 {
   /* It doesn't make sense to ask this question with a mode that is
      not larger than 32 bits.  */
@@ -3281,9 +3328,7 @@ const_sint32_operand (op, mode)
    is specified.  */
 
 int
-general_src_operand (op, mode)
-     rtx op;
-     enum machine_mode mode;
+general_src_operand (rtx op, enum machine_mode mode)
 {
   if (TARGET_PCREL
       && GET_CODE (op) == MEM
@@ -3299,9 +3344,7 @@ general_src_operand (op, mode)
    is specified.  */
 
 int
-nonimmediate_src_operand (op, mode)
-     rtx op;
-     enum machine_mode mode;
+nonimmediate_src_operand (rtx op, enum machine_mode mode)
 {
   if (TARGET_PCREL && GET_CODE (op) == MEM
       && (GET_CODE (XEXP (op, 0)) == SYMBOL_REF
@@ -3316,9 +3359,7 @@ nonimmediate_src_operand (op, mode)
    is specified.  */
 
 int
-memory_src_operand (op, mode)
-     rtx op;
-     enum machine_mode mode;
+memory_src_operand (rtx op, enum machine_mode mode)
 {
   if (TARGET_PCREL && GET_CODE (op) == MEM
       && (GET_CODE (XEXP (op, 0)) == SYMBOL_REF
@@ -3333,24 +3374,21 @@ memory_src_operand (op, mode)
    "general_src_operand".  */
 
 int
-pcrel_address (op, mode)
-     rtx op;
-     enum machine_mode mode ATTRIBUTE_UNUSED;
+pcrel_address (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 {
   return (GET_CODE (op) == SYMBOL_REF || GET_CODE (op) == LABEL_REF
 	  || GET_CODE (op) == CONST);
 }
 
 const char *
-output_andsi3 (operands)
-     rtx *operands;
+output_andsi3 (rtx *operands)
 {
   int logval;
   if (GET_CODE (operands[2]) == CONST_INT
       && (INTVAL (operands[2]) | 0xffff) == 0xffffffff
       && (DATA_REG_P (operands[0])
 	  || offsettable_memref_p (operands[0]))
-      && !TARGET_5200)
+      && !TARGET_COLDFIRE)
     {
       if (GET_CODE (operands[0]) != REG)
         operands[0] = adjust_address (operands[0], HImode, 2);
@@ -3383,15 +3421,14 @@ output_andsi3 (operands)
 }
 
 const char *
-output_iorsi3 (operands)
-     rtx *operands;
+output_iorsi3 (rtx *operands)
 {
   register int logval;
   if (GET_CODE (operands[2]) == CONST_INT
       && INTVAL (operands[2]) >> 16 == 0
       && (DATA_REG_P (operands[0])
 	  || offsettable_memref_p (operands[0]))
-      && !TARGET_5200)
+      && !TARGET_COLDFIRE)
     {
       if (GET_CODE (operands[0]) != REG)
         operands[0] = adjust_address (operands[0], HImode, 2);
@@ -3420,14 +3457,13 @@ output_iorsi3 (operands)
 }
 
 const char *
-output_xorsi3 (operands)
-     rtx *operands;
+output_xorsi3 (rtx *operands)
 {
   register int logval;
   if (GET_CODE (operands[2]) == CONST_INT
       && INTVAL (operands[2]) >> 16 == 0
       && (offsettable_memref_p (operands[0]) || DATA_REG_P (operands[0]))
-      && !TARGET_5200)
+      && !TARGET_COLDFIRE)
     {
       if (! DATA_REG_P (operands[0]))
 	operands[0] = adjust_address (operands[0], HImode, 2);
@@ -3455,12 +3491,12 @@ output_xorsi3 (operands)
   return "eor%.l %2,%0";
 }
 
+#ifdef M68K_TARGET_COFF
+
 /* Output assembly to switch to section NAME with attribute FLAGS.  */
 
 static void
-m68k_coff_asm_named_section (name, flags)
-     const char *name;
-     unsigned int flags;
+m68k_coff_asm_named_section (const char *name, unsigned int flags)
 {
   char flagchar;
 
@@ -3472,28 +3508,12 @@ m68k_coff_asm_named_section (name, flags)
   fprintf (asm_out_file, "\t.section\t%s,\"%c\"\n", name, flagchar);
 }
 
-#ifdef CTOR_LIST_BEGIN
-static void
-m68k_svr3_asm_out_constructor (symbol, priority)
-     rtx symbol;
-     int priority ATTRIBUTE_UNUSED;
-{
-  rtx xop[2];
-
-  xop[1] = symbol;
-  xop[0] = gen_rtx_MEM (SImode, gen_rtx_PRE_DEC (SImode, stack_pointer_rtx));
-
-  init_section ();
-  output_asm_insn (output_move_simode (xop), xop);
-}
-#endif
+#endif /* M68K_TARGET_COFF */
 
 #ifdef HPUX_ASM
 static void
-m68k_hp320_internal_label (stream, prefix, labelno)
-     FILE *stream;
-     const char *prefix;
-     unsigned long labelno;
+m68k_hp320_internal_label (FILE *stream, const char *prefix,
+                           unsigned long labelno)
 {
   if (prefix[0] == 'L' && prefix[1] == 'I')
     fprintf(stream, "\tset %s%ld,.+2\n", prefix, labelno);
@@ -3502,7 +3522,7 @@ m68k_hp320_internal_label (stream, prefix, labelno)
 }
 
 static void
-m68k_hp320_file_start ()
+m68k_hp320_file_start (void)
 {
   /* version 1: 68010.
              2: 68020 without FPU.
@@ -3513,12 +3533,10 @@ m68k_hp320_file_start ()
 #endif
 
 static void
-m68k_output_mi_thunk (file, thunk, delta, vcall_offset, function)
-     FILE *file;
-     tree thunk ATTRIBUTE_UNUSED;
-     HOST_WIDE_INT delta;
-     HOST_WIDE_INT vcall_offset ATTRIBUTE_UNUSED;
-     tree function;
+m68k_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
+		      HOST_WIDE_INT delta,
+		      HOST_WIDE_INT vcall_offset ATTRIBUTE_UNUSED,
+		      tree function)
 {
   rtx xops[1];
   const char *fmt;
@@ -3573,11 +3591,7 @@ m68k_output_mi_thunk (file, thunk, delta, vcall_offset, function)
   else
     {
 #if defined (MOTOROLA) && !defined (USE_GAS)
-#ifdef MOTOROLA_BSR
-      fmt = "bra %0";
-#else
       fmt = "jmp %0";
-#endif
 #else
       fmt = "jra %0";
 #endif

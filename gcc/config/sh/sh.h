@@ -319,6 +319,7 @@ extern int target_flags;
   {"dalign",  	DALIGN_BIT, "Aligns doubles at 64-bit boundaries" },		\
   {"fmovd",  	FMOVD_BIT, "" },		\
   {"hitachi",	HITACHI_BIT, "Follow Renesas (formerly Hitachi) / SuperH calling conventions" },		\
+  {"renesas",	HITACHI_BIT, "Follow Renesas (formerly Hitachi) / SuperH calling conventions" },		\
   {"nomacsave", NOMACSAVE_BIT, "Mark MAC register as call-clobbered" },		\
   {"ieee",  	IEEE_BIT, "Increase the IEEE compliance for floating-point code" },			\
   {"isize", 	ISIZE_BIT, "" },		\
@@ -926,7 +927,7 @@ extern char sh_additional_register_names[ADDREGNAMES_SIZE] \
      Only the lower 32bits of R10-R14 are guaranteed to be preserved	\
      across SH5 function calls.  */					\
   0,      0,      0,      0,      0,      0,      0,      1,		\
-  1,      1,      0,      1,      1,      1,      1,      1,		\
+  1,      1,      1,      1,      1,      1,      1,      1,		\
   1,      1,      1,      1,      0,      0,      0,      0,		\
   0,      0,      0,      0,      1,      1,      1,      1,		\
   1,      1,      1,      1,      0,      0,      0,      0,		\
@@ -946,7 +947,7 @@ extern char sh_additional_register_names[ADDREGNAMES_SIZE] \
 /* XD registers.  */							\
   1,      1,      1,      1,      1,      1,      0,      0,		\
 /*"gbr",  "ap",	  "pr",   "t",    "mach", "macl", "fpul", "fpscr", */	\
-  1,      1,      0,      1,      1,      1,      1,      1,		\
+  1,      1,      1,      1,      1,      1,      1,      1,		\
 /*"rap" */								\
   1,									\
 }
@@ -1018,7 +1019,7 @@ extern char sh_additional_register_names[ADDREGNAMES_SIZE] \
    ? (MODE) == DFmode \
    : TARGET_REGISTER_P (REGNO) \
    ? ((MODE) == DImode || (MODE) == SImode) \
-   : (REGNO) == PR_REG ? 0			\
+   : (REGNO) == PR_REG ? (MODE) == SImode \
    : (REGNO) == FPSCR_REG ? (MODE) == PSImode \
    : 1)
 
@@ -1125,29 +1126,6 @@ extern char sh_additional_register_names[ADDREGNAMES_SIZE] \
 
 /* Register in which the static-chain is passed to a function.  */
 #define STATIC_CHAIN_REGNUM	(TARGET_SH5 ? 1 : 3)
-
-/* The register in which a struct value address is passed.  */
-
-#define STRUCT_VALUE_REGNUM 2
-
-/* If the structure value address is not passed in a register, define
-   `STRUCT_VALUE' as an expression returning an RTX for the place
-   where the address is passed.  If it returns 0, the address is
-   passed as an "invisible" first argument.  */
-
-/* The Renesas calling convention doesn't quite fit into this scheme since
-   the address is passed like an invisible argument, but one that is always
-   passed in memory.  */
-#define STRUCT_VALUE \
-  (TARGET_HITACHI ? 0 : gen_rtx_REG (Pmode, STRUCT_VALUE_REGNUM))
-
-#define RETURN_IN_MEMORY(TYPE) \
-  (TARGET_SH5 \
-   ? ((TYPE_MODE (TYPE) == BLKmode \
-       ? (unsigned HOST_WIDE_INT) int_size_in_bytes (TYPE) \
-       : GET_MODE_SIZE (TYPE_MODE (TYPE))) > 8) \
-   : (TYPE_MODE (TYPE) == BLKmode \
-      || (TARGET_HITACHI && TREE_CODE (TYPE) == RECORD_TYPE)))
 
 /* Don't default to pcc-struct-return, because we have already specified
    exactly how to return structures in the RETURN_IN_MEMORY macro.  */
@@ -1797,6 +1775,10 @@ struct sh_args {
 #define CALL_COOKIE_INT_REG_GET(COOKIE, REG) \
   (((COOKIE) >> CALL_COOKIE_INT_REG_SHIFT (REG)) & ((REG) < 4 ? 7 : 15))
     long call_cookie;
+
+  /* This is set to nonzero when the call in question must use the Renesas ABI,
+     even without the -mrenesas option.  */
+    int renesas_abi;
 };
 
 #define CUMULATIVE_ARGS  struct sh_args
@@ -1839,17 +1821,18 @@ struct sh_args {
 
    For TARGET_HITACHI, the structure value pointer is passed in memory.  */
 
-#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT) \
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, FNDECL) \
   do {								\
     (CUM).arg_count[(int) SH_ARG_INT] = 0;			\
     (CUM).arg_count[(int) SH_ARG_FLOAT] = 0;			\
+    (CUM).renesas_abi = sh_attr_renesas_p (FNTYPE) ? 1 : 0;	\
     (CUM).force_mem						\
-      = (TARGET_HITACHI && FNTYPE				\
-	 && aggregate_value_p (TREE_TYPE (FNTYPE)));		\
+      = ((TARGET_HITACHI || (CUM).renesas_abi) && (FNTYPE)	\
+	 && aggregate_value_p (TREE_TYPE (FNTYPE), (FNDECL)));	\
     (CUM).prototype_p = (FNTYPE) && TYPE_ARG_TYPES (FNTYPE);	\
     (CUM).arg_count[(int) SH_ARG_INT]				\
       = (TARGET_SH5 && (FNTYPE)					\
-	 && aggregate_value_p (TREE_TYPE (FNTYPE)));		\
+	 && aggregate_value_p (TREE_TYPE (FNTYPE), (FNDECL)));	\
     (CUM).free_single_fp_reg = 0;				\
     (CUM).outgoing = 1;						\
     (CUM).stack_regs = 0;					\
@@ -1881,128 +1864,11 @@ struct sh_args {
     INIT_CUMULATIVE_ARGS ((CUM), (FNTYPE), (LIBNAME), 0);	\
     (CUM).outgoing = 0;						\
   } while (0)
- 
-/* Update the data in CUM to advance over an argument
-   of mode MODE and data type TYPE.
-   (TYPE is null for libcalls where that information may not be
-   available.)  */
 
 #define FUNCTION_ARG_ADVANCE(CUM, MODE, TYPE, NAMED)	\
- if ((CUM).force_mem)					\
-   (CUM).force_mem = 0;					\
- else if (TARGET_SH5)					\
-   {							\
-     tree TYPE_ = ((CUM).byref && (TYPE)		\
-		   ? TREE_TYPE (TYPE)			\
- 		   : (TYPE));				\
-     enum machine_mode MODE_ = ((CUM).byref && (TYPE)	\
-				? TYPE_MODE (TYPE_)	\
-				: (MODE));		\
-     int dwords = (((CUM).byref				\
-		    ? (CUM).byref			\
-		    : (MODE_) == BLKmode		\
-		    ? int_size_in_bytes (TYPE_)		\
-		    : GET_MODE_SIZE (MODE_)) + 7) / 8;	\
-     int numregs = MIN (dwords, NPARM_REGS (SImode)	\
-			- (CUM).arg_count[(int) SH_ARG_INT]); \
-							\
-     if (numregs)					\
-       {						\
-	 (CUM).arg_count[(int) SH_ARG_INT] += numregs;	\
-	 if (TARGET_SHCOMPACT				\
-	     && SHCOMPACT_FORCE_ON_STACK (MODE_, TYPE_)) \
-	   {						\
-	     (CUM).call_cookie 				\
-	       |= CALL_COOKIE_INT_REG (((CUM).arg_count[(int) SH_ARG_INT] \
-					- numregs), 1);	\
-	     /* N.B. We want this also for outgoing.   */\
-	     (CUM).stack_regs += numregs;		\
-	   }						\
-	 else if ((CUM).byref)				\
-	   {						\
-	     if (! (CUM).outgoing)			\
-	       (CUM).stack_regs += numregs;		\
-	     (CUM).byref_regs += numregs;		\
-	     (CUM).byref = 0;				\
-	     do						\
-	       (CUM).call_cookie			\
-		 |= CALL_COOKIE_INT_REG (((CUM).arg_count[(int) SH_ARG_INT] \
-					  - numregs), 2); \
-	     while (--numregs);				\
-	     (CUM).call_cookie				\
-	       |= CALL_COOKIE_INT_REG (((CUM).arg_count[(int) SH_ARG_INT] \
-				        - 1), 1); \
-	   }						\
-	 else if (dwords > numregs)			\
-	   {						\
-	     int pushregs = numregs;			\
-							\
-	     if (TARGET_SHCOMPACT)			\
-	       (CUM).stack_regs += numregs;		\
-	     while (pushregs < NPARM_REGS (SImode) - 1	\
-		    && (CALL_COOKIE_INT_REG_GET		\
-			((CUM).call_cookie,		\
-			NPARM_REGS (SImode) - pushregs) \
-			== 1))				\
-	       {					\
-		 (CUM).call_cookie			\
-		   &= ~ CALL_COOKIE_INT_REG (NPARM_REGS (SImode) \
-					     - pushregs, 1); \
-		 pushregs++;				\
-	       }					\
-	     if (numregs == NPARM_REGS (SImode))	\
-	       (CUM).call_cookie 			\
-		 |= CALL_COOKIE_INT_REG (0, 1)		\
-		    | CALL_COOKIE_STACKSEQ (numregs - 1); \
-	     else					\
-	       (CUM).call_cookie			\
-		 |= CALL_COOKIE_STACKSEQ (numregs);	\
-	   }						\
-       }						\
-     if (GET_SH_ARG_CLASS (MODE_) == SH_ARG_FLOAT	\
-	 && ((NAMED) || ! (CUM).prototype_p))		\
-       {						\
-	 if ((MODE_) == SFmode && (CUM).free_single_fp_reg) \
-	   (CUM).free_single_fp_reg = 0;		\
-	 else if ((CUM).arg_count[(int) SH_ARG_FLOAT]	\
- 		  < NPARM_REGS (SFmode))		\
-	   {					        \
-	     int numfpregs		 		\
-	       = MIN ((GET_MODE_SIZE (MODE_) + 7) / 8 * 2, \
-		      NPARM_REGS (SFmode)		\
-		      - (CUM).arg_count[(int) SH_ARG_FLOAT]); \
-		 					\
-	     (CUM).arg_count[(int) SH_ARG_FLOAT] += numfpregs; \
-							\
-	     if (TARGET_SHCOMPACT && ! (CUM).prototype_p) \
-	       {					\
-		 if ((CUM).outgoing && numregs > 0)	\
-		   do					\
-		     {					\
-		       (CUM).call_cookie		\
-			 |= (CALL_COOKIE_INT_REG	\
-			     ((CUM).arg_count[(int) SH_ARG_INT] \
-			      - numregs + ((numfpregs - 2) / 2), \
-			      4 + ((CUM).arg_count[(int) SH_ARG_FLOAT] \
-				   - numfpregs) / 2));	\
-		     }					\
-		   while (numfpregs -= 2);		\
-	       }					\
-	     else if ((MODE_) == SFmode && (NAMED)	\
-		      && ((CUM).arg_count[(int) SH_ARG_FLOAT] \
-			  < NPARM_REGS (SFmode)))	\
-	       (CUM).free_single_fp_reg			\
-		 = FIRST_FP_PARM_REG - numfpregs	\
-		 + (CUM).arg_count[(int) SH_ARG_FLOAT] + 1; \
-	   }						\
-       }						\
-   }							\
- else if (! TARGET_SH4 || PASS_IN_REG_P ((CUM), (MODE), (TYPE))) \
-   ((CUM).arg_count[(int) GET_SH_ARG_CLASS (MODE)]	\
-    = (ROUND_REG ((CUM), (MODE))			\
-       + ((MODE) == BLKmode				\
-	  ? ROUND_ADVANCE (int_size_in_bytes (TYPE))	\
-	  : ROUND_ADVANCE (GET_MODE_SIZE (MODE)))))
+	sh_function_arg_advance (&(CUM), (MODE), (TYPE), (NAMED))
+#define FUNCTION_ARG(CUM, MODE, TYPE, NAMED)	\
+	sh_function_arg (&(CUM), (MODE), (TYPE), (NAMED))
 
 /* Return boolean indicating arg of mode MODE will be passed in a reg.
    This macro is only used in this file.  */
@@ -2010,7 +1876,11 @@ struct sh_args {
 #define PASS_IN_REG_P(CUM, MODE, TYPE) \
   (((TYPE) == 0 \
     || (! TREE_ADDRESSABLE ((tree)(TYPE)) \
-	&& (! TARGET_HITACHI || ! AGGREGATE_TYPE_P (TYPE)))) \
+	&& (! (TARGET_HITACHI || (CUM).renesas_abi) \
+	    || ! (AGGREGATE_TYPE_P (TYPE) \
+		  || (!TARGET_FPU_ANY \
+		      && (GET_MODE_CLASS (MODE) == MODE_FLOAT \
+			  && GET_MODE_SIZE (MODE) > GET_MODE_SIZE (SFmode))))))) \
    && ! (CUM).force_mem \
    && (TARGET_SH2E \
        ? ((MODE) == BLKmode \
@@ -2039,75 +1909,6 @@ struct sh_args {
                             this should be the other way round...
    foo (float a, __complex float b); a: fr5 b.real: fr4 b.imag: fr7  */
 #define FUNCTION_ARG_SCmode_WART 1
-
-/* Define where to put the arguments to a function.
-   Value is zero to push the argument on the stack,
-   or a hard register in which to store the argument.
-
-   MODE is the argument's machine mode.
-   TYPE is the data type of the argument (as a tree).
-    This is null for libcalls where that information may
-    not be available.
-   CUM is a variable of type CUMULATIVE_ARGS which gives info about
-    the preceding args and about the function being called.
-   NAMED is nonzero if this argument is a named parameter
-    (otherwise it is an extra parameter matching an ellipsis).
-
-   On SH the first args are normally in registers
-   and the rest are pushed.  Any arg that starts within the first
-   NPARM_REGS words is at least partially passed in a register unless
-   its data type forbids.  */
-
-#define FUNCTION_ARG(CUM, MODE, TYPE, NAMED) \
-  ((! TARGET_SH5 \
-    && PASS_IN_REG_P ((CUM), (MODE), (TYPE))				\
-    && ((NAMED) || !TARGET_HITACHI))					\
-   ? (((MODE) == SCmode && TARGET_SH4 && TARGET_LITTLE_ENDIAN		\
-       && (! FUNCTION_ARG_SCmode_WART || (ROUND_REG ((CUM), (MODE)) & 1)))\
-      ? (gen_rtx_PARALLEL						\
-	 (SCmode,							\
-	  (gen_rtvec							\
-	   (2, 								\
-	    (gen_rtx_EXPR_LIST						\
-	     (VOIDmode,							\
-	      gen_rtx_REG (SFmode,					\
-			   BASE_ARG_REG (MODE)				\
-			   + (ROUND_REG ((CUM), (MODE)) ^ 1)),		\
-	      const0_rtx)),						\
-	    (gen_rtx_EXPR_LIST						\
-	     (VOIDmode,							\
-	      gen_rtx_REG (SFmode,					\
-			   BASE_ARG_REG (MODE)				\
-			   + ((ROUND_REG ((CUM), (MODE)) + 1) ^ 1)),	\
-	      GEN_INT (4)))))))						\
-      : gen_rtx_REG ((MODE),						\
-		     ((BASE_ARG_REG (MODE) + ROUND_REG ((CUM), (MODE))) \
-		      ^ ((MODE) == SFmode && TARGET_SH4			\
-			 && TARGET_LITTLE_ENDIAN != 0))))		\
-   : TARGET_SH5								\
-   ? ((MODE) == VOIDmode && TARGET_SHCOMPACT				\
-      ? GEN_INT ((CUM).call_cookie)					\
-      /* The following test assumes unnamed arguments are promoted to	\
-	 DFmode.  */							\
-      : (MODE) == SFmode && (CUM).free_single_fp_reg			\
-      ? SH5_PROTOTYPED_FLOAT_ARG ((CUM), (MODE), (CUM).free_single_fp_reg) \
-      : (GET_SH_ARG_CLASS (MODE) == SH_ARG_FLOAT			\
-         && ((NAMED) || ! (CUM).prototype_p)				\
-         && (CUM).arg_count[(int) SH_ARG_FLOAT] < NPARM_REGS (SFmode))	\
-      ? ((! (CUM).prototype_p && TARGET_SHMEDIA)			\
-	 ? SH5_PROTOTYPELESS_FLOAT_ARG ((CUM), (MODE))			\
-	 : SH5_PROTOTYPED_FLOAT_ARG ((CUM), (MODE),			\
-				     FIRST_FP_PARM_REG			\
-				     + (CUM).arg_count[(int) SH_ARG_FLOAT])) \
-      : ((CUM).arg_count[(int) SH_ARG_INT] < NPARM_REGS (SImode)	\
-	 && (! TARGET_SHCOMPACT						\
-	     || (! SHCOMPACT_FORCE_ON_STACK ((MODE), (TYPE))		\
-	         && ! SH5_WOULD_BE_PARTIAL_NREGS ((CUM), (MODE),	\
-						  (TYPE), (NAMED)))))	\
-      ? gen_rtx_REG ((MODE), (FIRST_PARM_REG				\
- 			      + (CUM).arg_count[(int) SH_ARG_INT]))	\
-      : 0)								\
-   : 0)
 
 /* Whether an argument must be passed by reference.  On SHcompact, we
    pretend arguments wider than 32-bits that would have been passed in
@@ -2203,10 +2004,6 @@ struct sh_args {
 							  (REG)),	\
 				   const0_rtx))))
 
-#define STRICT_ARGUMENT_NAMING TARGET_SH5
-
-#define PRETEND_OUTGOING_VARARGS_NAMED (! TARGET_HITACHI && ! TARGET_SH5)
-
 /* For an arg passed partly in registers and partly in memory,
    this is the number of registers used.
    For args passed entirely in registers or entirely in memory, zero.
@@ -2237,16 +2034,6 @@ struct sh_args {
 
 /* Perform any needed actions needed for a function that is receiving a
    variable number of arguments.  */
-
-/* We actually emit the code in sh_expand_prologue.  We used to use
-   a static variable to flag that we need to emit this code, but that
-   doesn't when inlining, when functions are deferred and then emitted
-   later.  Fortunately, we already have two flags that are part of struct
-   function that tell if a function uses varargs or stdarg.  */
-#define SETUP_INCOMING_VARARGS(ASF, MODE, TYPE, PAS, ST)  do \
-  if (! current_function_stdarg) \
-    abort (); \
-while (0)
 
 /* Define the `__builtin_va_list' type for the ABI.  */
 #define BUILD_VA_LIST_TYPE(VALIST) \
@@ -2335,14 +2122,6 @@ while (0)
    the stack.  */
 #define INCOMING_RETURN_ADDR_RTX \
   gen_rtx_REG (Pmode, TARGET_SHMEDIA ? PR_MEDIA_REG : PR_REG)
-
-/* libstdc++-v3/libsupc++/eh_personality.cc:__gxx_personality_v0
-   can get confused by SHmedia return addresses when it does:
-   ip = _Unwind_GetIP (context) - 1;  */
-#define RETURN_ADDR_OFFSET (TARGET_SH5 ? -1 : 0)
-
-/* Generate necessary RTL for __builtin_saveregs().  */
-#define EXPAND_BUILTIN_SAVEREGS() sh_builtin_saveregs ()
 
 /* Addressing modes, and classification of registers for them.  */
 #define HAVE_POST_INCREMENT  TARGET_SH1
@@ -2924,9 +2703,6 @@ while (0)
    but a CALL with constant address is cheap.  */
 /*#define NO_FUNCTION_CSE 1*/
 
-/* Chars and shorts should be passed as ints.  */
-#define PROMOTE_PROTOTYPES 1
-
 /* The machine modes of pointers and functions.  */
 #define Pmode  (TARGET_SHMEDIA64 ? DImode : SImode)
 #define FUNCTION_MODE  Pmode
@@ -3101,18 +2877,30 @@ while (0)
    register exists, so we should return -1 for invalid register numbers.  */
 #define DBX_REGISTER_NUMBER(REGNO) SH_DBX_REGISTER_NUMBER (REGNO)
 
+/* SHcompact PR_REG used to use the encoding 241, and SHcompact FP registers
+   used to use the encodings 245..260, but that doesn't make sense:
+   PR_REG and PR_MEDIA_REG are actually the same register, and likewise
+   the FP registers stay the same when switching between compact and media
+   mode.  Hence, we also need to use the same dwarf frame coloumns.
+   Likewise, we need to support unwind information for SHmedia registers
+   even in compact code.  */
 #define SH_DBX_REGISTER_NUMBER(REGNO) \
-  (GENERAL_REGISTER_P (REGNO) \
+  (IN_RANGE ((REGNO), \
+	     (unsigned HOST_WIDE_INT) FIRST_GENERAL_REG, \
+	     FIRST_GENERAL_REG + (TARGET_SH5 ? 63U :15U)) \
    ? ((unsigned) (REGNO) - FIRST_GENERAL_REG) \
-   : FP_REGISTER_P (REGNO) \
+  : ((int) (REGNO) >= FIRST_FP_REG \
+     && ((int) (REGNO) \
+	 <= (FIRST_FP_REG + \
+	     ((TARGET_SH5 && TARGET_FPU_ANY) ? 63 : TARGET_SH2E ? 15 : -1)))) \
    ? ((unsigned) (REGNO) - FIRST_FP_REG \
-      + (TARGET_SH5 ? (TARGET_SHCOMPACT ? 245 : 77) : 25)) \
+      + (TARGET_SH5 ? 77 : 25)) \
    : XD_REGISTER_P (REGNO) \
    ? ((unsigned) (REGNO) - FIRST_XD_REG + (TARGET_SH5 ? 289 : 87)) \
    : TARGET_REGISTER_P (REGNO) \
    ? ((unsigned) (REGNO) - FIRST_TARGET_REG + 68) \
    : (REGNO) == PR_REG \
-   ? (TARGET_SH5 ? 241 : 17) \
+   ? (TARGET_SH5 ? 18 : 17) \
    : (REGNO) == PR_MEDIA_REG \
    ? (TARGET_SH5 ? 18 : (unsigned) -1) \
    : (REGNO) == T_REG \
@@ -3472,6 +3260,27 @@ extern int rtx_equal_function_value_matters;
 #define EH_RETURN_STACKADJ_REGNO STATIC_CHAIN_REGNUM
 #define EH_RETURN_STACKADJ_RTX	gen_rtx_REG (Pmode, EH_RETURN_STACKADJ_REGNO)
 
+/* We have to distinguish between code and data, so that we apply
+   datalabel where and only where appropriate.  Use textrel for code.  */
+#define ASM_PREFERRED_EH_DATA_FORMAT(CODE, GLOBAL) \
+ ((flag_pic && (GLOBAL) ? DW_EH_PE_indirect : 0) \
+  | ((CODE) ? DW_EH_PE_textrel : flag_pic ? DW_EH_PE_pcrel : DW_EH_PE_absptr))
+
+/* Handle special EH pointer encodings.  Absolute, pc-relative, and
+   indirect are handled automatically.  */
+#define ASM_MAYBE_OUTPUT_ENCODED_ADDR_RTX(FILE, ENCODING, SIZE, ADDR, DONE) \
+  do { \
+    if (((ENCODING) & 0x70) == DW_EH_PE_textrel) \
+      { \
+	encoding &= ~DW_EH_PE_textrel; \
+	encoding |= flag_pic ? DW_EH_PE_pcrel : DW_EH_PE_absptr; \
+	if (GET_CODE (ADDR) != SYMBOL_REF) \
+	  abort (); \
+	SYMBOL_REF_FLAGS (ADDR) |= SYMBOL_FLAG_FUNCTION; \
+	if (0) goto DONE; \
+      } \
+  } while (0)
+
 #if (defined CRT_BEGIN || defined CRT_END) && ! __SHMEDIA__
 /* SH constant pool breaks the devices in crtstuff.c to control section
    in where code resides.  We have to write it as asm code.  */
@@ -3487,8 +3296,13 @@ extern int rtx_equal_function_value_matters;
 #endif /* (defined CRT_BEGIN || defined CRT_END) && ! __SHMEDIA__ */
 
 #define ALLOCATE_INITIAL_VALUE(hard_reg) \
-  (REGNO (hard_reg) == (TARGET_SH5 ? PR_MEDIA_REG : PR_REG) \
-   ? (current_function_is_leaf && ! sh_pr_n_sets () \
+  (REGNO (hard_reg) == (TARGET_SHMEDIA ? PR_MEDIA_REG : PR_REG) \
+   ? (current_function_is_leaf \
+      && ! sh_pr_n_sets () \
+      && ! (TARGET_SHCOMPACT \
+	    && ((current_function_args_info.call_cookie \
+		 & ~ CALL_COOKIE_RET_TRAMP (1)) \
+		|| current_function_has_nonlocal_label)) \
       ? (hard_reg) \
       : gen_rtx_MEM (Pmode, TARGET_SH5 \
 			    ? (plus_constant (arg_pointer_rtx, \

@@ -46,7 +46,7 @@ typedef surf facet_type;
 void test02()
 {
   using namespace std;
-  bool test = true;
+  bool test __attribute__((unused)) = true;
 
   // 1: Destroyed when out of scope.
   VERIFY( counter == 0 );
@@ -83,7 +83,7 @@ void test02()
   // 4: Named locale should destroy facets when it goes out of scope.
   // Not quite sure how to test for this w/o valgrind at the moment.
   {
-    locale loc03 = __gnu_cxx_test::try_named_locale("es_MX");
+    locale loc03 = __gnu_test::try_named_locale("es_MX");
   }
 }
 

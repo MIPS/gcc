@@ -40,8 +40,8 @@ determine_endianness (void)
 {
   union
   {
-    G95_LOGICAL_8 l8;
-    G95_LOGICAL_4 l4[2];
+    GFC_LOGICAL_8 l8;
+    GFC_LOGICAL_4 l4[2];
   } u;
 
   u.l8 = 1;

@@ -469,7 +469,8 @@ dbxout_init (const char *input_file_name)
   /* Put the current working directory in an N_SO symbol.  */
   if (use_gnu_debug_info_extensions)
     {
-      if (!cwd && (cwd = getpwd ()) && (!*cwd || cwd[strlen (cwd) - 1] != '/'))
+      if (!cwd && (cwd = get_src_pwd ())
+	  && (!*cwd || cwd[strlen (cwd) - 1] != '/'))
 	cwd = concat (cwd, FILE_NAME_JOINER, NULL);
       if (cwd)
 	{
@@ -534,9 +535,10 @@ dbxout_init (const char *input_file_name)
   DBX_OUTPUT_STANDARD_TYPES (syms);
 #endif
 
-  /* Get all permanent types that have typedef names,
-     and output them all, except for those already output.  */
-
+  /* Get all permanent types that have typedef names, and output them
+     all, except for those already output.  Some language front ends
+     put these declarations in the top-level scope; some do not.  */
+  dbxout_typedefs ((*lang_hooks.decls.builtin_type_decls) ());
   dbxout_typedefs (syms);
 }
 
@@ -2687,7 +2689,7 @@ static void
 dbxout_prepare_symbol (tree decl ATTRIBUTE_UNUSED)
 {
 #ifdef WINNING_GDB
-  const char *filename = TREE_FILENAME (decl);
+  const char *filename = DECL_SOURCE_FILE (decl);
 
   dbxout_source_file (asmfile, filename);
 #endif
@@ -2701,7 +2703,7 @@ dbxout_finish_symbol (tree sym)
 #else
   int line = 0;
   if (use_gnu_debug_info_extensions && sym != 0)
-    line = TREE_LINENO (sym);
+    line = DECL_SOURCE_LINE (sym);
 
   fprintf (asmfile, "\",%d,0,%d,", current_sym_code, line);
   if (current_sym_addr)

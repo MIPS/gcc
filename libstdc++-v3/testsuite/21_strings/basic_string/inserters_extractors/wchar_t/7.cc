@@ -34,7 +34,7 @@
 // NB: this is a defect in the standard.
 void test07(void)
 {
-  bool test = true;
+  bool test __attribute__((unused)) = true;
   const std::wstring name(L"z6.cc");
   std::wistringstream iss(name);
   int i = 0;
@@ -44,10 +44,6 @@ void test07(void)
 
   VERIFY( i < 3 );
   VERIFY( static_cast<bool>(iss.rdstate() & std::ios_base::failbit) );
-
-#ifdef DEBUG_ASSERT
-  assert(test);
-#endif
 }
 
 int main()

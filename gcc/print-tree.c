@@ -319,10 +319,8 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
       if (TREE_CODE (node) == TYPE_DECL && TYPE_DECL_SUPPRESS_DEBUG (node))
 	fputs (" suppress-debug", file);
 
-      if (TREE_CODE (node) == FUNCTION_DECL && DID_INLINE_FUNC (node))
-	fputs (" autoinline", file);
-      else if (TREE_CODE (node) == FUNCTION_DECL && DECL_INLINE (node))
-	fputs (" inline", file);
+      if (TREE_CODE (node) == FUNCTION_DECL && DECL_INLINE (node))
+	fputs (DECL_DECLARED_INLINE_P (node) ? " inline" : " autoinline", file);
       if (TREE_CODE (node) == FUNCTION_DECL && DECL_BUILT_IN (node))
 	fputs (" built-in", file);
       if (TREE_CODE (node) == FUNCTION_DECL && DECL_NO_STATIC_CHAIN (node))
@@ -372,7 +370,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 
       fprintf (file, " %s", GET_MODE_NAME (mode));
       fprintf (file, " file %s line %d",
-	       TREE_FILENAME (node), TREE_LINENO (node));
+	       DECL_SOURCE_FILE (node), DECL_SOURCE_LINE (node));
 
       print_node (file, "size", DECL_SIZE (node), indent + 4);
       print_node (file, "unit size", DECL_SIZE_UNIT (node), indent + 4);
@@ -734,12 +732,12 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
       break;
     }
 
-  if (TREE_LOCUS (node) && TREE_FILENAME (node))
+  if (EXPR_LOCUS (node))
     {
       indent_to (file, indent+4);
       fprintf (file, "%s:%d",
-	       TREE_FILENAME (node),
-	       TREE_LINENO (node));
+	       EXPR_FILENAME (node),
+	       EXPR_LINENO (node));
     }
 
   fprintf (file, ">");

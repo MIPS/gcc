@@ -1,3 +1,7 @@
+2003-09-25  Jason Merrill  <jason@redhat.com>
+
+	* trans.c, utils.c: Revert 2003-01-15 change.
+
 2003-01-15  Jeff Law <law@redhat.com>
 
 	* trans.c (tree_transform): Use annotate_with_file_line to add
@@ -7,3 +11,7 @@
 	* utils.c (create_label_decl): Use annotate_with_file_line to
 	add file/line information to nodes.
 
+Local Variables:
+mode: change-log
+change-log-default-name: "ChangeLog.tree-ssa"
+End:

@@ -101,6 +101,39 @@ if test x = y ; then
 fi
 ])
 
+dnl 'make compare' can be significantly faster, if cmp itself can
+dnl skip bytes instead of using tail.  The test being performed is
+dnl "if cmp --ignore-initial=2 t1 t2 && ! cmp --ignore-initial=1 t1 t2"
+dnl but we need to sink errors and handle broken shells.  We also test
+dnl for the parameter format "cmp file1 file2 skip1 skip2" which is
+dnl accepted by cmp on some systems.
+AC_DEFUN(gcc_AC_PROG_CMP_IGNORE_INITIAL,
+[AC_CACHE_CHECK([for cmp's capabilities], gcc_cv_prog_cmp_skip,
+[ echo abfoo >t1
+  echo cdfoo >t2
+  gcc_cv_prog_cmp_skip=slowcompare
+  if cmp --ignore-initial=2 t1 t2 > /dev/null 2>&1; then
+    if cmp --ignore-initial=1 t1 t2 > /dev/null 2>&1; then
+      :
+    else
+      gcc_cv_prog_cmp_skip=gnucompare
+    fi
+  fi
+  if test $gcc_cv_prog_cmp_skip = slowcompare ; then
+    if cmp t1 t2 2 2 > /dev/null 2>&1; then
+      if cmp t1 t2 1 1 > /dev/null 2>&1; then
+        :
+      else
+        gcc_cv_prog_cmp_skip=fastcompare
+      fi
+    fi
+  fi
+  rm t1 t2
+])
+make_compare_target=$gcc_cv_prog_cmp_skip
+AC_SUBST(make_compare_target)
+])
+
 dnl See if the printf functions in libc support %p in format strings.
 AC_DEFUN(gcc_AC_FUNC_PRINTF_PTR,
 [AC_CACHE_CHECK(whether the printf functions support %p,
@@ -680,6 +713,9 @@ done
 gcc_cv_gas_major_version=`expr "$gcc_cv_gas_version" : "VERSION=\([[0-9]]*\)"`
 gcc_cv_gas_minor_version=`expr "$gcc_cv_gas_version" : "VERSION=[[0-9]]*\.\([[0-9]]*\)"`
 gcc_cv_gas_patch_version=`expr "$gcc_cv_gas_version" : "VERSION=[[0-9]]*\.[[0-9]]*\.\([[0-9]]*\)"`
+case $gcc_cv_gas_patch_version in
+  "") gcc_cv_gas_patch_version="0" ;;
+esac
 gcc_cv_gas_vers=`expr \( \( $gcc_cv_gas_major_version \* 1000 \) \
 			    + $gcc_cv_gas_minor_version \) \* 1000 \
 			    + $gcc_cv_gas_patch_version`

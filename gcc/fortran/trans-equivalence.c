@@ -45,8 +45,8 @@ Boston, MA 02111-1307, USA.  */
 #include "coretypes.h"
 #include "tree.h"
 #include "toplev.h"
-#include "target.h"
 #include "tm.h"
+#include "target.h"
 #include <assert.h>
 #include "gfortran.h"
 #include "trans.h"

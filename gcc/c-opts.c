@@ -52,8 +52,6 @@ static int saved_lineno;
 static cpp_options *cpp_opts;
 
 /* Input filename.  */
-static const char **in_fnames;
-unsigned num_in_fnames;
 static const char *this_input_filename;
 
 /* Filename and stream for preprocessed output.  */
@@ -237,7 +235,7 @@ c_common_init_options (unsigned int argc, const char **argv ATTRIBUTE_UNUSED)
   return result;
 }
 
-/* Handle switch SCODE with argument ARG.  ON is true, unless no-
+/* Handle switch SCODE with argument ARG.  VALUE is true, unless no-
    form of an -f or -W option was given.  Returns 0 if the switch was
    invalid, a negative number to prevent language-independent
    processing in toplev.c (a hack necessary for the short-term).  */
@@ -337,6 +335,10 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       flag_no_line_commands = 1;
       break;
 
+    case OPT_fworking_directory:
+      flag_working_directory = value;
+      break;
+
     case OPT_U:
       defer_opt (code, arg);
       break;
@@ -412,6 +414,10 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       warn_ctor_dtor_privacy = value;
       break;
 
+    case OPT_Wdeclaration_after_statement:
+      warn_declaration_after_statement = value;
+      break;
+
     case OPT_Wdeprecated:
       warn_deprecated = value;
       cpp_opts->warn_deprecated = value;
@@ -469,6 +475,10 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       warn_format_zero_length = value;
       break;
 
+    case OPT_Winit_self:
+      warn_init_self = value;
+      break;
+
     case OPT_Wimplicit:
       set_Wimplicit (value);
       break;
@@ -482,7 +492,7 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       break;
 
     case OPT_Wimport:
-      cpp_opts->warn_import = value;
+      /* Silently ignore for now.  */
       break;
 
     case OPT_Winvalid_offsetof:
@@ -538,6 +548,10 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 
     case OPT_Wnonnull:
       warn_nonnull = value;
+      break;
+
+    case OPT_Wold_style_definition:
+      warn_old_style_definition = value;
       break;
 
     case OPT_Wold_style_cast:
@@ -671,6 +685,7 @@ c_common_handle_option (size_t scode, const char *arg, int value)
     case OPT_fthis_is_variable:
     case OPT_fvtable_thunks:
     case OPT_fxref:
+    case OPT_fvtable_gc:
       warning ("switch \"%s\" is no longer supported", option->opt_text);
       break;
 
@@ -712,7 +727,7 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 
     case OPT_ffreestanding:
       value = !value;
-      /* Fall through...  */
+      /* Fall through....  */
     case OPT_fhosted:
       flag_hosted = value;
       flag_no_builtin = !value;
@@ -887,10 +902,6 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       max_tinst_depth = value;
       break;
 
-    case OPT_fvtable_gc:
-      flag_vtable_gc = value;
-      break;
-
     case OPT_fuse_cxa_atexit:
       flag_use_cxa_atexit = value;
       break;
@@ -961,7 +972,7 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 	 is not overridden.  */
     case OPT_pedantic_errors:
       cpp_opts->pedantic_errors = 1;
-      /* fall through */
+      /* Fall through.  */
     case OPT_pedantic:
       cpp_opts->pedantic = 1;
       cpp_opts->warn_endif_labels = 1;
@@ -1024,15 +1035,6 @@ c_common_handle_option (size_t scode, const char *arg, int value)
     }
 
   return result;
-}
-
-/* Handle FILENAME from the command line.  */
-void
-c_common_handle_filename (const char *filename)
-{
-  num_in_fnames++;
-  in_fnames = xrealloc (in_fnames, num_in_fnames * sizeof (in_fnames[0]));
-  in_fnames[num_in_fnames - 1] = filename;
 }
 
 /* Post-switch processing.  */
@@ -1127,6 +1129,7 @@ c_common_post_options (const char **pfilename)
     }
 
   cpp_get_callbacks (parse_in)->file_change = cb_file_change;
+  cpp_post_options (parse_in);
 
   /* NOTE: we use in_fname here, not the one supplied.  */
   *pfilename = cpp_read_main_file (parse_in, in_fnames[0]);
@@ -1197,7 +1200,7 @@ c_common_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
 
 	  /* Reset cpplib's macros and start a new file.  */
 	  cpp_undef_all (parse_in);
-	  cpp_read_next_file (parse_in, in_fnames[file_index]);
+	  cpp_read_main_file (parse_in, in_fnames[file_index]);
 	}
 
       finish_options(in_fnames[file_index]);
@@ -1334,6 +1337,15 @@ sanitize_cpp_opts (void)
      and/or -Wtraditional, whatever the ordering.  */
   cpp_opts->warn_long_long
     = warn_long_long && ((!flag_isoc99 && pedantic) || warn_traditional);
+
+  /* If we're generating preprocessor output, emit current directory
+     if explicitly requested or if debugging information is enabled.
+     ??? Maybe we should only do it for debugging formats that
+     actually output the current directory?  */
+  if (flag_working_directory == -1)
+    flag_working_directory = (debug_info_level != DINFO_LEVEL_NONE);
+  cpp_opts->working_directory
+    = flag_preprocess_only && flag_working_directory;
 }
 
 /* Add include path with a prefix at the front of its name.  */
@@ -1464,7 +1476,6 @@ set_std_c89 (int c94, int iso)
   flag_no_asm = iso;
   flag_no_gnu_keywords = iso;
   flag_no_nonansi_builtin = iso;
-  flag_noniso_default_format_attributes = !iso;
   flag_isoc94 = c94;
   flag_isoc99 = 0;
   flag_writable_strings = 0;
@@ -1477,7 +1488,6 @@ set_std_c99 (int iso)
   cpp_set_lang (parse_in, iso ? CLK_STDC99: CLK_GNUC99);
   flag_no_asm = iso;
   flag_no_nonansi_builtin = iso;
-  flag_noniso_default_format_attributes = !iso;
   flag_iso = iso;
   flag_isoc99 = 1;
   flag_isoc94 = 1;
@@ -1491,7 +1501,6 @@ set_std_cxx98 (int iso)
   cpp_set_lang (parse_in, iso ? CLK_CXX98: CLK_GNUCXX);
   flag_no_gnu_keywords = iso;
   flag_no_nonansi_builtin = iso;
-  flag_noniso_default_format_attributes = !iso;
   flag_iso = iso;
 }
 

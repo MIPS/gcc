@@ -2919,6 +2919,12 @@ generate_classfile (tree clas, struct jcf_partial *state)
       tree type = TREE_TYPE (part);
       tree save_function = current_function_decl;
       int synthetic_p = 0;
+
+      /* Invisible Miranda methods shouldn't end up in the .class
+	 file.  */
+      if (METHOD_INVISIBLE (part))
+	continue;
+
       current_function_decl = part;
       ptr = append_chunk (NULL, 8, state);
       i = get_access_flags (part);  PUT2 (i);
@@ -3089,7 +3095,7 @@ generate_classfile (tree clas, struct jcf_partial *state)
     }
   ptr = methods_count_ptr;  UNSAFE_PUT2 (methods_count);
 
-  source_file = TREE_FILENAME (TYPE_NAME (clas));
+  source_file = DECL_SOURCE_FILE (TYPE_NAME (clas));
   for (s = source_file; ; s++)
     {
       char ch = *s;
@@ -3275,7 +3281,7 @@ make_class_file_name (tree clas)
       /* Make sure we put the class file into the .java file's
 	 directory, and not into some subdirectory thereof.  */
       char *t;
-      dname = TREE_FILENAME (TYPE_NAME (clas));
+      dname = DECL_SOURCE_FILE (TYPE_NAME (clas));
       slash = strrchr (dname, DIR_SEPARATOR);
 #ifdef DIR_SEPARATOR_2
       if (! slash)

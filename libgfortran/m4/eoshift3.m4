@@ -34,32 +34,32 @@ static const char zeros[16] =
   {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 void
-`__eoshift3_'htype_kind (g95_array_char * ret, g95_array_char * array,
-    htype * h, const g95_array_char * bound, htype_name * pwhich)
+`__eoshift3_'htype_kind (gfc_array_char * ret, gfc_array_char * array,
+    htype * h, const gfc_array_char * bound, htype_name * pwhich)
 {
   /* r.* indicates the return array.  */
-  index_type rstride[G95_MAX_DIMENSIONS - 1];
+  index_type rstride[GFC_MAX_DIMENSIONS - 1];
   index_type rstride0;
   index_type roffset;
   char *rptr;
   char *dest;
   /* s.* indicates the source array.  */
-  index_type sstride[G95_MAX_DIMENSIONS - 1];
+  index_type sstride[GFC_MAX_DIMENSIONS - 1];
   index_type sstride0;
   index_type soffset;
   const char *sptr;
   const char *src;
 `  /* h.* indicates the shift array.  */'
-  index_type hstride[G95_MAX_DIMENSIONS - 1];
+  index_type hstride[GFC_MAX_DIMENSIONS - 1];
   index_type hstride0;
   const htype_name *hptr;
   /* b.* indicates the bound array.  */
-  index_type bstride[G95_MAX_DIMENSIONS - 1];
+  index_type bstride[GFC_MAX_DIMENSIONS - 1];
   index_type bstride0;
   const char *bptr;
 
-  index_type count[G95_MAX_DIMENSIONS - 1];
-  index_type extent[G95_MAX_DIMENSIONS - 1];
+  index_type count[GFC_MAX_DIMENSIONS - 1];
+  index_type extent[GFC_MAX_DIMENSIONS - 1];
   index_type dim;
   index_type size;
   index_type len;
@@ -73,13 +73,13 @@ void
   else
     which = 0;
 
-  size = G95_DESCRIPTOR_SIZE (ret);
+  size = GFC_DESCRIPTOR_SIZE (ret);
 
   extent[0] = 1;
   count[0] = 0;
-  size = G95_DESCRIPTOR_SIZE (array);
+  size = GFC_DESCRIPTOR_SIZE (array);
   n = 0;
-  for (dim = 0; dim < G95_DESCRIPTOR_RANK (array); dim++)
+  for (dim = 0; dim < GFC_DESCRIPTOR_RANK (array); dim++)
     {
       if (dim == which)
         {
@@ -115,7 +115,7 @@ void
   if (bound && bstride[0] == 0)
     bstride[0] = size;
 
-  dim = G95_DESCRIPTOR_RANK (array);
+  dim = GFC_DESCRIPTOR_RANK (array);
   rstride0 = rstride[0];
   sstride0 = sstride[0];
   hstride0 = hstride[0];

@@ -148,6 +148,10 @@ struct gcc_target
     /* Output any boilerplate text needed at the end of a
        translation unit.  */
     void (*file_end) (void);
+
+    /* Output an assembler pseudo-op to declare a library function name
+       external.  */
+    void (*external_libcall) (rtx);
   } asm_out;
 
   /* Functions relating to instruction scheduling.  */
@@ -386,6 +390,23 @@ struct gcc_target
   /* True if output_file_directive should be called for main_input_filename
      at the beginning of assembly output.  */
   bool file_start_file_directive;
+
+  /* Functions relating to calls - argument passing, returns, etc.  */
+  struct calls {
+    bool (*promote_function_args) (tree fntype);
+    bool (*promote_function_return) (tree fntype);
+    bool (*promote_prototypes) (tree fntype);
+    rtx (*struct_value_rtx) (tree fndecl, int incoming);
+    bool (*return_in_memory) (tree type, tree fndecl);
+    rtx (*expand_builtin_saveregs) (void);
+    /* Returns pretend_argument_size.  */
+    void (*setup_incoming_varargs) (CUMULATIVE_ARGS *ca, enum machine_mode mode,
+				    tree type, int *pretend_arg_size, int second_time);
+    bool (*strict_argument_naming) (CUMULATIVE_ARGS *ca);
+    /* Returns true if we should use SETUP_INCOMING_VARARGS and/or
+       STRICT_ARGUMENT_NAMING. */
+    bool (*pretend_outgoing_varargs_named) (CUMULATIVE_ARGS *ca);
+  } calls;
 };
 
 extern struct gcc_target targetm;

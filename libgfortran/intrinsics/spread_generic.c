@@ -26,30 +26,30 @@ Boston, MA 02111-1307, USA.  */
 #include "libgfortran.h"
 
 void
-__spread (const g95_array_char * ret, const g95_array_char * source,
+__spread (const gfc_array_char * ret, const gfc_array_char * source,
     const index_type * along, const index_type * pncopies)
 {
   /* r.* indicates the return array.  */
-  index_type rstride[G95_MAX_DIMENSIONS - 1];
+  index_type rstride[GFC_MAX_DIMENSIONS - 1];
   index_type rstride0;
   index_type rdelta;
   char *rptr;
   char *dest;
   /* s.* indicates the source array.  */
-  index_type sstride[G95_MAX_DIMENSIONS - 1];
+  index_type sstride[GFC_MAX_DIMENSIONS - 1];
   index_type sstride0;
   const char *sptr;
 
-  index_type count[G95_MAX_DIMENSIONS - 1];
-  index_type extent[G95_MAX_DIMENSIONS - 1];
+  index_type count[GFC_MAX_DIMENSIONS - 1];
+  index_type extent[GFC_MAX_DIMENSIONS - 1];
   index_type n;
   index_type dim;
   index_type size;
   index_type ncopies;
 
-  size = G95_DESCRIPTOR_SIZE (source);
+  size = GFC_DESCRIPTOR_SIZE (source);
   dim = 0;
-  for (n = 0; n < G95_DESCRIPTOR_RANK (ret); n++)
+  for (n = 0; n < GFC_DESCRIPTOR_RANK (ret); n++)
     {
       if (n == *along - 1)
         {
@@ -64,7 +64,7 @@ __spread (const g95_array_char * ret, const g95_array_char * source,
           dim++;
         }
     }
-  dim = G95_DESCRIPTOR_RANK (source);
+  dim = GFC_DESCRIPTOR_RANK (source);
   if (sstride[0] == 0)
     sstride[0] = size;
   if (rstride[0] == 0)
@@ -96,7 +96,7 @@ __spread (const g95_array_char * ret, const g95_array_char * source,
              the next dimension.  */
           count[n] = 0;
           /* We could precalculate these products, but this is a less
-             frequently used path so proabably not worth it.  */
+             frequently used path so probably not worth it.  */
           sptr -= sstride[n] * extent[n];
           rptr -= rstride[n] * extent[n];
           n++;

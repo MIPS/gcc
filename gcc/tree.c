@@ -46,6 +46,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "target.h"
 #include "langhooks.h"
 #include "tree-iterator.h"
+#include "basic-block.h"
+#include "tree-flow.h"
 
 /* obstack.[ch] explicitly declined to prototype this.  */
 extern int _obstack_allocated_p (struct obstack *h, void *obj);
@@ -56,7 +58,7 @@ extern int _obstack_allocated_p (struct obstack *h, void *obj);
 int tree_node_counts[(int) all_kinds];
 int tree_node_sizes[(int) all_kinds];
 
-/* Keep in sync with tree.h:enum tree_node_kind. */
+/* Keep in sync with tree.h:enum tree_node_kind.  */
 static const char * const tree_node_kind_names[] = {
   "decls",
   "types",
@@ -194,7 +196,7 @@ tree_size (tree node)
 
 	case EPHI_NODE:		return (sizeof (struct tree_ephi_node)
 					+ (EPHI_ARG_CAPACITY (node) - 1) *
-					sizeof (struct phi_arg_d));
+					sizeof (struct ephi_arg_d));
 
 	case SSA_NAME:		return sizeof (struct tree_ssa_name);
 	case EUSE_NODE:		return sizeof (struct tree_euse_node);
@@ -309,11 +311,7 @@ make_node (enum tree_code code)
 	DECL_ALIGN (t) = 1;
       DECL_USER_ALIGN (t) = 0;
       DECL_IN_SYSTEM_HEADER (t) = in_system_header;
-      annotate_with_file_line (t,
-			       (input_filename
-				? input_filename
-				: "<built-in"),
-			       input_line);
+      DECL_SOURCE_LOCATION (t) = input_location;
       DECL_UID (t) = next_decl_uid++;
 
       /* We have not yet computed the alias set for this declaration.  */
@@ -2296,6 +2294,8 @@ build (enum tree_code code, tree tt, ...)
   length = TREE_CODE_LENGTH (code);
   TREE_TYPE (t) = tt;
 
+  /* FIXME maybe give expr a locus here?  */
+
   /* Below, we automatically set TREE_SIDE_EFFECTS and TREE_READONLY for the
      result based on those same flags for the arguments.  But if the
      arguments aren't really even `tree' expressions, we shouldn't be trying
@@ -2370,6 +2370,17 @@ build (enum tree_code code, tree tt, ...)
   va_end (p);
 
   TREE_CONSTANT (t) = constant;
+  
+  if (code == CALL_EXPR && !TREE_SIDE_EFFECTS (t))
+    {
+      /* Calls have side-effects, except those to const or
+	 pure functions.  */
+      tree fn = get_callee_fndecl (t);
+
+      if (!fn || (!DECL_IS_PURE (fn) && !TREE_READONLY (fn)))
+	TREE_SIDE_EFFECTS (t) = 1;
+    }
+
   return t;
 }
 
@@ -2418,6 +2429,8 @@ build1 (enum tree_code code, tree type, tree node)
   TREE_SET_CODE (t, code);
 
   TREE_TYPE (t) = type;
+  /* FIXME maybe give expr a locus here?  */
+  SET_EXPR_LOCUS (t, NULL);
   TREE_COMPLEXITY (t) = 0;
   TREE_OPERAND (t, 0) = node;
   if (node && first_rtl_op (code) != 0)
@@ -2540,28 +2553,31 @@ annotate_with_file_line (tree node, const char *file, int line)
   /* Roughly one percent of the calls to this function are to annotate
      a node with the same information already attached to that node!
      Just return instead of wasting memory.  */
-  if (TREE_LOCUS (node)
-      && (TREE_FILENAME (node) == file
-	  || ! strcmp (TREE_FILENAME (node), file))
-      && TREE_LINENO (node) == line)
-    return;
+  if (EXPR_LOCUS (node)
+      && (EXPR_FILENAME (node) == file
+	  || ! strcmp (EXPR_FILENAME (node), file))
+      && EXPR_LINENO (node) == line)
+    {
+      last_annotated_node = node;
+      return;
+    }
 
   /* In heavily macroized code (such as GCC itself) this single
      entry cache can reduce the number of allocations by more
      than half.  */
   if (last_annotated_node
-      && TREE_LOCUS (last_annotated_node)
-      && (TREE_FILENAME (last_annotated_node) == file
-	  || ! strcmp (TREE_FILENAME (last_annotated_node), file))
-      && TREE_LINENO (last_annotated_node) == line)
+      && EXPR_LOCUS (last_annotated_node)
+      && (EXPR_FILENAME (last_annotated_node) == file
+	  || ! strcmp (EXPR_FILENAME (last_annotated_node), file))
+      && EXPR_LINENO (last_annotated_node) == line)
     {
-      TREE_LOCUS (node) = TREE_LOCUS (last_annotated_node); 
+      SET_EXPR_LOCUS (node, EXPR_LOCUS (last_annotated_node));
       return;
     }
 
-  TREE_LOCUS (node) = ggc_alloc (sizeof (location_t));
-  TREE_LINENO (node) = line;
-  TREE_FILENAME (node) = file;
+  SET_EXPR_LOCUS (node, ggc_alloc (sizeof (location_t)));
+  EXPR_LINENO (node) = line;
+  EXPR_FILENAME (node) = file;
   last_annotated_node = node;
 }
 
@@ -2846,7 +2862,8 @@ get_qualified_type (tree type, int type_quals)
      preserve the TYPE_NAME, since there is code that depends on this.  */
   for (t = TYPE_MAIN_VARIANT (type); t; t = TYPE_NEXT_VARIANT (t))
     if (TYPE_QUALS (t) == type_quals && TYPE_NAME (t) == TYPE_NAME (type)
-        && TYPE_CONTEXT (t) == TYPE_CONTEXT (type))
+        && TYPE_CONTEXT (t) == TYPE_CONTEXT (type)
+	&& attribute_list_equal (TYPE_ATTRIBUTES (t), TYPE_ATTRIBUTES (type)))
       return t;
 
   return NULL_TREE;
@@ -3472,6 +3489,39 @@ compare_tree_int (tree t, unsigned HOST_WIDE_INT u)
     return 1;
 }
 
+/* Return true if CODE represents an associative tree code.  Otherwise
+   return false.  */
+bool
+associative_tree_code (enum tree_code code)
+{
+  return (code == BIT_IOR_EXPR
+	  || code == BIT_AND_EXPR
+	  || code == BIT_XOR_EXPR
+	  || code == PLUS_EXPR
+	  || code == MINUS_EXPR
+	  || code == MULT_EXPR
+	  || code == LSHIFT_EXPR
+	  || code == RSHIFT_EXPR
+	  || code == MIN_EXPR
+	  || code == MAX_EXPR);
+}
+
+/* Return true if CODE represents an commutative tree code.  Otherwise
+   return false.  */
+bool
+commutative_tree_code (enum tree_code code)
+{
+  return (code == PLUS_EXPR
+	  || code == MULT_EXPR
+	  || code == MIN_EXPR
+	  || code == MAX_EXPR
+	  || code == BIT_IOR_EXPR
+	  || code == BIT_XOR_EXPR
+	  || code == BIT_AND_EXPR
+	  || code == NE_EXPR
+	  || code == EQ_EXPR);
+}
+
 /* Generate a hash value for an expression.  This can be used iteratively
    by passing a previous result as the "val" argument.
 
@@ -3521,7 +3571,7 @@ iterative_hash_expr (tree t, hashval_t val)
       else
 	abort ();
     }
-  else if (IS_EXPR_CODE_CLASS (class) || class == 'r')
+  else if (IS_EXPR_CODE_CLASS (class))
     {
       val = iterative_hash_object (code, val);
 
@@ -3537,9 +3587,7 @@ iterative_hash_expr (tree t, hashval_t val)
 	  val = iterative_hash_expr (TREE_OPERAND (t, 0), val);
 	}
 
-      if (code == PLUS_EXPR || code == MULT_EXPR || code == MIN_EXPR
-	  || code == MAX_EXPR || code == BIT_IOR_EXPR || code == BIT_XOR_EXPR
-	  || code == BIT_AND_EXPR || code == NE_EXPR || code == EQ_EXPR)
+      if (commutative_tree_code (code))
 	{
 	  /* It's a commutative expression.  We want to hash it the same
 	     however it appears.  We do this by first hashing both operands
@@ -3831,7 +3879,7 @@ build_function_type (tree value_type, tree arg_types)
   return t;
 }
 
-/* Build a function type.  The RETURN_TYPE is the type retured by the
+/* Build a function type.  The RETURN_TYPE is the type returned by the
    function.  If additional arguments are provided, they are
    additional argument types.  The list of argument types must always
    be terminated by NULL_TREE.  */
@@ -3857,6 +3905,45 @@ build_function_type_list (tree return_type, ...)
   return args;
 }
 
+/* Build a METHOD_TYPE for a member of BASETYPE.  The RETTYPE (a TYPE)
+   and ARGTYPES (a TREE_LIST) are the return type and arguments types
+   for the method.  An implicit additional parameter (of type
+   pointer-to-BASETYPE) is added to the ARGTYPES.  */
+
+tree
+build_method_type_directly (tree basetype,
+			    tree rettype,
+			    tree argtypes)
+{
+  tree t;
+  tree ptype;
+  int hashcode;
+
+  /* Make a node of the sort we want.  */
+  t = make_node (METHOD_TYPE);
+
+  TYPE_METHOD_BASETYPE (t) = TYPE_MAIN_VARIANT (basetype);
+  TREE_TYPE (t) = rettype;
+  ptype = build_pointer_type (basetype);
+
+  /* The actual arglist for this function includes a "hidden" argument
+     which is "this".  Put it into the list of argument types.  */
+  argtypes = tree_cons (NULL_TREE, ptype, argtypes);
+  TYPE_ARG_TYPES (t) = argtypes;
+
+  /* If we already have such a type, use the old one and free this one.
+     Note that it also frees up the above cons cell if found.  */
+  hashcode = TYPE_HASH (basetype) + TYPE_HASH (rettype) +
+    type_hash_list (argtypes);
+
+  t = type_hash_canon (hashcode, t);
+
+  if (!COMPLETE_TYPE_P (t))
+    layout_type (t);
+
+  return t;
+}
+
 /* Construct, lay out and return the type of methods belonging to class
    BASETYPE and whose arguments and values are described by TYPE.
    If that type exists already, reuse it.
@@ -3865,33 +3952,12 @@ build_function_type_list (tree return_type, ...)
 tree
 build_method_type (tree basetype, tree type)
 {
-  tree t;
-  unsigned int hashcode;
-
-  /* Make a node of the sort we want.  */
-  t = make_node (METHOD_TYPE);
-
   if (TREE_CODE (type) != FUNCTION_TYPE)
     abort ();
 
-  TYPE_METHOD_BASETYPE (t) = TYPE_MAIN_VARIANT (basetype);
-  TREE_TYPE (t) = TREE_TYPE (type);
-
-  /* The actual arglist for this function includes a "hidden" argument
-     which is "this".  Put it into the list of argument types.  */
-
-  TYPE_ARG_TYPES (t)
-    = tree_cons (NULL_TREE,
-		 build_pointer_type (basetype), TYPE_ARG_TYPES (type));
-
-  /* If we already have such a type, use the old one and free this one.  */
-  hashcode = TYPE_HASH (basetype) + TYPE_HASH (type);
-  t = type_hash_canon (hashcode, t);
-
-  if (!COMPLETE_TYPE_P (t))
-    layout_type (t);
-
-  return t;
+  return build_method_type_directly (basetype, 
+				     TREE_TYPE (type),
+				     TYPE_ARG_TYPES (type));
 }
 
 /* Construct, lay out and return the type of offsets to a value
@@ -4525,7 +4591,7 @@ get_file_function_name_long (const char *type)
 	file = input_filename;
 
       len = strlen (file);
-      q = alloca (9 * 2 + len);
+      q = alloca (9 * 2 + len + 1);
       memcpy (q, file, len + 1);
       clean_symbol_name (q);
 
@@ -4860,6 +4926,11 @@ build_common_tree_nodes_2 (int short_double)
   TYPE_PRECISION (long_double_type_node) = LONG_DOUBLE_TYPE_SIZE;
   layout_type (long_double_type_node);
 
+  float_ptr_type_node = build_pointer_type (float_type_node);
+  double_ptr_type_node = build_pointer_type (double_type_node);
+  long_double_ptr_type_node = build_pointer_type (long_double_type_node);
+  integer_ptr_type_node = build_pointer_type (integer_type_node);
+
   complex_integer_type_node = make_node (COMPLEX_TYPE);
   TREE_TYPE (complex_integer_type_node) = integer_type_node;
   layout_type (complex_integer_type_node);
@@ -5060,16 +5131,12 @@ resize_phi_node (tree *phi, int len)
 tree
 make_ssa_name (tree var, tree stmt)
 {
-  /* Next SSA version number.  Initialized by init_tree_ssa.  */
-  extern unsigned long next_ssa_version;
   tree t;
 
 #if defined ENABLE_CHECKING
   if ((!DECL_P (var)
        && TREE_CODE (var) != INDIRECT_REF)
       || (!IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (stmt)))
-	  && TREE_CODE (stmt) != ASM_EXPR
-	  && TREE_CODE (stmt) != RETURN_EXPR
 	  && TREE_CODE (stmt) != PHI_NODE))
     abort ();
 #endif
@@ -5116,18 +5183,22 @@ tsi_link_before (tree_stmt_iterator *i, tree t, enum tsi_iterator_update mode)
 {
   tree ce;
 
+  if (mode == TSI_CHAIN_START || mode == TSI_CHAIN_END)
+    abort ();
+  if (mode == TSI_CONTINUE_LINKING)
+    mode = TSI_NEW_STMT;
+
   /* Build a new CE which points to the current node.  */
-  ce = build (COMPOUND_EXPR, void_type_node, t, *(i->tp));
+  ce = build (COMPOUND_EXPR, void_type_node, t, *i->tp);
 
   /* Make the parent pointer point to this new node.  At this point, the
      iterator will be pointing to the new node we just inserted.  */
-  *(i->tp) = ce;
+  *i->tp = ce;
 
   /* Update the iterator to points to the address of the next ptr in our new 
      node, which is the current stmt again.  */
   if (mode == TSI_SAME_STMT)
-    i->tp = &(TREE_OPERAND (*(i->tp), 1));
-
+    i->tp = &TREE_OPERAND (ce, 1);
 }
 
 /* Links a stmt after the current stmt.  */
@@ -5136,38 +5207,199 @@ void
 tsi_link_after (tree_stmt_iterator *i, tree t, enum tsi_iterator_update mode)
 {
   tree ce;
-  tree next;
+  tree next, cur = *i->tp;
+
+  if (mode == TSI_CHAIN_START || mode == TSI_CHAIN_END)
+    abort ();
+  if (mode == TSI_CONTINUE_LINKING)
+    mode = TSI_NEW_STMT;
+
+  /* If this node is empty, we can just add it.  */
+  if (cur == NULL)
+    {
+      *i->tp = t;
+    }
 
   /* If this node isnt a COMPUND_EXPR, we need to insert a CE node. */
-  if (TREE_CODE (*(i->tp)) != COMPOUND_EXPR)
+  else if (TREE_CODE (cur) != COMPOUND_EXPR)
     {
       /* Create a new node with the current stmt on the left, and the new
 	 stmt on the right.  */
-      ce = build (COMPOUND_EXPR, void_type_node, *(i->tp), t);
+      ce = build (COMPOUND_EXPR, void_type_node, cur, t);
 
       /* Update link to point to this CE node.  */
-      *(i->tp) = ce;
+      *i->tp = ce;
 
       /* Change new iterator to point to the new stmt.  */
       if (mode == TSI_NEW_STMT)
-	i->tp = &(TREE_OPERAND (ce, 1));
+	i->tp = &TREE_OPERAND (ce, 1);
     }
   else
     {
-      next  = TREE_OPERAND (*(i->tp), 1);
+      next = TREE_OPERAND (cur, 1);
 
       /* Create a new node with the same 'next' link as the current one.  */
       ce = build (COMPOUND_EXPR, void_type_node, t, next);
 
+#if 0
+      /* bsi_... iterators should be used for this!!!  */
+      /* If the 'next' statement is a COMPOUND_EXPR and was the first
+	 statement of a basic block, we need to adjust the 'head_tree_p'
+	 field of that block because we are about to move the statement one
+	 position down in the CE chain.  */
+      {
+	basic_block bb = bb_for_stmt (next);
+	if (bb && bb->head_tree_p == &TREE_OPERAND (cur, 1))
+	  {
+	    /* We may also need to update end_tree_p.  */
+	    if (bb->head_tree_p == bb->end_tree_p)
+	      bb->end_tree_p = &TREE_OPERAND (ce, 1);
+	    bb->head_tree_p = &TREE_OPERAND (ce, 1);
+	  }
+      }
+#endif
+
       /* Make the current one's 'next' link point to our new stmt.  */
-      TREE_OPERAND (*(i->tp), 1) = ce;
+      TREE_OPERAND (cur, 1) = ce;
 
       /* Update the iterator to the new stmt.  */
       if (mode == TSI_NEW_STMT)
-	i->tp = &(TREE_OPERAND (*(i->tp), 1));
+	i->tp = &TREE_OPERAND (cur, 1);
+    }
+}
+
+/* Links a chain of statements T before the current stmt.  */
+
+void
+tsi_link_chain_before (tree_stmt_iterator *i, tree t,
+		       enum tsi_iterator_update mode)
+{
+  tree *last;
+
+  if (mode == TSI_NEW_STMT)
+    abort ();
+  if (mode == TSI_CONTINUE_LINKING)
+    mode = TSI_CHAIN_START;
+
+  for (last = &t;
+       TREE_CODE (*last) == COMPOUND_EXPR;
+       last = &TREE_OPERAND (*last, 1))
+    continue;
+
+  /* Build a new CE which points to the current node.  */
+  *last = build (COMPOUND_EXPR, void_type_node, *last, *i->tp);
+
+  /* Make the parent pointer point to this new node.  At this point, the
+     iterator will be pointing to the new node we just inserted.  */
+  *i->tp = t;
+
+  /* Update the iterator to points to the address of the next ptr in our new 
+     node, which is the current stmt again.  */
+  if (mode == TSI_SAME_STMT)
+    i->tp = &TREE_OPERAND (*last, 1);
+  else if (mode == TSI_CHAIN_END)
+    i->tp = last != &t ? last : i->tp;
+}
+
+/* Links a chain of statements T after the current stmt.  */
+
+void
+tsi_link_chain_after (tree_stmt_iterator *i, tree t,
+		      enum tsi_iterator_update mode)
+{
+  tree ce;
+  tree next, *nextp;
+  tree *last;
+  tree cur = *i->tp;
+
+  if (mode == TSI_NEW_STMT)
+    abort ();
+  if (mode == TSI_CONTINUE_LINKING)
+    mode = TSI_CHAIN_END;
+
+  /* If this node is empty, we can just add it.  */
+  if (cur == NULL)
+    {
+      *i->tp = t;
+
+      if (mode == TSI_CHAIN_END)
+	{
+	  cur = t;
+	  last = i->tp;
+	  while (TREE_CODE (cur) == COMPOUND_EXPR)
+	    {
+	      last = &TREE_OPERAND (cur, 1);
+	      cur = *last;
+	    }
+	  i->tp = last;
+	}
     }
 
-  
+  /* If this node isnt a COMPUND_EXPR, we need to insert a CE node. */
+  else if (TREE_CODE (cur) != COMPOUND_EXPR)
+    {
+      /* Create a new node with the current stmt on the left, and the new
+	 stmt on the right.  */
+      ce = build (COMPOUND_EXPR, void_type_node, cur, t);
+
+      /* Update link to point to this CE node.  */
+      *i->tp = ce;
+
+      /* Change new iterator to point to the new stmt.  */
+      if (mode == TSI_CHAIN_START)
+	i->tp = &TREE_OPERAND (ce, 1);
+      else if (mode == TSI_CHAIN_END)
+	{
+	  cur = ce;
+	  last = i->tp;
+	  while (TREE_CODE (cur) == COMPOUND_EXPR)
+	    {
+	      last = &TREE_OPERAND (cur, 1);
+	      cur = *last;
+	    }
+	  i->tp = last;
+	}
+    }
+  else
+    {
+      for (last = &t;
+	   TREE_CODE (*last) == COMPOUND_EXPR;
+	   last = &TREE_OPERAND (*last, 1))
+	continue;
+
+      nextp = &TREE_OPERAND (cur, 1);
+      next = *nextp;
+
+      /* Create a new node with the same 'next' link as the current one.  */
+      ce = build (COMPOUND_EXPR, void_type_node, *last, next);
+
+#if 0
+      /* bsi_... iterators should be used for this!!!  */
+      /* If the 'next' statement is a COMPOUND_EXPR and was the first
+	 statement of a basic block, we need to adjust the 'head_tree_p'
+	 field of that block because we are about to move the statement one
+	 position down in the CE chain.  */
+      {
+	basic_block bb = bb_for_stmt (next);
+	if (bb && bb->head_tree_p == nextp)
+	  {
+	    /* We may also need to update end_tree_p.  */
+	    if (bb->head_tree_p == bb->end_tree_p)
+	      bb->end_tree_p = &TREE_OPERAND (ce, 1);
+	    bb->head_tree_p = &TREE_OPERAND (ce, 1);
+	  }
+      }
+#endif
+
+      *last = ce;
+      TREE_OPERAND (cur, 1) = t;
+
+      /* Update the iterator to the new stmt.  */
+      if (mode == TSI_CHAIN_START)
+	i->tp = nextp;
+      else if (mode == TSI_CHAIN_END)
+	i->tp = (last != &t ? last : nextp);
+    }
 }
 
 /* Remove a stmt from the tree list.  The iterator is updated to point to
@@ -5176,12 +5408,13 @@ tsi_link_after (tree_stmt_iterator *i, tree t, enum tsi_iterator_update mode)
 void
 tsi_delink (tree_stmt_iterator *i)
 {
+  tree cur = *i->tp;
 
-  if (TREE_CODE (*(i->tp)) == COMPOUND_EXPR)
+  if (TREE_CODE (cur) == COMPOUND_EXPR)
     {
       /* All that is needed here is to change the parent to point to the next 
 	 stmt in the chain.  */
-      *(i->tp) = TREE_OPERAND (*(i->tp), 1);
+      *i->tp = TREE_OPERAND (cur, 1);
     }
   else
     {
@@ -5191,7 +5424,7 @@ tsi_delink (tree_stmt_iterator *i)
 	 this node with an empty statement. Choose the latter for now, and 
 	 make the iterator return NULL, so that no further iterating takes 
 	 place.  */
-      *(i->tp) = build_empty_stmt ();
+      *i->tp = build_empty_stmt ();
       i->tp = NULL;
     }
 }

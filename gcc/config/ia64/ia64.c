@@ -1,7 +1,7 @@
 /* Definitions of target machine for GNU compiler.
    Copyright (C) 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
    Contributed by James E. Wilson <wilson@cygnus.com> and
-   		  David Mosberger <davidm@hpl.hp.com>.
+		  David Mosberger <davidm@hpl.hp.com>.
 
 This file is part of GCC.
 
@@ -136,7 +136,7 @@ struct ia64_frame_info
   HOST_WIDE_INT spill_size;	/* size of the gr/br/fr spill area.  */
   HOST_WIDE_INT extra_spill_size;  /* size of spill area for others.  */
   HARD_REG_SET mask;		/* mask of saved registers.  */
-  unsigned int gr_used_mask;	/* mask of registers in use as gr spill 
+  unsigned int gr_used_mask;	/* mask of registers in use as gr spill
 				   registers or long-term scratches.  */
   int n_spilled;		/* number of spilled registers.  */
   int reg_fp;			/* register for fp.  */
@@ -158,109 +158,104 @@ struct ia64_frame_info
 /* Current frame information calculated by ia64_compute_frame_size.  */
 static struct ia64_frame_info current_frame_info;
 
-static int ia64_use_dfa_pipeline_interface PARAMS ((void));
-static int ia64_first_cycle_multipass_dfa_lookahead PARAMS ((void));
-static void ia64_dependencies_evaluation_hook PARAMS ((rtx, rtx));
-static void ia64_init_dfa_pre_cycle_insn PARAMS ((void));
-static rtx ia64_dfa_pre_cycle_insn PARAMS ((void));
-static int ia64_first_cycle_multipass_dfa_lookahead_guard PARAMS ((rtx));
-static int ia64_dfa_new_cycle PARAMS ((FILE *, int, rtx, int, int, int *));
-static rtx gen_tls_get_addr PARAMS ((void));
-static rtx gen_thread_pointer PARAMS ((void));
-static rtx ia64_expand_tls_address PARAMS ((enum tls_model, rtx, rtx));
-static int find_gr_spill PARAMS ((int));
-static int next_scratch_gr_reg PARAMS ((void));
-static void mark_reg_gr_used_mask PARAMS ((rtx, void *));
-static void ia64_compute_frame_size PARAMS ((HOST_WIDE_INT));
-static void setup_spill_pointers PARAMS ((int, rtx, HOST_WIDE_INT));
-static void finish_spill_pointers PARAMS ((void));
-static rtx spill_restore_mem PARAMS ((rtx, HOST_WIDE_INT));
-static void do_spill PARAMS ((rtx (*)(rtx, rtx, rtx), rtx, HOST_WIDE_INT, rtx));
-static void do_restore PARAMS ((rtx (*)(rtx, rtx, rtx), rtx, HOST_WIDE_INT));
-static rtx gen_movdi_x PARAMS ((rtx, rtx, rtx));
-static rtx gen_fr_spill_x PARAMS ((rtx, rtx, rtx));
-static rtx gen_fr_restore_x PARAMS ((rtx, rtx, rtx));
+static int ia64_use_dfa_pipeline_interface (void);
+static int ia64_first_cycle_multipass_dfa_lookahead (void);
+static void ia64_dependencies_evaluation_hook (rtx, rtx);
+static void ia64_init_dfa_pre_cycle_insn (void);
+static rtx ia64_dfa_pre_cycle_insn (void);
+static int ia64_first_cycle_multipass_dfa_lookahead_guard (rtx);
+static int ia64_dfa_new_cycle (FILE *, int, rtx, int, int, int *);
+static rtx gen_tls_get_addr (void);
+static rtx gen_thread_pointer (void);
+static rtx ia64_expand_tls_address (enum tls_model, rtx, rtx);
+static int find_gr_spill (int);
+static int next_scratch_gr_reg (void);
+static void mark_reg_gr_used_mask (rtx, void *);
+static void ia64_compute_frame_size (HOST_WIDE_INT);
+static void setup_spill_pointers (int, rtx, HOST_WIDE_INT);
+static void finish_spill_pointers (void);
+static rtx spill_restore_mem (rtx, HOST_WIDE_INT);
+static void do_spill (rtx (*)(rtx, rtx, rtx), rtx, HOST_WIDE_INT, rtx);
+static void do_restore (rtx (*)(rtx, rtx, rtx), rtx, HOST_WIDE_INT);
+static rtx gen_movdi_x (rtx, rtx, rtx);
+static rtx gen_fr_spill_x (rtx, rtx, rtx);
+static rtx gen_fr_restore_x (rtx, rtx, rtx);
 
-static enum machine_mode hfa_element_mode PARAMS ((tree, int));
-static bool ia64_function_ok_for_sibcall PARAMS ((tree, tree));
-static bool ia64_rtx_costs PARAMS ((rtx, int, int, int *));
-static void fix_range PARAMS ((const char *));
-static struct machine_function * ia64_init_machine_status PARAMS ((void));
-static void emit_insn_group_barriers PARAMS ((FILE *));
-static void emit_all_insn_group_barriers PARAMS ((FILE *));
-static void final_emit_insn_group_barriers PARAMS ((FILE *));
-static void emit_predicate_relation_info PARAMS ((void));
-static void ia64_reorg PARAMS ((void));
-static bool ia64_in_small_data_p PARAMS ((tree));
-static void process_epilogue PARAMS ((void));
-static int process_set PARAMS ((FILE *, rtx));
+static enum machine_mode hfa_element_mode (tree, int);
+static bool ia64_function_ok_for_sibcall (tree, tree);
+static bool ia64_rtx_costs (rtx, int, int, int *);
+static void fix_range (const char *);
+static struct machine_function * ia64_init_machine_status (void);
+static void emit_insn_group_barriers (FILE *);
+static void emit_all_insn_group_barriers (FILE *);
+static void final_emit_insn_group_barriers (FILE *);
+static void emit_predicate_relation_info (void);
+static void ia64_reorg (void);
+static bool ia64_in_small_data_p (tree);
+static void process_epilogue (void);
+static int process_set (FILE *, rtx);
 
-static rtx ia64_expand_fetch_and_op PARAMS ((optab, enum machine_mode,
-					     tree, rtx));
-static rtx ia64_expand_op_and_fetch PARAMS ((optab, enum machine_mode,
-					     tree, rtx));
-static rtx ia64_expand_compare_and_swap PARAMS ((enum machine_mode,
-						 enum machine_mode,
-						 int, tree, rtx));
-static rtx ia64_expand_lock_test_and_set PARAMS ((enum machine_mode,
-						  tree, rtx));
-static rtx ia64_expand_lock_release PARAMS ((enum machine_mode, tree, rtx));
-static bool ia64_assemble_integer PARAMS ((rtx, unsigned int, int));
-static void ia64_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
-static void ia64_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
-static void ia64_output_function_end_prologue PARAMS ((FILE *));
+static rtx ia64_expand_fetch_and_op (optab, enum machine_mode, tree, rtx);
+static rtx ia64_expand_op_and_fetch (optab, enum machine_mode, tree, rtx);
+static rtx ia64_expand_compare_and_swap (enum machine_mode, enum machine_mode,
+					 int, tree, rtx);
+static rtx ia64_expand_lock_test_and_set (enum machine_mode, tree, rtx);
+static rtx ia64_expand_lock_release (enum machine_mode, tree, rtx);
+static bool ia64_assemble_integer (rtx, unsigned int, int);
+static void ia64_output_function_prologue (FILE *, HOST_WIDE_INT);
+static void ia64_output_function_epilogue (FILE *, HOST_WIDE_INT);
+static void ia64_output_function_end_prologue (FILE *);
 
-static int ia64_issue_rate PARAMS ((void));
-static int ia64_adjust_cost PARAMS ((rtx, rtx, rtx, int));
-static void ia64_sched_init PARAMS ((FILE *, int, int));
-static void ia64_sched_finish PARAMS ((FILE *, int));
-static int ia64_dfa_sched_reorder PARAMS ((FILE *, int, rtx *, int *,
-					   int, int));
-static int ia64_sched_reorder PARAMS ((FILE *, int, rtx *, int *, int));
-static int ia64_sched_reorder2 PARAMS ((FILE *, int, rtx *, int *, int));
-static int ia64_variable_issue PARAMS ((FILE *, int, rtx, int));
+static int ia64_issue_rate (void);
+static int ia64_adjust_cost (rtx, rtx, rtx, int);
+static void ia64_sched_init (FILE *, int, int);
+static void ia64_sched_finish (FILE *, int);
+static int ia64_dfa_sched_reorder (FILE *, int, rtx *, int *, int, int);
+static int ia64_sched_reorder (FILE *, int, rtx *, int *, int);
+static int ia64_sched_reorder2 (FILE *, int, rtx *, int *, int);
+static int ia64_variable_issue (FILE *, int, rtx, int);
 
-static struct bundle_state *get_free_bundle_state PARAMS ((void));
-static void free_bundle_state PARAMS ((struct bundle_state *));
-static void initiate_bundle_states PARAMS ((void));
-static void finish_bundle_states PARAMS ((void));
-static unsigned bundle_state_hash PARAMS ((const void *));
-static int bundle_state_eq_p PARAMS ((const void *, const void *));
-static int insert_bundle_state PARAMS ((struct bundle_state *));
-static void initiate_bundle_state_table PARAMS ((void));
-static void finish_bundle_state_table PARAMS ((void));
-static int try_issue_nops PARAMS ((struct bundle_state *, int));
-static int try_issue_insn PARAMS ((struct bundle_state *, rtx));
-static void issue_nops_and_insn PARAMS ((struct bundle_state *, int,
-					 rtx, int, int));
-static int get_max_pos PARAMS ((state_t));
-static int get_template PARAMS ((state_t, int));
+static struct bundle_state *get_free_bundle_state (void);
+static void free_bundle_state (struct bundle_state *);
+static void initiate_bundle_states (void);
+static void finish_bundle_states (void);
+static unsigned bundle_state_hash (const void *);
+static int bundle_state_eq_p (const void *, const void *);
+static int insert_bundle_state (struct bundle_state *);
+static void initiate_bundle_state_table (void);
+static void finish_bundle_state_table (void);
+static int try_issue_nops (struct bundle_state *, int);
+static int try_issue_insn (struct bundle_state *, rtx);
+static void issue_nops_and_insn (struct bundle_state *, int, rtx, int, int);
+static int get_max_pos (state_t);
+static int get_template (state_t, int);
 
-static rtx get_next_important_insn PARAMS ((rtx, rtx));
-static void bundling PARAMS ((FILE *, int, rtx, rtx));
+static rtx get_next_important_insn (rtx, rtx);
+static void bundling (FILE *, int, rtx, rtx);
 
-static void ia64_output_mi_thunk PARAMS ((FILE *, tree, HOST_WIDE_INT,
-					  HOST_WIDE_INT, tree));
-static void ia64_file_start PARAMS ((void));
+static void ia64_output_mi_thunk (FILE *, tree, HOST_WIDE_INT,
+				  HOST_WIDE_INT, tree);
+static void ia64_file_start (void);
 
-static void ia64_select_rtx_section PARAMS ((enum machine_mode, rtx,
-					     unsigned HOST_WIDE_INT));
-static void ia64_rwreloc_select_section PARAMS ((tree, int,
-					         unsigned HOST_WIDE_INT))
+static void ia64_select_rtx_section (enum machine_mode, rtx,
+				     unsigned HOST_WIDE_INT);
+static void ia64_rwreloc_select_section (tree, int, unsigned HOST_WIDE_INT)
      ATTRIBUTE_UNUSED;
-static void ia64_rwreloc_unique_section PARAMS ((tree, int))
+static void ia64_rwreloc_unique_section (tree, int)
      ATTRIBUTE_UNUSED;
-static void ia64_rwreloc_select_rtx_section PARAMS ((enum machine_mode, rtx,
-					             unsigned HOST_WIDE_INT))
+static void ia64_rwreloc_select_rtx_section (enum machine_mode, rtx,
+					     unsigned HOST_WIDE_INT)
      ATTRIBUTE_UNUSED;
-static unsigned int ia64_rwreloc_section_type_flags
-     PARAMS ((tree, const char *, int))
+static unsigned int ia64_rwreloc_section_type_flags (tree, const char *, int)
      ATTRIBUTE_UNUSED;
 
-static void ia64_hpux_add_extern_decl PARAMS ((const char *name))
+static void ia64_hpux_add_extern_decl (const char *name)
      ATTRIBUTE_UNUSED;
-static void ia64_hpux_file_end PARAMS ((void))
+static void ia64_hpux_file_end (void)
      ATTRIBUTE_UNUSED;
+
+static tree ia64_handle_model_attribute (tree *, tree, tree, int, bool *);
+static void ia64_encode_section_info (tree, rtx, int);
 
 
 /* Table of valid machine attributes.  */
@@ -268,7 +263,8 @@ static const struct attribute_spec ia64_attribute_table[] =
 {
   /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */
   { "syscall_linkage", 0, 0, false, true,  true,  NULL },
-  { NULL,              0, 0, false, false, false, NULL }
+  { "model",	       1, 1, true, false, false, ia64_handle_model_attribute },
+  { NULL,	       0, 0, false, false, false, NULL }
 };
 
 /* Initialize the GCC target structure.  */
@@ -368,14 +364,15 @@ static const struct attribute_spec ia64_attribute_table[] =
 #undef TARGET_MACHINE_DEPENDENT_REORG
 #define TARGET_MACHINE_DEPENDENT_REORG ia64_reorg
 
+#undef TARGET_ENCODE_SECTION_INFO
+#define TARGET_ENCODE_SECTION_INFO ia64_encode_section_info
+
 struct gcc_target targetm = TARGET_INITIALIZER;
 
 /* Return 1 if OP is a valid operand for the MEM of a CALL insn.  */
 
 int
-call_operand (op, mode)
-     rtx op;
-     enum machine_mode mode;
+call_operand (rtx op, enum machine_mode mode)
 {
   if (mode != GET_MODE (op) && mode != VOIDmode)
     return 0;
@@ -387,9 +384,7 @@ call_operand (op, mode)
 /* Return 1 if OP refers to a symbol in the sdata section.  */
 
 int
-sdata_symbolic_operand (op, mode)
-     rtx op;
-     enum machine_mode mode ATTRIBUTE_UNUSED;
+sdata_symbolic_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 {
   switch (GET_CODE (op))
     {
@@ -413,12 +408,16 @@ sdata_symbolic_operand (op, mode)
   return 0;
 }
 
+int
+small_addr_symbolic_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
+{
+  return SYMBOL_REF_SMALL_ADDR_P (op);
+}
+
 /* Return 1 if OP refers to a symbol, and is appropriate for a GOT load.  */
 
 int
-got_symbolic_operand (op, mode)
-     rtx op;
-     enum machine_mode mode ATTRIBUTE_UNUSED;
+got_symbolic_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 {
   switch (GET_CODE (op))
     {
@@ -449,6 +448,8 @@ got_symbolic_operand (op, mode)
       return (INTVAL (op) & 0x3fff) == 0;
 
     case SYMBOL_REF:
+      if (SYMBOL_REF_SMALL_ADDR_P (op))
+	return 0;
     case LABEL_REF:
       return 1;
 
@@ -461,9 +462,7 @@ got_symbolic_operand (op, mode)
 /* Return 1 if OP refers to a symbol.  */
 
 int
-symbolic_operand (op, mode)
-     rtx op;
-     enum machine_mode mode ATTRIBUTE_UNUSED;
+symbolic_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 {
   switch (GET_CODE (op))
     {
@@ -481,9 +480,7 @@ symbolic_operand (op, mode)
 /* Return tls_model if OP refers to a TLS symbol.  */
 
 int
-tls_symbolic_operand (op, mode)
-     rtx op;
-     enum machine_mode mode ATTRIBUTE_UNUSED;
+tls_symbolic_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 {
   if (GET_CODE (op) != SYMBOL_REF)
     return 0;
@@ -494,9 +491,7 @@ tls_symbolic_operand (op, mode)
 /* Return 1 if OP refers to a function.  */
 
 int
-function_operand (op, mode)
-     rtx op;
-     enum machine_mode mode ATTRIBUTE_UNUSED;
+function_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 {
   if (GET_CODE (op) == SYMBOL_REF && SYMBOL_REF_FUNCTION_P (op))
     return 1;
@@ -509,9 +504,7 @@ function_operand (op, mode)
 /* ??? This is an unsatisfying solution.  Should rethink.  */
 
 int
-setjmp_operand (op, mode)
-     rtx op;
-     enum machine_mode mode ATTRIBUTE_UNUSED;
+setjmp_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 {
   const char *name;
   int retval = 0;
@@ -557,9 +550,7 @@ setjmp_operand (op, mode)
 /* Return 1 if OP is a general operand, excluding tls symbolic operands.  */
 
 int
-move_operand (op, mode)
-     rtx op;
-     enum machine_mode mode;
+move_operand (rtx op, enum machine_mode mode)
 {
   return general_operand (op, mode) && !tls_symbolic_operand (op, mode);
 }
@@ -567,9 +558,7 @@ move_operand (op, mode)
 /* Return 1 if OP is a register operand that is (or could be) a GR reg.  */
 
 int
-gr_register_operand (op, mode)
-     rtx op;
-     enum machine_mode mode;
+gr_register_operand (rtx op, enum machine_mode mode)
 {
   if (! register_operand (op, mode))
     return 0;
@@ -587,9 +576,7 @@ gr_register_operand (op, mode)
 /* Return 1 if OP is a register operand that is (or could be) an FR reg.  */
 
 int
-fr_register_operand (op, mode)
-     rtx op;
-     enum machine_mode mode;
+fr_register_operand (rtx op, enum machine_mode mode)
 {
   if (! register_operand (op, mode))
     return 0;
@@ -607,9 +594,7 @@ fr_register_operand (op, mode)
 /* Return 1 if OP is a register operand that is (or could be) a GR/FR reg.  */
 
 int
-grfr_register_operand (op, mode)
-     rtx op;
-     enum machine_mode mode;
+grfr_register_operand (rtx op, enum machine_mode mode)
 {
   if (! register_operand (op, mode))
     return 0;
@@ -627,9 +612,7 @@ grfr_register_operand (op, mode)
 /* Return 1 if OP is a nonimmediate operand that is (or could be) a GR reg.  */
 
 int
-gr_nonimmediate_operand (op, mode)
-     rtx op;
-     enum machine_mode mode;
+gr_nonimmediate_operand (rtx op, enum machine_mode mode)
 {
   if (! nonimmediate_operand (op, mode))
     return 0;
@@ -647,9 +630,7 @@ gr_nonimmediate_operand (op, mode)
 /* Return 1 if OP is a nonimmediate operand that is (or could be) a FR reg.  */
 
 int
-fr_nonimmediate_operand (op, mode)
-     rtx op;
-     enum machine_mode mode;
+fr_nonimmediate_operand (rtx op, enum machine_mode mode)
 {
   if (! nonimmediate_operand (op, mode))
     return 0;
@@ -667,9 +648,7 @@ fr_nonimmediate_operand (op, mode)
 /* Return 1 if OP is a nonimmediate operand that is a GR/FR reg.  */
 
 int
-grfr_nonimmediate_operand (op, mode)
-     rtx op;
-     enum machine_mode mode;
+grfr_nonimmediate_operand (rtx op, enum machine_mode mode)
 {
   if (! nonimmediate_operand (op, mode))
     return 0;
@@ -687,9 +666,7 @@ grfr_nonimmediate_operand (op, mode)
 /* Return 1 if OP is a GR register operand, or zero.  */
 
 int
-gr_reg_or_0_operand (op, mode)
-     rtx op;
-     enum machine_mode mode;
+gr_reg_or_0_operand (rtx op, enum machine_mode mode)
 {
   return (op == const0_rtx || gr_register_operand (op, mode));
 }
@@ -697,9 +674,7 @@ gr_reg_or_0_operand (op, mode)
 /* Return 1 if OP is a GR register operand, or a 5 bit immediate operand.  */
 
 int
-gr_reg_or_5bit_operand (op, mode)
-     rtx op;
-     enum machine_mode mode;
+gr_reg_or_5bit_operand (rtx op, enum machine_mode mode)
 {
   return ((GET_CODE (op) == CONST_INT && INTVAL (op) >= 0 && INTVAL (op) < 32)
 	  || GET_CODE (op) == CONSTANT_P_RTX
@@ -709,9 +684,7 @@ gr_reg_or_5bit_operand (op, mode)
 /* Return 1 if OP is a GR register operand, or a 6 bit immediate operand.  */
 
 int
-gr_reg_or_6bit_operand (op, mode)
-     rtx op;
-     enum machine_mode mode;
+gr_reg_or_6bit_operand (rtx op, enum machine_mode mode)
 {
   return ((GET_CODE (op) == CONST_INT && CONST_OK_FOR_M (INTVAL (op)))
 	  || GET_CODE (op) == CONSTANT_P_RTX
@@ -721,9 +694,7 @@ gr_reg_or_6bit_operand (op, mode)
 /* Return 1 if OP is a GR register operand, or an 8 bit immediate operand.  */
 
 int
-gr_reg_or_8bit_operand (op, mode)
-     rtx op;
-     enum machine_mode mode;
+gr_reg_or_8bit_operand (rtx op, enum machine_mode mode)
 {
   return ((GET_CODE (op) == CONST_INT && CONST_OK_FOR_K (INTVAL (op)))
 	  || GET_CODE (op) == CONSTANT_P_RTX
@@ -733,9 +704,7 @@ gr_reg_or_8bit_operand (op, mode)
 /* Return 1 if OP is a GR/FR register operand, or an 8 bit immediate.  */
 
 int
-grfr_reg_or_8bit_operand (op, mode)
-     rtx op;
-     enum machine_mode mode;
+grfr_reg_or_8bit_operand (rtx op, enum machine_mode mode)
 {
   return ((GET_CODE (op) == CONST_INT && CONST_OK_FOR_K (INTVAL (op)))
 	  || GET_CODE (op) == CONSTANT_P_RTX
@@ -746,9 +715,7 @@ grfr_reg_or_8bit_operand (op, mode)
    operand.  */
 
 int
-gr_reg_or_8bit_adjusted_operand (op, mode)
-     rtx op;
-     enum machine_mode mode;
+gr_reg_or_8bit_adjusted_operand (rtx op, enum machine_mode mode)
 {
   return ((GET_CODE (op) == CONST_INT && CONST_OK_FOR_L (INTVAL (op)))
 	  || GET_CODE (op) == CONSTANT_P_RTX
@@ -761,9 +728,7 @@ gr_reg_or_8bit_adjusted_operand (op, mode)
    so we need the union of the immediates accepted by GT and LT.  */
 
 int
-gr_reg_or_8bit_and_adjusted_operand (op, mode)
-     rtx op;
-     enum machine_mode mode;
+gr_reg_or_8bit_and_adjusted_operand (rtx op, enum machine_mode mode)
 {
   return ((GET_CODE (op) == CONST_INT && CONST_OK_FOR_K (INTVAL (op))
 	   && CONST_OK_FOR_L (INTVAL (op)))
@@ -774,9 +739,7 @@ gr_reg_or_8bit_and_adjusted_operand (op, mode)
 /* Return 1 if OP is a register operand, or a 14 bit immediate operand.  */
 
 int
-gr_reg_or_14bit_operand (op, mode)
-     rtx op;
-     enum machine_mode mode;
+gr_reg_or_14bit_operand (rtx op, enum machine_mode mode)
 {
   return ((GET_CODE (op) == CONST_INT && CONST_OK_FOR_I (INTVAL (op)))
 	  || GET_CODE (op) == CONSTANT_P_RTX
@@ -786,9 +749,7 @@ gr_reg_or_14bit_operand (op, mode)
 /* Return 1 if OP is a register operand, or a 22 bit immediate operand.  */
 
 int
-gr_reg_or_22bit_operand (op, mode)
-     rtx op;
-     enum machine_mode mode;
+gr_reg_or_22bit_operand (rtx op, enum machine_mode mode)
 {
   return ((GET_CODE (op) == CONST_INT && CONST_OK_FOR_J (INTVAL (op)))
 	  || GET_CODE (op) == CONSTANT_P_RTX
@@ -798,9 +759,7 @@ gr_reg_or_22bit_operand (op, mode)
 /* Return 1 if OP is a 6 bit immediate operand.  */
 
 int
-shift_count_operand (op, mode)
-     rtx op;
-     enum machine_mode mode ATTRIBUTE_UNUSED;
+shift_count_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 {
   return ((GET_CODE (op) == CONST_INT && CONST_OK_FOR_M (INTVAL (op)))
 	  || GET_CODE (op) == CONSTANT_P_RTX);
@@ -809,9 +768,7 @@ shift_count_operand (op, mode)
 /* Return 1 if OP is a 5 bit immediate operand.  */
 
 int
-shift_32bit_count_operand (op, mode)
-     rtx op;
-     enum machine_mode mode ATTRIBUTE_UNUSED;
+shift_32bit_count_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 {
   return ((GET_CODE (op) == CONST_INT
 	   && (INTVAL (op) >= 0 && INTVAL (op) < 32))
@@ -821,9 +778,7 @@ shift_32bit_count_operand (op, mode)
 /* Return 1 if OP is a 2, 4, 8, or 16 immediate operand.  */
 
 int
-shladd_operand (op, mode)
-     rtx op;
-     enum machine_mode mode ATTRIBUTE_UNUSED;
+shladd_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 {
   return (GET_CODE (op) == CONST_INT
 	  && (INTVAL (op) == 2 || INTVAL (op) == 4
@@ -833,9 +788,7 @@ shladd_operand (op, mode)
 /* Return 1 if OP is a -16, -8, -4, -1, 1, 4, 8, or 16 immediate operand.  */
 
 int
-fetchadd_operand (op, mode)
-     rtx op;
-     enum machine_mode mode ATTRIBUTE_UNUSED;
+fetchadd_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 {
   return (GET_CODE (op) == CONST_INT
           && (INTVAL (op) == -16 || INTVAL (op) == -8 ||
@@ -847,9 +800,7 @@ fetchadd_operand (op, mode)
 /* Return 1 if OP is a floating-point constant zero, one, or a register.  */
 
 int
-fr_reg_or_fp01_operand (op, mode)
-     rtx op;
-     enum machine_mode mode;
+fr_reg_or_fp01_operand (rtx op, enum machine_mode mode)
 {
   return ((GET_CODE (op) == CONST_DOUBLE && CONST_DOUBLE_OK_FOR_G (op))
 	  || fr_register_operand (op, mode));
@@ -859,9 +810,7 @@ fr_reg_or_fp01_operand (op, mode)
    POST_MODIFY with a REG as displacement.  */
 
 int
-destination_operand (op, mode)
-     rtx op;
-     enum machine_mode mode;
+destination_operand (rtx op, enum machine_mode mode)
 {
   if (! nonimmediate_operand (op, mode))
     return 0;
@@ -875,9 +824,7 @@ destination_operand (op, mode)
 /* Like memory_operand, but don't allow post-increments.  */
 
 int
-not_postinc_memory_operand (op, mode)
-     rtx op;
-     enum machine_mode mode;
+not_postinc_memory_operand (rtx op, enum machine_mode mode)
 {
   return (memory_operand (op, mode)
 	  && GET_RTX_CLASS (GET_CODE (XEXP (op, 0))) != 'a');
@@ -887,9 +834,7 @@ not_postinc_memory_operand (op, mode)
    signed immediate operand.  */
 
 int
-normal_comparison_operator (op, mode)
-    register rtx op;
-    enum machine_mode mode;
+normal_comparison_operator (register rtx op, enum machine_mode mode)
 {
   enum rtx_code code = GET_CODE (op);
   return ((mode == VOIDmode || GET_MODE (op) == mode)
@@ -901,9 +846,7 @@ normal_comparison_operator (op, mode)
    signed immediate operand.  */
 
 int
-adjusted_comparison_operator (op, mode)
-    register rtx op;
-    enum machine_mode mode;
+adjusted_comparison_operator (register rtx op, enum machine_mode mode)
 {
   enum rtx_code code = GET_CODE (op);
   return ((mode == VOIDmode || GET_MODE (op) == mode)
@@ -913,9 +856,7 @@ adjusted_comparison_operator (op, mode)
 /* Return 1 if this is a signed inequality operator.  */
 
 int
-signed_inequality_operator (op, mode)
-    register rtx op;
-    enum machine_mode mode;
+signed_inequality_operator (register rtx op, enum machine_mode mode)
 {
   enum rtx_code code = GET_CODE (op);
   return ((mode == VOIDmode || GET_MODE (op) == mode)
@@ -926,9 +867,7 @@ signed_inequality_operator (op, mode)
 /* Return 1 if this operator is valid for predication.  */
 
 int
-predicate_operator (op, mode)
-    register rtx op;
-    enum machine_mode mode;
+predicate_operator (register rtx op, enum machine_mode mode)
 {
   enum rtx_code code = GET_CODE (op);
   return ((GET_MODE (op) == mode || mode == VOIDmode)
@@ -938,9 +877,7 @@ predicate_operator (op, mode)
 /* Return 1 if this operator can be used in a conditional operation.  */
 
 int
-condop_operator (op, mode)
-    register rtx op;
-    enum machine_mode mode;
+condop_operator (register rtx op, enum machine_mode mode)
 {
   enum rtx_code code = GET_CODE (op);
   return ((GET_MODE (op) == mode || mode == VOIDmode)
@@ -951,9 +888,7 @@ condop_operator (op, mode)
 /* Return 1 if this is the ar.lc register.  */
 
 int
-ar_lc_reg_operand (op, mode)
-     register rtx op;
-     enum machine_mode mode;
+ar_lc_reg_operand (register rtx op, enum machine_mode mode)
 {
   return (GET_MODE (op) == DImode
 	  && (mode == DImode || mode == VOIDmode)
@@ -964,9 +899,7 @@ ar_lc_reg_operand (op, mode)
 /* Return 1 if this is the ar.ccv register.  */
 
 int
-ar_ccv_reg_operand (op, mode)
-     register rtx op;
-     enum machine_mode mode;
+ar_ccv_reg_operand (register rtx op, enum machine_mode mode)
 {
   return ((GET_MODE (op) == mode || mode == VOIDmode)
 	  && GET_CODE (op) == REG
@@ -976,9 +909,7 @@ ar_ccv_reg_operand (op, mode)
 /* Return 1 if this is the ar.pfs register.  */
 
 int
-ar_pfs_reg_operand (op, mode)
-     register rtx op;
-     enum machine_mode mode;
+ar_pfs_reg_operand (register rtx op, enum machine_mode mode)
 {
   return ((GET_MODE (op) == mode || mode == VOIDmode)
 	  && GET_CODE (op) == REG
@@ -988,9 +919,7 @@ ar_pfs_reg_operand (op, mode)
 /* Like general_operand, but don't allow (mem (addressof)).  */
 
 int
-general_tfmode_operand (op, mode)
-     rtx op;
-     enum machine_mode mode;
+general_tfmode_operand (rtx op, enum machine_mode mode)
 {
   if (! general_operand (op, mode))
     return 0;
@@ -1002,9 +931,7 @@ general_tfmode_operand (op, mode)
 /* Similarly.  */
 
 int
-destination_tfmode_operand (op, mode)
-     rtx op;
-     enum machine_mode mode;
+destination_tfmode_operand (rtx op, enum machine_mode mode)
 {
   if (! destination_operand (op, mode))
     return 0;
@@ -1016,9 +943,7 @@ destination_tfmode_operand (op, mode)
 /* Similarly.  */
 
 int
-tfreg_or_fp01_operand (op, mode)
-     rtx op;
-     enum machine_mode mode;
+tfreg_or_fp01_operand (rtx op, enum machine_mode mode)
 {
   if (GET_CODE (op) == SUBREG)
     return 0;
@@ -1028,9 +953,7 @@ tfreg_or_fp01_operand (op, mode)
 /* Return 1 if OP is valid as a base register in a reg + offset address.  */
 
 int
-basereg_operand (op, mode)
-     rtx op;
-     enum machine_mode mode;
+basereg_operand (rtx op, enum machine_mode mode)
 {
   /* ??? Should I copy the flag_omit_frame_pointer and cse_not_expected
      checks from pa.c basereg_operand as well?  Seems to be OK without them
@@ -1040,11 +963,130 @@ basereg_operand (op, mode)
 	  REG_POINTER ((GET_CODE (op) == SUBREG) ? SUBREG_REG (op) : op));
 }
 
+typedef enum
+  {
+    ADDR_AREA_NORMAL,	/* normal address area */
+    ADDR_AREA_SMALL	/* addressable by "addl" (-2MB < addr < 2MB) */
+  }
+ia64_addr_area;
+
+static GTY(()) tree small_ident1;
+static GTY(()) tree small_ident2;
+
+static void
+init_idents (void)
+{
+  if (small_ident1 == 0)
+    {
+      small_ident1 = get_identifier ("small");
+      small_ident2 = get_identifier ("__small__");
+    }
+}
+
+/* Retrieve the address area that has been chosen for the given decl.  */
+
+static ia64_addr_area
+ia64_get_addr_area (tree decl)
+{
+  tree model_attr;
+
+  model_attr = lookup_attribute ("model", DECL_ATTRIBUTES (decl));
+  if (model_attr)
+    {
+      tree id;
+
+      init_idents ();
+      id = TREE_VALUE (TREE_VALUE (model_attr));
+      if (id == small_ident1 || id == small_ident2)
+	return ADDR_AREA_SMALL;
+    }
+  return ADDR_AREA_NORMAL;
+}
+
+static tree
+ia64_handle_model_attribute (tree *node, tree name, tree args, int flags ATTRIBUTE_UNUSED, bool *no_add_attrs)
+{
+  ia64_addr_area addr_area = ADDR_AREA_NORMAL;
+  ia64_addr_area area;
+  tree arg, decl = *node;
+
+  init_idents ();
+  arg = TREE_VALUE (args);
+  if (arg == small_ident1 || arg == small_ident2)
+    {
+      addr_area = ADDR_AREA_SMALL;
+    }
+  else
+    {
+      warning ("invalid argument of `%s' attribute",
+	       IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
+    }
+
+  switch (TREE_CODE (decl))
+    {
+    case VAR_DECL:
+      if ((DECL_CONTEXT (decl) && TREE_CODE (DECL_CONTEXT (decl))
+	   == FUNCTION_DECL)
+	  && !TREE_STATIC (decl))
+	{
+	  error ("%Jan address area attribute cannot be specified for "
+		 "local variables", decl, decl);
+	  *no_add_attrs = true;
+	}
+      area = ia64_get_addr_area (decl);
+      if (area != ADDR_AREA_NORMAL && addr_area != area)
+	{
+	  error ("%Jaddress area of '%s' conflicts with previous "
+		 "declaration", decl, decl);
+	  *no_add_attrs = true;
+	}
+      break;
+
+    case FUNCTION_DECL:
+      error ("%Jaddress area attribute cannot be specified for functions",
+	     decl, decl);
+      *no_add_attrs = true;
+      break;
+
+    default:
+      warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
+      break;
+    }
+
+  return NULL_TREE;
+}
+
+static void
+ia64_encode_addr_area (tree decl, rtx symbol)
+{
+  int flags;
+
+  flags = SYMBOL_REF_FLAGS (symbol);
+  switch (ia64_get_addr_area (decl))
+    {
+    case ADDR_AREA_NORMAL: break;
+    case ADDR_AREA_SMALL: flags |= SYMBOL_FLAG_SMALL_ADDR; break;
+    default: abort ();
+    }
+  SYMBOL_REF_FLAGS (symbol) = flags;
+}
+
+static void
+ia64_encode_section_info (tree decl, rtx rtl, int first)
+{
+  default_encode_section_info (decl, rtl, first);
+
+  if (TREE_CODE (decl) == VAR_DECL
+      && (TREE_STATIC (decl) || DECL_EXTERNAL (decl)))
+    ia64_encode_addr_area (decl, XEXP (rtl, 0));
+}
+
 /* Return 1 if the operands of a move are ok.  */
 
 int
-ia64_move_ok (dst, src)
-     rtx dst, src;
+ia64_move_ok (rtx dst, rtx src)
 {
   /* If we're under init_recog_no_volatile, we'll not be able to use
      memory_operand.  So check the code directly and don't worry about
@@ -1064,17 +1106,9 @@ ia64_move_ok (dst, src)
     return GET_CODE (src) == CONST_DOUBLE && CONST_DOUBLE_OK_FOR_G (src);
 }
 
-/* Return 0 if we are doing C++ code.  This optimization fails with
-   C++ because of GNAT c++/6685.  */
-
 int
-addp4_optimize_ok (op1, op2)
-     rtx op1, op2;
+addp4_optimize_ok (rtx op1, rtx op2)
 {
-
-  if (!strcmp (lang_hooks.name, "GNU C++"))
-    return 0;
-
   return (basereg_operand (op1, GET_MODE(op1)) !=
 	  basereg_operand (op2, GET_MODE(op2)));
 }
@@ -1083,8 +1117,7 @@ addp4_optimize_ok (op1, op2)
    Return the length of the field, or <= 0 on failure.  */
 
 int
-ia64_depz_field_mask (rop, rshift)
-     rtx rop, rshift;
+ia64_depz_field_mask (rtx rop, rtx rshift)
 {
   unsigned HOST_WIDE_INT op = INTVAL (rop);
   unsigned HOST_WIDE_INT shift = INTVAL (rshift);
@@ -1099,8 +1132,7 @@ ia64_depz_field_mask (rop, rshift)
 /* Expand a symbolic constant load.  */
 
 void
-ia64_expand_load_address (dest, src)
-      rtx dest, src;
+ia64_expand_load_address (rtx dest, rtx src)
 {
   if (tls_symbolic_operand (src, VOIDmode))
     abort ();
@@ -1114,7 +1146,12 @@ ia64_expand_load_address (dest, src)
   if (GET_MODE (dest) != Pmode)
     dest = gen_rtx_REG (Pmode, REGNO (dest));
 
-  if (TARGET_AUTO_PIC)
+  if (GET_CODE (src) == SYMBOL_REF && SYMBOL_REF_SMALL_ADDR_P (src))
+    {
+      emit_insn (gen_rtx_SET (VOIDmode, dest, src));
+      return;
+    }
+  else if (TARGET_AUTO_PIC)
     {
       emit_insn (gen_load_gprel64 (dest, src));
       return;
@@ -1162,7 +1199,7 @@ ia64_expand_load_address (dest, src)
 
 static GTY(()) rtx gen_tls_tga;
 static rtx
-gen_tls_get_addr ()
+gen_tls_get_addr (void)
 {
   if (!gen_tls_tga)
     gen_tls_tga = init_one_libfunc ("__tls_get_addr");
@@ -1171,7 +1208,7 @@ gen_tls_get_addr ()
 
 static GTY(()) rtx thread_pointer_rtx;
 static rtx
-gen_thread_pointer ()
+gen_thread_pointer (void)
 {
   if (!thread_pointer_rtx)
     {
@@ -1182,11 +1219,10 @@ gen_thread_pointer ()
 }
 
 static rtx
-ia64_expand_tls_address (tls_kind, op0, op1)
-     enum tls_model tls_kind;
-     rtx op0, op1;
+ia64_expand_tls_address (enum tls_model tls_kind, rtx op0, rtx op1)
 {
   rtx tga_op1, tga_op2, tga_ret, tga_eqv, tmp, insns;
+  rtx orig_op0 = op0;
 
   switch (tls_kind)
     {
@@ -1202,7 +1238,7 @@ ia64_expand_tls_address (tls_kind, op0, op1)
       emit_insn (gen_load_ltoff_dtprel (tga_op2, op1));
       tga_op2 = gen_rtx_MEM (Pmode, tga_op2);
       RTX_UNCHANGING_P (tga_op2) = 1;
-	      
+
       tga_ret = emit_library_call_value (gen_tls_get_addr (), NULL_RTX,
 					 LCT_CONST, Pmode, 2, tga_op1,
 					 Pmode, tga_op2, Pmode);
@@ -1210,8 +1246,10 @@ ia64_expand_tls_address (tls_kind, op0, op1)
       insns = get_insns ();
       end_sequence ();
 
+      if (GET_MODE (op0) != Pmode)
+	op0 = tga_ret;
       emit_libcall_block (insns, op0, tga_ret, op1);
-      return NULL_RTX;
+      break;
 
     case TLS_MODEL_LOCAL_DYNAMIC:
       /* ??? This isn't the completely proper way to do local-dynamic
@@ -1239,19 +1277,16 @@ ia64_expand_tls_address (tls_kind, op0, op1)
       tmp = gen_reg_rtx (Pmode);
       emit_libcall_block (insns, tmp, tga_ret, tga_eqv);
 
-      if (register_operand (op0, Pmode))
-	tga_ret = op0;
-      else
-	tga_ret = gen_reg_rtx (Pmode);
+      if (!register_operand (op0, Pmode))
+	op0 = gen_reg_rtx (Pmode);
       if (TARGET_TLS64)
 	{
-	  emit_insn (gen_load_dtprel (tga_ret, op1));
-	  emit_insn (gen_adddi3 (tga_ret, tmp, tga_ret));
+	  emit_insn (gen_load_dtprel (op0, op1));
+	  emit_insn (gen_adddi3 (op0, tmp, op0));
 	}
       else
-	emit_insn (gen_add_dtprel (tga_ret, tmp, op1));
-
-      return (tga_ret == op0 ? NULL_RTX : tga_ret);
+	emit_insn (gen_add_dtprel (op0, tmp, op1));
+      break;
 
     case TLS_MODEL_INITIAL_EXEC:
       tmp = gen_reg_rtx (Pmode);
@@ -1260,37 +1295,36 @@ ia64_expand_tls_address (tls_kind, op0, op1)
       RTX_UNCHANGING_P (tmp) = 1;
       tmp = force_reg (Pmode, tmp);
 
-      if (register_operand (op0, Pmode))
-	op1 = op0;
-      else
-	op1 = gen_reg_rtx (Pmode);
-      emit_insn (gen_adddi3 (op1, tmp, gen_thread_pointer ()));
-
-      return (op1 == op0 ? NULL_RTX : op1);
+      if (!register_operand (op0, Pmode))
+	op0 = gen_reg_rtx (Pmode);
+      emit_insn (gen_adddi3 (op0, tmp, gen_thread_pointer ()));
+      break;
 
     case TLS_MODEL_LOCAL_EXEC:
-      if (register_operand (op0, Pmode))
-	tmp = op0;
-      else
-	tmp = gen_reg_rtx (Pmode);
+      if (!register_operand (op0, Pmode))
+	op0 = gen_reg_rtx (Pmode);
       if (TARGET_TLS64)
 	{
-	  emit_insn (gen_load_tprel (tmp, op1));
-	  emit_insn (gen_adddi3 (tmp, gen_thread_pointer (), tmp));
+	  emit_insn (gen_load_tprel (op0, op1));
+	  emit_insn (gen_adddi3 (op0, gen_thread_pointer (), op0));
 	}
       else
-	emit_insn (gen_add_tprel (tmp, gen_thread_pointer (), op1));
-
-      return (tmp == op0 ? NULL_RTX : tmp);
+	emit_insn (gen_add_tprel (op0, gen_thread_pointer (), op1));
+      break;
 
     default:
       abort ();
     }
+
+  if (orig_op0 == op0)
+    return NULL_RTX;
+  if (GET_MODE (orig_op0) == Pmode)
+    return op0;
+  return gen_lowpart (GET_MODE (orig_op0), op0);
 }
 
 rtx
-ia64_expand_move (op0, op1)
-     rtx op0, op1;
+ia64_expand_move (rtx op0, rtx op1)
 {
   enum machine_mode mode = GET_MODE (op0);
 
@@ -1316,8 +1350,7 @@ ia64_expand_move (op0, op1)
 /* Split a move from OP1 to OP0 conditional on COND.  */
 
 void
-ia64_emit_cond_move (op0, op1, cond)
-     rtx op0, op1, cond;
+ia64_emit_cond_move (rtx op0, rtx op1, rtx cond)
 {
   rtx insn, first = get_last_insn ();
 
@@ -1332,9 +1365,7 @@ ia64_emit_cond_move (op0, op1, cond)
 /* Split a post-reload TImode reference into two DImode components.  */
 
 rtx
-ia64_split_timode (out, in, scratch)
-     rtx out[2];
-     rtx in, scratch;
+ia64_split_timode (rtx out[2], rtx in, rtx scratch)
 {
   switch (GET_CODE (in))
     {
@@ -1401,14 +1432,12 @@ ia64_split_timode (out, in, scratch)
    SECONDARY_RELOAD_CLASS, but not both.
 
    We got into problems in the first place by allowing a construct like
-   (subreg:TF (reg:TI)), which we got from a union containing a long double.  
+   (subreg:TF (reg:TI)), which we got from a union containing a long double.
    This solution attempts to prevent this situation from occurring.  When
    we see something like the above, we spill the inner register to memory.  */
 
 rtx
-spill_tfmode_operand (in, force)
-     rtx in;
-     int force;
+spill_tfmode_operand (rtx in, int force)
 {
   if (GET_CODE (in) == SUBREG
       && GET_MODE (SUBREG_REG (in)) == TImode
@@ -1433,9 +1462,7 @@ spill_tfmode_operand (in, force)
    that holds the compare result in the proper mode.  */
 
 rtx
-ia64_expand_compare (code, mode)
-     enum rtx_code code;
-     enum machine_mode mode;
+ia64_expand_compare (enum rtx_code code, enum machine_mode mode)
 {
   rtx op0 = ia64_compare_op0, op1 = ia64_compare_op1;
   rtx cmp;
@@ -1463,11 +1490,8 @@ ia64_expand_compare (code, mode)
 /* Emit the appropriate sequence for a call.  */
 
 void
-ia64_expand_call (retval, addr, nextarg, sibcall_p)
-     rtx retval;
-     rtx addr;
-     rtx nextarg ATTRIBUTE_UNUSED;
-     int sibcall_p;
+ia64_expand_call (rtx retval, rtx addr, rtx nextarg ATTRIBUTE_UNUSED,
+		  int sibcall_p)
 {
   rtx insn, b0;
 
@@ -1503,7 +1527,7 @@ ia64_expand_call (retval, addr, nextarg, sibcall_p)
 }
 
 void
-ia64_reload_gp ()
+ia64_reload_gp (void)
 {
   rtx tmp;
 
@@ -1543,10 +1567,8 @@ ia64_reload_gp ()
 }
 
 void
-ia64_split_call (retval, addr, retaddr, scratch_r, scratch_b,
-		 noreturn_p, sibcall_p)
-     rtx retval, addr, retaddr, scratch_r, scratch_b;
-     int noreturn_p, sibcall_p;
+ia64_split_call (rtx retval, rtx addr, rtx retaddr, rtx scratch_r,
+		 rtx scratch_b, int noreturn_p, int sibcall_p)
 {
   rtx insn;
   bool is_desc = false;
@@ -1560,7 +1582,7 @@ ia64_split_call (retval, addr, retaddr, scratch_r, scratch_b,
 
       /* ??? We are currently constrained to *not* use peep2, because
 	 we can legitimately change the global lifetime of the GP
-	 (in the form of killing where previously live).  This is 
+	 (in the form of killing where previously live).  This is
 	 because a call through a descriptor doesn't use the previous
 	 value of the GP, while a direct call does, and we do not
 	 commit to either form until the split here.
@@ -1609,14 +1631,14 @@ ia64_split_call (retval, addr, retaddr, scratch_r, scratch_b,
 /* Begin the assembly file.  */
 
 static void
-ia64_file_start ()
+ia64_file_start (void)
 {
   default_file_start ();
   emit_safe_across_calls ();
 }
 
 void
-emit_safe_across_calls ()
+emit_safe_across_calls (void)
 {
   unsigned int rs, re;
   int out_state;
@@ -1654,8 +1676,7 @@ emit_safe_across_calls ()
    TRY_LOCALS is true if we should attempt to locate a local regnum.  */
 
 static int
-find_gr_spill (try_locals)
-     int try_locals;
+find_gr_spill (int try_locals)
 {
   int regno;
 
@@ -1704,7 +1725,7 @@ find_gr_spill (try_locals)
 static int last_scratch_gr_reg;
 
 static int
-next_scratch_gr_reg ()
+next_scratch_gr_reg (void)
 {
   int i, regno;
 
@@ -1729,9 +1750,7 @@ next_scratch_gr_reg ()
    diddle_return_value.  Mark REG in current_frame_info.gr_used_mask.  */
 
 static void
-mark_reg_gr_used_mask (reg, data)
-     rtx reg;
-     void *data ATTRIBUTE_UNUSED;
+mark_reg_gr_used_mask (rtx reg, void *data ATTRIBUTE_UNUSED)
 {
   unsigned int regno = REGNO (reg);
   if (regno < 32)
@@ -1747,8 +1766,7 @@ mark_reg_gr_used_mask (reg, data)
    needed for local variables.  */
 
 static void
-ia64_compute_frame_size (size)
-     HOST_WIDE_INT size;
+ia64_compute_frame_size (HOST_WIDE_INT size)
 {
   HOST_WIDE_INT total_size;
   HOST_WIDE_INT spill_size = 0;
@@ -1821,7 +1839,7 @@ ia64_compute_frame_size (size)
   current_frame_info.n_rotate_regs = 0;
 
   /* Discover which registers need spilling, and how much room that
-     will take.  Begin with floating point and general registers, 
+     will take.  Begin with floating point and general registers,
      which will always wind up on the stack.  */
 
   for (regno = FR_REG (2); regno <= FR_REG (127); regno++)
@@ -1852,7 +1870,7 @@ ia64_compute_frame_size (size)
 
   /* Now come all special registers that might get saved in other
      general registers.  */
-  
+
   if (frame_pointer_needed)
     {
       current_frame_info.reg_fp = find_gr_spill (1);
@@ -2014,8 +2032,7 @@ ia64_compute_frame_size (size)
 /* Compute the initial difference between the specified pair of registers.  */
 
 HOST_WIDE_INT
-ia64_initial_elimination_offset (from, to)
-     int from, to;
+ia64_initial_elimination_offset (int from, int to)
 {
   HOST_WIDE_INT offset;
 
@@ -2054,10 +2071,6 @@ ia64_initial_elimination_offset (from, to)
 	abort ();
       break;
 
-    case RETURN_ADDRESS_POINTER_REGNUM:
-      offset = 0;
-      break;
-
     default:
       abort ();
     }
@@ -2091,10 +2104,7 @@ struct spill_fill_data
 static struct spill_fill_data spill_fill_data;
 
 static void
-setup_spill_pointers (n_spills, init_reg, cfa_off)
-     int n_spills;
-     rtx init_reg;
-     HOST_WIDE_INT cfa_off;
+setup_spill_pointers (int n_spills, rtx init_reg, HOST_WIDE_INT cfa_off)
 {
   int i;
 
@@ -2120,15 +2130,13 @@ setup_spill_pointers (n_spills, init_reg, cfa_off)
 }
 
 static void
-finish_spill_pointers ()
+finish_spill_pointers (void)
 {
   current_frame_info.gr_used_mask = spill_fill_data.save_gr_used_mask;
 }
 
 static rtx
-spill_restore_mem (reg, cfa_off)
-     rtx reg;
-     HOST_WIDE_INT cfa_off;
+spill_restore_mem (rtx reg, HOST_WIDE_INT cfa_off)
 {
   int iter = spill_fill_data.next_iter;
   HOST_WIDE_INT disp = spill_fill_data.prev_off[iter] - cfa_off;
@@ -2241,10 +2249,8 @@ spill_restore_mem (reg, cfa_off)
 }
 
 static void
-do_spill (move_fn, reg, cfa_off, frame_reg)
-     rtx (*move_fn) PARAMS ((rtx, rtx, rtx));
-     rtx reg, frame_reg;
-     HOST_WIDE_INT cfa_off;
+do_spill (rtx (*move_fn) (rtx, rtx, rtx), rtx reg, HOST_WIDE_INT cfa_off,
+	  rtx frame_reg)
 {
   int iter = spill_fill_data.next_iter;
   rtx mem, insn;
@@ -2260,7 +2266,7 @@ do_spill (move_fn, reg, cfa_off, frame_reg)
 
       RTX_FRAME_RELATED_P (insn) = 1;
 
-      /* Don't even pretend that the unwind code can intuit its way 
+      /* Don't even pretend that the unwind code can intuit its way
 	 through a pair of interleaved post_modify iterators.  Just
 	 provide the correct answer.  */
 
@@ -2286,10 +2292,7 @@ do_spill (move_fn, reg, cfa_off, frame_reg)
 }
 
 static void
-do_restore (move_fn, reg, cfa_off)
-     rtx (*move_fn) PARAMS ((rtx, rtx, rtx));
-     rtx reg;
-     HOST_WIDE_INT cfa_off;
+do_restore (rtx (*move_fn) (rtx, rtx, rtx), rtx reg, HOST_WIDE_INT cfa_off)
 {
   int iter = spill_fill_data.next_iter;
   rtx insn;
@@ -2304,25 +2307,19 @@ do_restore (move_fn, reg, cfa_off)
    use a consistent function interface.  */
 
 static rtx
-gen_movdi_x (dest, src, offset)
-     rtx dest, src;
-     rtx offset ATTRIBUTE_UNUSED;
+gen_movdi_x (rtx dest, rtx src, rtx offset ATTRIBUTE_UNUSED)
 {
   return gen_movdi (dest, src);
 }
 
 static rtx
-gen_fr_spill_x (dest, src, offset)
-     rtx dest, src;
-     rtx offset ATTRIBUTE_UNUSED;
+gen_fr_spill_x (rtx dest, rtx src, rtx offset ATTRIBUTE_UNUSED)
 {
   return gen_fr_spill (dest, src);
 }
 
 static rtx
-gen_fr_restore_x (dest, src, offset)
-     rtx dest, src;
-     rtx offset ATTRIBUTE_UNUSED;
+gen_fr_restore_x (rtx dest, rtx src, rtx offset ATTRIBUTE_UNUSED)
 {
   return gen_fr_restore (dest, src);
 }
@@ -2350,7 +2347,7 @@ gen_fr_restore_x (dest, src, offset)
    adds instruction.  */
 
 void
-ia64_expand_prologue ()
+ia64_expand_prologue (void)
 {
   rtx insn, ar_pfs_save_reg, ar_unat_save_reg;
   int i, epilogue_p, regno, alt_regno, cfa_off, n_varargs;
@@ -2408,17 +2405,6 @@ ia64_expand_prologue ()
       reg_names[current_frame_info.reg_fp] = tmp;
     }
 
-  /* Fix up the return address placeholder.  */
-  /* ??? We can fail if __builtin_return_address is used, and we didn't
-     allocate a register in which to save b0.  I can't think of a way to
-     eliminate RETURN_ADDRESS_POINTER_REGNUM to a local register and
-     then be sure that I got the right one.  Further, reload doesn't seem
-     to care if an eliminable register isn't used, and "eliminates" it
-     anyway.  */
-  if (regs_ever_live[RETURN_ADDRESS_POINTER_REGNUM]
-      && current_frame_info.reg_save_b0 != 0)
-    XINT (return_address_pointer_rtx, 0) = current_frame_info.reg_save_b0;
-
   /* We don't need an alloc instruction if we've used no outputs or locals.  */
   if (current_frame_info.n_local_regs == 0
       && current_frame_info.n_output_regs == 0
@@ -2440,7 +2426,7 @@ ia64_expand_prologue ()
 	regno = next_scratch_gr_reg ();
       ar_pfs_save_reg = gen_rtx_REG (DImode, regno);
 
-      insn = emit_insn (gen_alloc (ar_pfs_save_reg, 
+      insn = emit_insn (gen_alloc (ar_pfs_save_reg,
 				   GEN_INT (current_frame_info.n_input_regs),
 				   GEN_INT (current_frame_info.n_local_regs),
 				   GEN_INT (current_frame_info.n_output_regs),
@@ -2470,7 +2456,7 @@ ia64_expand_prologue ()
       else
 	{
 	  regno = next_scratch_gr_reg ();
- 	  offset = gen_rtx_REG (DImode, regno);
+	  offset = gen_rtx_REG (DImode, regno);
 	  emit_move_insn (offset, frame_size_rtx);
 	}
 
@@ -2707,8 +2693,7 @@ ia64_expand_prologue ()
    insn to prevent such scheduling.  */
 
 void
-ia64_expand_epilogue (sibcall_p)
-     int sibcall_p;
+ia64_expand_epilogue (int sibcall_p)
 {
   rtx insn, reg, alt_reg, ar_unat_save_reg;
   int regno, alt_regno, cfa_off;
@@ -2722,7 +2707,7 @@ ia64_expand_epilogue (sibcall_p)
     setup_spill_pointers (current_frame_info.n_spilled,
 			  hard_frame_pointer_rtx, 0);
   else
-    setup_spill_pointers (current_frame_info.n_spilled, stack_pointer_rtx, 
+    setup_spill_pointers (current_frame_info.n_spilled, stack_pointer_rtx,
 			  current_frame_info.total_size);
 
   if (current_frame_info.total_size != 0)
@@ -2774,7 +2759,7 @@ ia64_expand_epilogue (sibcall_p)
     }
   else
     ar_unat_save_reg = NULL_RTX;
-      
+
   if (current_frame_info.reg_save_ar_pfs != 0)
     {
       alt_reg = gen_rtx_REG (DImode, current_frame_info.reg_save_ar_pfs);
@@ -2824,7 +2809,7 @@ ia64_expand_epilogue (sibcall_p)
 	do_restore (gen_gr_restore, reg, cfa_off);
 	cfa_off -= 8;
       }
-  
+
   /* Restore the branch registers.  Handle B0 specially, as it may
      have gotten stored in some GR register.  */
   if (TEST_HARD_REG_BIT (current_frame_info.mask, BR_REG (0)))
@@ -2841,7 +2826,7 @@ ia64_expand_epilogue (sibcall_p)
       reg = gen_rtx_REG (DImode, BR_REG (0));
       emit_move_insn (reg, alt_reg);
     }
-    
+
   for (regno = BR_REG (1); regno <= BR_REG (7); ++regno)
     if (TEST_HARD_REG_BIT (current_frame_info.mask, regno))
       {
@@ -2925,15 +2910,15 @@ ia64_expand_epilogue (sibcall_p)
 
   if (cfun->machine->ia64_eh_epilogue_bsp)
     emit_insn (gen_set_bsp (cfun->machine->ia64_eh_epilogue_bsp));
- 
+
   if (! sibcall_p)
     emit_jump_insn (gen_return_internal (gen_rtx_REG (DImode, BR_REG (0))));
   else
     {
       int fp = GR_REG (2);
       /* We need a throw away register here, r0 and r1 are reserved, so r2 is the
-	 first available call clobbered register.  If there was a frame_pointer 
-	 register, we may have swapped the names of r2 and HARD_FRAME_POINTER_REGNUM, 
+	 first available call clobbered register.  If there was a frame_pointer
+	 register, we may have swapped the names of r2 and HARD_FRAME_POINTER_REGNUM,
 	 so we have to make sure we're using the string "r2" when emitting
 	 the register name for the assembler.  */
       if (current_frame_info.reg_fp && current_frame_info.reg_fp == GR_REG (2))
@@ -2958,7 +2943,7 @@ ia64_expand_epilogue (sibcall_p)
    function.  */
 
 int
-ia64_direct_return ()
+ia64_direct_return (void)
 {
   if (reload_completed && ! frame_pointer_needed)
     {
@@ -2975,10 +2960,71 @@ ia64_direct_return ()
   return 0;
 }
 
+/* Return the magic cookie that we use to hold the return address
+   during early compilation.  */
+
+rtx
+ia64_return_addr_rtx (HOST_WIDE_INT count, rtx frame ATTRIBUTE_UNUSED)
+{
+  if (count != 0)
+    return NULL;
+  return gen_rtx_UNSPEC (Pmode, gen_rtvec (1, const0_rtx), UNSPEC_RET_ADDR);
+}
+
+/* Split this value after reload, now that we know where the return
+   address is saved.  */
+
+void
+ia64_split_return_addr_rtx (rtx dest)
+{
+  rtx src;
+
+  if (TEST_HARD_REG_BIT (current_frame_info.mask, BR_REG (0)))
+    {
+      if (current_frame_info.reg_save_b0 != 0)
+	src = gen_rtx_REG (DImode, current_frame_info.reg_save_b0);
+      else
+	{
+	  HOST_WIDE_INT off;
+	  unsigned int regno;
+
+	  /* Compute offset from CFA for BR0.  */
+	  /* ??? Must be kept in sync with ia64_expand_prologue.  */
+	  off = (current_frame_info.spill_cfa_off
+		 + current_frame_info.spill_size);
+	  for (regno = GR_REG (1); regno <= GR_REG (31); ++regno)
+	    if (TEST_HARD_REG_BIT (current_frame_info.mask, regno))
+	      off -= 8;
+
+	  /* Convert CFA offset to a register based offset.  */
+	  if (frame_pointer_needed)
+	    src = hard_frame_pointer_rtx;
+	  else
+	    {
+	      src = stack_pointer_rtx;
+	      off += current_frame_info.total_size;
+	    }
+
+	  /* Load address into scratch register.  */
+	  if (CONST_OK_FOR_I (off))
+	    emit_insn (gen_adddi3 (dest, src, GEN_INT (off)));
+	  else
+	    {
+	      emit_move_insn (dest, GEN_INT (off));
+	      emit_insn (gen_adddi3 (dest, src, dest));
+	    }
+
+	  src = gen_rtx_MEM (Pmode, dest);
+	}
+    }
+  else
+    src = gen_rtx_REG (DImode, BR_REG (0));
+
+  emit_move_insn (dest, src);
+}
+
 int
-ia64_hard_regno_rename_ok (from, to)
-     int from;
-     int to;
+ia64_hard_regno_rename_ok (int from, int to)
 {
   /* Don't clobber any of the registers we reserved for the prologue.  */
   if (to == current_frame_info.reg_fp
@@ -3012,10 +3058,7 @@ ia64_hard_regno_rename_ok (from, to)
    aligned objects and detect the cases when @fptr is needed.  */
 
 static bool
-ia64_assemble_integer (x, size, aligned_p)
-     rtx x;
-     unsigned int size;
-     int aligned_p;
+ia64_assemble_integer (rtx x, unsigned int size, int aligned_p)
 {
   if (size == (TARGET_ILP32 ? 4 : 8)
       && aligned_p
@@ -3037,9 +3080,7 @@ ia64_assemble_integer (x, size, aligned_p)
 /* Emit the function prologue.  */
 
 static void
-ia64_output_function_prologue (file, size)
-     FILE *file;
-     HOST_WIDE_INT size ATTRIBUTE_UNUSED;
+ia64_output_function_prologue (FILE *file, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
 {
   int mask, grsave, grsave_prev;
 
@@ -3106,8 +3147,7 @@ ia64_output_function_prologue (file, size)
 /* Emit the .body directive at the scheduled end of the prologue.  */
 
 static void
-ia64_output_function_end_prologue (file)
-     FILE *file;
+ia64_output_function_end_prologue (FILE *file)
 {
   if (!flag_unwind_tables && (!flag_exceptions || USING_SJLJ_EXCEPTIONS))
     return;
@@ -3118,14 +3158,10 @@ ia64_output_function_end_prologue (file)
 /* Emit the function epilogue.  */
 
 static void
-ia64_output_function_epilogue (file, size)
-     FILE *file ATTRIBUTE_UNUSED;
-     HOST_WIDE_INT size ATTRIBUTE_UNUSED;
+ia64_output_function_epilogue (FILE *file ATTRIBUTE_UNUSED,
+			       HOST_WIDE_INT size ATTRIBUTE_UNUSED)
 {
   int i;
-
-  /* Reset from the function's potential modifications.  */
-  XINT (return_address_pointer_rtx, 0) = RETURN_ADDRESS_POINTER_REGNUM;
 
   if (current_frame_info.reg_fp)
     {
@@ -3148,8 +3184,7 @@ ia64_output_function_epilogue (file, size)
 }
 
 int
-ia64_dbx_register_number (regno)
-     int regno;
+ia64_dbx_register_number (int regno)
 {
   /* In ia64_expand_prologue we quite literally renamed the frame pointer
      from its home at loc79 to something inside the register frame.  We
@@ -3174,8 +3209,7 @@ ia64_dbx_register_number (regno)
 }
 
 void
-ia64_initialize_trampoline (addr, fnaddr, static_chain)
-     rtx addr, fnaddr, static_chain;
+ia64_initialize_trampoline (rtx addr, rtx fnaddr, rtx static_chain)
 {
   rtx addr_reg, eight = GEN_INT (8);
 
@@ -3207,12 +3241,9 @@ ia64_initialize_trampoline (addr, fnaddr, static_chain)
    We generate the actual spill instructions during prologue generation.  */
 
 void
-ia64_setup_incoming_varargs (cum, int_mode, type, pretend_size, second_time)
-     CUMULATIVE_ARGS cum;
-     int             int_mode;
-     tree            type;
-     int *           pretend_size;
-     int	     second_time ATTRIBUTE_UNUSED;
+ia64_setup_incoming_varargs (CUMULATIVE_ARGS cum, int int_mode, tree type,
+			     int * pretend_size,
+			     int second_time ATTRIBUTE_UNUSED)
 {
   /* Skip the current argument.  */
   ia64_function_arg_advance (&cum, int_mode, type, 1);
@@ -3234,9 +3265,7 @@ ia64_setup_incoming_varargs (cum, int_mode, type, pretend_size, second_time)
    SFmode).  128-bit quad-precision floats are excluded.  */
 
 static enum machine_mode
-hfa_element_mode (type, nested)
-     tree type;
-     int nested;
+hfa_element_mode (tree type, int nested)
 {
   enum machine_mode element_mode = VOIDmode;
   enum machine_mode mode;
@@ -3317,12 +3346,8 @@ hfa_element_mode (type, nested)
    registers.  */
 
 rtx
-ia64_function_arg (cum, mode, type, named, incoming)
-     CUMULATIVE_ARGS *cum;
-     enum machine_mode mode;
-     tree type;
-     int named;
-     int incoming;
+ia64_function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode, tree type,
+		   int named, int incoming)
 {
   int basereg = (incoming ? GR_ARG_FIRST : AR_ARG_FIRST);
   int words = (((mode == BLKmode ? int_size_in_bytes (type)
@@ -3493,11 +3518,8 @@ ia64_function_arg (cum, mode, type, named, incoming)
    in memory.  */
 
 int
-ia64_function_arg_partial_nregs (cum, mode, type, named)
-     CUMULATIVE_ARGS *cum;
-     enum machine_mode mode;
-     tree type;
-     int named ATTRIBUTE_UNUSED;
+ia64_function_arg_partial_nregs (CUMULATIVE_ARGS *cum, enum machine_mode mode,
+				 tree type, int named ATTRIBUTE_UNUSED)
 {
   int words = (((mode == BLKmode ? int_size_in_bytes (type)
 		 : GET_MODE_SIZE (mode)) + UNITS_PER_WORD - 1)
@@ -3530,11 +3552,8 @@ ia64_function_arg_partial_nregs (cum, mode, type, named)
    ia64_function_arg.  */
 
 void
-ia64_function_arg_advance (cum, mode, type, named)
-     CUMULATIVE_ARGS *cum;
-     enum machine_mode mode;
-     tree type;
-     int named;
+ia64_function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
+			   tree type, int named)
 {
   int words = (((mode == BLKmode ? int_size_in_bytes (type)
 		 : GET_MODE_SIZE (mode)) + UNITS_PER_WORD - 1)
@@ -3614,7 +3633,7 @@ ia64_function_arg_advance (cum, mode, type, named)
   /* If there is no prototype, then FP values go in both FR and GR
      registers.  */
   else
-    { 
+    {
       /* ??? Complex types should not reach here.  */
       cum->fp_regs += (GET_MODE_CLASS (mode) == MODE_COMPLEX_FLOAT ? 2 : 1);
       cum->int_regs = cum->words;
@@ -3625,11 +3644,9 @@ ia64_function_arg_advance (cum, mode, type, named)
 /* ??? At present this is a GCC extension to the IA-64 ABI.  */
 
 int
-ia64_function_arg_pass_by_reference (cum, mode, type, named)
-     CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED;
-     enum machine_mode mode ATTRIBUTE_UNUSED;
-     tree type;
-     int named ATTRIBUTE_UNUSED;
+ia64_function_arg_pass_by_reference (CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED,
+				     enum machine_mode mode ATTRIBUTE_UNUSED,
+				     tree type, int named ATTRIBUTE_UNUSED)
 {
   return type && TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST;
 }
@@ -3638,9 +3655,7 @@ ia64_function_arg_pass_by_reference (cum, mode, type, named)
    call expression EXP.  DECL will be the called function, or NULL if
    this is an indirect call.  */
 static bool
-ia64_function_ok_for_sibcall (decl, exp)
-     tree decl;
-     tree exp ATTRIBUTE_UNUSED;
+ia64_function_ok_for_sibcall (tree decl, tree exp ATTRIBUTE_UNUSED)
 {
   /* We must always return with our current GP.  This means we can
      only sibcall to functions defined in the current module.  */
@@ -3651,8 +3666,7 @@ ia64_function_ok_for_sibcall (decl, exp)
 /* Implement va_arg.  */
 
 rtx
-ia64_va_arg (valist, type)
-     tree valist, type;
+ia64_va_arg (tree valist, tree type)
 {
   tree t;
 
@@ -3683,8 +3697,7 @@ ia64_va_arg (valist, type)
    in a register.  */
 
 int
-ia64_return_in_memory (valtype)
-     tree valtype;
+ia64_return_in_memory (tree valtype)
 {
   enum machine_mode mode;
   enum machine_mode hfa_mode;
@@ -3720,9 +3733,7 @@ ia64_return_in_memory (valtype)
 /* Return rtx for register that holds the function return value.  */
 
 rtx
-ia64_function_value (valtype, func)
-     tree valtype;
-     tree func ATTRIBUTE_UNUSED;
+ia64_function_value (tree valtype, tree func ATTRIBUTE_UNUSED)
 {
   enum machine_mode mode;
   enum machine_mode hfa_mode;
@@ -3789,10 +3800,7 @@ ia64_function_value (valtype, func)
    We need to emit DTP-relative relocations.  */
 
 void
-ia64_output_dwarf_dtprel (file, size, x)
-     FILE *file;
-     int size;
-     rtx x;
+ia64_output_dwarf_dtprel (FILE *file, int size, rtx x)
 {
   if (size != 8)
     abort ();
@@ -3807,9 +3815,8 @@ ia64_output_dwarf_dtprel (file, size, x)
    also call this from ia64_print_operand for memory addresses.  */
 
 void
-ia64_print_operand_address (stream, address)
-     FILE * stream ATTRIBUTE_UNUSED;
-     rtx    address ATTRIBUTE_UNUSED;
+ia64_print_operand_address (FILE * stream ATTRIBUTE_UNUSED,
+			    rtx address ATTRIBUTE_UNUSED)
 {
 }
 
@@ -3834,10 +3841,7 @@ ia64_print_operand_address (stream, address)
    r	Print register name, or constant 0 as r0.  HP compatibility for
 	Linux kernel.  */
 void
-ia64_print_operand (file, x, code)
-     FILE * file;
-     rtx    x;
-     int    code;
+ia64_print_operand (FILE * file, rtx x, int code)
 {
   const char *str;
 
@@ -3996,7 +4000,7 @@ ia64_print_operand (file, x, code)
     case '+':
       {
 	const char *which;
-	
+
 	/* For conditional branches, returns or calls, substitute
 	   sptk, dptk, dpnt, or spnt for %s.  */
 	x = find_reg_note (current_output_insn, REG_BR_PROB, 0);
@@ -4075,10 +4079,7 @@ ia64_print_operand (file, x, code)
 /* ??? This is incomplete.  */
 
 static bool
-ia64_rtx_costs (x, code, outer_code, total)
-     rtx x;
-     int code, outer_code;
-     int *total;
+ia64_rtx_costs (rtx x, int code, int outer_code, int *total)
 {
   switch (code)
     {
@@ -4152,9 +4153,8 @@ ia64_rtx_costs (x, code, outer_code, total)
    one in class TO, using MODE.  */
 
 int
-ia64_register_move_cost (mode, from, to)
-     enum machine_mode mode;
-     enum reg_class from, to;
+ia64_register_move_cost (enum machine_mode mode, enum reg_class from,
+			 enum reg_class to)
 {
   /* ADDL_REGS is the same as GR_REGS for movement purposes.  */
   if (to == ADDL_REGS)
@@ -4226,10 +4226,8 @@ ia64_register_move_cost (mode, from, to)
    is required.  */
 
 enum reg_class
-ia64_secondary_reload_class (class, mode, x)
-     enum reg_class class;
-     enum machine_mode mode ATTRIBUTE_UNUSED;
-     rtx x;
+ia64_secondary_reload_class (enum reg_class class,
+			     enum machine_mode mode ATTRIBUTE_UNUSED, rtx x)
 {
   int regno = -1;
 
@@ -4266,7 +4264,7 @@ ia64_secondary_reload_class (class, mode, x)
       /* Need to go through general registers to get to other class regs.  */
       if (regno >= 0 && ! (FR_REGNO_P (regno) || GENERAL_REGNO_P (regno)))
 	return GR_REGS;
- 
+
       /* This can happen when a paradoxical subreg is an operand to the
 	 muldi3 pattern.  */
       /* ??? This shouldn't be necessary after instruction scheduling is
@@ -4326,10 +4324,7 @@ ia64_secondary_reload_class (class, mode, x)
    the Intel assembler does not support undefined externals.  */
 
 void
-ia64_asm_output_external (file, decl, name)
-     FILE *file;
-     tree decl;
-     const char *name;
+ia64_asm_output_external (FILE *file, tree decl, const char *name)
 {
   int save_referenced;
 
@@ -4371,8 +4366,7 @@ ia64_asm_output_external (file, decl, name)
 /* Parse the -mfixed-range= option string.  */
 
 static void
-fix_range (const_str)
-     const char *const_str;
+fix_range (const char *const_str)
 {
   int i, first, last;
   char *str, *dash, *comma;
@@ -4435,7 +4429,7 @@ fix_range (const_str)
 }
 
 static struct machine_function *
-ia64_init_machine_status ()
+ia64_init_machine_status (void)
 {
   return ggc_alloc_cleared (sizeof (struct machine_function));
 }
@@ -4443,7 +4437,7 @@ ia64_init_machine_status ()
 /* Handle TARGET_OPTIONS switches.  */
 
 void
-ia64_override_options ()
+ia64_override_options (void)
 {
   static struct pta
     {
@@ -4515,12 +4509,11 @@ ia64_override_options ()
     real_format_for_mode[TFmode - QFmode] = &ieee_extended_intel_128_format;
 }
 
-static enum attr_itanium_class ia64_safe_itanium_class PARAMS((rtx));
-static enum attr_type ia64_safe_type PARAMS((rtx));
+static enum attr_itanium_class ia64_safe_itanium_class (rtx);
+static enum attr_type ia64_safe_type (rtx);
 
 static enum attr_itanium_class
-ia64_safe_itanium_class (insn)
-     rtx insn;
+ia64_safe_itanium_class (rtx insn)
 {
   if (recog_memoized (insn) >= 0)
     return get_attr_itanium_class (insn);
@@ -4529,8 +4522,7 @@ ia64_safe_itanium_class (insn)
 }
 
 static enum attr_type
-ia64_safe_type (insn)
-     rtx insn;
+ia64_safe_type (rtx insn)
 {
   if (recog_memoized (insn) >= 0)
     return get_attr_type (insn);
@@ -4608,26 +4600,21 @@ struct reg_flags
   unsigned int is_sibcall : 1;	/* Is this a sibling or normal call?  */
 };
 
-static void rws_update PARAMS ((struct reg_write_state *, int,
-				struct reg_flags, int));
-static int rws_access_regno PARAMS ((int, struct reg_flags, int));
-static int rws_access_reg PARAMS ((rtx, struct reg_flags, int));
-static void update_set_flags PARAMS ((rtx, struct reg_flags *, int *, rtx *));
-static int set_src_needs_barrier PARAMS ((rtx, struct reg_flags, int, rtx));
-static int rtx_needs_barrier PARAMS ((rtx, struct reg_flags, int));
-static void init_insn_group_barriers PARAMS ((void));
-static int group_barrier_needed_p PARAMS ((rtx));
-static int safe_group_barrier_needed_p PARAMS ((rtx));
+static void rws_update (struct reg_write_state *, int, struct reg_flags, int);
+static int rws_access_regno (int, struct reg_flags, int);
+static int rws_access_reg (rtx, struct reg_flags, int);
+static void update_set_flags (rtx, struct reg_flags *, int *, rtx *);
+static int set_src_needs_barrier (rtx, struct reg_flags, int, rtx);
+static int rtx_needs_barrier (rtx, struct reg_flags, int);
+static void init_insn_group_barriers (void);
+static int group_barrier_needed_p (rtx);
+static int safe_group_barrier_needed_p (rtx);
 
 /* Update *RWS for REGNO, which is being written by the current instruction,
    with predicate PRED, and associated register flags in FLAGS.  */
 
 static void
-rws_update (rws, regno, flags, pred)
-     struct reg_write_state *rws;
-     int regno;
-     struct reg_flags flags;
-     int pred;
+rws_update (struct reg_write_state *rws, int regno, struct reg_flags flags, int pred)
 {
   if (pred)
     rws[regno].write_count++;
@@ -4645,10 +4632,7 @@ rws_update (rws, regno, flags, pred)
    a dependency with an earlier instruction in the same group.  */
 
 static int
-rws_access_regno (regno, flags, pred)
-     int regno;
-     struct reg_flags flags;
-     int pred;
+rws_access_regno (int regno, struct reg_flags flags, int pred)
 {
   int need_barrier = 0;
 
@@ -4683,7 +4667,7 @@ rws_access_regno (regno, flags, pred)
 	  /* ??? This assumes that P and P+1 are always complementary
 	     predicates for P even.  */
 	  if (flags.is_and && rws_sum[regno].written_by_and)
-	    ; 
+	    ;
 	  else if (flags.is_or && rws_sum[regno].written_by_or)
 	    ;
 	  else if ((rws_sum[regno].first_pred ^ 1) != pred)
@@ -4766,10 +4750,7 @@ rws_access_regno (regno, flags, pred)
 }
 
 static int
-rws_access_reg (reg, flags, pred)
-     rtx reg;
-     struct reg_flags flags;
-     int pred;
+rws_access_reg (rtx reg, struct reg_flags flags, int pred)
 {
   int regno = REGNO (reg);
   int n = HARD_REGNO_NREGS (REGNO (reg), GET_MODE (reg));
@@ -4789,11 +4770,7 @@ rws_access_reg (reg, flags, pred)
    the condition, stored in *PFLAGS, *PPRED and *PCOND.  */
 
 static void
-update_set_flags (x, pflags, ppred, pcond)
-     rtx x;
-     struct reg_flags *pflags;
-     int *ppred;
-     rtx *pcond;
+update_set_flags (rtx x, struct reg_flags *pflags, int *ppred, rtx *pcond)
 {
   rtx src = SET_SRC (x);
 
@@ -4807,7 +4784,7 @@ update_set_flags (x, pflags, ppred, pcond)
     case IF_THEN_ELSE:
       if (SET_DEST (x) == pc_rtx)
 	/* X is a conditional branch.  */
-	return;	
+	return;
       else
 	{
 	  int is_complemented = 0;
@@ -4870,13 +4847,9 @@ update_set_flags (x, pflags, ppred, pcond)
    source of a given SET rtx found in X needs a barrier.  FLAGS and PRED
    are as in rtx_needs_barrier.  COND is an rtx that holds the condition
    for this insn.  */
-   
+
 static int
-set_src_needs_barrier (x, flags, pred, cond)
-     rtx x;
-     struct reg_flags flags;
-     int pred;
-     rtx cond;
+set_src_needs_barrier (rtx x, struct reg_flags flags, int pred, rtx cond)
 {
   int need_barrier = 0;
   rtx dst;
@@ -4916,10 +4889,7 @@ set_src_needs_barrier (x, flags, pred, cond)
    in the same group.  */
 
 static int
-rtx_needs_barrier (x, flags, pred)
-     rtx x;
-     struct reg_flags flags;
-     int pred;
+rtx_needs_barrier (rtx x, struct reg_flags flags, int pred)
 {
   int i, j;
   int is_complemented = 0;
@@ -4935,7 +4905,7 @@ rtx_needs_barrier (x, flags, pred)
 
   switch (GET_CODE (x))
     {
-    case SET:      
+    case SET:
       update_set_flags (x, &new_flags, &pred, &cond);
       need_barrier = set_src_needs_barrier (x, new_flags, pred, cond);
       if (GET_CODE (SET_SRC (x)) != CALL)
@@ -5138,7 +5108,7 @@ rtx_needs_barrier (x, flags, pred)
 					      new_flags, pred);
 	    break;
 	  }
-	  
+
 	case UNSPEC_FR_SPILL:
 	case UNSPEC_FR_RESTORE:
 	case UNSPEC_GETF_EXP:
@@ -5240,7 +5210,7 @@ rtx_needs_barrier (x, flags, pred)
    sequence of insns.  */
 
 static void
-init_insn_group_barriers ()
+init_insn_group_barriers (void)
 {
   memset (rws_sum, 0, sizeof (rws_sum));
   first_instruction = 1;
@@ -5251,8 +5221,7 @@ init_insn_group_barriers ()
    Return nonzero if so.  */
 
 static int
-group_barrier_needed_p (insn)
-     rtx insn;
+group_barrier_needed_p (rtx insn)
 {
   rtx pat;
   int need_barrier = 0;
@@ -5363,8 +5332,7 @@ group_barrier_needed_p (insn)
 /* Like group_barrier_needed_p, but do not clobber the current state.  */
 
 static int
-safe_group_barrier_needed_p (insn)
-     rtx insn;
+safe_group_barrier_needed_p (rtx insn)
 {
   struct reg_write_state rws_saved[NUM_REGS];
   int saved_first_instruction;
@@ -5389,8 +5357,7 @@ safe_group_barrier_needed_p (insn)
    invisible to the scheduler.  */
 
 static void
-emit_insn_group_barriers (dump)
-     FILE *dump;
+emit_insn_group_barriers (FILE *dump)
 {
   rtx insn;
   rtx last_label = 0;
@@ -5446,8 +5413,7 @@ emit_insn_group_barriers (dump)
    This function has to emit all necessary group barriers.  */
 
 static void
-emit_all_insn_group_barriers (dump)
-     FILE *dump ATTRIBUTE_UNUSED;
+emit_all_insn_group_barriers (FILE *dump ATTRIBUTE_UNUSED)
 {
   rtx insn;
 
@@ -5484,9 +5450,9 @@ emit_all_insn_group_barriers (dump)
 }
 
 
-static int errata_find_address_regs PARAMS ((rtx *, void *));
-static void errata_emit_nops PARAMS ((rtx));
-static void fixup_errata PARAMS ((void));
+static int errata_find_address_regs (rtx *, void *);
+static void errata_emit_nops (rtx);
+static void fixup_errata (void);
 
 /* This structure is used to track some details about the previous insns
    groups so we can determine if it may be necessary to insert NOPs to
@@ -5504,9 +5470,7 @@ static int group_idx;
    conditionally set in the previous group is used as an address register.
    It ensures that for_each_rtx returns 1 in that case.  */
 static int
-errata_find_address_regs (xp, data)
-     rtx *xp;
-     void *data ATTRIBUTE_UNUSED;
+errata_find_address_regs (rtx *xp, void *data ATTRIBUTE_UNUSED)
 {
   rtx x = *xp;
   if (GET_CODE (x) != MEM)
@@ -5529,8 +5493,7 @@ errata_find_address_regs (xp, data)
    last_group and emits additional NOPs if necessary to work around
    an Itanium A/B step erratum.  */
 static void
-errata_emit_nops (insn)
-     rtx insn;
+errata_emit_nops (rtx insn)
 {
   struct group *this_group = last_group + group_idx;
   struct group *prev_group = last_group + (group_idx ^ 1);
@@ -5603,7 +5566,7 @@ errata_emit_nops (insn)
 /* Emit extra nops if they are required to work around hardware errata.  */
 
 static void
-fixup_errata ()
+fixup_errata (void)
 {
   rtx insn;
 
@@ -5712,14 +5675,13 @@ static int *clocks;
 
 static int *add_cycles;
 
-static rtx ia64_single_set PARAMS ((rtx));
-static void ia64_emit_insn_before PARAMS ((rtx, rtx));
+static rtx ia64_single_set (rtx);
+static void ia64_emit_insn_before (rtx, rtx);
 
 /* Map a bundle number to its pseudo-op.  */
 
 const char *
-get_bundle_name (b)
-     int b;
+get_bundle_name (int b)
 {
   return bundle_name[b];
 }
@@ -5728,7 +5690,7 @@ get_bundle_name (b)
 /* Return the maximum number of instructions a cpu can issue.  */
 
 static int
-ia64_issue_rate ()
+ia64_issue_rate (void)
 {
   return 6;
 }
@@ -5736,8 +5698,7 @@ ia64_issue_rate ()
 /* Helper function - like single_set, but look inside COND_EXEC.  */
 
 static rtx
-ia64_single_set (insn)
-     rtx insn;
+ia64_single_set (rtx insn)
 {
   rtx x = PATTERN (insn), ret;
   if (GET_CODE (x) == COND_EXEC)
@@ -5767,9 +5728,7 @@ ia64_single_set (insn)
    a dependency LINK or INSN on DEP_INSN.  COST is the current cost.  */
 
 static int
-ia64_adjust_cost (insn, link, dep_insn, cost)
-     rtx insn, link, dep_insn;
-     int cost;
+ia64_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
 {
   enum attr_itanium_class dep_class;
   enum attr_itanium_class insn_class;
@@ -5790,8 +5749,7 @@ ia64_adjust_cost (insn, link, dep_insn, cost)
    ??? When cycle display notes are implemented, update this.  */
 
 static void
-ia64_emit_insn_before (insn, before)
-     rtx insn, before;
+ia64_emit_insn_before (rtx insn, rtx before)
 {
   emit_insn_before (insn, before);
 }
@@ -5802,11 +5760,10 @@ ia64_emit_insn_before (insn, before)
    `ia64_produce_address_p' and the DFA descriptions).  */
 
 static void
-ia64_dependencies_evaluation_hook (head, tail)
-     rtx head, tail;
+ia64_dependencies_evaluation_hook (rtx head, rtx tail)
 {
   rtx insn, link, next, next_tail;
-  
+
   next_tail = NEXT_INSN (tail);
   for (insn = head; insn != next_tail; insn = NEXT_INSN (insn))
     if (INSN_P (insn))
@@ -5835,14 +5792,13 @@ ia64_dependencies_evaluation_hook (head, tail)
 /* We're beginning a new block.  Initialize data structures as necessary.  */
 
 static void
-ia64_sched_init (dump, sched_verbose, max_ready)
-     FILE *dump ATTRIBUTE_UNUSED;
-     int sched_verbose ATTRIBUTE_UNUSED;
-     int max_ready ATTRIBUTE_UNUSED;
+ia64_sched_init (FILE *dump ATTRIBUTE_UNUSED,
+		 int sched_verbose ATTRIBUTE_UNUSED,
+		 int max_ready ATTRIBUTE_UNUSED)
 {
 #ifdef ENABLE_CHECKING
   rtx insn;
-  
+
   if (reload_completed)
     for (insn = NEXT_INSN (current_sched_info->prev_head);
 	 insn != current_sched_info->next_tail;
@@ -5858,14 +5814,9 @@ ia64_sched_init (dump, sched_verbose, max_ready)
    Override the default sort algorithm to better slot instructions.  */
 
 static int
-ia64_dfa_sched_reorder (dump, sched_verbose, ready, pn_ready,
-			clock_var, reorder_type)
-     FILE *dump;
-     int sched_verbose;
-     rtx *ready;
-     int *pn_ready;
-     int clock_var  ATTRIBUTE_UNUSED;
-     int reorder_type;
+ia64_dfa_sched_reorder (FILE *dump, int sched_verbose, rtx *ready,
+			int *pn_ready, int clock_var ATTRIBUTE_UNUSED,
+			int reorder_type)
 {
   int n_asms;
   int n_ready = *pn_ready;
@@ -5922,7 +5873,7 @@ ia64_dfa_sched_reorder (dump, sched_verbose, ready, pn_ready,
       for (insnp = ready; insnp < e_ready; insnp++)
 	if (safe_group_barrier_needed_p (*insnp))
 	  nr_need_stop++;
-      
+
       if (reorder_type == 1 && n_ready == nr_need_stop)
 	return 0;
       if (reorder_type == 0)
@@ -5951,12 +5902,8 @@ ia64_dfa_sched_reorder (dump, sched_verbose, ready, pn_ready,
    the default sort algorithm to better slot instructions.  */
 
 static int
-ia64_sched_reorder (dump, sched_verbose, ready, pn_ready, clock_var)
-     FILE *dump;
-     int sched_verbose;
-     rtx *ready;
-     int *pn_ready;
-     int clock_var;
+ia64_sched_reorder (FILE *dump, int sched_verbose, rtx *ready, int *pn_ready,
+		    int clock_var)
 {
   return ia64_dfa_sched_reorder (dump, sched_verbose, ready,
 				 pn_ready, clock_var, 0);
@@ -5966,12 +5913,9 @@ ia64_sched_reorder (dump, sched_verbose, ready, pn_ready, clock_var)
    Override the default sort algorithm to better slot instructions.  */
 
 static int
-ia64_sched_reorder2 (dump, sched_verbose, ready, pn_ready, clock_var)
-     FILE *dump ATTRIBUTE_UNUSED;
-     int sched_verbose ATTRIBUTE_UNUSED;
-     rtx *ready;
-     int *pn_ready;
-     int clock_var;
+ia64_sched_reorder2 (FILE *dump ATTRIBUTE_UNUSED,
+		     int sched_verbose ATTRIBUTE_UNUSED, rtx *ready,
+		     int *pn_ready, int clock_var)
 {
   if (ia64_tune == PROCESSOR_ITANIUM && reload_completed && last_scheduled_insn)
     clocks [INSN_UID (last_scheduled_insn)] = clock_var;
@@ -5983,11 +5927,10 @@ ia64_sched_reorder2 (dump, sched_verbose, ready, pn_ready, clock_var)
    ready queue that can be issued this cycle.  */
 
 static int
-ia64_variable_issue (dump, sched_verbose, insn, can_issue_more)
-     FILE *dump ATTRIBUTE_UNUSED;
-     int sched_verbose ATTRIBUTE_UNUSED;
-     rtx insn ATTRIBUTE_UNUSED;
-     int can_issue_more ATTRIBUTE_UNUSED;
+ia64_variable_issue (FILE *dump ATTRIBUTE_UNUSED,
+		     int sched_verbose ATTRIBUTE_UNUSED,
+		     rtx insn ATTRIBUTE_UNUSED,
+		     int can_issue_more ATTRIBUTE_UNUSED)
 {
   last_scheduled_insn = insn;
   memcpy (prev_cycle_state, curr_state, dfa_state_size);
@@ -6007,8 +5950,7 @@ ia64_variable_issue (dump, sched_verbose, insn, can_issue_more)
    can be chosen.  */
 
 static int
-ia64_first_cycle_multipass_dfa_lookahead_guard (insn)
-     rtx insn;
+ia64_first_cycle_multipass_dfa_lookahead_guard (rtx insn)
 {
   if (insn == NULL_RTX || !INSN_P (insn))
     abort ();
@@ -6027,12 +5969,8 @@ static rtx dfa_pre_cycle_insn;
    the ready queue on the next clock start.  */
 
 static int
-ia64_dfa_new_cycle (dump, verbose, insn, last_clock, clock, sort_p)
-     FILE *dump;
-     int verbose;
-     rtx insn;
-     int last_clock, clock;
-     int *sort_p;
+ia64_dfa_new_cycle (FILE *dump, int verbose, rtx insn, int last_clock,
+		    int clock, int *sort_p)
 {
   int setup_clocks_p = FALSE;
 
@@ -6071,18 +6009,18 @@ ia64_dfa_new_cycle (dump, verbose, insn, last_clock, clock, sort_p)
   if (setup_clocks_p && ia64_tune == PROCESSOR_ITANIUM)
     {
       enum attr_itanium_class c = ia64_safe_itanium_class (insn);
-      
+
       if (c != ITANIUM_CLASS_MMMUL && c != ITANIUM_CLASS_MMSHF)
 	{
 	  rtx link;
 	  int d = -1;
-	  
+
 	  for (link = LOG_LINKS (insn); link; link = XEXP (link, 1))
 	    if (REG_NOTE_KIND (link) == 0)
 	      {
 		enum attr_itanium_class dep_class;
 		rtx dep_insn = XEXP (link, 0);
-		
+
 		dep_class = ia64_safe_itanium_class (dep_insn);
 		if ((dep_class == ITANIUM_CLASS_MMMUL
 		     || dep_class == ITANIUM_CLASS_MMSHF)
@@ -6148,7 +6086,7 @@ static struct bundle_state *free_bundle_state_chain;
 /* The following function returns a free bundle state.  */
 
 static struct bundle_state *
-get_free_bundle_state ()
+get_free_bundle_state (void)
 {
   struct bundle_state *result;
 
@@ -6166,14 +6104,13 @@ get_free_bundle_state ()
     }
   result->unique_num = bundle_states_num++;
   return result;
-  
+
 }
 
 /* The following function frees given bundle state.  */
 
 static void
-free_bundle_state (state)
-     struct bundle_state *state;
+free_bundle_state (struct bundle_state *state)
 {
   state->next = free_bundle_state_chain;
   free_bundle_state_chain = state;
@@ -6182,7 +6119,7 @@ free_bundle_state (state)
 /* Start work with abstract data `bundle states'.  */
 
 static void
-initiate_bundle_states ()
+initiate_bundle_states (void)
 {
   bundle_states_num = 0;
   free_bundle_state_chain = NULL;
@@ -6192,7 +6129,7 @@ initiate_bundle_states ()
 /* Finish work with abstract data `bundle states'.  */
 
 static void
-finish_bundle_states ()
+finish_bundle_states (void)
 {
   struct bundle_state *curr_state, *next_state;
 
@@ -6214,8 +6151,7 @@ static htab_t bundle_state_table;
 /* The function returns hash of BUNDLE_STATE.  */
 
 static unsigned
-bundle_state_hash (bundle_state)
-     const void *bundle_state;
+bundle_state_hash (const void *bundle_state)
 {
   const struct bundle_state *state = (struct bundle_state *) bundle_state;
   unsigned result, i;
@@ -6229,9 +6165,7 @@ bundle_state_hash (bundle_state)
 /* The function returns nonzero if the bundle state keys are equal.  */
 
 static int
-bundle_state_eq_p (bundle_state_1, bundle_state_2)
-     const void *bundle_state_1;
-     const void *bundle_state_2;
+bundle_state_eq_p (const void *bundle_state_1, const void *bundle_state_2)
 {
   const struct bundle_state * state1 = (struct bundle_state *) bundle_state_1;
   const struct bundle_state * state2 = (struct bundle_state *) bundle_state_2;
@@ -6246,8 +6180,7 @@ bundle_state_eq_p (bundle_state_1, bundle_state_2)
    table.  The table contains the best bundle state with given key.  */
 
 static int
-insert_bundle_state (bundle_state)
-     struct bundle_state *bundle_state;
+insert_bundle_state (struct bundle_state *bundle_state)
 {
   void **entry_ptr;
 
@@ -6269,7 +6202,7 @@ insert_bundle_state (bundle_state)
 		       && ((struct bundle_state *)
 			   *entry_ptr)->branch_deviation
 		       > bundle_state->branch_deviation))))
-		   
+
     {
       struct bundle_state temp;
 
@@ -6284,7 +6217,7 @@ insert_bundle_state (bundle_state)
 /* Start work with the hash table.  */
 
 static void
-initiate_bundle_state_table ()
+initiate_bundle_state_table (void)
 {
   bundle_state_table = htab_create (50, bundle_state_hash, bundle_state_eq_p,
 				    (htab_del) 0);
@@ -6293,7 +6226,7 @@ initiate_bundle_state_table ()
 /* Finish work with the hash table.  */
 
 static void
-finish_bundle_state_table ()
+finish_bundle_state_table (void)
 {
   htab_delete (bundle_state_table);
 }
@@ -6310,9 +6243,7 @@ static rtx ia64_nop;
    function returns FALSE and frees the current state.  */
 
 static int
-try_issue_nops (curr_state, nops_num)
-     struct bundle_state *curr_state;
-     int nops_num;
+try_issue_nops (struct bundle_state *curr_state, int nops_num)
 {
   int i;
 
@@ -6330,9 +6261,7 @@ try_issue_nops (curr_state, nops_num)
    function returns FALSE and frees the current state.  */
 
 static int
-try_issue_insn (curr_state, insn)
-     struct bundle_state *curr_state;
-     rtx insn;
+try_issue_insn (struct bundle_state *curr_state, rtx insn)
 {
   if (insn && state_transition (curr_state->dfa_state, insn) >= 0)
     {
@@ -6350,12 +6279,8 @@ try_issue_insn (curr_state, insn)
    insert into the hash table and into `index_to_bundle_states'.  */
 
 static void
-issue_nops_and_insn (originator, before_nops_num, insn, try_bundle_end_p,
-		     only_bundle_end_p)
-     struct bundle_state *originator;
-     int before_nops_num;
-     rtx insn;
-     int try_bundle_end_p, only_bundle_end_p;
+issue_nops_and_insn (struct bundle_state *originator, int before_nops_num,
+		     rtx insn, int try_bundle_end_p, int only_bundle_end_p)
 {
   struct bundle_state *curr_state;
 
@@ -6461,8 +6386,7 @@ issue_nops_and_insn (originator, before_nops_num, insn, try_bundle_end_p,
    for given STATE.  */
 
 static int
-get_max_pos (state)
-     state_t state;
+get_max_pos (state_t state)
 {
   if (cpu_unit_reservation_p (state, pos_6))
     return 6;
@@ -6485,9 +6409,7 @@ get_max_pos (state)
    position equal to 3 or 6.  */
 
 static int
-get_template (state, pos)
-     state_t state;
-     int pos;
+get_template (state_t state, int pos)
 {
   switch (pos)
     {
@@ -6546,8 +6468,7 @@ get_template (state, pos)
    followed by INSN and before TAIL.  */
 
 static rtx
-get_next_important_insn (insn, tail)
-     rtx insn, tail;
+get_next_important_insn (rtx insn, rtx tail)
 {
   for (; insn && insn != tail; insn = NEXT_INSN (insn))
     if (INSN_P (insn)
@@ -6567,10 +6488,7 @@ get_next_important_insn (insn, tail)
    scheduling.  */
 
 static void
-bundling (dump, verbose, prev_head_insn, tail)
-     FILE *dump;
-     int verbose;
-     rtx prev_head_insn, tail;
+bundling (FILE *dump, int verbose, rtx prev_head_insn, rtx tail)
 {
   struct bundle_state *curr_state, *next_state, *best_state;
   rtx insn, next_insn;
@@ -6685,7 +6603,7 @@ bundling (dump, verbose, prev_head_insn, tail)
 	      unsigned short two_automaton_state;
 	      unsigned short twob_automaton_state;
 	    };
-	    
+
 	    fprintf
 	      (dump,
 	       "//    Bundle state %d (orig %d, cost %d, nops %d/%d, insns %d, branch %d, state %d) for %d\n",
@@ -6738,7 +6656,7 @@ bundling (dump, verbose, prev_head_insn, tail)
 	    unsigned short two_automaton_state;
 	    unsigned short twob_automaton_state;
 	  };
-	  
+
 	  fprintf
 	    (dump,
 	     "//    Best %d (orig %d, cost %d, nops %d/%d, insns %d, branch %d, state %d) for %d\n",
@@ -6851,7 +6769,7 @@ bundling (dump, verbose, prev_head_insn, tail)
 	    rtx last;
 	    int i, j, n;
 	    int pred_stop_p;
-	    
+
 	    last = prev_active_insn (insn);
 	    pred_stop_p = recog_memoized (last) == CODE_FOR_insn_group_barrier;
 	    if (pred_stop_p)
@@ -6915,9 +6833,7 @@ bundling (dump, verbose, prev_head_insn, tail)
    EBB.  After reload, it inserts stop bits and does insn bundling.  */
 
 static void
-ia64_sched_finish (dump, sched_verbose)
-     FILE *dump;
-     int sched_verbose;
+ia64_sched_finish (FILE *dump, int sched_verbose)
 {
   if (sched_verbose)
     fprintf (dump, "// Finishing schedule.\n");
@@ -6932,7 +6848,7 @@ ia64_sched_finish (dump, sched_verbose)
 	fprintf (dump, "//    finishing %d-%d\n",
 		 INSN_UID (NEXT_INSN (current_sched_info->prev_head)),
 		 INSN_UID (PREV_INSN (current_sched_info->next_tail)));
-      
+
       return;
     }
 }
@@ -6940,8 +6856,7 @@ ia64_sched_finish (dump, sched_verbose)
 /* The following function inserts stop bits in scheduled BB or EBB.  */
 
 static void
-final_emit_insn_group_barriers (dump)
-     FILE *dump ATTRIBUTE_UNUSED;
+final_emit_insn_group_barriers (FILE *dump ATTRIBUTE_UNUSED)
 {
   rtx insn;
   int need_barrier_p = 0;
@@ -6982,7 +6897,7 @@ final_emit_insn_group_barriers (dump)
 	      if (TARGET_EARLY_STOP_BITS)
 		{
 		  rtx last;
-		  
+
 		  for (last = insn;
 		       last != current_sched_info->prev_head;
 		       last = PREV_INSN (last))
@@ -7027,7 +6942,7 @@ final_emit_insn_group_barriers (dump)
    insn scheduler.  */
 
 static int
-ia64_use_dfa_pipeline_interface ()
+ia64_use_dfa_pipeline_interface (void)
 {
   return 1;
 }
@@ -7036,7 +6951,7 @@ ia64_use_dfa_pipeline_interface ()
    insn scheduler.  */
 
 static int
-ia64_first_cycle_multipass_dfa_lookahead ()
+ia64_first_cycle_multipass_dfa_lookahead (void)
 {
   return (reload_completed ? 6 : 4);
 }
@@ -7044,7 +6959,7 @@ ia64_first_cycle_multipass_dfa_lookahead ()
 /* The following function initiates variable `dfa_pre_cycle_insn'.  */
 
 static void
-ia64_init_dfa_pre_cycle_insn ()
+ia64_init_dfa_pre_cycle_insn (void)
 {
   if (temp_dfa_state == NULL)
     {
@@ -7064,7 +6979,7 @@ ia64_init_dfa_pre_cycle_insn ()
    used by the DFA insn scheduler.  */
 
 static rtx
-ia64_dfa_pre_cycle_insn ()
+ia64_dfa_pre_cycle_insn (void)
 {
   return dfa_pre_cycle_insn;
 }
@@ -7073,9 +6988,7 @@ ia64_dfa_pre_cycle_insn ()
    ld) produces address for CONSUMER (of type st or stf). */
 
 int
-ia64_st_address_bypass_p (producer, consumer)
-     rtx producer;
-     rtx consumer;
+ia64_st_address_bypass_p (rtx producer, rtx consumer)
 {
   rtx dest, reg, mem;
 
@@ -7098,9 +7011,7 @@ ia64_st_address_bypass_p (producer, consumer)
    ld) produces address for CONSUMER (of type ld or fld). */
 
 int
-ia64_ld_address_bypass_p (producer, consumer)
-     rtx producer;
-     rtx consumer;
+ia64_ld_address_bypass_p (rtx producer, rtx consumer)
 {
   rtx dest, src, reg, mem;
 
@@ -7132,8 +7043,7 @@ ia64_ld_address_bypass_p (producer, consumer)
    decreases its latency time. */
 
 int
-ia64_produce_address_p (insn)
-     rtx insn;
+ia64_produce_address_p (rtx insn)
 {
   return insn->call;
 }
@@ -7145,7 +7055,7 @@ ia64_produce_address_p (insn)
    straight-line code.  */
 
 static void
-emit_predicate_relation_info ()
+emit_predicate_relation_info (void)
 {
   basic_block bb;
 
@@ -7179,7 +7089,7 @@ emit_predicate_relation_info ()
   FOR_EACH_BB_REVERSE (bb)
     {
       rtx insn = bb->head;
-      
+
       while (1)
 	{
 	  if (GET_CODE (insn) == CALL_INSN
@@ -7193,7 +7103,7 @@ emit_predicate_relation_info ()
 	      if (bb->end == insn)
 		bb->end = a;
 	    }
-	  
+
 	  if (insn == bb->end)
 	    break;
 	  insn = NEXT_INSN (insn);
@@ -7204,7 +7114,7 @@ emit_predicate_relation_info ()
 /* Perform machine dependent operations on the rtl chain INSNS.  */
 
 static void
-ia64_reorg ()
+ia64_reorg (void)
 {
   /* We are freeing block_for_insn in the toplev to keep compatibility
      with old MDEP_REORGS that are not CFG based.  Recompute it now.  */
@@ -7228,14 +7138,11 @@ ia64_reorg ()
       PREV_INSN (ia64_nop) = NEXT_INSN (ia64_nop) = NULL_RTX;
       recog_memoized (ia64_nop);
       clocks_length = get_max_uid () + 1;
-      stops_p = (char *) xmalloc (clocks_length);
-      memset (stops_p, 0, clocks_length);
+      stops_p = xcalloc (1, clocks_length);
       if (ia64_tune == PROCESSOR_ITANIUM)
 	{
-	  clocks = (int *) xmalloc (clocks_length * sizeof (int));
-	  memset (clocks, 0, clocks_length * sizeof (int));
-	  add_cycles = (int *) xmalloc (clocks_length * sizeof (int));
-	  memset (add_cycles, 0, clocks_length * sizeof (int));
+	  clocks = xcalloc (clocks_length, sizeof (int));
+	  add_cycles = xcalloc (clocks_length, sizeof (int));
 	}
       if (ia64_tune == PROCESSOR_ITANIUM2)
 	{
@@ -7345,8 +7252,7 @@ ia64_reorg ()
 /* Return true if REGNO is used by the epilogue.  */
 
 int
-ia64_epilogue_uses (regno)
-     int regno;
+ia64_epilogue_uses (int regno)
 {
   switch (regno)
     {
@@ -7385,8 +7291,7 @@ ia64_epilogue_uses (regno)
 /* Return true if REGNO is used by the frame unwinder.  */
 
 int
-ia64_eh_uses (regno)
-     int regno;
+ia64_eh_uses (int regno)
 {
   if (! reload_completed)
     return 0;
@@ -7418,8 +7323,7 @@ ia64_eh_uses (regno)
    types which can't go in sdata/sbss.  */
 
 static bool
-ia64_in_small_data_p (exp)
-     tree exp;
+ia64_in_small_data_p (tree exp)
 {
   if (TARGET_NO_SDATA)
     return false;
@@ -7461,7 +7365,7 @@ static bool need_copy_state;
 /* The function emits unwind directives for the start of an epilogue.  */
 
 static void
-process_epilogue ()
+process_epilogue (void)
 {
   /* If this isn't the last block of the function, then we need to label the
      current state, and copy it back in at the start of the next block.  */
@@ -7479,9 +7383,7 @@ process_epilogue ()
    which result in emitting an assembly directive required for unwinding.  */
 
 static int
-process_set (asm_out_file, pat)
-     FILE *asm_out_file;
-     rtx pat;
+process_set (FILE *asm_out_file, rtx pat)
 {
   rtx src = SET_SRC (pat);
   rtx dest = SET_DEST (pat);
@@ -7691,9 +7593,7 @@ process_set (asm_out_file, pat)
 /* This function looks at a single insn and emits any directives
    required to unwind this insn.  */
 void
-process_for_unwind_directive (asm_out_file, insn)
-     FILE *asm_out_file;
-     rtx insn;
+process_for_unwind_directive (FILE *asm_out_file, rtx insn)
 {
   if (flag_unwind_tables
       || (flag_exceptions && !USING_SJLJ_EXCEPTIONS))
@@ -7750,7 +7650,7 @@ process_for_unwind_directive (asm_out_file, insn)
 
 
 void
-ia64_init_builtins ()
+ia64_init_builtins (void)
 {
   tree psi_type_node = build_pointer_type (integer_type_node);
   tree pdi_type_node = build_pointer_type (long_integer_type_node);
@@ -7794,6 +7694,42 @@ ia64_init_builtins ()
   tree void_ftype_pdi
     = build_function_type_list (void_type_node, pdi_type_node, NULL_TREE);
 
+  tree fpreg_type;
+  tree float80_type;
+
+  /* The __fpreg type.  */
+  fpreg_type = make_node (REAL_TYPE);
+  /* ??? Once the IA64 back end supports both 80-bit and 128-bit
+     floating types, this type should have XFmode, not TFmode.
+     TYPE_PRECISION should be 80 bits, not 128.  And, the back end
+     should know to load/save __fpreg variables using the ldf.fill and
+     stf.spill instructions.  */
+  TYPE_PRECISION (fpreg_type) = 128;
+  layout_type (fpreg_type);
+  (*lang_hooks.types.register_builtin_type) (fpreg_type, "__fpreg");
+
+  /* The __float80 type.  */
+  float80_type = make_node (REAL_TYPE);
+  /* ??? Once the IA64 back end supports both 80-bit and 128-bit
+     floating types, this type should have XFmode, not TFmode.
+     TYPE_PRECISION should be 80 bits, not 128.  */
+  TYPE_PRECISION (float80_type) = 128;
+  layout_type (float80_type);
+  (*lang_hooks.types.register_builtin_type) (float80_type, "__float80");
+
+  /* The __float128 type.  */
+  if (INTEL_EXTENDED_IEEE_FORMAT)
+    {
+      tree float128_type = make_node (REAL_TYPE);
+      TYPE_PRECISION (float128_type) = 128;
+      layout_type (float128_type);
+      (*lang_hooks.types.register_builtin_type) (float128_type, "__float128");
+    }
+  else
+    /* This is a synonym for "long double".  */
+    (*lang_hooks.types.register_builtin_type) (long_double_type_node,
+					       "__float128");
+
 #define def_builtin(name, type, code) \
   builtin_function ((name), (type), (code), BUILT_IN_MD, NULL, NULL_TREE)
 
@@ -7822,8 +7758,8 @@ ia64_init_builtins ()
 	       build_function_type (ptr_type_node, void_list_node),
 	       IA64_BUILTIN_BSP);
 
-  def_builtin ("__builtin_ia64_flushrs", 
-	       build_function_type (void_type_node, void_list_node), 
+  def_builtin ("__builtin_ia64_flushrs",
+	       build_function_type (void_type_node, void_list_node),
 	       IA64_BUILTIN_FLUSHRS);
 
   def_builtin ("__sync_fetch_and_add_si", si_ftype_psi_si,
@@ -7894,11 +7830,8 @@ ia64_init_builtins ()
 */
 
 static rtx
-ia64_expand_fetch_and_op (binoptab, mode, arglist, target)
-     optab binoptab;
-     enum machine_mode mode;
-     tree arglist;
-     rtx target;
+ia64_expand_fetch_and_op (optab binoptab, enum machine_mode mode,
+			  tree arglist, rtx target)
 {
   rtx ret, label, tmp, ccv, insn, mem, value;
   tree arg0, arg1;
@@ -7975,11 +7908,8 @@ ia64_expand_fetch_and_op (binoptab, mode, arglist, target)
 */
 
 static rtx
-ia64_expand_op_and_fetch (binoptab, mode, arglist, target)
-     optab binoptab;
-     enum machine_mode mode;
-     tree arglist;
-     rtx target;
+ia64_expand_op_and_fetch (optab binoptab, enum machine_mode mode,
+			  tree arglist, rtx target)
 {
   rtx old, label, tmp, ret, ccv, insn, mem, value;
   tree arg0, arg1;
@@ -8043,12 +7973,8 @@ ia64_expand_op_and_fetch (binoptab, mode, arglist, target)
 */
 
 static rtx
-ia64_expand_compare_and_swap (rmode, mode, boolp, arglist, target)
-     enum machine_mode rmode;
-     enum machine_mode mode;
-     int boolp;
-     tree arglist;
-     rtx target;
+ia64_expand_compare_and_swap (enum machine_mode rmode, enum machine_mode mode,
+			      int boolp, tree arglist, rtx target)
 {
   tree arg0, arg1, arg2;
   rtx mem, old, new, ccv, tmp, insn;
@@ -8102,10 +8028,8 @@ ia64_expand_compare_and_swap (rmode, mode, boolp, arglist, target)
 /* Expand lock_test_and_set.  I.e. `xchgsz ret = [ptr], new'.  */
 
 static rtx
-ia64_expand_lock_test_and_set (mode, arglist, target)
-     enum machine_mode mode;
-     tree arglist;
-     rtx target;
+ia64_expand_lock_test_and_set (enum machine_mode mode, tree arglist,
+			       rtx target)
 {
   tree arg0, arg1;
   rtx mem, new, ret, insn;
@@ -8137,10 +8061,8 @@ ia64_expand_lock_test_and_set (mode, arglist, target)
 /* Expand lock_release.  I.e. `stsz.rel [ptr] = r0'.  */
 
 static rtx
-ia64_expand_lock_release (mode, arglist, target)
-     enum machine_mode mode;
-     tree arglist;
-     rtx target ATTRIBUTE_UNUSED;
+ia64_expand_lock_release (enum machine_mode mode, tree arglist,
+			  rtx target ATTRIBUTE_UNUSED)
 {
   tree arg0;
   rtx mem;
@@ -8157,12 +8079,9 @@ ia64_expand_lock_release (mode, arglist, target)
 }
 
 rtx
-ia64_expand_builtin (exp, target, subtarget, mode, ignore)
-     tree exp;
-     rtx target;
-     rtx subtarget ATTRIBUTE_UNUSED;
-     enum machine_mode mode ATTRIBUTE_UNUSED;
-     int ignore ATTRIBUTE_UNUSED;
+ia64_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
+		     enum machine_mode mode ATTRIBUTE_UNUSED,
+		     int ignore ATTRIBUTE_UNUSED)
 {
   tree fndecl = TREE_OPERAND (TREE_OPERAND (exp, 0), 0);
   unsigned int fcode = DECL_FUNCTION_CODE (fndecl);
@@ -8321,9 +8240,7 @@ ia64_expand_builtin (exp, target, subtarget, mode, ignore)
    most significant bits of the stack slot.  */
 
 enum direction
-ia64_hpux_function_arg_padding (mode, type)
-     enum machine_mode mode;
-     tree type;
+ia64_hpux_function_arg_padding (enum machine_mode mode, tree type)
 {
    /* Exception to normal case for structures/unions/etc.  */
 
@@ -8331,14 +8248,8 @@ ia64_hpux_function_arg_padding (mode, type)
        && int_size_in_bytes (type) < UNITS_PER_WORD)
      return upward;
 
-   /* This is the standard FUNCTION_ARG_PADDING with !BYTES_BIG_ENDIAN
-      hardwired to be true.  */
-
-   return((mode == BLKmode
-       ? (type && TREE_CODE (TYPE_SIZE (type)) == INTEGER_CST
-          && int_size_in_bytes (type) < (PARM_BOUNDARY / BITS_PER_UNIT))
-       : GET_MODE_BITSIZE (mode) < PARM_BOUNDARY)
-      ? downward : upward);
+   /* Fall back to the default.  */
+   return DEFAULT_FUNCTION_ARG_PADDING (mode, type);
 }
 
 /* Linked list of all external functions that are to be emitted by GCC.
@@ -8352,8 +8263,7 @@ struct extern_func_list
 } *extern_func_head = 0;
 
 static void
-ia64_hpux_add_extern_decl (name)
-        const char *name;
+ia64_hpux_add_extern_decl (const char *name)
 {
   struct extern_func_list *p;
 
@@ -8367,7 +8277,7 @@ ia64_hpux_add_extern_decl (name)
 /* Print out the list of used global functions.  */
 
 static void
-ia64_hpux_file_end ()
+ia64_hpux_file_end (void)
 {
   while (extern_func_head)
     {
@@ -8399,10 +8309,8 @@ ia64_hpux_file_end ()
    special we do here is to honor small data.  */
 
 static void
-ia64_select_rtx_section (mode, x, align)
-     enum machine_mode mode;
-     rtx x;
-     unsigned HOST_WIDE_INT align;
+ia64_select_rtx_section (enum machine_mode mode, rtx x,
+			 unsigned HOST_WIDE_INT align)
 {
   if (GET_MODE_SIZE (mode) > 0
       && GET_MODE_SIZE (mode) <= ia64_section_threshold)
@@ -8415,27 +8323,20 @@ ia64_select_rtx_section (mode, x, align)
    Pretend flag_pic is always set.  */
 
 static void
-ia64_rwreloc_select_section (exp, reloc, align)
-     tree exp;
-     int reloc;
-     unsigned HOST_WIDE_INT align;
+ia64_rwreloc_select_section (tree exp, int reloc, unsigned HOST_WIDE_INT align)
 {
   default_elf_select_section_1 (exp, reloc, align, true);
 }
 
 static void
-ia64_rwreloc_unique_section (decl, reloc)
-     tree decl;
-     int reloc;
+ia64_rwreloc_unique_section (tree decl, int reloc)
 {
   default_unique_section_1 (decl, reloc, true);
 }
 
 static void
-ia64_rwreloc_select_rtx_section (mode, x, align)
-     enum machine_mode mode;
-     rtx x;
-     unsigned HOST_WIDE_INT align;
+ia64_rwreloc_select_rtx_section (enum machine_mode mode, rtx x,
+				 unsigned HOST_WIDE_INT align)
 {
   int save_pic = flag_pic;
   flag_pic = 1;
@@ -8444,10 +8345,7 @@ ia64_rwreloc_select_rtx_section (mode, x, align)
 }
 
 static unsigned int
-ia64_rwreloc_section_type_flags (decl, name, reloc)
-     tree decl;
-     const char *name;
-     int reloc;
+ia64_rwreloc_section_type_flags (tree decl, const char *name, int reloc)
 {
   return default_section_type_flags_1 (decl, name, reloc, true);
 }
@@ -8460,12 +8358,9 @@ ia64_rwreloc_section_type_flags (decl, name, reloc)
    *(*this + vcall_offset) should be added to THIS.  */
 
 static void
-ia64_output_mi_thunk (file, thunk, delta, vcall_offset, function)
-     FILE *file;
-     tree thunk ATTRIBUTE_UNUSED;
-     HOST_WIDE_INT delta;
-     HOST_WIDE_INT vcall_offset;
-     tree function;
+ia64_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
+		      HOST_WIDE_INT delta, HOST_WIDE_INT vcall_offset,
+		      tree function)
 {
   rtx this, insn, funexp;
 
@@ -8488,6 +8383,18 @@ ia64_output_mi_thunk (file, thunk, delta, vcall_offset, function)
   emit_note (NOTE_INSN_PROLOGUE_END);
 
   this = gen_rtx_REG (Pmode, IN_REG (0));
+  if (TARGET_ILP32)
+    {
+      rtx tmp = gen_rtx_REG (ptr_mode, IN_REG (0));
+      REG_POINTER (tmp) = 1;
+      if (delta && CONST_OK_FOR_I (delta))
+	{
+	  emit_insn (gen_ptr_extend_plus_imm (this, tmp, GEN_INT (delta)));
+	  delta = 0;
+	}
+      else
+	emit_insn (gen_ptr_extend (this, tmp));
+    }
 
   /* Apply the constant offset, if required.  */
   if (delta)
@@ -8509,17 +8416,39 @@ ia64_output_mi_thunk (file, thunk, delta, vcall_offset, function)
       rtx vcall_offset_rtx = GEN_INT (vcall_offset);
       rtx tmp = gen_rtx_REG (Pmode, 2);
 
-      emit_move_insn (tmp, gen_rtx_MEM (Pmode, this));
-
-      if (!CONST_OK_FOR_J (vcall_offset))
+      if (TARGET_ILP32)
 	{
-	  rtx tmp2 = gen_rtx_REG (Pmode, next_scratch_gr_reg ());
-	  emit_move_insn (tmp2, vcall_offset_rtx);
-	  vcall_offset_rtx = tmp2;
+	  rtx t = gen_rtx_REG (ptr_mode, 2);
+	  REG_POINTER (t) = 1;
+	  emit_move_insn (t, gen_rtx_MEM (ptr_mode, this));
+	  if (CONST_OK_FOR_I (vcall_offset))
+	    {
+	      emit_insn (gen_ptr_extend_plus_imm (tmp, t, 
+						  vcall_offset_rtx));
+	      vcall_offset = 0;
+	    }
+	  else
+	    emit_insn (gen_ptr_extend (tmp, t));
 	}
-      emit_insn (gen_adddi3 (tmp, tmp, vcall_offset_rtx));
+      else
+	emit_move_insn (tmp, gen_rtx_MEM (Pmode, this));
 
-      emit_move_insn (tmp, gen_rtx_MEM (Pmode, tmp));
+      if (vcall_offset)
+	{
+	  if (!CONST_OK_FOR_J (vcall_offset))
+	    {
+	      rtx tmp2 = gen_rtx_REG (Pmode, next_scratch_gr_reg ());
+	      emit_move_insn (tmp2, vcall_offset_rtx);
+	      vcall_offset_rtx = tmp2;
+	    }
+	  emit_insn (gen_adddi3 (tmp, tmp, vcall_offset_rtx));
+	}
+
+      if (TARGET_ILP32)
+	emit_move_insn (gen_rtx_REG (ptr_mode, 2), 
+			gen_rtx_MEM (ptr_mode, tmp));
+      else
+	emit_move_insn (tmp, gen_rtx_MEM (Pmode, tmp));
 
       emit_insn (gen_adddi3 (this, this, tmp));
     }

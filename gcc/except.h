@@ -32,17 +32,6 @@ struct eh_status;
 /* Internal structure describing a region.  */
 struct eh_region;
 
-enum eh_region_type {
-  ERT_UNKNOWN = 0,
-  ERT_CLEANUP,
-  ERT_TRY,
-  ERT_CATCH,
-  ERT_ALLOWED_EXCEPTIONS,
-  ERT_MUST_NOT_THROW,
-  ERT_THROW,
-  ERT_FIXUP
-};
-
 /* Test: is exception handling turned on?  */
 extern int doing_eh (int);
 
@@ -94,14 +83,17 @@ extern void expand_eh_handler (tree);
 
 /* Note that the current EH region (if any) may contain a throw, or a
    call to a function which itself may contain a throw.  */
-extern void note_eh_region_may_contain_throw (void);
+extern void note_eh_region_may_contain_throw (struct eh_region *);
+extern void note_current_region_may_contain_throw (void);
 
 /* Invokes CALLBACK for every exception handler label.  Only used by old
    loop hackery; should not be used by new code.  */
 extern void for_each_eh_label (void (*) (rtx));
 
 /* Determine if the given INSN can throw an exception.  */
+extern bool can_throw_internal_1 (int);
 extern bool can_throw_internal (rtx);
+extern bool can_throw_external_1 (int);
 extern bool can_throw_external (rtx);
 
 /* Set current_function_nothrow and cfun->all_throwers_are_sibcalls.  */
@@ -132,11 +124,32 @@ extern rtx expand_builtin_dwarf_sp_column (void);
 extern void expand_builtin_eh_return (tree, tree);
 extern void expand_eh_return (void);
 extern rtx get_exception_pointer (struct function *);
+extern rtx get_exception_filter (struct function *);
 extern int duplicate_eh_regions (struct function *, struct inline_remap *);
 extern int check_handled (tree, tree);
 
 extern void sjlj_emit_function_exit_after (rtx);
 
+extern struct eh_region *gen_eh_region_cleanup (struct eh_region *,
+						struct eh_region *);
+extern struct eh_region *gen_eh_region_try (struct eh_region *);
+extern struct eh_region *gen_eh_region_catch (struct eh_region *, tree);
+extern struct eh_region *gen_eh_region_allowed (struct eh_region *, tree);
+extern struct eh_region *gen_eh_region_must_not_throw (struct eh_region *);
+extern int get_eh_region_number (struct eh_region *);
+extern bool get_eh_region_may_contain_throw (struct eh_region *);
+extern tree get_eh_region_tree_label (struct eh_region *);
+extern void set_eh_region_tree_label (struct eh_region *, tree);
+
+extern void foreach_reachable_handler (int, bool,
+				       void (*) (struct eh_region *, void *),
+				       void *);
+
+extern void collect_eh_region_array (void);
+extern void expand_resx_expr (tree);
+
+/* tree-eh.c */
+extern int lookup_stmt_eh_region (tree);
 
 /* If non-NULL, this is a function that returns an expression to be
    executed if an unhandled exception is propagated out of a cleanup
@@ -162,9 +175,13 @@ extern tree (*lang_eh_runtime_type) (tree);
 	   || (DWARF2_UNWIND_INFO			\
 	       && (defined (EH_RETURN_HANDLER_RTX)	\
 		   || defined (HAVE_eh_return)))))
-#define MUST_USE_SJLJ_EXCEPTIONS	1
+# define MUST_USE_SJLJ_EXCEPTIONS	1
 #else
-#define MUST_USE_SJLJ_EXCEPTIONS	0
+# ifdef IA64_UNWIND_INFO
+#  define MUST_USE_SJLJ_EXCEPTIONS	0
+# else
+#  define MUST_USE_SJLJ_EXCEPTIONS	(DWARF2_UNWIND_INFO == 0)
+# endif
 #endif
 
 #ifdef CONFIG_SJLJ_EXCEPTIONS

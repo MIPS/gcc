@@ -32,11 +32,11 @@ const char name_02[] = "tmp_sbumpc_1out.tst"; // empty file, need to create
 void test05() 
 {
   using namespace std;
-  using namespace __gnu_cxx_test;
+  using namespace __gnu_test;
   typedef filebuf::int_type 	int_type;
   typedef filebuf::traits_type 	traits_type;
 
-  bool 					test = true;
+  bool test __attribute__((unused)) = true;
 
   // int_type sbumpc()
   // if read_cur not avail returns uflow(), else return *read_cur & increment
@@ -56,7 +56,7 @@ void test05()
   }
 }
 
-main() 
+int main() 
 {
   test05();
   return 0;

@@ -38,15 +38,18 @@ exception statement from your version. */
 
 package java.awt;
 
-import gnu.java.awt.EmbeddedWindowSupport;
 import java.awt.event.WindowEvent;
 import java.awt.event.WindowFocusListener;
 import java.awt.event.WindowListener;
 import java.awt.event.WindowStateListener;
 import java.awt.peer.WindowPeer;
+import java.lang.ref.Reference;
+import java.lang.ref.WeakReference;
+import java.util.Iterator;
 import java.util.EventListener;
 import java.util.Locale;
 import java.util.ResourceBundle;
+import java.util.Vector;
 import javax.accessibility.Accessible;
 import javax.accessibility.AccessibleContext;
 
@@ -70,6 +73,9 @@ public class Window extends Container implements Accessible
   /** @since 1.4 */
   private boolean focusableWindowState = true;
 
+  // A list of other top-level windows owned by this window.
+  private transient Vector ownedWindows = new Vector();
+
   private transient WindowListener windowListener;
   private transient WindowFocusListener windowFocusListener;
   private transient WindowStateListener windowStateListener;
@@ -84,7 +90,6 @@ public class Window extends Container implements Accessible
    */
   Window()
   {
-    setVisible(false);
     setLayout(new BorderLayout());
   }
 
@@ -94,19 +99,6 @@ public class Window extends Container implements Accessible
     graphicsConfiguration = gc;
   }
 
-  Window(int window_id, int width, int height)
-  {
-    this();
-
-    Toolkit tk = getToolkit();
-    if (!(tk instanceof EmbeddedWindowSupport))
-      throw new UnsupportedOperationException
-	("Embedded windows not supported by the current peers: " + tk.getClass());
-    
-    peer = ((EmbeddedWindowSupport) getToolkit())
-	    .createEmbeddedWindow (window_id, width, height);
-  }
-    
   /**
    * Initializes a new instance of <code>Window</code> with the specified
    * parent.  The window will initially be invisible.
@@ -154,14 +146,17 @@ public class Window extends Container implements Accessible
     if (owner == null)
       throw new IllegalArgumentException ("owner must not be null");
 
-    this.parent = owner;
-    
-    // FIXME: add to owner's "owned window" list
-    //owner.owned.add(this); // this should be a weak reference
-    
-    /*  FIXME: Security check
-    SecurityManager.checkTopLevelWindow(...)
-    */
+    parent = owner;
+
+    synchronized (owner.ownedWindows)
+      {
+        owner.ownedWindows.add(new WeakReference(this));
+      }
+
+    // FIXME: make this text visible in the window.
+    SecurityManager s = System.getSecurityManager();
+    if (s != null && ! s.checkTopLevelWindow(this))
+      warningString = System.getProperty("awt.appletWarning");
 
     if (gc != null
         && gc.getDevice().getType() != GraphicsDevice.TYPE_RASTER_SCREEN)
@@ -182,18 +177,6 @@ public class Window extends Container implements Accessible
 	return graphicsConfiguration;
 
     return super.getGraphicsConfigurationImpl();
-  }
-
-  /**
-   * Disposes of the input methods and context, and removes the WeakReference
-   * which formerly pointed to this Window from the parent's owned Window list.
-   *
-   * @exception Throwable The Exception raised by this method.
-   */
-  protected void finalize() throws Throwable
-  {
-    // FIXME: remove from owner's "owned window" list (Weak References)
-    super.finalize();
   }
 
   /**
@@ -241,7 +224,23 @@ public class Window extends Container implements Accessible
 
   public void hide()
   {
-    // FIXME: call hide() on any "owned" children here.
+    synchronized (ownedWindows)
+      {
+	Iterator e = ownedWindows.iterator();
+	while(e.hasNext())
+	  {
+	    Window w = (Window)(((Reference) e.next()).get());
+	    if (w != null)
+	      w.hide();
+     	    else
+	      // Remove null weak reference from ownedWindows.
+	      // Unfortunately this can't be done in the Window's
+	      // finalize method because there is no way to guarantee
+	      // synchronous access to ownedWindows there.
+	      e.remove();
+	  }
+      }
+
     super.hide();
   }
 
@@ -253,15 +252,26 @@ public class Window extends Container implements Accessible
   }
 
   /**
-   * Called to free any resource associated with this window.
+   * Destroys any resources associated with this window.  This includes
+   * all components in the window and all owned top-level windows.
    */
   public void dispose()
   {
     hide();
 
-    Window[] list = getOwnedWindows();
-    for (int i=0; i<list.length; i++)
-      list[i].dispose();
+    synchronized (ownedWindows)
+      {
+	Iterator e = ownedWindows.iterator();
+	while(e.hasNext())
+	  {
+	    Window w = (Window)(((Reference) e.next()).get());
+	    if (w != null)
+	      w.dispose();
+	    else
+	      // Remove null weak reference from ownedWindows.
+	      e.remove();
+	  }
+      }
 
     for (int i = 0; i < ncomponents; ++i)
       component[i].removeNotify();
@@ -315,20 +325,7 @@ public class Window extends Container implements Accessible
    */
   public final String getWarningString()
   {
-    boolean secure = true;
-    /* boolean secure = SecurityManager.checkTopLevelWindow(...) */
-
-    if (!secure)
-      {
-        if (warningString != null)
-          return warningString;
-        else
-          {
-            String warning = System.getProperty("awt.appletWarning");
-            return warning;
-          }
-      }
-    return null;
+    return warningString;
   }
 
   /**
@@ -367,9 +364,33 @@ public class Window extends Container implements Accessible
   /** @since 1.2 */
   public Window[] getOwnedWindows()
   {
-    // FIXME: return array containing all the windows this window currently 
-    // owns.
-    return new Window[0];
+    Window [] trimmedList;
+    synchronized (ownedWindows)
+      {
+	// Windows with non-null weak references in ownedWindows.
+	Window [] validList = new Window [ownedWindows.size()];
+
+	Iterator e = ownedWindows.iterator();
+	int numValid = 0;
+	while (e.hasNext())
+	  {
+	    Window w = (Window)(((Reference) e.next()).get());
+	    if (w != null)
+	      validList[numValid++] = w;
+	    else
+	      // Remove null weak reference from ownedWindows.
+	      e.remove();
+	  }
+
+	if (numValid != validList.length)
+	  {
+	    trimmedList = new Window [numValid];
+	    System.arraycopy (validList, 0, trimmedList, 0, numValid);
+	  }
+	else
+	  trimmedList = validList;
+      }
+    return trimmedList;
   }
 
   /**

@@ -274,7 +274,7 @@ DEFTREECODE (COMPLEX_CST, "complex_cst", 'c', 0)
 /* Contents are in TREE_VECTOR_CST_ELTS field.  */
 DEFTREECODE (VECTOR_CST, "vector_cst", 'c', 0)     
 
-/* Contents are TREE_STRING_LENGTH and TREE_STRING_POINTER fields. */
+/* Contents are TREE_STRING_LENGTH and TREE_STRING_POINTER fields.  */
 DEFTREECODE (STRING_CST, "string_cst", 'c', 0)
 
 /* Declarations.  All references to names are represented as ..._DECL
@@ -326,6 +326,10 @@ DEFTREECODE (STRING_CST, "string_cst", 'c', 0)
    DECL_FUNCTION_CODE is a code number that is nonzero for
     built-in functions.  Its value is an enum built_in_function
     that says which built-in function it is.
+
+   DECL_SOURCE_FILE holds a filename string and DECL_SOURCE_LINE
+   holds a line number.  In some cases these can be the location of
+   a reference, if no definition has been seen.
 
    DECL_ABSTRACT is nonzero if the decl represents an abstract instance
    of a decl (i.e. one which is nested within an abstract instance of a
@@ -388,6 +392,9 @@ DEFTREECODE (VTABLE_REF, "vtable_ref", 'r', 3)
 
 /* The exception object from the runtime.  */
 DEFTREECODE (EXC_PTR_EXPR, "exc_ptr_expr", 'e', 0)
+
+/* The filter object from the runtime.  */
+DEFTREECODE (FILTER_EXPR, "filter_expr", 'e', 0)
 
 /* Constructor: return an aggregate value made from specified components.
    In C, this is used only for structure and array initializers.
@@ -619,13 +626,6 @@ DEFTREECODE (MAX_EXPR, "max_expr", '2', 2)
    operand of the ABS_EXPR must have the same type.  */
 DEFTREECODE (ABS_EXPR, "abs_expr", '1', 1)
 
-/* Bit scanning and counting.  */
-DEFTREECODE (FFS_EXPR, "ffs_expr", '1', 1)
-DEFTREECODE (CLZ_EXPR, "clz_expr", '1', 1)
-DEFTREECODE (CTZ_EXPR, "ctz_expr", '1', 1)
-DEFTREECODE (POPCOUNT_EXPR, "popcount_expr", '1', 1)
-DEFTREECODE (PARITY_EXPR, "parity_expr", '1', 1)
-
 /* Shift operations for shift and rotate.
    Shift means logical shift if done on an
    unsigned type, arithmetic shift if done on a signed type.
@@ -642,7 +642,6 @@ DEFTREECODE (RROTATE_EXPR, "rrotate_expr", '2', 2)
 DEFTREECODE (BIT_IOR_EXPR, "bit_ior_expr", '2', 2)
 DEFTREECODE (BIT_XOR_EXPR, "bit_xor_expr", '2', 2)
 DEFTREECODE (BIT_AND_EXPR, "bit_and_expr", '2', 2)
-DEFTREECODE (BIT_ANDTC_EXPR, "bit_andtc_expr", '2', 2)
 DEFTREECODE (BIT_NOT_EXPR, "bit_not_expr", '1', 1)
 
 /* ANDIF and ORIF allow the second operand not to be computed if the
@@ -845,6 +844,10 @@ DEFTREECODE (SWITCH_EXPR, "switch_expr", 's', 3)
    'default' label. If CASE_HIGH is NULL_TREE, the label is a normal case
    label.  CASE_LABEL is the corresponding LABEL_DECL.  */
 DEFTREECODE (CASE_LABEL_EXPR, "case_label_expr", 's', 3)
+
+/* RESX.  Resume execution after an exception.  Operand 0 is a 
+   number indicating the exception region that is being left.  */
+DEFTREECODE (RESX_EXPR, "resx_expr", 's', 1)
 
 /* Used to represent an inline assembly statement.  ASM_STRING returns a
    STRING_CST for the instruction (e.g., "mov x, y"). ASM_OUTPUTS,

@@ -2,20 +2,20 @@
 /* Copyright (C) 2002-2003 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
-This file is part of GNU G95.
+This file is part of the GNU Fortran 95 runtime library (libgfortran).
 
-GNU G95 is free software; you can redistribute it and/or modify
+Libgfortran is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU G95 is distributed in the hope that it will be useful,
+Libgfortran is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU G95; see the file COPYING.  If not, write to
+along with Libgfortran; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -55,6 +55,8 @@ Boston, MA 02111-1307, USA.  */
  */
 
 unit_t *current_unit;
+
+static int sf_seen_eor = 0;
 
 char scratch[SCRATCH_SIZE];
 static char *line_buffer = NULL;
@@ -126,18 +128,32 @@ read_sf (int *length)
   else
     p = base = data;
 
+  memset(base,'\0',*length);
+
   current_unit->bytes_left = options.default_recl;
   unity = 1;
   n = 0;
 
   do
     {
+      if (is_internal_unit())
+        {
+       /* unity may be modified inside salloc_r if is_internal_unit() is true */
+          unity = 1;
+        }
+
       q = salloc_r (current_unit->s, &unity);
       if (q == NULL)
 	break;
 
       if (*q == '\n')
-	{			/* Unexpected end of line */
+	{
+          if (current_unit->unit_number == options.stdin_unit)
+            { 
+              if (n <= 0)
+                continue;
+            }          
+			/* Unexpected end of line */
 	  if (current_unit->flags.pad == PAD_NO)
 	    {
 	      generate_error (ERROR_EOR, NULL);
@@ -146,11 +162,13 @@ read_sf (int *length)
 
 	  current_unit->bytes_left = 0;
 	  *length = n;
+          sf_seen_eor = 1;
 	  break;
 	}
 
       n++;
       *p++ = *q;
+      sf_seen_eor = 0;
     }
   while (n < *length);
 
@@ -273,7 +291,7 @@ unformatted_write (bt type, void *source, int length)
 const char *
 type_name (bt type)
 {
-  char *p;
+  const char *p;
 
   switch (type)
     {
@@ -422,8 +440,6 @@ formatted_transfer (bt type, void *p, int len)
 	case FMT_O:
 	  if (n == 0)
 	    goto need_data;
-	  if (require_type (BT_INTEGER, type, f))
-	    return;
 
 	  if (g.mode == READING)
 	    read_radix (f, p, len, 8);
@@ -435,8 +451,6 @@ formatted_transfer (bt type, void *p, int len)
 	case FMT_Z:
 	  if (n == 0)
 	    goto need_data;
-	  if (require_type (BT_INTEGER, type, f))
-	    return;
 
 	  if (g.mode == READING)
 	    read_radix (f, p, len, 16);
@@ -872,6 +886,9 @@ data_transfer_init (int read_flag)
   if (current_unit == NULL)
     return;
 
+  if (is_internal_unit() && g.mode==WRITING)
+    empty_internal_buffer (current_unit->s);
+
   /* Check the action */
 
   if (read_flag && current_unit->flags.action == ACTION_WRITE)
@@ -896,10 +913,17 @@ data_transfer_init (int read_flag)
     generate_error (ERROR_OPTION_CONFLICT,
 		    "Format present for UNFORMATTED data transfer");
 
-  if (current_unit->flags.form == FORM_FORMATTED && ioparm.format == NULL &&
-      !ioparm.list_format)
+  if (ioparm.namelist_name != NULL && ionml != NULL)
+     {
+        if(ioparm.format != NULL)
+           generate_error (ERROR_OPTION_CONFLICT,
+                    "A format cannot be specified with a namelist");
+     }
+  else if (current_unit->flags.form == FORM_FORMATTED &&
+           ioparm.format == NULL && !ioparm.list_format)
     generate_error (ERROR_OPTION_CONFLICT,
-		    "Missing format for FORMATTED data transfer");
+                    "Missing format for FORMATTED data transfer");
+
 
   if (is_internal_unit () && current_unit->flags.form == FORM_UNFORMATTED)
     generate_error (ERROR_OPTION_CONFLICT,
@@ -1017,7 +1041,10 @@ data_transfer_init (int read_flag)
       else
 	{
 	  if (ioparm.list_format)
-	    transfer = list_formatted_read;
+            {
+               transfer = list_formatted_read;
+               init_at_eol();
+            }
 	  else
 	    transfer = formatted_transfer;
 	}
@@ -1053,8 +1080,10 @@ data_transfer_init (int read_flag)
     }
 
   /* Start the data transfer if we are doing a formatted transfer */
-  if (current_unit->flags.form == FORM_FORMATTED && !ioparm.list_format)
-    formatted_transfer (0, NULL, 0);
+  if (current_unit->flags.form == FORM_FORMATTED && !ioparm.list_format
+      && ioparm.namelist_name == NULL && ionml == NULL)
+
+     formatted_transfer (0, NULL, 0);
 
 }
 
@@ -1116,10 +1145,19 @@ next_record_r (int done)
 
     case FORMATTED_SEQUENTIAL:
       length = 1;
+      if ((!done) || (sf_seen_eor && done))
+         break;
 
       do
         {
           p = salloc_r (current_unit->s, &length);
+
+          /*In case of internal file, there may not be any '\n'.*/
+          if (is_internal_unit() && p == NULL)
+            {
+               break;
+            }
+
           if (p == NULL)
             {
               generate_error (ERROR_OS, NULL);
@@ -1206,10 +1244,15 @@ next_record_w (int done)
     case FORMATTED_SEQUENTIAL:
       length = 1;
       p = salloc_w (current_unit->s, &length);
-      if (p == NULL)
-	goto io_error;
 
-      *p = '\n';
+      if (!(is_internal_unit()) && p == NULL)
+        {
+           goto io_error;
+        }
+
+      if (p != NULL)
+         *p = '\n';
+
       if (sfree (current_unit->s) == FAILURE)
  	goto io_error;
 
@@ -1252,8 +1295,18 @@ next_record (int done)
 static void
 finalize_transfer (void)
 {
+  if ((ionml != NULL) && (ioparm.namelist_name != NULL))
+    {
+       if (ioparm.namelist_read_mode)
+         namelist_read();
+       else
+         namelist_write();
+    }
 
   transfer = NULL;
+  if (current_unit == NULL)
+    return;
+
   if (ioparm.list_format && g.mode == READING)
     finish_list_read ();
   else
@@ -1292,8 +1345,11 @@ st_read (void)
 	break;
 
       case AT_ENDFILE:
-	generate_error (ERROR_END, NULL);
-	current_unit->endfile = AFTER_ENDFILE;
+        if (!is_internal_unit())
+          {
+            generate_error (ERROR_END, NULL);
+            current_unit->endfile = AFTER_ENDFILE;
+          }
 	break;
 
       case AFTER_ENDFILE:
@@ -1329,7 +1385,7 @@ st_write_done (void)
 
   /* Deal with endfile conditions associated with sequential files */
 
-  if (current_unit->flags.access == ACCESS_SEQUENTIAL)
+  if (current_unit != NULL && current_unit->flags.access == ACCESS_SEQUENTIAL)
     switch (current_unit->endfile)
       {
       case AT_ENDFILE:		/* Remain at the endfile record */
@@ -1349,3 +1405,70 @@ st_write_done (void)
 
   library_end ();
 }
+
+
+void
+st_set_nml_var (void * var_addr, char * var_name, int var_name_len,
+                int kind, bt type)
+{
+  namelist_info *t1 = NULL, *t2 = NULL;
+  namelist_info *nml = (namelist_info *) get_mem (sizeof(
+                                                    namelist_info ));
+  nml->mem_pos = var_addr;
+  nml->var_name = (char*) get_mem (var_name_len+1);
+  strncpy (nml->var_name,var_name,var_name_len);
+  nml->var_name[var_name_len] = 0;
+  nml->len = kind;
+  nml->type = type;
+
+  nml->next = NULL;
+
+  if (ionml == NULL)
+     ionml = nml;
+  else
+    {
+      t1 = ionml;
+      while (t1 != NULL)
+       {
+         t2 = t1;
+         t1 = t1->next;
+       }
+       t2->next = nml;
+    }
+}
+
+void
+st_set_nml_var_int (void * var_addr, char * var_name, int var_name_len,
+                int kind)
+{
+   st_set_nml_var (var_addr, var_name, var_name_len, kind, BT_INTEGER);
+}
+
+void
+st_set_nml_var_float (void * var_addr, char * var_name, int var_name_len,
+                int kind)
+{
+   st_set_nml_var (var_addr, var_name, var_name_len, kind, BT_REAL);
+}
+
+void
+st_set_nml_var_char (void * var_addr, char * var_name, int var_name_len,
+                int kind)
+{
+   st_set_nml_var (var_addr, var_name, var_name_len, kind, BT_CHARACTER);
+}
+
+void
+st_set_nml_var_complex (void * var_addr, char * var_name, int var_name_len,
+                int kind)
+{
+   st_set_nml_var (var_addr, var_name, var_name_len, kind, BT_COMPLEX);
+}
+
+void
+st_set_nml_var_log (void * var_addr, char * var_name, int var_name_len,
+                int kind)
+{
+   st_set_nml_var (var_addr, var_name, var_name_len, kind, BT_LOGICAL);
+}
+

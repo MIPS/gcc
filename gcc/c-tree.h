@@ -58,7 +58,6 @@ union lang_tree_node
 
 struct lang_decl GTY(())
 {
-  struct c_lang_decl base;
   /* The return types and parameter types may have variable size.
      This is a list of any SAVE_EXPRs that need to be evaluated to
      compute those sizes.  */
@@ -95,16 +94,14 @@ struct lang_decl GTY(())
    nonzero if the definition of the type has already started.  */
 #define C_TYPE_BEING_DEFINED(TYPE) TYPE_LANG_FLAG_0 (TYPE)
 
+/* In an incomplete RECORD_TYPE or UNION_TYPE, a list of variable
+   declarations whose type would be completed by completing that type.  */
+#define C_TYPE_INCOMPLETE_VARS(TYPE) TYPE_VFIELD (TYPE)
+
 /* In an IDENTIFIER_NODE, nonzero if this identifier is actually a
    keyword.  C_RID_CODE (node) is then the RID_* value of the keyword,
    and C_RID_YYCODE is the token number wanted by Yacc.  */
 #define C_IS_RESERVED_WORD(ID) TREE_LANG_FLAG_0 (ID)
-
-/* This function was declared inline.  This flag controls the linkage
-   semantics of 'inline'; whether or not the function is inlined is
-   controlled by DECL_INLINE.  */
-#define DECL_DECLARED_INLINE_P(NODE) \
-  (DECL_LANG_SPECIFIC (NODE)->base.declared_inline)
 
 /* In a RECORD_TYPE, a sorted array of the fields of the type.  */
 struct lang_type GTY(())
@@ -145,11 +142,6 @@ struct lang_type GTY(())
 	|| (TYPE_ARG_TYPES (TREE_TYPE (EXP)) == 0	\
 	    && !DECL_BUILT_IN (EXP)))
 
-/* Nonzero for a decl which is at file scope.  */
-#define C_DECL_FILE_SCOPE(EXP) 					\
-  (! DECL_CONTEXT (EXP)						\
-   || TREE_CODE (DECL_CONTEXT (EXP)) == TRANSLATION_UNIT_DECL)
-
 /* For FUNCTION_TYPE, a hidden list of types of arguments.  The same as
    TYPE_ARG_TYPES for functions with prototypes, but created for functions
    without prototypes.  */
@@ -186,14 +178,13 @@ extern void insert_block (tree);
 extern void set_block (tree);
 extern tree pushdecl (tree);
 
-extern void c_insert_default_attributes (tree);
 extern void c_init_decl_processing (void);
 extern void c_dup_lang_specific_decl (tree);
 extern void c_print_identifier (FILE *, tree, int);
 extern tree build_array_declarator (tree, tree, int, int);
 extern tree build_enumerator (tree, tree);
 extern void check_for_loop_decls (void);
-extern void clear_parm_order (void);
+extern void mark_forward_parm_decls (void);
 extern int  complete_array_type (tree, tree, int);
 extern void declare_parm_level (void);
 extern void undeclared_variable (tree);
@@ -201,7 +192,7 @@ extern tree declare_label (tree);
 extern tree define_label (location_t, tree);
 extern void finish_decl (tree, tree, tree);
 extern tree finish_enum (tree, tree, tree);
-extern void finish_function (int, int);
+extern void finish_function (void);
 extern tree finish_struct (tree, tree, tree);
 extern tree get_parm_info (int);
 extern tree grokfield (tree, tree, tree);
@@ -211,7 +202,6 @@ extern tree implicitly_declare (tree);
 extern int  in_parm_level_p (void);
 extern void keep_next_level (void);
 extern tree lookup_name (tree);
-extern void parmlist_tags_warning (void);
 extern void pending_xref_error (void);
 extern void c_push_function_context (struct function *);
 extern void c_pop_function_context (struct function *);
@@ -254,8 +244,7 @@ extern bool c_warn_unused_global_decl (tree);
 
 /* For use with comptypes.  */
 enum {
-  COMPARE_STRICT = 0,
-  COMPARE_DIFFERENT_TU = 1
+  COMPARE_STRICT = 0
 };
 
 extern tree require_complete_type (tree);
@@ -288,6 +277,7 @@ extern void set_init_index (tree, tree);
 extern void set_init_label (tree);
 extern void process_init_element (tree);
 extern tree build_compound_literal (tree, tree);
+extern void pedwarn_c90 (const char *, ...) ATTRIBUTE_PRINTF_1;
 extern void pedwarn_c99 (const char *, ...) ATTRIBUTE_PRINTF_1;
 extern tree c_start_case (tree);
 extern void c_finish_case (void);
@@ -320,9 +310,6 @@ extern void c_write_global_declarations (void);
 
 extern GTY(()) tree static_ctors;
 extern GTY(()) tree static_dtors;
-
-/* In c-simplify.c */
-extern void c_genericize (tree);
 
 /* In c-call-graph.c  */
 extern void print_call_graph (FILE*, tree);

@@ -1,3 +1,12 @@
+2003-09-24  Jason Merrill  <jason@redhat.com>
+
+	* decl.c, jcf-parse.c, jcf-write.c, parse.h, parse.y, resource.c:
+	Revert from TREE_LOCUS to DECL_SOURCE_LOCATION.
+	
+2003-09-18  Richard Henderson  <rth@redhat.com>
+
+        * lang.c (java_estimate_num_insns): Take an expr, not a decl.
+
 2003-08-12  Diego Novillo  <dnovillo@redhat.com>
 
 	* java-gimplify.c (java_gimplify_block): If the body is a
@@ -161,3 +170,7 @@
 	* java-tree.h (EXPR_WFL_*): New macros.
 	(build_expr_wfl): Declare.
 
+Local Variables:
+mode: change-log
+change-log-default-name: "ChangeLog.tree-ssa"
+End:

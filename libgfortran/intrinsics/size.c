@@ -21,7 +21,7 @@ Boston, MA 02111-1307, USA.  */
 
 #include "libgfortran.h"
 
-typedef G95_ARRAY_DESCRIPTOR (G95_MAX_DIMENSIONS, void) array_t;
+typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, void) array_t;
 
 #define size0 prefix(size0)
 index_type size0 (const array_t * array)
@@ -31,7 +31,7 @@ index_type size0 (const array_t * array)
   index_type len;
 
   size = 1;
-  for (n = 0; n < G95_DESCRIPTOR_RANK (array); n++)
+  for (n = 0; n < GFC_DESCRIPTOR_RANK (array); n++)
     {
       len = array->dim[n].ubound + 1 - array->dim[n].lbound;
       if (len < 0)

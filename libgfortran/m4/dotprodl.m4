@@ -4,12 +4,12 @@
 
 This file is part of the GNU Fortran 95 runtime library (libgfor).
 
-GNU G95 is free software; you can redistribute it and/or
+Libgfortran is free software; you can redistribute it and/or
 modify it under the terms of the GNU Lesser General Public
 License as published by the Free Software Foundation; either
 version 2.1 of the License, or (at your option) any later version.
 
-GNU G95 is distributed in the hope that it will be useful,
+Libgfortran is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU Lesser General Public License for more details.
@@ -30,16 +30,16 @@ define(rtype,get_arraytype(l,rtype_kind))dnl
 define(rtype_name, get_typename(l, rtype_kind))dnl
 
 rtype_name
-`__dot_product_'rtype_code (g95_array_l4 * a, g95_array_l4 * b)
+`__dot_product_'rtype_code (gfc_array_l4 * a, gfc_array_l4 * b)
 {
-  G95_LOGICAL_4 *pa;
-  G95_LOGICAL_4 *pb;
+  GFC_LOGICAL_4 *pa;
+  GFC_LOGICAL_4 *pb;
   index_type count;
   index_type astride;
   index_type bstride;
 
-  assert (G95_DESCRIPTOR_RANK (a) == 1
-          && G95_DESCRIPTOR_RANK (b) == 1);
+  assert (GFC_DESCRIPTOR_RANK (a) == 1
+          && GFC_DESCRIPTOR_RANK (b) == 1);
 
   if (a->dim[0].stride == 0)
     a->dim[0].stride = 1;
@@ -51,16 +51,16 @@ rtype_name
   count = a->dim[0].ubound + 1 - a->dim[0].lbound;
 
   pa = a->data;
-  if (G95_DESCRIPTOR_SIZE (a) != 4)
+  if (GFC_DESCRIPTOR_SIZE (a) != 4)
     {
-      assert (G95_DESCRIPTOR_SIZE (a) == 8);
+      assert (GFC_DESCRIPTOR_SIZE (a) == 8);
       pa = GFOR_POINTER_L8_TO_L4 (pa);
       astride <<= 1;
     }
   pb = b->data;
-  if (G95_DESCRIPTOR_SIZE (b) != 4)
+  if (GFC_DESCRIPTOR_SIZE (b) != 4)
     {
-      assert (G95_DESCRIPTOR_SIZE (b) == 8);
+      assert (GFC_DESCRIPTOR_SIZE (b) == 8);
       pb = GFOR_POINTER_L8_TO_L4 (pb);
       bstride <<= 1;
     }

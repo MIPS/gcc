@@ -33,7 +33,7 @@
 // libstdc++/3129
 void test02()
 {
-  bool test = true;
+  bool test __attribute__((unused)) = true;
   int max = std::numeric_limits<int>::max() - 1;
   std::stringbuf        strbuf;
   std::ios              ios(&strbuf);
@@ -123,7 +123,7 @@ void test02()
 
 int main(void)
 {
-  __gnu_cxx_test::set_memory_limits();
+  __gnu_test::set_memory_limits();
   test02();
   return 0;
 }

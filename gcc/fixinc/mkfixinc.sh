@@ -47,19 +47,12 @@ case $machine in
         ;;
 
     alpha*-dec-*vms* | \
-    arm-semi-aout | \
-    armel-semi-aout | \
     arm-semi-aof | \
-    armel-semi-aof | \
     hppa1.1-*-osf* | \
-    hppa1.0-*-osf* | \
     hppa1.1-*-bsd* | \
-    hppa1.0-*-bsd* | \
-    hppa*-*-lites* | \
     i370-*-openedition | \
     i?86-moss-msdos* | \
     i?86-*-moss* | \
-    i?86-*-win32 | \
     i?86-*-pe | \
     i?86-*-cygwin* | \
     i?86-*-mingw32* | \
@@ -70,12 +63,7 @@ case $machine in
     powerpc-*-eabi*    | \
     powerpc-*-rtems*   | \
     powerpcle-*-eabisim* | \
-    powerpcle-*-eabi*  | \
-    powerpcle-*-winnt* | \
-    powerpcle-*-pe | \
-    powerpcle-*-cygwin* | \
-    thumb-*-coff* | \
-    thumbel-*-coff* )
+    powerpcle-*-eabi* )
         #  Don't do any fixing.
         #
         fixincludes=

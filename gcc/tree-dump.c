@@ -303,6 +303,8 @@ dequeue_and_dump (dump_info_p di)
 	  break;
 
 	case 'e':
+	case 'r':
+	case 's':
 	  /* These nodes are handled explicitly below.  */
 	  break;
 
@@ -322,18 +324,18 @@ dequeue_and_dump (dump_info_p di)
       queue_and_dump_type (di, t);
       dump_child ("scpe", DECL_CONTEXT (t));
       /* And a source position.  */
-      if (TREE_FILENAME (t))
+      if (DECL_SOURCE_FILE (t))
 	{
-	  const char *filename = strrchr (TREE_FILENAME (t), '/');
+	  const char *filename = strrchr (DECL_SOURCE_FILE (t), '/');
 	  if (!filename)
-	    filename = TREE_FILENAME (t);
+	    filename = DECL_SOURCE_FILE (t);
 	  else
 	    /* Skip the slash.  */
 	    ++filename;
 
 	  dump_maybe_newline (di);
 	  fprintf (di->stream, "srcp: %s:%-6d ", filename,
-		   TREE_LINENO (t));
+		   DECL_SOURCE_LINE (t));
 	  di->column += 6 + strlen (filename) + 8;
 	}
       /* And any declaration can be compiler-generated.  */
@@ -649,17 +651,25 @@ static struct dump_file_info dump_files[TDI_end] =
   {".generic", "tree-generic", 0, 0},
   {".inlined", "tree-inlined", 0, 0},
   {".gimple", "tree-gimple", 0, 0},
+  {".useless", "tree-useless", 0, 0},
+  {".eh", "tree-eh", 0, 0},
   {".cfg", "tree-cfg", 0, 0},
   {".dot", "tree-dot", 0, 0},
   {".pta", "tree-pta", 0, 0},
-  {".ssa", "tree-ssa", 0, 0},
-  {".dom", "tree-dom", 0, 0},
+  {".alias", "tree-alias", 0, 0},
+  {".ssa1", "tree-ssa1", 0, 0},
+  {".dom1", "tree-dom1", 0, 0},
+  {".ssa2", "tree-ssa2", 0, 0},
+  {".dce1", "tree-dce1", 0, 0},
   {".mustalias", "tree-mustalias", 0, 0},
-  {".predot", "tree-predot", 0, 0},
-  {".pre", "tree-pre", 0, 0},
+  {".ssa3", "tree-ssa3", 0, 0},
   {".ccp", "tree-ccp", 0, 0},
+  {".ssa4", "tree-ssa4", 0, 0},
+  {".pre", "tree-pre", 0, 0},
+  {".dom2", "tree-dom2", 0, 0},
+  {".ssa5", "tree-ssa5", 0, 0},
   {".copyprop", "tree-copyprop", 0, 0},
-  {".dce", "tree-dce", 0, 0},
+  {".dce2", "tree-dce2", 0, 0},
   {".optimized", "tree-optimized", 0, 0},
   {".mudflap", "tree-mudflap", 0, 0},
   {".xml", "call-graph", 0, 0},
@@ -683,7 +693,6 @@ static const struct dump_option_value_info dump_options[] =
   {"details", TDF_DETAILS},
   {"stats", TDF_STATS},
   {"blocks", TDF_BLOCKS},
-  {"alias", TDF_ALIAS},
   {"vops", TDF_VOPS},
   {"all", ~(TDF_RAW | TDF_SLIM)},
   {NULL, 0}

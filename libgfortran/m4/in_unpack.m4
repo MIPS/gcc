@@ -35,9 +35,9 @@ dnl Only the kind (ie size) is used to name the function.
 void
 `internal_unpack_'rtype_kind (rtype * d, const rtype_name * src)
 {
-  index_type count[G95_MAX_DIMENSIONS - 1];
-  index_type extent[G95_MAX_DIMENSIONS - 1];
-  index_type stride[G95_MAX_DIMENSIONS - 1];
+  index_type count[GFC_MAX_DIMENSIONS - 1];
+  index_type extent[GFC_MAX_DIMENSIONS - 1];
+  index_type stride[GFC_MAX_DIMENSIONS - 1];
   index_type stride0;
   index_type dim;
   index_type dsize;
@@ -51,7 +51,7 @@ void
   if (d->dim[0].stride == 0)
     d->dim[0].stride = 1;
 
-  dim = G95_DESCRIPTOR_RANK (d);
+  dim = GFC_DESCRIPTOR_RANK (d);
   dsize = 1;
   for (n = 0; n < dim; n++)
     {

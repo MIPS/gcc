@@ -110,9 +110,14 @@ rtx const_true_rtx;
 REAL_VALUE_TYPE dconst0;
 REAL_VALUE_TYPE dconst1;
 REAL_VALUE_TYPE dconst2;
+REAL_VALUE_TYPE dconst3;
+REAL_VALUE_TYPE dconst10;
 REAL_VALUE_TYPE dconstm1;
 REAL_VALUE_TYPE dconstm2;
 REAL_VALUE_TYPE dconsthalf;
+REAL_VALUE_TYPE dconstthird;
+REAL_VALUE_TYPE dconstpi;
+REAL_VALUE_TYPE dconste;
 
 /* All references to the following fixed hard registers go through
    these unique rtl objects.  On machines where the frame-pointer and
@@ -132,8 +137,6 @@ REAL_VALUE_TYPE dconsthalf;
 
    In an inline procedure, the stack and frame pointer rtxs may not be
    used for anything else.  */
-rtx struct_value_rtx;		/* (REG:Pmode STRUCT_VALUE_REGNUM) */
-rtx struct_value_incoming_rtx;	/* (REG:Pmode STRUCT_VALUE_INCOMING_REGNUM) */
 rtx static_chain_rtx;		/* (REG:Pmode STATIC_CHAIN_REGNUM) */
 rtx static_chain_incoming_rtx;	/* (REG:Pmode STATIC_CHAIN_INCOMING_REGNUM) */
 rtx pic_offset_table_rtx;	/* (REG:Pmode PIC_OFFSET_TABLE_REGNUM) */
@@ -858,7 +861,7 @@ gen_reg_rtx (enum machine_mode mode)
   return val;
 }
 
-/* Generate an register with same attributes as REG,
+/* Generate a register with same attributes as REG,
    but offsetted by OFFSET.  */
 
 rtx
@@ -5317,6 +5320,9 @@ init_emit_once (int line_numbers)
   enum machine_mode mode;
   enum machine_mode double_mode;
 
+  /* We need reg_raw_mode, so initialize the modes now.  */
+  init_reg_modes_once ();
+
   /* Initialize the CONST_INT, CONST_DOUBLE, and memory attribute hash
      tables.  */
   const_int_htab = htab_create_ggc (37, const_int_htab_hash,
@@ -5413,13 +5419,24 @@ init_emit_once (int line_numbers)
   REAL_VALUE_FROM_INT (dconst0,   0,  0, double_mode);
   REAL_VALUE_FROM_INT (dconst1,   1,  0, double_mode);
   REAL_VALUE_FROM_INT (dconst2,   2,  0, double_mode);
+  REAL_VALUE_FROM_INT (dconst3,   3,  0, double_mode);
+  REAL_VALUE_FROM_INT (dconst10, 10,  0, double_mode);
   REAL_VALUE_FROM_INT (dconstm1, -1, -1, double_mode);
   REAL_VALUE_FROM_INT (dconstm2, -2, -1, double_mode);
 
   dconsthalf = dconst1;
   dconsthalf.exp--;
 
-  for (i = 0; i <= 2; i++)
+  real_arithmetic (&dconstthird, RDIV_EXPR, &dconst1, &dconst3);
+
+  /* Initialize mathematical constants for constant folding builtins.
+     These constants need to be given to at least 160 bits precision.  */
+  real_from_string (&dconstpi,
+    "3.1415926535897932384626433832795028841971693993751058209749445923078");
+  real_from_string (&dconste,
+    "2.7182818284590452353602874713526624977572470936999595749669676277241");
+
+  for (i = 0; i < (int) ARRAY_SIZE (const_tiny_rtx); i++)
     {
       REAL_VALUE_TYPE *r =
 	(i == 0 ? &dconst0 : i == 1 ? &dconst1 : &dconst2);
@@ -5462,23 +5479,6 @@ init_emit_once (int line_numbers)
 #ifdef RETURN_ADDRESS_POINTER_REGNUM
   return_address_pointer_rtx
     = gen_raw_REG (Pmode, RETURN_ADDRESS_POINTER_REGNUM);
-#endif
-
-#ifdef STRUCT_VALUE
-  struct_value_rtx = STRUCT_VALUE;
-#else
-  struct_value_rtx = gen_rtx_REG (Pmode, STRUCT_VALUE_REGNUM);
-#endif
-
-#ifdef STRUCT_VALUE_INCOMING
-  struct_value_incoming_rtx = STRUCT_VALUE_INCOMING;
-#else
-#ifdef STRUCT_VALUE_INCOMING_REGNUM
-  struct_value_incoming_rtx
-    = gen_rtx_REG (Pmode, STRUCT_VALUE_INCOMING_REGNUM);
-#else
-  struct_value_incoming_rtx = struct_value_rtx;
-#endif
 #endif
 
 #ifdef STATIC_CHAIN_REGNUM

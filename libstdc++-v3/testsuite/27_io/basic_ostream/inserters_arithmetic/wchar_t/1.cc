@@ -30,7 +30,7 @@
 
 using namespace std;
 
-#ifndef DEBUG_ASSERT
+#ifndef _GLIBCXX_ASSERT
 #  define TEST_NUMPUT_VERBOSE 1
 #endif
 
@@ -151,8 +151,8 @@ void apply_formatting(const _TestCase & tc, basic_ostream<_CharT> & os)
 void
 test01()
 {
-  bool test = true;
-  for (int j=0; j<sizeof(testcases)/sizeof(testcases[0]); j++)
+  bool test __attribute__((unused)) = true;
+  for (std::size_t j = 0; j<sizeof(testcases)/sizeof(testcases[0]); j++)
     {
       _TestCase & tc = testcases[j];
 #ifdef TEST_NUMPUT_VERBOSE

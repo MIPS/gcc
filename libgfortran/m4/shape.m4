@@ -39,7 +39,7 @@ void
   if (stride == 0)
     stride = 1;
 
-  for (n = 0; n < G95_DESCRIPTOR_RANK (array); n++)
+  for (n = 0; n < GFC_DESCRIPTOR_RANK (array); n++)
     {
       ret->data[n * stride] =
         array->dim[n].ubound + 1 - array->dim[n].lbound;

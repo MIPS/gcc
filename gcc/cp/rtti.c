@@ -31,6 +31,7 @@ Boston, MA 02111-1307, USA.  */
 #include "output.h"
 #include "assert.h"
 #include "toplev.h"
+#include "convert.h"
 
 /* C++ returns type information to the user in struct type_info
    objects. We also use type information to implement dynamic_cast and
@@ -119,7 +120,7 @@ init_rtti_processing (void)
   push_namespace (std_identifier);
   type_info_type_node 
     = xref_tag (class_type, get_identifier ("type_info"),
-		/*attributes=*/NULL_TREE, 1);
+		/*attributes=*/NULL_TREE, true, false);
   pop_namespace ();
   const_type_info_type = build_qualified_type (type_info_type_node, 
 					       TYPE_QUAL_CONST);
@@ -159,8 +160,8 @@ build_headof (tree exp)
 
   type = build_qualified_type (ptr_type_node, 
 			       cp_type_quals (TREE_TYPE (exp)));
-  return build (PLUS_EXPR, type, exp,
-		cp_convert (ptrdiff_type_node, offset));
+  return build (PLUS_EXPR, type, exp, 
+		convert_to_integer (ptrdiff_type_node, offset));
 }
 
 /* Get a bad_cast node for the program to throw...
@@ -331,8 +332,6 @@ get_tinfo_decl (tree type)
       return error_mark_node;
     }
 
-  if (TREE_CODE (type) == OFFSET_TYPE)
-    type = TREE_TYPE (type);
   if (TREE_CODE (type) == METHOD_TYPE)
     type = build_function_type (TREE_TYPE (type),
 				TREE_CHAIN (TYPE_ARG_TYPES (type)));
@@ -359,8 +358,9 @@ get_tinfo_decl (tree type)
       TREE_READONLY (d) = 1;
       TREE_STATIC (d) = 1;
       DECL_EXTERNAL (d) = 1;
-      SET_DECL_ASSEMBLER_NAME (d, name);
       DECL_COMDAT (d) = 1;
+      TREE_PUBLIC (d) = 1;
+      SET_DECL_ASSEMBLER_NAME (d, name);
 
       pushdecl_top_level_and_finish (d, NULL_TREE);
 
@@ -640,7 +640,7 @@ build_dynamic_cast_1 (tree type, tree expr)
 	      tinfo_ptr = xref_tag (class_type,
 				    get_identifier ("__class_type_info"),
 				    /*attributes=*/NULL_TREE,
-				    1);
+				    true, false);
 	      
 	      tinfo_ptr = build_pointer_type
 		(build_qualified_type
@@ -653,6 +653,7 @@ build_dynamic_cast_1 (tree type, tree expr)
 		   (NULL_TREE, ptrdiff_type_node, void_list_node))));
 	      tmp = build_function_type (ptr_type_node, tmp);
 	      dcast_fn = build_library_fn_ptr (name, tmp);
+	      DECL_IS_PURE (dcast_fn) = 1;
               pop_nested_namespace (ns);
               dynamic_cast_node = dcast_fn;
 	    }
@@ -687,7 +688,12 @@ build_dynamic_cast (tree type, tree expr)
     return error_mark_node;
   
   if (processing_template_decl)
-    return build_min (DYNAMIC_CAST_EXPR, type, expr);
+    {
+      expr = build_min (DYNAMIC_CAST_EXPR, type, expr);
+      TREE_SIDE_EFFECTS (expr) = 1;
+      
+      return expr;
+    }
 
   return convert_from_reference (build_dynamic_cast_1 (type, expr));
 }
@@ -715,19 +721,17 @@ qualifier_flags (tree type)
 static bool
 target_incomplete_p (tree type)
 {
-  while (TREE_CODE (type) == POINTER_TYPE)
+  while (true)
     if (TYPE_PTRMEM_P (type))
       {
-        if (!COMPLETE_TYPE_P (TYPE_PTRMEM_CLASS_TYPE (type)))
-          return true;
-        type = TYPE_PTRMEM_POINTED_TO_TYPE (type);
+	if (!COMPLETE_TYPE_P (TYPE_PTRMEM_CLASS_TYPE (type)))
+	  return true;
+	type = TYPE_PTRMEM_POINTED_TO_TYPE (type);
       }
-    else
+    else if (TREE_CODE (type) == POINTER_TYPE)
       type = TREE_TYPE (type);
-  if (!COMPLETE_OR_VOID_TYPE_P (type))
-    return true;
-  
-  return false;
+    else
+      return !COMPLETE_OR_VOID_TYPE_P (type);
 }
 
 /* Return a CONSTRUCTOR for the common part of the type_info objects. This
@@ -777,7 +781,7 @@ tinfo_base_init (tree desc, tree target)
   
       push_nested_namespace (abi_node);
       real_type = xref_tag (class_type, TINFO_REAL_NAME (desc),
-			    /*attributes=*/NULL_TREE, 1);
+			    /*attributes=*/NULL_TREE, true, false);
       pop_nested_namespace (abi_node);
   
       if (!COMPLETE_TYPE_P (real_type))
@@ -999,12 +1003,10 @@ get_pseudo_ti_init (tree type, tree var_desc, bool *non_public_p)
   my_friendly_assert (at_eof, 20021120);
   switch (TREE_CODE (type))
     {
+    case OFFSET_TYPE:
+      return ptm_initializer (var_desc, type, non_public_p);
     case POINTER_TYPE:
-      if (TYPE_PTRMEM_P (type))
-	return ptm_initializer (var_desc, type, non_public_p);
-      else
-	return ptr_initializer (var_desc, type, non_public_p);
-      break;
+      return ptr_initializer (var_desc, type, non_public_p);
     case ENUMERAL_TYPE:
       return generic_initializer (var_desc, type);
       break;
@@ -1164,8 +1166,10 @@ get_pseudo_ti_desc (tree type)
 {
   switch (TREE_CODE (type))
     {
+    case OFFSET_TYPE:
+      return ptm_desc_type_node;
     case POINTER_TYPE:
-      return TYPE_PTRMEM_P (type) ? ptm_desc_type_node : ptr_desc_type_node;
+      return ptr_desc_type_node;
     case ENUMERAL_TYPE:
       return enum_desc_type_node;
     case FUNCTION_TYPE:
@@ -1374,7 +1378,7 @@ emit_support_tinfos (void)
   bltn_type = xref_tag (class_type,
 			get_identifier ("__fundamental_type_info"), 
 			/*attributes=*/NULL_TREE,
-			1);
+			true, false);
   pop_nested_namespace (abi_node);
   if (!COMPLETE_TYPE_P (bltn_type))
     return;

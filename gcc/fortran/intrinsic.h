@@ -154,6 +154,7 @@ gfc_expr *gfc_simplify_ior (gfc_expr *, gfc_expr *);
 gfc_expr *gfc_simplify_ishft (gfc_expr *, gfc_expr *);
 gfc_expr *gfc_simplify_ishftc (gfc_expr *, gfc_expr *, gfc_expr *);
 gfc_expr *gfc_simplify_kind (gfc_expr *);
+gfc_expr *gfc_simplify_lbound (gfc_expr *, gfc_expr *);
 gfc_expr *gfc_simplify_len (gfc_expr *);
 gfc_expr *gfc_simplify_len_trim (gfc_expr *);
 gfc_expr *gfc_simplify_lge (gfc_expr *, gfc_expr *);
@@ -201,6 +202,7 @@ gfc_expr *gfc_simplify_tan (gfc_expr *);
 gfc_expr *gfc_simplify_tanh (gfc_expr *);
 gfc_expr *gfc_simplify_tiny (gfc_expr *);
 gfc_expr *gfc_simplify_trim (gfc_expr *);
+gfc_expr *gfc_simplify_ubound (gfc_expr *, gfc_expr *);
 gfc_expr *gfc_simplify_verify (gfc_expr *, gfc_expr *, gfc_expr *);
 
 /* Constant conversion simplification.  */

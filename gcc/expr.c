@@ -164,6 +164,8 @@ static unsigned HOST_WIDE_INT highest_pow2_factor_for_type (tree, tree);
 
 static int is_aligning_offset (tree, tree);
 static rtx expand_increment (tree, int, int);
+static void expand_operands (tree, tree, rtx, rtx*, rtx*,
+			     enum expand_modifier);
 static rtx do_store_flag (tree, rtx, enum machine_mode, int);
 #ifdef PUSH_ROUNDING
 static void emit_single_push_insn (enum machine_mode, rtx, tree);
@@ -338,15 +340,7 @@ init_expr_once (void)
 void
 init_expr (void)
 {
-  cfun->expr = ggc_alloc (sizeof (struct expr_status));
-
-  pending_chain = 0;
-  pending_stack_adjust = 0;
-  stack_pointer_delta = 0;
-  inhibit_defer_pop = 0;
-  saveregs_value = 0;
-  apply_args_value = 0;
-  forced_labels = 0;
+  cfun->expr = ggc_alloc_cleared (sizeof (struct expr_status));
 }
 
 /* Small sanity check that the queue is empty at the end of a function.  */
@@ -1424,6 +1418,15 @@ convert_modes (enum machine_mode mode, enum machine_mode oldmode, rtx x, int uns
       return gen_lowpart (mode, x);
     }
 
+  /* Converting from integer constant into mode is always equivalent to an
+     subreg operation.  */
+  if (VECTOR_MODE_P (mode) && GET_MODE (x) == VOIDmode)
+    {
+      if (GET_MODE_BITSIZE (mode) != GET_MODE_BITSIZE (oldmode))
+	abort ();
+      return simplify_gen_subreg (mode, x, oldmode, 0);
+    }
+
   temp = gen_reg_rtx (mode);
   convert_move (temp, x, unsignedp);
   return temp;
@@ -1956,10 +1959,8 @@ emit_block_move_via_libcall (rtx dst, rtx src, rtx size)
   dst_addr = copy_to_mode_reg (Pmode, XEXP (dst, 0));
   src_addr = copy_to_mode_reg (Pmode, XEXP (src, 0));
 
-#ifdef POINTERS_EXTEND_UNSIGNED
   dst_addr = convert_memory_address (ptr_mode, dst_addr);
   src_addr = convert_memory_address (ptr_mode, src_addr);
-#endif
 
   dst_tree = make_tree (ptr_type_node, dst_addr);
   src_tree = make_tree (ptr_type_node, src_addr);
@@ -2002,7 +2003,6 @@ emit_block_move_via_libcall (rtx dst, rtx src, rtx size)
   call_expr = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (fn)), fn);
   call_expr = build (CALL_EXPR, TREE_TYPE (TREE_TYPE (fn)),
 		     call_expr, arg_list, NULL_TREE);
-  TREE_SIDE_EFFECTS (call_expr) = 1;
 
   retval = expand_expr (call_expr, NULL_RTX, VOIDmode, 0);
 
@@ -2091,6 +2091,9 @@ emit_block_move_via_loop (rtx x, rtx y, rtx size,
 {
   rtx cmp_label, top_label, iter, x_addr, y_addr, tmp;
   enum machine_mode iter_mode;
+  int create_notes
+    = ! keep_function_tree_in_gimple_form (current_function_decl);
+
 
   iter_mode = GET_MODE (size);
   if (iter_mode == VOIDmode)
@@ -2106,7 +2109,7 @@ emit_block_move_via_loop (rtx x, rtx y, rtx size,
   y_addr = force_operand (XEXP (y, 0), NULL_RTX);
   do_pending_stack_adjust ();
 
-  if (!cfun->recreate_loop_notes)
+  if (create_notes)
     emit_note (NOTE_INSN_LOOP_BEG);
 
   emit_jump (cmp_label);
@@ -2125,14 +2128,14 @@ emit_block_move_via_loop (rtx x, rtx y, rtx size,
   if (tmp != iter)
     emit_move_insn (iter, tmp);
 
-  if (!cfun->recreate_loop_notes)
+  if (create_notes)
     emit_note (NOTE_INSN_LOOP_CONT);
   emit_label (cmp_label);
 
   emit_cmp_and_jump_insns (iter, size, LT, NULL_RTX, iter_mode,
 			   true, top_label);
 
-  if (!cfun->recreate_loop_notes)
+  if (create_notes)
     emit_note (NOTE_INSN_LOOP_END);
 }
 
@@ -3119,7 +3122,6 @@ clear_storage_via_libcall (rtx object, rtx size)
   call_expr = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (fn)), fn);
   call_expr = build (CALL_EXPR, TREE_TYPE (TREE_TYPE (fn)),
 		     call_expr, arg_list, NULL_TREE);
-  TREE_SIDE_EFFECTS (call_expr) = 1;
 
   retval = expand_expr (call_expr, NULL_RTX, VOIDmode, 0);
 
@@ -4282,7 +4284,7 @@ expand_assignment (tree to, tree from, int want_value)
      since it might be a promoted variable where the zero- or sign- extension
      needs to be done.  Handling this in the normal way is safe because no
      computation is done before the call.  */
-  if (TREE_CODE (from) == CALL_EXPR && ! aggregate_value_p (from)
+  if (TREE_CODE (from) == CALL_EXPR && ! aggregate_value_p (from, from)
       && TREE_CODE (TYPE_SIZE (TREE_TYPE (from))) == INTEGER_CST
       && ! ((TREE_CODE (to) == VAR_DECL || TREE_CODE (to) == PARM_DECL)
 	    && GET_CODE (DECL_RTL (to)) == REG))
@@ -4303,11 +4305,8 @@ expand_assignment (tree to, tree from, int want_value)
 	emit_block_move (to_rtx, value, expr_size (from), BLOCK_OP_NORMAL);
       else
 	{
-#ifdef POINTERS_EXTEND_UNSIGNED
-	  if (POINTER_TYPE_P (TREE_TYPE (to))
-	      && GET_MODE (to_rtx) != GET_MODE (value))
+	  if (POINTER_TYPE_P (TREE_TYPE (to)))
 	    value = convert_memory_address (GET_MODE (to_rtx), value);
-#endif
 	  emit_move_insn (to_rtx, value);
 	}
       preserve_temp_slots (to_rtx);
@@ -6401,7 +6400,7 @@ highest_pow2_factor (tree exp)
       /* We can find the lowest bit that's a one.  If the low
 	 HOST_BITS_PER_WIDE_INT bits are zero, return BIGGEST_ALIGNMENT.
 	 We need to handle this case since we can find it in a COND_EXPR,
-	 a MIN_EXPR, or a MAX_EXPR.  If the constant overlows, we have an
+	 a MIN_EXPR, or a MAX_EXPR.  If the constant overflows, we have an
 	 erroneous program, so return BIGGEST_ALIGNMENT to avoid any
 	 later ICE.  */
       if (TREE_CONSTANT_OVERFLOW (exp))
@@ -6532,6 +6531,30 @@ find_placeholder (tree exp, tree *plist)
 
   return 0;
 }
+
+/* Subroutine of expand_expr.  Expand the two operands of a binary
+   expression EXP0 and EXP1 placing the results in OP0 and OP1.
+   The value may be stored in TARGET if TARGET is nonzero.  The
+   MODIFIER argument is as documented by expand_expr.  */
+
+static void
+expand_operands (tree exp0, tree exp1, rtx target, rtx *op0, rtx *op1,
+		 enum expand_modifier modifier)
+{
+  if (! safe_from_p (target, exp1, 1))
+    target = 0;
+  if (operand_equal_p (exp0, exp1, 0))
+    {
+      *op0 = expand_expr (exp0, target, VOIDmode, modifier);
+      *op1 = copy_rtx (*op0);
+    }
+  else
+    {
+      *op0 = expand_expr (exp0, target, VOIDmode, modifier);
+      *op1 = expand_expr (exp1, NULL_RTX, VOIDmode, modifier);
+    }
+}
+
 
 /* expand_expr: generate code for computing expression EXP.
    An rtx for the computed value is returned.  The value is never null.
@@ -6576,14 +6599,14 @@ find_placeholder (tree exp, tree *plist)
    emit_block_move will be flagged with BLOCK_OP_CALL_PARM.  */
 
 rtx
-expand_expr (tree exp, rtx target, enum machine_mode tmode, enum expand_modifier modifier)
+expand_expr (tree exp, rtx target, enum machine_mode tmode,
+	     enum expand_modifier modifier)
 {
   rtx op0, op1, temp;
   tree type = TREE_TYPE (exp);
   int unsignedp = TREE_UNSIGNED (type);
   enum machine_mode mode;
   enum tree_code code = TREE_CODE (exp);
-  char class = TREE_CODE_CLASS (code);
   optab this_optab;
   rtx subtarget, original_target;
   int ignore;
@@ -6714,7 +6737,7 @@ expand_expr (tree exp, rtx target, enum machine_mode tmode, enum expand_modifier
   if (! cse_not_expected && mode != BLKmode && target
       && (GET_CODE (target) != REG || REGNO (target) < FIRST_PSEUDO_REGISTER)
       && ! (code == CONSTRUCTOR && GET_MODE_SIZE (mode) > UNITS_PER_WORD)
-      && ! (code == CALL_EXPR && aggregate_value_p (exp)))
+      && ! (code == CALL_EXPR && aggregate_value_p (exp, exp)))
     target = 0;
 
 
@@ -6727,19 +6750,16 @@ expand_expr (tree exp, rtx target, enum machine_mode tmode, enum expand_modifier
      used the file/line information embedded in the tree nodes rather
      than globals.  */
   if (cfun
-      && TREE_LOCUS (exp)
-      && (IS_EXPR_CODE_CLASS (class)
-          || class == 'r'
-	  || class == 's'))
+      && EXPR_LOCUS (exp))
       {
 	const char *saved_input_filename = input_filename;
 	int saved_lineno = input_line;
-	location_t *saved_locus = TREE_LOCUS (exp);
+	location_t *saved_locus = EXPR_LOCUS (exp);
 	rtx to_return;
 
 	/* Update the global file line information and emit the note.  */
-	input_filename = TREE_FILENAME (exp);
-	input_line = TREE_LINENO (exp);
+	input_filename = EXPR_FILENAME (exp);
+	input_line = EXPR_LINENO (exp);
 	emit_line_note (input_location);
 
 	/* This is a gross hack.  Temporarily remove the locus information
@@ -6748,12 +6768,12 @@ expand_expr (tree exp, rtx target, enum machine_mode tmode, enum expand_modifier
 	   Long term this should be changed to have the exit paths from
 	   expand_expr restore the global file and line information so
 	   we can avoid this recursive call.  */
-	TREE_LOCUS (exp) = NULL;
+	SET_EXPR_LOCUS (exp, NULL);
 	to_return = expand_expr (exp, (ignore ? const0_rtx : target),
 				 tmode, modifier);
 
 	/* Restore the locus and global file line information.  */
-	TREE_LOCUS (exp) = saved_locus;
+	SET_EXPR_LOCUS (exp, saved_locus);
 	input_filename = saved_input_filename;
 	input_line = saved_lineno;
 	return to_return;
@@ -6784,7 +6804,7 @@ expand_expr (tree exp, rtx target, enum machine_mode tmode, enum expand_modifier
     case PARM_DECL:
       if (!DECL_RTL_SET_P (exp))
 	{
-	  error_with_decl (exp, "prior parameter's size depends on `%s'");
+	  error ("%Jprior parameter's size depends on '%D'", exp, exp);
 	  return CONST0_RTX (mode);
 	}
 
@@ -7187,7 +7207,21 @@ expand_expr (tree exp, rtx target, enum machine_mode tmode, enum expand_modifier
 		? !TREE_ASM_WRITTEN (var)
 		: !DECL_RTL_SET_P (var))
 	      {
-		if ((*lang_hooks.expand_decl) (var))
+		if (TREE_CODE (var) == VAR_DECL && DECL_DEFER_OUTPUT (var))
+		  {
+		    /* Prepare a mem & address for the decl.  */
+		    rtx x;
+		    
+		    if (TREE_STATIC (var))
+		      abort ();
+
+		    x = gen_rtx_MEM (DECL_MODE (var),
+				     gen_reg_rtx (Pmode));
+
+		    set_mem_attributes (x, var, 1);
+		    SET_DECL_RTL (var, x);
+		  }
+		else if ((*lang_hooks.expand_decl) (var))
 		  /* OK.  */;
 		else if (TREE_CODE (var) == VAR_DECL && !TREE_STATIC (var))
 		  expand_decl (var);
@@ -7315,19 +7349,15 @@ expand_expr (tree exp, rtx target, enum machine_mode tmode, enum expand_modifier
     case INDIRECT_REF:
       {
 	tree exp1 = TREE_OPERAND (exp, 0);
-	tree index;
-	tree string = string_constant (exp1, &index);
 
-	/* Try to optimize reads from const strings.  */
-	if (string
-	    && TREE_CODE (string) == STRING_CST
-	    && TREE_CODE (index) == INTEGER_CST
-	    && compare_tree_int (index, TREE_STRING_LENGTH (string)) < 0
-	    && GET_MODE_CLASS (mode) == MODE_INT
-	    && GET_MODE_SIZE (mode) == 1
-	    && modifier != EXPAND_WRITE)
-	  return gen_int_mode (TREE_STRING_POINTER (string)
-			       [TREE_INT_CST_LOW (index)], mode);
+	if (modifier != EXPAND_WRITE)
+	  {
+	    tree t;
+
+	    t = fold_read_from_constant_string (exp);
+	    if (t)
+	      return expand_expr (t, target, tmode, modifier);
+	  }
 
 	op0 = expand_expr (exp1, NULL_RTX, VOIDmode, EXPAND_SUM);
 	op0 = memory_address (mode, op0);
@@ -7344,8 +7374,11 @@ expand_expr (tree exp, rtx target, enum machine_mode tmode, enum expand_modifier
       }
 
     case ARRAY_REF:
+
+#ifdef ENABLE_CHECKING
       if (TREE_CODE (TREE_TYPE (TREE_OPERAND (exp, 0))) != ARRAY_TYPE)
 	abort ();
+#endif
 
       {
 	tree array = TREE_OPERAND (exp, 0);
@@ -7372,14 +7405,13 @@ expand_expr (tree exp, rtx target, enum machine_mode tmode, enum expand_modifier
 
 	if (modifier != EXPAND_CONST_ADDRESS
 	    && modifier != EXPAND_INITIALIZER
-	    && modifier != EXPAND_MEMORY
-	    && TREE_CODE (array) == STRING_CST
-	    && TREE_CODE (index) == INTEGER_CST
-	    && compare_tree_int (index, TREE_STRING_LENGTH (array)) < 0
-	    && GET_MODE_CLASS (mode) == MODE_INT
-	    && GET_MODE_SIZE (mode) == 1)
-	  return gen_int_mode (TREE_STRING_POINTER (array)
-			       [TREE_INT_CST_LOW (index)], mode);
+	    && modifier != EXPAND_MEMORY)
+	  {
+	    tree t = fold_read_from_constant_string (exp);
+
+	    if (t)
+	      return expand_expr (t, target, tmode, modifier);
+	  }
 
 	/* If this is a constant index into a constant array,
 	   just get the value from the array.  Handle both the cases when
@@ -8213,11 +8245,11 @@ expand_expr (tree exp, rtx target, enum machine_mode tmode, enum expand_modifier
 		{
 		  op1 = expand_expr (TREE_OPERAND (exp, 1), NULL_RTX,
 				     VOIDmode, modifier);
-		  /* Don't go to both_summands if modifier
-		     says it's not right to return a PLUS.  */
-		  if (modifier != EXPAND_SUM && modifier != EXPAND_INITIALIZER)
-		    goto binop2;
-		  goto both_summands;
+		  /* Return a PLUS if modifier says it's OK.  */
+		  if (modifier == EXPAND_SUM
+		      || modifier == EXPAND_INITIALIZER)
+		    return simplify_gen_binary (PLUS, mode, op0, op1);
+		  goto binop2;
 		}
 	      /* Use immed_double_const to ensure that the constant is
 		 truncated according to the mode of OP1, then sign extended
@@ -8244,12 +8276,8 @@ expand_expr (tree exp, rtx target, enum machine_mode tmode, enum expand_modifier
       if ((modifier != EXPAND_SUM && modifier != EXPAND_INITIALIZER)
 	  || mode != ptr_mode)
 	{
-	  op0 = expand_expr (TREE_OPERAND (exp, 0), subtarget, VOIDmode, 0);
-	  if (! operand_equal_p (TREE_OPERAND (exp, 0),
-				 TREE_OPERAND (exp, 1), 0))
-	    op1 = expand_expr (TREE_OPERAND (exp, 1), NULL_RTX, VOIDmode, 0);
-	  else
-	    op1 = op0;
+	  expand_operands (TREE_OPERAND (exp, 0), TREE_OPERAND (exp, 1),
+			   subtarget, &op0, &op1, 0);
 	  if (op0 == const0_rtx)
 	    return op1;
 	  if (op1 == const0_rtx)
@@ -8257,62 +8285,9 @@ expand_expr (tree exp, rtx target, enum machine_mode tmode, enum expand_modifier
 	  goto binop2;
 	}
 
-      op0 = expand_expr (TREE_OPERAND (exp, 0), subtarget, VOIDmode, modifier);
-      if (! operand_equal_p (TREE_OPERAND (exp, 0),
-			     TREE_OPERAND (exp, 1), 0))
-	op1 = expand_expr (TREE_OPERAND (exp, 1), NULL_RTX,
-			   VOIDmode, modifier);
-      else
-	op1 = op0;
-
-      /* We come here from MINUS_EXPR when the second operand is a
-         constant.  */
-    both_summands:
-      /* Make sure any term that's a sum with a constant comes last.  */
-      if (GET_CODE (op0) == PLUS
-	  && CONSTANT_P (XEXP (op0, 1)))
-	{
-	  temp = op0;
-	  op0 = op1;
-	  op1 = temp;
-	}
-      /* If adding to a sum including a constant,
-	 associate it to put the constant outside.  */
-      if (GET_CODE (op1) == PLUS
-	  && CONSTANT_P (XEXP (op1, 1)))
-	{
-	  rtx constant_term = const0_rtx;
-
-	  temp = simplify_binary_operation (PLUS, mode, XEXP (op1, 0), op0);
-	  if (temp != 0)
-	    op0 = temp;
-	  /* Ensure that MULT comes first if there is one.  */
-	  else if (GET_CODE (op0) == MULT)
-	    op0 = gen_rtx_PLUS (mode, op0, XEXP (op1, 0));
-	  else
-	    op0 = gen_rtx_PLUS (mode, XEXP (op1, 0), op0);
-
-	  /* Let's also eliminate constants from op0 if possible.  */
-	  op0 = eliminate_constant_term (op0, &constant_term);
-
-	  /* CONSTANT_TERM and XEXP (op1, 1) are known to be constant, so
-	     their sum should be a constant.  Form it into OP1, since the
-	     result we want will then be OP0 + OP1.  */
-
-	  temp = simplify_binary_operation (PLUS, mode, constant_term,
-					    XEXP (op1, 1));
-	  if (temp != 0)
-	    op1 = temp;
-	  else
-	    op1 = gen_rtx_PLUS (mode, constant_term, XEXP (op1, 1));
-	}
-
-      /* Put a constant term last and put a multiplication first.  */
-      if (CONSTANT_P (op0) || GET_CODE (op1) == MULT)
-	temp = op1, op1 = op0, op0 = temp;
-
-      temp = simplify_binary_operation (PLUS, mode, op0, op1);
-      return temp ? temp : gen_rtx_PLUS (mode, op0, op1);
+      expand_operands (TREE_OPERAND (exp, 0), TREE_OPERAND (exp, 1),
+		       subtarget, &op0, &op1, modifier);
+      return simplify_gen_binary (PLUS, mode, op0, op1);
 
     case MINUS_EXPR:
       /* For initializers, we are allowed to return a MINUS of two
@@ -8324,10 +8299,8 @@ expand_expr (tree exp, rtx target, enum machine_mode tmode, enum expand_modifier
 	  && really_constant_p (TREE_OPERAND (exp, 0))
 	  && really_constant_p (TREE_OPERAND (exp, 1)))
 	{
-	  rtx op0 = expand_expr (TREE_OPERAND (exp, 0), NULL_RTX, VOIDmode,
-				 modifier);
-	  rtx op1 = expand_expr (TREE_OPERAND (exp, 1), NULL_RTX, VOIDmode,
-				 modifier);
+	  expand_operands (TREE_OPERAND (exp, 0), TREE_OPERAND (exp, 1),
+			   NULL_RTX, &op0, &op1, modifier);
 
 	  /* If the last operand is a CONST_INT, use plus_constant of
 	     the negated constant.  Else make the MINUS.  */
@@ -8349,17 +8322,14 @@ expand_expr (tree exp, rtx target, enum machine_mode tmode, enum expand_modifier
 	  || mode != ptr_mode)
 	goto binop;
 
-      if (! safe_from_p (subtarget, TREE_OPERAND (exp, 1), 1))
-	subtarget = 0;
-
-      op0 = expand_expr (TREE_OPERAND (exp, 0), subtarget, VOIDmode, modifier);
-      op1 = expand_expr (TREE_OPERAND (exp, 1), NULL_RTX, VOIDmode, modifier);
+      expand_operands (TREE_OPERAND (exp, 0), TREE_OPERAND (exp, 1),
+		       subtarget, &op0, &op1, modifier);
 
       /* Convert A - const to A + (-const).  */
       if (GET_CODE (op1) == CONST_INT)
 	{
 	  op1 = negate_rtx (mode, op1);
-	  goto both_summands;
+	  return simplify_gen_binary (PLUS, mode, op0, op1);
 	}
 
       goto binop2;
@@ -8448,14 +8418,14 @@ expand_expr (tree exp, rtx target, enum machine_mode tmode, enum expand_modifier
 	    {
 	      if (this_optab->handlers[(int) mode].insn_code != CODE_FOR_nothing)
 		{
-		  op0 = expand_expr (TREE_OPERAND (TREE_OPERAND (exp, 0), 0),
-				     NULL_RTX, VOIDmode, 0);
 		  if (TREE_CODE (TREE_OPERAND (exp, 1)) == INTEGER_CST)
-		    op1 = expand_expr (TREE_OPERAND (exp, 1), NULL_RTX,
-				       VOIDmode, 0);
+		    expand_operands (TREE_OPERAND (TREE_OPERAND (exp, 0), 0),
+				     TREE_OPERAND (exp, 1),
+				     NULL_RTX, &op0, &op1, 0);
 		  else
-		    op1 = expand_expr (TREE_OPERAND (TREE_OPERAND (exp, 1), 0),
-				       NULL_RTX, VOIDmode, 0);
+		    expand_operands (TREE_OPERAND (TREE_OPERAND (exp, 0), 0),
+				     TREE_OPERAND (TREE_OPERAND (exp, 1), 0),
+				     NULL_RTX, &op0, &op1, 0);
 		  goto binop2;
 		}
 	      else if (other_optab->handlers[(int) mode].insn_code != CODE_FOR_nothing
@@ -8484,12 +8454,8 @@ expand_expr (tree exp, rtx target, enum machine_mode tmode, enum expand_modifier
 		}
 	    }
 	}
-      op0 = expand_expr (TREE_OPERAND (exp, 0), subtarget, VOIDmode, 0);
-      if (! operand_equal_p (TREE_OPERAND (exp, 0),
-			     TREE_OPERAND (exp, 1), 0))
-	op1 = expand_expr (TREE_OPERAND (exp, 1), NULL_RTX, VOIDmode, 0);
-      else
-	op1 = op0;
+      expand_operands (TREE_OPERAND (exp, 0), TREE_OPERAND (exp, 1),
+		       subtarget, &op0, &op1, 0);
       return expand_mult (mode, op0, op1, target, unsignedp);
 
     case TRUNC_DIV_EXPR:
@@ -8497,15 +8463,13 @@ expand_expr (tree exp, rtx target, enum machine_mode tmode, enum expand_modifier
     case CEIL_DIV_EXPR:
     case ROUND_DIV_EXPR:
     case EXACT_DIV_EXPR:
-      if (! safe_from_p (subtarget, TREE_OPERAND (exp, 1), 1))
-	subtarget = 0;
       if (modifier == EXPAND_STACK_PARM)
 	target = 0;
       /* Possible optimization: compute the dividend with EXPAND_SUM
 	 then if the divisor is constant can optimize the case
 	 where some terms of the dividend have coeffs divisible by it.  */
-      op0 = expand_expr (TREE_OPERAND (exp, 0), subtarget, VOIDmode, 0);
-      op1 = expand_expr (TREE_OPERAND (exp, 1), NULL_RTX, VOIDmode, 0);
+      expand_operands (TREE_OPERAND (exp, 0), TREE_OPERAND (exp, 1),
+		       subtarget, &op0, &op1, 0);
       return expand_divmod (0, code, mode, op0, op1, target, unsignedp);
 
     case RDIV_EXPR:
@@ -8527,12 +8491,10 @@ expand_expr (tree exp, rtx target, enum machine_mode tmode, enum expand_modifier
     case FLOOR_MOD_EXPR:
     case CEIL_MOD_EXPR:
     case ROUND_MOD_EXPR:
-      if (! safe_from_p (subtarget, TREE_OPERAND (exp, 1), 1))
-	subtarget = 0;
       if (modifier == EXPAND_STACK_PARM)
 	target = 0;
-      op0 = expand_expr (TREE_OPERAND (exp, 0), subtarget, VOIDmode, 0);
-      op1 = expand_expr (TREE_OPERAND (exp, 1), NULL_RTX, VOIDmode, 0);
+      expand_operands (TREE_OPERAND (exp, 0), TREE_OPERAND (exp, 1),
+		       subtarget, &op0, &op1, 0);
       return expand_divmod (1, code, mode, op0, op1, target, unsignedp);
 
     case FIX_ROUND_EXPR:
@@ -8577,10 +8539,10 @@ expand_expr (tree exp, rtx target, enum machine_mode tmode, enum expand_modifier
       if (modifier == EXPAND_STACK_PARM)
 	target = 0;
 
-      /* Handle complex values specially.  */
+      /* ABS_EXPR is not valid for complex arguments.  */
       if (GET_MODE_CLASS (mode) == MODE_COMPLEX_INT
 	  || GET_MODE_CLASS (mode) == MODE_COMPLEX_FLOAT)
-	return expand_complex_abs (mode, op0, target, unsignedp);
+	abort ();
 
       /* Unsigned abs is simply the operand.  Testing here means we don't
 	 risk generating incorrect code below.  */
@@ -8601,8 +8563,8 @@ expand_expr (tree exp, rtx target, enum machine_mode tmode, enum expand_modifier
 	  || (GET_CODE (target) == REG
 	      && REGNO (target) < FIRST_PSEUDO_REGISTER))
 	target = gen_reg_rtx (mode);
-      op1 = expand_expr (TREE_OPERAND (exp, 1), NULL_RTX, VOIDmode, 0);
-      op0 = expand_expr (TREE_OPERAND (exp, 0), target, VOIDmode, 0);
+      expand_operands (TREE_OPERAND (exp, 0), TREE_OPERAND (exp, 1),
+		       target, &op0, &op1, 0);
 
       /* First try to do it with a special MIN or MAX instruction.
 	 If that does not win, use a conditional jump to select the proper
@@ -8655,43 +8617,6 @@ expand_expr (tree exp, rtx target, enum machine_mode tmode, enum expand_modifier
       if (modifier == EXPAND_STACK_PARM)
 	target = 0;
       temp = expand_unop (mode, one_cmpl_optab, op0, target, 1);
-      if (temp == 0)
-	abort ();
-      return temp;
-
-    case FFS_EXPR:
-      op0 = expand_expr (TREE_OPERAND (exp, 0), subtarget, VOIDmode, 0);
-      if (modifier == EXPAND_STACK_PARM)
-	target = 0;
-      temp = expand_unop (mode, ffs_optab, op0, target, 1);
-      if (temp == 0)
-	abort ();
-      return temp;
-
-    case CLZ_EXPR:
-      op0 = expand_expr (TREE_OPERAND (exp, 0), subtarget, VOIDmode, 0);
-      temp = expand_unop (mode, clz_optab, op0, target, 1);
-      if (temp == 0)
-	abort ();
-      return temp;
-
-    case CTZ_EXPR:
-      op0 = expand_expr (TREE_OPERAND (exp, 0), subtarget, VOIDmode, 0);
-      temp = expand_unop (mode, ctz_optab, op0, target, 1);
-      if (temp == 0)
-	abort ();
-      return temp;
-
-    case POPCOUNT_EXPR:
-      op0 = expand_expr (TREE_OPERAND (exp, 0), subtarget, VOIDmode, 0);
-      temp = expand_unop (mode, popcount_optab, op0, target, 1);
-      if (temp == 0)
-	abort ();
-      return temp;
-
-    case PARITY_EXPR:
-      op0 = expand_expr (TREE_OPERAND (exp, 0), subtarget, VOIDmode, 0);
-      temp = expand_unop (mode, parity_optab, op0, target, 1);
       if (temp == 0)
 	abort ();
       return temp;
@@ -8892,8 +8817,8 @@ expand_expr (tree exp, rtx target, enum machine_mode tmode, enum expand_modifier
 	  for (; TREE_CODE (exp) == COND_EXPR; exp = TREE_OPERAND (exp, 2))
 	    {
 	      expand_start_else ();
-	      if (TREE_LOCUS (exp))
-		emit_line_note (*(TREE_LOCUS (exp)));
+	      if (EXPR_LOCUS (exp))
+		emit_line_note (*(EXPR_LOCUS (exp)));
 	      expand_elseif (TREE_OPERAND (exp, 0));
 	      expand_expr (TREE_OPERAND (exp, 1), const0_rtx, VOIDmode, 0);
 	    }
@@ -9464,11 +9389,8 @@ expand_expr (tree exp, rtx target, enum machine_mode tmode, enum expand_modifier
 	  if (modifier == EXPAND_SUM || modifier == EXPAND_INITIALIZER)
 	    {
 	      op0 = XEXP (op0, 0);
-#ifdef POINTERS_EXTEND_UNSIGNED
-	      if (GET_MODE (op0) == Pmode && GET_MODE (op0) != mode
-		  && mode == ptr_mode)
+	      if (GET_MODE (op0) == Pmode && mode == ptr_mode)
 		op0 = convert_memory_address (ptr_mode, op0);
-#endif
 	      return op0;
 	    }
 
@@ -9529,11 +9451,8 @@ expand_expr (tree exp, rtx target, enum machine_mode tmode, enum expand_modifier
 	  && ! REG_USERVAR_P (op0))
 	mark_reg_pointer (op0, TYPE_ALIGN (TREE_TYPE (type)));
 
-#ifdef POINTERS_EXTEND_UNSIGNED
-      if (GET_MODE (op0) == Pmode && GET_MODE (op0) != mode
-	  && mode == ptr_mode)
+      if (GET_MODE (op0) == Pmode && mode == ptr_mode)
 	op0 = convert_memory_address (ptr_mode, op0);
-#endif
 
       return op0;
 
@@ -9623,6 +9542,10 @@ expand_expr (tree exp, rtx target, enum machine_mode tmode, enum expand_modifier
 	return target;
       }
 
+    case RESX_EXPR:
+      expand_resx_expr (exp);
+      return const0_rtx;
+
     case TRY_CATCH_EXPR:
       {
 	tree handler = TREE_OPERAND (exp, 1);
@@ -9638,7 +9561,7 @@ expand_expr (tree exp, rtx target, enum machine_mode tmode, enum expand_modifier
       expand_start_catch (CATCH_TYPES (exp));
       expand_expr (CATCH_BODY (exp), const0_rtx, VOIDmode, 0);
       expand_end_catch ();
-      return op0;
+      return const0_rtx;
 
     case EH_FILTER_EXPR:
       /* Should have been handled in expand_eh_handler.  */
@@ -9719,6 +9642,9 @@ expand_expr (tree exp, rtx target, enum machine_mode tmode, enum expand_modifier
     case EXC_PTR_EXPR:
       return get_exception_pointer (cfun);
 
+    case FILTER_EXPR:
+      return get_exception_filter (cfun);
+
     case FDESC_EXPR:
       /* Function descriptors are not valid except for as
 	 initialization constants, and should not be expanded.  */
@@ -9756,10 +9682,8 @@ expand_expr (tree exp, rtx target, enum machine_mode tmode, enum expand_modifier
   /* Here to do an ordinary binary operator, generating an instruction
      from the optab already placed in `this_optab'.  */
  binop:
-  if (! safe_from_p (subtarget, TREE_OPERAND (exp, 1), 1))
-    subtarget = 0;
-  op0 = expand_expr (TREE_OPERAND (exp, 0), subtarget, VOIDmode, 0);
-  op1 = expand_expr (TREE_OPERAND (exp, 1), NULL_RTX, VOIDmode, 0);
+  expand_operands (TREE_OPERAND (exp, 0), TREE_OPERAND (exp, 1),
+		   subtarget, &op0, &op1, 0);
  binop2:
   if (modifier == EXPAND_STACK_PARM)
     target = 0;
@@ -10258,8 +10182,7 @@ do_store_flag (tree exp, rtx target, enum machine_mode mode, int only_cheap)
       || ! safe_from_p (subtarget, arg1, 1))
     subtarget = 0;
 
-  op0 = expand_expr (arg0, subtarget, VOIDmode, 0);
-  op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
+  expand_operands (arg0, arg1, subtarget, &op0, &op1, 0);
 
   if (target == 0)
     target = gen_reg_rtx (mode);

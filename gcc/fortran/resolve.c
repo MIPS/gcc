@@ -42,7 +42,6 @@ static code_stack *cs_base = NULL;
 
 static int forall_flag;
 
-
 /* Resolve types of formal argument lists.  These have to be done early so that
    the formal argument lists of module procedures can be copied to the
    containing module before the individual procedures are resolved
@@ -3766,8 +3765,12 @@ resolve_symbol (gfc_symbol * sym)
 	{
 	  if (sym->attr.allocatable)
 	    {
-	      gfc_error ("Allocatable array at %L must have a deferred shape",
-			 &sym->declared_at);
+	      if (sym->attr.dimension)
+		gfc_error ("Allocatable array at %L must have a deferred shape",
+			   &sym->declared_at);
+	      else
+		gfc_error ("Object at %L may not be ALLOCATABLE",
+			   &sym->declared_at);
 	      return;
 	    }
 
@@ -3851,11 +3854,19 @@ check_data_variable (gfc_data_variable * var, locus * where)
 {
   gfc_expr *e;
   mpz_t size;
+  mpz_t offset;
   try t;
+  int mark = 0;
+  int i;
+  mpz_t section_index[GFC_MAX_DIMENSIONS];
+  gfc_ref *ref;
+  gfc_array_ref *ar;
 
   if (gfc_resolve_expr (var->expr) == FAILURE)
     return FAILURE;
 
+  ar = NULL;
+  mpz_init_set_si (offset, 0);
   e = var->expr;
 
   if (e->expr_type != EXPR_VARIABLE)
@@ -3865,10 +3876,30 @@ check_data_variable (gfc_data_variable * var, locus * where)
     mpz_init_set_ui (size, 1);
   else
     {
+      ref = e->ref;
+
+      /* Find the inner most reference.  */
+      while (ref->next)
+        ref = ref->next;
+
+      /* Set marks asscording to the reference pattern.  */
+      if (ref->u.ar.type == AR_FULL)
+        mark = 1;
+      else if (ref->u.ar.type == AR_SECTION)
+        {
+          ar = &ref->u.ar;
+          /* Get the start position of array section.  */
+          gfc_get_section_index (ar, section_index, &offset);
+          mark = 2;
+        }
+      else
+        mark = 3;
+
       if (gfc_array_size (e, &size) == FAILURE)
 	{
 	  gfc_error ("Nonconstant array section at %L in DATA statement",
 		     &e->where);
+	  mpz_clear (offset);
 	  return FAILURE;
 	}
     }
@@ -3889,10 +3920,27 @@ check_data_variable (gfc_data_variable * var, locus * where)
       if (t == FAILURE)
 	break;
 
+      /* Assign initial value to symbol.  */
+      gfc_assign_data_value (var->expr, values.vnode->expr, mark, offset);
+
+      if (mark == 1)
+        mpz_add_ui (offset, offset, 1);
+
+      /* Modify the array section indexes and recalculate the offset for
+         next element.  */
+      else if (mark == 2)
+        gfc_modify_index_and_calculate_offset (section_index, ar, &offset);
+
       mpz_sub_ui (size, size, 1);
+    }
+  if (mark == 2)
+    {
+      for (i = 0; i < ar->dimen; i++)
+        mpz_clear (section_index[i]);
     }
 
   mpz_clear (size);
+  mpz_clear (offset);
 
   return t;
 }
@@ -3906,12 +3954,22 @@ static try
 traverse_data_list (gfc_data_variable * var, locus * where)
 {
   mpz_t trip;
+  iterator_stack frame;
+  gfc_expr *e;
+
+  mpz_init (frame.value);
 
   mpz_init_set (trip, var->iter.end->value.integer);
   mpz_sub (trip, trip, var->iter.start->value.integer);
   mpz_add (trip, trip, var->iter.step->value.integer);
 
   mpz_div (trip, trip, var->iter.step->value.integer);
+
+  mpz_set (frame.value, var->iter.start->value.integer);
+
+  frame.prev = iter_stack;
+  frame.variable = var->iter.var->symtree;
+  iter_stack = &frame;
 
   while (mpz_cmp_ui (trip, 0) > 0)
     {
@@ -3921,11 +3979,22 @@ traverse_data_list (gfc_data_variable * var, locus * where)
 	  return FAILURE;
 	}
 
+      e = gfc_copy_expr (var->expr);
+      if (gfc_simplify_expr (e, 1) == FAILURE)
+        {
+          gfc_free_expr (e);
+          return FAILURE;
+        }
+
+      mpz_add (frame.value, frame.value, var->iter.step->value.integer);
+
       mpz_sub_ui (trip, trip, 1);
     }
 
   mpz_clear (trip);
+  mpz_clear (frame.value);
 
+  iter_stack = frame.prev;
   return SUCCESS;
 }
 
@@ -4154,8 +4223,12 @@ gfc_resolve (gfc_namespace * ns)
   if (ns->save_all)
     gfc_save_all (ns);
 
+  iter_stack = NULL;
   for (d = ns->data; d; d = d->next)
     resolve_data (d);
+
+  iter_stack = NULL;
+  gfc_traverse_ns (ns, gfc_formalize_init_value);
 
   cs_base = NULL;
   resolve_code (ns->code, ns);

@@ -418,7 +418,7 @@ static struct globals
 
     /* Total allocations and overhead for sizes less than 32, 64 and 128.
        These sizes are interesting because they are typical cache line
-       sizes. */
+       sizes.  */
    
     unsigned long long total_allocated_under32;
     unsigned long long total_overhead_under32;
@@ -429,7 +429,7 @@ static struct globals
     unsigned long long total_allocated_under128;
     unsigned long long total_overhead_under128;
   
-    /* The overhead for each of the allocation orders. */
+    /* The overhead for each of the allocation orders.  */
     unsigned long long total_overhead_per_order[NUM_ORDERS];
   } stats;
 #endif
@@ -1460,7 +1460,7 @@ ggc_pop_context (void)
   G.context_depth_allocations &= omask - 1;
   G.context_depth_collections &= omask - 1;
 
-  /* The G.depth array is shortend so that the last index is the
+  /* The G.depth array is shortened so that the last index is the
      context_depth of the top element of by_depth.  */
   if (depth+1 < G.depth_in_use)
     e = G.depth[depth+1];

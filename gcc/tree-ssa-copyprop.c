@@ -49,19 +49,21 @@ static struct block_tree *get_common_scope (struct block_tree *,
 					    struct block_tree *);
 static void move_var_to_scope (tree, struct block_tree *);
 
-
 /* Main entry point to the copy propagator.  The algorithm is a simple
    linear scan of the flowgraph.  For every variable X_i used in the
    function, it retrieves its unique reaching definition.  If X_i's
-   definition is a copy (i.e., X_i = Y_j), then X_i is replaced with Y_j.  */
+   definition is a copy (i.e., X_i = Y_j), then X_i is replaced with Y_j.
+
+   PHASE indicates which dump file from the DUMP_FILES array to use when
+   dumping debugging information.  */
 
 void
-tree_ssa_copyprop (tree fndecl)
+tree_ssa_copyprop (tree fndecl, enum tree_dump_index phase)
 {
   basic_block bb;
 
   timevar_push (TV_TREE_COPYPROP);
-  dump_file = dump_begin (TDI_copyprop, &dump_flags);
+  dump_file = dump_begin (phase, &dump_flags);
 
   /* Traverse every block in the flowgraph propagating copies in each
      statement.  */
@@ -80,7 +82,7 @@ tree_ssa_copyprop (tree fndecl)
   if (dump_file)
     {
       dump_cfg_function_to_file (fndecl, dump_file, dump_flags);
-      dump_end (TDI_copyprop, dump_file);
+      dump_end (phase, dump_file);
     }
 
   timevar_pop (TV_TREE_COPYPROP);
@@ -112,7 +114,7 @@ copyprop_stmt (tree stmt)
   uses = use_ops (stmt);
   for (i = 0; uses && i < VARRAY_ACTIVE_SIZE (uses); i++)
     {
-      tree *use_p = (tree *) VARRAY_GENERIC_PTR (uses, i);
+      tree *use_p = VARRAY_TREE_PTR (uses, i);
       tree orig = get_original (*use_p);
 
       if (orig && may_propagate_copy (*use_p, orig))
@@ -210,7 +212,7 @@ get_original (tree var)
    pointer, copy the memory tag used originally by *OP_P into VAR.  This is
    needed in cases where VAR had never been dereferenced in the program.
    The propagation occurs in basic block BB.  */
-   
+
 void
 propagate_copy (basic_block bb, tree *op_p, tree var)
 {
@@ -225,8 +227,13 @@ propagate_copy (basic_block bb, tree *op_p, tree var)
     {
       var_ann_t new_ann = var_ann (SSA_NAME_VAR (var));
       var_ann_t orig_ann = var_ann (SSA_NAME_VAR (*op_p));
+
       if (new_ann->mem_tag == NULL_TREE)
 	new_ann->mem_tag = orig_ann->mem_tag;
+      else if (orig_ann->mem_tag == NULL_TREE)
+	orig_ann->mem_tag = new_ann->mem_tag;
+      else if (new_ann->mem_tag != orig_ann->mem_tag)
+	abort ();
     }
 
   *op_p = var;
@@ -273,9 +280,6 @@ get_common_scope (struct block_tree *s1, struct block_tree *s2)
       s2 = s2->outer;
     }
 
-  while (s1->type != BT_BIND)
-    s1 = s1->outer;
-
   return s1;
 }
 
@@ -310,5 +314,7 @@ move_var_to_scope (tree var, struct block_tree *scope)
   BIND_EXPR_VARS (scope->bind) = var;
   var_ann (var)->scope = scope;
 
+  /* Dwarf2out ices (in add_abstract_origin_attribute) when it encounters
+     variable that is not declared, but has DECL_ABSTRACT_ORIGIN set.  */
   DECL_ABSTRACT_ORIGIN (var) = NULL_TREE;
 }

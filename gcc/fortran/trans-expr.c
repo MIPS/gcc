@@ -1306,8 +1306,12 @@ gfc_conv_array_constructor_expr (gfc_se * se, gfc_expr * expr)
 }
 
 
-static void
-gfc_conv_structure (gfc_se * se, gfc_expr * expr)
+
+/* Build an expression for a constructor. If init is nonzero then
+   this is part of a static variable initializer.  */
+
+void
+gfc_conv_structure (gfc_se * se, gfc_expr * expr, int init)
 {
   gfc_constructor *c;
   gfc_component *cm;
@@ -1316,6 +1320,7 @@ gfc_conv_structure (gfc_se * se, gfc_expr * expr)
   tree val;
   gfc_se cse;
   tree type;
+  tree arraytype;
 
   assert (expr->expr_type == EXPR_STRUCTURE);
   type = gfc_typenode_for_spec (&expr->ts);
@@ -1331,9 +1336,29 @@ gfc_conv_structure (gfc_se * se, gfc_expr * expr)
 
       gfc_init_se (&cse, se);
       /* Evaluate the expression for this component.  */
-      gfc_conv_expr (&cse, c->expr);
-      gfc_add_block_to_block (&se->pre, &cse.pre);
-      gfc_add_block_to_block (&se->post, &cse.post);
+      if (init)
+	{
+	  switch (c->expr->expr_type)
+	    {
+	    case EXPR_ARRAY:
+	      arraytype = TREE_TYPE (cm->backend_decl);
+	      cse.expr = gfc_conv_array_initializer (arraytype, c->expr);
+	      break;
+
+	    case EXPR_STRUCTURE:
+	      gfc_conv_structure (&cse, c->expr, 1);
+	      break;
+
+	    default:
+	      gfc_conv_expr (&cse, c->expr);
+	    }
+	}
+      else
+	{
+	  gfc_conv_expr (&cse, c->expr);
+	  gfc_add_block_to_block (&se->pre, &cse.pre);
+	  gfc_add_block_to_block (&se->post, &cse.post);
+	}
 
       /* Build a TREE_CHAIN to hold it.  */
       val = tree_cons (cm->backend_decl, cse.expr, NULL_TREE);
@@ -1414,7 +1439,7 @@ gfc_conv_expr (gfc_se * se, gfc_expr * expr)
       break;
 
     case EXPR_STRUCTURE:
-      gfc_conv_structure (se, expr);
+      gfc_conv_structure (se, expr, 0);
       break;
 
     case EXPR_ARRAY:
@@ -1601,7 +1626,8 @@ gfc_conv_string_parameter (gfc_se * se)
   if (TYPE_STRING_FLAG (type))
     {
       assert (TREE_CODE (se->expr) == VAR_DECL
-	      || TREE_CODE (se->expr) == COMPONENT_REF);
+	      || TREE_CODE (se->expr) == COMPONENT_REF
+	      || TREE_CODE (se->expr) == PARM_DECL);
       TREE_ADDRESSABLE (se->expr) = 1;
       se->expr = build1 (ADDR_EXPR, build_pointer_type (type), se->expr);
       se->expr = fold (convert (pchar_type_node, se->expr));

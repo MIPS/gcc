@@ -26,10 +26,9 @@
 
 int test01(void)
 {
-  bool test = true;
+  bool test __attribute__((unused)) = true;
   typedef std::string::size_type csize_type;
   typedef std::string::iterator citerator;
-  csize_type npos = std::string::npos;
   csize_type csz01, csz02;
 
   const std::string str01("rodeo beach, marin");
@@ -180,16 +179,12 @@ int test01(void)
   csz01 = str03.size();
   str03.insert(str03.end(), str01.begin(), str01.end()); 
   VERIFY( str03 == "baker beach, san franciscorodeo beach, marin" );
-
-#ifdef DEBUG_ASSERT
-  assert(test);
-#endif
   return test;
 }
 
 int main()
 { 
-  __gnu_cxx_test::set_memory_limits();
+  __gnu_test::set_memory_limits();
   test01();
   return 0;
 }

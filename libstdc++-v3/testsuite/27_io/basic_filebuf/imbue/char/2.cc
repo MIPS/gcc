@@ -27,7 +27,7 @@
 void test02()
 {
   using namespace std;
-  bool test = true;
+  bool test __attribute__((unused)) = true;
   const char name_01[] = "filebuf_virtuals-1.txt"; // file with data in it
 
   locale loc;
@@ -42,12 +42,12 @@ void test02()
   VERIFY( p != bad);
 
   // 1 "if file is not positioned at its beginning" fails...
-  locale loc_de = __gnu_cxx_test::try_named_locale("de_DE");
+  locale loc_de = __gnu_test::try_named_locale("de_DE");
   locale ret = ob.pubimbue(loc_de);
   VERIFY( ob.getloc() == loc );
 }
 
-main() 
+int main() 
 {
   test02();
   return 0;

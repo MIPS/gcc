@@ -4,12 +4,12 @@
 
 This file is part of the GNU Fortran 95 runtime library (libgfor).
 
-GNU G95 is free software; you can redistribute it and/or
+Libgfortran is free software; you can redistribute it and/or
 modify it under the terms of the GNU Lesser General Public
 License as published by the Free Software Foundation; either
 version 2.1 of the License, or (at your option) any later version.
 
-GNU G95 is distributed in the hope that it will be useful,
+Libgfortran is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU Lesser General Public License for more details.
@@ -26,14 +26,14 @@ Boston, MA 02111-1307, USA.  */
 
 
 void
-__product_c8 (g95_array_c8 * retarray, g95_array_c8 *array, index_type *pdim)
+__product_c8 (gfc_array_c8 * retarray, gfc_array_c8 *array, index_type *pdim)
 {
-  index_type count[G95_MAX_DIMENSIONS - 1];
-  index_type extent[G95_MAX_DIMENSIONS - 1];
-  index_type sstride[G95_MAX_DIMENSIONS - 1];
-  index_type dstride[G95_MAX_DIMENSIONS - 1];
-  G95_COMPLEX_8 *base;
-  G95_COMPLEX_8 *dest;
+  index_type count[GFC_MAX_DIMENSIONS - 1];
+  index_type extent[GFC_MAX_DIMENSIONS - 1];
+  index_type sstride[GFC_MAX_DIMENSIONS - 1];
+  index_type dstride[GFC_MAX_DIMENSIONS - 1];
+  GFC_COMPLEX_8 *base;
+  GFC_COMPLEX_8 *dest;
   index_type rank;
   index_type n;
   index_type len;
@@ -42,8 +42,8 @@ __product_c8 (g95_array_c8 * retarray, g95_array_c8 *array, index_type *pdim)
 
   /* Make dim zero based to avoid confusion.  */
   dim = (*pdim) - 1;
-  rank = G95_DESCRIPTOR_RANK (array) - 1;
-  assert (rank == G95_DESCRIPTOR_RANK (retarray));
+  rank = GFC_DESCRIPTOR_RANK (array) - 1;
+  assert (rank == GFC_DESCRIPTOR_RANK (retarray));
   if (array->dim[0].stride == 0)
     array->dim[0].stride = 1;
   if (retarray->dim[0].stride == 0)
@@ -79,8 +79,8 @@ __product_c8 (g95_array_c8 * retarray, g95_array_c8 *array, index_type *pdim)
 
   while (base)
     {
-      G95_COMPLEX_8 *src;
-      G95_COMPLEX_8 result;
+      GFC_COMPLEX_8 *src;
+      GFC_COMPLEX_8 result;
       src = base;
       {
 
@@ -124,16 +124,16 @@ __product_c8 (g95_array_c8 * retarray, g95_array_c8 *array, index_type *pdim)
 }
 
 void
-__mproduct_c8 (g95_array_c8 * retarray, g95_array_c8 * array, index_type *pdim, g95_array_l4 * mask)
+__mproduct_c8 (gfc_array_c8 * retarray, gfc_array_c8 * array, index_type *pdim, gfc_array_l4 * mask)
 {
-  index_type count[G95_MAX_DIMENSIONS - 1];
-  index_type extent[G95_MAX_DIMENSIONS - 1];
-  index_type sstride[G95_MAX_DIMENSIONS - 1];
-  index_type dstride[G95_MAX_DIMENSIONS - 1];
-  index_type mstride[G95_MAX_DIMENSIONS - 1];
-  G95_COMPLEX_8 *dest;
-  G95_COMPLEX_8 *base;
-  G95_LOGICAL_4 *mbase;
+  index_type count[GFC_MAX_DIMENSIONS - 1];
+  index_type extent[GFC_MAX_DIMENSIONS - 1];
+  index_type sstride[GFC_MAX_DIMENSIONS - 1];
+  index_type dstride[GFC_MAX_DIMENSIONS - 1];
+  index_type mstride[GFC_MAX_DIMENSIONS - 1];
+  GFC_COMPLEX_8 *dest;
+  GFC_COMPLEX_8 *base;
+  GFC_LOGICAL_4 *mbase;
   int rank;
   int dim;
   index_type n;
@@ -142,8 +142,8 @@ __mproduct_c8 (g95_array_c8 * retarray, g95_array_c8 * array, index_type *pdim, 
   index_type mdelta;
 
   dim = (*pdim) - 1;
-  rank = G95_DESCRIPTOR_RANK (array) - 1;
-  assert (rank == G95_DESCRIPTOR_RANK (retarray));
+  rank = GFC_DESCRIPTOR_RANK (array) - 1;
+  assert (rank == GFC_DESCRIPTOR_RANK (retarray));
   if (array->dim[0].stride == 0)
     array->dim[0].stride = 1;
   if (retarray->dim[0].stride == 0)
@@ -181,10 +181,10 @@ __mproduct_c8 (g95_array_c8 * retarray, g95_array_c8 * array, index_type *pdim, 
   base = array->data;
   mbase = mask->data;
 
-  if (G95_DESCRIPTOR_SIZE (mask) != 4)
+  if (GFC_DESCRIPTOR_SIZE (mask) != 4)
     {
       /* This allows the same loop to be used for all logical types.  */
-      assert (G95_DESCRIPTOR_SIZE (mask) == 8);
+      assert (GFC_DESCRIPTOR_SIZE (mask) == 8);
       for (n = 0; n < rank; n++)
         mstride[n] <<= 1;
       mdelta <<= 1;
@@ -193,9 +193,9 @@ __mproduct_c8 (g95_array_c8 * retarray, g95_array_c8 * array, index_type *pdim, 
 
   while (base)
     {
-      G95_COMPLEX_8 *src;
-      G95_LOGICAL_4 *msrc;
-      G95_COMPLEX_8 result;
+      GFC_COMPLEX_8 *src;
+      GFC_LOGICAL_4 *msrc;
+      GFC_COMPLEX_8 result;
       src = base;
       msrc = mbase;
       {

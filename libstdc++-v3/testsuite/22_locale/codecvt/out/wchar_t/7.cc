@@ -47,7 +47,7 @@ void test03()
   typedef char					ext_type;
   typedef char_traits<char>			ext_traits;
 
-  bool 			test = true;
+  bool test __attribute__((unused)) = true;
   const ext_type* 	e_lit = "a";
   const int_type 	i_lit[] = { L'a', 0x20ac, 0x0 };
   const int_type*       ifrom_next;
@@ -58,7 +58,7 @@ void test03()
   memset(e_ref, 0xf0, size + 1);
   ext_type*		eto_next;
 
-  locale loc = __gnu_cxx_test::try_named_locale("en_US.ISO-8859-1");
+  locale loc = __gnu_test::try_named_locale("en_US.ISO-8859-1");
   locale::global(loc);
   const w_codecvt* 	cvt = &use_facet<w_codecvt>(loc); 
 

@@ -28,7 +28,7 @@ Boston, MA 02111-1307, USA.  */
 
 /* A numeric or blank STOP statement.  */
 void
-stop_numeric (G95_INTEGER_4 code)
+stop_numeric (GFC_INTEGER_4 code)
 {
   show_locus ();
 
@@ -42,7 +42,7 @@ stop_numeric (G95_INTEGER_4 code)
 
 
 void
-stop_string (char *string, G95_INTEGER_4 len)
+stop_string (const char *string, GFC_INTEGER_4 len)
 {
   show_locus ();
 

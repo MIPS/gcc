@@ -3280,7 +3280,7 @@ parse_def (const char *name_start)
 					value,
 					indx);
 
-      /* deal with struct, union, and enum tags.  */
+      /* Deal with struct, union, and enum tags.  */
       if (symbol_type == st_Block)
         {
 	  /* Create or update the tag information.  */
@@ -4743,7 +4743,7 @@ main (int argc, char **argv)
 	else
 	  rename_output = 1;
 
-	/* fall through to 'i' case.  */
+	/* Fall through to 'i' case.  */
 
       case 'i':
 	if (obj_in_name == (char *) 0)

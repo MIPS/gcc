@@ -1,20 +1,20 @@
 /* Copyright (C) 2002-2003 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
-This file is part of GNU G95.
+This file is part of the GNU Fortran 95 runtime library (libgfortran).
 
-GNU G95 is free software; you can redistribute it and/or modify
+Libgfortran is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU G95 is distributed in the hope that it will be useful,
+Libgfortran is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU G95; see the file COPYING.  If not, write to
+along with Libgfortran; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -151,6 +151,7 @@ free_fnodes (void)
     free_fnode (&array[0]);
 
   avail = array;
+  memset(array, 0, sizeof(avail[0]) * FARRAY_SIZE);
 }
 
 
@@ -502,7 +503,7 @@ format_item:
 
       t = format_lex ();
       if (t == FMT_F || t == FMT_EN || t == FMT_ES || t == FMT_D
-	  || t == FMT_G)
+	  || t == FMT_G || t == FMT_E)
 	{
 	  repeat = 1;
 	  goto data_desc;
@@ -557,6 +558,7 @@ format_item:
 
     case FMT_SLASH:
       get_fnode (&head, &tail, FMT_SLASH);
+      tail->repeat = 1;
       tail->u.r = 1;
       goto optional_comma;
 
@@ -1110,7 +1112,7 @@ static void dump_format1 (fnode * f);
 
 /* dump_format0()-- Dump a single format node */
 
-static void
+void
 dump_format0 (fnode * f)
 {
   char *p;

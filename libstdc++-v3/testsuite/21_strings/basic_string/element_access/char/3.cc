@@ -28,12 +28,10 @@
 // iterators, namely insert and erase.
 bool test02(void)
 {
-  bool test = true;
+  bool test __attribute__((unused)) = true;
   typedef std::string::size_type csize_type;
   typedef std::string::iterator siterator;
   typedef std::string::reverse_iterator sriterator;
-  csize_type npos = std::string::npos;
-  csize_type csz01, csz02;
   siterator it1;
   sriterator rit1;  
 
@@ -76,10 +74,6 @@ bool test02(void)
   std::string str13 = str12;
   *p2 = 'e';
   VERIFY( str12 != str13 );
-
-#ifdef DEBUG_ASSERT
-  assert(test);
-#endif
   return test;
 }
 

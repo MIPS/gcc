@@ -1,6 +1,6 @@
 // 2001-04-30  Benjamin Kosnik  <bkoz@redhat.com>
 
-// Copyright (C) 2001 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2003 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -33,7 +33,7 @@ void test01()
   typedef iterator<output_iterator_tag, void, void, void, void> base_iterator;
   ostringstream osstream("this tag");
   test_iterator  r_it(osstream);
-  base_iterator* base = &r_it;
+  base_iterator* base __attribute__((unused)) = &r_it;
 
   // Check for required typedefs
   typedef test_iterator::value_type value_type;
@@ -52,7 +52,7 @@ bool test02(void)
 {
   typedef std::ostreambuf_iterator<char> costreambuf_iter;
   typedef costreambuf_iter::streambuf_type cstreambuf_type;
-  bool test = true;
+  bool test __attribute__((unused)) = true;
   const char slit01[] = "playa hermosa, liberia, guanacaste";
   const char slit02[] = "bodega bay, lost coast, california";
   std::string str01(slit01);
@@ -106,11 +106,6 @@ bool test02(void)
   tmp = ostrs00.str();
   VERIFY ( tmp != str01 );
   VERIFY ( tmp != str02 );
-
-#ifdef DEBUG_ASSERT
-  assert(test);
-#endif
-
   return test;
 }
 

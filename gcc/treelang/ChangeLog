@@ -1,3 +1,19 @@
+2003-09-21  Richard Henderson  <rth@redhat.com>
+
+	* treetree.c: Revert.
+
+2003-09-21  Richard Henderson  <rth@redhat.com>
+
+	* treetree.c: Update for DECL_SOURCE_LOCATION rename and
+	change to const.
+
+2003-07-28  Andreas Jaeger  <aj@suse.de>
+
+	* treetree.c: Convert remaining K&R prototypes to ISO C90.
+	* tree1.c: Likewise.
+	* parse.y: Likewise.
+	* tree-convert.c: Likewise.
+
 2003-07-19  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
 	* treetree.c: Remove unnecessary casts.
@@ -113,7 +129,7 @@
 
 	* treetree.c (c_lex): Add fake routine to satisfy RS6000 backend.
 
-Thu Jun  5 18:33:40 CEST 2003  Jan Hubicka  <jh@suse.cz>
+2003-06-05  Jan Hubicka  <jh@suse.cz>
 
 	* Make-lang.in:  Add support for stageprofile and stagefeedback
 

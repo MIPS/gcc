@@ -99,6 +99,9 @@ static GTY(()) tree ioparm_write;
 static GTY(()) tree ioparm_write_len;
 static GTY(()) tree ioparm_readwrite;
 static GTY(()) tree ioparm_readwrite_len;
+static GTY(()) tree ioparm_namelist_name;
+static GTY(()) tree ioparm_namelist_name_len;
+static GTY(()) tree ioparm_namelist_read_mode;
 
 /* The global I/O variables */
 
@@ -124,6 +127,11 @@ static GTY(()) tree iocall_inquire;
 static GTY(()) tree iocall_rewind;
 static GTY(()) tree iocall_backspace;
 static GTY(()) tree iocall_endfile;
+static GTY(()) tree iocall_set_nml_val_int;
+static GTY(()) tree iocall_set_nml_val_float;
+static GTY(()) tree iocall_set_nml_val_char;
+static GTY(()) tree iocall_set_nml_val_complex;
+static GTY(()) tree iocall_set_nml_val_log;
 
 /* Variable for keeping track of what the last data transfer statement
    was.  Used for deciding which subroutine to call when the data
@@ -201,6 +209,9 @@ gfc_build_io_library_fndecls (void)
   ADD_STRING (read);
   ADD_STRING (write);
   ADD_STRING (readwrite);
+
+  ADD_STRING (namelist_name);
+  ADD_FIELD (namelist_read_mode, gfc_int4_type_node);
 
   gfc_finish_type (ioparm_type);
 
@@ -288,6 +299,33 @@ gfc_build_io_library_fndecls (void)
   iocall_write_done =
     gfc_build_library_function_decl (get_identifier (PREFIX("st_write_done")),
 				     gfc_int4_type_node, 0);
+  iocall_set_nml_val_int =
+    gfc_build_library_function_decl (get_identifier (PREFIX("st_set_nml_var_int")),
+                                     void_type_node, 4,
+                                     pvoid_type_node, pvoid_type_node,
+                                     gfc_int4_type_node,gfc_int4_type_node);
+
+  iocall_set_nml_val_float =
+    gfc_build_library_function_decl (get_identifier (PREFIX("st_set_nml_var_float")),
+                                     void_type_node, 4,
+                                     pvoid_type_node, pvoid_type_node,
+                                     gfc_int4_type_node,gfc_int4_type_node);
+  iocall_set_nml_val_char =
+    gfc_build_library_function_decl (get_identifier (PREFIX("st_set_nml_var_char")),
+                                     void_type_node, 4,
+                                     pvoid_type_node, pvoid_type_node,
+                                     gfc_int4_type_node,gfc_int4_type_node);
+  iocall_set_nml_val_complex =
+    gfc_build_library_function_decl (get_identifier (PREFIX("st_set_nml_var_complex")),
+                                     void_type_node, 4,
+                                     pvoid_type_node, pvoid_type_node,
+                                     gfc_int4_type_node,gfc_int4_type_node);
+  iocall_set_nml_val_log =
+    gfc_build_library_function_decl (get_identifier (PREFIX("st_set_nml_var_log")),
+                                     void_type_node, 4,
+                                     pvoid_type_node, pvoid_type_node,
+                                     gfc_int4_type_node,gfc_int4_type_node);
+
 }
 
 
@@ -744,6 +782,39 @@ gfc_trans_iolength (gfc_code * c ATTRIBUTE_UNUSED)
   gfc_todo_error ("IOLENGTH statement");
 }
 
+static gfc_expr *
+gfc_new_nml_name_expr (char * name)
+{
+   gfc_expr * nml_name;
+   nml_name = gfc_get_expr();
+   nml_name->ref = NULL;
+   nml_name->expr_type = EXPR_CONSTANT;
+   nml_name->ts.kind = gfc_default_character_kind ();
+   nml_name->ts.type = BT_CHARACTER;
+   nml_name->value.character.length = strlen(name);
+   nml_name->value.character.string = name;
+
+   return nml_name;
+}
+
+static gfc_expr *
+get_new_var_expr(gfc_symbol * sym)
+{
+  gfc_expr * nml_var;
+
+  nml_var = gfc_get_expr();
+  nml_var->expr_type = EXPR_VARIABLE;
+  nml_var->ts = sym->ts;
+  if (sym->as)
+    nml_var->rank = sym->as->rank;
+  nml_var->symtree = (gfc_symtree *)gfc_getmem (sizeof (gfc_symtree));
+  nml_var->symtree->n.sym = sym;
+  nml_var->where = sym->declared_at;
+  sym->attr.referenced = 1;
+
+  return nml_var;
+}
+
 
 /* Create a data transfer statement.  Not all of the fields are valid
    for both reading and writing, but improper use has been filtered
@@ -754,7 +825,11 @@ build_dt (tree * function, gfc_code * code)
 {
   stmtblock_t block, post_block;
   gfc_dt *dt;
-  tree tmp;
+  tree tmp, args, arg2;
+  gfc_expr *nmlname, *nmlvar;
+  gfc_namelist *nml, *nml_tail;
+  gfc_se se,se2;
+  int ts_kind, ts_type, name_len;
 
   gfc_init_block (&block);
   gfc_init_block (&post_block);
@@ -807,6 +882,66 @@ build_dt (tree * function, gfc_code * code)
 
   if (dt->end)
     set_flag(&block, ioparm_end);
+
+  if (dt->namelist)
+    {
+       if (dt->format_expr || dt->format_label)
+          fatal_error("A format cannot be specified with a namelist");
+
+       nmlname = gfc_new_nml_name_expr(dt->namelist->name);
+
+       set_string (&block, &post_block, ioparm_namelist_name,
+                ioparm_namelist_name_len, nmlname);
+
+       if (last_dt == READ)
+          set_flag (&block, ioparm_namelist_read_mode);
+
+       nml = dt->namelist->namelist;
+       nml_tail = dt->namelist->namelist_tail;
+
+       while(nml != NULL)
+       {
+          gfc_init_se (&se, NULL);
+          gfc_init_se (&se2, NULL);
+          nmlvar = get_new_var_expr(nml->sym);
+          nmlname = gfc_new_nml_name_expr(nml->sym->name);
+          name_len = strlen(nml->sym->name);
+          ts_kind = nml->sym->ts.kind;
+          ts_type = nml->sym->ts.type;
+
+          gfc_conv_expr_reference (&se2, nmlname);
+          gfc_conv_expr_reference (&se, nmlvar);
+          args = gfc_chainon_list (NULL_TREE, se.expr);
+          args = gfc_chainon_list (args, se2.expr);
+          args = gfc_chainon_list (args, se2.string_length);
+          arg2 = build_int_2 (ts_kind, 0);
+          args = gfc_chainon_list (args,arg2);
+          switch (ts_type)
+            {
+            case BT_INTEGER:
+              tmp = gfc_build_function_call (iocall_set_nml_val_int, args);
+              break;
+            case BT_CHARACTER:
+              tmp = gfc_build_function_call (iocall_set_nml_val_char, args);
+              break;
+            case BT_REAL:
+              tmp = gfc_build_function_call (iocall_set_nml_val_float, args);
+              break;
+            case BT_LOGICAL:
+              tmp = gfc_build_function_call (iocall_set_nml_val_log, args);
+              break;
+            case BT_COMPLEX:
+              tmp = gfc_build_function_call (iocall_set_nml_val_complex, args);
+              break;
+            default :
+              internal_error ("Bad namelist IO basetype (%d)", ts_type);
+            }
+
+          gfc_add_expr_to_block (&block, tmp);
+
+          nml = nml->next;
+       }
+    }
 
   tmp = gfc_build_function_call (*function, NULL_TREE);
   gfc_add_expr_to_block (&block, tmp);

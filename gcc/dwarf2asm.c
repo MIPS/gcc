@@ -224,6 +224,13 @@ dw2_asm_output_addr_rtx (int size, rtx addr,
   va_end (ap);
 }
 
+/* Output the first ORIG_LEN characters of STR as a string.
+   If ORIG_LEN is equal to -1, ignore this parameter and output
+   the entire STR instead.
+   If COMMENT is not NULL and comments in the debug information
+   have been requested by the user, append the given COMMENT
+   to the generated output.  */
+   
 void
 dw2_asm_output_nstring (const char *str, size_t orig_len,
 			const char *comment, ...)
@@ -757,7 +764,7 @@ dw2_output_indirect_constant_1 (splay_tree_node node,
   sym = (const char *) node->key;
   sym_ref = gen_rtx_SYMBOL_REF (Pmode, sym);
   if (USE_LINKONCE_INDIRECT)
-    fprintf (asm_out_file, "\t.hidden DW.ref.%s\n", sym);
+    fprintf (asm_out_file, "\t.hidden %sDW.ref.%s\n", user_label_prefix, sym);
   assemble_variable ((tree) node->value, 1, 1, 1);
   assemble_integer (sym_ref, POINTER_SIZE / BITS_PER_UNIT, POINTER_SIZE, 1);
 

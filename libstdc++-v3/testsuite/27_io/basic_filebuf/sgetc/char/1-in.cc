@@ -33,11 +33,11 @@ const char name_01[] = "filebuf_virtuals-1.txt"; // file with data in it
 void test05() 
 {
   using namespace std;
-  using namespace __gnu_cxx_test;
+  using namespace __gnu_test;
   typedef std::filebuf::int_type 	int_type;
   typedef filebuf::traits_type 		traits_type;
 
-  bool 					test = true;
+  bool test __attribute__((unused)) = true;
   int_type 			c1, c2, c3;
 
   // int_type sgetc()
@@ -64,7 +64,7 @@ void test05()
   }
 }
 
-main() 
+int main() 
 {
   test05();
   return 0;

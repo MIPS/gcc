@@ -30,10 +30,10 @@
 void test05()
 {
   using namespace std;
-  bool test = true;
+  bool test __attribute__((unused)) = true;
 
   // A locale that expects grouping.
-  locale loc_de = __gnu_cxx_test::try_named_locale("de_DE");
+  locale loc_de = __gnu_test::try_named_locale("de_DE");
 
   const string empty;
   string result;

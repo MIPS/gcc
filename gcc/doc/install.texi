@@ -268,6 +268,10 @@ requirements.
 Necessary to uncompress GCC @command{tar} files when source code is
 obtained via FTP mirror sites.
 
+@item GNU make version 3.79.1 (or later)
+
+You must have GNU make installed to build GCC.
+
 @item GNU tar version 1.12 (or later)
 
 Necessary (only on some platforms) to untar the source code.  Many
@@ -540,8 +544,8 @@ beneath a user's home directory tree, some shells will not expand
 @var{dirname} correctly if it contains the @samp{~} metacharacter; use
 @env{$HOME} instead.
 
-These additional options control where certain parts of the distribution
-are installed.  Normally you should not need to use these options.
+The following standard @command{autoconf} options are supported.  Normally you
+should not need to use these options.
 @table @code
 @item --exec-prefix=@var{dirname}
 Specify the toplevel installation directory for architecture-dependent
@@ -554,7 +558,11 @@ Specify the installation directory for the executables called by users
 
 @item --libdir=@var{dirname}
 Specify the installation directory for object code libraries and
-internal parts of GCC@.  The default is @file{@var{exec-prefix}/lib}.
+internal data files of GCC@.  The default is @file{@var{exec-prefix}/lib}.
+
+@item --libexecdir=@var{dirname}
+Specify the installation directory for internal executables of GCC@.
+  The default is @file{@var{exec-prefix}/libexec}.
 
 @item --with-slibdir=@var{dirname}
 Specify the installation directory for the shared libgcc library.  The
@@ -759,13 +767,14 @@ than the one found by the standard rules to find an assembler, which
 are:
 @itemize @bullet
 @item
-Check the
-@file{@var{exec_prefix}/lib/gcc-lib/@var{target}/@var{version}}
-directory, where @var{exec_prefix} defaults to @var{prefix} which
-defaults to @file{/usr/local} unless overridden by the
-@option{--prefix=@var{pathname}} switch described above. @var{target} is the
-target system triple, such as @samp{sparc-sun-solaris2.7}, and
-@var{version} denotes the GCC version, such as 3.0.
+Check the @file{@var{libexec}/gcc/@var{target}/@var{version}}
+directory, where @var{libexec} defaults to
+@file{@var{exec-prefix}/libexec} and @var{exec-prefix} defaults to
+@var{prefix} which defaults to @file{/usr/local} unless overridden by
+the @option{--prefix=@var{pathname}} switch described
+above. @var{target} is the target system triple, such as
+@samp{sparc-sun-solaris2.7}, and @var{version} denotes the GCC
+version, such as 3.0.
 @item
 Check operating system specific directories (e.g.@: @file{/usr/ccs/bin} on
 Sun Solaris 2).
@@ -952,9 +961,9 @@ to do so.
 @item --enable-version-specific-runtime-libs
 Specify
 that runtime libraries should be installed in the compiler specific
-subdirectory (@file{@var{libsubdir}}) rather than the usual places.  In
-addition, @samp{libstdc++}'s include files will be installed in
-@file{@var{libsubdir}/include/g++} unless you overruled it by using
+subdirectory (@file{@var{libdir}/gcc}) rather than the usual places.  In
+addition, @samp{libstdc++}'s include files will be installed into
+@file{@var{libdir}} unless you overruled it by using
 @option{--with-gxx-include-dir=@var{dirname}}.  Using this option is
 particularly useful if you intend to use several versions of GCC in
 parallel. This is currently supported by @samp{libf2c} and
@@ -1039,8 +1048,8 @@ with GCC@.  This is on by default when building from CVS or snapshots,
 but off for releases.  More control over the checks may be had by
 specifying @var{list}; the categories of checks available are
 @samp{misc}, @samp{tree}, @samp{gc}, @samp{rtl}, @samp{rtlflag},
-@samp{gcac} and @samp{valgrind}.  The check @samp{valgrind} requires the
-external @command{valgrind} simulator, available from
+@samp{fold}, @samp{gcac} and @samp{valgrind}.  The check @samp{valgrind}
+requires the external @command{valgrind} simulator, available from
 @uref{http://developer.kde.org/~sewardj/}.  The default when @var{list} is
 not specified is @samp{misc,tree,gc,rtlflag}; the checks @samp{rtl},
 @samp{gcac} and @samp{valgrind} are very expensive.
@@ -1448,8 +1457,8 @@ These are part of the full distribution, but if you downloaded the
 separately.
 
 Second, you must have the testing tools installed.  This includes
-@uref{http://www.gnu.org/software/dejagnu/,,DejaGnu} 1.4.2 (or later),
-Tcl, and Expect; the DejaGnu site has links to these.
+@uref{http://www.gnu.org/software/dejagnu/,,DejaGnu} 1.4.1 or 1.4.3
+and later, Tcl, and Expect; the DejaGnu site has links to these.
 
 If the directories where @command{runtest} and @command{expect} were
 installed are not in the @env{PATH}, you may need to set the following
@@ -1506,11 +1515,81 @@ To get a list of the possible @file{*.exp} files, pipe the
 output of @samp{make check} into a file and look at the
 @samp{Running @dots{}  .exp} lines.
 
+@section Passing options and running multiple testsuites
+
+You can pass multiple options to the testsuite using the
+@samp{--target_board} option of DejaGNU, either passed as part of
+@samp{RUNTESTFLAGS}, or directly to @command{runtest} if you prefer to
+work outside the makefiles.  For example,
+
+@example
+    make check-g++ RUNTESTFLAGS="--target_board=unix/-O3/-fno-strength-reduce"
+@end example
+
+will run the standard @command{g++} testsuites (``unix'' is the target name
+for a standard native testsuite situation), passing
+@samp{-O3 -fno-strength-reduce} to the compiler on every test, i.e.,
+slashes separate options.
+
+You can run the testsuites multiple times using combinations of options
+with a syntax similar to the brace expansion of popular shells:
+
+@example
+    @dots{}"--target_board=arm-sim@{-mhard-float,-msoft-float@}@{-O1,-O2,-O3,@}"
+@end example
+
+(Note the empty option caused by the trailing comma in the final group.)
+The following will run each testsuite eight times using the @samp{arm-sim}
+target, as if you had specified all possible combinations yourself:
+
+@example
+    --target_board=arm-sim/-mhard-float/-O1
+    --target_board=arm-sim/-mhard-float/-O2
+    --target_board=arm-sim/-mhard-float/-O3
+    --target_board=arm-sim/-mhard-float
+    --target_board=arm-sim/-msoft-float/-O1
+    --target_board=arm-sim/-msoft-float/-O2
+    --target_board=arm-sim/-msoft-float/-O3
+    --target_board=arm-sim/-msoft-float
+@end example
+
+They can be combined as many times as you wish, in arbitrary ways.  This
+list:
+
+@example
+    @dots{}"--target_board=unix/-Wextra@{-O3,-fno-strength-reduce@}@{-fomit-frame-pointer,@}"
+@end example
+
+will generate four combinations, all involving @samp{-Wextra}.
+
+The disadvantage to this method is that the testsuites are run in serial,
+which is a waste on multiprocessor systems.  For users with GNU Make and
+a shell which performs brace expansion, you can run the testsuites in
+parallel by having the shell perform the combinations and @command{make}
+do the parallel runs.  Instead of using @samp{--target_board}, use a
+special makefile target:
+
+@example
+    make -j@var{N} check-@var{testsuite}//@var{test-target}/@var{option1}/@var{option2}/@dots{}
+@end example
+
+For example,
+
+@example
+    make -j3 check-gcc//sh-hms-sim/@{-m1,-m2,-m3,-m3e,-m4@}/@{,-nofpu@}
+@end example
+
+will run three concurrent ``make-gcc'' testsuites, eventually testing all
+ten combinations as described above.  Note that this is currently only
+supported in the @file{gcc} subdirectory.  (To see how this works, try
+typing @command{echo} before the example given here.)
+
+
+@section Additional testing for Java Class Libraries
+
 The Java runtime tests can be executed via @samp{make check}
 in the @file{@var{target}/libjava/testsuite} directory in
 the build tree.
-
-@section Additional testing for Java Class Libraries
 
 The @uref{http://sources.redhat.com/mauve/,,Mauve Project} provides
 a suite of tests for the Java Class Libraries.  This suite can be run
@@ -1600,15 +1679,17 @@ We strongly recommend to install into a target directory where there is
 no previous version of GCC present.
 
 That step completes the installation of GCC; user level binaries can
-be found in @file{@var{prefix}/bin} where @var{prefix} is the value you
-specified with the @option{--prefix} to configure (or @file{/usr/local}
-by default).  (If you specified @option{--bindir}, that directory will
-be used instead; otherwise, if you specified @option{--exec-prefix},
-@file{@var{exec-prefix}/bin} will be used.)  Headers for the C++ and
-Java libraries are installed in @file{@var{prefix}/include}; libraries
-in @file{@var{libdir}} (normally @file{@var{prefix}/lib}); internal
-parts of the compiler in @file{@var{libdir}/gcc-lib}; documentation in
-info format in @file{@var{infodir}} (normally @file{@var{prefix}/info}).
+be found in @file{@var{prefix}/bin} where @var{prefix} is the value
+you specified with the @option{--prefix} to configure (or
+@file{/usr/local} by default).  (If you specified @option{--bindir},
+that directory will be used instead; otherwise, if you specified
+@option{--exec-prefix}, @file{@var{exec-prefix}/bin} will be used.)
+Headers for the C++ and Java libraries are installed in
+@file{@var{prefix}/include}; libraries in @file{@var{libdir}}
+(normally @file{@var{prefix}/lib}); internal parts of the compiler in
+@file{@var{libdir}/gcc} and @file{@var{libexecdir}/gcc}; documentation
+in info format in @file{@var{infodir}} (normally
+@file{@var{prefix}/info}).
 
 When installing cross-compilers, GCC's executables
 are not only installed into @file{@var{bindir}}, that
@@ -1900,6 +1981,8 @@ GNU Compiler Collection on your machine.
 @item
 @uref{#ip2k-*-elf,,ip2k-*-elf}
 @item
+@uref{#iq2000-*-elf,,iq2000-*-elf}
+@item
 @uref{#m32r-*-elf,,m32r-*-elf}
 @item
 @uref{#m6811-elf,,m6811-elf}
@@ -2030,9 +2113,6 @@ or you can use a copy of GCC 2.95.3 or higher built on Tru64 UNIX V4.0:
 As of GNU binutils 2.11.2, neither GNU @command{as} nor GNU @command{ld}
 are supported on Tru64 UNIX, so you must not configure GCC with
 @option{--with-gnu-as} or @option{--with-gnu-ld}.
-
-The @option{--enable-threads} options isn't supported yet.  A patch is
-in preparation for a future release.
 
 GCC writes a @samp{.verstamp} directive to the assembler output file
 unless it is built as a cross-compiler.  It gets the version to use from
@@ -2269,7 +2349,7 @@ The version of binutils installed in @file{/usr/bin} is known to work unless
 otherwise specified in any per-architecture notes.  However, binutils
 2.12.1 or greater is known to improve overall testsuite results.
 
-FreeBSD 1 is no longer supported.
+Support for FreeBSD 1 was discontinued in GCC 3.2.
 
 For FreeBSD 2 or any mutant a.out versions of FreeBSD 3: All
 configuration support and files as shipped with GCC 2.95 are still in
@@ -2322,7 +2402,7 @@ longer a multiple of 2 bytes.
 <hr />
 @end html
 @heading @anchor{hppa*-hp-hpux*}hppa*-hp-hpux*
-HP-UX version 9 or older is no longer supported.
+Support for HP-UX version 9 and older was discontinued in GCC 3.4.
 
 We @emph{highly} recommend using gas/binutils 2.8 or newer on all hppa
 platforms; you may encounter a variety of problems when using the HP
@@ -2637,7 +2717,7 @@ is required to build GCC. For GCC 3.3 and later, this is the default.
 <!-- rs6000-ibm-aix*, powerpc-ibm-aix* -->
 @end html
 @heading @anchor{*-ibm-aix*}*-ibm-aix*
-AIX version 3 or older is no longer supported.
+Support for AIX version 3 and older was discontinued in GCC 3.4.
 
 AIX Make frequently has problems with GCC makefiles.  GNU Make 3.79.1 or
 newer is recommended to build on this platform.
@@ -2752,6 +2832,13 @@ This configuration is intended for embedded systems.
 There are no standard Unix configurations.
 
 Use @samp{configure --target=ip2k-elf --enable-languages=c} to configure GCC@.
+
+@html
+<hr />
+@end html
+@heading @anchor{iq2000-*-elf}iq2000-*-elf
+Vitesse IQ2000 processors.  These are used in embedded
+applications.  There are no standard Unix configurations.
 
 @html
 <hr />
@@ -3111,14 +3198,11 @@ install GCC:
 @smallexample
    % CONFIG_SHELL=/bin/ksh
    % export CONFIG_SHELL
-   % @var{srcdir}/configure [@var{options}] [@var{target}]
-   % gmake bootstrap
-   % gmake install
 @end smallexample
 
-As explained in the @uref{build.html,,build} instructions, we recommend
-to use GNU make, which we call @command{gmake} here to distinguish it
-from Sun make.
+and then proceed as described in @uref{build.html,,the build instructions},
+where we strongly recommend using GNU make and specifying an absolute path
+to invoke @var{srcdir}/configure.
 
 Solaris 2 comes with a number of optional OS packages.  Some of these
 are needed to use GCC fully, namely @code{SUNWarc},
@@ -3217,7 +3301,7 @@ back it out.
 @item
 Copy the original, unpatched Solaris 7
 @command{/usr/ccs/bin/as} into
-@command{/usr/local/lib/gcc-lib/sparc-sun-solaris2.7/3.1/as},
+@command{/usr/local/libexec/gcc/sparc-sun-solaris2.7/3.4/as},
 adjusting the latter name to fit your local conventions and software
 version numbers.
 

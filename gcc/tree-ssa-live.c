@@ -39,8 +39,6 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-dump.h"
 #include "tree-ssa-live.h"
 
-extern unsigned long next_ssa_version;
-
 static void live_worklist (tree_live_info_p, varray_type, int);
 static tree_live_info_p new_tree_live_info (var_map);
 static inline void set_if_valid (var_map, sbitmap, tree);
@@ -324,8 +322,20 @@ create_ssa_var_map (void)
   varray_type ops;
   unsigned x;
   var_map map;
+#if defined ENABLE_CHECKING
+  sbitmap used_in_real_ops;
+  sbitmap used_in_virtual_ops;
+#endif
 
   map = init_var_map (next_ssa_version + 1);
+
+#if defined ENABLE_CHECKING
+  used_in_real_ops = sbitmap_alloc (num_referenced_vars);
+  sbitmap_zero (used_in_real_ops);
+
+  used_in_virtual_ops = sbitmap_alloc (num_referenced_vars);
+  sbitmap_zero (used_in_virtual_ops);
+#endif
 
   FOR_EACH_BB (bb)
     {
@@ -338,15 +348,21 @@ create_ssa_var_map (void)
 	  ops = use_ops (stmt);
 	  for (x = 0; ops && x < VARRAY_ACTIVE_SIZE (ops); x++)
 	    {
-	      use = VARRAY_GENERIC_PTR (ops, x);
+	      use = VARRAY_TREE_PTR (ops, x);
 	      register_ssa_partition (map, *use);
+#if defined ENABLE_CHECKING
+	      SET_BIT (used_in_real_ops, var_ann (SSA_NAME_VAR (*use))->uid);
+#endif
 	    }
 
 	  ops = def_ops (stmt);
 	  for (x = 0; ops && x < VARRAY_ACTIVE_SIZE (ops); x++)
 	    {
-	      dest = VARRAY_GENERIC_PTR (ops, x);
+	      dest = VARRAY_TREE_PTR (ops, x);
 	      register_ssa_partition (map, *dest);
+#if defined ENABLE_CHECKING
+	      SET_BIT (used_in_real_ops, var_ann (SSA_NAME_VAR (*dest))->uid);
+#endif
 	    }
 
 	  /* While we do not care about virtual operands for
@@ -354,13 +370,44 @@ create_ssa_var_map (void)
 	     we mark all the variables which are used.  */
 	  ops = vuse_ops (stmt);
 	  for (x = 0; ops && x < VARRAY_ACTIVE_SIZE (ops); x++)
-	    set_is_used (VARRAY_TREE (ops, x));
+	    {
+	      tree var = VARRAY_TREE (ops, x);
+	      set_is_used (var);
+#if defined ENABLE_CHECKING
+	      SET_BIT (used_in_virtual_ops, var_ann (SSA_NAME_VAR (var))->uid);
+#endif
+	    }
 
 	  ops = vdef_ops (stmt);
 	  for (x = 0; ops && x < VARRAY_ACTIVE_SIZE (ops); x++)
-	    set_is_used (VDEF_OP (VARRAY_TREE (ops, x)));
+	    {
+	      tree var = VDEF_OP (VARRAY_TREE (ops, x));
+	      set_is_used (var);
+#if defined ENABLE_CHECKING
+	      SET_BIT (used_in_virtual_ops, var_ann (SSA_NAME_VAR (var))->uid);
+#endif
+	    }
 	}
     }
+
+#if defined ENABLE_CHECKING
+  {
+    unsigned i;
+    sbitmap both = sbitmap_alloc (num_referenced_vars);
+    sbitmap_a_and_b (both, used_in_real_ops, used_in_virtual_ops);
+    if (sbitmap_first_set_bit (both) >= 0)
+      {
+	EXECUTE_IF_SET_IN_SBITMAP (both, 0, i,
+	  fprintf (stderr, "Variable %s used in real and virtual operands\n",
+		   get_name (referenced_var (i))));
+	abort ();
+      }
+
+    sbitmap_free (used_in_real_ops);
+    sbitmap_free (used_in_virtual_ops);
+    sbitmap_free (both);
+  }
+#endif
 
   return map;
 }
@@ -537,7 +584,7 @@ calculate_live_on_entry (var_map map)
 	  num = (ops ? VARRAY_ACTIVE_SIZE (ops) : 0);
 	  for (i = 0; i < num; i++)
 	    {
-	      vec = VARRAY_GENERIC_PTR (ops, i);
+	      vec = VARRAY_TREE_PTR (ops, i);
 	      add_livein_if_notdef (live, saw_def, *vec, bb);
 	    }
 
@@ -561,7 +608,7 @@ calculate_live_on_entry (var_map map)
 	  num = (ops ? VARRAY_ACTIVE_SIZE (ops) : 0);
 	  for (i = 0; i < num; i++)
 	    {
-	      vec = VARRAY_GENERIC_PTR (ops, i);
+	      vec = VARRAY_TREE_PTR (ops, i);
 	      set_if_valid (map, saw_def, *vec);
 	    }
 
@@ -585,17 +632,81 @@ calculate_live_on_entry (var_map map)
    /* Check for live on entry partitions and report those with a DEF in
       the program. This will typically mean an optimization has done
       something wrong.  */
-  for (num=0, i = 0; i < num_var_partitions (map); i++)
+
+  bb = ENTRY_BLOCK_PTR;
+  num = 0;
+  for (e = bb->succ; e; e = e->succ_next)
     {
-      if (TEST_BIT (live_entry_blocks (live, i), 0))
-        {
+      int entry_block = e->dest->index;
+      if (e->dest == EXIT_BLOCK_PTR)
+        continue;
+      for (i = 0; i < num_var_partitions (map); i++)
+	{
+	  basic_block tmp;
+	  tree d;
 	  var = partition_to_var (map, i);
-	  if (!IS_EMPTY_STMT (SSA_NAME_DEF_STMT (var)))
+	  stmt = SSA_NAME_DEF_STMT (var);
+	  tmp = bb_for_stmt (stmt);
+	  d = default_def (SSA_NAME_VAR (var));
+
+	  if (TEST_BIT (live_entry_blocks (live, i), entry_block))
 	    {
-	      num++;
-	      print_generic_expr (stderr, var, TDF_SLIM);
-	      fprintf (stderr, " is defined, but is also live on entry.\n");
+	      if (!IS_EMPTY_STMT (stmt))
+		{
+		  num++;
+		  print_generic_expr (stderr, var, TDF_SLIM);
+		  fprintf (stderr, " is defined ");
+		  if (tmp)
+		    fprintf (stderr, " in BB%d, ", tmp->index);
+		  fprintf (stderr, "by:\n");
+		  print_generic_expr (stderr, stmt, TDF_SLIM);
+		  fprintf (stderr, "\nIt is also live-on-entry to entry BB %d", 
+			   entry_block);
+		  fprintf (stderr, " So it appears to have multiple defs.\n");
+		}
+	      else
+	        {
+		  if (d != var)
+		    {
+		      num++;
+		      print_generic_expr (stderr, var, TDF_SLIM);
+		      fprintf (stderr, " is live-on-entry to BB%d ",entry_block);
+		      if (d)
+		        {
+			  fprintf (stderr, " but is not the default def of ");
+			  print_generic_expr (stderr, d, TDF_SLIM);
+			  fprintf (stderr, "\n");
+			}
+		      else
+			fprintf (stderr, " and there is no default def.\n");
+		    }
+		}
 	    }
+	  else
+	    if (d == var)
+	      {
+		/* The only way this var shouldn't be marked live on entry to 
+		   this block is if it occurs in a PHI argument of the block.  */
+		int z, ok = 0;
+		for (phi = phi_nodes (e->dest); 
+		     phi && !ok; 
+		     phi = TREE_CHAIN (phi))
+		  {
+		    for (z = 0; z < PHI_NUM_ARGS (phi); z++)
+		      if (var == PHI_ARG_DEF (phi, z))
+			{
+			  ok = 1;
+			  break;
+			}
+		  }
+		if (ok)
+		  continue;
+	        num++;
+		print_generic_expr (stderr, var, TDF_SLIM);
+		fprintf (stderr, " is not marked live-on-entry to entry BB%d ", 
+			 entry_block);
+		fprintf (stderr, "but it is the default def so it should be.\n");
+	      }
 	}
     }
   if (num > 0)
@@ -1250,7 +1361,7 @@ build_tree_conflict_graph (tree_live_info_p liveinfo, tpa_p tpa,
 	      num = ((ops) ? VARRAY_ACTIVE_SIZE (ops) : 0);
 	      for (x = 0; x < num; x++)
 		{
-		  var_p = VARRAY_GENERIC_PTR (ops, x);
+		  var_p = VARRAY_TREE_PTR (ops, x);
 		  add_conflicts_if_valid (tpa, graph, map, live, *var_p);
 		}
 
@@ -1258,7 +1369,7 @@ build_tree_conflict_graph (tree_live_info_p liveinfo, tpa_p tpa,
 	      num = ((ops) ? VARRAY_ACTIVE_SIZE (ops) : 0);
 	      for (x = 0; x < num; x++)
 		{
-		  var_p = VARRAY_GENERIC_PTR (ops, x);
+		  var_p = VARRAY_TREE_PTR (ops, x);
 		  set_if_valid (map, live, *var_p);
 		}
 	    }

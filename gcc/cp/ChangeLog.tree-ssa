@@ -1,3 +1,44 @@
+2003-09-30  Richard Henderson  <rth@redhat.com>
+
+	* decl.c (finish_function): Set cfun->function_end_locus.
+
+2003-09-24  Jason Merrill  <jason@redhat.com>
+
+	* class.c, decl.c, decl2.c, error.c, init.c, lex.c, method.c,
+	pt.c, semantics.c, tree.c: Revert from TREE_LOCUS to
+	DECL_SOURCE_LOCATION.
+
+2003-09-17  Richard Henderson  <rth@redhat.com>
+
+	* decl.c (cxx_init_decl_processing): Don't using_eh_for_cleanups
+	if exceptions are disabled.
+
+2003-09-03  Richard Henderson  <rth@redhat.com>
+
+	* cp-lang.c (LANG_HOOKS_RTL_EXPAND_STMT): Use expand_stmt_toplev.
+
+2003-09-03  Richard Henderson  <rth@redhat.com>
+
+        * decl.c (finish_function): Fix misapplied patch.  Don't
+        free_after_parsing or free_after_compilation.  For real this time.
+
+2003-08-22  Jason Merrill  <jason@redhat.com>
+
+	* cp-simplify.c (cp_gimplify_init_expr): Update use of predicates.
+
+2003-08-21  Jason Merrill  <jason@redhat.com>
+
+	* cp-simplify.c (cp_gimplify_expr): Use simplify_aggr_init_expr.
+	(cp_gimplify_init_expr): Don't call it here.
+	(gimplify_aggr_init_expr): Remove.
+
+2003-08-19  Jason Merrill  <jason@redhat.com>
+
+	* typeck.c (build_array_ref): Also build ARRAY_REFs from
+	INDIRECT_REFs of ARRAY_TYPE.
+
+	* semantics.c (finish_id_expression): Unshare aliases.
+
 2003-08-12  Diego Novillo  <dnovillo@redhat.com>
 
 	* optimize.c (optimize_function): Do not call dump_function.

@@ -20,16 +20,6 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-/* Control assembler-syntax conditionals in m68k.md and conditionals in
-   m68k.h.  Note that some systems may also require SGS_SWAP_W and/or
-   SGS_SWITCH_TABLES to be defined as well.  */
-
-#define MOTOROLA		/* Use Motorola syntax rather than "MIT" */
-#define SGS			/* Uses SGS assembler */
-#define SGS_CMP_ORDER		/* Takes cmp operands in reverse order */
-
-#include "m68k/m68k.h"
-
 #undef INT_OP_GROUP
 #define INT_OP_GROUP INT_OP_STANDARD
 
@@ -82,7 +72,7 @@ Boston, MA 02111-1307, USA.  */
 #define REGISTER_NAMES \
 {"%d0",   "%d1",   "%d2",   "%d3",   "%d4",   "%d5",   "%d6",   "%d7",	     \
  "%a0",   "%a1",   "%a2",   "%a3",   "%a4",   "%a5",   "%fp",   "%sp",	     \
- "%fp0",  "%fp1",  "%fp2",  "%fp3",  "%fp4",  "%fp5",  "%fp6",  "%fp7" }
+ "%fp0",  "%fp1",  "%fp2",  "%fp3",  "%fp4",  "%fp5",  "%fp6",  "%fp7", "argptr" }
 
 /* This is how to output an assembler line that says to advance the
    location counter to a multiple of 2**LOG bytes.  */

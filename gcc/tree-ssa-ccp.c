@@ -57,6 +57,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 /* Possible lattice values.  */
 typedef enum
 {
+  UNINITIALIZED = 0,
   UNDEFINED,
   CONSTANT,
   VARYING
@@ -74,25 +75,20 @@ typedef struct
   tree const_val;
 } value;
 
-/* Hash table of constant values indexed by SSA name.   Each variable will
-   be assigned a value out of the constant lattice: UNDEFINED (top),
-   meaning that the variable has a constant of unknown value, CONSTANT,
-   meaning that the variable has a known constant value and VARYING
-   (bottom), meaning that the variable has a non-constant value.  */
-static htab_t const_values;
-
-/* Structure to map a variable to its constant value.  */
-struct value_map_d
-{
-  tree var;
-  value val;
-};
-
 /* A bitmap to keep track of executable blocks in the CFG.  */
 static sbitmap executable_blocks;
 
 /* Array of control flow edges on the worklist.  */
-static varray_type cfg_edges;
+static varray_type cfg_blocks;
+
+static unsigned int cfg_blocks_num = 0;
+static int cfg_blocks_tail;
+static int cfg_blocks_head;
+
+static sbitmap bb_in_list;
+
+/* This is used to track the current value of each variable.  */
+static value *value_vector;
 
 /* Worklist of SSA edges which will need reexamination as their definition
    has changed.  SSA edges are def-use edges in the SSA web.  For each
@@ -116,21 +112,20 @@ static void def_to_varying (tree);
 static void set_lattice_value (tree, value);
 static void simulate_block (basic_block);
 static void simulate_stmt (tree);
-static void substitute_and_fold (void);
+static void substitute_and_fold (sbitmap);
 static value evaluate_stmt (tree);
 static void dump_lattice_value (FILE *, const char *, value);
-static tree widen_bitfield (tree, tree, tree);
 static bool replace_uses_in (tree);
 static latticevalue likely_value (tree);
 static tree get_rhs (tree);
 static void set_rhs (tree *, tree);
-static value *get_value (tree);
+static inline value *get_value (tree);
 static value get_default_value (tree);
-static hashval_t value_map_hash (const void *);
-static int value_map_eq (const void *, const void *);
 static tree ccp_fold_builtin (tree, tree);
 static tree get_strlen (tree);
-
+static inline bool cfg_blocks_empty_p (void);
+static void cfg_blocks_add (basic_block);
+static basic_block cfg_blocks_get (void);
 
 /* Debugging dumps.  */
 static FILE *dump_file;
@@ -138,24 +133,32 @@ static int dump_flags;
 
 
 /* Main entry point for SSA Conditional Constant Propagation.  FNDECL is
-   the declaration for the function to optimize.  */
+   the declaration for the function to optimize.
+   
+   On exit, VARS_TO_RENAME will contain the symbols that have been exposed by
+   the propagation of ADDR_EXPR expressions into pointer derferences and need
+   to be renamed into SSA.
+
+   PHASE indicates which dump file from the DUMP_FILES array to use when
+   dumping debugging information.  */
 
 void
-tree_ssa_ccp (tree fndecl)
+tree_ssa_ccp (tree fndecl, sbitmap vars_to_rename, enum tree_dump_index phase)
 {
   timevar_push (TV_TREE_CCP);
+
+  /* Initialize debugging dumps.  */
+  dump_file = dump_begin (phase, &dump_flags);
 
   initialize ();
 
   /* Iterate until the worklists are empty.  */
-  while (VARRAY_ACTIVE_SIZE (cfg_edges) > 0
-	 || VARRAY_ACTIVE_SIZE (ssa_edges) > 0)
+  while (!cfg_blocks_empty_p () || VARRAY_ACTIVE_SIZE (ssa_edges) > 0)
     {
-      if (VARRAY_ACTIVE_SIZE (cfg_edges) > 0)
+      if (!cfg_blocks_empty_p ())
 	{
 	  /* Pull the next block to simulate off the worklist.  */
-	  basic_block dest_block = VARRAY_TOP_EDGE (cfg_edges)->dest;
-	  VARRAY_POP (cfg_edges);
+	  basic_block dest_block = cfg_blocks_get ();
 	  simulate_block (dest_block);
 	}
 
@@ -178,7 +181,7 @@ tree_ssa_ccp (tree fndecl)
     }
 
   /* Now perform substitutions based on the known constant values.  */
-  substitute_and_fold ();
+  substitute_and_fold (vars_to_rename);
 
   /* Now cleanup any unreachable code.  */
   cleanup_tree_cfg (false);
@@ -199,8 +202,27 @@ tree_ssa_ccp (tree fndecl)
 	}
 
       dump_cfg_function_to_file (fndecl, dump_file, dump_flags);
-      dump_end (TDI_ccp, dump_file);
+      dump_end (phase, dump_file);
     }
+}
+
+
+/* Get the constant value associated with variable VAR.  */
+
+static inline value *
+get_value (tree var)
+{
+  value *val;
+#if defined ENABLE_CHECKING
+  if (TREE_CODE (var) != SSA_NAME)
+    abort ();
+#endif
+
+  val = &(value_vector[SSA_NAME_VERSION (var)]);
+  if (val->lattice_val == UNINITIALIZED)
+    *val = get_default_value (var);
+    
+  return val;
 }
 
 
@@ -299,7 +321,7 @@ simulate_stmt (tree use_stmt)
    should still be in SSA form.  */
 
 static void
-substitute_and_fold (void)
+substitute_and_fold (sbitmap vars_to_rename)
 {
   basic_block bb;
 
@@ -352,6 +374,13 @@ substitute_and_fold (void)
 	    {
 	      fold_stmt (bsi_stmt_ptr (i));
 	      modify_stmt (stmt);
+
+	      /* If the statement is an assignment involving pointer
+		 dereferences, we may have exposed new symbols.  */
+	      if (TREE_CODE (stmt) == MODIFY_EXPR
+		  && (TREE_CODE (TREE_OPERAND (stmt, 0)) == INDIRECT_REF
+		      || TREE_CODE (TREE_OPERAND (stmt, 1)) == INDIRECT_REF))
+		mark_new_vars_to_rename (stmt, vars_to_rename);
 	    }
 
 	  if (dump_file && (dump_flags & TDF_DETAILS))
@@ -373,7 +402,7 @@ substitute_and_fold (void)
 static void
 visit_phi_node (tree phi)
 {
-  int i;
+  int i, short_circuit = 0;
   value phi_val, *curr_val;
 
   /* If the PHI node has already been deemed to be VARYING, don't simulate
@@ -388,20 +417,27 @@ visit_phi_node (tree phi)
     }
 
   curr_val = get_value (PHI_RESULT (phi));
-  if (curr_val->lattice_val != CONSTANT)
+  if (curr_val->lattice_val == VARYING)
     {
-      phi_val.lattice_val = UNDEFINED;
-      phi_val.const_val = NULL_TREE;
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file, "\n   Shortcircuit. Default of VARYING.");
+      short_circuit = 1;
     }
   else
-    {
-      phi_val.lattice_val = curr_val->lattice_val;
-      phi_val.const_val = curr_val->const_val;
-    }
+    if (curr_val->lattice_val != CONSTANT)
+      {
+	phi_val.lattice_val = UNDEFINED;
+	phi_val.const_val = NULL_TREE;
+      }
+    else
+      {
+	phi_val.lattice_val = curr_val->lattice_val;
+	phi_val.const_val = curr_val->const_val;
+      }
 
   /* If the variable is volatile or the variable is never referenced in a
      real operand, then consider the PHI node VARYING.  */
-  if (TREE_THIS_VOLATILE (SSA_NAME_VAR (PHI_RESULT (phi))))
+  if (short_circuit || TREE_THIS_VOLATILE (SSA_NAME_VAR (PHI_RESULT (phi))))
     phi_val.lattice_val = VARYING;
   else
     for (i = 0; i < PHI_NUM_ARGS (phi); i++)
@@ -421,12 +457,10 @@ visit_phi_node (tree phi)
 	if (e->flags & EDGE_EXECUTABLE)
 	  {
 	    tree rdef = PHI_ARG_DEF (phi, i);
-	    value *rdef_val;
+	    value *rdef_val, val;
 
 	    if (TREE_CONSTANT (rdef))
 	      {
-		value val;
-
 		val.lattice_val = CONSTANT;
 		val.const_val = rdef;
 		rdef_val = &val;
@@ -555,7 +589,7 @@ visit_stmt (tree stmt)
       ops = def_ops (stmt);
       for (i = 0; i < VARRAY_ACTIVE_SIZE (ops); i++)
 	{
-	  tree *def_p = VARRAY_GENERIC_PTR (ops, i);
+	  tree *def_p = VARRAY_TREE_PTR (ops, i);
 	  def_to_varying (*def_p);
 	}
     }
@@ -571,7 +605,7 @@ visit_stmt (tree stmt)
     {
       DONT_SIMULATE_AGAIN (stmt) = 1;
 
-      /* If STMT is a control statement or a computed goto, then mark all
+      /* If STMT is a control structure or a computed goto, then mark all
 	 the output edges executable.  */
       if (is_ctrl_stmt (stmt) || is_computed_goto (stmt))
 	add_outgoing_control_edges (bb_for_stmt (stmt));
@@ -581,7 +615,6 @@ visit_stmt (tree stmt)
   ops = vdef_ops (stmt);
   if (ops)
     {
-      DONT_SIMULATE_AGAIN (stmt) = 1;
       for (i = 0; i < VARRAY_ACTIVE_SIZE (ops); i++)
 	def_to_varying (VDEF_RESULT (VARRAY_TREE (ops, i)));
     }
@@ -691,15 +724,24 @@ add_outgoing_control_edges (basic_block bb)
 static void
 add_control_edge (edge e)
 {
-  /* If the edge had already been added, skip it.  */
-  if (e->flags & EDGE_EXECUTABLE)
+  basic_block bb = e->dest;
+  if (bb == EXIT_BLOCK_PTR)
     return;
 
+  /* If the edge had already been executed, skip it.  */
+  if (e->flags & EDGE_EXECUTABLE)
+      return;
+
   e->flags |= EDGE_EXECUTABLE;
-  VARRAY_PUSH_EDGE (cfg_edges, e);
+
+  /* If the block is already in the list, we're done.  */
+  if (TEST_BIT (bb_in_list, bb->index))
+    return;
+
+  cfg_blocks_add (bb);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "Adding edge (%d -> %d) to worklist\n\n",
+    fprintf (dump_file, "Adding Destination of edge (%d -> %d) to worklist\n\n",
 	     e->src->index, e->dest->index);
 }
 
@@ -828,7 +870,7 @@ ccp_fold (tree stmt)
 	  /* Preserve the original values of every operand.  */
 	  orig = xmalloc (sizeof (tree) * VARRAY_ACTIVE_SIZE (uses));
 	  for (i = 0; i < VARRAY_ACTIVE_SIZE (uses); i++)
-	    orig[i] = *((tree *) VARRAY_GENERIC_PTR (uses, i));
+	    orig[i] = *(VARRAY_TREE_PTR (uses, i));
 
 	  /* Substitute operands with their values and try to fold.  */
 	  replace_uses_in (stmt);
@@ -836,17 +878,22 @@ ccp_fold (tree stmt)
 
 	  /* Restore operands to their original form.  */
 	  for (i = 0; i < VARRAY_ACTIVE_SIZE (uses); i++)
-	    *((tree *) VARRAY_GENERIC_PTR (uses, i)) = orig[i];
+	    *(VARRAY_TREE_PTR (uses, i)) = orig[i];
 	  free (orig);
 	}
     }
   else
     return rhs;
 
-  /* If we got a simplified form and the type of the simplified form
-     is the same type as the original, then return the simplified form.  */
-  if (retval && TREE_TYPE (retval) == TREE_TYPE (rhs))
-    return retval;
+  /* If we got a simplified form, see if we need to convert its type.  */
+  if (retval)
+    {
+      if (TREE_TYPE (retval) != TREE_TYPE (rhs))
+	retval = convert (TREE_TYPE (rhs), retval);
+
+      if (TREE_TYPE (retval) == TREE_TYPE (rhs))
+	return retval;
+    }
 
   /* No simplification was possible.  */
   return rhs;
@@ -933,7 +980,7 @@ dump_lattice_value (FILE *outf, const char *prefix, value val)
    variable VAR, return VAL appropriately widened to fit into VAR.  If
    FIELD is wider than HOST_WIDE_INT, NULL is returned.  */
 
-static tree
+tree
 widen_bitfield (tree val, tree field, tree var)
 {
   unsigned var_size, field_size;
@@ -996,12 +1043,6 @@ initialize (void)
   edge e;
   basic_block bb;
 
-  /* Initialize debugging dumps.  */
-  dump_file = dump_begin (TDI_ccp, &dump_flags);
-
-  /* Initialize the values array with everything as undefined.  */
-  const_values = htab_create (50, value_map_hash, value_map_eq, NULL);
-
   /* Compute immediate uses.  */
   compute_immediate_uses (TDFA_USE_OPS);
 
@@ -1013,6 +1054,12 @@ initialize (void)
 
   executable_blocks = sbitmap_alloc (last_basic_block);
   sbitmap_zero (executable_blocks);
+
+  bb_in_list = sbitmap_alloc (last_basic_block);
+  sbitmap_zero (bb_in_list);
+
+  value_vector = (value *) xmalloc (next_ssa_version * sizeof (value));
+  memset (value_vector, 0, next_ssa_version * sizeof (value));
 
   /* Initialize simulation flags for PHI nodes, statements and edges.  */
   FOR_EACH_BB (bb)
@@ -1031,14 +1078,17 @@ initialize (void)
     }
 
 
-  VARRAY_EDGE_INIT (cfg_edges, 20, "cfg_edges");
+  VARRAY_BB_INIT (cfg_blocks, 20, "cfg_blocks");
 
   /* Seed the algorithm by adding the successors of the entry block to the
      edge worklist.  */
   for (e = ENTRY_BLOCK_PTR->succ; e; e = e->succ_next)
     {
-      e->flags |= EDGE_EXECUTABLE;
-      VARRAY_PUSH_EDGE (cfg_edges, e);
+      if (e->dest != EXIT_BLOCK_PTR)
+        {
+	  e->flags |= EDGE_EXECUTABLE;
+	  cfg_blocks_add (e->dest);
+	}
     }
 }
 
@@ -1048,7 +1098,72 @@ initialize (void)
 static void
 finalize (void)
 {
-  htab_delete (const_values);
+  free (value_vector);
+  sbitmap_free (bb_in_list);
+  sbitmap_free (executable_blocks);
+}
+
+/* Is the block worklist empty.  */
+
+static inline bool
+cfg_blocks_empty_p ()
+{
+  return (cfg_blocks_num == 0);
+}
+
+/* Add a basic block to the worklist.  */
+
+static void 
+cfg_blocks_add (basic_block bb)
+{
+   if (bb == ENTRY_BLOCK_PTR || bb == EXIT_BLOCK_PTR)
+     return;
+
+   if (TEST_BIT (bb_in_list, bb->index))
+     return;
+
+    if (cfg_blocks_empty_p ())
+      {
+	cfg_blocks_tail = cfg_blocks_head = 0;
+	cfg_blocks_num = 1;
+      }
+    else
+      {
+	cfg_blocks_num++;
+	if (cfg_blocks_num > VARRAY_SIZE (cfg_blocks))
+	  {
+	    /* We have to grow the array now.  Adjust to queue to occupy the
+	       full space of the original array.  */
+	    cfg_blocks_tail = VARRAY_SIZE (cfg_blocks);
+	    cfg_blocks_head = 0;
+	    VARRAY_GROW (cfg_blocks, 2 * VARRAY_SIZE (cfg_blocks));
+	  }
+	else
+	  cfg_blocks_tail = (cfg_blocks_tail + 1) % VARRAY_SIZE (cfg_blocks);
+      }
+    VARRAY_BB (cfg_blocks, cfg_blocks_tail) = bb;
+    SET_BIT (bb_in_list, bb->index);
+}
+
+/* Remove a block from the worklist.  */
+
+static basic_block
+cfg_blocks_get ()
+{
+  basic_block bb;
+
+  bb = VARRAY_BB (cfg_blocks, cfg_blocks_head);
+
+#ifdef ENABLE_CHECKING
+  if (cfg_blocks_empty_p () || !bb)
+    abort ();
+#endif
+
+  cfg_blocks_head = (cfg_blocks_head + 1) % VARRAY_SIZE (cfg_blocks);
+  --cfg_blocks_num;
+  RESET_BIT (bb_in_list, bb->index);
+
+  return bb;
 }
 
 /* We have just definited a new value for VAR.  Add all immediate uses
@@ -1056,20 +1171,19 @@ finalize (void)
 static void
 add_var_to_ssa_edges_worklist (tree var)
 {
-  varray_type imm_uses = immediate_uses (SSA_NAME_DEF_STMT (var));
-  if (imm_uses)
+  tree stmt = SSA_NAME_DEF_STMT (var);
+  dataflow_t df = get_immediate_uses (stmt);
+  int num_uses = num_immediate_uses (df);
+  int i;
+
+  for (i = 0; i < num_uses; i++)
     {
-      unsigned int i;
+      tree use = immediate_use (df, i);
 
-      for (i = 0; i < VARRAY_ACTIVE_SIZE (imm_uses); i++)
+      if (!DONT_SIMULATE_AGAIN (use) && stmt_ann (use)->in_ccp_worklist == 0)
 	{
-	  tree use = VARRAY_TREE (imm_uses, i);
-
-	  if (stmt_ann (use)->in_ccp_worklist == 0)
-	    {
-	      stmt_ann (use)->in_ccp_worklist = 1;
-	      VARRAY_PUSH_TREE (ssa_edges, use);
-	    }
+	  stmt_ann (use)->in_ccp_worklist = 1;
+	  VARRAY_PUSH_TREE (ssa_edges, use);
 	}
     }
 }
@@ -1191,7 +1305,7 @@ replace_uses_in (tree stmt)
   uses = use_ops (stmt);
   for (i = 0; uses && i < VARRAY_ACTIVE_SIZE (uses); i++)
     {
-      tree *use = VARRAY_GENERIC_PTR (uses, i);
+      tree *use = VARRAY_TREE_PTR (uses, i);
       value *val = get_value (*use);
 
       if (val->lattice_val == CONSTANT)
@@ -1254,12 +1368,23 @@ likely_value (tree stmt)
   if (ann->makes_aliased_loads || ann->has_volatile_ops)
     return VARYING;
 
+  /* A CALL_EXPR is assumed to be varying.  This may be overly conservative,
+     in the presence of const and pure calls.  */
+  if (TREE_CODE (stmt) == CALL_EXPR
+      || (TREE_CODE (stmt) == MODIFY_EXPR
+	  && TREE_CODE (TREE_OPERAND (stmt, 1)) == CALL_EXPR)
+      || (TREE_CODE (stmt) == RETURN_EXPR
+	  && TREE_OPERAND (stmt, 0)
+	  && TREE_CODE (TREE_OPERAND (stmt, 0)) == MODIFY_EXPR
+	  && TREE_CODE (TREE_OPERAND (TREE_OPERAND (stmt, 0), 1)) == CALL_EXPR))
+    return VARYING;
+
   get_stmt_operands (stmt);
 
   uses = use_ops (stmt);
   for (i = 0; uses && i < VARRAY_ACTIVE_SIZE (uses); i++)
     {
-      tree *use = VARRAY_GENERIC_PTR (uses, i);
+      tree *use = VARRAY_TREE_PTR (uses, i);
       value *val = get_value (*use);
 
       if (val->lattice_val == UNDEFINED)
@@ -1274,12 +1399,14 @@ likely_value (tree stmt)
 
 
 /* Fold the statement pointed by STMT_P.  In some cases, this function may
-   replace the whole statement with a new one.  */
+   replace the whole statement with a new one.  Returns true iff folding
+   makes any changes.  */
 
-void
+bool
 fold_stmt (tree *stmt_p)
 {
   tree rhs, result, stmt;
+  bool changed = false;
 
   stmt = *stmt_p;
   rhs = get_rhs (stmt);
@@ -1296,6 +1423,11 @@ fold_stmt (tree *stmt_p)
 	    result = ccp_fold_builtin (stmt, rhs);
 	}
 
+      /* Optimize *"foo" into 'f'.  This is done here rather than
+         in fold to avoid problems with stuff like &*"foo".  */
+      if (TREE_CODE (rhs) == INDIRECT_REF || TREE_CODE (rhs) == ARRAY_REF)
+	result = fold_read_from_constant_string (rhs);
+
       /* If we couldn't fold the RHS, hand it over to the generic fold
 	 routines.  */
       if (result == NULL_TREE)
@@ -1303,10 +1435,15 @@ fold_stmt (tree *stmt_p)
 
       /* Strip away useless type conversions.  */
       if (result != rhs)
-	STRIP_MAIN_TYPE_NOPS (result);
+	{
+	  changed = true;
+	  STRIP_MAIN_TYPE_NOPS (result);
+	}
 
       set_rhs (stmt_p, result);
     }
+
+  return changed;
 }
 
 
@@ -1374,38 +1511,6 @@ set_rhs (tree *stmt_p, tree expr)
 }
 
 
-/* Get the constant value associated with variable VAR.  */
-
-static value *
-get_value (tree var)
-{
-  void **slot;
-  struct value_map_d *vm_p, vm;
-
-#if defined ENABLE_CHECKING
-  if (TREE_CODE (var) != SSA_NAME)
-    abort ();
-#endif
-
-  vm.var = var;
-  slot = htab_find_slot (const_values, (void *) &vm, INSERT);
-  if (*slot == NULL)
-    {
-      /* If this is the first time that we need the value for VAR and we
-	 still have not seen a definition for it, assume a default value
-	 accordingly (see get_default_value).  */
-      vm_p = xmalloc (sizeof (*vm_p));
-      vm_p->var = var;
-      vm_p->val = get_default_value (var);
-      *slot = (void *) vm_p;
-    }
-  else
-    vm_p = (struct value_map_d *) *slot;
-
-  return &(vm_p->val);
-}
-
-
 /* Return a default value for variable VAR using the following rules:
 
    1- Global and static variables are considered VARYING, unless they are
@@ -1450,22 +1555,6 @@ get_default_value (tree var)
     }
 
   return val;
-}
-
-
-/* Hash and compare functions for CONST_VALUES.  */
-
-static hashval_t
-value_map_hash (const void *p)
-{
-  return htab_hash_pointer ((const void *)((const struct value_map_d *)p)->var);
-}
-
-static int
-value_map_eq (const void *p1, const void *p2)
-{
-  return ((const struct value_map_d *)p1)->var
-	 == ((const struct value_map_d *)p2)->var;
 }
 
 

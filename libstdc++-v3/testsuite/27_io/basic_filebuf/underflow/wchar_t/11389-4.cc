@@ -26,7 +26,7 @@ const char name_04[] = "tmp_11389-4";
 void test04()
 {
   using namespace std;
-  bool test = true;
+  bool test __attribute__((unused)) = true;
 
   filebuf fbout;
   fbout.open(name_04, ios_base::out);
@@ -35,7 +35,7 @@ void test04()
   fbout.close();
   
   wfilebuf fbin;
-  locale loc(__gnu_cxx_test::try_named_locale("en_US.UTF-8"));
+  locale loc(__gnu_test::try_named_locale("en_US.UTF-8"));
   fbin.pubimbue(loc);
   fbin.pubsetbuf(0, 0);
   fbin.open(name_04, ios_base::in);

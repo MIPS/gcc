@@ -231,6 +231,28 @@ lookup_base_r (tree binfo, tree base, base_access access,
   return found;
 }
 
+/* Returns true if type BASE is accessible in T.  (BASE is known to be
+   a base class of T.)  */
+
+bool
+accessible_base_p (tree t, tree base)
+{
+  tree decl;
+
+  /* [class.access.base]
+
+     A base class is said to be accessible if an invented public
+     member of the base class is accessible.  */
+  /* Rather than inventing a public member, we use the implicit
+     public typedef created in the scope of every class.  */
+  decl = TYPE_FIELDS (base);
+  while (!DECL_SELF_REFERENCE_P (decl))
+    decl = TREE_CHAIN (decl);
+  while (ANON_AGGR_TYPE_P (t))
+    t = TYPE_CONTEXT (t);
+  return accessible_p (t, decl);
+}
+
 /* Lookup BASE in the hierarchy dominated by T.  Do access checking as
    ACCESS specifies.  Return the binfo we discover.  If KIND_PTR is
    non-NULL, fill with information about what kind of base we
@@ -287,39 +309,24 @@ lookup_base (tree t, tree base, base_access access, base_kind *kind_ptr)
 	break;
 
       default:
-	if (access != ba_ignore
+	if ((access & ~ba_quiet) != ba_ignore
 	    /* If BASE is incomplete, then BASE and TYPE are probably
 	       the same, in which case BASE is accessible.  If they
 	       are not the same, then TYPE is invalid.  In that case,
 	       there's no need to issue another error here, and
 	       there's no implicit typedef to use in the code that
 	       follows, so we skip the check.  */
-	    && COMPLETE_TYPE_P (base))
+	    && COMPLETE_TYPE_P (base)
+	    && !accessible_base_p (t, base))
 	  {
-	    tree decl;
-
-	    /* [class.access.base]
-
-	       A base class is said to be accessible if an invented public
-	       member of the base class is accessible.  */
-	    /* Rather than inventing a public member, we use the implicit
-	       public typedef created in the scope of every class.  */
-	    decl = TYPE_FIELDS (base);
-	    while (!DECL_SELF_REFERENCE_P (decl))
-	      decl = TREE_CHAIN (decl);
-	    while (ANON_AGGR_TYPE_P (t))
-	      t = TYPE_CONTEXT (t);
-	    if (!accessible_p (t, decl))
+	    if (!(access & ba_quiet))
 	      {
-		if (!(access & ba_quiet))
-		  {
-		    error ("`%T' is an inaccessible base of `%T'", base, t);
-		    binfo = error_mark_node;
-		  }
-		else
-		  binfo = NULL_TREE;
-		bk = bk_inaccessible;
+		error ("`%T' is an inaccessible base of `%T'", base, t);
+		binfo = error_mark_node;
 	      }
+	    else
+	      binfo = NULL_TREE;
+	    bk = bk_inaccessible;
 	  }
 	break;
       }
@@ -618,7 +625,7 @@ dfs_access_in_type (tree binfo, void *data)
 
   if (context_for_name_lookup (decl) == type)
     {
-      /* If we have desceneded to the scope of DECL, just note the
+      /* If we have descended to the scope of DECL, just note the
 	 appropriate access.  */
       if (TREE_PRIVATE (decl))
 	access = ak_private;
@@ -732,7 +739,7 @@ access_in_type (tree type, tree decl)
   return BINFO_ACCESS (binfo);
 }
 
-/* Called from dfs_accessible_p via dfs_walk.  */
+/* Called from accessible_p via dfs_walk.  */
 
 static tree
 dfs_accessible_queue_p (tree derived, int ix, void *data ATTRIBUTE_UNUSED)
@@ -751,20 +758,17 @@ dfs_accessible_queue_p (tree derived, int ix, void *data ATTRIBUTE_UNUSED)
   return binfo;
 }
 
-/* Called from dfs_accessible_p via dfs_walk.  */
+/* Called from accessible_p via dfs_walk.  */
 
 static tree
-dfs_accessible_p (tree binfo, void *data)
+dfs_accessible_p (tree binfo, void *data ATTRIBUTE_UNUSED)
 {
-  int protected_ok = data != 0;
   access_kind access;
 
   BINFO_MARKED (binfo) = 1;
   access = BINFO_ACCESS (binfo);
-  if (access == ak_public || (access == ak_protected && protected_ok))
-    return binfo;
-  else if (access != ak_none
-	   && is_friend (BINFO_TYPE (binfo), current_scope ()))
+  if (access != ak_none
+      && is_friend (BINFO_TYPE (binfo), current_scope ()))
     return binfo;
 
   return NULL_TREE;
@@ -891,6 +895,7 @@ accessible_p (tree type, tree decl)
 {
   tree binfo;
   tree t;
+  access_kind access;
 
   /* Nonzero if it's OK to access DECL if it has protected
      accessibility in TYPE.  */
@@ -951,18 +956,22 @@ accessible_p (tree type, tree decl)
 
   /* Compute the accessibility of DECL in the class hierarchy
      dominated by type.  */
-  access_in_type (type, decl);
-  /* Walk the hierarchy again, looking for a base class that allows
-     access.  */
-  t = dfs_walk (binfo, dfs_accessible_p, 
-		dfs_accessible_queue_p,
-		protected_ok ? &protected_ok : 0);
-  /* Clear any mark bits.  Note that we have to walk the whole tree
-     here, since we have aborted the previous walk from some point
-     deep in the tree.  */
-  dfs_walk (binfo, dfs_unmark, 0,  0);
+  access = access_in_type (type, decl);
+  if (access == ak_public
+      || (access == ak_protected && protected_ok))
+    return 1;
+  else
+    {
+      /* Walk the hierarchy again, looking for a base class that allows
+	 access.  */
+      t = dfs_walk (binfo, dfs_accessible_p, dfs_accessible_queue_p, 0);
+      /* Clear any mark bits.  Note that we have to walk the whole tree
+	 here, since we have aborted the previous walk from some point
+	 deep in the tree.  */
+      dfs_walk (binfo, dfs_unmark, 0,  0);
 
-  return t != NULL_TREE;
+      return t != NULL_TREE;
+    }
 }
 
 struct lookup_field_info {
@@ -2116,6 +2125,20 @@ setup_class_bindings (tree name, int type_binding_p)
 	  if (BASELINK_P (value_binding))
 	    /* NAME is some overloaded functions.  */
 	    value_binding = BASELINK_FUNCTIONS (value_binding);
+	  /* Two conversion operators that convert to the same type
+	     may have different names.  (See
+	     mangle_conv_op_name_for_type.)  To avoid recording the
+	     same conversion operator declaration more than once we
+	     must check to see that the same operator was not already
+	     found under another name.  */
+	  if (IDENTIFIER_TYPENAME_P (name)
+	      && is_overloaded_fn (value_binding))
+	    {
+	      tree fns;
+	      for (fns = value_binding; fns; fns = OVL_NEXT (fns))
+		if (IDENTIFIER_CLASS_VALUE (DECL_NAME (OVL_CURRENT (fns))))
+		  return;
+	    }
 	  pushdecl_class_level (value_binding);
 	}
     }
@@ -2300,8 +2323,27 @@ add_conversions (tree binfo, void *data)
       /* Make sure we don't already have this conversion.  */
       if (! IDENTIFIER_MARKED (name))
 	{
-	  *conversions = tree_cons (binfo, tmp, *conversions);
-	  IDENTIFIER_MARKED (name) = 1;
+	  tree t;
+
+	  /* Make sure that we do not already have a conversion
+	     operator for this type.  Merely checking the NAME is not
+	     enough because two conversion operators to the same type
+	     may not have the same NAME.  */
+	  for (t = *conversions; t; t = TREE_CHAIN (t))
+	    {
+	      tree fn;
+	      for (fn = TREE_VALUE (t); fn; fn = OVL_NEXT (fn))
+		if (same_type_p (TREE_TYPE (name),
+				 DECL_CONV_FN_TYPE (OVL_CURRENT (fn))))
+		  break;
+	      if (fn)
+		break;
+	    }
+	  if (!t)
+	    {
+	      *conversions = tree_cons (binfo, tmp, *conversions);
+	      IDENTIFIER_MARKED (name) = 1;
+	    }
 	}
     }
   return NULL_TREE;

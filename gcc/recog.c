@@ -333,7 +333,7 @@ apply_change_group (void)
     {
       rtx object = changes[i].object;
 
-      /* if there is no object to test or if it is the same as the one we
+      /* If there is no object to test or if it is the same as the one we
          already tested, ignore it.  */
       if (object == 0 || object == last_validated)
 	continue;
@@ -1949,7 +1949,7 @@ offsettable_address_p (int strictp, enum machine_mode mode, rtx y)
    because the amount of the increment depends on the mode.  */
 
 int
-mode_dependent_address_p (rtx addr ATTRIBUTE_UNUSED /* Maybe used in GO_IF_MODE_DEPENDENT_ADDRESS. */)
+mode_dependent_address_p (rtx addr ATTRIBUTE_UNUSED /* Maybe used in GO_IF_MODE_DEPENDENT_ADDRESS.  */)
 {
   GO_IF_MODE_DEPENDENT_ADDRESS (addr, win);
   return 0;

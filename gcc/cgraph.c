@@ -162,7 +162,7 @@ create_edge (struct cgraph_node *caller, struct cgraph_node *callee)
      as we probably ought to, so we must preserve inline_call flags to
      be the same in all copies of the same edge.  */
   if (cgraph_global_info_ready)
-    for (edge2 = caller->callees; edge2; edge2 = edge2->next_caller)
+    for (edge2 = caller->callees; edge2; edge2 = edge2->next_callee)
       if (edge2->callee == callee)
 	{
 	  edge->inline_call = edge2->inline_call;
@@ -234,26 +234,40 @@ cgraph_remove_node (struct cgraph_node *node)
   /* Do not free the structure itself so the walk over chain can continue.  */
 }
 
-/* Notify finalize_compilation_unit that given node is reachable
-   or needed.  */
+/* Notify finalize_compilation_unit that given node is reachable.  */
+
 void
-cgraph_mark_needed_node (struct cgraph_node *node, int needed)
+cgraph_mark_reachable_node (struct cgraph_node *node)
 {
-  if (needed)
+  if (!node->reachable && node->local.finalized)
     {
-      node->needed = 1;
-    }
-  if (!node->reachable)
-    {
+      notice_global_symbol (node->decl);
       node->reachable = 1;
-      if (DECL_SAVED_TREE (node->decl))
+
+      node->next_needed = cgraph_nodes_queue;
+      cgraph_nodes_queue = node;
+
+      /* At the moment frontend automatically emits all nested functions.  */
+      if (node->nested)
 	{
-	  node->next_needed = cgraph_nodes_queue;
-	  cgraph_nodes_queue = node;
-        }
+	  struct cgraph_node *node2;
+
+	  for (node2 = node->nested; node2; node2 = node2->next_nested)
+	    if (!node2->reachable)
+	      cgraph_mark_reachable_node (node2);
+	}
     }
 }
 
+/* Likewise indicate that a node is needed, i.e. reachable via some
+   external means.  */
+
+void
+cgraph_mark_needed_node (struct cgraph_node *node)
+{
+  node->needed = 1;
+  cgraph_mark_reachable_node (node);
+}
 
 /* Record call from CALLER to CALLEE  */
 
@@ -353,7 +367,7 @@ dump_cgraph (FILE *f)
       if (DECL_SAVED_TREE (node->decl))
 	fprintf (f, " tree");
 
-      if (node->local.disgread_inline_limits)
+      if (node->local.disregard_inline_limits)
 	fprintf (f, " always_inline");
       else if (node->local.inlinable)
 	fprintf (f, " inlinable");
@@ -361,10 +375,8 @@ dump_cgraph (FILE *f)
 	fprintf (f, " %i insns after inlining", node->global.insns);
       if (node->global.cloned_times > 1)
 	fprintf (f, " cloned %ix", node->global.cloned_times);
-      if (node->global.calls)
-	fprintf (f, " %i calls", node->global.calls);
 
-      fprintf (f, "\n  called by :");
+      fprintf (f, "\n  called by: ");
       for (edge = node->callers; edge; edge = edge->next_caller)
 	{
 	  fprintf (f, "%s ", cgraph_node_name (edge->caller));
@@ -460,6 +472,7 @@ cgraph_varpool_mark_needed_node (struct cgraph_varpool_node *node)
     {
       node->next_needed = cgraph_varpool_nodes_queue;
       cgraph_varpool_nodes_queue = node;
+      notice_global_symbol (node->decl);
     }
   node->needed = 1;
 }
@@ -468,11 +481,18 @@ void
 cgraph_varpool_finalize_decl (tree decl)
 {
   struct cgraph_varpool_node *node = cgraph_varpool_node (decl);
-
-  if (node->needed && !node->finalized)
+ 
+  /* The first declaration of a variable that comes through this function
+     decides whether it is global (in C, has external linkage)
+     or local (in C, has internal linkage).  So do nothing more
+     if this function has already run.  */
+  if (node->finalized)
+    return;
+  if (node->needed)
     {
       node->next_needed = cgraph_varpool_nodes_queue;
       cgraph_varpool_nodes_queue = node;
+      notice_global_symbol (decl);
     }
   node->finalized = true;
 

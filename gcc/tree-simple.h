@@ -25,51 +25,52 @@ Boston, MA 02111-1307, USA.  */
 
 #include "tree-iterator.h"
 
-/* Interface used in [break/goto]-elimination: to be declared in a .h file. */
-extern void insert_before_continue_end (tree, tree);
-extern void tree_build_scope (tree *);
 extern tree create_tmp_var (tree, const char *);
 extern tree create_tmp_alias_var (tree, const char *);
 extern bool is_gimple_tmp_var (tree);
-extern tree get_initialized_tmp_var (tree, tree *);
+extern tree get_initialized_tmp_var (tree, tree *, tree *);
 extern tree get_formal_tmp_var (tree, tree *);
 extern void declare_tmp_vars (tree, tree);
-extern tree deep_copy_list (tree);
-extern tree deep_copy_node (tree);
-extern tree update_line_number (tree, int);
 
 extern tree rationalize_compound_expr (tree);
 extern tree right_assocify_expr (tree);
 extern void annotate_all_with_file_line (tree *, const char *, int);
 
-/* Validation of GIMPLE expressions.  */
-int is_gimple_expr (tree);
-int is_gimple_rhs (tree);
-int is_gimple_modify_expr (tree);
-int is_gimple_modify_expr_lhs (tree);
-bool is_gimple_relop (enum tree_code);
-int is_gimple_binary_expr (tree);
-int is_gimple_condexpr (tree);
-int is_gimple_unary_expr (tree);
-int is_gimple_call_expr (tree);
-int is_gimple_arglist (tree);
-int is_gimple_const (tree);
-int is_gimple_id (tree);
-int is_gimple_varname (tree);
-int is_gimple_addr_expr_arg (tree);
-int is_gimple_val (tree);
-int is_gimple_min_lval (tree);
-int is_gimple_compound_lval (tree);
-int is_gimple_arrayref (tree);
-int is_gimple_compref (tree);
-int is_gimple_cast (tree);
-int is_gimple_cast_op (tree);
-int is_gimple_exprseq (tree);
-int is_gimple_constructor (tree);
-int is_gimple_constructor_elt (tree);
-int is_gimple_initializer (tree);
-int is_gimplifiable_builtin (tree);
+/* Validation of GIMPLE expressions.  Note that these predicates only check
+   the basic form of the expression, they don't recurse to make sure that
+   underlying nodes are also of the right form.  */
+
+/* Returns 1 iff T is a valid GIMPLE statement.  */
 int is_gimple_stmt (tree);
+
+/* Returns 1 iff TYPE is a valid type for a scalar register variable.  */
+bool is_gimple_reg_type (tree);
+/* Returns 1 iff T is a scalar register variable.  */
+int is_gimple_reg (tree);
+/* Returns 1 iff T is any sort of variable.  */
+int is_gimple_variable (tree);
+/* Returns 1 iff T is a variable or an INDIRECT_REF (of a variable).  */
+int is_gimple_min_lval (tree);
+/* Returns 1 iff T is an lvalue other than an INDIRECT_REF.  */
+int is_gimple_addr_expr_arg (tree);
+/* Returns 1 iff T is any valid GIMPLE lvalue.  */
+int is_gimple_lvalue (tree);
+
+/* Returns 1 iff T is a GIMPLE constant.  */
+int is_gimple_const (tree);
+/* Returns 1 iff T is a GIMPLE rvalue.  */
+int is_gimple_val (tree);
+/* Returns 1 iff T is a valid rhs for a MODIFY_EXPR.  */
+int is_gimple_rhs (tree);
+
+/* Returns 1 iff T is a valid if-statement condition.  */
+int is_gimple_condexpr (tree);
+
+/* Returns 1 iff T is a type conversion.  */
+int is_gimple_cast (tree);
+/* Returns 1 iff T is a valid CONSTRUCTOR element (either an rvalue or
+   another CONSTRUCTOR).  */
+int is_gimple_constructor_elt (tree);
 
 void recalculate_side_effects (tree);
 

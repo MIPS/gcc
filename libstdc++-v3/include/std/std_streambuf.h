@@ -37,8 +37,8 @@
  *  in your programs, rather than any of the "st[dl]_*.h" implementation files.
  */
 
-#ifndef _STREAMBUF
-#define _STREAMBUF 1
+#ifndef _CLIBXX_STREAMBUF
+#define _CLIBXX_STREAMBUF 1
 
 #pragma GCC system_header
 
@@ -140,12 +140,10 @@ namespace std
       //@{
       /**
        *  @if maint
-       *  These are non-standard types.
+       *  This is a non-standard type.
        *  @endif
       */
-      typedef ctype<char_type>           		__ctype_type;
       typedef basic_streambuf<char_type, traits_type>  	__streambuf_type;
-      typedef typename traits_type::state_type 		__state_type;
       //@}
       
       friend class basic_ios<char_type, traits_type>;
@@ -777,11 +775,8 @@ namespace std
     };
 } // namespace std
 
-#ifdef _GLIBCXX_NO_TEMPLATE_EXPORT
-# define export
-#endif
-#ifdef  _GLIBCXX_FULLY_COMPLIANT_HEADERS
-#include <bits/streambuf.tcc>
+#ifndef _GLIBCXX_EXPORT_TEMPLATE
+# include <bits/streambuf.tcc>
 #endif
 
-#endif	
+#endif /* _GLIBCXX_STREAMBUF */

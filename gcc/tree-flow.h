@@ -41,12 +41,7 @@ enum tree_container_note
 {
   TCN_STATEMENT,
   TCN_BIND,
-  TCN_UNBIND,
-  TCN_TRY,
-  TCN_FINALLY,
-  TCN_FINALLY_END,
-  TCN_CATCH,
-  TCN_CATCH_END
+  TCN_UNBIND
 };
 
 struct tree_container GTY (())
@@ -59,21 +54,11 @@ struct tree_container GTY (())
 
 typedef struct tree_container *tree_cell;
 
-enum block_tree_type {BT_BIND, BT_TRY, BT_FINALLY, BT_CATCH};
 extern struct block_tree
 {
-  enum block_tree_type type;
   basic_block entry;
-  basic_block exit;
 
-  struct block_tree *of;	/* For try block, specifies what catch/finally
-				   block it corresponds to.  For catch block,
-				   it links to the following catch_expr
-				   block.  */
-
-  tree bind;			/* For bind block, the corresponding
-				   bindings.  For catch block the CATCH_EXPR
-				   or EH_FILTER_EXPR (if any).  */
+  tree bind;			/* The corresponding bindings.  */
  
   int level;
   struct block_tree *outer;
@@ -144,7 +129,7 @@ struct var_ann_d GTY(())
      forces all operands to this variable to always be virtual, because
      VA_ARG_EXPR both reads and modifies its argument and it can't be
      modified by optimizations.  */
-  unsigned is_in_va_arg_expr;
+  unsigned is_in_va_arg_expr : 1;
 
   /* A VAR_DECL used to associated pointers with the memory location that
      they are pointing to.  If IS_MEM_TAG is nonzero, then MEM_TAG is the
@@ -168,16 +153,22 @@ struct var_ann_d GTY(())
 
   /* Scope in that the variable is defined.  */
   struct block_tree * GTY ((skip (""))) scope;
+
+  /* Default definition for this symbol.  If this field is not NULL, it
+     means that the first reference to this variable in the function is a
+     USE or a VUSE.  In those cases, the SSA renamer creates an SSA name
+     for this variable with an empty defining statement.  */
+  tree default_def;
 };
 
 
 struct operands_d GTY(())
 {
   /* LHS of assignment statements.  */
-  varray_type GTY ((skip (""))) def_ops;
+  varray_type def_ops;
 
   /* Array of pointers to each operand in the statement.  */
-  varray_type GTY ((skip (""))) use_ops;
+  varray_type use_ops;
 };
 
 typedef struct operands_d *operands_t;
@@ -189,7 +180,7 @@ struct voperands_d GTY(())
   varray_type vdef_ops;
 
   /* List of VUSE references in this statement.  */
-  varray_type GTY ((skip (""))) vuse_ops;
+  varray_type vuse_ops;
 };
 
 typedef struct voperands_d *voperands_t;
@@ -200,7 +191,10 @@ struct dataflow_d GTY(())
   /* Immediate uses.  This is a list of all the statements and PHI nodes
      that are immediately reached by the definitions made in this
      statement.  */
-  varray_type GTY ((skip (""))) immediate_uses;
+  varray_type immediate_uses;
+
+  /* Use this array for very small numbers of uses instead of the varray.  */
+  tree uses[2];
 
   /* Reached uses.  This is a list of all the possible program statements
      that may be reached directly or indirectly by definitions made in this
@@ -218,7 +212,6 @@ struct dataflow_d GTY(())
      includes statement #5 because 'a1' could reach 'a3' via the PHI node
      at statement #4.  The set of REACHED_USES is then the transitive
      closure over all the PHI nodes in the IMMEDIATE_USES set.  */
-  varray_type GTY ((skip (""))) reached_uses;
 
   /* Reaching definitions.  Similarly to REACHED_USES, the set
      REACHING_DEFS is the set of all the statements that make definitions
@@ -226,7 +219,6 @@ struct dataflow_d GTY(())
      similar entry for immediate definitions, as these are represented by
      the SSA_NAME nodes themselves (each SSA_NAME node contains a pointer
      to the statement that makes that definition).  */
-  varray_type GTY ((skip (""))) reaching_defs;
 };
 
 typedef struct dataflow_d *dataflow_t;
@@ -315,10 +307,13 @@ static inline varray_type vuse_ops (tree);
 static inline varray_type use_ops (tree);
 static inline varray_type def_ops (tree);
 static inline varray_type addresses_taken (tree);
-static inline varray_type immediate_uses (tree);
-static inline varray_type reaching_defs (tree);
+static inline int num_immediate_uses (dataflow_t);
+static inline tree immediate_use (dataflow_t, int);
+static inline dataflow_t get_immediate_uses (tree);
 static inline bool has_hidden_use (tree);
 static inline void set_has_hidden_use (tree);
+static inline void set_default_def (tree, tree);
+static inline tree default_def (tree);
 
 
 /*---------------------------------------------------------------------------
@@ -329,7 +324,11 @@ struct bb_ann_d
   /* Chain of PHI nodes created in this block.  */
   tree phi_nodes;
 
+  /* Chain of EPHI nodes created in this block.  */
   tree ephi_nodes;
+  
+  /* EUSE/ELEFT/EKILL/EPHI nodes created in this block.  */
+  varray_type erefs;
 
   /* Set of blocks immediately dominated by this node.  */
   bitmap dom_children;
@@ -375,6 +374,7 @@ static inline tree *bsi_stmt_ptr (block_stmt_iterator);
 static inline tree_stmt_iterator tsi_from_bsi (block_stmt_iterator);
 
 extern void bsi_remove (block_stmt_iterator *);
+extern void bsi_remove_leave_annot (block_stmt_iterator *);
 
 enum bsi_iterator_update
 {
@@ -399,16 +399,11 @@ extern void bsi_insert_list_before (block_stmt_iterator *, tree_stmt_anchor);
 extern void bsi_insert_list_after (block_stmt_iterator *, tree_stmt_anchor);
 extern block_stmt_iterator bsi_insert_list_on_edge (edge, tree_stmt_anchor);
 
-void bsi_next_in_bb (block_stmt_iterator *, basic_block);
-
 tree tree_block_label (basic_block);
 
 /*---------------------------------------------------------------------------
 			      Global declarations
 ---------------------------------------------------------------------------*/
-/* Nonzero to warn about variables used before they are initialized.  */
-extern int tree_warn_uninitialized;
-
 /* Array of all variables referenced in the function.  */
 extern GTY(()) varray_type referenced_vars;
 
@@ -464,7 +459,6 @@ extern tree last_stmt (basic_block);
 extern tree *last_stmt_ptr (basic_block);
 extern edge find_taken_edge (basic_block, tree);
 extern int call_expr_flags (tree);
-extern int could_trap_p (tree);
 extern basic_block tree_split_edge (edge);
 extern void block_tree_free (void);
 extern void tree_move_block_after (basic_block, basic_block, int);
@@ -472,6 +466,10 @@ extern edge tree_split_block (basic_block, block_stmt_iterator);
 extern void tree_cleanup_block_edges (basic_block, int);
 extern void assign_vars_to_scopes (void);
 extern tree build_new_label (void);
+extern void bsi_move_before (block_stmt_iterator, block_stmt_iterator);
+extern void bsi_move_after (block_stmt_iterator, block_stmt_iterator);
+extern void bsi_move_to_bb_end (block_stmt_iterator, basic_block);
+extern basic_block label_to_block (tree);
 
 /* In tree-dfa.c  */
 void find_referenced_vars (tree);
@@ -509,6 +507,7 @@ extern void add_vuse (tree, tree, voperands_t);
 extern void add_vdef (tree, tree, voperands_t);
 extern bool virtual_op_p (tree);
 extern void create_global_var (void);
+extern void add_referenced_tmp_var (tree var);
 
 /* Flags used when computing reaching definitions and reached uses.  */
 #define TDFA_USE_OPS		1 << 0
@@ -517,8 +516,8 @@ extern void create_global_var (void);
 
 /* In tree-ssa.c  */
 extern void init_tree_ssa (void);
-extern void rewrite_into_ssa (tree, sbitmap);
-extern void rewrite_out_of_ssa (tree);
+extern void rewrite_into_ssa (tree, sbitmap, enum tree_dump_index);
+extern void rewrite_out_of_ssa (tree, enum tree_dump_index);
 extern void dump_reaching_defs (FILE *);
 extern void debug_reaching_defs (void);
 extern void dump_tree_ssa (FILE *);
@@ -528,43 +527,54 @@ extern void dump_tree_ssa_stats (FILE *);
 extern void debug_tree_ssa_stats (void);
 extern void ssa_remove_edge (edge);
 extern void set_is_used (tree);
+extern bool tree_ssa_useless_type_conversion (tree);
+extern void build_dominator_tree (dominance_info);
+extern unsigned int next_ssa_version;
 
 /* In tree-ssa-pre.c  */
-extern void tree_perform_ssapre (tree);
+extern void tree_perform_ssapre (tree, enum tree_dump_index);
 
 /* In tree-ssa-ccp.c  */
-void tree_ssa_ccp (tree);
-void fold_stmt (tree *);
+void tree_ssa_ccp (tree, sbitmap, enum tree_dump_index);
+bool fold_stmt (tree *);
+tree widen_bitfield (tree, tree, tree);
 
 /* In tree-ssa-dom.c  */
-extern bool tree_ssa_dominator_optimize (tree);
+extern void tree_ssa_dominator_optimize (tree, sbitmap, enum tree_dump_index);
 extern void dump_dominator_optimization_stats (FILE *);
 extern void debug_dominator_optimization_stats (void);
+extern void mark_new_vars_to_rename (tree, sbitmap);
 
 /* In tree-ssa-dce.c  */
-void tree_ssa_dce (tree);
+void tree_ssa_dce (tree, enum tree_dump_index);
 
 
 /* In tree-ssa-copyprop.c  */
-void tree_ssa_copyprop (tree);
+void tree_ssa_copyprop (tree, enum tree_dump_index);
 void propagate_copy (basic_block, tree *, tree);
 void fixup_var_scope (basic_block, tree);
-
 
 /* In tree-flow-inline.h  */
 static inline int phi_arg_from_edge (tree, edge);
 static inline struct phi_arg_d *phi_element_for_edge (tree, edge);
 static inline bool is_unchanging_value (tree);
-static inline bool is_optimizable_addr_expr (tree);
 static inline bool may_propagate_copy (tree, tree);
 
 /* In tree-must-alias.c  */
-void tree_compute_must_alias (tree);
+void tree_compute_must_alias (tree, sbitmap, enum tree_dump_index);
 
 /* In tree-flatten.c.  */
 tree_cell tree_cell_alloc (tree, enum tree_container_note);
 void tree_flatten_statement (tree, tree_cell *, tree);
 tree tree_unflatten_statements (void);
+
+/* In tree-eh.c  */
+extern void lower_eh_constructs (tree *);
+extern void make_eh_edges (tree);
+extern bool tree_could_trap_p (tree);
+extern bool tree_could_throw_p (tree);
+extern bool tree_can_throw_internal (tree);
+extern bool tree_can_throw_external (tree);
 
 #include "tree-flow-inline.h"
 

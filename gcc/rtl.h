@@ -684,6 +684,11 @@ enum reg_note
      return.  */
   REG_BR_PROB,
 
+  /* REG_VALUE_PROFILE is attached when the profile is read in to an insn
+     before that the code to profile the value is inserted.  It contains
+     the results of profiling.  */
+  REG_VALUE_PROFILE,
+
   /* Attached to a call insn; indicates that the call is malloc-like and
      that the pointer returned cannot alias anything else.  */
   REG_NOALIAS,
@@ -1811,8 +1816,6 @@ extern GTY(()) rtx global_rtl[GR_MAX];
 #define arg_pointer_rtx		(global_rtl[GR_ARG_POINTER])
 
 extern GTY(()) rtx pic_offset_table_rtx;
-extern GTY(()) rtx struct_value_rtx;
-extern GTY(()) rtx struct_value_incoming_rtx;
 extern GTY(()) rtx static_chain_rtx;
 extern GTY(()) rtx static_chain_incoming_rtx;
 extern GTY(()) rtx return_address_pointer_rtx;
@@ -1906,6 +1909,7 @@ extern rtx gen_lowpart_SUBREG (enum machine_mode, rtx);
 #define INVALID_REGNUM			(~(unsigned int) 0)
 
 extern rtx output_constant_def (tree, int);
+extern rtx lookup_constant_def (tree);
 
 /* Called from integrate.c when a deferred constant is inlined.  */
 extern void notice_rtl_inlining_of_deferred_constant (void);
@@ -2143,6 +2147,7 @@ extern void build_insn_chain (rtx);
 extern int reg_classes_intersect_p (enum reg_class, enum reg_class);
 extern int reg_class_subset_p (enum reg_class, enum reg_class);
 extern void globalize_reg (int);
+extern void init_reg_modes_once (void);
 extern void init_regs (void);
 extern void init_fake_stack_mems (void);
 extern void init_reg_sets (void);
@@ -2248,6 +2253,7 @@ extern int canon_true_dependence (rtx, enum machine_mode, rtx, rtx,
 extern int read_dependence (rtx, rtx);
 extern int anti_dependence (rtx, rtx);
 extern int output_dependence (rtx, rtx);
+extern int unchanging_anti_dependence (rtx, rtx);
 extern void mark_constant_function (void);
 extern void init_alias_once (void);
 extern void init_alias_analysis (void);

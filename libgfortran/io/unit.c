@@ -1,21 +1,20 @@
-
 /* Copyright (C) 2002-2003 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
-This file is part of GNU G95.
+This file is part of the GNU Fortran 95 runtime library (libgfortran).
 
-GNU G95 is free software; you can redistribute it and/or modify
+Libgfortran is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU G95 is distributed in the hope that it will be useful,
+Libgfortran is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU G95; see the file COPYING.  If not, write to
+along with Libgfortran; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -239,61 +238,6 @@ find_unit (int n)
   return p;
 }
 
-
-/* implicit_unit()-- Given a unit number open the implicit unit,
- * usually of the form "fort.n" unless overridden by an environment
- * variable.  The unit structure is inserted into the tree, and the
- * file is opened for reading and writing */
-
-static unit_t *
-implicit_unit (int unit_number)
-{
-  char *p, buffer[100];
-  stream *s;
-  unit_t *u;
-
-  strcpy (buffer, "G95_NAME_");
-  strcat (buffer, itoa (unit_number));
-
-  p = getenv (buffer);
-  if (p == NULL)
-    {
-      strcpy (buffer, "fort.");
-      strcat (buffer, itoa (unit_number));
-      p = buffer;
-    }
-
-  s = open_external (ACTION_READWRITE, STATUS_REPLACE);
-  if (s == NULL)
-    {
-      generate_error (ERROR_OS, NULL);
-      return NULL;
-    }
-
-  u = get_mem (sizeof (unit_t) + strlen (p));
-  u->unit_number = unit_number;
-  u->s = s;
-
-  /* Set flags */
-
-  u->flags.access = ACCESS_SEQUENTIAL;
-  u->flags.action = ACTION_READWRITE;
-  u->flags.blank = BLANK_NULL;
-  u->flags.delim = DELIM_NONE;
-  u->flags.form = (ioparm.format == NULL && ioparm.list_format)
-    ? FORM_UNFORMATTED : FORM_FORMATTED;
-
-  u->flags.position = POSITION_ASIS;
-
-  u->file_len = strlen (p);
-  memcpy (u->file, p, u->file_len);
-
-  insert_unit (u);
-
-  return u;
-}
-
-
 /* get_unit()-- Returns the unit structure associated with the integer
  * unit or the internal file. */
 
@@ -323,15 +267,7 @@ get_unit (int read_flag)
   if (u != NULL)
     return u;
 
-  if (read_flag)
-    {
-      generate_error (ERROR_BAD_UNIT, NULL);
-      return NULL;
-    }
-
-  /* Open an unit implicitly */
-
-  return implicit_unit (ioparm.unit);
+  return NULL;
 }
 
 

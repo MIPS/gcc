@@ -942,7 +942,7 @@ static void retry_incomplete_types (void);
 #endif
 
 /* Pseudo-ops for pushing the current section onto the section stack (and
-   simultaneously changing to a new section) and for poping back to the
+   simultaneously changing to a new section) and for popping back to the
    section we were in immediately before this one.  Note that most svr4
    assemblers only maintain a one level stack... you can push all the
    sections you want, but you can only pop out one level.  (The sparc
@@ -2036,9 +2036,8 @@ output_reg_number (rtx rtl)
 
   if (regno >= DWARF_FRAME_REGISTERS)
     {
-      warning_with_decl (dwarf_last_decl,
-			 "internal regno botch: `%s' has regno = %d\n",
-			 regno);
+      warning ("%Jinternal regno botch: '%D' has regno = %d\n",
+	       dwarf_last_decl, dwarf_last_decl, regno);
       regno = 0;
     }
   dw2_assemble_integer (4, GEN_INT (DBX_REGISTER_NUMBER (regno)));
@@ -3412,10 +3411,10 @@ name_and_src_coords_attributes (tree decl)
 	   Fred Fish sez that m68k/svr4 assemblers botch those.  */
 
 	ASM_OUTPUT_POP_SECTION (asm_out_file);
-	file_index = lookup_filename (TREE_FILENAME (decl));
+	file_index = lookup_filename (DECL_SOURCE_FILE (decl));
 	ASM_OUTPUT_PUSH_SECTION (asm_out_file, DEBUG_SECTION);
 
-	src_coords_attribute (file_index, TREE_LINENO (decl));
+	src_coords_attribute (file_index, DECL_SOURCE_LINE (decl));
       }
 #endif /* defined(DWARF_DECL_COORDINATES) */
     }
@@ -4043,7 +4042,7 @@ output_compile_unit_die (void *arg)
     stmt_list_attribute (LINE_BEGIN_LABEL);
 
   {
-    const char *wd = getpwd ();
+    const char *wd = get_src_pwd ();
     if (wd)
       comp_dir_attribute (wd);
   }
@@ -4066,7 +4065,7 @@ output_string_type_die (void *arg)
   sibling_attribute ();
   equate_type_number_to_die_number (type);
   member_attribute (TYPE_CONTEXT (type));
-  /* this is a fixed length string */
+  /* This is a fixed length string.  */
   byte_size_attribute (type);
 }
 
@@ -5226,13 +5225,13 @@ output_decl (tree decl, tree containing_scope)
 
 	    if (fn_arg_types)
 	      {
-	      /* this is the prototyped case, check for ...  */
+	      /* This is the prototyped case, check for....  */
 	      if (TREE_VALUE (tree_last (fn_arg_types)) != void_type_node)
 	        output_die (output_unspecified_parameters_die, decl);
 	      }
 	    else
 	      {
-		/* this is unprototyped, check for undefined (just declaration) */
+		/* This is unprototyped, check for undefined (just declaration).  */
 		if (!DECL_INITIAL (decl))
 		  output_die (output_unspecified_parameters_die, decl);
 	      }
@@ -5619,7 +5618,7 @@ dwarfout_file_scope_decl (tree decl, int set_finalizing)
       /* ??? This code is different than the equivalent code in dwarf2out.c.
 	 The dwarf2out.c code is probably more correct.  */
 
-      if (TREE_LINENO (decl) == 0
+      if (DECL_SOURCE_LINE (decl) == 0
 	  && (type_is_fundamental (TREE_TYPE (decl))
 	      || TREE_CODE (TREE_TYPE (decl)) == LANG_TYPE))
 	return;
@@ -6114,7 +6113,7 @@ dwarfout_init (const char *main_input_filename)
 	  ASM_OUTPUT_PUSH_SECTION (asm_out_file, DEBUG_SFNAMES_SECTION);
 	  ASM_OUTPUT_LABEL (asm_out_file, SFNAMES_BEGIN_LABEL);
 	  {
-	    const char *pwd = getpwd ();
+	    const char *pwd = get_src_pwd ();
 	    char *dirname;
 
 	    if (!pwd)

@@ -1418,9 +1418,8 @@ profile_function (FILE *file ATTRIBUTE_UNUSED)
 # define NO_PROFILE_COUNTERS	0
 #endif
 #if defined(ASM_OUTPUT_REG_PUSH)
-#if defined(STRUCT_VALUE_INCOMING_REGNUM) || defined(STRUCT_VALUE_REGNUM)
   int sval = current_function_returns_struct;
-#endif
+  rtx svrtx = targetm.calls.struct_value_rtx (TREE_TYPE (current_function_decl), 1);
 #if defined(STATIC_CHAIN_INCOMING_REGNUM) || defined(STATIC_CHAIN_REGNUM)
   int cxt = current_function_needs_context;
 #endif
@@ -1437,16 +1436,9 @@ profile_function (FILE *file ATTRIBUTE_UNUSED)
 
   function_section (current_function_decl);
 
-#if defined(STRUCT_VALUE_INCOMING_REGNUM) && defined(ASM_OUTPUT_REG_PUSH)
-  if (sval)
-    ASM_OUTPUT_REG_PUSH (file, STRUCT_VALUE_INCOMING_REGNUM);
-#else
-#if defined(STRUCT_VALUE_REGNUM) && defined(ASM_OUTPUT_REG_PUSH)
-  if (sval)
-    {
-      ASM_OUTPUT_REG_PUSH (file, STRUCT_VALUE_REGNUM);
-    }
-#endif
+#if defined(ASM_OUTPUT_REG_PUSH)
+  if (sval && GET_CODE (svrtx) == REG)
+    ASM_OUTPUT_REG_PUSH (file, REGNO (svrtx));
 #endif
 
 #if defined(STATIC_CHAIN_INCOMING_REGNUM) && defined(ASM_OUTPUT_REG_PUSH)
@@ -1475,16 +1467,9 @@ profile_function (FILE *file ATTRIBUTE_UNUSED)
 #endif
 #endif
 
-#if defined(STRUCT_VALUE_INCOMING_REGNUM) && defined(ASM_OUTPUT_REG_PUSH)
-  if (sval)
-    ASM_OUTPUT_REG_POP (file, STRUCT_VALUE_INCOMING_REGNUM);
-#else
-#if defined(STRUCT_VALUE_REGNUM) && defined(ASM_OUTPUT_REG_PUSH)
-  if (sval)
-    {
-      ASM_OUTPUT_REG_POP (file, STRUCT_VALUE_REGNUM);
-    }
-#endif
+#if defined(ASM_OUTPUT_REG_PUSH)
+  if (sval && GET_CODE (svrtx) == REG)
+    ASM_OUTPUT_REG_POP (file, REGNO (svrtx));
 #endif
 }
 
@@ -1570,7 +1555,7 @@ final (rtx first, FILE *file, int optimize, int prescan)
 
   for (insn = first; insn; insn = NEXT_INSN (insn))
     {
-      if (INSN_UID (insn) > max_uid)       /* find largest UID */
+      if (INSN_UID (insn) > max_uid)       /* Find largest UID.  */
 	max_uid = INSN_UID (insn);
       if (GET_CODE (insn) == NOTE && NOTE_LINE_NUMBER (insn) > 0)
 	line_note_exists[NOTE_LINE_NUMBER (insn)] = 1;
@@ -2486,9 +2471,6 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 
 	/* Emit information for vtable gc.  */
 	note = find_reg_note (insn, REG_VTABLE_REF, NULL_RTX);
-	if (note)
-	  assemble_vtable_entry (XEXP (XEXP (note, 0), 0),
-				 INTVAL (XEXP (XEXP (note, 0), 1)));
 
 	current_output_insn = debug_insn = 0;
       }

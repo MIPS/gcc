@@ -47,7 +47,7 @@ void test04()
   typedef char					ext_type;
   typedef char_traits<char>			ext_traits;
 
-  bool 			test = true;
+  bool test __attribute__((unused)) = true;
   const int_type 	i_lit[] = {
     0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9, 0xa, 0xb, 0xc,
     0xd, 0xe, 0xf, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
@@ -80,7 +80,7 @@ void test04()
   memset(e_ref, 0xf0, size + 1);
   ext_type*		eto_next;
 
-  locale loc = __gnu_cxx_test::try_named_locale("en_US.UTF-8");
+  locale loc = __gnu_test::try_named_locale("en_US.UTF-8");
   locale::global(loc);
   const w_codecvt* 	cvt = &use_facet<w_codecvt>(loc); 
 

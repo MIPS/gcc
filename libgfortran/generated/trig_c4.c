@@ -4,12 +4,12 @@
 
 This file is part of the GNU Fortran 95 runtime library (libgfor).
 
-GNU G95 is free software; you can redistribute it and/or
+Libgfortran is free software; you can redistribute it and/or
 modify it under the terms of the GNU Lesser General Public
 License as published by the Free Software Foundation; either
 version 2.1 of the License, or (at your option) any later version.
 
-GNU G95 is distributed in the hope that it will be useful,
+Libgfortran is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU Lesser General Public License for more details.
@@ -25,12 +25,12 @@ Boston, MA 02111-1307, USA.  */
 /* Complex number z = a + ib.  */
 
 /* sin(z) = sin(a)cosh(b) + icos(a)sinh(b)  */
-G95_COMPLEX_4
-csinf (G95_COMPLEX_4 a)
+GFC_COMPLEX_4
+csinf (GFC_COMPLEX_4 a)
 {
-  G95_REAL_4 r;
-  G95_REAL_4 i;
-  G95_COMPLEX_4 v;
+  GFC_REAL_4 r;
+  GFC_REAL_4 i;
+  GFC_COMPLEX_4 v;
 
   r = REALPART (a);
   i = IMAGPART (a);
@@ -39,12 +39,12 @@ csinf (G95_COMPLEX_4 a)
 }
 
 /* cos(z) = cos(a)cosh(b) - isin(a)sinh(b)  */
-G95_COMPLEX_4
-ccosf (G95_COMPLEX_4 a)
+GFC_COMPLEX_4
+ccosf (GFC_COMPLEX_4 a)
 {
-  G95_REAL_4 r;
-  G95_REAL_4 i;
-  G95_COMPLEX_4 v;
+  GFC_REAL_4 r;
+  GFC_REAL_4 i;
+  GFC_COMPLEX_4 v;
 
   r = REALPART (a);
   i = IMAGPART (a);
@@ -53,13 +53,13 @@ ccosf (G95_COMPLEX_4 a)
 }
 
 /* tan(z) = (tan(a) + itanh(b)) / (1 - itan(a)tanh(b))  */
-G95_COMPLEX_4
-ctanf (G95_COMPLEX_4 a)
+GFC_COMPLEX_4
+ctanf (GFC_COMPLEX_4 a)
 {
-  G95_REAL_4 rt;
-  G95_REAL_4 it;
-  G95_COMPLEX_4 n;
-  G95_COMPLEX_4 d;
+  GFC_REAL_4 rt;
+  GFC_REAL_4 it;
+  GFC_COMPLEX_4 n;
+  GFC_COMPLEX_4 d;
 
   rt = tanf (REALPART (a));
   it = tanhf (IMAGPART (a));

@@ -32,7 +32,7 @@ using namespace std;
 void
 test02()
 {
-  bool test = true;
+  bool test __attribute__((unused)) = true;
 
   // Make sure we can output a long float in fixed format
   // without seg-faulting (libstdc++/4402)
@@ -43,7 +43,7 @@ test02()
   os2.setf(ios::fixed);
 
   // Check it can be done in a locale with grouping on.
-  locale loc2 = __gnu_cxx_test::try_named_locale("de_DE");
+  locale loc2 = __gnu_test::try_named_locale("de_DE");
   os2.imbue(loc2);
   os2 << fixed << setprecision(3) << val2 << endl;
   os2 << endl;

@@ -24,19 +24,19 @@ Boston, MA 02111-1307, USA.  */
 #include "libgfortran.h"
 
 void
-__transpose_8 (g95_array_i8 * ret, g95_array_i8 * source)
+__transpose_8 (gfc_array_i8 * ret, gfc_array_i8 * source)
 {
   /* r.* indicates the return array.  */
   index_type rxstride, rystride;
-  G95_INTEGER_8 *rptr;
+  GFC_INTEGER_8 *rptr;
   /* s.* indicates the source array.  */
   index_type sxstride, systride;
-  const G95_INTEGER_8 *sptr;
+  const GFC_INTEGER_8 *sptr;
 
   index_type xcount, ycount;
   index_type x, y;
 
-  assert (G95_DESCRIPTOR_RANK (source) == 2);
+  assert (GFC_DESCRIPTOR_RANK (source) == 2);
 
   if (ret->dim[0].stride == 0)
     ret->dim[0].stride = 1;

@@ -128,8 +128,8 @@ public class LineBorder
    * Constructs a LineBorder given its color, thickness, and whether
    * it has rounded corners.
    * 
-   * <p><img src="LineBorder-1.png" width="500" height="200"
-   * alt="[An illustration of two LineBorders] />
+   * <p><img src="doc-files/LineBorder-1.png" width="500" height="200"
+   * alt="[An illustration of two LineBorders]" />
    *
    * <p>Note that the enlarged view in the right-hand picture shows
    * that the implementation draws one more pixel than specified,

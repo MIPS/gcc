@@ -1,3 +1,225 @@
+2003-09-24  Jason Merrill  <jason@redhat.com>
+
+	* f95-lang.c, trans-decl.c: Use DECL_SOURCE_LOCATION instead of
+	TREE_LOCUS.
+
+2003-09-21  Lifang Zeng  <zlf605@hotmail.com>
+	Paul Brook  <paul@nowt.org>
+
+	* Make-lang.in (F95_OBJS): Add fortran/data.o.
+	* array.c (gfc_inser_constructor): New function.
+	(gfc_get_constructor): New function.
+	(gfc_free_constructor): Initialize offset and repeat.
+	(iterator_stack): Remove.
+	(expand_info): Add offset, component and repeat fields.
+	(expand_constructor): Set them.
+	(expand): Set new fields.
+	(gfc_copy_constructor): Ditto. Avoid recursion.
+	* gfortran.h: Add prototypes for new functions.
+	(gfc_constructor): Add offset, component and repeat.
+	(iteratio_stack): Move to here.
+	* resolve.c (check_data_variable): Convert data values into variable
+	initializers.
+	(traverse_data_list): Build implicit loop chain.
+	(gfc_resolve): Ditto.
+	* trans-array.c (gfc_conv_array_intializer): Handle repeat count.
+	* trans-decl.c (gfc_get_symbol_decl): Use gfc_conv_structure.
+	* trans-expr.c (gfc_conv_structure): Handle array initializers.
+	(gfc_conv_expr): Update to match.
+	* trans.h (gfc_conv_structure): Declare.
+	* data.c: New file.
+
+2003-09-20  Kejia Zhao  <kejia_zh@yahoo.com.cn>
+ 
+	* trans.h: Add declarations for gfor_fndecl_si_kind and
+	gfor_fndecl_sr_kind.
+	* trans-decl.c (g95_build_intrinsic_function_decls): Build them.
+	* trans-intrinsic.c (g95_conv_intrinsic_si_kind): New function.
+	(g95_conv_intrinsic_sr_kind): New function.
+	(g95_conv_intrinsic_function): Add SELECTED_INT_KIND and
+	SELECTED_REAL_KIND.
+
+2003-09-17  Lars Segerlund  <Lars.Segerlund@comsys.se>
+
+	* iresolve.c (gfc_resolve_random_number): Generate _r4 & _r8
+	instead of _4 and _8 as postfix for libgfortran calls.
+
+2003-09-16  Paul Brook  <paul@nowt.org>
+
+	* array.c (compare_bounds): New function.
+	(gfc_compare_array_spec): Use it.
+
+2003-09-14  Paul Brook  <paul@nowt.org>
+
+	* primary.c (gfc_match_rvalue): Make sure sym->result is set.
+	* trans-expr.c (gfc_conv_string_parameter): Also allow PRAM_DECLs.
+
+2003-09-14  Paul Brook  <paul@nowt.org>
+
+	* check.c (dim_rank_check): Allow assumed bounds if requested.
+	(gfc_check_lbound): Call it.
+	(gfc_check_ubound): Ditto.
+	(gfc_check_size): Change to match.
+	* simplify.c (gfc_simplify_bound): New function.
+	(gfc_simplify_lbound): New function.
+	(gfc_simplify_ubound): New function.
+	* intrinsic.h: Declare them.
+	* intrinsic.c (add_functions): Use them.
+
+2003-09-14  Paul Brook  <paul@nowt.org>
+
+	* io.c (format_lex): Initialize negative_flag.
+	(check_format): Intialize repeat.
+	* trans-io.c (gfc_new_nml_name_expr): Declare static.
+	(gfc_new_var_expr): Ditto.
+
+2003-09-14  Paul Brook  <paul@nowt.org>
+
+	* trans-array.c (gfc_conv_array_initializer): Handle derived types.
+	* trans-decl.c (gfc_get_symbol_decl): Only do local scalar values.
+
+2003-09-12  Paul Brook  <paul@nowt.org>
+
+	* trans-intrinsic.c (gfc_conv_intrinsic_sign): Call fold.
+
+2003-09-12  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* fortran/trans.c (gfc_finish_block): Call rationalize_compound_expr
+	for a correct expression.
+
+2003-09-10  Kejia Zhao  <kejia_zh@yahoo.com.cn>
+
+	* trans-intrinsic.c (real_compnt_info): New struct.
+	(prepare_arg_info): New function.
+	(gfc_conv_intrinsic_set_exponent): New function.
+	(gfc_conv_intrinsic_scale): New function.
+	(gfc_conv_intrinsic_nearest): New function.
+	(gfc_conv_intrinsic_fraction): New function.
+	(gfc_conv_intrinsic_exponent): New function.
+	(gfc_conv_intrinsic_spacing): New function.
+	(gfc_conv_intrinsic_rrspacing): New function.
+	(gfc_conv_intrinsic_function): Use them.
+
+2003-08-24 XiaoQiang Zhang  (zhangapache@yahoo.com>
+
+	* trans-const.c (gfc_conv_mpz_to_tree): Fix bug, parameter for 
+	build_int_2 changed from (high, low) to (low, high).
+	* trans-io.c (ioparm_namelist_name, ioparm_namelist_name_len,
+	ioparm_namelist_read_mode, iocall_set_nml_val_int,
+	iocall_set_nml_val_float, iocall_set_nml_val_char,
+	iocall_set_nml_val_complex, iocall_set_nml_val_log): New declaration.
+	(gfc_build_io_library_fndecls): Add variable initialization.
+	(gfc_new_nml_name_expr, get_new_var_expr): New function.
+	(build_dt): Add namelist support.
+	* io.c (value): New variable.
+	(check_format): Support FMT_H now.
+
+2003-09-07  Paul Brook  <paul@nowt.org>
+
+	* io.c (gfc_resolve_dt): Error if format label is not defined.
+
+2003-09-07  Kejia Zhao  <kejia_zh@yahoo.com.cn>
+
+	* trans-intrinsic.c (gfc_conv_intrinsic_aint): Fix two bugs. One is 
+	about case_switch's break. The other is about building the condition 
+	statement tree, which judges the argument in the range of the 
+	corresponding integer type.
+	* trans-intrinsic.c (gfc_conv_intrinsic_mod): MOD and MODULO can work
+	for the large values.
+ 
+2003-09-05  Paul Brook  <paul@nowt.org>
+
+	* f95-lang.c (expand_function_body): Gimplify the function.
+
+2003-09-04  Jeff Law  <law@redhat.com>
+
+	* f95-lang.c (DEFINE_MATH_BUILTIN): C arrays start at
+	index zero!
+
+2003-09-04  Paul Brook  <paul@nowt.org>
+
+	* f95-lang.c (gfc_define_builtin): Also set implicit_built_in_decls.
+	(gfc_expand_stmt): New function.
+	(LANG_HOOKS_RTL_EXPAND_STMT): Define.
+	(expand_function_body): Use tree_rest_of_compilation.
+	* trans-decl.c (gfc_generate_function_code): Don't free cfun.
+
+2003-09-03  Jeff Law  <law@redhat.com>
+
+	* f95-lang.c (gfc_init_builtin_functions): C arrays start at
+	index zero!
+
+2003-08-30  Paul Brook  <paul@nowt.org>
+
+	* f95-lang.c (builtin_function): Remove #if 0 code.
+	(gfc_define_builtin): New function.
+	(gfc_init_builtin_functions): Use mathbuiltins.def not ../builtins.def.
+	* mathbuiltins.def: New file.
+	* trans-intrinsic.c (gfc_intrinsic_map_t): Add builtin code fields.
+	(gfc_intrinsic_map): Use mathbuiltins.def.
+	(gfc_intrinsic_builtin_t): Remove.
+	(gfc_build_intrinsic_lib_fndecls): Update.
+	* trans-types.c (gfc_init_types): Remove redundant initilaization of
+	signed_size_type_node.
+
+2003-08-29  Paul Brook  <paul@nowt.org>
+
+	* arith.c (gfc_real_kinds): Use correct minimum exponents.
+
+2003-08-22  Kejia Zhao  <kejia_zh@yahoo.com.cn>
+
+	* trans-instinsic.c (gfc_conv_intrinsic_mod): Also do MODULO.
+	(gfc_conv_intrinsic_function): Add MODULO.
+
+2003-08-22  Jason Merrill  <jason@redhat.com>
+
+	* trans-array.c (gfc_conv_expr_descriptor): Update use of predicates.
+
+2003-08-22  Andreas Jaeger  <aj@suse.de>
+
+	* Make-lang.in (f95.install-common): Add DESTDIR support.
+	* (f95.install-info): Likewise.
+	(f95.uninstall): Likewise.
+
+2003-08-19  Diego Novillo  <dnovillo@redhat.com>
+
+	* trans-types.c (gfc_init_types): Initialize
+	signed_size_type_node with size_type_node.
+
+2003-08-18  Paul Brook  <paul@nowt.org>
+
+	* dependency.c (gfc_dependency): New enum.
+	(check_another_array_ref): Remove.
+	(gfc_get_array_from_component): Remove.
+	(get_x): Remove.
+	(get_range): Remove.
+	(get_no_of_elements): Use mpz_t, not mpf_t.
+	(transform_sections): New function.
+	(gfc_check_range_range): Rename ...
+	(gfc_check_section_vs_section): ... to this.  Use new function.
+	(gfc_is_inside_range): Rewrite to match.
+	(gfc_check_element_vs_section): Ditto.
+	(gfc_check_element_vs_element): Ditto.
+	(get_deps): Ditto.
+	(gfc_dep_resolver): Ditto.  Remove unused parameter.
+	* Dependency.h (gfc_check_range_range, gfc_check_element_vs_section,
+	gfc_check_element_vs_element, gfc_is_inside_range,
+	gfc_get_array_from_component): Remove prototypes for static functions.
+	(gfc_dep_resolver): Update prototype.
+	* trans-array.c (gfc_conv_resolve_dependencies): Change to match.
+
+2003-08-15  Paul Brook  <paul@nowt.org>
+
+	* trans-decl.c (gfc_build_qualified_array): Don't add symbols for
+	return values to parent scope.
+	(gfc_build_dummy_array_decl): Ditto.
+
+2003-08-14  Paul Brook  <paul@nowt.org>
+
+	* trans-stmt.c (gfc_trans_allocate): Handle NULL refs. Allocate the
+	size of	the type, not the pointer.
+	* resolve.c (resolve_symbol): Give more accurate error message.
+
 2003-08-10  Paul Brook  <paul@nowt.org>
 
 	* trans-decl.c (gfc_build_function_decl): Only mangle global symbols.

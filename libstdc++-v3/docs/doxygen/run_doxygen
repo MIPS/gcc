@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # Runs doxygen and massages the output files.
 # Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
@@ -10,12 +10,11 @@
 
 # We can check now that the version of doxygen is >= this variable.
 DOXYVER=1.2.15
-doxygen=
 
 find_doxygen() {
-    v_required=`echo $DOXYVER |  \
+    local -r v_required=`echo $DOXYVER |  \
                 awk -F. '{if(NF<3)$3=0;print ($1*100+$2)*100+$3}'`
-    testing_version=
+    local testing_version doxygen maybedoxy v_found
     # thank you goat book
     set `IFS=:; X="$PATH:/usr/local/bin:/bin:/usr/bin"; echo $X`
     for dir
@@ -36,6 +35,10 @@ find_doxygen() {
         echo run_doxygen error:  Could not find Doxygen $DOXYVER in path. 1>&2
         print_usage
     fi
+    # We need to use other tools from the same package/version.
+    echo :: Using Doxygen tools from ${dir}.
+    PATH=$dir:$PATH
+    hash -r
 }
 
 print_usage() {
@@ -92,9 +95,10 @@ parse_options() {
 mode=unset
 srcdir=unset
 outdir=unset
-do_html=no
-do_man=no
+do_html=false
+do_man=false
 enabled_sections=
+generate_tagfile=
 DATEtext=`date '+%Y-%m-%d'`
 
 parse_options $*
@@ -107,15 +111,20 @@ if test $srcdir = unset || test $outdir = unset || test $mode = unset; then
 fi
 
 case x"$mode" in
-    xuser)           do_html=yes
-                     LEVELtext='User'
-                     ;;
-    xmaint)          do_html=yes
-                     enabled_sections=maint
-                     LEVELtext='Maintainer'
-                     ;;
-    xman)            do_man=yes
-                     ;;
+    xuser)
+      do_html=true
+      LEVELtext='User'
+      generate_tagfile="$outdir/html_$mode/libstdc++.tag"
+      ;;
+    xmaint)
+      do_html=true
+      enabled_sections=maint
+      LEVELtext='Maintainer'
+      generate_tagfile="$outdir/html_$mode/libstdc++.tag"
+      ;;
+    xman)
+      do_man=true
+      ;;
     *)
       echo run_doxygen error:  $mode is an invalid mode 1>&2
       exit 1 ;;
@@ -126,10 +135,10 @@ mkdir -p $outdir
 chmod u+w $outdir
 
 # work around a stupid doxygen bug
-test $do_man = yes && {
+if $do_man; then
     mkdir -p $outdir/man/man3/ext
     chmod -R u+w $outdir/man/man3/ext
-}
+fi
 
 (
   set -e
@@ -140,17 +149,23 @@ test $do_man = yes && {
       -e "s=@enabled_sections@=${enabled_sections}=" \
       -e "s=@do_html@=${do_html}=" \
       -e "s=@do_man@=${do_man}=" \
+      -e "s=@generate_tagfile@=${generate_tagfile}=" \
       ${srcdir}/docs/doxygen/user.cfg.in > ${outdir}/${mode}.cfg
   echo :: NOTE that this may take some time...
-  echo $doxygen ${outdir}/${mode}.cfg
-  $doxygen ${outdir}/${mode}.cfg
+  echo doxygen ${outdir}/${mode}.cfg
+  doxygen ${outdir}/${mode}.cfg
   echo :: Finished, exit code was $?
 )
 ret=$?
 test $ret -ne 0 && exit $ret
 
-test $do_html = yes && {
+if $do_html; then
   cd ${outdir}/html_${mode}
+
+  #doxytag -t libstdc++.tag . > /dev/null 2>&1
+  sed -e '/<path>/d' libstdc++.tag > TEMP
+  mv TEMP libstdc++.tag
+
   sed -e "s=@LEVEL@=${LEVELtext}=" \
       -e "s=@DATE@=${DATEtext}=" \
       ${srcdir}/docs/doxygen/mainpage.html > index.html
@@ -173,14 +188,14 @@ test $do_html = yes && {
   echo ::
   echo :: HTML pages begin with
   echo :: ${outdir}/html_${mode}/index.html
-}
+fi
 
 # Mess with the man pages.  We don't need documentation of the internal
 # headers, since the man pages for those contain nothing useful anyhow.  The
 # man pages for doxygen modules need to be renamed (or deleted).  And the
 # generated #include lines need to be changed from the internal names to the
 # standard ones (e.g., "#include <stl_tempbuf.h>" -> "#include <memory>").
-test $do_man = yes && {
+if $do_man; then
 echo ::
 echo :: Fixing up the man pages...
 cd $outdir/man/man3
@@ -189,7 +204,7 @@ cd $outdir/man/man3
 rm -rf ext
 
 # File names with embedded spaces (EVIL!) need to be....?  renamed or removed?
-find . -name "* *" -print0 | xargs -0 rm        # requires GNU tools
+find . -name "* *" -print0 | xargs -0r rm        # requires GNU tools
 
 # can leave SGIextensions.3 alone, it's an okay name
 mv s20_3_1_base.3           Intro_functors.3
@@ -281,7 +296,7 @@ done
 
 echo ::
 echo :: Man pages in ${outdir}/man
-}
+fi
 
 # all done
 echo ::

@@ -32,13 +32,13 @@ const char name_01[] = "tmp_sputbackc_1io.tst"; // empty file, need to create
 void test01() 
 {
   using namespace std;
-  using namespace __gnu_cxx_test;
+  using namespace __gnu_test;
 
   typedef filebuf::int_type 	int_type;
   typedef filebuf::traits_type 	traits_type;
   typedef size_t 			size_type;
 
-  bool 					test = true;
+  bool test __attribute__((unused)) = true;
   streamsize 			strmsz_1, strmsz_2;
   int_type 			c1, c2, c3;
 
@@ -95,7 +95,7 @@ void test01()
   }
 }
 
-main() 
+int main() 
 {
   test01();
   return 0;

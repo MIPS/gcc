@@ -29,7 +29,7 @@
 // but now s points inside the _Rep
 int test02(void)
 {
-  bool test = true;
+  bool test __attribute__((unused)) = true;
 
   std::string str01;
   const char* title = "Everything was beautiful, and nothing hurt";
@@ -73,10 +73,6 @@ int test02(void)
   str01.insert(0, str01.c_str());
   VERIFY( str01 == "Everything was beautiful, and nothing hurt"
 	  "Everything was beautiful, and nothing hurt");
-
-#ifdef DEBUG_ASSERT
-  assert(test);
-#endif
   return test;
 }
 

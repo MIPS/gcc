@@ -28,14 +28,14 @@ void
 test02()
 {
   using namespace std;
-  bool test = true;
+  bool test __attribute__((unused)) = true;
   const string name_c("C");
   const string name_no("*");
   string str;
 
   // construct a locale object with the specialized facet.
   locale		loc_c = locale::classic();
-  locale		loc_fr = __gnu_cxx_test::try_named_locale("fr_FR");
+  locale		loc_fr = __gnu_test::try_named_locale("fr_FR");
   locale 		loc_1(locale::classic(), 
 			      new numpunct_byname<char>("fr_FR"));
 

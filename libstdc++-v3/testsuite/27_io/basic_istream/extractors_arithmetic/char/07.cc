@@ -56,7 +56,7 @@ namespace std {
 void test07()
 {
   // manufactured locale, grouping is turned on
-  bool test = true;
+  bool test __attribute__((unused)) = true;
   unsigned int h4 = 0, h3 = 0, h2 = 0;
   float f1 = 0.0;
   const std::string s1("205,199 23,445.25 1,024,365 123,22,24");
@@ -156,10 +156,6 @@ void test07()
   VERIFY( static_cast<bool>(is.rdstate() & std::ios_base::failbit) );
   VERIFY( static_cast<bool>(is.rdstate() & std::ios_base::eofbit) );
   is.clear();
-
-#ifdef DEBUG_ASSERT
-  assert(test);
-#endif
 }
 
 int main()

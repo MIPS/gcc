@@ -35,6 +35,7 @@ Boston, MA 02111-1307, USA.  */
 #include "toplev.h"
 #include "lex.h"
 #include "target.h"
+#include "convert.h"
 
 /* The number of nested classes being processed.  If we are not in the
    scope of any class, this is zero.  */
@@ -128,9 +129,8 @@ static int method_name_cmp (const void *, const void *);
 static int resort_method_name_cmp (const void *, const void *);
 static void add_implicitly_declared_members (tree, int, int, int);
 static tree fixed_type_or_null (tree, int *, int *);
-static tree resolve_address_of_overloaded_function (tree, tree, int,
-							  int, int, tree);
-static tree build_vtable_entry_ref (tree, tree, tree);
+static tree resolve_address_of_overloaded_function (tree, tree, tsubst_flags_t,
+						    bool, tree);
 static tree build_vtbl_ref_1 (tree, tree);
 static tree build_vtbl_initializer (tree, tree, tree, tree, int *);
 static int count_fields (tree);
@@ -328,8 +328,9 @@ build_base_path (enum tree_code code,
       v_offset = build_indirect_ref (v_offset, NULL);
       TREE_CONSTANT (v_offset) = 1;
 
-      offset = cp_convert (ptrdiff_type_node,
-			   size_diffop (offset, BINFO_OFFSET (v_binfo)));
+      offset = convert_to_integer (ptrdiff_type_node,
+				   size_diffop (offset, 
+						BINFO_OFFSET (v_binfo)));
 
       if (!integer_zerop (offset))
 	v_offset = build (code, ptrdiff_type_node, v_offset, offset);
@@ -391,33 +392,34 @@ convert_to_base (tree object, tree type, bool check_access)
   return build_base_path (PLUS_EXPR, object, binfo, /*nonnull=*/1);
 }
 
-
-/* Virtual function things.  */
+/* EXPR is an expression with class type.  BASE is a base class (a
+   BINFO) of that class type.  Returns EXPR, converted to the BASE
+   type.  This function assumes that EXPR is the most derived class;
+   therefore virtual bases can be found at their static offsets.  */
 
-static tree
-build_vtable_entry_ref (tree array_ref, tree instance, tree idx)
+tree
+convert_to_base_statically (tree expr, tree base)
 {
-  tree i, i2, vtable, first_fn, basetype;
+  tree expr_type;
 
-  basetype = non_reference (TREE_TYPE (instance));
+  expr_type = TREE_TYPE (expr);
+  if (!same_type_p (expr_type, BINFO_TYPE (base)))
+    {
+      tree pointer_type;
 
-  vtable = get_vtbl_decl_for_binfo (TYPE_BINFO (basetype));
-  first_fn = unshare_expr (TYPE_BINFO_VTABLE (basetype));
+      pointer_type = build_pointer_type (expr_type);
+      expr = build_unary_op (ADDR_EXPR, expr, /*noconvert=*/1);
+      if (!integer_zerop (BINFO_OFFSET (base)))
+	  expr = build (PLUS_EXPR, pointer_type, expr, 
+			build_nop (pointer_type, BINFO_OFFSET (base)));
+      expr = build_nop (build_pointer_type (BINFO_TYPE (base)), expr);
+      expr = build1 (INDIRECT_REF, BINFO_TYPE (base), expr);
+    }
 
-  i = fold (build_array_ref (first_fn, idx));
-  i = fold (build_c_cast (ptrdiff_type_node,
-			  build_unary_op (ADDR_EXPR, i, 0)));
-  i2 = fold (build_array_ref (vtable, build_int_2 (0,0)));
-  i2 = fold (build_c_cast (ptrdiff_type_node,
-			   build_unary_op (ADDR_EXPR, i2, 0)));
-  i = fold (cp_build_binary_op (MINUS_EXPR, i, i2));
-
-  if (TREE_CODE (i) != INTEGER_CST)
-    abort ();
-
-  return build (VTABLE_REF, TREE_TYPE (array_ref), array_ref, vtable, i);
+  return expr;
 }
 
+
 /* Given an object INSTANCE, return an expression which yields the
    vtable element corresponding to INDEX.  There are many special
    cases for INSTANCE which we take care of here, mainly to avoid
@@ -461,9 +463,6 @@ build_vtbl_ref (tree instance, tree idx)
 {
   tree aref = build_vtbl_ref_1 (instance, idx);
 
-  if (flag_vtable_gc)
-    aref = build_vtable_entry_ref (aref, instance, idx);
-
   return aref;
 }
 
@@ -480,9 +479,6 @@ build_vfn_ref (tree instance, tree idx)
   if (TARGET_VTABLE_USES_DESCRIPTORS)
     aref = build1 (NOP_EXPR, TREE_TYPE (aref),
 		   build_unary_op (ADDR_EXPR, aref, /*noconvert=*/1));
-
-  if (flag_vtable_gc)
-    aref = build_vtable_entry_ref (aref, instance, idx);
 
   return aref;
 }
@@ -754,7 +750,10 @@ add_method (tree type, tree method, int error_p)
   if (DECL_MAYBE_IN_CHARGE_CONSTRUCTOR_P (method))
     slot = CLASSTYPE_CONSTRUCTOR_SLOT;
   else if (DECL_MAYBE_IN_CHARGE_DESTRUCTOR_P (method))
-    slot = CLASSTYPE_DESTRUCTOR_SLOT;
+    {
+      slot = CLASSTYPE_DESTRUCTOR_SLOT;
+      TYPE_HAS_DESTRUCTOR (type) = 1;
+    }
   else
     {
       int have_template_convs_p = 0;
@@ -1288,9 +1287,6 @@ check_bases (tree t,
       TYPE_HAS_COMPLEX_ASSIGN_REF (t) 
 	|= TYPE_HAS_COMPLEX_ASSIGN_REF (basetype);
       TYPE_HAS_COMPLEX_INIT_REF (t) |= TYPE_HAS_COMPLEX_INIT_REF (basetype);
-      TYPE_OVERLOADS_CALL_EXPR (t) |= TYPE_OVERLOADS_CALL_EXPR (basetype);
-      TYPE_OVERLOADS_ARRAY_REF (t) |= TYPE_OVERLOADS_ARRAY_REF (basetype);
-      TYPE_OVERLOADS_ARROW (t) |= TYPE_OVERLOADS_ARROW (basetype);
       TYPE_POLYMORPHIC_P (t) |= TYPE_POLYMORPHIC_P (basetype);
       CLASSTYPE_CONTAINS_EMPTY_CLASS_P (t) 
 	|= CLASSTYPE_CONTAINS_EMPTY_CLASS_P (basetype);
@@ -1653,16 +1649,12 @@ maybe_warn_about_overly_private_class (tree t)
   /* Even if some of the member functions are non-private, the class
      won't be useful for much if all the constructors or destructors
      are private: such an object can never be created or destroyed.  */
-  if (TYPE_HAS_DESTRUCTOR (t))
+  if (TYPE_HAS_DESTRUCTOR (t)
+      && TREE_PRIVATE (CLASSTYPE_DESTRUCTORS (t)))
     {
-      tree dtor = TREE_VEC_ELT (CLASSTYPE_METHOD_VEC (t), 1);
-
-      if (TREE_PRIVATE (dtor))
-	{
-	  warning ("`%#T' only defines a private destructor and has no friends",
-		      t);
-	  return;
-	}
+      warning ("`%#T' only defines a private destructor and has no friends",
+	       t);
+      return;
     }
 
   if (TYPE_HAS_CONSTRUCTOR (t))
@@ -2959,7 +2951,15 @@ check_field_decls (tree t, tree *access_decls,
 
       if (TREE_CODE (x) == FIELD_DECL)
 	{
-	  DECL_PACKED (x) |= TYPE_PACKED (t);
+	  if (TYPE_PACKED (t))
+	    {
+	      if (!pod_type_p (TREE_TYPE (x)) && !TYPE_PACKED (TREE_TYPE (x)))
+		cp_warning_at
+		  ("ignoring packed attribute on unpacked non-POD field `%#D'",
+		   x);
+	      else
+		DECL_PACKED (x) = 1;
+	    }
 
 	  if (DECL_C_BIT_FIELD (x) && integer_zerop (DECL_INITIAL (x)))
 	    /* We don't treat zero-width bitfields as making a class
@@ -3070,7 +3070,7 @@ check_field_decls (tree t, tree *access_decls,
 
       type = strip_array_types (type);
       
-      if (TREE_CODE (type) == POINTER_TYPE)
+      if (TYPE_PTR_P (type))
 	has_pointers = 1;
 
       if (DECL_MUTABLE_P (x) || TYPE_HAS_MUTABLE_P (type))
@@ -3833,9 +3833,9 @@ build_clone (tree fn, tree name)
        /* If this is subobject constructor or destructor, add the vtt
 	 parameter.  */
       TREE_TYPE (clone) 
-	= build_cplus_method_type (basetype,
-				   TREE_TYPE (TREE_TYPE (clone)),
-				   parmtypes);
+	= build_method_type_directly (basetype,
+				      TREE_TYPE (TREE_TYPE (clone)),
+				      parmtypes);
       if (exceptions)
 	TREE_TYPE (clone) = build_exception_variant (TREE_TYPE (clone),
 						     exceptions);
@@ -4012,9 +4012,9 @@ adjust_clone_args (tree decl)
 					   clone_parms);
 		  TREE_TYPE (clone_parms) = TREE_TYPE (orig_clone_parms);
 		}
-	      type = build_cplus_method_type (basetype,
-					      TREE_TYPE (TREE_TYPE (clone)),
-					      clone_parms);
+	      type = build_method_type_directly (basetype,
+						 TREE_TYPE (TREE_TYPE (clone)),
+						 clone_parms);
 	      if (exceptions)
 		type = build_exception_variant (type, exceptions);
 	      TREE_TYPE (clone) = type;
@@ -4586,7 +4586,19 @@ include_empty_classes (record_layout_info rli)
   if (TREE_CODE (rli_size) == INTEGER_CST
       && INT_CST_LT_UNSIGNED (rli_size, eoc))
     {
-      rli->bitpos = round_up (rli->bitpos, BITS_PER_UNIT);
+      if (!abi_version_at_least (2))
+	/* In version 1 of the ABI, the size of a class that ends with
+	   a bitfield was not rounded up to a whole multiple of a
+	   byte.  Because rli_size_unit_so_far returns only the number
+	   of fully allocated bytes, any extra bits were not included
+	   in the size.  */
+	rli->bitpos = round_down (rli->bitpos, BITS_PER_UNIT);
+      else
+	/* The size should have been rounded to a whole byte.  */
+	my_friendly_assert (tree_int_cst_equal (rli->bitpos,
+						round_down (rli->bitpos,
+							    BITS_PER_UNIT)),
+			    20030903);
       rli->bitpos 
 	= size_binop (PLUS_EXPR, 
 		      rli->bitpos,
@@ -4747,6 +4759,15 @@ layout_class_type (tree t, tree *virtuals_p)
 	     field to the size of its declared type; the rest of the
 	     field is effectively invisible.  */
 	  DECL_SIZE (field) = TYPE_SIZE (type);
+	  /* We must also reset the DECL_MODE of the field.  */
+	  if (abi_version_at_least (2))
+	    DECL_MODE (field) = TYPE_MODE (type);
+	  else if (warn_abi
+		   && DECL_MODE (field) != TYPE_MODE (type))
+	    /* Versions of G++ before G++ 3.4 did not reset the
+	       DECL_MODE.  */
+	    warning ("the offset of `%D' may not be ABI-compliant and may "
+		     "change in a future version of GCC", field);
 	}
       else
 	layout_nonempty_base_or_field (rli, field, NULL_TREE,
@@ -4973,7 +4994,6 @@ finish_struct_1 (tree t)
   /* If this type was previously laid out as a forward reference,
      make sure we lay it out again.  */
   TYPE_SIZE (t) = NULL_TREE;
-  CLASSTYPE_GOT_SEMICOLON (t) = 0;
   CLASSTYPE_PRIMARY_BINFO (t) = NULL_TREE;
 
   fixup_inline_methods (t);
@@ -5192,8 +5212,7 @@ finish_struct (tree t, tree attributes)
 
   /* Nadger the current location so that diagnostics point to the start of
      the struct, not the end.  */
-  input_filename = TREE_FILENAME (TYPE_NAME (t));
-  input_line = TREE_LINENO (TYPE_NAME (t));
+  input_location = DECL_SOURCE_LOCATION (TYPE_NAME (t));
 
   if (processing_template_decl)
     {
@@ -5392,19 +5411,6 @@ init_class_processing (void)
 /* Set global variables CURRENT_CLASS_NAME and CURRENT_CLASS_TYPE as
    appropriate for TYPE.
 
-   If MODIFY is 1, we set IDENTIFIER_CLASS_VALUE's of names
-   which can be seen locally to the class.  They are shadowed by
-   any subsequent local declaration (including parameter names).
-
-   If MODIFY is 2, we set IDENTIFIER_CLASS_VALUE's of names
-   which have static meaning (i.e., static members, static
-   member functions, enum declarations, etc).
-
-   If MODIFY is 3, we set IDENTIFIER_CLASS_VALUE of names
-   which can be seen locally to the class (as in 1), but
-   know that we are doing this for declaration purposes
-   (i.e. friend foo::bar (int)).
-
    So that we may avoid calls to lookup_name, we cache the _TYPE
    nodes of local TYPE_DECLs in the TREE_TYPE field of the name.
 
@@ -5417,7 +5423,7 @@ init_class_processing (void)
    that name becomes `error_mark_node'.  */
 
 void
-pushclass (tree type, bool modify)
+pushclass (tree type)
 {
   type = TYPE_MAIN_VARIANT (type);
 
@@ -5461,39 +5467,50 @@ pushclass (tree type, bool modify)
 
   /* If we're about to enter a nested class, clear
      IDENTIFIER_CLASS_VALUE for the enclosing classes.  */
-  if (modify && current_class_depth > 1)
+  if (current_class_depth > 1)
     clear_identifier_class_values ();
 
   pushlevel_class ();
 
-  if (modify)
+  if (type != previous_class_type || current_class_depth > 1)
     {
-      if (type != previous_class_type || current_class_depth > 1)
-	push_class_decls (type);
-      else
+      push_class_decls (type);
+      if (CLASSTYPE_TEMPLATE_INFO (type) && !CLASSTYPE_USE_TEMPLATE (type))
 	{
-	  tree item;
+	  /* If we are entering the scope of a template declaration (not a
+	     specialization), we need to push all the using decls with
+	     dependent scope too.  */
+	  tree fields;
 
-	  /* We are re-entering the same class we just left, so we
-	     don't have to search the whole inheritance matrix to find
-	     all the decls to bind again.  Instead, we install the
-	     cached class_shadowed list, and walk through it binding
-	     names and setting up IDENTIFIER_TYPE_VALUEs.  */
-	  set_class_shadows (previous_class_values);
-	  for (item = previous_class_values; item; item = TREE_CHAIN (item))
-	    {
-	      tree id = TREE_PURPOSE (item);
-	      tree decl = TREE_TYPE (item);
-
-	      push_class_binding (id, decl);
-	      if (TREE_CODE (decl) == TYPE_DECL)
-		set_identifier_type_value (id, TREE_TYPE (decl));
-	    }
-	  unuse_fields (type);
+	  for (fields = TYPE_FIELDS (type);
+	       fields; fields = TREE_CHAIN (fields))
+	    if (TREE_CODE (fields) == USING_DECL && !TREE_TYPE (fields))
+	      pushdecl_class_level (fields);
 	}
-
-      cxx_remember_type_decls (CLASSTYPE_NESTED_UTDS (type));
     }
+  else
+    {
+      tree item;
+
+      /* We are re-entering the same class we just left, so we don't
+	 have to search the whole inheritance matrix to find all the
+	 decls to bind again.  Instead, we install the cached
+	 class_shadowed list, and walk through it binding names and
+	 setting up IDENTIFIER_TYPE_VALUEs.  */
+      set_class_shadows (previous_class_values);
+      for (item = previous_class_values; item; item = TREE_CHAIN (item))
+	{
+	  tree id = TREE_PURPOSE (item);
+	  tree decl = TREE_TYPE (item);
+	  
+	  push_class_binding (id, decl);
+	  if (TREE_CODE (decl) == TYPE_DECL)
+	    set_identifier_type_value (id, decl);
+	}
+      unuse_fields (type);
+    }
+  
+  cxx_remember_type_decls (CLASSTYPE_NESTED_UTDS (type));
 }
 
 /* When we exit a toplevel class scope, we save the
@@ -5595,7 +5612,7 @@ push_nested_class (tree type)
 
   if (context && CLASS_TYPE_P (context))
     push_nested_class (context);
-  pushclass (type, true);
+  pushclass (type);
 }
 
 /* Undoes a push_nested_class call.  */
@@ -5667,18 +5684,17 @@ pop_lang_context (void)
 
 /* Given an OVERLOAD and a TARGET_TYPE, return the function that
    matches the TARGET_TYPE.  If there is no satisfactory match, return
-   error_mark_node, and issue an error message if COMPLAIN is
-   nonzero.  Permit pointers to member function if PTRMEM is nonzero.
-   If TEMPLATE_ONLY, the name of the overloaded function
-   was a template-id, and EXPLICIT_TARGS are the explicitly provided
+   error_mark_node, and issue a error & warning messages under control
+   of FLAGS.  Permit pointers to member function if FLAGS permits.  If
+   TEMPLATE_ONLY, the name of the overloaded function was a
+   template-id, and EXPLICIT_TARGS are the explicitly provided
    template arguments.  */
 
 static tree
 resolve_address_of_overloaded_function (tree target_type, 
 					tree overload,
-					int complain,
-	                                int ptrmem,
-					int template_only,
+					tsubst_flags_t flags,
+					bool template_only,
 					tree explicit_targs)
 {
   /* Here's what the standard says:
@@ -5722,9 +5738,8 @@ resolve_address_of_overloaded_function (tree target_type,
 			&& (TREE_CODE (TREE_TYPE (target_type)) 
 			    == METHOD_TYPE)), 0);
 
-  if (TREE_CODE (overload) == COMPONENT_REF)
-    overload = TREE_OPERAND (overload, 1);
-
+  my_friendly_assert (is_overloaded_fn (overload), 20030910);
+  
   /* Check that the TARGET_TYPE is reasonable.  */
   if (TYPE_PTRFN_P (target_type))
     /* This is OK.  */;
@@ -5740,7 +5755,7 @@ resolve_address_of_overloaded_function (tree target_type,
     }
   else 
     {
-      if (complain)
+      if (flags & tf_error)
 	error ("\
 cannot resolve overloaded function `%D' based on conversion to type `%T'", 
 		  DECL_NAME (OVL_FUNCTION (overload)), target_type);
@@ -5769,7 +5784,11 @@ cannot resolve overloaded function `%D' based on conversion to type `%T'",
 	    /* We're looking for a non-static member, and this isn't
 	       one, or vice versa.  */
 	    continue;
-	
+
+	  /* Ignore anticipated decls of undeclared builtins.  */
+	  if (DECL_ANTICIPATED (fn))
+	    continue;
+
 	  /* See if there's a match.  */
 	  fntype = TREE_TYPE (fn);
 	  if (is_ptrmem)
@@ -5830,8 +5849,7 @@ cannot resolve overloaded function `%D' based on conversion to type `%T'",
 	    continue;
 
 	  /* Instantiate the template.  */
-	  instantiation = instantiate_template (fn, targs,
-						complain ? tf_error : tf_none);
+	  instantiation = instantiate_template (fn, targs, flags);
 	  if (instantiation == error_mark_node)
 	    /* Instantiation failed.  */
 	    continue;
@@ -5861,7 +5879,7 @@ cannot resolve overloaded function `%D' based on conversion to type `%T'",
   if (matches == NULL_TREE)
     {
       /* There were *no* matches.  */
-      if (complain)
+      if (flags & tf_error)
 	{
  	  error ("no matches converting function `%D' to type `%#T'", 
 		    DECL_NAME (OVL_FUNCTION (overload)),
@@ -5882,7 +5900,7 @@ cannot resolve overloaded function `%D' based on conversion to type `%T'",
     {
       /* There were too many matches.  */
 
-      if (complain)
+      if (flags & tf_error)
 	{
 	  tree match;
 
@@ -5905,11 +5923,11 @@ cannot resolve overloaded function `%D' based on conversion to type `%T'",
   fn = TREE_PURPOSE (matches);
 
   if (DECL_NONSTATIC_MEMBER_FUNCTION_P (fn)
-      && !ptrmem && !flag_ms_extensions)
+      && !(flags & tf_ptrmem_ok) && !flag_ms_extensions)
     {
       static int explained;
       
-      if (!complain)
+      if (!(flags & tf_error))
         return error_mark_node;
 
       pedwarn ("assuming pointer to member `%D'", fn);
@@ -5919,7 +5937,13 @@ cannot resolve overloaded function `%D' based on conversion to type `%T'",
           explained = 1;
         }
     }
-  mark_used (fn);
+
+  /* If we're doing overload resolution purely for the purpose of
+     determining conversion sequences, we should not consider the
+     function used.  If this conversion sequence is selected, the
+     function will be marked as used at this point.  */
+  if (!(flags & tf_conv))
+    mark_used (fn);
 
   if (TYPE_PTRFN_P (target_type) || TYPE_PTRMEMFUNC_P (target_type))
     return build_unary_op (ADDR_EXPR, fn, 0);
@@ -5936,7 +5960,7 @@ cannot resolve overloaded function `%D' based on conversion to type `%T'",
 
 /* This function will instantiate the type of the expression given in
    RHS to match the type of LHSTYPE.  If errors exist, then return
-   error_mark_node. FLAGS is a bit mask.  If ITF_COMPLAIN is set, then
+   error_mark_node. FLAGS is a bit mask.  If TF_ERROR is set, then
    we complain on errors.  If we are not complaining, never modify rhs,
    as overload resolution wants to try many possible instantiations, in
    the hope that at least one will work.
@@ -5947,14 +5971,13 @@ cannot resolve overloaded function `%D' based on conversion to type `%T'",
 tree
 instantiate_type (tree lhstype, tree rhs, tsubst_flags_t flags)
 {
-  int complain = (flags & tf_error);
-  int allow_ptrmem = flags & tf_ptrmem_ok;
+  tsubst_flags_t flags_in = flags;
   
   flags &= ~tf_ptrmem_ok;
   
   if (TREE_CODE (lhstype) == UNKNOWN_TYPE)
     {
-      if (complain)
+      if (flags & tf_error)
 	error ("not enough type information");
       return error_mark_node;
     }
@@ -5971,7 +5994,7 @@ instantiate_type (tree lhstype, tree rhs, tsubst_flags_t flags)
 	;
       else
 	{
-	  if (complain)
+	  if (flags & tf_error)
 	    error ("argument of type `%T' does not match `%T'",
 		   TREE_TYPE (rhs), lhstype);
 	  return error_mark_node;
@@ -6022,13 +6045,21 @@ instantiate_type (tree lhstype, tree rhs, tsubst_flags_t flags)
       return instantiate_type (lhstype, rhs, flags);
 
     case COMPONENT_REF:
-      return instantiate_type (lhstype, TREE_OPERAND (rhs, 1), flags);
+      {
+	tree addr = instantiate_type (lhstype, TREE_OPERAND (rhs, 1), flags);
+
+	if (addr != error_mark_node
+	    && TREE_SIDE_EFFECTS (TREE_OPERAND (rhs, 0)))
+	  /* Do not lose object's side effects. */
+	  addr = build (COMPOUND_EXPR, TREE_TYPE (addr),
+			TREE_OPERAND (rhs, 0), addr);
+	return addr;
+      }
 
     case OFFSET_REF:
       rhs = TREE_OPERAND (rhs, 1);
       if (BASELINK_P (rhs))
-	return instantiate_type (lhstype, BASELINK_FUNCTIONS (rhs),
-	                         flags | allow_ptrmem);
+	return instantiate_type (lhstype, BASELINK_FUNCTIONS (rhs), flags_in);
 
       /* This can happen if we are forming a pointer-to-member for a
 	 member template.  */
@@ -6042,22 +6073,16 @@ instantiate_type (tree lhstype, tree rhs, tsubst_flags_t flags)
 	tree args = TREE_OPERAND (rhs, 1);
 
 	return
-	  resolve_address_of_overloaded_function (lhstype,
-						  fns,
-						  complain,
-	                                          allow_ptrmem,
-						  /*template_only=*/1,
+	  resolve_address_of_overloaded_function (lhstype, fns, flags_in,
+						  /*template_only=*/true,
 						  args);
       }
 
     case OVERLOAD:
     case FUNCTION_DECL:
       return 
-	resolve_address_of_overloaded_function (lhstype, 
-						rhs,
-						complain,
-	                                        allow_ptrmem,
-						/*template_only=*/0,
+	resolve_address_of_overloaded_function (lhstype, rhs, flags_in,
+						/*template_only=*/false,
 						/*explicit_targs=*/NULL_TREE);
 
     case TREE_LIST:
@@ -6105,7 +6130,6 @@ instantiate_type (tree lhstype, tree rhs, tsubst_flags_t flags)
     case ABS_EXPR:
     case MAX_EXPR:
     case MIN_EXPR:
-    case FFS_EXPR:
 
     case BIT_AND_EXPR:
     case BIT_IOR_EXPR:
@@ -6119,7 +6143,7 @@ instantiate_type (tree lhstype, tree rhs, tsubst_flags_t flags)
     case PREDECREMENT_EXPR:
     case POSTINCREMENT_EXPR:
     case POSTDECREMENT_EXPR:
-      if (complain)
+      if (flags & tf_error)
 	error ("invalid operation on uninstantiated type");
       return error_mark_node;
 
@@ -6135,14 +6159,14 @@ instantiate_type (tree lhstype, tree rhs, tsubst_flags_t flags)
     case TRUTH_ANDIF_EXPR:
     case TRUTH_ORIF_EXPR:
     case TRUTH_NOT_EXPR:
-      if (complain)
+      if (flags & tf_error)
 	error ("not enough type information");
       return error_mark_node;
 
     case COND_EXPR:
       if (type_unknown_p (TREE_OPERAND (rhs, 0)))
 	{
-	  if (complain)
+	  if (flags & tf_error)
 	    error ("not enough type information");
 	  return error_mark_node;
 	}
@@ -6330,21 +6354,6 @@ get_enclosing_class (tree type)
   return NULL_TREE;
 }
 
-/* Return 1 if TYPE or one of its enclosing classes is derived from BASE.  */
-
-int
-is_base_of_enclosing_class (tree base, tree type)
-{
-  while (type)
-    {
-      if (lookup_base (type, base, ba_any, NULL))
-	return 1;
-
-      type = get_enclosing_class (type);
-    }
-  return 0;
-}
-
 /* Note that NAME was looked up while the current class was being
    defined and that the result of that lookup was DECL.  */
 
@@ -6354,7 +6363,7 @@ maybe_note_name_used_in_class (tree name, tree decl)
   splay_tree names_used;
 
   /* If we're not defining a class, there's nothing to do.  */
-  if (!current_class_type || !TYPE_BEING_DEFINED (current_class_type))
+  if (innermost_scope_kind() != sk_class)
     return;
   
   /* If there's already a binding for this NAME, then we don't have

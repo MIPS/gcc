@@ -33,13 +33,13 @@ const char name_03[] = "tmp_sputn_1io.tst"; // empty file, need to create
 void test05() 
 {
   using namespace std;
-  using namespace __gnu_cxx_test;
+  using namespace __gnu_test;
 
   typedef filebuf::int_type 	int_type;
   typedef filebuf::traits_type 	traits_type;
   typedef size_t 			size_type;
 
-  bool 					test = true;
+  bool test __attribute__((unused)) = true;
   streamsize 			strmsz_1, strmsz_2;
 
   // streamsize sputn(const char_typs* s, streamsize n)
@@ -62,7 +62,7 @@ void test05()
   }
 }
 
-main() 
+int main() 
 {
   test05();
   return 0;

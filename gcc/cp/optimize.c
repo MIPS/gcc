@@ -51,17 +51,6 @@ static void update_cloned_parm (tree, tree);
 void
 optimize_function (tree fn)
 {
-  /* While in this function, we may choose to go off and compile
-     another function.  For example, we might instantiate a function
-     in the hopes of inlining it.  Normally, that wouldn't trigger any
-     actual RTL code-generation -- but it will if the template is
-     actually needed.  (For example, if it's address is taken, or if
-     some other function already refers to the template.)  If
-     code-generation occurs, then garbage collection will occur, so we
-     must protect ourselves, just as we do while building up the body
-     of the function.  */
-  ++function_depth;
-
   if (flag_inline_trees
       /* We do not inline thunks, as (a) the backend tries to optimize
          the call to the thunkee, (b) tree based inlining breaks that
@@ -70,28 +59,11 @@ optimize_function (tree fn)
       && !DECL_THUNK_P (fn))
     {
       optimize_inline_calls (fn);
-      dump_function (TDI_inlined, fn);
+
       /* FIXME: The inliner is creating shared nodes.  This was causing a
 	 compile failure in g++.dg/opt/cleanup1.C because COMPONENT_REF
 	 nodes were being shared.  This is probably a bit heavy handed.  */
       unshare_all_trees (DECL_SAVED_TREE (fn));
-    }
-  
-  /* Undo the call to ggc_push_context above.  */
-  --function_depth;
-
-  /* Gimplify the function.  Don't try to optimize the function if
-     gimplification failed.  */
-  if (!flag_disable_gimple
-      && (keep_function_tree_in_gimple_form (fn)
-	  || gimplify_function_tree (fn)))
-    {
-      /* Debugging dump after gimplification.  */
-      dump_function (TDI_gimple, fn);
-
-      /* Invoke the SSA tree optimizer.  */
-      if (optimize >= 1 && !flag_disable_tree_ssa)
-	optimize_function_tree (fn);
     }
 }
 
@@ -141,7 +113,7 @@ update_cloned_parm (tree parm, tree cloned_parm)
   
   /* The name may have changed from the declaration.  */
   DECL_NAME (cloned_parm) = DECL_NAME (parm);
-  TREE_LOCUS (cloned_parm) = TREE_LOCUS (parm);
+  DECL_SOURCE_LOCATION (cloned_parm) = DECL_SOURCE_LOCATION (parm);
 }
 
 /* FN is a function that has a complete body.  Clone the body as
@@ -152,7 +124,6 @@ bool
 maybe_clone_body (tree fn)
 {
   tree clone;
-  bool first = true;
 
   /* We only clone constructors and destructors.  */
   if (!DECL_MAYBE_IN_CHARGE_CONSTRUCTOR_P (fn)
@@ -162,11 +133,16 @@ maybe_clone_body (tree fn)
   /* Emit the DWARF1 abstract instance.  */
   (*debug_hooks->deferred_inline_function) (fn);
 
+  /* Our caller does not expect collection to happen, which it might if
+     we decide to compile the function to rtl now.  Arrange for a new
+     gc context to be created if so.  */
+  function_depth++;
+
   /* We know that any clones immediately follow FN in the TYPE_METHODS
      list.  */
   for (clone = TREE_CHAIN (fn);
        clone && DECL_CLONED_FUNCTION_P (clone);
-       clone = TREE_CHAIN (clone), first = false)
+       clone = TREE_CHAIN (clone))
     {
       tree parm;
       tree clone_parm;
@@ -174,9 +150,8 @@ maybe_clone_body (tree fn)
       splay_tree decl_map;
 
       /* Update CLONE's source position information to match FN's.  */
-      TREE_LOCUS (clone) = TREE_LOCUS (fn);
+      DECL_SOURCE_LOCATION (clone) = DECL_SOURCE_LOCATION (fn);
       DECL_INLINE (clone) = DECL_INLINE (fn);
-      DID_INLINE_FUNC (clone) = DID_INLINE_FUNC (fn);
       DECL_DECLARED_INLINE_P (clone) = DECL_DECLARED_INLINE_P (fn);
       DECL_COMDAT (clone) = DECL_COMDAT (fn);
       DECL_WEAK (clone) = DECL_WEAK (fn);
@@ -203,13 +178,8 @@ maybe_clone_body (tree fn)
 	clone_parm = TREE_CHAIN (clone_parm);
       for (; parm;
 	   parm = TREE_CHAIN (parm), clone_parm = TREE_CHAIN (clone_parm))
-	{
-	  /* Update this parameter.  */
-	  update_cloned_parm (parm, clone_parm);
-	  /* We should only give unused information for one clone.  */
-	  if (!first)
-	    TREE_USED (clone_parm) = 1;
-	}
+	/* Update this parameter.  */
+	update_cloned_parm (parm, clone_parm);
 
       /* Start processing the function.  */
       push_to_top_level ();
@@ -285,6 +255,8 @@ maybe_clone_body (tree fn)
       expand_or_defer_fn (clone);
       pop_from_top_level ();
     }
+
+  function_depth--;
 
   /* We don't need to process the original function any further.  */
   return 1;

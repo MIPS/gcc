@@ -1573,7 +1573,6 @@ ffecom_overlap_ (tree dest_decl, tree dest_offset, tree dest_size,
     case MIN_EXPR:
     case MAX_EXPR:
     case ABS_EXPR:
-    case FFS_EXPR:
     case LSHIFT_EXPR:
     case RSHIFT_EXPR:
     case LROTATE_EXPR:
@@ -1581,7 +1580,6 @@ ffecom_overlap_ (tree dest_decl, tree dest_offset, tree dest_size,
     case BIT_IOR_EXPR:
     case BIT_XOR_EXPR:
     case BIT_AND_EXPR:
-    case BIT_ANDTC_EXPR:
     case BIT_NOT_EXPR:
     case TRUTH_ANDIF_EXPR:
     case TRUTH_ORIF_EXPR:
@@ -8883,7 +8881,6 @@ ffecom_tree_canonize_ref_ (tree *decl, tree *offset, tree *size, tree t)
     case MIN_EXPR:
     case MAX_EXPR:
     case ABS_EXPR:
-    case FFS_EXPR:
     case LSHIFT_EXPR:
     case RSHIFT_EXPR:
     case LROTATE_EXPR:
@@ -8891,7 +8888,6 @@ ffecom_tree_canonize_ref_ (tree *decl, tree *offset, tree *size, tree t)
     case BIT_IOR_EXPR:
     case BIT_XOR_EXPR:
     case BIT_AND_EXPR:
-    case BIT_ANDTC_EXPR:
     case BIT_NOT_EXPR:
     case TRUTH_ANDIF_EXPR:
     case TRUTH_ORIF_EXPR:
@@ -11818,13 +11814,8 @@ ffecom_init_0 (void)
 
   ffecom_float_zero_ = build_real (float_type_node, dconst0);
   ffecom_double_zero_ = build_real (double_type_node, dconst0);
-  {
-    REAL_VALUE_TYPE point_5;
-
-    REAL_ARITHMETIC (point_5, RDIV_EXPR, dconst1, dconst2);
-    ffecom_float_half_ = build_real (float_type_node, point_5);
-    ffecom_double_half_ = build_real (double_type_node, point_5);
-  }
+  ffecom_float_half_ = build_real (float_type_node, dconsthalf);
+  ffecom_double_half_ = build_real (double_type_node, dconsthalf);
 
   /* Do "extern int xargc;".  */
 
@@ -13236,7 +13227,7 @@ duplicate_decls (tree newdecl, tree olddecl)
 	return 0;
     }
   else if (TREE_CODE (olddecl) == FUNCTION_DECL
-	   && TREE_LINENO (olddecl) == 0)
+	   && DECL_SOURCE_LINE (olddecl) == 0)
     {
       /* A function declaration for a predeclared function
 	 that isn't actually built in.  */
@@ -13306,7 +13297,8 @@ duplicate_decls (tree newdecl, tree olddecl)
       if ((DECL_INITIAL (newdecl) == 0 && DECL_INITIAL (olddecl) != 0)
 	  || (DECL_CONTEXT (newdecl) != 0 && DECL_CONTEXT (olddecl) == 0))
 	{
-	  TREE_LOCUS (newdecl) = TREE_LOCUS (olddecl);
+	  DECL_SOURCE_LINE (newdecl) = DECL_SOURCE_LINE (olddecl);
+	  DECL_SOURCE_FILE (newdecl) = DECL_SOURCE_FILE (olddecl);
 
 	  if (DECL_CONTEXT (olddecl) == 0
 	      && TREE_CODE (newdecl) != FUNCTION_DECL)
@@ -13419,7 +13411,6 @@ duplicate_decls (tree newdecl, tree olddecl)
     memcpy ((char *) olddecl + sizeof (struct tree_common),
 	    (char *) newdecl + sizeof (struct tree_common),
 	    sizeof (struct tree_decl) - sizeof (struct tree_common));
-    TREE_LOCUS (olddecl) = TREE_LOCUS (newdecl);
     DECL_UID (olddecl) = olddecl_uid;
   }
 
@@ -14544,7 +14535,7 @@ pushdecl (tree x)
 
       if (TREE_CODE (x) == TYPE_DECL)
 	{
-	  if (TREE_LINENO (x) == 0)
+	  if (DECL_SOURCE_LINE (x) == 0)
 	    {
 	      if (TYPE_NAME (TREE_TYPE (x)) == 0)
 		TYPE_NAME (TREE_TYPE (x)) = x;
@@ -14808,7 +14799,6 @@ ffe_truthvalue_conversion (tree expr)
     case NEGATE_EXPR:
     case ABS_EXPR:
     case FLOAT_EXPR:
-    case FFS_EXPR:
       /* These don't change whether an object is nonzero or zero.  */
       return ffe_truthvalue_conversion (TREE_OPERAND (expr, 0));
 

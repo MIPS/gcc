@@ -27,7 +27,7 @@ void test01()
 {
   using namespace std;
 
-  bool test = true;
+  bool test __attribute__((unused)) = true;
   const char* name = "tmp_9520";
 
   FILE* file = fopen(name, "w");
@@ -35,7 +35,7 @@ void test01()
     putc(static_cast<unsigned char>(i), file);
   fclose(file);
 
-  locale loc (__gnu_cxx_test::try_named_locale("de_DE.ISO-8859-15@euro"));
+  locale loc (__gnu_test::try_named_locale("de_DE.ISO-8859-15@euro"));
   wchar_t buf[1];
   wfilebuf fb;
   fb.pubimbue(loc);

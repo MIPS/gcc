@@ -1,20 +1,20 @@
 /* Definitions of target machine for GNU compiler, for HP-UX.
-   Copyright (C) 1991, 1995, 1996, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1991, 1995, 1996, 2002, 2003 Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -28,6 +28,12 @@ Boston, MA 02111-1307, USA.  */
 #define SIZE_TYPE "unsigned int"
 #define PTRDIFF_TYPE "int"
 
+/* GCC always defines __STDC__.  HP C++ compilers don't define it.  This
+   causes trouble when sys/stdsyms.h is included.  As a work around,
+   we define __STDC_EXT__.  A similar situation exists with respect to
+   the definition of __cplusplus.  We define _INCLUDE_LONGLONG
+   to prevent nlist.h from defining __STDC_32_MODE__ (no longlong
+   support).  */
 #undef TARGET_OS_CPP_BUILTINS
 #define TARGET_OS_CPP_BUILTINS()				\
   do								\
@@ -46,6 +52,7 @@ Boston, MA 02111-1307, USA.  */
 	  {							\
 	    builtin_define ("_HPUX_SOURCE");			\
 	    builtin_define ("_INCLUDE_LONGLONG");		\
+	    builtin_define ("__STDC_EXT__");			\
 	  }							\
 	else if (!flag_iso)					\
 	  {							\

@@ -25,7 +25,7 @@
 
 bool test01(void)
 {
-  bool test = true;
+  bool test __attribute__((unused)) = true;
   typedef std::wstring::size_type csize_type;
   typedef std::wstring::const_reference cref;
   typedef std::wstring::reference ref;
@@ -84,10 +84,6 @@ bool test01(void)
   VERIFY( csz01 == csz02 );
   csz01 = str01.find(L'/');
   VERIFY( csz01 == npos );
-
-#ifdef DEBUG_ASSERT
-  assert(test);
-#endif
   return test;
 }
 

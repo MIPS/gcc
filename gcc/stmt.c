@@ -57,6 +57,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "langhooks.h"
 #include "predict.h"
 #include "optabs.h"
+#include "target.h"
 
 /* Assume that case vectors are not pc-relative.  */
 #ifndef CASE_VECTOR_PC_RELATIVE
@@ -387,7 +388,7 @@ struct stmt_status GTY(())
 #define goto_fixup_chain (cfun->stmt->x_goto_fixup_chain)
 
 /* Nonzero if we are using EH to handle cleanups.  */
-static int using_eh_for_cleanups_p = 0;
+int using_eh_for_cleanups_p = 0;
 
 static int n_occurrences (int, const char *);
 static bool parse_input_constraint (const char **, int, int, int, int,
@@ -433,25 +434,7 @@ using_eh_for_cleanups (void)
 void
 init_stmt_for_function (void)
 {
-  cfun->stmt =ggc_alloc (sizeof (struct stmt_status));
-
-  /* We are not currently within any block, conditional, loop or case.  */
-  block_stack = 0;
-  stack_block_stack = 0;
-  loop_stack = 0;
-  case_stack = 0;
-  cond_stack = 0;
-  nesting_stack = 0;
-  nesting_depth = 0;
-
-  current_block_start_count = 0;
-
-  /* No gotos have been expanded yet.  */
-  goto_fixup_chain = 0;
-
-  /* We are not processing a ({...}) grouping.  */
-  expr_stmts_for_value = 0;
-  clear_last_expr ();
+  cfun->stmt = ggc_alloc_cleared (sizeof (struct stmt_status));
 }
 
 /* Record the current file and line.  Called from emit_line_note.  */
@@ -537,10 +520,7 @@ expand_computed_goto (tree exp)
 {
   rtx x = expand_expr (exp, NULL_RTX, VOIDmode, 0);
 
-#ifdef POINTERS_EXTEND_UNSIGNED
-  if (GET_MODE (x) != Pmode)
-    x = convert_memory_address (Pmode, x);
-#endif
+  x = convert_memory_address (Pmode, x);
 
   emit_queue ();
 
@@ -986,8 +966,8 @@ fixup_gotos (struct nesting *thisblock, rtx stack_level,
 	      && INSN_UID (first_insn) > INSN_UID (f->before_jump)
 	      && ! DECL_ERROR_ISSUED (f->target))
 	    {
-	      error_with_decl (f->target,
-			       "label `%s' used before containing binding contour");
+	      error ("%Jlabel '%D' used before containing binding contour",
+		     f->target, f->target);
 	      /* Prevent multiple errors for one label.  */
 	      DECL_ERROR_ISSUED (f->target) = 1;
 	    }
@@ -2225,17 +2205,13 @@ expand_expr_stmt_value (tree exp, int want_value, int maybe_last)
      except for last statement in ({...}) where they may be useful.  */
   if (! want_value
       && (expr_stmts_for_value == 0 || ! maybe_last)
-      && exp != error_mark_node)
+      && exp != error_mark_node
+      && warn_unused_value)
     {
-      if (! TREE_SIDE_EFFECTS (exp))
-	{
-	  if (warn_unused_value
-	      && !(TREE_CODE (exp) == CONVERT_EXPR
-		   && VOID_TYPE_P (TREE_TYPE (exp))))
-	    warning ("%Hstatement with no effect", &emit_locus);
-	}
-      else if (warn_unused_value)
+      if (TREE_SIDE_EFFECTS (exp))
 	warn_if_unused_value (exp);
+      else if (!VOID_TYPE_P (TREE_TYPE (exp)))
+	warning ("%Hstatement with no effect", &emit_locus);
     }
 
   /* If EXP is of function type and we are expanding statements for
@@ -3032,16 +3008,17 @@ expand_value_return (rtx val)
   if (return_reg != val)
     {
       tree type = TREE_TYPE (DECL_RESULT (current_function_decl));
-#ifdef PROMOTE_FUNCTION_RETURN
-      int unsignedp = TREE_UNSIGNED (type);
-      enum machine_mode old_mode
-	= DECL_MODE (DECL_RESULT (current_function_decl));
-      enum machine_mode mode
-	= promote_mode (type, old_mode, &unsignedp, 1);
+      if (targetm.calls.promote_function_return (TREE_TYPE (current_function_decl)))
+      {
+	int unsignedp = TREE_UNSIGNED (type);
+	enum machine_mode old_mode
+	  = DECL_MODE (DECL_RESULT (current_function_decl));
+	enum machine_mode mode
+	  = promote_mode (type, old_mode, &unsignedp, 1);
 
-      if (mode != old_mode)
-	val = convert_modes (mode, old_mode, val, unsignedp);
-#endif
+	if (mode != old_mode)
+	  val = convert_modes (mode, old_mode, val, unsignedp);
+      }
       if (GET_CODE (return_reg) == PARALLEL)
 	emit_group_load (return_reg, val, type, int_size_in_bytes (type));
       else
@@ -3108,11 +3085,8 @@ expand_return (tree retval)
   else if ((TREE_CODE (retval) == MODIFY_EXPR || TREE_CODE (retval) == INIT_EXPR)
 	   && TREE_CODE (TREE_OPERAND (retval, 0)) == RESULT_DECL)
     retval_rhs = TREE_OPERAND (retval, 1);
-  else if (VOID_TYPE_P (TREE_TYPE (retval)))
-    /* Recognize tail-recursive call to void function.  */
-    retval_rhs = retval;
   else
-    retval_rhs = NULL_TREE;
+    retval_rhs = retval;
 
   last_insn = get_last_insn ();
 
@@ -3727,7 +3701,7 @@ warn_about_unused_variables (tree vars)
 	  && ! TREE_USED (decl)
 	  && ! DECL_IN_SYSTEM_HEADER (decl)
 	  && DECL_NAME (decl) && ! DECL_ARTIFICIAL (decl))
-	warning_with_decl (decl, "unused variable `%s'");
+	warning ("%Junused variable '%D'", decl, decl);
 }
 
 /* Generate RTL code to terminate a binding contour.
@@ -3787,8 +3761,8 @@ expand_end_bindings (tree vars, int mark_ends, int dont_jump_in)
 	     that must be an error, because gotos without fixups
 	     come from outside all saved stack-levels.  */
 	  if (TREE_ADDRESSABLE (chain->label))
-	    error_with_decl (chain->label,
-			     "label `%s' used before containing binding contour");
+	    error ("%Jlabel '%D' used before containing binding contour",
+		   chain->label, chain->label);
 	}
     }
 
@@ -4048,6 +4022,66 @@ expand_decl (tree decl)
     }
 }
 
+/* Emit code to allocate T_SIZE bytes of dynamic stack space for ALLOC.  */
+void
+expand_stack_alloc (tree alloc, tree t_size)
+{
+  rtx address, dest, size;
+  tree var, type;
+
+  if (TREE_CODE (alloc) != ADDR_EXPR)
+    abort ();
+  var = TREE_OPERAND (alloc, 0);
+  if (TREE_CODE (var) != VAR_DECL)
+    abort ();
+
+  type = TREE_TYPE (var);
+
+  /* In function-at-a-time mode, variable_size doesn't expand this,
+     so do it now.  */
+  if (TREE_CODE (type) == ARRAY_TYPE && TYPE_DOMAIN (type))
+    expand_expr (TYPE_MAX_VALUE (TYPE_DOMAIN (type)),
+		 const0_rtx, VOIDmode, 0);
+
+  /* Compute the variable's size, in bytes.  */
+  size = expand_expr (t_size, NULL_RTX, VOIDmode, 0);
+  free_temp_slots ();
+
+  /* Allocate space on the stack for the variable.  */
+  address = XEXP (DECL_RTL (var), 0);
+  dest = allocate_dynamic_stack_space (size, address, TYPE_ALIGN (type));
+  if (dest != address)
+    emit_move_insn (address, dest);
+
+  /* Indicate the alignment we actually gave this variable.  */
+#ifdef STACK_BOUNDARY
+  DECL_ALIGN (var) = STACK_BOUNDARY;
+#else
+  DECL_ALIGN (var) = BIGGEST_ALIGNMENT;
+#endif
+  DECL_USER_ALIGN (var) = 0;
+}
+
+/* Emit code to save the current value of stack.  */
+rtx
+expand_stack_save ()
+{
+  rtx ret = NULL_RTX;
+
+  do_pending_stack_adjust ();
+  emit_stack_save (SAVE_BLOCK, &ret, NULL_RTX);
+  return ret;
+}
+
+/* Emit code to restore the current value of stack.  */
+void
+expand_stack_restore (tree var)
+{
+  rtx sa = DECL_RTL (var);
+
+  emit_stack_restore (SAVE_BLOCK, sa, NULL_RTX);
+}
+
 /* Emit code to perform the initialization of a declaration DECL.  */
 
 void
@@ -4077,7 +4111,7 @@ expand_decl_init (tree decl)
     }
   else if (DECL_INITIAL (decl) && TREE_CODE (DECL_INITIAL (decl)) != TREE_LIST)
     {
-      emit_line_note (*(TREE_LOCUS (decl)));
+      emit_line_note (DECL_SOURCE_LOCATION (decl));
       expand_assignment (decl, DECL_INITIAL (decl), 0);
       emit_queue ();
     }
@@ -5531,7 +5565,8 @@ expand_end_case_type (tree orig_index, tree orig_type)
 	 because we can optimize it.  */
 
       else if (count < case_values_threshold ()
-	       || compare_tree_int (range, 10 * count) > 0
+	       || compare_tree_int (range,
+				    (optimize_size ? 3 : 10) * count) > 0
 	       /* RANGE may be signed, and really large ranges will show up
 		  as negative numbers.  */
 	       || compare_tree_int (range, 0) < 0

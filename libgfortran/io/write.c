@@ -1,20 +1,20 @@
 /* Copyright (C) 2002-2003 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
-This file is part of GNU G95.
+This file is part of the GNU Fortran 95 runtime library (libgfortran).
 
-GNU G95 is free software; you can redistribute it and/or modify
+Libgfortran is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU G95 is distributed in the hope that it will be useful,
+Libgfortran is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU G95; see the file COPYING.  If not, write to
+along with Libgfortran; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -23,6 +23,7 @@ Boston, MA 02111-1307, USA.  */
 #include <float.h>
 #include "libgfortran.h"
 #include "io.h"
+#include <stdio.h>
 
 
 #define star_fill(p, n) memset(p, '*', n)
@@ -34,7 +35,7 @@ sign_t;
 
 
 void
-write_a (fnode * f, char *source, int len)
+write_a (fnode * f, const char *source, int len)
 {
   int wlen;
   char *p;
@@ -66,24 +67,27 @@ write_l (fnode * f, char *p, int len)
   p[f->u.w - 1] = *((int *) p) ? 'T' : 'F';
 }
 
-static int
-extract_int (void *p, int len)
+static int64_t
+extract_int (const void *p, int len)
 {
-  int i = 0;
+  int64_t i = 0;
+
+  if (p == NULL)
+    return i;
 
   switch (len)
     {
     case 1:
-      i = *((int8_t *) p);
+      i = *((const int8_t *) p);
       break;
     case 2:
-      i = *((int16_t *) p);
+      i = *((const int16_t *) p);
       break;
     case 4:
-      i = *((int32_t *) p);
+      i = *((const int32_t *) p);
       break;
     case 8:
-      i = *((int64_t *) p);
+      i = *((const int64_t *) p);
       break;
     default:
       internal_error ("bad integer kind");
@@ -93,16 +97,16 @@ extract_int (void *p, int len)
 }
 
 double
-extract_real (void *p, int len)
+extract_real (const void *p, int len)
 {
   double i = 0.0;
   switch (len)
     {
     case 4:
-      i = *((float *) p);
+      i = *((const float *) p);
       break;
     case 8:
-      i = *((double *) p);
+      i = *((const double *) p);
       break;
     default:
       internal_error ("bad real kind");
@@ -207,6 +211,7 @@ calculate_G_format (fnode *f, double value, int len, int *num_blank)
     }
 
   /* Use binary search to find the data magnitude range.  */
+  mid = 0;
   low = 0;
   high = d + 1;
   lbound = 0;
@@ -265,29 +270,36 @@ calculate_G_format (fnode *f, double value, int len, int *num_blank)
 static void
 output_float (fnode *f, double value, int len)
 {
-  int w, d, e;
+  int w, d, e, e_new;
   int digits;
   int nsign, nblank, nesign;
   int sca, neval, itmp;
-  char *p, *q;
-  char *spos, *intstr;
-  sign_t sign, esign;
-  double n, minv, maxv;
+  char *p;
+  const char *q, *intstr, *base;
+  double n;
   format_token ft;
   char exp_char = 'E';
+  int with_exp = 1;
   int scale_flag = 1 ;
+  double minv = 0.0, maxv = 0.0;
+  sign_t sign = SIGN_NONE, esign = SIGN_NONE;
 
   int intval = 0, intlen = 0;
   int j;
-
+  
+  /* EXP value for this number */
   neval = 0;
+
+  /* Width of EXP and it's sign*/
   nesign = 0;
 
   ft = f->format;
   w = f->u.real.w;
   d = f->u.real.d + 1;
 
+  /* Width of the EXP */
   e = 0;
+
   sca = g.scale_factor;
   n = value;
 
@@ -295,7 +307,8 @@ output_float (fnode *f, double value, int len)
   if (n < 0)
     n = -n;
 
-  nsign = sign == SIGN_NONE ? 0 : 1;
+  /* Width of the sign for the whole number */
+  nsign = (sign == SIGN_NONE ? 0 : 1);
 
   digits = 0;
   if (ft != FMT_F)
@@ -311,6 +324,8 @@ output_float (fnode *f, double value, int len)
       minv = 0.1;
       maxv = 1.0;
 
+      /* Here calculate the new val of the number with consideration
+         of Globle Scale value */
       while (sca >  0)
         {
           minv *= 10.0;
@@ -320,6 +335,7 @@ output_float (fnode *f, double value, int len)
           neval --;
         }
 
+      /* Now calculate the new Exp value for this number */
       sca = g.scale_factor;
       while(sca >= 1)
         {
@@ -339,6 +355,7 @@ output_float (fnode *f, double value, int len)
        maxv = 10.0;
      }
 
+   /* OK, let's scale the number to appropriate range */
    while (scale_flag && n > 0.0 && n < minv)
      {
        if (n < minv)
@@ -355,23 +372,13 @@ output_float (fnode *f, double value, int len)
            neval ++;
          }
      }
+
+  /* It is time to process the EXP part of the number. 
+     Value of 'nesign' is 0 unless following codes is executed.
+  */
   if (ft != FMT_F)
     {
-      j = neval;
-      if (e <= 0)
-        {
-          while (j > 0)
-            {
-              j = j / 10;
-              e ++ ;
-            }
-         if (e <= 0)
-           e = 2;
-       }
-
-     if (e < digits)
-       e = digits ;
-
+     /* Sign of the EXP value */
      if (neval >= 0)
        esign = SIGN_PLUS;
      else
@@ -380,10 +387,30 @@ output_float (fnode *f, double value, int len)
          neval = - neval ;
        }
 
-     nesign =  1 ;
+      /* Width of the EXP*/
+      e_new = 0;
+      j = neval;
+      while (j > 0)
+        {
+           j = j / 10;
+           e_new ++ ;
+        }
+      if (e <= e_new)
+         e = e_new;
+
+     /* Got the width of EXP */
+     if (e < digits)
+       e = digits ;
+
+     /* Minimum value of the width would be 2 */
+     if (e < 2)
+       e = 2;
+
+     nesign =  1 ;  /* We must give a position for the 'exp_char' */
      if (e > 0)
-       nesign = e + nesign ;
+       nesign = e + nesign + (esign != SIGN_NONE ? 1 : 0);
    }
+
 
   intval = n;
   intstr = itoa (intval);
@@ -399,9 +426,17 @@ output_float (fnode *f, double value, int len)
   p = write_block (w);
   if (p == NULL)
     return;
-  spos = p;
 
-  nblank = w - (nsign + intlen + d + nesign + (ft == FMT_F ? 0 : 1) );
+  base = p;
+
+  nblank = w - (nsign + intlen + d + nesign);
+  if (nblank == -1 && ft != FMT_F)
+     {
+       with_exp = 0;
+       nesign -= 1;
+       nblank = w - (nsign + intlen + d + nesign);
+     }
+
   if (nblank < 0)
     {
       star_fill (p, w);
@@ -425,9 +460,10 @@ output_float (fnode *f, double value, int len)
   memcpy (p, q, intlen + d + 1);
   p += intlen + d;
 
-  if (e > 0 && nesign > 0)
+  if (nesign > 0)
     {
-      *p++ = exp_char;
+      if (with_exp)
+         *p++ = exp_char;
       switch (esign)
         {
         case SIGN_PLUS:
@@ -441,6 +477,7 @@ output_float (fnode *f, double value, int len)
         }
       q = itoa (neval);
       digits = strlen (q);
+
       for (itmp = 0; itmp < e - digits; itmp++)
         *p++ = '0';
       memcpy (p, q, digits);
@@ -455,14 +492,42 @@ done:
 /* write_float() -- output a real number according to its format */
 
 static void
-write_float (fnode *f, char *source, int len)
+write_float (fnode *f, const char *source, int len)
 {
   double n;
-  int nb =0 ;
-  char * p;
+  int nb =0, res;
+  char * p, fin;
   fnode *f2 = NULL;
 
   n = extract_real (source, len);
+
+  if (f->format != FMT_B && f->format != FMT_O && f->format != FMT_Z)
+   {
+     res = finite (n);
+     if (res == 0)
+       {
+         nb =  f->u.real.w;
+         if (nb <= 4)
+            nb = 4;
+         p = write_block (nb);
+         memset (p, ' ' , 1);
+         
+         res = isinf (n);
+         if (res != 0)
+         {
+            if (res > 0)
+               fin = '+';
+            else
+               fin = '-';
+         
+             memset (p + 1, fin, nb - 1);
+          }
+         else
+             sprintf(p + 1, "NaN");
+         return;
+       }
+   }
+
   if (f->format != FMT_G)
     {
       output_float (f, n, len);
@@ -484,9 +549,85 @@ write_float (fnode *f, char *source, int len)
 
 
 static void
-write_int (fnode *f, char *source, int len, char *(*conv) (unsigned))
+write_int (fnode *f, const char *source, int len, char *(*conv) (uint64_t))
 {
-  int n, w, m, digits, nsign, nzero, nblank;
+  uint32_t ns =0;
+  uint64_t n = 0;
+  int w, m, digits, nzero, nblank;
+  char *p, *q;
+
+  w = f->u.integer.w;
+  m = f->u.integer.m;
+
+  n = extract_int (source, len);
+
+  /* Special case */
+
+  if (m == 0 && n == 0)
+    {
+      if (w == 0)
+        w = 1;
+
+      p = write_block (w);
+      if (p == NULL)
+        return;
+
+      memset (p, ' ', w);
+      goto done;
+    }
+
+
+  if (len < 8)
+     {
+       ns = n;
+       q = conv (ns);
+     }
+  else
+      q = conv (n);
+
+  digits = strlen (q);
+
+  /* Select a width if none was specified.  The idea here is to always
+   * print something. */
+
+  if (w == 0)
+    w = ((digits < m) ? m : digits);
+
+  p = write_block (w);
+  if (p == NULL)
+    return;
+
+  nzero = 0;
+  if (digits < m)
+    nzero = m - digits;
+
+  /* See if things will work */
+
+  nblank = w - (nzero + digits);
+
+  if (nblank < 0)
+    {
+      star_fill (p, w);
+      goto done;
+    }
+
+  memset (p, ' ', nblank);
+  p += nblank;
+
+  memset (p, '0', nzero);
+  p += nzero;
+
+  memcpy (p, q, digits);
+
+done:
+  return;
+}
+
+static void
+write_decimal (fnode *f, const char *source, int len, char *(*conv) (int64_t))
+{
+  int64_t n = 0;
+  int w, m, digits, nsign, nzero, nblank;
   char *p, *q;
   sign_t sign;
 
@@ -500,11 +641,11 @@ write_int (fnode *f, char *source, int len, char *(*conv) (unsigned))
   if (m == 0 && n == 0)
     {
       if (w == 0)
-	w = 1;
+        w = 1;
 
       p = write_block (w);
       if (p == NULL)
-	return;
+        return;
 
       memset (p, ' ', w);
       goto done;
@@ -515,8 +656,8 @@ write_int (fnode *f, char *source, int len, char *(*conv) (unsigned))
     n = -n;
 
   nsign = sign == SIGN_NONE ? 0 : 1;
-
   q = conv (n);
+
   digits = strlen (q);
 
   /* Select a width if none was specified.  The idea here is to always
@@ -571,7 +712,7 @@ done:
 /* otoa()-- Convert unsigned octal to ascii */
 
 static char *
-otoa (unsigned n)
+otoa (uint64_t n)
 {
   char *p;
 
@@ -587,8 +728,9 @@ otoa (unsigned n)
 
   while (n != 0)
     {
-      *p-- = '0' + (n % 8);
-      n /= 8;
+      *p = '0' + (n & 7);
+      p -- ;
+      n >>= 3;
     }
 
   return ++p;
@@ -598,7 +740,7 @@ otoa (unsigned n)
 /* btoa()-- Convert unsigned binary to ascii */
 
 static char *
-btoa (unsigned n)
+btoa (uint64_t n)
 {
   char *p;
 
@@ -623,15 +765,15 @@ btoa (unsigned n)
 
 
 void
-write_i (fnode * f, char *p, int len)
+write_i (fnode * f, const char *p, int len)
 {
 
-  write_int (f, p, len, (void *) itoa);
+  write_decimal (f, p, len, (void *) itoa);
 }
 
 
 void
-write_b (fnode * f, char *p, int len)
+write_b (fnode * f, const char *p, int len)
 {
 
   write_int (f, p, len, btoa);
@@ -639,14 +781,14 @@ write_b (fnode * f, char *p, int len)
 
 
 void
-write_o (fnode * f, char *p, int len)
+write_o (fnode * f, const char *p, int len)
 {
 
   write_int (f, p, len, otoa);
 }
 
 void
-write_z (fnode * f, char *p, int len)
+write_z (fnode * f, const char *p, int len)
 {
 
   write_int (f, p, len, xtoa);
@@ -654,35 +796,35 @@ write_z (fnode * f, char *p, int len)
 
 
 void
-write_d (fnode *f, char *p, int len)
+write_d (fnode *f, const char *p, int len)
 {
   write_float (f, p, len);
 }
 
 
 void
-write_e (fnode *f, char *p, int len)
+write_e (fnode *f, const char *p, int len)
 {
   write_float (f, p, len);
 }
 
 
 void
-write_f (fnode *f, char *p, int len)
+write_f (fnode *f, const char *p, int len)
 {
   write_float (f, p, len);
 }
 
 
 void
-write_en (fnode *f, char *p, int len)
+write_en (fnode *f, const char *p, int len)
 {
   write_float (f, p, len);
 }
 
 
 void
-write_es (fnode *f, char *p, int len)
+write_es (fnode *f, const char *p, int len)
 {
   write_float (f, p, len);
 }
@@ -728,7 +870,7 @@ write_char (char c)
 /* Default logical output should be L2
   according to DEC fortran Manual. */
 static void
-write_logical (char *source, int length)
+write_logical (const char *source, int length)
 {
   write_char (' ');
   write_char (extract_int (source, length) ? 'T' : 'F');
@@ -738,9 +880,10 @@ write_logical (char *source, int length)
 /* write_integer()-- Write a list-directed integer value. */
 
 static void
-write_integer (char *source, int length)
+write_integer (const char *source, int length)
 {
-  char *p, *q;
+  char *p;
+  const char *q;
   int digits;
   int width = 12;
 
@@ -762,7 +905,7 @@ write_integer (char *source, int length)
  * mode. */
 
 static void
-write_character (char *source, int length)
+write_character (const char *source, int length)
 {
   int i, extra;
   char *p, d;
@@ -818,7 +961,7 @@ write_character (char *source, int length)
    REAL(4) is 1PG15.7E2, and for REAL(8) is 1PG25.15E3  */
 
 static void
-write_real (char *source, int length)
+write_real (const char *source, int length)
 {
   fnode f ;
   int org_scale = g.scale_factor;
@@ -842,7 +985,7 @@ write_real (char *source, int length)
 
 
 static void
-write_complex (char *source, int len)
+write_complex (const char *source, int len)
 {
 
   if (write_char ('('))
@@ -881,6 +1024,9 @@ list_formatted_write (bt type, void *p, int len)
 {
   static int char_flag;
 
+  if (current_unit == NULL)
+    return;
+
   if (g.first_item)
     {
       g.first_item = 0;
@@ -916,3 +1062,60 @@ list_formatted_write (bt type, void *p, int len)
 
   char_flag = (type == BT_CHARACTER);
 }
+
+void
+namelist_write (void)
+{
+   namelist_info * t1, *t2;
+   int len,num;
+   void * p;
+
+   num = 0;
+   write_character("&",1);
+   write_character (ioparm.namelist_name, ioparm.namelist_name_len);
+   write_character("\n",1);
+
+   if (ionml != NULL)
+     {
+       t1 = ionml;
+       while (t1 != NULL)
+        {
+          num ++;
+          t2 = t1;
+          t1 = t1->next;
+          write_character(t2->var_name, strlen(t2->var_name));
+          write_character("=",1);
+          len = t2->len;
+          p = t2->mem_pos;
+          switch (t2->type)
+            {
+            case BT_INTEGER:
+              write_integer (p, len);
+              break;
+            case BT_LOGICAL:
+              write_logical (p, len);
+              break;
+            case BT_CHARACTER:
+              write_character (p, len);
+              break;
+            case BT_REAL:
+              write_real (p, len);
+              break;
+            case BT_COMPLEX:
+              write_complex (p, len);
+              break;
+            default:
+              internal_error ("Bad type for namelist write");
+            }
+         write_character(",",1);
+         if (num > 5)
+           {
+              num = 0;
+              write_character("\n",1);
+           }
+        }
+     }
+     write_character("/",1);
+
+}
+

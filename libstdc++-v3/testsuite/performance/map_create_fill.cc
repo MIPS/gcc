@@ -26,7 +26,7 @@ static void create_and_fill(const unsigned int n)
 {
   typedef std::map<int, int>  Map;
   Map                         m;
-  bool test = true;
+  bool test __attribute__((unused)) = true;
   
   for (unsigned int i = 0; i < n; ++i)
     m[i] = i;
@@ -37,7 +37,7 @@ static void create_and_fill(const unsigned int n)
 int main()
 {
   using namespace std;
-  using namespace __gnu_cxx_test;
+  using namespace __gnu_test;
 
   time_counter time;
   resource_counter resource;

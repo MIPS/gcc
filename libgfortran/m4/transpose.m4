@@ -42,7 +42,7 @@ void
   index_type xcount, ycount;
   index_type x, y;
 
-  assert (G95_DESCRIPTOR_RANK (source) == 2);
+  assert (GFC_DESCRIPTOR_RANK (source) == 2);
 
   if (ret->dim[0].stride == 0)
     ret->dim[0].stride = 1;

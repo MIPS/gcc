@@ -1,3 +1,76 @@
+2003-09-21  Ralph Loader  <suckfish@ihug.co.nz>
+
+	PR java/12350
+	* libjava.lang/PR12350.java: New file.
+	* libjava.lang/PR12350.out: New file.
+
+2003-09-17  Ranjit Mathew  <rmathew@hotmail.com>
+
+	PR java/9577
+	* libjava.cni/PR9577.java: New file.
+	* libjava.cni/natPR9577.cc: New file.
+	* libjava.cni/PR9577.out: New file.
+
+2003-09-04  Jeff Sturm  <jsturm@one-point.com>
+
+	* libjava.compile/compile.exp: Test with -O3 rather than -O.
+	* libjava.lang/lang.exp: Likewise.
+
+2003-09-04  Jeff Sturm  <jsturm@one-point.com>
+
+	* lib/libjava.exp (libjava_arguments): Remove unneeded variables.
+	(test_libjava_from_source): Likewise.
+	(test_libjava_from_javac): Likewise.
+
+2003-08-23  Andreas Tobler <a.tobler@schweiz.ch> 
+
+	PR libgcj/8823
+        * libjava.lang/pr8823.xfail: Removed.
+
+2003-08-19  Jeff Sturm  <jsturm@one-point.com>
+
+	* lib/libjava.exp (libjava_arguments): Add $libjava to the list of
+	libraries.
+
+2003-08-18  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/11951:
+	* libjava.jni/pr11951.c: New file.
+	* libjava.jni/pr11951.out: New file.
+	* libjava.jni/pr11951.java: New file.
+
+2003-08-12  Tom Tromey  <tromey@redhat.com>
+
+	* libjava.jacks/jacks.xfail: Updated to account for new passes.
+	* libjava.compile/abstr.xfail: Now can compile from bytecode.
+	* libjava.compile/PR5641.xfail: Now can compile from bytecode.
+
+	* libjava.mauve/mauve.exp (test_mauve_sim): Don't find
+	DejaGNUTestHarness in gnu/testlet.
+	(test_mauve): Use correct object extension.
+
+2003-08-12  Tom Tromey  <tromey@redhat.com>
+
+	* lib/libjava.exp (libjava_find_lib): Search for .so file first.
+	(libjava_arguments): Don't add libraries to link line explictly.
+
+2003-08-05  Tom Tromey  <tromey@redhat.com>
+
+	For PR java/11600:
+	* libjava.compile/PR11600.xfail: New file.
+	* libjava.compile/PR11600.java: New file.
+
+2003-08-04  Tom Tromey  <tromey@redhat.com>
+
+	* libjava.jacks/jacks.exp (gcj_jacks_run): Just ignore errors
+	from jacks.
+
+2003-07-24  Tom Tromey  <tromey@redhat.com>
+
+	For PR libgcj/7482:
+	* libjava.lang/PR7482.java: New file.
+	* libjava.lang/PR7482.out: New file.
+
 2003-07-20  Tom Tromey  <tromey@redhat.com>
 
 	* libjava.mauve/mauve.exp (mauve_find_harness_files): New proc.

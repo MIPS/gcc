@@ -1,3 +1,176 @@
+2003-09-23  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* MAINTAINERS: Move myself from 'Write After Approval' to
+	'Various Maintainers' section as libffi testsuite maintainer.
+
+2003-09-21  Daniel Jacobowitz  <drow@mvista.com>
+
+	* configure.in: Pass a computed --program-transform-name
+	to subconfigures.
+	* configure: Regenerated.
+
+2003-09-20  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* Makefile.tpl: Don't pass down obsolete ENQUIRE variable.
+	* Makefile.in: Regenerate.
+
+	* Makefile.tpl: Don't pass (unused) DLLTOOL or WINDRES to gcc.
+	* Makefile.in: Regenerate.
+
+2003-09-19  Ziemowit Laski  <zlaski@apple.com>
+
+	* MAINTAINERS: Move myself from 'Write After Approval'
+	to 'Various Maintainers' (objective-c) section.
+
+2003-09-17  Daniel Jacobowitz  <drow@mvista.com>
+
+	* configure.in (TOPLEVEL_CONFIGURE_ARGUMENTS, baseargs): Fix
+	quoting.
+	* configure: Regenerated.
+
+2003-09-16  Joel Brobecker  <brobecker@gnat.com>
+
+	* MAINTAINERS (Write After Approval): Add myself to write after
+	approval list.
+
+2003-09-16  Dorit Naishlos  <dorit@il.ibm.com>
+
+       * MAINTAINERS (Write After Approval): Add myself.
+
+2003-09-09  Ian Lance Taylor  <ian@wasabisystems.com>
+
+	* MAINTAINERS: Update my e-mail address.
+
+2003-09-09  Alan Modra  <amodra@bigpond.net.au>
+
+	* libtool.m4 (LD): Correct powerpc64 host match.
+
+2003-09-06  James E Wilson  <wilson@tuliptree.org>
+
+	* MAINTAINTERS: Update my affiliation and email address.
+
+2003-09-06  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2003-09-04  DJ Delorie  <dj@redhat.com>
+
+	* configure: Regenerate.
+
+2003-09-04  Robert Millan  <robertmh@gnu.org>
+
+	* configure.in: Match GNU/KFreeBSD with new kfreebsd*-gnu triplet.
+	
+2003-09-02  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* configure.in: Ensure arguments to sed are properly spaced.
+	* configure: Regenerate.
+
+2003-08-30  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* MAINTAINERS: Update my e-mail address.
+
+2003-08-28  Mohan Embar  <gnustuff@thisiscool.com>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2003-08-27  Daniel Jacobowitz  <drow@mvista.com>
+
+	* configure.in: Set RAW_CXX_FOR_TARGET if unset.
+	* configure: Regenerated.
+
+2003-08-27  Daniel Jacobowitz  <drow@mvista.com>
+
+	* config/no-executables.m4: New file.
+
+2003-08-23  Marek Michalkiewicz  <marekm@amelek.gda.pl>
+
+	* MAINTAINERS: Update my email address.
+
+2003-08-23  Phil Edwards  <pme@gcc.gnu.org>
+
+	* configure.in:  Use newline instead of semicolon when assuming
+	shell arguments in a for loop.
+	* configure:  Regenerated.
+
+2003-08-22  Jason Eckhardt  <jle@rice.edu>
+
+	* MAINTAINERS: Resurrect the i860 maintainer.
+
+2003-08-20  Geoffrey Keating  <geoffk@apple.com>
+
+	PR 8180
+	* configure.in: When testing with_libs and with_headers, treat
+	'no' as unset.  Based on a patch by Dan Kegel <dank@kegel.com>.
+	* configure: Regenerate.
+	
+	* configure.in (TOPLEVEL_CONFIGURE_ARGUMENTS): Quote properly for
+	make, shell, etc.
+	(baseargs): Likewise.
+	* configure: Regenerate.
+
+2003-08-20  Bernardo Innocenti  <bernie@develer.com>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2003-08-19  Geoffrey Keating  <geoffk@apple.com>
+
+	* configure.in: Disable libgcj for darwin not on powerpc.
+	* configure: Rebuild.
+
+2003-08-14  Alexandre Duret-Lutz  <adl@gnu.org>
+
+	* config-ml.in, symlink-tree: Add license.
+
+2003-08-03  Richard Stallman  <rms@gnu.org> 
+            Eben Moglen  <moglen@columbia.edu>
+
+	* README.SCO: New file.
+
+2003-08-01  Matt Kraai  <kraai@alumni.cmu.edu>
+
+	* Makefile.tpl (check, check-c++): Express dependencies using
+	dependencies rather than commands.
+	* Makefile.in: Regenerate.
+
+2003-08-01  Andrew Cagney  <cagney@redhat.com>
+
+	* configure.in (noconfigdirs): Do not add GDB when m32r-*-*.
+	* configure: Ditto.
+
+2003-07-31  Geoffrey Keating  <geoffk@apple.com>
+
+	* Makefile.tpl (libsubdir): Use gcc instead of gcc-lib.
+	* Makefile.in: Update.
+
+2003-07-30  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* configure.in: Enable libgcj for darwin.
+	* configure: Rebuild.
+
+2003-07-29  Phil Edwards  <pme@gcc.gnu.org>
+
+	* config-ml.in:  Use ac_configure_args directly instead of
+	ml_arguments.  Only set ml_norecursion if --no[-]recursion is
+	actually seen.
+
+2003-07-27  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* Makefile.tpl: Use 'mkinstalldirs' rather than 'mkdir' when
+	creating target and build subdirs to build all parent dirs as needed.
+	* Makefile.in: Rebuild.
+	* configure.in: Don't build dirs explicitly here.
+	* configure: Rebuild.
+
+2003-07-26  Paul Brook  <paul@nowt.org>
+
+	* MAINTAINERS (fortran 95): Add myself, Steven Bosscher and Toon Moene.
+
+2003-07-22  Alexandre Oliva  <aoliva@redhat.com>
+
+	* Makefile.tpl (all-make): Depend on intl.
+	* Makefile.in: Rebuilt.
+
 2003-07-20  Phil Edwards  <pme@gcc.gnu.org>
 
 	* install-sh:  Update to newer upstream versions (associated with

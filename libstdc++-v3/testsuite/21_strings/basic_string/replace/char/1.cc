@@ -25,12 +25,10 @@
 
 bool test01(void)
 {
-  bool test = true;
+  bool test __attribute__((unused)) = true;
   typedef std::string::size_type csize_type;
   typedef std::string::const_reference cref;
   typedef std::string::reference ref;
-  csize_type npos = std::string::npos;
-  csize_type csz01, csz02;
 
   const char str_lit01[] = "ventura, california";
   const std::string str01(str_lit01);
@@ -73,10 +71,6 @@ bool test01(void)
 	    std::find(x.rbegin(), x.rend(), 'l').base(), ar, 
 	    ar + sizeof(ar) / sizeof(ar[0]));
   VERIFY( x == "jeHelloo" );
-
-#ifdef DEBUG_ASSERT
-  assert(test);
-#endif
   return test;
 }
 

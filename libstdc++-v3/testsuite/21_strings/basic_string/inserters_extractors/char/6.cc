@@ -33,7 +33,7 @@
 // http://gcc.gnu.org/ml/libstdc++/1999-q4/msg00049.html
 void test06(void)
 {
-  bool test = true;
+  bool test __attribute__((unused)) = true;
 
   typedef std::string::size_type size_type;
   std::string str01("@silent");
@@ -52,10 +52,6 @@ void test06(void)
   size_type i06 = str02.capacity();
   VERIFY( i05 == i03 );
   VERIFY( i06 <= i04 );
-
-#ifdef DEBUG_ASSERT
-  assert(test);
-#endif
 }
 
 int main()

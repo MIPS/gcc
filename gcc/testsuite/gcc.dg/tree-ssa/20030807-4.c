@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O1 -fdump-tree-ssa" } */
+/* { dg-options "-O1 -fdump-tree-dom2" } */
 
 typedef struct cpp_reader cpp_reader;
 typedef unsigned int cppchar_t;
@@ -28,5 +28,5 @@ cpp_parse_escape (pfile, pstr, limit, wide)
   }
 }
 
-/* There should be four IF conditionals.  */
-/* { dg-final { scan-tree-dump-times "if " 4 "ssa"} } */
+/* There should be two IF conditionals.  */
+/* { dg-final { scan-tree-dump-times "if " 2 "dom2"} } */

@@ -167,7 +167,7 @@ arm_mark_dllimport (decl)
       && !DECL_VIRTUAL_P (decl)
       && DECL_INITIAL (decl))
     {
-      error_with_decl (decl, "initialized variable `%s' is marked dllimport");
+      error ("%Jinitialized variable '%D' is marked dllimport", decl, decl);
       return;
     }
   /* Nor can they be static.  */
@@ -176,7 +176,7 @@ arm_mark_dllimport (decl)
       && !DECL_VIRTUAL_P (decl)
       && 0 /*???*/)
     {
-      error_with_decl (decl, "static variable `%s' is marked dllimport");
+      error ("%Jstatic variable '%D' is marked dllimport", decl, decl);
       return;
     }
 

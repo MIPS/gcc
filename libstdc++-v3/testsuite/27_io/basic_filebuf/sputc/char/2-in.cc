@@ -32,15 +32,13 @@ const char name_01[] = "filebuf_virtuals-1.txt"; // file with data in it
 void test05() 
 {
   using namespace std;
-  using namespace __gnu_cxx_test;
+  using namespace __gnu_test;
 
   typedef filebuf::int_type 	int_type;
   typedef filebuf::traits_type 	traits_type;
 
-  bool 					test = true;
-  streamsize 			strmsz_1, strmsz_2;
-  int 					i = 0, j = 0, k = 0;
-  int_type 			c1, c2, c3;
+  bool test __attribute__((unused)) = true;
+  int_type 			c3;
 
   // int_type sputc(char_type c)
   // if out_cur not avail, return overflow(traits_type::to_int_type(c)) 
@@ -59,7 +57,7 @@ void test05()
    }
 }
 
-main() 
+int main() 
 {
   test05();
   return 0;

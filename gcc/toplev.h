@@ -56,20 +56,17 @@ extern void _fatal_insn (const char *, rtx, const char *, int, const char *)
 extern void internal_error (const char *, ...) ATTRIBUTE_GCC_DIAG(1,2)
      ATTRIBUTE_NORETURN;
 extern void warning (const char *, ...);
-extern void error (const char *, ...) ATTRIBUTE_GCC_DIAG(1,2);
+extern void error (const char *, ...);
 extern void fatal_error (const char *, ...) ATTRIBUTE_GCC_DIAG(1,2)
      ATTRIBUTE_NORETURN;
-extern void pedwarn (const char *, ...) ATTRIBUTE_GCC_DIAG(1,2);
+extern void pedwarn (const char *, ...);
 extern void sorry (const char *, ...) ATTRIBUTE_GCC_DIAG(1,2);
 extern void inform (const char *, ...) ATTRIBUTE_GCC_DIAG(1,2);
 
 extern void rest_of_decl_compilation (tree, const char *, int, int);
 extern void rest_of_type_compilation (tree, int);
 extern void rest_of_compilation (tree);
-
-extern void pedwarn_with_decl (tree, const char *, ...);
-extern void warning_with_decl (tree, const char *, ...);
-extern void error_with_decl (tree, const char *, ...);
+extern void tree_rest_of_compilation (tree, bool);
 
 extern void announce_function (tree);
 
@@ -127,7 +124,6 @@ extern int flag_ssa_dce;
 extern int time_report;
 extern int flag_new_regalloc;
 
-extern void display_help (void);
 extern void display_target_options (void);
 extern void print_version (FILE *, const char *);
 extern void set_target_switch (const char *);
@@ -143,9 +139,6 @@ extern void set_fast_math_flags         (int);
 /* Handle -d switch.  */
 extern void decode_d_option		(const char *);
 
-/* Handle -g switch.  */
-extern void decode_g_option		(const char *);
-
 /* Return true iff flags are set as if -ffast-math.  */
 extern bool fast_math_flags_set_p	(void);
 
@@ -158,5 +151,11 @@ extern bool fast_math_flags_set_p	(void);
 #endif
 extern int exact_log2_wide             (unsigned HOST_WIDE_INT);
 extern int floor_log2_wide             (unsigned HOST_WIDE_INT);
+
+/* Functions used to get and set GCC's notion of in what directory
+   compilation was started.  */
+
+extern const char *get_src_pwd	       (void);
+extern bool set_src_pwd		       (const char *);
 
 #endif /* ! GCC_TOPLEV_H */

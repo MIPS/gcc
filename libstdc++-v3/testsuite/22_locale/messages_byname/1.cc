@@ -29,13 +29,13 @@ void test01()
   typedef std::messages<char>::catalog catalog;
   typedef std::messages<char>::string_type string_type;
 
-  bool test = true;
+  bool test __attribute__((unused)) = true;
   string str;
-  // This is exported through RUNTESTFLAGS in testsuite/Makefile.am.
+  // This is defined through CXXFLAGS in scripts/testsuite_flags[.in].
   const char* dir = LOCALEDIR;
   locale loc_c = locale::classic();
 
-  locale loc_de = __gnu_cxx_test::try_named_locale("de_DE");
+  locale loc_de = __gnu_test::try_named_locale("de_DE");
   str = loc_de.name();
 
   locale loc_byname(locale::classic(), new messages_byname<char>("de_DE"));

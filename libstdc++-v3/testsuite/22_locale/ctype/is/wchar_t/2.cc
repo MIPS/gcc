@@ -41,7 +41,7 @@ void test02()
   typedef ctype_base::mask 	mask;
   typedef vector<mask> 		vector_type;
 
-  bool test = true;
+  bool test __attribute__((unused)) = true;
 
   //  const int max = numeric_limits<char>::max();
   const int max = 255;
@@ -67,7 +67,7 @@ void test02()
     }   
 
   // "de_DE"
-  locale loc_de = __gnu_cxx_test::try_named_locale("de_DE");
+  locale loc_de = __gnu_test::try_named_locale("de_DE");
   const ctype<wchar_t>& ctype_de = use_facet<ctype<wchar_t> >(loc_de); 
   for (int i = 0; i < max; ++i)
     {

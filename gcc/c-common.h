@@ -40,6 +40,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    2: STMT_LINENO_FOR_FN_P (in _STMT)
    3: SCOPE_NO_CLEANUPS_P (in SCOPE_STMT)
       COMPOUND_STMT_BODY_BLOCK (in COMPOUND_STMT)
+      STMT_EXPR_WARN_UNUSED_RESULT (in STMT_EXPR)
    4: SCOPE_PARTIAL_P (in SCOPE_STMT)
 */
 
@@ -319,7 +320,6 @@ extern void (*lang_expand_stmt) (tree);
 extern int (*lang_gimplify_stmt) (tree *, tree *);
 extern void (*lang_expand_decl_stmt) (tree);
 extern void (*lang_expand_function_end) (void);
-extern tree gettags (void);
 
 /* Callback that determines if it's ok for a function to have no
    noreturn attribute.  */
@@ -339,6 +339,7 @@ extern void finish_stmt_tree (tree *);
 extern tree walk_stmt_tree (tree *, walk_tree_fn, void *);
 extern void prep_stmt (tree);
 extern void expand_stmt (tree);
+extern void expand_stmt_toplev (tree);
 extern tree c_begin_if_stmt (void);
 extern tree c_begin_while_stmt (void);
 extern void c_finish_while_stmt_cond (tree, tree);
@@ -348,19 +349,6 @@ extern void shadow_warning (enum sw_kind, const char *, tree);
 extern int field_decl_cmp (const void *, const void *);
 extern void resort_sorted_fields (void *, void *, gt_pointer_operator, 
                                   void *);
-
-/* Extra information associated with a DECL.  Other C dialects extend
-   this structure in various ways.  The C front-end only uses this
-   structure for FUNCTION_DECLs; all other DECLs have a NULL
-   DECL_LANG_SPECIFIC field.  */
-
-struct c_lang_decl GTY(()) {
-  unsigned declared_inline : 1;
-};
-
-/* Nonzero if we can read a PCH file now.  */
-
-extern int allow_pch;
 
 /* Switches common to the C front ends.  */
 
@@ -548,11 +536,6 @@ extern int flag_isoc99;
 
 extern int flag_hosted;
 
-/* Nonzero means add default format_arg attributes for functions not
-   in ISO C.  */
-
-extern int flag_noniso_default_format_attributes;
-
 /* Nonzero means warn when casting a function call to a type that does
    not match the return type (e.g. (float)sqrt() or (anything*)malloc()
    when there is no previous declaration of sqrt or malloc.  */
@@ -562,6 +545,10 @@ extern int warn_bad_function_cast;
 /* Warn about traditional constructs whose meanings changed in ANSI C.  */
 
 extern int warn_traditional;
+
+/* Nonzero means warn for a declaration found after a statement.  */
+
+extern int warn_declaration_after_statement;
 
 /* Nonzero means warn for non-prototype function decls
    or non-prototyped defs without previous prototype.  */
@@ -589,6 +576,12 @@ extern int warn_main;
 
 extern int warn_sequence_point;
 
+/* Nonzero means warn about uninitialized variable when it is initialized with itself. 
+   For example: int i = i;, GCC will not warn about this when warn_init_self is nonzero.  */
+
+extern int warn_init_self;
+
+
 /* Nonzero means to warn about compile-time division by zero.  */
 extern int warn_div_by_zero;
 
@@ -600,6 +593,10 @@ extern int warn_implicit_int;
    non-NULL.  */ 
       
 extern int warn_nonnull;
+
+/* Warn about old-style parameter declaration.  */
+
+extern int warn_old_style_definition;
 
 
 /* ObjC language option variables.  */
@@ -732,14 +729,17 @@ extern int flag_new_for_scope;
 
 extern int flag_weak;
 
+/* 0 means we want the preprocessor to not emit line directives for
+   the current working directory.  1 means we want it to do it.  -1
+   means we should decide depending on whether debugging information
+   is being emitted or not.  */
+
+extern int flag_working_directory;
+
 /* Nonzero to use __cxa_atexit, rather than atexit, to register
    destructors for local statics and global objects.  */
 
 extern int flag_use_cxa_atexit;
-
-/* Nonzero means output .vtable_{entry,inherit} for use in doing vtable gc.  */
-
-extern int flag_vtable_gc;
 
 /* Nonzero means make the default pedwarns warnings instead of errors.
    The value of this flag is ignored if -pedantic is specified.  */
@@ -843,11 +843,6 @@ extern int max_tinst_depth;
 
 extern int skip_evaluation;
 
-/* The count of input filenames.  Only really valid for comparisons
-   against 1.  */
-
-extern unsigned num_in_fnames;
-
 /* C types are partitioned into three subsets: object, function, and
    incomplete types.  */
 #define C_TYPE_OBJECT_P(type) \
@@ -897,9 +892,7 @@ extern void check_function_format (int *, tree, tree);
 extern void set_Wformat (int);
 extern tree handle_format_attribute (tree *, tree, tree, int, bool *);
 extern tree handle_format_arg_attribute (tree *, tree, tree, int, bool *);
-extern void c_common_insert_default_attributes (tree);
 extern int c_common_handle_option (size_t code, const char *arg, int value);
-extern void c_common_handle_filename (const char *filename);
 extern bool c_common_missing_argument (const char *opt, size_t code);
 extern tree c_common_type_for_mode (enum machine_mode, int);
 extern tree c_common_type_for_size (unsigned int, int);
@@ -962,9 +955,11 @@ extern bool c_common_init (void);
 extern void c_common_finish (void);
 extern void c_common_parse_file (int);
 extern HOST_WIDE_INT c_common_get_alias_set (tree);
+extern void c_register_builtin_type (tree, const char*);
 extern bool c_promoting_integer_type_p (tree);
 extern int self_promoting_args_p (tree);
 extern tree strip_array_types (tree);
+extern tree strip_pointer_operator (tree);
 
 /* This function resets the parsers' state in preparation for parsing
    a new file.  */
@@ -1038,6 +1033,11 @@ extern void finish_file	(void);
 /* Nonzero if this statement-expression does not have an associated scope.  */
 #define STMT_EXPR_NO_SCOPE(NODE) \
    TREE_LANG_FLAG_0 (STMT_EXPR_CHECK (NODE))
+
+/* Nonzero if this statement-expression should cause warning if its result
+   is not used.  */
+#define STMT_EXPR_WARN_UNUSED_RESULT(NODE) \
+   TREE_LANG_FLAG_3 (STMT_EXPR_CHECK (NODE))
 
 /* LABEL_STMT accessor. This gives access to the label associated with
    the given label statement.  */
@@ -1268,14 +1268,6 @@ extern int c_gimplify_expr (tree *, tree *, tree *);
 extern tree c_walk_subtrees (tree*, int*, walk_tree_fn, void*, void*);
 extern int c_tree_chain_matters_p (tree);
 
-/* In c-pretty-print.c  */
-extern void print_c_tree (FILE*, tree);
-extern void print_c_node (FILE*, tree);
-extern void print_c_node_brief (FILE*, tree);
-extern void debug_c_tree (tree);
-extern void debug_c_node (tree);
-extern void debug_c_node_brief(tree);
-
 /* In c-simplify.c  */
 extern void c_genericize (tree);
 extern void c_gimplify_stmt (tree *);
@@ -1285,10 +1277,12 @@ extern int c_common_valid_pch (cpp_reader *pfile, const char *name, int fd);
 extern void c_common_read_pch (cpp_reader *pfile, const char *name, int fd,
 			       const char *orig);
 extern void c_common_write_pch (void);
+extern void c_common_no_more_pch (void);
 extern void builtin_define_with_value (const char *, const char *, int);
 extern void c_stddef_cpp_builtins (void);
 extern void fe_file_change (const struct line_map *);
 extern int c_estimate_num_insns (tree decl);
+extern bool c_decl_uninit (tree t);
 
 /* In c-ppoutput.c  */
 extern void init_pp_output (FILE *);

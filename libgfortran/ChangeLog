@@ -1,3 +1,111 @@
+2003-09-20  Kejia Zhao  <kejia_zh@yahoo.com.cn>
+ 
+	* intrinsics/selected_kind.f90: New file.
+	* Makefile.am: Add it.
+	* Makefile.in: regenerate.
+
+2003-09-19  Lars Segerlund  <Lars.Segerlund@comsys.se>
+	Paul Brook  <paul@nowt.org>
+
+	* intrinsics/random.c: New file.
+	* Makefile.am (gfor_hemper_src): Add it.
+	(gfor_specific_c): Fix typo.
+
+2003-09-19  Paul Brook  <paul@nowt.org>
+
+	* All: rename g95->gfc.
+
+2003-09-18  XiaoQiang Zhang  <zhangapache@yahoo.com>
+
+	* io/write.c (output_float): Fix bug of FMT_E, Add comments.
+
+2003-09-09  XiaoQiang Zhang  <zhangapache@yahoo.com>
+
+	* io/write.c (write_float): Dectection of positive infinite number,
+	Not a Number(NaN) and negative infinite number.
+	(ioutput_float): Bug fix for FMT_E and FMT_D processing to
+	output a very_very small number ( < 0.1e-100 ).
+
+2003-09-07  XiaoQiang Zhang  <zhangapache@yahoo.com>
+
+	* libgfortran.h (xtoa, itoa): Parameter modified.
+	* io/io.h (namelist_info): Declaration to support namelist I/O
+	(st_parameter): Add namelist related component
+	(ionml, empty_internal_buffer, st_set_nml_var_int, 
+	st_set_nml_var_float, st_set_nml_var_char, st_set_nml_var_complex,
+	st_set_nml_var_log): Declaration
+	(set_integer, set_integer): Parameter changed
+	* io/format.c (free_nodes): Fix annoying bug of lefting "deallocated"
+	 fnodes
+	(parse_format_list): Fix bug about FMT_SLASH
+	* io/list_read.c (push_char): Totally clear old saved_string, zeroize
+	newly allocated saved_string
+	(next_char): Add detection of End_Of_Line support
+	(convert_integer): Now can process 64 bits interger
+	(read_real): Bug fixed
+	(init_at_eol, find_nml_node, match_namelist_name): Add new functions 
+	(match_namelist_name): New implemention
+	* io/lock.c (ionml): New global variable
+	(library_end): Free memory in ionml
+	* io/open.c (st_open): Variable initializtion
+	* io/read.c (max_value): 64 bits interger support
+	(convert_precsion_real): New procedure to replace "strtod" with more
+	 features
+	(read_f, read_radix): Input bug fix
+	* io/transfer.c: (sf_seen_eor): New static variable
+	(read_sf): Zeroize base buffer; fix bugs: single read statement can 
+	not get input in mutli line when read from stdin
+	(formatted_transfer): Fix bug of FMT_O, FMT_B, FMT_Z for INTEGER type
+	 request
+	(data_transfer_init): Clear internal buffer for Internel File I/O. 
+	Internal File now worked. Detect some error condition for namelist.
+	Some minor bug fix
+	(next_record_w): Internal file and Namelist I/O support.
+	(st_set_nml_var, st_set_nml_var_float, st_set_nml_var_char,
+	st_set_nml_var_complex, st_set_nml_var_log): Implemention.
+	* io/unit.c (implicit_unit): Deletion
+	(get_unit): Now cannot open a unit implicitly.
+	* io/unix.c (mmap_alloc): Fix fatal error in calculating the length of
+	mapped buffer.
+	(mem_alloc_r_at): Internal file I/O support added
+	(empty_internal_buffer): New function
+	* io/write.c (extract_int): Support 64 bits interger processing
+	(output_float): Varibale initialization
+	(write_float): Infinite real number detection.
+	(write_int): 64 bits integer I/O support
+	(write_decimal): New function to output decimal number
+	(otoa, btoa): Better implemention and 64 bits interger support
+	(namelist_write): New function
+	* runtime/error.c (itoa, xtoa): Better implemention and 64 bits 
+	interger support
+
+2003-08-15  Arnaud Desitter  <arnaud.desitter@geography.oxford.ac.uk>
+
+	* libgfortran.h (os_error, runtime_error,internal_error, sys_exit,
+	get_mem ): Add attribute.
+	* intrinsics/spread_generic.c (__spread): Fix spelling.
+	* io/inquire.c (inquire_via_filename): Add const.
+	* io/io.h (sys_exit): Add attribute.
+	* io/io.h (move_pos_offset): Add move_pos_offset.
+	* io/io.h (compare_file_filename, inquire_sequential, inquire_direct,
+	inquire_formatted, inquire_unformatted, inquire_read, inquire_write,
+	inquire_readwrite, convert_real, write_a, write_b, write_d, write_e,
+	write_en, write_es, write_f, write_i, write_l, write_o, write_x,
+	write_z): Add const.
+	* io/read.c (convert_real): Add const.
+	* io/transfer.c (type_name): Add const.
+	* io/unix.c (unpack_filename, compare_file_filename,inquire_sequential,
+	inquire_direct, inquire_formatted, inquire_unformatted, inquire_access,
+	inquire_read, inquire_write, inquire_readwrite): Add const.
+	* io/write.c (output_float): Remove unused variable.
+	* io/write.c (write_a, extract_int, extract_real, output_float,
+	write_float, write_int, write_i, write_b, write_o, write_z, write_d,
+	write_e, write_f, write_en, write_es, write_logical, write_integer,
+	write_character, write_real, write_complex): Add const.
+	* runtime/error.c (rtoa): Remove unused variable.
+	* runtime/select.c (select_string): Add const.
+	* runtime/stop.c (stop_string): Add const.
+
 2003-08-10  Paul Brook  <paul@nowt.org>
 
 	* Makefile.am (gfor_helper_src): Add intrinsics/abort.c.

@@ -50,6 +50,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 static int missing_braces_mentioned;
 
 static tree qualify_type (tree, tree);
+static int same_translation_unit_p (tree, tree);
 static int tagged_types_tu_compatible_p (tree, tree, int);
 static int comp_target_types (tree, tree, int);
 static int function_types_compatible_p (tree, tree, int);
@@ -564,7 +565,7 @@ comptypes (tree type1, tree type2, int flags)
 
     case ENUMERAL_TYPE:
     case UNION_TYPE:
-      if (val != 1 && (flags & COMPARE_DIFFERENT_TU))
+      if (val != 1 && !same_translation_unit_p (t1, t2))
 	val = tagged_types_tu_compatible_p (t1, t2, flags);
       break;
 
@@ -605,6 +606,34 @@ comp_target_types (tree ttl, tree ttr, int reflexive)
 }
 
 /* Subroutines of `comptypes'.  */
+
+/* Determine whether two types derive from the same translation unit.
+   If the CONTEXT chain ends in a null, that type's context is still
+   being parsed, so if two types have context chains ending in null,
+   they're in the same translation unit.  */
+static int
+same_translation_unit_p (tree t1, tree t2)
+{
+  while (t1 && TREE_CODE (t1) != TRANSLATION_UNIT_DECL)
+    switch (TREE_CODE_CLASS (TREE_CODE (t1)))
+      {
+      case 'd': t1 = DECL_CONTEXT (t1); break;
+      case 't': t1 = TYPE_CONTEXT (t1); break;
+      case 'b': t1 = BLOCK_SUPERCONTEXT (t1); break;
+      default: abort ();
+      }
+
+  while (t2 && TREE_CODE (t2) != TRANSLATION_UNIT_DECL)
+    switch (TREE_CODE_CLASS (TREE_CODE (t2)))
+      {
+      case 'd': t2 = DECL_CONTEXT (t1); break;
+      case 't': t2 = TYPE_CONTEXT (t2); break;
+      case 'b': t2 = BLOCK_SUPERCONTEXT (t2); break;
+      default: abort ();
+      }
+
+  return t1 == t2;
+}
 
 /* The C standard says that two structures in different translation
    units are compatible with each other only if the types of their
@@ -860,6 +889,10 @@ type_lists_compatible_p (tree args1, tree args2, int flags)
 	  if (c_type_promotes_to (TREE_VALUE (args1)) != TREE_VALUE (args1))
 	    return 0;
 	}
+      /* If one of the lists has an error marker, ignore this arg.  */
+      else if (TREE_CODE (TREE_VALUE (args1)) == ERROR_MARK
+	       || TREE_CODE (TREE_VALUE (args2)) == ERROR_MARK)
+	;
       else if (! (newval = comptypes (TYPE_MAIN_VARIANT (TREE_VALUE (args1)),
 				      TYPE_MAIN_VARIANT (TREE_VALUE (args2)),
 				      flags)))
@@ -1408,8 +1441,7 @@ build_array_ref (tree array, tree index)
       || TREE_TYPE (index) == error_mark_node)
     return error_mark_node;
 
-  if (TREE_CODE (TREE_TYPE (array)) == ARRAY_TYPE
-      && TREE_CODE (array) != INDIRECT_REF)
+  if (TREE_CODE (TREE_TYPE (array)) == ARRAY_TYPE)
     {
       tree rval, type;
 
@@ -1541,7 +1573,7 @@ build_external_ref (tree id, int fun)
       /* Properly declared variable or function reference.  */
       if (!objc_ivar)
 	ref = decl;
-      else if (decl != objc_ivar && !C_DECL_FILE_SCOPE (decl))
+      else if (decl != objc_ivar && !DECL_FILE_SCOPE_P (decl))
 	{
 	  warning ("local declaration of `%s' hides instance variable",
 		   IDENTIFIER_POINTER (id));
@@ -1581,7 +1613,7 @@ build_external_ref (tree id, int fun)
       TREE_CONSTANT (ref) = 1;
     }
   else if (current_function_decl != 0
-	   && !C_DECL_FILE_SCOPE (current_function_decl)
+	   && !DECL_FILE_SCOPE_P (current_function_decl)
 	   && (TREE_CODE (ref) == VAR_DECL
 	       || TREE_CODE (ref) == PARM_DECL
 	       || TREE_CODE (ref) == FUNCTION_DECL))
@@ -1833,7 +1865,7 @@ convert_arguments (tree typelist, tree values, tree name, tree fundecl)
 					        (char *) 0, /* arg passing  */
 						fundecl, name, parmnum + 1);
 
-	      if (PROMOTE_PROTOTYPES
+	      if (targetm.calls.promote_prototypes (fundecl ? TREE_TYPE (fundecl) : 0)
 		  && INTEGRAL_TYPE_P (type)
 		  && (TYPE_PRECISION (type) < TYPE_PRECISION (integer_type_node)))
 		parmval = default_conversion (parmval);
@@ -2148,8 +2180,7 @@ build_unary_op (enum tree_code code, tree xarg, int flag)
       break;
 
     case ABS_EXPR:
-      if (!(typecode == INTEGER_TYPE || typecode == REAL_TYPE
-	    || typecode == COMPLEX_TYPE))
+      if (!(typecode == INTEGER_TYPE || typecode == REAL_TYPE))
 	{
 	  error ("wrong type argument to abs");
 	  return error_mark_node;
@@ -2433,7 +2464,7 @@ build_unary_op (enum tree_code code, tree xarg, int flag)
 	   file-scope function counts as a constant.  */
 	if (staticp (arg)
 	    && ! (TREE_CODE (arg) == FUNCTION_DECL
-		  && !C_DECL_FILE_SCOPE (arg)))
+		  && !DECL_FILE_SCOPE_P (arg)))
 	  TREE_CONSTANT (addr) = 1;
 	return addr;
       }
@@ -3583,7 +3614,7 @@ c_convert_parm_for_inlining (tree parm, tree value, tree fn)
   ret = convert_for_assignment (type, value,
 				(char *) 0 /* arg passing  */, fn,
 				DECL_NAME (fn), 0);
-  if (PROMOTE_PROTOTYPES
+  if (targetm.calls.promote_prototypes (TREE_TYPE (fn))
       && INTEGRAL_TYPE_P (type)
       && (TYPE_PRECISION (type) < TYPE_PRECISION (integer_type_node)))
     ret = default_conversion (ret);
@@ -4014,6 +4045,11 @@ digest_init (tree type, tree init, int require_constant)
     {
       if (code == POINTER_TYPE)
 	inside_init = default_function_array_conversion (inside_init);
+      
+      if (code == VECTOR_TYPE)
+	/* Although the types are compatible, we may require a
+	   conversion.  */
+	inside_init = convert (type, inside_init);
 
       if (require_constant && !flag_isoc99
 	  && TREE_CODE (inside_init) == COMPOUND_LITERAL_EXPR)
@@ -4948,6 +4984,8 @@ set_init_index (tree first, tree last)
     error_init ("nonconstant array index in initializer");
   else if (TREE_CODE (constructor_type) != ARRAY_TYPE)
     error_init ("array index in non-array initializer");
+  else if (tree_int_cst_sgn (first) == -1)
+    error_init ("array index in initializer exceeds array bounds");
   else if (constructor_max_index
 	   && tree_int_cst_lt (constructor_max_index, first))
     error_init ("array index in initializer exceeds array bounds");
@@ -6588,7 +6626,6 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
       break;
 
     case BIT_AND_EXPR:
-    case BIT_ANDTC_EXPR:
     case BIT_IOR_EXPR:
     case BIT_XOR_EXPR:
       if (code0 == INTEGER_TYPE && code1 == INTEGER_TYPE)

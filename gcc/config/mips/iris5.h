@@ -56,16 +56,23 @@ Boston, MA 02111-1307, USA.  */
  (DEFAULT_WORD_SWITCH_TAKES_ARG (STR)			\
   || !strcmp (STR, "rpath"))
 
+/* We must pass -D_LONGLONG always, even when -ansi is used, because IRIX 5
+   system header files require it.  This is OK, because gcc never warns
+   when long long is used in system header files.  Alternatively, we can
+   add support for the SGI builtin type __long_long.  */
+
 #define TARGET_OS_CPP_BUILTINS()			\
     do {						\
 	builtin_define_std ("host_mips");		\
 	builtin_define_std ("sgi");			\
 	builtin_define_std ("unix");			\
 	builtin_define_std ("SYSTYPE_SVR4");		\
+	builtin_define ("_LONGLONG");			\
 	builtin_define ("_MODERN_C");			\
 	builtin_define ("_SVR4_SOURCE");		\
 	builtin_define ("__DSO__");			\
-	builtin_define ("_MIPS_SIM=_MIPS_SIM_ABI32");	\
+	builtin_define ("_ABIO32=1");			\
+	builtin_define ("_MIPS_SIM=_ABIO32");		\
 	builtin_define ("_MIPS_SZPTR=32");		\
 	builtin_assert ("system=unix");			\
 	builtin_assert ("system=svr4");			\
@@ -95,6 +102,18 @@ Boston, MA 02111-1307, USA.  */
 
 #undef SUBTARGET_CC1_SPEC
 #define SUBTARGET_CC1_SPEC "%{static: -mno-abicalls}"
+
+/* Override mips.h default: the IRIX 5 assembler warns about -O3:
+
+   as1: Warning: <file>.s, line 1: Binasm file dictates -pic: 2
+   uld:
+   No ucode object file linked -- please use -O2 or lower.
+   
+   So avoid passing it in the first place.  */
+#undef SUBTARGET_ASM_OPTIMIZING_SPEC
+#define SUBTARGET_ASM_OPTIMIZING_SPEC "\
+%{noasmopt:-O0} \
+%{!noasmopt:%{O|O1|O2|O3:-O2}}"
 
 #undef LINK_SPEC
 #define LINK_SPEC "\
@@ -196,8 +215,8 @@ do {						\
 } while (0)
 
 /* Also do this for libcalls.  */
-#define ASM_OUTPUT_EXTERNAL_LIBCALL(FILE, FUN)	\
-  mips_output_external_libcall (FILE, XSTR (FUN, 0))
+#undef TARGET_ASM_EXTERNAL_LIBCALL
+#define TARGET_ASM_EXTERNAL_LIBCALL mips_output_external_libcall
 
 /* This does for functions what ASM_DECLARE_OBJECT_NAME does for variables.
    This is used indirectly by ASM_OUTPUT_EXTERNAL.  */

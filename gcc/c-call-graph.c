@@ -33,13 +33,13 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 
 /* Static declarations.  */
-static void construct_call_graph (output_buffer *, tree, HOST_WIDE_INT);
-static void print_callee (output_buffer *, tree, int);
+static void construct_call_graph (pretty_printer *, tree, HOST_WIDE_INT);
+static void print_callee (pretty_printer *, tree, int);
 
 #define INDENT(SPACE) do { \
-  int i; for (i = 0; i<SPACE; i++) output_add_space (buffer); } while (0)
+  int i; for (i = 0; i<SPACE; i++) pp_space (buffer); } while (0)
 #define NIY do { \
-  debug_output_buffer (buffer); debug_tree (node); abort (); } while (0)
+  pp_flush (buffer); debug_tree (node); abort (); } while (0)
 
 
 /* Print the call graph associated to the tree T, in the file FILE.  */
@@ -47,15 +47,15 @@ static void print_callee (output_buffer *, tree, int);
 void
 print_call_graph (FILE *file, tree t)
 {
-  output_buffer buffer_rec;
-  output_buffer *buffer = &buffer_rec;
+  pretty_printer buffer_rec;
+  pretty_printer *buffer = &buffer_rec;
 
-  init_output_buffer (buffer, /* prefix */NULL, /* line-width */0);
-  output_clear_message_text (buffer);
-  output_printf (buffer, "<file>\n");
+  pp_construct (buffer, /* prefix */NULL, /* line-width */0);
+  pp_clear_output_area (buffer);
+  pp_printf (buffer, "<file>\n");
   construct_call_graph (buffer, t, 0);
-  output_printf (buffer, "</file>\n");
-  fprintf (file, "%s", output_finalize_message (buffer));
+  pp_printf (buffer, "</file>\n");
+  fprintf (file, "%s", pp_base_formatted_text (buffer));
 }
 
 /* Print the call graph on stderr.  */
@@ -68,12 +68,12 @@ debug_call_graph (tree t)
 
 
 /* Scan the tree T searching for callee/caller functions, then output found
-   function calls/callers in the output_buffer BUFFER under the DTD format
+   function calls/callers in the pretty_printer BUFFER under the DTD format
    described above.
    Not Yet Implemented : the dump of global variables and their use.  */
 
 static void
-construct_call_graph (output_buffer *buffer, tree t, HOST_WIDE_INT spc)
+construct_call_graph (pretty_printer *buffer, tree t, HOST_WIDE_INT spc)
 {
   static unsigned int decision_points;
   static unsigned int nb_statements;
@@ -101,9 +101,9 @@ construct_call_graph (output_buffer *buffer, tree t, HOST_WIDE_INT spc)
 	  if (BUILT_IN_FRONTEND)
 
 	  INDENT (spc);
-	  output_printf (buffer, "<caller id = \"");
-	  output_printf (buffer, get_name (node), 0);
-	  output_printf (buffer, "\">\n");
+	  pp_printf (buffer, "<caller id = \"");
+	  pp_printf (buffer, get_name (node), 0);
+	  pp_printf (buffer, "\">\n");
 
 	  /* What about definition of nested functions?  That will reset the
 	     current value of decision_points and nb_statements...  */
@@ -114,7 +114,7 @@ construct_call_graph (output_buffer *buffer, tree t, HOST_WIDE_INT spc)
 
 	  /* Statements based statistics.  */
 	  INDENT (spc+1);
-	  output_printf (buffer, "<stats calls=\"%d\" decisions=\"%d\" stmts=\"%d\" Gilb=\"%f\"",
+	  pp_printf (buffer, "<stats calls=\"%d\" decisions=\"%d\" stmts=\"%d\" Gilb=\"%f\"",
 			 nb_calls, decision_points, nb_statements,
 			 ((nb_statements == 0) ? 0.0 :
 			  ((float)decision_points / (float)nb_statements)));
@@ -124,14 +124,14 @@ construct_call_graph (output_buffer *buffer, tree t, HOST_WIDE_INT spc)
 	  /* Control flow statistics.  */
 	  init_flow ();
 	  build_tree_cfg (DECL_SAVED_TREE (node));
-	  output_printf (buffer, " CFG-edges=\"%d\" CFG-BB=\"%d\" McCabe=\"%d\">\n",
+	  pp_printf (buffer, " CFG-edges=\"%d\" CFG-BB=\"%d\" McCabe=\"%d\">\n",
 			 n_edges, n_basic_blocks, n_edges - n_basic_blocks + 2);
 	  delete_tree_cfg ();
 #endif
 
 	  /* End of the node.  */
 	  INDENT (spc);
-	  output_printf (buffer, "</caller>\n");
+	  pp_printf (buffer, "</caller>\n");
 	  return;
 
 	case CALL_EXPR:
@@ -251,7 +251,6 @@ construct_call_graph (output_buffer *buffer, tree t, HOST_WIDE_INT spc)
 	case BIT_IOR_EXPR:
 	case BIT_XOR_EXPR:
 	case BIT_AND_EXPR:
-	case BIT_ANDTC_EXPR:
 	case TRUTH_ANDIF_EXPR:
 	case TRUTH_ORIF_EXPR:
 	case TRUTH_AND_EXPR:
@@ -302,16 +301,16 @@ construct_call_graph (output_buffer *buffer, tree t, HOST_WIDE_INT spc)
 /* Print the callee function declaration.  */
 
 static void
-print_callee (output_buffer *buffer, tree node, int spc)
+print_callee (pretty_printer *buffer, tree node, int spc)
 {
   int i;
 
   /* Indent.  */
   for (i = 0; i<spc; i++)
-    output_add_space (buffer);
+    pp_space (buffer);
 
   /* Print the node.  */
-  output_printf (buffer, "<callee idref = \"");
-  output_printf (buffer, get_name (node), 0);
-  output_printf (buffer, "\"/>\n");
+  pp_printf (buffer, "<callee idref = \"");
+  pp_printf (buffer, get_name (node), 0);
+  pp_printf (buffer, "\"/>\n");
 }

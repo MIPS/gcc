@@ -72,6 +72,7 @@ static tree lex_charconst (const cpp_token *);
 static void update_header_times (const char *);
 static int dump_one_header (splay_tree_node, void *);
 static void cb_line_change (cpp_reader *, const cpp_token *, int);
+static void cb_dir_change (cpp_reader *, const char *);
 static void cb_ident (cpp_reader *, unsigned int, const cpp_string *);
 static void cb_def_pragma (cpp_reader *, unsigned int);
 static void cb_define (cpp_reader *, unsigned int, cpp_hashnode *);
@@ -98,6 +99,7 @@ init_c_lex (void)
   cb = cpp_get_callbacks (parse_in);
 
   cb->line_change = cb_line_change;
+  cb->dir_change = cb_dir_change;
   cb->ident = cb_ident;
   cb->def_pragma = cb_def_pragma;
   cb->valid_pch = c_common_valid_pch;
@@ -195,16 +197,24 @@ cb_ident (cpp_reader *pfile ATTRIBUTE_UNUSED,
    lexed token on the line.  Used for diagnostic line numbers.  */
 static void
 cb_line_change (cpp_reader *pfile ATTRIBUTE_UNUSED, const cpp_token *token,
-		int parsing_args ATTRIBUTE_UNUSED)
+		int parsing_args)
 {
+  if (token->type == CPP_EOF || parsing_args)
+    return;
+
   src_lineno = SOURCE_LINE (map, token->line);
+}
+
+static void
+cb_dir_change (cpp_reader *pfile ATTRIBUTE_UNUSED, const char *dir)
+{
+  if (! set_src_pwd (dir))
+    warning ("too late for # directive to set debug directory");
 }
 
 void
 fe_file_change (const struct line_map *new_map)
 {
-  unsigned int to_line = SOURCE_LINE (new_map, new_map->to_line);
-
   if (new_map->reason == LC_ENTER)
     {
       /* Don't stack the main buffer on the input stack;
@@ -241,13 +251,13 @@ fe_file_change (const struct line_map *new_map)
 #endif
       pop_srcloc ();
 
-      (*debug_hooks->end_source_file) (to_line);
+      (*debug_hooks->end_source_file) (new_map->to_line);
     }
 
   update_header_times (new_map->to_file);
   in_system_header = new_map->sysp != 0;
   input_filename = new_map->to_file;
-  input_line = to_line;
+  input_line = new_map->to_line;
   map = new_map;
 
   /* Hook for C++.  */
@@ -320,6 +330,7 @@ c_lex (tree *value)
 {
   const cpp_token *tok;
   location_t atloc;
+  static bool no_more_pch;
 
  retry:
   tok = get_nonpadding_token ();
@@ -419,6 +430,12 @@ c_lex (tree *value)
     default:
       *value = NULL_TREE;
       break;
+    }
+
+  if (! no_more_pch)
+    {
+      no_more_pch = true;
+      c_common_no_more_pch ();
     }
 
   return tok->type;

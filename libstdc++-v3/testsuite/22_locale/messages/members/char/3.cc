@@ -29,25 +29,23 @@ void test03()
   typedef std::messages<char>::catalog catalog;
   typedef std::messages<char>::string_type string_type;
 
-  bool test = true;
-  // This is exported through RUNTESTFLAGS in testsuite/Makefile.am.
+  bool test __attribute__((unused)) = true;
+  // This is defined through CXXFLAGS in scripts/testsuite_flags[.in].
   const char* dir = LOCALEDIR;
 
   // basic construction
   locale loc_c = locale::classic();
-  locale loc_us = __gnu_cxx_test::try_named_locale("en_US");
-  locale loc_fr = __gnu_cxx_test::try_named_locale("fr_FR");
-  locale loc_de = __gnu_cxx_test::try_named_locale("de_DE");
+  locale loc_us = __gnu_test::try_named_locale("en_US");
+  locale loc_fr = __gnu_test::try_named_locale("fr_FR");
+  locale loc_de = __gnu_test::try_named_locale("de_DE");
   VERIFY( loc_c != loc_de );
   VERIFY( loc_us != loc_fr );
   VERIFY( loc_us != loc_de );
   VERIFY( loc_de != loc_fr );
 
   // cache the messages facets
-  const messages<char>& mssg_c = use_facet<messages<char> >(loc_c); 
   const messages<char>& mssg_us = use_facet<messages<char> >(loc_us); 
   const messages<char>& mssg_fr = use_facet<messages<char> >(loc_fr); 
-  const messages<char>& mssg_de = use_facet<messages<char> >(loc_de); 
 
   // catalog open(const string&, const locale&) const;
   // string_type get(catalog, int, int, const string_type& ) const; 

@@ -30,20 +30,22 @@ gfor_io_headers= \
 io/io.h
 
 gfor_helper_src= \
+intrinsics/associated.c \
 intrinsics/abort.c \
 intrinsics/cpu_time.c \
 intrinsics/eoshift0.c \
 intrinsics/eoshift2.c \
 intrinsics/ishftc.c \
 intrinsics/pack_generic.c \
-intrinsics/unpack_generic.c \
-intrinsics/string_intrinsics.c \
 intrinsics/size.c \
 intrinsics/spread_generic.c \
+intrinsics/string_intrinsics.c \
+intrinsics/random.c \
 intrinsics/reshape_generic.c \
 intrinsics/reshape_packed.c \
+intrinsics/selected_kind.f90 \
 intrinsics/transpose_generic.c \
-intrinsics/associated.c \
+intrinsics/unpack_generic.c \
 runtime/in_pack_generic.c \
 runtime/in_unpack_generic.c
 
@@ -295,7 +297,7 @@ intrinsics/_dprod.c \
 foo
 gfor_specific_c= \
 $(gfor_built_specific_c) \
-$(gfor_build_specific2_c)
+$(gfor_built_specific2_c)
 
 gfor_cmath_src= $(gfor_math_trig_c) $(gfor_math_exp_c) $(gfor_math_hyp_c)
 gfor_cmath_obj= $(gfor_math_trig_obj) $(gfor_math_exp_obj) \

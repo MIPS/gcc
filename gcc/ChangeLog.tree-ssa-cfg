@@ -1,3 +1,7 @@
+2003-10-02  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	Merge from tree-ssa-branch (tree-ssa-cfg-merge-20031001)
+
 2003-08-18  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* gimplify.c (gimplify_loop_expr): Place the exit label correctly.

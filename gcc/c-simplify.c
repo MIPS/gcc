@@ -45,6 +45,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "rtl.h"
 #include "toplev.h"
 #include "tree-dump.h"
+#include "c-pretty-print.h"
 
 /*  The gimplification pass converts the language-dependent trees
     (ld-trees) emitted by the parser into language-independent trees
@@ -71,7 +72,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 void c_gimplify_stmt (tree *);
 static void gimplify_expr_stmt (tree *);
-static void gimplify_decl_stmt (tree *, tree *);
+static void gimplify_decl_stmt (tree *);
 static void gimplify_for_stmt (tree *, tree *);
 static void gimplify_while_stmt (tree *);
 static void gimplify_do_stmt (tree *);
@@ -80,7 +81,6 @@ static void gimplify_switch_stmt (tree *);
 static void gimplify_return_stmt (tree *);
 static void gimplify_stmt_expr (tree *);
 static void gimplify_compound_literal_expr (tree *);
-static void make_type_writable (tree);
 #if defined ENABLE_CHECKING
 static int is_last_stmt_of_scope (tree);
 #endif
@@ -91,7 +91,6 @@ static void push_context (void);
 static void pop_context (void);
 static tree c_build_bind_expr (tree, tree);
 static void add_block_to_enclosing (tree);
-static tree mostly_copy_tree_r (tree *, int *, void *);
 static void gimplify_condition (tree *);
 
 enum bc_t { bc_break = 0, bc_continue = 1 };
@@ -244,7 +243,7 @@ c_gimplify_stmt (tree *stmt_p)
 	  break;
 
 	case DECL_STMT:
-	  gimplify_decl_stmt (&stmt, &next);
+	  gimplify_decl_stmt (&stmt);
 	  break;
 
 	case LABEL_STMT:
@@ -460,9 +459,7 @@ gimplify_expr_stmt (tree *stmt_p)
     {
       if (!TREE_SIDE_EFFECTS (stmt))
 	{
-	  if (!IS_EMPTY_STMT (stmt)
-	      && !(TREE_CODE (stmt) == CONVERT_EXPR
-		   && VOID_TYPE_P (TREE_TYPE (stmt))))
+	  if (!IS_EMPTY_STMT (stmt) && !VOID_TYPE_P (TREE_TYPE (stmt)))
 	    warning ("statement with no effect");
 	}
       else if (warn_unused_value)
@@ -799,6 +796,19 @@ gimplify_return_stmt (tree *stmt_p)
   *stmt_p = expr;
 }
 
+/* walk_tree helper function for gimplify_decl_stmt.  */
+
+static tree
+mark_labels_r (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
+{
+  if (TYPE_P (*tp))
+    *walk_subtrees = 0;
+  if (TREE_CODE (*tp) == LABEL_DECL)
+    FORCED_LABEL (*tp) = 1;
+
+  return NULL_TREE;
+}
+
 /* Gimplifies a DECL_STMT node T.
 
    If a declaration V has an initial value I, create an expression 'V = I'
@@ -816,11 +826,12 @@ gimplify_return_stmt (tree *stmt_p)
    different if the DECL_STMT is somehow embedded in an expression.  */
 
 static void
-gimplify_decl_stmt (tree *stmt_p, tree *next_p)
+gimplify_decl_stmt (tree *stmt_p)
 {
   tree stmt = *stmt_p;
   tree decl = DECL_STMT_DECL (stmt);
   tree pre = NULL_TREE;
+  tree post = NULL_TREE;
 
   if (TREE_CODE (decl) == VAR_DECL && !DECL_EXTERNAL (decl))
     {
@@ -828,42 +839,20 @@ gimplify_decl_stmt (tree *stmt_p, tree *next_p)
 
       if (!TREE_CONSTANT (DECL_SIZE (decl)))
 	{
-	  /* This is a variable-sized decl.  We need to wrap it in a new
-	     block so that we can gimplify the expressions for calculating
-	     its size, and so that any other local variables used in those
-	     expressions will have been initialized.  */
+	  tree pt_type = build_pointer_type (TREE_TYPE (decl));
+	  tree alloc, size;
 
-	  /* FIXME break the allocation out into a separate statement?  */
+	  /* This is a variable-sized decl.  Simplify its size and mark it
+	     for deferred expansion.  */
 
-	  tree usize = DECL_SIZE_UNIT (decl);
-	  tree bind;
-	  tree *p;
-
-	  usize = get_initialized_tmp_var (usize, &pre);
-
-	  /* Mark the unit size as being used in the VLA's declaration so
-	     it will not be deleted by DCE.  */
-	  set_has_hidden_use (usize);
-
-	  DECL_SIZE_UNIT (decl) = TYPE_SIZE_UNIT (TREE_TYPE (decl)) = usize;
-
-	  /* Prune this decl and any others after it out of the enclosing
-	     block.  */
-	  for (p = &BIND_EXPR_VARS (gimple_current_bind_expr ());
-	       *p != decl; p = &TREE_CHAIN (*p))
-	    /* search */;
-	  *p = NULL_TREE;
-	  if (BLOCK_VARS (BIND_EXPR_BLOCK (gimple_current_bind_expr ()))
-	      == decl)
-	    BLOCK_VARS (BIND_EXPR_BLOCK (gimple_current_bind_expr ()))
-	      = NULL_TREE;
-
-	  bind = c_build_bind_expr (decl, TREE_CHAIN (stmt));
-
-	  add_tree (bind, &pre);
-
-	  if (next_p)
-	    *next_p = NULL_TREE;
+	  size = get_initialized_tmp_var (DECL_SIZE_UNIT (decl), &pre, &post);
+	  DECL_DEFER_OUTPUT (decl) = 1;
+	  alloc = build_function_call_expr
+	    (implicit_built_in_decls[BUILT_IN_STACK_ALLOC],
+	     tree_cons (NULL_TREE,
+			build1 (ADDR_EXPR, pt_type, decl),
+			tree_cons (NULL_TREE, size, NULL_TREE)));
+	  add_tree (alloc, &pre);
 	}
 
       if (init && init != error_mark_node)
@@ -880,16 +869,8 @@ gimplify_decl_stmt (tree *stmt_p, tree *next_p)
 	  else
 	    {
 	      /* We must still examine initializers for static variables
-		 as they may contain a label address.  However, we must not
-		 make any changes to the node or the queues.  So we
-		 make a copy of the node before calling the gimplifier
-		 and we use throw-away queues.  */
-	      tree pre = NULL;
-	      tree post = NULL;
-	      tree dummy_init = deep_copy_node (init);
-	      gimplify_expr (&dummy_init, &pre, &post,
-			     is_gimple_initializer,
-			     fb_rvalue);
+		 as they may contain a label address.  */
+	      walk_tree (&init, mark_labels_r, NULL, NULL);
 	    }
 	}
 
@@ -900,6 +881,7 @@ gimplify_decl_stmt (tree *stmt_p, tree *next_p)
 	gimple_add_tmp_var (decl);
     }
 
+  add_tree (post, &pre);
   *stmt_p = pre;
 }
 
@@ -915,7 +897,7 @@ gimplify_compound_literal_expr (tree *expr_p)
   tree decl_s = COMPOUND_LITERAL_EXPR_DECL_STMT (*expr_p);
   tree decl = DECL_STMT_DECL (decl_s);
 
-  gimplify_decl_stmt (&decl_s, NULL);
+  gimplify_decl_stmt (&decl_s);
   *expr_p = decl_s ? decl_s : decl;
 }
 
@@ -1035,200 +1017,6 @@ gimplify_stmt_expr (tree *expr_p)
 /* Code generation.  */
 
 /* Miscellaneous helpers.  */
-
-/*  Change the flags for the type of the node T to make it writable.  */
-
-static void
-make_type_writable (tree t)
-{
-#if defined ENABLE_CHECKING
-  if (t == NULL_TREE)
-    abort ();
-#endif
-
-  if (TYPE_READONLY (TREE_TYPE (t))
-      || ((TREE_CODE (TREE_TYPE (t)) == RECORD_TYPE
-	   || TREE_CODE (TREE_TYPE (t)) == UNION_TYPE)
-	  && C_TYPE_FIELDS_READONLY (TREE_TYPE (t))))
-    {
-      /* Make a copy of the type declaration.  */
-      TREE_TYPE (t) = build_type_copy (TREE_TYPE (t));
-      TYPE_READONLY (TREE_TYPE (t)) = 0;
-
-      /* If the type is a structure that contains a field readonly.  */
-      if ((TREE_CODE (TREE_TYPE (t)) == RECORD_TYPE
-	   || TREE_CODE (TREE_TYPE (t)) == UNION_TYPE)
-	  && C_TYPE_FIELDS_READONLY (TREE_TYPE (t)))
-	{
-	  C_TYPE_FIELDS_READONLY (TREE_TYPE (t)) = 0;
-
-	  /* Make the fields of the structure writable.  */
-	  {
-	    tree it;
-	    it = TYPE_FIELDS (TREE_TYPE (t));
-	    while (it)
-	      {
-		/* Make the field writable.  */
-		TREE_READONLY (it) = 0;
-
-		/* Make the type of the field writable.  */
-		make_type_writable (it);
-		it = TREE_CHAIN (it);
-	      }
-	  }
-	}
-    }
-}
-
-/*  Copy every statement from the chain CHAIN by calling deep_copy_node().
-    Return the new chain.  */
-
-tree
-deep_copy_list (tree chain)
-{
-  tree new_chain, res;
-
-  if (chain == NULL_TREE)
-    /* Nothing to copy.  */
-    return NULL_TREE;
-
-  new_chain = deep_copy_node (chain);
-  res = new_chain;
-
-  while (TREE_CHAIN (chain))
-    {
-      chain = TREE_CHAIN (chain);
-      TREE_CHAIN (new_chain) = deep_copy_node (chain);
-      new_chain = TREE_CHAIN (new_chain);
-    }
-
-  return res;
-}
-
-
-/*  Create a deep copy of NODE.  The only nodes that are not deep copied
-    are declarations, constants and types.  */
-
-tree
-deep_copy_node (tree node)
-{
-  tree res;
-
-  if (node == NULL_TREE)
-    return NULL_TREE;
-
-  switch (TREE_CODE (node))
-    {
-    case COMPOUND_STMT:
-      res = build_stmt (COMPOUND_STMT, deep_copy_list (COMPOUND_BODY (node)));
-      break;
-
-    case FOR_STMT:
-      res = build_stmt (FOR_STMT,
-			deep_copy_node (FOR_INIT_STMT (node)),
-			deep_copy_node (FOR_COND (node)),
-			deep_copy_node (FOR_EXPR (node)),
-			deep_copy_node (FOR_BODY (node)));
-      break;
-
-    case WHILE_STMT:
-      res = build_stmt (WHILE_STMT,
-			deep_copy_node (WHILE_COND (node)),
-			deep_copy_node (WHILE_BODY (node)));
-      break;
-
-    case DO_STMT:
-      res = build_stmt (DO_STMT,
-			deep_copy_node (DO_COND (node)),
-			deep_copy_node (DO_BODY (node)));
-      break;
-
-    case IF_STMT:
-      res = build_stmt (IF_STMT,
-			deep_copy_node (IF_COND (node)),
-			deep_copy_node (THEN_CLAUSE (node)),
-			deep_copy_node (ELSE_CLAUSE (node)));
-      break;
-
-    case SWITCH_STMT:
-      res = build_stmt (SWITCH_STMT,
-			deep_copy_node (SWITCH_COND (node)),
-			deep_copy_node (SWITCH_BODY (node)));
-      break;
-
-    case EXPR_STMT:
-      res = build_stmt (EXPR_STMT, deep_copy_node (EXPR_STMT_EXPR (node)));
-      break;
-
-    case DECL_STMT:
-      res = build_stmt (DECL_STMT, DECL_STMT_DECL (node));
-      break;
-
-    case RETURN_STMT:
-      res = build_stmt (RETURN_STMT, deep_copy_node (RETURN_STMT_EXPR (node)));
-      break;
-
-    case TREE_LIST:
-      res = build_tree_list (deep_copy_node (TREE_PURPOSE (node)),
-	                     deep_copy_node (TREE_VALUE (node)));
-      break;
-
-    case SCOPE_STMT:
-      if (SCOPE_BEGIN_P (node))
-	{
-	  /* ??? The sub-blocks and supercontext for the scope's BLOCK_VARS
-		 should be re-computed after copying.  */
-	  res = build_stmt (SCOPE_STMT,
-			    deep_copy_list (SCOPE_STMT_BLOCK (node)));
-	  SCOPE_BEGIN_P (res) = 1;
-	}
-      else
-	{
-	  res = build_stmt (SCOPE_STMT, NULL_TREE);
-	  SCOPE_BEGIN_P (res) = 0;
-	}
-      break;
-
-    default:
-      walk_tree (&node, mostly_copy_tree_r, NULL, NULL);
-      res = node;
-      break;
-    }
-
-  /* Set the line number.  */
-  if (STATEMENT_CODE_P (TREE_CODE (node)))
-    STMT_LINENO (res) = STMT_LINENO (node);
-
-  return res;
-}
-
-/* Similar to copy_tree_r() but do not copy SAVE_EXPR nodes.  These nodes
-   model computations that should only be done once.  If we were to unshare
-   something like SAVE_EXPR(i++), the gimplification process would create
-   wrong code.  */
-
-static tree
-mostly_copy_tree_r (tree *tp, int *walk_subtrees, void *data)
-{
-  enum tree_code code = TREE_CODE (*tp);
-  /* Don't unshare decls, blocks, types and SAVE_EXPR nodes.  */
-  if (TREE_CODE_CLASS (code) == 't'
-      || TREE_CODE_CLASS (code) == 'd'
-      || TREE_CODE_CLASS (code) == 'c'
-      || TREE_CODE_CLASS (code) == 'b'
-      || code == SAVE_EXPR)
-    *walk_subtrees = 0;
-  else if (code == STMT_EXPR || code == SCOPE_STMT || code == BIND_EXPR)
-    /* Unsharing STMT_EXPRs doesn't make much sense; they tend to be
-       complex, so they shouldn't be shared in the first place.  Unsharing
-       SCOPE_STMTs breaks because copy_tree_r zeroes out the block.  */
-    abort ();
-  else
-    copy_tree_r (tp, walk_subtrees, data);
-
-  return NULL_TREE;
-}
-
 
 #if defined ENABLE_CHECKING
 /*  Return nonzero if STMT is the last statement of its scope.  */

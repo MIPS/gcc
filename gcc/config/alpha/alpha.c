@@ -7350,12 +7350,12 @@ alpha_start_function (FILE *file, const char *fnname,
     {
 #ifdef ASM_OUTPUT_SOURCE_FILENAME
       ASM_OUTPUT_SOURCE_FILENAME (file,
-				  TREE_FILENAME (current_function_decl));
+				  DECL_SOURCE_FILE (current_function_decl));
 #endif
 #ifdef ASM_OUTPUT_SOURCE_LINE
       if (debug_info_level != DINFO_LEVEL_TERSE)
         ASM_OUTPUT_SOURCE_LINE (file,
-				TREE_LINENO (current_function_decl), 0);
+				DECL_SOURCE_LINE (current_function_decl), 0);
 #endif
     }
 
@@ -7799,7 +7799,7 @@ alpha_output_mi_thunk_osf (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
 
   /* Find the "this" pointer.  If the function returns a structure,
      the structure return pointer is in $16.  */
-  if (aggregate_value_p (TREE_TYPE (TREE_TYPE (function))))
+  if (aggregate_value_p (TREE_TYPE (TREE_TYPE (function)), function))
     this = gen_rtx_REG (Pmode, 17);
   else
     this = gen_rtx_REG (Pmode, 16);

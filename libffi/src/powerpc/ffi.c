@@ -288,7 +288,7 @@ enum { ASM_NEEDS_REGISTERS64 = 4 };
    |--------------------------------------------| |
    |   TOC save area			8	| |
    |--------------------------------------------| |	stack	|
-   |   Linker doubleword		8	| |	gorws	|
+   |   Linker doubleword		8	| |	grows	|
    |--------------------------------------------| |	down	V
    |   Compiler doubleword		8	| |
    |--------------------------------------------| |	lower addresses
@@ -376,23 +376,22 @@ void hidden ffi_prep_args64(extended_cif *ecif, unsigned long *const stack)
 	  words = ((*ptr)->size + 7) / 8;
 	  if (next_arg >= gpr_base && next_arg + words > gpr_end)
 	    {
-	      unsigned int first = (char *) gpr_end - (char *) next_arg;
+	      size_t first = (char *) gpr_end - (char *) next_arg;
 	      memcpy((char *) next_arg, (char *) *p_argv, first);
 	      memcpy((char *) rest, (char *) *p_argv + first,
 		     (*ptr)->size - first);
-	      next_arg = rest + words * 8 - first;
+	      next_arg = (unsigned long *) ((char *) rest + words * 8 - first);
 	    }
 	  else
 	    {
-	      /* Structures with 1, 2 and 4 byte sizes are passed left-padded
-		 if they are in the first 8 arguments.  */
-	      if (next_arg >= gpr_base
-		  && (*ptr)->size < 8
-		  && ((*ptr)->size & ~((*ptr)->size - 1)) == (*ptr)->size)
-		memcpy((char *) next_arg + 8 - (*ptr)->size,
-		       (char *) *p_argv, (*ptr)->size);
-	      else
-		memcpy((char *) next_arg, (char *) *p_argv, (*ptr)->size);
+	      char *where = (char *) next_arg;
+
+	      /* Structures with size less than eight bytes are passed
+		 left-padded.  */
+	      if ((*ptr)->size < 8)
+		where += 8 - (*ptr)->size;
+
+	      memcpy (where, (char *) *p_argv, (*ptr)->size);
 	      next_arg += words;
 	      if (next_arg == gpr_end)
 		next_arg = rest;
@@ -592,7 +591,7 @@ ffi_status ffi_prep_cif_machdep(ffi_cif *cif)
 #if FFI_TYPE_LONGDOUBLE != FFI_TYPE_DOUBLE
 	  case FFI_TYPE_LONGDOUBLE:
 #endif
-	    intarg_count += ((*ptr)->size + 7) & ~7;
+	    intarg_count += ((*ptr)->size + 7) / 8;
 	    break;
 
 	  default:
@@ -854,14 +853,26 @@ ffi_closure_helper_SYSV (ffi_closure* closure, void * rvalue,
 	case FFI_TYPE_SINT32:
 	case FFI_TYPE_UINT32:
 	case FFI_TYPE_POINTER:
-	case FFI_TYPE_STRUCT:
-	/* there are 8 gpr registers used to pass values */
+	  /* there are 8 gpr registers used to pass values */
           if (ng < 8) {
 	     avalue[i] = pgr;
              ng++;
              pgr++;
           } else {
              avalue[i] = pst;
+             pst++;
+          }
+	  break;
+	
+	case FFI_TYPE_STRUCT:
+	  /* Structs are passed by reference. The address will appear in a 
+	     gpr if it is one of the first 8 arguments.  */
+          if (ng < 8) {
+	     avalue[i] = (void *) *pgr;
+             ng++;
+             pgr++;
+          } else {
+             avalue[i] = (void *) *pst;
              pst++;
           }
 	  break;
@@ -1027,12 +1038,9 @@ ffi_closure_helper_LINUX64 (ffi_closure* closure, void * rvalue,
 #if FFI_TYPE_LONGDOUBLE != FFI_TYPE_DOUBLE
 	case FFI_TYPE_LONGDOUBLE:
 #endif
-	  /* Structures with 1, 2 and 4 byte sizes are passed left-padded
-	     if they are in the first 8 arguments.  */
-	  if (ng < NUM_GPR_ARG_REGISTERS64
-	      && arg_types[i]->size < 8
-	      && ((arg_types[i]->size & ~(arg_types[i]->size - 1))
-		  == arg_types[i]->size))
+	  /* Structures with size less than eight bytes are passed
+	     left-padded.  */
+	  if (arg_types[i]->size < 8)
 	    avalue[i] = (char *) pst + 8 - arg_types[i]->size;
 	  else
 	    avalue[i] = pst;

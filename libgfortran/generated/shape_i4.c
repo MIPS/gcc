@@ -25,7 +25,7 @@ Boston, MA 02111-1307, USA.  */
 #include "libgfortran.h"
 
 void
-__shape_4 (g95_array_i4 * ret, const g95_array_i4 * array)
+__shape_4 (gfc_array_i4 * ret, const gfc_array_i4 * array)
 {
   int n;
   index_type stride;
@@ -34,7 +34,7 @@ __shape_4 (g95_array_i4 * ret, const g95_array_i4 * array)
   if (stride == 0)
     stride = 1;
 
-  for (n = 0; n < G95_DESCRIPTOR_RANK (array); n++)
+  for (n = 0; n < GFC_DESCRIPTOR_RANK (array); n++)
     {
       ret->data[n * stride] =
         array->dim[n].ubound + 1 - array->dim[n].lbound;

@@ -283,9 +283,9 @@ mf_mostly_copy_tree_r (tree *tp, int *walk_subtrees, void *data)
 static tree
 mf_varname_tree (tree decl)
 {
-  static output_buffer buf_rec;
+  static pretty_printer buf_rec;
   static int initialized = 0;
-  output_buffer *buf = & buf_rec;
+  pretty_printer *buf = & buf_rec;
   const char *buf_contents;
   tree result;
 
@@ -294,36 +294,36 @@ mf_varname_tree (tree decl)
 
   if (!initialized)
     {
-      init_output_buffer (buf, /* prefix */ NULL, /* line-width */ 0);
+      pp_construct (buf, /* prefix */ NULL, /* line-width */ 0);
       initialized = 1;
     }
-  output_clear_message_text (buf);
+  pp_clear_output_area (buf);
 
   /* Add FILENAME[:LINENUMBER]. */
   {
     const char *sourcefile;
     unsigned sourceline;
 
-    sourcefile = TREE_FILENAME (decl);
+    sourcefile = DECL_SOURCE_FILE (decl);
     if (sourcefile == NULL && current_function_decl != NULL_TREE)
-      sourcefile = TREE_FILENAME (current_function_decl);
+      sourcefile = DECL_SOURCE_FILE (current_function_decl);
     if (sourcefile == NULL)
       sourcefile = "<unknown file>";
 
-    output_add_string (buf, sourcefile);
+    pp_string (buf, sourcefile);
 
-    sourceline = TREE_LINENO (decl);
+    sourceline = DECL_SOURCE_LINE (decl);
     if (sourceline != 0)
       {
-	output_add_string (buf, ":");
-	output_decimal (buf, sourceline);
+	pp_string (buf, ":");
+	pp_decimal_int (buf, sourceline);
       }
   }
 
   if (current_function_decl != NULL_TREE)
     {
       /* Add (FUNCTION): */
-      output_add_string (buf, " (");
+      pp_string (buf, " (");
       {
 	const char *funcname = NULL;
 	if (DECL_NAME (current_function_decl))
@@ -331,12 +331,12 @@ mf_varname_tree (tree decl)
 	if (funcname == NULL)
 	  funcname = "anonymous fn";
 
-	output_add_string (buf, funcname);
+	pp_string (buf, funcname);
       }
-      output_add_string (buf, ") ");
+      pp_string (buf, ") ");
     }
   else
-    output_add_string (buf, " ");
+    pp_string (buf, " ");
 
   /* Add <variable-declaration>, possibly demangled.  */
   {
@@ -357,13 +357,13 @@ mf_varname_tree (tree decl)
     if (declname == NULL)
       declname = "<unnamed variable>";
 
-    output_add_string (buf, declname);
+    pp_string (buf, declname);
   }
 
   /* Return the lot as a new STRING_CST.  */
-  buf_contents = output_finalize_message (buf);
+  buf_contents = pp_base_formatted_text (buf);
   result = fix_string_type (build_string (strlen (buf_contents) + 1, buf_contents));
-  output_clear_message_text (buf);
+  pp_clear_output_area (buf);
 
   return mf_mark (result);
 }
@@ -373,36 +373,36 @@ mf_varname_tree (tree decl)
 static tree
 mf_file_function_line_tree (const char * file, int line)
 {
-  static output_buffer buf_rec;
+  static pretty_printer buf_rec;
   static int initialized = 0;
-  output_buffer *buf = & buf_rec;
+  pretty_printer *buf = & buf_rec;
   const char *buf_contents;
   tree result;
 
   if (!initialized)
     {
-      init_output_buffer (buf, /* prefix */ NULL, /* line-width */ 0);
+      pp_construct (buf, /* prefix */ NULL, /* line-width */ 0);
       initialized = 1;
     }
-  output_clear_message_text (buf);
+  pp_clear_output_area (buf);
 
   /* Add FILENAME[:LINENUMBER]. */
   if (file == NULL && current_function_decl != NULL_TREE)
-    file = TREE_FILENAME (current_function_decl);
+    file = DECL_SOURCE_FILE (current_function_decl);
   if (file == NULL)
     file = "<unknown file>";
-  output_add_string (buf, file);
+  pp_string (buf, file);
 
   if (line > 0)
     {
-      output_add_string (buf, ":");
-      output_decimal (buf, line);
+      pp_string (buf, ":");
+      pp_decimal_int (buf, line);
     }
 
   /* Add (FUNCTION) */
   if (current_function_decl != NULL_TREE)
     {
-      output_add_string (buf, " (");
+      pp_string (buf, " (");
       {
 	const char *funcname = NULL;
 	if (DECL_NAME (current_function_decl))
@@ -410,13 +410,13 @@ mf_file_function_line_tree (const char * file, int line)
 	if (funcname == NULL)
 	  funcname = "anonymous fn";
 
-	output_add_string (buf, funcname);
+	pp_string (buf, funcname);
       }
-      output_add_string (buf, ")");
+      pp_string (buf, ")");
     }
 
   /* Return the lot as a new STRING_CST.  */
-  buf_contents = output_finalize_message (buf);
+  buf_contents = pp_base_formatted_text (buf);
   result = fix_string_type (build_string (strlen (buf_contents) + 1, buf_contents));
 
   return mf_mark (result);
@@ -795,10 +795,10 @@ mx_xfn_indirect_ref (tree *t, int *continue_p, void *data)
   if (TREE_CODE (*t) == FILE_STMT)
     last_filename = FILE_STMT_FILENAME (*t);
   /* Try also the LOCUS, but ignore a simply referenced decl.  */
-  if (! DECL_P (*t) && TREE_LOCUS (*t)) 
+  if (! DECL_P (*t) && EXPR_LOCUS (*t)) 
     {
-      last_filename = TREE_FILENAME (*t);
-      last_lineno = (TREE_LINENO (*t) > 0 ? TREE_LINENO (*t) : last_lineno);
+      last_filename = EXPR_FILENAME (*t);
+      last_lineno = (EXPR_LINENO (*t) > 0 ? EXPR_LINENO (*t) : last_lineno);
     }
 
   /* Avoid traversal into subtrees specifically listed as

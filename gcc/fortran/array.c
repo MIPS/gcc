@@ -24,7 +24,7 @@ Boston, MA 02111-1307, USA.  */
 #include "match.h"
 
 #include <string.h>
-
+#include <assert.h>
 
 /* This parameter is the size of the largest array constructor that we
    will expand to an array constructor without iterators.
@@ -489,13 +489,32 @@ gfc_copy_array_spec (gfc_array_spec * src)
   return dest;
 }
 
+/* Returns nonzero if the two expressions are equal.  Only handles integer
+   constants.  */
 
-/* Compares two array specifications.  */
+static int
+compare_bounds (gfc_expr * bound1, gfc_expr * bound2)
+{
+  if (bound1 == NULL || bound2 == NULL
+      || bound1->expr_type != EXPR_CONSTANT
+      || bound2->expr_type != EXPR_CONSTANT
+      || bound1->ts.type != BT_INTEGER
+      || bound2->ts.type != BT_INTEGER)
+    gfc_internal_error ("gfc_compare_array_spec(): Array spec clobbered");
+
+  if (mpz_cmp (bound1->value.integer, bound2->value.integer) == 0)
+    return 1;
+  else
+    return 0;
+}
+
+/* Compares two array specifications.  They must be constant or deferred
+   shape.  */
 
 int
 gfc_compare_array_spec (gfc_array_spec * as1, gfc_array_spec * as2)
 {
-  int i, a1, a2;
+  int i;
 
   if (as1 == NULL && as2 == NULL)
     return 1;
@@ -515,26 +534,14 @@ gfc_compare_array_spec (gfc_array_spec * as1, gfc_array_spec * as2)
   if (as1->type == AS_EXPLICIT)
     for (i = 0; i < as1->rank; i++)
       {
-	if (gfc_extract_int (as1->lower[i], &a1) != NULL)
-	  goto error;
-	if (gfc_extract_int (as2->lower[i], &a2) != NULL)
-	  goto error;
-	if (a1 != a2)
+	if (compare_bounds (as1->lower[i], as2->lower[i]) == 0)
 	  return 0;
 
-	if (gfc_extract_int (as1->upper[i], &a1) != NULL)
-	  goto error;
-	if (gfc_extract_int (as2->upper[i], &a2) != NULL)
-	  goto error;
-	if (a1 != a2)
+	if (compare_bounds (as1->upper[i], as2->upper[i]) == 0)
 	  return 0;
       }
 
   return 1;
-
-error:
-  gfc_internal_error ("gfc_compare_array_spec(): Array spec clobbered");
-  /* Not reached */
 }
 
 
@@ -556,7 +563,6 @@ gfc_start_constructor (bt type, int kind, locus * where)
   result->ts.type = type;
   result->ts.kind = kind;
   result->where = *where;
-
   return result;
 }
 
@@ -588,6 +594,79 @@ gfc_append_constructor (gfc_expr * base, gfc_expr * new)
 }
 
 
+/* Given an array constructor expression, insert the new expression's
+   constructor onto the base's one according to the offset.  */
+
+void
+gfc_insert_constructor (gfc_expr * base, gfc_expr * new)
+{
+  gfc_constructor *c, *c1, *pre;
+  expr_t type;
+
+  assert (base->expr_type == new->expr_type);
+  type = base->expr_type;
+
+  c1 = new->value.constructor;
+  if (base->value.constructor == NULL)
+    base->value.constructor = c1;
+  else
+    {
+      c = pre = base->value.constructor;
+      while (c)
+        {
+          if (type == EXPR_ARRAY)
+            {
+              if (mpz_cmp (c->n.offset, c1->n.offset) < 0)
+                {
+                  pre = c;
+                  c = c->next;
+                }
+              else if (mpz_cmp (c->n.offset, c1->n.offset) == 0)
+                {
+                  gfc_error ("duplicated initializer");
+                  break;
+                }
+              else
+                break;
+            }
+          else
+            {
+              pre = c;
+              c = c->next;
+            }
+        }
+
+      if (pre != c)
+        {
+          pre->next = c1;
+          c1->next = c;
+        }
+      else
+        {
+          c1->next = c;
+          base->value.constructor = c1;
+        }
+    }
+}
+
+
+/* Get a new constructor.  */
+
+gfc_constructor *
+gfc_get_constructor (void)
+{
+  gfc_constructor *c;
+
+  c = gfc_getmem (sizeof(gfc_constructor));
+  c->expr = NULL;
+  c->iterator = NULL;
+  c->next = NULL;
+  mpz_init_set_si (c->n.offset, 0);
+  mpz_init_set_si (c->repeat, 0);
+  return c;
+}
+
+
 /* Free chains of gfc_constructor structures.  */
 
 void
@@ -606,6 +685,8 @@ gfc_free_constructor (gfc_constructor * p)
         gfc_free_expr (p->expr);
       if (p->iterator != NULL)
 	gfc_free_iterator (p->iterator, 1);
+      mpz_clear (p->n.offset);
+      mpz_clear (p->repeat);
       gfc_free (p);
     }
 }
@@ -1024,15 +1105,7 @@ gfc_check_constructor (gfc_expr * expr, try (*check_function) (gfc_expr *))
 
 /**************** Simplification of array constructors ****************/
 
-typedef struct iterator_stack
-{
-  gfc_symtree *variable;
-  mpz_t value;
-  struct iterator_stack *prev;
-}
-iterator_stack;
-
-static iterator_stack *iter_stack;
+iterator_stack *iter_stack;
 
 typedef struct
 {
@@ -1041,7 +1114,11 @@ typedef struct
   gfc_expr *extracted;
   mpz_t *count;
 
-    try (*expand_work_function) (gfc_expr *);
+  mpz_t *offset;
+  gfc_component *component;
+  mpz_t *repeat;
+
+  try (*expand_work_function) (gfc_expr *);
 }
 expand_info;
 
@@ -1119,6 +1196,9 @@ expand (gfc_expr * e)
   current_expand.new_tail->where = e->where;
   current_expand.new_tail->expr = e;
 
+  mpz_set (current_expand.new_tail->n.offset, *current_expand.offset);
+  current_expand.new_tail->n.component = current_expand.component;
+  mpz_set (current_expand.new_tail->repeat, *current_expand.repeat);
   return SUCCESS;
 }
 
@@ -1281,11 +1361,12 @@ expand_constructor (gfc_constructor * c)
 	  gfc_free_expr (e);
 	  return FAILURE;
 	}
-
+      current_expand.offset = &c->n.offset;
+      current_expand.component = c->n.component;
+      current_expand.repeat = &c->repeat;
       if (current_expand.expand_work_function (e) == FAILURE)
 	return FAILURE;
     }
-
   return SUCCESS;
 }
 
@@ -1461,16 +1542,29 @@ gfc_constructor *
 gfc_copy_constructor (gfc_constructor * src)
 {
   gfc_constructor *dest;
+  gfc_constructor *tail;
 
   if (src == NULL)
     return NULL;
 
-  dest = gfc_get_constructor ();
-  dest->where = src->where;
-  dest->expr = gfc_copy_expr (src->expr);
-  dest->iterator = copy_iterator (src->iterator);
-
-  dest->next = gfc_copy_constructor (src->next);
+  dest = tail = NULL;
+  while (src)
+    {
+      if (dest == NULL)
+	dest = tail = gfc_get_constructor ();
+      else
+	{
+	  tail->next = gfc_get_constructor ();
+	  tail = tail->next;
+	}
+      tail->where = src->where;
+      tail->expr = gfc_copy_expr (src->expr);
+      tail->iterator = copy_iterator (src->iterator);
+      mpz_set (tail->n.offset, src->n.offset);
+      tail->n.component = src->n.component;
+      mpz_set (tail->repeat, src->repeat);
+      src = src->next;
+    }
 
   return dest;
 }
@@ -1545,7 +1639,7 @@ spec_dimen_size (gfc_array_spec * as, int dimen, mpz_t * result)
 }
 
 
-static try
+try
 spec_size (gfc_array_spec * as, mpz_t * result)
 {
   mpz_t size;

@@ -180,6 +180,10 @@ Wctor-dtor-privacy
 C++ ObjC++
 Warn when all constructors and destructors are private
 
+Wdeclaration-after-statement
+C ObjC
+Warn when a declaration is found after a statement
+
 Wdeprecated
 C++ ObjC++
 Warn about deprecated compiler features
@@ -234,6 +238,10 @@ C ObjC
 Wformat=
 C ObjC C++ ObjC++ Joined
 
+Winit-self
+C ObjC C++ ObjC++
+Warn about variables which are initialized to themselves.
+
 Wimplicit
 C ObjC C++ ObjC++
 
@@ -247,7 +255,7 @@ Warn when a declaration does not specify a type
 
 Wimport
 C ObjC C++ ObjC++
-Warn about uses of the \"#import\" directive
+Deprecated.  This switch has no effect.
 
 Winvalid-offsetof
 C++ ObjC++
@@ -303,6 +311,10 @@ C ObjC
 Wold-style-cast
 C++ ObjC++
 Warn if a C-style cast is used in a program
+
+Wold-style-definition
+C ObjC
+Warn if an old-style parameter definition is used
 
 Woverloaded-virtual
 C++ ObjC++
@@ -641,6 +653,10 @@ Emit common-like symbols as weak symbols
 fwide-exec-charset=
 C ObjC C++ ObjC++ Joined RejectNegative
 -fwide-exec-charset=<cset>	Convert all wide strings and character constants to character set <cset>
+
+fworking-directory
+C ObjC C++ ObjC++
+Generate a #line directive pointing at the current working directory
 
 fxref
 C++ ObjC++

@@ -148,10 +148,10 @@ get_lineno (tree expr)
   if (TREE_CODE (expr) == COMPOUND_EXPR)
     expr = TREE_OPERAND (expr, 0);
 
-  if (! TREE_LOCUS (expr))
+  if (! EXPR_LOCUS (expr))
     return -1;
 
-  return TREE_LINENO (expr);
+  return EXPR_LINENO (expr);
 }
 
 static inline const char *
@@ -163,8 +163,8 @@ get_filename (tree expr)
   if (TREE_CODE (expr) == COMPOUND_EXPR)
     expr = TREE_OPERAND (expr, 0);
 
-  if (TREE_LOCUS (expr) && TREE_FILENAME (expr))
-    return TREE_FILENAME (expr);
+  if (EXPR_LOCUS (expr) && EXPR_FILENAME (expr))
+    return EXPR_FILENAME (expr);
   else
     return "???";
 }
@@ -234,18 +234,38 @@ addresses_taken (tree stmt)
   return ann ? ann->addresses_taken : NULL;
 }
 
-static inline varray_type
-immediate_uses (tree stmt)
+static dataflow_t
+get_immediate_uses (tree stmt)
 {
   stmt_ann_t ann = stmt_ann (stmt);
-  return ann ? (ann->df ? ann->df->immediate_uses : NULL) : NULL;
+  return ann ? ann->df : NULL;
 }
 
-static inline varray_type
-reaching_defs (tree stmt)
+static inline int
+num_immediate_uses (dataflow_t df)
 {
-  stmt_ann_t ann = stmt_ann (stmt);
-  return ann ? (ann->df ? ann->df->reaching_defs : NULL) : NULL;
+  varray_type imm;
+
+  if (!df)
+    return 0;
+
+  imm = df->immediate_uses;
+  if (!imm)
+    return df->uses[1] ? 2 : 1;
+
+  return VARRAY_ACTIVE_SIZE (imm) + 2;
+}
+
+static inline tree
+immediate_use (dataflow_t df, int num)
+{
+#ifdef ENABLE_CHECKING
+  if (num >= num_immediate_uses (df))
+    abort ();
+#endif
+  if (num < 2)
+    return df->uses[num];
+  return VARRAY_TREE (df->immediate_uses, num - 2);
 }
 
 static inline bb_ann_t
@@ -477,23 +497,75 @@ is_unchanging_value (tree val)
 }
 
 static inline bool
-is_optimizable_addr_expr (tree val)
-{
-  /* FIXME: It should be possible to accept type-casted ADDR_EXPRs if we
-     made sure that the folded INDIRECT_REF kept the type-cast.  See for
-     instance, gcc.c-torture/compile/990203-1.c.  */
-  return (TREE_CODE (val) == ADDR_EXPR
-	  && (TREE_CODE (TREE_OPERAND (val, 0)) == VAR_DECL
-	      || TREE_CODE (TREE_OPERAND (val, 0)) == PARM_DECL));
-}
-
-static inline bool
 may_propagate_copy (tree dest, tree orig)
 {
+  /* FIXME.  GIMPLE is allowing pointer assignments and comparisons of
+     pointers that have different alias sets.  This means that these
+     pointers will have different memory tags associated to them.
+     
+     If we allow copy propagation in these cases, statements de-referencing
+     the new pointer will now have a reference to a different memory tag
+     with potentially incorrect SSA information.
+
+     This was showing up in libjava/java/util/zip/ZipFile.java with code
+     like:
+
+     	struct java.io.BufferedInputStream *T.660;
+	struct java.io.BufferedInputStream *T.647;
+	struct java.io.InputStream *is;
+	struct java.io.InputStream *is.662;
+	[ ... ]
+	T.660 = T.647;
+	is = T.660;	<-- This ought to be type-casted
+	is.662 = is;
+
+     Also, f/name.c exposed a similar problem with a COND_EXPR predicate
+     that was causing DOM to generate and equivalence with two pointers of
+     alias-incompatible types:
+
+     	struct _ffename_space *n;
+	struct _ffename *ns;
+	[ ... ]
+	if (n == ns)
+	  goto lab;
+	...
+	lab:
+	return n;
+
+     I think that GIMPLE should emit the appropriate type-casts.  For the
+     time being, blocking copy-propagation in these cases is the safe thing
+     to do.  */
+  if (TREE_CODE (dest) == SSA_NAME
+      && TREE_CODE (orig) == SSA_NAME
+      && POINTER_TYPE_P (TREE_TYPE (dest))
+      && POINTER_TYPE_P (TREE_TYPE (orig)))
+    {
+      tree mt_dest = var_ann (SSA_NAME_VAR (dest))->mem_tag;
+      tree mt_orig = var_ann (SSA_NAME_VAR (orig))->mem_tag;
+      if (mt_dest && mt_orig && mt_dest != mt_orig)
+	return false;
+    }
+
   return (!SSA_NAME_OCCURS_IN_ABNORMAL_PHI (dest)
-	  && (TREE_CONSTANT (orig)
+	  && (TREE_CODE (orig) != SSA_NAME
 	      || !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (orig))
 	  && !DECL_HARD_REGISTER (SSA_NAME_VAR (dest)));
+}
+
+static inline void
+set_default_def (tree var, tree def)
+{
+  var_ann_t ann = var_ann (var);
+  if (ann == NULL)
+    ann = create_var_ann (var);
+  ann->default_def = def;
+}
+
+static inline tree
+default_def (tree var)
+{
+  var_ann_t ann = var_ann (var);
+  return ann ? ann->default_def : NULL_TREE;
 }
 
 #endif /* _TREE_FLOW_INLINE_H  */

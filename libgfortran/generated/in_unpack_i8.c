@@ -26,15 +26,15 @@ Boston, MA 02111-1307, USA.  */
 #include "libgfortran.h"
 
 void
-internal_unpack_8 (g95_array_i8 * d, const G95_INTEGER_8 * src)
+internal_unpack_8 (gfc_array_i8 * d, const GFC_INTEGER_8 * src)
 {
-  index_type count[G95_MAX_DIMENSIONS - 1];
-  index_type extent[G95_MAX_DIMENSIONS - 1];
-  index_type stride[G95_MAX_DIMENSIONS - 1];
+  index_type count[GFC_MAX_DIMENSIONS - 1];
+  index_type extent[GFC_MAX_DIMENSIONS - 1];
+  index_type stride[GFC_MAX_DIMENSIONS - 1];
   index_type stride0;
   index_type dim;
   index_type dsize;
-  G95_INTEGER_8 *dest;
+  GFC_INTEGER_8 *dest;
   int n;
 
   dest = d->data;
@@ -44,7 +44,7 @@ internal_unpack_8 (g95_array_i8 * d, const G95_INTEGER_8 * src)
   if (d->dim[0].stride == 0)
     d->dim[0].stride = 1;
 
-  dim = G95_DESCRIPTOR_RANK (d);
+  dim = GFC_DESCRIPTOR_RANK (d);
   dsize = 1;
   for (n = 0; n < dim; n++)
     {

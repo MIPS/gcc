@@ -41,7 +41,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "function.h"
 #include "toplev.h"
 #include "intl.h"
-#include "loop.h"
 #include "params.h"
 #include "ggc.h"
 #include "target.h"
@@ -495,7 +494,7 @@ save_for_inline (tree fndecl)
     }
   cfun->original_decl_initial = DECL_INITIAL (fndecl);
   cfun->no_debugging_symbols = (write_symbols == NO_DEBUG);
-  DECL_SAVED_INSNS (fndecl) = cfun;
+  cfun->saved_for_inline = 1;
 
   /* Clean up.  */
   if (! flag_no_inline)
@@ -990,7 +989,8 @@ expand_inline_function (tree fndecl, tree parms, rtx target, int ignore,
 	  && ! (GET_CODE (XEXP (loc, 0)) == REG
 		&& REGNO (XEXP (loc, 0)) > LAST_VIRTUAL_REGISTER))
 	{
-	  rtx note = emit_line_note (*(TREE_LOCUS (formal)));
+	  rtx note = emit_line_note (DECL_SOURCE_LOCATION (formal));
+
 	  if (note)
 	    RTX_INTEGRATED_P (note) = 1;
 
@@ -1030,7 +1030,7 @@ expand_inline_function (tree fndecl, tree parms, rtx target, int ignore,
       else
 	{
 	  if (! structure_value_addr
-	      || ! aggregate_value_p (DECL_RESULT (fndecl)))
+	      || ! aggregate_value_p (DECL_RESULT (fndecl), fndecl))
 	    abort ();
 
 	  /* Pass the function the address in which to return a structure
@@ -1285,7 +1285,7 @@ expand_inline_function (tree fndecl, tree parms, rtx target, int ignore,
      out of the temp register into a BLKmode memory object.  */
   if (target
       && TYPE_MODE (TREE_TYPE (TREE_TYPE (fndecl))) == BLKmode
-      && ! aggregate_value_p (TREE_TYPE (TREE_TYPE (fndecl))))
+      && ! aggregate_value_p (TREE_TYPE (TREE_TYPE (fndecl)), fndecl))
     target = copy_blkmode_from_reg (0, target, TREE_TYPE (TREE_TYPE (fndecl)));
 
   if (structure_value_addr)
@@ -2159,11 +2159,7 @@ copy_rtx_and_substitute (rtx orig, struct inline_remap *map, int for_lhs)
 #endif
 
 	      temp = XEXP (temp, 0);
-
-#ifdef POINTERS_EXTEND_UNSIGNED
-	      if (GET_MODE (temp) != GET_MODE (orig))
-		temp = convert_memory_address (GET_MODE (orig), temp);
-#endif
+	      temp = convert_memory_address (GET_MODE (orig), temp);
 	      return temp;
 	    }
 	  else if (GET_CODE (constant) == LABEL_REF)
@@ -2991,8 +2987,7 @@ output_inline_function (tree fndecl)
 
   /* Make sure warnings emitted by the optimizers (e.g. control reaches
      end of non-void function) is not wildly incorrect.  */
-  input_filename = TREE_FILENAME (fndecl);
-  input_line = TREE_LINENO (fndecl);
+  input_location = DECL_SOURCE_LOCATION (fndecl);
 
   /* Compile this function all the way down to assembly code.  As a
      side effect this destroys the saved RTL representation, but

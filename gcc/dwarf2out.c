@@ -3812,14 +3812,10 @@ static int maybe_emit_file (int);
 #endif
 
 /* Section flags for .debug_str section.  */
-#ifdef HAVE_GAS_SHF_MERGE
 #define DEBUG_STR_SECTION_FLAGS \
-  (flag_merge_constants						\
+  (HAVE_GAS_SHF_MERGE && flag_merge_constants			\
    ? SECTION_DEBUG | SECTION_MERGE | SECTION_STRINGS | 1	\
    : SECTION_DEBUG)
-#else
-#define DEBUG_STR_SECTION_FLAGS	SECTION_DEBUG
-#endif
 
 /* Labels we insert at beginning sections we can reference instead of
    the section names themselves.  */
@@ -8560,6 +8556,24 @@ loc_descriptor_from_tree (tree loc, int addressp)
 	return 0;
       break;
 
+    case CONSTRUCTOR:
+      {
+	/* Get an RTL for this, if something has been emitted.  */
+	rtx rtl = lookup_constant_def (loc);
+	enum machine_mode mode;
+
+	if (GET_CODE (rtl) != MEM)
+	  return 0;
+	mode = GET_MODE (rtl);
+	rtl = XEXP (rtl, 0);
+
+	rtl = (*targetm.delegitimize_address) (rtl);
+
+	indirect_p = 1;
+	ret = mem_loc_descriptor (rtl, mode);
+	break;
+      }
+
     case TRUTH_AND_EXPR:
     case TRUTH_ANDIF_EXPR:
     case BIT_AND_EXPR:
@@ -9490,7 +9504,7 @@ add_name_attribute (dw_die_ref die, const char *name_string)
 static void
 add_comp_dir_attribute (dw_die_ref die)
 {
-  const char *wd = getpwd ();
+  const char *wd = get_src_pwd ();
   if (wd != NULL)
     add_AT_string (die, DW_AT_comp_dir, wd);
 }
@@ -9670,7 +9684,7 @@ add_subscript_info (dw_die_ref type_die, tree type)
 	  lower = TYPE_MIN_VALUE (domain);
 	  upper = TYPE_MAX_VALUE (domain);
 
-	  /* define the index type.  */
+	  /* Define the index type.  */
 	  if (TREE_TYPE (domain))
 	    {
 	      /* ??? This is probably an Ada unnamed subrange type.  Ignore the
@@ -9891,10 +9905,10 @@ add_pure_or_virtual_attribute (dw_die_ref die, tree func_decl)
 static void
 add_src_coords_attributes (dw_die_ref die, tree decl)
 {
-  unsigned file_index = lookup_filename (TREE_FILENAME (decl));
+  unsigned file_index = lookup_filename (DECL_SOURCE_FILE (decl));
 
   add_AT_unsigned (die, DW_AT_decl_file, file_index);
-  add_AT_unsigned (die, DW_AT_decl_line, TREE_LINENO (decl));
+  add_AT_unsigned (die, DW_AT_decl_line, DECL_SOURCE_LINE (decl));
 }
 
 /* Add a DW_AT_name attribute and source coordinate attribute for the
@@ -10580,7 +10594,7 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
     }
   else if (old_die)
     {
-      unsigned file_index = lookup_filename (TREE_FILENAME (decl));
+      unsigned file_index = lookup_filename (DECL_SOURCE_FILE (decl));
 
       if (!get_AT_flag (old_die, DW_AT_declaration)
 	  /* We can have a normal definition following an inline one in the
@@ -10609,7 +10623,7 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 	  && (DECL_ARTIFICIAL (decl)
 	      || (get_AT_unsigned (old_die, DW_AT_decl_file) == file_index
 		  && (get_AT_unsigned (old_die, DW_AT_decl_line)
-		      == (unsigned) TREE_LINENO (decl)))))
+		      == (unsigned) DECL_SOURCE_LINE (decl)))))
 	{
 	  subr_die = old_die;
 
@@ -10624,9 +10638,9 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 	  if (get_AT_unsigned (old_die, DW_AT_decl_file) != file_index)
 	    add_AT_unsigned (subr_die, DW_AT_decl_file, file_index);
 	  if (get_AT_unsigned (old_die, DW_AT_decl_line)
-	      != (unsigned) TREE_LINENO (decl))
+	      != (unsigned) DECL_SOURCE_LINE (decl))
 	    add_AT_unsigned
-	      (subr_die, DW_AT_decl_line, TREE_LINENO (decl));
+	      (subr_die, DW_AT_decl_line, DECL_SOURCE_LINE (decl));
 	}
     }
   else
@@ -10768,7 +10782,7 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
       fn_arg_types = TYPE_ARG_TYPES (TREE_TYPE (decl));
       if (fn_arg_types != NULL)
 	{
-	  /* this is the prototyped case, check for ...  */
+	  /* This is the prototyped case, check for....  */
 	  if (TREE_VALUE (tree_last (fn_arg_types)) != void_type_node)
 	    gen_unspecified_parameters_die (decl, subr_die);
 	}
@@ -10843,16 +10857,16 @@ gen_variable_die (tree decl, dw_die_ref context_die)
       add_AT_die_ref (var_die, DW_AT_specification, old_die);
       if (DECL_NAME (decl))
 	{
-	  unsigned file_index = lookup_filename (TREE_FILENAME (decl));
+	  unsigned file_index = lookup_filename (DECL_SOURCE_FILE (decl));
 
 	  if (get_AT_unsigned (old_die, DW_AT_decl_file) != file_index)
 	    add_AT_unsigned (var_die, DW_AT_decl_file, file_index);
 
 	  if (get_AT_unsigned (old_die, DW_AT_decl_line)
-	      != (unsigned) TREE_LINENO (decl))
+	      != (unsigned) DECL_SOURCE_LINE (decl))
 
 	    add_AT_unsigned (var_die, DW_AT_decl_line,
-			     TREE_LINENO (decl));
+			     DECL_SOURCE_LINE (decl));
 	}
     }
   else
@@ -10974,15 +10988,19 @@ gen_lexical_block_die (tree stmt, dw_die_ref context_die, int depth)
 static void
 gen_inlined_subroutine_die (tree stmt, dw_die_ref context_die, int depth)
 {
+  tree decl = block_ultimate_origin (stmt);
+
+  /* Emit info for the abstract instance first, if we haven't yet.  We
+     must emit this even if the block is abstract, otherwise when we
+     emit the block below (or elsewhere), we may end up trying to emit
+     a die whose origin die hasn't been emitted, and crashing.  */
+  dwarf2out_abstract_function (decl);
+
   if (! BLOCK_ABSTRACT (stmt))
     {
       dw_die_ref subr_die
 	= new_die (DW_TAG_inlined_subroutine, context_die, stmt);
-      tree decl = block_ultimate_origin (stmt);
       char label[MAX_ARTIFICIAL_LABEL_BYTES];
-
-      /* Emit info for the abstract instance first, if we haven't yet.  */
-      dwarf2out_abstract_function (decl);
 
       add_abstract_origin_attribute (subr_die, decl);
       ASM_GENERATE_INTERNAL_LABEL (label, BLOCK_BEGIN_LABEL,
@@ -12025,8 +12043,8 @@ dwarf2out_decl (tree decl)
 	return;
 
       /* Don't bother trying to generate any DIEs to represent any of the
-         normal built-in types for the language we are compiling.  */
-      if (TREE_LINENO (decl) == 0)
+	 normal built-in types for the language we are compiling.  */
+      if (DECL_SOURCE_LINE (decl) == 0)
 	{
 	  /* OK, we need to generate one for `bool' so GDB knows what type
 	     comparisons have.  */
@@ -12114,11 +12132,6 @@ lookup_filename (const char *file_name)
 {
   size_t i, n;
   char *save_file_name;
-
-  /* ??? Why isn't TREE_FILENAME left null instead.  */
-  if (strcmp (file_name, "<internal>") == 0
-      || strcmp (file_name, "<built-in>") == 0)
-    return 0;
 
   /* Check to see if the file name that was searched on the previous
      call matches this file name.  If so, return the index.  */

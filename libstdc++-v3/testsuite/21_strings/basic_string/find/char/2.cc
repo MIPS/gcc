@@ -25,7 +25,7 @@
 
 bool test02(void)
 {
-  bool test = true;
+  bool test __attribute__((unused)) = true;
   typedef std::string::size_type csize_type;
   csize_type npos = std::string::npos;
   csize_type csz01, csz02;
@@ -83,10 +83,6 @@ bool test02(void)
   csz01 = str01.find_first_of('z');
   csz02 = str01.size() - 1;
   VERIFY( csz01 == csz02 );
-
-#ifdef DEBUG_ASSERT
-  assert(test);
-#endif
   return test;
 }
 

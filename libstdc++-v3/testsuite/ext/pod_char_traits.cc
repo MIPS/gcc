@@ -34,15 +34,14 @@
 
 int main()
 {
-  using namespace std;
   using namespace __gnu_cxx;
 
   typedef unsigned short			value_type;
   typedef unsigned int				int_type;
   typedef character<value_type, int_type>	char_type;
-  typedef char_traits<char_type> 		traits_type;
+  typedef std::char_traits<char_type> 		traits_type;
 
-  bool test = true;
+  bool test __attribute__((unused)) = true;
 
   // 1 char_type <-> value_type conversions
   value_type uc1 = 'c';
@@ -55,7 +54,7 @@ int main()
   test = traits_type::eq(c1, c2);
   
   // 3 basic_string<char_type>
-  typedef basic_string<char_type>	string_type;
+  typedef std::basic_string<char_type>	string_type;
   string_type str;
   char_type c3 = { value_type('b') };
   char_type c4 = { value_type('o') };
@@ -71,8 +70,8 @@ int main()
   str += c7;
   str += c8;
   str += c9;
-  string_type::size_type len = str.size();
-  const char_type* arr = str.c_str();
+  string_type::size_type len __attribute__((unused)) = str.size();
+  const char_type* arr __attribute__((unused)) = str.c_str();
 
   return 0;
 }

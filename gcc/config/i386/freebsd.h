@@ -50,13 +50,13 @@ Boston, MA 02111-1307, USA.  */
 /* Make gcc agree with <machine/ansi.h>.  */
 
 #undef  SIZE_TYPE
-#define SIZE_TYPE "unsigned int"
+#define SIZE_TYPE	(TARGET_64BIT ? "long unsigned int" : "unsigned int")
  
 #undef  PTRDIFF_TYPE
-#define PTRDIFF_TYPE "int"
+#define PTRDIFF_TYPE	(TARGET_64BIT ? "long int" : "int")
   
 #undef  WCHAR_TYPE_SIZE
-#define WCHAR_TYPE_SIZE BITS_PER_WORD
+#define WCHAR_TYPE_SIZE	(TARGET_64BIT ? 32 : BITS_PER_WORD)
     
 /* Provide a STARTFILE_SPEC appropriate for FreeBSD.  Here we add
    the magical crtbegin.o file (see crtstuff.c) which provides part 
@@ -116,6 +116,7 @@ Boston, MA 02111-1307, USA.  */
    This is used to align code labels according to Intel recommendations.  */
 
 #ifdef HAVE_GAS_MAX_SKIP_P2ALIGN
+#undef  ASM_OUTPUT_MAX_SKIP_ALIGN
 #define ASM_OUTPUT_MAX_SKIP_ALIGN(FILE, LOG, MAX_SKIP)					\
   if ((LOG) != 0) {														\
     if ((MAX_SKIP) == 0) fprintf ((FILE), "\t.p2align %d\n", (LOG));	\

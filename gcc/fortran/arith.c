@@ -69,8 +69,8 @@ gfc_logical_info gfc_logical_kinds[] = {
 };
 
 gfc_real_info gfc_real_kinds[] = {
-  DEF_GFC_REAL_KIND (4, 2, 24,  -148,  128),
-  DEF_GFC_REAL_KIND (8, 2, 53, -1073, 1024),
+  DEF_GFC_REAL_KIND (4, 2, 24,  -125,  128),
+  DEF_GFC_REAL_KIND (8, 2, 53, -1021, 1024),
   DEF_GFC_REAL_KIND (0, 0,  0,     0,    0)
 };
 

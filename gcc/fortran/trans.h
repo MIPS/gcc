@@ -299,6 +299,9 @@ void gfc_trans_equivalence (gfc_namespace *);
 /* Translate COMMON blocks.  */
 void gfc_trans_common (gfc_namespace *);
 
+/* Translate a derived type constructor. */
+void gfc_conv_structure (gfc_se *, gfc_expr *, int);
+
 /* Return an expression which determines if a dummy parameter is present.  */
 tree gfc_conv_expr_present (gfc_symbol *);
 
@@ -450,6 +453,11 @@ extern GTY(()) tree gfor_fndecl_adjustr;
 /* Other misc. runtime library functions.  */
 extern GTY(()) tree gfor_fndecl_size0;
 extern GTY(()) tree gfor_fndecl_size1;
+
+/* Implemented in FORTRAN.  */
+extern GTY(()) tree gfor_fndecl_si_kind;
+extern GTY(()) tree gfor_fndecl_sr_kind;
+
 
 /* True if node is an integer constant.  */
 #define INTEGER_CST_P(node) (TREE_CODE(node) == INTEGER_CST)

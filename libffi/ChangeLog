@@ -1,3 +1,204 @@
+2003-09-19  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* testsuite/libffi.call/closure_fn0.c: Xfail mips, arm,
+	strongarm, xscale. Cleanup whitespaces.
+	* testsuite/libffi.call/closure_fn1.c: Likewise.
+	* testsuite/libffi.call/closure_fn2.c: Likewise.
+	* testsuite/libffi.call/closure_fn3.c: Likewise.
+	* testsuite/libffi.call/cls_12byte.c: Likewise.
+	* testsuite/libffi.call/cls_16byte.c: Likewise.
+	* testsuite/libffi.call/cls_1_1byte.c: Likewise.
+	* testsuite/libffi.call/cls_20byte.c: Likewise.
+	* testsuite/libffi.call/cls_24byte.c: Likewise.
+	* testsuite/libffi.call/cls_2byte.c: Likewise.
+	* testsuite/libffi.call/cls_3_1byte.c: Likewise.
+	* testsuite/libffi.call/cls_3byte1.c: Likewise.
+	* testsuite/libffi.call/cls_3byte2.c: Likewise.
+	* testsuite/libffi.call/cls_4_1byte.c: Likewise.
+	* testsuite/libffi.call/cls_4byte.c: Likewise.
+	* testsuite/libffi.call/cls_5byte.c: Likewise.
+	* testsuite/libffi.call/cls_6byte.c: Likewise.
+	* testsuite/libffi.call/cls_7byte.c: Likewise.
+	* testsuite/libffi.call/cls_8byte.c: Likewise.
+	* testsuite/libffi.call/cls_double.c: Likewise.
+	* testsuite/libffi.call/cls_float.c: Likewise.
+	* testsuite/libffi.call/cls_uchar.c: Likewise.
+	* testsuite/libffi.call/cls_uint.c: Likewise.
+	* testsuite/libffi.call/cls_ulonglong.c: Likewise.
+	* testsuite/libffi.call/cls_ushort.c: Likewise.
+	* testsuite/libffi.call/nested_struct.c: Likewise.
+	* testsuite/libffi.call/nested_struct1.c: Likewise.
+	* testsuite/libffi.call/problem1.c: Likewise.
+	* testsuite/libffi.special/unwindtest.cc: Likewise.
+	* testsuite/libffi.call/pyobjc-tc.c: Cleanup whitespaces.
+
+2003-09-18  David Edelsohn  <edelsohn@gnu.org>
+
+	* src/powerpc/aix.S: Cleanup whitespaces.
+	* src/powerpc/aix_closure.S: Likewise.
+
+2003-09-18  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* src/powerpc/darwin.S: Cleanup whitespaces, comment formatting.
+	* src/powerpc/darwin_closure.S: Likewise.
+	* src/powerpc/ffi_darwin.c: Likewise.
+
+2003-09-18  Andreas Tobler  <a.tobler@schweiz.ch>
+	    David Edelsohn  <edelsohn@gnu.org>
+
+	* src/types.c (double): Add AIX and Darwin to the right TYPEDEF.
+	* src/powerpc/aix_closure.S: Remove the pointer to the outgoing
+	parameter stack.
+	* src/powerpc/darwin_closure.S: Likewise.
+	* src/powerpc/ffi_darwin.c (ffi_prep_args): Handle structures
+	according to the Darwin/AIX ABI.
+	(ffi_prep_cif_machdep): Likewise.
+	(ffi_closure_helper_DARWIN): Likewise.
+	Remove the outgoing parameter stack logic. Simplify the evaluation
+	of the different CASE types.
+	(ffi_prep_clousure): Avoid the casts on lvalues. Change the branch
+	statement in the trampoline code.
+
+2003-09-18  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* src/sh/ffi.c (ffi_prep_args): Take account into the alignement
+	for the register size.
+	(ffi_closure_helper_SYSV): Handle the structure return value
+	address correctly.
+	(ffi_closure_helper_SYSV): Return the appropriate type when
+	the registers are used for the structure return value.
+	* src/sh/sysv.S (ffi_closure_SYSV): Fix the stack layout for
+	the 64-bit return value.  Update copyright years.
+
+2003-09-17  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* testsuite/lib/libffi-dg.exp (libffi_target_compile): Search in
+	srcdir for ffi_mips.h.
+
+2003-09-12  Alan Modra  <amodra@bigpond.net.au>
+
+	* src/prep_cif.c (initialize_aggregate): Include tail padding in
+	structure size.
+	* src/powerpc/linux64_closure.S (ffi_closure_LINUX64): Correct
+	placement of float result.
+	* testsuite/libffi.special/unwindtest.cc (closure_test_fn1): Correct
+	cast of "resp" for big-endian 64 bit machines.
+
+2003-09-11  Alan Modra  <amodra@bigpond.net.au>
+
+	* src/types.c (double, longdouble): Merge identical SH and ARM
+	typedefs, and add POWERPC64.
+	* src/powerpc/ffi.c (ffi_prep_args64): Correct next_arg calc for
+	struct split over gpr and rest.
+	(ffi_prep_cif_machdep): Correct intarg_count for structures.
+	* src/powerpc/linux64.S (ffi_call_LINUX64): Fix gpr offsets.
+
+2003-09-09  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* src/powerpc/ffi.c (ffi_closure_helper_SYSV) Handle struct
+	passing correctly.
+	
+2003-09-09  Alan Modra  <amodra@bigpond.net.au>
+
+	* configure: Regenerate.
+
+2003-09-04  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* Makefile.am: Remove build rules for ffitest.
+	* Makefile.in: Rebuilt.
+	
+2003-09-04  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* src/java_raw_api.c: Include <stdlib.h> to fix compiler warning
+	about implicit declaration of abort().
+
+2003-09-04  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* Makefile.am: Add dejagnu test framework. Fixes PR other/11411.
+	* Makefile.in: Rebuilt.
+	* configure.in: Add dejagnu test framework.
+	* configure: Rebuilt.
+
+	* testsuite/Makefile.am: New file.
+	* testsuite/Makefile.in: Built
+	* testsuite/lib/libffi-dg.exp: New file. 
+	* testsuite/config/default.exp: Likewise.
+	* testsuite/libffi.call/call.exp: Likewise.
+	* testsuite/libffi.call/ffitest.h: Likewise.
+	* testsuite/libffi.call/closure_fn0.c: Likewise.
+	* testsuite/libffi.call/closure_fn1.c: Likewise.
+	* testsuite/libffi.call/closure_fn2.c: Likewise.
+	* testsuite/libffi.call/closure_fn3.c: Likewise.
+	* testsuite/libffi.call/cls_1_1byte.c: Likewise.
+	* testsuite/libffi.call/cls_3_1byte.c: Likewise.
+	* testsuite/libffi.call/cls_4_1byte.c: Likewise.
+	* testsuite/libffi.call/cls_2byte.c: Likewise.
+	* testsuite/libffi.call/cls_3byte1.c: Likewise.
+	* testsuite/libffi.call/cls_3byte2.c: Likewise.
+	* testsuite/libffi.call/cls_4byte.c: Likewise.
+	* testsuite/libffi.call/cls_5byte.c: Likewise.
+	* testsuite/libffi.call/cls_6byte.c: Likewise.
+	* testsuite/libffi.call/cls_7byte.c: Likewise.
+	* testsuite/libffi.call/cls_8byte.c: Likewise.
+	* testsuite/libffi.call/cls_12byte.c: Likewise.
+	* testsuite/libffi.call/cls_16byte.c: Likewise.
+	* testsuite/libffi.call/cls_20byte.c: Likewise.
+	* testsuite/libffi.call/cls_24byte.c: Likewise.
+	* testsuite/libffi.call/cls_double.c: Likewise.
+	* testsuite/libffi.call/cls_float.c: Likewise.
+	* testsuite/libffi.call/cls_uchar.c: Likewise.
+	* testsuite/libffi.call/cls_uint.c: Likewise.
+	* testsuite/libffi.call/cls_ulonglong.c: Likewise.
+	* testsuite/libffi.call/cls_ushort.c: Likewise.
+	* testsuite/libffi.call/float.c: Likewise.
+	* testsuite/libffi.call/float1.c: Likewise.
+	* testsuite/libffi.call/float2.c: Likewise.
+	* testsuite/libffi.call/many.c: Likewise.
+	* testsuite/libffi.call/many_win32.c: Likewise.
+	* testsuite/libffi.call/nested_struct.c: Likewise.
+	* testsuite/libffi.call/nested_struct1.c: Likewise.
+	* testsuite/libffi.call/pyobjc-tc.c: Likewise.
+	* testsuite/libffi.call/problem1.c: Likewise.
+	* testsuite/libffi.call/promotion.c: Likewise.
+	* testsuite/libffi.call/return_ll.c: Likewise.
+	* testsuite/libffi.call/return_sc.c: Likewise.
+	* testsuite/libffi.call/return_uc.c: Likewise.
+	* testsuite/libffi.call/strlen.c: Likewise.
+	* testsuite/libffi.call/strlen_win32.c: Likewise.
+	* testsuite/libffi.call/struct1.c: Likewise.
+	* testsuite/libffi.call/struct2.c: Likewise.
+	* testsuite/libffi.call/struct3.c: Likewise.
+	* testsuite/libffi.call/struct4.c: Likewise.
+	* testsuite/libffi.call/struct5.c: Likewise.
+	* testsuite/libffi.call/struct6.c: Likewise.
+	* testsuite/libffi.call/struct7.c: Likewise.
+	* testsuite/libffi.call/struct8.c: Likewise.
+	* testsuite/libffi.call/struct9.c: Likewise.	
+	* testsuite/libffi.special/special.exp: New file.
+	* testsuite/libffi.special/ffitestcxx.h: Likewise.
+	* testsuite/libffi.special/unwindtest.cc: Likewise.
+
+	
+2003-08-13  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* src/sh/ffi.c (OFS_INT16): Set 0 for little endian case.  Update
+	copyright years.
+
+2003-08-02  Alan Modra  <amodra@bigpond.net.au>
+
+	* src/powerpc/ffi.c (ffi_prep_args64): Modify for changed gcc
+	structure passing.
+	(ffi_closure_helper_LINUX64): Likewise.
+	* src/powerpc/linux64.S: Remove code writing to parm save area.
+	* src/powerpc/linux64_closure.S (ffi_closure_LINUX64): Use return
+	address in lr from ffi_closure_helper_LINUX64 call to calculate
+	table address.  Optimize function tail.
+
+2003-07-28  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* src/sparc/ffi.c: Handle all floating point registers.
+	* src/sparc/v9.S: Likewise. Fixes second part of PR target/11410.
+
 2003-07-11  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
 
 	* README: Note that libffi is not part of GCC.  Update the project

@@ -433,7 +433,7 @@ named_section (tree decl, const char *name, int reloc)
     {
       flags = get_named_section_flags (name);
       if ((flags & SECTION_OVERRIDE) == 0)
-	error_with_decl (decl, "%s causes a section type conflict");
+	error ("%J%D causes a section type conflict", decl, decl);
     }
 
   named_section_flags (name, flags);
@@ -562,8 +562,7 @@ mergeable_string_section (tree decl ATTRIBUTE_UNUSED,
 			  unsigned HOST_WIDE_INT align ATTRIBUTE_UNUSED,
 			  unsigned int flags ATTRIBUTE_UNUSED)
 {
-#ifdef HAVE_GAS_SHF_MERGE
-  if (flag_merge_constants
+  if (HAVE_GAS_SHF_MERGE && flag_merge_constants
       && TREE_CODE (decl) == STRING_CST
       && TREE_CODE (TREE_TYPE (decl)) == ARRAY_TYPE
       && align <= 256
@@ -625,7 +624,7 @@ mergeable_string_section (tree decl ATTRIBUTE_UNUSED,
 	    }
 	}
     }
-#endif
+
   readonly_data_section ();
 }
 
@@ -636,10 +635,9 @@ mergeable_constant_section (enum machine_mode mode ATTRIBUTE_UNUSED,
 			    unsigned HOST_WIDE_INT align ATTRIBUTE_UNUSED,
 			    unsigned int flags ATTRIBUTE_UNUSED)
 {
-#ifdef HAVE_GAS_SHF_MERGE
   unsigned int modesize = GET_MODE_BITSIZE (mode);
 
-  if (flag_merge_constants
+  if (HAVE_GAS_SHF_MERGE && flag_merge_constants
       && mode != VOIDmode
       && mode != BLKmode
       && modesize <= align
@@ -654,7 +652,7 @@ mergeable_constant_section (enum machine_mode mode ATTRIBUTE_UNUSED,
       named_section_flags (name, flags);
       return;
     }
-#endif
+
   readonly_data_section ();
 }
 
@@ -808,15 +806,15 @@ make_decl_rtl (tree decl, const char *asmspec)
     {
       /* First detect errors in declaring global registers.  */
       if (reg_number == -1)
-	error_with_decl (decl, "register name not specified for `%s'");
+	error ("%Jregister name not specified for '%D'", decl, decl);
       else if (reg_number < 0)
-	error_with_decl (decl, "invalid register name for `%s'");
+	error ("%Jinvalid register name for '%D'", decl, decl);
       else if (TYPE_MODE (TREE_TYPE (decl)) == BLKmode)
-	error_with_decl (decl,
-			 "data type of `%s' isn't suitable for a register");
+	error ("%Jdata type of '%D' isn't suitable for a register",
+	       decl, decl);
       else if (! HARD_REGNO_MODE_OK (reg_number, TYPE_MODE (TREE_TYPE (decl))))
-	error_with_decl (decl,
-			 "register specified for `%s' isn't suitable for data type");
+	error ("%Jregister specified for '%D' isn't suitable for data type",
+               decl, decl);
       /* Now handle properly declared static register variables.  */
       else
 	{
@@ -860,8 +858,7 @@ make_decl_rtl (tree decl, const char *asmspec)
      Also handle vars declared register invalidly.  */
 
   if (reg_number >= 0 || reg_number == -3)
-    error_with_decl (decl,
-		     "register name given for non-register variable `%s'");
+    error ("%Jregister name given for non-register variable '%D'", decl, decl);
 
   /* Specifying a section attribute on a variable forces it into a
      non-.bss section, and thus it cannot be common.  */
@@ -1047,6 +1044,34 @@ default_ctor_section_asm_out_constructor (rtx symbol,
 #define CONSTANT_POOL_BEFORE_FUNCTION 1
 #endif
 
+/* DECL is an object (either VAR_DECL or FUNCTION_DECL) which is going
+   to be output to assembler.
+   Set first_global_object_name and weak_global_object_name as appropriate.  */
+
+void
+notice_global_symbol (tree decl)
+{
+  if ((!first_global_object_name || !weak_global_object_name)
+      && TREE_PUBLIC (decl) && !DECL_COMMON (decl)
+      && (TREE_CODE (decl) == FUNCTION_DECL
+	  || (TREE_CODE (decl) == VAR_DECL
+	      && (DECL_INITIAL (decl) != 0
+		  && DECL_INITIAL (decl) != error_mark_node))))
+    {
+      const char *p;
+      char *name;
+      rtx decl_rtl = DECL_RTL (decl);
+
+      p = (* targetm.strip_name_encoding) (XSTR (XEXP (decl_rtl, 0), 0));
+      name = xstrdup (p);
+
+      if (! DECL_WEAK (decl) && ! DECL_ONE_ONLY (decl))
+	first_global_object_name = name;
+      else
+	weak_global_object_name = name;
+    }
+}
+
 /* Output assembler code for the constant pool of a function and associated
    with defining the name of the function.  DECL describes the function.
    NAME is the function's name.  For the constant pool, we use the current
@@ -1100,19 +1125,7 @@ assemble_start_function (tree decl, const char *fnname)
 
   if (TREE_PUBLIC (decl))
     {
-      if (! first_global_object_name)
-	{
-	  const char *p;
-	  char *name;
-
-	  p = (* targetm.strip_name_encoding) (fnname);
-	  name = xstrdup (p);
-
-	  if (! DECL_WEAK (decl) && ! DECL_ONE_ONLY (decl))
-	    first_global_object_name = name;
-	  else
-	    weak_global_object_name = name;
-	}
+      notice_global_symbol (decl);
 
       globalize_decl (decl);
 
@@ -1371,9 +1384,7 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
 
   if (!dont_output_data && DECL_SIZE (decl) == 0)
     {
-      error ("%Hstorage size of `%s' isn't known",
-             TREE_LOCUS (decl),
-             IDENTIFIER_POINTER (DECL_NAME (decl)));
+      error ("%Jstorage size of `%D' isn't known", decl, decl);
       TREE_ASM_WRITTEN (decl) = 1;
       return;
     }
@@ -1401,25 +1412,13 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
   if (! dont_output_data
       && ! host_integerp (DECL_SIZE_UNIT (decl), 1))
     {
-      error_with_decl (decl, "size of variable `%s' is too large");
+      error ("%Jsize of variable '%D' is too large", decl, decl);
       return;
     }
 
   name = XSTR (XEXP (decl_rtl, 0), 0);
-  if (TREE_PUBLIC (decl) && DECL_NAME (decl)
-      && ! first_global_object_name
-      && ! (DECL_COMMON (decl) && (DECL_INITIAL (decl) == 0
-				   || DECL_INITIAL (decl) == error_mark_node))
-      && ! DECL_WEAK (decl)
-      && ! DECL_ONE_ONLY (decl))
-    {
-      const char *p;
-      char *xname;
-
-      p = (* targetm.strip_name_encoding) (name);
-      xname = xstrdup (p);
-      first_global_object_name = xname;
-    }
+  if (TREE_PUBLIC (decl) && DECL_NAME (decl))
+    notice_global_symbol (decl);
 
   /* Compute the alignment of this data.  */
 
@@ -1439,9 +1438,9 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
 #endif
   if (align > MAX_OFILE_ALIGNMENT)
     {
-      warning_with_decl (decl,
-	"alignment of `%s' is greater than maximum object file alignment. Using %d",
-			 MAX_OFILE_ALIGNMENT/BITS_PER_UNIT);
+      warning ("%Jalignment of '%D' is greater than maximum object "
+               "file alignment.  Using %d", decl, decl,
+	       MAX_OFILE_ALIGNMENT/BITS_PER_UNIT);
       align = MAX_OFILE_ALIGNMENT;
     }
 
@@ -1507,8 +1506,8 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
 
 #if !defined(ASM_OUTPUT_ALIGNED_COMMON) && !defined(ASM_OUTPUT_ALIGNED_DECL_COMMON) && !defined(ASM_OUTPUT_ALIGNED_BSS)
       if ((unsigned HOST_WIDE_INT) DECL_ALIGN (decl) / BITS_PER_UNIT > rounded)
-	warning_with_decl
-	  (decl, "requested alignment for %s is greater than implemented alignment of %d",rounded);
+	warning ("%Jrequested alignment for '%D' is greater than "
+                 "implemented alignment of %d", decl, decl, rounded);
 #endif
 
       /* If the target cannot output uninitialized but not common global data
@@ -1630,16 +1629,14 @@ assemble_external (tree decl ATTRIBUTE_UNUSED)
 /* Similar, for calling a library function FUN.  */
 
 void
-assemble_external_libcall (rtx fun ATTRIBUTE_UNUSED)
+assemble_external_libcall (rtx fun)
 {
-#ifdef ASM_OUTPUT_EXTERNAL_LIBCALL
   /* Declare library function name external when first used, if nec.  */
   if (! SYMBOL_REF_USED (fun))
     {
       SYMBOL_REF_USED (fun) = 1;
-      ASM_OUTPUT_EXTERNAL_LIBCALL (asm_out_file, fun);
+      (*targetm.asm_out.external_libcall) (fun);
     }
-#endif
 }
 
 /* Assemble a label named NAME.  */
@@ -1663,7 +1660,7 @@ mark_referenced (tree id)
 	{
 	  node = cgraph_node_for_identifier (id);
 	  if (node)
-	    cgraph_mark_needed_node (node, 1);
+	    cgraph_mark_needed_node (node);
 	}
 
       vnode = cgraph_varpool_node_for_identifier (id);
@@ -2556,6 +2553,7 @@ output_constant_def_contents (rtx symbol)
 {
   tree exp = SYMBOL_REF_DECL (symbol);
   const char *label = XSTR (symbol, 0);
+  HOST_WIDE_INT size;
 
   /* Make sure any other constants whose addresses appear in EXP
      are assigned label numbers.  */
@@ -2580,17 +2578,20 @@ output_constant_def_contents (rtx symbol)
       ASM_OUTPUT_ALIGN (asm_out_file, floor_log2 (align / BITS_PER_UNIT));
     }
 
-  /* Output the label itself.  */
+  size = int_size_in_bytes (TREE_TYPE (exp));
+  if (TREE_CODE (exp) == STRING_CST)
+    size = MAX (TREE_STRING_LENGTH (exp), size);
+
+  /* Do any machine/system dependent processing of the constant.  */
+#ifdef ASM_DECLARE_CONSTANT_NAME
+  ASM_DECLARE_CONSTANT_NAME (asm_out_file, label, exp, size);
+#else
+  /* Standard thing is just output label for the constant.  */
   ASM_OUTPUT_LABEL (asm_out_file, label);
+#endif /* ASM_DECLARE_CONSTANT_NAME */
 
   /* Output the value of EXP.  */
-  output_constant (exp,
-		   (TREE_CODE (exp) == STRING_CST
-		    ? MAX (TREE_STRING_LENGTH (exp),
-			   int_size_in_bytes (TREE_TYPE (exp)))
-		    : int_size_in_bytes (TREE_TYPE (exp))),
-		   align);
-
+  output_constant (exp, size, align);
   if (flag_mudflap)
     mudflap_enqueue_constant (exp, ggc_strdup (label));
 }
@@ -2602,6 +2603,21 @@ void
 notice_rtl_inlining_of_deferred_constant (void)
 {
   n_deferred_constants++;
+}
+
+/* Look up EXP in the table of constant descriptors.  Return the rtl
+   if it has been emitted, else null.  */
+
+rtx
+lookup_constant_def (tree exp)
+{
+  struct constant_descriptor_tree *desc;
+  struct constant_descriptor_tree key;
+
+  key.value = exp;
+  desc = htab_find (const_desc_htab, &key);
+
+  return (desc ? desc->rtl : NULL_RTX);
 }
 
 /* Used in the hash tables to avoid outputting the same constant
@@ -3464,11 +3480,27 @@ initializer_constant_valid_p (tree value, tree endtype)
 	   || TREE_CODE (TREE_TYPE (value)) == RECORD_TYPE)
 	  && TREE_CONSTANT (value)
 	  && CONSTRUCTOR_ELTS (value))
-	return
-	  initializer_constant_valid_p (TREE_VALUE (CONSTRUCTOR_ELTS (value)),
-					endtype);
+	{
+	  tree elt;
+	  bool absolute = true;
 
-      return TREE_STATIC (value) ? null_pointer_node : 0;
+	  for (elt = CONSTRUCTOR_ELTS (value); elt; elt = TREE_CHAIN (elt))
+	    {
+	      tree reloc;
+	      value = TREE_VALUE (elt);
+	      reloc = initializer_constant_valid_p (value, TREE_TYPE (value));
+	      if (!reloc)
+		return NULL_TREE;
+	      if (reloc != null_pointer_node)
+		absolute = false;
+	    }
+	  /* For a non-absolute relocation, there is no single
+	     variable that can be "the variable that determines the
+	     relocation."  */
+	  return absolute ? null_pointer_node : error_mark_node;
+	}
+
+      return TREE_STATIC (value) ? null_pointer_node : NULL_TREE;
 
     case INTEGER_CST:
     case VECTOR_CST:
@@ -3711,6 +3743,7 @@ output_constant (tree exp, unsigned HOST_WIDE_INT size, unsigned int align)
     case ENUMERAL_TYPE:
     case POINTER_TYPE:
     case REFERENCE_TYPE:
+    case OFFSET_TYPE:
       if (! assemble_integer (expand_expr (exp, NULL_RTX, VOIDmode,
 					   EXPAND_INITIALIZER),
 			      size, align, 0))
@@ -4184,15 +4217,16 @@ merge_weak (tree newdecl, tree olddecl)
 	 declare_weak because the NEWDECL and OLDDECL was not yet
 	 been merged; therefore, TREE_ASM_WRITTEN was not set.  */
       if (TREE_ASM_WRITTEN (olddecl))
-	error_with_decl (newdecl,
-			 "weak declaration of `%s' must precede definition");
+	error ("%Jweak declaration of '%D' must precede definition",
+	       newdecl, newdecl);
 
       /* If we've already generated rtl referencing OLDDECL, we may
 	 have done so in a way that will not function properly with
 	 a weak symbol.  */
       else if (TREE_USED (olddecl)
 	       && TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (olddecl)))
-	warning_with_decl (newdecl, "weak declaration of `%s' after first use results in unspecified behavior");
+	warning ("%Jweak declaration of '%D' after first use results "
+                 "in unspecified behavior", newdecl, newdecl);
 
       if (SUPPORTS_WEAK)
 	{
@@ -4225,16 +4259,16 @@ void
 declare_weak (tree decl)
 {
   if (! TREE_PUBLIC (decl))
-    error_with_decl (decl, "weak declaration of `%s' must be public");
+    error ("%Jweak declaration of '%D' must be public", decl, decl);
   else if (TREE_CODE (decl) == FUNCTION_DECL && TREE_ASM_WRITTEN (decl))
-    error_with_decl (decl, "weak declaration of `%s' must precede definition");
+    error ("%Jweak declaration of '%D' must precede definition", decl, decl);
   else if (SUPPORTS_WEAK)
     {
       if (! DECL_WEAK (decl))
 	weak_decls = tree_cons (NULL, decl, weak_decls);
     }
   else
-    warning_with_decl (decl, "weak declaration of `%s' not supported");
+    warning ("%Jweak declaration of '%D' not supported", decl, decl);
 
   mark_weak (decl);
 }
@@ -4656,30 +4690,6 @@ default_pe_asm_named_section (const char *name, unsigned int flags)
       fprintf (asm_out_file, "\t.linkonce %s\n",
 	       (flags & SECTION_CODE ? "discard" : "same_size"));
     }
-}
-
-/* Used for vtable gc in GNU binutils.  Record that the pointer at OFFSET
-   from SYMBOL is used in all classes derived from SYMBOL.  */
-
-void
-assemble_vtable_entry (rtx symbol, HOST_WIDE_INT offset)
-{
-  fputs ("\t.vtable_entry ", asm_out_file);
-  output_addr_const (asm_out_file, symbol);
-  fprintf (asm_out_file, ", " HOST_WIDE_INT_PRINT_DEC "\n", offset);
-}
-
-/* Used for vtable gc in GNU binutils.  Record the class hierarchy by noting
-   that the vtable symbol CHILD is derived from the vtable symbol PARENT.  */
-
-void
-assemble_vtable_inherit (rtx child, rtx parent)
-{
-  fputs ("\t.vtable_inherit ", asm_out_file);
-  output_addr_const (asm_out_file, child);
-  fputs (", ", asm_out_file);
-  output_addr_const (asm_out_file, parent);
-  fputc ('\n', asm_out_file);
 }
 
 /* The lame default section selector.  */

@@ -20,8 +20,8 @@
 // Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
 // USA.
 
-// { dg-do run { target *-*-freebsd* *-*-netbsd* *-*-linux* *-*-solaris* *-*-cygwin *-*-darwin* } }
-// { dg-options "-pthread" { target *-*-freebsd* *-*-netbsd* *-*-linux* } }
+// { dg-do run { target *-*-freebsd* *-*-netbsd* *-*-linux* *-*-solaris* *-*-cygwin *-*-darwin* alpha*-*-osf* } }
+// { dg-options "-pthread" { target *-*-freebsd* *-*-netbsd* *-*-linux* alpha*-*-osf* } }
 // { dg-options "-pthreads" { target *-*-solaris* } }
 
 #include <vector>
@@ -50,7 +50,7 @@ struct tt_t
 void*
 thread_function (void* arg)
 {
-  int myid = *(int*) arg;
+  int myid __attribute__((unused)) = *(int*) arg;
   for (int i = 0; i < LOOPS; i++)
     {
       vector<tt_t> myvect1;
@@ -88,7 +88,7 @@ thread_function (void* arg)
 }
 
 int
-main (int argc, char *argv[])
+main ()
 {
   int worker;
   pthread_t threads[NTHREADS];

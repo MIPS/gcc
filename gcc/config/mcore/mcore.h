@@ -28,12 +28,6 @@
 #define	MCORE_STRUCT_ARGS
 /* RBE: end of "move elsewhere".  */
 
-#include "hwint.h"
-
-#ifndef HAVE_MACHINE_MODES
-#include "machmode.h"
-#endif
-
 /* Run-time Target Specification.  */
 #define TARGET_MCORE
 
@@ -179,10 +173,8 @@ extern const char * mcore_stack_increment_string;
      N_("Maximum amount for a single stack increment operation"), 0}	\
 }
 
-#ifndef CC1_SPEC
 /* The MCore ABI says that bitfields are unsigned by default.  */
 #define CC1_SPEC "-funsigned-bitfields"
-#endif
 
 /* What options are we going to default to specific settings when
    -O* happens; the user can subsequently override these settings.
@@ -611,7 +603,8 @@ extern const enum reg_class reg_class_from_letter[];
 /* Return the register class of a scratch register needed to copy IN into
    or out of a register in CLASS in MODE.  If it can be done directly,
    NO_REGS is returned.  */
-#define SECONDARY_RELOAD_CLASS(CLASS, MODE, X) NO_REGS
+#define SECONDARY_RELOAD_CLASS(CLASS, MODE, X) \
+  mcore_secondary_reload_class (CLASS, MODE, X)
 
 /* Return the maximum number of consecutive registers
    needed to represent mode MODE in a register of class CLASS. 

@@ -26,11 +26,11 @@ Boston, MA 02111-1307, USA.  */
 #include "libgfortran.h"
 
 void *
-internal_pack (g95_array_char * source)
+internal_pack (gfc_array_char * source)
 {
-  index_type count[G95_MAX_DIMENSIONS - 1];
-  index_type extent[G95_MAX_DIMENSIONS - 1];
-  index_type stride[G95_MAX_DIMENSIONS - 1];
+  index_type count[GFC_MAX_DIMENSIONS - 1];
+  index_type extent[GFC_MAX_DIMENSIONS - 1];
+  index_type stride[GFC_MAX_DIMENSIONS - 1];
   index_type stride0;
   index_type dim;
   index_type ssize;
@@ -47,17 +47,17 @@ internal_pack (g95_array_char * source)
       return source->data;
     }
 
-  size = G95_DESCRIPTOR_SIZE (source);
+  size = GFC_DESCRIPTOR_SIZE (source);
   switch (size)
     {
     case 4:
-      return internal_pack_4 ((g95_array_i4 *)source);
+      return internal_pack_4 ((gfc_array_i4 *)source);
 
     case 8:
-      return internal_pack_8 ((g95_array_i8 *)source);
+      return internal_pack_8 ((gfc_array_i8 *)source);
     }
 
-  dim = G95_DESCRIPTOR_RANK (source);
+  dim = GFC_DESCRIPTOR_RANK (source);
   ssize = 1;
   packed = 1;
   for (n = 0; n < dim; n++)

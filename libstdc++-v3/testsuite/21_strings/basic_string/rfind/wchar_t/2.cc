@@ -24,7 +24,7 @@
 // 21.3.6.4 basic_string::find_last_of
 bool test02()
 {
-  bool test = true;
+  bool test __attribute__((unused)) = true;
   std::wstring::size_type pos;
   std::wstring z(L"ab");
   pos = z.find_last_of(L"ab");
@@ -41,10 +41,6 @@ bool test02()
   VERIFY( pos == 1 );
   pos = z.find_last_of(L'X');
   VERIFY( pos == std::wstring::npos );
-
-#ifdef DEBUG_ASSERT
-  assert(test);
-#endif
   return test;
 }
 

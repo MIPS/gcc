@@ -1,3 +1,7 @@
+2003-09-24  Jason Merrill  <jason@redhat.com>
+
+	* com.c, ste.c: Revert earlier change.
+
 2003-01-15  Jeff Law <law@redhat.com>
 
 	* com.c (duplicate_decls): Use TREE_FILENAME and TREE_LINENO

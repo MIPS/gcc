@@ -176,7 +176,6 @@ java_truthvalue_conversion (tree expr)
     case NEGATE_EXPR:
     case ABS_EXPR:
     case FLOAT_EXPR:
-    case FFS_EXPR:
       /* These don't change whether an object is nonzero or zero.  */
       return java_truthvalue_conversion (TREE_OPERAND (expr, 0));
 
@@ -2331,20 +2330,22 @@ expand_java_field_op (int is_static, int is_putting, int field_ref_index)
       if (FIELD_FINAL (field_decl))
 	{
 	  if (DECL_CONTEXT (field_decl) != current_class)
-	    error_with_decl (field_decl,
-		     "assignment to final field `%s' not in field's class");
+            error ("%Jassignment to final field '%D' not in field's class",
+                   field_decl, field_decl);
 	  else if (FIELD_STATIC (field_decl))
 	    {
 	      if (!DECL_CLINIT_P (current_function_decl))
-		warning_with_decl (field_decl, 
-             "assignment to final static field `%s' not in class initializer");
+		warning ("%Jassignment to final static field `%D' not in "
+                         "class initializer",
+                         field_decl, field_decl);
 	    }
 	  else
 	    {
 	      tree cfndecl_name = DECL_NAME (current_function_decl);
 	      if (! DECL_CONSTRUCTOR_P (current_function_decl)
 		  && !ID_FINIT_P (cfndecl_name))
-		warning_with_decl (field_decl, "assignment to final field `%s' not in constructor");
+                warning ("%Jassignment to final field '%D' not in constructor",
+                         field_decl, field_decl);
 	    }
 	}
       java_add_stmt (build (MODIFY_EXPR, 

@@ -1,3 +1,226 @@
+2003-09-29  Richard Henderson  <rth@redhat.com>
+
+	* g++.dg/ext/stmtexpr1.C, g++.dg/parse/stack1.C: XFAIL.
+
+2003-09-29  Richard Henderson  <rth@redhat.com>
+
+	* g++.dg/opt/nothrow1.C: Use locally declared function rather
+	than printf.
+
+	* g++.dg/ext/label3.C: Add dg-options.
+
+2003-09-25  Jeff Law  <law@redhat.com>
+
+        * gcc.dg/tree-ssa/20030922-2.c: New test.
+
+2003-09-24  Jeff Law  <law@redhat.com>
+
+	* gcc.dg/tree-ssa/20030708-1.c: Expect all IF conditions to be
+	removed.
+	* gcc.dg/tree-ssa/20030808-1.c: Similarly.
+
+	* gcc.dg/tree-ssa/20030807-9.c: Add additional test.
+
+2003-09-22  Jeff Law  <law@redhat.com>
+
+	* gcc.dg/tree-ssa/20030922-1.c: New test.
+
+	* gcc.dg/tree-ssa/20030807-2.c: Add additional cases to this test.
+
+2003-09-21  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.dg/tree-ssa/20030920-1.c: New test.
+
+2003-09-21  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.dg/tree-ssa/20030703-2.c: Expect one if() conditional after
+	the second dominator pass.
+	* gcc.dg/tree-ssa/20030807-1.c: Likewise.
+	* gcc.dg/tree-ssa/20030807-1.c: Add return statement to avoid DCE
+	removing the whole body.
+	Expect two if() statements after the second dominator pass.
+	* gcc.dg/tree-ssa/20030807-7.c: Explain why we fail to optimize.
+
+2003-09-21  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.dg/tree-ssa/20030530-2.c: Adjust to use -fdump-tree-dom2.
+	* gcc.dg/tree-ssa/20030611-1.c: Likewise.
+	* gcc.dg/tree-ssa/20030703-1.c: Likewise
+	* gcc.dg/tree-ssa/20030703-2.c: Likewise.
+	* gcc.dg/tree-ssa/20030708-1.c: Likewise.
+	* gcc.dg/tree-ssa/20030709-2.c: Likewise.
+	* gcc.dg/tree-ssa/20030709-3.c: Likewise.
+	* gcc.dg/tree-ssa/20030710-1.c: Likewise.
+	* gcc.dg/tree-ssa/20030711-1.c: Likewise.
+	* gcc.dg/tree-ssa/20030711-2.c: Likewise.
+	* gcc.dg/tree-ssa/20030711-3.c: Likewise.
+	* gcc.dg/tree-ssa/20030714-1.c: Likewise.
+	* gcc.dg/tree-ssa/20030714-2.c: Likewise.
+	* gcc.dg/tree-ssa/20030729-1.c: Likewise.
+	* gcc.dg/tree-ssa/20030730-1.c: Likewise.
+	* gcc.dg/tree-ssa/20030730-2.c: Likewise.
+	* gcc.dg/tree-ssa/20030731-1.c: Likewise.
+	* gcc.dg/tree-ssa/20030807-1.c: Likewise.
+	* gcc.dg/tree-ssa/20030807-10.c: Likewise.
+	* gcc.dg/tree-ssa/20030807-11.c: Likewise.
+	* gcc.dg/tree-ssa/20030807-2.c: Likewise.
+	* gcc.dg/tree-ssa/20030807-3.c: Likewise.
+	* gcc.dg/tree-ssa/20030807-4.c: Likewise.
+	* gcc.dg/tree-ssa/20030807-5.c: Likewise.
+	* gcc.dg/tree-ssa/20030807-6.c: Likewise.
+	* gcc.dg/tree-ssa/20030807-7.c: Likewise.
+	* gcc.dg/tree-ssa/20030807-8.c: Likewise.
+	* gcc.dg/tree-ssa/20030807-9.c: Likewise.
+	* gcc.dg/tree-ssa/20030808-1.c: Likewise.
+	* gcc.dg/tree-ssa/20030814-1.c: Likewise.
+	* gcc.dg/tree-ssa/20030814-2.c: Likewise.
+	* gcc.dg/tree-ssa/20030814-3.c: Likewise.
+	* gcc.dg/tree-ssa/20030814-4.c: Likewise.
+	* gcc.dg/tree-ssa/20030814-5.c: Likewise.
+	* gcc.dg/tree-ssa/20030814-6.c: Likewise.
+	* gcc.dg/tree-ssa/20030814-7.c: Likewise.
+	* gcc.dg/tree-ssa/20030815-1.c: Likewise.
+	* gcc.dg/tree-ssa/20030824-2.c: Likewise.
+	* gcc.dg/tree-ssa/20030907-1.c: Likewise.
+
+2003-09-21  Lifang Zeng  <zlf605@hotmail.com>
+
+	* gfortran.fortran-torture/execute/data.f90: New test.
+
+2003-09-20  Kejia Zhao  <kejia_zh@yahoo.com.cn>
+ 
+	* gfortran.fortran-torture/execute/intrisic_si_kind.f90: New test.
+	* gfortran.fortran-torture/execute/intrisic_sr_kind.f90: New test.
+
+2003-09-17  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.dg/tree-ssa/20030917-2.c: New test.
+
+2003-09-17  Jeff Law  <law@redhat.com>
+
+	* gcc.c-torture/compile/20030917-1.c: New test.
+
+	* gcc.dg/tree-ssa/20030917-1.c: New test.
+	* gcc.dg/tree-ssa/20030917-3.c: New test.
+
+	* gcc.dg/tree-ssa/20030807-8.c: Update.
+
+2003-09-14  Paul Brook  <paul@nowt.org>
+
+	* gfortran.fortran-torture/der_init.f90: Also test arrays.
+
+2003-09-13  Paul Brook  <paul@nowt.org>
+
+	* gcc.c-torture/execute/20030913-1.c: New test.
+
+2003-09-10  Kejia Zhao  <kejia_zh@yahoo.com.cn>
+
+	* gfortran.fortran-torture/intrinsic_fraction_exponent.f90: New test.
+	* gfortran.fortran-torture/intrinsic_nearest.f90: New test.
+	* gfortran.fortran-torture/intrinsic_rrspacing.f90: New test.
+	* gfortran.fortran-torture/intrinsic_scale.f90: New test.
+	* gfortran.fortran-torture/intrinsic_set_exponent.f90: New test
+	* gfortran.fortran-torture/intrinsic_spacing.f90: New test.
+
+2003-09-10  Paul Brook  <paul@nowt.org>
+
+	* gcc.c-torture/execute/20030910-1.c: New test.
+	* gcc.g-torture/compile/20030910-1.c: New test.
+
+2003-09-09  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* gcc.c-torture/execute/20030909-1.c: New test.
+
+2003-09-07  Steven Bosscher  <steven@gcc.gnu.org>
+
+	PR optimization/12198
+	* gcc.dg/tree-ssa/20030907-1.c: New test.
+
+	PR optimization/12109
+	* gcc.dg/tree-ssa/20030907-2.c: New test.
+
+2003-09-04  Diego Novillo  <dnovillo@redhat.com>
+	
+	* gcc.c-torture/execute/20030828-1.c: New test.
+	* gcc.c-torture/execute/20030828-2.c: New test.
+
+2003-09-02  Jeff Law  <law@redhat.com>
+
+	* gcc.c-torture/compile/20030902-1.c: New test.
+
+2003-08-27  Jeff Law  <law@redhat.com>
+
+	* gcc.dg/tree-ssa/20030821-1.c: Don't get confused by declaration
+	of dont_remove.
+
+2003-08-25  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+	    Jeff Law  <law@redhat.com>
+
+	* gcc.dg/tree-ssa/20030815-1.c: New test.
+	* gcc.dg/tree-ssa/20030821-1.c: New test.
+ 
+
+2003-08-25  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* gcc.dg/tree-ssa/20030825-1.c: New test.
+
+2003-08-24  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.dg/tree-ssa/20030824-1.c: New test.
+	* gcc.dg/tree-ssa/20030824-2.c: New test.
+
+2003-08-23  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.c-torture/compile/20030823-1.c: New test.
+
+2003-08-20  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.dg/tree-ssa/20030807-3.c: Adjust expected number of
+	conditionals.
+	* gcc.dg/tree-ssa/20030807-4.c: Likewise.
+
+2003-08-20  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* gcc.dg/tree-ssa/20030820-1.c: New test.
+	* gcc.dg/tree-ssa/20030820-2.c: New test.
+
+2003-08-15  Jeff Law  <law@redhat.com>
+
+	* gcc.dg/tree-ssa/20030814-6.c: New test.
+	* gcc.dg/tree-ssa/20030814-7.c: New test.
+
+	* gcc.dg/tree-ssa/20030814-4.c: Test optimized output to verify
+	useless statement created by out-of-ssa pass is removed.
+	* gcc.dg/tree-ssa/20030814-5.c: Similarly.
+
+2003-08-14  Paul Brook  <paul@nowt.org>
+
+	* gfortran.fortran-torture/compile/allocate.f90: Also test scalars.
+
+2003-08-14  Jeff Law  <law@redhat.com>
+
+	* gcc.dg/tree-ssa/20030814-1.c: New test.
+	* gcc.dg/tree-ssa/20030814-2.c: New test.
+	* gcc.dg/tree-ssa/20030814-3.c: New test.
+	* gcc.dg/tree-ssa/20030814-4.c: New test.
+	* gcc.dg/tree-ssa/20030814-5.c: New test.
+
+	* gcc.dg/tree-ssa/20030708-1.c: There should only be one conditional.
+	* gcc.dg/tree-ssa/20030714-2.c: New test.
+	* gcc.dg/tree-ssa/20030731-1.c: New test.
+
+	* gcc.dg/tree-ssa/20030711-2.c: Update slightly to avoid
+	dereferences of constant addresses.
+ 
+	* gcc.dg/tree-ssa/20030729-1.c: Remove incorrect test for
+	IF statement removal.
+ 
+	* gcc.dg/tree-ssa/20030808-1.c: New test.
+
+2003-08-12  Jeff Law  <law@redhat.com>
+
+	* gcc.dg/tree-ssa/20030807-8.c: New test.
+
 2003-08-12  Diego Novillo  <dnovillo@redhat.com>
 
 	* gcc.c-torture/execute/builtins/string-4.x: Remove.

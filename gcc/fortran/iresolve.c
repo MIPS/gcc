@@ -1311,7 +1311,7 @@ gfc_resolve_random_number (gfc_code * c ATTRIBUTE_UNUSED)
 
   kind = c->ext.actual->expr->ts.kind;
   name = gfc_get_string ((c->ext.actual->expr->rank == 0) ?
-			   PREFIX("random_%d") : PREFIX("arandom_%d"),
+			   PREFIX("random_r%d") : PREFIX("arandom_r%d"),
 			 kind);
   c->resolved_sym = gfc_get_intrinsic_sub_symbol (name);
 }

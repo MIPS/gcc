@@ -34,14 +34,13 @@ Richard Henderson				rth@redhat.com
 Jeff Law					law@redhat.com
 Jason Merrill					jason@redhat.com
 Diego Novillo					dnovillo@redhat.com
+Andrew MacLeod					amacleod@redhat.com
 
 
 			Various Maintainers
 
 PRE, points-to		Daniel Berlin		dberlin@dberlin.org
 mudflap			Frank Ch. Eigler	fche@redhat.com
-tree/block iterators	Andrew MacLeod		amacleod@redhat.com
-DCE, SSA->normal	Andrew MacLeod		amacleod@redhat.com
 tree browser/unparser	Sebastian Pop		s.pop@laposte.net
 
 Note individuals who maintain parts of the compiler need approval to check

@@ -25,10 +25,10 @@
 void test01()
 {
   using namespace std;
-  bool test = true;
+  bool test __attribute__((unused)) = true;
 
   wfilebuf fb;
-  locale loc(__gnu_cxx_test::try_named_locale("en_US.UTF-8"));
+  locale loc(__gnu_test::try_named_locale("en_US.UTF-8"));
   fb.pubimbue(loc);
   fb.pubsetbuf(0, 0);
   fb.open("tmp_11305-1", ios_base::out);

@@ -25,12 +25,10 @@
 
 bool test01(void)
 {
-  bool test = true;
+  bool test __attribute__((unused)) = true;
   typedef std::wstring::size_type csize_type;
   typedef std::wstring::const_reference cref;
   typedef std::wstring::reference ref;
-  csize_type npos = std::wstring::npos;
-  csize_type csz01, csz02;
 
   const wchar_t str_lit01[] = L"ventura, california";
   const std::wstring str01(str_lit01);
@@ -73,10 +71,6 @@ bool test01(void)
 	    std::find(x.rbegin(), x.rend(), L'l').base(), ar, 
 	    ar + sizeof(ar) / sizeof(ar[0]));
   VERIFY( x == L"jeHelloo" );
-
-#ifdef DEBUG_ASSERT
-  assert(test);
-#endif
   return test;
 }
 

@@ -22,28 +22,20 @@
 ## Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
 ## USA.
 
-AUTOMAKE_OPTIONS = 1.3 cygnus
-MAINT_CHARSET = latin1
-
-mkinstalldirs = $(SHELL) $(toplevel_srcdir)/mkinstalldirs
+include $(top_srcdir)/fragment.am
 
 # Cross compiler support.
-CXX = @glibcxx_CXX@
-glibcxx_srcdir=@glibcxx_srcdir@
-glibcxx_builddir=@glibcxx_builddir@
-toolexecdir = @glibcxx_toolexecdir@
-toolexeclibdir = @glibcxx_toolexeclibdir@
 toolexeclib_LTLIBRARIES = libstdc++.la
 
 # Symbol versioning for shared libraries.
 if GLIBCXX_BUILD_VERSIONED_SHLIB
 version_arg = -Wl,--version-script=libstdc++-symbol.ver
-libstdc++-symbol.ver:  ${glibcxx_srcdir}/@SYMVER_MAP@
-	cp ${glibcxx_srcdir}/@SYMVER_MAP@ ./libstdc++-symbol.ver
-	if test "x@port_specific_symbol_files@" != x; then \
+libstdc++-symbol.ver:  ${glibcxx_srcdir}/$(SYMVER_MAP)
+	cp ${glibcxx_srcdir}/$(SYMVER_MAP) ./libstdc++-symbol.ver
+	if test "x$(port_specific_symbol_files)" != x; then \
 	  sed -n '1,/DO NOT DELETE/p' $@ > tmp.top; \
 	  sed -n '/DO NOT DELETE/,$$p' $@ > tmp.bottom; \
-	  cat tmp.top @port_specific_symbol_files@ tmp.bottom > $@; \
+	  cat tmp.top $(port_specific_symbol_files) tmp.bottom > $@; \
 	  rm tmp.top tmp.bottom; \
 	fi
 else
@@ -51,30 +43,6 @@ version_arg =
 libstdc++-symbol.ver:
 endif
 
-# Compile flags that should be constant throughout the build, both for
-# SUBDIRS and for libstdc++-v3 in general.
-OPTIMIZE_CXXFLAGS = @OPTIMIZE_CXXFLAGS@
-
-# These bits are all figured out from configure. Look in acinclude.m4
-# or configure.in to see how they are set. See GLIBCXX_EXPORT_FLAGS
-CONFIG_CXXFLAGS = \
-	@SECTION_FLAGS@ @EXTRA_CXX_FLAGS@
-
-# Warning flags to use.
-WARN_CXXFLAGS = \
-	@WARN_FLAGS@ $(WERROR) -fdiagnostics-show-location=once
-
-# Use common includes from acinclude.m4/GLIBCXX_EXPORT_INCLUDES
-GLIBCXX_INCLUDES = @GLIBCXX_INCLUDES@
-LIBMATH_INCLUDES = @LIBMATH_INCLUDES@
-LIBSUPCXX_INCLUDES = @LIBSUPCXX_INCLUDES@
-TOPLEVEL_INCLUDES = @TOPLEVEL_INCLUDES@
-
-INCLUDES = \
-	-nostdinc++ \
-	$(GLIBCXX_INCLUDES) \
-	$(LIBSUPCXX_INCLUDES) $(LIBMATH_INCLUDES) \
-	$(TOPLEVEL_INCLUDES)
 
 # Source files linked in via configuration/make substitution for a
 # particular host.
@@ -87,26 +55,26 @@ host_sources = \
 	numeric_members.cc \
 	time_members.cc
 
-codecvt_members.cc: ${glibcxx_srcdir}/@CCODECVT_CC@
-	@LN_S@ ${glibcxx_srcdir}/@CCODECVT_CC@ . || true
+codecvt_members.cc: ${glibcxx_srcdir}/$(CCODECVT_CC)
+	$(LN_S) ${glibcxx_srcdir}/$(CCODECVT_CC) . || true
 
-collate_members.cc: ${glibcxx_srcdir}/@CCOLLATE_CC@
-	@LN_S@ ${glibcxx_srcdir}/@CCOLLATE_CC@ . || true
+collate_members.cc: ${glibcxx_srcdir}/$(CCOLLATE_CC)
+	$(LN_S) ${glibcxx_srcdir}/$(CCOLLATE_CC) . || true
 
-ctype_members.cc: ${glibcxx_srcdir}/@CCTYPE_CC@
-	@LN_S@ ${glibcxx_srcdir}/@CCTYPE_CC@ . || true
+ctype_members.cc: ${glibcxx_srcdir}/$(CCTYPE_CC)
+	$(LN_S) ${glibcxx_srcdir}/$(CCTYPE_CC) . || true
 
-messages_members.cc: ${glibcxx_srcdir}/@CMESSAGES_CC@
-	@LN_S@ ${glibcxx_srcdir}/@CMESSAGES_CC@ . || true
+messages_members.cc: ${glibcxx_srcdir}/$(CMESSAGES_CC)
+	$(LN_S) ${glibcxx_srcdir}/$(CMESSAGES_CC) . || true
 
-monetary_members.cc: ${glibcxx_srcdir}/@CMONEY_CC@
-	@LN_S@ ${glibcxx_srcdir}/@CMONEY_CC@ . || true
+monetary_members.cc: ${glibcxx_srcdir}/$(CMONEY_CC)
+	$(LN_S) ${glibcxx_srcdir}/$(CMONEY_CC) . || true
 
-numeric_members.cc: ${glibcxx_srcdir}/@CNUMERIC_CC@
-	@LN_S@ ${glibcxx_srcdir}/@CNUMERIC_CC@ . || true
+numeric_members.cc: ${glibcxx_srcdir}/$(CNUMERIC_CC)
+	$(LN_S) ${glibcxx_srcdir}/$(CNUMERIC_CC) . || true
 
-time_members.cc: ${glibcxx_srcdir}/@CTIME_CC@
-	@LN_S@ ${glibcxx_srcdir}/@CTIME_CC@ . || true
+time_members.cc: ${glibcxx_srcdir}/$(CTIME_CC)
+	$(LN_S) ${glibcxx_srcdir}/$(CTIME_CC) . || true
 
 # Source files linked in via configuration/make substitution for a
 # particular host, but with ad hoc naming rules.
@@ -114,11 +82,11 @@ host_sources_extra = \
 	basic_file.cc \
 	c++locale.cc
 
-c++locale.cc: ${glibcxx_srcdir}/@CLOCALE_CC@
-	@LN_S@ ${glibcxx_srcdir}/@CLOCALE_CC@ ./$@ || true
+c++locale.cc: ${glibcxx_srcdir}/$(CLOCALE_CC)
+	$(LN_S) ${glibcxx_srcdir}/$(CLOCALE_CC) ./$@ || true
 
-basic_file.cc: ${glibcxx_srcdir}/@BASIC_FILE_CC@
-	@LN_S@ ${glibcxx_srcdir}/@BASIC_FILE_CC@ ./$@ || true
+basic_file.cc: ${glibcxx_srcdir}/$(BASIC_FILE_CC)
+	$(LN_S) ${glibcxx_srcdir}/$(BASIC_FILE_CC) ./$@ || true
 
 # Sources present in the src directory.
 sources = \
@@ -163,13 +131,13 @@ libstdc___la_LIBADD = \
 libstdc___la_DEPENDENCIES = libstdc++-symbol.ver $(libstdc___la_LIBADD)
 
 libstdc___la_LDFLAGS = \
-	-version-info @libtool_VERSION@ ${version_arg} \
-	-lm @LIBUNWIND_FLAG@
+	-version-info $(libtool_VERSION) ${version_arg} \
+	-lm $(LIBUNWIND_FLAG)
 
 
 # Use special rules for the deprecated source files so that they find
 # deprecated include files.
-GLIBCXX_INCLUDE_DIR=@glibcxx_builddir@/include
+GLIBCXX_INCLUDE_DIR=$(glibcxx_builddir)/include
 strstream.lo: strstream.cc
 	$(LTCXXCOMPILE) -I$(GLIBCXX_INCLUDE_DIR)/backward -Wno-deprecated -c $<
 strstream.o: strstream.cc
@@ -198,7 +166,6 @@ demangle.o: demangle.cc
 # as the occasion calls for it.
 AM_CXXFLAGS = \
 	-fno-implicit-templates \
-	$(LIBSUPCXX_CXXFLAGS) \
 	$(WARN_CXXFLAGS) \
 	$(OPTIMIZE_CXXFLAGS) \
 	$(CONFIG_CXXFLAGS)
@@ -232,7 +199,7 @@ LTCXXCOMPILE = $(LIBTOOL) --tag CXX --mode=compile $(CXX) $(INCLUDES) \
 # directory to configure libstdc++-v3 to use gcc as the C++
 # compilation driver.
 CXXLINK = $(LIBTOOL) --tag CXX --mode=link $(CXX) \
-	  @OPT_LDFLAGS@ @SECTION_LDFLAGS@ $(AM_CXXFLAGS) $(LDFLAGS) -o $@
+	  $(OPT_LDFLAGS) $(SECTION_LDFLAGS) $(AM_CXXFLAGS) $(LDFLAGS) -o $@
 
 
 # Added bits to build debug library.
@@ -261,9 +228,9 @@ stamp-debug:
 	echo `date` > stamp-debug;
 
 build_debug: stamp-debug
-	(cd ${debugdir} && $(MAKE) CXXFLAGS='@DEBUG_FLAGS@' all)
+	(cd ${debugdir} && $(MAKE) CXXFLAGS='$(DEBUG_FLAGS)' all)
 
 # Install debug library here.
 install_debug:
 	(cd ${debugdir} && $(MAKE) \
-	toolexeclibdir=@glibcxx_toolexeclibdir@/debug install)
+	toolexeclibdir=$(glibcxx_toolexeclibdir)/debug install)

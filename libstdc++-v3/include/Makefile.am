@@ -21,19 +21,7 @@
 ## Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
 ## USA.
 
-AUTOMAKE_OPTIONS = 1.3 cygnus
-MAINT_CHARSET = latin1
-
-mkinstalldirs = $(SHELL) $(toplevel_srcdir)/mkinstalldirs
-
-# Cross compiler and multilib support.
-CXX = @glibcxx_CXX@
-glibcxx_srcdir=@glibcxx_srcdir@
-glibcxx_builddir=@glibcxx_builddir@
-
-GLIBCXX_INCLUDES = @GLIBCXX_INCLUDES@
-LIBSUPCXX_INCLUDES = @LIBSUPCXX_INCLUDES@
-INCLUDES = -nostdinc++ $(GLIBCXX_INCLUDES) $(LIBSUPCXX_INCLUDES)
+include $(top_srcdir)/fragment.am
 
 # Standard C++ includes.
 std_srcdir = ${glibcxx_srcdir}/include/std
@@ -68,7 +56,7 @@ std_headers = \
 	${std_srcdir}/std_utility.h \
 	${std_srcdir}/std_valarray.h \
 	${std_srcdir}/std_vector.h
-# Renamed at build time. 
+# Renamed at build time.
 std_headers_rename = \
 	algorithm \
 	bitset \
@@ -233,11 +221,11 @@ ext_headers = \
 	${ext_srcdir}/ropeimpl.h \
 	${ext_srcdir}/slist \
 	${ext_srcdir}/hash_fun.h \
-	${ext_srcdir}/hashtable.h 
+	${ext_srcdir}/hashtable.h
 
 
 # This is the common subset of files that all three "C" header models use.
-c_base_srcdir = @C_INCLUDE_DIR@
+c_base_srcdir = $(C_INCLUDE_DIR)
 c_base_builddir = .
 c_base_headers = \
 	${c_base_srcdir}/std_cassert.h \
@@ -257,7 +245,7 @@ c_base_headers = \
 	${c_base_srcdir}/std_cstring.h \
 	${c_base_srcdir}/std_ctime.h \
 	${c_base_srcdir}/std_cwchar.h \
-	${c_base_srcdir}/std_cwctype.h 
+	${c_base_srcdir}/std_cwctype.h
 c_base_headers_rename = \
 	cassert \
 	cctype \
@@ -276,7 +264,7 @@ c_base_headers_rename = \
 	cstring \
 	ctime \
 	cwchar \
-	cwctype 
+	cwctype
 
 # "C" compatibility headers.
 c_compatibility_srcdir = ${glibcxx_srcdir}/include/c_compatibility
@@ -299,36 +287,36 @@ c_compatibility_headers = \
 	${c_compatibility_srcdir}/string.h \
 	${c_compatibility_srcdir}/time.h \
 	${c_compatibility_srcdir}/wchar.h \
-	${c_compatibility_srcdir}/wctype.h 
+	${c_compatibility_srcdir}/wctype.h
 
 # Some of the different "C" header models need extra files.
 # Some "C" header schemes require the "C" compatibility headers.
 # For --enable-cheaders=c_std
 if GLIBCXX_C_HEADERS_C_STD
-c_base_headers_extra = ${c_base_srcdir}/cmath.tcc 
+c_base_headers_extra = ${c_base_srcdir}/cmath.tcc
 else
-c_base_headers_extra = 
+c_base_headers_extra =
 endif
 
 if GLIBCXX_C_HEADERS_COMPATIBILITY
 c_compatibility_headers_extra = ${c_compatibility_headers}
 else
-c_compatibility_headers_extra = 
+c_compatibility_headers_extra =
 endif
 
-host_srcdir = ${glibcxx_srcdir}/@OS_INC_SRCDIR@
+host_srcdir = ${glibcxx_srcdir}/$(OS_INC_SRCDIR)
 host_builddir = ./${host_alias}/bits
 host_headers = \
 	${host_srcdir}/ctype_base.h \
 	${host_srcdir}/ctype_inline.h \
 	${host_srcdir}/ctype_noninline.h \
 	${host_srcdir}/os_defines.h \
-	${glibcxx_srcdir}/@ATOMICITY_INC_SRCDIR@/atomicity.h \
-	${glibcxx_srcdir}/@FPOS_INC_SRCDIR@/fpos.h 
+	${glibcxx_srcdir}/$(ATOMICITY_INC_SRCDIR)/atomicity.h \
+	${glibcxx_srcdir}/$(FPOS_INC_SRCDIR)/fpos.h
 
 # Non-installed host_header files.
 host_headers_noinst = \
-	${glibcxx_srcdir}/@CLOCALE_INTERNAL_H@
+	${glibcxx_srcdir}/$(CLOCALE_INTERNAL_H)
 
 # These host_headers_extra files are all built with ad hoc naming rules.
 host_headers_extra = \
@@ -354,15 +342,15 @@ if GLIBCXX_BUILD_PCH
 pch_build = ${pch_input}
 pch_install = install-pch
 else
-pch_build = 
-pch_install = 
+pch_build =
+pch_install =
 endif
 
 # List of all timestamp files.  By keeping only one copy of this list, both
 # CLEANFILES and all-local are kept up-to-date.
 allstamped = \
 	stamp-std stamp-bits stamp-c_base stamp-c_compatibility \
-	stamp-backward stamp-ext stamp-host 
+	stamp-backward stamp-ext stamp-host
 
 # List of all files that are created by explicit building, editing, or
 # catenation.
@@ -372,7 +360,7 @@ allcreated = \
 	${pch_build}
 
 # Here are the rules for building the headers
-all-local: ${allstamped} ${allcreated} 
+all-local: ${allstamped} ${allcreated}
 
 # This rule is slightly different, in that we must change the name of the
 # local file from std_foo.h to foo.
@@ -383,34 +371,34 @@ stamp-std: ${std_headers}
 	if [ ! -f stamp-std ]; then \
 	  (cd ${std_builddir} && for h in $?; do \
 	    official_name=`echo $$h | sed -e 's,.*/std_,,' -e 's,\.h$$,,'` ;\
-	    @LN_S@ $$h ./$${official_name} || true ;\
+	    $(LN_S) $$h ./$${official_name} || true ;\
 	  done) ;\
-	  echo `date` > stamp-std ;\
-	fi
+	fi ;\
+	$(STAMP) stamp-std
 
 stamp-bits: ${bits_headers}
 	@if [ ! -d "${bits_builddir}" ]; then \
 	  mkdir -p ${bits_builddir} ;\
 	fi ;\
 	if [ ! -f stamp-bits ]; then \
-	  (cd ${bits_builddir} && @LN_S@ $? . || true) ;\
-	  echo `date` > stamp-bits ;\
-	fi
+	  (cd ${bits_builddir} && $(LN_S) $? . || true) ;\
+	fi ;\
+	$(STAMP) stamp-bits
 
-stamp-c_base: ${c_base_headers} ${c_base_headers_extra} 
+stamp-c_base: stamp-bits ${c_base_headers} ${c_base_headers_extra}
 	@if [ ! -d "${c_base_builddir}" ]; then \
 	  mkdir -p ${c_base_builddir} ;\
 	fi ;\
 	if [ ! -f stamp-c_base ]; then \
 	  (cd ${c_base_builddir} && for h in ${c_base_headers}; do \
 	    official_name=`echo $$h | sed -e 's,.*/std_,,' -e 's,\.h$$,,'` ;\
-	    @LN_S@ $$h ./$${official_name} || true ;\
+	    $(LN_S) $$h ./$${official_name} || true ;\
 	  done) ;\
 	  if [ ! -z "${c_base_headers_extra}" ]; then \
-	  (cd ${bits_builddir} && @LN_S@ ${c_base_headers_extra}  . || true) ;\
+	  (cd ${bits_builddir} && $(LN_S) ${c_base_headers_extra}  . || true) ;\
 	  fi ;\
-	  echo `date` > stamp-c_base ;\
-	fi
+	fi ;\
+	$(STAMP) stamp-c_base
 
 stamp-c_compatibility: ${c_compatibility_headers_extra}
 	@if [ ! -d "${c_compatibility_builddir}" ]; then \
@@ -418,53 +406,53 @@ stamp-c_compatibility: ${c_compatibility_headers_extra}
 	fi ;\
 	if [ ! -f stamp-c_compatibility ]; then \
 	  if [ ! -z "${c_compatibility_headers_extra}" ]; then \
-	    (cd ${c_compatibility_builddir} && @LN_S@ $? . || true) ;\
+	    (cd ${c_compatibility_builddir} && $(LN_S) $? . || true) ;\
 	  fi ;\
-	  echo `date` > stamp-c_compatibility ;\
-	fi 
+	fi ;\
+	$(STAMP) stamp-c_compatibility
 
 stamp-backward: ${backward_headers}
 	@if [ ! -d "${backward_builddir}" ]; then \
 	  mkdir -p ${backward_builddir} ;\
 	fi ;\
 	if [ ! -f stamp-backward ]; then \
-	  (cd ${backward_builddir} && @LN_S@ $? . || true) ;\
-	  echo `date` > stamp-backward ;\
-	fi
+	  (cd ${backward_builddir} && $(LN_S) $? . || true) ;\
+	fi ;\
+	$(STAMP) stamp-backward
 
 stamp-ext: ${ext_headers}
 	@if [ ! -d "${ext_builddir}" ]; then \
 	    mkdir -p ${ext_builddir} ;\
 	fi ;\
 	if [ ! -f stamp-ext ]; then \
-	  (cd ${ext_builddir} && @LN_S@ $? . || true) ;\
-	  echo `date` > stamp-ext ;\
-	fi
+	  (cd ${ext_builddir} && $(LN_S) $? . || true) ;\
+	fi ;\
+	$(STAMP) stamp-ext
 
 stamp-${host_alias}:
 	@if [ ! -d ${host_builddir} ]; then \
 	  mkdir -p ${host_builddir} ;\
-	  echo `date` > stamp-${host_alias} ;\
-	fi
+	fi ;\
+	$(STAMP) stamp-${host_alias}
 
 # Host includes static.
 # XXX Missing dependency info for {host_headers_extra}
 stamp-host: ${host_headers} ${host_headers_noinst} stamp-${host_alias}
 	@if [ ! -f stamp-host ]; then \
 	  (cd ${host_builddir} ;\
-	  @LN_S@ ${host_headers} . || true ;\
-	  @LN_S@ ${glibcxx_srcdir}/@BASIC_FILE_H@ basic_file.h || true ;\
-	  @LN_S@ ${glibcxx_srcdir}/@CSTDIO_H@ c++io.h || true ;\
-	  @LN_S@ ${glibcxx_srcdir}/@CLOCALE_H@ c++locale.h || true ;\
-	  @LN_S@ ${glibcxx_srcdir}/@CLOCALE_INTERNAL_H@ . || true ;\
-	  @LN_S@ ${glibcxx_srcdir}/@CMESSAGES_H@ messages_members.h || true ;\
-	  @LN_S@ ${glibcxx_srcdir}/@CTIME_H@ time_members.h || true ;\
-	  @LN_S@ ${glibcxx_srcdir}/@CCODECVT_H@ codecvt_specializations.h || true);\
-	  echo `date` > stamp-host ; \
-	fi
+	  $(LN_S) ${host_headers} . || true ;\
+	  $(LN_S) ${glibcxx_srcdir}/$(BASIC_FILE_H) basic_file.h || true ;\
+	  $(LN_S) ${glibcxx_srcdir}/$(CSTDIO_H) c++io.h || true ;\
+	  $(LN_S) ${glibcxx_srcdir}/$(CLOCALE_H) c++locale.h || true ;\
+	  $(LN_S) ${glibcxx_srcdir}/$(CLOCALE_INTERNAL_H) . || true ;\
+	  $(LN_S) ${glibcxx_srcdir}/$(CMESSAGES_H) messages_members.h || true ;\
+	  $(LN_S) ${glibcxx_srcdir}/$(CTIME_H) time_members.h || true ;\
+	  $(LN_S) ${glibcxx_srcdir}/$(CCODECVT_H) codecvt_specializations.h || true);\
+	fi ;\
+	$(STAMP) stamp-host
 
 # Host includes dynamic.
-${host_builddir}/c++config.h: ${CONFIG_HEADER} \
+${host_builddir}/c++config.h: ${top_builddir}/config.h \
 				${glibcxx_srcdir}/include/bits/c++config \
 				stamp-${host_alias}
 	@cat ${glibcxx_srcdir}/include/bits/c++config > $@ ;\
@@ -476,7 +464,6 @@ ${host_builddir}/c++config.h: ${CONFIG_HEADER} \
 	echo "#endif // _CXXCONFIG_" >>$@
 
 # Host includes for threads
-glibcxx_thread_h = @glibcxx_thread_h@
 uppercase = [ABCDEFGHIJKLMNOPQRSTUVWXYZ_]
 
 ${host_builddir}/gthr.h: ${toplevel_srcdir}/gcc/gthr.h stamp-${host_alias}
@@ -511,8 +498,8 @@ ${pch_input}: ${allstamped} ${host_builddir}/c++config.h ${pch_source}
 	if [ ! -d "${pch_output_builddir}" ]; then \
 	  mkdir -p ${pch_output_builddir}; \
 	fi; \
-	$(CXX) $(PCHFLAGS) $(INCLUDES) ${pch_source} -O0 -g -o ${pch_output_builddir}/O0g; \
-	$(CXX) $(PCHFLAGS) $(INCLUDES) ${pch_source} -O2 -g -o ${pch_output_builddir}/O2g;
+	$(CXX) $(PCHFLAGS) $(AM_CPPFLAGS) ${pch_source} -O0 -g -o ${pch_output_builddir}/O0g; \
+	$(CXX) $(PCHFLAGS) $(AM_CPPFLAGS) ${pch_source} -O2 -g -o ${pch_output_builddir}/O2g;
 
 # For robustness sake (in light of junk files or in-source
 # configuration), copy from the build or source tree to the install
@@ -522,10 +509,30 @@ ${pch_input}: ${allstamped} ${host_builddir}/c++config.h ${pch_source}
 # `$(mkinstalldirs)' instead of `mkdir -p'.  In particular,
 # host_headers_extra are taken out of the build tree staging area;
 # the rest are taken from the original source tree.
-gxx_include_dir = @gxx_include_dir@
 
+if GLIBCXX_HOSTED
 install-data-local: install-headers ${pch_install}
+else
+install-data-local: install-freestanding-headers
+endif
 
+# This is a subset of the full install-headers rule.  We only need <cstddef>,
+# <limits>, <cstdlib>, <cstdarg>, <new>, <typeinfo>, <exception>, and any
+# files which they include (and which we provide).  The last three headers
+# are installed by libsupc++, so only the first four and the sub-includes
+# are copied here.
+install-freestanding-headers:
+	$(mkinstalldirs) $(DESTDIR)${gxx_include_dir}
+	$(mkinstalldirs) $(DESTDIR)${gxx_include_dir}/${host_builddir}
+	for file in ${host_srcdir}/os_defines.h ${host_builddir}/c++config.h; do \
+	  $(INSTALL_DATA) $${file} $(DESTDIR)${gxx_include_dir}/${host_builddir}; done
+	$(mkinstalldirs) $(DESTDIR)${gxx_include_dir}/${std_builddir}
+	$(INSTALL_DATA) ${std_builddir}/limits $(DESTDIR)${gxx_include_dir}/${std_builddir}
+	$(mkinstalldirs) $(DESTDIR)${gxx_include_dir}/${c_base_builddir}
+	for file in cstddef cstdlib cstdarg; do \
+	  $(INSTALL_DATA) ${c_base_builddir}/$${file} $(DESTDIR)${gxx_include_dir}/${c_base_builddir}; done
+
+# The real deal.
 install-headers:
 	$(mkinstalldirs) $(DESTDIR)${gxx_include_dir}
 	$(mkinstalldirs) $(DESTDIR)${gxx_include_dir}/${bits_builddir}

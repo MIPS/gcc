@@ -38,9 +38,9 @@ dnl Only the kind (ie size) is used to name the function.
 rtype_name *
 `internal_pack_'rtype_kind (rtype * source)
 {
-  index_type count[G95_MAX_DIMENSIONS - 1];
-  index_type extent[G95_MAX_DIMENSIONS - 1];
-  index_type stride[G95_MAX_DIMENSIONS - 1];
+  index_type count[GFC_MAX_DIMENSIONS - 1];
+  index_type extent[GFC_MAX_DIMENSIONS - 1];
+  index_type stride[GFC_MAX_DIMENSIONS - 1];
   index_type stride0;
   index_type dim;
   index_type ssize;
@@ -56,7 +56,7 @@ rtype_name *
       return source->data;
     }
 
-  dim = G95_DESCRIPTOR_RANK (source);
+  dim = GFC_DESCRIPTOR_RANK (source);
   ssize = 1;
   packed = 1;
   for (n = 0; n < dim; n++)

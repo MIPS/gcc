@@ -119,6 +119,7 @@ tree_flatten_statement (tree stmt, tree_cell *after, tree enclosing_switch)
     case GOTO_EXPR:
     case LABEL_EXPR:
     case VA_ARG_EXPR:
+    case RESX_EXPR:
       append (after, stmt, TCN_STATEMENT);
       break;
 
@@ -224,71 +225,6 @@ tree_flatten_statement (tree stmt, tree_cell *after, tree enclosing_switch)
 	TREE_CHAIN (goto_stmt) = stmt;
 	TREE_CHAIN (stmt) = *where;
 	*where = goto_stmt;
-      }
-      break;
-
-    case TRY_FINALLY_EXPR:
-      {
-	tree label_after = build_new_label ();
-
-	append (after, NULL_TREE, TCN_TRY);
-	tree_flatten_statement (TREE_OPERAND (stmt, 0), after, stmt);
-	append (after, build1 (GOTO_EXPR, void_type_node, label_after),
-		TCN_STATEMENT);
-	append (after, NULL_TREE, TCN_FINALLY);
-	tree_flatten_statement (TREE_OPERAND (stmt, 1), after, stmt);
-	append (after, NULL_TREE, TCN_FINALLY_END);
-	append (after, build1 (LABEL_EXPR, void_type_node, label_after),
-		TCN_STATEMENT);
-      }
-      break;
-
-    case TRY_CATCH_EXPR:
-      {
-	tree label_after = build_new_label ();
-	tree body;
-
-	append (after, NULL_TREE, TCN_TRY);
-	tree_flatten_statement (TREE_OPERAND (stmt, 0), after, stmt);
-	append (after, build1 (GOTO_EXPR, void_type_node, label_after),
-		TCN_STATEMENT);
-
-	body = TREE_OPERAND (stmt, 1);
-	if (TREE_CODE (body) == EH_FILTER_EXPR)
-	  {
-	    append (after, body, TCN_CATCH);
-	    body = EH_FILTER_FAILURE (body);
-	  }
-	else if (TREE_CODE (expr_first (body)) == CATCH_EXPR)
-	  {
-	    tree_stmt_iterator si = tsi_start (&TREE_OPERAND (stmt, 1));
-
-	    while (1)
-	      {
-		body = tsi_stmt (si);
-		if (TREE_CODE (body) != CATCH_EXPR)
-		  abort ();
-
-		tsi_next (&si);
-		if (tsi_end_p (si))
-		  break;
-		
-		append (after, body, TCN_CATCH);
-		tree_flatten_statement (CATCH_BODY (body), after, stmt);
-		append (after, build1 (GOTO_EXPR, void_type_node, label_after),
-			TCN_STATEMENT);
-	      }
-		
-	    append (after, body, TCN_CATCH);
-	    body = CATCH_BODY (body);
-	  }
-	else
-	  append (after, NULL_TREE, TCN_CATCH);
-
-	tree_flatten_statement (body, after, stmt);
-	append (after, NULL_TREE, TCN_CATCH_END);
-	append (after, build1 (LABEL_EXPR, void_type_node, label_after),
-		TCN_STATEMENT);
       }
       break;
 
@@ -429,14 +365,6 @@ compact_to_block (struct block_tree *node)
 	  last = act;
 	}
 
-      /* If we have a prescribed exit node, make it the last one.  */
-      if (node->exit
-	  && node->exit != last)
-	{
-	  tree_move_block_after (node->exit, last, true);
-	  last = node->exit;
-	}
-
       /* Ensure that the block is entered through its entry edge as
 	 fallthru.  */
       if (node->entry)
@@ -466,7 +394,6 @@ compact_to_block (struct block_tree *node)
   link_consec_statements (entry, last);
   bb_ann (entry)->block = node->outer;
   node->entry = NULL;
-  node->exit = NULL;
 
   return entry;
 }
@@ -476,107 +403,33 @@ static void
 recreate_block_constructs (struct block_tree *node)
 {
   struct block_tree *son;
-  basic_block bb_try, bb_finally, bb;
+  basic_block bb;
   block_stmt_iterator bsi;
-  tree construct, handler;
-  struct block_tree **hblock;
+  tree construct;
   tree block;
-
-  /* This is handled in the corresponding try node.  */
-  if (node->type == BT_FINALLY
-      || node->type == BT_CATCH)
-    return;
 
   for (son = node->subtree; son; son = son->next)
     recreate_block_constructs (son);
 
-  switch (node->type)
+  bb = compact_to_block (node);
+
+  if (!bb)
+    return;
+
+  construct = node->bind;
+  /* Do not create useless bind_exprs.  */
+  if (construct
+      && (BIND_EXPR_VARS (construct)
+	  || !node->outer
+	  || ((block = BIND_EXPR_BLOCK (construct))
+	      && BLOCK_ABSTRACT_ORIGIN (block)
+	      && (TREE_CODE (BLOCK_ABSTRACT_ORIGIN (block))
+		  == FUNCTION_DECL))))
     {
-    case BT_TRY:
-      /* The node was removed.  */
-      if (!node->entry)
-	return;
-
-      /* Remove removed handlers from the list and compact the remaining
-	 ones.  */
-      for (hblock = &node->of; *hblock; )
-	{
-	  if (!(*hblock)->entry)
-	    {
-	      *hblock = (*hblock)->of;
-	      continue;
-	    }
-	      
-	  for (son = (*hblock)->subtree; son; son = son->next)
-	    recreate_block_constructs (son);
-	  (*hblock)->entry = compact_to_block (*hblock);
-
-	  if ((*hblock)->type == BT_CATCH
-	      && (*hblock)->bind)
-	    {
-	      bsi = bsi_last ((*hblock)->entry);
-	      TREE_OPERAND ((*hblock)->bind, 1) = bsi_stmt (bsi);
-	      bsi_replace (bsi, (*hblock)->bind);
-	    }
-	  hblock = &(*hblock)->of;
-	}
-      /* If all catch/finally handlers were removed, also cancel the
-	 try block.  */
-      if (!node->of)
-	{
-	  compact_to_block (node);
-	  return;
-	}
-
-      bb_try = compact_to_block (node);
-
-      bb_finally = node->of->entry;
-      handler = last_stmt (bb_finally);
-      bb_finally->head_tree = bb_finally->end_tree = NULL;
-      delete_basic_block (bb_finally);
-
-      for (son = node->of->of; son; son = son->of)
-	{
-	  bb_finally = son->entry;
-	  handler = build (COMPOUND_EXPR, void_type_node,
-			   handler, last_stmt (bb_finally));
-	  bb_finally->head_tree = bb_finally->end_tree = NULL;
-	  delete_basic_block (bb_finally);
-	}
-
-      bsi = bsi_last (bb_try);
-      construct = build (node->of->type == BT_FINALLY
-			 ? TRY_FINALLY_EXPR
-			 : TRY_CATCH_EXPR, void_type_node,
-			 bsi_stmt (bsi), handler);
+      BIND_EXPR_BODY (construct) = last_stmt (bb);
+      TREE_SIDE_EFFECTS (construct) = 1;
+      bsi = bsi_last (bb);
       bsi_replace (bsi, construct);
-      break;
-
-    case BT_BIND:
-      bb = compact_to_block (node);
-
-      if (!bb)
-	return;
-
-      construct = node->bind;
-      /* Do not create useless bind_exprs.  */
-      if (construct
-	  && (BIND_EXPR_VARS (construct)
-	      || !node->outer
-	      || ((block = BIND_EXPR_BLOCK (construct))
-		  && BLOCK_ABSTRACT_ORIGIN (block)
-		  && (TREE_CODE (BLOCK_ABSTRACT_ORIGIN (block))
-		      == FUNCTION_DECL))))
-	{
-	  BIND_EXPR_BODY (construct) = last_stmt (bb);
-	  TREE_SIDE_EFFECTS (construct) = 1;
-	  bsi = bsi_last (bb);
-	  bsi_replace (bsi, construct);
-	}
-      break;
-
-    default:
-      abort ();
     }
 }
 

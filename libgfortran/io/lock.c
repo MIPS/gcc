@@ -25,6 +25,7 @@ Boston, MA 02111-1307, USA.  */
 #include "io.h"
 
 st_parameter ioparm;
+namelist_info * ionml;
 global_t g;
 
 
@@ -58,12 +59,25 @@ void
 library_end (void)
 {
   int t;
+  namelist_info * t1, *t2;
 
   g.in_library = 0;
   filename = NULL;
   line = 0;
 
   t = ioparm.library_return;
+  if (ionml != NULL)
+    {
+      t1 = ionml;
+      while (t1 != NULL)
+       {
+         t2 = t1;
+         t1 = t1->next;
+         free_mem (t2);
+       }
+    }
+  
+  ionml = NULL;
   memset (&ioparm, '\0', sizeof (ioparm));
   ioparm.library_return = t;
 }

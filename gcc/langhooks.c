@@ -33,6 +33,7 @@ Boston, MA 02111-1307, USA.  */
 #include "langhooks.h"
 #include "langhooks-def.h"
 #include "ggc.h"
+#include "diagnostic.h"
 
 /* Do nothing; in many cases the default hook.  */
 
@@ -55,6 +56,16 @@ lhd_do_nothing_i (int i ATTRIBUTE_UNUSED)
 {
 }
 
+/* Do nothing (int, int, int).  Return NULL_TREE.  */
+
+tree
+lhd_do_nothing_iii_return_null_tree (int i ATTRIBUTE_UNUSED, 
+				     int j ATTRIBUTE_UNUSED,
+				     int k ATTRIBUTE_UNUSED)
+{
+  return NULL_TREE;
+}
+
 /* Do nothing (function).  */
 
 void
@@ -68,6 +79,14 @@ tree
 lhd_return_tree (tree t)
 {
   return t;
+}
+
+/* Do nothing (return NULL_TREE).  */
+
+tree
+lhd_return_null_tree_v (void)
+{
+  return NULL_TREE;
 }
 
 /* Do nothing (return NULL_TREE).  */
@@ -205,6 +224,13 @@ tree
 lhd_type_promotes_to (tree type ATTRIBUTE_UNUSED)
 {
   abort ();
+}
+
+/* Registration of machine- or os-specific builtin types.  */
+void
+lhd_register_builtin_type (tree type ATTRIBUTE_UNUSED, 
+			   const char* name ATTRIBUTE_UNUSED)
+{
 }
 
 /* Invalid use of an incomplete type.  */
@@ -443,6 +469,14 @@ lhd_expr_size (tree exp)
   else
     return size_in_bytes (TREE_TYPE (exp));
 }
+/* lang_hooks.decl_uninit: Find out if a variable is uninitialized based
+   on DECL_INITIAL.  */
+
+bool
+lhd_decl_uninit (tree t ATTRIBUTE_UNUSED)
+{
+  return false;
+}
 
 /* lang_hooks.gimplify_expr re-writes *EXPR_P into GIMPLE form.  */
 
@@ -499,6 +533,54 @@ write_global_declarations (void)
 
     /* Clean up.  */
   free (vec);
+}
+
+/* Called to perform language-specific initialization of CTX.  */
+void
+lhd_initialize_diagnostics (struct diagnostic_context *ctx ATTRIBUTE_UNUSED)
+{
+}
+
+/* The default function to print out name of current function that caused
+   an error.  */
+void
+lhd_print_error_function (diagnostic_context *context, const char *file)
+{
+  if (diagnostic_last_function_changed (context))
+    {
+      const char *old_prefix = context->printer->prefix;
+      char *new_prefix = file ? file_name_as_prefix (file) : NULL;
+
+      pp_set_prefix (context->printer, new_prefix);
+
+      if (current_function_decl == NULL)
+	pp_printf (context->printer, "At top level:");
+      else
+	{
+	  if (TREE_CODE (TREE_TYPE (current_function_decl)) == METHOD_TYPE)
+	    pp_printf
+	      (context->printer, "In member function `%s':",
+	       (*lang_hooks.decl_printable_name) (current_function_decl, 2));
+	  else
+	    pp_printf
+	      (context->printer, "In function `%s':",
+	       (*lang_hooks.decl_printable_name) (current_function_decl, 2));
+	}
+      pp_newline (context->printer);
+
+      diagnostic_set_last_function (context);
+      pp_flush (context->printer);
+      context->printer->prefix = old_prefix;
+      free ((char*) new_prefix);
+    }
+}
+
+tree
+lhd_callgraph_analyze_expr (tree *tp ATTRIBUTE_UNUSED,
+			    int *walk_subtrees ATTRIBUTE_UNUSED,
+			    tree decl ATTRIBUTE_UNUSED)
+{
+  return NULL;
 }
 
 #include "gt-langhooks.h"

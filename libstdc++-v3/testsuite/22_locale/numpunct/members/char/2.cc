@@ -27,13 +27,13 @@ void test02()
 {
   using namespace std;
   
-  bool test = true;
+  bool test __attribute__((unused)) = true;
 
   // basic construction
   locale loc_c = locale::classic();
-  locale loc_us = __gnu_cxx_test::try_named_locale("en_US");
-  locale loc_fr = __gnu_cxx_test::try_named_locale("fr_FR");
-  locale loc_de = __gnu_cxx_test::try_named_locale("de_DE");
+  locale loc_us = __gnu_test::try_named_locale("en_US");
+  locale loc_fr = __gnu_test::try_named_locale("fr_FR");
+  locale loc_de = __gnu_test::try_named_locale("de_DE");
   VERIFY( loc_c != loc_de );
   VERIFY( loc_us != loc_fr );
   VERIFY( loc_us != loc_de );
@@ -46,8 +46,6 @@ void test02()
   const numpunct<char>& nump_de = use_facet<numpunct<char> >(loc_de); 
 
   // sanity check the data is correct.
-  char dp1 = nump_c.decimal_point();
-  char th1 = nump_c.thousands_sep();
   string g1 = nump_c.grouping();
   string t1 = nump_c.truename();
   string f1 = nump_c.falsename();

@@ -33,12 +33,12 @@ const char name_01[] = "tmp_sungetc_2out.tst"; // empty file, need to create
 void test01() 
 {
   using namespace std;
-  using namespace __gnu_cxx_test;
+  using namespace __gnu_test;
   typedef std::filebuf::int_type 	int_type;
   typedef filebuf::traits_type 		traits_type;
 
-  bool 					test = true;
-  int_type 			c1, c2, c3;
+  bool test __attribute__((unused)) = true;
+  int_type 			c1, c2;
 
   // int_type sungetc()
   // if in_cur not avail, return pbackfail(), else decrement and
@@ -64,7 +64,7 @@ void test01()
   }
 }
 
-main() 
+int main() 
 {
   test01();
   return 0;

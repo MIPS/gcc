@@ -22,8 +22,16 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 /* This is the loop optimization pass of the compiler.
    It finds invariant computations within loops and moves them
    to the beginning of the loop.  Then it identifies basic and
-   general induction variables.  Strength reduction is applied to the general
-   induction variables, and induction variable elimination is applied to
+   general induction variables.
+
+   Basic induction variables (BIVs) are a pseudo registers which are set within
+   a loop only by incrementing or decrementing its value.  General induction
+   variables (GIVs) are pseudo registers with a value which is a linear function
+   of a basic induction variable.  BIVs are recognized by `basic_induction_var';
+   GIVs by `general_induction_var'.
+
+   Once induction variables are identified, strength reduction is applied to the
+   general induction variables, and induction variable elimination is applied to
    the basic induction variables.
 
    It also finds cases where
@@ -2254,7 +2262,7 @@ move_movables (struct loop *loop, struct loop_movables *movables,
 			 and prevent further processing of it.  */
 		      m1->done = 1;
 
-		      /* if library call, delete all insns.  */
+		      /* If library call, delete all insns.  */
 		      if ((temp = find_reg_note (m1->insn, REG_RETVAL,
 						 NULL_RTX)))
 			delete_insn_chain (XEXP (temp, 0), m1->insn);
@@ -4223,14 +4231,6 @@ emit_prefetch_instructions (struct loop *loop)
   return;
 }
 
-/* A "basic induction variable" or biv is a pseudo reg that is set
-   (within this loop) only by incrementing or decrementing it.  */
-/* A "general induction variable" or giv is a pseudo reg whose
-   value is a linear function of a biv.  */
-
-/* Bivs are recognized by `basic_induction_var';
-   Givs by `general_induction_var'.  */
-
 /* Communication with routines called via `note_stores'.  */
 
 static rtx note_insn;
@@ -7741,25 +7741,16 @@ loop_regs_update (const struct loop *loop ATTRIBUTE_UNUSED, rtx seq)
 
   /* Update register info for alias analysis.  */
 
-  if (seq == NULL_RTX)
-    return;
-
-  if (INSN_P (seq))
+  insn = seq;
+  while (insn != NULL_RTX)
     {
-      insn = seq;
-      while (insn != NULL_RTX)
-	{
-	  rtx set = single_set (insn);
+      rtx set = single_set (insn);
 
-	  if (set && GET_CODE (SET_DEST (set)) == REG)
-	    record_base_value (REGNO (SET_DEST (set)), SET_SRC (set), 0);
+      if (set && GET_CODE (SET_DEST (set)) == REG)
+	record_base_value (REGNO (SET_DEST (set)), SET_SRC (set), 0);
 
-	  insn = NEXT_INSN (insn);
-	}
+      insn = NEXT_INSN (insn);
     }
-  else if (GET_CODE (seq) == SET
-	   && GET_CODE (SET_DEST (seq)) == REG)
-    record_base_value (REGNO (SET_DEST (seq)), SET_SRC (seq), 0);
 }
 
 
@@ -7989,7 +7980,7 @@ check_dbra_loop (struct loop *loop, int insn_count)
 
   /* Try to compute whether the compare/branch at the loop end is one or
      two instructions.  */
-  get_condition (jump, &first_compare);
+  get_condition (jump, &first_compare, false);
   if (first_compare == jump)
     compare_and_branch = 1;
   else if (first_compare == prev_nonnote_insn (jump))
@@ -8070,7 +8061,8 @@ check_dbra_loop (struct loop *loop, int insn_count)
 	  before_comparison = get_condition_for_loop (loop, p);
 	  if (before_comparison
 	      && XEXP (before_comparison, 0) == bl->biv->dest_reg
-	      && GET_CODE (before_comparison) == LT
+	      && (GET_CODE (before_comparison) == LT
+		  || GET_CODE (before_comparison) == LTU)
 	      && XEXP (before_comparison, 1) == const0_rtx
 	      && ! reg_set_between_p (bl->biv->dest_reg, p, loop_start)
 	      && INTVAL (bl->biv->add_val) == -1)
@@ -8241,7 +8233,8 @@ check_dbra_loop (struct loop *loop, int insn_count)
 	      /* for constants, LE gets turned into LT */
 	      && (GET_CODE (comparison) == LT
 		  || (GET_CODE (comparison) == LE
-		      && no_use_except_counting)))
+		      && no_use_except_counting) 
+		  || GET_CODE (comparison) == LTU))
 	    {
 	      HOST_WIDE_INT add_val, add_adjust, comparison_val = 0;
 	      rtx initial_value, comparison_value;
@@ -9150,11 +9143,12 @@ update_reg_last_use (rtx x, rtx insn)
 
    If WANT_REG is nonzero, we wish the condition to be relative to that
    register, if possible.  Therefore, do not canonicalize the condition
-   further.  */
+   further.  If ALLOW_CC_MODE is nonzero, allow the condition returned 
+   to be a compare to a CC mode register.  */
 
 rtx
 canonicalize_condition (rtx insn, rtx cond, int reverse, rtx *earliest,
-			rtx want_reg)
+			rtx want_reg, int allow_cc_mode)
 {
   enum rtx_code code;
   rtx prev = insn;
@@ -9333,14 +9327,16 @@ canonicalize_condition (rtx insn, rtx cond, int reverse, rtx *earliest,
 
   /* If OP0 is the result of a comparison, we weren't able to find what
      was really being compared, so fail.  */
-  if (GET_MODE_CLASS (GET_MODE (op0)) == MODE_CC)
+  if (!allow_cc_mode
+      && GET_MODE_CLASS (GET_MODE (op0)) == MODE_CC)
     return 0;
 
   /* Canonicalize any ordered comparison with integers involving equality
      if we can do computations in the relevant mode and we do not
      overflow.  */
 
-  if (GET_CODE (op1) == CONST_INT
+  if (GET_MODE_CLASS (GET_MODE (op0)) != MODE_CC
+      && GET_CODE (op1) == CONST_INT
       && GET_MODE (op0) != VOIDmode
       && GET_MODE_BITSIZE (GET_MODE (op0)) <= HOST_BITS_PER_WIDE_INT)
     {
@@ -9395,10 +9391,13 @@ canonicalize_condition (rtx insn, rtx cond, int reverse, rtx *earliest,
    If EARLIEST is nonzero, it is a pointer to a place where the earliest
    insn used in locating the condition was found.  If a replacement test
    of the condition is desired, it should be placed in front of that
-   insn and we will be sure that the inputs are still valid.  */
+   insn and we will be sure that the inputs are still valid.  
+
+   If ALLOW_CC_MODE is nonzero, allow the condition returned to be a
+   compare CC mode register.  */
 
 rtx
-get_condition (rtx jump, rtx *earliest)
+get_condition (rtx jump, rtx *earliest, int allow_cc_mode)
 {
   rtx cond;
   int reverse;
@@ -9418,7 +9417,8 @@ get_condition (rtx jump, rtx *earliest)
     = GET_CODE (XEXP (SET_SRC (set), 2)) == LABEL_REF
       && XEXP (XEXP (SET_SRC (set), 2), 0) == JUMP_LABEL (jump);
 
-  return canonicalize_condition (jump, cond, reverse, earliest, NULL_RTX);
+  return canonicalize_condition (jump, cond, reverse, earliest, NULL_RTX,
+				 allow_cc_mode);
 }
 
 /* Similar to above routine, except that we also put an invariant last
@@ -9427,7 +9427,7 @@ get_condition (rtx jump, rtx *earliest)
 rtx
 get_condition_for_loop (const struct loop *loop, rtx x)
 {
-  rtx comparison = get_condition (x, (rtx*) 0);
+  rtx comparison = get_condition (x, (rtx*) 0, false);
 
   if (comparison == 0
       || ! loop_invariant_p (loop, XEXP (comparison, 0))

@@ -30,8 +30,8 @@ Boston, MA 02111-1307, USA.  */
 #include <stdio.h>
 #include "ggc.h"
 #include "toplev.h"
-#include "target.h"
 #include "tm.h"
+#include "target.h"
 #include "function.h"
 #include "errors.h"
 #include "flags.h"
@@ -124,6 +124,11 @@ tree gfor_fndecl_adjustr;
 
 tree gfor_fndecl_size0;
 tree gfor_fndecl_size1;
+
+/* Intrinsic functions implemented in FORTRAN.  */
+tree gfor_fndecl_si_kind;
+tree gfor_fndecl_sr_kind;
+
 
 static void
 gfc_add_decl_to_parent_function (tree decl)
@@ -237,8 +242,8 @@ gfc_get_label_decl (gfc_st_label * lp)
       /* Tell the debugger where the label came from.  */
       if (lp->value <= MAX_LABEL_VALUE)	/* An internal label */
 	{
-	  TREE_LINENO (label_decl) = lp->where.line;
-	  TREE_FILENAME (label_decl) = lp->where.file->filename;
+	  DECL_SOURCE_LINE (label_decl) = lp->where.line;
+	  DECL_SOURCE_FILE (label_decl) = lp->where.file->filename;
 	}
       else
 	DECL_ARTIFICIAL (label_decl) = 1;
@@ -491,8 +496,9 @@ gfc_build_qualified_array (tree decl, gfc_symbol * sym)
   if (GFC_DESCRIPTOR_TYPE_P (type))
     return;
 
-  nest = (sym->ns->proc_name->backend_decl != current_function_decl);
   assert (GFC_ARRAY_TYPE_P (type));
+  nest = (sym->ns->proc_name->backend_decl != current_function_decl)
+	 && !sym->attr.contained;
 
   for (dim = 0; dim < GFC_TYPE_ARRAY_RANK (type); dim++)
     {
@@ -610,7 +616,8 @@ gfc_build_dummy_array_decl (gfc_symbol * sym, tree dummy)
   GFC_DECL_SAVED_DESCRIPTOR (decl) = dummy;
   GFC_DECL_STRING (decl) = GFC_DECL_STRING (dummy);
 
-  if (sym->ns->proc_name->backend_decl == current_function_decl)
+  if (sym->ns->proc_name->backend_decl == current_function_decl
+      || sym->attr.contained)
     gfc_add_decl_to_function (decl);
   else
     gfc_add_decl_to_parent_function (decl);
@@ -792,10 +799,10 @@ gfc_get_symbol_decl (gfc_symbol * sym)
       break;
 
     case BT_DERIVED:
-      if (sym->value)
+      if (sym->value && ! (sym->attr.use_assoc || sym->attr.dimension))
         {
           gfc_init_se (&se, NULL);
-          gfc_conv_expr (&se, sym->value);
+          gfc_conv_structure (&se, sym->value, 1);
           DECL_INITIAL (decl) = se.expr;
         }
       break;
@@ -1310,6 +1317,19 @@ gfc_build_intrinsic_function_decls (void)
 				     3,
 				     pchar_type_node,
 				     gfc_strlen_type_node, pchar_type_node);
+
+  gfor_fndecl_si_kind =
+    gfc_build_library_function_decl (get_identifier ("selected_int_kind"),
+                                     gfc_int4_type_node,
+                                     1,
+                                     pvoid_type_node);
+
+  gfor_fndecl_sr_kind =
+    gfc_build_library_function_decl (get_identifier ("selected_real_kind"),
+                                     gfc_int4_type_node,
+                                     2, pvoid_type_node,
+                                     pvoid_type_node);
+
 
   /* Power functions.  */
   gfor_fndecl_math_powf =
@@ -1915,8 +1935,9 @@ gfc_generate_function_code (gfc_namespace * ns)
   /* Output the SIMPLE tree.  */
   dump_function (TDI_original, fndecl);
 
-  free_after_parsing (cfun);
-  free_after_compilation (cfun);
+  /* We're leaving the context of this function, so zap cfun.  It's still in
+     DECL_SAVED_INSNS, and we'll restore it in tree_rest_of_compilation.  */
+  cfun = NULL;
 
   /* RTL generation.  */
   if (!old_context)

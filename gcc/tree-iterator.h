@@ -148,12 +148,22 @@ typedef tree tree_stmt_anchor;
 
 enum tsi_iterator_update
 {
-  TSI_NEW_STMT,
-  TSI_SAME_STMT
+  TSI_NEW_STMT,		/* Leave the iterator at the same statement.  */
+  TSI_SAME_STMT,	/* Only valid when single statement is added, move
+			   iterator to it.  */
+  TSI_CHAIN_START,	/* Only valid when chain of statements is added, move
+			   iterator to the first statement in the chain.  */
+  TSI_CHAIN_END,	/* Only valid when chain of statements is added, move
+			   iterator to the last statement in the chain.  */
+  TSI_CONTINUE_LINKING	/* Move iterator to whatever position is suitable for
+			   linking other statements/chains of statements in
+			   the same direction.  */
 };
 
 void tsi_link_before (tree_stmt_iterator *, tree, enum tsi_iterator_update);
 void tsi_link_after (tree_stmt_iterator *, tree, enum tsi_iterator_update);
+void tsi_link_chain_before (tree_stmt_iterator *, tree, enum tsi_iterator_update);
+void tsi_link_chain_after (tree_stmt_iterator *, tree, enum tsi_iterator_update);
 void tsi_delink (tree_stmt_iterator *);
 tree_stmt_iterator tsi_new_stmt_list (tree, tree_stmt_anchor *);
 tree_stmt_iterator tsi_stmt_list_head (tree_stmt_anchor);

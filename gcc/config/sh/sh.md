@@ -142,6 +142,7 @@
   (UNSPEC_DTPOFF	23)
   (UNSPEC_GOTTPOFF	24)
   (UNSPEC_TPOFF		25)
+  (UNSPEC_RA		26)
 
   ;; These are used with unspec_volatile.
   (UNSPECV_BLOCKAGE	0)
@@ -3471,6 +3472,19 @@
 	fake	%1,%0"
   [(set_attr "type" "pcload,move,load,move,prget,move,store,pcload")])
 
+(define_insn_and_split "load_ra"
+  [(set (match_operand:SI 0 "general_movdst_operand" "")
+	(unspec:SI [(match_operand 1 "register_operand" "")] UNSPEC_RA))]
+  "TARGET_SH1"
+  "#"
+  "&& ! rtx_equal_function_value_matters"
+  [(set (match_dup 0) (match_dup 1))]
+  "
+{
+  if (TARGET_SHCOMPACT && current_function_has_nonlocal_label)
+    operands[1] = gen_rtx_MEM (SImode, return_address_pointer_rtx);
+}")
+
 (define_insn "*movsi_media"
   [(set (match_operand:SI 0 "general_movdst_operand"
 	        "=r,r,r,r,m,f,m,f,r,f,*b,r,b")
@@ -5855,7 +5869,10 @@
       DONE;
     }
   else
+  {
     operands[0] = force_reg (SImode, XEXP (operands[0], 0));
+    operands[1] = operands[2];
+  }
 
   emit_call_insn (gen_calli (operands[0], operands[1]));
   DONE;
@@ -6163,6 +6180,7 @@
 (define_insn "sibcall_media"
   [(call (mem:DI (match_operand:DI 0 "target_reg_operand" "k"))
 	 (match_operand 1 "" ""))
+   (use (reg:SI PR_MEDIA_REG))
    (return)]
   "TARGET_SHMEDIA"
   "blink	%0, r63"

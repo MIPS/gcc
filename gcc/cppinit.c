@@ -28,6 +28,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 static void init_library (void);
 static void mark_named_operators (cpp_reader *);
 static void read_original_filename (cpp_reader *);
+static void read_original_directory (cpp_reader *);
 static void post_options (cpp_reader *);
 
 /* If we have designated initializers (GCC >2.7) these tables can be
@@ -133,7 +134,6 @@ cpp_create_reader (enum c_lang lang, hash_table *table)
   pfile = xcalloc (1, sizeof (cpp_reader));
 
   cpp_set_lang (pfile, lang);
-  CPP_OPTION (pfile, warn_import) = 1;
   CPP_OPTION (pfile, warn_multichar) = 1;
   CPP_OPTION (pfile, discard_comments) = 1;
   CPP_OPTION (pfile, discard_comments_in_macro_exp) = 1;
@@ -161,9 +161,16 @@ cpp_create_reader (enum c_lang lang, hash_table *table)
   CPP_OPTION (pfile, narrow_charset) = 0;
   CPP_OPTION (pfile, wide_charset) = 0;
 
+  /* A fake empty "directory" used as the starting point for files
+     looked up without a search path.  Name cannot be '/' because we
+     don't want to prepend anything at all to filenames using it.  All
+     other entries are correct zero-initialized.  */
+  pfile->no_search_path.name = (char *) "";
+
   /* Initialize the line map.  Start at logical line 1, so we can use
      a line number of zero for special states.  */
-  init_line_maps (&pfile->line_maps);
+  linemap_init (&pfile->line_maps);
+  pfile->line = 1;
 
   /* Initialize lexer state.  */
   pfile->state.save_comments = ! CPP_OPTION (pfile, discard_comments);
@@ -196,7 +203,7 @@ cpp_create_reader (enum c_lang lang, hash_table *table)
 		  (void *(*) (long)) xmalloc,
 		  (void (*) (void *)) free);
 
-  _cpp_init_includes (pfile);
+  _cpp_init_files (pfile);
 
   _cpp_init_hashtable (pfile, table);
 
@@ -231,7 +238,7 @@ cpp_destroy (cpp_reader *pfile)
   obstack_free (&pfile->buffer_ob, 0);
 
   _cpp_destroy_hashtable (pfile);
-  _cpp_cleanup_includes (pfile);
+  _cpp_cleanup_files (pfile);
   _cpp_destroy_iconv (pfile);
 
   _cpp_free_buff (pfile->a_buff);
@@ -252,7 +259,7 @@ cpp_destroy (cpp_reader *pfile)
       free (context);
     }
 
-  free_line_maps (&pfile->line_maps);
+  linemap_free (&pfile->line_maps);
   free (pfile);
 }
 
@@ -427,21 +434,10 @@ cpp_add_dependency_target (cpp_reader *pfile, const char *target, int quote)
   deps_add_target (pfile->deps, target, quote);
 }
 
-/* This sets up for processing input from the file FNAME.  
-   It returns false on error.  */
-bool
-cpp_read_next_file (cpp_reader *pfile, const char *fname)
-{
-  /* Open the main input file.  */
-  return _cpp_read_file (pfile, fname);
-}
-
 /* This is called after options have been parsed, and partially
-   processed.  Setup for processing input from the file named FNAME,
-   or stdin if it is the empty string.  Return the original filename
-   on success (e.g. foo.i->foo.c), or NULL on failure.  */
-const char *
-cpp_read_main_file (cpp_reader *pfile, const char *fname)
+   processed.  */
+void
+cpp_post_options (cpp_reader *pfile)
 {
   sanity_checks (pfile);
 
@@ -450,7 +446,14 @@ cpp_read_main_file (cpp_reader *pfile, const char *fname)
   /* Mark named operators before handling command line macros.  */
   if (CPP_OPTION (pfile, cplusplus) && CPP_OPTION (pfile, operator_names))
     mark_named_operators (pfile);
+}
 
+/* Setup for processing input from the file named FNAME,
+   or stdin if it is the empty string.  Return the original filename
+   on success (e.g. foo.i->foo.c), or NULL on failure.  */
+const char *
+cpp_read_main_file (cpp_reader *pfile, const char *fname)
+{
   if (CPP_OPTION (pfile, deps.style) != DEPS_NONE)
     {
       if (!pfile->deps)
@@ -460,8 +463,7 @@ cpp_read_main_file (cpp_reader *pfile, const char *fname)
       deps_add_default_target (pfile->deps, fname);
     }
 
-  pfile->line = 1;
-  if (!cpp_read_next_file (pfile, fname))
+  if (!_cpp_stack_file (pfile, fname))
     return NULL;
 
   /* Set this here so the client can change the option if it wishes,
@@ -473,6 +475,24 @@ cpp_read_main_file (cpp_reader *pfile, const char *fname)
      of the front ends.  */
   if (CPP_OPTION (pfile, preprocessed))
     read_original_filename (pfile);
+
+  if (CPP_OPTION (pfile, working_directory))
+    {
+      const char *name = pfile->map->to_file;
+      const char *dir = getpwd ();
+      char *dir_with_slashes = alloca (strlen (dir) + 3);
+
+      memcpy (dir_with_slashes, dir, strlen (dir));
+      memcpy (dir_with_slashes + strlen (dir), "//", 3);
+
+      if (pfile->cb.dir_change)
+	pfile->cb.dir_change (pfile, dir);
+      /* Emit file renames that will be recognized by
+	 read_directory_filename, since dir_change doesn't output
+	 anything.  */
+      _cpp_do_file_change (pfile, LC_RENAME, dir_with_slashes, 1, 0);
+      _cpp_do_file_change (pfile, LC_RENAME, name, 1, 0);
+    }
 
   return pfile->map->to_file;
 }
@@ -498,12 +518,67 @@ read_original_filename (cpp_reader *pfile)
       if (token1->type == CPP_NUMBER)
 	{
 	  _cpp_handle_directive (pfile, token->flags & PREV_WHITE);
+	  read_original_directory (pfile);
 	  return;
 	}
     }
 
   /* Backup as if nothing happened.  */
   _cpp_backup_tokens (pfile, 1);
+}
+
+/* For preprocessed files, if the tokens following the first filename
+   line is of the form # <line> "/path/name//", handle the
+   directive so we know the original current directory.  */
+static void
+read_original_directory (cpp_reader *pfile)
+{
+  const cpp_token *hash, *token;
+
+  /* Lex ahead; if the first tokens are of the form # NUM, then
+     process the directive, otherwise back up.  */
+  hash = _cpp_lex_direct (pfile);
+  if (hash->type != CPP_HASH)
+    {
+      _cpp_backup_tokens (pfile, 1);
+      return;
+    }
+
+  token = _cpp_lex_direct (pfile);
+
+  if (token->type != CPP_NUMBER)
+    {
+      _cpp_backup_tokens (pfile, 2);
+      return;
+    }
+
+  token = _cpp_lex_direct (pfile);
+
+  if (token->type != CPP_STRING
+      || ! (token->val.str.len >= 5
+	    && token->val.str.text[token->val.str.len-2] == '/'
+	    && token->val.str.text[token->val.str.len-3] == '/'))
+    {
+      _cpp_backup_tokens (pfile, 3);
+      return;
+    }
+
+  if (pfile->cb.dir_change)
+    {
+      char *debugdir = alloca (token->val.str.len - 3);
+
+      memcpy (debugdir, (const char *) token->val.str.text + 1,
+	      token->val.str.len - 4);
+      debugdir[token->val.str.len - 4] = '\0';
+
+      pfile->cb.dir_change (pfile, debugdir);
+    }      
+
+  /* We want to process the fake line changes as regular changes, to
+     get them output.  */
+  _cpp_backup_tokens (pfile, 3);
+
+  CPP_OPTION (pfile, working_directory) = false;
 }
 
 /* This is called at the end of preprocessing.  It pops the last

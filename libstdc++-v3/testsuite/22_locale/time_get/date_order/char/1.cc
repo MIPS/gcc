@@ -1,5 +1,4 @@
 // 2001-09-21 Benjamin Kosnik  <bkoz@redhat.com>
-
 // Copyright (C) 2001, 2002, 2003 Free Software Foundation
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -27,27 +26,21 @@
 void test01()
 {
   using namespace std;
-  bool test = true;
+  bool test __attribute__((unused)) = true;
   typedef time_base::dateorder dateorder;
   typedef istreambuf_iterator<char> iterator_type;
 
   // basic construction and sanity checks.
   locale loc_c = locale::classic();
-  locale loc_hk = __gnu_cxx_test::try_named_locale("en_HK");
-  locale loc_fr = __gnu_cxx_test::try_named_locale("fr_FR@euro");
-  locale loc_de = __gnu_cxx_test::try_named_locale("de_DE");
+  locale loc_hk = __gnu_test::try_named_locale("en_HK");
+  locale loc_fr = __gnu_test::try_named_locale("fr_FR@euro");
+  locale loc_de = __gnu_test::try_named_locale("de_DE");
   VERIFY( loc_hk != loc_c );
   VERIFY( loc_hk != loc_fr );
   VERIFY( loc_hk != loc_de );
   VERIFY( loc_de != loc_fr );
 
-  // cache the __timepunct facets, for quicker gdb inspection
-  const __timepunct<char>& time_c = use_facet<__timepunct<char> >(loc_c); 
-  const __timepunct<char>& time_de = use_facet<__timepunct<char> >(loc_de); 
-  const __timepunct<char>& time_hk = use_facet<__timepunct<char> >(loc_hk); 
-  const __timepunct<char>& time_fr = use_facet<__timepunct<char> >(loc_fr); 
-
-  const string empty;
+   const string empty;
 
   // create an ostream-derived object, cache the time_get facet
   iterator_type end;

@@ -87,33 +87,33 @@ namespace std
     if (!__testi && __testo && !__testt && !__testa)
       {
 	strcpy(__c_mode, "w");
-	__p_mode = (O_WRONLY | O_CREAT);
+	__p_mode = O_WRONLY | O_CREAT;
       }
     if (!__testi && __testo && !__testt && __testa)
       {
 	strcpy(__c_mode, "a");
-	__p_mode |=  O_WRONLY | O_CREAT | O_APPEND;
+	__p_mode = O_WRONLY | O_CREAT | O_APPEND;
       }
     if (!__testi && __testo && __testt && !__testa)
       {
 	strcpy(__c_mode, "w");
-	__p_mode |=  O_WRONLY | O_CREAT | O_TRUNC;
+	__p_mode = O_WRONLY | O_CREAT | O_TRUNC;
       }
 
     if (__testi && !__testo && !__testt && !__testa)
       {
 	strcpy(__c_mode, "r");
-	__p_mode |=  O_RDONLY;
+	__p_mode = O_RDONLY;
       }
     if (__testi && __testo && !__testt && !__testa)
       {
 	strcpy(__c_mode, "r+");
-	__p_mode |=  O_RDWR | O_CREAT;
+	__p_mode = O_RDWR | O_CREAT;
       }
     if (__testi && __testo && __testt && !__testa)
       {
 	strcpy(__c_mode, "w+");
-	__p_mode |=  O_RDWR | O_CREAT | O_TRUNC;
+	__p_mode = O_RDWR | O_CREAT | O_TRUNC;
       }
     if (__testb)
       strcat(__c_mode, "b");
@@ -154,14 +154,6 @@ namespace std
       }
     return __ret;
   }
-
-  int
-  __basic_file<char>::sys_getc() 
-  { return getc(_M_cfile); }
-
-  int
-  __basic_file<char>::sys_ungetc(int __c) 
-  { return ungetc(__c, _M_cfile); }
   
   __basic_file<char>* 
   __basic_file<char>::open(const char* __name, ios_base::openmode __mode, 

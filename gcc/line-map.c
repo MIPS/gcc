@@ -30,7 +30,7 @@ static void trace_include (const struct line_maps *, const struct line_map *);
 /* Initialize a line map set.  */
 
 void
-init_line_maps (struct line_maps *set)
+linemap_init (struct line_maps *set)
 {
   set->maps = 0;
   set->allocated = 0;
@@ -43,7 +43,7 @@ init_line_maps (struct line_maps *set)
 /* Free a line map set.  */
 
 void
-free_line_maps (struct line_maps *set)
+linemap_free (struct line_maps *set)
 {
   if (set->maps)
     {
@@ -61,16 +61,22 @@ free_line_maps (struct line_maps *set)
 }
 
 /* Add a mapping of logical source line to physical source file and
-   line number.  The text pointed to by TO_FILE must have a lifetime
-   at least as long as the final call to lookup_line ().
+   line number.
+
+   The text pointed to by TO_FILE must have a lifetime
+   at least as long as the final call to lookup_line ().  An empty
+   TO_FILE means standard input.  If reason is LC_LEAVE, and
+   TO_FILE is NULL, then TO_FILE, TO_LINE and SYSP are given their
+   natural values considering the file we are returning to.
 
    FROM_LINE should be monotonic increasing across calls to this
-   function.  */
+   function.  A call to this function can relocate the previous set of
+   maps, so any stored line_map pointers should not be used.  */
 
 const struct line_map *
-add_line_map (struct line_maps *set, enum lc_reason reason,
-	      unsigned int sysp, unsigned int from_line,
-	      const char *to_file, unsigned int to_line)
+linemap_add (struct line_maps *set, enum lc_reason reason,
+	     unsigned int sysp, unsigned int from_line,
+	     const char *to_file, unsigned int to_line)
 {
   struct line_map *map;
 
@@ -85,6 +91,9 @@ add_line_map (struct line_maps *set, enum lc_reason reason,
 
   map = &set->maps[set->used++];
 
+  if (to_file && *to_file == '\0')
+    to_file = "<stdin>";
+
   /* If we don't keep our line maps consistent, we can easily
      segfault.  Don't rely on the client to do it for us.  */
   if (set->depth == 0)
@@ -96,9 +105,15 @@ add_line_map (struct line_maps *set, enum lc_reason reason,
 
       if (MAIN_FILE_P (map - 1))
 	{
-	  set->depth--;
-	  set->used--;
-	  return NULL;
+	  if (to_file == NULL)
+	    {
+	      set->depth--;
+	      set->used--;
+	      return NULL;
+	    }
+	  error = true;
+          reason = LC_RENAME;
+          from = map - 1;
 	}
       else
 	{
@@ -151,7 +166,7 @@ add_line_map (struct line_maps *set, enum lc_reason reason,
    the list is sorted and we can use a binary search.  */
 
 const struct line_map *
-lookup_line (struct line_maps *set, unsigned int line)
+linemap_lookup (struct line_maps *set, unsigned int line)
 {
   unsigned int md, mn = 0, mx = set->used;
 
@@ -175,7 +190,8 @@ lookup_line (struct line_maps *set, unsigned int line)
    the most recently listed stack is the same as the current one.  */
 
 void
-print_containing_files (struct line_maps *set, const struct line_map *map)
+linemap_print_containing_files (struct line_maps *set,
+				const struct line_map *map)
 {
   if (MAIN_FILE_P (map) || set->last_listed == map->included_from)
     return;

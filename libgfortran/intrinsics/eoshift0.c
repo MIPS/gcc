@@ -32,24 +32,24 @@ static const char zeros[16] =
    sizeof(int) < sizeof (index_type).  */
 
 static void
-__eoshift0 (const g95_array_char * ret, const g95_array_char * array,
+__eoshift0 (const gfc_array_char * ret, const gfc_array_char * array,
     int shift, const char * pbound, int which)
 {
   /* r.* indicates the return array.  */
-  index_type rstride[G95_MAX_DIMENSIONS - 1];
+  index_type rstride[GFC_MAX_DIMENSIONS - 1];
   index_type rstride0;
   index_type roffset;
   char *rptr;
   char *dest;
   /* s.* indicates the source array.  */
-  index_type sstride[G95_MAX_DIMENSIONS - 1];
+  index_type sstride[GFC_MAX_DIMENSIONS - 1];
   index_type sstride0;
   index_type soffset;
   const char *sptr;
   const char *src;
 
-  index_type count[G95_MAX_DIMENSIONS - 1];
-  index_type extent[G95_MAX_DIMENSIONS - 1];
+  index_type count[GFC_MAX_DIMENSIONS - 1];
+  index_type extent[GFC_MAX_DIMENSIONS - 1];
   index_type dim;
   index_type size;
   index_type len;
@@ -58,15 +58,15 @@ __eoshift0 (const g95_array_char * ret, const g95_array_char * array,
   if (!pbound)
     pbound = zeros;
 
-  size = G95_DESCRIPTOR_SIZE (ret);
+  size = GFC_DESCRIPTOR_SIZE (ret);
 
   which = which - 1;
 
   extent[0] = 1;
   count[0] = 0;
-  size = G95_DESCRIPTOR_SIZE (array);
+  size = GFC_DESCRIPTOR_SIZE (array);
   n = 0;
-  for (dim = 0; dim < G95_DESCRIPTOR_RANK (array); dim++)
+  for (dim = 0; dim < GFC_DESCRIPTOR_RANK (array); dim++)
     {
       if (dim == which)
         {
@@ -92,7 +92,7 @@ __eoshift0 (const g95_array_char * ret, const g95_array_char * array,
   if (rstride[0] == 0)
     rstride[0] = size;
 
-  dim = G95_DESCRIPTOR_RANK (array);
+  dim = GFC_DESCRIPTOR_RANK (array);
   rstride0 = rstride[0];
   sstride0 = sstride[0];
   rptr = ret->data;
@@ -170,18 +170,18 @@ __eoshift0 (const g95_array_char * ret, const g95_array_char * array,
 
 
 void
-__eoshift0_4 (const g95_array_char * ret, const g95_array_char * array,
-    const G95_INTEGER_4 * pshift, const char * pbound,
-    const G95_INTEGER_4 * pdim)
+__eoshift0_4 (const gfc_array_char * ret, const gfc_array_char * array,
+    const GFC_INTEGER_4 * pshift, const char * pbound,
+    const GFC_INTEGER_4 * pdim)
 {
   __eoshift0 (ret, array, *pshift, pbound, pdim ? *pdim : 1);
 }
 
 
 void
-__eoshift0_8 (const g95_array_char * ret, const g95_array_char * array,
-    const G95_INTEGER_8 * pshift, const char * pbound,
-    const G95_INTEGER_8 * pdim)
+__eoshift0_8 (const gfc_array_char * ret, const gfc_array_char * array,
+    const GFC_INTEGER_8 * pshift, const char * pbound,
+    const GFC_INTEGER_8 * pdim)
 {
   __eoshift0 (ret, array, *pshift, pbound, pdim ? *pdim : 1);
 }

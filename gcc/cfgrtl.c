@@ -2257,8 +2257,12 @@ purge_dead_edges (basic_block bb)
 	    continue;
 	  else if ((e->flags & EDGE_EH) && can_throw_internal (insn))
 	    /* Keep the edges that correspond to exceptions thrown by
-	       this instruction.  */
-	    continue;
+	       this instruction and rematerialize the EDGE_ABNORMAL
+	       flag we just cleared above.  */
+	    {
+	      e->flags |= EDGE_ABNORMAL;
+	      continue;
+	    }
 
 	  /* We do not need this edge.  */
 	  bb->flags |= BB_DIRTY;
@@ -2554,7 +2558,7 @@ cfg_layout_delete_block (basic_block bb)
     }
 }
 
-/* return true when blocks A and B can be safely merged.  */
+/* Return true when blocks A and B can be safely merged.  */
 static bool
 cfg_layout_can_merge_blocks_p (basic_block a, basic_block b)
 {

@@ -109,8 +109,7 @@ struct JCF;
       LABEL_IS_SUBR_START (in LABEL_DECL)
       CLASS_ABSTRACT (in TYPE_DECL)
       FIELD_TRANSIENT (in FIELD_DECL)
-   6: METHOD_TRANSIENT (in FUNCTION_DECL)
-      LABEL_CHANGED (in LABEL_DECL)
+   6: LABEL_CHANGED (in LABEL_DECL)
       CLASS_SUPER (in TYPE_DECL, ACC_SUPER flag)
       FIELD_LOCAL_ALIAS (in FIELD_DECL)
    7: DECL_CONSTRUCTOR_P (in FUNCTION_DECL).
@@ -904,12 +903,6 @@ union lang_tree_node
 /* The original WFL of a final variable. */
 #define DECL_FIELD_FINAL_WFL(NODE) \
   (DECL_LANG_SPECIFIC(NODE)->u.v.wfl)
-/* In a FUNCTION_DECL for which DECL_BUILT_IN does not hold, this is
-     the approximate number of instructions in this function.  There is
-     no need for this number to be exact; it is only used in various
-     heuristics regarding optimization.  */
-#define DECL_ESTIMATED_INSNS(NODE) \
-  (FUNCTION_DECL_CHECK (NODE)->decl.u1.i)
 /* True if NODE is a local variable final. */
 #define LOCAL_FINAL_P(NODE) (DECL_LANG_SPECIFIC (NODE) && DECL_FINAL (NODE))
 /* True if NODE is a final field. */
@@ -981,6 +974,9 @@ struct lang_decl_func GTY(())
   unsigned int fixed_ctor : 1;
   unsigned int init_calls_this : 1;
   unsigned int strictfp : 1;
+  unsigned int invisible : 1;	/* Set for methods we generate
+				   internally but which shouldn't be
+				   written to the .class file.  */
 };
 
 struct treetreehash_entry GTY(())
@@ -1075,6 +1071,12 @@ struct lang_type GTY(())
 #define JCF_u4 unsigned long
 #define JCF_u2 unsigned short
 
+/* Possible values to pass to lookup_argument_method_generic.  */
+#define SEARCH_INTERFACE      1
+#define SEARCH_SUPER          2
+#define SEARCH_ONLY_INTERFACE 4
+#define SEARCH_VISIBLE        8
+
 extern void java_parse_file (int);
 extern bool java_mark_addressable (tree);
 extern tree java_type_for_mode (enum machine_mode, int);
@@ -1088,7 +1090,7 @@ extern tree lookup_class (tree);
 extern tree lookup_java_constructor (tree, tree);
 extern tree lookup_java_method (tree, tree, tree);
 extern tree lookup_argument_method (tree, tree, tree);
-extern tree lookup_argument_method2 (tree, tree, tree);
+extern tree lookup_argument_method_generic (tree, tree, tree, int);
 extern int has_method (tree, tree);
 extern tree promote_type (tree);
 extern tree get_constant (struct JCF*, int);
@@ -1309,8 +1311,8 @@ extern tree *get_stmts (void);
 #define METHOD_SYNCHRONIZED(DECL) DECL_LANG_FLAG_4 (DECL)
 #define METHOD_NATIVE(DECL) (DECL_LANG_SPECIFIC(DECL)->u.f.native)
 #define METHOD_ABSTRACT(DECL) DECL_LANG_FLAG_5 (DECL)
-#define METHOD_TRANSIENT(DECL) DECL_LANG_FLAG_6 (DECL)
 #define METHOD_STRICTFP(DECL) (DECL_LANG_SPECIFIC (DECL)->u.f.strictfp)
+#define METHOD_INVISIBLE(DECL) (DECL_LANG_SPECIFIC (DECL)->u.f.invisible)
 
 #define JAVA_FILE_P(NODE) TREE_LANG_FLAG_2 (NODE)
 #define CLASS_FILE_P(NODE) TREE_LANG_FLAG_3 (NODE)

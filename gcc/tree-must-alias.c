@@ -44,6 +44,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 /* Local functions.  */
 static void find_addressable_vars (sbitmap);
 static void promote_var (tree, sbitmap);
+static inline int find_variable_in (varray_type, tree);
+static inline void remove_element_from (varray_type, size_t);
 
 
 /* Local variables.  */
@@ -52,22 +54,30 @@ static int dump_flags;
 
 
 /* This pass finds must-alias relations exposed by constant propagation of
-   ADDR_EXPR values into INDIRECT_REF expressions.  */
+   ADDR_EXPR values into INDIRECT_REF expressions.
+   
+   FNDECL is the function to process.
+   
+   VARS_TO_RENAME will contain the variables that need to be renamed into SSA
+   after this pass is done.
+
+   PHASE indicates which dump file from the DUMP_FILES array to use when
+   dumping debugging information.  */
 
 void
-tree_compute_must_alias (tree fndecl)
+tree_compute_must_alias (tree fndecl, sbitmap vars_to_rename,
+			 enum tree_dump_index phase)
 {
   size_t i;
-  sbitmap addresses_needed, promoted_vars;
+  sbitmap addresses_needed;
 
   timevar_push (TV_TREE_MUST_ALIAS);
 
   /* Initialize debugging dumps.  */
-  dump_file = dump_begin (TDI_mustalias, &dump_flags);
+  dump_file = dump_begin (phase, &dump_flags);
 
   /* Initialize internal data structures.  */
-  promoted_vars = sbitmap_alloc (num_referenced_vars);
-  sbitmap_zero (promoted_vars);
+  sbitmap_zero (vars_to_rename);
 
   addresses_needed = sbitmap_alloc (num_referenced_vars);
   sbitmap_zero (addresses_needed);
@@ -88,29 +98,20 @@ tree_compute_must_alias (tree fndecl)
 	  && TREE_CODE (TREE_TYPE (var)) != ARRAY_TYPE
 	  && decl_function_context (var) == current_function_decl
 	  && !TEST_BIT (addresses_needed, var_ann (var)->uid))
-	promote_var (var, promoted_vars);
-    }
-
-  /* Run the SSA pass again if we need to rename new variables.  */
-  if (sbitmap_first_set_bit (promoted_vars) >= 0)
-    {
-      /* Rename all variables in PROMOTED_VARS into SSA form.  */
-      remove_all_phi_nodes_for (promoted_vars);
-      rewrite_into_ssa (fndecl, promoted_vars);
-
-      /* FIXME  Also remove the disambiguated variables from
-	 CALL_CLOBBERED_VARS.  */
+	promote_var (var, vars_to_rename);
     }
 
   /* Free allocated memory.  */
   sbitmap_free (addresses_needed);
-  sbitmap_free (promoted_vars);
 
   /* Debugging dumps.  */
   if (dump_file)
     {
-      dump_function_to_file (fndecl, dump_file, dump_flags);
-      dump_end (TDI_mustalias, dump_file);
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	dump_referenced_vars (dump_file);
+
+      dump_cfg_function_to_file (fndecl, dump_file, dump_flags);
+      dump_end (phase, dump_file);
     }
 
   timevar_pop (TV_TREE_MUST_ALIAS);
@@ -154,16 +155,12 @@ find_addressable_vars (sbitmap addresses_needed)
 		  SET_BIT (addresses_needed, var_ann (var)->uid);
 		}
 	    }
-	  else
-	    {
-	      /* The statement doesn't take the address of any variable,
-		 mark it modified so that any promoted variables in its
-		 operands are renamed again.  FIXME: We should only mark
-		 statements that have promoted variables, but at this point
-		 we still don't know which (if any) variables can be
-		 promoted.  */
-	      modify_stmt (stmt);
-	    }
+
+	  /* Mark the statement modified so that any promoted variables in
+	     its operands are renamed again.  FIXME: We should only mark
+	     statements that have promoted variables, but at this point we
+	     still don't know which (if any) variables can be promoted.  */
+	  modify_stmt (stmt);
 	}
     }
 }
@@ -171,18 +168,31 @@ find_addressable_vars (sbitmap addresses_needed)
 
 /* Remove all the aliasing marks from variable VAR and mark it not
    addressable.  If the variable was an alias tag for other variables,
-   remove it from those alias sets.  Finally, add VAR to the PROMOTED_VARS
+   remove it from those alias sets.  Finally, add VAR to the VARS_TO_RENAME
    bitmap.  */
 
 static void
-promote_var (tree var, sbitmap promoted_vars)
+promote_var (tree var, sbitmap vars_to_rename)
 {
+  int ix;
   var_ann_t ann = var_ann (var);
 
   /* FIXME: Apparently we always need TREE_ADDRESSABLE for aggregate
      types.  Is this a backend quirk or do we actually need these?  */
   if (!AGGREGATE_TYPE_P (TREE_TYPE (var)))
     TREE_ADDRESSABLE (var) = 0;
+
+  /* All VAR's aliases need to be renamed.  */
+  if (ann->may_aliases)
+    {
+      size_t i;
+
+      for (i = 0; i < VARRAY_ACTIVE_SIZE (ann->may_aliases); i++)
+	{
+	  tree alias = VARRAY_TREE (ann->may_aliases, i);
+	  SET_BIT (vars_to_rename, var_ann (alias)->uid);
+	}
+    }
 
   ann->may_aliases = NULL;
   ann->is_call_clobbered = 0;
@@ -197,28 +207,25 @@ promote_var (tree var, sbitmap promoted_vars)
 
       for (i = 0; i < num_call_clobbered_vars; i++)
 	{
-	  size_t j, len;
 	  tree aliased_var = call_clobbered_var (i);
 	  var_ann_t aliased_ann = var_ann (aliased_var);
 	  varray_type aliases = aliased_ann->may_aliases;
 
-	  if (aliases == NULL)
+	  if (aliases == NULL || aliased_var == var)
 	    continue;
 
-	  len = VARRAY_ACTIVE_SIZE (aliases);
-	  for (j = 0; j < len; j++)
+	  /* If VAR is in the may-alias set of ALIASED_VAR, remove it and
+	     mark ALIASED_VAR to be renamed again.  */
+	  ix = find_variable_in (aliases, var);
+	  if (ix >= 0)
 	    {
-	      if (var == VARRAY_TREE (aliases, j))
-		{
-		  if (j < len - 1)
-		    VARRAY_TREE (aliases, j) = VARRAY_TREE (aliases, len - 1);
-		  VARRAY_POP (aliases);
-		}
-	    }
+	      remove_element_from (aliases, (size_t) ix);
+	      SET_BIT (vars_to_rename, var_ann (aliased_var)->uid);
 
-	  /* Completely remove the may-alias array if it's empty.  */
-	  if (VARRAY_ACTIVE_SIZE (aliases) == 0)
-	    aliased_ann->may_aliases = NULL;
+	      /* Completely remove the may-alias array if it's empty.  */
+	      if (VARRAY_ACTIVE_SIZE (aliases) == 0)
+		aliased_ann->may_aliases = NULL;
+	    }
 	}
 
       /* Clear the alias-tag mark from VAR.  */
@@ -226,7 +233,12 @@ promote_var (tree var, sbitmap promoted_vars)
     }
 
   /* Add VAR to the list of variables to rename.  */
-  SET_BIT (promoted_vars, var_ann (var)->uid);
+  SET_BIT (vars_to_rename, var_ann (var)->uid);
+
+  /* Remove VAR from CALL_CLOBBERED_VARS.  */
+  ix = find_variable_in (call_clobbered_vars, var);
+  if (ix >= 0)
+    remove_element_from (call_clobbered_vars, (size_t) ix);
 
   /* Debugging dumps.  */
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -235,4 +247,34 @@ promote_var (tree var, sbitmap promoted_vars)
       print_generic_expr (dump_file, var, 0);
       fprintf (dump_file, " from virtual to real operands.\n");
     }
+}
+
+
+/* Find variable VAR in ARRAY.  Return -1 if VAR doesn't exist.  */
+
+static inline int
+find_variable_in (varray_type array, tree var)
+{
+  size_t i;
+
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (array); i++)
+    if (var == VARRAY_TREE (array, i))
+      return (int) i;
+
+  return -1;
+}
+
+
+/* Remove element I from ARRAY by swapping element I with the last element
+   of ARRAY.  Do nothing if I is -1.  */
+
+static inline void
+remove_element_from (varray_type array, size_t i)
+{
+  size_t len;
+
+  len = VARRAY_ACTIVE_SIZE (array);
+  if (i < len - 1)
+    VARRAY_TREE (array, i) = VARRAY_TREE (array, len - 1);
+  VARRAY_POP (array);
 }

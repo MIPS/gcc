@@ -33,12 +33,10 @@
 
 bool test01(void)
 {
-  bool test = true;
+  bool test __attribute__((unused)) = true;
   typedef std::string::size_type csize_type;
   typedef std::string::const_reference cref;
   typedef std::string::reference ref;
-  csize_type npos = std::string::npos;
-  csize_type csz01, csz02;
 
   const std::string str01("sailing grand traverse bay\n"
 	       "\t\t\t    from Elk Rapids to the point reminds me of miles");
@@ -157,10 +155,6 @@ bool test01(void)
   
   std::string hello_world;
   std::cout << hello_world;
-  
-#ifdef DEBUG_ASSERT
-  assert(test);
-#endif
   return test;
 }
 

@@ -33,12 +33,12 @@ const char name_03[] = "tmp_snextc_2io.tst"; // empty file, need to create
 void test05() 
 {
   using namespace std;
-  using namespace __gnu_cxx_test;
+  using namespace __gnu_test;
   typedef filebuf::int_type 	int_type;
   typedef filebuf::traits_type 	traits_type;
 
-  bool 					test = true;
-  int_type 			c1, c2, c3;
+  bool test __attribute__((unused)) = true;
+  int_type 			c1, c3;
 
   // int_type snextc()
   // calls sbumpc and if sbumpc != eof, return sgetc
@@ -74,7 +74,7 @@ void test05()
   }
 }
 
-main() 
+int main() 
 {
   test05();
   return 0;

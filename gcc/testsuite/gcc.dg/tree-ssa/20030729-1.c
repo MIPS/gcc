@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O1 -fdump-tree-ssa" } */
+/* { dg-options "-O1 -fdump-tree-dom2" } */
 
 union tree_node;
 typedef union tree_node *tree;
@@ -44,12 +44,8 @@ readonly_fields_p (type)
 /* A good optimizer would realize that the cast to (unsigned int) is
    useless as the earlier cast of the same value of (unsigned char) will
    always produce the same result.  */
-/* { dg-final { scan-tree-dump-times "\\(unsigned int\\)" 0 "ssa"} } */
+/* { dg-final { scan-tree-dump-times "\\(unsigned int\\)" 0 "dom2"} } */
  
 /* There should be one load of ->common.code.  We currently fail this
    because we load from ->common.code using different types.  */
-/* { dg-final { scan-tree-dump-times "common\.code" 1 "ssa"} } */
-
-/* And there should be a single conditional since the second conditional
-   is redundant with the first.  */
-/* { dg-final { scan-tree-dump-times "if " 1 "ssa"} } */
+/* { dg-final { scan-tree-dump-times "common\.code" 1 "dom2"} } */

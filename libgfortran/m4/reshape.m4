@@ -30,7 +30,7 @@ define(rtype_code,rtype_letter`'rtype_name)dnl
 define(rtype,get_arraytype(rtype_letter,rtype_kind))dnl
 define(rtype_name, get_typename(rtype_letter, rtype_kind))dnl
 
-typedef G95_ARRAY_DESCRIPTOR(1, index_type) shape_type;
+typedef GFC_ARRAY_DESCRIPTOR(1, index_type) shape_type;
 
 /* The shape parameter is ignored. We can currently deduce the shape from the
    return array.  */
@@ -40,25 +40,25 @@ void
                       rtype * pad, shape_type * order)
 {
   /* r.* indicates the return array.  */
-  index_type rcount[G95_MAX_DIMENSIONS - 1];
-  index_type rextent[G95_MAX_DIMENSIONS - 1];
-  index_type rstride[G95_MAX_DIMENSIONS - 1];
+  index_type rcount[GFC_MAX_DIMENSIONS - 1];
+  index_type rextent[GFC_MAX_DIMENSIONS - 1];
+  index_type rstride[GFC_MAX_DIMENSIONS - 1];
   index_type rstride0;
   index_type rdim;
   index_type rsize;
   rtype_name *rptr;
   /* s.* indicates the source array.  */
-  index_type scount[G95_MAX_DIMENSIONS - 1];
-  index_type sextent[G95_MAX_DIMENSIONS - 1];
-  index_type sstride[G95_MAX_DIMENSIONS - 1];
+  index_type scount[GFC_MAX_DIMENSIONS - 1];
+  index_type sextent[GFC_MAX_DIMENSIONS - 1];
+  index_type sstride[GFC_MAX_DIMENSIONS - 1];
   index_type sstride0;
   index_type sdim;
   index_type ssize;
   const rtype_name *sptr;
   /* p.* indicates the pad array.  */
-  index_type pcount[G95_MAX_DIMENSIONS - 1];
-  index_type pextent[G95_MAX_DIMENSIONS - 1];
-  index_type pstride[G95_MAX_DIMENSIONS - 1];
+  index_type pcount[GFC_MAX_DIMENSIONS - 1];
+  index_type pextent[GFC_MAX_DIMENSIONS - 1];
+  index_type pstride[GFC_MAX_DIMENSIONS - 1];
   index_type pdim;
   index_type psize;
   const rtype_name *pptr;
@@ -78,7 +78,7 @@ void
   if (order && order->dim[0].stride == 0)
     order->dim[0].stride = 1;
 
-  rdim = G95_DESCRIPTOR_RANK (ret);
+  rdim = GFC_DESCRIPTOR_RANK (ret);
   rsize = 1;
   for (n = 0; n < rdim; n++)
     {
@@ -102,7 +102,7 @@ void
         return;
     }
 
-  sdim = G95_DESCRIPTOR_RANK (source);
+  sdim = GFC_DESCRIPTOR_RANK (source);
   ssize = 1;
   for (n = 0; n < sdim; n++)
     {
@@ -122,7 +122,7 @@ void
     {
       if (pad->dim[0].stride == 0)
         pad->dim[0].stride = 1;
-      pdim = G95_DESCRIPTOR_RANK (pad);
+      pdim = GFC_DESCRIPTOR_RANK (pad);
       psize = 1;
       for (n = 0; n < pdim; n++)
         {

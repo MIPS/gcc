@@ -220,10 +220,11 @@ static tree build_try_finally_statement (int, tree, tree);
 static tree patch_try_statement (tree);
 static tree patch_synchronized_statement (tree, tree);
 static tree patch_throw_statement (tree, tree);
-static void check_thrown_exceptions (int, tree);
+static void check_thrown_exceptions (int, tree, tree);
 static int check_thrown_exceptions_do (tree);
 static void purge_unchecked_exceptions (tree);
 static bool ctors_unchecked_throws_clause_p (tree);
+static void check_concrete_throws_clauses (tree, tree, tree, tree);
 static void check_throws_clauses (tree, tree, tree);
 static void finish_method_declaration (tree);
 static tree build_super_invocation (tree);
@@ -244,7 +245,9 @@ static void start_artificial_method_body (tree);
 static void end_artificial_method_body (tree);
 static int check_method_redefinition (tree, tree);
 static int check_method_types_complete (tree);
+static bool hack_is_accessible_p (tree, tree);
 static void java_check_regular_methods (tree);
+static void check_interface_throws_clauses (tree, tree);
 static void java_check_abstract_methods (tree);
 static void unreachable_stmt_error (tree);
 static tree find_expr_with_wfl (tree);
@@ -3139,7 +3142,7 @@ find_expr_with_wfl (tree node)
 static void
 missing_return_error (tree method)
 {
-  EXPR_WFL_SET_LINECOL (wfl_operator, TREE_SOURCE_LINE_LAST (method), -2);
+  EXPR_WFL_SET_LINECOL (wfl_operator, DECL_SOURCE_LINE_LAST (method), -2);
   parse_error_context (wfl_operator, "Missing return statement");
 }
 
@@ -3211,7 +3214,7 @@ classitf_redefinition_error (const char *context, tree id, tree decl, tree cl)
 {
   parse_error_context (cl, "%s `%s' already defined in %s:%d",
 		       context, IDENTIFIER_POINTER (id),
-		       TREE_FILENAME (decl), TREE_LINENO (decl));
+		       DECL_SOURCE_FILE (decl), DECL_SOURCE_LINE (decl));
   /* Here we should point out where its redefined. It's a unicode. FIXME */
 }
 
@@ -3719,15 +3722,12 @@ maybe_create_class_interface_decl (tree decl, tree raw_name,
     decl = push_class (make_class (), qualified_name);
 
   /* Take care of the file and line business */
+  DECL_SOURCE_FILE (decl) = EXPR_WFL_FILENAME (cl);
+  /* If we're emiting xrefs, store the line/col number information */
   if (flag_emit_xref)
-    annotate_with_file_line (decl,
-			     EXPR_WFL_FILENAME (cl),
-			     EXPR_WFL_LINECOL (cl));
+    DECL_SOURCE_LINE (decl) = EXPR_WFL_LINECOL (cl);
   else
-    annotate_with_file_line (decl,
-			     EXPR_WFL_FILENAME (cl),
-			     EXPR_WFL_LINENO (cl));
-
+    DECL_SOURCE_LINE (decl) = EXPR_WFL_LINENO (cl);
   CLASS_FROM_SOURCE_P (TREE_TYPE (decl)) = 1;
   CLASS_PARSED_P (TREE_TYPE (decl)) = 1;
   CLASS_FROM_CURRENTLY_COMPILED_P (TREE_TYPE (decl)) =
@@ -4211,7 +4211,7 @@ duplicate_declaration_error_p (tree new_field_name, tree new_type, tree cl)
 	(cl , "Duplicate variable declaration: `%s %s' was `%s %s' (%s:%d)",
 	 t1, IDENTIFIER_POINTER (new_field_name),
 	 t2, IDENTIFIER_POINTER (DECL_NAME (decl)),
-	 TREE_FILENAME (decl), TREE_LINENO (decl));
+	 DECL_SOURCE_FILE (decl), DECL_SOURCE_LINE (decl));
       free (t1);
       free (t2);
       return 1;
@@ -4693,9 +4693,7 @@ method_header (int flags, tree type, tree mdecl, tree throws)
   /* If doing xref, store column and line number information instead
      of the line number only. */
   if (flag_emit_xref)
-    annotate_with_file_line (meth,
-			     EXPR_WFL_FILENAME (id),
-			     EXPR_WFL_LINECOL (id));
+    DECL_SOURCE_LINE (meth) = EXPR_WFL_LINECOL (id);
 
   return meth;
 }
@@ -4763,7 +4761,7 @@ finish_method_declaration (tree method_body)
   /* Merge last line of the function with first line, directly in the
      function decl. It will be used to emit correct debug info. */
   if (!flag_emit_xref)
-    TREE_SOURCE_LINE_MERGE (current_function_decl, ctxp->last_ccb_indent1);
+    DECL_SOURCE_LINE_MERGE (current_function_decl, ctxp->last_ccb_indent1);
 
   /* Since function's argument's list are shared, reset the
      ARG_FINAL_P parameter that might have been set on some of this
@@ -6249,11 +6247,35 @@ java_check_methods (tree class_decl)
   CLASS_METHOD_CHECKED_P (TREE_TYPE (class_decl)) = 1;
 }
 
+/* Like not_accessible_p, but doesn't refer to the current class at
+   all.  */
+static bool
+hack_is_accessible_p (tree member, tree from_where)
+{
+  int flags = get_access_flags_from_decl (member);
+
+  if (from_where == DECL_CONTEXT (member)
+      || (flags & ACC_PUBLIC))
+    return true;
+
+  if ((flags & ACC_PROTECTED))
+    {
+      if (inherits_from_p (from_where, DECL_CONTEXT (member)))
+	return true;
+    }
+
+  if ((flags & ACC_PRIVATE))
+    return false;
+
+  /* Package private, or protected.  */
+  return in_same_package (TYPE_NAME (from_where),
+			  TYPE_NAME (DECL_CONTEXT (member)));
+}
+
 /* Check all the methods of CLASS_DECL. Methods are first completed
    then checked according to regular method existence rules.  If no
    constructor for CLASS_DECL were encountered, then build its
    declaration.  */
-
 static void
 java_check_regular_methods (tree class_decl)
 {
@@ -6303,7 +6325,8 @@ java_check_regular_methods (tree class_decl)
 	}
 
       sig = build_java_argument_signature (TREE_TYPE (method));
-      found = lookup_argument_method2 (class, DECL_NAME (method), sig);
+      found = lookup_argument_method_generic (class, DECL_NAME (method), sig,
+					      SEARCH_SUPER | SEARCH_INTERFACE);
 
       /* Inner class can't declare static methods */
       if (METHOD_STATIC (method) && !TOPLEVEL_CLASS_DECL_P (class_decl))
@@ -6362,7 +6385,7 @@ java_check_regular_methods (tree class_decl)
 	    continue;
 	  parse_error_context
 	    (method_wfl,
-	     "%s methods can't be overriden. Method `%s' is %s in class `%s'",
+	     "%s methods can't be overridden. Method `%s' is %s in class `%s'",
 	     (METHOD_FINAL (found) ? "Final" : "Static"),
 	     lang_printable_name (found, 0),
 	     (METHOD_FINAL (found) ? "final" : "static"),
@@ -6376,7 +6399,7 @@ java_check_regular_methods (tree class_decl)
 	{
 	  parse_error_context
 	    (method_wfl,
-	     "Instance methods can't be overriden by a static method. Method `%s' is an instance method in class `%s'",
+	     "Instance methods can't be overridden by a static method. Method `%s' is an instance method in class `%s'",
 	     lang_printable_name (found, 0),
 	     IDENTIFIER_POINTER
 	       (DECL_NAME (TYPE_NAME (DECL_CONTEXT (found)))));
@@ -6385,7 +6408,7 @@ java_check_regular_methods (tree class_decl)
 
       /* - Overriding/hiding public must be public
 	 - Overriding/hiding protected must be protected or public
-         - If the overriden or hidden method has default (package)
+         - If the overridden or hidden method has default (package)
            access, then the overriding or hiding method must not be
            private; otherwise, a compile-time error occurs.  If
            `found' belongs to an interface, things have been already
@@ -6407,12 +6430,19 @@ java_check_regular_methods (tree class_decl)
 	  continue;
 	}
 
-      /* Overriding methods must have compatible `throws' clauses on checked
-	 exceptions, if any */
-      check_throws_clauses (method, method_wfl, found);
-
-      /* Inheriting multiple methods with the same signature. FIXME */
+      /* Check this method against all the other implementations it
+	 overrides.  Here we only check the class hierarchy; the rest
+	 of the checking is done later.  If this method is just a
+	 Miranda method, we can skip the check.  */
+      if (! METHOD_INVISIBLE (method))
+	check_concrete_throws_clauses (class, method, DECL_NAME (method), sig);
     }
+
+  /* The above throws clause check only looked at superclasses.  Now
+     we must also make sure that all methods declared in interfaces
+     have compatible throws clauses.  FIXME: there are more efficient
+     ways to organize this checking; we should implement one.  */
+  check_interface_throws_clauses (class, class);
 
   if (!TYPE_NVIRTUALS (class))
     TYPE_METHODS (class) = nreverse (TYPE_METHODS (class));
@@ -6425,13 +6455,83 @@ java_check_regular_methods (tree class_decl)
     abort ();
 }
 
-/* Return a nonzero value if the `throws' clause of METHOD (if any)
-   is incompatible with the `throws' clause of FOUND (if any).  */
+/* Check to make sure that all the methods in all the interfaces
+   implemented by CLASS_DECL are compatible with the concrete
+   implementations available in CHECK_CLASS_DECL.  */
+static void
+check_interface_throws_clauses (tree check_class_decl, tree class_decl)
+{
+  for (; class_decl != NULL_TREE; class_decl = CLASSTYPE_SUPER (class_decl))
+    {
+      tree bases = TYPE_BINFO_BASETYPES (class_decl);
+      int iface_len = TREE_VEC_LENGTH (bases) - 1;
+      int i;
 
+      for (i = iface_len; i > 0; --i)
+	{
+	  tree interface = BINFO_TYPE (TREE_VEC_ELT (bases, i));
+	  tree iface_method;
+
+	  for (iface_method = TYPE_METHODS (interface);
+	       iface_method != NULL_TREE;
+	       iface_method = TREE_CHAIN (iface_method))
+	    {
+	      tree sig, method;
+
+	      /* First look for a concrete method implemented or
+		 inherited by this class.  No need to search
+		 interfaces here, since we're already looking through
+		 all of them.  */
+	      sig = build_java_argument_signature (TREE_TYPE (iface_method));
+	      method
+		= lookup_argument_method_generic (check_class_decl,
+						  DECL_NAME (iface_method),
+						  sig, SEARCH_VISIBLE);
+	      /* If we don't find an implementation, that is ok.  Any
+		 potential errors from that are diagnosed elsewhere.
+		 Also, multiple inheritance with conflicting throws
+		 clauses is fine in the absence of a concrete
+		 implementation.  */
+	      if (method != NULL_TREE && !METHOD_ABSTRACT (method))
+		{
+		  tree method_wfl = DECL_FUNCTION_WFL (method);
+		  check_throws_clauses (method, method_wfl, iface_method);
+		}
+	    }
+
+	  /* Now check superinterfaces.  */
+	  check_interface_throws_clauses (check_class_decl, interface);
+	}
+    }
+}
+
+/* Check throws clauses of a method against the clauses of all the
+   methods it overrides.  We do this by searching up the class
+   hierarchy, examining all matching accessible methods.  */
+static void
+check_concrete_throws_clauses (tree class, tree self_method,
+			       tree name, tree signature)
+{
+  tree method = lookup_argument_method_generic (class, name, signature,
+						SEARCH_SUPER | SEARCH_VISIBLE);
+  while (method != NULL_TREE)
+    {
+      if (! METHOD_INVISIBLE (method) && hack_is_accessible_p (method, class))
+	check_throws_clauses (self_method, DECL_FUNCTION_WFL (self_method),
+			      method);
+
+      method = lookup_argument_method_generic (DECL_CONTEXT (method),
+					       name, signature,
+					       SEARCH_SUPER | SEARCH_VISIBLE);
+    }
+}
+
+/* Generate an error if the `throws' clause of METHOD (if any) is
+   incompatible with the `throws' clause of FOUND (if any).  */
 static void
 check_throws_clauses (tree method, tree method_wfl, tree found)
 {
-  tree mthrows, fthrows;
+  tree mthrows;
 
   /* Can't check these things with class loaded from bytecode. FIXME */
   if (!CLASS_FROM_SOURCE_P (DECL_CONTEXT (found)))
@@ -6440,28 +6540,31 @@ check_throws_clauses (tree method, tree method_wfl, tree found)
   for (mthrows = DECL_FUNCTION_THROWS (method);
        mthrows; mthrows = TREE_CHAIN (mthrows))
     {
+      tree fthrows;
+
       /* We don't verify unchecked expressions */
       if (IS_UNCHECKED_EXCEPTION_P (TREE_VALUE (mthrows)))
 	continue;
       /* Checked expression must be compatible */
       for (fthrows = DECL_FUNCTION_THROWS (found);
 	   fthrows; fthrows = TREE_CHAIN (fthrows))
-	if (inherits_from_p (TREE_VALUE (mthrows), TREE_VALUE (fthrows)))
-	  break;
+	{
+	  if (inherits_from_p (TREE_VALUE (mthrows), TREE_VALUE (fthrows)))
+	    break;
+	}
       if (!fthrows)
 	{
 	  parse_error_context
-	    (method_wfl, "Invalid checked exception class `%s' in `throws' clause. The exception must be a subclass of an exception thrown by `%s' from class `%s'",
+	    (method_wfl, "Invalid checked exception class `%s' in `throws' clause.  The exception must be a subclass of an exception thrown by `%s' from class `%s'",
 	     IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (TREE_VALUE (mthrows)))),
 	     lang_printable_name (found, 0),
 	     IDENTIFIER_POINTER
-	       (DECL_NAME (TYPE_NAME (DECL_CONTEXT (found)))));
+	     (DECL_NAME (TYPE_NAME (DECL_CONTEXT (found)))));
 	}
     }
 }
 
 /* Check abstract method of interface INTERFACE */
-
 static void
 java_check_abstract_methods (tree interface_decl)
 {
@@ -6475,8 +6578,7 @@ java_check_abstract_methods (tree interface_decl)
       if (check_method_redefinition (interface, method))
 	continue;
 
-      /* 3- Overriding is OK as far as we preserve the return type and
-	 the thrown exceptions (FIXME) */
+      /* 3- Overriding is OK as far as we preserve the return type.  */
       found = lookup_java_interface_method2 (interface, method);
       if (found)
 	{
@@ -6608,8 +6710,8 @@ lookup_cl (tree decl)
       cl_v = build_expr_wfl (NULL_TREE, NULL, 0, 0);
     }
 
-  EXPR_WFL_FILENAME_NODE (cl_v) = get_identifier (TREE_FILENAME (decl));
-  EXPR_WFL_SET_LINECOL (cl_v, TREE_SOURCE_LINE_FIRST (decl), -1);
+  EXPR_WFL_FILENAME_NODE (cl_v) = get_identifier (DECL_SOURCE_FILE (decl));
+  EXPR_WFL_SET_LINECOL (cl_v, DECL_SOURCE_LINE_FIRST (decl), -1);
 
   line = java_get_line_col (EXPR_WFL_FILENAME (cl_v),
 			    EXPR_WFL_LINENO (cl_v), EXPR_WFL_COLNO (cl_v));
@@ -7189,7 +7291,7 @@ declare_local_variables (int modifier, tree type, tree vlist)
       if ((other = lookup_name_in_blocks (name)))
 	{
 	  variable_redefinition_error (wfl, name, TREE_TYPE (other),
-				       TREE_LINENO (other));
+				       DECL_SOURCE_LINE (other));
 	  continue;
 	}
 
@@ -7209,9 +7311,7 @@ declare_local_variables (int modifier, tree type, tree vlist)
       /* If doing xreferencing, replace the line number with the WFL
          compound value */
       if (flag_emit_xref)
-	annotate_with_file_line (decl,
-			         TREE_FILENAME (decl),
-			         EXPR_WFL_LINECOL (wfl));
+	DECL_SOURCE_LINE (decl) = EXPR_WFL_LINECOL (wfl);
 
       /* Don't try to use an INIT statement when an error was found */
       if (init && java_error_count)
@@ -7319,8 +7419,8 @@ create_artificial_method (tree class, int flags, tree type,
 static void
 start_artificial_method_body (tree mdecl)
 {
-  annotate_with_file_line (mdecl, TREE_FILENAME (mdecl), 1);
-  TREE_SOURCE_LINE_MERGE (mdecl, 1);
+  DECL_SOURCE_LINE (mdecl) = 1;
+  DECL_SOURCE_LINE_MERGE (mdecl, 1);
   source_start_java_method (mdecl);
   enter_block ();
 }
@@ -7419,12 +7519,10 @@ source_end_java_method (void)
   /* Generate rtl for function exit.  */
   if (! flag_emit_class_files && ! flag_emit_xref)
     {
-      input_line = TREE_SOURCE_LINE_LAST (fndecl);
+      input_line = DECL_SOURCE_LINE_LAST (fndecl);
       expand_function_end ();
 
-      annotate_with_file_line (fndecl,
-			       TREE_FILENAME (fndecl),
-			       TREE_SOURCE_LINE_FIRST (fndecl));
+      DECL_SOURCE_LINE (fndecl) = DECL_SOURCE_LINE_FIRST (fndecl);
 
       rest_of_compilation (fndecl);
     }
@@ -7913,7 +8011,7 @@ start_complete_expand_method (tree mdecl)
       TREE_CHAIN (tem) = next;
     }
   pushdecl_force_head (DECL_ARGUMENTS (mdecl));
-  input_line = TREE_SOURCE_LINE_FIRST (mdecl);
+  input_line = DECL_SOURCE_LINE_FIRST (mdecl);
   build_result_decl (mdecl);
 }
 
@@ -9478,7 +9576,13 @@ resolve_qualified_expression_name (tree wfl, tree *found_decl,
 	  if (location
 	      && !OUTER_FIELD_ACCESS_IDENTIFIER_P
 	            (DECL_NAME (current_function_decl)))
-	    check_thrown_exceptions (location, ret_decl);
+	    {
+	      tree arguments = NULL_TREE;
+	      if (TREE_CODE (qual_wfl) == CALL_EXPR
+		  && TREE_OPERAND (qual_wfl, 1) != NULL_TREE)
+		arguments = TREE_VALUE (TREE_OPERAND (qual_wfl, 1));
+	      check_thrown_exceptions (location, ret_decl, arguments);
+	    }
 
 	  /* If the previous call was static and this one is too,
 	     build a compound expression to hold the two (because in
@@ -10016,7 +10120,7 @@ check_deprecation (tree wfl, tree decl)
 	 to the record.  */
       decl = TYPE_NAME (TREE_TYPE (elt));
     }
-  file = TREE_FILENAME (decl);
+  file = DECL_SOURCE_FILE (decl);
 
   /* Complain if the field is deprecated and the file it was defined
      in isn't compiled at the same time the file which contains its
@@ -10118,7 +10222,7 @@ patch_method_invocation (tree patch, tree primary, tree where, int from_super,
   tree this_arg = NULL_TREE;
   int is_array_clone_call = 0;
 
-  /* Should be overriden if everything goes well. Otherwise, if
+  /* Should be overridden if everything goes well. Otherwise, if
      something fails, it should keep this value. It stop the
      evaluation of a bogus assignment. See java_complete_tree,
      MODIFY_EXPR: for the reasons why we sometimes want to keep on
@@ -11075,10 +11179,15 @@ find_most_specific_methods_list (tree list)
 
   /* If we have several and they're all abstract, just pick the
      closest one. */
-  if (candidates > 0 && (candidates == abstract))
+  if (candidates > 0 && candidates == abstract)
     {
+      /* FIXME: merge the throws clauses.  There is no convenient way
+	 to do this in gcj right now, since ideally we'd like to
+	 introduce a new METHOD_DECL here, but that is really not
+	 possible.  */
       new_list = nreverse (new_list);
       TREE_CHAIN (new_list) = NULL_TREE;
+      return new_list;
     }
 
   /* We have several (we couldn't find a most specific), all but one
@@ -11921,13 +12030,21 @@ java_complete_lhs (tree node)
 	  int in_this = CALL_THIS_CONSTRUCTOR_P (node);
 	  int from_super = (EXPR_WFL_NODE (TREE_OPERAND (node, 0)) ==
                            super_identifier_node);
+	  tree arguments;
 
 	  node = patch_method_invocation (node, NULL_TREE, NULL_TREE,
 					  from_super, 0, &decl);
 	  if (node == error_mark_node)
 	    return error_mark_node;
 
-	  check_thrown_exceptions (EXPR_WFL_LINECOL (node), decl);
+	  if (TREE_CODE (node) == CALL_EXPR
+	      && TREE_OPERAND (node, 1) != NULL_TREE)
+	    arguments = TREE_VALUE (TREE_OPERAND (node, 1));
+	  else
+	    arguments = NULL_TREE;
+	  if (IS_EXPR_CODE_CLASS (node))
+	    check_thrown_exceptions (EXPR_WFL_LINECOL (node), decl,
+				     arguments);
 	  /* If we call this(...), register signature and positions */
 	  if (in_this)
 	    DECL_CONSTRUCTOR_CALLS (current_function_decl) =
@@ -15632,22 +15749,28 @@ patch_throw_statement (tree node, tree wfl_op1)
 }
 
 /* Check that exception said to be thrown by method DECL can be
-   effectively caught from where DECL is invoked.  */
-
+   effectively caught from where DECL is invoked.  THIS_EXPR is the
+   expression that computes `this' for the method call.  */
 static void
-check_thrown_exceptions (int location, tree decl)
+check_thrown_exceptions (int location, tree decl, tree this_expr)
 {
   tree throws;
-  /* For all the unchecked exceptions thrown by DECL */
+  int is_array_call = 0;
+
+  if (this_expr != NULL_TREE
+      && TREE_CODE (TREE_TYPE (this_expr)) == POINTER_TYPE
+      && TYPE_ARRAY_P (TREE_TYPE (TREE_TYPE (this_expr))))
+    is_array_call = 1;
+
+  /* For all the unchecked exceptions thrown by DECL.  */
   for (throws = DECL_FUNCTION_THROWS (decl); throws;
        throws = TREE_CHAIN (throws))
     if (!check_thrown_exceptions_do (TREE_VALUE (throws)))
       {
-#if 1
-	/* Temporary hack to suppresses errors about cloning arrays. FIXME */
-	if (DECL_NAME (decl) == get_identifier ("clone"))
+	/* Suppress errors about cloning arrays.  */
+	if (is_array_call && DECL_NAME (decl) == get_identifier ("clone"))
 	  continue;
-#endif
+
 	EXPR_WFL_LINECOL (wfl_operator) = location;
 	if (DECL_FINIT_P (current_function_decl))
 	  parse_error_context

@@ -32,16 +32,14 @@ const char name_01[] = "seekpos-1out.tst"; // file with data in it
 void test05() 
 {
   using namespace std;
-  using namespace __gnu_cxx_test;
+  using namespace __gnu_test;
 
   typedef filebuf::int_type 	int_type;
   typedef filebuf::pos_type 	pos_type;
   typedef filebuf::off_type 	off_type;
   typedef filebuf::traits_type 	traits_type;
 
-  bool 				test = true;
-  streamsize 			strmsz_1, strmsz_2;
-  streamoff  			strmof_1, strmof_2;
+  bool test __attribute__((unused)) = true;
 
   int_type c1;
   int_type c2;
@@ -99,7 +97,7 @@ void test05()
   }
 }
 
-main() 
+int main() 
 {
   test05();
   return 0;

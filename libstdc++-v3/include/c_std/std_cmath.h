@@ -41,8 +41,8 @@
  *  contained in the namespace @c std.
  */
 
-#ifndef _CMATH
-#define _CMATH 1
+#ifndef _GLIBCXX_CMATH
+#define _GLIBCXX_CMATH 1
 
 #pragma GCC system_header
 
@@ -838,9 +838,8 @@ namespace std
 #endif /* _GLIBCXX_USE_C99_FP_MACROS_DYNAMIC */
 #endif
   
-#ifdef _GLIBCXX_NO_TEMPLATE_EXPORT
-#  define export
-#  include <bits/cmath.tcc>
+#ifndef _GLIBCXX_EXPORT_TEMPLATE
+# include <bits/cmath.tcc>
 #endif
 
 #endif

@@ -28,12 +28,12 @@
 void test06()
 {
   using namespace std;
-  bool test = true;
+  bool test __attribute__((unused)) = true;
 
   double d = 0.0;
 
   istringstream iss;
-  locale loc_de = __gnu_cxx_test::try_named_locale("de_DE");
+  locale loc_de = __gnu_test::try_named_locale("de_DE");
   iss.imbue(loc_de);
 
   const num_get<char>& ng = use_facet<num_get<char> >(iss.getloc()); 

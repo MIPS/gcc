@@ -27,9 +27,4 @@ int gfc_is_same_range (gfc_array_ref *, gfc_array_ref *, int, int);
 int gfc_dep_compare_expr (gfc_expr *, gfc_expr *);
 int gfc_expr_is_one (gfc_expr *, int);
 
-int gfc_dep_resolver(gfc_ref* lref, gfc_ref *rref, int* dep);
-int gfc_check_range_range(gfc_ref* lref, gfc_ref* rref, int n);
-int gfc_check_element_vs_section( gfc_ref *lref, gfc_ref *rref ,int n );
-int gfc_check_element_vs_element( gfc_ref *lref, gfc_ref *rref ,int n );
-int gfc_is_inside_range( gfc_expr *chk, gfc_expr *start, gfc_expr *end);
-gfc_ref * gfc_get_array_from_component(gfc_ref *ref);
+int gfc_dep_resolver(gfc_ref *, gfc_ref *);

@@ -2068,9 +2068,6 @@ gfc_could_be_alias (gfc_ss * lss, gfc_ss * rss)
   gfc_symbol *lsym;
   gfc_symbol *rsym;
 
-/*  if (gfc_option.flag_no_pointer_alias)
-    return 0;*/
-
   lsym = lss->expr->symtree->n.sym;
   rsym = rss->expr->symtree->n.sym;
   if (gfc_symbols_could_alias (lsym, rsym))
@@ -2127,16 +2124,12 @@ gfc_conv_resolve_dependencies (gfc_loopinfo * loop, gfc_ss * dest,
   gfc_ref *lref;
   gfc_ref *rref;
   gfc_ref *aref;
-  int depends[GFC_MAX_DIMENSIONS];
-  int n;
   int nDepend = 0;
   int temp_dim = 0;
 
   loop->temp_ss = NULL;
   aref = dest->data.info.ref;
   temp_dim = 0;
-  for (n = 0; n < loop->dimen; n++)
-    depends[n] = 0;
 
   for (ss = rss; ss != gfc_ss_terminator; ss = ss->next)
     {
@@ -2154,7 +2147,7 @@ gfc_conv_resolve_dependencies (gfc_loopinfo * loop, gfc_ss * dest,
 	  lref = dest->expr->ref;
 	  rref = ss->expr->ref;
 
-	  nDepend = gfc_dep_resolver (lref, rref, depends);
+	  nDepend = gfc_dep_resolver (lref, rref);
 #if 0
 	  /* TODO : loop shifting.  */
 	  if (nDepend == 1)
@@ -2673,23 +2666,27 @@ gfc_array_deallocate (tree descriptor)
 /* Create an array constructor from an initialization expression.
    We assume the frontend already did any expansions and conversions.  */
 
-static tree
+tree
 gfc_conv_array_initializer (tree type, gfc_expr * expr)
 {
   gfc_constructor *c;
   tree list;
   tree tmp;
+  mpz_t maxval;
   gfc_se se;
   HOST_WIDE_INT hi;
   unsigned HOST_WIDE_INT lo;
+  tree index, range;
 
   list = NULL_TREE;
-  /* TODO: Initialization of derived type arrays.  */
-  if (expr->expr_type == EXPR_CONSTANT)
+  switch (expr->expr_type)
     {
-      /* A single scalar value.  */
+    case EXPR_CONSTANT:
+    case EXPR_STRUCTURE:
+      /* A single scalar or derived type value.  Create an array with all
+         elements equal to that value.  */
       gfc_init_se (&se, NULL);
-      gfc_conv_constant (&se, expr);
+      gfc_conv_expr (&se, expr);
 
       tmp = TYPE_MAX_VALUE (TYPE_DOMAIN (type));
       assert (tmp && INTEGER_CST_P (tmp));
@@ -2706,9 +2703,9 @@ gfc_conv_array_initializer (tree type, gfc_expr * expr)
             hi--;
           lo--;
         }
-    }
-  else if (expr->expr_type == EXPR_ARRAY)
-    {
+      break;
+
+    case EXPR_ARRAY:
       /* Create a list of all the elements.  */
       for (c = expr->value.constructor; c; c = c->next)
         {
@@ -2719,18 +2716,65 @@ gfc_conv_array_initializer (tree type, gfc_expr * expr)
               /* TODO: Unexpanded array initializers.  */
               internal_error
                 ("Possible frontend bug: array constructor not expanded");
+	    }
+          if (mpz_cmp_si (c->n.offset, 0) != 0)
+            index = gfc_conv_mpz_to_tree (c->n.offset, gfc_index_integer_kind);
+          else
+            index = NULL_TREE;
+	  mpz_init (maxval);
+          if (mpz_cmp_si (c->repeat, 0) != 0)
+            {
+              tree tmp1, tmp2;
+
+              mpz_set (maxval, c->repeat);
+              mpz_add (maxval, c->n.offset, maxval);
+              mpz_sub_ui (maxval, maxval, 1);
+              tmp2 = gfc_conv_mpz_to_tree (maxval, gfc_index_integer_kind);
+              if (mpz_cmp_si (c->n.offset, 0) != 0)
+                {
+                  mpz_add_ui (maxval, c->n.offset, 1);
+                  tmp1 = gfc_conv_mpz_to_tree (maxval, gfc_index_integer_kind);
+                }
+              else
+                tmp1 = gfc_conv_mpz_to_tree (c->n.offset, gfc_index_integer_kind);
+
+              range = build (RANGE_EXPR, integer_type_node, tmp1, tmp2);
             }
-          assert (c->expr->expr_type == EXPR_CONSTANT);
+          else
+            range = NULL;
+	  mpz_clear (maxval);
 
           gfc_init_se (&se, NULL);
-          gfc_conv_constant (&se, c->expr);
-          list = tree_cons (NULL_TREE, se.expr, list);
+	  switch (c->expr->expr_type)
+	    {
+	    case EXPR_CONSTANT:
+	      gfc_conv_constant (&se, c->expr);
+              if (range == NULL_TREE)
+                list = tree_cons (index, se.expr, list);
+              else
+                {
+                  if (index != NULL_TREE)
+                    list = tree_cons (index, se.expr, list);
+                  list = tree_cons (range, se.expr, list);
+                }
+	      break;
+
+	    case EXPR_STRUCTURE:
+              gfc_conv_structure (&se, c->expr, 1);
+              list = tree_cons (index, se.expr, list);
+	      break;
+
+	    default:
+	      abort();
+	    }
         }
       /* We created the list in reverse order.  */
       list = nreverse (list);
+      break;
+
+    default:
+      abort();
     }
-  else
-    abort();
 
   /* Create a constructor from the list of elements.  */
   tmp = build1 (CONSTRUCTOR, type, list);
@@ -3395,8 +3439,8 @@ gfc_conv_expr_descriptor (gfc_se * se, gfc_expr * expr, gfc_ss * ss)
 		se->expr = TREE_OPERAND (desc, 0);
 	      else
 		{
-		  assert (is_gimple_varname (desc));
-		  if (is_gimple_id (desc))
+		  assert (is_gimple_lvalue (desc));
+		  if (is_gimple_variable (desc))
 		    TREE_ADDRESSABLE (desc) = 1;
 		  se->expr = build1 (ADDR_EXPR,
 				     build_pointer_type (TREE_TYPE (desc)),
@@ -3485,7 +3529,7 @@ gfc_conv_expr_descriptor (gfc_se * se, gfc_expr * expr, gfc_ss * ss)
       tmp = gfc_conv_descriptor_stride (desc, gfc_rank_cst[0]);
       gfc_add_modify_expr (&loop.pre, tmp, integer_zero_node);
 
-      assert (is_gimple_varname (desc));
+      assert (is_gimple_lvalue (desc));
       TREE_ADDRESSABLE (desc) = 1;
       se->expr = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (desc)),
 			 desc);

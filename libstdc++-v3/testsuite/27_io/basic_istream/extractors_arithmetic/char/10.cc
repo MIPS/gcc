@@ -48,7 +48,7 @@ bool test10() {
   std::stringbuf isbuf_01(str_01);
   std::istream is_01(&isbuf_01);
 
-  bool test = true;
+  bool test __attribute__((unused)) = true;
 
   int n = 365;
   is_01 >> n;
@@ -139,11 +139,6 @@ bool test10() {
   is_05.ignore();
   is_05 >> n;
   VERIFY( n == 16 );
-
-#ifdef DEBUG_ASSERT
-  assert(test);
-#endif
-
   return test;
 }
 

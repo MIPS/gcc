@@ -110,7 +110,7 @@ void test01()
   typedef __enc_traits				enc_type;
   typedef codecvt<int_type, ext_type, enc_type>	unicode_codecvt;
 
-  bool test = true;
+  bool test __attribute__((unused)) = true;
   string str1, str2;
 
   // construct a locale object with the C facet
@@ -170,7 +170,7 @@ void test01()
 
   // 3
   // explicit locale(const char* std_name)
-  locale loc06 = __gnu_cxx_test::try_named_locale("fr_FR");
+  locale loc06 = __gnu_test::try_named_locale("fr_FR");
   VERIFY (loc06 != loc01);  
   VERIFY (loc06 != loc02);  
   VERIFY (loc06.name() == "fr_FR");
