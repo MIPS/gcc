@@ -1,3 +1,9 @@
+2004-08-10  Daniel Berlin  <dberlin@dberlin.org>
+
+	* lambda-code.c (lambda_transform_legal_p): Transforms are legal for loops
+	with no dependences.
+	We don't care about unknown read-read dependencies.
+
 2004-08-05  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-ssa-loop-ivopts.c (find_interesting_uses_stmt): Handle

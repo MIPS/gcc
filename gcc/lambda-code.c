@@ -1656,7 +1656,8 @@ lambda_loopnest_to_gcc_loopnest (struct loop *old_loopnest,
     
       newloop = LN_LOOPS (new_loopnest)[i];
       
-      /* Linear offset is a bit tricky to handle.  */
+      /* Linear offset is a bit tricky to handle.  Punt on the really
+	 tricky cases for now. */
       offset = LL_LINEAR_OFFSET (newloop);
       
       if (LLE_DENOMINATOR (offset) != 1
@@ -1813,7 +1814,9 @@ lambda_transform_legal_p (lambda_trans_matrix trans,
      know that it is no worth looking at this loop nest: give up.  */
   ddr = (struct data_dependence_relation *) 
     VARRAY_GENERIC_PTR (dependence_relations, 0);
-  if (ddr == NULL || DDR_ARE_DEPENDENT (ddr) == chrec_dont_know)
+  if (ddr == NULL)
+    return true;
+  if (DDR_ARE_DEPENDENT (ddr) == chrec_dont_know)
     return false;
 
 
@@ -1825,9 +1828,7 @@ lambda_transform_legal_p (lambda_trans_matrix trans,
       ddr = (struct data_dependence_relation *) 
 	VARRAY_GENERIC_PTR (dependence_relations, i);
 
-      /* Conservatively answer: "this transformation is not valid".  */
-      if (DDR_ARE_DEPENDENT (ddr) == chrec_dont_know)
-	return false;
+     
 
       /* Don't care about relations for which we know that there is no
 	 dependence, nor about read-read (aka. output-dependences):
@@ -1835,6 +1836,9 @@ lambda_transform_legal_p (lambda_trans_matrix trans,
       if (DDR_ARE_DEPENDENT (ddr) == chrec_known
 	  || (DR_IS_READ (DDR_A (ddr)) && DR_IS_READ (DDR_B (ddr))))
 	continue;
+      /* Conservatively answer: "this transformation is not valid".  */
+      if (DDR_ARE_DEPENDENT (ddr) == chrec_dont_know)
+	return false;
 
       /* Compute trans.dist_vect */
       lambda_matrix_vector_mult (LTM_MATRIX (trans), nb_loops, nb_loops, 
