@@ -1,5 +1,12 @@
 2004-06-18  Michael Koch  <konqueror@gmx.de>
 
+	* javax/swing/ToolTipManager.java
+	(stillInsideTimerAction): Fixed constructor arguments.
+	(outsideTimerAction): Likewise.
+	(insideTimerAction): Likewise.
+
+2004-06-18  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/JButton.java
 	(removeNotify): Fixed javadoc.
 	(updateUI): Simplified.
