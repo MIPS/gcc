@@ -28,5 +28,5 @@ main(){
   exit (0);
 }
 
-/* We should convert two COND_EXPRs into straightline code.  */
-/* { dg-final { scan-tree-dump-times "straightline" 2 "phiopt1"} } */
+/* Should have no more than two ifs left after straightening.  */
+/* { dg-final { scan-tree-dump-times "if " 2 "phiopt1"} } */

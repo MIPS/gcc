@@ -416,10 +416,6 @@ extern char xtensa_hard_regno_mode_ok[][FIRST_PSEUDO_REGISTER];
    call an address kept in a register.  */
 #define NO_FUNCTION_CSE 1
 
-/* It is as good or better for a function to call itself with an
-   explicit address than to call an address kept in a register.  */
-#define NO_RECURSIVE_FUNCTION_CSE 1
-
 /* Xtensa processors have "register windows".  GCC does not currently
    take advantage of the possibility for variable-sized windows; instead,
    we use a fixed window size of 8.  */
@@ -778,25 +774,6 @@ typedef struct xtensa_args
       ? PARM_BOUNDARY							\
       : GET_MODE_ALIGNMENT (MODE)))
 
-/* Nonzero if we do not know how to pass TYPE solely in registers.
-   We cannot do so in the following cases:
-
-   - if the type has variable size
-   - if the type is marked as addressable (it is required to be constructed
-     into the stack)
-
-   This differs from the default in that it does not check if the padding
-   and mode of the type are such that a copy into a register would put it
-   into the wrong part of the register.  */
-
-#define MUST_PASS_IN_STACK(MODE, TYPE)					\
-  ((TYPE) != 0								\
-   && (TREE_CODE (TYPE_SIZE (TYPE)) != INTEGER_CST			\
-       || TREE_ADDRESSABLE (TYPE)))
-
-/* Pass complex arguments independently.  */
-#define SPLIT_COMPLEX_ARGS 1
-
 /* Profiling Xtensa code is typically done with the built-in profiling
    feature of Tensilica's instruction set simulator, which does not
    require any compiler support.  Profiling code on a real (i.e.,
@@ -907,10 +884,6 @@ typedef struct xtensa_args
 /* Implement `va_start' for varargs and stdarg.  */
 #define EXPAND_BUILTIN_VA_START(valist, nextarg) \
   xtensa_va_start (valist, nextarg)
-
-/* Implement `va_arg'.  */
-#define EXPAND_BUILTIN_VA_ARG(valist, type) \
-  xtensa_va_arg (valist, type)
 
 /* If defined, a C expression that produces the machine-specific code
    to setup the stack so that arbitrary frames can be accessed.
@@ -1063,7 +1036,8 @@ typedef struct xtensa_args
    operand on the target machine when generating position independent
    code.  */
 #define LEGITIMATE_PIC_OPERAND_P(X)					\
-  ((GET_CODE (X) != SYMBOL_REF || SYMBOL_REF_LOCAL_P (X))		\
+  ((GET_CODE (X) != SYMBOL_REF						\
+    || (SYMBOL_REF_LOCAL_P (X) && !SYMBOL_REF_EXTERNAL_P (X)))		\
    && GET_CODE (X) != LABEL_REF						\
    && GET_CODE (X) != CONST)
 

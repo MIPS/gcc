@@ -1,17 +1,37 @@
-#ifndef __MF_IMPL_H
-#define __MF_IMPL_H
-
-/* 
-   Implementation header for mudflap runtime library.
-   
+/* Implementation header for mudflap runtime library.
    Mudflap: narrow-pointer bounds-checking by tree rewriting.  
    Copyright (C) 2002, 2003 Free Software Foundation, Inc.  
    Contributed by Frank Ch. Eigler <fche@redhat.com> 
    and Graydon Hoare <graydon@redhat.com>
    
-   This file is part of GCC.
-   XXX: libgcc license?
-*/
+This file is part of GCC.
+
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
+ 
+In addition to the permissions in the GNU General Public License, the
+Free Software Foundation gives you unlimited permission to link the
+compiled version of this file into combinations with other programs,
+and to distribute those combinations without any restriction coming
+from the use of this file.  (The General Public License restrictions
+do apply in other respects; for example, they cover modification of
+the file, and distribution when not linked into a combine
+executable.)
+ 
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
+                                                                                
+You should have received a copy of the GNU General Public License
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
+
+#ifndef __MF_IMPL_H
+#define __MF_IMPL_H
 
 #ifdef _MUDFLAP
 #error "Do not compile this file with -fmudflap!"
@@ -113,9 +133,6 @@ struct __mf_options
   /* Emit internal tracing message. */
   unsigned verbose_trace;
 
-  /* Support multiple threads.  XXX: not yet implemented. */
-  /* unsigned multi_threaded; */
-
   /* Wipe stack/heap objects upon unwind.  */
   unsigned wipe_stack;
   unsigned wipe_heap;
@@ -133,6 +150,12 @@ struct __mf_options
   /* Maintain this many stack frames for contexts. */
   unsigned backtrace;
 
+  /* Ignore read operations even if mode_check is in effect.  */
+  unsigned ignore_reads;
+
+  /* Collect register/unregister timestamps.  */
+  unsigned timestamps;
+
 #ifdef LIBMUDFLAPTH
   /* Thread stack size.  */
   unsigned thread_stack;
@@ -148,9 +171,7 @@ struct __mf_options
   }
   mudflap_mode;
 
-
   /* How to handle a violation. */
-
   enum
   {
     viol_nop,        /* Return control to application. */ 
@@ -220,7 +241,6 @@ extern enum __mf_state_enum *__mf_state_perthread ();
 extern enum __mf_state_enum __mf_state;
 #endif
 extern int __mf_starting_p;
-
 extern struct __mf_options __mf_opts;
 
 /* ------------------------------------------------------------------------ */
@@ -335,6 +355,7 @@ ret __mfwrap_ ## fname (__VA_ARGS__)
 #define MF_VALIDATE_EXTENT(value,size,acc,context) \
  do { \
   if (UNLIKELY (size > 0 && __MF_CACHE_MISS_P (value, size))) \
+    if (acc == __MF_CHECK_WRITE || ! __mf_opts.ignore_reads) \
     __mf_check ((void *) (value), (size), acc, "(" context ")"); \
  } while (0)
 #define BEGIN_PROTECT(fname, ...)       \
@@ -345,10 +366,6 @@ ret __mfwrap_ ## fname (__VA_ARGS__)
   else if (UNLIKELY (__mf_state == reentrant))   \
   {                                         \
     extern unsigned long __mf_reentrancy;   \
-    if (UNLIKELY (__mf_opts.verbose_trace)) { \
-      write (2, "mf: reentrancy detected in `", 28); \
-      write (2, __PRETTY_FUNCTION__, strlen(__PRETTY_FUNCTION__)); \
-      write (2, "'\n", 2); } \
     __mf_reentrancy ++; \
     return CALL_REAL(fname, __VA_ARGS__);   \
   }                                         \
@@ -361,7 +378,7 @@ ret __mfwrap_ ## fname (__VA_ARGS__)
 /* Unlocked variants of main entry points from mf-runtime.h.  */
 extern void __mfu_check (void *ptr, size_t sz, int type, const char *location);
 extern void __mfu_register (void *ptr, size_t sz, int type, const char *name);
-extern void __mfu_unregister (void *ptr, size_t sz);
+extern void __mfu_unregister (void *ptr, size_t sz, int type);
 extern void __mfu_report ();
 extern int __mfu_set_options (const char *opts);
 

@@ -26,11 +26,7 @@ Boston, MA 02111-1307, USA.  */
 /* This file is part of the C++ front end.
    It contains routines to build C++ expressions given their operands,
    including computing the types of the result, C and C++ specific error
-   checks, and some optimization.
-
-   There are also routines to build RETURN_STMT nodes and CASE_STMT nodes,
-   and to process initializations in declarations (since they work
-   like a strange sort of assignment).  */
+   checks, and some optimization.  */
 
 #include "config.h"
 #include "system.h"
@@ -118,6 +114,119 @@ readonly_error (tree arg, const char* string, int soft)
     (*fn) ("%s of read-only location", string);
 }
 
+
+/* Structure that holds information about declarations whose type was
+   incomplete and we could not check whether it was abstract or not.  */
+
+struct pending_abstract_type GTY((chain_next ("%h.next")))
+{
+  /* Declaration which we are checking for abstractness. It is either
+     a DECL node, or an IDENTIFIER_NODE if we do not have a full
+     declaration available.  */
+  tree decl;
+
+  /* Type which will be checked for abstractness.  */
+  tree type;
+
+  /* Position of the declaration. This is only needed for IDENTIFIER_NODEs,
+     because DECLs already carry locus information.  */
+  location_t locus;
+
+  /* Link to the next element in list.  */
+  struct pending_abstract_type* next;
+};
+
+
+/* Compute the hash value of the node VAL. This function is used by the
+   hash table abstract_pending_vars.  */
+
+static hashval_t
+pat_calc_hash (const void* val)
+{
+  const struct pending_abstract_type* pat = val;
+  return (hashval_t) TYPE_UID (pat->type);
+}
+
+
+/* Compare node VAL1 with the type VAL2. This function is used by the
+   hash table abstract_pending_vars.  */
+
+static int
+pat_compare (const void* val1, const void* val2)
+{
+  const struct pending_abstract_type* pat1 = val1;
+  tree type2 = (tree)val2;
+
+  return (pat1->type == type2);
+}
+
+/* Hash table that maintains pending_abstract_type nodes, for which we still
+   need to check for type abstractness.  The key of the table is the type
+   of the declaration.  */
+static GTY ((param_is (struct pending_abstract_type)))
+htab_t abstract_pending_vars = NULL;
+
+
+/* This function is called after TYPE is completed, and will check if there
+   are pending declarations for which we still need to verify the abstractness
+   of TYPE, and emit a diagnostic (through abstract_virtuals_error) if TYPE
+   turned out to be incomplete.  */
+
+void
+complete_type_check_abstract (tree type)
+{
+  void **slot;
+  struct pending_abstract_type *pat;
+  location_t cur_loc = input_location;
+
+  gcc_assert (COMPLETE_TYPE_P (type));
+
+  if (!abstract_pending_vars)
+    return;
+
+  /* Retrieve the list of pending declarations for this type.  */
+  slot = htab_find_slot_with_hash (abstract_pending_vars, type,
+				   (hashval_t)TYPE_UID (type), NO_INSERT);
+  if (!slot)
+    return;
+  pat = (struct pending_abstract_type*)*slot;
+  gcc_assert (pat);
+
+  /* If the type is not abstract, do not do anything.  */
+  if (CLASSTYPE_PURE_VIRTUALS (type))
+    {
+      struct pending_abstract_type *prev = 0, *next;
+
+      /* Reverse the list to emit the errors in top-down order.  */
+      for (; pat; pat = next)
+	{
+	  next = pat->next;
+	  pat->next = prev;
+	  prev = pat;
+	}
+      pat = prev;
+
+      /* Go through the list, and call abstract_virtuals_error for each
+	element: it will issue a diagnostic if the type is abstract.  */
+      while (pat)
+	{
+	  gcc_assert (type == pat->type);
+
+	  /* Tweak input_location so that the diagnostic appears at the correct
+	    location. Notice that this is only needed if the decl is an
+	    IDENTIFIER_NODE, otherwise cp_error_at. */
+	  input_location = pat->locus;
+	  abstract_virtuals_error (pat->decl, pat->type);
+	  pat = pat->next;
+	}
+    }
+
+  htab_clear_slot (abstract_pending_vars, slot);
+
+  input_location = cur_loc;
+}
+
+
 /* If TYPE has abstract virtual functions, issue an error about trying
    to create an object of that type.  DECL is the object declared, or
    NULL_TREE if the declaration is unavailable.  Returns 1 if an error
@@ -126,57 +235,104 @@ readonly_error (tree arg, const char* string, int soft)
 int
 abstract_virtuals_error (tree decl, tree type)
 {
-  tree u;
-  tree tu;
-
-  if (!CLASS_TYPE_P (type) || !CLASSTYPE_PURE_VIRTUALS (type))
+  VEC (tree) *pure;
+  
+  /* This function applies only to classes. Any other entity can never
+     be abstract.  */
+  if (!CLASS_TYPE_P (type))
     return 0;
+
+  /* If the type is incomplete, we register it within a hash table,
+     so that we can check again once it is completed. This makes sense
+     only for objects for which we have a declaration or at least a
+     name.  */
+  if (!COMPLETE_TYPE_P (type))
+    {
+      void **slot;
+      struct pending_abstract_type *pat;
+
+      gcc_assert (!decl || DECL_P (decl) 
+		  || TREE_CODE (decl) == IDENTIFIER_NODE);
+
+      if (!abstract_pending_vars)
+	abstract_pending_vars = htab_create_ggc (31, &pat_calc_hash, 
+						&pat_compare, NULL);
+
+      slot = htab_find_slot_with_hash (abstract_pending_vars, type,
+				      (hashval_t)TYPE_UID (type), INSERT);
+
+      pat = GGC_NEW (struct pending_abstract_type);
+      pat->type = type;
+      pat->decl = decl;
+      pat->locus = ((decl && DECL_P (decl))
+		    ? DECL_SOURCE_LOCATION (decl)
+		    : input_location);
+
+      pat->next = *slot;
+      *slot = pat;
+
+      return 0;
+    }
 
   if (!TYPE_SIZE (type))
     /* TYPE is being defined, and during that time
        CLASSTYPE_PURE_VIRTUALS holds the inline friends.  */
     return 0;
 
-  if (dependent_type_p (type))
-    /* For a dependent type, we do not yet know which functions are pure
-       virtuals.  */
+  pure = CLASSTYPE_PURE_VIRTUALS (type);
+  if (!pure)
     return 0;
 
-  u = CLASSTYPE_PURE_VIRTUALS (type);
   if (decl)
     {
       if (TREE_CODE (decl) == RESULT_DECL)
 	return 0;
 
       if (TREE_CODE (decl) == VAR_DECL)
-	error ("cannot declare variable `%D' to be of type `%T'",
-		    decl, type);
+	cp_error_at ("cannot declare variable `%+D' to be of abstract "
+		     "type `%T'", decl, type);
       else if (TREE_CODE (decl) == PARM_DECL)
-	error ("cannot declare parameter `%D' to be of type `%T'",
-		    decl, type);
+	cp_error_at ("cannot declare parameter `%+D' to be of abstract "
+		     "type `%T'", decl, type);
       else if (TREE_CODE (decl) == FIELD_DECL)
-	error ("cannot declare field `%D' to be of type `%T'",
-		    decl, type);
+	cp_error_at ("cannot declare field `%+D' to be of abstract "
+		     "type `%T'", decl, type);
       else if (TREE_CODE (decl) == FUNCTION_DECL
 	       && TREE_CODE (TREE_TYPE (decl)) == METHOD_TYPE)
-	error ("invalid return type for member function `%#D'", decl);
+	cp_error_at ("invalid abstract return type for member function `%+#D'",
+		     decl);
       else if (TREE_CODE (decl) == FUNCTION_DECL)
-	error ("invalid return type for function `%#D'", decl);
+	cp_error_at ("invalid abstract return type for function `%+#D'", 
+		     decl);
+      else if (TREE_CODE (decl) == IDENTIFIER_NODE)
+	/* Here we do not have location information, so use error instead
+	   of cp_error_at.  */
+	error ("invalid abstract type `%T' for `%E'", type, decl);
+      else
+	cp_error_at ("invalid abstract type for `%+D'", decl);
     }
   else
-    error ("cannot allocate an object of type `%T'", type);
+    error ("cannot allocate an object of abstract type `%T'", type);
 
   /* Only go through this once.  */
-  if (TREE_PURPOSE (u) == NULL_TREE)
+  if (VEC_length (tree, pure))
     {
-      TREE_PURPOSE (u) = error_mark_node;
+      unsigned ix;
+      tree fn;
+      
+      inform ("%J  because the following virtual functions are pure "
+	      "within `%T':", TYPE_MAIN_DECL (type), type);
 
-      error ("  because the following virtual functions are abstract:");
-      for (tu = u; tu; tu = TREE_CHAIN (tu))
-	cp_error_at ("\t%#D", TREE_VALUE (tu));
+      for (ix = 0; VEC_iterate (tree, pure, ix, fn); ix++)
+	inform ("%J\t%#D", fn, fn);
+      /* Now truncate the vector.  This leaves it non-null, so we know
+         there are pure virtuals, but empty so we don't list them out
+         again.  */
+      VEC_truncate (tree, pure, 0);
     }
   else
-    error ("  since type `%T' has abstract virtual functions", type);
+    inform ("%J  since type `%T' has pure virtual functions", 
+	    TYPE_MAIN_DECL (type), type);
 
   return 1;
 }
@@ -221,7 +377,7 @@ cxx_incomplete_type_diagnostic (tree value, tree type, int diag_type)
       (*p_msg_at) ("`%D' has incomplete type", value);
       decl = 1;
     }
-retry:
+ retry:
   /* We must print an error message.  Be clever about what it says.  */
 
   switch (TREE_CODE (type))
@@ -271,7 +427,7 @@ retry:
       break;
     
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }
 
@@ -286,13 +442,10 @@ cxx_incomplete_type_error (tree value, tree type)
 
 
 /* The recursive part of split_nonconstant_init.  DEST is an lvalue
-   expression to which INIT should be assigned.  INIT is a CONSTRUCTOR.
-   PCODE is a pointer to the tail of a chain of statements being emitted.
-   The return value is the new tail of that chain after new statements
-   are generated.  */
+   expression to which INIT should be assigned.  INIT is a CONSTRUCTOR.  */
 
-static tree *
-split_nonconstant_init_1 (tree dest, tree init, tree *pcode)
+static void
+split_nonconstant_init_1 (tree dest, tree init)
 {
   tree *pelt, elt, type = TREE_TYPE (dest);
   tree sub, code, inner_type = NULL;
@@ -320,28 +473,31 @@ split_nonconstant_init_1 (tree dest, tree init, tree *pcode)
 	  if (TREE_CODE (value) == CONSTRUCTOR)
 	    {
 	      if (array_type_p)
-	        sub = build (ARRAY_REF, inner_type, dest, field_index);
+	        sub = build4 (ARRAY_REF, inner_type, dest, field_index,
+			      NULL_TREE, NULL_TREE);
 	      else
-	        sub = build (COMPONENT_REF, inner_type, dest, field_index);
+	        sub = build3 (COMPONENT_REF, inner_type, dest, field_index,
+			      NULL_TREE);
 
-	      pcode = split_nonconstant_init_1 (sub, value, pcode);
+	      split_nonconstant_init_1 (sub, value);
 	    }
 	  else if (!initializer_constant_valid_p (value, inner_type))
 	    {
 	      *pelt = TREE_CHAIN (elt);
 
 	      if (array_type_p)
-	        sub = build (ARRAY_REF, inner_type, dest, field_index);
+	        sub = build4 (ARRAY_REF, inner_type, dest, field_index,
+			      NULL_TREE, NULL_TREE);
 	      else
-	        sub = build (COMPONENT_REF, inner_type, dest, field_index);
+	        sub = build3 (COMPONENT_REF, inner_type, dest, field_index,
+			      NULL_TREE);
 
-	      code = build (MODIFY_EXPR, inner_type, sub, value);
+	      code = build2 (MODIFY_EXPR, inner_type, sub, value);
 	      code = build_stmt (EXPR_STMT, code);
-
-	      *pcode = code;
-	      pcode = &TREE_CHAIN (code);
+	      add_stmt (code);
 	      continue;
 	    }
+
 	  pelt = &TREE_CHAIN (elt);
 	}
       break;
@@ -350,17 +506,15 @@ split_nonconstant_init_1 (tree dest, tree init, tree *pcode)
       if (!initializer_constant_valid_p (init, type))
 	{
 	  CONSTRUCTOR_ELTS (init) = NULL;
-	  code = build (MODIFY_EXPR, type, dest, init);
+	  code = build2 (MODIFY_EXPR, type, dest, init);
 	  code = build_stmt (EXPR_STMT, code);
-	  pcode = &TREE_CHAIN (code);
+	  add_stmt (code);
 	}
       break;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
-
-  return pcode;
 }
 
 /* A subroutine of store_init_value.  Splits non-constant static 
@@ -375,14 +529,14 @@ split_nonconstant_init (tree dest, tree init)
 
   if (TREE_CODE (init) == CONSTRUCTOR)
     {
-      code = build_stmt (COMPOUND_STMT, NULL_TREE);
-      split_nonconstant_init_1 (dest, init, &COMPOUND_BODY (code));
-      code = build1 (STMT_EXPR, void_type_node, code);
-      TREE_SIDE_EFFECTS (code) = 1;
+      code = push_stmt_list ();
+      split_nonconstant_init_1 (dest, init);
+      code = pop_stmt_list (code);
       DECL_INITIAL (dest) = init;
+      TREE_READONLY (dest) = 0;
     }
   else
-    code = build (INIT_EXPR, TREE_TYPE (dest), dest, init);
+    code = build2 (INIT_EXPR, TREE_TYPE (dest), dest, init);
 
   return code;
 }
@@ -418,9 +572,8 @@ store_init_value (tree decl, tree init)
 
   if (IS_AGGR_TYPE (type))
     {
-      if (! TYPE_HAS_TRIVIAL_INIT_REF (type)
-	  && TREE_CODE (init) != CONSTRUCTOR)
-	abort ();
+      gcc_assert (TYPE_HAS_TRIVIAL_INIT_REF (type)
+		  || TREE_CODE (init) == CONSTRUCTOR);
 
       if (TREE_CODE (init) == TREE_LIST)
 	{
@@ -458,9 +611,9 @@ store_init_value (tree decl, tree init)
      constructing never make it into DECL_INITIAL, and passes 'init' to
      build_aggr_init without checking DECL_INITIAL.  So just return.  */
   else if (TYPE_NEEDS_CONSTRUCTING (type))
-    return build (INIT_EXPR, type, decl, value);
+    return build2 (INIT_EXPR, type, decl, value);
   else if (TREE_STATIC (decl)
-	   && (! TREE_CONSTANT (value)
+	   && (TREE_SIDE_EFFECTS (value)
 	       || ! initializer_constant_valid_p (value, TREE_TYPE (value))))
     return split_nonconstant_init (decl, value);
   
@@ -487,8 +640,6 @@ digest_init (tree type, tree init, tree* tail)
   enum tree_code code = TREE_CODE (type);
   tree element = NULL_TREE;
   tree old_tail_contents = NULL_TREE;
-  /* Nonzero if INIT is a braced grouping.  */
-  int raw_constructor;
 
   /* By default, assume we use one element from a list.
      We correct this later in the sole case where it is not true.  */
@@ -518,10 +669,7 @@ digest_init (tree type, tree init, tree* tail)
   if (TREE_CODE (init) == NON_LVALUE_EXPR)
     init = TREE_OPERAND (init, 0);
 
-  raw_constructor = (TREE_CODE (init) == CONSTRUCTOR 
-		     && TREE_HAS_CONSTRUCTOR (init));
-
-  if (raw_constructor
+  if (BRACE_ENCLOSED_INITIALIZER_P (init)
       && CONSTRUCTOR_ELTS (init) != 0
       && TREE_CHAIN (CONSTRUCTOR_ELTS (init)) == 0)
     {
@@ -555,13 +703,21 @@ digest_init (tree type, tree init, tree* tail)
 
 	  if ((TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (string)))
 	       != char_type_node)
+	      /* APPLE LOCAL begin pascal strings */
+	      && (TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (string)))
+	       != unsigned_char_type_node) 
+	      /* APPLE LOCAL end pascal strings */
 	      && TYPE_PRECISION (typ1) == BITS_PER_UNIT)
 	    {
 	      error ("char-array initialized from wide string");
 	      return error_mark_node;
 	    }
-	  if ((TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (string)))
+          /* APPLE LOCAL begin pascal strings */
+	  if (((TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (string)))
 	       == char_type_node)
+	      || (TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (string)))
+	       == unsigned_char_type_node))	       
+	      /* APPLE LOCAL end pascal strings */
 	      && TYPE_PRECISION (typ1) != BITS_PER_UNIT)
 	    {
 	      error ("int-array initialized from non-wide string");
@@ -593,7 +749,7 @@ digest_init (tree type, tree init, tree* tail)
       || code == BOOLEAN_TYPE || code == COMPLEX_TYPE
       || TYPE_PTR_TO_MEMBER_P (type))
     {
-      if (raw_constructor)
+      if (BRACE_ENCLOSED_INITIALIZER_P (init))
 	{
 	  if (element == 0)
 	    {
@@ -602,7 +758,7 @@ digest_init (tree type, tree init, tree* tail)
 	    }
 	  init = element;
 	}
-      while (TREE_CODE (init) == CONSTRUCTOR && TREE_HAS_CONSTRUCTOR (init))
+      while (BRACE_ENCLOSED_INITIALIZER_P (init))
 	{
 	  pedwarn ("braces around scalar initializer for `%T'", type);
 	  init = CONSTRUCTOR_ELTS (init);
@@ -626,15 +782,16 @@ digest_init (tree type, tree init, tree* tail)
 
   if (code == ARRAY_TYPE || code == VECTOR_TYPE || IS_AGGR_TYPE_CODE (code))
     {
-      if (raw_constructor && TYPE_NON_AGGREGATE_CLASS (type)
-	  && TREE_HAS_CONSTRUCTOR (init))
+      if (BRACE_ENCLOSED_INITIALIZER_P (init))
 	{
-	  error ("subobject of type `%T' must be initialized by constructor, not by `%E'",
-		    type, init);
-	  return error_mark_node;
+	  if (TYPE_NON_AGGREGATE_CLASS (type))
+	    {
+	      error ("subobject of type `%T' must be initialized by constructor, not by `%E'",
+		     type, init);
+	      return error_mark_node;
+	    }
+	  return process_init_constructor (type, init, (tree *)0);
 	}
-      else if (raw_constructor)
-	return process_init_constructor (type, init, (tree *)0);
       else if (can_convert_arg (type, TREE_TYPE (init), init)
 	       || TYPE_NON_AGGREGATE_CLASS (type))
 	/* These are never initialized from multiple constructor elements.  */;
@@ -741,12 +898,9 @@ process_init_constructor (tree type, tree init, tree* elts)
 				       TREE_VALUE (tail), &tail1);
 		  if (next1 == error_mark_node)
 		    return next1;
-		  my_friendly_assert
-		    (same_type_ignoring_top_level_qualifiers_p
-		     (TREE_TYPE (type), TREE_TYPE (next1)),
-		     981123);
-		  my_friendly_assert (tail1 == 0
-				      || TREE_CODE (tail1) == TREE_LIST, 319);
+		  gcc_assert (same_type_ignoring_top_level_qualifiers_p
+			      (TREE_TYPE (type), TREE_TYPE (next1)));
+		  gcc_assert (!tail1 || TREE_CODE (tail1) == TREE_LIST);
 		  if (tail == tail1 && len < 0)
 		    {
 		      error ("non-empty initializer for array of empty elements");
@@ -801,23 +955,10 @@ process_init_constructor (tree type, tree init, tree* elts)
 
       if (tail)
 	{
-	  if (TYPE_USES_VIRTUAL_BASECLASSES (type))
-	    {
-	      sorry ("initializer list for object of class with virtual base classes");
-	      return error_mark_node;
-	    }
-
-	  if (TYPE_BINFO_BASETYPES (type))
-	    {
-	      sorry ("initializer list for object of class with base classes");
-	      return error_mark_node;
-	    }
-
-	  if (TYPE_POLYMORPHIC_P (type))
-	    {
-	      sorry ("initializer list for object using virtual functions");
-	      return error_mark_node;
-	    }
+	  gcc_assert (!CLASSTYPE_VBASECLASSES (type));
+	  gcc_assert (!TYPE_BINFO (type)
+		      || !BINFO_N_BASE_BINFOS (TYPE_BINFO (type)));
+	  gcc_assert (!TYPE_POLYMORPHIC_P (type));
 	}
 
       for (field = TYPE_FIELDS (type); field;
@@ -845,8 +986,7 @@ process_init_constructor (tree type, tree init, tree* elts)
 
 		  next1 = digest_init (TREE_TYPE (field),
 				       TREE_VALUE (tail), &tail1);
-		  my_friendly_assert (tail1 == 0
-				      || TREE_CODE (tail1) == TREE_LIST, 320);
+		  gcc_assert (!tail1 || TREE_CODE (tail1) == TREE_LIST);
 		  tail = tail1;
 		}
 	      else
@@ -875,8 +1015,8 @@ process_init_constructor (tree type, tree init, tree* elts)
 	      next1 = digest_init (TREE_TYPE (field), next1, 0);
 
 	      /* Warn when some struct elements are implicitly initialized.  */
-	      if (extra_warnings
-	          && (!init || TREE_HAS_CONSTRUCTOR (init)))
+	      if (warn_missing_field_initializers
+	          && (!init || BRACE_ENCLOSED_INITIALIZER_P (init)))
 		warning ("missing initializer for member `%D'", field);
 	    }
 	  else
@@ -891,8 +1031,8 @@ process_init_constructor (tree type, tree init, tree* elts)
 
 	      /* Warn when some struct elements are implicitly initialized
 		 to zero.  */
-	      if (extra_warnings
-	          && (!init || TREE_HAS_CONSTRUCTOR (init)))
+	      if (warn_missing_field_initializers
+	          && (!init || BRACE_ENCLOSED_INITIALIZER_P (init)))
 		warning ("missing initializer for member `%D'", field);
 
 	      if (! zero_init_p (TREE_TYPE (field)))
@@ -965,8 +1105,7 @@ process_init_constructor (tree type, tree init, tree* elts)
 
 	  next1 = digest_init (TREE_TYPE (field),
 			       TREE_VALUE (tail), &tail1);
-	  if (tail1 != 0 && TREE_CODE (tail1) != TREE_LIST)
-	    abort ();
+	  gcc_assert (!tail1 || TREE_CODE (tail1) == TREE_LIST);
 	  tail = tail1;
 	}
       else
@@ -1096,7 +1235,8 @@ build_x_arrow (tree expr)
   if (IS_AGGR_TYPE (type))
     {
       while ((expr = build_new_op (COMPONENT_REF, LOOKUP_NORMAL, expr,
-				   NULL_TREE, NULL_TREE)))
+				   NULL_TREE, NULL_TREE,
+				   /*overloaded_p=*/NULL)))
 	{
 	  if (expr == error_mark_node)
 	    return error_mark_node;
@@ -1156,6 +1296,7 @@ build_m_component_ref (tree datum, tree component)
   tree objtype;
   tree type;
   tree binfo;
+  tree ctype;
 
   datum = decay_conversion (datum);
 
@@ -1179,16 +1320,28 @@ build_m_component_ref (tree datum, tree component)
     }
 
   type = TYPE_PTRMEM_POINTED_TO_TYPE (ptrmem_type);
-  binfo = lookup_base (objtype, TYPE_PTRMEM_CLASS_TYPE (ptrmem_type),
-		       ba_check, NULL);
-  if (!binfo)
+  ctype = complete_type (TYPE_PTRMEM_CLASS_TYPE (ptrmem_type));
+
+  if (!COMPLETE_TYPE_P (ctype))
     {
-      error ("member type `%T::' incompatible with object type `%T'",
-	     type, objtype);
-      return error_mark_node;
+      if (!same_type_p (ctype, objtype))
+	goto mismatch;
+      binfo = NULL;
     }
-  else if (binfo == error_mark_node)
-    return error_mark_node;
+  else
+    {
+      binfo = lookup_base (objtype, ctype, ba_check, NULL);
+      
+      if (!binfo)
+	{
+	mismatch:
+	  error ("pointer to member type `%T' incompatible with object type `%T'",
+		 type, objtype);
+	  return error_mark_node;
+	}
+      else if (binfo == error_mark_node)
+	return error_mark_node;
+    }
 
   if (TYPE_PTRMEM_P (ptrmem_type))
     {
@@ -1199,16 +1352,21 @@ build_m_component_ref (tree datum, tree component)
       type = cp_build_qualified_type (type,
 				      (cp_type_quals (type)  
 				       | cp_type_quals (TREE_TYPE (datum))));
+
+      datum = build_address (datum);
+      
+      /* Convert object to the correct base.  */
+      if (binfo)
+	datum = build_base_path (PLUS_EXPR, datum, binfo, 1);
+      
       /* Build an expression for "object + offset" where offset is the
 	 value stored in the pointer-to-data-member.  */
-      datum = build (PLUS_EXPR, build_pointer_type (type),
-		     build_base_path (PLUS_EXPR, build_address (datum), 
-				      binfo, 1),
-		     build_nop (ptrdiff_type_node, component));
+      datum = build2 (PLUS_EXPR, build_pointer_type (type),
+		      datum, build_nop (ptrdiff_type_node, component));
       return build_indirect_ref (datum, 0);
     }
   else
-    return build (OFFSET_REF, type, datum, component);
+    return build2 (OFFSET_REF, type, datum, component);
 }
 
 /* Return a tree node for the expression TYPENAME '(' PARMS ')'.  */
@@ -1272,7 +1430,7 @@ build_functional_cast (tree exp, tree parms)
     }
 
   exp = build_special_member_call (NULL_TREE, complete_ctor_identifier, parms,
-				   TYPE_BINFO (type), LOOKUP_NORMAL);
+				   type, LOOKUP_NORMAL);
 
   if (exp == error_mark_node)
     return error_mark_node;
@@ -1297,7 +1455,7 @@ add_exception_specifier (tree list, tree spec, int complain)
   if (spec == error_mark_node)
     return list;
   
-  my_friendly_assert (spec && (!list || TREE_VALUE (list)), 19990317);
+  gcc_assert (spec && (!list || TREE_VALUE (list)));
   
   /* [except.spec] 1, type in an exception specifier shall not be
      incomplete, or pointer or ref to incomplete other than pointer
@@ -1407,3 +1565,6 @@ require_complete_eh_spec_types (tree fntype, tree decl)
 	}
     }
 }
+
+
+#include "gt-cp-typeck2.h"

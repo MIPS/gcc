@@ -1,5 +1,5 @@
 /* Complex exponential functions
-   Copyright 2002 Free Software Foundation, Inc.
+   Copyright 2002, 2004 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
 
 This file is part of the GNU Fortran 95 runtime library (libgfor).
@@ -30,17 +30,14 @@ cabsf (GFC_COMPLEX_4 z)
   return hypotf (REALPART (z), IMAGPART (z));
 }
 
-/* Complex argument.  The angle made with the +ve real axis.  Range 0-2pi.  */
+/* Complex argument.  The angle made with the +ve real axis.
+   Range -pi-pi.  */
 GFC_REAL_4
 cargf (GFC_COMPLEX_4 z)
 {
   GFC_REAL_4 arg;
 
-  arg = atan2f (IMAGPART (z), REALPART (z));
-  if (arg < 0)
-    return arg + 2 * M_PI;
-  else
-    return arg;
+  return atan2f (IMAGPART (z), REALPART (z));
 }
 
 /* exp(z) = exp(a)*(cos(b) + isin(b))  */
@@ -92,8 +89,8 @@ csqrtf (GFC_COMPLEX_4 z)
   GFC_REAL_4 im;
   GFC_COMPLEX_4 v;
 
-  re = REALPART (re);
-  im = IMAGPART (im);
+  re = REALPART (z);
+  im = IMAGPART (z);
   if (im == 0.0)
     {
       if (re < 0.0)

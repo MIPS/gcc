@@ -39,7 +39,9 @@ Boston, MA 02111-1307, USA.  */
 #undef MD_EXEC_PREFIX
 #undef MD_STARTFILE_PREFIX
 
-#if TARGET_CPU_DEFAULT == TARGET_CPU_v9 || TARGET_CPU_DEFAULT == TARGET_CPU_ultrasparc
+#if TARGET_CPU_DEFAULT == TARGET_CPU_v9 \
+    || TARGET_CPU_DEFAULT == TARGET_CPU_ultrasparc \
+    || TARGET_CPU_DEFAULT == TARGET_CPU_ultrasparc3
 /* A 64 bit v9 compiler with stack-bias,
    in a Medium/Low code model environment.  */
 
@@ -221,6 +223,27 @@ Boston, MA 02111-1307, USA.  */
 "
 #endif
 
+/* Support for a compile-time default CPU, et cetera.  The rules are:
+   --with-cpu is ignored if -mcpu is specified.
+   --with-tune is ignored if -mtune is specified.
+   --with-float is ignored if -mhard-float, -msoft-float, -mfpu, or -mno-fpu
+     are specified.
+   In the SPARC_BI_ARCH compiler we cannot pass %{!mcpu=*:-mcpu=%(VALUE)}
+   here, otherwise say -mcpu=v7 would be passed even when -m64.
+   CC1_SPEC above takes care of this instead.  */
+#undef OPTION_DEFAULT_SPECS
+#if DEFAULT_ARCH32_P
+#define OPTION_DEFAULT_SPECS \
+  {"cpu", "%{!m64:%{!mcpu=*:-mcpu=%(VALUE)}}" }, \
+  {"tune", "%{!mtune=*:-mtune=%(VALUE)}" }, \
+  {"float", "%{!msoft-float:%{!mhard-float:%{!fpu:%{!no-fpu:-m%(VALUE)-float}}}}" }
+#else
+#define OPTION_DEFAULT_SPECS \
+  {"cpu", "%{!m32:%{!mcpu=*:-mcpu=%(VALUE)}}" }, \
+  {"tune", "%{!mtune=*:-mtune=%(VALUE)}" }, \
+  {"float", "%{!msoft-float:%{!mhard-float:%{!fpu:%{!no-fpu:-m%(VALUE)-float}}}}" }
+#endif
+
 #if DEFAULT_ARCH32_P
 #define MULTILIB_DEFAULTS { "m32" }
 #else
@@ -305,6 +328,9 @@ do {									\
 
 /* #define DWARF_OFFSET_SIZE PTR_SIZE */
 
+#undef DITF_CONVERSION_LIBFUNCS
+#define DITF_CONVERSION_LIBFUNCS 1
+
 #if defined(HAVE_LD_EH_FRAME_HDR)
 #define LINK_EH_SPEC "%{!static:--eh-frame-hdr} "
 #endif
@@ -325,127 +351,19 @@ do {									\
 
 #define TARGET_ASM_FILE_END file_end_indicate_exec_stack
 
+/* Determine whether the the entire c99 runtime is present in the
+   runtime library.  */
+#define TARGET_C99_FUNCTIONS 1
+
 #define TARGET_HAS_F_SETLKW
 
 #undef LINK_GCC_C_SEQUENCE_SPEC
 #define LINK_GCC_C_SEQUENCE_SPEC \
   "%{static:--start-group} %G %L %{static:--end-group}%{!static:%G}"
 
-/* Do code reading to identify a signal frame, and set the frame
-   state data appropriately.  See unwind-dw2.c for the structs.  */
-
-/* Handle multilib correctly.  */
-#if defined(__arch64__)
-/* 64-bit SPARC version */
-#define MD_FALLBACK_FRAME_STATE_FOR(CONTEXT, FS, SUCCESS)		\
-  do {									\
-    unsigned int *pc_ = (CONTEXT)->ra;					\
-    long new_cfa_, i_;							\
-    long regs_off_, fpu_save_off_;					\
-    long this_cfa_, fpu_save_;						\
-									\
-    if (pc_[0] != 0x82102065		/* mov NR_rt_sigreturn, %g1 */	\
-        || pc_[1] != 0x91d0206d)		/* ta 0x6d */		\
-      break;								\
-    regs_off_ = 192 + 128;						\
-    fpu_save_off_ = regs_off_ + (16 * 8) + (3 * 8) + (2 * 4);		\
-    this_cfa_ = (long) (CONTEXT)->cfa;					\
-    new_cfa_ = *(long *)(((CONTEXT)->cfa) + (regs_off_ + (14 * 8)));	\
-    new_cfa_ += 2047; /* Stack bias */					\
-    fpu_save_ = *(long *)((this_cfa_) + (fpu_save_off_));		\
-    (FS)->cfa_how = CFA_REG_OFFSET;					\
-    (FS)->cfa_reg = 14;							\
-    (FS)->cfa_offset = new_cfa_ - (long) (CONTEXT)->cfa;		\
-    for (i_ = 1; i_ < 16; ++i_)						\
-      {									\
-	(FS)->regs.reg[i_].how = REG_SAVED_OFFSET;			\
-	(FS)->regs.reg[i_].loc.offset =					\
-	  this_cfa_ + (regs_off_ + (i_ * 8)) - new_cfa_;		\
-      }									\
-    for (i_ = 0; i_ < 16; ++i_)						\
-      {									\
-	(FS)->regs.reg[i_ + 16].how = REG_SAVED_OFFSET;			\
-	(FS)->regs.reg[i_ + 16].loc.offset =				\
-	  this_cfa_ + (i_ * 8) - new_cfa_;				\
-      }									\
-    if (fpu_save_)							\
-      {									\
-	for (i_ = 0; i_ < 64; ++i_)					\
-	  {								\
-            if (i_ > 32 && (i_ & 0x1))					\
-              continue;							\
-	    (FS)->regs.reg[i_ + 32].how = REG_SAVED_OFFSET;		\
-	    (FS)->regs.reg[i_ + 32].loc.offset =			\
-	      (fpu_save_ + (i_ * 4)) - new_cfa_;			\
-	  }								\
-      }									\
-    /* Stick return address into %g0, same trick Alpha uses.  */	\
-    (FS)->regs.reg[0].how = REG_SAVED_OFFSET;				\
-    (FS)->regs.reg[0].loc.offset =					\
-      this_cfa_ + (regs_off_ + (16 * 8) + 8) - new_cfa_;		\
-    (FS)->retaddr_column = 0;						\
-    goto SUCCESS;							\
-  } while (0)
-#else
-/* 32-bit SPARC version */
-#define MD_FALLBACK_FRAME_STATE_FOR(CONTEXT, FS, SUCCESS)		\
-  do {									\
-    unsigned int *pc_ = (CONTEXT)->ra;					\
-    int new_cfa_, i_, oldstyle_;					\
-    int regs_off_, fpu_save_off_;					\
-    int fpu_save_, this_cfa_;						\
-									\
-    if (pc_[1] != 0x91d02010)		/* ta 0x10 */			\
-      break;								\
-    if (pc_[0] == 0x821020d8)		/* mov NR_sigreturn, %g1 */	\
-      oldstyle_ = 1;							\
-    else if (pc_[0] == 0x82102065)	/* mov NR_rt_sigreturn, %g1 */	\
-      oldstyle_ = 0;							\
-    else								\
-      break;								\
-    if (oldstyle_)							\
-      {									\
-        regs_off_ = 96;							\
-        fpu_save_off_ = regs_off_ + (4 * 4) + (16 * 4);			\
-      }									\
-    else								\
-      {									\
-        regs_off_ = 96 + 128;						\
-        fpu_save_off_ = regs_off_ + (4 * 4) + (16 * 4) + (2 * 4);	\
-      }									\
-    this_cfa_ = (int) (CONTEXT)->cfa;					\
-    new_cfa_ = *(int *)(((CONTEXT)->cfa) + (regs_off_+(4*4)+(14 * 4)));	\
-    fpu_save_ = *(int *)((this_cfa_) + (fpu_save_off_));		\
-    (FS)->cfa_how = CFA_REG_OFFSET;					\
-    (FS)->cfa_reg = 14;							\
-    (FS)->cfa_offset = new_cfa_ - (int) (CONTEXT)->cfa;			\
-    for (i_ = 1; i_ < 16; ++i_)						\
-      {									\
-        if (i_ == 14)							\
-          continue;							\
-	(FS)->regs.reg[i_].how = REG_SAVED_OFFSET;			\
-	(FS)->regs.reg[i_].loc.offset =					\
-	   this_cfa_ + (regs_off_+(4 * 4)+(i_ * 4)) - new_cfa_;		\
-      }									\
-    for (i_ = 0; i_ < 16; ++i_)						\
-      {									\
-	(FS)->regs.reg[i_ + 16].how = REG_SAVED_OFFSET;			\
-	(FS)->regs.reg[i_ + 16].loc.offset =				\
-	  this_cfa_ + (i_ * 4) - new_cfa_;				\
-      }									\
-    if (fpu_save_)							\
-      {									\
-	for (i_ = 0; i_ < 32; ++i_)					\
-	  {								\
-	    (FS)->regs.reg[i_ + 32].how = REG_SAVED_OFFSET;		\
-	    (FS)->regs.reg[i_ + 32].loc.offset =			\
-	      (fpu_save_ + (i_ * 4)) - new_cfa_;			\
-	  }								\
-      }									\
-    /* Stick return address into %g0, same trick Alpha uses.  */	\
-    (FS)->regs.reg[0].how = REG_SAVED_OFFSET;				\
-    (FS)->regs.reg[0].loc.offset = this_cfa_+(regs_off_+4)-new_cfa_;	\
-    (FS)->retaddr_column = 0;						\
-    goto SUCCESS;							\
-  } while (0)
+/* Use --as-needed -lgcc_s for eh support.  */
+#ifdef HAVE_LD_AS_NEEDED
+#define USE_LD_AS_NEEDED 1
 #endif
+
+#define MD_UNWIND_SUPPORT "config/sparc/linux-unwind.h"

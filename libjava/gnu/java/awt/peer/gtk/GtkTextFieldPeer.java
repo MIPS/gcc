@@ -50,6 +50,8 @@ public class GtkTextFieldPeer extends GtkTextComponentPeer
   implements TextFieldPeer
 {
   native void create (int width);
+  native void gtkWidgetSetBackground (int red, int green, int blue);
+  native void gtkWidgetSetForeground (int red, int green, int blue);
 
   void create ()
   {
@@ -60,7 +62,7 @@ public class GtkTextFieldPeer extends GtkTextComponentPeer
     // GtkComponent.create.
     if (f == null)
       {
-	f = new Font ("Fixed", Font.PLAIN, 12);
+	f = new Font ("Dialog", Font.PLAIN, 12);
 	awtComponent.setFont (f);
       }
 
@@ -76,6 +78,8 @@ public class GtkTextFieldPeer extends GtkTextComponentPeer
     int text_width = cols * fm.getMaxAdvance ();
 
     create (text_width);
+
+    setEditable (tf.isEditable ());
   }
 
   native int gtkEntryGetBorderWidth ();
@@ -154,11 +158,6 @@ public class GtkTextFieldPeer extends GtkTextComponentPeer
     setEchoChar (c);
   }
 
-  public void setFont (Font f)
-  {
-    gtkSetFont (f.getName (), f.getStyle (), f.getSize ());
-  }
-
   public void handleEvent (AWTEvent e)
   {
     if (e.getID () == KeyEvent.KEY_PRESSED)
@@ -167,7 +166,7 @@ public class GtkTextFieldPeer extends GtkTextComponentPeer
 
         if (!ke.isConsumed ()
             && ke.getKeyCode () == KeyEvent.VK_ENTER)
-          postActionEvent (getText (), ke.getModifiers ());
+          postActionEvent (getText (), ke.getModifiersEx ());
       }
 
     super.handleEvent (e);

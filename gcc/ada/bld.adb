@@ -80,7 +80,7 @@ package body Bld is
    Expression_Value  : String_Access := new String (1 .. 10);
    Expression_Last   : Natural := 0;
 
-   --  The following variables indicates if the suffixs and the languages
+   --  The following variables indicates if the suffixes and the languages
    --  are statically specified and, if they are, their values.
 
    C_Suffix          : String_Access := new String (1 .. 10);
@@ -2384,11 +2384,12 @@ package body Bld is
             Last : Natural := Included_Directory_Path'Last;
 
          begin
-            --  Remove a possible directory separator at the end of the
-            --  directory.
+            --  Remove possible directory separator at end of the directory
 
             if Last >= Included_Directory_Path'First
-              and then Included_Directory_Path (Last) = Directory_Separator
+              and then (Included_Directory_Path (Last) = Directory_Separator
+                          or else
+                        Included_Directory_Path (Last) = '/')
             then
                Last := Last - 1;
             end if;
@@ -2401,7 +2402,7 @@ package body Bld is
             if not Is_Absolute_Path (Included_Directory_Path) then
                Put ("$(");
                Put (Including_Project_Name);
-               Put (".base_dir)" & Directory_Separator);
+               Put (".base_dir)/");
             end if;
 
             Put (Included_Directory_Path
@@ -2803,7 +2804,7 @@ package body Bld is
 
                There_Are_Cases := Last_Case /= Last_Case_Construction;
 
-               --  If the suffixs and the languages have not been specified,
+               --  If the suffixes and the languages have not been specified,
                --  give them the default values.
 
                if C_Suffix_Static and then C_Suffix_Last = 0 then
@@ -2920,7 +2921,7 @@ package body Bld is
                         end if;
 
                         --  If we still don't know the language, and all
-                        --  suffixs are static, then it cannot any of the
+                        --  suffixes are static, then it cannot any of the
                         --  processed languages.
 
                         if Source_Kind = Unknown

@@ -71,6 +71,9 @@ package body MLib.Prj is
    S_Dec_Ads : Name_Id := No_Name;
    --  Name_Id for "dec.ads"
 
+   G_Trasym_Ads : Name_Id := No_Name;
+   --  Name_Id for "g-trasym.ads"
+
    No_Argument_List : aliased String_List := (1 .. 0 => null);
    No_Argument      : constant String_List_Access := No_Argument_List'Access;
 
@@ -308,6 +311,10 @@ package body MLib.Prj is
       Libdecgnat_Needed : Boolean := False;
       --  On OpenVMS, set to True if library needs to be linked with libdecgnat
 
+      Gtrasymobj_Needed : Boolean := False;
+      --  On OpenVMS, set to True if library needs to be linked with
+      --  g-trasym.obj.
+
       Data : Project_Data := Projects.Table (For_Project);
 
       Object_Directory_Path : constant String :=
@@ -316,9 +323,6 @@ package body MLib.Prj is
       Standalone   : constant Boolean := Data.Standalone_Library;
 
       Project_Name : constant String := Get_Name_String (Data.Name);
-
-      DLL_Address  : constant String_Access :=
-                       new String'(Default_DLL_Address);
 
       Current_Dir  : constant String := Get_Current_Dir;
 
@@ -372,7 +376,8 @@ package body MLib.Prj is
       --  to link with -lgnarl (this is the case when there is a dependency
       --  on s-osinte.ads). On OpenVMS, set Libdecgnat_Needed if the ALI file
       --  indicates that there is a need to link with -ldecgnat (this is the
-      --  case when there is a dependency on dec.ads).
+      --  case when there is a dependency on dec.ads), and set
+      --  Gtrasymobj_Needed if there is a dependency on g-trasym.ads.
 
       procedure Process (The_ALI : File_Name_Type);
       --  Check if the closure of a library unit which is or should be in the
@@ -504,12 +509,11 @@ package body MLib.Prj is
          Text     : Text_Buffer_Ptr;
          Id       : ALI.ALI_Id;
 
-         pragma Warnings (Off, Id);
-         --  Comment needed ???
-
       begin
          if not Libgnarl_Needed or
-           (Hostparm.OpenVMS and then (not Libdecgnat_Needed))
+           (Hostparm.OpenVMS and then
+              ((not Libdecgnat_Needed) or
+               (not Gtrasymobj_Needed)))
          then
             --  Scan the ALI file
 
@@ -534,10 +538,13 @@ package body MLib.Prj is
                if ALI.Sdep.Table (Index).Sfile = S_Osinte_Ads then
                   Libgnarl_Needed := True;
 
-               elsif Hostparm.OpenVMS and then
-                     ALI.Sdep.Table (Index).Sfile = S_Dec_Ads
-               then
-                  Libdecgnat_Needed := True;
+               elsif Hostparm.OpenVMS then
+                  if ALI.Sdep.Table (Index).Sfile = S_Dec_Ads then
+                     Libdecgnat_Needed := True;
+
+                  elsif ALI.Sdep.Table (Index).Sfile = G_Trasym_Ads then
+                     Gtrasymobj_Needed := True;
+                  end if;
                end if;
             end loop;
          end if;
@@ -671,14 +678,9 @@ package body MLib.Prj is
             if not Processed_Projects.Get (Data.Name) then
                Processed_Projects.Set (Data.Name, True);
 
-               --  If it is a library project, add it to Library_Projs
-
-               if Project /= For_Project and then Data.Library then
-                  Library_Projs.Increment_Last;
-                  Library_Projs.Table (Library_Projs.Last) := Project;
-               end if;
-
-               --  Call Process_Project recursively for any imported project
+               --  Call Process_Project recursively for any imported project.
+               --  We first process the imported projects to guarantee that
+               --  we have a proper reverse order for the libraries.
 
                while Imported /= Empty_Project_List loop
                   Element := Project_Lists.Table (Imported);
@@ -689,69 +691,40 @@ package body MLib.Prj is
 
                   Imported := Element.Next;
                end loop;
+
+               --  If it is a library project, add it to Library_Projs
+
+               if Project /= For_Project and then Data.Library then
+                  Library_Projs.Increment_Last;
+                  Library_Projs.Table (Library_Projs.Last) := Project;
+               end if;
+
             end if;
          end Process_Project;
 
       --  Start of processing for Process_Imported_Libraries
 
       begin
-         --  Build list of library projects imported directly or indirectly
+         --  Build list of library projects imported directly or indirectly,
+         --  in the reverse order.
 
          Process_Project (For_Project);
 
-         --  If there are more that one library project file, make sure
-         --  that if libA depends on libB, libB is first in order.
+         --  Add the -L and -l switches and, if the Rpath option is supported,
+         --  add the directory to the Rpath.
+         --  As the library projects are in the wrong order, process from the
+         --  last to the first.
 
-         if Library_Projs.Last > 1 then
-            declare
-               Index : Integer := 1;
-               Proj1 : Project_Id;
-               Proj2 : Project_Id;
-               List  : Project_List := Empty_Project_List;
-
-            begin
-               Library_Loop : while Index < Library_Projs.Last loop
-                  Proj1 := Library_Projs.Table (Index);
-                  List  := Projects.Table (Proj1).Imported_Projects;
-
-                  List_Loop : while List /= Empty_Project_List loop
-                     Proj2 := Project_Lists.Table (List).Project;
-
-                     for J in Index + 1 .. Library_Projs.Last loop
-                        if Proj2 = Library_Projs.Table (J) then
-                           Library_Projs.Table (J) := Proj1;
-                           Library_Projs.Table (Index) := Proj2;
-                           exit List_Loop;
-                        end if;
-                     end loop;
-
-                     List := Project_Lists.Table (List).Next;
-                  end loop List_Loop;
-
-                  if List = Empty_Project_List then
-                     Index := Index + 1;
-                  end if;
-               end loop Library_Loop;
-            end;
-         end if;
-
-         --  Now that we have a correct order, add the -L and -l switches and,
-         --  if the Rpath option is supported, add the directory to the Rpath.
-
-         for Index in 1 .. Library_Projs.Last loop
+         for Index in reverse 1 .. Library_Projs.Last loop
             Current := Library_Projs.Table (Index);
 
+            Get_Name_String (Projects.Table (Current).Library_Dir);
             Opts.Increment_Last;
             Opts.Table (Opts.Last) :=
-              new String'
-                ("-L" &
-                 Get_Name_String
-                   (Projects.Table (Current).Library_Dir));
+              new String'("-L" & Name_Buffer (1 .. Name_Len));
 
             if Path_Option /= null then
-               Add_Rpath
-                  (Get_Name_String
-                     (Projects.Table (Current).Library_Dir));
+               Add_Rpath (Name_Buffer (1 .. Name_Len));
             end if;
 
             Opts.Increment_Last;
@@ -778,15 +751,21 @@ package body MLib.Prj is
       --  of "s-osinte.ads".
 
       if S_Osinte_Ads = No_Name then
-         Name_Len := 12;
-         Name_Buffer (1 .. Name_Len) := "s-osinte.ads";
+         Name_Len := 0;
+         Add_Str_To_Name_Buffer ("s-osinte.ads");
          S_Osinte_Ads := Name_Find;
       end if;
 
       if S_Dec_Ads = No_Name then
-         Name_Len := 7;
-         Name_Buffer (1 .. Name_Len) := "dec.ads";
+         Name_Len := 0;
+         Add_Str_To_Name_Buffer ("dec.ads");
          S_Dec_Ads := Name_Find;
+      end if;
+
+      if G_Trasym_Ads = No_Name then
+         Name_Len := 0;
+         Add_Str_To_Name_Buffer ("g-trasym.ads");
+         G_Trasym_Ads := Name_Find;
       end if;
 
       --  We work in the object directory
@@ -852,7 +831,9 @@ package body MLib.Prj is
                      if Defaults /= No_Array_Element then
                         Switches :=
                           Value_Of
-                            (Index => Name_Ada, In_Array => Defaults);
+                            (Index     => Name_Ada,
+                             Src_Index => 0,
+                             In_Array  => Defaults);
 
                         if not Switches.Default then
                            Switch := Switches.Values;
@@ -1228,8 +1209,8 @@ package body MLib.Prj is
                                       new String'(ALI_File);
 
                                     --  Find out if for this ALI file,
-                                    --  libgnarl or libdecgnat (on OpenVMS)
-                                    --  is necessary.
+                                    --  libgnarl or libdecgnat or g-trasym.obj
+                                    --  (on OpenVMS) is necessary.
 
                                     Check_Libs (ALI_File);
 
@@ -1288,6 +1269,12 @@ package body MLib.Prj is
             else
                Opts.Table (Opts.Last) := new String'(Shared_Lib ("gnarl"));
             end if;
+         end if;
+
+         if Gtrasymobj_Needed then
+            Opts.Increment_Last;
+            Opts.Table (Opts.Last) :=
+              new String'(Lib_Directory & "/g-trasym.obj");
          end if;
 
          if Libdecgnat_Needed then
@@ -1483,9 +1470,7 @@ package body MLib.Prj is
                   Lib_Dir       => Lib_Dirpath.all,
                   Symbol_Data   => Data.Symbol_Data,
                   Driver_Name   => Driver_Name,
-                  Lib_Address   => DLL_Address.all,
                   Lib_Version   => Lib_Version.all,
-                  Relocatable   => The_Build_Mode = Relocatable,
                   Auto_Init     => Data.Lib_Auto_Init);
 
             when Static =>
@@ -1571,7 +1556,13 @@ package body MLib.Prj is
       Data : constant Project_Data := Projects.Table (For_Project);
 
    begin
-      if Data.Library and not Data.Flag1 then
+      --  No need to build the library if there is no object directory,
+      --  hence no object files to build the library.
+
+      if Data.Library
+        and then not Data.Need_To_Build_Lib
+        and then Data.Object_Directory /= No_Name
+      then
          declare
             Current  : constant Dir_Name_Str := Get_Current_Dir;
             Lib_Name : constant Name_Id := Library_File_Name_For (For_Project);
@@ -1611,17 +1602,17 @@ package body MLib.Prj is
 
                   Obj_TS := File_Stamp (Name_Find);
 
-                  --  If library file time stamp is earlier, set Flag1 and
-                  --  return. String comparaison is used, otherwise time stamps
-                  --  may be too close and the comparaison would return True,
-                  --  which would trigger an unnecessary rebuild of the
-                  --  library.
+                  --  If library file time stamp is earlier, set
+                  --  Need_To_Build_Lib and return. String comparaison is used,
+                  --  otherwise time stamps may be too close and the
+                  --  comparaison would return True, which would trigger
+                  --  an unnecessary rebuild of the library.
 
                   if String (Lib_TS) < String (Obj_TS) then
 
                      --  Library must be rebuilt
 
-                     Projects.Table (For_Project).Flag1 := True;
+                     Projects.Table (For_Project).Need_To_Build_Lib := True;
                      exit;
                   end if;
                end if;

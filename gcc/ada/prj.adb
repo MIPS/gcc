@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---             Copyright (C) 2001-2003 Free Software Foundation, Inc.       --
+--             Copyright (C) 2001-2004 Free Software Foundation, Inc.       --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -34,14 +34,13 @@ with Prj.Env;
 with Prj.Err;  use Prj.Err;
 with Scans;    use Scans;
 with Snames;   use Snames;
+with Uintp;    use Uintp;
 
 with GNAT.OS_Lib; use GNAT.OS_Lib;
 
 package body Prj is
 
    The_Empty_String : Name_Id;
-
-   Ada_Language     : constant Name_Id := Name_Ada;
 
    subtype Known_Casing is Casing_Type range All_Upper_Case .. Mixed_Case;
 
@@ -74,11 +73,13 @@ package body Prj is
       Implementation_Exceptions => No_Array_Element);
 
    Project_Empty : constant Project_Data :=
-     (First_Referred_By              => No_Project,
+     (Languages                      => No_Languages,
+      Impl_Suffixes                  => No_Impl_Suffixes,
+      First_Referred_By              => No_Project,
       Name                           => No_Name,
       Path_Name                      => No_Name,
-      Virtual                        => False,
       Display_Path_Name              => No_Name,
+      Virtual                        => False,
       Location                       => No_Location,
       Mains                          => Nil_String,
       Directory                      => No_Name,
@@ -92,13 +93,18 @@ package body Prj is
       Library_Name                   => No_Name,
       Library_Kind                   => Static,
       Lib_Internal_Name              => No_Name,
-      Lib_Elaboration                => False,
       Standalone_Library             => False,
       Lib_Interface_ALIs             => Nil_String,
       Lib_Auto_Init                  => False,
       Symbol_Data                    => No_Symbols,
-      Sources_Present                => True,
+      Ada_Sources_Present            => True,
+      Other_Sources_Present          => True,
       Sources                        => Nil_String,
+      First_Other_Source             => No_Other_Source,
+      Last_Other_Source              => No_Other_Source,
+      Imported_Directories_Switches  => null,
+      Include_Path                   => null,
+      Include_Data_Set               => False,
       Source_Dirs                    => Nil_String,
       Known_Order_Of_Source_Dirs     => True,
       Object_Directory               => No_Name,
@@ -121,8 +127,7 @@ package body Prj is
       Language_Independent_Checked   => False,
       Checked                        => False,
       Seen                           => False,
-      Flag1                          => False,
-      Flag2                          => False,
+      Need_To_Build_Lib              => False,
       Depth                          => 0,
       Unkept_Comments                => False);
 
@@ -156,7 +161,7 @@ package body Prj is
 
    function Empty_Project return Project_Data is
    begin
-      Initialize;
+      Prj.Initialize;
       return Project_Empty;
    end Empty_Project;
 
@@ -235,6 +240,7 @@ package body Prj is
    begin
       if not Initialized then
          Initialized := True;
+         Uintp.Initialize;
          Name_Len := 0;
          The_Empty_String := Name_Find;
          Empty_Name := The_Empty_String;
@@ -247,11 +253,21 @@ package body Prj is
          Name_Len := 1;
          Name_Buffer (1) := '/';
          Slash := Name_Find;
+
+         for Lang in Programming_Language loop
+            Name_Len := Lang_Names (Lang)'Length;
+            Name_Buffer (1 .. Name_Len) := Lang_Names (Lang).all;
+            Lang_Name_Ids (Lang) := Name_Find;
+            Name_Len := Lang_Suffixes (Lang)'Length;
+            Name_Buffer (1 .. Name_Len) := Lang_Suffixes (Lang).all;
+            Lang_Suffix_Ids (Lang) := Name_Find;
+         end loop;
+
          Std_Naming_Data.Current_Spec_Suffix := Default_Ada_Spec_Suffix;
          Std_Naming_Data.Current_Body_Suffix := Default_Ada_Body_Suffix;
          Std_Naming_Data.Separate_Suffix     := Default_Ada_Body_Suffix;
          Register_Default_Naming_Scheme
-           (Language            => Ada_Language,
+           (Language            => Name_Ada,
             Default_Spec_Suffix => Default_Ada_Spec_Suffix,
             Default_Body_Suffix => Default_Ada_Body_Suffix);
          Prj.Env.Initialize;
@@ -306,13 +322,15 @@ package body Prj is
 
       if not Found then
          Element :=
-           (Index => Lang,
+           (Index     => Lang,
+            Src_Index => 0,
             Index_Case_Sensitive => False,
             Value => (Project  => No_Project,
                       Kind     => Single,
                       Location => No_Location,
                       Default  => False,
-                      Value    => Default_Spec_Suffix),
+                      Value    => Default_Spec_Suffix,
+                      Index    => 0),
             Next  => Std_Naming_Data.Spec_Suffix);
          Array_Elements.Increment_Last;
          Array_Elements.Table (Array_Elements.Last) := Element;
@@ -342,13 +360,15 @@ package body Prj is
 
       if not Found then
          Element :=
-           (Index => Lang,
+           (Index     => Lang,
+            Src_Index => 0,
             Index_Case_Sensitive => False,
             Value => (Project  => No_Project,
                       Kind     => Single,
                       Location => No_Location,
                       Default  => False,
-                      Value    => Default_Body_Suffix),
+                      Value    => Default_Body_Suffix,
+                      Index    => 0),
             Next  => Std_Naming_Data.Body_Suffix);
          Array_Elements.Increment_Last;
          Array_Elements.Table (Array_Elements.Last) := Element;
@@ -356,9 +376,9 @@ package body Prj is
       end if;
    end Register_Default_Naming_Scheme;
 
-   ------------
-   --  Reset --
-   ------------
+   -----------
+   -- Reset --
+   -----------
 
    procedure Reset is
    begin
@@ -370,6 +390,7 @@ package body Prj is
       String_Elements.Init;
       Prj.Com.Units.Init;
       Prj.Com.Units_Htable.Reset;
+      Prj.Com.Files_Htable.Reset;
    end Reset;
 
    ------------------------
@@ -394,7 +415,7 @@ package body Prj is
 
    function Standard_Naming_Data return Naming_Data is
    begin
-      Initialize;
+      Prj.Initialize;
       return Std_Naming_Data;
    end Standard_Naming_Data;
 

@@ -37,11 +37,14 @@
 /* We need type definitions from the MMX header file.  */
 #include <mmintrin.h>
 
+/* Get _mm_malloc () and _mm_free ().  */
+#include <mm_malloc.h>
+
 /* The data type intended for user use.  */
-typedef int __m128 __attribute__ ((__mode__(__V4SF__)));
+typedef float __m128 __attribute__ ((vector_size (16)));
 
 /* Internal data types for implementing the intrinsics.  */
-typedef int __v4sf __attribute__ ((__mode__(__V4SF__)));
+typedef float __v4sf __attribute__ ((vector_size (16)));
 
 /* Create a selector for use with the SHUFPS instruction.  */
 #define _MM_SHUFFLE(fp3,fp2,fp1,fp0) \

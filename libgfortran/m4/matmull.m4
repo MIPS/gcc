@@ -23,11 +23,7 @@ Boston, MA 02111-1307, USA.  */
 #include <stdlib.h>
 #include <assert.h>
 #include "libgfortran.h"'
-include(types.m4)dnl
-define(rtype_kind, regexp(file, `_l\([0-9]+\)\.', `\1'))dnl
-define(rtype_code,`l'rtype_kind)dnl
-define(rtype,get_arraytype(l,rtype_kind))dnl
-define(rtype_name, get_typename(l, rtype_kind))dnl
+include(iparm.m4)dnl
 
 /* Dimensions: retarray(x,y) a(x, count) b(count,y).
    Either a or b can be rank 1.  In this case x or y is 1.  */
@@ -55,6 +51,36 @@ void
 
   assert (GFC_DESCRIPTOR_RANK (a) == 2
           || GFC_DESCRIPTOR_RANK (b) == 2);
+
+  if (retarray->data == NULL)
+    {
+      if (GFC_DESCRIPTOR_RANK (a) == 1)
+        {
+          retarray->dim[0].lbound = 0;
+          retarray->dim[0].ubound = b->dim[1].ubound - b->dim[1].lbound;
+          retarray->dim[0].stride = 1;
+        }
+      else if (GFC_DESCRIPTOR_RANK (b) == 1)
+        {
+          retarray->dim[0].lbound = 0;
+          retarray->dim[0].ubound = a->dim[0].ubound - a->dim[0].lbound;
+          retarray->dim[0].stride = 1;
+        }
+      else
+        {
+          retarray->dim[0].lbound = 0;
+          retarray->dim[0].ubound = a->dim[0].ubound - a->dim[0].lbound;
+          retarray->dim[0].stride = 1;
+          
+          retarray->dim[1].lbound = 0;
+          retarray->dim[1].ubound = b->dim[1].ubound - b->dim[1].lbound;
+          retarray->dim[1].stride = retarray->dim[0].ubound+1;
+        }
+          
+      retarray->data = internal_malloc (sizeof (rtype_name) * size0 (retarray));
+      retarray->base = 0;
+    }
+
   abase = a->data;
   if (GFC_DESCRIPTOR_SIZE (a) != 4)
     {

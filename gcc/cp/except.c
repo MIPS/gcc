@@ -37,6 +37,7 @@ Boston, MA 02111-1307, USA.  */
 #include "except.h"
 #include "toplev.h"
 #include "tree-inline.h"
+#include "tree-iterator.h"
 
 static void push_eh_cleanup (tree);
 static tree prepare_eh_type (tree);
@@ -51,7 +52,6 @@ static tree wrap_cleanups_r (tree *, int *, void *);
 static int complete_ptr_ref_or_void_ptr_p (tree, tree);
 static bool is_admissible_throw_operand (tree);
 static int can_convert_eh (tree, tree);
-static void check_handlers_1 (tree, tree);
 static tree cp_protect_cleanup_actions (void);
 
 /* Sets up all the global eh stuff that needs to be initialized at the
@@ -150,7 +150,7 @@ build_eh_type_type (tree type)
 tree
 build_exc_ptr (void)
 {
-  return build (EXC_PTR_EXPR, ptr_type_node);
+  return build0 (EXC_PTR_EXPR, ptr_type_node);
 }
 
 /* Build up a call to __cxa_begin_catch, to tell the runtime that the
@@ -312,7 +312,7 @@ choose_personality_routine (enum languages lang)
       break;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
   return;
 
@@ -407,8 +407,8 @@ expand_start_catch_block (tree decl)
 	     generic exception header.  */
 	  init = build_exc_ptr ();
 	  init = build1 (NOP_EXPR, build_pointer_type (type), init);
-	  init = build (MINUS_EXPR, TREE_TYPE (init), init,
-			TYPE_SIZE_UNIT (TREE_TYPE (init)));
+	  init = build2 (MINUS_EXPR, TREE_TYPE (init), init,
+			 TYPE_SIZE_UNIT (TREE_TYPE (init)));
 	  init = build_indirect_ref (init, NULL);
 	  is_java = true;
 	}
@@ -462,6 +462,7 @@ begin_eh_spec_block (void)
 {
   tree r = build_stmt (EH_SPEC_BLOCK, NULL_TREE, NULL_TREE);
   add_stmt (r);
+  EH_SPEC_STMTS (r) = push_stmt_list ();
   return r;
 }
 
@@ -470,7 +471,7 @@ finish_eh_spec_block (tree raw_raises, tree eh_spec_block)
 {
   tree raises;
 
-  RECHAIN_STMTS (eh_spec_block, EH_SPEC_STMTS (eh_spec_block));
+  EH_SPEC_STMTS (eh_spec_block) = pop_stmt_list (EH_SPEC_STMTS (eh_spec_block));
 
   /* Strip cv quals, etc, from the specification types.  */
   for (raises = NULL_TREE;
@@ -610,18 +611,18 @@ build_throw (tree exp)
       tree temp_expr, allocate_expr;
       bool elided;
 
+      /* The CLEANUP_TYPE is the internal type of a destructor.  */
+      if (!cleanup_type)
+	{
+	  tmp = void_list_node;
+	  tmp = tree_cons (NULL_TREE, ptr_type_node, tmp);
+	  tmp = build_function_type (void_type_node, tmp);
+	  cleanup_type = build_pointer_type (tmp);
+	}
+      
       fn = get_identifier ("__cxa_throw");
       if (!get_global_value_if_present (fn, &fn))
 	{
-	  /* The CLEANUP_TYPE is the internal type of a destructor.  */
-	  if (cleanup_type == NULL_TREE)
-	    {
-	      tmp = void_list_node;
-	      tmp = tree_cons (NULL_TREE, ptr_type_node, tmp);
-	      tmp = build_function_type (void_type_node, tmp);
-	      cleanup_type = build_pointer_type (tmp);
-	    }
-
 	  /* Declare void __cxa_throw (void*, void*, void (*)(void*)).  */
 	  /* ??? Second argument is supposed to be "std::type_info*".  */
 	  tmp = void_list_node;
@@ -631,7 +632,7 @@ build_throw (tree exp)
 	  tmp = build_function_type (void_type_node, tmp);
 	  fn = push_throw_library_fn (fn, tmp);
 	}
-
+      
       /* throw expression */
       /* First, decay it.  */
       exp = decay_conversion (exp);
@@ -684,16 +685,17 @@ build_throw (tree exp)
          because it will only return false in cases where elided is true,
          and therefore we don't need to work around the failure to
          preevaluate.  */
+      temp_expr = NULL_TREE;
       stabilize_init (exp, &temp_expr);
 
       if (elided)
-	exp = build (TRY_CATCH_EXPR, void_type_node, exp,
-		     do_free_exception (ptr));
+	exp = build2 (TRY_CATCH_EXPR, void_type_node, exp,
+		      do_free_exception (ptr));
       else
 	exp = build1 (MUST_NOT_THROW_EXPR, void_type_node, exp);
 
       /* Prepend the allocation.  */
-      exp = build (COMPOUND_EXPR, TREE_TYPE (exp), allocate_expr, exp);
+      exp = build2 (COMPOUND_EXPR, TREE_TYPE (exp), allocate_expr, exp);
       if (temp_expr)
 	{
 	  /* Prepend the calculation of the throw expression.  Also, force
@@ -702,7 +704,7 @@ build_throw (tree exp)
 	     them in MUST_NOT_THROW_EXPR, since they are run after the
 	     exception object is initialized.  */
 	  walk_tree_without_duplicates (&temp_expr, wrap_cleanups_r, 0);
-	  exp = build (COMPOUND_EXPR, TREE_TYPE (exp), temp_expr, exp);
+	  exp = build2 (COMPOUND_EXPR, TREE_TYPE (exp), temp_expr, exp);
 	  exp = build1 (CLEANUP_POINT_EXPR, TREE_TYPE (exp), exp);
 	}
 
@@ -719,11 +721,8 @@ build_throw (tree exp)
 	  cleanup = build1 (ADDR_EXPR, cleanup_type, cleanup);
 	}
       else
-	{
-	  cleanup = build_int_2 (0, 0);
-	  TREE_TYPE (cleanup) = cleanup_type;
-	}
-
+	cleanup = build_int_cst (cleanup_type, 0);
+	
       tmp = tree_cons (NULL_TREE, cleanup, NULL_TREE);
       tmp = tree_cons (NULL_TREE, throw_type, tmp);
       tmp = tree_cons (NULL_TREE, ptr, tmp);
@@ -731,7 +730,7 @@ build_throw (tree exp)
       tmp = build_function_call (fn, tmp);
 
       /* Tack on the initialization stuff.  */
-      exp = build (COMPOUND_EXPR, TREE_TYPE (tmp), exp, tmp);
+      exp = build2 (COMPOUND_EXPR, TREE_TYPE (tmp), exp, tmp);
     }
   else
     {
@@ -839,7 +838,10 @@ nothrow_libfn_p (tree fn)
     /* Can't be a C library function.  */
     return 0;
 
-  id = DECL_ASSEMBLER_NAME (fn);
+  /* Being a C library function, DECL_ASSEMBLER_NAME == DECL_NAME
+     unless the system headers are playing rename tricks, and if
+     they are, we don't want to be confused by them.  */
+  id = DECL_NAME (fn);
   return !!libc_name_p (IDENTIFIER_POINTER (id), IDENTIFIER_LENGTH (id));
 }
 
@@ -873,51 +875,57 @@ can_convert_eh (tree to, tree from)
   return 0;
 }
 
-/* Check whether any of HANDLERS are shadowed by another handler accepting
-   TYPE.  Note that the shadowing may not be complete; even if an exception
-   of type B would be caught by a handler for A, there could be a derived
-   class C for which A is an ambiguous base but B is not, so the handler
-   for B would catch an exception of type C.  */
+/* Check whether any of the handlers in I are shadowed by another handler
+   accepting TYPE.  Note that the shadowing may not be complete; even if
+   an exception of type B would be caught by a handler for A, there could
+   be a derived class C for which A is an ambiguous base but B is not, so
+   the handler for B would catch an exception of type C.  */
 
 static void
-check_handlers_1 (tree master, tree handlers)
+check_handlers_1 (tree master, tree_stmt_iterator i)
 {
   tree type = TREE_TYPE (master);
-  tree handler;
 
-  for (handler = handlers; handler; handler = TREE_CHAIN (handler))
-    if (TREE_TYPE (handler)
-	&& can_convert_eh (type, TREE_TYPE (handler)))
-      {
-	input_line = STMT_LINENO (handler);
-	warning ("exception of type `%T' will be caught",
-		    TREE_TYPE (handler));
-	input_line = STMT_LINENO (master);
-	warning ("   by earlier handler for `%T'", type);
-	break;
-      }
+  for (; !tsi_end_p (i); tsi_next (&i))
+    {
+      tree handler = tsi_stmt (i);
+      if (TREE_TYPE (handler) && can_convert_eh (type, TREE_TYPE (handler)))
+	{
+	  warning ("%Hexception of type `%T' will be caught",
+		   EXPR_LOCUS (handler), TREE_TYPE (handler));
+	  warning ("%H   by earlier handler for `%T'",
+		   EXPR_LOCUS (master), type);
+	  break;
+        }
+    }
 }
 
-/* Given a chain of HANDLERs, make sure that they're OK.  */
+/* Given a STATEMENT_LIST of HANDLERs, make sure that they're OK.  */
 
 void
 check_handlers (tree handlers)
 {
-  tree handler;
-  int save_line = input_line;
-  
-  for (handler = handlers; handler; handler = TREE_CHAIN (handler))
-    {
-      if (TREE_CHAIN (handler) == NULL_TREE)
-	/* No more handlers; nothing to shadow.  */;
-      else if (TREE_TYPE (handler) == NULL_TREE)
-	{
-	  input_line = STMT_LINENO (handler);
-	  pedwarn
-	    ("`...' handler must be the last handler for its try block");
-	}
-      else
-	check_handlers_1 (handler, TREE_CHAIN (handler));
-    }
-  input_line = save_line;
+  tree_stmt_iterator i;
+
+  /* If we don't have a STATEMENT_LIST, then we've just got one
+     handler, and thus nothing to warn about.  */
+  if (TREE_CODE (handlers) != STATEMENT_LIST)
+    return;
+
+  i = tsi_start (handlers);
+  if (!tsi_end_p (i))
+    while (1)
+      {
+        tree handler = tsi_stmt (i);
+	tsi_next (&i);
+
+	/* No more handlers; nothing to shadow.  */
+	if (tsi_end_p (i))
+	  break;
+	if (TREE_TYPE (handler) == NULL_TREE)
+	  pedwarn ("%H`...' handler must be the last handler for"
+		   " its try block", EXPR_LOCUS (handler));
+	else
+	  check_handlers_1 (handler, i);
+      }
 }

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -339,6 +339,7 @@ package body Sem_Ch5 is
       Set_Assignment_Type (Lhs, T1);
 
       Resolve (Rhs, T1);
+      Check_Unset_Reference (Rhs);
 
       --  Remaining steps are skipped if Rhs was syntactically in error
 
@@ -347,7 +348,6 @@ package body Sem_Ch5 is
       end if;
 
       T2 := Etype (Rhs);
-      Check_Unset_Reference (Rhs);
 
       if Covers (T1, T2) then
          null;
@@ -397,6 +397,20 @@ package body Sem_Ch5 is
          Propagate_Tag (Lhs, Rhs);
       end if;
 
+      --  Ada 2005 (AI-231)
+
+      if Ada_Version >= Ada_05
+        and then Nkind (Rhs) = N_Null
+        and then Is_Access_Type (T1)
+        and then not Assignment_OK (Lhs)
+        and then ((Is_Entity_Name (Lhs)
+                     and then Can_Never_Be_Null (Entity (Lhs)))
+                   or else Can_Never_Be_Null (Etype (Lhs)))
+      then
+         Error_Msg_N
+           ("(Ada 2005) NULL not allowed in null-excluding objects", Lhs);
+      end if;
+
       if Is_Scalar_Type (T1) then
          Apply_Scalar_Range_Check (Rhs, Etype (Lhs));
 
@@ -416,9 +430,15 @@ package body Sem_Ch5 is
          Apply_Length_Check (Rhs, Etype (Lhs));
 
       else
-         --  Discriminant checks are applied in the course of expansion.
+         --  Discriminant checks are applied in the course of expansion
+
          null;
       end if;
+
+      --  Note: modifications of the Lhs may only be recorded after
+      --  checks have been applied.
+
+      Note_Possible_Modification (Lhs);
 
       --  ??? a real accessibility check is needed when ???
 
@@ -447,8 +467,6 @@ package body Sem_Ch5 is
          Error_Msg_NE
            ("?useless assignment of & to itself", N, Entity (Lhs));
       end if;
-
-      Note_Possible_Modification (Lhs);
 
       --  Check for non-allowed composite assignment
 
@@ -579,6 +597,12 @@ package body Sem_Ch5 is
    ----------------------------
 
    procedure Analyze_Case_Statement (N : Node_Id) is
+      Exp            : Node_Id;
+      Exp_Type       : Entity_Id;
+      Exp_Btype      : Entity_Id;
+      Last_Choice    : Nat;
+      Dont_Care      : Boolean;
+      Others_Present : Boolean;
 
       Statements_Analyzed : Boolean := False;
       --  Set True if at least some statement sequences get analyzed.
@@ -622,22 +646,61 @@ package body Sem_Ch5 is
       ------------------------
 
       procedure Process_Statements (Alternative : Node_Id) is
+         Choices : constant List_Id := Discrete_Choices (Alternative);
+         Ent     : Entity_Id;
+
       begin
          Unblocked_Exit_Count := Unblocked_Exit_Count + 1;
          Statements_Analyzed := True;
+
+         --  An interesting optimization. If the case statement expression
+         --  is a simple entity, then we can set the current value within
+         --  an alternative if the alternative has one possible value.
+
+         --    case N is
+         --      when 1      => alpha
+         --      when 2 | 3  => beta
+         --      when others => gamma
+
+         --  Here we know that N is initially 1 within alpha, but for beta
+         --  and gamma, we do not know anything more about the initial value.
+
+         if Is_Entity_Name (Exp) then
+            Ent := Entity (Exp);
+
+            if Ekind (Ent) = E_Variable
+                 or else
+               Ekind (Ent) = E_In_Out_Parameter
+                 or else
+               Ekind (Ent) = E_Out_Parameter
+            then
+               if List_Length (Choices) = 1
+                 and then Nkind (First (Choices)) in N_Subexpr
+                 and then Compile_Time_Known_Value (First (Choices))
+               then
+                  Set_Current_Value (Entity (Exp), First (Choices));
+               end if;
+
+               Analyze_Statements (Statements (Alternative));
+
+               --  After analyzing the case, set the current value to empty
+               --  since we won't know what it is for the next alternative
+               --  (unless reset by this same circuit), or after the case.
+
+               Set_Current_Value (Entity (Exp), Empty);
+               return;
+            end if;
+         end if;
+
+         --  Case where expression is not an entity name of a variable
+
          Analyze_Statements (Statements (Alternative));
       end Process_Statements;
 
-      --  Variables local to Analyze_Case_Statement.
+      --  Table to record choices. Put after subprograms since we make
+      --  a call to Number_Of_Choices to get the right number of entries.
 
-      Exp       : Node_Id;
-      Exp_Type  : Entity_Id;
-      Exp_Btype : Entity_Id;
-
-      Case_Table     : Choice_Table_Type (1 .. Number_Of_Choices (N));
-      Last_Choice    : Nat;
-      Dont_Care      : Boolean;
-      Others_Present : Boolean;
+      Case_Table : Choice_Table_Type (1 .. Number_Of_Choices (N));
 
    --  Start of processing for Analyze_Case_Statement
 
@@ -667,7 +730,7 @@ package body Sem_Ch5 is
            ("character literal as case expression is ambiguous", Exp);
          return;
 
-      elsif Ada_83
+      elsif Ada_Version = Ada_83
         and then (Is_Generic_Type (Exp_Btype)
                     or else Is_Generic_Type (Root_Type (Exp_Btype)))
       then

@@ -100,7 +100,8 @@ package body Bindgen is
    --      Num_Interrupt_States     : Integer;
    --      Unreserve_All_Interrupts : Integer;
    --      Exception_Tracebacks     : Integer;
-   --      Zero_Cost_Exceptions     : Integer);
+   --      Zero_Cost_Exceptions     : Integer;
+   --      Detect_Blocking          : Integer);
 
    --  Main_Priority is the priority value set by pragma Priority in the
    --  main program. If no such pragma is present, the value is -1.
@@ -161,6 +162,11 @@ package body Bindgen is
    --  Zero_Cost_Exceptions is set to one if zero cost exceptions are used for
    --  this partition, and to zero if longjmp/setjmp exceptions are used.
    --  the use of zero
+
+   --  Detect_Blocking indicates whether pragma Detect_Blocking is
+   --  active or not. A value of zero indicates that the pragma is not
+   --  present, while a value of 1 signals its presence in the
+   --  partition.
 
    -----------------------
    -- Local Subprograms --
@@ -274,6 +280,9 @@ package body Bindgen is
    --  Set given character in Statement_Buffer at the Last + 1 position
    --  and increment Last by one to reflect the stored character.
 
+   procedure Set_EA_Last;
+   --  Output the number of elements in array EA
+
    procedure Set_Int (N : Int);
    --  Set given value in decimal in Statement_Buffer with no spaces
    --  starting at the Last + 1 position, and updating Last past the value.
@@ -334,6 +343,11 @@ package body Bindgen is
 
       if Hostparm.Java_VM then
          WBI ("      System.Standard_Library.Adafinal;");
+
+      --  If there is no finalization, there is nothing to do
+
+      elsif Cumulative_Restrictions.Set (No_Finalization) then
+         WBI ("      null;");
       else
          WBI ("      Do_Finalize;");
       end if;
@@ -371,7 +385,21 @@ package body Bindgen is
             U    : Unit_Record renames Units.Table (Unum);
 
          begin
-            if U.Set_Elab_Entity and then not U.Interface then
+            --  Check for Elab_Entity to be set for this unit
+
+            if U.Set_Elab_Entity
+
+            --  Don't generate reference for stand alone library
+
+              and then not U.Interface
+
+            --  Don't generate reference for predefined file in No_Run_Time
+            --  mode, since we don't include the object files in this case
+
+              and then not
+                (No_Run_Time_Mode
+                   and then Is_Predefined_File_Name (U.Sfile))
+            then
                Set_String ("      ");
                Set_String ("E");
                Set_Unit_Number (Unum);
@@ -502,12 +530,14 @@ package body Bindgen is
          WBI ("         Locking_Policy           : Character;");
          WBI ("         Queuing_Policy           : Character;");
          WBI ("         Task_Dispatching_Policy  : Character;");
+
          WBI ("         Restrictions             : System.Address;");
          WBI ("         Interrupt_States         : System.Address;");
          WBI ("         Num_Interrupt_States     : Integer;");
          WBI ("         Unreserve_All_Interrupts : Integer;");
          WBI ("         Exception_Tracebacks     : Integer;");
-         WBI ("         Zero_Cost_Exceptions     : Integer);");
+         WBI ("         Zero_Cost_Exceptions     : Integer;");
+         WBI ("         Detect_Blocking          : Integer);");
          WBI ("      pragma Import (C, Set_Globals, ""__gnat_set_globals"");");
 
          --  Import entry point for elaboration time signal handler
@@ -608,6 +638,17 @@ package body Bindgen is
             Set_String ("0");
          end if;
 
+         Set_String (",");
+         Write_Statement_Buffer;
+
+         Set_String ("         Detect_Blocking          => ");
+
+         if Detect_Blocking then
+            Set_Int (1);
+         else
+            Set_Int (0);
+         end if;
+
          Set_String (");");
          Write_Statement_Buffer;
 
@@ -667,8 +708,23 @@ package body Bindgen is
          declare
             Unum : constant Unit_Id := Elab_Order.Table (E);
             U    : Unit_Record renames Units.Table (Unum);
+
          begin
-            if U.Set_Elab_Entity and then not U.Interface then
+            --  Check for Elab entity to be set for this unit
+
+            if U.Set_Elab_Entity
+
+            --  Don't generate reference for stand alone library
+
+              and then not U.Interface
+
+            --  Don't generate reference for predefined file in No_Run_Time
+            --  mode, since we don't include the object files in this case
+
+              and then not
+                (No_Run_Time_Mode
+                   and then Is_Predefined_File_Name (U.Sfile))
+            then
                Set_String ("   extern char ");
                Get_Name_String (U.Uname);
                Set_Unit_Name;
@@ -826,9 +882,22 @@ package body Bindgen is
 
          Set_String ("      ");
          Set_Int    (Boolean'Pos (Zero_Cost_Exceptions_Specified));
-         Set_String (");");
+         Set_String (",");
          Tab_To (24);
          Set_String ("/* Zero_Cost_Exceptions       */");
+         Write_Statement_Buffer;
+
+         Set_String ("      ");
+
+         if Detect_Blocking then
+            Set_Int (1);
+         else
+            Set_Int (0);
+         end if;
+
+         Set_String (");");
+         Tab_To (24);
+         Set_String ("/* Detect_Blocking            */");
          Write_Statement_Buffer;
          WBI ("");
 
@@ -894,9 +963,14 @@ package body Bindgen is
                Unum_Spec := Unum;
             end if;
 
+            --  Nothing to do if predefined unit in no run time mode
+
+            if No_Run_Time_Mode and then Is_Predefined_File_Name (U.Sfile) then
+               null;
+
             --  Case of no elaboration code
 
-            if U.No_Elab then
+            elsif U.No_Elab then
 
                --  The only case in which we have to do something is if
                --  this is a body, with a separate spec, where the separate
@@ -989,7 +1063,6 @@ package body Bindgen is
 
    procedure Gen_Elab_Calls_C is
    begin
-
       for E in Elab_Order.First .. Elab_Order.Last loop
          declare
             Unum : constant Unit_Id := Elab_Order.Table (E);
@@ -1008,9 +1081,14 @@ package body Bindgen is
                Unum_Spec := Unum;
             end if;
 
+            --  Nothing to do if predefined unit in no run time mode
+
+            if No_Run_Time_Mode and then Is_Predefined_File_Name (U.Sfile) then
+               null;
+
             --  Case of no elaboration code
 
-            if U.No_Elab then
+            elsif U.No_Elab then
 
                --  The only case in which we have to do something is if
                --  this is a body, with a separate spec, where the separate
@@ -1224,45 +1302,51 @@ package body Bindgen is
       Set_String (") of System.Address := (");
 
       if Num = 1 then
-         Set_String ("1 => A1);");
-         Write_Statement_Buffer;
+         Set_String ("1 => ");
 
       else
          Write_Statement_Buffer;
-
-         for A in ALIs.First .. ALIs.Last loop
-            if not ALIs.Table (A).Interface
-              and then ALIs.Table (A).Unit_Exception_Table
-            then
-               Get_Decoded_Name_String_With_Brackets
-                 (Units.Table (ALIs.Table (A).First_Unit).Uname);
-               Set_Casing (Mixed_Case);
-               Set_String ("        ");
-               Set_String (Name_Buffer (1 .. Name_Len - 2));
-               Set_String ("'UET_Address");
-
-               if A = Last then
-                  Set_String (");");
-               else
-                  Set_Char (',');
-               end if;
-
-               Write_Statement_Buffer;
-            end if;
-         end loop;
       end if;
+
+      for A in ALIs.First .. ALIs.Last loop
+         if not ALIs.Table (A).Interface
+           and then ALIs.Table (A).Unit_Exception_Table
+         then
+            Get_Decoded_Name_String_With_Brackets
+              (Units.Table (ALIs.Table (A).First_Unit).Uname);
+            Set_Casing (Mixed_Case);
+
+            if Num /= 1 then
+               Set_String ("        ");
+            end if;
+
+            Set_String (Name_Buffer (1 .. Name_Len - 2));
+            Set_String ("'UET_Address");
+
+            if A = Last then
+               Set_String (");");
+            else
+               Set_Char (',');
+            end if;
+
+            Write_Statement_Buffer;
+         end if;
+      end loop;
 
       WBI (" ");
       Set_String ("      EA : aliased constant array (1 .. ");
-      Set_Int (Num_Elab_Calls + 2);
+      Set_EA_Last;
       Set_String (") of System.Address := (");
       Write_Statement_Buffer;
-      WBI ("        " & Ada_Init_Name.all & "'Code_Address,");
+      Set_String ("        " & Ada_Init_Name.all & "'Code_Address");
 
       --  If compiling for the JVM, we directly reference Adafinal because
       --  we don't import it via Do_Finalize (see Gen_Output_File_Ada).
 
       if not Cumulative_Restrictions.Set (No_Finalization) then
+         Set_Char (',');
+         Write_Statement_Buffer;
+
          if Hostparm.Java_VM then
             Set_String
               ("        System.Standard_Library.Adafinal'Code_Address");
@@ -1307,7 +1391,7 @@ package body Bindgen is
       Set_String ("      SDP_Table_Build (ST'Address, ");
       Set_Int (Num);
       Set_String (", EA'Address, ");
-      Set_Int (Num_Elab_Calls + 2);
+      Set_EA_Last;
       Set_String (");");
       Write_Statement_Buffer;
    end Gen_Exception_Table_Ada;
@@ -1422,13 +1506,15 @@ package body Bindgen is
 
       WBI ("");
       Set_String ("   void (*ea[");
-      Set_Int (Num_Elab_Calls + 2);
+      Set_EA_Last;
       Set_String ("]) () = {");
       Write_Statement_Buffer;
 
-      WBI ("     " & Ada_Init_Name.all & ",");
+      Set_String ("     " & Ada_Init_Name.all);
 
       if not Cumulative_Restrictions.Set (No_Finalization) then
+         Set_Char (',');
+         Write_Statement_Buffer;
          Set_String ("     system__standard_library__adafinal");
       end if;
 
@@ -1456,7 +1542,7 @@ package body Bindgen is
       Set_String ("   __gnat_SDP_Table_Build (&st, ");
       Set_Int (Num);
       Set_String (", ea, ");
-      Set_Int (Num_Elab_Calls + 2);
+      Set_EA_Last;
       Set_String (");");
       Write_Statement_Buffer;
    end Gen_Exception_Table_C;
@@ -1867,6 +1953,7 @@ package body Bindgen is
               or else GNAT.OS_Lib.Is_Regular_File (Name_Buffer (1 .. Name_Len))
             then
                Write_Info_Ada_C ("   --   ", "", Name_Buffer (1 .. Name_Len));
+
                if Output_Object_List then
                   Write_Str (Name_Buffer (1 .. Name_Len));
                   Write_Eol;
@@ -2024,6 +2111,7 @@ package body Bindgen is
 
    procedure Gen_Output_File (Filename : String) is
       Is_Public_Version : constant Boolean := Get_Gnat_Build_Type = Public;
+      Is_GAP_Version    : constant Boolean := Get_Gnat_Build_Type = GAP;
 
    begin
       --  Acquire settings for Interrupt_State pragmas
@@ -2057,7 +2145,7 @@ package body Bindgen is
 
       --  Get the time stamp of the former bind for public version warning
 
-      if Is_Public_Version then
+      if Is_Public_Version or Is_GAP_Version then
          Record_Time_From_Last_Bind;
       end if;
 
@@ -2204,15 +2292,10 @@ package body Bindgen is
             """__gnat_ada_main_program_name"");");
       end if;
 
-      --  No need to generate a finalization routine if finalization
-      --  is restricted, since there is nothing to do in this case.
-
-      if not Cumulative_Restrictions.Set (No_Finalization) then
-         WBI ("");
-         WBI ("   procedure " & Ada_Final_Name.all & ";");
-         WBI ("   pragma Export (C, " & Ada_Final_Name.all & ", """ &
-              Ada_Final_Name.all & """);");
-      end if;
+      WBI ("");
+      WBI ("   procedure " & Ada_Final_Name.all & ";");
+      WBI ("   pragma Export (C, " & Ada_Final_Name.all & ", """ &
+           Ada_Final_Name.all & """);");
 
       WBI ("");
       WBI ("   procedure " & Ada_Init_Name.all & ";");
@@ -2331,11 +2414,7 @@ package body Bindgen is
 
       Gen_Adainit_Ada;
 
-      --  No need to generate a finalization routine if no finalization
-
-      if not Cumulative_Restrictions.Set (No_Finalization) then
-         Gen_Adafinal_Ada;
-      end if;
+      Gen_Adafinal_Ada;
 
       if Bind_Main_Program then
 
@@ -2380,7 +2459,7 @@ package body Bindgen is
       WBI ("extern void __gnat_set_globals");
       WBI ("  (int, int, char, char, char, char,");
       WBI ("   const char *, const char *,");
-      WBI ("   int, int, int, int);");
+      WBI ("   int, int, int, int, int);");
       WBI ("extern void " & Ada_Final_Name.all & " (void);");
       WBI ("extern void " & Ada_Init_Name.all & " (void);");
       WBI ("extern void system__standard_library__adafinal (void);");
@@ -2983,6 +3062,24 @@ package body Bindgen is
       Statement_Buffer (Last) := C;
    end Set_Char;
 
+   -----------------
+   -- Set_EA_Last --
+   -----------------
+
+   procedure Set_EA_Last is
+   begin
+      --  When there is no finalization, only adainit is added
+
+      if Cumulative_Restrictions.Set (No_Finalization) then
+         Set_Int (Num_Elab_Calls + 1);
+
+      --  When there is finalization, both adainit and adafinal are added
+
+      else
+         Set_Int (Num_Elab_Calls + 2);
+      end if;
+   end Set_EA_Last;
+
    -------------
    -- Set_Int --
    -------------
@@ -3096,7 +3193,7 @@ package body Bindgen is
    ---------------------
 
    procedure Set_Unit_Number (U : Unit_Id) is
-      Num_Units : constant Nat := Nat (Units.Table'Last) - Nat (Unit_Id'First);
+      Num_Units : constant Nat := Nat (Units.Last) - Nat (Unit_Id'First);
       Unum      : constant Nat := Nat (U) - Nat (Unit_Id'First);
 
    begin

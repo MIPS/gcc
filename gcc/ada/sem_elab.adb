@@ -359,7 +359,7 @@ package body Sem_Elab is
             return;
          end if;
 
-         --  Nothing to do for imported entities,
+         --  Nothing to do for imported entities
 
          if Is_Imported (Ent) then
             return;
@@ -426,8 +426,8 @@ package body Sem_Elab is
 
       --  If the generic entity is within a deeper instance than we are, then
       --  either the instantiation to which we refer itself caused an ABE, in
-      --  which case that will be handled separately. Otherwise, we know that
-      --  the body we need appears as needed at the point of the instantiation.
+      --  which case that will be handled separately, or else we know that the
+      --  body we need appears as needed at the point of the instantiation.
       --  However, this assumption is only valid if we are in static mode.
 
       if not Dynamic_Elaboration_Checks
@@ -638,11 +638,13 @@ package body Sem_Elab is
          --  Find top level scope for called entity (not following renamings
          --  or derivations). This is where the Elaborate_All will go if it
          --  is needed. We start with the called entity, except in the case
-         --  of initialization procedures, where the init proc is in the root
-         --  package, where we start fromn the entity of the name in the call.
+         --  of an initialization procedure outside the current package, where
+         --  the init proc is in the root package, and we start from the entity
+         --  of the name in the call.
 
          if Is_Entity_Name (Name (N))
            and then Is_Init_Proc (Entity (Name (N)))
+           and then not In_Same_Extended_Unit (N, Entity (Name (N)))
          then
             W_Scope := Scope (Entity (Name (N)));
          else
@@ -810,7 +812,7 @@ package body Sem_Elab is
       --  current declarative part
 
       if not Same_Elaboration_Scope (Current_Scope, Scope (Ent))
-        or else not In_Same_Extended_Unit (Sloc (N), Sloc (Ent))
+        or else not In_Same_Extended_Unit (N, Ent)
       then
          return;
       end if;
@@ -963,7 +965,10 @@ package body Sem_Elab is
       --  will be doing the actual call later, not now, and it
       --  is at the time of the actual call (statically speaking)
       --  that we must do our static check, not at the time of
-      --  its initial analysis).
+      --  its initial analysis). However, we have to check calls
+      --  within component definitions (e.g., a function call
+      --  that determines an array component bound), so we
+      --  terminate the loop in that case.
 
       P := Parent (N);
       while Present (P) loop
@@ -972,6 +977,13 @@ package body Sem_Elab is
             Nkind (P) = N_Component_Declaration
          then
             return;
+
+         --  The call occurs within the constraint of a component,
+         --  so it must be checked.
+
+         elsif Nkind (P) = N_Component_Definition then
+            exit;
+
          else
             P := Parent (P);
          end if;

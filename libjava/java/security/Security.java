@@ -1,5 +1,5 @@
 /* Security.java --- Java base security class implementation
-   Copyright (C) 1999, 2001, 2002, 2003, Free Software Foundation, Inc.
+   Copyright (C) 1999, 2001, 2002, 2003, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -57,9 +57,9 @@ import java.util.Vector;
  * This class centralizes all security properties and common security methods.
  * One of its primary uses is to manage providers.
  *
- * @author Mark Benvenuto <ivymccough@worldnet.att.net>
+ * @author Mark Benvenuto (ivymccough@worldnet.att.net)
  */
-public final class Security extends Object
+public final class Security
 {
   private static final String ALG_ALIAS = "Alg.Alias.";
 
@@ -150,7 +150,7 @@ public final class Security extends Object
 	result = false;
       }
 
-    return false;
+    return result;
   }
 
   /**
@@ -237,7 +237,7 @@ public final class Security extends Object
     int max = providers.size ();
     for (int i = 0; i < max; i++)
       {
-	if (((Provider) providers.elementAt(i)).getName() == provider.getName())
+	if (((Provider) providers.elementAt(i)).getName().equals(provider.getName()))
 	  return -1;
       }
 
@@ -312,7 +312,7 @@ public final class Security extends Object
     int max = providers.size ();
     for (int i = 0; i < max; i++)
       {
-	if (((Provider) providers.elementAt(i)).getName() == name)
+	if (((Provider) providers.elementAt(i)).getName().equals(name))
 	  {
 	    providers.remove(i);
 	    break;
@@ -349,7 +349,7 @@ public final class Security extends Object
     for (int i = 0; i < max; i++)
       {
 	p = (Provider) providers.elementAt(i);
-	if (p.getName() == name)
+	if (p.getName().equals(name))
 	  return p;
       }
     return null;
@@ -411,7 +411,7 @@ public final class Security extends Object
    * MessageDigest, Cipher, Mac, KeyStore). Returns an empty Set if there is no
    * provider that supports the specified service. For a complete list of Java
    * cryptographic services, please see the Java Cryptography Architecture API
-   * Specification & Reference. Note: the returned set is immutable.
+   * Specification &amp; Reference. Note: the returned set is immutable.
    *
    * @param serviceName the name of the Java cryptographic service (e.g.,
    * Signature, MessageDigest, Cipher, Mac, KeyStore). Note: this parameter is
@@ -466,7 +466,7 @@ public final class Security extends Object
    * formats:</p>
    *
    * <ul>
-   *    <li><p>&lt;crypto_service>.&lt;algorithm_or_type></p>
+   *    <li><p>&lt;crypto_service&gt;.&lt;algorithm_or_type&gt;</p>
    *    <p>The cryptographic service name must not contain any dots.</p>
    *    <p>A provider satisfies the specified selection criterion iff the
    *    provider implements the specified algorithm or type for the specified
@@ -475,10 +475,10 @@ public final class Security extends Object
    *    provider that supplied a CertificateFactory implementation for X.509
    *    certificates.</p></li>
    *
-   *    <li><p>&lt;crypto_service>.&lt;algorithm_or_type> &lt;attribute_name>:&lt;attribute_value></p>
+   *    <li><p>&lt;crypto_service&gt;.&lt;algorithm_or_type&gt; &lt;attribute_name&gt;:&lt;attribute_value&gt;</p>
    *    <p>The cryptographic service name must not contain any dots. There must
-   *    be one or more space charaters between the the &lt;algorithm_or_type>
-   *    and the &lt;attribute_name>.</p>
+   *    be one or more space charaters between the the &lt;algorithm_or_type&gt;
+   *    and the &lt;attribute_name&gt;.</p>
    *    <p>A provider satisfies this selection criterion iff the provider
    *    implements the specified algorithm or type for the specified
    *    cryptographic service and its implementation meets the constraint
@@ -530,17 +530,17 @@ public final class Security extends Object
   * of the following two formats:</p>
   *
   * <ul>
-  *    <li><p>&lt;crypto_service>.&lt;algorithm_or_type></p>
+  *    <li><p>&lt;crypto_service&gt;.&lt;algorithm_or_type&gt;</p>
   *    <p>The cryptographic service name must not contain any dots.</p>
   *    <p>The value associated with the key must be an empty string.</p>
   *    <p>A provider satisfies this selection criterion iff the provider
   *    implements the specified algorithm or type for the specified
   *    cryptographic service.</p></li>
   *
-  *    <li><p>&lt;crypto_service>.&lt;algorithm_or_type> &lt;attribute_name></p>
+  *    <li><p>&lt;crypto_service&gt;.&lt;algorithm_or_type&gt; &lt;attribute_name&gt;</p>
   *    <p>The cryptographic service name must not contain any dots. There must
-  *    be one or more space charaters between the &lt;algorithm_or_type> and
-  *    the &lt;attribute_name>.</p>
+  *    be one or more space charaters between the &lt;algorithm_or_type&gt; and
+  *    the &lt;attribute_name&gt;.</p>
   *    <p>The value associated with the key must be a non-empty string. A
   *    provider satisfies this selection criterion iff the provider implements
   *    the specified algorithm or type for the specified cryptographic service
@@ -670,7 +670,7 @@ public final class Security extends Object
     outer: for (int r = 0; r < 3; r++) // guard against circularity
       {
         serviceDotAlgorithm = (svc+"."+String.valueOf(algo)).trim();
-        inner: for (it = p.keySet().iterator(); it.hasNext(); )
+        for (it = p.keySet().iterator(); it.hasNext(); )
           {
             key = (String) it.next();
             if (key.equalsIgnoreCase(serviceDotAlgorithm)) // eureka

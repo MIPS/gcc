@@ -211,7 +211,9 @@ namespace std
 	void
 	_M_dispose(const _Alloc& __a)
 	{
+#ifndef _GLIBCXX_FULLY_DYNAMIC_STRING
 	  if (__builtin_expect(this != &_S_empty_rep(), false))
+#endif
 	    if (__gnu_cxx::__exchange_and_add(&this->_M_refcount, -1) <= 0)
 	      _M_destroy(__a);
 	}  // XXX MT
@@ -222,7 +224,9 @@ namespace std
 	_CharT*
 	_M_refcopy() throw()
 	{
+#ifndef _GLIBCXX_FULLY_DYNAMIC_STRING
 	  if (__builtin_expect(this != &_S_empty_rep(), false))
+#endif
             __gnu_cxx::__atomic_add(&this->_M_refcount, 1);
 	  return _M_refdata();
 	}  // XXX MT
@@ -418,14 +422,16 @@ namespace std
        *  @param  str  Source string.
        */
       basic_string&
-      operator=(const basic_string& __str) { return this->assign(__str); }
+      operator=(const basic_string& __str) 
+      { return this->assign(__str); }
 
       /**
        *  @brief  Copy contents of @a s into this string.
        *  @param  s  Source null-terminated string.
        */
       basic_string&
-      operator=(const _CharT* __s) { return this->assign(__s); }
+      operator=(const _CharT* __s) 
+      { return this->assign(__s); }
 
       /**
        *  @brief  Set value to string of length 1.
@@ -435,7 +441,11 @@ namespace std
        *  (*this)[0] == @a c.
        */
       basic_string&
-      operator=(_CharT __c) { return this->assign(1, __c); }
+      operator=(_CharT __c) 
+      { 
+	this->assign(1, __c); 
+	return *this;
+      }
 
       // Iterators:
       /**
@@ -1282,47 +1292,47 @@ namespace std
       // Specializations for the common case of pointer and iterator:
       // useful to avoid the overhead of temporary buffering in _M_replace.
       basic_string&
-        replace(iterator __i1, iterator __i2, _CharT* __k1, _CharT* __k2)
-        {
-	  _GLIBCXX_DEBUG_PEDASSERT(_M_ibegin() <= __i1 && __i1 <= __i2
-				   && __i2 <= _M_iend());
-	  __glibcxx_requires_valid_range(__k1, __k2);
-	  return this->replace(__i1 - _M_ibegin(), __i2 - __i1,
-			       __k1, __k2 - __k1);
-	}
+      replace(iterator __i1, iterator __i2, _CharT* __k1, _CharT* __k2)
+      {
+	_GLIBCXX_DEBUG_PEDASSERT(_M_ibegin() <= __i1 && __i1 <= __i2
+				 && __i2 <= _M_iend());
+	__glibcxx_requires_valid_range(__k1, __k2);
+	return this->replace(__i1 - _M_ibegin(), __i2 - __i1,
+			     __k1, __k2 - __k1);
+      }
 
       basic_string&
-        replace(iterator __i1, iterator __i2,
-		const _CharT* __k1, const _CharT* __k2)
-        {
-	  _GLIBCXX_DEBUG_PEDASSERT(_M_ibegin() <= __i1 && __i1 <= __i2
-				   && __i2 <= _M_iend());
-	  __glibcxx_requires_valid_range(__k1, __k2);
-	  return this->replace(__i1 - _M_ibegin(), __i2 - __i1,
-			       __k1, __k2 - __k1);
-	}
+      replace(iterator __i1, iterator __i2,
+	      const _CharT* __k1, const _CharT* __k2)
+      {
+	_GLIBCXX_DEBUG_PEDASSERT(_M_ibegin() <= __i1 && __i1 <= __i2
+				 && __i2 <= _M_iend());
+	__glibcxx_requires_valid_range(__k1, __k2);
+	return this->replace(__i1 - _M_ibegin(), __i2 - __i1,
+			     __k1, __k2 - __k1);
+      }
 
       basic_string&
-        replace(iterator __i1, iterator __i2, iterator __k1, iterator __k2)
-        {
-	  _GLIBCXX_DEBUG_PEDASSERT(_M_ibegin() <= __i1 && __i1 <= __i2
-				   && __i2 <= _M_iend());
-	  __glibcxx_requires_valid_range(__k1, __k2);
-	  return this->replace(__i1 - _M_ibegin(), __i2 - __i1,
-			       __k1.base(), __k2 - __k1);
-	}
+      replace(iterator __i1, iterator __i2, iterator __k1, iterator __k2)
+      {
+	_GLIBCXX_DEBUG_PEDASSERT(_M_ibegin() <= __i1 && __i1 <= __i2
+				 && __i2 <= _M_iend());
+	__glibcxx_requires_valid_range(__k1, __k2);
+	return this->replace(__i1 - _M_ibegin(), __i2 - __i1,
+			     __k1.base(), __k2 - __k1);
+      }
 
       basic_string&
-        replace(iterator __i1, iterator __i2,
-		const_iterator __k1, const_iterator __k2)
-        {
-	  _GLIBCXX_DEBUG_PEDASSERT(_M_ibegin() <= __i1 && __i1 <= __i2
-				   && __i2 <= _M_iend());
-	  __glibcxx_requires_valid_range(__k1, __k2);
-	  return this->replace(__i1 - _M_ibegin(), __i2 - __i1,
-			       __k1.base(), __k2 - __k1);
-	}
-
+      replace(iterator __i1, iterator __i2,
+	      const_iterator __k1, const_iterator __k2)
+      {
+	_GLIBCXX_DEBUG_PEDASSERT(_M_ibegin() <= __i1 && __i1 <= __i2
+				 && __i2 <= _M_iend());
+	__glibcxx_requires_valid_range(__k1, __k2);
+	return this->replace(__i1 - _M_ibegin(), __i2 - __i1,
+			     __k1.base(), __k2 - __k1);
+      }
+      
     private:
       template<class _Integer>
 	basic_string&
@@ -1342,7 +1352,9 @@ namespace std
 	if (this->max_size() - (this->size() - __n1) < __n2)
 	  __throw_length_error(__N("basic_string::_M_replace_aux"));
 	_M_mutate(__pos1, __n1, __n2);
-	if (__n2)
+	if (__n2 == 1)
+	  _M_data()[__pos1] = __c;
+	else if (__n2)
 	  traits_type::assign(_M_data() + __pos1, __n2, __c);
 	return *this;
       }
@@ -1352,7 +1364,9 @@ namespace std
 		      size_type __n2)
       {
 	_M_mutate(__pos1, __n1, __n2);
-	if (__n2)
+	if (__n2 == 1)
+	  _M_data()[__pos1] = *__s;
+	else if (__n2)
 	  traits_type::copy(_M_data() + __pos1, __s, __n2);
 	return *this;
       }
@@ -1947,11 +1961,14 @@ namespace std
 	      size_type __n2) const;
   };
 
-
   template<typename _CharT, typename _Traits, typename _Alloc>
     inline basic_string<_CharT, _Traits, _Alloc>::
     basic_string()
+#ifndef _GLIBCXX_FULLY_DYNAMIC_STRING
     : _M_dataplus(_S_empty_rep()._M_refdata(), _Alloc()) { }
+#else
+    : _M_dataplus(_S_construct(size_type(), _CharT(), _Alloc()), _Alloc()) { }
+#endif
 
   // operator+
   /**
@@ -1960,7 +1977,7 @@ namespace std
    *  @param rhs  Last string.
    *  @return  New string with value of @a lhs followed by @a rhs.
    */
- template<typename _CharT, typename _Traits, typename _Alloc>
+  template<typename _CharT, typename _Traits, typename _Alloc>
     basic_string<_CharT, _Traits, _Alloc>
     operator+(const basic_string<_CharT, _Traits, _Alloc>& __lhs,
 	      const basic_string<_CharT, _Traits, _Alloc>& __rhs)

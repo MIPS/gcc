@@ -23,6 +23,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "version.h"
 #include "flags.h"
 #include "real.h"
 #include "c-common.h"
@@ -31,6 +32,11 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "except.h"		/* For USING_SJLJ_EXCEPTIONS.  */
 #include "toplev.h"
 #include "tm_p.h"		/* Target prototypes.  */
+/* APPLE LOCAL begin pascal strings */
+#include "../libcpp/include/cpplib.h"
+#include "../libcpp/internal.h"
+/* APPLE LOCAL end pascal strings */
+#include "target.h"
 
 #ifndef TARGET_OS_CPP_BUILTINS
 # define TARGET_OS_CPP_BUILTINS()
@@ -52,6 +58,7 @@ static void builtin_define_with_int_value (const char *, HOST_WIDE_INT);
 static void builtin_define_with_hex_fp_value (const char *, tree,
 					      int, const char *,
 					      const char *);
+static void builtin_define_stdint_macros (void);
 static void builtin_define_type_max (const char *, tree, int);
 static void builtin_define_type_precision (const char *, tree);
 static void builtin_define_float_constants (const char *, const char *,
@@ -258,8 +265,7 @@ define__GNUC__ (void)
 
   while (*v && ! ISDIGIT (*v))
     v++;
-  if (!*v || (v > version_string && v[-1] != '-'))
-    abort ();
+  gcc_assert (*v && (v <= version_string || v[-1] == '-'));
 
   q = v;
   while (ISDIGIT (*v))
@@ -268,8 +274,8 @@ define__GNUC__ (void)
   if (c_dialect_cxx ())
     builtin_define_with_value_n ("__GNUG__", q, v - q);
 
-  if (*v != '.' || !ISDIGIT (v[1]))
-    abort ();
+  gcc_assert (*v == '.' || ISDIGIT (v[1]));
+  
   q = ++v;
   while (ISDIGIT (*v))
     v++;
@@ -277,8 +283,7 @@ define__GNUC__ (void)
 
   if (*v == '.')
     {
-      if (!ISDIGIT (v[1]))
-	abort ();
+      gcc_assert (ISDIGIT (v[1]));
       q = ++v;
       while (ISDIGIT (*v))
 	v++;
@@ -287,8 +292,50 @@ define__GNUC__ (void)
   else
     builtin_define_with_value_n ("__GNUC_PATCHLEVEL__", "0", 1);
 
-  if (*v && *v != ' ' && *v != '-')
-    abort ();
+  gcc_assert (!*v || *v == ' ' || *v == '-');
+
+  /* APPLE LOCAL begin Apple version */
+  {
+    /* This chunk of code defines __APPLE_CC__ from the version
+       string.  It expects to see a substring of the version string of
+       the form "build NNNN)", where each N is a digit, and the first
+       N is nonzero (there can be 4 or 5 digits).  It will abort() if
+       these conditions are not met, since that usually means that
+       someone's broken the version string.  */
+    const char *vt;
+    
+    vt = strstr (version_string, "build ");
+    if (vt == NULL)
+      abort ();
+    vt += strlen ("build ");
+    if (! ISDIGIT (*vt))
+      abort ();
+    for (q = vt; *q != 0 && ISDIGIT (*q); q++)
+      ;
+    if (q == vt || *q != ')')
+      abort ();
+    if ((q - vt != 4 && q - vt != 5) || *vt == '0')
+      abort ();
+    builtin_define_with_value_n ("__APPLE_CC__", vt, q - vt);
+  }
+  /* APPLE LOCAL end Apple version */
+}
+
+/* Define macros used by <stdint.h>.  Currently only defines limits
+   for intmax_t, used by the testsuite.  */
+static void
+builtin_define_stdint_macros (void)
+{
+  int intmax_long;
+  if (intmax_type_node == long_long_integer_type_node)
+    intmax_long = 2;
+  else if (intmax_type_node == long_integer_type_node)
+    intmax_long = 1;
+  else if (intmax_type_node == integer_type_node)
+    intmax_long = 0;
+  else
+    gcc_unreachable ();
+  builtin_define_type_max ("__INTMAX_MAX__", intmax_type_node, intmax_long);
 }
 
 /* Hook that registers front end and target-specific built-ins.  */
@@ -352,6 +399,9 @@ c_cpp_builtins (cpp_reader *pfile)
 
   builtin_define_type_precision ("__CHAR_BIT__", char_type_node);
 
+  /* stdint.h (eventually) and the testsuite need to know these.  */
+  builtin_define_stdint_macros ();
+
   /* float.h needs to know these.  */
 
   builtin_define_with_int_value ("__FLT_EVAL_METHOD__",
@@ -401,12 +451,19 @@ c_cpp_builtins (cpp_reader *pfile)
   if (!flag_signed_char)
     cpp_define (pfile, "__CHAR_UNSIGNED__");
 
-  if (c_dialect_cxx () && TREE_UNSIGNED (wchar_type_node))
+  if (c_dialect_cxx () && TYPE_UNSIGNED (wchar_type_node))
     cpp_define (pfile, "__WCHAR_UNSIGNED__");
 
   /* Make the choice of ObjC runtime visible to source code.  */
   if (c_dialect_objc () && flag_next_runtime)
     cpp_define (pfile, "__NEXT_RUNTIME__");
+
+  /* Show the availability of some target pragmas.  */
+  if (flag_mudflap || targetm.handle_pragma_redefine_extname)
+    cpp_define (pfile, "__PRAGMA_REDEFINE_EXTNAME");
+
+  if (targetm.handle_pragma_extern_prefix)
+    cpp_define (pfile, "__PRAGMA_EXTERN_PREFIX");
 
   /* A straightforward target hook doesn't work, because of problems
      linking that hook's body when part of non-C front ends.  */
@@ -417,6 +474,15 @@ c_cpp_builtins (cpp_reader *pfile)
   TARGET_CPU_CPP_BUILTINS ();
   TARGET_OS_CPP_BUILTINS ();
   TARGET_OBJFMT_CPP_BUILTINS ();
+
+  /* Support the __declspec keyword by turning them into attributes.
+     Note that the current way we do this may result in a collision
+     with predefined attributes later on.  This can be solved by using
+     one attribute, say __declspec__, and passing args to it.  The
+     problem with that approach is that args are not accumulated: each
+     new appearance would clobber any existing args.  */
+  if (TARGET_DECLSPEC)
+    builtin_define ("__declspec(x)=__attribute__((x))");
 }
 
 /* Pass an object-like macro.  If it doesn't lie in the user's
@@ -578,11 +644,11 @@ builtin_define_type_max (const char *macro, tree type, int is_long)
     case 32:	idx = 4; break;
     case 64:	idx = 6; break;
     case 128:	idx = 8; break;
-    default:    abort ();
+    default:    gcc_unreachable ();
     }
 
-  value = values[idx + TREE_UNSIGNED (type)];
-  suffix = suffixes[is_long * 2 + TREE_UNSIGNED (type)];
+  value = values[idx + TYPE_UNSIGNED (type)];
+  suffix = suffixes[is_long * 2 + TYPE_UNSIGNED (type)];
 
   buf = alloca (strlen (macro) + 1 + strlen (value) + strlen (suffix) + 1);
   sprintf (buf, "%s=%s%s", macro, value, suffix);

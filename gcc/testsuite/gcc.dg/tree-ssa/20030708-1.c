@@ -1,12 +1,14 @@
 /* { dg-do compile } */
 /* { dg-options "-O1 -fdump-tree-dom3" } */
+extern void abort (void);
 struct rtx_def;
 typedef struct rtx_def *rtx;
 enum rtx_code
 {
   CALL_INSN,
   EXPR_LIST,
-  NOTE
+  NOTE,
+  LAST = 256
 };
 
 struct rtx_def

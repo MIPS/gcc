@@ -6,6 +6,9 @@
 
 /* Source: Neil Booth, 25 Jul 2001.  */
 
+/* APPLE LOCAL -Wextra-tokens */
+/* { dg-options "-Wextra-tokens" } */
+
 #if 0
 #if foo
 #else foo   /* { dg-bogus "extra tokens" "extra tokens in skipped block" } */

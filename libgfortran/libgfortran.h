@@ -1,5 +1,5 @@
 /* Common declarations for all of libgfor.
-   Copyright 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>, and
    Andy Vaught <andy@xena.eas.asu.edu>
 
@@ -43,10 +43,14 @@ Boston, MA 02111-1307, USA.  */
 #include <stdint.h>
 #endif
 
+#if HAVE_INTTYPES_H
+#include <inttypes.h>
+#endif
+
 #if HAVE_SYS_TYPES_H
 #include <sys/types.h>
 #endif
-typedef off_t offset_t;
+typedef off_t gfc_offset;
 
 #ifndef NULL
 #define NULL (void *) 0
@@ -83,7 +87,12 @@ typedef double GFC_REAL_8;
 typedef complex float GFC_COMPLEX_4;
 typedef complex double GFC_COMPLEX_8;
 
+/* The following two definitions must be consistent with the types used
+   by the compiler.  */
+/* The type used of array indices, amongst other things.  */
 typedef size_t index_type;
+/* The type used for the lengths of character variables.  */
+typedef GFC_INTEGER_4 gfc_charlen_type;
 
 /* This will be 0 on little-endian machines and one on big-endian machines.  */
 #define l8_to_l4_offset prefix(l8_to_l4_offset)
@@ -228,6 +237,11 @@ extern unsigned line;		/* Location of the current libray call (optional).  */
 #define filename prefix(filename)
 extern char *filename;
 
+/* Avoid conflicting prototypes of alloca() in system headers by using 
+   GCC's builtin alloca().  */
+
+#define gfc_alloca(x)  __builtin_alloca(x)
+
 
 /* main.c */
 
@@ -245,9 +259,6 @@ void get_args (int *, char ***);
 
 
 /* error.c */
-#define rtoa prefix(rtoa)
-char *rtoa (double f, int length, int oprec);
-
 #define itoa prefix(itoa)
 char *itoa (int64_t);
 
@@ -386,11 +397,38 @@ void internal_unpack_4 (gfc_array_i4 *, const GFC_INTEGER_4 *);
 #define internal_unpack_8 prefix(internal_unpack_8)
 void internal_unpack_8 (gfc_array_i8 *, const GFC_INTEGER_8 *);
 
+/* date_and_time.c */
+
+#define date_and_time prefix(date_and_time)
+void date_and_time (char *, char *, char *, gfc_array_i4 *,
+                   GFC_INTEGER_4, GFC_INTEGER_4, GFC_INTEGER_4);
+
 /* string_intrinsics.c */
 
 #define compare_string prefix(compare_string)
 GFC_INTEGER_4 compare_string (GFC_INTEGER_4, const char *,
 			      GFC_INTEGER_4, const char *);
+
+/* random.c */
+
+#define random_seed prefix(random_seed)
+void random_seed (GFC_INTEGER_4 * size, gfc_array_i4 * put,
+		  gfc_array_i4 * get);
+
+/* normalize.c */
+
+#define normalize_r4_i4 prefix(normalize_r4_i4)
+GFC_REAL_4 normalize_r4_i4 (GFC_UINTEGER_4, GFC_UINTEGER_4);
+
+#define normalize_r8_i8 prefix(normalize_r8_i8)
+GFC_REAL_8 normalize_r8_i8 (GFC_UINTEGER_8, GFC_UINTEGER_8);
+
+/* size.c */
+
+typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, void) array_t;
+
+#define size0 prefix(size0)
+index_type size0 (const array_t * array); 
 
 #endif
 

@@ -19,7 +19,14 @@ along with GCC; see the file COPYING.  If not, write to the Free
 Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
+/* This file is compiled twice: once for the generator programs
+   once for the compiler.  */
+#ifdef GENERATOR_FILE
+#include "bconfig.h"
+#else
 #include "config.h"
+#endif
+
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
@@ -108,36 +115,26 @@ const unsigned char rtx_size[NUM_RTX_CODE] = {
 #undef DEF_RTL_EXPR
 };
 
+/* Make sure all NOTE_INSN_* values are negative.  */
+extern char NOTE_INSN_MAX_isnt_negative_adjust_NOTE_INSN_BIAS
+[NOTE_INSN_MAX < 0 ? 1 : -1];
+
 /* Names for kinds of NOTEs and REG_NOTEs.  */
 
 const char * const note_insn_name[NOTE_INSN_MAX - NOTE_INSN_BIAS] =
 {
-  "", "NOTE_INSN_DELETED",
-  "NOTE_INSN_BLOCK_BEG", "NOTE_INSN_BLOCK_END",
-  "NOTE_INSN_LOOP_BEG", "NOTE_INSN_LOOP_END",
-  "NOTE_INSN_LOOP_CONT", "NOTE_INSN_LOOP_VTOP",
-  "NOTE_INSN_LOOP_END_TOP_COND", "NOTE_INSN_FUNCTION_END",
-  "NOTE_INSN_PROLOGUE_END", "NOTE_INSN_EPILOGUE_BEG",
-  "NOTE_INSN_DELETED_LABEL", "NOTE_INSN_FUNCTION_BEG",
-  "NOTE_INSN_EH_REGION_BEG", "NOTE_INSN_EH_REGION_END",
-  "NOTE_INSN_REPEATED_LINE_NUMBER",
-  "NOTE_INSN_BASIC_BLOCK", "NOTE_INSN_EXPECTED_VALUE",
-  "NOTE_INSN_PREDICTION", "NOTE_INSN_VAR_LOCATION"
+  "",
+#define DEF_INSN_NOTE(NAME) #NAME,
+#include "insn-notes.def"
+#undef DEF_INSN_NOTE
 };
 
-const char * const reg_note_name[] =
+const char * const reg_note_name[REG_NOTE_MAX] =
 {
-  "", "REG_DEAD", "REG_INC", "REG_EQUIV", "REG_EQUAL",
-  "REG_RETVAL", "REG_LIBCALL", "REG_NONNEG",
-  "REG_NO_CONFLICT", "REG_UNUSED", "REG_CC_SETTER", "REG_CC_USER",
-  "REG_LABEL", "REG_DEP_ANTI", "REG_DEP_OUTPUT", "REG_BR_PROB",
-  "REG_VALUE_PROFILE", "REG_NOALIAS", "REG_SAVE_AREA", "REG_BR_PRED",
-  "REG_FRAME_RELATED_EXPR", "REG_EH_CONTEXT", "REG_EH_REGION",
-  "REG_SAVE_NOTE", "REG_MAYBE_DEAD", "REG_NORETURN",
-  "REG_NON_LOCAL_GOTO", "REG_SETJMP", "REG_ALWAYS_RETURN",
-  "REG_VTABLE_REF"
+#define DEF_REG_NOTE(NAME) #NAME,
+#include "reg-notes.def"
+#undef DEF_REG_NOTE
 };
-
 
 #ifdef GATHER_STATISTICS
 static int rtx_alloc_counts[(int) LAST_AND_UNUSED_RTX_CODE];
@@ -177,7 +174,8 @@ rtx_alloc_stat (RTX_CODE code MEM_STAT_DECL)
 {
   rtx rt;
 
-  rt = ggc_alloc_typed_stat (gt_ggc_e_7rtx_def, RTX_SIZE (code) PASS_MEM_STAT);
+  rt = (rtx) ggc_alloc_typed_stat (gt_ggc_e_7rtx_def,
+				   RTX_SIZE (code) PASS_MEM_STAT);
 
   /* We want to clear everything up to the FLD array.  Normally, this
      is one int, but we don't want to assume that and it isn't very
@@ -212,7 +210,6 @@ copy_rtx (rtx orig)
   switch (code)
     {
     case REG:
-    case QUEUED:
     case CONST_INT:
     case CONST_DOUBLE:
     case CONST_VECTOR:
@@ -222,7 +219,6 @@ copy_rtx (rtx orig)
     case CC0:
     case SCRATCH:
       /* SCRATCH must be shared because they represent distinct values.  */
-    case ADDRESSOF:
       return orig;
     case CLOBBER:
       if (REG_P (XEXP (orig, 0)) && REGNO (XEXP (orig, 0)) < FIRST_PSEUDO_REGISTER)
@@ -300,7 +296,7 @@ copy_rtx (rtx orig)
 	  break;
 
 	default:
-	  abort ();
+	  gcc_unreachable ();
 	}
     }
   return copy;
@@ -313,17 +309,18 @@ shallow_copy_rtx_stat (rtx orig MEM_STAT_DECL)
 {
   rtx copy;
 
-  copy = ggc_alloc_typed_stat (gt_ggc_e_7rtx_def, RTX_SIZE (GET_CODE (orig))
-			       PASS_MEM_STAT);
+  copy = (rtx) ggc_alloc_typed_stat (gt_ggc_e_7rtx_def,
+				     RTX_SIZE (GET_CODE (orig)) PASS_MEM_STAT);
   memcpy (copy, orig, RTX_SIZE (GET_CODE (orig)));
   return copy;
 }
 
-/* This is 1 until after the rtl generation pass.  */
-int rtx_equal_function_value_matters;
-
 /* Nonzero when we are generating CONCATs.  */
 int generating_concat_p;
+
+/* Nonzero when we are expanding trees to RTL.  */
+int currently_expanding_to_rtl;
+
 
 /* Return 1 if X and Y are identical-looking rtx's.
    This is the Lisp function EQUAL for rtx arguments.  */
@@ -356,14 +353,7 @@ rtx_equal_p (rtx x, rtx y)
   switch (code)
     {
     case REG:
-      /* Until rtl generation is complete, don't consider a reference
-	 to the return register of the current function the same as
-	 the return from a called function.  This eases the job of
-	 function integration.  Once the distinction is no longer
-	 needed, they can be considered equivalent.  */
-      return (REGNO (x) == REGNO (y)
-	      && (! rtx_equal_function_value_matters
-		  || REG_FUNCTION_VALUE_P (x) == REG_FUNCTION_VALUE_P (y)));
+      return (REGNO (x) == REGNO (y));
 
     case LABEL_REF:
       return XEXP (x, 0) == XEXP (y, 0);
@@ -437,7 +427,7 @@ rtx_equal_p (rtx x, rtx y)
 	     contain anything but integers and other rtx's,
 	     except for within LABEL_REFs and SYMBOL_REFs.  */
 	default:
-	  abort ();
+	  gcc_unreachable ();
 	}
     }
   return 1;

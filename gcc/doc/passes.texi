@@ -79,7 +79,7 @@ usually most convenient to do this as each top level declaration or
 definition is seen.  There is also a distinction to be made between
 generating functional code and generating complete debug information.
 The only thing that is absolutely required for functional code is that
-function and data @emph{defintions} be passed to the middle-end.  For
+function and data @emph{definitions} be passed to the middle-end.  For
 complete debug information, function, data and type declarations 
 should all be passed as well.
 
@@ -240,17 +240,11 @@ for the variable within this function.  This data is needed by the
 SSA rewriting routines.  The pass is located in @file{tree-dfa.c}
 and is described by @code{pass_referenced_vars}.
 
-@item Points-to analysis
-
-This pass constructs flow-insensitive alias analysis information.
-The pass is located in @file{tree-alias-common.c} and described by
-@code{pass_build_pta}.
-
 @item Enter static single assignment form
 
 This pass rewrites the function such that it is in SSA form.  After
 this pass, all @code{is_gimple_reg} variables will be referenced by
-@code{SSA_NAME}, and all occurences of other variables will be 
+@code{SSA_NAME}, and all occurrences of other variables will be 
 annotated with @code{VDEFS} and @code{VUSES}; phi nodes will have 
 been inserted as necessary for each basic block.  This pass is
 located in @file{tree-ssa.c} and is described by @code{pass_build_ssa}.
@@ -355,11 +349,57 @@ in @file{tree-ssa-dse.c} and is described by @code{pass_dse}.
 This pass transforms tail recursion into a loop.  It is located in
 @file{tree-tailcall.c} and is described by @code{pass_tail_recursion}.
 
+@item Partial redundancy elimination
+
+This pass eliminates partially redundant computations, as well as
+performing load motion.  The pass is located in @file{tree-ssa-pre.c}
+and is described by @code{pass_pre}.
+
 @item Loop optimization
 
-TODO: Presumably we're going to do something with loops here.  At
-present we don't, and this is a placeholder.  The pass is located
-in @file{tree-ssa-loop.c} and is described by @code{pass_loop}.
+The main driver of the pass is placed in @file{tree-ssa-loop.c}
+and described by @code{pass_loop}.
+
+The optimizations performed by this pass are:
+
+Loop invariant motion.  This pass moves only invariants that
+would be hard to handle on rtl level (function calls, operations that expand to
+nontrivial sequences of insns).  With @option{-funswitch-loops} it also moves
+operands of conditions that are invariant out of the loop, so that we can use
+just trivial invariantness analysis in loop unswitching.  The pass also includes
+store motion.  The pass is implemented in @file{tree-ssa-loop-im.c}.
+
+Canonical induction variable creation.  This pass creates a simple counter
+for number of iterations of the loop and replaces the exit condition of the
+loop using it, in case when a complicated analysis is necessary to determine
+the number of iterations.  Later optimizations then may determine the number
+easily.  The pass is implemented in @file{tree-ssa-loop-ivcanon.c}.
+
+Induction variable optimizations.  This pass performs standard induction
+variable optimizations, including strength reduction, induction variable
+merging and induction variable elimination.  The pass is implemented in
+@file{tree-ssa-loop-ivopts.c}.
+
+Loop unswitching.  This pass moves the conditional jumps that are invariant
+out of the loops.  To achieve this, a duplicate of the loop is created for
+each possible outcome of conditional jump(s).  The pass is implemented in
+@file{tree-ssa-loop-unswitch.c}.  This pass should eventually replace the
+rtl-level loop unswitching in @file{loop-unswitch.c}, but currently
+the rtl-level pass is not completely redundant yet due to deficiencies
+in tree level alias analysis.
+
+The optimizations also use various utility functions contained in
+@file{tree-ssa-loop-manip.c}, @file{cfgloop.c}, @file{cfgloopanal.c} and
+@file{cfgloopmanip.c}.
+
+@item Tree level if-conversion for vectorizer
+
+This pass applies if-conversion to simple loops to help vectorizer.
+We identify if convertable loops, if-convert statements and merge
+basic blocks in one big block. The idea is to present loop in such
+form so that vectorizer can have one to one mapping between statements
+and available vector operations. This patch re-introduces COND_EXPR
+at GIMPLE level. This pass is located in @file{tree-if-conv.c}.
 
 @item Conditional constant propagation
 
@@ -508,12 +548,11 @@ are in @file{lcm.c}.
 
 @item Loop optimization
 
-This pass moves constant expressions out of loops,
-and optionally does strength-reduction and loop unrolling as well.
-Its source files are @file{loop.c} and @file{unroll.c}, plus the header
-@file{loop.h} used for communication between them.  Loop unrolling uses
-some functions in @file{integrate.c} and the header @file{integrate.h}.
+This pass moves constant expressions out of loops, and optionally does
+strength-reduction as well.  The pass is located in @file{loop.c}.
 Loop dependency analysis routines are contained in @file{dependence.c}.
+This pass is seriously out-of-date and is supposed to be replaced by
+a new one described below in near future.
 
 A second loop optimization pass takes care of basic block level
 optimizations---unrolling, peeling and unswitching loops. The source
@@ -521,6 +560,8 @@ files are @file{cfgloopanal.c} and @file{cfgloopmanip.c} containing
 generic loop analysis and manipulation code, @file{loop-init.c} with
 initialization and finalization code, @file{loop-unswitch.c} for loop
 unswitching and @file{loop-unroll.c} for loop unrolling and peeling.
+It also contains a separate loop invariant motion pass implemented in
+@file{loop-invariant.c}.
 
 @item Jump bypassing
 
@@ -573,6 +614,15 @@ This pass looks for instructions that require the processor to be in a
 specific ``mode'' and minimizes the number of mode changes required to
 satisfy all users.  What these modes are, and what they apply to are
 completely target-specific.  The source is located in @file{lcm.c}.
+
+@cindex modulo scheduling
+@cindex sms, swing, software pipelining
+@item Modulo scheduling 
+
+This pass looks at innermost loops and reorders their instructions 
+by overlapping different iterations.  Modulo scheduling is performed 
+immediately before instruction scheduling.
+The pass is located in (@file{modulo-sched.c}).  
 
 @item Instruction scheduling
 

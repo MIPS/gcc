@@ -38,10 +38,7 @@ exception statement from your version. */
 
 package java.text;
 
-import java.util.Set;
-import java.util.Map;
-import java.util.HashSet;
-import java.util.HashMap;
+import gnu.java.text.FormatCharacterIterator;
 import java.io.Serializable;
 
 /**
@@ -63,6 +60,9 @@ import java.io.Serializable;
  */
 public abstract class Format implements Serializable, Cloneable
 {
+  /**
+   * For compatability with Sun's JDK 1.4.2 rev. 5
+   */
   static final long serialVersionUID = -299282585814624189L;
 
   public static class Field extends AttributedCharacterIterator.Attribute
@@ -123,7 +123,7 @@ public abstract class Format implements Serializable, Cloneable
    * This method parses a <code>String</code> and converts the parsed 
    * contents into an <code>Object</code>.
    *
-   * @param str The <code>String to parse.
+   * @param str The <code>String</code> to parse.
    *
    * @return The resulting <code>Object</code>.
    *

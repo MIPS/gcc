@@ -22,12 +22,7 @@ Boston, MA 02111-1307, USA.  */
 #include "config.h"
 #include <assert.h>
 #include "libgfortran.h"'
-include(types.m4)dnl
-define(rtype_kind, regexp(file, `_.\([0-9]+\)\.', `\1'))dnl
-define(rtype_letter, regexp(file, `_\(.\)[0-9]+\.', `\1'))dnl
-define(rtype_code,rtype_letter`'rtype_name)dnl
-define(rtype,get_arraytype(rtype_letter,rtype_kind))dnl
-define(rtype_name, get_typename(rtype_letter, rtype_kind))dnl
+include(iparm.m4)dnl
 
 void
 `__transpose_'rtype_kind (rtype * ret, rtype * source)
@@ -43,6 +38,23 @@ void
   index_type x, y;
 
   assert (GFC_DESCRIPTOR_RANK (source) == 2);
+
+  if (ret->data == NULL)
+    {
+      assert (GFC_DESCRIPTOR_RANK (ret) == 2);
+      assert (ret->dtype == source->dtype);
+
+      ret->dim[0].lbound = 0;
+      ret->dim[0].ubound = source->dim[1].ubound - source->dim[1].lbound;
+      ret->dim[0].stride = 1;
+
+      ret->dim[1].lbound = 0;
+      ret->dim[1].ubound = source->dim[0].ubound - source->dim[0].lbound;
+      ret->dim[1].stride = ret->dim[0].ubound+1;
+
+      ret->data = internal_malloc (sizeof (rtype_name) * size0 (ret));
+      ret->base = 0;
+    }
 
   if (ret->dim[0].stride == 0)
     ret->dim[0].stride = 1;

@@ -120,7 +120,6 @@ opendir_in_zip (const char *zipfile, int is_system)
   zipf->next = SeenZipFiles;
   zipf->name = (char*)(zipf+1);
   strcpy (zipf->name, zipfile);
-  SeenZipFiles = zipf;
   fd = open (zipfile, O_RDONLY | O_BINARY);
   zipf->fd = fd;
   if (fd < 0)
@@ -140,6 +139,8 @@ opendir_in_zip (const char *zipfile, int is_system)
       if (read_zip_archive (zipf) != 0)
 	return NULL;
     }
+
+  SeenZipFiles = zipf;  
   return zipf;
 }
 
@@ -214,7 +215,7 @@ read_zip_member (JCF *jcf,  ZipDirectory *zipd, ZipFile *zipf)
       jcf->read_ptr = jcf->buffer;
       jcf->read_end = jcf->buffer_end;
       buffer = ALLOC (zipd->size);
-      d_stream.next_in = buffer;
+      d_stream.next_in = (unsigned char *) buffer;
       d_stream.avail_in = zipd->size;
       if (lseek (zipf->fd, zipd->filestart, 0) < 0
 	  || read (zipf->fd, buffer, zipd->size) != (long) zipd->size)

@@ -161,27 +161,30 @@ package body Prj.Part is
      (Context_Clause    : With_Id;
       Imported_Projects : out Project_Node_Id;
       Project_Directory : Name_Id;
-      From_Extended     : Extension_Origin);
+      From_Extended     : Extension_Origin;
+      In_Limited        : Boolean);
    --  Parse the imported projects that have been stored in table Withs,
    --  if any. From_Extended is used for the call to Parse_Single_Project
-   --  below.
+   --  below. When In_Limited is True, the importing path includes at least
+   --  one "limited with".
 
    procedure Parse_Single_Project
      (Project       : out Project_Node_Id;
       Extends_All   : out Boolean;
       Path_Name     : String;
       Extended      : Boolean;
-      From_Extended : Extension_Origin);
+      From_Extended : Extension_Origin;
+      In_Limited    : Boolean);
    --  Parse a project file.
    --  Recursive procedure: it calls itself for imported and extended
    --  projects. When From_Extended is not None, if the project has already
    --  been parsed and is an extended project A, return the ultimate
-   --  (not extended) project that extends A.
+   --  (not extended) project that extends A. When In_Limited is True,
+   --  the importing path includes at least one "limited with".
 
    function Project_Path_Name_Of
      (Project_File_Name : String;
-      Directory         : String)
-      return              String;
+      Directory         : String) return String;
    --  Returns the path name of a project file. Returns an empty string
    --  if project file cannot be found.
 
@@ -473,7 +476,8 @@ package body Prj.Part is
             Extends_All   => Dummy,
             Path_Name     => Path_Name,
             Extended      => False,
-            From_Extended => None);
+            From_Extended => None,
+            In_Limited    => False);
 
          --  If Project is an extending-all project, create the eventual
          --  virtual extending projects and check that there are no illegally
@@ -669,7 +673,8 @@ package body Prj.Part is
      (Context_Clause    : With_Id;
       Imported_Projects : out Project_Node_Id;
       Project_Directory : Name_Id;
-      From_Extended     : Extension_Origin)
+      From_Extended     : Extension_Origin;
+      In_Limited        : Boolean)
    is
       Current_With_Clause : With_Id := Context_Clause;
 
@@ -691,7 +696,7 @@ package body Prj.Part is
          Current_With := Withs.Table (Current_With_Clause);
          Current_With_Clause := Current_With.Next;
 
-         Limited_With := Current_With.Limited_With;
+         Limited_With := In_Limited or Current_With.Limited_With;
 
          declare
             Original_Path : constant String :=
@@ -784,7 +789,8 @@ package body Prj.Part is
                      Extends_All   => Extends_All,
                      Path_Name     => Imported_Path_Name,
                      Extended      => False,
-                     From_Extended => From_Extended);
+                     From_Extended => From_Extended,
+                     In_Limited    => Limited_With);
 
                else
                   Extends_All := Is_Extending_All (Withed_Project);
@@ -834,7 +840,8 @@ package body Prj.Part is
       Extends_All   : out Boolean;
       Path_Name     : String;
       Extended      : Boolean;
-      From_Extended : Extension_Origin)
+      From_Extended : Extension_Origin;
+      In_Limited    : Boolean)
    is
       Normed_Path_Name    : Name_Id;
       Canonical_Path_Name : Name_Id;
@@ -863,14 +870,19 @@ package body Prj.Part is
       Extends_All := False;
 
       declare
-         Normed : String := Normalize_Pathname (Path_Name);
+         Normed_Path    : constant String := Normalize_Pathname
+                            (Path_Name, Resolve_Links => False,
+                             Case_Sensitive           => True);
+         Canonical_Path : constant String := Normalize_Pathname
+                            (Normed_Path, Resolve_Links => True,
+                             Case_Sensitive             => False);
+
       begin
-         Name_Len := Normed'Length;
-         Name_Buffer (1 .. Name_Len) := Normed;
+         Name_Len := Normed_Path'Length;
+         Name_Buffer (1 .. Name_Len) := Normed_Path;
          Normed_Path_Name := Name_Find;
-         Canonical_Case_File_Name (Normed);
-         Name_Len := Normed'Length;
-         Name_Buffer (1 .. Name_Len) := Normed;
+         Name_Len := Canonical_Path'Length;
+         Name_Buffer (1 .. Name_Len) := Canonical_Path;
          Canonical_Path_Name := Name_Find;
       end;
 
@@ -1155,13 +1167,15 @@ package body Prj.Part is
               (Context_Clause    => First_With,
                Imported_Projects => Imported_Projects,
                Project_Directory => Project_Directory,
-               From_Extended     => From_Ext);
+               From_Extended     => From_Ext,
+               In_Limited        => In_Limited);
             Set_First_With_Clause_Of (Project, Imported_Projects);
          end;
 
          declare
-            Project_Name : Name_Id :=
-                             Tree_Private_Part.Projects_Htable.Get_First.Name;
+            Name_And_Node : Tree_Private_Part.Project_Name_And_Node :=
+                              Tree_Private_Part.Projects_Htable.Get_First;
+            Project_Name : Name_Id := Name_And_Node.Name;
 
          begin
             --  Check if we already have a project with this name
@@ -1169,13 +1183,17 @@ package body Prj.Part is
             while Project_Name /= No_Name
               and then Project_Name /= Name_Of_Project
             loop
-               Project_Name := Tree_Private_Part.Projects_Htable.Get_Next.Name;
+               Name_And_Node := Tree_Private_Part.Projects_Htable.Get_Next;
+               Project_Name := Name_And_Node.Name;
             end loop;
 
             --  Report an error if we already have a project with this name
 
             if Project_Name /= No_Name then
-               Error_Msg ("duplicate project name", Token_Ptr);
+               Error_Msg_Name_1 := Project_Name;
+               Error_Msg ("duplicate project name {", Location_Of (Project));
+               Error_Msg_Name_1 := Path_Name_Of (Name_And_Node.Node);
+               Error_Msg ("\already in {", Location_Of (Project));
 
             else
                --  Otherwise, add the name of the project to the hash table, so
@@ -1246,7 +1264,8 @@ package body Prj.Part is
                         Extends_All   => Extends_All,
                         Path_Name     => Extended_Project_Path_Name,
                         Extended      => True,
-                        From_Extended => From_Ext);
+                        From_Extended => From_Ext,
+                        In_Limited    => In_Limited);
                   end;
 
                   --  A project that extends an extending-all project is also
@@ -1582,8 +1601,7 @@ package body Prj.Part is
 
    function Project_Path_Name_Of
      (Project_File_Name : String;
-      Directory         : String)
-      return              String
+      Directory         : String) return String
    is
       Result : String_Access;
 
@@ -1670,7 +1688,10 @@ package body Prj.Part is
       else
          declare
             Final_Result : constant String :=
-                             GNAT.OS_Lib.Normalize_Pathname (Result.all);
+                             GNAT.OS_Lib.Normalize_Pathname
+                               (Result.all,
+                                Resolve_Links  => False,
+                                Case_Sensitive => True);
          begin
             Free (Result);
             return Final_Result;

@@ -1,5 +1,5 @@
 /* Signature.java --- Signature Class
-   Copyright (C) 1999, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2002, 2003, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -83,20 +83,20 @@ import gnu.java.security.Engine;
  * either signing data or verifying a signature:</p>
  *
  * <ol>
- *    <li>Initialization, with either
- *      <ul>
- *        <li>a public key, which initializes the signature for verification
- *        (see <code>initVerify()</code>), or</li>
- *        <li>a private key (and optionally a Secure Random Number Generator),
- *        which initializes the signature for signing (see
- *        {@link #initSign(PrivateKey)} and {@link #initSign(PrivateKey, SecureRandom)}
- *        ).</li>
- *      </ul></li>
- *    <li>Updating<br/>
- *      Depending on the type of initialization, this will update the bytes to
- *      be signed or verified. See the update methods.<br/></li>
- *    <li>Signing or Verifying a signature on all updated bytes. See the
- *    <code>sign()</code> methods and the <code>verify()</code> method.</li>
+ * <li>Initialization, with either
+ *     <ul>
+ *     <li>a public key, which initializes the signature for verification
+ *         (see <code>initVerify()</code>), or</li>
+ *     <li>a private key (and optionally a Secure Random Number Generator),
+ *         which initializes the signature for signing (see
+ *         {@link #initSign(PrivateKey)} and {@link #initSign(PrivateKey, SecureRandom)}
+ *         ).</li>
+ *     </ul></li>
+ * <li>Updating<br/>
+ *     Depending on the type of initialization, this will update the bytes to
+ *     be signed or verified. See the update methods.<br/></li>
+ * <li>Signing or Verifying a signature on all updated bytes. See the
+ *     <code>sign()</code> methods and the <code>verify()</code> method.</li>
  *  </ol>
  *
  * <p>Note that this class is abstract and extends from {@link SignatureSpi} for
@@ -105,7 +105,7 @@ import gnu.java.security.Engine;
  * superclass are intended for cryptographic service providers who wish to
  * supply their own implementations of digital signature algorithms.
  *
- * @author Mark Benvenuto <ivymccough@worldnet.att.net>
+ * @author Mark Benvenuto  (ivymccough@worldnet.att.net)
  */
 public abstract class Signature extends SignatureSpi
 {
@@ -206,7 +206,7 @@ public abstract class Signature extends SignatureSpi
   {
     if (provider == null || provider.length() == 0)
       throw new IllegalArgumentException("Illegal provider");
-    
+
     Provider p = Security.getProvider(provider);
     if (p == null)
       throw new NoSuchProviderException(provider);
@@ -251,16 +251,16 @@ public abstract class Signature extends SignatureSpi
 
     if (o instanceof SignatureSpi)
       {
-	result = new DummySignature((SignatureSpi) o, algorithm);
+        result = new DummySignature((SignatureSpi) o, algorithm);
       }
     else if (o instanceof Signature)
       {
-	result = (Signature) o;
-	result.algorithm = algorithm;
+        result = (Signature) o;
+        result.algorithm = algorithm;
       }
     else
       {
-	throw new NoSuchAlgorithmException(algorithm);
+        throw new NoSuchAlgorithmException(algorithm);
       }
     result.provider = provider;
     return result;
@@ -313,9 +313,9 @@ public abstract class Signature extends SignatureSpi
     if (certificate.getType().equals("X509"))
       {
         X509Certificate cert = (X509Certificate) certificate;
-	boolean[]array = cert.getKeyUsage();
-	if (array != null && array[0] == false)
-	  throw new InvalidKeyException(
+        boolean[]array = cert.getKeyUsage();
+        if (array != null && array[0] == false)
+          throw new InvalidKeyException(
               "KeyUsage of this Certificate indicates it cannot be used for digital signing");
       }
     this.initVerify(certificate.getPublicKey());
@@ -368,10 +368,7 @@ public abstract class Signature extends SignatureSpi
   public final byte[] sign() throws SignatureException
   {
     if (state == SIGN)
-      {
-        state = UNINITIALIZED;
-        return engineSign();
-      }
+      return engineSign();
     else
       throw new SignatureException();
   }
@@ -398,10 +395,7 @@ public abstract class Signature extends SignatureSpi
     throws SignatureException
   {
     if (state == SIGN)
-      {
-        state = UNINITIALIZED;
-        return engineSign(outbuf, offset, len);
-      }
+      return engineSign(outbuf, offset, len);
     else
       throw new SignatureException();
   }
@@ -425,10 +419,7 @@ public abstract class Signature extends SignatureSpi
   public final boolean verify(byte[]signature) throws SignatureException
   {
     if (state == VERIFY)
-      {
-        state = UNINITIALIZED;
-        return engineVerify(signature);
-      }
+      return engineVerify(signature);
     else
       throw new SignatureException();
   }
@@ -464,7 +455,7 @@ public abstract class Signature extends SignatureSpi
       throw new SignatureException("illegal state");
 
     if (signature == null)
-      throw new IllegalArgumentException("signaure is null");
+      throw new IllegalArgumentException("signature is null");
     if (offset < 0)
       throw new IllegalArgumentException("offset is less than 0");
     if (length < 0)
@@ -472,7 +463,6 @@ public abstract class Signature extends SignatureSpi
     if (offset + length < signature.length)
       throw new IllegalArgumentException("range is out of bounds");
 
-    state = UNINITIALIZED;
     return engineVerify(signature, offset, length);
   }
 
@@ -637,6 +627,6 @@ public abstract class Signature extends SignatureSpi
    */
   public Object clone() throws CloneNotSupportedException
   {
-    throw new CloneNotSupportedException();
+    return super.clone();
   }
 }

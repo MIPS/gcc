@@ -194,7 +194,12 @@ do {									\
   else if (!strcmp (rs6000_abi_name, "freebsd"))			\
     rs6000_current_abi = ABI_V4;					\
   else if (!strcmp (rs6000_abi_name, "linux"))				\
-    rs6000_current_abi = ABI_V4;					\
+    {									\
+      if (TARGET_64BIT)							\
+	rs6000_current_abi = ABI_AIX;					\
+      else								\
+	rs6000_current_abi = ABI_V4;					\
+    }									\
   else if (!strcmp (rs6000_abi_name, "gnu"))				\
     rs6000_current_abi = ABI_V4;					\
   else if (!strcmp (rs6000_abi_name, "netbsd"))				\
@@ -327,7 +332,7 @@ do {									\
 /* Size of the V.4 varargs area if needed.  */
 /* Override rs6000.h definition.  */
 #undef	RS6000_VARARGS_AREA
-#define RS6000_VARARGS_AREA ((cfun->machine->sysv_varargs_p) ? RS6000_VARARGS_SIZE : 0)
+#define RS6000_VARARGS_AREA (current_function_stdarg ? RS6000_VARARGS_SIZE : 0)
 
 /* Override default big endianism definitions in rs6000.h.  */
 #undef	BYTES_BIG_ENDIAN
@@ -385,12 +390,6 @@ do {									\
 #undef	STRICT_ALIGNMENT
 #define	STRICT_ALIGNMENT (TARGET_STRICT_ALIGN)
 
-/* Alignment in bits of the stack boundary.  Note, in order to allow building
-   one set of libraries with -mno-eabi instead of eabi libraries and non-eabi
-   versions, just use 64 as the stack boundary.  */
-#undef	STACK_BOUNDARY
-#define	STACK_BOUNDARY	(TARGET_ALTIVEC_ABI ? 128 : 64)
-
 /* Define this macro if you wish to preserve a certain alignment for
    the stack pointer, greater than what the hardware enforces.  The
    definition is a C expression for the desired alignment (measured
@@ -407,7 +406,8 @@ do {									\
 #define PREFERRED_STACK_BOUNDARY 128
 
 /* Real stack boundary as mandated by the appropriate ABI.  */
-#define ABI_STACK_BOUNDARY ((TARGET_EABI && !TARGET_ALTIVEC_ABI) ? 64 : 128)
+#define ABI_STACK_BOUNDARY \
+  ((TARGET_EABI && !TARGET_ALTIVEC && !TARGET_ALTIVEC_ABI) ? 64 : 128)
 
 /* An expression for the alignment of a structure field FIELD if the
    alignment computed in the usual way is COMPUTED.  */
@@ -433,6 +433,11 @@ do {									\
 #define	DATA_SECTION_ASM_OP	"\t.section\t\".data\""
 
 #define	BSS_SECTION_ASM_OP	"\t.section\t\".bss\""
+
+/* APPLE LOCAL begin hot/cold partitioning  */
+#define HOT_TEXT_SECTION_NAME ".text"
+#define UNLIKELY_EXECUTED_TEXT_SECTION_NAME ".text.unlikely"
+/* APPLE LOCAL end hot/cold partitioning  */
 
 /* Override elfos.h definition.  */
 #undef	INIT_SECTION_ASM_OP
@@ -1091,7 +1096,7 @@ extern int fixuplabelno;
 #define LINK_START_FREEBSD_SPEC	""
 
 #define LINK_OS_FREEBSD_SPEC "\
-  %{p:%e`-p' not supported; use `-pg' and gprof(1)} \
+  %{p:%nconsider using `-pg' instead of `-p' with gprof(1)} \
   %{Wl,*:%*} \
   %{v:-V} \
   %{assert*} %{R*} %{rpath*} %{defsym*} \

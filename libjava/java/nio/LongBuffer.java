@@ -1,5 +1,5 @@
 /* LongBuffer.java -- 
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -83,8 +83,9 @@ public abstract class LongBuffer extends Buffer
   }
   
   /**
-   * This method transfers <code>longs<code> from this buffer into the given
-   * destination array.
+   * This method transfers <code>long</code>s from this buffer into the given
+   * destination array. Before the transfer, it checks if there are fewer than
+   * length <code>long</code>s remaining in this buffer. 
    *
    * @param dst The destination array
    * @param offset The offset within the array of the first <code>long</code>
@@ -93,12 +94,15 @@ public abstract class LongBuffer extends Buffer
    * must be non-negative and no larger than dst.length - offset.
    *
    * @exception BufferUnderflowException If there are fewer than length
-   * <code>longs</code> remaining in this buffer.
+   * <code>long</code>s remaining in this buffer.
    * @exception IndexOutOfBoundsException If the preconditions on the offset
    * and length parameters do not hold.
    */
   public LongBuffer get (long[] dst, int offset, int length)
   {
+    checkArraySize(dst.length, offset, length);
+    checkForUnderflow(length);
+
     for (int i = offset; i < offset + length; i++)
       {
         dst [i] = get ();
@@ -108,13 +112,13 @@ public abstract class LongBuffer extends Buffer
   }
 
   /**
-   * This method transfers <code>longs<code> from this buffer into the given
+   * This method transfers <code>long</code>s from this buffer into the given
    * destination array.
    *
    * @param dst The byte array to write into.
    *
    * @exception BufferUnderflowException If there are fewer than dst.length
-   * <code>longs</code> remaining in this buffer.
+   * <code>long</code>s remaining in this buffer.
    */
   public LongBuffer get (long[] dst)
   {
@@ -123,12 +127,13 @@ public abstract class LongBuffer extends Buffer
 
   /**
    * Writes the content of the the <code>LongBUFFER</code> src
-   * into the buffer.
+   * into the buffer. Before the transfer, it checks if there is fewer than
+   * <code>src.remaining()</code> space remaining in this buffer.
    *
    * @param src The source data.
    *
    * @exception BufferOverflowException If there is insufficient space in this
-   * buffer for the remaining <code>longs<code> in the source buffer.
+   * buffer for the remaining <code>long</code>s in the source buffer.
    * @exception IllegalArgumentException If the source buffer is this buffer.
    * @exception ReadOnlyBufferException If this buffer is read-only.
    */
@@ -137,14 +142,13 @@ public abstract class LongBuffer extends Buffer
     if (src == this)
       throw new IllegalArgumentException ();
 
-    if (src.remaining () > remaining ())
-      throw new BufferOverflowException ();
+    checkForOverflow(src.remaining ());
 
     if (src.remaining () > 0)
       {
         long[] toPut = new long [src.remaining ()];
         src.get (toPut);
-        src.put (toPut);
+        put (toPut);
       }
 
     return this;
@@ -152,7 +156,8 @@ public abstract class LongBuffer extends Buffer
 
   /**
    * Writes the content of the the <code>long array</code> src
-   * into the buffer.
+   * into the buffer. Before the transfer, it checks if there is fewer than
+   * length space remaining in this buffer.
    *
    * @param src The array to copy into the buffer.
    * @param offset The offset within the array of the first byte to be read;
@@ -161,13 +166,16 @@ public abstract class LongBuffer extends Buffer
    * must be non-negative and no larger than src.length - offset.
    * 
    * @exception BufferOverflowException If there is insufficient space in this
-   * buffer for the remaining <code>longs<code> in the source array.
+   * buffer for the remaining <code>long</code>s in the source array.
    * @exception IndexOutOfBoundsException If the preconditions on the offset
    * and length parameters do not hold
    * @exception ReadOnlyBufferException If this buffer is read-only.
    */
   public LongBuffer put (long[] src, int offset, int length)
   {
+    checkArraySize(src.length, offset, length);
+    checkForOverflow(length);
+
     for (int i = offset; i < offset + length; i++)
       put (src [i]);
 
@@ -181,7 +189,7 @@ public abstract class LongBuffer extends Buffer
    * @param src The array to copy into the buffer.
    * 
    * @exception BufferOverflowException If there is insufficient space in this
-   * buffer for the remaining <code>longs<code> in the source array.
+   * buffer for the remaining <code>long</code>s in the source array.
    * @exception ReadOnlyBufferException If this buffer is read-only.
    */
   public final LongBuffer put (long[] src)
@@ -211,8 +219,7 @@ public abstract class LongBuffer extends Buffer
     if (backing_buffer == null)
       throw new UnsupportedOperationException ();
 
-    if (isReadOnly ())
-      throw new ReadOnlyBufferException ();
+    checkIfReadOnly();
     
     return backing_buffer;
   }
@@ -229,19 +236,34 @@ public abstract class LongBuffer extends Buffer
     if (backing_buffer == null)
       throw new UnsupportedOperationException ();
 
-    if (isReadOnly ())
-      throw new ReadOnlyBufferException ();
+    checkIfReadOnly();
     
     return array_offset;
   }
 
   /**
    * Calculates a hash code for this buffer.
+   *
+   * This is done with <code>long</code> arithmetic,
+   * where ** represents exponentiation, by this formula:<br>
+   * <code>s[position()] + 31 + (s[position()+1] + 30)*31**1 + ... +
+   * (s[limit()-1]+30)*31**(limit()-1)</code>.
+   * Where s is the buffer data. Note that the hashcode is dependent
+   * on buffer content, and therefore is not useful if the buffer
+   * content may change.
+   *
+   * @return the hash code (casted to int)
    */
   public int hashCode ()
   {
-    // FIXME: Check what SUN calculates here.
-    return super.hashCode ();
+    long hashCode = get(position()) + 31;
+    long multiplier = 1;
+    for (int i = position() + 1; i < limit(); ++i)
+      {
+	  multiplier *= 31;
+	  hashCode += (get(i) + 30)*multiplier;
+      }
+    return ((int)hashCode);
   }
 
   /**
@@ -265,32 +287,27 @@ public abstract class LongBuffer extends Buffer
    */
   public int compareTo (Object obj)
   {
-    LongBuffer a = (LongBuffer) obj;
+    LongBuffer other = (LongBuffer) obj;
 
-    if (a.remaining () != remaining ())
-      return 1;
-
-    if (! hasArray () ||
-        ! a.hasArray ())
+    int num = Math.min(remaining(), other.remaining());
+    int pos_this = position();
+    int pos_other = other.position();
+    
+    for (int count = 0; count < num; count++)
       {
-        return 1;
+	 long a = get(pos_this++);
+	 long b = other.get(pos_other++);
+      	 
+	 if (a == b)
+	   continue;
+      	   
+	 if (a < b)
+	   return -1;
+      	   
+	 return 1;
       }
-
-    int r = remaining ();
-    int i1 = position ();
-    int i2 = a.position ();
-
-    for (int i = 0; i < r; i++)
-      {
-        int t = (int) (get (i1) - a.get (i2));
-
-        if (t != 0)
-          {
-            return (int) t;
-          }
-      }
-
-    return 0;
+      
+     return remaining() - other.remaining();
   }
 
   /**
@@ -303,7 +320,7 @@ public abstract class LongBuffer extends Buffer
    * and then increments the position.
    *
    * @exception BufferUnderflowException If there are no remaining
-   * <code>longs</code> in this buffer.
+   * <code>long</code>s in this buffer.
    */
   public abstract long get ();
 
@@ -312,7 +329,7 @@ public abstract class LongBuffer extends Buffer
    * and then increments the position.
    *
    * @exception BufferOverflowException If there no remaining 
-   * <code>longs</code> in this buffer.
+   * <code>long</code>s in this buffer.
    * @exception ReadOnlyBufferException If this buffer is read-only.
    */
   public abstract LongBuffer put (long b);

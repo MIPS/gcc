@@ -101,6 +101,9 @@ const struct attribute_spec ip2k_attribute_table[];
 #undef TARGET_ASM_UNIQUE_SECTION
 #define TARGET_ASM_UNIQUE_SECTION unique_section
 
+#undef TARGET_ASM_FUNCTION_RODATA_SECTION
+#define TARGET_ASM_FUNCTION_RODATA_SECTION default_no_function_rodata_section
+
 #undef TARGET_ATTRIBUTE_TABLE
 #define TARGET_ATTRIBUTE_TABLE ip2k_attribute_table
 
@@ -2730,7 +2733,7 @@ ip2k_gen_unsigned_comp_branch (rtx insn, enum rtx_code code, rtx label)
 	case GTU:
 	  if (imm_sub)
 	    {
-	      /* > 0xffffffffffffffff never suceeds!  */
+	      /* > 0xffffffffffffffff never succeeds!  */
 	      if (((const_high & 0xffffffff) != 0xffffffff)
 		  || ((const_low & 0xffffffff) != 0xffffffff))
 		{
@@ -2948,7 +2951,7 @@ ip2k_gen_unsigned_comp_branch (rtx insn, enum rtx_code code, rtx label)
 	      if (((const_high & 0xffffffff) == 0xffffffff)
 		  && ((const_low & 0xffffffff) == 0xffffffff))
 	        {
-		  /* <= 0xffffffffffffffff always suceeds.  */
+		  /* <= 0xffffffffffffffff always succeeds.  */
 		  OUT_AS1 (page, %2);
 	          OUT_AS1 (jmp, %2);
 		}
@@ -5315,7 +5318,7 @@ ip2k_reorg (void)
      things in such a way that another go will win.  Do so now!  */
   reload_cse_regs (first_insn);
   find_basic_blocks (first_insn, max_reg_num (), 0);
-  life_analysis (first_insn, 0, PROP_REG_INFO | PROP_DEATH_NOTES);
+  life_analysis (0, PROP_REG_INFO | PROP_DEATH_NOTES);
   
   /* Look for where absurd things are happening with DP.  */
   mdr_try_dp_reload_elim (first_insn);
@@ -5327,7 +5330,7 @@ ip2k_reorg (void)
 
   reload_cse_regs (first_insn);
   find_basic_blocks (first_insn, max_reg_num (), 0);
-  life_analysis (first_insn, 0, PROP_REG_INFO | PROP_DEATH_NOTES);
+  life_analysis (0, PROP_REG_INFO | PROP_DEATH_NOTES);
   if (flag_peephole2)
     peephole2_optimize (NULL);
 
@@ -5354,7 +5357,7 @@ ip2k_reorg (void)
   mdr_try_move_pushes (first_insn);
 
   find_basic_blocks (first_insn, max_reg_num (), 0);
-  life_analysis (first_insn, 0, PROP_FINAL);
+  life_analysis (0, PROP_FINAL);
 
   mdr_try_propagate_move (first_insn);
   mdr_resequence_xy_yx (first_insn);
@@ -5368,14 +5371,14 @@ ip2k_reorg (void)
 
   reload_cse_regs (first_insn);
   find_basic_blocks (first_insn, max_reg_num (), 0);
-  life_analysis (first_insn, 0, PROP_FINAL);
+  life_analysis (0, PROP_FINAL);
   if (flag_peephole2)
     peephole2_optimize (NULL);
 
   mdr_try_propagate_move (first_insn);
 
   find_basic_blocks (first_insn, max_reg_num (), 0);
-  life_analysis (first_insn, 0, PROP_FINAL);
+  life_analysis (0, PROP_FINAL);
 
   ip2k_reorg_split_simode = 1;
   split_all_insns (0);
@@ -5386,14 +5389,14 @@ ip2k_reorg (void)
 
   reload_cse_regs (first_insn);
   find_basic_blocks (first_insn, max_reg_num (), 0);
-  life_analysis (first_insn, 0, PROP_FINAL);
+  life_analysis (0, PROP_FINAL);
   if (flag_peephole2)
     peephole2_optimize (NULL);
 
   mdr_try_propagate_move (first_insn);
 
   find_basic_blocks (first_insn, max_reg_num (), 0);
-  life_analysis (first_insn, 0, PROP_FINAL);
+  life_analysis (0, PROP_FINAL);
 
   ip2k_reorg_split_himode = 1;
   ip2k_reorg_merge_qimode = 1;
@@ -5411,21 +5414,21 @@ ip2k_reorg (void)
   /* Call to  jump_optimize (...) was here, but now I removed it.  */
   
   find_basic_blocks (first_insn, max_reg_num (), 0);
-  life_analysis (first_insn, 0, PROP_FINAL);
+  life_analysis (0, PROP_FINAL);
   if (flag_peephole2)
     peephole2_optimize (NULL);
 
   mdr_try_propagate_move (first_insn);
 
   find_basic_blocks (first_insn, max_reg_num (), 0);
-  life_analysis (first_insn, 0, PROP_FINAL);
+  life_analysis (0, PROP_FINAL);
   mdr_try_remove_redundant_insns (first_insn);
 
   mdr_try_propagate_clr (first_insn);
   mdr_try_propagate_move (first_insn);
 
   find_basic_blocks (first_insn, max_reg_num (), 0);
-  life_analysis (first_insn, 0, PROP_FINAL);
+  life_analysis (0, PROP_FINAL);
 
   ip2k_reorg_split_qimode = 1;
   split_all_insns (0);
@@ -5434,7 +5437,7 @@ ip2k_reorg (void)
   mdr_try_propagate_move (first_insn);
 
   find_basic_blocks (first_insn, max_reg_num (), 0);
-  life_analysis (first_insn, 0, PROP_FINAL);
+  life_analysis (0, PROP_FINAL);
 #endif
 }
 
@@ -5973,7 +5976,7 @@ ip2k_composite_xexp_not_uses_reg_p (rtx x, unsigned int r, int rsz)
 	    && ip2k_composite_xexp_not_uses_reg_p (XEXP (x, 1), r, rsz)
 	    && ip2k_composite_xexp_not_uses_reg_p (XEXP (x, 2), r, rsz));
 
-  if (BINARY_P (x)
+  if (BINARY_P (x))
     return (ip2k_composite_xexp_not_uses_reg_p (XEXP (x, 0), r, rsz)
 	    && ip2k_composite_xexp_not_uses_reg_p (XEXP (x, 1), r, rsz));
 
@@ -6150,14 +6153,14 @@ int
 ip2k_unary_operator (rtx op, enum machine_mode mode)
 {
   return ((mode == VOIDmode || GET_MODE (op) == mode)
-	  && UNARY_P (op);
+	  && UNARY_P (op));
 }
 
 int
 ip2k_binary_operator (rtx op, enum machine_mode mode)
 {
   return ((mode == VOIDmode || GET_MODE (op) == mode)
-	  && ARITHMETIC_P (op);
+	  && ARITHMETIC_P (op));
 }
 
 int

@@ -1,6 +1,6 @@
 // File based streams -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -282,7 +282,8 @@ namespace std
        *  @brief  Returns true if the external file is open.
       */
       bool
-      is_open() const throw() { return _M_file.is_open(); }
+      is_open() const throw()
+      { return _M_file.is_open(); }
 
       /**
        *  @brief  Opens an external file.
@@ -418,24 +419,7 @@ namespace std
 
       // [documentation is inherited]
       virtual streamsize
-      xsgetn(char_type* __s, streamsize __n)
-      {
-	// Clear out pback buffer before going on to the real deal...
-	streamsize __ret = 0;
-	if (this->_M_pback_init)
-	  {
-	    if (__n && this->gptr() == this->eback())
-	      {
-		*__s++ = *this->gptr();
-		this->gbump(1);
-		__ret = 1;
-	      }
-	    _M_destroy_pback();
-	  }
-	if (__ret < __n)
-	  __ret += __streambuf_type::xsgetn(__s, __n - __ret);
-	return __ret;
-      }
+      xsgetn(char_type* __s, streamsize __n);
 
       // [documentation is inherited]
       virtual streamsize
@@ -512,7 +496,8 @@ namespace std
        *  @doctodo
        *  @endif
       */
-      __filebuf_type	_M_filebuf;
+     /* APPLE LOCAL work with -malign-natural.  */
+      __filebuf_type	_M_filebuf __attribute((aligned(8)));
 
     public:
       // Constructors/Destructors:
@@ -569,7 +554,14 @@ namespace std
        *  @return  @c rdbuf()->is_open()
       */
       bool
-      is_open() { return _M_filebuf.is_open(); }
+      is_open()
+      { return _M_filebuf.is_open(); }
+
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+      // 365. Lack of const-qualification in clause 27
+      bool
+      is_open() const
+      { return _M_filebuf.is_open(); }
 
       /**
        *  @brief  Opens an external file.
@@ -634,7 +626,8 @@ namespace std
        *  @doctodo
        *  @endif
       */
-      __filebuf_type	_M_filebuf;
+     /* APPLE LOCAL work with -malign-natural.  */
+      __filebuf_type	_M_filebuf __attribute__((aligned(8)));
 
     public:
       // Constructors:
@@ -693,7 +686,14 @@ namespace std
        *  @return  @c rdbuf()->is_open()
       */
       bool
-      is_open() { return _M_filebuf.is_open(); }
+      is_open()
+      { return _M_filebuf.is_open(); }
+
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+      // 365. Lack of const-qualification in clause 27
+      bool
+      is_open() const
+      { return _M_filebuf.is_open(); }
 
       /**
        *  @brief  Opens an external file.
@@ -817,7 +817,14 @@ namespace std
        *  @return  @c rdbuf()->is_open()
       */
       bool
-      is_open() { return _M_filebuf.is_open(); }
+      is_open()
+      { return _M_filebuf.is_open(); }
+
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+      // 365. Lack of const-qualification in clause 27
+      bool
+      is_open() const
+      { return _M_filebuf.is_open(); }
 
       /**
        *  @brief  Opens an external file.

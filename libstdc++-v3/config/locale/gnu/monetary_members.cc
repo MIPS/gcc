@@ -372,12 +372,9 @@ namespace std
 	  _M_data->_M_neg_format = money_base::_S_default_pattern;
 
 	  // Use ctype::widen code without the facet...
-	  unsigned char uc;
 	  for (size_t __i = 0; __i < money_base::_S_end; ++__i)
-	    {
-	      uc = static_cast<unsigned char>(money_base::_S_atoms[__i]);
-	      _M_data->_M_atoms[__i] = btowc(uc);
-	    }
+	    _M_data->_M_atoms[__i] =
+	      static_cast<wchar_t>(money_base::_S_atoms[__i]);
 	}
       else
 	{
@@ -390,13 +387,13 @@ namespace std
 	  setlocale(LC_ALL, __name);
 #endif
 
-	  union __s_and_w { const char *__s; unsigned int __w; } __u;
-	  __u.__s = __nl_langinfo_l(_NL_NUMERIC_DECIMAL_POINT_WC, __cloc);
-	  _M_data->_M_decimal_point = static_cast<wchar_t>(__u.__w);
+	  union { char *__s; wchar_t __w; } __u;
+	  __u.__s = __nl_langinfo_l(_NL_MONETARY_DECIMAL_POINT_WC, __cloc);
+	  _M_data->_M_decimal_point = __u.__w;
 
-	  __u.__s = __nl_langinfo_l(_NL_NUMERIC_THOUSANDS_SEP_WC, __cloc);
-	  _M_data->_M_thousands_sep = static_cast<wchar_t>(__u.__w);
-	  _M_data->_M_grouping = __nl_langinfo_l(GROUPING, __cloc);
+	  __u.__s = __nl_langinfo_l(_NL_MONETARY_THOUSANDS_SEP_WC, __cloc);
+	  _M_data->_M_thousands_sep = __u.__w;
+	  _M_data->_M_grouping = __nl_langinfo_l(__MON_GROUPING, __cloc);
 	  _M_data->_M_grouping_size = strlen(_M_data->_M_grouping);
 
 	  const char* __cpossign = __nl_langinfo_l(__POSITIVE_SIGN, __cloc);
@@ -517,12 +514,9 @@ namespace std
 	  _M_data->_M_neg_format = money_base::_S_default_pattern;
 
 	  // Use ctype::widen code without the facet...
-	  unsigned char uc;
 	  for (size_t __i = 0; __i < money_base::_S_end; ++__i)
-	    {
-	      uc = static_cast<unsigned char>(money_base::_S_atoms[__i]);
-	      _M_data->_M_atoms[__i] = btowc(uc);
-	    }
+	    _M_data->_M_atoms[__i] =
+	      static_cast<wchar_t>(money_base::_S_atoms[__i]);
 	}
       else
 	{
@@ -535,13 +529,13 @@ namespace std
 	  setlocale(LC_ALL, __name);
 #endif
 
-	  union __s_and_w { const char *__s; unsigned int __w; } __u;
-	  __u.__s = __nl_langinfo_l(_NL_NUMERIC_DECIMAL_POINT_WC, __cloc);
-	  _M_data->_M_decimal_point = static_cast<wchar_t>(__u.__w);
+          union { char *__s; wchar_t __w; } __u;
+	  __u.__s = __nl_langinfo_l(_NL_MONETARY_DECIMAL_POINT_WC, __cloc);
+	  _M_data->_M_decimal_point = __u.__w;
 
-	  __u.__s = __nl_langinfo_l(_NL_NUMERIC_THOUSANDS_SEP_WC, __cloc);
-	  _M_data->_M_thousands_sep = static_cast<wchar_t>(__u.__w);
-	  _M_data->_M_grouping = __nl_langinfo_l(GROUPING, __cloc);
+	  __u.__s = __nl_langinfo_l(_NL_MONETARY_THOUSANDS_SEP_WC, __cloc);
+	  _M_data->_M_thousands_sep = __u.__w;
+	  _M_data->_M_grouping = __nl_langinfo_l(__MON_GROUPING, __cloc);
           _M_data->_M_grouping_size = strlen(_M_data->_M_grouping);
 
 	  const char* __cpossign = __nl_langinfo_l(__POSITIVE_SIGN, __cloc);

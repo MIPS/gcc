@@ -68,8 +68,6 @@ typedef struct reg_info_def
 
 extern varray_type reg_n_info;
 
-extern bitmap_head subregs_of_mode;
-
 /* Indexed by n, gives number of times (REG n) is used or set.  */
 
 #define REG_N_REFS(N) (VARRAY_REG (reg_n_info, N)->refs)
@@ -162,6 +160,10 @@ extern char regs_ever_live[FIRST_PSEUDO_REGISTER];
 /* Like regs_ever_live, but saying whether reg is set by asm statements.  */
 
 extern char regs_asm_clobbered[FIRST_PSEUDO_REGISTER];
+
+/* Vector indexed by machine mode saying whether there are regs of that mode.  */
+
+extern bool have_regs_of_mode [MAX_MACHINE_MODE];
 
 /* For each hard register, the widest mode object that it can contain.
    This will be a MODE_INT mode if the register can hold integers.  Otherwise

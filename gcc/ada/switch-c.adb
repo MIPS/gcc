@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2001-2003 Free Software Foundation, Inc.          --
+--          Copyright (C) 2001-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -382,6 +382,12 @@ package body Switch.C is
                      Full_Path_Name_For_Brief_Errors := True;
                      return;
 
+                  --  -gnateI (index of unit in multi-unit source)
+
+                  when 'I' =>
+                     Ptr := Ptr + 1;
+                     Scan_Pos (Switch_Chars, Max, Ptr, Multiple_Unit_Index);
+
                   --  -gnatem (mapping file)
 
                   when 'm' =>
@@ -439,6 +445,11 @@ package body Switch.C is
                      end;
 
                   return;
+
+                  when 'z' =>
+                     Store_Switch := False;
+                     Disable_Switch_Storing;
+                     Ptr := Ptr + 1;
 
                   --  All other -gnate? switches are unassigned
 
@@ -951,6 +962,7 @@ package body Switch.C is
             when 'X' =>
                Ptr := Ptr + 1;
                Extensions_Allowed := True;
+               Ada_Version := Ada_Version_Type'Last;
 
             --  Processing for y switch
 
@@ -1035,7 +1047,6 @@ package body Switch.C is
             --  Processing for 83 switch
 
             when '8' =>
-
                if Ptr = Max then
                   raise Bad_Switch;
                end if;
@@ -1046,8 +1057,39 @@ package body Switch.C is
                   raise Bad_Switch;
                else
                   Ptr := Ptr + 1;
-                  Ada_95 := False;
-                  Ada_83 := True;
+                  Ada_Version := Ada_83;
+               end if;
+
+            --  Processing for 95 switch
+
+            when '9' =>
+               if Ptr = Max then
+                  raise Bad_Switch;
+               end if;
+
+               Ptr := Ptr + 1;
+
+               if Switch_Chars (Ptr) /= '5' then
+                  raise Bad_Switch;
+               else
+                  Ptr := Ptr + 1;
+                  Ada_Version := Ada_95;
+               end if;
+
+            --  Processing for 05 switch
+
+            when '0' =>
+               if Ptr = Max then
+                  raise Bad_Switch;
+               end if;
+
+               Ptr := Ptr + 1;
+
+               if Switch_Chars (Ptr) /= '5' then
+                  raise Bad_Switch;
+               else
+                  Ptr := Ptr + 1;
+                  Ada_Version := Ada_05;
                end if;
 
             --  Ignore extra switch character

@@ -1,5 +1,5 @@
 /* Various declarations for language-independent pretty-print subroutines.
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Gabriel Dos Reis <gdr@integrable-solutions.net>
 
 This file is part of GCC.
@@ -205,6 +205,7 @@ struct pretty_print_info
   } while (0)
 #define pp_maybe_newline_and_indent(PP, N) \
   if (pp_needs_newline (PP)) pp_newline_and_indent (PP, N)
+#define pp_maybe_space(PP)   pp_base_maybe_space (pp_base (PP))
 #define pp_separate_with(PP, C)     \
    do {                             \
      pp_character (PP, C);          \
@@ -247,7 +248,17 @@ extern const char *pp_base_formatted_text (pretty_printer *);
 extern const char *pp_base_last_position_in_text (const pretty_printer *);
 extern void pp_base_emit_prefix (pretty_printer *);
 extern void pp_base_append_text (pretty_printer *, const char *, const char *);
-extern void pp_printf (pretty_printer *, const char *, ...) ATTRIBUTE_PRINTF_2;
+
+/* This header may be included before toplev.h, hence the duplicate
+   definitions to allow for GCC-specific formats.  */
+#if GCC_VERSION >= 3005
+#define ATTRIBUTE_GCC_PPDIAG(m, n) __attribute__ ((__format__ (__gcc_diag__, m ,n))) ATTRIBUTE_NONNULL(m)
+#else
+#define ATTRIBUTE_GCC_PPDIAG(m, n) ATTRIBUTE_NONNULL(m)
+#endif
+extern void pp_printf (pretty_printer *, const char *, ...)
+     ATTRIBUTE_GCC_PPDIAG(2,3);
+
 extern void pp_verbatim (pretty_printer *, const char *, ...);
 extern void pp_base_flush (pretty_printer *);
 extern void pp_base_format_text (pretty_printer *, text_info *);
@@ -258,5 +269,6 @@ extern void pp_base_newline (pretty_printer *);
 extern void pp_base_character (pretty_printer *, int);
 extern void pp_base_string (pretty_printer *, const char *);
 extern void pp_write_text_to_stream (pretty_printer *pp);
+extern void pp_base_maybe_space (pretty_printer *);
 
 #endif /* GCC_PRETTY_PRINT_H */

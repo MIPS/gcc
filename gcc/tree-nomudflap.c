@@ -29,7 +29,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-inline.h"
 #include "c-tree.h"
 #include "c-common.h"
-#include "tree-simple.h"
+#include "tree-gimple.h"
 #include "diagnostic.h"
 #include "hashtab.h"
 #include "output.h"
@@ -98,7 +98,8 @@ struct tree_opt_pass pass_mudflap_1 =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  0					/* todo_flags_finish */
+  0,                                    /* todo_flags_finish */
+  0				        /* letter */
 };
 
 struct tree_opt_pass pass_mudflap_2 = 
@@ -114,7 +115,8 @@ struct tree_opt_pass pass_mudflap_2 =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  0					/* todo_flags_finish */
+  0,                                    /* todo_flags_finish */
+  0				        /* letter */
 };
 
 /* Instead of:

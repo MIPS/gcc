@@ -55,6 +55,8 @@ Boston, MA 02111-1307, USA.  */
 #undef WCHAR_TYPE_SIZE
 #define WCHAR_TYPE_SIZE 16
 
+#define TARGET_DECLSPEC 1
+
 #define TARGET_OS_CPP_BUILTINS()					\
   do									\
     {									\
@@ -63,7 +65,6 @@ Boston, MA 02111-1307, USA.  */
 	builtin_define ("_X86_");					\
 	builtin_define ("__stdcall=__attribute__((__stdcall__))");	\
 	builtin_define ("__cdecl=__attribute__((__cdecl__))");		\
-	builtin_define ("__declspec(x)=__attribute__((x))");		\
 	builtin_assert ("system=beos");					\
 	if (flag_pic)							\
 	  {								\
@@ -234,8 +235,5 @@ Boston, MA 02111-1307, USA.  */
 /* BeOS headers are C++-aware (and often use C++).  */
 #define NO_IMPLICIT_EXTERN_C
 
-/* Define this macro if in some cases global symbols from one translation
-   unit may not be bound to undefined symbols in another translation unit
-   without user intervention.  For instance, under Microsoft Windows
-   symbols must be explicitly imported from shared libraries (DLLs).  */
-#define MULTIPLE_SYMBOL_SPACES
+/* BeOS uses explicit import from shared libraries.  */
+#define MULTIPLE_SYMBOL_SPACES 1

@@ -1,6 +1,5 @@
 /* Java(TM) language-specific gimplification routines.
-
-   Copyright (C) 2003 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -30,7 +29,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "tree.h"
 #include "java-tree.h"
 #include "tree-dump.h"
-#include "tree-simple.h"
+#include "tree-gimple.h"
 #include "toplev.h"
 
 static tree java_gimplify_case_expr (tree);
@@ -38,6 +37,7 @@ static tree java_gimplify_default_expr (tree);
 static tree java_gimplify_block (tree);
 static tree java_gimplify_new_array_init (tree);
 static tree java_gimplify_try_expr (tree);
+static tree java_gimplify_modify_expr (tree);
 
 static void dump_java_tree (enum tree_dump_index, tree);
 
@@ -60,17 +60,23 @@ int
 java_gimplify_expr (tree *expr_p, tree *pre_p ATTRIBUTE_UNUSED,
 		    tree *post_p ATTRIBUTE_UNUSED)
 {
-  switch (TREE_CODE (*expr_p))
+  enum tree_code code = TREE_CODE (*expr_p);
+
+  switch (code)
     {
     case BLOCK:
       *expr_p = java_gimplify_block (*expr_p);
       break;
 
     case EXPR_WITH_FILE_LOCATION:
+#ifdef USE_MAPPED_LOCATION
+      input_location = EXPR_LOCATION (*expr_p);
+#else
       input_location.file = EXPR_WFL_FILENAME (*expr_p);
       input_location.line = EXPR_WFL_LINENO (*expr_p);
+#endif
       *expr_p = EXPR_WFL_NODE (*expr_p);
-      annotate_with_locus (*expr_p, input_location);
+      SET_EXPR_LOCATION (*expr_p, input_location);
       break;
 
     case CASE_EXPR:
@@ -97,6 +103,24 @@ java_gimplify_expr (tree *expr_p, tree *pre_p ATTRIBUTE_UNUSED,
       *expr_p = build_exception_object_ref (TREE_TYPE (*expr_p));
       break;
 
+    case VAR_DECL:
+      *expr_p = java_replace_reference (*expr_p, /* want_lvalue */ false);
+      return GS_UNHANDLED;
+
+    case MODIFY_EXPR:
+      *expr_p = java_gimplify_modify_expr (*expr_p);
+      return GS_UNHANDLED;
+
+    case SAVE_EXPR:
+      /* Note that we can see <save_expr NULL> if the save_expr was
+	 already handled by gimplify_save_expr.  */
+      if (TREE_OPERAND (*expr_p, 0) != NULL_TREE
+	  && TREE_CODE (TREE_OPERAND (*expr_p, 0)) == VAR_DECL)
+	TREE_OPERAND (*expr_p, 0) 
+	  = java_replace_reference (TREE_OPERAND (*expr_p, 0), 
+			       /* want_lvalue */ false);
+      return GS_UNHANDLED;
+
     /* These should already be lowered before we get here.  */
     case URSHIFT_EXPR:
     case COMPARE_EXPR:
@@ -114,25 +138,72 @@ java_gimplify_expr (tree *expr_p, tree *pre_p ATTRIBUTE_UNUSED,
       abort ();
 
     default:
+      /* Java insists on strict left-to-right evaluation of expressions.
+	 A problem may arise if a variable used in the LHS of a binary
+	 operation is altered by an assignment to that value in the RHS
+	 before we've performed the operation.  So, we always copy every
+	 LHS to a temporary variable.  
+
+	 FIXME: Are there any other cases where we should do this?
+	 Parameter lists, maybe?  Or perhaps that's unnecessary because
+	 the front end already generates SAVE_EXPRs.  */
+
+      if (TREE_CODE_CLASS (code) == tcc_binary
+	  || TREE_CODE_CLASS (code) == tcc_comparison)
+	{
+	  enum gimplify_status stat 
+	    = gimplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
+			     is_gimple_formal_tmp_var, fb_rvalue);
+	  if (stat == GS_ERROR)
+	    return stat;
+	}
+
       return GS_UNHANDLED;
     }
 
   return GS_OK;
 }
 
+/* This is specific to the bytecode compiler.  If a variable has
+   LOCAL_SLOT_P set, replace an assignment to it with an assignment to
+   the corresponding variable that holds all its aliases.  */
+
+static tree
+java_gimplify_modify_expr (tree modify_expr)
+{
+  tree lhs = TREE_OPERAND (modify_expr, 0);
+  tree rhs = TREE_OPERAND (modify_expr, 1);
+  tree lhs_type = TREE_TYPE (lhs);
+  
+  if (TREE_CODE (lhs) == VAR_DECL
+      && DECL_LANG_SPECIFIC (lhs)
+      && LOCAL_SLOT_P (lhs)
+      && TREE_CODE (lhs_type) == POINTER_TYPE)
+    {
+      tree new_lhs = java_replace_reference (lhs, /* want_lvalue */ true);
+      tree new_rhs = build1 (NOP_EXPR, TREE_TYPE (new_lhs), rhs);
+      modify_expr = build2 (MODIFY_EXPR, TREE_TYPE (new_lhs),
+			    new_lhs, new_rhs);
+      modify_expr = build1 (NOP_EXPR, lhs_type, modify_expr);
+    }
+  
+  return modify_expr;
+}
+
+    
 static tree
 java_gimplify_case_expr (tree expr)
 {
   tree label = create_artificial_label ();
-  return build (CASE_LABEL_EXPR, void_type_node,
-		TREE_OPERAND (expr, 0), NULL_TREE, label);
+  return build3 (CASE_LABEL_EXPR, void_type_node,
+		 TREE_OPERAND (expr, 0), NULL_TREE, label);
 }
 
 static tree
 java_gimplify_default_expr (tree expr ATTRIBUTE_UNUSED)
 {
   tree label = create_artificial_label ();
-  return build (CASE_LABEL_EXPR, void_type_node, NULL_TREE, NULL_TREE, label);
+  return build3 (CASE_LABEL_EXPR, void_type_node, NULL_TREE, NULL_TREE, label);
 }
 
 /* Gimplify BLOCK into a BIND_EXPR.  */
@@ -156,13 +227,18 @@ java_gimplify_block (tree java_block)
      because they use BLOCK_SUBBLOCKS for another purpose.  */
   block = make_node (BLOCK);
   BLOCK_VARS (block) = decls;
+
+  /* The TREE_USED flag on a block determines whether the debug ouput
+     routines generate info for the variables in that block.  */
+  TREE_USED (block) = 1;
+
   if (outer != NULL_TREE)
     {
       outer = BIND_EXPR_BLOCK (outer);
       BLOCK_SUBBLOCKS (outer) = chainon (BLOCK_SUBBLOCKS (outer), block);
     }
 
-  return build (BIND_EXPR, TREE_TYPE (java_block), decls, body, block);
+  return build3 (BIND_EXPR, TREE_TYPE (java_block), decls, body, block);
 }
 
 /* Gimplify a NEW_ARRAY_INIT node into array/element assignments.  */
@@ -174,16 +250,14 @@ java_gimplify_new_array_init (tree exp)
   tree data_field = lookup_field (&array_type, get_identifier ("data"));
   tree element_type = TYPE_ARRAY_ELEMENT (array_type);
   HOST_WIDE_INT ilength = java_array_type_length (array_type);
-  tree length = build_int_2 (ilength, 0);
+  tree length = build_int_cst (NULL_TREE, ilength);
   tree init = TREE_OPERAND (exp, 0);
   tree values = CONSTRUCTOR_ELTS (init);
 
   tree array_ptr_type = build_pointer_type (array_type);
-  tree block = build (BLOCK, array_ptr_type);
-  tree tmp = build_decl (VAR_DECL, get_identifier ("<tmp>"), array_ptr_type);
-  tree array = build_decl (VAR_DECL, get_identifier ("<array>"), array_ptr_type);
-  tree body = build (MODIFY_EXPR, array_ptr_type, tmp,
-		     build_new_array (element_type, length));
+  tree tmp = create_tmp_var (array_ptr_type, "array");
+  tree body = build2 (MODIFY_EXPR, array_ptr_type, tmp,
+		      build_new_array (element_type, length));
 
   int index = 0;
 
@@ -192,23 +266,19 @@ java_gimplify_new_array_init (tree exp)
     {
       /* FIXME: Should use build_java_arrayaccess here, but avoid
 	 bounds checking.  */
-      tree lhs = build (COMPONENT_REF, TREE_TYPE (data_field),    
-			build_java_indirect_ref (array_type, tmp, 0),
-			data_field);
-      tree assignment = build (MODIFY_EXPR, element_type,
-  			       build (ARRAY_REF, element_type, lhs,
-				      build_int_2 (index++, 0)),
-			       TREE_VALUE (values));
-      body = build (COMPOUND_EXPR, element_type, body, assignment);
+      tree lhs = build3 (COMPONENT_REF, TREE_TYPE (data_field),    
+			 build_java_indirect_ref (array_type, tmp, 0),
+			 data_field, NULL_TREE);
+      tree assignment = build2 (MODIFY_EXPR, element_type,
+				build4 (ARRAY_REF, element_type, lhs,
+					build_int_cst (NULL_TREE, index++),
+					NULL_TREE, NULL_TREE),
+				TREE_VALUE (values));
+      body = build2 (COMPOUND_EXPR, element_type, body, assignment);
       values = TREE_CHAIN (values);
     }
 
-  body = build (COMPOUND_EXPR, array_ptr_type, body,
-		build (MODIFY_EXPR, array_ptr_type, array, tmp));
-  TREE_CHAIN (tmp) = array;
-  BLOCK_VARS (block) = tmp;
-  BLOCK_EXPR_BODY (block) = body;
-  return java_gimplify_block (block);
+  return build2 (COMPOUND_EXPR, array_ptr_type, body, tmp);
 }
 
 static tree
@@ -223,16 +293,16 @@ java_gimplify_try_expr (tree try_expr)
     {
       tree java_catch = TREE_OPERAND (handler, 0);
       tree catch_type = TREE_TYPE (TREE_TYPE (BLOCK_EXPR_DECLS (java_catch)));
-      tree expr = build (CATCH_EXPR, void_type_node,
-			 prepare_eh_table_type (catch_type),
-			 handler);
+      tree expr = build2 (CATCH_EXPR, void_type_node,
+			  prepare_eh_table_type (catch_type),
+			  handler);
       if (catch)
-	catch = build (COMPOUND_EXPR, void_type_node, catch, expr);
+	catch = build2 (COMPOUND_EXPR, void_type_node, catch, expr);
       else
 	catch = expr;
       handler = TREE_CHAIN (handler);
     }
-  return build (TRY_CATCH_EXPR, void_type_node, body, catch);
+  return build2 (TRY_CATCH_EXPR, void_type_node, body, catch);
 }
 
 /* Dump a tree of some kind.  This is a convenience wrapper for the

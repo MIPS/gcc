@@ -1,3 +1,128 @@
+2004-09-27  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* configure.ac: Update all AC_DEFINEs to newer style.
+	* configure: Regenerate.
+	* include/gc_config.h.in: Regenerate.
+
+2004-08-27  Hans Boehm  <Hans.Boehm@hp.com>
+
+	* backgraph.c, gc_priv.h (GC_traverse_back_graph,
+	GC_print_back_graph_stats): split GC_traverse_back_graph.
+	* backgraph.c: Dynamically grow in_progress_space.
+	* finalize.c (GC_notify_or_invoke_finalizers): also call
+	GC_print_back_graph_stats.
+	* alloc.c, finalize.c, gc_priv.h (GC_generate_random_backtrace_no_gc,
+	GC_print_back_height): Move delarations to header file.
+	* configure.ac: rename --enable-full-debug to --enable-gc-debug.
+	* configure: Regenerate.
+	
+2004-08-23  Hans Boehm  <Hans.Boehm@hp.com>
+
+	* aix_irix_threads.c: Move _THREADS checks after gc_priv.h include.
+	* backgraph.c, include/private/gc_pmark.h: Always include gc.h.
+
+2004-08-23  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* win32_threads.c: Move GC_WIN32_THREADS check after gc_priv.h include.
+	Reported by Danny Smith.
+
+2004-08-21  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* misc.c (GC_init): Replace lhs cast with rhs cast.
+
+2004-08-16  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* specific.c: Check GC_LINUX_THREADS before including 
+	private/specific.h. From Richard Earnshaw.
+
+2004-08-16  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* aclocal.m4: Remove obsolete construct for old automake.
+	* acinclude.m4: Regenerate with aclocal 1.9.1.
+	* configure.ac:  Remove duplicate AC_WITH calls.  Replace
+	AC_CANONICAL_SYSTEM with AC_CANONICAL_HOST, AC_CANONICAL_TARGET.
+	Replace _GCC_TOPLEV_NONCANONICAL calls with ACX_NONCANONICAL_TARGET.
+	Remove now-redundant subst of target_noncanonical.  Remove
+	now-gratuitous m4 quoting around $.  Replace AM_PROG_LIBTOOL with
+	AC_PROG_LIBTOOL and remove second, redundant AC_PROG_LIBTOOL.
+	Use slightly more modern form of AC_INIT.
+	* configure: Rebuild with autoconf 2.59.
+	* Makefile.in, include/Makefile.in: Rebuild with automake 1.9.1.
+
+2004-08-16  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* solaris_threads.c: Remove ifdef around #include "private/gc_priv.h"
+	since they're not known at this time.
+	* solaris_pthreads.c: Likewise.
+
+2004-08-15  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	PR target/14931
+	* powerpc_darwin_mach_dep.s (_GC_push_regs): Change to new stub style.
+
+2004-08-13  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* configure.ac (gc_cflags): Add -Iinclude.
+	(AC_CONFIG_HEADERS): New. Configure gc_config.h header.
+	Don't write DEFS to boehm-cflags file.
+	* configure: Rebuilt.
+	* gcj_mlc.c: Check #ifdef GC_GCJ_SUPPORT after including headers.
+	* specific.c: Check #ifdef GC_LINUX_THREADS after including headers.
+	* include/gc_config_macros.h: Remove backward-compatibility 
+	redefinitions of GC_ names.
+	* include/gc.h: Include <gc_config.h>.
+
+2004-08-13  Bryce McKinlay  <mckinlay@redhat.com>
+
+	Import Boehm GC version 6.3.
+
+2004-08-12  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* include/Makefile.in: Regenerate
+
+2004-07-06  Andrew Pinski  <apinski@apple.com>
+
+	* os-dep.c (GC_task_self): Declare as static
+	and remove the second declaration.
+
+2004-06-20  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* Makefile.am: Add rule for .S files to fix bootstrap on
+	solaris and alpha.
+	* Makefile.in: Regenerate.
+
+2004-06-16  Paolo Bonzini  <bonzini@gnu.org>
+
+	* boehm-gc/configure.ac: New name of configure.in.
+	Remove useless multilib stuff.  Change uses of
+	INCLUDES and CXXINCLUDES to AM_CPPFLAGS.
+	* boehm-gc/configure.in: New name of configure.in.
+	* boehm-gc/Makefile.am: Update for automake 1.8.5.
+	* boehm-gc/acinclude.m4: Include ../config/acx.m4.
+	* boehm-gc/aclocal.m4: Regenerate.
+	* boehm-gc/configure: Regenerate.
+	* boehm-gc/Makefile.in: Regenerate.
+
+2004-06-15  Paolo Bonzini  <bonzini@gnu.org>
+
+	* .cvsignore: New file.
+
+2004-04-25  Andreas Jaeger  <aj@suse.de>
+
+        * mark.c (GC_mark_from): Use pointer as prefetch argument.
+
+2004-04-06  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* include/private/gcconfig.h (PREFETCH): Use __builtin_prefetch
+	for gcc >= 3.0.
+	(PREFETCH_FOR_WRITE): Likewise.
+
+2004-03-10  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* configure.ac: Bump AC_PREREQ to 2.59.
+	* configure: Regenerate.
+	* config.in: Regenerate.
+
 2004-02-26  Nathanael Nerode  <neroden@gcc.gnu.org>
 
 	* ltconfig, ltmain.sh: Remove unused files.

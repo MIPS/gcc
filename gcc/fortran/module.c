@@ -1,26 +1,27 @@
 /* Handle modules, which amounts to loading and saving symbols and
    their attendant structures.
-   Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation, 
+   Inc.
    Contributed by Andy Vaught
 
-This file is part of GNU G95.
+This file is part of GCC.
 
-GNU G95 is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU G95 is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU G95; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
-/* The syntax of g95 modules resembles that of lisp lists, ie a
+/* The syntax of gfortran modules resembles that of lisp lists, ie a
    sequence of atoms, which can be left or right parenthesis, names,
    integers or strings.  Parenthesis are always matched which allows
    us to skip over sections at high speed without having to know
@@ -41,6 +42,9 @@ Boston, MA 02111-1307, USA.  */
      ...
    )
    ( ( <name of generic interface> <module of generic interface> <i/f1> ... )
+     ...
+   )
+   ( ( <common name> <symbol> <saved flag>)
      ...
    )
    ( <Symbol Number (in no particular order)>
@@ -67,13 +71,14 @@ Boston, MA 02111-1307, USA.  */
 #include <time.h>
 
 #include "gfortran.h"
+#include "arith.h"
 #include "match.h"
 #include "parse.h" /* FIXME */
 
 #define MODULE_EXTENSION ".mod"
 
 
-/* Structure that descibes a position within a module file */
+/* Structure that describes a position within a module file */
 
 typedef struct
 {
@@ -506,7 +511,7 @@ gfc_match_use (void)
     {
       /* Get a new rename struct and add it to the rename list.  */
       new = gfc_get_use_rename ();
-      new->where = *gfc_current_locus ();
+      new->where = gfc_current_locus;
       new->found = 0;
 
       if (gfc_rename_list == NULL)
@@ -515,7 +520,7 @@ gfc_match_use (void)
 	tail->next = new;
       tail = new;
 
-      /* See what kind of interface we're dealing with.  Asusume it is
+      /* See what kind of interface we're dealing with.  Assume it is
          not an operator.  */
       new->operator = INTRINSIC_NONE;
       if (gfc_match_generic_spec (&type, name, &operator) == MATCH_ERROR)
@@ -1361,8 +1366,8 @@ mio_internal_string (char *string)
 
 typedef enum
 { AB_ALLOCATABLE, AB_DIMENSION, AB_EXTERNAL, AB_INTRINSIC, AB_OPTIONAL,
-  AB_POINTER, AB_SAVE, AB_TARGET, AB_DUMMY, AB_COMMON, AB_RESULT,
-  AB_ENTRY, AB_DATA, AB_IN_NAMELIST, AB_IN_COMMON, AB_SAVED_COMMON,
+  AB_POINTER, AB_SAVE, AB_TARGET, AB_DUMMY, AB_RESULT,
+  AB_DATA, AB_IN_NAMELIST, AB_IN_COMMON, 
   AB_FUNCTION, AB_SUBROUTINE, AB_SEQUENCE, AB_ELEMENTAL, AB_PURE,
   AB_RECURSIVE, AB_GENERIC, AB_ALWAYS_EXPLICIT
 }
@@ -1379,13 +1384,10 @@ static const mstring attr_bits[] =
     minit ("SAVE", AB_SAVE),
     minit ("TARGET", AB_TARGET),
     minit ("DUMMY", AB_DUMMY),
-    minit ("COMMON", AB_COMMON),
     minit ("RESULT", AB_RESULT),
-    minit ("ENTRY", AB_ENTRY),
     minit ("DATA", AB_DATA),
     minit ("IN_NAMELIST", AB_IN_NAMELIST),
     minit ("IN_COMMON", AB_IN_COMMON),
-    minit ("SAVED_COMMON", AB_SAVED_COMMON),
     minit ("FUNCTION", AB_FUNCTION),
     minit ("SUBROUTINE", AB_SUBROUTINE),
     minit ("SEQUENCE", AB_SEQUENCE),
@@ -1450,12 +1452,9 @@ mio_symbol_attribute (symbol_attribute * attr)
 	MIO_NAME(ab_attribute) (AB_TARGET, attr_bits);
       if (attr->dummy)
 	MIO_NAME(ab_attribute) (AB_DUMMY, attr_bits);
-      if (attr->common)
-	MIO_NAME(ab_attribute) (AB_COMMON, attr_bits);
       if (attr->result)
 	MIO_NAME(ab_attribute) (AB_RESULT, attr_bits);
-      if (attr->entry)
-	MIO_NAME(ab_attribute) (AB_ENTRY, attr_bits);
+      /* We deliberately don't preserve the "entry" flag.  */
 
       if (attr->data)
 	MIO_NAME(ab_attribute) (AB_DATA, attr_bits);
@@ -1463,8 +1462,6 @@ mio_symbol_attribute (symbol_attribute * attr)
 	MIO_NAME(ab_attribute) (AB_IN_NAMELIST, attr_bits);
       if (attr->in_common)
 	MIO_NAME(ab_attribute) (AB_IN_COMMON, attr_bits);
-      if (attr->saved_common)
-	MIO_NAME(ab_attribute) (AB_SAVED_COMMON, attr_bits);
 
       if (attr->function)
 	MIO_NAME(ab_attribute) (AB_FUNCTION, attr_bits);
@@ -1527,14 +1524,8 @@ mio_symbol_attribute (symbol_attribute * attr)
 	    case AB_DUMMY:
 	      attr->dummy = 1;
 	      break;
-	    case AB_COMMON:
-	      attr->common = 1;
-	      break;
 	    case AB_RESULT:
 	      attr->result = 1;
-	      break;
-	    case AB_ENTRY:
-	      attr->entry = 1;
 	      break;
 	    case AB_DATA:
 	      attr->data = 1;
@@ -1544,9 +1535,6 @@ mio_symbol_attribute (symbol_attribute * attr)
 	      break;
 	    case AB_IN_COMMON:
 	      attr->in_common = 1;
-	      break;
-	    case AB_SAVED_COMMON:
-	      attr->saved_common = 1;
 	      break;
 	    case AB_FUNCTION:
 	      attr->function = 1;
@@ -1718,7 +1706,7 @@ done:
    gfc_ref structure), find the corresponding array specification
    structure.  Storing the pointer in the ref structure doesn't quite
    work when loading from a module. Generating code for an array
-   reference also needs more infomation than just the array spec.  */
+   reference also needs more information than just the array spec.  */
 
 static const mstring array_ref_types[] = {
     minit ("FULL", AR_FULL),
@@ -1766,10 +1754,10 @@ mio_array_ref (gfc_array_ref * ar)
 
   if (iomode == IO_INPUT)
     {
-      ar->where = *gfc_current_locus ();
+      ar->where = gfc_current_locus;
 
       for (i = 0; i < ar->dimen; i++)
-	ar->c_where[i] = *gfc_current_locus ();
+	ar->c_where[i] = gfc_current_locus;
     }
 
   mio_rparen ();
@@ -2253,7 +2241,7 @@ mio_gmp_integer (mpz_t * integer)
 
 
 static void
-mio_gmp_real (mpf_t * real)
+mio_gmp_real (mpfr_t * real)
 {
   mp_exp_t exponent;
   char *p;
@@ -2263,17 +2251,26 @@ mio_gmp_real (mpf_t * real)
       if (parse_atom () != ATOM_STRING)
 	bad_module ("Expected real string");
 
-      mpf_init (*real);
-      mpf_set_str (*real, atom_string, -16);
+      mpfr_init (*real);
+      mpfr_set_str (*real, atom_string, 16, GFC_RND_MODE);
       gfc_free (atom_string);
 
     }
   else
     {
-      p = mpf_get_str (NULL, &exponent, 16, 0, *real);
+      p = mpfr_get_str (NULL, &exponent, 16, 0, *real, GFC_RND_MODE);
       atom_string = gfc_getmem (strlen (p) + 20);
 
       sprintf (atom_string, "0.%s@%ld", p, exponent);
+
+      /* Fix negative numbers.  */
+      if (atom_string[2] == '-')
+	{
+	  atom_string[0] = '-';
+	  atom_string[1] = '0';
+	  atom_string[2] = '.';
+	}
+
       write_atom (ATOM_STRING, atom_string);
 
       gfc_free (atom_string);
@@ -2401,7 +2398,7 @@ mio_expr (gfc_expr ** ep)
 	bad_module ("Expected expression type");
 
       e = *ep = gfc_get_expr ();
-      e->where = *gfc_current_locus ();
+      e->where = gfc_current_locus;
       e->expr_type = (expr_t) find_enum (expr_types);
     }
 
@@ -2506,10 +2503,12 @@ mio_expr (gfc_expr ** ep)
 	  break;
 
 	case BT_REAL:
+          gfc_set_model_kind (e->ts.kind);
 	  mio_gmp_real (&e->value.real);
 	  break;
 
 	case BT_COMPLEX:
+          gfc_set_model_kind (e->ts.kind);
 	  mio_gmp_real (&e->value.complex.r);
 	  mio_gmp_real (&e->value.complex.i);
 	  break;
@@ -2624,10 +2623,16 @@ mio_namespace_ref (gfc_namespace ** nsp)
   if (p->type == P_UNKNOWN)
     p->type = P_NAMESPACE;
 
-  if (iomode == IO_INPUT && p->integer != 0 && p->u.pointer == NULL)
+  if (iomode == IO_INPUT && p->integer != 0)
     {
-      ns = gfc_get_namespace (NULL);
-      associate_integer_pointer (p, ns);
+      ns = (gfc_namespace *)p->u.pointer;
+      if (ns == NULL)
+	{
+	  ns = gfc_get_namespace (NULL);
+	  associate_integer_pointer (p, ns);
+	}
+      else
+	ns->refs++;
     }
 }
 
@@ -2670,12 +2675,13 @@ mio_symbol (gfc_symbol * sym)
     }
 
   /* Save/restore common block links */
-  mio_symbol_ref (&sym->common_head);
   mio_symbol_ref (&sym->common_next);
 
   mio_formal_arglist (sym);
 
-  mio_expr (&sym->value);
+  if (sym->attr.flavor == FL_PARAMETER)
+    mio_expr (&sym->value);
+
   mio_array_spec (&sym->as);
 
   mio_symbol_ref (&sym->result);
@@ -2688,9 +2694,6 @@ mio_symbol (gfc_symbol * sym)
   if (sym->components != NULL)
     sym->component_access =
       MIO_NAME(gfc_access) (sym->component_access, access_types);
-
-  mio_symbol_ref (&sym->common_head);
-  mio_symbol_ref (&sym->common_next);
 
   mio_rparen ();
 }
@@ -2811,6 +2814,34 @@ load_generic_interfaces (void)
 }
 
 
+/* Load common blocks.  */
+
+static void
+load_commons(void)
+{
+  char name[GFC_MAX_SYMBOL_LEN+1];
+  gfc_common_head *p;
+
+  mio_lparen ();
+
+  while (peek_atom () != ATOM_RPAREN)
+    {
+      mio_lparen ();
+      mio_internal_string (name);
+
+      p = gfc_get_common (name, 1);
+
+      mio_symbol_ref (&p->head);
+      mio_integer (&p->saved);
+      p->use_assoc = 1;
+
+      mio_rparen();
+    }
+
+  mio_rparen();
+}
+
+
 /* Recursive function to traverse the pointer_info tree and load a
    needed symbol.  We return nonzero if we load a symbol and stop the
    traversal, because the act of loading can alter the tree.  */
@@ -2920,6 +2951,7 @@ read_module (void)
   skip_list ();
 
   get_module_locus (&user_operators);
+  skip_list ();
   skip_list ();
   skip_list ();
 
@@ -3058,6 +3090,8 @@ read_module (void)
   load_operator_interfaces ();
   load_generic_interfaces ();
 
+  load_commons ();
+
   /* At this point, we read those symbols that are needed but haven't
      been loaded yet.  If one symbol requires another, the other gets
      marked as NEEDED if its previous state was UNUSED.  */
@@ -3128,6 +3162,30 @@ check_access (gfc_access specific_access, gfc_access default_access)
 }
 
 
+/* Write a common block to the module */
+
+static void
+write_common (gfc_symtree *st)
+{
+  gfc_common_head *p;
+
+  if (st == NULL)
+    return;
+
+  write_common(st->left);
+  write_common(st->right);
+
+  mio_lparen();
+  mio_internal_string(st->name);
+
+  p = st->n.common;
+  mio_symbol_ref(&p->head);
+  mio_integer(&p->saved);
+
+  mio_rparen();
+}
+
+
 /* Write a symbol to the module.  */
 
 static void
@@ -3139,9 +3197,6 @@ write_symbol (int n, gfc_symbol * sym)
 
   mio_integer (&n);
   mio_internal_string (sym->name);
-
-  if (sym->module[0] == '\0')
-    strcpy (sym->module, module_name);
 
   mio_internal_string (sym->module);
   mio_pointer_ref (&sym->ns);
@@ -3168,6 +3223,8 @@ write_symbol0 (gfc_symtree * st)
   write_symbol0 (st->right);
 
   sym = st->n.sym;
+  if (sym->module[0] == '\0')
+    strcpy (sym->module, module_name);
 
   if (sym->attr.flavor == FL_PROCEDURE && sym->attr.generic
       && !sym->attr.subroutine && !sym->attr.function)
@@ -3307,6 +3364,12 @@ write_module (void)
   write_char ('\n');
   write_char ('\n');
 
+  mio_lparen ();
+  write_common (gfc_current_ns->common_root);
+  mio_rparen ();
+  write_char ('\n');
+  write_char ('\n');
+
   /* Write symbol information.  First we traverse all symbols in the
      primary namespace, writing those that need to be written.
      Sometimes writing one symbol will cause another to need to be
@@ -3325,7 +3388,7 @@ write_module (void)
   write_char ('\n');
 
   mio_lparen ();
-  gfc_traverse_symtree (gfc_current_ns, write_symtree);
+  gfc_traverse_symtree (gfc_current_ns->sym_root, write_symtree);
   mio_rparen ();
 }
 
@@ -3338,7 +3401,6 @@ void
 gfc_dump_module (const char *name, int dump_flag)
 {
   char filename[PATH_MAX], *p;
-  gfc_file *g;
   time_t now;
 
   filename[0] = '\0';
@@ -3356,20 +3418,16 @@ gfc_dump_module (const char *name, int dump_flag)
 
   module_fp = fopen (filename, "w");
   if (module_fp == NULL)
-    gfc_fatal_error ("Can't open module file '%s' for writing: %s",
+    gfc_fatal_error ("Can't open module file '%s' for writing at %C: %s",
 		     filename, strerror (errno));
-
-  /* Find the top level filename.  */
-  g = gfc_current_file;
-  while (g->next)
-    g = g->next;
 
   now = time (NULL);
   p = ctime (&now);
 
   *strchr (p, '\n') = '\0';
 
-  fprintf (module_fp, "GFORTRAN module created from %s on %s\n", g->filename, p);
+  fprintf (module_fp, "GFORTRAN module created from %s on %s\n", 
+	   gfc_source_file, p);
   fputs ("If you edit this, you'll get what you deserve.\n\n", module_fp);
 
   iomode = IO_OUTPUT;
@@ -3404,7 +3462,7 @@ gfc_use_module (void)
 
   module_fp = gfc_open_included_file (filename);
   if (module_fp == NULL)
-    gfc_fatal_error ("Can't open module file '%s' for reading: %s",
+    gfc_fatal_error ("Can't open module file '%s' for reading at %C: %s",
 		     filename, strerror (errno));
 
   iomode = IO_INPUT;

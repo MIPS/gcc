@@ -41,16 +41,37 @@ hook_bool_void_false (void)
   return false;
 }
 
-/* The same, but formally returning NO_REGS.  */
+/* Generic hook that takes no arguments and returns true.  */
+bool
+hook_bool_void_true (void)
+{
+  return true;
+}
+
+/* Generic hook that takes no arguments and returns NO_REGS.  */
 int
 hook_int_void_no_regs (void)
 {
   return NO_REGS;
 }
 
+/* Generic hook that returns 1.  */
+int
+hook_int_void_1 (void)
+{
+  return 1;
+}
+
 /* Generic hook that takes (bool) and returns false.  */
 bool
 hook_bool_bool_false (bool a ATTRIBUTE_UNUSED)
+{
+  return false;
+}
+
+/* Generic hook that takes (enum machine_mode) and returns false.  */
+bool
+hook_bool_mode_false (enum machine_mode mode ATTRIBUTE_UNUSED)
 {
   return false;
 }
@@ -96,6 +117,12 @@ default_can_output_mi_thunk_no_vcall (tree a ATTRIBUTE_UNUSED,
   return c == 0;
 }
 
+int
+hook_int_tree_0 (tree a ATTRIBUTE_UNUSED)
+{
+  return 0;
+}
+
 /* ??? Used for comp_type_attributes, which ought to return bool.  */
 int
 hook_int_tree_tree_1 (tree a ATTRIBUTE_UNUSED, tree b ATTRIBUTE_UNUSED)
@@ -134,10 +161,12 @@ hook_void_tree (tree a ATTRIBUTE_UNUSED)
 {
 }
 
+/* APPLE LOCAL begin 3739318 FSF Candidate.  */
 void
-hook_void_charptr (char *a ATTRIBUTE_UNUSED)
+hook_void_constcharptr (const char *a ATTRIBUTE_UNUSED)
 {
 }
+/* APPLE LOCAL end 3739318 FSF Candidate.  */
 
 void
 hook_void_tree_treeptr (tree a ATTRIBUTE_UNUSED, tree *b ATTRIBUTE_UNUSED)
@@ -205,24 +234,40 @@ hook_rtx_tree_int_null (tree a ATTRIBUTE_UNUSED, int b ATTRIBUTE_UNUSED)
   return NULL;
 }
 
-/* Generic hook that takes a size_t and returns NULL.  */
-void *
-hook_voidp_size_t_null (size_t a ATTRIBUTE_UNUSED)
-{
-  return NULL;
-}
-
-/* Generic hook that takes a size_t and a pointer and returns false.  */
-bool
-hook_bool_voidp_size_t_false (void * a ATTRIBUTE_UNUSED,
-			      size_t b ATTRIBUTE_UNUSED)
-{
-  return false;
-}
-
 /* Generic hook that takes a tree and returns it as is.  */
 tree
 hook_tree_tree_identity (tree a)
 {
   return a;
+}
+
+/* Generic hook that takes a tree and returns a NULL string.  */
+const char *
+hook_constcharptr_tree_null (tree t ATTRIBUTE_UNUSED)
+{
+  return NULL;
+}
+
+/* APPLE LOCAL begin constant cfstrings */
+/* Generic hook that takes a tree and returns NULL.  */
+tree
+hook_tree_tree_null (tree a ATTRIBUTE_UNUSED)
+{
+  return NULL;
+}
+
+/* Generic hook that takes three trees and returns NULL.  */
+tree
+hook_tree_tree_tree_tree_null (tree a ATTRIBUTE_UNUSED,
+			       tree b ATTRIBUTE_UNUSED,
+			       tree c ATTRIBUTE_UNUSED)
+{
+  return NULL;
+}
+/* APPLE LOCAL end constant cfstrings */
+
+tree
+hook_tree_tree_bool_null (tree t ATTRIBUTE_UNUSED, bool ignore ATTRIBUTE_UNUSED)
+{
+  return NULL;
 }

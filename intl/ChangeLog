@@ -1,3 +1,33 @@
+2004-09-23  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* Makefile.in (config.h.in): Correct dependencies.
+	(stamp-h1): Likewise.
+	(config.intl): Likewise.
+
+2004-09-22  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* configure.ac (AC_CONFIG_MACRO_DIR): New.
+	(ACLOCAL, AUTOCONF, AUTOHEADER, MAINT): Substitute.
+	* Makefile.in: Update with maintainer mode rules.
+	* README: Update aclocal regeneration instructions.
+	* aclocal.m4, configure: Regenerate.
+
+2004-09-22  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* .cvsignore: Ignore autom4te.cache
+
+2004-04-25  Paolo Bonzini  <bonzini@gnu.org>
+
+        * configure.ac: Point config.intl to the parent directory of
+        ${top_builddir}.
+	* configure: Regenerate.
+
+2004-03-10  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* configure.ac: Bump AC_PREREQ to 2.59.
+	* configure: Regenerate.
+	* config.h.in: Regenerate.
+
 2004-02-29  Nathanael Nerode  <neroden@gcc.gnu.org>
 
 	* configure.in: Convert to autoconf 2.57, gratuitous stylistic

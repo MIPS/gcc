@@ -1,5 +1,5 @@
 dnl Process this file with autoconf to produce a configure script.
-AC_PREREQ(2.57)
+AC_PREREQ(2.59)
 AC_INIT(jartool.h)
 AM_INIT_AUTOMAKE(fastjar, 0.92-gcc)
 AM_CONFIG_HEADER(config.h)
@@ -27,6 +27,8 @@ AC_HEADER_STDC
 AC_STRUCT_TM
 AC_CHECK_HEADERS(fcntl.h unistd.h sys/param.h stdlib.h limits.h)
 
+AC_CHECK_FUNCS(ftruncate _chsize)
+
 dnl Checks for typedefs, structures, and compiler characteristics.
 AC_TYPE_OFF_T
 AC_STRUCT_TM
@@ -39,7 +41,7 @@ AC_COMPILE_CHECK_SIZEOF(char)
 AC_COMPILE_CHECK_SIZEOF(short)
 AC_COMPILE_CHECK_SIZEOF(int)
 AC_COMPILE_CHECK_SIZEOF(long)
-AC_COMPILE_CHECK_SIZEOF(long long)
+AC_CHECK_TYPES([long long],[AC_COMPILE_CHECK_SIZEOF(long long)])
 
 dnl Check byte order
 AC_C_BIGENDIAN_CROSS
@@ -66,6 +68,26 @@ fi
 AC_SUBST(ZLIBS)
 AC_SUBST(ZDEPS)
 AC_SUBST(ZINCS)
+
+# GCC LOCAL CHANGE
+# We would like to our source tree to be readonly.  However when releases or
+# pre-releases are generated, the man pages need to be included as they are
+# converted from the texi files via perl which we don't require end users to
+# have installed.
+# Therefore we have --enable-generated-files-in-srcdir to do just that.
+
+AC_MSG_CHECKING([whether to place generated files in the source directory])
+  dnl generated-files-in-srcdir is disabled by default
+  AC_ARG_ENABLE(generated-files-in-srcdir, 
+[  --enable-generated-files-in-srcdir
+                          put copies of generated files in source dir
+                          intended for creating source tarballs for users
+                          without texinfo, perl, bison or flex.],
+      generated_files_in_srcdir=$enableval,
+      generated_files_in_srcdir=no)
+
+AC_MSG_RESULT($generated_files_in_srcdir)
+AM_CONDITIONAL(GENINSRC, test x$generated_files_in_srcdir = xyes)
 
 # Get the version trigger filename from the toplevel
 if test "${with_gcc_version_trigger+set}" = set; then

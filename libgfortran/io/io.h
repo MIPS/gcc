@@ -1,4 +1,4 @@
-/* Copyright (C) 2002-2003 Free Software Foundation, Inc.
+/* Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
@@ -23,8 +23,8 @@ Boston, MA 02111-1307, USA.  */
 
 /* IO library include.  */
 
+#include <setjmp.h>
 #include "libgfortran.h"
-
 #define DEFAULT_TEMPDIR "/var/tmp"
 
 /* Basic types used in data transfers.  */
@@ -42,11 +42,11 @@ try;
 
 typedef struct stream
 {
-  char *(*alloc_w_at) (struct stream *, int *, offset_t);
-  char *(*alloc_r_at) (struct stream *, int *, offset_t);
+  char *(*alloc_w_at) (struct stream *, int *, gfc_offset);
+  char *(*alloc_r_at) (struct stream *, int *, gfc_offset);
     try (*sfree) (struct stream *);
     try (*close) (struct stream *);
-    try (*seek) (struct stream *, offset_t);
+    try (*seek) (struct stream *, gfc_offset);
     try (*truncate) (struct stream *);
 }
 stream;
@@ -90,6 +90,7 @@ typedef struct namelist_type
   void * mem_pos;
   int  value_acquired;
   int len;
+  int string_length;
   bt type;
   struct namelist_type * next;
 }
@@ -143,7 +144,9 @@ typedef enum
 { ADVANCE_YES, ADVANCE_NO, ADVANCE_UNSPECIFIED }
 unit_advance;
 
-
+typedef enum
+{READING, WRITING}
+unit_mode;
 
 /* Statement parameters.  These are all the things that can appear in
    an I/O statement.  Some are inputs and some are outputs, but none
@@ -172,9 +175,12 @@ typedef struct
   }
   library_return;
 
-  int *iostat, *exist, *opened, *number, *named, *rec, *nextrec, *size;
+  int *iostat, *exist, *opened, *number, *named, rec, *nextrec, *size;
 
-  off_t *recl_in, *recl_out;
+  int recl_in; 
+  int *recl_out;
+
+  int *iolength;
 
   char *file;
   int file_len;
@@ -253,13 +259,13 @@ unit_flags;
 #define DEFAULT_RECL 10000
 
 
-typedef struct unit_t
+typedef struct gfc_unit
 {
   int unit_number;
 
   stream *s;
 
-  struct unit_t *left, *right;	/* Treap links.  */
+  struct gfc_unit *left, *right;	/* Treap links.  */
   int priority;
 
   int read_bad, current_record;
@@ -267,8 +273,9 @@ typedef struct unit_t
   { NO_ENDFILE, AT_ENDFILE, AFTER_ENDFILE }
   endfile;
 
+  unit_mode  mode;
   unit_flags flags;
-  offset_t recl, last_record, maxrec, bytes_left;
+  gfc_offset recl, last_record, maxrec, bytes_left;
 
   /* recl           -- Record length of the file.
      last_record    -- Last record number read or written
@@ -278,7 +285,7 @@ typedef struct unit_t
   int file_len;
   char file[1];	      /* Filename is allocated at the end of the structure.  */
 }
-unit_t;
+gfc_unit;
 
 /* Global variables.  Putting these in a structure makes it easier to
    maintain, particularly with the constraint of a prefix.  */
@@ -287,19 +294,20 @@ typedef struct
 {
   int in_library;       /* Nonzero if a library call is being processed.  */
   int size;	/* Bytes processed by the current data-transfer statement.  */
-  offset_t max_offset;	/* Maximum file offset.  */
+  gfc_offset max_offset;	/* Maximum file offset.  */
   int item_count;	/* Item number in a formatted data transfer.  */
   int reversion_flag;	/* Format reversion has occurred.  */
   int first_item;
 
-  unit_t *unit_root;
+  gfc_unit *unit_root;
   int seen_dollar;
 
-  enum {READING, WRITING} mode;
+  unit_mode  mode;
 
   unit_blank blank_status;
   enum {SIGN_S, SIGN_SS, SIGN_SP} sign_status;
   int scale_factor;
+  jmp_buf eof_jump;  
 }
 global_t;
 
@@ -309,7 +317,7 @@ extern global_t g;
 
 
 #define current_unit prefix(current_unit)
-extern unit_t *current_unit;
+extern gfc_unit *current_unit;
 
 /* Format tokens.  Only about half of these can be stored in the
    format nodes.  */
@@ -407,7 +415,7 @@ stream *output_stream (void);
 int compare_file_filename (stream *, const char *, int);
 
 #define find_file prefix(find_file)
-unit_t *find_file (void);
+gfc_unit *find_file (void);
 
 #define stream_at_bof prefix(stream_at_bof)
 int stream_at_bof (stream *);
@@ -416,7 +424,7 @@ int stream_at_bof (stream *);
 int stream_at_eof (stream *);
 
 #define delete_file prefix(delete_file)
-int delete_file (unit_t *);
+int delete_file (gfc_unit *);
 
 #define file_exists prefix(file_exists)
 int file_exists (void);
@@ -443,10 +451,10 @@ const char *inquire_write (const char *, int);
 const char *inquire_readwrite (const char *, int);
 
 #define file_length prefix(file_length)
-offset_t file_length (stream *);
+gfc_offset file_length (stream *);
 
 #define file_position prefix(file_position)
-offset_t file_position (stream *);
+gfc_offset file_position (stream *);
 
 #define is_seekable prefix(is_seekable)
 int is_seekable (stream *);
@@ -454,28 +462,34 @@ int is_seekable (stream *);
 #define empty_internal_buffer prefix(empty_internal_buffer)
 void empty_internal_buffer(stream *);
 
+#define flush prefix(flush)
+try flush (stream *);
+
 
 /* unit.c */
 
 #define insert_unit prefix(insert_unix)
-void insert_unit (unit_t *);
+void insert_unit (gfc_unit *);
 
 #define close_unit prefix(close_unit)
-int close_unit (unit_t *);
+int close_unit (gfc_unit *);
 
 #define is_internal_unit prefix(is_internal_unit)
 int is_internal_unit (void);
 
 #define find_unit prefix(find_unit)
-unit_t *find_unit (int);
+gfc_unit *find_unit (int);
 
 #define get_unit prefix(get_unit)
-unit_t *get_unit (int);
+gfc_unit *get_unit (int);
 
 /* open.c */
 
 #define test_endfile prefix(test_endfile)
-void test_endfile (unit_t *);
+void test_endfile (gfc_unit *);
+
+#define new_unit prefix(new_unit)
+void new_unit (unit_flags *);
 
 /* format.c */
 
@@ -535,7 +549,7 @@ void st_set_nml_var_int (void * , char * , int , int );
 void st_set_nml_var_float (void * , char * , int , int );
 
 #define st_set_nml_var_char prefix(st_set_nml_var_char)
-void st_set_nml_var_char (void * , char * , int , int );
+void st_set_nml_var_char (void * , char * , int , int, gfc_charlen_type);
 
 #define st_set_nml_var_complex prefix(st_set_nml_var_complex)
 void st_set_nml_var_complex (void * , char * , int , int );
@@ -634,6 +648,8 @@ void list_formatted_write (bt, void *, int);
 #define st_open prefix(st_open)
 #define st_close prefix(st_close)
 #define st_inquire prefix(st_inquire)
+#define st_iolength prefix(st_iolength)
+#define st_iolength_done prefix(st_iolength_done)
 #define st_rewind prefix(st_rewind)
 #define st_read prefix(st_read)
 #define st_read_done prefix(st_read_done)

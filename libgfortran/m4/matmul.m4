@@ -2,7 +2,7 @@
    Copyright 2002 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
 
-This file is part of the GNU Fortran 95 runtime library (libgfor).
+This file is part of the GNU Fortran 95 runtime library (libgfortran).
 
 Libgfortran is free software; you can redistribute it and/or
 modify it under the terms of the GNU Lesser General Public
@@ -23,12 +23,7 @@ Boston, MA 02111-1307, USA.  */
 #include <stdlib.h>
 #include <assert.h>
 #include "libgfortran.h"'
-include(types.m4)dnl
-define(rtype_code, regexp(file, `_\([irc][0-9]+\)\.', `\1'))dnl
-define(rtype_letter,substr(rtype_code, 0, 1))dnl
-define(rtype_kind, substr(rtype_code, 1))dnl
-define(rtype,get_arraytype(rtype_letter,rtype_kind))dnl
-define(rtype_name, get_typename(rtype_letter, rtype_kind))dnl
+include(iparm.m4)dnl
 
 /* Dimensions: retarray(x,y) a(x, count) b(count,y).
    Either a or b can be rank 1.  In this case x or y is 1.  */
@@ -57,6 +52,36 @@ void
 
   assert (GFC_DESCRIPTOR_RANK (a) == 2
           || GFC_DESCRIPTOR_RANK (b) == 2);
+
+  if (retarray->data == NULL)
+    {
+      if (GFC_DESCRIPTOR_RANK (a) == 1)
+        {
+          retarray->dim[0].lbound = 0;
+          retarray->dim[0].ubound = b->dim[1].ubound - b->dim[1].lbound;
+          retarray->dim[0].stride = 1;
+        }
+      else if (GFC_DESCRIPTOR_RANK (b) == 1)
+        {
+          retarray->dim[0].lbound = 0;
+          retarray->dim[0].ubound = a->dim[0].ubound - a->dim[0].lbound;
+          retarray->dim[0].stride = 1;
+        }
+      else
+        {
+          retarray->dim[0].lbound = 0;
+          retarray->dim[0].ubound = a->dim[0].ubound - a->dim[0].lbound;
+          retarray->dim[0].stride = 1;
+          
+          retarray->dim[1].lbound = 0;
+          retarray->dim[1].ubound = b->dim[1].ubound - b->dim[1].lbound;
+          retarray->dim[1].stride = retarray->dim[0].ubound+1;
+        }
+          
+      retarray->data = internal_malloc (sizeof (rtype_name) * size0 (retarray));
+      retarray->base = 0;
+    }
+
   abase = a->data;
   bbase = b->data;
   dest = retarray->data;

@@ -1,5 +1,6 @@
 /* File.java -- Class representing a file on disk
-   Copyright (C) 1998, 1999, 2000, 2001, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2003, 2004
+   Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -39,6 +40,8 @@ exception statement from your version. */
 package java.io;
 
 import java.net.MalformedURLException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
 import gnu.classpath.Configuration;
 import gnu.gcj.runtime.FileDeleter;
@@ -54,8 +57,8 @@ import gnu.gcj.runtime.FileDeleter;
  * types of path separators ("/" versus "\", for example).  It also
  * contains method useful for creating and deleting files and directories.
  *
- * @author Aaron M. Renn <arenn@urbanophile.com>
- * @author Tom Tromey <tromey@cygnus.com>
+ * @author Aaron M. Renn (arenn@urbanophile.com)
+ * @author Tom Tromey (tromey@cygnus.com)
  */
 public class File implements Serializable, Comparable
 {
@@ -88,6 +91,7 @@ public class File implements Serializable, Comparable
    * An example separator string would be "/" on the GNU system.
    */
   public static final String separator = System.getProperty("file.separator");
+  private static final String dupSeparator = separator + separator;
 
   /**
    * This is the first character of the file separator string.  On many
@@ -115,13 +119,12 @@ public class File implements Serializable, Comparable
   static final String tmpdir = System.getProperty("java.io.tmpdir");
   static int maxPathLen;
   static boolean caseSensitive;
-  static String dupSeparator = separator + separator;
   
   static
   {
     if (Configuration.INIT_LOAD_LIBRARY)
       {
-        System.loadLibrary ("javaio");
+        System.loadLibrary("javaio");
       }
     
     init_native();
@@ -187,7 +190,7 @@ public class File implements Serializable, Comparable
    * the path of this <code>File</code> object if an only if that file
    * does not already exist.
    * <p>
-   * A <code>SecurityManager</code>checkWrite</code> check is done prior
+   * A <code>SecurityManager.checkWrite</code> check is done prior
    * to performing this action.
    *
    * @return <code>true</code> if the file was created, <code>false</code> if
@@ -224,7 +227,7 @@ public class File implements Serializable, Comparable
     SecurityManager s = System.getSecurityManager();
     
     if (s != null)
-      s.checkDelete (path);
+      s.checkDelete(path);
     
     return performDelete();
   }
@@ -244,7 +247,7 @@ public class File implements Serializable, Comparable
    * @return <code>true</code> if the two objects are equal, 
    * <code>false</code> otherwise.
    */
-  public boolean equals (Object obj)
+  public boolean equals(Object obj)
   {
     if (! (obj instanceof File))
       return false;
@@ -252,9 +255,9 @@ public class File implements Serializable, Comparable
     File other = (File) obj;
 
     if (caseSensitive)
-      return path.equals (other.path);
+      return path.equals(other.path);
     else
-      return path.equalsIgnoreCase (other.path);
+      return path.equalsIgnoreCase(other.path);
   }
 
   /**
@@ -277,7 +280,7 @@ public class File implements Serializable, Comparable
    *
    * @param name The path name of the file
    */
-  public File (String name)
+  public File(String name)
   {
     path = normalizePath (name);
   }
@@ -288,7 +291,15 @@ public class File implements Serializable, Comparable
     // On Windows, convert any '/' to '\'.  This appears to be the same logic
     // that Sun's Win32 Java performs.
     if (separatorChar == '\\')
-      p = p.replace ('/', '\\');
+      {
+        p = p.replace ('/', '\\');
+	// We have to special case the "\c:" prefix.
+	if (p.length() > 2 && p.charAt(0) == '\\' &&
+	    ((p.charAt(1) >= 'a' && p.charAt(1) <= 'z') ||
+	    (p.charAt(1) >= 'A' && p.charAt(1) <= 'Z')) &&
+	    p.charAt(2) == ':')
+	  p = p.substring(1);
+      }
 
     int dupIndex = p.indexOf(dupSeparator);
     int plen = p.length();
@@ -354,18 +365,41 @@ public class File implements Serializable, Comparable
    * @param dirPath The path to the directory the file resides in
    * @param name The name of the file
    */
-  public File (String dirPath, String name)
+  public File(String dirPath, String name)
   {
     if (name == null)
       throw new NullPointerException();
-    if (dirPath != null && dirPath.length() > 0)
+    if (dirPath != null)
       {
-	// Try to be smart about the number of separator characters.
-	if (dirPath.charAt(dirPath.length() - 1) == separatorChar
-	    || name.length() == 0)
-	  path = normalizePath(dirPath + name);
+	if (dirPath.length() > 0)
+	  {
+	    // Try to be smart about the number of separator characters.
+	    if (dirPath.charAt(dirPath.length() - 1) == separatorChar
+		|| name.length() == 0)
+	      path = normalizePath(dirPath + name);
+	    else
+	      path = normalizePath(dirPath + separatorChar + name);
+	  }
 	else
-	  path = normalizePath(dirPath + separatorChar + name);
+	  {
+	    // If dirPath is empty, use a system dependant
+	    // default prefix.
+	    // Note that the leading separators in name have
+	    // to be chopped off, to prevent them forming
+	    // a UNC prefix on Windows.
+	    if (separatorChar == '\\' /* TODO use ON_WINDOWS */)
+	      {
+		int skip = 0;
+		while(name.length() > skip
+		    && (name.charAt(skip) == separatorChar
+		    || name.charAt(skip) == '/'))
+		  {
+		    skip++;
+		  }
+		name = name.substring(skip);
+	      }
+	    path = normalizePath(separatorChar + name);
+	  }
       }
     else
       path = normalizePath(name);
@@ -381,9 +415,26 @@ public class File implements Serializable, Comparable
    * @param directory The directory this file resides in
    * @param name The name of the file
    */
-  public File (File directory, String name)
+  public File(File directory, String name)
   {
     this (directory == null ? null : directory.path, name);
+  }
+
+  /**
+   * This method initializes a new <code>File</code> object to represent
+   * a file corresponding to the specified <code>file:</code> protocol URI.
+   *
+   * @param uri The uri.
+   */
+  public File(URI uri)
+  {
+    if (uri == null)
+	throw new NullPointerException("uri is null");
+
+    if (!uri.getScheme().equals("file"))
+	throw new IllegalArgumentException("invalid uri protocol");
+
+    path = normalizePath(uri.getPath());
   }
 
   /**
@@ -448,7 +499,7 @@ public class File implements Serializable, Comparable
    */
   public File getAbsoluteFile()
   {
-    return new File (getAbsolutePath());
+    return new File(getAbsolutePath());
   }
 
   /**
@@ -479,7 +530,7 @@ public class File implements Serializable, Comparable
    */
   public File getCanonicalFile() throws IOException
   {
-    return new File (getCanonicalPath());
+    return new File(getCanonicalPath());
   }
 
   /**
@@ -582,7 +633,7 @@ public class File implements Serializable, Comparable
    * This method returns a <code>File</code> object representing the parent
    * file of this one.
    *
-   * @param A <code>File</code> for the parent of this object.  
+   * @return a <code>File</code> for the parent of this object.  
    * <code>null</code>
    * will be returned if this object does not have a parent.
    *
@@ -591,7 +642,7 @@ public class File implements Serializable, Comparable
   public File getParentFile()
   {
     String parent = getParent();
-    return parent != null ? new File (parent) : null;
+    return parent != null ? new File(parent) : null;
   }
 
   /**
@@ -748,7 +799,7 @@ public class File implements Serializable, Comparable
    * @exception SecurityException If read access is not allowed to the 
    * directory by the <code>SecurityManager</code>
    */
-  public String[] list (FilenameFilter filter)
+  public String[] list(FilenameFilter filter)
   {
     checkRead();
     return (String[]) performList (filter, null, String.class);
@@ -826,7 +877,7 @@ public class File implements Serializable, Comparable
    *
    * @since 1.2
    */
-  public File[] listFiles (FilenameFilter filter)
+  public File[] listFiles(FilenameFilter filter)
   {
     checkRead();
     return (File[]) performList (filter, null, File.class);
@@ -856,7 +907,7 @@ public class File implements Serializable, Comparable
    *
    * @since 1.2
    */
-  public File[] listFiles (FileFilter filter)
+  public File[] listFiles(FileFilter filter)
   {
     checkRead();
     return (File[]) performList (null, filter, File.class);
@@ -871,6 +922,27 @@ public class File implements Serializable, Comparable
   public String toString()
   {
     return path;
+  }
+
+  /**
+   * @return A <code>URI</code> for this object.
+   */
+  public URI toURI()
+  {
+    String abspath = getAbsolutePath();
+
+    if (isDirectory())
+      abspath = abspath + separator;
+        
+    try
+      {
+	return new URI("file", "", abspath.replace(separatorChar, '/'));
+      }
+    catch (URISyntaxException use)
+      {
+        // Can't happen.
+	throw new RuntimeException(use);
+      }
   }
 
   /**
@@ -982,8 +1054,8 @@ public class File implements Serializable, Comparable
    *
    * @since 1.2
    */
-  public static File createTempFile (String prefix, String suffix,
-				     File directory)
+  public static File createTempFile(String prefix, String suffix,
+				    File directory)
     throws IOException
   {
     // Grab the system temp directory if necessary
@@ -991,21 +1063,21 @@ public class File implements Serializable, Comparable
       {
         String dirname = tmpdir;
         if (dirname == null)
-          throw new IOException ("Cannot determine system temporary directory"); 
+          throw new IOException("Cannot determine system temporary directory"); 
 	
-        directory = new File (dirname);
+        directory = new File(dirname);
         if (!directory.exists())
-          throw new IOException ("System temporary directory "
-                                 + directory.getName() + " does not exist.");
+          throw new IOException("System temporary directory "
+                                + directory.getName() + " does not exist.");
         if (!directory.isDirectory())
-          throw new IOException ("System temporary directory "
-                                 + directory.getName()
-                                 + " is not really a directory.");
+          throw new IOException("System temporary directory "
+                                + directory.getName()
+                                + " is not really a directory.");
       }
 
     // Check if prefix is at least 3 characters long
     if (prefix.length() < 3)
-      throw new IllegalArgumentException ("Prefix too short: " + prefix);
+      throw new IllegalArgumentException("Prefix too short: " + prefix);
 
     // Set default value of suffix
     if (suffix == null)
@@ -1066,6 +1138,7 @@ public class File implements Serializable, Comparable
    */
   public boolean setReadOnly()
   {
+    // Do a security check before trying to do anything else.
     checkWrite();
     return performSetReadOnly();
   }
@@ -1146,10 +1219,10 @@ public class File implements Serializable, Comparable
    * this operation
    * @exception IOException If an error occurs
    */
-  public static File createTempFile (String prefix, String suffix)
+  public static File createTempFile(String prefix, String suffix)
     throws IOException
   {
-    return createTempFile (prefix, suffix, null);
+    return createTempFile(prefix, suffix, null);
   }
 
   /**
@@ -1168,7 +1241,7 @@ public class File implements Serializable, Comparable
    *
    * @since 1.2
    */
-  public int compareTo (File other)
+  public int compareTo(File other)
   {
     if (caseSensitive)
       return path.compareTo (other.path);
@@ -1197,9 +1270,9 @@ public class File implements Serializable, Comparable
    *
    * @since 1.2
    */
-  public int compareTo (Object obj)
+  public int compareTo(Object obj)
   {
-    return compareTo ((File) obj);
+    return compareTo((File) obj);
   }
 
   /*
@@ -1219,7 +1292,7 @@ public class File implements Serializable, Comparable
    * @exception SecurityException If write access is not allowed to the 
    * file by the <code>SecurityMananger</code>.
    */
-  public synchronized boolean renameTo (File dest)
+  public synchronized boolean renameTo(File dest)
   {
     SecurityManager s = System.getSecurityManager();
     String sname = getName();
@@ -1253,7 +1326,7 @@ public class File implements Serializable, Comparable
    *
    * @since 1.2
    */
-  public boolean setLastModified (long time) 
+  public boolean setLastModified(long time) 
   {
     if (time < 0)
       throw new IllegalArgumentException("Negative modification time: " + time);
@@ -1268,7 +1341,7 @@ public class File implements Serializable, Comparable
     SecurityManager s = System.getSecurityManager();
     
     if (s != null)
-      s.checkWrite (path);
+      s.checkWrite(path);
   }
 
   private void checkRead()
@@ -1277,12 +1350,14 @@ public class File implements Serializable, Comparable
     SecurityManager s = System.getSecurityManager();
     
     if (s != null)
-      s.checkRead (path);
+      s.checkRead(path);
   }
 
   /** 
-   * Add this File to the set of files to be deleted upon normal
-   * termination.
+   * Calling this method requests that the file represented by this object
+   * be deleted when the virtual machine exits.  Note that this request cannot
+   * be cancelled.  Also, it will only be carried out if the virtual machine
+   * exits normally.
    *
    * @exception SecurityException If deleting of the file is not allowed
    *
@@ -1299,13 +1374,13 @@ public class File implements Serializable, Comparable
     FileDeleter.add (this);
   }
 
-  private void writeObject (ObjectOutputStream oos) throws IOException
+  private void writeObject(ObjectOutputStream oos) throws IOException
   {
     oos.defaultWriteObject();
-    oos.writeChar (separatorChar);
+    oos.writeChar(separatorChar);
   }
 
-  private void readObject (ObjectInputStream ois)
+  private void readObject(ObjectInputStream ois)
     throws ClassNotFoundException, IOException
   {
     ois.defaultReadObject();
@@ -1315,7 +1390,7 @@ public class File implements Serializable, Comparable
     char oldSeparatorChar = ois.readChar();
     
     if (oldSeparatorChar != separatorChar)
-      path = path.replace (oldSeparatorChar, separatorChar);
+      path = path.replace(oldSeparatorChar, separatorChar);
   }
   
 } // class File

@@ -270,6 +270,8 @@ public class BorderUIResource
     extends BevelBorder
     implements UIResource, Serializable
   {
+    private static final long serialVersionUID = -1275542891108351642L;
+    
     /**
      * Constructs a BevelBorderUIResource whose colors will be derived
      * from the background of the enclosed component. The background
@@ -279,7 +281,7 @@ public class BorderUIResource
      *
      * <p><img src="../border/doc-files/BevelBorder-1.png"
      * width="500" height="150"
-     * alt="[An illustration showing raised and lowered BevelBorders]" />
+     * alt="[An illustration showing raised and lowered BevelBorders]" /></p>
      *
      * @param bevelType the desired appearance of the border. The value
      *        must be either {@link javax.swing.border.BevelBorder#RAISED}
@@ -300,7 +302,7 @@ public class BorderUIResource
      *
      * <p><img src="../border/doc-files/BevelBorder-2.png" width="500"
      * height="150" alt="[An illustration showing BevelBorders that were
-     * constructed with this method]" />
+     * constructed with this method]" /></p>
      *
      * @param bevelType the desired appearance of the border. The value
      *        must be either {@link javax.swing.border.BevelBorder#RAISED}
@@ -340,7 +342,7 @@ public class BorderUIResource
      *
      * <p><img src="../border/doc-files/BevelBorder-3.png" width="500"
      * height="150" alt="[An illustration showing BevelBorders that
-     * were constructed with this method]" />
+     * were constructed with this method]" /></p>
      *
      * @param bevelType the desired appearance of the border. The value
      *        must be either {@link javax.swing.border.BevelBorder#RAISED}
@@ -399,6 +401,8 @@ public class BorderUIResource
     extends CompoundBorder
     implements UIResource, Serializable
   {
+    private static final long serialVersionUID = 7550017084975167341L;
+    
     /**
      * Constructs a CompoundBorderUIResource with the specified inside
      * and outside borders.
@@ -432,7 +436,7 @@ public class BorderUIResource
    *
    * <p><img src="../border/doc-files/EmptyBorder-1.png"
    * width="290" height="200"
-   * alt="[An illustration of EmptyBorder]" />
+   * alt="[An illustration of EmptyBorder]" /></p>
    *
    * @author Brian Jones (cbj@gnu.org)
    * @author Sascha Brawer (brawer@dandelis.ch)
@@ -441,6 +445,8 @@ public class BorderUIResource
     extends EmptyBorder
     implements UIResource, Serializable
   {
+    private static final long serialVersionUID = -4914187529340071708L;
+    
     /**
      * Constructs an empty border given the number of pixels required
      * on each side.
@@ -487,7 +493,7 @@ public class BorderUIResource
    *
    * <p><img src="../border/doc-files/EtchedBorder-1.png" width="500"
    * height="200" alt="[An illustration of the two EtchedBorder
-   * variants]" />
+   * variants]" /></p>
    *
    * @author Brian Jones (cbj@gnu.org)
    * @author Sascha Brawer (brawer@dandelis.ch)
@@ -496,6 +502,8 @@ public class BorderUIResource
     extends EtchedBorder
     implements UIResource, Serializable
   {
+    private static final long serialVersionUID = -8186391754165296656L;
+    
     /**
      * Constructs an EtchedBorderUIResource that appears lowered into
      * the surface. The colors will be derived from the background
@@ -514,7 +522,7 @@ public class BorderUIResource
      *
      * <p><img src="../border/doc-files/EtchedBorder-1.png"
      * width="500" height="200" alt="[An illustration of the two
-     * EtchedBorder variants]" />
+     * EtchedBorder variants]" /></p>
      *
      * @param etchType the desired appearance of the border. The value
      *        must be either {@link javax.swing.border.EtchedBorder#RAISED}
@@ -555,7 +563,7 @@ public class BorderUIResource
      *
      * <p><img src="../border/doc-files/EtchedBorder-2.png" width="500"
      * height="200" alt="[An illustration that shows which pixels get
-     * painted in what color]" />
+     * painted in what color]" /></p>
      *
      * @param etchType the desired appearance of the border. The value
      *        must be either {@link javax.swing.border.EtchedBorder#RAISED}
@@ -588,7 +596,7 @@ public class BorderUIResource
    * such as the borders provided by this class.
    *
    * <p><img src="../border/doc-files/LineBorder-1.png" width="500"
-   * height="200" alt="[An illustration of two LineBorders] />
+   * height="200" alt="[An illustration of two LineBorders]" /></p>
    *
    * @author Brian Jones (cbj@gnu.org)
    * @author Sascha Brawer (brawer@dandelis.ch)
@@ -597,6 +605,8 @@ public class BorderUIResource
     extends LineBorder
     implements UIResource, Serializable
   {
+    private static final long serialVersionUID = -6171232338180172310L;
+    
     /**
      * Constructs a LineBorderUIResource given its color.  The border
      * will be one pixel thick and have plain corners.
@@ -643,7 +653,7 @@ public class BorderUIResource
    * such as the borders provided by this class.
    *
    * <p><img src="../border/doc-files/MatteBorder-1.png" width="500"
-   * height="150" alt="[An illustration of two MatteBorders] />
+   * height="150" alt="[An illustration of two MatteBorders]" /></p>
    *
    * @author Brian Jones (cbj@gnu.org)
    * @author Sascha Brawer (brawer@dandelis.ch)
@@ -652,13 +662,15 @@ public class BorderUIResource
     extends MatteBorder
     implements UIResource, Serializable
   {
+    private static final long serialVersionUID = -8107923147541851122L;
+    
     /**
      * Constructs a MatteBorderUIResource given the width on each side
      * and a fill color.
      *
      * <p><img src="../border/doc-files/MatteBorder-2.png" width="500"
      * height="150" alt="[A picture of a MatteBorder made by this
-     * constructor]" />
+     * constructor]" /></p>
      *
      * @param top the width of the border at its top edge.
      * @param left the width of the border at its left edge.
@@ -680,7 +692,7 @@ public class BorderUIResource
      *
      * <p><img src="../border/doc-files/MatteBorder-4.png" width="500"
      * height="150" alt="[A picture of a MatteBorder made by this
-     * constructor]" />
+     * constructor]" /></p>
      *
      * @param top the width of the border at its top edge.
      * @param left the width of the border at its left edge.
@@ -704,7 +716,7 @@ public class BorderUIResource
      *
      * <p><img src="../border/doc-files/MatteBorder-6.png" width="500"
      * height="150" alt="[A picture of a MatteBorder made by this
-     * constructor]" />
+     * constructor]" /></p>
      *
      * @param tileIcon an icon for tiling the border area. 
      */
@@ -731,6 +743,8 @@ public class BorderUIResource
     extends TitledBorder
     implements UIResource, Serializable
   {
+    private static final long serialVersionUID = 7667113547406407427L;
+    
     /**
      * Constructs a TitledBorderUIResource given the text of its title.
      *

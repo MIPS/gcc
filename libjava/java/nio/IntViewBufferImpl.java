@@ -38,7 +38,7 @@ exception statement from your version. */
 
 package java.nio;
 
-class IntViewBufferImpl extends IntBuffer
+final class IntViewBufferImpl extends IntBuffer
 {
   /** Position in bb (i.e. a byte offset) where this buffer starts. */
   private int offset;
@@ -66,6 +66,13 @@ class IntViewBufferImpl extends IntBuffer
     this.endian = endian;
   }
 
+  /**
+   * Reads the <code>int</code> at this buffer's current position,
+   * and then increments the position.
+   *
+   * @exception BufferUnderflowException If there are no remaining
+   * <code>ints</code> in this buffer.
+   */
   public int get ()
   {
     int p = position();
@@ -74,6 +81,13 @@ class IntViewBufferImpl extends IntBuffer
     return result;
   }
 
+  /**
+   * Absolute get method. Reads the <code>int</code> at position
+   * <code>index</code>.
+   *
+   * @exception IndexOutOfBoundsException If index is negative or not smaller
+   * than the buffer's limit.
+   */
   public int get (int index)
   {
     return ByteBufferHelper.getInt(bb, (index << 2) + offset, endian);

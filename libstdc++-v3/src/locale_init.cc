@@ -89,35 +89,36 @@ namespace __gnu_internal
   extern std::__timepunct_cache<wchar_t>	 timepunct_cache_w;
 #endif
 
-  // Mutex objects for locale initialization.
-  __glibcxx_mutex_define_initialized(locale_cons_mutex);
-  __glibcxx_mutex_define_initialized(locale_global_mutex);
+  // Mutex object for locale initialization.
+  __glibcxx_mutex_define_initialized(locale_mutex);
 } // namespace __gnu_internal
 
 namespace std 
 {
   using namespace __gnu_internal;
 
-  locale::locale() throw()
+  locale::locale() throw() : _M_impl(0)
   { 
-    _S_initialize(); 
-    __glibcxx_mutex_lock(__gnu_internal::locale_cons_mutex);
+    _S_initialize();
+    __gnu_cxx::lock sentry(__gnu_internal::locale_mutex);
     _S_global->_M_add_reference();
     _M_impl = _S_global;
-    __glibcxx_mutex_unlock(__gnu_internal::locale_cons_mutex);
   }
 
   locale
   locale::global(const locale& __other)
   {
     _S_initialize();
-    __glibcxx_mutex_lock(__gnu_internal::locale_global_mutex);
-    _Impl* __old = _S_global;
-    __other._M_impl->_M_add_reference();
-    _S_global = __other._M_impl; 
-    if (__other.name() != "*")
-      setlocale(LC_ALL, __other.name().c_str());
-   __glibcxx_mutex_unlock(__gnu_internal::locale_global_mutex);
+    _Impl* __old;
+    {
+      __gnu_cxx::lock sentry(__gnu_internal::locale_mutex);
+      __old = _S_global;
+      __other._M_impl->_M_add_reference();
+      _S_global = __other._M_impl;
+      const string __other_name = __other.name();
+      if (__other_name != "*")
+	setlocale(LC_ALL, __other_name.c_str());
+    }
 
     // Reference count sanity check: one reference removed for the
     // subsition of __other locale, one added by return-by-value. Net
@@ -248,20 +249,20 @@ namespace std
   // Construct "C" _Impl.
   locale::_Impl::
   _Impl(size_t __refs) throw() 
-  : _M_refcount(__refs), _M_facets_size(_GLIBCXX_NUM_FACETS)
+  : _M_refcount(__refs), _M_facets(0), _M_facets_size(_GLIBCXX_NUM_FACETS),
+  _M_caches(0), _M_names(0)    
   {
     _M_facets = new (&facet_vec) const facet*[_M_facets_size];
     _M_caches = new (&cache_vec) const facet*[_M_facets_size];
     for (size_t __i = 0; __i < _M_facets_size; ++__i)
       _M_facets[__i] = _M_caches[__i] = 0;
 
-    // Name all the categories.
+    // Name the categories.
     _M_names = new (&name_vec) char*[_S_categories_size];
-    for (size_t __i = 0; __i < _S_categories_size; ++__i)
-      {
-	_M_names[__i] = new (&name_c[__i]) char[2];
-	std::strcpy(_M_names[__i], locale::facet::_S_get_c_name());
-      }
+    _M_names[0] = new (&name_c[0]) char[2];
+    std::memcpy(_M_names[0], locale::facet::_S_get_c_name(), 2);
+    for (size_t __j = 1; __j < _S_categories_size; ++__j)
+      _M_names[__j] = 0;
 
     // This is needed as presently the C++ version of "C" locales
     // != data in the underlying locale model for __timepunct,

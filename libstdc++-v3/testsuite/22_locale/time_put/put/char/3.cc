@@ -1,6 +1,6 @@
 // 2001-09-17 Benjamin Kosnik  <bkoz@redhat.com>
 
-// Copyright (C) 2001, 2002, 2003 Free Software Foundation
+// Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -34,15 +34,10 @@ void test03()
   // create "C" time objects
   tm time1 = { 0, 0, 12, 4, 3, 71, 0, 93, 0 };
 
-  // basic construction and sanity checks.
+  // basic construction and sanity check.
   locale loc_c = locale::classic();
   locale loc_hk = __gnu_test::try_named_locale("en_HK");
-  locale loc_fr = __gnu_test::try_named_locale("fr_FR@euro");
-  locale loc_de = __gnu_test::try_named_locale("de_DE");
   VERIFY( loc_hk != loc_c );
-  VERIFY( loc_hk != loc_fr );
-  VERIFY( loc_hk != loc_de );
-  VERIFY( loc_de != loc_fr );
 
   // create an ostream-derived object, cache the time_put facet
   const string empty;
@@ -57,15 +52,22 @@ void test03()
   oss.str(empty); // "%A, %B %d, %Y"
   iterator_type os_it25 = tim_put.put(oss.rdbuf(), oss, '*', &time1, 'x');
   string result25 = oss.str(); // "Sunday, April 04, 1971"
+  VERIFY( result25 == "Sunday, April 04, 1971" );
+
   oss.str(empty); // "%I:%M:%S %Z"
   iterator_type os_it26 = tim_put.put(oss.rdbuf(), oss, '*', &time1, 'X');
-  string result26 = oss.str(); // "12:00:00 PST"
+  string result26 = oss.str(); // "12:00:00 CET" or whatever timezone
+  VERIFY( result26.find("12:00:00") != string::npos );
+
   oss.str(empty);
   iterator_type os_it35 = tim_put.put(oss.rdbuf(), oss, '*', &time1, 'x', 'E');
   string result35 = oss.str(); // "Sunday, April 04, 1971"
+  VERIFY( result35 == "Sunday, April 04, 1971" );
+
   oss.str(empty);
   iterator_type os_it36 = tim_put.put(oss.rdbuf(), oss, '*', &time1, 'X', 'E');
-  string result36 = oss.str(); // "12:00:00 PST"
+  string result36 = oss.str(); // "12:00:00 CET"
+  VERIFY( result36.find("12:00:00") != string::npos );
 }
 
 int main()

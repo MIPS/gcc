@@ -1,5 +1,5 @@
 /* Various declarations for language-independent pretty-print subroutines.
-   Copyright (C) 2003 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
    Contributed by Gabriel Dos Reis <gdr@integrable-solutions.net>
 
 This file is part of GCC.
@@ -24,6 +24,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #undef FFS  /* Some systems define this in param.h.  */
 #include "system.h"
 #include "coretypes.h"
+#include "intl.h"
 #include "pretty-print.h"
 
 #define obstack_chunk_alloc xmalloc
@@ -177,9 +178,14 @@ pp_base_indent (pretty_printer *pp)
    %s: string.
    %p: pointer.
    %m: strerror(text->err_no) - does not consume a value from args_ptr.
-   %%: `%'.
-   %*.s: a substring the length of which is specified by an integer.
-   %H: location_t.  */
+   %%: '%'.
+   %<: opening quote.
+   %>: closing quote.
+   %': apostrophe (should only be used in untranslated messages;
+       translations should use appropriate punctuation directly).
+   %.*s: a substring the length of which is specified by an integer.
+   %H: location_t.
+   Flag 'q': quote formatted text (must come immediately after '%').  */
 void
 pp_base_format_text (pretty_printer *pp, text_info *text)
 {
@@ -187,6 +193,7 @@ pp_base_format_text (pretty_printer *pp, text_info *text)
     {
       int precision = 0;
       bool wide = false;
+      bool quoted = false;
 
       /* Ignore text.  */
       {
@@ -200,8 +207,14 @@ pp_base_format_text (pretty_printer *pp, text_info *text)
       if (*text->format_spec == '\0')
 	break;
 
-      /* We got a '%'.  Parse precision modifiers, if any.  */
-      switch (*++text->format_spec)
+      /* We got a '%'.  Check for 'q', then parse precision modifiers,
+	 if any.  */
+      if (*++text->format_spec == 'q')
+	{
+	  quoted = true;
+	  ++text->format_spec;
+	}
+      switch (*text->format_spec)
         {
         case 'w':
           wide = true;
@@ -221,6 +234,8 @@ pp_base_format_text (pretty_printer *pp, text_info *text)
       if (precision > 2)
         abort();
 
+      if (quoted)
+	pp_string (pp, open_quote);
       switch (*text->format_spec)
 	{
 	case 'c':
@@ -279,13 +294,23 @@ pp_base_format_text (pretty_printer *pp, text_info *text)
 	  pp_character (pp, '%');
 	  break;
 
+	case '<':
+	  pp_string (pp, open_quote);
+	  break;
+
+	case '>':
+	case '\'':
+	  pp_string (pp, close_quote);
+	  break;
+
         case 'H':
           {
-            const location_t *locus = va_arg (*text->args_ptr, location_t *);
+            location_t *locus = va_arg (*text->args_ptr, location_t *);
+	    expanded_location s = expand_location (*locus);
             pp_string (pp, "file '");
-            pp_string (pp, locus->file);
+            pp_string (pp, s.file);
             pp_string (pp, "', line ");
-            pp_decimal_int (pp, locus->line);
+            pp_decimal_int (pp, s.line);
           }
           break;
 
@@ -293,7 +318,7 @@ pp_base_format_text (pretty_printer *pp, text_info *text)
 	  {
 	    int n;
 	    const char *s;
-	    /* We handle no precision specifier but `%.*s'.  */
+	    /* We handle no precision specifier but '%.*s'.  */
 	    if (*++text->format_spec != '*')
 	      abort ();
 	    else if (*++text->format_spec != 's')
@@ -314,6 +339,8 @@ pp_base_format_text (pretty_printer *pp, text_info *text)
 	      abort ();
 	    }
 	}
+      if (quoted)
+	pp_string (pp, close_quote);
     }
 }
 
@@ -545,4 +572,14 @@ pp_base_string (pretty_printer *pp, const char *str)
   pp_maybe_wrap_text (pp, str, str + (str ? strlen (str) : 0));
 }
 
+/* Maybe print out a whitespace if needed.   */
 
+void
+pp_base_maybe_space (pretty_printer *pp)
+{
+  if (pp_base (pp)->padding != pp_none)
+    {
+      pp_space (pp);
+      pp_base (pp)->padding = pp_none;
+    }
+}

@@ -1,5 +1,5 @@
 /* Hash tables for Objective C method dispatch.
-   Copyright (C) 1993, 1995, 1996 Free Software Foundation, Inc.
+   Copyright (C) 1993, 1995, 1996, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -31,6 +31,10 @@ Boston, MA 02111-1307, USA.  */
 #include <stddef.h>
 #include <string.h>
 #include <objc/objc.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus */
 
 /*
  * This data structure is used to hold items
@@ -202,6 +206,10 @@ compare_strings (const void *k1, const void *k2)
   else
     return ! strcmp ((const char *) k1, (const char *) k2);
 }
+
+#ifdef __cplusplus
+}
+#endif /* __cplusplus */
 
 
 #endif /* not __hash_INCLUDE_GNU */

@@ -1,5 +1,5 @@
 ; Options for the C, ObjC, C++ and ObjC++ front ends.
-; Copyright (C) 2003 Free Software Foundation, Inc.
+; Copyright (C) 2003, 2004 Free Software Foundation, Inc.
 ;
 ; This file is part of GCC.
 ;
@@ -36,7 +36,14 @@
 ; "JoinedOrMissing" instead of "Joined".  If the argument to a switch
 ; is a non-negative integer, you can specify "UInteger" and the switch
 ; decoder will convert the argument for you, or complain to the user
-; if the argument is invalid.
+; if the argument is invalid.  "Var(name,set)" creates an integer
+; variable "name".  The variable is declared and initialized to value
+; given by "Init(value)" (or zero if this property is not defined).
+; When the option is passed to compiler, this variable is set to "set"
+; if value passed through the flag is nonzero, !"set" if value is zero,
+; or to value if "set" is omitted.  If "VarExists"  is specified, the
+; declaration for the variable is not created.  If "Report" is specified,
+; the flag is output with -fverbose-asm.
 
 ; The third field is the help text to output with --help.  This is
 ; automatically line-wrapped on output.  Normally the switch is output
@@ -103,7 +110,7 @@ Print the name of header files as they are used
 
 I
 C ObjC C++ ObjC++ Joined Separate
--I <dir>	Add <dir> to the end of the main include path.  -I- gives more include path control; see info documentation
+-I <dir>	Add <dir> to the end of the main include path
 
 M
 C ObjC C++ ObjC++
@@ -149,23 +156,29 @@ U
 C ObjC C++ ObjC++ Joined Separate
 -U<macro>	Undefine <macro>
 
+; APPLE LOCAL -Wno-#warnings
+W#warnings
+C ObjC C++ ObjC++
+Enable #warning
+
 Wabi
-C++ ObjC++
+C++ ObjC++ Var(warn_abi)
+Warn about things that will change when compiling with an ABI-compliant compiler
 
 Wall
 C ObjC C++ ObjC++
 Enable most warning messages
 
 Wbad-function-cast
-C ObjC
+C ObjC Var(warn_bad_function_cast)
 Warn about casting functions to incompatible types
 
 Wcast-qual
-C ObjC C++ ObjC++
+C ObjC C++ ObjC++ Var(warn_cast_qual)
 Warn about casts which discard qualifiers
 
 Wchar-subscripts
-C ObjC C++ ObjC++
+C ObjC C++ ObjC++ Var(warn_char_subscripts)
 Warn about subscripts whose type is \"char\"
 
 Wcomment
@@ -177,27 +190,27 @@ C ObjC C++ ObjC++
 Synonym for -Wcomment
 
 Wconversion
-C ObjC C++ ObjC++
+C ObjC C++ ObjC++ Var(warn_conversion)
 Warn about possibly confusing type conversions
 
 Wctor-dtor-privacy
-C++ ObjC++
+C++ ObjC++ Var(warn_ctor_dtor_privacy)
 Warn when all constructors and destructors are private
 
 Wdeclaration-after-statement
-C ObjC
+C ObjC Var(warn_declaration_after_statement)
 Warn when a declaration is found after a statement
 
 Wdeprecated
-C++ ObjC++
+C++ ObjC++ Var(warn_deprecated) Init(1)
 Warn about deprecated compiler features
 
 Wdiv-by-zero
-C ObjC
+C ObjC Var(warn_div_by_zero) Init(1)
 Warn about compile-time integer division by zero
 
 Weffc++
-C++ ObjC++
+C++ ObjC++ Var(warn_ecpp)
 Warn about violations of Effective C++ style rules
 
 Wendif-labels
@@ -212,8 +225,13 @@ Werror-implicit-function-declaration
 C ObjC RejectNegative
 Make implicit function declarations an error
 
+; APPLE LOCAL -Wextra-tokens
+Wextra-tokens
+C Objc C++ ObjC++
+Warn about extra tokens at the end of prepreprocessor directives
+
 Wfloat-equal
-C ObjC C++ ObjC++
+C ObjC C++ ObjC++ Var(warn_float_equal)
 Warn if testing floating point numbers for equality
 
 Wformat
@@ -221,40 +239,46 @@ C ObjC C++ ObjC++
 Warn about printf/scanf/strftime/strfmon format string anomalies
 
 Wformat-extra-args
-C ObjC C++ ObjC++
+C ObjC C++ ObjC++ Var(warn_format_extra_args)
 Warn if passing too many arguments to a function for its format string
 
 Wformat-nonliteral
-C ObjC C++ ObjC++
+C ObjC C++ ObjC++ Var(warn_format_nonliteral)
 Warn about format strings that are not literals
 
 Wformat-security
-C ObjC C++ ObjC++
+C ObjC C++ ObjC++ Var(warn_format_security)
 Warn about possible security problems with format functions
 
 Wformat-y2k
-C ObjC C++ ObjC++
+C ObjC C++ ObjC++ Var(warn_format_y2k)
 Warn about strftime formats yielding 2-digit years
 
 Wformat-zero-length
-C ObjC
+C ObjC Var(warn_format_zero_length)
+Warn about zero-length formats
 
 Wformat=
 C ObjC C++ ObjC++ Joined
 
-Winit-self
+; APPLE LOCAL -Wfour-char-constants
+Wfour-char-constants
 C ObjC C++ ObjC++
+Warn about multicharacter constants containing exactly four characters
+
+Winit-self
+C ObjC C++ ObjC++ Var(warn_init_self)
 Warn about variables which are initialized to themselves.
 
 Wimplicit
 C ObjC C++ ObjC++
 
 Wimplicit-function-declaration
-C ObjC
+C ObjC Var(mesg_implicit_function_declaration) Init(-1)
 Warn about implicit function declarations
 
 Wimplicit-int
-C ObjC
+C ObjC Var(warn_implicit_int)
 Warn when a declaration does not specify a type
 
 Wimport
@@ -262,15 +286,20 @@ C ObjC C++ ObjC++
 Deprecated.  This switch has no effect.
 
 Winvalid-offsetof
-C++ ObjC++
+C++ ObjC++ Var(warn_invalid_offsetof) Init(1)
 Warn about invalid uses of the \"offsetof\" macro
 
 Winvalid-pch
 C ObjC C++ ObjC++
 Warn about PCH files that are found but not used
 
-Wlong-long
+; APPLE LOCAL -Wlong-double
+Wlong-double
 C ObjC C++ ObjC++
+Warn about \"long double\"
+
+Wlong-long
+C ObjC C++ ObjC++ Var(warn_long_long) Init(1)
 Do not warn about using \"long long\" when -pedantic
 
 Wmain
@@ -278,74 +307,93 @@ C ObjC
 Warn about suspicious declarations of \"main\"
 
 Wmissing-braces
-C ObjC C++ ObjC++
+C ObjC C++ ObjC++ Var(warn_missing_braces)
 Warn about possibly missing braces around initializers
 
 Wmissing-declarations
-C ObjC
+C ObjC Var(warn_missing_declarations)
 Warn about global functions without previous declarations
 
+Wmissing-field-initializers
+C ObjC C++ ObjC++ Var(warn_missing_field_initializers) Init(-1)
+Warn about missing fields in struct initializers
+
 Wmissing-format-attribute
-C ObjC C++ ObjC++
+C ObjC C++ ObjC++ Var(warn_missing_format_attribute)
 Warn about functions which might be candidates for format attributes
 
+Wmissing-include-dirs
+C ObjC C++ ObjC++
+Warn about user-specified include directories that do not exist
+
 Wmissing-prototypes
-C ObjC
+C ObjC Var(warn_missing_prototypes)
 Warn about global functions without prototypes
+
+; APPLE LOCAL -Wmost
+Wmost
+C ObjC C++ ObjC++ 
+Like -Wall but without -Wparentheses
 
 Wmultichar
 C ObjC C++ ObjC++
 Warn about use of multi-character character constants
 
 Wnested-externs
-C ObjC
+C ObjC Var(warn_nested_externs)
 Warn about \"extern\" declarations not at file scope
 
+; APPLE LOCAL -Wnewline-eof
+Wnewline-eof
+C ObjC C++ ObjC++
+Warn about files missing a newline at the end of the file
+
 Wnon-template-friend
-C++ ObjC++
+C++ ObjC++ Var(warn_nontemplate_friend) Init(1)
 Warn when non-templatized friend functions are declared within a template
 
 Wnon-virtual-dtor
-C++ ObjC++
+C++ ObjC++ Var(warn_nonvdtor)
 Warn about non-virtual destructors
 
 Wnonnull
-C ObjC
+C ObjC Var(warn_nonnull)
+Warn about NULL being passed to argument slots marked as requiring non-NULL
 
 Wold-style-cast
-C++ ObjC++
+C++ ObjC++ Var(warn_old_style_cast)
 Warn if a C-style cast is used in a program
 
 Wold-style-definition
-C ObjC
+C ObjC Var(warn_old_style_definition)
 Warn if an old-style parameter definition is used
 
 Woverloaded-virtual
-C++ ObjC++
+C++ ObjC++ Var(warn_overloaded_virtual)
 Warn about overloaded virtual function names
 
 Wparentheses
-C ObjC C++ ObjC++
+C ObjC C++ ObjC++ Var(warn_parentheses)
 Warn about possibly missing parentheses
 
 Wpmf-conversions
-C++ ObjC++
+C++ ObjC++ Var(warn_pmf2ptr) Init(1)
 Warn when converting the type of pointers to member functions
 
 Wpointer-arith
-C ObjC C++ ObjC++
+C ObjC C++ ObjC++ Var(warn_pointer_arith)
 Warn about function pointer arithmetic
 
 Wprotocol
-ObjC ObjC++
+ObjC ObjC++ Var(warn_protocol) Init(1)
 Warn if inherited methods are unimplemented
 
 Wredundant-decls
-C ObjC C++ ObjC++
+C ObjC C++ ObjC++ Var(warn_redundant_decls)
 Warn about multiple declarations of the same object
 
 Wreorder
-C++ ObjC++
+C++ ObjC++ Var(warn_reorder)
 Warn when the compiler reorders code
 
 Wreturn-type
@@ -353,27 +401,27 @@ C ObjC C++ ObjC++
 Warn whenever a function's return type defaults to \"int\" (C), or about inconsistent return types (C++)
 
 Wselector
-ObjC ObjC++
+ObjC ObjC++ Var(warn_selector)
 Warn if a selector has multiple methods
 
 Wsequence-point
-C ObjC
+C ObjC C++ ObjC++ Var(warn_sequence_point)
 Warn about possible violations of sequence point rules
 
 Wsign-compare
-C ObjC C++ ObjC++
+C ObjC C++ ObjC++ Var(warn_sign_compare) Init(-1)
 Warn about signed-unsigned comparisons
 
 Wsign-promo
-C++ ObjC++
+C++ ObjC++ Var(warn_sign_promo)
 Warn when overload promotes from unsigned to signed
 
 Wstrict-prototypes
-C ObjC
+C ObjC Var(warn_strict_prototypes)
 Warn about unprototyped function declarations
 
 Wsynth
-C++ ObjC++
+C++ ObjC++ Var(warn_synth)
 Warn when synthesis behavior differs from Cfront
 
 Wsystem-headers
@@ -381,7 +429,7 @@ C ObjC C++ ObjC++
 Do not suppress warnings from system headers
 
 Wtraditional
-C ObjC
+C ObjC Var(warn_traditional)
 Warn about features not present in traditional C
 
 Wtrigraphs
@@ -389,7 +437,8 @@ C ObjC C++ ObjC++
 Warn if trigraphs are encountered that might affect the meaning of the program
 
 Wundeclared-selector
-ObjC ObjC++
+ObjC ObjC++ Var(warn_undeclared_selector)
+Warn about @selector()s without previously declared methods
 
 Wundef
 C ObjC C++ ObjC++
@@ -415,6 +464,11 @@ ansi
 C ObjC C++ ObjC++
 A synonym for -std=c89.  In a future version of GCC it will become synonymous with -std=c99 instead
 
+; APPLE LOCAL fat builds
+arch
+C ObjC C++ ObjC++ Separate
+The architecture to build for.
+
 d
 C ObjC C++ ObjC++ Joined
 ; Documented in common.opt.  FIXME - what about -dI, -dD, -dN and -dD?
@@ -430,9 +484,33 @@ falt-external-templates
 C++ ObjC++
 Change when template instances are emitted
 
+; APPLE LOCAL begin Altivec 3837840
+faltivec
+C ObjC C++ ObjC++ Var(flag_disable_opts_for_faltivec,0)
+Enable Altivec
+; APPLE LOCAL end Altivec 3837840
+
 fasm
 C ObjC C++ ObjC++
 Recognize the \"asm\" keyword
+
+; APPLE LOCAL CW asm blocks
+fasm-blocks
+C ObjC C++ ObjC++
+Handle CW-style assembly blocks
+
+; APPLE LOCAL -fast or -fastf or -fastcp
+fast
+C
+Used for c optimization
+
+fastcp
+C++
+Used when C++ specific optimization is needed
+
+fastf
+C
+Used when c is generated from NAG fortran
 
 fbuiltin
 C ObjC C++ ObjC++
@@ -444,6 +522,11 @@ C ObjC C++ ObjC++ Joined
 fcheck-new
 C++ ObjC++
 Check the return value of new
+
+; APPLE LOCAL structor decloning
+fclone-structors
+C++ ObjC++
+Factor out certain duplicate code in constructors and destructors
 
 fcond-mismatch
 C ObjC C++ ObjC++
@@ -464,6 +547,11 @@ ObjC ObjC++ Joined
 fdefault-inline
 C++ ObjC++
 Inline member functions by default
+
+; APPLE LOCAL disable_typechecking_for_spec_flag */
+fdisable-typechecking-for-spec
+C C++
+Make crossfile type mismatches warnings not errors (for SPEC)
 
 fdollars-in-identifiers
 C ObjC C++ ObjC++
@@ -569,9 +657,19 @@ C++ ObjC++
 fnonnull-objects
 C++ ObjC++
 
+; APPLE LOCAL begin ObjC C++ ivars
+fobjc-call-cxx-cdtors
+ObjC++
+Generate special ObjC methods to initialize/destroy non-POD C++ ivars, if needed
+; APPLE LOCAL end ObjC C++ ivars
+
 fobjc-exceptions
 ObjC ObjC++
 Enable Objective-C exception and synchronization syntax
+
+fobjc-sjlj-exceptions
+ObjC ObjC++
+Enable Objective-C setjmp exception handling runtime
 
 foperator-names
 C++ ObjC++
@@ -583,6 +681,10 @@ Enable optional diagnostics
 
 fpch-deps
 C ObjC C++ ObjC++
+
+fpch-preprocess
+C ObjC C++ ObjC++
+Look for and use PCH files even when preprocessing
 
 fpermissive
 C++ ObjC++
@@ -648,6 +750,10 @@ C++ ObjC++ Joined RejectNegative UInteger
 fthis-is-variable
 C++ ObjC++
 
+fthreadsafe-statics
+C++ ObjC++
+-fno-threadsafe-statics	Do not generate thread-safe code for initializing local statics.
+
 funsigned-bitfields
 C ObjC C++ ObjC++
 When \"signed\" or \"unsigned\" is not given make the bitfield unsigned
@@ -659,6 +765,10 @@ Make \"char\" unsigned by default
 fuse-cxa-atexit
 C++ ObjC++
 Use __cxa_atexit to register destructors
+
+fvisibility-inlines-hidden
+C++
+Marks all inlined methods as having hidden visibility
 
 fvtable-gc
 C++ ObjC++
@@ -715,6 +825,10 @@ C ObjC C++ ObjC++ Joined Separate
 isystem
 C ObjC C++ ObjC++ Joined Separate
 -isystem <dir>	Add <dir> to the start of the system include path
+
+iquote
+C ObjC C++ ObjC++ Joined Separate
+-iquote <dir>	Add <dir> to the end of the quote include path
 
 iwithprefix
 C ObjC C++ ObjC++ Joined Separate

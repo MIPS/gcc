@@ -29,7 +29,7 @@ Michael Meissner				gnu@the-meissners.org
 Jason Merrill					jason@redhat.com
 David S. Miller					davem@redhat.com
 Mark Mitchell					mark@codesourcery.com
-Bernd Schmidt					bernds@redhat.com
+Bernd Schmidt					bernd.schmidt@analog.com
 Zack Weinberg					zack@codesourcery.com
 Jim Wilson					wilson@specifixinc.com
 
@@ -44,6 +44,8 @@ avr port		Marek Michalkiewicz	marekm@amelek.gda.pl
 c4x port		Michael Hayes		m.hayes@elec.canterbury.ac.nz
 cris port		Hans-Peter Nilsson	hp@axis.com
 fr30 port		Nick Clifton		nickc@redhat.com
+frv port		Aldy Hernandez		aldyh@redhat.com
+frv port		Alexandre Oliva		aoliva@redhat.com
 h8 port			Jeff Law		law@redhat.com
 h8 port			Kazu Hirata		kazu@cs.umass.edu
 hppa port		Jeff Law		law@redhat.com
@@ -86,6 +88,7 @@ xtensa port		Bob Wilson		bob.wilson@acm.org
 			OS Port Maintainers	(OS alphabetical order)
 
 darwin port		Stan Shebs		shebs@apple.com
+darwin port		Dale Johannesen		dalej@apple.com
 DJGPP			DJ Delorie		dj@delorie.com
 freebsd			Loren J. Rittle		ljrittle@acm.org
 netbsd			Jason Thorpe		thorpej@wasabisystems.com
@@ -109,6 +112,7 @@ fortran 95		Steven Bosscher		stevenb@suse.de
 fortran 95		Toon Moene		toon@moene.indiv.nluug.nl
 c++			Jason Merrill		jason@redhat.com
 c++                     Mark Mitchell		mark@codesourcery.com
+c++			Nathan Sidwell		nathan@codesourcery.com
 cpplib			Dave Brolley		brolley@redhat.com
 cpplib			Per Bothner		per@bothner.com
 cpplib			Zack Weinberg		zack@codesourcery.com
@@ -129,6 +133,7 @@ loop discovery		Michael Hayes		m.hayes@elec.canterbury.ac.nz
 scheduler (+ haifa)	Jim Wilson		wilson@specifixinc.com
 scheduler (+ haifa)	Michael Meissner	gnu@the-meissners.org
 scheduler (+ haifa)	Jeff Law		law@redhat.com
+scheduler (+ haifa)	Vladimir Makarov	vmakarov@redhat.com
 reorg			Jeff Law		law@redhat.com
 caller-save.c		Jeff Law		law@redhat.com
 callgraph		Jan Hubicka		jh@suse.cz
@@ -147,7 +152,7 @@ gcse.c 			Jeff Law		law@redhat.com
 global opt framework	Jeff Law		law@redhat.com
 jump.c			David S. Miller		davem@redhat.com
 web pages		Gerald Pfeifer		gerald@pfeifer.com
-web pages		Janis Johnson		janis187@us.ibm.com
+build status lists	Janis Johnson		janis187@us.ibm.com
 config.sub/config.guess	Ben Elliston		config-patches@gnu.org
 basic block reordering	Jason Eckhardt		jle@rice.edu
 i18n			Philipp Thomas		pthomas@suse.de
@@ -168,7 +173,15 @@ gcov			Jan Hubicka		jh@suse.cz
 gcov			Nathan Sidwell		nathan@codesourcery.com
 option handling		Neil Booth		neil@daikokuya.co.uk
 libffi testsuite	Andreas Tobler		andreast@gcc.gnu.org
+compat testsuite	Janis Johnson		janis187@us.ibm.com
 middle-end		Roger Sayle		roger@eyesopen.com
+tree-ssa		Diego Novillo		dnovillo@redhat.com
+tree-ssa		Andrew MacLeod		amacleod@redhat.com
+PRE, points-to		Daniel Berlin		dberlin@dberlin.org
+mudflap			Frank Ch. Eigler	fche@redhat.com
+tree browser/unparser	Sebastian Pop		s.pop@laposte.net
+profile feedback	Jan Hubicka		jh@suse.cz
+type-safe vectors	Nathan Sidwell		nathan@codesourcery.com
 
 Note individuals who maintain parts of the compiler need approval to check
 in changes outside of the parts of the compiler they maintain.
@@ -176,6 +189,7 @@ in changes outside of the parts of the compiler they maintain.
 
 			Write After Approval	(last name alphabetical order)
 
+Mark G. Adams                                   mark.g.adams@sympatico.ca
 Matt Austern                                    austern@apple.com
 Giovanni Bajo					giovannibajo@gcc.gnu.org
 Scott Bambrough					scottb@netwinder.org
@@ -183,35 +197,40 @@ Wolfgang Bangerth				bangerth@dealii.org
 Daniel Berlin					dan@dberlin.org
 David Billinghurst				David.Billinghurst@riotinto.com
 Laurynas Biveinis			        laurynas.biveinis@mif.vu.lt
+Uros Bizjak					uros@kss-loka.si
 Eric Blake					ericb@gcc.gnu.org
 Jim Blandy					jimb@redhat.com
 Phil Blundell					pb@futuretv.com
 Hans Boehm					hboehm@gcc.gnu.org
+Segher Boessenkool				segher@kernel.crashing.org
 Paolo Bonzini					bonzini@gnu.org
-Brian Booth					bbooth@redhat.com
 Robert Bowdidge                                 bowdidge@apple.com
 Joel Brobecker					brobecker@gnat.com
 Kevin Buettner					kevinb@redhat.com
 Andrew Cagney					cagney@redhat.com
 Steve Chamberlain				sac@transmeta.com
+Michael Chastain				mec.gnu@mindspring.com
 Chandra Chavva					cchavva@redhat.com
 William Cohen					wcohen@redhat.com
 R. Kelley Cook					kcook@gcc.gnu.org
 Christian Cornelssen				ccorn@cs.tu-berlin.de
 David Daney					ddaney@avtrex.com
+Bud Davis					bdavis9659@comcast.net
 Chris Demetriou					cgd@broadcom.com
 Zdenek Dvorak					dvorakz@suse.cz
 Frank Ch. Eigler				fche@redhat.com
 Steve Ellcey					sje@cup.hp.com
-Ben Elliston					bje@wasabisystems.com
+Ben Elliston					bje@gnu.org
 Mohan Embar					gnustuff@thisiscool.com
 Marc Espie					espie@cvs.openbsd.org
 Ansgar Esztermann				ansgar@thphy.uni-duesseldorf.de
 Doug Evans					dje@transmeta.com
+Brian Ford					ford@vss.fsi.com
 Kaveh Ghazi					ghazi@caip.rutgers.edu
 Matthew Gingell					gingell@gnat.com
 Anthony Green					green@redhat.com
-Laurent Guerby					guerby@acm.org
+Laurent Guerby					laurent@guerby.net
+Mostafa Hagog					hagog@gcc.gnu.org
 Olivier Hainque					hainque@act-europe.fr
 Stuart Hastings					stuart@apple.com
 Matthew Hiller					hiller@redhat.com
@@ -241,6 +260,7 @@ Martin v. Löwis					loewis@informatik.hu-berlin.de
 HJ Lu						hjl@lucon.org
 Andrew Macleod					amacleod@redhat.com
 Vladimir Makarov				vmakarov@redhat.com
+Ranjit Mathew					rmathew@hotmail.com
 Greg McGary					gkm@gnu.org
 Adam Megacz					adam@xwt.org
 Alan Modra					amodra@bigpond.net.au
@@ -268,7 +288,9 @@ Craig Rodrigues					rodrigc@gcc.gnu.org
 Gavin Romig-Koch				gavin@redhat.com
 Ira Ruben					ira@apple.com
 Douglas Rupp					rupp@gnat.com
+Matthew Sachs					msachs@apple.com
 Alex Samuel					samuel@codesourcery.com
+Tobias Schlüter					tobias.schlueter@physik.uni-muenchen.de
 Andreas Schwab					schwab@suse.de
 Svein Seldal                                    svein.seldal@solidas.com
 Franz Sirl					franz.sirl-kernel@lauterbach.com
@@ -287,6 +309,8 @@ John Wehle					john@feith.com
 Florian Weimer					fw@deneb.enyo.de
 Mark Wielaard					mark@gcc.gnu.org
 Carlo Wood					carlo@alinoe.com
+Canqun Yang					canqun@nudt.edu.cn
+Jon Ziegler					jonz@apple.com
 Josef Zlomek					zlomekj@suse.cz
 
 Bug database only accounts

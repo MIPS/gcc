@@ -145,7 +145,6 @@ bits_headers = \
 	${bits_srcdir}/stl_set.h \
 	${bits_srcdir}/stl_stack.h \
 	${bits_srcdir}/stl_tempbuf.h \
-	${bits_srcdir}/stl_threads.h \
 	${bits_srcdir}/stl_tree.h \
 	${bits_srcdir}/stl_uninitialized.h \
 	${bits_srcdir}/stl_vector.h \
@@ -202,8 +201,8 @@ ext_srcdir = ${glibcxx_srcdir}/include/ext
 ext_builddir = ./ext
 ext_headers = \
 	${ext_srcdir}/algorithm \
+	${ext_srcdir}/bitmap_allocator.h \
 	${ext_srcdir}/debug_allocator.h \
-	${ext_srcdir}/demangle.h \
 	${ext_srcdir}/enc_filebuf.h \
 	${ext_srcdir}/stdio_filebuf.h \
 	${ext_srcdir}/stdio_sync_filebuf.h \
@@ -340,7 +339,8 @@ host_headers = \
 	${host_srcdir}/ctype_inline.h \
 	${host_srcdir}/ctype_noninline.h \
 	${host_srcdir}/os_defines.h \
-	${glibcxx_srcdir}/$(ATOMIC_WORD_SRCDIR)/atomic_word.h 
+	${glibcxx_srcdir}/$(ATOMIC_WORD_SRCDIR)/atomic_word.h \
+	${glibcxx_srcdir}/$(ABI_TWEAKS_SRCDIR)/cxxabi_tweaks.h
 
 # Non-installed host_header files.
 host_headers_noinst = \
@@ -350,6 +350,7 @@ host_headers_noinst = \
 host_headers_extra = \
 	${host_builddir}/basic_file.h \
 	${host_builddir}/c++config.h \
+	${host_builddir}/c++allocator.h \
 	${host_builddir}/c++io.h \
 	${host_builddir}/c++locale.h \
 	${host_builddir}/messages_members.h \
@@ -360,6 +361,7 @@ thread_host_headers = \
 	${host_builddir}/gthr.h \
 	${host_builddir}/gthr-single.h \
 	${host_builddir}/gthr-posix.h \
+	${host_builddir}/gthr-tpf.h \
 	${host_builddir}/gthr-default.h
 
 pch_input = ${host_builddir}/stdc++.h
@@ -479,6 +481,7 @@ stamp-host: ${host_headers} ${host_headers_noinst} stamp-${host_alias}
 	  (cd ${host_builddir} ;\
 	  $(LN_S) ${host_headers} . || true ;\
 	  $(LN_S) ${glibcxx_srcdir}/$(BASIC_FILE_H) basic_file.h || true ;\
+	  $(LN_S) ${glibcxx_srcdir}/$(ALLOCATOR_H) c++allocator.h || true ;\
 	  $(LN_S) ${glibcxx_srcdir}/$(CSTDIO_H) c++io.h || true ;\
 	  $(LN_S) ${glibcxx_srcdir}/$(CLOCALE_H) c++locale.h || true ;\
 	  $(LN_S) ${glibcxx_srcdir}/$(CLOCALE_INTERNAL_H) . || true ;\
@@ -504,7 +507,8 @@ ${host_builddir}/c++config.h: ${top_builddir}/config.h \
 uppercase = [ABCDEFGHIJKLMNOPQRSTUVWXYZ_]
 
 ${host_builddir}/gthr.h: ${toplevel_srcdir}/gcc/gthr.h stamp-${host_alias}
-	sed -e '/^#/s/\(${uppercase}${uppercase}*\)/_GLIBCXX_\1/g' \
+	sed -e '/^#pragma/b' \
+	    -e '/^#/s/\(${uppercase}${uppercase}*\)/_GLIBCXX_\1/g' \
 	    -e 's/_GLIBCXX_SUPPORTS_WEAK/__GXX_WEAK__/g' \
 	    -e 's,^#include "\(.*\)",#include <bits/\1>,g' \
 	    < ${toplevel_srcdir}/gcc/gthr.h > $@
@@ -523,6 +527,14 @@ ${host_builddir}/gthr-posix.h: ${toplevel_srcdir}/gcc/gthr-posix.h \
 	    -e 's/\(${uppercase}*USE_WEAK\)/_GLIBCXX_\1/g' \
 	    < ${toplevel_srcdir}/gcc/gthr-posix.h > $@
 
+${host_builddir}/gthr-tpf.h: ${toplevel_srcdir}/gcc/gthr-tpf.h \
+				   stamp-${host_alias}
+	sed -e 's/\(UNUSED\)/_GLIBCXX_\1/g' \
+	    -e 's/\(GCC${uppercase}*_H\)/_GLIBCXX_\1/g' \
+	    -e 's/SUPPORTS_WEAK/__GXX_WEAK__/g' \
+	    -e 's/\(${uppercase}*USE_WEAK\)/_GLIBCXX_\1/g' \
+	    < ${toplevel_srcdir}/gcc/gthr-tpf.h > $@
+
 ${host_builddir}/gthr-default.h: ${toplevel_srcdir}/gcc/${glibcxx_thread_h} \
 				   stamp-${host_alias}
 	sed -e 's/\(UNUSED\)/_GLIBCXX_\1/g' \
@@ -538,8 +550,8 @@ ${pch_input}: ${allstamped} ${host_builddir}/c++config.h ${pch_source}
 	if [ ! -d "${pch_output_builddir}" ]; then \
 	  mkdir -p ${pch_output_builddir}; \
 	fi; \
-	$(CXX) $(PCHFLAGS) $(AM_CPPFLAGS) ${pch_source} -O0 -g -o ${pch_output_builddir}/O0g; \
-	$(CXX) $(PCHFLAGS) $(AM_CPPFLAGS) ${pch_source} -O2 -g -o ${pch_output_builddir}/O2g;
+	$(CXX) $(PCHFLAGS) $(AM_CPPFLAGS) ${pch_source} -O0 -g -o ${pch_output_builddir}/O0g.gch; \
+	$(CXX) $(PCHFLAGS) $(AM_CPPFLAGS) ${pch_source} -O2 -g -o ${pch_output_builddir}/O2g.gch;
 
 # For robustness sake (in light of junk files or in-source
 # configuration), copy from the build or source tree to the install

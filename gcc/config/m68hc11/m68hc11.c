@@ -1,5 +1,6 @@
 /* Subroutines for code generation on Motorola 68HC11 and 68HC12.
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004
+   Free Software Foundation, Inc.
    Contributed by Stephane Carrez (stcarrez@nerim.fr)
 
 This file is part of GCC.
@@ -83,6 +84,7 @@ static void m68hc11_asm_out_constructor (rtx, int);
 static void m68hc11_asm_out_destructor (rtx, int);
 static void m68hc11_file_start (void);
 static void m68hc11_encode_section_info (tree, rtx, int);
+static const char *m68hc11_strip_name_encoding (const char* str);
 static unsigned int m68hc11_section_type_flags (tree, const char*, int);
 static int autoinc_mode (rtx);
 static int m68hc11_make_autoinc_notes (rtx *, void *);
@@ -270,6 +272,11 @@ static int nb_soft_regs;
 #define TARGET_STRUCT_VALUE_RTX m68hc11_struct_value_rtx
 #undef TARGET_RETURN_IN_MEMORY
 #define TARGET_RETURN_IN_MEMORY m68hc11_return_in_memory
+#undef TARGET_CALLEE_COPIES
+#define TARGET_CALLEE_COPIES hook_callee_copies_named
+
+#undef TARGET_STRIP_NAME_ENCODING
+#define TARGET_STRIP_NAME_ENCODING m68hc11_strip_name_encoding
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -287,6 +294,11 @@ m68hc11_override_options (void)
 	       (flag_pic > 1) ? "PIC" : "pic");
       flag_pic = 0;
     }
+
+  /* Do not enable -fweb because it breaks the 32-bit shift patterns
+     by breaking the match_dup of those patterns.  The shift patterns
+     will no longer be recognized after that.  */
+  flag_web = 0;
 
   /* Configure for a 68hc11 processor.  */
   if (TARGET_M6811)
@@ -838,7 +850,7 @@ m68hc11_reload_operands (rtx operands[])
       /* If the offset is out of range, we have to compute the address
          with a separate add instruction.  We try to do with with an 8-bit
          add on the A register.  This is possible only if the lowest part
-         of the offset (ie, big_offset % 256) is a valid constant offset
+         of the offset (i.e., big_offset % 256) is a valid constant offset
          with respect to the mode.  If it's not, we have to generate a
          16-bit add on the D register.  From:
        
@@ -1005,6 +1017,24 @@ non_push_operand (rtx operand, enum machine_mode mode)
 }
 
 int
+splitable_operand (rtx operand, enum machine_mode mode)
+{
+  if (general_operand (operand, mode) == 0)
+    return 0;
+
+  if (push_operand (operand, mode) == 1)
+    return 0;
+
+  /* Reject a (MEM (MEM X)) because the patterns that use non_push_operand
+     need to split such addresses to access the low and high part but it
+     is not possible to express a valid address for the low part.  */
+  if (mode != QImode && GET_CODE (operand) == MEM
+      && GET_CODE (XEXP (operand, 0)) == MEM)
+    return 0;
+  return 1;
+}
+
+int
 reg_or_some_mem_operand (rtx operand, enum machine_mode mode)
 {
   if (GET_CODE (operand) == MEM)
@@ -1046,6 +1076,9 @@ m68hc11_indirect_p (rtx operand, enum machine_mode mode)
     {
       rtx op = XEXP (operand, 0);
       int addr_mode;
+
+      if (m68hc11_page0_symbol_p (op))
+        return 1;
 
       if (symbolic_memory_operand (op, mode))
 	return TARGET_M6812;
@@ -1263,6 +1296,28 @@ m68hc11_initialize_trampoline (rtx tramp, rtx fnaddr, rtx cxt)
 
 /* Declaration of types.  */
 
+/* Handle an "tiny_data" attribute; arguments as in
+   struct attribute_spec.handler.  */
+static tree
+m68hc11_handle_page0_attribute (tree *node, tree name,
+                                tree args ATTRIBUTE_UNUSED,
+                                int flags ATTRIBUTE_UNUSED, bool *no_add_attrs)
+{
+  tree decl = *node;
+
+  if (TREE_STATIC (decl) || DECL_EXTERNAL (decl))
+    {
+      DECL_SECTION_NAME (decl) = build_string (6, ".page0");
+    }
+  else
+    {
+      warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
+}
+
 const struct attribute_spec m68hc11_attribute_table[] =
 {
   /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */
@@ -1270,6 +1325,7 @@ const struct attribute_spec m68hc11_attribute_table[] =
   { "trap",      0, 0, false, true,  true,  m68hc11_handle_fntype_attribute },
   { "far",       0, 0, false, true,  true,  m68hc11_handle_fntype_attribute },
   { "near",      0, 0, false, true,  true,  m68hc11_handle_fntype_attribute },
+  { "page0",     0, 0, false, false, false, m68hc11_handle_page0_attribute },
   { NULL,        0, 0, false, false, false, NULL }
 };
 
@@ -1298,6 +1354,51 @@ m68hc11_handle_fntype_attribute (tree *node, tree name,
 
   return NULL_TREE;
 }
+/* Undo the effects of the above.  */
+
+static const char *
+m68hc11_strip_name_encoding (const char *str)
+{
+  return str + (*str == '*' || *str == '@' || *str == '&');
+}
+
+static void
+m68hc11_encode_label (tree decl)
+{
+  const char *str = XSTR (XEXP (DECL_RTL (decl), 0), 0);
+  int len = strlen (str);
+  char *newstr = alloca (len + 2);
+
+  newstr[0] = '@';
+  strcpy (&newstr[1], str);
+
+  XSTR (XEXP (DECL_RTL (decl), 0), 0) = ggc_alloc_string (newstr, len + 1);
+}
+
+/* Return 1 if this is a symbol in page0  */
+int
+m68hc11_page0_symbol_p (rtx x)
+{
+  switch (GET_CODE (x))
+    {
+    case SYMBOL_REF:
+      return XSTR (x, 0) != 0 && XSTR (x, 0)[0] == '@';
+
+    case CONST:
+      return m68hc11_page0_symbol_p (XEXP (x, 0));
+
+    case PLUS:
+      if (!m68hc11_page0_symbol_p (XEXP (x, 0)))
+        return 0;
+
+      return GET_CODE (XEXP (x, 1)) == CONST_INT
+        && INTVAL (XEXP (x, 1)) < 256
+        && INTVAL (XEXP (x, 1)) >= 0;
+
+    default:
+      return 0;
+    }
+}
 
 /* We want to recognize trap handlers so that we handle calls to traps
    in a special manner (by issuing the trap).  This information is stored
@@ -1310,6 +1411,13 @@ m68hc11_encode_section_info (tree decl, rtx rtl, int first ATTRIBUTE_UNUSED)
   int trap_handler;
   int is_far = 0;
   
+  if (TREE_CODE (decl) == VAR_DECL)
+    {
+      if (lookup_attribute ("page0", DECL_ATTRIBUTES (decl)) != 0)
+        m68hc11_encode_label (decl);
+      return;
+    }
+
   if (TREE_CODE (decl) != FUNCTION_DECL)
     return;
 
@@ -1370,24 +1478,6 @@ m68hc11_is_trap_symbol (rtx sym)
 
 
 /* Argument support functions.  */
-
-/* Handle the FUNCTION_ARG_PASS_BY_REFERENCE macro.
-   Arrays are passed by references and other types by value.
-
-   SCz: I tried to pass DImode by reference but it seems that this
-   does not work very well.  */
-int
-m68hc11_function_arg_pass_by_reference (const CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED,
-                                        enum machine_mode mode ATTRIBUTE_UNUSED,
-                                        tree type,
-                                        int named ATTRIBUTE_UNUSED)
-{
-  return ((type && TREE_CODE (type) == ARRAY_TYPE)
-	  /* Consider complex values as aggregates, so care for TCmode.  */
-	  /*|| GET_MODE_SIZE (mode) > 4 SCz, temporary */
-	  /*|| (type && AGGREGATE_TYPE_P (type))) */ );
-}
-
 
 /* Define the offset between two registers, one to be eliminated, and the
    other its replacement, at the start of a routine.  */
@@ -2699,11 +2789,11 @@ m68hc11_expand_compare_and_branch (enum rtx_code code, rtx op0, rtx op1,
 	    break;
 
 	  case EQ:
-	    code1 = NIL;
+	    code1 = UNKNOWN;
 	    code2 = NE;
 	    break;
 	  case NE:
-	    code2 = NIL;
+	    code2 = UNKNOWN;
 	    break;
 
 	  default:
@@ -2717,14 +2807,14 @@ m68hc11_expand_compare_and_branch (enum rtx_code code, rtx op0, rtx op1,
 	 *    if (lo(a) < lo(b)) goto true;
 	 *  false:
 	 */
-	if (code1 != NIL)
+	if (code1 != UNKNOWN)
 	  m68hc11_expand_compare_and_branch (code1, hi[0], hi[1], label);
-	if (code2 != NIL)
+	if (code2 != UNKNOWN)
 	  m68hc11_expand_compare_and_branch (code2, hi[0], hi[1], label2);
 
 	m68hc11_expand_compare_and_branch (code3, lo[0], lo[1], label);
 
-	if (code2 != NIL)
+	if (code2 != UNKNOWN)
 	  emit_label (label2);
 	return 0;
       }
@@ -5189,7 +5279,7 @@ m68hc11_reorg (void)
             }
         }
 
-      life_analysis (first, 0, PROP_REG_INFO | PROP_DEATH_NOTES);
+      life_analysis (0, PROP_REG_INFO | PROP_DEATH_NOTES);
     }
 
   z_replacement_completed = 2;

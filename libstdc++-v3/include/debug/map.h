@@ -1,6 +1,6 @@
 // Debugging map implementation -*- C++ -*-
 
-// Copyright (C) 2003
+// Copyright (C) 2003, 2004
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -40,10 +40,10 @@ namespace __gnu_debug_def
   template<typename _Key, typename _Tp, typename _Compare = std::less<_Key>,
 	   typename _Allocator = std::allocator<std::pair<const _Key, _Tp> > >
     class map
-    : public __gnu_norm::map<_Key, _Tp, _Compare, _Allocator>,
+    : public _GLIBCXX_STD::map<_Key, _Tp, _Compare, _Allocator>,
       public __gnu_debug::_Safe_sequence<map<_Key, _Tp, _Compare, _Allocator> >
     {
-      typedef __gnu_norm::map<_Key, _Tp, _Compare, _Allocator> _Base;
+      typedef _GLIBCXX_STD::map<_Key, _Tp, _Compare, _Allocator> _Base;
       typedef __gnu_debug::_Safe_sequence<map> _Safe_base;
 
     public:
@@ -163,7 +163,7 @@ namespace __gnu_debug_def
         void
         insert(_InputIterator __first, _InputIterator __last)
         {
-	  __glibcxx_valid_range(__first, __last);
+	  __glibcxx_check_valid_range(__first, __last);
 	  _Base::insert(__first, __last);
 	}
 

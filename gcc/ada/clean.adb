@@ -24,10 +24,14 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
+with Ada.Command_Line; use Ada.Command_Line;
+
 with ALI;      use ALI;
 with Csets;
 with Gnatvsn;
 with Hostparm;
+with Makeutl;  use Makeutl;
+with MLib.Tgt; use MLib.Tgt;
 with Namet;    use Namet;
 with Opt;      use Opt;
 with Osint;    use Osint;
@@ -43,11 +47,9 @@ with System;
 with Table;
 with Types;    use Types;
 
-with GNAT.Command_Line;         use GNAT.Command_Line;
 with GNAT.Directory_Operations; use GNAT.Directory_Operations;
 with GNAT.IO;                   use GNAT.IO;
 with GNAT.OS_Lib;               use GNAT.OS_Lib;
-
 
 package body Clean is
 
@@ -136,15 +138,13 @@ package body Clean is
    procedure Init_Q;
    --  Must be called to initialize the Q
 
-   procedure Insert_Q
-     (Source_File : File_Name_Type);
-   --  If Source_File is not marked, inserts it at the end of Q and mark it
+   procedure Insert_Q (Lib_File  : File_Name_Type);
+   --  If Lib_File is not marked, inserts it at the end of Q and mark it
 
    function Empty_Q return Boolean;
    --  Returns True if Q is empty.
 
-   procedure Extract_From_Q
-     (Source_File : out File_Name_Type);
+   procedure Extract_From_Q (Lib_File : out File_Name_Type);
    --  Extracts the first element from the Q.
 
    Q_Front : Natural;
@@ -182,6 +182,10 @@ package body Clean is
 
    function Assembly_File_Name (Source : Name_Id) return String;
    --  Returns the assembly file name corresponding to Source
+
+   procedure Clean_Archive (Project : Project_Id);
+   --  Delete a global archive or a fake library project archive and the
+   --  dependency file, if they exist.
 
    procedure Clean_Directory (Dir : Name_Id);
    --  Delete all regular files in a library directory or in a library
@@ -315,6 +319,38 @@ package body Clean is
       return Src & Assembly_Suffix;
    end Assembly_File_Name;
 
+   -------------------
+   -- Clean_Archive --
+   -------------------
+
+   procedure Clean_Archive (Project : Project_Id) is
+      Current_Dir : constant Dir_Name_Str := Get_Current_Dir;
+      Data        : constant Project_Data := Projects.Table (Project);
+
+      Archive_Name : constant String :=
+                       "lib" & Get_Name_String (Data.Name) & '.' & Archive_Ext;
+      --  The name of the archive file for this project
+
+      Archive_Dep_Name : constant String :=
+                           "lib" & Get_Name_String (Data.Name) & ".deps";
+      --  The name of the archive dependency file for this project
+
+      Obj_Dir : constant String := Get_Name_String (Data.Object_Directory);
+
+   begin
+      Change_Dir (Obj_Dir);
+
+      if Is_Regular_File (Archive_Name) then
+         Delete (Obj_Dir, Archive_Name);
+      end if;
+
+      if Is_Regular_File (Archive_Dep_Name) then
+         Delete (Obj_Dir, Archive_Dep_Name);
+      end if;
+
+      Change_Dir (Current_Dir);
+   end Clean_Archive;
+
    ---------------------
    -- Clean_Directory --
    ---------------------
@@ -367,14 +403,14 @@ package body Clean is
       Main_Source_File : File_Name_Type;
       --  Current main source
 
-      Source_File : File_Name_Type;
-      --  Current source file
+      Main_Lib_File : File_Name_Type;
+      --  ALI file of the current main
 
       Lib_File : File_Name_Type;
-      --  Current library file
+      --  Current ALI file
 
       Full_Lib_File : File_Name_Type;
-      --  Full name of the current library file
+      --  Full name of the current ALI file
 
       Text : Text_Buffer_Ptr;
       The_ALI : ALI_Id;
@@ -393,16 +429,16 @@ package body Clean is
 
       for N_File in 1 .. Osint.Number_Of_Files loop
          Main_Source_File := Next_Main_Source;
-         Insert_Q (Main_Source_File);
+         Main_Lib_File := Osint.Lib_File_Name
+                             (Main_Source_File, Current_File_Index);
+         Insert_Q (Main_Lib_File);
 
          while not Empty_Q loop
             Sources.Set_Last (0);
-            Extract_From_Q (Source_File);
-            Lib_File      := Osint.Lib_File_Name (Source_File);
+            Extract_From_Q (Lib_File);
             Full_Lib_File := Osint.Full_Lib_File_Name (Lib_File);
 
-            --  If we have an existing ALI file that is not read-only,
-            --  process it.
+            --  If we have existing ALI file that is not read-only, process it
 
             if Full_Lib_File /= No_File
               and then not Is_Readonly_Library (Full_Lib_File)
@@ -428,7 +464,7 @@ package body Clean is
                         for K in ALI.Units.Table (J).First_With ..
                           ALI.Units.Table (J).Last_With
                         loop
-                           Insert_Q (Withs.Table (K).Sfile);
+                           Insert_Q (Withs.Table (K).Afile);
                         end loop;
                      end loop;
 
@@ -446,8 +482,7 @@ package body Clean is
                   end if;
                end if;
 
-               --  Now, delete all the existing files corresponding to this
-               --  ALI file.
+               --  Now delete all existing files corresponding to this ALI file
 
                declare
                   Obj_Dir : constant String :=
@@ -477,9 +512,10 @@ package body Clean is
                   for J in 1 .. Sources.Last loop
                      declare
                         Deb : constant String :=
-                                         Debug_File_Name (Sources.Table (J));
+                                Debug_File_Name (Sources.Table (J));
                         Rep : constant String :=
-                                         Repinfo_File_Name (Sources.Table (J));
+                                Repinfo_File_Name (Sources.Table (J));
+
                      begin
                         if Is_Regular_File (Obj_Dir & Dir_Separator & Deb) then
                            Delete (Obj_Dir, Deb);
@@ -499,7 +535,7 @@ package body Clean is
 
          if not Compile_Only then
             declare
-               Source : constant Name_Id := Strip_Suffix (Main_Source_File);
+               Source : constant Name_Id := Strip_Suffix (Main_Lib_File);
                Executable : constant String := Get_Name_String
                                               (Executable_Name (Source));
             begin
@@ -519,8 +555,7 @@ package body Clean is
 
    procedure Clean_Project (Project : Project_Id) is
       Main_Source_File : File_Name_Type;
-      --  Name of the executable on the command line, without directory
-      --  information.
+      --  Name of executable on the command line without directory info
 
       Executable : Name_Id;
       --  Name of the executable file
@@ -529,7 +564,15 @@ package body Clean is
       Data        : constant Project_Data := Projects.Table (Project);
       U_Data      : Prj.Com.Unit_Data;
       File_Name1  : Name_Id;
+      Index1      : Int;
       File_Name2  : Name_Id;
+      Index2      : Int;
+      Lib_File    : File_Name_Type;
+
+      Source_Id   : Other_Source_Id;
+      Source      : Other_Source;
+
+      Global_Archive : Boolean := False;
 
       use Prj.Com;
 
@@ -564,133 +607,221 @@ package body Clean is
          begin
             Change_Dir (Obj_Dir);
 
+            --  First, deal with Ada
+
             --  Look through the units to find those that are either immediate
             --  sources or inherited sources of the project.
 
-            for Unit in 1 .. Prj.Com.Units.Last loop
-               U_Data := Prj.Com.Units.Table (Unit);
-               File_Name1 := No_Name;
-               File_Name2 := No_Name;
+            if Data.Languages (Lang_Ada) then
+               for Unit in 1 .. Prj.Com.Units.Last loop
+                  U_Data := Prj.Com.Units.Table (Unit);
+                  File_Name1 := No_Name;
+                  File_Name2 := No_Name;
 
-               --  If either the spec or the body is a source of the project,
-               --  check for the corresponding ALI file in the object
-               --  directory.
+                  --  If either the spec or the body is a source of the
+                  --  project, check for the corresponding ALI file in the
+                  --  object directory.
 
-               if In_Extension_Chain
-                 (U_Data.File_Names (Body_Part).Project, Project)
-                 or else
-                   In_Extension_Chain
-                     (U_Data.File_Names (Specification).Project, Project)
-               then
-                  File_Name1 := U_Data.File_Names (Body_Part).Name;
-                  File_Name2 := U_Data.File_Names (Specification).Name;
+                  if In_Extension_Chain
+                    (U_Data.File_Names (Body_Part).Project, Project)
+                    or else
+                      In_Extension_Chain
+                        (U_Data.File_Names (Specification).Project, Project)
+                  then
+                     File_Name1 := U_Data.File_Names (Body_Part).Name;
+                     Index1     := U_Data.File_Names (Body_Part).Index;
+                     File_Name2 := U_Data.File_Names (Specification).Name;
+                     Index2     := U_Data.File_Names (Specification).Index;
 
-                  --  If there is no body file name, then there may be only a
-                  --  spec.
+                     --  If there is no body file name, then there may be only
+                     --  a spec.
 
-                  if File_Name1 = No_Name then
-                     File_Name1 := File_Name2;
-                     File_Name2 := No_Name;
+                     if File_Name1 = No_Name then
+                        File_Name1 := File_Name2;
+                        Index1     := Index2;
+                        File_Name2 := No_Name;
+                        Index2     := 0;
+                     end if;
                   end if;
-               end if;
 
-               --  If there is either a spec or a body, look for files in the
-               --  object directory.
+                  --  If there is either a spec or a body, look for files
+                  --  in the object directory.
 
-               if File_Name1 /= No_Name then
-                  declare
-                     Asm : constant String := Assembly_File_Name (File_Name1);
-                     ALI : constant String := ALI_File_Name      (File_Name1);
-                     Obj : constant String := Object_File_Name   (File_Name1);
-                     Adt : constant String := Tree_File_Name     (File_Name1);
-                     Deb : constant String := Debug_File_Name    (File_Name1);
-                     Rep : constant String := Repinfo_File_Name  (File_Name1);
-                     Del : Boolean := True;
+                  if File_Name1 /= No_Name then
+                     Lib_File := Osint.Lib_File_Name (File_Name1, Index1);
 
-                  begin
-                     --  If the ALI file exists and is read-only, no file is
-                     --  deleted.
+                     declare
+                        Asm : constant String := Assembly_File_Name (Lib_File);
+                        ALI : constant String := ALI_File_Name      (Lib_File);
+                        Obj : constant String := Object_File_Name   (Lib_File);
+                        Adt : constant String := Tree_File_Name     (Lib_File);
+                        Deb : constant String :=
+                                Debug_File_Name (File_Name1);
+                        Rep : constant String :=
+                                Repinfo_File_Name (File_Name1);
+                        Del : Boolean := True;
 
-                     if Is_Regular_File (ALI) then
-                        if Is_Writable_File (ALI) then
-                           Delete (Obj_Dir, ALI);
+                     begin
+                        --  If the ALI file exists and is read-only, no file
+                        --  is deleted.
 
-                        else
-                           Del := False;
+                        if Is_Regular_File (ALI) then
+                           if Is_Writable_File (ALI) then
+                              Delete (Obj_Dir, ALI);
 
-                           if Verbose_Mode then
-                              Put ('"');
-                              Put (Obj_Dir);
+                           else
+                              Del := False;
 
-                              if Obj_Dir (Obj_Dir'Last) /= Dir_Separator then
-                                 Put (Dir_Separator);
+                              if Verbose_Mode then
+                                 Put ('"');
+                                 Put (Obj_Dir);
+
+                                 if Obj_Dir (Obj_Dir'Last) /=
+                                      Dir_Separator
+                                 then
+                                    Put (Dir_Separator);
+                                 end if;
+
+                                 Put (ALI);
+                                 Put_Line (""" is read-only");
                               end if;
-
-                              Put (ALI);
-                              Put_Line (""" is read-only");
                            end if;
                         end if;
-                     end if;
 
-                     if Del then
+                        if Del then
 
-                        --  Object file
+                           --  Object file
 
-                        if Is_Regular_File (Obj) then
-                           Delete (Obj_Dir, Obj);
+                           if Is_Regular_File (Obj) then
+                              Delete (Obj_Dir, Obj);
+                           end if;
+
+                           --  Assembly file
+
+                           if Is_Regular_File (Asm) then
+                              Delete (Obj_Dir, Asm);
+                           end if;
+
+                           --  Tree file
+
+                           if Is_Regular_File (Adt) then
+                              Delete (Obj_Dir, Adt);
+                           end if;
+
+                           --  First expanded source file
+
+                           if Is_Regular_File (Deb) then
+                              Delete (Obj_Dir, Deb);
+                           end if;
+
+                           --  Repinfo file
+
+                           if Is_Regular_File (Rep) then
+                              Delete (Obj_Dir, Rep);
+                           end if;
+
+                           --  Second expanded source file
+
+                           if File_Name2 /= No_Name then
+                              declare
+                                 Deb : constant String :=
+                                         Debug_File_Name   (File_Name2);
+                                 Rep : constant String :=
+                                         Repinfo_File_Name (File_Name2);
+                              begin
+                                 if Is_Regular_File (Deb) then
+                                    Delete (Obj_Dir, Deb);
+                                 end if;
+
+                                 if Is_Regular_File (Rep) then
+                                    Delete (Obj_Dir, Rep);
+                                 end if;
+                              end;
+                           end if;
                         end if;
+                     end;
+                  end if;
+               end loop;
+            end if;
 
-                        --  Assembly file
+            --  Check if a global archive and it dependency file could have
+            --  been created and, if they exist, delete them.
 
-                        if Is_Regular_File (Asm) then
-                           Delete (Obj_Dir, Asm);
-                        end if;
+            if Project = Main_Project and then not Data.Library then
+               Global_Archive := False;
 
-                        --  Tree file
+               for Proj in 1 .. Projects.Last loop
+                  if Projects.Table (Proj).Other_Sources_Present then
+                     Global_Archive := True;
+                     exit;
+                  end if;
+               end loop;
 
-                        if Is_Regular_File (Adt) then
-                           Delete (Obj_Dir, Adt);
-                        end if;
-
-                        --  First expanded source file
-
-                        if Is_Regular_File (Deb) then
-                           Delete (Obj_Dir, Deb);
-                        end if;
-
-                        --  Repinfo file
-
-                        if Is_Regular_File (Rep) then
-                           Delete (Obj_Dir, Rep);
-                        end if;
-
-                        --  Second expanded source file
-
-                        if File_Name2 /= No_Name then
-                           declare
-                              Deb : constant String :=
-                                      Debug_File_Name   (File_Name2);
-                              Rep : constant String :=
-                                      Repinfo_File_Name (File_Name2);
-                           begin
-                              if Is_Regular_File (Deb) then
-                                 Delete (Obj_Dir, Deb);
-                              end if;
-
-                              if Is_Regular_File (Rep) then
-                                 Delete (Obj_Dir, Rep);
-                              end if;
-                           end;
-                        end if;
-                     end if;
-                  end;
+               if Global_Archive then
+                  Clean_Archive (Project);
                end if;
-            end loop;
+            end if;
 
-            if Verbose_Mode then
-               New_Line;
+            if Data.Other_Sources_Present then
+
+               --  There is non-Ada code: delete the object files and
+               --  the dependency files if they exist.
+
+               Source_Id := Data.First_Other_Source;
+
+               while Source_Id /= No_Other_Source loop
+                  Source := Other_Sources.Table (Source_Id);
+
+                  if Is_Regular_File
+                       (Get_Name_String (Source.Object_Name))
+                  then
+                     Delete (Obj_Dir, Get_Name_String (Source.Object_Name));
+                  end if;
+
+                  if Is_Regular_File (Get_Name_String (Source.Dep_Name)) then
+                     Delete (Obj_Dir, Get_Name_String (Source.Dep_Name));
+                  end if;
+
+                  Source_Id := Source.Next;
+               end loop;
+
+               --  If it is a library with only non Ada sources, delete
+               --  the fake archive and the dependency file, if they exist.
+
+               if Data.Library and then not Data.Languages (Lang_Ada) then
+                  Clean_Archive (Project);
+               end if;
             end if;
          end;
+      end if;
+
+      --  If this is a library project, clean the library directory, the
+      --  interface copy dir and, for a Stand-Alone Library, the binder
+      --  generated files of the library.
+
+      --  The directories are cleaned only if switch -c is not specified.
+
+      if Data.Library then
+         if not Compile_Only then
+            Clean_Directory (Data.Library_Dir);
+
+            if Data.Library_Src_Dir /= No_Name
+              and then Data.Library_Src_Dir /= Data.Library_Dir
+            then
+               Clean_Directory (Data.Library_Src_Dir);
+            end if;
+         end if;
+
+         if Data.Standalone_Library and then
+            Data.Object_Directory /= No_Name
+         then
+            Delete_Binder_Generated_Files
+              (Get_Name_String (Data.Object_Directory), Data.Library_Name);
+         end if;
+      end if;
+
+      if Verbose_Mode then
+         New_Line;
       end if;
 
       --  If switch -r is specified, call Clean_Project recursively for the
@@ -736,36 +867,12 @@ package body Clean is
          end;
       end if;
 
-      --  If this is a library project, clean the library directory, the
-      --  interface copy dir and, for a Stand-Alone Library, the binder
-      --  generated files of the library.
-
-      --  The directories are cleaned only if switch -c is not specified.
-
-      if Data.Library then
-         if not Compile_Only then
-            Clean_Directory (Data.Library_Dir);
-
-            if Data.Library_Src_Dir /= No_Name
-              and then Data.Library_Src_Dir /= Data.Library_Dir
-            then
-               Clean_Directory (Data.Library_Src_Dir);
-            end if;
-         end if;
-
-         if Data.Standalone_Library and then
-            Data.Object_Directory /= No_Name
-         then
-            Delete_Binder_Generated_Files
-              (Get_Name_String (Data.Object_Directory), Data.Library_Name);
-         end if;
-
-         --  Otherwise, for the main project, delete the executables and the
+         --  For the main project, delete the executables and the
          --  binder generated files.
 
          --  The executables are deleted only if switch -c is not specified.
 
-      elsif Project = Main_Project and then Data.Exec_Directory /= No_Name then
+      if Project = Main_Project and then Data.Exec_Directory /= No_Name then
          declare
             Exec_Dir : constant String :=
               Get_Name_String (Data.Exec_Directory);
@@ -776,7 +883,11 @@ package body Clean is
                Main_Source_File := Next_Main_Source;
 
                if not Compile_Only then
-                  Executable := Executable_Of (Main_Project, Main_Source_File);
+                  Executable :=
+                    Executable_Of
+                      (Main_Project,
+                       Main_Source_File,
+                       Current_File_Index);
 
                   if Is_Regular_File (Get_Name_String (Executable)) then
                      Delete (Exec_Dir, Get_Name_String (Executable));
@@ -938,12 +1049,12 @@ package body Clean is
    -- Extract_From_Q --
    --------------------
 
-   procedure Extract_From_Q (Source_File : out File_Name_Type) is
-      File : constant File_Name_Type := Q.Table (Q_Front);
+   procedure Extract_From_Q (Lib_File : out File_Name_Type) is
+      Lib : constant File_Name_Type := Q.Table (Q_Front);
 
    begin
-      Q_Front := Q_Front + 1;
-      Source_File := File;
+      Q_Front  := Q_Front + 1;
+      Lib_File := Lib;
    end Extract_From_Q;
 
    ---------------
@@ -954,7 +1065,7 @@ package body Clean is
    begin
       --  Do the necessary initializations
 
-      Initialize;
+      Clean.Initialize;
 
       --  Parse the command line, getting the switches and the executable names
 
@@ -981,17 +1092,17 @@ package body Clean is
 
          Prj.Pars.Set_Verbosity (To => Prj.Com.Current_Verbosity);
 
-         --  Parse the project file.
-         --  If there is an error, Main_Project will still be No_Project.
+         --  Parse the project file. If there is an error, Main_Project
+         --  will still be No_Project.
 
          Prj.Pars.Parse
            (Project           => Main_Project,
             Project_File_Name => Project_File_Name.all,
-            Packages_To_Check => Packages_To_Check_By_Gnatmake);
+            Packages_To_Check => Packages_To_Check_By_Gnatmake,
+            Process_Languages => All_Languages);
 
          if Main_Project = No_Project then
-            Fail ("""" & Project_File_Name.all &
-                  """ processing failed");
+            Fail ("""" & Project_File_Name.all & """ processing failed");
          end if;
 
          if Opt.Verbose_Mode then
@@ -1019,12 +1130,14 @@ package body Clean is
       if Main_Project /= No_Project and then Osint.Number_Of_Files = 0 then
          declare
             Value : String_List_Id := Projects.Table (Main_Project).Mains;
-
+            Main  : String_Element;
          begin
             while Value /= Prj.Nil_String loop
-               Get_Name_String (String_Elements.Table (Value).Value);
-               Osint.Add_File (Name_Buffer (1 .. Name_Len));
-               Value := String_Elements.Table (Value).Next;
+               Main := String_Elements.Table (Value);
+               Osint.Add_File
+                 (File_Name => Get_Name_String (Main.Value),
+                  Index     => Main.Index);
+               Value := Main.Next;
             end loop;
          end;
       end if;
@@ -1152,19 +1265,17 @@ package body Clean is
    -- Insert_Q --
    --------------
 
-   procedure Insert_Q (Source_File : File_Name_Type) is
+   procedure Insert_Q (Lib_File : File_Name_Type) is
    begin
       --  Do not insert an empty name or an already marked source
 
-      if Source_File /= No_Name
-        and then Get_Name_Table_Byte (Source_File) = 0
-      then
-         Q.Table (Q.Last) := Source_File;
+      if Lib_File /= No_Name and then not Is_Marked (Lib_File) then
+         Q.Table (Q.Last) := Lib_File;
          Q.Increment_Last;
 
          --  Mark the source that has been just added to the Q
 
-         Set_Name_Table_Byte (Source_File, 1);
+         Mark (Lib_File);
       end if;
    end Insert_Q;
 
@@ -1196,165 +1307,237 @@ package body Clean is
    --------------------
 
    procedure Parse_Cmd_Line is
+      Source_Index : Int := 0;
+      Index : Positive := 1;
+      Last         : constant Natural := Argument_Count;
+
    begin
-      loop
-         case
-           GNAT.Command_Line.Getopt
-             ("aO: c D: F h I: I- n P: q r v vP0 vP1 vP2 X:")
-         is
-            when ASCII.NUL =>
-               exit;
-
-            when 'a' =>
-               Add_Lib_Search_Dir (GNAT.Command_Line.Parameter);
-
-            when 'c'    =>
-               Compile_Only := True;
-
-            when 'D'    =>
-               declare
-                  Dir : constant String := GNAT.Command_Line.Parameter;
-
-               begin
-                  if Object_Directory_Path /= null then
-                     Fail ("duplicate -D switch");
-
-                  elsif Project_File_Name /= null then
-                     Fail ("-P and -D cannot be used simultaneously");
-
-                  elsif not Is_Directory (Dir) then
-                     Fail (Dir, " is not a directory");
-
-                  else
-                     Add_Lib_Search_Dir (Dir);
-                  end if;
-               end;
-
-            when 'F' =>
-               Full_Path_Name_For_Brief_Errors := True;
-
-            when 'h' =>
-               Usage;
-
-            when 'I' =>
-               if Full_Switch = "I-" then
-                  Opt.Look_In_Primary_Dir := False;
-
-               else
-                  Add_Lib_Search_Dir (GNAT.Command_Line.Parameter);
-               end if;
-
-            when 'n' =>
-               Do_Nothing := True;
-
-            when 'P' =>
-               if Project_File_Name /= null then
-                  Fail ("multiple -P switches");
-
-               elsif Object_Directory_Path /= null then
-                  Fail ("-D and -P cannot be used simultaneously");
-
-               else
-                  declare
-                     Prj : constant String := GNAT.Command_Line.Parameter;
-                  begin
-                     if Prj'Length > 1 and then Prj (Prj'First) = '=' then
-                        Project_File_Name :=
-                          new String'(Prj (Prj'First + 1 ..  Prj'Last));
-
-                     else
-                        Project_File_Name := new String'(Prj);
-                     end if;
-                  end;
-               end if;
-
-            when 'q' =>
-               Quiet_Output := True;
-
-            when 'r' =>
-               All_Projects := True;
-
-            when 'v' =>
-               if Full_Switch = "v" then
-                  Verbose_Mode := True;
-
-               elsif Full_Switch = "vP0" then
-                  Prj.Com.Current_Verbosity := Prj.Default;
-
-               elsif Full_Switch = "vP1" then
-                  Prj.Com.Current_Verbosity := Prj.Medium;
-
-               else
-                  Prj.Com.Current_Verbosity := Prj.High;
-               end if;
-
-            when 'X' =>
-               declare
-                  Ext_Asgn  : constant String := GNAT.Command_Line.Parameter;
-                  Start     : Positive := Ext_Asgn'First;
-                  Stop      : Natural  := Ext_Asgn'Last;
-                  Equal_Pos : Natural;
-                  OK        : Boolean  := True;
-
-               begin
-                  if Ext_Asgn (Start) = '"' then
-                     if Ext_Asgn (Stop) = '"' then
-                        Start := Start + 1;
-                        Stop  := Stop - 1;
-
-                     else
-                        OK := False;
-                     end if;
-                  end if;
-
-                  Equal_Pos := Start;
-
-                  while Equal_Pos <= Stop and then
-                        Ext_Asgn (Equal_Pos) /= '='
-                  loop
-                     Equal_Pos := Equal_Pos + 1;
-                  end loop;
-
-                  if Equal_Pos = Start or else Equal_Pos > Stop then
-                     OK := False;
-                  end if;
-
-                  if OK then
-                     Prj.Ext.Add
-                       (External_Name => Ext_Asgn (Start .. Equal_Pos - 1),
-                        Value         => Ext_Asgn (Equal_Pos + 1 .. Stop));
-
-                  else
-                     Fail ("illegal external assignment '", Ext_Asgn, "'");
-                  end if;
-               end;
-
-            when others =>
-               Fail ("INTERNAL ERROR, please report");
-         end case;
-      end loop;
-
-      --  Get the file names
-
-      loop
+      while Index <= Last loop
          declare
-            S : constant String := GNAT.Command_Line.Get_Argument;
+            Arg : constant String := Argument (Index);
+
+            procedure Bad_Argument;
+            --  Signal bad argument
+
+            ------------------
+            -- Bad_Argument --
+            ------------------
+
+            procedure Bad_Argument is
+            begin
+               Fail ("invalid argument """, Arg, """");
+            end Bad_Argument;
 
          begin
-            exit when S'Length = 0;
+            if Arg'Length /= 0 then
+               if Arg (1) = '-' then
+                  if Arg'Length = 1 then
+                     Bad_Argument;
+                  end if;
 
-            Add_File (S);
+                  case Arg (2) is
+                     when 'a' =>
+                        if Arg'Length < 4 or else Arg (3) /= 'O' then
+                           Bad_Argument;
+                        end if;
+
+                        Add_Lib_Search_Dir (Arg (3 .. Arg'Last));
+
+                     when 'c'    =>
+                        Compile_Only := True;
+
+                     when 'D'    =>
+                        if Object_Directory_Path /= null then
+                           Fail ("duplicate -D switch");
+
+                        elsif Project_File_Name /= null then
+                           Fail ("-P and -D cannot be used simultaneously");
+                        end if;
+
+                        if Arg'Length > 2 then
+                           declare
+                              Dir : constant String := Arg (3 .. Arg'Last);
+                           begin
+                              if not Is_Directory (Dir) then
+                                 Fail (Dir, " is not a directory");
+                              else
+                                 Add_Lib_Search_Dir (Dir);
+                              end if;
+                           end;
+
+                        else
+                           if Index = Last then
+                              Fail ("no directory specified after -D");
+                           end if;
+
+                           Index := Index + 1;
+
+                           declare
+                              Dir : constant String := Argument (Index);
+                           begin
+                              if not Is_Directory (Dir) then
+                                 Fail (Dir, " is not a directory");
+                              else
+                                 Add_Lib_Search_Dir (Dir);
+                              end if;
+                           end;
+                        end if;
+
+                     when 'F' =>
+                        Full_Path_Name_For_Brief_Errors := True;
+
+                     when 'h' =>
+                        Usage;
+
+                     when 'i' =>
+                        if Arg'Length = 2 then
+                           Bad_Argument;
+                        end if;
+
+                        Source_Index := 0;
+
+                        for J in 3 .. Arg'Last loop
+                           if Arg (J) not in '0' .. '9' then
+                              Bad_Argument;
+                           end if;
+
+                           Source_Index :=
+                             (20 * Source_Index) +
+                             (Character'Pos (Arg (J)) - Character'Pos ('0'));
+                        end loop;
+
+                     when 'I' =>
+                        if Arg = "-I-" then
+                           Opt.Look_In_Primary_Dir := False;
+
+                        else
+                           if Arg'Length = 2 then
+                              Bad_Argument;
+                           end if;
+
+                           Add_Lib_Search_Dir (Arg (3 .. Arg'Last));
+                        end if;
+
+                     when 'n' =>
+                        Do_Nothing := True;
+
+                     when 'P' =>
+                        if Project_File_Name /= null then
+                           Fail ("multiple -P switches");
+
+                        elsif Object_Directory_Path /= null then
+                           Fail ("-D and -P cannot be used simultaneously");
+
+                        end if;
+
+                        if Arg'Length > 2 then
+                           declare
+                              Prj : constant String := Arg (3 .. Arg'Last);
+                           begin
+                              if Prj'Length > 1 and then
+                                Prj (Prj'First) = '='
+                              then
+                                 Project_File_Name :=
+                                   new String'
+                                     (Prj (Prj'First + 1 ..  Prj'Last));
+                              else
+                                 Project_File_Name := new String'(Prj);
+                              end if;
+                           end;
+
+                        else
+                           if Index = Last then
+                              Fail ("no project specified after -P");
+                           end if;
+
+                           Index := Index + 1;
+                           Project_File_Name := new String'(Argument (Index));
+                        end if;
+
+                     when 'q' =>
+                        Quiet_Output := True;
+
+                     when 'r' =>
+                        All_Projects := True;
+
+                     when 'v' =>
+                        if Arg = "-v" then
+                           Verbose_Mode := True;
+
+                        elsif Arg = "-vP0" then
+                           Prj.Com.Current_Verbosity := Prj.Default;
+
+                        elsif Arg = "-vP1" then
+                           Prj.Com.Current_Verbosity := Prj.Medium;
+
+                        elsif Arg = "-vP2" then
+                           Prj.Com.Current_Verbosity := Prj.High;
+
+                        else
+                           Bad_Argument;
+                        end if;
+
+                     when 'X' =>
+                        if Arg'Length = 2 then
+                           Bad_Argument;
+                        end if;
+
+                        declare
+                           Ext_Asgn  : constant String := Arg (3 .. Arg'Last);
+                           Start     : Positive := Ext_Asgn'First;
+                           Stop      : Natural  := Ext_Asgn'Last;
+                           Equal_Pos : Natural;
+                           OK        : Boolean  := True;
+
+                        begin
+                           if Ext_Asgn (Start) = '"' then
+                              if Ext_Asgn (Stop) = '"' then
+                                 Start := Start + 1;
+                                 Stop  := Stop - 1;
+
+                              else
+                                 OK := False;
+                              end if;
+                           end if;
+
+                           Equal_Pos := Start;
+
+                           while Equal_Pos <= Stop
+                             and then Ext_Asgn (Equal_Pos) /= '='
+                           loop
+                              Equal_Pos := Equal_Pos + 1;
+                           end loop;
+
+                           if Equal_Pos = Start or else Equal_Pos > Stop then
+                              OK := False;
+                           end if;
+
+                           if OK then
+                              Prj.Ext.Add
+                                (External_Name =>
+                                   Ext_Asgn (Start .. Equal_Pos - 1),
+                                 Value         =>
+                                   Ext_Asgn (Equal_Pos + 1 .. Stop));
+
+                           else
+                              Fail
+                                ("illegal external assignment '",
+                                 Ext_Asgn, "'");
+                           end if;
+                        end;
+
+                     when others =>
+                        Bad_Argument;
+                  end case;
+
+               else
+                  Add_File (Arg, Source_Index);
+               end if;
+            end if;
          end;
+
+         Index := Index + 1;
       end loop;
-
-   exception
-      when GNAT.Command_Line.Invalid_Switch =>
-         Usage;
-         Fail ("invalid switch : "& GNAT.Command_Line.Full_Switch);
-
-      when GNAT.Command_Line.Invalid_Parameter =>
-         Usage;
-         Fail ("parameter missing for : " & GNAT.Command_Line.Full_Switch);
    end Parse_Cmd_Line;
 
    -----------------------
@@ -1398,7 +1581,7 @@ package body Clean is
       if not Usage_Displayed then
          Usage_Displayed := True;
          Display_Copyright;
-         Put_Line ("Usage: gnatclean [switches] names");
+         Put_Line ("Usage: gnatclean [switches] {[-innn] name}");
          New_Line;
 
          Put_Line ("  names is one or more file names from which " &
@@ -1411,6 +1594,7 @@ package body Clean is
          Put_Line ("  -F       Full project path name " &
                    "in brief error messages");
          Put_Line ("  -h       Display this message");
+         Put_Line ("  -innn    Index of unit in source for following names");
          Put_Line ("  -n       Nothing to do: only list files to delete");
          Put_Line ("  -Pproj   Use GNAT Project File proj");
          Put_Line ("  -q       Be quiet/terse");

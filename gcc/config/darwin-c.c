@@ -1,5 +1,5 @@
 /* Darwin support needed only by C/C++ frontends.
-   Copyright (C) 2001, 2003  Free Software Foundation, Inc.
+   Copyright (C) 2001, 2003, 2004  Free Software Foundation, Inc.
    Contributed by Apple Computer Inc.
 
 This file is part of GCC.
@@ -30,41 +30,82 @@ Boston, MA 02111-1307, USA.  */
 #include "c-incpath.h"
 #include "toplev.h"
 #include "tm_p.h"
+#include "cppdefault.h"
+#include "prefix.h"
 
 /* Pragmas.  */
 
 #define BAD(msgid) do { warning (msgid); return; } while (0)
+/* APPLE LOCAL Macintosh alignment 2002-1-22 --ff */
+#define BAD2(msgid, arg) do { warning (msgid, arg); return; } while (0)
 
 static bool using_frameworks = false;
+
+/* APPLE LOCAL CALL_ON_LOAD/CALL_ON_UNLOAD pragmas  20020202 --turly  */
+static void directive_with_named_function (const char *, void (*sec_f)(void));
 
 /* Maintain a small stack of alignments.  This is similar to pragma
    pack's stack, but simpler.  */
 
-static void push_field_alignment (int);
+/* APPLE LOCAL begin Macintosh alignment 2001-12-17 --ff */
+static void push_field_alignment (int, int, int);
+/* APPLE LOCAL end Macintosh alignment 2001-12-17 --ff */
 static void pop_field_alignment (void);
 static const char *find_subframework_file (const char *, const char *);
 static void add_system_framework_path (char *);
-static const char *find_subframework_header (cpp_reader *pfile, const char *header);
+static const char *find_subframework_header (cpp_reader *pfile, const char *header,
+					     cpp_dir **dirp);
 
+/* APPLE LOCAL begin Macintosh alignment 2002-1-22 --ff */
+/* There are four alignment modes supported on the Apple Macintosh
+   platform: power, mac68k, natural, and packed.  These modes are
+   identified as follows:
+     if maximum_field_alignment != 0
+       mode = packed
+     else if TARGET_ALIGN_NATURAL
+       mode = natural
+     else if TARGET_ALIGN_MAC68K
+       mode
+     else
+       mode = power
+   These modes are saved on the alignment stack by saving the values
+   of maximum_field_alignment, TARGET_ALIGN_MAC68K, and 
+   TARGET_ALIGN_NATURAL.  */
 typedef struct align_stack
 {
   int alignment;
+  unsigned long mac68k;
+  unsigned long natural;
   struct align_stack * prev;
 } align_stack;
+/* APPLE LOCAL end Macintosh alignment 2002-1-22 --ff */
 
 static struct align_stack * field_align_stack = NULL;
 
+/* APPLE LOCAL begin Macintosh alignment 2001-12-17 --ff */
 static void
-push_field_alignment (int bit_alignment)
+push_field_alignment (int bit_alignment, 
+		      int mac68k_alignment, int natural_alignment)
 {
   align_stack *entry = (align_stack *) xmalloc (sizeof (align_stack));
 
   entry->alignment = maximum_field_alignment;
+  entry->mac68k = TARGET_ALIGN_MAC68K;
+  entry->natural = TARGET_ALIGN_NATURAL;
   entry->prev = field_align_stack;
   field_align_stack = entry;
 
   maximum_field_alignment = bit_alignment;
+  if (mac68k_alignment)
+    rs6000_alignment_flags |= MASK_ALIGN_MAC68K;
+  else
+    rs6000_alignment_flags &= ~MASK_ALIGN_MAC68K;
+  if (natural_alignment)
+    rs6000_alignment_flags |= MASK_ALIGN_NATURAL;
+  else
+    rs6000_alignment_flags &= ~MASK_ALIGN_NATURAL;
 }
+/* APPLE LOCAL end Macintosh alignment 2001-12-17 --ff */
 
 static void
 pop_field_alignment (void)
@@ -74,6 +115,16 @@ pop_field_alignment (void)
       align_stack *entry = field_align_stack;
 
       maximum_field_alignment = entry->alignment;
+/* APPLE LOCAL begin Macintosh alignment 2001-12-17 --ff */
+      if (entry->mac68k)
+	rs6000_alignment_flags |= MASK_ALIGN_MAC68K;
+      else
+	rs6000_alignment_flags &= ~MASK_ALIGN_MAC68K;
+      if (entry->natural)
+	rs6000_alignment_flags |= MASK_ALIGN_NATURAL;
+      else
+	rs6000_alignment_flags &= ~MASK_ALIGN_NATURAL;
+/* APPLE LOCAL end Macintosh alignment 2001-12-17 --ff */
       field_align_stack = entry->prev;
       free (entry);
     }
@@ -111,15 +162,84 @@ darwin_pragma_options (cpp_reader *pfile ATTRIBUTE_UNUSED)
     warning ("junk at end of '#pragma options'");
 
   arg = IDENTIFIER_POINTER (t);
+/* APPLE LOCAL begin Macintosh alignment 2002-1-22 --ff */
   if (!strcmp (arg, "mac68k"))
-    push_field_alignment (16);
+    push_field_alignment (0, 1, 0);
+  else if (!strcmp (arg, "native"))	/* equivalent to power on PowerPC */
+    push_field_alignment (0, 0, 0);
+  else if (!strcmp (arg, "natural"))
+    push_field_alignment (0, 0, 1);
+  else if (!strcmp (arg, "packed"))
+    push_field_alignment (8, 0, 0);
   else if (!strcmp (arg, "power"))
-    push_field_alignment (0);
+    push_field_alignment (0, 0, 0);
   else if (!strcmp (arg, "reset"))
     pop_field_alignment ();
   else
-    warning ("malformed '#pragma options align={mac68k|power|reset}', ignoring");
+    warning ("malformed '#pragma options align={mac68k|power|natural|reset}', ignoring");
+/* APPLE LOCAL end Macintosh alignment 2002-1-22 --ff */
 }
+
+/* APPLE LOCAL begin Macintosh alignment 2002-1-22 --ff */
+/* #pragma pack ()
+   #pragma pack (N)  
+   
+   We have a problem handling the semantics of these directives since,
+   to play well with the Macintosh alignment directives, we want the
+   usual pack(N) form to do a push of the previous alignment state.
+   Do we want pack() to do another push or a pop?  */
+
+void
+darwin_pragma_pack (cpp_reader *pfile ATTRIBUTE_UNUSED)
+{
+  tree x;
+  int align = -1;
+  enum cpp_ttype token;
+  enum { set, push, pop } action;
+
+  if (c_lex (&x) != CPP_OPEN_PAREN)
+    BAD ("missing '(' after '#pragma pack' - ignored");
+  token = c_lex (&x);
+  if (token == CPP_CLOSE_PAREN)
+    {
+      action = pop;  		/* or "set" ???  */    
+      align = 0;
+    }
+  else if (token == CPP_NUMBER)
+    {
+      align = TREE_INT_CST_LOW (x);
+      action = push;
+      if (c_lex (&x) != CPP_CLOSE_PAREN)
+	BAD ("malformed '#pragma pack' - ignored");
+    }
+  else
+    BAD ("malformed '#pragma pack' - ignored");
+
+  if (c_lex (&x) != CPP_EOF)
+    warning ("junk at end of '#pragma pack'");
+    
+  switch (align)
+    {
+    case 0:
+    case 1:
+    case 2:
+    case 4:
+    case 8:
+    case 16:
+      align *= BITS_PER_UNIT;
+      break;
+    default:
+      BAD2 ("alignment must be a small power of two, not %d", align);
+    }
+  
+  switch (action)
+    {
+    case pop:   pop_field_alignment ();		      break;
+    case push:  push_field_alignment (align, 0, 0);   break;
+    case set:   				      break;
+    }
+}
+/* APPLE LOCAL end Macintosh alignment 2002-1-22 --ff */
 
 /* #pragma unused ([var {, var}*]) */
 
@@ -166,11 +286,13 @@ static int max_frameworks = 0;
 /* Remember which frameworks have been seen, so that we can ensure
    that all uses of that framework come from the same framework.  DIR
    is the place where the named framework NAME, which is of length
-   LEN, was found.  */
+   LEN, was found.  We copy the directory name from NAME, as it will be
+   freed by others.  */
 
 static void
 add_framework (const char *name, size_t len, cpp_dir *dir)
 {
+  char *dir_name;
   int i;
   for (i = 0; i < num_frameworks; ++i)
     {
@@ -183,10 +305,14 @@ add_framework (const char *name, size_t len, cpp_dir *dir)
   if (i >= max_frameworks)
     {
       max_frameworks = i*2;
+      max_frameworks += i == 0;
       frameworks_in_use = xrealloc (frameworks_in_use,
 				    max_frameworks*sizeof(*frameworks_in_use));
     }
-  frameworks_in_use[num_frameworks].name = name;
+  dir_name = xmalloc (len + 1);
+  memcpy (dir_name, name, len);
+  dir_name[len] = '\0';
+  frameworks_in_use[num_frameworks].name = dir_name;
   frameworks_in_use[num_frameworks].len = len;
   frameworks_in_use[num_frameworks].dir = dir;
   ++num_frameworks;
@@ -272,7 +398,8 @@ framework_construct_pathname (const char *fname, cpp_dir *dir)
 
       if (stat (frname, &st) == 0)
 	{
-	  add_framework (fname, fname_len, dir);
+	  if (fast_dir == 0)
+	    add_framework (fname, fname_len, dir);
 	  return frname;
 	}
     }
@@ -311,7 +438,7 @@ find_subframework_file (const char *fname, const char *pname)
   bufptr = strstr (pname, dot_framework);
 
   /* If the parent header is not of any framework, then this header
-     can not be part of any subframework.  */
+     cannot be part of any subframework.  */
   if (!bufptr)
     return 0;
 
@@ -409,8 +536,48 @@ static const char *framework_defaults [] =
   {
     "/System/Library/Frameworks",
     "/Library/Frameworks",
-    "/Local/Library/Frameworks",
   };
+
+/* Register the GNU objective-C runtime include path if STDINC.  */
+
+void
+darwin_register_objc_includes (const char *sysroot, const char *iprefix,
+			       int stdinc)
+{
+  const char *fname;
+  size_t len;
+  /* We do not do anything if we do not want the standard includes. */
+  if (!stdinc)
+    return;
+  
+  fname = GCC_INCLUDE_DIR "-gnu-runtime";
+  
+  /* Register the GNU OBJC runtime include path if we are compiling  OBJC
+    with GNU-runtime.  */
+
+  if (c_dialect_objc () && !flag_next_runtime)
+    {
+      char *str;
+      /* See if our directory starts with the standard prefix.
+	 "Translate" them, i.e. replace /usr/local/lib/gcc... with
+	 IPREFIX and search them first.  */
+      if (iprefix && (len = cpp_GCC_INCLUDE_DIR_len) != 0 && !sysroot
+	  && !strncmp (fname, cpp_GCC_INCLUDE_DIR, len))
+	{
+	  str = concat (iprefix, fname + len, NULL);
+          /* FIXME: wrap the headers for C++awareness.  */
+	  add_path (str, SYSTEM, /*c++aware=*/false, false);
+	}
+      
+      /* Should this directory start with the sysroot?  */
+      if (sysroot)
+	str = concat (sysroot, fname, NULL);
+      else
+	str = update_path (fname, "");
+      
+      add_path (str, SYSTEM, /*c++aware=*/false, false);
+    }
+}
 
 
 /* Register all the system framework paths if STDINC is true and setup
@@ -418,7 +585,8 @@ static const char *framework_defaults [] =
    frameworks had been registered.  */
 
 void
-darwin_register_frameworks (int stdinc)
+darwin_register_frameworks (const char *sysroot ATTRIBUTE_UNUSED,
+			    const char *iprefix ATTRIBUTE_UNUSED, int stdinc)
 {
   if (stdinc)
     {
@@ -442,10 +610,10 @@ darwin_register_frameworks (int stdinc)
    fails to find a header.  We search each file in the include stack,
    using FUNC, starting from the most deeply nested include and
    finishing with the main input file.  We stop searching when FUNC
-   returns non-zero.  */
+   returns nonzero.  */
 
 static const char*
-find_subframework_header (cpp_reader *pfile, const char *header)
+find_subframework_header (cpp_reader *pfile, const char *header, cpp_dir **dirp)
 {
   const char *fname = header;
   struct cpp_buffer *b;
@@ -457,10 +625,56 @@ find_subframework_header (cpp_reader *pfile, const char *header)
     {
       n = find_subframework_file (fname, cpp_get_path (cpp_get_file (b)));
       if (n)
-	return n;
+	{
+	  /* Logically, the place where we found the subframework is
+	     the place where we found the Framework that contains the
+	     subframework.  This is useful for tracking wether or not
+	     we are in a system header.  */
+	  *dirp = cpp_get_dir (cpp_get_file (b));
+	  return n;
+	}
     }
 
   return 0;
 }
 
-struct target_c_incpath_s target_c_incpath = C_INCPATH_INIT;
+/* APPLE LOCAL begin CALL_ON_LOAD/CALL_ON_UNLOAD pragmas  20020202 --turly  */
+extern void mod_init_section (void), mod_term_section (void);
+/* Grab the function name from the pragma line and output it to the
+   assembly output file with the parameter DIRECTIVE.  Called by the
+   pragma CALL_ON_LOAD and CALL_ON_UNLOAD handlers below.
+   So: "#pragma CALL_ON_LOAD foo"  will output ".mod_init_func _foo".  */
+
+static void directive_with_named_function (const char *pragma_name,
+			         void (*section_function) (void))
+{
+  tree decl;
+  int tok;
+
+  tok = c_lex (&decl);
+  if (tok == CPP_NAME && decl)
+    {
+      extern FILE *asm_out_file;
+
+      section_function ();
+      fprintf (asm_out_file, "\t.long _%s\n", IDENTIFIER_POINTER (decl));
+
+      if (c_lex (&decl) != CPP_EOF)
+	warning ("junk at end of #pragma %s <function_name>\n", pragma_name);
+    }
+  else
+    warning ("function name expected after #pragma %s\n", pragma_name);
+}
+void
+darwin_pragma_call_on_load (cpp_reader *pfile ATTRIBUTE_UNUSED)
+{
+  warning("Pragma CALL_ON_LOAD is deprecated; use constructor attribute instead");
+  directive_with_named_function ("CALL_ON_LOAD", mod_init_section);
+}
+void
+darwin_pragma_call_on_unload (cpp_reader *pfile ATTRIBUTE_UNUSED)
+{
+  warning("Pragma CALL_ON_UNLOAD is deprecated; use destructor attribute instead");
+  directive_with_named_function ("CALL_ON_UNLOAD", mod_term_section);
+}
+/* APPLE LOCAL end CALL_ON_LOAD/CALL_ON_UNLOAD pragmas  20020202 --turly  */

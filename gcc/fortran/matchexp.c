@@ -1,23 +1,23 @@
 /* Expression parser.
-   Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2004 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
-This file is part of GNU G95.
+This file is part of GCC.
 
-GNU G95 is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU G95 is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU G95; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 
 #include "config.h"
@@ -46,7 +46,7 @@ gfc_match_defined_op_name (char *result, int error_flag)
   match m;
   int i;
 
-  old_loc = *gfc_current_locus ();
+  old_loc = gfc_current_locus;
 
   m = gfc_match (" . %n .", name);
   if (m != MATCH_YES)
@@ -59,7 +59,7 @@ gfc_match_defined_op_name (char *result, int error_flag)
     {
       if (error_flag)
 	goto error;
-      gfc_set_locus (&old_loc);
+      gfc_current_locus = old_loc;
       return MATCH_NO;
     }
 
@@ -81,7 +81,7 @@ error:
   gfc_error ("The name '%s' cannot be used as a defined operator at %C",
 	     name);
 
-  gfc_set_locus (&old_loc);
+  gfc_current_locus = old_loc;
   return MATCH_ERROR;
 }
 
@@ -113,11 +113,11 @@ next_operator (gfc_intrinsic_op t)
   gfc_intrinsic_op u;
   locus old_loc;
 
-  old_loc = *gfc_current_locus ();
+  old_loc = gfc_current_locus;
   if (gfc_match_intrinsic_op (&u) == MATCH_YES && t == u)
     return 1;
 
-  gfc_set_locus (&old_loc);
+  gfc_current_locus = old_loc;
   return 0;
 }
 
@@ -199,7 +199,7 @@ match_level_1 (gfc_expr ** result)
   locus where;
   match m;
 
-  where = *gfc_current_locus ();
+  where = gfc_current_locus;
   uop = NULL;
   m = match_defined_operator (&uop);
   if (m == MATCH_ERROR)
@@ -222,6 +222,38 @@ match_level_1 (gfc_expr ** result)
 }
 
 
+/* As a GNU extension we support an expanded level-2 expression syntax.
+   Via this extension we support (arbitrary) nesting of unary plus and
+   minus operations following unary and binary operators, such as **.
+   The grammar of section 7.1.1.3 is effectively rewitten as:
+
+	R704  mult-operand     is level-1-expr [ power-op ext-mult-operand ]
+	R704' ext-mult-operand is add-op ext-mult-operand
+			       or mult-operand
+	R705  add-operand      is add-operand mult-op ext-mult-operand
+			       or mult-operand
+	R705' ext-add-operand  is add-op ext-add-operand
+			       or add-operand
+	R706  level-2-expr     is [ level-2-expr ] add-op ext-add-operand
+			       or add-operand
+ */
+
+static match match_ext_mult_operand (gfc_expr ** result);
+static match match_ext_add_operand (gfc_expr ** result);
+
+
+static int
+match_add_op (void)
+{
+
+  if (next_operator (INTRINSIC_MINUS))
+    return -1;
+  if (next_operator (INTRINSIC_PLUS))
+    return 1;
+  return 0;
+}
+
+
 static match
 match_mult_operand (gfc_expr ** result)
 {
@@ -239,9 +271,9 @@ match_mult_operand (gfc_expr ** result)
       return MATCH_YES;
     }
 
-  where = *gfc_current_locus ();
+  where = gfc_current_locus;
 
-  m = match_mult_operand (&exp);
+  m = match_ext_mult_operand (&exp);
   if (m == MATCH_NO)
     gfc_error ("Expected exponent in expression at %C");
   if (m != MATCH_YES)
@@ -266,6 +298,46 @@ match_mult_operand (gfc_expr ** result)
 
 
 static match
+match_ext_mult_operand (gfc_expr ** result)
+{
+  gfc_expr *all, *e;
+  locus where;
+  match m;
+  int i;
+
+  where = gfc_current_locus;
+  i = match_add_op ();
+
+  if (i == 0)
+    return match_mult_operand (result);
+
+  if (gfc_notify_std (GFC_STD_GNU, "Extension: Unary operator following"
+		      " arithmetic operator (use parentheses) at %C")
+      == FAILURE)
+    return MATCH_ERROR;
+
+  m = match_ext_mult_operand (&e);
+  if (m != MATCH_YES)
+    return m;
+
+  if (i == -1)
+    all = gfc_uminus (e);
+  else
+    all = gfc_uplus (e);
+
+  if (all == NULL)
+    {
+      gfc_free_expr (e);
+      return MATCH_ERROR;
+    }
+
+  all->where = where;
+  *result = all;
+  return MATCH_YES;
+}
+
+
+static match
 match_add_operand (gfc_expr ** result)
 {
   gfc_expr *all, *e, *total;
@@ -281,7 +353,7 @@ match_add_operand (gfc_expr ** result)
     {
       /* Build up a string of products or quotients.  */
 
-      old_loc = *gfc_current_locus ();
+      old_loc = gfc_current_locus;
 
       if (next_operator (INTRINSIC_TIMES))
 	i = INTRINSIC_TIMES;
@@ -293,12 +365,12 @@ match_add_operand (gfc_expr ** result)
 	    break;
 	}
 
-      where = *gfc_current_locus ();
+      where = gfc_current_locus;
 
-      m = match_mult_operand (&e);
+      m = match_ext_mult_operand (&e);
       if (m == MATCH_NO)
 	{
-	  gfc_set_locus (&old_loc);
+	  gfc_current_locus = old_loc;
 	  break;
 	}
 
@@ -329,15 +401,43 @@ match_add_operand (gfc_expr ** result)
 }
 
 
-static int
-match_add_op (void)
+static match
+match_ext_add_operand (gfc_expr ** result)
 {
+  gfc_expr *all, *e;
+  locus where;
+  match m;
+  int i;
 
-  if (next_operator (INTRINSIC_MINUS))
-    return -1;
-  if (next_operator (INTRINSIC_PLUS))
-    return 1;
-  return 0;
+  where = gfc_current_locus;
+  i = match_add_op ();
+
+  if (i == 0)
+    return match_add_operand (result);
+
+  if (gfc_notify_std (GFC_STD_GNU, "Extension: Unary operator following"
+		      " arithmetic operator (use parentheses) at %C")
+      == FAILURE)
+    return MATCH_ERROR;
+
+  m = match_ext_add_operand (&e);
+  if (m != MATCH_YES)
+    return m;
+
+  if (i == -1)
+    all = gfc_uminus (e);
+  else
+    all = gfc_uplus (e);
+
+  if (all == NULL)
+    {
+      gfc_free_expr (e);
+      return MATCH_ERROR;
+    }
+
+  all->where = where;
+  *result = all;
+  return MATCH_YES;
 }
 
 
@@ -351,15 +451,20 @@ match_level_2 (gfc_expr ** result)
   match m;
   int i;
 
-  where = *gfc_current_locus ();
+  where = gfc_current_locus;
   i = match_add_op ();
 
-  m = match_add_operand (&e);
-  if (i != 0 && m == MATCH_NO)
+  if (i != 0)
     {
-      gfc_error (expression_syntax);
-      m = MATCH_ERROR;
+      m = match_ext_add_operand (&e);
+      if (m == MATCH_NO)
+	{
+	  gfc_error (expression_syntax);
+	  m = MATCH_ERROR;
+	}
     }
+  else
+    m = match_add_operand (&e);
 
   if (m != MATCH_YES)
     return m;
@@ -386,12 +491,12 @@ match_level_2 (gfc_expr ** result)
 
   for (;;)
     {
-      where = *gfc_current_locus ();
+      where = gfc_current_locus;
       i = match_add_op ();
       if (i == 0)
 	break;
 
-      m = match_add_operand (&e);
+      m = match_ext_add_operand (&e);
       if (m == MATCH_NO)
 	gfc_error (expression_syntax);
       if (m != MATCH_YES)
@@ -439,7 +544,7 @@ match_level_3 (gfc_expr ** result)
       if (!next_operator (INTRINSIC_CONCAT))
 	break;
 
-      where = *gfc_current_locus ();
+      where = gfc_current_locus;
 
       m = match_level_2 (&e);
       if (m == MATCH_NO)
@@ -482,7 +587,7 @@ match_level_4 (gfc_expr ** result)
   if (m != MATCH_YES)
     return m;
 
-  old_loc = *gfc_current_locus ();
+  old_loc = gfc_current_locus;
 
   if (gfc_match_intrinsic_op (&i) != MATCH_YES)
     {
@@ -493,12 +598,12 @@ match_level_4 (gfc_expr ** result)
   if (i != INTRINSIC_EQ && i != INTRINSIC_NE && i != INTRINSIC_GE
       && i != INTRINSIC_LE && i != INTRINSIC_LT && i != INTRINSIC_GT)
     {
-      gfc_set_locus (&old_loc);
+      gfc_current_locus = old_loc;
       *result = left;
       return MATCH_YES;
     }
 
-  where = *gfc_current_locus ();
+  where = gfc_current_locus;
 
   m = match_level_3 (&right);
   if (m == MATCH_NO)
@@ -562,7 +667,7 @@ match_and_operand (gfc_expr ** result)
   int i;
 
   i = next_operator (INTRINSIC_NOT);
-  where = *gfc_current_locus ();
+  where = gfc_current_locus;
 
   m = match_level_4 (&e);
   if (m != MATCH_YES)
@@ -601,7 +706,7 @@ match_or_operand (gfc_expr ** result)
     {
       if (!next_operator (INTRINSIC_AND))
 	break;
-      where = *gfc_current_locus ();
+      where = gfc_current_locus;
 
       m = match_and_operand (&e);
       if (m == MATCH_NO)
@@ -644,7 +749,7 @@ match_equiv_operand (gfc_expr ** result)
     {
       if (!next_operator (INTRINSIC_OR))
 	break;
-      where = *gfc_current_locus ();
+      where = gfc_current_locus;
 
       m = match_or_operand (&e);
       if (m == MATCH_NO)
@@ -698,7 +803,7 @@ match_level_5 (gfc_expr ** result)
 	    break;
 	}
 
-      where = *gfc_current_locus ();
+      where = gfc_current_locus;
 
       m = match_equiv_operand (&e);
       if (m == MATCH_NO)
@@ -756,7 +861,7 @@ gfc_match_expr (gfc_expr ** result)
 	  return MATCH_ERROR;
 	}
 
-      where = *gfc_current_locus ();
+      where = gfc_current_locus;
 
       m = match_level_5 (&e);
       if (m == MATCH_NO)

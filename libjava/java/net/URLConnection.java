@@ -1,5 +1,5 @@
 /* URLConnection.java -- Abstract superclass for reading from URL's
-   Copyright (C) 1998, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1998, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -7,7 +7,7 @@ GNU Classpath is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
- 
+
 GNU Classpath is distributed in the hope that it will be useful, but
 WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
@@ -38,8 +38,8 @@ exception statement from your version. */
 
 package java.net;
 
-import java.io.InputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.security.AllPermission;
 import java.security.Permission;
@@ -53,13 +53,13 @@ import java.util.Map;
 import java.util.StringTokenizer;
 import gnu.gcj.io.MimeTypes;
 
+
 /**
  * Written using on-line Java Platform 1.2 API Specification, as well
  * as "The Java Class Libraries", 2nd edition (Addison-Wesley, 1998).
  * Status:  One guessContentTypeFrom... methods not implemented.
  *    getContent method assumes content type from response; see comment there.
  */
-
 /**
  * This class models a connection that retrieves the information pointed
  * to by a URL object.  This is typically a connection to a remote node
@@ -88,8 +88,8 @@ import gnu.gcj.io.MimeTypes;
  * by the actual content handlers as described in the description of that
  * method.
  *
- * @author Aaron M. Renn <arenn@urbanophile.com>
- * @author Warren Levy <warrenl@cygnus.com>
+ * @author Aaron M. Renn (arenn@urbanophile.com)
+ * @author Warren Levy (warrenl@cygnus.com)
  */
 public abstract class URLConnection
 {
@@ -99,23 +99,26 @@ public abstract class URLConnection
    * instance and store it here.
    */
   private static FileNameMap fileNameMap;
- 
+
   /**
    * This is the ContentHandlerFactory set by the caller, if any
    */
   private static ContentHandlerFactory factory;
-  
+
   /**
    * This is the default value that will be used to determine whether or
    * not user interaction should be allowed.
    */
-  private static boolean defaultAllowUserInteraction = false;
-  
+  private static boolean defaultAllowUserInteraction;
+
   /**
    * This is the default flag indicating whether or not to use caches to
    * store the data returned from a server
    */
   private static boolean defaultUseCaches = true;
+
+  private static ContentHandlerFactory defaultFactory
+    = new gnu.java.net.DefaultContentHandlerFactory();
 
   /**
    * This variable determines whether or not interaction is allowed with
@@ -127,18 +130,18 @@ public abstract class URLConnection
    * Indicates whether or not a connection has been established to the
    * destination specified in the URL
    */
-  protected boolean connected = false;
-  
+  protected boolean connected;
+
   /**
    * Indicates whether or not input can be read from this URL
    */
   protected boolean doInput = true;
-  
+
   /**
    * Indicates whether or not output can be sent to this URL
    */
-  protected boolean doOutput = false;
-  
+  protected boolean doOutput;
+
   /**
    * If this flag is set, the protocol is allowed to cache data whenever
    * it can (caching is not guaranteed). If it is not set, the protocol
@@ -158,7 +161,7 @@ public abstract class URLConnection
    * modified more recently than the date set in this variable.  That date
    * should be specified as the number of seconds since 1/1/1970 GMT.
    */
-  protected long ifModifiedSince = 0L;
+  protected long ifModifiedSince;
 
   /**
    * This is the URL associated with this connection
@@ -166,8 +169,11 @@ public abstract class URLConnection
   protected URL url;
 
   private static Hashtable handlers = new Hashtable();
-  private static SimpleDateFormat dateFormat1, dateFormat2, dateFormat3;
-  private static boolean dateformats_initialized = false;
+  private static SimpleDateFormat[] dateFormats;
+  private static boolean dateformats_initialized;
+
+  /* Cached ParsePosition, used when parsing dates. */
+  private ParsePosition position;
 
   /**
    * Creates a URL connection to a given URL. A real connection is not made.
@@ -188,6 +194,8 @@ public abstract class URLConnection
   /**
    * Establishes the actual connection to the URL associated with this
    * connection object
+   *
+   * @exception IOException if an error occurs
    */
   public abstract void connect() throws IOException;
 
@@ -230,7 +238,7 @@ public abstract class URLConnection
   /**
    * Returns the value of the content-encoding field or null if it is not
    * known or not present.
-   * 
+   *
    * @return The content-encoding field
    */
   public String getContentEncoding()
@@ -295,7 +303,7 @@ public abstract class URLConnection
    * Returns a String representing the value of the header field having
    * the named key.  Returns null if the header field does not exist.
    *
-   * @param The key of the header field
+   * @param name The key of the header field
    *
    * @return The value of the header field as a String
    */
@@ -307,7 +315,9 @@ public abstract class URLConnection
 
   /**
    * Returns a map of all sent header fields
-   * 
+   *
+   * @return all header fields
+   *
    * @since 1.4
    */
   public Map getHeaderFields()
@@ -330,18 +340,18 @@ public abstract class URLConnection
    */
   public int getHeaderFieldInt(String name, int defaultValue)
   {
-    String value = getHeaderField (name);
-    
+    String value = getHeaderField(name);
+
     if (value == null)
       return defaultValue;
 
     try
       {
-        return Integer.parseInt (value);
+	return Integer.parseInt(value);
       }
-    catch (NumberFormatException e) 
-      { 
-        return defaultValue;
+    catch (NumberFormatException e)
+      {
+	return defaultValue;
       }
   }
 
@@ -357,25 +367,30 @@ public abstract class URLConnection
    * @return Returns the date value of the header filed or the default value
    * if the field is missing or malformed
    */
-  public long getHeaderFieldDate (String name, long defaultValue)
+  public long getHeaderFieldDate(String name, long defaultValue)
   {
     if (! dateformats_initialized)
-      initializeDateFormats ();
-    
+      initializeDateFormats();
+
+    if (position == null)
+      position = new ParsePosition(0);
+
     long result = defaultValue;
-    String str = getHeaderField (name);
-    
+    String str = getHeaderField(name);
+
     if (str != null)
       {
-	Date date;
-	if ((date = dateFormat1.parse (str, new ParsePosition (0))) != null)
-	  result = date.getTime ();
-	else if ((date = dateFormat2.parse (str, new ParsePosition (0))) != null)
-	  result = date.getTime ();
-	else if ((date = dateFormat3.parse (str, new ParsePosition (0))) != null)
-	  result = date.getTime ();
+	for (int i = 0; i < dateFormats.length; i++)
+	  {
+	    SimpleDateFormat df = dateFormats[i];
+	    position.setIndex(0);
+	    position.setErrorIndex(0);
+	    Date date = df.parse(str, position);
+	    if (date != null)
+	      return date.getTime();
+	  }
       }
-    
+
     return result;
   }
 
@@ -385,35 +400,41 @@ public abstract class URLConnection
    * getHeaderField(int) method allows access to the corresponding value for
    * this tag.
    *
-   * @param index The index into the header field list to retrieve the key for. 
+   * @param index The index into the header field list to retrieve the key for.
    *
    * @return The header field key or null if index is past the end
    * of the headers.
    */
-  public String getHeaderFieldKey (int index)
+  public String getHeaderFieldKey(int index)
   {
     // Subclasses for specific protocols override this.
     return null;
   }
 
   /**
-   * This method returns the content of the document pointed to by the URL
-   * as an Object.  The type of object depends on the MIME type of the
-   * object and particular content hander loaded.  Most text type content
-   * handlers will return a subclass of InputStream.  Images usually return
-   * a class that implements ImageProducer.  There is not guarantee what
-   * type of object will be returned, however.
-   * <p>
-   * This class first determines the MIME type of the content, then creates
-   * a ContentHandler object to process the input.  If the ContentHandlerFactory
-   * is set, then that object is called to load a content handler, otherwise
-   * a class called gnu.java.net.content.<content_type> is tried.
-   * The default class will also be used if the content handler factory returns
-   * a null content handler.
+   * This method returns the content of the document pointed to by the
+   * URL as an Object.  The type of object depends on the MIME type of
+   * the object and particular content hander loaded.  Most text type
+   * content handlers will return a subclass of
+   * <code>InputStream</code>.  Images usually return a class that
+   * implements <code>ImageProducer</code>.  There is not guarantee
+   * what type of object will be returned, however.
    *
-   * @exception IOException If an error occurs
+   * <p>This class first determines the MIME type of the content, then
+   * creates a ContentHandler object to process the input.  If the
+   * <code>ContentHandlerFactory</code> is set, then that object is
+   * called to load a content handler, otherwise a class called
+   * gnu.java.net.content.&lt;content_type&gt; is tried.  If this
+   * handler does not exist, the method will simple return the
+   * <code>InputStream</code> returned by
+   * <code>getInputStream()</code>.  Note that the default
+   * implementation of <code>getInputStream()</code> throws a
+   * <code>UnknownServiceException</code> so subclasses are encouraged
+   * to override this method.</p>
+   *
+   * @exception IOException If an error with the connection occurs.
    * @exception UnknownServiceException If the protocol does not support the
-   * content type
+   * content type at all.
    */
   public Object getContent() throws IOException
   {
@@ -425,16 +446,18 @@ public abstract class URLConnection
     // guessContentTypeFromName() and guessContentTypeFromStream methods
     // as well as FileNameMap class & fileNameMap field & get/set methods.
     String type = getContentType();
-    ContentHandler ch = setContentHandler(type);
+    ContentHandler ch = getContentHandler(type);
 
-    if (ch == null)
-      return getInputStream();
+    if (ch != null)
+      return ch.getContent(this);
 
-    return ch.getContent(this);
+    return getInputStream();
   }
 
   /**
    * Retrieves the content of this URLConnection
+   *
+   * @param classes The allowed classes for the content
    *
    * @exception IOException If an error occurs
    * @exception UnknownServiceException If the protocol does not support the
@@ -443,7 +466,7 @@ public abstract class URLConnection
   public Object getContent(Class[] classes) throws IOException
   {
     // FIXME: implement this
-    return getContent ();
+    return getContent();
   }
 
   /**
@@ -480,8 +503,8 @@ public abstract class URLConnection
   public InputStream getInputStream() throws IOException
   {
     // Subclasses for specific protocols override this.
-    throw new UnknownServiceException("Protocol " + url.getProtocol() +
-			" does not support input.");
+    throw new UnknownServiceException("Protocol " + url.getProtocol()
+                                      + " does not support input.");
   }
 
   /**
@@ -496,14 +519,14 @@ public abstract class URLConnection
   public OutputStream getOutputStream() throws IOException
   {
     // Subclasses for specific protocols override this.
-    throw new UnknownServiceException("Protocol " + url.getProtocol() +
-			" does not support output.");
+    throw new UnknownServiceException("Protocol " + url.getProtocol()
+                                      + " does not support output.");
   }
 
   /**
    * The methods prints the value of this object as a String by calling the
    * toString() method of its associated URL.  Overrides Object.toString()
-   * 
+   *
    * @return A String representation of this object
    */
   public String toString()
@@ -515,7 +538,7 @@ public abstract class URLConnection
    * Returns the value of a flag indicating whether or not input is going
    * to be done for this connection.  This default to true unless the
    * doOutput flag is set to false, in which case this defaults to false.
-   * 
+   *
    * @param input <code>true</code> if input is to be done,
    * <code>false</code> otherwise
    *
@@ -524,7 +547,7 @@ public abstract class URLConnection
   public void setDoInput(boolean input)
   {
     if (connected)
-      throw new IllegalStateException ("Already connected");
+      throw new IllegalStateException("Already connected");
 
     doInput = input;
   }
@@ -553,7 +576,7 @@ public abstract class URLConnection
   public void setDoOutput(boolean output)
   {
     if (connected)
-      throw new IllegalStateException ("Already connected");
+      throw new IllegalStateException("Already connected");
 
     doOutput = output;
   }
@@ -628,7 +651,7 @@ public abstract class URLConnection
   public void setUseCaches(boolean usecaches)
   {
     if (connected)
-      throw new IllegalStateException ("Already connected");
+      throw new IllegalStateException("Already connected");
 
     useCaches = usecaches;
   }
@@ -659,7 +682,7 @@ public abstract class URLConnection
   public void setIfModifiedSince(long ifmodifiedsince)
   {
     if (connected)
-      throw new IllegalStateException ("Already connected");
+      throw new IllegalStateException("Already connected");
 
     ifModifiedSince = ifmodifiedsince;
   }
@@ -695,9 +718,9 @@ public abstract class URLConnection
    *
    * @param use true to use caches if possible by default, false otherwise
    */
-  public void setDefaultUseCaches(boolean defaultusecaches)
+  public void setDefaultUseCaches(boolean use)
   {
-    defaultUseCaches = defaultusecaches;
+    defaultUseCaches = use;
   }
 
   /**
@@ -705,23 +728,23 @@ public abstract class URLConnection
    *
    * @param key The name of the property
    * @param value The value of the property
-   * 
+   *
    * @exception IllegalStateException If already connected
    * @exception NullPointerException If key is null
    *
    * @see URLConnection#getRequestProperty(String key)
    * @see URLConnection#addRequestProperty(String key, String value)
-   * 
+   *
    * @since 1.4
    */
   public void setRequestProperty(String key, String value)
   {
     if (connected)
-      throw new IllegalStateException ("Already connected");
+      throw new IllegalStateException("Already connected");
 
     if (key == null)
-      throw new NullPointerException ("key is null");
-    
+      throw new NullPointerException("key is null");
+
     // Do nothing unless overridden by subclasses that support setting
     // header fields in the request.
   }
@@ -735,20 +758,20 @@ public abstract class URLConnection
    *
    * @exception IllegalStateException If already connected
    * @exception NullPointerException If key is null
-   * 
+   *
    * @see URLConnection#getRequestProperty(String key)
    * @see URLConnection#setRequestProperty(String key, String value)
-   * 
+   *
    * @since 1.4
    */
   public void addRequestProperty(String key, String value)
   {
     if (connected)
-      throw new IllegalStateException ("Already connected");
+      throw new IllegalStateException("Already connected");
 
     if (key == null)
-      throw new NullPointerException ("key is null");
-    
+      throw new NullPointerException("key is null");
+
     // Do nothing unless overridden by subclasses that support adding
     // header fields in the request.
   }
@@ -768,7 +791,7 @@ public abstract class URLConnection
   public String getRequestProperty(String key)
   {
     if (connected)
-      throw new IllegalStateException ("Already connected");
+      throw new IllegalStateException("Already connected");
 
     // Overridden by subclasses that support reading header fields from the
     // request.
@@ -787,7 +810,7 @@ public abstract class URLConnection
   public Map getRequestProperties()
   {
     if (connected)
-      throw new IllegalStateException ("Already connected");
+      throw new IllegalStateException("Already connected");
 
     // Overridden by subclasses that support reading header fields from the
     // request.
@@ -807,7 +830,7 @@ public abstract class URLConnection
    *
    * @see URLConnection#setRequestProperty(String key, String value)
    */
-  public static void setDefaultRequestProperty (String key, String value)
+  public static void setDefaultRequestProperty(String key, String value)
   {
     // This method does nothing since JDK 1.3.
   }
@@ -820,7 +843,7 @@ public abstract class URLConnection
    * @param key The request property to return the default value of
    *
    * @return The value of the default property or null if not available
-   * 
+   *
    * @deprecated 1.3 The method getRequestProperty should be used instead.
    * This method does nothing now.
    *
@@ -844,10 +867,9 @@ public abstract class URLConnection
    * @exception SecurityException If a security manager exists and its
    * checkSetFactory method doesn't allow the operation
    */
-  public static synchronized void setContentHandlerFactory
-                                    (ContentHandlerFactory fac)
+  public static synchronized void setContentHandlerFactory(ContentHandlerFactory factory)
   {
-    if (factory != null)
+    if (URLConnection.factory != null)
       throw new Error("ContentHandlerFactory already set");
 
     // Throw an exception if an extant security mgr precludes
@@ -856,7 +878,7 @@ public abstract class URLConnection
     if (s != null)
       s.checkSetFactory();
 
-    factory = fac;
+    URLConnection.factory = factory;
   }
 
   /**
@@ -873,20 +895,20 @@ public abstract class URLConnection
    */
   public static String guessContentTypeFromName(String filename)
   {
-    int dot = filename.lastIndexOf (".");
+    int dot = filename.lastIndexOf(".");
     
     if (dot != -1)
       {
 	if (dot == filename.length())
-	  return ("application/octet-stream");
+	  return "application/octet-stream";
 	else
-	  filename = filename.substring (dot + 1);
+	  filename = filename.substring(dot + 1);
       }
     
-    String type = MimeTypes.getMimeTypeFromExtension (filename);
+    String type = MimeTypes.getMimeTypeFromExtension(filename);
     
     if (type == null)
-      return("application/octet-stream");
+      return"application/octet-stream";
 
     return type;
   }
@@ -895,7 +917,7 @@ public abstract class URLConnection
    * Returns the MIME type of a stream based on the first few characters
    * at the beginning of the stream.  This routine can be used to determine
    * the MIME type if a server is believed to be returning an incorrect
-   * MIME type.  This method returns "application/octet-stream" if it 
+   * MIME type.  This method returns "application/octet-stream" if it
    * cannot determine the MIME type.
    * <p>
    * NOTE: Overriding MIME types sent from the server can be obnoxious
@@ -937,12 +959,12 @@ public abstract class URLConnection
    *
    * @exception SecurityException If a security manager exists and its
    * checkSetFactory method doesn't allow the operation
-   * 
+   *
    * @since 1.2
    */
   public static void setFileNameMap(FileNameMap map)
   {
-    // Throw an exception if an extant security mgr precludes
+    // Throw an exception if an extant security manager precludes
     // setting the factory.
     SecurityManager s = System.getSecurityManager();
     if (s != null)
@@ -951,13 +973,13 @@ public abstract class URLConnection
     fileNameMap = map;
   }
 
-  private ContentHandler setContentHandler(String contentType)
+  private ContentHandler getContentHandler(String contentType)
   {
-    ContentHandler handler;
-
     // No content type so just handle it as the default.
     if (contentType == null || contentType.equals(""))
       return null;
+
+    ContentHandler handler;
 
     // See if a handler has been cached for this content type.
     // For efficiency, if a content type has been searched for but not
@@ -969,12 +991,17 @@ public abstract class URLConnection
       else
 	return null;
 
-    // If a non-default factory has been set, use it to find the content type.
+    // If a non-default factory has been set, use it.
     if (factory != null)
       handler = factory.createContentHandler(contentType);
 
-    // Non-default factory may have returned null or a factory wasn't set.
-    // Use the default search algorithm to find a handler for this content type.
+    // Now try default factory. Using this factory to instantiate built-in
+    // content handlers is preferable  
+    if (handler == null)
+      handler = defaultFactory.createContentHandler(contentType);
+
+    // User-set factory has not returned a handler. Use the default search 
+    // algorithm.
     if (handler == null)
       {
 	// Get the list of packages to check and append our default handler
@@ -983,11 +1010,10 @@ public abstract class URLConnection
 	// ever be needed (or available).
 	String propVal = System.getProperty("java.content.handler.pkgs");
 	propVal = (propVal == null) ? "" : (propVal + "|");
-	propVal = propVal + "gnu.gcj.content|sun.net.www.content";
+	propVal = propVal + "gnu.java.net.content|sun.net.www.content";
 
 	// Replace the '/' character in the content type with '.' and
 	// all other non-alphabetic, non-numeric characters with '_'.
-	StringTokenizer pkgPrefix = new StringTokenizer(propVal, "|");
 	char[] cArray = contentType.toCharArray();
 	for (int i = 0; i < cArray.length; i++)
 	  {
@@ -1001,6 +1027,7 @@ public abstract class URLConnection
 	String contentClass = new String(cArray);
 
 	// See if a class of this content type exists in any of the packages.
+	StringTokenizer pkgPrefix = new StringTokenizer(propVal, "|");
 	do
 	  {
 	    String facName = pkgPrefix.nextToken() + "." + contentClass;
@@ -1019,7 +1046,7 @@ public abstract class URLConnection
       }
 
     // Update the hashtable with the new content handler.
-    if (handler != null && handler instanceof ContentHandler)
+    if (handler instanceof ContentHandler)
       {
 	handlers.put(contentType, handler);
 	return handler;
@@ -1034,18 +1061,18 @@ public abstract class URLConnection
   // We don't put these in a static initializer, because it creates problems
   // with initializer co-dependency: SimpleDateFormat's constructors eventually 
   // depend on URLConnection (via the java.text.*Symbols classes).
-  private synchronized void initializeDateFormats()
+  private static synchronized void initializeDateFormats()
   {
     if (dateformats_initialized)
       return;
 
     Locale locale = new Locale("En", "Us", "Unix");
-    dateFormat1 = new SimpleDateFormat("EEE, dd MMM yyyy hh:mm:ss 'GMT'", 
-                                       locale);
-    dateFormat2 = new SimpleDateFormat("EEEE, dd-MMM-yy hh:mm:ss 'GMT'", 
-                                       locale);
-    dateFormat3 = new SimpleDateFormat("EEE MMM d hh:mm:ss yyyy", locale);
+    dateFormats = new SimpleDateFormat[3];
+    dateFormats[0] =
+      new SimpleDateFormat("EEE, dd MMM yyyy hh:mm:ss 'GMT'", locale);
+    dateFormats[1] =
+      new SimpleDateFormat("EEEE, dd-MMM-yy hh:mm:ss 'GMT'", locale);
+    dateFormats[2] = new SimpleDateFormat("EEE MMM d hh:mm:ss yyyy", locale);
     dateformats_initialized = true;
   }
-} // class URLConnection
-
+}

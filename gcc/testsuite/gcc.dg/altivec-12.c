@@ -1,8 +1,10 @@
-/* { dg-do run { target powerpc*-*-darwin* } } */
-/* { dg-options "-faltivec" } */
+/* { dg-do run { target powerpc*-*-* } } */
+/* { dg-xfail-if "" { "powerpc-ibm-aix*" } { "-maltivec" } { "" } } */
+/* { dg-options "-maltivec" } */
 
 /* Program to test PowerPC AltiVec instructions.  */
 
+#include <altivec.h>
 #include "altivec_check.h"
 
 extern void abort (void);

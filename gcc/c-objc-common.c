@@ -26,8 +26,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "rtl.h"
 #include "insn-config.h"
 #include "integrate.h"
-#include "expr.h"
 #include "c-tree.h"
+#include "c-pretty-print.h"
 #include "function.h"
 #include "flags.h"
 #include "toplev.h"
@@ -38,11 +38,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "langhooks.h"
 #include "tree-mudflap.h"
 #include "target.h"
-#include "cgraph.h"
+#include "c-objc-common.h"
 
 static bool c_tree_printer (pretty_printer *, text_info *);
-static tree start_cdtor (int);
-static void finish_cdtor (tree);
 
 bool
 c_missing_noreturn_ok_p (tree decl)
@@ -62,8 +60,9 @@ c_disregard_inline_limits (tree fn)
   if (lookup_attribute ("always_inline", DECL_ATTRIBUTES (fn)) != NULL)
     return 1;
 
+  /* APPLE LOCAL obey inline */
   return (!flag_really_no_inline && DECL_DECLARED_INLINE_P (fn)
-	  && DECL_EXTERNAL (fn));
+	  && (DECL_EXTERNAL (fn) || flag_obey_inline));
 }
 
 int
@@ -80,17 +79,17 @@ c_cannot_inline_tree_fn (tree *fnp)
       && lookup_attribute ("always_inline", DECL_ATTRIBUTES (fn)) == NULL)
     {
       if (do_warning)
-	warning ("%Jfunction '%F' can never be inlined because it "
+	warning ("%Jfunction %qF can never be inlined because it "
 		 "is suppressed using -fno-inline", fn, fn);
       goto cannot_inline;
     }
 
   /* Don't auto-inline anything that might not be bound within
      this unit of translation.  */
-  if (!DECL_DECLARED_INLINE_P (fn) && !(*targetm.binds_local_p) (fn))
+  if (!DECL_DECLARED_INLINE_P (fn) && !targetm.binds_local_p (fn))
     {
       if (do_warning)
-	warning ("%Jfunction '%F' can never be inlined because it might not "
+	warning ("%Jfunction %qF can never be inlined because it might not "
 		 "be bound within this unit of translation", fn, fn);
       goto cannot_inline;
     }
@@ -98,7 +97,7 @@ c_cannot_inline_tree_fn (tree *fnp)
   if (! function_attribute_inlinable_p (fn))
     {
       if (do_warning)
-	warning ("%Jfunction '%F' can never be inlined because it uses "
+	warning ("%Jfunction %qF can never be inlined because it uses "
 		 "attributes conflicting with inlining", fn, fn);
       goto cannot_inline;
     }
@@ -113,7 +112,7 @@ c_cannot_inline_tree_fn (tree *fnp)
       if (t)
 	{
 	  if (do_warning)
-	    warning ("%Jfunction '%F' can never be inlined because it has "
+	    warning ("%Jfunction %qF can never be inlined because it has "
 		     "pending sizes", fn, fn);
 	  goto cannot_inline;
 	}
@@ -126,7 +125,7 @@ c_cannot_inline_tree_fn (tree *fnp)
       if (DECL_LANG_SPECIFIC (fn)->pending_sizes)
 	{
 	  if (do_warning)
-	    warning ("%Jnested function '%F' can never be inlined because it "
+	    warning ("%Jnested function %qF can never be inlined because it "
 		     "has possibly saved pending sizes", fn, fn);
 	  goto cannot_inline;
 	}
@@ -185,109 +184,11 @@ c_objc_common_init (void)
   return true;
 }
 
-static tree
-start_cdtor (int method_type)
-{
-  tree fnname = get_file_function_name (method_type);
-  tree void_list_node_1 = build_tree_list (NULL_TREE, void_type_node);
-  tree body;
-
-  start_function (void_list_node_1,
-		  build_nt (CALL_EXPR, fnname,
-			    tree_cons (NULL_TREE, NULL_TREE, void_list_node_1),
-			    NULL_TREE),
-		  NULL_TREE);
-  store_parm_decls ();
-
-  current_function_cannot_inline
-    = "static constructors and destructors cannot be inlined";
-
-  body = c_begin_compound_stmt ();
-
-  pushlevel (0);
-  clear_last_expr ();
-  add_scope_stmt (/*begin_p=*/1, /*partial_p=*/0);
-
-  return body;
-}
-
-static void
-finish_cdtor (tree body)
-{
-  tree scope;
-  tree block;
-
-  scope = add_scope_stmt (/*begin_p=*/0, /*partial_p=*/0);
-  block = poplevel (0, 0, 0);
-  SCOPE_STMT_BLOCK (TREE_PURPOSE (scope)) = block;
-  SCOPE_STMT_BLOCK (TREE_VALUE (scope)) = block;
-
-  RECHAIN_STMTS (body, COMPOUND_BODY (body));
-
-  finish_function ();
-}
-
-/* Called at end of parsing, but before end-of-file processing.  */
-
-void
-c_objc_common_finish_file (void)
-{
-  if (pch_file)
-    c_common_write_pch ();
-
-  /* If multiple translation units were built, copy information between
-     them based on linkage rules.  */
-  merge_translation_unit_decls ();
-
-  cgraph_finalize_compilation_unit ();
-  cgraph_optimize ();
-
-  if (flag_mudflap)
-    mudflap_finish_file ();
-
-  if (static_ctors)
-    {
-      tree body = start_cdtor ('I');
-
-      for (; static_ctors; static_ctors = TREE_CHAIN (static_ctors))
-	expand_expr (build_function_call (TREE_VALUE (static_ctors),
-					  NULL_TREE),
-		     const0_rtx, VOIDmode, EXPAND_NORMAL);
-
-      finish_cdtor (body);
-    }
-
-  if (static_dtors)
-    {
-      tree body = start_cdtor ('D');
-
-      for (; static_dtors; static_dtors = TREE_CHAIN (static_dtors))
-	expand_expr (build_function_call (TREE_VALUE (static_dtors),
-					  NULL_TREE),
-		     const0_rtx, VOIDmode, EXPAND_NORMAL);
-
-      finish_cdtor (body);
-    }
-
-  {
-    int flags;
-    FILE *stream = dump_begin (TDI_tu, &flags);
-
-    if (stream)
-      {
-	tree decls = getdecls ();
-	if (decls)
-	  dump_node (decls, flags & ~TDF_SLIM, stream);
-	dump_end (TDI_tu, stream);
-      }
-  }
-}
-
 /* Called during diagnostic message formatting process to print a
    source-level entity onto BUFFER.  The meaning of the format specifiers
    is as follows:
    %D: a general decl,
-   %E: An expression,
+   %E: an identifier or expression,
    %F: a function declaration,
    %T: a type.
 
@@ -299,27 +200,35 @@ static bool
 c_tree_printer (pretty_printer *pp, text_info *text)
 {
   tree t = va_arg (*text->args_ptr, tree);
+  tree name;
   const char *n = "({anonymous})";
+  c_pretty_printer *cpp = (c_pretty_printer *) pp;
+  pp->padding = pp_none;
 
   switch (*text->format_spec)
     {
     case 'D':
     case 'F':
       if (DECL_NAME (t))
-	n = (*lang_hooks.decl_printable_name) (t, 2);
+	n = lang_hooks.decl_printable_name (t, 2);
       break;
 
     case 'T':
-      if (TREE_CODE (t) == TYPE_DECL)
+      gcc_assert (TYPE_P (t));
+      name = TYPE_NAME (t);
+      
+      if (name && TREE_CODE (name) == TYPE_DECL)
 	{
-	  if (DECL_NAME (t))
-	    n = (*lang_hooks.decl_printable_name) (t, 2);
+	  if (DECL_NAME (name))
+	    pp_string (cpp, lang_hooks.decl_printable_name (name, 2));
+	  else
+	    pp_type_id (cpp, t);
+	  return true;
 	}
       else
 	{
-	  t = TYPE_NAME (t);
-	  if (t)
-	    n = IDENTIFIER_POINTER (t);
+	  pp_type_id (cpp, t);
+	  return true;
 	}
       break;
 
@@ -327,14 +236,17 @@ c_tree_printer (pretty_printer *pp, text_info *text)
       if (TREE_CODE (t) == IDENTIFIER_NODE)
 	n = IDENTIFIER_POINTER (t);
       else
-        return false;
+	{
+	  pp_expression (cpp, t);
+	  return true;
+	}
       break;
 
     default:
       return false;
     }
 
-  pp_string (pp, n);
+  pp_string (cpp, n);
   return true;
 }
 
@@ -366,3 +278,28 @@ c_objc_common_truthvalue_conversion (tree expr)
   return c_common_truthvalue_conversion (expr);
 }
 
+/* In C and ObjC, all decls have "C" linkage.  */
+bool
+has_c_linkage (tree decl ATTRIBUTE_UNUSED)
+{
+  return true;
+}
+
+void
+c_initialize_diagnostics (diagnostic_context *context)
+{
+  pretty_printer *base = context->printer;
+  c_pretty_printer *pp = XNEW (c_pretty_printer);
+  memcpy (pp_base (pp), base, sizeof (pretty_printer));
+  pp_c_pretty_printer_init (pp);
+  context->printer = (pretty_printer *) pp;
+
+  /* It is safe to free this object because it was previously XNEW()'d.  */
+  XDELETE (base);
+}
+
+int
+c_types_compatible_p (tree x, tree y)
+{
+    return comptypes (TYPE_MAIN_VARIANT (x), TYPE_MAIN_VARIANT (y));
+}

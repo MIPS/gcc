@@ -46,6 +46,7 @@ import java.net.InetAddress;
 import java.util.Hashtable;
 import java.net.UnknownHostException;
 import java.rmi.Remote;
+import java.rmi.ServerError;
 import java.rmi.server.ObjID;
 import java.rmi.server.UnicastRemoteObject;
 import java.rmi.server.UID;
@@ -99,13 +100,19 @@ public static void dispatch(UnicastConnection conn) throws Exception {
 	case MESSAGE_CALL:
 		incomingMessageCall(conn);
 		break;
+	case MESSAGE_PING:  
+		// jdk sends a ping before each method call -> answer it!
+		DataOutputStream out = conn.getDataOutputStream();
+		out.writeByte(MESSAGE_PING_ACK);
+		out.flush();
+		break;
 	default:
 		throw new Exception("bad method type");
 	}
 }
 
 private static void incomingMessageCall(UnicastConnection conn) throws IOException {
-	ObjectInputStream in = conn.getObjectInputStream();
+	ObjectInputStream in = conn.startObjectInputStream();  // (re)start ObjectInputStream
 
 	ObjID objid = ObjID.read(in);
 	int method = in.readInt();
@@ -130,6 +137,10 @@ private static void incomingMessageCall(UnicastConnection conn) throws IOExcepti
 			returnval = e;
 			returncode = RETURN_NACK;
 		}
+                catch (Error e) {
+			returnval = new ServerError ("An Error is thrown while processing the invocation on the server", e);
+			returncode = RETURN_NACK;
+                }
 	}
 	else {
 		returnval = new NoSuchObjectException("");
@@ -138,13 +149,18 @@ private static void incomingMessageCall(UnicastConnection conn) throws IOExcepti
 
 	conn.getDataOutputStream().writeByte(MESSAGE_CALL_ACK);
 
-	ObjectOutputStream out = conn.getObjectOutputStream();
+	ObjectOutputStream out = conn.startObjectOutputStream();   // (re)start ObjectOutputStream
 
 	out.writeByte(returncode);
 	(new UID()).write(out);
+
+	//System.out.println("returnval=" + returnval + " returncls=" + returncls);
+
 	if(returnval != null && returncls != null)
 	    ((RMIObjectOutputStream)out).writeValue(returnval, returncls);
-	else if (!(returnval instanceof RMIVoidValue))
+
+	// 1.1/1.2 void return type detection:
+	else if (!(returnval instanceof RMIVoidValue || returncls == Void.TYPE)) 
 	    out.writeObject(returnval);
 
 	out.flush();

@@ -43,8 +43,7 @@ convert_to_pointer (tree type, tree expr)
 {
   if (integer_zerop (expr))
     {
-      expr = build_int_2 (0, 0);
-      TREE_TYPE (expr) = type;
+      expr = build_int_cst (type, 0);
       return expr;
     }
 
@@ -63,7 +62,7 @@ convert_to_pointer (tree type, tree expr)
 
       return
 	convert_to_pointer (type,
-			    convert ((*lang_hooks.types.type_for_size)
+			    convert (lang_hooks.types.type_for_size
 				     (POINTER_SIZE, 0), expr));
 
     default:
@@ -99,7 +98,8 @@ strip_float_extensions (tree exp)
 	return build_real (type, real_value_truncate (TYPE_MODE (type), orig));
     }
 
-  if (TREE_CODE (exp) != NOP_EXPR)
+  if (TREE_CODE (exp) != NOP_EXPR
+      && TREE_CODE (exp) != CONVERT_EXPR)
     return exp;
 
   sub = TREE_OPERAND (exp, 0);
@@ -131,57 +131,92 @@ convert_to_real (tree type, tree expr)
      present in runtime.  */
   /* Convert (float)sqrt((double)x) where x is float into sqrtf(x) */
   if (optimize
-      && (fcode == BUILT_IN_SQRT
-	  || fcode == BUILT_IN_SQRTL
-	  || fcode == BUILT_IN_SIN
-	  || fcode == BUILT_IN_SINL
-	  || fcode == BUILT_IN_COS
-	  || fcode == BUILT_IN_COSL
-	  || fcode == BUILT_IN_EXP
-	  || fcode == BUILT_IN_EXPL
-	  || fcode == BUILT_IN_LOG
-	  || fcode == BUILT_IN_LOGL)
       && (TYPE_MODE (type) == TYPE_MODE (double_type_node)
           || TYPE_MODE (type) == TYPE_MODE (float_type_node)))
     {
-      tree arg0 = strip_float_extensions (TREE_VALUE (TREE_OPERAND (expr, 1)));
-      tree newtype = type;
-
-      /* We have (outertype)sqrt((innertype)x).  Choose the wider mode from
-	 the both as the safe type for operation.  */
-      if (TYPE_PRECISION (TREE_TYPE (arg0)) > TYPE_PRECISION (type))
-	newtype = TREE_TYPE (arg0);
-
-      /* Be careful about integer to fp conversions.
-	 These may overflow still.  */
-      if (FLOAT_TYPE_P (TREE_TYPE (arg0))
-	  && TYPE_PRECISION (newtype) < TYPE_PRECISION (itype)
-	  && (TYPE_MODE (newtype) == TYPE_MODE (double_type_node)
-	      || TYPE_MODE (newtype) == TYPE_MODE (float_type_node)))
-	{
-	  tree arglist;
-	  tree fn = mathfn_built_in (newtype, fcode);
-
-	  if (fn)
+      switch (fcode)
+        {
+#define CASE_MATHFN(FN) case BUILT_IN_##FN: case BUILT_IN_##FN##L:
+	  CASE_MATHFN (ACOS)
+	  CASE_MATHFN (ACOSH)
+	  CASE_MATHFN (ASIN)
+	  CASE_MATHFN (ASINH)
+	  CASE_MATHFN (ATAN)
+	  CASE_MATHFN (ATANH)
+	  CASE_MATHFN (CBRT)
+	  CASE_MATHFN (COS)
+	  CASE_MATHFN (COSH)
+	  CASE_MATHFN (ERF)
+	  CASE_MATHFN (ERFC)
+	  CASE_MATHFN (EXP)
+	  CASE_MATHFN (EXP10)
+	  CASE_MATHFN (EXP2)
+	  CASE_MATHFN (EXPM1)
+	  CASE_MATHFN (FABS)
+	  CASE_MATHFN (GAMMA)
+	  CASE_MATHFN (J0)
+	  CASE_MATHFN (J1)
+	  CASE_MATHFN (LGAMMA)
+	  CASE_MATHFN (LOG)
+	  CASE_MATHFN (LOG10)
+	  CASE_MATHFN (LOG1P)
+	  CASE_MATHFN (LOG2)
+	  CASE_MATHFN (LOGB)
+	  CASE_MATHFN (POW10)
+	  CASE_MATHFN (SIN)
+	  CASE_MATHFN (SINH)
+	  CASE_MATHFN (SQRT)
+	  CASE_MATHFN (TAN)
+	  CASE_MATHFN (TANH)
+	  CASE_MATHFN (TGAMMA)
+	  CASE_MATHFN (Y0)
+	  CASE_MATHFN (Y1)
+#undef CASE_MATHFN
 	    {
-	      arglist = build_tree_list (NULL_TREE, fold (convert_to_real (newtype, arg0)));
-	      expr = build_function_call_expr (fn, arglist);
-	      if (newtype == type)
-		return expr;
+	      tree arg0 = strip_float_extensions (TREE_VALUE (TREE_OPERAND (expr, 1)));
+	      tree newtype = type;
+
+	      /* We have (outertype)sqrt((innertype)x).  Choose the wider mode from
+		 the both as the safe type for operation.  */
+	      if (TYPE_PRECISION (TREE_TYPE (arg0)) > TYPE_PRECISION (type))
+		newtype = TREE_TYPE (arg0);
+
+	      /* Be careful about integer to fp conversions.
+		 These may overflow still.  */
+	      if (FLOAT_TYPE_P (TREE_TYPE (arg0))
+		  && TYPE_PRECISION (newtype) < TYPE_PRECISION (itype)
+		  && (TYPE_MODE (newtype) == TYPE_MODE (double_type_node)
+		      || TYPE_MODE (newtype) == TYPE_MODE (float_type_node)))
+	        {
+		  tree arglist;
+		  tree fn = mathfn_built_in (newtype, fcode);
+
+		  if (fn)
+		  {
+		    arglist = build_tree_list (NULL_TREE, fold (convert_to_real (newtype, arg0)));
+		    expr = build_function_call_expr (fn, arglist);
+		    if (newtype == type)
+		      return expr;
+		  }
+		}
 	    }
+	default:
+	  break;
 	}
     }
   if (optimize
       && (((fcode == BUILT_IN_FLOORL
 	   || fcode == BUILT_IN_CEILL
-	   || fcode == BUILT_IN_ROUND
-	   || fcode == BUILT_IN_TRUNC
-	   || fcode == BUILT_IN_NEARBYINT)
+	   || fcode == BUILT_IN_ROUNDL
+	   || fcode == BUILT_IN_RINTL
+	   || fcode == BUILT_IN_TRUNCL
+	   || fcode == BUILT_IN_NEARBYINTL)
 	  && (TYPE_MODE (type) == TYPE_MODE (double_type_node)
 	      || TYPE_MODE (type) == TYPE_MODE (float_type_node)))
 	  || ((fcode == BUILT_IN_FLOOR
 	       || fcode == BUILT_IN_CEIL
 	       || fcode == BUILT_IN_ROUND
+	       || fcode == BUILT_IN_RINT
 	       || fcode == BUILT_IN_TRUNC
 	       || fcode == BUILT_IN_NEARBYINT)
 	      && (TYPE_MODE (type) == TYPE_MODE (float_type_node)))))
@@ -232,9 +267,9 @@ convert_to_real (tree type, tree expr)
 		    newtype = TREE_TYPE (arg1);
 		  if (TYPE_PRECISION (newtype) < TYPE_PRECISION (itype))
 		    {
-		      expr = build (TREE_CODE (expr), newtype,
-				    fold (convert_to_real (newtype, arg0)),
-				    fold (convert_to_real (newtype, arg1)));
+		      expr = build2 (TREE_CODE (expr), newtype,
+				     fold (convert_to_real (newtype, arg0)),
+				     fold (convert_to_real (newtype, arg1)));
 		      if (newtype == type)
 			return expr;
 		    }
@@ -297,6 +332,53 @@ convert_to_integer (tree type, tree expr)
       return error_mark_node;
     }
 
+  /* Convert e.g. (long)round(d) -> lround(d).  */
+  /* If we're converting to char, we may encounter differing behavior
+     between converting from double->char vs double->long->char.
+     We're in "undefined" territory but we prefer to be conservative,
+     so only proceed in "unsafe" math mode.  */
+  if (optimize
+      && (flag_unsafe_math_optimizations
+	  || (long_integer_type_node
+	      && outprec >= TYPE_PRECISION (long_integer_type_node))))
+    {
+      tree s_expr = strip_float_extensions (expr);
+      tree s_intype = TREE_TYPE (s_expr);
+      const enum built_in_function fcode = builtin_mathfn_code (s_expr);
+      tree fn = 0;
+      
+      switch (fcode)
+        {
+	case BUILT_IN_ROUND: case BUILT_IN_ROUNDF: case BUILT_IN_ROUNDL:
+	  if (TYPE_MAIN_VARIANT (type) == TYPE_MAIN_VARIANT (long_long_integer_type_node))
+	    fn = mathfn_built_in (s_intype, BUILT_IN_LLROUND);
+	  else
+	    fn = mathfn_built_in (s_intype, BUILT_IN_LROUND);
+	  break;
+
+	case BUILT_IN_RINT: case BUILT_IN_RINTF: case BUILT_IN_RINTL:
+	  /* Only convert rint* if we can ignore math exceptions.  */
+	  if (flag_trapping_math)
+	    break;
+	  /* ... Fall through ...  */
+	case BUILT_IN_NEARBYINT: case BUILT_IN_NEARBYINTF: case BUILT_IN_NEARBYINTL:
+	  if (TYPE_MAIN_VARIANT (type) == TYPE_MAIN_VARIANT (long_long_integer_type_node))
+            fn = mathfn_built_in (s_intype, BUILT_IN_LLRINT);
+	  else
+            fn = mathfn_built_in (s_intype, BUILT_IN_LRINT);
+	  break;
+	default:
+	  break;
+	}
+      
+      if (fn)
+        {
+	  tree arglist = TREE_OPERAND (s_expr, 1);
+	  tree newexpr = build_function_call_expr (fn, arglist);
+	  return convert_to_integer (type, newexpr);
+	}
+    }
+
   switch (TREE_CODE (intype))
     {
     case POINTER_TYPE:
@@ -304,8 +386,9 @@ convert_to_integer (tree type, tree expr)
       if (integer_zerop (expr))
 	expr = integer_zero_node;
       else
-	expr = fold (build1 (CONVERT_EXPR, (*lang_hooks.types.type_for_size)
-			     (POINTER_SIZE, 0), expr));
+	expr = fold (build1 (CONVERT_EXPR,
+			     lang_hooks.types.type_for_size (POINTER_SIZE, 0),
+			     expr));
 
       return convert_to_integer (type, expr);
 
@@ -314,32 +397,11 @@ convert_to_integer (tree type, tree expr)
     case BOOLEAN_TYPE:
     case CHAR_TYPE:
       /* If this is a logical operation, which just returns 0 or 1, we can
-	 change the type of the expression.  For some logical operations,
-	 we must also change the types of the operands to maintain type
-	 correctness.  */
+	 change the type of the expression.  */
 
-      if (TREE_CODE_CLASS (ex_form) == '<')
+      if (TREE_CODE_CLASS (ex_form) == tcc_comparison)
 	{
 	  expr = copy_node (expr);
-	  TREE_TYPE (expr) = type;
-	  return expr;
-	}
-
-      else if (ex_form == TRUTH_AND_EXPR || ex_form == TRUTH_ANDIF_EXPR
-	       || ex_form == TRUTH_OR_EXPR || ex_form == TRUTH_ORIF_EXPR
-	       || ex_form == TRUTH_XOR_EXPR)
-	{
-	  expr = copy_node (expr);
-	  TREE_OPERAND (expr, 0) = convert (type, TREE_OPERAND (expr, 0));
-	  TREE_OPERAND (expr, 1) = convert (type, TREE_OPERAND (expr, 1));
-	  TREE_TYPE (expr) = type;
-	  return expr;
-	}
-
-      else if (ex_form == TRUTH_NOT_EXPR)
-	{
-	  expr = copy_node (expr);
-	  TREE_OPERAND (expr, 0) = convert (type, TREE_OPERAND (expr, 0));
 	  TREE_TYPE (expr) = type;
 	  return expr;
 	}
@@ -361,7 +423,7 @@ convert_to_integer (tree type, tree expr)
 	     conversion necessitates an explicit sign-extension.  In
 	     the signed-to-unsigned case the high-order bits have to
 	     be cleared.  */
-	  if (TREE_UNSIGNED (type) != TREE_UNSIGNED (TREE_TYPE (expr))
+	  if (TYPE_UNSIGNED (type) != TYPE_UNSIGNED (TREE_TYPE (expr))
 	      && (TYPE_PRECISION (TREE_TYPE (expr))
 		  != GET_MODE_BITSIZE (TYPE_MODE (TREE_TYPE (expr)))))
 	    code = CONVERT_EXPR;
@@ -378,8 +440,8 @@ convert_to_integer (tree type, tree expr)
       else if (TREE_CODE (type) == ENUMERAL_TYPE
 	       || outprec != GET_MODE_BITSIZE (TYPE_MODE (type)))
 	return build1 (NOP_EXPR, type,
-		       convert ((*lang_hooks.types.type_for_mode)
-				(TYPE_MODE (type), TREE_UNSIGNED (type)),
+		       convert (lang_hooks.types.type_for_mode
+				(TYPE_MODE (type), TYPE_UNSIGNED (type)),
 				expr));
 
       /* Here detect when we can distribute the truncation down past some
@@ -420,7 +482,7 @@ convert_to_integer (tree type, tree expr)
 	     the target type is unsigned.  */
 	  if (TREE_CODE (TREE_OPERAND (expr, 1)) == INTEGER_CST
 	      && tree_int_cst_sgn (TREE_OPERAND (expr, 1)) >= 0
-	      && TREE_UNSIGNED (type)
+	      && TYPE_UNSIGNED (type)
 	      && TREE_CODE (TYPE_SIZE (type)) == INTEGER_CST)
 	    {
 	      /* If shift count is less than the width of the truncated type,
@@ -441,7 +503,7 @@ convert_to_integer (tree type, tree expr)
 		  /* If the original expression had side-effects, we must
 		     preserve it.  */
 		  if (TREE_SIDE_EFFECTS (expr))
-		    return build (COMPOUND_EXPR, type, expr, t);
+		    return build2 (COMPOUND_EXPR, type, expr, t);
 		  else
 		    return t;
 		}
@@ -462,8 +524,8 @@ convert_to_integer (tree type, tree expr)
 		&& outprec >= TYPE_PRECISION (TREE_TYPE (arg1))
 		/* If signedness of arg0 and arg1 don't match,
 		   we can't necessarily find a type to compare them in.  */
-		&& (TREE_UNSIGNED (TREE_TYPE (arg0))
-		    == TREE_UNSIGNED (TREE_TYPE (arg1))))
+		&& (TYPE_UNSIGNED (TREE_TYPE (arg0))
+		    == TYPE_UNSIGNED (TREE_TYPE (arg1))))
 	      goto trunc1;
 	    break;
 	  }
@@ -490,8 +552,8 @@ convert_to_integer (tree type, tree expr)
 		/* Can't do arithmetic in enumeral types
 		   so use an integer type that will hold the values.  */
 		if (TREE_CODE (typex) == ENUMERAL_TYPE)
-		  typex = (*lang_hooks.types.type_for_size)
-		    (TYPE_PRECISION (typex), TREE_UNSIGNED (typex));
+		  typex = lang_hooks.types.type_for_size
+		    (TYPE_PRECISION (typex), TYPE_UNSIGNED (typex));
 
 		/* But now perhaps TYPEX is as wide as INPREC.
 		   In that case, do nothing special here.
@@ -509,21 +571,21 @@ convert_to_integer (tree type, tree expr)
 		       signed-overflow undefinedness.
 		       And we may need to do it as unsigned
 		       if we truncate to the original size.  */
-		    if (TREE_UNSIGNED (TREE_TYPE (expr))
-			|| (TREE_UNSIGNED (TREE_TYPE (arg0))
-			    && (TREE_UNSIGNED (TREE_TYPE (arg1))
+		    if (TYPE_UNSIGNED (TREE_TYPE (expr))
+			|| (TYPE_UNSIGNED (TREE_TYPE (arg0))
+			    && (TYPE_UNSIGNED (TREE_TYPE (arg1))
 				|| ex_form == LSHIFT_EXPR
 				|| ex_form == RSHIFT_EXPR
 				|| ex_form == LROTATE_EXPR
 				|| ex_form == RROTATE_EXPR))
 			|| ex_form == LSHIFT_EXPR)
-		      typex = (*lang_hooks.types.unsigned_type) (typex);
+		      typex = lang_hooks.types.unsigned_type (typex);
 		    else
-		      typex = (*lang_hooks.types.signed_type) (typex);
+		      typex = lang_hooks.types.signed_type (typex);
 		    return convert (type,
-				    fold (build (ex_form, typex,
-						 convert (typex, arg0),
-						 convert (typex, arg1))));
+				    fold (build2 (ex_form, typex,
+						  convert (typex, arg0),
+						  convert (typex, arg1))));
 		  }
 	      }
 	  }
@@ -539,8 +601,8 @@ convert_to_integer (tree type, tree expr)
 	    /* Can't do arithmetic in enumeral types
 	       so use an integer type that will hold the values.  */
 	    if (TREE_CODE (typex) == ENUMERAL_TYPE)
-	      typex = (*lang_hooks.types.type_for_size)
-		(TYPE_PRECISION (typex), TREE_UNSIGNED (typex));
+	      typex = lang_hooks.types.type_for_size
+		(TYPE_PRECISION (typex), TYPE_UNSIGNED (typex));
 
 	    /* But now perhaps TYPEX is as wide as INPREC.
 	       In that case, do nothing special here.
@@ -549,10 +611,10 @@ convert_to_integer (tree type, tree expr)
 	      {
 		/* Don't do unsigned arithmetic where signed was wanted,
 		   or vice versa.  */
-		if (TREE_UNSIGNED (TREE_TYPE (expr)))
-		  typex = (*lang_hooks.types.unsigned_type) (typex);
+		if (TYPE_UNSIGNED (TREE_TYPE (expr)))
+		  typex = lang_hooks.types.unsigned_type (typex);
 		else
-		  typex = (*lang_hooks.types.signed_type) (typex);
+		  typex = lang_hooks.types.signed_type (typex);
 		return convert (type,
 				fold (build1 (ex_form, typex,
 					      convert (typex,
@@ -574,15 +636,15 @@ convert_to_integer (tree type, tree expr)
 	case COND_EXPR:
 	  /* It is sometimes worthwhile to push the narrowing down through
 	     the conditional and never loses.  */
-	  return fold (build (COND_EXPR, type, TREE_OPERAND (expr, 0),
-			      convert (type, TREE_OPERAND (expr, 1)),
-			      convert (type, TREE_OPERAND (expr, 2))));
+	  return fold (build3 (COND_EXPR, type, TREE_OPERAND (expr, 0),
+			       convert (type, TREE_OPERAND (expr, 1)),
+			       convert (type, TREE_OPERAND (expr, 2))));
 
 	default:
 	  break;
 	}
 
-      return build1 (NOP_EXPR, type, expr);
+      return build1 (CONVERT_EXPR, type, expr);
 
     case REAL_TYPE:
       return build1 (FIX_TRUNC_EXPR, type, expr);
@@ -593,8 +655,7 @@ convert_to_integer (tree type, tree expr)
 				    TREE_TYPE (TREE_TYPE (expr)), expr)));
 
     case VECTOR_TYPE:
-      if (GET_MODE_SIZE (TYPE_MODE (type))
-	  != GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (expr))))
+      if (!tree_int_cst_equal (TYPE_SIZE (type), TYPE_SIZE (TREE_TYPE (expr))))
 	{
 	  error ("can't convert between vector values of different size");
 	  return error_mark_node;
@@ -621,8 +682,8 @@ convert_to_complex (tree type, tree expr)
     case ENUMERAL_TYPE:
     case BOOLEAN_TYPE:
     case CHAR_TYPE:
-      return build (COMPLEX_EXPR, type, convert (subtype, expr),
-		    convert (subtype, integer_zero_node));
+      return build2 (COMPLEX_EXPR, type, convert (subtype, expr),
+		     convert (subtype, integer_zero_node));
 
     case COMPLEX_TYPE:
       {
@@ -631,23 +692,22 @@ convert_to_complex (tree type, tree expr)
 	if (TYPE_MAIN_VARIANT (elt_type) == TYPE_MAIN_VARIANT (subtype))
 	  return expr;
 	else if (TREE_CODE (expr) == COMPLEX_EXPR)
-	  return fold (build (COMPLEX_EXPR,
-			      type,
-			      convert (subtype, TREE_OPERAND (expr, 0)),
-			      convert (subtype, TREE_OPERAND (expr, 1))));
+	  return fold (build2 (COMPLEX_EXPR, type,
+			       convert (subtype, TREE_OPERAND (expr, 0)),
+			       convert (subtype, TREE_OPERAND (expr, 1))));
 	else
 	  {
 	    expr = save_expr (expr);
 	    return
-	      fold (build (COMPLEX_EXPR,
-			   type, convert (subtype,
-					  fold (build1 (REALPART_EXPR,
-							TREE_TYPE (TREE_TYPE (expr)),
-							expr))),
-			   convert (subtype,
-				    fold (build1 (IMAGPART_EXPR,
-						  TREE_TYPE (TREE_TYPE (expr)),
-						  expr)))));
+	      fold (build2 (COMPLEX_EXPR, type,
+			    convert (subtype,
+				     fold (build1 (REALPART_EXPR,
+						   TREE_TYPE (TREE_TYPE (expr)),
+						   expr))),
+			    convert (subtype,
+				     fold (build1 (IMAGPART_EXPR,
+						   TREE_TYPE (TREE_TYPE (expr)),
+						   expr)))));
 	  }
       }
 
@@ -671,16 +731,23 @@ convert_to_vector (tree type, tree expr)
     {
     case INTEGER_TYPE:
     case VECTOR_TYPE:
-      if (GET_MODE_SIZE (TYPE_MODE (type))
-	  != GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (expr))))
+      if (!tree_int_cst_equal (TYPE_SIZE (type), TYPE_SIZE (TREE_TYPE (expr))))
 	{
 	  error ("can't convert between vector values of different size");
 	  return error_mark_node;
 	}
+      /* APPLE LOCAL begin AltiVec */
+      if (TREE_CODE (type) == VECTOR_TYPE  
+	  && TREE_CODE (TREE_TYPE (expr)) == VECTOR_TYPE
+	  && TREE_CODE (expr) == CONSTRUCTOR && TREE_CONSTANT (expr))
+	  /* converting a constant vector to new vector type with Motorola Syntax. */
+	  return build_constructor (type, CONSTRUCTOR_ELTS (expr));
+      /* APPLE LOCAL end AltiVec */
+
       return build1 (NOP_EXPR, type, expr);
 
     default:
       error ("can't convert value to a vector");
-      return convert_to_vector (type, integer_zero_node);
+      return error_mark_node;
     }
 }

@@ -56,6 +56,26 @@ details.  */
 
 #ifdef HAVE_MMAP
 #include <sys/mman.h>
+
+// Use overload resolution to find out the argument types.
+// E.g. Solaris 2.6 uses different argument types for munmap and msync.
+// This is in case _POSIX_C_SOURCES is smaller than 3.
+
+template <typename T_implPtr, typename T_implLen>
+static inline int
+munmap_adaptor(int (*munmap)(T_implPtr caddr, T_implLen sizet),
+		 void* caddr, size_t sizet)
+{
+  return munmap ((T_implPtr) caddr, (T_implLen) sizet);
+}
+
+template <typename T_implPtr, typename T_implLen, typename T_msync>
+static inline int
+msync_adaptor(int (*msync)(T_implPtr caddr, T_implLen sizet, T_msync msynct),
+	      void* caddr, size_t sizet, int msynct)
+{
+  return msync ((T_implPtr) caddr, (T_implLen) sizet, (T_msync) msynct);
+}
 #endif
 
 using gnu::gcj::RawData;
@@ -254,7 +274,10 @@ FileChannelImpl::implTruncate (jlong size)
     }
   else
     {
-      if (::ftruncate (fd, (off_t) pos))
+      if (::ftruncate (fd, (off_t) size))
+	throw new IOException (JvNewStringLatin1 (strerror (errno)));
+      if (pos > size
+	  && ::lseek (fd, (off_t) size, SEEK_SET) == -1)
 	throw new IOException (JvNewStringLatin1 (strerror (errno)));
       pos = size;
     }
@@ -484,7 +507,7 @@ FileChannelImpl::mapImpl (jchar mmode, jlong position, jint size)
   MappedByteBufferImpl *buf
     = new MappedByteBufferImpl ((RawData *) ((char *) ptr + align),
 				size, mmode == 'r');
-  if (ptr == MAP_FAILED)
+  if (ptr == (void *) MAP_FAILED)
     throw new IOException (JvNewStringLatin1 (strerror (errno)));
   buf->implPtr = reinterpret_cast<RawData*> (ptr);
   buf->implLen = size+align;
@@ -498,7 +521,7 @@ void
 MappedByteBufferImpl::unmapImpl ()
 {
 #if defined(HAVE_MMAP)
-  munmap((void*) implPtr, implLen);
+  munmap_adaptor(munmap, implPtr, implLen);
 #endif
 }
 
@@ -517,6 +540,6 @@ void
 MappedByteBufferImpl::forceImpl ()
 {
 #if defined(HAVE_MMAP)
-  ::msync((void*) implPtr, implLen, MS_SYNC);
+  ::msync_adaptor(msync, implPtr, implLen, MS_SYNC);
 #endif
 }

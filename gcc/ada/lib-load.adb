@@ -43,7 +43,6 @@ with Sinfo;    use Sinfo;
 with Sinput;   use Sinput;
 with Sinput.L; use Sinput.L;
 with Stand;    use Stand;
-with Targparm; use Targparm;
 with Tbuild;   use Tbuild;
 with Uname;    use Uname;
 
@@ -143,7 +142,6 @@ package body Lib.Load is
         Cunit           => Cunit,
         Cunit_Entity    => Cunit_Entity,
         Dependency_Num  => 0,
-        Dependent_Unit  => False,
         Dynamic_Elab    => False,
         Error_Location  => Sloc (With_Node),
         Expected_Unit   => Spec_Name,
@@ -153,6 +151,7 @@ package body Lib.Load is
         Ident_String    => Empty,
         Loading         => False,
         Main_Priority   => Default_Main_Priority,
+        Munit_Index     => 0,
         Serial_Number   => 0,
         Source_Index    => No_Source_File,
         Unit_File_Name  => Get_File_Name (Spec_Name, Subunit => False),
@@ -214,16 +213,16 @@ package body Lib.Load is
            Cunit           => Empty,
            Cunit_Entity    => Empty,
            Dependency_Num  => 0,
-           Dependent_Unit  => True,
            Dynamic_Elab    => False,
            Error_Location  => No_Location,
            Expected_Unit   => No_Name,
            Fatal_Error     => False,
            Generate_Code   => False,
            Has_RACW        => False,
-           Loading         => True,
            Ident_String    => Empty,
+           Loading         => True,
            Main_Priority   => Default_Main_Priority,
+           Munit_Index     => 0,
            Serial_Number   => 0,
            Source_Index    => Main_Source_File,
            Unit_File_Name  => Fname,
@@ -250,39 +249,6 @@ package body Lib.Load is
       Unump        : Unit_Number_Type;
       Fname        : File_Name_Type;
       Src_Ind      : Source_File_Index;
-
-      procedure Set_Load_Unit_Dependency (U : Unit_Number_Type);
-      --  Sets the Dependent_Unit flag unless we have a predefined unit
-      --  being loaded in High_Integrity_Mode. In this case we do not want
-      --  to create a dependency, since we have loaded the unit only
-      --  to inline stuff from it. If this is not the case, an error
-      --  message will be issued in Rtsfind in any case.
-
-      ------------------------------
-      -- Set_Load_Unit_Dependency --
-      ------------------------------
-
-      procedure Set_Load_Unit_Dependency (U : Unit_Number_Type) is
-      begin
-         --  Differentiate between pragma No_Run_Time mode (that can be
-         --  used with a standard installation), and HI-E mode which comes
-         --  with a special installation.
-
-         --  For Configurable_Run_Time_Mode set by a pragma, we do not want to
-         --  create a dependency since the binder would generate references to
-         --  these units. In the case of configurable run-time, we do want to
-         --  establish this dependency.
-
-         if Configurable_Run_Time_Mode
-           and then not Configurable_Run_Time_On_Target
-           and then not Debug_Flag_YY
-           and then Is_Internal_File_Name (Unit_File_Name (U))
-         then
-            null;
-         else
-            Units.Table (U).Dependent_Unit := True;
-         end if;
-      end Set_Load_Unit_Dependency;
 
    --  Start of processing for Load_Unit
 
@@ -462,7 +428,10 @@ package body Lib.Load is
       --  then we have the problem that the file does not contain the unit that
       --  is needed. We simply treat this as a file not found condition.
 
-      if Unum > Units.Last then
+      --  We skip this test in multiple unit per file mode since in this
+      --  case we can have multiple units from the same source file.
+
+      if Unum > Units.Last and then Multiple_Unit_Index = 0 then
          for J in Units.First .. Units.Last loop
             if Fname = Units.Table (J).Unit_File_Name then
                if Debug_Flag_L then
@@ -473,7 +442,6 @@ package body Lib.Load is
                end if;
 
                if Present (Error_Node) then
-
                   if Is_Predefined_File_Name (Fname) then
                      Error_Msg_Name_1 := Uname_Actual;
                      Error_Msg
@@ -511,7 +479,7 @@ package body Lib.Load is
          --  legitimately occurs (e.g. two package bodies that contain
          --  inlined subprogram referenced by the other).
 
-         --  Ada0Y (AI-50217): We also ignore limited_with clauses, because
+         --  Ada 2005 (AI-50217): We also ignore limited_with clauses, because
          --  their purpose is precisely to create legal circular structures.
 
          if Loading (Unum)
@@ -543,10 +511,9 @@ package body Lib.Load is
          end if;
 
          Load_Stack.Decrement_Last;
-         Set_Load_Unit_Dependency (Unum);
          return Unum;
 
-      --  File is not already in table, so try to open it
+      --  Unit is not already in table, so try to open the file
 
       else
          if Debug_Flag_L then
@@ -570,7 +537,6 @@ package body Lib.Load is
               Cunit           => Empty,
               Cunit_Entity    => Empty,
               Dependency_Num  => 0,
-              Dependent_Unit  => False,
               Dynamic_Elab    => False,
               Error_Location  => Sloc (Error_Node),
               Expected_Unit   => Uname_Actual,
@@ -580,6 +546,7 @@ package body Lib.Load is
               Ident_String    => Empty,
               Loading         => True,
               Main_Priority   => Default_Main_Priority,
+              Munit_Index     => 0,
               Serial_Number   => 0,
               Source_Index    => Src_Ind,
               Unit_File_Name  => Fname,
@@ -588,9 +555,16 @@ package body Lib.Load is
 
             --  Parse the new unit
 
-            Initialize_Scanner (Unum, Source_Index (Unum));
-            Discard_List (Par (Configuration_Pragmas => False));
-            Set_Loading (Unum, False);
+            declare
+               Save_Index : constant Nat := Multiple_Unit_Index;
+            begin
+               Multiple_Unit_Index := Get_Unit_Index (Uname_Actual);
+               Units.Table (Unum).Munit_Index := Multiple_Unit_Index;
+               Initialize_Scanner (Unum, Source_Index (Unum));
+               Discard_List (Par (Configuration_Pragmas => False));
+               Multiple_Unit_Index := Save_Index;
+               Set_Loading (Unum, False);
+            end;
 
             --  If spec is irrelevant, then post errors and quit
 
@@ -619,7 +593,6 @@ package body Lib.Load is
             --  Remove load stack entry and return the entry in the file table
 
             Load_Stack.Decrement_Last;
-            Set_Load_Unit_Dependency (Unum);
             return Unum;
 
          --  Case of file not found

@@ -455,9 +455,6 @@ enum reg_class {
 
 #define FUNCTION_VALUE_REGNO_P(N) ((N) == REG_RESULT)
 
-/* Indicate that large structures are passed by reference.  */
-#define FUNCTION_ARG_PASS_BY_REFERENCE(CUM,MODE,TYPE,NAMED)	0
-
 #define DEFAULT_PCC_STRUCT_RETURN 0
 
 #define EPILOGUE_USES(REGNO) 0
@@ -598,7 +595,6 @@ do {									\
 #define SLOW_BYTE_ACCESS 0
 
 #define NO_FUNCTION_CSE
-#define NO_RECURSIVE_FUNCTION_CSE
 
 #define TEXT_SECTION_ASM_OP ".text"
 #define DATA_SECTION_ASM_OP ".data"
@@ -808,8 +804,6 @@ extern int ip2k_reorg_merge_qimode;
 
 #define FUNCTION_PROFILER(FILE, LABELNO)  \
   fprintf ((FILE), "/* profiler %d */", (LABELNO))
-
-#define TARGET_MEM_FUNCTIONS
 
 #undef ENDFILE_SPEC
 #undef LINK_SPEC

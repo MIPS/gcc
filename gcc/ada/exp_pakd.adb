@@ -1156,7 +1156,7 @@ package body Exp_Pakd is
          --    subtype tttPn is
          --      System.Packed_Bytes{1,2,4} (0 .. (Bits + 7) / 8 - 1);
 
-         --  Bits is the length of the array in bits.
+         --  Bits is the length of the array in bits
 
          Set_PB_Type;
 
@@ -1197,6 +1197,12 @@ package body Exp_Pakd is
                            High_Bound => PAT_High)))));
 
          Install_PAT;
+
+         --  Currently the code in this unit requires that packed arrays
+         --  represented by non-modular arrays of bytes be on a byte
+         --  boundary.
+
+         Set_Must_Be_On_Byte_Boundary (Typ);
       end if;
    end Create_Packed_Array_Type;
 
@@ -1281,6 +1287,26 @@ package body Exp_Pakd is
       --  check from assignment will be lost in the transformations). This
       --  conversion is analyzed immediately so that subsequent processing
       --  can work with an analyzed Rhs (and e.g. look at its Etype)
+
+      --  If the right-hand side is a string literal, create a temporary for
+      --  it, constant-folding is not ready to wrap the bit representation
+      --  of a string literal.
+
+      if Nkind (Rhs) = N_String_Literal then
+         declare
+            Decl : Node_Id;
+         begin
+            Decl :=
+              Make_Object_Declaration (Loc,
+                Defining_Identifier =>
+                  Make_Defining_Identifier (Loc,  New_Internal_Name ('T')),
+                Object_Definition => New_Occurrence_Of (Ctyp, Loc),
+                Expression => New_Copy_Tree (Rhs));
+
+            Insert_Actions (N, New_List (Decl));
+            Rhs := New_Occurrence_Of (Defining_Identifier (Decl), Loc);
+         end;
+      end if;
 
       Rhs := Convert_To (Ctyp, Rhs);
       Set_Parent (Rhs, N);

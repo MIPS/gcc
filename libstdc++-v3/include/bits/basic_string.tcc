@@ -88,10 +88,12 @@ namespace std
       _S_construct(_InIterator __beg, _InIterator __end, const _Alloc& __a,
 		   input_iterator_tag)
       {
+#ifndef _GLIBCXX_FULLY_DYNAMIC_STRING
 	if (__beg == __end && __a == _Alloc())
 	  return _S_empty_rep()._M_refdata();
+#endif
 	// Avoid reallocation for common case.
-	_CharT __buf[100];
+	_CharT __buf[128];
 	size_type __len = 0;
 	while (__beg != __end && __len < sizeof(__buf) / sizeof(_CharT))
 	  {
@@ -134,11 +136,12 @@ namespace std
       _S_construct(_InIterator __beg, _InIterator __end, const _Alloc& __a,
 		   forward_iterator_tag)
       {
+#ifndef _GLIBCXX_FULLY_DYNAMIC_STRING
 	if (__beg == __end && __a == _Alloc())
 	  return _S_empty_rep()._M_refdata();
-
+#endif
 	// NB: Not required, but considered best practice.
-	if (__builtin_expect(__is_null_pointer(__beg), 0))
+	if (__builtin_expect(__is_null_pointer(__beg) && __beg != __end, 0))
 	  __throw_logic_error(__N("basic_string::_S_construct NULL not valid"));
 
 	const size_type __dnew = static_cast<size_type>(std::distance(__beg,
@@ -162,9 +165,10 @@ namespace std
     basic_string<_CharT, _Traits, _Alloc>::
     _S_construct(size_type __n, _CharT __c, const _Alloc& __a)
     {
+#ifndef _GLIBCXX_FULLY_DYNAMIC_STRING
       if (__n == 0 && __a == _Alloc())
 	return _S_empty_rep()._M_refdata();
-
+#endif
       // Check for out_of_range and length_error exceptions.
       _Rep* __r = _Rep::_S_create(__n, size_type(0), __a);
       if (__n)
@@ -178,8 +182,9 @@ namespace std
   template<typename _CharT, typename _Traits, typename _Alloc>
     basic_string<_CharT, _Traits, _Alloc>::
     basic_string(const basic_string& __str)
-    : _M_dataplus(__str._M_rep()->_M_grab(_Alloc(), __str.get_allocator()),
-		 __str.get_allocator())
+    : _M_dataplus(__str._M_rep()->_M_grab(_Alloc(__str.get_allocator()),
+					  __str.get_allocator()),
+		  __str.get_allocator())
     { }
 
   template<typename _CharT, typename _Traits, typename _Alloc>
@@ -357,8 +362,10 @@ namespace std
     basic_string<_CharT, _Traits, _Alloc>::_Rep::
     _M_destroy(const _Alloc& __a) throw ()
     {
+#ifndef _GLIBCXX_FULLY_DYNAMIC_STRING
       if (this == &_S_empty_rep())
-        return;
+	return;
+#endif
       const size_type __size = sizeof(_Rep_base) +
 	                       (this->_M_capacity + 1) * sizeof(_CharT);
       _Raw_bytes_alloc(__a).deallocate(reinterpret_cast<char*>(this), __size);
@@ -368,8 +375,10 @@ namespace std
     void
     basic_string<_CharT, _Traits, _Alloc>::_M_leak_hard()
     {
+#ifndef _GLIBCXX_FULLY_DYNAMIC_STRING
       if (_M_rep() == &_S_empty_rep())
-        return;
+	return;
+#endif
       if (_M_rep()->_M_is_shared())
 	_M_mutate(0, 0, 0);
       _M_rep()->_M_set_leaked();
@@ -382,11 +391,14 @@ namespace std
     {
       const size_type __old_size = this->size();
       const size_type __new_size = __old_size + __len2 - __len1;
-      const _CharT*        __src = _M_data()  + __pos + __len1;
       const size_type __how_much = __old_size - __pos - __len1;
 
+#ifndef _GLIBCXX_FULLY_DYNAMIC_STRING
       if (_M_rep() == &_S_empty_rep()
 	  || _M_rep()->_M_is_shared() || __new_size > capacity())
+#else
+      if (_M_rep()->_M_is_shared() || __new_size > capacity())
+#endif
 	{
 	  // Must reallocate.
 	  const allocator_type __a = get_allocator();
@@ -396,7 +408,7 @@ namespace std
 	    traits_type::copy(__r->_M_refdata(), _M_data(), __pos);
 	  if (__how_much)
 	    traits_type::copy(__r->_M_refdata() + __pos + __len2,
-			      __src, __how_much);
+			      _M_data() + __pos + __len1, __how_much);
 
 	  _M_rep()->_M_dispose(__a);
 	  _M_data(__r->_M_refdata());
@@ -404,7 +416,8 @@ namespace std
       else if (__how_much && __len1 != __len2)
 	{
 	  // Work in-place
-	  traits_type::move(_M_data() + __pos + __len2, __src, __how_much);
+	  traits_type::move(_M_data() + __pos + __len2,
+			    _M_data() + __pos + __len1, __how_much);
 	}
       _M_rep()->_M_set_sharable();
       _M_rep()->_M_length = __new_size;
@@ -684,12 +697,17 @@ namespace std
     find(const _CharT* __s, size_type __pos, size_type __n) const
     {
       __glibcxx_requires_string_len(__s, __n);
+      size_type __ret = npos;
       const size_type __size = this->size();
-      const _CharT* __data = _M_data();
-      for (; __pos + __n <= __size; ++__pos)
-	if (traits_type::compare(__data + __pos, __s, __n) == 0)
-	  return __pos;
-      return npos;
+      if (__pos + __n <= __size)
+	{
+	  const _CharT* __data = _M_data();
+	  const _CharT* __p = std::search(__data + __pos, __data + __size,
+					  __s, __s + __n, traits_type::eq);
+	  if (__p != __data + __size || __n == 0)
+	    __ret = __p - __data;
+	}
+      return __ret;
     }
 
   template<typename _CharT, typename _Traits, typename _Alloc>
@@ -697,8 +715,8 @@ namespace std
     basic_string<_CharT, _Traits, _Alloc>::
     find(_CharT __c, size_type __pos) const
     {
-      const size_type __size = this->size();
       size_type __ret = npos;
+      const size_type __size = this->size();
       if (__pos < __size)
 	{
 	  const _CharT* __data = _M_data();

@@ -43,6 +43,7 @@ with Osint;    use Osint;
 with Osint.B;  use Osint.B;
 with Output;   use Output;
 with Rident;   use Rident;
+with Snames;
 with Switch;   use Switch;
 with Switch.B; use Switch.B;
 with Targparm; use Targparm;
@@ -113,7 +114,7 @@ procedure Gnatbind is
          No_Reentrancy            => True,
          --  Not checkable at compile time
 
-         Max_Entry_Queue_Depth    => True,
+         Max_Entry_Queue_Length    => True,
          --  Not checkable at compile time
 
          Max_Storage_At_Blocking  => True,
@@ -364,7 +365,8 @@ begin
 
    declare
       Shared_Libgnat_Default : Character;
-      pragma Import (C, Shared_Libgnat_Default, "shared_libgnat_default");
+      pragma Import
+        (C, Shared_Libgnat_Default, "__gnat_shared_libgnat_default");
 
       SHARED : constant Character := 'H';
       STATIC : constant Character := 'T';
@@ -443,6 +445,7 @@ begin
 
    Csets.Initialize;
    Namet.Initialize;
+   Snames.Initialize;
 
    --  Acquire target parameters
 
@@ -602,7 +605,7 @@ begin
          Error_Msg
            ("?may result in missing run-time elaboration checks");
          Error_Msg
-           ("?use -gnatE, pragma Suppress (Elaboration_Checks) instead");
+           ("?use -gnatE, pragma Suppress (Elaboration_Check) instead");
       end if;
 
       --  Quit if some file needs compiling

@@ -1,4 +1,4 @@
-# Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 2000, 2001, 2002, 2003
+# Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 2000, 2001, 2002, 2003, 2004
 # Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
@@ -49,7 +49,7 @@ proc g++_version { } {
 	set tmp [remote_exec host "$compiler -v"]
 	set status [lindex $tmp 0];
 	set output [lindex $tmp 1];
-	regexp "version\[^\n\r\]*" $output version
+	regexp " version \[^\n\r\]*" $output version
 	if { $status == 0 && [info exists version] } then {
 	    if [is_remote host] {
 		clone_output "$compiler $version\n"
@@ -177,9 +177,16 @@ proc g++_link_flags { paths } {
     # Doing this does cause trouble when testing cross-compilers.
     if {![is_remote target]} {
 	global env;
-	if { [info exists env(LD_LIBRARY_PATH)] 
-	     && $env(LD_LIBRARY_PATH) != "" } {
-		append ld_library_path ":$env(LD_LIBRARY_PATH)";
+	if [info exists env(LD_LIBRARY_PATH)] {
+	    # If we've already added these directories once, keep the
+	    # existing path.
+	    if {$ld_library_path == $env(LD_LIBRARY_PATH)
+		|| [string first $ld_library_path: \
+				 $env(LD_LIBRARY_PATH)] == 0} {
+		set ld_library_path $env(LD_LIBRARY_PATH)
+	    } elseif { $env(LD_LIBRARY_PATH) != "" } {
+		append ld_library_path ":$env(LD_LIBRARY_PATH)"
+	    }
 	}
 	setenv  LD_LIBRARY_PATH     $ld_library_path
 	setenv  SHLIB_PATH          $ld_library_path
@@ -242,16 +249,7 @@ proc g++_init { args } {
 	unset gluefile
     }
 
-    if { [target_info needs_status_wrapper] != "" } {
-	set gluefile ${tmpdir}/g++-testglue.o;
-	set result [build_wrapper $gluefile];
-	if { $result != "" } {
-	    set gluefile [lindex $result 0];
-	    set wrap_flags [lindex $result 1];
-	} else {
-	    unset gluefile
-	}
-    }
+    g++_maybe_build_wrapper "${tmpdir}/g++-testglue.o"
 
     set ALWAYS_CXXFLAGS ""
 
@@ -299,6 +297,11 @@ proc g++_target_compile { source dest type options } {
     }
 
     lappend options "additional_flags=[libio_include_flags]"
+    # APPLE LOCAL begin testsuite multiply defined
+    if [ istarget *-*-darwin* ] {
+	lappend options "ldflags=-Wl,-multiply_defined,suppress"
+    }
+    # APPLE LOCAL end testsuite multiply defined
     lappend options "compiler=$GXX_UNDER_TEST";
 
     set options [concat $gpp_compile_options $options]

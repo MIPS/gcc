@@ -63,7 +63,7 @@
 
 #include <bits/concept_check.h>
 
-namespace __gnu_norm
+namespace _GLIBCXX_STD
 {
   // Forward declaration of operators < and ==, needed for friend declaration.
 
@@ -142,18 +142,17 @@ namespace __gnu_norm
     public:
       // many of these are specified differently in ISO, but the following are
       // "functionally equivalent"
+      typedef typename _Alloc::pointer                   pointer;
+      typedef typename _Alloc::const_pointer             const_pointer;
+      typedef typename _Alloc::reference                 reference;
+      typedef typename _Alloc::const_reference           const_reference;
       typedef typename _Rep_type::allocator_type         allocator_type;
-      typedef typename _Rep_type::reference              reference;
-      typedef typename _Rep_type::const_reference        const_reference;
       typedef typename _Rep_type::iterator               iterator;
       typedef typename _Rep_type::const_iterator         const_iterator;
       typedef typename _Rep_type::size_type              size_type;
       typedef typename _Rep_type::difference_type        difference_type;
-      typedef typename _Rep_type::pointer                pointer;
-      typedef typename _Rep_type::const_pointer          const_pointer;
       typedef typename _Rep_type::reverse_iterator       reverse_iterator;
       typedef typename _Rep_type::const_reverse_iterator const_reverse_iterator;
-
 
       // [23.3.2] construct/copy/destroy
       // (get_allocator() is also listed in this section)
@@ -673,6 +672,6 @@ namespace __gnu_norm
     swap(multimap<_Key,_Tp,_Compare,_Alloc>& __x,
          multimap<_Key,_Tp,_Compare,_Alloc>& __y)
     { __x.swap(__y); }
-} // namespace __gnu_norm
+} // namespace std
 
 #endif /* _MULTIMAP_H */

@@ -95,8 +95,8 @@ extern int long_memory_operand (rtx, enum machine_mode);
 extern int aligned_operand (rtx, enum machine_mode);
 extern enum machine_mode ix86_cc_mode (enum rtx_code, rtx, rtx);
 
-extern int ix86_expand_movstr (rtx, rtx, rtx, rtx);
-extern int ix86_expand_clrstr (rtx, rtx, rtx);
+extern int ix86_expand_movmem (rtx, rtx, rtx, rtx);
+extern int ix86_expand_clrmem (rtx, rtx, rtx);
 extern int ix86_expand_strlen (rtx, rtx, rtx, rtx);
 
 extern bool legitimate_constant_p (rtx);
@@ -104,7 +104,6 @@ extern bool constant_address_p (rtx);
 extern bool legitimate_pic_operand_p (rtx);
 extern int legitimate_pic_address_disp_p (rtx);
 extern int legitimate_address_p (enum machine_mode, rtx, int);
-extern rtx legitimize_pic_address (rtx, rtx);
 extern rtx legitimize_address (rtx, rtx, enum machine_mode);
 
 extern void print_reg (rtx, int, FILE*);
@@ -117,6 +116,7 @@ extern void split_ti (rtx[], int, rtx[], rtx[]);
 
 extern const char *output_set_got (rtx);
 extern const char *output_387_binary_op (rtx, rtx*);
+extern const char *output_387_reg_move (rtx, rtx*);
 extern const char *output_fix_trunc (rtx, rtx*);
 extern const char *output_fp_compare (rtx, rtx*, int, int);
 
@@ -156,8 +156,6 @@ extern int ix86_attr_length_address_default (rtx);
 
 extern enum machine_mode ix86_fp_compare_mode (enum rtx_code);
 
-extern int x86_64_sign_extended_value (rtx);
-extern int x86_64_zero_extended_value (rtx);
 extern rtx ix86_libcall_value (enum machine_mode);
 extern bool ix86_function_value_regno_p (int);
 extern bool ix86_function_arg_regno_p (int);
@@ -176,18 +174,20 @@ extern int ix86_secondary_memory_needed (enum reg_class, enum reg_class,
 					 enum machine_mode, int);
 extern enum reg_class ix86_preferred_reload_class (rtx, enum reg_class);
 extern int ix86_memory_move_cost (enum machine_mode, enum reg_class, int);
-extern void emit_i387_cw_initialization (rtx, rtx);
+extern void emit_i387_cw_initialization (rtx, rtx, int);
 extern bool ix86_fp_jump_nontrivial_p (enum rtx_code);
 extern void x86_order_regs_for_local_alloc (void);
 extern void x86_function_profiler (FILE *, int);
 extern void x86_emit_floatuns (rtx [2]);
+extern void ix86_emit_fp_unordered_jump (rtx);
 
+extern void ix86_emit_i387_log1p (rtx, rtx);
+
+extern enum rtx_code ix86_reverse_condition (enum rtx_code, enum machine_mode);
 
 #ifdef TREE_CODE
 extern void init_cumulative_args (CUMULATIVE_ARGS *, tree, rtx, tree);
 extern rtx function_arg (CUMULATIVE_ARGS *, enum machine_mode, tree, int);
-extern int function_arg_pass_by_reference (CUMULATIVE_ARGS *,
-					   enum machine_mode, tree, int);
 extern void function_arg_advance (CUMULATIVE_ARGS *, enum machine_mode,
 				  tree, int);
 extern rtx ix86_function_value (tree);
@@ -203,16 +203,14 @@ extern int ix86_return_pops_args (tree, tree, int);
 extern int ix86_data_alignment (tree, int);
 extern int ix86_local_alignment (tree, int);
 extern int ix86_constant_alignment (tree, int);
-extern tree ix86_handle_dll_attribute (tree *, tree, tree, int, bool *);
 extern tree ix86_handle_shared_attribute (tree *, tree, tree, int, bool *);
 
 extern unsigned int i386_pe_section_type_flags (tree, const char *, int);
-extern void i386_pe_asm_named_section (const char *, unsigned int);
+extern void i386_pe_asm_named_section (const char *, unsigned int, tree);
 extern int x86_field_alignment (tree, int);
 #endif
 
 extern rtx ix86_tls_get_addr (void);
-extern bool ix86_must_pass_in_stack (enum machine_mode mode, tree);
 
 extern void ix86_expand_vector_init (rtx, rtx);
 /* In winnt.c  */
@@ -227,3 +225,24 @@ extern void i386_pe_encode_section_info (tree, rtx, int);
 extern const char *i386_pe_strip_name_encoding (const char *);
 extern const char *i386_pe_strip_name_encoding_full (const char *);
 extern void i386_pe_output_labelref (FILE *, const char *);
+extern rtx maybe_get_pool_constant (rtx);
+
+extern char internal_label_prefix[16];
+extern int internal_label_prefix_len;
+
+enum ix86_address_seg { SEG_DEFAULT, SEG_FS, SEG_GS };
+struct ix86_address
+{
+  rtx base, index, disp;
+  HOST_WIDE_INT scale;
+  enum ix86_address_seg seg;
+};
+
+extern int ix86_decompose_address (rtx, struct ix86_address *);
+extern int memory_address_length (rtx addr);
+
+#ifdef RTX_CODE
+extern void ix86_fp_comparison_codes (enum rtx_code code, enum rtx_code *,
+				      enum rtx_code *, enum rtx_code *);
+extern enum rtx_code ix86_fp_compare_code_to_integer (enum rtx_code);
+#endif

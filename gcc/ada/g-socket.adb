@@ -44,7 +44,7 @@ with GNAT.Task_Lock;
 
 with GNAT.Sockets.Linker_Options;
 pragma Warnings (Off, GNAT.Sockets.Linker_Options);
---  Need to include pragma Linker_Options which is platform dependent.
+--  Need to include pragma Linker_Options which is platform dependent
 
 with System; use System;
 
@@ -226,9 +226,9 @@ package body GNAT.Sockets is
    --------------------
 
    procedure Abort_Selector (Selector : Selector_Type) is
-      Buf     : Character;
+      Buf     : aliased Character := ASCII.NUL;
       Discard : C.int;
-      pragma Warnings (Off, Discard);
+      pragma Unreferenced (Discard);
 
    begin
       --  Send an empty array to unblock C select system call
@@ -1288,7 +1288,7 @@ package body GNAT.Sockets is
    begin
       return Item.Last /= No_Socket
         and then Socket <= Item.Last
-        and then Is_Socket_In_Set (Item.Set, C.int (Socket));
+        and then Is_Socket_In_Set (Item.Set, C.int (Socket)) /= 0;
    end Is_Set;
 
    -------------------
@@ -1865,13 +1865,16 @@ package body GNAT.Sockets is
       use type C.unsigned_short;
 
    begin
-      pragma Warnings (Off);
-
       --  Big-endian case. No conversion needed. On these platforms,
       --  htons() defaults to a null procedure.
 
+      pragma Warnings (Off);
+      --  Since the test can generate "always True/False" warning
+
       if Default_Bit_Order = High_Order_First then
          return S;
+
+         pragma Warnings (On);
 
       --  Little-endian case. We must swap the high and low bytes of this
       --  short to make the port number network compliant.
@@ -1879,8 +1882,6 @@ package body GNAT.Sockets is
       else
          return (S / 256) + (S mod 256) * 256;
       end if;
-
-      pragma Warnings (On);
    end Short_To_Network;
 
    ---------------------
@@ -2130,8 +2131,18 @@ package body GNAT.Sockets is
       MS : Timeval_Unit;
 
    begin
-      S  := Timeval_Unit (Val - 0.5);
-      MS := Timeval_Unit (1_000_000 * (Val - Selector_Duration (S)));
+      --  If zero, set result as zero (otherwise it gets rounded down to -1)
+
+      if Val = 0.0 then
+         S  := 0;
+         MS := 0;
+
+      --  Normal case where we do round down
+      else
+         S  := Timeval_Unit (Val - 0.5);
+         MS := Timeval_Unit (1_000_000 * (Val - Selector_Duration (S)));
+      end if;
+
       return (S, MS);
    end To_Timeval;
 

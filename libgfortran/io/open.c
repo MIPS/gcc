@@ -1,5 +1,4 @@
-
-/* Copyright (C) 2002-2003 Free Software Foundation, Inc.
+/* Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
@@ -134,13 +133,13 @@ static st_option access_opt[] = {
 };
 
 
-/* test_endfile()-- Given a unit, test to see if the file is
- * positioned at the terminal point, and if so, change state from
- * NO_ENDFILE flag to AT_ENDFILE.  This prevents us from changing the
- * state from AFTER_ENDFILE to AT_ENDFILE. */
+/* Given a unit, test to see if the file is positioned at the terminal
+   point, and if so, change state from NO_ENDFILE flag to AT_ENDFILE.
+   This prevents us from changing the state from AFTER_ENDFILE to
+   AT_ENDFILE.  */
 
 void
-test_endfile (unit_t * u)
+test_endfile (gfc_unit * u)
 {
 
   if (u->endfile == NO_ENDFILE && file_length (u->s) == file_position (u->s))
@@ -148,14 +147,14 @@ test_endfile (unit_t * u)
 }
 
 
-/* edit_modes()-- Change the modes of a file, those that are allowed
- * to be changed. */
+/* Change the modes of a file, those that are allowed * to be
+   changed.  */
 
 static void
-edit_modes (unit_t * u, unit_flags * flags)
+edit_modes (gfc_unit * u, unit_flags * flags)
 {
 
-  /* Complain about attempts to change the unchangeable */
+  /* Complain about attempts to change the unchangeable.  */
 
   if (flags->status != STATUS_UNSPECIFIED &&
       u->flags.status != flags->position)
@@ -170,7 +169,7 @@ edit_modes (unit_t * u, unit_flags * flags)
     generate_error (ERROR_BAD_OPTION,
 		    "Cannot change FORM parameter in OPEN statement");
 
-  if (ioparm.recl_in != NULL && *ioparm.recl_in != u->recl)
+  if (ioparm.recl_in != 0 && ioparm.recl_in != u->recl)
     generate_error (ERROR_BAD_OPTION,
 		    "Cannot change RECL parameter in OPEN statement");
 
@@ -178,7 +177,7 @@ edit_modes (unit_t * u, unit_flags * flags)
     generate_error (ERROR_BAD_OPTION,
 		    "Cannot change ACTION parameter in OPEN statement");
 
-  /* Status must be OLD if present */
+  /* Status must be OLD if present.  */
 
   if (flags->status != STATUS_UNSPECIFIED && flags->status != STATUS_OLD)
     generate_error (ERROR_BAD_OPTION,
@@ -203,7 +202,8 @@ edit_modes (unit_t * u, unit_flags * flags)
     }
 
   if (ioparm.library_return == LIBRARY_OK)
-    {				/* Change the changeable */
+    {
+      /* Change the changeable:  */
       if (flags->blank != BLANK_UNSPECIFIED)
 	u->flags.blank = flags->blank;
       if (flags->delim != DELIM_UNSPECIFIED)
@@ -212,7 +212,7 @@ edit_modes (unit_t * u, unit_flags * flags)
 	u->flags.pad = flags->pad;
     }
 
-  /* Reposition the file if necessary. */
+  /* Reposition the file if necessary.  */
 
   switch (flags->position)
     {
@@ -227,7 +227,7 @@ edit_modes (unit_t * u, unit_flags * flags)
       u->current_record = 0;
       u->last_record = 0;
 
-      test_endfile (u);		/* We might be at the end */
+      test_endfile (u);		/* We might be at the end.  */
       break;
 
     case POSITION_APPEND:
@@ -235,7 +235,7 @@ edit_modes (unit_t * u, unit_flags * flags)
 	goto seek_error;
 
       u->current_record = 0;
-      u->endfile = AT_ENDFILE;	/* We are at the end */
+      u->endfile = AT_ENDFILE;	/* We are at the end.  */
       break;
 
     seek_error:
@@ -245,22 +245,22 @@ edit_modes (unit_t * u, unit_flags * flags)
 }
 
 
-/* new_unit()-- Open an unused unit */
+/* Open an unused unit.  */
 
-static void
+void
 new_unit (unit_flags * flags)
 {
-  unit_t *u;
+  gfc_unit *u;
   stream *s;
   char tmpname[5 /* fort. */ + 10 /* digits of unit number */ + 1 /* 0 */];
 
-  /* Change unspecifieds to defaults */
+  /* Change unspecifieds to defaults.  */
 
   if (flags->access == ACCESS_UNSPECIFIED)
     flags->access = ACCESS_SEQUENTIAL;
 
   if (flags->action == ACTION_UNSPECIFIED)
-    flags->action = ACTION_READWRITE;	/* Processor dependent */
+    flags->action = ACTION_READWRITE;	/* Processor dependent.  */
 
   if (flags->form == FORM_UNSPECIFIED)
     flags->form = (flags->access == ACCESS_SEQUENTIAL)
@@ -306,32 +306,31 @@ new_unit (unit_flags * flags)
 	}
     }
 
-  if (flags->position == POSITION_UNSPECIFIED)
-    flags->position = POSITION_ASIS;
+  if (flags->position != POSITION_ASIS && flags->access == ACCESS_DIRECT)
+   {
+     generate_error (ERROR_OPTION_CONFLICT,
+                     "ACCESS parameter conflicts with SEQUENTIAL access in "
+                     "OPEN statement");
+     goto cleanup;
+   }
   else
-    {
-      if (flags->access == ACCESS_DIRECT)
-	{
-	  generate_error (ERROR_OPTION_CONFLICT,
-			  "ACCESS parameter conflicts with SEQUENTIAL access in "
-			  "OPEN statement");
-	  goto cleanup;
-	}
-    }
+   if (flags->position == POSITION_UNSPECIFIED)
+     flags->position = POSITION_ASIS;
+
 
   if (flags->status == STATUS_UNSPECIFIED)
     flags->status = STATUS_UNKNOWN;
 
-  /* Checks */
+  /* Checks.  */
 
-  if (flags->access == ACCESS_DIRECT && ioparm.recl_in == NULL)
+  if (flags->access == ACCESS_DIRECT && ioparm.recl_in == 0)
     {
       generate_error (ERROR_MISSING_OPTION,
 		      "Missing RECL parameter in OPEN statement");
       goto cleanup;
     }
 
-  if (ioparm.recl_in != NULL && *ioparm.recl_in <= 0)
+  if (ioparm.recl_in != 0 && ioparm.recl_in <= 0)
     {
       generate_error (ERROR_BAD_OPTION,
 		      "RECL parameter is non-positive in OPEN statement");
@@ -363,7 +362,7 @@ new_unit (unit_flags * flags)
       internal_error ("new_unit(): Bad status");
     }
 
-  /* Make sure the file isn't already open someplace else */
+  /* Make sure the file isn't already open someplace else.  */
 
   if (find_file () != NULL)
     {
@@ -371,7 +370,7 @@ new_unit (unit_flags * flags)
       goto cleanup;
     }
 
-  /* Open file */
+  /* Open file.  */
 
   s = open_external (flags->action, flags->status);
   if (s == NULL)
@@ -383,23 +382,23 @@ new_unit (unit_flags * flags)
   if (flags->status == STATUS_NEW || flags->status == STATUS_REPLACE)
     flags->status = STATUS_OLD;
 
-  /* Create the unit structure */
+  /* Create the unit structure.  */
 
-  u = get_mem (sizeof (unit_t) + ioparm.file_len);
+  u = get_mem (sizeof (gfc_unit) + ioparm.file_len);
 
   u->unit_number = ioparm.unit;
   u->s = s;
   u->flags = *flags;
 
-  /* Unspecified recl ends up with a processor dependent value */
+  /* Unspecified recl ends up with a processor dependent value.  */
 
-  u->recl = (ioparm.recl_in != NULL) ? *ioparm.recl_in : DEFAULT_RECL;
+  u->recl = (ioparm.recl_in != 0) ? ioparm.recl_in : DEFAULT_RECL;
   u->last_record = 0;
   u->current_record = 0;
 
   /* If the file is direct access, calculate the maximum record number
-   * via a division now instead of letting the multiplication overflow
-   * later. */
+     via a division now instead of letting the multiplication overflow
+     later.  */
 
   if (flags->access == ACCESS_DIRECT)
     u->maxrec = g.max_offset / u->recl;
@@ -410,28 +409,27 @@ new_unit (unit_flags * flags)
   insert_unit (u);
 
   /* The file is now connected.  Errors after this point leave the
-   * file connected.  Curiously, the standard requires that the
-   * position specifier be ignored for new files so a newly connected
-   * file starts out that the initial point.  We still need to figure
-   * out if the file is at the end or not. */
+     file connected.  Curiously, the standard requires that the
+     position specifier be ignored for new files so a newly connected
+     file starts out that the initial point.  We still need to figure
+     out if the file is at the end or not.  */
 
   test_endfile (u);
 
 cleanup:
 
-  /* Free memory associated with a temporary filename */
+  /* Free memory associated with a temporary filename.  */
 
   if (flags->status == STATUS_SCRATCH)
     free_mem (ioparm.file);
 }
 
 
-/* already_open()-- Open a unit which is already open.  This involves
- * changing the modes or closing what is there now and opening the new
- * file. */
+/* Open a unit which is already open.  This involves changing the
+   modes or closing what is there now and opening the new file.  */
 
 static void
-already_open (unit_t * u, unit_flags * flags)
+already_open (gfc_unit * u, unit_flags * flags)
 {
 
   if (ioparm.file == NULL)
@@ -441,7 +439,7 @@ already_open (unit_t * u, unit_flags * flags)
     }
 
   /* If the file is connected to something else, close it and open a
-   * new unit */
+     new unit.  */
 
   if (!compare_file_filename (u->s, ioparm.file, ioparm.file_len))
     {
@@ -459,18 +457,17 @@ already_open (unit_t * u, unit_flags * flags)
 }
 
 
-/*************/
-/* open file */
+/* Open file.  */
 
 void
 st_open (void)
 {
   unit_flags flags;
-  unit_t *u = NULL;
+  gfc_unit *u = NULL;
  
   library_start ();
 
-  /* Decode options */
+  /* Decode options.  */
 
   flags.access = (ioparm.access == NULL) ? ACCESS_UNSPECIFIED :
     find_option (ioparm.access, ioparm.access_len, access_opt,
@@ -507,8 +504,8 @@ st_open (void)
   if (ioparm.unit < 0)
     generate_error (ERROR_BAD_OPTION, "Bad unit number in OPEN statement");
 
-  if (flags.position != POSITION_UNSPECIFIED &&
-      u->flags.access == ACCESS_DIRECT)
+  if (flags.position != POSITION_UNSPECIFIED
+      && flags.access == ACCESS_DIRECT)
     generate_error (ERROR_BAD_OPTION,
 		    "Cannot use POSITION with direct access files");
 

@@ -1,5 +1,5 @@
 /* Definitions for SOM assembler support.
-   Copyright (C) 1999, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -129,19 +129,6 @@ do {								\
 #endif
 
 
-/* NAME refers to the function's name.  If we are placing each function into
-   its own section, we need to switch to the section for this function.  Note
-   that the section name will have a "." prefix.  */
-#define ASM_OUTPUT_FUNCTION_PREFIX(FILE, NAME) \
-  {									\
-    const char *name = (*targetm.strip_name_encoding) (NAME);		\
-    if (TARGET_GAS && in_section == in_text) 				\
-      fputs ("\t.NSUBSPA $CODE$,QUAD=0,ALIGN=8,ACCESS=44,CODE_ONLY\n", FILE); \
-    else if (TARGET_GAS)						\
-      fprintf (FILE,							\
-	       "\t.SUBSPA .%s\n", name);				\
-  }
-    
 #define ASM_DECLARE_FUNCTION_NAME(FILE, NAME, DECL) \
     do { tree fntype = TREE_TYPE (TREE_TYPE (DECL));			\
 	 tree tree_type = TREE_TYPE (DECL);				\
@@ -219,29 +206,14 @@ do {								\
 
 #define TARGET_ASM_FILE_START pa_som_file_start
 
-/* Output before code.  */
+/* String to output before text.  */
+#define TEXT_SECTION_ASM_OP som_text_section_asm_op ()
 
-/* Supposedly the assembler rejects the command if there is no tab!  */
-#define TEXT_SECTION_ASM_OP "\t.SPACE $TEXT$\n\t.SUBSPA $CODE$\n"
+/* String to output before writable data.  */
+#define DATA_SECTION_ASM_OP "\t.SPACE $PRIVATE$\n\t.SUBSPA $DATA$\n"
 
-/* Output before read-only data.  */
-
-/* Supposedly the assembler rejects the command if there is no tab!  */
-#define READONLY_DATA_ASM_OP "\t.SPACE $TEXT$\n\t.SUBSPA $LIT$\n"
-
-#define EXTRA_SECTIONS in_readonly_data
-
-#define EXTRA_SECTION_FUNCTIONS						\
-extern void readonly_data (void);					\
-void									\
-readonly_data (void)							\
-{									\
-  if (in_section != in_readonly_data)					\
-    {									\
-      in_section = in_readonly_data;					\
-      fprintf (asm_out_file, "%s\n", READONLY_DATA_ASM_OP);		\
-    }									\
-}
+/* String to output before uninitialized data.  */
+#define BSS_SECTION_ASM_OP "\t.SPACE $PRIVATE$\n\t.SUBSPA $BSS$\n"
 
 /* FIXME: HPUX ld generates incorrect GOT entries for "T" fixups
    which reference data within the $TEXT$ space (for example constant
@@ -255,17 +227,8 @@ readonly_data (void)							\
    $TEXT$ space during PIC generation.  Instead place all constant
    data into the $PRIVATE$ subspace (this reduces sharing, but it
    works correctly).  */
-
-#define READONLY_DATA_SECTION (flag_pic ? data_section : readonly_data)
-
-/* Output before writable data.  */
-
-/* Supposedly the assembler rejects the command if there is no tab!  */
-#define DATA_SECTION_ASM_OP "\t.SPACE $PRIVATE$\n\t.SUBSPA $DATA$\n"
-
-/* Output before uninitialized data.  */
-
-#define BSS_SECTION_ASM_OP "\t.SPACE $PRIVATE$\n\t.SUBSPA $BSS$\n"
+#define READONLY_DATA_SECTION \
+  (flag_pic ? data_section : som_readonly_data_section)
 
 /* We must not have a reference to an external symbol defined in a
    shared library in a readonly section, else the SOM linker will
@@ -340,8 +303,17 @@ do {						\
     (*p++) ();					\
 } while (0)
 
-/* The .align directive in the HP assembler allows up to a 32 alignment.  */
-#define MAX_OFILE_ALIGNMENT 32768
+/* This macro specifies the biggest alignment supported by the object
+   file format of this machine.
+
+   The .align directive in the HP assembler allows alignments up to 4096
+   bytes.  However, the maximum alignment of a global common symbol is 8
+   bytes for objects smaller than the page size (4096 bytes).  For larger
+   objects, the linker provides an alignment of 32 bytes.  */
+#define MAX_OFILE_ALIGNMENT						\
+  (TREE_PUBLIC (decl) && DECL_COMMON (decl)				\
+   ? (host_integerp (DECL_SIZE_UNIT (decl), 1) >= 4096 ? 256 : 64)	\
+   : 32768)
 
 /* The SOM linker hardcodes paths into binaries.  As a result, dotdots
    must be removed from library prefixes to prevent binaries from depending

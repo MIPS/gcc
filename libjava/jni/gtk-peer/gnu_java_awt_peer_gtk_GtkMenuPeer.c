@@ -1,5 +1,5 @@
 /* gtkmenupeer.c -- Native implementation of GtkMenuPeer
-   Copyright (C) 1999 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -39,17 +39,6 @@ exception statement from your version. */
 #include "gtkpeer.h"
 #include "gnu_java_awt_peer_gtk_GtkMenuPeer.h"
 
-static void
-accel_attach (GtkMenuItem *menu_item,
-	      gpointer *user_data __attribute__((unused)))
-{
-  GtkAccelGroup *accel;
-
-  accel = gtk_menu_get_accel_group (GTK_MENU (menu_item->submenu));
-  _gtk_accel_group_attach (accel, 
-    G_OBJECT (gtk_widget_get_toplevel (GTK_WIDGET(menu_item))));
-}
-
 JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkMenuPeer_setupAccelGroup
   (JNIEnv *env, jobject obj, jobject parent)
 {
@@ -62,14 +51,6 @@ JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkMenuPeer_setupAccelGroup
     {
       gtk_menu_set_accel_group (GTK_MENU (GTK_MENU_ITEM (ptr1)->submenu), 
 				gtk_accel_group_new ());
-
-      if (GTK_WIDGET_REALIZED (GTK_WIDGET (ptr1)))
-	accel_attach (GTK_MENU_ITEM (ptr1), NULL);
-      else
-	g_signal_connect (G_OBJECT (ptr1),
-			    "realize",
-			    GTK_SIGNAL_FUNC (accel_attach), 
-			    NULL);
     }
   else
     {
@@ -89,7 +70,7 @@ JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkMenuPeer_setupAccelGroup
 JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkMenuPeer_create
   (JNIEnv *env, jobject obj, jstring label)
 {
-  GtkWidget *menu_title, *menu;
+  GtkWidget *menu_title, *menu, *toplevel;
   const char *str;
 
   /* Create global reference and save it for future use */
@@ -101,10 +82,21 @@ JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkMenuPeer_create
   
   menu = gtk_menu_new ();
   
-  menu_title = gtk_menu_item_new_with_label (str);
+  if (str != NULL)
+    menu_title = gtk_menu_item_new_with_label (str);
+  else
+    menu_title = gtk_menu_item_new();
+
   gtk_menu_item_set_submenu (GTK_MENU_ITEM (menu_title), menu);
 
-  gtk_widget_show (menu);
+  /* Allow this menu to grab the pointer. */
+  toplevel = gtk_widget_get_toplevel (menu);
+  if (GTK_IS_WINDOW (toplevel))
+    {
+      gtk_window_group_add_window (global_gtk_window_group,
+                                   GTK_WINDOW(toplevel));
+    }
+
   gtk_widget_show (menu_title);
 
   NSA_SET_PTR (env, obj, menu_title);
@@ -114,24 +106,42 @@ JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkMenuPeer_create
   (*env)->ReleaseStringUTFChars (env, label, str);
 }
 
+JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkMenuPeer_addTearOff
+  (JNIEnv *env, jobject obj)
+{
+  void *ptr1;
+  GtkWidget *menu, *item;
+
+  ptr1 = NSA_GET_PTR (env, obj);
+
+  gdk_threads_enter ();
+
+  menu = gtk_menu_item_get_submenu (GTK_MENU_ITEM (ptr1));
+  item = gtk_tearoff_menu_item_new ();
+  gtk_menu_shell_append (GTK_MENU_SHELL (menu), item);
+  gtk_widget_show (item);
+
+  gdk_threads_leave ();
+}
+
 JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkMenuPeer_addItem
   (JNIEnv *env, jobject obj, jobject menuitempeer, jint key, jboolean shift)
 {
   void *ptr1, *ptr2;
-  GtkMenu *menu;
+  GtkWidget *menu;
 
   ptr1 = NSA_GET_PTR (env, obj);
   ptr2 = NSA_GET_PTR (env, menuitempeer);
 
   gdk_threads_enter ();
 
-  menu = GTK_MENU (GTK_MENU_ITEM (ptr1)->submenu);
-  gtk_menu_append (menu, GTK_WIDGET (ptr2));
+  menu = gtk_menu_item_get_submenu(GTK_MENU_ITEM(ptr1));
+  gtk_menu_shell_append (GTK_MENU_SHELL(menu), GTK_WIDGET (ptr2));
 
   if (key)
     {
       gtk_widget_add_accelerator (GTK_WIDGET (ptr2), "activate",
-				  gtk_menu_get_accel_group (menu), key, 
+				  gtk_menu_get_accel_group (GTK_MENU (menu)), key, 
 				  (GDK_CONTROL_MASK
 				   | ((shift) ? GDK_SHIFT_MASK : 0)), 
 				  GTK_ACCEL_VISIBLE);
