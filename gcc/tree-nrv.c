@@ -56,10 +56,6 @@ struct nrv_data
   /* This is the function's RESULT_DECL.  We will replace all occurences
      of VAR with RESULT_DECL when we apply this optimization.  */
   tree result;
-
-  /* A hash table of visited nodes to ensure we do not visit a node more
-     than once.  */
-  htab_t visited;
 };
 
 static tree finalize_nrv_r (tree *, int *, void *);
@@ -79,14 +75,10 @@ static tree
 finalize_nrv_r (tree *tp, int *walk_subtrees, void *data)
 {
   struct nrv_data *dp = (struct nrv_data *)data;
-  void **slot;
 
   /* No need to walk into types.  */
   if (TYPE_P (*tp))
-	;
-#if 0
     *walk_subtrees = 0;
-#endif
   /* If this is a RETURN_EXPR, then set the expression being returned
      to RESULT.  */
   else if (TREE_CODE (*tp) == RETURN_EXPR)
@@ -94,15 +86,6 @@ finalize_nrv_r (tree *tp, int *walk_subtrees, void *data)
   /* Replace all occurences of VAR with RESULT.  */
   else if (*tp == dp->var)
     *tp = dp->result;
-
-  /* Avoid walking into the same tree more than once.  Unfortunately, we
-     can not just use walk_tree_without_duplicates because it would only
-     call us for the first occurrence of dp->var in the function body.  */
-  slot = htab_find_slot (dp->visited, *tp, INSERT);
-  if (*slot)
-    *walk_subtrees = 0;
-  else
-    *slot = *tp;
 
   /* Keep iterating.  */
   return NULL_TREE;
@@ -204,7 +187,6 @@ tree_nrv (void)
      RESULT.  */
   data.var = found;
   data.result = result;
-  data.visited = htab_create (37, htab_hash_pointer, htab_eq_pointer, NULL);
   FOR_EACH_BB (bb)
     {
       block_stmt_iterator bsi;
@@ -212,7 +194,9 @@ tree_nrv (void)
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
 	walk_tree (bsi_stmt_ptr (bsi), finalize_nrv_r, &data, 0);
     }
-  htab_delete (data.visited);
+
+  /* FOUND is no longer used.  Ensure it gets removed.  */
+  var_ann (found)->used = 0;
 }
 
 struct tree_opt_pass pass_nrv = 

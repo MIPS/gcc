@@ -527,7 +527,6 @@ extern void redirect_immediate_uses (tree, tree);
 struct lower_data;
 extern void lower_stmt_body (tree, struct lower_data *);
 extern void expand_used_vars (void);
-extern void remove_useless_vars (void);
 extern void record_vars (tree);
 extern bool block_may_fallthru (tree block);
 

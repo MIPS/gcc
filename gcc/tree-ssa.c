@@ -2811,9 +2811,6 @@ rewrite_out_of_ssa (void)
      tree->rtl expanders deal with.  */
   cfg_remove_useless_stmts ();
 
-  /* Remove unnecessary variables.  */
-  remove_useless_vars ();
-
   /* Flush out flow graph and SSA data.  */
   delete_var_map (map);
 

@@ -1,5 +1,18 @@
 2004-02-24  Jeff Law  <law@redhat.com>
 
+	* gimple-low.c (remove_useless_vars): Now static.
+	(pass_remove_useless_vars): New.
+	* tree-flow.h (remove_useless_vars): Remove prototype.
+	* tree-nrv.c (struct nrv_data): Remove visited hashtable.
+	(finalize_nrv_r): Do not descend into types. No need to update
+	the visited hashtable.
+	(tree_nrv): No need to allocate/free the visited hashtable.
+	Clear the used flag on the variable's annotation.
+	* tree-optimize.c (init_tree_optimizatio_passes): Link in
+	pass_remove_useless_vars.
+	* tree-pass.h (pass_remove_useless_vars): Declare.
+	* tree-ssa.c (rewrite_out_of_ssa): Do not remove useless vars here.
+
 	* Makefile.in (OBJS-common): Add tree-nrv.o.
 	(tree-nrv.o): Add dependencies.
 	* timevar.def (TV_TREE_NRV): New timevar.

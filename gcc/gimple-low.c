@@ -419,7 +419,7 @@ expand_var_p (tree var)
 
 /* Throw away variables that are unused.  */
 
-void
+static void
 remove_useless_vars (void)
 {
   tree var, *cell;
@@ -452,3 +452,21 @@ expand_used_vars (void)
 
   cfun->unexpanded_var_list = NULL_TREE;
 }
+
+struct tree_opt_pass pass_remove_useless_vars = 
+{
+  "vars",				/* name */
+  NULL,					/* gate */
+  remove_useless_vars,			/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  0,					/* tv_id */
+  0,					/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  0					/* todo_flags_finish */
+};
+
+

@@ -317,6 +317,7 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_warn_function_return);
   NEXT_PASS (pass_del_ssa);
   NEXT_PASS (pass_nrv);
+  NEXT_PASS (pass_remove_useless_vars);
   NEXT_PASS (pass_del_cfg);
   *p = NULL;
 
