@@ -86,6 +86,7 @@ public class ComponentSampleModel extends SampleModel
     this.bandOffsets = bandOffsets;
     this.bankIndices = bankIndices;
 
+    this.numBanks = 0;
     for (int b=0; b<bankIndices.length; b++)
       this.numBanks = Math.max(this.numBanks, bankIndices[b]+1);
 
