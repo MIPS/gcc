@@ -41,6 +41,7 @@
 3664999: objc.dg/const-cfstring-1.m execution test
 #3665002: objc.dg/const-str-3.m (test for excess errors)
 #3665002: objc.dg/const-str-4.m (test for excess errors)
+3691708: objc.dg/const-str-3.m execution test
 3691708: objc.dg/const-str-4.m execution test
 #3753413: objc.dg/const-cfstring-1.m (test for excess errors)
 #3753413: objc.dg/const-cfstring-2.m  (test for warnings, line 21)

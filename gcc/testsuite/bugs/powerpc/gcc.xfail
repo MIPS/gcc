@@ -137,18 +137,18 @@
 #3665238: gcc.c-torture/execute/builtins/string-8.c execution,  -O3 -fomit-frame-pointer
 #3665238: gcc.c-torture/execute/builtins/string-8.c execution,  -O3 -g
 #3665238: gcc.c-torture/execute/builtins/string-8.c execution,  -fast
-3648882: gcc.c-torture/execute/20030811-1.c compilation,  -O0
-3648882: gcc.c-torture/execute/20030811-1.c compilation,  -O1
-3648882: gcc.c-torture/execute/20030811-1.c compilation,  -O2
-3648882: gcc.c-torture/execute/20030811-1.c compilation,  -O3 -fomit-frame-pointer
-3648882: gcc.c-torture/execute/20030811-1.c compilation,  -O3 -g
-3648882: gcc.c-torture/execute/20030811-1.c compilation,  -Os
-3665098: gcc.dg/compat/struct-by-value-1 c_compat_x_tst.o-c_compat_y_tst.o link
-3665098: gcc.dg/compat/struct-by-value-2 c_compat_x_tst.o-c_compat_y_tst.o link
-3665098: gcc.dg/compat/struct-by-value-4 c_compat_x_tst.o-c_compat_y_tst.o link
-3665098: gcc.dg/compat/struct-by-value-8 c_compat_x_tst.o-c_compat_y_tst.o link
-3665098: gcc.dg/compat/struct-by-value-9 c_compat_x_tst.o-c_compat_y_tst.o link
-3665098: gcc.dg/compat/struct-return-2 c_compat_x_tst.o-c_compat_y_tst.o link
+#3648882: gcc.c-torture/execute/20030811-1.c compilation,  -O0
+#3648882: gcc.c-torture/execute/20030811-1.c compilation,  -O1
+#3648882: gcc.c-torture/execute/20030811-1.c compilation,  -O2
+#3648882: gcc.c-torture/execute/20030811-1.c compilation,  -O3 -fomit-frame-pointer
+#3648882: gcc.c-torture/execute/20030811-1.c compilation,  -O3 -g
+#3648882: gcc.c-torture/execute/20030811-1.c compilation,  -Os
+#3665098: gcc.dg/compat/struct-by-value-1 c_compat_x_tst.o-c_compat_y_tst.o link
+#3665098: gcc.dg/compat/struct-by-value-2 c_compat_x_tst.o-c_compat_y_tst.o link
+#3665098: gcc.dg/compat/struct-by-value-4 c_compat_x_tst.o-c_compat_y_tst.o link
+#3665098: gcc.dg/compat/struct-by-value-8 c_compat_x_tst.o-c_compat_y_tst.o link
+#3665098: gcc.dg/compat/struct-by-value-9 c_compat_x_tst.o-c_compat_y_tst.o link
+#3665098: gcc.dg/compat/struct-return-2 c_compat_x_tst.o-c_compat_y_tst.o link
 #3665240: gcc.c-torture/execute/simd-2.c execution,  -O3 -fomit-frame-pointer
 #3665240: gcc.c-torture/execute/simd-2.c execution,  -O3 -g
 #3649581: gcc.dg/gnu89-dupqual-1.c  (test for bogus messages, line 5)
@@ -241,7 +241,7 @@
 #3649639: gcc.dg/reg-vol-struct-1.c explicit address (test for warnings, line 16)
 #3649639: gcc.dg/reg-vol-struct-1.c (test for excess errors)
 #3665227: gcc.dg/rs6000-ldouble-1.c (test for excess errors)
-3665098: gcc.dg/struct-by-value-1.c (test for excess errors)
+#3665098: gcc.dg/struct-by-value-1.c (test for excess errors)
 3666921: gcc.dg/uninit-H.c  (test for bogus messages, line 18)
 #3665227: gcc.dg/format/asm_fprintf-1.c   (test for excess errors)
 #3665227: gcc.dg/format/asm_fprintf-1.c  -DWIDE  (test for excess errors)
@@ -448,7 +448,7 @@
 3753408: gcc.dg/tree-ssa-vect/ifc-04.c scan-tree-dump-times Applying if-conversion 1
 3753408: gcc.dg/tree-ssa-vect/ifc-04.c scan-tree-dump-times vectorized 1 loops 1
 #3753410: gcc.dg/tree-ssa-vect/pr16105.c (test for excess errors)
-3753410: gcc.dg/tree-ssa-vect/tree-ssa-vect-1.c (test for excess errors)
+#3753410: gcc.dg/tree-ssa-vect/tree-ssa-vect-1.c (test for excess errors)
 #3753410: gcc.dg/tree-ssa-vect/tree-ssa-vect-10.c (test for excess errors)
 3753410: gcc.dg/tree-ssa-vect/tree-ssa-vect-11.c (test for excess errors)
 3753410: gcc.dg/tree-ssa-vect/tree-ssa-vect-12.c (test for excess errors)
@@ -468,10 +468,10 @@
 3753410: gcc.dg/tree-ssa-vect/tree-ssa-vect-25.c (test for excess errors)
 3753410: gcc.dg/tree-ssa-vect/tree-ssa-vect-26.c (test for excess errors)
 3753410: gcc.dg/tree-ssa-vect/tree-ssa-vect-27.c (test for excess errors)
-3753410: gcc.dg/tree-ssa-vect/tree-ssa-vect-27.c scan-tree-dump-times vectorized 1 loops 1
+#3753410: gcc.dg/tree-ssa-vect/tree-ssa-vect-27.c scan-tree-dump-times vectorized 1 loops 1
 3753410: gcc.dg/tree-ssa-vect/tree-ssa-vect-28.c (test for excess errors)
 3753410: gcc.dg/tree-ssa-vect/tree-ssa-vect-29.c (test for excess errors)
-3753410: gcc.dg/tree-ssa-vect/tree-ssa-vect-29.c scan-tree-dump-times vectorized 1 loops 1
+#3753410: gcc.dg/tree-ssa-vect/tree-ssa-vect-29.c scan-tree-dump-times vectorized 1 loops 1
 3753410: gcc.dg/tree-ssa-vect/tree-ssa-vect-3.c (test for excess errors)
 3753410: gcc.dg/tree-ssa-vect/tree-ssa-vect-30.c scan-tree-dump-times vectorized 1 loops 2
 3753410: gcc.dg/tree-ssa-vect/tree-ssa-vect-4.c (test for excess errors)
@@ -483,7 +483,7 @@
 3753410: gcc.dg/tree-ssa-vect/tree-ssa-vect-45.c (test for excess errors)
 3753410: gcc.dg/tree-ssa-vect/tree-ssa-vect-46.c scan-tree-dump-times vectorized 1 loops 1
 3753410: gcc.dg/tree-ssa-vect/tree-ssa-vect-48.c (test for excess errors)
-3753410: gcc.dg/tree-ssa-vect/tree-ssa-vect-48.c scan-tree-dump-times vectorized 1 loops 1
+#3753410: gcc.dg/tree-ssa-vect/tree-ssa-vect-48.c scan-tree-dump-times vectorized 1 loops 1
 3753410: gcc.dg/tree-ssa-vect/tree-ssa-vect-49.c (test for excess errors)
 3753410: gcc.dg/tree-ssa-vect/tree-ssa-vect-5.c (test for excess errors)
 3753410: gcc.dg/tree-ssa-vect/tree-ssa-vect-52.c scan-tree-dump-times vectorized 1 loops 1
@@ -540,6 +540,37 @@
 3765630: gcc.c-torture/execute/ieee/fp-cmp-8f.c execution,  -fast
 3765630: gcc.c-torture/execute/ieee/fp-cmp-8l.c execution,  -fast
 #3765772: gcc.dg/compat/scalar-by-value-1 c_compat_x_tst.o-c_compat_y_tst.o execute
-3765772: gcc.dg/compat/struct-by-value-7a c_compat_x_tst.o-c_compat_y_tst.o execute
-3801739: gcc.dg/verbose-asm-2.c (test for excess errors)
-3801739: gcc.dg/verbose-asm.c (test for excess errors)
+#3765772: gcc.dg/compat/struct-by-value-7a c_compat_x_tst.o-c_compat_y_tst.o execute
+#3801739: gcc.dg/verbose-asm-2.c (test for excess errors)
+#3801739: gcc.dg/verbose-asm.c (test for excess errors)
+3846069: gcc.dg/cpp/trigraphs.c (test for excess errors)
+3846069: gcc.dg/cpp/19990407-1.c (test for excess errors)
+3846069: gcc.dg/cpp/strp1.c (test for excess errors)
+3846069: gcc.dg/cpp/strp2.c (test for excess errors)
+3846069: gcc.dg/struct-ret-libc.c (test for excess errors)
+3846472: gcc.dg/tree-ssa-chrec/ssa-chrec-01.c scan-tree-dump-times nb_iterations 4 1
+3846472: gcc.dg/tree-ssa-chrec/ssa-chrec-01.c scan-tree-dump-times nb_iterations 6 1
+3846472: gcc.dg/tree-ssa-chrec/ssa-chrec-02.c scan-tree-dump-times nb_iterations 3 1
+3846472: gcc.dg/tree-ssa-chrec/ssa-chrec-02.c scan-tree-dump-times nb_iterations 9 1
+3846472: gcc.dg/tree-ssa-chrec/ssa-chrec-03.c scan-tree-dump-times nb_iterations 5 1
+3846472: gcc.dg/tree-ssa-chrec/ssa-chrec-03.c scan-tree-dump-times nb_iterations 7 1
+3846472: gcc.dg/tree-ssa-chrec/ssa-chrec-04.c scan-tree-dump-times nb_iterations 28 1
+3846472: gcc.dg/tree-ssa-chrec/ssa-chrec-05.c scan-tree-dump-times nb_iterations 28 1
+3846472: gcc.dg/tree-ssa-chrec/ssa-chrec-05.c scan-tree-dump-times nb_iterations 6 1
+3846472: gcc.dg/tree-ssa-chrec/ssa-chrec-06.c scan-tree-dump-times nb_iterations 2 1
+3846472: gcc.dg/tree-ssa-chrec/ssa-chrec-06.c scan-tree-dump-times nb_iterations 6 1
+3846472: gcc.dg/tree-ssa-chrec/ssa-chrec-10.c scan-tree-dump-times nb_iterations 39 1
+3846472: gcc.dg/tree-ssa-chrec/ssa-chrec-15.c scan-tree-dump-times nb_iterations 50 1
+3846472: gcc.dg/tree-ssa-chrec/ssa-chrec-27.c scan-tree-dump-times nb_iterations 100 1
+3846472: gcc.dg/tree-ssa-chrec/ssa-chrec-27.c scan-tree-dump-times nb_iterations 26 1
+3846092: gcc.dg/tree-ssa-vect/tree-ssa-vect-48.c execution test
+3846092: gcc.dg/vect/vect-75.c scan-tree-dump-times vectorized 1 loops 1
+3846092: gcc.dg/vect/vect-76.c scan-tree-dump-times vectorized 3 loops 1
+3846092: gcc.dg/vect/vect-77.c scan-tree-dump-times vectorized 1 loops 1
+3846092: gcc.dg/vect/vect-77a.c scan-tree-dump-times vectorized 1 loops 1
+3846097: gcc.c-torture/execute/builtins/memmove-2.c execution,  -fast
+3846097: gcc.c-torture/execute/builtins/strcpy-2.c execution,  -fast
+3846097: gcc.c-torture/execute/builtins/strlen-3.c execution,  -fast
+3846100: gcc.dg/pr17055-1.c (test for excess errors)
+3846109: gcc.apple/altivec-2.c execution test
+3846117: gcc.dg/verbose-asm-2.c scan-assembler fpeephole=0

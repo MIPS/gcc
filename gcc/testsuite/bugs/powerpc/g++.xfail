@@ -169,8 +169,18 @@
 3751847: g++.old-deja/g++.robertl/eb77.C (test for excess errors)
 3751847: g++.old-deja/g++.robertl/eb79.C (test for excess errors)
 3751847: g++.old-deja/g++.robertl/eb91.C (test for excess errors)
-3796204: g++.dg/kext2.C (test for excess errors)
-3796204: g++.dg/kext3.C  (test for errors, line 17)
-3796204: g++.dg/kext3.C  (test for errors, line 18)
-3796204: g++.dg/kext3.C (test for excess errors)
-
+#3796204: g++.dg/kext2.C (test for excess errors)
+#3796204: g++.dg/kext3.C  (test for errors, line 17)
+#3796204: g++.dg/kext3.C  (test for errors, line 18)
+#3796204: g++.dg/kext3.C (test for excess errors)
+3843119: g++.dg/abi/local1.C execution test
+3843135: g++.dg/kext2.C (test for excess errors)
+3843135: g++.dg/kext4.C (test for excess errors)
+3843157: g++.dg/pascal-strings-2.C  (test for warnings, line 7)
+3843157: g++.dg/pascal-strings-2.C  (test for warnings, line 8)
+3843157: g++.dg/pascal-strings-2.C  (test for warnings, line 22)
+3843157: g++.dg/pascal-strings-2.C  (test for warnings, line 24)
+3843157: g++.dg/pascal-strings-2.C  (test for warnings, line 25)
+3843157: g++.dg/pascal-strings-2.C (test for excess errors)
+3845961: 102:is -:should be 1
+3845961: g++.dg/gcov/gcov-1.C gcov: 1 failures in line counts, 0 in branch percentages, 0 in return percentages
