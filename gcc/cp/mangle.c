@@ -1655,7 +1655,8 @@ write_builtin_type (tree type)
 	       || type == java_double_type_node)
 	write_char ('d');
       else if (type == long_double_type_node)
-	write_char ('e');
+	/* HPUX uses 'g' for long double.  */
+	write_char ('g');
       else
 	abort ();
       break;
