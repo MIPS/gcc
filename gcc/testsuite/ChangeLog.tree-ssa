@@ -1,3 +1,11 @@
+2004-02-27  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/warn-1.c: Update warning line.
+	* gcc.dg/tree-ssa/20030730-1.c: Declare ggc_alloc.
+	* gcc.dg/tree-ssa/20030730-2.c: Likewise.
+	* gcc.dg/tree-ssa/20030917-2.c: Fix int->pointer cast.
+	* gcc.dg/tree-ssa/20030922-2.c: XFAIL.
+
 2004-02-27  Diego Novillo  <dnovillo@redhat.com>
 
 	* gcc.dg/tree-ssa/tailcall-2.c: New test.
