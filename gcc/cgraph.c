@@ -238,7 +238,7 @@ cgraph_remove_node (node)
   slot = 
     htab_find_slot_with_hash (cgraph_hash, DECL_ASSEMBLER_NAME (node->decl),
 			      IDENTIFIER_HASH_VALUE (DECL_ASSEMBLER_NAME
-						     (node->decl)), 1);
+						     (node->decl)), 0);
   htab_clear_slot (cgraph_hash, slot);
   /* Do not free the structure itself so the walk over chain can continue.  */
 }
@@ -554,44 +554,59 @@ cgraph_set_decl_assembler_name (tree decl, tree name)
 
   if (TREE_CODE (decl) == FUNCTION_DECL && cgraph_hash)
     {
+      /* Take a look whether declaration is in the cgraph structure.  */
       slot = 
-	htab_find_slot_with_hash (cgraph_hash, name,
-				  IDENTIFIER_HASH_VALUE (name), 0);
+	htab_find_slot_with_hash (cgraph_hash, DECL_ASSEMBLER_NAME (decl),
+				   IDENTIFIER_HASH_VALUE (DECL_ASSEMBLER_NAME
+							  (decl)), 0);
       if (slot)
-	cgraph_remove_node (cgraph_node (decl));
-      else
+	node = *slot;
+
+      /* It is, verify that we are the canonical node for this decl.  */
+      if (node && node->decl == decl)
 	{
-	  slot = 
-	    htab_find_slot_with_hash (cgraph_hash, DECL_ASSEMBLER_NAME (decl),
-				      IDENTIFIER_HASH_VALUE (DECL_ASSEMBLER_NAME
-							     (decl)), 0);
-	  if (slot)
-	    {
-	      node = *slot;
-	      htab_clear_slot (cgraph_hash, slot);
-	    }
-	}
+	  void **slot1;
+
+	  /* We've possibly already introduced new entry, overwrite it.  */
+	  slot1 = 
+	    htab_find_slot_with_hash (cgraph_hash, name,
+				      IDENTIFIER_HASH_VALUE (name), 0);
+	  if (slot1)
+	    cgraph_remove_node (*slot1);
+
+	  node = *slot;
+	  htab_clear_slot (cgraph_hash, slot);
+      	 }
+       else
+	 node = NULL;
     }
   if (TREE_CODE (decl) == VAR_DECL && TREE_STATIC (decl) && cgraph_varpool_hash)
     {
+      /* Take a look whether declaration is in the cgraph structure.  */
       slot = 
-	htab_find_slot_with_hash (cgraph_varpool_hash, name,
-				  IDENTIFIER_HASH_VALUE (name), 0);
+	htab_find_slot_with_hash (cgraph_varpool_hash, DECL_ASSEMBLER_NAME (decl),
+				   IDENTIFIER_HASH_VALUE (DECL_ASSEMBLER_NAME
+							  (decl)), 0);
       if (slot)
-	cgraph_varpool_remove_node (cgraph_varpool_node (decl));
-      else
+	vnode = *slot;
+
+      /* It is, verify that we are the canonical vnode for this decl.  */
+      if (vnode && vnode->decl == decl)
 	{
-	  slot = 
-	    htab_find_slot_with_hash (cgraph_varpool_hash,
-				      DECL_ASSEMBLER_NAME (decl),
-				      IDENTIFIER_HASH_VALUE (DECL_ASSEMBLER_NAME
-							     (decl)), 0);
-	  if (slot)
-	    {
-	      vnode = *slot;
-	      htab_clear_slot (cgraph_varpool_hash, slot);
-	    }
-	}
+	  void **slot1;
+
+	  /* We've possibly already introduced new entry, overwrite it.  */
+	  slot1 = 
+	    htab_find_slot_with_hash (cgraph_varpool_hash, name,
+				      IDENTIFIER_HASH_VALUE (name), 0);
+	  if (slot1)
+	    cgraph_varpool_remove_node (*slot1);
+
+	  vnode = *slot;
+	  htab_clear_slot (cgraph_varpool_hash, slot);
+      	 }
+       else
+	 vnode = NULL;
     }
   SET_DECL_ASSEMBLER_NAME (decl, name);
   if (node)
