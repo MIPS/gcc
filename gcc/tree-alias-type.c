@@ -27,7 +27,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "tree-alias-type.h"
 
 alias_var
-alias_tvar_new_with_aterm (tree decl, struct aterm_ *term)
+alias_var_new_with_aterm (tree decl, struct aterm_ *term)
 {
   alias_var ret = ggc_alloc (sizeof (struct alias_var_aterm));
   ALIAS_VAR_KIND (ret) = ATERM_AVAR;

@@ -104,7 +104,7 @@ static void andersen_addr_assign (struct tree_alias_ops *,
 static void andersen_ptr_assign (struct tree_alias_ops *,
 				 alias_var, alias_var);
 static void andersen_op_assign (struct tree_alias_ops *,
-				alias_var, varray_type, tree);
+				alias_var, varray_type, tree, bitmap);
 static void andersen_heap_assign (struct tree_alias_ops *, alias_var);
 static void andersen_assign_ptr (struct tree_alias_ops *,
 				 alias_var, alias_var);
@@ -442,8 +442,10 @@ andersen_init (struct tree_alias_ops *ops ATTRIBUTE_UNUSED)
 
   ptamap = splay_tree_new (splay_tree_compare_pointers, NULL, NULL);
 
+#if 0
   /* Don't claim we can do ip partial unless we have unit_at_a_time on. */
-  if (!flag_unit_at_a_time) 
+  if (!flag_unit_at_a_time)   
+#endif
     andersen_ops.ip_partial = 0;
 }
 
@@ -497,14 +499,14 @@ andersen_add_var (struct tree_alias_ops *ops ATTRIBUTE_UNUSED, tree decl)
 
   if (alias_get_name (decl) != NULL)
     {
-      ret = alias_tvar_new_with_aterm (decl,
+      ret = alias_var_new_with_aterm (decl,
 				       pta_make_ref (alias_get_name (decl)));
     }
   else
     {
       char *tmp_name;
       ASM_FORMAT_PRIVATE_NAME (tmp_name, "unnamed var", id_num++);
-      ret = alias_tvar_new_with_aterm (decl, pta_make_ref (tmp_name));
+      ret = alias_var_new_with_aterm (decl, pta_make_ref (tmp_name));
     }
   splay_tree_insert (ptamap, (splay_tree_key) ALIAS_VAR_ATERM (ret),
 		     (splay_tree_value) ret);
@@ -514,7 +516,7 @@ andersen_add_var (struct tree_alias_ops *ops ATTRIBUTE_UNUSED, tree decl)
 }
 
 /* Add a variable to the analyzer that is equivalent (as far as
-   aliases go) to some existing var.
+   aliases go) to some existing alias variable.
    For Andersen, we just call a function that does this for us.  */
 
 static alias_var
@@ -528,13 +530,13 @@ andersen_add_var_same (struct tree_alias_ops *ops ATTRIBUTE_UNUSED, tree decl,
 	     alias_get_name (decl), alias_get_name (ALIAS_VAR_DECL (tv)));
 
   if (alias_get_name (decl) != NULL)
-    ret = alias_tvar_new_with_aterm (decl,
+    ret = alias_var_new_with_aterm (decl,
 				     pta_make_ref (alias_get_name (decl)));
   else
     {
       char *tmp_name;
       ASM_FORMAT_PRIVATE_NAME (tmp_name, "unnamed var", id_num++);
-      ret = alias_tvar_new_with_aterm (decl, pta_make_ref (tmp_name));
+      ret = alias_var_new_with_aterm (decl, pta_make_ref (tmp_name));
     }
 
   pta_join (ALIAS_VAR_ATERM (tv), ALIAS_VAR_ATERM (ret));
@@ -638,7 +640,8 @@ pointer_destroying_op (tree op)
 
 static void
 andersen_op_assign (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
-		    alias_var lhs, varray_type operands, tree operation)
+		    alias_var lhs, varray_type operands, tree operation,
+		    bitmap addrargs)
 {
   aterm newvar = NULL;
   
@@ -676,7 +679,10 @@ andersen_op_assign (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
 	{
 	  alias_var tempvar = VARRAY_GENERIC_PTR (operands, i);
 	  aterm t2 = ALIAS_VAR_ATERM (tempvar);
-	  newvar = pta_join (newvar, t2);
+	  if (bitmap_bit_p (addrargs, i))
+	    newvar = pta_join (newvar, pta_address (t2));
+	  else
+	    newvar = pta_join (newvar, t2);
 	}
     }
   else if (VARRAY_ACTIVE_SIZE (operands) == 2)
@@ -685,13 +691,23 @@ andersen_op_assign (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
       alias_var tv2 = VARRAY_GENERIC_PTR (operands, 1);
       aterm t1 = ALIAS_VAR_ATERM (tv1);
       aterm t2 = ALIAS_VAR_ATERM (tv2);
-      newvar = pta_join (t1, t2);
+      if (bitmap_bit_p (addrargs, 0) && bitmap_bit_p (addrargs, 1))
+	newvar = pta_join (pta_address (t1), pta_address (t2));
+      else if (bitmap_bit_p (addrargs, 0))
+	newvar = pta_join (pta_address (t1), t2);
+      else if (bitmap_bit_p (addrargs, 1))
+	newvar = pta_join (t1, pta_address (t2));
+      else
+	newvar = pta_join (t1, t2);
     }
   else if (VARRAY_ACTIVE_SIZE (operands) == 1)
     {
       alias_var tv1 = VARRAY_GENERIC_PTR (operands, 0);
       aterm t1 = ALIAS_VAR_ATERM (tv1);
-      newvar = t1;
+      if (bitmap_bit_p (addrargs, 0))
+	newvar = pta_address (t1);
+      else
+	newvar = t1;
     }
   pta_assignment (ALIAS_VAR_ATERM (lhs), pta_rvalue (newvar));
 }
@@ -705,7 +721,7 @@ andersen_heap_assign (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
 #if 0
   alias_type type1;
   ECR tau;
-  type1 = ECR_get_type (alias_tvar_get_ECR (lhs));
+  type1 = ECR_get_type (alias_var_get_ECR (lhs));
   tau = alias_ltype_loc (type1);
 
   if (ECR_get_type (tau) == alias_bottom)
@@ -762,7 +778,7 @@ andersen_function_def (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
 /* Inference for a function call assignment.  */
 
 static int
-andersen_function_call (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
+andersen_function_call (struct tree_alias_ops *ops,
 			alias_var lhs, alias_var func,
 			varray_type args, bitmap addrargs)
 {
@@ -801,7 +817,7 @@ andersen_function_call (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
      necessary. */
   if (TREE_CODE (decl) == FUNCTION_DECL
       && DECL_PTA_ALIASVAR (decl)
-      && flag_unit_at_a_time 
+      && ops->ip_partial
       && (cgraph_local_info (decl)->local))
     {
       return 0;

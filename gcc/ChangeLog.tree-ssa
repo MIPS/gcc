@@ -1,3 +1,43 @@
+2004-01-20  Daniel Berlin  <dberlin@dberlin.org>
+	
+	* tree-alias-ander.c (andersen_op_assign): Update
+	prototype. Make this handle &x in the operands using
+	the addrargs parameter.
+	(andersen_init): Turn off ip_partial until variables
+	aliasing variables in other functions is resolved.
+	(andersen_add_var): Use newly renamed alias_var_new_with_aterm.
+	Fix comment.
+	(andersen_add_var_same): Ditto.
+	(andersen_function_call): Use ip_partial, not flag_unit_at_a_time.
+	* tree-alias-common.c (get_values_from_constructor): Add bitmap
+	and int * arguments. Used to mark operands that we are taking
+	address of.
+	(get_alias_var_decl): We should never see FIELD_DECL's right now.
+	(intra_function_call): Reverse ordering for slightly faster
+	projection merging.
+	(find_op_of_decl): New function.
+	(find_func_aliases): Use it.
+	Comment x = foo.y case.
+	Move get_alias_var_decl of arguments so we only call it if
+	necessary.
+	Handle address of arguments in operations.
+	(create_fun_alias_var): tvar->var.
+	Set context of fakeargs.
+	Set context of fakedecls.
+	Set DECL_PTA_ALIASVAR of RETURN_DECL's.
+	(create_fun_alias_var_ptf): tvar->var.
+	Set context of fakedecls.
+	(create_alias_vars): Only create alias vars for globals
+	with DECL_INITIAL's.
+	* tree-alias-common.h (struct tree_alias_ops):
+	Update op_assign arguments.
+	(may_alias): Fix comment.
+	(same_points_to_set): Ditto.
+	(empty_points_to_set): Ditto.
+	* tree-alias-type.h: Rename alias_tvar_new_with_aterm
+	-> alias_var_new_with_aterm.
+	* tree-alias-type.c: Ditto.
+
 2004-01-20  Richard Henderson  <rth@redhat.com>
 
         * tree-sra.c (get_scalar_for_field): Validate field.

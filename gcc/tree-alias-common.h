@@ -45,7 +45,7 @@ struct tree_alias_ops
      Called to process operators of the form a = op(...), where a is a
      variable.  */
   void (*op_assign) (struct tree_alias_ops *, alias_var, varray_type, 
-		     tree);
+		     tree, bitmap);
   /* Process a heap assignment (a = alloc (...))
      Called to process a heap assignment of the form a = alloc
      (...), where a is a variable, and *alloc is a function that
@@ -68,14 +68,14 @@ struct tree_alias_ops
   int (*function_call) (struct tree_alias_ops *, alias_var,
 			alias_var, varray_type, bitmap);
 
-  /* Determine if two vars may alias.   */
+  /* Determine if two alias variables may alias.   */
   bool (*may_alias) (struct tree_alias_ops *, alias_var, alias_var);
 
-  /* Determine if two vars have the same points-to set.  */
+  /* Determine if two alias variables have the same points-to set.  */
   bool (*same_points_to_set) (struct tree_alias_ops *, alias_var, 
 			      alias_var);
   
-  /* Determine if the var has an empty points-to set.  */
+  /* Determine if the alias variable has an empty points-to set.  */
   bool (*empty_points_to_set) (struct tree_alias_ops *, alias_var);
   
   /* Private data.  */

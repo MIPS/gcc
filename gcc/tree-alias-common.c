@@ -96,7 +96,7 @@ static alias_var create_fun_alias_var_ptf (tree, tree);
 static alias_var create_fun_alias_var (tree, int);
 static alias_var create_alias_var (tree);
 static void intra_function_call (varray_type);
-static void get_values_from_constructor (tree, varray_type *);
+static void get_values_from_constructor (tree, varray_type *, bitmap, int *);
 static bool call_may_clobber (tree);
 static bool call_may_return (tree);
 
@@ -140,7 +140,8 @@ static alias_var
 get_alias_var_decl (tree decl)
 {
   alias_var newvar;
-
+  if (TREE_CODE (decl) == FIELD_DECL)
+    abort ();
   if (DECL_P (decl))
     {
       if (DECL_PTA_ALIASVAR (decl))
@@ -158,8 +159,7 @@ get_alias_var_decl (tree decl)
 	   || TREE_PUBLIC (decl)
 	   || TREE_STATIC (decl)
 	   || decl_function_context (decl) == NULL) 
-	  && decl != pta_global_var 
-	  /*	  && !TREE_READONLY (decl)*/)
+	  && decl != pta_global_var)
 	{
 	  current_alias_ops->addr_assign (current_alias_ops, 
 					  get_alias_var (pta_global_var), 
@@ -284,21 +284,6 @@ intra_function_call (varray_type args)
   size_t i;
   alias_var av = get_alias_var (pta_global_var);
 
-  /* We assume that an actual parameter can point to any global. */
-  for (i = 0; i < l; i++)
-    {
-      alias_var argav = VARRAY_GENERIC_PTR (args, i);
-      /* Restricted pointers can't be aliased with other
-	 restricted pointers. */
-      if (!TYPE_RESTRICT (TREE_TYPE (ALIAS_VAR_DECL (argav)))
-	  || !TYPE_RESTRICT (TREE_TYPE (ALIAS_VAR_DECL (av))))
-	{
-	  /* Arguments can alias globals, and whatever they point to
-	     can point to a global as well. */
-	if (!TREE_READONLY (ALIAS_VAR_DECL (argav)))
-	    current_alias_ops->simple_assign (current_alias_ops, argav, av);
-	}
-    }
   /* We assume assignments among the actual parameters. */
   for (i = 0; i < l; i++)
     {
@@ -320,12 +305,27 @@ intra_function_call (varray_type args)
 	      current_alias_ops->simple_assign (current_alias_ops, argi, argj);
 	}
     }
+  /* We assume that an actual parameter can point to any global. */
+  for (i = 0; i < l; i++)
+    {
+      alias_var argav = VARRAY_GENERIC_PTR (args, i);
+      /* Restricted pointers can't be aliased with other
+	 restricted pointers. */
+      if (!TYPE_RESTRICT (TREE_TYPE (ALIAS_VAR_DECL (argav)))
+	  || !TYPE_RESTRICT (TREE_TYPE (ALIAS_VAR_DECL (av))))
+	{
+	  /* Arguments can alias globals, and whatever they point to
+	     can point to a global as well. */
+	  current_alias_ops->simple_assign (current_alias_ops, argav, av);
+	}
+    }
 }
 
 /* Put all pointers in a constructor in an array.  */
 
 static void
-get_values_from_constructor (tree constructor, varray_type *vals)
+get_values_from_constructor (tree constructor, varray_type *vals, 
+			     bitmap addrargs, int *i)
 {
   tree elt_list;
   switch (TREE_CODE (constructor))
@@ -340,14 +340,16 @@ get_values_from_constructor (tree constructor, varray_type *vals)
 	    if (TREE_CODE (value) == TREE_LIST
 		|| TREE_CODE (value) == CONSTRUCTOR)
 	      {
-		get_values_from_constructor (value, vals);
-	      }
+		get_values_from_constructor (value, vals, addrargs, i);			      }
 	    else
 	      {
 		alias_var aav;
 		aav = get_alias_var (value);
 		if (aav)
 		  VARRAY_PUSH_GENERIC_PTR (*vals, aav);
+		if (TREE_CODE (value) == ADDR_EXPR)
+		  bitmap_set_bit (addrargs, *i);
+		*i = *i + 1;
 	      }
 	  }
       }
@@ -357,7 +359,7 @@ get_values_from_constructor (tree constructor, varray_type *vals)
 	   elt_list;
 	   elt_list = TREE_CHAIN (elt_list))
 	{
-	  get_values_from_constructor (TREE_VALUE (elt_list), vals);
+	  get_values_from_constructor (TREE_VALUE (elt_list), vals, addrargs, i);
 	}
       break;
     default:
@@ -395,7 +397,19 @@ deal_with_call_aliasing (tree callargs, alias_var lhsAV)
     }
 }
 
-	  
+/* Find the operand of the component ref that actually is doing
+   something to the DECL  */
+static tree
+find_op_of_decl (tree cref)
+{
+  while (!DECL_P (TREE_OPERAND (cref, 0)))
+    {
+      cref = TREE_OPERAND (cref, 0);
+    }
+  return cref;
+}
+
+
 /*  Tree walker that is the heart of the aliasing infrastructure.
     TP is a pointer to the current tree.
     WALK_SUBTREES specifies whether to continue traversing subtrees or
@@ -449,6 +463,10 @@ find_func_aliases (tree stp)
 	{
 	  op1 = TREE_OPERAND (op1, 0);
 	}
+      /* Take care of fact that we may have multi-level component
+	 refs. */ 
+      if (TREE_CODE (op1) == COMPONENT_REF)
+	op1 = find_op_of_decl (op1);
 #endif
       
       /* You would think we could test rhsAV at the top, rather than
@@ -469,6 +487,7 @@ find_func_aliases (tree stp)
 		current_alias_ops->simple_assign (current_alias_ops, lhsAV,
 						  rhsAV);
 	    }
+	  /* x = foo.y */
 	  else if (TREE_CODE (op1) == COMPONENT_REF 
 		   && DECL_P (TREE_OPERAND (op1, 0)))
 	    {
@@ -517,29 +536,33 @@ find_func_aliases (tree stp)
 		{}
 	      else
 		{
-		  varray_type args;
-		  tree arg;
-		  tree callop0, callop1;
-		  int argnum;
-		  VARRAY_GENERIC_PTR_INIT (args, 1, "Arguments");
-		  bitmap_clear (addrargs);
-		  callop1 = TREE_OPERAND (op1, 1);
-		  callop0 = TREE_OPERAND (op1, 0);
-		  for (arg = callop1, argnum = 0;
-		       arg;
-		       arg = TREE_CHAIN (arg), argnum++)
-		    {
-		      alias_var aav = get_alias_var (TREE_VALUE (arg));
-		      if (aav)
-			{
-			  VARRAY_PUSH_GENERIC_PTR (args, aav);
-			  if (TREE_CODE (TREE_VALUE (arg)) == ADDR_EXPR)
-			    bitmap_set_bit (addrargs, argnum);
-			}
-		    }
+		  
 		  /* NORETURN functions have no effect on aliasing. */
 		  if (call_may_return (op1))
-		    {
+		    {		      
+		      varray_type args;
+		      tree arg;
+		      tree callop0, callop1;
+		      int argnum;
+		      
+		      /* Collect the arguments */
+		      VARRAY_GENERIC_PTR_INIT (args, 1, "Arguments");
+		      bitmap_clear (addrargs);
+		      callop1 = TREE_OPERAND (op1, 1);
+		      callop0 = TREE_OPERAND (op1, 0);
+		      for (arg = callop1, argnum = 0;
+			   arg;
+			   arg = TREE_CHAIN (arg), argnum++)
+			{
+			  alias_var aav = get_alias_var (TREE_VALUE (arg));
+			  if (aav)
+			    {
+			      VARRAY_PUSH_GENERIC_PTR (args, aav);
+			      if (TREE_CODE (TREE_VALUE (arg)) == ADDR_EXPR)
+				bitmap_set_bit (addrargs, argnum);
+			    }
+			}
+		      /* Simulate the call */
 		      if (current_alias_ops->function_call (current_alias_ops, lhsAV,
 							    get_alias_var (callop0),
 							    args, addrargs))
@@ -550,10 +573,8 @@ find_func_aliases (tree stp)
 			    {
 			      intra_function_call (args);
 			    }
-			  
 			  if (POINTER_TYPE_P (TREE_TYPE (op0)))
 			    deal_with_call_aliasing (callop1, lhsAV);
-	
 			}
 		    }
 		}
@@ -561,14 +582,15 @@ find_func_aliases (tree stp)
 	  /* x = op (...) */
 	  else
 	    {
+	      bitmap_clear (addrargs);
 	      if (TREE_CODE (op1) == CONSTRUCTOR)
 	        {
 		  varray_type ops;
-
+		  int i = 0;
 		  VARRAY_GENERIC_PTR_INIT (ops, 1, "Operands");
-		  get_values_from_constructor (op1, &ops);
+		  get_values_from_constructor (op1, &ops, addrargs, &i);
 		  current_alias_ops->op_assign (current_alias_ops, lhsAV,
-						ops, op1);
+						ops, op1, addrargs);
 		}
 	      else
 		switch (TREE_CODE_CLASS (TREE_CODE (op1)))
@@ -584,16 +606,18 @@ find_func_aliases (tree stp)
 		      varray_type ops;
 		      int i;
 		      VARRAY_GENERIC_PTR_INIT (ops, 1, "Operands");
-		      for (i=0; i < TREE_CODE_LENGTH (TREE_CODE (op1)); i++)
+		      for (i = 0; i < TREE_CODE_LENGTH (TREE_CODE (op1)); i++)
 			{
 			  alias_var aav;
 			  op = TREE_OPERAND (op1, i);
 			  aav = get_alias_var (op);
 			  if (aav)
 			    VARRAY_PUSH_GENERIC_PTR (ops, aav);
+			  if (TREE_CODE (op) == ADDR_EXPR)
+			    bitmap_set_bit (addrargs, i);
 			}
 		      current_alias_ops->op_assign (current_alias_ops, lhsAV,
-						    ops, op1);
+						    ops, op1, addrargs);
 		    }
 		    break;
 		  default:
@@ -699,28 +723,36 @@ find_func_aliases (tree stp)
       callvar = get_alias_var (TREE_OPERAND (stp, 0));
       if (callvar != NULL)
 	{
-	  int argnum;
-	  VARRAY_GENERIC_PTR_INIT (args, 1, "Arguments");
-	  bitmap_clear (addrargs);
-	  for (arg = TREE_OPERAND (stp, 1), argnum=0; 
-	       arg; 
-	       arg = TREE_CHAIN (arg), argnum++)
+	
+	  /* NORETURN and CONST functions with no return value
+	     have no effect on aliasing (as may be seen above,
+	     const functions that return a value might have an
+	     effect on aliasing, since the return value can point
+	     to one of the arguments.  */
+	  if (call_may_clobber (stp))
 	    {
-	      alias_var aav = get_alias_var (TREE_VALUE (arg));
-	      if (aav)
+	      int argnum;
+	      VARRAY_GENERIC_PTR_INIT (args, 1, "Arguments");
+	      bitmap_clear (addrargs);
+	      for (arg = TREE_OPERAND (stp, 1), argnum=0; 
+		   arg; 
+		   arg = TREE_CHAIN (arg), argnum++)
 		{
-		  VARRAY_PUSH_GENERIC_PTR (args, aav);
-		  if (TREE_CODE (TREE_VALUE (arg)) == ADDR_EXPR)
-		    bitmap_set_bit (addrargs, argnum);
+		  alias_var aav = get_alias_var (TREE_VALUE (arg));
+		  if (aav)
+		    {
+		      VARRAY_PUSH_GENERIC_PTR (args, aav);
+		      if (TREE_CODE (TREE_VALUE (arg)) == ADDR_EXPR)
+			bitmap_set_bit (addrargs, argnum);
+		    }
+		  
 		}
 	      
+	      if (current_alias_ops->function_call (current_alias_ops, NULL,
+						    callvar, args, addrargs))
+		if (!current_alias_ops->ip && flag_argument_noalias != 2)
+		  intra_function_call (args);
 	    }
-	  /* NORETURN and CONST functions have no effect on aliasing.  */
-	  if (call_may_clobber (stp))
-	    if (current_alias_ops->function_call (current_alias_ops, NULL,
-						  callvar, args, addrargs))
-	      if (!current_alias_ops->ip && flag_argument_noalias != 2)
-		intra_function_call (args);
 	}
   }
 }
@@ -753,8 +785,8 @@ create_fun_alias_var (tree decl, int force)
       tree arg;
       for (arg = DECL_ARGUMENTS (decl); arg; arg = TREE_CHAIN (arg))
 	{
-	  alias_var tvar = get_alias_var (arg);
-	  VARRAY_PUSH_GENERIC_PTR (params, tvar);
+	  alias_var var = get_alias_var (arg);
+	  VARRAY_PUSH_GENERIC_PTR (params, var);
 	  /* Incoming pointers can point to pta_global_var, unless
 	     either we are interprocedural, or we can do ip on all
 	     statics + this function has been defined + it's not an
@@ -764,7 +796,7 @@ create_fun_alias_var (tree decl, int force)
 	      /* FIXME: Need to let analyzer decide in partial case. */
 	      && (!current_alias_ops->ip_partial
 		  || !cgraph_local_info (decl)->local))
-	    current_alias_ops->simple_assign (current_alias_ops, tvar,
+	    current_alias_ops->simple_assign (current_alias_ops, var,
 					      get_alias_var (pta_global_var));
 	}
     }
@@ -777,10 +809,10 @@ create_fun_alias_var (tree decl, int force)
 	   arg = TREE_CHAIN (arg))
 	{
 	  tree fakedecl = create_tmp_var_raw (TREE_VALUE (arg), "normarg");
-	  alias_var tvar;
-	  DECL_CONTEXT (fakedecl) = current_function_decl;
-	  tvar = get_alias_var (fakedecl);
-	  VARRAY_PUSH_GENERIC_PTR (params, tvar);
+	  alias_var var;
+	  DECL_CONTEXT (fakedecl) = current_function_decl; 
+	  var = get_alias_var (fakedecl);
+	  VARRAY_PUSH_GENERIC_PTR (params, var);
 
 	  /* Incoming pointers can point to pta_global_var, unless
 	     either we are interprocedural, or we can do ip on all
@@ -792,7 +824,7 @@ create_fun_alias_var (tree decl, int force)
 	      && (!current_alias_ops->ip_partial
 		  || !TREE_STATIC (decl)
 		  || TREE_PUBLIC (decl)))
-	    current_alias_ops->simple_assign (current_alias_ops, tvar,
+	    current_alias_ops->simple_assign (current_alias_ops, var,
 					      get_alias_var (pta_global_var));
 	}
     }
@@ -804,6 +836,7 @@ create_fun_alias_var (tree decl, int force)
     {
       tree fakedecl = create_tmp_var_raw (void_type_node, "fakearg");
       alias_var fakevar;
+      DECL_CONTEXT (fakedecl) = current_function_decl;
       fakevar = get_alias_var (fakedecl);
       VARRAY_PUSH_GENERIC_PTR (params, fakevar);
     }
@@ -812,11 +845,13 @@ create_fun_alias_var (tree decl, int force)
     {
       rdecl = create_tmp_var_raw (TREE_TYPE (TREE_TYPE (decl)), "_rv_");
       retvar = current_alias_ops->add_var (current_alias_ops, rdecl);
+      DECL_PTA_ALIASVAR (rdecl) = retvar;
     }
   else
     {
       retvar = current_alias_ops->add_var (current_alias_ops,
 					   DECL_RESULT (decl));
+      DECL_PTA_ALIASVAR (DECL_RESULT (decl)) = retvar;
     }
   VARRAY_PUSH_GENERIC_PTR (alias_vars, retvar);
   ALIAS_VAR_VARNUM (retvar) = VARRAY_ACTIVE_SIZE (alias_vars) - 1;
@@ -833,7 +868,7 @@ create_fun_alias_var (tree decl, int force)
 }
 
 /*  Create an alias variable for a pointer-to-member function DECL of 
- *  type TYPE, it's arguments, and it's return value.
+    type TYPE, it's arguments, and it's return value.
     Returns the alias_var for the PTF.
     
     This includes creating alias_var's for
@@ -862,9 +897,10 @@ create_fun_alias_var_ptf (tree decl, tree type)
 	   arg = TREE_CHAIN (arg))
 	{
 	  tree fakedecl = create_tmp_var_raw (TREE_VALUE (arg), "ptfarg");
-	  alias_var tvar;
-	  tvar = get_alias_var (fakedecl);
-	  VARRAY_PUSH_GENERIC_PTR (params, tvar);
+	  alias_var var;
+	  DECL_CONTEXT (fakedecl) = DECL_CONTEXT (decl);
+	  var = get_alias_var (fakedecl);
+	  VARRAY_PUSH_GENERIC_PTR (params, var);
 	}
     }
   /* Functions declared like void f() are *not* equivalent to void
@@ -875,6 +911,7 @@ create_fun_alias_var_ptf (tree decl, tree type)
     {
       tree fakedecl = create_tmp_var_raw (void_type_node, "fakearg");
       alias_var fakevar;
+      DECL_CONTEXT (fakedecl) = DECL_CONTEXT (decl);
       fakevar = get_alias_var (fakedecl);
       VARRAY_PUSH_GENERIC_PTR (params, fakevar);
     }
@@ -970,7 +1007,9 @@ create_alias_vars (void)
       for (vars = cfun->unexpanded_var_list; vars; vars = TREE_CHAIN (vars))
 	{
 	  var = TREE_VALUE (vars);
-	  if (TREE_CODE (var) != LABEL_DECL)
+	  if (TREE_CODE (var) != LABEL_DECL
+	      && decl_function_context (var) == NULL
+	      && DECL_INITIAL (var))
 	    find_func_aliases (var);
 	}
     }
