@@ -5488,6 +5488,13 @@ which the unit is bound.  The automaton should be described in
 construction @code{define_automaton}.  You should give
 @dfn{automaton-name}, if there is a defined automaton.
 
+There are some constraints to assign units to automata.  The most
+important one is that, if a unit reservation is present on an
+alternative of a insn reservation on a given cycle, any unit from the
+same automaton should be also present on the rest alternatives of the
+reservation on the cycle.  The rest of the constraints are mentioned
+in the description of the subsequent constructions.
+
 @findex define_query_cpu_unit
 @cindex querying function unit reservations
 The following construction describes CPU functional units analogously

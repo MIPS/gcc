@@ -1,3 +1,13 @@
+2002-12-20  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* genautomata.c (check_unit_distributions_to_automata): Output at
+	most one message for a unit.
+	(process_unit_to_form_the_same_automaton_unit_lists): Check
+	automaton of units instead of units themself.
+
+	* doc/md.texi: Describe the constraint about assigning unit to
+	automata.
+
 2002-12-20  Jan Hubicka  <jH@suse.cz>
 	    Vladimir Makarov  <vmakarov@redhat.com>
 

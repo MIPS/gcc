@@ -5448,14 +5448,15 @@ transform_insn_regexps ()
 
 
 /* The following variable is an array indexed by cycle.  Each element
-   contains cyclic list of units which should be in the same cycle.  */
+   contains cyclic list of units which probably should be in the same
+   automaton.  */
 static unit_decl_t *the_same_automaton_lists;
 
 /* The function processes all alternative reservations on CYCLE in
-   given REGEXP to check the UNIT is not reserved on the all
-   alternatives.  If it is true, the unit should be in the same
-   automaton with other analogous units reserved on CYCLE in given
-   REGEXP.  */
+   given REGEXP to check the UNIT (or another unit from the same
+   automaton) is not reserved on the all alternatives.  If it is true,
+   the unit should be in the same automaton with other analogous units
+   reserved on CYCLE in given REGEXP.  */
 static void
 process_unit_to_form_the_same_automaton_unit_lists (unit, regexp, cycle)
      regexp_t unit;
@@ -5482,13 +5483,15 @@ process_unit_to_form_the_same_automaton_unit_lists (unit, regexp, cycle)
 	      for (k = 0; k < REGEXP_ALLOF (allof)->regexps_num; k++)
 		if (REGEXP_ALLOF (allof)->regexps [k]->mode == rm_unit
 		    && (REGEXP_UNIT (REGEXP_ALLOF (allof)->regexps [k])
-			->unit_decl == unit_decl))
+			->unit_decl->automaton_decl
+			== unit_decl->automaton_decl))
 		  break;
 	      if (k >= REGEXP_ALLOF (allof)->regexps_num)
 		break;
 	    }
 	  else if (allof->mode == rm_unit
-		   && REGEXP_UNIT (allof)->unit_decl != unit_decl)
+		   && (REGEXP_UNIT (allof)->unit_decl->automaton_decl
+		       != unit_decl->automaton_decl))
 	    break;
 	}
       else if (cycle != 0)
@@ -5497,14 +5500,15 @@ process_unit_to_form_the_same_automaton_unit_lists (unit, regexp, cycle)
 	{
 	  for (k = 0; k < REGEXP_ALLOF (seq)->regexps_num; k++)
 	    if (REGEXP_ALLOF (seq)->regexps [k]->mode == rm_unit
-		&& (REGEXP_UNIT (REGEXP_ALLOF (seq)->regexps [k])->unit_decl
-		    == unit_decl))
+		&& (REGEXP_UNIT (REGEXP_ALLOF (seq)->regexps [k])
+		    ->unit_decl->automaton_decl == unit_decl->automaton_decl))
 	      break;
 	  if (k >= REGEXP_ALLOF (seq)->regexps_num)
 	    break;
 	}
       else if (seq->mode == rm_unit
-	       && REGEXP_UNIT (seq)->unit_decl != unit_decl)
+	       && (REGEXP_UNIT (seq)->unit_decl->automaton_decl
+		   != unit_decl->automaton_decl))
 	break;
     }
   if (i >= 0)
@@ -5614,13 +5618,17 @@ form_the_same_automaton_unit_lists ()
   free (the_same_automaton_lists);
 }
 
-/* The function finds units which should be in the same automaton and,
-   if they are not, reports about it.  */
+/* The function finds units which are in wrong automata and units
+   which should be probably place in one automaton to solve the
+   problem.  If the units exist, report about them.  */
 static void
 check_unit_distributions_to_automata ()
 {
+#define MAX_UNITS_LENGTH 250
+  char units [MAX_UNITS_LENGTH];
   decl_t decl;
   unit_decl_t start_unit_decl, unit_decl;
+  int stop_p;
   int i;
 
   form_the_same_automaton_unit_lists ();
@@ -5632,15 +5640,27 @@ check_unit_distributions_to_automata ()
 	{
 	  start_unit_decl = DECL_UNIT (decl);
 	  if (!start_unit_decl->the_same_automaton_message_reported_p)
-	    for (unit_decl = start_unit_decl->the_same_automaton_unit;
-		 unit_decl != start_unit_decl;
-		 unit_decl = unit_decl->the_same_automaton_unit)
-	      if (start_unit_decl->automaton_decl != unit_decl->automaton_decl)
+	    {
+	      units [0] = '\0';
+	      stop_p = FALSE;
+	      for (unit_decl = start_unit_decl->the_same_automaton_unit;
+		   unit_decl != start_unit_decl;
+		   unit_decl = unit_decl->the_same_automaton_unit)
 		{
-		  error ("Units `%s' and `%s' should be in the same automaton",
-			 start_unit_decl->name, unit_decl->name);
+		  if (strlen (units) + strlen (unit_decl->name)
+		      < MAX_UNITS_LENGTH - 10)
+		    sprintf (units + strlen (units), " `%s'", unit_decl->name);
+		  else if (!stop_p)
+		    {
+		      strcat (units, "...");
+		      stop_p = TRUE;
+		    }
 		  unit_decl->the_same_automaton_message_reported_p = TRUE;
 		}
+	      if (units [0] != '\0')
+		error ("Unit `%s' should be placed in one automaton with other units -- possible candidates:%s",
+		       start_unit_decl->name, units);
+	    }
 	}
     }
   fprintf (stderr, "done\n");
