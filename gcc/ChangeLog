@@ -1,5 +1,15 @@
 2003-08-15  Per Bothner  <pbothner@apple.com>
 
+	* c-common.def (INCLUDE_FRAGMENT):  New tree code.
+
+	* opts.c (add_input_filename):  Canonicalize input file name "-" to "".
+
+	* opts.c (common_handle_option):  Handle OPT_fserver.
+	* common.opt (fserver):  New flag.
+	* flags.h (server_mode):  New declaration.
+
+2003-08-15  Per Bothner  <pbothner@apple.com>
+
 	* c-lang.c (finish_file):  Remove.  Combine with ...
 	(c_write_globals):  New function.
 	(LANG_HOOKS_WRITE_GLOBALS):  New macro, defined as c_write_globals.

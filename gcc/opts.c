@@ -462,6 +462,8 @@ void
 add_input_filename (const char *filename)
 {
   num_in_fnames++;
+  if (strcmp (filename, "-") == 0)
+    filename = "";
   in_fnames = xrealloc (in_fnames, num_in_fnames * sizeof (in_fnames[0]));
   in_fnames[num_in_fnames - 1] = filename;
 }
@@ -953,6 +955,9 @@ common_handle_option (size_t scode, const char *arg,
     case OPT_fdump_unnumbered:
       flag_dump_unnumbered = value;
       break;
+
+    case OPT_fserver:
+      server_mode = value;
 
     case OPT_feliminate_dwarf2_dups:
       flag_eliminate_dwarf2_dups = value;

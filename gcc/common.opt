@@ -299,6 +299,10 @@ fdump-unnumbered
 Common
 Suppress output of instruction numbers and line number notes in debugging dumps
 
+fserver
+Common
+Run compiler in server mode
+
 feliminate-dwarf2-dups
 Common
 Perform DWARF2 duplicate elimination
