@@ -841,10 +841,15 @@ ccp_fold (tree stmt)
   else
     return rhs;
 
-  /* If we got a simplified form and the type of the simplified form
-     is the same type as the original, then return the simplified form.  */
-  if (retval && TREE_TYPE (retval) == TREE_TYPE (rhs))
-    return retval;
+  /* If we got a simplified form, see if we need to convert its type.  */
+  if (retval)
+    {
+      if (TREE_TYPE (retval) != TREE_TYPE (rhs))
+	retval = convert (TREE_TYPE (rhs), retval);
+
+      if (TREE_TYPE (retval) == TREE_TYPE (rhs))
+	return retval;
+    }
 
   /* No simplification was possible.  */
   return rhs;
