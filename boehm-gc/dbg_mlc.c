@@ -15,6 +15,11 @@
 /* Boehm, October 9, 1995 1:16 pm PDT */
 # include "gc_priv.h"
 
+void GC_default_print_heap_obj_proc();
+GC_API void GC_register_finalizer_no_order
+    	GC_PROTO((GC_PTR obj, GC_finalization_proc fn, GC_PTR cd,
+		  GC_finalization_proc *ofn, GC_PTR *ocd));
+
 /* Do we want to and know how to save the call stack at the time of	*/
 /* an allocation?  How much space do we want to use in each object?	*/
 
@@ -80,16 +85,6 @@ ptr_t p;
     return(FALSE);
 }
 
-/* Return start of object that might have debugging info.  */
-ptr_t GC_debug_object_start(p)
-ptr_t p;
-{
-    register word * result = (word *)((oh *)p + 1);
-    if (! GC_has_debug_info(p))
-        return(p);
-    return((ptr_t)result);
-}
-
 /* Store debugging info into p.  Return displaced pointer. */
 /* Assumes we don't hold allocation lock.		   */
 ptr_t GC_store_debug_info(p, sz, string, integer)
@@ -115,7 +110,7 @@ word integer;
     return((ptr_t)result);
 }
 
-/* Check the object with debugging info at p 		*/
+/* Check the object with debugging info at ohdr		*/
 /* return NIL if it's OK.  Else return clobbered	*/
 /* address.						*/
 ptr_t GC_check_annotated_obj(ohdr)
@@ -144,7 +139,7 @@ ptr_t p;
 {
     register oh * ohdr = (oh *)GC_base(p);
     
-    GC_err_printf1("0x%lx (", (unsigned long)ohdr + sizeof(oh));
+    GC_err_printf1("0x%lx (", ((unsigned long)ohdr + sizeof(oh)));
     GC_err_puts(ohdr -> oh_string);
     GC_err_printf2(":%ld, sz=%ld)\n", (unsigned long)(ohdr -> oh_int),
         			      (unsigned long)(ohdr -> oh_sz));
@@ -171,7 +166,7 @@ ptr_t p, clobbered_addr;
     if (clobbered_addr <= (ptr_t)(&(ohdr -> oh_sz))
         || ohdr -> oh_string == 0) {
         GC_err_printf1("<smashed>, appr. sz = %ld)\n",
-        	       GC_size((ptr_t)ohdr) - DEBUG_BYTES);
+        	       (GC_size((ptr_t)ohdr) - DEBUG_BYTES));
     } else {
         if (ohdr -> oh_string[0] == '\0') {
             GC_err_puts("EMPTY(smashed?)");
@@ -226,35 +221,6 @@ void GC_start_debugging()
 # endif
 {
     GC_PTR result = GC_malloc(lb + DEBUG_BYTES);
-    
-    if (result == 0) {
-        GC_err_printf1("GC_debug_malloc(%ld) returning NIL (",
-        	       (unsigned long) lb);
-        GC_err_puts(s);
-        GC_err_printf1(":%ld)\n", (unsigned long)i);
-        return(0);
-    }
-    if (!GC_debugging_started) {
-    	GC_start_debugging();
-    }
-    ADD_CALL_CHAIN(result, ra);
-    return (GC_store_debug_info(result, (word)lb, s, (word)i));
-}
-
-# ifdef __STDC__
-    GC_PTR GC_debug_generic_malloc(size_t lb, int k, EXTRA_ARGS)
-# else
-    GC_PTR GC_debug_malloc(lb, k, s, i)
-    size_t lb;
-    int k;
-    char * s;
-    int i;
-#   ifdef GC_ADD_CALLER
-	--> GC_ADD_CALLER not implemented for K&R C
-#   endif
-# endif
-{
-    GC_PTR result = GC_generic_malloc(lb + DEBUG_BYTES, k);
     
     if (result == 0) {
         GC_err_printf1("GC_debug_malloc(%ld) returning NIL (",
@@ -442,7 +408,7 @@ GC_PTR p;
             GC_err_printf0(
                   "GC_debug_free: found previously deallocated (?) object at ");
         } else {
-            GC_err_printf0("GC_debug_free: found smashed object at ");
+            GC_err_printf0("GC_debug_free: found smashed location at ");
         }
         GC_print_smashed_obj(p, clobbered);
       }
@@ -525,7 +491,7 @@ GC_PTR p;
     }
     clobbered = GC_check_annotated_obj((oh *)base);
     if (clobbered != 0) {
-        GC_err_printf0("GC_debug_realloc: found smashed object at ");
+        GC_err_printf0("GC_debug_realloc: found smashed location at ");
         GC_print_smashed_obj(p, clobbered);
     }
     old_sz = ((oh *)base) -> oh_sz;
@@ -562,7 +528,7 @@ word dummy;
 	        
 	        if (clobbered != 0) {
 	            GC_err_printf0(
-	                "GC_check_heap_block: found smashed object at ");
+	                "GC_check_heap_block: found smashed location at ");
         	    GC_print_smashed_obj((ptr_t)p, clobbered);
 	        }
 	    }
@@ -643,6 +609,31 @@ struct closure {
 }
 
 # ifdef __STDC__
+    void GC_debug_register_finalizer_no_order
+    				    (GC_PTR obj, GC_finalization_proc fn,
+    				     GC_PTR cd, GC_finalization_proc *ofn,
+				     GC_PTR *ocd)
+# else
+    void GC_debug_register_finalizer_no_order
+    				    (obj, fn, cd, ofn, ocd)
+    GC_PTR obj;
+    GC_finalization_proc fn;
+    GC_PTR cd;
+    GC_finalization_proc *ofn;
+    GC_PTR *ocd;
+# endif
+{
+    ptr_t base = GC_base(obj);
+    if (0 == base || (ptr_t)obj - base != sizeof(oh)) {
+        GC_err_printf1(
+	  "GC_register_finalizer_no_order called with non-base-pointer 0x%lx\n",
+	  obj);
+    }
+    GC_register_finalizer_no_order(base, GC_debug_invoke_finalizer,
+     			  	      GC_make_closure(fn,cd), ofn, ocd);
+ }
+
+# ifdef __STDC__
     void GC_debug_register_finalizer_ignore_self
     				    (GC_PTR obj, GC_finalization_proc fn,
     				     GC_PTR cd, GC_finalization_proc *ofn,
@@ -664,30 +655,5 @@ struct closure {
 	    obj);
     }
     GC_register_finalizer_ignore_self(base, GC_debug_invoke_finalizer,
-    			  	      GC_make_closure(fn,cd), ofn, ocd);
-}
-
-# ifdef __STDC__
-    void GC_debug_register_finalizer_no_order
-    				    (GC_PTR obj, GC_finalization_proc fn,
-    				     GC_PTR cd, GC_finalization_proc *ofn,
-				     GC_PTR *ocd)
-# else
-    void GC_debug_register_finalizer_no_order
-    				    (obj, fn, cd, ofn, ocd)
-    GC_PTR obj;
-    GC_finalization_proc fn;
-    GC_PTR cd;
-    GC_finalization_proc *ofn;
-    GC_PTR *ocd;
-# endif
-{
-    ptr_t base = GC_base(obj);
-    if (0 == base || (ptr_t)obj - base != sizeof(oh)) {
-        GC_err_printf1(
-	    "GC_register_finalizer_no_order called with non-base-pointer 0x%lx\n",
-	    obj);
-    }
-    GC_register_finalizer_no_order(base, GC_debug_invoke_finalizer,
     			  	      GC_make_closure(fn,cd), ofn, ocd);
 }
