@@ -2747,7 +2747,17 @@ builtin_function (const char *name, tree type, int function_code,
 
   /* Builtins in the implementation namespace are made visible without
      needing to be explicitly declared.  See push_file_scope.  */
-  if (name[0] == '_' && (name[1] == '_' || ISUPPER (name[1])))
+  /* APPLE LOCAL begin AltiVec */
+  if ((name[0] == '_' && (name[1] == '_' || ISUPPER (name[1])))
+#ifdef TARGET_POWERPC
+      /* AltiVec PIM builtins, even though they do not begin with
+	 underscores, need not be declared either.  */
+      || (cl == BUILT_IN_MD
+	  && function_code >= ALTIVEC_PIM__FIRST
+	  && function_code <= ALTIVEC_PIM__LAST)
+#endif /* TARGET_POWERPC */
+      )
+  /* APPLE LOCAL end AltiVec */
     {
       TREE_CHAIN (decl) = visible_builtins;
       visible_builtins = decl;

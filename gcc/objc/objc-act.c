@@ -3725,7 +3725,9 @@ objc_method_parm_type (tree type)
   type = TREE_VALUE (TREE_TYPE (type));
   if (TREE_CODE (type) == TYPE_DECL)
     type = TREE_TYPE (type);
-  return TYPE_MAIN_VARIANT (type);
+
+  /* APPLE LOCAL Objective-C */
+  return type;
 }
 
 static int
@@ -7371,12 +7373,15 @@ encode_aggregate_within (tree type, int curtype, int format, int left,
   tree name;
   /* NB: aggregates that are pointed to have slightly different encoding
      rules in that you never encode the names of instance variables.  */
-  int pointed_to
-   = (obstack_object_size (&util_obstack) > 0
-      && *(obstack_next_free (&util_obstack) - 1) == '^');
+  /* APPLE LOCAL begin Objective-C */
+  int ob_size = obstack_object_size (&util_obstack);
+  char c1 = ob_size > 1 ? *(obstack_next_free (&util_obstack) - 2) : 0;
+  char c0 = ob_size > 0 ? *(obstack_next_free (&util_obstack) - 1) : 0;
+  int pointed_to = (c0 == '^' || (c1 == '^' && c0 == 'r'));
   int inline_contents
    = ((format == OBJC_ENCODE_INLINE_DEFS || generating_instance_variables)
-      && (!pointed_to || obstack_object_size (&util_obstack) - curtype == 1));
+      && (!pointed_to || ob_size - curtype == (c1 == 'r' ? 2 : 1)));
+  /* APPLE LOCAL end Objective-C */
 
   /* Traverse struct aliases; it is important to get the
      original struct and its tag name (if any).  */

@@ -1,3 +1,11 @@
+2005-01-06  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3925982
+	* objc-act.c (objc_method_parm_type): Return the type found
+	rather than its main variant.
+	(encode_aggregate_within): Streamline util_obstack accesses;
+	allow for records and/or pointers thereto to be const-qualified.
+
 2005-01-03  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 3926282 (PR objc/18971)

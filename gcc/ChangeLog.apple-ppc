@@ -1,3 +1,22 @@
+2005-01-06  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3926755
+	* c-decl.c (builtin_function): Do not require AltiVec
+	builtins to be explicitly declared.
+	* config/rs6000/rs6000.c (altivec_cov_rt_1h): New function.
+	(pim_flags): Add pim_rt_1h enumeration constant; renumber
+	all pim_rt_... constants.
+	(rs6000_fold_builtin): Select overload candidate before
+	determining return type; call altivec_cov_rt_1h() during
+	latter.
+	(altivec_init_builtins): Create builtins corresponding
+	to "specific operations" listed in AltiVec PIM; fix
+	entry for "vec_re" to return a 'vector float'; fix
+	entries for "vec_pack" to compute return vector type
+	as having twice as many elements as the first argument.
+	* config/rs6000/rs6000.h (rs6000_builtins): Add enumeration
+	constants corresponding to AltiVec PIM "specific operations".
+
 2005-01-06  Stan Shebs  <shebs@apple.com>
 
        * config/rs6000/rs6000.c (rs6000_emit_prologue): Don't skip

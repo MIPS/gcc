@@ -1,3 +1,17 @@
+2005-01-06  Ziemowit Laski  <zlaski@apple.com>
+
+        Radar 3925982
+	* obj-c++.dg/encode-1.mm: New.
+	* objc.dg/encode-6.m: New.
+
+2005-01-06  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3926755
+	* g++.dg/ext/apple-altivec-1.C: New.
+	* g++.dg/ext/apple-altivec-2.C: New.
+	* gcc.apple/apple-altivec-12.c: New.
+	* gcc.apple/apple-altivec-13.c: New.
+
 2005-01-06  Devang Patel  <dpatel@apple.com>
 
 	Radar 3941766
@@ -9,7 +23,6 @@
 	Radar 3934803
 	PR c++/18369
 	* g++.dg/init/new12.C: New test.
-
 
 2005-01-03  Alexander Malmberg  <alexander@malmberg.org>
 	    Ziemowit Laski  <zlaski@apple.com>
