@@ -1,3 +1,20 @@
+2003-09-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/ia64/libgcc-ia64.ver: Export _Unwind_GetBSP@@GCC_3.3.2.
+	* config/ia64/unwind-ia64.c (_Unwind_GetBSP): New function.
+	* unwind.h (_Unwind_GetBSP): New prototype.
+	* libgcc-std.ver: Add empty GCC_3.3.2 version.
+	* mkmap-symver.awk: For symbol versions with no exported symbols,
+	don't put anything into version script, just change all symbol
+	versions which inherit from it to inherit from its ancestor.
+
+2002-11-27  Richard Henderson  <rth@redhat.com>
+
+	* mkmap-symver.awk (BEGIN): Set sawsymbol false.
+	(nm && NF == 3): Set sawsymbol true.
+	(END): Exit if no symbols seen.
+	(output): Fix map syntax error if no globals for the version.
+
 2003-06-26  H.J. Lu <hongjiu.lu@intel.com>
 
 	* config.gcc (extra_headers): Add pmmintrin.h for i[34567]86-*-*.
