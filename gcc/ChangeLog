@@ -1,3 +1,9 @@
+2001-09-27  David S. Miller  <davem@redhat.com>
+
+	* config/sparc/sparc.md (cycle_display): New pattern.
+	* config/sparc/sparc.c (sparc_cycle_display): New.
+	(TARGET_SCHED_CYCLE_DISPLAY): Set it.
+
 2001-09-25  David S. Miller  <davem@redhat.com>
 
 	Convert all of Sparc scheduling to DFA
