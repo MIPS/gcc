@@ -3058,6 +3058,11 @@ scev_reset (void)
   unsigned i;
   struct loop *loop;
 
+  /* APPLE LOCAL begin AV -dpatel  */
+  if (!current_loops || !scalar_evolution_info)
+   return;
+  /* APPLE LOCAL end AV -dpatel  */
+
   htab_empty (scalar_evolution_info);
   for (i = 1; i < current_loops->num; i++)
     {

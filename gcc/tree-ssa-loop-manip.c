@@ -35,6 +35,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "cfgloop.h"
 #include "tree-pass.h"
 #include "cfglayout.h"
+/* APPLE LOCAL AV -dpatel  */
+#include "tree-scalar-evolution.h"
 
 static basic_block lv_adjust_loop_entry_edge (basic_block, basic_block, edge, 
 					      tree); 
@@ -428,6 +430,8 @@ tree_duplicate_loop_to_header_edge (struct loop *loop, edge e,
   verify_loop_closed_ssa ();
 #endif
 
+  /* APPLE LOCAL AV -dpatel  */
+  scev_reset ();
   return true;
 }
 

@@ -283,11 +283,11 @@ replace_phi_with_cond_modify_expr (tree phi)
   rhs = build (COND_EXPR, TREE_TYPE (PHI_RESULT (phi)),
 	       unshare_expr (cond), unshare_expr (arg_0),
 	       unshare_expr (arg_1));
-  
+
   /* Create new MODIFY expresstion using RHS.  */
   new_stmt = build (MODIFY_EXPR, TREE_TYPE (PHI_RESULT (phi)),
 		    unshare_expr (PHI_RESULT (phi)), rhs);
-  
+
   /* Make new statement definition of the original phi result.  */
   SSA_NAME_DEF_STMT (PHI_RESULT (phi)) = new_stmt;
 
@@ -307,7 +307,6 @@ replace_phi_with_cond_modify_expr (tree phi)
     }
   else
     modify_stmt (new_stmt);
-
 }
 
 /* if-convert stmt T */
@@ -686,9 +685,10 @@ collapse_blocks (struct loop *loop, basic_block *bbs)
 	{
 	  tree next = TREE_CHAIN (phi);
 	  replace_phi_with_cond_modify_expr (phi);
-	  remove_phi_node (phi, NULL_TREE, bb);
+	  release_phi_node (phi);
 	  phi = next;
 	}
+      bb_ann (bb)->phi_nodes = NULL;
     }
 
 
