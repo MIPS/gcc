@@ -1,3 +1,9 @@
+2005-02-02  Jan Hubicka  <jh@suse.cz>
+
+	* opts.c (flag_inline_functions_set): New static variable.
+	(common_handle_option): set it; enable inlinining and value profiling
+	with -fprofile-use.
+
 2005-01-27  Daniel Berlin  <dberlin@dberlin.org>
 
 	* c-typeck.c (build_unary_op): It's not the symbol that is addressable
