@@ -1,0 +1,13 @@
+2004-03-08  Matt Austern  <austern@apple.com>
+        * ChangeLog.stree: New.
+	* Makefile.in: Add stree.[ch] to the build.
+	* stree.c: New.
+	* stree.h: New.
+	
+
+Local Variables:
+mode: change-log
+left-margin: 8
+fill-column: 76
+change-log-default-name: "ChangeLog.stree"
+End:

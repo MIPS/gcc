@@ -582,7 +582,9 @@ poplevel (int keep, int reverse, int functionbody)
 	       keep the binding of the inner `i' in this case.  */
 	    pop_binding (DECL_NAME (link), link);
 	  else if ((outer_binding
-		    && (TREE_CODE (outer_binding->value) == TYPE_DECL))
+		    && (TREE_CODE (binding_value_tree (DECL_NAME (link),
+						       outer_binding)) 
+			== TYPE_DECL))
 		   || (ns_binding && TREE_CODE (ns_binding) == TYPE_DECL))
 	    /* Here, we have something like:
 
@@ -603,8 +605,9 @@ poplevel (int keep, int reverse, int functionbody)
 
 	      /* Keep track of what should have happened when we
 		 popped the binding.  */
-	      if (outer_binding && outer_binding->value)
-		DECL_SHADOWED_FOR_VAR (link) = outer_binding->value;
+	      if (outer_binding && binding_value_tree (DECL_NAME (link),
+						       outer_binding))
+		DECL_SHADOWED_FOR_VAR (link) = outer_binding->value.t;
 
 	      /* Add it to the list of dead variables in the next
 		 outermost binding to that we can remove these when we
@@ -9683,6 +9686,19 @@ xref_basetypes (tree ref, tree base_list)
 }
 
 
+/* The C++ standard doesn't permit you to define any other types while
+   an enum definition is in progress, so it's safe to have these just
+   be static variables.  */
+
+/* The enum type that is currently being built.  */
+static struct {
+  tree current_type;
+  tree last_value;
+  tree max_value;
+  tree min_value;
+} enum_data;
+
+
 /* Begin compiling the definition of an enumeration type.
    NAME is its name (or null if anonymous).
    Returns the type object, as yet incomplete.
@@ -9715,6 +9731,11 @@ start_enum (tree name)
       pushtag (name, enumtype, 0);
     }
 
+  enum_data.current_type = enumtype;
+  enum_data.last_value = NULL_TREE;
+  enum_data.max_value = NULL_TREE;
+  enum_data.min_value = NULL_TREE;
+
   return enumtype;
 }
 
@@ -9728,8 +9749,6 @@ finish_enum (tree enumtype)
   tree values;
   tree decl;
   tree value;
-  tree minnode;
-  tree maxnode;
   tree t;
   bool unsignedp;
   int lowprec;
@@ -9737,6 +9756,8 @@ finish_enum (tree enumtype)
   int precision;
   integer_type_kind itk;
   tree underlying_type = NULL_TREE;
+
+  enum_data.current_type = NULL;
 
   /* We built up the VALUES in reverse order.  */
   TYPE_VALUES (enumtype) = nreverse (TYPE_VALUES (enumtype));
@@ -9756,59 +9777,20 @@ finish_enum (tree enumtype)
       return;
     }
 
-  /* Determine the minimum and maximum values of the enumerators.  */
-  if (TYPE_VALUES (enumtype))
-    {
-      minnode = maxnode = NULL_TREE;
-
-      for (values = TYPE_VALUES (enumtype); 
-	   values; 
-	   values = TREE_CHAIN (values))
-	{
-	  decl = TREE_VALUE (values);
-
-	  /* [dcl.enum]: Following the closing brace of an enum-specifier,
-	     each enumerator has the type of its enumeration.  Prior to the
-	     closing brace, the type of each enumerator is the type of its
-	     initializing value.  */
-	  TREE_TYPE (decl) = enumtype;
-
-	  /* Update the minimum and maximum values, if appropriate.  */
-	  value = DECL_INITIAL (decl);
-	  /* Figure out what the minimum and maximum values of the
-	     enumerators are.  */
-	  if (!minnode)
-	    minnode = maxnode = value;
-	  else if (tree_int_cst_lt (maxnode, value))
-	    maxnode = value;
-	  else if (tree_int_cst_lt (value, minnode))
-	    minnode = value;
-
-	  /* Set the TREE_TYPE for the values as well.  That's so that when
-	     we call decl_constant_value we get an entity of the right type
-	     (but with the constant value).  But first make a copy so we
-	     don't clobber shared INTEGER_CSTs.  */
-	  if (TREE_TYPE (value) != enumtype)
-	    {
-	      value = DECL_INITIAL (decl) = copy_node (value);
-	      TREE_TYPE (value) = enumtype;
-	    }
-	}
-    }
-  else
-    /* [dcl.enum]
-
-       If the enumerator-list is empty, the underlying type is as if
-       the enumeration had a single enumerator with value 0.  */
-    minnode = maxnode = integer_zero_node;
+  /* [dcl.enum]
+     
+     If the enumerator-list is empty, the underlying type is as if
+     the enumeration had a single enumerator with value 0.  */
+  if (!enum_data.last_value)
+    enum_data.max_value = enum_data.min_value = integer_zero_node;
 
   /* Compute the number of bits require to represent all values of the
-     enumeration.  We must do this before the type of MINNODE and
-     MAXNODE are transformed, since min_precision relies on the
+     enumeration.  We must do this before the type of ENUM_DATA.MIN_VALUE and
+     ENUM_DATA.MAX_VALUE are transformed, since min_precision relies on the
      TREE_TYPE of the value it is passed.  */
-  unsignedp = tree_int_cst_sgn (minnode) >= 0;
-  lowprec = min_precision (minnode, unsignedp);
-  highprec = min_precision (maxnode, unsignedp);
+  unsignedp = tree_int_cst_sgn (enum_data.min_value) >= 0;
+  lowprec = min_precision (enum_data.min_value, unsignedp);
+  highprec = min_precision (enum_data.max_value, unsignedp);
   precision = MAX (lowprec, highprec);
 
   /* Determine the underlying type of the enumeration.
@@ -9871,15 +9853,37 @@ finish_enum (tree enumtype)
   TREE_UNSIGNED (enumtype) = TREE_UNSIGNED (underlying_type);
 
   /* Convert each of the enumerators to the type of the underlying
-     type of the enumeration.  */
+     type of the enumeration.  This might do nothing if all the
+     enumerators are being represented as s_trees.  */
   for (values = TYPE_VALUES (enumtype); values; values = TREE_CHAIN (values))
     {
       decl = TREE_VALUE (values);
-      value = perform_implicit_conversion (underlying_type,
-					   DECL_INITIAL (decl));
+      
+      if (TREE_CODE (decl) == CONST_DECL)
+	{
+	  /* [dcl.enum]: Following the closing brace of an enum-specifier,
+	     each enumerator has the type of its enumeration.  Prior to the
+	     closing brace, the type of each enumerator is the type of its
+	     initializing value.  */
+	  TREE_TYPE (decl) = enumtype;
+	  value = DECL_INITIAL (decl);
+	}
+      else
+	value = decl;
+      
+      /* Set the TREE_TYPE for the values as well.  That's so that when
+	 we call decl_constant_value we get an entity of the right type
+	 (but with the constant value).  But first make a copy so we
+	 don't clobber shared INTEGER_CSTs.  */
+      value = copy_node (value);
+      value = perform_implicit_conversion (underlying_type, value);
       TREE_TYPE (value) = enumtype;
-      DECL_INITIAL (decl) = value;
-      TREE_VALUE (values) = value;
+     
+      if (TREE_CODE (decl) == CONST_DECL)
+	{
+	  DECL_INITIAL (decl) = value;
+	  TREE_VALUE (values) = value;
+	}
     }
 
   /* Fix up all variant types of this enum type.  */
@@ -9899,6 +9903,73 @@ finish_enum (tree enumtype)
 
   /* Finish debugging output for this type.  */
   rest_of_type_compilation (enumtype, namespace_bindings_p ());
+}
+
+enum cp_stree {
+  STREE_ENUM_CONSTANT = 1
+};
+
+tree
+s_tree_to_tree (tree name, s_tree_i s)
+{
+  s_tree_iter si;
+  
+  get_s_tree_iter (&si, s);
+
+  switch ((enum cp_stree) sti_uchar (&si))
+    {
+    case STREE_ENUM_CONSTANT:
+      {
+	tree enumtype;
+	tree value;
+
+	enumtype = sti_tree (&si);
+	value = sti_const_int_tree (&si);
+	if (enumtype == enum_data.current_type)
+	  {
+	    tree decl;
+	    tree context;
+	    tree li;
+	    
+	    context = current_scope ();
+	    if (!context)
+	      context = current_namespace;
+
+	    decl = build_decl (CONST_DECL, name, enumtype);
+	    DECL_CONTEXT (decl) = FROB_CONTEXT (context);
+	    TREE_CONSTANT (decl) = TREE_READONLY (decl) = 1;
+	    DECL_INITIAL (decl) = value;
+
+	    for (li = TYPE_VALUES (enumtype); li; li = TREE_CHAIN (li))
+	      if (TREE_CODE (TREE_VALUE (li)) != CONST_DECL
+		  && tree_int_cst_equal (TREE_VALUE (li), value))
+		{
+		  TREE_VALUE (li) = decl;
+		  return decl;
+		}
+	    abort ();
+	  }
+	else
+	  {
+	    tree value_type;
+	    tree decl;
+	    
+	    value_type = TREE_TYPE (TREE_VALUE (TYPE_VALUES (enumtype)));
+	    value = copy_node (value);
+	    TREE_TYPE (value) = enumtype;
+
+	    decl = build_decl (CONST_DECL, name, enumtype);
+	    DECL_CONTEXT (decl) = FROB_CONTEXT (TYPE_CONTEXT (enumtype));
+	    TREE_CONSTANT (decl) = TREE_READONLY (decl) = 1;
+	    DECL_INITIAL (decl) = value;
+	    return decl;
+	  }
+      }
+      break;
+
+    default:
+      abort ();
+    }
 }
 
 /* Build and install a CONST_DECL for an enumeration constant of the
@@ -9938,18 +10009,14 @@ build_enumerator (tree name, tree value, tree enumtype)
       /* Default based on previous value.  */
       if (value == NULL_TREE)
 	{
-	  tree prev_value;
-
-	  if (TYPE_VALUES (enumtype))
+	  if (enum_data.last_value)
 	    {
-	      /* The next value is the previous value ...  */
-	      prev_value = DECL_INITIAL (TREE_VALUE (TYPE_VALUES (enumtype)));
-	      /* ... plus one.  */
+	      /* The next value is the previous value plus one.  */
 	      value = cp_build_binary_op (PLUS_EXPR,
-					  prev_value,
+					  enum_data.last_value,
 					  integer_one_node);
 
-	      if (tree_int_cst_lt (value, prev_value))
+	      if (tree_int_cst_lt (value, enum_data.last_value))
 		error ("overflow in enumeration values at `%D'", name);
 	    }
 	  else
@@ -9958,12 +10025,36 @@ build_enumerator (tree name, tree value, tree enumtype)
 
       /* Remove no-op casts from the value.  */
       STRIP_TYPE_NOPS (value);
+
+      /* Update the value information.  */
+      if (!enum_data.last_value)
+	enum_data.max_value = enum_data.min_value = value;
+      else if (tree_int_cst_lt (enum_data.max_value, value))
+	enum_data.max_value = value;
+      else if (tree_int_cst_lt (value, enum_data.min_value))
+	enum_data.min_value = value;
+      enum_data.last_value = value;
     }
 
   /* C++ associates enums with global, function, or class declarations.  */
   context = current_scope ();
   if (!context)
     context = current_namespace;
+  
+  /* If this code can handle it, build a s-tree.  */
+  if (!processing_template_decl && (!context || context != current_class_type))
+    {
+      s_tree_i s;
+      
+      s = build_s_tree (STREE_ENUM_CONSTANT, ST_TREE, enumtype,
+			ST_TREE_INT, value, ST_LAST);
+
+      /* Add this enumeration constant to the list for this type.  */
+      TYPE_VALUES (enumtype) = tree_cons (name, value, TYPE_VALUES (enumtype));
+
+      push_s_decl (name, s);
+      return;
+    }
 
   /* Build the actual enumeration constant.  Note that the enumeration
     constants have the type of their initializers until the

@@ -23,6 +23,7 @@ Boston, MA 02111-1307, USA.  */
 #define GCC_CP_NAME_LOOKUP_H
 
 #include "c-common.h"
+#include "stree.h"
 
 /* The type of dictionary used to map names to types declared at
    a given scope.  */
@@ -75,7 +76,7 @@ struct cxx_binding GTY(())
   /* Link to chain together various bindings for this name.  */
   cxx_binding *previous;
   /* The non-type entity this name is bound to.  */
-  tree value;
+  struct s_tree_i_or_tree value;
   /* The type entity this name is bound to.  */
   tree type;
   /* The scope at which this binding was made.  */
@@ -276,6 +277,7 @@ extern void push_nested_namespace (tree);
 extern void pop_nested_namespace (tree);
 extern void pushlevel_class (void);
 extern void poplevel_class (void);
+extern void push_s_decl (tree name, s_tree_i s);
 extern tree pushdecl_with_scope (tree, cxx_scope *);
 extern tree lookup_tag (enum tree_code, tree, cxx_scope *, int);
 extern tree lookup_tag_reverse (tree, tree);
@@ -330,6 +332,16 @@ is_typename_at_global_scope (tree id)
   tree global_value = namespace_binding (id, global_namespace);
 
   return global_value && TREE_CODE (global_value) == TYPE_DECL;
+}
+
+/* Return the tree for BINDING->VALUE.  As a side effect,
+   BINDING->VALUE.T will hold that tree.  */
+static inline tree
+binding_value_tree (tree name, cxx_binding *binding)
+{
+  if (!binding->value.t && binding->value.st)
+    binding->value.t = s_tree_to_tree (name, binding->value.st);
+  return binding->value.t;
 }
 
 #endif /* GCC_CP_NAME_LOOKUP_H */

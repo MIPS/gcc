@@ -1,0 +1,49 @@
+2004-03-08  Matt Austern  <austern@apple.com>
+
+	* ChangeLog.stree: New.
+	* cp-tree.h (IDENTIFIER_VALUE): Go through binding_value_tree
+	instead of using value field directly.
+	* decl.c (poplevel): Fix handling of shadowed declarations.
+	(enum_data): New static variable, enumeration currently being built.
+	(start_enum): Initialize enum_data.
+	(finish_enum): Use enum_data for computing the underlying type.
+	(s_tree_to_tree): New function.
+	(build_enumerator): Update enum_data.  For simple cases build an
+	s-tree instead of a full tree decl.
+	* name-lookup.h (cxx_binding): Change value field to be an
+	s_tree_i_or_tree tagged union.
+	(binding_value_tree): Return tree version of value field, creating
+	it from an stree if necessary.
+	(push_s_decl): New.  Similar to pushdecl, but for stree decls.
+	Fall back to pushdecl in complicated cases.
+	* name-lookup.c (cxx_binding_make): Take account of the fact that
+	value field is no longer a simple tree pointer.
+	(pop_binding): Ditto.
+	(supplement_binding): Ditto.
+	(push_local_binding): Ditto.
+	(maybe_inject_for_scope_var): Ditto.
+	(set_identifier_type_value_with_scope): Ditto.
+	(push_overloaded_decl): Ditto.
+	(do_nonmember_using_decl): Ditto.
+	(lookup_tag): Ditto.
+	(poplevel_class): Ditto.
+	(push_class_binding): Ditto.
+	(push_class_binding): Ditto.
+	(push_class_level_binding): Ditto.
+	(namespace_binding): Ditto.
+	(set_namespace_binding): Ditto.
+	(do_toplevel_using_decl): Ditto.
+	(ambiguous_decl): Ditto.
+	(lookup_namespace_name): Ditto.
+	(unqualified_namespace_lookup): Ditto.
+	(lookup_qualified_name): Ditto.	
+	(qualified_lookup_using_namespace): Ditto.
+	(lookup_name_real): Ditto.
+	
+
+Local Variables:
+mode: change-log
+left-margin: 8
+fill-column: 76
+change-log-default-name: "ChangeLog.stree"
+End:
