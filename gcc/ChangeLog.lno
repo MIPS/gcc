@@ -1,3 +1,12 @@
+2004-02-20  Devang Patel  <dpatel@apple.com>
+
+	* tree-data-ref.h (data_dependence_direction): Add new member 
+	dir_independent.
+        * tree-dg.h (tree-data-ref.h): Include.
+        (ddg_direction_between_stmts, ddg_distance_between_stmts): New decls.
+        * tree-dg.c (find_ddr_between_stmts, ddg_direction_between_stmts,
+        ddg_distance_between_stmts): New functions.
+
 2004-02-19  Devang Patel  <dpatel@apple.com>
 
 	* tree-dg.c (dg_delete_edges, dg_delete_node, dg_delete_graph,

@@ -64,6 +64,7 @@ static bool gate_ddg (void);
 static void dump_dg (FILE *, int);
 static void dg_delete_edges (void);
 static void dg_delete_node (dependence_node);
+static struct data_dependence_relation * find_ddr_between_stmts (tree, tree);
 
 /* Initial dependence graph capacity.  */
 static int dependence_graph_size = 25;
@@ -424,6 +425,88 @@ set_dg_node_for_stmt (tree t, dependence_node dg_node)
 
   ann->dg_node = dg_node;
 }
+
+/*---------------------------------------------------------------------------
+                         Dependence Info Access 
+---------------------------------------------------------------------------*/
+
+/* Find data dependence relation between two statements.  If there is no
+   relation between two statements then return NULL. */
+
+static struct data_dependence_relation * 
+find_ddr_between_stmts (tree stmt1, tree stmt2)
+{
+  dependence_edge e = NULL;
+  dependence_node n1 = NULL;
+  dependence_node n2 = NULL;
+
+
+#ifdef ENABLE_CHECKING
+  if (!stmt1 || !stmt2)
+    abort ();
+#endif
+  
+  /* First find nodes for the statements.  */
+  n1 = dg_node_for_stmt (stmt1);
+  n2 = dg_node_for_stmt (stmt2);
+
+  /* If associated dependence node does not exist then this
+     two statements are independent.  */
+  if (!n1 || !n2)
+    return NULL;
+
+  /* Find edge between these two statements.  */
+  e = dg_find_edge (n1, n2, false /* Do not create new edge */);
+
+  /* Absence of edge indicates that this two statements are independent.  */
+  if (!e)
+    return NULL;
+
+  return e->ddr;
+
+}
+
+/* Find data dependence direction between two statements.  */
+
+enum data_dependence_direction
+ddg_direction_between_stmts (tree stmt1, tree stmt2, int loop_num)
+{
+  struct subscript *sub = NULL;
+  struct data_dependence_relation *ddr = find_ddr_between_stmts (stmt1, stmt2);
+
+  /* If there is no relation then statements are independent.  */
+  if (!ddr)
+    return dir_independent;
+
+  /* Get subscript info.  */
+  sub = DDR_SUBSCRIPT (ddr, loop_num);  
+  if (!sub)
+    abort ();
+
+  return SUB_DIRECTION (sub);
+}
+
+/* Find data dependence distance between two statements.  */
+
+tree
+ddg_distance_between_stmts (tree stmt1, tree stmt2, int loop_num)
+{
+  struct subscript *sub = NULL;
+  struct data_dependence_relation *ddr = find_ddr_between_stmts (stmt1, stmt2);
+
+  /* If there is no relation then statements are independent.  */
+  if (!ddr)
+    return NULL_TREE;
+
+  /* Get subscript info.  */
+  sub = DDR_SUBSCRIPT (ddr, loop_num);  
+  if (!sub)
+    abort ();
+
+  return SUB_DISTANCE (sub);
+}
+
+
 
 /*---------------------------------------------------------------------------
                          Pass management

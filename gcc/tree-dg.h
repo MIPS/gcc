@@ -22,6 +22,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #ifndef GCC_TREE_SSA_DG_H
 #define GCC_TREE_SSA_DG_H
 
+#include "tree-data-ref.h"
+
 struct dependence_edge_def GTY (())
 {
   /* Dependence relation */
@@ -75,4 +77,11 @@ void dg_delete_edge (dependence_edge);
 
 /* Debug dependence graph.  */
 extern void debug_dg (int);
+
+/* Find data dependence direction between two statements.  */
+enum data_dependence_direction ddg_direction_between_stmts (tree, tree, int);
+
+/* Find data dependence distance between two statements.  */
+tree ddg_distance_between_stmts (tree, tree, int);
+
 #endif

@@ -55,7 +55,8 @@ enum data_dependence_direction {
   dir_positive_or_negative,
   dir_positive_or_equal,
   dir_negative_or_equal,
-  dir_star
+  dir_star,
+  dir_independent
 };
 
 /* What is a subscript?  Given two array accesses a subscript is the
