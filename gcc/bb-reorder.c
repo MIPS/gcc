@@ -351,7 +351,7 @@ find_traces_1_round (branch_th, exec_th, count_th, traces, n_traces, round,
 			{
 			  fprintf (rtl_dump_file,
 				   "Changing key for bb %d from %ld to %ld.\n",
-				   bb->index, (long) bb_node[bb_index]->key,
+				   bb_index, (long) bb_node[bb_index]->key,
 				   key);
 			}
 		      fibheap_replace_key (bb_heap[bb_index],

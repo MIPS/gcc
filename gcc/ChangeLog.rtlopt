@@ -1,3 +1,7 @@
+Mon Nov 25 18:54:17 CET 2002  Josef Zlomek <zlomj9am@artax.karlin.mff.cuni.cz>
+
+	* bb-reorder.c (find_traces_1_round): Fix debug prints.
+
 Mon Nov 25 19:44:49 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	Merge from mainline (rtlopt-merge-20022511 tag)
