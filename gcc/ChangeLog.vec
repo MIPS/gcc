@@ -1,5 +1,11 @@
 2004-07-22  Ben Elliston  <bje@au.ibm.com>
 
+	* ifcvt.c (find_if_block): Check else_succ edge count.
+	* gcse.c (remove_reachable_equiv_notes): Assign NULL to `act' if
+	the iterator overruns the end of the vector.
+
+2004-07-22  Ben Elliston  <bje@au.ibm.com>
+
 	* except.c (connect_post_landing_pads): Use EDGE_COUNT.
 	* ifcvt.c (find_if_case_2): Only access edge 0 if the edge count
 	is non-zero.

@@ -2591,9 +2591,9 @@ find_if_block (struct ce_if_block * ce_info)
   /* If the THEN and ELSE block meet in a subsequent block, and the ELSE
      has exactly one predecessor and one successor, and the outgoing edge
      is not complex, then we have an IF-THEN-ELSE combo.  */
-  else if (EDGE_0 (then_succ)->dest == EDGE_0 (else_succ)->dest
+  else if (EDGE_COUNT (else_succ) == 1
+	   && EDGE_0 (then_succ)->dest == EDGE_0 (else_succ)->dest
 	   && EDGE_COUNT (else_bb->pred) == 1
-	   && EDGE_COUNT (else_bb->succ) == 1
 	   && ! (EDGE_0 (else_succ)->flags & EDGE_COMPLEX)
 	   && ! (flow2_completed && tablejump_p (BB_END (else_bb), NULL, NULL)))
     join_bb = EDGE_0 (else_succ)->dest;

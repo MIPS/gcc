@@ -6650,7 +6650,7 @@ remove_reachable_equiv_notes (basic_block bb, struct ls_expr *smexpr)
   unsigned ix = 0;
 
   sbitmap_zero (visited);
-  act = EDGE_0 (bb->succ);
+  act = (EDGE_COUNT (bb->succ) > 0) ? EDGE_0 (bb->succ) : NULL;
 
   while (1)
     {
@@ -6669,7 +6669,8 @@ remove_reachable_equiv_notes (basic_block bb, struct ls_expr *smexpr)
       if (bb == EXIT_BLOCK_PTR
 	  || TEST_BIT (visited, bb->index))
 	{
-	  act = *VEC_index (edge, bb->succ, ++ix);
+	  ix++;
+	  act = (ix >= EDGE_COUNT (bb->succ)) ? NULL : EDGE_I (bb->succ, ix);
 	  continue;
 	}
       SET_BIT (visited, bb->index);
@@ -6697,11 +6698,13 @@ remove_reachable_equiv_notes (basic_block bb, struct ls_expr *smexpr)
 		       INSN_UID (insn));
 	    remove_note (insn, note);
 	  }
-      act = *VEC_index (edge, bb->succ, ++ix);
-      if (EDGE_0 (bb->succ))
+      ix++;
+      act = (ix >= EDGE_COUNT (bb->succ)) ? NULL : EDGE_I (bb->succ, ix);
+      if (EDGE_COUNT (bb->succ) > 0)
 	{
 	  if (act)
 	    stack[stack_top++] = act;
+	  ix = 0;
 	  act = EDGE_0 (bb->succ);
 	}
     }
