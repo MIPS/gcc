@@ -24,7 +24,7 @@ AC_EXEEXT
 
 AM_ENABLE_MULTILIB(, ..)
 
-target_alias=${target_alias-$target}
+target_alias=${target_alias-$host_alias}
 AC_SUBST(target_alias)
 
 AC_CONFIG_HEADERS(config.h)
@@ -61,10 +61,11 @@ enable_shared=no])
 
 AC_CHECK_HEADERS(stdint.h execinfo.h signal.h dlfcn.h dirent.h pwd.h grp.h \
   netdb.h sys/ipc.h sys/sem.h sys/shm.h sys/wait.h ctype.h mntent.h \
-  sys/socket.h netinet/in.h arpa/inet.h dlfcn.h)
+  sys/socket.h netinet/in.h arpa/inet.h dlfcn.h sys/mman.h)
 
 AC_CHECK_FUNCS(backtrace backtrace_symbols gettimeofday signal)
-AC_CHECK_FUNCS(fopen64 fseeko64 ftello64 stat64)
+AC_CHECK_FUNCS(fopen64 fseeko64 ftello64 stat64 freopen64)
+AC_CHECK_FUNCS(setbuf setbuffer setlinebuf setvbuf)
 AC_CHECK_FUNCS(strnlen memrchr strncpy memmem sethostname)
 AC_CHECK_FUNCS(__ctype_b_loc __ctype_tolower_loc __ctype_toupper_loc)
 AC_CHECK_FUNCS(getlogin cuserid getpwnam getpwuid getpwent getgrnam getgrgid getgrent)
@@ -72,7 +73,7 @@ AC_CHECK_FUNCS(getlogin_r getpwnam_r getpwuid_r getgrnam_r getgrgid_r)
 AC_CHECK_FUNCS(getservent getservbyname getservbyport getaddrinfo gai_strerror)
 AC_CHECK_FUNCS(getprotoent getprotobyname getprotobynumber)
 AC_CHECK_FUNCS(getmntent setmntent addmntent)
-AC_CHECK_FUNCS(inet_ntoa)
+AC_CHECK_FUNCS(inet_ntoa mmap munmap)
 
 AC_TRY_COMPILE([#include <sys/types.h>
 #include <sys/ipc.h>
@@ -131,11 +132,7 @@ AC_SUBST(build_libmudflapth)
 
 AC_CHECK_LIB(dl, dlsym)
 
-# Process the option "--enable-version-specific-runtime-libs"
-gcc_version_trigger=${srcdir}/../gcc/version.c
-gcc_version_full=`grep version_string ${gcc_version_trigger} | sed -e 's/.*\"\([[^ \"]]*\)[[ \"]].*/\1/'`
-gcc_version=`echo ${gcc_version_full} | sed -e 's/\([^ ]*\) .*/\1/'`
-AC_SUBST(gcc_version)
+TL_AC_GCC_VERSION([$srcdir/..])
 
 # Calculate toolexeclibdir
 # Also toolexecdir, though it's only used in toolexeclibdir
@@ -234,5 +231,5 @@ else
   multilib_arg=
 fi
 
-AC_CONFIG_FILES([Makefile testsuite/Makefile testsuite/mfconfig.exp mf-runtime.h])
+AC_CONFIG_FILES([Makefile testsuite/Makefile testsuite/mfconfig.exp])
 AC_OUTPUT

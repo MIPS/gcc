@@ -24,9 +24,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
+#include "regs.h"
 #include "insn-config.h"
 #include "flags.h"
-#include "regs.h"
 #include "hard-reg-set.h"
 #include "recog.h"
 #include "basic-block.h"
@@ -408,8 +408,9 @@ save_call_clobbered_regs (void)
 
 	  if (code == CALL_INSN && ! find_reg_note (insn, REG_NORETURN, NULL))
 	    {
-	      int regno;
+	      unsigned regno;
 	      HARD_REG_SET hard_regs_to_save;
+	      reg_set_iterator rsi;
 
 	      /* Use the register life information in CHAIN to compute which
 		 regs are live during the call.  */
@@ -425,22 +426,22 @@ save_call_clobbered_regs (void)
 	      /* Look through all live pseudos, mark their hard registers
 		 and choose proper mode for saving.  */
 	      EXECUTE_IF_SET_IN_REG_SET
-		(&chain->live_throughout, FIRST_PSEUDO_REGISTER, regno,
-		 {
-		   int r = reg_renumber[regno];
-		   int nregs;
-		   enum machine_mode mode;
+		(&chain->live_throughout, FIRST_PSEUDO_REGISTER, regno, rsi)
+		{
+		  int r = reg_renumber[regno];
+		  int nregs;
+		  enum machine_mode mode;
 
-		   gcc_assert (r >= 0);
-		   nregs = hard_regno_nregs[r][PSEUDO_REGNO_MODE (regno)];
-		   mode = HARD_REGNO_CALLER_SAVE_MODE
-		     (r, nregs, PSEUDO_REGNO_MODE (regno));
-		   if (GET_MODE_BITSIZE (mode)
-		       > GET_MODE_BITSIZE (save_mode[r]))
-		     save_mode[r] = mode;
-		   while (nregs-- > 0)
-		     SET_HARD_REG_BIT (hard_regs_to_save, r + nregs);
-		 });
+		  gcc_assert (r >= 0);
+		  nregs = hard_regno_nregs[r][PSEUDO_REGNO_MODE (regno)];
+		  mode = HARD_REGNO_CALLER_SAVE_MODE
+		    (r, nregs, PSEUDO_REGNO_MODE (regno));
+		  if (GET_MODE_BITSIZE (mode)
+		      > GET_MODE_BITSIZE (save_mode[r]))
+		    save_mode[r] = mode;
+		  while (nregs-- > 0)
+		    SET_HARD_REG_BIT (hard_regs_to_save, r + nregs);
+		}
 
 	      /* Record all registers set in this call insn.  These don't need
 		 to be saved.  N.B. the call insn might set a subreg of a
@@ -499,8 +500,7 @@ mark_set_regs (rtx reg, rtx setter ATTRIBUTE_UNUSED,
       rtx inner = SUBREG_REG (reg);
       if (!REG_P (inner) || REGNO (inner) >= FIRST_PSEUDO_REGISTER)
 	return;
-
-      regno = subreg_hard_regno (reg, 1);
+      regno = subreg_regno (reg);
     }
   else if (REG_P (reg)
 	   && REGNO (reg) < FIRST_PSEUDO_REGISTER)

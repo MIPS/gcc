@@ -5,7 +5,7 @@
    you are in the right place.
 
    Copyright (C) 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
    This code is based on toy.c written by Richard Kenner.
 
@@ -325,6 +325,7 @@ tree_code_create_function_prototype (unsigned char* chars,
   tree type_node;
   tree fn_type;
   tree fn_decl;
+  tree parm_list = NULL_TREE;
 
   /* Build the type.  */
   id = get_identifier ((const char*)chars);
@@ -337,6 +338,7 @@ tree_code_create_function_prototype (unsigned char* chars,
   /* Last parm if void indicates fixed length list (as opposed to
      printf style va_* list).  */
   type_list = tree_cons (NULL_TREE, void_type_node, type_list);
+
   /* The back end needs them in reverse order.  */
   type_list = nreverse (type_list);
 
@@ -377,6 +379,37 @@ tree_code_create_function_prototype (unsigned char* chars,
       gcc_unreachable ();
     }
 
+  /* Make the argument variable decls.  */
+  for (parm = parms; parm; parm = parm->tp.par.next)
+    {
+      tree parm_decl = build_decl (PARM_DECL, get_identifier
+                                   ((const char*) (parm->tp.par.variable_name)),
+                                   tree_code_get_type (parm->type));
+
+      /* Some languages have different nominal and real types.  */
+      DECL_ARG_TYPE (parm_decl) = TREE_TYPE (parm_decl);
+      gcc_assert (DECL_ARG_TYPE (parm_decl));
+      gcc_assert (fn_decl);
+      DECL_CONTEXT (parm_decl) = fn_decl;
+      DECL_SOURCE_LOCATION (parm_decl) = loc;
+      parm_list = chainon (parm_decl, parm_list);
+    }
+
+  /* Back into reverse order as the back end likes them.  */
+  parm_list = nreverse (parm_list);
+
+  DECL_ARGUMENTS (fn_decl) = parm_list;
+
+  /* Save the decls for use when the args are referred to.  */
+  for (parm = parms; parm_list;
+       parm_list = TREE_CHAIN (parm_list),
+	parm = parm->tp.par.next)
+    {
+      gcc_assert (parm); /* Too few.  */
+      *parm->tp.par.where_to_put_var_tree = parm_list;
+    }
+  gcc_assert (!parm); /* Too many.  */
+
   /* Process declaration of function defined elsewhere.  */
   rest_of_decl_compilation (fn_decl, 1, 0);
 
@@ -385,21 +418,16 @@ tree_code_create_function_prototype (unsigned char* chars,
 
 
 /* Output code for start of function; the decl of the function is in
-    PREV_SAVED (as created by tree_code_create_function_prototype),
-    the function is at line number LINENO in file FILENAME.  The
-    parameter details are in the lists PARMS. Returns nothing.  */
+   PREV_SAVED (as created by tree_code_create_function_prototype),
+   the function is at line number LINENO in file FILENAME.  The
+   parameter details are in the lists PARMS. Returns nothing.  */
+
 void
 tree_code_create_function_initial (tree prev_saved,
-				   location_t loc,
-				   struct prod_token_parm_item* parms)
+				   location_t loc)
 {
   tree fn_decl;
-  tree param_decl;
-  tree parm_decl;
-  tree parm_list;
   tree resultdecl;
-  struct prod_token_parm_item* this_parm;
-  struct prod_token_parm_item* parm;
 
   fn_decl = prev_saved;
   gcc_assert (fn_decl);
@@ -424,40 +452,6 @@ tree_code_create_function_initial (tree prev_saved,
   DECL_IGNORED_P (resultdecl) = 1;
   DECL_SOURCE_LOCATION (resultdecl) = loc;
   DECL_RESULT (fn_decl) = resultdecl;
-
-  /* Make the argument variable decls.  */
-  parm_list = NULL_TREE;
-  for (parm = parms; parm; parm = parm->tp.par.next)
-    {
-      parm_decl = build_decl (PARM_DECL, get_identifier
-                              ((const char*) (parm->tp.par.variable_name)),
-                              tree_code_get_type (parm->type));
-
-      /* Some languages have different nominal and real types.  */
-      DECL_ARG_TYPE (parm_decl) = TREE_TYPE (parm_decl);
-      gcc_assert (DECL_ARG_TYPE (parm_decl));
-      gcc_assert (fn_decl);
-      DECL_CONTEXT (parm_decl) = fn_decl;
-      DECL_SOURCE_LOCATION (parm_decl) = loc;
-      parm_list = chainon (parm_decl, parm_list);
-    }
-
-  /* Back into reverse order as the back end likes them.  */
-  parm_list = nreverse (parm_list);
-
-  DECL_ARGUMENTS (fn_decl) = parm_list;
-
-  /* Save the decls for use when the args are referred to.  */
-  for (param_decl = DECL_ARGUMENTS (fn_decl),
-         this_parm = parms;
-       param_decl;
-       param_decl = TREE_CHAIN (param_decl),
-         this_parm = this_parm->tp.par.next)
-    {
-      gcc_assert (this_parm); /* Too few.  */
-      *this_parm->tp.par.where_to_put_var_tree = param_decl;
-    }
-  gcc_assert (!this_parm); /* Too many.  */
 
   /* Create a new level at the start of the function.  */
 
@@ -493,7 +487,6 @@ tree_code_create_function_wrapup (location_t loc)
   allocate_struct_function (fn_decl);
   cfun->function_end_locus = loc;
 
-
   /* Dump the original tree to a file.  */
   dump_function (TDI_original, fn_decl);
 
@@ -510,14 +503,12 @@ tree_code_create_function_wrapup (location_t loc)
   cgraph_finalize_function (fn_decl, false);
 }
 
-/*
-   Create a variable.
+/* Create a variable.
 
    The storage class is STORAGE_CLASS (eg LOCAL).
    The name is CHARS/LENGTH.
    The type is EXPRESSION_TYPE (eg UNSIGNED_TYPE).
-   The init tree is INIT.
-*/
+   The init tree is INIT.  */
 
 tree
 tree_code_create_variable (unsigned int storage_class,
@@ -554,27 +545,25 @@ tree_code_create_variable (unsigned int storage_class,
 
   DECL_SOURCE_LOCATION (var_decl) = loc;
 
+  DECL_EXTERNAL (var_decl) = 0;
+  TREE_PUBLIC (var_decl) = 0;
+  TREE_STATIC (var_decl) = 0;
   /* Set the storage mode and whether only visible in the same file.  */
   switch (storage_class)
     {
     case STATIC_STORAGE:
       TREE_STATIC (var_decl) = 1;
-      TREE_PUBLIC (var_decl) = 0;
       break;
 
     case AUTOMATIC_STORAGE:
-      TREE_STATIC (var_decl) = 0;
-      TREE_PUBLIC (var_decl) = 0;
       break;
 
     case EXTERNAL_DEFINITION_STORAGE:
-      TREE_STATIC (var_decl) = 0;
       TREE_PUBLIC (var_decl) = 1;
       break;
 
     case EXTERNAL_REFERENCE_STORAGE:
       DECL_EXTERNAL (var_decl) = 1;
-      TREE_PUBLIC (var_decl) = 0;
       break;
 
     default:
@@ -583,11 +572,6 @@ tree_code_create_variable (unsigned int storage_class,
 
   /* This should really only be set if the variable is used.  */
   TREE_USED (var_decl) = 1;
-
-  /* Expand declaration and initial value if any.  */
-
-  if (TREE_STATIC (var_decl))
-    rest_of_decl_compilation (var_decl, 0, 0);
 
   TYPE_NAME (TREE_TYPE (var_decl)) = TYPE_NAME (var_type);
   return pushdecl (copy_node (var_decl));
@@ -601,9 +585,9 @@ void
 tree_code_generate_return (tree type, tree exp)
 {
   tree setret;
+#ifdef ENABLE_CHECKING
   tree param;
 
-#ifdef ENABLE_CHECKING
   for (param = DECL_ARGUMENTS (current_function_decl);
        param;
        param = TREE_CHAIN (param))
@@ -723,7 +707,7 @@ tree_code_get_expression (unsigned int exp_type,
       break;
 
     case EXP_FUNCTION_INVOCATION:
-      gcc_assert (op1 && op2);
+      gcc_assert (op1);
       {
         tree fun_ptr;
         fun_ptr = fold (build1 (ADDR_EXPR,
@@ -895,7 +879,10 @@ tree_lang_type_for_size (unsigned precision, int unsignedp)
 static tree
 tree_lang_type_for_mode (enum machine_mode mode, int unsignedp)
 {
-  return tree_lang_type_for_size (GET_MODE_BITSIZE (mode), unsignedp);
+  if (SCALAR_INT_MODE_P (mode))
+    return tree_lang_type_for_size (GET_MODE_BITSIZE (mode), unsignedp);
+  else
+    return NULL_TREE;
 }
 
 /* Return the unsigned version of a TYPE_NODE, a scalar type.  */
@@ -1133,6 +1120,12 @@ pushdecl (tree decl)
       && TYPE_NAME (TREE_TYPE (decl)) == 0)
     TYPE_NAME (TREE_TYPE (decl)) = DECL_NAME (decl);
 
+  /* Put automatic variables into the intermediate representation.  */
+  if (TREE_CODE (decl) == VAR_DECL && !DECL_EXTERNAL (decl)
+      && !TREE_STATIC (decl) && !TREE_PUBLIC (decl))
+    tree_code_output_expression_statement (build1 (DECL_EXPR, void_type_node,
+                                                   decl),
+                                           DECL_SOURCE_LOCATION (decl));
   return decl;
 }
 
@@ -1211,7 +1204,7 @@ treelang_init_decl_processing (void)
   tree_push_type_decl (get_identifier ("long double"), long_double_type_node);
   tree_push_type_decl (get_identifier ("void"), void_type_node);
 
-  /* Add any target-specific builtin functions.  */
+  build_common_builtin_nodes ();
   (*targetm.init_builtins) ();
 
   pedantic_lvalues = pedantic;

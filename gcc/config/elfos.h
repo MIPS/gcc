@@ -1,6 +1,6 @@
 /* elfos.h  --  operating system specific defines to be used when
    targeting GCC for some generic ELF system
-   Copyright (C) 1991, 1994, 1995, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1991, 1994, 1995, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
    Based on svr4.h contributed by Ron Guilmette (rfg@netcom.com).
 
@@ -212,7 +212,15 @@ Boston, MA 02111-1307, USA.  */
   fprintf ((FILE), "%s\n", ASM_SECTION_START_OP)
 #endif
 
-#define MAKE_DECL_ONE_ONLY(DECL) (DECL_WEAK (DECL) = 1)
+/* Don't use weak for entities with vague linkage when HAVE_GAS_COMDAT_GROUP
+   is true.  */
+#define MAKE_DECL_ONE_ONLY(DECL)			\
+  do							\
+    {							\
+      if (!HAVE_GAS_COMDAT_GROUP)			\
+	DECL_WEAK(DECL) = 1;				\
+    }							\
+  while (0)
 
 /* Switch into a generic section.  */
 #define TARGET_ASM_NAMED_SECTION  default_elf_asm_named_section

@@ -1,6 +1,6 @@
 /* Subroutines used by or related to instruction recognition.
    Copyright (C) 1987, 1988, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -107,22 +107,6 @@ init_recog (void)
   volatile_ok = 1;
 }
 
-/* Try recognizing the instruction INSN,
-   and return the code number that results.
-   Remember the code so that repeated calls do not
-   need to spend the time for actual rerecognition.
-
-   This function is the normal interface to instruction recognition.
-   The automatically-generated function `recog' is normally called
-   through this one.  (The only exception is in combine.c.)  */
-
-int
-recog_memoized_1 (rtx insn)
-{
-  if (INSN_CODE (insn) < 0)
-    INSN_CODE (insn) = recog (PATTERN (insn), insn, 0);
-  return INSN_CODE (insn);
-}
 
 /* Check that X is an insn-body for an `asm' with operands
    and that the operands mentioned in it are legitimate.  */
@@ -936,8 +920,10 @@ general_operand (rtx op, enum machine_mode mode)
 
 #ifdef INSN_SCHEDULING
       /* On machines that have insn scheduling, we want all memory
-	 reference to be explicit, so outlaw paradoxical SUBREGs.  */
-      if (MEM_P (sub)
+	 reference to be explicit, so outlaw paradoxical SUBREGs.
+	 However, we must allow them after reload so that they can
+	 get cleaned up by cleanup_subreg_operands.  */
+      if (!reload_completed && MEM_P (sub)
 	  && GET_MODE_SIZE (mode) > GET_MODE_SIZE (GET_MODE (sub)))
 	return 0;
 #endif
@@ -2247,6 +2233,7 @@ constrain_operands (int strict)
 
   do
     {
+      int seen_earlyclobber_at = -1;
       int opno;
       int lose = 0;
       funny_match_index = 0;
@@ -2309,6 +2296,8 @@ constrain_operands (int strict)
 
 	      case '&':
 		earlyclobber[opno] = 1;
+		if (seen_earlyclobber_at < 0)
+		  seen_earlyclobber_at = opno;
 		break;
 
 	      case '0':  case '1':  case '2':  case '3':  case '4':
@@ -2557,8 +2546,10 @@ constrain_operands (int strict)
 	  /* See if any earlyclobber operand conflicts with some other
 	     operand.  */
 
-	  if (strict > 0)
-	    for (eopno = 0; eopno < recog_data.n_operands; eopno++)
+	  if (strict > 0  && seen_earlyclobber_at >= 0)
+	    for (eopno = seen_earlyclobber_at;
+		 eopno < recog_data.n_operands;
+		 eopno++)
 	      /* Ignore earlyclobber operands now in memory,
 		 because we would often report failure when we have
 		 two memory operands, one of which was formerly a REG.  */
@@ -2973,7 +2964,6 @@ peep2_find_free_register (int from, int to, const char *class_str,
 void
 peephole2_optimize (FILE *dump_file ATTRIBUTE_UNUSED)
 {
-  regset_head rs_heads[MAX_INSNS_PER_PEEP2 + 2];
   rtx insn, prev;
   regset live;
   int i;
@@ -2983,12 +2973,13 @@ peephole2_optimize (FILE *dump_file ATTRIBUTE_UNUSED)
   bool changed;
 #endif
   bool do_cleanup_cfg = false;
+  bool do_global_life_update = false;
   bool do_rebuild_jump_labels = false;
 
   /* Initialize the regsets we're going to use.  */
   for (i = 0; i < MAX_INSNS_PER_PEEP2 + 1; ++i)
-    peep2_insn_data[i].live_before = INITIALIZE_REG_SET (rs_heads[i]);
-  live = INITIALIZE_REG_SET (rs_heads[i]);
+    peep2_insn_data[i].live_before = ALLOC_REG_SET (&reg_obstack);
+  live = ALLOC_REG_SET (&reg_obstack);
 
 #ifdef HAVE_conditional_execution
   blocks = sbitmap_alloc (last_basic_block);
@@ -3001,6 +2992,8 @@ peephole2_optimize (FILE *dump_file ATTRIBUTE_UNUSED)
   FOR_EACH_BB_REVERSE (bb)
     {
       struct propagate_block_info *pbi;
+      reg_set_iterator rsi;
+      unsigned int j;
 
       /* Indicate that all slots except the last holds invalid data.  */
       for (i = 0; i < MAX_INSNS_PER_PEEP2; ++i)
@@ -3222,6 +3215,15 @@ peephole2_optimize (FILE *dump_file ATTRIBUTE_UNUSED)
 	    break;
 	}
 
+      /* Some peepholes can decide the don't need one or more of their
+	 inputs.  If this happens, local life update is not enough.  */
+      EXECUTE_IF_AND_COMPL_IN_BITMAP (bb->global_live_at_start, live,
+				      0, j, rsi)
+	{
+	  do_global_life_update = true;
+	  break;
+	}
+
       free_propagate_block_info (pbi);
     }
 
@@ -3238,8 +3240,10 @@ peephole2_optimize (FILE *dump_file ATTRIBUTE_UNUSED)
   if (do_cleanup_cfg)
     {
       cleanup_cfg (0);
-      update_life_info (0, UPDATE_LIFE_GLOBAL_RM_NOTES, PROP_DEATH_NOTES);
+      do_global_life_update = true;
     }
+  if (do_global_life_update)
+    update_life_info (0, UPDATE_LIFE_GLOBAL_RM_NOTES, PROP_DEATH_NOTES);
 #ifdef HAVE_conditional_execution
   else
     {

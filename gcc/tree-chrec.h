@@ -74,7 +74,6 @@ extern tree chrec_type (tree);
 /* Operations.  */
 extern tree chrec_apply (unsigned, tree, tree);
 extern tree chrec_replace_initial_condition (tree, tree);
-extern tree update_initial_condition_to_origin (tree);
 extern tree initial_condition (tree);
 extern tree initial_condition_in_loop_num (tree, unsigned);
 extern tree evolution_part_in_loop_num (tree, unsigned);
@@ -91,6 +90,7 @@ extern bool chrec_contains_undetermined (tree);
 extern bool tree_contains_chrecs (tree);
 extern bool evolution_function_is_affine_multivariate_p (tree);
 extern bool evolution_function_is_univariate_p (tree);
+extern unsigned nb_vars_in_chrec (tree);
 
 
 

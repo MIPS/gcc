@@ -27,25 +27,28 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
+/** @file 
+ *  This is a TR1 C++ Library header. 
+ */
+
 #ifndef _ARRAY
 #define _ARRAY 1
 
 #include <new>
 #include <iterator>
+#include <algorithm>
+#include <bits/functexcept.h>
 
 //namespace std::tr1
 namespace std
 {
 namespace tr1
 {
-  // [6.2.2] Class template array template
-  // Requires complete type _Tp.
-  // Use of char array allows _Tp to skirt default constructable requirement.
+  /// @brief  struct array [6.2.2].
+  /// NB: Requires complete type _Tp.
   template<typename _Tp, size_t _Nm = 1>
     struct array
     {
-      enum { _S_index = _Nm };
-
       typedef _Tp 	    			value_type;
       typedef value_type&                   	reference;
       typedef const value_type&             	const_reference;
@@ -55,9 +58,12 @@ namespace tr1
       typedef ptrdiff_t                     	difference_type;
       typedef std::reverse_iterator<iterator>	reverse_iterator;
       typedef std::reverse_iterator<const_iterator>	const_reverse_iterator;
-      typedef char layout_type[sizeof(_Tp)] __attribute__ ((aligned(__alignof__(_Tp))));
 
-      layout_type _M_instance[_Nm];
+      // Compile time constant without other dependencies.
+      enum { _S_index = _Nm };
+
+      // Support for zero-sized arrays mandatory.
+      value_type _M_instance[_Nm ? _Nm : 1];
 
       // No explicit construct/copy/destroy for aggregate type.
 
@@ -78,11 +84,11 @@ namespace tr1
 
       iterator 
       end() 
-      { return reinterpret_cast<iterator>(&_M_instance[_S_index - 1]); }
+      { return reinterpret_cast<iterator>(&_M_instance[_Nm]); }
 
       const_iterator 
       end() const
-      { return reinterpret_cast<iterator>(&_M_instance[_S_index - 1]); }
+      { return reinterpret_cast<const_iterator>(&_M_instance[_Nm]); }
 
       reverse_iterator 
       rbegin()
@@ -102,17 +108,13 @@ namespace tr1
 
       // Capacity.
       size_type 
-      size() const { return _S_index; }
+      size() const { return _Nm; }
 
       size_type 
-      max_size() const
-      { 
-	// XXX Not specified. Unnecessary, this is fixed-size.
-	return _S_index; 
-      }
+      max_size() const { return _Nm; }
 
       bool 
-      empty() const;
+      empty() const { return size() == 0; }
 
       // Element access.
       reference 
@@ -126,16 +128,16 @@ namespace tr1
       const_reference 
       at(size_type __n) const
       { 
-	if (__builtin_expect(__n > _S_index, false))
-	  throw std::bad_alloc();
+	if (__builtin_expect(__n > _Nm, false))
+	  std::__throw_out_of_range("array::at");
 	return reinterpret_cast<const_reference>(_M_instance[__n]); 
       }
 
       reference 
       at(size_type __n)
       { 
-	if (__builtin_expect(__n > _S_index, false))
-	  throw std::bad_alloc();
+	if (__builtin_expect(__n > _Nm, false))
+	  std::__throw_out_of_range("array::at");
 	return reinterpret_cast<reference>(_M_instance[__n]); 
       }
 
@@ -162,7 +164,7 @@ namespace tr1
  template<typename _Tp, size_t _Nm>
    bool 
    operator==(const array<_Tp, _Nm>& __one, const array<_Tp, _Nm>& __two)
-   { return false; }
+   { return std::equal(__one.begin(), __one.end(), __two.begin()); }
 
  template<typename _Tp, size_t _Nm>
    bool 
@@ -171,25 +173,28 @@ namespace tr1
 
  template<typename _Tp, size_t _Nm>
    bool 
-   operator<(const array<_Tp, _Nm>& __one, const array<_Tp, _Nm>& __two)
-   { return false; }
+   operator<(const array<_Tp, _Nm>& a, const array<_Tp, _Nm>& b)
+   { 
+     return std::lexicographical_compare(a.begin(), a.end(), 
+					 b.begin(), b.end()); 
+   }
 
  template<typename _Tp, size_t _Nm>
    bool 
    operator>(const array<_Tp, _Nm>& __one, const array<_Tp, _Nm>& __two)
-   { return false; }
+   { return __two < __one; }
 
  template<typename _Tp, size_t _Nm>
    bool 
    operator<=(const array<_Tp, _Nm>& __one, const array<_Tp, _Nm>& __two)
-   { return false; }
+   { return !(__one > __two); }
 
  template<typename _Tp, size_t _Nm>
    bool 
    operator>=(const array<_Tp, _Nm>& __one, const array<_Tp, _Nm>& __two)
-   { return false; }
+   { return !(__one < __two); }
 
-  // [6.2.2.2] Specialized algorithms.
+  // Specialized algorithms [6.2.2.2].
  template<typename _Tp, size_t _Nm>
    void
    swap(array<_Tp, _Nm>& __one, array<_Tp, _Nm>& __two)

@@ -1,4 +1,4 @@
-/* Copyright (C) 1999, 2001, 2002, 2003, 2004  Free Software Foundation
+/* Copyright (C) 1999, 2001, 2002, 2003, 2004, 2005  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -14,8 +14,12 @@ import java.io.*;
 import java.util.StringTokenizer;
 import java.util.HashSet;
 import java.net.URL;
+import java.net.URLClassLoader;
 
-public final class VMClassLoader extends java.net.URLClassLoader
+// Despite its name, this class is really the extension loader for
+// libgcj.  Class loader bootstrap is a bit tricky, see prims.cc and
+// SystemClassLoader for some details.
+public final class VMClassLoader extends URLClassLoader
 {
   private VMClassLoader ()
   {	
@@ -28,44 +32,17 @@ public final class VMClassLoader extends java.net.URLClassLoader
     else if ("cache".equals(p))
       lib_control = LIB_CACHE;
     else if ("full".equals(p))
-      {
-	// In case we ever want to change the default.
-	lib_control = LIB_FULL;
-      }
-    else
       lib_control = LIB_FULL;
+    else
+      lib_control = LIB_CACHE;
   }
 
   private void init() 
   {
-    StringTokenizer st
-	= new StringTokenizer (System.getProperty ("java.class.path", "."),
-			       System.getProperty ("path.separator", ":"));
-
-    while (st.hasMoreElements ()) 
-      {  
-	String e = st.nextToken ();
-	try
-	  {
-	    File path = new File(e);
-	    // Ignore invalid paths.
-	    if (!path.exists())
-	      continue;
-	    if (!e.endsWith (File.separator) && path.isDirectory ())
-	      addURL(new URL("file", "", -1, e + File.separator));
-	    else
-	      addURL(new URL("file", "", -1, e));
-	  } 
-	catch (java.net.MalformedURLException x)
-	  {
-	    // This should never happen.
-	    throw new RuntimeException(x);
-	  }
-      }
-
     // Add the contents of the extensions directories.  
-    st = new StringTokenizer (System.getProperty ("java.ext.dirs"),
-			      System.getProperty ("path.separator", ":"));
+    StringTokenizer st
+      = new StringTokenizer (System.getProperty ("java.ext.dirs"),
+			     File.pathSeparator);
 
     try
       {
@@ -91,8 +68,8 @@ public final class VMClassLoader extends java.net.URLClassLoader
             }
 	  }
 
-	// Add core:/ to the end of the java.class.path so any resources
-	// compiled into this executable may be found.
+	// Add core:/ to the end so any resources compiled into this
+	// executable may be found.
 	addURL(new URL("core", "", -1, "/"));
       }
     catch (java.net.MalformedURLException x)
@@ -105,7 +82,8 @@ public final class VMClassLoader extends java.net.URLClassLoader
   /** This is overridden to search the internal hash table, which 
    * will only search existing linked-in classes.   This will make
    * the default implementation of loadClass (in ClassLoader) work right.
-   * The implementation of this method is in java/lang/natClassLoader.cc.
+   * The implementation of this method is in
+   * gnu/gcj/runtime/natVMClassLoader.cc.
    */
   protected native Class findClass(String name) 
     throws java.lang.ClassNotFoundException;
@@ -115,6 +93,28 @@ public final class VMClassLoader extends java.net.URLClassLoader
   static void initialize ()
   {
     instance.init();
+    system_instance.init();
+  }
+
+  // Define a package for something loaded natively.
+  void definePackageForNative(String className)
+  {
+    int lastDot = className.lastIndexOf('.');
+    if (lastDot != -1)
+      {
+	String packageName = className.substring(0, lastDot);
+	if (getPackage(packageName) == null)
+	  {
+	    // FIXME: this assumes we're defining the core, which
+	    // isn't necessarily so.  We could detect this and set up
+	    // appropriately.  We could also look at a manifest file
+	    // compiled into the .so.
+	    definePackage(packageName, "Java Platform API Specification",
+			  "GNU", "1.4", "gcj", "GNU",
+			  null, // FIXME: gcj version.
+			  null);
+	  }
+      }
   }
 
   // This keeps track of shared libraries we've already tried to load.
@@ -126,6 +126,8 @@ public final class VMClassLoader extends java.net.URLClassLoader
 
   // The only VMClassLoader that can exist.
   static VMClassLoader instance = new VMClassLoader();
+  // The system class loader.
+  static SystemClassLoader system_instance = new SystemClassLoader(instance);
 
   private static final int LIB_FULL = 0;
   private static final int LIB_CACHE = 1;

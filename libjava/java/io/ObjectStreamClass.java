@@ -2,42 +2,47 @@
    about serialized objects.
    Copyright (C) 1998, 1999, 2000, 2001, 2003  Free Software Foundation, Inc.
 
-   This file is part of GNU Classpath.
+This file is part of GNU Classpath.
 
-   GNU Classpath is free software; you can redistribute it and/or modify
-   it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2, or (at your option)
-   any later version.
+GNU Classpath is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2, or (at your option)
+any later version.
  
-   GNU Classpath is distributed in the hope that it will be useful, but
-   WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   General Public License for more details.
+GNU Classpath is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+General Public License for more details.
 
-   You should have received a copy of the GNU General Public License
-   along with GNU Classpath; see the file COPYING.  If not, write to the
-   Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-   02111-1307 USA.
+You should have received a copy of the GNU General Public License
+along with GNU Classpath; see the file COPYING.  If not, write to the
+Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+02111-1307 USA.
 
-   Linking this library statically or dynamically with other modules is
-   making a combined work based on this library.  Thus, the terms and
-   conditions of the GNU General Public License cover the whole
-   combination.
+Linking this library statically or dynamically with other modules is
+making a combined work based on this library.  Thus, the terms and
+conditions of the GNU General Public License cover the whole
+combination.
 
-   As a special exception, the copyright holders of this library give you
-   permission to link this library with independent modules to produce an
-   executable, regardless of the license terms of these independent
-   modules, and to copy and distribute the resulting executable under
-   terms of your choice, provided that you also meet, for each linked
-   independent module, the terms and conditions of the license of that
-   module.  An independent module is a module which is not derived from
-   or based on this library.  If you modify this library, you may extend
-   this exception to your version of the library, but you are not
-   obligated to do so.  If you do not wish to do so, delete this
-   exception statement from your version. */
+As a special exception, the copyright holders of this library give you
+permission to link this library with independent modules to produce an
+executable, regardless of the license terms of these independent
+modules, and to copy and distribute the resulting executable under
+terms of your choice, provided that you also meet, for each linked
+independent module, the terms and conditions of the license of that
+module.  An independent module is a module which is not derived from
+or based on this library.  If you modify this library, you may extend
+this exception to your version of the library, but you are not
+obligated to do so.  If you do not wish to do so, delete this
+exception statement from your version. */
 
 
 package java.io;
+
+import gnu.java.io.NullOutputStream;
+import gnu.java.lang.reflect.TypeSignature;
+import gnu.java.security.action.SetAccessibleAction;
+import gnu.java.security.provider.Gnu;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
@@ -55,11 +60,6 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Hashtable;
 import java.util.Vector;
-import gnu.java.io.NullOutputStream;
-import gnu.java.lang.reflect.TypeSignature;
-import gnu.java.security.action.SetAccessibleAction;
-import gnu.java.security.provider.Gnu;
-
 
 public class ObjectStreamClass implements Serializable
 {
@@ -452,27 +452,33 @@ public class ObjectStreamClass implements Serializable
   }
 
   private Method findMethod(Method[] methods, String name, Class[] params,
-			    Class returnType)
+			    Class returnType, boolean mustBePrivate)
   {
 outer:
-    for(int i = 0; i < methods.length; i++)
+    for (int i = 0; i < methods.length; i++)
     {
-	if(methods[i].getName().equals(name) &&
-	   methods[i].getReturnType() == returnType)
+	final Method m = methods[i];
+        int mods = m.getModifiers();
+        if (Modifier.isStatic(mods)
+            || (mustBePrivate && !Modifier.isPrivate(mods)))
+        {
+            continue;
+        }
+
+	if (m.getName().equals(name)
+	   && m.getReturnType() == returnType)
 	{
-	    Class[] mp = methods[i].getParameterTypes();
-	    if(mp.length == params.length)
+	    Class[] mp = m.getParameterTypes();
+	    if (mp.length == params.length)
 	    {
-		for(int j = 0; j < mp.length; j++)
+		for (int j = 0; j < mp.length; j++)
 		{
-		    if(mp[j] != params[j])
+		    if (mp[j] != params[j])
 		    {
 			continue outer;
 		    }
 		}
-		final Method m = methods[i];
-		SetAccessibleAction setAccessible = new SetAccessibleAction(m);
-		AccessController.doPrivileged(setAccessible);
+		AccessController.doPrivileged(new SetAccessibleAction(m));
 		return m;
 	    }
 	}
@@ -485,9 +491,14 @@ outer:
     Method[] methods = forClass().getDeclaredMethods();
     readObjectMethod = findMethod(methods, "readObject",
 				  new Class[] { ObjectInputStream.class },
-				  Void.TYPE);
+				  Void.TYPE, true);
+    writeObjectMethod = findMethod(methods, "writeObject",
+                                   new Class[] { ObjectOutputStream.class },
+                                   Void.TYPE, true);
     readResolveMethod = findMethod(methods, "readResolve",
-				   new Class[0], Object.class);
+				   new Class[0], Object.class, false);
+    writeReplaceMethod = findMethod(methods, "writeReplace",
+                                    new Class[0], Object.class, false);
   }
 
   private ObjectStreamClass(Class cl)
@@ -517,20 +528,8 @@ outer:
       // only set this bit if CL is NOT Externalizable
       flags |= ObjectStreamConstants.SC_SERIALIZABLE;
 
-    try
-      {
-	Method writeMethod = cl.getDeclaredMethod("writeObject",
-						  writeMethodArgTypes);
-	int modifiers = writeMethod.getModifiers();
-
-	if (writeMethod.getReturnType() == Void.TYPE
-	    && Modifier.isPrivate(modifiers)
-	    && !Modifier.isStatic(modifiers))
-	  flags |= ObjectStreamConstants.SC_WRITE_METHOD;
-      }
-    catch(NoSuchMethodException oh_well)
-      {
-      }
+    if (writeObjectMethod != null)
+      flags |= ObjectStreamConstants.SC_WRITE_METHOD;
   }
 
 
@@ -851,11 +850,11 @@ outer:
     {
 	return (Externalizable)constructor.newInstance(null);
     }
-    catch(Throwable t)
+    catch(Exception x)
     {
 	throw (InvalidClassException)
 	    new InvalidClassException(clazz.getName(),
-		     "Unable to instantiate").initCause(t);
+		     "Unable to instantiate").initCause(x);
     }
   }
 
@@ -884,10 +883,12 @@ outer:
 
   Method readObjectMethod;
   Method readResolveMethod;
+  Method writeReplaceMethod;
+  Method writeObjectMethod;
   boolean realClassIsSerializable;
   boolean realClassIsExternalizable;
   ObjectStreamField[] fieldMapping;
-  Class firstNonSerializableParent;
+  Constructor firstNonSerializableParentConstructor;
   private Constructor constructor;  // default constructor for Externalizable
 
   boolean isProxyClass = false;
@@ -896,34 +897,33 @@ outer:
   // but it will avoid showing up as a discrepancy when comparing SUIDs.
   private static final long serialVersionUID = -6120832682080437368L;
 
-}
 
-
-// interfaces are compared only by name
-class InterfaceComparator implements Comparator
-{
-  public int compare(Object o1, Object o2)
+  // interfaces are compared only by name
+  private static final class InterfaceComparator implements Comparator
   {
-    return ((Class) o1).getName().compareTo(((Class) o2).getName());
+    public int compare(Object o1, Object o2)
+    {
+      return ((Class) o1).getName().compareTo(((Class) o2).getName());
+    }
   }
-}
 
 
-// Members (Methods and Constructors) are compared first by name,
-// conflicts are resolved by comparing type signatures
-class MemberComparator implements Comparator
-{
-  public int compare(Object o1, Object o2)
+  // Members (Methods and Constructors) are compared first by name,
+  // conflicts are resolved by comparing type signatures
+  private static final class MemberComparator implements Comparator
   {
-    Member m1 = (Member) o1;
-    Member m2 = (Member) o2;
+    public int compare(Object o1, Object o2)
+    {
+      Member m1 = (Member) o1;
+      Member m2 = (Member) o2;
 
-    int comp = m1.getName().compareTo(m2.getName());
+      int comp = m1.getName().compareTo(m2.getName());
 
-    if (comp == 0)
-      return TypeSignature.getEncodingOfMember(m1).
-	compareTo(TypeSignature.getEncodingOfMember(m2));
-    else
-      return comp;
+      if (comp == 0)
+        return TypeSignature.getEncodingOfMember(m1).
+	  compareTo(TypeSignature.getEncodingOfMember(m2));
+      else
+        return comp;
+    }
   }
 }

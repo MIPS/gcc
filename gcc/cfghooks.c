@@ -178,6 +178,20 @@ verify_flow_info (void)
 	      fputc ('\n', stderr);
 	      err = 1;
 	    }
+
+	  if (ei.index != e->dest_idx)
+	    {
+	      error ("basic block %d pred edge is corrupted", bb->index);
+	      error ("its dest_idx should be %d, not %d",
+		     ei.index, e->dest_idx);
+	      fputs ("Predecessor: ", stderr);
+	      dump_edge_info (stderr, e, 0);
+	      fputs ("\nSuccessor: ", stderr);
+	      dump_edge_info (stderr, e, 1);
+	      fputc ('\n', stderr);
+	      err = 1;
+	    }
+
 	  edge_checksum[e->dest->index + 2] -= (size_t) e;
 	}
     }
@@ -318,7 +332,7 @@ split_block (basic_block bb, void *i)
   new_bb->frequency = bb->frequency;
   new_bb->loop_depth = bb->loop_depth;
 
-  if (dom_computed[CDI_DOMINATORS] >= DOM_CONS_OK)
+  if (dom_info_available_p (CDI_DOMINATORS))
     {
       redirect_immediate_dominators (CDI_DOMINATORS, bb, new_bb);
       set_immediate_dominator (CDI_DOMINATORS, new_bb, bb);
@@ -367,9 +381,6 @@ delete_basic_block (basic_block bb)
     remove_edge (EDGE_PRED (bb, 0));
   while (EDGE_COUNT (bb->succs) != 0)
     remove_edge (EDGE_SUCC (bb, 0));
-
-  VEC_truncate (edge, bb->preds, 0);
-  VEC_truncate (edge, bb->succs, 0);
 
   if (dom_computed[CDI_DOMINATORS])
     delete_from_dominance_info (CDI_DOMINATORS, bb);
@@ -592,7 +603,7 @@ make_forwarder_block (basic_block bb, bool (*redirect_edge_p) (edge),
 	new_bb_cbk (jump);
     }
 
-  if (dom_computed[CDI_DOMINATORS] >= DOM_CONS_OK)
+  if (dom_info_available_p (CDI_DOMINATORS))
     {
       basic_block doms_to_fix[2];
 
@@ -664,7 +675,6 @@ bool
 can_duplicate_block_p (basic_block bb)
 {
   edge e;
-  edge_iterator ei;
 
   if (!cfg_hooks->can_duplicate_block_p)
     internal_error ("%s does not support can_duplicate_block_p.",
@@ -675,9 +685,9 @@ can_duplicate_block_p (basic_block bb)
 
   /* Duplicating fallthru block to exit would require adding a jump
      and splitting the real last BB.  */
-  FOR_EACH_EDGE (e, ei, bb->succs)
-    if (e->dest == EXIT_BLOCK_PTR && e->flags & EDGE_FALLTHRU)
-       return false;
+  e = find_edge (bb, EXIT_BLOCK_PTR);
+  if (e && (e->flags & EDGE_FALLTHRU))
+    return false;
 
   return cfg_hooks->can_duplicate_block_p (bb);
 }
@@ -793,4 +803,24 @@ flow_call_edges_add (sbitmap blocks)
 		    cfg_hooks->name);
 
   return (cfg_hooks->flow_call_edges_add) (blocks);
+}
+
+/* This function is called immediately after edge E is added to the
+   edge vector E->dest->preds.  */
+
+void
+execute_on_growing_pred (edge e)
+{
+  if (cfg_hooks->execute_on_growing_pred)
+    cfg_hooks->execute_on_growing_pred (e);
+}
+
+/* This function is called immediately before edge E is removed from
+   the edge vector E->dest->preds.  */
+
+void
+execute_on_shrinking_pred (edge e)
+{
+  if (cfg_hooks->execute_on_shrinking_pred)
+    cfg_hooks->execute_on_shrinking_pred (e);
 }

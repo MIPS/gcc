@@ -1,5 +1,6 @@
 /* RunTime Type Identification
-   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004,
+   2005
    Free Software Foundation, Inc.
    Mostly written by Jason Merrill (jason@cygnus.com).
 
@@ -108,17 +109,15 @@ static int doing_runtime = 0;
 void
 init_rtti_processing (void)
 {
-  tree const_type_info_type;
-
+  tree type_info_type;
+  
   push_namespace (std_identifier);
-  type_info_type_node 
-    = xref_tag (class_type, get_identifier ("type_info"),
-		true, false);
+  type_info_type = xref_tag (class_type, get_identifier ("type_info"),
+			     /*tag_scope=*/ts_global, false);
   pop_namespace ();
-  const_type_info_type = build_qualified_type (type_info_type_node, 
-					       TYPE_QUAL_CONST);
-  type_info_ptr_type = build_pointer_type (const_type_info_type);
-  type_info_ref_type = build_reference_type (const_type_info_type);
+  const_type_info_type_node
+    = build_qualified_type (type_info_type, TYPE_QUAL_CONST);
+  type_info_ptr_type = build_pointer_type (const_type_info_type_node);
 
   unemitted_tinfo_decls = VEC_alloc (tree, 124);
   
@@ -182,12 +181,14 @@ throw_bad_typeid (void)
   tree fn = get_identifier ("__cxa_bad_typeid");
   if (!get_global_value_if_present (fn, &fn))
     {
-      tree t = build_qualified_type (type_info_type_node, TYPE_QUAL_CONST);
-      t = build_function_type (build_reference_type (t), void_list_node);
+      tree t;
+
+      t = build_reference_type (const_type_info_type_node);
+      t = build_function_type (t, void_list_node);
       fn = push_throw_library_fn (fn, t);
     }
 
-  return convert_from_reference (build_cxx_call (fn, NULL_TREE));
+  return build_cxx_call (fn, NULL_TREE);
 }
 
 /* Return an lvalue expression whose type is "const std::type_info"
@@ -244,7 +245,7 @@ typeid_ok_p (void)
       return false;
     }
   
-  if (!COMPLETE_TYPE_P (type_info_type_node))
+  if (!COMPLETE_TYPE_P (const_type_info_type_node))
     {
       error ("must #include <typeinfo> before using typeid");
       return false;
@@ -266,7 +267,7 @@ build_typeid (tree exp)
     return error_mark_node;
 
   if (processing_template_decl)
-    return build_min (TYPEID_EXPR, type_info_ref_type, exp);
+    return build_min (TYPEID_EXPR, const_type_info_type_node, exp);
 
   if (TREE_CODE (exp) == INDIRECT_REF
       && TREE_CODE (TREE_TYPE (TREE_OPERAND (exp, 0))) == POINTER_TYPE
@@ -318,7 +319,8 @@ get_tinfo_decl (tree type)
   if (COMPLETE_TYPE_P (type) 
       && TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST)
     {
-      error ("cannot create type information for type `%T' because its size is variable", 
+      error ("cannot create type information for type %qT because "
+             "its size is variable", 
 	     type);
       return error_mark_node;
     }
@@ -349,6 +351,7 @@ get_tinfo_decl (tree type)
       TREE_TYPE (name) = type;
       DECL_TINFO_P (d) = 1;
       DECL_ARTIFICIAL (d) = 1;
+      DECL_IGNORED_P (d) = 1;
       TREE_READONLY (d) = 1;
       TREE_STATIC (d) = 1;
       /* Mark the variable as undefined -- but remember that we can
@@ -389,7 +392,7 @@ get_typeid (tree type)
     return error_mark_node;
   
   if (processing_template_decl)
-    return build_min (TYPEID_EXPR, type_info_ref_type, type);
+    return build_min (TYPEID_EXPR, const_type_info_type_node, type);
 
   /* If the type of the type-id is a reference type, the result of the
      typeid expression refers to a type_info object representing the
@@ -440,6 +443,7 @@ build_dynamic_cast_1 (tree type, tree expr)
     case POINTER_TYPE:
       if (TREE_CODE (TREE_TYPE (type)) == VOID_TYPE)
 	break;
+      /* Fall through.  */
     case REFERENCE_TYPE:
       if (! IS_AGGR_TYPE (TREE_TYPE (type)))
 	{
@@ -457,18 +461,6 @@ build_dynamic_cast_1 (tree type, tree expr)
       errstr = "target is not pointer or reference";
       goto fail;
     }
-
-  if (tc == POINTER_TYPE)
-    expr = convert_from_reference (expr);
-  else if (TREE_CODE (exprtype) != REFERENCE_TYPE)
-    {
-      /* Apply trivial conversion T -> T& for dereferenced ptrs.  */
-      exprtype = build_reference_type (exprtype);
-      expr = convert_to_reference (exprtype, expr, CONV_IMPLICIT,
-				   LOOKUP_NORMAL, NULL_TREE);
-    }
-
-  exprtype = TREE_TYPE (expr);
 
   if (tc == POINTER_TYPE)
     {
@@ -493,6 +485,11 @@ build_dynamic_cast_1 (tree type, tree expr)
     }
   else
     {
+      /* Apply trivial conversion T -> T& for dereferenced ptrs.  */
+      exprtype = build_reference_type (exprtype);
+      expr = convert_to_reference (exprtype, expr, CONV_IMPLICIT,
+				   LOOKUP_NORMAL, NULL_TREE);
+
       /* T is a reference type, v shall be an lvalue of a complete class
 	 type, and the result is an lvalue of the type referred to by T.  */
 
@@ -523,7 +520,7 @@ build_dynamic_cast_1 (tree type, tree expr)
     tree binfo;
 
     binfo = lookup_base (TREE_TYPE (exprtype), TREE_TYPE (type),
-			 ba_not_special, NULL);
+			 ba_check, NULL);
 
     if (binfo)
       {
@@ -570,8 +567,8 @@ build_dynamic_cast_1 (tree type, tree expr)
 		  && TREE_CODE (TREE_TYPE (old_expr)) == RECORD_TYPE)
 		{
 	          tree expr = throw_bad_cast ();
-		  warning ("dynamic_cast of `%#D' to `%#T' can never succeed",
-			      old_expr, type);
+		  warning ("dynamic_cast of %q#D to %q#T can never succeed",
+                           old_expr, type);
 	          /* Bash it to the expected type.  */
 	          TREE_TYPE (expr) = type;
 		  return expr;
@@ -584,8 +581,8 @@ build_dynamic_cast_1 (tree type, tree expr)
 	      if (TREE_CODE (op) == VAR_DECL
 		  && TREE_CODE (TREE_TYPE (op)) == RECORD_TYPE)
 		{
-		  warning ("dynamic_cast of `%#D' to `%#T' can never succeed",
-			      op, type);
+		  warning ("dynamic_cast of %q#D to %q#T can never succeed",
+                           op, type);
 		  retval = build_int_cst (type, 0); 
 		  return retval;
 		}
@@ -601,7 +598,7 @@ build_dynamic_cast_1 (tree type, tree expr)
 	  td3 = build_unary_op (ADDR_EXPR, td3, 0);
 
           /* Determine how T and V are related.  */
-          boff = get_dynamic_cast_base_type (static_type, target_type);
+          boff = dcast_base_hint (static_type, target_type);
           
 	  /* Since expr is used twice below, save it.  */
 	  expr = save_expr (expr);
@@ -627,7 +624,7 @@ build_dynamic_cast_1 (tree type, tree expr)
 	      push_nested_namespace (ns);
 	      tinfo_ptr = xref_tag (class_type,
 				    get_identifier ("__class_type_info"),
-				    true, false);
+				    /*tag_scope=*/ts_global, false);
 	      
 	      tinfo_ptr = build_pointer_type
 		(build_qualified_type
@@ -663,8 +660,8 @@ build_dynamic_cast_1 (tree type, tree expr)
     errstr = "source type is not polymorphic";
 
  fail:
-  error ("cannot dynamic_cast `%E' (of type `%#T') to type `%#T' (%s)",
-	    expr, exprtype, type, errstr);
+  error ("cannot dynamic_cast %qE (of type %q#T) to type %q#T (%s)",
+         expr, exprtype, type, errstr);
   return error_mark_node;
 }
 
@@ -783,6 +780,7 @@ tinfo_base_init (tree desc, tree target)
     name_decl = build_lang_decl (VAR_DECL, name_name, name_type);
     SET_DECL_ASSEMBLER_NAME (name_decl, name_name);
     DECL_ARTIFICIAL (name_decl) = 1;
+    DECL_IGNORED_P (name_decl) = 1;
     TREE_READONLY (name_decl) = 1;
     TREE_STATIC (name_decl) = 1;
     DECL_EXTERNAL (name_decl) = 0;
@@ -807,7 +805,7 @@ tinfo_base_init (tree desc, tree target)
   
       push_nested_namespace (abi_node);
       real_type = xref_tag (class_type, TINFO_REAL_NAME (desc),
-			    true, false);
+			    /*tag_scope=*/ts_global, false);
       pop_nested_namespace (abi_node);
   
       if (!COMPLETE_TYPE_P (real_type))
@@ -1339,33 +1337,45 @@ emit_support_tinfos (void)
   push_nested_namespace (abi_node);
   bltn_type = xref_tag (class_type,
 			get_identifier ("__fundamental_type_info"), 
-			true, false);
+			/*tag_scope=*/ts_global, false);
   pop_nested_namespace (abi_node);
   if (!COMPLETE_TYPE_P (bltn_type))
     return;
   dtor = CLASSTYPE_DESTRUCTORS (bltn_type);
-  if (DECL_EXTERNAL (dtor))
+  if (!dtor || DECL_EXTERNAL (dtor))
     return;
   doing_runtime = 1;
   for (ix = 0; fundamentals[ix]; ix++)
     {
       tree bltn = *fundamentals[ix];
-      tree bltn_ptr = build_pointer_type (bltn);
-      tree bltn_const_ptr = build_pointer_type
-              (build_qualified_type (bltn, TYPE_QUAL_CONST));
-      tree tinfo;
-      
-      tinfo = get_tinfo_decl (bltn);
-      TREE_USED (tinfo) = 1;
-      TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (tinfo)) = 1;
-      
-      tinfo = get_tinfo_decl (bltn_ptr);
-      TREE_USED (tinfo) = 1;
-      TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (tinfo)) = 1;
-      
-      tinfo = get_tinfo_decl (bltn_const_ptr);
-      TREE_USED (tinfo) = 1;
-      TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (tinfo)) = 1;
+      tree types[3];
+      int i;
+
+      types[0] = bltn;
+      types[1] = build_pointer_type (bltn);
+      types[2] = build_pointer_type (build_qualified_type (bltn, 
+							   TYPE_QUAL_CONST));
+ 
+      for (i = 0; i < 3; ++i)
+	{
+	  tree tinfo;
+
+	  tinfo = get_tinfo_decl (types[i]);
+	  TREE_USED (tinfo) = 1;
+	  mark_needed (tinfo);
+	  /* The C++ ABI requires that these objects be COMDAT.  But,
+	     On systems without weak symbols, initialized COMDAT 
+	     objects are emitted with internal linkage.  (See
+	     comdat_linkage for details.)  Since we want these objects
+	     to have external linkage so that copies do not have to be
+	     emitted in code outside the runtime library, we make them
+	     non-COMDAT here.  */
+	  if (!flag_weak)
+	    {
+	      gcc_assert (TREE_PUBLIC (tinfo) && !DECL_COMDAT (tinfo));
+	      DECL_INTERFACE_KNOWN (tinfo) = 1;
+	    }
+	}
     }
 }
 

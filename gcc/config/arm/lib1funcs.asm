@@ -1,7 +1,7 @@
 @ libgcc routines for ARM cpu.
 @ Division routines, written by Richard Earnshaw, (rearnsha@armltd.co.uk)
 
-/* Copyright 1995, 1996, 1998, 1999, 2000, 2003, 2004
+/* Copyright 1995, 1996, 1998, 1999, 2000, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is free software; you can redistribute it and/or modify it
@@ -80,7 +80,9 @@ Boston, MA 02111-1307, USA.  */
 # define __ARM_ARCH__ 5
 #endif
 
-#if defined(__ARM_ARCH_6__) || defined(__ARM_ARCH_6J__)
+#if defined(__ARM_ARCH_6__) || defined(__ARM_ARCH_6J__) \
+	|| defined(__ARM_ARCH_6K__) || defined(__ARM_ARCH_6Z__) \
+	|| defined(__ARM_ARCH_6ZK__)
 # undef __ARM_ARCH__
 # define __ARM_ARCH__ 6
 #endif
@@ -220,6 +222,11 @@ SYM (__\name):
 	bl	__\name
 .endm
 #endif
+
+.macro	FUNC_ALIAS new old
+	.globl	SYM (__\new)
+	EQUIV	SYM (__\new), SYM (__\old)
+.endm
 
 .macro	ARM_FUNC_ALIAS new old
 	.globl	SYM (__\new)
@@ -883,8 +890,8 @@ LSYM(Lover12):
 #ifdef L_dvmd_tls
 
 	FUNC_START div0
-	ARM_FUNC_ALIAS aeabi_idiv0 div0
-	ARM_FUNC_ALIAS aeabi_ldiv0 div0
+	FUNC_ALIAS aeabi_idiv0 div0
+	FUNC_ALIAS aeabi_ldiv0 div0
 
 	RET
 
@@ -937,7 +944,7 @@ LSYM(Lover12):
 #ifdef L_lshrdi3
 
 	FUNC_START lshrdi3
-	ARM_FUNC_ALIAS aeabi_llsr lshrdi3
+	FUNC_ALIAS aeabi_llsr lshrdi3
 	
 #ifdef __thumb__
 	lsr	al, r2
@@ -969,7 +976,7 @@ LSYM(Lover12):
 #ifdef L_ashrdi3
 	
 	FUNC_START ashrdi3
-	ARM_FUNC_ALIAS aeabi_lasr ashrdi3
+	FUNC_ALIAS aeabi_lasr ashrdi3
 	
 #ifdef __thumb__
 	lsr	al, r2
@@ -1006,7 +1013,7 @@ LSYM(Lover12):
 #ifdef L_ashldi3
 
 	FUNC_START ashldi3
-	ARM_FUNC_ALIAS aeabi_llsl ashldi3
+	FUNC_ALIAS aeabi_llsl ashldi3
 	
 #ifdef __thumb__
 	lsl	ah, r2
@@ -1096,7 +1103,20 @@ LSYM(Lover12):
    the target code cannot be relied upon to return via a BX instruction, so
    instead we have to store the resturn address on the stack and allow the
    called function to return here instead.  Upon return we recover the real
-   return address and use a BX to get back to Thumb mode.  */
+   return address and use a BX to get back to Thumb mode.
+
+   There are three variations of this code.  The first,
+   _interwork_call_via_rN(), will push the return address onto the
+   stack and pop it in _arm_return().  It should only be used if all
+   arguments are passed in registers.
+
+   The second, _interwork_r7_call_via_rN(), instead stores the return
+   address at [r7, #-4].  It is the caller's responsibility to ensure
+   that this address is valid and contains no useful data.
+
+   The third, _interwork_r11_call_via_rN(), works in the same way but
+   uses r11 instead of r7.  It is useful if the caller does not really
+   need a frame pointer.  */
 	
 	.text
 	.align 0
@@ -1105,7 +1125,33 @@ LSYM(Lover12):
 	.globl _arm_return
 _arm_return:
 	RETLDM
-	.code   16
+
+	.globl _arm_return_r7
+_arm_return_r7:
+	ldr	lr, [r7, #-4]
+	bx	lr
+
+	.globl _arm_return_r11
+_arm_return_r11:
+	ldr	lr, [r11, #-4]
+	bx	lr
+
+.macro interwork_with_frame frame, register, name, return
+	.code	16
+
+	THUMB_FUNC_START \name
+
+	bx	pc
+	nop
+
+	.code	32
+	tst	\register, #1
+	streq	lr, [\frame, #-4]
+	adreq	lr, _arm_return_\frame
+	bx	\register
+
+	SIZE	(\name)
+.endm
 
 .macro interwork register
 	.code	16
@@ -1124,6 +1170,9 @@ LSYM(Lchange_\register):
 	bx	\register
 
 	SIZE	(_interwork_call_via_\register)
+
+	interwork_with_frame r7,\register,_interwork_r7_call_via_\register
+	interwork_with_frame r11,\register,_interwork_r11_call_via_\register
 .endm
 	
 	interwork r0

@@ -1,5 +1,5 @@
 /* Definitions for AMD x86-64 running Linux-based GNU systems with ELF format.
-   Copyright (C) 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2004 Free Software Foundation, Inc.
    Contributed by Jan Hubicka <jh@suse.cz>, based on linux.h.
 
 This file is part of GCC.
@@ -70,3 +70,6 @@ Boston, MA 02111-1307, USA.  */
 #define NEED_INDICATE_EXEC_STACK 1
 
 #define MD_UNWIND_SUPPORT "config/i386/linux-unwind.h"
+
+/* This macro may be overridden in i386/k*bsd-gnu.h.  */
+#define REG_NAME(reg) reg

@@ -53,9 +53,9 @@ import java.util.ArrayList;
  * <code>getCollationElementIterator</code> method on 
  * <code>RuleBasedCollator</code>.
  *
- * @author Aaron M. Renn <arenn@urbanophile.com>
- * @author Tom Tromey <tromey@cygnus.com>
- * @author Guilhem Lavaux <guilhem.lavaux@free.fr>
+ * @author Aaron M. Renn (arenn@urbanophile.com)
+ * @author Tom Tromey (tromey@cygnus.com)
+ * @author Guilhem Lavaux (guilhem.lavaux@free.fr)
  */
 public final class CollationElementIterator
 {
@@ -181,7 +181,7 @@ public final class CollationElementIterator
    *
    * @return The primary order value of the specified collation value.  This is the high 16 bits.
    */
-  public static final int primaryOrder(int order)
+  public static int primaryOrder(int order)
   {
     // From the JDK 1.2 spec.
     return order >>> 16;
@@ -205,7 +205,7 @@ public final class CollationElementIterator
    *
    * @return The secondary order value of the specified collation value.  This is the bits 8-15.
    */
-  public static final short secondaryOrder(int order)
+  public static short secondaryOrder(int order)
   {
     // From the JDK 1.2 spec.
     return (short) ((order >>> 8) & 255);
@@ -219,7 +219,7 @@ public final class CollationElementIterator
    *
    * @return The tertiary order value of the specified collation value.  This is the low eight bits.
    */
-  public static final short tertiaryOrder(int order)
+  public static short tertiaryOrder(int order)
   {
     // From the JDK 1.2 spec.
     return (short) (order & 255);
@@ -369,8 +369,9 @@ public final class CollationElementIterator
 		    idx_idx += idxToMove;
 		    idxToMove = 0;
 		  }
-	      } else
-		idx_idx += prefix.key.length();
+	      }
+	    else
+	      idx_idx += prefix.key.length();
 	  }
       }
     

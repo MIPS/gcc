@@ -32,7 +32,10 @@ struct count_check
   ~count_check()
   {
     if (count != 0)
-      throw std::runtime_error("count isn't zero");
+      {
+	// NB: __mt_allocator doesn't clean itself up. Thus, this will
+	// not be zero.
+      }
   }
 };
  
@@ -61,17 +64,18 @@ void operator delete(void* p) throw()
   free(p);
 }
 
-typedef char char_t;
-typedef std::char_traits<char_t> traits_t;
-typedef __gnu_cxx::__common_pool_policy<true> pool_t;
-typedef __gnu_cxx::__mt_alloc<char_t, pool_t> allocator_t;
-typedef std::basic_string<char_t, traits_t, allocator_t> string_t;
+typedef char value_type;
+typedef std::char_traits<value_type> traits_type;
+using __gnu_cxx::__pool;
+typedef __gnu_cxx::__common_pool_policy<__pool, true> policy_type;
+typedef __gnu_cxx::__mt_alloc<value_type, policy_type> allocator_type;
+typedef std::basic_string<value_type, traits_type, allocator_type> string_type;
 
 int main()
 {
   bool test __attribute__((unused)) = true;
   {
-    string_t s;
+    string_type s;
     s += "bayou bend";
   }
   return 0;

@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler, for ARM.
    Copyright (C) 1991, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Pieter `Tiggr' Schoenmakers (rcpieter@win.tue.nl)
    and Martin Simmons (@harleqn.co.uk).
    More major hacks by Richard Earnshaw (rearnsha@arm.com)
@@ -26,7 +26,7 @@
 #ifndef GCC_ARM_H
 #define GCC_ARM_H
 
-/* The archetecture define.  */
+/* The architecture define.  */
 extern char arm_arch_name[];
 
 /* Target CPU builtins.  */
@@ -125,6 +125,8 @@ extern const char *target_fpu_name;
 extern const char *target_fpe_name;
 /* Whether to use floating point hardware.  */
 extern const char *target_float_abi_name;
+/* For -m{soft,hard}-float.  */
+extern const char *target_float_switch;
 /* Which ABI to use.  */
 extern const char *target_abi_name;
 /* Define the information needed to generate branch insns.  This is
@@ -212,9 +214,7 @@ extern GTY(()) rtx aof_pic_label;
 #define ARM_FLAG_APCS_REENT	(1 << 6)
 
   /* FLAG 0x0080 now spare (used to be alignment traps).  */
-/* Nonzero if all floating point instructions are missing (and there is no
-   emulator either).  Generate function calls for all ops in this case.  */
-#define ARM_FLAG_SOFT_FLOAT	(1 << 8)
+  /* FLAG (1 << 8) is now spare (used to be soft-float).  */
 
 /* Nonzero if we should compile with BYTES_BIG_ENDIAN set to 1.  */
 #define ARM_FLAG_BIG_END	(1 << 9)
@@ -329,10 +329,6 @@ extern GTY(()) rtx aof_pic_label;
   {"apcs-reentrant",		ARM_FLAG_APCS_REENT,			\
    N_("Generate re-entrant, PIC code") },				\
   {"no-apcs-reentrant",	       -ARM_FLAG_APCS_REENT, "" },		\
-  {"soft-float",		ARM_FLAG_SOFT_FLOAT,			\
-   N_("Use library calls to perform FP operations") },			\
-  {"hard-float",	       -ARM_FLAG_SOFT_FLOAT,			\
-   N_("Use hardware floating point instructions") },			\
   {"big-endian",		ARM_FLAG_BIG_END,			\
    N_("Assume target CPU is configured as big endian") },		\
   {"little-endian",	       -ARM_FLAG_BIG_END,			\
@@ -397,7 +393,11 @@ extern GTY(()) rtx aof_pic_label;
    N_("Specify the minimum bit alignment of structures"), 0},		\
   {"pic-register=", & arm_pic_register_string,				\
    N_("Specify the register to be used for PIC addressing"), 0},	\
-  {"abi=", &target_abi_name, N_("Specify an ABI"), 0}			\
+  {"abi=", &target_abi_name, N_("Specify an ABI"), 0},			\
+  {"soft-float", &target_float_switch,					\
+   N_("Alias for -mfloat-abi=soft"), "s"},				\
+  {"hard-float", &target_float_switch,					\
+   N_("Alias for -mfloat-abi=hard"), "h"}				\
 }
 
 /* Support for a compile-time default CPU, et cetera.  The rules are:
@@ -480,6 +480,10 @@ enum float_abi_type
 };
 
 extern enum float_abi_type arm_float_abi;
+
+#ifndef TARGET_DEFAULT_FLOAT_ABI
+#define TARGET_DEFAULT_FLOAT_ABI ARM_FLOAT_ABI_SOFT
+#endif
 
 /* Which ABI to use.  */
 enum arm_abi_type
@@ -917,10 +921,16 @@ extern const char * structure_size_string;
       fixed_regs[10]     = 1;					\
       call_used_regs[10] = 1;					\
     }								\
-  if (TARGET_APCS_FRAME)					\
+  /* -mcaller-super-interworking reserves r11 for calls to	\
+     _interwork_r11_call_via_rN().  Making the register global	\
+     is an easy way of ensuring that it remains valid for all	\
+     calls.  */							\
+  if (TARGET_APCS_FRAME || TARGET_CALLER_INTERWORKING)		\
     {								\
       fixed_regs[ARM_HARD_FRAME_POINTER_REGNUM] = 1;		\
       call_used_regs[ARM_HARD_FRAME_POINTER_REGNUM] = 1;	\
+      if (TARGET_CALLER_INTERWORKING)				\
+	global_regs[ARM_HARD_FRAME_POINTER_REGNUM] = 1;		\
     }								\
   SUBTARGET_CONDITIONAL_REGISTER_USAGE				\
 }
@@ -1218,12 +1228,14 @@ enum reg_class
 
 /* For the Thumb the high registers cannot be used as base registers
    when addressing quantities in QI or HI mode; if we don't know the
-   mode, then we must be conservative.  After reload we must also be
-   conservative, since we can't support SP+reg addressing, and we
-   can't fix up any bad substitutions.  */
+   mode, then we must be conservative.  */
 #define MODE_BASE_REG_CLASS(MODE)					\
     (TARGET_ARM ? GENERAL_REGS :					\
-     (((MODE) == SImode && !reload_completed) ? BASE_REGS : LO_REGS))
+     (((MODE) == SImode) ? BASE_REGS : LO_REGS))
+
+/* For Thumb we can not support SP+reg addressing, so we return LO_REGS
+   instead of BASE_REGS.  */
+#define MODE_BASE_REG_REG_CLASS(MODE) BASE_REG_CLASS
 
 /* When SMALL_REGISTER_CLASSES is nonzero, the compiler allows
    registers explicitly used in the rtl to be used as spill registers
@@ -1297,27 +1309,39 @@ enum reg_class
    `S' means any symbol that has the SYMBOL_REF_FLAG set or a CONSTANT_POOL
    address.  This means that the symbol is in the text segment and can be
    accessed without using a load.
+   'D' Prefixes a number of const_double operands where:
+   'Da' is a constant that takes two ARM insns to load.
+   'Db' takes three ARM insns.
+   'Dc' takes four ARM insns, if we allow that in this compilation.
    'U' Prefixes an extended memory constraint where:
    'Uv' is an address valid for VFP load/store insns.
    'Uy' is an address valid for iwmmxt load/store insns.
    'Uq' is an address valid for ldrsb.  */
 
-#define EXTRA_CONSTRAINT_STR_ARM(OP, C, STR)			\
-  (((C) == 'Q') ? (GET_CODE (OP) == MEM				\
-		 && GET_CODE (XEXP (OP, 0)) == REG) :		\
-   ((C) == 'R') ? (GET_CODE (OP) == MEM				\
-		   && GET_CODE (XEXP (OP, 0)) == SYMBOL_REF	\
-		   && CONSTANT_POOL_ADDRESS_P (XEXP (OP, 0))) :	\
-   ((C) == 'S') ? (optimize > 0 && CONSTANT_ADDRESS_P (OP)) :	\
-   ((C) == 'T') ? cirrus_memory_offset (OP) :			\
+#define EXTRA_CONSTRAINT_STR_ARM(OP, C, STR)				\
+  (((C) == 'D') ? (GET_CODE (OP) == CONST_DOUBLE			\
+		   && (((STR)[1] == 'a'					\
+			&& arm_const_double_inline_cost (OP) == 2)	\
+		       || ((STR)[1] == 'b'				\
+			   && arm_const_double_inline_cost (OP) == 3)	\
+		       || ((STR)[1] == 'c'				\
+			   && arm_const_double_inline_cost (OP) == 4	\
+			   && !(optimize_size || arm_ld_sched)))) :	\
+   ((C) == 'Q') ? (GET_CODE (OP) == MEM					\
+		 && GET_CODE (XEXP (OP, 0)) == REG) :			\
+   ((C) == 'R') ? (GET_CODE (OP) == MEM					\
+		   && GET_CODE (XEXP (OP, 0)) == SYMBOL_REF		\
+		   && CONSTANT_POOL_ADDRESS_P (XEXP (OP, 0))) :		\
+   ((C) == 'S') ? (optimize > 0 && CONSTANT_ADDRESS_P (OP)) :		\
+   ((C) == 'T') ? cirrus_memory_offset (OP) :				\
    ((C) == 'U' && (STR)[1] == 'v') ? arm_coproc_mem_operand (OP, FALSE) : \
    ((C) == 'U' && (STR)[1] == 'y') ? arm_coproc_mem_operand (OP, TRUE) : \
-   ((C) == 'U' && (STR)[1] == 'q')				\
-    ? arm_extendqisi_mem_op (OP, GET_MODE (OP))			\
-      : 0)
+   ((C) == 'U' && (STR)[1] == 'q')					\
+    ? arm_extendqisi_mem_op (OP, GET_MODE (OP))				\
+   : 0)
 
 #define CONSTRAINT_LEN(C,STR)				\
-  ((C) == 'U' ? 2 : DEFAULT_CONSTRAINT_LEN (C, STR))
+  (((C) == 'U' || (C) == 'D') ? 2 : DEFAULT_CONSTRAINT_LEN (C, STR))
 
 #define EXTRA_CONSTRAINT_THUMB(X, C)					\
   ((C) == 'Q' ? (GET_CODE (X) == MEM					\
@@ -1517,6 +1541,20 @@ enum reg_class
    goes at a more negative offset in the frame.  */
 #define FRAME_GROWS_DOWNWARD 1
 
+/* The amount of scratch space needed by _interwork_{r7,r11}_call_via_rN().
+   When present, it is one word in size, and sits at the top of the frame,
+   between the soft frame pointer and either r7 or r11.
+
+   We only need _interwork_rM_call_via_rN() for -mcaller-super-interworking,
+   and only then if some outgoing arguments are passed on the stack.  It would
+   be tempting to also check whether the stack arguments are passed by indirect
+   calls, but there seems to be no reason in principle why a post-reload pass
+   couldn't convert a direct call into an indirect one.  */
+#define CALLER_INTERWORKING_SLOT_SIZE			\
+  (TARGET_CALLER_INTERWORKING				\
+   && current_function_outgoing_args_size != 0		\
+   ? UNITS_PER_WORD : 0)
+
 /* Offset within stack frame to start allocating local variables at.
    If FRAME_GROWS_DOWNWARD, this is the offset to the END of the
    first local allocated.  Otherwise, it is the offset to the BEGINNING
@@ -1578,6 +1616,10 @@ enum reg_class
    || ((REGNO) == FIRST_IWMMXT_REGNUM && TARGET_IWMMXT_ABI) \
    || (TARGET_ARM && ((REGNO) == FIRST_FPA_REGNUM)			\
        && TARGET_HARD_FLOAT_ABI && TARGET_FPA))
+
+/* Amount of memory needed for an untyped call to save all possible return
+   registers.  */
+#define APPLY_RESULT_SIZE arm_apply_result_size()
 
 /* How large values are returned */
 /* A C expression which can inhibit the returning of certain function values
@@ -1665,8 +1707,15 @@ typedef struct machine_function GTY(())
   /* Records if sibcalls are blocked because an argument
      register is needed to preserve stack alignment.  */
   int sibcall_blocked;
+  /* Labels for per-function Thumb call-via stubs.  One per potential calling
+     register.  We can never call via SP, LR or PC.  */
+  rtx call_via[13];
 }
 machine_function;
+
+/* As in the machine_function, a global set of call-via labels, for code 
+   that is in text_section().  */
+extern GTY(()) rtx thumb_call_via_label[13];
 
 /* A C type for declaring a variable that is used as the first argument of
    `FUNCTION_ARG' and other related values.  For some target machines, the
@@ -1704,16 +1753,6 @@ typedef struct
    indeed make it pass in the stack if necessary).  */
 #define FUNCTION_ARG(CUM, MODE, TYPE, NAMED) \
   arm_function_arg (&(CUM), (MODE), (TYPE), (NAMED))
-
-/* For an arg passed partly in registers and partly in memory,
-   this is the number of registers used.
-   For args passed entirely in registers or entirely in memory, zero.  */
-#define FUNCTION_ARG_PARTIAL_NREGS(CUM, MODE, TYPE, NAMED)	        \
-  (arm_vector_mode_supported_p (MODE) ? 0 :				\
-       NUM_ARG_REGS > (CUM).nregs				        \
-   && (NUM_ARG_REGS < ((CUM).nregs + ARM_NUM_REGS2 (MODE, TYPE))	\
-   && (CUM).can_split)						        \
-   ?   NUM_ARG_REGS - (CUM).nregs : 0)
 
 /* Initialize a variable CUM of type CUMULATIVE_ARGS
    for a call to a function whose data type is FNTYPE.
@@ -1980,6 +2019,11 @@ typedef struct
    ? THUMB_REGNO_MODE_OK_FOR_BASE_P (REGNO, MODE)	\
    : ARM_REGNO_OK_FOR_BASE_P (REGNO))
 
+/* Nonzero if X can be the base register in a reg+reg addressing mode.
+   For Thumb, we can not use SP + reg, so reject SP.  */
+#define REGNO_MODE_OK_FOR_REG_BASE_P(X, MODE)	\
+  REGNO_OK_FOR_INDEX_P (X)
+
 /* For ARM code, we don't care about the mode, but for Thumb, the index
    must be suitable for use in a QImode load.  */
 #define REGNO_OK_FOR_INDEX_P(REGNO)	\
@@ -2123,6 +2167,10 @@ typedef struct
    ? THUMB_REG_OK_FOR_INDEX_P (X)		\
    : ARM_REG_OK_FOR_INDEX_P (X))
 
+/* Nonzero if X can be the base register in a reg+reg addressing mode.
+   For Thumb, we can not use SP + reg, so reject SP.  */
+#define REG_MODE_OK_FOR_REG_BASE_P(X, MODE)	\
+  REG_OK_FOR_INDEX_P (X)
 
 /* GO_IF_LEGITIMATE_ADDRESS recognizes an RTL expression
    that is a valid memory address for an instruction.

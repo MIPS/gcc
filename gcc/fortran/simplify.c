@@ -1,5 +1,5 @@
 /* Simplify intrinsic functions at compile-time.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation,
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation,
    Inc.
    Contributed by Andy Vaught & Katherine Holcomb
 
@@ -23,9 +23,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "config.h"
 #include "system.h"
 #include "flags.h"
-
-#include <string.h>
-
 #include "gfortran.h"
 #include "arith.h"
 #include "intrinsic.h"
@@ -146,19 +143,17 @@ static void
 twos_complement (mpz_t x, int bitsize)
 {
   mpz_t mask;
-  char mask_s[bitsize + 1];
 
   if (mpz_tstbit (x, bitsize - 1) == 1)
     {
-      /* The mpz_init_set_{u|s}i functions take a long argument, but
-	 the widest integer the target supports might be wider, so we
-	 have to go via an intermediate string.  */
-      memset (mask_s, '1', bitsize);
-      mask_s[bitsize] = '\0';
-      mpz_init_set_str (mask, mask_s, 2);
+      mpz_init_set_ui(mask, 1);
+      mpz_mul_2exp(mask, mask, bitsize);
+      mpz_sub_ui(mask, mask, 1);
 
-      /* We negate the number by hand, zeroing the high bits, and then
-	 have it negated by GMP.  */
+      /* We negate the number by hand, zeroing the high bits, that is
+        make it the corresponding positive number, and then have it
+        negated by GMP, giving the correct representation of the
+        negative number.  */
       mpz_com (x, x);
       mpz_add_ui (x, x, 1);
       mpz_and (x, x, mask);
@@ -597,7 +592,7 @@ gfc_simplify_ceiling (gfc_expr * e, gfc_expr * k)
   gfc_expr *ceil, *result;
   int kind;
 
-  kind = get_kind (BT_REAL, k, "CEILING", gfc_default_real_kind);
+  kind = get_kind (BT_INTEGER, k, "CEILING", gfc_default_integer_kind);
   if (kind == -1)
     return &gfc_bad_expr;
 
@@ -1022,7 +1017,7 @@ gfc_simplify_floor (gfc_expr * e, gfc_expr * k)
   mpfr_t floor;
   int kind;
 
-  kind = get_kind (BT_REAL, k, "FLOOR", gfc_default_real_kind);
+  kind = get_kind (BT_INTEGER, k, "FLOOR", gfc_default_integer_kind);
   if (kind == -1)
     gfc_internal_error ("gfc_simplify_floor(): Bad kind");
 
@@ -1478,7 +1473,7 @@ gfc_simplify_int (gfc_expr * e, gfc_expr * k)
   gfc_expr *rpart, *rtrunc, *result;
   int kind;
 
-  kind = get_kind (BT_REAL, k, "INT", gfc_default_real_kind);
+  kind = get_kind (BT_INTEGER, k, "INT", gfc_default_integer_kind);
   if (kind == -1)
     return &gfc_bad_expr;
 

@@ -1,5 +1,6 @@
 /* Register renaming for the GNU compiler.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004  Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005
+   Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -35,12 +36,6 @@
 #include "flags.h"
 #include "toplev.h"
 #include "obstack.h"
-
-#ifndef REG_MODE_OK_FOR_BASE_P
-#define REG_MODE_OK_FOR_BASE_P(REGNO, MODE) REG_OK_FOR_BASE_P (REGNO)
-#endif
-
-static const char *const reg_class_names[] = REG_CLASS_NAMES;
 
 struct du_chain
 {
@@ -99,6 +94,9 @@ note_sets (rtx x, rtx set ATTRIBUTE_UNUSED, void *data)
   HARD_REG_SET *pset = (HARD_REG_SET *) data;
   unsigned int regno;
   int nregs;
+
+  if (GET_CODE (x) == SUBREG)
+    x = SUBREG_REG (x);
   if (!REG_P (x))
     return;
   regno = REGNO (x);
@@ -524,6 +522,7 @@ scan_rtx_address (rtx insn, rtx *loc, enum reg_class cl,
 	rtx op1 = orig_op1;
 	rtx *locI = NULL;
 	rtx *locB = NULL;
+	rtx *locB_reg = NULL;
 
 	if (GET_CODE (op0) == SUBREG)
 	  {
@@ -560,14 +559,14 @@ scan_rtx_address (rtx insn, rtx *loc, enum reg_class cl,
 	    int index_op;
 
 	    if (REG_OK_FOR_INDEX_P (op0)
-		&& REG_MODE_OK_FOR_BASE_P (op1, mode))
+		&& REG_MODE_OK_FOR_REG_BASE_P (op1, mode))
 	      index_op = 0;
 	    else if (REG_OK_FOR_INDEX_P (op1)
-		     && REG_MODE_OK_FOR_BASE_P (op0, mode))
+		     && REG_MODE_OK_FOR_REG_BASE_P (op0, mode))
 	      index_op = 1;
-	    else if (REG_MODE_OK_FOR_BASE_P (op1, mode))
+	    else if (REG_MODE_OK_FOR_REG_BASE_P (op1, mode))
 	      index_op = 0;
-	    else if (REG_MODE_OK_FOR_BASE_P (op0, mode))
+	    else if (REG_MODE_OK_FOR_REG_BASE_P (op0, mode))
 	      index_op = 1;
 	    else if (REG_OK_FOR_INDEX_P (op1))
 	      index_op = 1;
@@ -575,7 +574,7 @@ scan_rtx_address (rtx insn, rtx *loc, enum reg_class cl,
 	      index_op = 0;
 
 	    locI = &XEXP (x, index_op);
-	    locB = &XEXP (x, !index_op);
+	    locB_reg = &XEXP (x, !index_op);
 	  }
 	else if (code0 == REG)
 	  {
@@ -592,6 +591,9 @@ scan_rtx_address (rtx insn, rtx *loc, enum reg_class cl,
 	  scan_rtx_address (insn, locI, INDEX_REG_CLASS, action, mode);
 	if (locB)
 	  scan_rtx_address (insn, locB, MODE_BASE_REG_CLASS (mode), action, mode);
+	if (locB_reg)
+	  scan_rtx_address (insn, locB_reg, MODE_BASE_REG_REG_CLASS (mode),
+			    action, mode);
 	return;
       }
 
@@ -667,7 +669,8 @@ scan_rtx (rtx insn, rtx *loc, enum reg_class cl,
 
     case SET:
       scan_rtx (insn, &SET_SRC (x), cl, action, OP_IN, 0);
-      scan_rtx (insn, &SET_DEST (x), cl, action, OP_OUT, 0);
+      scan_rtx (insn, &SET_DEST (x), cl, action,
+		GET_CODE (PATTERN (insn)) == COND_EXEC ? OP_INOUT : OP_OUT, 0);
       return;
 
     case STRICT_LOW_PART:
@@ -692,7 +695,8 @@ scan_rtx (rtx insn, rtx *loc, enum reg_class cl,
       gcc_unreachable ();
 
     case CLOBBER:
-      scan_rtx (insn, &SET_DEST (x), cl, action, OP_OUT, 1);
+      scan_rtx (insn, &SET_DEST (x), cl, action,
+		GET_CODE (PATTERN (insn)) == COND_EXEC ? OP_INOUT : OP_OUT, 0);
       return;
 
     case EXPR_LIST:
@@ -1102,14 +1106,15 @@ kill_value_regno (unsigned int regno, unsigned int nregs,
 static void
 kill_value (rtx x, struct value_data *vd)
 {
-  /* SUBREGS are supposed to have been eliminated by now.  But some
-     ports, e.g. i386 sse, use them to smuggle vector type information
-     through to instruction selection.  Each such SUBREG should simplify,
-     so if we get a NULL  we've done something wrong elsewhere.  */
+  rtx orig_rtx = x;
 
   if (GET_CODE (x) == SUBREG)
-    x = simplify_subreg (GET_MODE (x), SUBREG_REG (x),
-			 GET_MODE (SUBREG_REG (x)), SUBREG_BYTE (x));
+    {
+      x = simplify_subreg (GET_MODE (x), SUBREG_REG (x),
+			   GET_MODE (SUBREG_REG (x)), SUBREG_BYTE (x));
+      if (x == NULL_RTX)
+	x = SUBREG_REG (orig_rtx);
+    }
   if (REG_P (x))
     {
       unsigned int regno = REGNO (x);
@@ -1415,6 +1420,7 @@ replace_oldest_value_addr (rtx *loc, enum reg_class cl,
 	rtx op1 = orig_op1;
 	rtx *locI = NULL;
 	rtx *locB = NULL;
+	rtx *locB_reg = NULL;
 
 	if (GET_CODE (op0) == SUBREG)
 	  {
@@ -1451,14 +1457,14 @@ replace_oldest_value_addr (rtx *loc, enum reg_class cl,
 	    int index_op;
 
 	    if (REG_OK_FOR_INDEX_P (op0)
-		&& REG_MODE_OK_FOR_BASE_P (op1, mode))
+		&& REG_MODE_OK_FOR_REG_BASE_P (op1, mode))
 	      index_op = 0;
 	    else if (REG_OK_FOR_INDEX_P (op1)
-		     && REG_MODE_OK_FOR_BASE_P (op0, mode))
+		     && REG_MODE_OK_FOR_REG_BASE_P (op0, mode))
 	      index_op = 1;
-	    else if (REG_MODE_OK_FOR_BASE_P (op1, mode))
+	    else if (REG_MODE_OK_FOR_REG_BASE_P (op1, mode))
 	      index_op = 0;
-	    else if (REG_MODE_OK_FOR_BASE_P (op0, mode))
+	    else if (REG_MODE_OK_FOR_REG_BASE_P (op0, mode))
 	      index_op = 1;
 	    else if (REG_OK_FOR_INDEX_P (op1))
 	      index_op = 1;
@@ -1466,7 +1472,7 @@ replace_oldest_value_addr (rtx *loc, enum reg_class cl,
 	      index_op = 0;
 
 	    locI = &XEXP (x, index_op);
-	    locB = &XEXP (x, !index_op);
+	    locB_reg = &XEXP (x, !index_op);
 	  }
 	else if (code0 == REG)
 	  {
@@ -1485,6 +1491,10 @@ replace_oldest_value_addr (rtx *loc, enum reg_class cl,
 	if (locB)
 	  changed |= replace_oldest_value_addr (locB,
 						MODE_BASE_REG_CLASS (mode),
+						mode, insn, vd);
+	if (locB_reg)
+	  changed |= replace_oldest_value_addr (locB_reg,
+						MODE_BASE_REG_REG_CLASS (mode),
 						mode, insn, vd);
 	return changed;
       }
@@ -1738,24 +1748,28 @@ copyprop_hardreg_forward (void)
 {
   struct value_data *all_vd;
   bool need_refresh;
-  basic_block bb, bbp = 0;
+  basic_block bb;
+  sbitmap visited;
 
   need_refresh = false;
 
   all_vd = xmalloc (sizeof (struct value_data) * last_basic_block);
 
+  visited = sbitmap_alloc (last_basic_block - (INVALID_BLOCK + 1));
+  sbitmap_zero (visited);
+
   FOR_EACH_BB (bb)
     {
+      SET_BIT (visited, bb->index - (INVALID_BLOCK + 1));
+
       /* If a block has a single predecessor, that we've already
 	 processed, begin with the value data that was live at
 	 the end of the predecessor block.  */
       /* ??? Ought to use more intelligent queuing of blocks.  */
-      if (EDGE_COUNT (bb->preds) > 0)
-	for (bbp = bb; bbp && bbp != EDGE_PRED (bb, 0)->src; bbp = bbp->prev_bb);
       if (EDGE_COUNT (bb->preds) == 1
-	  && ! (EDGE_PRED (bb, 0)->flags & (EDGE_ABNORMAL_CALL | EDGE_EH))
-	  && EDGE_PRED (bb, 0)->src != ENTRY_BLOCK_PTR
-	  && bbp)
+	  && TEST_BIT (visited,
+		       EDGE_PRED (bb, 0)->src->index - (INVALID_BLOCK + 1))
+	  && ! (EDGE_PRED (bb, 0)->flags & (EDGE_ABNORMAL_CALL | EDGE_EH)))
 	all_vd[bb->index] = all_vd[EDGE_PRED (bb, 0)->src->index];
       else
 	init_value_data (all_vd + bb->index);
@@ -1763,6 +1777,8 @@ copyprop_hardreg_forward (void)
       if (copyprop_hardreg_forward_1 (bb, all_vd + bb->index))
 	need_refresh = true;
     }
+
+  sbitmap_free (visited);  
 
   if (need_refresh)
     {

@@ -86,6 +86,9 @@ Boston, MA 02111-1307, USA.  */
 	    builtin_define ("_fastcall=__attribute__((__fastcall__))");	\
 	    builtin_define ("_cdecl=__attribute__((__cdecl__))");	\
 	  }								\
+	/* Even though linkonce works with static libs, this is needed 	\
+	    to compare typeinfo symbols across dll boundaries.  */	\
+	builtin_define ("__GXX_MERGED_TYPEINFO_NAMES=0");		\
 	MAYBE_UWIN_CPP_BUILTINS ();					\
 	EXTRA_OS_CPP_BUILTINS ();					\
   }									\
@@ -392,6 +395,23 @@ extern int i386_pe_dllimport_name_p (const char *);
 				       TREE_PUBLIC (DECL));		\
       ASM_OUTPUT_DEF (STREAM, alias, IDENTIFIER_POINTER (TARGET));	\
     } while (0)
+
+/* GNU as supports weak symbols on PECOFF. */
+#ifdef HAVE_GAS_WEAK
+#define ASM_WEAKEN_LABEL(FILE, NAME)  \
+  do                                  \
+    {                                 \
+      fputs ("\t.weak\t", (FILE));    \
+      assemble_name ((FILE), (NAME)); \
+      fputc ('\n', (FILE));           \
+    }                                 \
+  while (0)
+#endif /* HAVE_GAS_WEAK */
+
+/* FIXME: SUPPORTS_WEAK && TARGET_HAVE_NAMED_SECTIONS is true,
+   but for .jcr section to work we also need crtbegin and crtend
+   objects.  */
+#define TARGET_USE_JCR_SECTION 0
 
 /* Decide whether it is safe to use a local alias for a virtual function
    when constructing thunks.  */

@@ -1,6 +1,6 @@
 /* Handle exceptional things in C++.
    Copyright (C) 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004  Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004, 2005  Free Software Foundation, Inc.
    Contributed by Michael Tiemann <tiemann@cygnus.com>
    Rewritten by Mike Stump <mrs@cygnus.com>, based upon an
    initial re-implementation courtesy Tad Hunt.
@@ -153,6 +153,26 @@ build_exc_ptr (void)
   return build0 (EXC_PTR_EXPR, ptr_type_node);
 }
 
+/* Build up a call to __cxa_get_exception_ptr so that we can build a
+   copy constructor for the thrown object.  */
+
+static tree
+do_get_exception_ptr (void)
+{
+  tree fn;
+
+  fn = get_identifier ("__cxa_get_exception_ptr");
+  if (!get_global_value_if_present (fn, &fn))
+    {
+      /* Declare void* __cxa_get_exception_ptr (void *).  */
+      tree tmp = tree_cons (NULL_TREE, ptr_type_node, void_list_node);
+      fn = push_library_fn (fn, build_function_type (ptr_type_node, tmp));
+    }
+
+  return build_function_call (fn, tree_cons (NULL_TREE, build_exc_ptr (),
+					     NULL_TREE));
+}
+
 /* Build up a call to __cxa_begin_catch, to tell the runtime that the
    exception has been handled.  */
 
@@ -182,8 +202,11 @@ dtor_nothrow (tree type)
   if (type == NULL_TREE)
     return 0;
 
-  if (! TYPE_HAS_DESTRUCTOR (type))
+  if (!CLASS_TYPE_P (type))
     return 1;
+
+  if (CLASSTYPE_LAZY_DESTRUCTOR (type))
+    lazily_declare_fn (sfk_destructor, type);
 
   return TREE_NOTHROW (CLASSTYPE_DESTRUCTORS (type));
 }
@@ -337,8 +360,7 @@ initialize_handler_parm (tree decl, tree exp)
      adjusted by value from __cxa_begin_catch.  Others are returned by 
      reference.  */
   init_type = TREE_TYPE (decl);
-  if (! TYPE_PTR_P (init_type)
-      && TREE_CODE (init_type) != REFERENCE_TYPE)
+  if (!POINTER_TYPE_P (init_type))
     init_type = build_reference_type (init_type);
 
   choose_personality_routine (decl_is_java_type (init_type, 0)
@@ -379,9 +401,8 @@ initialize_handler_parm (tree decl, tree exp)
 tree
 expand_start_catch_block (tree decl)
 {
-  tree exp = NULL_TREE;
+  tree exp;
   tree type;
-  bool is_java;
 
   if (! doing_eh (1))
     return NULL_TREE;
@@ -395,45 +416,50 @@ expand_start_catch_block (tree decl)
   else
     type = NULL_TREE;
 
-  is_java = false;
-  if (decl)
+  if (decl && decl_is_java_type (type, 1))
     {
-      tree init;
+      /* Java only passes object via pointer and doesn't require
+	 adjusting.  The java object is immediately before the
+	 generic exception header.  */
+      exp = build_exc_ptr ();
+      exp = build1 (NOP_EXPR, build_pointer_type (type), exp);
+      exp = build2 (MINUS_EXPR, TREE_TYPE (exp), exp,
+		    TYPE_SIZE_UNIT (TREE_TYPE (exp)));
+      exp = build_indirect_ref (exp, NULL);
+      initialize_handler_parm (decl, exp);
+      return type;
+    }
 
-      if (decl_is_java_type (type, 1))
-	{
-	  /* Java only passes object via pointer and doesn't require
-	     adjusting.  The java object is immediately before the
-	     generic exception header.  */
-	  init = build_exc_ptr ();
-	  init = build1 (NOP_EXPR, build_pointer_type (type), init);
-	  init = build2 (MINUS_EXPR, TREE_TYPE (init), init,
-			 TYPE_SIZE_UNIT (TREE_TYPE (init)));
-	  init = build_indirect_ref (init, NULL);
-	  is_java = true;
-	}
-      else
-	{
-	  /* C++ requires that we call __cxa_begin_catch to get the
-	     pointer to the actual object.  */
-	  init = do_begin_catch ();
-	}
-	  
+  /* Call __cxa_end_catch at the end of processing the exception.  */
+  push_eh_cleanup (type);
+
+  /* If there's no decl at all, then all we need to do is make sure
+     to tell the runtime that we've begun handling the exception.  */
+  if (decl == NULL)
+    finish_expr_stmt (do_begin_catch ());
+
+  /* If the C++ object needs constructing, we need to do that before
+     calling __cxa_begin_catch, so that std::uncaught_exception gets
+     the right value during the copy constructor.  */
+  else if (TYPE_NEEDS_CONSTRUCTING (TREE_TYPE (decl)))
+    {
+      exp = do_get_exception_ptr ();
+      initialize_handler_parm (decl, exp);
+      finish_expr_stmt (do_begin_catch ());
+    }
+
+  /* Otherwise the type uses a bitwise copy, and we don't have to worry
+     about the value of std::uncaught_exception and therefore can do the
+     copy with the return value of __cxa_end_catch instead.  */
+  else
+    {
+      tree init = do_begin_catch ();
       exp = create_temporary_var (ptr_type_node);
       DECL_REGISTER (exp) = 1;
       cp_finish_decl (exp, init, NULL_TREE, LOOKUP_ONLYCONVERTING);
       finish_expr_stmt (build_modify_expr (exp, INIT_EXPR, init));
+      initialize_handler_parm (decl, exp);
     }
-  else
-    finish_expr_stmt (do_begin_catch ());
-
-  /* C++ requires that we call __cxa_end_catch at the end of
-     processing the exception.  */
-  if (! is_java)
-    push_eh_cleanup (type);
-
-  if (decl)
-    initialize_handler_parm (decl, exp);
 
   return type;
 }
@@ -710,7 +736,7 @@ build_throw (tree exp)
 
       throw_type = build_eh_type_type (prepare_eh_type (TREE_TYPE (object)));
 
-      if (TYPE_HAS_DESTRUCTOR (TREE_TYPE (object)))
+      if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (TREE_TYPE (object)))
 	{
 	  cleanup = lookup_fnfields (TYPE_BINFO (TREE_TYPE (object)),
 				     complete_dtor_identifier, 0);

@@ -85,7 +85,7 @@ zlib/configure: zlib/configure.ac zlib/aclocal.m4
 fastjar/aclocal.m4: fastjar/configure.ac
 fastjar/Makefile.in: fastjar/Makefile.am fastjar/configure.ac fastjar/aclocal.m4
 fastjar/configure: fastjar/configure.ac fastjar/aclocal.m4
-boehm-gc/aclocal.m4: boehm-gc/configure.ac boehm-gc/acinclude.m4
+boehm-gc/aclocal.m4: boehm-gc/configure.ac
 boehm-gc/Makefile.in: boehm-gc/Makefile.am boehm-gc/configure.ac boehm-gc/aclocal.m4
 boehm-gc/configure: boehm-gc/configure.ac boehm-gc/aclocal.m4
 libada/configure: libada/configure.ac
@@ -128,7 +128,16 @@ touch_files () {
     echo '	echo Touching $@... 1>&2; \' >> Makefile.$$
     echo '	touch $@' >> Makefile.$$
     files_and_dependencies | sed 's,[^ ]* ,,;s,$, :,' >> Makefile.$$
-    while ${MAKE-make} -s -f Makefile.$$ all | grep . > /dev/null; do
+
+    # We would have to explicitly shut off the "Entering... Leaving..."
+    # messages through "--no-print-directory" to handle the case when
+    # we were called from a recursive invocation (i.e. "$(MAKE)" in a
+    # Makefile, not just make).  Passing only "-s" doesn't help then,
+    # because make has helpfully added "-w" to MAKEFLAGS automatically.
+    # Unfortunately we do not require GNU make other than for building
+    # and testing, so let's just grep known text explicitly echoed by
+    # the rule.
+    while ${MAKE-make} -s -f Makefile.$$ all | grep Touching > /dev/null; do
       sleep 1
     done 2>&1
     rm -f Makefile.$$

@@ -1,6 +1,6 @@
 /* Compute register class preferences for pseudo-registers.
    Copyright (C) 1987, 1988, 1991, 1992, 1993, 1994, 1995, 1996
-   1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -192,6 +192,10 @@ enum reg_class reg_class_superunion[N_REG_CLASSES][N_REG_CLASSES];
 
 const char * reg_names[] = REGISTER_NAMES;
 
+/* Array containing all of the register class names.  */
+
+const char * reg_class_names[] = REG_CLASS_NAMES;
+
 /* For each hard register, the widest mode object that it can contain.
    This will be a MODE_INT mode if the register can hold integers.  Otherwise
    it will be a MODE_FLOAT or a MODE_CC mode, whichever is valid for the
@@ -292,9 +296,6 @@ init_reg_sets (void)
   memcpy (fixed_regs, initial_fixed_regs, sizeof fixed_regs);
   memcpy (call_used_regs, initial_call_used_regs, sizeof call_used_regs);
   memset (global_regs, 0, sizeof global_regs);
-
-  /* Do any additional initialization regsets may need.  */
-  INIT_ONCE_REG_SET ();
 
 #ifdef REG_ALLOC_ORDER
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
@@ -928,7 +929,6 @@ regclass_init (void)
 static void
 dump_regclass (FILE *dump)
 {
-  static const char *const reg_class_names[] = REG_CLASS_NAMES;
   int i;
   for (i = FIRST_PSEUDO_REGISTER; i < max_regno; i++)
     {
@@ -1351,7 +1351,6 @@ regclass (rtx f, int nregs, FILE *dump)
 	      && (reg_pref[i].prefclass != (int) best
 		  || reg_pref[i].altclass != (int) alt))
 	    {
-	      static const char *const reg_class_names[] = REG_CLASS_NAMES;
 	      fprintf (dump, "  Register %i", i);
 	      if (alt == ALL_REGS || best == ALL_REGS)
 		fprintf (dump, " pref %s\n", reg_class_names[(int) best]);
@@ -2011,25 +2010,27 @@ record_address_regs (rtx x, enum reg_class class, int scale)
 	  record_address_regs (arg0, INDEX_REG_CLASS, scale);
 
 	/* If both operands are registers but one is already a hard register
-	   of index or base class, give the other the class that the hard
-	   register is not.  */
+	   of index or reg-base class, give the other the class that the
+	   hard register is not.  */
 
-#ifdef REG_OK_FOR_BASE_P
 	else if (code0 == REG && code1 == REG
 		 && REGNO (arg0) < FIRST_PSEUDO_REGISTER
-		 && (REG_OK_FOR_BASE_P (arg0) || REG_OK_FOR_INDEX_P (arg0)))
+		 && (REG_MODE_OK_FOR_REG_BASE_P (arg0, VOIDmode)
+		     || REG_OK_FOR_INDEX_P (arg0)))
 	  record_address_regs (arg1,
-			       REG_OK_FOR_BASE_P (arg0)
-			       ? INDEX_REG_CLASS : MODE_BASE_REG_CLASS (VOIDmode),
+			       REG_MODE_OK_FOR_REG_BASE_P (arg0, VOIDmode)
+			       ? INDEX_REG_CLASS
+			       : MODE_BASE_REG_REG_CLASS (VOIDmode),
 			       scale);
 	else if (code0 == REG && code1 == REG
 		 && REGNO (arg1) < FIRST_PSEUDO_REGISTER
-		 && (REG_OK_FOR_BASE_P (arg1) || REG_OK_FOR_INDEX_P (arg1)))
+		 && (REG_MODE_OK_FOR_REG_BASE_P (arg1, VOIDmode)
+		     || REG_OK_FOR_INDEX_P (arg1)))
 	  record_address_regs (arg0,
-			       REG_OK_FOR_BASE_P (arg1)
-			       ? INDEX_REG_CLASS : MODE_BASE_REG_CLASS (VOIDmode),
+			       REG_MODE_OK_FOR_REG_BASE_P (arg1, VOIDmode)
+			       ? INDEX_REG_CLASS
+			       : MODE_BASE_REG_REG_CLASS (VOIDmode),
 			       scale);
-#endif
 
 	/* If one operand is known to be a pointer, it must be the base
 	   with the other operand the index.  Likewise if the other operand
@@ -2038,14 +2039,16 @@ record_address_regs (rtx x, enum reg_class class, int scale)
 	else if ((code0 == REG && REG_POINTER (arg0))
 		 || code1 == MULT)
 	  {
-	    record_address_regs (arg0, MODE_BASE_REG_CLASS (VOIDmode), scale);
+	    record_address_regs (arg0, MODE_BASE_REG_REG_CLASS (VOIDmode),
+				 scale);
 	    record_address_regs (arg1, INDEX_REG_CLASS, scale);
 	  }
 	else if ((code1 == REG && REG_POINTER (arg1))
 		 || code0 == MULT)
 	  {
 	    record_address_regs (arg0, INDEX_REG_CLASS, scale);
-	    record_address_regs (arg1, MODE_BASE_REG_CLASS (VOIDmode), scale);
+	    record_address_regs (arg1, MODE_BASE_REG_REG_CLASS (VOIDmode),
+				 scale);
 	  }
 
 	/* Otherwise, count equal chances that each might be a base
@@ -2053,10 +2056,10 @@ record_address_regs (rtx x, enum reg_class class, int scale)
 
 	else
 	  {
-	    record_address_regs (arg0, MODE_BASE_REG_CLASS (VOIDmode),
+	    record_address_regs (arg0, MODE_BASE_REG_REG_CLASS (VOIDmode),
 				 scale / 2);
 	    record_address_regs (arg0, INDEX_REG_CLASS, scale / 2);
-	    record_address_regs (arg1, MODE_BASE_REG_CLASS (VOIDmode),
+	    record_address_regs (arg1, MODE_BASE_REG_REG_CLASS (VOIDmode),
 				 scale / 2);
 	    record_address_regs (arg1, INDEX_REG_CLASS, scale / 2);
 	  }
@@ -2177,7 +2180,6 @@ allocate_reg_info (size_t num_regs, int new_p, int renumber_p)
 	  reg_pref_buffer = xmalloc (regno_allocated
 				     * sizeof (struct reg_pref));
 	}
-
       else
 	{
 	  VARRAY_GROW (reg_n_info, regno_allocated);
@@ -2253,9 +2255,6 @@ allocate_reg_info (size_t num_regs, int new_p, int renumber_p)
 
   if (renumber_p)
     reg_renumber = renumber;
-
-  /* Tell the regset code about the new number of registers.  */
-  MAX_REGNO_REG_SET (num_regs, new_p, renumber_p);
 }
 
 /* Free up the space allocated by allocate_reg_info.  */
@@ -2306,7 +2305,7 @@ int max_parallel;
 static int max_set_parallel;
 
 void
-reg_scan (rtx f, unsigned int nregs, int repeat ATTRIBUTE_UNUSED)
+reg_scan (rtx f, unsigned int nregs)
 {
   rtx insn;
 
@@ -2395,7 +2394,6 @@ reg_scan_mark_refs (rtx x, rtx insn, int note_flag, unsigned int min_regno)
 
 	if (regno >= min_regno)
 	  {
-	    REGNO_LAST_NOTE_UID (regno) = INSN_UID (insn);
 	    if (!note_flag)
 	      REGNO_LAST_UID (regno) = INSN_UID (insn);
 	    if (REGNO_FIRST_UID (regno) == 0)
@@ -2578,14 +2576,6 @@ reg_classes_intersect_p (enum reg_class c1, enum reg_class c2)
 
  lose:
   return 0;
-}
-
-/* Release any memory allocated by register sets.  */
-
-void
-regset_release_memory (void)
-{
-  bitmap_release_memory ();
 }
 
 #ifdef CANNOT_CHANGE_MODE_CLASS

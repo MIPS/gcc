@@ -3,7 +3,7 @@
    building RTL.  These routines are used both during actual parsing
    and during the instantiation of template functions. 
 
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
    Written by Mark Mitchell (mmitchell@usa.net) based on code found
    formerly in parse.y and pt.c.  
@@ -285,8 +285,7 @@ perform_deferred_access_checks (void)
 {
   tree deferred_check;
 
-  for (deferred_check = (VEC_last (deferred_access, deferred_access_stack)
-			 ->deferred_access_checks);
+  for (deferred_check = get_deferred_access_checks ();
        deferred_check;
        deferred_check = TREE_CHAIN (deferred_check))
     /* Check access.  */
@@ -358,9 +357,24 @@ static tree
 maybe_cleanup_point_expr (tree expr)
 {
   if (!processing_template_decl && stmts_are_full_exprs_p ())
-    expr = build1 (CLEANUP_POINT_EXPR, TREE_TYPE (expr), expr);
+    expr = fold_build_cleanup_point_expr (TREE_TYPE (expr), expr);
   return expr;
 }
+
+/* Like maybe_cleanup_point_expr except have the type of the new expression be
+   void so we don't need to create a temporary variable to hold the inner
+   expression.  The reason why we do this is because the original type might be
+   an aggregate and we cannot create a temporary variable for that type.  */
+
+static tree
+maybe_cleanup_point_expr_void (tree expr)
+{
+  if (!processing_template_decl && stmts_are_full_exprs_p ())
+    expr = fold_build_cleanup_point_expr (void_type_node, expr);
+  return expr;
+}
+
+
 
 /* Create a declaration statement for the declaration given by the DECL.  */
 
@@ -368,8 +382,9 @@ void
 add_decl_expr (tree decl)
 {
   tree r = build_stmt (DECL_EXPR, decl);
-  if (DECL_INITIAL (decl))
-    r = maybe_cleanup_point_expr (r);
+  if (DECL_INITIAL (decl)
+      || (DECL_SIZE (decl) && TREE_SIDE_EFFECTS (DECL_SIZE (decl))))
+    r = maybe_cleanup_point_expr_void (r);
   add_stmt (r);
 }
 
@@ -385,7 +400,7 @@ anon_aggr_type_p (tree node)
 
 /* Finish a scope.  */
 
-tree
+static tree
 do_poplevel (tree stmt_list)
 {
   tree block = NULL;
@@ -550,12 +565,12 @@ finish_expr_stmt (tree expr)
 	convert_to_void (build_non_dependent_expr (expr), "statement");
 
       /* Simplification of inner statement expressions, compound exprs,
-	 etc can result in the us already having an EXPR_STMT.  */
+	 etc can result in us already having an EXPR_STMT.  */
       if (TREE_CODE (expr) != CLEANUP_POINT_EXPR)
 	{
 	  if (TREE_CODE (expr) != EXPR_STMT)
 	    expr = build_stmt (EXPR_STMT, expr);
-	  expr = maybe_cleanup_point_expr (expr);
+	  expr = maybe_cleanup_point_expr_void (expr);
 	}
 
       r = add_stmt (expr);
@@ -718,7 +733,7 @@ finish_return_stmt (tree expr)
     }
 
   r = build_stmt (RETURN_EXPR, expr);
-  r = maybe_cleanup_point_expr (r);
+  r = maybe_cleanup_point_expr_void (r);
   r = add_stmt (r);
   finish_stmt ();
 
@@ -782,7 +797,15 @@ finish_for_expr (tree expr, tree for_stmt)
       cxx_incomplete_type_error (expr, TREE_TYPE (expr));
       expr = error_mark_node;
     }
-  expr = maybe_cleanup_point_expr (expr);
+  if (!processing_template_decl)
+    {
+      if (warn_sequence_point)
+        verify_sequence_points (expr);
+      expr = convert_to_void (expr, "3rd expression in for");
+    }
+  else if (!type_dependent_expression_p (expr))
+    convert_to_void (build_non_dependent_expr (expr), "3rd expression in for");
+  expr = maybe_cleanup_point_expr_void (expr);
   FOR_EXPR (for_stmt) = expr;
 }
 
@@ -834,7 +857,7 @@ begin_switch_stmt (void)
 
   scope = do_pushlevel (sk_block);
   TREE_CHAIN (r) = scope;
-  begin_cond (&SWITCH_COND (r));
+  begin_cond (&SWITCH_STMT_COND (r));
 
   return r;
 }
@@ -878,11 +901,11 @@ finish_switch_cond (tree cond, tree switch_stmt)
 	    cond = index;
 	}
     }
-  finish_cond (&SWITCH_COND (switch_stmt), cond);
-  SWITCH_TYPE (switch_stmt) = orig_type;
+  finish_cond (&SWITCH_STMT_COND (switch_stmt), cond);
+  SWITCH_STMT_TYPE (switch_stmt) = orig_type;
   add_stmt (switch_stmt);
   push_switch (switch_stmt);
-  SWITCH_BODY (switch_stmt) = push_stmt_list ();
+  SWITCH_STMT_BODY (switch_stmt) = push_stmt_list ();
 }
 
 /* Finish the body of a switch-statement, which may be given by
@@ -893,7 +916,8 @@ finish_switch_stmt (tree switch_stmt)
 {
   tree scope;
 
-  SWITCH_BODY (switch_stmt) = pop_stmt_list (SWITCH_BODY (switch_stmt));
+  SWITCH_STMT_BODY (switch_stmt) =
+    pop_stmt_list (SWITCH_STMT_BODY (switch_stmt));
   pop_switch (); 
   finish_stmt ();
 
@@ -1115,62 +1139,86 @@ finish_asm_stmt (int volatile_p, tree string, tree output_operands,
 
   if (!processing_template_decl)
     {
+      int ninputs, noutputs;
+      const char *constraint;
+      const char **oconstraints;
+      bool allows_mem, allows_reg, is_inout;
+      tree operand;
       int i;
-      int ninputs;
-      int noutputs;
 
-      for (t = input_operands; t; t = TREE_CHAIN (t))
+      ninputs = list_length (input_operands);
+      noutputs = list_length (output_operands);
+      oconstraints = (const char **) alloca (noutputs * sizeof (char *));
+
+      string = resolve_asm_operand_names (string, output_operands,
+					  input_operands);
+
+      for (i = 0, t = output_operands; t; t = TREE_CHAIN (t), ++i)
 	{
-	  tree converted_operand 
-	    = decay_conversion (TREE_VALUE (t)); 
-	  
+	  operand = TREE_VALUE (t);
+
+	  /* ??? Really, this should not be here.  Users should be using a
+	     proper lvalue, dammit.  But there's a long history of using
+	     casts in the output operands.  In cases like longlong.h, this
+	     becomes a primitive form of typechecking -- if the cast can be
+	     removed, then the output operand had a type of the proper width;
+	     otherwise we'll get an error.  Gross, but ...  */
+	  STRIP_NOPS (operand);
+
+	  if (!lvalue_or_else (operand, lv_asm))
+	    operand = error_mark_node;
+
+	  constraint = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (t)));
+	  oconstraints[i] = constraint;
+
+	  if (parse_output_constraint (&constraint, i, ninputs, noutputs,
+				       &allows_mem, &allows_reg, &is_inout))
+	    {
+	      /* If the operand is going to end up in memory,
+		 mark it addressable.  */
+	      if (!allows_reg && !cxx_mark_addressable (operand))
+		operand = error_mark_node;
+	    }
+	  else
+	    operand = error_mark_node;
+
+	  TREE_VALUE (t) = operand;
+	}
+
+      for (i = 0, t = input_operands; t; ++i, t = TREE_CHAIN (t))
+	{
+	  constraint = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (t)));
+	  operand = decay_conversion (TREE_VALUE (t)); 
+
 	  /* If the type of the operand hasn't been determined (e.g.,
 	     because it involves an overloaded function), then issue
 	     an error message.  There's no context available to
 	     resolve the overloading.  */
-	  if (TREE_TYPE (converted_operand) == unknown_type_node)
+	  if (TREE_TYPE (operand) == unknown_type_node)
 	    {
-	      error ("type of asm operand `%E' could not be determined", 
-			TREE_VALUE (t));
-	      converted_operand = error_mark_node;
-	    }
-	  TREE_VALUE (t) = converted_operand;
-	}
-
-      ninputs = list_length (input_operands);
-      noutputs = list_length (output_operands);
-
-      for (i = 0, t = output_operands; t; t = TREE_CHAIN (t), ++i)
-	{
-	  bool allows_mem;
-	  bool allows_reg;
-	  bool is_inout;
-	  const char *constraint;
-	  tree operand;
-
-	  constraint = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (t)));
-	  operand = TREE_VALUE (t);
-
-	  if (!parse_output_constraint (&constraint,
-					i, ninputs, noutputs,
-					&allows_mem,
-					&allows_reg,
-					&is_inout))
-	    {
-	      /* By marking this operand as erroneous, we will not try
-		 to process this operand again in expand_asm_operands.  */
-	      TREE_VALUE (t) = error_mark_node;
-	      continue;
+	      error ("type of asm operand %qE could not be determined", 
+                     TREE_VALUE (t));
+	      operand = error_mark_node;
 	    }
 
-	  /* If the operand is a DECL that is going to end up in
-	     memory, assume it is addressable.  This is a bit more
-	     conservative than it would ideally be; the exact test is
-	     buried deep in expand_asm_operands and depends on the
-	     DECL_RTL for the OPERAND -- which we don't have at this
-	     point.  */
-	  if (!allows_reg && DECL_P (operand))
-	    cxx_mark_addressable (operand);
+	  if (parse_input_constraint (&constraint, i, ninputs, noutputs, 0,
+				      oconstraints, &allows_mem, &allows_reg))
+	    {
+	      /* If the operand is going to end up in memory,
+		 mark it addressable.  */
+	      if (!allows_reg && allows_mem)
+		{
+		  /* Strip the nops as we allow this case.  FIXME, this really
+		     should be rejected or made deprecated.  */
+		  STRIP_NOPS (operand);
+		  if (!cxx_mark_addressable (operand))
+		    operand = error_mark_node;
+		}
+	    }
+	  else
+	    operand = error_mark_node;
+
+	  TREE_VALUE (t) = operand;
 	}
     }
 
@@ -1178,7 +1226,7 @@ finish_asm_stmt (int volatile_p, tree string, tree output_operands,
 		  output_operands, input_operands,
 		  clobbers);
   ASM_VOLATILE_P (r) = volatile_p;
-  r = maybe_cleanup_point_expr (r);
+  r = maybe_cleanup_point_expr_void (r);
   return add_stmt (r);
 }
 
@@ -1248,6 +1296,10 @@ finish_parenthesized_expr (tree expr)
     /* [expr.unary.op]/3 The qualified id of a pointer-to-member must not be
        enclosed in parentheses.  */
     PTRMEM_OK_P (expr) = 0;
+  
+  if (TREE_CODE (expr) == STRING_CST)
+    PAREN_STRING_LITERAL_P (expr) = 1;
+  
   return expr;
 }
 
@@ -1263,10 +1315,10 @@ finish_non_static_data_member (tree decl, tree object, tree qualifying_scope)
     {
       if (current_function_decl 
 	  && DECL_STATIC_FUNCTION_P (current_function_decl))
-	cp_error_at ("invalid use of member `%D' in static member function",
+	cp_error_at ("invalid use of member %qD in static member function",
 		     decl);
       else
-	cp_error_at ("invalid use of non-static data member `%D'", decl);
+	cp_error_at ("invalid use of non-static data member %qD", decl);
       error ("from this location");
 
       return error_mark_node;
@@ -1305,7 +1357,7 @@ finish_non_static_data_member (tree decl, tree object, tree qualifying_scope)
 
 	  if (!access_type)
 	    {
-	      cp_error_at ("object missing in reference to `%D'", decl);
+	      cp_error_at ("object missing in reference to %qD", decl);
 	      error ("from this location");
 	      return error_mark_node;
 	    }
@@ -1481,7 +1533,6 @@ finish_stmt_expr_expr (tree expr, tree stmt_expr)
 	      || TREE_CODE (type) == FUNCTION_TYPE)
 	    expr = decay_conversion (expr);
 
-	  expr = convert_from_reference (expr);
 	  expr = require_complete_type (expr);
 
 	  type = TREE_TYPE (expr);
@@ -1834,15 +1885,15 @@ finish_this_expr (void)
   else if (current_function_decl
 	   && DECL_STATIC_FUNCTION_P (current_function_decl))
     {
-      error ("`this' is unavailable for static member functions");
+      error ("%<this%> is unavailable for static member functions");
       result = error_mark_node;
     }
   else
     {
       if (current_function_decl)
-	error ("invalid use of `this' in non-member function");
+	error ("invalid use of %<this%> in non-member function");
       else
-	error ("invalid use of `this' at top level");
+	error ("invalid use of %<this%> at top level");
       result = error_mark_node;
     }
 
@@ -1886,7 +1937,7 @@ finish_pseudo_destructor_expr (tree object, tree scope, tree destructor)
       if (!same_type_ignoring_top_level_qualifiers_p (TREE_TYPE (object), 
 						      destructor))
 	{
-	  error ("`%E' is not of type `%T'", object, destructor);
+	  error ("%qE is not of type %qT", object, destructor);
 	  return error_mark_node;
 	}
     }
@@ -1907,7 +1958,12 @@ finish_unary_op_expr (enum tree_code code, tree expr)
       && TREE_CODE (result) == INTEGER_CST
       && !TYPE_UNSIGNED (TREE_TYPE (result))
       && INT_CST_LT (result, integer_zero_node))
-    TREE_NEGATED_INT (result) = 1;
+    {
+      /* RESULT may be a cached INTEGER_CST, so we must copy it before
+	 setting TREE_NEGATED_INT.  */
+      result = copy_node (result);
+      TREE_NEGATED_INT (result) = 1;
+    }
   overflow_warning (result);
   return result;
 }
@@ -1980,7 +2036,7 @@ finish_template_type_parm (tree aggr, tree identifier)
 {
   if (aggr != class_type_node)
     {
-      pedwarn ("template type parameters must use the keyword `class' or `typename'");
+      pedwarn ("template type parameters must use the keyword %<class%> or %<typename%>");
       aggr = class_type_node;
     }
 
@@ -2024,10 +2080,10 @@ check_template_template_default_arg (tree argument)
 	     that the user is using a template instantiation.  */
 	  if (CLASSTYPE_TEMPLATE_INFO (t) 
 	      && CLASSTYPE_TEMPLATE_INSTANTIATION (t))
-	    error ("invalid use of type `%T' as a default value for a "
+	    error ("invalid use of type %qT as a default value for a "
 	           "template template-parameter", t);
 	  else
-	    error ("invalid use of `%D' as a default value for a template "
+	    error ("invalid use of %qD as a default value for a template "
 	           "template-parameter", argument);
 	}
       else
@@ -2048,7 +2104,7 @@ begin_class_definition (tree t)
 
   if (processing_template_parmlist)
     {
-      error ("definition of `%#T' inside template parameter list", t);
+      error ("definition of %q#T inside template parameter list", t);
       return error_mark_node;
     }
   /* A non-implicit typename comes from code like:
@@ -2059,7 +2115,7 @@ begin_class_definition (tree t)
      This is erroneous.  */
   else if (TREE_CODE (t) == TYPENAME_TYPE)
     {
-      error ("invalid definition of qualified type `%T'", t);
+      error ("invalid definition of qualified type %qT", t);
       t = error_mark_node;
     }
 
@@ -2067,15 +2123,6 @@ begin_class_definition (tree t)
     {
       t = make_aggr_type (RECORD_TYPE);
       pushtag (make_anon_name (), t, 0);
-    }
-
-  /* If this type was already complete, and we see another definition,
-     that's an error.  */
-  if (COMPLETE_TYPE_P (t))
-    {
-      error ("redefinition of `%#T'", t);
-      cp_error_at ("previous definition of `%#T'", t);
-      return error_mark_node;
     }
 
   /* Update the location of the decl.  */
@@ -2203,6 +2250,40 @@ finish_member_declaration (tree decl)
       maybe_add_class_template_decl_list (current_class_type, decl, 
 					  /*friend_p=*/0);
     }
+
+  if (pch_file)
+    note_decl_for_pch (decl);
+}
+
+/* DECL has been declared while we are building a PCH file.  Perform
+   actions that we might normally undertake lazily, but which can be
+   performed now so that they do not have to be performed in
+   translation units which include the PCH file.  */
+
+void
+note_decl_for_pch (tree decl)
+{
+  gcc_assert (pch_file);
+
+  /* A non-template inline function with external linkage will always
+     be COMDAT.  As we must eventually determine the linkage of all
+     functions, and as that causes writes to the data mapped in from
+     the PCH file, it's advantageous to mark the functions at this
+     point.  */
+  if (TREE_CODE (decl) == FUNCTION_DECL
+      && TREE_PUBLIC (decl)
+      && DECL_DECLARED_INLINE_P (decl)
+      && !DECL_IMPLICIT_INSTANTIATION (decl))
+    {
+      comdat_linkage (decl);
+      DECL_INTERFACE_KNOWN (decl) = 1;
+    }
+  
+  /* There's a good chance that we'll have to mangle names at some
+     point, even if only for emission in debugging information.  */
+  if (TREE_CODE (decl) == VAR_DECL
+      || TREE_CODE (decl) == FUNCTION_DECL)
+    mangle_decl (decl);
 }
 
 /* Finish processing a complete template declaration.  The PARMS are
@@ -2259,7 +2340,7 @@ finish_base_specifier (tree base, tree access, bool virtual_p)
     {
       if (cp_type_quals (base) != 0)
         {
-          error ("base class `%T' has cv qualifiers", base);
+          error ("base class %qT has cv qualifiers", base);
           base = TYPE_MAIN_VARIANT (base);
         }
       result = build_tree_list (access, base);
@@ -2268,31 +2349,6 @@ finish_base_specifier (tree base, tree access, bool virtual_p)
     }
 
   return result;
-}
-
-/* Called when multiple declarators are processed.  If that is not
-   permitted in this context, an error is issued.  */
-
-void
-check_multiple_declarators (void)
-{
-  /* [temp]
-     
-     In a template-declaration, explicit specialization, or explicit
-     instantiation the init-declarator-list in the declaration shall
-     contain at most one declarator.  
-
-     We don't just use PROCESSING_TEMPLATE_DECL for the first
-     condition since that would disallow the perfectly valid code, 
-     like `template <class T> struct S { int i, j; };'.  */
-  if (at_function_scope_p ())
-    /* It's OK to write `template <class T> void f() { int i, j;}'.  */
-    return;
-     
-  if (PROCESSING_REAL_TEMPLATE_DECL_P () 
-      || processing_explicit_instantiation
-      || processing_specialization)
-    error ("multiple declarators in template declaration");
 }
 
 /* Issue a diagnostic that NAME cannot be found in SCOPE.  DECL is
@@ -2304,19 +2360,19 @@ qualified_name_lookup_error (tree scope, tree name, tree decl)
   if (TYPE_P (scope))
     {
       if (!COMPLETE_TYPE_P (scope))
-	error ("incomplete type `%T' used in nested name specifier", scope);
+	error ("incomplete type %qT used in nested name specifier", scope);
       else if (TREE_CODE (decl) == TREE_LIST)
 	{
-	  error ("reference to `%T::%D' is ambiguous", scope, name);
+	  error ("reference to %<%T::%D%> is ambiguous", scope, name);
 	  print_candidates (decl);
 	}
       else
-	error ("`%D' is not a member of `%T'", name, scope);
+	error ("%qD is not a member of %qT", name, scope);
     }
   else if (scope != global_namespace)
-    error ("`%D' is not a member of `%D'", name, scope);
+    error ("%qD is not a member of %qD", name, scope);
   else
-    error ("`::%D' has not been declared", name);
+    error ("%<::%D%> has not been declared", name);
 }
 	      
 /* ID_EXPRESSION is a representation of parsed, but unprocessed,
@@ -2431,20 +2487,24 @@ finish_id_expression (tree id_expression,
   if ((TREE_CODE (decl) == CONST_DECL && DECL_TEMPLATE_PARM_P (decl))
       || TREE_CODE (decl) == TEMPLATE_PARM_INDEX)
     {
+      tree r;
+      
       *idk = CP_ID_KIND_NONE;
       if (TREE_CODE (decl) == TEMPLATE_PARM_INDEX)
 	decl = TEMPLATE_PARM_DECL (decl);
+      r = convert_from_reference (DECL_INITIAL (decl));
+      
       if (integral_constant_expression_p 
 	  && !dependent_type_p (TREE_TYPE (decl))
-	  && !INTEGRAL_OR_ENUMERATION_TYPE_P (TREE_TYPE (decl))) 
+	  && !(INTEGRAL_OR_ENUMERATION_TYPE_P (TREE_TYPE (r))))
 	{
 	  if (!allow_non_integral_constant_expression_p)
-	    error ("template parameter `%D' of type `%T' is not allowed in "
+	    error ("template parameter %qD of type %qT is not allowed in "
 		   "an integral constant expression because it is not of "
 		   "integral or enumeration type", decl, TREE_TYPE (decl));
 	  *non_integral_constant_expression_p = true;
 	}
-      return DECL_INITIAL (decl);
+      return r;
     }
   /* Similarly, we resolve enumeration constants to their 
      underlying values.  */
@@ -2551,39 +2611,49 @@ finish_id_expression (tree id_expression,
 	      if (TYPE_P (scope) && dependent_type_p (scope))
 		return build_nt (SCOPE_REF, scope, id_expression);
 	      else if (TYPE_P (scope) && DECL_P (decl))
-		return build2 (SCOPE_REF, TREE_TYPE (decl), scope,
-			       id_expression);
+		return convert_from_reference
+		  (build2 (SCOPE_REF, TREE_TYPE (decl), scope, id_expression));
 	      else
-		return decl;
+		return convert_from_reference (decl);
 	    }
 	  /* A TEMPLATE_ID already contains all the information we
 	     need.  */
 	  if (TREE_CODE (id_expression) == TEMPLATE_ID_EXPR)
 	    return id_expression;
-	  /* Since this name was dependent, the expression isn't
-	     constant -- yet.  No error is issued because it might be
-	     constant when things are instantiated.  */
-	  if (integral_constant_expression_p)
-	    *non_integral_constant_expression_p = true;
 	  *idk = CP_ID_KIND_UNQUALIFIED_DEPENDENT;
 	  /* If we found a variable, then name lookup during the
 	     instantiation will always resolve to the same VAR_DECL
 	     (or an instantiation thereof).  */
 	  if (TREE_CODE (decl) == VAR_DECL
 	      || TREE_CODE (decl) == PARM_DECL)
-	    return decl;
+	    return convert_from_reference (decl);
+	  /* The same is true for FIELD_DECL, but we also need to
+	     make sure that the syntax is correct.  */
+	  else if (TREE_CODE (decl) == FIELD_DECL)
+	    {
+	      /* Since SCOPE is NULL here, this is an unqualified name.
+		 Access checking has been performed during name lookup
+		 already.  Turn off checking to avoid duplicate errors.  */
+	      push_deferring_access_checks (dk_no_check);
+	      decl = finish_non_static_data_member
+		       (decl, current_class_ref,
+			/*qualifying_scope=*/NULL_TREE);
+	      pop_deferring_access_checks ();
+	      return decl;
+	    }
 	  return id_expression;
 	}
 
       /* Only certain kinds of names are allowed in constant
-       expression.  Enumerators and template parameters 
-       have already been handled above.  */
+         expression.  Enumerators and template parameters have already
+         been handled above.  */
       if (integral_constant_expression_p
-	  && !DECL_INTEGRAL_CONSTANT_VAR_P (decl))
+	  && ! DECL_INTEGRAL_CONSTANT_VAR_P (decl)
+	  && ! builtin_valid_in_constant_expr_p (decl))
 	{
 	  if (!allow_non_integral_constant_expression_p)
 	    {
-	      error ("`%D' cannot appear in a constant-expression", decl);
+	      error ("%qD cannot appear in a constant-expression", decl);
 	      return error_mark_node;
 	    }
 	  *non_integral_constant_expression_p = true;
@@ -2591,18 +2661,18 @@ finish_id_expression (tree id_expression,
       
       if (TREE_CODE (decl) == NAMESPACE_DECL)
 	{
-	  error ("use of namespace `%D' as expression", decl);
+	  error ("use of namespace %qD as expression", decl);
 	  return error_mark_node;
 	}
       else if (DECL_CLASS_TEMPLATE_P (decl))
 	{
-	  error ("use of class template `%T' as expression", decl);
+	  error ("use of class template %qT as expression", decl);
 	  return error_mark_node;
 	}
       else if (TREE_CODE (decl) == TREE_LIST)
 	{
 	  /* Ambiguous reference to base members.  */
-	  error ("request for member `%D' is ambiguous in "
+	  error ("request for member %qD is ambiguous in "
 		 "multiple inheritance lattice", id_expression);
 	  print_candidates (decl);
 	  return error_mark_node;
@@ -2625,14 +2695,26 @@ finish_id_expression (tree id_expression,
 
 	  if (TREE_CODE (decl) == FIELD_DECL || BASELINK_P (decl))
 	    *qualifying_class = scope;
-	  else if (!processing_template_decl)
-	    decl = convert_from_reference (decl);
-	  else if (TYPE_P (scope))
-	    decl = build2 (SCOPE_REF, TREE_TYPE (decl), scope, decl);
+	  else
+	    {
+	      tree r = convert_from_reference (decl);
+	      
+	      if (processing_template_decl
+		  && TYPE_P (scope))
+		r = build2 (SCOPE_REF, TREE_TYPE (r), scope, decl);
+	      decl = r;
+	    }
 	}
       else if (TREE_CODE (decl) == FIELD_DECL)
-	decl = finish_non_static_data_member (decl, current_class_ref,
-					      /*qualifying_scope=*/NULL_TREE);
+	{
+	  /* Since SCOPE is NULL here, this is an unqualified name.
+	     Access checking has been performed during name lookup
+	     already.  Turn off checking to avoid duplicate errors.  */
+	  push_deferring_access_checks (dk_no_check);
+	  decl = finish_non_static_data_member (decl, current_class_ref,
+						/*qualifying_scope=*/NULL_TREE);
+	  pop_deferring_access_checks ();
+	}
       else if (is_overloaded_fn (decl))
 	{
 	  tree first_fn = OVL_CURRENT (decl);
@@ -2665,8 +2747,8 @@ finish_id_expression (tree id_expression,
 		{
 		  error ("use of %s from containing function",
 			 (TREE_CODE (decl) == VAR_DECL
-			  ? "`auto' variable" : "parameter"));
-		  cp_error_at ("  `%#D' declared here", decl);
+			  ? "%<auto%> variable" : "parameter"));
+		  cp_error_at ("  %q#D declared here", decl);
 		  return error_mark_node;
 		}
 	    }
@@ -2681,8 +2763,7 @@ finish_id_expression (tree id_expression,
 	      perform_or_defer_access_check (TYPE_BINFO (path), decl);
 	    }
 	  
-	  if (! processing_template_decl)
-	    decl = convert_from_reference (decl);
+	  decl = convert_from_reference (decl);
 	}
       
       /* Resolve references to variables of anonymous unions
@@ -2717,7 +2798,7 @@ finish_typeof (tree expr)
 
   if (!type || type == unknown_type_node)
     {
-      error ("type of `%E' is unknown", expr);
+      error ("type of %qE is unknown", expr);
       return error_mark_node;
     }
 

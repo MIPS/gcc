@@ -1,6 +1,6 @@
 /* -*- indented-text -*- */
 /* Process source files and output type information.
-   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -270,9 +270,7 @@ ITYPE	{IWORD}({WS}{IWORD})*
 
 "/*"				{ BEGIN(in_struct_comment); }
 
-^"%{"				{ BEGIN(in_yacc_escape); }
-
-^"@@".*				/* Used for c-parse.in C/ObjC demarcation.  */
+^"%{"				{ BEGIN(in_yacc_escape); } /* } */
 
 {WS}				{ update_lineno (yytext, yyleng); }
 
@@ -307,7 +305,7 @@ ITYPE	{IWORD}({WS}{IWORD})*
   char *ptr = yytext;
 
   macro = ptr;
-  while (*ptr != '(' && !ISSPACE (*ptr))
+  while (*ptr != '(' && !ISSPACE (*ptr)) /* )*/
     ptr++;
   macro_len = ptr - macro;
   while (*ptr == '(' || ISSPACE (*ptr))
@@ -360,6 +358,8 @@ ITYPE	{IWORD}({WS}{IWORD})*
   BEGIN(INITIAL);
   return PERCENTPERCENT;
 }
+
+"#define"[^\n]*\n		{lexer_line.line++;}
 
 .				{
   error_at_line (&lexer_line, "unexpected character `%s'", yytext);

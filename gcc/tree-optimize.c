@@ -1,5 +1,5 @@
 /* Top-level control of tree optimizations.
-   Copyright 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -118,7 +118,7 @@ execute_cleanup_cfg_post_optimizing (void)
 
 static struct tree_opt_pass pass_cleanup_cfg_post_optimizing =
 {
-  NULL,					/* name */
+  "final_cleanup",			/* name */
   NULL,					/* gate */
   execute_cleanup_cfg_post_optimizing,	/* execute */
   NULL,					/* sub */
@@ -129,7 +129,7 @@ static struct tree_opt_pass pass_cleanup_cfg_post_optimizing =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  0,					/* todo_flags_finish */
+  TODO_dump_func,					/* todo_flags_finish */
   0					/* letter */
 };
 
@@ -212,7 +212,7 @@ static struct tree_opt_pass pass_init_datastructures =
 static void
 register_one_dump_file (struct tree_opt_pass *pass, int n)
 {
-  char *dot_name, *flag_name;
+  char *dot_name, *flag_name, *glob_name;
   char num[10];
 
   /* See below in next_pass_1.  */
@@ -225,13 +225,15 @@ register_one_dump_file (struct tree_opt_pass *pass, int n)
   if (pass->properties_provided & PROP_trees)
     {
       flag_name = concat ("tree-", pass->name, num, NULL);
-      pass->static_pass_number = dump_register (dot_name, flag_name,
+      glob_name = concat ("tree-", pass->name, NULL);
+      pass->static_pass_number = dump_register (dot_name, flag_name, glob_name,
                                                 TDF_TREE, n + TDI_tree_all, 0);
     }
   else
     {
       flag_name = concat ("rtl-", pass->name, num, NULL);
-      pass->static_pass_number = dump_register (dot_name, flag_name,
+      glob_name = concat ("rtl-", pass->name, NULL);
+      pass->static_pass_number = dump_register (dot_name, flag_name, glob_name,
                                                 TDF_RTL, n, pass->letter);
     }
 }
@@ -353,6 +355,7 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_dominator);
   NEXT_PASS (pass_redundant_phi);
   NEXT_PASS (pass_dce);
+  NEXT_PASS (pass_merge_phi);
   NEXT_PASS (pass_forwprop);
   NEXT_PASS (pass_phiopt);
   NEXT_PASS (pass_may_alias);
@@ -360,6 +363,10 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_ch);
   NEXT_PASS (pass_profile);
   NEXT_PASS (pass_sra);
+  /* FIXME: SRA may generate arbitrary gimple code, exposing new
+     aliased and call-clobbered variables.  As mentioned below,
+     pass_may_alias should be a TODO item.  */
+  NEXT_PASS (pass_may_alias);
   NEXT_PASS (pass_rename_ssa_copies);
   NEXT_PASS (pass_dominator);
   NEXT_PASS (pass_redundant_phi);
@@ -371,20 +378,35 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_ccp);
   NEXT_PASS (pass_redundant_phi);
   NEXT_PASS (pass_fold_builtins);
+  /* FIXME: May alias should a TODO but for 4.0.0,
+     we add may_alias right after fold builtins
+     which can create arbitrary GIMPLE.  */
+  NEXT_PASS (pass_may_alias);
   NEXT_PASS (pass_split_crit_edges);
   NEXT_PASS (pass_pre);
   NEXT_PASS (pass_loop);
   NEXT_PASS (pass_dominator);
   NEXT_PASS (pass_redundant_phi);
+  /* FIXME: If DCE is not run before checking for uninitialized uses,
+     we may get false warnings (e.g., testsuite/gcc.dg/uninit-5.c).
+     However, this also causes us to misdiagnose cases that should be
+     real warnings (e.g., testsuite/gcc.dg/pr18501.c).
+     
+     To fix the false positives in uninit-5.c, we would have to
+     account for the predicates protecting the set and the use of each
+     variable.  Using a representation like Gated Single Assignment
+     may help.  */
+  NEXT_PASS (pass_late_warn_uninitialized);
   NEXT_PASS (pass_cd_dce);
   NEXT_PASS (pass_dse);
   NEXT_PASS (pass_forwprop);
   NEXT_PASS (pass_phiopt);
   NEXT_PASS (pass_tail_calls);
-  NEXT_PASS (pass_late_warn_uninitialized);
+  NEXT_PASS (pass_rename_ssa_copies);
   NEXT_PASS (pass_del_ssa);
   NEXT_PASS (pass_nrv);
   NEXT_PASS (pass_remove_useless_vars);
+  NEXT_PASS (pass_mark_used_blocks);
   NEXT_PASS (pass_cleanup_cfg_post_optimizing);
   *p = NULL;
 
@@ -392,11 +414,11 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_loop_init);
   NEXT_PASS (pass_lim);
   NEXT_PASS (pass_unswitch);
-  NEXT_PASS (pass_iv_canon);
   NEXT_PASS (pass_record_bounds);
+  NEXT_PASS (pass_linear_transform);
+  NEXT_PASS (pass_iv_canon);
   NEXT_PASS (pass_if_conversion);
   NEXT_PASS (pass_vectorize);
-  NEXT_PASS (pass_linear_transform);
   NEXT_PASS (pass_complete_unroll);
   NEXT_PASS (pass_iv_optimize);
   NEXT_PASS (pass_loop_done);
@@ -420,6 +442,14 @@ execute_todo (int properties, unsigned int flags)
       rewrite_into_ssa (false);
       bitmap_clear (vars_to_rename);
     }
+  if (flags & TODO_fix_def_def_chains)
+    {
+      rewrite_def_def_chains ();
+      bitmap_clear (vars_to_rename);
+    }
+
+  if (flags & TODO_cleanup_cfg)
+    cleanup_tree_cfg ();
 
   if ((flags & TODO_dump_func) && dump_file)
     {
@@ -502,10 +532,14 @@ execute_one_pass (struct tree_opt_pass *pass)
   if (pass->execute)
     pass->execute ();
 
+  /* Stop timevar.  */
+  if (pass->tv_id)
+    timevar_pop (pass->tv_id);
+
   if (dump_file
       && (pass->properties_provided & (PROP_cfg | PROP_rtl))
 	  == (PROP_cfg | PROP_rtl))
-    print_rtl_graph_with_bb (dump_file_name, get_insns ());
+    print_rtl_with_bb (dump_file, get_insns ());
 
   /* Run post-pass cleanup and verification.  */
   todo = pass->todo_flags_finish;
@@ -513,9 +547,7 @@ execute_one_pass (struct tree_opt_pass *pass)
   if (todo)
     execute_todo (pass->properties_provided, todo);
 
-  /* Close down timevar and dump file.  */
-  if (pass->tv_id)
-    timevar_pop (pass->tv_id);
+  /* Flush and close dump file.  */
   if (dump_file_name)
     {
       free ((char *) dump_file_name);
@@ -626,12 +658,21 @@ tree_rest_of_compilation (tree fndecl)
   while (node->callees)
     cgraph_remove_edge (node->callees);
 
-  if (!vars_to_rename)
-    vars_to_rename = BITMAP_XMALLOC ();
 
+  /* Initialize the default bitmap obstack.  */
+  bitmap_obstack_initialize (NULL);
+  bitmap_obstack_initialize (&reg_obstack); /* FIXME, only at RTL generation*/
+  
+  vars_to_rename = BITMAP_ALLOC (NULL);
+  
   /* Perform all tree transforms and optimizations.  */
   execute_pass_list (all_passes);
+  
+  bitmap_obstack_release (&reg_obstack);
 
+  /* Release the default bitmap obstack.  */
+  bitmap_obstack_release (NULL);
+  
   /* Restore original body if still needed.  */
   if (cfun->saved_tree)
     {
@@ -676,10 +717,10 @@ tree_rest_of_compilation (tree fndecl)
 	    = TREE_INT_CST_LOW (TYPE_SIZE_UNIT (ret_type));
 
 	  if (compare_tree_int (TYPE_SIZE_UNIT (ret_type), size_as_int) == 0)
-	    warning ("%Jsize of return value of '%D' is %u bytes",
+	    warning ("%Jsize of return value of %qD is %u bytes",
                      fndecl, fndecl, size_as_int);
 	  else
-	    warning ("%Jsize of return value of '%D' is larger than %wd bytes",
+	    warning ("%Jsize of return value of %qD is larger than %wd bytes",
                      fndecl, fndecl, larger_than_size);
 	}
     }

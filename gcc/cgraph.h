@@ -1,5 +1,5 @@
 /* Callgraph handling code.
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
@@ -21,8 +21,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #ifndef GCC_CGRAPH_H
 #define GCC_CGRAPH_H
-#include "hashtab.h"
-#include "bitmap.h"
 #include "tree.h"
 
 /* Information about the function collected locally.
@@ -34,18 +32,8 @@ struct cgraph_local_info GTY(())
   int self_insns;
 
   /* Set when function function is visible in current compilation unit only
-     and it's address is never taken.  */
+     and its address is never taken.  */
   bool local;
-
-  /* Set when function is defined in another compilation unit.  */
-  bool external;
-
-  /* Set when this function calls a function external of the
-     compilation unit.  In general, such calls are modeled as reading
-     and writing all variables (both bits on) but sometime there are
-     attributes on the called function so we can do better.  */
-  bool calls_read_all;
-  bool calls_write_all;
 
   /* Set once it has been finalized so we consider it to be output.  */
   bool finalized;
@@ -53,7 +41,7 @@ struct cgraph_local_info GTY(())
   /* False when there something makes inlining impossible (such as va_arg).  */
   bool inlinable;
 
-  /* True when function should be inlined independently on it's size.  */
+  /* True when function should be inlined independently on its size.  */
   bool disregard_inline_limits;
 
   /* True when the function has been originally extern inline, but it is
@@ -90,70 +78,6 @@ struct cgraph_rtl_info GTY(())
    bool pure_function;
 };
 
-/* FIXME -- PROFILE-RESTRUCTURE: When the next round of the profiling
-   code gets merged in, it will contain a restructing where ssa form
-   is built for every function within the compilation unit before the
-   rest of the compilation continues.  When this reorgination is done,
-   it will no longer be necessary to have the _decl_uid versions of
-   local_static_vars_info and global_static_vars_info structures.
-   Having both structures is now required because the _ann_uid values
-   for static variables are reset as each function is compiled.
-   Currently, the analysis is done using the _decl_uid versions and
-   converted to the _var_ann versions on demand.
-
-   Also, the var_anns_valid fields within these structures can also go
-   away.
-*/
-
-/* The static variables defined within the compilation unit that are
-   loaded or stored directly by function that owns this structure.  */ 
-
-struct local_static_vars_info_d GTY(())
-{
-  bitmap statics_read_by_decl_uid;
-  bitmap statics_written_by_decl_uid;
-};
-
-struct global_static_vars_info_d GTY(())
-{
-  bitmap statics_read_by_decl_uid;
-  bitmap statics_written_by_decl_uid;
-  bitmap statics_read_by_ann_uid;
-  bitmap statics_written_by_ann_uid;
-  bitmap statics_not_read_by_decl_uid;
-  bitmap statics_not_written_by_decl_uid;
-  bitmap statics_not_read_by_ann_uid;
-  bitmap statics_not_written_by_ann_uid;
-
-  /* var_anns_valid is reset at the start of compilation for each
-     function because the indexing that the "_var_anns" is based
-     on is invalidated between function compilations.  This allows for
-     lazy creation of the "_var_ann" variables.  */
-  bool var_anns_valid;
-};
-
-/* Statics that are read and written by some set of functions. The
-   local ones are based on the loads and stores local to the function.
-   The global ones are based on the local info as well as the
-   transitive closure of the functions that are called.  The
-   structures are separated to allow the global structures to be
-   shared between several functions since every function within a
-   strongly connected component will have the same information.  This
-   sharing saves both time and space in the computation of the vectors
-   as well as their translation from decl_uid form to ann_uid
-   form.  */ 
-
-typedef struct local_static_vars_info_d *local_static_vars_info_t;
-typedef struct global_static_vars_info_d *global_static_vars_info_t;
-
-struct static_vars_info_d GTY(()) 
-{
-  local_static_vars_info_t local;
-  global_static_vars_info_t global;
-};
-
-typedef struct static_vars_info_d *static_vars_info_t;
-
 /* The cgraph data structure.
    Each function decl has assigned cgraph_node listing callees and callers.  */
 
@@ -174,22 +98,16 @@ struct cgraph_node GTY((chain_next ("%h.next"), chain_prev ("%h.previous")))
   struct cgraph_node *next_needed;
   /* Pointer to the next clone.  */
   struct cgraph_node *next_clone;
-  /* Pointer to next node in a recursive call graph cycle; */
-  struct cgraph_node *next_cycle;
   PTR GTY ((skip)) aux;
 
   struct cgraph_local_info local;
   struct cgraph_global_info global;
   struct cgraph_rtl_info rtl;
   
-  /* Pointer to the structure that contains the sets of global
-     variables modified by function calls.  */
-  static_vars_info_t static_vars_info;
-
   /* Unique id of the node.  */
   int uid;
   /* Set when function must be output - it is externally visible
-     or it's address is taken.  */
+     or its address is taken.  */
   bool needed;
   /* Set when function is reachable by call from other function
      that is either reachable or needed.  */
@@ -220,11 +138,13 @@ struct cgraph_edge GTY((chain_next ("%h.next_caller")))
 struct cgraph_varpool_node GTY(())
 {
   tree decl;
+  /* Pointer to the next function in cgraph_varpool_nodes.  */
+  struct cgraph_varpool_node *next;
   /* Pointer to the next function in cgraph_varpool_nodes_queue.  */
   struct cgraph_varpool_node *next_needed;
 
   /* Set when function must be output - it is externally visible
-     or it's address is taken.  */
+     or its address is taken.  */
   bool needed;
   /* Set once it has been finalized so we consider it to be output.  */
   bool finalized;
@@ -238,7 +158,6 @@ extern GTY(()) int cgraph_max_uid;
 extern bool cgraph_global_info_ready;
 extern GTY(()) struct cgraph_node *cgraph_nodes_queue;
 
-extern GTY(()) int cgraph_varpool_n_nodes;
 extern GTY(()) struct cgraph_varpool_node *cgraph_varpool_nodes_queue;
 
 /* In cgraph.c  */
@@ -250,8 +169,8 @@ struct cgraph_edge *cgraph_create_edge (struct cgraph_node *,
 					struct cgraph_node *,
 				        tree);
 struct cgraph_node *cgraph_node (tree decl);
+struct cgraph_node *cgraph_node_for_asm (tree asmname);
 struct cgraph_edge *cgraph_edge (struct cgraph_node *, tree call_expr);
-bool cgraph_calls_p (tree, tree);
 struct cgraph_local_info *cgraph_local_info (tree);
 struct cgraph_global_info *cgraph_global_info (tree);
 struct cgraph_rtl_info *cgraph_rtl_info (tree);
@@ -260,6 +179,7 @@ struct cgraph_edge * cgraph_clone_edge (struct cgraph_edge *, struct cgraph_node
 struct cgraph_node * cgraph_clone_node (struct cgraph_node *);
 
 struct cgraph_varpool_node *cgraph_varpool_node (tree decl);
+struct cgraph_varpool_node *cgraph_varpool_node_for_asm (tree asmname);
 void cgraph_varpool_mark_needed_node (struct cgraph_varpool_node *);
 void cgraph_varpool_finalize_decl (tree);
 bool cgraph_varpool_assemble_pending_decls (void);
@@ -284,8 +204,6 @@ void cgraph_mark_inline_edge (struct cgraph_edge *e);
 void cgraph_clone_inlined_nodes (struct cgraph_edge *e, bool duplicate);
 void cgraph_build_static_cdtor (char which, tree body, int priority);
 void cgraph_reset_static_var_maps (void);
-bitmap get_global_statics_not_read (tree fn);
-bitmap get_global_statics_not_written(tree fn);
 void init_cgraph (void);
 
 #endif  /* GCC_CGRAPH_H  */

@@ -27,12 +27,16 @@ template<typename _Tp>
 struct test_policy
 { static bool per_type() { return true; } };
 
-template<bool _Thread>
-struct test_policy<__gnu_cxx::__common_pool_policy<_Thread> >
-{ 
-  typedef __gnu_cxx::__common_pool_policy<_Thread> pool_type;
-  static bool per_type() { return false; } 
-};
+using __gnu_cxx::__pool;
+using __gnu_cxx::__common_pool_policy;
+
+template<>
+struct test_policy<__common_pool_policy<__pool, true> >
+{ static bool per_type() { return false; } };
+
+template<>
+struct test_policy<__common_pool_policy<__pool, false> >
+{ static bool per_type() { return false; } };
 
 // Tune characteristics, two of different types
 template<typename _Tp, typename _Cp>
@@ -45,13 +49,13 @@ void test03()
   typedef _Cp policy_type;
   typedef __gnu_cxx::__mt_alloc<value_type, policy_type> allocator_type;
 
-  tune_type t_default;
   tune_type t_opt(16, 5120, 32, 5120, 20, 10, false);
   tune_type t_single(16, 5120, 32, 5120, 1, 10, false);
 
   // First instances assured.
   allocator_type a;
-  tune_type t1 = a._M_get_options();
+  tune_type t_default = a._M_get_options();
+  tune_type t1 = t_default;
   tune_type t2;
   if (test_policy<policy_type>::per_type())
     {
@@ -85,12 +89,12 @@ void test03()
 int main()
 {
 #ifdef __GTHREADS
-  test03<int, __gnu_cxx::__per_type_pool_policy<int, true> >();
-  test03<int, __gnu_cxx::__common_pool_policy<true> >();
+  test03<int, __gnu_cxx::__per_type_pool_policy<int, __pool, true> >();
+  test03<int, __gnu_cxx::__common_pool_policy<__pool, true> >();
 #endif
 
-  test03<int, __gnu_cxx::__common_pool_policy<false> >();
-  test03<int, __gnu_cxx::__per_type_pool_policy<int, false> >();
+  test03<int, __gnu_cxx::__per_type_pool_policy<int, __pool, false> >();
+  test03<int, __gnu_cxx::__common_pool_policy<__pool, false> >();
 
   return 0;
 }

@@ -1,5 +1,6 @@
 /* ObjectOutputStream.java -- Class used to write serialized objects
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -38,18 +39,17 @@ exception statement from your version. */
 
 package java.io;
 
-import java.lang.reflect.Array;
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
-import java.lang.reflect.InvocationTargetException;
-import java.security.PrivilegedAction;
-import java.security.AccessController;
-import java.util.Hashtable;
-
+import gnu.classpath.Configuration;
 import gnu.java.io.ObjectIdentityWrapper;
 import gnu.java.lang.reflect.TypeSignature;
 import gnu.java.security.action.SetAccessibleAction;
-import gnu.classpath.Configuration;
+
+import java.lang.reflect.Array;
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.security.AccessController;
+import java.util.Hashtable;
 
 /**
  * An <code>ObjectOutputStream</code> can be used to write objects
@@ -220,7 +220,6 @@ public class ObjectOutputStream extends OutputStream
 	      {
 		Class cl = (Class)obj;
 		ObjectStreamClass osc = ObjectStreamClass.lookupForClassObject(cl);
-		assignNewHandle(obj);
 		realOutput.writeByte(TC_CLASS);
 		if (!osc.isProxyClass)
 		  {
@@ -241,6 +240,7 @@ public class ObjectOutputStream extends OutputStream
 		    
 		    writeObject(osc.getSuper());
 		  }
+		assignNewHandle(obj);
 		break;
 	      }
 
@@ -250,6 +250,11 @@ public class ObjectOutputStream extends OutputStream
 		break;
 	      }
 
+	    Class clazz = obj.getClass();
+	    ObjectStreamClass osc = ObjectStreamClass.lookupForClassObject(clazz);
+	    if (osc == null)
+	      throw new NotSerializableException(clazz.getName());
+	    
 	    if ((replacementEnabled || obj instanceof Serializable)
 		&& ! replaceDone)
 	      {
@@ -257,19 +262,11 @@ public class ObjectOutputStream extends OutputStream
 		
 		if (obj instanceof Serializable)
 		  {
-		    Method m = null;
 		    try
 		      {
-			Class classArgs[] = {};
-			m = getMethod(obj.getClass(), "writeReplace",
-				      classArgs);
-			// m can't be null by definition since an
-			// exception would have been thrown so a check
-			// for null is not needed.
-			obj = m.invoke(obj, new Object[] {});
-		      }
-		    catch (NoSuchMethodException ignore)
-		      {
+                        Method m = osc.writeReplaceMethod;
+                        if (m != null)
+                            obj = m.invoke(obj, new Object[0]);
 		      }
 		    catch (IllegalAccessException ignore)
 		      {
@@ -294,11 +291,6 @@ public class ObjectOutputStream extends OutputStream
 		break;
 	      }
 
-	    Class clazz = obj.getClass();
-	    ObjectStreamClass osc = ObjectStreamClass.lookupForClassObject(clazz);
-	    if (osc == null)
-	      throw new NotSerializableException(clazz.getName());
-	    
 	    if (clazz.isArray ())
 	      {
 		realOutput.writeByte(TC_ARRAY);
@@ -360,8 +352,8 @@ public class ObjectOutputStream extends OutputStream
 		      {
 			if (dump)
 			  dumpElementln ("WRITE FIELDS CALLED FOR: " + obj);
-		      writeFields(obj, currentObjectStreamClass);
-		  }
+			writeFields(obj, currentObjectStreamClass);
+		      }
 		  }
 
 		this.currentObject = prevObject;
@@ -893,7 +885,7 @@ public class ObjectOutputStream extends OutputStream
    *
    * XXX: finish up comments
    */
-  public static abstract class PutField
+  public abstract static class PutField
   {
     public abstract void put (String name, boolean value);
     public abstract void put (String name, byte value);
@@ -1239,7 +1231,8 @@ public class ObjectOutputStream extends OutputStream
 
 
   // Toggles writing primitive data to block-data buffer.
-  private boolean setBlockDataMode(boolean on) throws IOException
+  // Package-private to avoid a trampoline constructor.
+  boolean setBlockDataMode(boolean on) throws IOException
   {
     if (on == writeDataAsBlocks)
       return on;
@@ -1260,18 +1253,11 @@ public class ObjectOutputStream extends OutputStream
   private void callWriteMethod(Object obj, ObjectStreamClass osc)
     throws IOException
   {
-    Class klass = osc.forClass();
     currentPutField = null;
     try
       {
-	Class classArgs[] = {ObjectOutputStream.class};
-	Method m = getMethod(klass, "writeObject", classArgs);
-	Object args[] = {this};
-	m.invoke(obj, args);	
-      }
-    catch (NoSuchMethodException nsme)
-      {
-	// Nothing.
+        Object args[] = {this};
+        osc.writeObjectMethod.invoke(obj, args);
       }
     catch (InvocationTargetException x)
       {
@@ -1284,7 +1270,8 @@ public class ObjectOutputStream extends OutputStream
 
 	IOException ioe
 	  = new IOException("Exception thrown from writeObject() on " +
-			    klass + ": " + exception.getClass().getName());
+			    osc.forClass().getName() + ": " +
+                            exception.getClass().getName());
 	ioe.initCause(exception);
 	throw ioe;
       }
@@ -1292,7 +1279,8 @@ public class ObjectOutputStream extends OutputStream
       {
 	IOException ioe
 	  = new IOException("Failure invoking writeObject() on " +
-			    klass + ": " + x.getClass().getName());
+			    osc.forClass().getName() + ": " +
+			    x.getClass().getName());
 	ioe.initCause(x);
 	throw ioe;
       }
@@ -1534,15 +1522,6 @@ public class ObjectOutputStream extends OutputStream
       }
   }
 
-  private Method getMethod (Class klass, String name, Class[] args)
-    throws java.lang.NoSuchMethodException
-  {
-    final Method m = klass.getDeclaredMethod(name, args);
-    setAccessible.setMember(m);
-    AccessController.doPrivileged(setAccessible);
-    return m;
-  }
-
   private void dumpElementln (String msg)
   {
     for (int i = 0; i < depth; i++)
@@ -1552,7 +1531,7 @@ public class ObjectOutputStream extends OutputStream
   }
 
   // this value comes from 1.2 spec, but is used in 1.1 as well
-  private final static int BUFFER_SIZE = 1024;
+  private static final int BUFFER_SIZE = 1024;
 
   private static int defaultProtocolVersion = PROTOCOL_VERSION_2;
 
@@ -1563,7 +1542,8 @@ public class ObjectOutputStream extends OutputStream
   private byte[] blockData;
   private int blockDataCount;
   private Object currentObject;
-  private ObjectStreamClass currentObjectStreamClass;
+  // Package-private to avoid a trampoline.
+  ObjectStreamClass currentObjectStreamClass;
   private PutField currentPutField;
   private boolean fieldsAlreadyWritten;
   private boolean replacementEnabled;

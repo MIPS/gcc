@@ -1,5 +1,5 @@
 /* Definitions for Intel 386 running Linux-based GNU systems with ELF format.
-   Copyright (C) 1994, 1995, 1996, 1997, 1998, 1999, 2001, 2002
+   Copyright (C) 1994, 1995, 1996, 1997, 1998, 1999, 2001, 2002, 2004
    Free Software Foundation, Inc.
    Contributed by Eric Youngdale.
    Modified for stabs-in-ELF by H.J. Lu.
@@ -182,3 +182,6 @@ Boston, MA 02111-1307, USA.  */
 #define NEED_INDICATE_EXEC_STACK 1
 
 #define MD_UNWIND_SUPPORT "config/i386/linux-unwind.h"
+
+/* This macro may be overridden in i386/k*bsd-gnu.h.  */
+#define REG_NAME(reg) reg

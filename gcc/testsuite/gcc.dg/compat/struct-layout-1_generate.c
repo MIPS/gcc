@@ -550,6 +550,7 @@ switchfiles (int fields)
     }
   fprintf (outfile, "\
 /* { dg-options \"-I%s\" } */\n\
+/* { dg-options \"-I%s -fno-common\" { target hppa*-*-hpux* } } */\n\
 #include \"struct-layout-1.h\"\n\
 \n\
 #define TX(n, type, attrs, fields, ops) extern void test##n (void);\n\
@@ -562,9 +563,12 @@ int main (void)\n\
 #include \"t%03d_test.h\"\n\
 #undef TX\n\
   if (fails)\n\
-    abort ();\n\
+    {\n\
+      fflush (stdout);\n\
+      abort ();\n\
+    }\n\
   exit (0);\n\
-}\n", srcdir, filecnt, filecnt);
+}\n", srcdir, srcdir, filecnt, filecnt);
   fclose (outfile);
   sprintf (destptr, "t%03d_x.c", filecnt);
   outfile = fopen (destbuf, "w");
@@ -572,10 +576,11 @@ int main (void)\n\
     goto fail;
   fprintf (outfile, "\
 /* { dg-options \"-w -I%s\" } */\n\
+/* { dg-options \"-w -I%s -fno-common\" { target hppa*-*-hpux* } } */\n\
 #include \"struct-layout-1_x1.h\"\n\
 #include \"t%03d_test.h\"\n\
 #include \"struct-layout-1_x2.h\"\n\
-#include \"t%03d_test.h\"\n", srcdir, filecnt, filecnt);
+#include \"t%03d_test.h\"\n", srcdir, srcdir, filecnt, filecnt);
   fclose (outfile);
   sprintf (destptr, "t%03d_y.c", filecnt);
   outfile = fopen (destbuf, "w");
@@ -583,10 +588,11 @@ int main (void)\n\
     goto fail;
   fprintf (outfile, "\
 /* { dg-options \"-w -I%s\" } */\n\
+/* { dg-options \"-w -I%s -fno-common\" { target hppa*-*-hpux* } } */\n\
 #include \"struct-layout-1_y1.h\"\n\
 #include \"t%03d_test.h\"\n\
 #include \"struct-layout-1_y2.h\"\n\
-#include \"t%03d_test.h\"\n", srcdir, filecnt, filecnt);
+#include \"t%03d_test.h\"\n", srcdir, srcdir, filecnt, filecnt);
   fclose (outfile);
   sprintf (destptr, "t%03d_test.h", filecnt);
   outfile = fopen (destbuf, "w");
@@ -1195,6 +1201,20 @@ choose_type (enum FEATURE features, struct entry *e, int r)
     abort ();
 }
 
+/* This is from gcc.c-torture/execute/builtin-bitops-1.c.  */
+static int
+my_ffsll (unsigned long long x)
+{
+  int i;
+  if (x == 0)
+    return 0;
+  /* We've tested LLONG_MAX for 64 bits so this should be safe.  */
+  for (i = 0; i < 64; i++)
+    if (x & (1ULL << i))
+      break;
+  return i + 1;
+}
+
 void
 generate_fields (enum FEATURE features, struct entry *e, struct entry *parent,
 		 int len)
@@ -1307,9 +1327,9 @@ generate_fields (enum FEATURE features, struct entry *e, struct entry *parent,
 	        case 'B': ma = 1; break;
 	        case ' ':
 		  if (e[j].type->type == TYPE_UENUM)
-		    mi = ffsll (e[j].type->maxval + 1) - 1;
+		    mi = my_ffsll (e[j].type->maxval + 1) - 1;
 		  else if (e[j].type->type == TYPE_SENUM)
-		    mi = ffsll (e[j].type->maxval + 1);
+		    mi = my_ffsll (e[j].type->maxval + 1);
 		  else
 		    abort ();
 		  if (!mi)

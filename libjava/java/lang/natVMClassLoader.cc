@@ -1,6 +1,6 @@
 // natVMClassLoader.cc - VMClassLoader native methods
 
-/* Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004  Free Software Foundation
+/* Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -22,12 +22,29 @@ details.  */
 #include <java-interp.h>
 
 #include <java/lang/VMClassLoader.h>
+#include <java/lang/VMCompiler.h>
 #include <gnu/gcj/runtime/VMClassLoader.h>
+#include <gnu/gcj/runtime/SystemClassLoader.h>
 #include <java/lang/ClassLoader.h>
 #include <java/lang/Class.h>
 #include <java/lang/Throwable.h>
 #include <java/security/ProtectionDomain.h>
 #include <java/lang/ClassFormatError.h>
+
+void
+java::lang::VMClassLoader::resolveClass (jclass klass)
+{
+  JvSynchronize sync (klass);
+  try
+    {
+      _Jv_Linker::wait_for_state (klass, JV_STATE_LINKED);
+    }
+  catch (java::lang::Throwable *x)
+    {
+      klass->set_state(JV_STATE_ERROR);
+      transformException(klass, x);
+    }
+}
 
 java::lang::Class *
 java::lang::VMClassLoader::defineClass (java::lang::ClassLoader *loader,
@@ -37,79 +54,63 @@ java::lang::VMClassLoader::defineClass (java::lang::ClassLoader *loader,
 					jint length,
 					java::security::ProtectionDomain *pd)
 {
+  jclass klass = VMCompiler::compileClass(loader, name, data,
+					  offset, length, pd);
+
 #ifdef INTERPRETER
-  jclass klass;
-  klass = new java::lang::Class ();
-  klass->aux_info = (void *) _Jv_AllocBytes (sizeof (_Jv_InterpClass));
-
-  // Synchronize on the class, so that it is not attempted initialized
-  // until we're done loading.
-  JvSynchronize sync (klass);
-
-  // Record the defining loader.  For the system class loader, we
-  // record NULL.
-  if (loader != java::lang::ClassLoader::getSystemClassLoader())
-    klass->loader = loader;
-
-  if (name != 0)
+  if (klass == NULL)
     {
-      _Jv_Utf8Const *name2 = _Jv_makeUtf8Const (name);
+      klass = new java::lang::Class ();
 
-      if (! _Jv_VerifyClassName (name2))
-	throw new java::lang::ClassFormatError
-	  (JvNewStringLatin1 ("erroneous class name"));
+      // Synchronize on the class, so that it is not attempted initialized
+      // until we're done loading.
+      JvSynchronize sync (klass);
 
-      klass->name = name2;
+      // Record the defining loader.  For the system class loader, we
+      // record NULL.
+      if (loader != java::lang::ClassLoader::getSystemClassLoader())
+	klass->loader = loader;
+
+      if (name != 0)
+	{
+	  _Jv_Utf8Const *name2 = _Jv_makeUtf8Const (name);
+
+	  if (! _Jv_VerifyClassName (name2))
+	    throw new java::lang::ClassFormatError
+	      (JvNewStringLatin1 ("erroneous class name"));
+
+	  klass->name = name2;
+	}
+
+      try
+	{
+	  _Jv_DefineClass (klass, data, offset, length, pd);
+	}
+      catch (java::lang::Throwable *ex)
+	{
+	  klass->state = JV_STATE_ERROR;
+	  klass->notifyAll ();
+
+	  _Jv_UnregisterInitiatingLoader (klass, klass->loader);
+
+	  // If EX is not a ClassNotFoundException, that's ok, because we
+	  // account for the possibility in defineClass().
+	  throw ex;
+	}
+
+      // if everything proceeded sucessfully, we're loaded.
+      JvAssert (klass->state == JV_STATE_LOADED);
     }
-
-  try
-    {
-      _Jv_DefineClass (klass, data, offset, length);
-    }
-  catch (java::lang::Throwable *ex)
-    {
-      klass->state = JV_STATE_ERROR;
-      klass->notifyAll ();
-
-      _Jv_UnregisterClass (klass);
-
-      // If EX is not a ClassNotFoundException, that's ok, because we
-      // account for the possibility in defineClass().
-      throw ex;
-    }
-    
-  klass->protectionDomain = pd;
-
-  // if everything proceeded sucessfully, we're loaded.
-  JvAssert (klass->state == JV_STATE_LOADED);
+#endif // INTERPRETER
 
   return klass;
-
-#else // INTERPRETER
-
-  return 0;
-#endif
-}
-
-// Finish linking a class.  Only called from ClassLoader::resolveClass.
-void
-java::lang::VMClassLoader::linkClass0 (java::lang::Class *klass)
-{
-  _Jv_WaitForState (klass, JV_STATE_LINKED);
-}
-
-void
-java::lang::VMClassLoader::markClassErrorState0 (java::lang::Class *klass)
-{
-  klass->state = JV_STATE_ERROR;
-  klass->notifyAll ();
 }
 
 java::lang::ClassLoader *
 java::lang::VMClassLoader::getSystemClassLoaderInternal()
 {
   _Jv_InitClass (&gnu::gcj::runtime::VMClassLoader::class$);
-  return gnu::gcj::runtime::VMClassLoader::instance;
+  return gnu::gcj::runtime::VMClassLoader::system_instance;
 }
 
 jclass
@@ -125,9 +126,19 @@ jclass
 java::lang::VMClassLoader::loadClass(jstring name, jboolean resolve)
 {
   _Jv_Utf8Const *utf = _Jv_makeUtf8Const (name);
-  // FIXME: we culd make _Jv_FindClassFromSignature a template.
-  jclass klass = _Jv_FindClassInCache (utf, NULL);
-  if (klass && resolve)
-    _Jv_InitClass (klass);
+  jclass klass = _Jv_FindClassInCache (utf);
+  if (klass)
+    {
+      // We never want to return a class without its supers linked.
+      // It isn't clear from the spec, but this is what other
+      // implementations do in practice.
+      if (resolve)
+	_Jv_InitClass (klass);
+      else
+	_Jv_Linker::wait_for_state (klass, JV_STATE_LOADING);
+
+      definePackageForNative(name);
+    }
+
   return klass;
 }

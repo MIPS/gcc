@@ -1,5 +1,5 @@
 /* Exception handling semantics and decomposition for trees.
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -443,6 +443,8 @@ replace_goto_queue_stmt_list (tree t, struct leh_tf_state *tf)
 static void
 replace_goto_queue (struct leh_tf_state *tf)
 {
+  if (tf->goto_queue_active == 0)
+    return;
   replace_goto_queue_stmt_list (*tf->top_p, tf);
 }
 
@@ -753,7 +755,7 @@ lower_try_finally_fallthru_label (struct leh_tf_state *tf)
    alternative considered below.  For the nonce, we always choose the first
    option.
 
-   THIS_STATE may be null if if this is a try-cleanup, not a try-finally.  */
+   THIS_STATE may be null if this is a try-cleanup, not a try-finally.  */
 
 static void
 honor_protect_cleanup_actions (struct leh_state *outer_state,
@@ -1835,6 +1837,13 @@ tree_could_trap_p (tree expr)
       if (fp_operation && flag_trapping_math)
 	return true;
       if (honor_trapv)
+	return true;
+      return false;
+
+    case CALL_EXPR:
+      t = get_callee_fndecl (expr);
+      /* Assume that calls to weak functions may trap.  */
+      if (!t || !DECL_P (t) || DECL_WEAK (t))
 	return true;
       return false;
 

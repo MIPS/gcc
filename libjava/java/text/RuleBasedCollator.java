@@ -1,5 +1,5 @@
 /* RuleBasedCollator.java -- Concrete Collator Class
-   Copyright (C) 1998, 1999, 2000, 2001, 2003, 2004  Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2003, 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -35,11 +35,11 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package java.text;
 
-import java.util.Enumeration;
-import java.util.HashMap;
 import java.util.ArrayList;
+import java.util.HashMap;
 
 /* Written using "Java Class Libraries", 2nd edition, plus online
  * API docs for JDK 1.2 from http://www.javasoft.com.
@@ -147,7 +147,7 @@ public class RuleBasedCollator extends Collator
    * This class describes what rank has a character (or a sequence of characters) 
    * in the lexicographic order. Each element in a rule has a collation element.
    */
-  final static class CollationElement
+  static final class CollationElement
   {
     String key;
     int primary;
@@ -169,7 +169,7 @@ public class RuleBasedCollator extends Collator
       this.expansion = expansion;
     }
 
-    final int getValue()
+    int getValue()
     {
       return (primary << 16) + (secondary << 8) + tertiary;
     }
@@ -183,7 +183,7 @@ public class RuleBasedCollator extends Collator
    * {@link #mergeRules(int,java.lang.String,java.util.ArrayList,java.util.ArrayList)})
    * as a temporary state while merging two sets of instructions.
    */
-  final static class CollationSorter
+  static final class CollationSorter
   {
     static final int GREATERP = 0;
     static final int GREATERS = 1;
@@ -435,56 +435,57 @@ main_parse_loop:
 	    continue;
 	  }
 
-	switch (c) {
-	case '!':
-	  throw new ParseException
-	    ("Modifier '!' is not yet supported by Classpath", i+base_offset);
-	case '<':
-	  type = CollationSorter.GREATERP;
-	  break;
-	case ';':
-	  type = CollationSorter.GREATERS;
-	  break;
-	case ',':
-	  type = CollationSorter.GREATERT;
-	  break;
-	case '=':
-	  type = CollationSorter.EQUAL;
-	  break;
-	case '\'':
-	  eatingChars = !eatingChars;
-	  doubleQuote = true;
-	  break;
-	case '@':
-	  if (ignoreChars)
+	switch (c)
+	  {
+	  case '!':
 	    throw new ParseException
-	      ("comparison list has not yet been started. You may only use"
-	       + "(<,;=&)", i+base_offset);
-	  // Inverse the order of secondaries from now on.
-	  nextIsModifier = true;
-	  type = CollationSorter.INVERSE_SECONDARY;
-	  break;
-	case '&':
-	  type = CollationSorter.RESET;
-	  if (stop_on_reset)
-	    break main_parse_loop;
-	  break;
-	default:
-	  if (operator < 0)
-	    throw new ParseException
-	      ("operator missing at " + (i+base_offset), i+base_offset);
-	  if (!eatingChars &&
-	      ((c >= 0x21 && c <= 0x2F) 
-	       || (c >= 0x3A && c <= 0x40)
-	       || (c >= 0x5B && c <= 0x60)
-	       || (c >= 0x7B && c <= 0x7E)))
-	    throw new ParseException
-	      ("unquoted punctuation character '"+c+"'", i+base_offset);
+	      ("Modifier '!' is not yet supported by Classpath", i + base_offset);
+	  case '<':
+	    type = CollationSorter.GREATERP;
+	    break;
+	  case ';':
+	    type = CollationSorter.GREATERS;
+	    break;
+	  case ',':
+	    type = CollationSorter.GREATERT;
+	    break;
+	  case '=':
+	    type = CollationSorter.EQUAL;
+	    break;
+	  case '\'':
+	    eatingChars = !eatingChars;
+	    doubleQuote = true;
+	    break;
+	  case '@':
+	    if (ignoreChars)
+	      throw new ParseException
+		("comparison list has not yet been started. You may only use"
+		 + "(<,;=&)", i + base_offset);
+	    // Inverse the order of secondaries from now on.
+	    nextIsModifier = true;
+	    type = CollationSorter.INVERSE_SECONDARY;
+	    break;
+	  case '&':
+	    type = CollationSorter.RESET;
+	    if (stop_on_reset)
+	      break main_parse_loop;
+	    break;
+	  default:
+	    if (operator < 0)
+	      throw new ParseException
+		("operator missing at " + (i + base_offset), i + base_offset);
+	    if (! eatingChars
+		&& ((c >= 0x21 && c <= 0x2F) 
+		    || (c >= 0x3A && c <= 0x40)
+		    || (c >= 0x5B && c <= 0x60)
+		    || (c >= 0x7B && c <= 0x7E)))
+	      throw new ParseException
+		("unquoted punctuation character '" + c + "'", i + base_offset);
 
-	  //type = ignoreChars ? CollationSorter.IGNORE : -1;
-	  sb.append(c);
-	  break;
-	}
+	    //type = ignoreChars ? CollationSorter.IGNORE : -1;
+	    sb.append(c);
+	    break;
+	  }
 
 	if (type  < 0)
 	  continue;

@@ -253,9 +253,9 @@ extern int target_flags;
     { "nobitfield", - MASK_BITFIELD,					\
       N_("Do not use the bit-field instructions") },			\
     { "short", MASK_SHORT,						\
-      N_("Consider type `int' to be 16 bits wide") },			\
+      N_("Consider type 'int' to be 16 bits wide") },			\
     { "noshort", - MASK_SHORT,						\
-      N_("Consider type `int' to be 32 bits wide") },			\
+      N_("Consider type 'int' to be 32 bits wide") },			\
     { "68881", MASK_68881, "" },					\
     { "soft-float", - MASK_68881,					\
       N_("Generate code with library calls for floating point") },	\
@@ -479,6 +479,12 @@ extern int target_flags;
 #define HARD_REGNO_NREGS(REGNO, MODE)   \
   ((REGNO) >= 16 ? GET_MODE_NUNITS (MODE)	\
    : ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD))
+
+/* A C expression that is nonzero if hard register NEW_REG can be
+   considered for use as a rename register for OLD_REG register.  */
+
+#define HARD_REGNO_RENAME_OK(OLD_REG, NEW_REG) \
+  m68k_hard_regno_rename_ok (OLD_REG, NEW_REG)
 
 /* On the m68k, the cpu registers can hold any mode but the 68881 registers
    can hold only SFmode or DFmode.  */
@@ -727,7 +733,6 @@ extern enum reg_class regno_reg_class[];
 
 /* On the m68k all args are always pushed.  */
 #define FUNCTION_ARG(CUM, MODE, TYPE, NAMED) 0
-#define FUNCTION_ARG_PARTIAL_NREGS(CUM, MODE, TYPE, NAMED) 0
 
 #define FUNCTION_PROFILER(FILE, LABELNO)  \
   asm_fprintf (FILE, "\tlea %LLP%d,%Ra0\n\tjsr mcount\n", (LABELNO))

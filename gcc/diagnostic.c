@@ -1,5 +1,5 @@
 /* Language-independent diagnostic subroutines for the GNU Compiler Collection
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
    Contributed by Gabriel Dos Reis <gdr@codesourcery.com>
 
@@ -300,7 +300,7 @@ default_diagnostic_starter (diagnostic_context *context,
 
 static void
 default_diagnostic_finalizer (diagnostic_context *context,
-			      diagnostic_info *diagnostic __attribute__((unused)))
+			      diagnostic_info *diagnostic ATTRIBUTE_UNUSED)
 {
   pp_destroy_prefix (context->printer);
 }
@@ -366,7 +366,7 @@ trim_filename (const char *name)
     p++, q++;
 
   /* Now go backwards until the previous directory separator.  */
-  while (p > name && IS_DIR_SEPARATOR (p[-1]))
+  while (p > name && !IS_DIR_SEPARATOR (p[-1]))
     p--;
 
   return p;

@@ -2,7 +2,7 @@
    - prototype declarations for operand predicates (tm-preds.h)
    - function definitions of operand predicates, if defined new-style
      (insn-preds.c)
-   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -106,7 +106,7 @@ write_tm_preds_h (void)
 	      (match_test "basereg_operand_1 (op, mode)")))
 
    The only wart is that there's no way to insist on a { } string in
-   an RTL template, so we have to handle "" strings. */
+   an RTL template, so we have to handle "" strings.  */
 
    
 static void
@@ -167,7 +167,7 @@ mark_mode_tests (rtx exp)
 	struct pred_data *p = lookup_predicate (XSTR (exp, 1));
 	if (!p)
 	  error ("reference to undefined predicate '%s'", XSTR (exp, 1));
-	else if (p->special)
+	else if (p->special || GET_MODE (exp) != VOIDmode)
 	  NO_MODE_TEST (exp) = 1;
       }
       break;
@@ -288,7 +288,7 @@ add_mode_tests (struct pred_data *p)
 	    if (test0 && test1)
 	      /* Must put it on the dependent clause, not the
 	      	 controlling expression, or we change the meaning of
-	      	 the test. */
+	      	 the test.  */
 	      pos = &XEXP (subexp, 1);
 	    else
 	      pos = &XEXP (subexp, 2);
@@ -366,7 +366,10 @@ write_predicate_expr (const char *name, rtx exp)
       break;
 
     case MATCH_OPERAND:
-      printf ("%s (op, mode)", XSTR (exp, 1));
+      if (GET_MODE (exp) == VOIDmode)
+        printf ("%s (op, mode)", XSTR (exp, 1));
+      else
+        printf ("%s (op, %smode)", XSTR (exp, 1), mode_name[GET_MODE (exp)]);
       break;
 
     case MATCH_CODE:
@@ -437,7 +440,8 @@ write_insn_preds_c (void)
 #include \"hard-reg-set.h\"\n\
 #include \"resource.h\"\n\
 #include \"toplev.h\"\n\
-#include \"reload.h\"\n");
+#include \"reload.h\"\n\
+#include \"regs.h\"\n");
 
   FOR_ALL_PREDICATES (p)
     write_one_predicate_function (p);

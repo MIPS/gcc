@@ -3,7 +3,7 @@
 
 ---------------------------------------------------------------------
 
-Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004
+Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005
 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
@@ -146,7 +146,7 @@ the GCC compiler.  */
 %% 
 
 file:
-/* Nil.   */ {
+/* Nil.  */ {
   /* Nothing to do.  */
 }
 |declarations {
@@ -273,6 +273,7 @@ storage typename NAME LEFT_PARENTHESIS parameters_opt RIGHT_PARENTHESIS SEMICOLO
     { 
     case STATIC_STORAGE:
     case EXTERNAL_DEFINITION_STORAGE:
+    case EXTERNAL_REFERENCE_STORAGE:
       break;
       
     case AUTOMATIC_STORAGE:
@@ -324,6 +325,17 @@ storage typename NAME LEFT_PARENTHESIS parameters_opt RIGHT_PARENTHESIS SEMICOLO
 					 STORAGE_CLASS (prod),
 					 NUMERIC_TYPE (type),
 					 first_parms, tok->tp.tok.location);
+
+#ifdef ENABLE_CHECKING
+  /* Check all the parameters have code.  */
+  for (this_parm = PARAMETERS (prod);
+       this_parm;
+       this_parm = this_parm->tp.pro.next)
+    {
+      gcc_assert ((struct prod_token_parm_item*)VARIABLE (this_parm));
+      gcc_assert (((struct prod_token_parm_item*)VARIABLE (this_parm))->tp.pro.code);
+    }
+#endif
 }
 ;
 
@@ -332,7 +344,6 @@ NAME LEFT_BRACE {
   struct prod_token_parm_item *proto;
   struct prod_token_parm_item search_prod;
   struct prod_token_parm_item* tok;
-  struct prod_token_parm_item *this_parm;
   tok = $1;
   SYMBOL_TABLE_NAME ((&search_prod)) = tok;
   search_prod.category = token_category;
@@ -346,20 +357,9 @@ NAME LEFT_BRACE {
 
   gcc_assert (proto->tp.pro.code);
 
-  tree_code_create_function_initial (proto->tp.pro.code, tok->tp.tok.location,
-                                     FIRST_PARMS (current_function));
-
-#ifdef ENABLE_CHECKING
-  /* Check all the parameters have code.  */
-  for (this_parm = PARAMETERS (proto);
-       this_parm;
-       this_parm = this_parm->tp.pro.next)
-    {
-      gcc_assert ((struct prod_token_parm_item*)VARIABLE (this_parm));
-      gcc_assert (((struct prod_token_parm_item*)VARIABLE (this_parm))->tp.pro.code);
-    }
-#endif
+  tree_code_create_function_initial (proto->tp.pro.code, tok->tp.tok.location);
 }
+
 variable_defs_opt statements_opt RIGHT_BRACE {
   struct prod_token_parm_item* tok;
   tok = $1;
@@ -369,7 +369,7 @@ variable_defs_opt statements_opt RIGHT_BRACE {
 ;
 
 variable_defs_opt:
-/* Nil.   */ {
+/* Nil.  */ {
   $$ = 0;
 }
 |variable_defs {
@@ -378,7 +378,7 @@ variable_defs_opt:
 ;
 
 statements_opt:
-/* Nil.   */ {
+/* Nil.  */ {
   $$ = 0;
 }
 |statements {
@@ -550,7 +550,7 @@ tl_RETURN expression_opt {
 ;
 
 expression_opt:
-/* Nil.   */ {
+/* Nil.  */ {
   $$ = 0;
 }
 |expression {
@@ -610,7 +610,7 @@ INTEGER {
 ;
 
 function_invocation:
-NAME LEFT_PARENTHESIS expressions_with_commas RIGHT_PARENTHESIS {
+NAME LEFT_PARENTHESIS expressions_with_commas_opt RIGHT_PARENTHESIS {
   struct prod_token_parm_item *prod;
   struct prod_token_parm_item* tok;
   struct prod_token_parm_item search_prod;
@@ -677,6 +677,13 @@ NAME LEFT_PARENTHESIS expressions_with_commas RIGHT_PARENTHESIS {
 }
 ;
 
+expressions_with_commas_opt: 
+/* Nil.  */ {
+$$ = 0
+}
+|expressions_with_commas { $$ = $1 }
+;
+
 expressions_with_commas:
 expression {
   struct prod_token_parm_item *exp;
@@ -727,11 +734,12 @@ NAME {
 ;
 
 init_opt:
-/* Nil.   */ {
+/* Nil.  */ {
   $$ = 0;
 }
 |init {
-  /* Nothing to do.  */
+  /* Pass the initialization value up.  */
+  $$ = $1;
 };
 
 init:

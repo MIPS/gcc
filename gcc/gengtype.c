@@ -1,5 +1,5 @@
 /* Process source files and output type information.
-   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -367,7 +367,9 @@ enum insn_note {
   NOTE_INSN_MAX
 };
 
-static const char *const note_insn_name[NOTE_INSN_MAX] = {
+/* We must allocate one more entry here, as we use NOTE_INSN_MAX as the
+   default field for line number notes.  */
+static const char *const note_insn_name[NOTE_INSN_MAX+1] = {
 #define DEF_INSN_NOTE(NAME) #NAME,
 #include "insn-notes.def"
 #undef DEF_INSN_NOTE
@@ -1081,13 +1083,11 @@ open_base_files (void)
     /* The order of files here matters very much.  */
     static const char *const ifiles [] = {
       "config.h", "system.h", "coretypes.h", "tm.h", "varray.h", 
-      "hashtab.h", "splay-tree.h", "bitmap.h", "input.h", "tree.h", "rtl.h",
-      "function.h", "insn-config.h", "expr.h", "hard-reg-set.h",
-      "basic-block.h", "cselib.h", "insn-addr.h", "optabs.h",
-      "libfuncs.h", "debug.h", "ggc.h", "cgraph.h",
-      "tree-flow.h", "reload.h",
-      "cpp-id-data.h",
-      "tree-chrec.h",
+      "hashtab.h", "splay-tree.h",  "obstack.h", "bitmap.h", "input.h",
+      "tree.h", "rtl.h", "function.h", "insn-config.h", "expr.h",
+      "hard-reg-set.h", "basic-block.h", "cselib.h", "insn-addr.h",
+      "optabs.h", "libfuncs.h", "debug.h", "ggc.h", "cgraph.h",
+      "tree-flow.h", "reload.h", "cpp-id-data.h", "tree-chrec.h",
       NULL
     };
     const char *const *ifp;
@@ -1681,7 +1681,7 @@ walk_type (type_p t, struct walk_type_data *d)
 	    oprintf (d->of, "%*sif (%s != NULL) {\n", d->indent, "", d->val);
 	    d->indent += 2;
 	    oprintf (d->of, "%*ssize_t i%d;\n", d->indent, "", loopcounter);
-	    oprintf (d->of, "%*sfor (i%d = 0; i%d < (size_t)(", d->indent, "",
+	    oprintf (d->of, "%*sfor (i%d = 0; i%d != (size_t)(", d->indent, "",
 		     loopcounter, loopcounter);
 	    output_escaped_param (d, length, "length");
 	    oprintf (d->of, "); i%d++) {\n", loopcounter);
@@ -1717,7 +1717,7 @@ walk_type (type_p t, struct walk_type_data *d)
 	oprintf (d->of, "%*s{\n", d->indent, "");
 	d->indent += 2;
 	oprintf (d->of, "%*ssize_t i%d;\n", d->indent, "", loopcounter);
-	oprintf (d->of, "%*sfor (i%d = 0; i%d < (size_t)(", d->indent, "",
+	oprintf (d->of, "%*sfor (i%d = 0; i%d != (size_t)(", d->indent, "",
 		 loopcounter, loopcounter);
 	if (length)
 	  output_escaped_param (d, length, "length");
@@ -3006,7 +3006,7 @@ main(int ARG_UNUSED (argc), char ** ARG_UNUSED (argv))
         parse_file (all_files[i]);
 #ifndef USE_MAPPED_LOCATION
       /* temporary kludge - gengtype doesn't handle conditionals.
-	 Manually add source_locus *after* we've processed input.h. */
+	 Manually add source_locus *after* we've processed input.h.  */
       if (i == 0)
 	do_typedef ("source_locus", create_pointer (resolve_typedef ("location_t", &pos)), &pos);
 #endif

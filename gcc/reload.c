@@ -1,6 +1,6 @@
 /* Search an insn for pseudo regs that must be in hard regs and are not.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -108,19 +108,18 @@ a register with any other reload.  */
 #include "params.h"
 #include "target.h"
 
-#ifndef REGNO_MODE_OK_FOR_BASE_P
-#define REGNO_MODE_OK_FOR_BASE_P(REGNO, MODE) REGNO_OK_FOR_BASE_P (REGNO)
-#endif
-
-#ifndef REG_MODE_OK_FOR_BASE_P
-#define REG_MODE_OK_FOR_BASE_P(REGNO, MODE) REG_OK_FOR_BASE_P (REGNO)
-#endif
-
 /* True if X is a constant that can be forced into the constant pool.  */
 #define CONST_POOL_OK_P(X)			\
   (CONSTANT_P (X)				\
    && GET_CODE (X) != HIGH			\
    && !targetm.cannot_force_const_mem (X))
+
+/* True if C is a non-empty register class that has too few registers
+   to be safely used as a reload target class.  */
+#define SMALL_REGISTER_CLASS_P(C) \
+  (reg_class_size [(C)] == 1 \
+   || (reg_class_size [(C)] >= 1 && CLASS_LIKELY_SPILLED_P (C)))
+
 
 /* All reloads of the current insn are recorded here.  See reload.h for
    comments.  */
@@ -248,7 +247,8 @@ static int push_secondary_reload (int, rtx, int, int, enum reg_class,
 				  enum machine_mode, enum reload_type,
 				  enum insn_code *);
 #endif
-static enum reg_class find_valid_class (enum machine_mode, int, unsigned int);
+static enum reg_class find_valid_class (enum machine_mode, enum machine_mode,
+					int, unsigned int);
 static int reload_inner_reg_of_subreg (rtx, enum machine_mode, int);
 static void push_replacement (rtx *, int, enum machine_mode);
 static void dup_replacements (rtx *, rtx *);
@@ -279,6 +279,9 @@ static rtx find_reloads_subreg_address (rtx, int, int, enum reload_type,
 					int, rtx);
 static void copy_replacements_1 (rtx *, rtx *, int);
 static int find_inc_amount (rtx, rtx);
+static int refers_to_mem_for_reload_p (rtx);
+static int refers_to_regno_for_reload_p (unsigned int, unsigned int,
+					 rtx, rtx *);
 
 #ifdef HAVE_SECONDARY_RELOADS
 
@@ -447,7 +450,7 @@ push_secondary_reload (int in_p, rtx x, int opnum, int optional,
 			  == CODE_FOR_nothing))
 		|| (! in_p &&(rld[t_reload].secondary_out_icode
 			      == CODE_FOR_nothing)))
-	    && (reg_class_size[(int) t_class] == 1 || SMALL_REGISTER_CLASSES)
+	    && (SMALL_REGISTER_CLASS_P (t_class) || SMALL_REGISTER_CLASSES)
 	    && MERGABLE_RELOADS (secondary_type,
 				 rld[t_reload].when_needed,
 				 opnum, rld[t_reload].opnum))
@@ -505,7 +508,7 @@ push_secondary_reload (int in_p, rtx x, int opnum, int optional,
 	    || (! in_p && rld[s_reload].secondary_out_reload == t_reload))
 	&& ((in_p && rld[s_reload].secondary_in_icode == t_icode)
 	    || (! in_p && rld[s_reload].secondary_out_icode == t_icode))
-	&& (reg_class_size[(int) class] == 1 || SMALL_REGISTER_CLASSES)
+	&& (SMALL_REGISTER_CLASS_P (class) || SMALL_REGISTER_CLASSES)
 	&& MERGABLE_RELOADS (secondary_type, rld[s_reload].when_needed,
 			     opnum, rld[s_reload].opnum))
       {
@@ -664,12 +667,15 @@ clear_secondary_mem (void)
 }
 #endif /* SECONDARY_MEMORY_NEEDED */
 
-/* Find the largest class for which every register number plus N is valid in
-   M1 (if in range) and is cheap to move into REGNO.
-   Abort if no such class exists.  */
+
+/* Find the largest class which has at least one register valid in
+   mode INNER, and which for every such register, that register number
+   plus N is also valid in OUTER (if in range) and is cheap to move
+   into REGNO.  Abort if no such class exists.  */
 
 static enum reg_class
-find_valid_class (enum machine_mode m1 ATTRIBUTE_UNUSED, int n,
+find_valid_class (enum machine_mode outer ATTRIBUTE_UNUSED,
+		  enum machine_mode inner ATTRIBUTE_UNUSED, int n,
 		  unsigned int dest_regno ATTRIBUTE_UNUSED)
 {
   int best_cost = -1;
@@ -683,15 +689,22 @@ find_valid_class (enum machine_mode m1 ATTRIBUTE_UNUSED, int n,
   for (class = 1; class < N_REG_CLASSES; class++)
     {
       int bad = 0;
-      for (regno = 0; regno < FIRST_PSEUDO_REGISTER && ! bad; regno++)
-	if (TEST_HARD_REG_BIT (reg_class_contents[class], regno)
-	    && TEST_HARD_REG_BIT (reg_class_contents[class], regno + n)
-	    && ! HARD_REGNO_MODE_OK (regno + n, m1))
-	  bad = 1;
+      int good = 0;
+      for (regno = 0; regno < FIRST_PSEUDO_REGISTER - n && ! bad; regno++)
+	if (TEST_HARD_REG_BIT (reg_class_contents[class], regno))
+	  {
+	    if (HARD_REGNO_MODE_OK (regno, inner))
+	      {
+		good = 1;
+		if (! TEST_HARD_REG_BIT (reg_class_contents[class], regno + n)
+		    || ! HARD_REGNO_MODE_OK (regno + n, outer))
+		  bad = 1;
+	      }
+	  }
 
-      if (bad)
+      if (bad || !good)
 	continue;
-      cost = REGISTER_MOVE_COST (m1, class, dest_class);
+      cost = REGISTER_MOVE_COST (outer, class, dest_class);
 
       if ((reg_class_size[class] > best_size
 	   && (best_cost < 0 || best_cost >= cost))
@@ -699,7 +712,7 @@ find_valid_class (enum machine_mode m1 ATTRIBUTE_UNUSED, int n,
 	{
 	  best_class = class;
 	  best_size = reg_class_size[class];
-	  best_cost = REGISTER_MOVE_COST (m1, class, dest_class);
+	  best_cost = REGISTER_MOVE_COST (outer, class, dest_class);
 	}
     }
 
@@ -749,7 +762,7 @@ find_reusable_reload (rtx *p_in, rtx out, enum reg_class class,
 	    || (out != 0 && MATCHES (rld[i].out, out)
 		&& (in == 0 || rld[i].in == 0 || MATCHES (rld[i].in, in))))
 	&& (rld[i].out == 0 || ! earlyclobber_operand_p (rld[i].out))
-	&& (reg_class_size[(int) class] == 1 || SMALL_REGISTER_CLASSES)
+	&& (SMALL_REGISTER_CLASS_P (class) || SMALL_REGISTER_CLASSES)
 	&& MERGABLE_RELOADS (type, rld[i].when_needed, opnum, rld[i].opnum))
       return i;
 
@@ -774,7 +787,7 @@ find_reusable_reload (rtx *p_in, rtx out, enum reg_class class,
 		&& GET_RTX_CLASS (GET_CODE (in)) == RTX_AUTOINC
 		&& MATCHES (XEXP (in, 0), rld[i].in)))
 	&& (rld[i].out == 0 || ! earlyclobber_operand_p (rld[i].out))
-	&& (reg_class_size[(int) class] == 1 || SMALL_REGISTER_CLASSES)
+	&& (SMALL_REGISTER_CLASS_P (class) || SMALL_REGISTER_CLASSES)
 	&& MERGABLE_RELOADS (type, rld[i].when_needed,
 			     opnum, rld[i].opnum))
       {
@@ -1088,7 +1101,7 @@ push_reload (rtx in, rtx out, rtx *inloc, rtx *outloc,
 
       if (REG_P (SUBREG_REG (in)))
 	in_class
-	  = find_valid_class (inmode,
+	  = find_valid_class (inmode, GET_MODE (SUBREG_REG (in)),
 			      subreg_regno_offset (REGNO (SUBREG_REG (in)),
 						   GET_MODE (SUBREG_REG (in)),
 						   SUBREG_BYTE (in),
@@ -1185,7 +1198,7 @@ push_reload (rtx in, rtx out, rtx *inloc, rtx *outloc,
       dont_remove_subreg = 1;
       push_reload (SUBREG_REG (out), SUBREG_REG (out), &SUBREG_REG (out),
 		   &SUBREG_REG (out),
-		   find_valid_class (outmode,
+		   find_valid_class (outmode, GET_MODE (SUBREG_REG (out)),
 				     subreg_regno_offset (REGNO (SUBREG_REG (out)),
 							  GET_MODE (SUBREG_REG (out)),
 							  SUBREG_BYTE (out),
@@ -2147,12 +2160,15 @@ operands_match_p (rtx x, rtx y)
 	j = REGNO (y);
 
       /* On a WORDS_BIG_ENDIAN machine, point to the last register of a
-	 multiple hard register group, so that for example (reg:DI 0) and
-	 (reg:SI 1) will be considered the same register.  */
+	 multiple hard register group of scalar integer registers, so that
+	 for example (reg:DI 0) and (reg:SI 1) will be considered the same
+	 register.  */
       if (WORDS_BIG_ENDIAN && GET_MODE_SIZE (GET_MODE (x)) > UNITS_PER_WORD
+	  && SCALAR_INT_MODE_P (GET_MODE (x))
 	  && i < FIRST_PSEUDO_REGISTER)
 	i += hard_regno_nregs[i][GET_MODE (x)] - 1;
       if (WORDS_BIG_ENDIAN && GET_MODE_SIZE (GET_MODE (y)) > UNITS_PER_WORD
+	  && SCALAR_INT_MODE_P (GET_MODE (y))
 	  && j < FIRST_PSEUDO_REGISTER)
 	j += hard_regno_nregs[j][GET_MODE (y)] - 1;
 
@@ -3478,7 +3494,8 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 	  if (! win && ! did_match
 	      && this_alternative[i] != (int) NO_REGS
 	      && GET_MODE_SIZE (operand_mode[i]) <= UNITS_PER_WORD
-	      && reg_class_size[(int) preferred_class[i]] > 1)
+	      && reg_class_size [(int) preferred_class[i]] > 0
+	      && ! SMALL_REGISTER_CLASS_P (preferred_class[i]))
 	    {
 	      if (! reg_class_subset_p (this_alternative[i],
 					preferred_class[i]))
@@ -3534,9 +3551,9 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 		  && !immune_p (recog_data.operand[j], recog_data.operand[i],
 				early_data))
 		{
-		  /* If the output is in a single-reg class,
+		  /* If the output is in a non-empty few-regs class,
 		     it's costly to reload it, so reload the input instead.  */
-		  if (reg_class_size[this_alternative[i]] == 1
+		  if (SMALL_REGISTER_CLASS_P (this_alternative[i])
 		      && (REG_P (recog_data.operand[j])
 			  || GET_CODE (recog_data.operand[j]) == SUBREG))
 		    {
@@ -3653,6 +3670,10 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 	  t = pref_or_nothing[commutative];
 	  pref_or_nothing[commutative] = pref_or_nothing[commutative + 1];
 	  pref_or_nothing[commutative + 1] = t;
+
+	  t = address_reloaded[commutative];
+	  address_reloaded[commutative] = address_reloaded[commutative + 1];
+	  address_reloaded[commutative + 1] = t;
 
 	  memcpy (constraints, recog_data.constraints,
 		  noperands * sizeof (char *));
@@ -3784,6 +3805,27 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 	if (alternative_allows_memconst (recog_data.constraints[i],
 					 goal_alternative_number))
 	  goal_alternative_win[i] = 1;
+      }
+
+  /* Likewise any invalid constants appearing as operand of a PLUS
+     that is to be reloaded.  */
+  for (i = 0; i < noperands; i++)
+    if (! goal_alternative_win[i]
+	&& GET_CODE (recog_data.operand[i]) == PLUS
+	&& CONST_POOL_OK_P (XEXP (recog_data.operand[i], 1))
+	&& (PREFERRED_RELOAD_CLASS (XEXP (recog_data.operand[i], 1),
+				    (enum reg_class) goal_alternative[i])
+	     == NO_REGS)
+	&& operand_mode[i] != VOIDmode)
+      {
+	rtx tem = force_const_mem (operand_mode[i],
+				   XEXP (recog_data.operand[i], 1));
+	tem = gen_rtx_PLUS (operand_mode[i],
+			    XEXP (recog_data.operand[i], 0), tem);
+
+	substed_operand[i] = recog_data.operand[i]
+	  = find_reloads_toplev (tem, i, address_type[i],
+				 ind_levels, 0, insn, NULL);
       }
 
   /* Record the values of the earlyclobber operands for the caller.  */
@@ -5227,7 +5269,8 @@ update_auto_inc_notes (rtx insn ATTRIBUTE_UNUSED, int regno ATTRIBUTE_UNUSED,
    is strictly valid.)
 
    CONTEXT = 1 means we are considering regs as index regs,
-   = 0 means we are considering them as base regs.
+   = 0 means we are considering them as base regs, = 2 means we
+   are considering them as base regs for REG + REG.
 
    OPNUM and TYPE specify the purpose of any reloads made.
 
@@ -5250,7 +5293,22 @@ find_reloads_address_1 (enum machine_mode mode, rtx x, int context,
 			rtx *loc, int opnum, enum reload_type type,
 			int ind_levels, rtx insn)
 {
+#define REG_OK_FOR_CONTEXT(CONTEXT, REGNO, MODE)		\
+  ((CONTEXT) == 2					\
+   ? REGNO_MODE_OK_FOR_REG_BASE_P (REGNO, MODE)		\
+   : (CONTEXT) == 1					\
+   ? REGNO_OK_FOR_INDEX_P (REGNO)			\
+   : REGNO_MODE_OK_FOR_BASE_P (REGNO, MODE))
+
+  enum reg_class context_reg_class;
   RTX_CODE code = GET_CODE (x);
+
+  if (context == 2)
+    context_reg_class = MODE_BASE_REG_REG_CLASS (mode);
+  else if (context == 1)
+    context_reg_class = INDEX_REG_CLASS;
+  else
+    context_reg_class = MODE_BASE_REG_CLASS (mode);
 
   switch (code)
     {
@@ -5294,12 +5352,12 @@ find_reloads_address_1 (enum machine_mode mode, rtx x, int context,
 	   register remateralization for expression like &localvar*4.  Reload it.
 	   It may be possible to combine the displacement on the outer level,
 	   but it is probably not worthwhile to do so.  */
-	if (context)
+	if (context == 1)
 	  {
 	    find_reloads_address (GET_MODE (x), loc, XEXP (x, 0), &XEXP (x, 0),
 				  opnum, ADDR_TYPE (type), ind_levels, insn);
 	    push_reload (*loc, NULL_RTX, loc, (rtx*) 0,
-			 (context ? INDEX_REG_CLASS : MODE_BASE_REG_CLASS (mode)),
+			 context_reg_class,
 			 GET_MODE (x), VOIDmode, 0, 0, opnum, type);
 	    return 1;
 	  }
@@ -5335,22 +5393,22 @@ find_reloads_address_1 (enum machine_mode mode, rtx x, int context,
 	else if (code0 == REG && code1 == REG)
 	  {
 	    if (REG_OK_FOR_INDEX_P (op0)
-		&& REG_MODE_OK_FOR_BASE_P (op1, mode))
+		&& REG_MODE_OK_FOR_REG_BASE_P (op1, mode))
 	      return 0;
 	    else if (REG_OK_FOR_INDEX_P (op1)
-		     && REG_MODE_OK_FOR_BASE_P (op0, mode))
+		     && REG_MODE_OK_FOR_REG_BASE_P (op0, mode))
 	      return 0;
-	    else if (REG_MODE_OK_FOR_BASE_P (op1, mode))
+	    else if (REG_MODE_OK_FOR_REG_BASE_P (op1, mode))
 	      find_reloads_address_1 (mode, orig_op0, 1, &XEXP (x, 0), opnum,
 				      type, ind_levels, insn);
-	    else if (REG_MODE_OK_FOR_BASE_P (op0, mode))
+	    else if (REG_MODE_OK_FOR_REG_BASE_P (op0, mode))
 	      find_reloads_address_1 (mode, orig_op1, 1, &XEXP (x, 1), opnum,
 				      type, ind_levels, insn);
 	    else if (REG_OK_FOR_INDEX_P (op1))
-	      find_reloads_address_1 (mode, orig_op0, 0, &XEXP (x, 0), opnum,
+	      find_reloads_address_1 (mode, orig_op0, 2, &XEXP (x, 0), opnum,
 				      type, ind_levels, insn);
 	    else if (REG_OK_FOR_INDEX_P (op0))
-	      find_reloads_address_1 (mode, orig_op1, 0, &XEXP (x, 1), opnum,
+	      find_reloads_address_1 (mode, orig_op1, 2, &XEXP (x, 1), opnum,
 				      type, ind_levels, insn);
 	    else
 	      {
@@ -5514,9 +5572,8 @@ find_reloads_address_1 (enum machine_mode mode, rtx x, int context,
 
 	  if (reg_renumber[regno] >= 0)
 	    regno = reg_renumber[regno];
-	  if ((regno >= FIRST_PSEUDO_REGISTER
-	       || !(context ? REGNO_OK_FOR_INDEX_P (regno)
-		    : REGNO_MODE_OK_FOR_BASE_P (regno, mode))))
+	  if (regno >= FIRST_PSEUDO_REGISTER
+	      || !REG_OK_FOR_CONTEXT (context, regno, mode))
 	    {
 	      int reloadnum;
 
@@ -5552,8 +5609,7 @@ find_reloads_address_1 (enum machine_mode mode, rtx x, int context,
 		  x = XEXP (x, 0);
 		  reloadnum
 		    = push_reload (x, x, loc, loc,
-				   (context ? INDEX_REG_CLASS :
-				    MODE_BASE_REG_CLASS (mode)),
+				   context_reg_class,
 				   GET_MODE (x), GET_MODE (x), 0, 0,
 				   opnum, RELOAD_OTHER);
 		}
@@ -5561,8 +5617,7 @@ find_reloads_address_1 (enum machine_mode mode, rtx x, int context,
 		{
 		  reloadnum
 		    = push_reload (x, NULL_RTX, loc, (rtx*) 0,
-				   (context ? INDEX_REG_CLASS :
-				    MODE_BASE_REG_CLASS (mode)),
+				   context_reg_class,
 				   GET_MODE (x), GET_MODE (x), 0, 0,
 				   opnum, type);
 		  rld[reloadnum].inc
@@ -5602,8 +5657,7 @@ find_reloads_address_1 (enum machine_mode mode, rtx x, int context,
 				opnum, type, ind_levels, insn);
 
 	  reloadnum = push_reload (x, NULL_RTX, loc, (rtx*) 0,
-				   (context ? INDEX_REG_CLASS :
-				    MODE_BASE_REG_CLASS (mode)),
+				   context_reg_class,
 				   GET_MODE (x), VOIDmode, 0, 0, opnum, type);
 	  rld[reloadnum].inc
 	    = find_inc_amount (PATTERN (this_insn), XEXP (x, 0));
@@ -5632,7 +5686,7 @@ find_reloads_address_1 (enum machine_mode mode, rtx x, int context,
       find_reloads_address (GET_MODE (x), loc, XEXP (x, 0), &XEXP (x, 0),
 			    opnum, ADDR_TYPE (type), ind_levels, insn);
       push_reload (*loc, NULL_RTX, loc, (rtx*) 0,
-		   (context ? INDEX_REG_CLASS : MODE_BASE_REG_CLASS (mode)),
+		   context_reg_class,
 		   GET_MODE (x), VOIDmode, 0, 0, opnum, type);
       return 1;
 
@@ -5643,8 +5697,7 @@ find_reloads_address_1 (enum machine_mode mode, rtx x, int context,
 	if (reg_equiv_constant[regno] != 0)
 	  {
 	    find_reloads_address_part (reg_equiv_constant[regno], loc,
-				       (context ? INDEX_REG_CLASS :
-					MODE_BASE_REG_CLASS (mode)),
+				       context_reg_class,
 				       GET_MODE (x), opnum, type, ind_levels);
 	    return 1;
 	  }
@@ -5654,8 +5707,7 @@ find_reloads_address_1 (enum machine_mode mode, rtx x, int context,
 	if (reg_equiv_mem[regno] != 0)
 	  {
 	    push_reload (reg_equiv_mem[regno], NULL_RTX, loc, (rtx*) 0,
-			 (context ? INDEX_REG_CLASS :
-			  MODE_BASE_REG_CLASS (mode)),
+			 context_reg_class,
 			 GET_MODE (x), VOIDmode, 0, 0, opnum, type);
 	    return 1;
 	  }
@@ -5678,12 +5730,11 @@ find_reloads_address_1 (enum machine_mode mode, rtx x, int context,
 	if (reg_renumber[regno] >= 0)
 	  regno = reg_renumber[regno];
 
-	if ((regno >= FIRST_PSEUDO_REGISTER
-	     || !(context ? REGNO_OK_FOR_INDEX_P (regno)
-		  : REGNO_MODE_OK_FOR_BASE_P (regno, mode))))
+	if (regno >= FIRST_PSEUDO_REGISTER
+	    || !REG_OK_FOR_CONTEXT (context, regno, mode))
 	  {
 	    push_reload (x, NULL_RTX, loc, (rtx*) 0,
-			 (context ? INDEX_REG_CLASS : MODE_BASE_REG_CLASS (mode)),
+			 context_reg_class,
 			 GET_MODE (x), VOIDmode, 0, 0, opnum, type);
 	    return 1;
 	  }
@@ -5695,7 +5746,7 @@ find_reloads_address_1 (enum machine_mode mode, rtx x, int context,
 	if (regno_clobbered_p (regno, this_insn, GET_MODE (x), 0))
 	  {
 	    push_reload (x, NULL_RTX, loc, (rtx*) 0,
-			 (context ? INDEX_REG_CLASS : MODE_BASE_REG_CLASS (mode)),
+			 context_reg_class,
 			 GET_MODE (x), VOIDmode, 0, 0, opnum, type);
 	    return 1;
 	  }
@@ -5712,12 +5763,10 @@ find_reloads_address_1 (enum machine_mode mode, rtx x, int context,
 	    {
 	      int regno ATTRIBUTE_UNUSED = subreg_regno (x);
 
-	      if (! (context ? REGNO_OK_FOR_INDEX_P (regno)
-		     : REGNO_MODE_OK_FOR_BASE_P (regno, mode)))
+	      if (! REG_OK_FOR_CONTEXT (context, regno, mode))
 		{
 		  push_reload (x, NULL_RTX, loc, (rtx*) 0,
-			       (context ? INDEX_REG_CLASS :
-				MODE_BASE_REG_CLASS (mode)),
+			       context_reg_class,
 			       GET_MODE (x), VOIDmode, 0, 0, opnum, type);
 		  return 1;
 		}
@@ -5726,8 +5775,7 @@ find_reloads_address_1 (enum machine_mode mode, rtx x, int context,
 	     is larger than the class size, then reload the whole SUBREG.  */
 	  else
 	    {
-	      enum reg_class class = (context ? INDEX_REG_CLASS
-				      : MODE_BASE_REG_CLASS (mode));
+	      enum reg_class class = context_reg_class;
 	      if ((unsigned) CLASS_MAX_NREGS (class, GET_MODE (SUBREG_REG (x)))
 		  > reg_class_size[class])
 		{
@@ -5757,6 +5805,7 @@ find_reloads_address_1 (enum machine_mode mode, rtx x, int context,
       }
   }
 
+#undef REG_OK_FOR_CONTEXT
   return 0;
 }
 
@@ -6151,7 +6200,7 @@ find_replacement (rtx *loc)
    This is similar to refers_to_regno_p in rtlanal.c except that we
    look at equivalences for pseudos that didn't get hard registers.  */
 
-int
+static int
 refers_to_regno_for_reload_p (unsigned int regno, unsigned int endregno,
 			      rtx x, rtx *loc)
 {
@@ -6344,7 +6393,7 @@ reg_overlap_mentioned_for_reload_p (rtx x, rtx in)
 /* Return nonzero if anything in X contains a MEM.  Look also for pseudo
    registers.  */
 
-int
+static int
 refers_to_mem_for_reload_p (rtx x)
 {
   const char *fmt;
@@ -6663,17 +6712,15 @@ find_equiv_reg (rtx goal, rtx insn, enum reg_class class, int other,
 
 	  if (regno >= 0 && regno < FIRST_PSEUDO_REGISTER)
 	    for (i = 0; i < nregs; ++i)
-	      if (call_used_regs[regno + i])
+	      if (call_used_regs[regno + i]
+		  || HARD_REGNO_CALL_PART_CLOBBERED (regno + i, mode))
 		return 0;
 
 	  if (valueno >= 0 && valueno < FIRST_PSEUDO_REGISTER)
 	    for (i = 0; i < valuenregs; ++i)
-	      if (call_used_regs[valueno + i])
+	      if (call_used_regs[valueno + i]
+		  || HARD_REGNO_CALL_PART_CLOBBERED (valueno + i, mode))
 		return 0;
-#ifdef NON_SAVING_SETJMP
-	  if (NON_SAVING_SETJMP && find_reg_note (p, REG_SETJMP, NULL))
-	    return 0;
-#endif
 	}
 
       if (INSN_P (p))
@@ -6696,7 +6743,6 @@ find_equiv_reg (rtx goal, rtx insn, enum reg_class class, int other,
 	      rtx dest = SET_DEST (pat);
 	      while (GET_CODE (dest) == SUBREG
 		     || GET_CODE (dest) == ZERO_EXTRACT
-		     || GET_CODE (dest) == SIGN_EXTRACT
 		     || GET_CODE (dest) == STRICT_LOW_PART)
 		dest = XEXP (dest, 0);
 	      if (REG_P (dest))
@@ -6740,7 +6786,6 @@ find_equiv_reg (rtx goal, rtx insn, enum reg_class class, int other,
 		      rtx dest = SET_DEST (v1);
 		      while (GET_CODE (dest) == SUBREG
 			     || GET_CODE (dest) == ZERO_EXTRACT
-			     || GET_CODE (dest) == SIGN_EXTRACT
 			     || GET_CODE (dest) == STRICT_LOW_PART)
 			dest = XEXP (dest, 0);
 		      if (REG_P (dest))
@@ -6902,14 +6947,20 @@ find_inc_amount (rtx x, rtx inced)
 }
 
 /* Return 1 if register REGNO is the subject of a clobber in insn INSN.
-   If SETS is nonzero, also consider SETs.  */
+   If SETS is nonzero, also consider SETs.  REGNO must refer to a hard
+   register.  */
 
 int
 regno_clobbered_p (unsigned int regno, rtx insn, enum machine_mode mode,
 		   int sets)
 {
-  unsigned int nregs = hard_regno_nregs[regno][mode];
-  unsigned int endregno = regno + nregs;
+  unsigned int nregs, endregno;
+
+  /* regno must be a hard register.  */
+  gcc_assert (regno < FIRST_PSEUDO_REGISTER);
+
+  nregs = hard_regno_nregs[regno][mode];
+  endregno = regno + nregs;
 
   if ((GET_CODE (PATTERN (insn)) == CLOBBER
        || (sets && GET_CODE (PATTERN (insn)) == SET))
@@ -6974,8 +7025,6 @@ static const char *const reload_when_needed_name[] =
   "RELOAD_OTHER",
   "RELOAD_FOR_OTHER_ADDRESS"
 };
-
-static const char * const reg_class_names[] = REG_CLASS_NAMES;
 
 /* These functions are used to print the variables set by 'find_reloads' */
 

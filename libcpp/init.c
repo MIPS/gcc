@@ -1,6 +1,6 @@
 /* CPP Library.
    Copyright (C) 1986, 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Per Bothner, 1994-95.
    Based on CCCP program by Paul Rubin, June 1986
    Adapted to ANSI C, Richard Stallman, Jan 1987
@@ -275,7 +275,7 @@ cpp_destroy (cpp_reader *pfile)
 
    There are two tables of these.  builtin_array holds all the
    "builtin" macros: these are handled by builtin_macro() in
-   cppmacro.c.  Builtin is somewhat of a misnomer -- the property of
+   macro.c.  Builtin is somewhat of a misnomer -- the property of
    interest is that these macros require special code to compute their
    expansions.  The value is a "builtin_type" enumerator.
 
@@ -567,7 +567,7 @@ cpp_finish (cpp_reader *pfile, FILE *deps_stream)
   if (CPP_OPTION (pfile, warn_unused_macros))
     cpp_forall_identifiers (pfile, _cpp_warn_if_unused_macro, NULL);
 
-  /* cpplex.c leaves the final buffer on the stack.  This it so that
+  /* lex.c leaves the final buffer on the stack.  This it so that
      it returns an unending stream of CPP_EOFs to the client.  If we
      popped the buffer, we'd dereference a NULL buffer pointer and
      segfault.  It's nice to allow the client to do worry-free excess

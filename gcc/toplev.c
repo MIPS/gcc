@@ -1,6 +1,6 @@
 /* Top level of GCC compilers (cc1, cc1plus, etc.)
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -80,6 +80,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "coverage.h"
 #include "value-prof.h"
 #include "alloc-pool.h"
+#include "tree-mudflap.h"
 
 #if defined (DWARF2_UNWIND_INFO) || defined (DWARF2_DEBUGGING_INFO)
 #include "dwarf2out.h"
@@ -266,9 +267,9 @@ int flag_pcc_struct_return = DEFAULT_PCC_STRUCT_RETURN;
 
 /* 0 means straightforward implementation of complex divide acceptable.
    1 means wide ranges of inputs must work for complex divide.
-   2 means C99-like requirements for complex divide (not yet implemented).  */
+   2 means C99-like requirements for complex multiply and divide.  */
 
-int flag_complex_divide_method = 0;
+int flag_complex_method = 1;
 
 /* Nonzero means that we don't want inlining by virtue of -fno-inline,
    not just because the tree inliner turned us off.  */
@@ -366,11 +367,11 @@ int flag_evaluation_order = 0;
 const char *user_label_prefix;
 
 static const param_info lang_independent_params[] = {
-#define DEFPARAM(ENUM, OPTION, HELP, DEFAULT) \
-  { OPTION, DEFAULT, HELP },
+#define DEFPARAM(ENUM, OPTION, HELP, DEFAULT, MIN, MAX) \
+  { OPTION, DEFAULT, MIN, MAX, HELP },
 #include "params.def"
 #undef DEFPARAM
-  { NULL, 0, NULL }
+  { NULL, 0, 0, 0, NULL }
 };
 
 /* Here is a table, controlled by the tm.h file, listing each -m switch
@@ -411,7 +412,7 @@ int warn_return_type;
 FILE *asm_out_file;
 FILE *aux_info_file;
 FILE *dump_file = NULL;
-char *dump_file_name;
+const char *dump_file_name;
 
 /* The current working directory of a translation.  It's generally the
    directory from which compilation was initiated, but a preprocessed
@@ -448,7 +449,11 @@ const char *
 get_src_pwd (void)
 {
   if (! src_pwd)
-    src_pwd = getpwd ();
+    {
+      src_pwd = getpwd ();
+      if (!src_pwd)
+	src_pwd = ".";
+    }
 
    return src_pwd;
 }
@@ -536,20 +541,23 @@ read_integral_parameter (const char *p, const char *pname, const int  defval)
 }
 
 /* Given X, an unsigned number, return the largest int Y such that 2**Y <= X.
-   If X is 0, return -1.
-
-   This should be used via the floor_log2 macro.  */
+   If X is 0, return -1.  */
 
 int
-floor_log2_wide (unsigned HOST_WIDE_INT x)
+floor_log2 (unsigned HOST_WIDE_INT x)
 {
-  int t=0;
+  int t = 0;
+
   if (x == 0)
     return -1;
-  if (sizeof (HOST_WIDE_INT) * 8 > 64)
+
+#ifdef CLZ_HWI
+  t = HOST_BITS_PER_WIDE_INT - 1 - (int) CLZ_HWI (x);
+#else
+  if (HOST_BITS_PER_WIDE_INT > 64)
     if (x >= (unsigned HOST_WIDE_INT) 1 << (t + 64))
       t += 64;
-  if (sizeof (HOST_WIDE_INT) * 8 > 32)
+  if (HOST_BITS_PER_WIDE_INT > 32)
     if (x >= ((unsigned HOST_WIDE_INT) 1) << (t + 32))
       t += 32;
   if (x >= ((unsigned HOST_WIDE_INT) 1) << (t + 16))
@@ -562,21 +570,24 @@ floor_log2_wide (unsigned HOST_WIDE_INT x)
     t += 2;
   if (x >= ((unsigned HOST_WIDE_INT) 1) << (t + 1))
     t += 1;
+#endif
+
   return t;
 }
 
 /* Return the logarithm of X, base 2, considering X unsigned,
-   if X is a power of 2.  Otherwise, returns -1.
-
-   This should be used via the `exact_log2' macro.  */
+   if X is a power of 2.  Otherwise, returns -1.  */
 
 int
-exact_log2_wide (unsigned HOST_WIDE_INT x)
+exact_log2 (unsigned HOST_WIDE_INT x)
 {
-  /* Test for 0 or a power of 2.  */
-  if (x == 0 || x != (x & -x))
+  if (x != (x & -x))
     return -1;
-  return floor_log2_wide (x);
+#ifdef CTZ_HWI
+  return x ? CTZ_HWI (x) : -1;
+#else
+  return floor_log2 (x);
+#endif
 }
 
 /* Handler for fatal signals, such as SIGSEGV.  These are transformed
@@ -812,13 +823,13 @@ check_global_declarations (tree *vec, int len)
     {
       decl = vec[i];
 
-      if (TREE_CODE (decl) == VAR_DECL && TREE_STATIC (decl)
-	  && ! TREE_ASM_WRITTEN (decl))
-	/* Cancel the RTL for this decl so that, if debugging info
-	   output for global variables is still to come,
-	   this one will be omitted.  */
-	SET_DECL_RTL (decl, NULL_RTX);
-
+      /* Do not emit debug information about variables that are in
+	 static storage, but not defined.  */
+      if (TREE_CODE (decl) == VAR_DECL
+	  && TREE_STATIC (decl)
+	  && !TREE_ASM_WRITTEN (decl))
+	DECL_IGNORED_P (decl) = 1;
+ 
       /* Warn about any function
 	 declared static but not defined.
 	 We don't warn about variables,
@@ -1004,6 +1015,10 @@ compile_file (void)
      functions in this compilation unit were deferred.  */
   coverage_finish ();
 
+  /* Likewise for mudflap static object registrations.  */
+  if (flag_mudflap)
+    mudflap_finish_file ();
+
   /* Write out any pending weak symbol declarations.  */
 
   weak_finish ();
@@ -1022,6 +1037,14 @@ compile_file (void)
   /* Output some stuff at end of file if nec.  */
 
   dw2_output_indirect_constants ();
+
+  /* Flush any pending external directives.  cgraph did this for
+     assemble_external calls from the front end, but the RTL
+     expander can also generate them.  */
+  process_pending_assemble_externals ();
+
+  /* Flush any pending equate directives.  */
+  process_pending_assemble_output_defs ();
 
   /* Attach a special .ident directive to the end of the file to identify
      the version of GCC which compiled this code.  The format of the .ident
@@ -1157,7 +1180,7 @@ decode_d_option (const char *arg)
 /* Indexed by enum debug_info_type.  */
 const char *const debug_type_names[] =
 {
-  "none", "stabs", "coff", "dwarf-1", "dwarf-2", "xcoff", "vms"
+  "none", "stabs", "coff", "dwarf-2", "xcoff", "vms"
 };
 
 /* Decode -m switches.  */
@@ -1391,11 +1414,6 @@ init_asm_output (const char *name)
 	fatal_error ("can%'t open %s for writing: %m", asm_file_name);
     }
 
-#ifdef IO_BUFFER_SIZE
-  setvbuf (asm_out_file, xmalloc (IO_BUFFER_SIZE),
-	   _IOFBF, IO_BUFFER_SIZE);
-#endif
-
   if (!flag_syntax_only)
     {
       targetm.asm_out.file_start ();
@@ -1536,23 +1554,36 @@ default_pch_valid_p (const void *data_p, size_t len)
 static bool
 default_tree_printer (pretty_printer * pp, text_info *text)
 {
+  tree t;
+
   switch (*text->format_spec)
     {
     case 'D':
+      t = va_arg (*text->args_ptr, tree);
+      if (DECL_DEBUG_EXPR (t) && DECL_DEBUG_EXPR_IS_FROM (t))
+	t = DECL_DEBUG_EXPR (t);
+      break;
+
     case 'F':
     case 'T':
-      {
-        tree t = va_arg (*text->args_ptr, tree);
-        const char *n = DECL_NAME (t)
-          ? lang_hooks.decl_printable_name (t, 2)
-          : "<anonymous>";
-        pp_string (pp, n);
-      }
-      return true;
+      t = va_arg (*text->args_ptr, tree);
+      break;
 
     default:
       return false;
     }
+
+  if (DECL_P (t))
+    {
+      const char *n = DECL_NAME (t)
+        ? lang_hooks.decl_printable_name (t, 2)
+        : "<anonymous>";
+      pp_string (pp, n);
+    }
+  else
+    dump_generic_node (pp, t, 0, 0, 0);
+
+  return true;
 }
 
 /* Initialization of the front end environment, before command line
@@ -1917,14 +1948,16 @@ process_options (void)
   /* The presence of IEEE signaling NaNs, implies all math can trap.  */
   if (flag_signaling_nans)
     flag_trapping_math = 1;
+
+  /* With -fcx-limited-range, we do cheap and quick complex arithmetic.  */
+  if (flag_cx_limited_range)
+    flag_complex_method = 0;
 }
 
 /* Initialize the compiler back end.  */
 static void
 backend_init (void)
 {
-  init_adjust_machine_modes ();
-
   init_emit_once (debug_info_level == DINFO_LEVEL_NORMAL
 		  || debug_info_level == DINFO_LEVEL_VERBOSE
 #ifdef VMS_DEBUGGING_INFO
@@ -1933,6 +1966,7 @@ backend_init (void)
 #endif
 		    || flag_test_coverage);
 
+  init_rtlanal ();
   init_regs ();
   init_fake_stack_mems ();
   init_alias_once ();
@@ -2060,6 +2094,11 @@ do_compile (void)
   /* Don't do any more if an error has already occurred.  */
   if (!errorcount)
     {
+      /* This must be run always, because it is needed to compute the FP
+	 predefined macros, such as __LDBL_MAX__, for targets using non
+	 default FP formats.  */
+      init_adjust_machine_modes ();
+
       /* Set up the back-end if requested.  */
       if (!no_backend)
 	backend_init ();

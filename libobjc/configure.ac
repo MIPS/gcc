@@ -117,11 +117,7 @@ case $srcdir in
 esac
 AC_SUBST(glibcpp_srcdir)
 
-# Process the option "--enable-version-specific-runtime-libs"
-gcc_version_trigger=${srcdir}/../gcc/version.c
-gcc_version_full=`grep version_string ${gcc_version_trigger} | sed -e 's/.*\"\([[^ \"]]*\)[[ \"]].*/\1/'`
-gcc_version=`echo ${gcc_version_full} | sed -e 's/\([^ ]*\) .*/\1/'`
-AC_SUBST(gcc_version)
+TL_AC_GCC_VERSION([$srcdir/..])
 
 # Calculate toolexeclibdir
 # Also toolexecdir, though it's only used in toolexeclibdir
@@ -190,10 +186,14 @@ AC_CHECK_TOOL(AR, ar)
 AC_CHECK_TOOL(RANLIB, ranlib, :)
 AC_PROG_INSTALL
 
+AM_MAINTAINER_MODE
+
 # Enable Win32 DLL on MS Windows - FIXME
 AC_LIBTOOL_WIN32_DLL
 
 AC_PROG_LIBTOOL
+
+AM_PROG_CC_C_O
 
 AC_PROG_MAKE_SET
 

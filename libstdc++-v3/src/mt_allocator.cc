@@ -46,7 +46,8 @@ namespace __gnu_internal
 
 namespace __gnu_cxx
 {
-  __pool<false>::~__pool()
+  void
+  __pool<false>::_M_destroy() throw()
   {
     if (_M_init && !_M_options._M_force_new)
       {
@@ -57,13 +58,12 @@ namespace __gnu_cxx
 	      {
 		_Block_address* __tmp = __bin._M_address->_M_next;
 		::operator delete(__bin._M_address->_M_initial);
-		delete __bin._M_address;
 		__bin._M_address = __tmp;
 	      }
-	    delete __bin._M_first;
+	    ::operator delete(__bin._M_first);
 	  }
-	delete _M_bin;
-	delete _M_binmap;
+	::operator delete(_M_bin);
+	::operator delete(_M_binmap);
       }
   }
 
@@ -74,8 +74,7 @@ namespace __gnu_cxx
     const size_t __which = _M_binmap[__bytes];
     _Bin_record& __bin = _M_bin[__which];
 
-    const _Tune& __options = _M_get_options();
-    char* __c = __p - __options._M_align;
+    char* __c = __p - _M_get_align();
     _Block_record* __block = reinterpret_cast<_Block_record*>(__c);
       
     // Single threaded application - return to global pool.
@@ -88,31 +87,33 @@ namespace __gnu_cxx
   {
     // Round up to power of 2 and figure out which bin to use.
     const size_t __which = _M_binmap[__bytes];
+    _Bin_record& __bin = _M_bin[__which];
     const _Tune& __options = _M_get_options();
-    const size_t __bin_size = ((__options._M_min_bin << __which) 
-			       + __options._M_align);
-    size_t __block_count = __options._M_chunk_size / __bin_size;	  
+    const size_t __bin_size = (__options._M_min_bin << __which) 
+			       + __options._M_align;
+    size_t __block_count = __options._M_chunk_size - sizeof(_Block_address);
+    __block_count /= __bin_size;	  
 
     // Get a new block dynamically, set it up for use.
     void* __v = ::operator new(__options._M_chunk_size);
-    _Block_record* __block = static_cast<_Block_record*>(__v);
-    --__block_count;
-    _Block_record* __tmp = __block;
-    while (__block_count-- > 0)
-      {
-	char* __c = reinterpret_cast<char*>(__tmp) + __bin_size;
-	__tmp->_M_next = reinterpret_cast<_Block_record*>(__c);
-	__tmp = __tmp->_M_next;
-      }
-    __tmp->_M_next = NULL;
-
-    // Update _Bin_record fields.
-    _Bin_record& __bin = _M_bin[__which];
-    __bin._M_first[__thread_id] = __block->_M_next;
-    _Block_address* __address = new _Block_address;
+    _Block_address* __address = static_cast<_Block_address*>(__v);
     __address->_M_initial = __v;
     __address->_M_next = __bin._M_address;
     __bin._M_address = __address;
+
+    char* __c = static_cast<char*>(__v) + sizeof(_Block_address);
+    _Block_record* __block = reinterpret_cast<_Block_record*>(__c);
+    __bin._M_first[__thread_id] = __block;
+    while (--__block_count > 0)
+      {
+	__c += __bin_size;
+	__block->_M_next = reinterpret_cast<_Block_record*>(__c);
+	__block = __block->_M_next;
+      }
+    __block->_M_next = NULL;
+
+    __block = __bin._M_first[__thread_id];
+    __bin._M_first[__thread_id] = __block->_M_next;
 
     // NB: For alignment reasons, we can't use the first _M_align
     // bytes, even when sizeof(_Block_record) < _M_align.
@@ -172,7 +173,8 @@ namespace __gnu_cxx
   }
   
 #ifdef __GTHREADS
-  __pool<true>::~__pool()
+  void
+  __pool<true>::_M_destroy() throw()
   {
     if (_M_init && !_M_options._M_force_new)
       {
@@ -185,13 +187,12 @@ namespace __gnu_cxx
 		  {
 		    _Block_address* __tmp = __bin._M_address->_M_next;
 		    ::operator delete(__bin._M_address->_M_initial);
-		    delete __bin._M_address;
 		    __bin._M_address = __tmp;
 		  }
-		delete __bin._M_first;
-		delete __bin._M_free;
-		delete __bin._M_used;
-		delete __bin._M_mutex;
+		::operator delete(__bin._M_first);
+		::operator delete(__bin._M_free);
+		::operator delete(__bin._M_used);
+		::operator delete(__bin._M_mutex);
 	      }
 	    ::operator delete(_M_thread_freelist_initial);
 	  }
@@ -204,14 +205,13 @@ namespace __gnu_cxx
 		  {
 		    _Block_address* __tmp = __bin._M_address->_M_next;
 		    ::operator delete(__bin._M_address->_M_initial);
-		    delete __bin._M_address;
 		    __bin._M_address = __tmp;
 		  }
-		delete __bin._M_first;
+		::operator delete(__bin._M_first);
 	      }
 	  }
-	delete _M_bin;
-	delete _M_binmap;
+	::operator delete(_M_bin);
+	::operator delete(_M_binmap);
       }
   }
 
@@ -222,8 +222,8 @@ namespace __gnu_cxx
     const size_t __which = _M_binmap[__bytes];
     const _Bin_record& __bin = _M_bin[__which];
 
-    const _Tune& __options = _M_get_options();
-    char* __c = __p - __options._M_align;
+    // Know __p not null, assume valid block.
+    char* __c = __p - _M_get_align();
     _Block_record* __block = reinterpret_cast<_Block_record*>(__c);
     if (__gthread_active_p())
       {
@@ -231,20 +231,23 @@ namespace __gnu_cxx
 	// in order to avoid too much contention we wait until the
 	// number of records is "high enough".
 	const size_t __thread_id = _M_get_thread_id();
-	
-	long __remove = ((__bin._M_free[__thread_id] 
-			  * __options._M_freelist_headroom)
-			 - __bin._M_used[__thread_id]);
-	if (__remove > static_cast<long>(100 * (_M_bin_size - __which)
-					 * __options._M_freelist_headroom)
-	    && __remove > static_cast<long>(__bin._M_free[__thread_id]))
+	const _Tune& __options = _M_get_options();	
+	const unsigned long __limit = 100 * (_M_bin_size - __which)
+		                      * __options._M_freelist_headroom;
+
+	unsigned long __remove = __bin._M_free[__thread_id];
+	__remove *= __options._M_freelist_headroom;
+	if (__remove >= __bin._M_used[__thread_id])
+	  __remove -= __bin._M_used[__thread_id];
+	else
+	  __remove = 0;
+	if (__remove > __limit && __remove > __bin._M_free[__thread_id])
 	  {
-	    _Block_record* __tmp = __bin._M_first[__thread_id];
-	    _Block_record* __first = __tmp;
+	    _Block_record* __first = __bin._M_first[__thread_id];
+	    _Block_record* __tmp = __first;
 	    __remove /= __options._M_freelist_headroom;
-	    const long __removed = __remove;
-	    --__remove;
-	    while (__remove-- > 0)
+	    const unsigned long __removed = __remove;
+	    while (--__remove > 0)
 	      __tmp = __tmp->_M_next;
 	    __bin._M_first[__thread_id] = __tmp->_M_next;
 	    __bin._M_free[__thread_id] -= __removed;
@@ -255,7 +258,7 @@ namespace __gnu_cxx
 	    __bin._M_free[0] += __removed;
 	    __gthread_mutex_unlock(__bin._M_mutex);
 	  }
-	
+
 	// Return this block to our list and update counters and
 	// owner id as needed.
 	--__bin._M_used[__block->_M_thread_id];
@@ -282,7 +285,8 @@ namespace __gnu_cxx
     const _Tune& __options = _M_get_options();
     const size_t __bin_size = ((__options._M_min_bin << __which)
 			       + __options._M_align);
-    size_t __block_count = __options._M_chunk_size / __bin_size;	  
+    size_t __block_count = __options._M_chunk_size - sizeof(_Block_address);
+    __block_count /= __bin_size;	  
     
     // Are we using threads?
     // - Yes, check if there are free blocks on the global
@@ -301,29 +305,26 @@ namespace __gnu_cxx
 	__gthread_mutex_lock(__bin._M_mutex);
 	if (__bin._M_first[0] == NULL)
 	  {
-	    // No need to hold the lock when we are adding a whole
-	    // chunk to our own list.
-	    __gthread_mutex_unlock(__bin._M_mutex);
-
 	    void* __v = ::operator new(__options._M_chunk_size);
-	    __bin._M_first[__thread_id] = static_cast<_Block_record*>(__v);
-	    __bin._M_free[__thread_id] = __block_count;
-	    --__block_count;
-	    __block = __bin._M_first[__thread_id];
-	    while (__block_count-- > 0)
-	      {
-		char* __c = reinterpret_cast<char*>(__block) + __bin_size;
-		__block->_M_next = reinterpret_cast<_Block_record*>(__c);
-		__block = __block->_M_next;
-	      }
-	    __block->_M_next = NULL;
-
-	    __gthread_mutex_lock(__bin._M_mutex);
-	    _Block_address* __address = new _Block_address;
+	    _Block_address* __address = static_cast<_Block_address*>(__v);
 	    __address->_M_initial = __v;
 	    __address->_M_next = __bin._M_address;
 	    __bin._M_address = __address;
 	    __gthread_mutex_unlock(__bin._M_mutex);
+
+	    // No need to hold the lock when we are adding a whole
+	    // chunk to our own list.
+	    char* __c = static_cast<char*>(__v) + sizeof(_Block_address);
+	    __block = reinterpret_cast<_Block_record*>(__c);
+	    __bin._M_free[__thread_id] = __block_count;
+	    __bin._M_first[__thread_id] = __block;
+	    while (--__block_count > 0)
+	      {
+		__c += __bin_size;
+		__block->_M_next = reinterpret_cast<_Block_record*>(__c);
+		__block = __block->_M_next;
+	      }
+	    __block->_M_next = NULL;
 	  }
 	else
 	  {
@@ -341,9 +342,8 @@ namespace __gnu_cxx
 	      {
 		__bin._M_free[__thread_id] = __block_count;
 		__bin._M_free[0] -= __block_count;
-		--__block_count;
 		__block = __bin._M_first[0];
-		while (__block_count-- > 0)
+		while (--__block_count > 0)
 		  __block = __block->_M_next;
 		__bin._M_first[0] = __block->_M_next;
 		__block->_M_next = NULL;
@@ -354,25 +354,25 @@ namespace __gnu_cxx
     else
       {
 	void* __v = ::operator new(__options._M_chunk_size);
-	__block = static_cast<_Block_record*>(__v);
-	__bin._M_first[0] = __block;
-	--__block_count;
-	while (__block_count-- > 0)
+	_Block_address* __address = static_cast<_Block_address*>(__v);
+	__address->_M_initial = __v;
+	__address->_M_next = __bin._M_address;
+	__bin._M_address = __address;
+
+	char* __c = static_cast<char*>(__v) + sizeof(_Block_address);
+	_Block_record* __block = reinterpret_cast<_Block_record*>(__c);
+ 	__bin._M_first[0] = __block;
+	while (--__block_count > 0)
 	  {
-	    char* __c = reinterpret_cast<char*>(__block) + __bin_size;
+	    __c += __bin_size;
 	    __block->_M_next = reinterpret_cast<_Block_record*>(__c);
 	    __block = __block->_M_next;
 	  }
 	__block->_M_next = NULL;
-
-	_Block_address* __address = new _Block_address;
-	__address->_M_initial = __v;
-	__address->_M_next = __bin._M_address;
-	__bin._M_address = __address;
       }
       
     __block = __bin._M_first[__thread_id];
-    __bin._M_first[__thread_id] = __bin._M_first[__thread_id]->_M_next;
+    __bin._M_first[__thread_id] = __block->_M_next;
 
     if (__gthread_active_p())
       {

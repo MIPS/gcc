@@ -108,6 +108,7 @@ extern unsigned xtensa_current_frame_size;
     builtin_assert ("machine=xtensa");					\
     builtin_define ("__xtensa__");					\
     builtin_define ("__XTENSA__");					\
+    builtin_define ("__XTENSA_WINDOWED_ABI__");				\
     builtin_define (TARGET_BIG_ENDIAN ? "__XTENSA_EB__" : "__XTENSA_EL__"); \
     if (!TARGET_HARD_FLOAT)						\
       builtin_define ("__XTENSA_SOFT_FLOAT__");				\
@@ -760,9 +761,6 @@ typedef struct xtensa_args
 
 #define FUNCTION_INCOMING_ARG(CUM, MODE, TYPE, NAMED) \
   function_arg (&CUM, MODE, TYPE, TRUE)
-
-/* Arguments are never passed partly in memory and partly in registers.  */
-#define FUNCTION_ARG_PARTIAL_NREGS(CUM, MODE, TYPE, NAMED) (0)
 
 /* Specify function argument alignment.  */
 #define FUNCTION_ARG_BOUNDARY(MODE, TYPE)				\

@@ -1,6 +1,6 @@
 /* Instruction scheduling pass.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) Enhanced by,
    and currently maintained by, Jim Wilson (wilson@cygnus.com)
 
@@ -53,7 +53,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "rtl.h"
 #include "tm_p.h"
 #include "hard-reg-set.h"
-#include "basic-block.h"
 #include "regs.h"
 #include "function.h"
 #include "flags.h"
@@ -292,7 +291,6 @@ is_cfg_nonregular (void)
 {
   basic_block b;
   rtx insn;
-  RTX_CODE code;
 
   /* If we have a label that could be the target of a nonlocal goto, then
      the cfg is not well structured.  */
@@ -303,11 +301,6 @@ is_cfg_nonregular (void)
   if (forced_labels)
     return 1;
 
-  /* If this function has a computed jump, then we consider the cfg
-     not well structured.  */
-  if (current_function_has_computed_jump)
-    return 1;
-
   /* If we have exception handlers, then we consider the cfg not well
      structured.  ?!?  We should be able to handle this now that flow.c
      computes an accurate cfg for EH.  */
@@ -316,24 +309,23 @@ is_cfg_nonregular (void)
 
   /* If we have non-jumping insns which refer to labels, then we consider
      the cfg not well structured.  */
-  /* Check for labels referred to other thn by jumps.  */
   FOR_EACH_BB (b)
-    for (insn = BB_HEAD (b); ; insn = NEXT_INSN (insn))
+    FOR_BB_INSNS (b, insn)
       {
-	code = GET_CODE (insn);
-	if (INSN_P (insn) && code != JUMP_INSN)
+	/* Check for labels referred by non-jump insns.  */
+	if (NONJUMP_INSN_P (insn) || CALL_P (insn))
 	  {
 	    rtx note = find_reg_note (insn, REG_LABEL, NULL_RTX);
-
 	    if (note
 		&& ! (JUMP_P (NEXT_INSN (insn))
 		      && find_reg_note (NEXT_INSN (insn), REG_LABEL,
 					XEXP (note, 0))))
 	      return 1;
 	  }
-
-	if (insn == BB_END (b))
-	  break;
+	/* If this function has a computed jump, then we consider the cfg
+	   not well structured.  */
+	else if (JUMP_P (insn) && computed_jump_p (insn))
+	  return 1;
       }
 
   /* Unreachable loops with more than one basic block are detected
@@ -998,6 +990,7 @@ compute_trg_info (int trg)
   edgelst el;
   int i, j, k, update_idx;
   basic_block block;
+  sbitmap visited;
   edge_iterator ei;
   edge e;
 
@@ -1006,6 +999,8 @@ compute_trg_info (int trg)
   sp->is_valid = 1;
   sp->is_speculative = 0;
   sp->src_prob = 100;
+
+  visited = sbitmap_alloc (last_basic_block - (INVALID_BLOCK + 1));
 
   for (i = trg + 1; i < current_nr_blocks; i++)
     {
@@ -1044,12 +1039,14 @@ compute_trg_info (int trg)
 	     overrunning the end of the bblst_table.  */
 
 	  update_idx = 0;
+	  sbitmap_zero (visited);
 	  for (j = 0; j < el.nr_members; j++)
 	    {
 	      block = el.first_member[j]->src;
 	      FOR_EACH_EDGE (e, ei, block->succs)
 		{
-		  if (!(e->dest->flags & BB_VISITED))
+		  if (!TEST_BIT (visited,
+				 e->dest->index - (INVALID_BLOCK + 1)))
 		    {
 		      for (k = 0; k < el.nr_members; k++)
 			if (e == el.first_member[k])
@@ -1058,16 +1055,14 @@ compute_trg_info (int trg)
 		      if (k >= el.nr_members)
 			{
 			  bblst_table[bblst_last++] = e->dest;
-			  e->dest->flags |= BB_VISITED;
+			  SET_BIT (visited,
+				   e->dest->index - (INVALID_BLOCK + 1));
 			  update_idx++;
 			}
 		    }
 		}
 	    }
 	  sp->update_bbs.nr_members = update_idx;
-
-	  FOR_ALL_BB (block)
-	    block->flags &= ~BB_VISITED;
 
 	  /* Make sure we didn't overrun the end of bblst_table.  */
 	  gcc_assert (bblst_last <= bblst_size);
@@ -1080,6 +1075,8 @@ compute_trg_info (int trg)
 	  sp->src_prob = 0;
 	}
     }
+
+  sbitmap_free (visited);
 }
 
 /* Print candidates info, for debugging purposes.  Callable from debugger.  */
@@ -1147,8 +1144,8 @@ check_live_1 (int src, rtx x)
   if (reg == 0)
     return 1;
 
-  while (GET_CODE (reg) == SUBREG || GET_CODE (reg) == ZERO_EXTRACT
-	 || GET_CODE (reg) == SIGN_EXTRACT
+  while (GET_CODE (reg) == SUBREG
+	 || GET_CODE (reg) == ZERO_EXTRACT
 	 || GET_CODE (reg) == STRICT_LOW_PART)
     reg = XEXP (reg, 0);
 
@@ -1224,8 +1221,8 @@ update_live_1 (int src, rtx x)
   if (reg == 0)
     return;
 
-  while (GET_CODE (reg) == SUBREG || GET_CODE (reg) == ZERO_EXTRACT
-	 || GET_CODE (reg) == SIGN_EXTRACT
+  while (GET_CODE (reg) == SUBREG
+	 || GET_CODE (reg) == ZERO_EXTRACT
 	 || GET_CODE (reg) == STRICT_LOW_PART)
     reg = XEXP (reg, 0);
 
@@ -1986,7 +1983,8 @@ propagate_deps (int bb, struct deps *pred_deps)
   FOR_EACH_EDGE (e, ei, block->succs)
     {
       struct deps *succ_deps;
-      int reg;
+      unsigned reg;
+      reg_set_iterator rsi;
 
       /* Only bbs "below" bb, in the same region, are interesting.  */
       if (e->dest == EXIT_BLOCK_PTR
@@ -1997,7 +1995,7 @@ propagate_deps (int bb, struct deps *pred_deps)
       succ_deps = bb_deps + BLOCK_TO_BB (e->dest->index);
 
       /* The reg_last lists are inherited by successor.  */
-      EXECUTE_IF_SET_IN_REG_SET (&pred_deps->reg_last_in_use, 0, reg,
+      EXECUTE_IF_SET_IN_REG_SET (&pred_deps->reg_last_in_use, 0, reg, rsi)
 	{
 	  struct deps_reg *pred_rl = &pred_deps->reg_last[reg];
 	  struct deps_reg *succ_rl = &succ_deps->reg_last[reg];
@@ -2008,7 +2006,7 @@ propagate_deps (int bb, struct deps *pred_deps)
 						succ_rl->clobbers);
 	  succ_rl->uses_length += pred_rl->uses_length;
 	  succ_rl->clobbers_length += pred_rl->clobbers_length;
-	});
+	}
       IOR_REG_SET (&succ_deps->reg_last_in_use, &pred_deps->reg_last_in_use);
 
       /* Mem read/write lists are inherited by successor.  */
@@ -2324,11 +2322,7 @@ schedule_region (int rgn)
 
 	  for (note = REG_NOTES (head); note; note = XEXP (note, 1))
 	    if (REG_NOTE_KIND (note) == REG_SAVE_NOTE)
-	      {
-		remove_note (head, note);
-		note = XEXP (note, 1);
-		remove_note (head, note);
-	      }
+	      remove_note (head, note);
 	}
 
       /* Remove remaining note insns from the block, save them in

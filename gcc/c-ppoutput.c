@@ -304,7 +304,7 @@ cb_ident (cpp_reader *pfile ATTRIBUTE_UNUSED, source_location line,
 	  const cpp_string *str)
 {
   maybe_print_line (line);
-  fprintf (print.outf, "#ident \"%s\"\n", str->text);
+  fprintf (print.outf, "#ident %s\n", str->text);
   print.src_line++;
 }
 
@@ -370,7 +370,7 @@ pp_file_change (const struct line_map *map)
 {
   const char *flags = "";
 
-  if (flag_no_line_commands || flag_no_output)
+  if (flag_no_line_commands)
     return;
 
   if (map != NULL)

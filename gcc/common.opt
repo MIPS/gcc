@@ -1,6 +1,6 @@
 ; Options for the language- and target-independent parts of the compiler.
 
-; Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+; Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
 ;
 ; This file is part of GCC.
 ;
@@ -29,7 +29,7 @@ Display this information
 
 -param
 Common Separate
---param <param>=<value>	Set paramter <param> to value.  See below for a complete list of parameters
+--param <param>=<value>	Set parameter <param> to value.  See below for a complete list of parameters
 
 -target-help
 Common
@@ -310,6 +310,10 @@ fcse-skip-blocks
 Common Report Var(flag_cse_skip_blocks)
 When running CSE, follow conditional jumps
 
+fcx-limited-range
+Common Report Var(flag_cx_limited_range)
+Omit range reduction step when performing complex division
+
 fdata-sections
 Common Report Var(flag_data_sections)
 Place data items into their own section
@@ -539,10 +543,6 @@ fmudflapir
 Common RejectNegative Report Var(flag_mudflap_ignore_reads)
 Ignore read operations when inserting mudflap instrumentation.
 
-fnew-ra
-Common Report Var(flag_new_regalloc)
-Use graph-coloring register allocation
-
 freschedule-modulo-scheduled-loops
 Common Report Var(flag_resched_modulo_sched)
 Enable/Disable the traditional scheduling in loops that already passed modulo scheduling
@@ -748,6 +748,10 @@ fsplit-ivs-in-unroller
 Common Report Var(flag_split_ivs_in_unroller) Init(1)
 Split lifetimes of induction variables when loops are unrolled.
 
+fvariable-expansion-in-unroller
+Common Report Var(flag_variable_expansion_in_unroller) 
+Apply variable expansion when loops are unrolled.
+
 ; Emit code to probe the stack, to help detect stack overflow; also
 ; may cause large objects to be allocated dynamically.
 fstack-check
@@ -915,6 +919,10 @@ Perform variable tracking
 ftree-vectorize
 Common Report Var(flag_tree_vectorize)
 Enable loop vectorization on trees
+
+ftree-vectorizer-verbose=
+Common RejectNegative Joined
+-ftree-vectorizer-verbose=<number>   Set the verbosity level of the vectorizer
 
 ; -fverbose-asm causes extra commentary information to be produced in
 ; the generated assembly code (to make it more readable).  This option

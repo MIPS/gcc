@@ -1,5 +1,5 @@
 /* Base configuration file for all NetBSD targets.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -163,6 +163,9 @@ Boston, MA 02111-1307, USA.  */
 
 #define HANDLE_SYSV_PRAGMA 1
 
+/* Don't assume anything about the header files.  */
+#undef  NO_IMPLICIT_EXTERN_C
+#define NO_IMPLICIT_EXTERN_C    1
 
 /* Define some types that are the same on all NetBSD platforms,
    making them agree with <machine/ansi.h>.  */

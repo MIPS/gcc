@@ -1,5 +1,5 @@
 /* DWARF2 EH unwinding support for SH Linux.
-   Copyright (C) 2004 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -7,6 +7,14 @@ GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
+
+In addition to the permissions in the GNU General Public License, the
+Free Software Foundation gives you unlimited permission to link the
+compiled version of this file with other programs, and to distribute
+those programs without any restriction coming from the use of this
+file.  (The General Public License restrictions do apply in other
+respects; for example, they cover modification of the file, and
+distribution when not linked into another program.)
 
 GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -154,10 +162,6 @@ sh_fallback_frame_state (struct _Unwind_Context *context,
     = (long)&(sc->sc_fpscr) - new_cfa;
 #endif
 
-  /* The unwinder expects the PC to point to the following insn,
-     whereas the kernel returns the address of the actual
-     faulting insn.  */
-  sc->sc_pc += 2;
   fs->regs.reg[SH_DWARF_FRAME_PC].how = REG_SAVED_OFFSET;
   fs->regs.reg[SH_DWARF_FRAME_PC].loc.offset
     = (long)&(sc->sc_pc) - new_cfa;

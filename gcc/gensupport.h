@@ -1,5 +1,5 @@
 /* Declarations for rtx-reader support for gen* routines.
-   Copyright (C) 2000, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -91,5 +91,9 @@ extern struct pred_data *lookup_predicate (const char *);
 extern void add_predicate (struct pred_data *);
 
 #define FOR_ALL_PREDICATES(p) for (p = first_predicate; p; p = p->next)
+
+/* This callback will be invoked whenever an rtl include directive is
+   processed.  To be used for creation of the dependency file.  */
+extern void (*include_callback) (const char *);
 
 #endif /* GCC_GENSUPPORT_H */

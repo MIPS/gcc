@@ -1,6 +1,6 @@
 /* Handle verification of bytecoded methods for the GNU compiler for 
    the Java(TM) language.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -404,7 +404,8 @@ pop_argument_types (tree arg_types)
             { oldpc = LABEL_PC (tmplab); goto verify_error; }} while (0)
 
 #ifdef __GNUC__
-#define CHECK_PC_IN_RANGE(PC) ({if (PC < 0 || PC > length) goto bad_pc; (void)1;})
+#define CHECK_PC_IN_RANGE(PC) __extension__ \
+  ({if (PC < 0 || PC > length) goto bad_pc; (void)1;})
 #else
 #define CHECK_PC_IN_RANGE(PC) (PC < 0 || PC > length ? (abort (), 0) : 1)
 #endif

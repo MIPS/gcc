@@ -1,6 +1,6 @@
 /* Instruction scheduling pass.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) Enhanced by,
    and currently maintained by, Jim Wilson (wilson@cygnus.com)
 
@@ -132,7 +132,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "rtl.h"
 #include "tm_p.h"
 #include "hard-reg-set.h"
-#include "basic-block.h"
 #include "regs.h"
 #include "function.h"
 #include "flags.h"
@@ -1649,11 +1648,6 @@ reemit_notes (rtx insn, rtx last)
 
 	  last = emit_note_before (note_type, last);
 	  remove_note (insn, note);
-	  note = XEXP (note, 1);
-	  if (note_type == NOTE_INSN_EH_REGION_BEG
-	      || note_type == NOTE_INSN_EH_REGION_END)
-	    NOTE_EH_HANDLER (last) = INTVAL (XEXP (note, 0));
-	  remove_note (insn, note);
 	}
     }
   return retval;
@@ -2058,6 +2052,12 @@ schedule_block (int b, int rgn_n_insns)
 	  if (cost >= 1)
 	    {
 	      queue_insn (insn, cost);
+ 	      if (SCHED_GROUP_P (insn))
+ 		{
+ 		  advance = cost;
+ 		  break;
+ 		}
+ 
 	      continue;
 	    }
 

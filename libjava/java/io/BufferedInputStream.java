@@ -1,5 +1,5 @@
 /* BufferedInputStream.java -- An input stream that implements buffering
-   Copyright (C) 1998, 1999, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2001, 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -60,12 +60,11 @@ package java.io;
  * does.
  *
  * @author Aaron M. Renn (arenn@urbanophile.com)
- * @author Warren Levy <warrenl@cygnus.com>
- * @author Jeroen Frijters <jeroen@frijters.net>
+ * @author Warren Levy (warrenl@cygnus.com)
+ * @author Jeroen Frijters (jeroen@frijters.net)
  */
 public class BufferedInputStream extends FilterInputStream
 {
-
   /**
    * This is the default buffer size
    */
@@ -199,7 +198,7 @@ public class BufferedInputStream extends FilterInputStream
   {
     marktarget = marklimit = readlimit;
     if (marklimit > CHUNKSIZE)
-	marklimit = CHUNKSIZE;
+      marklimit = CHUNKSIZE;
     markpos = pos;
   }
 
@@ -235,16 +234,19 @@ public class BufferedInputStream extends FilterInputStream
     if (markpos >= 0 && pos - markpos > marktarget)
       markpos = -1;
 
-    return ((int) buf[pos++]) & 0xFF;
+    return buf[pos++] & 0xFF;
   }
 
   /**
    * This method reads bytes from a stream and stores them into a caller
    * supplied buffer.  It starts storing the data at index <code>off</code>
    * into the buffer and attempts to read <code>len</code> bytes.  This method
-   * can return before reading the number of bytes requested.  The actual
-   * number of bytes read is returned as an int.  A -1 is returned to indicate
-   * the end of the stream.
+   * can return before reading the number of bytes requested, but it will try
+   * to read the requested number of bytes by repeatedly calling the underlying
+   * stream as long as available() for this stream continues to return a
+   * non-zero value (or until the requested number of bytes have been read).
+   * The actual number of bytes read is returned as an int.  A -1 is returned
+   * to indicate the end of the stream.
    * <p>
    * This method will block until some data can be read.
    *
@@ -264,17 +266,35 @@ public class BufferedInputStream extends FilterInputStream
     if (off < 0 || len < 0 || b.length - off < len)
       throw new IndexOutOfBoundsException();
 
+    if (len == 0)
+      return 0;
+
     if (pos >= count && !refill())
       return -1;		// No bytes were read before EOF.
 
-    int remain = Math.min(count - pos, len);
-    System.arraycopy(buf, pos, b, off, remain);
-    pos += remain;
+    int totalBytesRead = Math.min(count - pos, len);
+    System.arraycopy(buf, pos, b, off, totalBytesRead);
+    pos += totalBytesRead;
+    off += totalBytesRead;
+    len -= totalBytesRead;
 
     if (markpos >= 0 && pos - markpos > marktarget)
       markpos = -1;
 
-    return remain;
+    while (len > 0 && super.available() > 0 && refill())
+      {
+	int remain = Math.min(count - pos, len);
+	System.arraycopy(buf, pos, b, off, remain);
+	pos += remain;
+	off += remain;
+	len -= remain;
+	totalBytesRead += remain;
+
+	if (markpos >= 0 && pos - markpos > marktarget)
+	  markpos = -1;
+      }
+
+    return totalBytesRead;
   }
 
   /**
@@ -312,7 +332,7 @@ public class BufferedInputStream extends FilterInputStream
   public synchronized long skip(long n) throws IOException
   {
     if (buf == null)
-	throw new IOException("Stream closed.");
+      throw new IOException("Stream closed.");
 
     final long origN = n;
 
@@ -322,7 +342,7 @@ public class BufferedInputStream extends FilterInputStream
 	  if (n < origN)
 	    break;
 	  else
-	    return -1;	// No bytes were read before EOF.
+	    return 0;	// No bytes were read before EOF.
 
 	int numread = (int) Math.min((long) (count - pos), n);
 	pos += numread;
@@ -344,7 +364,7 @@ public class BufferedInputStream extends FilterInputStream
   boolean refill() throws IOException
   {
     if (buf == null)
-	throw new IOException("Stream closed.");
+      throw new IOException("Stream closed.");
 
     if (markpos < 0)
       count = pos = 0;
@@ -358,7 +378,7 @@ public class BufferedInputStream extends FilterInputStream
 	pos -= markpos;
 	markpos = 0;
       }
-    else if (marktarget >= buf.length && marklimit < marktarget)	// BTW, markpos == 0
+    else if (count >= buf.length && count < marktarget)	// BTW, markpos == 0
       {
 	// Need to grow the buffer now to have room for marklimit bytes.
 	// Note that the new buffer is one greater than marklimit.
@@ -379,6 +399,6 @@ public class BufferedInputStream extends FilterInputStream
       return false;
 
     count += numread;
-    return true;
+    return numread > 0;
   }
 }

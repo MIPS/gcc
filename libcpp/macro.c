@@ -1,6 +1,6 @@
 /* Part of CPP library.  (Macro and #define handling.)
    Copyright (C) 1986, 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Written by Per Bothner, 1994.
    Based on CCCP program by Paul Rubin, June 1986
    Adapted to ANSI C, Richard Stallman, Jan 1987
@@ -910,7 +910,10 @@ padding_token (cpp_reader *pfile, const cpp_token *source)
   cpp_token *result = _cpp_temp_token (pfile);
 
   result->type = CPP_PADDING;
-  result->val.source = source;
+
+  /* Data in GCed data structures cannot be made const so far, so we
+     need a cast here.  */
+  result->val.source = (cpp_token *) source;
   result->flags = 0;
   return result;
 }
@@ -1416,10 +1419,11 @@ create_iso_definition (cpp_reader *pfile, cpp_macro *macro)
       /* Success.  Commit or allocate the parameter array.  */
       if (pfile->hash_table->alloc_subobject)
 	{
-	  cpp_token *tokns = pfile->hash_table->alloc_subobject
-	    (sizeof (cpp_token) * macro->paramc);
-	  memcpy (tokns, macro->params, sizeof (cpp_token) * macro->paramc);
-	  macro->params = tokns;
+	  cpp_hashnode **params = pfile->hash_table->alloc_subobject
+	    (sizeof (cpp_hashnode *) * macro->paramc);
+	  memcpy (params, macro->params,
+		  sizeof (cpp_hashnode *) * macro->paramc);
+	  macro->params = params;
 	}
       else
 	BUFF_FRONT (pfile->a_buff) = (uchar *) &macro->params[macro->paramc];
@@ -1540,7 +1544,7 @@ _cpp_create_definition (cpp_reader *pfile, cpp_hashnode *node)
 
       /* Restore lexer position because of games lex_expansion_token()
 	 plays lexing the macro.  We set the type for SEEN_EOL() in
-	 cpplib.c.
+	 directives.c.
 
 	 Longer term we should lex the whole line before coming here,
 	 and just copy the expansion.  */
@@ -1662,6 +1666,7 @@ cpp_macro_definition (cpp_reader *pfile, const cpp_hashnode *node)
 	len += NODE_LEN (macro->params[i]) + 1; /* "," */
     }
 
+  /* This should match below where we fill in the buffer.  */
   if (CPP_OPTION (pfile, traditional))
     len += _cpp_replacement_text_len (macro);
   else
@@ -1673,11 +1678,14 @@ cpp_macro_definition (cpp_reader *pfile, const cpp_hashnode *node)
 	  if (token->type == CPP_MACRO_ARG)
 	    len += NODE_LEN (macro->params[token->val.arg_no - 1]);
 	  else
-	    len += cpp_token_len (token) + 1; /* Includes room for ' '.  */
+	    len += cpp_token_len (token);
+
 	  if (token->flags & STRINGIFY_ARG)
 	    len++;			/* "#" */
 	  if (token->flags & PASTE_LEFT)
 	    len += 3;		/* " ##" */
+	  if (token->flags & PREV_WHITE)
+	    len++;              /* " " */
 	}
     }
 
@@ -1737,10 +1745,10 @@ cpp_macro_definition (cpp_reader *pfile, const cpp_hashnode *node)
 
 	  if (token->type == CPP_MACRO_ARG)
 	    {
-	      len = NODE_LEN (macro->params[token->val.arg_no - 1]);
 	      memcpy (buffer,
-		      NODE_NAME (macro->params[token->val.arg_no - 1]), len);
-	      buffer += len;
+		      NODE_NAME (macro->params[token->val.arg_no - 1]),
+		      NODE_LEN (macro->params[token->val.arg_no - 1]));
+	      buffer += NODE_LEN (macro->params[token->val.arg_no - 1]);
 	    }
 	  else
 	    buffer = cpp_spell_token (pfile, token, buffer);

@@ -8,6 +8,15 @@ it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
+In addition to the permissions in the GNU General Public License, the
+Free Software Foundation gives you unlimited permission to link the
+compiled version of this file into combinations with other programs,
+and to distribute those combinations without any restriction coming
+from the use of this file.  (The General Public License restrictions
+do apply in other respects; for example, they cover modification of
+the file, and distribution when not linked into a combine
+executable.)
+
 Libgfortran is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -288,7 +297,7 @@ output_float (fnode *f, double value, int len)
 
   /* We should always know the field width and precision.  */
   if (d < 0)
-    internal_error ("Uspecified precision");
+    internal_error ("Unspecified precision");
 
   /* Use sprintf to print the number in the format +D.DDDDe+ddd
      For an N digit exponent, this gives us (32-6)-N digits after the
@@ -615,7 +624,11 @@ output_float (fnode *f, double value, int len)
 	  *(out++) = expchar;
 	  edigits--;
 	}
+#if HAVE_SNPRINTF
       snprintf (buffer, 32, "%+0*d", edigits, e);
+#else
+      sprintf (buffer, "%+0*d", edigits, e);
+#endif
       memcpy (out, buffer, edigits);
     }
 }
@@ -649,41 +662,41 @@ write_float (fnode *f, const char *source, int len)
   n = extract_real (source, len);
 
   if (f->format != FMT_B && f->format != FMT_O && f->format != FMT_Z)
-   {
-     res = finite (n);
-     if (res == 0)
-       {
-         nb =  f->u.real.w;
-         p = write_block (nb);
-         if (nb < 3)
-         {
-             memset (p, '*',nb);
-             return;
-         }
+    {
+      res = isfinite (n);
+      if (res == 0)
+	{
+	  nb =  f->u.real.w;
+	  p = write_block (nb);
+	  if (nb < 3)
+	    {
+	      memset (p, '*',nb);
+	      return;
+	    }
 
-         memset(p, ' ', nb);
-         res = !isnan (n); 
-         if (res != 0)
-         {
-            if (signbit(n))   
-               fin = '-';
-            else
-               fin = '+';
+	  memset(p, ' ', nb);
+	  res = !isnan (n); 
+	  if (res != 0)
+	    {
+	      if (signbit(n))   
+		fin = '-';
+	      else
+		fin = '+';
 
-            if (nb > 7)
-               memcpy(p + nb - 8, "Infinity", 8); 
-            else
-               memcpy(p + nb - 3, "Inf", 3);
-            if (nb < 8 && nb > 3)
-               p[nb - 4] = fin;
-            else if (nb > 8)
-               p[nb - 9] = fin; 
-          }
-         else
-             memcpy(p + nb - 3, "NaN", 3);
-         return;
-       }
-   }
+	      if (nb > 7)
+		memcpy(p + nb - 8, "Infinity", 8); 
+	      else
+		memcpy(p + nb - 3, "Inf", 3);
+	      if (nb < 8 && nb > 3)
+		p[nb - 4] = fin;
+	      else if (nb > 8)
+		p[nb - 9] = fin; 
+	    }
+	  else
+	    memcpy(p + nb - 3, "NaN", 3);
+	  return;
+	}
+    }
 
   if (f->format != FMT_G)
     {
@@ -776,7 +789,7 @@ write_int (fnode *f, const char *source, int len, char *(*conv) (uint64_t))
 
   memcpy (p, q, digits);
 
-done:
+ done:
   return;
 }
 
@@ -861,7 +874,7 @@ write_decimal (fnode *f, const char *source, int len, char *(*conv) (int64_t))
 
   memcpy (p, q, digits);
 
-done:
+ done:
   return;
 }
 
@@ -924,15 +937,13 @@ btoa (uint64_t n)
 void
 write_i (fnode * f, const char *p, int len)
 {
-
-  write_decimal (f, p, len, (void *) itoa);
+  write_decimal (f, p, len, (void *) gfc_itoa);
 }
 
 
 void
 write_b (fnode * f, const char *p, int len)
 {
-
   write_int (f, p, len, btoa);
 }
 
@@ -940,14 +951,12 @@ write_b (fnode * f, const char *p, int len)
 void
 write_o (fnode * f, const char *p, int len)
 {
-
   write_int (f, p, len, otoa);
 }
 
 void
 write_z (fnode * f, const char *p, int len)
 {
-
   write_int (f, p, len, xtoa);
 }
 
@@ -955,7 +964,6 @@ write_z (fnode * f, const char *p, int len)
 void
 write_d (fnode *f, const char *p, int len)
 {
-
   write_float (f, p, len);
 }
 
@@ -963,7 +971,6 @@ write_d (fnode *f, const char *p, int len)
 void
 write_e (fnode *f, const char *p, int len)
 {
-
   write_float (f, p, len);
 }
 
@@ -971,7 +978,6 @@ write_e (fnode *f, const char *p, int len)
 void
 write_f (fnode *f, const char *p, int len)
 {
-
   write_float (f, p, len);
 }
 
@@ -979,7 +985,6 @@ write_f (fnode *f, const char *p, int len)
 void
 write_en (fnode *f, const char *p, int len)
 {
-
   write_float (f, p, len);
 }
 
@@ -987,7 +992,6 @@ write_en (fnode *f, const char *p, int len)
 void
 write_es (fnode *f, const char *p, int len)
 {
-
   write_float (f, p, len);
 }
 
@@ -1047,7 +1051,7 @@ write_integer (const char *source, int length)
   int digits;
   int width;
 
-  q = itoa (extract_int (source, length));
+  q = gfc_itoa (extract_int (source, length));
 
   switch (length)
     {
@@ -1168,7 +1172,6 @@ write_real (const char *source, int length)
 static void
 write_complex (const char *source, int len)
 {
-
   if (write_char ('('))
     return;
   write_real (source, len);
@@ -1248,20 +1251,20 @@ list_formatted_write (bt type, void *p, int len)
 void
 namelist_write (void)
 {
-   namelist_info * t1, *t2;
-   int len,num;
-   void * p;
+  namelist_info * t1, *t2;
+  int len,num;
+  void * p;
 
-   num = 0;
-   write_character("&",1);
-   write_character (ioparm.namelist_name, ioparm.namelist_name_len);
-   write_character("\n",1);
+  num = 0;
+  write_character("&",1);
+  write_character (ioparm.namelist_name, ioparm.namelist_name_len);
+  write_character("\n",1);
 
-   if (ionml != NULL)
-     {
-       t1 = ionml;
-       while (t1 != NULL)
-        {
+  if (ionml != NULL)
+    {
+      t1 = ionml;
+      while (t1 != NULL)
+	{
           num ++;
           t2 = t1;
           t1 = t1->next;
@@ -1292,14 +1295,13 @@ namelist_write (void)
             default:
               internal_error ("Bad type for namelist write");
             }
-         write_character(",",1);
-         if (num > 5)
-           {
-              num = 0;
-              write_character("\n",1);
-           }
-        }
-     }
-     write_character("/",1);
-
+	  write_character(",",1);
+	  if (num > 5)
+	    {
+	      num = 0;
+	      write_character("\n",1);
+	    }
+	}
+    }
+  write_character("/",1);
 }

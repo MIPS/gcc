@@ -21,7 +21,7 @@
 ## Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
 ## USA.
 
-AUTOMAKE_OPTIONS = dejagnu
+AUTOMAKE_OPTIONS = dejagnu nostdinc
 
 include $(top_srcdir)/fragment.am
 
@@ -31,6 +31,7 @@ AM_RUNTESTFLAGS =
 ## CXX is actually a "C" compiler. These are real C++ programs.
 testsuite_flags_script=${glibcxx_builddir}/scripts/testsuite_flags
 CXX         = $(shell ${testsuite_flags_script} --build-cxx)
+GLIBCXX_INCLUDES = $(shell ${testsuite_flags_script} --build-includes)
 AM_CXXFLAGS = $(shell ${testsuite_flags_script} --cxxflags)
 
 GLIBGCC_DIR=`$(CC) -print-libgcc-file-name | sed 's,/[^/]*$$,,'`
@@ -179,6 +180,12 @@ check-performance: testsuite_files_performance ${performance_script}
 	-@(chmod + ${performance_script}; \
 	  ${performance_script} ${glibcxx_srcdir} ${glibcxx_builddir})
 
+# Runs the testsuite, but in compile only mode, and times it.
+# See script.
+compile_script=${glibcxx_srcdir}/scripts/check_compile
+check-compile: testsuite_files ${compile_script}
+	-@(chmod + ${compile_script}; \
+	  ${compile_script} ${glibcxx_srcdir} ${glibcxx_builddir})
 
 # This rule generates all of the testsuite_files* lists at once.
 ${lists_of_files}:

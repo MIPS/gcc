@@ -180,8 +180,8 @@ public abstract class URLStreamHandler
 	      }
 	    catch (NumberFormatException e)
 	      {
-		; // Ignore invalid port values; port is already set to u's
-		  // port.
+		// Ignore invalid port values; port is already set to u's
+		// port.
 	      }
 
 	    // Now we must cut the port number in the original string.
@@ -214,23 +214,9 @@ public abstract class URLStreamHandler
 	  file = (file.substring(0, lastSlash)
 		  + '/' + spec.substring(start, end));
 
-	if (url.getProtocol().equals("file"))
-	  {
-	    // For "file" URLs constructed relative to a context, we
-	    // need to canonicalise the file path.
-	    try
-	      {
-		boolean endsWithSlash = file.charAt(file.length() - 1) == '/';
-		file = new File(file).getCanonicalPath();
-		file = file.replace(separator, '/');
-		if (endsWithSlash && file.charAt(file.length() - 1) != '/')
-		  file += '/';
-	      }
-	    catch (IOException e)
-	      {
-		// Do nothing.
-	      }
-	  }
+	// For URLs constructed relative to a context, we
+	// need to canonicalise the file path.
+	file = canonicalizeFilename(file);
 
 	ref = null;
       }

@@ -1,6 +1,6 @@
 // natRuntime.cc - Implementation of native side of Runtime class.
 
-/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -388,8 +388,11 @@ java::lang::Runtime::insertSystemProperties (java::util::Properties *newprops)
 	newprops->put(JvNewStringLatin1 (Prop), JvNewStringLatin1 (Val))
 
   // A mixture of the Java Product Versioning Specification
-  // (introduced in 1.2), and earlier versioning properties.
-  SET ("java.version", GCJVERSION);
+  // (introduced in 1.2), and earlier versioning properties.  Some
+  // programs rely on seeing values that they expect, so we claim to
+  // be a 1.4-ish VM for their sake.
+  SET ("java.version", "1.4.2");
+  SET ("java.runtime.version", "1.4.2");
   SET ("java.vendor", "Free Software Foundation, Inc.");
   SET ("java.vendor.url", "http://gcc.gnu.org/java/");
   SET ("java.class.version", "46.0");
@@ -399,7 +402,7 @@ java::lang::Runtime::insertSystemProperties (java::util::Properties *newprops)
   SET ("java.vm.version", __VERSION__);
   SET ("java.vm.vendor", "Free Software Foundation, Inc.");
   SET ("java.vm.name", "GNU libgcj");
-  SET ("java.specification.version", "1.3");
+  SET ("java.specification.version", "1.4");
   SET ("java.specification.name", "Java(tm) Platform API Specification");
   SET ("java.specification.vendor", "Sun Microsystems Inc.");
 
@@ -433,8 +436,18 @@ java::lang::Runtime::insertSystemProperties (java::util::Properties *newprops)
   if (! uname (&u))
     {
       SET ("os.name", u.sysname);
-      SET ("os.arch", u.machine);
       SET ("os.version", u.release);
+
+      // Normalize x86 architecture names to "i386" (except on Windows, which 
+      // is handled in win32.cc).
+      if (u.machine[0] == 'i'
+	  && u.machine[1] != 0
+	  && u.machine[2] == '8'
+	  && u.machine[3] == '6'
+	  && u.machine[4] == 0)
+	SET ("os.arch", "i386");
+      else
+	SET ("os.arch", u.machine);
     }
   else
     {
@@ -534,9 +547,17 @@ java::lang::Runtime::insertSystemProperties (java::util::Properties *newprops)
       SET ("user.region", "US");
     }  
 
+  // The java extensions directory.
+  SET ("java.ext.dirs", JAVA_EXT_DIRS);
+
+  // The path to libgcj's boot classes
+  SET ("sun.boot.class.path", BOOT_CLASS_PATH);
+
   // Set some properties according to whatever was compiled in with
-  // `-D'.
-  for (int i = 0; _Jv_Compiler_Properties[i]; ++i)
+  // `-D'.  Important: after this point, the only properties that
+  // should be set are those which either the user cannot meaningfully
+  // override, or which augment whatever value the user has provided.
+  for (int i = 0; i < _Jv_Properties_Count; ++i)
     {
       const char *s, *p;
       // Find the `='.
@@ -586,14 +607,8 @@ java::lang::Runtime::insertSystemProperties (java::util::Properties *newprops)
 		      sb->toString ());
     }
 
-  // The path to libgcj's boot classes
-  SET ("sun.boot.class.path", BOOT_CLASS_PATH);
-
   // The name used to invoke this process (argv[0] in C).
   SET ("gnu.gcj.progname", _Jv_GetSafeArg (0));
-
-  // The java extensions directory.
-  SET ("java.ext.dirs", JAVA_EXT_DIRS);
 
   // Allow platform specific settings and overrides.
   _Jv_platform_initProperties (newprops);

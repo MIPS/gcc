@@ -52,10 +52,6 @@ AT&T C compiler.  From the example below I would conclude the following:
 
 static GTY(()) tree anonymous_types;
 
-/* Counter for sdbout_source_line.  */
-
-static GTY(()) int sdbout_source_line_counter;
-
 /* Counter to generate unique "names" for nameless struct members.  */
 
 static GTY(()) int unnamed_struct_number;
@@ -256,11 +252,6 @@ do { fprintf (asm_out_file, "\t.tag\t");	\
 	   SDB_DELIM, SDB_DELIM, SDB_DELIM, (LINE), SDB_DELIM)
 #endif
 
-#ifndef SDB_GENERATE_FAKE
-#define SDB_GENERATE_FAKE(BUFFER, NUMBER) \
-  sprintf ((BUFFER), ".%dfake", (NUMBER));
-#endif
-
 /* Return the sdb tag identifier string for TYPE
    if TYPE has already been defined; otherwise return a null pointer.  */
 
@@ -291,11 +282,6 @@ do { fprintf (asm_out_file, "\t.tag\t");	\
    necessary support.  */
 
 #ifdef MIPS_DEBUGGING_INFO
-
-#ifndef PUT_SDB_SRC_FILE
-#define PUT_SDB_SRC_FILE(FILENAME) \
-output_file_directive (asm_out_file, (FILENAME))
-#endif
 
 /* ECOFF linkers have an optimization that does the same kind of thing as
    N_BINCL/E_INCL in stabs: eliminate duplicate debug information in the
@@ -359,7 +345,7 @@ gen_fake_label (void)
 {
   char label[10];
   char *labelstr;
-  SDB_GENERATE_FAKE (label, unnamed_struct_number);
+  sprintf (label, ".%dfake", unnamed_struct_number);
   unnamed_struct_number++;
   labelstr = xstrdup (label);
   return labelstr;
@@ -745,6 +731,11 @@ sdbout_symbol (tree decl, int local)
       if (DECL_NAME (decl) == 0)
 	return;
       if (DECL_IGNORED_P (decl))
+	return;
+      /* Don't output intrinsic types.  GAS chokes on SDB .def
+	 statements that contain identifiers with embedded spaces
+	 (eg "unsigned long").  */
+      if (DECL_IS_BUILTIN (decl))
 	return;
 
       /* Output typedef name.  */
@@ -1545,9 +1536,8 @@ sdbout_source_line (unsigned int line, const char *filename ATTRIBUTE_UNUSED)
   /* COFF relative line numbers must be positive.  */
   if ((int) line > sdb_begin_function_line)
     {
-#ifdef ASM_OUTPUT_SOURCE_LINE
-      sdbout_source_line_counter += 1;
-      ASM_OUTPUT_SOURCE_LINE (asm_out_file, line, sdbout_source_line_counter);
+#ifdef SDB_OUTPUT_SOURCE_LINE
+      SDB_OUTPUT_SOURCE_LINE (asm_out_file, line);
 #else
       fprintf (asm_out_file, "\t.ln\t%d\n",
 	       ((sdb_begin_function_line > -1)
@@ -1650,7 +1640,7 @@ sdbout_start_source_file (unsigned int line ATTRIBUTE_UNUSED,
   n->next = current_file;
   n->name = filename;
   current_file = n;
-  PUT_SDB_SRC_FILE (filename);
+  output_file_directive (asm_out_file, filename);
 #endif
 }
 
@@ -1665,7 +1655,7 @@ sdbout_end_source_file (unsigned int line ATTRIBUTE_UNUSED)
   next = current_file->next;
   free (current_file);
   current_file = next;
-  PUT_SDB_SRC_FILE (current_file->name);
+  output_file_directive (asm_out_file, current_file->name);
 #endif
 }
 

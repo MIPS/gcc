@@ -39,6 +39,7 @@ exception statement from your version. */
 package java.net;
 
 import gnu.java.net.PlainSocketImpl;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -519,14 +520,14 @@ public class Socket
 
   /**
    * Returns the port number of the remote end of the socket connection.  If
-   * this socket is not connected, then -1 is returned.
+   * this socket is not connected, then 0 is returned.
    *
    * @return The remote port this socket is connected to
    */
   public int getPort()
   {
     if (! isConnected())
-      return -1;
+      return 0;
 
     try
       {
@@ -537,7 +538,7 @@ public class Socket
 	// This cannot happen as we are connected.
       }
 
-    return -1;
+    return 0;
   }
 
   /**

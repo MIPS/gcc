@@ -1,5 +1,5 @@
 /* C/ObjC/C++ command line option handling.
-   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Neil Booth.
 
 This file is part of GCC.
@@ -100,9 +100,6 @@ static size_t deferred_count;
 /* Number of deferred options scanned for -include.  */
 static size_t include_cursor;
 
-/* Permit Fortran front-end options.  */
-static bool permit_fortran_options;
-
 static void set_Wimplicit (int);
 static void handle_OPT_d (const char *);
 static void set_std_cxx98 (int);
@@ -194,10 +191,10 @@ defer_opt (enum opt_code code, const char *arg)
 
 /* Common initialization before parsing options.  */
 unsigned int
-c_common_init_options (unsigned int argc, const char ** ARG_UNUSED (argv))
+c_common_init_options (unsigned int argc, const char **argv)
 {
   static const unsigned int lang_flags[] = {CL_C, CL_ObjC, CL_CXX, CL_ObjCXX};
-  unsigned int result;
+  unsigned int i, result;
 
   /* This is conditionalized only because that is the way the front
      ends used to do it.  Maybe this should be unconditional?  */
@@ -230,16 +227,17 @@ c_common_init_options (unsigned int argc, const char ** ARG_UNUSED (argv))
 
   result = lang_flags[c_language];
 
-  /* If potentially preprocessing Fortran we have to accept its front
-     end options since the driver passes most of them through.  */
-#ifdef CL_F77
-  if (c_language == clk_c && argc > 2
-      && !strcmp (argv[2], "-traditional-cpp" ))
+  if (c_language == clk_c)
     {
-      permit_fortran_options = true;
-      result |= CL_F77;
+      /* If preprocessing assembly language, accept any of the C-family
+	 front end options since the driver may pass them through.  */
+      for (i = 1; i < argc; i++)
+	if (! strcmp (argv[i], "-lang-asm"))
+	  {
+	    result |= CL_C | CL_ObjC | CL_CXX | CL_ObjCXX;
+	    break;
+	  }
     }
-#endif
 
   return result;
 }
@@ -260,7 +258,7 @@ c_common_handle_option (size_t scode, const char *arg, int value)
     default:
       if (cl_options[code].flags & (CL_C | CL_CXX | CL_ObjC | CL_ObjCXX))
 	break;
-      result = permit_fortran_options;
+      result = 0;
       break;
 
     case OPT__output_pch_:
@@ -590,7 +588,6 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 
     case OPT_fsigned_bitfields:
       flag_signed_bitfields = value;
-      explicit_flag_signed_bitfields = 1;
       break;
 
     case OPT_fsigned_char:
@@ -599,7 +596,6 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 
     case OPT_funsigned_bitfields:
       flag_signed_bitfields = !value;
-      explicit_flag_signed_bitfields = 1;
       break;
 
     case OPT_funsigned_char:
@@ -947,10 +943,7 @@ c_common_post_options (const char **pfilename)
   if (!flag_no_inline)
     flag_no_inline = 1;
   if (flag_inline_functions)
-    {
-      flag_inline_trees = 2;
-      flag_inline_functions = 0;
-    }
+    flag_inline_trees = 2;
 
   /* If we are given more than one input file, we must use
      unit-at-a-time mode.  */
@@ -984,6 +977,11 @@ c_common_post_options (const char **pfilename)
     warning ("-Wformat-security ignored without -Wformat");
   if (warn_missing_format_attribute && !warn_format)
     warning ("-Wmissing-format-attribute ignored without -Wformat");
+
+  /* C99 requires special handling of complex multiplication and division;
+     -ffast-math and -fcx-limited-range are handled in process_options.  */
+  if (flag_isoc99)
+    flag_complex_method = 2;
 
   if (flag_preprocess_only)
     {
@@ -1183,6 +1181,7 @@ check_deps_environment_vars (void)
 	deps_file = spec;
 
       deps_append = 1;
+      deps_seen = true;
     }
 }
 
@@ -1227,11 +1226,13 @@ sanitize_cpp_opts (void)
 
   /* Disable -dD, -dN and -dI if normal output is suppressed.  Allow
      -dM since at least glibc relies on -M -dM to work.  */
+  /* Also, flag_no_output implies flag_no_line_commands, always. */
   if (flag_no_output)
     {
       if (flag_dump_macros != 'M')
 	flag_dump_macros = 0;
       flag_dump_includes = 0;
+      flag_no_line_commands = 1;
     }
 
   cpp_opts->unsigned_char = !flag_signed_char;
@@ -1355,7 +1356,7 @@ push_command_line_include (void)
       cpp_opts->warn_unused_macros = warn_unused_macros;
       /* Restore the line map from <command line>.  */
       if (!cpp_opts->preprocessed)
-	cpp_change_file (parse_in, LC_RENAME, main_input_filename);
+	cpp_change_file (parse_in, LC_RENAME, this_input_filename);
 
       /* Set this here so the client can change the option if it wishes,
 	 and after stacking the main file so we don't trace the main file.  */

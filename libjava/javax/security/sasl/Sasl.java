@@ -1,5 +1,5 @@
-/* Sasl.java
-   Copyright (C) 2003, Free Software Foundation, Inc.
+/* Sasl.java -- 
+   Copyright (C) 2003, 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation Inc., 59 Temple Place - Suite 330, Boston, MA
-02111-1307 USA
+Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+02111-1307 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -33,18 +33,18 @@ module.  An independent module is a module which is not derived from
 or based on this library.  If you modify this library, you may extend
 this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
-exception statement from your version.  */
+exception statement from your version. */
 
 
 package javax.security.sasl;
 
+import java.security.Provider;
+import java.security.Security;
 import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Vector;
-import java.security.Security;
-import java.security.Provider;
 
 import javax.security.auth.callback.CallbackHandler;
 
@@ -221,7 +221,7 @@ public class Sasl
    * breaking into future sessions. The property contains <code>"true"</code>
    * if mechanisms that implement forward secrecy between sessions are
    * required; <code>"false"</code> if such mechanisms are not required. The
-   * default is <code>"false"</code>.</p>
+   * default is <code>"false"</code>.
    *
    * <p>The value of this constant is <code>"javax.security.sasl.policy.forward"</code>.
    * </p>
@@ -233,7 +233,6 @@ public class Sasl
    * credentials are required. The property contains <code>"true"</code> if
    * mechanisms that pass client credentials are required; <code>"false"</code>
    * if such mechanisms are not required. The default is <code>"false"</code>.
-   * </p>
    *
    * <p>The value of this constant is <code>"javax.security.sasl.policy.credentials"</code>.
    * </p>
@@ -280,7 +279,7 @@ public class Sasl
   // -------------------------------------------------------------------------
 
   /**
-   * <p>Creates a {@link SaslClient} for the specified mechanism.</p>
+   * Creates a {@link SaslClient} for the specified mechanism.
    *
    * <p>This method uses the JCA Security Provider Framework, described in the
    * "Java Cryptography Architecture API Specification &amp; Reference", for
@@ -490,7 +489,7 @@ public class Sasl
   }
 
   /**
-   * <p>Creates a {@link SaslServer} for the specified mechanism.</p>
+   * Creates a {@link SaslServer} for the specified mechanism.
    *
    * <p>This method uses the JCA Security Provider Framework, described in the
    * "Java Cryptography Architecture API Specification &amp; Reference", for
@@ -521,7 +520,7 @@ public class Sasl
    *
    * <pre>
    *    SaslServerFactory.DIGEST-MD5     com.wiz.sasl.digest.ServerFactory
-   * </pre></p>
+   * </pre>
    *
    * <p>See the "Java Cryptography Architecture API Specification &amp;
    * Reference" for information about how to install and configure security

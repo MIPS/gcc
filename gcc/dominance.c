@@ -1,5 +1,5 @@
 /* Calculate (post)dominators in slightly super-linear time.
-   Copyright (C) 2000, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Michael Matz (matz@ifh.de).
 
    This file is part of GCC.
@@ -39,6 +39,7 @@
 #include "tm.h"
 #include "rtl.h"
 #include "hard-reg-set.h"
+#include "obstack.h"
 #include "basic-block.h"
 #include "errors.h"
 #include "et-forest.h"
@@ -169,7 +170,7 @@ init_dom_info (struct dom_info *di, enum cdi_direction dir)
   di->dfsnum = 1;
   di->nodes = 0;
 
-  di->fake_exit_edge = dir ? BITMAP_XMALLOC () : NULL;
+  di->fake_exit_edge = dir ? BITMAP_ALLOC (NULL) : NULL;
 }
 
 #undef init_ar
@@ -190,7 +191,7 @@ free_dom_info (struct dom_info *di)
   free (di->set_child);
   free (di->dfs_order);
   free (di->dfs_to_bb);
-  BITMAP_XFREE (di->fake_exit_edge);
+  BITMAP_FREE (di->fake_exit_edge);
 }
 
 /* The nonrecursive variant of creating a DFS tree.  DI is our working
@@ -592,7 +593,7 @@ compute_dom_fast_query (enum cdi_direction dir)
   int num = 0;
   basic_block bb;
 
-  gcc_assert (dom_computed[dir] >= DOM_NO_FAST_QUERY);
+  gcc_assert (dom_info_available_p (dir));
 
   if (dom_computed[dir] == DOM_OK)
     return;
@@ -618,11 +619,8 @@ calculate_dominance_info (enum cdi_direction dir)
   if (dom_computed[dir] == DOM_OK)
     return;
 
-  if (dom_computed[dir] != DOM_NO_FAST_QUERY)
+  if (!dom_info_available_p (dir))
     {
-      if (dom_computed[dir] != DOM_NONE)
-	free_dominance_info (dir);
-
       gcc_assert (!n_bbs_in_dom_tree[dir]);
 
       FOR_ALL_BB (b)
@@ -656,7 +654,7 @@ free_dominance_info (enum cdi_direction dir)
 {
   basic_block bb;
 
-  if (!dom_computed[dir])
+  if (!dom_info_available_p (dir))
     return;
 
   FOR_ALL_BB (bb)
@@ -821,7 +819,7 @@ verify_dominators (enum cdi_direction dir)
   int err = 0;
   basic_block bb;
 
-  gcc_assert (dom_computed[dir]);
+  gcc_assert (dom_info_available_p (dir));
 
   FOR_EACH_BB (bb)
     {
@@ -841,8 +839,7 @@ verify_dominators (enum cdi_direction dir)
 	}
     }
 
-  if (dir == CDI_DOMINATORS
-      && dom_computed[dir] >= DOM_NO_FAST_QUERY)
+  if (dir == CDI_DOMINATORS)
     {
       FOR_EACH_BB (bb)
 	{
@@ -975,6 +972,14 @@ next_dom_son (enum cdi_direction dir, basic_block bb)
   struct et_node *next = bb->dom[dir]->right;
 
   return next->father->son == next ? NULL : next->data;
+}
+
+/* Returns true if dominance information for direction DIR is available.  */
+
+bool
+dom_info_available_p (enum cdi_direction dir)
+{
+  return dom_computed[dir] != DOM_NONE;
 }
 
 void

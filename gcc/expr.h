@@ -1,6 +1,7 @@
 /* Definitions for code generation pass of GNU compiler.
    Copyright (C) 1987, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -41,8 +42,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 /* This is the 4th arg to `expand_expr'.
    EXPAND_STACK_PARM means we are possibly expanding a call param onto
-   the stack.  Choosing a value of 2 isn't special;  It just allows
-   some code optimization in store_expr.
+   the stack.
    EXPAND_SUM means it is ok to return a PLUS rtx or MULT rtx.
    EXPAND_INITIALIZER is similar but also record any labels on forced_labels.
    EXPAND_CONST_ADDRESS means it is ok to return a MEM whose address
@@ -50,7 +50,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    EXPAND_WRITE means we are only going to write to the resulting rtx.
    EXPAND_MEMORY means we are interested in a memory result, even if
     the memory is constant and we could have propagated a constant value.  */
-enum expand_modifier {EXPAND_NORMAL = 0, EXPAND_STACK_PARM = 2, EXPAND_SUM,
+enum expand_modifier {EXPAND_NORMAL = 0, EXPAND_STACK_PARM, EXPAND_SUM,
 		      EXPAND_CONST_ADDRESS, EXPAND_INITIALIZER, EXPAND_WRITE,
 		      EXPAND_MEMORY};
 
@@ -117,6 +117,8 @@ struct locate_and_pad_arg_data
   struct args_size alignment_pad;
   /* Which way we should pad this arg.  */
   enum direction where_pad;
+  /* slot_offset is at least this aligned.  */
+  unsigned int boundary;
 };
 
 /* Add the value of the tree INC to the `struct args_size' TO.  */
@@ -183,13 +185,6 @@ do {							\
 #ifndef FUNCTION_ARG_BOUNDARY
 #define FUNCTION_ARG_BOUNDARY(MODE, TYPE)	PARM_BOUNDARY
 #endif
-
-#ifndef FUNCTION_ARG_PARTIAL_NREGS
-#define FUNCTION_ARG_PARTIAL_NREGS(CUM, MODE, TYPE, NAMED) 0
-#endif
-
-tree split_complex_types (tree);
-tree split_complex_values (tree);
 
 /* Supply a default definition of STACK_SAVEAREA_MODE for emit_stack_save.
    Normally move_insn, so Pmode stack pointer.  */
@@ -298,6 +293,9 @@ extern void emit_cmp_and_jump_insns (rtx, rtx, enum rtx_code, rtx,
 /* Generate code to indirectly jump to a location given in the rtx LOC.  */
 extern void emit_indirect_jump (rtx);
 
+/* Generate a conditional trap instruction.  */
+extern rtx gen_cond_trap (enum rtx_code, rtx, rtx, rtx);
+
 #include "insn-config.h"
 
 #ifdef HAVE_conditional_move
@@ -329,19 +327,6 @@ extern rtx emit_store_flag (rtx, enum rtx_code, rtx, rtx, enum machine_mode,
 /* Like emit_store_flag, but always succeeds.  */
 extern rtx emit_store_flag_force (rtx, enum rtx_code, rtx, rtx,
 				  enum machine_mode, int, int);
-
-/* Functions from loop.c:  */
-
-/* Given an insn and condition, return a canonical description of
-   the test being made.  */
-extern rtx canonicalize_condition (rtx, rtx, int, rtx *, rtx, int, int);
-
-/* Given a JUMP_INSN, return a canonical description of the test
-   being made.  */
-extern rtx get_condition (rtx, rtx *, int, int);
-
-/* Generate a conditional trap instruction.  */
-extern rtx gen_cond_trap (enum rtx_code, rtx, rtx, rtx);
 
 /* Functions from builtins.c:  */
 extern rtx expand_builtin (tree, rtx, rtx, enum machine_mode, int);
@@ -350,9 +335,7 @@ extern void std_expand_builtin_va_start (tree, rtx);
 extern rtx default_expand_builtin (tree, rtx, rtx, enum machine_mode, int);
 extern void expand_builtin_setjmp_setup (rtx, rtx);
 extern void expand_builtin_setjmp_receiver (rtx);
-extern void expand_builtin_longjmp (rtx, rtx);
 extern rtx expand_builtin_saveregs (void);
-extern void expand_builtin_trap (void);
 
 /* Functions from expr.c:  */
 
@@ -402,9 +385,15 @@ extern rtx gen_group_rtx (rtx);
    PARALLEL.  */
 extern void emit_group_load (rtx, rtx, tree, int);
 
+/* Similarly, but load into new temporaries.  */
+extern rtx emit_group_load_into_temps (rtx, rtx, tree, int);
+
 /* Move a non-consecutive group of registers represented by a PARALLEL into
    a non-consecutive group of registers represented by a PARALLEL.  */
 extern void emit_group_move (rtx, rtx);
+
+/* Move a group of registers represented by a PARALLEL into pseudos.  */
+extern rtx emit_group_move_into_temps (rtx);
 
 /* Store a BLKmode value from non-consecutive registers represented by a
    PARALLEL.  */
@@ -466,7 +455,7 @@ extern void emit_push_insn (rtx, enum machine_mode, tree, rtx, unsigned int,
 			    int, rtx, int, rtx, rtx, int, rtx);
 
 /* Expand an assignment that stores the value of FROM into TO.  */
-extern rtx expand_assignment (tree, tree, int);
+extern void expand_assignment (tree, tree);
 
 /* Generate code for computing expression EXP,
    and storing the value into TARGET.
@@ -498,6 +487,9 @@ extern void expand_var (tree);
 /* At the start of a function, record that we have no previously-pushed
    arguments waiting to be popped.  */
 extern void init_pending_stack_adjust (void);
+
+/* Discard any pending stack adjustment.  */
+extern void discard_pending_stack_adjust (void);
 
 /* When exiting from function, if safe, clear out any pending stack adjust
    so the adjustment won't get done.  */
@@ -536,12 +528,6 @@ extern unsigned int case_values_threshold (void);
 
 /* Functions from alias.c */
 #include "alias.h"
-/* extern HOST_WIDE_INT get_varargs_alias_set (void); */
-/* extern HOST_WIDE_INT get_frame_alias_set (void); */
-/* extern void record_base_value (unsigned int, rtx, int); */
-/* extern void record_alias_subset (HOST_WIDE_INT, HOST_WIDE_INT); */
-/* extern HOST_WIDE_INT new_alias_set (void); */
-/* extern int can_address_p (tree); */
 
 
 /* rtl.h and tree.h were included.  */
@@ -552,14 +538,13 @@ extern rtx expr_size (tree);
    if the size can vary or is larger than an integer.  */
 extern HOST_WIDE_INT int_expr_size (tree);
 
-/* Return the address of the trampoline for entering nested fn FUNCTION.  */
-extern rtx trampoline_address (tree);
-
 /* Return an rtx that refers to the value returned by a function
    in its original home.  This becomes invalid if any more code is emitted.  */
 extern rtx hard_function_value (tree, tree, int);
 
 extern rtx prepare_call_address (rtx, rtx, rtx *, int, int);
+
+extern bool shift_return_value (enum machine_mode, bool, rtx);
 
 extern rtx expand_call (tree, rtx, int);
 
@@ -657,14 +642,6 @@ extern void set_mem_attributes_minus_bitpos (rtx, tree, int, HOST_WIDE_INT);
 /* Assemble the static constant template for function entry trampolines.  */
 extern rtx assemble_trampoline_template (void);
 
-/* Given rtx, return new rtx whose address won't be affected by
-   any side effects.  It has been copied to a new temporary reg.  */
-extern rtx stabilize (rtx);
-
-/* Given an rtx, copy all regs it refers to into new temps
-   and return a modified copy that refers to the new temps.  */
-extern rtx copy_all_regs (rtx);
-
 /* Copy given rtx to a new temp reg and return that.  */
 extern rtx copy_to_reg (rtx);
 
@@ -719,10 +696,6 @@ extern void probe_stack_range (HOST_WIDE_INT, rtx);
 /* Return an rtx that refers to the value returned by a library call
    in its original home.  This becomes invalid if any more code is emitted.  */
 extern rtx hard_libcall_value (enum machine_mode);
-
-/* Given an rtx, return an rtx for a value rounded up to a multiple
-   of STACK_BOUNDARY / BITS_PER_UNIT.  */
-extern rtx round_push (rtx);
 
 /* Return the mode desired by operand N of a particular bitfield
    insert/extract insn, or MAX_MACHINE_MODE if no such insn is

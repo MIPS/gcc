@@ -111,9 +111,12 @@ is_gimple_reg_rhs (tree t)
 bool
 is_gimple_mem_rhs (tree t)
 {
-  /* If we're dealing with a renamable type, either source or dest
-     must be a renamed variable.  */
-  if (is_gimple_reg_type (TREE_TYPE (t)))
+  /* If we're dealing with a renamable type, either source or dest must be
+     a renamed variable.  Also force a temporary if the type doesn't need
+     to be stored in memory, since it's cheap and prevents erroneous
+     tailcalls (PR 17526).  */
+  if (is_gimple_reg_type (TREE_TYPE (t))
+      || TYPE_MODE (TREE_TYPE (t)) != BLKmode)
     return is_gimple_val (t);
   else
     return is_gimple_formal_tmp_rhs (t);
@@ -130,16 +133,6 @@ rhs_predicate_for (tree lhs)
     return is_gimple_reg_rhs;
   else
     return is_gimple_mem_rhs;
-}
-
-/* Returns true if T is a valid CONSTRUCTOR component in GIMPLE, either
-   a val or another CONSTRUCTOR.  */
-
-bool
-is_gimple_constructor_elt (tree t)
-{
-  return (is_gimple_val (t)
-	  || TREE_CODE (t) == CONSTRUCTOR);
 }
 
 /*  Return true if T is a valid LHS for a GIMPLE assignment expression.  */
@@ -168,10 +161,7 @@ bool
 is_gimple_addressable (tree t)
 {
   return (is_gimple_id (t) || handled_component_p (t)
-	  || TREE_CODE (t) == REALPART_EXPR
-	  || TREE_CODE (t) == IMAGPART_EXPR
 	  || INDIRECT_REF_P (t));
-
 }
 
 /* Return true if T is function invariant.  Or rather a restricted
@@ -429,16 +419,19 @@ get_call_expr_in (tree t)
   return NULL_TREE;
 }
 
-/* Given a memory reference expression, return the base address.  Note that,
-   in contrast with get_base_var, this will not recurse inside INDIRECT_REF
-   expressions.  Therefore, given the reference PTR->FIELD, this function
-   will return *PTR.  Whereas get_base_var would've returned PTR.  */
+/* Given a memory reference expression T, return its base address.
+   The base address of a memory reference expression is the main
+   object being referenced.  For instance, the base address for
+   'array[i].fld[j]' is 'array'.  You can think of this as stripping
+   away the offset part from a memory address.
+
+   This function calls handled_component_p to strip away all the inner
+   parts of the memory reference until it reaches the base object.  */
 
 tree
 get_base_address (tree t)
 {
-  while (TREE_CODE (t) == REALPART_EXPR || TREE_CODE (t) == IMAGPART_EXPR
-	 || handled_component_p (t))
+  while (handled_component_p (t))
     t = TREE_OPERAND (t, 0);
   
   if (SSA_VAR_P (t)
@@ -454,7 +447,7 @@ void
 recalculate_side_effects (tree t)
 {
   enum tree_code code = TREE_CODE (t);
-  int fro = first_rtl_op (code);
+  int len = TREE_CODE_LENGTH (code);
   int i;
 
   switch (TREE_CODE_CLASS (code))
@@ -483,7 +476,7 @@ recalculate_side_effects (tree t)
     case tcc_binary:      /* a binary arithmetic expression */
     case tcc_reference:   /* a reference */
       TREE_SIDE_EFFECTS (t) = TREE_THIS_VOLATILE (t);
-      for (i = 0; i < fro; ++i)
+      for (i = 0; i < len; ++i)
 	{
 	  tree op = TREE_OPERAND (t, i);
 	  if (op && TREE_SIDE_EFFECTS (op))

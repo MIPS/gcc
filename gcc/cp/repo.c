@@ -1,5 +1,5 @@
 /* Code to maintain a C++ template repository.
-   Copyright (C) 1995, 1996, 1997, 1998, 2000, 2001, 2002, 2003
+   Copyright (C) 1995, 1996, 1997, 1998, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
    Contributed by Jason Merrill (jason@cygnus.com)
 
@@ -211,7 +211,7 @@ reopen_repo_file_for_write (void)
 
   if (repo_file == 0)
     {
-      error ("can't create repository information file `%s'", repo_name);
+      error ("can't create repository information file %qs", repo_name);
       flag_use_repository = 0;
     }
 }

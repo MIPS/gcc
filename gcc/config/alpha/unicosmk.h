@@ -210,11 +210,6 @@ do {								\
   ++(CUM).num_args;						\
 } while(0)
 
-/* An argument is passed either entirely in registers or entirely on stack.  */
- 
-#undef FUNCTION_ARG_PARTIAL_NREGS
-/* #define FUNCTION_ARG_PARTIAL_NREGS(CUM,MODE,TYPE,NAMED) 0 */
-
 /* This ensures that $15 increments/decrements in leaf functions won't get
    eliminated.  */
 
@@ -470,7 +465,7 @@ ssib_section (void)		\
 #undef DWARF2_DEBUGGING_INFO
 #undef DWARF2_UNWIND_INFO
 #undef INCOMING_RETURN_ADDR_RTX
-#undef ASM_OUTPUT_SOURCE_LINE
+#undef PREFERRED_DEBUGGING_TYPE
 
 /* We don't need a start file.  */
 

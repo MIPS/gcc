@@ -42,7 +42,6 @@ Boston, MA 02111-1307, USA.  */
 #include "optabs.h"
 #include "libfuncs.h"
 #include "flags.h"
-#include "loop.h"
 #include "recog.h"
 #include "ggc.h"
 #include "cpplib.h"
@@ -4497,7 +4496,7 @@ c4x_handle_fntype_attribute (tree *node, tree name,
 {
   if (TREE_CODE (*node) != FUNCTION_TYPE)
     {
-      warning ("`%s' attribute only applies to functions",
+      warning ("%qs attribute only applies to functions",
 	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }

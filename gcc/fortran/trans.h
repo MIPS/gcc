@@ -1,5 +1,5 @@
 /* Header for code translation functions
-   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Paul Brook
 
 This file is part of GCC.
@@ -75,7 +75,7 @@ typedef struct gfc_se
 gfc_se;
 
 
-/* Scalarisation State chain.  Created by walking an expression tree before
+/* Scalarization State chain.  Created by walking an expression tree before
    creating the scalarization loops. Then passed as part of a gfc_se structure
    to translate the expression inside the loop.  Note that these chains are
    terminated by gfc_se_terminator, not NULL.  A NULL pointer in a gfc_se
@@ -106,7 +106,7 @@ typedef struct gfc_ss_info
   tree stride[GFC_MAX_DIMENSIONS];
   tree delta[GFC_MAX_DIMENSIONS];
 
-  /* Translation from scalariser dimensions to actual dimensions.
+  /* Translation from scalarizer dimensions to actual dimensions.
      actual = dim[scalarizer]  */
   int dim[GFC_MAX_DIMENSIONS];
 }
@@ -118,7 +118,7 @@ typedef enum
      scalarization loop.  */
   GFC_SS_SCALAR,
 
-  /* Like GFC_SS_SCALAR except it evaluates a pointer the the expression.
+  /* Like GFC_SS_SCALAR except it evaluates a pointer to the expression.
      Used for elemental function parameters.  */
   GFC_SS_REFERENCE,
 
@@ -191,7 +191,7 @@ typedef struct gfc_ss
   struct gfc_ss *loop_chain;
   struct gfc_ss *next;
 
-  /* This is used by assignments requiring teporaries. The bits specify which
+  /* This is used by assignments requiring temporaries. The bits specify which
      loops the terms appear in.  This will be 1 for the RHS expressions,
      2 for the LHS expressions, and 3(=1|2) for the temporary.  */
   unsigned useflags:2;
@@ -213,7 +213,7 @@ typedef struct gfc_loopinfo
 
   /* All the SS involved with this loop.  */
   gfc_ss *ss;
-  /* The SS describing the teporary used in an assignment.  */
+  /* The SS describing the temporary used in an assignment.  */
   gfc_ss *temp_ss;
 
   /* The scalarization loop index variables.  */
@@ -308,7 +308,7 @@ tree gfc_trans_scalar_assign (gfc_se *, gfc_se *, bt);
 /* Translate COMMON blocks.  */
 void gfc_trans_common (gfc_namespace *);
 
-/* Translate a derived type constructor. */
+/* Translate a derived type constructor.  */
 void gfc_conv_structure (gfc_se *, gfc_expr *, int);
 
 /* Return an expression which determines if a dummy parameter is present.  */
@@ -553,6 +553,8 @@ struct lang_decl		GTY(())
 #define GFC_TYPE_ARRAY_RANK(node) (TYPE_LANG_SPECIFIC(node)->rank)
 #define GFC_TYPE_ARRAY_SIZE(node) (TYPE_LANG_SPECIFIC(node)->size)
 #define GFC_TYPE_ARRAY_OFFSET(node) (TYPE_LANG_SPECIFIC(node)->offset)
+/* Code should use gfc_get_dtype instead of accesig this directly.  It may
+   not be known when the type is created.  */
 #define GFC_TYPE_ARRAY_DTYPE(node) (TYPE_LANG_SPECIFIC(node)->dtype)
 #define GFC_TYPE_ARRAY_DATAPTR_TYPE(node) \
   (TYPE_LANG_SPECIFIC(node)->dataptr_type)

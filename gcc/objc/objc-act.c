@@ -1,6 +1,6 @@
 /* Implement classes and message passing for Objective C.
    Copyright (C) 1992, 1993, 1994, 1995, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Steve Naroff.
 
 This file is part of GCC.
@@ -55,6 +55,7 @@ Boston, MA 02111-1307, USA.  */
 #endif
 
 #include "c-common.h"
+#include "c-pragma.h"
 #include "flags.h"
 #include "langhooks.h"
 #include "objc-act.h"
@@ -72,6 +73,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-iterator.h"
 #include "libfuncs.h"
 #include "hashtab.h"
+#include "langhooks-def.h"
 
 #define OBJC_VOID_AT_END	void_list_node
 
@@ -175,7 +177,7 @@ static void build_next_objc_exception_stuff (void);
 
 static tree build_ivar_template (void);
 static tree build_method_template (void);
-static tree build_private_template (tree);
+static void build_private_template (tree);
 static void build_class_template (void);
 static void build_selector_template (void);
 static void build_category_template (void);
@@ -589,6 +591,7 @@ objc_finish_file (void)
 #ifdef OBJCPLUS
   /* We need to instantiate templates _before_ we emit ObjC metadata;
      if we do not, some metadata (such as selectors) may go missing.  */
+  at_eof = 1;
   instantiate_pending_templates (0);
 #endif
 
@@ -750,7 +753,7 @@ objc_finish_implementation (void)
       objc_implementation_context = NULL_TREE;
     }
   else
-    warning ("`@end' must appear in an @implementation context");
+    warning ("%<@end%> must appear in an @implementation context");
 }
 
 void
@@ -835,6 +838,27 @@ objc_is_class_id (tree type)
   return OBJC_TYPE_NAME (type) == objc_class_id;
 }
 
+
+int
+objc_types_compatible_p (tree type1, tree type2)
+{
+
+  if (objc_is_object_ptr (type1) || objc_is_object_ptr (type2)
+      || objc_is_class_name (type1) || objc_is_class_name (type2))
+    {
+      return lhd_types_compatible_p (type1, type2);
+    }
+  else
+    {
+#ifdef OBJCPLUS
+      return cxx_types_compatible_p (type1, type2);
+#else
+      return c_types_compatible_p (type1, type2);
+#endif
+    }
+}
+
+
 /* Return 1 if LHS and RHS are compatible types for assignment or
    various other operations.  Return 0 if they are incompatible, and
    return -1 if we choose to not decide (because the types are really
@@ -866,19 +890,24 @@ objc_comptypes (tree lhs, tree rhs, int reflexive)
       && TREE_CODE (rhs) == POINTER_TYPE
       && TREE_CODE (TREE_TYPE (rhs)) == RECORD_TYPE)
     {
-      int lhs_is_proto = IS_PROTOCOL_QUALIFIED_ID (lhs);
-      int rhs_is_proto = IS_PROTOCOL_QUALIFIED_ID (rhs);
+      int lhs_is_proto = IS_PROTOCOL_QUALIFIED_UNTYPED (lhs);
+      int rhs_is_proto = IS_PROTOCOL_QUALIFIED_UNTYPED (rhs);
 
       if (lhs_is_proto)
         {
-	  tree lproto, lproto_list = TYPE_PROTOCOL_LIST (lhs);
+	  tree lproto, lproto_list = TYPE_OBJC_PROTOCOL_LIST (TREE_TYPE (lhs));
 	  tree rproto, rproto_list;
 	  tree p;
 
 	  /* <Protocol> = <Protocol>  */
 	  if (rhs_is_proto)
 	    {
-	      rproto_list = TYPE_PROTOCOL_LIST (rhs);
+	      /* Class <Protocol> != id <Protocol>;
+		 id <Protocol> != Class <Protocol>  */
+	      if (IS_ID (lhs) != IS_ID (rhs))
+		return 0;
+
+	      rproto_list = TYPE_OBJC_PROTOCOL_LIST (TREE_TYPE (rhs));
 
 	      if (!reflexive)
 		{
@@ -893,7 +922,7 @@ objc_comptypes (tree lhs, tree rhs, int reflexive)
 
 		      if (!rproto)
 			warning
-			  ("object does not conform to the `%s' protocol",
+			  ("object does not conform to the %qs protocol",
 			   IDENTIFIER_POINTER (PROTOCOL_NAME (p)));
 		    }
 		  return 1;
@@ -942,6 +971,10 @@ objc_comptypes (tree lhs, tree rhs, int reflexive)
 	      tree rname = OBJC_TYPE_NAME (TREE_TYPE (rhs));
 	      tree rinter;
 
+	      /* Class <Protocol> != <class> *  */
+	      if (IS_CLASS (lhs))
+		return 0;
+
 	      /* Make sure the protocol is supported by the object on
 		 the rhs.  */
 	      for (lproto = lproto_list; lproto; lproto = TREE_CHAIN (lproto))
@@ -960,9 +993,9 @@ objc_comptypes (tree lhs, tree rhs, int reflexive)
 			 the protocol we're looking for, check for "one-off"
 			 protocols (e.g., `NSObject<MyProt> *foo;') attached
 			 to the rhs.  */
-		      if (!rproto)
+		      if (!rproto && TYPE_HAS_OBJC_INFO (TREE_TYPE (rhs)))
 			{
-			  rproto_list = TYPE_PROTOCOL_LIST (TREE_TYPE (rhs));
+			  rproto_list = TYPE_OBJC_PROTOCOL_LIST (TREE_TYPE (rhs));
 			  rproto = lookup_protocol_in_reflist (rproto_list, p);
 			}
 
@@ -979,21 +1012,21 @@ objc_comptypes (tree lhs, tree rhs, int reflexive)
 		    }
 
 		  if (!rproto)
-		    warning ("class `%s' does not implement the `%s' protocol",
+		    warning ("class %qs does not implement the %qs protocol",
 			     IDENTIFIER_POINTER (OBJC_TYPE_NAME (TREE_TYPE (rhs))),
 			     IDENTIFIER_POINTER (PROTOCOL_NAME (p)));
 		}
 	      return 1;
 	    }
-	  /* <Protocol> = id */
+	  /* id <Protocol> = id; Class <Protocol> = id */
 	  else if (objc_is_object_id (TREE_TYPE (rhs)))
 	    {
 	      return 1;
 	    }
-	  /* <Protocol> = Class */
+	  /* id <Protocol> != Class; Class <Protocol> = Class */
 	  else if (objc_is_class_id (TREE_TYPE (rhs)))
 	    {
-	      return 0;
+	      return IS_CLASS (lhs);
 	    }
 	  /* <Protocol> = ?? : let comptypes decide.  */
           return -1;
@@ -1003,11 +1036,15 @@ objc_comptypes (tree lhs, tree rhs, int reflexive)
 	  /* <class> * = <Protocol> */
 	  if (TYPED_OBJECT (TREE_TYPE (lhs)))
 	    {
+	      /* <class> * != Class <Protocol> */
+	      if (IS_CLASS (rhs))
+		return 0;
+
 	      if (reflexive)
 		{
 		  tree rname = OBJC_TYPE_NAME (TREE_TYPE (lhs));
 		  tree rinter;
-		  tree rproto, rproto_list = TYPE_PROTOCOL_LIST (rhs);
+		  tree rproto, rproto_list = TYPE_OBJC_PROTOCOL_LIST (TREE_TYPE (rhs));
 
 		  /* Make sure the protocol is supported by the object on
 		     the lhs.  */
@@ -1029,9 +1066,9 @@ objc_comptypes (tree lhs, tree rhs, int reflexive)
 			     check for "one-off" protocols (e.g.,
 			     `NSObject<MyProt> *foo;') attached to the
 			     lhs.  */
-			  if (!lproto)
+			  if (!lproto && TYPE_HAS_OBJC_INFO (TREE_TYPE (lhs)))
 			    {
-			      lproto_list = TYPE_PROTOCOL_LIST
+			      lproto_list = TYPE_OBJC_PROTOCOL_LIST
 				(TREE_TYPE (lhs));
 			      lproto = lookup_protocol_in_reflist
 				(lproto_list, p);
@@ -1052,7 +1089,7 @@ objc_comptypes (tree lhs, tree rhs, int reflexive)
 			}
 		
 		      if (!lproto)
-			warning ("class `%s' does not implement the `%s' protocol",
+			warning ("class %qs does not implement the %qs protocol",
 				 IDENTIFIER_POINTER (OBJC_TYPE_NAME
 						     (TREE_TYPE (lhs))),
 				 IDENTIFIER_POINTER (PROTOCOL_NAME (p)));
@@ -1062,15 +1099,15 @@ objc_comptypes (tree lhs, tree rhs, int reflexive)
 	      else
 		return 0;
 	    }
-	  /* id = <Protocol> */
+	  /* id = id <Protocol>; id = Class <Protocol> */
 	  else if (objc_is_object_id (TREE_TYPE (lhs)))
 	    {
 	      return 1;
 	    }
-	  /* Class = <Protocol> */
+	  /* Class != id <Protocol>; Class = Class <Protocol> */
 	  else if (objc_is_class_id (TREE_TYPE (lhs)))
 	    {
-	      return 0;
+	      return IS_CLASS (rhs);
 	    }
 	  /* ??? = <Protocol> : let comptypes decide */
 	  else
@@ -1158,7 +1195,7 @@ objc_check_decl (tree decl)
   if (TREE_CODE (type) != RECORD_TYPE)
     return;
   if (OBJC_TYPE_NAME (type) && (type = objc_is_class_name (OBJC_TYPE_NAME (type))))
-    error ("statically allocated instance of Objective-C class `%s'",
+    error ("statically allocated instance of Objective-C class %qs",
 	   IDENTIFIER_POINTER (type));
 }
 
@@ -1169,11 +1206,11 @@ objc_check_decl (tree decl)
 tree
 objc_get_protocol_qualified_type (tree interface, tree protocols)
 {
-  tree type;
+  /* If INTERFACE is not provided, default to 'id'.  */
+  tree type = (interface ? objc_is_id (interface) : objc_object_type);
+  bool is_ptr = (type != NULL_TREE);
 
-  if (!interface)
-    type = objc_object_type;
-  else if (!(type = objc_is_id (interface)))
+  if (!is_ptr)
     {
       type = objc_is_class_name (interface);
 
@@ -1186,13 +1223,27 @@ objc_get_protocol_qualified_type (tree interface, tree protocols)
   if (protocols)
     {
       type = build_variant_type_copy (type);
-      /* Look up protocols and install in lang specific list.  Note
-	 that the protocol list can have a different lifetime than T!  */
-      SET_TYPE_PROTOCOL_LIST (type, lookup_and_install_protocols (protocols));
 
-      /* Establish the ObjC-ness of this record.  */
-      if (TREE_CODE (type) == RECORD_TYPE)
-	TREE_STATIC_TEMPLATE (type) = 1;
+      /* For pointers (i.e., 'id' or 'Class'), attach the protocol(s)
+	 to the pointee.  */
+      if (is_ptr)
+	{
+	  TREE_TYPE (type) = build_variant_type_copy (TREE_TYPE (type));
+	  TYPE_POINTER_TO (TREE_TYPE (type)) = type;
+	  type = TREE_TYPE (type);
+	}
+
+      /* Look up protocols and install in lang specific list.  */
+      DUP_TYPE_OBJC_INFO (type, TYPE_MAIN_VARIANT (type));
+      TYPE_OBJC_PROTOCOL_LIST (type) = lookup_and_install_protocols (protocols);
+
+      /* For RECORD_TYPEs, point to the @interface; for 'id' and 'Class',
+	 return the pointer to the new pointee variant.  */
+      if (is_ptr)
+	type = TYPE_POINTER_TO (type);
+      else
+	TYPE_OBJC_INTERFACE (type)
+	  = TYPE_OBJC_INTERFACE (TYPE_MAIN_VARIANT (type));
     }
 
   return type;
@@ -1215,7 +1266,7 @@ check_protocol_recursively (tree proto, tree list)
 	pp = lookup_protocol (pp);
 
       if (pp == proto)
-	fatal_error ("protocol `%s' has circular dependency",
+	fatal_error ("protocol %qs has circular dependency",
 		     IDENTIFIER_POINTER (PROTOCOL_NAME (pp)));
       if (pp)
 	check_protocol_recursively (proto, PROTOCOL_LIST (pp));
@@ -1237,7 +1288,7 @@ lookup_and_install_protocols (tree protocols)
       tree p = lookup_protocol (ident);
 
       if (!p)
-	error ("cannot find protocol declaration for `%s'",
+	error ("cannot find protocol declaration for %qs",
 	       IDENTIFIER_POINTER (ident));
       else
 	return_value = chainon (return_value,
@@ -1633,16 +1684,16 @@ objc_build_string_object (tree string)
       if (!constant_string_class
 	  || !(constant_string_type
 	       = CLASS_STATIC_TEMPLATE (constant_string_class)))
-	error ("cannot find interface declaration for `%s'",
+	error ("cannot find interface declaration for %qs",
 	       IDENTIFIER_POINTER (constant_string_id));
       /* The NSConstantString/NXConstantString ivar layout is now known.  */
       else if (!check_string_class_template ())
-	error ("interface `%s' does not have valid constant string layout",
+	error ("interface %qs does not have valid constant string layout",
 	       IDENTIFIER_POINTER (constant_string_id));
       /* For the NeXT runtime, we can generate a literal reference
 	 to the string class, don't need to run a constructor.  */
       else if (flag_next_runtime && !setup_string_decl ())
-	error ("cannot find reference tag for class `%s'",
+	error ("cannot find reference tag for class %qs",
 	       IDENTIFIER_POINTER (constant_string_id));
       else
 	{
@@ -1661,6 +1712,7 @@ objc_build_string_object (tree string)
 
   if (!desc)
     {
+      tree var;
       *loc = desc = ggc_alloc (sizeof (*desc));
       desc->literal = string;
 
@@ -1685,14 +1737,18 @@ objc_build_string_object (tree string)
       if (!flag_next_runtime)
 	constructor
 	  = objc_add_static_instance (constructor, constant_string_type);
-
+      else
+        {
+	  var = build_decl (CONST_DECL, NULL, TREE_TYPE (constructor));
+	  DECL_INITIAL (var) = constructor;
+	  TREE_STATIC (var) = 1;
+	  pushdecl_top_level (var);
+	  constructor = var;
+	}
       desc->constructor = constructor;
     }
 
   addr = build_unary_op (ADDR_EXPR, desc->constructor, 1);
-  TREE_CONSTANT (addr) = true;
-  TREE_INVARIANT (addr) = true;
-  TREE_STATIC (addr) = true;
 
   return addr;
 }
@@ -2309,8 +2365,15 @@ build_selector_translation_table (void)
               }
           }
         if (!found)
-	  warning ("%Jcreating selector for nonexistent method %qE",
-		   TREE_PURPOSE (chain), TREE_VALUE (chain));
+	  {
+	    location_t *loc;
+	    if (flag_next_runtime && TREE_PURPOSE (chain))
+	      loc = &DECL_SOURCE_LOCATION (TREE_PURPOSE (chain));
+	    else
+	      loc = &input_location;
+	    warning ("%Hcreating selector for nonexistent method %qE",
+		     loc, TREE_VALUE (chain));
+	  }
       }
 
       expr = build_selector (TREE_VALUE (chain));
@@ -2497,7 +2560,7 @@ objc_get_class_reference (tree ident)
 
   if (!(ident = objc_is_class_name (ident)))
     {
-      error ("`%s' is not an Objective-C class name or alias",
+      error ("%qs is not an Objective-C class name or alias",
 	     IDENTIFIER_POINTER (orig_ident));
       return error_mark_node;
     }
@@ -2617,9 +2680,9 @@ objc_declare_alias (tree alias_ident, tree class_ident)
 #endif /* OBJCPLUS */
 
   if (!(underlying_class = objc_is_class_name (class_ident)))
-    warning ("cannot find class `%s'", IDENTIFIER_POINTER (class_ident));
+    warning ("cannot find class %qs", IDENTIFIER_POINTER (class_ident));
   else if (objc_is_class_name (alias_ident))
-    warning ("class `%s' already exists", IDENTIFIER_POINTER (alias_ident));
+    warning ("class %qs already exists", IDENTIFIER_POINTER (alias_ident));
   else
     alias_chain = tree_cons (underlying_class, alias_ident, alias_chain);
 }
@@ -2640,18 +2703,26 @@ objc_declare_class (tree ident_list)
 
       if (! objc_is_class_name (ident))
 	{
-	  tree record = lookup_name (ident);
-	
-	  if (record && ! TREE_STATIC_TEMPLATE (record))
+	  tree record = lookup_name (ident), type = record;
+
+	  if (record)
 	    {
-	      error ("`%s' redeclared as different kind of symbol",
-		     IDENTIFIER_POINTER (ident));
-	      error ("%Jprevious declaration of '%D'",
-		     record, record);
+	      if (TREE_CODE (record) == TYPE_DECL)
+		type = DECL_ORIGINAL_TYPE (record);
+
+	      if (!TYPE_HAS_OBJC_INFO (type)
+		  || !TYPE_OBJC_INTERFACE (type))
+		{
+		  error ("%qs redeclared as different kind of symbol",
+			 IDENTIFIER_POINTER (ident));
+		  error ("%Jprevious declaration of '%D'",
+			 record, record);
+		}
 	    }
 
 	  record = xref_tag (RECORD_TYPE, ident);
-	  TREE_STATIC_TEMPLATE (record) = 1;
+	  INIT_TYPE_OBJC_INFO (record);
+	  TYPE_OBJC_INTERFACE (record) = ident;
 	  class_chain = tree_cons (NULL_TREE, ident, class_chain);
 	}
     }
@@ -2709,7 +2780,8 @@ objc_is_id (tree type)
 
   /* NB: This function may be called before the ObjC front-end has
      been initialized, in which case OBJC_OBJECT_TYPE will (still) be NULL.  */
-  return (objc_object_type && type && (IS_ID (type) || IS_CLASS (type))
+  return (objc_object_type && type
+	  && (IS_ID (type) || IS_CLASS (type) || IS_SUPER (type))
 	  ? type
 	  : NULL_TREE); 
 }
@@ -2761,7 +2833,7 @@ objc_get_class_ivars (tree class_name)
   if (interface)
     return get_class_ivars (interface);
 
-  error ("cannot find interface declaration for `%s'",
+  error ("cannot find interface declaration for %qs",
 	 IDENTIFIER_POINTER (class_name));
 
   return error_mark_node;
@@ -3271,7 +3343,7 @@ objc_finish_try_stmt (void)
   tree stmt;
 
   if (c->catch_list == NULL && c->finally_body == NULL)
-    error ("`@try' without `@catch' or `@finally'");
+    error ("%<@try%> without %<@catch%> or %<@finally%>");
 
   /* If we're doing Darwin setjmp exceptions, build the big nasty.  */
   if (flag_objc_sjlj_exceptions)
@@ -3462,38 +3534,27 @@ build_objc_exception_stuff (void)
 			NULL, nothrow_list);
 }
 
+/* Construct a C struct corresponding to ObjC class CLASS, with the same
+   name as the class:
 
-/* struct <classname> {
+   struct <classname> {
      struct _objc_class *isa;
      ...
    };  */
 
-static tree
+static void
 build_private_template (tree class)
 {
-  tree ivar_context;
-
-  if (CLASS_STATIC_TEMPLATE (class))
+  if (!CLASS_STATIC_TEMPLATE (class))
     {
-      uprivate_record = CLASS_STATIC_TEMPLATE (class);
-      ivar_context = TYPE_FIELDS (CLASS_STATIC_TEMPLATE (class));
-    }
-  else
-    {
-      uprivate_record = start_struct (RECORD_TYPE, CLASS_NAME (class));
-      ivar_context = get_class_ivars (class);
+      tree record = start_struct (RECORD_TYPE, CLASS_NAME (class));
 
-      finish_struct (uprivate_record, ivar_context, NULL_TREE);
-
-      CLASS_STATIC_TEMPLATE (class) = uprivate_record;
-
+      finish_struct (record, get_class_ivars (class), NULL_TREE);
       /* mark this record as class template - for class type checking */
-      TREE_STATIC_TEMPLATE (uprivate_record) = 1;
+      INIT_TYPE_OBJC_INFO (record);
+      TYPE_OBJC_INTERFACE (record) = class;
+      CLASS_STATIC_TEMPLATE (class) = record;
     }
-
-  objc_instance_type = build_pointer_type (uprivate_record);
-
-  return ivar_context;
 }
 
 /* Begin code generation for protocols...  */
@@ -3754,9 +3815,6 @@ static void
 generate_method_descriptors (tree protocol)
 {
   tree initlist, chain, method_list_template;
-  tree variable_length_type
-    = xref_tag (RECORD_TYPE,
-		get_identifier (UTAG_METHOD_PROTOTYPE_LIST));
   int size;
 
   if (!objc_method_prototype_template)
@@ -3779,7 +3837,6 @@ generate_method_descriptors (tree protocol)
 	= generate_descriptor_table (method_list_template,
 				     "_OBJC_PROTOCOL_CLASS_METHODS",
 				     size, initlist, protocol);
-      TREE_TYPE (UOBJC_CLASS_METHODS_decl) = variable_length_type;
     }
   else
     UOBJC_CLASS_METHODS_decl = 0;
@@ -3800,7 +3857,6 @@ generate_method_descriptors (tree protocol)
 	= generate_descriptor_table (method_list_template,
 				     "_OBJC_PROTOCOL_INSTANCE_METHODS",
 				     size, initlist, protocol);
-      TREE_TYPE (UOBJC_INSTANCE_METHODS_decl) = variable_length_type;
     }
   else
     UOBJC_INSTANCE_METHODS_decl = 0;
@@ -4212,7 +4268,7 @@ synth_forward_declarations (void)
 static void
 error_with_ivar (const char *message, tree decl)
 {
-  error ("%J%s `%s'", decl,
+  error ("%J%s %qs", decl,
          message, gen_declaration (decl));
 
 }
@@ -4484,8 +4540,6 @@ static void
 generate_ivar_lists (void)
 {
   tree initlist, ivar_list_template, chain;
-  tree variable_length_type
-    = xref_tag (RECORD_TYPE, get_identifier (UTAG_IVAR_LIST));
   int size;
 
   generating_instance_variables = 1;
@@ -4507,7 +4561,6 @@ generate_ivar_lists (void)
       UOBJC_CLASS_VARIABLES_decl
 	= generate_ivars_list (ivar_list_template, "_OBJC_CLASS_VARIABLES",
 			       size, initlist);
-      TREE_TYPE (UOBJC_CLASS_VARIABLES_decl) = variable_length_type;
     }
   else
     UOBJC_CLASS_VARIABLES_decl = 0;
@@ -4522,7 +4575,6 @@ generate_ivar_lists (void)
       UOBJC_INSTANCE_VARIABLES_decl
 	= generate_ivars_list (ivar_list_template, "_OBJC_INSTANCE_VARIABLES",
 			       size, initlist);
-      TREE_TYPE (UOBJC_INSTANCE_VARIABLES_decl) = variable_length_type;
     }
   else
     UOBJC_INSTANCE_VARIABLES_decl = 0;
@@ -4654,8 +4706,6 @@ static void
 generate_dispatch_tables (void)
 {
   tree initlist, chain, method_list_template;
-  tree variable_length_type
-    = xref_tag (RECORD_TYPE, get_identifier (UTAG_METHOD_LIST));
   int size;
 
   if (!objc_method_template)
@@ -4678,7 +4728,6 @@ generate_dispatch_tables (void)
 				    ? "_OBJC_CLASS_METHODS"
 				    : "_OBJC_CATEGORY_CLASS_METHODS"),
 				   size, initlist);
-      TREE_TYPE (UOBJC_CLASS_METHODS_decl) = variable_length_type;
     }
   else
     UOBJC_CLASS_METHODS_decl = 0;
@@ -4704,7 +4753,6 @@ generate_dispatch_tables (void)
 	  = generate_dispatch_table (method_list_template,
 				     "_OBJC_CATEGORY_INSTANCE_METHODS",
 				     size, initlist);
-      TREE_TYPE (UOBJC_INSTANCE_METHODS_decl) = variable_length_type;
     }
   else
     UOBJC_INSTANCE_METHODS_decl = 0;
@@ -5280,6 +5328,12 @@ get_arg_type_list (tree meth, int context, int superflag)
     {
       tree arg_type = TREE_VALUE (TREE_TYPE (akey));
 
+      /* Decay arrays and functions into pointers.  */
+      if (TREE_CODE (arg_type) == ARRAY_TYPE)
+	arg_type = build_pointer_type (TREE_TYPE (arg_type));
+      else if (TREE_CODE (arg_type) == FUNCTION_TYPE)
+	arg_type = build_pointer_type (arg_type);
+
       chainon (arglist, build_tree_list (NULL_TREE, arg_type));
     }
 
@@ -5320,7 +5374,7 @@ check_duplicates (hash hsh, int methods, int is_class)
 	     different types.  */
 	  attr loop;
 
-	  warning ("multiple %s named `%c%s' found",
+	  warning ("multiple %s named %<%c%s%> found",
 		   methods ? "methods" : "selectors",
 		   (is_class ? '+' : '-'),
 		   IDENTIFIER_POINTER (METHOD_SEL_NAME (meth)));
@@ -5545,7 +5599,7 @@ objc_finish_message_expr (tree receiver, tree sel_name, tree method_params)
 	{
 	  if (!CLASS_SUPER_NAME (implementation_template))
 	    {
-	      error ("no super class declared in @interface for `%s'",
+	      error ("no super class declared in @interface for %qs",
 		     IDENTIFIER_POINTER (CLASS_NAME (implementation_template)));
 	      return error_mark_node;
 	    }
@@ -5562,25 +5616,37 @@ objc_finish_message_expr (tree receiver, tree sel_name, tree method_params)
     {
       if (!rtype)
 	rtype = xref_tag (RECORD_TYPE, class_tree);
-      else if (IS_ID (rtype))
-	{
-	  rprotos = TYPE_PROTOCOL_LIST (rtype);
-	  rtype = NULL_TREE;
-	}
       else
 	{
-	  class_tree = objc_class_name;
-	  OBJC_SET_TYPE_NAME (rtype, class_tree);
+	  class_tree = (IS_CLASS (rtype) ? objc_class_name : NULL_TREE);
+	  rprotos = (TYPE_HAS_OBJC_INFO (TREE_TYPE (rtype))
+		     ? TYPE_OBJC_PROTOCOL_LIST (TREE_TYPE (rtype))
+		     : NULL_TREE);
+	  rtype = NULL_TREE;
 	}
 
       if (rprotos)
-	method_prototype
-	  = lookup_method_in_protocol_list (rprotos, sel_name,
-					    class_tree != NULL_TREE);
-      if (!method_prototype && !rprotos)
-	method_prototype
-	  = lookup_method_in_hash_lists (sel_name,
-					 class_tree != NULL_TREE);
+	{
+	  /* If messaging 'id <Protos>' or 'Class <Proto>', first search
+	     in protocols themselves for the method prototype.  */
+	  method_prototype
+	    = lookup_method_in_protocol_list (rprotos, sel_name,
+					      class_tree != NULL_TREE);
+
+	  /* If messaging 'Class <Proto>' but did not find a class method
+	     prototype, search for an instance method instead, and warn
+	     about having done so.  */
+	  if (!method_prototype && !rtype && class_tree != NULL_TREE)
+	    {
+	      method_prototype
+		= lookup_method_in_protocol_list (rprotos, sel_name, 0);
+
+	      if (method_prototype)
+		warning ("found %<-%s%> instead of %<+%s%> in protocol(s)",
+			 IDENTIFIER_POINTER (sel_name),
+			 IDENTIFIER_POINTER (sel_name));
+	    }
+	}
     }
   else
     {
@@ -5596,14 +5662,14 @@ objc_finish_message_expr (tree receiver, tree sel_name, tree method_params)
       saved_rtype = rtype;
       if (TYPED_OBJECT (rtype))
 	{
-	  rprotos = TYPE_PROTOCOL_LIST (rtype);
-	  rtype = lookup_interface (OBJC_TYPE_NAME (rtype));
+	  rprotos = TYPE_OBJC_PROTOCOL_LIST (rtype);
+	  rtype = TYPE_OBJC_INTERFACE (rtype);
 	}
       /* If we could not find an @interface declaration, we must have
 	 only seen a @class declaration; so, we cannot say anything
 	 more intelligent about which methods the receiver will
 	 understand. */
-      if (!rtype)
+      if (!rtype || TREE_CODE (rtype) == IDENTIFIER_NODE)
 	rtype = saved_rtype;
       else if (TREE_CODE (rtype) == CLASS_INTERFACE_TYPE
 	  || TREE_CODE (rtype) == CLASS_IMPLEMENTATION_TYPE)
@@ -5635,30 +5701,52 @@ objc_finish_message_expr (tree receiver, tree sel_name, tree method_params)
 	}
       else
 	{
-	  warning ("invalid receiver type `%s'",
+	  warning ("invalid receiver type %qs",
 		   gen_type_name (orig_rtype));
+	  /* After issuing the "invalid receiver" warning, perform method
+	     lookup as if we were messaging 'id'.  */
 	  rtype = rprotos = NULL_TREE;
 	}
     }	
+
+
+  /* For 'id' or 'Class' receivers, search in the global hash table
+     as a last resort.  For all receivers, warn if protocol searches
+     have failed.  */
+  if (!method_prototype)
+    {
+      if (rprotos)
+	warning ("%<%c%s%> not found in protocol(s)",
+		 (class_tree ? '+' : '-'),
+		 IDENTIFIER_POINTER (sel_name));
+
+      if (!rtype)
+	method_prototype
+	  = lookup_method_in_hash_lists (sel_name, class_tree != NULL_TREE);
+    }
 
   if (!method_prototype)
     {
       static bool warn_missing_methods = false;
 
       if (rtype)
-	warning ("`%s' may not respond to `%c%s'",
+	warning ("%qs may not respond to %<%c%s%>",
 		 IDENTIFIER_POINTER (OBJC_TYPE_NAME (rtype)),
 		 (class_tree ? '+' : '-'),
 		 IDENTIFIER_POINTER (sel_name));
-      if (rprotos)
-	warning ("`%c%s' not implemented by protocol(s)",
+      /* If we are messaging an 'id' or 'Class' object and made it here,
+	 then we have failed to find _any_ instance or class method,
+	 respectively.  */
+      else
+	warning ("no %<%c%s%> method found",
 		 (class_tree ? '+' : '-'),
 		 IDENTIFIER_POINTER (sel_name));
+
       if (!warn_missing_methods)
 	{
 	  warning ("(Messages without a matching method signature");
-	  warning ("will be assumed to return `id' and accept");
-	  warning ("`...' as arguments.)");
+	  warning ("will be assumed to return %<id%> and accept");
+	  warning ("%<...%> as arguments.)");
 	  warn_missing_methods = true;
 	}
     }
@@ -5790,7 +5878,7 @@ objc_build_protocol_expr (tree protoname)
 
   if (!p)
     {
-      error ("cannot find protocol declaration for `%s'",
+      error ("cannot find protocol declaration for %qs",
 	     IDENTIFIER_POINTER (protoname));
       return error_mark_node;
     }
@@ -5889,7 +5977,7 @@ objc_build_selector_expr (tree selnamelist)
       /* If still not found, print out a warning.  */
       if (!hsh)
 	{
-	  warning ("undeclared selector `%s'", IDENTIFIER_POINTER (selname));
+	  warning ("undeclared selector %qs", IDENTIFIER_POINTER (selname));
 	}
     }
 
@@ -5931,7 +6019,7 @@ build_ivar_reference (tree id)
 	 to an instance variable.  It's better to catch the cases
 	 where this is done unknowingly than to support the above
 	 paradigm.  */
-      warning ("instance variable `%s' accessed in class method",
+      warning ("instance variable %qs accessed in class method",
 	       IDENTIFIER_POINTER (id));
       self_decl = convert (objc_instance_type, self_decl); /* cast */
     }
@@ -6143,7 +6231,7 @@ objc_add_method (tree class, tree method, int is_class)
       if ((TREE_CODE (class) == CLASS_INTERFACE_TYPE
 	   || TREE_CODE (class) == CATEGORY_INTERFACE_TYPE)
 	  && !comp_proto_with_proto (method, mth))
-	error ("duplicate declaration of method `%c%s'",
+	error ("duplicate declaration of method %<%c%s%>",
 		is_class ? '+' : '-', 
 		IDENTIFIER_POINTER (METHOD_SEL_NAME (mth)));
     }
@@ -6155,13 +6243,16 @@ objc_add_method (tree class, tree method, int is_class)
       add_method_to_hash_list (nst_method_hash_list, method);
 
       /* Instance methods in root classes (and categories thereof)
-	 may acts as class methods as a last resort. */
+	 may act as class methods as a last resort.  We also add
+	 instance methods listed in @protocol declarations to
+	 the class hash table, on the assumption that @protocols
+	 may be adopted by root classes or categories.  */
       if (TREE_CODE (class) == CATEGORY_INTERFACE_TYPE
 	  || TREE_CODE (class) == CATEGORY_IMPLEMENTATION_TYPE)
 	class = lookup_interface (CLASS_NAME (class));
 
-      if (TREE_CODE (class) != PROTOCOL_INTERFACE_TYPE
-	  && !CLASS_SUPER_NAME (class))
+      if (TREE_CODE (class) == PROTOCOL_INTERFACE_TYPE
+	  || !CLASS_SUPER_NAME (class))
 	add_method_to_hash_list (cls_method_hash_list, method);
     }
 
@@ -6185,7 +6276,7 @@ add_category (tree class, tree category)
 
   if (cat)
     {
-      warning ("duplicate interface declaration for category `%s(%s)'",
+      warning ("duplicate interface declaration for category %<%s(%s)%>",
 	       IDENTIFIER_POINTER (CLASS_NAME (class)),
 	       IDENTIFIER_POINTER (CLASS_SUPER_NAME (category)));
     }
@@ -6212,7 +6303,7 @@ add_instance_variable (tree class, int public, tree field_decl)
 #ifdef OBJCPLUS
   if (TREE_CODE (field_type) == REFERENCE_TYPE)
     {
-      error ("illegal reference type specified for instance variable `%s'",
+      error ("illegal reference type specified for instance variable %qs",
 	     ivar_name);
       /* Return class as is without adding this ivar.  */
       return class;
@@ -6223,7 +6314,7 @@ add_instance_variable (tree class, int public, tree field_decl)
       || TYPE_SIZE (field_type) == error_mark_node)
       /* 'type[0]' is allowed, but 'type[]' is not! */
     {
-      error ("instance variable `%s' has unknown size", ivar_name);
+      error ("instance variable %qs has unknown size", ivar_name);
       /* Return class as is without adding this ivar.  */
       return class;
     }
@@ -6237,8 +6328,8 @@ add_instance_variable (tree class, int public, tree field_decl)
       const char *type_name = IDENTIFIER_POINTER (OBJC_TYPE_NAME (field_type));
       if(TYPE_POLYMORPHIC_P (field_type)) {
         /* vtable pointers are Real Bad(tm), since Obj-C cannot initialize them */
-        error ("type `%s' has virtual member functions", type_name);
-        error ("illegal aggregate type `%s' specified for instance variable `%s'",
+        error ("type %qs has virtual member functions", type_name);
+        error ("illegal aggregate type %qs specified for instance variable %qs",
   	       type_name, ivar_name);
         /* Return class as is without adding this ivar.  */
         return class;
@@ -6246,9 +6337,9 @@ add_instance_variable (tree class, int public, tree field_decl)
       /* user-defined constructors and destructors are not known to Obj-C and
          hence will not be called.  This may or may not be a problem. */
       if (TYPE_NEEDS_CONSTRUCTING (field_type))
-        warning ("type `%s' has a user-defined constructor", type_name);
+        warning ("type %qs has a user-defined constructor", type_name);
       if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (field_type))
-        warning ("type `%s' has a user-defined destructor", type_name);
+        warning ("type %qs has a user-defined destructor", type_name);
       warning ("C++ constructors and destructors will not be invoked for Objective-C fields");
     }
 #endif
@@ -6311,11 +6402,11 @@ objc_is_public (tree expr, tree identifier)
 
   if (code == RECORD_TYPE)
     {
-      if (TREE_STATIC_TEMPLATE (basetype))
+      if (TYPE_HAS_OBJC_INFO (basetype) && TYPE_OBJC_INTERFACE (basetype))
 	{
-	  if (!lookup_interface (OBJC_TYPE_NAME (basetype)))
+	  if (TREE_CODE (TYPE_OBJC_INTERFACE (basetype)) == IDENTIFIER_NODE)
 	    {
-	      error ("cannot find interface declaration for `%s'",
+	      error ("cannot find interface declaration for %qs",
 		     IDENTIFIER_POINTER (OBJC_TYPE_NAME (basetype)));
 	      return 0;
 	    }
@@ -6339,7 +6430,7 @@ objc_is_public (tree expr, tree identifier)
 		  int private = is_private (decl);
 
 		  if (private)
-		    error ("instance variable `%s' is declared private",
+		    error ("instance variable %qs is declared private",
 			   IDENTIFIER_POINTER (DECL_NAME (decl)));
 		  return !private;
 		}
@@ -6348,14 +6439,14 @@ objc_is_public (tree expr, tree identifier)
 		 non-@public ivars.  We will let this slide for now...  */
 	      if (!objc_method_context)
 	      {
-		warning ("instance variable `%s' is %s; "
+		warning ("instance variable %qs is %s; "
 			 "this will be a hard error in the future",
 			 IDENTIFIER_POINTER (identifier),
 			 TREE_PRIVATE (decl) ? "@private" : "@protected");
 		return 1;
 	      }
 		
-	      error ("instance variable `%s' is declared %s",
+	      error ("instance variable %qs is declared %s",
 		     IDENTIFIER_POINTER (identifier),
 		     TREE_PRIVATE (decl) ? "private" : "protected");
 	      return 0;
@@ -6365,7 +6456,7 @@ objc_is_public (tree expr, tree identifier)
       else if (objc_implementation_context && (basetype == objc_object_reference))
 	{
 	  expr = convert (uprivate_record, expr);
-	  warning ("static access to object of type `id'");
+	  warning ("static access to object of type %<id%>");
 	}
     }
 
@@ -6387,16 +6478,16 @@ check_methods (tree chain, tree list, int mtype)
 	    {
 	      if (TREE_CODE (objc_implementation_context)
 		  == CLASS_IMPLEMENTATION_TYPE)
-		warning ("incomplete implementation of class `%s'",
+		warning ("incomplete implementation of class %qs",
 			 IDENTIFIER_POINTER (CLASS_NAME (objc_implementation_context)));
 	      else if (TREE_CODE (objc_implementation_context)
 		       == CATEGORY_IMPLEMENTATION_TYPE)
-		warning ("incomplete implementation of category `%s'",
+		warning ("incomplete implementation of category %qs",
 			 IDENTIFIER_POINTER (CLASS_SUPER_NAME (objc_implementation_context)));
 	      first = 0;
 	    }
 
-	  warning ("method definition for `%c%s' not found",
+	  warning ("method definition for %<%c%s%> not found",
 		   mtype, IDENTIFIER_POINTER (METHOD_SEL_NAME (chain)));
 	}
 
@@ -6475,17 +6566,17 @@ check_methods_accessible (tree chain, tree context, int mtype)
 	    {
 	      if (TREE_CODE (objc_implementation_context)
 		  == CLASS_IMPLEMENTATION_TYPE)
-		warning ("incomplete implementation of class `%s'",
+		warning ("incomplete implementation of class %qs",
 			 IDENTIFIER_POINTER
 			   (CLASS_NAME (objc_implementation_context)));
 	      else if (TREE_CODE (objc_implementation_context)
 		       == CATEGORY_IMPLEMENTATION_TYPE)
-		warning ("incomplete implementation of category `%s'",
+		warning ("incomplete implementation of category %qs",
 			 IDENTIFIER_POINTER
 			   (CLASS_SUPER_NAME (objc_implementation_context)));
 	      first = 0;
 	    }
-	  warning ("method definition for `%c%s' not found",
+	  warning ("method definition for %<%c%s%> not found",
 		   mtype, IDENTIFIER_POINTER (METHOD_SEL_NAME (chain)));
 	}
 
@@ -6526,7 +6617,7 @@ check_protocol (tree p, const char *type, const char *name)
 	}
 
       if (!f1 || !f2)
-	warning ("%s `%s' does not fully implement the `%s' protocol",
+	warning ("%s %qs does not fully implement the %qs protocol",
 		 type, name, IDENTIFIER_POINTER (PROTOCOL_NAME (p)));
     }
 
@@ -6584,7 +6675,7 @@ start_class (enum tree_code code, tree class_name, tree super_name,
 
   if (objc_implementation_context)
     {
-      warning ("`@end' missing in implementation context");
+      warning ("%<@end%> missing in implementation context");
       finish_class (objc_implementation_context);
       objc_ivar_chain = NULL_TREE;
       objc_implementation_context = NULL_TREE;
@@ -6597,7 +6688,7 @@ start_class (enum tree_code code, tree class_name, tree super_name,
   if ((code == CLASS_INTERFACE_TYPE || code == CLASS_IMPLEMENTATION_TYPE)
       && super_name && !objc_is_class_name (super_name))
     {
-      error ("cannot find interface declaration for `%s', superclass of `%s'",
+      error ("cannot find interface declaration for %qs, superclass of %qs",
 	     IDENTIFIER_POINTER (super_name),
 	     IDENTIFIER_POINTER (class_name));
       super_name = NULL_TREE;
@@ -6610,7 +6701,7 @@ start_class (enum tree_code code, tree class_name, tree super_name,
   if (! objc_is_class_name (class_name)
       && (decl = lookup_name (class_name)))
     {
-      error ("`%s' redeclared as different kind of symbol",
+      error ("%qs redeclared as different kind of symbol",
 	     IDENTIFIER_POINTER (class_name));
       error ("%Jprevious declaration of '%D'",
 	     decl, decl);
@@ -6624,7 +6715,7 @@ start_class (enum tree_code code, tree class_name, tree super_name,
         for (chain = implemented_classes; chain; chain = TREE_CHAIN (chain))
            if (TREE_VALUE (chain) == class_name)
 	     {
-	       error ("reimplementation of class `%s'",
+	       error ("reimplementation of class %qs",
 		      IDENTIFIER_POINTER (class_name));
 	       return error_mark_node;
 	     }
@@ -6641,7 +6732,7 @@ start_class (enum tree_code code, tree class_name, tree super_name,
 
       if (!(implementation_template = lookup_interface (class_name)))
         {
-	  warning ("cannot find interface declaration for `%s'",
+	  warning ("cannot find interface declaration for %qs",
 		   IDENTIFIER_POINTER (class_name));
 	  add_class (implementation_template = objc_implementation_context);
         }
@@ -6655,9 +6746,9 @@ start_class (enum tree_code code, tree class_name, tree super_name,
 	  tree previous_name = CLASS_SUPER_NAME (implementation_template);
           const char *const name =
 	    previous_name ? IDENTIFIER_POINTER (previous_name) : "";
-	  error ("conflicting super class name `%s'",
+	  error ("conflicting super class name %qs",
 		 IDENTIFIER_POINTER (super_name));
-	  error ("previous declaration of `%s'", name);
+	  error ("previous declaration of %qs", name);
         }
 
       else if (! super_name)
@@ -6671,9 +6762,9 @@ start_class (enum tree_code code, tree class_name, tree super_name,
     {
       if (lookup_interface (class_name))
 #ifdef OBJCPLUS
-	error ("duplicate interface declaration for class `%s'",
+	error ("duplicate interface declaration for class %qs",
 #else
-	warning ("duplicate interface declaration for class `%s'",
+	warning ("duplicate interface declaration for class %qs",
 #endif	
         IDENTIFIER_POINTER (class_name));
       else
@@ -6694,7 +6785,7 @@ start_class (enum tree_code code, tree class_name, tree super_name,
 
       if (!(class_category_is_assoc_with = lookup_interface (class_name)))
 	{
-	  error ("cannot find interface declaration for `%s'",
+	  error ("cannot find interface declaration for %qs",
 		 IDENTIFIER_POINTER (class_name));
 	  exit (FATAL_EXIT_CODE);
 	}
@@ -6719,7 +6810,7 @@ start_class (enum tree_code code, tree class_name, tree super_name,
 
       if (!(implementation_template = lookup_interface (class_name)))
         {
-	  error ("cannot find interface declaration for `%s'",
+	  error ("cannot find interface declaration for %qs",
 		 IDENTIFIER_POINTER (class_name));
 	  exit (FATAL_EXIT_CODE);
         }
@@ -6747,7 +6838,10 @@ continue_class (tree class)
       push_lang_context (lang_name_c);
 #endif
 
-      ivar_context = build_private_template (implementation_template);
+      build_private_template (implementation_template);
+      uprivate_record = CLASS_STATIC_TEMPLATE (implementation_template);
+      ivar_context = TYPE_FIELDS (uprivate_record);
+      objc_instance_type = build_pointer_type (uprivate_record);
 
       imp_entry = (struct imp_entry *) ggc_alloc (sizeof (struct imp_entry));
 
@@ -6779,15 +6873,7 @@ continue_class (tree class)
       push_lang_context (lang_name_c);
 #endif /* OBJCPLUS */
 
-      if (!CLASS_STATIC_TEMPLATE (class))
-	{
-	  tree record = start_struct (RECORD_TYPE, CLASS_NAME (class));
-	  finish_struct (record, get_class_ivars (class), NULL_TREE);
-	  CLASS_STATIC_TEMPLATE (class) = record;
-
-	  /* Mark this record as a class template for static typing.  */
-	  TREE_STATIC_TEMPLATE (record) = 1;
-	}
+      build_private_template (class);
 
 #ifdef OBJCPLUS
       pop_lang_context ();
@@ -6841,23 +6927,6 @@ finish_class (tree class)
 			     "category",
 			     IDENTIFIER_POINTER (CLASS_SUPER_NAME (objc_implementation_context)));
 	}
-    }
-
-  else if (TREE_CODE (class) == CLASS_INTERFACE_TYPE)
-    {
-      tree decl;
-      const char *class_name = IDENTIFIER_POINTER (CLASS_NAME (class));
-      char *string = (char *) alloca (strlen (class_name) + 3);
-
-      /* extern struct objc_object *_<my_name>; */
-
-      sprintf (string, "_%s", class_name);
-
-      decl = build_decl (VAR_DECL, get_identifier (string),
-			 build_pointer_type (objc_object_reference));
-      DECL_EXTERNAL (decl) = 1;
-      lang_hooks.decls.pushdecl (decl);
-      finish_decl (decl, NULL_TREE, NULL_TREE);
     }
 }
 
@@ -6950,7 +7019,7 @@ start_protocol (enum tree_code code, tree name, tree list)
     }
   else
     {
-      warning ("duplicate declaration for protocol `%s'",
+      warning ("duplicate declaration for protocol %qs",
 	       IDENTIFIER_POINTER (name));
     }
   return protocol;
@@ -7001,7 +7070,8 @@ encode_pointer (tree type, int curtype, int format)
 	      obstack_1grow (&util_obstack, '@');
 	      return;
 	    }
-	  else if (TREE_STATIC_TEMPLATE (pointer_to))
+	  else if (TYPE_HAS_OBJC_INFO (pointer_to)
+		   && TYPE_OBJC_INTERFACE (pointer_to))
 	    {
               if (generating_instance_variables)
 	        {
@@ -7221,6 +7291,7 @@ encode_type (tree type, int curtype, int format)
 	{
 	case 32:  c = 'f'; break;
 	case 64:
+	case 96:
 	case 128: c = 'd'; break;
 	default: abort ();
 	}
@@ -7340,11 +7411,22 @@ static GTY(()) tree objc_parmlist = NULL_TREE;
 static void
 objc_push_parm (tree parm)
 {
-  /* Convert array parameters of unknown size into pointers.  */
-  if (TREE_CODE (TREE_TYPE (parm)) == ARRAY_TYPE
-      && !TYPE_SIZE (TREE_TYPE (parm)))
+  /* Decay arrays and functions into pointers.  */
+  if (TREE_CODE (TREE_TYPE (parm)) == ARRAY_TYPE)
     TREE_TYPE (parm) = build_pointer_type (TREE_TYPE (TREE_TYPE (parm)));
+  else if (TREE_CODE (TREE_TYPE (parm)) == FUNCTION_TYPE)
+    TREE_TYPE (parm) = build_pointer_type (TREE_TYPE (parm));
 
+  DECL_ARG_TYPE_AS_WRITTEN (parm) = TREE_TYPE (parm);
+  DECL_ARG_TYPE (parm)
+    = lang_hooks.types.type_promotes_to (TREE_TYPE (parm));
+
+  /* Record constancy and volatility.  */
+  c_apply_type_quals_to_decl
+  ((TYPE_READONLY (TREE_TYPE (parm)) ? TYPE_QUAL_CONST : 0)
+   | (TYPE_RESTRICT (TREE_TYPE (parm)) ? TYPE_QUAL_RESTRICT : 0)
+   | (TYPE_VOLATILE (TREE_TYPE (parm)) ? TYPE_QUAL_VOLATILE : 0), parm);
+  
   objc_parmlist = chainon (objc_parmlist, parm);
 }
 
@@ -7376,7 +7458,8 @@ objc_get_parm_info (int have_ellipsis)
       tree next = TREE_CHAIN (parm_info);
 
       TREE_CHAIN (parm_info) = NULL_TREE; 
-      pushdecl (parm_info);
+      parm_info = pushdecl (parm_info);
+      finish_decl (parm_info, NULL_TREE, NULL_TREE);
       parm_info = next;
     }
   arg_info = get_parm_info (have_ellipsis);
@@ -7436,9 +7519,9 @@ start_method_def (tree method)
   parmlist = METHOD_SEL_ARGS (method);
   while (parmlist)
     {
-      tree parm = build_decl (PARM_DECL, KEYWORD_ARG_NAME (parmlist),
-			      TREE_VALUE (TREE_TYPE (parmlist)));
+      tree type = TREE_VALUE (TREE_TYPE (parmlist)), parm;
 
+      parm = build_decl (PARM_DECL, KEYWORD_ARG_NAME (parmlist), type);
       objc_push_parm (parm);
       parmlist = TREE_CHAIN (parmlist);
     }
@@ -7466,7 +7549,7 @@ static void
 warn_with_method (const char *message, int mtype, tree method)
 {
   /* Add a readable method name to the warning.  */
-  warning ("%J%s `%c%s'", method,
+  warning ("%J%s %<%c%s%>", method,
            message, mtype, gen_method_decl (method));
 }
 
@@ -7486,8 +7569,13 @@ objc_types_are_equivalent (tree type1, tree type2)
   if (TYPE_MAIN_VARIANT (type1) != TYPE_MAIN_VARIANT (type2))
     return 0;
 
-  type1 = TYPE_PROTOCOL_LIST (type1);
-  type2 = TYPE_PROTOCOL_LIST (type2);
+  type1 = (TYPE_HAS_OBJC_INFO (type1)
+	   ? TYPE_OBJC_PROTOCOL_LIST (type1)
+	   : NULL_TREE);
+  type2 = (TYPE_HAS_OBJC_INFO (type2)
+	   ? TYPE_OBJC_PROTOCOL_LIST (type2)
+	   : NULL_TREE);
+
   if (list_length (type1) == list_length (type2))
     {
       for (; type2; type2 = TREE_CHAIN (type2))
@@ -7571,24 +7659,26 @@ objc_start_function (tree name, tree type, tree attrs,
 
 #ifdef OBJCPLUS
   DECL_ARGUMENTS (fndecl) = params;
-#endif
   DECL_INITIAL (fndecl) = error_mark_node;
   DECL_EXTERNAL (fndecl) = 0;
   TREE_STATIC (fndecl) = 1;
-
-#ifdef OBJCPLUS
   retrofit_lang_decl (fndecl);
   cplus_decl_attributes (&fndecl, attrs, 0);
   start_preparsed_function (fndecl, attrs, /*flags=*/SF_DEFAULT);
 #else
   decl_attributes (&fndecl, attrs, 0);
   announce_function (fndecl);
+  DECL_INITIAL (fndecl) = error_mark_node;
+  DECL_EXTERNAL (fndecl) = 0;
+  TREE_STATIC (fndecl) = 1;
   current_function_decl = pushdecl (fndecl);
   push_scope ();
   declare_parm_level ();
   DECL_RESULT (current_function_decl)
     = build_decl (RESULT_DECL, NULL_TREE,
 		  TREE_TYPE (TREE_TYPE (current_function_decl)));
+  DECL_ARTIFICIAL (DECL_RESULT (current_function_decl)) = 1;
+  DECL_IGNORED_P (DECL_RESULT (current_function_decl)) = 1;
   start_fname_decls ();
   store_parm_decls_from (params);
 #endif
@@ -7756,7 +7846,7 @@ get_super_receiver (void)
 	  /* Barf if super used in a category of Object.  */
 	  if (!super_name)
 	    {
-	      error ("no super class declared in interface for `%s'",
+	      error ("no super class declared in interface for %qs",
 		    IDENTIFIER_POINTER (CLASS_NAME (implementation_template)));
 	      return error_mark_node;
 	    }
@@ -7850,7 +7940,7 @@ lang_report_error_function (tree decl)
 {
   if (objc_method_context)
     {
-      fprintf (stderr, "In method `%s'\n",
+      fprintf (stderr, "In method %qs\n",
 	       IDENTIFIER_POINTER (METHOD_SEL_NAME (objc_method_context)));
       return 1;
     }
@@ -7899,14 +7989,39 @@ gen_type_name_0 (tree type)
 
   if (TYPE_P (type) && TYPE_NAME (type))
     type = TYPE_NAME (type);
-  else if (POINTER_TYPE_P (type))
+  else if (POINTER_TYPE_P (type) || TREE_CODE (type) == ARRAY_TYPE)
     {
-      gen_type_name_0 (TREE_TYPE (type));
+      tree inner = TREE_TYPE (type);
+
+      while (TREE_CODE (inner) == ARRAY_TYPE)
+	inner = TREE_TYPE (inner);
+
+      gen_type_name_0 (inner);
       
-      if (!POINTER_TYPE_P (TREE_TYPE (type)))
+      if (!POINTER_TYPE_P (inner))
 	strcat (errbuf, " ");
 
-      strcat (errbuf, "*");
+      if (POINTER_TYPE_P (type))
+	strcat (errbuf, "*");
+      else
+	while (type != inner)
+	  {
+	    strcat (errbuf, "[");
+
+	    if (TYPE_DOMAIN (type))
+	      {
+		char sz[20];
+
+		sprintf (sz, HOST_WIDE_INT_PRINT_DEC,
+			 (TREE_INT_CST_LOW 
+			  (TYPE_MAX_VALUE (TYPE_DOMAIN (type))) + 1));
+		strcat (errbuf, sz);
+	      }
+
+	    strcat (errbuf, "]");
+	    type = TREE_TYPE (type);
+	  }
+
       goto exit_function;
     }
 
@@ -7914,7 +8029,12 @@ gen_type_name_0 (tree type)
     type = DECL_NAME (type);
 
   strcat (errbuf, IDENTIFIER_POINTER (type));
-  proto = TYPE_PROTOCOL_LIST (orig);
+
+  /* For 'id' and 'Class', adopted protocols are stored in the pointee.  */
+  if (objc_is_id (orig))
+    orig = TREE_TYPE (orig);
+  
+  proto = TYPE_HAS_OBJC_INFO (orig) ? TYPE_OBJC_PROTOCOL_LIST (orig) : NULL_TREE;
 
   if (proto)
     {
@@ -8149,7 +8269,7 @@ finish_objc (void)
   /* A missing @end may not be detected by the parser.  */
   if (objc_implementation_context)
     {
-      warning ("`@end' missing in implementation context");
+      warning ("%<@end%> missing in implementation context");
       finish_class (objc_implementation_context);
       objc_ivar_chain = NULL_TREE;
       objc_implementation_context = NULL_TREE;
@@ -8398,25 +8518,49 @@ generate_objc_image_info (void)
   finish_var_decl (decl, initlist);
 }
 
-/* Look up ID as an instance variable.  */
+/* Look up ID as an instance variable.  OTHER contains the result of
+   the C or C++ lookup, which we may want to use instead.  */
 
 tree
-objc_lookup_ivar (tree id)
+objc_lookup_ivar (tree other, tree id)
 {
-  tree decl;
+  tree ivar;
 
-  if (objc_method_context && !strcmp (IDENTIFIER_POINTER (id), "super"))
+  /* If we are not inside of an ObjC method, ivar lookup makes no sense.  */
+  if (!objc_method_context)
+    return other;
+
+  if (!strcmp (IDENTIFIER_POINTER (id), "super"))
     /* We have a message to super.  */
     return get_super_receiver ();
-  else if (objc_method_context && (decl = is_ivar (objc_ivar_chain, id)))
+
+  /* In a class method, look up an instance variable only as a last
+     resort.  */
+  if (TREE_CODE (objc_method_context) == CLASS_METHOD_DECL
+      && other && other != error_mark_node)
+    return other;
+
+  /* Look up the ivar, but do not use it if it is not accessible.  */
+  ivar = is_ivar (objc_ivar_chain, id);
+
+  if (!ivar || is_private (ivar))
+    return other;
+
+  /* In an instance method, a local variable (or parameter) may hide the
+     instance variable.  */
+  if (TREE_CODE (objc_method_context) == INSTANCE_METHOD_DECL
+      && other && other != error_mark_node && !DECL_FILE_SCOPE_P (other))
     {
-      if (is_private (decl))
-	return 0;
-      else
-        return build_ivar_reference (id);
+      warning ("local declaration of %qs hides instance variable",
+	       IDENTIFIER_POINTER (id));
+
+      return other;
     }
-  else
-    return 0;
+
+  /* At this point, we are either in an instance method with no obscuring
+     local definitions, or in a class method with no alternate definitions
+     at all.  */
+  return build_ivar_reference (id);
 }
 
 #include "gt-objc-objc-act.h"

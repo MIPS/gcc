@@ -29,14 +29,12 @@
 #define TARGET_CPU_CPP_BUILTINS()		\
   do						\
     {						\
-      /* ??? HACK.  We shouldn't have flag_inline_trees at all.  */ \
       extern int flag_inline_trees;		\
       if (!TARGET_SMALL)			\
 	builtin_define ("_BIGMODEL");		\
       if (!TARGET_MEMPARM)			\
 	builtin_define ("_REGPARM");		\
-      if (flag_inline_functions			\
-	  || flag_inline_trees)			\
+      if (flag_inline_functions)		\
 	builtin_define ("_INLINE");		\
       if (TARGET_C3X)				\
 	{					\
@@ -1130,8 +1128,6 @@ CUMULATIVE_ARGS;
 
 #define CALLER_SAVE_PROFITABLE(REFS,CALLS) 0
 
-#define FUNCTION_ARG_PARTIAL_NREGS(CUM, MODE, TYPE, NAMED) 0
-
 /* 1 if N is a possible register number for function argument passing.  */
 
 #define FUNCTION_ARG_REGNO_P(REGNO) \
@@ -1451,8 +1447,6 @@ fini_section ()							\
       in_section = in_fini;					\
     }								\
 }
-
-#define ASM_STABS_OP "\t.stabs\t"
 
 /* Switch into a generic section.  */
 #define TARGET_ASM_NAMED_SECTION c4x_asm_named_section

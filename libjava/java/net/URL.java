@@ -1,5 +1,5 @@
 /* URL.java -- Uniform Resource Locator Class
-   Copyright (C) 1998, 1999, 2000, 2002, 2003, 2004
+   Copyright (C) 1998, 1999, 2000, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
@@ -39,13 +39,14 @@ exception statement from your version. */
 package java.net;
 
 import gnu.java.net.URLParseError;
-import java.security.AccessController;
-import java.security.PrivilegedAction;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
 import java.util.HashMap;
 import java.util.StringTokenizer;
 
@@ -116,8 +117,8 @@ import java.util.StringTokenizer;
   * done, then the above information is superseded and the behavior of this
   * class in loading protocol handlers is dependent on that factory.
   *
-  * @author Aaron M. Renn <arenn@urbanophile.com>
-  * @author Warren Levy <warrenl@cygnus.com>
+  * @author Aaron M. Renn (arenn@urbanophile.com)
+  * @author Warren Levy (warrenl@cygnus.com)
   *
   * @see URLStreamHandler
   */
@@ -320,7 +321,7 @@ public final class URL implements Serializable
    */
   public URL(String spec) throws MalformedURLException
   {
-    this((URL) null, spec, (URLStreamHandler) null);
+    this((URL) null, spec != null ? spec : "", (URLStreamHandler) null);
   }
 
   /**
@@ -391,13 +392,14 @@ public final class URL implements Serializable
     // right after the "://".  The second colon is for an optional port value
     // and implies that the host from the context is used if available.
     int colon;
+    int slash = spec.indexOf('/');
     if ((colon = spec.indexOf("://", 1)) > 0
+	&& ((colon < slash || slash < 0))
         && ! spec.regionMatches(colon, "://:", 0, 4))
       context = null;
 
-    int slash;
     if ((colon = spec.indexOf(':')) > 0
-        && (colon < (slash = spec.indexOf('/')) || slash < 0))
+        && (colon < slash || slash < 0))
       {
 	// Protocol specified in spec string.
 	protocol = spec.substring(0, colon).toLowerCase();
@@ -428,8 +430,6 @@ public final class URL implements Serializable
 	authority = context.authority;
       }
     else // Protocol NOT specified in spec. and no context available.
-
-
       throw new MalformedURLException("Absolute URL required with null context");
 
     protocol = protocol.trim();
@@ -918,6 +918,10 @@ public final class URL implements Serializable
 		Class c = Class.forName(clsName, true, systemClassLoader);
 		ph = (URLStreamHandler) c.newInstance();
 	      }
+            catch (ThreadDeath death)
+              {
+                throw death;
+              }
 	    catch (Throwable t) { /* ignored */ }
 	  }
 	 while (ph == null && pkgPrefix.hasMoreTokens());
