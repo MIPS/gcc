@@ -1,0 +1,10 @@
+2004-11-12  Devang Patel  <dpatel@apple.com>
+
+	* gcc.dg/vect/vect-20040915-1.c: New test.
+	* gcc.dg/vect/vect-20040915-2.c: New test.
+	* gcc.dg/vect/vect-20040915-3.c: New test.
+	* gcc.dg/vect/vect-20040915-4.c: New test.
+	* gcc.dg/vect/vect-20040915-5.c: New test.
+	* gcc.dg/vect/vect-20040915-6.c: New test.
+	* gcc.dg/vect/vect-20040915-7.c: New test.
+

@@ -1,0 +1,34 @@
+2004-11-12  Devang Patel  <dpatel@apple.com>
+
+	* optabs.c (vector_compare_rtx): Use tcc_comparison.
+
+2004-11-12  Devang Patel  <dpatel@apple.com>
+
+	Backport from Mainline.
+
+	2004-11-12  Sebastian Pop  <pop@cri.ensmp.fr>
+
+        * tree-data-ref.c (analyze_subscript_affine_affine): Correctly
+        compute the first overlapping iterations.
+
+2004-11-12  Devang Patel  <dpatel@apple.com>
+	
+	* tree-data-ref.c (compute_subscript_distance): Make externally visible.
+	(build_class_dist_vector): Same.
+	* tree-data-ref.h (compute_subscript_distance): New external decl.
+	(build_class_dist_vector): Same.
+	* tree-vectorizer.c (loops_num): New variable.
+	(vect_build_dist_vector): New function.
+	(vect_analyze_data_ref_dependence): Use distance vector to determine
+	dependence.
+	(vect_analyze_data_ref_dependences): Remove local variable loop.
+	(vect_analyze_loop): Analyze operations before data dependences
+	(vectorize_loops): Remove local variable loops_num.
+
+2004-11-12  Devang Patel  <dpatel@apple.com>
+
+	* tree-vectorizer.c (vectorizable_select): New function.
+	(vect_is_simple_cond): New function.
+	(vect_analyze_operations): Handle conditional expr.
+	* tree-vectorizer.h (stmt_vec_info_type): New member, select_vec_info_type.
+

@@ -165,6 +165,7 @@ static bool vectorizable_load (tree, block_stmt_iterator *, tree *);
 static bool vectorizable_store (tree, block_stmt_iterator *, tree *);
 static bool vectorizable_operation (tree, block_stmt_iterator *, tree *);
 static bool vectorizable_assignment (tree, block_stmt_iterator *, tree *);
+static bool vectorizable_select (tree, block_stmt_iterator *, tree *);
 static enum dr_alignment_support vect_supportable_dr_alignment
   (struct data_reference *);
 static void vect_align_data_ref (tree);
@@ -172,6 +173,7 @@ static void vect_enhance_data_refs_alignment (loop_vec_info);
 
 /* Utility functions for the analyses.  */
 static bool vect_is_simple_use (tree , struct loop *, tree *);
+static bool vect_is_simple_cond (tree, struct loop *);
 static bool exist_non_indexing_operands_for_use_p (tree, tree);
 static bool vect_is_simple_iv_evolution (unsigned, tree, tree *, tree *, bool);
 static void vect_mark_relevant (varray_type, tree);
@@ -262,9 +264,13 @@ stmt_vec_info new_stmt_vec_info (tree stmt, struct loop *loop);
 static bool vect_debug_stats (struct loop *loop);
 static bool vect_debug_details (struct loop *loop);
 
+static unsigned int loops_num;
 
 /* Utilities to support loop peeling for vectorization purposes.  */
 
+/* Utilities for dependence analysis.  */
+static unsigned int vect_build_dist_vector (struct loop *,
+					    struct data_dependence_relation *);
 
 /* For each definition in DEFINITIONS this function allocates 
    new ssa name.  */
@@ -2629,6 +2635,100 @@ vect_supportable_dr_alignment (struct data_reference *dr)
 }
 
 
+/* vectorizable_select.
+
+   Check if STMT is conditional modify expression that can be vectorized. 
+   If VEC_STMT is also passed, vectorize the STMT: create a vectorized 
+   stmt using VEC_COND_EXPR  to replace it, put it in VEC_STMT, and insert it 
+   at BSI.
+
+   Return FALSE if not a vectorizable STMT, TRUE otherwise.  */
+
+static bool
+vectorizable_select (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
+{
+  tree scalar_dest = NULL_TREE;
+  tree vec_dest = NULL_TREE;
+  tree op = NULL_TREE;
+  tree cond_expr, then_clause, else_clause;
+  stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
+  tree vectype = STMT_VINFO_VECTYPE (stmt_info);
+  tree vec_cond_lhs, vec_cond_rhs, vec_then_clause, vec_else_clause;
+  tree vec_compare, vec_cond_expr;
+  tree new_temp;
+  struct loop *loop = STMT_VINFO_LOOP (stmt_info);
+  enum machine_mode vec_mode;
+
+  if (TREE_CODE (stmt) != MODIFY_EXPR)
+    return false;
+
+  op = TREE_OPERAND (stmt, 1);
+
+  if (TREE_CODE (op) != COND_EXPR)
+    return false;
+
+  cond_expr = TREE_OPERAND (op, 0);
+  then_clause = TREE_OPERAND (op, 1);
+  else_clause = TREE_OPERAND (op, 2);
+
+  if (!vect_is_simple_cond (cond_expr, loop))
+    return false;
+
+  if (TREE_CODE (then_clause) == SSA_NAME)
+    {
+      tree then_def_stmt = SSA_NAME_DEF_STMT (then_clause);
+      if (!vect_is_simple_use (then_clause, loop, &then_def_stmt))
+	return false;
+    }
+  else if (TREE_CODE (then_clause) != INTEGER_CST 
+	   && TREE_CODE (then_clause) != REAL_CST)
+    return false;
+
+  if (TREE_CODE (else_clause) == SSA_NAME)
+    {
+      tree else_def_stmt = SSA_NAME_DEF_STMT (else_clause);
+      if (!vect_is_simple_use (else_clause, loop, &else_def_stmt))
+	return false;
+    }
+  else if (TREE_CODE (else_clause) != INTEGER_CST 
+	   && TREE_CODE (else_clause) != REAL_CST)
+    return false;
+
+
+  vec_mode = TYPE_MODE (vectype);
+
+  if (!vec_stmt) 
+    {
+      STMT_VINFO_TYPE (stmt_info) = select_vec_info_type;
+      return expand_vec_cond_expr_p (op, vec_mode);
+    }
+
+  /* Transform */
+
+  /* Handle def.  */
+  scalar_dest = TREE_OPERAND (stmt, 0);
+  vec_dest = vect_create_destination_var (scalar_dest, vectype);
+
+  /* Handle cond expr.  */
+  vec_cond_lhs = vect_get_vec_def_for_operand (TREE_OPERAND (cond_expr, 0), stmt);
+  vec_cond_rhs = vect_get_vec_def_for_operand (TREE_OPERAND (cond_expr, 1), stmt);
+  vec_then_clause = vect_get_vec_def_for_operand (then_clause, stmt);
+  vec_else_clause = vect_get_vec_def_for_operand (else_clause, stmt);
+
+  /* Arguments are ready. create the new vector stmt.  */
+  vec_compare = build2 (TREE_CODE (cond_expr), vectype, 
+			vec_cond_lhs, vec_cond_rhs);
+  vec_cond_expr = build (VEC_COND_EXPR, vectype, 
+			 vec_compare, vec_then_clause, vec_else_clause);
+
+  *vec_stmt = build2 (MODIFY_EXPR, vectype, vec_dest, vec_cond_expr);
+  new_temp = make_ssa_name (vec_dest, *vec_stmt);
+  TREE_OPERAND (*vec_stmt, 0) = new_temp;
+  vect_finish_stmt_generation (stmt, *vec_stmt, bsi);
+  
+  return true;
+}
+
 /* Function vect_transform_stmt.
 
    Create a vectorized stmt to replace STMT, and insert it at BSI.  */
@@ -2663,6 +2763,12 @@ vect_transform_stmt (tree stmt, block_stmt_iterator *bsi)
       gcc_assert (done);
       is_store = true;
       break;
+
+    case select_vec_info_type:
+      if (!vectorizable_select (stmt, bsi, &vec_stmt))
+	abort ();
+      break;
+
     default:
       if (vect_debug_details (NULL))
         fprintf (dump_file, "stmt not supported.");
@@ -3339,6 +3445,46 @@ vect_transform_loop (loop_vec_info loop_vinfo,
     fprintf (dump_file, "LOOP VECTORIZED.");
 }
 
+/* FUnction vect_is_simple_cond.
+  
+   Input:
+   LOOP - the loop that is being vectorized.
+   COND - Condition that is checked for simple use.
+
+   Returns whether a COND can be vectorized. Checkes whether
+   condition operands are supportable using vec_is_simple_use.  */
+
+static bool
+vect_is_simple_cond (tree cond, struct loop *loop)
+{
+  tree lhs, rhs;
+
+  if (TREE_CODE_CLASS (TREE_CODE (cond)) != tcc_comparison)
+    return false;
+
+  lhs = TREE_OPERAND (cond, 0);
+  rhs = TREE_OPERAND (cond, 1);
+
+  if (TREE_CODE (lhs) == SSA_NAME)
+    {
+      tree lhs_def_stmt = SSA_NAME_DEF_STMT (lhs);
+      if (!vect_is_simple_use (lhs, loop, &lhs_def_stmt))
+	return false;
+    }
+  else if (TREE_CODE (lhs) != INTEGER_CST && TREE_CODE (lhs) != REAL_CST)
+    return false;
+
+  if (TREE_CODE (rhs) == SSA_NAME)
+    {
+      tree rhs_def_stmt = SSA_NAME_DEF_STMT (rhs);
+      if (!vect_is_simple_use (rhs, loop, &rhs_def_stmt))
+	return false;
+    }
+  else if (TREE_CODE (rhs) != INTEGER_CST  && TREE_CODE (rhs) != REAL_CST)
+    return false;
+
+  return true;
+}
 
 /* Function vect_is_simple_use.
 
@@ -3510,7 +3656,8 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
 	  ok = (vectorizable_operation (stmt, NULL, NULL)
 		|| vectorizable_assignment (stmt, NULL, NULL)
 		|| vectorizable_load (stmt, NULL, NULL)
-		|| vectorizable_store (stmt, NULL, NULL));
+		|| vectorizable_store (stmt, NULL, NULL)
+		|| vectorizable_select (stmt, NULL, NULL));
 
 	  if (!ok)
 	    {
@@ -3791,6 +3938,36 @@ vect_analyze_scalar_cycles (loop_vec_info loop_vinfo)
   return true;
 }
 
+/* Function vect_build_dist_vector.
+
+   Build classic dist vector for dependence relation DDR using LOOP's loop
+   nest. Return LOOP's depth in its loop nest.  */
+
+static unsigned int
+vect_build_dist_vector (struct loop *loop,
+			struct data_dependence_relation *ddr)
+{
+  struct loop *loop_nest = loop;
+  unsigned int loop_depth = 1;
+
+  /* Find loop nest and loop depth.  */
+  while (loop_nest)
+    {
+      if (loop_nest->outer && loop_nest->outer->outer)
+	{
+	  loop_nest = loop_nest->outer;
+	  loop_depth++;
+	}
+      else
+	break;
+    }
+
+  /* Compute distance vector.  */
+  compute_subscript_distance (ddr);
+  build_classic_dist_vector (ddr, loops_num, loop->num);
+
+  return loop_depth - 1;
+}
 
 /* Function vect_analyze_data_ref_dependence.
 
@@ -3800,11 +3977,15 @@ vect_analyze_scalar_cycles (loop_vec_info loop_vinfo)
 static bool
 vect_analyze_data_ref_dependence (struct data_reference *dra,
 				  struct data_reference *drb, 
-				  struct loop *loop)
+				  loop_vec_info loop_info)
 {
   bool differ_p; 
   struct data_dependence_relation *ddr;
-  
+  int vectorization_factor = LOOP_VINFO_VECT_FACTOR (loop_info);
+  struct loop *loop = LOOP_VINFO_LOOP (loop_info);
+  unsigned int loop_depth = 0;
+  int dist;
+
   if (!array_base_name_differ_p (dra, drb, &differ_p))
     {
       if (vect_debug_stats (loop) || vect_debug_details (loop))   
@@ -3826,6 +4007,22 @@ vect_analyze_data_ref_dependence (struct data_reference *dra,
 
   if (DDR_ARE_DEPENDENT (ddr) == chrec_known)
     return false;
+
+  if (DDR_ARE_DEPENDENT (ddr) == chrec_dont_know)
+    return true;
+
+  loop_depth = vect_build_dist_vector (loop, ddr);
+
+  dist = DDR_DIST_VECT (ddr)[loop_depth];
+
+  /* Same loop iteration.  */
+  if (dist == 0)
+     return false;
+
+  if (dist >= vectorization_factor)
+    /* Dependence distance does not create dependence, as far as vectorization
+       is concerned, in this case.  */
+    return false;
   
   if (vect_debug_stats (loop) || vect_debug_details (loop))
     {
@@ -3843,10 +4040,7 @@ vect_analyze_data_ref_dependence (struct data_reference *dra,
 /* Function vect_analyze_data_ref_dependences.
 
    Examine all the data references in the loop, and make sure there do not
-   exist any data dependences between them.
-
-   TODO: dependences which distance is greater than the vectorization factor
-         can be ignored.  */
+   exist any data dependences between them.  */
 
 static bool
 vect_analyze_data_ref_dependences (loop_vec_info loop_vinfo)
@@ -3854,7 +4048,6 @@ vect_analyze_data_ref_dependences (loop_vec_info loop_vinfo)
   unsigned int i, j;
   varray_type loop_write_refs = LOOP_VINFO_DATAREF_WRITES (loop_vinfo);
   varray_type loop_read_refs = LOOP_VINFO_DATAREF_READS (loop_vinfo);
-  struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
 
   /* Examine store-store (output) dependences.  */
 
@@ -3872,7 +4065,7 @@ vect_analyze_data_ref_dependences (loop_vec_info loop_vinfo)
 	    VARRAY_GENERIC_PTR (loop_write_refs, i);
 	  struct data_reference *drb =
 	    VARRAY_GENERIC_PTR (loop_write_refs, j);
-	  if (vect_analyze_data_ref_dependence (dra, drb, loop))
+	  if (vect_analyze_data_ref_dependence (dra, drb, loop_vinfo))
 	    return false;
 	}
     }
@@ -3889,7 +4082,7 @@ vect_analyze_data_ref_dependences (loop_vec_info loop_vinfo)
 	  struct data_reference *dra = VARRAY_GENERIC_PTR (loop_read_refs, i);
 	  struct data_reference *drb =
 	    VARRAY_GENERIC_PTR (loop_write_refs, j);
-	  if (vect_analyze_data_ref_dependence (dra, drb, loop))
+	  if (vect_analyze_data_ref_dependence (dra, drb, loop_vinfo))
 	    return false;
 	}
     }
@@ -5615,30 +5808,6 @@ vect_analyze_loop (struct loop *loop)
       return NULL;
     }
 
-  /* Analyze data dependences between the data-refs in the loop. 
-     FORNOW: fail at the first data dependence that we encounter.  */
-
-  ok = vect_analyze_data_ref_dependences (loop_vinfo);
-  if (!ok)
-    {
-      if (vect_debug_details (loop))
-	fprintf (dump_file, "bad data dependence.");
-      destroy_loop_vec_info (loop_vinfo);
-      return NULL;
-    }
-
-  /* Analyze the access patterns of the data-refs in the loop (consecutive,
-     complex, etc.). FORNOW: Only handle consecutive access pattern.  */
-
-  ok = vect_analyze_data_ref_accesses (loop_vinfo);
-  if (!ok)
-    {
-      if (vect_debug_details (loop))
-	fprintf (dump_file, "bad data access.");
-      destroy_loop_vec_info (loop_vinfo);
-      return NULL;
-    }
-
   /* Analyze the alignment of the data-refs in the loop.
      FORNOW: Only aligned accesses are handled.  */
 
@@ -5659,6 +5828,30 @@ vect_analyze_loop (struct loop *loop)
     {
       if (vect_debug_details (loop))
 	fprintf (dump_file, "bad operation or unsupported loop bound.");
+      destroy_loop_vec_info (loop_vinfo);
+      return NULL;
+    }
+
+  /* Analyze data dependences between the data-refs in the loop. 
+     FORNOW: fail at the first data dependence that we encounter.  */
+
+  ok = vect_analyze_data_ref_dependences (loop_vinfo);
+  if (!ok)
+    {
+      if (vect_debug_details (loop))
+	fprintf (dump_file, "bad data dependence.");
+      destroy_loop_vec_info (loop_vinfo);
+      return NULL;
+    }
+
+  /* Analyze the access patterns of the data-refs in the loop (consecutive,
+     complex, etc.). FORNOW: Only handle consecutive access pattern.  */
+
+  ok = vect_analyze_data_ref_accesses (loop_vinfo);
+  if (!ok)
+    {
+      if (vect_debug_details (loop))
+	fprintf (dump_file, "bad data access.");
       destroy_loop_vec_info (loop_vinfo);
       return NULL;
     }
@@ -5689,7 +5882,7 @@ need_imm_uses_for (tree var)
 void
 vectorize_loops (struct loops *loops)
 {
-  unsigned int i, loops_num;
+  unsigned int i;
   unsigned int num_vectorized_loops = 0;
 
   /* Does the target support SIMD?  */

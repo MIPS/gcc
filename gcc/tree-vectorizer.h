@@ -50,7 +50,8 @@ enum stmt_vec_info_type {
   load_vec_info_type,
   store_vec_info_type,
   op_vec_info_type,
-  assignment_vec_info_type
+  assignment_vec_info_type,
+  select_vec_info_type
 };
 
 typedef struct _stmt_vec_info {
