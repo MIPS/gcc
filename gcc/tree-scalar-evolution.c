@@ -386,6 +386,7 @@ loop_phi_node_p (tree phi)
 static tree 
 compute_overall_effect_of_inner_loop (struct loop *loop, tree version)
 {
+  bool val;
   tree res;
   tree nb_iter, evolution_fn;
   
@@ -396,9 +397,12 @@ compute_overall_effect_of_inner_loop (struct loop *loop, tree version)
   nb_iter = number_of_iterations_in_loop (loop);
 
   /* If the variable is an invariant, there is nothing to do.  */
-  if (no_evolution_in_loop_p (evolution_fn, loop->num))
-    res = evolution_fn;
+  if (!no_evolution_in_loop_p (evolution_fn, loop->num, &val))
+    res = chrec_top;
 
+  else if (val)
+    res = evolution_fn;
+    
   /* When the number of iterations is not known, set the evolution to
      chrec_top.  As an example, consider the following loop:
      
@@ -582,213 +586,73 @@ get_scalar_evolution (struct loop *loop, tree scalar)
   return res;
 }
 
-/* The expression CHREC_BEFORE has no evolution part in LOOP_NB.  
-   This function constructs a new polynomial evolution function for this 
-   loop.  The evolution part is TO_ADD.  */
+/* When CHREC_BEFORE has an evolution part in LOOP_NB, add to this
+   evolution the expression TO_ADD, otherwise construct an evolution
+   part for this loop.  */
 
 static tree
-build_polynomial_evolution_in_loop (unsigned loop_nb, 
-				    tree chrec_before, 
-				    tree to_add)
+add_to_evolution_1 (unsigned loop_nb, 
+		    tree chrec_before, 
+		    tree to_add)
 {
   switch (TREE_CODE (chrec_before))
     {
     case POLYNOMIAL_CHREC:
-      if (CHREC_VARIABLE (chrec_before) < loop_nb)
-	return build_polynomial_chrec 
-	  (loop_nb, chrec_before, to_add);
-      else
-	return build_polynomial_chrec 
-	  (CHREC_VARIABLE (chrec_before),
-	   build_polynomial_evolution_in_loop 
-	   (loop_nb, CHREC_LEFT (chrec_before), to_add),
-	   CHREC_RIGHT (chrec_before));
-      
-    case EXPONENTIAL_CHREC:
-      if (CHREC_VARIABLE (chrec_before) < loop_nb)
-	return build_polynomial_chrec 
-	  (loop_nb, chrec_before, to_add);
-      else
-	return build_exponential_chrec 
-	  (CHREC_VARIABLE (chrec_before),
-	   build_polynomial_evolution_in_loop 
-	   (loop_nb, CHREC_LEFT (chrec_before), to_add),
-	   CHREC_RIGHT (chrec_before));
-      
-    default:
-      /* These nodes do not depend on a loop.  */
-      return build_polynomial_chrec 
-	(loop_nb, chrec_before, to_add);
-    }
-}
-
-/* The expression CHREC_BEFORE has no evolution part in LOOP_NUM.  
-   This function constructs a new exponential evolution function for this 
-   loop.  The evolution part is TO_MULT.  */
-
-static tree
-build_exponential_evolution_in_loop (unsigned loop_num, 
-				     tree chrec_before, 
-				     tree to_mult)
-{
-  switch (TREE_CODE (chrec_before))
-    {
-    case POLYNOMIAL_CHREC:
-      if (CHREC_VARIABLE (chrec_before) < loop_num)
-	return build_exponential_chrec 
-	  (loop_num, chrec_before, to_mult);
-      else
-	return build_polynomial_chrec 
-	  (CHREC_VARIABLE (chrec_before),
-	   build_exponential_evolution_in_loop 
-	   (loop_num, CHREC_LEFT (chrec_before), to_mult),
-	   CHREC_RIGHT (chrec_before));
-      
-    case EXPONENTIAL_CHREC:
-      if (CHREC_VARIABLE (chrec_before) < loop_num)
-	return build_exponential_chrec 
-	  (loop_num, chrec_before, to_mult);
-      else
-	return build_exponential_chrec 
-	  (CHREC_VARIABLE (chrec_before),
-	   build_exponential_evolution_in_loop 
-	   (loop_num, CHREC_LEFT (chrec_before), to_mult),
-	   CHREC_RIGHT (chrec_before));
-      
-    default:
-      /* These nodes do not depend on a loop.  */
-      return build_exponential_chrec 
-	(loop_num, chrec_before, to_mult);
-    }
-}
-
-/* The expression CHREC_BEFORE has an evolution part in LOOP_NUM.  
-   Add to this evolution the expression TO_ADD.  */
-
-static tree
-add_expr_to_loop_evolution (unsigned loop_num, 
-			    tree chrec_before, 
-			    enum tree_code code, 
-			    tree to_add)
-{
-  switch (TREE_CODE (chrec_before))
-    {
-    case POLYNOMIAL_CHREC:
-      if (CHREC_VARIABLE (chrec_before) == loop_num)
+      if (CHREC_VARIABLE (chrec_before) <= loop_nb)
 	{
-	  if (code == MINUS_EXPR)
-	    return build_polynomial_chrec 
-	      (CHREC_VARIABLE (chrec_before), CHREC_LEFT (chrec_before), 
-	       chrec_fold_minus (chrec_type (CHREC_RIGHT (chrec_before)), 
-				 CHREC_RIGHT (chrec_before),
-				 to_add));
+	  unsigned var;
+	  tree left, right;
+	  tree type = chrec_type (chrec_before);
+	  
+	  /* When there is no evolution part in this loop, build it.  */
+	  if (CHREC_VARIABLE (chrec_before) < loop_nb)
+	    {
+	      var = loop_nb;
+	      left = chrec_before;
+	      right = convert (type, integer_zero_node);
+	    }
 	  else
-	    return build_polynomial_chrec 
-	      (CHREC_VARIABLE (chrec_before), CHREC_LEFT (chrec_before), 
-	       chrec_fold_plus (chrec_type (CHREC_RIGHT (chrec_before)), 
-				CHREC_RIGHT (chrec_before),
-				to_add));
+	    {
+	      var = CHREC_VARIABLE (chrec_before);
+	      left = CHREC_LEFT (chrec_before);
+	      right = CHREC_RIGHT (chrec_before);
+	    }
+
+	  return build_polynomial_chrec 
+	    (var, left, chrec_fold_plus (type, right, to_add));
 	}
-      
       else
-	/* Search the evolution in LOOP_NUM.  */
+	/* Search the evolution in LOOP_NB.  */
 	return build_polynomial_chrec 
 	  (CHREC_VARIABLE (chrec_before),
-	   add_expr_to_loop_evolution (loop_num, 
-				       CHREC_LEFT (chrec_before), 
-				       code, to_add),
+	   add_to_evolution_1 (loop_nb, CHREC_LEFT (chrec_before), to_add),
 	   CHREC_RIGHT (chrec_before));
       
     case EXPONENTIAL_CHREC:
-      if (CHREC_VARIABLE (chrec_before) == loop_num)
-	return build_exponential_chrec
-	  (loop_num, 
-	   CHREC_LEFT (chrec_before),
-	   /* We still don't know how to fold these operations that mix 
-	      polynomial and exponential functions.  For the moment, give a 
-	      rough approximation: [-oo, +oo].  */
-	   chrec_top);
+      if (CHREC_VARIABLE (chrec_before) == loop_nb)
+	/* We still don't know how to fold these operations that mix
+	   polynomial and exponential functions.  For the moment, give
+	   a rough approximation: [-oo, +oo].  */
+	return build_exponential_chrec (loop_nb, CHREC_LEFT (chrec_before),
+					chrec_top);
+
+      /* When there is no evolution part in this loop, build it.  */
+      else if (CHREC_VARIABLE (chrec_before) < loop_nb)
+	return build_polynomial_chrec (loop_nb, chrec_before, to_add);
+
       else
 	return build_exponential_chrec 
 	  (CHREC_VARIABLE (chrec_before),
-	   add_expr_to_loop_evolution (loop_num, 
-				       CHREC_LEFT (chrec_before), 
-				       code, to_add),
+	   add_to_evolution_1 (loop_nb, CHREC_LEFT (chrec_before), to_add),
 	   CHREC_RIGHT (chrec_before));
       
     default:
-      /* Should not happen.  */
-      return chrec_top;
+      /* These nodes do not depend on a loop.  */
+      if (chrec_before == chrec_top)
+	return chrec_top;
+      return build_polynomial_chrec (loop_nb, chrec_before, to_add);
     }
 }
-
-/* The expression CHREC_BEFORE has an evolution part in LOOP_NUM.  
-   Multiply this evolution by the expression TO_MULT.  The invariant attribute 
-   means that the TO_MULT expression is one of the nodes that do not depend
-   on a loop: INTERVAL_CHREC, INTEGER_CST, VAR_DECL, ...  */
-
-static tree
-multiply_by_expr_the_loop_evolution (unsigned loop_num, 
-				     tree chrec_before, 
-				     tree to_mult)
-{
-#if defined ENABLE_CHECKING 
-  if (chrec_before == NULL_TREE
-      || to_mult == NULL_TREE)
-    abort ();
-#endif
-  
-  switch (TREE_CODE (chrec_before))
-    {
-    case POLYNOMIAL_CHREC:
-      if (CHREC_VARIABLE (chrec_before) == loop_num)
-	return build_polynomial_chrec 
-	  (loop_num, 
-	   CHREC_LEFT (chrec_before),
-	   /* We still don't know how to fold these operations that mix 
-	      polynomial and exponential functions.  For the moment, give a 
-	      rough approximation: [-oo, +oo].  */
-	   chrec_top);
-      else
-	return build_polynomial_chrec 
-	  (CHREC_VARIABLE (chrec_before),
-	   multiply_by_expr_the_loop_evolution 
-	   (loop_num, CHREC_LEFT (chrec_before), to_mult),
-	   /* Do not modify the CHREC_RIGHT part: this part is a fixed part
-	      completely determined by the evolution of other scalar variables.
-	      The same comment is included in the no_evolution_in_loop_p 
-	      function.  */
-	   CHREC_RIGHT (chrec_before));
-      
-    case EXPONENTIAL_CHREC:
-      if (CHREC_VARIABLE (chrec_before) == loop_num
-	  /* The evolution has to be multiplied on the leftmost position for 
-	     loop_num.  */
-	  && ((TREE_CODE (CHREC_LEFT (chrec_before)) != POLYNOMIAL_CHREC
-	       && TREE_CODE (CHREC_LEFT (chrec_before)) != EXPONENTIAL_CHREC)
-	      || (CHREC_VARIABLE (CHREC_LEFT (chrec_before)) != loop_num)))
-	return build_exponential_chrec
-	  (loop_num, 
-	   CHREC_LEFT (chrec_before),
-	   chrec_fold_multiply (chrec_type (to_mult), 
-				CHREC_RIGHT (chrec_before), to_mult));
-      else
-	return build_exponential_chrec 
-	  (CHREC_VARIABLE (chrec_before),
-	   multiply_by_expr_the_loop_evolution
-	   (loop_num, CHREC_LEFT (chrec_before), to_mult),
-	   /* Do not modify the CHREC_RIGHT part: this part is a fixed part
-	      completely determined by the evolution of other scalar variables.
-	      The same comment is included in the no_evolution_in_loop_p 
-	      function.  */
-	   CHREC_RIGHT (chrec_before));
-      
-    default:
-      /* Should not happen.  */
-      return chrec_top;
-    }
-}
-
 
 /* Add TO_ADD to the evolution part of CHREC_BEFORE in the dimension
    of LOOP_NB.  
@@ -930,6 +794,7 @@ add_to_evolution (unsigned loop_nb,
 		  enum tree_code code,
 		  tree to_add)
 {
+  tree type = chrec_type (to_add);
   tree res = NULL_TREE;
   
   if (to_add == NULL_TREE)
@@ -945,38 +810,88 @@ add_to_evolution (unsigned loop_nb,
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "(add_to_evolution \n");
-      fprintf (dump_file, "(loop_nb = %d)\n", loop_nb);
+      fprintf (dump_file, "  (loop_nb = %d)\n", loop_nb);
       fprintf (dump_file, "  (chrec_before = ");
       print_generic_expr (dump_file, chrec_before, 0);
       fprintf (dump_file, ")\n  (to_add = ");
       print_generic_expr (dump_file, to_add, 0);
       fprintf (dump_file, ")\n");
     }
-  
-  if (no_evolution_in_loop_p (chrec_before, loop_nb))
-    {
-      if (code == MINUS_EXPR)
-	to_add = chrec_fold_multiply 
-	  (chrec_type (to_add), to_add,
-	   convert (chrec_type (to_add), integer_minus_one_node));
-      
-      /* testsuite/.../ssa-chrec-39.c.  */
-      res = build_polynomial_evolution_in_loop 
-	(loop_nb, chrec_before, to_add);
-    }
-  
-  else
-    /* testsuite/.../ssa-chrec-20.c.  */
-    res = add_expr_to_loop_evolution (loop_nb, chrec_before, code, to_add);
-  
+
+  if (code == MINUS_EXPR)
+    to_add = chrec_fold_multiply (type, to_add, 
+				  convert (type, integer_minus_one_node));
+
+  res = add_to_evolution_1 (loop_nb, chrec_before, to_add);
+
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "  (res = ");
       print_generic_expr (dump_file, res, 0);
       fprintf (dump_file, "))\n");
     }
-  
+
   return res;
+}
+
+/* When CHREC_BEFORE has an evolution part in LOOP_NB, multiply its
+   evolution by the expression TO_MULT, otherwise construct an
+   evolution part for this loop.  */
+
+static tree
+multiply_evolution_1 (unsigned loop_nb, 
+		      tree chrec_before, 
+		      tree to_mult)
+{
+  if (chrec_before == chrec_not_analyzed_yet)
+    return chrec_not_analyzed_yet;
+  
+  switch (TREE_CODE (chrec_before))
+    {
+    case POLYNOMIAL_CHREC:
+      if (CHREC_VARIABLE (chrec_before) == loop_nb)
+	/* We still don't know how to fold these operations that mix
+	   polynomial and exponential functions.  For the moment, give
+	   a rough approximation: [-oo, +oo].  */
+	return build_polynomial_chrec (loop_nb, CHREC_LEFT (chrec_before),
+				       chrec_top);
+
+      /* When there is no evolution part in this loop, build it.  */
+      else if (CHREC_VARIABLE (chrec_before) < loop_nb)
+	return build_exponential_chrec (loop_nb, chrec_before, to_mult);
+
+      else
+	return build_polynomial_chrec 
+	  (CHREC_VARIABLE (chrec_before),
+	   multiply_evolution_1 (loop_nb, CHREC_LEFT (chrec_before), to_mult),
+	   CHREC_RIGHT (chrec_before));
+      
+    case EXPONENTIAL_CHREC:
+      if (CHREC_VARIABLE (chrec_before) == loop_nb
+	  /* The evolution has to be multiplied on the leftmost position for 
+	     loop_nb.  */
+	  && ((TREE_CODE (CHREC_LEFT (chrec_before)) != POLYNOMIAL_CHREC
+	       && TREE_CODE (CHREC_LEFT (chrec_before)) != EXPONENTIAL_CHREC)
+	      || (CHREC_VARIABLE (CHREC_LEFT (chrec_before)) != loop_nb)))
+	return build_exponential_chrec
+	  (loop_nb, 
+	   CHREC_LEFT (chrec_before),
+	   chrec_fold_multiply (chrec_type (to_mult), 
+				CHREC_RIGHT (chrec_before), to_mult));
+
+      else if (CHREC_VARIABLE (chrec_before) < loop_nb)
+	return build_exponential_chrec (loop_nb, chrec_before, to_mult);
+
+      else
+	return build_exponential_chrec 
+	  (CHREC_VARIABLE (chrec_before),
+	   multiply_evolution_1 (loop_nb, CHREC_LEFT (chrec_before), to_mult),
+	   CHREC_RIGHT (chrec_before));
+      
+    default:
+      /* These nodes do not depend on a loop.  */
+      return build_exponential_chrec (loop_nb, chrec_before, to_mult);
+    }
 }
 
 /* Add TO_MULT to the evolution part of CHREC_BEFORE in the dimension
@@ -988,8 +903,8 @@ multiply_evolution (unsigned loop_nb,
 		    tree to_mult)
 {
   tree res = NULL_TREE;
-  
-  if (to_mult == NULL_TREE)
+
+  if (to_mult == chrec_not_analyzed_yet)
     return chrec_before;
 
   /* TO_MULT is either a scalar, or a parameter.  TO_MULT is not
@@ -1009,15 +924,9 @@ multiply_evolution (unsigned loop_nb,
       print_generic_expr (dump_file, to_mult, 0);
       fprintf (dump_file, ")\n");
     }
-  
-  if (no_evolution_in_loop_p (chrec_before, loop_nb))
-    /* testsuite/.../ssa-chrec-22.c.  */
-    res = build_exponential_evolution_in_loop 
-      (loop_nb, chrec_before, to_mult);
-  else
-    res = multiply_by_expr_the_loop_evolution 
-      (loop_nb, chrec_before, to_mult);
-  
+
+  res = multiply_evolution_1 (loop_nb, chrec_before, to_mult);
+
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "  (res = ");
@@ -1662,15 +1571,22 @@ first_iteration_non_satisfying_1 (enum tree_code code,
 				  tree chrec0, 
 				  tree chrec1)
 {
+  bool val;
   tree res, other_evs;
   
   if (automatically_generated_chrec_p (chrec0)
       || automatically_generated_chrec_p (chrec1))
     return chrec_top;
   
-  if (no_evolution_in_loop_p (chrec0, loop_nb))
+  if (!no_evolution_in_loop_p (chrec0, loop_nb, &val))
+    return chrec_top;
+  
+  else if (val)
     {
-      if (no_evolution_in_loop_p (chrec1, loop_nb))
+      if (!no_evolution_in_loop_p (chrec1, loop_nb, &val))
+	return chrec_top;
+      
+      else if (val)
 	return first_iteration_non_satisfying_noev_noev (code, loop_nb, 
 							chrec0, chrec1);
       else
@@ -1688,7 +1604,10 @@ first_iteration_non_satisfying_1 (enum tree_code code,
   
   else
     {
-      if (no_evolution_in_loop_p (chrec1, loop_nb))
+      if (!no_evolution_in_loop_p (chrec1, loop_nb, &val))
+	return chrec_top;
+
+      else if (val)
 	{
 	  res = first_iteration_non_satisfying_ev_noev (code, loop_nb, 
 							chrec0, chrec1);
@@ -2771,6 +2690,7 @@ tree
 analyze_scalar_evolution_in_loop (struct loop *wrto_loop, struct loop *use_loop,
 				  tree version)
 {
+  bool val;
   tree ev = version;
 
   while (1)
@@ -2783,7 +2703,8 @@ analyze_scalar_evolution_in_loop (struct loop *wrto_loop, struct loop *use_loop,
       /* If the value of the use changes in the inner loop, we cannot express
 	 its value in the outer loop (we might try to return interval chrec,
 	 but we do not have a user for it anyway)  */
-      if (!no_evolution_in_loop_p (ev, use_loop->num))
+      if (!no_evolution_in_loop_p (ev, use_loop->num, &val)
+	  || !val)
 	return chrec_top;
 
       use_loop = use_loop->outer;

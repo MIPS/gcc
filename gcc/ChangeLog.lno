@@ -1,3 +1,21 @@
+2004-04-20  Sebastian Pop  <sebastian.pop@ensmp.fr>
+
+	* tree-chrec.c (chrec_apply): Fail on chrec_top for symbolic chrecs.
+	(no_evolution_in_loop_p): Return false when non decidable, use
+	a parameter for returning the result.
+	* tree-chrec.h (no_evolution_in_loop_p): Modify its declaration.
+	* tree-scalar-evolution.c (add_to_evolution, multiply_evolution): 
+	Avoid the use of no_evolution_in_loop_p.
+	(add_to_evolution_1, multiply_evolution_1): New.
+	(multiply_by_expr_the_loop_evolution, add_expr_to_loop_evolution, 
+	build_exponential_evolution_in_loop, 
+	build_polynomial_evolution_in_loop): Removed.
+	(first_iteration_non_satisfying_1, analyze_scalar_evolution_in_loop): 
+	Modify the use of no_evolution_in_loop_p.
+	* tree-ssa-loop-ivopts.c (find_givs_in_stmt_scev, 
+	find_givs_in_stmt_scev): Check that the result of scev analysis
+	does not contain symbols.
+
 2004-04-19  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-ssa-loop-ivopts.c (idx_contains_abnormal_ssa_name_p,

@@ -1238,7 +1238,8 @@ find_givs_in_stmt_scev (struct ivopts_data *data, tree stmt,
     return false;
 
   ev = analyze_scalar_evolution_in_loop (loop, bb->loop_father, lhs);
-  if (tree_does_not_contain_chrecs (ev))
+  if (tree_does_not_contain_chrecs (ev)
+      && !chrec_contains_symbols (ev))
     {
       *base = ev;
       return true;
@@ -1252,7 +1253,8 @@ find_givs_in_stmt_scev (struct ivopts_data *data, tree stmt,
   if (TREE_CODE (*step) != INTEGER_CST)
     return false;
   *base = CHREC_LEFT (ev);
-  if (tree_contains_chrecs (*base))
+  if (tree_contains_chrecs (*base)
+      || chrec_contains_symbols (*base))
     return false;
 
   if (contains_abnormal_ssa_name_p (*base))

@@ -100,7 +100,7 @@ extern tree chrec_fold_automatically_generated_operands (tree, tree);
 /* Observers.  */
 extern bool is_multivariate_chrec (tree);
 extern bool is_pure_sum_chrec (tree);
-extern bool no_evolution_in_loop_p (tree, unsigned);
+extern bool no_evolution_in_loop_p (tree, unsigned, bool *);
 extern bool chrec_is_positive (tree, bool *);
 extern bool chrec_contains_symbols (tree);
 extern bool chrec_contains_undetermined (tree);
