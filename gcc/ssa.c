@@ -559,7 +559,7 @@ compute_dominance_frontiers (frontiers, idom)
      sbitmap *frontiers;
      int *idom;
 {
-  sbitmap done = sbitmap_alloc (n_basic_blocks);
+  sbitmap done = sbitmap_alloc (last_basic_block);
   sbitmap_zero (done);
 
   compute_dominance_frontiers_1 (frontiers, idom, 0, done);
@@ -585,7 +585,7 @@ compute_iterated_dominance_frontiers (idfs, frontiers, evals, nregs)
   sbitmap worklist;
   int reg, passes = 0;
 
-  worklist = sbitmap_alloc (n_basic_blocks);
+  worklist = sbitmap_alloc (last_basic_block);
 
   for (reg = 0; reg < nregs; ++reg)
     {
@@ -916,18 +916,26 @@ rename_insn_1 (ptr, data)
       }
 
     case REG:
-      if (CONVERT_REGISTER_TO_SSA_P (REGNO (x)) &&
-	  REGNO (x) < ssa_max_reg_num)
+      if (CONVERT_REGISTER_TO_SSA_P (REGNO (x))
+	  && REGNO (x) < ssa_max_reg_num)
 	{
 	  rtx new_reg = ssa_rename_to_lookup (x);
 
-	  if (new_reg != NULL_RTX && new_reg != RENAME_NO_RTX)
+	  if (new_reg != RENAME_NO_RTX)
 	    {
-	      if (GET_MODE (x) != GET_MODE (new_reg))
-		abort ();
-	      *ptr = new_reg;
+	      if (new_reg != NULL_RTX)
+		{
+		  if (GET_MODE (x) != GET_MODE (new_reg))
+		    abort ();
+		  *ptr = new_reg;
+		}
+	      else
+		{
+		  /* Undefined value used, rename it to a new pseudo register so
+		     that it cannot conflict with an existing register */
+		  *ptr = gen_reg_rtx (GET_MODE(x));
+		}
 	    }
-	  /* Else this is a use before a set.  Warn?  */
 	}
       return -1;
 
@@ -1150,8 +1158,8 @@ convert_to_ssa ()
      dead code.  We'll let the SSA optimizers do that.  */
   life_analysis (get_insns (), NULL, 0);
 
-  idom = (int *) alloca (n_basic_blocks * sizeof (int));
-  memset ((void *) idom, -1, (size_t) n_basic_blocks * sizeof (int));
+  idom = (int *) alloca (last_basic_block * sizeof (int));
+  memset ((void *) idom, -1, (size_t) last_basic_block * sizeof (int));
   calculate_dominance_info (idom, NULL, CDI_DOMINATORS);
 
   if (rtl_dump_file)
@@ -1164,13 +1172,13 @@ convert_to_ssa ()
 
   /* Compute dominance frontiers.  */
 
-  dfs = sbitmap_vector_alloc (n_basic_blocks, n_basic_blocks);
+  dfs = sbitmap_vector_alloc (last_basic_block, last_basic_block);
   compute_dominance_frontiers (dfs, idom);
 
   if (rtl_dump_file)
     {
       dump_sbitmap_vector (rtl_dump_file, ";; Dominance Frontiers:",
-			   "; Basic Block", dfs, n_basic_blocks);
+			   "; Basic Block", dfs, last_basic_block);
       fflush (rtl_dump_file);
     }
 
@@ -1178,12 +1186,12 @@ convert_to_ssa ()
 
   ssa_max_reg_num = max_reg_num ();
   nregs = ssa_max_reg_num;
-  evals = sbitmap_vector_alloc (nregs, n_basic_blocks);
+  evals = sbitmap_vector_alloc (nregs, last_basic_block);
   find_evaluations (evals, nregs);
 
   /* Compute the iterated dominance frontier for each register.  */
 
-  idfs = sbitmap_vector_alloc (nregs, n_basic_blocks);
+  idfs = sbitmap_vector_alloc (nregs, last_basic_block);
   compute_iterated_dominance_frontiers (idfs, dfs, evals, nregs);
 
   if (rtl_dump_file)

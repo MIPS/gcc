@@ -609,16 +609,16 @@ static void compute_cprop_data	PARAMS ((void));
 static void find_used_regs	PARAMS ((rtx *, void *));
 static int try_replace_reg	PARAMS ((rtx, rtx, rtx));
 static struct expr *find_avail_set PARAMS ((int, rtx));
-static int cprop_jump		PARAMS ((basic_block, rtx, rtx, rtx));
-#ifdef HAVE_cc0
-static int cprop_cc0_jump	PARAMS ((basic_block, rtx, struct reg_use *, rtx));
-#endif
+static int cprop_jump		PARAMS ((basic_block, rtx, rtx, rtx, rtx));
 static void mems_conflict_for_gcse_p PARAMS ((rtx, rtx, void *));
 static int load_killed_in_block_p    PARAMS ((basic_block, int, rtx, int));
 static void canon_list_insert        PARAMS ((rtx, rtx, void *));
 static int cprop_insn		PARAMS ((basic_block, rtx, int));
 static int cprop		PARAMS ((int));
 static int one_cprop_pass	PARAMS ((int, int));
+static struct expr *find_bypass_set PARAMS ((int, int));
+static int bypass_block		    PARAMS ((basic_block, rtx, rtx));
+static int bypass_conditional_jumps PARAMS ((void));
 static void alloc_pre_mem	PARAMS ((int, int));
 static void free_pre_mem	PARAMS ((void));
 static void compute_pre_data	PARAMS ((void));
@@ -700,6 +700,7 @@ static void store_motion		PARAMS ((void));
 static void free_insn_expr_list_list	PARAMS ((rtx *));
 static void clear_modify_mem_tables	PARAMS ((void));
 static void free_modify_mem_tables	PARAMS ((void));
+static rtx gcse_emit_move_after		PARAMS ((rtx, rtx, rtx));
 
 /* Entry point for global common subexpression elimination.
    F is the first instruction in the function.  */
@@ -834,11 +835,11 @@ gcse_main (f, file)
 	    {
 	      free_modify_mem_tables ();
 	      modify_mem_list
-		= (rtx *) gmalloc (n_basic_blocks * sizeof (rtx));
+		= (rtx *) gmalloc (last_basic_block * sizeof (rtx));
 	      canon_modify_mem_list
-		= (rtx *) gmalloc (n_basic_blocks * sizeof (rtx));
-	      memset ((char *) modify_mem_list, 0, n_basic_blocks * sizeof (rtx));
-	      memset ((char *) canon_modify_mem_list, 0, n_basic_blocks * sizeof (rtx));
+		= (rtx *) gmalloc (last_basic_block * sizeof (rtx));
+	      memset ((char *) modify_mem_list, 0, last_basic_block * sizeof (rtx));
+	      memset ((char *) canon_modify_mem_list, 0, last_basic_block * sizeof (rtx));
 	      orig_bb_count = n_basic_blocks;
 	    }
 	  free_reg_set_mem ();
@@ -1019,14 +1020,14 @@ alloc_gcse_mem (f)
   reg_set_bitmap = BITMAP_XMALLOC ();
 
   /* Allocate vars to track sets of regs, memory per block.  */
-  reg_set_in_block = (sbitmap *) sbitmap_vector_alloc (n_basic_blocks,
+  reg_set_in_block = (sbitmap *) sbitmap_vector_alloc (last_basic_block,
 						       max_gcse_regno);
   /* Allocate array to keep a list of insns which modify memory in each
      basic block.  */
-  modify_mem_list = (rtx *) gmalloc (n_basic_blocks * sizeof (rtx));
-  canon_modify_mem_list = (rtx *) gmalloc (n_basic_blocks * sizeof (rtx));
-  memset ((char *) modify_mem_list, 0, n_basic_blocks * sizeof (rtx));
-  memset ((char *) canon_modify_mem_list, 0, n_basic_blocks * sizeof (rtx));
+  modify_mem_list = (rtx *) gmalloc (last_basic_block * sizeof (rtx));
+  canon_modify_mem_list = (rtx *) gmalloc (last_basic_block * sizeof (rtx));
+  memset ((char *) modify_mem_list, 0, last_basic_block * sizeof (rtx));
+  memset ((char *) canon_modify_mem_list, 0, last_basic_block * sizeof (rtx));
   modify_mem_list_set = BITMAP_XMALLOC ();
   canon_modify_mem_list_set = BITMAP_XMALLOC ();
 }
@@ -1132,15 +1133,15 @@ compute_local_properties (transp, comp, antloc, setp)
   if (transp)
     {
       if (setp)
-	sbitmap_vector_zero (transp, n_basic_blocks);
+	sbitmap_vector_zero (transp, last_basic_block);
       else
-	sbitmap_vector_ones (transp, n_basic_blocks);
+	sbitmap_vector_ones (transp, last_basic_block);
     }
 
   if (comp)
-    sbitmap_vector_zero (comp, n_basic_blocks);
+    sbitmap_vector_zero (comp, last_basic_block);
   if (antloc)
-    sbitmap_vector_zero (antloc, n_basic_blocks);
+    sbitmap_vector_zero (antloc, last_basic_block);
 
   /* We use the same code for cprop, pre and hoisting.  For cprop
      we care about the set hash table, for pre and hoisting we
@@ -2495,7 +2496,7 @@ compute_hash_table (set_p)
      registers are set in which blocks.
      ??? This isn't needed during const/copy propagation, but it's cheap to
      compute.  Later.  */
-  sbitmap_vector_zero (reg_set_in_block, n_basic_blocks);
+  sbitmap_vector_zero (reg_set_in_block, last_basic_block);
 
   /* re-Cache any INSN_LIST nodes we have allocated.  */
   clear_modify_mem_tables ();
@@ -2940,16 +2941,16 @@ alloc_rd_mem (n_blocks, n_insns)
      int n_blocks, n_insns;
 {
   rd_kill = (sbitmap *) sbitmap_vector_alloc (n_blocks, n_insns);
-  sbitmap_vector_zero (rd_kill, n_basic_blocks);
+  sbitmap_vector_zero (rd_kill, n_blocks);
 
   rd_gen = (sbitmap *) sbitmap_vector_alloc (n_blocks, n_insns);
-  sbitmap_vector_zero (rd_gen, n_basic_blocks);
+  sbitmap_vector_zero (rd_gen, n_blocks);
 
   reaching_defs = (sbitmap *) sbitmap_vector_alloc (n_blocks, n_insns);
-  sbitmap_vector_zero (reaching_defs, n_basic_blocks);
+  sbitmap_vector_zero (reaching_defs, n_blocks);
 
   rd_out = (sbitmap *) sbitmap_vector_alloc (n_blocks, n_insns);
-  sbitmap_vector_zero (rd_out, n_basic_blocks);
+  sbitmap_vector_zero (rd_out, n_blocks);
 }
 
 /* Free reaching def variables.  */
@@ -3071,16 +3072,16 @@ alloc_avail_expr_mem (n_blocks, n_exprs)
      int n_blocks, n_exprs;
 {
   ae_kill = (sbitmap *) sbitmap_vector_alloc (n_blocks, n_exprs);
-  sbitmap_vector_zero (ae_kill, n_basic_blocks);
+  sbitmap_vector_zero (ae_kill, n_blocks);
 
   ae_gen = (sbitmap *) sbitmap_vector_alloc (n_blocks, n_exprs);
-  sbitmap_vector_zero (ae_gen, n_basic_blocks);
+  sbitmap_vector_zero (ae_gen, n_blocks);
 
   ae_in = (sbitmap *) sbitmap_vector_alloc (n_blocks, n_exprs);
-  sbitmap_vector_zero (ae_in, n_basic_blocks);
+  sbitmap_vector_zero (ae_in, n_blocks);
 
   ae_out = (sbitmap *) sbitmap_vector_alloc (n_blocks, n_exprs);
-  sbitmap_vector_zero (ae_out, n_basic_blocks);
+  sbitmap_vector_zero (ae_out, n_blocks);
 }
 
 static void
@@ -3285,7 +3286,7 @@ expr_reaches_here_p (occr, expr, bb, check_self_loop)
      int check_self_loop;
 {
   int rval;
-  char *visited = (char *) xcalloc (n_basic_blocks, 1);
+  char *visited = (char *) xcalloc (last_basic_block, 1);
 
   rval = expr_reaches_here_p_work (occr, expr, bb, check_self_loop, visited);
   
@@ -3675,7 +3676,7 @@ one_classic_gcse_pass (pass)
   gcse_create_count = 0;
 
   alloc_expr_hash_table (max_cuid);
-  alloc_rd_mem (n_basic_blocks, max_cuid);
+  alloc_rd_mem (last_basic_block, max_cuid);
   compute_expr_hash_table ();
   if (gcse_file)
     dump_hash_table (gcse_file, "Expression", expr_hash_table,
@@ -3685,7 +3686,7 @@ one_classic_gcse_pass (pass)
     {
       compute_kill_rd ();
       compute_rd ();
-      alloc_avail_expr_mem (n_basic_blocks, n_exprs);
+      alloc_avail_expr_mem (last_basic_block, n_exprs);
       compute_ae_gen ();
       compute_ae_kill (ae_gen, ae_kill);
       compute_available (ae_gen, ae_kill, ae_out, ae_in);
@@ -4076,39 +4077,59 @@ find_avail_set (regno, insn)
 }
 
 /* Subroutine of cprop_insn that tries to propagate constants into
-   JUMP_INSNS.  INSN must be a conditional jump.  FROM is what we will try to
-   replace, SRC is the constant we will try to substitute for it.  Returns
-   nonzero if a change was made.  We know INSN has just a SET.  */
+   JUMP_INSNS.  JUMP must be a conditional jump.  If SETCC is non-NULL
+   it is the instruction that immediately preceeds JUMP, and must be a
+   single SET of a CC_MODE register.  FROM is what we will try to replace,
+   SRC is the constant we will try to substitute for it.  Returns nonzero
+   if a change was made. */
 
 static int
-cprop_jump (bb, insn, from, src)
-     rtx insn;
+cprop_jump (bb, setcc, jump, from, src)
+     basic_block bb;
+     rtx setcc;
+     rtx jump;
      rtx from;
      rtx src;
-     basic_block bb;
 {
-  rtx set = PATTERN (insn);
-  rtx new = simplify_replace_rtx (SET_SRC (set), from, src);
+  rtx new, new_set;
+  rtx set = pc_set (jump);
+
+  /* First substitute in the INSN condition as the SET_SRC of the JUMP,
+     then substitute that given values in this expanded JUMP.  */
+  if (setcc != NULL)
+    new_set = simplify_replace_rtx (SET_SRC (set),
+				    SET_DEST (PATTERN (setcc)),
+				    SET_SRC (PATTERN (setcc)));
+  else
+    new_set = set;
+
+  new = simplify_replace_rtx (new_set, from, src);
 
   /* If no simplification can be made, then try the next
      register.  */
-  if (rtx_equal_p (new, SET_SRC (set)))
+  if (rtx_equal_p (new, new_set))
     return 0;
  
   /* If this is now a no-op delete it, otherwise this must be a valid insn.  */
   if (new == pc_rtx)
-    delete_insn (insn);
+    delete_insn (jump);
   else
     {
-      if (! validate_change (insn, &SET_SRC (set), new, 0))
+      if (! validate_change (jump, &SET_SRC (set), new, 0))
 	return 0;
 
       /* If this has turned into an unconditional jump,
 	 then put a barrier after it so that the unreachable
 	 code will be deleted.  */
       if (GET_CODE (SET_SRC (set)) == LABEL_REF)
-	emit_barrier_after (insn);
+	emit_barrier_after (jump);
      }
+
+#ifdef HAVE_cc0
+  /* Delete the cc0 setter.  */
+  if (setcc != NULL && SET_DEST (PATTERN (setcc)) == cc0_rtx)
+    delete_insn (setcc);
+#endif
 
   run_jump_opt_after_gcse = 1;
 
@@ -4117,7 +4138,7 @@ cprop_jump (bb, insn, from, src)
     {
       fprintf (gcse_file,
 	       "CONST-PROP: Replacing reg %d in insn %d with constant ",
-	       REGNO (from), INSN_UID (insn));
+	       REGNO (from), INSN_UID (jump));
       print_rtl (gcse_file, src);
       fprintf (gcse_file, "\n");
     }
@@ -4126,37 +4147,6 @@ cprop_jump (bb, insn, from, src)
   return 1;
 }
 
-#ifdef HAVE_cc0
-
-/* Subroutine of cprop_insn that tries to propagate constants into JUMP_INSNS
-   for machines that have CC0.  INSN is a single set that stores into CC0;
-   the insn following it is a conditional jump.  REG_USED is the use we will
-   try to replace, SRC is the constant we will try to substitute for it.
-   Returns nonzero if a change was made.  */
-
-static int
-cprop_cc0_jump (bb, insn, reg_used, src)
-     basic_block bb;
-     rtx insn;
-     struct reg_use *reg_used;
-     rtx src;
-{
-  /* First substitute in the SET_SRC of INSN, then substitute that for
-     CC0 in JUMP.  */
-  rtx jump = NEXT_INSN (insn);
-  rtx new_src = simplify_replace_rtx (SET_SRC (PATTERN (insn)),
-				      reg_used->reg_rtx, src);
-
-  if (! cprop_jump (bb, jump, cc0_rtx, new_src))
-    return 0;
-
-  /* If we succeeded, delete the cc0 setter.  */
-  delete_insn (insn);
-
-  return 1;
-}
-#endif
- 
 /* Perform constant and copy propagation on INSN.
    The result is non-zero if a change was made.  */
 
@@ -4215,7 +4205,27 @@ cprop_insn (bb, insn, alter_jumps)
       /* Constant propagation.  */
       if (CONSTANT_P (src))
 	{
-	  /* Handle normal insns first.  */
+	  /* Check for MODE_CC setting instructions followed by
+	     conditional branch instructions first.  */
+	  if (alter_jumps
+	      && single_set (insn)
+	      && any_condjump_p (NEXT_INSN (insn))
+              && onlyjump_p (NEXT_INSN (insn)))
+	    {
+	      rtx dest = SET_DEST (PATTERN (insn));
+	      if ((GET_MODE_CLASS (GET_MODE (dest)) == MODE_CC
+#ifdef HAVE_cc0
+		   || dest == cc0_rtx
+#endif
+		  ) && cprop_jump (bb, insn, NEXT_INSN (insn),
+				   reg_used->reg_rtx, src))
+		{
+		  changed = 1;
+		  break;
+		}
+	    }
+
+	  /* Handle normal insns next.  */
 	  if (GET_CODE (insn) == INSN
 	      && try_replace_reg (reg_used->reg_rtx, src, insn))
 	    {
@@ -4242,26 +4252,10 @@ cprop_insn (bb, insn, alter_jumps)
 	     Right now the insn in question must look like
 	     (set (pc) (if_then_else ...))  */
 	  else if (alter_jumps
-		   && GET_CODE (insn) == JUMP_INSN
-		   && condjump_p (insn)
-		   && ! simplejump_p (insn))
-	    changed |= cprop_jump (bb, insn, reg_used->reg_rtx, src);
+		   && any_condjump_p (insn)
+		   && onlyjump_p (insn))
+	    changed |= cprop_jump (bb, NULL, insn, reg_used->reg_rtx, src);
 
-#ifdef HAVE_cc0
-	  /* Similar code for machines that use a pair of CC0 setter and
-	     conditional jump insn.  */
-	  else if (alter_jumps
-		   && GET_CODE (PATTERN (insn)) == SET
-		   && SET_DEST (PATTERN (insn)) == cc0_rtx
-		   && GET_CODE (NEXT_INSN (insn)) == JUMP_INSN
-		   && condjump_p (NEXT_INSN (insn))
-		   && ! simplejump_p (NEXT_INSN (insn))
-		   && cprop_cc0_jump (bb, insn, reg_used, src))
-	    {
-	      changed = 1;
-	      break;
-	    }
-#endif
 	}
       else if (GET_CODE (src) == REG
 	       && REGNO (src) >= FIRST_PSEUDO_REGISTER
@@ -4358,9 +4352,11 @@ one_cprop_pass (pass, alter_jumps)
 		     n_sets);
   if (n_sets > 0)
     {
-      alloc_cprop_mem (n_basic_blocks, n_sets);
+      alloc_cprop_mem (last_basic_block, n_sets);
       compute_cprop_data ();
       changed = cprop (alter_jumps);
+      if (alter_jumps)
+	changed |= bypass_conditional_jumps ();
       free_cprop_mem ();
     }
 
@@ -4373,6 +4369,208 @@ one_cprop_pass (pass, alter_jumps)
       fprintf (gcse_file, "%d const props, %d copy props\n\n",
 	       const_prop_count, copy_prop_count);
     }
+
+  return changed;
+}
+
+/* Bypass conditional jumps.  */
+
+/* Find a set of REGNO to a constant that is available at the end of basic
+   block BB.  Returns NULL if no such set is found.  Based heavily upon
+   find_avail_set.  */
+
+static struct expr *
+find_bypass_set (regno, bb)
+     int regno;
+     int bb;
+{
+  struct expr *result = 0;
+
+  for (;;)
+    {
+      rtx src;
+      struct expr *set = lookup_set (regno, NULL_RTX);
+
+      while (set)
+	{
+	  if (TEST_BIT (cprop_avout[bb], set->bitmap_index))
+	    break;
+	  set = next_set (regno, set);
+	}
+
+      if (set == 0)
+	break;
+
+      if (GET_CODE (set->expr) != SET)
+	abort ();
+
+      src = SET_SRC (set->expr);
+      if (CONSTANT_P (src))
+	result = set;
+
+      if (GET_CODE (src) != REG)
+	break;
+
+      regno = REGNO (src);
+    }
+  return result;
+}
+
+
+/* Subroutine of bypass_conditional_jumps that attempts to bypass the given
+   basic block BB which has more than one predecessor.  If not NULL, SETCC
+   is the first instruction of BB, which is immediately followed by JUMP_INSN
+   JUMP.  Otherwise, SETCC is NULL, and JUMP is the first insn of BB.
+   Returns nonzero if a change was made.  */
+
+static int
+bypass_block (bb, setcc, jump)
+     basic_block bb;
+     rtx setcc, jump;
+{
+  rtx insn, note;
+  edge e, enext;
+  int i,change;
+
+  insn = (setcc != NULL) ? setcc : jump;
+
+  /* Determine set of register uses in INSN.  */
+  reg_use_count = 0;
+  note_uses (&PATTERN (insn), find_used_regs, NULL);
+  note = find_reg_equal_equiv_note (insn);
+  if (note)
+    find_used_regs (&XEXP (note, 0), NULL);
+
+  change = 0;
+  for (e = bb->pred; e; e = enext)
+    {
+      enext = e->pred_next;
+      for (i = 0; i < reg_use_count; i++)
+	{
+	  struct reg_use *reg_used = &reg_use_table[i];
+          unsigned int regno = REGNO (reg_used->reg_rtx);
+	  basic_block dest;
+          struct expr *set;
+          rtx src, new;
+
+          if (regno >= max_gcse_regno)
+            continue;
+
+          set = find_bypass_set (regno, e->src->index);
+
+	  if (! set)
+	    continue;
+
+          src = SET_SRC (pc_set (jump));
+
+	  if (setcc != NULL)
+	      src = simplify_replace_rtx (src,
+                                          SET_DEST (PATTERN (setcc)),
+                                          SET_SRC (PATTERN (setcc)));
+
+	  new = simplify_replace_rtx (src, reg_used->reg_rtx,
+                                      SET_SRC (set->expr));
+
+          if (new == pc_rtx)
+	    dest = FALLTHRU_EDGE (bb)->dest;
+	  else if (GET_CODE (new) == LABEL_REF)
+	    dest = BRANCH_EDGE (bb)->dest;
+	  else
+	    dest = NULL;
+
+	  /* Once basic block indices are stable, we should be able
+	     to use redirect_edge_and_branch_force instead.  */
+	  if ((dest != NULL) && (dest != e->dest)
+	      && redirect_edge_and_branch (e, dest))
+	    {
+	      /* Copy the MODE_CC setter to the redirected edge.
+		 Don't copy CC0 setters, as CC0 is dead after jump.  */
+	      if (setcc)
+		{
+		  rtx pat = PATTERN (setcc);
+		  if (GET_MODE_CLASS (GET_MODE (SET_DEST (pat))) == MODE_CC)
+		    insert_insn_on_edge (copy_insn (pat), e);
+		}
+
+	      if (gcse_file != NULL)
+		{
+		  fprintf (gcse_file, "JUMP-BYPASS: Replacing reg %d in ",
+			   regno);
+		  fprintf (gcse_file, "insn %d with constant ",
+			   INSN_UID (jump));
+		  print_rtl (gcse_file, SET_SRC (set->expr));
+		  fprintf (gcse_file, "\nBypass edge from %d->%d to %d\n",
+			   e->src->index, e->dest->index, dest->index);
+		}
+	      change = 1;
+	      break;
+	    }
+	}
+    }
+  return change;
+}
+
+/* Find basic blocks with more than one predecessor that only contain a
+   single conditional jump.  If the result of the comparison is known at
+   compile-time from any incoming edge, redirect that edge to the
+   appropriate target.  Returns nonzero if a change was made.  */
+
+static int
+bypass_conditional_jumps ()
+{
+  basic_block bb;
+  int changed;
+  rtx setcc;
+  rtx insn;
+  rtx dest;
+
+  /* Note we start at block 1.  */
+  if (ENTRY_BLOCK_PTR->next_bb == EXIT_BLOCK_PTR)
+    return 0;
+
+  changed = 0;
+  FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR->next_bb->next_bb,
+                  EXIT_BLOCK_PTR, next_bb)
+    {
+      /* Check for more than one predecessor.  */
+      if (bb->pred && bb->pred->pred_next)
+	{
+	  setcc = NULL_RTX;
+	  for (insn = bb->head;
+	       insn != NULL && insn != NEXT_INSN (bb->end);
+	       insn = NEXT_INSN (insn))
+	    if (GET_CODE (insn) == INSN)
+	      {
+		if (setcc)
+		  break;
+		if (!single_set (insn))
+		  break;
+
+		dest = SET_DEST (PATTERN (insn));
+		if (GET_MODE_CLASS (GET_MODE (dest)) == MODE_CC)
+		  setcc = insn;
+#ifdef HAVE_cc0
+		else if (dest == cc0_rtx)
+		  setcc = insn;
+#endif
+		else
+		  break;
+	      }
+	    else if (GET_CODE (insn) == JUMP_INSN)
+	      {
+		if (any_condjump_p (insn) && onlyjump_p (insn))
+		  changed |= bypass_block (bb, setcc, insn);
+		break;
+	      }
+	    else if (INSN_P (insn))
+	      break;
+	}
+    }
+
+  /* If we bypassed any MODE_CC setting insns, we inserted a
+     copy on the redirected edge.  These need to be commited.  */
+  if (changed)
+    commit_edge_insertions();
 
   return changed;
 }
@@ -4472,7 +4670,7 @@ compute_pre_data ()
   unsigned int ui;
 
   compute_local_properties (transp, comp, antloc, 0);
-  sbitmap_vector_zero (ae_kill, n_basic_blocks);
+  sbitmap_vector_zero (ae_kill, last_basic_block);
 
   /* Collect expressions which might trap.  */
   trapping_expr = sbitmap_alloc (n_exprs);
@@ -4591,7 +4789,7 @@ pre_expr_reaches_here_p (occr_bb, expr, bb)
      basic_block bb;
 {
   int rval;
-  char *visited = (char *) xcalloc (n_basic_blocks, 1);
+  char *visited = (char *) xcalloc (last_basic_block, 1);
 
   rval = pre_expr_reaches_here_p_work (occr_bb, expr, bb, visited);
 
@@ -4948,6 +5146,33 @@ pre_insert_copies ()
       }
 }
 
+/* Emit move from SRC to DEST noting the equivalence with expression computed
+   in INSN.  */
+static rtx
+gcse_emit_move_after (src, dest, insn)
+     rtx src, dest, insn;
+{
+  rtx new;
+  rtx set = single_set (insn);
+  rtx note;
+  rtx eqv;
+
+  /* This should never fail since we're creating a reg->reg copy
+     we've verified to be valid.  */
+
+  new = emit_insn_after (gen_rtx_SET (VOIDmode, dest, src), insn);
+
+  /* Note the equivalence for local CSE pass.  */
+  if ((note = find_reg_equal_equiv_note (insn)))
+    eqv = XEXP (note, 0);
+  else
+    eqv = SET_SRC (set);
+
+  set_unique_reg_note (new, REG_EQUAL, copy_insn_1 (src));
+
+  return new;
+}
+
 /* Delete redundant computations.
    Deletion is done by changing the insn to copy the `reaching_reg' of
    the expression into the result of the SET.  It is left to later passes
@@ -4991,21 +5216,12 @@ pre_delete ()
 		  expr->reaching_reg
 		    = gen_reg_rtx (GET_MODE (SET_DEST (set)));
 
-		/* In theory this should never fail since we're creating
-		   a reg->reg copy.
-
-		   However, on the x86 some of the movXX patterns actually
-		   contain clobbers of scratch regs.  This may cause the
-		   insn created by validate_change to not match any pattern
-		   and thus cause validate_change to fail.  */
-		if (validate_change (insn, &SET_SRC (set),
-				     expr->reaching_reg, 0))
-		  {
-		    occr->deleted_p = 1;
-		    SET_BIT (pre_redundant_insns, INSN_CUID (insn));
-		    changed = 1;
-		    gcse_subst_count++;
-		  }
+		gcse_emit_move_after (expr->reaching_reg, SET_DEST (set), insn);
+		delete_insn (insn);
+		occr->deleted_p = 1;
+		SET_BIT (pre_redundant_insns, INSN_CUID (insn));
+		changed = 1;
+		gcse_subst_count++;
 
 		if (gcse_file)
 		  {
@@ -5111,7 +5327,7 @@ one_pre_gcse_pass (pass)
 
   if (n_exprs > 0)
     {
-      alloc_pre_mem (n_basic_blocks, n_exprs);
+      alloc_pre_mem (last_basic_block, n_exprs);
       compute_pre_data ();
       changed |= pre_gcse ();
       free_edge_list (edge_list);
@@ -5199,7 +5415,7 @@ compute_transpout ()
   unsigned int i;
   struct expr *expr;
 
-  sbitmap_vector_ones (transpout, n_basic_blocks);
+  sbitmap_vector_ones (transpout, last_basic_block);
 
   FOR_EACH_BB (bb)
     {
@@ -5281,8 +5497,8 @@ delete_null_pointer_checks_1 (block_reg, nonnull_avin,
      Note that a register can have both properties in a single block.  That
      indicates that it's killed, then later in the block a new value is
      computed.  */
-  sbitmap_vector_zero (nonnull_local, n_basic_blocks);
-  sbitmap_vector_zero (nonnull_killed, n_basic_blocks);
+  sbitmap_vector_zero (nonnull_local, last_basic_block);
+  sbitmap_vector_zero (nonnull_killed, last_basic_block);
 
   FOR_EACH_BB (current_block)
     {
@@ -5459,18 +5675,18 @@ delete_null_pointer_checks (f)
   /* We need four bitmaps, each with a bit for each register in each
      basic block.  */
   max_reg = max_reg_num ();
-  regs_per_pass = get_bitmap_width (4, n_basic_blocks, max_reg);
+  regs_per_pass = get_bitmap_width (4, last_basic_block, max_reg);
 
   /* Allocate bitmaps to hold local and global properties.  */
-  npi.nonnull_local = sbitmap_vector_alloc (n_basic_blocks, regs_per_pass);
-  npi.nonnull_killed = sbitmap_vector_alloc (n_basic_blocks, regs_per_pass);
-  nonnull_avin = sbitmap_vector_alloc (n_basic_blocks, regs_per_pass);
-  nonnull_avout = sbitmap_vector_alloc (n_basic_blocks, regs_per_pass);
+  npi.nonnull_local = sbitmap_vector_alloc (last_basic_block, regs_per_pass);
+  npi.nonnull_killed = sbitmap_vector_alloc (last_basic_block, regs_per_pass);
+  nonnull_avin = sbitmap_vector_alloc (last_basic_block, regs_per_pass);
+  nonnull_avout = sbitmap_vector_alloc (last_basic_block, regs_per_pass);
 
   /* Go through the basic blocks, seeing whether or not each block
      ends with a conditional branch whose condition is a comparison
      against zero.  Record the register compared in BLOCK_REG.  */
-  block_reg = (unsigned int *) xcalloc (n_basic_blocks, sizeof (int));
+  block_reg = (unsigned int *) xcalloc (last_basic_block, sizeof (int));
   FOR_EACH_BB (bb)
     {
       rtx last_insn = bb->end;
@@ -5586,8 +5802,8 @@ compute_code_hoist_vbeinout ()
   int changed, passes;
   basic_block bb;
 
-  sbitmap_vector_zero (hoist_vbeout, n_basic_blocks);
-  sbitmap_vector_zero (hoist_vbein, n_basic_blocks);
+  sbitmap_vector_zero (hoist_vbeout, last_basic_block);
+  sbitmap_vector_zero (hoist_vbein, last_basic_block);
 
   passes = 0;
   changed = 1;
@@ -5653,7 +5869,7 @@ hoist_expr_reaches_here_p (expr_bb, expr_index, bb, visited)
   if (visited == NULL)
     {
       visited_allocated_locally = 1;
-      visited = xcalloc (n_basic_blocks, 1);
+      visited = xcalloc (last_basic_block, 1);
     }
 
   for (pred = bb->pred; pred != NULL; pred = pred->pred_next)
@@ -5696,7 +5912,7 @@ hoist_code ()
   struct expr **index_map;
   struct expr *expr;
 
-  sbitmap_vector_zero (hoist_exprs, n_basic_blocks);
+  sbitmap_vector_zero (hoist_exprs, last_basic_block);
 
   /* Compute a mapping from expression number (`bitmap_index') to
      hash table entry.  */
@@ -5827,23 +6043,13 @@ hoist_code ()
 			expr->reaching_reg
 			  = gen_reg_rtx (GET_MODE (SET_DEST (set)));
 
-		      /* In theory this should never fail since we're creating
-			 a reg->reg copy.
-
-			 However, on the x86 some of the movXX patterns
-			 actually contain clobbers of scratch regs.  This may
-			 cause the insn created by validate_change to not
-			 match any pattern and thus cause validate_change to
-			 fail.  */
-		      if (validate_change (insn, &SET_SRC (set),
-					   expr->reaching_reg, 0))
+		      gcse_emit_move_after (expr->reaching_reg, SET_DEST (set), insn);
+		      delete_insn (insn);
+		      occr->deleted_p = 1;
+		      if (!insn_inserted_p)
 			{
-			  occr->deleted_p = 1;
-			  if (!insn_inserted_p)
-			    {
-			      insert_insn_end_bb (index_map[i], bb, 0);
-			      insn_inserted_p = 1;
-			    }
+			  insert_insn_end_bb (index_map[i], bb, 0);
+			  insn_inserted_p = 1;
 			}
 		    }
 		}
@@ -5871,7 +6077,7 @@ one_code_hoisting_pass ()
 
   if (n_exprs > 0)
     {
-      alloc_code_hoist_mem (n_basic_blocks, n_exprs);
+      alloc_code_hoist_mem (last_basic_block, n_exprs);
       compute_code_hoist_data ();
       hoist_code ();
       free_code_hoist_mem ();
@@ -6453,9 +6659,9 @@ compute_store_table ()
 
   max_gcse_regno = max_reg_num ();
 
-  reg_set_in_block = (sbitmap *) sbitmap_vector_alloc (n_basic_blocks,
+  reg_set_in_block = (sbitmap *) sbitmap_vector_alloc (last_basic_block,
 						       max_gcse_regno);
-  sbitmap_vector_zero (reg_set_in_block, n_basic_blocks);
+  sbitmap_vector_zero (reg_set_in_block, last_basic_block);
   pre_ldst_mems = 0;
 
   /* Find all the stores we care about.  */
@@ -6654,11 +6860,11 @@ build_store_vectors ()
 
   /* Build the gen_vector. This is any store in the table which is not killed
      by aliasing later in its block.  */
-  ae_gen = (sbitmap *) sbitmap_vector_alloc (n_basic_blocks, num_stores);
-  sbitmap_vector_zero (ae_gen, n_basic_blocks);
+  ae_gen = (sbitmap *) sbitmap_vector_alloc (last_basic_block, num_stores);
+  sbitmap_vector_zero (ae_gen, last_basic_block);
 
-  st_antloc = (sbitmap *) sbitmap_vector_alloc (n_basic_blocks, num_stores);
-  sbitmap_vector_zero (st_antloc, n_basic_blocks);
+  st_antloc = (sbitmap *) sbitmap_vector_alloc (last_basic_block, num_stores);
+  sbitmap_vector_zero (st_antloc, last_basic_block);
 
   for (ptr = first_ls_expr (); ptr != NULL; ptr = next_ls_expr (ptr))
     { 
@@ -6713,11 +6919,11 @@ build_store_vectors ()
       free_INSN_LIST_list (&store_list);
     }
 	  
-  ae_kill = (sbitmap *) sbitmap_vector_alloc (n_basic_blocks, num_stores);
-  sbitmap_vector_zero (ae_kill, n_basic_blocks);
+  ae_kill = (sbitmap *) sbitmap_vector_alloc (last_basic_block, num_stores);
+  sbitmap_vector_zero (ae_kill, last_basic_block);
 
-  transp = (sbitmap *) sbitmap_vector_alloc (n_basic_blocks, num_stores);
-  sbitmap_vector_zero (transp, n_basic_blocks);
+  transp = (sbitmap *) sbitmap_vector_alloc (last_basic_block, num_stores);
+  sbitmap_vector_zero (transp, last_basic_block);
 
   for (ptr = first_ls_expr (); ptr != NULL; ptr = next_ls_expr (ptr))
     FOR_EACH_BB (b)
@@ -6754,10 +6960,10 @@ build_store_vectors ()
     {
       fprintf (gcse_file, "ST_avail and ST_antic (shown under loads..)\n");
       print_ldst_list (gcse_file);
-      dump_sbitmap_vector (gcse_file, "st_antloc", "", st_antloc, n_basic_blocks);
-      dump_sbitmap_vector (gcse_file, "st_kill", "", ae_kill, n_basic_blocks);
-      dump_sbitmap_vector (gcse_file, "Transpt", "", transp, n_basic_blocks);
-      dump_sbitmap_vector (gcse_file, "st_avloc", "", ae_gen, n_basic_blocks);
+      dump_sbitmap_vector (gcse_file, "st_antloc", "", st_antloc, last_basic_block);
+      dump_sbitmap_vector (gcse_file, "st_kill", "", ae_kill, last_basic_block);
+      dump_sbitmap_vector (gcse_file, "Transpt", "", transp, last_basic_block);
+      dump_sbitmap_vector (gcse_file, "st_avloc", "", ae_gen, last_basic_block);
     }
 }
 

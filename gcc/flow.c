@@ -447,7 +447,7 @@ life_analysis (f, file, flags)
     flags &= ~(PROP_REG_INFO | PROP_AUTOINC);
 
   /* We want alias analysis information for local dead store elimination.  */
-  if (optimize && (flags & PROP_SCAN_DEAD_CODE))
+  if (optimize && (flags & PROP_SCAN_DEAD_STORES))
     init_alias_analysis ();
 
   /* Always remove no-op moves.  Do this before other processing so
@@ -477,7 +477,7 @@ life_analysis (f, file, flags)
   update_life_info (NULL, UPDATE_LIFE_GLOBAL, flags);
 
   /* Clean up.  */
-  if (optimize && (flags & PROP_SCAN_DEAD_CODE))
+  if (optimize && (flags & PROP_SCAN_DEAD_STORES))
     end_alias_analysis ();
 
   if (file)
@@ -646,6 +646,7 @@ update_life_info (blocks, extent, prop_flags)
 
 	  calculate_global_regs_live (blocks, blocks,
 				prop_flags & (PROP_SCAN_DEAD_CODE
+					      | PROP_SCAN_DEAD_STORES
 					      | PROP_ALLOW_CFG_CHANGES));
 
 	  if ((prop_flags & (PROP_KILL_DEAD_CODE | PROP_ALLOW_CFG_CHANGES))
@@ -659,6 +660,7 @@ update_life_info (blocks, extent, prop_flags)
 	      COPY_REG_SET (tmp, bb->global_live_at_end);
 	      changed |= propagate_block (bb, tmp, NULL, NULL,
 				prop_flags & (PROP_SCAN_DEAD_CODE
+					      | PROP_SCAN_DEAD_STORES
 					      | PROP_KILL_DEAD_CODE));
 	    }
 
@@ -667,7 +669,8 @@ update_life_info (blocks, extent, prop_flags)
 	     removing dead code can affect global register liveness, which
 	     is supposed to be finalized for this call after this loop.  */
 	  stabilized_prop_flags
-	    &= ~(PROP_SCAN_DEAD_CODE | PROP_KILL_DEAD_CODE);
+	    &= ~(PROP_SCAN_DEAD_CODE | PROP_SCAN_DEAD_STORES
+		 | PROP_KILL_DEAD_CODE);
 
 	  if (! changed)
 	    break;
@@ -758,18 +761,31 @@ update_life_info_in_dirty_blocks (extent, prop_flags)
      enum update_life_extent extent;
      int prop_flags;
 {
-  sbitmap update_life_blocks = sbitmap_alloc (n_basic_blocks);
+  sbitmap update_life_blocks = sbitmap_alloc (last_basic_block);
   int n = 0;
   basic_block bb;
   int retval = 0;
 
   sbitmap_zero (update_life_blocks);
   FOR_EACH_BB (bb)
-    if (bb->flags & BB_DIRTY)
-      {
-	SET_BIT (update_life_blocks, bb->index);
-	n++;
-      }
+    {
+      if (extent == UPDATE_LIFE_LOCAL)
+	{
+	  if (bb->flags & BB_DIRTY)
+	    {
+	      SET_BIT (update_life_blocks, bb->index);
+	      n++;
+	    }
+	}
+      else
+	{
+	  /* ??? Bootstrap with -march=pentium4 fails to terminate
+	     with only a partial life update.  */
+	  SET_BIT (update_life_blocks, bb->index);
+	  if (bb->flags & BB_DIRTY)
+	    n++;
+	}
+    }
 
   if (n)
     retval = update_life_info (update_life_blocks, extent, prop_flags);
@@ -794,6 +810,7 @@ free_basic_block_vars (keep_head_end_p)
 	  VARRAY_FREE (basic_block_info);
 	}
       n_basic_blocks = 0;
+      last_basic_block = 0;
 
       ENTRY_BLOCK_PTR->aux = NULL;
       ENTRY_BLOCK_PTR->global_live_at_end = NULL;
@@ -1061,8 +1078,8 @@ calculate_global_regs_live (blocks_in, blocks_out, flags)
      int flags;
 {
   basic_block *queue, *qhead, *qtail, *qend, bb;
-  regset tmp, new_live_at_end, call_used;
-  regset_head tmp_head, call_used_head;
+  regset tmp, new_live_at_end, invalidated_by_call;
+  regset_head tmp_head, invalidated_by_call_head;
   regset_head new_live_at_end_head;
   int i;
 
@@ -1076,12 +1093,12 @@ calculate_global_regs_live (blocks_in, blocks_out, flags)
 
   tmp = INITIALIZE_REG_SET (tmp_head);
   new_live_at_end = INITIALIZE_REG_SET (new_live_at_end_head);
-  call_used = INITIALIZE_REG_SET (call_used_head);
+  invalidated_by_call = INITIALIZE_REG_SET (invalidated_by_call_head);
 
   /* Inconveniently, this is only readily available in hard reg set form.  */
   for (i = 0; i < FIRST_PSEUDO_REGISTER; ++i)
-    if (call_used_regs[i])
-      SET_REGNO_REG_SET (call_used, i);
+    if (TEST_HARD_REG_BIT (regs_invalidated_by_call, i))
+      SET_REGNO_REG_SET (invalidated_by_call, i);
 
   /* Create a worklist.  Allocate an extra slot for ENTRY_BLOCK, and one
      because the `head == tail' style test for an empty queue doesn't
@@ -1104,9 +1121,8 @@ calculate_global_regs_live (blocks_in, blocks_out, flags)
     }
   else
     {
-      for (i = 0; i < n_basic_blocks; ++i)
+      FOR_EACH_BB (bb)
 	{
-	  basic_block bb = BASIC_BLOCK (i);
 	  *--qhead = bb;
 	  bb->aux = bb;
 	}
@@ -1164,7 +1180,7 @@ calculate_global_regs_live (blocks_in, blocks_out, flags)
 	    if (e->flags & EDGE_EH)
 	      {
 		bitmap_operation (tmp, sb->global_live_at_start,
-				  call_used, BITMAP_AND_COMPL);
+				  invalidated_by_call, BITMAP_AND_COMPL);
 		IOR_REG_SET (new_live_at_end, tmp);
 	      }
 	    else
@@ -1332,7 +1348,7 @@ calculate_global_regs_live (blocks_in, blocks_out, flags)
 
   FREE_REG_SET (tmp);
   FREE_REG_SET (new_live_at_end);
-  FREE_REG_SET (call_used);
+  FREE_REG_SET (invalidated_by_call);
 
   if (blocks_out)
     {
@@ -1628,7 +1644,26 @@ propagate_one_insn (pbi, insn)
       if (libcall_is_dead)
 	prev = propagate_block_delete_libcall ( insn, note);
       else
-	propagate_block_delete_insn (insn);
+	{
+
+	  if (note)
+	    {
+	      /* If INSN contains a RETVAL note and is dead, but the libcall
+		 as a whole is not dead, then we want to remove INSN, but
+		 not the whole libcall sequence.
+
+		 However, we need to also remove the dangling REG_LIBCALL	
+		 note so that we do not have mis-matched LIBCALL/RETVAL
+		 notes.  In theory we could find a new location for the
+		 REG_RETVAL note, but it hardly seems worth the effort.  */
+	      rtx libcall_note;
+	 
+	      libcall_note
+		= find_reg_note (XEXP (note, 0), REG_LIBCALL, NULL_RTX);
+	      remove_note (XEXP (note, 0), libcall_note);
+	    }
+	  propagate_block_delete_insn (insn);
+	}
 
       return prev;
     }
@@ -1922,7 +1957,7 @@ init_propagate_block_info (bb, live, local_set, cond_local_set, flags)
       && ! (TREE_CODE (TREE_TYPE (current_function_decl)) == FUNCTION_TYPE
 	    && (TYPE_RETURNS_STACK_DEPRESSED
 		(TREE_TYPE (current_function_decl))))
-      && (flags & PROP_SCAN_DEAD_CODE)
+      && (flags & PROP_SCAN_DEAD_STORES)
       && (bb->succ == NULL
 	  || (bb->succ->succ_next == NULL
 	      && bb->succ->dest == EXIT_BLOCK_PTR
@@ -2609,7 +2644,7 @@ mark_set_1 (pbi, code, reg, cond, insn, flags)
 
   /* If this set is a MEM, then it kills any aliased writes.
      If this set is a REG, then it kills any MEMs which use the reg.  */
-  if (optimize && (flags & PROP_SCAN_DEAD_CODE))
+  if (optimize && (flags & PROP_SCAN_DEAD_STORES))
     {
       if (GET_CODE (reg) == REG)
 	invalidate_mems_from_set (pbi, reg);
@@ -3712,7 +3747,7 @@ mark_used_regs (pbi, x, cond, insn)
     case MEM:
       /* Don't bother watching stores to mems if this is not the
 	 final pass.  We'll not be deleting dead stores this round.  */
-      if (optimize && (flags & PROP_SCAN_DEAD_CODE))
+      if (optimize && (flags & PROP_SCAN_DEAD_STORES))
 	{
 	  /* Invalidate the data for the last MEM stored, but only if MEM is
 	     something that can be stored into.  */

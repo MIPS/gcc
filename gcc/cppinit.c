@@ -207,7 +207,7 @@ append_include_chain (pfile, dir, path, cxx_aware)
      cpp_reader *pfile;
      char *dir;
      int path;
-     int cxx_aware ATTRIBUTE_UNUSED;
+     int cxx_aware;
 {
   struct cpp_pending *pend = CPP_OPTION (pfile, pending);
   struct search_path *new;
@@ -252,11 +252,7 @@ append_include_chain (pfile, dir, path, cxx_aware)
      include files since these two lists are really just a concatenation
      of one "system" list.  */
   if (path == SYSTEM || path == AFTER)
-#ifdef NO_IMPLICIT_EXTERN_C
-    new->sysp = 1;
-#else
     new->sysp = cxx_aware ? 1 : 2;
-#endif
   else
     new->sysp = 0;
   new->name_map = NULL;
@@ -496,8 +492,7 @@ cpp_create_reader (lang)
 
   /* Default CPP arithmetic to something sensible for the host for the
      benefit of dumb users like fix-header.  */
-#define BITS_PER_HOST_WIDEST_INT (CHAR_BIT * sizeof (HOST_WIDEST_INT))
-  CPP_OPTION (pfile, precision) = BITS_PER_HOST_WIDEST_INT;
+  CPP_OPTION (pfile, precision) = CHAR_BIT * sizeof (long);
   CPP_OPTION (pfile, char_precision) = CHAR_BIT;
   CPP_OPTION (pfile, wchar_precision) = CHAR_BIT * sizeof (int);
   CPP_OPTION (pfile, int_precision) = CHAR_BIT * sizeof (int);
@@ -848,6 +843,7 @@ static void sanity_checks (pfile)
      cpp_reader *pfile;
 {
   cppchar_t test = 0;
+  size_t max_precision = 2 * CHAR_BIT * sizeof (cpp_num_part);
 
   /* Sanity checks for assumptions about CPP arithmetic and target
      type precisions made by cpplib.  */
@@ -855,11 +851,11 @@ static void sanity_checks (pfile)
   if (test < 1)
     cpp_error (pfile, DL_ICE, "cppchar_t must be an unsigned type");
 
-  if (CPP_OPTION (pfile, precision) > BITS_PER_HOST_WIDEST_INT)
+  if (CPP_OPTION (pfile, precision) > max_precision)
     cpp_error (pfile, DL_ICE,
 	       "preprocessor arithmetic has maximum precision of %lu bits; target requires %lu bits",
-	       (unsigned long)BITS_PER_HOST_WIDEST_INT,
-	       (unsigned long)CPP_OPTION (pfile, precision));
+	       (unsigned long) max_precision,
+	       (unsigned long) CPP_OPTION (pfile, precision));
 
   if (CPP_OPTION (pfile, precision) < CPP_OPTION (pfile, int_precision))
     cpp_error (pfile, DL_ICE,
@@ -876,11 +872,15 @@ static void sanity_checks (pfile)
     cpp_error (pfile, DL_ICE,
 	       "target int is narrower than target char");
 
+  /* This is assumed in eval_token() and could be fixed if necessary.  */
+  if (sizeof (cppchar_t) > sizeof (cpp_num_part))
+    cpp_error (pfile, DL_ICE, "CPP half-integer narrower than CPP character");
+
   if (CPP_OPTION (pfile, wchar_precision) > BITS_PER_CPPCHAR_T)
     cpp_error (pfile, DL_ICE,
 	       "CPP on this host cannot handle wide character constants over %lu bits, but the target requires %lu bits",
-	       (unsigned long)BITS_PER_CPPCHAR_T,
-	       (unsigned long)CPP_OPTION (pfile, wchar_precision));
+	       (unsigned long) BITS_PER_CPPCHAR_T,
+	       (unsigned long) CPP_OPTION (pfile, wchar_precision));
 }
 #else
 # define sanity_checks(PFILE)
@@ -1769,6 +1769,9 @@ cpp_post_options (pfile)
   /* -Wtraditional is not useful in C++ mode.  */
   if (CPP_OPTION (pfile, cplusplus))
     CPP_OPTION (pfile, warn_traditional) = 0;
+
+  CPP_OPTION (pfile, warn_long_long) = (CPP_OPTION (pfile, pedantic)
+					&& !CPP_OPTION (pfile, c99));
 
   /* Permanently disable macro expansion if we are rescanning
      preprocessed text.  Read preprocesed source in ISO mode.  */

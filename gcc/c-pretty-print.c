@@ -26,6 +26,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "c-tree.h"
 #include "c-common.h"
 #include "diagnostic.h"
+#include "real.h"
 
 /* To be declared in a .h after diagnostic.h since output_buffer is used.  
    Or we can declare them in diagnostic.h ?  */

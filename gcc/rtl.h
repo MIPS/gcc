@@ -1985,7 +1985,6 @@ extern void reorder_insns_nobb			PARAMS ((rtx, rtx, rtx));
 extern int get_max_uid				PARAMS ((void));
 extern int in_sequence_p			PARAMS ((void));
 extern void force_next_line_note		PARAMS ((void));
-extern void clear_emit_caches			PARAMS ((void));
 extern void init_emit				PARAMS ((void));
 extern void init_emit_once			PARAMS ((int));
 extern void push_topmost_sequence		PARAMS ((void));
@@ -2282,4 +2281,6 @@ extern void if_convert			PARAMS ((int));
 /* In predict.c */
 extern void invert_br_probabilities	PARAMS ((rtx));
 extern bool expensive_function_p	PARAMS ((int));
+/* In tracer.c */
+extern void tracer			PARAMS ((void));
 #endif /* ! GCC_RTL_H */

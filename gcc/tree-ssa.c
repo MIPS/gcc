@@ -77,12 +77,12 @@ tree_build_ssa ()
   size_t i;
   
   /* Compute immediate dominators.  */
-  idom = (int *) xmalloc ((size_t) n_basic_blocks * sizeof (int));
-  memset ((void *) idom, -1, (size_t) n_basic_blocks * sizeof (int));
+  idom = (int *) xmalloc ((size_t) last_basic_block * sizeof (int));
+  memset ((void *) idom, -1, (size_t) last_basic_block * sizeof (int));
   calculate_dominance_info (idom, NULL, CDI_DOMINATORS);
 
   /* Compute dominance frontiers.  */
-  dfs = sbitmap_vector_alloc (n_basic_blocks, n_basic_blocks);
+  dfs = sbitmap_vector_alloc (last_basic_block, last_basic_block);
   compute_dominance_frontiers (dfs, idom);
 
   /* Insert default definitions (a.k.a. ghost definitions) for all the
@@ -145,16 +145,16 @@ insert_phi_terms (dfs)
   /* Array ADDED (indexed by basic block number) is used to determine
      whether a PHI term for the current variable has already been
      inserted at block X.  */
-  VARRAY_TREE_INIT (added, n_basic_blocks, "added");
+  VARRAY_TREE_INIT (added, last_basic_block, "added");
 
   /* Array IN_WORK (indexed by basic block number) is used to determine
      whether block X has already been added to WORK_STACK for the current
      variable.  */
-  VARRAY_TREE_INIT (in_work, n_basic_blocks, "in_work");
+  VARRAY_TREE_INIT (in_work, last_basic_block, "in_work");
 
   /* Array WORK_STACK is a stack of CFG blocks.  Each block that contains
      an assignment or PHI term will be pushed to this stack.  */
-  VARRAY_BB_INIT (work_stack, n_basic_blocks, "work_stack");
+  VARRAY_BB_INIT (work_stack, last_basic_block, "work_stack");
 
   /* Iterate over all referenced symbols in the function.  For each
      symbol, add to the work list all the blocks that have a definition
@@ -267,6 +267,7 @@ search_fud_chains (bb, idom)
   edge e;
   int i;
   size_t r, nrefs;
+  basic_block child_bb;
 
   /* for each variable use or def or phi-term R in BB do
          let SYM be the variable referenced at R
@@ -352,10 +353,10 @@ search_fud_chains (bb, idom)
   /* for Y in Child(BB) do	<-- Child(BB) is the set of dominator
     	   Search(Y)                children of BB in the dominator tree.
      endfor  */
-  for (i = 0; i < n_basic_blocks; i++)
+  FOR_EACH_BB (child_bb)
     {
-      if (idom[i] == bb->index)
-	search_fud_chains (BASIC_BLOCK (i), idom);
+      if (idom[child_bb->index] == bb->index)
+	search_fud_chains (child_bb, idom);
     }
 
 

@@ -429,8 +429,6 @@ enum reg_class {
   (TARGET_H8300H || TARGET_H8300S			\
    ? (VALUE) == -1 || (VALUE) == -2 || (VALUE) == -4	\
    : (VALUE) == -1 || (VALUE) == -2)
-#define CONST_OK_FOR_O(VALUE) (ok_for_bclr (VALUE))
-#define CONST_OK_FOR_P(VALUE) (small_power_of_two (VALUE))
 
 #define CONST_OK_FOR_LETTER_P(VALUE, C)		\
   ((C) == 'I' ? CONST_OK_FOR_I (VALUE) :	\
@@ -439,8 +437,6 @@ enum reg_class {
    (C) == 'L' ? CONST_OK_FOR_L (VALUE) :	\
    (C) == 'M' ? CONST_OK_FOR_M (VALUE) :	\
    (C) == 'N' ? CONST_OK_FOR_N (VALUE) :	\
-   (C) == 'O' ? CONST_OK_FOR_O (VALUE) :	\
-   (C) == 'P' ? CONST_OK_FOR_P (VALUE) :	\
    0)
 
 /* Similar, but for floating constants, and defining letters G and H.
@@ -807,6 +803,21 @@ struct cum_arg
 
 /* Extra constraints.  */
 
+#define OK_FOR_R(OP)					\
+  (GET_CODE (OP) == CONST_INT				\
+   ? !h8300_shift_needs_scratch_p (INTVAL (OP), QImode)	\
+   : 0)
+
+#define OK_FOR_S(OP)					\
+  (GET_CODE (OP) == CONST_INT				\
+   ? !h8300_shift_needs_scratch_p (INTVAL (OP), HImode)	\
+   : 0)
+
+#define OK_FOR_T(OP)					\
+  (GET_CODE (OP) == CONST_INT				\
+   ? !h8300_shift_needs_scratch_p (INTVAL (OP), SImode)	\
+   : 0)
+
 /* Nonzero if X is a constant address suitable as an 8-bit absolute on
    the H8/300H, which is a special case of the 'R' operand.  */
 
@@ -844,7 +855,10 @@ struct cum_arg
        && GET_CODE (XEXP (OP, 0)) == CONST_INT))
 
 #define EXTRA_CONSTRAINT(OP, C)			\
-  ((C) == 'U' ? OK_FOR_U (OP) :			\
+  ((C) == 'R' ? OK_FOR_R (OP) :			\
+   (C) == 'S' ? OK_FOR_S (OP) :			\
+   (C) == 'T' ? OK_FOR_T (OP) :			\
+   (C) == 'U' ? OK_FOR_U (OP) :			\
    0)
 
 /* GO_IF_LEGITIMATE_ADDRESS recognizes an RTL expression

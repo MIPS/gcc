@@ -65,6 +65,10 @@ static char *flow_firstobj;
 
 int n_basic_blocks;
 
+/* First free basic block number.  */
+
+int last_basic_block;
+
 /* Number of edges in the current function.  */
 
 int n_edges;
@@ -96,6 +100,7 @@ struct basic_block_def entry_exit_blocks[2]
     NULL,			/* prev_bb */
     EXIT_BLOCK_PTR,		/* next_bb */
     0,				/* loop_depth */
+    NULL,                       /* loop_father */
     0,				/* count */
     0,				/* frequency */
     0				/* flags */
@@ -116,6 +121,7 @@ struct basic_block_def entry_exit_blocks[2]
     ENTRY_BLOCK_PTR,		/* prev_bb */
     NULL,			/* next_bb */
     0,				/* loop_depth */
+    NULL,                       /* loop_father */
     0,				/* count */
     0,				/* frequency */
     0				/* flags */
@@ -243,39 +249,43 @@ unlink_block (b)
   b->prev_bb->next_bb = b->next_bb;
 }
 
+/* Sequentially order blocks and compact the arrays.  */
+void
+compact_blocks ()
+{
+  int i;
+  basic_block bb;
+ 
+  i = 0;
+  FOR_EACH_BB (bb)
+    {
+      BASIC_BLOCK (i) = bb;
+      bb->index = i;
+      i++;
+    }
 
-/* Remove block B from the basic block array and compact behind it.  */
+  if (i != n_basic_blocks)
+    abort ();
+
+  last_basic_block = n_basic_blocks;
+}
+
+
+/* Remove block B from the basic block array.  */
 
 void
-expunge_block_nocompact (b)
+expunge_block (b)
      basic_block b;
 {
   unlink_block (b);
+  BASIC_BLOCK (b->index) = NULL;
+  n_basic_blocks--;
 
   /* Invalidate data to make bughunting easier.  */
   memset (b, 0, sizeof *b);
   b->index = -3;
   b->succ = (edge) first_deleted_block;
   first_deleted_block = (basic_block) b;
-}
-
-void
-expunge_block (b)
-     basic_block b;
-{
-  int i, n = n_basic_blocks;
-
-  for (i = b->index; i + 1 < n; ++i)
-    {
-      basic_block x = BASIC_BLOCK (i + 1);
-      BASIC_BLOCK (i) = x;
-      x->index = i;
-    }
-
-  n_basic_blocks--;
-  basic_block_info->num_elements--;
-
-  expunge_block_nocompact (b);
 }
 
 /* Create an edge connecting SRC and DST with FLAGS optionally using
@@ -545,7 +555,7 @@ dump_flow_info (file)
       gcov_type lsum;
 
       fprintf (file, "\nBasic block %d: first insn %d, last %d, ",
-	       i, INSN_UID (bb->head), INSN_UID (bb->end));
+	       bb->index, INSN_UID (bb->head), INSN_UID (bb->end));
       fprintf (file, "prev %d, next %d, ",
 	       bb->prev_bb->index, bb->next_bb->index);
       fprintf (file, "loop_depth %d, count ", bb->loop_depth);
@@ -555,7 +565,7 @@ dump_flow_info (file)
 	fprintf (file, ", maybe hot");
       if (probably_never_executed_bb_p (bb))
 	fprintf (file, ", probably never executed");
-      fprintf (file, ".\n", bb->frequency);
+      fprintf (file, ".\n");
 
       fprintf (file, "Predecessors: ");
       for (e = bb->pred; e; e = e->pred_next)

@@ -22,6 +22,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "config.h"
 #include "system.h"
 #include "tree.h"
+#include "real.h"
 #include "flags.h"
 #include "toplev.h"
 #include "output.h"
@@ -351,6 +352,8 @@ static tree handle_vector_size_attribute PARAMS ((tree *, tree, tree, int,
 						  bool *));
 static tree handle_nonnull_attribute	PARAMS ((tree *, tree, tree, int,
 						 bool *));
+static tree handle_nothrow_attribute	PARAMS ((tree *, tree, tree, int,
+						 bool *));
 static tree vector_size_helper PARAMS ((tree, tree));
 
 static void check_function_nonnull	PARAMS ((tree, tree));
@@ -425,6 +428,9 @@ const struct attribute_spec c_common_attribute_table[] =
 			      handle_visibility_attribute },
   { "nonnull",                0, -1, false, true, true,
 			      handle_nonnull_attribute },
+  { "nothrow",                0, 0, true,  false, false,
+			      handle_nothrow_attribute },
+  { "may_alias",	      0, 0, false, true, false, NULL },
   { NULL,                     0, 0, false, false, false, NULL }
 };
 
@@ -2546,6 +2552,10 @@ c_common_get_alias_set (t)
       && TYPE_PRECISION (TREE_TYPE (t)) == TYPE_PRECISION (char_type_node))
     return 0;
 
+  /* If it has the may_alias attribute, it can alias anything.  */
+  if (TYPE_P (t) && lookup_attribute ("may_alias", TYPE_ATTRIBUTES (t)))
+    return 0;
+
   /* That's all the expressions we handle specially.  */
   if (! TYPE_P (t))
     return -1;
@@ -4430,10 +4440,13 @@ builtin_define_std (macro)
 
   /* prepend __ (or maybe just _) if in user's namespace.  */
   memcpy (p, macro, len + 1);
-  if (*p != '_')
-    *--p = '_';
-  if (p[1] != '_' && !ISUPPER (p[1]))
-    *--p = '_';
+  if (!( *p == '_' && (p[1] == '_' || ISUPPER (p[1]))))
+    {
+      if (*p != '_')
+	*--p = '_';
+      if (p[1] != '_')
+	*--p = '_';
+    }
   cpp_define (parse_in, p);
 
   /* If it was in user's namespace...  */
@@ -4488,6 +4501,7 @@ c_common_init (filename)
 
   /* Set up preprocessor arithmetic.  Must be done after call to
      c_common_nodes_and_builtins for wchar_type_node to be good.  */
+  options->precision = TYPE_PRECISION (intmax_type_node);
   options->char_precision = TYPE_PRECISION (char_type_node);
   options->int_precision = TYPE_PRECISION (integer_type_node);
   options->wchar_precision = TYPE_PRECISION (wchar_type_node);
@@ -5793,6 +5807,29 @@ get_nonnull_operand (arg_num_expr, valp)
 
   *valp = TREE_INT_CST_LOW (arg_num_expr);
   return true;
+}
+
+/* Handle a "nothrow" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_nothrow_attribute (node, name, args, flags, no_add_attrs)
+     tree *node;
+     tree name;
+     tree args ATTRIBUTE_UNUSED;
+     int flags ATTRIBUTE_UNUSED;
+     bool *no_add_attrs;
+{
+  if (TREE_CODE (*node) == FUNCTION_DECL)
+    TREE_NOTHROW (*node) = 1;
+  /* ??? TODO: Support types.  */
+  else
+    {
+      warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
 }
 
 /* Check for valid arguments being passed to a function.  */

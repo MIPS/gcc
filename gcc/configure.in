@@ -254,11 +254,6 @@ if test x$ac_gc_always_collect != x ; then
    every opportunity.  This is extremely expensive.])
 fi
 
-
-AC_ARG_ENABLE(cpp,
-[  --disable-cpp           don't provide a user-visible C preprocessor],
-[], [enable_cpp=yes])
-
 AC_ARG_WITH(cpp_install_dir,
 [  --with-cpp-install-dir=DIR
                           install the user visible C preprocessor in DIR
@@ -774,12 +769,6 @@ then float_h_file=Makefile.in
 else float_h_file=float-$float_format.h
 fi
 
-# Handle cpp installation.
-if test x$enable_cpp != xno
-then
-  tmake_file="$tmake_file t-install-cpp"
-fi
-
 # Say what files are being used for the output code and MD file.
 echo "Using \`$srcdir/config/$out_file' for machine-specific logic."
 echo "Using \`$srcdir/config/$md_file' as machine description file."
@@ -1146,8 +1135,8 @@ AC_SUBST(inhibit_libc)
 # FIXME.
 
 # These are the normal (build=host) settings:
-HOST_PREFIX=			AC_SUBST(HOST_PREFIX)
-HOST_PREFIX_1=ignore-		AC_SUBST(HOST_PREFIX_1)
+BUILD_PREFIX=			AC_SUBST(BUILD_PREFIX)
+BUILD_PREFIX_1=ignore-		AC_SUBST(BUILD_PREFIX_1)
 HOST_CC='$(CC)'			AC_SUBST(HOST_CC)
 HOST_CFLAGS='$(ALL_CFLAGS)'	AC_SUBST(HOST_CFLAGS)
 
@@ -1157,8 +1146,8 @@ STMP_FIXPROTO=stmp-fixproto	AC_SUBST(STMP_FIXPROTO)
 # And these apply if build != host.
 if test x$build != x$host
 then
-    HOST_PREFIX=build-
-    HOST_PREFIX_1=build-
+    BUILD_PREFIX=build-
+    BUILD_PREFIX_1=build-
     HOST_CC='$(CC_FOR_BUILD)'
     HOST_CFLAGS='$(INTERNAL_CFLAGS) $(T_CFLAGS) $(CFLAGS_FOR_BUILD) $(XCFLAGS)'
 
@@ -1725,6 +1714,28 @@ tls_first_major=
 tls_first_minor=
 case "$target" in
 changequote(,)dnl
+  alpha*-*-*)
+    conftest_s='
+	.section ".tdata","awT",@progbits
+foo:	.long	25
+	.text
+	ldq	$27,__tls_get_addr($29)		!literal!1
+	lda	$16,foo($29)			!tlsgd!1
+	jsr	$26,($27),__tls_get_addr	!lituse_tlsgd!1
+	ldq	$27,__tls_get_addr($29)		!literal!2
+	lda	$16,foo($29)			!tlsldm!2
+	jsr	$26,($27),__tls_get_addr	!lituse_tlsldm!2
+	ldq	$1,foo($29)			!gotdtprel
+	ldah	$2,foo($29)			!dtprelhi
+	lda	$3,foo($2)			!dtprello
+	lda	$4,foo($29)			!dtprel
+	ldq	$1,foo($29)			!gottprel
+	ldah	$2,foo($29)			!tprelhi
+	lda	$3,foo($2)			!tprello
+	lda	$4,foo($29)			!tprel'
+	tls_first_major=2
+	tls_first_minor=13
+	;;
   i[34567]86-*-*)
 changequote([,])dnl
     conftest_s='
@@ -2312,7 +2323,7 @@ all_languages=
 all_boot_languages=
 all_compilers=
 all_stagestuff=
-all_outputs='Makefile intl/Makefile fixinc/Makefile gccbug mklibgcc'
+all_outputs='Makefile intl/Makefile fixinc/Makefile gccbug mklibgcc mkheaders'
 # List of language makefile fragments.
 all_lang_makefiles=
 

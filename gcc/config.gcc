@@ -213,6 +213,7 @@ case $machine in
  | m88k-*-openbsd*  \
  | m88k-*-sysv4*    \
  | mips-sni-sysv4   \
+ | mn10200-*-*      \
  | ns32k-*-netbsd*  \
  | ns32k-*-openbsd* \
  | romp-*-openbsd*  \
@@ -275,7 +276,8 @@ powerpc*-*-*)
 sparc*-*-*)
 	cpu_type=sparc
 	;;
-sh64-*-*)
+# Note the 'l'; we need to be able to match e.g. "shle" or "shl".
+sh[123456789l]*-*-*)
 	cpu_type=sh
 	;;
 esac
@@ -1933,7 +1935,7 @@ ns32k-*-netbsdelf*)
 	echo "GCC does not yet support the ${machine} target"; exit 1
 	;;
 ns32k-*-netbsd*)
-	tm_file=ns32k/netbsd.h
+	tm_file="${tm_file} netbsd.h netbsd-aout.h ns32k/netbsd.h"
 	# On NetBSD, the headers are already okay, except for math.h.
 	tmake_file=t-netbsd
 	use_collect2=yes
@@ -2206,12 +2208,12 @@ s390x-*-linux*)
 	;;
 sh-*-elf*)
 	tmake_file="sh/t-sh sh/t-elf"
-	tm_file="${tm_file} sh/embed-elf.h"
+	tm_file="${tm_file} dbxelf.h elfos.h svr4.h sh/embed-elf.h"
 	float_format=sh
 	;;
 sh64-*-elf*)
 	tmake_file="sh/t-sh sh/t-elf sh/t-sh64"
-	tm_file="${tm_file} sh/sh.h sh/embed-elf.h sh/sh64.h"
+	tm_file="${tm_file} dbxelf.h elfos.h svr4.h sh/embed-elf.h sh/sh64.h"
 	float_format=sh
 	extra_headers="shmedia.h ushmedia.h sshmedia.h"
 	# Not strictly necessary to check this, but a good idea anyway.
@@ -2222,7 +2224,7 @@ sh64-*-elf*)
 sh-*-rtemself*)
 	xm_defines=POSIX
 	tmake_file="sh/t-sh sh/t-elf t-rtems"
-	tm_file="${tm_file} sh/embed-elf.h sh/rtemself.h rtems.h"
+	tm_file="${tm_file} dbxelf.h elfos.h svr4.h sh/embed-elf.h sh/rtemself.h rtems.h"
 	float_format=sh
 	if test x$enable_threads = xyes; then
 	  thread_file='rtems'
@@ -2231,22 +2233,38 @@ sh-*-rtemself*)
 sh-*-rtems*)
 	xm_defines=POSIX
 	tmake_file="sh/t-sh t-rtems"
-	tm_file="${tm_file} sh/rtems.h rtems.h"
+	tm_file="${tm_file} sh/coff.h sh/rtems.h rtems.h"
 	float_format=sh
 	if test x$enable_threads = xyes; then
 	  thread_file='rtems'
 	fi
 	;;
 sh-*-linux*)
-	tm_file="${tm_file} sh/elf.h sh/linux.h"
-	tmake_file="sh/t-sh sh/t-elf sh/t-linux"
+	tm_file="sh/little.h ${tm_file} dbxelf.h elfos.h svr4.h sh/elf.h sh/linux.h"
+	tmake_file="sh/t-sh sh/t-elf sh/t-le sh/t-linux"
 	gas=yes gnu_ld=yes
 	if test x$enable_threads = xyes; then
 		thread_file='posix'
 	fi
 	float_format=sh
 	;;
+sh-*-netbsdelf* | shl*-*-netbsdelf*)
+	tm_file="${tm_file} dbxelf.h elfos.h sh/elf.h netbsd.h netbsd-elf.h sh/netbsd-elf.h"
+	tmake_file="${tmake_file} sh/t-sh sh/t-elf"
+	case $machine in
+	sh*l*-*)
+		tm_file="sh/little.h ${tm_file}"
+		tmake_file="${tmake_file} sh/t-le"
+		;;
+	*)
+		tmake_file="${tmake_file} sh/t-be"
+		;;
+	esac
+	tmake_file="${tmake_file} sh/t-netbsd"
+	float_format=sh
+	;;
 sh-*-*)
+	tm_file="${tm_file} sh/coff.h"
 	float_format=sh
 	;;
 sparc-tti-*)
@@ -2282,6 +2300,13 @@ sparc-*-openbsd*)
 	tmake_file="t-libc-ok t-openbsd sparc/t-openbsd"
 	# we need collect2 until our bug is fixed...
 	use_collect2=yes
+	;;
+sparc64-*-openbsd*)
+	tm_file="sparc/openbsd1-64.h sparc/sparc.h elfos.h svr4.h sparc/sysv4.h sparc/sol2.h sparc/sp64-elf.h openbsd.h sparc/openbsd64.h"
+	xm_file=sparc/xm-sp64.h
+	gas=yes gnu_ld=yes
+	with_cpu=ultrasparc
+	float_format=i128
 	;;
 sparc-*-bsd*)
 	tm_file="${tm_file} sparc/bsd.h"
@@ -2780,6 +2805,14 @@ hppa*-*-* | parisc*-*-*)
 	then
 		target_cpu_default2="MASK_GAS|MASK_JUMP_IN_DELAY"
 	fi
+	case $machine in
+		hppa1.0* | parisc1.0*)
+			tm_file="pa/pa-700.h ${tm_file}"
+			;;
+		hppa1.1* | parisc1.1*)
+			tm_file="pa/pa-7100.h ${tm_file}"
+			;;
+	esac
 	;;
 
 mips*-*-ecoff* | mips*-*-elf*)

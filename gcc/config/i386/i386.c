@@ -672,6 +672,7 @@ static rtx ix86_expand_int_compare PARAMS ((enum rtx_code, rtx, rtx));
 static enum rtx_code ix86_prepare_fp_compare_args PARAMS ((enum rtx_code,
 							   rtx *, rtx *));
 static rtx get_thread_pointer PARAMS ((void));
+static void get_pc_thunk_name PARAMS ((char [32], unsigned int));
 static rtx gen_push PARAMS ((rtx));
 static int memory_address_length PARAMS ((rtx addr));
 static int ix86_flags_dependant PARAMS ((rtx, rtx, enum attr_type));
@@ -687,6 +688,7 @@ static int ix86_nsaved_regs PARAMS ((void));
 static void ix86_emit_save_regs PARAMS ((void));
 static void ix86_emit_save_regs_using_mov PARAMS ((rtx, HOST_WIDE_INT));
 static void ix86_emit_restore_regs_using_mov PARAMS ((rtx, int, int));
+static void ix86_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
 static void ix86_set_move_mem_attrs_1 PARAMS ((rtx, rtx, rtx, rtx, rtx));
 static void ix86_sched_reorder_ppro PARAMS ((rtx *, rtx *));
 static HOST_WIDE_INT ix86_GOT_alias_set PARAMS ((void));
@@ -737,6 +739,7 @@ static int ix86_fp_comparison_arithmetics_cost PARAMS ((enum rtx_code code));
 static int ix86_fp_comparison_fcomi_cost PARAMS ((enum rtx_code code));
 static int ix86_fp_comparison_sahf_cost PARAMS ((enum rtx_code code));
 static int ix86_fp_comparison_cost PARAMS ((enum rtx_code code));
+static unsigned int ix86_select_alt_pic_regnum PARAMS ((void));
 static int ix86_save_reg PARAMS ((unsigned int, int));
 static void ix86_compute_frame_layout PARAMS ((struct ix86_frame *));
 static int ix86_comp_type_attributes PARAMS ((tree, tree));
@@ -806,6 +809,8 @@ static enum x86_64_reg_class merge_classes PARAMS ((enum x86_64_reg_class,
 #  undef TARGET_ASM_FUNCTION_PROLOGUE
 #  define TARGET_ASM_FUNCTION_PROLOGUE ix86_osf_output_function_prologue
 #endif
+#undef TARGET_ASM_FUNCTION_EPILOGUE
+#define TARGET_ASM_FUNCTION_EPILOGUE ix86_output_function_epilogue
 
 #undef TARGET_ASM_OPEN_PAREN
 #define TARGET_ASM_OPEN_PAREN ""
@@ -1716,6 +1721,34 @@ classify_argument (mode, type, classes, bit_offset)
       /* Classify each field of record and merge classes.  */
       if (TREE_CODE (type) == RECORD_TYPE)
 	{
+	  /* For classes first merge in the field of the subclasses.  */
+	  if (TYPE_BINFO (type) != NULL && TYPE_BINFO_BASETYPES (type) != NULL)
+	    {
+	      tree bases = TYPE_BINFO_BASETYPES (type);
+	      int n_bases = TREE_VEC_LENGTH (bases);
+	      int i;
+
+	      for (i = 0; i < n_bases; ++i)
+		{
+		   tree binfo = TREE_VEC_ELT (bases, i);
+		   int num;
+		   int offset = tree_low_cst (BINFO_OFFSET (binfo), 0) * 8;
+		   tree type = BINFO_TYPE (binfo);
+
+		   num = classify_argument (TYPE_MODE (type),
+					    type, subclasses,
+					    (offset + bit_offset) % 256);
+		   if (!num)
+		     return 0;
+		   for (i = 0; i < num; i++)
+		     {
+		       int pos = (offset + bit_offset) / 8 / 8;
+		       classes[i + pos] =
+			 merge_classes (subclasses[i], classes[i + pos]);
+		     }
+		}
+	    }
+	  /* And now merge the fields of structure.   */
 	  for (field = TYPE_FIELDS (type); field; field = TREE_CHAIN (field))
 	    {
 	      if (TREE_CODE (field) == FIELD_DECL)
@@ -1776,6 +1809,33 @@ classify_argument (mode, type, classes, bit_offset)
       else if (TREE_CODE (type) == UNION_TYPE
 	       || TREE_CODE (type) == QUAL_UNION_TYPE)
 	{
+	  /* For classes first merge in the field of the subclasses.  */
+	  if (TYPE_BINFO (type) != NULL && TYPE_BINFO_BASETYPES (type) != NULL)
+	    {
+	      tree bases = TYPE_BINFO_BASETYPES (type);
+	      int n_bases = TREE_VEC_LENGTH (bases);
+	      int i;
+
+	      for (i = 0; i < n_bases; ++i)
+		{
+		   tree binfo = TREE_VEC_ELT (bases, i);
+		   int num;
+		   int offset = tree_low_cst (BINFO_OFFSET (binfo), 0) * 8;
+		   tree type = BINFO_TYPE (binfo);
+
+		   num = classify_argument (TYPE_MODE (type),
+					    type, subclasses,
+					    (offset + bit_offset) % 256);
+		   if (!num)
+		     return 0;
+		   for (i = 0; i < num; i++)
+		     {
+		       int pos = (offset + bit_offset) / 8 / 8;
+		       classes[i + pos] =
+			 merge_classes (subclasses[i], classes[i + pos]);
+		     }
+		}
+	    }
 	  for (field = TYPE_FIELDS (type); field; field = TREE_CHAIN (field))
 	    {
 	      if (TREE_CODE (field) == FIELD_DECL)
@@ -2208,11 +2268,11 @@ function_arg (cum, mode, type, named)
   if (TARGET_DEBUG_ARG)
     {
       fprintf (stderr,
-	       "function_arg (size=%d, wds=%2d, nregs=%d, mode=%4s, named=%d",
+	       "function_arg (size=%d, wds=%2d, nregs=%d, mode=%4s, named=%d, ",
 	       words, cum->words, cum->nregs, GET_MODE_NAME (mode), named);
 
       if (ret)
-	fprintf (stderr, ", reg=%%e%s", reg_names[ REGNO (ret) ]);
+	print_simple_rtl (stderr, ret);
       else
 	fprintf (stderr, ", stack");
 
@@ -3880,7 +3940,8 @@ ix86_frame_pointer_required ()
   /* In override_options, TARGET_OMIT_LEAF_FRAME_POINTER turns off
      the frame pointer by default.  Turn it back on now if we've not
      got a leaf function.  */
-  if (TARGET_OMIT_LEAF_FRAME_POINTER && ! leaf_function_p ())
+  if (TARGET_OMIT_LEAF_FRAME_POINTER
+      && (!current_function_is_leaf || current_function_profile))
     return 1;
 
   return 0;
@@ -3894,7 +3955,28 @@ ix86_setup_frame_addresses ()
   cfun->machine->accesses_prev_frame = 1;
 }
 
-static char pic_label_name[32];
+#if defined(HAVE_GAS_HIDDEN) && defined(SUPPORTS_ONE_ONLY)
+# define USE_HIDDEN_LINKONCE 1
+#else
+# define USE_HIDDEN_LINKONCE 0
+#endif
+
+static int pic_labels_used;
+
+/* Fills in the label name that should be used for a pc thunk for
+   the given register.  */
+
+static void
+get_pc_thunk_name (name, regno)
+     char name[32];
+     unsigned int regno;
+{
+  if (USE_HIDDEN_LINKONCE)
+    sprintf (name, "__i686.get_pc_thunk.%s", reg_names[regno]);
+  else
+    ASM_GENERATE_INTERNAL_LABEL (name, "LPR", regno);
+}
+
 
 /* This function generates code for -fpic that loads %ebx with
    the return address of the caller and then returns.  */
@@ -3904,48 +3986,47 @@ ix86_asm_file_end (file)
      FILE *file;
 {
   rtx xops[2];
+  int regno;
 
-  if (pic_label_name[0] == 0)
-    return;
-
-  /* ??? Binutils 2.10 and earlier has a linkonce elimination bug related
-     to updating relocations to a section being discarded such that this
-     doesn't work.  Ought to detect this at configure time.  */
-#if 0
-  /* The trick here is to create a linkonce section containing the
-     pic label thunk, but to refer to it with an internal label.
-     Because the label is internal, we don't have inter-dso name
-     binding issues on hosts that don't support ".hidden".
-
-     In order to use these macros, however, we must create a fake
-     function decl.  */
-  if (targetm.have_named_sections)
+  for (regno = 0; regno < 8; ++regno)
     {
-      tree decl = build_decl (FUNCTION_DECL,
-			      get_identifier ("i686.get_pc_thunk"),
-			      error_mark_node);
-      DECL_ONE_ONLY (decl) = 1;
-      (*targetm.asm_out.unique_section) (decl, 0);
-      named_section (decl, NULL);
+      char name[32];
+
+      if (! ((pic_labels_used >> regno) & 1))
+	continue;
+
+      get_pc_thunk_name (name, regno);
+
+      if (USE_HIDDEN_LINKONCE)
+	{
+	  tree decl;
+
+	  decl = build_decl (FUNCTION_DECL, get_identifier (name),
+			     error_mark_node);
+	  TREE_PUBLIC (decl) = 1;
+	  TREE_STATIC (decl) = 1;
+	  DECL_ONE_ONLY (decl) = 1;
+
+	  (*targetm.asm_out.unique_section) (decl, 0);
+	  named_section (decl, NULL, 0);
+
+	  ASM_GLOBALIZE_LABEL (file, name);
+	  fputs ("\t.hidden\t", file);
+	  assemble_name (file, name);
+	  fputc ('\n', file);
+	  ASM_DECLARE_FUNCTION_NAME (file, name, decl);
+	}
+      else
+	{
+	  text_section ();
+	  ASM_OUTPUT_LABEL (file, name);
+	}
+
+      xops[0] = gen_rtx_REG (SImode, regno);
+      xops[1] = gen_rtx_MEM (SImode, stack_pointer_rtx);
+      output_asm_insn ("mov{l}\t{%1, %0|%0, %1}", xops);
+      output_asm_insn ("ret", xops);
     }
-  else
-#else
-    text_section ();
-#endif
-
-  /* This used to call ASM_DECLARE_FUNCTION_NAME() but since it's an
-     internal (non-global) label that's being emitted, it didn't make
-     sense to have .type information for local labels.   This caused
-     the SCO OpenServer 5.0.4 ELF assembler grief (why are you giving
-     me debug info for a label that you're declaring non-global?) this
-     was changed to call ASM_OUTPUT_LABEL() instead.  */
-
-  ASM_OUTPUT_LABEL (file, pic_label_name);
-
-  xops[0] = pic_offset_table_rtx;
-  xops[1] = gen_rtx_MEM (SImode, stack_pointer_rtx);
-  output_asm_insn ("mov{l}\t{%1, %0|%0, %1}", xops);
-  output_asm_insn ("ret", xops);
 }
 
 /* Emit code for the SET_GOT patterns.  */
@@ -3976,10 +4057,11 @@ output_set_got (dest)
     }
   else
     {
-      if (! pic_label_name[0])
-	ASM_GENERATE_INTERNAL_LABEL (pic_label_name, "LPR", 0);
+      char name[32];
+      get_pc_thunk_name (name, REGNO (dest));
+      pic_labels_used |= 1 << REGNO (dest);
 
-      xops[2] = gen_rtx_SYMBOL_REF (Pmode, pic_label_name);
+      xops[2] = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (name));
       xops[2] = gen_rtx_MEM (QImode, xops[2]);
       output_asm_insn ("call\t%X2", xops);
     }
@@ -4005,17 +4087,39 @@ gen_push (arg)
 		      arg);
 }
 
+/* Return >= 0 if there is an unused call-clobbered register available
+   for the entire function.  */
+
+static unsigned int
+ix86_select_alt_pic_regnum ()
+{
+  if (current_function_is_leaf && !current_function_profile)
+    {
+      int i;
+      for (i = 2; i >= 0; --i)
+        if (!regs_ever_live[i])
+	  return i;
+    }
+
+  return INVALID_REGNUM;
+}
+  
 /* Return 1 if we need to save REGNO.  */
 static int
 ix86_save_reg (regno, maybe_eh_return)
      unsigned int regno;
      int maybe_eh_return;
 {
-  if (regno == PIC_OFFSET_TABLE_REGNUM
-      && (current_function_uses_pic_offset_table
-	  || current_function_uses_const_pool
+  if (pic_offset_table_rtx
+      && regno == REAL_PIC_OFFSET_TABLE_REGNUM
+      && (regs_ever_live[REAL_PIC_OFFSET_TABLE_REGNUM]
+	  || current_function_profile
 	  || current_function_calls_eh_return))
-    return 1;
+    {
+      if (ix86_select_alt_pic_regnum () != INVALID_REGNUM)
+	return 0;
+      return 1;
+    }
 
   if (current_function_calls_eh_return && maybe_eh_return)
     {
@@ -4138,8 +4242,9 @@ ix86_compute_frame_layout (frame)
 
   offset += size;
 
-  /* Add outgoing arguments area.  */
-  if (ACCUMULATE_OUTGOING_ARGS)
+  /* Add outgoing arguments area.  Can be skipped if we eliminated
+     all the function calls as dead code.  */
+  if (ACCUMULATE_OUTGOING_ARGS && !current_function_is_leaf)
     {
       offset += current_function_outgoing_args_size;
       frame->outgoing_arguments_size = current_function_outgoing_args_size;
@@ -4147,9 +4252,13 @@ ix86_compute_frame_layout (frame)
   else
     frame->outgoing_arguments_size = 0;
 
-  /* Align stack boundary.  */
-  frame->padding2 = ((offset + preferred_alignment - 1)
-		     & -preferred_alignment) - offset;
+  /* Align stack boundary.  Only needed if we're calling another function
+     or using alloca.  */
+  if (!current_function_is_leaf || current_function_calls_alloca)
+    frame->padding2 = ((offset + preferred_alignment - 1)
+		       & -preferred_alignment) - offset;
+  else
+    frame->padding2 = 0;
 
   offset += frame->padding2;
 
@@ -4231,9 +4340,7 @@ void
 ix86_expand_prologue ()
 {
   rtx insn;
-  int pic_reg_used = (flag_pic && (current_function_uses_pic_offset_table
-				  || current_function_uses_const_pool)
-		      && !TARGET_64BIT);
+  bool pic_reg_used;
   struct ix86_frame frame;
   int use_mov = 0;
   HOST_WIDE_INT allocate;
@@ -4312,22 +4419,36 @@ ix86_expand_prologue ()
   SUBTARGET_PROLOGUE;
 #endif
 
+  pic_reg_used = false;
+  if (pic_offset_table_rtx
+      && (regs_ever_live[REAL_PIC_OFFSET_TABLE_REGNUM]
+	  || current_function_profile))
+    {
+      unsigned int alt_pic_reg_used = ix86_select_alt_pic_regnum ();
+
+      if (alt_pic_reg_used != INVALID_REGNUM)
+	REGNO (pic_offset_table_rtx) = alt_pic_reg_used;
+
+      pic_reg_used = true;
+    }
+
   if (pic_reg_used)
     {
       insn = emit_insn (gen_set_got (pic_offset_table_rtx));
 
-      /* ??? The current_function_uses_pic_offset_table flag is woefully
-	 inaccurate, as it isn't updated as code gets deleted.  Allow the
-	 thing to be removed.  A better solution would be to actually get
-	 proper liveness for ebx, as then we won't save/restore it too.  */
+      /* Even with accurate pre-reload life analysis, we can wind up
+	 deleting all references to the pic register after reload.
+	 Consider if cross-jumping unifies two sides of a branch
+	 controled by a comparison vs the only read from a global.
+	 In which case, allow the set_got to be deleted, though we're
+	 too late to do anything about the ebx save in the prologue.  */
       REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_MAYBE_DEAD, const0_rtx, NULL);
     }
 
-  /* If we are profiling, make sure no instructions are scheduled before
-     the call to mcount.  However, if -fpic, the above call will have
-     done that.  */
-  if (current_function_profile && ! pic_reg_used)
-    emit_insn (gen_blockage ());
+  /* Prevent function calls from be scheduled before the call to mcount.
+     In the pic_reg_used case, make sure that the got load isn't deleted.  */
+  if (current_function_profile)
+    emit_insn (gen_blockage (pic_reg_used ? pic_offset_table_rtx : const0_rtx));
 }
 
 /* Emit code to restore saved registers using MOV insns.  First register
@@ -4515,6 +4636,17 @@ ix86_expand_epilogue (style)
     }
   else
     emit_jump_insn (gen_return_internal ());
+}
+
+/* Reset from the function's potential modifications.  */
+
+static void
+ix86_output_function_epilogue (file, size)
+     FILE *file ATTRIBUTE_UNUSED;
+     HOST_WIDE_INT size ATTRIBUTE_UNUSED;
+{
+  if (pic_offset_table_rtx)
+    REGNO (pic_offset_table_rtx) = REAL_PIC_OFFSET_TABLE_REGNUM;
 }
 
 /* Extract the parts of an RTL expression that is a valid memory address
@@ -5241,7 +5373,8 @@ legitimize_pic_address (orig, reg)
 	  /* This symbol may be referenced via a displacement from the PIC
 	     base address (@GOTOFF).  */
 
-	  current_function_uses_pic_offset_table = 1;
+	  if (reload_in_progress)
+	    regs_ever_live[PIC_OFFSET_TABLE_REGNUM] = 1;
 	  new = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, addr), UNSPEC_GOTOFF);
 	  new = gen_rtx_CONST (Pmode, new);
 	  new = gen_rtx_PLUS (Pmode, pic_offset_table_rtx, new);
@@ -5257,7 +5390,6 @@ legitimize_pic_address (orig, reg)
     {
       if (TARGET_64BIT)
 	{
-	  current_function_uses_pic_offset_table = 1;
 	  new = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, addr), UNSPEC_GOTPCREL);
 	  new = gen_rtx_CONST (Pmode, new);
 	  new = gen_rtx_MEM (Pmode, new);
@@ -5277,7 +5409,8 @@ legitimize_pic_address (orig, reg)
 	  /* This symbol must be referenced via a load from the
 	     Global Offset Table (@GOT).  */
 
-	  current_function_uses_pic_offset_table = 1;
+	  if (reload_in_progress)
+	    regs_ever_live[PIC_OFFSET_TABLE_REGNUM] = 1;
 	  new = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, addr), UNSPEC_GOT);
 	  new = gen_rtx_CONST (Pmode, new);
 	  new = gen_rtx_PLUS (Pmode, pic_offset_table_rtx, new);
@@ -5318,7 +5451,8 @@ legitimize_pic_address (orig, reg)
 	    {
 	      if (!TARGET_64BIT)
 		{
-		  current_function_uses_pic_offset_table = 1;
+		  if (reload_in_progress)
+		    regs_ever_live[PIC_OFFSET_TABLE_REGNUM] = 1;
 		  new = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, op0),
 					UNSPEC_GOTOFF);
 		  new = gen_rtx_PLUS (Pmode, new, op1);
@@ -5514,7 +5648,8 @@ legitimize_address (x, oldx, mode)
         case TLS_MODEL_INITIAL_EXEC:
 	  if (flag_pic)
 	    {
-	      current_function_uses_pic_offset_table = 1;
+	      if (reload_in_progress)
+		regs_ever_live[PIC_OFFSET_TABLE_REGNUM] = 1;
 	      pic = pic_offset_table_rtx;
 	    }
 	  else
@@ -5818,7 +5953,7 @@ output_pic_addr_const (file, x, code)
 	  fputs ("@GOTOFF", file);
 	  break;
 	case UNSPEC_GOTPCREL:
-	  fputs ("@GOTPCREL(%RIP)", file);
+	  fputs ("@GOTPCREL(%rip)", file);
 	  break;
 	case UNSPEC_GOTTPOFF:
 	  fputs ("@GOTTPOFF", file);
@@ -6611,7 +6746,13 @@ print_operand_address (file, addr)
 	output_addr_const (file, addr);
 
       /* Use one byte shorter RIP relative addressing for 64bit mode.  */
-      if (GET_CODE (disp) != CONST_INT && TARGET_64BIT)
+      if (TARGET_64BIT
+	  && (GET_CODE (addr) == SYMBOL_REF
+	      || GET_CODE (addr) == LABEL_REF
+	      || (GET_CODE (addr) == CONST
+		  && GET_CODE (XEXP (addr, 0)) == PLUS
+		  && GET_CODE (XEXP (XEXP (addr, 0), 0)) == SYMBOL_REF
+		  && GET_CODE (XEXP (XEXP (addr, 0), 1)) == CONST_INT)))
 	fputs ("(%rip)", file);
     }
   else
@@ -8591,11 +8732,12 @@ ix86_expand_int_movcc (operands)
   if ((code == LEU || code == GTU)
       && GET_CODE (ix86_compare_op1) == CONST_INT
       && mode != HImode
-      && (unsigned int) INTVAL (ix86_compare_op1) != 0xffffffff
-      /* The operand still must be representable as sign extended value.  */
+      && INTVAL (ix86_compare_op1) != -1
+      /* For x86-64, the immediate field in the instruction is 32-bit
+	 signed, so we can't increment a DImode value above 0x7fffffff.  */
       && (!TARGET_64BIT
 	  || GET_MODE (ix86_compare_op0) != DImode
-	  || (unsigned int) INTVAL (ix86_compare_op1) != 0x7fffffff)
+	  || INTVAL (ix86_compare_op1) != 0x7fffffff)
       && GET_CODE (operands[2]) == CONST_INT
       && GET_CODE (operands[3]) == CONST_INT)
     {
@@ -8603,9 +8745,8 @@ ix86_expand_int_movcc (operands)
 	code = LTU;
       else
 	code = GEU;
-      ix86_compare_op1
-	= gen_int_mode (INTVAL (ix86_compare_op1) + 1,
-			GET_MODE (ix86_compare_op0));
+      ix86_compare_op1 = gen_int_mode (INTVAL (ix86_compare_op1) + 1,
+				       GET_MODE (ix86_compare_op0));
     }
 
   start_sequence ();
@@ -10460,10 +10601,7 @@ ix86_expand_call (retval, fnaddr, callarg1, callarg2, pop)
   if (! TARGET_64BIT && flag_pic
       && GET_CODE (XEXP (fnaddr, 0)) == SYMBOL_REF
       && ! SYMBOL_REF_FLAG (XEXP (fnaddr, 0)))
-    {
-      current_function_uses_pic_offset_table = 1;
-      use_reg (&use, pic_offset_table_rtx);
-    }
+    use_reg (&use, pic_offset_table_rtx);
 
   if (TARGET_64BIT && INTVAL (callarg2) >= 0)
     {

@@ -496,7 +496,7 @@ create_ref (sym, ref_type, bb, parent_stmt, parent_expr)
   else if (ref_type == EXPRPHI)
     {
       VARRAY_GENERIC_PTR_INIT (EXPRPHI_PHI_CHAIN (ref), 
-			       n_basic_blocks, "ephi_chain");
+			       last_basic_block, "ephi_chain");
       EXPRPHI_PROCESSED (ref) = BITMAP_XMALLOC ();
       EXPRPHI_DOWNSAFE (ref) = 1;
       EXPRPHI_CANBEAVAIL (ref) = 1;

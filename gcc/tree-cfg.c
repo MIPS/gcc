@@ -63,7 +63,7 @@ static basic_block create_bb PARAMS ((tree, tree, basic_block, tree *,
 static basic_block create_maximal_bb PARAMS ((tree, basic_block, tree, tree *));
 static void map_stmt_to_bb PARAMS ((tree, basic_block));
 static void remove_unreachable_blocks PARAMS ((void));
-static void delete_bb PARAMS ((basic_block));
+static void tree_delete_bb PARAMS ((basic_block));
 
 /* Edges.  */
 static void make_edges PARAMS ((void));
@@ -102,6 +102,7 @@ tree_find_basic_blocks (t)
 {
   /* Initialize the basic block array.  */
   n_basic_blocks = 0;
+  last_basic_block = 0;
   VARRAY_BB_INIT (basic_block_info, initial_cfg_capacity, "basic_block_info");
 
   /* Create annotations for ENTRY_BLOCK_PTR and EXIT_BLOCK_PTR.  */
@@ -476,7 +477,7 @@ create_bb (head, end, control_parent, prev_chain_p, binding_scope)
 
   bb->head_tree = head;
   bb->end_tree = end;
-  bb->index = n_basic_blocks;
+  bb->index = last_basic_block;
   bb->flags = BB_NEW;
 
   /* Create annotations for the block.  */
@@ -510,6 +511,7 @@ create_bb (head, end, control_parent, prev_chain_p, binding_scope)
   /* Add the newly created block to the array.  */
   BASIC_BLOCK (n_basic_blocks) = bb;
   n_basic_blocks++;
+  last_basic_block++;
 
   /* Associate the newly created block to the head and end tree.  */
   map_stmt_to_bb (head, bb);
@@ -1166,33 +1168,27 @@ tree_cleanup_cfg ()
 static void
 remove_unreachable_blocks ()
 {
-  int i;
+  basic_block next_bb, bb;
 
   find_unreachable_blocks ();
 
-  /* Delete all unreachable basic blocks.  Count down so that we
-     don't interfere with the block renumbering that happens in
-     delete_bb.
-
-     FIXME: We should not need to compact the basic block array.  However,
-	    the SSA builder relies on contiguous basic blocks.  */
-  for (i = n_basic_blocks - 1; i >= 0; --i)
+  for (bb = ENTRY_BLOCK_PTR->next_bb; bb != EXIT_BLOCK_PTR; bb = next_bb)
     {
-      basic_block bb = BASIC_BLOCK (i);
+      next_bb = bb->next_bb;
 
       if (!(bb->flags & BB_REACHABLE))
-	delete_bb (bb);
+	tree_delete_bb (bb);
     }
 }
 
 /* }}} */
 
-/* {{{ delete_bb()
+/* {{{ tree_delete_bb()
 
    Remove a block from the flowgraph.  */
 
 static void
-delete_bb (bb)
+tree_delete_bb (bb)
      basic_block bb;
 {
   tree t;
@@ -1226,7 +1222,7 @@ delete_bb (bb)
   bb->pred = NULL;
   bb->succ = NULL;
 
-  /* Remove the basic block from the array, and compact behind it.  */
+  /* Remove the basic block from the array.  */
   expunge_block (bb);
 }
 
@@ -2566,7 +2562,8 @@ tree_dump_cfg (file)
   fprintf (file, ";; Function %s\n\n",
 	   IDENTIFIER_POINTER (DECL_NAME (current_function_decl)));
 
-  fprintf (file, "\n%d basic blocks, %d edges.\n", n_basic_blocks, n_edges);
+  fprintf (file, "\n%d basic blocks, %d edges, last basic block %d.\n",
+           n_basic_blocks, n_edges, last_basic_block);
   FOR_EACH_BB (bb)
     {
       tree_dump_bb (file, "", bb, 0);

@@ -1775,6 +1775,8 @@ move_insn (insn, last)
 	retval = reemit_notes (insn, insn);
       else
 	reemit_notes (insn, insn);
+      /* Consume SCHED_GROUP_P flag.  */
+      SCHED_GROUP_P (insn) = 0;
       insn = prev;
     }
 
@@ -2384,7 +2386,7 @@ sched_init (dump_file)
     {
       rtx line;
 
-      line_note_head = (rtx *) xcalloc (n_basic_blocks, sizeof (rtx));
+      line_note_head = (rtx *) xcalloc (last_basic_block, sizeof (rtx));
 
       /* Save-line-note-head:
          Determine the line-number at the start of each basic block.

@@ -82,7 +82,7 @@ struct exprphi
   struct exprref_common common;
   
   /* Expression PHI operands.  This is an array of size
-     n_basic_blocks, with operands ordered by pre-order index of the
+     last_basic_block, with operands ordered by pre-order index of the
      BB it's from.  */
   varray_type phi_chain;
 

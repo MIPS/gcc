@@ -223,6 +223,7 @@ enum dump_file_index
   DFI_loop,
   DFI_cfg,
   DFI_bp,
+  DFI_tracer,
   DFI_cse2,
   DFI_life,
   DFI_combine,
@@ -270,6 +271,7 @@ static struct dump_file_info dump_file[DFI_MAX] =
   { "loop",	'L', 1, 0, 0 },
   { "cfg",	'f', 1, 0, 0 },
   { "bp",	'b', 1, 0, 0 },
+  { "tracer",	'T', 1, 0, 0 },
   { "cse2",	't', 1, 0, 0 },
   { "life",	'f', 1, 0, 0 },	/* Yes, duplicate enable switch.  */
   { "combine",	'c', 1, 0, 0 },
@@ -871,6 +873,10 @@ int flag_tree_ssa = 0;
 /* Enable the SSA-PRE tree optimization.  */
 int flag_tree_ssa_pre = 0;
 
+/* Nonzero if we perform superblock formation.  */
+
+int flag_tracer = 0;
+
 /* Values of the -falign-* flags: how much to align labels in code.
    0 means `use default', 1 means `don't align'.
    For each variable, there is an _log variant which is the power
@@ -982,6 +988,8 @@ static const lang_independent_options f_options[] =
    N_("When possible do not generate stack frames") },
   {"optimize-sibling-calls", &flag_optimize_sibling_calls, 1,
    N_("Optimize sibling and tail recursive calls") },
+  {"tracer", &flag_tracer, 1,
+   N_("Perform superblock formation via tail duplication") },
   {"cse-follow-jumps", &flag_cse_follow_jumps, 1,
    N_("When running CSE, follow jumps to their targets") },
   {"cse-skip-blocks", &flag_cse_skip_blocks, 1,
@@ -1682,7 +1690,7 @@ strip_off_ending (name, len)
      int len;
 {
   int i;
-  for (i = 2; i < 6 && len > i;  i++)
+  for (i = 2; i < 6 && len > i; i++)
     {
       if (name[len - i] == '.')
 	{
@@ -1724,15 +1732,15 @@ output_quoted_string (asm_file, string)
    usable as an identifier in a target's assembly file.  */
 void
 output_clean_symbol_name (file, name)
-    FILE *file;
-    const char *name;
+     FILE *file;
+     const char *name;
 {
   /* Make a copy of NAME.  */
   char *id = xstrdup (name);
 
   /* Make it look like a valid identifier for an assembler.  */
   clean_symbol_name (id);
-  
+
   fputs (id, file);
   free (id);
 }
@@ -2964,6 +2972,19 @@ rest_of_compilation (decl)
       flow_loops_free (&loops);
       close_dump_file (DFI_bp, print_rtl_with_bb, insns);
       timevar_pop (TV_BRANCH_PROB);
+    }
+  if (flag_tracer)
+    {
+      timevar_push (TV_TRACER);
+      open_dump_file (DFI_tracer, decl);
+      if (rtl_dump_file)
+	dump_flow_info (rtl_dump_file);
+      cleanup_cfg (CLEANUP_EXPENSIVE);
+      tracer ();
+      cleanup_cfg (CLEANUP_EXPENSIVE);
+      close_dump_file (DFI_tracer, print_rtl_with_bb, get_insns ());
+      timevar_pop (TV_TRACER);
+      reg_scan (get_insns (), max_reg_num (), 0);
     }
 
   if (optimize > 0)
@@ -4902,16 +4923,6 @@ process_options ()
   if (flag_delayed_branch)
     warning ("this target machine does not have delayed branches");
 #endif
-
-  /* Some operating systems do not allow profiling without a frame
-     pointer.  */
-  if (!TARGET_ALLOWS_PROFILING_WITHOUT_FRAME_POINTER
-      && profile_flag
-      && flag_omit_frame_pointer)
-    {
-      error ("profiling does not work without a frame pointer");
-      flag_omit_frame_pointer = 0;
-    }
 
   user_label_prefix = USER_LABEL_PREFIX;
   if (flag_leading_underscore != -1)

@@ -17,7 +17,11 @@ LIB1ASMFUNCS = \
 	_epilogue \
 	_exit \
 	_cleanup \
-	_tablejump
+	_tablejump \
+	_copy_data \
+	_clear_bss \
+	_ctors \
+	_dtors
 
 # We do not have the DF type.
 # Most of the C functions in libgcc2 use almost all registers,
@@ -45,8 +49,7 @@ MULTILIB_MATCHES = \
 	mmcu?avr3=mmcu?atmega103 mmcu?avr3=mmcu?atmega603 \
 	mmcu?avr3=mmcu?at43usb320 mmcu?avr3=at43usb355 \
 	mmcu?avr3=mmcu?at76c711 \
-	mmcu?avr4=mmcu?atmega8515 mmcu?avr4=mmcu?atmega83 \
-	mmcu?avr4=mmcu?atmega85  mmcu?avr4=mmcu?atmega8 \
+	mmcu?avr4=mmcu?atmega8515 mmcu?avr4=mmcu?atmega8 \
 	mmcu?avr5=mmcu?atmega161 mmcu?avr5=mmcu?atmega162 \
 	mmcu?avr5=mmcu?atmega163 mmcu?avr5=mmcu?atmega16 \
 	mmcu?avr5=mmcu?atmega323 mmcu?avr5=mmcu?atmega32 \
