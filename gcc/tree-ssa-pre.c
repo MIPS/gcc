@@ -1702,7 +1702,7 @@ finalize_1 (ei, temp)
 		     This might not be necessary once goto elimination
 		     is functional.  
 		     If it's an empty statement, always insert before. */
-		  if (endtree == empty_stmt_node)
+		  if (!endtree)
 		    {
 		      stmt = build (COMPOUND_EXPR, void_type_node,
 				    expr, empty_stmt_node);
@@ -1725,10 +1725,10 @@ finalize_1 (ei, temp)
 		    }
 		  /* FIXME: This can't be fixed without the insertion machinery
 		     knowing what to do about it. */
-		  if (endtree == empty_stmt_node)
+		  if (!endtree)
 		    abort ();
 #if 0
-		  if (endtree == empty_stmt_node)
+		  if (!endtree)
 		    {
 		      gimple_stmt_iterator gsi;
 		      edge e;
@@ -1743,7 +1743,7 @@ finalize_1 (ei, temp)
 		      for (e = bb->pred; e; e = e->pred_next)
 			{
 			  for (gsi = gsi_start_bb (e->src); 
-			       !gsi_after_end (gsi); 
+			       !gsi_end_bb (gsi); 
 			       gsi_step (&gsi))
 			    {
 			      tree temp = gsi_stmt (gsi);
@@ -1774,7 +1774,7 @@ finalize_1 (ei, temp)
 #endif
 #if 1	      
 		      for (gsi = gsi_start_bb (parent_block (bb)); 
-			   !gsi_after_end (gsi); 
+			   !gsi_end_bb (gsi); 
 			   gsi_step (&gsi))
 			{
 			  tree temp = gsi_stmt (gsi);
@@ -1784,6 +1784,8 @@ finalize_1 (ei, temp)
 			    {
 			      gsi = gsi_start (&TREE_OPERAND (LOOP_EXPR_BODY (temp), 0));
 			      temp = gsi_stmt (gsi);
+			      if (!temp)
+			        continue;
 			      STRIP_WFL (temp);
 			      STRIP_NOPS (temp);
 			      

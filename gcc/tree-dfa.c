@@ -139,7 +139,7 @@ find_tree_refs ()
     {
       gimple_stmt_iterator i;
 
-      for (i = gsi_start_bb (bb); !gsi_after_end (i); gsi_step_bb (&i))
+      for (i = gsi_start_bb (bb); !gsi_end_bb (i); gsi_step_bb (&i))
 	find_refs_in_stmt (gsi_stmt_ptr (i), bb);
     }
 
@@ -1327,9 +1327,6 @@ create_tree_ann (t)
   tree_ann ann;
 
 #if defined ENABLE_CHECKING
-  if (t == empty_stmt_node)
-    abort ();
-
   if (t == empty_stmt_node
       || t == NULL_TREE
       || TREE_CODE_CLASS (TREE_CODE (t)) == 'c'
@@ -1812,7 +1809,7 @@ collect_dfa_stats (dfa_stats_p)
   /* Walk all the trees in the function counting references.  Start at
      basic block 0, but don't stop at block boundaries.  */
   htab = htab_create (30, htab_hash_pointer, htab_eq_pointer, NULL);
-  for (i = gsi_start_bb (BASIC_BLOCK (0)); !gsi_after_end (i); gsi_step (&i))
+  for (i = gsi_start_bb (BASIC_BLOCK (0)); !gsi_end_bb (i); gsi_step (&i))
     {
       tree *stmt_p = gsi_stmt_ptr (i);
       walk_tree (stmt_p, collect_dfa_stats_r, (void *) dfa_stats_p,

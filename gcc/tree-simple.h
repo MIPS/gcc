@@ -104,7 +104,7 @@ typedef struct {
 } gimple_stmt_iterator;
 
 static inline gimple_stmt_iterator gsi_start PARAMS ((tree *));
-static inline bool gsi_after_end	PARAMS ((gimple_stmt_iterator));
+static inline bool gsi_end		PARAMS ((gimple_stmt_iterator));
 static inline void gsi_step		PARAMS ((gimple_stmt_iterator *));
 static inline tree gsi_stmt		PARAMS ((gimple_stmt_iterator));
 static inline tree *gsi_stmt_ptr	PARAMS ((gimple_stmt_iterator));
@@ -120,7 +120,7 @@ gsi_start (tp)
 }
 
 static inline bool
-gsi_after_end (i)
+gsi_end (i)
      gimple_stmt_iterator i;
 {
   return (i.tp == NULL || *(i.tp) == error_mark_node);
@@ -164,7 +164,10 @@ static inline tree
 gsi_stmt (i)
      gimple_stmt_iterator i;
 {
-  return *(gsi_stmt_ptr (i));
+  tree t = *(gsi_stmt_ptr (i));
+  if (t == empty_stmt_node || t == error_mark_node)
+    t = NULL_TREE;
+  return t;
 }
 
 static inline tree *

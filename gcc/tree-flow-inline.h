@@ -657,33 +657,37 @@ exprphi_willbeavail (ref)
 
 /* Similar to gsi_step() but stops at basic block boundaries.  */
 static inline void
+gsi_step_in_bb (i, bb)
+     gimple_stmt_iterator *i;
+     basic_block bb;
+{
+  while (bb && i->tp != bb->end_tree_p)
+    {
+      gsi_step (i);
+      if (i->tp == NULL || gsi_stmt (*i) != NULL)
+        return;
+    }
+  i->tp = NULL;
+}
+
+/* Similar to gsi_step() but stops at basic block boundaries. Assumes stmt
+   has bb_for_stmt() set. (Can't be an empty_stmt_node).  */
+
+static inline void
 gsi_step_bb (i)
      gimple_stmt_iterator *i;
 {
   basic_block bb = bb_for_stmt (*(i->tp));
-  if (bb && i->tp != bb->end_tree_p)
-    gsi_step (i);
-  else
-    i->tp = NULL;
+  gsi_step_in_bb (i, bb);
 }
 
-/* Similar to gsi_start() but initializes the iterator at the first
-   statement in basic block BB.  */
-static inline gimple_stmt_iterator
-gsi_start_bb (bb)
-     basic_block bb;
+static inline bool
+gsi_end_bb (i)
+gimple_stmt_iterator i;
 {
-  if (bb && bb->index != INVALID_BLOCK)
-    {
-      tree *tp = bb->head_tree_p;
-      return gsi_start (tp);
-    }
-  else
-    {
-      gimple_stmt_iterator i;
-      i.tp = NULL;
-      return i;
-    }
+  return (i.tp == NULL || 
+	  *(i.tp) == error_mark_node ||
+	  *(i.tp) == empty_stmt_node);
 }
 
 static inline bool

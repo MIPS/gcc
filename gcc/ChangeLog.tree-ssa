@@ -1,3 +1,38 @@
+2002-12-02  Andrew MacLeod  <amacleod@redhat.com>
+
+	* gimplify.c (simplify_cleanup_point_expr): gsi_stmt can return NULL, 
+	use gsi_end.
+	* tree-cfg.c (make_blocks): Use gsi_end, gsi_stmt can return NULL. Set
+	basic_block for empty_stmt_node containers.
+	(make_edges): Stmt's can be NULL.
+	(make_ctrl_stmt_edges, make_exit_edges, make_loop_expr_edges,
+	make_cond_expr_edges, make_goto_expr_edges, is_nonlocal_label_block,
+	block_invalidates_loop, cleanup_control_flow, cleanup_cond_expr_graph,
+	cleanup_switch_expr_graph, disconnect_unreachable_case_labels,
+	find_taken_edge, tree_cfg2dot, successor_block, is_latch_block,
+	switch_parent, first_stmt, last_stmt): Check for first_stmt() or
+	last_stmt() returning NULL.
+	(remove_tree_bb, first_exec_stmt): Use gsi_end.
+	(last_stmt_ptr): Iterate to find last execuatbel stmt_ptr in a block.
+	(gsi_start_bb): Return first non-empty stmt, if there is one.
+	(set_bb_for_stmt): Don't decend into an empty_stmt_node.
+	* tree-dfa.c (find_tree_refs): Use gsi_end.
+	(collect_dfa_stats): Use gsi_end_bb.
+	* tree-flow-inline.h (gsi_step_bb): split.
+	(gsi_step_in_bb): gsi_step with explicit bb specified. Never return
+	empty_stmt_node.
+	(gsi_start_bb): Move to tree-cfg.c.
+	(gsi_end_bb): New. Have we reached the end of a basic block.
+	* tree-flow.h (gsi_start_bb): Make external.
+	(gsi_end_bb, gsi_step_in_bb): New prototypes.
+	* tree-simple.h (gsi_end): renamed from gsi_after_end.
+	(gsi_stmt): Return NULL if stmt is an empty_stmt_node or error mark.
+	* tree-ssa-ccp.c (simulate_block, substitute_and_fold): Use gsi_end.
+	* tree-ssa-dce.c (mark_control_parent_necessary, find_useful_stmts,
+	remove_dead_stmts): Use gsi_end_bb.
+	(process_worklist): Check for NULL last_stmt.
+	* tree-ssa-pre.c (finalize_1): Use gsi_end_bb, gsi_stmt can be NULL.
+
 2002-12-02  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-dfa.c (dump_ref): Display '<nil>' for NULL references.

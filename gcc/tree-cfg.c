@@ -199,19 +199,24 @@ make_blocks (first_p, parent_block)
 
   bb = NULL;
   start_new_block = true;
-  for (i = gsi_start (first_p); !gsi_after_end (i); gsi_step (&i))
+  for (i = gsi_start (first_p); !gsi_end (i); gsi_step (&i))
     {
       tree stmt;
       enum tree_code code;
       tree *container = gsi_container (i);
 
       stmt = gsi_stmt (i);
+
+      /* Set the block for the container of non-executable statements.  */
+      if (stmt == NULL_TREE)
+        {
+	  if (bb && *container != empty_stmt_node)
+	    set_bb_for_stmt (*container, bb);
+	  continue;
+	}
+
       STRIP_WFL (stmt);
       STRIP_NOPS (stmt);
-
-      /* Ignore non-executable statements.  */
-      if (stmt == empty_stmt_node)
-	continue;
 
       code = TREE_CODE (stmt);
 
@@ -432,31 +437,35 @@ make_edges ()
       tree first = first_stmt (bb);
       tree last = last_stmt (bb);
 
-      /* Edges for control statements.  */
-      if (is_ctrl_stmt (first))
-	make_ctrl_stmt_edges (bb);
+      if (first)
+        {
+	  /* Edges for control statements.  */
+	  if (is_ctrl_stmt (first))
+	    make_ctrl_stmt_edges (bb);
 
-      /* Edges for control flow altering statements (GOTO_EXPR and
-	 RETURN_EXPR) need an edge to the corresponding target block.  */
-      if (is_ctrl_altering_stmt (last))
-	make_exit_edges (bb);
+	  /* Edges for control flow altering statements (GOTO_EXPR and
+	     RETURN_EXPR) need an edge to the corresponding target block.  */
+	  if (is_ctrl_altering_stmt (last))
+	    make_exit_edges (bb);
 
-      /* Incoming edges for label blocks in switch statements.  It's easier
-         to deal with these bottom-up than top-down.  */
-      if (TREE_CODE (first) == CASE_LABEL_EXPR)
-	make_case_label_edges (bb);
+	  /* Incoming edges for label blocks in switch statements.  It's easier
+	     to deal with these bottom-up than top-down.  */
+	  if (TREE_CODE (first) == CASE_LABEL_EXPR)
+	    make_case_label_edges (bb);
 
-      /* BIND_EXPR blocks get an edge to the first basic block in the
-	 BIND_EXPR_BODY.  */
-      if (TREE_CODE (first) == BIND_EXPR)
-	{
-	  basic_block body_bb = first_exec_block (&BIND_EXPR_BODY (first));
-	  if (body_bb)
-	    make_edge (bb, body_bb, EDGE_FALLTHRU);
+	  /* BIND_EXPR blocks get an edge to the first basic block in the
+	     BIND_EXPR_BODY.  */
+	  if (TREE_CODE (first) == BIND_EXPR)
+	    {
+	      basic_block body_bb = first_exec_block (&BIND_EXPR_BODY (first));
+	      if (body_bb)
+		make_edge (bb, body_bb, EDGE_FALLTHRU);
+	    }
 	}
 
       /* Finally, if no edges were created above, this is a regular
-         basic block that only needs a fallthru edge.  */
+	 basic block that only needs a fallthru edge.  */
+
       if (bb->succ == NULL)
 	make_edge (bb, successor_block (bb), EDGE_FALLTHRU);
     }
@@ -472,7 +481,14 @@ static void
 make_ctrl_stmt_edges (bb)
      basic_block bb;
 {
-  switch (TREE_CODE (first_stmt (bb)))
+  tree first = first_stmt (bb);
+
+#if defined ENABLE_CHECKING
+  if (first == NULL_TREE)
+    abort();
+#endif
+
+  switch (TREE_CODE (first))
     {
     case LOOP_EXPR:
       make_loop_expr_edges (bb);
@@ -490,7 +506,7 @@ make_ctrl_stmt_edges (bb)
 		first case statement, the RTL expander gets all confused
 		and enters an infinite loop.  */
       {
-	tree body = SWITCH_BODY (first_stmt (bb));
+	tree body = SWITCH_BODY (first);
 	STRIP_WFL (body);
 	STRIP_NOPS (body);
 	if (TREE_CODE (body) == BIND_EXPR)
@@ -514,7 +530,12 @@ static void
 make_exit_edges (bb)
      basic_block bb;
 {
-  switch (TREE_CODE (last_stmt (bb)))
+  tree last = last_stmt (bb);
+
+  if (last == NULL_TREE)
+    abort ();
+
+  switch (TREE_CODE (last))
     {
     case GOTO_EXPR:
       make_goto_expr_edges (bb);
@@ -543,7 +564,7 @@ make_loop_expr_edges (bb)
   basic_block end_bb, body_bb;
 
 #if defined ENABLE_CHECKING
-  if (TREE_CODE (entry) != LOOP_EXPR)
+  if (entry == NULL_TREE || TREE_CODE (entry) != LOOP_EXPR)
     abort ();
 #endif
 
@@ -586,7 +607,7 @@ make_cond_expr_edges (bb)
   basic_block successor_bb, then_bb, else_bb;
 
 #if defined ENABLE_CHECKING
-  if (TREE_CODE (entry) != COND_EXPR)
+  if (entry == NULL_TREE || TREE_CODE (entry) != COND_EXPR)
     abort ();
 #endif
 
@@ -628,7 +649,7 @@ make_goto_expr_edges (bb)
   goto_t = last_stmt (bb);
 
 #if defined ENABLE_CHECKING
-  if (goto_t == NULL || TREE_CODE (goto_t) != GOTO_EXPR)
+  if (goto_t == NULL_TREE || TREE_CODE (goto_t) != GOTO_EXPR)
     abort ();
 #endif
 
@@ -640,6 +661,9 @@ make_goto_expr_edges (bb)
   FOR_EACH_BB (target_bb)
     {
       tree target = first_stmt (target_bb);
+
+      if (target == NULL_TREE)
+        continue;
 
       /* Common case, destination is a single label.  Make the edge
          and leave.  */
@@ -761,7 +785,7 @@ remove_tree_bb (bb, remove_stmts)
     }
 
   /* Remove all the instructions in the block.  */
-  for (i = gsi_start_bb (bb); !gsi_after_end (i); gsi_step_bb (&i))
+  for (i = gsi_start_bb (bb); !gsi_end_bb (i); gsi_step_bb (&i))
     {
       tree stmt = gsi_stmt (i);
 
@@ -827,6 +851,9 @@ is_nonlocal_label_block (bb)
      basic_block bb;
 {
   tree t = first_stmt (bb);
+
+  if (t == NULL_TREE)
+    return false;
 
   /* FIXME  We don't compute nonlocal labels until RTL expansion.  This
 	    returns false positives.  */
@@ -1000,14 +1027,18 @@ block_invalidates_loop (bb, loop)
      struct loop *loop;
 {
   ref_list_iterator i;
+  tree last = last_stmt (bb);
+
+  if (last == NULL_TREE)
+    return false;
 
   /* Valid loops cannot contain a return statement.  */
-  if (TREE_CODE (last_stmt (bb)) == RETURN_EXPR)
+  if (TREE_CODE (last) == RETURN_EXPR)
     return true;
 
   /* If the destination node of a goto statement is not in the loop, mark it
      invalid.  */
-  if (TREE_CODE (last_stmt (bb)) == GOTO_EXPR
+  if (TREE_CODE (last) == GOTO_EXPR
       && ! TEST_BIT (loop->nodes, bb->succ->dest->index))
     return true;
 
@@ -1032,11 +1063,16 @@ cleanup_control_flow ()
   FOR_EACH_BB (bb)
     {
       enum tree_code code;
+      tree t;
+
+      t = first_stmt (bb);
+      if (t == NULL_TREE)
+        continue;
 
       if (bb->flags & BB_CONTROL_EXPR
 	  && bb->flags & BB_COMPOUND_ENTRY)
 	{
-	  code = TREE_CODE (first_stmt (bb));
+	  code = TREE_CODE (t);
 
 	  if (code == COND_EXPR)
 	    cleanup_cond_expr_graph (bb);
@@ -1060,7 +1096,7 @@ cleanup_cond_expr_graph (bb)
   edge taken_edge;
 
 #if defined ENABLE_CHECKING
-  if (TREE_CODE (cond_expr) != COND_EXPR)
+  if (cond_expr == NULL_TREE || TREE_CODE (cond_expr) != COND_EXPR)
     abort ();
 #endif
 
@@ -1093,7 +1129,7 @@ cleanup_switch_expr_graph (switch_bb)
   edge e;
 
 #if defined ENABLE_CHECKING
-  if (TREE_CODE (switch_expr) != SWITCH_EXPR)
+  if (switch_expr == NULL_TREE || TREE_CODE (switch_expr) != SWITCH_EXPR)
     abort ();
 #endif
 
@@ -1125,8 +1161,12 @@ disconnect_unreachable_case_labels (bb)
 {
   edge taken_edge;
   tree switch_val;
+  tree t = first_stmt (bb);
 
-  switch_val = SWITCH_COND (first_stmt (bb));
+  if (t == NULL_TREE)
+    return;
+
+  switch_val = SWITCH_COND (t);
   taken_edge = find_taken_edge (bb, switch_val);
   if (taken_edge)
     {
@@ -1171,7 +1211,7 @@ find_taken_edge (bb, val)
   stmt = first_stmt (bb);
 
 #if defined ENABLE_CHECKING
-  if (!is_ctrl_stmt (stmt))
+  if (stmt == NULL_TREE || !is_ctrl_stmt (stmt))
     abort ();
 #endif
 
@@ -1226,7 +1266,7 @@ find_taken_edge (bb, val)
 
 	  /* Remember the edge out of the switch() just in case there is no
 	     matching label in the body.  */
-	  if (TREE_CODE (dest_t) != CASE_LABEL_EXPR)
+	  if (dest_t == NULL_TREE || TREE_CODE (dest_t) != CASE_LABEL_EXPR)
 	    continue;
 
 	  label_val = CASE_LOW (dest_t);
@@ -1449,16 +1489,29 @@ tree_cfg2dot (file)
     {
       enum tree_code head_code, end_code;
       const char *head_name, *end_name;
-      int head_line, end_line;
+      int head_line = 0;
+      int end_line = 0;
+      tree first = first_stmt (bb);
+      tree last = last_stmt (bb);
 
-      head_code = TREE_CODE (first_stmt (bb));
-      end_code = TREE_CODE (last_stmt (bb));
+      if (first)
+        {
+	  head_code = TREE_CODE (first);
+	  head_name = tree_code_name[head_code];
+	  head_line = get_lineno (*(bb->head_tree_p));
+	}
+      else 
+        head_name = "no-statement";
 
-      head_name = tree_code_name[head_code];
-      end_name = tree_code_name[end_code];
+      if (last)
+        {
+	  end_code = TREE_CODE (last);
+	  end_name = tree_code_name[end_code];
+	  end_line = get_lineno (*(bb->end_tree_p));
+	}
+      else 
+        end_name = "no-statement";
 
-      head_line = get_lineno (*(bb->head_tree_p));
-      end_line = get_lineno (*(bb->end_tree_p));
 
       fprintf (file, "\t%d [label=\"#%d\\n%s (%d)\\n%s (%d)\"];\n",
 	       bb->index, bb->index, head_name, head_line, end_name,
@@ -1520,9 +1573,10 @@ successor_block (bb)
   parent_bb = parent_block (bb);
   while (parent_bb)
     {
+      tree first = first_stmt (parent_bb);
       /* If BB is the last block inside a loop body, return the condition
          block for the loop structure.  */
-      if (is_loop_stmt (first_stmt (parent_bb)))
+      if (first && is_loop_stmt (first))
 	return latch_block (parent_bb);
 
       /* Otherwise, If BB's control parent has a successor, return its
@@ -1686,8 +1740,7 @@ is_latch_block (bb)
      basic_block bb;
 {
   if (bb->index > 0
-      && first_stmt (bb) == empty_stmt_node
-      && last_stmt (bb) == empty_stmt_node)
+      && first_stmt (bb) == NULL_TREE)
     {
       basic_block loop_bb = BASIC_BLOCK (bb->index - 1);
       tree loop_t = first_stmt (loop_bb);
@@ -1707,9 +1760,12 @@ first_exec_stmt (entry_p)
   gimple_stmt_iterator i;
   tree stmt;
 
-  for (i = gsi_start (entry_p); !gsi_after_end (i); gsi_step (&i))
+  for (i = gsi_start (entry_p); !gsi_end (i); gsi_step (&i))
     {
       stmt = gsi_stmt (i);
+      if (!stmt)
+        continue;
+
       STRIP_WFL (stmt);
       STRIP_NOPS (stmt);
 
@@ -1748,9 +1804,13 @@ static basic_block
 switch_parent (bb)
      basic_block bb;
 {
+  tree first;
   do
-    bb = parent_block (bb);
-  while (bb && TREE_CODE (first_stmt (bb)) != SWITCH_EXPR);
+    {
+      bb = parent_block (bb);
+      first = first_stmt (bb);
+    }
+  while (bb && first && TREE_CODE (first) != SWITCH_EXPR);
 
   return bb;
 }
@@ -1770,6 +1830,9 @@ first_stmt (bb)
     return NULL_TREE;
 
   i = gsi_start_bb (bb);
+  /* Check for blocks with no remaining statements.  */
+  if (gsi_end_bb (i))
+    return NULL_TREE;
   t = gsi_stmt (i);
   STRIP_WFL (t);
   STRIP_NOPS (t);
@@ -1778,7 +1841,8 @@ first_stmt (bb)
 
 
 /* Return the last statement in basic block BB, stripped of any WFL or NOP
-   containers.  */
+   containers.  empty_stmt_nodes are never returned. NULL is returned if 
+   there are no such statements.  */
 
 tree
 last_stmt (bb)
@@ -1792,8 +1856,19 @@ last_stmt (bb)
 
   i = gsi_start (bb->end_tree_p);
   t = gsi_stmt (i);
-  STRIP_WFL (t);
-  STRIP_NOPS (t);
+
+  /* If the last statement is an empty_stmt_node, we have to traverse through
+     the basic block until we find the last non-empty statement. ick.  */
+  if (!t)
+    {
+      for (i = gsi_start_bb (bb); !gsi_end_bb (i); gsi_step_bb (&i))
+        t = gsi_stmt(i);
+    }
+  if (t)
+    {
+      STRIP_WFL (t);
+      STRIP_NOPS (t);
+    }
   return t;
 }
 
@@ -1804,15 +1879,43 @@ tree *
 last_stmt_ptr (bb)
      basic_block bb;
 {
-  gimple_stmt_iterator i;
-  
+  gimple_stmt_iterator i, last;
+
   if (bb == NULL || bb->index == INVALID_BLOCK)
     return NULL;
 
-  i = gsi_start (bb->end_tree_p);
-  return gsi_stmt_ptr (i);
+  /* We can be more efficient here if we check if end_tree_p points to a
+     non empty_stmt_node first.  */
+     
+  for (last = i = gsi_start_bb (bb); !gsi_end_bb (i); gsi_step_bb (&i))
+    last = i;
+  return gsi_stmt_ptr (last);
 }
 
+/* Similar to gsi_start() but initializes the iterator at the first
+   statement in basic block BB which isn't an empty_stmt_node.  NULL is 
+   returned if there are no such statements.  */
+
+gimple_stmt_iterator
+gsi_start_bb (bb)
+     basic_block bb;
+{
+  gimple_stmt_iterator i;
+  if (bb && bb->index != INVALID_BLOCK)
+    {
+      tree *tp = bb->head_tree_p;
+      i = gsi_start (tp);
+      /* If the first stmt is empty, get the next non-empty one.  */
+      if (i.tp != NULL && gsi_stmt (i) == NULL_TREE)
+	gsi_step_in_bb (&i, bb);
+      /* If there were nothing but empty_stmt_nodes, just point to one.  */
+      if (i.tp == NULL)
+        i = gsi_start (tp);
+    }
+  else
+    i.tp = NULL;
+  return i;
+}
 
 /* Insert statement T into basic block BB.  */
 
@@ -1837,5 +1940,5 @@ set_bb_for_stmt (t, bb)
       else
 	t = NULL;
     }
-  while (t);
+  while (t && t != empty_stmt_node);
 }

@@ -144,7 +144,7 @@ mark_control_parent_necessary (bb)
   /* Loops through the stmts in this block, marking them as necessary. */
   while (bb != NULL && bb->index != INVALID_BLOCK)
     {
-      for (i = gsi_start_bb (bb); !gsi_after_end (i); gsi_step_bb (&i))
+      for (i = gsi_start_bb (bb); !gsi_end_bb (i); gsi_step_bb (&i))
 	{
 	  /* Avoid needless calls back to this routine by directly calling 
 	     mark_tree since we know we are going to cycle through all parent 
@@ -217,7 +217,7 @@ find_useful_stmts ()
       if (bb_empty_p (bb))
 	continue;
 	  
-      for (i = gsi_start_bb (bb); !gsi_after_end (i); gsi_step_bb (&i))
+      for (i = gsi_start_bb (bb); !gsi_end_bb (i); gsi_step_bb (&i))
 	{
 	  ref_list_iterator j;
 	  tree stmt;
@@ -331,7 +331,7 @@ process_worklist ()
 	  if (p == ENTRY_BLOCK_PTR)
 	    continue;
 	  j = last_stmt (p);
-	  if (TREE_CODE (j) == GOTO_EXPR)
+	  if (j && TREE_CODE (j) == GOTO_EXPR)
 	    mark_necessary (j);
 	}
       
@@ -375,7 +375,7 @@ remove_dead_stmts ()
       if (bb_empty_p (bb))
 	continue;
 
-      for (i = gsi_start_bb (bb); !gsi_after_end (i); gsi_step_bb (&i))
+      for (i = gsi_start_bb (bb); !gsi_end_bb (i); gsi_step_bb (&i))
 	{
 	  t = gsi_stmt (i);
 	  stats.total++;

@@ -1900,10 +1900,10 @@ simplify_cleanup_point_expr (expr_p, pre_p)
 
   gimplify_ctxp->conditions = old_conds;  
   
-  for (iter = gsi_start (&body); !gsi_after_end (iter); )
+  for (iter = gsi_start (&body); !gsi_end (iter); )
     {
       tree wce = gsi_stmt (iter);
-      if (TREE_CODE (wce) == WITH_CLEANUP_EXPR)
+      if (wce && TREE_CODE (wce) == WITH_CLEANUP_EXPR)
 	{
 	  tree *container = gsi_container (iter);
 	  tree next, tfe;

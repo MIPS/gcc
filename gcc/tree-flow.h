@@ -564,8 +564,10 @@ struct dfa_counts_d
 
 /* Iterator object for statements inside a basic block.  See
    gimple_stmt_iterator in tree-simple.h.  */
+static inline void gsi_step_in_bb PARAMS ((gimple_stmt_iterator *, basic_block));
 static inline void gsi_step_bb PARAMS ((gimple_stmt_iterator *));
-static inline gimple_stmt_iterator gsi_start_bb	PARAMS ((basic_block));
+static inline bool gsi_end_bb PARAMS ((gimple_stmt_iterator));
+extern gimple_stmt_iterator gsi_start_bb	PARAMS ((basic_block));
 extern void gsi_remove PARAMS ((gimple_stmt_iterator));
 
 #if 0

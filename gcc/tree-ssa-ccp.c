@@ -225,7 +225,7 @@ simulate_block (block)
       /* Note that we have simulated this block.  */
       SET_BIT (executable_blocks, block->index);
 
-      for (j = gsi_start_bb (block); !gsi_after_end (j); gsi_step_bb (&j))
+      for (j = gsi_start_bb (block); !gsi_end_bb (j); gsi_step_bb (&j))
 	visit_stmt (gsi_stmt (j));
 
       /* If the block has a single successor, it will always get executed.
@@ -285,7 +285,7 @@ substitute_and_fold ()
     {
       gimple_stmt_iterator i;
 
-      for (i = gsi_start_bb (bb); !gsi_after_end (i); gsi_step_bb (&i))
+      for (i = gsi_start_bb (bb); !gsi_end_bb (i); gsi_step_bb (&i))
 	{
 	  tree stmt = gsi_stmt (i);
 
