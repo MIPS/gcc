@@ -59,6 +59,61 @@ struct struct_list {
   struct struct_list *next;
 };
 
+/* Returns the identifier pointer (char*) of the original 
+   type of DECL.  */
+static const char *
+get_original_type_decl_name (tree decl)
+{
+  if (! decl)
+    return NULL;
+  if (TREE_CODE (decl) == IDENTIFIER_NODE)
+    return IDENTIFIER_POINTER (decl);
+
+  if (TREE_CODE (decl) != TYPE_DECL)
+    decl = TYPE_NAME (decl);
+  if (! decl) 
+    return NULL;
+
+  if (TREE_CODE (decl) == IDENTIFIER_NODE)
+    return IDENTIFIER_POINTER (decl);
+
+  decl =  DECL_ORIGINAL_TYPE (decl) ? DECL_ORIGINAL_TYPE (decl) : decl;
+
+  if (TREE_CODE (decl) == IDENTIFIER_NODE)
+    return IDENTIFIER_POINTER (decl);
+  else if (TREE_CODE (decl) == TYPE_DECL) 
+    return IDENTIFIER_POINTER (DECL_NAME (decl));
+
+  decl = TYPE_NAME (decl);
+  if (!decl)
+    return NULL;
+  if (TREE_CODE (decl) == IDENTIFIER_NODE)
+    return IDENTIFIER_POINTER (decl);
+
+  return IDENTIFIER_POINTER (DECL_NAME (decl));
+}
+
+/* Returns true if the two declations have similar types, 
+   and fasle if not.  */
+static bool
+similar_struct_decls_p (tree decl1, tree decl2)
+{
+  const char *name1, *name2;
+
+  if (! decl1 || ! decl2)
+    return false;
+
+  if (decl1 == decl2)
+    return true;
+  name1 =  get_original_type_decl_name (decl1); 
+  name2 =  get_original_type_decl_name (decl2); 
+  if (!name1 || !name2)
+    return false; 
+  if (! strcmp (name1, name2))
+    return true; 
+  return false;
+}
+
 static struct data_field_entry *
 get_fields (tree struct_decl, int num_fields)
 {
@@ -76,9 +131,22 @@ get_fields (tree struct_decl, int num_fields)
 	list[idx].index = idx;
 	list[idx].decl = t;
 	list[idx].acc_sites = NULL;
+	list[idx].count = 0;
       }
 
   return list;
+}
+
+void
+verify_data_structure (struct data_structure *ds)
+{
+  int i;
+
+  for (i = 0; i < ds->num_fields; i++)
+    if (ds->fields[i].index != i || ! ds->fields[i].decl 
+	|| TREE_CODE (ds->fields[i].decl) != FIELD_DECL
+        || ((ds->fields[i].count > 0) && ! ds->fields[i].acc_sites))
+      abort ();
 }
 
 /* Record STMT as the access site of the filed with INDEX of DS data
@@ -143,13 +211,18 @@ get_stmt_accessed_fields_1 (tree stmt, tree op, struct data_structure *ds,
 #if 1
   struct_var = get_inner_reference (op, &bitsize, &bitpos, &offsetr, &mode, 
 				    &unsignedp, &volatilep);
+  if (! struct_var)
+    return 0;
+
+
   if (TREE_CODE (struct_var) == VAR_DECL)
     struct_type = TREE_TYPE (struct_var);
   else if (TREE_CODE (struct_var) == INDIRECT_REF)
     struct_type = TREE_TYPE (TREE_TYPE (TREE_OPERAND (struct_var, 0)));
 
-  if (ds->decl != struct_type )
+  if (struct_type && ! similar_struct_decls_p (ds->decl, struct_type))
     {
+      
       if ( bitsize < 0 )
         return  - bitsize / BITS_PER_UNIT;
       else
@@ -416,7 +489,7 @@ static struct data_structure *
 get_data_struct_by_decl (struct struct_list *ds_list, tree sdecl)
 {
   for (; ds_list ; ds_list = ds_list->next)
-    if (ds_list->struct_data->decl == sdecl)
+    if (similar_struct_decls_p (ds_list->struct_data->decl, sdecl))
       return ds_list->struct_data;
 
   return NULL;
@@ -473,6 +546,15 @@ make_data_struct_node (struct struct_list *s_list, tree var_decl)
   new_node = (struct struct_list *) xmalloc (sizeof(struct struct_list));
   new_node->struct_data = d_node;
   new_node->next = s_list;
+
+  if ((struct_type = TYPE_NAME (struct_type)))
+    {
+      if (TREE_CODE (struct_type) == TYPE_DECL)
+        struct_type = DECL_NAME (struct_type);
+
+      fprintf (stderr, "A new data structure to analyze: %s\n",
+	       IDENTIFIER_POINTER (struct_type));
+    }
 
   return new_node;
 } 
@@ -539,6 +621,144 @@ build_data_structure_list (void)
   return data_struct_list;
 }
 
+static void
+printout_structure_splitting_hints (struct data_structure *ds, FILE *outfile)
+{
+  int i, j;
+  tree struct_id;
+  struct field_cluster *crr; 
+
+  if (!ds->struct_clustering->sibling)
+    return;
+
+  /* Print out the recomended ordering of the fields.  */
+  if ( ! (struct_id = TYPE_NAME (ds->decl)))
+    return;
+
+  if (TREE_CODE (struct_id) == TYPE_DECL)
+    struct_id = DECL_NAME (struct_id);
+
+  fprintf (outfile, "Following are recommendations for structure splitting.\n");
+  for (j=0, crr = ds->struct_clustering; crr; j++, crr = crr->sibling)
+    {
+      fprintf (outfile, "%s_%d \n{\n", IDENTIFIER_POINTER (struct_id), j);
+      for (i = 0 ; i < ds->num_fields; i++)
+	{  
+	  tree field_type = TREE_TYPE (ds->fields[i].decl);
+	  enum tree_code field_type_code = TREE_CODE (field_type);
+	  const char *type_name; 
+      
+	  if (! TEST_BIT (crr->fields_in_cluster, i))
+	    continue;
+
+	  if (field_type_code == POINTER_TYPE 
+	      || field_type_code == ARRAY_TYPE)
+	    field_type = TREE_TYPE (field_type);
+      
+	  if (TREE_CODE (field_type) != TYPE_DECL)
+	    field_type = TYPE_NAME (field_type);
+	  type_name = get_original_type_decl_name (field_type);
+
+	  switch (field_type_code)
+	    {
+	      case POINTER_TYPE :
+	        fprintf (outfile, "\t%s\t*%s;\n", type_name,
+		         IDENTIFIER_POINTER (DECL_NAME (ds->fields[i].decl)));
+	        break;
+
+	      case ARRAY_TYPE :
+	        fprintf (outfile, "\t%s\t%s[]\n", type_name,
+		         IDENTIFIER_POINTER (DECL_NAME (ds->fields[i].decl)));
+	        break;
+	      default :
+	        fprintf (outfile, "\t%s\t%s;\n", type_name,
+		         IDENTIFIER_POINTER (DECL_NAME (ds->fields[i].decl)));
+	        break;
+	    }
+	}	       
+      fprintf (outfile, "}\n");
+    }
+}
+static void
+printout_field_reordering_hints (struct data_structure *ds, FILE *outfile)
+{
+  int i;
+  HOST_WIDE_INT prev_f_bit_pos;
+  tree struct_id;
+  bool different_order = false; 
+  tree f_bit_pos_t; 
+
+  if (!ds->struct_clustering->fields_order)
+    return;
+
+  f_bit_pos_t = bit_position (ds->fields[0].decl);
+  if (! host_integerp (f_bit_pos_t, 0))
+    abort ();
+  prev_f_bit_pos = tree_low_cst (f_bit_pos_t, 0);
+
+  /* Check if the suggested reordering is different that the original.  */
+  for (i = 1; i < ds->num_fields; i++)
+    {
+      HOST_WIDE_INT f_bit_pos;
+      int f;
+
+      f = ds->struct_clustering->fields_order[i];
+      f_bit_pos_t = bit_position (ds->fields[f].decl);
+      if (! host_integerp (f_bit_pos_t, 0))
+	abort ();
+      f_bit_pos = tree_low_cst (f_bit_pos_t, 0);
+      if (f_bit_pos < prev_f_bit_pos)
+	{
+  	  different_order = true;    
+	  break;
+	}
+      prev_f_bit_pos = f_bit_pos;
+    }
+  if (! different_order )
+    return;
+
+  /* Print out the recomended ordering of the fields.  */
+  if ( ! (struct_id = TYPE_NAME (ds->decl)))
+    return;
+
+  if (TREE_CODE (struct_id) == TYPE_DECL)
+    struct_id = DECL_NAME (struct_id);
+
+  fprintf (outfile, "Following are recommendations for field reordering.\n");
+  fprintf (outfile, "%s \n{\n", IDENTIFIER_POINTER (struct_id));
+  for (i = 0 ; i < ds->num_fields; i++)
+    {
+      int f = ds->struct_clustering->fields_order[i];
+      tree field_type = TREE_TYPE (ds->fields[f].decl);
+      enum tree_code field_type_code = TREE_CODE (field_type);
+      const char *type_name; 
+      
+      if (field_type_code == POINTER_TYPE 
+	  || field_type_code == ARRAY_TYPE)
+	field_type = TREE_TYPE (field_type);
+      type_name = get_original_type_decl_name (field_type);      
+
+      switch (field_type_code)
+	{
+	  case POINTER_TYPE :
+	    fprintf (outfile, "\t%s\t*%s;\n", type_name,
+		     IDENTIFIER_POINTER (DECL_NAME (ds->fields[f].decl)));
+	    break;
+
+	  case ARRAY_TYPE :
+	    fprintf (outfile, "\t%s\t%s[]\n", type_name,
+		     IDENTIFIER_POINTER (DECL_NAME (ds->fields[f].decl)));
+	    break;
+	  default :
+	    fprintf (outfile, "\t%s\t%s;\n", type_name,
+		     IDENTIFIER_POINTER (DECL_NAME (ds->fields[f].decl)));
+	    break;
+	}
+	       
+    }
+  fprintf (outfile, "}\n");
+}
+
 /* Perform data structure peeling.  */
 void
 peel_structs (void)
@@ -594,9 +814,13 @@ peel_structs (void)
 	      free_bb_access_list_for_struct (crr_ds, func);
 	    }
 	}
+      if (crr_ds->count < COLD_STRUCTURE_RATIO)
+	continue;
 
       success = cache_aware_data_reorganization (crr_ds, reordering_only);
       dump_cpg (stdout, crr_ds->cpg);
+      printout_field_reordering_hints (crr_ds, stdout);
+      printout_structure_splitting_hints (crr_ds, stdout);
       free_cpg (crr_ds->cpg);
       crr_ds->cpg = NULL;
       /* Stage 3:  Do the actual transformation decided on in stage 2.  */

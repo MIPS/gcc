@@ -1,3 +1,24 @@
+2004-11-17  Mostafa Hagog  <mustafa@il.ibm.com>
+
+	* struct-reorg-cpg.c (field_size_in_bytes, cp_relation, field_wcp,
+	wcp_left_right_contribution, find_max_fanout_field, 
+	reorder_fields_of_struct, group_size_in_bytes, average_cp_relation,
+	split_data_structure): New functions to implement field reordering
+	and structure splitting.
+	(cache_aware_data_reorganization): call reorder_fields_of_struct
+	and split_data_structure.
+	* struct-reorg.c (get_original_type_decl_name, 
+	similar_struct_decls_p ): New functions.
+	(get_fields): Zero count field.
+	(verify_data_structure): New.
+	(get_data_struct_by_decl): Use similar_struct_decls_p instead of
+	comparing DECLS of structs.
+	(printout_field_reordering_hints, 
+	printout_structure_splitting_hints): New.
+	* struct-reorg.h (fields_in_cluster): New field.
+	(verify_data_structure): Declare.
+	
+
 2004-10-21  Caroline Tice  <ctice@apple.com>
 
 	* cgraph.c (cgraph_create_indirect_edge) : New function.

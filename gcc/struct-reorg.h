@@ -79,6 +79,9 @@ struct field_cluster {
      is the result of field reordering - this should be the definition
      order.  */
   int *fields_order;
+  /* Bitmap of field indexes, a bit is set when the field with that index
+     is in the cluster.  */
+  sbitmap fields_in_cluster;
   /* True means that this cluster is accessed directly with no need for
      indirection from the parent.  This is true for the root and the
      pure array accessed fields.  */
@@ -176,6 +179,8 @@ typedef struct cpg {
   /* A matrix of edges ds->NUM_FIELDS X ds->NUM_FIELDS nodes.  */
   struct cpg_cell **matrix;
 } cpg_t;
+
+void verify_data_structure (struct data_structure *ds);
 
 /*extern struct bb_field_access * get_last_field_access (struct data_structure *ds,
 						       basic_block bb);*/
