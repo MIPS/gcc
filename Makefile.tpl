@@ -1292,12 +1292,14 @@ stage3_build: stage2_copy
 	echo stage3_build > stage_last
 
 compare: stage3_build
-	-rm -f .bad_compare
+	r=`${PWD}`; export r; \
+	s=`cd $(srcdir); ${PWD}`; export s; \
 	cd gcc ; \
+	rm -f .bad_compare ; \
 	for file in *$(objext); do \
 	  cmp --ignore-initial=16 $$file $$r/stage2-gcc/$$file > /dev/null 2>&1; \
 	  test $$? -eq 1 && echo $$file differs >> .bad_compare || true; \
-	done
+	done ; \
 	if [ -f .bad_compare ]; then \
 	  echo "Bootstrap comparison failure!"; \
 	  cat .bad_compare; \

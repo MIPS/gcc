@@ -1,5 +1,10 @@
 2003-06-27  Nathanael Nerode  <neroden@gcc.gnu.org>
 
+	* Makefile.tpl: Make 'compare' target work properly.
+	* Makefile.in: Regenerate.
+	So, bootstrap didn't really work. *sigh*  There's a difference
+	from a '61' to a '62' in each .o file.
+
 	* configure.in: Handle stage1_languages properly.
 	* configure: Regenerate.
 	Auto-detects ada for stage 1 now, and bootstraps!
