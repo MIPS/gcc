@@ -28,11 +28,11 @@ prefix = @prefix@
 # Nonstandard autoconf-set variables.
 enable_shared = @enable_shared@
 LN_S=@LN_S@
+THREAD_KIND=@THREAD_KIND@
 
 # Variables for the user (or the top level) to override.
 objext=.o
 GNATLIBFLAGS= -W -Wall -gnatpg
-THREAD_KIND=native
 TRACE=no
 LDFLAGS=
 STAGE_PREFIX=
@@ -85,7 +85,6 @@ $(GCC_DIR)/ada/Makefile:
 	    THREAD_KIND="$(THREAD_KIND)" \
 	    TRACE="$(TRACE)"
 
-
 # Rules to build gnatlib.
 .PHONY: gnatlib gnatlib-plain gnatlib-sjlj gnatlib-zcx gnatlib-shared
 gnatlib: @default_gnatlib_target@
@@ -97,19 +96,37 @@ gnatlib-plain: $(GCC_DIR)/ada/Makefile
 	  GNATLIBCFLAGS="$(GNATLIBCFLAGS)" \
 	  TARGET_LIBGCC2_CFLAGS="$(TARGET_LIBGCC2_CFLAGS)" \
 	  THREAD_KIND="$(THREAD_KIND)" \
-	  TRACE="$(TRACE)" \
 	  gnatlib \
 	&& touch stamp-libada
 
-gnatlib-sjlj gnatlib-zcx gnatlib-shared: $(GCC_DIR)/ada/Makefile
+gnatlib-shared: $(GCC_DIR)/ada/Makefile
 	test -f stamp-libada || \
 	$(MAKE) -C $(GCC_DIR)/ada $(FLAGS_TO_PASS) \
 	  GNATLIBFLAGS="$(GNATLIBFLAGS)" \
 	  GNATLIBCFLAGS="$(GNATLIBCFLAGS)" \
 	  TARGET_LIBGCC2_CFLAGS="$(TARGET_LIBGCC2_CFLAGS)" \
 	  THREAD_KIND="$(THREAD_KIND)" \
-	  TRACE="$(TRACE)" \
-	  $@ \
+	  gnatlib-shared \
+	&& touch stamp-libada
+
+gnatlib-sjlj: $(GCC_DIR)/ada/Makefile
+	test -f stamp-libada || \
+	$(MAKE) -C $(GCC_DIR)/ada $(FLAGS_TO_PASS) \
+	  GNATLIBFLAGS="$(GNATLIBFLAGS)" \
+	  GNATLIBCFLAGS="$(GNATLIBCFLAGS)" \
+	  TARGET_LIBGCC2_CFLAGS="$(TARGET_LIBGCC2_CFLAGS)" \
+	  THREAD_KIND="$(THREAD_KIND)" \
+	  gnatlib-sjlj \
+	&& touch stamp-libada
+
+gnatlib-zcx: $(GCC_DIR)/ada/Makefile
+	test -f stamp-libada || \
+	$(MAKE) -C $(GCC_DIR)/ada $(FLAGS_TO_PASS) \
+	  GNATLIBFLAGS="$(GNATLIBFLAGS)" \
+	  GNATLIBCFLAGS="$(GNATLIBCFLAGS)" \
+	  TARGET_LIBGCC2_CFLAGS="$(TARGET_LIBGCC2_CFLAGS)" \
+	  THREAD_KIND="$(THREAD_KIND)" \
+	  gnatlib-zcx \
 	&& touch stamp-libada
 
 # Check uninstalled version.

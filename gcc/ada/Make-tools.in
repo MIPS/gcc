@@ -73,7 +73,8 @@ ALL_ADA_CFLAGS = $(X_ADA_CFLAGS) $(T_ADA_CFLAGS) $(ADA_CFLAGS)
 ALL_ADAFLAGS = $(CFLAGS) $(ALL_ADA_CFLAGS) $(X_ADAFLAGS) $(T_ADAFLAGS) \
 	$(ADAFLAGS)
 
-SYMLIB = @SYMLIB@
+# From above
+# SYMLIB
 ADDR2LINE_SYMLIB = -laddr2line -lbfd -liberty $(LIBINTL)
 SYMDEPS = $(LIBINTL_DEP)
 
@@ -82,8 +83,6 @@ SYMDEPS = $(LIBINTL_DEP)
 # to compile all the gen* files first by hand to avoid erroneous results.
 P =
 
-host_canonical=@host@
-target=@target@
 # Include the libada 'information passing' script, before including
 # the tmake and xmake files which it names
 # This is way more complicated than it should be because of the rts
@@ -120,7 +119,8 @@ endif
 # IN_GCC distinguishes between code compiled into GCC itself and other
 # programs built during a bootstrap.
 # autoconf inserts -DCROSS_COMPILE if we are building a cross compiler.
-INTERNAL_CFLAGS = @CROSS@ -DIN_GCC
+# From above
+# INTERNAL_CFLAGS =
 
 # This is the variable actually used when we compile.
 LOOSE_CFLAGS = `echo $(CFLAGS) $(WARN2_CFLAGS)|sed -e 's/-pedantic//g' -e 's/-Wtraditional//g'`
@@ -133,10 +133,12 @@ ALL_CPPFLAGS = $(CPPFLAGS) $(X_CPPFLAGS) $(T_CPPFLAGS)
 # This is where we get libiberty.a from.
 LIBIBERTY = ../../libiberty/libiberty.a
 
-TGT_LIB = @TGT_LIB@
+# From above
+# TGT_LIB =
 LIBGNAT=../rts/libgnat.a
 # Any system libraries needed just for GNAT.
-SYSLIBS = @GNAT_LIBEXC@
+# From above
+# SYSLIBS =
 # List of extra object files linked in with various programs.
 EXTRA_GNATTOOLS_OBJS = ../../prefix.o ../../version.o
 
@@ -174,7 +176,8 @@ ADA_INCLUDES = -I/this/doesnt/exist
 	$(CC) -c $(ALL_ADAFLAGS) $(ADA_INCLUDES) $< $(OUTPUT_OPTION)
 
 # VMS needs yet more special handling.
-vms_host=@vms_host@
+# From above
+# vms_host=
 ifeq ($(vms_host),yes)
 .SUFFIXES: .sym
 .o.sym:
@@ -194,7 +197,8 @@ GNATLINK_OBJS = gnatlink.o \
  s-exctab.o s-secsta.o s-stalib.o s-stoele.o sdefault.o stylesw.o switch.o system.o \
  table.o tree_io.o types.o validsw.o widechar.o
 
-EXTRA_GNATMAKE_OBJS = @EXTRA_GNATMAKE_OBJS@
+# From above
+# EXTRA_GNATMAKE_OBJS =
 
 GNATMAKE_OBJS = a-except.o ctrl_c.o ali.o ali-util.o s-casuti.o \
  alloc.o atree.o binderr.o butil.o casing.o csets.o debug.o elists.o einfo.o\
@@ -299,7 +303,8 @@ endif
 	$(GNATLINK) -v gnatsym -o $@ --GCC="$(CC) $(ADA_INCLUDES)" \
                     $(TOOLS_LIBS)
 
-GMEM_LIB = @GMEM_LIB@
+# From above
+# GMEM_LIB =
 ../../gnatmem$(exeext):  gmem.o $(SYMDEPS)
 ifeq ($(GMEM_LIB),gmemlib)
 	   $(GNATMAKE) -c $(ADA_INCLUDES) gnatmem --GCC="$(CC) $(ALL_ADAFLAGS)"

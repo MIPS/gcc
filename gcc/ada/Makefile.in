@@ -90,16 +90,9 @@ GMEM_LIB = @GMEM_LIB@
 MISCLIB = @MISCLIB@
 
 objext = .o
-exeext =
 arext  = .a
 soext  = @soext@
-shext  =
 hyphen = @hyphen@
-
-# Define this as & to perform parallel make on a Sequent.
-# Note that this has some bugs, and it seems currently necessary 
-# to compile all the gen* files first by hand to avoid erroneous results.
-P =
 
 host_canonical=@host@
 target=@target@

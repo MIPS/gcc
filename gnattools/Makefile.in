@@ -32,6 +32,25 @@ INSTALL_PROGRAM = @INSTALL_PROGRAM@
 LN_S=@LN_S@
 target_noncanonical=@target_noncanonical@
 
+# Support for migrating Make-tools.in into here
+# FIXME by doing so
+TGT_LIB = @TGT_LIB@
+SYMLIB = @SYMLIB@
+INTERNAL_CFLAGS = @CROSS@ -DIN_GCC
+SYSLIBS = @GNAT_LIBEXC@
+GMEM_LIB = @GMEM_LIB@
+vms_host = @vms_host@
+EXTRA_GNATMAKE_OBJS = @EXTRA_GNATMAKE_OBJS@
+TOOLS_FLAGS_TO_PASS_TEMP = \
+	"TGT_LIB=$(TGT_LIB)" \
+	"SYMLIB=$(SYMLIB)" \
+	"INTERNAL_CFLAGS=$(INTERNAL_CFLAGS)" \
+	"SYSLIBS=$(SYSLIBS)" \
+	"GMEM_LIB=$(GMEM_LIB)" \
+	"vms_host=$(vms_host)" \
+	"EXTRA_GNATMAKE_OBJS=$(EXTRA_GNATMAKE_OBJS)"
+# end FIXME
+
 # Variables for the user (or the top level) to override.
 objext=.o
 TRACE=no
@@ -90,7 +109,8 @@ TOOLS_FLAGS_TO_PASS_1= \
 	"fsrcdir=$(fsrcdir)" \
 	"srcdir=$(fsrcdir)" \
 	"GNATBIND=../../gnatbind" \
-	"TOOLSCASE=native"
+	"TOOLSCASE=native" \
+	$(TOOLS_FLAGS_TO_PASS_TEMP)
 
 # Variables for regnattools
 TOOLS_FLAGS_TO_PASS_1re= \
@@ -106,7 +126,8 @@ TOOLS_FLAGS_TO_PASS_1re= \
 	"GNATLINK=../../gnatlink" \
 	"GNATBIND=../../gnatbind" \
 	"TOOLSCASE=cross" \
-	"INCLUDES="
+	"INCLUDES=" \
+	$(TOOLS_FLAGS_TO_PASS_TEMP)
 
 # Variables for gnattools2, native
 TOOLS_FLAGS_TO_PASS_NATIVE= \
@@ -121,7 +142,8 @@ TOOLS_FLAGS_TO_PASS_NATIVE= \
 	"GNATMAKE=../../gnatmake" \
 	"GNATLINK=../../gnatlink" \
 	"GNATBIND=../../gnatbind" \
-	"TOOLSCASE=native"
+	"TOOLSCASE=native" \
+	$(TOOLS_FLAGS_TO_PASS_TEMP)
 
 # Variables for gnattools, cross
 TOOLS_FLAGS_TO_PASS_CROSS= \
@@ -138,7 +160,8 @@ TOOLS_FLAGS_TO_PASS_CROSS= \
 	"GNATLINK=gnatlink" \
 	"GNATBIND=gnatbind" \
 	"TOOLSCASE=cross" \
-	"LIBGNAT="
+	"LIBGNAT=" \
+	$(TOOLS_FLAGS_TO_PASS_TEMP)
 
 # File lists
 # ----------
@@ -146,7 +169,6 @@ TOOLS_FLAGS_TO_PASS_CROSS= \
 # File associations set by configure
 EXTRA_GNATTOOLS = @EXTRA_GNATTOOLS@
 TOOLS_TARGET_PAIRS = @TOOLS_TARGET_PAIRS@
-
 
 # These are built by gnatmake, and in both native and cross configurations.
 GNATTOOLS2_FILES = \

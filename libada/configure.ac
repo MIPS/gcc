@@ -72,6 +72,15 @@ case $host in
 esac
 AC_SUBST([x_ada_cflags])
 
+# THREAD_KIND; determined here to encourage sync with gnattools.
+# Specify it from above!  FIXME NCN.
+case "${THREAD_KIND}" in
+  "")
+    THREAD_KIND=native
+    ;;
+esac
+AC_SUBST(THREAD_KIND)
+
 # Determine what to build for 'gnatlib'
 if test $build = $target \
    && test ${enable_shared} = yes ; then

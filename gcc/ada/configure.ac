@@ -35,7 +35,7 @@ AC_CANONICAL_TARGET
 # Converted from hideous Make-isms by Nathanael Nerode.
 
 # TRACE and THREAD_KIND; we expect these to be passed down from above,
-# for now (
+# for now
 case "${TRACE}" in
   "")
     TRACE=no

@@ -1,3 +1,9 @@
+2004-12-19  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* Makefile.in: Set THREAD_KIND from configure.
+	* configure.ac: Set THREAD_KIND from configure.
+	* configure: Regenerate.
+
 2004-12-03  Nathanael Nerode  <neroden@gcc.gnu.org>
 
 	* Makefile.in: Add stamp file for building libada, to avoid
