@@ -1,5 +1,7 @@
 2004-02-15  Alan Modra  <amodra@bigpond.net.au>
 
+	* config/rs6000/rs6000.h: Revert changes from last merge.
+
 	PR optimization/14119
 	* combine.c (try_combine): When attemting to fix unrecognized insns,
 	don't delete SETs marked with REG_EH_REGION notes.  Also, don't split
