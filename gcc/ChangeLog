@@ -1,3 +1,12 @@
+Thu Nov 21 19:20:27 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* athlon.md (define_atuomaton): Add athlon_load.
+	(athlon-double): New reservation.
+	(athlon-ieu0): New CPU unit.
+	(athlon-load?): Use athlon_load automaton.
+	(*_k8 reservations): New.
+	(other insn revervations): Activate for K8.
+
 Thu Nov 21 15:07:42 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* cfgrtl.c (verify_flow_info):  Accept EDGE_CAN_FALLTHRU flag.
