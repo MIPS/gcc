@@ -355,14 +355,6 @@ bsi_next (i)
   bsi_next_in_bb (i, bb);
 }
 
-static inline void
-bsi_prev (i)
-     block_stmt_iterator *i;
-{
-  printf (" bsi_prev (%p) is not implemented yet\n",(void *)i);
-  abort();
-}
-
 static inline tree *
 bsi_stmt_ptr (i)
      block_stmt_iterator i;
@@ -399,6 +391,15 @@ bsi_container (i)
      block_stmt_iterator i;
 {
   return i.tp;
+}
+
+/* Return a tree_stmt_iterator for the stmt a block iterator refers to.  */
+
+static inline tree_stmt_iterator
+tsi_from_bsi (bi)
+     block_stmt_iterator bi;
+{
+  return tsi_start (bi.tp);
 }
 
 static inline bool

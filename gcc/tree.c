@@ -45,6 +45,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "output.h"
 #include "target.h"
 #include "langhooks.h"
+#include "tree-iterator.h"
 
 /* obstack.[ch] explicitly declined to prototype this.  */
 extern int _obstack_allocated_p PARAMS ((struct obstack *h, PTR obj));
@@ -4957,6 +4958,135 @@ build_vdef_expr (var)
     abort ();
 
   return build (VDEF_EXPR, TREE_TYPE (var), var, var);
+}
+
+
+
+/* Links a stmt before the current stmt.  */
+
+void
+tsi_link_before (i, t, mode)
+     tree_stmt_iterator *i;
+     tree t;
+     enum tsi_iterator_update mode;
+{
+  tree ce;
+
+  /* Build a new CE which points to the current node.  */
+  ce = build (COMPOUND_EXPR, void_type_node, t, *(i->tp));
+
+  /* Make the parent pointer point to this new node.  At this point, the
+     iterator will be pointing to the new node we just inserted.  */
+  *(i->tp) = ce;
+
+  /* Update the iterator to points to the address of the next ptr in our new 
+     node, which is the current stmt again.  */
+  if (mode == TSI_SAME_STMT)
+    i->tp = &(TREE_OPERAND (*(i->tp), 1));
+
+}
+
+/* Links a stmt after the current stmt.  */
+
+void
+tsi_link_after (i, t, mode)
+     tree_stmt_iterator *i;
+     tree t;
+     enum tsi_iterator_update mode;
+{
+  tree ce;
+  tree next;
+
+  /* If this node isnt a COMPUND_EXPR, we need to insert a CE node. */
+  if (TREE_CODE (*(i->tp)) != COMPOUND_EXPR)
+    {
+      /* Create a new node with the current stmt on the left, and the new
+	 stmt on the right.  */
+      ce = build (COMPOUND_EXPR, void_type_node, *(i->tp), t);
+
+      /* Update link to point to this CE node.  */
+      *(i->tp) = ce;
+
+      /* Change new iterator to point to the new stmt.  */
+      if (mode == TSI_NEW_STMT)
+	i->tp = &(TREE_OPERAND (ce, 1));
+    }
+  else
+    {
+      next  = TREE_OPERAND (*(i->tp), 1);
+
+      /* Create a new node with the same 'next' link as the current one.  */
+      ce = build (COMPOUND_EXPR, void_type_node, t, next);
+
+      /* Make the current one's 'next' link point to our new stmt.  */
+      TREE_OPERAND (*(i->tp), 1) = ce;
+
+      /* Update the iterator to the new stmt.  */
+      if (mode == TSI_NEW_STMT)
+	i->tp = &(TREE_OPERAND (*(i->tp), 1));
+    }
+
+  
+}
+
+/* Remove a stmt from the tree list.  The iterator is updated to point to
+   the next stmt.  */
+
+void
+tsi_delink (i)
+     tree_stmt_iterator *i;
+{
+
+  if (TREE_CODE (*(i->tp)) == COMPOUND_EXPR)
+    {
+      /* All that is needed here is to change the parent to point to the next 
+	 stmt in the chain.  */
+      *(i->tp) = TREE_OPERAND (*(i->tp), 1);
+    }
+  else
+    {
+      /* This stmt is the last link in the CE chain, but we're screwed because
+         there isn't access to the node itself. the choices are either adding a
+	 NULL link to the right side of the CE node, which is bad, or replacing
+	 this node with an empty_stmt_node. Choose the latter for now, and 
+	 make the iterator return NULL, so that no further iterating takes 
+	 place.  */
+      *(i->tp) = empty_stmt_node;
+      i->tp = NULL;
+    }
+}
+
+/* Create a new stmt list beginning with this stmt.  The anchor is used mostly
+   to keep the garbage collector from collecting the root node, and to give 
+   the list a place to start.  */
+
+tree_stmt_iterator 
+tsi_new_stmt_list (t, anchor)
+     tree t;
+     tree_stmt_anchor *anchor;
+{
+  tree_stmt_iterator i;
+
+  *anchor = t;
+  i.tp = anchor;
+
+  return i;
+}
+
+/* Return an iterator which begins at this anchor.  */
+
+tree_stmt_iterator
+tsi_stmt_list_head (anchor)
+     tree_stmt_anchor anchor;
+{
+  tree_stmt_iterator i;
+
+  if (anchor == EMPTY_ANCHOR)
+    i.tp = NULL;
+  else
+    i.tp = &anchor;
+
+  return i;
 }
 
 #include "gt-tree.h"

@@ -284,12 +284,33 @@ typedef struct {
 extern block_stmt_iterator bsi_start 	PARAMS ((basic_block));
 static inline bool bsi_end_p		PARAMS ((block_stmt_iterator));
 static inline void bsi_next		PARAMS ((block_stmt_iterator *));
-static inline void bsi_prev		PARAMS ((block_stmt_iterator *));
+extern void bsi_prev			PARAMS ((block_stmt_iterator *));
 static inline tree bsi_stmt		PARAMS ((block_stmt_iterator));
 static inline tree *bsi_stmt_ptr	PARAMS ((block_stmt_iterator));
 static inline tree *bsi_container	PARAMS ((block_stmt_iterator));
 
-extern void bsi_remove			PARAMS ((block_stmt_iterator));
+extern block_stmt_iterator bsi_from_tsi	PARAMS ((tree_stmt_iterator));
+static inline tree_stmt_iterator tsi_from_bsi	PARAMS ((block_stmt_iterator));
+
+extern void bsi_remove			PARAMS ((block_stmt_iterator *));
+
+enum bsi_iterator_update
+{
+  BSI_NEW_STMT,
+  BSI_SAME_STMT
+};
+
+/* Single stmt insertion routines.  */
+
+extern void bsi_insert_before	PARAMS ((block_stmt_iterator *, tree, enum bsi_iterator_update));
+extern void bsi_insert_after	PARAMS ((block_stmt_iterator *, tree, enum bsi_iterator_update));
+extern block_stmt_iterator bsi_insert_on_edge	PARAMS ((edge, tree));
+
+/* Stmt list insertion routines.  */
+
+extern void bsi_insert_list_before	PARAMS ((block_stmt_iterator *, tree_stmt_anchor));
+extern void bsi_insert_list_after	PARAMS ((block_stmt_iterator *, tree_stmt_anchor));
+extern block_stmt_iterator bsi_insert_list_on_edge	PARAMS ((edge, tree_stmt_anchor));
 
 void bsi_next_in_bb			PARAMS ((block_stmt_iterator *, basic_block));
 

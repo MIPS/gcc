@@ -127,4 +127,23 @@ tsi_container (i)
   return i.tp;
 }
 
+
+/* Abstract interface for linking and chaining stmts.  Declared in tree.c.  */
+
+/* A tree_stmt_anchor is used as the root of a stmt list.  */
+typedef tree tree_stmt_anchor;
+#define EMPTY_ANCHOR	NULL_TREE
+
+enum tsi_iterator_update
+{
+  TSI_NEW_STMT,
+  TSI_SAME_STMT
+};
+
+void tsi_link_before			PARAMS ((tree_stmt_iterator *, tree, enum tsi_iterator_update));
+void tsi_link_after			PARAMS ((tree_stmt_iterator *, tree, enum tsi_iterator_update));
+void tsi_delink				PARAMS ((tree_stmt_iterator *));
+tree_stmt_iterator tsi_new_stmt_list	PARAMS ((tree, tree_stmt_anchor *));
+tree_stmt_iterator tsi_stmt_list_head	PARAMS ((tree_stmt_anchor));
+
 #endif /* _TREE_ITERATOR_H  */

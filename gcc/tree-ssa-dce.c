@@ -91,7 +91,7 @@ static void find_useful_stmts			PARAMS ((void));
 static bool stmt_useful_p			PARAMS ((tree));
 static void process_worklist			PARAMS ((void));
 static void remove_dead_stmts			PARAMS ((void));
-static void remove_dead_stmt			PARAMS ((block_stmt_iterator,
+static void remove_dead_stmt			PARAMS ((block_stmt_iterator *,
       							 basic_block));
 static void remove_dead_phis			PARAMS ((basic_block));
 
@@ -413,14 +413,16 @@ remove_dead_stmts ()
       remove_dead_phis (bb);
 
       /* Remove dead statements.  */
-      for (i = bsi_start (bb); !bsi_end_p (i); bsi_next (&i))
+      for (i = bsi_start (bb); !bsi_end_p (i); )
 	{
 	  t = bsi_stmt (i);
 	  stats.total++;
 
 	  /* If `i' is not in `necessary' then remove from B.  */
 	  if (!necessary_p (t))
-	    remove_dead_stmt (i, bb);
+	    remove_dead_stmt (&i, bb);
+	  else
+	    bsi_next (&i);
 	}
     }
 
@@ -464,12 +466,12 @@ remove_dead_phis (bb)
 
 static void
 remove_dead_stmt (i, bb)
-     block_stmt_iterator i;
+     block_stmt_iterator *i;
      basic_block bb;
 {
   tree t;
 
-  t = bsi_stmt (i);
+  t = bsi_stmt (*i);
   STRIP_NOPS (t);
 
   if (dump_file && (dump_flags & TDF_DETAILS))

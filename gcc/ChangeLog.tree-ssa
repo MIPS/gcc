@@ -1,3 +1,31 @@
+2003-03-10  Andrew MacLeod  <amacleod@redhat.com>
+
+	* Makefile.in (tree.o): Add tree-iterator.h dependancy.
+	* sbitmap.c (sbitmap_realloc): Grow a sbitmap structure. 
+	* sbitmap.h (sbitmap_realloc): New Prototype.
+	* tree-cfg.c (remove_bb): Use new format for bsi_remove.
+	(bsi_remove): Update iterator to refer to the next stmt.
+	(bsi_prev): Implement previous stmt routine.
+	(bsi_from_tsi): Create a block iterator from a tree iterator.
+	* tree-flow-inline.h (bsi_prev): Remove.
+	(tsi_from_bsi): Create a tree iterator from a block iterator.
+	* tree-flow.h (bsi_prev,bsi_remove): Update prototypes.
+	(bsi_from_tsi, tsi_from_bsi, bsi_insert_*): New prototypes.
+	(bsi_iterator_update): New enum type.
+	* tree-iterator.h (tree_stmt_anchor, tsi_iterator_update): New type.
+	(tsi_link_before, tsi_link_after, tsi_delink, tsi_new_stmt_list,
+	tsi_stmt_list_head): New prototypes.
+	* tree-ssa-dce.c (remove_dead_stmts): Update removal loop to allow
+	that remove_dead_stmt update's the iterator.
+	(remove_dead_stmt): Use a pointer to the iterator since bsi_remove
+	requires it.
+	* tree.c (tsi_link_before): New function to link a stmt before an
+	iterator.
+	(tsi_link_after): New function links stmt after an iterator.
+	(tsi_delink): Removes a stmt from a list.
+	(tsi_new_stmt_list): New function to begin a new stmt list.
+	(tsi_stmt_list_head): New function to get the first stmt in a list.
+
 2003-03-07  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-cfg.c (remove_stmt): Don't assume that the statement is in

@@ -1015,13 +1015,15 @@ remove_bb (bb, remove_stmts)
     }
 
   /* Remove all the instructions in the block.  */
-  for (i = bsi_start (bb); !bsi_end_p (i); bsi_next (&i))
+  for (i = bsi_start (bb); !bsi_end_p (i); )
     {
       tree stmt = bsi_stmt (i);
 
       set_bb_for_stmt (stmt, NULL);
       if (remove_stmts)
-	bsi_remove (i);
+	bsi_remove (&i);
+      else
+        bsi_next (&i);
     }
 
   set_bb_for_stmt (*bb->head_tree_p, NULL);
@@ -1173,9 +1175,9 @@ is_parent (bb, child_bb)
 
 void
 bsi_remove (i)
-     block_stmt_iterator i;
+     block_stmt_iterator *i;
 {
-  tree t = *(i.tp);
+  tree t = *(i->tp);
 
   STRIP_NOPS (t);
 
@@ -1188,10 +1190,12 @@ bsi_remove (i)
 
       /* If both operands are empty, delete the whole COMPOUND_EXPR.  */
       if (TREE_OPERAND (t, 1) == empty_stmt_node)
-	remove_stmt (i.tp);
+	remove_stmt (i->tp);
     }
   else
-    remove_stmt (i.tp);
+    remove_stmt (i->tp);
+
+  bsi_next (i);
 }
 
 
@@ -2420,6 +2424,58 @@ bsi_start (bb)
   return i;
 }
 
+/* Find the previous iterator value.  */
+
+void
+bsi_prev (i)
+     block_stmt_iterator *i;
+{
+  block_stmt_iterator bi, next;
+
+  bi = bsi_start (bb_for_stmt (bsi_stmt (*i))); 
+  if (bi.tp != i->tp)
+    {
+      for ( ; !bsi_end_p (bi); bi = next)
+	{
+	  next = bi; 
+	  bsi_next (&next);
+	  if (next.tp == i->tp)
+	    {
+	      i->tp = bi.tp;
+	      return;
+	    }
+	}
+    }
+
+  i->tp = NULL;
+  bi.context = NULL_TREE;
+  return;
+}
+
+
+/* Initialize a block_stmt_iterator with a statement pointed to by a tree
+   iterator. If this cannot be done, a NULL iterator is returned.  */
+
+block_stmt_iterator
+bsi_from_tsi (ti)
+     tree_stmt_iterator ti;
+{
+  basic_block bb;
+  tree stmt;
+  block_stmt_iterator bi;
+
+  stmt = tsi_stmt (ti);
+  if (stmt)
+    {
+      bb = bb_for_stmt (stmt);
+      if (bb)
+	return bsi_init (ti.tp, bb);
+    }
+
+  bi.tp = NULL;
+  bi.context = NULL_TREE;
+  return bi;
+}
 
 /* Insert statement T into basic block BB.  */
 
