@@ -427,6 +427,37 @@ tree_ssa_dominator_optimize (tree fndecl, bitmap vars,
 	  if (bitmap_first_set_bit (vars_to_rename) >= 0)
 	    rewrite_vars_out_of_ssa (vars_to_rename);
 
+	  /* The out of SSA translation above may split the edge from
+	     E->src to E->dest.  This could potentially cause us to lose
+	     an assignment leading to invalid warnings about uninitialized
+	     variables or incorrect code.
+
+	     Luckily, we can detect this by looking at the last statement
+	     in E->dest.  If it is not a COND_EXPR or SWITCH_EXPR, then
+	     the edge was split and instead of E, we want E->dest->succ.  */
+	  for (i = 0; i < VARRAY_ACTIVE_SIZE (redirection_edges); i += 2)
+	    {
+	      edge e = VARRAY_EDGE (redirection_edges, i);
+	      tree last = last_stmt (e->dest);
+
+	      if (last
+		  && TREE_CODE (last) != COND_EXPR
+		  && TREE_CODE (last) != SWITCH_EXPR)
+		{
+		  e = e->dest->succ;
+
+#ifdef ENABLE_CHECKING
+		  /* There should only be a single successor if the
+		     original edge was split.  */
+		  if (e->succ_next)
+		    abort ();
+#endif
+		  /* Replace the edge in REDIRECTION_EDGES for the
+		     loop below.  */
+		  VARRAY_EDGE (redirection_edges, i) = e;
+		}
+	    }
+
 	  /* Now redirect the edges.  */
 	  for (i = 0; i < VARRAY_ACTIVE_SIZE (redirection_edges); i += 2)
 	    {

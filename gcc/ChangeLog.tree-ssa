@@ -1,3 +1,9 @@
+2004-01-05  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-dom.c (tree_ssa_dominator_optimize): Correctly handle
+	the case where an edge we wish to redirect is split by the out of SSA
+	code.
+
 2004-01-05  Richard Henderson  <rth@redhat.com>
 
 	* c-tree.h (struct lang_type): Add enum_min, enum_max.
