@@ -1,5 +1,10 @@
 2004-09-12  Michael Koch  <konqueror@gmx.de>
 
+	* javax/swing/JApplet.java, javax/swing/JFrame.java:
+	Re-indented.
+
+2004-09-12  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/AbstractButton.java:
 	Little re-formatting.
 	(changeEvent): Made protected.
