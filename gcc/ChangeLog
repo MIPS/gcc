@@ -1,3 +1,20 @@
+Fri Mar 13 17:54:04 1998  Michael Meissner  <meissner@cygnus.com>
+
+        * gcc.c (DIR_UP): If not defined, define as "..".
+        (standard_bindir_prefix): New static, holds target location to
+        install binaries.
+        (split_directories): New function to split a filename into
+        component directories.
+        (free_split_directories): New function, release memory allocated
+        by split_directories.
+        (make_relative_prefix): New function, make a relative pathname if
+        the compiler is not in the expected location.
+        (process_command): Use GET_ENVIRONMENT to read GCC_EXEC_PREFIX.
+        If GCC_EXEC_PREFIX was not specified, see if we can figure out an
+        appropriate prefix from argv[0].
+
+        * Makefile.in (gcc.o): Define STANDARD_BINDIR_PREFIX.
+
 Wed Aug 12 18:18:16 1998  Mumit Khan  <khan@xraylith.wisc.edu>
 
         * i386/winnt.c (i386_pe_dllexport_p): Check TREE_TYPE for

@@ -297,6 +297,11 @@ tooldir = $(exec_prefix)/$(target_alias)
 # Dir for temp files.
 tmpdir = /tmp
 
+# CYGNUS LOCAL texinfo
+# Directory where texinfo.tex lives
+texidir = $(srcdir)/../texinfo
+# END CYGNUS LOCAL
+
 # Additional system libraries to link with.
 CLIB=
 
@@ -1326,20 +1331,20 @@ c-common.o : c-common.c $(CONFIG_H) system.h $(TREE_H) c-tree.h c-lex.h \
 
 # Language-independent files.
 
-# CYGNUS LOCAL: We use relative paths for TOOLDIR_BASE_PREFIX and
-# STANDARD_STARTFILE_PREFIX so that we can move the installed tree.
+# CYGNUS LOCAL -- meissner/relative pathnames
 DRIVER_DEFINES = \
   -DSTANDARD_STARTFILE_PREFIX=\"$(unlibsubdir)/\" \
   -DSTANDARD_EXEC_PREFIX=\"$(libdir)/gcc-lib/\" \
   -DDEFAULT_TARGET_VERSION=\"$(version)\" \
   -DDEFAULT_TARGET_MACHINE=\"$(target_alias)\" \
+  -DSTANDARD_BINDIR_PREFIX=\"$(bindir)/\" \
   -DTOOLDIR_BASE_PREFIX=\"$(unlibsubdir)/../\"
-
 gcc.o: gcc.c $(CONFIG_H) system.h gansidecl.h multilib.h Makefile \
 	$(lang_specs_files)
 	$(CC) $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) \
   $(DRIVER_DEFINES) \
   -c `echo $(srcdir)/gcc.c | sed 's,^\./,,'`
+# END CYGNUS LOCAL -- meissner/relative pathnames
 
 tree-check.h: s-check ; @true
 s-check : gencheck $(srcdir)/move-if-change
