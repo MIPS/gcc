@@ -1,5 +1,5 @@
 /* Callgraph handling code.
-   Copyright (C) 2003 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
@@ -32,6 +32,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "cgraph.h"
 #include "varray.h"
 #include "output.h"
+#include "intl.h"
 
 
 /* Hash table used to convert declarations into nodes.  */
@@ -154,7 +155,16 @@ create_edge (struct cgraph_node *caller, struct cgraph_node *callee)
   struct cgraph_edge *edge = ggc_alloc (sizeof (struct cgraph_edge));
   struct cgraph_edge *edge2;
 
-  edge->inline_call = false;
+  if (!DECL_SAVED_TREE (callee->decl))
+    edge->inline_failed = N_("function body not available");
+  else if (callee->local.redefined_extern_inline)
+    edge->inline_failed = N_("redefined extern inline functions are not "
+			     "considered for inlining");
+  else if (callee->local.inlinable)
+    edge->inline_failed = N_("function not considered for inlining");
+  else
+    edge->inline_failed = N_("function not inlinable");
+
   /* At the moment we don't associate calls with specific CALL_EXPRs
      as we probably ought to, so we must preserve inline_call flags to
      be the same in all copies of the same edge.  */
@@ -162,7 +172,7 @@ create_edge (struct cgraph_node *caller, struct cgraph_node *callee)
     for (edge2 = caller->callees; edge2; edge2 = edge2->next_callee)
       if (edge2->callee == callee)
 	{
-	  edge->inline_call = edge2->inline_call;
+	  edge->inline_failed = edge2->inline_failed;
 	  break;
 	}
 
@@ -219,10 +229,13 @@ cgraph_remove_node (struct cgraph_node *node)
   if (node->previous)
     node->previous->next = node->next;
   else
-    cgraph_nodes = node;
+    cgraph_nodes = node->next;
   if (node->next)
     node->next->previous = node->previous;
   DECL_SAVED_TREE (node->decl) = NULL;
+  DECL_SAVED_INSNS (node->decl) = NULL;
+  DECL_ARGUMENTS (node->decl) = NULL;
+  DECL_INITIAL (node->decl) = error_mark_node;
   slot = 
     htab_find_slot_with_hash (cgraph_hash, DECL_ASSEMBLER_NAME (node->decl),
 			      IDENTIFIER_HASH_VALUE (DECL_ASSEMBLER_NAME
@@ -266,7 +279,7 @@ cgraph_mark_needed_node (struct cgraph_node *node)
   cgraph_mark_reachable_node (node);
 }
 
-/* Record call from CALLER to CALLEE  */
+/* Record call from CALLER to CALLEE.  */
 
 struct cgraph_edge *
 cgraph_record_call (tree caller, tree callee)
@@ -379,7 +392,7 @@ dump_cgraph (FILE *f)
       for (edge = node->callers; edge; edge = edge->next_caller)
 	{
 	  fprintf (f, "%s ", cgraph_node_name (edge->caller));
-	  if (edge->inline_call)
+	  if (!edge->inline_failed)
 	    fprintf(f, "(inlined) ");
 	}
 
@@ -387,7 +400,7 @@ dump_cgraph (FILE *f)
       for (edge = node->callees; edge; edge = edge->next_callee)
 	{
 	  fprintf (f, "%s ", cgraph_node_name (edge->callee));
-	  if (edge->inline_call)
+	  if (!edge->inline_failed)
 	    fprintf(f, "(inlined) ");
 	}
       fprintf (f, "\n");
@@ -611,7 +624,9 @@ bool
 cgraph_function_possibly_inlined_p (tree decl)
 {
   if (!cgraph_global_info_ready)
-    return (DECL_INLINE (decl) && !flag_really_no_inline);
+    return (DECL_INLINE (decl)
+	    && (!flag_really_no_inline
+		|| (*lang_hooks.tree_inlining.disregard_inline_limits) (decl)));
   return cgraph_node (decl)->global.inlined;
 }
 

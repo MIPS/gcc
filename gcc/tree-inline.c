@@ -1099,6 +1099,7 @@ expand_call_inline (tp, walk_subtrees, data)
   tree arg_inits;
   tree *inlined_body;
   splay_tree st;
+  const char *reason = NULL;
 
   /* See what we've got.  */
   id = (inline_data *) data;
@@ -1187,14 +1188,22 @@ expand_call_inline (tp, walk_subtrees, data)
   /* Don't try to inline functions that are not well-suited to
      inlining.  */
   if (!DECL_SAVED_TREE (fn)
-      || (flag_unit_at_a_time && !cgraph_inline_p (id->current_decl, fn))
+      || (flag_unit_at_a_time && !cgraph_inline_p (id->current_decl, fn, &reason))
       || (!flag_unit_at_a_time && !inlinable_function_p (fn, id, 0)))
     {
       if (warn_inline && DECL_INLINE (fn) && !DID_INLINE_FUNC (fn)
 	  && !DECL_IN_SYSTEM_HEADER (fn))
 	{
-	  warning_with_decl (fn, "inlining failed in call to `%s'");
-	  warning ("called from here");
+	  if (reason)
+	    {
+	      warning_with_decl (fn, "inlining failed in call to `%s' : %s", reason);
+	      warning ("called from here");
+	    }
+	  else
+	    {
+	      warning_with_decl (fn, "inlining failed in call to `%s'");
+	      warning ("called from here");
+	    }
 	}
       return NULL_TREE;
     }

@@ -1,3 +1,11 @@
+2004-02-02  Jan Hubicka  <jh@suse.cz>
+
+	* cgraph.c: Merge from mainline.
+	* cgraph.h: Likewise.
+	* cgraphunit.c: Likewise.
+	* tree-inline.c (expand_call_inline): Produce better diagnostics
+	with -Winline and unit-at-a-time.
+
 2004-02-02  Josef Zlomek  <zlomekj@suse.cz>
 
 	* tree-inline.c (copy_body_r): Do not replace ret_label.
