@@ -1,5 +1,11 @@
 2004-10-26  Devang Patel  <dpatel@apple.com>
 
+	Radar 3233789
+	* dbxout.c (dbxout_init): Remove APPLE LOCAL patch that suppresses
+	SO stab address.
+
+2004-10-26  Devang Patel  <dpatel@apple.com>
+
 	Radar 3760592
 
 	Backport from mainline.

@@ -558,9 +558,9 @@ dbxout_init (const char *input_file_name)
 #else /* no DBX_OUTPUT_MAIN_SOURCE_DIRECTORY */
 	  fprintf (asmfile, "%s", ASM_STABS_OP);
 	  output_quoted_string (asmfile, cwd);
-	  /* APPLE LOCAL begin STABS SOL address suppression (radar 3109828) */
-	  fprintf (asmfile, ",%d,0,%d,0\n", N_SO, get_lang_number ());
-	  /* APPLE LOCAL end STABS SOL address suppression (radar 3109828) */
+	  fprintf (asmfile, ",%d,0,%d,", N_SO, get_lang_number ());
+	  assemble_name (asmfile, ltext_label_name);
+	  fputc ('\n', asmfile);
 #endif /* no DBX_OUTPUT_MAIN_SOURCE_DIRECTORY */
 	}
     }
@@ -573,9 +573,9 @@ dbxout_init (const char *input_file_name)
   /* Used to put `Ltext:' before the reference, but that loses on sun 4.  */
   fprintf (asmfile, "%s", ASM_STABS_OP);
   output_quoted_string (asmfile, input_file_name);
-  /* APPLE LOCAL begin STABS SOL address suppression (radar 3109828) */
- fprintf (asmfile, ",%d,0,%d,0\n", N_SO, get_lang_number ());
-  /* APPLE LOCAL end STABS SOL address suppression (radar 3109828) */
+  fprintf (asmfile, ",%d,0,%d,", N_SO, get_lang_number ());
+  assemble_name (asmfile, ltext_label_name);
+  fputc ('\n', asmfile);
   text_section ();
   targetm.asm_out.internal_label (asmfile, "Ltext", 0);
 #endif /* no DBX_OUTPUT_MAIN_SOURCE_FILENAME */
