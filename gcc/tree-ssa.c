@@ -1731,6 +1731,7 @@ rewrite_out_of_ssa (tree fndecl ATTRIBUTE_UNUSED)
   bsi_commit_edge_inserts (0, NULL);
 
   cleanup_tree_cfg (true);
+  remove_useless_stmts_and_vars ();
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     dump_tree_cfg (dump_file, dump_flags & ~TDF_DETAILS);

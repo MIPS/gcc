@@ -86,9 +86,21 @@ tree_flatten_statement (tree stmt, tree_cell *after, tree enclosing_switch)
     {
     case BIND_EXPR:
       {
-	append (after, stmt, TCN_BIND);
+	/* Do not record empty BIND_EXPRs, unless they are top-level ones
+	   (or top-level ones of inlined functions).  */
+	tree block = BIND_EXPR_BLOCK (stmt);
+	int record = (BIND_EXPR_VARS (stmt)
+		      || stmt == DECL_SAVED_TREE (current_function_decl)
+		      || (block
+			  && BLOCK_ABSTRACT_ORIGIN (block)
+			  && (TREE_CODE (BLOCK_ABSTRACT_ORIGIN (block))
+			      == FUNCTION_DECL)));
+
+	if (record)
+	  append (after, stmt, TCN_BIND);
 	tree_flatten_statement (BIND_EXPR_BODY (stmt), after, enclosing_switch);
-	append (after, NULL_TREE, TCN_UNBIND);
+	if (record)
+	  append (after, NULL_TREE, TCN_UNBIND);
       }
       break;
 
@@ -377,8 +389,6 @@ static basic_block
 compact_to_block (struct block_tree *node)
 {
   basic_block entry, last, act, next;
-  edge e;
-  block_stmt_iterator bsi;
 
   if (!node->outer)
     {
@@ -427,39 +437,29 @@ compact_to_block (struct block_tree *node)
 	  last = node->exit;
 	}
 
-#ifdef ENABLE_CHECKING
-      /* The entry block should only be accessed from outside.  */
+      /* Ensure that the block is entered through its entry edge as
+	 fallthru.  */
       if (node->entry)
 	{
-	  for (e = entry->pred; e; e = e->pred_next)
-	    {
-	      struct block_tree *block = bb_ann (e->src)->block;
+	  edge e;
 
-	      if (block->level >= node->level)
+	  for (e = node->entry->pred; e; e = e->pred_next)
+	    if (e->flags & EDGE_CONSTRUCT_ENTRY)
+	      break;
+	  if (e)
+	    {
+	      if (entry->prev_bb != e->src)
+		tree_move_block_after (e->src, entry->prev_bb, false);
+
+	      if (!(e->flags & EDGE_FALLTHRU))
 		{
-		  while (block->level > node->level)
-		    block = block->outer;
-		  if (block == node)
+		  act = split_edge (e);
+		  tree_move_block_after (act, entry->prev_bb, false);
+	      
+		  if (!(act->succ->flags & EDGE_FALLTHRU))
 		    abort ();
 		}
 	    }
-	}
-#endif
-
-      /* Ensure that the block is entered through fallthru or abnormal edges.
-	 Do not do this for bind blocks, as it is irrelevant here.  */
-      if (node->type != BT_BIND
-	  && first_stmt (entry)
-	  && TREE_CODE (first_stmt (entry)) == LABEL_EXPR)
-	{
-	  for (bsi = bsi_start (entry); !bsi_end_p (bsi); bsi_next (&bsi))
-	    if (TREE_CODE (bsi_stmt (bsi)) != LABEL_EXPR)
-	      break;
-	      
-	  e = tree_split_block (entry, bsi);
-
-	  bb_ann (e->src)->block = node->outer;
-	  entry = e->dest;
 	}
     }
 

@@ -214,8 +214,6 @@ get_original (tree var)
 void
 propagate_copy (basic_block bb, tree *op_p, tree var)
 {
-  struct block_tree *scope, *old_scope;
-
 #if defined ENABLE_CHECKING
   if (!may_propagate_copy (*op_p, var))
     abort ();
@@ -232,6 +230,16 @@ propagate_copy (basic_block bb, tree *op_p, tree var)
     }
 
   *op_p = var;
+
+  fixup_var_scope (bb, var);
+}
+
+/* Moves variable VAR high enough in scope tree so that basic block BB is in
+   scope.  */
+void
+fixup_var_scope (basic_block bb, tree var)
+{
+  struct block_tree *scope, *old_scope;
 
   /* Update scope of var.  */
   old_scope = var_ann (SSA_NAME_VAR (var))->scope;

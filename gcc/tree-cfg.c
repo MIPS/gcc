@@ -171,7 +171,7 @@ static void tree_loop_optimizer_finalize (struct loops *, FILE *);
 /* Flowgraph optimization and cleanup.  */
 static void remove_bb (basic_block);
 static void tree_merge_blocks (basic_block, basic_block);
-static void remove_stmt (tree_cell);
+static void remove_stmt (tree_cell, basic_block);
 static edge find_taken_edge_cond_expr (basic_block, tree);
 static edge find_taken_edge_switch_expr (basic_block, tree);
 static tree find_edge_goto (tree, edge);
@@ -182,7 +182,6 @@ static void assign_vars_to_scope (struct block_tree *);
 static void remove_superfluous_labels (void);
 static void thread_jumps (void);
 static bool tree_forwarder_block_p (basic_block);
-static void remove_useless_stmts_and_vars (void);
 static void merge_seq_blocks (void);
 
 /* Location to track pending stmt for edge insertion.  */
@@ -568,6 +567,8 @@ static void
 make_edges (void)
 {
   basic_block bb;
+  struct block_tree *bti;
+  edge e;
 
   /* Create an edge from entry to the first block with executable
      statements in it.  */
@@ -609,6 +610,18 @@ make_edges (void)
   /* We do not care about fake edges, so remove any that the CFG
      builder inserted for completeness.  */
   remove_fake_edges ();
+
+  /* Mark special edges of constructs.  */
+  for (bti = bti_start (); !bti_end_p (bti); bti_next (&bti))
+    if (bti->entry)
+      {
+	for (e = bti->entry->pred; e; e = e->pred_next)
+	  if (e->flags & EDGE_FALLTHRU)
+	    break;
+
+	if (e)
+	  e->flags |= EDGE_CONSTRUCT_ENTRY;
+      }
 }
 
 /* Create edges for control statement at basic block BB.  */
@@ -875,6 +888,9 @@ tree_redirect_edge_and_branch (edge e, basic_block dest)
   if (e->dest == dest)
     return true;
 
+  if (e->flags & EDGE_ABNORMAL)
+    return false;
+
   stmt = last_stmt (bb);
   bsi = bsi_last (bb);
 
@@ -886,8 +902,7 @@ tree_redirect_edge_and_branch (edge e, basic_block dest)
   if (!stmt
       || !stmt_ends_bb_p (stmt))
     {
-      if (bb->succ->succ_next
-	  || !(e->flags & EDGE_FALLTHRU))
+      if (!(e->flags & EDGE_FALLTHRU))
 	abort ();
 
       if (old)
@@ -926,9 +941,15 @@ tree_redirect_edge_and_branch (edge e, basic_block dest)
 
 redirect:
   if (old)
-    remove_edge (e);
+    ssa_remove_edge (e);
   else
-    redirect_edge_succ (e, dest);
+    {
+      tree phi;
+  
+      for (phi = phi_nodes (e->dest); phi; phi = TREE_CHAIN (phi))
+	remove_phi_arg (phi, e->src);
+      redirect_edge_succ (e, dest);
+    }
   tree_cleanup_block_edges (bb, false);
   return true;
 }
@@ -1023,7 +1044,6 @@ cleanup_tree_cfg (int expensive)
   if (expensive)
     {
       remove_superfluous_labels ();
-      remove_useless_stmts_and_vars ();
       thread_jumps ();
     }
   delete_unreachable_blocks ();
@@ -1128,6 +1148,7 @@ tree_merge_blocks (basic_block a, basic_block b)
 {
   block_stmt_iterator bsi;
   edge e;
+  tree phi, stmt;
 
   /* Ensure that b follows a.  */
   if (a->next_bb != b)
@@ -1136,11 +1157,34 @@ tree_merge_blocks (basic_block a, basic_block b)
   if (!(a->succ->flags & EDGE_FALLTHRU))
     abort ();
 
-  remove_edge (a->succ);
-
   if (last_stmt (a)
       && stmt_ends_bb_p (last_stmt (a)))
     abort ();
+
+  /* Turn phi nodes into assignments.  */
+  bsi = bsi_last (a);
+  for (phi = phi_nodes (b); phi; phi = TREE_CHAIN (phi))
+    {
+      tree src = PHI_ARG_DEF (phi, 0);
+      tree dest = PHI_RESULT (phi);
+
+      if (virtual_op_p (SSA_NAME_VAR (dest)))
+	{
+	  tree vdef;
+
+	  stmt = build_empty_stmt ();
+	  get_stmt_ann (stmt);
+	  add_vdef (SSA_NAME_VAR (dest), stmt, NULL);
+	  vdef = VARRAY_TREE (vdef_ops (stmt), 0);
+	  VDEF_RESULT (vdef) = dest;
+	  VDEF_OP (vdef) = src;
+	}
+      else
+	stmt = build (MODIFY_EXPR, TREE_TYPE (dest), dest, src);
+
+      SSA_NAME_DEF_STMT (dest) = stmt;
+      bsi_insert_after (&bsi, stmt, BSI_NEW_STMT);
+    }
 
   /* Remove labels from B and set bb_for_stmt to A for other statements.  */
   for (bsi = bsi_start (b); !bsi_end_p (bsi);)
@@ -1153,6 +1197,8 @@ tree_merge_blocks (basic_block a, basic_block b)
 	  bsi_next (&bsi);
 	}
     }
+
+  remove_edge (a->succ);
 
   /* Merge the chains.  */
   if (a->end_tree)
@@ -1172,6 +1218,11 @@ tree_merge_blocks (basic_block a, basic_block b)
   for (e = a->succ; e; e = e->succ_next)
     e->src = a;
 
+  if (bb_ann (b)->block->entry == b)
+    abort ();
+  if (bb_ann (b)->block->exit == b)
+    bb_ann (b)->block->exit = a;
+
   /* Remove B.  */
   delete_basic_block (b);
 }
@@ -1185,7 +1236,7 @@ bsi_remove (block_stmt_iterator *i)
 
   bsi_next (i);
 
-  remove_stmt (cell);
+  remove_stmt (cell, i->bb);
 }
 
 
@@ -1202,19 +1253,15 @@ bsi_replace (block_stmt_iterator bsi, tree stmt)
   modify_stmt (bsi_stmt (bsi));
 }
 
-/* Remove statement CELL.  */
+/* Remove statement CELL in basic block BB.  */
 
 static void
-remove_stmt (tree_cell cell)
+remove_stmt (tree_cell cell, basic_block bb)
 {
   varray_type vdefs;
   size_t i;
   varray_type defs;
   tree stmt = cell->stmt;
-  basic_block bb = bb_for_stmt (cell->stmt);
-
-  if (!bb)
-    abort ();
 
   /* If the statement is a LABEL_EXPR, remove the LABEL_DECL from
      the symbol table.  */
@@ -2588,10 +2635,11 @@ tree_verify_flow_info (void)
 {
   basic_block bb;
   tree_cell stmt, last;
-  tree t, l, label;
+  tree t, l, label, phi;
   block_stmt_iterator si;
   edge e, le, te, fe;
-  int err = 0;
+  struct block_tree *bti;
+  int err = 0, degree;
 
   FOR_EACH_BB (bb)
     {
@@ -2802,7 +2850,83 @@ tree_verify_flow_info (void)
 	    default: ;
 	    }
 	}
+
+      degree = 0;
+      for (e = bb->pred; e; e = e->pred_next)
+	{
+	  if (bb != bb_ann (bb)->block->entry
+	      && (e->flags & EDGE_CONSTRUCT_ENTRY))
+	    {
+	      fprintf (stderr,
+		       "Construct entry edge not entering construct entry: %d\n",
+		       bb->index);
+	      err = 1;
+	    }
+
+	  for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+	    if (phi_arg_from_edge (phi, e) < 0)
+	      {
+		fprintf (stderr,
+			 "No entry for edge in phi node: %d\n", bb->index);
+		err = 1;
+	      }
+	  degree++;
+	}
+      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+	if (PHI_NUM_ARGS (phi) != degree)
+	  {
+	    fprintf (stderr,
+		     "Superfluous entries in phi node: %d\n", bb->index);
+	    err = 1;
+	  }
     }
+
+  /* Entry block should have just one successor.  Exit block should have
+     at most one fallthru predecessor.  */
+  if (!ENTRY_BLOCK_PTR->succ
+      || ENTRY_BLOCK_PTR->succ->succ_next)
+    {
+      fprintf (stderr, "Wrong amount of edges from entry\n");
+      err = 1;
+    }
+
+  if (!(ENTRY_BLOCK_PTR->succ->flags & EDGE_FALLTHRU))
+    {
+      fprintf (stderr, "Entry is not fallthru\n");
+      err = 1;
+    }
+
+  le = NULL;
+  for (e = EXIT_BLOCK_PTR->pred; e; e = e->pred_next)
+    if (e->flags & EDGE_FALLTHRU)
+      {
+	if (le)
+	  {
+	    fprintf (stderr, "More than one fallthru to exit\n");
+	    err = 1;
+	    break;
+	  }
+	le = e;
+      }
+
+  /* Check special edges of constructs.  */
+  for (bti = bti_start (); !bti_end_p (bti); bti_next (&bti))
+    if (bti->entry)
+      {
+	le = NULL;
+	for (e = bti->entry->pred; e; e = e->pred_next)
+	  if (e->flags & EDGE_CONSTRUCT_ENTRY)
+	    {
+	      if (le)
+		{
+		  fprintf (stderr, "More than one construct %p entry\n",
+			   (void *) bti);
+		  err = 1;
+		  break;
+		}
+	      le = e;
+	    }
+      }
 
   return err;
 }
@@ -2928,7 +3052,7 @@ redo:
 
       if (e_true->dest == bb->next_bb)
 	{
-     	  remove_stmt (bb->end_tree);
+     	  bsi_remove (&bsi);
 	  e_true->flags |= EDGE_FALLTHRU;
 	}
       break;
@@ -2988,7 +3112,7 @@ redo:
 		  || (e->flags & EDGE_ABNORMAL))
 		continue;
 
-	      remove_edge (e);
+	      ssa_remove_edge (e);
 	    }
 	}
 
@@ -3099,6 +3223,7 @@ void
 dump_block_tree (FILE *file, int indent, struct block_tree *block)
 {
   int i;
+  tree var;
 
   for (i = 0; i < indent; i++)
     fprintf (file, " ");
@@ -3108,6 +3233,15 @@ dump_block_tree (FILE *file, int indent, struct block_tree *block)
     {
       fprintf (file, " of ");
       dump_block_tree_id (file, block->of);
+    }
+  if (block->type == BT_BIND)
+    {
+      fprintf (file, " vars");
+      for (var = BIND_EXPR_VARS (block->bind); var; var = TREE_CHAIN (var))
+	{
+	  fprintf (file, " ");
+	  print_generic_stmt (file, var, 0);
+	}
     }
 
   if (block->entry)
@@ -3294,8 +3428,12 @@ tree_forwarder_block_p (basic_block bb)
   if (!bb->succ
       || bb->succ->succ_next
       || (bb->succ->flags & EDGE_ABNORMAL)
+      || (bb->succ->flags & EDGE_CONSTRUCT_ENTRY)
       || bb == ENTRY_BLOCK_PTR)
     return false; 
+
+  if (phi_nodes (bb))
+    return false;
 
   for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
     switch (TREE_CODE (bsi_stmt (bsi)))
@@ -3316,9 +3454,11 @@ tree_forwarder_block_p (basic_block bb)
 static void
 thread_jumps ()
 {
-  edge e, next;
+  edge e, next, last, old;
   basic_block bb, dest, slow;
   int set_slow;
+  tree phi, val1, val2;
+  int arg;
 
   FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR, next_bb)
     {
@@ -3335,6 +3475,7 @@ thread_jumps ()
 	  next = e->succ_next;
 
 	  if ((e->flags & EDGE_ABNORMAL)
+	      || (e->flags & EDGE_CONSTRUCT_ENTRY)
 	      || e->dest == EXIT_BLOCK_PTR
 	      || !tree_forwarder_block_p (e->dest)
 	      || e->dest->succ->dest == EXIT_BLOCK_PTR)
@@ -3343,8 +3484,10 @@ thread_jumps ()
 	  slow = e->dest;
 	  set_slow = 0;
 
+	  last = e->dest->succ;
 	  for (dest = e->dest->succ->dest;
 	       tree_forwarder_block_p (dest);
+	       last = dest->succ,
 	       dest = dest->succ->dest,
 	       set_slow ^= 1)
 	    {
@@ -3358,8 +3501,45 @@ thread_jumps ()
 		break;
 	    }
 
-	  if (dest != e->dest)
-	    redirect_edge_and_branch (e, dest);
+	  if (dest == e->dest)
+	    continue;
+	      
+	  old = find_edge (bb, dest);
+	  if (old)
+	    {
+	      /* If there already is an edge, check whether the values of
+		 in phi nodes differ.  */
+	      for (phi = phi_nodes (dest); phi; phi = TREE_CHAIN (phi))
+		{
+		  val1 = PHI_ARG_DEF (phi, phi_arg_from_edge (phi, last));
+		  val2 = PHI_ARG_DEF (phi, phi_arg_from_edge (phi, old));
+
+		  if (!operand_equal_p (val1, val2, false))
+		    break;
+		}
+	      if (phi)
+		{
+		  /* The previous block is forwarder, so there are no
+		     phi nodes to update.  */
+		  dest = last->src;
+		}
+	    }
+
+	  if (dest == e->dest)
+    	    continue;
+
+	  if (redirect_edge_and_branch (e, dest)
+	      && !old)
+	    {
+	      /* Update phi nodes.  */
+	      for (phi = phi_nodes (dest); phi; phi = TREE_CHAIN (phi))
+		{
+		  arg = phi_arg_from_edge (phi, last);
+		  if (arg < 0)
+		    abort ();
+		  add_phi_arg (&phi, PHI_ARG_DEF (phi, arg), e);
+		}
+	    }
 	}
     }
 }
@@ -3406,7 +3586,7 @@ find_edge_goto (tree stmt, edge e)
 }
 
 /* Removes unneccesary eh statements and variables.  */
-static void
+void 
 remove_useless_stmts_and_vars ()
 {
   struct block_tree *bti;
@@ -3483,6 +3663,7 @@ merge_seq_blocks ()
 	  bb->succ
 	  && !bb->succ->succ_next
 	  && !(bb->succ->flags & EDGE_ABNORMAL)
+	  && !(bb->succ->flags & EDGE_CONSTRUCT_ENTRY)
 	  && bb->succ->dest != EXIT_BLOCK_PTR
 	  && bb->succ->dest != bb
 	  /* That has a single predecessor.  */

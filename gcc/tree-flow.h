@@ -457,6 +457,7 @@ extern void dump_cfg_stats (FILE *);
 extern void debug_cfg_stats (void);
 extern void tree_cfg2dot (FILE *);
 extern void cleanup_tree_cfg (int);
+extern void remove_useless_stmts_and_vars (void);
 extern void remove_phi_nodes_and_edges_for_unreachable_block (basic_block);
 extern tree first_stmt (basic_block);
 extern tree last_stmt (basic_block);
@@ -505,6 +506,8 @@ extern void dump_alias_info (FILE *);
 extern void debug_alias_info (void);
 extern tree get_virtual_var (tree);
 extern void add_vuse (tree, tree, voperands_t);
+extern void add_vdef (tree, tree, voperands_t);
+extern bool virtual_op_p (tree);
 extern void create_global_var (void);
 
 /* Flags used when computing reaching definitions and reached uses.  */
@@ -545,6 +548,7 @@ void tree_ssa_dce (tree);
 /* In tree-ssa-copyprop.c  */
 void tree_ssa_copyprop (tree);
 void propagate_copy (basic_block, tree *, tree);
+void fixup_var_scope (basic_block, tree);
 
 
 /* In tree-flow-inline.h  */

@@ -128,7 +128,6 @@ static bool may_alias_p (tree, HOST_WIDE_INT, tree, HOST_WIDE_INT);
 static bool may_access_global_mem_p (tree);
 static void add_def (tree *, tree);
 static void add_use (tree *, tree);
-static void add_vdef (tree, tree, voperands_t);
 static void add_stmt_operand (tree *, tree, int, voperands_t);
 static void add_immediate_use (tree, tree);
 static tree find_vars_r (tree *, int *, void *);
@@ -515,6 +514,48 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, voperands_t prev_vops)
   abort ();
 }
 
+/* Checks whether the variable VAR should be accessed via virtual ops.  */
+bool
+virtual_op_p (tree var)
+{
+  bool is_scalar;
+  tree sym;
+  var_ann_t v_ann;
+
+  is_scalar = (SSA_VAR_P (var)
+               && !AGGREGATE_TYPE_P (TREE_TYPE (var))
+	       && TREE_CODE (TREE_TYPE (var)) != COMPLEX_TYPE);
+  if (!is_scalar)
+    return true;
+
+  if (!DECL_P (var))
+    var = get_virtual_var (var);
+
+  if (var == NULL_TREE || !SSA_VAR_P (var))
+    abort ();
+
+  sym = get_base_symbol (var);
+  v_ann = var_ann (sym);
+
+  if (v_ann->has_hidden_use)
+    abort ();
+
+  /* Globals, local statics and variables referenced in VA_ARG_EXPR are
+     always accessed using virtual operands.  */
+  if (decl_function_context (sym) == 0
+      || TREE_STATIC (sym)
+      || v_ann->is_in_va_arg_expr)
+    return true;
+
+  /* If the variable is an alias tag, it means that its address has been
+     taken and it's being accessed directly and via pointers.  To avoid
+     mixing real and virtual operands, we treat all references to aliased
+     variables as virtual.  */
+  if (v_ann->is_alias_tag)
+    return true;
+
+  return false;
+}
 
 /* Add *VAR_P to the appropriate operand array of STMT.  FLAGS is as in
    get_expr_operands.  The following are the rules used to decide
@@ -589,18 +630,7 @@ add_stmt_operand (tree *var_p, tree stmt, int flags, voperands_t prev_vops)
       return;
     }
 
-  /* Globals, local statics and variables referenced in VA_ARG_EXPR are
-     always accessed using virtual operands.  */
-  if (decl_function_context (sym) == 0
-      || TREE_STATIC (sym)
-      || v_ann->is_in_va_arg_expr)
-    flags |= opf_force_vop;
-
-  /* If the variable is an alias tag, it means that its address has been
-     taken and it's being accessed directly and via pointers.  To avoid
-     mixing real and virtual operands, we treat all references to aliased
-     variables as virtual.  */
-  if (v_ann->is_alias_tag)
+  if (virtual_op_p (var))
     flags |= opf_force_vop;
 
   aliases = v_ann->may_aliases;
@@ -610,10 +640,10 @@ add_stmt_operand (tree *var_p, tree stmt, int flags, voperands_t prev_vops)
 	 opf_force_vop is set).  */
       if (flags & opf_is_def)
 	{
-	  if (is_scalar && !(flags & opf_force_vop))
-	    add_def (var_p, stmt);
-	  else
+	  if (flags & opf_force_vop)
 	    add_vdef (var, stmt, prev_vops);
+	  else
+	    add_def (var_p, stmt);
 
 	  /* If the variable is an alias tag, mark the statement.  */
 	  if (v_ann->is_alias_tag)
@@ -621,11 +651,10 @@ add_stmt_operand (tree *var_p, tree stmt, int flags, voperands_t prev_vops)
 	}
       else
 	{
-	  if (is_scalar
-	      && !(flags & opf_force_vop))
-	    add_use (var_p, stmt);
-	  else
+	  if (flags & opf_force_vop)
 	    add_vuse (var, stmt, prev_vops);
+	  else
+	    add_use (var_p, stmt);
 
 	  /* If the variable is an alias tag, mark the statement.  */
 	  if (v_ann->is_alias_tag)
@@ -725,7 +754,7 @@ add_use (tree *use_p, tree stmt)
    added here.  This is done to preserve the SSA numbering of virtual
    operands.  */
 
-static void
+void
 add_vdef (tree var, tree stmt, voperands_t prev_vops)
 {
   tree vdef;

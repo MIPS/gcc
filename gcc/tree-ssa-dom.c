@@ -657,15 +657,8 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p)
 
 	  opt_stats.num_re++;
 	  if (TREE_CODE (cached_lhs) == SSA_NAME)
-	    {
-	      *expr_p = cached_lhs;
-	      /* This takes care of moving the variable to the right scope.
-		 The assignment above is here so that it indeed looks like
-		 copy propagation.  */
-	      propagate_copy (bb_for_stmt (stmt), expr_p, cached_lhs);
-	    }
-	  else
-	    *expr_p = cached_lhs;
+	    fixup_var_scope (bb_for_stmt (stmt), cached_lhs);
+	  *expr_p = cached_lhs;
 	  ann->modified = 1;
 	}
     }

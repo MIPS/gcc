@@ -98,8 +98,7 @@ optimize_function_tree (tree fndecl)
 	     into must-alias relations.  If DCE eliminated all the pointer
 	     assignments that were taking the address of a local variable X,
 	     we can now rename X as a non-aliased local.  */
-	  if (0)
-	    tree_ssa_dce (fndecl);
+	  tree_ssa_dce (fndecl);
 	  if (flag_tree_dom && flag_tree_must_alias)
 	    tree_compute_must_alias (fndecl);
 	}
@@ -113,7 +112,7 @@ optimize_function_tree (tree fndecl)
       if (flag_tree_copyprop)
 	tree_ssa_copyprop (fndecl);
 
-      if (0 && flag_tree_dce)
+      if (flag_tree_dce)
 	tree_ssa_dce (fndecl);
 
 #if defined ENABLE_CHECKING
