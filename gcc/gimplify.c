@@ -520,7 +520,7 @@ declare_tmp_vars (tree vars, tree scope)
 void
 gimple_add_tmp_var (tree tmp)
 {
-  if (TREE_CHAIN (tmp))
+  if (TREE_CHAIN (tmp) || tmp->decl.seen_in_bind_expr)
     abort ();
 
   DECL_CONTEXT (tmp) = current_function_decl;
@@ -582,10 +582,10 @@ annotate_all_with_locus (tree *stmt_p, location_t locus)
     }
 }
 
-/* Similar to copy_tree_r() but do not copy SAVE_EXPR nodes.  These nodes
-   model computations that should only be done once.  If we were to unshare
-   something like SAVE_EXPR(i++), the gimplification process would create
-   wrong code.  */
+/* Similar to copy_tree_r() but do not copy SAVE_EXPR or TARGET_EXPR nodes.
+   These nodes model computations that should only be done once.  If we
+   were to unshare something like SAVE_EXPR(i++), the gimplification
+   process would create wrong code.  */
 
 static tree
 mostly_copy_tree_r (tree *tp, int *walk_subtrees, void *data)
@@ -594,7 +594,7 @@ mostly_copy_tree_r (tree *tp, int *walk_subtrees, void *data)
   /* Don't unshare types, constants and SAVE_EXPR nodes.  */
   if (TREE_CODE_CLASS (code) == 't'
       || TREE_CODE_CLASS (code) == 'c'
-      || code == SAVE_EXPR
+      || code == SAVE_EXPR || code == TARGET_EXPR
       /* We can't do anything sensible with a BLOCK used as an expression,
 	 but we also can't abort when we see it because of non-expression
 	 uses.  So just avert our eyes and cross our fingers.  Silly Java.  */
@@ -2672,24 +2672,34 @@ gimplify_target_expr (tree *expr_p, tree *pre_p, tree *post_p)
   tree init = TARGET_EXPR_INITIAL (targ);
   enum gimplify_status ret;
 
-  /* TARGET_EXPR temps aren't part of the enclosing block, so add it to the
-     temps list.  */
-  gimple_add_tmp_var (temp);
-
-  /* Build up the initialization and add it to pre_p.  */
-  init = build (MODIFY_EXPR, void_type_node, temp, init);
-  ret = gimplify_expr (&init, pre_p, post_p, is_gimple_stmt, fb_none);
-  if (ret == GS_ERROR)
-    return GS_ERROR;
-
-  append_to_statement_list (init, pre_p);
-
-  /* If needed, push the cleanup for the temp.  */
-  if (TARGET_EXPR_CLEANUP (targ))
+  if (init)
     {
-      gimplify_stmt (&TARGET_EXPR_CLEANUP (targ));
-      gimple_push_cleanup (TARGET_EXPR_CLEANUP (targ), pre_p);
+      /* TARGET_EXPR temps aren't part of the enclosing block, so add it to the
+	 temps list.  */
+      gimple_add_tmp_var (temp);
+
+      /* Build up the initialization and add it to pre_p.  */
+      init = build (MODIFY_EXPR, void_type_node, temp, init);
+      ret = gimplify_expr (&init, pre_p, post_p, is_gimple_stmt, fb_none);
+      if (ret == GS_ERROR)
+	return GS_ERROR;
+
+      append_to_statement_list (init, pre_p);
+
+      /* If needed, push the cleanup for the temp.  */
+      if (TARGET_EXPR_CLEANUP (targ))
+	{
+	  gimplify_stmt (&TARGET_EXPR_CLEANUP (targ));
+	  gimple_push_cleanup (TARGET_EXPR_CLEANUP (targ), pre_p);
+	}
+
+      /* Only expand this once.  */
+      TREE_OPERAND (targ, 3) = init;
+      TARGET_EXPR_INITIAL (targ) = NULL_TREE;
     }
+  else if (!temp->decl.seen_in_bind_expr)
+    /* We should have expanded this before.  */
+    abort ();
 
   *expr_p = temp;
   return GS_OK;
