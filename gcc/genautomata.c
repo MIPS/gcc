@@ -3639,10 +3639,8 @@ output_reserv_sets (f, reservs)
   int start_cycle = 0;
   int cycle;
   int repetition_num;
-  int next_cycle_output_flag;
 
   repetition_num = 0;
-  next_cycle_output_flag = 0;
   for (cycle = 0; cycle < max_cycles_num; cycle++)
     if (repetition_num == 0)
       {
@@ -3658,16 +3656,15 @@ output_reserv_sets (f, reservs)
       repetition_num++;
     else
       {
-        if (next_cycle_output_flag)
+        if (start_cycle != 0)
           fprintf (f, ", ");
         output_cycle_reservs (f, reservs, start_cycle, repetition_num);
-        next_cycle_output_flag = 1;
         repetition_num = 1;
         start_cycle = cycle;
       }
-  if (!next_cycle_output_flag)
+  if (start_cycle < max_cycle)
     {
-      if (next_cycle_output_flag)
+      if (start_cycle != 0)
         fprintf (f, ", ");
       output_cycle_reservs (f, reservs, start_cycle, repetition_num);
     }
