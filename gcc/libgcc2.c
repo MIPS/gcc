@@ -1261,6 +1261,9 @@ __eprintf (const char *string, const char *expression,
 #if defined (TARGET_HAS_F_SETLKW)
 #include <fcntl.h>
 #include <errno.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #endif
 
 /* Chain of per-object gcov structures.  */
@@ -1360,6 +1363,7 @@ gcov_exit (void)
       gcov_type count;
       unsigned tag, length, flength, checksum;
       unsigned arc_data_index, f_sect_index, sect_index;
+      int fd;
 
       ptr->wkspc = 0;
       if (!ptr->filename)
@@ -1394,6 +1398,40 @@ gcov_exit (void)
       memset (&object, 0, sizeof (object));
       
       /* Open for modification */
+#if defined (TARGET_HAS_F_SETLKW)
+    fd = open (ptr->filename, O_RDWR | O_CREAT, 0666);
+    if (fd < 0)
+      {
+	fprintf (stderr, "profiling:%s:Cannot open\n", ptr->filename);
+	ptr->filename = 0;
+	continue;
+      }
+
+    while (fcntl (fd, F_SETLKW, &s_flock) && errno == EINTR)
+      continue;
+
+    da_file = fdopen (fd, "r+b");
+    if (!da_file)
+      {
+	fprintf (stderr, "profiling:%s:Cannot re-open\n", ptr->filename);
+	ptr->filename = 0;
+	continue;
+      }
+
+    {
+      struct stat st;
+
+      if (fstat (fd, &st) < 0)
+	{
+	  fclose (da_file);
+	  fprintf (stderr, "profiling:%s:Cannot fstat\n", ptr->filename);
+	  ptr->filename = 0;
+	  continue;
+	}
+      if (st.st_size != 0)
+	merging = 1;
+    }
+#else
       if ((da_file = fopen (ptr->filename, "r+b")))
 	merging = 1;
       else if ((da_file = fopen (ptr->filename, "w+b")))
@@ -1404,6 +1442,7 @@ gcov_exit (void)
 	  ptr->filename = 0;
 	  continue;
 	}
+#endif
 
 #if defined (TARGET_HAS_F_SETLKW)
       /* After a fork, another process might try to read and/or write
