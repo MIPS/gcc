@@ -393,19 +393,6 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, voperands_t prev_vops)
 	  return;
 	}
 
-      /* This single case might not have been folded to an array reference
-	 if the immediate doesn't exactly divide the referenced type.  This
-	 case is likely to be undefined in C, but perhaps not others.  */
-      else if (TREE_CODE (ptr) == PLUS_EXPR)
-	{
-	  if (TREE_CODE (TREE_OPERAND (ptr, 1)) != INTEGER_CST)
-	    abort ();
-	  ptr = TREE_OPERAND (ptr, 0);
-	  if (TREE_CODE (ptr) != ADDR_EXPR)
-	    abort ();
-	  pptr = &TREE_OPERAND (ptr, 0);
-	}
-
       /* Everything else should have been folded elsewhere.  */
       else
 	abort ();
