@@ -672,7 +672,6 @@ update_life_info (blocks, extent, prop_flags)
 	    }
 
 	  if (! changed
-	      || ! (prop_flags & PROP_ALLOW_CFG_CHANGES)
 	      || ! cleanup_cfg (CLEANUP_EXPENSIVE))
 	    break;
 	}
