@@ -85,6 +85,12 @@ static void begin_definition_of_inclass_inline PROTO((struct pending_inline*));
 static void parse_float PROTO((PTR));
 static int is_global PROTO((tree));
 static void init_filename_times PROTO((void));
+static void extend_token_buffer_to PROTO((int));
+#ifdef HANDLE_PRAGMA
+static int pragma_getc PROTO((void));
+static void pragma_ungetc PROTO((int));
+#endif
+static int read_line_number PROTO((int *));
 
 /* Given a file name X, return the nondirectory portion.
    Keep in mind that X can be computed more than once.  */
@@ -112,7 +118,6 @@ extern cpp_reader  parse_in;
 extern cpp_options parse_options;
 extern unsigned char *yy_cur, *yy_lim;
 extern enum cpp_token cpp_token;
-extern int errorcount;
 #else
 FILE *finput;
 #endif
@@ -135,8 +140,8 @@ extern struct obstack token_obstack;
 
 /* Holds translations from TREE_CODEs to operator name strings,
    i.e., opname_tab[PLUS_EXPR] == "+".  */
-char **opname_tab;
-char **assignop_tab;
+const char **opname_tab;
+const char **assignop_tab;
 
 extern int yychar;		/*  the lookahead symbol		*/
 extern YYSTYPE yylval;		/*  the semantic value of the		*/
@@ -223,8 +228,15 @@ tree
 make_call_declarator (target, parms, cv_qualifiers, exception_specification)
      tree target, parms, cv_qualifiers, exception_specification;
 {
-  target = build_parse_node (CALL_EXPR, target, parms, cv_qualifiers);
-  TREE_TYPE (target) = exception_specification;
+  target = build_parse_node (CALL_EXPR, target, 
+			     /* Both build_parse_node and
+				decl_tree_cons build on the
+				temp_decl_obstack.  */
+			     decl_tree_cons (parms, cv_qualifiers, NULL_TREE),
+			     /* The third operand is really RTL.  We
+				shouldn't put anything there.  */
+			     NULL_TREE);
+  CALL_DECLARATOR_EXCEPTION_SPEC (target) = exception_specification;
   return target;
 }
 
@@ -232,8 +244,8 @@ void
 set_quals_and_spec (call_declarator, cv_qualifiers, exception_specification)
      tree call_declarator, cv_qualifiers, exception_specification;
 {
-  TREE_OPERAND (call_declarator, 2) = cv_qualifiers;
-  TREE_TYPE (call_declarator) = exception_specification;
+  CALL_DECLARATOR_QUALS (call_declarator) = cv_qualifiers;
+  CALL_DECLARATOR_EXCEPTION_SPEC (call_declarator) = exception_specification;
 }
 
 /* Build names and nodes for overloaded operators.  */
@@ -241,7 +253,7 @@ set_quals_and_spec (call_declarator, cv_qualifiers, exception_specification)
 tree ansi_opname[LAST_CPLUS_TREE_CODE];
 tree ansi_assopname[LAST_CPLUS_TREE_CODE];
 
-char *
+const char *
 operator_name_string (name)
      tree name;
 {
@@ -325,8 +337,7 @@ get_time_identifier (name)
   time_identifier = get_identifier (buf);
   if (TIME_IDENTIFIER_TIME (time_identifier) == NULL_TREE)
     {
-      push_obstacks_nochange ();
-      end_temporary_allocation ();
+      push_permanent_obstack ();
       TIME_IDENTIFIER_TIME (time_identifier) = build_int_2 (0, 0);
       TIME_IDENTIFIER_FILEINFO (time_identifier) 
 	= build_int_2 (0, 1);
@@ -415,11 +426,10 @@ lang_init ()
 void
 lang_finish ()
 {
-  extern int errorcount, sorrycount;
   if (flag_gnu_xref) GNU_xref_end (errorcount+sorrycount);
 }
 
-char *
+const char *
 lang_identify ()
 {
   return "cplusplus";
@@ -520,6 +530,7 @@ init_parse (filename)
   set_identifier_size (sizeof (struct lang_identifier));
   decl_printable_name = lang_printable_name;
 
+  init_cplus_unsave ();
   init_cplus_expand ();
 
   bcopy (cplus_tree_code_type,
@@ -532,9 +543,9 @@ init_parse (filename)
 	 (char *)(tree_code_name + (int) LAST_AND_UNUSED_TREE_CODE),
 	 (LAST_CPLUS_TREE_CODE - (int)LAST_AND_UNUSED_TREE_CODE) * sizeof (char *));
 
-  opname_tab = (char **)oballoc ((int)LAST_CPLUS_TREE_CODE * sizeof (char *));
+  opname_tab = (const char **)oballoc ((int)LAST_CPLUS_TREE_CODE * sizeof (char *));
   bzero ((char *)opname_tab, (int)LAST_CPLUS_TREE_CODE * sizeof (char *));
-  assignop_tab = (char **)oballoc ((int)LAST_CPLUS_TREE_CODE * sizeof (char *));
+  assignop_tab = (const char **)oballoc ((int)LAST_CPLUS_TREE_CODE * sizeof (char *));
   bzero ((char *)assignop_tab, (int)LAST_CPLUS_TREE_CODE * sizeof (char *));
 
   ansi_opname[0] = get_identifier ("<invalid operator>");
@@ -729,11 +740,6 @@ init_parse (filename)
   /* This is for ANSI C++.  */
   ridpointers[(int) RID_MUTABLE] = get_identifier ("mutable");
 
-  /* Signature handling extensions.  */
-  signature_type_node = build_int_2 (signature_type, 0);
-  TREE_TYPE (signature_type_node) = signature_type_node;
-  ridpointers[(int) RID_SIGNATURE] = signature_type_node;
-
   /* Create the built-in __null node.  Note that we can't yet call for
      type_for_size here because integer_type_node and so forth are not
      set up.  Therefore, we don't set the type of these nodes until
@@ -763,6 +769,7 @@ init_parse (filename)
   opname_tab[(int) CEIL_MOD_EXPR] = "(ceiling %)";
   opname_tab[(int) FLOOR_MOD_EXPR] = "(floor %)";
   opname_tab[(int) ROUND_MOD_EXPR] = "(round %)";
+  opname_tab[(int) EXACT_DIV_EXPR] = "/";
   opname_tab[(int) NEGATE_EXPR] = "-";
   opname_tab[(int) MIN_EXPR] = "<?";
   opname_tab[(int) MAX_EXPR] = ">?";
@@ -845,13 +852,6 @@ init_parse (filename)
       UNSET_RESERVED_WORD ("headof");
     }
 
-  if (! flag_handle_signatures || flag_no_gnu_keywords)
-    {
-      /* Easiest way to not recognize signature
-	 handling extensions...  */
-      UNSET_RESERVED_WORD ("signature");
-      UNSET_RESERVED_WORD ("sigof");
-    }
   if (flag_no_asm || flag_no_gnu_keywords)
     UNSET_RESERVED_WORD ("typeof");
   if (! flag_operator_names)
@@ -910,6 +910,7 @@ yyprint (file, yychar, yylval)
     case TYPENAME:
     case TYPESPEC:
     case PTYPENAME:
+    case PFUNCNAME:
     case IDENTIFIER_DEFN:
     case TYPENAME_DEFN:
     case PTYPENAME_DEFN:
@@ -935,8 +936,6 @@ yyprint (file, yychar, yylval)
 	fprintf (file, " `union'");
       else if (yylval.ttype == enum_type_node)
 	fprintf (file, " `enum'");
-      else if (yylval.ttype == signature_type_node)
-	fprintf (file, " `signature'");
       else
 	my_friendly_abort (80);
       break;
@@ -3085,39 +3084,14 @@ do_identifier (token, parsing, args)
   else
     id = lastiddecl;
 
-  /* Scope class declarations before global
-     declarations.  */
-  if ((!id || is_global (id))
-      && current_class_type != 0
-      && TYPE_SIZE (current_class_type) == 0)
-    {
-      /* Could be from one of the base classes.  */
-      tree field = lookup_field (current_class_type, token, 1, 0);
-      if (field == 0)
-	;
-      else if (field == error_mark_node)
-	/* We have already generated the error message.
-	   But we still want to return this value.  */
-	id = lookup_field (current_class_type, token, 0, 0);
-      else if (TREE_CODE (field) == VAR_DECL
-	       || TREE_CODE (field) == CONST_DECL
-	       || TREE_CODE (field) == TEMPLATE_DECL)
-	id = field;
-      else if (TREE_CODE (field) != FIELD_DECL)
-	my_friendly_abort (61);
-      else
-	{
-	  cp_error ("invalid use of member `%D'", field);
-	  id = error_mark_node;
-	  return id;
-	}
-    }
-
   /* Do Koenig lookup if appropriate (inside templates we build lookup
-     expressions instead).  */
+     expressions instead).
+
+     [basic.lookup.koenig]: If the ordinary unqualified lookup of the name
+     finds the declaration of a class member function, the associated
+     namespaces and classes are not considered.  */
+
   if (args && !current_template_parms && (!id || is_global (id)))
-    /* If we have arguments and we only found global names, do Koenig
-       lookup. */
     id = lookup_arg_dependent (token, id, args);
 
   /* Remember that this name has been used in the class definition, as per
@@ -3606,8 +3580,8 @@ real_yylex ()
     case 'z':
     case '_':
     case '$':
-    letter:
 #if USE_CPPLIB
+    letter:
       if (cpp_token == CPP_NAME)
 	{
 	  /* Note that one character has already been read from
@@ -3973,8 +3947,9 @@ real_yylex ()
 	      }
 	  }
 
+	/* This can happen on input like `int i = 0x;' */
 	if (numdigits == 0)
-	  my_friendly_abort (990710);
+	  error ("numeric constant with no digits");
 
 	if (largest_digit >= base)
 	  error ("numeric constant contains digits beyond the radix");
@@ -4750,8 +4725,8 @@ extern int tree_node_sizes[];
 #endif
 
 /* Place to save freed lang_decls which were allocated on the
-   permanent_obstack.  @@ Not currently used.  */
-tree free_lang_decl_chain;
+   permanent_obstack.  */
+struct lang_decl *free_lang_decl_chain;
 
 tree
 build_lang_decl (code, name, type)
@@ -4759,8 +4734,19 @@ build_lang_decl (code, name, type)
      tree name;
      tree type;
 {
-  register tree t = build_decl (code, name, type);
+  tree t;
+
+  /* When we're building statement trees, declarations need to live
+     forever.  */
+  if (building_stmt_tree ())
+    push_permanent_obstack ();
+
+  t = build_decl (code, name, type);
   retrofit_lang_decl (t);
+
+  if (building_stmt_tree ())
+    pop_obstacks ();
+
   return t;
 }
 
@@ -4772,8 +4758,13 @@ retrofit_lang_decl (t)
      tree t;
 {
   struct obstack *obstack = current_obstack;
-  register int i = sizeof (struct lang_decl) / sizeof (int);
-  register int *pi;
+  struct lang_decl *ld;
+  size_t size;
+
+  if (CAN_HAVE_FULL_LANG_DECL_P (t))
+    size = sizeof (struct lang_decl);
+  else
+    size = sizeof (struct lang_decl_flags);
 
   if (! TREE_PERMANENT (t))
     obstack = saveable_obstack;
@@ -4781,23 +4772,20 @@ retrofit_lang_decl (t)
     /* Could be that saveable is permanent and current is not.  */
     obstack = &permanent_obstack;
 
-  if (free_lang_decl_chain && obstack == &permanent_obstack)
+  if (CAN_HAVE_FULL_LANG_DECL_P (t) && free_lang_decl_chain 
+      && obstack == &permanent_obstack)
     {
-      pi = (int *)free_lang_decl_chain;
-      free_lang_decl_chain = TREE_CHAIN (free_lang_decl_chain);
+      ld = free_lang_decl_chain;
+      free_lang_decl_chain = free_lang_decl_chain->u.next;
     }
   else
-    pi = (int *) obstack_alloc (obstack, sizeof (struct lang_decl));
+    ld = (struct lang_decl *) obstack_alloc (obstack, size);
 
-  while (i > 0)
-    pi[--i] = 0;
+  bzero (ld, size);
 
-  DECL_LANG_SPECIFIC (t) = (struct lang_decl *) pi;
-  LANG_DECL_PERMANENT ((struct lang_decl *) pi)
-    = obstack == &permanent_obstack;
-  my_friendly_assert (LANG_DECL_PERMANENT ((struct lang_decl *) pi)
-	  == TREE_PERMANENT  (t), 234);
-  DECL_MAIN_VARIANT (t) = t;
+  DECL_LANG_SPECIFIC (t) = ld;
+  LANG_DECL_PERMANENT (ld) = obstack == &permanent_obstack;
+  my_friendly_assert (LANG_DECL_PERMANENT (ld) == TREE_PERMANENT  (t), 234);
   if (current_lang_name == lang_name_cplusplus)
     DECL_LANGUAGE (t) = lang_cplusplus;
   else if (current_lang_name == lang_name_c)
@@ -4806,53 +4794,13 @@ retrofit_lang_decl (t)
     DECL_LANGUAGE (t) = lang_java;
   else my_friendly_abort (64);
 
-#if 0 /* not yet, should get fixed properly later */
-  if (code == TYPE_DECL)
-    {
-      tree id;
-      id = get_identifier (build_overload_name (type, 1, 1));
-      DECL_ASSEMBLER_NAME (t) = id;
-    }
+  if (CAN_HAVE_FULL_LANG_DECL_P (t))
+    DECL_MAIN_VARIANT (t) = t;
 
-#endif
 #ifdef GATHER_STATISTICS
   tree_node_counts[(int)lang_decl] += 1;
-  tree_node_sizes[(int)lang_decl] += sizeof (struct lang_decl);
+  tree_node_sizes[(int)lang_decl] += size;
 #endif
-}
-
-tree
-build_lang_field_decl (code, name, type)
-     enum tree_code code;
-     tree name;
-     tree type;
-{
-  extern struct obstack *current_obstack, *saveable_obstack;
-  register tree t = build_decl (code, name, type);
-  struct obstack *obstack = current_obstack;
-  register int i = sizeof (struct lang_decl_flags) / sizeof (int);
-  register int *pi;
-#if 0 /* not yet, should get fixed properly later */
-
-  if (code == TYPE_DECL)
-    {
-      tree id;
-      id = get_identifier (build_overload_name (type, 1, 1));
-      DECL_ASSEMBLER_NAME (t) = id;
-    }
-#endif
-
-  if (! TREE_PERMANENT (t))
-    obstack = saveable_obstack;
-  else
-    my_friendly_assert (obstack == &permanent_obstack, 235);
-
-  pi = (int *) obstack_alloc (obstack, sizeof (struct lang_decl_flags));
-  while (i > 0)
-    pi[--i] = 0;
-
-  DECL_LANG_SPECIFIC (t) = (struct lang_decl *) pi;
-  return t;
 }
 
 void
@@ -4865,7 +4813,7 @@ copy_lang_decl (node)
   if (! DECL_LANG_SPECIFIC (node))
     return;
 
-  if (TREE_CODE (node) == FIELD_DECL)
+  if (!CAN_HAVE_FULL_LANG_DECL_P (node))
     size = sizeof (struct lang_decl_flags);
   else
     size = sizeof (struct lang_decl);

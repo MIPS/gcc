@@ -29,6 +29,7 @@ void warning VPROTO((const char *s, ...)) ATTRIBUTE_PRINTF_1;
 void gcc_obstack_init PROTO ((struct obstack *obstack));
 
 #define JC1_LITE
+#include "jcf.h"
 #include "parse.h"
 
 /* Current input file and output file IO streams.  */
@@ -47,12 +48,11 @@ int flag_list_filename = 0;
 
 /* jc1-lite main entry point */
 int
-main (argc, argv)
-  int argc;
-  char **argv;
+DEFUN (main, (argc, argv),
+       int argc AND char **argv)
 {
   int i = 1;
-  char *output_file = NULL;
+  const char *output_file = NULL;
   long ft;
 
   exec_name = argv[0];
@@ -197,8 +197,8 @@ gcc_obstack_init (obstack)
 #define OBSTACK_CHUNK_FREE free
 #endif
   _obstack_begin (obstack, OBSTACK_CHUNK_SIZE, 0,
-		  (void *(*) ()) OBSTACK_CHUNK_ALLOC,
-		  (void (*) ()) OBSTACK_CHUNK_FREE);
+		  (void *(*) (long)) OBSTACK_CHUNK_ALLOC,
+		  (void (*) (void *)) OBSTACK_CHUNK_FREE);
 }
 
 PTR

@@ -31,6 +31,7 @@ Boston, MA 02111-1307, USA.  */
 #include "flags.h"
 #include "rtl.h"
 #include "toplev.h"
+#include "defaults.h"
 
 #include "obstack.h"
 #define obstack_chunk_alloc xmalloc
@@ -43,6 +44,7 @@ static tree build_new_method_call PROTO((tree, tree, tree, tree, int));
 
 static tree build_field_call PROTO((tree, tree, tree, tree));
 static struct z_candidate * tourney PROTO((struct z_candidate *));
+static int equal_functions PROTO((tree, tree));
 static int joust PROTO((struct z_candidate *, struct z_candidate *, int));
 static int compare_ics PROTO((tree, tree));
 static tree build_over_call PROTO((struct z_candidate *, tree, int));
@@ -2190,11 +2192,7 @@ build_this (obj)
      tree obj;
 {
   /* Fix this to work on non-lvalues.  */
-  if (IS_SIGNATURE_POINTER (TREE_TYPE (obj))
-      || IS_SIGNATURE_REFERENCE (TREE_TYPE (obj)))
-    return obj;
-  else
-    return build_unary_op (ADDR_EXPR, obj, 0);
+  return build_unary_op (ADDR_EXPR, obj, 0);
 }
 
 static void
@@ -2734,10 +2732,9 @@ conditional_conversion (e1, e2)
 }
 
 /* Implement [expr.cond].  ARG1, ARG2, and ARG3 are the three
-   arguments to the conditional expression.  As an extension, g++
-   allows users to overload the ?: operator.  By the time this
-   function is called, any suitable candidate functions are included
-   in CANDIDATES.  */
+   arguments to the conditional expression.  By the time this function
+   is called, any suitable candidate functions are included in
+   CANDIDATES.  */
 
 tree
 build_conditional_expr (arg1, arg2, arg3)
@@ -2755,8 +2752,8 @@ build_conditional_expr (arg1, arg2, arg3)
 
   /* As a G++ extension, the second argument to the conditional can be
      omitted.  (So that `a ? : c' is roughly equivalent to `a ? a :
-     c'.)  If second operand is omitted, make sure it is calculated
-     only once.  */
+     c'.)  If the second operand is omitted, make sure it is
+     calculated only once.  */
   if (!arg2)
     {
       if (pedantic)
@@ -2780,6 +2777,11 @@ build_conditional_expr (arg1, arg2, arg3)
      _conv_).  */
   arg1 = cp_convert (boolean_type_node, arg1);
 
+  /* Convert from reference types to ordinary types; no expressions
+     really have reference type in C++.  */
+  arg2 = convert_from_reference (arg2);
+  arg3 = convert_from_reference (arg3);
+     
   /* [expr.cond]
 
      If either the second or the third operand has type (possibly
@@ -2823,7 +2825,7 @@ build_conditional_expr (arg1, arg2, arg3)
       if ((TREE_CODE (arg2) == THROW_EXPR)
 	  ^ (TREE_CODE (arg3) == THROW_EXPR))
 	result_type = ((TREE_CODE (arg2) == THROW_EXPR) 
-		       ? arg2_type : arg3_type);
+		       ? arg3_type : arg2_type);
       else if (arg2_void_p && arg3_void_p)
 	result_type = void_type_node;
       else
@@ -2867,6 +2869,7 @@ build_conditional_expr (arg1, arg2, arg3)
       else if (conv2 && !ICS_BAD_FLAG (conv2))
 	{
 	  arg2 = convert_like (conv2, arg2);
+	  arg2 = convert_from_reference (arg2);
 	  /* That may not quite have done the trick.  If the two types
 	     are cv-qualified variants of one another, we will have
 	     just used an IDENTITY_CONV.  (There's no conversion from
@@ -2881,8 +2884,9 @@ build_conditional_expr (arg1, arg2, arg3)
       else if (conv3 && !ICS_BAD_FLAG (conv3))
 	{
 	  arg3 = convert_like (conv3, arg3);
+	  arg3 = convert_from_reference (arg3);
 	  if (!same_type_p (TREE_TYPE (arg3), arg2_type))
-	    arg2 = build1 (NOP_EXPR, arg2_type, arg3);
+	    arg3 = build1 (NOP_EXPR, arg2_type, arg3);
 	  arg3_type = TREE_TYPE (arg3);
 	}
     }
@@ -2891,8 +2895,6 @@ build_conditional_expr (arg1, arg2, arg3)
 
      If the second and third operands are lvalues and have the same
      type, the result is of that type and is an lvalue.  */
-  arg2_type = non_reference (arg2_type);
-  arg3_type = non_reference (arg3_type);
   if (real_lvalue_p (arg2) && real_lvalue_p (arg3) && 
       same_type_p (arg2_type, arg3_type))
     {
@@ -3747,21 +3749,25 @@ convert_like (convs, expr)
 }
 
 /* ARG is being passed to a varargs function.  Perform any conversions
-   required.  Return the converted value.  */
+   required.  Array/function to pointer decay must have already happened.
+   Return the converted value.  */
 
 tree
 convert_arg_to_ellipsis (arg)
      tree arg;
 {
+  if (! pod_type_p (TREE_TYPE (arg)))
+    {
+      /* Undefined behaviour [expr.call] 5.2.2/7.  */
+      cp_warning ("cannot pass objects of non-POD type `%#T' through `...'",
+		  TREE_TYPE (arg));
+    }
+
   if (TREE_CODE (TREE_TYPE (arg)) == REAL_TYPE
       && (TYPE_PRECISION (TREE_TYPE (arg))
 	  < TYPE_PRECISION (double_type_node)))
     /* Convert `float' to `double'.  */
     arg = cp_convert (double_type_node, arg);
-  else if (IS_AGGR_TYPE (TREE_TYPE (arg))
-	   && ! TYPE_HAS_TRIVIAL_INIT_REF (TREE_TYPE (arg)))
-    cp_warning ("cannot pass objects of type `%T' through `...'",
-		TREE_TYPE (arg));
   else
     /* Convert `short' and `char' to full-size `int'.  */
     arg = default_conversion (arg);
@@ -3782,30 +3788,7 @@ convert_default_arg (type, arg, fn)
      tree fn;
 {
   if (fn && DECL_TEMPLATE_INFO (fn))
-    {
-      /* This default argument came from a template.  Instantiate the
-	 default argument here, not in tsubst.  In the case of
-	 something like: 
-
-	   template <class T>
-	   struct S {
-	     static T t();
-	     void f(T = t());
-	   };
-
-	 we must be careful to do name lookup in the scope of S<T>,
-	 rather than in the current class.  */
-      if (DECL_CLASS_SCOPE_P (fn))
-	pushclass (DECL_REAL_CONTEXT (fn), 2);
-
-      arg = tsubst_expr (arg, DECL_TI_ARGS (fn), /*complain=*/1, NULL_TREE);
-
-      if (DECL_CLASS_SCOPE_P (fn))
-	popclass ();
-
-      /* Make sure the default argument is reasonable.  */
-      arg = check_default_argument (type, arg);
-    }
+    arg = tsubst_default_argument (fn, type, arg);
 
   arg = break_out_target_exprs (arg);
 
@@ -3823,12 +3806,11 @@ convert_default_arg (type, arg, fn)
 
       arg = convert_for_initialization (0, type, arg, LOOKUP_NORMAL,
 					"default argument", 0, 0);
-#ifdef PROMOTE_PROTOTYPES
-      if ((TREE_CODE (type) == INTEGER_TYPE
-	   || TREE_CODE (type) == ENUMERAL_TYPE)
+      if (PROMOTE_PROTOTYPES
+	  && (TREE_CODE (type) == INTEGER_TYPE
+	      || TREE_CODE (type) == ENUMERAL_TYPE)
 	  && (TYPE_PRECISION (type) < TYPE_PRECISION (integer_type_node)))
 	arg = default_conversion (arg);
-#endif
     }
 
   return arg;
@@ -3891,11 +3873,8 @@ build_over_call (cand, args, flags)
 
          So we can assume that anything passed as 'this' is non-null, and
 	 optimize accordingly.  */
-      if (TREE_CODE (parmtype) == POINTER_TYPE)
-	t = convert_pointer_to_real (TREE_TYPE (parmtype), TREE_VALUE (arg));
-      else
-	/* This happens with signatures.  */
-	t = convert_force (parmtype, TREE_VALUE (arg), CONV_C_CAST);
+      my_friendly_assert (TREE_CODE (parmtype) == POINTER_TYPE, 19990811);
+      t = convert_pointer_to_real (TREE_TYPE (parmtype), TREE_VALUE (arg));
       converted_args = expr_tree_cons (NULL_TREE, t, converted_args);
       parm = TREE_CHAIN (parm);
       arg = TREE_CHAIN (arg);
@@ -3939,12 +3918,11 @@ build_over_call (cand, args, flags)
 	  val = convert_like (conv, TREE_VALUE (arg));
 	}
 
-#ifdef PROMOTE_PROTOTYPES
-      if ((TREE_CODE (type) == INTEGER_TYPE
-	   || TREE_CODE (type) == ENUMERAL_TYPE)
+      if (PROMOTE_PROTOTYPES
+	  && (TREE_CODE (type) == INTEGER_TYPE
+	      || TREE_CODE (type) == ENUMERAL_TYPE)
 	  && (TYPE_PRECISION (type) < TYPE_PRECISION (integer_type_node)))
 	val = default_conversion (val);
-#endif
       converted_args = expr_tree_cons (NULL_TREE, val, converted_args);
     }
 
@@ -4077,9 +4055,7 @@ build_over_call (cand, args, flags)
 
   mark_used (fn);
 
-  if (DECL_CLASS_SCOPE_P (fn) && IS_SIGNATURE (DECL_CONTEXT (fn)))
-    return build_signature_method_call (fn, converted_args);
-  else if (DECL_VINDEX (fn) && (flags & LOOKUP_NONVIRTUAL) == 0)
+  if (DECL_VINDEX (fn) && (flags & LOOKUP_NONVIRTUAL) == 0)
     {
       tree t, *p = &TREE_VALUE (converted_args);
       tree binfo = get_binfo
@@ -4143,7 +4119,7 @@ build_new_method_call (instance, name, args, basetype_path, flags)
       name = TREE_OPERAND (name, 0);
       if (TREE_CODE_CLASS (TREE_CODE (name)) == 'd')
 	name = DECL_NAME (name);
-      else 
+      else
 	{
 	  if (TREE_CODE (name) == COMPONENT_REF)
 	    name = TREE_OPERAND (name, 1);
@@ -4175,10 +4151,7 @@ build_new_method_call (instance, name, args, basetype_path, flags)
       basetype = TYPE_MAIN_VARIANT (TREE_TYPE (instance));
 
       /* XXX this should be handled before we get here.  */
-      if (! IS_AGGR_TYPE (basetype)
-	  && ! (TYPE_LANG_SPECIFIC (basetype)
-		&& (IS_SIGNATURE_POINTER (basetype)
-		    || IS_SIGNATURE_REFERENCE (basetype))))
+      if (! IS_AGGR_TYPE (basetype))
 	{
 	  if ((flags & LOOKUP_COMPLAIN) && basetype != error_mark_node)
 	    cp_error ("request for member `%D' in `%E', which is of non-aggregate type `%T'",
@@ -4186,14 +4159,6 @@ build_new_method_call (instance, name, args, basetype_path, flags)
 
 	  return error_mark_node;
 	}
-
-      /* If `instance' is a signature pointer/reference and `name' is
-	 not a constructor, we are calling a signature member function.
-	 In that case set the `basetype' to the signature type.  */
-      if ((IS_SIGNATURE_POINTER (basetype)
-	   || IS_SIGNATURE_REFERENCE (basetype))
-	  && TYPE_IDENTIFIER (basetype) != name)
-	basetype = SIGNATURE_TYPE (basetype);
     }
 
   if (basetype_path == NULL_TREE)
@@ -4804,6 +4769,20 @@ add_warning (winner, loser)
 				     winner->warnings);
 }
 
+/* Returns true iff functions are equivalent. Equivalent functions are
+   not identical only if one is a function-local extern function.
+   This assumes that function-locals don't have TREE_PERMANENT.  */
+
+static inline int
+equal_functions (fn1, fn2)
+     tree fn1;
+     tree fn2;
+{
+  if (!TREE_PERMANENT (fn1) || !TREE_PERMANENT (fn2))
+    return decls_match (fn1, fn2);
+  return fn1 == fn2;
+}
+
 /* Compare two candidates for overloading as described in
    [over.match.best].  Return values:
 
@@ -4998,6 +4977,12 @@ joust (cand1, cand2, warn)
 	    }
 	}
     }
+
+  /* If the two functions are the same (this can happen with declarations
+     in multiple scopes and arg-dependent lookup), arbitrarily choose one.  */
+  if (DECL_P (cand1->fn) && DECL_P (cand2->fn)
+      && equal_functions (cand1->fn, cand2->fn))
+    return 1;
 
 tweak:
 

@@ -37,6 +37,7 @@ Boston, MA 02111-1307, USA.  */
 #include "obstack.h"
 #include "rtl.h"
 #include "expr.h"
+#include "function.h"
 #include "output.h"
 #include "hard-reg-set.h"
 #include "flags.h"
@@ -79,7 +80,7 @@ static void end_squangling PROTO((void));
 static int check_ktype PROTO((tree, int));
 static int issue_ktype PROTO((tree));
 static void build_overload_scope_ref PROTO((tree));
-static void build_mangled_template_parm_index PROTO((char *, tree));
+static void build_mangled_template_parm_index PROTO((const char *, tree));
 #if HOST_BITS_PER_WIDE_INT >= 64
 static void build_mangled_C9x_name PROTO((int));
 #endif
@@ -574,7 +575,7 @@ build_overload_int (value, in_template)
 	  int i;
 	  int operands = tree_code_length[(int) TREE_CODE (value)];
 	  tree id;
-	  char* name;
+	  const char *name;
 
 	  id = ansi_opname [(int) TREE_CODE (value)];
 	  my_friendly_assert (id != NULL_TREE, 0);
@@ -657,7 +658,7 @@ build_overload_int (value, in_template)
 
 static void 
 build_mangled_template_parm_index (s, index)
-     char* s;
+     const char *s;
      tree index;
 {
   OB_PUTCP (s);
@@ -1444,17 +1445,15 @@ process_overload_item (parmtype, extra_Gcode)
       else if (parmtype == java_boolean_type_node)
 	OB_PUTC ('b');
 #if HOST_BITS_PER_WIDE_INT >= 64
-      else if (parmtype == intTI_type_node 
-	       || parmtype == unsigned_intTI_type_node)
+      else
 	{
-	  /* Should just check a flag here instead of specific
-	   *_type_nodes, because all C9x types could use this. */
 	  int bits = TREE_INT_CST_LOW (TYPE_SIZE (parmtype));
 	  build_mangled_C9x_name (bits);
 	}
-#endif
+#else
       else
-        my_friendly_abort (73);
+	my_friendly_abort (73);
+#endif
       break;
 
     case BOOLEAN_TYPE:
@@ -1591,7 +1590,7 @@ build_decl_overload_real (dname, parms, ret_type, tparms, targs,
      tree targs;
      int for_method;
 {
-  char *name = IDENTIFIER_POINTER (dname);
+  const char *name = IDENTIFIER_POINTER (dname);
 
   /* member operators new and delete look like methods at this point.  */
   if (! for_method && parms != NULL_TREE && TREE_CODE (parms) == TREE_LIST
@@ -1653,12 +1652,7 @@ build_decl_overload_real (dname, parms, ret_type, tparms, targs,
 
       if (for_method)
 	{
-	  tree this_type = TREE_VALUE (parms);
-
-	  if (TREE_CODE (this_type) == RECORD_TYPE)  /* a signature pointer */
-	    this_type = SIGNATURE_TYPE (this_type);
-	  else
-	    this_type = TREE_TYPE (this_type);
+	  tree this_type = TREE_TYPE (TREE_VALUE (parms));
 
 	  build_mangled_name_for_type (this_type);
 
@@ -1798,7 +1792,7 @@ build_overload_with_type (name, type)
 
 tree
 get_id_2 (name, name2)
-     char *name;
+     const char *name;
      tree name2;
 {
   OB_INIT ();
@@ -1946,9 +1940,6 @@ hack_identifier (value, name)
 
       if (TREE_CODE (value) == OVERLOAD)
 	value = OVL_CURRENT (value);
-
-      if (IS_SIGNATURE (DECL_CLASS_CONTEXT (value)))
-	return value;
 
       decl = maybe_dummy_object (DECL_CLASS_CONTEXT (value), 0);
       value = build_component_ref (decl, name, NULL_TREE, 1);

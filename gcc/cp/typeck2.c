@@ -40,9 +40,6 @@ Boston, MA 02111-1307, USA.  */
 static tree process_init_constructor PROTO((tree, tree, tree *));
 static void ack PVPROTO ((const char *, ...)) ATTRIBUTE_PRINTF_1;
 
-extern int errorcount;
-extern int sorrycount;
-
 /* Print an error message stemming from an attempt to use
    BASETYPE as a base class for TYPE.  */
 
@@ -178,39 +175,6 @@ abstract_virtuals_error (decl, type)
     cp_error ("  since type `%T' has abstract virtual functions", type);
 
   return 1;
-}
-
-/* Print an error message for invalid use of a signature type.
-   Signatures are treated similar to abstract classes here, they
-   cannot be instantiated.  */
-
-void
-signature_error (decl, type)
-     tree decl;
-     tree type;
-{
-  if (decl)
-    {
-      if (TREE_CODE (decl) == RESULT_DECL)
-	return;
-
-      if (TREE_CODE (decl) == VAR_DECL)
-	cp_error ("cannot declare variable `%D' to be of signature type `%T'",
-		  decl, type);
-      else if (TREE_CODE (decl) == PARM_DECL)
-	cp_error ("cannot declare parameter `%D' to be of signature type `%T'",
-		  decl, type);
-      else if (TREE_CODE (decl) == FIELD_DECL)
-	cp_error ("cannot declare field `%D' to be of signature type `%T'",
-		  decl, type);
-      else if (TREE_CODE (decl) == FUNCTION_DECL
-	       && TREE_CODE (TREE_TYPE (decl)) == METHOD_TYPE)
-	cp_error ("invalid return type for method `%#D'", decl);
-      else if (TREE_CODE (decl) == FUNCTION_DECL)
-	cp_error ("invalid return type for function `%#D'", decl);
-    }
-  else
-    cp_error ("cannot allocate an object of signature type `%T'", type);
 }
 
 /* Print an error message for invalid use of an incomplete type.
@@ -352,7 +316,7 @@ my_friendly_abort (i)
 	  else
 	    ack ("Internal compiler error %d.", i);
 	  ack ("Please submit a full bug report.");
-	  ack ("See <URL:http://gcc.gnu.org/faq.html#bugreport> for instructions.");
+	  ack ("See <URL:http://www.gnu.org/software/gcc/faq.html#bugreport> for instructions.");
 	}
       else
 	error ("confused by earlier errors, bailing out");
@@ -367,7 +331,7 @@ my_friendly_abort (i)
     error ("Internal compiler error %d.", i);
 
   error ("Please submit a full bug report.");
-  fatal ("See <URL:http://egcs.cygnus.com/faq.html#bugreport> for instructions.");
+  fatal ("See <URL:http://www.gnu.org/software/gcc/faq.html#bugreport> for instructions.");
 }
 
 void
@@ -376,146 +340,6 @@ my_friendly_assert (cond, where)
 {
   if (cond == 0)
     my_friendly_abort (where);
-}
-
-/* Return nonzero if VALUE is a valid constant-valued expression
-   for use in initializing a static variable; one that can be an
-   element of a "constant" initializer.
-
-   Return null_pointer_node if the value is absolute;
-   if it is relocatable, return the variable that determines the relocation.
-   We assume that VALUE has been folded as much as possible;
-   therefore, we do not need to check for such things as
-   arithmetic-combinations of integers.  */
-
-tree
-initializer_constant_valid_p (value, endtype)
-     tree value;
-     tree endtype;
-{
-  switch (TREE_CODE (value))
-    {
-    case CONSTRUCTOR:
-      if (TREE_CODE (TREE_TYPE (value)) == UNION_TYPE
-	  && TREE_CONSTANT (value))
-	return
-	  initializer_constant_valid_p (TREE_VALUE (CONSTRUCTOR_ELTS (value)),
-					endtype);
-	
-      return TREE_STATIC (value) ? null_pointer_node : 0;
-
-    case INTEGER_CST:
-    case REAL_CST:
-    case STRING_CST:
-    case COMPLEX_CST:
-    case PTRMEM_CST:
-      return null_pointer_node;
-
-    case ADDR_EXPR:
-      return TREE_OPERAND (value, 0);
-
-    case NON_LVALUE_EXPR:
-      return initializer_constant_valid_p (TREE_OPERAND (value, 0), endtype);
-
-    case CONVERT_EXPR:
-    case NOP_EXPR:
-      /* Allow conversions between pointer types.  */
-      if (POINTER_TYPE_P (TREE_TYPE (value))
-	  && POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (value, 0))))
-	return initializer_constant_valid_p (TREE_OPERAND (value, 0), endtype);
-
-      /* Allow conversions between real types.  */
-      if (TREE_CODE (TREE_TYPE (value)) == REAL_TYPE
-	  && TREE_CODE (TREE_TYPE (TREE_OPERAND (value, 0))) == REAL_TYPE)
-	return initializer_constant_valid_p (TREE_OPERAND (value, 0), endtype);
-
-      /* Allow length-preserving conversions between integer types.  */
-      if (TREE_CODE (TREE_TYPE (value)) == INTEGER_TYPE
-	  && TREE_CODE (TREE_TYPE (TREE_OPERAND (value, 0))) == INTEGER_TYPE
-	  && (TYPE_PRECISION (TREE_TYPE (value))
-	      == TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (value, 0)))))
-	return initializer_constant_valid_p (TREE_OPERAND (value, 0), endtype);
-
-      /* Allow conversions between other integer types only if
-	 explicit value.  */
-      if (TREE_CODE (TREE_TYPE (value)) == INTEGER_TYPE
-	  && TREE_CODE (TREE_TYPE (TREE_OPERAND (value, 0))) == INTEGER_TYPE)
-	{
-	  tree inner = initializer_constant_valid_p (TREE_OPERAND (value, 0),
-						     endtype);
-	  if (inner == null_pointer_node)
-	    return null_pointer_node;
-	  return 0;
-	}
-
-      /* Allow (int) &foo provided int is as wide as a pointer.  */
-      if (TREE_CODE (TREE_TYPE (value)) == INTEGER_TYPE
-	  && TREE_CODE (TREE_TYPE (TREE_OPERAND (value, 0))) == POINTER_TYPE
-	  && (TYPE_PRECISION (TREE_TYPE (value))
-	      >= TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (value, 0)))))
-	return initializer_constant_valid_p (TREE_OPERAND (value, 0),
-					     endtype);
-
-      /* Likewise conversions from int to pointers, but also allow
-	 conversions from 0.  */
-      if (TREE_CODE (TREE_TYPE (value)) == POINTER_TYPE
-	  && TREE_CODE (TREE_TYPE (TREE_OPERAND (value, 0))) == INTEGER_TYPE)
-	{
-	  if (integer_zerop (TREE_OPERAND (value, 0)))
-	    return null_pointer_node;
-	  else if (TYPE_PRECISION (TREE_TYPE (value))
-		   <= TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (value, 0))))
-	    return initializer_constant_valid_p (TREE_OPERAND (value, 0),
-						 endtype);
-	}
-
-      /* Allow conversions to union types if the value inside is okay.  */
-      if (TREE_CODE (TREE_TYPE (value)) == UNION_TYPE)
-	return initializer_constant_valid_p (TREE_OPERAND (value, 0),
-					     endtype);
-      return 0;
-
-    case PLUS_EXPR:
-      if ((TREE_CODE (endtype) == INTEGER_TYPE)
-	  && (TYPE_PRECISION (endtype) < POINTER_SIZE))
-	return 0;
-      {
-	tree valid0 = initializer_constant_valid_p (TREE_OPERAND (value, 0),
-						    endtype);
-	tree valid1 = initializer_constant_valid_p (TREE_OPERAND (value, 1),
-						    endtype);
-	/* If either term is absolute, use the other terms relocation.  */
-	if (valid0 == null_pointer_node)
-	  return valid1;
-	if (valid1 == null_pointer_node)
-	  return valid0;
-	return 0;
-      }
-
-    case MINUS_EXPR:
-      if ((TREE_CODE (endtype) == INTEGER_TYPE)
-	  && (TYPE_PRECISION (endtype) < POINTER_SIZE))
-	return 0;
-      {
-	tree valid0 = initializer_constant_valid_p (TREE_OPERAND (value, 0),
-						    endtype);
-	tree valid1 = initializer_constant_valid_p (TREE_OPERAND (value, 1),
-						    endtype);
-	/* Win if second argument is absolute.  */
-	if (valid1 == null_pointer_node)
-	  return valid0;
-	/* Win if both arguments have the same relocation.
-	   Then the value is absolute.  */
-	if (valid0 == valid1)
-	  return null_pointer_node;
-	return 0;
-      }
-
-    default:
-      break;
-    }
-
-  return 0;
 }
 
 /* Perform appropriate conversions on the initial value of a variable,
@@ -561,17 +385,7 @@ store_init_value (decl, init)
 	  && TREE_CODE (init) != CONSTRUCTOR)
 	my_friendly_abort (109);
 
-      /* Although we are not allowed to declare variables of signature
-	 type, we complain about a possible constructor call in such a
-	 declaration as well.  */
-      if (TREE_CODE (init) == TREE_LIST
-	  && IS_SIGNATURE (type))
-	{
-	  cp_error ("constructor syntax cannot be used with signature type `%T'",
-		    type);
-	  init = error_mark_node;
-	}
-      else if (TREE_CODE (init) == TREE_LIST)
+      if (TREE_CODE (init) == TREE_LIST)
 	{
 	  cp_error ("constructor syntax used, but no constructor declared for type `%T'", type);
 	  init = build_nt (CONSTRUCTOR, NULL_TREE, nreverse (init));
@@ -675,13 +489,7 @@ store_init_value (decl, init)
 #if 0 /* No, that's C.  jason 9/19/94 */
   else
     {
-      if (pedantic && TREE_CODE (value) == CONSTRUCTOR
-	  /* Don't complain about non-constant initializers of
-	     signature tables and signature pointers/references.  */
-	  && ! (TYPE_LANG_SPECIFIC (type)
-		&& (IS_SIGNATURE (type)
-		    || IS_SIGNATURE_POINTER (type)
-		    || IS_SIGNATURE_REFERENCE (type))))
+      if (pedantic && TREE_CODE (value) == CONSTRUCTOR)
 	{
 	  if (! TREE_CONSTANT (value) || ! TREE_STATIC (value))
 	    pedwarn ("ANSI C++ forbids non-constant aggregate initializer expressions");
@@ -809,9 +617,7 @@ digest_init (type, init, tail)
   if (code == INTEGER_TYPE || code == REAL_TYPE || code == POINTER_TYPE
       || code == ENUMERAL_TYPE || code == REFERENCE_TYPE
       || code == BOOLEAN_TYPE || code == COMPLEX_TYPE
-      || TYPE_PTRMEMFUNC_P (type)
-      || (code == RECORD_TYPE && ! raw_constructor
-	  && (IS_SIGNATURE_POINTER (type) || IS_SIGNATURE_REFERENCE (type))))
+      || TYPE_PTRMEMFUNC_P (type))
     {
       if (raw_constructor)
 	{
@@ -1337,11 +1143,6 @@ build_x_arrow (datum)
   else
     last_rval = default_conversion (rval);
 
-  /* Signature pointers are not dereferenced.  */
-  if (TYPE_LANG_SPECIFIC (TREE_TYPE (last_rval))
-      && IS_SIGNATURE_POINTER (TREE_TYPE (last_rval)))
-    return last_rval;
-
   if (TREE_CODE (TREE_TYPE (last_rval)) == POINTER_TYPE)
     return build_indirect_ref (last_rval, NULL_PTR);
 
@@ -1460,12 +1261,6 @@ build_functional_cast (exp, parms)
 
   if (processing_template_decl)
     return build_min (CAST_EXPR, type, parms);
-
-  if (IS_SIGNATURE (type))
-    {
-      error ("signature type not allowed in cast or constructor expression");
-      return error_mark_node;
-    }
 
   if (! IS_AGGR_TYPE (type))
     {
@@ -1662,4 +1457,57 @@ check_for_new_type (string, inptree)
   if (inptree.new_type_flag
       && (pedantic || strcmp (string, "cast") != 0))
     pedwarn ("ANSI C++ forbids defining types within %s",string);
+}
+
+/* Add new exception specifier SPEC, to the LIST we currently have.
+   If it's already in LIST then do nothing.
+   Moan if it's bad and we're allowed to. COMPLAIN < 0 means we
+   know what we're doing.  */
+
+tree
+add_exception_specifier (list, spec, complain)
+     tree list, spec;
+     int complain;
+{
+  int ok;
+  tree core = spec;
+  int is_ptr;
+  
+  if (spec == error_mark_node)
+    return list;
+  
+  my_friendly_assert (spec && (!list || TREE_VALUE (list)), 19990317);
+  
+  /* [except.spec] 1, type in an exception specifier shall not be
+     incomplete, or pointer or ref to incomplete other than pointer
+     to cv void.  */
+  is_ptr = TREE_CODE (core) == POINTER_TYPE;
+  if (is_ptr || TREE_CODE (core) == REFERENCE_TYPE)
+    core = TREE_TYPE (core);
+  if (complain < 0)
+    ok = 1;
+  else if (TYPE_MAIN_VARIANT (core) == void_type_node)
+    ok = is_ptr;
+  else if (TREE_CODE (core) == TEMPLATE_TYPE_PARM)
+    ok = 1;
+  else
+    ok = TYPE_SIZE (complete_type (core)) != NULL_TREE;
+  
+  if (ok)
+    {
+      tree probe;
+      
+      for (probe = list; probe; probe = TREE_CHAIN (probe))
+        if (same_type_p (TREE_VALUE (probe), spec))
+          break;
+      if (!probe)
+        {
+          spec = build_decl_list (NULL_TREE, spec);
+          TREE_CHAIN (spec) = list;
+          list = spec;
+        }
+    }
+  else if (complain)
+    incomplete_type_error (NULL_TREE, core);
+  return list;
 }

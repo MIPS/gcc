@@ -25,6 +25,7 @@ Boston, MA 02111-1307, USA.  */
 #include "system.h"
 #include "tree.h"
 #include "rtl.h"
+#include "function.h"
 #include "cp-tree.h"
 #include "flags.h"
 #include "output.h"
@@ -81,7 +82,7 @@ void init_init_processing ()
      arrays allocated via operator new.  */
   BI_header_type = make_lang_type (RECORD_TYPE);
   nc_nelts_field_id = get_identifier ("nelts");
-  fields[0] = build_lang_field_decl (FIELD_DECL, nc_nelts_field_id, sizetype);
+  fields[0] = build_lang_decl (FIELD_DECL, nc_nelts_field_id, sizetype);
   finish_builtin_type (BI_header_type, "__new_cookie", fields,
 		       0, double_type_node);
   BI_header_size = size_in_bytes (BI_header_type);
@@ -504,7 +505,7 @@ sort_base_init (t, rbase_ptr, vbase_ptr)
    Note that emit_base_init does *not* initialize virtual base
    classes.  That is done specially, elsewhere.  */
 
-extern tree base_init_expr, rtl_expr_chain;
+extern tree base_init_expr;
 
 void
 emit_base_init (t, immediately)
@@ -1754,13 +1755,15 @@ resolve_offset_ref (exp)
 
   if (BASELINK_P (member))
     {
-      cp_pedwarn ("assuming & on overloaded member function");
+      if (! flag_ms_extensions)
+	cp_pedwarn ("assuming & on overloaded member function");
       return build_unary_op (ADDR_EXPR, exp, 0);
     }
 
   if (TREE_CODE (TREE_TYPE (member)) == METHOD_TYPE)
     {
-      cp_pedwarn ("assuming & on `%E'", member);
+      if (! flag_ms_extensions)
+	cp_pedwarn ("assuming & on `%E'", member);
       return build_unary_op (ADDR_EXPR, exp, 0);
     }
 
@@ -2138,8 +2141,7 @@ build_java_class_ref (type)
   class_decl = IDENTIFIER_GLOBAL_VALUE (name);
   if (class_decl == NULL_TREE)
     {
-      push_obstacks_nochange ();
-      end_temporary_allocation ();
+      push_permanent_obstack ();
       class_decl = build_decl (VAR_DECL, name, TREE_TYPE (jclass_node));
       TREE_STATIC (class_decl) = 1;
       DECL_EXTERNAL (class_decl) = 1;
@@ -2213,12 +2215,6 @@ build_new_1 (exp)
   if (abstract_virtuals_error (NULL_TREE, true_type))
     return error_mark_node;
 
-  if (TYPE_LANG_SPECIFIC (true_type) && IS_SIGNATURE (true_type))
-    {
-      signature_error (NULL_TREE, true_type);
-      return error_mark_node;
-    }
-  
   /* When we allocate an array, and the corresponding deallocation
      function takes a second argument of type size_t, and that's the
      "usual deallocation function", we allocate some extra space at
@@ -2677,6 +2673,15 @@ build_vec_delete_1 (base, maxindex, type, auto_delete_vec, auto_delete,
 
   if (controller)
     {
+      /* The CONTROLLER is a BIND_EXPR.  Such things are always
+	 allocated on at least the saveable obstack.  Since we may
+	 need to copy this expression to the permanent obstack, we
+	 must make sure that the operand is on the same obstack as the
+	 BIND_EXPR.  Otherwise, copy_to_permanent will not copy the
+	 operand, since it will assume that anything under a permanent
+	 node is permanent.  */
+      if (TREE_PERMANENT (controller))
+	body = copy_to_permanent (body);
       TREE_OPERAND (controller, 1) = body;
       return controller;
     }

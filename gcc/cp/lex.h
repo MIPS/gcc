@@ -76,7 +76,6 @@ enum rid
   RID_PROTECTED,
   RID_EXCEPTION,
   RID_TEMPLATE,
-  RID_SIGNATURE,
   RID_NULL,
   /* Before adding enough to get up to 64, the RIDBIT_* macros
      will have to be changed a little.  */
@@ -132,3 +131,5 @@ extern tree got_object;
 extern int pending_lang_change;
 
 extern int yylex PROTO((void));
+
+extern struct lang_decl *free_lang_decl_chain;

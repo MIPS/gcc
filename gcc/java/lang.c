@@ -28,11 +28,18 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "system.h"
 #include "tree.h"
 #include "input.h"
+#include "rtl.h"
+#include "expr.h"
 #include "java-tree.h"
 #include "jcf.h"
 #include "toplev.h"
 #include "flags.h"
 #include "xref.h"
+
+static void put_decl_string PROTO ((const char *, int));
+static void put_decl_node PROTO ((tree));
+static void java_dummy_print PROTO ((const char *));
+static void lang_print_error PROTO ((const char *));
 
 #ifndef OBJECT_SUFFIX
 # define OBJECT_SUFFIX ".o"
@@ -335,7 +342,7 @@ static int decl_bufpos = 0;
 
 static void
 put_decl_string (str, len)
-     char *str;
+     const char *str;
      int len;
 {
   if (len < 0)
@@ -447,9 +454,9 @@ lang_printable_name (decl, v)
 /* Print on stderr the current class and method context.  This function
    is the value of the hook print_error_function, called from toplev.c. */
 
-void
+static void
 lang_print_error (file)
-     char *file;
+     const char *file;
 {
   static tree last_error_function_context = NULL_TREE;
   static tree last_error_function = NULL;
@@ -473,7 +480,7 @@ lang_print_error (file)
 	fprintf (stderr, "At top level:\n");
       else
 	{
-	  char *name = lang_printable_name (current_function_decl, 2);
+	  const char *name = lang_printable_name (current_function_decl, 2);
 	  fprintf (stderr, "In method `%s':\n", name);
 	}
 
@@ -485,9 +492,6 @@ lang_print_error (file)
 void
 lang_init ()
 {
-  extern struct rtx_def * java_lang_expand_expr ();
-  extern struct rtx_def * (*lang_expand_expr) ();
-  extern void (*print_error_function) PROTO((char *));
 #if 0
   extern int flag_minimal_debug;
   flag_minimal_debug = 0;
@@ -504,17 +508,17 @@ lang_init ()
 
   /* Append to Gcc tree node definition arrays */
 
-  bcopy (java_tree_code_type,
-	 tree_code_type + (int) LAST_AND_UNUSED_TREE_CODE,
-	 (int)LAST_JAVA_TREE_CODE - (int)LAST_AND_UNUSED_TREE_CODE);
-  bcopy ((char *)java_tree_code_length,
-	 (char *)(tree_code_length + (int) LAST_AND_UNUSED_TREE_CODE),
-	 (LAST_JAVA_TREE_CODE - 
-	  (int)LAST_AND_UNUSED_TREE_CODE) * sizeof (int));
-  bcopy ((char *)java_tree_code_name,
-	 (char *)(tree_code_name + (int) LAST_AND_UNUSED_TREE_CODE),
-	 (LAST_JAVA_TREE_CODE - 
-	  (int)LAST_AND_UNUSED_TREE_CODE) * sizeof (char *));
+  memcpy (tree_code_type + (int) LAST_AND_UNUSED_TREE_CODE,
+	  java_tree_code_type,
+	  (int)LAST_JAVA_TREE_CODE - (int)LAST_AND_UNUSED_TREE_CODE);
+  memcpy (tree_code_length + (int) LAST_AND_UNUSED_TREE_CODE,
+	  java_tree_code_length,
+	  (LAST_JAVA_TREE_CODE - 
+	   (int)LAST_AND_UNUSED_TREE_CODE) * sizeof (int));
+  memcpy (tree_code_name + (int) LAST_AND_UNUSED_TREE_CODE,
+	  java_tree_code_name,
+	  (LAST_JAVA_TREE_CODE - 
+	   (int)LAST_AND_UNUSED_TREE_CODE) * sizeof (char *));
 
   using_eh_for_cleanups ();
 }
@@ -523,8 +527,9 @@ lang_init ()
    print_error_function hook we don't print error messages with bogus
    function prototypes.  */
 
-void java_dummy_print (s)
-     char *s __attribute__ ((__unused__));
+static void
+java_dummy_print (s)
+     const char *s __attribute__ ((__unused__));
 {
 }
 
@@ -538,7 +543,6 @@ void java_dummy_print (s)
 void lang_init_source (level)
      int level;
 {
-  extern void (*print_error_function) PROTO((char *));
   if (level == 1)
     print_error_function = java_dummy_print;
   else 
@@ -556,7 +560,7 @@ lang_finish ()
 {
 }
 
-char*
+const char *
 lang_identify ()
 {
   return "Java";

@@ -75,8 +75,8 @@ gcc_obstack_init (obstack)
 #define OBSTACK_CHUNK_FREE free
 #endif
   _obstack_begin (obstack, OBSTACK_CHUNK_SIZE, 0,
-		  (void *(*) ()) OBSTACK_CHUNK_ALLOC,
-		  (void (*) ()) OBSTACK_CHUNK_FREE);
+		  (void *(*) PROTO((long))) OBSTACK_CHUNK_ALLOC,
+		  (void (*) PROTO((void *))) OBSTACK_CHUNK_FREE);
 }
 
 int
@@ -84,7 +84,7 @@ main (int argc, const char **argv)
 {
   const char *classname;
   FILE *stream;
-  char *mangled_classname;
+  const char *mangled_classname;
 
   if (argc < 2 || argc > 3)
     {
@@ -96,6 +96,7 @@ main (int argc, const char **argv)
 
   gcc_obstack_init (&name_obstack);
   append_gpp_mangled_classtype (&name_obstack, classname);
+  obstack_1grow (&name_obstack, '\0');
   mangled_classname = obstack_finish (&name_obstack);
 
   if (argc > 2 && strcmp (argv[2], "-") != 0)

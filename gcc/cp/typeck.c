@@ -37,7 +37,9 @@ Boston, MA 02111-1307, USA.  */
 #include "flags.h"
 #include "output.h"
 #include "expr.h"
+#include "function.h"
 #include "toplev.h"
+#include "defaults.h"
 
 static tree convert_for_assignment PROTO((tree, tree, const char *, tree,
 					  int));
@@ -47,6 +49,7 @@ static int comp_target_parms PROTO((tree, tree, int));
 static int comp_ptr_ttypes_real PROTO((tree, tree, int));
 static int comp_ptr_ttypes_const PROTO((tree, tree));
 static int comp_ptr_ttypes_reinterpret PROTO((tree, tree));
+static int comp_except_types PROTO((tree, tree, int));
 static int comp_array_types PROTO((int (*) (tree, tree, int), tree,
 				   tree, int));
 static tree common_base_type PROTO((tree, tree));
@@ -101,10 +104,7 @@ require_complete_type (value)
 
   /* First, detect a valid value with a complete type.  */
   if (TYPE_SIZE (type) != 0
-      && TYPE_SIZE (type) != size_zero_node
-      && ! (TYPE_LANG_SPECIFIC (type)
-	    && (IS_SIGNATURE_POINTER (type) || IS_SIGNATURE_REFERENCE (type))
-	    && TYPE_SIZE (SIGNATURE_TYPE (type)) == 0))
+      && TYPE_SIZE (type) != size_zero_node)
     return value;
 
   /* If we see X::Y, we build an OFFSET_TYPE which has
@@ -197,6 +197,7 @@ require_complete_type_in_void (expr)
     case EXIT_EXPR:   /* have no return */
     case LOOP_EXPR:   /* have no return */
     case BIND_EXPR:   /* have no return */
+    case STMT_EXPR: /* have no return */
     case THROW_EXPR:  /* have no return */
     case MODIFY_EXPR: /* sometimes this has a void type, but that's ok */
     case CONVERT_EXPR:  /* sometimes has a void type */
@@ -518,7 +519,7 @@ composite_pointer_type (t1, t2, arg1, arg2, location)
      tree t2;
      tree arg1;
      tree arg2;
-     char* location;
+     const char* location;
 {
   tree result_type;
 
@@ -699,11 +700,6 @@ common_type (t1, t2)
 
 	if (tt1 == tt2)
 	  target = tt1;
-	else if (b1)
-	  {
-	    compiler_error ("common_type called with uncommon member types");
-	    target = tt1;
-	  }
 	else if (tt1 == void_type_node || tt2 == void_type_node)
 	  target = void_type_node;
 	else if (tt1 == unknown_type_node)
@@ -852,13 +848,102 @@ common_type (t1, t2)
     }
 }
 
-/* Return 1 if TYPE1 and TYPE2 raise the same exceptions.  */
+/* Compare two exception specifier types for exactness or subsetness, if
+   allowed. Returns 0 for mismatch, 1 for same, 2 if B is allowed by A.
+ 
+   [except.spec] "If a class X ... objects of class X or any class publicly
+   and unambigously derrived from X. Similarly, if a pointer type Y * ...
+   exceptions of type Y * or that are pointers to any type publicly and
+   unambigously derrived from Y. Otherwise a function only allows exceptions
+   that have the same type ..."
+   This does not mention cv qualifiers and is different to what throw
+   [except.throw] and catch [except.catch] will do. They will ignore the
+   top level cv qualifiers, and allow qualifiers in the pointer to class
+   example.
+   
+   We implement the letter of the standard.  */
+
+static int
+comp_except_types (a, b, exact)
+     tree a, b;
+     int exact;
+{
+  if (same_type_p (a, b))
+    return 1;
+  else if (!exact)
+    {
+      if (CP_TYPE_QUALS (a) || CP_TYPE_QUALS (b))
+        return 0;
+      
+      if (TREE_CODE (a) == POINTER_TYPE
+          && TREE_CODE (b) == POINTER_TYPE)
+        {
+          a = TREE_TYPE (a);
+          b = TREE_TYPE (b);
+          if (CP_TYPE_QUALS (a) || CP_TYPE_QUALS (b))
+            return 0;
+        }
+      
+      if (TREE_CODE (a) != RECORD_TYPE
+          || TREE_CODE (b) != RECORD_TYPE)
+        return 0;
+      
+      if (ACCESSIBLY_UNIQUELY_DERIVED_P (a, b))
+        return 2;
+    }
+  return 0;
+}
+
+/* Return 1 if TYPE1 and TYPE2 are equivalent exception specifiers.
+   If EXACT is 0, T2 can be a subset of T1 (according to 15.4/7),
+   otherwise it must be exact. Exception lists are unordered, but
+   we've already filtered out duplicates. Most lists will be in order,
+   we should try to make use of that.  */
 
 int
-compexcepttypes (t1, t2)
+comp_except_specs (t1, t2, exact)
      tree t1, t2;
+     int exact;
 {
-  return TYPE_RAISES_EXCEPTIONS (t1) == TYPE_RAISES_EXCEPTIONS (t2);
+  tree probe;
+  tree base;
+  int  length = 0;
+
+  if (t1 == t2)
+    return 1;
+  
+  if (t1 == NULL_TREE)              /* T1 is ... */
+    return t2 == NULL_TREE || !exact;
+  if (!TREE_VALUE (t1)) /* t1 is EMPTY */
+    return t2 != NULL_TREE && !TREE_VALUE (t2);
+  if (t2 == NULL_TREE)              /* T2 is ... */
+    return 0;
+  if (TREE_VALUE(t1) && !TREE_VALUE (t2)) /* T2 is EMPTY, T1 is not */
+    return !exact;
+  
+  /* Neither set is ... or EMPTY, make sure each part of T2 is in T1.
+     Count how many we find, to determine exactness. For exact matching and
+     ordered T1, T2, this is an O(n) operation, otherwise its worst case is
+     O(nm).  */
+  for (base = t1; t2 != NULL_TREE; t2 = TREE_CHAIN (t2))
+    {
+      for (probe = base; probe != NULL_TREE; probe = TREE_CHAIN (probe))
+        {
+          tree a = TREE_VALUE (probe);
+          tree b = TREE_VALUE (t2);
+          
+          if (comp_except_types (a, b, exact))
+            {
+              if (probe == base && exact)
+                base = TREE_CHAIN (probe);
+              length++;
+              break;
+            }
+        }
+      if (probe == NULL_TREE)
+        return 0;
+    }
+  return !exact || base == NULL_TREE || length == list_length (t1);
 }
 
 /* Compare the array types T1 and T2, using CMP as the type comparison
@@ -1030,7 +1115,8 @@ comptypes (t1, t2, strict)
       break;
 
     case METHOD_TYPE:
-      if (! compexcepttypes (t1, t2))
+      if (! comp_except_specs (TYPE_RAISES_EXCEPTIONS (t1),
+			       TYPE_RAISES_EXCEPTIONS (t2), 1))
 	return 0;
 
       /* This case is anti-symmetrical!
@@ -1057,7 +1143,8 @@ comptypes (t1, t2, strict)
       break;
 
     case FUNCTION_TYPE:
-      if (! compexcepttypes (t1, t2))
+      if (! comp_except_specs (TYPE_RAISES_EXCEPTIONS (t1),
+			       TYPE_RAISES_EXCEPTIONS (t2), 1))
 	return 0;
 
       val = ((TREE_TYPE (t1) == TREE_TYPE (t2)
@@ -1603,14 +1690,7 @@ c_sizeof (type)
   if (code == REFERENCE_TYPE)
     type = TREE_TYPE (type);
 
-  /* @@ This also produces an error for a signature ref.
-        In that case we should be able to do better.  */
-  if (IS_SIGNATURE (type))
-    {
-      error ("`sizeof' applied to a signature type");
-      return size_int (0);
-    }
-  else if (code == OFFSET_TYPE)
+  if (code == OFFSET_TYPE)
     {
       cp_error ("`sizeof' applied to non-static member");
       return size_int (0);
@@ -1721,14 +1801,6 @@ c_alignof (type)
   /* C++: this is really correct!  */
   if (code == REFERENCE_TYPE)
     type = TREE_TYPE (type);
-
-  /* @@ This also produces an error for a signature ref.
-        In that case we should be able to do better.  */
-  if (IS_SIGNATURE (type))
-    {
-      error ("`__alignof' applied to a signature type");
-      return size_int (1);
-    }
 
   t = size_int (TYPE_ALIGN (type) / BITS_PER_UNIT);
   force_fit_type (t, 0);
@@ -1943,11 +2015,6 @@ build_object_ref (datum, basetype, field)
       cp_error ("request for member `%T::%D' in expression of non-aggregate type `%T'",
 		basetype, field, dtype);
       return error_mark_node;
-    }
-  else if (IS_SIGNATURE (basetype))
-    {
-      warning ("signature name in scope resolution ignored");
-      return build_component_ref (datum, field, NULL_TREE, 1);
     }
   else if (is_aggr_type (basetype, 1))
     {
@@ -2174,6 +2241,9 @@ build_component_ref (datum, component, basetype_path, protect)
       tree name = component;
       if (TREE_CODE (component) == VAR_DECL)
 	name = DECL_NAME (component);
+      if (TREE_CODE (component) == NAMESPACE_DECL)
+        /* Source is in error, but produce a sensible diagnostic.  */
+        name = DECL_NAME (component);
       if (basetype_path == NULL_TREE)
 	basetype_path = TYPE_BINFO (basetype);
       field = lookup_field (basetype_path, name,
@@ -2304,8 +2374,7 @@ build_component_ref (datum, component, basetype_path, protect)
 	 not const, even within a const object.  */
       if (DECL_LANG_SPECIFIC (field) && DECL_MUTABLE_P (field))
 	type_quals &= ~TYPE_QUAL_CONST;
-      if (!IS_SIGNATURE (field_type))
-	field_type = cp_build_qualified_type (field_type, type_quals);
+      field_type = cp_build_qualified_type (field_type, type_quals);
     }
 
   ref = fold (build (COMPONENT_REF, field_type,
@@ -2416,9 +2485,6 @@ build_indirect_ref (ptr, errorstring)
      pointer to member, so it's cool to check for this here.  */
   else if (TYPE_PTRMEM_P (type) || TYPE_PTRMEMFUNC_P (type))
     error ("invalid use of `%s' on pointer to member", errorstring);
-  else if (TREE_CODE (type) == RECORD_TYPE
-	   && (IS_SIGNATURE_POINTER (type) || IS_SIGNATURE_REFERENCE (type)))
-    error ("cannot dereference signature pointer/reference");
   else if (pointer != error_mark_node)
     {
       if (errorstring)
@@ -3204,13 +3270,12 @@ convert_arguments (typelist, values, fndecl, flags)
 	      parmval = convert_for_initialization
 		(NULL_TREE, type, val, flags,
 		 "argument passing", fndecl, i);
-#ifdef PROMOTE_PROTOTYPES
-	      if ((TREE_CODE (type) == INTEGER_TYPE
-		   || TREE_CODE (type) == ENUMERAL_TYPE)
+	      if (PROMOTE_PROTOTYPES
+		  && (TREE_CODE (type) == INTEGER_TYPE
+		      || TREE_CODE (type) == ENUMERAL_TYPE)
 		  && (TYPE_PRECISION (type)
 		      < TYPE_PRECISION (integer_type_node)))
 		parmval = default_conversion (parmval);
-#endif
 	    }
 
 	  if (parmval == error_mark_node)
@@ -4726,21 +4791,29 @@ build_unary_op (code, xarg, noconvert)
 	  && OVL_NEXT (TREE_OPERAND (arg, 1)) == NULL_TREE)
 	{
 	  /* They're trying to take the address of a unique non-static
-	     member function.  This is ill-formed, but let's try to DTRT.  */
-	  tree base, name;
+	     member function.  This is ill-formed, but let's try to DTRT.
+	     Note: We only handle unique functions here because we don't
+	     want to complain if there's a static overload; non-unique
+	     cases will be handled by instantiate_type.  But we need to
+	     handle this case here to allow casts on the resulting PMF.  */
 
-	  if (current_class_type
-	      && TREE_OPERAND (arg, 0) == current_class_ref)
-	    /* An expression like &memfn.  */
-	    pedwarn ("taking the address of a non-static member function");
-	  else
-	    pedwarn ("taking the address of a bound member function");
+	  tree base = TREE_TYPE (TREE_OPERAND (arg, 0));
+	  tree name = DECL_NAME (OVL_CURRENT (TREE_OPERAND (arg, 1)));
 
-	  base = TREE_TYPE (TREE_OPERAND (arg, 0));
-	  name = DECL_NAME (OVL_CURRENT (TREE_OPERAND (arg, 1)));
+	  if (! flag_ms_extensions)
+	    {
+	      if (current_class_type
+		  && TREE_OPERAND (arg, 0) == current_class_ref)
+		/* An expression like &memfn.  */
+		pedwarn ("taking the address of a non-static member function");
+	      else
+		pedwarn ("taking the address of a bound member function");
 
-	  cp_pedwarn ("  to form a pointer to member function, say `&%T::%D'",
-		      base, name);
+	      cp_pedwarn
+		("  to form a pointer to member function, say `&%T::%D'",
+		 base, name);
+	    }
+
 	  arg = build_offset_ref (base, name);
 	}
 
@@ -5013,8 +5086,7 @@ mark_addressable (exp)
 	  {
 	    /* We thought this would make a good constant variable,
 	       but we were wrong.  */
-	    push_obstacks_nochange ();
-	    end_temporary_allocation ();
+	    push_permanent_obstack ();
 
 	    TREE_ASM_WRITTEN (x) = 0;
 	    DECL_RTL (x) = 0;
@@ -5484,12 +5556,6 @@ build_c_cast (type, expr)
       return error_mark_node;
     }
 
-  if (IS_SIGNATURE (type))
-    {
-      error ("cast specifies signature type");
-      return error_mark_node;
-    }
-
   if (processing_template_decl)
     {
       tree t = build_min (CAST_EXPR, type,
@@ -5630,14 +5696,6 @@ build_modify_expr (lhs, modifycode, rhs)
 
   newrhs = rhs;
 
-  /* Handle assignment to signature pointers/refs.  */
-
-  if (TYPE_LANG_SPECIFIC (lhstype)
-      && (IS_SIGNATURE_POINTER (lhstype) || IS_SIGNATURE_REFERENCE (lhstype)))
-    {
-      return build_signature_pointer_constructor (lhs, rhs);
-    }
-
   /* Handle control structure constructs used as "lvalues".  */
 
   switch (TREE_CODE (lhs))
@@ -5676,12 +5734,22 @@ build_modify_expr (lhs, modifycode, rhs)
 	/* Produce (a ? (b = rhs) : (c = rhs))
 	   except that the RHS goes through a save-expr
 	   so the code to compute it is only emitted once.  */
-	tree cond
-	  = build_conditional_expr (TREE_OPERAND (lhs, 0),
-				    build_modify_expr (cp_convert (TREE_TYPE (lhs), TREE_OPERAND (lhs, 1)),
-						       modifycode, rhs),
-				    build_modify_expr (cp_convert (TREE_TYPE (lhs), TREE_OPERAND (lhs, 2)),
-						       modifycode, rhs));
+	tree cond;
+
+	/* Check this here to avoid odd errors when trying to convert
+	   a throw to the type of the COND_EXPR.  */
+	if (!lvalue_or_else (lhs, "assignment"))
+	  return error_mark_node;
+
+	cond = build_conditional_expr
+	  (TREE_OPERAND (lhs, 0),
+	   build_modify_expr (cp_convert (TREE_TYPE (lhs),
+					  TREE_OPERAND (lhs, 1)),
+			      modifycode, rhs),
+	   build_modify_expr (cp_convert (TREE_TYPE (lhs),
+					  TREE_OPERAND (lhs, 2)),
+			      modifycode, rhs));
+
 	if (cond == error_mark_node)
 	  return cond;
 	/* Make sure the code to compute the rhs comes out
@@ -5827,11 +5895,6 @@ build_modify_expr (lhs, modifycode, rhs)
   /* Warn about storing in something that is `const'.  */
   /* For C++, don't warn if this is initialization.  */
   if (modifycode != INIT_EXPR
-      /* For assignment to `const' signature pointer/reference fields,
-	 don't warn either, we already printed a better message before.  */
-      && ! (TREE_CODE (lhs) == COMPONENT_REF
-	    && (IS_SIGNATURE_POINTER (TREE_TYPE (TREE_OPERAND (lhs, 0)))
-		|| IS_SIGNATURE_REFERENCE (TREE_TYPE (TREE_OPERAND (lhs, 0)))))
       && (TREE_READONLY (lhs) || CP_TYPE_CONST_P (lhstype)
 	  /* Functions are not modifiable, even though they are
 	     lvalues.  */
@@ -6118,7 +6181,7 @@ get_delta_difference (from, to, force)
       binfo = get_binfo (to, from, 1);
       if (binfo == 0 || binfo == error_mark_node)
 	return delta;
-      if (TREE_VIA_VIRTUAL (binfo))
+      if (binfo_from_vbase (binfo))
 	{
 	  binfo = binfo_member (BINFO_TYPE (binfo),
 				CLASSTYPE_VBASECLASSES (from));
@@ -6134,7 +6197,7 @@ get_delta_difference (from, to, force)
 			      delta);
     }
 
-  if (TREE_VIA_VIRTUAL (binfo))
+  if (binfo_from_vbase (binfo))
     {
       if (force)
 	{
@@ -6639,10 +6702,6 @@ convert_for_initialization (exp, type, rhs, flags, errtype, fndecl, parmnum)
 
   type = complete_type (type);
 
-  if (TYPE_LANG_SPECIFIC (type)
-      && (IS_SIGNATURE_POINTER (type) || IS_SIGNATURE_REFERENCE (type)))
-    return build_signature_pointer_constructor (type, rhs);
-
   if (IS_AGGR_TYPE (type))
     return ocp_convert (type, rhs, CONV_IMPLICIT|CONV_FORCE_TEMP, flags);
 
@@ -6735,7 +6794,6 @@ void
 c_expand_return (retval)
      tree retval;
 {
-  extern struct nesting *cond_stack, *loop_stack, *case_stack;
   extern tree dtor_label, ctor_label;
   tree result = DECL_RESULT (current_function_decl);
   tree valtype = TREE_TYPE (result);
@@ -6749,12 +6807,6 @@ c_expand_return (retval)
       return;
     }
 
-  if (processing_template_decl)
-    {
-      add_tree (build_min_nt (RETURN_STMT, retval));
-      return;
-    }
-
   if (dtor_label)
     {
       if (retval)
@@ -6762,6 +6814,14 @@ c_expand_return (retval)
 
       /* Can't just return from a destructor.  */
       expand_goto (dtor_label);
+      return;
+    }
+  else if (in_function_try_handler
+	   && DECL_CONSTRUCTOR_P (current_function_decl))
+    {
+      /* If a return statement appears in a handler of the
+         function-try-block of a constructor, the program is ill-formed. */
+      error ("cannot return from a handler of a function-try-block of a constructor");
       return;
     }
 
@@ -6925,7 +6985,7 @@ c_expand_return (retval)
 
   if (retval != NULL_TREE
       && TREE_CODE_CLASS (TREE_CODE (retval)) == 'd'
-      && cond_stack == 0 && loop_stack == 0 && case_stack == 0)
+      && ! in_control_zone_p ())
     current_function_return_value = retval;
 
   if (ctor_label && TREE_CODE (ctor_label) != ERROR_MARK)

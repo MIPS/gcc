@@ -155,36 +155,12 @@ asm (TEXT_SECTION_ASM_OP);
 /* local globals for function calls
    ====================================================================== */
 
-/* Used to cache "terminate" and "__throw_type_match*".  */
-static tree Terminate, CatchMatch;
-
-/* Used to cache __find_first_exception_table_match for throw.  */
-static tree FirstExceptionMatch;
-
-/* Used to cache a call to __unwind_function.  */
-static tree Unwind;
+static tree Terminate;
 
 /* ====================================================================== */
 
-
-/* ========================================================================= */
-
-
-
-/* local globals - these local globals are for storing data necessary for
-   generating the exception table and code in the correct order.
-
-   ========================================================================= */
-
-extern rtx catch_clauses;
-
-/* ========================================================================= */
-
 /* sets up all the global eh stuff that needs to be initialized at the
-   start of compilation.
-
-   This includes:
-		- Setting up all the function call trees.  */
+   start of compilation.  */
 
 void
 init_exception_processing ()
@@ -200,35 +176,8 @@ init_exception_processing ()
   if (flag_honor_std)
     pop_namespace ();
 
-  push_lang_context (lang_name_c);
-
   set_exception_lang_code (EH_LANG_C_plus_plus);
   set_exception_version_code (1);
-
-  CatchMatch
-    = builtin_function (flag_rtti
-			? "__throw_type_match_rtti"
-			: "__throw_type_match",
-			build_function_type (ptr_type_node,
-					     tree_cons (NULL_TREE, const_ptr_type_node,
-							tree_cons (NULL_TREE, const_ptr_type_node,
-								   tree_cons (NULL_TREE, ptr_type_node,
-									      void_list_node)))),
-			NOT_BUILT_IN, NULL_PTR);
-  FirstExceptionMatch
-    = builtin_function ("__find_first_exception_table_match",
-			build_function_type (ptr_type_node,
-					     tree_cons (NULL_TREE, ptr_type_node,
-							void_list_node)),
-			NOT_BUILT_IN, NULL_PTR);
-  Unwind
-    = builtin_function ("__unwind_function",
-			build_function_type (void_type_node,
-					     tree_cons (NULL_TREE, ptr_type_node,
-							void_list_node)),
-			NOT_BUILT_IN, NULL_PTR);
-
-  pop_lang_context ();
 
   /* If we use setjmp/longjmp EH, arrange for all cleanup actions to
      be protected with __terminate.  */
@@ -251,19 +200,18 @@ call_eh_info ()
 
       /* Declare cp_eh_info * __start_cp_handler (void),
 	 as defined in exception.cc. */
-      push_obstacks_nochange ();
-      end_temporary_allocation ();
+      push_permanent_obstack ();
 
       /* struct cp_eh_info.  This must match exception.cc.  Note that this
 	 type is not pushed anywhere.  */
       t1= make_lang_type (RECORD_TYPE);
-      fields[0] = build_lang_field_decl (FIELD_DECL, 
+      fields[0] = build_lang_decl (FIELD_DECL, 
                     get_identifier ("handler_label"), ptr_type_node);
-      fields[1] = build_lang_field_decl (FIELD_DECL, 
+      fields[1] = build_lang_decl (FIELD_DECL, 
                     get_identifier ("dynamic_handler_chain"), ptr_type_node);
-      fields[2] = build_lang_field_decl (FIELD_DECL, 
+      fields[2] = build_lang_decl (FIELD_DECL, 
                     get_identifier ("info"), ptr_type_node);
-      fields[3] = build_lang_field_decl (FIELD_DECL, 
+      fields[3] = build_lang_decl (FIELD_DECL, 
                     get_identifier ("table_index"), ptr_type_node);
       /* N.B.: The fourth field LEN is expected to be
 	 the number of fields - 1, not the total number of fields.  */
@@ -271,32 +219,32 @@ call_eh_info ()
       t1 = build_pointer_type (t1);
 
       t1= make_lang_type (RECORD_TYPE);
-      fields[0] = build_lang_field_decl (FIELD_DECL, 
+      fields[0] = build_lang_decl (FIELD_DECL, 
                     get_identifier ("match_function"), ptr_type_node);
-      fields[1] = build_lang_field_decl (FIELD_DECL, 
+      fields[1] = build_lang_decl (FIELD_DECL, 
                     get_identifier ("language"), short_integer_type_node);
-      fields[2] = build_lang_field_decl (FIELD_DECL, 
+      fields[2] = build_lang_decl (FIELD_DECL, 
                     get_identifier ("version"), short_integer_type_node);
       /* N.B.: The fourth field LEN is expected to be
 	 the number of fields - 1, not the total number of fields.  */
       finish_builtin_type (t1, "__eh_info", fields, 2, ptr_type_node);
       t = make_lang_type (RECORD_TYPE);
-      fields[0] = build_lang_field_decl (FIELD_DECL, 
-                                              get_identifier ("eh_info"), t1);
-      fields[1] = build_lang_field_decl (FIELD_DECL, get_identifier ("value"),
-					 ptr_type_node);
-      fields[2] = build_lang_field_decl (FIELD_DECL, get_identifier ("type"),
-					 ptr_type_node);
-      fields[3] = build_lang_field_decl
+      fields[0] = build_lang_decl (FIELD_DECL, 
+				   get_identifier ("eh_info"), t1);
+      fields[1] = build_lang_decl (FIELD_DECL, get_identifier ("value"),
+				   ptr_type_node);
+      fields[2] = build_lang_decl (FIELD_DECL, get_identifier ("type"),
+				   ptr_type_node);
+      fields[3] = build_lang_decl
 	(FIELD_DECL, get_identifier ("cleanup"),
 	 build_pointer_type (build_function_type
 			     (ptr_type_node, tree_cons
 			      (NULL_TREE, ptr_type_node, void_list_node))));
-      fields[4] = build_lang_field_decl (FIELD_DECL, get_identifier ("caught"),
-					 boolean_type_node);
-      fields[5] = build_lang_field_decl (FIELD_DECL, get_identifier ("next"),
-					 build_pointer_type (t));
-      fields[6] = build_lang_field_decl
+      fields[4] = build_lang_decl (FIELD_DECL, get_identifier ("caught"),
+				   boolean_type_node);
+      fields[5] = build_lang_decl (FIELD_DECL, get_identifier ("next"),
+				   build_pointer_type (t));
+      fields[6] = build_lang_decl
 	(FIELD_DECL, get_identifier ("handlers"), long_integer_type_node);
       /* N.B.: The fourth field LEN is expected to be
 	 the number of fields - 1, not the total number of fields.  */
@@ -433,8 +381,7 @@ build_eh_type_type_ref (type)
   /* Peel off cv qualifiers.  */
   type = TYPE_MAIN_VARIANT (type);
 
-  push_obstacks_nochange ();
-  end_temporary_allocation ();
+  push_permanent_obstack ();
 
   if (flag_rtti)
     {
@@ -513,8 +460,7 @@ do_pop_exception ()
     {
       /* Declare void __cp_pop_exception (void *),
 	 as defined in exception.cc. */
-      push_obstacks_nochange ();
-      end_temporary_allocation ();
+      push_permanent_obstack ();
       fn = build_lang_decl
 	(FUNCTION_DECL, fn,
 	 build_function_type (void_type_node, tree_cons
@@ -572,17 +518,14 @@ expand_start_catch_block (declspecs, declarator)
 {
   tree decl;
 
-  if (processing_template_decl)
+  if (building_stmt_tree ())
     {
       if (declspecs)
 	{
 	  decl = grokdeclarator (declarator, declspecs, CATCHPARM,
 				 1, NULL_TREE);
 	  pushdecl (decl);
-	  decl = build_min_nt (DECL_STMT, copy_to_permanent (declarator),
-			       copy_to_permanent (declspecs),
-			       NULL_TREE);
-	  add_tree (decl);
+	  add_decl_stmt (decl);
 	}
       return;
     }
@@ -592,7 +535,6 @@ expand_start_catch_block (declspecs, declarator)
 
   process_start_catch_block (declspecs, declarator);
 }
-
 
 /* This function performs the expand_start_catch_block functionality for 
    exceptions implemented in the new style. __throw determines whether
@@ -709,6 +651,13 @@ expand_end_catch_block ()
   if (! doing_eh (1))
     return;
 
+  /* The exception being handled is rethrown if control reaches the end of
+     a handler of the function-try-block of a constructor or destructor.  */
+  if (in_function_try_handler
+      && (DECL_CONSTRUCTOR_P (current_function_decl)
+	  || DECL_DESTRUCTOR_P (current_function_decl)))
+    expand_throw (NULL_TREE);
+
   /* Cleanup the EH parameter.  */
   expand_end_bindings (getdecls (), kept_level_p (), 0);
   poplevel (kept_level_p (), 1, 0);
@@ -777,8 +726,7 @@ expand_end_eh_spec (raises)
     fn = IDENTIFIER_GLOBAL_VALUE (fn);
   else
     {
-      push_obstacks_nochange ();
-      end_temporary_allocation ();
+      push_permanent_obstack ();
 
       tmp = tree_cons
 	(NULL_TREE, integer_type_node, tree_cons
@@ -924,8 +872,7 @@ alloc_eh_object (type)
     {
       /* Declare __eh_alloc (size_t), as defined in exception.cc.  */
       tree tmp;
-      push_obstacks_nochange ();
-      end_temporary_allocation ();
+      push_permanent_obstack ();
       tmp = tree_cons (NULL_TREE, sizetype, void_list_node);
       fn = build_lang_decl (FUNCTION_DECL, fn,
 			    build_function_type (ptr_type_node, tmp));
@@ -977,8 +924,7 @@ expand_throw (exp)
 	 the internal type of a destructor. */
       if (cleanup_type == NULL_TREE)
 	{
-	  push_obstacks_nochange ();
-	  end_temporary_allocation ();
+	  push_permanent_obstack ();
 	  cleanup_type = build_pointer_type
 	    (build_function_type
 	     (void_type_node, tree_cons
@@ -1078,8 +1024,7 @@ expand_throw (exp)
 	  /* Declare __cp_push_exception (void*, void*, void (*)(void*, int)),
 	     as defined in exception.cc.  */
 	  tree tmp;
-	  push_obstacks_nochange ();
-	  end_temporary_allocation ();
+	  push_permanent_obstack ();
 	  tmp = tree_cons
 	    (NULL_TREE, ptr_type_node, tree_cons
 	     (NULL_TREE, ptr_type_node, tree_cons
@@ -1112,8 +1057,7 @@ expand_throw (exp)
 	{
 	  /* Declare void __uncatch_exception (void)
 	     as defined in exception.cc. */
-	  push_obstacks_nochange ();
-	  end_temporary_allocation ();
+	  push_permanent_obstack ();
 	  fn = build_lang_decl (FUNCTION_DECL, fn,
 				build_function_type (void_type_node,
 						     void_list_node));

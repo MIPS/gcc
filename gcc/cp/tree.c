@@ -37,7 +37,6 @@ static tree list_hash_lookup PROTO((int, tree, tree, tree));
 static void propagate_binfo_offsets PROTO((tree, tree));
 static int avoid_overlap PROTO((tree, tree));
 static cp_lvalue_kind lvalue_p_1 PROTO((tree, int));
-static int equal_functions PROTO((tree, tree));
 static tree no_linkage_helper PROTO((tree));
 static tree build_srcloc PROTO((char *, int));
 
@@ -410,21 +409,23 @@ build_cplus_method_type (basetype, rettype, argtypes)
 
   TYPE_METHOD_BASETYPE (t) = TYPE_MAIN_VARIANT (basetype);
   TREE_TYPE (t) = rettype;
-  if (IS_SIGNATURE (basetype))
-    ptype = build_signature_pointer_type (basetype);
-  else
-    ptype = build_pointer_type (basetype);
+  ptype = build_pointer_type (basetype);
 
   /* The actual arglist for this function includes a "hidden" argument
-     which is "this".  Put it into the list of argument types.  */
-
+     which is "this".  Put it into the list of argument types.  Make
+     sure that the new argument list is allocated on the same obstack
+     as the type.  */
+  push_obstacks (TYPE_OBSTACK (t), TYPE_OBSTACK (t));
   argtypes = tree_cons (NULL_TREE, ptype, argtypes);
   TYPE_ARG_TYPES (t) = argtypes;
   TREE_SIDE_EFFECTS (argtypes) = 1;  /* Mark first argtype as "artificial".  */
+  pop_obstacks ();
 
   /* If we already have such a type, use the old one and free this one.
      Note that it also frees up the above cons cell if found.  */
-  hashcode = TYPE_HASH (basetype) + TYPE_HASH (rettype) + type_hash_list (argtypes);
+  hashcode = TYPE_HASH (basetype) + TYPE_HASH (rettype) +
+    type_hash_list (argtypes);
+
   t = type_hash_canon (hashcode, t);
 
   if (TYPE_SIZE (t) == 0)
@@ -445,7 +446,7 @@ build_cplus_array_type_1 (elt_type, index_type)
 
   push_obstacks_nochange ();
 
-  /* We need a new one.  If both ELT_TYPE and INDEX_TYPE are permanent,
+  /* If both ELT_TYPE and INDEX_TYPE are permanent,
      make this permanent too.  */
   if (TREE_PERMANENT (elt_type)
       && (index_type == 0 || TREE_PERMANENT (index_type)))
@@ -503,6 +504,8 @@ cp_build_qualified_type_real (type, type_quals, complain)
      int type_quals;
      int complain;
 {
+  tree result;
+
   if (type == error_mark_node)
     return type;
   
@@ -571,7 +574,32 @@ cp_build_qualified_type_real (type, type_quals, complain)
 	= TYPE_NEEDS_DESTRUCTOR (TYPE_MAIN_VARIANT (element_type));
       return t;
     }
-  return build_qualified_type (type, type_quals);
+  else if (TYPE_PTRMEMFUNC_P (type))
+    {
+      /* For a pointer-to-member type, we can't just return a
+	 cv-qualified version of the RECORD_TYPE.  If we do, we
+	 haven't change the field that contains the actual pointer to
+	 a method, and so TYPE_PTRMEMFUNC_FN_TYPE will be wrong.  */
+      tree t;
+
+      t = TYPE_PTRMEMFUNC_FN_TYPE (type);
+      t = cp_build_qualified_type_real (t, type_quals, complain);
+      return build_ptrmemfunc_type (t);
+    }
+
+  /* Retrieve (or create) the appropriately qualified variant.  */
+  result = build_qualified_type (type, type_quals);
+
+  /* If this was a pointer-to-method type, and we just made a copy,
+     then we need to clear the cached associated
+     pointer-to-member-function type; it is not valid for the new
+     type.  */
+  if (result != type 
+      && TREE_CODE (type) == POINTER_TYPE
+      && TREE_CODE (TREE_TYPE (type)) == METHOD_TYPE)
+    TYPE_SET_PTRMEMFUNC_TYPE (result, NULL_TREE);
+
+  return result;
 }
 
 /* Returns the canonical version of TYPE.  In other words, if TYPE is
@@ -860,7 +888,7 @@ build_base_fields (rec)
       if (TREE_VIA_VIRTUAL (base_binfo))
 	continue;
 
-      decl = build_lang_field_decl (FIELD_DECL, NULL_TREE, basetype);
+      decl = build_lang_decl (FIELD_DECL, NULL_TREE, basetype);
       DECL_ARTIFICIAL (decl) = 1;
       DECL_FIELD_CONTEXT (decl) = DECL_CLASS_CONTEXT (decl) = rec;
       DECL_SIZE (decl) = CLASSTYPE_SIZE (basetype);
@@ -972,8 +1000,8 @@ build_vbase_pointer_fields (rec)
 		goto got_it;
 	    }
 	  FORMAT_VBASE_NAME (name, basetype);
-	  decl = build_lang_field_decl (FIELD_DECL, get_identifier (name),
-					build_pointer_type (basetype));
+	  decl = build_lang_decl (FIELD_DECL, get_identifier (name),
+				  build_pointer_type (basetype));
 	  /* If you change any of the below, take a look at all the
 	     other VFIELD_BASEs and VTABLE_BASEs in the code, and change
 	     them too.  */
@@ -983,7 +1011,7 @@ build_vbase_pointer_fields (rec)
 	  DECL_FIELD_CONTEXT (decl) = rec;
 	  DECL_CLASS_CONTEXT (decl) = rec;
 	  DECL_FCONTEXT (decl) = basetype;
-	  DECL_SAVED_INSNS (decl) = NULL_RTX;
+	  DECL_SAVED_INSNS (decl) = 0;
 	  DECL_FIELD_SIZE (decl) = 0;
 	  DECL_ALIGN (decl) = TYPE_ALIGN (ptr_type_node);
 	  TREE_CHAIN (decl) = vbase_decls;
@@ -1387,20 +1415,6 @@ build_overload (decl, chain)
   return ovl_cons (decl, chain);
 }
 
-/* Returns true iff functions are equivalent. Equivalent functions are
-   not identical only if one is a function-local extern function.
-   This assumes that function-locals don't have TREE_PERMANENT.  */
-
-static int
-equal_functions (fn1, fn2)
-     tree fn1;
-     tree fn2;
-{
-  if (!TREE_PERMANENT (fn1) || !TREE_PERMANENT (fn2))
-    return decls_match (fn1, fn2);
-  return fn1 == fn2;
-}
-
 /* True if fn is in ovl. */
 
 int
@@ -1411,9 +1425,9 @@ ovl_member (fn, ovl)
   if (ovl == NULL_TREE)
     return 0;
   if (TREE_CODE (ovl) != OVERLOAD)
-    return equal_functions (ovl, fn);
+    return ovl == fn;
   for (; ovl; ovl = OVL_CHAIN (ovl))
-    if (equal_functions (OVL_FUNCTION (ovl), fn))
+    if (OVL_FUNCTION (ovl) == fn)
       return 1;
   return 0;
 }
@@ -1484,25 +1498,9 @@ build_exception_variant (type, raises)
   int type_quals = TYPE_QUALS (type);
 
   for (; v; v = TYPE_NEXT_VARIANT (v))
-    {
-      tree t;
-      tree u;
-
-      if (TYPE_QUALS (v) != type_quals)
-	continue;
-
-      for (t = TYPE_RAISES_EXCEPTIONS (v), u = raises;
-	   t != NULL_TREE && u != NULL_TREE;
-	   t = TREE_CHAIN (t), u = TREE_CHAIN (u))
-	if (((TREE_VALUE (t) != NULL_TREE) 
-	     != (TREE_VALUE (u) != NULL_TREE))
-	    || !same_type_p (TREE_VALUE (t), TREE_VALUE (u)))
-	  break;
-
-      if (!t && !u)
-	/* There's a memory leak here; RAISES is not freed.  */
-	return v;
-    }
+    if (TYPE_QUALS (v) == type_quals
+        && comp_except_specs (raises, TYPE_RAISES_EXCEPTIONS (v), 1))
+      return v;
 
   /* Need to build a new variant.  */
   v = build_type_copy (type);
@@ -1525,8 +1523,7 @@ copy_template_template_parm (t)
   tree t2;
 
   /* Make sure these end up on the permanent_obstack.  */
-  push_obstacks_nochange ();
-  end_temporary_allocation ();
+  push_permanent_obstack ();
   
   t2 = make_lang_type (TEMPLATE_TEMPLATE_PARM);
   template = copy_node (template);
@@ -1556,14 +1553,30 @@ search_tree (t, func)
 #define TRY(ARG) if (tmp=search_tree (ARG, func), tmp != NULL_TREE) return tmp
 
   tree tmp;
+  enum tree_code code; 
 
   if (t == NULL_TREE)
     return t;
-
-  if (tmp = func (t), tmp != NULL_TREE)
+  
+  tmp = func (t);
+  if (tmp)
     return tmp;
 
-  switch (TREE_CODE (t))
+  /* Handle some common cases up front.  */
+  code = TREE_CODE (t);
+  if (TREE_CODE_CLASS (code) == '1')
+    {
+      TRY (TREE_OPERAND (t, 0));
+      return NULL_TREE;
+    }
+  else if (TREE_CODE_CLASS (code) == '2' || TREE_CODE_CLASS (code) == '<')
+    {
+      TRY (TREE_OPERAND (t, 0));
+      TRY (TREE_OPERAND (t, 1));
+      return NULL_TREE;
+    }
+
+  switch (code)
     {
     case ERROR_MARK:
       break;
@@ -1627,35 +1640,11 @@ search_tree (t, func)
       TRY (TREE_OPERAND (t, 2));
       break;
 
-    case MODIFY_EXPR:
-    case PLUS_EXPR:
-    case MINUS_EXPR:
-    case MULT_EXPR:
-    case TRUNC_DIV_EXPR:
-    case TRUNC_MOD_EXPR:
-    case MIN_EXPR:
-    case MAX_EXPR:
-    case LSHIFT_EXPR:
-    case RSHIFT_EXPR:
-    case BIT_IOR_EXPR:
-    case BIT_XOR_EXPR:
-    case BIT_AND_EXPR:
-    case BIT_ANDTC_EXPR:
+    case TRUTH_AND_EXPR:
+    case TRUTH_OR_EXPR:
+    case TRUTH_XOR_EXPR:
     case TRUTH_ANDIF_EXPR:
     case TRUTH_ORIF_EXPR:
-    case LT_EXPR:
-    case LE_EXPR:
-    case GT_EXPR:
-    case GE_EXPR:
-    case EQ_EXPR:
-    case NE_EXPR:
-    case CEIL_DIV_EXPR:
-    case FLOOR_DIV_EXPR:
-    case ROUND_DIV_EXPR:
-    case CEIL_MOD_EXPR:
-    case FLOOR_MOD_EXPR:
-    case ROUND_MOD_EXPR:
-    case COMPOUND_EXPR:
     case PREDECREMENT_EXPR:
     case PREINCREMENT_EXPR:
     case POSTDECREMENT_EXPR:
@@ -1665,36 +1654,30 @@ search_tree (t, func)
     case TRY_CATCH_EXPR:
     case WITH_CLEANUP_EXPR:
     case CALL_EXPR:
+    case COMPOUND_EXPR:
+    case MODIFY_EXPR:
       TRY (TREE_OPERAND (t, 0));
       TRY (TREE_OPERAND (t, 1));
       break;
 
     case SAVE_EXPR:
-    case CONVERT_EXPR:
     case ADDR_EXPR:
     case INDIRECT_REF:
-    case NEGATE_EXPR:
-    case BIT_NOT_EXPR:
     case TRUTH_NOT_EXPR:
-    case NOP_EXPR:
-    case NON_LVALUE_EXPR:
     case COMPONENT_REF:
     case CLEANUP_POINT_EXPR:
     case LOOKUP_EXPR:
-    case SIZEOF_EXPR:
-    case ALIGNOF_EXPR:
+    case THROW_EXPR:
+    case EXIT_EXPR:
+    case LOOP_EXPR:
       TRY (TREE_OPERAND (t, 0));
       break;
 
     case MODOP_EXPR:
-    case CAST_EXPR:
-    case REINTERPRET_CAST_EXPR:
-    case CONST_CAST_EXPR:
-    case STATIC_CAST_EXPR:
-    case DYNAMIC_CAST_EXPR:
     case ARROW_EXPR:
     case DOTSTAR_EXPR:
     case TYPEID_EXPR:
+    case PSEUDO_DTOR_EXPR:
       break;
 
     case COMPLEX_CST:
@@ -1712,6 +1695,7 @@ search_tree (t, func)
       break;
 
     case BIND_EXPR:
+    case STMT_EXPR:
       break;
 
     case REAL_TYPE:
@@ -1754,13 +1738,8 @@ search_tree (t, func)
 	TRY (TYPE_PTRMEMFUNC_FN_TYPE (t));
       break;
       
-      /*  This list is incomplete, but should suffice for now.
-	  It is very important that `sorry' not call
-	  `report_error_function'.  That could cause an infinite loop.  */
     default:
-      sorry ("initializer contains unrecognized tree code");
-      return error_mark_node;
-
+      my_friendly_abort (19990803);
     }
 
   return NULL_TREE;
@@ -1789,6 +1768,11 @@ tree
 no_linkage_check (t)
      tree t;
 {
+  /* There's no point in checking linkage on template functions; we
+     can't know their complete types.  */
+  if (processing_template_decl)
+    return NULL_TREE;
+
   t = search_tree (t, no_linkage_helper);
   if (t != error_mark_node)
     return t;
@@ -1805,6 +1789,7 @@ mapcar (t, func)
      tree (*func) PROTO((tree));
 {
   tree tmp;
+  enum tree_code code; 
 
   if (t == NULL_TREE)
     return t;
@@ -1814,6 +1799,24 @@ mapcar (t, func)
       tmp = func (t);
       if (tmp)
 	return tmp;
+    }
+
+  /* Handle some common cases up front.  */
+  code = TREE_CODE (t);
+  if (TREE_CODE_CLASS (code) == '1')
+    {
+      t = copy_node (t);
+      TREE_TYPE (t) = mapcar (TREE_TYPE (t), func);
+      TREE_OPERAND (t, 0) = mapcar (TREE_OPERAND (t, 0), func);
+      return t;
+    }
+  else if (TREE_CODE_CLASS (code) == '2' || TREE_CODE_CLASS (code) == '<')
+    {
+      t = copy_node (t);
+      TREE_TYPE (t) = mapcar (TREE_TYPE (t), func);
+      TREE_OPERAND (t, 0) = mapcar (TREE_OPERAND (t, 0), func);
+      TREE_OPERAND (t, 1) = mapcar (TREE_OPERAND (t, 1), func);
+      return t;
     }
 
   switch (TREE_CODE (t))
@@ -1902,40 +1905,11 @@ mapcar (t, func)
       TREE_OPERAND (t, 2) = mapcar (TREE_OPERAND (t, 2), func);
       return t;
 
-    case SAVE_EXPR:
-      t = copy_node (t);
-      TREE_OPERAND (t, 0) = mapcar (TREE_OPERAND (t, 0), func);
-      return t;
-
-    case MODIFY_EXPR:
-    case PLUS_EXPR:
-    case MINUS_EXPR:
-    case MULT_EXPR:
-    case TRUNC_DIV_EXPR:
-    case TRUNC_MOD_EXPR:
-    case MIN_EXPR:
-    case MAX_EXPR:
-    case LSHIFT_EXPR:
-    case RSHIFT_EXPR:
-    case BIT_IOR_EXPR:
-    case BIT_XOR_EXPR:
-    case BIT_AND_EXPR:
-    case BIT_ANDTC_EXPR:
+    case TRUTH_AND_EXPR:
+    case TRUTH_OR_EXPR:
+    case TRUTH_XOR_EXPR:
     case TRUTH_ANDIF_EXPR:
     case TRUTH_ORIF_EXPR:
-    case LT_EXPR:
-    case LE_EXPR:
-    case GT_EXPR:
-    case GE_EXPR:
-    case EQ_EXPR:
-    case NE_EXPR:
-    case CEIL_DIV_EXPR:
-    case FLOOR_DIV_EXPR:
-    case ROUND_DIV_EXPR:
-    case CEIL_MOD_EXPR:
-    case FLOOR_MOD_EXPR:
-    case ROUND_MOD_EXPR:
-    case COMPOUND_EXPR:
     case PREDECREMENT_EXPR:
     case PREINCREMENT_EXPR:
     case POSTDECREMENT_EXPR:
@@ -1944,6 +1918,8 @@ mapcar (t, func)
     case SCOPE_REF:
     case TRY_CATCH_EXPR:
     case WITH_CLEANUP_EXPR:
+    case COMPOUND_EXPR:
+    case MODIFY_EXPR:
       t = copy_node (t);
       TREE_OPERAND (t, 0) = mapcar (TREE_OPERAND (t, 0), func);
       TREE_OPERAND (t, 1) = mapcar (TREE_OPERAND (t, 1), func);
@@ -1954,26 +1930,17 @@ mapcar (t, func)
       TREE_TYPE (t) = mapcar (TREE_TYPE (t), func);
       TREE_OPERAND (t, 0) = mapcar (TREE_OPERAND (t, 0), func);
       TREE_OPERAND (t, 1) = mapcar (TREE_OPERAND (t, 1), func);
-
-      /* tree.def says that operand two is RTL, but
-	 make_call_declarator puts trees in there.  */
-      if (TREE_OPERAND (t, 2)
-	  && TREE_CODE (TREE_OPERAND (t, 2)) == TREE_LIST)
-	TREE_OPERAND (t, 2) = mapcar (TREE_OPERAND (t, 2), func);
-      else
-	TREE_OPERAND (t, 2) = NULL_TREE;
+      TREE_OPERAND (t, 2) = NULL_TREE;
       return t;
 
-    case CONVERT_EXPR:
+    case SAVE_EXPR:
     case ADDR_EXPR:
     case INDIRECT_REF:
-    case NEGATE_EXPR:
-    case BIT_NOT_EXPR:
     case TRUTH_NOT_EXPR:
-    case NOP_EXPR:
     case COMPONENT_REF:
     case CLEANUP_POINT_EXPR:
-    case NON_LVALUE_EXPR:
+    case THROW_EXPR:
+    case STMT_EXPR:
       t = copy_node (t);
       TREE_TYPE (t) = mapcar (TREE_TYPE (t), func);
       TREE_OPERAND (t, 0) = mapcar (TREE_OPERAND (t, 0), func);
@@ -2036,8 +2003,15 @@ mapcar (t, func)
       return t;
 
     case LOOKUP_EXPR:
+    case EXIT_EXPR:
+    case LOOP_EXPR:
       t = copy_node (t);
       TREE_OPERAND (t, 0) = mapcar (TREE_OPERAND (t, 0), func);
+      return t;
+
+    case RTL_EXPR:
+      t = copy_node (t);
+      TREE_TYPE (t) = mapcar (TREE_TYPE (t), func);
       return t;
 
     case RECORD_TYPE:
@@ -2045,14 +2019,9 @@ mapcar (t, func)
 	return build_ptrmemfunc_type
 	  (mapcar (TYPE_PTRMEMFUNC_FN_TYPE (t), func));
       /* else fall through */
-      
-      /*  This list is incomplete, but should suffice for now.
-	  It is very important that `sorry' not call
-	  `report_error_function'.  That could cause an infinite loop.  */
-    default:
-      sorry ("initializer contains unrecognized tree code");
-      return error_mark_node;
 
+    default:
+      my_friendly_abort (19990815);
     }
   my_friendly_abort (107);
   /* NOTREACHED */
@@ -2101,11 +2070,8 @@ copy_to_permanent (t)
   if (t == NULL_TREE || TREE_PERMANENT (t))
     return t;
 
-  push_obstacks_nochange ();
-  end_temporary_allocation ();
-
+  push_permanent_obstack ();
   t = mapcar (t, perm_manip);
-
   pop_obstacks ();
 
   return t;
@@ -2637,6 +2603,17 @@ push_expression_obstack ()
   current_obstack = expression_obstack;
 }
 
+/* Begin allocating on the permanent obstack.  When you're done
+   allocating there, call pop_obstacks to return to the previous set
+   of obstacks.  */
+
+void
+push_permanent_obstack ()
+{
+  push_obstacks_nochange ();
+  end_temporary_allocation ();
+}
+
 /* The type of ARG when used as an lvalue.  */
 
 tree
@@ -2749,30 +2726,24 @@ int
 pod_type_p (t)
      tree t;
 {
-  tree f;
-
   while (TREE_CODE (t) == ARRAY_TYPE)
     t = TREE_TYPE (t);
 
-  if (! IS_AGGR_TYPE (t))
+  if (INTEGRAL_TYPE_P (t))
+    return 1;  /* integral, character or enumeral type */
+  if (FLOAT_TYPE_P (t))
     return 1;
-
-  if (CLASSTYPE_NON_AGGREGATE (t)
-      || TYPE_HAS_COMPLEX_ASSIGN_REF (t)
-      || TYPE_HAS_DESTRUCTOR (t))
+  if (TYPE_PTR_P (t))
+    return 1; /* pointer to non-member */
+  if (TYPE_PTRMEM_P (t))
+    return 1; /* pointer to member object */
+  if (TYPE_PTRMEMFUNC_P (t))
+    return 1; /* pointer to member function */
+  
+  if (! CLASS_TYPE_P (t))
+    return 0; /* other non-class type (reference or function) */
+  if (CLASSTYPE_NON_POD_P (t))
     return 0;
-
-  for (f = TYPE_FIELDS (t); f; f = TREE_CHAIN (f))
-    {
-      if (TREE_CODE (f) != FIELD_DECL)
-	continue;
-
-      if (TREE_CODE (TREE_TYPE (f)) == REFERENCE_TYPE
-	  || TYPE_PTRMEMFUNC_P (TREE_TYPE (f))
-	  || TYPE_PTRMEM_P (TREE_TYPE (f)))
-	return 0;
-    }
-
   return 1;
 }
 
@@ -2878,5 +2849,43 @@ make_ptrmem_cst (type, member)
   TREE_TYPE (ptrmem_cst) = type;
   PTRMEM_CST_MEMBER (ptrmem_cst) = member;
   return ptrmem_cst;
+}
+
+/* Initialize unsave for C++. */
+void
+init_cplus_unsave ()
+{
+  lang_unsave_expr_now = cplus_unsave_expr_now;
+}
+
+/* The C++ version of unsave_expr_now.
+   See gcc/tree.c:unsave_expr_now for comments. */
+
+tree
+cplus_unsave_expr_now (expr)
+     tree expr;
+{
+  if (expr == NULL)
+    return expr;
+
+  else if (TREE_CODE (expr) == AGGR_INIT_EXPR)
+    {
+      unsave_expr_now (TREE_OPERAND (expr,0));
+      if (TREE_OPERAND (expr, 1)
+	  && TREE_CODE (TREE_OPERAND (expr, 1)) == TREE_LIST)
+	{
+	  tree exp = TREE_OPERAND (expr, 1);
+	  while (exp)
+	    {
+	      unsave_expr_now (TREE_VALUE (exp));
+	      exp = TREE_CHAIN (exp);
+	    }
+	}
+      unsave_expr_now (TREE_OPERAND (expr,2));
+      return expr;
+    }
+
+  else
+    return expr;
 }
 

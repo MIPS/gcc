@@ -77,6 +77,7 @@ Boston, MA 02111-1307, USA.  */
    1: C_TYPEDEF_EXPLICITLY_SIGNED (in TYPE_DECL).
       DECL_TEMPLATE_INSTANTIATED (in a VAR_DECL or a FUNCTION_DECL)
    2: DECL_THIS_EXTERN (in VAR_DECL or FUNCTION_DECL).
+      DECL_IMPLICIT_TYPEDEF_P (in a TYPE_DECL)
    3: DECL_IN_AGGR_P.
    4: DECL_MAYBE_TEMPLATE.
    5: DECL_INTERFACE_KNOWN.
@@ -315,7 +316,8 @@ struct tree_srcloc
 
 #define IDENTIFIER_VIRTUAL_P(NODE) TREE_LANG_FLAG_1(NODE)
 
-/* Nonzero if this identifier is the prefix for a mangled C++ operator name.  */
+/* Nonzero if this identifier is the prefix for a mangled C++ operator
+   name.  */
 #define IDENTIFIER_OPNAME_P(NODE) TREE_LANG_FLAG_2(NODE)
 
 /* Nonzero if this identifier is the name of a type-conversion
@@ -376,9 +378,6 @@ enum cp_tree_index
     CPTI_UNION_TYPE,
     CPTI_ENUM_TYPE,
     CPTI_UNKNOWN_TYPE,
-    CPTI_OPAQUE_TYPE,
-    CPTI_SIGNATURE_TYPE,
-    CPTI_SIGTABLE_ENTRY_TYPE,
     CPTI_VTBL_TYPE,
     CPTI_VTBL_PTR_TYPE,
     CPTI_STD,
@@ -422,9 +421,6 @@ extern tree cp_global_trees[CPTI_MAX];
 #define union_type_node			cp_global_trees[CPTI_UNION_TYPE]
 #define enum_type_node			cp_global_trees[CPTI_ENUM_TYPE]
 #define unknown_type_node		cp_global_trees[CPTI_UNKNOWN_TYPE]
-#define opaque_type_node		cp_global_trees[CPTI_OPAQUE_TYPE]
-#define signature_type_node		cp_global_trees[CPTI_SIGNATURE_TYPE]
-#define sigtable_entry_type		cp_global_trees[CPTI_SIGTABLE_ENTRY_TYPE]
 #define vtbl_type_node			cp_global_trees[CPTI_VTBL_TYPE]
 #define vtbl_ptr_type_node		cp_global_trees[CPTI_VTBL_PTR_TYPE]
 #define std_node			cp_global_trees[CPTI_STD]
@@ -581,10 +577,6 @@ extern int flag_elide_constructors;
 
 extern int flag_ansi;
 
-/* Nonzero means recognize and handle signature language constructs.  */
-
-extern int flag_handle_signatures;
-
 /* Nonzero means that member functions defined in class scope are
    inline by default.  */
 
@@ -601,6 +593,10 @@ extern int flag_guiding_decls;
    This uses the B and K codes to reference previously seen class types 
    and class qualifiers.       */
 extern int flag_do_squangling;
+
+/* Nonzero means generate separate instantiation control files and juggle
+   them at link time.  */
+extern int flag_use_repository;
 
 /* Nonzero if we want to issue diagnostics that the standard says are not
    required.  */
@@ -620,6 +616,12 @@ extern int flag_permissive;
 /* Nonzero if we want to obey access control semantics.  */
 
 extern int flag_access_control;
+
+/* If this variable is defined to a non-NULL value, it will be called
+   after the file has been completely parsed.  The argument will be
+   the GLOBAL_NAMESPACE.  */
+
+extern void (*back_end_hook) PROTO((tree));
 
 
 /* C++ language-specific tree codes.  */
@@ -784,23 +786,20 @@ struct lang_type
       unsigned use_template : 2;
       unsigned got_semicolon : 1;
       unsigned ptrmemfunc_flag : 1;
-      unsigned is_signature : 1;
-
-      unsigned is_signature_pointer : 1;
-      unsigned is_signature_reference : 1;
-      unsigned has_opaque_typedecls : 1;
-      unsigned sigtable_has_been_generated : 1;
       unsigned was_anonymous : 1;
+
       unsigned has_real_assign_ref : 1;
       unsigned has_const_init_ref : 1;
       unsigned has_complex_init_ref : 1;
-
       unsigned has_complex_assign_ref : 1;
       unsigned has_abstract_assign_ref : 1;
       unsigned non_aggregate : 1;
       unsigned is_partial_instantiation : 1;
       unsigned has_mutable : 1;
+
       unsigned com_interface : 1;
+      unsigned non_pod_class : 1;
+
       /* When adding a flag here, consider whether or not it ought to
 	 apply to a template instance if it applies to the template.
 	 If so, make sure to copy it in instantiate_class_template!  */
@@ -808,7 +807,7 @@ struct lang_type
       /* The MIPS compiler gets it wrong if this struct also
 	 does not fill out to a multiple of 4 bytes.  Add a
 	 member `dummy' with new bits if you go over the edge.  */
-      unsigned dummy : 10;
+      unsigned dummy : 14;
     } type_flags;
 
   int vsize;
@@ -833,9 +832,6 @@ struct lang_type
 
   union tree_node *methods;
 
-  union tree_node *signature;
-  union tree_node *signature_pointer_to;
-  union tree_node *signature_reference_to;
   union tree_node *template_info;
   tree befriending_classes;
 };
@@ -885,45 +881,6 @@ struct lang_type
 /* Nonzero means that this type has been redefined.  In this case, if
    convenient, don't reprocess any methods that appear in its redefinition.  */
 #define TYPE_REDEFINED(NODE) (TYPE_LANG_SPECIFIC(NODE)->type_flags.redefined)
-
-/* Nonzero means that this type is a signature.  */
-# define IS_SIGNATURE(NODE) (TYPE_LANG_SPECIFIC(NODE)?TYPE_LANG_SPECIFIC(NODE)->type_flags.is_signature:0)
-# define SET_SIGNATURE(NODE) (TYPE_LANG_SPECIFIC(NODE)->type_flags.is_signature=1)
-# define CLEAR_SIGNATURE(NODE) (TYPE_LANG_SPECIFIC(NODE)->type_flags.is_signature=0)
-
-/* Nonzero means that this type is a signature pointer type.  */
-# define IS_SIGNATURE_POINTER(NODE) (TYPE_LANG_SPECIFIC(NODE)->type_flags.is_signature_pointer)
-
-/* Nonzero means that this type is a signature reference type.  */
-# define IS_SIGNATURE_REFERENCE(NODE) (TYPE_LANG_SPECIFIC(NODE)->type_flags.is_signature_reference)
-
-/* Nonzero means that this signature contains opaque type declarations.  */
-#define SIGNATURE_HAS_OPAQUE_TYPEDECLS(NODE) (TYPE_LANG_SPECIFIC(NODE)->type_flags.has_opaque_typedecls)
-
-/* Nonzero means that a signature table has been generated
-   for this signature.  */
-#define SIGTABLE_HAS_BEEN_GENERATED(NODE) (TYPE_LANG_SPECIFIC(NODE)->type_flags.sigtable_has_been_generated)
-
-/* If NODE is a class, this is the signature type that contains NODE's
-   signature after it has been computed using sigof().  */
-#define CLASSTYPE_SIGNATURE(NODE) (TYPE_LANG_SPECIFIC(NODE)->signature)
-
-/* If NODE is a signature pointer or signature reference, this is the
-   signature type the pointer/reference points to.  */
-#define SIGNATURE_TYPE(NODE) (TYPE_LANG_SPECIFIC(NODE)->signature)
-
-/* If NODE is a signature, this is a vector of all methods defined
-   in the signature or in its base types together with their default
-   implementations.  */
-#define SIGNATURE_METHOD_VEC(NODE) (TYPE_LANG_SPECIFIC(NODE)->signature)
-
-/* If NODE is a signature, this is the _TYPE node that contains NODE's
-   signature pointer type.  */
-#define SIGNATURE_POINTER_TO(NODE) (TYPE_LANG_SPECIFIC(NODE)->signature_pointer_to)
-
-/* If NODE is a signature, this is the _TYPE node that contains NODE's
-   signature reference type.  */
-#define SIGNATURE_REFERENCE_TO(NODE) (TYPE_LANG_SPECIFIC(NODE)->signature_reference_to)
 
 /* The is the basetype that contains NODE's rtti.  */
 #define CLASSTYPE_RTTI(NODE) (TYPE_LANG_SPECIFIC(NODE)->rtti)
@@ -1075,6 +1032,9 @@ struct lang_type
 #define CLASSTYPE_HAS_MUTABLE(NODE) (TYPE_LANG_SPECIFIC(NODE)->type_flags.has_mutable)
 #define TYPE_HAS_MUTABLE_P(NODE) (cp_has_mutable_p (NODE))
 
+/*  Nonzero means that this class type is a non-POD class.  */
+#define CLASSTYPE_NON_POD_P(NODE) (TYPE_LANG_SPECIFIC (NODE)->type_flags.non_pod_class)
+
 /* Nonzero means that this type is meant for communication via COM.  */
 #define CLASSTYPE_COM_INTERFACE(NODE) \
   (TYPE_LANG_SPECIFIC(NODE)->type_flags.com_interface)
@@ -1203,12 +1163,14 @@ struct lang_type
 
 
 /* If a DECL has DECL_LANG_SPECIFIC, it is either a lang_decl_flags or
-   a lang_decl (which has lang_decl_flags as its initial prefix).  A
-   FUNCTION_DECL, NAMESPACE_DECL, TYPE_DECL, or USING_DECL may have a
-   full lang_decl.  A FIELD_DECL, or a static data member VAR_DECL,
-   will have only lang_decl_flags.  Thus, one should only access the
-   members of lang_decl that are not in lang_decl_flags for DECLs that
-   are not FIELD_DECLs or VAR_DECLs.  */
+   a lang_decl (which has lang_decl_flags as its initial prefix).
+   This macro is nonzero for tree nodes whose DECL_LANG_SPECIFIC is
+   the full lang_decl, and not just lang_decl_flags.  */
+#define CAN_HAVE_FULL_LANG_DECL_P(NODE)		\
+  (!(TREE_CODE ((NODE)) == VAR_DECL		\
+     || TREE_CODE ((NODE)) == CONST_DECL	\
+     || TREE_CODE ((NODE)) == FIELD_DECL 	\
+     || TREE_CODE ((NODE)) == USING_DECL))
 
 struct lang_decl_flags
 {
@@ -1224,33 +1186,27 @@ struct lang_decl_flags
   unsigned static_function : 1;
   unsigned const_memfunc : 1;
   unsigned volatile_memfunc : 1;
-
   unsigned abstract_virtual : 1;
   unsigned permanent_attr : 1 ;
+
   unsigned constructor_for_vbase_attr : 1;
   unsigned mutable_flag : 1;
-  unsigned is_default_implementation : 1;
   unsigned saved_inline : 1;
   unsigned use_template : 2;
-
   unsigned nonconverting : 1;
   unsigned declared_inline : 1;
   unsigned not_really_extern : 1;
+
   unsigned needs_final_overrider : 1;
   unsigned bitfield : 1;
   unsigned defined_in_class : 1;
-  unsigned dummy : 4;
+  unsigned dummy : 5;
 
   tree access;
   tree context;
 
-  /* In a template FUNCTION_DECL, this is DECL_SAVED_TREE.
-     In a non-template FUNCTION_DECL, this is DECL_MEMFUNC_POINTER_TO.
-     In a FIELD_DECL, this is DECL_MEMFUNC_POINTING_TO.  */
-  tree memfunc_pointer_to;
-
   union {
-    /* In a FUNCTION_DECL, this is DECL_TEMPLATE_INFO.  */
+    /* In a FUNCTION_DECL or a VAR_DECL, this is DECL_TEMPLATE_INFO.  */
     tree template_info;
 
     /* In a NAMESPACE_DECL, this is NAMESPACE_LEVEL.  */
@@ -1264,10 +1220,17 @@ struct lang_decl
 
   tree main_decl_variant;
   tree befriending_classes;
+
+  /* In a FUNCTION_DECL, this is DECL_SAVED_TREE.  */
+  tree saved_tree;
+
   union
   {
     tree sorted_fields;
     struct pending_inline *pending_inline_info;
+    /* The lang_decls on the free_lang_decl_chain are chained together
+       through this pointer.  */
+    struct lang_decl *next;
   } u;
 };
 
@@ -1296,8 +1259,13 @@ struct lang_decl
   (DESTRUCTOR_NAME_P (DECL_ASSEMBLER_NAME (NODE))	\
    && DECL_LANGUAGE (NODE) == lang_cplusplus)
 
+/* Non-zero if NODE is a user-defined conversion operator.  */
 #define DECL_CONV_FN_P(NODE)						     \
   (IDENTIFIER_TYPENAME_P (DECL_NAME (NODE)) && TREE_TYPE (DECL_NAME (NODE)))
+
+/* Non-zero if NODE is an overloaded operator.  */
+#define DECL_OVERLOADED_OPERATOR_P(NODE)	\
+  (IDENTIFIER_OPNAME_P (DECL_NAME ((NODE))))
 
 /* For FUNCTION_DECLs: nonzero means that this function is a constructor
    for an object with virtual baseclasses.  */
@@ -1312,10 +1280,6 @@ struct lang_decl
 /* Mark NODE as a type-info function.  */
 #define SET_DECL_TINFO_FN_P(NODE) \
   (DECL_LANG_SPECIFIC((NODE))->decl_flags.mutable_flag = 1)
-
-/* For FUNCTION_DECLs: nonzero means that this function is a default
-   implementation of a signature method.  */
-#define IS_DEFAULT_IMPLEMENTATION(NODE) (DECL_LANG_SPECIFIC(NODE)->decl_flags.is_default_implementation)
 
 /* Nonzero for _DECL means that this decl appears in (or will appear
    in) as a member in a RECORD_TYPE or UNION_TYPE node.  It is also for
@@ -1467,15 +1431,6 @@ struct lang_decl
 #define DECL_SAVED_INLINE(DECL) \
   (DECL_LANG_SPECIFIC(DECL)->decl_flags.saved_inline)
 
-/* For a FUNCTION_DECL: if this function was declared inside a signature
-   declaration, this is the corresponding member function pointer that was
-   created for it.  */
-#define DECL_MEMFUNC_POINTER_TO(NODE) (DECL_LANG_SPECIFIC(NODE)->decl_flags.memfunc_pointer_to)
-
-/* For a FIELD_DECL: this points to the signature member function from
-   which this signature member function pointer was created.  */
-#define DECL_MEMFUNC_POINTING_TO(NODE) (DECL_LANG_SPECIFIC(NODE)->decl_flags.memfunc_pointer_to)
-
 /* For a VAR_DECL or FUNCTION_DECL: template-specific information.  */
 #define DECL_TEMPLATE_INFO(NODE) \
   (DECL_LANG_SPECIFIC(NODE)->decl_flags.u.template_info)
@@ -1563,7 +1518,8 @@ struct lang_decl
 
 /* In a template FUNCTION_DECL, the tree structure that will be
    substituted into to obtain instantiations.  */
-#define DECL_SAVED_TREE(NODE)		DECL_MEMFUNC_POINTER_TO (NODE)
+#define DECL_SAVED_TREE(NODE) \
+  (DECL_LANG_SPECIFIC ((NODE))->saved_tree)
 
 #define COMPOUND_STMT_NO_SCOPE(NODE)	TREE_LANG_FLAG_0 (NODE)
 #define NEW_EXPR_USE_GLOBAL(NODE)	TREE_LANG_FLAG_0 (NODE)
@@ -1780,8 +1736,11 @@ extern int flag_new_for_scope;
 
 /* Nonzero for _TYPE node means that this type is a pointer to member
    function type.  */
-#define TYPE_PTRMEMFUNC_P(NODE) \
-  (TREE_CODE(NODE) == RECORD_TYPE && TYPE_PTRMEMFUNC_FLAG (NODE))
+#define TYPE_PTRMEMFUNC_P(NODE)		\
+  (TREE_CODE(NODE) == RECORD_TYPE	\
+   && TYPE_LANG_SPECIFIC(NODE)		\
+   && TYPE_PTRMEMFUNC_FLAG (NODE))
+
 #define TYPE_PTRMEMFUNC_FLAG(NODE) \
   (TYPE_LANG_SPECIFIC(NODE)->type_flags.ptrmemfunc_flag)
 
@@ -1854,12 +1813,22 @@ extern int flag_new_for_scope;
 #define DELTA2_FROM_PTRMEMFUNC(NODE) delta2_from_ptrmemfunc ((NODE))
 #define PFN_FROM_PTRMEMFUNC(NODE) pfn_from_ptrmemfunc ((NODE))
 
+/* For a pointer-to-member type of the form `T X::*', this is `X'.  */
+#define TYPE_PTRMEM_CLASS_TYPE(NODE)			\
+  (TYPE_PTRMEM_P ((NODE))				\
+   ? TYPE_OFFSET_BASETYPE (TREE_TYPE ((NODE)))		\
+   : TYPE_PTRMEMFUNC_OBJECT_TYPE ((NODE)))
+
+/* For a pointer-to-member type of the form `T X::*', this is `T'.  */
+#define TYPE_PTRMEM_POINTED_TO_TYPE(NODE)		\
+   (TYPE_PTRMEM_P ((NODE))				\
+    ? TREE_TYPE (TREE_TYPE (NODE))			\
+    : TREE_TYPE (TYPE_PTRMEMFUNC_FN_TYPE ((NODE))))
+
 /* For a pointer-to-member constant `X::Y' this is the RECORD_TYPE for
    `X'.  */
-#define PTRMEM_CST_CLASS(NODE)				  \
-   (TYPE_PTRMEM_P (TREE_TYPE (NODE)) 			  \
-    ? TYPE_OFFSET_BASETYPE (TREE_TYPE (TREE_TYPE (NODE))) \
-    : TYPE_PTRMEMFUNC_OBJECT_TYPE (TREE_TYPE (NODE)))
+#define PTRMEM_CST_CLASS(NODE) \
+  TYPE_PTRMEM_CLASS_TYPE (TREE_TYPE (NODE))
 
 /* For a pointer-to-member constant `X::Y' this is the _DECL for 
    `Y'.  */
@@ -2032,6 +2001,18 @@ extern int flag_new_for_scope;
 #define DECL_DECLARES_TYPE_P(NODE) \
   (TREE_CODE (NODE) == TYPE_DECL || DECL_CLASS_TEMPLATE_P (NODE))
 
+/* Nonzero if NODE is the typedef implicitly generated for a type when
+   the type is declared.  (In C++, `struct S {};' is roughly equivalent
+   to `struct S {}; typedef struct S S;' in C.  This macro will hold
+   for the typedef indicated in this example.  Note that in C++, there
+   is a second implicit typedef for each class, in the scope of `S'
+   itself, so that you can `S::S'.  This macro does *not* hold for
+   those typedefs.  */
+#define DECL_IMPLICIT_TYPEDEF_P(NODE) \
+  (TREE_CODE ((NODE)) == TYPE_DECL && DECL_LANG_FLAG_2 ((NODE)))
+#define SET_DECL_IMPLICIT_TYPEDEF_P(NODE) \
+  (DECL_LANG_FLAG_2 ((NODE)) = 1)
+
 /* A `primary' template is one that has its own template header.  A
    member function of a class template is a template, but not primary.
    A member template is primary.  Friend templates are primary, too.  */
@@ -2168,10 +2149,31 @@ extern int flag_new_for_scope;
 #define ASM_OUTPUTS(NODE)       TREE_OPERAND (NODE, 2)
 #define ASM_INPUTS(NODE)        TREE_OPERAND (NODE, 3)
 #define ASM_CLOBBERS(NODE)      TREE_OPERAND (NODE, 4)
+#define DECL_STMT_DECL(NODE)    TREE_OPERAND (NODE, 0)
+#define STMT_EXPR_STMT(NODE)    TREE_OPERAND (NODE, 0)
+
+/* Nonzero for an ASM_STMT if the assembly statement is volatile.  */
+#define ASM_VOLATILE_P(NODE)			\
+  (ASM_CV_QUAL ((NODE)) != NULL_TREE)
+
+/* The line-number at which a statement began.  */
+#define STMT_LINENO(NODE)			\
+  (TREE_COMPLEXITY ((NODE)))
+
+/* The parameters for a call-declarator.  */
+#define CALL_DECLARATOR_PARMS(NODE) \
+  (TREE_PURPOSE (TREE_OPERAND ((NODE), 1)))
+
+/* The cv-qualifiers for a call-declarator.  */
+#define CALL_DECLARATOR_QUALS(NODE) \
+  (TREE_VALUE (TREE_OPERAND ((NODE), 1)))
+
+/* The exception-specification for a call-declarator.  */
+#define CALL_DECLARATOR_EXCEPTION_SPEC(NODE) \
+  (TREE_TYPE ((NODE)))
 
 /* An enumeration of the kind of tags that C++ accepts.  */
-enum tag_types { record_type, class_type, union_type, enum_type,
-		   signature_type };
+enum tag_types { record_type, class_type, union_type, enum_type };
 
 /* The various kinds of lvalues we distinguish.  */
 typedef enum cp_lvalue_kind {
@@ -2189,6 +2191,9 @@ extern int strict_prototypes_lang_c, strict_prototypes_lang_cplusplus;
 /* Non-zero means that if a label exists, and no other identifier
    applies, use the value of the label.  */
 extern int flag_labels_ok;
+
+/* Nonzero means allow Microsoft extensions without a pedwarn.  */
+extern int flag_ms_extensions;
 
 /* Non-zero means to collect statistics which might be expensive
    and to print them when we are done.  */
@@ -2257,6 +2262,9 @@ extern tree delta2_identifier;
 extern tree pfn_or_delta2_identifier;
 extern tree tag_identifier;
 extern tree vt_off_identifier;
+extern tree empty_except_spec;
+
+extern int in_function_try_handler;
 
 /* A node that is a list (length 1) of error_mark_nodes.  */
 extern tree error_mark_list;
@@ -2299,8 +2307,6 @@ struct tinst_level
   char *file;
   struct tinst_level *next;
 };
-
-extern int minimal_parse_mode;
 
 extern void maybe_print_template_context	PROTO ((void));
 
@@ -2458,21 +2464,6 @@ extern int current_function_parms_stored;
 #define VTABLE_PFN_NAME		"__pfn"
 #define VTABLE_DELTA2_NAME	"__delta2"
 
-#define SIGNATURE_FIELD_NAME	"__s_"
-#define SIGNATURE_FIELD_NAME_FORMAT "__s_%s"
-#define SIGNATURE_OPTR_NAME	"__optr"
-#define SIGNATURE_SPTR_NAME	"__sptr"
-#define SIGNATURE_POINTER_NAME	"__sp_"
-#define SIGNATURE_POINTER_NAME_FORMAT "__%s%s%ssp_%s"
-#define SIGNATURE_REFERENCE_NAME "__sr_"
-#define SIGNATURE_REFERENCE_NAME_FORMAT "__%s%s%ssr_%s"
-
-#define SIGTABLE_PTR_TYPE	"__sigtbl_ptr_type"
-#define SIGTABLE_NAME_FORMAT	"__st_%s_%s"
-#define SIGTABLE_NAME_FORMAT_LONG "__st_%s_%s_%d"
-#define SIGTABLE_TAG_NAME	"__tag"
-#define SIGTABLE_VB_OFF_NAME	"__vb_off"
-#define SIGTABLE_VT_OFF_NAME	"__vt_off"
 #define EXCEPTION_CLEANUP_NAME 	"exception cleanup"
 
 #define THIS_NAME_P(ID_NODE) (strcmp(IDENTIFIER_POINTER (ID_NODE), "this") == 0)
@@ -2769,7 +2760,7 @@ extern tree current_class_name;	/* IDENTIFIER_NODE: name of current class */
 /* Indexed by TREE_CODE, these tables give C-looking names to
    operators represented by TREE_CODES.  For example,
    opname_tab[(int) MINUS_EXPR] == "-".  */
-extern char **opname_tab, **assignop_tab;
+extern const char **opname_tab, **assignop_tab;
 
 /* in call.c */
 extern int check_dtor_name			PROTO((tree, tree));
@@ -2920,8 +2911,9 @@ extern tree lookup_name_namespace_only          PROTO((tree));
 extern void begin_only_namespace_names          PROTO((void));
 extern void end_only_namespace_names            PROTO((void));
 extern tree namespace_ancestor			PROTO((tree, tree));
-extern int  lookup_using_namespace              PROTO((tree,tree,tree,tree,int));
-extern int  qualified_lookup_using_namespace    PROTO((tree,tree,tree,int));
+extern tree unqualified_namespace_lookup	PROTO((tree, int, tree *));
+extern int  lookup_using_namespace              PROTO((tree, tree, tree, tree, int, tree *));
+extern int  qualified_lookup_using_namespace    PROTO((tree, tree, tree, int));
 extern tree auto_function			PROTO((tree, tree, enum built_in_function));
 extern void init_decl_processing		PROTO((void));
 extern int init_type_desc			PROTO((void));
@@ -2952,7 +2944,7 @@ extern tree build_enumerator			PROTO((tree, tree, tree));
 extern int start_function			PROTO((tree, tree, tree, int));
 extern void expand_start_early_try_stmts	PROTO((void));
 extern void store_parm_decls			PROTO((void));
-extern void store_return_init			PROTO((tree, tree));
+extern void store_return_init			PROTO((tree));
 extern void finish_function			PROTO((int, int, int));
 extern tree start_method			PROTO((tree, tree, tree));
 extern tree finish_method			PROTO((tree));
@@ -2987,6 +2979,9 @@ typedef int (*walk_namespaces_fn)               PROTO((tree, void *));
 extern int walk_namespaces                      PROTO((walk_namespaces_fn,
 						       void *));
 extern int wrapup_globals_for_namespace         PROTO((tree, void *));
+extern tree cp_namespace_decls                  PROTO((tree));
+extern tree create_implicit_typedef             PROTO((tree, tree));
+extern tree maybe_push_decl                     PROTO((tree));
 
 /* in decl2.c */
 extern int check_java_method			PROTO((tree));
@@ -3138,7 +3133,7 @@ extern tree make_pointer_declarator		PROTO((tree, tree));
 extern tree make_reference_declarator		PROTO((tree, tree));
 extern tree make_call_declarator		PROTO((tree, tree, tree, tree));
 extern void set_quals_and_spec			PROTO((tree, tree, tree));
-extern char *operator_name_string		PROTO((tree));
+extern const char *operator_name_string		PROTO((tree));
 extern void lang_init				PROTO((void));
 extern void lang_finish				PROTO((void));
 #if 0
@@ -3168,7 +3163,6 @@ extern int real_yylex				PROTO((void));
 extern int is_rid				PROTO((tree));
 extern tree build_lang_decl			PROTO((enum tree_code, tree, tree));
 extern void retrofit_lang_decl			PROTO((tree));
-extern tree build_lang_field_decl		PROTO((enum tree_code, tree, tree));
 extern void copy_lang_decl			PROTO((tree));
 extern tree make_lang_type			PROTO((enum tree_code));
 extern void dump_time_statistics		PROTO((void));
@@ -3201,7 +3195,7 @@ extern tree hack_identifier			PROTO((tree, tree));
 extern tree make_thunk				PROTO((tree, int));
 extern void emit_thunk				PROTO((tree));
 extern void synthesize_method			PROTO((tree));
-extern tree get_id_2				PROTO((char *, tree));
+extern tree get_id_2				PROTO((const char *, tree));
 
 /* in pt.c */
 extern void check_template_shadow		PROTO ((tree));
@@ -3242,7 +3236,6 @@ extern void do_type_instantiation		PROTO((tree, tree));
 extern tree instantiate_decl			PROTO((tree));
 extern tree do_poplevel				PROTO((void));
 extern tree get_bindings			PROTO((tree, tree, tree));
-/* CONT ... */
 extern void add_tree				PROTO((tree));
 extern void begin_tree                          PROTO((void));
 extern void end_tree                            PROTO((void));
@@ -3261,6 +3254,7 @@ extern void maybe_check_template_type           PROTO((tree));
 extern tree most_specialized_instantiation      PROTO((tree, tree));
 extern void print_candidates                    PROTO((tree));
 extern int instantiate_pending_templates        PROTO((void));
+extern tree tsubst_default_argument             PROTO((tree, tree, tree));
 
 extern int processing_specialization;
 extern int processing_explicit_instantiation;
@@ -3308,8 +3302,10 @@ extern void print_search_statistics		PROTO((void));
 extern void init_search_processing		PROTO((void));
 extern void reinit_search_statistics		PROTO((void));
 extern tree current_scope			PROTO((void));
+extern int at_function_scope_p                  PROTO((void));
 extern tree lookup_conversions			PROTO((tree));
 extern tree binfo_for_vtable			PROTO((tree));
+extern int  binfo_from_vbase			PROTO((tree));
 extern tree dfs_walk                            PROTO((tree, 
 						       tree (*)(tree, void *),
 						       tree (*) (tree, void *),
@@ -3347,12 +3343,16 @@ extern void finish_goto_stmt                    PROTO((tree));
 extern tree begin_try_block                     PROTO((void));
 extern void finish_try_block                    PROTO((tree));
 extern void finish_handler_sequence             PROTO((tree));
+extern tree begin_function_try_block            PROTO((void));
+extern void finish_function_try_block           PROTO((tree));
+extern void finish_function_handler_sequence    PROTO((tree));
 extern tree begin_handler                       PROTO((void));
 extern void finish_handler_parms                PROTO((tree));
 extern void finish_handler                      PROTO((tree));
 extern tree begin_compound_stmt                 PROTO((int));
 extern tree finish_compound_stmt                PROTO((int, tree));
 extern void finish_asm_stmt                     PROTO((tree, tree, tree, tree, tree));
+extern void finish_label_stmt                   PROTO((tree));
 extern tree finish_parenthesized_expr           PROTO((tree));
 extern tree begin_stmt_expr                     PROTO((void));
 extern tree finish_stmt_expr                    PROTO((tree, tree));
@@ -3384,18 +3384,22 @@ extern tree finish_member_class_template        PROTO((tree));
 extern void finish_template_decl                PROTO((tree));
 extern tree finish_template_type                PROTO((tree, tree, int));
 extern void enter_scope_of                      PROTO((tree));
-extern tree finish_base_specifier               PROTO((tree, tree, int));
+extern tree finish_base_specifier               PROTO((tree, tree));
 extern void finish_member_declaration           PROTO((tree));
 extern void check_multiple_declarators          PROTO((void));
 extern tree finish_typeof			PROTO((tree));
-
-/* in sig.c */
-extern tree build_signature_pointer_type	PROTO((tree));
-extern tree build_signature_reference_type	PROTO((tree));
-extern tree build_signature_pointer_constructor	PROTO((tree, tree));
-extern tree build_signature_method_call		PROTO((tree, tree));
-extern tree build_optr_ref			PROTO((tree));
-extern void append_signature_fields		PROTO((tree));
+extern void add_decl_stmt                       PROTO((tree));
+extern void finish_named_return_value           PROTO((tree, tree));
+extern tree expand_stmt                         PROTO((tree));
+extern void expand_body                         PROTO((tree));
+extern void begin_stmt_tree                     PROTO((tree));
+extern void finish_stmt_tree                    PROTO((tree));
+extern int expanding_p;
+extern tree last_expr_type;
+/* Non-zero if we are presently building a statement tree, rather
+   than expanding each statement as we encounter it.  */
+#define building_stmt_tree() \
+  (processing_template_decl || !expanding_p)
 
 /* in spew.c */
 extern void init_spew				PROTO((void));
@@ -3404,6 +3408,8 @@ extern int yylex				PROTO((void));
 extern tree arbitrate_lookup			PROTO((tree, tree, tree));
 
 /* in tree.c */
+extern void init_cplus_unsave			PROTO((void));
+extern tree cplus_unsave_expr_now               PROTO((tree));
 extern int pod_type_p				PROTO((tree));
 extern void unshare_base_binfos			PROTO((tree));
 extern int member_p				PROTO((tree));
@@ -3472,6 +3478,7 @@ extern tree mapcar				PROTO((tree, tree (*) (tree)));
 extern tree no_linkage_check			PROTO((tree));
 extern void debug_binfo				PROTO((tree));
 extern void push_expression_obstack		PROTO((void));
+extern void push_permanent_obstack              PROTO((void));
 extern tree build_dummy_object			PROTO((tree));
 extern tree maybe_dummy_object			PROTO((tree, tree *));
 extern int is_dummy_object			PROTO((tree));
@@ -3501,7 +3508,7 @@ extern int fntype_p				PROTO((tree));
 extern tree commonparms				PROTO((tree, tree));
 extern tree original_type			PROTO((tree));
 extern tree common_type				PROTO((tree, tree));
-extern int compexcepttypes			PROTO((tree, tree));
+extern int comp_except_specs			PROTO((tree, tree, int));
 extern int comptypes				PROTO((tree, tree, int));
 extern int comp_target_types			PROTO((tree, tree, int));
 extern int compparms				PROTO((tree, tree));
@@ -3565,14 +3572,14 @@ extern void expand_ptrmemfunc_cst               PROTO((tree, tree *, tree *, tre
 extern tree delta2_from_ptrmemfunc              PROTO((tree));
 extern tree pfn_from_ptrmemfunc                 PROTO((tree));
 extern tree type_after_usual_arithmetic_conversions PROTO((tree, tree));
-extern tree composite_pointer_type              PROTO((tree, tree, tree, tree, char*));
+extern tree composite_pointer_type              PROTO((tree, tree, tree, tree,
+						       const char*));
 
 /* in typeck2.c */
 extern tree error_not_base_type			PROTO((tree, tree));
 extern tree binfo_or_else			PROTO((tree, tree));
 extern void readonly_error			PROTO((tree, const char *, int));
 extern int abstract_virtuals_error		PROTO((tree, tree));
-extern void signature_error			PROTO((tree, tree));
 extern void incomplete_type_error		PROTO((tree, tree));
 extern void my_friendly_abort			PROTO((int))
   ATTRIBUTE_NORETURN;
@@ -3586,7 +3593,7 @@ extern tree build_functional_cast		PROTO((tree, tree));
 extern char *enum_name_string			PROTO((tree, tree));
 extern void report_case_error			PROTO((int, tree, tree, tree));
 extern void check_for_new_type			PROTO((const char *, flagged_type_tree));
-extern tree initializer_constant_valid_p	PROTO((tree, tree));
+extern tree add_exception_specifier             PROTO((tree, tree, int));
 
 /* in xref.c */
 extern void GNU_xref_begin			PROTO((const char *));
@@ -3601,6 +3608,9 @@ extern void GNU_xref_function			PROTO((tree, tree));
 extern void GNU_xref_assign			PROTO((tree));
 extern void GNU_xref_hier			PROTO((tree, tree, int, int, int));
 extern void GNU_xref_member			PROTO((tree, tree));
+
+/* in dump.c */
+extern void dump_node_to_file                   PROTO ((tree, const char *));
 
 /* -- end of C++ */
 

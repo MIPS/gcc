@@ -37,6 +37,7 @@ Boston, MA 02111-1307, USA.  */
 #include "lex.h"
 #include "output.h"
 #include "except.h"
+#include "function.h"
 #include "expr.h"
 #include "defaults.h"
 #include "toplev.h"
@@ -72,7 +73,6 @@ static void mark_vtable_entries PROTO((tree));
 static void grok_function_init PROTO((tree, tree));
 static int finish_vtable_vardecl PROTO((tree *, void *));
 static int prune_vtable_vardecl PROTO((tree *, void *));
-static int finish_sigtable_vardecl PROTO((tree *, void *));
 static int is_namespace_ancestor PROTO((tree, tree));
 static void add_using_namespace PROTO((tree, tree, int));
 static tree ambiguous_decl PROTO((tree, tree, tree,int));
@@ -232,7 +232,8 @@ int warn_ctor_dtor_privacy = 1;
 #endif
 int flag_vtable_thunks = DEFAULT_VTABLE_THUNKS;
 
-/* True if we want to deal with repository information.  */
+/* Nonzero means generate separate instantiation control files and juggle
+   them at link time.  */
 
 int flag_use_repository;
 
@@ -245,6 +246,11 @@ int flag_optional_diags = 1;
    by the standard.  */
 
 int flag_const_strings = 1;
+
+/* If non-NULL, dump the tree structure for the entire translation
+   unit to this file.  */
+
+char *flag_dump_translation_unit = 0;
 
 /* Nonzero means warn about deprecated conversion from string constant to
    `char *'.  */
@@ -364,6 +370,10 @@ int strict_prototypes_lang_c, strict_prototypes_lang_cplusplus = 1;
 
 int flag_labels_ok;
 
+/* Nonzero means allow Microsoft extensions without a pedwarn.  */
+
+int flag_ms_extensions;
+
 /* Non-zero means to collect statistics which might be expensive
    and to print them when we are done.  */
 int flag_detailed_statistics;
@@ -378,10 +388,6 @@ int flag_this_is_variable;
 /* Nonzero means we should attempt to elide constructors when possible.  */
 
 int flag_elide_constructors = 1;
-
-/* Nonzero means recognize and handle signature language constructs.  */
-
-int flag_handle_signatures;
 
 /* Nonzero means that member functions defined in class scope are
    inline by default.  */
@@ -471,6 +477,11 @@ int flag_vtable_gc;
 
 int flag_permissive;
 
+/* If this variable is defined to a non-NULL value, it will be called
+   after the file has been completely parsed.  */
+
+void (*back_end_hook) PROTO((tree));
+
 /* Table of language-dependent -f options.
    STRING is the option name.  VARIABLE is the address of the variable.
    ON_VALUE is the value to store in VARIABLE
@@ -503,13 +514,13 @@ lang_f_options[] =
   {"for-scope", &flag_new_for_scope, 2},
   {"gnu-keywords", &flag_no_gnu_keywords, 0},
   {"handle-exceptions", &flag_exceptions, 1},
-  {"handle-signatures", &flag_handle_signatures, 1},
   {"honor-std", &flag_honor_std, 1},
   {"huge-objects", &flag_huge_objects, 1},
   {"implement-inlines", &flag_implement_inlines, 1},
   {"implicit-inline-templates", &flag_implicit_inline_templates, 1},
   {"implicit-templates", &flag_implicit_templates, 1},
   {"labels-ok", &flag_labels_ok, 1},
+  {"ms-extensions", &flag_ms_extensions, 1},
   {"nonansi-builtins", &flag_no_nonansi_builtin, 0},
   {"operator-names", &flag_operator_names, 1},
   {"optional-diags", &flag_optional_diags, 1},
@@ -648,6 +659,13 @@ lang_decode_option (argc, argv)
 	{
 	  name_mangling_version =
 	  	read_integral_parameter (p + 22, p - 2, name_mangling_version);
+	}
+      else if (!strncmp (p, "dump-translation-unit-", 22))
+	{
+	  if (p[22] == '\0')
+	    error ("no file specified with -fdump-translation-unit");
+	  else
+	    flag_dump_translation_unit = p + 22;
 	}
       else for (j = 0;
 		!found && j < sizeof (lang_f_options) / sizeof (lang_f_options[0]);
@@ -884,9 +902,7 @@ grok_x_components (specs)
     return;
 
   fixup_anonymous_aggr (t);
-  finish_member_declaration (build_lang_field_decl (FIELD_DECL,
-						    NULL_TREE,
-						    t)); 
+  finish_member_declaration (build_lang_decl (FIELD_DECL, NULL_TREE, t)); 
 
   /* Ignore any inline function definitions in the anonymous union
      since an anonymous union may not have function members.  */
@@ -1493,7 +1509,7 @@ finish_static_data_member_decl (decl, init, asmspec_tree, need_pop, flags)
      int need_pop;
      int flags;
 {
-  char* asmspec = 0;
+  const char *asmspec = 0;
 
   if (asmspec_tree)
     asmspec = TREE_STRING_POINTER (asmspec_tree);
@@ -1569,7 +1585,7 @@ grokfield (declarator, declspecs, init, asmspec_tree, attrlist)
      tree declarator, declspecs, init, asmspec_tree, attrlist;
 {
   register tree value;
-  char *asmspec = 0;
+  const char *asmspec = 0;
   int flags = LOOKUP_ONLYCONVERTING;
 
   /* Convert () initializers to = initializers.  */
@@ -1578,7 +1594,7 @@ grokfield (declarator, declspecs, init, asmspec_tree, attrlist)
       && TREE_OPERAND (declarator, 0)
       && (TREE_CODE (TREE_OPERAND (declarator, 0)) == IDENTIFIER_NODE
 	  || TREE_CODE (TREE_OPERAND (declarator, 0)) == SCOPE_REF)
-      && parmlist_is_exprlist (TREE_OPERAND (declarator, 1)))
+      && parmlist_is_exprlist (CALL_DECLARATOR_PARMS (declarator)))
     {
       init = TREE_OPERAND (declarator, 1);
       declarator = TREE_OPERAND (declarator, 0);
@@ -1632,14 +1648,10 @@ grokfield (declarator, declspecs, init, asmspec_tree, attrlist)
 	DECL_ASSEMBLER_NAME (value) =
 	  get_identifier (build_overload_name (TREE_TYPE (value), 1, 1));
 
-      return value;
-    }
+      if (processing_template_decl)
+	value = push_template_decl (value);
 
-  if (IS_SIGNATURE (current_class_type)
-      && TREE_CODE (value) != FUNCTION_DECL)
-    {
-      error ("field declaration not allowed in signature");
-      return void_type_node;
+      return value;
     }
 
   if (DECL_IN_AGGR_P (value))
@@ -1654,13 +1666,7 @@ grokfield (declarator, declspecs, init, asmspec_tree, attrlist)
 
   if (init)
     {
-      if (IS_SIGNATURE (current_class_type)
-	  && TREE_CODE (value) == FUNCTION_DECL)
-	{
-	  error ("function declarations cannot have initializers in signature");
-	  init = NULL_TREE;
-	}
-      else if (TREE_CODE (value) == FUNCTION_DECL)
+      if (TREE_CODE (value) == FUNCTION_DECL)
 	{
 	  grok_function_init (value, init);
 	  init = NULL_TREE;
@@ -1758,12 +1764,6 @@ grokfield (declarator, declspecs, init, asmspec_tree, attrlist)
       if (DECL_FRIEND_P (value))
 	return void_type_node;
 
-#if 0 /* Just because a fn is declared doesn't mean we'll try to define it.  */
-      if (current_function_decl && ! IS_SIGNATURE (current_class_type))
-	cp_error ("method `%#D' of local class must be defined in class body",
-		  value);
-#endif
-
       DECL_IN_AGGR_P (value) = 1;
       return value;
     }
@@ -1803,12 +1803,6 @@ grokbitfield (declarator, declspecs, width)
       cp_error ("cannot declare bitfield `%D' with funcion type",
 		DECL_NAME (value));
       return NULL_TREE;
-    }
-
-  if (IS_SIGNATURE (current_class_type))
-    {
-      error ("field declaration not allowed in signature");
-      return void_type_node;
     }
 
   if (DECL_IN_AGGR_P (value))
@@ -2011,27 +2005,6 @@ constructor_name (thing)
   return t;
 }
 
-/* Cache the value of this class's main virtual function table pointer
-   in a register variable.  This will save one indirection if a
-   more than one virtual function call is made this function.  */
-
-void
-setup_vtbl_ptr ()
-{
-  extern tree base_init_expr;
-
-  if (base_init_expr == 0
-      && DECL_CONSTRUCTOR_P (current_function_decl))
-    {
-      if (processing_template_decl)
-	add_tree (build_min_nt
-		  (CTOR_INITIALIZER,
-		   current_member_init_list, current_base_init_list));
-      else
-	emit_base_init (current_class_type, 0);
-    }
-}
-
 /* Record the existence of an addressable inline function.  */
 
 void
@@ -2716,20 +2689,6 @@ prune_vtable_vardecl (t, data)
   return 1;
 }
 
-static int
-finish_sigtable_vardecl (t, data)
-     tree *t;
-     void *data ATTRIBUTE_UNUSED;
-{
-  /* We don't need to mark sigtable entries as addressable here as is done
-     for vtables.  Since sigtables, unlike vtables, are always written out,
-     that was already done in build_signature_table_constructor.  */
-
-  rest_of_decl_compilation (*t, NULL_PTR, 1, 1);
-  *t = TREE_CHAIN (*t);
-  return 1;
-}
-
 /* Determines the proper settings of TREE_PUBLIC and DECL_EXTERNAL for an
    inline function or template instantiation at end-of-file.  */
 
@@ -2764,7 +2723,9 @@ import_export_decl (decl)
       tree ctype = DECL_CLASS_CONTEXT (decl);
       import_export_class (ctype);
       if (CLASSTYPE_INTERFACE_KNOWN (ctype)
-	  && (! DECL_ARTIFICIAL (decl) || DECL_VINDEX (decl)))
+	  && (flag_new_abi
+	      ? (! DECL_THIS_INLINE (decl))
+	      : (! DECL_ARTIFICIAL (decl) || DECL_VINDEX (decl))))
 	{
 	  DECL_NOT_REALLY_EXTERN (decl)
 	    = ! (CLASSTYPE_INTERFACE_ONLY (ctype)
@@ -2850,8 +2811,7 @@ get_sentry (base)
   tree sentry = IDENTIFIER_GLOBAL_VALUE (sname);
   if (! sentry)
     {
-      push_obstacks_nochange ();
-      end_temporary_allocation ();
+      push_permanent_obstack ();
       sentry = build_decl (VAR_DECL, sname, integer_type_node);
       TREE_PUBLIC (sentry) = 1;
       DECL_ARTIFICIAL (sentry) = 1;
@@ -3574,14 +3534,9 @@ finish_file ()
 	 them now.  */
       instantiate_pending_templates ();
 
-      /* Write out signature-tables and virtual tables as required.
-	 Note that writing out the virtual table for a template class
-	 may cause the instantiation of members of that class.  */
-      if (flag_handle_signatures
-	  && walk_globals (sigtable_decl_p,
-			   finish_sigtable_vardecl,
-			   /*data=*/0))
-	reconsider = 1;
+      /* Write out virtual tables as required.  Note that writing out
+	 the virtual table for a template class may cause the
+	 instantiation of members of that class.  */
       if (walk_globals (vtable_decl_p,
 			finish_vtable_vardecl,
 			/*data=*/0))
@@ -3721,6 +3676,16 @@ finish_file ()
 
   finish_repo ();
 
+  /* The entire file is now complete.  If requested, dump everything
+     file.   */
+  if (flag_dump_translation_unit)
+    dump_node_to_file (global_namespace, flag_dump_translation_unit);
+
+  /* If there's some tool that wants to examine the entire translation
+     unit, let it do so now.  */
+  if (back_end_hook)
+    (*back_end_hook) (global_namespace);
+
   this_time = get_run_time ();
   parse_time -= this_time - start_time;
   varconst_time += this_time - start_time;
@@ -3779,14 +3744,8 @@ reparse_absdcl_as_casts (decl, expr)
   if (TREE_CODE (expr) == CONSTRUCTOR
       && TREE_TYPE (expr) == 0)
     {
-      type = groktypename (TREE_VALUE (TREE_OPERAND (decl, 1)));
+      type = groktypename (TREE_VALUE (CALL_DECLARATOR_PARMS (decl)));
       decl = TREE_OPERAND (decl, 0);
-
-      if (IS_SIGNATURE (type))
-	{
-	  error ("cast specifies signature type");
-	  return error_mark_node;
-	}
 
       expr = digest_init (type, expr, (tree *) 0);
       if (TREE_CODE (type) == ARRAY_TYPE && TYPE_SIZE (type) == 0)
@@ -3799,7 +3758,7 @@ reparse_absdcl_as_casts (decl, expr)
 
   while (decl)
     {
-      type = groktypename (TREE_VALUE (TREE_OPERAND (decl, 1)));
+      type = groktypename (TREE_VALUE (CALL_DECLARATOR_PARMS (decl)));
       decl = TREE_OPERAND (decl, 0);
       expr = build_c_cast (type, expr);
     }
@@ -3979,7 +3938,7 @@ build_expr_from_tree (t)
       else 
 	{
 	  tree fn = TREE_OPERAND (t, 0);
-	  
+
 	  /* We can get a TEMPLATE_ID_EXPR here on code like:
 
 	       x->f<2>();
@@ -3990,7 +3949,9 @@ build_expr_from_tree (t)
 	     build_expr_from_tree.  So, just use build_expr_from_tree
 	     when we really need it.  */
 	  if (TREE_CODE (fn) == TEMPLATE_ID_EXPR)
-	    fn = build_expr_from_tree (fn);
+	    fn = lookup_template_function
+	      (TREE_OPERAND (fn, 0),
+	       build_expr_from_tree (TREE_OPERAND (fn, 1)));
 
 	  return build_method_call
 	    (build_expr_from_tree (TREE_OPERAND (t, 1)),
@@ -4033,6 +3994,12 @@ build_expr_from_tree (t)
 	(build_expr_from_tree (TREE_OPERAND (t, 0)),
 	 build_expr_from_tree (TREE_OPERAND (t, 1)),
 	 build_expr_from_tree (TREE_OPERAND (t, 2)));
+
+    case PSEUDO_DTOR_EXPR:
+      return (finish_pseudo_destructor_call_expr 
+	      (build_expr_from_tree (TREE_OPERAND (t, 0)),
+	       build_expr_from_tree (TREE_OPERAND (t, 1)),
+	       build_expr_from_tree (TREE_OPERAND (t, 2))));
 
     case TREE_LIST:
       {
@@ -4378,14 +4345,18 @@ ambiguous_decl (name, old, new, flags)
   return old;
 }
 
-/* Add the bindings of name in used namespaces to val.
-   The using list is defined by usings, and the lookup goes to scope.
+/* Subroutine of unualified_namespace_lookup:
+   Add the bindings of NAME in used namespaces to VAL.
+   We are currently looking for names in namespace SCOPE, so we
+   look through USINGS for using-directives of namespaces
+   which have SCOPE as a common ancestor with the current scope.
    Returns zero on errors. */
 
 int
-lookup_using_namespace (name, val, usings, scope, flags)
+lookup_using_namespace (name, val, usings, scope, flags, spacesp)
      tree name, val, usings, scope;
      int flags;
+     tree *spacesp;
 {
   tree iter;
   tree val1;
@@ -4394,6 +4365,9 @@ lookup_using_namespace (name, val, usings, scope, flags)
   for (iter = usings; iter; iter = TREE_CHAIN (iter))
     if (TREE_VALUE (iter) == scope)
       {
+	if (spacesp)
+	  *spacesp = scratch_tree_cons (TREE_PURPOSE (iter), NULL_TREE,
+					*spacesp);
 	val1 = binding_for_name (name, TREE_PURPOSE (iter));
 	/* Resolve ambiguities. */
 	val = ambiguous_decl (name, val, val1, flags);
@@ -4402,8 +4376,8 @@ lookup_using_namespace (name, val, usings, scope, flags)
 }
 
 /* [namespace.qual]
-   Excepts the name to lookup and its qualifying scope.
-   Returns the name/type pair found into the CPLUS_BINDING result,
+   Accepts the NAME to lookup and its qualifying SCOPE.
+   Returns the name/type pair found into the CPLUS_BINDING RESULT,
    or 0 on error. */
 
 int
@@ -4479,6 +4453,12 @@ set_decl_namespace (decl, scope, friendp)
       /* Since decl is a function, old should contain a function decl. */
       if (!is_overloaded_fn (old))
 	goto complain;
+      if (processing_template_decl || processing_specialization)
+	/* We have not yet called push_template_decl to turn the
+	   FUNCTION_DECL into a TEMPLATE_DECL, so the declarations
+	   won't match.  But, we'll check later, when we construct the
+	   template.  */
+	return;
       for (; old; old = OVL_NEXT (old))
 	if (decls_match (decl, OVL_CURRENT (old)))
 	  return;
@@ -4596,28 +4576,32 @@ add_function (k, fn)
      struct arg_lookup *k;
      tree fn;
 {
-  if (ovl_member (fn, k->functions))
-    return 0;
+  /* We used to check here to see if the function was already in the list,
+     but that's O(n^2), which is just too expensive for function lookup.
+     Now we deal with the occasional duplicate in joust.  In doing this, we
+     assume that the number of duplicates will be small compared to the
+     total number of functions being compared, which should usually be the
+     case.  */
+
   /* We must find only functions, or exactly one non-function. */
   if (k->functions && is_overloaded_fn (k->functions)
       && is_overloaded_fn (fn))
     k->functions = build_overload (fn, k->functions);
-  else 
-    if(k->functions)
-      {
-	tree f1 = OVL_CURRENT (k->functions);
-	tree f2 = fn;
-	if (is_overloaded_fn (f1))
-	  {
-	    fn = f1; f1 = f2; f2 = fn;
-	  }
-	cp_error_at ("`%D' is not a function,", f1);
-	cp_error_at ("  conflict with `%D'", f2);
-	cp_error ("  in call to `%D'", k->name);
-	return 1;
-      }
-    else
-      k->functions = fn;
+  else if (k->functions)
+    {
+      tree f1 = OVL_CURRENT (k->functions);
+      tree f2 = fn;
+      if (is_overloaded_fn (f1))
+	{
+	  fn = f1; f1 = f2; f2 = fn;
+	}
+      cp_error_at ("`%D' is not a function,", f1);
+      cp_error_at ("  conflict with `%D'", f2);
+      cp_error ("  in call to `%D'", k->name);
+      return 1;
+    }
+  else
+    k->functions = fn;
   return 0;
 }
 
@@ -4638,7 +4622,7 @@ arg_assoc_namespace (k, scope)
   value = namespace_binding (k->name, scope);
   if (!value)
     return 0;
-  
+
   for (; value; value = OVL_NEXT (value))
     if (add_function (k, OVL_CURRENT (value)))
       return 1;
@@ -4868,11 +4852,18 @@ lookup_arg_dependent (name, fns, args)
      tree args;
 {
   struct arg_lookup k;
+
   k.name = name;
   k.functions = fns;
-  k.namespaces = NULL_TREE;
   k.classes = NULL_TREE;
-  
+
+  /* Note that we've already looked at some namespaces during normal
+     unqualified lookup, unless we found a decl in function scope.  */
+  if (fns && ! TREE_PERMANENT (OVL_CURRENT (fns)))
+    k.namespaces = NULL_TREE;
+  else
+    unqualified_namespace_lookup (name, 0, &k.namespaces);
+
   push_scratch_obstack ();
   arg_assoc_args (&k, args);
   pop_obstacks ();
@@ -5146,7 +5137,7 @@ do_class_using_decl (decl)
 
   my_friendly_assert (TREE_CODE (name) == IDENTIFIER_NODE, 980716);
 
-  value = build_lang_field_decl (USING_DECL, name, void_type_node);
+  value = build_lang_decl (USING_DECL, name, void_type_node);
   DECL_INITIAL (value) = TREE_OPERAND (decl, 0);
   return value;
 }
@@ -5244,19 +5235,33 @@ handle_class_head (aggr, scope, id)
     decl = DECL_TEMPLATE_RESULT (id);
   else 
     {
-      if (scope)
-	{
-	  cp_error ("`%T' does not have a nested type named `%D'", scope, id);
-	  return error_mark_node;
-	}
+      tree current = current_scope();
+  
+      if (current == NULL_TREE)
+        current = current_namespace;
+      if (scope == std_node)
+        scope = global_namespace;
+      if (scope == NULL_TREE)
+        scope = global_namespace;
+      if (scope == current)
+        {
+          /* We've been given AGGR SCOPE::ID, when we're already inside SCOPE.
+             Be nice about it.  */
+          if (pedantic)
+            cp_pedwarn ("extra qualification `%T::' on member `%D' ignored",
+                        FROB_CONTEXT (scope), id);
+        }
+      else if (scope != global_namespace)
+	cp_error ("`%T' does not have a nested type named `%D'", scope, id);
       else
 	cp_error ("no file-scope type named `%D'", id);
       
-      decl = TYPE_MAIN_DECL (xref_tag (aggr, make_anon_name (), 1));
+      /* Inject it at the current scope.  */
+      decl = TYPE_MAIN_DECL (xref_tag (aggr, id, 1));
     }
-
-  /* This syntax is only allowed when we're defining a type, so we
-     enter the SCOPE.  */
+ 
+  /* Enter the SCOPE.  If this turns out not to be a definition, the
+     parser must leave the scope.  */
   push_scope (CP_DECL_CONTEXT (decl));
 
   /* If we see something like:

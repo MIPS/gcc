@@ -211,7 +211,7 @@ empty_parms ()
 %type <ttype> component_declarator component_declarator0
 %type <ttype> notype_component_declarator notype_component_declarator0
 %type <ttype> after_type_component_declarator after_type_component_declarator0
-%type <ttype> enumlist enumerator
+%type <ttype> enumlist_opt enumlist enumerator
 %type <ttype> absdcl cv_qualifiers
 %type <ttype> direct_abstract_declarator conversion_declarator
 %type <ttype> new_declarator direct_new_declarator
@@ -230,6 +230,8 @@ empty_parms ()
 %type <ftype> type_id new_type_id typed_typespecs typespec typed_declspecs
 %type <ftype> typed_declspecs1 type_specifier_seq nonempty_cv_qualifiers
 %type <ftype> structsp typespecqual_reserved parm named_parm full_parm
+
+%type <itype> extension
 
 /* C++ extensions */
 %token <ttype> PTYPENAME
@@ -370,7 +372,7 @@ extdefs_opt:
 
 extension:
 	EXTENSION
-		{ $<itype>$ = pedantic;
+		{ $$ = pedantic;
 		  pedantic = 0; }
 	;
 
@@ -381,7 +383,7 @@ asm_keyword:
 lang_extdef:
 		{ if (pending_lang_change) do_pending_lang_change(); }
 	  extdef
-		{ if (! toplevel_bindings_p () && ! pseudo_global_level_p())
+		{ if (! toplevel_bindings_p ())
 		  pop_everything (); }
 	;
 
@@ -416,7 +418,7 @@ extdef:
 		{ do_toplevel_using_decl ($1); }
 	| using_directive
 	| extension extdef
-		{ pedantic = $<itype>1; }
+		{ pedantic = $1; }
 	;
 
 namespace_alias:
@@ -584,7 +586,7 @@ template_extdef:
 		{ if (pending_inlines) do_pending_inlines ();
 		  pop_lang_context (); }
 	| extension template_extdef
-		{ pedantic = $<itype>1; }
+		{ pedantic = $1; }
 	;
 
 template_datadef:
@@ -765,11 +767,11 @@ return_id:
 
 return_init:
 	  return_id maybe_init
-		{ store_return_init ($<ttype>$, $2); }
+		{ finish_named_return_value ($<ttype>$, $2); }
 	| return_id '(' nonnull_exprlist ')'
-		{ store_return_init ($<ttype>$, $3); }
+		{ finish_named_return_value ($<ttype>$, $3); }
 	| return_id LEFT_RIGHT
-		{ store_return_init ($<ttype>$, NULL_TREE); }
+		{ finish_named_return_value ($<ttype>$, NULL_TREE); }
 	;
 
 base_init:
@@ -1082,7 +1084,7 @@ unary_expr:
 	/* __extension__ turns off -pedantic for following primary.  */
 	| extension cast_expr  	  %prec UNARY
 		{ $$ = $2;
-		  pedantic = $<itype>1; }
+		  pedantic = $1; }
 	| '*' cast_expr   %prec UNARY
 		{ $$ = build_x_indirect_ref ($2, "unary *"); }
 	| '&' cast_expr   %prec UNARY
@@ -1660,7 +1662,7 @@ decl:
 	| declmods ';'
 		{ warning ("empty declaration"); }
 	| extension decl
-		{ pedantic = $<itype>1; }
+		{ pedantic = $1; }
 	;
 
 /* Any kind of declarator (thus, all declarators allowed
@@ -2104,31 +2106,23 @@ structsp:
 		{ $<itype>3 = suspend_momentary ();
 		  $<ttype>$ = current_enum_type;
 		  current_enum_type = start_enum ($2); }
-	  enumlist maybecomma_warn '}'
+	  enumlist_opt '}'
 		{ TYPE_VALUES (current_enum_type) = $5;
 		  $$.t = finish_enum (current_enum_type);
 		  $$.new_type_flag = 1;
 		  current_enum_type = $<ttype>4;
 		  resume_momentary ((int) $<itype>3);
 		  check_for_missing_semicolon ($$.t); }
-	| ENUM identifier '{' '}'
-		{ $$.t = finish_enum (start_enum ($2));
-		  $$.new_type_flag = 1;
-		  check_for_missing_semicolon ($$.t); }
 	| ENUM '{'
 		{ $<itype>2 = suspend_momentary ();
 		  $<ttype>$ = current_enum_type;
 		  current_enum_type = start_enum (make_anon_name ()); }
-	  enumlist maybecomma_warn '}'
+	  enumlist_opt '}'
                 { TYPE_VALUES (current_enum_type) = $4;
 		  $$.t = finish_enum (current_enum_type);
 		  $$.new_type_flag = 1;
 		  current_enum_type = $<ttype>3;
 		  resume_momentary ((int) $<itype>1);
-		  check_for_missing_semicolon ($$.t); }
-	| ENUM '{' '}'
-		{ $$.t = finish_enum (start_enum (make_anon_name()));
-		  $$.new_type_flag = 1;
 		  check_for_missing_semicolon ($$.t); }
 	| ENUM identifier
 		{ $$.t = xref_tag (enum_type_node, $2, 1); 
@@ -2348,61 +2342,15 @@ base_class_list:
 
 base_class:
 	  base_class.1
-		{ $$ = finish_base_specifier (access_default_node, $1,
-					      current_aggr 
-					      == signature_type_node); }
+		{ $$ = finish_base_specifier (access_default_node, $1); }
 	| base_class_access_list see_typename base_class.1
-                { $$ = finish_base_specifier ($1, $3, 
-					      current_aggr 
-					      == signature_type_node); } 
+                { $$ = finish_base_specifier ($1, $3); }
 	;
 
 base_class.1:
 	  typename_sub
 		{ if ($$ != error_mark_node) $$ = TYPE_MAIN_DECL ($1); }
 	| nonnested_type
-	| SIGOF '(' expr ')'
-		{
-		  if (current_aggr == signature_type_node)
-		    {
-		      if (IS_AGGR_TYPE (TREE_TYPE ($3)))
-			{
-			  sorry ("`sigof' as base signature specifier");
-			  $$ = TREE_TYPE ($3);
-			}
-		      else
-			{
-			  error ("`sigof' applied to non-aggregate expression");
-			  $$ = error_mark_node;
-			}
-		    }
-		  else
-		    {
-		      error ("`sigof' in struct or class declaration");
-		      $$ = error_mark_node;
-		    }
-		}
-	| SIGOF '(' type_id ')'
-		{
-		  if (current_aggr == signature_type_node)
-		    {
-		      if (IS_AGGR_TYPE (groktypename ($3.t)))
-			{
-			  sorry ("`sigof' as base signature specifier");
-			  $$ = groktypename ($3.t);
-			}
-		      else
-			{
-			  error ("`sigof' applied to non-aggregate expression");
-			  $$ = error_mark_node;
-			}
-		    }
-		  else
-		    {
-		      error ("`sigof' in struct or class declaration");
-		      $$ = error_mark_node;
-		    }
-		}
 	;
 
 base_class_access_list:
@@ -2445,12 +2393,6 @@ opt.component_decl_list:
 access_specifier:
 	  VISSPEC ':'
                 {
-		  if (current_aggr == signature_type_node)
-		    {
-		      error ("access specifier not allowed in signature");
-		      $1 = access_public_node;
-		    }
-
 		  current_access_specifier = $1;
                 }
 	;
@@ -2487,7 +2429,7 @@ component_decl:
 		{ $$ = NULL_TREE; }
 	| extension component_decl
 		{ $$ = $2;
-		  pedantic = $<itype>1; }
+		  pedantic = $1; }
         | template_header component_decl
                 {  
 		  if ($2)
@@ -2679,6 +2621,12 @@ notype_component_declarator:
 	| ':' expr_no_commas maybe_attribute
 		{ $$ = grokbitfield (NULL_TREE, current_declspecs, $2);
 		  cplus_decl_attributes ($$, $3, prefix_attributes); }
+	;
+
+enumlist_opt:
+	  enumlist maybecomma_warn
+	| maybecomma_warn
+	  { $$ = NULL_TREE; }
 	;
 
 /* We chain the enumerators in reverse order.
@@ -3386,18 +3334,12 @@ simple_stmt:
 
 function_try_block:
 	  TRY
-		{
-		  if (! current_function_parms_stored)
-		    store_parm_decls ();
-		  expand_start_early_try_stmts ();
-		}
+		{ $<ttype>$ = begin_function_try_block (); }
 	  ctor_initializer_opt compstmt
-		{ 
-                  expand_start_all_catch (); 
-                }
+		{ finish_function_try_block ($<ttype>2); }
 	  handler_seq
 		{
-		  expand_end_all_catch ();
+		  finish_function_handler_sequence ($<ttype>2);
 		  $$ = $3;
 		}
 	;
@@ -3455,23 +3397,18 @@ handler_args:
 
 label_colon:
 	  IDENTIFIER ':'
-		{ tree label;
-		do_label:
-		  label = define_label (input_filename, lineno, $1);
-		  if (label && ! minimal_parse_mode)
-		    expand_label (label);
-		}
+                { finish_label_stmt ($1); }
 	| PTYPENAME ':'
-		{ goto do_label; }
+                { finish_label_stmt ($1); }
 	| TYPENAME ':'
-		{ goto do_label; }
+                { finish_label_stmt ($1); }
 	| SELFNAME ':'
-		{ goto do_label; }
+                { finish_label_stmt ($1); }
 	;
 
 for.init.statement:
 	  xexpr ';'
-		{ if ($1) cplus_expand_expr_stmt ($1); }
+                { finish_expr_stmt ($1); }
 	| decl
 	| '{' compstmtend
 		{ if (pedantic)
@@ -3687,21 +3624,22 @@ exception_specification_opt:
 	| THROW '(' ansi_raise_identifiers  ')'  %prec EMPTY
 		{ $$ = $3; }
 	| THROW LEFT_RIGHT  %prec EMPTY
-		{ $$ = build_decl_list (NULL_TREE, NULL_TREE); }
+		{ $$ = empty_except_spec; }
 	;
 
 ansi_raise_identifier:
 	  type_id
-		{ $$ = build_decl_list (NULL_TREE, groktypename($1.t)); }
+		{
+		  check_for_new_type ("exception specifier", $1);
+		  $$ = groktypename ($1.t);
+		}
 	;
 
 ansi_raise_identifiers:
 	  ansi_raise_identifier
+		{ $$ = add_exception_specifier (NULL_TREE, $1, 1); }
 	| ansi_raise_identifiers ',' ansi_raise_identifier
-		{
-		  TREE_CHAIN ($3) = $$;
-		  $$ = $3;
-		}
+		{ $$ = add_exception_specifier ($1, $3, 1); }
 	;
 
 conversion_declarator:

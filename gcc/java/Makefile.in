@@ -143,7 +143,7 @@ all.indirect: Makefile ../jc1$(exeext) ../jcf-dump$(exeext) \
 INTERNAL_CFLAGS = $(CROSS) -DIN_GCC @extra_c_flags@
 
 # This is the variable actually used when we compile.
-ALL_CFLAGS = $(INTERNAL_CFLAGS) $(X_CFLAGS) $(T_CFLAGS) $(CFLAGS) $(XCFLAGS)
+ALL_CFLAGS = $(INTERNAL_CFLAGS) $(X_CFLAGS) $(T_CFLAGS) $(CFLAGS) $(XCFLAGS) -W -Wall
 
 # Likewise.
 ALL_CPPFLAGS = $(CPPFLAGS) $(X_CPPFLAGS) $(T_CPPFLAGS)
@@ -273,7 +273,8 @@ clean:  mostlyclean
 
 force:
 
-parse.o : $(PARSE_C) jcf-reader.c $(CONFIG_H) $(srcdir)/../system.h
+parse.o : $(PARSE_C) jcf-reader.c $(CONFIG_H) $(srcdir)/../system.h \
+  $(srcdir)/../function.h
 jcf-dump.o : $(CONFIG_H) $(srcdir)/../system.h $(JAVA_TREE_H) jcf-dump.c \
   jcf-reader.c jcf.h javaop.h javaop.def
 gjavah.o : $(CONFIG_H) $(srcdir)/../system.h $(JAVA_TREE_H) gjavah.c \
@@ -289,10 +290,12 @@ class.o : class.c $(CONFIG_H) $(JAVA_TREE_H) $(RTL_H) jcf.h $(PARSE_H) \
 constants.o : constants.c $(CONFIG_H) $(JAVA_TREE_H) jcf.h \
   $(srcdir)/../toplev.h $(srcdir)/../system.h
 decl.o : decl.c $(CONFIG_H) $(JAVA_TREE_H) jcf.h \
-  $(srcdir)/../toplev.h $(srcdir)/../system.h
+  $(srcdir)/../toplev.h $(srcdir)/../system.h $(srcdir)/../function.h \
+  $(srcdir)/../defaults.h
 except.o : except.c $(CONFIG_H) $(JAVA_TREE_H) jcf.h $(srcdir)/../real.h \
   $(RTL_H) javaop.h java-opcodes.h $(srcdir)/../except.h java-except.h \
-  $(srcdir)/../eh-common.h $(srcdir)/../toplev.h $(srcdir)/../system.h
+  $(srcdir)/../eh-common.h $(srcdir)/../toplev.h $(srcdir)/../system.h \
+  $(srcdir)/../function.h
 expr.o : expr.c $(CONFIG_H) $(JAVA_TREE_H) jcf.h $(srcdir)/../real.h \
   $(RTL_H) $(EXPR_H) javaop.h java-opcodes.h $(srcdir)/../except.h \
   java-except.h java-except.h parse.h $(srcdir)/../toplev.h \
@@ -307,7 +310,7 @@ jcf-write.o : jcf-write.c $(CONFIG_H) $(JAVA_TREE_H) jcf.h $(RTL_H) \
 jv-scan.o : jv-scan.c $(CONFIG_H) $(srcdir)/../system.h
 jvgenmain.o : jvgenmain.c $(CONFIG_H) $(srcdir)/../system.h
 lang.o : lang.c $(CONFIG_H) $(JAVA_TREE_H) jcf.h $(srcdir)/../input.h \
-  $(srcdir)/../toplev.h $(srcdir)/../system.h
+  $(srcdir)/../toplev.h $(srcdir)/../system.h $(RTL_H) $(EXPR_H)
 mangle.o : mangle.c $(CONFIG_H) jcf.h $(JAVA_TREE_H) $(srcdir)/../system.h \
   $(srcdir)/../toplev.h
 parse-scan.o : $(CONFIG_H) $(srcdir)/../system.h $(srcdir)/../toplev.h

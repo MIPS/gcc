@@ -117,6 +117,7 @@ static tree get_virtuals_named_this PROTO((tree, tree));
 static tree get_virtual_destructor PROTO((tree, void *));
 static tree tree_has_any_destructor_p PROTO((tree, void *));
 static int covariant_return_p PROTO((tree, tree));
+static int check_final_overrider PROTO((tree, tree));
 static struct search_level *push_search_level
 	PROTO((struct stack_level *, struct obstack *));
 static struct search_level *pop_search_level
@@ -619,6 +620,17 @@ current_scope ()
     return current_function_decl;
 
   return current_class_type;
+}
+
+/* Returns non-zero if we are currently in a function scope.  Note
+   that this function returns zero if we are within a local class, but
+   not within a member function body of the local class.  */
+
+int
+at_function_scope_p ()
+{
+  tree cs = current_scope ();
+  return cs && TREE_CODE (cs) == FUNCTION_DECL;
 }
 
 /* Return the scope of DECL, as appropriate when doing name-lookup.  */
@@ -1211,9 +1223,9 @@ lookup_field_queue_p (binfo, data)
     return binfo;
 }
 
-/* Within the scope of a template class, you can refer to the
-   particular to the current specialization with the name of the
-   template itself.  For example:
+/* Within the scope of a template class, you can refer to the to the
+   current specialization with the name of the template itself.  For
+   example:
    
      template <typename T> struct S { S* sp; }
 
@@ -1457,8 +1469,6 @@ lookup_member (xbasetype, name, protect, want_type)
      In the case of overloaded function names, access control is
      applied to the function selected by overloaded resolution.  */
   if (rval && protect && !is_overloaded_fn (rval)
-      && !IS_SIGNATURE_POINTER (DECL_REAL_CONTEXT (rval))
-      && !IS_SIGNATURE_REFERENCE (DECL_REAL_CONTEXT (rval))
       && !enforce_access (xbasetype, rval))
     return error_mark_node;
 
@@ -1884,6 +1894,63 @@ covariant_return_p (brettype, drettype)
   return 1;
 }
 
+/* Check that virtual overrider OVERRIDER is acceptable for base function
+   BASEFN. Issue diagnostic, and return zero, if unacceptable.  */
+
+static int
+check_final_overrider (overrider, basefn)
+     tree overrider, basefn;
+{
+  tree over_type = TREE_TYPE (overrider);
+  tree base_type = TREE_TYPE (basefn);
+  tree over_return = TREE_TYPE (over_type);
+  tree base_return = TREE_TYPE (base_type);
+  tree over_throw = TYPE_RAISES_EXCEPTIONS (over_type);
+  tree base_throw = TYPE_RAISES_EXCEPTIONS (base_type);
+  int i;
+  
+  if (same_type_p (base_return, over_return))
+    /* OK */;
+  else if ((i = covariant_return_p (base_return, over_return)))
+    {
+      if (i == 2)
+	sorry ("adjusting pointers for covariant returns");
+
+      if (pedantic && i == -1)
+	{
+	  cp_pedwarn_at ("invalid covariant return type for `virtual %#D'", overrider);
+	  cp_pedwarn_at ("  overriding `virtual %#D' (must be pointer or reference to class)", basefn);
+	}
+    }
+  else if (IS_AGGR_TYPE_2 (base_return, over_return)
+	   && same_or_base_type_p (base_return, over_return))
+    {
+      cp_error_at ("invalid covariant return type for `virtual %#D'", overrider);
+      cp_error_at ("  overriding `virtual %#D' (must use pointer or reference)", basefn);
+      return 0;
+    }
+  else if (IDENTIFIER_ERROR_LOCUS (DECL_ASSEMBLER_NAME (overrider)) == NULL_TREE)
+    {
+      cp_error_at ("conflicting return type specified for `virtual %#D'", overrider);
+      cp_error_at ("  overriding `virtual %#D'", basefn);
+      SET_IDENTIFIER_ERROR_LOCUS (DECL_ASSEMBLER_NAME (overrider),
+                                  DECL_CLASS_CONTEXT (overrider));
+      return 0;
+    }
+  
+  /* Check throw specifier is subset.  */
+  /* XXX At the moment, punt on an overriding artificial function. We
+     don't generate its exception specifier, so can't check it properly.  */
+  if (! DECL_ARTIFICIAL (overrider)
+      && !comp_except_specs (base_throw, over_throw, 0))
+    {
+      cp_error_at ("looser throw specifier for `virtual %#F'", overrider);
+      cp_error_at ("  overriding `virtual %#F'", basefn);
+      return 0;
+    }
+  return 1;
+}
+
 /* Given a class type TYPE, and a function decl FNDECL, look for a
    virtual function in TYPE's hierarchy which FNDECL could match as a
    virtual function.  It doesn't matter which one we find.
@@ -1897,7 +1964,6 @@ get_matching_virtual (binfo, fndecl, dtorp)
      int dtorp;
 {
   tree tmp = NULL_TREE;
-  int i;
 
   if (TREE_CODE (fndecl) == TEMPLATE_DECL)
     /* In [temp.mem] we have:
@@ -1914,9 +1980,7 @@ get_matching_virtual (binfo, fndecl, dtorp)
   else
     {
       tree drettype, dtypes, btypes, instptr_type;
-      tree basetype = DECL_CLASS_CONTEXT (fndecl);
       tree baselink, best = NULL_TREE;
-      tree name = DECL_ASSEMBLER_NAME (fndecl);
       tree declarator = DECL_NAME (fndecl);
       if (IDENTIFIER_VIRTUAL_P (declarator) == 0)
 	return NULL_TREE;
@@ -1958,33 +2022,7 @@ get_matching_virtual (binfo, fndecl, dtorp)
 		   == TYPE_QUALS (instptr_type))
 		  && compparms (TREE_CHAIN (btypes), TREE_CHAIN (dtypes)))
 		{
-		  tree brettype = TREE_TYPE (TREE_TYPE (tmp));
-		  if (same_type_p (brettype, drettype))
-		    /* OK */;
-		  else if ((i = covariant_return_p (brettype, drettype)))
-		    {
-		      if (i == 2)
-			sorry ("adjusting pointers for covariant returns");
-
-		      if (pedantic && i == -1)
-			{
-			  cp_pedwarn_at ("invalid covariant return type for `%#D' (must be pointer or reference to class)", fndecl);
-			  cp_pedwarn_at ("  overriding `%#D'", tmp);
-			}
-		    }
-		  else if (IS_AGGR_TYPE_2 (brettype, drettype)
-			   && same_or_base_type_p (brettype, drettype))
-		    {
-		      error ("invalid covariant return type (must use pointer or reference)");
-		      cp_error_at ("  overriding `%#D'", tmp);
-		      cp_error_at ("  with `%#D'", fndecl);
-		    }
-		  else if (IDENTIFIER_ERROR_LOCUS (name) == NULL_TREE)
-		    {
-		      cp_error_at ("conflicting return type specified for virtual function `%#D'", fndecl);
-		      cp_error_at ("  overriding definition as `%#D'", tmp);
-		      SET_IDENTIFIER_ERROR_LOCUS (name, basetype);
-		    }
+	          check_final_overrider (fndecl, tmp);
 
 		  /* FNDECL overrides this function.  We continue to
 		     check all the other functions in order to catch
@@ -2922,7 +2960,7 @@ setup_class_bindings (name, type_binding_p)
        binding.  This means that we already processed this binding
        above.  */
     my_friendly_assert (type_binding_p, 19990401);
-  else
+  else if (value_binding)
     {
       if (TREE_CODE (value_binding) == TREE_LIST 
 	  && TREE_TYPE (value_binding) == error_mark_node)
@@ -3285,4 +3323,18 @@ binfo_for_vtable (var)
   bfvi.var = var;
   return dfs_walk_real (TYPE_BINFO (type),
 			0, dfs_bfv_helper, dfs_bfv_queue_p, &bfvi);
+}
+
+/* Returns 1 iff BINFO is from a direct or indirect virtual base.  */
+
+int
+binfo_from_vbase (binfo)
+     tree binfo;
+{
+  for (; binfo; binfo = BINFO_INHERITANCE_CHAIN (binfo))
+    {
+      if (TREE_VIA_VIRTUAL (binfo))
+	return 1;
+    }
+  return 0;
 }

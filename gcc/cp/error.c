@@ -101,8 +101,8 @@ static void dump_simple_decl PROTO((tree, tree, int));
 static void dump_decl PROTO((tree, int));
 static void dump_function_decl PROTO((tree, int));
 static void dump_expr PROTO((tree, int));
-static void dump_unary_op PROTO((char *, tree, int));
-static void dump_binary_op PROTO((char *, tree));
+static void dump_unary_op PROTO((const char *, tree, int));
+static void dump_binary_op PROTO((const char *, tree));
 static void dump_aggr_type PROTO((tree, int, int));
 static void dump_type_prefix PROTO((tree, int, int));
 static void dump_type_suffix PROTO((tree, int, int));
@@ -113,7 +113,7 @@ static void dump_qualifiers PROTO((tree, enum pad));
 static void dump_char PROTO((int));
 static void dump_parameters PROTO((tree, int, int));
 static void dump_exception_spec PROTO((tree, int));
-static char *aggr_variety PROTO((tree));
+static const char *aggr_variety PROTO((tree));
 static tree ident_fndecl PROTO((tree));
 static int interesting_scope_p PROTO((tree));
 
@@ -227,18 +227,7 @@ dump_type_real (t, v, canonical_name)
     case RECORD_TYPE:
     case UNION_TYPE:
     case ENUMERAL_TYPE:
-      if (TYPE_LANG_SPECIFIC (t)
-	  && (IS_SIGNATURE_POINTER (t) || IS_SIGNATURE_REFERENCE (t)))
-	{
-	  dump_qualifiers (t, after);
-	  dump_type_real (SIGNATURE_TYPE (t), v, canonical_name);
-	  if (IS_SIGNATURE_POINTER (t))
-	    OB_PUTC ('*');
-	  else
-	    OB_PUTC ('&');
-	}
-      else
-	dump_aggr_type (t, v, canonical_name);
+      dump_aggr_type (t, v, canonical_name);
       break;
 
     case TYPE_DECL:
@@ -346,7 +335,7 @@ dump_type_real (t, v, canonical_name)
     }
 }
 
-static char *
+static const char *
 aggr_variety (t)
      tree t;
 {
@@ -356,8 +345,6 @@ aggr_variety (t)
     return "union";
   else if (TYPE_LANG_SPECIFIC (t) && CLASSTYPE_DECLARED_CLASS (t))
     return "class";
-  else if (TYPE_LANG_SPECIFIC (t) && IS_SIGNATURE (t))
-    return "signature";
   else
     return "struct";
 }
@@ -379,7 +366,7 @@ dump_aggr_type (t, v, canonical_name)
      int canonical_name;
 {
   tree name;
-  char *variety = aggr_variety (t);
+  const char *variety = aggr_variety (t);
 
   dump_qualifiers (t, after);
 
@@ -659,7 +646,7 @@ static void
 dump_global_iord (t)
      tree t;
 {
-  char *name = IDENTIFIER_POINTER (t);
+  const char *name = IDENTIFIER_POINTER (t);
 
   OB_PUTS ("(static ");
   if (name [sizeof (GLOBAL_THING) - 1] == 'I')
@@ -807,7 +794,7 @@ dump_decl (t, v)
 	  }
 	else if (IDENTIFIER_OPNAME_P (t))
 	  {
-	    char *name_string = operator_name_string (t);
+	    const char *name_string = operator_name_string (t);
 	    OB_PUTS ("operator ");
 	    OB_PUTCP (name_string);
 	  }
@@ -1035,15 +1022,8 @@ dump_function_decl (t, v)
     dump_type_suffix (TREE_TYPE (fntype), 1, 0);
 
   if (TREE_CODE (fntype) == METHOD_TYPE)
-    {
-      if (IS_SIGNATURE (cname))
-	/* We look at the type pointed to by the `optr' field of `this.'  */
-	dump_qualifiers
-	  (TREE_TYPE (TREE_TYPE (TYPE_FIELDS (TREE_VALUE (TYPE_ARG_TYPES (fntype))))), before);
-      else
-	dump_qualifiers
-	  (TREE_TYPE (TREE_VALUE (TYPE_ARG_TYPES (fntype))), before);
-    }
+    dump_qualifiers (TREE_TYPE (TREE_VALUE (TYPE_ARG_TYPES (fntype))),
+		     before);
   
   if (v >= 2)
     dump_exception_spec (TYPE_RAISES_EXCEPTIONS (fntype), 0);
@@ -1135,7 +1115,7 @@ dump_function_name (t)
     }
   else if (IDENTIFIER_OPNAME_P (name))
     {
-      char *name_string = operator_name_string (name);
+      const char *name_string = operator_name_string (name);
       OB_PUTS ("operator ");
       OB_PUTCP (name_string);
     }
@@ -1303,7 +1283,7 @@ dump_expr (t, nop)
 	/* If it's an enum, output its tag, rather than its value.  */
 	if (TREE_CODE (type) == ENUMERAL_TYPE)
 	  {
-	    char *p = enum_name_string (t, type);
+	    const char *p = enum_name_string (t, type);
 	    OB_PUTCP (p);
 	  }
 	else if (type == boolean_type_node)
@@ -1352,7 +1332,7 @@ dump_expr (t, nop)
       sprintf (digit_buffer, "%g", TREE_REAL_CST (t));
 #else
       {
-	unsigned char *p = (unsigned char *) &TREE_REAL_CST (t);
+	const unsigned char *p = (const unsigned char *) &TREE_REAL_CST (t);
 	size_t i;
 	strcpy (digit_buffer, "0x");
 	for (i = 0; i < sizeof TREE_REAL_CST (t); i++)
@@ -1371,7 +1351,7 @@ dump_expr (t, nop)
 
     case STRING_CST:
       {
-	char *p = TREE_STRING_POINTER (t);
+	const char *p = TREE_STRING_POINTER (t);
 	int len = TREE_STRING_LENGTH (t) - 1;
 	int i;
 
@@ -1521,6 +1501,7 @@ dump_expr (t, nop)
     case GE_EXPR:
     case EQ_EXPR:
     case NE_EXPR:
+    case EXACT_DIV_EXPR:
       dump_binary_op (opname_tab[(int) TREE_CODE (t)], t);
       break;
 
@@ -1566,7 +1547,13 @@ dump_expr (t, nop)
       break;
 
     case CONVERT_EXPR:
-      dump_unary_op ("+", t, nop);
+      if (same_type_p (TREE_TYPE (t), void_type_node))
+	{
+	  OB_PUTS ("(void)");
+	  dump_expr (TREE_OPERAND (t, 0), 0);
+	}
+      else
+	dump_unary_op ("+", t, nop);
       break;
 
     case ADDR_EXPR:
@@ -1795,8 +1782,22 @@ dump_expr (t, nop)
       dump_expr (TREE_OPERAND (t, 0), nop);
       break;
 
+    case PSEUDO_DTOR_EXPR:
+      dump_expr (TREE_OPERAND (t, 2), nop);
+      OB_PUTS (".");
+      dump_type (TREE_OPERAND (t, 0), nop);
+      OB_PUTS ("::~");
+      dump_type (TREE_OPERAND (t, 1), nop);
+      break;
+
     case TEMPLATE_ID_EXPR:
       dump_decl (t, 0);
+      break;
+
+    case STMT_EXPR:
+      /* We don't yet have a way of dumping statements in a
+	 human-readable format.  */
+      OB_PUTS ("{ ... }");
       break;
 
     case BIND_EXPR:
@@ -1841,13 +1842,16 @@ dump_expr (t, nop)
 
 static void
 dump_binary_op (opstring, t)
-     char *opstring;
+     const char *opstring;
      tree t;
 {
   OB_PUTC ('(');
   dump_expr (TREE_OPERAND (t, 0), 1);
   OB_PUTC (' ');
-  OB_PUTCP (opstring);
+  if (opstring)
+    OB_PUTCP (opstring);
+  else
+    OB_PUTS ("<unknown operator>");
   OB_PUTC (' ');
   dump_expr (TREE_OPERAND (t, 1), 1);
   OB_PUTC (')');
@@ -1855,7 +1859,7 @@ dump_binary_op (opstring, t)
 
 static void
 dump_unary_op (opstring, t, nop)
-     char *opstring;
+     const char *opstring;
      tree t;
      int nop;
 {

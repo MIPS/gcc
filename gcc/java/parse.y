@@ -62,7 +62,9 @@ definitions and other extensions.  */
 #include "convert.h"
 #include "buffer.h"
 #include "xref.h"
+#include "function.h"
 #include "except.h"
+#include "defaults.h"
 
 #ifndef DIR_SEPARATOR
 #define DIR_SEPARATOR '/'
@@ -70,9 +72,9 @@ definitions and other extensions.  */
 
 /* Local function prototypes */
 static char *java_accstring_lookup PROTO ((int));
-static void  classitf_redefinition_error PROTO ((char *,tree, tree, tree));
+static void  classitf_redefinition_error PROTO ((const char *,tree, tree, tree));
 static void  variable_redefinition_error PROTO ((tree, tree, tree, int));
-static void  check_modifiers PROTO ((char *, int, int));
+static void  check_modifiers PROTO ((const char *, int, int));
 static tree  create_class PROTO ((int, tree, tree, tree));
 static tree  create_interface PROTO ((int, tree, tree));
 static tree  find_field PROTO ((tree, tree));
@@ -91,7 +93,7 @@ static tree method_declarator PROTO ((tree, tree));
 static void parse_warning_context PVPROTO ((tree cl, const char *msg, ...))
   ATTRIBUTE_PRINTF_2;
 static void issue_warning_error_from_context PROTO ((tree, const char *msg, va_list));
-static tree parse_jdk1_1_error PROTO ((char *));
+static tree parse_jdk1_1_error PROTO ((const char *));
 static void complete_class_report_errors PROTO ((jdep *));
 static int process_imports PROTO ((void));
 static void read_import_dir PROTO ((tree));
@@ -99,8 +101,8 @@ static int find_in_imports_on_demand PROTO ((tree));
 static int find_in_imports PROTO ((tree));
 static int check_pkg_class_access PROTO ((tree, tree));
 static tree resolve_package PROTO ((tree, tree *));
-static tree lookup_package_type PROTO ((char *, int));
-static tree lookup_package_type_and_set_next PROTO ((char *, int, tree *));
+static tree lookup_package_type PROTO ((const char *, int));
+static tree lookup_package_type_and_set_next PROTO ((const char *, int, tree *));
 static tree resolve_class PROTO ((tree, tree, tree));
 static void declare_local_variables PROTO ((int, tree, tree));
 static void source_start_java_method PROTO ((tree));
@@ -213,16 +215,16 @@ static int check_thrown_exceptions_do PROTO ((tree));
 static void purge_unchecked_exceptions PROTO ((tree));
 static void check_throws_clauses PROTO ((tree, tree, tree));
 static void finish_method_declaration PROTO ((tree));
-static tree build_super_invocation PROTO (());
+static tree build_super_invocation PROTO ((void));
 static int verify_constructor_circularity PROTO ((tree, tree));
 static char *constructor_circularity_msg PROTO ((tree, tree));
 static tree build_this_super_qualified_invocation PROTO ((int, tree, tree,
 							  int, int));
-static char *get_printable_method_name PROTO ((tree));
+static const char *get_printable_method_name PROTO ((tree));
 static tree patch_conditional_expr PROTO ((tree, tree, tree));
-static void maybe_generate_finit PROTO (());
+static void maybe_generate_finit PROTO ((void));
 static void fix_constructors PROTO ((tree));
-static int verify_constructor_super PROTO (());
+static int verify_constructor_super PROTO ((void));
 static tree create_artificial_method PROTO ((tree, int, tree, tree, tree));
 static void start_artificial_method_body PROTO ((tree));
 static void end_artificial_method_body PROTO ((tree));
@@ -238,11 +240,28 @@ static tree build_new_array_init PROTO ((int, tree));
 static tree patch_new_array_init PROTO ((tree, tree));
 static tree maybe_build_array_element_wfl PROTO ((tree));
 static int array_constructor_check_entry PROTO ((tree, tree));
-static char *purify_type_name PROTO ((char *));
+static const char *purify_type_name PROTO ((const char *));
 static tree fold_constant_for_init PROTO ((tree, tree));
 static tree strip_out_static_field_access_decl PROTO ((tree));
 static jdeplist *reverse_jdep_list PROTO ((struct parser_ctxt *));
 static void static_ref_err PROTO ((tree, tree, tree));
+static void parser_add_interface PROTO ((tree, tree, tree));
+static void add_superinterfaces PROTO ((tree, tree));
+static tree jdep_resolve_class PROTO ((jdep *));
+static int note_possible_classname PROTO ((const char *, int));
+static void java_complete_expand_methods PROTO ((void));
+static void java_expand_finals PROTO ((void));
+static tree cut_identifier_in_qualified PROTO ((tree));
+static tree java_stabilize_reference PROTO ((tree));
+static tree do_unary_numeric_promotion PROTO ((tree));
+static char * operator_string PROTO ((tree));
+static tree do_merge_string_cste PROTO ((tree, const char *, int, int));
+static tree merge_string_cste PROTO ((tree, tree, int));
+static tree java_refold PROTO ((tree));
+static int java_decl_equiv PROTO ((tree, tree));
+static int binop_compound_p PROTO ((enum tree_code));
+static tree search_loop PROTO ((tree));
+static int labeled_block_contains_loop_p PROTO ((tree, tree));
 
 /* Number of error found so far. */
 int java_error_count; 
@@ -273,6 +292,10 @@ static enum tree_code binop_lookup[19] =
 #define BINOP_LOOKUP(VALUE) 						\
   binop_lookup [((VALUE) - PLUS_TK)%					\
 		(sizeof (binop_lookup) / sizeof (binop_lookup[0]))]
+
+/* This is the end index for binary operators that can also be used
+   in compound assignements. */
+#define BINOP_COMPOUND_CANDIDATES 11
 
 /* Fake WFL used to report error message. It is initialized once if
    needed and reused with it's location information is overriden.  */
@@ -581,7 +604,7 @@ single_type_import_declaration:
 		{
 		  tree name = EXPR_WFL_NODE ($2), node, last_name;
 		  int   i = IDENTIFIER_LENGTH (name)-1;
-		  char *last = &IDENTIFIER_POINTER (name)[i];
+		  const char *last = &IDENTIFIER_POINTER (name)[i];
 		  while (last != IDENTIFIER_POINTER (name))
 		    {
 		      if (last [0] == '.')
@@ -2048,7 +2071,7 @@ cast_expression:		/* Error handling here is potentially weak */
 		{ $$ = build_cast ($1.location, $2, $4); }
 |	OP_TK name dims CP_TK unary_expression_not_plus_minus
 		{ 
-		  char *ptr;
+		  const char *ptr;
 		  while (CURRENT_OSB (ctxp)--)
 		    obstack_1grow (&temporary_obstack, '[');
 		  ctxp->osb_depth--;
@@ -2413,7 +2436,7 @@ java_pop_parser_context (generate)
 
 static tree
 parse_jdk1_1_error (msg)
-    char *msg;
+    const char *msg;
 {
   sorry (": `%s' JDK1.1(TM) feature", msg);
   java_error_count++;
@@ -2424,11 +2447,11 @@ static int do_warning = 0;
 
 void
 yyerror (msg)
-     char *msg;
+     const char *msg;
 {
   static java_lc elc;
   static int  prev_lineno;
-  static char *prev_msg;
+  static const char *prev_msg;
 
   int save_lineno;
   char *remainder, *code_from_source;
@@ -2678,7 +2701,7 @@ java_accstring_lookup (flags)
 
 static void
 classitf_redefinition_error (context, id, decl, cl)
-     char *context;
+     const char *context;
      tree id, decl, cl;
 {
   parse_error_context (cl, "%s `%s' already defined in %s:%d", 
@@ -2692,7 +2715,7 @@ variable_redefinition_error (context, name, type, line)
      tree context, name, type;
      int line;
 {
-  char *type_name;
+  const char *type_name;
 
   /* Figure a proper name for type. We might haven't resolved it */
   if (TREE_CODE (type) == POINTER_TYPE && !TREE_TYPE (type))
@@ -2712,7 +2735,7 @@ build_array_from_name (type, type_wfl, name, ret_name)
      tree type, type_wfl, name, *ret_name;
 {
   int more_dims = 0;
-  char *string;
+  const char *string;
 
   /* Eventually get more dims */
   string = IDENTIFIER_POINTER (name);
@@ -2763,7 +2786,7 @@ static tree
 build_unresolved_array_type (type_or_wfl)
      tree type_or_wfl;
 {
-  char *ptr;
+  const char *ptr;
 
   /* TYPE_OR_WFL might be an array on a resolved type. In this case,
      just create a array type */
@@ -2790,7 +2813,7 @@ build_unresolved_array_type (type_or_wfl)
 
 static void
 check_modifiers (message, value, mask)
-     char *message;
+     const char *message;
      int value;
      int mask;
 {
@@ -2851,7 +2874,7 @@ check_class_interface_creation (is_interface, flags, raw_name, qualified_name, d
   /* If public, file name should match class/interface name */
   if (flags & ACC_PUBLIC)
     {
-      char *f;
+      const char *f;
 
       /* Contains OS dependent assumption on path separator. FIXME */
       for (f = &input_filename [strlen (input_filename)]; 
@@ -3318,13 +3341,18 @@ method_header (flags, type, mdecl, throws)
 {
   tree meth = TREE_VALUE (mdecl);
   tree id = TREE_PURPOSE (mdecl);
-  tree this_class = TREE_TYPE (ctxp->current_parsed_class);
   tree type_wfl = NULL_TREE;
-  tree meth_name = NULL_TREE, current, orig_arg;
+  tree meth_name = NULL_TREE;
+  tree current, orig_arg, this_class;
   int saved_lineno;
   int constructor_ok = 0, must_chain;
   
   check_modifiers_consistency (flags);
+
+  if (ctxp->current_parsed_class)
+    this_class = TREE_TYPE (ctxp->current_parsed_class);
+  else
+    return NULL_TREE;
   
   /* There are some forbidden modifiers for an abstract method and its
      class must be abstract as well.  */
@@ -3520,7 +3548,12 @@ static void
 finish_method_declaration (method_body)
      tree method_body;
 {
-  int flags = get_access_flags_from_decl (current_function_decl);
+  int flags;
+
+  if (!current_function_decl)
+    return;
+
+  flags = get_access_flags_from_decl (current_function_decl);
 
   /* 8.4.5 Method Body */
   if ((flags & ACC_ABSTRACT || flags & ACC_NATIVE) && method_body)
@@ -4147,8 +4180,8 @@ static tree
 resolve_class (class_type, decl, cl)
      tree class_type, decl, cl;
 {
-  char *name = IDENTIFIER_POINTER (TYPE_NAME (class_type));
-  char *base = name;
+  const char *name = IDENTIFIER_POINTER (TYPE_NAME (class_type));
+  const char *base = name;
   tree resolved_type = TREE_TYPE (class_type);
   tree resolved_type_decl;
   
@@ -4364,9 +4397,9 @@ resolve_no_layout (name, cl)
 /* Called when reporting errors. Skip leader '[' in a complex array
    type description that failed to be resolved.  */
 
-static char *
+static const char *
 purify_type_name (name)
-     char *name;
+     const char *name;
 {
   while (*name && *name == '[')
     name++;
@@ -4379,7 +4412,7 @@ static void
 complete_class_report_errors (dep)
      jdep *dep;
 {
-  char *name;
+  const char *name;
 
   if (!JDEP_WFL (dep))
     return;
@@ -4452,11 +4485,11 @@ java_check_final ()
    DECL is a constructor, use the class name instead of the form
    <init> */
 
-static char *
+static const char *
 get_printable_method_name (decl)
      tree decl;
 {
-  char *to_return;
+  const char *to_return;
   tree name = NULL_TREE;
 
   if (DECL_CONSTRUCTOR_P (decl))
@@ -4518,7 +4551,7 @@ java_get_real_method_name (method_decl)
 
 /* Track method being redefined inside the same class. As a side
    effect, set DECL_NAME to an IDENTIFIER (prior entering this
-   function it's a FWL, so we can track errors more accurately */
+   function it's a FWL, so we can track errors more accurately.)  */
 
 static int
 check_method_redefinition (class, method)
@@ -4554,9 +4587,126 @@ check_method_redefinition (class, method)
   return 0;
 }
 
-/* Check all the methods of CLASS. Methods are first completed then
-   checked according to regular method existance rules.
-   If no constructor were encountered, then build its declaration. */
+static void
+check_abstract_method_definitions (do_interface, class_decl, type)
+     int do_interface;
+     tree class_decl, type;
+{
+  tree class = TREE_TYPE (class_decl);
+  tree method, end_type;
+
+  end_type = (do_interface ? object_type_node : type);
+  for (method = TYPE_METHODS (type); method; method = TREE_CHAIN (method))
+    {
+      tree other_super, other_method, method_sig, method_name;
+      int found = 0;
+      
+      if (!METHOD_ABSTRACT (method) || METHOD_FINAL (method))
+	continue;
+      
+      /* Now verify that somewhere in between TYPE and CLASS,
+	 abstract method METHOD gets a non abstract definition
+	 that is inherited by CLASS.  */
+      
+      method_sig = build_java_signature (TREE_TYPE (method));
+      method_name = DECL_NAME (method);
+      if (TREE_CODE (method_name) == EXPR_WITH_FILE_LOCATION)
+	method_name = EXPR_WFL_NODE (method_name);
+
+      for (other_super = class; other_super != end_type; 
+	   other_super = CLASSTYPE_SUPER (other_super))
+	{
+	  for (other_method = TYPE_METHODS (other_super); other_method;
+	       other_method = TREE_CHAIN (other_method))
+	    {
+	      tree s = build_java_signature (TREE_TYPE (other_method));
+	      tree other_name = DECL_NAME (other_method);
+
+	      if (TREE_CODE (other_name) == EXPR_WITH_FILE_LOCATION)
+		other_name = EXPR_WFL_NODE (other_name);
+	      if (!IS_CLINIT (other_method)
+		  && !DECL_CONSTRUCTOR_P (other_method)
+		  && method_name == other_name && method_sig == s)
+		{
+		  found = 1;
+		  break;
+		}
+	    }
+	}
+      
+      /* Report that abstract METHOD didn't find an implementation
+	 that CLASS can use. */
+      if (!found)
+	{
+	  char *t = strdup (lang_printable_name 
+			    (TREE_TYPE (TREE_TYPE (method)), 0));
+	  tree ccn = DECL_NAME (TYPE_NAME (DECL_CONTEXT (method)));
+	  tree saved_wfl = NULL_TREE;
+	  
+	  if (TREE_CODE (DECL_NAME (method)) == EXPR_WITH_FILE_LOCATION)
+	    {
+	      saved_wfl = DECL_NAME (method);
+	      DECL_NAME (method) = EXPR_WFL_NODE (DECL_NAME (method));
+	    }
+	  
+	  parse_error_context 
+	    (lookup_cl (class_decl),
+	     "Class `%s' doesn't define the abstract method `%s %s' from "
+	     "%s `%s'. This method must be defined or %s `%s' must be "
+	     "declared abstract",
+	     IDENTIFIER_POINTER (DECL_NAME (class_decl)),
+	     t, lang_printable_name (method, 0), 
+	     (CLASS_INTERFACE (TYPE_NAME (DECL_CONTEXT (method))) ? 
+	      "interface" : "class"),
+	     IDENTIFIER_POINTER (ccn),
+	     (CLASS_INTERFACE (class_decl) ? "interface" : "class"),
+	     IDENTIFIER_POINTER (DECL_NAME (class_decl)));
+	  
+	  free (t);
+	  
+	  if (saved_wfl)
+	    DECL_NAME (method) = saved_wfl;
+	}
+    }
+}
+
+/* Check that CLASS_DECL somehoow implements all inherited abstract
+   methods.  */
+
+static void
+java_check_abstract_method_definitions (class_decl)
+     tree class_decl;
+{
+  tree class = TREE_TYPE (class_decl);
+  tree super, vector;
+  int i;
+
+  if (CLASS_ABSTRACT (class_decl))
+    return;
+
+  /* Check for inherited types */
+  for (super = CLASSTYPE_SUPER (class); super != object_type_node; 
+       super = CLASSTYPE_SUPER (super))
+    {
+      if (!CLASS_ABSTRACT (TYPE_NAME (super)))
+	continue;
+
+      check_abstract_method_definitions (0, class_decl, super);
+    }
+
+  /* Check for implemented interfaces. */
+  vector = TYPE_BINFO_BASETYPES (class);
+  for (i = 1; i < TREE_VEC_LENGTH (vector); i++)
+    {
+      super = BINFO_TYPE (TREE_VEC_ELT (vector, i));
+      check_abstract_method_definitions (1, class_decl, super);
+    }
+}
+
+/* Check all the methods of CLASS_DECL. Methods are first completed
+   then checked according to regular method existance rules.  If no
+   constructor for CLASS_DECL were encountered, then build its
+   declaration.  */
 
 static void
 java_check_regular_methods (class_decl)
@@ -4732,13 +4882,17 @@ java_check_regular_methods (class_decl)
   
   /* Don't forget eventual pending found and saved_found_wfl. Take
      into account that we might have exited because we saw an
-     aritifical method as the last entry. */
+     artificial method as the last entry. */
 
   if (found && !DECL_ARTIFICIAL (found) && saved_found_wfl)
     DECL_NAME (found) = saved_found_wfl;
 
   if (!TYPE_NVIRTUALS (class))
     TYPE_METHODS (class) = nreverse (TYPE_METHODS (class));
+
+  /* Search for inherited abstract method not yet implemented in this
+     class.  */
+  java_check_abstract_method_definitions (class_decl);
 
   if (!saw_constructor)
     {
@@ -5033,7 +5187,7 @@ find_in_imports (class_type)
 
 static int
 note_possible_classname (name, len)
-     char *name;
+     const char *name;
      int len;
 {
   tree node;
@@ -5058,7 +5212,7 @@ read_import_dir (wfl)
      tree wfl;
 {
   tree package_id = EXPR_WFL_NODE (wfl);
-  char *package_name = IDENTIFIER_POINTER (package_id);
+  const char *package_name = IDENTIFIER_POINTER (package_id);
   int package_length = IDENTIFIER_LENGTH (package_id);
   DIR *dirp = NULL;
   JCF *saved_jcf = current_jcf;
@@ -5078,7 +5232,7 @@ read_import_dir (wfl)
 
   for (entry = jcf_path_start (); entry != NULL; entry = jcf_path_next (entry))
     {
-      char *entry_name = jcf_path_name (entry);
+      const char *entry_name = jcf_path_name (entry);
       int entry_length = strlen (entry_name);
       if (jcf_path_is_zipfile (entry))
 	{
@@ -5102,7 +5256,7 @@ read_import_dir (wfl)
 
 	      for (k = 0; k < zipf->count;  k++, zipd = ZIPDIR_NEXT (zipd))
 		{
-		  char *current_entry = ZIPDIR_FILENAME (zipd);
+		  const char *current_entry = ZIPDIR_FILENAME (zipd);
 		  int current_entry_len = zipd->filename_length;
 
 		  if (current_entry_len >= BUFFER_LENGTH (filename)
@@ -5134,7 +5288,7 @@ read_import_dir (wfl)
 	  for (;;)
 	    {
 	      int len; 
-	      char *d_name;
+	      const char *d_name;
 	      struct dirent *direntp = readdir (dirp);
 	      if (!direntp)
 		break;
@@ -5190,7 +5344,7 @@ find_in_imports_on_demand (class_type)
 
   for (import = ctxp->import_demand_list; import; import = TREE_CHAIN (import))
     {
-      char *id_name;
+      const char *id_name;
       obstack_grow (&temporary_obstack, 
 		    IDENTIFIER_POINTER (EXPR_WFL_NODE (TREE_PURPOSE (import))),
 		    IDENTIFIER_LENGTH (EXPR_WFL_NODE (TREE_PURPOSE (import))));
@@ -5248,7 +5402,7 @@ resolve_package (pkg, next)
 {
   tree current;
   tree type_name = NULL_TREE;
-  char *name = IDENTIFIER_POINTER (EXPR_WFL_NODE (pkg));
+  const char *name = IDENTIFIER_POINTER (EXPR_WFL_NODE (pkg));
 
   /* The trick is to determine when the package name stops and were
      the name of something contained in the package starts. Then we
@@ -5307,11 +5461,11 @@ resolve_package (pkg, next)
 
 static tree
 lookup_package_type_and_set_next (name, len, next)
-     char *name;
+     const char *name;
      int len;
      tree *next;
 {
-  char *ptr;
+  const char *ptr;
   tree type_name = lookup_package_type (name, len);
 
   if (!type_name)
@@ -5328,11 +5482,11 @@ lookup_package_type_and_set_next (name, len, next)
 
 static tree
 lookup_package_type (name, from)
-     char *name;
+     const char *name;
      int from;
 {
   char subname [128];
-  char *sub = &name[from+1];
+  const char *sub = &name[from+1];
   while (*sub != '.' && *sub)
     sub++;
   strncpy (subname, name, sub-name);
@@ -5497,6 +5651,9 @@ source_start_java_method (fndecl)
   tree parm_decl;
   int i;
 
+  if (!fndecl)
+    return;
+
   current_function_decl = fndecl;
 
   /* New scope for the function */
@@ -5591,11 +5748,10 @@ expand_start_java_method (fndecl)
     {
       tree next = TREE_CHAIN (tem);
       tree type = TREE_TYPE (tem);
-#ifdef PROMOTE_PROTOTYPES
-      if (TYPE_PRECISION (type) < TYPE_PRECISION (integer_type_node)
+      if (PROMOTE_PROTOTYPES
+	  && TYPE_PRECISION (type) < TYPE_PRECISION (integer_type_node)
 	  && INTEGRAL_TYPE_P (type))
 	type = integer_type_node;
-#endif
       DECL_ARG_TYPE (tem) = type;
       layout_decl (tem, 0);
       pushdecl (tem);
@@ -5615,6 +5771,9 @@ source_end_java_method ()
 {
   tree fndecl = current_function_decl;
   int flag_asynchronous_exceptions = asynchronous_exceptions;
+
+  if (!fndecl)
+    return;
 
   java_parser_context_save_global ();
   lineno = ctxp->last_ccb_indent1;
@@ -5671,6 +5830,8 @@ tree
 java_method_add_stmt (fndecl, expr)
      tree fndecl, expr;
 {
+  if (!fndecl)
+    return NULL;
   return add_stmt_to_block (GET_CURRENT_BLOCK (fndecl), NULL_TREE, expr);
 }
 
@@ -5799,7 +5960,7 @@ java_layout_classes ()
 
 /* Expand all methods in all registered classes.  */
 
-void
+static void
 java_complete_expand_methods ()
 {
   tree current;
@@ -5997,7 +6158,7 @@ fix_constructors (mdecl)
       if (verify_constructor_super ())
 	{
 	  tree sclass_decl = TYPE_NAME (CLASSTYPE_SUPER (current_class));
-	  char *n = IDENTIFIER_POINTER (DECL_NAME (sclass_decl));
+	  const char *n = IDENTIFIER_POINTER (DECL_NAME (sclass_decl));
 	  parse_error_context (lookup_cl (TYPE_NAME (current_class)), 
 			       "No constructor matching `%s()' found in "
 			       "class `%s'", n, n);
@@ -6069,7 +6230,8 @@ verify_constructor_super ()
       for (mdecl = TYPE_METHODS (class); mdecl; mdecl = TREE_CHAIN (mdecl))
 	{
 	  if (DECL_CONSTRUCTOR_P (mdecl)
-	      && TREE_CHAIN (TYPE_ARG_TYPES (TREE_TYPE (mdecl))) == end_params_node)
+	      && TREE_CHAIN (TYPE_ARG_TYPES (TREE_TYPE (mdecl))) 
+	         == end_params_node)
 	    return 0;
 	}
     }
@@ -6078,7 +6240,7 @@ verify_constructor_super ()
 
 /* Expand finals.  */
 
-void
+static void
 java_expand_finals ()
 {
 }
@@ -6769,7 +6931,8 @@ resolve_qualified_expression_name (wfl, found_decl, where_found, type_found)
 /* 6.6 Qualified name and access control. Returns 1 if MEMBER (a decl)
    can't be accessed from REFERENCE (a record type). */
 
-int not_accessible_p (reference, member, from_super)
+static int
+not_accessible_p (reference, member, from_super)
      tree reference, member;
      int from_super;
 {
@@ -6819,7 +6982,7 @@ static void
 check_deprecation (wfl, decl)
      tree wfl, decl;
 {
-  char *file = DECL_SOURCE_FILE (decl);
+  const char *file = DECL_SOURCE_FILE (decl);
   /* Complain if the field is deprecated and the file it was defined
      in isn't compiled at the same time the file which contains its
      use is */
@@ -7351,7 +7514,7 @@ lookup_method_invoke (lc, cl, class, name, arg_list)
 {
   tree atl = end_params_node;		/* Arg Type List */
   tree method, signature, list, node;
-  char *candidates;		/* Used for error report */
+  const char *candidates;		/* Used for error report */
 
   /* Fix the arguments */
   for (node = arg_list; node; node = TREE_CHAIN (node))
@@ -7404,7 +7567,7 @@ lookup_method_invoke (lc, cl, class, name, arg_list)
   parse_error_context (cl, "Can't find %s `%s(%s)' in class `%s'%s",
 		       (lc ? "constructor" : "method"),
 		       (lc ? 
-			IDENTIFIER_POINTER(DECL_NAME (TYPE_NAME (class))) :
+			IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (class))) :
 			IDENTIFIER_POINTER (name)),
 		       IDENTIFIER_POINTER (signature),
 		       IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (class))),
@@ -7866,8 +8029,7 @@ java_stabilize_reference (node)
       TREE_OPERAND (node, 1) = java_stabilize_reference (op1);
       return node;
     }
-  else
-    return stabilize_reference (node);
+  return stabilize_reference (node);
 }
 
 /* Patch tree nodes in a function body. When a BLOCK is found, push
@@ -8317,14 +8479,17 @@ java_complete_lhs (node)
       if (TREE_OPERAND (node, 0) == error_mark_node)
 	return error_mark_node;
 
-      if (COMPOUND_ASSIGN_P (wfl_op2))
+      flag = COMPOUND_ASSIGN_P (wfl_op2);
+      if (flag)
 	{
 	  tree lvalue = java_stabilize_reference (TREE_OPERAND (node, 0)); 
 
 	  /* Hand stablize the lhs on both places */
 	  TREE_OPERAND (node, 0) = lvalue;
-	  TREE_OPERAND (TREE_OPERAND (node, 1), 0) = lvalue;
+	  TREE_OPERAND (TREE_OPERAND (node, 1), 0) = 
+	    (flag_emit_class_files ? lvalue : save_expr (lvalue));
 
+	  /* 15.25.2.a: Left hand is not an array access. FIXME */
 	  /* Now complete the RHS. We write it back later on. */
 	  nn = java_complete_tree (TREE_OPERAND (node, 1));
 
@@ -8335,6 +8500,8 @@ java_complete_lhs (node)
 	     E1 = (T)(E1 op E2), with T being the type of E1. */
 	  nn = java_complete_tree (build_cast (EXPR_WFL_LINECOL (wfl_op2), 
 					       TREE_TYPE (lvalue), nn));
+
+	  /* 15.25.2.b: Left hand is an array access. FIXME */
 	}
 
       /* If we're about to patch a NEW_ARRAY_INIT, we call a special
@@ -8358,6 +8525,10 @@ java_complete_lhs (node)
       if ((nn = patch_string (TREE_OPERAND (node, 1))))
 	TREE_OPERAND (node, 1) = nn;
       node = patch_assignment (node, wfl_op1, wfl_op2);
+      /* Reorganize the tree if necessary. */
+      if (flag && (!JREFERENCE_TYPE_P (TREE_TYPE (node)) 
+		   || JSTRING_P (TREE_TYPE (node))))
+	node = java_refold (node);
       CAN_COMPLETE_NORMALLY (node) = 1;
       return node;
 
@@ -8827,7 +8998,7 @@ maybe_build_primttype_type_ref (rhs, wfl)
 	  && DECL_NAME (n) == TYPE_identifier_node
 	  && rhs_type == class_ptr_type)
 	{
-	  char *self_name = IDENTIFIER_POINTER (EXPR_WFL_NODE (wfl));
+	  const char *self_name = IDENTIFIER_POINTER (EXPR_WFL_NODE (wfl));
 	  if (!strncmp (self_name, "java.lang.", 10))
 	    to_return = build_primtype_type_ref (self_name);
 	}
@@ -9366,6 +9537,81 @@ operator_string (node)
 #undef BUILD_OPERATOR_STRING
 }
 
+/* Return 1 if VAR_ACCESS1 is equivalent to VAR_ACCESS2.  */
+
+static int
+java_decl_equiv (var_acc1, var_acc2)
+     tree var_acc1, var_acc2;
+{
+  if (JDECL_P (var_acc1))
+    return (var_acc1 == var_acc2);
+  
+  return (TREE_CODE (var_acc1) == COMPONENT_REF
+	  && TREE_CODE (var_acc2) == COMPONENT_REF
+	  && TREE_OPERAND (TREE_OPERAND (var_acc1, 0), 0)
+	     == TREE_OPERAND (TREE_OPERAND (var_acc2, 0), 0)
+	  && TREE_OPERAND (var_acc1, 1) == TREE_OPERAND (var_acc2, 1));
+}
+
+/* Return a non zero value if CODE is one of the operators that can be
+   used in conjunction with the `=' operator in a compound assignment.  */
+
+static int
+binop_compound_p (code)
+    enum tree_code code;
+{
+  int i;
+  for (i = 0; i < BINOP_COMPOUND_CANDIDATES; i++)
+    if (binop_lookup [i] == code)
+      break;
+
+  return i < BINOP_COMPOUND_CANDIDATES;
+}
+
+/* Reorganize after a fold to get SAVE_EXPR to generate what we want.  */
+
+static tree
+java_refold (t)
+     tree t;
+{
+  tree c, b, ns, decl;
+
+  if (TREE_CODE (t) != MODIFY_EXPR)
+    return t;
+
+  c = TREE_OPERAND (t, 1);
+  if (! (c && TREE_CODE (c) == COMPOUND_EXPR
+	 && TREE_CODE (TREE_OPERAND (c, 0)) == MODIFY_EXPR
+	 && binop_compound_p (TREE_CODE (TREE_OPERAND (c, 1)))))
+    return t;
+
+  /* Now the left branch of the binary operator. */
+  b = TREE_OPERAND (TREE_OPERAND (c, 1), 0);
+  if (! (b && TREE_CODE (b) == NOP_EXPR 
+	 && TREE_CODE (TREE_OPERAND (b, 0)) == SAVE_EXPR))
+    return t;
+
+  ns = TREE_OPERAND (TREE_OPERAND (b, 0), 0);
+  if (! (ns && TREE_CODE (ns) == NOP_EXPR
+	 && TREE_CODE (TREE_OPERAND (ns, 0)) == SAVE_EXPR))
+    return t;
+
+  decl = TREE_OPERAND (TREE_OPERAND (ns, 0), 0);
+  if ((JDECL_P (decl) || TREE_CODE (decl) == COMPONENT_REF)
+      /* It's got to be the an equivalent decl */
+      && java_decl_equiv (decl, TREE_OPERAND (TREE_OPERAND (c, 0), 0)))
+    {
+      /* Shorten the NOP_EXPR/SAVE_EXPR path. */
+      TREE_OPERAND (TREE_OPERAND (c, 1), 0) = TREE_OPERAND (ns, 0);
+      /* Substitute the COMPOUND_EXPR by the BINOP_EXPR */
+      TREE_OPERAND (t, 1) = TREE_OPERAND (c, 1);
+      /* Change the right part of the BINOP_EXPR */
+      TREE_OPERAND (TREE_OPERAND (t, 1), 1) = TREE_OPERAND (c, 0);
+    }
+
+  return t;
+}
+
 /* Binary operators (15.16 up to 15.18). We return error_mark_node on
    errors but we modify NODE so that it contains the type computed
    according to the expression, when it's fixed. Otherwise, we write
@@ -9721,11 +9967,11 @@ patch_binop (node, wfl_op1, wfl_op2)
 static tree
 do_merge_string_cste (cste, string, string_len, after)
      tree cste;
-     char *string;
+     const char *string;
      int string_len, after;
 {
   int len = TREE_STRING_LENGTH (cste) + string_len;
-  char *old = TREE_STRING_POINTER (cste);
+  const char *old = TREE_STRING_POINTER (cste);
   TREE_STRING_LENGTH (cste) = len;
   TREE_STRING_POINTER (cste) = obstack_alloc (expression_obstack, len+1);
   if (after)
@@ -9757,11 +10003,11 @@ merge_string_cste (op1, op2, after)
   /* Reasonable integer constant can be treated right away */
   if (TREE_CODE (op2) == INTEGER_CST && !TREE_CONSTANT_OVERFLOW (op2))
     {
-      static char *boolean_true = "true";
-      static char *boolean_false = "false";
-      static char *null_pointer = "null";
+      static const char *boolean_true = "true";
+      static const char *boolean_false = "false";
+      static const char *null_pointer = "null";
       char ch[3];
-      char *string;
+      const char *string;
       
       if (op2 == boolean_true_node)
 	string = boolean_true;
@@ -10030,7 +10276,7 @@ patch_unaryop (node, wfl_op)
     case PREINCREMENT_EXPR:
       /* 15.14.2 Prefix Decrement Operator -- */
     case PREDECREMENT_EXPR:
-      decl = strip_out_static_field_access_decl (op);
+      op = decl = strip_out_static_field_access_decl (op);
       /* We really should have a JAVA_ARRAY_EXPR to avoid this */
       if (!JDECL_P (decl) 
 	  && TREE_CODE (decl) != COMPONENT_REF
@@ -10069,15 +10315,28 @@ patch_unaryop (node, wfl_op)
       else
 	{
 	  /* Before the addition, binary numeric promotion is performed on
-	     both operands */
-	  value = build_int_2 (1, 0);
-	  TREE_TYPE (node) = 
-	    binary_numeric_promotion (op_type, TREE_TYPE (value), &op, &value);
-	  /* And write the promoted incremented and increment */
+	     both operands, if really necessary */
+	  if (JINTEGRAL_TYPE_P (op_type))
+	    {
+	      value = build_int_2 (1, 0);
+	      TREE_TYPE (value) = TREE_TYPE (node) = op_type;
+	    }
+	  else
+	    {
+	      value = build_int_2 (1, 0);
+	      TREE_TYPE (node) = 
+		binary_numeric_promotion (op_type, 
+					  TREE_TYPE (value), &op, &value);
+	    }
+	  /* And write back into the node. */
 	  TREE_OPERAND (node, 0) = op;
 	  TREE_OPERAND (node, 1) = value;
-	  /* Convert the overall back into its original type. */
-	  return fold (convert (op_type, node));
+	  /* Convert the overall back into its original type, if
+             necessary, and return */
+	  if (JINTEGRAL_TYPE_P (op_type))
+	    return fold (node);
+	  else
+	    return fold (convert (op_type, node));
 	}
       break;
 
@@ -10208,7 +10467,6 @@ patch_cast (node, wfl_operator)
   /* Check on cast that are proven correct at compile time */
   if (JNUMERIC_TYPE_P (cast_type) && JNUMERIC_TYPE_P (op_type))
     {
-      static tree convert_narrow ();
       /* Same type */
       if (cast_type == op_type)
 	return node;
@@ -10601,7 +10859,7 @@ array_constructor_check_entry (type, entry)
   /* Check and report errors */
   if (!new_value)
     {
-      char *msg = (!valid_cast_to_p (type_value, type) ?
+      const char *msg = (!valid_cast_to_p (type_value, type) ?
 		   "Can't" : "Explicit cast needed to");
       if (!array_type_string)
 	array_type_string = strdup (lang_printable_name (type, 1));
@@ -10936,6 +11194,54 @@ finish_for_loop (location, condition, update, body)
   return loop;
 }
 
+/* Try to find the loop a block might be related to. This comprises
+   the case where the LOOP_EXPR is found as the second operand of a
+   COMPOUND_EXPR, because the loop happens to have an initialization
+   part, then expressed as the first operand of the COMPOUND_EXPR. If
+   the search finds something, 1 is returned. Otherwise, 0 is
+   returned. The search is assumed to start from a
+   LABELED_BLOCK_EXPR's block.  */
+
+static tree
+search_loop (statement)
+    tree statement;
+{
+  if (TREE_CODE (statement) == LOOP_EXPR)
+    return statement;
+
+  if (TREE_CODE (statement) == BLOCK)
+    statement = BLOCK_SUBBLOCKS (statement);
+  else
+    return NULL_TREE;
+
+  if (statement && TREE_CODE (statement) == COMPOUND_EXPR)
+    while (statement && TREE_CODE (statement) == COMPOUND_EXPR)
+      statement = TREE_OPERAND (statement, 1);
+
+  return (TREE_CODE (statement) == LOOP_EXPR
+	  && IS_FOR_LOOP_P (statement) ? statement : NULL_TREE);
+}
+
+/* Return 1 if LOOP can be found in the labeled block BLOCK. 0 is
+   returned otherwise.  */
+
+static int
+labeled_block_contains_loop_p (block, loop)
+    tree block, loop;
+{
+  if (!block)
+    return 0;
+
+  if (LABELED_BLOCK_BODY (block) == loop)
+    return 1;
+
+  if (IS_FOR_LOOP_P (loop) 
+      && search_loop (LABELED_BLOCK_BODY (block)) == loop)
+    return 1;
+
+  return 0;
+}
+
 /* If the loop isn't surrounded by a labeled statement, create one and
    insert LOOP as its body.  */
 
@@ -10944,33 +11250,17 @@ patch_loop_statement (loop)
      tree loop;
 {
   tree loop_label;
-  tree block = ctxp->current_labeled_block;
+
   TREE_TYPE (loop) = void_type_node;
-  if (block != NULL_TREE)
-    {
-      tree block_body = LABELED_BLOCK_BODY (block);
-      if (IS_FOR_LOOP_P (loop))
-	{
-	  if (TREE_CODE (block_body) == BLOCK)
-	    {
-	      block_body = BLOCK_EXPR_BODY (block_body);
-	      if (block_body == loop
-		  || (TREE_CODE (block_body) == COMPOUND_EXPR
-		      && TREE_OPERAND (block_body, 1) == loop))
-		return loop;
-	    }
-	}
-      else
-	{
-	  if (block_body == loop)
-	    return loop;
-	}
-    }
+  if (labeled_block_contains_loop_p (ctxp->current_labeled_block, loop))
+    return loop;
+
   loop_label = build_labeled_block (0, NULL_TREE);
+  /* LOOP is an EXPR node, so it should have a valid EXPR_WFL_LINECOL
+     that LOOP_LABEL could enquire about, for a better accuracy. FIXME */
   LABELED_BLOCK_BODY (loop_label) = loop;
   PUSH_LABELED_BLOCK (loop_label);
-  loop = loop_label;
-  return loop;
+  return loop_label;
 }
 
 /* 14.13, 14.14: break and continue Statements */
@@ -11062,7 +11352,7 @@ patch_bc_statement (node)
 	    }
 	  target_stmt = LABELED_BLOCK_BODY (labeled_block);
 	  if (TREE_CODE (target_stmt) == SWITCH_EXPR
-	      || TREE_CODE (target_stmt) == LOOP_EXPR)
+	      || search_loop (target_stmt))
 	    {
 	      bc_label = labeled_block;
 	      break;
@@ -11076,7 +11366,7 @@ patch_bc_statement (node)
   /* Our break/continue don't return values. */
   TREE_TYPE (node) = void_type_node;
   /* Encapsulate the break within a compound statement so that it's
-     expanded all the times by expand_expr (and not clobered
+     expanded all the times by expand_expr (and not clobbered
      sometimes, like after a if statement) */
   node = add_stmt_to_compound (NULL_TREE, void_type_node, node);
   TREE_SIDE_EFFECTS (node) = 1;

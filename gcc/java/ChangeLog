@@ -1,3 +1,292 @@
+1999-08-25  Tom Tromey  <tromey@cygnus.com>
+
+	* jvspec.c (lang_specific_driver): Correctly handle --help again.
+
+1999-08-25  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gjavah.c (print_name, print_base_classname, utf8_cmp,
+	cxx_keyword_subst, generate_access, name_is_method_p,
+	get_field_name, print_field_name, super_class_name, print_include,
+	decode_signature_piece, print_class_decls, usage, help,
+	java_no_argument, version, add_namelet, print_namelet): Add static
+	prototype.
+	(print_base_classname, utf8_cmp, cxx_keyword_subst,
+	name_is_method_p): Constify a char*.
+	(get_field_name): Likewise.  Prefer xstrdup over malloc/strcpy.
+	Provide a final else clause in an if-else-if.
+	(print_field_info): Add missing final arg in function call to
+	`print_field_name'.
+	(print_method_info, decompile_method, decode_signature_piece,
+	print_c_decl, print_full_cxx_name, print_stub,
+	print_mangled_classname, super_class_name, print_include,
+	add_namelet, add_class_decl, print_class_decls, process_file,
+	help): Constify a char*.
+
+	* jcf-write.c (jcf_handler, push_constant1, push_constant2,
+	push_int_const, find_constant_wide, find_constant_index,
+	push_long_const, field_op, maybe_wide, emit_dup, emit_pop,
+	emit_iinc, emit_load_or_store, emit_load, emit_store, emit_unop,
+	emit_binop, emit_reloc, emit_switch_reloc, emit_case_reloc,
+	emit_if, emit_goto, emit_jsr, call_cleanups,
+	make_class_file_name): Add static prototypes.
+	(generate_bytecode_return, generate_bytecode_insns): Pass a
+	NULL_PTR, not a NULL_TREE.
+
+	* jv-scan.c: Include "jcf.h".
+	(main): Declare using DEFUN macro.
+
+	* jvspec.c (find_spec_file, lang_specific_pre_link,
+	lang_specific_driver): Add prototypes.
+	(find_spec_file): Constify a char*.
+
+	* keyword.gperf (hash, java_keyword): Add prototypes.
+
+	* lang.c (lang_print_error): Add static prototype.
+	(lang_init): Prefer memcpy over bcopy to avoid casts.
+
+	* lex.c (yylex): Add static prototype.
+
+	* parse-scan.y: Include "lex.c" earlier.
+
+	* parse.h: Remove redundant declaration for `yylex'.
+
+	* parse.y (java_decl_equiv, binop_compound_p, search_loop,
+	labeled_block_contains_loop_p): Add static prototypes.
+	(not_accessible_p): Make static to match prototype.
+
+	* verify.c (start_pc_cmp): Don't needlessly cast away const.
+
+Sun Aug 22 11:07:41 1999  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	* parse.y (check_method_redefinition): Changed leading comment.
+	(check_abstract_method_definitions): New function.
+	(java_check_abstract_method_definitions): New function.
+	(java_check_regular_methods): Call it.
+	(verify_constructor_super): Fixed indentation.
+	(lookup_method_invoke): Likewise.
+
+Thu Aug 19 10:26:18 1999  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	* parse.y (method_header): Return a null pointer if the current
+ 	class node is null.
+	(finish_method_declaration): Return if the current function decl
+ 	is null.
+	(source_start_java_method): Likewise.
+	(java_method_add_stmt): Likewise.
+
+Wed Aug 18 13:17:15 1999  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	* class.c (emit_register_class): Removed unnecessary call to
+ 	start_sequence.
+	* parse.y (labeled_block_contains_loop_p): Removed unused local
+ 	variable.
+
+Tue Aug 17 22:51:44 1999  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+        * parse.y (java_refold): Added prototype.
+
+Tue Aug 17 21:48:41 1999  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+        * parse.y (BINOP_COMPOUND_CANDIDATES): New macro.
+        (java_stabilize_reference): Removed unnecessary `else'.
+        (java_complete_lhs): Set flag to remember boolean. Call
+        java_refold. Added comments.
+        (java_decl_equiv): New function.
+        (binop_compound_p): Likewise.
+        (java_refold): Likewise.
+        (patch_unaryop): Striped static field access assigned to decl and
+        op. Changed promotion scheme for ++/-- operators.
+        (search_loop): New function.
+        (labeled_block_contains_loop_p): Likewise.
+        (patch_loop_statement): Call labeled_block_contains_loop_p. Added
+        comment.
+        (patch_bc_statement): Call search_loop. Fixed comment.
+
+1999-08-14  Anthony Green  <green@cygnus.com>
+
+	* expr.c (java_lang_expand_expr): Mark static array data as
+	referenced.
+
+Tue Aug	10 00:28:31 1999  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* jvgenmain.c (main): NUL-terminate name_obstack.
+
+1999-08-10  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* check-init.c (check_bool2_init, done_alternative): Add static
+	prototypes.
+
+	* class.c (add_interface_do, maybe_layout_super_class): Likewise.
+	(add_method, build_utf8_ref, build_class_ref,
+	append_gpp_mangled_type, layout_class_method): Constify a char*.
+
+	* decl.c (push_promoted_type, make_binding_level): Add static
+	prototypes.
+	(push_promoted_type, pushdecl): Constify a char*.
+
+	* except.c (find_handler_in_range, link_handler,
+	check_start_handlers): Add static prototypes.
+
+	* expr.c (process_jvm_instruction): Constify a char*.
+
+	* gjavah.c (main): Constify a char*.
+
+	* java-tree.h (verify_jvm_instructions, process_jvm_instruction):
+	Constify a char*.
+
+	* jcf-depend.c (free_entry, add_entry, munge, print_ents): Add
+	static prototypes.
+	(add_entry, jcf_dependency_set_target, jcf_dependency_add_target,
+	munge, print_ents): Constify a char*.
+
+	* jcf-dump.c (disassemble_method): Constify a char*.
+	(print_constant_pool, print_exception_table): Add static prototypes.
+	(print_constant, print_exception_table, main, disassemble_method):
+	Constify a char*.
+
+	* jcf-io.c (find_classfile, find_class): Likewise.
+
+	* jcf-parse.c (JPOOL_UTF_DATA, find_in_current_zip): Likewise.
+	(set_source_filename, predefined_filename_p): Add static prototypes.
+	(set_source_filename, get_constant, get_class_constant,
+	find_in_current_zip): Constify a char*.
+
+	* jcf-path.c (free_entry, append_entry, add_entry, add_path): Add
+	static prototypes.
+	(add_entry, add_path, jcf_path_classpath_arg,
+	jcf_path_CLASSPATH_arg, jcf_path_include_arg): Constify a char*.
+
+	* jcf-reader.c (get_attribute, jcf_parse_preamble,
+	jcf_parse_constant_pool, jcf_parse_class, jcf_parse_fields,
+	jcf_parse_one_method, jcf_parse_methods,
+	jcf_parse_final_attributes): Add static prototypes.
+	(get_attribute): Constify a char*.
+
+	* jcf.h (find_class, find_classfile, jcf_dependency_set_target,
+	jcf_dependency_add_target, jcf_path_classpath_arg,
+	jcf_path_CLASSPATH_arg, jcf_path_include_arg): Constify a char*.
+
+	* jv-scan.c (main): Constify a char*.
+	(gcc_obstack_init): Add prototype arguments.
+
+	* jvgenmain.c (gcc_obstack_init): Likewise.
+	(main): Constify a char*.
+
+	* lang.c (put_decl_string, put_decl_node, java_dummy_print): Add
+	static prototypes.
+	(put_decl_string, lang_print_error): Constify a char*.
+	(lang_init): Remove redundant extern prototype.
+	
+	* mangle.c (emit_unicode_mangled_name): Constify a char*.
+
+	* typeck.c (convert_ieee_real_to_integer, parse_signature_type):
+	Add static prototypes.
+	(get_type_from_signature): Constify a char*.
+
+	* verify.c (check_pending_block, type_stack_dup, start_pc_cmp ):
+	Add static prototypes.
+	(start_pc_cmp): Prefer PTR over GENERIC_PTR.
+	(verify_jvm_instructions): Constify a char*.
+
+	* xref.c (xref_flag_value): Likewise.
+	
+	* xref.h (xref_flag_value): Likewise.
+
+	* zextract.c (makeword, makelong): Add static prototypes.
+	(makeword, makelong): Constify a uch*.
+
+1999-08-09  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+        * lang.c (java_dummy_print): Constify a char*.
+        (lang_print_error): Likewise.
+        (lang_init): Remove redundant prototype for `print_error_function'.
+        (lang_init_source): Likewise.
+        (lang_identify): Constify a char*.
+	
+1999-08-09  Tom Tromey  <tromey@cygnus.com>
+
+	* javaop.h (WORD_TO_FLOAT): only inline if building with gcc.
+	(WORDS_TO_LONG): Likewise.
+	(WORDS_TO_DOUBLE): Likewise.
+
+1999-08-04  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* Makefile.in (lang.o): Depend on $(RTL_H) $(EXPR_H).
+
+	* expr.c (java_stack_pop, java_array_data_offset,
+	build_java_throw_out_of_bounds_exception, case_identity,
+	build_java_check_indexed_type): Add static prototypes.
+	(linenumber_table, expand_invoke, expand_java_field_op,
+	build_primtype_type_ref, expand_byte_code): Constify a char*.
+
+	* java-tree.h (build_primtype_type_ref, linenumber_table):
+	Constify a char*.
+	(java_lang_expand_expr): Add prototype.
+
+	* lang.c: Include rtl.h and expr.h.  Remove extern prototype for
+	`java_lang_expand_expr'.
+
+	* lex.c (java_lex_error): Constify a char*.
+	(java_get_unicode, java_read_char, java_allocate_new_line,
+	java_unget_unicode, java_sneak_unicode): Prototype.
+
+	* parse-scan.y (current_class, package_name, method_declarator,
+	report_class_declaration, yyerror): Constify a char*.
+
+	* parse.h (java_report_errors): Prototype.
+	(yyerror): Constify a char*.
+
+	* parse.y (classitf_redefinition_error, check_modifiers,
+	parse_jdk1_1_error, lookup_package_type,
+	lookup_package_type_and_set_next, get_printable_method_name,
+	purify_type_name): Constify a char*.
+	(build_super_invocation, maybe_generate_finit,
+	verify_constructor_super, parser_add_interface,
+	add_superinterfaces, jdep_resolve_class, note_possible_classname,
+	java_complete_expand_methods, java_expand_finals,
+	cut_identifier_in_qualified, java_stabilize_reference,
+	do_unary_numeric_promotion, operator_string, do_merge_string_cste,
+	merge_string_cste): Prototype.
+	(single_type_import_declaration, yyerror,
+	variable_redefinition_error, build_array_from_name,
+	build_unresolved_array_type, check_class_interface_creation,
+	resolve_class, complete_class_report_errors,
+	note_possible_classname, read_import_dir,
+	find_in_imports_on_demand, resolve_package, fix_constructors,
+	check_deprecation, lookup_method_invoke,
+	maybe_build_primttype_type_ref, array_constructor_check_entry):
+	Constify a char*.
+	(java_complete_expand_methods, java_expand_finals): Make static.
+	(convert_narrow): Remove static prototype.
+
+Tue Aug  3 20:21:20 1999  J"orn Rennecke <amylaar@cygnus.co.uk>
+
+	* Makefile.in (decl.o): Depends on $(srcdir)/../defaults.h.
+
+1999-08-02  Richard Henderson  <rth@cygnus.com>
+
+	* decl.c: Include defaults.h instead of expr.h.
+	* parse.y: Likewise.
+
+1999-08-02  Jakub Jelinek  <jj@ultra.linux.cz>
+
+	* java/decl.c (start_java_method): Change all uses of
+	PROMOTE_PROTOTYPES, so that it tests it as a C expression.
+	Ensure expr.h is included.
+	* java/expr.c (pop_arguments): Ditto.
+	* java/parse.y (expand_start_java_method): Ditto.
+
+1999-08-01  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* Makefile.in (ALL_CFLAGS): Add '-W -Wall'.
+
+1999-07-31  Bernd Schmidt  <bernds@cygnus.co.uk>
+
+	* decl.c: Include "function.h".
+	* except.c: Likewise.
+	* parse.y: Likewise.
+	* Makefile.in: Update dependencies.
+
 1999-07-30  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
 	* expr.c (build_java_soft_divmod): Provide a default case in switch.

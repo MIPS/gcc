@@ -39,6 +39,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "parse.h"
 #include "toplev.h"
 #include "except.h"
+#include "defaults.h"
 
 static void flush_quick_stack PROTO ((void));
 static void push_value PROTO ((tree));
@@ -73,6 +74,11 @@ static tree pop_arguments PROTO ((tree));
 static void expand_invoke PROTO ((int, int, int)); 
 static void expand_java_field_op PROTO ((int, int, int)); 
 static void java_push_constant_from_pool PROTO ((struct JCF *, int)); 
+static void java_stack_pop PROTO ((int)); 
+static tree build_java_throw_out_of_bounds_exception PROTO ((tree)); 
+static tree build_java_check_indexed_type PROTO ((tree, tree)); 
+static tree java_array_data_offset PROTO ((tree)); 
+static tree case_identity PROTO ((tree, tree)); 
  
 static tree operand_type[59];
 extern struct obstack permanent_obstack;
@@ -124,7 +130,7 @@ tree tree_list_free_list = NULL_TREE;
 
 int stack_pointer;
 
-unsigned char *linenumber_table;
+const unsigned char *linenumber_table;
 int linenumber_count;
 
 tree
@@ -1448,11 +1454,10 @@ pop_arguments (arg_types)
       tree tail = pop_arguments (TREE_CHAIN (arg_types));
       tree type = TREE_VALUE (arg_types);
       tree arg = pop_value (type);
-#ifdef PROMOTE_PROTOTYPES
-      if (TYPE_PRECISION (type) < TYPE_PRECISION (integer_type_node)
+      if (PROMOTE_PROTOTYPES
+	  && TYPE_PRECISION (type) < TYPE_PRECISION (integer_type_node)
 	  && INTEGRAL_TYPE_P (type))
 	arg = convert (integer_type_node, arg);
-#endif
       return tree_cons (NULL_TREE, arg, tail);
     }
   abort ();
@@ -1630,7 +1635,7 @@ expand_invoke (opcode, method_ref_index, nargs)
   tree method_name = COMPONENT_REF_NAME (&current_jcf->cpool, method_ref_index);
   tree self_type = get_class_constant
     (current_jcf, COMPONENT_REF_CLASS_INDEX(&current_jcf->cpool, method_ref_index));
-  char *self_name = IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (self_type)));
+  const char *self_name = IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (self_type)));
   tree call, func, method, arg_list, method_type;
 
   if (! CLASS_LOADED_P (self_type))
@@ -1738,7 +1743,7 @@ expand_java_field_op (is_static, is_putting, field_ref_index)
       get_class_constant (current_jcf, 
 			  COMPONENT_REF_CLASS_INDEX (&current_jcf->cpool, 
 						     field_ref_index));
-  char *self_name = IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (self_type)));
+  const char *self_name = IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (self_type)));
   tree field_name = COMPONENT_REF_NAME (&current_jcf->cpool, field_ref_index);
   tree field_signature = COMPONENT_REF_SIGNATURE (&current_jcf->cpool, 
 						  field_ref_index);
@@ -1820,9 +1825,9 @@ expand_java_field_op (is_static, is_putting, field_ref_index)
 
 tree
 build_primtype_type_ref (self_name)
-    char *self_name;
+    const char *self_name;
 {
-  char *class_name = self_name+10;
+  const char *class_name = self_name+10;
   tree typ;
   if (strncmp(class_name, "Byte", 4) == 0)
     typ = byte_type_node;
@@ -1939,6 +1944,7 @@ java_lang_expand_expr (exp, target, tmode, modifier)
 	    DECL_INITIAL (init_decl) = init;
 	    DECL_IGNORED_P (init_decl) = 1;
 	    TREE_READONLY (init_decl) = 1;
+	    TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (init_decl)) = 1;
 	    make_decl_rtl (init_decl, NULL, 1);
 	    init = init_decl;
 	  }
@@ -2043,7 +2049,7 @@ expand_byte_code (jcf, method)
   int PC;
   int i;
   int saw_index;
-  unsigned char *linenumber_pointer;
+  const unsigned char *linenumber_pointer;
   int dead_code_index = -1;
 
 #undef RET /* Defined by config/i386/i386.h */
@@ -2310,7 +2316,7 @@ java_push_constant_from_pool (jcf, index)
 int
 process_jvm_instruction (PC, byte_ops, length)
      int PC;
-     unsigned char* byte_ops;
+     const unsigned char* byte_ops;
      long length ATTRIBUTE_UNUSED;
 { 
   const char *opname; /* Temporary ??? */
