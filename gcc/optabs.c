@@ -628,6 +628,89 @@ expand_cmplxdiv_wide (rtx real0, rtx real1, rtx imag0, rtx imag1, rtx realr,
   return 1;
 }
 
+/* Return the optab used for computing the operation given by
+   the tree code, CODE.  This function is not always usable (for
+   example, it cannot give complete results for multiplication
+   or division) but probably ought to be relied on more widely
+   throughout the expander.  */
+optab
+optab_for_tree_code (enum tree_code code, tree type)
+{
+  bool trapv;
+  switch (code)
+    {
+    case BIT_AND_EXPR:
+      return and_optab;
+
+    case BIT_IOR_EXPR:
+      return ior_optab;
+
+    case BIT_NOT_EXPR:
+      return one_cmpl_optab;
+
+    case BIT_XOR_EXPR:
+      return xor_optab;
+
+    case TRUNC_MOD_EXPR:
+    case CEIL_MOD_EXPR:
+    case FLOOR_MOD_EXPR:
+    case ROUND_MOD_EXPR:
+      return TYPE_UNSIGNED (type) ? umod_optab : smod_optab;
+
+    case RDIV_EXPR:
+    case TRUNC_DIV_EXPR:
+    case CEIL_DIV_EXPR:
+    case FLOOR_DIV_EXPR:
+    case ROUND_DIV_EXPR:
+    case EXACT_DIV_EXPR:
+      return TYPE_UNSIGNED (type) ? udiv_optab : sdiv_optab;
+
+    case LSHIFT_EXPR:
+      return ashl_optab;
+
+    case RSHIFT_EXPR:
+      return TYPE_UNSIGNED (type) ? lshr_optab : ashr_optab;
+
+    case LROTATE_EXPR:
+      return rotl_optab;
+
+    case RROTATE_EXPR:
+      return rotr_optab;
+
+    case MAX_EXPR:
+      return TYPE_UNSIGNED (type) ? umax_optab : smax_optab;
+
+    case MIN_EXPR:
+      return TYPE_UNSIGNED (type) ? umin_optab : smin_optab;
+
+    default:
+      break;
+    }
+
+  trapv = flag_trapv && INTEGRAL_TYPE_P (type) && !TYPE_UNSIGNED (type);
+  switch (code)
+    {
+    case PLUS_EXPR:
+      return trapv ? addv_optab : add_optab;
+
+    case MINUS_EXPR:
+      return trapv ? subv_optab : sub_optab;
+
+    case MULT_EXPR:
+      return trapv ? smulv_optab : smul_optab;
+
+    case NEGATE_EXPR:
+      return trapv ? negv_optab : neg_optab;
+
+    case ABS_EXPR:
+      return trapv ? absv_optab : abs_optab;
+
+    default:
+      return NULL;
+    }
+}
+
+
 /* Wrapper around expand_binop which takes an rtx code to specify
    the operation to perform, not an optab pointer.  All other
    arguments are the same.  */
@@ -674,11 +757,6 @@ expand_binop (enum machine_mode mode, optab binoptab, rtx op0, rtx op1,
   rtx last;
 
   class = GET_MODE_CLASS (mode);
-
-  op0 = protect_from_queue (op0, 0);
-  op1 = protect_from_queue (op1, 0);
-  if (target)
-    target = protect_from_queue (target, 1);
 
   if (flag_force_mem)
     {
@@ -1956,12 +2034,12 @@ expand_vector_binop (enum machine_mode mode, optab binoptab, rtx op0,
 	    a = simplify_gen_subreg (submode, op0, mode, i * subsize);
 	  else
 	    a = extract_bit_field (op0, subbitsize, i * subbitsize, unsignedp,
-				   NULL_RTX, submode, submode, size);
+				   NULL_RTX, submode, submode);
 	  if (CONSTANT_P (op1))
 	    b = simplify_gen_subreg (submode, op1, mode, i * subsize);
 	  else
 	    b = extract_bit_field (op1, subbitsize, i * subbitsize, unsignedp,
-				   NULL_RTX, submode, submode, size);
+				   NULL_RTX, submode, submode);
 
 	  if (binoptab->code == DIV)
 	    {
@@ -1982,8 +2060,7 @@ expand_vector_binop (enum machine_mode mode, optab binoptab, rtx op0,
 	  if (t)
 	    emit_move_insn (t, res);
 	  else
-	    store_bit_field (target, subbitsize, i * subbitsize, submode, res,
-			     size);
+	    store_bit_field (target, subbitsize, i * subbitsize, submode, res);
 	}
       break;
 
@@ -2075,15 +2152,14 @@ expand_vector_unop (enum machine_mode mode, optab unoptab, rtx op0,
 	a = simplify_gen_subreg (submode, op0, mode, i * subsize);
       else
 	a = extract_bit_field (op0, subbitsize, i * subbitsize, unsignedp,
-			       t, submode, submode, size);
+			       t, submode, submode);
 
       res = expand_unop (submode, unoptab, a, t, unsignedp);
 
       if (t)
 	emit_move_insn (t, res);
       else
-	store_bit_field (target, subbitsize, i * subbitsize, submode, res,
-			 size);
+	store_bit_field (target, subbitsize, i * subbitsize, submode, res);
     }
 
   seq = get_insns ();
@@ -2170,20 +2246,12 @@ expand_twoval_unop (optab unoptab, rtx op0, rtx targ0, rtx targ1,
 
   class = GET_MODE_CLASS (mode);
 
-  op0 = protect_from_queue (op0, 0);
-
   if (flag_force_mem)
-    {
-      op0 = force_not_mem (op0);
-    }
+    op0 = force_not_mem (op0);
 
-  if (targ0)
-    targ0 = protect_from_queue (targ0, 1);
-  else
+  if (!targ0)
     targ0 = gen_reg_rtx (mode);
-  if (targ1)
-    targ1 = protect_from_queue (targ1, 1);
-  else
+  if (!targ1)
     targ1 = gen_reg_rtx (mode);
 
   /* Record where to go back to if we fail.  */
@@ -2274,9 +2342,6 @@ expand_twoval_binop (optab binoptab, rtx op0, rtx op1, rtx targ0, rtx targ1,
 
   class = GET_MODE_CLASS (mode);
 
-  op0 = protect_from_queue (op0, 0);
-  op1 = protect_from_queue (op1, 0);
-
   if (flag_force_mem)
     {
       op0 = force_not_mem (op0);
@@ -2293,13 +2358,9 @@ expand_twoval_binop (optab binoptab, rtx op0, rtx op1, rtx targ0, rtx targ1,
       && rtx_cost (op1, binoptab->code) > COSTS_N_INSNS (1))
     op1 = force_reg (mode, op1);
 
-  if (targ0)
-    targ0 = protect_from_queue (targ0, 1);
-  else
+  if (!targ0)
     targ0 = gen_reg_rtx (mode);
-  if (targ1)
-    targ1 = protect_from_queue (targ1, 1);
-  else
+  if (!targ1)
     targ1 = gen_reg_rtx (mode);
 
   /* Record where to go back to if we fail.  */
@@ -2502,15 +2563,8 @@ expand_unop (enum machine_mode mode, optab unoptab, rtx op0, rtx target,
 
   class = GET_MODE_CLASS (mode);
 
-  op0 = protect_from_queue (op0, 0);
-
   if (flag_force_mem)
-    {
-      op0 = force_not_mem (op0);
-    }
-
-  if (target)
-    target = protect_from_queue (target, 1);
+    op0 = force_not_mem (op0);
 
   if (unoptab->handlers[(int) mode].insn_code != CODE_FOR_nothing)
     {
@@ -2833,7 +2887,8 @@ expand_unop (enum machine_mode mode, optab unoptab, rtx op0, rtx target,
     }
 
   /* If there is no negate operation, try doing a subtract from zero.
-     The US Software GOFAST library needs this.  */
+     The US Software GOFAST library needs this.  FIXME: This is *wrong*
+     for floating-point operations due to negative zeros!  */
   if (unoptab->code == NEG)
     {
       rtx temp;
@@ -2985,7 +3040,7 @@ expand_abs (enum machine_mode mode, rtx op0, rtx target,
   op1 = gen_label_rtx ();
   if (target == 0 || ! safe
       || GET_MODE (target) != mode
-      || (GET_CODE (target) == MEM && MEM_VOLATILE_P (target))
+      || (MEM_P (target) && MEM_VOLATILE_P (target))
       || (REG_P (target)
 	  && REGNO (target) < FIRST_PSEUDO_REGISTER))
     target = gen_reg_rtx (mode);
@@ -3039,17 +3094,10 @@ expand_complex_abs (enum machine_mode mode, rtx op0, rtx target,
   if (submode == BLKmode)
     abort ();
 
-  op0 = protect_from_queue (op0, 0);
-
   if (flag_force_mem)
-    {
-      op0 = force_not_mem (op0);
-    }
+    op0 = force_not_mem (op0);
 
   last = get_last_insn ();
-
-  if (target)
-    target = protect_from_queue (target, 1);
 
   this_abs_optab = ! unsignedp && flag_trapv
                    && (GET_MODE_CLASS(mode) == MODE_INT)
@@ -3225,9 +3273,7 @@ emit_unop_insn (int icode, rtx target, rtx op0, enum rtx_code code)
   enum machine_mode mode0 = insn_data[icode].operand[1].mode;
   rtx pat;
 
-  temp = target = protect_from_queue (target, 1);
-
-  op0 = protect_from_queue (op0, 0);
+  temp = target;
 
   /* Sign and zero extension from memory is often done specially on
      RISC machines, so forcing into a register here can pessimize
@@ -3241,7 +3287,7 @@ emit_unop_insn (int icode, rtx target, rtx op0, enum rtx_code code)
     op0 = copy_to_mode_reg (mode0, op0);
 
   if (! (*insn_data[icode].operand[0].predicate) (temp, GET_MODE (temp))
-      || (flag_force_mem && GET_CODE (temp) == MEM))
+      || (flag_force_mem && MEM_P (temp)))
     temp = gen_reg_rtx (GET_MODE (temp));
 
   pat = GEN_FCN (icode) (temp, op0);
@@ -3292,7 +3338,7 @@ emit_no_conflict_block (rtx insns, rtx target, rtx op0, rtx op1, rtx equiv)
     return emit_insn (insns);
   else
     for (insn = insns; insn; insn = NEXT_INSN (insn))
-      if (GET_CODE (insn) != INSN
+      if (!NONJUMP_INSN_P (insn)
 	  || find_reg_note (insn, REG_LIBCALL, NULL_RTX))
 	return emit_insn (insns);
 
@@ -3436,7 +3482,7 @@ emit_libcall_block (rtx insns, rtx target, rtx result, rtx equiv)
   if (flag_non_call_exceptions && may_trap_p (equiv))
     {
       for (insn = insns; insn; insn = NEXT_INSN (insn))
-	if (GET_CODE (insn) == CALL_INSN)
+	if (CALL_P (insn))
 	  {
 	    rtx note = find_reg_note (insn, REG_EH_REGION, NULL_RTX);
 
@@ -3450,7 +3496,7 @@ emit_libcall_block (rtx insns, rtx target, rtx result, rtx equiv)
      goto (unless there is already a REG_EH_REGION note, in which case
      we update it).  */
     for (insn = insns; insn; insn = NEXT_INSN (insn))
-      if (GET_CODE (insn) == CALL_INSN)
+      if (CALL_P (insn))
 	{
 	  rtx note = find_reg_note (insn, REG_EH_REGION, NULL_RTX);
 
@@ -3503,7 +3549,7 @@ emit_libcall_block (rtx insns, rtx target, rtx result, rtx equiv)
 
       /* Some ports use a loop to copy large arguments onto the stack.
 	 Don't move anything outside such a loop.  */
-      if (GET_CODE (insn) == CODE_LABEL)
+      if (LABEL_P (insn))
 	break;
     }
 
@@ -3709,11 +3755,6 @@ prepare_cmp_insn (rtx *px, rtx *py, enum rtx_code *pcomparison, rtx size,
       if (size == 0)
 	abort ();
 
-      emit_queue ();
-      x = protect_from_queue (x, 0);
-      y = protect_from_queue (y, 0);
-      size = protect_from_queue (size, 0);
-
       /* Try to use a memory block compare insn - either cmpstr
 	 or cmpmem will do.  */
       for (cmp_mode = GET_CLASS_NARROWEST_MODE (MODE_INT);
@@ -3744,15 +3785,9 @@ prepare_cmp_insn (rtx *px, rtx *py, enum rtx_code *pcomparison, rtx size,
 	  return;
 	}
 
-      /* Otherwise call a library function, memcmp if we've got it,
-	 bcmp otherwise.  */
-#ifdef TARGET_MEM_FUNCTIONS
+      /* Otherwise call a library function, memcmp.  */
       libfunc = memcmp_libfunc;
       length_type = sizetype;
-#else
-      libfunc = bcmp_libfunc;
-      length_type = integer_type_node;
-#endif
       result_mode = TYPE_MODE (integer_type_node);
       cmp_mode = TYPE_MODE (length_type);
       size = convert_to_mode (TYPE_MODE (length_type), size,
@@ -3824,8 +3859,6 @@ rtx
 prepare_operand (int icode, rtx x, int opnum, enum machine_mode mode,
 		 enum machine_mode wider_mode, int unsignedp)
 {
-  x = protect_from_queue (x, 0);
-
   if (mode != wider_mode)
     x = convert_modes (wider_mode, mode, x, unsignedp);
 
@@ -3951,7 +3984,6 @@ emit_cmp_and_jump_insns (rtx x, rtx y, enum rtx_code comparison, rtx size,
     op0 = force_reg (mode, op0);
 #endif
 
-  emit_queue ();
   if (unsignedp)
     comparison = unsigned_condition (comparison);
 
@@ -3978,8 +4010,8 @@ prepare_float_lib_cmp (rtx *px, rtx *py, enum rtx_code *pcomparison,
 {
   enum rtx_code comparison = *pcomparison;
   enum rtx_code swapped = swap_condition (comparison);
-  rtx x = protect_from_queue (*px, 0);
-  rtx y = protect_from_queue (*py, 0);
+  rtx x = *px;
+  rtx y = *py;
   enum machine_mode orig_mode = GET_MODE (x);
   enum machine_mode mode;
   rtx value, target, insns, equiv;
@@ -4170,17 +4202,10 @@ emit_conditional_move (rtx target, enum rtx_code code, rtx op0, rtx op1,
       op3 = force_not_mem (op3);
     }
 
-  if (target)
-    target = protect_from_queue (target, 1);
-  else
+  if (!target)
     target = gen_reg_rtx (mode);
 
   subtarget = target;
-
-  emit_queue ();
-
-  op2 = protect_from_queue (op2, 0);
-  op3 = protect_from_queue (op3, 0);
 
   /* If the insn doesn't accept these operands, put them in pseudos.  */
 
@@ -4311,23 +4336,16 @@ emit_conditional_add (rtx target, enum rtx_code code, rtx op0, rtx op1,
       op3 = force_not_mem (op3);
     }
 
-  if (target)
-    target = protect_from_queue (target, 1);
-  else
+  if (!target)
     target = gen_reg_rtx (mode);
-
-  subtarget = target;
-
-  emit_queue ();
-
-  op2 = protect_from_queue (op2, 0);
-  op3 = protect_from_queue (op3, 0);
 
   /* If the insn doesn't accept these operands, put them in pseudos.  */
 
   if (! (*insn_data[icode].operand[0].predicate)
-      (subtarget, insn_data[icode].operand[0].mode))
+      (target, insn_data[icode].operand[0].mode))
     subtarget = gen_reg_rtx (insn_data[icode].operand[0].mode);
+  else
+    subtarget = target;
 
   if (! (*insn_data[icode].operand[2].predicate)
       (op2, insn_data[icode].operand[2].mode))
@@ -4366,11 +4384,7 @@ emit_conditional_add (rtx target, enum rtx_code code, rtx op0, rtx op1,
 
 /* These functions attempt to generate an insn body, rather than
    emitting the insn, but if the gen function already emits them, we
-   make no attempt to turn them back into naked patterns.
-
-   They do not protect from queued increments,
-   because they may be used 1) in protect_from_queue itself
-   and 2) in other passes where there is no queue.  */
+   make no attempt to turn them back into naked patterns.  */
 
 /* Generate and return an insn body to add Y to X.  */
 
@@ -4627,9 +4641,6 @@ expand_float (rtx to, rtx from, int unsignedp)
 
 	if (icode != CODE_FOR_nothing)
 	  {
-	    to = protect_from_queue (to, 1);
-	    from = protect_from_queue (from, 0);
-
 	    if (imode != GET_MODE (from))
 	      from = convert_to_mode (imode, from, unsignedp);
 
@@ -4652,11 +4663,6 @@ expand_float (rtx to, rtx from, int unsignedp)
       rtx label = gen_label_rtx ();
       rtx temp;
       REAL_VALUE_TYPE offset;
-
-      emit_queue ();
-
-      to = protect_from_queue (to, 1);
-      from = protect_from_queue (from, 0);
 
       if (flag_force_mem)
 	from = force_not_mem (from);
@@ -4765,9 +4771,6 @@ expand_float (rtx to, rtx from, int unsignedp)
       rtx value;
       convert_optab tab = unsignedp ? ufloat_optab : sfloat_optab;
 
-      to = protect_from_queue (to, 1);
-      from = protect_from_queue (from, 0);
-
       if (GET_MODE_SIZE (GET_MODE (from)) < GET_MODE_SIZE (SImode))
 	from = convert_to_mode (SImode, from, unsignedp);
 
@@ -4833,9 +4836,6 @@ expand_fix (rtx to, rtx from, int unsignedp)
 
 	if (icode != CODE_FOR_nothing)
 	  {
-	    to = protect_from_queue (to, 1);
-	    from = protect_from_queue (from, 0);
-
 	    if (fmode != GET_MODE (from))
 	      from = convert_to_mode (fmode, from, 0);
 
@@ -4894,10 +4894,6 @@ expand_fix (rtx to, rtx from, int unsignedp)
 	  limit = CONST_DOUBLE_FROM_REAL_VALUE (offset, fmode);
 	  lab1 = gen_label_rtx ();
 	  lab2 = gen_label_rtx ();
-
-	  emit_queue ();
-	  to = protect_from_queue (to, 1);
-	  from = protect_from_queue (from, 0);
 
 	  if (flag_force_mem)
 	    from = force_not_mem (from);
@@ -4968,9 +4964,6 @@ expand_fix (rtx to, rtx from, int unsignedp)
       libfunc = tab->handlers[GET_MODE (to)][GET_MODE (from)].libfunc;
       if (!libfunc)
 	abort ();
-
-      to = protect_from_queue (to, 1);
-      from = protect_from_queue (from, 0);
 
       if (flag_force_mem)
 	from = force_not_mem (from);
@@ -5428,8 +5421,8 @@ init_optabs (void)
 
   for (i = 0; i < NUM_MACHINE_MODES; i++)
     {
-      movstr_optab[i] = CODE_FOR_nothing;
-      clrstr_optab[i] = CODE_FOR_nothing;
+      movmem_optab[i] = CODE_FOR_nothing;
+      clrmem_optab[i] = CODE_FOR_nothing;
       cmpstr_optab[i] = CODE_FOR_nothing;
       cmpmem_optab[i] = CODE_FOR_nothing;
 
@@ -5522,11 +5515,8 @@ init_optabs (void)
   abort_libfunc = init_one_libfunc ("abort");
   memcpy_libfunc = init_one_libfunc ("memcpy");
   memmove_libfunc = init_one_libfunc ("memmove");
-  bcopy_libfunc = init_one_libfunc ("bcopy");
   memcmp_libfunc = init_one_libfunc ("memcmp");
-  bcmp_libfunc = init_one_libfunc ("__gcc_bcmp");
   memset_libfunc = init_one_libfunc ("memset");
-  bzero_libfunc = init_one_libfunc ("bzero");
   setbits_libfunc = init_one_libfunc ("__setbits");
 
   unwind_resume_libfunc = init_one_libfunc (USING_SJLJ_EXCEPTIONS
@@ -5550,7 +5540,6 @@ init_optabs (void)
     = init_one_libfunc ("__cyg_profile_func_exit");
 
   gcov_flush_libfunc = init_one_libfunc ("__gcov_flush");
-  gcov_init_libfunc = init_one_libfunc ("__gcov_init");
 
   if (HAVE_conditional_trap)
     trap_rtx = gen_rtx_fmt_ee (EQ, VOIDmode, NULL_RTX, NULL_RTX);

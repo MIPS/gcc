@@ -53,14 +53,15 @@ objcp_start_struct (enum tree_code code ATTRIBUTE_UNUSED, tree name)
   push_lang_context (lang_name_c);
   if (!name)
     name = make_anon_name ();
-  s = xref_tag (record_type, name, true, false);
-  CLASSTYPE_DECLARED_CLASS (s) = 0;  /* this is a 'struct', not a 'class' */
+  s = xref_tag (record_type, name, false, 0);
+  CLASSTYPE_DECLARED_CLASS (s) = 0;  /* this is a 'struct', not a 'class'.  */
+  xref_basetypes (s, NULL_TREE);     /* no base classes here!  */
 
   return begin_class_definition (s);
 }
 
 tree 
-objcp_finish_struct (tree t, tree fieldlist, tree attributes ATTRIBUTE_UNUSED)
+objcp_finish_struct (tree t, tree fieldlist, tree attributes)
 {
   tree field, next_field;
 
@@ -70,8 +71,7 @@ objcp_finish_struct (tree t, tree fieldlist, tree attributes ATTRIBUTE_UNUSED)
     TREE_CHAIN (field) = NULL_TREE;       /* otherwise, grokfield croaks. */
     finish_member_declaration (field);
   }
-  TYPE_ATTRIBUTES (t) = NULL_TREE;
-  t = finish_struct (t, NULL_TREE);
+  t = finish_struct (t, attributes);
   pop_lang_context ();
 
   return t;
@@ -104,19 +104,6 @@ objcp_build_component_ref (tree datum, tree component)
      front-end, but 'finish_class_member_access_expr' seems to be
      a worthy substitute.  */
   return finish_class_member_access_expr (datum, component);
-}
-
-tree
-objcp_build_compound_expr (tree list)
-{
-  tree rest = TREE_CHAIN (list);
-
-  if (TREE_CHAIN (rest))
-    rest = objcp_build_compound_expr (rest);
-  else
-    rest = TREE_VALUE (rest);
-
-  return build_compound_expr (TREE_VALUE (list), rest);
 }
 
 int

@@ -76,6 +76,12 @@ enum debug_info_level debug_info_level = DINFO_LEVEL_NONE;
    write_symbols is set to DBX_DEBUG, XCOFF_DEBUG, or DWARF_DEBUG.  */
 bool use_gnu_debug_info_extensions;
 
+/* The default visibility for all symbols (unless overridden) */
+enum symbol_visibility default_visibility = VISIBILITY_DEFAULT;
+
+/* Global visibility options.  */
+struct visibility_flags visibility_options;
+
 /* Columns of --help display.  */
 static unsigned int columns = 80;
 
@@ -495,6 +501,7 @@ decode_options (unsigned int argc, const char **argv)
       flag_tree_live_range_split = 1;
       flag_tree_sra = 1;
       flag_tree_copyrename = 1;
+      flag_tree_fre = 1;
 
       if (!optimize_size)
 	{
@@ -577,10 +584,10 @@ decode_options (unsigned int argc, const char **argv)
   target_flags = 0;
   set_target_switch ("");
 
-  /* Unwind tables are always present in an ABI-conformant IA-64
-     object file, so the default should be ON.  */
-#ifdef IA64_UNWIND_INFO
-  flag_unwind_tables = IA64_UNWIND_INFO;
+  /* Unwind tables are always present when a target has ABI-specified unwind
+     tables, so the default should be ON.  */
+#ifdef TARGET_UNWIND_INFO
+  flag_unwind_tables = TARGET_UNWIND_INFO;
 #endif
 
 #ifdef OPTIMIZATION_OPTIONS
@@ -823,6 +830,21 @@ common_handle_option (size_t scode, const char *arg, int value)
 
     case OPT_fprofile_values:
       flag_profile_values_set = true;
+      break;
+
+    case OPT_fvisibility_:
+      {
+        if (!strcmp(arg, "default"))
+          default_visibility = VISIBILITY_DEFAULT;
+        else if (!strcmp(arg, "internal"))
+          default_visibility = VISIBILITY_INTERNAL;
+        else if (!strcmp(arg, "hidden"))
+          default_visibility = VISIBILITY_HIDDEN;
+        else if (!strcmp(arg, "protected"))
+          default_visibility = VISIBILITY_PROTECTED;
+        else
+          error ("unrecognised visibility value \"%s\"", arg);
+      }
       break;
 
     case OPT_fvpt:

@@ -1,3 +1,13 @@
+2004-08-04  Ziemowit Laski  <zlaski@apple.com>
+
+	* config-lang.in (gtfiles): Add $(srcdir)/cp/typeck2.c and 
+	$(srcdir)/c-lex.c.
+	* objcp-decl.c (objcp_start_struct): Add call to xref_basetypes().
+	(objcp_finish_struct): Pass attributes to finish_struct().
+	(objcp_build_compound_expr): Remove.
+	* objcp-decl.h (objcp_build_compound_expr, build_compound_expr):
+	Remove.
+
 2004-07-30  Ziemowit Laski  <zlaski@apple.com>
 
 	* Make-lang.in (objcp/objcp-act.o): Depend on objcp/objcp-decl.h.

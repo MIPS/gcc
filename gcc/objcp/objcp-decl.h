@@ -30,7 +30,6 @@ extern tree objcp_lookup_name (tree);
 extern tree objcp_build_function_call (tree, tree);
 extern tree objcp_xref_tag (enum tree_code, tree);
 extern tree objcp_build_component_ref (tree, tree);
-extern tree objcp_build_compound_expr (tree);
 extern int objcp_comptypes (tree, tree);
 extern tree objcp_builtin_function (const char *, tree, int, 
 				    enum built_in_class, const char *, tree);
@@ -54,8 +53,6 @@ extern tree objcp_end_compound_stmt (tree, int);
 	objcp_xref_tag (code, name)
 #define build_component_ref(datum, component) \
         objcp_build_component_ref (datum, component)
-#define build_compound_expr(list) \
-        objcp_build_compound_expr (list)
 #define comptypes(type1, type2) \
 	objcp_comptypes (type1, type2)
 #define c_begin_compound_stmt(flags) \

@@ -569,8 +569,6 @@ objc_finish_file (void)
 
 #ifdef OBJCPLUS
   cp_finish_file ();
-#else
-  c_objc_common_finish_file ();
 #endif
 }
 
@@ -4152,7 +4150,7 @@ synth_forward_declarations (void)
 
   /* static struct objc_class _OBJC_METACLASS_<my_name>; */
   UOBJC_METACLASS_decl = build_metadata_decl ("_OBJC_METACLASS",
-					      objc_class_template);
+						  objc_class_template);
 
   /* Pre-build the following entities - for speed/convenience.  */
 
@@ -6537,7 +6535,7 @@ start_class (enum tree_code code, tree class_name, tree super_name,
     }
 
   class = make_node (code);
-  TYPE_BINFO (class) = make_tree_vec (CLASS_BINFO_ELTS);
+  TYPE_LANG_SLOT_1 (class) = make_tree_vec (CLASS_LANG_SLOT_ELTS);
 
   /* Check for existence of the super class, if one was specified.  */
   if ((code == CLASS_INTERFACE_TYPE || code == CLASS_IMPLEMENTATION_TYPE)
@@ -6850,7 +6848,8 @@ objc_declare_protocols (tree names)
 	{
 	  tree protocol = make_node (PROTOCOL_INTERFACE_TYPE);
 
-	  TYPE_BINFO (protocol) = make_tree_vec (PROTOCOL_BINFO_ELTS);
+	  TYPE_LANG_SLOT_1 (protocol)
+	    = make_tree_vec (PROTOCOL_LANG_SLOT_ELTS);
 	  PROTOCOL_NAME (protocol) = name;
 	  PROTOCOL_LIST (protocol) = NULL_TREE;
 	  add_protocol (protocol);
@@ -6876,7 +6875,7 @@ start_protocol (enum tree_code code, tree name, tree list)
   if (!protocol)
     {
       protocol = make_node (code);
-      TYPE_BINFO (protocol) = make_tree_vec (PROTOCOL_BINFO_ELTS);
+      TYPE_LANG_SLOT_1 (protocol) = make_tree_vec (PROTOCOL_LANG_SLOT_ELTS);
 
       PROTOCOL_NAME (protocol) = name;
       PROTOCOL_LIST (protocol) = lookup_and_install_protocols (list);
@@ -7623,7 +7622,7 @@ get_super_receiver (void)
       /* Set receiver to self.  */
       super_expr = build_component_ref (UOBJC_SUPER_decl, self_id);
       super_expr = build_modify_expr (super_expr, NOP_EXPR, self_decl);
-      super_expr_list = build_tree_list (NULL_TREE, super_expr);
+      super_expr_list = super_expr;
 
       /* Set class to begin searching.  */
       super_expr = build_component_ref (UOBJC_SUPER_decl,
@@ -7689,12 +7688,12 @@ get_super_receiver (void)
 					       super_class));
 	}
 
-      chainon (super_expr_list, build_tree_list (NULL_TREE, super_expr));
+      super_expr_list = build_compound_expr (super_expr_list, super_expr);
 
       super_expr = build_unary_op (ADDR_EXPR, UOBJC_SUPER_decl, 0);
-      chainon (super_expr_list, build_tree_list (NULL_TREE, super_expr));
+      super_expr_list = build_compound_expr (super_expr_list, super_expr);
 
-      return build_compound_expr (super_expr_list);
+      return super_expr_list;
     }
   else
     {
