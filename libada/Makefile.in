@@ -146,6 +146,17 @@ gnatlib-shared:
 	  TRACE="$(TRACE)" \
 	  gnatlib-shared ; \
 
+.PHONY: rts-zfp rts-ravenscar
+rts-zfp:
+	$(MAKE) -C $(GCC_DIR)/ada $(FLAGS_TO_PASS) \
+	  GNATMAKE=../gnatmake-cross \
+	  rts-zfp
+
+rts-ravenscar:
+	$(MAKE) -C $(GCC_DIR)/ada $(FLAGS_TO_PASS) \
+	  GNATMAKE=../gnatmake-cross \
+	  rts-ravenscar
+
 # Rules to build gnattools.
 # For cross builds of gnattools,
 # put the host RTS dir first in the PATH to hide the default runtime

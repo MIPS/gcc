@@ -1,5 +1,8 @@
 2004-04-04  Nathanael Nerode  <neroden@gcc.gnu.org>
 
+	* Makefile.in: Add rts-zfp, rts-ravenscar targets from
+	gcc/ada/Make-lang.in.
+
 	* Makefile.in: Add extra gnatlib/gnattools targets from
 	gcc/ada/Make-lang.in.  Reorganize gnatlib rule to move more work
 	into configure.

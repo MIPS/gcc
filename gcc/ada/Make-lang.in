@@ -268,20 +268,8 @@ gnatbind$(exeext): ada/b_gnatb.o $(CONFIG_H) $(GNATBIND_OBJS)
 	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ ada/b_gnatb.o $(GNATBIND_OBJS) \
 	     $(LIBS) $(SYSLIBS)
 
-rts-zfp: force
-	$(MAKE) -C ada  $(FLAGS_TO_PASS) GNATMAKE=../gnatmake-cross rts-zfp
-
 install-rts-zfp: force
 	$(MAKE) -C ada  $(FLAGS_TO_PASS) install-rts RTS_NAME=zfp
-
-rts-none: force
-	$(MAKE) -C ada  $(FLAGS_TO_PASS) GNATMAKE=../gnatmake-cross rts-none
-
-install-rts-none: force
-	$(MAKE) -C ada  $(FLAGS_TO_PASS) install-rts RTS_NAME=none
-
-rts-ravenscar: force
-	$(MAKE) -C ada  $(FLAGS_TO_PASS) GNATMAKE=../gnatmake-cross rts-ravenscar
 
 install-rts-ravenscar: force
 	$(MAKE) -C ada  $(FLAGS_TO_PASS) install-rts RTS_NAME=ravenscar
@@ -781,16 +769,6 @@ install-gnatlib:
 
 install-gnatlib-obj:
 	$(MAKE) -C ada $(FLAGS_TO_PASS) $(ADA_FLAGS_TO_PASS) install-gnatlib-obj
-
-
-rts-cert: force
-	$(MAKE) -C ada  $(FLAGS_TO_PASS) \
-	   GNATLIBCFLAGS="$(GNATLIBCFLAGS)" \
-	   TARGET_LIBGCC2_CFLAGS="$(TARGET_LIBGCC2_CFLAGS)" \
-           GNATMAKE=../gnatmake-cross rts-cert RTS_NAME=cert
-
-install-rts-cert: force
-	$(MAKE) -C ada  $(FLAGS_TO_PASS) install-rts RTS_NAME=none
 
 ada.install-man:
 
