@@ -126,6 +126,7 @@ static tree get_strlen (tree);
 static inline bool cfg_blocks_empty_p (void);
 static void cfg_blocks_add (basic_block);
 static basic_block cfg_blocks_get (void);
+static bool need_imm_uses_for (tree var);
 
 /* Debugging dumps.  */
 static FILE *dump_file;
@@ -1035,6 +1036,16 @@ widen_bitfield (tree val, tree field, tree var)
 }
 
 
+/* Function indicating whether we ought to include information for 'var'
+   when calculating immediate uses.  */
+
+static bool
+need_imm_uses_for (tree var)
+{
+  return get_value (var)->lattice_val != VARYING;
+}
+
+
 /* Initialize local data structures and worklists for CCP.  */
 
 static void
@@ -1042,12 +1053,7 @@ initialize (void)
 {
   edge e;
   basic_block bb;
-
-  /* Compute immediate uses.  */
-  compute_immediate_uses (TDFA_USE_OPS);
-
-  if (dump_file && dump_flags & TDF_DETAILS)
-    dump_immediate_uses (dump_file);
+  sbitmap virtual_var;
 
   /* Worklist of SSA edges.  */
   VARRAY_TREE_INIT (ssa_edges, 20, "ssa_edges");
@@ -1061,22 +1067,91 @@ initialize (void)
   value_vector = (value *) xmalloc (next_ssa_version * sizeof (value));
   memset (value_vector, 0, next_ssa_version * sizeof (value));
 
-  /* Initialize simulation flags for PHI nodes, statements and edges.  */
+  /* 1 if ssa variable is used in a virtual variable context.  */
+  virtual_var = sbitmap_alloc (next_ssa_version);
+  sbitmap_zero (virtual_var);
+
+  /* Initialize default values and simulation flags for PHI nodes, statements 
+     and edges.  */
   FOR_EACH_BB (bb)
     {
       block_stmt_iterator i;
-      tree phi;
+      tree stmt;
+      varray_type ops;
+      size_t x;
+      int vary;
 
-      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
-	DONT_SIMULATE_AGAIN (phi) = 0;
-
+      /* Get the default value for each definition.  */
       for (i = bsi_start (bb); !bsi_end_p (i); bsi_next (&i))
-	DONT_SIMULATE_AGAIN (bsi_stmt (i)) = 0;
+        {
+	  vary = 0;
+	  stmt = bsi_stmt (i);
+	  get_stmt_operands (stmt);
+	  ops = def_ops (stmt);
+	  if (ops)
+	    for (x = 0; x < VARRAY_ACTIVE_SIZE (ops); x++)
+	      {
+		tree *def_p = VARRAY_TREE_PTR (ops, x);
+		if (get_value (*def_p)->lattice_val == VARYING)
+		  vary = 1;
+	      }
+	  DONT_SIMULATE_AGAIN (stmt) = vary;
+
+	  /* Mark all VDEF operands VARYING.  */
+	  ops = vdef_ops (stmt);
+	  if (ops)
+	    {
+	      for (x = 0; x < VARRAY_ACTIVE_SIZE (ops); x++)
+	        {
+		  tree res = VDEF_RESULT (VARRAY_TREE (ops, x));
+		  get_value (res)->lattice_val = VARYING;
+		  SET_BIT (virtual_var, SSA_NAME_VERSION (res));
+		}
+	    }
+	}
 
       for (e = bb->succ; e; e = e->succ_next)
 	e->flags &= ~EDGE_EXECUTABLE;
     }
 
+  /* Now process PHI nodes.  */
+  FOR_EACH_BB (bb)
+    {
+      tree phi, var;
+      int x;
+      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+        {
+	  value *val;
+	  val = get_value (PHI_RESULT (phi));
+	  if (val->lattice_val != VARYING)
+	    {
+	      for (x = 0; x < PHI_NUM_ARGS (phi); x++)
+	        {
+		  var = PHI_ARG_DEF (phi, x);
+		  /* If one argument is virtual, the result is virtual, and
+		     therefore varying.  */
+		  if (TREE_CODE (var) == SSA_NAME)
+		    {
+		      if (TEST_BIT (virtual_var, SSA_NAME_VERSION (var)))
+		        {
+			  val->lattice_val = VARYING;
+			  SET_BIT (virtual_var, 
+				   SSA_NAME_VERSION (PHI_RESULT (phi)));
+			  break;
+			}
+		    }
+		}
+	    }
+	  DONT_SIMULATE_AGAIN (phi) = ((val->lattice_val == VARYING) ? 1 : 0);
+	}
+    }
+
+  sbitmap_free (virtual_var);
+  /* Compute immediate uses for variables we care about.  */
+  compute_immediate_uses (TDFA_USE_OPS, need_imm_uses_for);
+
+  if (dump_file && dump_flags & TDF_DETAILS)
+    dump_immediate_uses (dump_file);
 
   VARRAY_BB_INIT (cfg_blocks, 20, "cfg_blocks");
 
@@ -1551,6 +1626,18 @@ get_default_value (tree var)
 	{
 	  val.lattice_val = CONSTANT;
 	  val.const_val = DECL_INITIAL (sym);
+	}
+    }
+  else
+    {
+      enum tree_code code;
+      tree stmt = SSA_NAME_DEF_STMT (var);
+
+      if (!IS_EMPTY_STMT (stmt))
+        {
+	  code = TREE_CODE (stmt);
+	  if (code != MODIFY_EXPR && code != PHI_NODE)
+	    val.lattice_val = VARYING;
 	}
     }
 

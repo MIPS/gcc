@@ -462,7 +462,7 @@ extern void remove_decl (tree, tree);
 extern tree *find_decl_location (tree, tree);
 extern void compute_may_aliases (tree);
 extern void compute_reached_uses (int);
-extern void compute_immediate_uses (int);
+extern void compute_immediate_uses (int, bool (*)(tree));
 extern void compute_reaching_defs (int);
 extern void dump_alias_info (FILE *);
 extern void debug_alias_info (void);

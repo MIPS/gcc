@@ -140,8 +140,8 @@ static void add_immediate_use (tree, tree);
 static tree find_vars_r (tree *, int *, void *);
 static void add_referenced_var (tree, struct walk_state *);
 static tree get_memory_tag_for (tree);
-static void compute_immediate_uses_for_phi (tree, int);
-static void compute_immediate_uses_for_stmt (tree, int);
+static void compute_immediate_uses_for_phi (tree, bool (*)(tree));
+static void compute_immediate_uses_for_stmt (tree, int, bool (*)(tree));
 static void add_may_alias (tree, tree);
 static int get_call_flags (tree);
 static void find_hidden_use_vars (tree);
@@ -1111,10 +1111,13 @@ remove_all_phi_nodes_for (sbitmap vars)
 /*---------------------------------------------------------------------------
 			Dataflow analysis (DFA) routines
 ---------------------------------------------------------------------------*/
-/* Compute immediate uses.  */
+/* Compute immediate uses.  The parameter calc_for is an option function 
+   pointer whichi indicates whether immediate uses information should be
+   calculated for a given SSA variable. If NULL, then information is computed
+   for all variables.  */
 
 void
-compute_immediate_uses (int flags)
+compute_immediate_uses (int flags, bool (*calc_for)(tree))
 {
   basic_block bb;
   block_stmt_iterator si;
@@ -1124,13 +1127,16 @@ compute_immediate_uses (int flags)
       tree phi;
 
       for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
-	compute_immediate_uses_for_phi (phi, flags);
+	compute_immediate_uses_for_phi (phi, calc_for);
 
       for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
-	compute_immediate_uses_for_stmt (bsi_stmt (si), flags);
+        {
+	  tree stmt = bsi_stmt (si);
+	  get_stmt_operands (stmt);
+	  compute_immediate_uses_for_stmt (stmt, flags, calc_for);
+	}
     }
 }
-
 
 /* Helper for compute_immediate_uses.  Check all the USE and/or VUSE
    operands in phi node PHI and add a def-use edge between their
@@ -1139,7 +1145,7 @@ compute_immediate_uses (int flags)
    PHI nodes are easy, we only need to look at its arguments.  */
 
 static void
-compute_immediate_uses_for_phi (tree phi, int flags ATTRIBUTE_UNUSED)
+compute_immediate_uses_for_phi (tree phi, bool (*calc_for)(tree))
 {
   int i;
 
@@ -1152,7 +1158,7 @@ compute_immediate_uses_for_phi (tree phi, int flags ATTRIBUTE_UNUSED)
     {
       tree arg = PHI_ARG_DEF (phi, i);
 
-      if (TREE_CODE (arg) == SSA_NAME)
+      if (TREE_CODE (arg) == SSA_NAME && (!calc_for || calc_for (arg)))
 	{ 
 	  tree imm_rdef_stmt = SSA_NAME_DEF_STMT (PHI_ARG_DEF (phi, i));
 	  if (!IS_EMPTY_STMT (imm_rdef_stmt))
@@ -1167,7 +1173,7 @@ compute_immediate_uses_for_phi (tree phi, int flags ATTRIBUTE_UNUSED)
    and STMT.  */
 
 static void
-compute_immediate_uses_for_stmt (tree stmt, int flags)
+compute_immediate_uses_for_stmt (tree stmt, int flags, bool (*calc_for)(tree))
 {
   size_t i;
   varray_type ops;
@@ -1179,17 +1185,15 @@ compute_immediate_uses_for_stmt (tree stmt, int flags)
 #endif
 
   /* Look at USE_OPS or VUSE_OPS according to FLAGS.  */
-  get_stmt_operands (stmt);
-
   if ((flags & TDFA_USE_OPS) && use_ops (stmt))
     {
       ops = use_ops (stmt);
       for (i = 0; i < VARRAY_ACTIVE_SIZE (ops); i++)
 	{
 	  tree *use_p = VARRAY_TREE_PTR (ops, i);
-	  tree imm_rdef_stmt = SSA_NAME_DEF_STMT (*use_p);
-	  if (!IS_EMPTY_STMT (imm_rdef_stmt))
-	    add_immediate_use (imm_rdef_stmt, stmt);
+	  tree imm_stmt = SSA_NAME_DEF_STMT (*use_p);
+	  if (!IS_EMPTY_STMT (imm_stmt) && (!calc_for || calc_for (*use_p)))
+	    add_immediate_use (imm_stmt, stmt);
 	}
     }
 
@@ -1200,7 +1204,7 @@ compute_immediate_uses_for_stmt (tree stmt, int flags)
 	{
 	  tree vuse = VARRAY_TREE (ops, i);
 	  tree imm_rdef_stmt = SSA_NAME_DEF_STMT (vuse);
-	  if (!IS_EMPTY_STMT (imm_rdef_stmt))
+	  if (!IS_EMPTY_STMT (imm_rdef_stmt) && (!calc_for || calc_for (vuse)))
 	    add_immediate_use (imm_rdef_stmt, stmt);
 	}
     }
