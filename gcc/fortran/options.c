@@ -169,6 +169,10 @@ gfc_handle_option (size_t scode, const char *arg, int value)
       gfc_option.flag_dollar_ok = value;
       break;
 
+    case OPT_fdump_parse_tree:
+      gfc_option.verbose = value;
+      break;
+
     case OPT_ffixed_form:
       gfc_option.source_form = FORM_FIXED;
       break;

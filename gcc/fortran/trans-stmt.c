@@ -2049,7 +2049,8 @@ gfc_trans_forall_1 (gfc_code * code, forall_info * nested_forall_info)
       sym->attr.flavor = FL_VARIABLE;
 
       /* Create a temporary variable for the FORALL index.  */
-      var[n] = gfc_create_var (gfc_array_index_type, sym->name);
+      tmp = gfc_typenode_for_spec (&sym->ts);
+      var[n] = gfc_create_var (tmp, sym->name);
       /* Record it in this_forall.  */
       this_forall->var = var[n];
 

@@ -1,5 +1,12 @@
 2003-07-26  Paul Brook  <paul@nowt.org>
 
+	* lang.opt: Add -fdump-parse-tree.
+	* options.c (gfc_handle_option): Ditto.
+	* resolve.c (resolve_forall_iterators): Convert to proper type.
+	* trans-stmt.c (gfc_trans_forall_1): Create temp var with correct type.
+
+2003-07-26  Paul Brook  <paul@nowt.org>
+
 	* Makefile.in: Add build dependencies on files common with rest of gcc.
 
 2003-07-26  Lifang Zeng  <zlf605@hotmail.com>

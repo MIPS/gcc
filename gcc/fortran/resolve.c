@@ -2100,16 +2100,22 @@ resolve_forall_iterators (gfc_forall_iterator * iter)
 	  && iter->start->ts.type != BT_INTEGER)
 	gfc_error ("FORALL start expression at %L must be INTEGER",
 		   &iter->start->where);
+      if (iter->var->ts.kind != iter->start->ts.kind)
+	gfc_convert_type (iter->start, &iter->var->ts, 2);
 
       if (gfc_resolve_expr (iter->end) == SUCCESS
 	  && iter->end->ts.type != BT_INTEGER)
 	gfc_error ("FORALL end expression at %L must be INTEGER",
 		   &iter->end->where);
+      if (iter->var->ts.kind != iter->end->ts.kind)
+	gfc_convert_type (iter->end, &iter->var->ts, 2);
 
       if (gfc_resolve_expr (iter->stride) == SUCCESS
 	  && iter->stride->ts.type != BT_INTEGER)
 	gfc_error ("FORALL Stride expression at %L must be INTEGER",
 		   &iter->stride->where);
+      if (iter->var->ts.kind != iter->stride->ts.kind)
+	gfc_convert_type (iter->stride, &iter->var->ts, 2);
 
       iter = iter->next;
     }

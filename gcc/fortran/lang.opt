@@ -73,6 +73,10 @@ fdollar-ok
 F95
 Allow dollar signs in entity names
 
+fdump-parse-tree
+F95
+Display the code tree after parsing.
+
 ffixed-form
 F95
 Assume that the source file is fixed form
