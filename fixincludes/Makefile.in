@@ -1,0 +1,129 @@
+# Makefile for fixincludes.
+#
+#   Copyright (C) 1998, 1999, 2000, 2001, 2003 Free Software Foundation, Inc.
+
+#This file is part of fixincludes.
+
+#fixincludes is free software; you can redistribute it and/or modify
+#it under the terms of the GNU General Public License as published by
+#the Free Software Foundation; either version 2, or (at your option)
+#any later version.
+
+#fixincludes is distributed in the hope that it will be useful,
+#but WITHOUT ANY WARRANTY; without even the implied warranty of
+#MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#GNU General Public License for more details.
+
+#You should have received a copy of the GNU General Public License
+#along with fixincludes; see the file COPYING.  If not, write to
+#the Free Software Foundation, 59 Temple Place - Suite 330,
+#Boston, MA 02111-1307, USA.
+
+SHELL=@SHELL@
+
+# Some versions of `touch' (such as the version on Solaris 2.8) 
+# do not correctly set the timestamp due to buggy versions of `utime'
+# in the kernel.  So, we use `echo' instead. 
+STAMP = echo timestamp >
+
+CC = @CC@
+CFLAGS = @CFLAGS@
+LDFLAGS = @LDFLAGS@
+INCLUDES = -I. -I$(srcdir) -I../include -I$(srcdir)/../include
+FIXINC_CFLAGS = -DHAVE_CONFIG_H $(INCLUDES)
+
+# Directory where sources are, from where we are.
+srcdir = @srcdir@
+VPATH = $(srcdir)
+
+# End of variables for you to override.
+
+default : all
+
+# Now figure out from those variables how to compile and link.
+
+.c.o:
+	$(CC) -c $(CFLAGS) $(CPPFLAGS) $(FIXINC_CFLAGS) $<
+
+# The only suffixes we want for implicit rules are .c and .o.
+.SUFFIXES:
+.SUFFIXES: .c .o
+
+#
+
+## # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+##
+##  Makefile for constructing the "best" include fixer we can
+##
+## # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+LIBIBERTY=../libiberty/libiberty.a
+
+ALLOBJ = fixincl.o fixtests.o fixfixes.o server.o procopen.o \
+      fixlib.o
+
+TESTOBJ = fixincl.o fixlib.o fixtests.o
+FIXOBJ  = fixfixes.o fixlib.o
+
+HDR = server.h fixlib.h
+FI  = fixincl@EXEEXT@
+AF  = applyfix@EXEEXT@
+
+all : @TARGET@
+gen : $(srcdir)/fixincl.x
+
+
+oneprocess : full-stamp
+twoprocess : test-stamp $(AF)
+
+full-stamp : $(ALLOBJ) $(LIBIBERTY)
+	$(CC) $(LDFLAGS) -o $(FI) $(ALLOBJ) $(LIBIBERTY)
+	$(STAMP) $@
+
+test-stamp : $(TESTOBJ) $(LIBIBERTY)
+	$(CC) $(LDFLAGS) -o $(FI) $(TESTOBJ) $(LIBIBERTY)
+	$(STAMP) $@
+
+$(AF): $(FIXOBJ) $(LIBIBERTY)
+	$(CC) $(LDFLAGS) -o $@ $(FIXOBJ) $(LIBIBERTY)
+
+$(ALLOBJ)   : $(HDR)
+fixincl.o   : fixincl.c  $(srcdir)/fixincl.x
+fixtests.o  : fixtests.c
+fixfixes.o  : fixfixes.c $(srcdir)/fixincl.x
+server.o    : server.c
+procopen.o  : procopen.c
+fixlib.o    : fixlib.c
+
+$(srcdir)/fixincl.x: @MAINT@ fixincl.tpl inclhack.def
+	cd $(srcdir) ; $(SHELL) ./genfixes
+
+clean:
+	rm -f *.o *-stamp $(AF) $(FI) *~
+
+maintainer-clean : clean
+	rm -f $(srcdir)/fixincl.x
+
+Makefile: $(srcdir)/Makefile.in config.status
+	$(SHELL) ./config.status Makefile
+
+config.h: stamp-h
+stamp-h: $(srcdir)/config.h.in config.status
+	$(SHELL) ./config.status config.h
+
+config.status: $(srcdir)/configure
+	$(SHELL) ./config.status --recheck
+
+$(srcdir)/configure: @MAINT@ $(srcdir)/configure.ac
+	autoconf
+
+$(srcdir)/config.h.in: @MAINT@ $(srcdir)/configure.ac
+	autoheader
+
+$(srcdir)/aclocal.m4: @MAINT@ $(srcdir)/../gcc/aclocal.m4
+	cp $(srcdir)/../gcc/aclocal.m4 .
+
+check : all
+	autogen -T $(srcdir)/check.tpl $(srcdir)/inclhack.def
+	$(SHELL) ./check.sh $(srcdir)/tests/base
+	@rm -f ./check.sh
