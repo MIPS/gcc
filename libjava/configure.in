@@ -23,8 +23,8 @@ LIBGCJ_CONFIGURE(.)
 
 AM_CONFIG_HEADER(include/config.h gcj/libgcj-config.h)
 
-# Only use libltdl for native builds.
-if test -z "${with_cross_host}"; then
+# Only use libltdl for non-newlib builds.
+if test "x${with_newlib}" = "x" || test "x${with_newlib}" = "xno"; then
    AC_LIBLTDL_CONVENIENCE
    AC_LIBTOOL_DLOPEN
    DIRLTDL=libltdl
@@ -375,13 +375,12 @@ case "$GC" in
  boehm)
     AC_MSG_RESULT(boehm)
     GCLIBS=../boehm-gc/libgcjgc_convenience.la
-    GCINCS='-I$(top_srcdir)/../boehm-gc/include'
     JC1GCSPEC='-fuse-boehm-gc'
     GCTESTSPEC="-L`${PWDCMD-pwd}`/../boehm-gc/.libs -rpath `${PWDCMD-pwd}`/../boehm-gc/.libs"
 
     dnl We also want to pick up some cpp flags required when including
     dnl boehm-config.h.  Yuck.
-    GCINCS="$GCINCS `cat ../boehm-gc/boehm-cflags`"
+    GCINCS="`cat ../boehm-gc/boehm-cflags`"
     GCOBJS=boehm.lo
     GCHDR=boehm-gc.h
     dnl The POSIX thread support needs to know this.
@@ -432,6 +431,7 @@ case "$THREADS" in
     ;;
 esac
 
+THREADCXXFLAGS=
 THREADLDFLAGS=
 THREADLIBS=
 THREADINCS=
@@ -465,6 +465,12 @@ changequote([,])
 	# -lpthread.
 	THREADLDFLAGS=-pthread
 	THREADSPEC=-lc_r
+	;;
+     alpha*-dec-osf*)
+	THREADCXXFLAGS=-pthread
+	# boehm-gc needs some functions from librt, so link that too.
+	THREADLIBS='-lpthread -lrt'
+	THREADSPEC='-lpthread -lrt'
 	;;
      *)
 	THREADLIBS=-lpthread
@@ -503,6 +509,7 @@ AC_SUBST(THREADDEPS)
 AC_SUBST(THREADOBJS)
 AC_SUBST(THREADSPEC)
 AC_SUBST(THREADLDFLAGS)
+AC_SUBST(THREADCXXFLAGS)
 
 if test -d sysdep; then true; else mkdir sysdep; fi
 AC_LINK_FILES(sysdep/$sysdeps_dir/locks.h, sysdep/locks.h)
@@ -530,7 +537,7 @@ changequote(,)dnl
 gcc_version_trigger=${libgcj_basedir}/../gcc/version.c
 gcc_version_full=`grep version_string ${gcc_version_trigger} | sed -e 's/.*\"\([^\"]*\)\".*/\1/'`
 gcc_version=`echo ${gcc_version_full} | sed -e 's/\([^ ]*\) .*/\1/'`
-tool_include_dir='$(libdir)/gcc-lib/$(target_alias)/'${gcc_version}/include
+tool_include_dir='$(libdir)/gcc/$(target_alias)/'${gcc_version}/include
 changequote([,])dnl
 AC_SUBST(tool_include_dir)
 AC_SUBST(gcc_version)
@@ -555,16 +562,6 @@ if test "x${with_newlib}" = "xyes"; then
 
    dnl Assume we do not have getuid and friends.
    AC_DEFINE(NO_GETUID)
-
-   # If Canadian cross, then don't pick up tools from the build
-   # directory.
-   if test x"$build" != x"$with_cross_host" \
-        && test x"$build" != x"$target"; then
-      CANADIAN=yes
-      GCC_UNWIND_INCLUDE=
-      GCJ="${target_alias}-gcj"
-   fi
-   NATIVE=no
    PLATFORMNET=NoNet
 else
    AC_CHECK_FUNCS(strerror ioctl select fstat open fsync sleep opendir)
@@ -809,15 +806,69 @@ changequote(<<,>>)
       builddotdot=`echo ${with_multisubdir} | sed -e 's:[^/][^/]*:..:g'`
 changequote([,])
    fi
-   if test -x "${builddotdot}/../../gcc/gcj"; then
-      dir="`cd ${builddotdot}/../../gcc && ${PWDCMD-pwd}`"
-      GCJ="$dir/gcj -B`${PWDCMD-pwd}`/ -B$dir/"
-   else
+fi
+
+# Which gcj do we use?
+which_gcj=default
+built_gcc_dir="`cd ${builddotdot}/../../gcc && ${PWDCMD-pwd}`"
+if test -n "${with_cross_host}"; then
+  # We are being configured with a cross compiler. We can't
+  # use ac_exeext, because that is for the target platform.
+  NATIVE=no
+  cross_host_exeext=
+  case "${with_cross_host}" in
+     *mingw* | *cygwin*)
+         cross_host_exeext=.exe
+     ;;
+  esac
+  if test -x "${built_gcc_dir}/gcj${cross_host_exeext}"; then
+     if test x"$build_alias" = x"$with_cross_host"; then
+        # Ordinary cross (host!=target and host=build)
+        which_gcj=built
+     else
+        # Canadian cross (host!=target and host!=build)
+        which_gcj=cross
+     fi
+  else
+     which_gcj=cross
+  fi
+else
+  # We are being configured with a native or crossed-native compiler
+  if test -x "${built_gcc_dir}/gcj${ac_exeext}"; then
+     if test x"$build" = x"$host"; then
+        # True native build (host=target and host=build)
+        which_gcj=built
+     else
+        # Crossed-native build (host=target and host!=build)
+        which_gcj=cross
+     fi
+  else
+     which_gcj=path
+  fi
+fi
+case "${which_gcj}" in
+   built)
+      GCJ="$built_gcc_dir/gcj -B`${PWDCMD-pwd}`/ -B$built_gcc_dir/"
+   ;;
+   cross)
+      # See the comment in Makefile.am about CANADIAN being a misnomer
+      CANADIAN=yes
+      NULL_TARGET=no
+      if test "x${with_newlib}" = "xyes"; then
+         # FIXME (comment): Why is this needed?
+         GCC_UNWIND_INCLUDE=
+         GCJ="${target_alias}-gcj"
+      else
+         GCJ="${target_alias}-gcj -B`${PWDCMD-pwd}`/"
+      fi
+   ;;
+   path)
+      # See the comment in Makefile.am about CANADIAN being a misnomer
       CANADIAN=yes
       NULL_TARGET=yes
       GCJ="gcj -B`${PWDCMD-pwd}`/"
-   fi
-fi
+   ;;
+esac
 
 # Create it, so that compile/link tests don't fail
 test -f libgcj.spec || touch libgcj.spec

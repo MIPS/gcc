@@ -782,7 +782,7 @@ find_base_value (rtx src)
 	    return reg_base_value[regno];
 	}
 
-      return src;
+      return 0;
 
     case MEM:
       /* Check for an argument passed in memory.  Only record in the
@@ -1326,7 +1326,7 @@ find_base_term (rtx x)
       x = XEXP (x, 0);
       if (GET_CODE (x) != PLUS && GET_CODE (x) != MINUS)
 	return 0;
-      /* fall through */
+      /* Fall through.  */
     case LO_SUM:
     case PLUS:
     case MINUS:

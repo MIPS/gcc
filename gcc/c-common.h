@@ -132,7 +132,6 @@ enum c_tree_index
     CTI_SIGNED_WCHAR_TYPE,
     CTI_UNSIGNED_WCHAR_TYPE,
     CTI_WINT_TYPE,
-    CTI_SIGNED_SIZE_TYPE, /* For format checking only.  */
     CTI_UNSIGNED_PTRDIFF_TYPE, /* For format checking only.  */
     CTI_INTMAX_TYPE,
     CTI_UINTMAX_TYPE,
@@ -182,7 +181,6 @@ struct c_common_identifier GTY(())
 #define signed_wchar_type_node		c_global_trees[CTI_SIGNED_WCHAR_TYPE]
 #define unsigned_wchar_type_node	c_global_trees[CTI_UNSIGNED_WCHAR_TYPE]
 #define wint_type_node			c_global_trees[CTI_WINT_TYPE]
-#define signed_size_type_node		c_global_trees[CTI_SIGNED_SIZE_TYPE]
 #define unsigned_ptrdiff_type_node	c_global_trees[CTI_UNSIGNED_PTRDIFF_TYPE]
 #define intmax_type_node		c_global_trees[CTI_INTMAX_TYPE]
 #define uintmax_type_node		c_global_trees[CTI_UINTMAX_TYPE]
@@ -319,7 +317,6 @@ extern void (*lang_expand_stmt) (tree);
 extern int (*lang_gimplify_stmt) (tree *, tree *);
 extern void (*lang_expand_decl_stmt) (tree);
 extern void (*lang_expand_function_end) (void);
-extern tree gettags (void);
 
 /* Callback that determines if it's ok for a function to have no
    noreturn attribute.  */
@@ -348,19 +345,6 @@ extern void shadow_warning (enum sw_kind, const char *, tree);
 extern int field_decl_cmp (const void *, const void *);
 extern void resort_sorted_fields (void *, void *, gt_pointer_operator, 
                                   void *);
-
-/* Extra information associated with a DECL.  Other C dialects extend
-   this structure in various ways.  The C front-end only uses this
-   structure for FUNCTION_DECLs; all other DECLs have a NULL
-   DECL_LANG_SPECIFIC field.  */
-
-struct c_lang_decl GTY(()) {
-  unsigned declared_inline : 1;
-};
-
-/* Nonzero if we can read a PCH file now.  */
-
-extern int allow_pch;
 
 /* Switches common to the C front ends.  */
 
@@ -548,11 +532,6 @@ extern int flag_isoc99;
 
 extern int flag_hosted;
 
-/* Nonzero means add default format_arg attributes for functions not
-   in ISO C.  */
-
-extern int flag_noniso_default_format_attributes;
-
 /* Nonzero means warn when casting a function call to a type that does
    not match the return type (e.g. (float)sqrt() or (anything*)malloc()
    when there is no previous declaration of sqrt or malloc.  */
@@ -562,6 +541,10 @@ extern int warn_bad_function_cast;
 /* Warn about traditional constructs whose meanings changed in ANSI C.  */
 
 extern int warn_traditional;
+
+/* Nonzero means warn for a declaration found after a statement.  */
+
+extern int warn_declaration_after_statement;
 
 /* Nonzero means warn for non-prototype function decls
    or non-prototyped defs without previous prototype.  */
@@ -732,14 +715,17 @@ extern int flag_new_for_scope;
 
 extern int flag_weak;
 
+/* 0 means we want the preprocessor to not emit line directives for
+   the current working directory.  1 means we want it to do it.  -1
+   means we should decide depending on whether debugging information
+   is being emitted or not.  */
+
+extern int flag_working_directory;
+
 /* Nonzero to use __cxa_atexit, rather than atexit, to register
    destructors for local statics and global objects.  */
 
 extern int flag_use_cxa_atexit;
-
-/* Nonzero means output .vtable_{entry,inherit} for use in doing vtable gc.  */
-
-extern int flag_vtable_gc;
 
 /* Nonzero means make the default pedwarns warnings instead of errors.
    The value of this flag is ignored if -pedantic is specified.  */
@@ -843,11 +829,6 @@ extern int max_tinst_depth;
 
 extern int skip_evaluation;
 
-/* The count of input filenames.  Only really valid for comparisons
-   against 1.  */
-
-extern unsigned num_in_fnames;
-
 /* C types are partitioned into three subsets: object, function, and
    incomplete types.  */
 #define C_TYPE_OBJECT_P(type) \
@@ -897,9 +878,7 @@ extern void check_function_format (int *, tree, tree);
 extern void set_Wformat (int);
 extern tree handle_format_attribute (tree *, tree, tree, int, bool *);
 extern tree handle_format_arg_attribute (tree *, tree, tree, int, bool *);
-extern void c_common_insert_default_attributes (tree);
 extern int c_common_handle_option (size_t code, const char *arg, int value);
-extern void c_common_handle_filename (const char *filename);
 extern bool c_common_missing_argument (const char *opt, size_t code);
 extern tree c_common_type_for_mode (enum machine_mode, int);
 extern tree c_common_type_for_size (unsigned int, int);
@@ -1268,14 +1247,6 @@ extern int c_gimplify_expr (tree *, tree *, tree *);
 extern tree c_walk_subtrees (tree*, int*, walk_tree_fn, void*, void*);
 extern int c_tree_chain_matters_p (tree);
 
-/* In c-pretty-print.c  */
-extern void print_c_tree (FILE*, tree);
-extern void print_c_node (FILE*, tree);
-extern void print_c_node_brief (FILE*, tree);
-extern void debug_c_tree (tree);
-extern void debug_c_node (tree);
-extern void debug_c_node_brief(tree);
-
 /* In c-simplify.c  */
 extern void c_genericize (tree);
 extern void c_gimplify_stmt (tree *);
@@ -1285,6 +1256,7 @@ extern int c_common_valid_pch (cpp_reader *pfile, const char *name, int fd);
 extern void c_common_read_pch (cpp_reader *pfile, const char *name, int fd,
 			       const char *orig);
 extern void c_common_write_pch (void);
+extern void c_common_no_more_pch (void);
 extern void builtin_define_with_value (const char *, const char *, int);
 extern void c_stddef_cpp_builtins (void);
 extern void fe_file_change (const struct line_map *);

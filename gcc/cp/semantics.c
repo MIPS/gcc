@@ -418,31 +418,16 @@ tree
 finish_expr_stmt (tree expr)
 {
   tree r = NULL_TREE;
-  tree expr_type = NULL_TREE;;
 
   if (expr != NULL_TREE)
     {
-      if (!processing_template_decl
-	  && !(stmts_are_full_exprs_p ())
-	  && ((TREE_CODE (TREE_TYPE (expr)) == ARRAY_TYPE
-	       && lvalue_p (expr))
-	      || TREE_CODE (TREE_TYPE (expr)) == FUNCTION_TYPE))
-	expr = decay_conversion (expr);
-      
-      /* Remember the type of the expression.  */
-      expr_type = TREE_TYPE (expr);
-
-      if (stmts_are_full_exprs_p ())
+      if (!processing_template_decl)
 	expr = convert_to_void (expr, "statement");
       
       r = add_stmt (build_stmt (EXPR_STMT, expr));
     }
 
   finish_stmt ();
-
-  /* This was an expression-statement, so we save the type of the
-     expression.  */
-  last_expr_type = expr_type;
 
   return r;
 }
@@ -973,6 +958,8 @@ finish_handler_parms (tree decl, tree handler)
     type = expand_start_catch_block (decl);
 
   HANDLER_TYPE (handler) = type;
+  if (type)
+    mark_used (eh_type_info (type));
 }
 
 /* Finish a handler, which may be given by HANDLER.  The BLOCKs are
@@ -987,12 +974,12 @@ finish_handler (tree handler)
   RECHAIN_STMTS (handler, HANDLER_BODY (handler));
 }
 
-/* Begin a compound-statement.  If HAS_NO_SCOPE is nonzero, the
+/* Begin a compound-statement.  If HAS_NO_SCOPE is true, the
    compound-statement does not define a scope.  Returns a new
-   COMPOUND_STMT if appropriate.  */
+   COMPOUND_STMT.  */
 
 tree
-begin_compound_stmt (int has_no_scope)
+begin_compound_stmt (bool has_no_scope)
 {
   tree r; 
   int is_try = 0;
@@ -1020,20 +1007,18 @@ begin_compound_stmt (int has_no_scope)
   return r;
 }
 
-/* Finish a compound-statement, which may be given by COMPOUND_STMT.
-   If HAS_NO_SCOPE is nonzero, the compound statement does not define
-   a scope.  */
+/* Finish a compound-statement, which is given by COMPOUND_STMT. */
 
 tree
-finish_compound_stmt (int has_no_scope, tree compound_stmt)
+finish_compound_stmt (tree compound_stmt)
 {
   tree r;
   tree t;
 
-  if (!has_no_scope)
-    r = do_poplevel ();
-  else
+  if (COMPOUND_STMT_NO_SCOPE (compound_stmt))
     r = NULL_TREE;
+  else
+    r = do_poplevel ();
 
   RECHAIN_STMTS (compound_stmt, COMPOUND_BODY (compound_stmt));
 
@@ -1359,7 +1344,8 @@ finish_qualified_id_expr (tree qualifying_class, tree expr, bool done,
     {
       if (TREE_CODE (expr) == SCOPE_REF)
 	expr = TREE_OPERAND (expr, 1);
-      expr = build_offset_ref (qualifying_class, expr);
+      expr = build_offset_ref (qualifying_class, expr, 
+			       /*address_p=*/true);
       return expr;
     }
 
@@ -1388,13 +1374,9 @@ finish_qualified_id_expr (tree qualifying_class, tree expr, bool done,
 		 BASELINK_ACCESS_BINFO (expr),
 		 /*preserve_reference=*/false));
       else if (done)
-	{
-	  /* The expression is a qualified name whose address is not
-	     being taken.  */
-	  expr = build_offset_ref (qualifying_class, expr);
-	  if (TREE_CODE (expr) == OFFSET_REF)
-	    expr = resolve_offset_ref (expr);
-	}
+	/* The expression is a qualified name whose address is not
+	   being taken.  */
+	expr = build_offset_ref (qualifying_class, expr, /*address_p=*/false);
     }
 
   return expr;
@@ -1412,41 +1394,71 @@ begin_stmt_expr (void)
   if (! cfun && !last_tree)
     begin_stmt_tree (&scope_chain->x_saved_tree);
 
+  last_expr_type = NULL_TREE;
+  
   keep_next_level (1);
-  /* If we're building a statement tree, then the upcoming compound
-     statement will be chained onto the tree structure, starting at
-     last_tree.  We return last_tree so that we can later unhook the
-     compound statement.  */
+  
   return last_tree; 
 }
 
-/* Used when beginning a statement-expression outside function scope.
-   For example, when handling a file-scope initializer, we use this
-   function.  */
+/* Process the final expression of a statement expression. EXPR can be
+   NULL, if the final expression is empty.  Build up a TARGET_EXPR so
+   that the result value can be safely returned to the enclosing
+   expression.  */
 
 tree
-begin_global_stmt_expr (void)
+finish_stmt_expr_expr (tree expr)
 {
-  if (! cfun && !last_tree)
-    begin_stmt_tree (&scope_chain->x_saved_tree);
+  tree result = NULL_TREE;
+  tree type = void_type_node;
 
-  keep_next_level (1);
+  if (expr)
+    {
+      type = TREE_TYPE (expr);
+      
+      if (!processing_template_decl && !VOID_TYPE_P (TREE_TYPE (expr)))
+	{
+	  if (TREE_CODE (type) == ARRAY_TYPE
+	      || TREE_CODE (type) == FUNCTION_TYPE)
+	    expr = decay_conversion (expr);
+
+	  expr = convert_from_reference (expr);
+	  expr = require_complete_type (expr);
+
+	  /* Build a TARGET_EXPR for this aggregate.  finish_stmt_expr
+	     will then pull it apart so the lifetime of the target is
+	     within the scope of the expresson containing this statement
+	     expression.  */
+	  if (TREE_CODE (expr) == TARGET_EXPR)
+	    ;
+	  else if (!IS_AGGR_TYPE (type) || TYPE_HAS_TRIVIAL_INIT_REF (type))
+	    expr = build_target_expr_with_type (expr, type);
+	  else
+	    {
+	      /* Copy construct.  */
+	      expr = build_special_member_call
+		(NULL_TREE, complete_ctor_identifier,
+		 build_tree_list (NULL_TREE, expr),
+		 TYPE_BINFO (type), LOOKUP_NORMAL);
+	      expr = build_cplus_new (type, expr);
+	      my_friendly_assert (TREE_CODE (expr) == TARGET_EXPR, 20030729);
+	    }
+	}
+
+      if (expr != error_mark_node)
+	{
+	  result = build_stmt (EXPR_STMT, expr);
+	  add_stmt (result);
+	}
+    }
   
-  return last_tree ? last_tree : expand_start_stmt_expr(/*has_scope=*/1); 
-}
+  finish_stmt ();
 
-/* Finish the STMT_EXPR last begun with begin_global_stmt_expr.  */
-
-tree 
-finish_global_stmt_expr (tree stmt_expr)
-{
-  stmt_expr = expand_end_stmt_expr (stmt_expr);
+  /* Remember the last expression so that finish_stmt_expr can pull it
+     apart.  */
+  last_expr_type = result ? result : void_type_node;
   
-  if (! cfun
-      && TREE_CHAIN (scope_chain->x_saved_tree) == NULL_TREE)
-    finish_stmt_tree (&scope_chain->x_saved_tree);
-
-  return stmt_expr;
+  return result;
 }
 
 /* Finish a statement-expression.  RTL_EXPR should be the value
@@ -1458,17 +1470,26 @@ tree
 finish_stmt_expr (tree rtl_expr)
 {
   tree result;
-
-  /* If the last thing in the statement-expression was not an
-     expression-statement, then it has type `void'.  In a template, we
-     cannot distinguish the case where the last expression-statement
-     had a dependent type from the case where the last statement was
-     not an expression-statement.  Therefore, we (incorrectly) treat
-     the STMT_EXPR as dependent in that case.  */
-  if (!last_expr_type && !processing_template_decl)
-    last_expr_type = void_type_node;
-  result = build_min (STMT_EXPR, last_expr_type, last_tree);
+  tree result_stmt = last_expr_type;
+  tree type;
+  
+  if (!last_expr_type)
+    type = void_type_node;
+  else
+    {
+      if (result_stmt == void_type_node)
+	{
+	  type = void_type_node;
+	  result_stmt = NULL_TREE;
+	}
+      else
+	type = TREE_TYPE (EXPR_STMT_EXPR (result_stmt));
+    }
+  
+  result = build_min (STMT_EXPR, type, last_tree);
   TREE_SIDE_EFFECTS (result) = 1;
+  
+  last_expr_type = NULL_TREE;
   
   /* Remove the compound statement from the tree structure; it is
      now saved in the STMT_EXPR.  */
@@ -1481,6 +1502,22 @@ finish_stmt_expr (tree rtl_expr)
       && TREE_CHAIN (scope_chain->x_saved_tree) == NULL_TREE)
     finish_stmt_tree (&scope_chain->x_saved_tree);
 
+  if (processing_template_decl)
+    return result;
+
+  if (!VOID_TYPE_P (type))
+    {
+      /* Pull out the TARGET_EXPR that is the final expression. Put
+	 the target's init_expr as the final expression and then put
+	 the statement expression itself as the target's init
+	 expr. Finally, return the target expression.  */
+      tree last_expr = EXPR_STMT_EXPR (result_stmt);
+      
+      my_friendly_assert (TREE_CODE (last_expr) == TARGET_EXPR, 20030729);
+      EXPR_STMT_EXPR (result_stmt) = TREE_OPERAND (last_expr, 1);
+      TREE_OPERAND (last_expr, 1) = result;
+      result = last_expr;
+    }
   return result;
 }
 
@@ -1982,7 +2019,7 @@ begin_class_definition (tree t)
       pushtag (TYPE_IDENTIFIER (t), t, 0);
     }
   maybe_process_partial_specialization (t);
-  pushclass (t, true);
+  pushclass (t);
   TYPE_BEING_DEFINED (t) = 1;
   TYPE_PACKED (t) = flag_pack_struct;
   /* Reset the interface data, at the earliest possible
@@ -2056,7 +2093,8 @@ finish_member_declaration (tree decl)
 					  /*friend_p=*/0);
     }
   /* Enter the DECL into the scope of the class.  */
-  else if (TREE_CODE (decl) == USING_DECL || pushdecl_class_level (decl))
+  else if ((TREE_CODE (decl) == USING_DECL && TREE_TYPE (decl))
+	   || pushdecl_class_level (decl))
     {
       /* All TYPE_DECLs go at the end of TYPE_FIELDS.  Ordinary fields
 	 go at the beginning.  The reason is that lookup_field_1
@@ -2089,41 +2127,6 @@ finish_member_declaration (tree decl)
     }
 }
 
-/* Finish a class definition T with the indicate ATTRIBUTES.  If SEMI,
-   the definition is immediately followed by a semicolon.  Returns the
-   type.  */
-
-tree
-finish_class_definition (tree t, tree attributes, int semi, int pop_scope_p)
-{
-  if (t == error_mark_node)
-    return error_mark_node;
-
-  /* finish_struct nukes this anyway; if finish_exception does too,
-     then it can go.  */
-  if (semi)
-    note_got_semicolon (t);
-
-  /* If we got any attributes in class_head, xref_tag will stick them in
-     TREE_TYPE of the type.  Grab them now.  */
-  attributes = chainon (TYPE_ATTRIBUTES (t), attributes);
-  TYPE_ATTRIBUTES (t) = NULL_TREE;
-
-  if (TREE_CODE (t) == ENUMERAL_TYPE)
-    ;
-  else
-    {
-      t = finish_struct (t, attributes);
-      if (semi) 
-	note_got_semicolon (t);
-    }
-
-  if (pop_scope_p)
-    pop_scope (CP_DECL_CONTEXT (TYPE_MAIN_DECL (t)));
-
-  return t;
-}
-
 /* Finish processing the declaration of a member class template
    TYPES whose template parameters are given by PARMS.  */
 
@@ -2139,7 +2142,6 @@ finish_member_class_template (tree types)
     if (IS_AGGR_TYPE_CODE (TREE_CODE (TREE_VALUE (t))))
       maybe_process_partial_specialization (TREE_VALUE (t));
 
-  note_list_got_semicolon (types);
   grok_x_components (types);
   if (TYPE_CONTEXT (TREE_VALUE (types)) != current_class_type)
     /* The component was in fact a friend declaration.  We avoid
@@ -2178,8 +2180,8 @@ finish_template_type (tree name, tree args, int entering_scope)
   tree decl;
 
   decl = lookup_template_class (name, args,
-				NULL_TREE, NULL_TREE,
-	                        entering_scope, /*complain=*/1);
+				NULL_TREE, NULL_TREE, entering_scope,
+				tf_error | tf_warning | tf_user);
   if (decl != error_mark_node)
     decl = TYPE_STUB_DECL (decl);
 
@@ -2243,6 +2245,24 @@ check_multiple_declarators (void)
     error ("multiple declarators in template declaration");
 }
 
+/* Issue a diagnostic that NAME cannot be found in SCOPE.  */
+
+void
+qualified_name_lookup_error (tree scope, tree name)
+{
+  if (TYPE_P (scope))
+    {
+      if (!COMPLETE_TYPE_P (scope))
+	error ("incomplete type `%T' used in nested name specifier", scope);
+      else
+	error ("`%D' is not a member of `%T'", name, scope);
+    }
+  else if (scope != global_namespace)
+    error ("`%D' is not a member of `%D'", name, scope);
+  else
+    error ("`::%D' has not been declared", name);
+}
+	      
 /* ID_EXPRESSION is a representation of parsed, but unprocessed,
    id-expression.  (See cp_parser_id_expression for details.)  SCOPE,
    if non-NULL, is the type or namespace used to explicitly qualify
@@ -2291,7 +2311,7 @@ finish_id_expression (tree id_expression,
      required.  If the template-id was for a template-class, we
      will sometimes have a TYPE_DECL at this point.  */
   else if (TREE_CODE (decl) == TEMPLATE_ID_EXPR
-      || TREE_CODE (decl) == TYPE_DECL)
+	   || TREE_CODE (decl) == TYPE_DECL)
     ;
   /* Look up the name.  */
   else 
@@ -2302,17 +2322,9 @@ finish_id_expression (tree id_expression,
 	  if (scope && (!TYPE_P (scope) || !dependent_type_p (scope)))
 	    {
 	      /* Qualified name lookup failed, and the qualifying name
-		 was not a dependent type.  That is always an
-		 error.  */
-	      if (TYPE_P (scope) && !COMPLETE_TYPE_P (scope))
-		error ("incomplete type `%T' used in nested name "
-		       "specifier",
-		       scope);
-	      else if (scope != global_namespace)
-		error ("`%D' is not a member of `%D'",
-		       id_expression, scope);
-	      else
-		error ("`::%D' has not been declared", id_expression);
+      		 was not a dependent type.  That is always an
+      		 error.  */
+	      qualified_name_lookup_error (scope, id_expression);
 	      return error_mark_node;
 	    }
 	  else if (!scope)
@@ -2502,19 +2514,8 @@ finish_id_expression (tree id_expression,
 	      *non_constant_expression_p = true;
 	    }
 	}
-
-      if (scope)
-	{
-	  decl = (adjust_result_of_qualified_name_lookup 
-		  (decl, scope, current_class_type));
-	  if (TREE_CODE (decl) == FIELD_DECL || BASELINK_P (decl))
-	    *qualifying_class = scope;
-	  else if (!processing_template_decl)
-	    decl = convert_from_reference (decl);
-	  else if (TYPE_P (scope))
-	    decl = build (SCOPE_REF, TREE_TYPE (decl), scope, decl);
-	}
-      else if (TREE_CODE (decl) == NAMESPACE_DECL)
+      
+      if (TREE_CODE (decl) == NAMESPACE_DECL)
 	{
 	  error ("use of namespace `%D' as expression", decl);
 	  return error_mark_node;
@@ -2532,6 +2533,29 @@ finish_id_expression (tree id_expression,
 	  print_candidates (decl);
 	  return error_mark_node;
 	}
+
+      /* Mark variable-like entities as used.  Functions are similarly
+	 marked either below or after overload resolution.  */
+      if (TREE_CODE (decl) == VAR_DECL
+	  || TREE_CODE (decl) == PARM_DECL
+	  || TREE_CODE (decl) == RESULT_DECL)
+	mark_used (decl);
+
+      if (scope)
+	{
+	  decl = (adjust_result_of_qualified_name_lookup 
+		  (decl, scope, current_class_type));
+
+	  if (TREE_CODE (decl) == FUNCTION_DECL)
+	    mark_used (decl);
+
+	  if (TREE_CODE (decl) == FIELD_DECL || BASELINK_P (decl))
+	    *qualifying_class = scope;
+	  else if (!processing_template_decl)
+	    decl = convert_from_reference (decl);
+	  else if (TYPE_P (scope))
+	    decl = build (SCOPE_REF, TREE_TYPE (decl), scope, decl);
+	}
       else if (TREE_CODE (decl) == FIELD_DECL)
 	decl = finish_non_static_data_member (decl, current_class_ref,
 					      /*qualifying_scope=*/NULL_TREE);
@@ -2541,7 +2565,10 @@ finish_id_expression (tree id_expression,
 
 	  if (TREE_CODE (first_fn) == TEMPLATE_DECL)
 	    first_fn = DECL_TEMPLATE_RESULT (first_fn);
-	  
+
+	  if (!really_overloaded_fn (decl))
+	    mark_used (first_fn);
+
 	  if (TREE_CODE (first_fn) == FUNCTION_DECL
 	      && DECL_FUNCTION_MEMBER_P (first_fn))
 	    {
@@ -2549,9 +2576,6 @@ finish_id_expression (tree id_expression,
 	      decl = maybe_dummy_object (DECL_CONTEXT (first_fn), 0);
 	      return finish_class_member_access_expr (decl, id_expression);
 	    }
-	  else if (!really_overloaded_fn (decl))
-	    /* not really overloaded function */
-	    mark_used (first_fn);
 	}
       else
 	{
@@ -2581,8 +2605,6 @@ finish_id_expression (tree id_expression,
 	      path = currently_open_derived_class (DECL_CONTEXT (decl));
 	      perform_or_defer_access_check (TYPE_BINFO (path), decl);
 	    }
-	  
-	  mark_used (decl);
 	  
 	  if (! processing_template_decl)
 	    decl = convert_from_reference (decl);

@@ -1,3 +1,8 @@
+2003-08-19  Diego Novillo  <dnovillo@redhat.com>
+
+	* trans-types.c (gfc_init_types): Initialize
+	signed_size_type_node with size_type_node.
+
 2003-08-18  Paul Brook  <paul@nowt.org>
 
 	* dependency.c (gfc_dependency): New enum.

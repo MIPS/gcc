@@ -1786,14 +1786,16 @@ struct tree_type GTY(())
    where it is called.  */
 #define DECL_INLINE(NODE) (FUNCTION_DECL_CHECK (NODE)->decl.inline_flag)
 
+/* Nonzero in a FUNCTION_DECL means that this function was declared inline,
+   such as via the `inline' keyword in C/C++.  This flag controls the linkage
+   semantics of 'inline'; whether or not the function is inlined is
+   controlled by DECL_INLINE.  */
+#define DECL_DECLARED_INLINE_P(NODE) \
+  (FUNCTION_DECL_CHECK (NODE)->decl.declared_inline_flag)
+
 /* In a VAR_DECL, nonzero if the decl is a register variable with
    an explicit asm specification.  */
 #define DECL_HARD_REGISTER(NODE)  (DECL_CHECK (NODE)->decl.inline_flag)
-
-/* Nonzero in a FUNCTION_DECL means this function has been found inlinable
-   only by virtue of -finline-functions  */
-#define DID_INLINE_FUNC(NODE) \
-  (FUNCTION_DECL_CHECK (NODE)->decl.inlined_function_flag)
 
 /* In a FUNCTION_DECL, nonzero if the function cannot be inlined.  */
 #define DECL_UNINLINABLE(NODE) (FUNCTION_DECL_CHECK (NODE)->decl.uninlinable)
@@ -1933,9 +1935,9 @@ struct tree_type GTY(())
   (DECL_POINTER_ALIAS_SET (NODE) != - 1)
 
 /* In a FUNCTION_DECL for which DECL_BUILT_IN does not hold, this is
-     the approximate number of statements in this function.  There is
-     no need for this number to be exact; it is only used in various
-     heuristics regarding optimization.  */
+   the approximate number of statements in this function.  There is
+   no need for this number to be exact; it is only used in various
+   heuristics regarding optimization.  */
 #define DECL_ESTIMATED_INSNS(NODE) \
   (FUNCTION_DECL_CHECK (NODE)->decl.u1.i)
 
@@ -1978,7 +1980,7 @@ struct tree_decl GTY(())
   unsigned user_align : 1;
   unsigned uninlinable : 1;
   unsigned thread_local_flag : 1;
-  unsigned inlined_function_flag : 1;
+  unsigned declared_inline_flag : 1;
   unsigned unused : 3;
   /* three unused bits.  */
 
@@ -2138,6 +2140,7 @@ enum tree_index
   TI_PTR_TYPE,
   TI_CONST_PTR_TYPE,
   TI_SIZE_TYPE,
+  TI_SIGNED_SIZE_TYPE,
   TI_PTRDIFF_TYPE,
   TI_VA_LIST_TYPE,
   TI_BOOLEAN_TYPE,
@@ -2224,6 +2227,8 @@ extern GTY(()) tree global_trees[TI_MAX];
 #define const_ptr_type_node		global_trees[TI_CONST_PTR_TYPE]
 /* The C type `size_t'.  */
 #define size_type_node                  global_trees[TI_SIZE_TYPE]
+/* The C type `ssize_t'.  */
+#define signed_size_type_node		global_trees[TI_SIGNED_SIZE_TYPE]
 #define ptrdiff_type_node		global_trees[TI_PTRDIFF_TYPE]
 #define va_list_type_node		global_trees[TI_VA_LIST_TYPE]
 
@@ -2391,10 +2396,18 @@ extern tree build_vdef_expr (tree);
 
 extern tree get_identifier (const char *);
 
+#if GCC_VERSION >= 3000
+#define get_identifier(str) \
+  (__builtin_constant_p (str)				\
+    ? get_identifier_with_length ((str), strlen (str))  \
+    : get_identifier (str))
+#endif
+
+
 /* Identical to get_identifier, except that the length is assumed
    known.  */
 
-extern tree get_identifier_with_length (const char *, unsigned int);
+extern tree get_identifier_with_length (const char *, size_t);
 
 /* If an identifier with the name TEXT (a null-terminated string) has
    previously been referred to, return that node; otherwise return
@@ -3274,6 +3287,7 @@ extern void output_inline_function (tree);
 extern void set_decl_origin_self (tree);
 
 /* In stor-layout.c */
+extern void set_min_and_max_values_for_integral_type (tree, int, bool);
 extern void fixup_signed_type (tree);
 extern void internal_reference_types (void);
 
@@ -3450,7 +3464,7 @@ extern void fancy_abort (const char *, int, const char *)
 #define abort() fancy_abort (__FILE__, __LINE__, __FUNCTION__)
 
 /* Enum and arrays used for tree allocation stats. 
-   Keep in sync with tree.c:tree_node_kind_names. */
+   Keep in sync with tree.c:tree_node_kind_names.  */
 typedef enum
 {
   d_kind,

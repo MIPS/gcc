@@ -1,3 +1,9 @@
+2003-08-20  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.dg/tree-ssa/20030807-3.c: Adjust expected number of
+	conditionals.
+	* gcc.dg/tree-ssa/20030807-4.c: Likewise.
+
 2003-08-20  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* gcc.dg/tree-ssa/20030820-1.c: New test.

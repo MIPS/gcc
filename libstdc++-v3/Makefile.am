@@ -22,32 +22,27 @@
 ## Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
 ## USA.
 
-AUTOMAKE_OPTIONS = 1.3 cygnus
-MAINT_CHARSET = latin1
+include $(top_srcdir)/fragment.am
 
 SUBDIRS = include libmath libsupc++ src po testsuite 
-
-mkinstalldirs = $(SHELL) $(toplevel_srcdir)/mkinstalldirs
-
-PWD_COMMAND = $${PWDCMD-pwd}
 
 # These rules are messy, but are hella worth it.
 doxygen:
 	-(srcdir=`cd ${top_srcdir}; ${PWD_COMMAND}`; \
 	  builddir=`${PWD_COMMAND}`; \
-	  /bin/sh ${srcdir}/docs/doxygen/run_doxygen \
+	  ${SHELL} ${srcdir}/docs/doxygen/run_doxygen \
 	            --mode=user $${srcdir} $${builddir})
 
 doxygen-maint:
 	-(srcdir=`cd ${top_srcdir}; ${PWD_COMMAND}`; \
 	  builddir=`${PWD_COMMAND}`; \
-	  /bin/sh ${srcdir}/docs/doxygen/run_doxygen \
+	  ${SHELL} ${srcdir}/docs/doxygen/run_doxygen \
 	            --mode=maint $${srcdir} $${builddir})
 
 doxygen-man:
 	-(srcdir=`cd ${top_srcdir}; ${PWD_COMMAND}`; \
 	  builddir=`${PWD_COMMAND}`; \
-	  /bin/sh ${srcdir}/docs/doxygen/run_doxygen \
+	  ${SHELL} ${srcdir}/docs/doxygen/run_doxygen \
 	            --mode=man $${srcdir} $${builddir})
 
 .PHONY: doxygen doxygen-maint doxygen-man

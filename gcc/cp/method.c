@@ -323,7 +323,7 @@ use_thunk (tree thunk_fndecl, bool emit_p)
      this translation unit.  */
   TREE_ADDRESSABLE (function) = 1;
   mark_used (function);
-  TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (function)) = 1;
+  mark_referenced (DECL_ASSEMBLER_NAME (function));
   if (!emit_p)
     return;
 
@@ -460,7 +460,7 @@ use_thunk (tree thunk_fndecl, bool emit_p)
 
       /* Since we want to emit the thunk, we explicitly mark its name as
 	 referenced.  */
-      TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (thunk_fndecl)) = 1;
+      mark_referenced (DECL_ASSEMBLER_NAME (thunk_fndecl));
 
       /* But we don't want debugging information about it.  */
       DECL_IGNORED_P (thunk_fndecl) = 1;
@@ -468,7 +468,7 @@ use_thunk (tree thunk_fndecl, bool emit_p)
       /* Re-enable access control.  */
       pop_deferring_access_checks ();
 
-      expand_or_defer_fn (finish_function (0));
+      expand_body (finish_function (0));
     }
 
   pop_from_top_level ();
@@ -587,7 +587,7 @@ do_build_assign_ref (tree fndecl)
   tree parm = TREE_CHAIN (DECL_ARGUMENTS (fndecl));
   tree compound_stmt;
 
-  compound_stmt = begin_compound_stmt (/*has_no_scope=*/0);
+  compound_stmt = begin_compound_stmt (/*has_no_scope=*/false);
   parm = convert_from_reference (parm);
 
   if (TYPE_HAS_TRIVIAL_ASSIGN_REF (current_class_type)
@@ -605,7 +605,7 @@ do_build_assign_ref (tree fndecl)
       int cvquals = cp_type_quals (TREE_TYPE (parm));
       int i;
 
-      /* Assign to each of thedirect base classes.  */
+      /* Assign to each of the direct base classes.  */
       for (i = 0; i < CLASSTYPE_N_BASECLASSES (current_class_type); ++i)
 	{
 	  tree binfo;
@@ -680,7 +680,7 @@ do_build_assign_ref (tree fndecl)
 	}
     }
   finish_return_stmt (current_class_ref);
-  finish_compound_stmt (/*has_no_scope=*/0, compound_stmt);
+  finish_compound_stmt (compound_stmt);
 }
 
 void
@@ -744,8 +744,8 @@ synthesize_method (tree fndecl)
   if (need_body)
     {
       tree compound_stmt;
-      compound_stmt = begin_compound_stmt (/*has_no_scope=*/0);
-      finish_compound_stmt (/*has_no_scope=*/0, compound_stmt);
+      compound_stmt = begin_compound_stmt (/*has_no_scope=*/false);
+      finish_compound_stmt (compound_stmt);
     }
 
   finish_function_body (stmt);

@@ -4848,7 +4848,9 @@ calc_live_regs (live_regs_mask)
      the initial value can become the PR_MEDIA_REG hard register, as seen for
      execute/20010122-1.c:test9.  */
   if (TARGET_SHMEDIA)
-    pr_live = regs_ever_live[PR_MEDIA_REG];
+    /* ??? this function is called from initial_elimination_offset, hence we
+       can't use the result of sh_media_register_for_return here.  */
+    pr_live = sh_pr_n_sets ();
   else
     {
       rtx pr_initial = has_hard_reg_initial_val (Pmode, PR_REG);
@@ -4856,6 +4858,10 @@ calc_live_regs (live_regs_mask)
 		 ? (GET_CODE (pr_initial) != REG
 		    || REGNO (pr_initial) != (PR_REG))
 		 : regs_ever_live[PR_REG]);
+      /* For Shcompact, if not optimizing, we end up with a memory reference
+	 using the return address pointer for __builtin_return_address even
+	 though there is no actual need to put the PR register on the stack.  */
+      pr_live |= regs_ever_live[RETURN_ADDRESS_POINTER_REGNUM];
     }
   /* Force PR to be live if the prologue has to call the SHmedia
      argument decoder or register saver.  */
@@ -4867,7 +4873,7 @@ calc_live_regs (live_regs_mask)
   has_call = TARGET_SHMEDIA ? ! leaf_function_p () : pr_live;
   for (count = 0, reg = FIRST_PSEUDO_REGISTER - 1; reg >= 0; reg--)
     {
-      if ((! TARGET_SHMEDIA && reg == PR_REG)
+      if (reg == (TARGET_SHMEDIA ? PR_MEDIA_REG : PR_REG)
 	  ? pr_live
 	  : (interrupt_handler && ! pragma_trapa)
 	  ? (/* Need to save all the regs ever live.  */
@@ -5027,7 +5033,7 @@ sh5_schedule_saves (HARD_REG_SET *live_regs_mask, save_schedule *schedule,
 
   if (! current_function_interrupt)
     for (i = FIRST_GENERAL_REG; tmpx < MAX_TEMPS && i <= LAST_GENERAL_REG; i++)
-      if (call_used_regs[i] && ! fixed_regs[i]
+      if (call_used_regs[i] && ! fixed_regs[i] && i != PR_MEDIA_REG
 	  && ! FUNCTION_ARG_REGNO_P (i)
 	  && i != FIRST_RET_REG
 	  && ! (current_function_needs_context && i == STATIC_CHAIN_REGNUM)
@@ -5168,6 +5174,9 @@ sh_expand_prologue ()
 	{
 	  rtx insn = emit_move_insn (gen_rtx_REG (DImode, tr),
 				     gen_rtx_REG (DImode, PR_MEDIA_REG));
+
+	  /* ??? We should suppress saving pr when we don't need it, but this
+	     is tricky because of builtin_return_address.  */
 
 	  /* If this function only exits with sibcalls, this copy
 	     will be flagged as dead.  */
@@ -5552,7 +5561,7 @@ sh_expand_epilogue ()
       save_schedule schedule;
       save_entry *entry;
       int *tmp_pnt;
-      
+
       entry = sh5_schedule_saves (&live_regs_mask, &schedule, d_rounding);
       offset_base = -entry[1].offset + d_rounding;
       tmp_pnt = schedule.temps;
@@ -5660,8 +5669,11 @@ sh_expand_epilogue ()
 	    }
 
 	  insn = emit_move_insn (reg_rtx, mem_rtx);
-
-	  offset += GET_MODE_SIZE (mode);
+	  if (reg == PR_MEDIA_REG && sh_media_register_for_return () >= 0)
+	    /* This is dead, unless we return with a sibcall.  */
+	    REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_MAYBE_DEAD,
+						  const0_rtx,
+						  REG_NOTES (insn));
 	}
 
       if (entry->offset + offset_base != d + d_rounding)
@@ -8835,8 +8847,33 @@ scavenge_reg (HARD_REG_SET *s)
 rtx
 sh_get_pr_initial_val (void)
 {
-  return
-    get_hard_reg_initial_val (Pmode, TARGET_SHMEDIA ? PR_MEDIA_REG : PR_REG);
+  rtx val;
+
+  /* ??? Unfortunately, get_hard_reg_initial_val doesn't always work for the
+     PR register on SHcompact, because it might be clobbered by the prologue.
+     We check first if that is known to be the case.  */
+  if (TARGET_SHCOMPACT
+      && ((current_function_args_info.call_cookie
+	   & ~ CALL_COOKIE_RET_TRAMP (1))
+	  || current_function_has_nonlocal_label))
+    return gen_rtx_MEM (SImode, return_address_pointer_rtx);
+
+  /* If we haven't finished rtl generation, there might be a nonlocal label
+     that we haven't seen yet.
+     ??? get_hard_reg_initial_val fails if it is called while no_new_pseudos
+     is set, unless it has been called before for the same register.  And even
+     then, we end in trouble if we didn't use the register in the same
+     basic block before.  So call get_hard_reg_initial_val now and wrap it
+     in an unspec if we might need to replace it.  */
+  /* ??? We also must do this for TARGET_SH1 in general, because otherwise
+     combine can put the pseudo returned by get_hard_reg_initial_val into
+     instructions that need a general purpose registers, which will fail to
+     be recognized when the pseudo becomes allocated to PR.  */
+  val
+    = get_hard_reg_initial_val (Pmode, TARGET_SHMEDIA ? PR_MEDIA_REG : PR_REG);
+  if (TARGET_SH1)
+    return gen_rtx_UNSPEC (SImode, gen_rtvec (1, val), UNSPEC_RA);
+  return val;
 }
 
 #include "gt-sh.h"

@@ -177,6 +177,7 @@ gfc_init_types (void)
   TREE_TYPE (boolean_true_node) = boolean_type_node;
   boolean_false_node = build_int_2 (0, 0);
   TREE_TYPE (boolean_false_node) = boolean_type_node;
+  signed_size_type_node = size_type_node;
 }
 
 /* Get a type node for an integer kind */

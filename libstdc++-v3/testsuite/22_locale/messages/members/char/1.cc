@@ -30,14 +30,14 @@ void test01()
   typedef std::messages<char>::string_type string_type;
 
   bool test = true;
-  // This is exported through RUNTESTFLAGS in testsuite/Makefile.am.
+  // This is defined through CXXFLAGS in scripts/testsuite_flags[.in].
   const char* dir = LOCALEDIR;
 
   // basic construction
   locale loc_c = locale::classic();
-  locale loc_us = __gnu_cxx_test::try_named_locale("en_US");
-  locale loc_fr = __gnu_cxx_test::try_named_locale("fr_FR");
-  locale loc_de = __gnu_cxx_test::try_named_locale("de_DE");
+  locale loc_us = __gnu_test::try_named_locale("en_US");
+  locale loc_fr = __gnu_test::try_named_locale("fr_FR");
+  locale loc_de = __gnu_test::try_named_locale("de_DE");
   VERIFY( loc_c != loc_de );
   VERIFY( loc_us != loc_fr );
   VERIFY( loc_us != loc_de );

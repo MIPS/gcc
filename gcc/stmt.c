@@ -986,8 +986,8 @@ fixup_gotos (struct nesting *thisblock, rtx stack_level,
 	      && INSN_UID (first_insn) > INSN_UID (f->before_jump)
 	      && ! DECL_ERROR_ISSUED (f->target))
 	    {
-	      error_with_decl (f->target,
-			       "label `%s' used before containing binding contour");
+	      error ("%Hlabel '%D' used before containing binding contour",
+                     TREE_LOCUS (f->target), f->target);
 	      /* Prevent multiple errors for one label.  */
 	      DECL_ERROR_ISSUED (f->target) = 1;
 	    }
@@ -2225,17 +2225,13 @@ expand_expr_stmt_value (tree exp, int want_value, int maybe_last)
      except for last statement in ({...}) where they may be useful.  */
   if (! want_value
       && (expr_stmts_for_value == 0 || ! maybe_last)
-      && exp != error_mark_node)
+      && exp != error_mark_node
+      && warn_unused_value)
     {
-      if (! TREE_SIDE_EFFECTS (exp))
-	{
-	  if (warn_unused_value
-	      && !(TREE_CODE (exp) == CONVERT_EXPR
-		   && VOID_TYPE_P (TREE_TYPE (exp))))
-	    warning ("%Hstatement with no effect", &emit_locus);
-	}
-      else if (warn_unused_value)
+      if (TREE_SIDE_EFFECTS (exp))
 	warn_if_unused_value (exp);
+      else if (!VOID_TYPE_P (TREE_TYPE (exp)))
+	warning ("%Hstatement with no effect", &emit_locus);
     }
 
   /* If EXP is of function type and we are expanding statements for
@@ -3727,7 +3723,7 @@ warn_about_unused_variables (tree vars)
 	  && ! TREE_USED (decl)
 	  && ! DECL_IN_SYSTEM_HEADER (decl)
 	  && DECL_NAME (decl) && ! DECL_ARTIFICIAL (decl))
-	warning_with_decl (decl, "unused variable `%s'");
+	warning ("%Hunused variable '%D'", TREE_LOCUS (decl), decl);
 }
 
 /* Generate RTL code to terminate a binding contour.
@@ -3787,8 +3783,8 @@ expand_end_bindings (tree vars, int mark_ends, int dont_jump_in)
 	     that must be an error, because gotos without fixups
 	     come from outside all saved stack-levels.  */
 	  if (TREE_ADDRESSABLE (chain->label))
-	    error_with_decl (chain->label,
-			     "label `%s' used before containing binding contour");
+	    error ("%Hlabel '%D' used before containing binding contour",
+                   TREE_LOCUS (chain->label), chain->label);
 	}
     }
 

@@ -860,6 +860,10 @@ type_lists_compatible_p (tree args1, tree args2, int flags)
 	  if (c_type_promotes_to (TREE_VALUE (args1)) != TREE_VALUE (args1))
 	    return 0;
 	}
+      /* If one of the lists has an error marker, ignore this arg.  */
+      else if (TREE_CODE (TREE_VALUE (args1)) == ERROR_MARK
+	       || TREE_CODE (TREE_VALUE (args2)) == ERROR_MARK)
+	;
       else if (! (newval = comptypes (TYPE_MAIN_VARIANT (TREE_VALUE (args1)),
 				      TYPE_MAIN_VARIANT (TREE_VALUE (args2)),
 				      flags)))
@@ -2147,8 +2151,7 @@ build_unary_op (enum tree_code code, tree xarg, int flag)
       break;
 
     case ABS_EXPR:
-      if (!(typecode == INTEGER_TYPE || typecode == REAL_TYPE
-	    || typecode == COMPLEX_TYPE))
+      if (!(typecode == INTEGER_TYPE || typecode == REAL_TYPE))
 	{
 	  error ("wrong type argument to abs");
 	  return error_mark_node;
@@ -4013,6 +4016,11 @@ digest_init (tree type, tree init, int require_constant)
     {
       if (code == POINTER_TYPE)
 	inside_init = default_function_array_conversion (inside_init);
+      
+      if (code == VECTOR_TYPE)
+	/* Although the types are compatible, we may require a
+	   conversion.  */
+	inside_init = convert (type, inside_init);
 
       if (require_constant && !flag_isoc99
 	  && TREE_CODE (inside_init) == COMPOUND_LITERAL_EXPR)

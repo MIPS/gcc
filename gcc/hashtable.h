@@ -67,7 +67,7 @@ extern hash_table *ht_create (unsigned int order);
 extern void ht_destroy (hash_table *);
 
 extern hashnode ht_lookup (hash_table *, const unsigned char *,
-			   unsigned int, enum ht_lookup_option);
+			   size_t, enum ht_lookup_option);
 
 /* For all nodes in TABLE, make a callback.  The callback takes
    TABLE->PFILE, the node, and a PTR, and the callback sequence stops
@@ -77,9 +77,5 @@ extern void ht_forall (hash_table *, ht_cb, const void *);
 
 /* Dump allocation statistics to stderr.  */
 extern void ht_dump_statistics (hash_table *);
-
-/* Approximate positive square root of a host double.  This is for
-   statistical reports, not code generation.  */
-extern double approx_sqrt (double);
 
 #endif /* GCC_HASHTABLE_H */

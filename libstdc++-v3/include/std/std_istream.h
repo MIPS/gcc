@@ -37,8 +37,8 @@
  *  in your programs, rather than any of the "st[dl]_*.h" implementation files.
  */
 
-#ifndef _ISTREAM
-#define _ISTREAM 1
+#ifndef _GLIBCXX_ISTREAM
+#define _GLIBCXX_ISTREAM 1
 
 #pragma GCC system_header
 
@@ -70,8 +70,8 @@ namespace std
       typedef basic_streambuf<_CharT, _Traits> 		__streambuf_type;
       typedef basic_ios<_CharT, _Traits>		__ios_type;
       typedef basic_istream<_CharT, _Traits>		__istream_type;
-      typedef istreambuf_iterator<_CharT, _Traits>	__istreambuf_iter;
-      typedef num_get<_CharT, __istreambuf_iter>        __numget_type;
+      typedef num_get<_CharT, istreambuf_iterator<_CharT, _Traits> >        
+ 							__num_get_type;
       typedef ctype<_CharT>           			__ctype_type;
 
       template<typename _CharT2, typename _Traits2>
@@ -768,11 +768,8 @@ namespace std
     ws(basic_istream<_CharT, _Traits>& __is);
 } // namespace std
 
-#ifdef _GLIBCXX_NO_TEMPLATE_EXPORT
-# define export
-#endif
-#ifdef  _GLIBCXX_FULLY_COMPLIANT_HEADERS
+#ifndef _GLIBCXX_EXPORT_TEMPLATE
 # include <bits/istream.tcc>
 #endif
 
-#endif	/* _ISTREAM */
+#endif	/* _GLIBCXX_ISTREAM */

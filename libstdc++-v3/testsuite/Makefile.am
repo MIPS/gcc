@@ -21,28 +21,14 @@
 ## Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
 ## USA.
 
-AUTOMAKE_OPTIONS =  cygnus dejagnu
+AUTOMAKE_OPTIONS = dejagnu
 
-mkinstalldirs = $(SHELL) $(toplevel_srcdir)/mkinstalldirs
-
-DEJATOOL = libstdc++-v3
-
-EXPECT = `if [ -f @glibcxx_builddir@/../../expect/expect ] ; then \
-            echo @glibcxx_builddir@/../../expect/expect ; \
-          else echo expect ; fi`
-
-RUNTEST = `if [ -f @glibcxx_srcdir@/../dejagnu/runtest ] ; then \
-	       echo @glibcxx_srcdir@/../dejagnu/runtest ; \
-	    else echo runtest; fi`
+include $(top_srcdir)/fragment.am
 
 AM_MAKEFLAGS = -j1
 AM_RUNTESTFLAGS =
-RUNTESTFLAGS =
-PWD_COMMAND = $${PWDCMD-pwd}
 
 ## CXX is actually a "C" compiler. These are real C++ programs.
-glibcxx_srcdir=@glibcxx_srcdir@
-glibcxx_builddir=@glibcxx_builddir@
 testsuite_flags_script=${glibcxx_builddir}/scripts/testsuite_flags
 CXX=`${testsuite_flags_script} --build-cxx`
 
@@ -50,13 +36,6 @@ CXXLINK = \
 	LD_RUN_PATH=$${LD_RUN_PATH:+$$LD_RUN_PATH:}${glibcxx_builddir}/src/.libs\
 	$(LIBTOOL) --tag=CXX --mode=link $(CXX) \
 	$(AM_CXXFLAGS) $(CXXFLAGS) $(LDFLAGS) -o $@
-
-GLIBCXX_INCLUDES = @GLIBCXX_INCLUDES@
-LIBSUPCXX_INCLUDES = @LIBSUPCXX_INCLUDES@
-TOPLEVEL_INCLUDES = @TOPLEVEL_INCLUDES@
-INCLUDES = \
-	-nostdinc++ \
-	@GLIBCXX_INCLUDES@ @LIBSUPCXX_INCLUDES@ @TOPLEVEL_INCLUDES@ 
 
 # Generated lists of files to run.  All of these names are valid make
 # targets, if you wish to generate a list manually.
@@ -120,11 +99,11 @@ if GLIBCXX_TEST_ABI
 # 'check-abi' to test for changes against that file.
 check-abi: abi_check baseline_symbols current_symbols.txt
 	-@(./abi_check --check ./current_symbols.txt ${baseline_file} \
-	2>&1 | tee libstdc++-v3-abi.sum)
+	2>&1 | tee libstdc++-abi.sum)
 
 check-abi-verbose: abi_check baseline_symbols current_symbols.txt 
 	-@(./abi_check --check-verbose ./current_symbols.txt ${baseline_file} \
-	2>&1 | tee libstdc++-v3-abi.sum)
+	2>&1 | tee libstdc++-abi.sum)
 
 else
 check-abi:

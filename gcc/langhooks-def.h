@@ -80,7 +80,7 @@ extern int lhd_tree_inlining_anon_aggr_type_p (tree);
 extern int lhd_tree_inlining_start_inlining (tree);
 extern void lhd_tree_inlining_end_inlining (tree);
 extern tree lhd_tree_inlining_convert_parm_for_inlining (tree, tree, tree);
-extern void write_global_declarations (void);
+extern void lhd_initialize_diagnostics (struct diagnostic_context *);
 
 /* Declarations for tree gimplification hooks.  */
 int lhd_gimplify_expr (tree *, tree *, tree *);
@@ -92,8 +92,8 @@ int lhd_gimplify_expr (tree *, tree *, tree *);
 #define LANG_HOOKS_PARSE_FILE		lhd_do_nothing_i
 #define LANG_HOOKS_CLEAR_BINDING_STACK	lhd_clear_binding_stack
 #define LANG_HOOKS_INIT_OPTIONS		hook_uint_uint_constcharptrptr_0
+#define LANG_HOOKS_INITIALIZE_DIAGNOSTITCS lhd_initialize_diagnostics
 #define LANG_HOOKS_HANDLE_OPTION	hook_int_size_t_constcharptr_int_0
-#define LANG_HOOKS_HANDLE_FILENAME	hook_void_constcharptr
 #define LANG_HOOKS_MISSING_ARGUMENT	hook_bool_constcharptr_size_t_false
 #define LANG_HOOKS_POST_OPTIONS		lhd_post_options
 #define LANG_HOOKS_GET_ALIAS_SET	lhd_get_alias_set
@@ -104,7 +104,6 @@ int lhd_gimplify_expr (tree *, tree *, tree *);
 #define LANG_HOOKS_FINISH_INCOMPLETE_DECL lhd_do_nothing_t
 #define LANG_HOOKS_UNSAFE_FOR_REEVAL	lhd_unsafe_for_reeval
 #define LANG_HOOKS_STATICP		lhd_staticp
-#define LANG_HOOKS_INSERT_DEFAULT_ATTRIBUTES lhd_do_nothing_t
 #define LANG_HOOKS_DUP_LANG_SPECIFIC_DECL lhd_do_nothing_t
 #define LANG_HOOKS_UNSAVE_EXPR_NOW	lhd_unsave_expr_now
 #define LANG_HOOKS_MAYBE_BUILD_CLEANUP	lhd_return_null_tree
@@ -255,8 +254,8 @@ extern int lhd_tree_dump_type_quals (tree);
   LANG_HOOKS_IDENTIFIER_SIZE, \
   LANG_HOOKS_TREE_SIZE, \
   LANG_HOOKS_INIT_OPTIONS, \
+  LANG_HOOKS_INITIALIZE_DIAGNOSTITCS, \
   LANG_HOOKS_HANDLE_OPTION, \
-  LANG_HOOKS_HANDLE_FILENAME, \
   LANG_HOOKS_MISSING_ARGUMENT, \
   LANG_HOOKS_POST_OPTIONS, \
   LANG_HOOKS_INIT, \
@@ -268,7 +267,6 @@ extern int lhd_tree_dump_type_quals (tree);
   LANG_HOOKS_EXPAND_EXPR, \
   LANG_HOOKS_EXPAND_DECL, \
   LANG_HOOKS_TRUTHVALUE_CONVERSION, \
-  LANG_HOOKS_INSERT_DEFAULT_ATTRIBUTES, \
   LANG_HOOKS_SAFE_FROM_P, \
   LANG_HOOKS_FINISH_INCOMPLETE_DECL, \
   LANG_HOOKS_UNSAFE_FOR_REEVAL, \

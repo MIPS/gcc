@@ -370,18 +370,19 @@ tmake_file=@dep_tmake_file@
 out_file=$(srcdir)/config/@out_file@
 out_object_file=@out_object_file@
 md_file=$(srcdir)/config/@md_file@
-tm_file=@tm_file@
 tm_file_list=@tm_file_list@
+tm_include_list=@tm_include_list@
 tm_defines=@tm_defines@
 tm_p_file_list=@tm_p_file_list@
-tm_p_file=@tm_p_file@
+tm_p_include_list=@tm_p_include_list@
 build_xm_file_list=@build_xm_file_list@
-build_xm_file=@build_xm_file@
+build_xm_include_list=@build_xm_include_list@
 build_xm_defines=@build_xm_defines@
 host_xm_file_list=@host_xm_file_list@
-host_xm_file=@host_xm_file@
+host_xm_include_list=@host_xm_include_list@
 host_xm_defines=@host_xm_defines@
-xm_file=@xm_file@
+xm_file_list=@xm_file_list@
+xm_include_list=@xm_include_list@
 xm_defines=@xm_defines@
 lang_opt_files=@lang_opt_files@ $(srcdir)/c.opt $(srcdir)/common.opt
 lang_specs_files=@lang_specs_files@
@@ -415,13 +416,17 @@ exec_prefix = @exec_prefix@
 bindir = @bindir@
 # Directory in which to put the directories used by the compiler.
 libdir = @libdir@
+# Directory in which GCC puts its executables.
+libexecdir = @libexecdir@
 
 # --------
 # UNSORTED
 # --------
 
-# Directory in which the compiler finds executables, libraries, etc.
-libsubdir = $(libdir)/gcc-lib/$(target_alias)/$(version)
+# Directory in which the compiler finds libraries etc.
+libsubdir = $(libdir)/gcc/$(target_alias)/$(version)
+# Directory in which the compiler finds executables
+libexecsubdir = $(libexecdir)/gcc/$(target_alias)/$(version)
 # Used to produce a relative $(gcc_tooldir) in gcc.o
 unlibsubdir = ../../..
 # Directory in which to find other cross-compilation tools and headers.
@@ -685,6 +690,9 @@ TREE_DUMP_H = tree-dump.h $(SPLAY_TREE_H)
 TREE_SIMPLE_H = tree-simple.h tree-iterator.h
 TREE_FLOW_H = tree-flow.h tree-flow-inline.h bitmap.h $(BASIC_BLOCK_H) \
               hard-reg-set.h $(TREE_SIMPLE_H) $(HASHTAB_H)
+PRETTY_PRINT_H = pretty-print.h input.h $(OBSTACK_H)
+DIAGNOSTIC_H = diagnostic.h diagnostic.def $(PRETTY_PRINT_H)
+C_PRETTY_PRINT_H = $(PRETTY_PRINT_H) $(C_COMMON_H) $(TREE_H)
 
 # sed inserts variable overrides after the following line.
 ####target overrides
@@ -801,6 +809,7 @@ ORDINARY_FLAGS_TO_PASS = \
 	"gcc_tooldir=$(gcc_tooldir)" \
 	"bindir=$(bindir)" \
 	"libsubdir=$(libsubdir)" \
+	"libexecsubdir=$(libsubdir)" \
 	"datadir=$(datadir)" \
 	"localedir=$(localedir)"
 FLAGS_TO_PASS = $(ORDINARY_FLAGS_TO_PASS) "CC=@cc_set_by_configure@" \
@@ -862,7 +871,7 @@ OBJS-common = \
  sibcall.o simplify-rtx.o sreal.o ssa.o ssa-ccp.o ssa-dce.o stmt.o	   \
  stor-layout.o stringpool.o timevar.o toplev.o tracer.o tree.o tree-dump.o \
  unroll.o varasm.o varray.o version.o vmsdbgout.o xcoffout.o		   \
- alloc-pool.o et-forest.o cfghooks.o bt-load.o $(GGC)
+ alloc-pool.o et-forest.o cfghooks.o bt-load.o pretty-print.o $(GGC) 
 
 OBJS-md = $(out_object_file)
 OBJS-archive = $(EXTRA_OBJS) $(host_hook_obj) hashtable.o tree-inline.o	   \
@@ -968,27 +977,27 @@ tm_p.h: cs-tm_p.h ; @true
 
 cs-config.h: Makefile
 	TARGET_CPU_DEFAULT="" \
-	HEADERS="$(host_xm_file)" DEFINES="$(host_xm_defines)" \
+	HEADERS="$(host_xm_include_list)" DEFINES="$(host_xm_defines)" \
 	$(SHELL) $(srcdir)/mkconfig.sh config.h
 
 cs-bconfig.h: Makefile
 	TARGET_CPU_DEFAULT="" \
-	HEADERS="$(build_xm_file)" DEFINES="$(build_xm_defines)" \
+	HEADERS="$(build_xm_include_list)" DEFINES="$(build_xm_defines)" \
 	$(SHELL) $(srcdir)/mkconfig.sh bconfig.h
 
 cs-tconfig.h: Makefile
 	TARGET_CPU_DEFAULT="" \
-	HEADERS="$(xm_file)" DEFINES="$(xm_defines)" \
+	HEADERS="$(xm_include_list)" DEFINES="$(xm_defines)" \
 	$(SHELL) $(srcdir)/mkconfig.sh tconfig.h
 
 cs-tm.h: Makefile
 	TARGET_CPU_DEFAULT="$(target_cpu_default)" \
-	HEADERS="$(tm_file)" DEFINES="$(tm_defines)" \
+	HEADERS="$(tm_include_list)" DEFINES="$(tm_defines)" \
 	$(SHELL) $(srcdir)/mkconfig.sh tm.h
 
 cs-tm_p.h: Makefile
 	TARGET_CPU_DEFAULT="" \
-	HEADERS="$(tm_p_file)" DEFINES="" \
+	HEADERS="$(tm_p_include_list)" DEFINES="" \
 	$(SHELL) $(srcdir)/mkconfig.sh tm_p.h
 
 # Don't automatically run autoconf, since configure.in might be accidentally
@@ -1279,7 +1288,7 @@ s-crt0:	$(CRT0_S) $(MCRT0_S) $(GCC_PASSES) $(CONFIG_H)
 # C language specific files.
 
 c-errors.o: c-errors.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
-    $(C_TREE_H) flags.h diagnostic.h $(TM_P_H)
+    $(C_TREE_H) flags.h $(DIAGNOSTIC_H) $(TM_P_H)
 c-parse.o : $(parsedir)/c-parse.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
     $(GGC_H) intl.h $(C_TREE_H) input.h flags.h toplev.h output.h $(CPPLIB_H) \
     varray.h gt-c-parse.h
@@ -1309,11 +1318,12 @@ c-incpath.o: c-incpath.c c-incpath.h $(CONFIG_H) $(SYSTEM_H) $(CPPLIB_H) \
 c-decl.o : c-decl.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
     $(RTL_H) $(C_TREE_H) $(GGC_H) $(TARGET_H) flags.h function.h output.h \
     $(EXPR_H) debug.h toplev.h intl.h $(TM_P_H) tree-inline.h $(TIMEVAR_H) \
-    c-pragma.h gt-c-decl.h cgraph.h $(HASHTAB_H) libfuncs.h except.h \
+    opts.h c-pragma.h gt-c-decl.h cgraph.h $(HASHTAB_H) libfuncs.h except.h \
     $(LANGHOOKS_DEF_H) $(TREE_DUMP_H)
 c-typeck.o : c-typeck.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) $(C_TREE_H) \
     $(TARGET_H) flags.h intl.h output.h $(EXPR_H) $(RTL_H) toplev.h $(TM_P_H)
-c-lang.o : c-lang.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) $(C_TREE_H) \
+c-lang.o : c-lang.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
+    $(C_TREE_H) $(C_PRETTY_PRINT_H) $(DIAGNOSTIC_H) \
     $(GGC_H) langhooks.h $(LANGHOOKS_DEF_H) $(C_COMMON_H) gtype-c.h
 c-lex.o : c-lex.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
     $(RTL_H) debug.h $(C_TREE_H) $(C_COMMON_H) real.h c-incpath.h cppdefault.h \
@@ -1323,7 +1333,7 @@ c-ppoutput.o : c-ppoutput.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
     $(C_COMMON_H) $(TREE_H) $(CPPLIB_H) cpphash.h $(TM_P_H) c-pragma.h
 c-objc-common.o : c-objc-common.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
     $(C_TREE_H) $(RTL_H) insn-config.h $(INTEGRATE_H) $(EXPR_H) $(C_TREE_H) \
-    flags.h toplev.h tree-inline.h diagnostic.h $(VARRAY_H) \
+    flags.h toplev.h tree-inline.h $(DIAGNOSTIC_H) $(VARRAY_H) \
     langhooks.h $(GGC_H) gt-c-objc-common.h $(TARGET_H) cgraph.h
 c-aux-info.o : c-aux-info.c  $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
     $(C_TREE_H) flags.h toplev.h
@@ -1358,14 +1368,14 @@ tlink.o: tlink.c $(DEMANGLE_H) $(HASHTAB_H) $(CONFIG_H) $(SYSTEM_H) coretypes.h 
 c-common.o : c-common.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
 	$(OBSTACK_H) $(C_COMMON_H) flags.h toplev.h output.h c-pragma.h intl.h \
 	$(GGC_H) $(EXPR_H) $(TM_P_H) builtin-types.def builtin-attrs.def \
-	diagnostic.h gt-c-common.h langhooks.h varray.h $(RTL_H) $(TARGET_H) \
-	$(C_TREE_H)
-c-pretty-print.o : c-pretty-print.c c-pretty-print.h pretty-print.h \
+	$(DIAGNOSTIC_H) gt-c-common.h langhooks.h varray.h $(RTL_H) \
+	$(TARGET_H) $(C_TREE_H)
+c-pretty-print.o : c-pretty-print.c $(C_PRETTY_PRINT_H) \
 	$(C_COMMON_H) $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) real.h \
-	$(TREE_H) $(C_TREE_H)
+	$(DIAGNOSTIC_H)
 
 c-opts.o : c-opts.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
-        c-pragma.h flags.h toplev.h langhooks.h tree-inline.h diagnostic.h \
+        c-pragma.h flags.h toplev.h langhooks.h tree-inline.h $(DIAGNOSTIC_H) \
 	intl.h debug.h $(C_COMMON_H) opts.h options.h $(PARAMS_H)
 	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) \
 		$< $(OUTPUT_OPTION) @TARGET_SYSTEM_ROOT_DEFINE@
@@ -1381,7 +1391,7 @@ attribs.o : attribs.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) flag
 	builtin-types.def $(TARGET_H) langhooks.h
 
 c-format.o : c-format.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) langhooks.h \
-	$(C_COMMON_H) flags.h toplev.h intl.h diagnostic.h
+	$(C_COMMON_H) flags.h toplev.h intl.h $(DIAGNOSTIC_H)
 
 c-semantics.o : c-semantics.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
 	$(C_TREE_H) flags.h toplev.h output.h c-pragma.h $(RTL_H) $(GGC_H) \
@@ -1391,14 +1401,15 @@ c-dump.o : c-dump.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
 	$(C_TREE_H) $(TREE_DUMP_H)
 
 c-pch.o : c-pch.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(CPPLIB_H) $(TREE_H) \
-	$(C_COMMON_H) output.h toplev.h c-pragma.h $(GGC_H) debug.h langhooks.h \
-	flags.h
+	$(C_COMMON_H) output.h toplev.h c-pragma.h $(GGC_H) debug.h \
+	langhooks.h flags.h hosthooks.h
 
 # Language-independent files.
 
 DRIVER_DEFINES = \
   -DSTANDARD_STARTFILE_PREFIX=\"$(unlibsubdir)/\" \
-  -DSTANDARD_EXEC_PREFIX=\"$(libdir)/gcc-lib/\" \
+  -DSTANDARD_EXEC_PREFIX=\"$(libdir)/gcc/\" \
+  -DSTANDARD_LIBEXEC_PREFIX=\"$(libexecdir)/gcc/\" \
   -DDEFAULT_TARGET_VERSION=\"$(version)\" \
   -DDEFAULT_TARGET_MACHINE=\"$(target_alias)\" \
   -DSTANDARD_BINDIR_PREFIX=\"$(bindir)/\" \
@@ -1473,7 +1484,7 @@ gtype-desc.o: gtype-desc.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) varray.h 
 	ssa.h cselib.h insn-addr.h $(TREE_FLOW_H)
 
 ggc-common.o: ggc-common.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(GGC_H) \
-	$(HASHTAB_H) toplev.h $(PARAMS_H)
+	$(HASHTAB_H) toplev.h $(PARAMS_H) hosthooks.h
 
 ggc-simple.o: ggc-simple.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(TREE_H) \
 	flags.h $(GGC_H) varray.h $(TIMEVAR_H) $(TM_P_H) $(PARAMS_H)
@@ -1552,7 +1563,7 @@ tree-optimize.o : tree-optimize.c $(TREE_FLOW_H) $(CONFIG_H) \
 c-simplify.o : c-simplify.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) errors.h \
    $(C_TREE_H) $(C_COMMON_H) diagnostic.h $(TREE_SIMPLE_H) varray.h flags.h \
    langhooks.h toplev.h rtl.h $(TREE_FLOW_H) langhooks-def.h \
-   $(TM_H) coretypes.h
+   $(TM_H) coretypes.h $(C_PRETTY_PRINT_H)
 gimplify.o : gimplify.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) errors.h \
    diagnostic.h $(TREE_SIMPLE_H) tree-inline.h varray.h langhooks.h \
    langhooks-def.h $(TREE_FLOW_H) $(TIMEVAR_H) $(TM_H) coretypes.h except.h \
@@ -1586,14 +1597,14 @@ tree-pretty-print.o : tree-pretty-print.c $(CONFIG_H) $(SYSTEM_H) \
    $(TM_H) coretypes.h tree-iterator.h
 fold-const.o : fold-const.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
    flags.h real.h toplev.h $(HASHTAB_H) $(EXPR_H) $(RTL_H) $(GGC_H) $(TM_P_H) langhooks.h
-diagnostic.o : diagnostic.c diagnostic.h real.h diagnostic.def \
+diagnostic.o : diagnostic.c $(DIAGNOSTIC_H) real.h \
    $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) $(TM_P_H) flags.h $(GGC_H) \
    input.h toplev.h intl.h langhooks.h $(LANGHOOKS_DEF_H)
 opts.o : opts.c opts.h options.h toplev.h $(CONFIG_H) $(SYSTEM_H) \
 	coretypes.h $(TREE_H) $(TM_H) $(LANGHOOKS_H) $(GGC_H) $(RTL_H) \
-	output.h diagnostic.h $(TM_P_H) $(INSN_ATTR_H) intl.h
+	output.h $(DIAGNOSTIC_H) $(TM_P_H) $(INSN_ATTR_H) intl.h
 toplev.o : toplev.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) $(RTL_H) \
-   function.h flags.h xcoffout.h input.h $(INSN_ATTR_H) output.h diagnostic.h \
+   function.h flags.h xcoffout.h input.h $(INSN_ATTR_H) output.h $(DIAGNOSTIC_H) \
    debug.h insn-config.h intl.h $(RECOG_H) Makefile toplev.h \
    dwarf2out.h sdbout.h dbxout.h $(EXPR_H) hard-reg-set.h $(BASIC_BLOCK_H) \
    graph.h $(LOOP_H) except.h $(REGS_H) $(TIMEVAR_H) \
@@ -1609,7 +1620,7 @@ host-default.o : host-default.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
 	hosthooks.h hosthooks-def.h
 
 rtl-error.o: rtl-error.c $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(INSN_ATTR_H) \
-   insn-config.h input.h toplev.h intl.h diagnostic.h $(CONFIG_H)
+   insn-config.h input.h toplev.h intl.h $(DIAGNOSTIC_H) $(CONFIG_H)
 
 rtl.o : rtl.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(GTM_H) $(RTL_H) real.h \
   $(GGC_H) errors.h
@@ -1676,7 +1687,7 @@ dwarfout.o : dwarfout.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
    $(RTL_H) dwarf.h flags.h insn-config.h reload.h output.h toplev.h $(TM_P_H) \
    debug.h langhooks.h $(TARGET_H)
 dwarf2out.o : dwarf2out.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
-   $(RTL_H) dwarf2.h debug.h flags.h insn-config.h reload.h output.h diagnostic.h real.h \
+   $(RTL_H) dwarf2.h debug.h flags.h insn-config.h reload.h output.h $(DIAGNOSTIC_H) real.h \
    hard-reg-set.h $(REGS_H) $(EXPR_H) libfuncs.h toplev.h dwarf2out.h varray.h \
    $(GGC_H) except.h dwarf2asm.h $(TM_P_H) langhooks.h $(HASHTAB_H) \
    gt-dwarf2out.h $(TARGET_H)
@@ -1698,7 +1709,7 @@ integrate.o : integrate.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $
 jump.o : jump.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) flags.h \
    hard-reg-set.h $(REGS_H) insn-config.h $(RECOG_H) $(EXPR_H) real.h except.h function.h \
    toplev.h $(INSN_ATTR_H) $(TM_P_H) reload.h $(PREDICT_H) $(TIMEVAR_H) \
-   diagnostic.h
+   $(DIAGNOSTIC_H)
 
 simplify-rtx.o : simplify-rtx.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    $(REGS_H) hard-reg-set.h flags.h real.h insn-config.h $(RECOG_H) $(EXPR_H) toplev.h \
@@ -1855,7 +1866,7 @@ postreload.o : postreload.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H)
 caller-save.o : caller-save.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    flags.h $(REGS_H) hard-reg-set.h insn-config.h $(BASIC_BLOCK_H) function.h \
    $(RECOG_H) reload.h $(EXPR_H) toplev.h $(TM_P_H)
-bt-load.o : bt-load.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
+bt-load.o : bt-load.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(BASIC_BLOCK_H) $(RTL_H) hard-reg-set.h $(REGS_H) $(OBSTACK_H) $(TM_P_H) \
    $(FIBHEAP_H) output.h $(TARGET_H) $(EXPR_H) flags.h $(INSN_ATTR_H)
 reorg.o : reorg.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) conditions.h \
@@ -1915,7 +1926,7 @@ regrename.o : regrename.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    insn-config.h $(BASIC_BLOCK_H) $(REGS_H) hard-reg-set.h output.h $(RECOG_H) function.h \
    resource.h $(OBSTACK_H) flags.h $(TM_P_H)
 ifcvt.o : ifcvt.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
-   $(REGS_H) toplev.h flags.h insn-config.h function.h $(RECOG_H) \
+   $(REGS_H) toplev.h flags.h insn-config.h function.h $(RECOG_H) target.h \
    $(BASIC_BLOCK_H) $(EXPR_H) output.h except.h $(TM_P_H) real.h $(OPTABS_H) \
    cfgloop.h
 dependence.o : dependence.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) \
@@ -1923,6 +1934,7 @@ dependence.o : dependence.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) \
    $(TM_H) coretypes.h
 params.o : params.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(PARAMS_H) toplev.h
 hooks.o: hooks.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(HOOKS_H)
+pretty-print.o: pretty-print.c $(PRETTY_PRINT_H)
 
 $(out_object_file): $(out_file) $(CONFIG_H) coretypes.h $(TM_H) $(TREE_H) $(GGC_H) \
    $(RTL_H) $(REGS_H) hard-reg-set.h real.h insn-config.h conditions.h \
@@ -1946,7 +1958,7 @@ mips-tdump.o : mips-tdump.c $(CONFIG_H) $(RTL_H) $(SYSTEM_H) coretypes.h $(TM_H)
 # FIXME: writing proper dependencies for this is a *LOT* of work.
 libbackend.o : $(OBJS-common:.o=.c) $(out_file) \
   insn-config.h insn-flags.h insn-codes.h insn-constants.h \
-  insn-attr.h options_.h
+  insn-attr.h
 	$(CC) $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) \
 	  -DTARGET_NAME=\"$(target_alias)\" \
 	  -DLOCALEDIR=\"$(localedir)\" \
@@ -2497,7 +2509,7 @@ cppmacro.o: cppmacro.c $(LIBCPP_DEPS)
 cpplib.o:   cpplib.c   $(LIBCPP_DEPS)
 cpphash.o:  cpphash.c  $(LIBCPP_DEPS)
 cpptrad.o:  cpptrad.c  $(LIBCPP_DEPS)
-cppfiles.o: cppfiles.c $(LIBCPP_DEPS) $(SPLAY_TREE_H) mkdeps.h
+cppfiles.o: cppfiles.c $(LIBCPP_DEPS) $(HASHTAB_H) mkdeps.h
 cppinit.o:  cppinit.c  $(LIBCPP_DEPS) mkdeps.h
 cpppch.o:   cpppch.c   $(LIBCPP_DEPS) mkdeps.h
 
@@ -2654,7 +2666,7 @@ fixinc.sh: $(FIXINCSRCDIR)/mkfixinc.sh $(FIXINCSRCDIR)/fixincl.c \
 	$(FIXINCSRCDIR)/server.h $(FIXINCSRCDIR)/inclhack.def specs.ready
 	(MAKE="$(MAKE)"; srcdir=`cd $(srcdir)/fixinc && ${PWD_COMMAND}` ; \
 	CC="$(CC_FOR_BUILD)"; CFLAGS="$(BUILD_CFLAGS)"; LDFLAGS="$(BUILD_LDFLAGS)"; \
-	WARN_CFLAGS="$(WARN_CFLAGS)"; LIBERTY=`pwd`/"$(BUILD_LIBIBERTY)"; \
+	WARN_CFLAGS="$(WARN_CFLAGS)"; LIBERTY=`${PWD_COMMAND}`/"$(BUILD_LIBIBERTY)"; \
 	export MAKE srcdir CC CFLAGS LDFLAGS WARN_CFLAGS LIBERTY; \
 	cd ./fixinc && \
 	$(SHELL) $${srcdir}/mkfixinc.sh $(build) $(target))
@@ -2770,6 +2782,10 @@ stmp-fixproto: fixhdr.ready fixproto stmp-int-hdrs
 
 docdir = $(srcdir)/doc
 
+stmp-docobjdir:
+	-test -d $(docobjdir) || mkdir $(docobjdir)
+	$(STAMP) stmp-docobjdir
+
 doc: $(BUILD_INFO) $(GENERATED_MANPAGES) gccbug
 info: $(docobjdir)/cpp.info $(docobjdir)/gcc.info $(docobjdir)/gccint.info $(docobjdir)/gccinstall.info lang.info $(docobjdir)/cppinternals.info
 
@@ -2805,23 +2821,23 @@ TEXI_GCCINSTALL_FILES = $(docdir)/install.texi $(docdir)/install-old.texi \
 
 TEXI_CPPINT_FILES = $(docdir)/cppinternals.texi
 
-$(docobjdir)/cpp.info: $(TEXI_CPP_FILES)
+$(docobjdir)/cpp.info: $(TEXI_CPP_FILES) stmp-docobjdir
 	$(MAKEINFO) $(MAKEINFOFLAGS) -I $(docdir) -I $(docdir)/include \
 	  -o $@ $(docdir)/cpp.texi
 
-$(docobjdir)/gcc.info: $(TEXI_GCC_FILES)
+$(docobjdir)/gcc.info: $(TEXI_GCC_FILES) stmp-docobjdir
 	$(MAKEINFO) $(MAKEINFOFLAGS) -I $(docdir) -I $(docdir)/include \
 	  -o $@ $(docdir)/gcc.texi
 
-$(docobjdir)/gccint.info: $(TEXI_GCCINT_FILES)
+$(docobjdir)/gccint.info: $(TEXI_GCCINT_FILES) stmp-docobjdir
 	$(MAKEINFO) $(MAKEINFOFLAGS) -I $(docdir) -I $(docdir)/include \
 	  -o $@ $(docdir)/gccint.texi
 
-$(docobjdir)/gccinstall.info: $(TEXI_GCCINSTALL_FILES)
+$(docobjdir)/gccinstall.info: $(TEXI_GCCINSTALL_FILES) stmp-docobjdir
 	$(MAKEINFO) $(MAKEINFOFLAGS) -I $(docdir) -I $(docdir)/include \
 	  -o $@ $(docdir)/install.texi
 
-$(docobjdir)/cppinternals.info: $(TEXI_CPPINT_FILES)
+$(docobjdir)/cppinternals.info: $(TEXI_CPPINT_FILES) stmp-docobjdir
 	$(MAKEINFO) $(MAKEINFOFLAGS) -I $(docdir) -I $(docdir)/include \
 	  -o $@ $(docdir)/cppinternals.texi
 
@@ -2848,7 +2864,7 @@ generated-manpages: $(docobjdir)/gcov.1 $(docobjdir)/cpp.1 $(docobjdir)/gcc.1 \
 	 $(docobjdir)/gfdl.7 $(docobjdir)/gpl.7 $(docobjdir)/fsf-funding.7 \
 	 lang.generated-manpages
 
-$(docobjdir)/gcov.1: $(docdir)/gcov.texi
+$(docobjdir)/gcov.1: $(docdir)/gcov.texi stmp-docobjdir
 	$(STAMP) $(docobjdir)/gcov.1
 	-$(TEXI2POD) $(docdir)/gcov.texi > gcov.pod
 	-($(POD2MAN) --section=1 gcov.pod > $(docobjdir)/gcov.1.T$$$$ && \
@@ -2857,7 +2873,7 @@ $(docobjdir)/gcov.1: $(docdir)/gcov.texi
 	-rm -f gcov.pod
 
 $(docobjdir)/cpp.1: $(docdir)/cpp.texi $(docdir)/cppenv.texi \
-  $(docdir)/cppopts.texi
+  $(docdir)/cppopts.texi stmp-docobjdir
 	$(STAMP) $(docobjdir)/cpp.1
 	-$(TEXI2POD) $(docdir)/cpp.texi > cpp.pod
 	-($(POD2MAN) --section=1 cpp.pod > $(docobjdir)/cpp.1.T$$$$ && \
@@ -2866,7 +2882,7 @@ $(docobjdir)/cpp.1: $(docdir)/cpp.texi $(docdir)/cppenv.texi \
 	-rm -f cpp.pod
 
 $(docobjdir)/gcc.1: $(docdir)/invoke.texi $(docdir)/cppenv.texi \
-  $(docdir)/cppopts.texi
+  $(docdir)/cppopts.texi stmp-docobjdir
 	$(STAMP) $(docobjdir)/gcc.1
 	-$(TEXI2POD) $(docdir)/invoke.texi > gcc.pod
 	-($(POD2MAN) --section=1 gcc.pod > $(docobjdir)/gcc.1.T$$$$ && \
@@ -2874,7 +2890,7 @@ $(docobjdir)/gcc.1: $(docdir)/invoke.texi $(docdir)/cppenv.texi \
 		(rm -f $(docobjdir)/gcc.1.T$$$$ && exit 1)
 	-rm -f gcc.pod
 
-$(docobjdir)/gfdl.7: $(docdir)/include/fdl.texi
+$(docobjdir)/gfdl.7: $(docdir)/include/fdl.texi stmp-docobjdir
 	$(STAMP) $(docobjdir)/gfdl.7
 	-$(TEXI2POD) $(docdir)/include/fdl.texi > gfdl.pod
 	-($(POD2MAN) --section=7 gfdl.pod > $(docobjdir)/gfdl.7.T$$$$ && \
@@ -2882,7 +2898,7 @@ $(docobjdir)/gfdl.7: $(docdir)/include/fdl.texi
 		(rm -f $(docobjdir)/gfdl.7.T$$$$ && exit 1)
 	-rm -f gfdl.pod
 
-$(docobjdir)/gpl.7: $(docdir)/include/gpl.texi
+$(docobjdir)/gpl.7: $(docdir)/include/gpl.texi stmp-docobjdir
 	$(STAMP) $(docobjdir)/gpl.7
 	-$(TEXI2POD) $(docdir)/include/gpl.texi > gpl.pod
 	-($(POD2MAN) --section=7 gpl.pod > $(docobjdir)/gpl.7.T$$$$ && \
@@ -2890,7 +2906,7 @@ $(docobjdir)/gpl.7: $(docdir)/include/gpl.texi
 		(rm -f $(docobjdir)/gpl.7.T$$$$ && exit 1)
 	-rm -f gpl.pod
 
-$(docobjdir)/fsf-funding.7: $(docdir)/include/funding.texi
+$(docobjdir)/fsf-funding.7: $(docdir)/include/funding.texi stmp-docobjdir
 	$(STAMP) $(docobjdir)/fsf-funding.7
 	-$(TEXI2POD) $(docdir)/include/funding.texi > fsf-funding.pod
 	-($(POD2MAN) --section=7 fsf-funding.pod \
@@ -2925,7 +2941,7 @@ mostlyclean: lang.mostlyclean
 	-rm -f xlimits.h
 # Delete other built files.
 	-rm -f xsys-protos.hT
-	-rm -f specs.h options_.h gencheck.h options.c options.h
+	-rm -f specs.h gencheck.h options.c options.h
 # Delete the stamp and temporary files.
 	-rm -f s-* tmp-* stamp-* stmp-*
 	-rm -f */stamp-* */tmp-*
@@ -3064,9 +3080,10 @@ install-cpp: cpp$(exeext)
 	fi
 
 # Create the installation directories.
-# $(libdir)/gcc-lib/include isn't currently searched by cpp.
+# $(libdir)/gcc/include isn't currently searched by cpp.
 installdirs:
 	$(SHELL) ${srcdir}/mkinstalldirs $(DESTDIR)$(libsubdir)
+	$(SHELL) ${srcdir}/mkinstalldirs $(DESTDIR)$(libexecsubdir)
 	$(SHELL) ${srcdir}/mkinstalldirs $(DESTDIR)$(bindir)
 	$(SHELL) ${srcdir}/mkinstalldirs $(DESTDIR)$(includedir)
 	$(SHELL) ${srcdir}/mkinstalldirs $(DESTDIR)$(infodir)
@@ -3078,15 +3095,15 @@ installdirs:
 install-common: native $(EXTRA_PARTS) lang.install-common installdirs
 	for file in $(COMPILERS); do \
 	  if [ -f $$file ] ; then \
-	    rm -f $(DESTDIR)$(libsubdir)/$$file; \
-	    $(INSTALL_PROGRAM) $$file $(DESTDIR)$(libsubdir)/$$file; \
+	    rm -f $(DESTDIR)$(libexecsubdir)/$$file; \
+	    $(INSTALL_PROGRAM) $$file $(DESTDIR)$(libexecsubdir)/$$file; \
 	  else true; \
 	  fi; \
 	done
 	for file in $(EXTRA_PASSES) $(EXTRA_PROGRAMS) $(USE_COLLECT2) ..; do \
 	  if [ x"$$file" != x.. ]; then \
-	    rm -f $(DESTDIR)$(libsubdir)/$$file; \
-	    $(INSTALL_PROGRAM) $$file $(DESTDIR)$(libsubdir)/$$file; \
+	    rm -f $(DESTDIR)$(libexecsubdir)/$$file; \
+	    $(INSTALL_PROGRAM) $$file $(DESTDIR)$(libexecsubdir)/$$file; \
 	  else true; fi; \
 	done
 	for file in $(EXTRA_PARTS) ..; do \
@@ -3293,25 +3310,28 @@ install-headers-cpio: stmp-int-hdrs $(STMP_FIXPROTO) install-include-dir
 install-headers-cp: stmp-int-hdrs $(STMP_FIXPROTO) install-include-dir
 	cp -p -r include $(DESTDIR)$(libsubdir)
 
-itoolsdir = $(libsubdir)/install-tools
+itoolsdir = $(libexecsubdir)/install-tools
+itoolsdatadir = $(libsubdir)/install-tools
 # Don't install the headers.  Instead, install appropriate scripts
 # and supporting files for fixincludes to be run later.
 install-mkheaders: stmp-int-hdrs $(STMP_FIXPROTO) install-include-dir \
     mkheaders xlimits.h
-	-rm -rf $(DESTDIR)$(itoolsdir)
-	$(SHELL) $(srcdir)/mkinstalldirs $(DESTDIR)$(itoolsdir)/include
+	-rm -rf $(DESTDIR)$(itoolsdir) $(DESTDIR)$(itoolsdatadir)
+	$(SHELL) $(srcdir)/mkinstalldirs $(DESTDIR)$(itoolsdatadir)/include
+	$(SHELL) $(srcdir)/mkinstalldirs $(DESTDIR)$(itoolsdir)
 	for file in $(USER_H); do \
 	  realfile=`echo $$file | sed -e 's|.*/\([^/]*\)$$|\1|'`; \
 	  $(INSTALL_DATA) $$file \
-	    $(DESTDIR)$(itoolsdir)/include/$$realfile ; \
+	    $(DESTDIR)$(itoolsdatadir)/include/$$realfile ; \
 	done
-	$(INSTALL_DATA) xlimits.h $(DESTDIR)$(itoolsdir)/include/limits.h
+	$(INSTALL_DATA) xlimits.h $(DESTDIR)$(itoolsdatadir)/include/limits.h
 	if [ x$(STMP_FIXINC) != x ] ; then \
 	  $(INSTALL_DATA) $(srcdir)/README-fixinc \
-	    $(DESTDIR)$(itoolsdir)/include/README ; \
+	    $(DESTDIR)$(itoolsdatadir)/include/README ; \
 	  $(INSTALL_SCRIPT) fixinc.sh $(DESTDIR)$(itoolsdir)/fixinc.sh ; \
 	  $(INSTALL_PROGRAM) fixinc/fixincl $(DESTDIR)$(itoolsdir)/fixincl ; \
-	  $(INSTALL_DATA) $(srcdir)/gsyslimits.h $(DESTDIR)$(itoolsdir)/gsyslimits.h ; \
+	  $(INSTALL_DATA) $(srcdir)/gsyslimits.h \
+	    $(DESTDIR)$(itoolsdatadir)/gsyslimits.h ; \
 	else :; fi
 	if [ x$(STMP_FIXPROTO) != x ] ; then \
 	  $(INSTALL_SCRIPT) $(srcdir)/mkinstalldirs \
@@ -3322,23 +3342,26 @@ install-mkheaders: stmp-int-hdrs $(STMP_FIXPROTO) install-include-dir \
 	else :; fi
 	$(INSTALL_SCRIPT) mkheaders $(DESTDIR)$(itoolsdir)/mkheaders
 	echo 'SYSTEM_HEADER_DIR="'"$(SYSTEM_HEADER_DIR)"'"' \
-		> $(DESTDIR)$(itoolsdir)/mkheaders.conf
+		> $(DESTDIR)$(itoolsdatadir)/mkheaders.conf
 	echo 'OTHER_FIXINCLUDES_DIRS="$(OTHER_FIXINCLUDES_DIRS)"' \
-		>> $(DESTDIR)$(itoolsdir)/mkheaders.conf
+		>> $(DESTDIR)$(itoolsdatadir)/mkheaders.conf
 	echo 'FIXPROTO_DEFINES="$(FIXPROTO_DEFINES)"' \
-		>> $(DESTDIR)$(itoolsdir)/mkheaders.conf
-	echo 'STMP_FIXPROTO="$(STMP_FIXPROTO)"' >> $(DESTDIR)$(itoolsdir)/mkheaders.conf
-	echo 'STMP_FIXINC="$(STMP_FIXINC)"' >> $(DESTDIR)$(itoolsdir)/mkheaders.conf
+		>> $(DESTDIR)$(itoolsdatadir)/mkheaders.conf
+	echo 'STMP_FIXPROTO="$(STMP_FIXPROTO)"' \
+		>> $(DESTDIR)$(itoolsdatadir)/mkheaders.conf
+	echo 'STMP_FIXINC="$(STMP_FIXINC)"' \
+		>> $(DESTDIR)$(itoolsdatadir)/mkheaders.conf
 
 # Use this target to install the program `collect2' under the name `collect2'.
 install-collect2: collect2 installdirs
-	$(INSTALL_PROGRAM) collect2$(exeext) $(DESTDIR)$(libsubdir)/collect2$(exeext)
+	$(INSTALL_PROGRAM) collect2$(exeext) $(DESTDIR)$(libexecsubdir)/collect2$(exeext)
 # Install the driver program as $(libsubdir)/gcc for collect2.
-	$(INSTALL_PROGRAM) xgcc$(exeext) $(DESTDIR)$(libsubdir)/gcc$(exeext)
+	$(INSTALL_PROGRAM) xgcc$(exeext) $(DESTDIR)$(libexecsubdir)/gcc$(exeext)
 
 # Cancel installation by deleting the installed files.
 uninstall: lang.uninstall
 	-rm -rf $(DESTDIR)$(libsubdir)
+	-rm -rf $(DESTDIR)$(libexecsubdir)
 	-rm -rf $(DESTDIR)$(bindir)/$(GCC_INSTALL_NAME)$(exeext)
 	-rm -rf $(DESTDIR)$(bindir)/$(GCC_CROSS_NAME)$(exeext)
 	-rm -f $(DESTDIR)$(bindir)/$(CPP_INSTALL_NAME)$(exeext)
@@ -3542,7 +3565,7 @@ QMTEST_DIR=qmtestsuite
 ${QMTEST_DIR} stamp-qmtest:
 	${QMTEST} -D ${QMTEST_DIR} create-tdb \
 	    -c gcc_database.GCCDatabase \
-            -a srcdir=`cd ${srcdir}/testsuite && pwd` && \
+            -a srcdir=`cd ${srcdir}/testsuite && ${PWD_COMMAND}` && \
 	    $(STAMP) stamp-qmtest
 
 # Create the QMTest context file.
@@ -3778,7 +3801,7 @@ restagefeedback: unstagefeedback
 # bugs that cause the compiler to crash while building stage 2.
 bubblestrap:
 	if test -f stage_last; then \
-	  LAST=`cat stage_last|sed -e 's/_build//'`; \
+	  LAST=`sed -e 's/_build//' < stage_last`; \
 	  if test "$$LAST" != "stage1"; then \
 	    $(MAKE) $$LAST; \
 	    $(STAMP) $${LAST}_copy; \
@@ -3804,7 +3827,7 @@ quickstrap:
 
 cleanstrap:
 	-$(MAKE) clean
-	$(MAKE) LANGUAGES="$(LANGUAGES)" bootstrap
+	$(MAKE) LANGUAGES="$(LANGUAGES)" BOOT_CFLAGS="$(BOOT_CFLAGS)" bootstrap
 
 unstrap:
 	-rm -rf stage[234]*
@@ -3815,7 +3838,7 @@ unstrap:
 # not from scratch.
 restrap:
 	$(MAKE) unstrap
-	$(MAKE) LANGUAGES="$(LANGUAGES)" bootstrap
+	$(MAKE) LANGUAGES="$(LANGUAGES)" BOOT_CFLAGS="$(BOOT_CFLAGS)" bootstrap
 
 # Compare the object files in the current directory with those in the
 # stage2 directory.

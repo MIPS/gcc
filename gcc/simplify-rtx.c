@@ -53,6 +53,9 @@ static rtx neg_const_int (enum machine_mode, rtx);
 static int simplify_plus_minus_op_data_cmp (const void *, const void *);
 static rtx simplify_plus_minus (enum rtx_code, enum machine_mode, rtx,
 				rtx, int);
+static bool associative_constant_p (rtx);
+static rtx simplify_associative_operation (enum rtx_code, enum machine_mode,
+					   rtx, rtx);
 
 /* Negate a CONST_INT rtx, truncating (because a conversion from a
    maximally negative number can overflow).  */
@@ -854,6 +857,72 @@ simplify_unary_operation (enum rtx_code code, enum machine_mode mode,
     }
 }
 
+/* Subroutine of simplify_associative_operation.  Return true if rtx OP
+   is a suitable integer or floating point immediate constant.  */
+static bool
+associative_constant_p (rtx op)
+{
+  if (GET_CODE (op) == CONST_INT
+      || GET_CODE (op) == CONST_DOUBLE)
+    return true;
+  op = avoid_constant_pool_reference (op);
+  return GET_CODE (op) == CONST_INT
+	 || GET_CODE (op) == CONST_DOUBLE;
+}
+
+/* Subroutine of simplify_binary_operation to simplify an associative
+   binary operation CODE with result mode MODE, operating on OP0 and OP1.
+   Return 0 if no simplification is possible.  */
+static rtx
+simplify_associative_operation (enum rtx_code code, enum machine_mode mode,
+				rtx op0, rtx op1)
+{
+  rtx tem;
+
+  /* Simplify (x op c1) op c2 as x op (c1 op c2).  */
+  if (GET_CODE (op0) == code
+      && associative_constant_p (op1)
+      && associative_constant_p (XEXP (op0, 1)))
+    {
+      tem = simplify_binary_operation (code, mode, XEXP (op0, 1), op1);
+      if (! tem)
+	return tem;
+      return simplify_gen_binary (code, mode, XEXP (op0, 0), tem);
+    }
+
+  /* Simplify (x op c1) op (y op c2) as (x op y) op (c1 op c2).  */
+  if (GET_CODE (op0) == code
+      && GET_CODE (op1) == code
+      && associative_constant_p (XEXP (op0, 1))
+      && associative_constant_p (XEXP (op1, 1)))
+    {
+      rtx c = simplify_binary_operation (code, mode,
+					 XEXP (op0, 1), XEXP (op1, 1));
+      if (! c)
+	return 0;
+      tem = simplify_gen_binary (code, mode, XEXP (op0, 0), XEXP (op1, 0));
+      return simplify_gen_binary (code, mode, tem, c);
+    }
+
+  /* Canonicalize (x op c) op y as (x op y) op c.  */
+  if (GET_CODE (op0) == code
+      && associative_constant_p (XEXP (op0, 1)))
+    {
+      tem = simplify_gen_binary (code, mode, XEXP (op0, 0), op1);
+      return simplify_gen_binary (code, mode, tem, XEXP (op0, 1));
+    }
+
+  /* Canonicalize x op (y op c) as (x op y) op c.  */
+  if (GET_CODE (op1) == code
+      && associative_constant_p (XEXP (op1, 1)))
+    {
+      tem = simplify_gen_binary (code, mode, op0, XEXP (op1, 0));
+      return simplify_gen_binary (code, mode, tem, XEXP (op1, 1));
+    }
+
+  return 0;
+}
+
 /* Simplify a binary operation CODE with result mode MODE, operating on OP0
    and OP1.  Return 0 if no simplification is possible.
 
@@ -1095,7 +1164,7 @@ simplify_binary_operation (enum rtx_code code, enum machine_mode mode,
 	  if (INTEGRAL_MODE_P (mode)
 	      && GET_CODE (op0) == NOT
 	      && trueop1 == const1_rtx)
-	    return gen_rtx_NEG (mode, XEXP (op0, 0));
+	    return simplify_gen_unary (NEG, mode, XEXP (op0, 0), mode);
 
 	  /* Handle both-operands-constant cases.  We can only add
 	     CONST_INTs to constants since the sum of relocatable symbols
@@ -1179,6 +1248,16 @@ simplify_binary_operation (enum rtx_code code, enum machine_mode mode,
 		      && GET_CODE (XEXP (op1, 0)) == PLUS))
 	      && (tem = simplify_plus_minus (code, mode, op0, op1, 0)) != 0)
 	    return tem;
+
+	  /* Reassociate floating point addition only when the user
+	     specifies unsafe math optimizations.  */
+	  if (FLOAT_MODE_P (mode)
+	      && flag_unsafe_math_optimizations)
+	    {
+	      tem = simplify_associative_operation (code, mode, op0, op1);
+	      if (tem)
+		return tem;
+	    }
 	  break;
 
 	case COMPARE:
@@ -1230,11 +1309,11 @@ simplify_binary_operation (enum rtx_code code, enum machine_mode mode,
 	     But if the mode has signed zeros, and does not round towards
 	     -infinity, then 0 - 0 is 0, not -0.  */
 	  if (!HONOR_SIGNED_ZEROS (mode) && trueop0 == CONST0_RTX (mode))
-	    return gen_rtx_NEG (mode, op1);
+	    return simplify_gen_unary (NEG, mode, op1, mode);
 
 	  /* (-1 - a) is ~a.  */
 	  if (trueop0 == constm1_rtx)
-	    return gen_rtx_NOT (mode, op1);
+	    return simplify_gen_unary (NOT, mode, op1, mode);
 
 	  /* Subtracting 0 has no effect unless the mode has signed zeros
 	     and supports rounding towards -infinity.  In such a case,
@@ -1344,11 +1423,7 @@ simplify_binary_operation (enum rtx_code code, enum machine_mode mode,
 
 	case MULT:
 	  if (trueop1 == constm1_rtx)
-	    {
-	      tem = simplify_unary_operation (NEG, mode, op0, mode);
-
-	      return tem ? tem : gen_rtx_NEG (mode, op0);
-	    }
+	    return simplify_gen_unary (NEG, mode, op0, mode);
 
 	  /* Maybe simplify x * 0 to 0.  The reduction is not valid if
 	     x is NaN, since x * 0 is then also NaN.  Nor is it valid
@@ -1376,7 +1451,7 @@ simplify_binary_operation (enum rtx_code code, enum machine_mode mode,
 	      && (width <= HOST_BITS_PER_WIDE_INT
 		  || val != HOST_BITS_PER_WIDE_INT - 1)
 	      && ! rtx_equal_function_value_matters)
-	    return gen_rtx_ASHIFT (mode, op0, GEN_INT (val));
+	    return simplify_gen_binary (ASHIFT, mode, op0, GEN_INT (val));
 
 	  /* x*2 is x+x and x*(-1) is -x */
 	  if (GET_CODE (trueop1) == CONST_DOUBLE
@@ -1387,10 +1462,20 @@ simplify_binary_operation (enum rtx_code code, enum machine_mode mode,
 	      REAL_VALUE_FROM_CONST_DOUBLE (d, trueop1);
 
 	      if (REAL_VALUES_EQUAL (d, dconst2))
-		return gen_rtx_PLUS (mode, op0, copy_rtx (op0));
+		return simplify_gen_binary (PLUS, mode, op0, copy_rtx (op0));
 
 	      if (REAL_VALUES_EQUAL (d, dconstm1))
-		return gen_rtx_NEG (mode, op0);
+		return simplify_gen_unary (NEG, mode, op0, mode);
+	    }
+
+	  /* Reassociate multiplication, but for floating point MULTs
+	     only when the user specifies unsafe math optimizations.  */
+	  if (! FLOAT_MODE_P (mode)
+	      || flag_unsafe_math_optimizations)
+	    {
+	      tem = simplify_associative_operation (code, mode, op0, op1);
+	      if (tem)
+		return tem;
 	    }
 	  break;
 
@@ -1409,6 +1494,9 @@ simplify_binary_operation (enum rtx_code code, enum machine_mode mode,
 	      && ! side_effects_p (op0)
 	      && GET_MODE_CLASS (mode) != MODE_CC)
 	    return constm1_rtx;
+	  tem = simplify_associative_operation (code, mode, op0, op1);
+	  if (tem)
+	    return tem;
 	  break;
 
 	case XOR:
@@ -1417,10 +1505,13 @@ simplify_binary_operation (enum rtx_code code, enum machine_mode mode,
 	  if (GET_CODE (trueop1) == CONST_INT
 	      && ((INTVAL (trueop1) & GET_MODE_MASK (mode))
 		  == GET_MODE_MASK (mode)))
-	    return gen_rtx_NOT (mode, op0);
+	    return simplify_gen_unary (NOT, mode, op0, mode);
 	  if (trueop0 == trueop1 && ! side_effects_p (op0)
 	      && GET_MODE_CLASS (mode) != MODE_CC)
 	    return const0_rtx;
+	  tem = simplify_associative_operation (code, mode, op0, op1);
+	  if (tem)
+	    return tem;
 	  break;
 
 	case AND:
@@ -1439,6 +1530,9 @@ simplify_binary_operation (enum rtx_code code, enum machine_mode mode,
 	      && ! side_effects_p (op0)
 	      && GET_MODE_CLASS (mode) != MODE_CC)
 	    return const0_rtx;
+	  tem = simplify_associative_operation (code, mode, op0, op1);
+	  if (tem)
+	    return tem;
 	  break;
 
 	case UDIV:
@@ -1446,7 +1540,7 @@ simplify_binary_operation (enum rtx_code code, enum machine_mode mode,
 	     below).  */
 	  if (GET_CODE (trueop1) == CONST_INT
 	      && (arg1 = exact_log2 (INTVAL (trueop1))) > 0)
-	    return gen_rtx_LSHIFTRT (mode, op0, GEN_INT (arg1));
+	    return simplify_gen_binary (LSHIFTRT, mode, op0, GEN_INT (arg1));
 
 	  /* ... fall through ...  */
 
@@ -1487,8 +1581,8 @@ simplify_binary_operation (enum rtx_code code, enum machine_mode mode,
 	      if (! REAL_VALUES_EQUAL (d, dconst0))
 		{
 		  REAL_ARITHMETIC (d, rtx_to_tree_code (DIV), dconst1, d);
-		  return gen_rtx_MULT (mode, op0,
-				       CONST_DOUBLE_FROM_REAL_VALUE (d, mode));
+		  tem = CONST_DOUBLE_FROM_REAL_VALUE (d, mode);
+		  return simplify_gen_binary (MULT, mode, op0, tem);
 		}
 	    }
 	  break;
@@ -1497,7 +1591,8 @@ simplify_binary_operation (enum rtx_code code, enum machine_mode mode,
 	  /* Handle modulus by power of two (mod with 1 handled below).  */
 	  if (GET_CODE (trueop1) == CONST_INT
 	      && exact_log2 (INTVAL (trueop1)) > 0)
-	    return gen_rtx_AND (mode, op0, GEN_INT (INTVAL (op1) - 1));
+	    return simplify_gen_binary (AND, mode, op0,
+					GEN_INT (INTVAL (op1) - 1));
 
 	  /* ... fall through ...  */
 
@@ -1527,36 +1622,50 @@ simplify_binary_operation (enum rtx_code code, enum machine_mode mode,
 	  break;
 
 	case SMIN:
-	  if (width <= HOST_BITS_PER_WIDE_INT && GET_CODE (trueop1) == CONST_INT
+	  if (width <= HOST_BITS_PER_WIDE_INT
+	      && GET_CODE (trueop1) == CONST_INT
 	      && INTVAL (trueop1) == (HOST_WIDE_INT) 1 << (width -1)
 	      && ! side_effects_p (op0))
 	    return op1;
-	  else if (rtx_equal_p (trueop0, trueop1) && ! side_effects_p (op0))
+	  if (rtx_equal_p (trueop0, trueop1) && ! side_effects_p (op0))
 	    return op0;
+	  tem = simplify_associative_operation (code, mode, op0, op1);
+	  if (tem)
+	    return tem;
 	  break;
 
 	case SMAX:
-	  if (width <= HOST_BITS_PER_WIDE_INT && GET_CODE (trueop1) == CONST_INT
+	  if (width <= HOST_BITS_PER_WIDE_INT
+	      && GET_CODE (trueop1) == CONST_INT
 	      && ((unsigned HOST_WIDE_INT) INTVAL (trueop1)
 		  == (unsigned HOST_WIDE_INT) GET_MODE_MASK (mode) >> 1)
 	      && ! side_effects_p (op0))
 	    return op1;
-	  else if (rtx_equal_p (trueop0, trueop1) && ! side_effects_p (op0))
+	  if (rtx_equal_p (trueop0, trueop1) && ! side_effects_p (op0))
 	    return op0;
+	  tem = simplify_associative_operation (code, mode, op0, op1);
+	  if (tem)
+	    return tem;
 	  break;
 
 	case UMIN:
 	  if (trueop1 == const0_rtx && ! side_effects_p (op0))
 	    return op1;
-	  else if (rtx_equal_p (trueop0, trueop1) && ! side_effects_p (op0))
+	  if (rtx_equal_p (trueop0, trueop1) && ! side_effects_p (op0))
 	    return op0;
+	  tem = simplify_associative_operation (code, mode, op0, op1);
+	  if (tem)
+	    return tem;
 	  break;
 
 	case UMAX:
 	  if (trueop1 == constm1_rtx && ! side_effects_p (op0))
 	    return op1;
-	  else if (rtx_equal_p (trueop0, trueop1) && ! side_effects_p (op0))
+	  if (rtx_equal_p (trueop0, trueop1) && ! side_effects_p (op0))
 	    return op0;
+	  tem = simplify_associative_operation (code, mode, op0, op1);
+	  if (tem)
+	    return tem;
 	  break;
 
 	case SS_PLUS:

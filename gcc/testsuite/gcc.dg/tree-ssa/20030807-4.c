@@ -28,5 +28,5 @@ cpp_parse_escape (pfile, pstr, limit, wide)
   }
 }
 
-/* There should be four IF conditionals.  */
-/* { dg-final { scan-tree-dump-times "if " 4 "ssa"} } */
+/* There should be two IF conditionals.  */
+/* { dg-final { scan-tree-dump-times "if " 2 "ssa"} } */

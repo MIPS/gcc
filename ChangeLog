@@ -1,3 +1,56 @@
+2003-08-14  Alexandre Duret-Lutz  <adl@gnu.org>
+
+	* config-ml.in, symlink-tree: Add license.
+
+2003-08-03  Richard Stallman  <rms@gnu.org> 
+            Eben Moglen  <moglen@columbia.edu>
+
+	* README.SCO: New file.
+
+2003-08-01  Matt Kraai  <kraai@alumni.cmu.edu>
+
+	* Makefile.tpl (check, check-c++): Express dependencies using
+	dependencies rather than commands.
+	* Makefile.in: Regenerate.
+
+2003-08-01  Andrew Cagney  <cagney@redhat.com>
+
+	* configure.in (noconfigdirs): Do not add GDB when m32r-*-*.
+	* configure: Ditto.
+
+2003-07-31  Geoffrey Keating  <geoffk@apple.com>
+
+	* Makefile.tpl (libsubdir): Use gcc instead of gcc-lib.
+	* Makefile.in: Update.
+
+2003-07-30  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* configure.in: Enable libgcj for darwin.
+	* configure: Rebuild.
+
+2003-07-29  Phil Edwards  <pme@gcc.gnu.org>
+
+	* config-ml.in:  Use ac_configure_args directly instead of
+	ml_arguments.  Only set ml_norecursion if --no[-]recursion is
+	actually seen.
+
+2003-07-27  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* Makefile.tpl: Use 'mkinstalldirs' rather than 'mkdir' when
+	creating target and build subdirs to build all parent dirs as needed.
+	* Makefile.in: Rebuild.
+	* configure.in: Don't build dirs explicitly here.
+	* configure: Rebuild.
+
+2003-07-26  Paul Brook  <paul@nowt.org>
+
+	* MAINTAINERS (fortran 95): Add myself, Steven Bosscher and Toon Moene.
+
+2003-07-22  Alexandre Oliva  <aoliva@redhat.com>
+
+	* Makefile.tpl (all-make): Depend on intl.
+	* Makefile.in: Rebuilt.
+
 2003-07-20  Phil Edwards  <pme@gcc.gnu.org>
 
 	* install-sh:  Update to newer upstream versions (associated with

@@ -1,3 +1,20 @@
+2003-08-20  Diego Novillo  <dnovillo@redhat.com>
+
+	* c-pretty-print.c: Discard.  Replace with same file from
+	mainline.  Update all users.
+	(print_c_tree): New function.
+	* c-pretty-print.h (print_c_tree): Declare.
+	* tree-pretty-print.c: Update to use new pp_* primitives.
+	* c-simplify.c: Include c-pretty-print.h.
+	* Makefile.in (c-simplify.o): Add dependency on $(C_PRETTY_PRINT_H).
+
+2003-08-20  Roger Sayle  <roger@eyesopen.com>
+
+	* c-common.h (enum c_tree_index): Delete CTI_SIGNED_SIZE_TYPE.
+	(signed_size_type_node): No longer a member of c_global_trees.
+	* tree.h (enum tree_index): New member TI_SIGNED_SIZE_TYPE here.
+	(signed_size_type_node): Moved, now a member of global_trees.
+
 2003-08-20  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-ssa-dom.c (optimize_block): Thread jump into empty

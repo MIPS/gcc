@@ -1,3 +1,35 @@
+2003-08-12  Tom Tromey  <tromey@redhat.com>
+
+	* libjava.jacks/jacks.xfail: Updated to account for new passes.
+	* libjava.compile/abstr.xfail: Now can compile from bytecode.
+	* libjava.compile/PR5641.xfail: Now can compile from bytecode.
+
+	* libjava.mauve/mauve.exp (test_mauve_sim): Don't find
+	DejaGNUTestHarness in gnu/testlet.
+	(test_mauve): Use correct object extension.
+
+2003-08-12  Tom Tromey  <tromey@redhat.com>
+
+	* lib/libjava.exp (libjava_find_lib): Search for .so file first.
+	(libjava_arguments): Don't add libraries to link line explictly.
+
+2003-08-05  Tom Tromey  <tromey@redhat.com>
+
+	For PR java/11600:
+	* libjava.compile/PR11600.xfail: New file.
+	* libjava.compile/PR11600.java: New file.
+
+2003-08-04  Tom Tromey  <tromey@redhat.com>
+
+	* libjava.jacks/jacks.exp (gcj_jacks_run): Just ignore errors
+	from jacks.
+
+2003-07-24  Tom Tromey  <tromey@redhat.com>
+
+	For PR libgcj/7482:
+	* libjava.lang/PR7482.java: New file.
+	* libjava.lang/PR7482.out: New file.
+
 2003-07-20  Tom Tromey  <tromey@redhat.com>
 
 	* libjava.mauve/mauve.exp (mauve_find_harness_files): New proc.

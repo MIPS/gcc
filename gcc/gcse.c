@@ -549,8 +549,9 @@ struct null_pointer_info
 };
 
 static void compute_can_copy (void);
-static void *gmalloc (unsigned int);
-static void *grealloc (void *, unsigned int);
+static void *gmalloc (size_t) ATTRIBUTE_MALLOC;
+static void *gcalloc (size_t, size_t) ATTRIBUTE_MALLOC;
+static void *grealloc (void *, size_t);
 static void *gcse_alloc (unsigned long);
 static void alloc_gcse_mem (rtx);
 static void free_gcse_mem (void);
@@ -821,11 +822,8 @@ gcse_main (rtx f, FILE *file)
 	  if (changed)
 	    {
 	      free_modify_mem_tables ();
-	      modify_mem_list = gmalloc (last_basic_block * sizeof (rtx));
-	      canon_modify_mem_list
-		= gmalloc (last_basic_block * sizeof (rtx));
-	      memset (modify_mem_list, 0, last_basic_block * sizeof (rtx));
-	      memset (canon_modify_mem_list, 0, last_basic_block * sizeof (rtx));
+	      modify_mem_list = gcalloc (last_basic_block, sizeof (rtx));
+	      canon_modify_mem_list = gcalloc (last_basic_block, sizeof (rtx));
 	    }
 	  free_reg_set_mem ();
 	  alloc_reg_set_mem (max_reg_num ());
@@ -954,10 +952,19 @@ can_copy_p (enum machine_mode mode)
 /* Cover function to xmalloc to record bytes allocated.  */
 
 static void *
-gmalloc (unsigned int size)
+gmalloc (size_t size)
 {
   bytes_used += size;
   return xmalloc (size);
+}
+
+/* Cover function to xcalloc to record bytes allocated.  */
+
+static void *
+gcalloc (size_t nelem, size_t elsize)
+{
+  bytes_used += nelem * elsize;
+  return xcalloc (nelem, elsize);
 }
 
 /* Cover function to xrealloc.
@@ -965,7 +972,7 @@ gmalloc (unsigned int size)
    It won't affect memory usage stats much anyway.  */
 
 static void *
-grealloc (void *ptr, unsigned int size)
+grealloc (void *ptr, size_t size)
 {
   return xrealloc (ptr, size);
 }
@@ -987,7 +994,7 @@ gcse_alloc (unsigned long size)
 static void
 alloc_gcse_mem (rtx f)
 {
-  int i, n;
+  int i;
   rtx insn;
 
   /* Find the largest UID and create a mapping from UIDs to CUIDs.
@@ -995,9 +1002,7 @@ alloc_gcse_mem (rtx f)
      and only apply to real insns.  */
 
   max_uid = get_max_uid ();
-  n = (max_uid + 1) * sizeof (int);
-  uid_cuid = gmalloc (n);
-  memset (uid_cuid, 0, n);
+  uid_cuid = gcalloc (max_uid + 1, sizeof (int));
   for (insn = f, i = 0; insn; insn = NEXT_INSN (insn))
     {
       if (INSN_P (insn))
@@ -1009,9 +1014,7 @@ alloc_gcse_mem (rtx f)
   /* Create a table mapping cuids to insns.  */
 
   max_cuid = i;
-  n = (max_cuid + 1) * sizeof (rtx);
-  cuid_insn = gmalloc (n);
-  memset (cuid_insn, 0, n);
+  cuid_insn = gcalloc (max_cuid + 1, sizeof (rtx));
   for (insn = f, i = 0; insn; insn = NEXT_INSN (insn))
     if (INSN_P (insn))
       CUID_INSN (i++) = insn;
@@ -1023,10 +1026,8 @@ alloc_gcse_mem (rtx f)
   reg_set_in_block = sbitmap_vector_alloc (last_basic_block, max_gcse_regno);
   /* Allocate array to keep a list of insns which modify memory in each
      basic block.  */
-  modify_mem_list = gmalloc (last_basic_block * sizeof (rtx));
-  canon_modify_mem_list = gmalloc (last_basic_block * sizeof (rtx));
-  memset (modify_mem_list, 0, last_basic_block * sizeof (rtx));
-  memset (canon_modify_mem_list, 0, last_basic_block * sizeof (rtx));
+  modify_mem_list = gcalloc (last_basic_block, sizeof (rtx));
+  canon_modify_mem_list = gcalloc (last_basic_block, sizeof (rtx));
   modify_mem_list_set = BITMAP_XMALLOC ();
   canon_modify_mem_list_set = BITMAP_XMALLOC ();
 }
@@ -1189,12 +1190,8 @@ static struct obstack reg_set_obstack;
 static void
 alloc_reg_set_mem (int n_regs)
 {
-  unsigned int n;
-
   reg_set_table_size = n_regs + REG_SET_TABLE_SLOP;
-  n = reg_set_table_size * sizeof (struct reg_set *);
-  reg_set_table = gmalloc (n);
-  memset (reg_set_table, 0, n);
+  reg_set_table = gcalloc (reg_set_table_size, sizeof (struct reg_set *));
 
   gcc_obstack_init (&reg_set_obstack);
 }
@@ -2121,7 +2118,7 @@ gcse_constant_p (rtx x)
 
 
   /* Consider a COMPARE of the same registers is a constant
-    if they are not floating point registers. */
+    if they are not floating point registers.  */
   if (GET_CODE(x) == COMPARE
       && GET_CODE (XEXP (x, 0)) == REG
       && GET_CODE (XEXP (x, 1)) == REG
@@ -3849,6 +3846,11 @@ try_replace_reg (rtx from, rtx to, rtx insn)
 	validate_change (insn, &SET_SRC (set), src, 0);
     }
 
+  /* If there is already a NOTE, update the expression in it with our
+     replacement.  */
+  if (note != 0)
+    XEXP (note, 0) = simplify_replace_rtx (XEXP (note, 0), from, to);
+
   if (!success && set && reg_mentioned_p (from, SET_SRC (set)))
     {
       /* If above failed and this is a single set, try to simplify the source of
@@ -3868,11 +3870,6 @@ try_replace_reg (rtx from, rtx to, rtx insn)
 	  && GET_CODE (XEXP (set, 0)) != SIGN_EXTRACT)
 	note = set_unique_reg_note (insn, REG_EQUAL, copy_rtx (src));
     }
-
-  /* If there is already a NOTE, update the expression in it with our
-     replacement.  */
-  else if (note != 0)
-    XEXP (note, 0) = simplify_replace_rtx (XEXP (note, 0), from, to);
 
   /* REG_EQUAL may get simplified into register.
      We don't allow that. Remove that note. This code ought
@@ -7495,6 +7492,9 @@ insert_store (struct ls_expr * expr, edge e)
   if (expr->reaching_reg == NULL_RTX)
     return 0;
 
+  if (e->flags & EDGE_FAKE)
+    return 0;
+
   reg = expr->reaching_reg;
   insn = gen_move_insn (copy_rtx (expr->pattern), reg);
 
@@ -7503,13 +7503,14 @@ insert_store (struct ls_expr * expr, edge e)
      edges so we don't try to insert it on the other edges.  */
   bb = e->dest;
   for (tmp = e->dest->pred; tmp ; tmp = tmp->pred_next)
-    {
-      int index = EDGE_INDEX (edge_list, tmp->src, tmp->dest);
-      if (index == EDGE_INDEX_NO_EDGE)
-	abort ();
-      if (! TEST_BIT (pre_insert_map[index], expr->index))
-	break;
-    }
+    if (!(tmp->flags & EDGE_FAKE))
+      {
+	int index = EDGE_INDEX (edge_list, tmp->src, tmp->dest);
+	if (index == EDGE_INDEX_NO_EDGE)
+	  abort ();
+	if (! TEST_BIT (pre_insert_map[index], expr->index))
+	  break;
+      }
 
   /* If tmp is NULL, we found an insertion on every edge, blank the
      insertion vector for these edges, and insert at the start of the BB.  */
@@ -7652,6 +7653,7 @@ store_motion (void)
   /* Now compute kill & transp vectors.  */
   build_store_vectors ();
   add_noreturn_fake_exit_edges ();
+  connect_infinite_loops_to_exit ();
 
   edge_list = pre_edge_rev_lcm (gcse_file, num_stores, transp, ae_gen,
 				st_antloc, ae_kill, &pre_insert_map,

@@ -40,6 +40,13 @@
 
 #ifdef __linux__
 #include <malloc.h>
+#elif defined (__FreeBSD__)
+extern "C"
+{
+  struct mallinfo { int uordblks; };
+  struct mallinfo mallinfo(void)
+    { struct mallinfo m = { (((size_t) sbrk (0) + 1023) / 1024) }; return m; }
+}
 #else
 extern "C"
 {
@@ -49,7 +56,7 @@ extern "C"
 }
 #endif
 
-namespace __gnu_cxx_test
+namespace __gnu_test
 {
   class time_counter
   {
@@ -170,7 +177,7 @@ namespace __gnu_cxx_test
   {
     const char space = ' ';
     const char tab = '\t';
-    const char* name = "libstdc++-v3-performance.sum";
+    const char* name = "libstdc++-performance.sum";
     std::string::const_iterator i = file.begin() + file.find_last_of('/') + 1;
     std::string testname(i, file.end());
 
@@ -190,7 +197,7 @@ namespace __gnu_cxx_test
     out << std::endl;
     out.close();
   }
-}; // namespace __gnu_cxx_test
+}; // namespace __gnu_test
 
 #endif // _GLIBCXX_PERFORMANCE_H
 

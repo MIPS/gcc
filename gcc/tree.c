@@ -56,7 +56,7 @@ extern int _obstack_allocated_p (struct obstack *h, void *obj);
 int tree_node_counts[(int) all_kinds];
 int tree_node_sizes[(int) all_kinds];
 
-/* Keep in sync with tree.h:enum tree_node_kind. */
+/* Keep in sync with tree.h:enum tree_node_kind.  */
 static const char * const tree_node_kind_names[] = {
   "decls",
   "types",
@@ -4526,7 +4526,7 @@ get_file_function_name_long (const char *type)
 	file = input_filename;
 
       len = strlen (file);
-      q = alloca (9 * 2 + len);
+      q = alloca (9 * 2 + len + 1);
       memcpy (q, file, len + 1);
       clean_symbol_name (q);
 

@@ -578,6 +578,25 @@ fix = {
 
 
 /*
+ *  Obey __PRAGMA_EXTERN_PREFIX for Tru64 UNIX <pthread.h>.
+ */
+fix = {
+    hackname  = alpha_pthread;
+    files     = pthread.h;
+    select    = "(#[ \t]*if defined \\(_PTHREAD_ENV_DECC\\) || defined \\(_PTHREAD_ENV_EPCC\\))\n"
+		"(#[ \t]*define _PTHREAD_USE_PTDNAM_)";
+
+    mach      = "alpha*-dec-osf*";
+    c_fix     = format;
+    c_fix_arg = "%1 || defined (__PRAGMA_EXTERN_PREFIX)\n%2";
+
+    test_text = "#  if defined (_PTHREAD_ENV_DECC) || defined (_PTHREAD_ENV_EPCC)\n"
+		"#   define _PTHREAD_USE_PTDNAM_\n"
+		"#  endif";
+};
+
+
+/*
  *  Fix return value of sbrk in unistd.h on Alpha OSF/1 V2.0
  *  And OpenBSD.
  */
@@ -764,21 +783,25 @@ fix = {
  *  This conflicts with C99.  Discovered on AIX.
  *  SunOS4 has its cabs() declaration followed by a comment which
  *  terminates on the following line.
+ *  Darwin hides its broken cabs in architecture-specific subdirs.
  */
 fix = {
     hackname = broken_cabs;
-    files  = "math.h";
-    select = '^extern[ \t]+double[ \t]+cabs';
+    files    = "math.h";
+    files    = "architecture/ppc/math.h";
+    files    = "architecture/i386/math.h";
+    select   = '^extern[ \t]+double[ \t]+cabs';
 
     c_fix     = format;
     c_fix_arg = "";
-    c_fix_arg = "^extern[ \t]+double[ \t]+cabs\\((struct dbl_hypot|)\\);";
+    c_fix_arg = "^extern[ \t]+double[ \t]+cabs[ \t]*\\([^\\)]*\\);";
 
     test_text = "#ifdef __STDC__\n"
                 "extern     double   cabs(struct dbl_hypot);\n"
                 "#else\n"
                 "extern     double   cabs();\n"
                 "#endif\n"
+                "extern double cabs ( _Complex z );\n"
                 "extern double cabs(); /* This is a comment\n"
                 "                         and it ends here. */";
 };
@@ -2282,25 +2305,6 @@ fix = {
 
 
 /*
- *  Add a `static' declaration of `getrnge' into <regexp.h>.
- *
- *  Don't do this if there is already a `static void getrnge' declaration
- *  present, since this would cause a redeclaration error.  Solaris 2.x has
- *  such a declaration.
- */
-#ifdef SVR4
-fix = {
-    hackname = static_getrnge;
-    files    = regexp.h;
-    bypass   = "static void getrnge";
-    sed      = "/^static int[ \t]*size;/c\\\n"
-               "static int      size ;\\\n\\\n"
-               "static int getrnge ();";
-};
-#endif
-
-
-/*
  *  a missing semi-colon at the end of the statsswtch structure definition.
  */
 fix = {
@@ -2371,6 +2375,7 @@ fix = {
            "@typedef \\1 __not_va_list__;@\n"
 	  "s@typedef[ \t]*__va_list__@typedef __gnuc_va_list@\n"
           "s@GNUC_VA_LIST@GNUC_Va_LIST@\n"
+          "s@_VA_LIST_DEFINED@_Va_LIST_DEFINED@\n"
           "s@_NEED___VA_LIST@_NEED___Va_LIST@\n"
           "s@VA_LIST@DUMMY_VA_LIST@\n"
           "s@_Va_LIST@_VA_LIST@";
@@ -2783,11 +2788,22 @@ fix = {
 
 
 /*
- *  set ifdef _KERNEL
+ *  Wrap some files on System V r4 and DYNIX/ptx systems with
+ *  #ifdef _KERNEL, presumably to prevent kernel headers from
+ *  leaking into userspace.  This may not be necessary at all,
+ *  but it was in the old scripts, so it seems safest to keep it for now.
  */
-#ifdef SVR4
 fix = {
-    hackname = svr4_kernel;
+    /* Can't name this with _kernel, or the test case will hit the bypass! */
+    hackname = svr4_krnl;
+    /* Since I'm rather unsure about the validity of this, limit it
+     * to the specific systems it was operating on before.  It should
+     * also be bypassed for i?86-*-sysv4.3uw2, by that rule, but I didn't
+     * see an easy way to do that.  Hopefully it will be harmless
+     * in any case. -- Nathanael */
+    mach     = '*-*-sysv4*';
+    mach     = 'i?86-sequent-ptx*';
+    mach     = 'i?86-sequent-sysv3*';
     files    = fs/rfs/rf_cache.h;
     files    = sys/erec.h;
     files    = sys/err.h;
@@ -2796,14 +2812,21 @@ fix = {
     files    = sys/map.h;
     files    = sys/cmn_err.h;
     files    = sys/kdebugger.h;
-    bypass   = '_KERNEL';
-    c_fix     = wrap;
 
+    /* This bypass will match _KERNEL, __KERNEL, __KERNEL__, etc.
+     * It will also match SVR4_KERNEL_CHECK, which means that the
+     * testsuite case will always be bypassed.  Which is fine with me. */
+    bypass   = '_KERNEL';
+
+    c_fix     = wrap;
     c_fix_arg = "#ifdef _KERNEL\n";
     c_fix_arg = "#endif /* _KERNEL */\n";
+
+    /* There's no reasonable test for this given that we don't know exactly
+     * what problem inspired it in the first place. */
     test_text = "";
 };
-#endif
+
 
 /*
  *  Delete any #defines of `__i386' which may be present in <ieeefp.h>.  They
@@ -2963,6 +2986,35 @@ fix = {
     sed      = 's/const extern/extern const/g';
 };
 #endif
+
+
+/*
+ *  Some SysV r4 systems, including Sequent's DYNIX/ptx, use the local
+ *  function 'getrnge' in <regexp.h> before they declare it.  For these
+ *  systems add a 'static int' declaration of 'getrnge' into <regexp.h>
+ *  early on.
+ *
+ *  'getrnge' traditionally manipulates a file-scope global called 'size',
+ *  so put the declaration right after the declaration of 'size'.
+ *
+ *  Don't do this if there is already a `static void getrnge' declaration
+ *  present, since this would cause a redeclaration error.  Solaris 2.x has
+ *  such a declaration.
+ */
+fix = {
+    hackname  = svr4_undeclared_getrnge;
+    files     = regexp.h;
+    select    = "getrnge";
+    bypass    = "static void getrnge";
+    c_fix     = format;
+    c_fix_arg = "%0\n"
+                "static int getrnge ();";
+    c_fix_arg = "^static int[ \t]+size;";
+    test_text = "static int size;\n"
+                "/* stuff which calls getrnge() */\n"
+                "static getrnge()\n"
+                "{}";
+};
 
 
 /*

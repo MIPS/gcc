@@ -46,7 +46,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "timevar.h"
 
 static void init_reg_sets_1 (void);
-static void init_reg_modes (void);
 static void init_reg_autoinc (void);
 
 /* If we have auto-increment or auto-decrement and we can have secondary
@@ -340,7 +339,7 @@ init_reg_sets_1 (void)
 	      continue;
 
 	    subclass1:
-	      /* keep the largest subclass */		/* SPEE 900308 */
+	      /* Keep the largest subclass.  */		/* SPEE 900308 */
 	      GO_IF_HARD_REG_SUBSET (reg_class_contents[k],
 				     reg_class_contents[(int) reg_class_subunion[i][j]],
 				     subclass2);
@@ -546,8 +545,8 @@ init_reg_sets_1 (void)
    These values are used to record death information for individual registers
    (as opposed to a multi-register mode).  */
 
-static void
-init_reg_modes (void)
+void
+init_reg_modes_once (void)
 {
   int i;
 
@@ -574,8 +573,6 @@ init_regs (void)
   /* This finishes what was started by init_reg_sets, but couldn't be done
      until after register usage was specified.  */
   init_reg_sets_1 ();
-
-  init_reg_modes ();
 
   init_reg_autoinc ();
 }
@@ -2156,7 +2153,7 @@ allocate_reg_info (size_t num_regs, int new_p, int renumber_p)
     {
       size_t old_allocated = regno_allocated;
 
-      regno_allocated = num_regs + (num_regs / 20);	/* add some slop space */
+      regno_allocated = num_regs + (num_regs / 20);	/* Add some slop space.  */
       size_renumber = regno_allocated * sizeof (short);
 
       if (!reg_n_info)
@@ -2171,7 +2168,7 @@ allocate_reg_info (size_t num_regs, int new_p, int renumber_p)
 	{
 	  VARRAY_GROW (reg_n_info, regno_allocated);
 
-	  if (new_p)		/* if we're zapping everything, no need to realloc */
+	  if (new_p)		/* If we're zapping everything, no need to realloc.  */
 	    {
 	      free ((char *) renumber);
 	      free ((char *) reg_pref);
