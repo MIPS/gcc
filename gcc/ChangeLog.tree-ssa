@@ -1,3 +1,8 @@
+2004-03-03  Andrew MacLeod  <amacleod@redhat.com>
+
+	* tree-ssa-copyrename.c (gate_copyrename): Really check it in.
+	* tree-ssa.c (create_temp): Use DECL_ARTIFICIAL from original decl.
+
 2004-03-02  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-tailcall.c (struct tailcall): Remove return_block and return_bsi

@@ -334,11 +334,18 @@ rename_ssa_copies (void)
   delete_var_map (map);
 }
 
+/* Return true if copy rename is to be performed.  */
+
+static bool
+gate_copyrename (void)
+{
+  return flag_tree_copyrename != 0;
+}
 
 struct tree_opt_pass pass_rename_ssa_copies = 
 {  
   "copyrename",				/* name */
-  NULL,					/* gate */
+  gate_copyrename,			/* gate */
   rename_ssa_copies,			/* execute */
   NULL,					/* sub */
   NULL,					/* next */

@@ -966,6 +966,7 @@ create_temp (tree t)
   if (name == NULL)
     name = "temp";
   tmp = create_tmp_var (type, name);
+  DECL_ARTIFICIAL (tmp) = DECL_ARTIFICIAL (t);
   add_referenced_tmp_var (tmp);
 
   /* add_referenced_tmp_var will create the annotation and set up some
