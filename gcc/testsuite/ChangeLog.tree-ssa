@@ -1,6 +1,10 @@
 2003-04-05  Diego Novillo  <dnovillo@redhat.com>
 
-	* testsuite/gcc.c-torture/execute/20030404-1.c: New test.
+	* gcc.c-torture/compile/20030405-1.[cx]: New test.
+
+2003-04-05  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.c-torture/execute/20030404-1.c: New test.
 
 2003-04-03  Diego Novillo  <dnovillo@redhat.com>
 

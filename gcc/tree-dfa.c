@@ -92,6 +92,8 @@ struct walk_state
 
 
 /* Flags to describe operand properties in get_stmt_operands and helpers.  */
+
+/* By default, operands are loaded.  */
 static const int opf_none	= 0;
 
 /* Operand is the target of an assignment expression.  */
@@ -432,9 +434,6 @@ get_expr_operands (stmt, expr_p, flags, prev_vops)
 	 To address this problem, we add a VUSE<*p> at the call site of
 	 foo().  */
       flags = opf_force_vop | opf_ignore_bp;
-      if (may_clobber)
-	flags |= opf_is_def;
-
       for (op = TREE_OPERAND (expr, 1); op; op = TREE_CHAIN (op))
 	{
 	  tree arg = TREE_VALUE (op);
@@ -446,13 +445,14 @@ get_expr_operands (stmt, expr_p, flags, prev_vops)
 	  if (SSA_DECL_P (arg)
 	      && POINTER_TYPE_P (TREE_TYPE (arg)))
 	    {
+	      int clobber_arg = (may_clobber && !TREE_READONLY (arg));
 	      tree deref = indirect_ref (arg);
 
 	      /* By default, adding a reference to an INDIRECT_REF
 		 variable, adds a VUSE of the base pointer.  Since we have
 		 already added a real USE for the pointer, we don't need to
 		 add a VUSE for it as well.  */
-	      add_stmt_operand (&deref, stmt, flags, prev_vops);
+	      add_stmt_operand (&deref, stmt, flags | clobber_arg, prev_vops);
 	    }
 	}
 
@@ -2231,21 +2231,25 @@ find_vars_r (tp, walk_subtrees, data)
       tree op;
       bool may_clobber = call_may_clobber (*tp);
 
-      if (may_clobber)
-	walk_state->is_store = 1;
-
       for (op = TREE_OPERAND (*tp, 1); op; op = TREE_CHAIN (op))
 	{
 	  tree arg = TREE_VALUE (op);
 	  if (SSA_DECL_P (arg)
 	      && POINTER_TYPE_P (TREE_TYPE (arg)))
-	    add_indirect_ref_var (arg, walk_state);
+	    {
+	      if (may_clobber && !TREE_READONLY (arg))
+		walk_state->is_store = 1;
+
+	      add_indirect_ref_var (arg, walk_state);
+	      walk_state->is_store = saved_is_store;
+	    }
 	}
 
       /* If the function may clobber globals and addressable locals, add a
 	 reference to GLOBAL_VAR.  */
       if (may_clobber)
 	{
+	  walk_state->is_store = 1;
 	  if (global_var == NULL_TREE)
 	    create_global_var ();
 	  add_referenced_var (global_var, global_var, walk_state);
@@ -2369,7 +2373,9 @@ add_indirect_ref_var (ptr, walk_state)
   tree deref = indirect_ref (ptr);
   if (deref == NULL_TREE)
     {
-      deref = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (ptr)), ptr);
+      tree type = TREE_TYPE (TREE_TYPE (ptr));
+      deref = build1 (INDIRECT_REF, type, ptr);
+      TREE_READONLY (deref) = TYPE_READONLY (type);
       set_indirect_ref (ptr, deref);
     }
 

@@ -1,5 +1,13 @@
 2003-04-05  Diego Novillo  <dnovillo@redhat.com>
 
+	* tree-dfa.c (get_expr_operands): Do not clobber readonly operands
+	in CALL_EXPRs.
+	(find_vars_r): Likewise.
+	(add_indirect_ref_var): When creating new INDIRECT_REF variables,
+	copy the readonly attribute from the variable's type.
+
+2003-04-05  Diego Novillo  <dnovillo@redhat.com>
+
 	* tree.c (copy_node): Never copy tree annotations.
 
 2003-04-05  Diego Novillo  <dnovillo@redhat.com>
