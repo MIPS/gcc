@@ -1,6 +1,7 @@
 /* Operating system specific defines to be used when targeting GCC for
    hosting on Windows32, using GNU tools and the Windows32 API Library.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002
+   Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -22,15 +23,7 @@ Boston, MA 02111-1307, USA.  */
 /* Most of this is the same as for cygwin, except for changing some
    specs.  */
 
-/* Mingw GCC, unlike Cygwin's, must be relocatable. This macro must 
-   be defined before any other files are included.  */
-#ifndef WIN32_NO_ABSOLUTE_INST_DIRS
-#define WIN32_NO_ABSOLUTE_INST_DIRS 1
-#endif
-
-#include "i386/cygwin.h"
-
-#define TARGET_EXECUTABLE_SUFFIX ".exe"
+#include "i386/cygming.h"
 
 /* Please keep changes to CPP_PREDEFINES in sync with i386/crtdll. The
    only difference between the two should be __MSVCRT__ needed to 
@@ -86,10 +79,6 @@ Boston, MA 02111-1307, USA.  */
 #undef ENDFILE_SPEC
 #define ENDFILE_SPEC "crtend%O%s"
 
-/* MS runtime does not need a separate math library.  */
-#undef MATH_LIBRARY
-#define MATH_LIBRARY ""
-
 /* Output STRING, a string representing a filename, to FILE.
    We canonicalize it to be in MS-DOS format.  */
 #undef OUTPUT_QUOTED_STRING
@@ -119,7 +108,3 @@ do {						\
 /* Define as unsigned short for compatability with MS runtime.  */
 #undef WINT_TYPE
 #define WINT_TYPE "short unsigned int"
-
-/* Use Dwarf2 EH handling.  */ 
-#undef DWARF2_UNWIND_INFO
-#define DWARF2_UNWIND_INFO 1

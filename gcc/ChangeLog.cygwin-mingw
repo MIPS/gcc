@@ -1,3 +1,12 @@
+2002-06-28  Christopher Faylor  <cgf@redhat.com>
+
+	* config/i386/t-cygming: New makefile stub.
+	* config/i386/t-cygwin: Assume existence of new makefile stub.
+	* config/i386/t-mingw32: Ditto.
+	* config/i386/cygming.h: New file.
+	* config/i386/cygwin.h: Use new common header file.
+	* config/i386/mingw32.h: Ditto.
+
 2002-06-27  Christopher Faylor  <cgf@redhat.com>
 
 	* gcc/config.gcc: Add extra files to cygwin targets.  Default cygwin to
