@@ -1,5 +1,10 @@
 2004-12-23  Michael Koch  <konqueror@gmx.de>
 
+	* javax/imageio/event/package.html,
+	javax/imageio/metadata/package.html: New files.
+
+2004-12-23  Michael Koch  <konqueror@gmx.de>
+
 	* java/awt/image/MemoryImageSource.java: Reformatted.
 
 2004-12-23  Michael Koch  <konqueror@gmx.de>
