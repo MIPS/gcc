@@ -409,6 +409,10 @@ decl_attributes (node, attributes, prefix_attributes)
   else if (TREE_CODE_CLASS (TREE_CODE (node)) == 't')
     type = node, is_type = 1;
 
+#ifdef INSERT_ATTRIBUTES
+  INSERT_ATTRIBUTES (node, & attributes, & prefix_attributes);
+#endif
+  
   attributes = chainon (prefix_attributes, attributes);
 
   for (a = attributes; a; a = TREE_CHAIN (a))

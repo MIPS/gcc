@@ -2436,7 +2436,7 @@ extern void expand_start_early_try_stmts	PROTO((void));
 extern void store_parm_decls			PROTO((void));
 extern void store_return_init			PROTO((tree, tree));
 extern void finish_function			PROTO((int, int, int));
-extern tree start_method			PROTO((tree, tree));
+extern tree start_method			PROTO((tree, tree, tree));
 extern tree finish_method			PROTO((tree));
 extern void hack_incomplete_structures		PROTO((tree));
 extern tree maybe_build_cleanup_and_delete	PROTO((tree));
@@ -2515,6 +2515,8 @@ extern void check_default_args			PROTO((tree));
 extern void mark_used				PROTO((tree));
 extern tree handle_class_head			PROTO((tree, tree, tree));
 extern tree lookup_arg_dependent                PROTO((tree, tree, tree));
+extern tree possibly_prefixed_decl		PROTO((tree, tree *));
+extern tree build_prefixed_decl			PROTO((tree, tree));
 
 /* in errfn.c */
 extern void cp_error				();

@@ -1094,6 +1094,7 @@ begin_function_definition (decl_specs, declarator)
   tree specs;
   tree attrs;
   split_specs_attrs (decl_specs, &specs, &attrs);
+  declarator = possibly_prefixed_decl (declarator, &attrs);
   if (!start_function (specs, declarator, attrs, 0))
     return 0;
   

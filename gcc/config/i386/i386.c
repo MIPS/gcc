@@ -5578,3 +5578,264 @@ x86_adjust_cost (insn, link, dep_insn, cost)
 
   return cost;
 }
+
+
+extern int maximum_field_alignment;
+
+typedef struct align_stack
+{
+  int                  alignment;
+  unsigned int         num_pushes;
+  struct align_stack * prev;
+} align_stack;
+
+static struct align_stack * alignment_stack = NULL;
+
+static void
+push_alignment (alignment)
+     int alignment;
+{
+  switch (alignment)
+    {
+    case 0:
+    case 1:
+    case 2:
+    case 4:
+    case 8:
+    case 16:
+      break;
+    default:
+      warning ("Alignment must be a small power of two, not %d, in #pragma pack",
+	       alignment);
+      return;
+    }
+  
+  if (alignment_stack == NULL
+      || alignment_stack->alignment != alignment)
+    {
+      align_stack * entry;
+
+      entry = (align_stack *) xmalloc (sizeof (* entry));
+
+      if (entry == NULL)
+	{
+	  warning ("Out of memory pushing #pragma pack");
+	  return;
+	}
+
+      entry->alignment  = alignment;
+      entry->num_pushes = 1;
+      entry->prev       = alignment_stack;
+      
+      alignment_stack = entry;
+
+      maximum_field_alignment = ((alignment <= 4) ? alignment : 4) * 8;
+    }
+  else
+    alignment_stack->num_pushes ++;
+}
+
+static void
+pop_alignment ()
+{
+  if (alignment_stack == NULL)
+    {
+      warning ("\
+#pragma pack(pop) encountered without corresponding #pragma pack(push,<n>)");
+      return;
+    }
+
+  if (-- alignment_stack->num_pushes == 0)
+    {
+      align_stack * entry;
+      
+      entry = alignment_stack->prev;
+
+      if (entry == NULL)
+	maximum_field_alignment = 0;
+      else
+	maximum_field_alignment = ((entry->alignment <= 4) 
+	                           ? entry->alignment : 4) * 8;
+
+      free (alignment_stack);
+
+      alignment_stack = entry;
+    }
+}
+
+
+/* Handle the parsing of a pack (push,<n>) or pack (pop) pragma */
+int
+i386_handle_pragma (p_getc, p_ungetc, name)
+     int (* p_getc) PROTO ((void));
+     void (* p_ungetc) PROTO ((int));
+     char * name;
+{
+  static char buffer [128];
+  int	      c;
+  char *      buff;
+  
+  /* Parse characters in the input stream until:
+
+   * end of line
+   * end of file
+   * a complete pack() pragma has been parsed
+   * a corrupted pack() pragma has been parsed
+   * an unknown pragma is encountered.
+
+   If an unknown pragma is encountered, we must return with
+   the input stream in the same state as upon entry to this function.
+   
+   The first token in the input stream has already been parsed
+   for us, and is contained in 'token'.  */
+  
+  if (strcmp (name, "pack"))
+    return 0;
+
+#define SKIP_WHITESPACE  do c = p_getc (); while (c == ' ' || c == '\t');
+
+  SKIP_WHITESPACE;
+  
+  if (c != '(')
+    {
+      p_ungetc (c);
+  
+      return 0;
+    }
+
+  SKIP_WHITESPACE;
+
+  /* Read next word.  We have to do the parsing ourselves, rather
+     than calling yylex() because we can be built with front ends
+     that do not provide such functions.  */
+  buff = buffer;
+  * buff ++ = c;
+  
+  while (c != EOF && isascii (c) && isalpha (c)
+	 && (buff < buffer + 126))
+    * buff ++ = (c = p_getc ());
+
+  * -- buff = 0;
+
+  p_ungetc (c);
+  
+  SKIP_WHITESPACE;
+
+  if (strcmp (buffer, "push") == 0)
+    {
+      if (c != ',')
+	warning ("Missing comma after 'push' in #pragma pack(push,<n>)");
+      else
+	{
+	  SKIP_WHITESPACE;
+
+	  buff = buffer;
+	  * buff ++ = c;
+	  
+	  while (c != EOF && isascii (c) && isdigit (c)
+		 && (buff < buffer + 126))
+	    * buff ++ = (c = p_getc ());
+	  
+	  * -- buff = 0;
+
+	  p_ungetc (c);
+	  
+	  if (* buffer == 0)
+	    warning ("Missing number after comma in #pragma pack(push,<n>)");
+	  else
+	    push_alignment (atoi (buffer));
+	  
+	  SKIP_WHITESPACE;
+	  
+	  if (c != ')')
+	    warning ("Missing closing parenthesis in #pragma pack(pop)");
+	}
+    }
+  else if (strcmp (buffer, "pop") == 0)
+    {
+      if (c != ')')
+	warning ("Missing closing parenthesis in #pragma pack(pop)");
+
+      pop_alignment ();
+    }
+  else if (c == ')')
+    push_alignment (0);
+  else if (isascii (c) && isdigit (c))
+    {
+      buff = buffer;
+      * buff ++ = c;
+      
+      while (c != EOF && isascii (c) && isdigit (c)
+	     && (buff < buffer + 126))
+	* buff ++ = (c = p_getc ());
+      
+      * -- buff = 0;
+      
+      p_ungetc (c);
+      
+      push_alignment (atoi (buffer));
+    }
+  else
+    warning ("Corrupt #pragma pack() [at character '%c']", c);
+
+  /* Skip to end of line.  */
+  do
+    c = p_getc ();
+  while (c != EOF && c != '\n' && c != '\r');
+
+  p_ungetc (c);
+  
+  return 1;
+}
+
+void
+i386_insert_attributes (node, attributes, prefix)
+     tree node;
+     tree * attributes;
+     tree * prefix;
+{
+  tree a;
+  
+  if (maximum_field_alignment == 0)
+    return;
+
+  /* We are only interested in types and fields.  */
+  if (TREE_CODE_CLASS (TREE_CODE (node)) == 'd'
+      && TREE_CODE (node) != FIELD_DECL)
+    return;
+
+  /* Add a 'packed' attribute.  */
+  * attributes = tree_cons (get_identifier ("packed"), NULL, * attributes);
+  
+  /* If the alignment is > 8 then add an alignment attribute as well.  */
+  if (maximum_field_alignment > 8)
+    {
+      /* If the aligned attribute is already present then do not override it.  */
+      for (a = * attributes; a; a = TREE_CHAIN (a))
+	{
+	  tree name = TREE_PURPOSE (a);
+	  if (strcmp (IDENTIFIER_POINTER (name), "aligned") == 0)
+	    break;
+	}
+      
+      if (a == NULL)
+	for (a = * prefix; a; a = TREE_CHAIN (a))
+	  {
+	    tree name = TREE_PURPOSE (a);
+	    if (strcmp (IDENTIFIER_POINTER (name), "aligned") == 0)
+	      break;
+	  }
+  
+      if (a == NULL)
+	{
+	  * attributes = tree_cons
+	      (get_identifier ("aligned"),
+	       tree_cons (NULL,
+			  build_int_2 (maximum_field_alignment / 8, 0),
+			  NULL),
+	       * attributes);
+	}
+    }
+
+  return;
+}

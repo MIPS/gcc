@@ -267,6 +267,9 @@ bindir = @bindir@
 libdir = @libdir@
 # Directory in which the compiler finds executables, libraries, etc.
 libsubdir = $(libdir)/gcc-lib/$(target_alias)/$(version)
+# CYGNUS LOCAL: used to produce a relative $(tooldir) in gcc.o.
+unlibsubdir = ../../..
+# END CYGNUS LOCAL
 # Directory in which the compiler finds g++ includes.
 gxx_include_dir= @gxx_include_dir@
 # Directory in which the old g++ header files may be found.
@@ -1323,12 +1326,15 @@ c-common.o : c-common.c $(CONFIG_H) system.h $(TREE_H) c-tree.h c-lex.h \
 
 # Language-independent files.
 
+# CYGNUS LOCAL: We use relative paths for TOOLDIR_BASE_PREFIX and
+# STANDARD_STARTFILE_PREFIX so that we can move the installed tree.
 DRIVER_DEFINES = \
-  -DSTANDARD_STARTFILE_PREFIX=\"$(libdir)/\" \
+  -DSTANDARD_STARTFILE_PREFIX=\"$(unlibsubdir)/\" \
   -DSTANDARD_EXEC_PREFIX=\"$(libdir)/gcc-lib/\" \
   -DDEFAULT_TARGET_VERSION=\"$(version)\" \
   -DDEFAULT_TARGET_MACHINE=\"$(target_alias)\" \
-  -DTOOLDIR_BASE_PREFIX=\"$(exec_prefix)/\"
+  -DTOOLDIR_BASE_PREFIX=\"$(unlibsubdir)/../\"
+
 gcc.o: gcc.c $(CONFIG_H) system.h gansidecl.h multilib.h Makefile \
 	$(lang_specs_files)
 	$(CC) $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) \
@@ -1827,13 +1833,16 @@ $(srcdir)/cexp.c: $(srcdir)/cexp.y
 	cd $(srcdir); $(BISON) -o cexp.c cexp.y
 
 cccp.o: cccp.c $(CONFIG_H) pcp.h version.c config.status system.h gansidecl.h
+# CYGNUS LOCAL: We use $(libsubdir)/$(unlibsubdir) to match the
+# -iprefix argument which gcc will pass if GCC_EXEC_PREFIX is used.
+# CYGNUS LOCAL: CROSS_INCLUDE_DIR is in tooldir not libsubdir.
 	$(CC) $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) \
 	  -DGCC_INCLUDE_DIR=\"$(libsubdir)/include\" \
-	  -DGPLUSPLUS_INCLUDE_DIR=\"$(gxx_include_dir)\" \
+ 	  -DGPLUSPLUS_INCLUDE_DIR=\"$(libsubdir)/$(unlibsubdir)/..`echo $(exec_prefix) | sed -e 's|^$(prefix)||' -e 's|/[^/]*|/..|g'`/include/g++\" \
 	  -DOLD_GPLUSPLUS_INCLUDE_DIR=\"$(old_gxx_include_dir)\" \
-	  -DLOCAL_INCLUDE_DIR=\"$(includedir)\" \
-	  -DCROSS_INCLUDE_DIR=\"$(tooldir)/sys-include\" \
-	  -DTOOL_INCLUDE_DIR=\"$(tooldir)/include\" \
+ 	  -DLOCAL_INCLUDE_DIR=\"$(libsubdir)/$(unlibsubdir)/..`echo $(exec_prefix) | sed -e 's|^$(prefix)||' -e 's|/[^/]*|/..|g'`/include\" \
+ 	  -DCROSS_INCLUDE_DIR=\"$(libsubdir)/$(unlibsubdir)/../$(target_alias)/sys-include\" \
+ 	  -DTOOL_INCLUDE_DIR=\"$(libsubdir)/$(unlibsubdir)/../$(target_alias)/include\" \
 	  -c `echo $(srcdir)/cccp.c | sed 's,^\./,,'`
 
 cppmain$(exeext): cppmain.o cpplib.o cpphash.o cppalloc.o cpperror.o cppexp.o \
@@ -1845,14 +1854,18 @@ cppmain.o: cppmain.c $(CONFIG_H) cpplib.h system.h gansidecl.h
 
 cpplib.o: cpplib.c $(CONFIG_H) cpplib.h cpphash.h config.status system.h \
 	gansidecl.h
+# CYGNUS LOCAL: We use $(libsubdir)/$(unlibsubdir) to match the
+# -iprefix argument which gcc will pass if GCC_EXEC_PREFIX is used.
+# CYGNUS LOCAL: CROSS_INCLUDE_DIR is in tooldir not libsubdir.
 	$(CC) $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) \
 	  -DGCC_INCLUDE_DIR=\"$(libsubdir)/include\" \
-	  -DGPLUSPLUS_INCLUDE_DIR=\"$(gxx_include_dir)\" \
+ 	  -DGPLUSPLUS_INCLUDE_DIR=\"$(libsubdir)/$(unlibsubdir)/..`echo $(exec_prefix) | sed -e 's|^$(prefix)||' -e 's|/[^/]*|/..|g'`/include/g++\" \
 	  -DOLD_GPLUSPLUS_INCLUDE_DIR=\"$(old_gxx_include_dir)\" \
-	  -DLOCAL_INCLUDE_DIR=\"$(includedir)\" \
-	  -DCROSS_INCLUDE_DIR=\"$(tooldir)/sys-include\" \
-	  -DTOOL_INCLUDE_DIR=\"$(tooldir)/include\" \
+ 	  -DLOCAL_INCLUDE_DIR=\"$(libsubdir)/$(unlibsubdir)/..`echo $(exec_prefix) | sed -e 's|^$(prefix)||' -e 's|/[^/]*|/..|g'`/include\" \
+ 	  -DCROSS_INCLUDE_DIR=\"$(libsubdir)/$(unlibsubdir)/../$(target_alias)/sys-include\" \
+ 	  -DTOOL_INCLUDE_DIR=\"$(libsubdir)/$(unlibsubdir)/../$(target_alias)/include\" \
 	  -c `echo $(srcdir)/cpplib.c | sed 's,^\./,,'`
+
 
 cpperror.o: cpperror.c $(CONFIG_H) cpplib.h system.h gansidecl.h
 
@@ -1879,21 +1892,23 @@ unprotoize$(exeext): unprotoize.o getopt.o getopt1.o getpwd.o version.o \
 	  unprotoize.o getopt.o getopt1.o getpwd.o version.o \
 	  pexecute.o choose-temp.o mkstemp.o $(LIBS)
 
+# CYGNUS LOCAL: CROSS_INCLUDE_DIR is in tooldir not libsubdir.
 protoize.o: protoize.c getopt.h $(CONFIG_H) system.h
 	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) \
           -DGCC_INCLUDE_DIR=\"$(libsubdir)/include\" \
 	  -DGPLUSPLUS_INCLUDE_DIR=\"$(gxx_include_dir)\" \
-          -DCROSS_INCLUDE_DIR=\"$(tooldir)/sys-include\" \
+          -DCROSS_INCLUDE_DIR=\"$(libsubdir)/$(unlibsubdir)/../$(target_alias)/sys-include\" \
 	  -DTOOL_INCLUDE_DIR=\"$(tooldir)/include\" \
 	  -DLOCAL_INCLUDE_DIR=\"$(includedir)\" \
 	  -DSTD_PROTO_DIR=\"$(libsubdir)\" \
 	  $(srcdir)/protoize.c
 
+# CYGNUS LOCAL: CROSS_INCLUDE_DIR is in tooldir not libsubdir.
 unprotoize.o: unprotoize.c protoize.c getopt.h $(CONFIG_H) system.h
 	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) \
           -DGCC_INCLUDE_DIR=\"$(libsubdir)/include\" \
 	  -DGPLUSPLUS_INCLUDE_DIR=\"$(gxx_include_dir)\" \
-          -DCROSS_INCLUDE_DIR=\"$(tooldir)/sys-include\" \
+          -DCROSS_INCLUDE_DIR=\"$(libsubdir)/$(unlibsubdir)/../$(target_alias)/sys-include\" \
 	  -DTOOL_INCLUDE_DIR=\"$(tooldir)/include\" \
 	  -DLOCAL_INCLUDE_DIR=\"$(includedir)\" \
 	  -DSTD_PROTO_DIR=\"$(libsubdir)\" \
@@ -2016,6 +2031,19 @@ stmp-fixinc: $(FIXINCLUDES) gsyslimits.h
 	  cp $(srcdir)/gsyslimits.h include/syslimits.h; \
 	fi
 	chmod a+r include/syslimits.h
+# CYGNUS LOCAL: If $(SYSTEM_HEADER_DIR) is $(tooldir)/sys-include, and
+# that directory exists, then make sure that $(libsubdir) exists.
+# This is because cpp is compiled to find $(tooldir)/include via
+# $(libsubdir)/$(unlibsubdir), which will only work if $(libsubdir)
+# exists.
+	if [ "$(SYSTEM_HEADER_DIR)" = "$(tooldir)/sys-include" ] \
+	   && [ -d $(tooldir)/sys-include ]; then \
+	  if [ -d $(libdir) ] ; then true ; else mkdir $(libdir) ; fi; \
+	  if [ -d $(libdir)/gcc-lib ] ; then true ; else mkdir $(libdir)/gcc-lib ; fi; \
+	  if [ -d $(libdir)/gcc-lib/$(target_alias) ] ; then true ; else mkdir $(libdir)/gcc-lib/$(target_alias) ; fi; \
+	  if [ -d $(libdir)/gcc-lib/$(target_alias)/$(version) ] ; then true ; else mkdir $(libdir)/gcc-lib/$(target_alias)/$(version) ; fi; \
+	else true; fi
+# END CYGNUS LOCAL
 	touch stmp-fixinc
 
 # Files related to the fixproto script.

@@ -2662,6 +2662,12 @@ do {									\
     FAIL;								\
 } while (0)
 
+#define HANDLE_PRAGMA(get, unget, name) i386_handle_pragma (get, unget, name)
+extern int i386_handle_pragma ();
+#define INSERT_ATTRIBUTES(node, attr, prefix) \
+  i386_insert_attributes (node, attr, prefix)
+extern void i386_insert_attributes ();
+
 
 /* Functions in i386.c */
 extern void override_options ();

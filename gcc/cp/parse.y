@@ -203,6 +203,7 @@ empty_parms ()
 %type <ttype> compstmt implicitly_scoped_stmt
 
 %type <ttype> declarator notype_declarator after_type_declarator
+%type <ttype> notype_declarator_intern
 %type <ttype> direct_notype_declarator direct_after_type_declarator
 
 %type <ttype> opt.component_decl_list component_decl_list
@@ -217,7 +218,8 @@ empty_parms ()
 %type <ttype> xexpr parmlist parms bad_parm 
 %type <ttype> identifiers_or_typenames
 %type <ttype> fcast_or_absdcl regcast_or_absdcl
-%type <ttype> expr_or_declarator complex_notype_declarator
+%type <ttype> expr_or_declarator expr_or_declarator_intern
+%type <ttype> complex_notype_declarator
 %type <ttype> notype_unqualified_id unqualified_id qualified_id
 %type <ttype> template_id do_id object_template_id notype_template_declarator
 %type <ttype> overqualified_id notype_qualified_id any_id
@@ -310,6 +312,7 @@ parse_decl(declarator, specs_attrs, attributes, initialized, decl)
   int  sm;
 
   split_specs_attrs (specs_attrs, &current_declspecs, &prefix_attributes);
+  declarator = possibly_prefixed_decl (declarator, &prefix_attributes);
   if (current_declspecs
       && TREE_CODE (current_declspecs) != TREE_LIST)
     current_declspecs = get_decl_list (current_declspecs);
@@ -692,8 +695,10 @@ component_constructor_declarator:
    reduce/reduce conflict introduced by these rules.  */
 fn.def2:
 	  declmods component_constructor_declarator
-		{ tree specs = strip_attrs ($1);
-		  $$ = start_method (specs, $2);
+		{ tree specs, attrs;
+		  split_specs_attrs ($1, &specs, &attrs);
+		  attrs = build_tree_list (attrs, NULL_TREE);
+		  $$ = start_method (specs, $2, attrs);
 		 rest_of_mdef:
 		  if (! $$)
 		    YYERROR1;
@@ -701,20 +706,36 @@ fn.def2:
 		    yychar = YYLEX;
 		  reinit_parse_for_method (yychar, $$); }
 	| component_constructor_declarator
-		{ $$ = start_method (NULL_TREE, $1); goto rest_of_mdef; }
+		{ $$ = start_method (NULL_TREE, $1, NULL_TREE); 
+		  goto rest_of_mdef; }
 	| typed_declspecs declarator
-		{ tree specs = strip_attrs ($1.t);
-		  $$ = start_method (specs, $2); goto rest_of_mdef; }
+		{ tree specs, attrs;
+		  split_specs_attrs ($1.t, &specs, &attrs);
+		  $2 = possibly_prefixed_decl ($2, &attrs);
+		  attrs = build_tree_list (attrs, NULL_TREE);
+		  $$ = start_method (specs, $2, attrs); goto rest_of_mdef; }
 	| declmods notype_declarator
-		{ tree specs = strip_attrs ($1);
-		  $$ = start_method (specs, $2); goto rest_of_mdef; }
+		{ tree specs, attrs;
+		  split_specs_attrs ($1, &specs, &attrs);
+		  $2 = possibly_prefixed_decl ($2, &attrs);
+		  attrs = build_tree_list (attrs, NULL_TREE);
+		  $$ = start_method (specs, $2, attrs); goto rest_of_mdef; }
 	| notype_declarator
-		{ $$ = start_method (NULL_TREE, $$); goto rest_of_mdef; }
+		{ tree attrs;
+		  attrs = NULL_TREE;
+		  $$ = possibly_prefixed_decl ($$, &attrs);
+		  attrs = build_tree_list (attrs, NULL_TREE);
+		  $$ = start_method (NULL_TREE, $$, attrs); 
+		  goto rest_of_mdef; }
 	| declmods constructor_declarator
-		{ tree specs = strip_attrs ($1);
-		  $$ = start_method (specs, $2); goto rest_of_mdef; }
+		{ tree specs, attrs;
+		  split_specs_attrs ($1, &specs, &attrs);
+		  $2 = possibly_prefixed_decl ($2, &attrs);
+		  attrs = build_tree_list (attrs, NULL_TREE);
+		  $$ = start_method (specs, $2, attrs); goto rest_of_mdef; }
 	| constructor_declarator
-		{ $$ = start_method (NULL_TREE, $$); goto rest_of_mdef; }
+		{ $$ = start_method (NULL_TREE, $$, NULL_TREE); 
+		  goto rest_of_mdef; }
 	;
 
 return_id:
@@ -832,11 +853,14 @@ explicit_instantiation:
 		  yyungetc (';', 1); }
           end_explicit_instantiation
 	| TEMPLATE begin_explicit_instantiation typed_declspecs declarator
-		{ tree specs = strip_attrs ($3.t);
+		{ tree specs;
+		  $4 = possibly_prefixed_decl ($4, NULL);
+		  specs = strip_attrs ($3.t);
 		  do_decl_instantiation (specs, $4, NULL_TREE); }
           end_explicit_instantiation
 	| TEMPLATE begin_explicit_instantiation notype_declarator
-		{ do_decl_instantiation (NULL_TREE, $3, NULL_TREE); }
+		{ $3 = possibly_prefixed_decl ($3, NULL);
+		  do_decl_instantiation (NULL_TREE, $3, NULL_TREE); }
           end_explicit_instantiation
 	| TEMPLATE begin_explicit_instantiation constructor_declarator
 		{ do_decl_instantiation (NULL_TREE, $3, NULL_TREE); }
@@ -847,11 +871,14 @@ explicit_instantiation:
           end_explicit_instantiation
 	| SCSPEC TEMPLATE begin_explicit_instantiation typed_declspecs 
           declarator
-		{ tree specs = strip_attrs ($4.t);
+		{ tree specs;
+		  $5 = possibly_prefixed_decl ($5, NULL);
+		  specs = strip_attrs ($4.t);
 		  do_decl_instantiation (specs, $5, $1); }
           end_explicit_instantiation
 	| SCSPEC TEMPLATE begin_explicit_instantiation notype_declarator
-		{ do_decl_instantiation (NULL_TREE, $4, $1); }
+		{ $4 = possibly_prefixed_decl ($4, NULL);
+		  do_decl_instantiation (NULL_TREE, $4, $1); }
           end_explicit_instantiation
 	| SCSPEC TEMPLATE begin_explicit_instantiation constructor_declarator
 		{ do_decl_instantiation (NULL_TREE, $4, $1); }
@@ -971,8 +998,13 @@ xcond:
 
 condition:
 	  type_specifier_seq declarator maybeasm maybe_attribute '='
-		{ {
-		  tree d;
+		{ 
+		  tree d, attrs;
+		  
+		  attrs = NULL_TREE;
+		  $2 = possibly_prefixed_decl ($2, &attrs);
+		  
+		  {
 		  for (d = getdecls (); d; d = TREE_CHAIN (d))
 		    if (TREE_CODE (d) == TYPE_DECL) {
 		      tree s = TREE_TYPE (d);
@@ -982,10 +1014,11 @@ condition:
 			cp_error ("definition of enum `%T' in condition", s);
 		    }
 		  }
+
 		  current_declspecs = $1.t;
 		  $<itype>5 = suspend_momentary ();
 		  $<ttype>$ = start_decl ($<ttype>2, current_declspecs, 1,
-					  $4, /*prefix_attributes*/ NULL_TREE);
+					  $4, /*prefix_attributes*/ attrs);
 		}
 	  init
 		{ 
@@ -1298,13 +1331,33 @@ unqualified_id:
 	| SELFNAME
 	;
 
+expr_or_declarator_intern:
+	  expr_or_declarator
+	| attributes expr_or_declarator
+		{
+		  /* Provide support for '(' attributes '*' declarator ')'
+		     etc */
+		  $$ = build_prefixed_decl ($2, $1);
+		}
+	;
+
 expr_or_declarator:
 	  notype_unqualified_id
-	| '*' expr_or_declarator  %prec UNARY
-		{ $$ = build_parse_node (INDIRECT_REF, $2); }
-	| '&' expr_or_declarator  %prec UNARY
-		{ $$ = build_parse_node (ADDR_EXPR, $2); }
-	| '(' expr_or_declarator ')'
+	| '*' expr_or_declarator_intern  %prec UNARY
+		{
+		  tree attr = NULL_TREE;
+		  $$ = build_parse_node (INDIRECT_REF,
+					 possibly_prefixed_decl ($2, &attr));
+		  $$ = build_prefixed_decl ($$, attr);
+		}
+	| '&' expr_or_declarator_intern  %prec UNARY
+		{
+		  tree attr = NULL_TREE;
+		  $$ = build_parse_node (ADDR_EXPR,
+					 possibly_prefixed_decl ($2, &attr));
+		  $$ = build_prefixed_decl ($$, attr);
+		}
+	| '(' expr_or_declarator_intern ')'
 		{ $$ = $2; }
 	;
 
@@ -1321,8 +1374,8 @@ direct_notype_declarator:
 	   to the Koenig lookup shift in primary, below.  I hate yacc.  */
 	| notype_unqualified_id %prec '('
 	| notype_template_declarator
-	| '(' expr_or_declarator ')'
-		{ $$ = finish_decl_parsing ($2); }
+	| '(' expr_or_declarator_intern ')'
+                { $$ = $2; }
 	;
 
 primary:
@@ -1345,8 +1398,9 @@ primary:
 		}
 	| '(' expr ')'
 		{ $$ = finish_parenthesized_expr ($2); }
-	| '(' expr_or_declarator ')'
-		{ $2 = reparse_decl_as_expr (NULL_TREE, $2);
+	| '(' expr_or_declarator_intern ')'
+		{ $2 = reparse_decl_as_expr (NULL_TREE, 
+		                             possibly_prefixed_decl ($2, NULL));
 		  $$ = finish_parenthesized_expr ($2); }
 	| '(' error ')'
 		{ $$ = error_mark_node; }
@@ -1883,7 +1937,7 @@ notype_initdcl0:
 nomods_initdcl0:
           notype_declarator maybeasm
             { /* Set things up as initdcl0_innards expects.  */
-	      $<ttype>$ = $1; 
+	      $<ttype>2 = $1; 
               $1 = NULL_TREE; }
           initdcl0_innards 
             {}
@@ -2482,8 +2536,10 @@ component_decl_1:
 	| declmods notype_components
 		{ $$ = grok_x_components ($1, $2); }
 	| notype_declarator maybeasm maybe_attribute maybe_init
-		{ $$ = grokfield ($$, NULL_TREE, $4, $2,
-				  build_tree_list ($3, NULL_TREE)); }
+		{ tree attrs = build_tree_list ($3, NULL_TREE);
+		  $$ = possibly_prefixed_decl ($$, &attrs);
+		  $$ = grokfield ($$, NULL_TREE, $4, $2,
+				  attrs); }
 	| constructor_declarator maybeasm maybe_attribute maybe_init
 		{ $$ = grokfield ($$, NULL_TREE, $4, $2,
 				  build_tree_list ($3, NULL_TREE)); }
@@ -2572,12 +2628,14 @@ notype_component_declarator0:
 	  notype_declarator maybeasm maybe_attribute maybe_init
 		{ split_specs_attrs ($<ttype>0, &current_declspecs,
 				     &prefix_attributes);
+		  $$ = possibly_prefixed_decl ($$, &prefix_attributes);
 		  $<ttype>0 = current_declspecs;
 		  $$ = grokfield ($$, current_declspecs, $4, $2,
 				  build_tree_list ($3, prefix_attributes)); }
 	| constructor_declarator maybeasm maybe_attribute maybe_init
 		{ split_specs_attrs ($<ttype>0, &current_declspecs,
 				     &prefix_attributes);
+		  $$ = possibly_prefixed_decl ($$, &prefix_attributes);
 		  $<ttype>0 = current_declspecs;
 		  $$ = grokfield ($$, current_declspecs, $4, $2,
 				  build_tree_list ($3, prefix_attributes)); }
@@ -2606,7 +2664,8 @@ after_type_component_declarator:
 
 notype_component_declarator:
 	  notype_declarator maybeasm maybe_attribute maybe_init
-		{ $$ = grokfield ($$, current_declspecs, $4, $2,
+		{ $$ = possibly_prefixed_decl ($$, &prefix_attributes);
+		  $$ = grokfield ($$, current_declspecs, $4, $2,
 				  build_tree_list ($3, prefix_attributes)); }
 	| IDENTIFIER ':' expr_no_commas maybe_attribute
 		{ $$ = grokbitfield ($$, current_declspecs, $3);
@@ -2773,47 +2832,124 @@ direct_after_type_declarator:
 /* A declarator allowed whether or not there has been
    an explicit typespec.  These cannot redeclare a typedef-name.  */
 
+notype_declarator_intern:
+	  notype_declarator
+	| attributes notype_declarator
+                {
+		  /* Provide support for '(' attributes '*' declarator ')'
+		     etc */
+		  $$ = build_prefixed_decl ($2, $1);
+		}
+	;
+	
 notype_declarator:
-	  '*' nonempty_cv_qualifiers notype_declarator  %prec UNARY
-		{ $$ = make_pointer_declarator ($2.t, $3); }
-	| '&' nonempty_cv_qualifiers notype_declarator  %prec UNARY
-		{ $$ = make_reference_declarator ($2.t, $3); }
-	| '*' notype_declarator  %prec UNARY
-		{ $$ = make_pointer_declarator (NULL_TREE, $2); }
-	| '&' notype_declarator  %prec UNARY
-		{ $$ = make_reference_declarator (NULL_TREE, $2); }
-	| ptr_to_mem cv_qualifiers notype_declarator
-		{ tree arg = make_pointer_declarator ($2, $3);
+	  '*' nonempty_cv_qualifiers notype_declarator_intern  %prec UNARY
+		{
+		  tree attrs = NULL_TREE;
+		  $$ = make_pointer_declarator ($2.t,
+			   possibly_prefixed_decl ($3, &attrs));
+		  $$ = build_prefixed_decl ($$, attrs);
+		}
+	| '&' nonempty_cv_qualifiers notype_declarator_intern  %prec UNARY
+		{
+		  tree attrs = NULL_TREE;
+		  $$ = make_reference_declarator ($2.t,
+			   possibly_prefixed_decl ($3, &attrs));
+		  $$ = build_prefixed_decl ($$, attrs);
+		}
+	| '*' notype_declarator_intern  %prec UNARY
+		{
+		  tree attrs = NULL_TREE;
+		  $$ = make_pointer_declarator (NULL_TREE,
+			   possibly_prefixed_decl ($2, &attrs));
+		  $$ = build_prefixed_decl ($$, attrs);
+		}
+	| '&' notype_declarator_intern  %prec UNARY
+		{
+		  tree attrs = NULL_TREE;
+		  $$ = make_reference_declarator (NULL_TREE,
+			   possibly_prefixed_decl ($2, &attrs));
+		  $$ = build_prefixed_decl ($$, attrs);
+		}
+	| ptr_to_mem cv_qualifiers notype_declarator_intern
+		{
+		  tree arg, attrs = NULL_TREE;
+
+		  arg=make_pointer_declarator ($2,
+			   possibly_prefixed_decl ($3, &attrs));
 		  $$ = build_parse_node (SCOPE_REF, $1, arg);
+		  $$ = build_prefixed_decl ($$, attrs);
 		}
 	| direct_notype_declarator
-	;
+  	;
 
 complex_notype_declarator:
-	  '*' nonempty_cv_qualifiers notype_declarator  %prec UNARY
-		{ $$ = make_pointer_declarator ($2.t, $3); }
-	| '&' nonempty_cv_qualifiers notype_declarator  %prec UNARY
-		{ $$ = make_reference_declarator ($2.t, $3); }
+	  '*' nonempty_cv_qualifiers notype_declarator_intern  %prec UNARY
+		{
+		  tree attrs = NULL_TREE;
+		  $$ = make_pointer_declarator ($2.t,
+			   possibly_prefixed_decl ($3, &attrs));
+		  $$ = build_prefixed_decl ($$, attrs);
+		}
+	| '&' nonempty_cv_qualifiers notype_declarator_intern  %prec UNARY
+		{
+		  tree attrs = NULL_TREE;
+		  $$ = make_reference_declarator ($2.t,
+			   possibly_prefixed_decl ($3, &attrs));
+		  $$ = build_prefixed_decl ($$, attrs);
+		}
 	| '*' complex_notype_declarator  %prec UNARY
-		{ $$ = make_pointer_declarator (NULL_TREE, $2); }
+		{
+		  tree attrs = NULL_TREE;
+		  $$ = make_pointer_declarator (NULL_TREE,
+			   possibly_prefixed_decl ($2, &attrs));
+		  $$ = build_prefixed_decl ($$, attrs);
+		}
 	| '&' complex_notype_declarator  %prec UNARY
-		{ $$ = make_reference_declarator (NULL_TREE, $2); }
-	| ptr_to_mem cv_qualifiers notype_declarator
-		{ tree arg = make_pointer_declarator ($2, $3);
+		{
+		  tree attrs = NULL_TREE;
+		  $$ = make_reference_declarator (NULL_TREE,
+			   possibly_prefixed_decl ($2, &attrs));
+		  $$ = build_prefixed_decl ($$, attrs);
+		}
+	| ptr_to_mem cv_qualifiers notype_declarator_intern
+		{
+		  tree arg, attrs = NULL_TREE;
+
+		  arg = make_pointer_declarator ($2,
+			   possibly_prefixed_decl ($3, &attrs));
 		  $$ = build_parse_node (SCOPE_REF, $1, arg);
+		  $$ = build_prefixed_decl ($$, attrs);
 		}
 	| complex_direct_notype_declarator
 	;
 
 complex_direct_notype_declarator:
 	  direct_notype_declarator maybe_parmlist cv_qualifiers exception_specification_opt  %prec '.'
-		{ $$ = make_call_declarator ($$, $2, $3, $4); }
+		{
+		  tree attrs = NULL_TREE;
+		  $$ = make_call_declarator (
+			   possibly_prefixed_decl ($$, &attrs), $2, $3, $4);
+		  $$ = build_prefixed_decl ($$, attrs);
+		}
 	| '(' complex_notype_declarator ')'
 		{ $$ = $2; }
 	| direct_notype_declarator '[' nonmomentary_expr ']'
-		{ $$ = build_parse_node (ARRAY_REF, $$, $3); }
+		{
+		  tree attrs = NULL_TREE;
+		  $$ = build_parse_node (ARRAY_REF,
+					 possibly_prefixed_decl ($$, &attrs),
+					 $3);
+		  $$ = build_prefixed_decl ($$, attrs);
+		}
 	| direct_notype_declarator '[' ']'
-		{ $$ = build_parse_node (ARRAY_REF, $$, NULL_TREE); }
+		{
+		  tree attrs = NULL_TREE;
+		  $$ = build_parse_node (ARRAY_REF,
+					 possibly_prefixed_decl ($$, &attrs),
+					 NULL_TREE);
+		  $$ = build_prefixed_decl ($$, attrs);
+		}
 	| notype_qualified_id
 		{ if (TREE_CODE (OP0 ($1)) == NAMESPACE_DECL)
 		    {
@@ -2864,8 +3000,11 @@ overqualified_id:
 functional_cast:
 	  typespec '(' nonnull_exprlist ')'
 		{ $$ = build_functional_cast ($1.t, $3); }
-	| typespec '(' expr_or_declarator ')'
-		{ $$ = reparse_decl_as_expr ($1.t, $3); }
+	| typespec '(' expr_or_declarator_intern ')'
+		{
+		  $$ = reparse_decl_as_expr ($1.t,
+					     possibly_prefixed_decl ($3, NULL));
+		}
 	| typespec fcast_or_absdcl  %prec EMPTY
 		{ $$ = reparse_absdcl_as_expr ($1.t, $2); }
 	;
@@ -3555,13 +3694,16 @@ named_parm:
 	   TYPESPEC IDENTIFIER.  */
 	  typed_declspecs1 declarator
 		{ tree specs = strip_attrs ($1.t);
-		  $$.new_type_flag = $1.new_type_flag;
-		  $$.t = build_tree_list (specs, $2); }
+		  $2 = possibly_prefixed_decl ($2, NULL);
+		  $$.t = build_tree_list (specs, $2);
+		  $$.new_type_flag = $1.new_type_flag; }
 	| typed_typespecs declarator
-		{ $$.t = build_tree_list ($1.t, $2); 
+		{ $$.t = build_tree_list ($1.t,
+					  possibly_prefixed_decl ($2, NULL)); 
 		  $$.new_type_flag = $1.new_type_flag; }
 	| typespec declarator
-		{ $$.t = build_tree_list (get_decl_list ($1.t), $2); 
+		{ $$.t = build_tree_list (get_decl_list ($1.t),
+					  possibly_prefixed_decl ($2, NULL)); 
 		  $$.new_type_flag = $1.new_type_flag; }
 	| typed_declspecs1 absdcl
 		{ tree specs = strip_attrs ($1.t);
@@ -3573,6 +3715,7 @@ named_parm:
 		  $$.new_type_flag = $1.new_type_flag; }
 	| declmods notype_declarator
 		{ tree specs = strip_attrs ($1);
+		  $2 = possibly_prefixed_decl ($2, NULL);
 		  $$.t = build_tree_list (specs, $2); 
 		  $$.new_type_flag = 0; }
 	;
@@ -3604,7 +3747,12 @@ bad_parm:
 		}
 	| notype_declarator
 		{
+		  tree attrs = NULL_TREE;
+		  
 		  error ("type specifier omitted for parameter");
+		  
+		  $$ = possibly_prefixed_decl ($$, &attrs);
+		  
 		  if (TREE_CODE ($$) == SCOPE_REF
 		      && (TREE_CODE (TREE_OPERAND ($$, 0)) == TEMPLATE_TYPE_PARM
 			  || TREE_CODE (TREE_OPERAND ($$, 0)) == TEMPLATE_TEMPLATE_PARM))

@@ -60,7 +60,7 @@ Boston, MA 02111-1307, USA.  */
 /* In a cross-compilation situation, default to inhibiting compilation
    of routines that use libc.  */
 
-#if defined(CROSS_COMPILE) && !defined(inhibit_libc)
+#if defined(CROSS_COMPILE) && !defined(inhibit_libc) && !defined(__CYGWIN32__) && !defined(__MINGW32__)
 #define inhibit_libc
 #endif
 

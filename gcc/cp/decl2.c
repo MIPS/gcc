@@ -4716,3 +4716,68 @@ handle_class_head (aggr, scope, id)
     (aggr, make_anon_name (), NULL_TREE, 1);
   return TYPE_MAIN_DECL (id);
 }
+
+/* code to process declarations with prefix attributes */
+
+/* Used to check that a declarator was encoded by build_prefixed_decl. */
+
+static union tree_node prefixed_attribute_node;
+
+/* Decode a declarator originally encoded by build_prefixed_decl. May be 
+   called on a declarator not encoded by build_prefixed_decl, in which
+   case it just returns the declarator unchanged.  */
+
+tree
+possibly_prefixed_decl(decl, prefix)
+     tree decl, *prefix;
+{
+  if (TREE_CODE (decl) != TREE_LIST)
+    return decl;
+  if (TREE_PURPOSE (decl) != &prefixed_attribute_node)
+    return decl;
+  if (prefix)
+    {
+      if (*prefix == NULL_TREE)
+	*prefix = TREE_CHAIN (decl);
+      else
+	*prefix = chainon (*prefix,
+			   TREE_CHAIN (decl));
+    }
+  else
+    {
+      tree attrs;
+
+      attrs = decl;
+
+      while (attrs = TREE_CHAIN (attrs))
+	{
+	  warning("`%s' attribute ignored.",
+		  IDENTIFIER_POINTER (TREE_PURPOSE (attrs)));
+	}
+    }
+  
+  return (TREE_VALUE (decl));
+}
+
+/* Build a TREE_LIST node from a declarator and a set of attributes. The 
+   TREE_PURPOSE is set to &prefixed_attribute_node, with the declarator 
+   as the TREE_VALUE, and TREE_CHAIN pointing on to the attribute list.  */
+
+tree
+build_prefixed_decl(decl, prefix)
+     tree decl, prefix;
+{
+  tree list;
+
+  if (prefix == NULL_TREE)
+      return decl;
+  
+  if (TREE_CODE (decl) != TREE_LIST)
+      list = decl_tree_cons (&prefixed_attribute_node, decl, NULL_TREE);
+  else
+      list = decl;
+  
+  list = chainon (list, prefix);
+
+  return list;
+}

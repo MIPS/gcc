@@ -1,3 +1,154 @@
+Wed Aug 12 18:18:16 1998  Mumit Khan  <khan@xraylith.wisc.edu>
+
+        * i386/winnt.c (i386_pe_dllexport_p): Check TREE_TYPE for
+        attributes as well for C++ class members.
+        (i386_pe_dllimport_p): Likewise.
+
+Thu Sep 12 17:51:24 1996  Jim Wilson  <wilson@cygnus.com>
+
+        * Makefile.in (cccp.o, cpplib.o): Change GPLUSPLUS_INCLUDE_DIR to use
+        libsubdir/unlibsubdir.
+
+Tue Oct 31 16:52:51 1995  Jim Wilson  <wilson@chestnut.cygnus.com>
+
+        * Makefile.in (cccp.o): Move CROSS_INCLUDE_DIR from libsubdir to
+        tooldir.
+        (cpplib.o, stamp-proto): Likewise.
+
+Mon May 10 09:11:23 1993  Ian Lance Taylor  (ian@cygnus.com)
+
+        * Makefile.in (cccp.o): Use $(libsubdir)/$(unlibsubdir) for
+        LOCAL_INCLUDE_DIR, so that a native compiler can find assert.h via
+        GCC_EXEC_PREFIX.
+
+Fri May  7 09:16:10 1993  Ian Lance Taylor  (ian@cygnus.com)
+
+        * Makefile.in (gcc.o): Pass STANDARD_STARTFILE_PREFIX as
+        $(unlibsubdir) rather than $(libdir) so that native compilations can
+        find $(libdir).
+
+Fri Aug 28 19:19:31 1998  Mumit Khan  <khan@xraylith.wisc.edu>
+
+        * i386/cygwin32.h (ASM_OUTPUT_SECTION_NAME): Don't emit
+        .linkonce directive after the first time.
+
+Tue Aug 18 17:40:27 1998  Nick Clifton  <nickc@cygnus.com>
+
+        * c-common.c (decl_attributes): Evaluate INSERT_ATTRIBUTES, if
+        it is defined, before parsing any atributes.
+
+        * c-lex.c (check_newline): Invoke both HANDLE_PRAGMA and
+        HANDLE_SYSV_PRAGMA if they are defined.  Pass three arguments
+        to HANDLE_PRAGMA: a getc() function, an ungetc() function, and
+        the name of the pragma to be parsed.  Issue a warning, if
+        asked to do so, if the pragma is not handled.
+        (handle_sysv_pragma): Expect a return value from
+        handle_pragma_token().
+
+        (pragma_getc): New function: Local version of the GETC macro.
+        (pragma_ungetc): New function: Local version of the UNGETC macro.
+
+        * c-pragma.c (handle_pragma_token):  Make function return a
+        boolean, specifying whether the pragma has been successfully
+        and completely parsed or not.  Move warning about unknown
+        pragmas into c-lex.c
+
+        * c-pragma.h: Change prototype for handle_pragma_token().
+
+        * varasm.c (handle_pragma_weak): Only define this function if
+        HANDLE_PRAGMA_WEAK is defined.
+
+        * tm.texi (HANDLE_PRAGMA): Document new version of this macro.
+        (INSERT_ATTRIBUTES):  Document this new macro.
+
+Tue Aug 18 17:40:27 1998  Nick Clifton  <nickc@cygnus.com>
+
+        * lex.c (check_newline): Invoke both HANDLE_PRAGMA and
+        HANDLE_SYSV_PRAGMA if they are defined.  Pass three arguments
+        to HANDLE_PRAGMA: a getc() function, an ungetc() function, and
+        the name of the pragma to be parsed.  Issue a warning, if
+        asked to do so, if the pragma is not handled.
+        (handle_sysv_pragma): Expect a return value from
+        handle_pragma_token().
+
+        (pragma_getc): New function: Local version of the getch() function.
+        (pragma_ungetc): New function: Local version of the yyungetc()
+        function.
+
+Sat Aug 29 13:32:58 1998  Mumit Khan  <khan@xraylith.wisc.edu>
+
+        * i386/i386.c (push_alignment): Cap alignment at 4 bytes for
+        microsoft compatibility.
+        (pop_alignment): Likewise.
+
+Fri Aug 21 16:07:52 1998  Nick Clifton  <nickc@cygnus.com>
+
+        * config/nextstep.h (HANDLE_PRAGMA): Conform to new
+        specification.
+        * config/nextstep.c (handle_pragma): Conform to new
+        specification.
+
+        * config/i960/i960.h (HANDLE_PRAGMA): Conform to new
+        specification.
+        * config/i960/i960.c (process_pragma): Conform to new
+        specification.
+
+        * config/i386/i386.h (HANDLE_PRAGMA): Define.
+        (INSERT_ATTRIBUTES): Define.
+        * config/i386/i386.c (push_alignment): New Function.
+        (pop_alignment): New Function.
+        (i386_handle_pragma): New Function.  Parse #pragma pack...
+        (i386_insert_attributes): New Function.  Insert 'aligned' and
+        'packed' attributes based on parsing of #pragma pack...
+
+Wed Sep  2 19:11:11 1998  Mumit Khan  <khan@xraylith.wisc.edu>
+
+        * i386/mingw32.h (CPP_PREDEFINES): Add __MSVCRT__ for msvc
+        runtime.
+        * i386/crtdll.h (CPP_PREDEFINES): Define.
+
+Fri Aug 14 21:22:15 1998  Mumit Khan  <khan@xraylith.wisc.edu>
+
+        Add support for demangling names imported from a PE DLL.
+
+        * cplus-dem.c (work_stuff): Add dllimported.
+        (demangled_prefix): Mark symbols imported from PE DLL.
+        (internal_cplus_demangled): Handle.
+
+Wed Jul 15 17:21:11 1998  Mumit Khan  <khan@xraylith.wisc.edu>
+
+        * parse.y (fn.def2): Pass correct parameters to start_method.
+
+Sat Jun 20 21:47:00 1998  Alastair J. Houghton <ajh8@doc.ic.ac.uk>
+
+        Changes to better support __attribute__ keyword:
+
+        * Makefile.in (CONFLICTS): Update.
+        * decl.c (start_method): Added extra parameter for attributes.
+        * decl2.c (prefixed_attribute_node): New static variable.
+        (possibly_prefixed_decl): New function.
+        (build_prefixed_decl): New function.
+        * cp-tree.h (start_method): Update prototype.
+        (possibly_prefixed_decl, build_prefixed_decl): Declare.
+        * semantics.c (begin_function_definition): Use possibly_prefixed_decl.
+        * parse.y (parse_decl, fn.def2, explicit_instantiation, condition,
+        expr_or_declarator, primary, component_decl_1,
+        notype_component_declarator0, notype_component_declarator,
+        notype_declarator, complex_notype_declarator,
+        complex_direct_notype_declarator, functional_cast, named_parm
+        bad_parm): Use possibly_prefixed_decl.
+        (expr_or_declarator_intern, expr_or_declarator,
+        notype_declarator_intern, notype_declarator,
+        complex_notype_declarator, complex_direct_notype_declarator): Use
+        build_prefixed_decl.
+        (expr_or_declarator_intern): New rule.
+        (expr_or_declarator, direct_notype_declarator, primary,
+        functional_cast): Use it.
+        (notype_declarator_intern): New rule.
+        (notype_declarator, complex_notype_declarator): Use it.
+        (fn.def2): Update start_method parameter list.
+        (condition): Pass attributes instead of NULL to start_decl.
+
 Sat Sep  5 23:29:39 1998  Mumit Khan  <khan@xraylith.wisc.edu>
 
 	* i386/cygwin32.h (ASM_OUTPUT_SECTION_NAME): Don't check for

@@ -169,6 +169,7 @@ i386_pe_dllexport_p (decl)
      tree decl;
 {
   tree exp;
+  tree context;
 
   if (TREE_CODE (decl) != VAR_DECL
       && TREE_CODE (decl) != FUNCTION_DECL)
@@ -178,10 +179,16 @@ i386_pe_dllexport_p (decl)
     return 1;
 
   /* Class members get the dllexport status of their class.  */
-  if (associated_type (decl))
+  context = associated_type (decl);
+  if (context)
     {
       exp = lookup_attribute ("dllexport",
-			      TYPE_ATTRIBUTES (associated_type (decl)));
+			      TYPE_ATTRIBUTES (context));
+      if (exp)
+	return 1;
+
+      exp = lookup_attribute ("dllexport",
+			      TREE_TYPE (context));
       if (exp)
 	return 1;
     }
@@ -196,6 +203,7 @@ i386_pe_dllimport_p (decl)
      tree decl;
 {
   tree imp;
+  tree context;
 
   if (TREE_CODE (decl) == FUNCTION_DECL
       && TARGET_NOP_FUN_DLLIMPORT)
@@ -209,10 +217,16 @@ i386_pe_dllimport_p (decl)
     return 1;
 
   /* Class members get the dllimport status of their class.  */
-  if (associated_type (decl))
+  context = associated_type (decl);
+  if (context)
     {
       imp = lookup_attribute ("dllimport",
-			      TYPE_ATTRIBUTES (associated_type (decl)));
+			      TYPE_ATTRIBUTES (context));
+      if (imp)
+	return 1;
+
+      imp = lookup_attribute ("dllimport",
+			      TREE_TYPE (context));
       if (imp)
 	return 1;
     }
