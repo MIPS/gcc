@@ -747,7 +747,10 @@ convert_nonlocal_reference (tree *tp, int *walk_subtrees, void *data)
     case GOTO_EXPR:
       /* Don't walk non-local gotos for now.  */
       if (TREE_CODE (GOTO_DESTINATION (t)) != LABEL_DECL)
-	*walk_subtrees = 1;
+	{
+	  *walk_subtrees = 1;
+	  wi->val_only = true;
+	}
       break;
 
     case LABEL_DECL:
@@ -766,7 +769,7 @@ convert_nonlocal_reference (tree *tp, int *walk_subtrees, void *data)
 
 	wi->val_only = false;
 	walk_tree (&TREE_OPERAND (t, 0), convert_nonlocal_reference, wi, NULL);
-	wi->val_only = save_val_only;
+	wi->val_only = true;
 
 	if (save_sub != TREE_OPERAND (t, 0))
 	  {
@@ -785,7 +788,10 @@ convert_nonlocal_reference (tree *tp, int *walk_subtrees, void *data)
 
     default:
       if (!DECL_P (t) && !TYPE_P (t))
-	*walk_subtrees = 1;
+	{
+	  *walk_subtrees = 1;
+          wi->val_only = true;
+	}
       break;
     }
 
