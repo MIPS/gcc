@@ -6144,9 +6144,12 @@ store_parm_decls ()
 	  /* We will have a nonlocal use of this variable.  */
 	  tree var = TREE_OPERAND (TREE_VALUE (t), 0);
 
-	  /* Strip away any NOP_EXPRs.  STRIP_NOPS is not sufficient
-	     here since the nodes may have different modes.  */
-	  while (TREE_CODE (var) == NOP_EXPR)
+	  /* Strip away any NOP_EXPRs, NON_LVALUE_EXPRs and CONVERT_EXPRs.
+	     STRIP_NOPS is not sufficient here since the nodes may have
+	     different modes.  */
+	  while (TREE_CODE (var) == NOP_EXPR
+		 || TREE_CODE (var) == NON_LVALUE_EXPR
+		 || TREE_CODE (var) == CONVERT_EXPR)
 	    var = TREE_OPERAND (var, 0);
 
 	  DECL_NONLOCAL (var) = 1;

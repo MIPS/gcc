@@ -1,3 +1,8 @@
+2003-07-16  Daniel Berlin  <dberlin@dberlin.org>
+
+	* c-decl.c (store_parm_decls): Also strip NON_LVALUE_EXPRs and
+	CONVERT_EXPRs when setting DECL_NONLOCAL.
+
 2003-07-15  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-cfg.c (remove_stmt): Update bb->end_tree_p properly when
