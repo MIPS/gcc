@@ -1,5 +1,10 @@
 2002-12-17  Vladimir Makarov  <vmakarov@redhat.com>
 
+	* config/ia64/ia64.c (bundling): Try to insert 2 nops for M insn
+	for Itanium.
+
+2002-12-17  Vladimir Makarov  <vmakarov@redhat.com>
+
 	* config/ia64/ia64.c (ia64_override_options): Make itanium2 as
 	default cpu.
 

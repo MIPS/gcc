@@ -6431,7 +6431,10 @@ bundling (dump, verbose, prev_head_insn, tail)
 	       || (GET_MODE (next_insn) == TImode
 		   && INSN_CODE (insn) != CODE_FOR_insn_group_barrier));
 	  if (type == TYPE_F || type == TYPE_B || type == TYPE_L
-	      || type == TYPE_S)
+	      || type == TYPE_S
+	      /* We need to insert 2 Nops for cases like M_MII.  */
+	      || (type == TYPE_M && ia64_cpu == PROCESSOR_ITANIUM
+		  && !bundle_end_p && pos == 1))
 	    issue_nops_and_insn (curr_state, 2, insn, bundle_end_p);
 	  issue_nops_and_insn (curr_state, 1, insn, bundle_end_p);
 	  issue_nops_and_insn (curr_state, 0, insn, bundle_end_p);
