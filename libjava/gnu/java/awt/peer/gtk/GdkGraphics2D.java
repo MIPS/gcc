@@ -459,10 +459,7 @@ public class GdkGraphics2D extends Graphics2D
   
   private final boolean isBufferedImageGraphics ()
   {
-    if (bimage != null)
-      return true;
-    else
-      return false;
+    return bimage != null;
   }
     
   private final void updateImagePixels (int[] pixels)
