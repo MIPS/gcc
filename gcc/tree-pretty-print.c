@@ -162,7 +162,6 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
   tree type;
   tree op0, op1;
   const char* str;
-  tree_stmt_iterator si;
   bool is_expr;
 
   if (node == NULL_TREE)
@@ -677,34 +676,64 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       break;
 
     case COMPOUND_EXPR:
-      if (dumping_stmts)
-	{
-	  dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, true);
-	  if (flags & TDF_SLIM)
+      {
+	tree *tp;
+	if (flags & TDF_SLIM)
+	  {
+	    pp_string (buffer, "<COMPOUND_EXPR>");
 	    break;
+	  }
 
-	  for (si = tsi_start (&TREE_OPERAND (node, 1));
-	       !tsi_end_p (si);
-	       tsi_next (&si))
-	    {
+	dump_generic_node (buffer, TREE_OPERAND (node, 0),
+			   spc, flags, dumping_stmts);
+	if (dumping_stmts)
+	  newline_and_indent (buffer, spc);
+	else
+	  {
+	    pp_character (buffer, ',');
+	    pp_space (buffer);
+	  }
+
+	for (tp = &TREE_OPERAND (node, 1);
+	     TREE_CODE (*tp) == COMPOUND_EXPR;
+	     tp = &TREE_OPERAND (*tp, 1))
+	  {
+	    dump_generic_node (buffer, TREE_OPERAND (*tp, 0),
+			       spc, flags, dumping_stmts);
+	    if (dumping_stmts)
 	      newline_and_indent (buffer, spc);
-	      dump_generic_node (buffer, tsi_stmt (si), spc, flags, true);
-	    }
-	  is_expr = false;
-	}
-      else
-	{
-	  dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
+	    else
+	      {
+	        pp_character (buffer, ',');
+	        pp_space (buffer);
+	      }
+	  }
 
-	  for (si = tsi_start (&TREE_OPERAND (node, 1));
-	       !tsi_end_p (si);
-	       tsi_next (&si))
-	    {
-	      pp_character (buffer, ',');
-	      pp_space (buffer);
-	      dump_generic_node (buffer, tsi_stmt (si), spc, flags, false);
-	    }
-	}
+	dump_generic_node (buffer, *tp, spc, flags, dumping_stmts);
+      }
+      break;
+
+    case STATEMENT_LIST:
+      {
+	tree_stmt_iterator si;
+	bool first = true;
+  
+	if ((flags & TDF_SLIM) || !dumping_stmts)
+	  {
+	    pp_string (buffer, "<STATEMENT_LIST>");
+	    break;
+	  }
+
+	for (si = tsi_start (node); !tsi_end_p (si); tsi_next (&si))
+	  {
+	    if (!first)
+	      newline_and_indent (buffer, spc);
+	    else
+	      first = false;
+	    dump_generic_node (buffer, tsi_stmt (si), spc, flags, true);
+	    pp_character (buffer, ';');
+	  }
+      }
       break;
 
     case MODIFY_EXPR:
@@ -729,7 +758,18 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	  pp_string (buffer, "if (");
 	  dump_generic_node (buffer, COND_EXPR_COND (node), spc, flags, false);
 	  pp_character (buffer, ')');
-	  if (!(flags & TDF_SLIM))
+	  /* The lowered cond_exprs should always be printed in full.  */
+	  if (COND_EXPR_THEN (node)
+	      && TREE_CODE (COND_EXPR_THEN (node)) == GOTO_EXPR
+	      && COND_EXPR_ELSE (node)
+	      && TREE_CODE (COND_EXPR_ELSE (node)) == GOTO_EXPR)
+	    {
+	      pp_space (buffer);
+	      dump_generic_node (buffer, COND_EXPR_THEN (node), 0, flags, true);
+	      pp_string (buffer, " else ");
+	      dump_generic_node (buffer, COND_EXPR_ELSE (node), 0, flags, true);
+	    }
+	  else if (!(flags & TDF_SLIM))
 	    {
 	      /* Output COND_EXPR_THEN.  */
 	      if (COND_EXPR_THEN (node))

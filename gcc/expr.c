@@ -47,6 +47,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "langhooks.h"
 #include "intl.h"
 #include "tm_p.h"
+#include "tree-iterator.h"
+
 
 /* Decide whether a function's arguments should be processed
    from first to last or from last to first.
@@ -8387,6 +8389,18 @@ expand_expr_1 (tree exp, rtx target, enum machine_mode tmode,
 	}
       return expand_expr (exp, (ignore ? const0_rtx : target), VOIDmode,
 	                  modifier);
+
+    case STATEMENT_LIST:
+      {
+	tree_stmt_iterator iter;
+
+	if (!ignore)
+	  abort ();
+
+	for (iter = tsi_start (exp); !tsi_end_p (iter); tsi_next (&iter))
+	  expand_expr (tsi_stmt (iter), const0_rtx, VOIDmode, modifier);
+      }
+      return const0_rtx;
 
     case COND_EXPR:
       /* If it's void, we don't need to worry about computing a value.  */

@@ -88,7 +88,7 @@ static void find_useful_stmts (void);
 static bool stmt_useful_p (tree);
 static void process_worklist (void);
 static void remove_dead_stmts (void);
-static void remove_dead_stmt (block_stmt_iterator *);
+static bool should_remove_dead_stmt (tree);
 static void remove_dead_phis (basic_block);
 
 #define NECESSARY(stmt)	   stmt->common.asm_written_flag
@@ -393,24 +393,29 @@ static void
 remove_dead_stmts (void)
 {
   basic_block bb;
-  tree t;
   block_stmt_iterator i;
 
   FOR_EACH_BB_REVERSE (bb)
     {
-      bsi_list_p stack;
       /* Remove dead PHI nodes.  */
       remove_dead_phis (bb);
 
       /* Remove dead statements.  */
-      FOR_EACH_BSI_IN_REVERSE (stack, bb, i)
+      for (i = bsi_last (bb); !bsi_end_p (i) ; )
 	{
-	  t = bsi_stmt (i);
+	  tree t = bsi_stmt (i);
+
 	  stats.total++;
 
 	  /* If `i' is not in `necessary' then remove from B.  */
-	  if (!necessary_p (t))
-	    remove_dead_stmt (&i);
+	  if (!necessary_p (t) && should_remove_dead_stmt (t))
+	    {
+	      block_stmt_iterator j = i;
+	      bsi_prev (&i);
+	      bsi_remove (&j);
+	    }
+	  else
+	    bsi_prev (&i);
 	}
     }
 }
@@ -455,13 +460,9 @@ remove_dead_phis (basic_block bb)
 
 /* Remove dead statement pointed by iterator I.  */
 
-static void
-remove_dead_stmt (block_stmt_iterator *i)
+static bool
+should_remove_dead_stmt (tree t)
 {
-  tree t;
-
-  t = bsi_stmt (*i);
-
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "Deleting : ");
@@ -485,7 +486,7 @@ remove_dead_stmt (block_stmt_iterator *i)
 	  fprintf (dump_file, "\n");
 	}
 
-      return;
+      return false;
     }
 
 #ifdef ENABLE_CHECKING
@@ -493,7 +494,7 @@ remove_dead_stmt (block_stmt_iterator *i)
     abort ();
 #endif
 
-  bsi_remove (i);
+  return true;
 }
 
 /* Main routine to eliminate dead code.

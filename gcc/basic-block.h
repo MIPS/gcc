@@ -208,8 +208,7 @@ typedef struct basic_block_def {
   rtx head, end;
 
   /* Pointers to the first and last trees of the block.  */
-  tree *head_tree_p;
-  tree *end_tree_p;
+  tree stmt_list;
 
   /* The edges into and out of the block.  */
   edge pred, succ;
@@ -289,6 +288,10 @@ extern int n_edges;
 extern varray_type basic_block_info;
 
 #define BASIC_BLOCK(N)  (VARRAY_BB (basic_block_info, (N)))
+
+/* The root of statement_lists of basic blocks for the garbage collector.
+   This is a hack; we really should GC the entire CFG structure.  */
+extern GTY(()) varray_type tree_bb_root;
 
 /* For iterating over basic blocks.  */
 #define FOR_BB_BETWEEN(BB, FROM, TO, DIR) \
@@ -388,7 +391,6 @@ extern void brief_dump_cfg (FILE *);
 extern void clear_edges (void);
 extern void mark_critical_edges (void);
 extern rtx first_insn_after_basic_block_note (basic_block);
-extern basic_block create_bb (basic_block);
 
 /* Dominator information for basic blocks.  */
 

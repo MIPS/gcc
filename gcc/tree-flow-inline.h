@@ -347,58 +347,6 @@ dom_children (basic_block bb)
 /*  -----------------------------------------------------------------------  */
 
 static inline bool
-bsi_end_p (block_stmt_iterator i)
-{
-  return (i.tp == NULL || bsi_stmt (i) == NULL_TREE);
-}
-
-/* Similar to tsi_next() but stops at basic block boundaries.  Assumes stmt
-   has bb_for_stmt() set (can't be an empty statement node).  */
-
-static inline void
-bsi_next (block_stmt_iterator *i)
-{
-  extern void bsi_next_in_bb (block_stmt_iterator *, basic_block);
-
-  basic_block bb = bb_for_stmt (*(i->tp));
-  bsi_next_in_bb (i, bb);
-}
-
-static inline tree *
-bsi_stmt_ptr (block_stmt_iterator i)
-{
-#if defined ENABLE_CHECKING
-  if (i.tp == NULL || *i.tp == NULL_TREE)
-    abort ();
-#endif
-
-  if (TREE_CODE ((*i.tp)) == COMPOUND_EXPR)
-    return &TREE_OPERAND ((*i.tp), 0);
-  else
-    return i.tp;
-}
-
-static inline tree
-bsi_stmt (block_stmt_iterator i)
-{
-  return *(bsi_stmt_ptr (i));
-}
-
-static inline tree *
-bsi_container (block_stmt_iterator i)
-{
-  return i.tp;
-}
-
-/* Return a tree_stmt_iterator for the stmt a block iterator refers to.  */
-
-static inline tree_stmt_iterator
-tsi_from_bsi (block_stmt_iterator bi)
-{
-  return tsi_start (bi.tp);
-}
-
-static inline bool
 is_exec_stmt (tree t)
 {
   return (t && !IS_EMPTY_STMT (t) && t != error_mark_node);
@@ -422,105 +370,6 @@ is_label_stmt (tree t)
       }
   return false;
 }
-
-/* Routines to allow a block to be walked backwards reasonably efficiently.
-   Once a decent implementation of bsi_prev() is implemented, this can
-   be removed.  */
-
-#define BSI_NUM_ELEMENTS	50
-
-typedef struct bsi_list_d {
-  block_stmt_iterator bsi[BSI_NUM_ELEMENTS];
-  int curr_index;
-  struct bsi_list_d *next;
-} *bsi_list_p;
-
-
-static inline bsi_list_p new_bsi_list (void);
-static inline int empty_bsi_stack (bsi_list_p);
-extern void push_bsi (bsi_list_p *, block_stmt_iterator);
-extern block_stmt_iterator pop_bsi (bsi_list_p *);
-
-
-/* Allocate a bsi_list structure.  */
-static inline bsi_list_p
-new_bsi_list (void)
-{
-  bsi_list_p b;
-  b = (bsi_list_p) xmalloc (sizeof (struct bsi_list_d));
-  b->curr_index = 0;
-  b->next = NULL;
-
-  return b;
-}
-
-/* Is the iterator stack empty?  */
-static inline int
-empty_bsi_stack (bsi_list_p list)
-{
-  if (!list || (list->curr_index < 0 && list->next == NULL))
-    return 1;
-  return 0;
-}
-
-
-/* Process an entire block of bsi's in reverse by pushing them on a stack
-   as they are encountered, and then popping them off as they are needed.
-   There are a couple of odd things. Since the last loop is a for loop,
-   a dummy entry is pushed on the beginning of the stack, this allows the first
-   item pushed on the stack to be processed in the final for loop, as well
-   as guaranteeing there will be at least one to pop off.
-
-   usage:
-     bsi_list_p  stack;
-     block_stmt_iterator bsi;
-     basic_block bb;
-
-     FOR_EACH_BSI_IN_REVERSE (stack, bb, bsi)
-       {
-         ...
-       }
-*/
-#define FOR_EACH_BSI_IN_REVERSE(bsi_stack, bb, bsi)		\
-  bsi_stack = new_bsi_list ();					\
-  for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))	\
-    push_bsi (&bsi_stack, bsi);					\
-  bsi = pop_bsi (&bsi_stack);					\
-  for ( ; !empty_bsi_stack (bsi_stack); bsi = pop_bsi (&bsi_stack))
-
-
-
-/* This macro can be used if all that is ever examined is the stmt nodes
-   of bsi. Ie, if the usage is
-      FOR_EACH_BSI_IN_REVERSE (stack, bb, bsi)
-        {
-	  tree stmt = bsi_stmt (bsi);
-	  ...
-  Then less overhead exists to simply use this macro.
-
-  usage:
-    varray_type stmt_stack;
-    basic_block bb;
-    tree stmt;
-
-    FOR_EACH_STMT_IN_REVERSE (stmt_stack, bb, stmt)
-      {
-        ...
-      }
-*/
-#define FOR_EACH_STMT_IN_REVERSE(stmt_stack, bb, stmt)		\
-  VARRAY_TREE_INIT (stmt_stack, 50, "stmt_stack");		\
-  VARRAY_PUSH_TREE (stmt_stack, NULL_TREE);			\
-  {								\
-    block_stmt_iterator bsi;					\
-    for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))	\
-      VARRAY_PUSH_TREE (stmt_stack, bsi_stmt (bsi));		\
-  }								\
-  stmt = VARRAY_TOP_TREE (stmt_stack);				\
-  VARRAY_POP (stmt_stack);					\
-  for ( ; VARRAY_ACTIVE_SIZE (stmt_stack) > 0 ;		\
-	      stmt = VARRAY_TOP_TREE (stmt_stack), VARRAY_POP (stmt_stack))
-
 
 static inline bool
 may_propagate_copy (tree dest, tree orig)
@@ -608,6 +457,82 @@ phi_ssa_name_p (tree t)
     abort ();
 #endif
   return false;
+}
+
+/*  -----------------------------------------------------------------------  */
+
+static inline block_stmt_iterator
+bsi_start (basic_block bb)
+{
+  block_stmt_iterator bsi;
+  if (bb->stmt_list)
+    bsi.tsi = tsi_start (bb->stmt_list);
+  else
+    {
+#ifdef ENABLE_CHECKING
+      if (bb->index >= 0)
+	abort ();
+#endif
+      bsi.tsi.ptr = NULL;
+      bsi.tsi.container = NULL;
+    }
+  bsi.bb = bb;
+  return bsi;
+}
+
+static inline block_stmt_iterator
+bsi_last (basic_block bb)
+{
+  block_stmt_iterator bsi;
+  if (bb->stmt_list)
+    bsi.tsi = tsi_last (bb->stmt_list);
+  else
+    {
+#ifdef ENABLE_CHECKING
+      if (bb->index >= 0)
+	abort ();
+#endif
+      bsi.tsi.ptr = NULL;
+      bsi.tsi.container = NULL;
+    }
+  bsi.bb = bb;
+  return bsi;
+}
+
+static inline bool
+bsi_end_p (block_stmt_iterator i)
+{
+  return tsi_end_p (i.tsi);
+}
+
+static inline void
+bsi_next (block_stmt_iterator *i)
+{
+  tsi_next (&i->tsi);
+}
+
+static inline void
+bsi_prev (block_stmt_iterator *i)
+{
+  tsi_prev (&i->tsi);
+}
+
+static inline tree
+bsi_stmt (block_stmt_iterator i)
+{
+  return tsi_stmt (i.tsi);
+}
+
+static inline tree *
+bsi_stmt_ptr (block_stmt_iterator i)
+{
+  return tsi_stmt_ptr (i.tsi);
+}
+
+static inline void
+bsi_remove (block_stmt_iterator *i)
+{
+  tsi_delink (&i->tsi);
 }
 
 #endif /* _TREE_FLOW_INLINE_H  */

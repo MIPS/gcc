@@ -180,24 +180,26 @@ gimple_pop_condition (tree *pre_p)
 /* A subroutine of append_to_statement_list{,_force}.  */
 
 static void
-append_to_statement_list_1 (tree stmt, tree *list_p, bool side_effects)
+append_to_statement_list_1 (tree t, tree *list_p, bool side_effects)
 {
-  tree existing = *list_p;
+  tree list = *list_p;
+  tree_stmt_iterator i;
 
-  /* If we previously had nothing, force a statement of some sort.  */
-  if (!existing)
+  if (!list)
     {
-      if (!stmt || (!side_effects && !IS_EMPTY_STMT (stmt)))
-	stmt = build_empty_stmt ();
+      if (t && TREE_CODE (t) == STATEMENT_LIST)
+	{
+	  *list_p = t;
+	  return;
+	}
+      *list_p = list = alloc_stmt_list ();
     }
-  /* If side effects say to discard the new statement, do so.  */
-  else if (!side_effects)
-    return;
-  /* If we had an empty statement, discard it, otherwise chain.  */
-  else if (existing && !IS_EMPTY_STMT (existing))
-    stmt = build (COMPOUND_EXPR, void_type_node, existing, stmt);
 
-  *list_p = stmt;
+  if (!side_effects)
+    return;
+
+  i = tsi_last (list);
+  tsi_link_after (&i, t, TSI_CONTINUE_LINKING);
 }
 
 /* Add T to the end of the list container pointed by LIST_P.
@@ -535,29 +537,6 @@ gimple_add_tmp_var (tree tmp)
     declare_tmp_vars (tmp, DECL_SAVED_TREE (current_function_decl));
 }
 
-/* Apply FN to each statement under *STMT_P, which may be a COMPOUND_EXPR
-   or a single statement expr.  */
-
-void
-foreach_stmt (tree *stmt_p, foreach_stmt_fn *fn)
-{
-  if (*stmt_p == NULL_TREE)
-    return;
-
-  for (; TREE_CODE (*stmt_p) == COMPOUND_EXPR;
-       stmt_p = &TREE_OPERAND (*stmt_p, 1))
-    {
-      tree *sub_p = &TREE_OPERAND (*stmt_p, 0);
-      if (TREE_CODE (*sub_p) == COMPOUND_EXPR)
-	foreach_stmt (sub_p, fn);
-      else
-	fn (sub_p);
-    }
-  fn (stmt_p);
-}
-
-static location_t wfl_locus;
-
 /* Determines whether to assign a locus to the statement STMT.  */
 
 static bool
@@ -576,20 +555,31 @@ should_carry_locus_p (tree stmt)
   return true;
 }
 
-static void
-annotate_all_with_locus_1 (tree *stmt_p)
-{
-  if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (*stmt_p)))
-      && ! EXPR_LOCUS (*stmt_p)
-      && should_carry_locus_p (*stmt_p))
-    annotate_with_locus (*stmt_p, wfl_locus);
-}
-
 void
 annotate_all_with_locus (tree *stmt_p, location_t locus)
 {
-  wfl_locus = locus;
-  foreach_stmt (stmt_p, annotate_all_with_locus_1);
+  tree_stmt_iterator i;
+
+  if (!*stmt_p)
+    return;
+
+  for (i = tsi_start (*stmt_p); !tsi_end_p (i); tsi_next (&i))
+    {
+      tree t = tsi_stmt (i);
+
+#ifdef ENABLE_CHECKING
+	  /* Assuming we've already been gimplified, we shouldn't
+	     see nested chaining constructs anymore.  */
+	  if (TREE_CODE (t) == STATEMENT_LIST
+	      || TREE_CODE (t) == COMPOUND_EXPR)
+	    abort ();
+#endif
+
+      if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (t)))
+	  && ! EXPR_LOCUS (t)
+	  && should_carry_locus_p (t))
+	annotate_with_locus (t, locus);
+    }
 }
 
 /* Similar to copy_tree_r() but do not copy SAVE_EXPR nodes.  These nodes
@@ -685,9 +675,16 @@ mark_not_gimple (tree *expr_p)
 tree
 gimple_build_eh_filter (tree body, tree allowed, tree failure)
 {
+  tree t;
+
   /* FIXME should the allowed types go in TREE_TYPE?  */
-  tree filter = build (EH_FILTER_EXPR, void_type_node, allowed, failure);
-  return build (TRY_CATCH_EXPR, void_type_node, body, filter);
+  t = build (EH_FILTER_EXPR, void_type_node, allowed, NULL_TREE);
+  append_to_statement_list (failure, &EH_FILTER_FAILURE (t));
+
+  t = build (TRY_CATCH_EXPR, void_type_node, NULL_TREE, t);
+  append_to_statement_list (body, &TREE_OPERAND (t, 0));
+
+  return t;
 }
 
 
@@ -717,13 +714,26 @@ voidify_wrapper_expr (tree wrapper)
 	  break;
 	}
 
-      for (; TREE_CODE (*p) == COMPOUND_EXPR;
-	   p = &TREE_OPERAND (*p, 1))
+      /* Advance.  Set up the substatements appropriately for what we
+	 will have when we're done.  */
+      if (TREE_CODE (*p) == STATEMENT_LIST)
 	{
-	  /* Advance.  Set up the COMPOUND_EXPRs appropriately for what we
-	     will have when we're done.  */
-	  TREE_SIDE_EFFECTS (*p) = 1;
-	  TREE_TYPE (*p) = void_type_node;
+	  tree_stmt_iterator i;
+	  for (i = tsi_start (*p); !tsi_one_before_end_p (i); tsi_next (&i))
+	    {
+	      tree t = tsi_stmt (i);
+	      TREE_SIDE_EFFECTS (t) = 1;
+	      TREE_TYPE (t) = void_type_node;
+	    }
+	  p = tsi_stmt_ptr (i);
+	}
+      else
+	{ 
+	  for (; TREE_CODE (*p) == COMPOUND_EXPR; p = &TREE_OPERAND (*p, 1))
+	    {
+	      TREE_SIDE_EFFECTS (*p) = 1;
+	      TREE_TYPE (*p) = void_type_node;
+	    }
 	}
 
       if (TREE_CODE (*p) == INIT_EXPR)
@@ -796,7 +806,8 @@ gimplify_bind_expr (tree *expr_p, tree *pre_p)
   gimple_push_bind_expr (bind_expr);
   gimplify_ctxp->save_stack = false;
 
-  gimplify_stmt (&BIND_EXPR_BODY (bind_expr));
+  gimplify_to_stmt_list (&BIND_EXPR_BODY (bind_expr));
+
   if (gimplify_ctxp->save_stack)
     {
       tree stack_save, stack_restore;
@@ -804,12 +815,14 @@ gimplify_bind_expr (tree *expr_p, tree *pre_p)
       /* Save stack on entry and restore it on exit.  Add a try_finally
 	 block to achieve this.  */
       build_stack_save_restore (&stack_save, &stack_restore);
-      BIND_EXPR_BODY (bind_expr) =
-	  build (COMPOUND_EXPR, void_type_node,
-		 stack_save,
-		 build (TRY_FINALLY_EXPR, void_type_node,
-			BIND_EXPR_BODY (bind_expr),
-			stack_restore));
+
+      t = build (TRY_FINALLY_EXPR, void_type_node,
+		 BIND_EXPR_BODY (bind_expr), NULL_TREE);
+      append_to_statement_list (stack_restore, &TREE_OPERAND (t, 1));
+
+      BIND_EXPR_BODY (bind_expr) = NULL_TREE;
+      append_to_statement_list (stack_save, &BIND_EXPR_BODY (bind_expr));
+      append_to_statement_list (t, &BIND_EXPR_BODY (bind_expr));
     }
 
   gimplify_ctxp->save_stack = old_save_stack;
@@ -836,7 +849,6 @@ static enum gimplify_status
 gimplify_return_expr (tree stmt, tree *pre_p)
 {
   tree ret_expr = TREE_OPERAND (stmt, 0);
-  tree_stmt_iterator si;
   tree result;
 
   if (!ret_expr || TREE_CODE (ret_expr) == RESULT_DECL)
@@ -873,30 +885,29 @@ gimplify_return_expr (tree stmt, tree *pre_p)
 	 gimplification, find it so we can put it in the RETURN_EXPR.  */
       tree ret = NULL_TREE;
 
-      for (si = tsi_start (&ret_expr); !tsi_end_p (si); tsi_next (&si))
+      if (TREE_CODE (ret_expr) == STATEMENT_LIST)
 	{
-	  tree sub = tsi_stmt (si);
-	  if (TREE_CODE (sub) == MODIFY_EXPR
-	      && TREE_OPERAND (sub, 0) == result)
+	  tree_stmt_iterator si;
+	  for (si = tsi_start (ret_expr); !tsi_end_p (si); tsi_next (&si))
 	    {
-	      ret = sub;
-	      break;
-	    }
-	}
-
-      if (ret)
-	{
-	  if (tsi_one_before_end_p (si))
-	    /* If the MODIFY_EXPR was the last thing in the GIMPLE
-	       form, pull it out.  */
-	    tsi_delink (&si);
-	  else
-	    {
-	      /* If there were posteffects after the MODIFY_EXPR, we
-		 need a temporary.  */
-	      tree tmp = create_tmp_var (TREE_TYPE (result), "retval");
-	      TREE_OPERAND (ret, 0) = tmp;
-	      ret = build (MODIFY_EXPR, TREE_TYPE (result), result, tmp);
+	      tree sub = tsi_stmt (si);
+	      if (TREE_CODE (sub) == MODIFY_EXPR
+		  && TREE_OPERAND (sub, 0) == result)
+		{
+		  ret = sub;
+		  if (tsi_one_before_end_p (si))
+		    tsi_delink (&si);
+		  else
+		    {
+		      /* If there were posteffects after the MODIFY_EXPR,
+			 we need a temporary.  */
+		      tree tmp = create_tmp_var (TREE_TYPE (result), "retval");
+		      TREE_OPERAND (ret, 0) = tmp;
+		      ret = build (MODIFY_EXPR, TREE_TYPE (result),
+				   result, tmp);
+		    }
+		  break;
+		}
 	    }
 	}
 
@@ -921,23 +932,22 @@ gimplify_loop_expr (tree *expr_p, tree *pre_p)
 {
   tree saved_label = gimplify_ctxp->exit_label;
   tree start_label = build1 (LABEL_EXPR, void_type_node, NULL_TREE);
-  tree t;
+  tree jump_stmt = build_and_jump (&LABEL_EXPR_LABEL (start_label));
 
   append_to_statement_list (start_label, pre_p);
 
   gimplify_ctxp->exit_label = NULL_TREE;
 
   gimplify_stmt (&LOOP_EXPR_BODY (*expr_p));
-  *expr_p = LOOP_EXPR_BODY (*expr_p);
+  append_to_statement_list (LOOP_EXPR_BODY (*expr_p), pre_p);
 
-  t = build_and_jump (&LABEL_EXPR_LABEL (start_label));
-  append_to_statement_list (t, expr_p);
   if (gimplify_ctxp->exit_label)
     {
-      tree expr = build1 (LABEL_EXPR, void_type_node,
-			  gimplify_ctxp->exit_label);
-      append_to_statement_list (expr, expr_p);
+      append_to_statement_list (jump_stmt, pre_p);
+      *expr_p = build1 (LABEL_EXPR, void_type_node, gimplify_ctxp->exit_label);
     }
+  else
+    *expr_p = jump_stmt;
 
   gimplify_ctxp->exit_label = saved_label;
 
@@ -977,7 +987,7 @@ gimplify_switch_expr (tree *expr_p, tree *pre_p)
       saved_labels = gimplify_ctxp->case_labels;
       VARRAY_TREE_INIT (gimplify_ctxp->case_labels, 8, "case_labels");
 
-      gimplify_stmt (&SWITCH_BODY (switch_expr));
+      gimplify_to_stmt_list (&SWITCH_BODY (switch_expr));
 
       labels = gimplify_ctxp->case_labels;
       gimplify_ctxp->case_labels = saved_labels;
@@ -1761,7 +1771,7 @@ static tree
 shortcut_cond_r (tree pred, tree *true_label_p, tree *false_label_p)
 {
   tree local_label = NULL_TREE;
-  tree one, two, expr = NULL_TREE;
+  tree t, expr = NULL;
 
   /* OK, it's not a simple case; we need to pull apart the COND_EXPR to
      retain the shortcut semantics.  Just insert the gotos here;
@@ -1777,11 +1787,12 @@ shortcut_cond_r (tree pred, tree *true_label_p, tree *false_label_p)
       if (false_label_p == NULL)
 	false_label_p = &local_label;
 
-      one = shortcut_cond_r (TREE_OPERAND (pred, 0), NULL, false_label_p);
-      two = shortcut_cond_r (TREE_OPERAND (pred, 1), true_label_p,
-			     false_label_p);
-      append_to_statement_list (one, &expr);
-      append_to_statement_list (two, &expr);
+      t = shortcut_cond_r (TREE_OPERAND (pred, 0), NULL, false_label_p);
+      append_to_statement_list (t, &expr);
+
+      t = shortcut_cond_r (TREE_OPERAND (pred, 1), true_label_p,
+			   false_label_p);
+      append_to_statement_list (t, &expr);
     }
   else if (TREE_CODE (pred) == TRUTH_ORIF_EXPR)
     {
@@ -1794,11 +1805,12 @@ shortcut_cond_r (tree pred, tree *true_label_p, tree *false_label_p)
       if (true_label_p == NULL)
 	true_label_p = &local_label;
 
-      one = shortcut_cond_r (TREE_OPERAND (pred, 0), true_label_p, NULL);
-      two = shortcut_cond_r (TREE_OPERAND (pred, 1), true_label_p,
-			     false_label_p);
-      append_to_statement_list (one, &expr);
-      append_to_statement_list (two, &expr);
+      t = shortcut_cond_r (TREE_OPERAND (pred, 0), true_label_p, NULL);
+      append_to_statement_list (t, &expr);
+
+      t = shortcut_cond_r (TREE_OPERAND (pred, 1), true_label_p,
+			   false_label_p);
+      append_to_statement_list (t, &expr);
     }
   else if (TREE_CODE (pred) == COND_EXPR)
     {
@@ -1807,12 +1819,11 @@ shortcut_cond_r (tree pred, tree *true_label_p, tree *false_label_p)
 	   if (b) goto yes; else goto no;
 	 else
 	   if (c) goto yes; else goto no;  */
-      one = shortcut_cond_r (TREE_OPERAND (pred, 1), true_label_p,
-			     false_label_p);
-      two = shortcut_cond_r (TREE_OPERAND (pred, 2), true_label_p,
-			     false_label_p);
       expr = build (COND_EXPR, void_type_node, TREE_OPERAND (pred, 0),
-		    one, two);
+		    shortcut_cond_r (TREE_OPERAND (pred, 1), true_label_p,
+				     false_label_p),
+		    shortcut_cond_r (TREE_OPERAND (pred, 2), true_label_p,
+				     false_label_p));
     }
   else
     {
@@ -1823,8 +1834,8 @@ shortcut_cond_r (tree pred, tree *true_label_p, tree *false_label_p)
 
   if (local_label)
     {
-      local_label = build1 (LABEL_EXPR, void_type_node, local_label);
-      append_to_statement_list_force (local_label, &expr);
+      t = build1 (LABEL_EXPR, void_type_node, local_label);
+      append_to_statement_list (t, &expr);
     }
 
   return expr;
@@ -1836,11 +1847,10 @@ shortcut_cond_expr (tree expr)
   tree pred = TREE_OPERAND (expr, 0);
   tree then_ = TREE_OPERAND (expr, 1);
   tree else_ = TREE_OPERAND (expr, 2);
-  tree true_label, false_label, end_label;
+  tree true_label, false_label, end_label, t;
   tree *true_label_p;
   tree *false_label_p;
   bool emit_end, emit_false;
-  tree_stmt_iterator si;
 
   /* First do simple transformations.  */
   if (!TREE_SIDE_EFFECTS (else_))
@@ -1888,21 +1898,19 @@ shortcut_cond_expr (tree expr)
 
   /* If our arms just jump somewhere, hijack those labels so we don't
      generate jumps to jumps.  */
-  si = tsi_start (&then_);
-  expr = tsi_stmt (si);
-  if (TREE_CODE (expr) == GOTO_EXPR
-      && TREE_CODE (GOTO_DESTINATION (expr)) == LABEL_DECL)
+
+  if (TREE_CODE (then_) == GOTO_EXPR
+      && TREE_CODE (GOTO_DESTINATION (then_)) == LABEL_DECL)
     {
-      true_label = GOTO_DESTINATION (expr);
-      tsi_delink (&si);
+      true_label = GOTO_DESTINATION (then_);
+      then_ = build_empty_stmt ();
     }
-  si = tsi_start (&else_);
-  expr = tsi_stmt (si);
-  if (TREE_CODE (expr) == GOTO_EXPR
-      && TREE_CODE (GOTO_DESTINATION (expr)) == LABEL_DECL)
+
+  if (TREE_CODE (else_) == GOTO_EXPR
+      && TREE_CODE (GOTO_DESTINATION (else_)) == LABEL_DECL)
     {
-      false_label = GOTO_DESTINATION (expr);
-      tsi_delink (&si);
+      false_label = GOTO_DESTINATION (else_);
+      else_ = build_empty_stmt ();
     }
 
   /* If we aren't hijacking a label for the 'then' branch, it falls through. */
@@ -1938,18 +1946,28 @@ shortcut_cond_expr (tree expr)
   emit_end = (end_label == NULL_TREE);
   emit_false = (false_label == NULL_TREE);
 
-  expr = shortcut_cond_r (pred, true_label_p, false_label_p);
+  pred = shortcut_cond_r (pred, true_label_p, false_label_p);
+
+  expr = NULL;
+  append_to_statement_list (pred, &expr);
 
   append_to_statement_list (then_, &expr);
   if (TREE_SIDE_EFFECTS (else_))
     {
-      append_to_statement_list (build_and_jump (&end_label), &expr);
+      t = build_and_jump (&end_label);
+      append_to_statement_list (t, &expr);
       if (emit_false)
-	append_to_statement_list (build1 (LABEL_EXPR, void_type_node, false_label), &expr);
+	{
+	  t = build1 (LABEL_EXPR, void_type_node, false_label);
+	  append_to_statement_list (t, &expr);
+	}
       append_to_statement_list (else_, &expr);
     }
   if (emit_end && end_label)
-    append_to_statement_list (build1 (LABEL_EXPR, void_type_node, end_label), &expr);
+    {
+      t = build1 (LABEL_EXPR, void_type_node, end_label);
+      append_to_statement_list (t, &expr);
+    }
 
   return expr;
 }
@@ -2085,8 +2103,9 @@ gimplify_cond_expr (tree *expr_p, tree *pre_p, tree target)
 
   gimple_push_condition ();
 
-  gimplify_stmt (&TREE_OPERAND (expr, 1));
-  gimplify_stmt (&TREE_OPERAND (expr, 2));
+  gimplify_to_stmt_list (&TREE_OPERAND (expr, 1));
+  gimplify_to_stmt_list (&TREE_OPERAND (expr, 2));
+  recalculate_side_effects (expr);
 
   gimple_pop_condition (pre_p);
 
@@ -2235,29 +2254,72 @@ gimplify_boolean_expr (tree *expr_p)
   return GS_OK;
 }
 
-/*  Gimplifies an expression sequence.  This function gimplifies each
-    expression and re-writes the original expression with the last
-    expression of the sequence in GIMPLE form.
+/* Gimplifies an expression sequence.  This function gimplifies each
+   expression and re-writes the original expression with the last
+   expression of the sequence in GIMPLE form.
 
-    PRE_P points to the list where the side effects for all the expressions
-	in the sequence will be emitted.
-
-    POST_P points to the list where the post side effects for the last
-        expression in the sequence are emitted.  */
+   PRE_P points to the list where the side effects for all the
+       expressions in the sequence will be emitted.
+    
+   WANT_VALUE is true when the result of the last COMPOUND_EXPR is used.  */
+/* ??? Should rearrange to share the pre-queue with all the indirect
+   invocations of gimplify_expr.  Would probably save on creations 
+   of statement_list nodes.  */
 
 static enum gimplify_status
-gimplify_compound_expr (tree *expr_p, tree *pre_p)
+gimplify_compound_expr (tree *expr_p, tree *pre_p, bool want_value)
 {
-  tree t;
-  for (t = *expr_p; TREE_CODE (t) == COMPOUND_EXPR; t = TREE_OPERAND (t, 1))
+  tree t = *expr_p;
+
+  do
     {
-      tree sub = TREE_OPERAND (t, 0);
-      gimplify_stmt (&sub);
-      append_to_statement_list (sub, pre_p);
+      tree *sub_p = &TREE_OPERAND (t, 0);
+
+      if (TREE_CODE (*sub_p) == COMPOUND_EXPR)
+	gimplify_compound_expr (sub_p, pre_p, false);
+      else
+        gimplify_stmt (sub_p);
+      append_to_statement_list (*sub_p, pre_p);
+
+      t = TREE_OPERAND (t, 1);
     }
+  while (TREE_CODE (t) == COMPOUND_EXPR);
 
   *expr_p = t;
-  return GS_OK;
+  if (want_value)
+    return GS_OK;
+  else
+    {
+      gimplify_stmt (expr_p);
+      return GS_ALL_DONE;
+    }
+}
+
+/* Gimplifies a statement list.  These may be created either by an
+   enlightend front-end, or by shortcut_cond_expr.  */
+
+static enum gimplify_status
+gimplify_statement_list (tree *expr_p)
+{
+  tree_stmt_iterator i = tsi_start (*expr_p);
+
+  while (!tsi_end_p (i))
+    {
+      tree t;
+
+      gimplify_stmt (tsi_stmt_ptr (i));
+
+      t = tsi_stmt (i);
+      if (TREE_CODE (t) == STATEMENT_LIST)
+	{
+	  tsi_link_before (&i, t, TSI_SAME_STMT);
+	  tsi_delink (&i);
+	}
+      else
+	tsi_next (&i);
+    }
+
+  return GS_ALL_DONE;
 }
 
 /*  Gimplify a SAVE_EXPR node.  EXPR_P points to the expression to
@@ -2499,27 +2561,34 @@ gimplify_cleanup_point_expr (tree *expr_p, tree *pre_p)
   gimplify_ctxp->conditions = 0;
 
   body = TREE_OPERAND (*expr_p, 0);
-  gimplify_stmt (&body);
+  gimplify_to_stmt_list (&body);
 
   gimplify_ctxp->conditions = old_conds;
 
-  for (iter = tsi_start (&body); !tsi_end_p (iter); )
+  for (iter = tsi_start (body); !tsi_end_p (iter); )
     {
-      tree wce = tsi_stmt (iter);
-      if (wce && TREE_CODE (wce) == WITH_CLEANUP_EXPR)
+      tree *wce_p = tsi_stmt_ptr (iter);
+      tree wce = *wce_p;
+
+      if (TREE_CODE (wce) == WITH_CLEANUP_EXPR)
 	{
-	  tree *container = tsi_container (iter);
-	  tree next, tfe;
-
-	  if (TREE_CODE (*container) == COMPOUND_EXPR)
-	    next = TREE_OPERAND (*container, 1);
+	  if (tsi_one_before_end_p (iter))
+	    {
+	      tsi_link_before (&iter, TREE_OPERAND (wce, 1), TSI_SAME_STMT);
+	      tsi_delink (&iter);
+	      break;
+	    }
 	  else
-	    next = build_empty_stmt ();
+	    {
+	      tree sl, tfe;
 
-	  tfe = build (TRY_FINALLY_EXPR, void_type_node,
-		       next, TREE_OPERAND (wce, 1));
-	  *container = tfe;
-	  iter = tsi_start (&TREE_OPERAND (tfe, 0));
+	      sl = tsi_split_statement_list_after (&iter);
+	      tfe = build (TRY_FINALLY_EXPR, void_type_node, sl, NULL_TREE);
+	      append_to_statement_list (TREE_OPERAND (wce, 1),
+				     &TREE_OPERAND (tfe, 1));
+	      *wce_p = tfe;
+	      iter = tsi_start (sl);
+	    }
 	}
       else
 	tsi_next (&iter);
@@ -2593,6 +2662,8 @@ gimple_push_cleanup (tree cleanup, tree *pre_p)
 		   cleanup, NULL_TREE);
       append_to_statement_list (wce, pre_p);
     }
+
+  gimplify_stmt (&TREE_OPERAND (wce, 1));
 }
 
 /* Gimplify a TARGET_EXPR which doesn't appear on the rhs of an INIT_EXPR.  */
@@ -2637,6 +2708,22 @@ void
 gimplify_stmt (tree *stmt_p)
 {
   gimplify_expr (stmt_p, NULL, NULL, is_gimple_stmt, fb_none);
+  if (!*stmt_p)
+    *stmt_p = alloc_stmt_list ();
+}
+
+/* Similarly, but force the result to be a STATEMENT_LIST.  */
+
+void
+gimplify_to_stmt_list (tree *stmt_p)
+{
+  gimplify_stmt (stmt_p);
+  if (TREE_CODE (*stmt_p) != STATEMENT_LIST)
+    {
+      tree t = *stmt_p;
+      *stmt_p = NULL;
+      append_to_statement_list (t, stmt_p);
+    }
 }
 
 /*  Gimplifies the expression tree pointed by EXPR_P.  Return 0 if
@@ -2761,13 +2848,7 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	  abort ();
 
 	case COMPOUND_EXPR:
-	  if (is_statement)
-	    {
-	      foreach_stmt (expr_p, (foreach_stmt_fn *)gimplify_stmt);
-	      ret = GS_ALL_DONE;
-	    }
-	  else
-	    ret = gimplify_compound_expr (expr_p, pre_p);
+	  ret = gimplify_compound_expr (expr_p, pre_p, fallback != fb_none);
 	  break;
 
 	case REALPART_EXPR:
@@ -2964,8 +3045,8 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 
 	case TRY_FINALLY_EXPR:
 	case TRY_CATCH_EXPR:
-	  gimplify_stmt (&TREE_OPERAND (*expr_p, 0));
-	  gimplify_stmt (&TREE_OPERAND (*expr_p, 1));
+	  gimplify_to_stmt_list (&TREE_OPERAND (*expr_p, 0));
+	  gimplify_to_stmt_list (&TREE_OPERAND (*expr_p, 1));
 	  ret = GS_ALL_DONE;
 	  break;
 
@@ -2978,12 +3059,12 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	  break;
 
 	case CATCH_EXPR:
-	  gimplify_stmt (&CATCH_BODY (*expr_p));
+	  gimplify_to_stmt_list (&CATCH_BODY (*expr_p));
 	  ret = GS_ALL_DONE;
 	  break;
 
 	case EH_FILTER_EXPR:
-	  gimplify_stmt (&EH_FILTER_FAILURE (*expr_p));
+	  gimplify_to_stmt_list (&EH_FILTER_FAILURE (*expr_p));
 	  ret = GS_ALL_DONE;
 	  break;
 
@@ -3006,6 +3087,10 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	     it is a potential target for any computed goto.  */
 	  FORCED_LABEL (*expr_p) = 1;
 	  ret = GS_ALL_DONE;
+	  break;
+
+	case STATEMENT_LIST:
+	  ret = gimplify_statement_list (expr_p);
 	  break;
 
         case VAR_DECL:
@@ -3087,6 +3172,8 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
     abort ();
 #endif
 
+  if (!*expr_p)
+    *expr_p = build_empty_stmt ();
   if (fallback == fb_none && !is_gimple_stmt (*expr_p))
     {
       /* We aren't looking for a value, and we don't have a valid
@@ -3115,13 +3202,10 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
      gimplified form.  */
   if (is_statement)
     {
-      append_to_statement_list (*expr_p, pre_p);
-      annotate_all_with_locus (&internal_post, input_location);
-      append_to_statement_list (internal_post, pre_p);
-      tmp = rationalize_compound_expr (internal_pre);
-      annotate_all_with_locus (&tmp, input_location);
-      *expr_p = tmp;
-
+      append_to_statement_list (*expr_p, &internal_pre);
+      append_to_statement_list (internal_post, &internal_pre);
+      annotate_all_with_locus (&internal_pre, input_location);
+      *expr_p = internal_pre;
       goto out;
     }
 
@@ -3227,9 +3311,12 @@ gimplify_body (tree *body_p, tree fndecl)
   /* If there isn't an outer BIND_EXPR, add one.  */
   if (TREE_CODE (*body_p) != BIND_EXPR)
     {
-      *body_p = build (BIND_EXPR, void_type_node, NULL_TREE,
-		       *body_p, NULL_TREE);
-      TREE_SIDE_EFFECTS (*body_p) = 1;
+      tree t = *body_p;
+      tree b = build (BIND_EXPR, void_type_node, NULL_TREE,
+		      NULL_TREE, NULL_TREE);
+      TREE_SIDE_EFFECTS (b) = 1;
+      append_to_statement_list (t, &BIND_EXPR_BODY (b));
+      *body_p = b;
     }
 
   /* Declare the new temporary variables.  */

@@ -85,7 +85,7 @@ lower_stmt_body (tree *expr, struct lower_data *data)
 {
   tree_stmt_iterator tsi;
 
-  for (tsi = tsi_start (expr); !tsi_end_p (tsi); )
+  for (tsi = tsi_start (*expr); !tsi_end_p (tsi); )
     lower_stmt (&tsi, data);
 }
 
@@ -185,7 +185,7 @@ lower_bind_expr (tree_stmt_iterator *tsi, struct lower_data *data)
 
   /* The BIND_EXPR no longer carries any useful information, so get rid
      of it.  */
-  tsi_link_chain_before (tsi, BIND_EXPR_BODY (stmt), TSI_SAME_STMT);
+  tsi_link_before (tsi, BIND_EXPR_BODY (stmt), TSI_SAME_STMT);
   tsi_delink (tsi);
 }
 
@@ -196,7 +196,8 @@ lower_cond_expr (tree_stmt_iterator *tsi, struct lower_data *data)
 {
   tree stmt = tsi_stmt (*tsi);
   bool then_is_goto, else_is_goto;
-  tree then_branch, else_branch, then_label, else_label, end_label, t;
+  tree then_branch, else_branch;
+  tree then_goto, else_goto;
   
   lower_stmt_body (&COND_EXPR_THEN (stmt), data);
   lower_stmt_body (&COND_EXPR_ELSE (stmt), data);
@@ -204,74 +205,80 @@ lower_cond_expr (tree_stmt_iterator *tsi, struct lower_data *data)
   then_branch = COND_EXPR_THEN (stmt);
   else_branch = COND_EXPR_ELSE (stmt);
 
-  then_is_goto = simple_goto_p (then_branch);
-  else_is_goto = simple_goto_p (else_branch);
+  then_goto = expr_only (then_branch);
+  then_is_goto = then_goto && simple_goto_p (then_goto);
 
-  if (then_is_goto && else_is_goto)
+  else_goto = expr_only (else_branch);
+  else_is_goto = else_goto && simple_goto_p (else_goto);
+
+  if (!then_is_goto || !else_is_goto)
     {
-      tsi_next (tsi);
-      return;
-    }
+      tree then_label, else_label, end_label, t;
 
-  then_label = NULL_TREE;
-  else_label = NULL_TREE;
-  end_label = NULL_TREE;
+      then_label = NULL_TREE;
+      else_label = NULL_TREE;
+      end_label = NULL_TREE;
  
-  /* Replace the cond_expr with explicit gotos.  */
-  if (!then_is_goto)
-    {
-      t = build1 (LABEL_EXPR, void_type_node, NULL_TREE);
-      if (TREE_SIDE_EFFECTS (then_branch))
-	then_label = t;
-      else
-	end_label = t;
-      COND_EXPR_THEN (stmt) = build_and_jump (&LABEL_EXPR_LABEL (t));
-    }
-
-  if (!else_is_goto)
-    {
-      t = build1 (LABEL_EXPR, void_type_node, NULL_TREE);
-      if (TREE_SIDE_EFFECTS (else_branch))
-	else_label = t;
-      else
+      /* Replace the cond_expr with explicit gotos.  */
+      if (!then_is_goto)
 	{
-	  /* Both THEN and ELSE can be no-ops if one or both contained an
-	     empty BIND_EXPR that was associated with the toplevel block
-	     of an inlined function.  In that case remove_useless_stmts
-	     can't have cleaned things up for us; kill the whole 
-	     conditional now.  */
-	  if (end_label)
-	    {
-	      tsi_delink (tsi);
-	      return;
-	    }
+	  t = build1 (LABEL_EXPR, void_type_node, NULL_TREE);
+	  if (TREE_SIDE_EFFECTS (then_branch))
+	    then_label = t;
 	  else
 	    end_label = t;
+	  then_goto = build_and_jump (&LABEL_EXPR_LABEL (t));
 	}
-      COND_EXPR_ELSE (stmt) = build_and_jump (&LABEL_EXPR_LABEL (t));
-    }
 
-  if (then_label)
-    {
-      tsi_link_after (tsi, then_label, TSI_CONTINUE_LINKING);
-      tsi_link_chain_after (tsi, then_branch, TSI_CONTINUE_LINKING);
+      if (!else_is_goto)
+	{
+	  t = build1 (LABEL_EXPR, void_type_node, NULL_TREE);
+	  if (TREE_SIDE_EFFECTS (else_branch))
+	    else_label = t;
+	  else
+	    {
+	      /* Both THEN and ELSE can be no-ops if one or both contained an
+	         empty BIND_EXPR that was associated with the toplevel block
+	         of an inlined function.  In that case remove_useless_stmts
+	         can't have cleaned things up for us; kill the whole 
+	         conditional now.  */
+	      if (end_label)
+		{
+		  tsi_delink (tsi);
+		  return;
+		}
+	      else
+		end_label = t;
+	    }
+	  else_goto = build_and_jump (&LABEL_EXPR_LABEL (t));
+	}
+
+      if (then_label)
+	{
+	  tsi_link_after (tsi, then_label, TSI_CONTINUE_LINKING);
+	  tsi_link_after (tsi, then_branch, TSI_CONTINUE_LINKING);
+  
+	  if (else_label)
+	    {
+	      end_label = build1 (LABEL_EXPR, void_type_node, NULL_TREE);
+	      t = build_and_jump (&LABEL_EXPR_LABEL (end_label));
+	      tsi_link_after (tsi, t, TSI_CONTINUE_LINKING);
+	    }
+	}
   
       if (else_label)
 	{
-	  end_label = build1 (LABEL_EXPR, void_type_node, NULL_TREE);
-	  tsi_link_after (tsi, build_and_jump (&LABEL_EXPR_LABEL (end_label)),
-			  TSI_CONTINUE_LINKING);
+	  tsi_link_after (tsi, else_label, TSI_CONTINUE_LINKING);
+	  tsi_link_after (tsi, else_branch, TSI_CONTINUE_LINKING);
 	}
-    }
-  
-  if (else_label)
-    {
-      tsi_link_after (tsi, else_label, TSI_CONTINUE_LINKING);
-      tsi_link_chain_after (tsi, else_branch, TSI_CONTINUE_LINKING);
+
+      if (end_label)
+	tsi_link_after (tsi, end_label, TSI_CONTINUE_LINKING);
     }
 
-  if (end_label)
-    tsi_link_after (tsi, end_label, TSI_CONTINUE_LINKING);
+  COND_EXPR_THEN (stmt) = then_goto;
+  COND_EXPR_ELSE (stmt) = else_goto;
+
   tsi_next (tsi);
 }
 

@@ -1,3 +1,8 @@
+2003-11-12  Richard Henderson  <rth@redhat.com>
+
+	* trans.c (gfc_trans_code): Use annotate_with_locus instead of
+	annotate_all_with_locus.
+
 2003-11-11  Canqun Yang  <canqun@nudt.edu.cn>
  
  	* options.c (gfc_init_options): Set flag_max_stack_var_size as 32768.

@@ -1906,7 +1906,6 @@ rewrite_out_of_ssa (tree fndecl, enum tree_dump_index phase)
   timevar_pop (TV_TREE_SSA_TO_NORMAL);
 }
 
-
 /* Remove edge E and remove the corresponding arguments from the PHI nodes
    in E's destination block.  */
 

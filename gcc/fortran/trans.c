@@ -411,7 +411,6 @@ gfc_trans_code (gfc_code * code)
       if (code->here != 0)
 	{
 	  res = gfc_trans_label_here (code);
-	  annotate_all_with_locus (&res, input_location);
 	  gfc_add_expr_to_block (&block, res);
 	}
 
@@ -547,7 +546,7 @@ gfc_trans_code (gfc_code * code)
 
       if (res != NULL_TREE && ! IS_EMPTY_STMT (res))
 	{
-	  annotate_all_with_locus (&res, input_location);
+	  annotate_with_locus (res, input_location);
 	  /* Add the new statemment to the block.  */
 	  gfc_add_expr_to_block (&block, res);
 	}

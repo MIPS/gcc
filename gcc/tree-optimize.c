@@ -51,7 +51,7 @@ Boston, MA 02111-1307, USA.  */
 /* Main entry point to the tree SSA transformation routines.  FNDECL is the
    FUNCTION_DECL node for the function to optimize.  */
 
-void
+static void
 optimize_function_tree (tree fndecl, tree *chain)
 {
   /* Don't bother doing anything if the program has errors.  */
@@ -172,8 +172,18 @@ optimize_function_tree (tree fndecl, tree *chain)
       /* Rewrite the function out of SSA form.  */
       rewrite_out_of_ssa (fndecl, TDI_optimized);
 
+      /* Flush out flow graph and SSA data.  */
       sbitmap_free (vars_to_rename);
     }
+
+  /* Re-chain the statements from the blocks.  */
+  {
+    basic_block bb;
+
+    *chain = NULL;
+    FOR_EACH_BB (bb)
+      append_to_statement_list_force (bb->stmt_list, chain);
+  }
 
   delete_tree_cfg ();
 }

@@ -97,8 +97,7 @@ varray_type basic_block_info;
 struct basic_block_def entry_exit_blocks[2]
 = {{NULL,			/* head */
     NULL,			/* end */
-    NULL,			/* head_tree */
-    NULL,			/* end_tree */
+    NULL,			/* stmt_list*/
     NULL,			/* pred */
     NULL,			/* succ */
     NULL,			/* local_set */
@@ -120,8 +119,7 @@ struct basic_block_def entry_exit_blocks[2]
   {
     NULL,			/* head */
     NULL,			/* end */
-    NULL,			/* head_tree */
-    NULL,			/* end_tree */
+    NULL,			/* stmt_list */
     NULL,			/* pred */
     NULL,			/* succ */
     NULL,			/* local_set */
@@ -263,12 +261,21 @@ compact_blocks (void)
   FOR_EACH_BB (bb)
     {
       BASIC_BLOCK (i) = bb;
+      if (tree_bb_root)
+	VARRAY_TREE (tree_bb_root, i) = bb->stmt_list;
       bb->index = i;
       i++;
     }
 
   if (i != n_basic_blocks)
     abort ();
+
+  for (; i < last_basic_block; i++)
+    {
+      BASIC_BLOCK (i) = NULL;
+      if (tree_bb_root)
+	VARRAY_TREE (tree_bb_root, i) = NULL_TREE;
+    }
 
   last_basic_block = n_basic_blocks;
 }

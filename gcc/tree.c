@@ -204,6 +204,8 @@ tree_size (tree node)
 	case EKILL_NODE:
 	case EEXIT_NODE: 	return sizeof (struct tree_eref_common);
 
+	case STATEMENT_LIST:	return sizeof (struct tree_statement_list);
+
 	default:
 	  return (*lang_hooks.tree_size) (code);
 	}
@@ -370,6 +372,11 @@ copy_node (tree node)
   tree t;
   enum tree_code code = TREE_CODE (node);
   size_t length;
+
+#ifdef ENABLE_CHECKING
+  if (code == STATEMENT_LIST)
+    abort ();
+#endif
 
   length = tree_size (node);
   t = ggc_alloc_tree (length);
@@ -1083,44 +1090,6 @@ tree_cons (tree purpose, tree value, tree chain)
   return node;
 }
 
-/* Return the first expression in a sequence of COMPOUND_EXPRs.  */
-
-tree
-expr_first (tree expr)
-{
-  if (expr == NULL_TREE)
-    return expr;
-  while (TREE_CODE (expr) == COMPOUND_EXPR)
-    expr = TREE_OPERAND (expr, 0);
-  return expr;
-}
-
-/* Return the last expression in a sequence of COMPOUND_EXPRs.  */
-
-tree
-expr_last (tree expr)
-{
-  if (expr == NULL_TREE)
-    return expr;
-  while (TREE_CODE (expr) == COMPOUND_EXPR)
-    expr = TREE_OPERAND (expr, 1);
-  return expr;
-}
-
-/* Return the number of subexpressions in a sequence of COMPOUND_EXPRs.  */
-
-int
-expr_length (tree expr)
-{
-  int len = 0;
-
-  if (expr == NULL_TREE)
-    return 0;
-  for (; TREE_CODE (expr) == COMPOUND_EXPR; expr = TREE_OPERAND (expr, 1))
-    len += expr_length (TREE_OPERAND (expr, 0));
-  ++len;
-  return len;
-}
 
 /* Return the size nominally occupied by an object of type TYPE
    when it resides in memory.  The value is measured in units of bytes,
@@ -1536,6 +1505,7 @@ tree_node_structure (tree t)
     case EEXIT_NODE:            return TS_EREF_NODE;
     case SSA_NAME:		return TS_SSA_NAME;
     case PLACEHOLDER_EXPR:	return TS_COMMON;
+    case STATEMENT_LIST:	return TS_STATEMENT_LIST;
 
     default:
       abort ();
@@ -5279,300 +5249,6 @@ build_empty_stmt (void)
   return build1 (NOP_EXPR, void_type_node, size_zero_node);
 }
 
-
-/* Links a stmt before the current stmt.  */
-
-void
-tsi_link_before (tree_stmt_iterator *i, tree t, enum tsi_iterator_update mode)
-{
-  tree ce;
-
-  if (mode == TSI_CHAIN_START || mode == TSI_CHAIN_END)
-    abort ();
-  if (mode == TSI_CONTINUE_LINKING)
-    mode = TSI_NEW_STMT;
-
-  /* Build a new CE which points to the current node.  */
-  ce = build (COMPOUND_EXPR, void_type_node, t, *i->tp);
-
-  /* Make the parent pointer point to this new node.  At this point, the
-     iterator will be pointing to the new node we just inserted.  */
-  *i->tp = ce;
-
-  /* Update the iterator to points to the address of the next ptr in our new 
-     node, which is the current stmt again.  */
-  if (mode == TSI_SAME_STMT)
-    i->tp = &TREE_OPERAND (ce, 1);
-}
-
-/* Links a stmt after the current stmt.  */
-
-void
-tsi_link_after (tree_stmt_iterator *i, tree t, enum tsi_iterator_update mode)
-{
-  tree ce;
-  tree next, cur = *i->tp;
-
-  if (mode == TSI_CHAIN_START || mode == TSI_CHAIN_END)
-    abort ();
-  if (mode == TSI_CONTINUE_LINKING)
-    mode = TSI_NEW_STMT;
-
-  /* If this node is empty, we can just add it.  */
-  if (cur == NULL)
-    {
-      *i->tp = t;
-    }
-
-  /* If this node isnt a COMPUND_EXPR, we need to insert a CE node. */
-  else if (TREE_CODE (cur) != COMPOUND_EXPR)
-    {
-      /* Create a new node with the current stmt on the left, and the new
-	 stmt on the right.  */
-      ce = build (COMPOUND_EXPR, void_type_node, cur, t);
-
-      /* Update link to point to this CE node.  */
-      *i->tp = ce;
-
-      /* Change new iterator to point to the new stmt.  */
-      if (mode == TSI_NEW_STMT)
-	i->tp = &TREE_OPERAND (ce, 1);
-    }
-  else
-    {
-      next = TREE_OPERAND (cur, 1);
-
-      /* Create a new node with the same 'next' link as the current one.  */
-      ce = build (COMPOUND_EXPR, void_type_node, t, next);
-
-      /* If the 'next' statement is a COMPOUND_EXPR and was the first
-	 statement of a basic block, we need to adjust the 'head_tree_p'
-	 field of that block because we are about to move the statement one
-	 position down in the CE chain.  */
-      {
-	basic_block bb = bb_for_stmt (next);
-	if (bb && bb->head_tree_p == &TREE_OPERAND (cur, 1))
-	  {
-	    /* We may also need to update end_tree_p.  */
-	    if (bb->head_tree_p == bb->end_tree_p)
-	      bb->end_tree_p = &TREE_OPERAND (ce, 1);
-	    bb->head_tree_p = &TREE_OPERAND (ce, 1);
-	  }
-      }
-
-      /* Make the current one's 'next' link point to our new stmt.  */
-      TREE_OPERAND (cur, 1) = ce;
-
-      /* Update the iterator to the new stmt.  */
-      if (mode == TSI_NEW_STMT)
-	i->tp = &TREE_OPERAND (cur, 1);
-    }
-}
-
-/* Links a chain of statements T before the current stmt.  */
-
-void
-tsi_link_chain_before (tree_stmt_iterator *i, tree t,
-		       enum tsi_iterator_update mode)
-{
-  tree *last;
-
-  if (mode == TSI_NEW_STMT)
-    abort ();
-  if (mode == TSI_CONTINUE_LINKING)
-    mode = TSI_CHAIN_START;
-
-  for (last = &t;
-       TREE_CODE (*last) == COMPOUND_EXPR;
-       last = &TREE_OPERAND (*last, 1))
-    continue;
-
-  /* Build a new CE which points to the current node.  */
-  *last = build (COMPOUND_EXPR, void_type_node, *last, *i->tp);
-
-  /* Make the parent pointer point to this new node.  At this point, the
-     iterator will be pointing to the new node we just inserted.  */
-  *i->tp = t;
-
-  /* Update the iterator to points to the address of the next ptr in our new 
-     node, which is the current stmt again.  */
-  if (mode == TSI_SAME_STMT)
-    i->tp = &TREE_OPERAND (*last, 1);
-  else if (mode == TSI_CHAIN_END)
-    i->tp = last != &t ? last : i->tp;
-}
-
-/* Links a chain of statements T after the current stmt.  */
-
-void
-tsi_link_chain_after (tree_stmt_iterator *i, tree t,
-		      enum tsi_iterator_update mode)
-{
-  tree ce;
-  tree next, *nextp;
-  tree *last;
-  tree cur = *i->tp;
-
-  if (mode == TSI_NEW_STMT)
-    abort ();
-  if (mode == TSI_CONTINUE_LINKING)
-    mode = TSI_CHAIN_END;
-
-  /* If this node is empty, we can just add it.  */
-  if (cur == NULL)
-    {
-      *i->tp = t;
-
-      if (mode == TSI_CHAIN_END)
-	{
-	  cur = t;
-	  last = i->tp;
-	  while (TREE_CODE (cur) == COMPOUND_EXPR)
-	    {
-	      last = &TREE_OPERAND (cur, 1);
-	      cur = *last;
-	    }
-	  i->tp = last;
-	}
-    }
-
-  /* If this node isnt a COMPUND_EXPR, we need to insert a CE node. */
-  else if (TREE_CODE (cur) != COMPOUND_EXPR)
-    {
-      /* Create a new node with the current stmt on the left, and the new
-	 stmt on the right.  */
-      ce = build (COMPOUND_EXPR, void_type_node, cur, t);
-
-      /* Update link to point to this CE node.  */
-      *i->tp = ce;
-
-      /* Change new iterator to point to the new stmt.  */
-      if (mode == TSI_CHAIN_START)
-	i->tp = &TREE_OPERAND (ce, 1);
-      else if (mode == TSI_CHAIN_END)
-	{
-	  cur = ce;
-	  last = i->tp;
-	  while (TREE_CODE (cur) == COMPOUND_EXPR)
-	    {
-	      last = &TREE_OPERAND (cur, 1);
-	      cur = *last;
-	    }
-	  i->tp = last;
-	}
-    }
-  else
-    {
-      for (last = &t;
-	   TREE_CODE (*last) == COMPOUND_EXPR;
-	   last = &TREE_OPERAND (*last, 1))
-	continue;
-
-      nextp = &TREE_OPERAND (cur, 1);
-      next = *nextp;
-
-      /* Create a new node with the same 'next' link as the current one.  */
-      ce = build (COMPOUND_EXPR, void_type_node, *last, next);
-
-      /* If the 'next' statement is a COMPOUND_EXPR and was the first
-	 statement of a basic block, we need to adjust the 'head_tree_p'
-	 field of that block because we are about to move the statement one
-	 position down in the CE chain.  */
-      {
-	basic_block bb = bb_for_stmt (next);
-	if (bb && bb->head_tree_p == nextp)
-	  {
-	    /* We may also need to update end_tree_p.  */
-	    if (bb->head_tree_p == bb->end_tree_p)
-	      bb->end_tree_p = &TREE_OPERAND (ce, 1);
-	    bb->head_tree_p = &TREE_OPERAND (ce, 1);
-	  }
-      }
-
-      *last = ce;
-      TREE_OPERAND (cur, 1) = t;
-
-      /* Update the iterator to the new stmt.  */
-      if (mode == TSI_CHAIN_START)
-	i->tp = nextp;
-      else if (mode == TSI_CHAIN_END)
-	i->tp = (last != &t ? last : nextp);
-    }
-}
-
-/* Remove a stmt from the tree list.  The iterator is updated to point to
-   the next stmt.  */
-
-void
-tsi_delink (tree_stmt_iterator *i)
-{
-  tree cur = *i->tp;
-
-  if (TREE_CODE (cur) == COMPOUND_EXPR)
-    {
-      /* All that is needed here is to change the parent to point to the next 
-	 stmt in the chain.  */
-      *i->tp = TREE_OPERAND (cur, 1);
-    }
-  else
-    {
-      /* This stmt is the last link in the CE chain, but we're screwed because
-         there isn't access to the node itself. the choices are either adding a
-	 NULL link to the right side of the CE node, which is bad, or replacing
-	 this node with an empty statement. Choose the latter for now, and 
-	 make the iterator return NULL, so that no further iterating takes 
-	 place.  */
-      *i->tp = build_empty_stmt ();
-      i->tp = NULL;
-    }
-}
-
-/* Create a new stmt list beginning with this stmt.  The anchor is used mostly
-   to keep the garbage collector from collecting the root node, and to give 
-   the list a place to start.  */
-
-tree_stmt_iterator 
-tsi_new_stmt_list (tree t, tree_stmt_anchor *anchor)
-{
-  tree_stmt_iterator i;
-
-  *anchor = t;
-  i.tp = anchor;
-
-  return i;
-}
-
-/* Return an iterator which begins at this anchor.  */
-
-tree_stmt_iterator
-tsi_stmt_list_head (tree_stmt_anchor anchor)
-{
-  tree_stmt_iterator i;
-
-  if (anchor == EMPTY_ANCHOR)
-    i.tp = NULL;
-  else
-    i.tp = &anchor;
-
-  return i;
-}
-
-/* Return true if the chain of statements starting with T is empty.  */
-
-bool
-body_is_empty (tree t)
-{
-  tree_stmt_iterator i;
-
-  if (IS_EMPTY_STMT (t))
-    return true;
-
-  for (i = tsi_start (&t); !tsi_end_p (i); tsi_next (&i))
-    if (tsi_stmt (i))
-      return false;
-
-  return true;
-}
 bool
 is_essa_node (tree t)
 {

@@ -1939,18 +1939,18 @@ reaching_def (tree var, tree currstmt, basic_block bb, tree ignore)
 
   /* We can't walk BB's backwards right now, so we have to walk *all*
      the statements, and choose the last name we find. */
-  bsi = bsi_start (bb);
-  for (; !bsi_end_p (bsi); bsi_next (&bsi))
+  for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
     {
+      tree stmt = bsi_stmt (bsi);
       tree *def;
       varray_type defs;
       size_t i;
 
-      if (bsi_stmt (bsi) == currstmt)
+      if (stmt == currstmt)
 	break;
 
-      get_stmt_operands (bsi_stmt (bsi));
-      defs = def_ops (stmt_ann (bsi_stmt (bsi)));
+      get_stmt_operands (stmt);
+      defs = def_ops (stmt_ann (stmt));
       for (i = 0; defs && i < VARRAY_ACTIVE_SIZE (defs); i++)
 	{
 	  def = VARRAY_TREE_PTR (defs, i);
@@ -1975,21 +1975,19 @@ reaching_def (tree var, tree currstmt, basic_block bb, tree ignore)
     return curruse;
   return reaching_def (var, currstmt, dom, ignore);
 }
+
 /* Insert one ephi operand that doesn't currently exist as a use.  */
 
 static void
 insert_one_operand (struct expr_info *ei, tree ephi, int opnd_indx, 
 		    tree x, edge succ)
 {
-  
   tree expr;
   tree temp = ei->temp;
   tree copy;
   tree newtemp;
   basic_block bb = bb_for_stmt (x);
-  edge e = NULL;
-  block_stmt_iterator bsi;
-  
+
   /* Insert definition of expr at end of BB containing x. */
   copy = TREE_OPERAND (EREF_STMT (ephi), 1);
   copy = unshare_expr (copy);
@@ -2010,19 +2008,16 @@ insert_one_operand (struct expr_info *ei, tree ephi, int opnd_indx,
       fprintf (dump_file, " (on edge), because of EPHI");
       fprintf (dump_file, " in BB %d\n", bb_for_stmt (ephi)->index);
     }
-  set_bb_for_stmt (expr, bb);
-		      
-  /* Find the edge to insert on. */
-  e = succ;
-  if (e == NULL)
-    abort ();
 		      
   /* Do the insertion.  */
-  bsi = bsi_start (bb);
-  bsi_insert_on_edge_immediate (e, expr, NULL, NULL);
-  
-  EPHI_ARG_DEF (ephi, opnd_indx) = create_expr_ref (ei, ei->expr, EUSE_NODE,
-						    bb, 0);
+  /* ??? Previously we did bizzare searching, presumably to get
+     around bugs elsewhere in the infrastructure.  I'm not sure
+     if we really should be using bsi_insert_on_edge_immediate,
+     or just bsi_insert_after at the end of BB.  */
+  bsi_insert_on_edge_immediate (succ, expr);
+
+  EPHI_ARG_DEF (ephi, opnd_indx)
+    = create_expr_ref (ei, ei->expr, EUSE_NODE, bb, 0);
   EUSE_DEF (x) = EPHI_ARG_DEF (ephi, opnd_indx);
   append_eref_to_block (EPHI_ARG_DEF (ephi, opnd_indx), bb);
   EREF_TEMP (EUSE_DEF (x)) = newtemp;
@@ -2533,8 +2528,7 @@ do_proper_save (tree use, tree expr, int before)
   basic_block bb = bb_for_stmt (use);
   block_stmt_iterator bsi;
 
-  bsi = bsi_start (bb);
-  for (; !bsi_end_p (bsi); bsi_next (&bsi))
+  for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
     {
       if (bsi_stmt (bsi) == use)
 	{
@@ -2542,7 +2536,7 @@ do_proper_save (tree use, tree expr, int before)
 	    bsi_insert_before (&bsi, expr, BSI_SAME_STMT);
 	  else
 	    bsi_insert_after (&bsi, expr, BSI_SAME_STMT);
-	  return bsi_stmt (bsi);
+	  return use;
 	}
     }
   abort ();
@@ -3136,9 +3130,9 @@ collect_expressions (basic_block block, varray_type *bexprsp)
   
   for (j = bsi_start (block); !bsi_end_p (j); bsi_next (&j))
     {
-      tree expr = bsi_stmt (j);
-      tree orig_expr = bsi_stmt (j);
       tree stmt = bsi_stmt (j);
+      tree expr = stmt;
+      tree orig_expr = expr;
       stmt_ann_t ann;
       struct expr_info *slot = NULL;
       

@@ -340,57 +340,6 @@ static inline tree phi_nodes (basic_block);
 static inline void add_dom_child (basic_block, basic_block);
 static inline bitmap dom_children (basic_block);
 
-
-/*---------------------------------------------------------------------------
-		 Iterators for statements inside a basic block
----------------------------------------------------------------------------*/
-
-/* Iterator object for traversing over BASIC BLOCKs.  */
-
-typedef struct {
-  tree *tp;
-  tree context;		/* Stack for descending into BIND_EXPR's.  */
-} block_stmt_iterator;
-
-extern block_stmt_iterator bsi_start (basic_block);
-extern block_stmt_iterator bsi_last (basic_block);
-static inline bool bsi_end_p (block_stmt_iterator);
-static inline void bsi_next (block_stmt_iterator *);
-extern void bsi_prev (block_stmt_iterator *);
-static inline tree bsi_stmt (block_stmt_iterator);
-static inline tree *bsi_stmt_ptr (block_stmt_iterator);
-static inline tree *bsi_container (block_stmt_iterator);
-
-extern block_stmt_iterator bsi_from_tsi (tree_stmt_iterator);
-static inline tree_stmt_iterator tsi_from_bsi (block_stmt_iterator);
-
-extern void bsi_remove (block_stmt_iterator *);
-
-enum bsi_iterator_update
-{
-  BSI_NEW_STMT,
-  BSI_SAME_STMT
-};
-
-/* Single stmt insertion routines.  */
-
-extern void bsi_insert_before (block_stmt_iterator *, tree, enum bsi_iterator_update);
-extern void bsi_insert_after (block_stmt_iterator *, tree, enum bsi_iterator_update);
-extern void bsi_insert_on_edge (edge, tree);
-extern int bsi_commit_edge_inserts (int, int *);
-extern block_stmt_iterator bsi_insert_on_edge_immediate
- (edge, tree, block_stmt_iterator *, basic_block *);
-
-extern void bsi_replace (block_stmt_iterator, tree);
-
-/* Stmt list insertion routines.  */
-
-extern void bsi_insert_list_before (block_stmt_iterator *, tree_stmt_anchor);
-extern void bsi_insert_list_after (block_stmt_iterator *, tree_stmt_anchor);
-extern block_stmt_iterator bsi_insert_list_on_edge (edge, tree_stmt_anchor);
-
-void bsi_next_in_bb (block_stmt_iterator *, basic_block);
-
 /*---------------------------------------------------------------------------
 			      Global declarations
 ---------------------------------------------------------------------------*/
@@ -423,6 +372,41 @@ extern GTY(()) varray_type call_clobbered_vars;
 
 
 /*---------------------------------------------------------------------------
+			      Block iterators
+---------------------------------------------------------------------------*/
+
+typedef struct {
+  tree_stmt_iterator tsi;
+  basic_block bb;
+} block_stmt_iterator;
+
+static inline block_stmt_iterator bsi_start (basic_block);
+static inline block_stmt_iterator bsi_last (basic_block);
+static inline bool bsi_end_p (block_stmt_iterator);
+static inline void bsi_next (block_stmt_iterator *);
+static inline void bsi_prev (block_stmt_iterator *);
+static inline tree bsi_stmt (block_stmt_iterator);
+static inline tree * bsi_stmt_ptr (block_stmt_iterator);
+
+extern void bsi_move_before (block_stmt_iterator *, block_stmt_iterator *);
+extern void bsi_move_after (block_stmt_iterator *, block_stmt_iterator *);
+extern void bsi_move_to_bb_end (block_stmt_iterator *, basic_block);
+
+enum bsi_iterator_update
+{
+  /* Note that these are intentionally in the same order as TSI_FOO.  */
+  BSI_NEW_STMT,
+  BSI_SAME_STMT
+};
+
+extern void bsi_insert_before (block_stmt_iterator *, tree,
+			       enum bsi_iterator_update);
+extern void bsi_insert_after (block_stmt_iterator *, tree,
+			      enum bsi_iterator_update);
+
+extern void bsi_replace (const block_stmt_iterator *, tree);
+
+/*---------------------------------------------------------------------------
 			      Function prototypes
 ---------------------------------------------------------------------------*/
 /* In tree-cfg.c  */
@@ -452,15 +436,15 @@ extern edge find_taken_edge (basic_block, tree);
 extern int call_expr_flags (tree);
 extern void remove_useless_stmts (tree *);
 extern basic_block tree_split_edge (edge);
-extern void bsi_move_before (block_stmt_iterator, block_stmt_iterator);
-extern void bsi_move_after (block_stmt_iterator, block_stmt_iterator);
-extern void bsi_move_to_bb_end (block_stmt_iterator, basic_block);
 extern edge thread_edge (edge, basic_block);
 extern basic_block label_to_block (tree);
 extern bool cleanup_cond_expr_graph (basic_block, block_stmt_iterator);
 extern bool cleanup_switch_expr_graph (basic_block, block_stmt_iterator);
 extern void tree_optimize_tail_calls (void);
 extern basic_block tree_block_forwards_to (basic_block bb);
+extern void bsi_insert_on_edge (edge, tree);
+extern void bsi_commit_edge_inserts (bool, int *);
+extern void bsi_insert_on_edge_immediate (edge, tree);
 
 /* In tree-pretty-print.c.  */
 extern void dump_generic_bb (FILE *, basic_block, int, int);

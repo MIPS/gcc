@@ -75,9 +75,6 @@ int is_gimple_constructor_elt (tree);
 
 void recalculate_side_effects (tree);
 
-typedef void foreach_stmt_fn (tree *);
-void foreach_stmt (tree *, foreach_stmt_fn *);
-
 void append_to_statement_list (tree, tree *);
 void append_to_statement_list_force (tree, tree *);
 void append_to_compound_expr (tree, tree *);
@@ -101,6 +98,7 @@ enum gimplify_status {
 enum gimplify_status gimplify_expr (tree *, tree *, tree *,
 				    int (*) (tree), fallback_t);
 void gimplify_stmt (tree *);
+void gimplify_to_stmt_list (tree *);
 void gimplify_body (tree *, tree);
 
 /* Miscellaneous helpers.  */
@@ -114,6 +112,7 @@ void unshare_all_trees (tree);
 tree voidify_wrapper_expr (tree);
 tree gimple_build_eh_filter (tree, tree, tree);
 tree build_and_jump (tree *);
-
+tree alloc_stmt_list (void);
+void free_stmt_list (tree);
 
 #endif /* _TREE_SIMPLE_H  */

@@ -878,7 +878,7 @@ OBJS-common = \
  tree-alias-type.o gimplify.o tree-nomudflap.o tree-pretty-print.o         \
  tree-alias-common.o tree-ssa-ccp.o tree-browser.o @ANDER@ tree-ssa-dce.o  \
  tree-ssa-pre.o tree-ssa-copyprop.o tree-ssa-live.o tree-must-alias.o	   \
- tree-ssa-dom.o domwalk.o tree-tailcall.o gimple-low.o			   \
+ tree-ssa-dom.o domwalk.o tree-tailcall.o gimple-low.o tree-iterator.o	   \
  alias.o bb-reorder.o bitmap.o builtins.o caller-save.o calls.o	  	   \
  cfg.o cfganal.o cfgbuild.o cfgcleanup.o cfglayout.o cfgloop.o		   \
  cfgloopanal.o cfgloopmanip.o loop-init.o loop-unswitch.o loop-unroll.o	   \
@@ -1571,6 +1571,8 @@ tree-cfg.o : tree-cfg.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
 tree-tailcall.o : tree-tailcall.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
    $(RTL_H) $(TREE_H) $(TM_P_H) function.h $(TM_H) coretypes.h \
    $(TREE_DUMP_H) diagnostic.h
+tree-iterator.o : tree-iterator.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) \
+   coretypes.h $(GGC_H) tree-iterator.h tree-simple.h gt-tree-iterator.h
 tree-dfa.o : tree-dfa.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
    $(RTL_H) $(TREE_H) $(TM_P_H) $(EXPR_H) $(GGC_H) output.h diagnostic.h \
    errors.h tree-inline.h $(HASHTAB_H) flags.h function.h $(TIMEVAR_H) \
@@ -1682,10 +1684,11 @@ except.o : except.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    langhooks.h insn-config.h hard-reg-set.h $(BASIC_BLOCK_H) output.h \
    dwarf2asm.h dwarf2out.h toplev.h $(HASHTAB_H) intl.h $(GGC_H) \
    gt-except.h cgraph.h
-expr.o : expr.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(TREE_H) flags.h \
-   function.h $(REGS_H) $(EXPR_H) $(OPTABS_H) libfuncs.h $(INSN_ATTR_H) insn-config.h \
-   $(RECOG_H) output.h typeclass.h hard-reg-set.h toplev.h hard-reg-set.h \
-   except.h reload.h $(GGC_H) langhooks.h intl.h $(TM_P_H) real.h
+expr.o : expr.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
+   $(TREE_H) flags.h function.h $(REGS_H) $(EXPR_H) $(OPTABS_H) libfuncs.h \
+   $(INSN_ATTR_H) insn-config.h $(RECOG_H) output.h typeclass.h \
+   hard-reg-set.h toplev.h hard-reg-set.h except.h reload.h $(GGC_H) \
+   langhooks.h intl.h $(TM_P_H) real.h tree-iterator.h
 dojump.o : dojump.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(TREE_H) \
    flags.h function.h $(EXPR_H) $(OPTABS_H) $(INSN_ATTR_H) insn-config.h \
    langhooks.h
@@ -2205,7 +2208,7 @@ GTFILES = $(srcdir)/input.h $(srcdir)/coretypes.h $(srcdir)/cpplib.h \
   $(srcdir)/c-objc-common.c $(srcdir)/c-common.c $(srcdir)/c-parse.in \
   $(srcdir)/stringpool.c $(srcdir)/tree.c $(srcdir)/varasm.c \
   $(srcdir)/tree-ssa.c $(srcdir)/tree-dfa.c $(srcdir)/tree-ssa-ccp.c \
-  $(srcdir)/tree-ssa-pre.c $(out_file) \
+  $(srcdir)/tree-ssa-pre.c $(srcdir)/tree-iterator.c $(out_file) \
   @all_gtfiles@
 
 GTFILES_FILES_LANGS = @all_gtfiles_files_langs@
@@ -2224,7 +2227,7 @@ gt-c-pragma.h gt-c-objc-common.h gtype-c.h gt-input.h gt-cfglayout.h \
 gt-stringpool.h gt-langhooks.h \
 gt-tree-alias-common.h gt-tree-mudflap.h gt-dependence.h \
 gt-tree-ssa.h gt-tree-dfa.h gt-tree-ssa-ccp.h \
-gt-tree-ssa-pre.h : s-gtype ; @true
+gt-tree-ssa-pre.h gt-tree-iterator.h : s-gtype ; @true
 
 gtyp-gen.h: Makefile
 	echo "/* This file is machine generated.  Do not edit.  */" > tmp-gtyp.h

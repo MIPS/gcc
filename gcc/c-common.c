@@ -5975,8 +5975,8 @@ c_warn_unused_result (tree *top_p)
 
   switch (TREE_CODE (t))
     {
-    case COMPOUND_EXPR:
-      for (i = tsi_start (top_p); !tsi_end_p (i); tsi_next (&i))
+    case STATEMENT_LIST:
+      for (i = tsi_start (*top_p); !tsi_end_p (i); tsi_next (&i))
 	c_warn_unused_result (tsi_stmt_ptr (i));
       break;
 

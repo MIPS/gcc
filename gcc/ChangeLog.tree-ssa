@@ -1,3 +1,159 @@
+2003-11-12  Richard Henderson  <rth@redhat.com>
+
+	* Makefile.in (OBJS-common): Add tree-iterator.o.
+	(expr.o): Depend on tree-iterator.h.
+	(GTFILES): Add tree-iterator.c.
+	* basic-block.h (struct basic_block_def): Replace head_tree_p
+	and end_tree_p with stmt_list.
+	(tree_bb_root): New.
+	(create_bb): Don't declare.
+	* c-common.c (c_warn_unused_result): Handle STATEMENT_LIST.
+	* c-simplify.c (c_gimplify_stmt): Don't rationalize_compound_expr.
+	* cfg.c (entry_exit_blocks): Adjust for member changes.
+	(compact_blocks): Manage tree_bb_root.
+	* expr.c (expand_expr_1): Handle STATEMENT_LIST.
+	* gimple-low.c: Update for tree_stmt_iterator changes.
+	(lower_cond_expr): Use expr_only.  Notice empty conditionals.
+	* gimplify.c (append_to_statement_list_1): Create and 
+	manage statement_list nodes.
+	(foreach_stmt): Remove.
+	(wfl_locus): Remove.
+	(annotate_all_with_locus_1): Merge into...
+	(annotate_all_with_locus): ... here.  Iterate over the 
+	statement list directly.
+	(voidify_wrapper_expr): Handle STATEMENT_LIST.
+	(gimplify_return_expr): Likewise.
+	(gimplify_loop_expr): Likewise.
+	(shortcut_cond_r, shortcut_cond_expr): Likewise.
+	(gimplify_cleanup_point_expr): Likewise.
+	(gimple_build_eh_filter): Create statement list bodies.
+	(gimplify_bind_expr): Likewise.
+	(gimplify_switch_expr): Likewise.
+	(gimplify_cond_expr): Likewise.
+	(gimplify_compound_expr): Handle void expressions as well.
+	(gimplify_statement_list): New.
+	(gimple_push_cleanup): Gimplify the WITH_CLEANUP_EXPR operand.
+	(gimplify_stmt): Ensure non-null result.
+	(gimplify_to_stmt_list): New.
+	(gimplify_expr): Use gimplify_compound_expr, gimplify_statement_list,
+	gimplify_to_stmt_list as appropriate.
+	(gimplify_body): Fix creation of outer BIND_EXPR.
+	* tree-cfg.c (tree_bb_root): New.
+	(build_tree_cfg): Initialize it.  Update for make_blocks changes.
+	(factor_computed_gotos): Use create_bb directly.
+	(make_blocks): Rewrite to use statement lists.
+	(append_stmt_to_bb, prepend_stmt_to_bb): Remove.
+	(create_bb): Make static.  Add stmt_list argument.  Don't allow
+	null after argument.  Set tree_bb_root.
+	(make_edges): ENTRY block successor is FALLTHRU.
+	(remove_useless_stmts_warn_notreached): Handle STATEMENT_LIST.
+	(struct rus_data): Add last_goto.
+	(remove_useless_stmts_cond): Clear it.  Zap empty conditionals.
+	Use expr_only for simple statment elimination.
+	(remove_useless_stmts_tf): Clear last_goto.  Use TREE_SIDE_EFFECTS
+	instead of IS_EMPTY_STMT.  Use append_to_statement_list instead of
+	munging to COMPOUND_EXPR.
+	(remove_useless_stmts_tc): Clear last_goto.  Use TREE_SIDE_EFFECTS.
+	(remove_useless_stmts_goto): Set last_goto.
+	(remove_useless_stmts_label): New.  Kill goto-next-label.
+	(remove_useless_stmts_1): Reorg to handle STATEMENT_LIST.
+	(remove_bb): Simplify block removal.
+	(remove_bsi_from_block): Kill.
+	(tree_block_forwards_to): Tidy bsi loops.  Do not create 
+	block label here.
+	(tree_cfg2dot): Update for bb->stmt_list.
+	(delete_tree_cfg): Clear tree_bb_root.
+	(set_bb_for_stmt): Handle STATEMENT_LISTs.
+	(bsi_insert_before, bsi_insert_after): Re-implement on TSIs.
+	(bsi_move_after, bsi_move_before, bsi_move_to_bb_end): Likewise.
+	(bsi_replace): Likewise.
+	(tree_find_edge_insert_loc): New, split from ...
+	(bsi_insert_on_edge_immediate): ... here.
+	(bsi_commit_edge_inserts): Use it.  Add all stmts at once.
+	(bsi_insert_on_edge): Use statement lists.
+	(tree_split_edge): Position new block correctly.  Deal with
+	fallthrough to EXIT.
+	(tree_verify_flow_info): Do not check block order vs statement chain.
+	(tree_make_forwarder_block): Update create_bb call, fix edge flags.
+	(thread_jumps): Call tree_redirect_edge_and_branch directly.
+	(tree_block_label): Don't return a NONLOCAL_LABEL.
+	(tree_redirect_edge_and_branch_1): Rename from s/_1//.  Take an
+	argument to use ssa_redirect_edge or redirect_edge_succ.  Use
+	tree_split_edge instead of bsi_insert_on_edge_immediate.
+	(tree_redirect_edge_and_branch): New.
+	(remove_stmt, first_exec_stmt, bsi_init, bsi_next_in_bb): Kill.
+	(bsi_start, bsi_last, bsi_prev, bsi_from_tsi): Kill.
+	(bsi_update_from_tsi, bsi_link_after): Kill.
+	* tree-eh.c (collect_finally_tree): Handle STATEMENT_LIST.
+	(replace_goto_queue_1): Likewise.
+	(replace_goto_queue): Don't use walk_tree.
+	(do_return_redirection): Create statement lists.
+	(do_goto_redirection): Likewise.
+	(block_may_fallthru_last): Fold into...
+	(block_may_fallthru): ... here.
+	(frob_into_branch_around): Use append_to_statement_list.
+	(honor_protect_cleanup_actions): Likewise.
+	(lower_try_finally_nofallthru): Likewise.
+	(lower_try_finally_onedest): Likewise.
+	(lower_try_finally_copy): Likewise.
+	(lower_try_finally_switch): Likewise.
+	(lower_try_finally): Likewise.
+	(lower_catch): Likewise.
+	(lower_eh_filter): Likewise.
+	(lower_eh_constructs_1): Handle STATEMENT_LIST.
+	* tree-flow-inline.h (BSI_NUM_ELEMENTS, bsi_list_p): Remove.
+	(new_bsi_list, empty_bsi_stack, FOR_EACH_BSI_IN_REVERSE): Remove.
+	(FOR_EACH_STMT_IN_REVERSE): Remove.
+	(bsi_start, bsi_last, bsi_end_p): Re-implement based on TSIs.
+	(bsi_next, bsi_prev, bsi_stmt, bsi_stmt_ptr, bsi_remove): Likewise.
+	* tree-flow.h (block_stmt_iterator): Likewise.
+	* tree-inline.c (copy_statement_list): New.
+	(copy_body_r): Use it, and append_to_statement_list.
+	(initialize_inlined_parameters): Use append_to_statement_list.
+	(expand_call_inline): Likewise.
+	(gimple_expand_calls_inline): New.
+	(expand_calls_inline): Use it.
+	(walk_tree, unsave_r): Handle STATEMENT_LIST.
+	(add_stmt_to_compound): Remove.
+	* tree-iterator.c: New file.
+	* tree-iterator.h: Re-implement based on STATEMENT_LIST.
+	* tree-mudflap.c (mf_decl_cache_locals): Don't
+	rationalize_compound_expr.
+	* tree-optimize.c (optimize_function_tree): Make static.
+	Rechain statements from blocks before deleting the cfg.
+	* tree-pretty-print.c (dump_generic_node): Handle STATEMENT_LIST,
+	update for change in tree_stmt_iterator wrt COMPOUND_EXPR.
+	(dump_generic_node): Dump lowered COND_EXPR on a single line.
+	* tree-simple.c (is_gimple_stmt): Handle STATEMENT_LIST.
+	* tree-simple.h (foreach_stmt_fn, foreach_stmt): Remove.
+	(gimplify_to_stmt_list): Declare.
+	(alloc_stmt_list, free_stmt_list): Declare.
+	* tree-ssa-dce.c (should_remove_dead_stmt): Rename from 
+	remove_dead_stmt; return bool if statement should be removed.
+	(remove_dead_stmts): Update to match.
+	* tree-ssa-live.c (build_tree_conflict_graph): Don't use
+	FOR_EACH_STMT_IN_REVERSE.
+	* tree-ssa-pre.c (reaching_def): Tidy BSI usage.
+	(insert_one_operand, collect_expressions): Likewise.
+	* tree.c (tree_size): Handle STATEMENT_LIST.
+	(copy_node): Abort on STATEMENT_LIST.
+	(expr_first, expr_last): Move to tree-iterator.c.
+	(expr_length): Remove.
+	(tree_node_structure): Handle STATEMENT_LIST.
+	(tsi_link_before, tsi_link_after, tsi_delink): Move to tree-iterator.c.
+	(tsi_link_chain_before, tsi_link_chain_after): Merge into non-chain.
+	(tsi_new_stmt_list, tsi_stmt_list_head, body_is_empty): Kill.
+	* tree.def (STATEMENT_LIST): New.
+	* tree.h (STATEMENT_LIST_HEAD, STATEMENT_LIST_TAIL): New.
+	(struct tree_statement_list_node): New.
+	(struct tree_statement_list): New.
+	(enum tree_node_structure_enum): Add TS_STATEMENT_LIST.
+	(union tree_node): Add stmt_list.
+	(expr_length): Remove.
+	(expr_only): New.
+	(add_to_compound_expr, body_is_empty): Remove.
+	(optimize_function_tree): Remove.
+
 2003-11-12  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-flow.h (remove_useless_vars): Declare.

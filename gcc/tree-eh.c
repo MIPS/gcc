@@ -31,6 +31,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-flow.h"
 #include "tree-dump.h"
 #include "tree-inline.h"
+#include "tree-iterator.h"
 #include "timevar.h"
 #include "langhooks.h"
 
@@ -167,7 +168,6 @@ tailrecurse:
     case BIND_EXPR:
       collect_finally_tree (BIND_EXPR_BODY (t), region);
       break;
-    case COMPOUND_EXPR:
     case TRY_CATCH_EXPR:
       collect_finally_tree (TREE_OPERAND (t, 0), region);
       t = TREE_OPERAND (t, 1);
@@ -177,6 +177,14 @@ tailrecurse:
       break;
     case EH_FILTER_EXPR:
       collect_finally_tree (EH_FILTER_FAILURE (t), region);
+      break;
+
+    case STATEMENT_LIST:
+      {
+	tree_stmt_iterator i;
+	for (i = tsi_start (t); !tsi_end_p (i); tsi_next (&i))
+	  collect_finally_tree (tsi_stmt (i), region);
+      }
       break;
 
     default:
@@ -308,60 +316,55 @@ find_goto_replacement (struct leh_tf_state *tf, tree stmt)
    nature of these COMPOUND_EXPRs is such that we can't store
    a pointer to a statement and hope to be able to replace it
    later, when the tree has been restructured.  */
+/* ??? We now have a reasonable connection mechansim.  Update.  */
 
 static tree
-replace_goto_queue_1 (tree *tp, int *walk_subtrees, void *data)
+replace_goto_queue_1 (tree t, struct leh_tf_state *tf)
 {
-  struct leh_tf_state *tf = data;
-  tree t = *tp, sub;
-
   switch (TREE_CODE (t))
     {
     case GOTO_EXPR:
     case RETURN_EXPR:
-      t = find_goto_replacement (tf, t);
-      if (t)
-	*tp = t;
-      *walk_subtrees = 0;
-      break;
+      return find_goto_replacement (tf, t);
 
-    case COMPOUND_EXPR:
-      sub = TREE_OPERAND (t, 0);
-      if (TREE_CODE (sub) == GOTO_EXPR || TREE_CODE (sub) == RETURN_EXPR)
-	{
-	  sub = find_goto_replacement (tf, sub);
-	  if (sub)
-	    {
-	      if (TREE_CODE (sub) == COMPOUND_EXPR)
-		{
-		  tree_stmt_iterator i = tsi_start (tp);
-		  tsi_link_chain_before (&i, sub, TSI_SAME_STMT);
-		  tsi_delink (&i);
-	          walk_tree (tsi_container (i), replace_goto_queue_1, tf, NULL);
-		}
-	      else
-		{
-		  TREE_OPERAND (t, 0) = sub;
-	          walk_tree (&TREE_OPERAND (t, 1), replace_goto_queue_1,
-			     tf, NULL);
-		}
-	      *walk_subtrees = 0;
-	    }
-	}
+    case STATEMENT_LIST:
+      {
+	tree_stmt_iterator i = tsi_start (t);
+	while (!tsi_end_p (i))
+	  {
+	    t = replace_goto_queue_1 (tsi_stmt (i), tf);
+	    if (t)
+	      {
+		tsi_link_before (&i, t, TSI_SAME_STMT);
+		tsi_delink (&i);
+	      }
+	    else
+	      tsi_next (&i);
+	  }
+      }
       break;
 
     case COND_EXPR:
+      replace_goto_queue_1 (COND_EXPR_THEN (t), tf);
+      replace_goto_queue_1 (COND_EXPR_ELSE (t), tf);
+      break;
     case BIND_EXPR:
+      replace_goto_queue_1 (BIND_EXPR_BODY (t), tf);
+      break;
     case TRY_FINALLY_EXPR:
     case TRY_CATCH_EXPR:
+      replace_goto_queue_1 (TREE_OPERAND (t, 0), tf);
+      replace_goto_queue_1 (TREE_OPERAND (t, 1), tf);
+      break;
     case CATCH_EXPR:
+      replace_goto_queue_1 (CATCH_BODY (t), tf);
+      break;
     case EH_FILTER_EXPR:
-      /* Only need to look down statement containers.  */
+      replace_goto_queue_1 (EH_FILTER_FAILURE (t), tf);
       break;
 
     default:
       /* These won't have gotos in them.  */
-      *walk_subtrees = 0;
       break;
     }
 
@@ -371,9 +374,7 @@ replace_goto_queue_1 (tree *tp, int *walk_subtrees, void *data)
 static void
 replace_goto_queue (struct leh_tf_state *tf)
 {
-  /* Note that since we only look through statement containers,
-     we cannot possibly see duplicates.  Barring bugs of course.  */
-  walk_tree (tf->top_p, replace_goto_queue_1, tf, NULL);
+  replace_goto_queue_1 (*tf->top_p, tf);
 }
 
 /* For any GOTO_EXPR or RETURN_EXPR, decide whether it leaves a try_finally
@@ -491,10 +492,8 @@ do_return_redirection (struct goto_queue_node *q, tree finlab, tree mod,
 		       tree *return_value_p)
 {
   tree ret_expr = TREE_OPERAND (q->stmt, 0);
-  tree_stmt_iterator i;
   tree x;
 
-  i = tsi_start (&q->repl_stmt);
   if (ret_expr)
     {
       /* The nasty part about redirecting the return value is that the
@@ -542,7 +541,7 @@ do_return_redirection (struct goto_queue_node *q, tree finlab, tree mod,
 	    new = *return_value_p;
 
 	  x = build (MODIFY_EXPR, TREE_TYPE (new), new, old);
-	  tsi_link_after (&i, x, TSI_NEW_STMT);
+	  append_to_statement_list (x, &q->repl_stmt);
 
 	  x = build (MODIFY_EXPR, TREE_TYPE (new),
 		     TREE_OPERAND (ret_expr, 0), new);
@@ -558,10 +557,10 @@ do_return_redirection (struct goto_queue_node *q, tree finlab, tree mod,
     }
 
   if (mod)
-    tsi_link_after (&i, mod, TSI_NEW_STMT);
+    append_to_statement_list (mod, &q->repl_stmt);
 
   x = build1 (GOTO_EXPR, void_type_node, finlab);
-  tsi_link_after (&i, x, TSI_NEW_STMT);
+  append_to_statement_list (x, &q->repl_stmt);
 }
 
 /* Similar, but easier, for GOTO_EXPR.  */
@@ -569,15 +568,14 @@ do_return_redirection (struct goto_queue_node *q, tree finlab, tree mod,
 static void
 do_goto_redirection (struct goto_queue_node *q, tree finlab, tree mod)
 {
-  tree_stmt_iterator i = tsi_start (&q->repl_stmt);
   tree x;
 
   q->cont_stmt = q->stmt;
   if (mod)
-    tsi_link_after (&i, mod, TSI_NEW_STMT);
+    append_to_statement_list (mod, &q->repl_stmt);
 
   x = build1 (GOTO_EXPR, void_type_node, finlab);
-  tsi_link_after (&i, x, TSI_NEW_STMT);
+  append_to_statement_list (x, &q->repl_stmt);
 }
 
 /* Try to determine if we can fall out of the bottom of BLOCK.  This guess
@@ -586,8 +584,10 @@ do_goto_redirection (struct goto_queue_node *q, tree finlab, tree mod)
    If we're wrong, we'll just delete the extra code later.  */
 
 static bool
-block_may_fallthru_last (tree stmt)
+block_may_fallthru (tree block)
 {
+  tree stmt = expr_last (block);
+
   switch (TREE_CODE (stmt))
     {
     case GOTO_EXPR:
@@ -609,17 +609,9 @@ block_may_fallthru_last (tree stmt)
       return (call_expr_flags (stmt) & ECF_NORETURN) == 0;
 
     default:
-      /* ??? Could search back through other composite structures.
-	 Wouldn't need to check COMPOUND_EXPR because of how
-	 tsi_last is implemented.  */
+      /* ??? Could search back through other composite structures.  */
       return true;
     }
-}
-
-static bool
-block_may_fallthru (tree *block_p)
-{
-  return block_may_fallthru_last (tsi_stmt (tsi_last (block_p)));
 }
 
 /* We want to transform
@@ -634,33 +626,31 @@ block_may_fallthru (tree *block_p)
 static void
 frob_into_branch_around (tree *tp, tree lab, tree over)
 {
-  tree_stmt_iterator i;
   tree x, op1;
 
   op1 = TREE_OPERAND (*tp, 1);
   *tp = TREE_OPERAND (*tp, 0);
-  i = tsi_last (tp);
 
-  if (block_may_fallthru_last (tsi_stmt (i)))
+  if (block_may_fallthru (*tp))
     {
       if (!over)
 	over = create_artificial_label ();
       x = build1 (GOTO_EXPR, void_type_node, over);
-      tsi_link_after (&i, x, TSI_NEW_STMT);
+      append_to_statement_list (x, tp);
     }
 
   if (lab)
     {
       x = build1 (LABEL_EXPR, void_type_node, lab);
-      tsi_link_after (&i, x, TSI_NEW_STMT);
+      append_to_statement_list (x, tp);
     }
 
-  tsi_link_chain_after (&i, op1, TSI_CHAIN_END);
+  append_to_statement_list (op1, tp);
 
   if (over)
     {
       x = build1 (LABEL_EXPR, void_type_node, over);
-      tsi_link_after (&i, x, TSI_NEW_STMT);
+      append_to_statement_list (x, tp);
     }
 }
 
@@ -739,7 +729,7 @@ honor_protect_cleanup_actions (struct leh_state *outer_state,
     be used (via fallthru from the finally) we handle the eh case here,
     whether or not protect_cleanup_actions is active.  */
 
-  finally_may_fallthru = block_may_fallthru (&finally);
+  finally_may_fallthru = block_may_fallthru (finally);
   if (!finally_may_fallthru && !protect_cleanup_actions)
     return;
 
@@ -758,34 +748,34 @@ honor_protect_cleanup_actions (struct leh_state *outer_state,
       save_eptr = create_tmp_var (ptr_type_node, "save_eptr");
       save_filt = create_tmp_var (integer_type_node, "save_filt");
 
-      i = tsi_start (&finally);
+      i = tsi_start (finally);
       x = build (EXC_PTR_EXPR, ptr_type_node);
       x = build (MODIFY_EXPR, void_type_node, save_eptr, x);
-      tsi_link_before (&i, x, TSI_NEW_STMT);
+      tsi_link_before (&i, x, TSI_CONTINUE_LINKING);
 
       x = build (FILTER_EXPR, integer_type_node);
       x = build (MODIFY_EXPR, void_type_node, save_filt, x);
-      tsi_link_before (&i, x, TSI_NEW_STMT);
+      tsi_link_before (&i, x, TSI_CONTINUE_LINKING);
 
-      i = tsi_last (&finally);
+      i = tsi_last (finally);
       x = build (EXC_PTR_EXPR, ptr_type_node);
       x = build (MODIFY_EXPR, void_type_node, x, save_eptr);
-      tsi_link_after (&i, x, TSI_NEW_STMT);
+      tsi_link_after (&i, x, TSI_CONTINUE_LINKING);
 
       x = build (FILTER_EXPR, integer_type_node);
       x = build (MODIFY_EXPR, void_type_node, x, save_filt);
-      tsi_link_after (&i, x, TSI_NEW_STMT);
+      tsi_link_after (&i, x, TSI_CONTINUE_LINKING);
 
       x = build1 (RESX_EXPR, void_type_node,
 		  build_int_2 (get_eh_region_number (tf->region), 0));
-      tsi_link_after (&i, x, TSI_NEW_STMT);
+      tsi_link_after (&i, x, TSI_CONTINUE_LINKING);
     }
 
   /* Wrap the block with protect_cleanup_actions as the action.  */
   if (protect_cleanup_actions)
     {
-      x = build (EH_FILTER_EXPR, void_type_node, NULL,
-		 protect_cleanup_actions);
+      x = build (EH_FILTER_EXPR, void_type_node, NULL, NULL);
+      append_to_statement_list (protect_cleanup_actions, &EH_FILTER_FAILURE (x));
       EH_FILTER_MUST_NOT_THROW (x) = 1;
       finally = build (TRY_CATCH_EXPR, void_type_node, finally, x);
       lower_eh_filter (outer_state, &finally);
@@ -797,14 +787,14 @@ honor_protect_cleanup_actions (struct leh_state *outer_state,
      previously fell through the end, we'll have to branch around.
      This means adding a new goto, and adding it to the queue.  */
 
-  i = tsi_last (&TREE_OPERAND (*tf->top_p, 0));
+  i = tsi_last (TREE_OPERAND (*tf->top_p, 0));
 
   if (tf->may_fallthru)
     {
       if (!tf->fallthru_label)
 	tf->fallthru_label = create_artificial_label ();
       x = build1 (GOTO_EXPR, void_type_node, tf->fallthru_label);
-      tsi_link_after (&i, x, TSI_NEW_STMT);
+      tsi_link_after (&i, x, TSI_CONTINUE_LINKING);
 
       if (this_state)
         maybe_record_in_goto_queue (this_state, x);
@@ -813,9 +803,8 @@ honor_protect_cleanup_actions (struct leh_state *outer_state,
     }
 
   x = build1 (LABEL_EXPR, void_type_node, tf->eh_label);
-  tsi_link_after (&i, x, TSI_NEW_STMT);
-
-  tsi_link_chain_after (&i, finally, TSI_CHAIN_START);
+  tsi_link_after (&i, x, TSI_CONTINUE_LINKING);
+  tsi_link_after (&i, finally, TSI_CONTINUE_LINKING);
 
   /* Having now been handled, EH isn't to be considered with
      the rest of the outgoing edges.  */
@@ -832,7 +821,6 @@ lower_try_finally_nofallthru (struct leh_state *state, struct leh_tf_state *tf)
 {
   tree x, finally, lab, return_val;
   struct goto_queue_node *q, *qe;
-  tree_stmt_iterator i;
 
   if (tf->may_throw)
     lab = tf->eh_label;
@@ -842,9 +830,8 @@ lower_try_finally_nofallthru (struct leh_state *state, struct leh_tf_state *tf)
   finally = TREE_OPERAND (*tf->top_p, 1);
   *tf->top_p = TREE_OPERAND (*tf->top_p, 0);
 
-  i = tsi_last (tf->top_p);
   x = build1 (LABEL_EXPR, void_type_node, lab);
-  tsi_link_after (&i, x, TSI_NEW_STMT);
+  append_to_statement_list (x, tf->top_p);
 
   return_val = NULL;
   q = tf->goto_queue;
@@ -858,7 +845,7 @@ lower_try_finally_nofallthru (struct leh_state *state, struct leh_tf_state *tf)
   replace_goto_queue (tf);
 
   lower_eh_constructs_1 (state, &finally);
-  tsi_link_chain_after (&i, finally, TSI_SAME_STMT);
+  append_to_statement_list (finally, tf->top_p);
 }
 
 /* A subroutine of lower_try_finally.  We have determined that there is
@@ -869,12 +856,10 @@ static void
 lower_try_finally_onedest (struct leh_state *state, struct leh_tf_state *tf)
 {
   struct goto_queue_node *q, *qe;
-  tree_stmt_iterator i;
   tree x, finally, finally_label;
 
   finally = TREE_OPERAND (*tf->top_p, 1);
   *tf->top_p = TREE_OPERAND (*tf->top_p, 0);
-  i = tsi_last (tf->top_p);
 
   lower_eh_constructs_1 (state, &finally);
 
@@ -884,13 +869,13 @@ lower_try_finally_onedest (struct leh_state *state, struct leh_tf_state *tf)
          the head of the FINALLY block.  Append a RESX at the end.  */
 
       x = build1 (LABEL_EXPR, void_type_node, tf->eh_label);
-      tsi_link_after (&i, x, TSI_NEW_STMT);
+      append_to_statement_list (x, tf->top_p);
 
-      tsi_link_chain_after (&i, finally, TSI_CHAIN_END);
+      append_to_statement_list (finally, tf->top_p);
       
       x = build1 (RESX_EXPR, void_type_node,
 		  build_int_2 (get_eh_region_number (tf->region), 0));
-      tsi_link_after (&i, x, TSI_NEW_STMT);
+      append_to_statement_list (x, tf->top_p);
 
       return;
     }
@@ -899,15 +884,15 @@ lower_try_finally_onedest (struct leh_state *state, struct leh_tf_state *tf)
     {
       /* Only reachable via the fallthru edge.  Do nothing but let
 	 the two blocks run together; we'll fall out the bottom.  */
-      tsi_link_chain_after (&i, finally, TSI_SAME_STMT);
+      append_to_statement_list (finally, tf->top_p);
       return;
     }
 
   finally_label = create_artificial_label ();
   x = build1 (LABEL_EXPR, void_type_node, finally_label);
-  tsi_link_after (&i, x, TSI_NEW_STMT);
+  append_to_statement_list (x, tf->top_p);
 
-  tsi_link_chain_after (&i, finally, TSI_CHAIN_END);
+  append_to_statement_list (finally, tf->top_p);
 
   q = tf->goto_queue;
   qe = q + tf->goto_queue_active;
@@ -937,7 +922,7 @@ lower_try_finally_onedest (struct leh_state *state, struct leh_tf_state *tf)
 	}
     }
 
-  tsi_link_after (&i, tf->goto_queue[0].cont_stmt, TSI_NEW_STMT);
+  append_to_statement_list (tf->goto_queue[0].cont_stmt, tf->top_p);
   maybe_record_in_goto_queue (state, tf->goto_queue[0].cont_stmt);
 }
 
@@ -949,39 +934,37 @@ static void
 lower_try_finally_copy (struct leh_state *state, struct leh_tf_state *tf)
 {
   tree finally, new_stmt;
-  tree_stmt_iterator i;
   tree x;
 
   finally = TREE_OPERAND (*tf->top_p, 1);
   *tf->top_p = TREE_OPERAND (*tf->top_p, 0);
 
-  new_stmt = NULL;
-  i = tsi_start (&new_stmt);
+  new_stmt = NULL_TREE;
 
   if (tf->may_fallthru)
     {
       x = lower_try_finally_dup_block (finally, state);
       lower_eh_constructs_1 (state, &x);
-      tsi_link_chain_after (&i, x, TSI_CHAIN_END);
+      append_to_statement_list (x, &new_stmt);
 
       if (!tf->fallthru_label)
 	tf->fallthru_label = create_artificial_label ();
       x = build1 (GOTO_EXPR, void_type_node, tf->fallthru_label);
-      tsi_link_after (&i, x, TSI_NEW_STMT);
+      append_to_statement_list (x, &new_stmt);
     }
 
   if (tf->may_throw)
     {
       x = build1 (LABEL_EXPR, void_type_node, tf->eh_label);
-      tsi_link_after (&i, x, TSI_NEW_STMT);
+      append_to_statement_list (x, &new_stmt);
 
       x = lower_try_finally_dup_block (finally, state);
       lower_eh_constructs_1 (state, &x);
-      tsi_link_chain_after (&i, x, TSI_CHAIN_END);
+      append_to_statement_list (x, &new_stmt);
 
       x = build1 (RESX_EXPR, void_type_node,
 		  build_int_2 (get_eh_region_number (tf->region), 0));
-      tsi_link_after (&i, x, TSI_NEW_STMT);
+      append_to_statement_list (x, &new_stmt);
     }
 
   if (tf->goto_queue)
@@ -1019,13 +1002,13 @@ lower_try_finally_copy (struct leh_state *state, struct leh_tf_state *tf)
 	  if (build_p)
 	    {
 	      x = build1 (LABEL_EXPR, void_type_node, lab);
-	      tsi_link_after (&i, x, TSI_NEW_STMT);
+	      append_to_statement_list (x, &new_stmt);
 
 	      x = lower_try_finally_dup_block (finally, state);
 	      lower_eh_constructs_1 (state, &x);
-	      tsi_link_chain_after (&i, x, TSI_CHAIN_END);
+	      append_to_statement_list (x, &new_stmt);
 
-	      tsi_link_after (&i, q->cont_stmt, TSI_NEW_STMT);
+	      append_to_statement_list (q->cont_stmt, &new_stmt);
 	      maybe_record_in_goto_queue (state, q->cont_stmt);
 	    }
 	}
@@ -1035,8 +1018,7 @@ lower_try_finally_copy (struct leh_state *state, struct leh_tf_state *tf)
 
   /* Need to link new stmts after running replace_goto_queue due
      to not wanting to process the same goto stmts twice.  */
-  i = tsi_last (tf->top_p);
-  tsi_link_chain_after (&i, new_stmt, TSI_SAME_STMT);
+  append_to_statement_list (new_stmt, tf->top_p);
 }
 
 /* A subroutine of lower_try_finally.  There are multiple edges incoming
@@ -1050,7 +1032,6 @@ lower_try_finally_switch (struct leh_state *state, struct leh_tf_state *tf)
   struct goto_queue_node *q, *qe;
   tree return_val = NULL;
   tree finally, finally_tmp, finally_label;
-  tree_stmt_iterator i, i2;
   int return_index, eh_index, fallthru_index;
   int nlabels, ndests, j, last_case_index;
   tree case_label_vec, switch_stmt, last_case, switch_body;
@@ -1059,7 +1040,6 @@ lower_try_finally_switch (struct leh_state *state, struct leh_tf_state *tf)
   /* Mash the TRY block to the head of the chain.  */
   finally = TREE_OPERAND (*tf->top_p, 1);
   *tf->top_p = TREE_OPERAND (*tf->top_p, 0);
-  i = tsi_last (tf->top_p);
 
   /* Lower the finally block itself.  */
   lower_eh_constructs_1 (state, &finally);
@@ -1081,7 +1061,6 @@ lower_try_finally_switch (struct leh_state *state, struct leh_tf_state *tf)
   switch_stmt = build (SWITCH_EXPR, integer_type_node, finally_tmp,
 		       NULL_TREE, case_label_vec);
   switch_body = NULL;
-  i2 = tsi_start (&switch_body);
   last_case = NULL;
   last_case_index = 0;
 
@@ -1093,12 +1072,12 @@ lower_try_finally_switch (struct leh_state *state, struct leh_tf_state *tf)
     {
       x = build (MODIFY_EXPR, void_type_node, finally_tmp,
 		 build_int_2 (fallthru_index, 0));
-      tsi_link_after (&i, x, TSI_NEW_STMT);
+      append_to_statement_list (x, tf->top_p);
 
       if (tf->may_throw)
 	{
 	  x = build1 (GOTO_EXPR, void_type_node, finally_label);
-	  tsi_link_after (&i, x, TSI_NEW_STMT);
+	  append_to_statement_list (x, tf->top_p);
 	}
 
       if (!tf->fallthru_label)
@@ -1111,19 +1090,19 @@ lower_try_finally_switch (struct leh_state *state, struct leh_tf_state *tf)
       last_case_index++;
 
       x = build (LABEL_EXPR, void_type_node, CASE_LABEL (last_case));
-      tsi_link_after (&i2, x, TSI_NEW_STMT);
+      append_to_statement_list (x, &switch_body);
       x = build1 (GOTO_EXPR, void_type_node, tf->fallthru_label);
-      tsi_link_after (&i2, x, TSI_NEW_STMT);
+      append_to_statement_list (x, &switch_body);
     }
 
   if (tf->may_throw)
     {
       x = build1 (LABEL_EXPR, void_type_node, tf->eh_label);
-      tsi_link_after (&i, x, TSI_NEW_STMT);
+      append_to_statement_list (x, tf->top_p);
 
       x = build (MODIFY_EXPR, void_type_node, finally_tmp,
 		 build_int_2 (eh_index, 0));
-      tsi_link_after (&i, x, TSI_NEW_STMT);
+      append_to_statement_list (x, tf->top_p);
 
       last_case = build (CASE_LABEL_EXPR, void_type_node,
 			 build_int_2 (eh_index, 0), NULL,
@@ -1132,16 +1111,16 @@ lower_try_finally_switch (struct leh_state *state, struct leh_tf_state *tf)
       last_case_index++;
 
       x = build (LABEL_EXPR, void_type_node, CASE_LABEL (last_case));
-      tsi_link_after (&i2, x, TSI_NEW_STMT);
+      append_to_statement_list (x, &switch_body);
       x = build1 (RESX_EXPR, void_type_node,
 		  build_int_2 (get_eh_region_number (tf->region), 0));
-      tsi_link_after (&i2, x, TSI_NEW_STMT);
+      append_to_statement_list (x, &switch_body);
     }
 
   x = build1 (LABEL_EXPR, void_type_node, finally_label);
-  tsi_link_after (&i, x, TSI_NEW_STMT);
+  append_to_statement_list (x, tf->top_p);
 
-  tsi_link_chain_after (&i, finally, TSI_CHAIN_END);
+  append_to_statement_list (finally, tf->top_p);
 
   /* Redirect each incomming goto edge.  */
   q = tf->goto_queue;
@@ -1177,22 +1156,21 @@ lower_try_finally_switch (struct leh_state *state, struct leh_tf_state *tf)
 	  TREE_VEC_ELT (case_label_vec, case_index) = last_case;
 
 	  x = build (LABEL_EXPR, void_type_node, CASE_LABEL (last_case));
-	  tsi_link_after (&i2, x, TSI_NEW_STMT);
-	  tsi_link_after (&i2, q->cont_stmt, TSI_NEW_STMT);
+	  append_to_statement_list (x, &switch_body);
+	  append_to_statement_list (q->cont_stmt, &switch_body);
 	  maybe_record_in_goto_queue (state, q->cont_stmt);
 	}
     }
   replace_goto_queue (tf);
   last_case_index += nlabels;
 
+  /* Make sure that we have a default label, as one is required.  */
+  CASE_LOW (last_case) = NULL;
+
   /* Need to link switch_stmt after running replace_goto_queue due
      to not wanting to process the same goto stmts twice.  */
-  tsi_link_after (&i, switch_stmt, TSI_NEW_STMT);
-  tsi_link_chain_after (&i, switch_body, TSI_CHAIN_END);
-
-  /* Make sure that we have a default label, so that we don't 
-     confuse flow analysis.  */
-  CASE_LOW (last_case) = NULL;
+  append_to_statement_list (switch_stmt, tf->top_p);
+  append_to_statement_list (switch_body, tf->top_p);
 }
 
 /* Decide whether or not we are going to duplicate the finally block.
@@ -1253,7 +1231,8 @@ lower_try_finally (struct leh_state *state, tree *tp)
   this_tf.try_finally_expr = *tp;
   this_tf.top_p = tp;
   if (using_eh_for_cleanups_p)
-    this_tf.region = gen_eh_region_cleanup (state->cur_region, state->prev_try);
+    this_tf.region
+      = gen_eh_region_cleanup (state->cur_region, state->prev_try);
   else
     this_tf.region = NULL;
 
@@ -1264,7 +1243,7 @@ lower_try_finally (struct leh_state *state, tree *tp)
   lower_eh_constructs_1 (&this_state, &TREE_OPERAND (*tp, 0));
 
   /* Determine if the try block is escaped through the bottom.  */
-  this_tf.may_fallthru = block_may_fallthru (&TREE_OPERAND (*tp, 0));
+  this_tf.may_fallthru = block_may_fallthru (TREE_OPERAND (*tp, 0));
 
   /* Determine if any exceptions are possible within the try block.  */
   if (using_eh_for_cleanups_p)
@@ -1300,7 +1279,7 @@ lower_try_finally (struct leh_state *state, tree *tp)
   /* If the finally block doesn't fall through, then any destination
      we might try to impose there isn't reached either.  There may be
      some minor amount of cleanup and redirection still needed.  */
-  else if (!block_may_fallthru (&TREE_OPERAND (*tp, 1)))
+  else if (!block_may_fallthru (TREE_OPERAND (*tp, 1)))
     lower_try_finally_nofallthru (state, &this_tf);
 
   /* We can easily special-case redirection to a single destination.  */
@@ -1316,9 +1295,8 @@ lower_try_finally (struct leh_state *state, tree *tp)
      block, do so.  */
   if (this_tf.fallthru_label)
     {
-      tree_stmt_iterator i = tsi_last (tp);
       tree x = build1 (LABEL_EXPR, void_type_node, this_tf.fallthru_label);
-      tsi_link_after (&i, x, TSI_NEW_STMT);
+      append_to_statement_list (x, tp);
     }
 
   if (this_tf.goto_queue)
@@ -1351,10 +1329,9 @@ lower_catch (struct leh_state *state, tree *tp)
     }
 
   out_label = NULL;
-  for (i = tsi_start (&TREE_OPERAND (*tp, 1)); !tsi_end_p (i); )
+  for (i = tsi_start (TREE_OPERAND (*tp, 1)); !tsi_end_p (i); )
     {
       struct eh_region *catch_region;
-      tree_stmt_iterator j;
       tree catch, x, eh_label;
 
       catch = tsi_stmt (i);
@@ -1365,21 +1342,19 @@ lower_catch (struct leh_state *state, tree *tp)
       eh_label = create_artificial_label ();
       set_eh_region_tree_label (catch_region, eh_label);
 
-      j = tsi_start (&CATCH_BODY (catch));
       x = build1 (LABEL_EXPR, void_type_node, eh_label);
-      tsi_link_before (&j, x, TSI_SAME_STMT);
+      tsi_link_before (&i, x, TSI_SAME_STMT);
 
-      if (block_may_fallthru (&CATCH_BODY (catch)))
+      if (block_may_fallthru (CATCH_BODY (catch)))
 	{
 	  if (!out_label)
 	    out_label = create_artificial_label ();
 
-	  j = tsi_last (&CATCH_BODY (catch));
 	  x = build1 (GOTO_EXPR, void_type_node, out_label);
-	  tsi_link_after (&j, x, TSI_SAME_STMT);
+	  append_to_statement_list (x, &CATCH_BODY (catch));
 	}
 
-      tsi_link_chain_before (&i, CATCH_BODY (catch), TSI_SAME_STMT);
+      tsi_link_before (&i, CATCH_BODY (catch), TSI_SAME_STMT);
       tsi_delink (&i);
     }
 
@@ -1395,7 +1370,7 @@ lower_eh_filter (struct leh_state *state, tree *tp)
 {
   struct leh_state this_state;
   struct eh_region *this_region;
-  tree inner = TREE_OPERAND (*tp, 1);
+  tree inner = expr_first (TREE_OPERAND (*tp, 1));
   tree eh_label;
   
   if (EH_FILTER_MUST_NOT_THROW (inner))
@@ -1458,7 +1433,7 @@ lower_cleanup (struct leh_state *state, tree *tp)
   memset (&fake_tf, 0, sizeof (fake_tf));
   fake_tf.top_p = tp;
   fake_tf.region = this_region;
-  fake_tf.may_fallthru = block_may_fallthru (&TREE_OPERAND (*tp, 0));
+  fake_tf.may_fallthru = block_may_fallthru (TREE_OPERAND (*tp, 0));
   fake_tf.may_throw = true;
 
   fake_tf.eh_label = create_artificial_label ();
@@ -1481,9 +1456,8 @@ lower_cleanup (struct leh_state *state, tree *tp)
       *tp = TREE_OPERAND (*tp, 0);
       if (fake_tf.fallthru_label)
 	{
-	  tree_stmt_iterator i = tsi_last (tp);
 	  tree x = build1 (LABEL_EXPR, void_type_node, fake_tf.fallthru_label);
-	  tsi_link_after (&i, x, TSI_NEW_STMT);
+	  append_to_statement_list (x, tp);
 	}
     }
 }
@@ -1491,98 +1465,92 @@ lower_cleanup (struct leh_state *state, tree *tp)
 /* Main loop for lowering eh constructs.  */
 
 static void
-lower_eh_constructs_1 (struct leh_state *state, tree *top_p)
+lower_eh_constructs_1 (struct leh_state *state, tree *tp)
 {
-  tree_stmt_iterator i, j;
+  tree_stmt_iterator i;
+  tree t = *tp;
 
-  for (i = tsi_start (top_p); !tsi_end_p (i); tsi_next (&i))
+  switch (TREE_CODE (t))
     {
-      tree *tp = tsi_stmt_ptr (i);
-      tree t = *tp;
+    case COND_EXPR:
+      lower_eh_constructs_1 (state, &COND_EXPR_THEN (t));
+      lower_eh_constructs_1 (state, &COND_EXPR_ELSE (t));
+      break;
+    case BIND_EXPR:
+      lower_eh_constructs_1 (state, &BIND_EXPR_BODY (t));
+      break;
 
-      switch (TREE_CODE (t))
+    case CALL_EXPR:
+      /* Look for things that can throw exceptions, and record them.  */
+      if (state->cur_region && tree_could_throw_p (t))
 	{
-	case COND_EXPR:
-	  lower_eh_constructs_1 (state, &COND_EXPR_THEN (t));
-	  lower_eh_constructs_1 (state, &COND_EXPR_ELSE (t));
+	  record_stmt_eh_region (state->cur_region, t);
+	  note_eh_region_may_contain_throw (state->cur_region);
+	}
+      break;
+
+    case MODIFY_EXPR:
+      /* Look for things that can throw exceptions, and record them.  */
+      if (state->cur_region && tree_could_throw_p (t))
+	{
+	  record_stmt_eh_region (state->cur_region, t);
+	  note_eh_region_may_contain_throw (state->cur_region);
+
+	  /* ??? For the benefit of calls.c, converting all this to rtl, 
+	     we need to record the call expression, not just the outer
+	     modify statement.  */
+	  if (TREE_CODE (TREE_OPERAND (t, 1)) == CALL_EXPR)
+	    record_stmt_eh_region (state->cur_region, TREE_OPERAND (t, 1));
+	}
+      break;
+
+    case GOTO_EXPR:
+    case RETURN_EXPR:
+      maybe_record_in_goto_queue (state, t);
+      break;
+    case SWITCH_EXPR:
+      verify_norecord_switch_expr (state, t);
+      break;
+
+    case TRY_FINALLY_EXPR:
+      lower_try_finally (state, tp);
+      break;
+
+    case TRY_CATCH_EXPR:
+      i = tsi_start (TREE_OPERAND (t, 1));
+      switch (TREE_CODE (tsi_stmt (i)))
+	{
+	case CATCH_EXPR:
+	  lower_catch (state, tp);
 	  break;
-	case BIND_EXPR:
-	  lower_eh_constructs_1 (state, &BIND_EXPR_BODY (t));
+	case EH_FILTER_EXPR:
+	  lower_eh_filter (state, tp);
 	  break;
-
-	case CALL_EXPR:
-	  /* Look for things that can throw exceptions, and record them.  */
-	  if (state->cur_region && tree_could_throw_p (t))
-	    {
-	      record_stmt_eh_region (state->cur_region, t);
-	      note_eh_region_may_contain_throw (state->cur_region);
-	    }
-	  break;
-
-	case MODIFY_EXPR:
-	  /* Look for things that can throw exceptions, and record them.  */
-	  if (state->cur_region && tree_could_throw_p (t))
-	    {
-	      record_stmt_eh_region (state->cur_region, t);
-	      note_eh_region_may_contain_throw (state->cur_region);
-
-	      /* ??? For the benefit of calls.c, converting all this to rtl, 
-		 we need to record the call expression, not just the outer
-		 modify statement.  */
-	      if (TREE_CODE (TREE_OPERAND (t, 1)) == CALL_EXPR)
-		record_stmt_eh_region (state->cur_region, TREE_OPERAND (t, 1));
-	    }
-	  break;
-
-	case GOTO_EXPR:
-	case RETURN_EXPR:
-	  maybe_record_in_goto_queue (state, t);
-	  break;
-
-	case SWITCH_EXPR:
-	  verify_norecord_switch_expr (state, t);
-	  break;
-
-	case TRY_FINALLY_EXPR:
-	  lower_try_finally (state, tp);
-	  goto cleanup;
-
-	case TRY_CATCH_EXPR:
-	  j = tsi_start (&TREE_OPERAND (t, 1));
-	  switch (TREE_CODE (tsi_stmt (j)))
-	    {
-	    case CATCH_EXPR:
-	      lower_catch (state, tp);
-	      break;
-	    case EH_FILTER_EXPR:
-	      lower_eh_filter (state, tp);
-	      break;
-	    default:
-	      lower_cleanup (state, tp);
-	      break;
-	    }
-
-	cleanup:
-	  /* The last right-hand node of a compound_expr, once lowered,
-	     would look like more code.  We could notice this case by
-	     doing tsi_next before replacement, but this seems cheaper.  */
-	  if (tsi_container (i) == tp)
-	    return;
-
-	  /* Need to make sure that the compound_exprs are righted.  */
-	  if (TREE_CODE (*tp) == COMPOUND_EXPR)
-	    {
-	      t = *tp;
-	      tsi_delink (&i);
-	      tsi_link_chain_before (&i, t, TSI_CHAIN_END);
-	    }
-	  break;
-
 	default:
-	  /* A type, a decl, or some kind of statement that we're not
-	     interested in.  Don't walk them.  */
+	  lower_cleanup (state, tp);
 	  break;
 	}
+      break;
+
+    case STATEMENT_LIST:
+      for (i = tsi_start (t); !tsi_end_p (i); )
+	{
+	  lower_eh_constructs_1 (state, tsi_stmt_ptr (i));
+	  t = tsi_stmt (i);
+	  if (TREE_CODE (t) == STATEMENT_LIST)
+	    {
+	      tsi_link_before (&i, t, TSI_SAME_STMT);
+	      tsi_delink (&i);
+	    }
+	  else
+	    tsi_next (&i);
+	}
+      break;
+
+    default:
+      /* A type, a decl, or some kind of statement that we're not
+	 interested in.  Don't walk them.  */
+      break;
     }
 }
 
@@ -1617,7 +1585,6 @@ lower_eh_constructs (tree *tp)
 
   timevar_pop (TV_TREE_EH);
 }
-
 
 
 /* Construct EH edges for STMT.  */

@@ -84,15 +84,19 @@ static tree factored_computed_goto_label;
    the destination of computed gotos when unfactoring them.  */
 static tree factored_computed_goto;
 
+/* The root of statement_lists of basic blocks for the garbage collector.
+   This is a hack; we really should GC the entire CFG structure.  */
+varray_type tree_bb_root;
+
 /* Basic blocks and flowgraphs.  */
+static basic_block create_bb (tree, basic_block);
 static void create_blocks_annotations (void);
 static void create_block_annotation (basic_block);
 static void free_blocks_annotations (void);
 static void clear_blocks_annotations (void);
-static basic_block make_blocks (tree *, basic_block);
-static inline void append_stmt_to_bb (tree *, basic_block);
-static inline void prepend_stmt_to_bb (tree *, basic_block);
+static void make_blocks (tree);
 static void factor_computed_gotos (void);
+static tree tree_block_label (basic_block bb);
 
 /* Edges.  */
 static void make_edges (void);
@@ -101,9 +105,10 @@ static void make_exit_edges (basic_block);
 static void make_cond_expr_edges (basic_block);
 static void make_switch_expr_edges (basic_block);
 static void make_goto_expr_edges (basic_block);
+static edge tree_redirect_edge_and_branch_1 (edge, basic_block, bool);
+static edge tree_redirect_edge_and_branch (edge, basic_block);
 
 /* Various helpers.  */
-static tree *first_exec_stmt (tree *);
 static inline bool stmt_starts_bb_p (tree, tree);
 static inline bool stmt_ends_bb_p (tree);
 static int tree_verify_flow_info (void);
@@ -116,21 +121,11 @@ static bool tree_forwarder_block_p (basic_block);
 /* Flowgraph optimization and cleanup.  */
 
 static void remove_bb (basic_block);
-static void remove_stmt (tree *, bool);
 static bool cleanup_control_flow (void);
 static edge find_taken_edge_cond_expr (basic_block, tree);
 static edge find_taken_edge_switch_expr (basic_block, tree);
 static tree find_case_label_for_value (tree, tree);
-static void replace_stmt (tree *, tree *);
 static int phi_alternatives_equal (basic_block, edge, edge);
-
-/* Block iterator helpers.  */
-static void remove_bsi_from_block (block_stmt_iterator *, bool);
-static block_stmt_iterator bsi_init (tree *, basic_block);
-static inline void bsi_update_from_tsi (block_stmt_iterator *,
-					tree_stmt_iterator);
-static tree_stmt_iterator bsi_link_after (tree_stmt_iterator *, tree,
-					  basic_block);
 
 /* Location to track pending stmt for edge insertion.  */
 #define PENDING_STMT(e)	((e)->insns.t)
@@ -145,8 +140,6 @@ static tree_stmt_iterator bsi_link_after (tree_stmt_iterator *, tree,
 void
 build_tree_cfg (tree *fnbody)
 {
-  tree *first_p;
-
   timevar_push (TV_TREE_CFG);
 
   /* Register specific tree functions.  */
@@ -158,6 +151,8 @@ build_tree_cfg (tree *fnbody)
   VARRAY_BB_INIT (basic_block_info, initial_cfg_capacity, "basic_block_info");
   memset ((void *) &cfg_stats, 0, sizeof (cfg_stats));
 
+  VARRAY_TREE_INIT (tree_bb_root, initial_cfg_capacity, "tree_bb_root");
+
   /* Build a mapping of labels to their associated blocks.  */
   VARRAY_BB_INIT (label_to_block_map, initial_cfg_capacity,
 		  "label to block map");
@@ -165,31 +160,28 @@ build_tree_cfg (tree *fnbody)
   ENTRY_BLOCK_PTR->next_bb = EXIT_BLOCK_PTR;
   EXIT_BLOCK_PTR->prev_bb = ENTRY_BLOCK_PTR;
 
-  first_p = first_exec_stmt (fnbody);
-  if (first_p)
+  found_computed_goto = 0;
+  make_blocks (*fnbody);
+
+  /* Computed gotos are hell to deal with, especially if there are
+     lots of them with a large number of destinations.  So we factor
+     them to a common computed goto location before we build the
+     edge list.  After we convert back to normal form, we will un-factor
+     the computed gotos since factoring introduces an unwanted jump.  */
+  if (found_computed_goto)
+    factor_computed_gotos ();
+
+  if (n_basic_blocks > 0)
     {
-      found_computed_goto = 0;
-      make_blocks (first_p, NULL);
+      /* Adjust the size of the array.  */
+      VARRAY_GROW (basic_block_info, n_basic_blocks);
+      VARRAY_GROW (tree_bb_root, n_basic_blocks);
 
-      /* Computed gotos are hell to deal with, especially if there are
-	 lots of them with a large number of destinations.  So we factor
-	 them to a common computed goto location before we build the
-	 edge list.  After we convert back to normal form, we will un-factor
-	 the computed gotos since factoring introduces an unwanted jump.  */
-      if (found_computed_goto)
-	factor_computed_gotos ();
+      /* Create block annotations.  */
+      create_blocks_annotations ();
 
-      if (n_basic_blocks > 0)
-	{
-	  /* Adjust the size of the array.  */
-	  VARRAY_GROW (basic_block_info, n_basic_blocks);
-
-	  /* Create block annotations.  */
-	  create_blocks_annotations ();
-
-	  /* Create the edges of the flowgraph.  */
-	  make_edges ();
-	}
+      /* Create the edges of the flowgraph.  */
+      make_edges ();
     }
 
 #if 0
@@ -249,8 +241,12 @@ factor_computed_gotos (void)
 	
   FOR_EACH_BB (bb)
     {
-      tree *last_p = last_stmt_ptr (bb);
-      tree last = *last_p;
+      block_stmt_iterator bsi = bsi_last (bb);
+      tree last;
+
+      if (bsi_end_p (bsi))
+	continue;
+      last = bsi_stmt (bsi);
 
       /* Ignore the computed goto we create when we factor the original
 	 computed gotos.  */
@@ -261,15 +257,14 @@ factor_computed_gotos (void)
       if (computed_goto_p (last))
 	{
 	  tree assignment;
-	  block_stmt_iterator bsi = bsi_last (bb);
 
 	  /* The first time we find a computed goto we need to create
 	     the factored goto block and the variable each original
 	     computed goto will use for their goto destination.  */
 	  if (! factored_computed_goto)
 	    {
-	      tree compound;
-	      tree_stmt_iterator tsi = tsi_from_bsi (bsi);
+	      basic_block new_bb = create_bb (NULL, bb);
+	      block_stmt_iterator new_bsi = bsi_start (new_bb);
 
 	      /* Create the destination of the factored goto.  Each original
 		 computed goto will put its desired destination into this
@@ -282,48 +277,26 @@ factor_computed_gotos (void)
 	      factored_label_decl = create_artificial_label ();
 	      factored_computed_goto_label
 		= build1 (LABEL_EXPR, void_type_node, factored_label_decl);
-	      modify_stmt (factored_computed_goto_label);
+	      bsi_insert_after (&new_bsi, factored_computed_goto_label,
+				BSI_NEW_STMT);
 
 	      /* Build our new computed goto.  */
 	      factored_computed_goto = build1 (GOTO_EXPR, void_type_node, var);
-	      modify_stmt (factored_computed_goto);
-
-	      /* Cram the new label and the computed goto into a container.  */
-	      compound = build (COMPOUND_EXPR, void_type_node,
-				factored_computed_goto_label,
-				factored_computed_goto);
-
-	      /* Ugh.  We want to pass the address of the container to
-		 make_blocks call below.  But we certainly don't want to
-		 to pass along the address of a global.  There's got to be
-		 a better way to do this than to create a dummy container.  */
-	      compound = build (COMPOUND_EXPR, void_type_node, compound, NULL);
-
-	      /* Put the new statements into a new basic block.  This must
-		 be done before we link them into the statement chain!  */
-	      make_blocks (&TREE_OPERAND (compound, 0), NULL);
-
-	      /* Now it is safe to link in the new statements.  */
-	      tsi_link_chain_after (&tsi,
-				    TREE_OPERAND (compound, 0),
-				    TSI_CHAIN_START);
+	      bsi_insert_after (&new_bsi, factored_computed_goto,
+				BSI_NEW_STMT);
 	    }
 
 	  /* Copy the original computed goto's destination into VAR.  */
           assignment = build (MODIFY_EXPR, ptr_type_node,
 			      var, GOTO_DESTINATION (last));
-	  modify_stmt (assignment);
+	  bsi_insert_before (&bsi, assignment, BSI_SAME_STMT);
 
-	  /* Insert that assignment just before the original computed
-	     goto.  */
-          set_bb_for_stmt (assignment, bb);
-	  bsi_insert_before (&bsi, assignment, BSI_NEW_STMT);
-
-	  /* And revector the computed goto to the new destination.  */
+	  /* And re-vector the computed goto to the new destination.  */
           GOTO_DESTINATION (last) = factored_label_decl;
 	}
     }
 }
+
 /* Create annotations for all the basic blocks.  */
 
 static void create_blocks_annotations (void)
@@ -381,34 +354,20 @@ clear_blocks_annotations (void)
     bb->tree_annotations = NULL;
 }
 
-/* Build a flowgraph for the statements starting at the statement pointed
-   by FIRST_P.
+/* Build a flowgraph for the statement_list STMT_LIST.  */
 
-   BB is the block where the statements should be added to.  If BB is NULL,
-      a new basic block will be created for the statements.
-
-   Return the last basic block added to the graph.  This is used to know if
-   a recursive invocation built a sub-graph whose last block can accept
-   more statements or not.  */
-
-static basic_block
-make_blocks (tree *first_p, basic_block bb)
+static void
+make_blocks (tree stmt_list)
 {
-  tree_stmt_iterator i;
-  tree stmt, last;
-  bool start_new_block;
+  tree_stmt_iterator i = tsi_start (stmt_list);
+  tree stmt = NULL;
+  bool start_new_block = true;
+  bool first_stmt_of_list = true;
+  basic_block bb = ENTRY_BLOCK_PTR;
 
-  if (first_p == NULL
-      || *first_p == error_mark_node)
-    return NULL;
-
-  start_new_block = (bb == NULL);
-  stmt = last = NULL;
-  for (i = tsi_start (first_p); !tsi_end_p (i); tsi_next (&i))
+  while (!tsi_end_p (i))
     {
-      enum tree_code code;
       tree prev_stmt;
-      tree *stmt_p = tsi_container (i);
 
       prev_stmt = stmt;
       stmt = tsi_stmt (i);
@@ -418,72 +377,35 @@ make_blocks (tree *first_p, basic_block bb)
 	 so now.  */
       if (start_new_block || stmt_starts_bb_p (stmt, prev_stmt))
 	{
-	  bb = create_bb (NULL);
+	  if (!first_stmt_of_list)
+	    stmt_list = tsi_split_statement_list_before (&i);
+	  bb = create_bb (stmt_list, bb);
 	  start_new_block = false;
 	}
 
-      code = TREE_CODE (stmt);
-
       /* Now add STMT to BB and create the subgraphs for special statement
 	 codes.  */
-      append_stmt_to_bb (stmt_p, bb);
+      set_bb_for_stmt (stmt, bb);
 
-      if (computed_goto_p (*stmt_p))
+      if (computed_goto_p (stmt))
 	found_computed_goto = true;
 
-      /* All BIND_EXPRs except for the outermost one are lowered already.  */
-      if (code == BIND_EXPR)
-	abort ();
-
       /* If STMT is a basic block terminator, set START_NEW_BLOCK for the
-	 next iteration.  Also compute any reachable exception handlers
-	 for STMT.  */
-      if (stmt && stmt_ends_bb_p (stmt))
+	 next iteration.  */
+      if (stmt_ends_bb_p (stmt))
 	start_new_block = true;
 
-      last = stmt;
+      tsi_next (&i);
+      first_stmt_of_list = false;
     }
-
-  if (last)
-    return bb_for_stmt (last);
-
-  return NULL;
 }
 
 
-static inline void
-append_stmt_to_bb (tree *stmt_p, basic_block bb)
-{
-  set_bb_for_stmt (*stmt_p, bb);
+/* Create and return a new basic block after bb AFTER.  Use STMT_LIST for
+   the body if non-null, otherwise create a new statement list.  */
 
-  /* Update the head and tail of the block.  */
-  if (bb->head_tree_p == NULL)
-    bb->head_tree_p = stmt_p;
-
-  bb->end_tree_p = stmt_p;
-}
-
-
-/* Add statement pointed by STMT_P to basic block BB and update BB's
-   boundaries accordingly.  */
-
-static inline void
-prepend_stmt_to_bb (tree *stmt_p, basic_block bb)
-{
-  set_bb_for_stmt (*stmt_p, bb);
-
-  /* Update the head and tail of the block.  */
-  bb->head_tree_p = stmt_p;
-
-  if (bb->end_tree_p == NULL)
-    bb->end_tree_p = stmt_p;
-}
-
-
-/* Create and return a new basic block after bb AFTER.  */
-
-basic_block
-create_bb (basic_block after)
+static basic_block
+create_bb (tree stmt_list, basic_block after)
 {
   basic_block bb;
 
@@ -493,18 +415,23 @@ create_bb (basic_block after)
 
   bb->index = last_basic_block;
   bb->flags = BB_NEW;
+  bb->stmt_list = stmt_list ? stmt_list : alloc_stmt_list ();
 
   /* Add the new block to the linked list of blocks.  */
-  if (!after)
-    after = EXIT_BLOCK_PTR->prev_bb;
   link_block (bb, after);
 
   /* Grow the basic block array if needed.  */
   if ((size_t) n_basic_blocks == VARRAY_SIZE (basic_block_info))
-    VARRAY_GROW (basic_block_info, n_basic_blocks + (n_basic_blocks + 3) / 4);
+    {
+      size_t new_size = n_basic_blocks + (n_basic_blocks + 3) / 4;
+      VARRAY_GROW (basic_block_info, new_size);
+      VARRAY_GROW (tree_bb_root, new_size);
+    }
 
   /* Add the newly created block to the array.  */
   BASIC_BLOCK (n_basic_blocks) = bb;
+  VARRAY_TREE (tree_bb_root, bb->index) = bb->stmt_list;
+
   n_basic_blocks++;
   last_basic_block++;
 
@@ -524,7 +451,7 @@ make_edges (void)
 
   /* Create an edge from entry to the first block with executable
      statements in it.  */
-  make_edge (ENTRY_BLOCK_PTR, BASIC_BLOCK (0), 0);
+  make_edge (ENTRY_BLOCK_PTR, BASIC_BLOCK (0), EDGE_FALLTHRU);
 
   /* Traverse basic block array placing edges.  */
   FOR_EACH_BB (bb)
@@ -780,8 +707,9 @@ make_goto_expr_edges (basic_block bb)
 	      /* Computed GOTOs.  Make an edge to every label block that has
 		 been marked as a potential target for a computed goto.  */
 	      (FORCED_LABEL (LABEL_EXPR_LABEL (target)) && for_call == 0)
-	      /* Nonlocal GOTO target.  Make an edge to every label block that has
-		 been marked as a potential target for a nonlocal goto.  */
+	      /* Nonlocal GOTO target.  Make an edge to every label block
+		 that has been marked as a potential target for a nonlocal
+		 goto.  */
 	      || (NONLOCAL_LABEL (LABEL_EXPR_LABEL (target)) && for_call == 1))
 	    {
 	      make_edge (bb, target_bb, edge_flags);
@@ -839,8 +767,7 @@ cleanup_tree_cfg (void)
   timevar_pop (TV_TREE_CLEANUP_CFG);
 }
 
-/* Walk the function tree removing unnecessary statements and
-   variables.
+/* Walk the function tree removing unnecessary statements.
 
      * Empty statement nodes are removed
 
@@ -859,6 +786,7 @@ cleanup_tree_cfg (void)
 
 struct rus_data
 {
+  tree *last_goto;
   bool repeat;
   bool may_throw;
   bool may_branch;
@@ -878,10 +806,10 @@ remove_useless_stmts_warn_notreached (tree stmt)
 
   switch (TREE_CODE (stmt))
     {
-    case COMPOUND_EXPR:
+    case STATEMENT_LIST:
       {
 	tree_stmt_iterator i;
-	for (i = tsi_start (&stmt); !tsi_end_p (i); tsi_next (&i))
+	for (i = tsi_start (stmt); !tsi_end_p (i); tsi_next (&i))
 	  if (remove_useless_stmts_warn_notreached (tsi_stmt (i)))
 	    return true;
       }
@@ -927,11 +855,13 @@ remove_useless_stmts_cond (tree *stmt_p, struct rus_data *data)
 
   save_has_label = data->has_label;
   data->has_label = false;
+  data->last_goto = NULL;
 
   remove_useless_stmts_1 (&COND_EXPR_THEN (*stmt_p), data);
 
   then_has_label = data->has_label;
   data->has_label = false;
+  data->last_goto = NULL;
 
   remove_useless_stmts_1 (&COND_EXPR_ELSE (*stmt_p), data);
 
@@ -942,9 +872,16 @@ remove_useless_stmts_cond (tree *stmt_p, struct rus_data *data)
   else_clause = COND_EXPR_ELSE (*stmt_p);
   cond = COND_EXPR_COND (*stmt_p);
 
+  /* If neither arm does anything at all, we can remove the whole IF.  */
+  if (!TREE_SIDE_EFFECTS (then_clause) && !TREE_SIDE_EFFECTS (else_clause))
+    {
+      *stmt_p = build_empty_stmt ();
+      data->repeat = true;
+    }
+
   /* If there are no reachable statements in an arm, then we can
      zap the entire conditional.  */
-  if (integer_nonzerop (cond) && !else_has_label)
+  else if (integer_nonzerop (cond) && !else_has_label)
     {
       if (warn_notreached)
 	remove_useless_stmts_warn_notreached (else_clause);
@@ -959,41 +896,50 @@ remove_useless_stmts_cond (tree *stmt_p, struct rus_data *data)
       data->repeat = true;
     }
 
-  /* Notice branches to a common destination.  */
-  else if (TREE_CODE (then_clause) == GOTO_EXPR
-	   && TREE_CODE (else_clause) == GOTO_EXPR
-	   && (GOTO_DESTINATION (then_clause)
-	       == GOTO_DESTINATION (else_clause)))
+  /* Check a couple of simple things on then/else with single stmts.  */
+  else
     {
-      *stmt_p = then_clause;
-      data->repeat = true;
-    }
+      tree then_stmt = expr_only (then_clause);
+      tree else_stmt = expr_only (else_clause);
 
-  /* If the THEN/ELSE clause merely assigns a value to a variable/parameter
-     which is already known to contain that value, then remove the useless
-     THEN/ELSE clause.  */
-  else if (TREE_CODE (cond) == VAR_DECL || TREE_CODE (cond) == PARM_DECL)
-    {
-      if (TREE_CODE (else_clause) == MODIFY_EXPR
-	  && TREE_OPERAND (else_clause, 0) == cond
-	  && integer_zerop (TREE_OPERAND (else_clause, 1)))
-	COND_EXPR_ELSE (*stmt_p) = build_empty_stmt ();
-    }
-  else if ((TREE_CODE (cond) == EQ_EXPR || TREE_CODE (cond) == NE_EXPR)
-	   && (TREE_CODE (TREE_OPERAND (cond, 0)) == VAR_DECL
-	       || TREE_CODE (TREE_OPERAND (cond, 0)) == PARM_DECL)
-	   && TREE_CONSTANT (TREE_OPERAND (cond, 1)))
-    {
-      tree clause = (TREE_CODE (cond) == EQ_EXPR
-		     ? then_clause : else_clause);
-      tree *location = (TREE_CODE (cond) == EQ_EXPR
-			? &COND_EXPR_THEN (*stmt_p)
-			: &COND_EXPR_ELSE (*stmt_p));
+      /* Notice branches to a common destination.  */
+      if (then_stmt && else_stmt
+	  && TREE_CODE (then_stmt) == GOTO_EXPR
+	  && TREE_CODE (else_stmt) == GOTO_EXPR
+	  && (GOTO_DESTINATION (then_stmt) == GOTO_DESTINATION (else_stmt)))
+        {
+	  *stmt_p = then_stmt;
+	  data->repeat = true;
+	}
 
-      if (TREE_CODE (clause) == MODIFY_EXPR
-	  && TREE_OPERAND (clause, 0) == TREE_OPERAND (cond, 0)
-	  && TREE_OPERAND (clause, 1) == TREE_OPERAND (cond, 1))
-	*location = build_empty_stmt ();
+      /* If the THEN/ELSE clause merely assigns a value to a variable or
+	 parameter which is already known to contain that value, then
+	 remove the useless THEN/ELSE clause.  */
+      else if (TREE_CODE (cond) == VAR_DECL || TREE_CODE (cond) == PARM_DECL)
+	{
+	  if (else_stmt
+	      && TREE_CODE (else_stmt) == MODIFY_EXPR
+	      && TREE_OPERAND (else_stmt, 0) == cond
+	      && integer_zerop (TREE_OPERAND (else_stmt, 1)))
+	    COND_EXPR_ELSE (*stmt_p) = alloc_stmt_list ();
+        }
+      else if ((TREE_CODE (cond) == EQ_EXPR || TREE_CODE (cond) == NE_EXPR)
+	       && (TREE_CODE (TREE_OPERAND (cond, 0)) == VAR_DECL
+		   || TREE_CODE (TREE_OPERAND (cond, 0)) == PARM_DECL)
+	       && TREE_CONSTANT (TREE_OPERAND (cond, 1)))
+	{
+	  tree stmt = (TREE_CODE (cond) == EQ_EXPR
+		       ? then_stmt : else_stmt);
+          tree *location = (TREE_CODE (cond) == EQ_EXPR
+			    ? &COND_EXPR_THEN (*stmt_p)
+			    : &COND_EXPR_ELSE (*stmt_p));
+
+	  if (stmt
+	      && TREE_CODE (stmt) == MODIFY_EXPR
+	      && TREE_OPERAND (stmt, 0) == TREE_OPERAND (cond, 0)
+	      && TREE_OPERAND (stmt, 1) == TREE_OPERAND (cond, 1))
+	    *location = alloc_stmt_list ();
+	}
     }
 }
 
@@ -1008,6 +954,7 @@ remove_useless_stmts_tf (tree *stmt_p, struct rus_data *data)
   save_may_throw = data->may_throw;
   data->may_branch = false;
   data->may_throw = false;
+  data->last_goto = NULL;
 
   remove_useless_stmts_1 (&TREE_OPERAND (*stmt_p, 0), data);
 
@@ -1015,12 +962,13 @@ remove_useless_stmts_tf (tree *stmt_p, struct rus_data *data)
   this_may_throw = data->may_throw;
   data->may_branch |= save_may_branch;
   data->may_throw |= save_may_throw;
+  data->last_goto = NULL;
 
   remove_useless_stmts_1 (&TREE_OPERAND (*stmt_p, 1), data);
 
   /* If the body is empty, then we can emit the FINALLY block without
      the enclosing TRY_FINALLY_EXPR.  */
-  if (IS_EMPTY_STMT (TREE_OPERAND (*stmt_p, 0)))
+  if (!TREE_SIDE_EFFECTS (TREE_OPERAND (*stmt_p, 0)))
     {
       *stmt_p = TREE_OPERAND (*stmt_p, 1);
       data->repeat = true;
@@ -1028,17 +976,21 @@ remove_useless_stmts_tf (tree *stmt_p, struct rus_data *data)
 
   /* If the handler is empty, then we can emit the TRY block without
      the enclosing TRY_FINALLY_EXPR.  */
-  else if (IS_EMPTY_STMT (TREE_OPERAND (*stmt_p, 1)))
+  else if (!TREE_SIDE_EFFECTS (TREE_OPERAND (*stmt_p, 1)))
     {
       *stmt_p = TREE_OPERAND (*stmt_p, 0);
       data->repeat = true;
     }
 
-  /* If the body neither throws, nor branches, then we can safely string
-     the TRY and FINALLY blocks together.  We'll reassociate this in the
-     main body of remove_useless_stmts.  */
+  /* If the body neither throws, nor branches, then we can safely
+     string the TRY and FINALLY blocks together.  */
   else if (!this_may_branch && !this_may_throw)
-    TREE_SET_CODE (*stmt_p, COMPOUND_EXPR);
+    {
+      tree stmt = *stmt_p;
+      *stmt_p = TREE_OPERAND (stmt, 0);
+      append_to_statement_list (TREE_OPERAND (stmt, 1), stmt_p);
+      data->repeat = true;
+    }
 }
 
 static void
@@ -1051,6 +1003,7 @@ remove_useless_stmts_tc (tree *stmt_p, struct rus_data *data)
   /* Collect may_throw information for the body only.  */
   save_may_throw = data->may_throw;
   data->may_throw = false;
+  data->last_goto = NULL;
 
   remove_useless_stmts_1 (&TREE_OPERAND (*stmt_p, 0), data);
 
@@ -1071,8 +1024,9 @@ remove_useless_stmts_tc (tree *stmt_p, struct rus_data *data)
      no exceptions propagate past this point.  */
 
   this_may_throw = true;
-  i = tsi_start (&TREE_OPERAND (*stmt_p, 1));
+  i = tsi_start (TREE_OPERAND (*stmt_p, 1));
   stmt = tsi_stmt (i);
+  data->last_goto = NULL;
 
   switch (TREE_CODE (stmt))
     {
@@ -1084,6 +1038,7 @@ remove_useless_stmts_tc (tree *stmt_p, struct rus_data *data)
 	     propagate exceptions past this point.  */
 	  if (CATCH_TYPES (stmt) == NULL)
 	    this_may_throw = false;
+	  data->last_goto = NULL;
 	  remove_useless_stmts_1 (&CATCH_BODY (stmt), data);
 	}
       break;
@@ -1102,7 +1057,7 @@ remove_useless_stmts_tc (tree *stmt_p, struct rus_data *data)
 
       /* If the cleanup is empty, then we can emit the TRY block without
 	 the enclosing TRY_CATCH_EXPR.  */
-      if (IS_EMPTY_STMT (TREE_OPERAND (*stmt_p, 1)))
+      if (!TREE_SIDE_EFFECTS (TREE_OPERAND (*stmt_p, 1)))
 	{
 	  *stmt_p = TREE_OPERAND (*stmt_p, 0);
 	  data->repeat = true;
@@ -1140,39 +1095,40 @@ remove_useless_stmts_bind (tree *stmt_p, struct rus_data *data)
 }
 
 static void
-remove_useless_stmts_goto (tree_stmt_iterator i, tree *stmt_p,
-				    struct rus_data *data)
+remove_useless_stmts_goto (tree *stmt_p, struct rus_data *data)
 {
-  tree_stmt_iterator tsi = i;
+  tree dest = GOTO_DESTINATION (*stmt_p);
 
+  data->may_branch = true;
+  data->last_goto = NULL;
+
+  /* ??? Why bother putting this back together when rtl is just
+     about to take it apart again?  */
   if (factored_computed_goto_label
-      && (GOTO_DESTINATION (*stmt_p)
-	  == LABEL_EXPR_LABEL (factored_computed_goto_label)))
+      && (dest == LABEL_EXPR_LABEL (factored_computed_goto_label)))
     {
       GOTO_DESTINATION (*stmt_p) = GOTO_DESTINATION (factored_computed_goto);
       return;
     }
 
-  /* Step past the GOTO_EXPR statement.  */
-  tsi_next (&tsi);
-  if (! tsi_end_p (tsi))
-    {
-      /* If we are not at the end of this tree, then see if
-	 we are at the target label.  If so, then this jump
-	 is not needed.  */
-      tree label;
+  /* Record the last goto expr, so that we can delete it if unnecessary.  */
+  if (TREE_CODE (dest) == LABEL_DECL)
+    data->last_goto = stmt_p;
+}
 
-      label = tsi_stmt (tsi);
-      if (TREE_CODE (label) == LABEL_EXPR
-	  && LABEL_EXPR_LABEL (label) == GOTO_DESTINATION (*stmt_p))
-	{
-	  data->repeat = true;
-	  *stmt_p = build_empty_stmt ();
-	  return;
-	}
+static void
+remove_useless_stmts_label (tree *stmt_p, struct rus_data *data)
+{
+  data->has_label = true;
+
+  if (data->last_goto
+      && GOTO_DESTINATION (*data->last_goto) == LABEL_EXPR_LABEL (*stmt_p))
+    {
+      *data->last_goto = build_empty_stmt ();
+      data->repeat = true;
     }
 
-  data->may_branch = true;
+  /* ??? Add something here to delete unused labels.  */
 }
 
 /* If the function is "const" or "pure", then clear TREE_SIDE_EFFECTS on its
@@ -1195,74 +1151,84 @@ update_call_expr_flags (tree call)
 }
 
 static void
-remove_useless_stmts_1 (tree *first_p, struct rus_data *data)
+remove_useless_stmts_1 (tree *tp, struct rus_data *data)
 {
-  tree_stmt_iterator i;
-
-  for (i = tsi_start (first_p); !tsi_end_p (i); tsi_next (&i))
+  tree t = *tp;
+  switch (TREE_CODE (t))
     {
-      tree *container_p = tsi_container (i);
-      tree *stmt_p;
-      enum tree_code code;
+    case COND_EXPR:
+      remove_useless_stmts_cond (tp, data);
+      break;
 
-      while (TREE_CODE (*container_p) == COMPOUND_EXPR)
-	{
-	  /* If either operand of a COMPOUND_EXPR is an empty statement,
-	     then remove the empty statement and the COMPOUND_EXPR itself.  */
-	  if (IS_EMPTY_STMT (TREE_OPERAND (*container_p, 1)))
-	    *container_p = TREE_OPERAND (*container_p, 0);
-	  else if (IS_EMPTY_STMT (TREE_OPERAND (*container_p, 0)))
-	    *container_p = TREE_OPERAND (*container_p, 1);
-	  else
-	    break;
-	}
+    case TRY_FINALLY_EXPR:
+      remove_useless_stmts_tf (tp, data);
+      break;
 
-      /* Dive into control structures.  */
-      stmt_p = tsi_stmt_ptr (i);
-      code = TREE_CODE (*stmt_p);
-      switch (code)
-	{
-	case COND_EXPR:
-	  remove_useless_stmts_cond (stmt_p, data);
-	  break;
-	case TRY_FINALLY_EXPR:
-	  remove_useless_stmts_tf (stmt_p, data);
-	  break;
-	case TRY_CATCH_EXPR:
-	  remove_useless_stmts_tc (stmt_p, data);
-	  break;
-	case BIND_EXPR:
-	  remove_useless_stmts_bind (stmt_p, data);
-	  break;
-	case GOTO_EXPR:
-	  remove_useless_stmts_goto (i, stmt_p, data);
-	  break;
-	case LABEL_EXPR:
-	  data->has_label = true;
-	  break;
-	case RETURN_EXPR:
-	  data->may_branch = true;
-	  break;
-	case CALL_EXPR:
-	  update_call_expr_flags (*stmt_p);
-	  if (tree_could_throw_p (*stmt_p))
-	    data->may_throw = true;
-	  break;
-	case MODIFY_EXPR:
-	  if (TREE_CODE (TREE_OPERAND (*stmt_p, 1)) == CALL_EXPR)
-	    update_call_expr_flags (TREE_OPERAND (*stmt_p, 1));
-	  if (tree_could_throw_p (*stmt_p))
-	    data->may_throw = true;
-	  break;
-	default:
-	  break;
-	}
+    case TRY_CATCH_EXPR:
+      remove_useless_stmts_tc (tp, data);
+      break;
 
-      /* We need to keep the tree in gimple form, so we may have to
-	 re-rationalize COMPOUND_EXPRs.  */
-      if (TREE_CODE (*container_p) == COMPOUND_EXPR
-	  && TREE_CODE (TREE_OPERAND (*container_p, 0)) == COMPOUND_EXPR)
-	*container_p = rationalize_compound_expr (*container_p);
+    case BIND_EXPR:
+      remove_useless_stmts_bind (tp, data);
+      break;
+
+    case GOTO_EXPR:
+      remove_useless_stmts_goto (tp, data);
+      break;
+
+    case LABEL_EXPR:
+      remove_useless_stmts_label (tp, data);
+      break;
+
+    case RETURN_EXPR:
+      data->last_goto = NULL;
+      data->may_branch = true;
+      break;
+
+    case CALL_EXPR:
+      data->last_goto = NULL;
+      update_call_expr_flags (t);
+      if (tree_could_throw_p (t))
+        data->may_throw = true;
+      break;
+
+    case MODIFY_EXPR:
+      data->last_goto = NULL;
+      if (TREE_CODE (TREE_OPERAND (t, 1)) == CALL_EXPR)
+	update_call_expr_flags (TREE_OPERAND (t, 1));
+      if (tree_could_throw_p (t))
+	data->may_throw = true;
+      break;
+
+    case STATEMENT_LIST:
+      {
+        tree_stmt_iterator i = tsi_start (t);
+	while (!tsi_end_p (i))
+	  {
+	    t = tsi_stmt (i);
+	    if (IS_EMPTY_STMT (t))
+	      {
+		tsi_delink (&i);
+		continue;
+	      }
+	    
+	    remove_useless_stmts_1 (tsi_stmt_ptr (i), data);
+
+	    t = tsi_stmt (i);
+	    if (TREE_CODE (t) == STATEMENT_LIST)
+	      {
+		tsi_link_before (&i, t, TSI_SAME_STMT);
+		tsi_delink (&i);
+	      }
+	    else
+	      tsi_next (&i);
+	  }
+      }
+      break;
+
+    default:
+      data->last_goto = NULL;
+      break;
     }
 }
 
@@ -1344,9 +1310,7 @@ static void
 remove_bb (basic_block bb)
 {
   block_stmt_iterator i;
-  bsi_list_p stack;
-  location_t loc;
-  bool empty = true;
+  location_t *loc = NULL;
 
   dump_file = dump_begin (TDI_cfg, &dump_flags);
   if (dump_file)
@@ -1361,39 +1325,27 @@ remove_bb (basic_block bb)
       dump_file = NULL;
     }
 
-  /* Remove all the instructions in the block.  Do so in reverse order
-     so that we remove all the containing COMPOUND_EXPRs as well.  */
-  FOR_EACH_BSI_IN_REVERSE (stack, bb, i)
+  /* Remove all the instructions in the block.  */
+  for (i = bsi_start (bb); !bsi_end_p (i); bsi_remove (&i))
     {
       tree stmt = bsi_stmt (i);
 
       set_bb_for_stmt (stmt, NULL);
 
-      if (get_lineno (stmt) != -1
-	  /* Don't warn for removed gotos.  Gotos are often removed due to jump threading,
-	     thus resulting into bogus warnings.  Not great, since this way we lose warnings
-	     for gotos in the original program that are indeed unreachable.  */
-	  && TREE_CODE (stmt) != GOTO_EXPR)
-	{
-	  loc.file = get_filename (stmt);
-	  loc.line = get_lineno (stmt);
-	  empty = false;
-	}
-      bsi_remove (&i);
+      /* Don't warn for removed gotos.  Gotos are often removed due to
+	 jump threading, thus resulting into bogus warnings.  Not great,
+	 since this way we lose warnings for gotos in the original program
+	 that are indeed unreachable.  */
+      if (TREE_CODE (stmt) != GOTO_EXPR && EXPR_LOCUS (stmt) && !loc)
+	loc = EXPR_LOCUS (stmt);
     }
 
   /* If requested, give a warning that the first statement in the
      block is unreachable.  We walk statements backwards in the
      loop above, so the last statement we process is the first statement
      in the block.  */
-  if (warn_notreached && !empty)
-    warning ("%Hwill never be executed", &loc);
-
-  if (bb->head_tree_p)
-    set_bb_for_stmt (*bb->head_tree_p, NULL);
-
-  if (bb->end_tree_p)
-    set_bb_for_stmt (*bb->end_tree_p, NULL);
+  if (warn_notreached && loc)
+    warning ("%Hwill never be executed", loc);
 
   remove_phi_nodes_and_edges_for_unreachable_block (bb);
 
@@ -1402,209 +1354,10 @@ remove_bb (basic_block bb)
   if (pdom_info)
     delete_from_dominance_info (pdom_info, bb);
 
+  VARRAY_TREE (tree_bb_root, bb->index) = NULL_TREE;
+
   /* Remove the basic block from the array.  */
   expunge_block (bb);
-}
-
-/* Remove statement pointed by iterator I.
-
-    Note that this function will wipe out control statements that
-    may span multiple basic blocks.  Make sure that you really
-    want to remove the whole control structure before calling this
-    function.  Remove the annotations if REMOVE_ANNOTATIONS is true.  */
-
-static void
-remove_bsi_from_block (block_stmt_iterator *i, bool remove_annotations)
-{
-  tree t = *(i->tp);
-
-  if (is_exec_stmt (t))
-    {
-      if (TREE_CODE (t) == COMPOUND_EXPR)
-	{
-	  basic_block op0_bb = bb_for_stmt (TREE_OPERAND (t, 0));
-	  basic_block op1_bb = bb_for_stmt (TREE_OPERAND (t, 1));
-
-	  remove_stmt (&TREE_OPERAND (t, 0), remove_annotations);
-
-	  /* If both operands are empty and they are not associated
-	     with different basic blocks, then delete the whole
-	     COMPOUND_EXPR.  */
-	  if (IS_EMPTY_STMT (TREE_OPERAND (t, 1))
-	      && (op0_bb == NULL
-		  || op1_bb == NULL
-		  || op0_bb == op1_bb))
-	    remove_stmt (i->tp, remove_annotations);
-	}
-      else
-	remove_stmt (i->tp, remove_annotations);
-    }
-  
-  bsi_next (i);
-}
-
-void
-bsi_remove (block_stmt_iterator *i)
-{
-  remove_bsi_from_block (i, true);
-}
-
-/* Move the statement at FROM so it comes right after the statement at
-   TO.  */
-void 
-bsi_move_after (block_stmt_iterator from, block_stmt_iterator to)
-{
-  tree stmt = bsi_stmt (from);
-  remove_bsi_from_block (&from, false);
-  bsi_insert_after (&to, stmt, BSI_SAME_STMT);
-} 
-
-/* Move the statement at FROM so it comes right before the statement
-   at TO.  */
-void 
-bsi_move_before (block_stmt_iterator from, block_stmt_iterator to)
-{
-  tree stmt = bsi_stmt (from);
-  remove_bsi_from_block (&from, false);
-  bsi_insert_before (&to, stmt, BSI_SAME_STMT);
-}
-
-/* Move the statement at FROM to the end of basic block BB, */
-void
-bsi_move_to_bb_end (block_stmt_iterator from, basic_block bb)
-{
-  block_stmt_iterator last = bsi_last (bb);
-  
-  /* Have to check bsi_end_p because it could be an empty block.  */
-  if (!bsi_end_p (last)
-      && is_ctrl_stmt (bsi_stmt (last)))
-    {
-      bsi_move_before (from, last);
-    }
-  else
-    {
-      bsi_move_after (from, last);
-    }
-}
-
-/* Replace the contents of a stmt with another. The replacement cannot be
-   a COMPOUND_EXPR node, only a gimple stmt.  */
-
-void
-bsi_replace (block_stmt_iterator bsi, tree stmt)
-{
-  if (TREE_CODE (stmt) == COMPOUND_EXPR)
-    abort ();
-
-  replace_stmt (bsi.tp, &stmt);
-  modify_stmt (bsi_stmt (bsi));
-}
-
-/* Remove statement *STMT_P.
-
-   Update all references associated with it.  Note that this function will
-   wipe out control statements that may span multiple basic blocks.  Make
-   sure that you really want to remove the whole control structure before
-   calling this function.
-   Reset the annotations if REMOVE_ANNOTATIONS is true.  */
-
-static void
-remove_stmt (tree *stmt_p, bool remove_annotations)
-{
-  varray_type vdefs;
-  size_t i;
-  varray_type defs;
-  tree stmt = *stmt_p;
-  basic_block bb = bb_for_stmt (stmt);
-  int update_head = 0;
-  int update_end = 0;
-
-  /* If the statement is a LABEL_EXPR, remove the LABEL_DECL from
-     the symbol table.  */
-  if (TREE_CODE (stmt) == LABEL_EXPR)
-    remove_decl (LABEL_EXPR_LABEL (stmt), DECL_INITIAL (current_function_decl));
-
-  if (remove_annotations)
-    {
-      /* If the statement is already in SSA form, mark all the
-	 definitions made in the statement invalid.
-	 
-	 FIXME: We should probably traverse all the def-use edges
-	 originating at this statement to update each use of the
-	 definitions made here, but that is expensive and can easily
-	 be checked by every pass by checking if SSA_NAME_DEF_STMT is
-	 a nop.  */ 
-      stmt_ann_t ann = stmt_ann (stmt);
-      defs = def_ops (ann);
-      for (i = 0; defs && i < VARRAY_ACTIVE_SIZE (defs); i++)
-	{
-	  tree *def_p = VARRAY_TREE_PTR (defs, i);
-	  if (TREE_CODE (*def_p) == SSA_NAME)
-	    SSA_NAME_DEF_STMT (*def_p) = build_empty_stmt ();
-	}
-      
-      vdefs = vdef_ops (ann);
-      for (i = 0; vdefs && i < VARRAY_ACTIVE_SIZE (vdefs); i++)
-	{
-	  tree vdef = VDEF_RESULT (VARRAY_TREE (vdefs, i));
-	  if (TREE_CODE (vdef) == SSA_NAME)
-	    SSA_NAME_DEF_STMT (vdef) = build_empty_stmt ();
-	}
-      
-      stmt->common.ann = NULL;
-    }
-
-  /* The RHS of a MODIFY_EXPR has an annotation for the benefit of
-     SSA-PRE.  Make sure to remove that annotation as well.
-
-     We're somewhat conservative here in that we do not remove all
-     annotations on the RHS of the MODIFY_EXPR, just those of type
-     TREE_ANN_COMMON.  If the annotation had another type such
-     as VAR_ANN other code may still need it and it'll get removed
-     when we remove all the VAR_ANNs as we tear down the SSA form.  */
-  if (TREE_CODE (stmt) == MODIFY_EXPR
-      && TREE_OPERAND (stmt, 1)->common.ann
-      && TREE_OPERAND (stmt, 1)->common.ann->common.type == TREE_ANN_COMMON)
-    TREE_OPERAND (stmt, 1)->common.ann = NULL;
-
-  /* If we are removing a COMPOUND_EXPR, we may need to update block
-     head/tail pointers which point into operands of the COMPOUND_EXPR.  */
-  if (TREE_CODE (stmt) == COMPOUND_EXPR)
-    {
-      basic_block op0_bb = bb_for_stmt (TREE_OPERAND (stmt, 0));
-      basic_block op1_bb = bb_for_stmt (TREE_OPERAND (stmt, 1));
-
-#ifdef ENABLE_CHECKING
-      if (op0_bb && op1_bb && op0_bb != op1_bb)
-	abort ();
-#endif
-
-      if (op0_bb)
-	bb = op0_bb;
-      else
-	bb = op1_bb;
-
-      if (bb
-	  && (&TREE_OPERAND (stmt, 0) == bb->head_tree_p
-	      || &TREE_OPERAND (stmt, 1) == bb->head_tree_p))
-	update_head = 1;
-
-      if (bb
-	  && (&TREE_OPERAND (stmt, 0) == bb->end_tree_p
-	      || &TREE_OPERAND (stmt, 1) == bb->end_tree_p))
-	update_end = 1;
-    }
-
-  /* Replace STMT with an empty statement.  */
-  *stmt_p = build_empty_stmt ();
-  if (bb)
-    set_bb_for_stmt (*stmt_p, bb);
-
-  if (update_head)
-    bb->head_tree_p = stmt_p;
-
-  if (update_end)
-    bb->end_tree_p = stmt_p;
 }
 
 /* Examine BB to determine if it is a forwarding block (a block which only
@@ -1616,6 +1369,7 @@ tree_block_forwards_to (basic_block bb)
 {
   block_stmt_iterator bsi;
   bb_ann_t ann = bb_ann (bb);
+  tree stmt;
 
   /* If this block is not forwardable, then avoid useless work.  */
   if (! ann->forwardable)
@@ -1641,56 +1395,35 @@ tree_block_forwards_to (basic_block bb)
 
   /* Walk past any labels or empty statements at the start of this block.  */
   bsi = bsi_start (bb);
-  while (! bsi_end_p (bsi)
-	 && (IS_EMPTY_STMT (bsi_stmt (bsi))
-	     || TREE_CODE (bsi_stmt (bsi)) == LABEL_EXPR))
-    bsi_next (&bsi);
+  while (1)
+    {
+      stmt = NULL;
+      if (bsi_end_p (bsi))
+	break;
+      stmt = bsi_stmt (bsi);
+      if (IS_EMPTY_STMT (stmt) || TREE_CODE (stmt) == LABEL_EXPR)
+	bsi_next (&bsi);
+      else
+	break;
+    }
 
   /* If we reached the end of this block, or hit a GOTO_EXPR to an known
      location, then we may be able to optimize this case.  */
-  if (bsi_end_p (bsi)
-      || (bsi_stmt (bsi)
-	  && TREE_CODE (bsi_stmt (bsi)) == GOTO_EXPR
-	  && TREE_CODE (GOTO_DESTINATION (bsi_stmt (bsi))) == LABEL_DECL))
+  if (!stmt
+      || (TREE_CODE (stmt) == GOTO_EXPR
+	  && TREE_CODE (GOTO_DESTINATION (stmt)) == LABEL_DECL))
     {
       basic_block dest;
 
       /* Recursive call to pick up chains of forwarding blocks.  */
       dest = tree_block_forwards_to (bb->succ->dest);
-      if (dest)
-	{
-	  ann->forwardable = 1;
-	  return dest;
-	}
 
-      /* If we hit the end of the block, then we may need to insert a label
-	 at this block's destination.  */
-      if (bsi_end_p (bsi))
-	{
-	  tree stmt;
+      /* If none found, we forward to bb->succ->dest at minimum.  */
+      if (!dest)
+	dest = bb->succ->dest;
 
-	  bsi = bsi_start (bb->succ->dest);
-
-	  /* It's not clear if we can safely insert the label in this case.  */
-          if (bsi_end_p (bsi))
-	    return NULL;
-
-	  stmt = bsi_stmt (bsi);
-
-	  /* If our new destination does not start with a label,
-	     then add one.  */
-	  if (TREE_CODE (stmt) != LABEL_EXPR)
-	    {
-	      /* DEST does not start with a label, add one.  */
-	      stmt = create_artificial_label ();
-	      stmt = build1 (LABEL_EXPR, void_type_node, stmt);
-	      bsi_insert_before (&bsi, stmt, BSI_NEW_STMT);
-	    }
-	}
-
-      /* This block forwards to bb->succ->dest.  */
       ann->forwardable = 1;
-      return bb->succ->dest;
+      return dest;
     }
 
   /* No forwarding possible.  */
@@ -1764,9 +1497,9 @@ cleanup_cond_expr_graph (basic_block bb, block_stmt_iterator bsi)
     taken_edge = bb->succ;
 
   if (taken_edge->flags & EDGE_TRUE_VALUE)
-    bsi_replace (bsi, COND_EXPR_THEN (cond_expr));
+    bsi_replace (&bsi, COND_EXPR_THEN (cond_expr));
   else if (taken_edge->flags & EDGE_FALSE_VALUE)
-    bsi_replace (bsi, COND_EXPR_ELSE (cond_expr));
+    bsi_replace (&bsi, COND_EXPR_ELSE (cond_expr));
   else
     abort ();
 
@@ -1830,7 +1563,7 @@ cleanup_switch_expr_graph (basic_block bb, block_stmt_iterator bsi)
 
   /* Simplify the SWITCH_EXPR itself.  */
   taken_case = build (GOTO_EXPR, void_type_node, CASE_LABEL (taken_case));
-  bsi_replace (bsi, taken_case);
+  bsi_replace (&bsi, taken_case);
 
   return retval;
 }
@@ -2181,7 +1914,7 @@ tree_cfg2dot (FILE *file)
         {
 	  head_code = TREE_CODE (first);
 	  head_name = tree_code_name[head_code];
-	  head_line = get_lineno (*(bb->head_tree_p));
+	  head_line = get_lineno (first);
 	}
       else
         head_name = "no-statement";
@@ -2190,11 +1923,10 @@ tree_cfg2dot (FILE *file)
         {
 	  end_code = TREE_CODE (last);
 	  end_name = tree_code_name[end_code];
-	  end_line = get_lineno (*(bb->end_tree_p));
+	  end_line = get_lineno (last);
 	}
       else
         end_name = "no-statement";
-
 
       fprintf (file, "\t%d [label=\"#%d\\n%s (%d)\\n%s (%d)\"];\n",
 	       bb->index, bb->index, head_name, head_line, end_name,
@@ -2281,9 +2013,8 @@ is_ctrl_altering_stmt (tree t)
   return tree_can_throw_internal (t);
 }
 
-
-/* Return flags associated with the function called by T (see ECF_* in
-   rtl.h)  */
+/* Return flags associated with the function called by T
+   (see ECF_* in rtl.h).  */
 
 int
 call_expr_flags (tree t)
@@ -2301,7 +2032,6 @@ call_expr_flags (tree t)
 
   return flags;
 }
-
 
 /* Return true if T is a computed goto.  */
 
@@ -2380,8 +2110,7 @@ stmt_starts_bb_p (tree t, tree prev_t)
 static inline bool
 stmt_ends_bb_p (tree t)
 {
-  return (is_ctrl_stmt (t)
-	  || is_ctrl_altering_stmt (t));
+  return is_ctrl_stmt (t) || is_ctrl_altering_stmt (t);
 }
 
 
@@ -2392,33 +2121,8 @@ delete_tree_cfg (void)
 {
   if (n_basic_blocks > 0)
     free_blocks_annotations ();
-
   free_basic_block_vars (0);
-}
-
-
-/* Return a pointer to the first executable statement starting at ENTRY_P.  */
-
-static tree *
-first_exec_stmt (tree *entry_p)
-{
-  tree_stmt_iterator i;
-  tree stmt;
-
-  for (i = tsi_start (entry_p); !tsi_end_p (i); tsi_next (&i))
-    {
-      stmt = tsi_stmt (i);
-      if (!stmt)
-        continue;
-
-      /* Note that we actually return the container for the executable
-	 statement, not the statement itself.  This is to allow the caller to
-	 start iterating from this point.  */
-      if (is_exec_stmt (stmt))
-	return tsi_container (i);
-    }
-
-  return NULL;
+  tree_bb_root = NULL;
 }
 
 /* Return the first statement in basic block BB, stripped of any NOP
@@ -2427,264 +2131,44 @@ first_exec_stmt (tree *entry_p)
 tree
 first_stmt (basic_block bb)
 {
-  block_stmt_iterator i;
-
-  i = bsi_start (bb);
-  return (!bsi_end_p (i)) ? bsi_stmt (i) : NULL_TREE;
+  block_stmt_iterator i = bsi_start (bb);
+  return !bsi_end_p (i) ? bsi_stmt (i) : NULL_TREE;
 }
 
 /* Return the last statement in basic block BB, stripped of any NOP
-   containers.
-
-   empty statement nodes are never returned. NULL is returned if there are
-   no such statements.  */
+   containers.  */
 
 tree
 last_stmt (basic_block bb)
 {
-  block_stmt_iterator b;
-
-  b = bsi_last (bb);
-  return (!bsi_end_p (b)) ? bsi_stmt (b) : NULL_TREE;
+  block_stmt_iterator b = bsi_last (bb);
+  return !bsi_end_p (b) ? bsi_stmt (b) : NULL_TREE;
 }
-
 
 /* Return a pointer to the last statement in block BB.  */
 
 tree *
 last_stmt_ptr (basic_block bb)
 {
-  block_stmt_iterator last;
-
-  last = bsi_last (bb);
-  return (!bsi_end_p (last)) ? bsi_stmt_ptr (last) : NULL;
+  block_stmt_iterator last = bsi_last (bb);
+  return !bsi_end_p (last) ? bsi_stmt_ptr (last) : NULL;
 }
-
-
-/* Initialize a block stmt iterator with a container that contains stmt's
-   in a specified basic block. If the first real stmt is not in the
-   specified basic block, then return an empty iterator.  */
-
-static block_stmt_iterator
-bsi_init (tree *tp, basic_block bb)
-{
-  block_stmt_iterator i;
-  tree stmt;
-
-  i.tp = tp;
-  i.context = NULL_TREE;
-  /* If the first statement is empty, get the next non-empty one.  */
-  if (i.tp != NULL)
-    {
-      stmt = bsi_stmt (i);
-      if (stmt == NULL_TREE)
-	bsi_next_in_bb (&i, bb);
-    }
-
-  /* Now check that its the right basic block.  */
-  if (i.tp != NULL)
-    {
-      stmt = bsi_stmt (i);
-      if (bb_for_stmt (stmt) != bb)
-        i.tp = NULL;
-    }
-
-  return i;
-}
-
-/* Similar to tsi_step() but stops at basic block boundaries and ignores
-   empty statement nodes inside a basic block.  */
-
-void
-bsi_next_in_bb (block_stmt_iterator *i, basic_block bb)
-{
-  tree t, stmt = NULL_TREE;
-
-  /* Go to the next statement skipping over empty statements we may find.  */
-  do
-    {
-      t = *(i->tp);
-      if (TREE_CODE (t) == COMPOUND_EXPR)
-	i->tp = &(TREE_OPERAND (t, 1));
-      else
-	{
-	  /* We ran out of statements.  Clear the iterator and stop
-	     searching.  */
-	  i->tp = NULL;
-	  break;
-	}
-
-      stmt = bsi_stmt (*i);
-    }
-  while (IS_EMPTY_STMT (stmt));
-
-  if (i->tp && bb_for_stmt (stmt) != bb)
-    i->tp = NULL;
-
-  if (i->tp == NULL && i->context != NULL_TREE)
-    {
-      /* If we haven't got a statement, and we have context, pop the state and
-         traverse to the next statement.  */
-      i->tp = (tree *)TREE_VALUE (i->context);
-      i->context = TREE_PURPOSE (i->context);
-
-      /* FIXME.  Hack to recover BB for cases when we are stepping out of a
-	 removed statement.  If bsi_remove() has been called on the
-	 last statement of a BIND_EXPR body, the next call to
-	 bsi_next() will retrieve a NULL basic block from the just deleted
-	 statement, so that BB will be NULL.  We restore BB using the
-	 BIND_EXPR node itself.  */
-      bb = bb_for_stmt (*(i->tp));
-
-      bsi_next_in_bb (i, bb);
-    }
-}
-
-/* Similar to tsi_start() but initializes the iterator at the first
-   statement in basic block BB which isn't an empty statement node.
-
-   NULL is returned if there are no such statements.  */
-
-block_stmt_iterator
-bsi_start (basic_block bb)
-{
-  block_stmt_iterator i;
-  tree t;
-
-  if (bb && bb->index != INVALID_BLOCK)
-    {
-      tree *tp = bb->head_tree_p;
-      i = bsi_init (tp, bb);
-      if (i.tp != NULL)
-	{
-	  /* If we get back a statement which is not within this basic
-	     block, that is wrong!  */
-	  t = bsi_stmt (i);
-	  if (t != NULL_TREE && bb_for_stmt (t) != bb)
-	    abort ();
-	}
-      }
-    else
-      i.tp = NULL;
-
-  /* If there are no stmts in the block, set the context to point to the
-     basic block in case we try to insert a stmt with this iterator.  */
-
-  if (i.tp == NULL)
-    i.context = (tree) bb;
-
-  return i;
-}
-
-/* This routine will return a block iterator which points to the last stmt in
-   a basic block, if there is one.  */
-
-block_stmt_iterator
-bsi_last (basic_block bb)
-{
-  block_stmt_iterator b, tmp;
-
-  if (bb == NULL || bb->index == INVALID_BLOCK)
-    {
-      b.tp = NULL;
-      return b;
-    }
-
-  b = bsi_init (bb->end_tree_p, bb);
-
-  /* If the last stmt pointer isn't something a BSI can represent (ie, an
-     empty statement node), then find the last stmt the slow way.  */
-  if (b.tp == NULL)
-    {
-      for (tmp = b = bsi_start (bb); !bsi_end_p (tmp); bsi_next (&tmp))
-        b = tmp;
-    }
-
-  return b;
-}
-
-
-/* Find the previous iterator value.  */
-
-void
-bsi_prev (block_stmt_iterator *i)
-{
-  block_stmt_iterator bi, next;
-
-  bi = bsi_start (bb_for_stmt (bsi_stmt (*i)));
-  if (bi.tp != i->tp)
-    {
-      for ( ; !bsi_end_p (bi); bi = next)
-	{
-	  next = bi;
-	  bsi_next (&next);
-	  if (next.tp == i->tp)
-	    {
-	      i->tp = bi.tp;
-	      i->context = bi.context;
-	      return;
-	    }
-	}
-    }
-
-  i->tp = NULL;
-  bi.context = NULL_TREE;
-  return;
-}
-
-
-/* Initialize a block_stmt_iterator with a statement pointed to by a tree
-   iterator. If this cannot be done, a NULL iterator is returned.  */
-
-block_stmt_iterator
-bsi_from_tsi (tree_stmt_iterator ti)
-{
-  basic_block bb;
-  tree stmt;
-  block_stmt_iterator bi;
-
-  stmt = tsi_stmt (ti);
-  if (stmt)
-    {
-      bb = bb_for_stmt (stmt);
-      if (bb)
-        {
-	  for (bi = bsi_start (bb); !bsi_end_p (bi); bsi_next (&bi))
-	    if (bi.tp == ti.tp)
-	      return bi;
-	}
-    }
-
-  bi.tp = NULL;
-  bi.context = NULL_TREE;
-  return bi;
-}
-
-
-/* This is a more efficient version of bsi_from_tsi which can be used when
-   we are changing a bsi in a known way. Specifically, we know that the tsi
-   is located in the same 'context' area (ie, within the same BIND_EXPR),
-   so that the context doesn't have to be re-evaluated. This is primarily for
-   the insert routines which know what they are doing.  */
-
-static inline void
-bsi_update_from_tsi (block_stmt_iterator *bsi, tree_stmt_iterator tsi)
-{
-  /* Pretty simple right now, but its better to have this in an interface
-     rather than exposed right in the insert routine.  */
-  bsi->tp = tsi.tp;
-}
-
 
 /* Insert statement T into basic block BB.  */
 
 void
 set_bb_for_stmt (tree t, basic_block bb)
 {
-  stmt_ann_t ann;
-
-  do
+  if (TREE_CODE (t) == STATEMENT_LIST)
     {
+      tree_stmt_iterator i;
+      for (i = tsi_start (t); !tsi_end_p (i); tsi_next (&i))
+	set_bb_for_stmt (tsi_stmt (i), bb);
+    }
+  else
+    {
+      stmt_ann_t ann;
+
       /* If the statement is a label, add the label to block-to-labels map
 	 so that we can speed up edge creation for GOTO_EXPRs.  */
       if (TREE_CODE (t) == LABEL_EXPR)
@@ -2696,524 +2180,150 @@ set_bb_for_stmt (tree t, basic_block bb)
 
       ann = get_stmt_ann (t);
       ann->bb = bb;
-      t = (TREE_CODE (t) == COMPOUND_EXPR) ? TREE_OPERAND (t, 0) : NULL_TREE;
     }
-  while (t);
 }
 
-
-/* Insert routines.  */
-
-/* Because of the way containers and CE nodes are maintained, linking a new
-   stmt in can have significant consequences on the basic block information.
-   The basic block structure maintains the head and tail pointers as
-   containers, or pointers to the pointer to a node.
-
-   Linking a new stmt after the last stmt in a block changes not only the
-   tail pointer of this block, but the container for the head of the next block
-   is now contained in a new node, so the head pointer must be updated in
-   a that different block. If it is the only statement in that block, then
-   the end pointer needs to be updated too.
-
-   Linking a stmt after the penultimate (next to last) stmt in a block adds
-   a node which has the container to the end block stmt, so the block end must
-   be updated in this case.
-
-   And the third case is the simple one when we are adding a new stmt to the
-   end of a chain which also ends a block.  */
-
-/* This routine returns a tree stmt iterator which points to the original
-   stmt before we did an insert.  The first parameter is a tree stmt iterator
-   which is updated to point to the new stmt.  */
-
-static tree_stmt_iterator
-bsi_link_after (tree_stmt_iterator *this_tsi, tree t, basic_block curr_bb)
-{
-  enum link_after_cases { NO_UPDATE,
-			  END_OF_CHAIN,
-			  PENULTIMATE_STMT,
-			  AFTER_LAST_STMT,
-			  JUST_UPDATE };
-  enum link_after_cases update_form = NO_UPDATE;
-  basic_block bb;
-  tree_stmt_iterator same_tsi, next_tsi;
-  tree *this_container;
-
-  this_container = tsi_container (*this_tsi);
-  same_tsi = next_tsi = *this_tsi;
-  tsi_next (&next_tsi);
-  if (tsi_end_p (next_tsi))
-    update_form = END_OF_CHAIN;
-  /* This is the penultimate case. The next stmt is actually the last stmt
-     in the block, so we need to update the tail pointer to be the new
-     container for that stmt after we link in the new one.  */
-  else if (tsi_container (next_tsi) == curr_bb->end_tree_p)
-    update_form = PENULTIMATE_STMT;
-  /* The ugly case which requires updating pointers in a different
-     basic block.  */
-  else if (this_container == curr_bb->end_tree_p)
-    {
-      /* Double check to make sure the next stmt is indeed the head of
-	 a different block.  */
-      bb = bb_for_stmt (*tsi_container (next_tsi));
-      if (bb
-	  && bb != curr_bb
-	  && bb->head_tree_p == tsi_container (next_tsi))
-	update_form = AFTER_LAST_STMT;
-      else
-	/* There are nops between the end of this block and the beginning
-	   of the next, so we only need to update our end pointer.  */
-	update_form = JUST_UPDATE;
-    }
-
-  tsi_link_after (&same_tsi, t, TSI_SAME_STMT);
-  if (update_form == END_OF_CHAIN)
-    {
-      /* If the stmt was added to the end of a chain, the linking routines
-	 created a new CE node to be a container for what use to be the
-	 last stmt in the chain.  This container needs to have the BB info
-	 set for it as well.  */
-      set_bb_for_stmt (*tsi_container (same_tsi), curr_bb);
-    }
-  *this_tsi = same_tsi;
-  tsi_next (this_tsi);
-  set_bb_for_stmt (*tsi_container (*this_tsi), curr_bb);
-
-  switch (update_form)
-    {
-    case END_OF_CHAIN:
-    case JUST_UPDATE:
-      if (this_container == curr_bb->end_tree_p)
-	curr_bb->end_tree_p = tsi_container (*this_tsi);
-      break;
-
-    case PENULTIMATE_STMT:
-      next_tsi = *this_tsi;
-      tsi_next (&next_tsi);
-      curr_bb->end_tree_p = tsi_container (next_tsi);
-      break;
-
-    case AFTER_LAST_STMT:
-      /* This is now the end of block.  */
-      curr_bb->end_tree_p = tsi_container (*this_tsi);
-
-      /* And the next basic block's head needs updating too.  */
-      next_tsi = *this_tsi;
-      tsi_next (&next_tsi);
-      bb = bb_for_stmt (tsi_stmt (next_tsi));
-      /* Oh, and we also need to check if this is both the head *and* the
-	 end of the next block.  */
-      if (bb->end_tree_p == bb->head_tree_p)
-	bb->end_tree_p = tsi_container (next_tsi);
-      bb->head_tree_p = tsi_container (next_tsi);
-      break;
-
-    default:
-      break;
-    }
-
-  return same_tsi;
-}
-
-
-/* This routine inserts a stmt after the stmt iterator passed in.
-   The final parameter determines whether the statement iterator
-   is updated to point to the new stmt, or left pointing to the original
-   statement.  (Which may have a different container, by the way.)  */
+/* Insert a statement, or statement list, before the given pointer.  */
 
 void
-bsi_insert_after (block_stmt_iterator *curr_bsi, tree t,
-		  enum bsi_iterator_update mode)
+bsi_insert_before (block_stmt_iterator *i, tree t, enum bsi_iterator_update m)
 {
-  tree_stmt_iterator inserted_tsi, same_tsi;
-  basic_block curr_bb;
-  tree *curr_container;
-  tree curr_stmt, inserted_stmt;
-
-  curr_container = bsi_container (*curr_bsi);
-  if (curr_container)
-    {
-      curr_stmt = bsi_stmt (*curr_bsi);
-      curr_bb = bb_for_stmt (curr_stmt);
-    }
-  else
-    {
-      curr_stmt = NULL_TREE;
-
-      /* bsi_start () will initialize the context pointer to the basic block
-         if the the block is completely devoid of instructions, except
-	 for possibly an empty statement node.  */
-      if (curr_bsi->tp == NULL && curr_bsi->context != NULL)
-        curr_bb = (basic_block)(curr_bsi->context);
-      else
-        abort ();
-    }
-
-  /* Some blocks are empty. The block iterator points to an empty statement
-     node in those cases only.  */
-  if (curr_stmt == NULL_TREE)
-    {
-      inserted_tsi = tsi_start (curr_bb->head_tree_p);
-      tsi_link_before (&inserted_tsi, t, TSI_NEW_STMT);
-      prepend_stmt_to_bb (tsi_container (inserted_tsi), curr_bb);
-
-      /* In this case, we will *always* return the new stmt since BSI_SAME_STMT
-         doesn't really exist.  */
-      *curr_bsi = bsi_from_tsi (inserted_tsi);
-    }
-  else
-    {
-      inserted_tsi = tsi_from_bsi (*curr_bsi);
-
-      same_tsi = bsi_link_after (&inserted_tsi, t, curr_bb);
-      bsi_update_from_tsi (curr_bsi, same_tsi);
-      if (mode == BSI_NEW_STMT)
-        bsi_next (curr_bsi);
-    }
-
-  inserted_stmt = tsi_stmt (inserted_tsi);
-
-  /* Now update the required SSA bits.  */
-  modify_stmt (inserted_stmt);
-
-  return;
+  set_bb_for_stmt (t, i->bb);
+  modify_stmt (t);
+  tsi_link_before (&i->tsi, t, m);
 }
 
-
-/* This routine inserts a stmt before the stmt iterator passed in.
-   The final parameter determines whether the statement iterator
-   is updated to point to the new stmt, or left pointing to the original
-   statement.  (Which will have a different container.)  */
 void
-bsi_insert_before (block_stmt_iterator *curr_bsi, tree t,
-		   enum bsi_iterator_update mode)
+bsi_insert_after (block_stmt_iterator *i, tree t, enum bsi_iterator_update m)
 {
-  tree_stmt_iterator inserted_tsi, same_tsi;
-  basic_block curr_bb;
-  tree *curr_container;
-  tree curr_stmt, inserted_stmt;
-
-  curr_container = bsi_container (*curr_bsi);
-
-  /* If this block is empty, let bsi_insert_after() handle it.  */
-  if (curr_container == NULL || bsi_stmt (*curr_bsi) == NULL_TREE)
-    bsi_insert_after (curr_bsi, t, mode);
-
-  curr_stmt = bsi_stmt (*curr_bsi);
-  curr_bb = bb_for_stmt (curr_stmt);
-  inserted_tsi = tsi_from_bsi (*curr_bsi);
-
-  /* The only case that needs attention is when the insert is before
-     the last stmt in a block. In this case, we have to update the
-     container of the end pointer.  */
-  tsi_link_before (&inserted_tsi, t, TSI_NEW_STMT);
-  set_bb_for_stmt (*tsi_container (inserted_tsi), curr_bb);
-
-  same_tsi = inserted_tsi;
-  tsi_next (&same_tsi);
-
-  /* The end block pointer can be modified when we insert before the last stmt
-     in a block.  This occurs because we insert a new container for the last
-     stmt.  */
-
-  if (curr_container == curr_bb->end_tree_p)
-    curr_bb->end_tree_p = tsi_container (same_tsi);
-
-  if (mode == BSI_SAME_STMT)
-    bsi_update_from_tsi (curr_bsi, same_tsi);
-  else
-    bsi_update_from_tsi (curr_bsi, inserted_tsi);
-
-  inserted_stmt = tsi_stmt (inserted_tsi);
-
-  /* Now update the required SSA bits.  */
-  modify_stmt (inserted_stmt);
-
-  return;
+  set_bb_for_stmt (t, i->bb);
+  modify_stmt (t);
+  tsi_link_after (&i->tsi, t, m);
 }
 
-/* This routine inserts a stmt on an edge. Every attempt is made to place the
-   stmt in an existing basic block, but sometimes that isn't possible.  When
-   it isn't possible, a new basic block is created, edges updated, and the
-   stmt is added to the new block.  An iterator to the new stmt is returned.
-   If a pointer to a BSI is passed in, and the stmt is inserted before or after
-   an existing stmt in a block, old_bsi will be returned with an iterator for
-   that stmt (The equivalent of BSI_SAME_STMT on an insert_before or after.
-   If a created_block is passed in, and the edge is split, the new block is
-   returned through this parameter.  */
+/* Move the statement at FROM so it comes right after the statement at TO.  */
 
-block_stmt_iterator
-bsi_insert_on_edge_immediate (edge e, tree stmt, block_stmt_iterator *old_bsi,
-			      basic_block *created_block)
+void 
+bsi_move_after (block_stmt_iterator *from, block_stmt_iterator *to)
 {
-  basic_block src, dest, new_bb;
-  block_stmt_iterator bsi, tmp;
-  tree_stmt_iterator tsi;
-  int num_exit, num_entry;
-  tree last, label, gto, old_gto;
-  bb_ann_t ann;
-  edge e2;
+  tree stmt = bsi_stmt (*from);
+  bsi_remove (from);
+  bsi_insert_after (to, stmt, BSI_SAME_STMT);
+} 
 
-  if (old_bsi)
-    old_bsi->tp = (tree *)NULL;
-  if (created_block)
-    *created_block = (basic_block)NULL;
+/* Move the statement at FROM so it comes right before the statement at TO.  */
 
-  src = e->src;
+void 
+bsi_move_before (block_stmt_iterator *from, block_stmt_iterator *to)
+{
+  tree stmt = bsi_stmt (*from);
+  bsi_remove (from);
+  bsi_insert_before (to, stmt, BSI_SAME_STMT);
+}
+
+/* Move the statement at FROM to the end of basic block BB.  */
+
+void
+bsi_move_to_bb_end (block_stmt_iterator *from, basic_block bb)
+{
+  block_stmt_iterator last = bsi_last (bb);
+  
+  /* Have to check bsi_end_p because it could be an empty block.  */
+  if (!bsi_end_p (last) && is_ctrl_stmt (bsi_stmt (last)))
+    bsi_move_before (from, &last);
+  else
+    bsi_move_after (from, &last);
+}
+
+/* Replace the contents of a stmt with another.  */
+
+void
+bsi_replace (const block_stmt_iterator *bsi, tree stmt)
+{
+  *bsi_stmt_ptr (*bsi) = stmt;
+  modify_stmt (stmt);
+}
+
+/* This routine locates a place to insert a statement on an edge.  Every
+   attempt is made to place the stmt in an existing basic block, but
+   sometimes that isn't possible.  When it isn't possible, the edge is
+   split and the stmt is added to the new block.
+
+   In all cases, the returned *BSI points to the correct location.  The
+   return value is true if insertion should be done after the location,
+   or false if before the location.  */
+
+static bool
+tree_find_edge_insert_loc (edge e, block_stmt_iterator *bsi)
+{
+  basic_block dest, src;
+  tree tmp;
+
   dest = e->dest;
+ restart:
 
-  /* Cannot insert on an abnormal edge.  */
-  if (e->flags & EDGE_ABNORMAL)
-    abort ();
-
-  /* No immediate edge insertion if there are already pending inserts.  */
-  if (PENDING_STMT (e))
-    abort ();
-
-  num_exit = num_entry = 0;
-
-  for (e2 = src->succ; e2; e2 = e2->succ_next)
-    num_exit++;
-
-  for (e2 = dest->pred; e2; e2 = e2->pred_next)
-    num_entry++;
-
-  /* If src is a single-exit block, and it isn't the entry block, then
-     insert at the end of the block, if we can.  */
-
-  if (num_exit == 1 && src != ENTRY_BLOCK_PTR)
+  /* If the destination has one predecessor, insert there.  Except
+     for the exit block.  */
+  if (dest->pred->pred_next == NULL && dest != EXIT_BLOCK_PTR)
     {
-      bsi = bsi_last (src);
-      /* If it is an empty block, simply insert after this bsi, and the
-	 new stmt will become the only stmt in the block.  */
-      if (bsi_end_p (bsi))
+      *bsi = bsi_start (dest);
+      if (bsi_end_p (*bsi))
+	return true;
+
+      /* Make sure we insert after any leading labels.  */
+      tmp = bsi_stmt (*bsi);
+      while (TREE_CODE (tmp) == LABEL_EXPR)
 	{
-	  bsi_insert_after (&bsi, stmt, BSI_NEW_STMT);
-	  return bsi;
+	  bsi_next (bsi);
+	  if (bsi_end_p (*bsi))
+	    break;
+	  tmp = bsi_stmt (*bsi);
 	}
 
-      /* If this is a fallthrough edge, then we can simply append this stmt
-	 to the basic block.  */
-      if (e->flags & EDGE_FALLTHRU)
+      if (bsi_end_p (*bsi))
 	{
-#ifdef ENABLE_CHECKING
-	  /* Control statement edges should not be marked FALLTHRU.  */
-	  if (is_ctrl_stmt (bsi_stmt (bsi)))
-	    abort ();
-#endif
-
-	  if (src->head_tree_p == src->end_tree_p 
-	      && IS_EMPTY_STMT (*src->head_tree_p))
-	    {
-	      bsi_replace (bsi, stmt);
-	      if (old_bsi)
-		*old_bsi = bsi;
-	      return bsi;
-	    }
-	  else
-	    {
-	      bsi_insert_after (&bsi, stmt, BSI_SAME_STMT);
-	      if (old_bsi)
-		*old_bsi = bsi;
-	      bsi_next (&bsi);
-	      return bsi;
-	    }
+	  *bsi = bsi_last (dest);
+	  return true;
 	}
-
-      /* Otherwise, the last stmt is a control altering stmt, so we need to
-	 insert before it.  */
       else
-	{
-#ifdef ENABLE_CHECKING
-	  /* A block with a normal non-FALLTHRU edge should end with a
-	     control statement.  */
-	  if (!is_ctrl_stmt (bsi_stmt (bsi)))
-	    abort ();
-#endif
-
-	  bsi_insert_before (&bsi, stmt, BSI_NEW_STMT);
-	  if (old_bsi)
-	    {
-	      *old_bsi = bsi;
-	      bsi_next (old_bsi);
-	    }
-	  return bsi;
-	}
+	return false;
     }
 
-  /* If dest is a single entry destination, and it isn't the exit block, the
-     new stmt can be inserted at the beginning of the destination block.  */
-
-  if (num_entry == 1 && dest != EXIT_BLOCK_PTR)
+  /* If the source has one successor and the edge is not abnormal,
+     insert there.  Except for the entry block.  */
+  src = e->src;
+  if ((e->flags & EDGE_ABNORMAL) == 0
+      && src->succ->succ_next == NULL
+      && src != ENTRY_BLOCK_PTR)
     {
-      bsi = bsi_start (dest);
-      /* If it is an empty block, simply insert after this bsi, and the new stmt
-	 will become the only stmt in the block.  */
-      if (bsi_end_p (bsi))
-	{
-	  bsi_insert_after (&bsi, stmt, BSI_NEW_STMT);
-	  return bsi;
-	}
+      *bsi = bsi_last (src);
+      if (bsi_end_p (*bsi))
+	return true;
 
-      /* Skip any labels, and insert before the first non-label.  */
-      for (tmp = bsi, bsi_next (&bsi); !bsi_end_p (bsi); bsi_next (&bsi))
-	{
-	  if (!is_label_stmt (bsi_stmt (bsi)))
-	    {
-	      bsi_insert_before (&bsi, stmt, BSI_NEW_STMT);
-	      if (old_bsi)
-		{
-		  *old_bsi = bsi;
-		  bsi_next (old_bsi);
-		}
-	      return bsi;
-	    }
-	  tmp = bsi;
-	}
-
-      /* If this point is reached, then the block consists of nothing but
-	 labels, and tmp points to the last one. Insert after it.  */
-      bsi_insert_after (&tmp, stmt, BSI_SAME_STMT);
-      if (old_bsi)
-	*old_bsi = tmp;
-      bsi_next (&tmp);
-      return tmp;
+      /* Make sure we insert before a final goto statement.  */
+      tmp = bsi_stmt (*bsi);
+      return !is_ctrl_stmt (tmp);
     }
 
   /* Otherwise, create a new basic block, and split this edge.  */
-  new_bb = split_edge (e);
-  ann = bb_ann (new_bb);
-
-  if (created_block)
-    *created_block = new_bb;
-
-  bsi = bsi_last (src);
-  if (!bsi_end_p (bsi))
-    {
-      bool fixup;
-
-      last = bsi_stmt (bsi);
-      label = old_gto = NULL;
-      tsi = tsi_start (src->end_tree_p);
-
-      switch (TREE_CODE (last))
-	{
-	case COND_EXPR:
-	  e = find_edge (src, new_bb);
-	  if (!e)
-	    abort ();
-
-	  label = build1 (LABEL_EXPR, void_type_node, NULL_TREE);
-	  gto = build_and_jump (&LABEL_EXPR_LABEL (label));
-	  if (e->flags & EDGE_TRUE_VALUE)
-	    {
-	      old_gto = COND_EXPR_THEN (last);
-	      COND_EXPR_THEN (last) = gto;
-	    }
-	  else
-	    {
-	      old_gto = COND_EXPR_ELSE (last);
-	      COND_EXPR_ELSE (last) = gto;
-	    }
-	  break;
-
-	case SWITCH_EXPR:
-	  {
-	    tree vec = SWITCH_LABELS (last);
-	    size_t i, n = TREE_VEC_LENGTH (vec);
-	    tree dest_label = NULL;
-
-	    label = create_artificial_label ();
-	    for (i = 0; i < n; ++i)
-	      {
-		tree elt = TREE_VEC_ELT (vec, i);
-		if (label_to_block (CASE_LABEL (elt)) == dest)
-		  {
-		    dest_label = CASE_LABEL (elt);
-		    CASE_LABEL (elt) = label;
-		  }
-	      }
-
-	    label = build1 (LABEL_EXPR, void_type_node, label);
-	    old_gto = build_and_jump (&dest_label);
-	  }
-	  break;
-
-	case CALL_EXPR:
-	case MODIFY_EXPR:
-	  /* The block ends in a CALL which has abnormal edges.  In
-	     that case, we simply create a new block right after this
-	     one, and then fall through to the destination block.  */
-	  e = find_edge (new_bb, dest);
-	  if (!e)
-	    abort ();
-	  e->flags |= EDGE_FALLTHRU;
-	  break;
-
-	default:
-	  /* All cases ought to have been covered by now.  */
-	  abort ();
-	}
-
-      /* When insertting our first statement, we may well create a new
-	 COMPOUND_EXPR container, and so we'll need to update the end
-	 of the old src block.  */
-      fixup = false;
-
-      if (label)
-	{
-	  tsi_link_after (&tsi, label, TSI_SAME_STMT);
-	  src->end_tree_p = tsi_container (tsi);
-	  fixup = true;
-	  tsi_next (&tsi);
-          append_stmt_to_bb (tsi_container (tsi), new_bb);
-	}
-
-      tsi_link_after (&tsi, stmt, fixup ? TSI_NEW_STMT : TSI_SAME_STMT);
-      if (!fixup)
-	{
-	  src->end_tree_p = tsi_container (tsi);
-	  fixup = true;
-	  tsi_next (&tsi);
-	}
-      append_stmt_to_bb (tsi_container (tsi), new_bb);
-
-      if (old_gto)
-	{
-          tsi_link_after (&tsi, old_gto, TSI_NEW_STMT);
-          append_stmt_to_bb (tsi_container (tsi), new_bb);
-	}
-
-      /* For the same reason of new containers, we have to wait until the
-	 end to initialize our return bsi value.  Fortunately we don't 
-	 need to search far to get it pointed to the real statement that
-	 we added.  */
-      bsi = bsi_start (new_bb);
-      if (label)
-	bsi_next (&bsi);
-    }
-
-  /* Now update the required SSA bits.  */
-  modify_stmt (stmt);
-
-  return bsi;
+  dest = tree_split_edge (e);
+  e = dest->pred;
+  goto restart;
 }
 
 /* This routine will commit all pending edge insertions, creating any new
-   basic blocks which are necessary. The number of edges which were inserted
-   is returned.  If the flag update_annotations is true, then new bitmaps are
-   created for the dominator children, and they are updated.  If specified,
-   new_blocks returned a count of the number of new basic blocks which were
-   created.  */
+   basic blocks which are necessary.
 
-int
-bsi_commit_edge_inserts (int update_annotations, int *new_blocks)
+   If UPDATE_ANNOTATIONS is true, then new bitmaps are created for the
+   dominator children, and they are updated.  If specified, NEW_BLOCKS
+   returns a count of the number of new basic blocks which were created.  */
+
+void
+bsi_commit_edge_inserts (bool update_annotations, int *new_blocks)
 {
   basic_block bb;
-  block_stmt_iterator bsi;
   edge e;
-  tree stmt, next_stmt;
-  int blocks, count = 0;
+  int blocks;
 
   blocks = n_basic_blocks;
 
@@ -3222,21 +2332,15 @@ bsi_commit_edge_inserts (int update_annotations, int *new_blocks)
       for (e = bb->succ; e; e = e->succ_next)
         if (PENDING_STMT (e))
 	  {
-	    stmt = PENDING_STMT (e);
-	    PENDING_STMT (e) = NULL_TREE;
-	    next_stmt = TREE_CHAIN (stmt);
-	    /* The first insert will create a new basic block if needed.  */
-	    bsi = bsi_insert_on_edge_immediate (e, stmt, NULL, NULL);
-	    count++;
-	    stmt = next_stmt;
-	    for ( ; stmt; stmt = next_stmt)
-	      {
-	        /* All further inserts can simply follow the first one.  */
-		next_stmt = TREE_CHAIN (stmt);
-		bsi_insert_after (&bsi, stmt, BSI_NEW_STMT);
-		count++;
-	      }
+	    block_stmt_iterator bsi;
+	    tree stmt = PENDING_STMT (e);
 
+	    PENDING_STMT (e) = NULL_TREE;
+
+	    if (tree_find_edge_insert_loc (e, &bsi))
+	      bsi_insert_after (&bsi, stmt, BSI_NEW_STMT);
+	    else
+	      bsi_insert_before (&bsi, stmt, BSI_NEW_STMT);
 	  }
     }
 
@@ -3247,9 +2351,8 @@ bsi_commit_edge_inserts (int update_annotations, int *new_blocks)
   if (update_annotations && blocks != n_basic_blocks)
     {
       /* TODO. Unimplemented at the moment.  */
+      abort ();
     }
-
-  return count;
 }
 
 /* This routine adds a stmt to the pending list on an edge. No actual
@@ -3258,97 +2361,24 @@ bsi_commit_edge_inserts (int update_annotations, int *new_blocks)
 void
 bsi_insert_on_edge (edge e, tree stmt)
 {
-  tree t;
-
-  t = PENDING_STMT (e);
-  if (!t)
-    PENDING_STMT (e) = stmt;
-  else
-    {
-      for ( ; TREE_CHAIN (t); t = TREE_CHAIN (t))
-        continue;
-      TREE_CHAIN (t) = stmt;
-      TREE_CHAIN (stmt) = NULL_TREE;
-    }
+  append_to_statement_list (stmt, &PENDING_STMT (e));
 }
 
-/* These 2 routines are used to process BSI's in reverse within a block.
-   When there is a decent implementation of bsi_prev, we can get rid of
-   these forever!  */
+/* Similar to bsi_insert_on_edge+bsi_commit_edge_inserts.  */
+/* ??? Why in the world do we need this?  Only PRE uses it.  */
 
-/* Push another block_stmt_iterator onto the stack.  */
 void
-push_bsi (bsi_list_p *list, block_stmt_iterator bsi)
-{
-  bsi_list_p tmp;
-  if (*list == NULL)
-    {
-      *list = new_bsi_list ();
-      (*list)->bsi[0] = bsi;
-    }
-  else
-    {
-      if ((*list)->curr_index == (BSI_NUM_ELEMENTS - 1))
-        {
-	  tmp = new_bsi_list ();
-	  tmp->bsi[0] = bsi;
-	  tmp->next = *list;
-	  *list = tmp;
-	}
-      else
-        {
-	  (*list)->bsi[++((*list)->curr_index)] = bsi;
-	}
-    }
-}
-
-/* Pop a block_stmt_iterator off the stack.  */
-block_stmt_iterator
-pop_bsi (bsi_list_p *list)
+bsi_insert_on_edge_immediate (edge e, tree stmt)
 {
   block_stmt_iterator bsi;
-  bsi_list_p tmp;
-  if (!list)
+
+  if (PENDING_STMT (e))
     abort ();
 
-  tmp = *list;
-  bsi = tmp->bsi[(tmp->curr_index)--];
-  if (tmp->curr_index< 0)
-    {
-      tmp = *list;
-      *list = (*list)->next;
-      free (tmp);
-    }
-  return bsi;
-}
-
-
-/* Replace the statement pointed by TP1 with the statement pointed by TP2.
-   Note that this function will not replace COMPOUND_EXPR nodes, only
-   individual statements.
-
-   If TP1 is pointing to a COMPOUND_EXPR node, only its LHS operand will be
-   replaced. TP2 may not point to a COMPOUND_EXPR.  */
-
-void
-replace_stmt (tree *tp1, tree *tp2)
-{
-  tree t;
-
-  if (TREE_CODE (*tp2) == COMPOUND_EXPR)
-    abort ();
-      
-  t = *tp2;
-
-  /* Relocate annotations for the replacement statement.  */
-  SET_EXPR_LOCUS (t, EXPR_LOCUS (*tp1));
-  set_bb_for_stmt (t, bb_for_stmt (*tp1));
-
-  /* Don't replace COMPOUND_EXPRs.  Only their operands.  */
-  if (TREE_CODE (*tp1) == COMPOUND_EXPR)
-    TREE_OPERAND (*tp1, 0) = t;
+  if (tree_find_edge_insert_loc (e, &bsi))
+    bsi_insert_after (&bsi, stmt, BSI_NEW_STMT);
   else
-    *tp1 = t;
+    bsi_insert_before (&bsi, stmt, BSI_NEW_STMT);
 }
 
 /*---------------------------------------------------------------------------
@@ -3361,7 +2391,7 @@ replace_stmt (tree *tp1, tree *tp2)
 basic_block
 tree_split_edge (edge edge_in)
 {
-  basic_block new_bb, dest;
+  basic_block new_bb, after_bb, dest;
   edge new_edge;
   tree phi;
   int i, num_elem;
@@ -3371,10 +2401,70 @@ tree_split_edge (edge edge_in)
     abort ();
 
   dest = edge_in->dest;
-  new_bb = create_bb (edge_in->src);
+
+  /* Place the new block in the block list.  Try to keep the new block
+     near its "logical" location.  This is of most help to humans looking
+     at debugging dumps.  */
+  if (edge_in->flags & EDGE_FALLTHRU)
+    after_bb = edge_in->src;
+  else
+    {
+      edge e;
+
+      for (e = dest->pred; e ; e = e->pred_next)
+	if (e->flags & EDGE_FALLTHRU)
+	  break;
+      if (!e)
+	after_bb = dest->prev_bb;
+      else
+	{
+	  after_bb = EXIT_BLOCK_PTR->prev_bb;
+	  for (e = after_bb->succ; e ; e = e->succ_next)
+	    if (e->flags & EDGE_FALLTHRU)
+	      break;
+	  if (e)
+	    {
+	      block_stmt_iterator bsi;
+	      tree x;
+
+	      /* We have a fallthru to exit out of the last block.
+		 Transform this to a return statement.  */
+	      /* ??? Can we have multiple outgoing edges here?  COND_EXPR
+		 always has two gotos, and I can't think how one would have
+		 achived this via EH.  */
+	      if (e != after_bb->succ || e->succ_next)
+		abort ();
+	
+	      x = build (RETURN_EXPR, void_type_node, NULL_TREE);
+	      bsi = bsi_last (after_bb);
+	      bsi_insert_after (&bsi, x, BSI_NEW_STMT);
+
+	      e->flags &= ~EDGE_FALLTHRU;
+	    }
+	}
+    }
+
+  new_bb = create_bb (NULL, after_bb);
   create_block_annotation (new_bb);
-  redirect_edge_succ  (edge_in, new_bb);
   new_edge = make_edge (new_bb, dest, 0);
+
+  if (edge_in->flags & EDGE_FALLTHRU)
+    {
+      new_edge->flags = EDGE_FALLTHRU;
+      redirect_edge_succ (edge_in, new_bb);
+    }
+  else
+    {
+      block_stmt_iterator i;
+      tree x;
+
+      if (!tree_redirect_edge_and_branch_1 (edge_in, new_bb, true))
+	abort ();
+
+      x = build (GOTO_EXPR, void_type_node, tree_block_label (dest));
+      i = bsi_last (new_bb);
+      bsi_insert_after (&i, x, BSI_NEW_STMT);
+    }
 
   /* Find all the PHI arguments on the original edge, and change them to
      the new edge.  */
@@ -3419,7 +2509,6 @@ tree_verify_flow_info (void)
   basic_block bb;
   block_stmt_iterator bsi;
   tree stmt;
-  tree_stmt_iterator tsi;
 
   FOR_EACH_BB (bb)
     {
@@ -3665,43 +2754,6 @@ tree_verify_flow_info (void)
 	}
     }
 
-  /* Check that order of basic blocks is the same as the order of code.  */
-  bb = ENTRY_BLOCK_PTR->next_bb;
-  if (bb == EXIT_BLOCK_PTR
-      || !bb->head_tree_p)
-    return err;
-
-  for (tsi = tsi_start (bb->head_tree_p); !tsi_end_p (tsi); tsi_next (&tsi))
-    if (*bb->head_tree_p == tsi_stmt (tsi))
-      {
-	tsi_next (&tsi);
-	break;
-      }
-  for (; !tsi_end_p (tsi); tsi_next (&tsi))
-    {
-      if (bb->next_bb != EXIT_BLOCK_PTR
-	  && *bb->next_bb->head_tree_p == tsi_stmt (tsi))
-	{
-	  bb = bb->next_bb;
-	  continue;
-	}
-
-      if (IS_EMPTY_STMT (tsi_stmt (tsi)))
-	continue;
-
-      if (!bb_for_stmt (tsi_stmt (tsi)))
-	fprintf (stderr, "Statement outside any basic block after bb %d",
-		 bb->index);
-      else
-	{
-	  fprintf (stderr, "Block missordering after bb %d\n",
-		   bb->index);
-	  bb = bb_for_stmt (tsi_stmt (tsi));
-	}
-
-      err = 1;
-    }
-
   return err;
 }
 
@@ -3720,13 +2772,11 @@ tree_make_forwarder_block (basic_block bb, int redirect_latch,
   basic_block dummy;
 
   /* Create the new basic block.  */
-  dummy = create_bb (NULL);
+  dummy = create_bb (NULL, bb->prev_bb);
   create_block_annotation (dummy);
   dummy->count = bb->count;
   dummy->frequency = bb->frequency;
   dummy->loop_depth = bb->loop_depth;
-  dummy->head_tree_p = NULL;
-  dummy->end_tree_p = NULL;
 
   /* Redirect the incoming edges.  */
   dummy->pred = bb->pred;
@@ -3734,7 +2784,7 @@ tree_make_forwarder_block (basic_block bb, int redirect_latch,
   for (e = dummy->pred; e; e = e->pred_next)
     e->dest = dummy;
 
-  fallthru = make_edge (dummy, bb, 0);
+  fallthru = make_edge (dummy, bb, EDGE_FALLTHRU);
 
   HEADER_BLOCK (dummy) = 0;
   HEADER_BLOCK (bb) = 1;
@@ -3896,16 +2946,6 @@ tree_forwarder_block_p (basic_block bb)
 	}
     }
 
-  /* Now check the target for a couple special cases.  */
-  bsi = bsi_start (bb->succ->dest);
-
-  /* It's not clear if we can safely insert the label in this case.  */
-  if (bsi_end_p (bsi))
-    {
-      bb_ann (bb)->forwardable = 0;
-      return false; 
-    }
-
   return true;
 }
 
@@ -4016,7 +3056,7 @@ thread_jumps (void)
 
 	  /* Perform the redirection.  */
 	  retval = true;
-	  e = redirect_edge_and_branch (e, dest);
+	  e = tree_redirect_edge_and_branch (e, dest);
 	  if (!old)
 	    {
 	      /* Update phi nodes.   We know that the new argument should
@@ -4039,25 +3079,34 @@ thread_jumps (void)
   return retval;
 }
 
-/* Return the label in the head of basic block BLOCK.  Create one if it doesn't
-   exist.  */
+/* Return a non-special label in the head of basic block BLOCK.
+   Create one if it doesn't exist.  */
 
 static tree
 tree_block_label (basic_block bb)
 {
-  tree stmt = first_stmt (bb);
-  /* We need a label at our final destination.  If it does not already exist,
-     create it.  */
-  if (!stmt || TREE_CODE (stmt) != LABEL_EXPR)
+  block_stmt_iterator i, s = bsi_start (bb);
+  bool first = true;
+  tree label, stmt;
+
+  for (i = s; !bsi_end_p (i); first = false, bsi_next (&i))
     {
-      block_stmt_iterator iterator = bsi_start (bb);
-      tree label = create_artificial_label ();
-      stmt = build1 (LABEL_EXPR, void_type_node, label);
-      bsi_insert_before (&iterator, stmt, BSI_SAME_STMT);
-      return label;
+      stmt = bsi_stmt (i);
+      if (TREE_CODE (stmt) != LABEL_EXPR)
+	break;
+      label = LABEL_EXPR_LABEL (stmt);
+      if (!NONLOCAL_LABEL (label))
+	{
+	  if (!first)
+	    bsi_move_before (&i, &s);
+	  return label;
+	}
     }
-  else
-    return LABEL_EXPR_LABEL (stmt);
+
+  label = create_artificial_label ();
+  stmt = build1 (LABEL_EXPR, void_type_node, label);
+  bsi_insert_before (&s, stmt, BSI_NEW_STMT);
+  return label;
 }
 
 /* Attempt to perform edge redirection by replacing possibly complex jump
@@ -4087,7 +3136,8 @@ tree_try_redirect_by_replacing_jump (edge e, basic_block target)
     return NULL;
   stmt = bsi_stmt (b);
 
-  if (TREE_CODE (stmt) == COND_EXPR || TREE_CODE (stmt) == SWITCH_EXPR
+  if (TREE_CODE (stmt) == COND_EXPR
+      || TREE_CODE (stmt) == SWITCH_EXPR
       || (TREE_CODE (stmt) == GOTO_EXPR && target == src->next_bb))
     {
       if (target == src->next_bb)
@@ -4099,12 +3149,13 @@ tree_try_redirect_by_replacing_jump (edge e, basic_block target)
 	{
 	  flags = 0;
           stmt = build1 (GOTO_EXPR, void_type_node, tree_block_label (target));
-          bsi_replace (b, stmt);
+          bsi_replace (&b, stmt);
 	}
       e = ssa_redirect_edge (e, target);
       e->flags = flags;
       return e;
     }
+
   return NULL;
 }
 
@@ -4112,11 +3163,12 @@ tree_try_redirect_by_replacing_jump (edge e, basic_block target)
    branch otherwise  */
 
 static edge
-tree_redirect_edge_and_branch (edge e, basic_block dest)
+tree_redirect_edge_and_branch_1 (edge e, basic_block dest, bool splitting)
 {
+  basic_block bb = e->src;
+  block_stmt_iterator bsi;
   edge ret;
   tree label, stmt;
-  basic_block bb = e->src, new_bb;
   int flags;
 
   if (e->flags & (EDGE_ABNORMAL_CALL | EDGE_EH))
@@ -4134,8 +3186,8 @@ tree_redirect_edge_and_branch (edge e, basic_block dest)
   /* If our block does not end with a GOTO, then create one.
      Otherwise redirect the existing GOTO_EXPR to LABEL.  */
 
-  stmt = last_stmt (bb);
-  new_bb = NULL;
+  bsi = bsi_last (bb);
+  stmt = bsi_end_p (bsi) ? NULL : bsi_stmt (bsi);
   flags = 0;
 
   switch (stmt ? TREE_CODE (stmt) : ERROR_MARK)
@@ -4165,24 +3217,50 @@ tree_redirect_edge_and_branch (edge e, basic_block dest)
       }
       break;
 
-    default:
-      stmt = build1 (GOTO_EXPR, void_type_node, label);
-      bsi_insert_on_edge_immediate (e, stmt, NULL, &new_bb);
+    case CALL_EXPR:
+    case MODIFY_EXPR:
+      /* If this block ends with a statement that can alter control flow,
+	 e.g. via throw or longjmp, then we can't just append to the 
+	 current block.  We have to create a new block just to contain
+	 the goto statement.  */
       /* ??? In RTL equivalent we never create new basic blocks here.
 	 Hopefully this will be just a temporary side case before we switch
 	 to cfg_layout style mode with no explicit GOTO statements.  */
-      if (new_bb)
-	e = new_bb->succ;
+      if (is_ctrl_altering_stmt (stmt))
+	{
+	  bb = tree_split_edge (e);
+	  bsi = bsi_last (bb);
+	  e = bb->succ;
+	}
+      /* FALLTHRU */
+
+    default:
+      /* Otherwise we can just append a goto to this block.  */
+      stmt = build1 (GOTO_EXPR, void_type_node, label);
+      bsi_insert_after (&bsi, stmt, BSI_NEW_STMT);
       e->flags &= ~EDGE_FALLTHRU;
       break;
     }
 
   /* Update/insert PHI nodes as necessary.  */
 
-  /* Now update the edges in the CFG.  */
-  e = ssa_redirect_edge (e, dest);
-  e->flags |= flags;
+  /* Now update the edges in the CFG.  When splitting edges, we do not 
+     want to remove PHI arguments.  */
+  if (splitting)
+    redirect_edge_succ (e, dest);
+  else
+    {
+      e = ssa_redirect_edge (e, dest);
+      e->flags |= flags;
+    }
+
   return e;
+}
+
+static edge
+tree_redirect_edge_and_branch (edge e, basic_block dest)
+{
+  return tree_redirect_edge_and_branch_1 (e, dest, false);
 }
 
 /* Simple wrapper as we always can redirect fallthru edges.  */

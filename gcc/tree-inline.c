@@ -130,9 +130,7 @@ static tree remap_decl (tree, inline_data *);
 static tree remap_type (tree, inline_data *);
 static tree initialize_inlined_parameters (inline_data *, tree, tree, tree);
 static void remap_block (tree *, inline_data *);
-static tree add_stmt_to_compound (tree, tree, tree);
 static tree remap_decls (tree, inline_data *);
-static tree add_stmt_to_compound (tree, tree, tree);
 static void copy_bind_expr (tree *, int *, inline_data *);
 static tree mark_local_for_remap_r (tree *, int *, void *);
 static tree unsave_r (tree *, int *, void *);
@@ -401,6 +399,21 @@ remap_block (tree *block, inline_data *id)
 }
 
 static void
+copy_statement_list (tree *tp)
+{
+  tree_stmt_iterator oi, ni;
+  tree new;
+
+  new = alloc_stmt_list ();
+  ni = tsi_start (new);
+  oi = tsi_start (*tp);
+  *tp = new;
+
+  for (; !tsi_end_p (oi); tsi_next (&oi))
+    tsi_link_after (&ni, tsi_stmt (oi), TSI_NEW_STMT);
+}
+
+static void
 copy_bind_expr (tree *tp, int *walk_subtrees, inline_data *id)
 {
   tree block = BIND_EXPR_BLOCK (*tp);
@@ -461,10 +474,10 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 	    if (TREE_CODE (assignment) == RESULT_DECL)
 	      gimplify_stmt (&assignment);
 
-	  *tp = build (BIND_EXPR, void_type_node, NULL_TREE,
-		       build (COMPOUND_EXPR, void_type_node,
-			      assignment, goto_stmt),
+	  *tp = build (BIND_EXPR, void_type_node, NULL_TREE, NULL_TREE,
 		       make_node (BLOCK));
+	  append_to_statement_list (assignment, &BIND_EXPR_BODY (*tp));
+	  append_to_statement_list (goto_stmt, &BIND_EXPR_BODY (*tp));
         }
       /* If we're not returning anything just do the jump.  */
       else
@@ -491,6 +504,8 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 	   && DECL_CONTEXT (*tp) != VARRAY_TREE (id->fns, 0))
     abort ();
 #endif
+  else if (TREE_CODE (*tp) == STATEMENT_LIST)
+    copy_statement_list (tp);
   else if (TREE_CODE (*tp) == SAVE_EXPR)
     remap_save_expr (tp, id->decl_map, VARRAY_TREE (id->fns, 0),
 		     walk_subtrees);
@@ -749,8 +764,7 @@ initialize_inlined_parameters (inline_data *id, tree args, tree fn, tree bind_ex
 	  /* We want to use MODIFY_EXPR, not INIT_EXPR here so that we
 	     keep our trees in gimple form.  */
 	  init_stmt = build (MODIFY_EXPR, TREE_TYPE (var), var, rhs);
-	  init_stmts = add_stmt_to_compound (init_stmts, void_type_node,
-					     init_stmt);
+	  append_to_statement_list (init_stmt, &init_stmts);
 
 	  /* If the conversion needed to assign VALUE to VAR is not a
 	     GIMPLE expression, flag that we will need to gimplify
@@ -780,12 +794,7 @@ initialize_inlined_parameters (inline_data *id, tree args, tree fn, tree bind_ex
   for (; a; a = TREE_CHAIN (a))
     {
       tree value = TREE_VALUE (a);
-
-      if (! value || ! TREE_SIDE_EFFECTS (value))
-	continue;
-
-      init_stmts = add_stmt_to_compound (init_stmts, void_type_node,
-					 value);
+      append_to_statement_list (value, &init_stmts);
     }
 
   if (gimplify_init_stmts_p && lang_hooks.gimple_before_inlining)
@@ -1439,9 +1448,7 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
       id->tsi = save_tsi;
 
       /* And add them to the tree.  */
-      BIND_EXPR_BODY (expr) = add_stmt_to_compound (BIND_EXPR_BODY (expr),
-						    void_type_node, 
-						    arg_inits);
+      append_to_statement_list (arg_inits, &BIND_EXPR_BODY (expr));
     }
 
   /* Record the function we are about to inline so that we can avoid
@@ -1478,9 +1485,7 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
 
   /* After we've initialized the parameters, we insert the body of the
      function itself.  */
-  BIND_EXPR_BODY (expr)
-    = add_stmt_to_compound (BIND_EXPR_BODY (expr), 
-			    void_type_node, copy_body (id));
+  append_to_statement_list (copy_body (id), &BIND_EXPR_BODY (expr));
   inlined_body = &BIND_EXPR_BODY (expr);
 
   /* After the body of the function comes the RET_LABEL.  This must come
@@ -1489,16 +1494,14 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
   if (TREE_USED (id->ret_label))
     {
       tree label = build1 (LABEL_EXPR, void_type_node, id->ret_label);
-      BIND_EXPR_BODY (expr)
-	= add_stmt_to_compound (BIND_EXPR_BODY (expr), void_type_node, label);
+      append_to_statement_list (label, &BIND_EXPR_BODY (expr));
     }
 
   /* Finally, mention the returned value so that the value of the
      statement-expression is the returned value of the function.  */
   if (use_retvar)
-    BIND_EXPR_BODY (expr) 
-      = add_stmt_to_compound (BIND_EXPR_BODY (expr), 
-			      TREE_TYPE (use_retvar), use_retvar);
+    /* Set TREE_TYPE on BIND_EXPR?  */
+    append_to_statement_list_force (use_retvar, &BIND_EXPR_BODY (expr));
 
   /* Clean up.  */
   splay_tree_delete (id->decl_map);
@@ -1515,7 +1518,8 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
       tree save_decl;
 
       /* Keep the new trees in gimple form.  */
-      BIND_EXPR_BODY (expr) = rationalize_compound_expr (BIND_EXPR_BODY (expr));
+      BIND_EXPR_BODY (expr)
+	= rationalize_compound_expr (BIND_EXPR_BODY (expr));
 
       /* We want to create a new variable to hold the result of the
 	 inlined body.  This new variable needs to be added to the
@@ -1530,37 +1534,9 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
 	 then we're going to need to splice in a MODIFY_EXPR.  Otherwise
 	 the call was a standalone statement and we can just replace it
 	 with the BIND_EXPR inline representation of the called function.  */
-      if (TREE_CODE (*tsi_stmt_ptr (id->tsi)) != CALL_EXPR)
+      if (TREE_CODE (tsi_stmt (id->tsi)) != CALL_EXPR)
 	{
-	  tree *container_p = tsi_container (id->tsi);
-	  tree container = *container_p;
-
-	  if (TREE_CODE (container) != COMPOUND_EXPR)
-	    {
-	      /* If the container is not a COMPOUND_EXPR, then simply
-		 calling add_stmt_to_compound property insert the BIND_EXPR
-		 into the proper location.  */
-	      *container_p
-		= add_stmt_to_compound (expr, TREE_TYPE (expr), container);
-	    }
-	  else
-	    {
-	      /* Insertion of our new COMPOUND_EXPR is slightly more
-	         complex in this case.  We build a the new COMPOUND_EXPR
-		 and set its operands to the contents of the original
-		 COMPOUND_EXPR.  */
-	      tree new_ce = build (COMPOUND_EXPR, TREE_TYPE (expr), 
-				   TREE_OPERAND (container, 0),
-				   TREE_OPERAND (container, 1));
-
-	      /* Then we reset the operands of the original
-	         COMPOUND_EXPR to the new BIND_EXPR and the new
-		 COMPOUND_EXPR.  */
-	      TREE_OPERAND (container, 0) = expr;
-	      TREE_OPERAND (container, 1) = new_ce;
-	    }
-
-	  /* Replace the RHS of the MODIFY_EXPR.  */
+	  tsi_link_before (&id->tsi, expr, TSI_SAME_STMT);
 	  *tp = inline_result;
 	}
       else
@@ -1625,14 +1601,81 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
   return NULL_TREE;
 }
 
+static void
+gimple_expand_calls_inline (tree *stmt_p, inline_data *id)
+{
+  tree stmt = *stmt_p;
+  enum tree_code code = TREE_CODE (stmt); 
+  int dummy;
+
+  switch (code)
+    {
+    case STATEMENT_LIST:
+      {
+	tree_stmt_iterator i;
+	tree new;
+
+	for (i = tsi_start (stmt); !tsi_end_p (i); )
+	  {
+	    id->tsi = i;
+	    gimple_expand_calls_inline (tsi_stmt_ptr (i), id);
+
+	    new = tsi_stmt (i);
+	    if (TREE_CODE (new) == STATEMENT_LIST)
+	      {
+		tsi_link_before (&i, new, TSI_SAME_STMT);
+		tsi_delink (&i);
+	      }
+	    else
+	      tsi_next (&i);
+	  }
+      }
+      break;
+
+    case COND_EXPR:
+      gimple_expand_calls_inline (&COND_EXPR_THEN (stmt), id);
+      gimple_expand_calls_inline (&COND_EXPR_ELSE (stmt), id);
+      break;
+    case CATCH_EXPR:
+      gimple_expand_calls_inline (&CATCH_BODY (stmt), id);
+      break;
+    case EH_FILTER_EXPR:
+      gimple_expand_calls_inline (&EH_FILTER_FAILURE (stmt), id);
+      break;
+    case TRY_CATCH_EXPR:
+    case TRY_FINALLY_EXPR:
+      gimple_expand_calls_inline (&TREE_OPERAND (stmt, 0), id);
+      gimple_expand_calls_inline (&TREE_OPERAND (stmt, 1), id);
+      break;
+    case BIND_EXPR:
+      gimple_expand_calls_inline (&BIND_EXPR_BODY (stmt), id);
+      break;
+
+    case COMPOUND_EXPR:
+      /* We're gimple.  We should have gotten rid of all these.  */
+      abort ();
+
+    case MODIFY_EXPR:
+      stmt_p = &TREE_OPERAND (stmt, 1);
+      stmt = *stmt_p;
+      if (TREE_CODE (stmt) != CALL_EXPR)
+	break;
+      /* FALLTHRU */
+    case CALL_EXPR:
+      expand_call_inline (stmt_p, &dummy, id);
+      break;
+
+    default:
+      break;
+    }
+}
+
 /* Walk over the entire tree *TP, replacing CALL_EXPRs with inline
    expansions as appropriate.  */
 
 static void
 expand_calls_inline (tree *tp, inline_data *id)
 {
-  tree_stmt_iterator i;
-
   /* If we are not in gimple form, then we want to walk the tree
      recursively as we do not know anything about the structure
      of the tree.  */
@@ -1647,71 +1690,8 @@ expand_calls_inline (tree *tp, inline_data *id)
      the statements, inlining calls in each statement.  By walking
      the statements, we have enough information to keep the tree
      in gimple form as we insert inline bodies.  */
-  for (i = tsi_start (tp); !tsi_end_p (i); tsi_next (&i))
-    {
-      tree *stmt_p = tsi_stmt_ptr (i);
-      enum tree_code code = TREE_CODE (*stmt_p); 
 
-      if (code == LOOP_EXPR)
-	{
-	  /* Dive into the LOOP_EXPR.  */
-	  expand_calls_inline (&LOOP_EXPR_BODY (*stmt_p), id);
-	}
-      else if (code == COND_EXPR)
-        {
-	  /* Dive into the COND_EXPR.  */
-	  expand_calls_inline (&COND_EXPR_COND (*stmt_p), id);
-	  expand_calls_inline (&COND_EXPR_THEN (*stmt_p), id);
-	  expand_calls_inline (&COND_EXPR_ELSE (*stmt_p), id);
-        }
-      else if (code == CATCH_EXPR)
-        {
-	  /* Dive into the CATCH_EXPR.  */
-	  expand_calls_inline (&CATCH_BODY (*stmt_p), id);
-        }
-      else if (code == EH_FILTER_EXPR)
-        {
-	  /* Dive into the EH_FILTER_EXPR.  */
-	  expand_calls_inline (&EH_FILTER_FAILURE (*stmt_p), id);
-        }
-      else if (code == TRY_CATCH_EXPR || code == TRY_FINALLY_EXPR)
-        {
-	  /* Dive into TRY_*_EXPRs.  */
-	  expand_calls_inline (&TREE_OPERAND (*stmt_p, 0), id);
-	  expand_calls_inline (&TREE_OPERAND (*stmt_p, 1), id);
-        }
-      else if (code == SWITCH_EXPR)
-        {
-	  /* Dive into the SWITCH_EXPR.  */
-	  expand_calls_inline (&SWITCH_COND (*stmt_p), id);
-	  if (SWITCH_BODY (*stmt_p))
-	    expand_calls_inline (&SWITCH_BODY (*stmt_p), id);
-        }
-      else if (code == BIND_EXPR)
-        {
-	  /* Dive into the BIND_EXPR.  */
-	  expand_calls_inline (&BIND_EXPR_BODY (*stmt_p), id);
-        }
-      else if (code == COMPOUND_EXPR)
-        {
-	  /* Dive into the COMPOUND_EXPR; this should only happen at
-	     the end of a function tree, so the recursion isn't nearly
-	     as bad as you might think.  */
-	  expand_calls_inline (&TREE_OPERAND (*stmt_p, 0), id);
-	  expand_calls_inline (&TREE_OPERAND (*stmt_p, 1), id);
-        }
-      else
-	{
-          /* Search through *TP, replacing all calls to inline functions by
-	     appropriate equivalents.  Use walk_tree in no-duplicates mode
- 	     to avoid exponential time complexity.  (We can't just use
-	     walk_tree_without_duplicates, because of the special TARGET_EXPR
-	     handling in expand_calls.  The hash table is set up in
-	     optimize_function.  */
-	  id->tsi = i;
-	  walk_tree (stmt_p, expand_call_inline, id, id->tree_pruner);
-	}
-    }
+  gimple_expand_calls_inline (tp, id);
 }
 
 /* Expand calls to inline functions in the body of FN.  */
@@ -2024,6 +2004,14 @@ walk_tree (tree *tp, walk_tree_fn func, void *data, void *htab_)
 	case SAVE_EXPR:
 	  WALK_SUBTREE_TAIL (TREE_OPERAND (*tp, 0));
 
+	case STATEMENT_LIST:
+	  {
+	    tree_stmt_iterator i;
+	    for (i = tsi_start (*tp); !tsi_end_p (i); tsi_next (&i))
+	      WALK_SUBTREE (*tsi_stmt_ptr (i));
+	  }
+	  break;
+
 	default:
 	  abort ();
 	}
@@ -2087,6 +2075,8 @@ copy_tree_r (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
     *walk_subtrees = 0;
   else if (TREE_CODE_CLASS (code) == 'd')
     *walk_subtrees = 0;
+  else if (code == STATEMENT_LIST)
+    abort ();
 
   return NULL_TREE;
 }
@@ -2129,20 +2119,6 @@ remap_save_expr (tree *tp, void *st_, tree fn, int *walk_subtrees)
 
   /* Replace this SAVE_EXPR with the copy.  */
   *tp = (tree) n->value;
-}
-
-/* Add STMT to EXISTING if possible, otherwise create a new
-   COMPOUND_EXPR and add STMT to it.  */
-
-static tree
-add_stmt_to_compound (tree existing, tree type, tree stmt)
-{
-  if (!stmt)
-    return existing;
-  else if (existing)
-    return build (COMPOUND_EXPR, type, existing, stmt);
-  else
-    return stmt;
 }
 
 /* Called via walk_tree.  If *TP points to a DECL_STMT for a local
@@ -2211,6 +2187,8 @@ unsave_r (tree *tp, int *walk_subtrees, void *data)
       if (n)
 	*tp = (tree) n->value;
     }
+  else if (TREE_CODE (*tp) == STATEMENT_LIST)
+    copy_statement_list (tp);
   else if (TREE_CODE (*tp) == BIND_EXPR)
     copy_bind_expr (tp, walk_subtrees, id);
   else if (TREE_CODE (*tp) == SAVE_EXPR)

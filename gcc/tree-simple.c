@@ -314,37 +314,9 @@ int
 is_gimple_stmt (tree t)
 {
   enum tree_code code = TREE_CODE (t);
-  char class = TREE_CODE_CLASS (code);
 
   if (IS_EMPTY_STMT (t))
     return 1;
-
-  switch (class)
-    {
-    case 'r':
-    case '1':
-    case '2':
-    case '<':
-    case 'd':
-    case 'c':
-      /* These should never appear at statement level.  */
-      return 0;
-
-    case 'e':
-    case 's':
-      /* Might be OK.  */
-      break;
-
-    case 'x':
-      if (code == PHI_NODE)
-	return 1;
-      else
-	return 0;
-
-    default:
-      /* Not an expression?!?  */
-      return 0;
-    }
 
   switch (code)
     {
@@ -364,6 +336,8 @@ is_gimple_stmt (tree t)
     case CATCH_EXPR:
     case ASM_EXPR:
     case RESX_EXPR:
+    case PHI_NODE:
+    case STATEMENT_LIST:
       /* These are always void.  */
       return 1;
 

@@ -2141,6 +2141,34 @@ struct tree_decl GTY(())
   /* Points to a structure whose details depend on the language in use.  */
   struct lang_decl *lang_specific;
 };
+
+
+/* A STATEMENT_LIST chains statements together in GENERIC and GIMPLE.
+   To reduce overhead, the nodes containing the statements are not trees.
+   This avoids the overhead of tree_common on all linked list elements.
+
+   Use the interface in tree-interator.h to access this node.  */
+
+#define STATEMENT_LIST_HEAD(NODE) \
+  (STATEMENT_LIST_CHECK (NODE)->stmt_list.head)
+#define STATEMENT_LIST_TAIL(NODE) \
+  (STATEMENT_LIST_CHECK (NODE)->stmt_list.tail)
+
+struct tree_statement_list_node
+  GTY ((chain_next ("%h.next"), chain_prev ("%h.prev")))
+{
+  struct tree_statement_list_node *prev;
+  struct tree_statement_list_node *next;
+  tree stmt;
+};
+
+struct tree_statement_list
+  GTY(())
+{
+  struct tree_common common;
+  struct tree_statement_list_node *head;
+  struct tree_statement_list_node *tail;
+};
 
 enum tree_node_structure_enum {
   TS_COMMON,
@@ -2161,6 +2189,7 @@ enum tree_node_structure_enum {
   TS_EUSE_NODE,
   TS_EREF_NODE,
   TS_BLOCK,
+  TS_STATEMENT_LIST,
   LAST_TS_ENUM
 };
 
@@ -2189,7 +2218,8 @@ union tree_node GTY ((ptr_alias (union lang_tree_node),
   struct tree_ephi_node GTY ((tag ("TS_EPHI_NODE"))) ephi;
   struct tree_euse_node GTY ((tag ("TS_EUSE_NODE"))) euse;
   struct tree_block GTY ((tag ("TS_BLOCK"))) block;
- };
+  struct tree_statement_list GTY ((tag ("TS_STATEMENT_LIST"))) stmt_list;
+};
 
 /* Standard named or nameless data types of the C compiler.  */
 
@@ -2821,7 +2851,7 @@ extern tree convert (tree, tree);
 extern unsigned int expr_align (tree);
 extern tree expr_first (tree);
 extern tree expr_last (tree);
-extern int expr_length (tree);
+extern tree expr_only (tree);
 extern tree size_in_bytes (tree);
 extern HOST_WIDE_INT int_size_in_bytes (tree);
 extern tree bit_position (tree);
@@ -3288,8 +3318,6 @@ extern void init_ttree (void);
 extern void build_common_tree_nodes (int);
 extern void build_common_tree_nodes_2 (int);
 extern tree build_range_type (tree, tree, tree);
-extern tree add_to_compound_expr (tree, tree);
-extern bool body_is_empty (tree);
 
 /* In function.c */
 extern void setjmp_protect_args (void);
@@ -3439,9 +3467,6 @@ extern void expand_start_case_dummy (void);
 extern void declare_nonlocal_label (tree);
 extern int containing_blocks_have_cleanups_or_stack_level (void);
 
-/* In tree-optimize.c.  */
-void optimize_function_tree (tree, tree *);
-
 /* In gimplify.c.  */
 extern void gimplify_function_tree (tree);
 extern const char *get_name (tree);
@@ -3512,7 +3537,7 @@ enum tree_dump_index
   TDI_alias,			/* dump aliasing information.  */
 
   /* Optimization passes.  The ordering and numbering of these phases must
-     be the same as the one in optimize_function_tree().  */
+     be the same as the one in optimize_function_tree.  */
   TDI_ssa_1,
   TDI_thread_jumps,
   TDI_dom_1,

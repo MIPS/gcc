@@ -324,7 +324,6 @@ c_gimplify_stmt (tree *stmt_p)
 
       append_to_statement_list (stmt, &pre);
       append_to_statement_list (post, &pre);
-      pre = rationalize_compound_expr (pre);
       annotate_all_with_locus (&pre, stmt_locus);
 
       append_to_statement_list (pre, &outer_pre);
@@ -334,7 +333,7 @@ c_gimplify_stmt (tree *stmt_p)
 	= saved_stmts_are_full_exprs_p;
     }
   append_to_statement_list (stmt, &outer_pre);
-  *stmt_p = rationalize_compound_expr (outer_pre);
+  *stmt_p = outer_pre;
 
   return GS_ALL_DONE;
 }

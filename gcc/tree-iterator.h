@@ -23,128 +23,75 @@ Boston, MA 02111-1307, USA.  */
 /* This file is dependent upon the implementation of tree's. It provides an
    abstract interface to the tree objects such that if all tree creation and
    manipulations are done through this interface, we can easily change the
-   implementation of tree's, and not impact other code.
+   implementation of tree's, and not impact other code.  */
 
-   In particular, we wish to replace the current linking scheme which uses
-   COMPOUND_EXPR nodes to link statements. We'd like to either use doubly
-   linked lists, or another mechanism which takes the links completely out
-   of the tree nodes all together. Before this can be done, the front end
-   will have to be modified to use these routines to build up the initial
-   GENERIC representation of the function tree.  */
-
-/** @file tree-iterator.c
-    @brief Routines for manipulating tree statements. */
-
-#ifndef _TREE_ITERATOR_H
-#define _TREE_ITERATOR_H 1
+#ifndef GCC_TREE_ITERATOR_H
+#define GCC_TREE_ITERATOR_H 1
 
 /* Iterator object for GENERIC or GIMPLE TREE statements.  */
 
 typedef struct {
-  tree *tp;
+  struct tree_statement_list_node *ptr;
+  tree container;
 } tree_stmt_iterator;
 
-static inline tree_stmt_iterator tsi_start (tree *);
-static inline tree_stmt_iterator tsi_last (tree *);
-static inline bool tsi_end_p (tree_stmt_iterator);
-static inline bool tsi_one_before_end_p (tree_stmt_iterator);
-static inline void tsi_next (tree_stmt_iterator *);
-static inline void tsi_prev (tree_stmt_iterator *);
-static inline tree tsi_stmt (tree_stmt_iterator);
-static inline tree *tsi_stmt_ptr (tree_stmt_iterator);
-static inline tree *tsi_container (tree_stmt_iterator);
-
-
 static inline tree_stmt_iterator
-tsi_start (tree *tp)
+tsi_start (tree t)
 {
   tree_stmt_iterator i;
-  i.tp = tp;
+
+  i.ptr = STATEMENT_LIST_HEAD (t);
+  i.container = t;
+
   return i;
 }
 
-/* Return an iterator pointing to the last stmt in a chain.  */
 static inline tree_stmt_iterator
-tsi_last (tree *tp)
+tsi_last (tree t)
 {
   tree_stmt_iterator i;
 
-  while (TREE_CODE (*tp) == COMPOUND_EXPR)
-    tp = &TREE_OPERAND (*tp, 1);
+  i.ptr = STATEMENT_LIST_TAIL (t);
+  i.container = t;
 
-  i.tp = tp;
   return i;
 }
 
 static inline bool
 tsi_end_p (tree_stmt_iterator i)
 {
-  return (i.tp == NULL || *(i.tp) == error_mark_node);
-}
-
-static inline void
-tsi_next (tree_stmt_iterator *i)
-{
-  tree t = *(i->tp);
-  if (TREE_CODE (t) == COMPOUND_EXPR)
-    i->tp = &(TREE_OPERAND (t, 1));
-  else
-    i->tp = NULL;
-}
-
-static inline void
-tsi_prev (tree_stmt_iterator *i)
-{
-  printf (" tsi_prev (%p) is not implemented yet\n",(void *)i);
-  abort();
+  return i.ptr == NULL;
 }
 
 static inline bool
 tsi_one_before_end_p (tree_stmt_iterator i)
 {
-  tsi_next (&i);
-  return tsi_end_p (i);
+  return i.ptr != NULL && i.ptr->next == NULL;
+}
+
+static inline void
+tsi_next (tree_stmt_iterator *i)
+{
+  i->ptr = i->ptr->next;
+}
+
+static inline void
+tsi_prev (tree_stmt_iterator *i)
+{
+  i->ptr = i->ptr->prev;
 }
 
 static inline tree *
 tsi_stmt_ptr (tree_stmt_iterator i)
 {
-  tree t;
-
-#if defined ENABLE_CHECKING
-  if (i.tp == NULL || *i.tp == NULL_TREE)
-    abort ();
-#endif
-
-  t = *(i.tp);
-
-  if (TREE_CODE (t) == COMPOUND_EXPR)
-    return &TREE_OPERAND (t, 0);
-  else
-    return i.tp;
+  return &i.ptr->stmt;
 }
 
 static inline tree
 tsi_stmt (tree_stmt_iterator i)
 {
-  tree t = *(tsi_stmt_ptr (i));
-  if (t == error_mark_node)
-    t = NULL_TREE;
-  return t;
+  return i.ptr->stmt;
 }
-
-static inline tree *
-tsi_container (tree_stmt_iterator i)
-{
-  return i.tp;
-}
-
-
-/* Abstract interface for linking and chaining stmts.  Declared in tree.c.  */
-
-/* A tree_stmt_anchor is used as the root of a stmt list.  */
-typedef tree tree_stmt_anchor;
-#define EMPTY_ANCHOR	NULL_TREE
 
 enum tsi_iterator_update
 {
@@ -160,12 +107,14 @@ enum tsi_iterator_update
 			   the same direction.  */
 };
 
-void tsi_link_before (tree_stmt_iterator *, tree, enum tsi_iterator_update);
-void tsi_link_after (tree_stmt_iterator *, tree, enum tsi_iterator_update);
-void tsi_link_chain_before (tree_stmt_iterator *, tree, enum tsi_iterator_update);
-void tsi_link_chain_after (tree_stmt_iterator *, tree, enum tsi_iterator_update);
-void tsi_delink (tree_stmt_iterator *);
-tree_stmt_iterator tsi_new_stmt_list (tree, tree_stmt_anchor *);
-tree_stmt_iterator tsi_stmt_list_head (tree_stmt_anchor);
+extern void tsi_link_before (tree_stmt_iterator *, tree,
+			     enum tsi_iterator_update);
+extern void tsi_link_after (tree_stmt_iterator *, tree,
+			    enum tsi_iterator_update);
 
-#endif /* _TREE_ITERATOR_H  */
+void tsi_delink (tree_stmt_iterator *);
+
+tree tsi_split_statement_list_after (const tree_stmt_iterator *);
+tree tsi_split_statement_list_before (tree_stmt_iterator *);
+
+#endif /* GCC_TREE_ITERATOR_H  */

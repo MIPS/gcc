@@ -238,7 +238,6 @@ mf_decl_cache_locals (tree* body)
 
   /* Add the function body to the end. */
   append_to_statement_list (*body, &init_exprs);
-  init_exprs = rationalize_compound_expr (init_exprs);
 
   *body = build (BIND_EXPR, TREE_TYPE (init_exprs),
 		 mf_cache_shift_decl_l, init_exprs,

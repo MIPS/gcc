@@ -1301,9 +1301,7 @@ build_tree_conflict_graph (tree_live_info_p liveinfo, tpa_p tpa,
   bitmap live;
   int num, x, y, i;
   basic_block bb;
-  varray_type stmt_stack, ops, partition_link, tpa_to_clear, tpa_nodes;
-  stmt_ann_t ann;
-  tree stmt, *var_p;
+  varray_type ops, partition_link, tpa_to_clear, tpa_nodes;
   unsigned l;
 
   map = live_var_map (liveinfo);
@@ -1320,12 +1318,16 @@ build_tree_conflict_graph (tree_live_info_p liveinfo, tpa_p tpa,
 
   FOR_EACH_BB (bb)
     {
+      block_stmt_iterator bsi;
+
       /* Start with live on exit temporaries.  */
       bitmap_copy (live, live_on_exit (liveinfo, bb));
 
-      FOR_EACH_STMT_IN_REVERSE (stmt_stack, bb, stmt)
+      for (bsi = bsi_last (bb); !bsi_end_p (bsi); bsi_prev (&bsi))
         {
 	  tree important_copy_rhs_partition = NULL_TREE;
+	  tree stmt = bsi_stmt (bsi);
+	  stmt_ann_t ann;
 
 	  get_stmt_operands (stmt);
 	  ann = stmt_ann (stmt);
@@ -1376,6 +1378,8 @@ build_tree_conflict_graph (tree_live_info_p liveinfo, tpa_p tpa,
 
 	  if (!important_copy_rhs_partition)
 	    {
+	      tree *var_p;
+
 	      ops = def_ops (ann);
 	      num = ((ops) ? VARRAY_ACTIVE_SIZE (ops) : 0);
 	      for (x = 0; x < num; x++)
