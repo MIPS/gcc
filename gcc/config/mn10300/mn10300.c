@@ -1,5 +1,5 @@
 /* Subroutines for insn-output.c for Matsushita MN10300 series
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002
    Free Software Foundation, Inc.
    Contributed by Jeff Law (law@cygnus.com).
 
@@ -22,6 +22,8 @@ Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "rtl.h"
 #include "tree.h"
 #include "regs.h"
@@ -264,7 +266,15 @@ print_operand (file, x, code)
 	break;
 
       case 'N':
-	output_address (GEN_INT ((~INTVAL (x)) & 0xff));
+	if (INTVAL (x) < -128 || INTVAL (x) > 255)
+	  abort ();
+	fprintf (file, "%d", (int)((~INTVAL (x)) & 0xff));
+	break;
+
+      case 'U':
+	if (INTVAL (x) < -128 || INTVAL (x) > 255)
+	  abort ();
+	fprintf (file, "%d", (int)(INTVAL (x) & 0xff));
 	break;
 
       /* For shift counts.  The hardware ignores the upper bits of
@@ -274,7 +284,7 @@ print_operand (file, x, code)
       case 'S':
 	if (GET_CODE (x) == CONST_INT)
 	  {
-	    fprintf (file, "%d", INTVAL (x) & 0x1f);
+	    fprintf (file, "%d", (int)(INTVAL (x) & 0x1f));
 	    break;
 	  }
 	/* FALL THROUGH */
@@ -1141,7 +1151,7 @@ mask_ok_for_mem_btst (len, bit)
      int len;
      int bit;
 {
-  int mask = 0;
+  unsigned int mask = 0;
 
   while (len > 0)
     {

@@ -390,7 +390,7 @@ namespace std
       __s.flags(__os.flags());
       __s.imbue(__os.getloc());
       __s.precision(__os.precision());
-      __s << '(' << __x.real() << "," << __x.imag() << ')';
+      __s << '(' << __x.real() << ',' << __x.imag() << ')';
       return __os << __s.str();
     }
 
@@ -411,7 +411,7 @@ namespace std
     {
       _Tp __x = __z.real();
       _Tp __y = __z.imag();
-      const _Tp __s = max(abs(__x), abs(__y));
+      const _Tp __s = std::max(abs(__x), abs(__y));
       if (__s == _Tp())  // well ...
         return __s;
       __x /= __s; 

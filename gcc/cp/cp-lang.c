@@ -21,6 +21,8 @@ Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "tree.h"
 #include "cp-tree.h"
 #include "c-common.h"
@@ -122,9 +124,6 @@ static bool cp_var_mod_type_p PARAMS ((tree));
 #undef LANG_HOOKS_TREE_INLINING_COPY_RES_DECL_FOR_INLINING
 #define LANG_HOOKS_TREE_INLINING_COPY_RES_DECL_FOR_INLINING \
   cp_copy_res_decl_for_inlining
-#undef LANG_HOOKS_TREE_INLINING_CONVERT_PARM_FOR_INLINING
-#define LANG_HOOKS_TREE_INLINING_CONVERT_PARM_FOR_INLINING \
-  cp_convert_parm_for_inlining
 #undef LANG_HOOKS_TREE_INLINING_ANON_AGGR_TYPE_P
 #define LANG_HOOKS_TREE_INLINING_ANON_AGGR_TYPE_P anon_aggr_type_p
 #undef LANG_HOOKS_TREE_INLINING_VAR_MOD_TYPE_P

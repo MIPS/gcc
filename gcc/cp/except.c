@@ -25,6 +25,8 @@ Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "tree.h"
 #include "rtl.h"
 #include "expr.h"
@@ -503,7 +505,7 @@ do_allocate_exception (type)
   else
     {
       /* Declare void *__cxa_allocate_exception(size_t).  */
-      tree tmp = tree_cons (NULL_TREE, c_size_type_node, void_list_node);
+      tree tmp = tree_cons (NULL_TREE, size_type_node, void_list_node);
       fn = push_library_fn (fn, build_function_type (ptr_type_node, tmp));
     }
   
@@ -601,28 +603,12 @@ stabilize_throw_expr (exp, initp)
 	{
 	  tree arg = TREE_VALUE (args);
 	  tree arg_init_expr;
-	  if (TREE_CODE (arg) == ADDR_EXPR
-	      && ADDR_IS_INVISIREF (arg))
-	    {
-	      /* A sub-TARGET_EXPR.  Recurse; we can't wrap the actual call
-		 without introducing an extra copy.  */
-	      tree sub = TREE_OPERAND (arg, 0);
-	      if (TREE_CODE (sub) != TARGET_EXPR)
-		abort ();
-	      sub = stabilize_throw_expr (sub, &arg_init_expr);
-	      TREE_OPERAND (arg, 0) = sub;
-	      if (TREE_SIDE_EFFECTS (arg_init_expr))
-		init_expr = build (COMPOUND_EXPR, void_type_node, init_expr,
-				   arg_init_expr);
-	    }
-	  else
-	    {
-	      arg = stabilize_expr (arg, &arg_init_expr);
 
-	      if (TREE_SIDE_EFFECTS (arg_init_expr))
-		init_expr = build (COMPOUND_EXPR, void_type_node, init_expr,
-				   arg_init_expr);
-	    }
+	  arg = stabilize_expr (arg, &arg_init_expr);
+
+	  if (TREE_SIDE_EFFECTS (arg_init_expr))
+	    init_expr = build (COMPOUND_EXPR, void_type_node, init_expr,
+			       arg_init_expr);
 	  *p = tree_cons (NULL_TREE, arg, NULL_TREE);
 	  p = &TREE_CHAIN (*p);
 	}

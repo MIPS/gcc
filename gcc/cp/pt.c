@@ -28,6 +28,8 @@ Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "obstack.h"
 #include "tree.h"
 #include "flags.h"
@@ -7232,9 +7234,10 @@ tsubst_copy (t, args, complain, in_decl)
 	  {
 	    tree base = tsubst_copy (TREE_OPERAND (name, 0), args,
 				     complain, in_decl);
-	    name = TREE_OPERAND (name, 1);
-	    name = tsubst_copy (TREE_OPERAND (name, 0), args,
-				complain, in_decl);
+	    name = TREE_OPERAND (TREE_OPERAND (name, 1), 0);
+	    if (TREE_CODE (name) == TYPE_DECL)
+	      name = TREE_TYPE (name);
+	    name = tsubst_copy (name, args, complain, in_decl);
 	    name = build1 (BIT_NOT_EXPR, NULL_TREE, name);
 	    name = build_nt (SCOPE_REF, base, name);
 	  }
@@ -8851,21 +8854,17 @@ unify (tparms, targs, parm, arg, strict)
 	    return 0;
 	  else if (targ)
 	    return 1;
-	}
 
-      /* Make sure that ARG is not a variable-sized array.  (Note that
-	 were talking about variable-sized arrays (like `int[n]'),
-	 rather than arrays of unknown size (like `int[]').)  We'll
-	 get very confused by such a type since the bound of the array
-	 will not be computable in an instantiation.  Besides, such
-	 types are not allowed in ISO C++, so we can do as we please
-	 here.  */
-      if (TREE_CODE (arg) == ARRAY_TYPE 
-	  && !uses_template_parms (arg)
-	  && TYPE_DOMAIN (arg)
-	  && (TREE_CODE (TYPE_MAX_VALUE (TYPE_DOMAIN (arg)))
-	      != INTEGER_CST))
-	return 1;
+	  /* Make sure that ARG is not a variable-sized array.  (Note
+	     that were talking about variable-sized arrays (like
+	     `int[n]'), rather than arrays of unknown size (like
+	     `int[]').)  We'll get very confused by such a type since
+	     the bound of the array will not be computable in an
+	     instantiation.  Besides, such types are not allowed in
+	     ISO C++, so we can do as we please here.  */
+	  if (variably_modified_type_p (arg))
+	    return 1;
+	}
 
       TREE_VEC_ELT (targs, idx) = arg;
       return 0;
@@ -9965,7 +9964,8 @@ instantiate_decl (d, defer_ok)
      int defer_ok;
 {
   tree tmpl = DECL_TI_TEMPLATE (d);
-  tree args = DECL_TI_ARGS (d);
+  tree gen_args;
+  tree args;
   tree td;
   tree code_pattern;
   tree spec;
@@ -9999,7 +9999,8 @@ instantiate_decl (d, defer_ok)
      specializations, so we must explicitly check
      DECL_TEMPLATE_SPECIALIZATION.  */
   gen_tmpl = most_general_template (tmpl);
-  spec = retrieve_specialization (gen_tmpl, args);
+  gen_args = DECL_TI_ARGS (d);
+  spec = retrieve_specialization (gen_tmpl, gen_args);
   if (spec != NULL_TREE && DECL_TEMPLATE_SPECIALIZATION (spec))
     return spec;
 
@@ -10059,6 +10060,13 @@ instantiate_decl (d, defer_ok)
     }
 
   code_pattern = DECL_TEMPLATE_RESULT (td);
+
+  /* In the case of a friend template whose definition is provided
+     outside the class, we may have too many arguments.  Drop the ones
+     we don't need.  */
+  args = get_innermost_template_args (gen_args,
+				      TMPL_PARMS_DEPTH 
+				      (DECL_TEMPLATE_PARMS (td)));
 
   if (TREE_CODE (d) == FUNCTION_DECL)
     pattern_defined = (DECL_SAVED_TREE (code_pattern) != NULL_TREE);
@@ -10124,8 +10132,8 @@ instantiate_decl (d, defer_ok)
 
       if (TREE_CODE (gen) == FUNCTION_DECL)
 	{
-	  tsubst (DECL_ARGUMENTS (gen), args, tf_error | tf_warning, d);
-	  tsubst (TYPE_RAISES_EXCEPTIONS (type), args,
+	  tsubst (DECL_ARGUMENTS (gen), gen_args, tf_error | tf_warning, d);
+	  tsubst (TYPE_RAISES_EXCEPTIONS (type), gen_args,
 		  tf_error | tf_warning, d);
 	  /* Don't simply tsubst the function type, as that will give
 	     duplicate warnings about poor parameter qualifications.
@@ -10133,7 +10141,7 @@ instantiate_decl (d, defer_ok)
 	     without the top level cv qualifiers.  */
 	  type = TREE_TYPE (type);
 	}
-      tsubst (type, args, tf_error | tf_warning, d);
+      tsubst (type, gen_args, tf_error | tf_warning, d);
 
       if (DECL_CLASS_SCOPE_P (d))
 	popclass ();

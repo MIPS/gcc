@@ -21,6 +21,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "tree.h"
 #include "real.h"
 #include "flags.h"
@@ -3100,7 +3102,7 @@ c_sizeof_or_alignof_type (type, op, complain)
      TYPE_IS_SIZETYPE means that certain things (like overflow) will
      never happen.  However, this node should really have type
      `size_t', which is just a typedef for an ordinary integer type.  */
-  value = fold (build1 (NOP_EXPR, c_size_type_node, value));
+  value = fold (build1 (NOP_EXPR, size_type_node, value));
   my_friendly_assert (!TYPE_IS_SIZETYPE (TREE_TYPE (value)), 20001021);
   
   return value;
@@ -3151,7 +3153,7 @@ c_alignof_expr (expr)
   else
     return c_alignof (TREE_TYPE (expr));
 
-  return fold (build1 (NOP_EXPR, c_size_type_node, t));
+  return fold (build1 (NOP_EXPR, size_type_node, t));
 }
 
 /* Handle C and C++ default attributes.  */
@@ -3294,10 +3296,10 @@ c_common_nodes_and_builtins ()
   /* `unsigned long' is the standard type for sizeof.
      Note that stddef.h uses `unsigned long',
      and this must agree, even if long and int are the same size.  */
-  c_size_type_node =
+  size_type_node =
     TREE_TYPE (identifier_global_value (get_identifier (SIZE_TYPE)));
-  signed_size_type_node = c_common_signed_type (c_size_type_node);
-  set_sizetype (c_size_type_node);
+  signed_size_type_node = c_common_signed_type (size_type_node);
+  set_sizetype (size_type_node);
 
   build_common_tree_nodes_2 (flag_short_double);
 
@@ -5116,8 +5118,9 @@ builtin_define_with_hex_fp_value (macro, type, digits, hex_str, fp_suffix)
   cpp_define (parse_in, buf);
 }
 
-/* Define MAX for TYPE based on the precision of the type, which is assumed
-   to be signed.  IS_LONG is 1 for type "long" and 2 for "long long".  */
+/* Define MAX for TYPE based on the precision of the type.  IS_LONG is
+   1 for type "long" and 2 for "long long".  We have to handle
+   unsigned types, since wchar_t might be unsigned.  */
 
 static void
 builtin_define_type_max (macro, type, is_long)
@@ -5125,41 +5128,37 @@ builtin_define_type_max (macro, type, is_long)
      tree type;
      int is_long;
 {
-  const char *value;
+  static const char *const values[]
+    = { "127", "255",
+	"32767", "65535",
+	"2147483647", "4294967295",
+	"9223372036854775807", "18446744073709551615",
+	"170141183460469231731687303715884105727",
+	"340282366920938463463374607431768211455" };
+  static const char *const suffixes[] = { "", "U", "L", "UL", "LL", "ULL" };
+
+  const char *value, *suffix;
   char *buf;
-  size_t mlen, vlen, extra;
+  size_t idx;
 
   /* Pre-rendering the values mean we don't have to futz with printing a
      multi-word decimal value.  There are also a very limited number of
      precisions that we support, so it's really a waste of time.  */
   switch (TYPE_PRECISION (type))
     {
-    case 8:
-      value = "127";
-      break;
-    case 16:
-      value = "32767";
-      break;
-    case 32:
-      value = "2147483647";
-      break;
-    case 64:
-      value = "9223372036854775807";
-      break;
-    case 128:
-      value = "170141183460469231731687303715884105727";
-      break;
-    default:
-      abort ();
+    case 8:	idx = 0; break;
+    case 16:	idx = 2; break;
+    case 32:	idx = 4; break;
+    case 64:	idx = 6; break;
+    case 128:	idx = 8; break;
+    default:    abort ();
     }
 
-  mlen = strlen (macro);
-  vlen = strlen (value);
-  extra = 2 + is_long;
-  buf = alloca (mlen + vlen + extra);
+  value = values[idx + TREE_UNSIGNED (type)];
+  suffix = suffixes[is_long * 2 + TREE_UNSIGNED (type)];
 
-  sprintf (buf, "%s=%s%s", macro, value,
-	   (is_long == 1 ? "L" : is_long == 2 ? "LL" : ""));
+  buf = alloca (strlen (macro) + 1 + strlen (value) + strlen (suffix) + 1);
+  sprintf (buf, "%s=%s%s", macro, value, suffix);
 
   cpp_define (parse_in, buf);
 }
@@ -5614,6 +5613,7 @@ handle_mode_attribute (node, name, args, flags, no_add_attrs)
       int len = strlen (p);
       enum machine_mode mode = VOIDmode;
       tree typefm;
+      tree ptr_type;
 
       if (len > 4 && p[0] == '_' && p[1] == '_'
 	  && p[len - 1] == '_' && p[len - 2] == '_')
@@ -5643,6 +5643,10 @@ handle_mode_attribute (node, name, args, flags, no_add_attrs)
       else if (0 == (typefm = (*lang_hooks.types.type_for_mode)
 		     (mode, TREE_UNSIGNED (type))))
 	error ("no data type for mode `%s'", p);
+      else if ((TREE_CODE (type) == POINTER_TYPE
+		|| TREE_CODE (type) == REFERENCE_TYPE)
+	       && !(*targetm.valid_pointer_mode) (mode))
+	error ("invalid pointer mode `%s'", p);
       else
 	{
 	  /* If this is a vector, make sure we either have hardware
@@ -5655,6 +5659,19 @@ handle_mode_attribute (node, name, args, flags, no_add_attrs)
 	      return NULL_TREE;
 	    }
 
+	  if (TREE_CODE (type) == POINTER_TYPE)
+	    {
+	      ptr_type = build_pointer_type_for_mode (TREE_TYPE (type),
+						      mode);
+	      *node = ptr_type;
+	    }
+	  else if (TREE_CODE (type) == REFERENCE_TYPE)
+	    {
+	      ptr_type = build_reference_type_for_mode (TREE_TYPE (type),
+							mode);
+	      *node = ptr_type;
+	    }
+	  else
 	  *node = typefm;
 	  /* No need to layout the type here.  The caller should do this.  */
 	}
@@ -5901,9 +5918,10 @@ handle_visibility_attribute (node, name, args, flags, no_add_attrs)
 	}
       if (strcmp (TREE_STRING_POINTER (id), "hidden")
 	  && strcmp (TREE_STRING_POINTER (id), "protected")
-	  && strcmp (TREE_STRING_POINTER (id), "internal"))
+	  && strcmp (TREE_STRING_POINTER (id), "internal")
+	  && strcmp (TREE_STRING_POINTER (id), "default"))
 	{
-	  error ("visibility arg must be one of \"hidden\", \"protected\" or \"internal\"");
+	  error ("visibility arg must be one of \"default\", \"hidden\", \"protected\" or \"internal\"");
 	  *no_add_attrs = true;
 	  return NULL_TREE;
 	}

@@ -54,21 +54,27 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 # define CPP_PREDEFINES ""
 #endif
 
-/* Store in OUTPUT a string (made with alloca) containing
-   an assembler-name for a local static variable or function named NAME.
+/* Store in OUTPUT a string (made with alloca) containing an
+   assembler-name for a local static variable or function named NAME.
    LABELNO is an integer which is different for each call.  */
 
+#ifndef ASM_PN_FORMAT
+# ifndef NO_DOT_IN_LABEL
+#  define ASM_PN_FORMAT "%s.%lu"
+# else
+#  ifndef NO_DOLLAR_IN_LABEL
+#   define ASM_PN_FORMAT "%s$%lu"
+#  else
+#   define ASM_PN_FORMAT "__%s_%lu"
+#  endif
+# endif
+#endif /* ! ASM_PN_FORMAT */
+
 #ifndef ASM_FORMAT_PRIVATE_NAME
-#define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO)			\
-  do {									\
-    int len = strlen (NAME);						\
-    char *temp = (char *) alloca (len + 3);				\
-    temp[0] = 'L';							\
-    strcpy (&temp[1], (NAME));						\
-    temp[len + 1] = '.';						\
-    temp[len + 2] = 0;							\
-    (OUTPUT) = (char *) alloca (strlen (NAME) + 11);			\
-    ASM_GENERATE_INTERNAL_LABEL (OUTPUT, temp, LABELNO);		\
+# define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO) \
+  do { const char *const name_ = (NAME); \
+       char *const output_ = (OUTPUT) = (char *) alloca (strlen (name_) + 32);\
+       sprintf (output_, ASM_PN_FORMAT, name_, (unsigned long)(LABELNO)); \
   } while (0)
 #endif
 
@@ -82,7 +88,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #ifndef ASM_OUTPUT_ADDR_VEC_ELT
 #define ASM_OUTPUT_ADDR_VEC_ELT(FILE, VALUE)  \
 do { fputs (integer_asm_op (POINTER_SIZE / UNITS_PER_WORD, TRUE), FILE); \
-     ASM_OUTPUT_INTERNAL_LABEL (FILE, "L", (VALUE));			\
+     (*targetm.asm_out.internal_label) (FILE, "L", (VALUE));			\
      fputc ('\n', FILE);						\
    } while (0)
 #endif
@@ -160,7 +166,7 @@ do { fputs (integer_asm_op (POINTER_SIZE / UNITS_PER_WORD, TRUE), FILE); \
 
 #ifndef ASM_OUTPUT_DEBUG_LABEL
 #define ASM_OUTPUT_DEBUG_LABEL(FILE, PREFIX, NUM) \
-  ASM_OUTPUT_INTERNAL_LABEL (FILE, PREFIX, NUM)
+  (*targetm.asm_out.internal_label) (FILE, PREFIX, NUM)
 #endif
 
 /* This is how we tell the assembler that a symbol is weak.  */
@@ -511,16 +517,6 @@ You Lose!  You must define PREFERRED_DEBUGGING_TYPE!
    are supported.  */
 #ifndef PREFERRED_DEBUGGING_TYPE
 #define PREFERRED_DEBUGGING_TYPE NO_DEBUG
-#endif
-
-/* This is set to 1 if BYTES_BIG_ENDIAN is defined but the target uses a
-   little-endian method of passing and returning structures in registers.
-   On the HP-UX IA64 and PA64 platforms structures are aligned differently
-   then integral values and setting this value to 1 will allow for the
-   special handling of structure arguments and return values in regs.  */
-
-#ifndef FUNCTION_ARG_REG_LITTLE_ENDIAN
-#define FUNCTION_ARG_REG_LITTLE_ENDIAN 0
 #endif
 
 /* Define codes for all the float formats that we know of.  */

@@ -86,6 +86,7 @@ xtensa port		Bob Wilson		bob.wilson@acm.org
 darwin port		Stan Shebs		shebs@apple.com
 netbsd			Jason Thorpe		thorpej@wasabisystems.com
 sco5, unixware, sco udk	Robert Lipe		robertlipe@usa.net
+sh-linux-gnu		Kaz Kojima		kkojima@gcc.gnu.org
 
 			Various Maintainers
 
@@ -178,7 +179,7 @@ Chris Demetriou					cgd@broadcom.com
 Steve Ellcey					sje@cup.hp.com
 Ben Elliston					bje@redhat.com
 Marc Espie					espie@cvs.openbsd.org
-Doug Evans					devans@transmeta.com
+Doug Evans					dje@transmeta.com
 Kaveh Ghazi					ghazi@caip.rutgers.edu
 Matthew Gingell					gingell@gnat.com
 Anthony Green					green@redhat.com
@@ -197,7 +198,6 @@ Brendan Kehoe					brendan@zen.org
 Mumit Khan					khan@xraylith.wisc.edu
 Matthias Klose					doko@debian.org
 Jeff Knaggs					jknaggs@redhat.com
-Kaz Kojima					kkojima@gcc.gnu.org
 Paul Koning					ni1d@arrl.net
 Matt Kraai					kraai@alumni.cmu.edu
 Ziemowit Laski					zlaski@apple.com
@@ -241,6 +241,7 @@ Richard Sandiford				rsandifo@redhat.com
 Roger Sayle					roger@eyesopen.com
 Bernd Schmidt					bernds@redhat.com
 Andreas Schwab					schwab@suse.de
+Svein Seldal                                    svein.seldal@solidas.com
 Stan Shebs					shebs@apple.com
 Nathan Sidwell					nathan@codesourcery.com
 Franz Sirl					franz.sirl-kernel@lauterbach.com
@@ -264,6 +265,7 @@ GNATS only accounts
 
 Wolfgang Bangerth	bangerth		bangerth@ticam.utexas.edu
 James Dennett		jdennett		jdennett@acm.org
+Christian Ehrhardt	cae			ehrhardt@mathematik.uni-ulm.de
 Volker Reichelt		reichelt		reichelt@igpm.rwth-aachen.de
 
 Peter Bienstman(?)

@@ -678,9 +678,17 @@ struct cum_arg {int nbytes; };
 	    && GET_CODE (XEXP (XEXP (OP, 0), 1)) == CONST_INT	\
 	    && INT_8_BITS (INTVAL (XEXP (XEXP (OP, 0), 1))))))
 	 
+#define OK_FOR_T(OP) \
+   (GET_CODE (OP) == MEM					\
+    && GET_MODE (OP) == QImode					\
+    && (GET_CODE (XEXP (OP, 0)) == REG				\
+	&& REG_OK_FOR_BIT_BASE_P (XEXP (OP, 0))			\
+	&& XEXP (OP, 0) != stack_pointer_rtx))
+
 #define EXTRA_CONSTRAINT(OP, C) \
  ((C) == 'R' ? OK_FOR_R (OP) \
   : (C) == 'S' ? GET_CODE (OP) == SYMBOL_REF \
+  : (C) == 'T' ? OK_FOR_T (OP) \
   : 0)
 
 /* Maximum number of registers that can appear in a valid memory address.  */
@@ -905,13 +913,7 @@ struct cum_arg {int nbytes; };
 #define ASM_OUTPUT_LABELREF(FILE, NAME) \
   fprintf (FILE, "_%s", (*targetm.strip_name_encoding) (NAME))
 
-/* Store in OUTPUT a string (made with alloca) containing
-   an assembler-name for a local static variable named NAME.
-   LABELNO is an integer which is different for each call.  */
-
-#define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO)	\
-( (OUTPUT) = (char *) alloca (strlen ((NAME)) + 10),	\
-  sprintf ((OUTPUT), "%s___%d", (NAME), (LABELNO)))
+#define ASM_PN_FORMAT "%s___%lu"
 
 /* This is how we tell the assembler that two symbols have the same value.  */
 

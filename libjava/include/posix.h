@@ -40,6 +40,10 @@ details.  */
 #include <gcj/cni.h>
 #include <java/util/Properties.h>
 
+// Prefix and suffix for shared libraries.
+#define _Jv_platform_solib_prefix "lib"
+#define _Jv_platform_solib_suffix ".so"
+
 #ifndef DISABLE_JAVA_NET
 #include <java/net/InetAddress.h>
 #endif
@@ -57,6 +61,10 @@ _Jv_platform_close_on_exec (jint fd)
 }
 
 #ifndef DISABLE_JAVA_NET
+
+#ifndef HAVE_SOCKLEN_T
+#define socklen_t int
+#endif
 
 static inline int
 _Jv_socket (int domain, int type, int protocol)

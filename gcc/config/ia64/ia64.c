@@ -22,6 +22,8 @@ Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "rtl.h"
 #include "tree.h"
 #include "regs.h"
@@ -3309,7 +3311,25 @@ ia64_function_arg (cum, mode, type, named, incoming)
      happen when we have a SFmode HFA.  */
   else if (((mode == TFmode) && ! INTEL_EXTENDED_IEEE_FORMAT)
           || (! FLOAT_MODE_P (mode) || cum->fp_regs == MAX_ARGUMENT_SLOTS))
-    return gen_rtx_REG (mode, basereg + cum->words + offset);
+    {
+      int byte_size = ((mode == BLKmode)
+                       ? int_size_in_bytes (type) : GET_MODE_SIZE (mode));
+      if (BYTES_BIG_ENDIAN
+	&& (mode == BLKmode || (type && AGGREGATE_TYPE_P (type)))
+	&& byte_size < UNITS_PER_WORD
+	&& byte_size > 0)
+	{
+	  rtx gr_reg = gen_rtx_EXPR_LIST (VOIDmode,
+					  gen_rtx_REG (DImode,
+						       (basereg + cum->words
+							+ offset)),
+					  const0_rtx);
+	  return gen_rtx_PARALLEL (mode, gen_rtvec (1, gr_reg));
+	}
+      else
+	return gen_rtx_REG (mode, basereg + cum->words + offset);
+
+    }
 
   /* If there is a prototype, then FP values go in a FR register when
      named, and in a GR registeer when unnamed.  */
@@ -3596,7 +3616,30 @@ ia64_function_value (valtype, func)
            ((mode != TFmode) || INTEL_EXTENDED_IEEE_FORMAT))
     return gen_rtx_REG (mode, FR_ARG_FIRST);
   else
-    return gen_rtx_REG (mode, GR_RET_FIRST);
+    {
+      if (BYTES_BIG_ENDIAN
+	  && (mode == BLKmode || (valtype && AGGREGATE_TYPE_P (valtype))))
+	{
+	  rtx loc[8];
+	  int offset;
+	  int bytesize;
+	  int i;
+
+	  offset = 0;
+	  bytesize = int_size_in_bytes (valtype);
+	  for (i = 0; offset < bytesize; i++)
+	    {
+	      loc[i] = gen_rtx_EXPR_LIST (VOIDmode,
+					  gen_rtx_REG (DImode,
+						       GR_RET_FIRST + i),
+					  GEN_INT (offset));
+	      offset += UNITS_PER_WORD;
+	    }
+	  return gen_rtx_PARALLEL (mode, gen_rtvec_v (i, loc));
+	}
+      else
+	return gen_rtx_REG (mode, GR_RET_FIRST);
+    }
 }
 
 /* Print a memory address as an operand to reference that memory location.  */
@@ -8100,16 +8143,20 @@ ia64_hpux_asm_file_end (file)
 {
   while (extern_func_head)
     {
-      const char *const real_name =
-	(* targetm.strip_name_encoding) (extern_func_head->name);
-      tree decl = get_identifier (real_name);
+      const char *real_name;
+      tree decl;
 
-      if (decl && ! TREE_ASM_WRITTEN (decl) && TREE_SYMBOL_REFERENCED (decl))
+      real_name = (* targetm.strip_name_encoding) (extern_func_head->name);
+      decl = maybe_get_identifier (real_name);
+
+      if (!decl
+	  || (! TREE_ASM_WRITTEN (decl) && TREE_SYMBOL_REFERENCED (decl)))
         {
-	  TREE_ASM_WRITTEN (decl) = 1;
-	  (*targetm.asm_out.globalize_label) (file, real_name);
+	  if (decl)
+	    TREE_ASM_WRITTEN (decl) = 1;
+	  (*targetm.asm_out.globalize_label) (file, extern_func_head->name);
 	  fprintf (file, "%s", TYPE_ASM_OP);
-	  assemble_name (file, real_name);
+	  assemble_name (file, extern_func_head->name);
 	  putc (',', file);
 	  fprintf (file, TYPE_OPERAND_FMT, "function");
 	  putc ('\n', file);

@@ -36,6 +36,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "tree.h"
 #include "flags.h"
 #include "real.h"
@@ -116,7 +118,24 @@ void
 default_eh_frame_section ()
 {
 #ifdef EH_FRAME_SECTION_NAME
+#ifdef HAVE_LD_RO_RW_SECTION_MIXING
+  int fde_encoding = ASM_PREFERRED_EH_DATA_FORMAT (/*code=*/1, /*global=*/0);
+  int per_encoding = ASM_PREFERRED_EH_DATA_FORMAT (/*code=*/2, /*global=*/1);
+  int lsda_encoding = ASM_PREFERRED_EH_DATA_FORMAT (/*code=*/0, /*global=*/0);
+  int flags;
+
+  flags = (! flag_pic
+	   || ((fde_encoding & 0x70) != DW_EH_PE_absptr
+	       && (fde_encoding & 0x70) != DW_EH_PE_aligned
+	       && (per_encoding & 0x70) != DW_EH_PE_absptr
+	       && (per_encoding & 0x70) != DW_EH_PE_aligned
+	       && (lsda_encoding & 0x70) != DW_EH_PE_absptr
+	       && (lsda_encoding & 0x70) != DW_EH_PE_aligned))
+	  ? 0 : SECTION_WRITE;
+  named_section_flags (EH_FRAME_SECTION_NAME, flags);
+#else
   named_section_flags (EH_FRAME_SECTION_NAME, SECTION_WRITE);
+#endif
 #else
   tree label = get_file_function_name ('F');
 
@@ -2049,7 +2068,7 @@ output_call_frame_info (for_eh)
 	  && !fde->uses_eh_lsda)
 	continue;
 
-      ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, FDE_LABEL, for_eh + i * 2);
+      (*targetm.asm_out.internal_label) (asm_out_file, FDE_LABEL, for_eh + i * 2);
       ASM_GENERATE_INTERNAL_LABEL (l1, FDE_AFTER_SIZE_LABEL, for_eh + i * 2);
       ASM_GENERATE_INTERNAL_LABEL (l2, FDE_END_LABEL, for_eh + i * 2);
       dw2_asm_output_delta (for_eh ? 4 : DWARF_OFFSET_SIZE, l2, l1,
@@ -3446,10 +3465,6 @@ struct file_table
 
 /* Filenames referenced by this compilation unit.  */
 static struct file_table file_table;
-
-/* Local pointer to the name of the main input file.  Initialized in
-   dwarf2out_init.  */
-static const char *primary_filename;
 
 /* A pointer to the base of a table of references to DIE's that describe
    declarations.  The table is indexed by DECL_UID() which is a unique
@@ -7925,6 +7940,27 @@ is_base_type (type)
   return 0;
 }
 
+/* Given a pointer to a tree node, assumed to be some kind of a ..._TYPE
+   node, return the size in bits for the type if it is a constant, or else
+   return the alignment for the type if the type's size is not constant, or
+   else return BITS_PER_WORD if the type actually turns out to be an
+   ERROR_MARK node.  */
+
+static inline unsigned HOST_WIDE_INT
+simple_type_size_in_bits (type)
+     tree type;
+{
+
+  if (TREE_CODE (type) == ERROR_MARK)
+    return BITS_PER_WORD;
+  else if (TYPE_SIZE (type) == NULL_TREE)
+    return 0;
+  else if (host_integerp (TYPE_SIZE (type), 1))
+    return tree_low_cst (TYPE_SIZE (type), 1);
+  else
+    return TYPE_ALIGN (type);
+}
+
 /* Given a pointer to an arbitrary ..._TYPE tree node, return a debugging
    entry that chains various modifiers in front of the given type.  */
 
@@ -8002,7 +8038,8 @@ modified_type_die (type, is_const_type, is_volatile_type, context_die)
       else if (code == POINTER_TYPE)
 	{
 	  mod_type_die = new_die (DW_TAG_pointer_type, comp_unit_die, type);
-	  add_AT_unsigned (mod_type_die, DW_AT_byte_size, PTR_SIZE);
+	  add_AT_unsigned (mod_type_die, DW_AT_byte_size,
+			   simple_type_size_in_bits (type) / BITS_PER_UNIT);
 #if 0
 	  add_AT_unsigned (mod_type_die, DW_AT_address_class, 0);
 #endif
@@ -8011,7 +8048,8 @@ modified_type_die (type, is_const_type, is_volatile_type, context_die)
       else if (code == REFERENCE_TYPE)
 	{
 	  mod_type_die = new_die (DW_TAG_reference_type, comp_unit_die, type);
-	  add_AT_unsigned (mod_type_die, DW_AT_byte_size, PTR_SIZE);
+	  add_AT_unsigned (mod_type_die, DW_AT_byte_size,
+			   simple_type_size_in_bits (type) / BITS_PER_UNIT);
 #if 0
 	  add_AT_unsigned (mod_type_die, DW_AT_address_class, 0);
 #endif
@@ -8864,27 +8902,6 @@ simple_decl_align_in_bits (decl)
      tree decl;
 {
   return (TREE_CODE (decl) != ERROR_MARK) ? DECL_ALIGN (decl) : BITS_PER_WORD;
-}
-
-/* Given a pointer to a tree node, assumed to be some kind of a ..._TYPE
-   node, return the size in bits for the type if it is a constant, or else
-   return the alignment for the type if the type's size is not constant, or
-   else return BITS_PER_WORD if the type actually turns out to be an
-   ERROR_MARK node.  */
-
-static inline unsigned HOST_WIDE_INT
-simple_type_size_in_bits (type)
-     tree type;
-{
-
-  if (TREE_CODE (type) == ERROR_MARK)
-    return BITS_PER_WORD;
-  else if (TYPE_SIZE (type) == NULL_TREE)
-    return 0;
-  else if (host_integerp (TYPE_SIZE (type), 1))
-    return tree_low_cst (TYPE_SIZE (type), 1);
-  else
-    return TYPE_ALIGN (type);
 }
 
 /* Given a pointer to a FIELD_DECL, compute and return the byte offset of the
@@ -12364,7 +12381,7 @@ dwarf2out_source_line (line, filename)
       else if (DECL_SECTION_NAME (current_function_decl))
 	{
 	  dw_separate_line_info_ref line_info;
-	  ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, SEPARATE_LINE_CODE_LABEL,
+	  (*targetm.asm_out.internal_label) (asm_out_file, SEPARATE_LINE_CODE_LABEL,
 				     separate_line_info_table_in_use);
 
 	  /* expand the line info table if necessary */
@@ -12395,7 +12412,7 @@ dwarf2out_source_line (line, filename)
 	{
 	  dw_line_info_ref line_info;
 
-	  ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, LINE_CODE_LABEL,
+	  (*targetm.asm_out.internal_label) (asm_out_file, LINE_CODE_LABEL,
 				     line_info_table_in_use);
 
 	  /* Expand the line info table if necessary.  */
@@ -12508,12 +12525,9 @@ dwarf2out_init (main_input_filename)
 {
   init_file_table ();
 
-  /* Remember the name of the primary input file.  */
-  primary_filename = main_input_filename;
-
-  /* Add it to the file table first, under the assumption that we'll
-     be emitting line number data for it first, which avoids having
-     to add an initial DW_LNS_set_file.  */
+  /* Add the name of the primary input file to the file table first,
+     under the assumption that we'll be emitting line number data for
+     it first, which avoids having to add an initial DW_LNS_set_file.  */
   lookup_filename (main_input_filename);
 
   /* Allocate the initial hunk of the decl_die_table.  */
@@ -12694,7 +12708,7 @@ dwarf2out_finish (input_filename)
 
   /* Output a terminator label for the .text section.  */
   text_section ();
-  ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, TEXT_END_LABEL, 0);
+  (*targetm.asm_out.internal_label) (asm_out_file, TEXT_END_LABEL, 0);
 
   /* Output the source line correspondence table.  We must do this
      even if there is no line information.  Otherwise, on an empty

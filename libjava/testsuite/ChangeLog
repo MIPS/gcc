@@ -1,3 +1,40 @@
+2002-12-12  Tom Tromey  <tromey@redhat.com>
+
+	* libjava.loader/loader.exp (gcj_loader_test_one): Use
+	libjava_prune_warnings.
+	(gcj_loader_run): Likewise.
+	* libjava.mauve/mauve.exp (test_mauve): Use
+	libjava_prune_warnings.
+	(test_mauve_sim): Likewise.
+	* libjava.jni/jni.exp (gcj_jni_compile_c_to_so): Use
+	libjava_prune_warnings.
+	(gcj_jni_build_header): Likewise.
+	* lib/libjava.exp (libjava_prune_warnings): New proc.
+	(gcj_link): Use it.
+	(test_libjava_from_source): Likewise.
+	(test_libjava_from_javac): Likewise.
+
+2002-12-08  Tom Tromey  <tromey@redhat.com>
+
+	Test for PR libgcj/8823:
+	* libjava.lang/pr8823.java: New file.
+	* libjava.lang/pr8823.out: New file.
+
+2002-12-05  Tom Tromey  <tromey@redhat.com>
+
+	* libjava.lang/override.java: New file.
+	* libjava.lang/override.out: New file.
+
+2002-12-01  Tom Tromey  <tromey@redhat.com>
+
+	* libjava.jacks/jacks.exp (gcj_jacks_setup_xfail): New function.
+	(gcj_jacks_parse): Use it; set up xfails.
+	* libjava.jacks/jacks.xfail: New file.
+
+2002-12-01  Mark Wielaard  <mark@klomp.org>
+
+	* libjava.mauve/xfails: Remove Inspector FAILs that now PASS.
+
 2002-11-21  Tom Tromey  <tromey@redhat.com>
 
 	For PR java/8676:

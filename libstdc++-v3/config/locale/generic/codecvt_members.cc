@@ -34,7 +34,6 @@
 // Written by Benjamin Kosnik <bkoz@redhat.com>
 
 #include <locale>
-#include "c++locale_internal.h"
 
 namespace std
 {
@@ -48,7 +47,7 @@ namespace std
 	 extern_type*& __to_next) const
   {
     result __ret = error;
-    size_t __len = min(__from_end - __from, __to_end - __to);
+    size_t __len = std::min(__from_end - __from, __to_end - __to);
     size_t __conv = wcsrtombs(__to, &__from, __len, &__state);
 
     if (__conv == __len)
@@ -77,7 +76,7 @@ namespace std
 	intern_type*& __to_next) const
   {
     result __ret = error;
-    size_t __len = min(__from_end - __from, __to_end - __to);
+    size_t __len = std::min(__from_end - __from, __to_end - __to);
     size_t __conv = mbsrtowcs(__to, &__from, __len, &__state);
 
     if (__conv == __len)

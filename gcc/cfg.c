@@ -43,6 +43,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "tree.h"
 #include "rtl.h"
 #include "hard-reg-set.h"
@@ -502,6 +504,7 @@ dump_flow_info (file)
      FILE *file;
 {
   int i;
+  int max_regno = max_reg_num ();
   basic_block bb;
   static const char * const reg_class_names[] = REG_CLASS_NAMES;
 
@@ -683,7 +686,7 @@ static void *first_block_aux_obj = 0;
 static struct obstack edge_aux_obstack;
 static void *first_edge_aux_obj = 0;
 
-/* Allocate an memory block of SIZE as BB->aux.  The obstack must
+/* Allocate a memory block of SIZE as BB->aux.  The obstack must
    be first initialized by alloc_aux_for_blocks.  */
 
 inline void
@@ -751,7 +754,7 @@ free_aux_for_blocks ()
   clear_aux_for_blocks ();
 }
 
-/* Allocate an memory edge of SIZE as BB->aux.  The obstack must
+/* Allocate a memory edge of SIZE as BB->aux.  The obstack must
    be first initialized by alloc_aux_for_edges.  */
 
 inline void

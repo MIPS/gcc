@@ -24,6 +24,8 @@ Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "tree.h"
 #include "rtl.h"
 #include "expr.h"
@@ -966,7 +968,7 @@ expand_member_init (tree name, tree init)
     }
   else if (TYPE_P (name))
     {
-      basetype = name;
+      basetype = TYPE_MAIN_VARIANT (name);
       name = TYPE_NAME (name);
     }
   else if (TREE_CODE (name) == TYPE_DECL)
@@ -2444,7 +2446,10 @@ build_new_1 (exp)
 	     things; in particular, it would make it difficult to bail out
 	     if the allocation function returns null.  Er, no, it wouldn't;
 	     we just don't run the constructor.  The standard says it's
-	     unspecified whether or not the args are evaluated.  */
+	     unspecified whether or not the args are evaluated.
+
+	     FIXME FIXME FIXME inline invisible refs as refs.  That way we
+	     can preevaluate value parameters.  */
 
 	  if (cleanup)
 	    {
@@ -2752,10 +2757,10 @@ build_vec_init (base, init, from_array)
        T* rval = t1;
        ptrdiff_t iterator = maxindex;
        try {
-	 do {
+	 for (; iterator != -1; --iterator) {
 	   ... initialize *t1 ...
 	   ++t1;
-	 } while (--iterator != -1);
+	 }
        } catch (...) {
          ... destroy elements that were constructed ...
        }
@@ -2855,19 +2860,20 @@ build_vec_init (base, init, from_array)
     {
       /* If the ITERATOR is equal to -1, then we don't have to loop;
 	 we've already initialized all the elements.  */
-      tree if_stmt;
-      tree do_stmt;
-      tree do_body;
+      tree for_stmt;
+      tree for_body;
       tree elt_init;
 
-      if_stmt = begin_if_stmt ();
-      finish_if_stmt_cond (build (NE_EXPR, boolean_type_node,
-				  iterator, integer_minus_one_node),
-			   if_stmt);
+      for_stmt = begin_for_stmt ();
+      finish_for_init_stmt (for_stmt);
+      finish_for_cond (build (NE_EXPR, boolean_type_node,
+			      iterator, integer_minus_one_node),
+		       for_stmt);
+      finish_for_expr (build_unary_op (PREDECREMENT_EXPR, iterator, 0),
+		       for_stmt);
 
       /* Otherwise, loop through the elements.  */
-      do_stmt = begin_do_stmt ();
-      do_body = begin_compound_stmt (/*has_no_scope=*/1);
+      for_body = begin_compound_stmt (/*has_no_scope=*/1);
 
       /* When we're not building a statement-tree, things are a little
 	 complicated.  If, when we recursively call build_aggr_init,
@@ -2932,15 +2938,8 @@ build_vec_init (base, init, from_array)
       if (base2)
 	finish_expr_stmt (build_unary_op (PREINCREMENT_EXPR, base2, 0));
 
-      finish_compound_stmt (/*has_no_scope=*/1, do_body);
-      finish_do_body (do_stmt);
-      finish_do_stmt (build (NE_EXPR, boolean_type_node,
-			     build_unary_op (PREDECREMENT_EXPR, iterator, 0),
-			     integer_minus_one_node),
-		      do_stmt);
-
-      finish_then_clause (if_stmt);
-      finish_if_stmt ();
+      finish_compound_stmt (/*has_no_scope=*/1, for_body);
+      finish_for_stmt (for_stmt);
     }
 
   /* Make sure to cleanup any partially constructed elements.  */

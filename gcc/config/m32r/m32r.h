@@ -1074,7 +1074,7 @@ M32R_STACK_ALIGN (current_function_outgoing_args_size)
 #define ROUND_ADVANCE_ARG(MODE, TYPE) \
   ((MODE) == BLKmode				\
    ? ROUND_ADVANCE ((unsigned int) int_size_in_bytes (TYPE))	\
-   : ROUND_ADVANCE (GET_MODE_SIZE (MODE)))
+   : ROUND_ADVANCE ((unsigned int) GET_MODE_SIZE (MODE)))
 
 /* Round CUM up to the necessary point for argument MODE/TYPE.  */
 #define ROUND_ADVANCE_CUM(CUM, MODE, TYPE) (CUM)
@@ -1692,17 +1692,6 @@ sbss_section ()								\
 	       sym_lineno);						\
       sym_lineno += 1;							\
     }									\
-  while (0)
-
-/* Store in OUTPUT a string (made with alloca) containing
-   an assembler-name for a local static variable named NAME.
-   LABELNO is an integer which is different for each call.  */
-#define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO)	\
-  do							\
-    {							\
-      (OUTPUT) = (char *) alloca (strlen ((NAME)) + 10);\
-      sprintf ((OUTPUT), "%s.%d", (NAME), (LABELNO));	\
-    }							\
   while (0)
 
 /* How to refer to registers in assembler output.

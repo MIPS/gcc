@@ -32,6 +32,8 @@ Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "tree.h"
 #include "rtl.h"
 #include "expr.h"
@@ -2327,8 +2329,8 @@ build_indirect_ref (ptr, errorstring)
           return error_mark_node;
         }
       else if (TREE_CODE (pointer) == ADDR_EXPR
-	  && !flag_volatile
-	  && same_type_p (t, TREE_TYPE (TREE_OPERAND (pointer, 0))))
+	       && !flag_volatile
+	       && same_type_p (t, TREE_TYPE (TREE_OPERAND (pointer, 0))))
 	/* The POINTER was something like `&x'.  We simplify `*&x' to
 	   `x'.  */
 	return TREE_OPERAND (pointer, 0);
@@ -5859,8 +5861,16 @@ convert_for_assignment (type, rhs, errtype, fndecl, parmnum)
   /* Simplify the RHS if possible.  */
   if (TREE_CODE (rhs) == CONST_DECL)
     rhs = DECL_INITIAL (rhs);
-  else if (coder != ARRAY_TYPE)
-    rhs = decl_constant_value (rhs);
+  
+  /* We do not use decl_constant_value here because of this case:
+
+       const char* const s = "s";
+ 
+     The conversion rules for a string literal are more lax than for a
+     variable; in particular, a string literal can be converted to a
+     "char *" but the variable "s" cannot be converted in the same
+     way.  If the conversion is allowed, the optimization should be
+     performed while creating the converted expression.  */
 
   /* [expr.ass]
 
@@ -6162,6 +6172,12 @@ check_return_expr (retval)
       return NULL_TREE;
     }
 
+  if (processing_template_decl)
+    {
+      current_function_returns_value = 1;
+      return retval;
+    }
+  
   /* When no explicit return-value is given in a function with a named
      return value, the named return value is used.  */
   result = DECL_RESULT (current_function_decl);
@@ -6465,6 +6481,8 @@ cp_type_quals (type)
      tree type;
 {
   type = strip_array_types (type);
+  if (type == error_mark_node)
+    return TYPE_UNQUALIFIED;
   return TYPE_QUALS (type);
 }
 

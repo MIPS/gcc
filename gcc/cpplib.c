@@ -21,6 +21,8 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 
 #include "cpplib.h"
 #include "cpphash.h"
@@ -364,8 +366,8 @@ _cpp_handle_directive (pfile, indented)
 
   if (dname->type == CPP_NAME)
     {
-      if (dname->val.node->directive_index)
-	dir = &dtable[dname->val.node->directive_index - 1];
+      if (dname->val.node->is_directive)
+	dir = &dtable[dname->val.node->directive_index];
     }
   /* We do not recognize the # followed by a number extension in
      assembler code.  */
@@ -1689,7 +1691,7 @@ find_answer (node, candidate)
 
 /* Test an assertion within a preprocessor conditional.  Returns
    nonzero on failure, zero on success.  On success, the result of
-   the test is written into VALUE.  */
+   the test is written into VALUE, otherwise the value 0.  */
 int
 _cpp_test_assertion (pfile, value)
      cpp_reader *pfile;
@@ -1699,6 +1701,11 @@ _cpp_test_assertion (pfile, value)
   cpp_hashnode *node;
 
   node = parse_assertion (pfile, &answer, T_IF);
+
+  /* For recovery, an erroneous assertion expression is handled as a
+     failing assertion.  */
+  *value = 0;
+
   if (node)
     *value = (node->type == NT_ASSERTION &&
 	      (answer == 0 || *find_answer (node, answer) != 0));
@@ -1997,6 +2004,7 @@ _cpp_init_directives (pfile)
   for (i = 0; i < (unsigned int) N_DIRECTIVES; i++)
     {
       node = cpp_lookup (pfile, dtable[i].name, dtable[i].length);
-      node->directive_index = i + 1;
+      node->is_directive = 1;
+      node->directive_index = i;
     }
 }

@@ -20,14 +20,14 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
+#ifndef GCC_CP_TREE_H
+#define GCC_CP_TREE_H
+
 #include "ggc.h"
 #include "function.h"
 #include "hashtab.h"
 #include "splay-tree.h"
 #include "varray.h"
-
-#ifndef GCC_CP_TREE_H
-#define GCC_CP_TREE_H
 
 #ifndef __GNUC__
 #error "You should be using 'make bootstrap' -- see installation instructions"
@@ -66,7 +66,6 @@ struct diagnostic_context;
       BINDING_HAS_LEVEL_P (in CPLUS_BINDING)
       BINFO_LOST_PRIMARY_P (in BINFO)
       TREE_PARMLIST (in TREE_LIST)
-      ADDR_IS_INVISIREF (in ADDR_EXPR)
    3: TYPE_USES_VIRTUAL_BASECLASSES (in a class TYPE).
       BINFO_VTABLE_PATH_MARKED.
       BINFO_PUSHDECLS_MARKED.
@@ -102,6 +101,7 @@ struct diagnostic_context;
       DECL_IMPLICIT_TYPEDEF_P (in a TYPE_DECL)
    3: DECL_IN_AGGR_P.
    4: DECL_C_BIT_FIELD (in a FIELD_DECL)
+      DECL_MAYBE_TEMPLATE (in a FUNCTION_DECL)
    5: DECL_INTERFACE_KNOWN.
    6: DECL_THIS_STATIC (in VAR_DECL or FUNCTION_DECL).
    7: DECL_DEAD_FOR_LOCAL (in VAR_DECL).
@@ -400,13 +400,15 @@ struct tree_wrapper GTY(())
   struct z_candidate *z_c;
 };
 
-#define SRCLOC_FILE(NODE) (((struct tree_srcloc*)SRCLOC_CHECK (NODE))->filename)
-#define SRCLOC_LINE(NODE) (((struct tree_srcloc*)SRCLOC_CHECK (NODE))->linenum)
+#define SOURCE_LOCUS(NODE) \
+   (((struct tree_srcloc*)SRCLOC_CHECK (NODE))->locus)
+#define SRCLOC_FILE(NODE) SOURCE_LOCUS (NODE).file
+#define SRCLOC_LINE(NODE) SOURCE_LOCUS (NODE).line
+
 struct tree_srcloc GTY(())
 {
   struct tree_common common;
-  const char *filename;
-  int linenum;
+  location_t locus;
 };
 
 /* Macros for access to language-specific slots in an identifier.  */
@@ -1002,9 +1004,6 @@ enum languages { lang_c, lang_cplusplus, lang_java };
   (IS_AGGR_TYPE_CODE (TREE_CODE (T)) && IS_AGGR_TYPE (T))
 
 #define IS_AGGR_TYPE_CODE(T)	((T) == RECORD_TYPE || (T) == UNION_TYPE)
-#define IS_AGGR_TYPE_2(TYPE1, TYPE2) \
-  (TREE_CODE (TYPE1) == TREE_CODE (TYPE2)	\
-   && IS_AGGR_TYPE (TYPE1) && IS_AGGR_TYPE (TYPE2))
 #define TAGGED_TYPE_P(T) \
   (CLASS_TYPE_P (T) || TREE_CODE (T) == ENUMERAL_TYPE)
 #define IS_OVERLOAD_TYPE(T) TAGGED_TYPE_P (T)
@@ -1118,7 +1117,6 @@ struct lang_type_class GTY(())
   unsigned has_arrow_overloaded : 1;
   unsigned interface_only : 1;
   unsigned interface_unknown : 1;
-  unsigned needs_virtual_reinit : 1;
 
   unsigned marks: 6;
   unsigned vec_new_uses_cookie : 1;
@@ -1153,12 +1151,13 @@ struct lang_type_class GTY(())
   /* There are some bits left to fill out a 32-bit word.  Keep track
      of this by updating the size of this bitfield whenever you add or
      remove a flag.  */
-  unsigned dummy : 4;
+  unsigned dummy : 5;
 
   tree primary_base;
   tree vfields;
   tree vcall_indices;
   tree vtables;
+  tree typeinfo_var;
   tree vbases;
   tree tags;
   tree as_base;
@@ -1637,6 +1636,12 @@ struct lang_type GTY(())
 #define CLASSTYPE_VTABLES(NODE) \
   (LANG_TYPE_CLASS_CHECK (NODE)->vtables)
 
+/* The std::type_info variable representing this class, or NULL if no
+   such variable has been created.  This field is only set for the
+   TYPE_MAIN_VARIANT of the class.  */
+#define CLASSTYPE_TYPEINFO_VAR(NODE) \
+  (LANG_TYPE_CLASS_CHECK (NODE)->typeinfo_var)
+
 /* Accessor macros for the vfield slots in structures.  */
 
 /* List of virtual table fields that this type contains (both the primary
@@ -1679,10 +1684,6 @@ struct lang_type GTY(())
 
 /* Nonzero for a parmlist means that this parmlist ended in ...  */
 #define PARMLIST_ELLIPSIS_P(NODE) TREE_LANG_FLAG_0 (NODE)
-
-/* Nonzero if this ADDR_EXPR is used to implement the pass by invisible
-   reference calling convention.  */
-#define ADDR_IS_INVISIREF(NODE) TREE_LANG_FLAG_2 (NODE)
 
 /* For FUNCTION_TYPE or METHOD_TYPE, a list of the exceptions that
    this type can raise.  Each TREE_VALUE is a _TYPE.  The TREE_VALUE
@@ -1740,7 +1741,7 @@ struct lang_decl_flags GTY(())
   unsigned u1sel : 1;
   unsigned u2sel : 1;
   unsigned can_be_full : 1;
-  unsigned unused : 1; /* One unused bit.  */
+  unsigned this_thunk_p : 1;
 
   union lang_decl_u {
     /* In a FUNCTION_DECL, VAR_DECL, TYPE_DECL, or TEMPLATE_DECL, this
@@ -1759,8 +1760,8 @@ struct lang_decl_flags GTY(())
     int GTY ((tag ("1"))) discriminator;
 
     /* In a FUNCTION_DECL for which DECL_THUNK_P holds, this is
-       THUNK_VCALL_OFFSET.  */
-    tree GTY((tag ("2"))) vcall_offset;
+       THUNK_VIRTUAL_OFFSET.  */
+    tree GTY((tag ("2"))) virtual_offset;
   } GTY ((desc ("%1.u2sel"))) u2;
 };
 
@@ -1779,15 +1780,18 @@ struct lang_decl GTY(())
 	
 	/* For a non-virtual FUNCTION_DECL, this is
 	   DECL_FRIEND_CONTEXT.  For a virtual FUNCTION_DECL for which
-	   DECL_THUNK_P does not hold, this is DECL_THUNKS.  */
+	   DECL_THIS_THUNK_P does not hold, this is DECL_THUNKS. Both
+	   this pointer and result pointer adjusting thunks are
+	   chained here.  This pointer thunks to return pointer thunks
+	   will be chained on the return pointer thunk. */
 	tree context;
 
 	/* In a FUNCTION_DECL, this is DECL_CLONED_FUNCTION.  */
 	tree cloned_function;
 	
 	/* In a FUNCTION_DECL for which THUNK_P holds, this is
-	   THUNK_DELTA.  */
-	HOST_WIDE_INT delta;
+	   THUNK_FIXED_OFFSET.  */
+	HOST_WIDE_INT fixed_offset;
 
 	/* In an overloaded operator, this is the value of
 	   DECL_OVERLOADED_OPERATOR_P.  */
@@ -2070,8 +2074,7 @@ struct lang_decl GTY(())
 #define DECL_NEEDS_FINAL_OVERRIDER_P(NODE) \
   (DECL_LANG_SPECIFIC (NODE)->decl_flags.needs_final_overrider)
 
-/* The thunks associated with NODE, a FUNCTION_DECL that is not itself
-   a thunk.  */
+/* The thunks associated with NODE, a FUNCTION_DECL.  */
 #define DECL_THUNKS(NODE) \
   (DECL_LANG_SPECIFIC (NODE)->u.f.context)
 
@@ -2079,6 +2082,14 @@ struct lang_decl GTY(())
 #define DECL_THUNK_P(NODE)			\
   (TREE_CODE (NODE) == FUNCTION_DECL		\
    && DECL_LANG_FLAG_7 (NODE))
+
+/* Nonzero if NODE is a this pointer adjusting thunk.  */
+#define DECL_THIS_THUNK_P(NODE)			\
+  (DECL_THUNK_P (NODE) && DECL_LANG_SPECIFIC (NODE)->decl_flags.this_thunk_p)
+
+/* Nonzero if NODE is a result pointer adjusting thunk.  */
+#define DECL_RESULT_THUNK_P(NODE)			\
+  (DECL_THUNK_P (NODE) && !DECL_LANG_SPECIFIC (NODE)->decl_flags.this_thunk_p)
 
 /* Nonzero if NODE is a FUNCTION_DECL, but not a thunk.  */
 #define DECL_NON_THUNK_FUNCTION_P(NODE)				\
@@ -2093,9 +2104,10 @@ struct lang_decl GTY(())
   (DECL_NON_THUNK_FUNCTION_P (NODE) && DECL_EXTERN_C_P (NODE))
 
 /* Set DECL_THUNK_P for node.  */
-#define SET_DECL_THUNK_P(NODE)					\
+#define SET_DECL_THUNK_P(NODE, THIS_ADJUSTING)			\
   (DECL_LANG_FLAG_7 (NODE) = 1, 				\
-   DECL_LANG_SPECIFIC (NODE)->u.f.u3sel = 1)
+   DECL_LANG_SPECIFIC (NODE)->u.f.u3sel = 1,			\
+   DECL_LANG_SPECIFIC (NODE)->decl_flags.this_thunk_p = (THIS_ADJUSTING))
 
 /* Nonzero if this DECL is the __PRETTY_FUNCTION__ variable in a
    template function.  */
@@ -2191,7 +2203,7 @@ struct lang_decl GTY(())
 #define DECL_PENDING_INLINE_INFO(NODE) \
   (DECL_LANG_SPECIFIC (NODE)->u.f.u.pending_inline_info)
 
-/* For a TYPE_DECL: if this function has many fields, we'll sort them
+/* For a TYPE_DECL: if this structure has many fields, we'll sort them
    and put them into a TREE_VEC.  */
 #define DECL_SORTED_FIELDS(NODE) \
   (DECL_LANG_SPECIFIC (TYPE_DECL_CHECK (NODE))->u.f.u.sorted_fields)
@@ -2925,33 +2937,42 @@ struct lang_decl GTY(())
    A thunk is an alternate entry point for an ordinary FUNCTION_DECL.
    The address of the ordinary FUNCTION_DECL is given by the
    DECL_INITIAL, which is always an ADDR_EXPR whose operand is a
-   FUNCTION_DECL.  The job of the thunk is to adjust the `this'
-   pointer before transferring control to the FUNCTION_DECL.
-
+   FUNCTION_DECL.  The job of the thunk is to either adjust the this
+   pointer before transferring control to the FUNCTION_DECL, or call
+   FUNCTION_DECL and then adjust the result value. Note, the result
+   pointer adjusting thunk must perform a call to the thunked
+   function, (or be implemented via passing some invisible parameter
+   to the thunked function, which is modified to perform the
+   adjustment just before returning).
+   
    A thunk may perform either, or both, of the following operations:
 
-   o Adjust the `this' pointer by a constant offset.
-   o Adjust the `this' pointer by looking up a vcall-offset
+   o Adjust the this or result pointer by a constant offset.
+   o Adjust the this or result pointer by looking up a vcall or vbase offset
      in the vtable.
 
-   If both operations are performed, then the constant adjument to
-   `this' is performed first.
+   A this pointer adjusting thunk converts from a base to a derived
+   class, and hence adds the offsets. A result pointer adjusting thunk
+   converts from a derived class to a base, and hence subtracts the
+   offsets.  If both operations are performed, then the constant
+   adjument is performed first for this pointer adjustment and last
+   for the result pointer adjustment.
 
-   The constant adjustment is given by THUNK_DELTA.  If the
-   vcall-offset is required, the index into the vtable is given by
-   THUNK_VCALL_OFFSET.  */
+   The constant adjustment is given by THUNK_FIXED_OFFSET.  If the
+   vcall or vbase offset is required, the index into the vtable is given by
+   THUNK_VIRTUAL_OFFSET.  */
 
 /* An integer indicating how many bytes should be subtracted from the
-   `this' pointer when this function is called.  */
-#define THUNK_DELTA(DECL) \
-  (DECL_LANG_SPECIFIC (DECL)->u.f.delta)
+   this or result pointer when this function is called.  */
+#define THUNK_FIXED_OFFSET(DECL) \
+  (DECL_LANG_SPECIFIC (DECL)->u.f.fixed_offset)
 
-/* A tree indicating how many bytes should be subtracted from the
-   vtable for the `this' pointer to find the vcall offset.  (The vptr
-   is always located at offset zero from the f `this' pointer.)  If
-   NULL, then there is no vcall offset.  */
-#define THUNK_VCALL_OFFSET(DECL) \
-  (LANG_DECL_U2_CHECK (DECL, 0)->vcall_offset)
+/* A tree indicating how many bytes should be added to the
+   vtable for the this or result pointer to find the vcall or vbase
+   offset.  (The vptr is always located at offset zero from the
+   this or result pointer.)  If NULL, then there is no virtual adjust.  */
+#define THUNK_VIRTUAL_OFFSET(DECL) \
+  (LANG_DECL_U2_CHECK (DECL, 0)->virtual_offset)
 
 /* These macros provide convenient access to the various _STMT nodes
    created when parsing template declarations.  */
@@ -3804,8 +3825,6 @@ extern bool constructor_name_p                  (tree, tree);
 extern void defer_fn            		PARAMS ((tree));
 extern void finish_anon_union			PARAMS ((tree));
 extern tree finish_table			PARAMS ((tree, tree, tree, int));
-extern void finish_builtin_type			PARAMS ((tree, const char *,
-						       tree *, int, tree));
 extern tree coerce_new_type			PARAMS ((tree));
 extern tree coerce_delete_type			PARAMS ((tree));
 extern void comdat_linkage			PARAMS ((tree));
@@ -3956,20 +3975,21 @@ extern void cxx_finish PARAMS ((void));
 extern void cxx_init_options PARAMS ((void));
 
 /* in method.c */
-extern void init_method				PARAMS ((void));
-extern void set_mangled_name_for_decl           PARAMS ((tree));
-extern tree build_opfncall			PARAMS ((enum tree_code, int, tree, tree, tree));
-extern tree hack_identifier			PARAMS ((tree, tree));
-extern tree make_thunk				PARAMS ((tree, tree, tree));
-extern void use_thunk				PARAMS ((tree, int));
-extern void synthesize_method			PARAMS ((tree));
-extern tree implicitly_declare_fn               PARAMS ((special_function_kind, tree, int));
-extern tree skip_artificial_parms_for		PARAMS ((tree, tree));
+extern void init_method	(void);
+extern void set_mangled_name_for_decl (tree);
+extern tree build_opfncall (enum tree_code, int, tree, tree, tree);
+extern tree hack_identifier (tree, tree);
+extern tree make_thunk (tree, bool, tree, tree);
+extern void finish_thunk (tree, tree, tree);
+extern void use_thunk (tree, bool);
+extern void synthesize_method (tree);
+extern tree implicitly_declare_fn (special_function_kind, tree, bool);
+extern tree skip_artificial_parms_for (tree, tree);
 
 /* In optimize.c */
-extern void optimize_function                   PARAMS ((tree));
-extern int calls_setjmp_p                       PARAMS ((tree));
-extern int maybe_clone_body                     PARAMS ((tree));
+extern void optimize_function (tree);
+extern bool calls_setjmp_p (tree);
+extern bool maybe_clone_body (tree);
 
 /* in pt.c */
 extern void check_template_shadow		PARAMS ((tree));
@@ -4012,7 +4032,6 @@ extern int push_tinst_level			PARAMS ((tree));
 extern void pop_tinst_level			PARAMS ((void));
 extern int more_specialized_class		PARAMS ((tree, tree));
 extern int is_member_template                   PARAMS ((tree));
-extern int template_parms_equal                 PARAMS ((tree, tree));
 extern int comp_template_parms                  PARAMS ((tree, tree));
 extern int template_class_depth                 PARAMS ((tree));
 extern int is_specialization_of                 PARAMS ((tree, tree));
@@ -4292,7 +4311,7 @@ extern tree cp_add_pending_fn_decls PARAMS ((void*,tree));
 extern int cp_is_overload_p PARAMS ((tree));
 extern int cp_auto_var_in_fn_p PARAMS ((tree,tree));
 extern tree cp_copy_res_decl_for_inlining PARAMS ((tree, tree, tree, void*,
-						   int*, void*));
+						   int*, tree));
 extern int cp_start_inlining			PARAMS ((tree));
 extern void cp_end_inlining			PARAMS ((tree));
 
@@ -4395,7 +4414,7 @@ extern tree mangle_typeinfo_string_for_type     PARAMS ((tree));
 extern tree mangle_vtbl_for_type                PARAMS ((tree));
 extern tree mangle_vtt_for_type                 PARAMS ((tree));
 extern tree mangle_ctor_vtbl_for_type           PARAMS ((tree, tree));
-extern tree mangle_thunk                        PARAMS ((tree, tree, tree));
+extern tree mangle_thunk                        PARAMS ((tree, int, tree, tree));
 extern tree mangle_conv_op_name_for_type        PARAMS ((tree));
 extern tree mangle_guard_variable               PARAMS ((tree));
 extern tree mangle_ref_init_variable            PARAMS ((tree));

@@ -2455,7 +2455,7 @@
   output_asm_insn (\"{bl|b,l} .+8,%0\", xoperands);
   output_asm_insn (\"{depi|depwi} 0,31,2,%0\", xoperands);
   if (TARGET_SOM || ! TARGET_GAS)
-    ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, \"L\",
+    (*targetm.asm_out.internal_label) (asm_out_file, \"L\",
 			       CODE_LABEL_NUMBER (xoperands[2]));
 
   /* If we're trying to load the address of a label that happens to be
@@ -5724,7 +5724,7 @@
   xoperands[2] = gen_label_rtx ();
   output_asm_insn (\"{bl|b,l} %0,%%r2\;ldo %1-%2(%%r2),%%r25\", xoperands);
 
-  ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, \"L\",
+  (*targetm.asm_out.internal_label) (asm_out_file, \"L\",
 			     CODE_LABEL_NUMBER (xoperands[2]));
   return \"\";
 }"
@@ -5789,7 +5789,7 @@
 
 	  output_asm_insn (\"{bl|b,l} .+8,%%r1\\n\\taddil L'%l0-%l1,%%r1\",
 			   xoperands);
-	  ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, \"L\",
+	  (*targetm.asm_out.internal_label) (asm_out_file, \"L\",
 				     CODE_LABEL_NUMBER (xoperands[1]));
 	  output_asm_insn (\"ldo R'%l0-%l1(%%r1),%%r1\", xoperands);
 	}
@@ -6018,7 +6018,7 @@
   if (TARGET_SOM || ! TARGET_GAS)
     {
       output_asm_insn (\"addil L%%$$dyncall-%1,%%r1\", xoperands);
-      ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, \"L\",
+      (*targetm.asm_out.internal_label) (asm_out_file, \"L\",
 				 CODE_LABEL_NUMBER (xoperands[1]));
       output_asm_insn (\"ldo R%%$$dyncall-%1(%%r1),%%r1\", xoperands);
     }
@@ -6121,7 +6121,7 @@
 }")
 
 (define_insn "call_value_internal_symref"
-  [(set (match_operand 0 "" "=rf")
+  [(set (match_operand 0 "" "")
 	(call (mem:SI (match_operand 1 "call_operand_address" ""))
 	      (match_operand 2 "" "i")))
    (clobber (reg:SI 1))
@@ -6138,7 +6138,7 @@
    (set (attr "length") (symbol_ref "attr_length_call (insn, 0)"))])
 
 (define_insn "call_value_internal_reg_64bit"
-  [(set (match_operand 0 "" "=rf")
+  [(set (match_operand 0 "" "")
          (call (mem:SI (match_operand:DI 1 "register_operand" "r"))
 	       (match_operand 2 "" "i")))
    (clobber (reg:SI 2))
@@ -6154,7 +6154,7 @@
    (set (attr "length") (const_int 12))])
 
 (define_insn "call_value_internal_reg"
-  [(set (match_operand 0 "" "=rf")
+  [(set (match_operand 0 "" "")
 	(call (mem:SI (reg:SI 22))
 	      (match_operand 1 "" "i")))
    (clobber (reg:SI 1))
@@ -6194,7 +6194,7 @@
   if (TARGET_SOM || ! TARGET_GAS)
     {
       output_asm_insn (\"addil L%%$$dyncall-%1,%%r1\", xoperands);
-      ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, \"L\",
+      (*targetm.asm_out.internal_label) (asm_out_file, \"L\",
 				 CODE_LABEL_NUMBER (xoperands[1]));
       output_asm_insn (\"ldo R%%$$dyncall-%1(%%r1),%%r1\", xoperands);
     }
@@ -6376,7 +6376,7 @@
 }")
 
 (define_insn "sibcall_value_internal_symref"
-  [(set (match_operand 0 "" "=rf")
+  [(set (match_operand 0 "" "")
 	(call (mem:SI (match_operand 1 "call_operand_address" ""))
 	      (match_operand 2 "" "i")))
    (clobber (reg:SI 1))
@@ -6392,7 +6392,7 @@
    (set (attr "length") (symbol_ref "attr_length_call (insn, 1)"))])
 
 (define_insn "sibcall_value_internal_symref_64bit"
-  [(set (match_operand 0 "" "=rf")
+  [(set (match_operand 0 "" "")
 	(call (mem:SI (match_operand 1 "call_operand_address" ""))
 	      (match_operand 2 "" "i")))
    (clobber (reg:SI 1))
@@ -7277,9 +7277,20 @@
 	      (clobber (reg:SI 31))])
    (set (match_operand:SI 0 "register_operand" "")
 	(reg:SI 29))]
-  "! TARGET_PORTABLE_RUNTIME && !TARGET_64BIT && !TARGET_ELF32"
+  "!TARGET_PORTABLE_RUNTIME && !TARGET_64BIT"
   "
 {
+  if (TARGET_ELF32)
+    {
+      rtx canonicalize_funcptr_for_compare_libfunc
+        = init_one_libfunc (CANONICALIZE_FUNCPTR_FOR_COMPARE_LIBCALL);
+
+      emit_library_call_value (canonicalize_funcptr_for_compare_libfunc,
+      			       operands[0], LCT_NORMAL, Pmode,
+			       1, operands[1], Pmode);
+      DONE;
+    }
+
   operands[2] = gen_reg_rtx (SImode);
   if (GET_CODE (operands[1]) != REG)
     {

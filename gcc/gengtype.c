@@ -18,8 +18,10 @@ along with GCC; see the file COPYING.  If not, write to the Free
 Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
-#include "hconfig.h"
+#include "bconfig.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "gengtype.h"
 #include "gtyp-gen.h"
 
@@ -1107,11 +1109,11 @@ open_base_files ()
   {
     /* The order of files here matters very much.  */
     static const char *const ifiles [] = {
-      "config.h", "system.h", "varray.h", "hashtab.h", "splay-tree.h",
-      "bitmap.h", "tree.h", "rtl.h", "function.h", "insn-config.h",
-      "expr.h", "hard-reg-set.h", "basic-block.h", "cselib.h",
-      "insn-addr.h", "ssa.h", "optabs.h", "libfuncs.h",
-      "debug.h", "ggc.h",
+      "config.h", "system.h", "coretypes.h", "tm.h", "varray.h",
+      "hashtab.h", "splay-tree.h", "bitmap.h", "tree.h", "rtl.h",
+      "function.h", "insn-config.h", "expr.h", "hard-reg-set.h",
+      "basic-block.h", "cselib.h", "insn-addr.h", "ssa.h", "optabs.h",
+      "libfuncs.h", "debug.h", "ggc.h",
       NULL
     };
     const char *const *ifp;
@@ -1129,7 +1131,6 @@ static const char *
 get_file_basename (f)
      const char *f;
 {
-  size_t len;
   const char *basename;
   unsigned i;
   
@@ -1138,7 +1139,6 @@ get_file_basename (f)
   if (!basename)
     return f;
   
-  len = strlen (f);
   basename++;
   
   for (i = 1; i < NUM_BASE_FILES; i++)

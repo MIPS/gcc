@@ -42,7 +42,7 @@ extern const char * const *h8_reg_names;
   do							\
     {							\
       if (TARGET_H8300H)				\
-        {						\
+	{						\
 	  builtin_define ("__H8300H__");		\
 	  builtin_assert ("cpu=h8300h");		\
 	  builtin_assert ("machine=h8300h");		\
@@ -52,7 +52,7 @@ extern const char * const *h8_reg_names;
 	    }						\
 	}						\
       else if (TARGET_H8300S)				\
-        {						\
+	{						\
 	  builtin_define ("__H8300S__");		\
 	  builtin_assert ("cpu=h8300s");		\
 	  builtin_assert ("machine=h8300s");		\
@@ -62,7 +62,7 @@ extern const char * const *h8_reg_names;
 	    }						\
 	}						\
       else						\
-        {						\
+	{						\
 	  builtin_define ("__H8300__");			\
 	  builtin_assert ("cpu=h8300");			\
 	  builtin_assert ("machine=h8300");		\
@@ -74,14 +74,14 @@ extern const char * const *h8_reg_names;
 
 #define LIB_SPEC "%{mrelax:-relax} %{g:-lg} %{!p:%{!pg:-lc}}%{p:-lc_p}%{pg:-lc_p}"
 
-#define OPTIMIZATION_OPTIONS(LEVEL, SIZE)				  \
-  do									  \
-    {                                                                     \
-      /* Basic block reordering is only beneficial on targets with cache  \
-	 and/or variable-cycle branches where (cycle count taken !=	  \
-	 cycle count not taken).  */            			  \
-      flag_reorder_blocks = 0;                                        	  \
-    }									  \
+#define OPTIMIZATION_OPTIONS(LEVEL, SIZE)				 \
+  do									 \
+    {									 \
+      /* Basic block reordering is only beneficial on targets with cache \
+	 and/or variable-cycle branches where (cycle count taken !=	 \
+	 cycle count not taken).  */					 \
+      flag_reorder_blocks = 0;						 \
+    }									 \
   while (0)
 
 /* Print subsidiary information on the compiler version in use.  */
@@ -162,7 +162,7 @@ extern int target_flags;
   {"relax",		 MASK_RELAX, N_("Enable linker relaxing")},	    \
   {"rtl-dump",		 MASK_RTL_DUMP, NULL},				    \
   {"h",			 MASK_H8300H, N_("Generate H8/300H code")},	    \
-  {"n",                  MASK_NORMAL_MODE, N_("Enable the normal mode")},   \
+  {"n",			 MASK_NORMAL_MODE, N_("Enable the normal mode")},   \
   {"no-h",		-MASK_H8300H, N_("Do not generate H8/300H code")},  \
   {"align-300",		 MASK_ALIGN_300, N_("Use H8/300 alignment rules")}, \
   { "",			 TARGET_DEFAULT, NULL}}
@@ -461,13 +461,11 @@ enum reg_class {
    Return 1 if VALUE is in the range specified by C.  */
 
 #define CONST_OK_FOR_I(VALUE) ((VALUE) == 0)
-#define CONST_OK_FOR_J(VALUE) ((unsigned HOST_WIDE_INT) (VALUE) < 256)
-#define CONST_OK_FOR_K(VALUE) ((VALUE) == 1 || (VALUE) == 2)
+#define CONST_OK_FOR_J(VALUE) (((VALUE) & 0xff) == 0)
 #define CONST_OK_FOR_L(VALUE)				\
   (TARGET_H8300H || TARGET_H8300S			\
    ? (VALUE) == 1 || (VALUE) == 2 || (VALUE) == 4	\
    : (VALUE) == 1 || (VALUE) == 2)
-#define CONST_OK_FOR_M(VALUE) ((VALUE) == 3 || (VALUE) == 4)
 #define CONST_OK_FOR_N(VALUE)				\
   (TARGET_H8300H || TARGET_H8300S			\
    ? (VALUE) == -1 || (VALUE) == -2 || (VALUE) == -4	\
@@ -476,9 +474,7 @@ enum reg_class {
 #define CONST_OK_FOR_LETTER_P(VALUE, C)		\
   ((C) == 'I' ? CONST_OK_FOR_I (VALUE) :	\
    (C) == 'J' ? CONST_OK_FOR_J (VALUE) :	\
-   (C) == 'K' ? CONST_OK_FOR_K (VALUE) :	\
    (C) == 'L' ? CONST_OK_FOR_L (VALUE) :	\
-   (C) == 'M' ? CONST_OK_FOR_M (VALUE) :	\
    (C) == 'N' ? CONST_OK_FOR_N (VALUE) :	\
    0)
 
@@ -869,12 +865,12 @@ struct cum_arg
        && REG_OK_FOR_BASE_P (XEXP (OP, 0)))				\
    || (GET_CODE (OP) == MEM && GET_CODE (XEXP (OP, 0)) == SYMBOL_REF	\
        && TARGET_H8300S)						\
-   || ((GET_CODE (OP) == MEM && GET_CODE (XEXP (OP, 0)) == CONST	\
-        && GET_CODE (XEXP (XEXP (OP, 0), 0)) == PLUS			\
-        && GET_CODE (XEXP (XEXP (XEXP (OP, 0), 0), 0)) == SYMBOL_REF	\
-        && GET_CODE (XEXP (XEXP (XEXP (OP, 0), 0), 1)) == CONST_INT)	\
-        && (TARGET_H8300S						\
-	    || SYMBOL_REF_FLAG (XEXP (XEXP (XEXP (OP, 0), 0), 0))))	\
+   || (GET_CODE (OP) == MEM && GET_CODE (XEXP (OP, 0)) == CONST		\
+       && GET_CODE (XEXP (XEXP (OP, 0), 0)) == PLUS			\
+       && GET_CODE (XEXP (XEXP (XEXP (OP, 0), 0), 0)) == SYMBOL_REF	\
+       && GET_CODE (XEXP (XEXP (XEXP (OP, 0), 0), 1)) == CONST_INT	\
+       && (TARGET_H8300S						\
+	   || SYMBOL_REF_FLAG (XEXP (XEXP (XEXP (OP, 0), 0), 0))))	\
    || (GET_CODE (OP) == MEM						\
        && h8300_eightbit_constant_address_p (XEXP (OP, 0)))		\
    || (GET_CODE (OP) == MEM && TARGET_H8300S				\
@@ -1020,20 +1016,22 @@ struct cum_arg
 
 /* Provide the costs of a rtl expression.  This is in the body of a
    switch on CODE.  */
-/* ??? Shifts need to have a *much* higher cost than this.  */
 
-#define RTX_COSTS(RTX, CODE, OUTER_CODE)	\
-  case MOD:					\
-  case DIV:					\
-    return 60;					\
-  case MULT:					\
-    return 20;					\
-  case ASHIFT:					\
-  case ASHIFTRT:				\
-  case LSHIFTRT:				\
-  case ROTATE:					\
-  case ROTATERT:				\
-    if (GET_MODE (RTX) == HImode) return 2;	\
+#define RTX_COSTS(RTX, CODE, OUTER_CODE)		\
+  case AND:						\
+    return COSTS_N_INSNS (h8300_and_costs (RTX));	\
+  case MOD:						\
+  case DIV:						\
+    return 60;						\
+  case MULT:						\
+    return 20;						\
+  case ASHIFT:						\
+  case ASHIFTRT:					\
+  case LSHIFTRT:					\
+    return COSTS_N_INSNS (h8300_shift_costs (RTX));	\
+  case ROTATE:						\
+  case ROTATERT:					\
+    if (GET_MODE (RTX) == HImode) return 2;		\
     return 8;
 
 /* Tell final.c how to eliminate redundant test instructions.  */
@@ -1161,20 +1159,13 @@ struct cum_arg
 
 #define USER_LABEL_PREFIX "_"
 
-/* This is how to output an internal numbered label where
-   PREFIX is the class of label and NUM is the number within the class.
-
-   N.B.: The h8300.md branch_true and branch_false patterns also know
-   how to generate internal labels.  */
-
-#define ASM_OUTPUT_INTERNAL_LABEL(FILE, PREFIX, NUM)	\
-  fprintf (FILE, ".%s%d:\n", PREFIX, NUM)
-
 /* This is how to store into the string LABEL
    the symbol_ref name of an internal numbered label where
    PREFIX is the class of label and NUM is the number within the class.
-   This is suitable for output with `assemble_name'.  */
+   This is suitable for output with `assemble_name'.  
 
+   N.B.: The h8300.md branch_true and branch_false patterns also know
+   how to generate internal labels.  */
 #define ASM_GENERATE_INTERNAL_LABEL(LABEL, PREFIX, NUM)	\
   sprintf (LABEL, "*.%s%d", PREFIX, NUM)
 
@@ -1240,13 +1231,7 @@ struct cum_arg
   assemble_name ((FILE), (NAME)),			\
   fprintf ((FILE), ",%d\n", (SIZE)))
 
-/* Store in OUTPUT a string (made with alloca) containing
-   an assembler-name for a local static variable named NAME.
-   LABELNO is an integer which is different for each call.  */
-
-#define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO)	\
-( (OUTPUT) = (char *) alloca (strlen ((NAME)) + 10),	\
-  sprintf ((OUTPUT), "%s___%d", (NAME), (LABELNO)))
+#define ASM_PN_FORMAT "%s___%lu"
 
 /* Print an instruction operand X on file FILE.
    Look in h8300.c for details.  */

@@ -100,8 +100,10 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    function are used by gcc instruction scheduler and may be some
    other gcc code.  */
 
-#include "hconfig.h"
+#include "bconfig.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "rtl.h"
 #include "obstack.h"
 #include "errors.h"
@@ -2492,7 +2494,7 @@ add_excls (dest_list, source_list, excl_pos)
     }
 }
 
-/* Checking NAMES in an presence clause vector and returning formed
+/* Checking NAMES in a presence clause vector and returning formed
    unit_set_el_list.  The function is called only after processing all
    exclusion sets.  */
 static unit_set_el_t
@@ -3581,9 +3583,6 @@ static vla_ptr_t units_container;
 /* The start address of the array.  */
 static unit_decl_t *units_array;
 
-/* Empty reservation of maximal length.  */
-static reserv_sets_t empty_reserv;
-
 /* The state table itself is represented by the following variable.  */
 static htab_t state_table;
 
@@ -4147,10 +4146,10 @@ initiate_states ()
   initiate_alt_states ();
   VLA_PTR_CREATE (free_states, 1500, "free states");
   state_table = htab_create (1500, state_hash, state_eq_p, (htab_del) 0);
-  empty_reserv = alloc_empty_reserv_sets ();
+  alloc_empty_reserv_sets ();
 }
 
-/* Finisging work with the abstract data.  */
+/* Finishing work with the abstract data.  */
 static void
 finish_states ()
 {
@@ -4531,7 +4530,7 @@ get_excl_set (in_set)
 /* The page contains abstract data for work with presence/absence sets
    (see presence_set/absence_set in file rtl.def).  */
 
-/* The following variables refer to correspondingly an presence and an
+/* The following variables refer to correspondingly a presence and an
    absence set returned by get_presence_absence_set.  This is bit
    string of length equal to cpu units number.  */
 static reserv_sets_t presence_set, absence_set;

@@ -106,15 +106,11 @@ Boston, MA 02111-1307, USA.  */
    still uses a special flavor of gas that needs to be told when generating 
    pic code.  */
 #undef ASM_SPEC
-#define ASM_SPEC "%{fpic:-k} %{fPIC:-k -K} %|"
+#define ASM_SPEC "%{fpic:-k} %{fPIC:-k -K}"
+#endif
 
-#else
-/* Since we use gas, stdin -> - is a good idea, but we don't want to
-   override native specs just for that.  */
-#ifndef ASM_SPEC
-#define ASM_SPEC "%|"
-#endif
-#endif
+/* Since we use gas, stdin -> - is a good idea.  */
+#define AS_NEEDS_DASH_FOR_PIPED_INPUT
 
 /* LINK_SPEC appropriate for OpenBSD.  Support for GCC options 
    -static, -assert, and -nostdlib.  */
@@ -287,5 +283,5 @@ do {									 \
    code layout needs HANDLE_PRAGMA_WEAK asserted for __attribute((weak)) to
    work.  On the other hand, we don't define HANDLE_PRAGMA_WEAK directly,
    as this depends on a few other details as well...  */
-#define HANDLE_SYSV_PRAGMA
+#define HANDLE_SYSV_PRAGMA 1
 

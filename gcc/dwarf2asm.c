@@ -21,6 +21,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "flags.h"
 #include "tree.h"
 #include "rtl.h"
@@ -285,11 +287,10 @@ int
 size_of_uleb128 (value)
      unsigned HOST_WIDE_INT value;
 {
-  int size = 0, byte;
+  int size = 0;
 
   do
     {
-      byte = (value & 0x7f);
       value >>= 7;
       size += 1;
     }
@@ -564,7 +565,7 @@ dw2_asm_output_data_uleb128 VPARAMS ((unsigned HOST_WIDE_INT value,
   VA_CLOSE (ap);
 }
 
-/* Output an signed LEB128 quantity.  */
+/* Output a signed LEB128 quantity.  */
 
 void
 dw2_asm_output_data_sleb128 VPARAMS ((HOST_WIDE_INT value,

@@ -23,6 +23,8 @@ Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "insn-config.h"
 #include "rtl.h"
 #include "tree.h"
@@ -154,16 +156,17 @@ char sh_additional_register_names[ADDREGNAMES_SIZE] \
   = SH_ADDITIONAL_REGISTER_NAMES_INITIALIZER;
 
 /* Provide reg_class from a letter such as appears in the machine
-   description.  */
+   description.  *: target independently reserved letter.
+   reg_class_from_letter['e'] is set to NO_REGS for TARGET_FMOVD.  */
 
-const enum reg_class reg_class_from_letter[] =
+enum reg_class reg_class_from_letter[] =
 {
-  /* a */ ALL_REGS, /* b */ TARGET_REGS, /* c */ FPSCR_REGS, /* d */ DF_REGS,
-  /* e */ NO_REGS, /* f */ FP_REGS, /* g */ NO_REGS, /* h */ NO_REGS,
-  /* i */ NO_REGS, /* j */ NO_REGS, /* k */ SIBCALL_REGS, /* l */ PR_REGS,
-  /* m */ NO_REGS, /* n */ NO_REGS, /* o */ NO_REGS, /* p */ NO_REGS,
-  /* q */ NO_REGS, /* r */ NO_REGS, /* s */ NO_REGS, /* t */ T_REGS,
-  /* u */ NO_REGS, /* v */ NO_REGS, /* w */ FP0_REGS, /* x */ MAC_REGS,
+  /* a */ ALL_REGS,  /* b */ TARGET_REGS, /* c */ FPSCR_REGS, /* d */ DF_REGS,
+  /* e */ FP_REGS,   /* f */ FP_REGS,  /* g **/ NO_REGS,     /* h */ NO_REGS,
+  /* i **/ NO_REGS,  /* j */ NO_REGS,  /* k */ SIBCALL_REGS, /* l */ PR_REGS,
+  /* m **/ NO_REGS,  /* n **/ NO_REGS, /* o **/ NO_REGS,     /* p **/ NO_REGS,
+  /* q */ NO_REGS,   /* r **/ NO_REGS, /* s **/ NO_REGS,     /* t */ T_REGS,
+  /* u */ NO_REGS,   /* v */ NO_REGS,  /* w */ FP0_REGS,     /* x */ MAC_REGS,
   /* y */ FPUL_REGS, /* z */ R0_REGS
 };
 
@@ -199,6 +202,7 @@ static void sh_insert_attributes PARAMS ((tree, tree *));
 static int sh_adjust_cost PARAMS ((rtx, rtx, rtx, int));
 static int sh_use_dfa_interface PARAMS ((void));
 static int sh_issue_rate PARAMS ((void));
+static bool sh_function_ok_for_sibcall PARAMS ((tree, tree));
 
 static bool sh_cannot_modify_jumps_p PARAMS ((void));
 static bool sh_ms_bitfield_layout_p PARAMS ((tree));
@@ -258,6 +262,9 @@ static void flow_dependent_p_1 PARAMS ((rtx, rtx, void *));
 #define TARGET_INIT_BUILTINS sh_init_builtins
 #undef TARGET_EXPAND_BUILTIN
 #define TARGET_EXPAND_BUILTIN sh_expand_builtin
+
+#undef TARGET_FUNCTION_OK_FOR_SIBCALL
+#define TARGET_FUNCTION_OK_FOR_SIBCALL sh_function_ok_for_sibcall
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -723,7 +730,7 @@ prepare_move_operands (operands, mode)
     {
       /* Copy the source to a register if both operands aren't registers.  */
       if (! register_operand (operands[0], mode)
-	  && ! register_operand (operands[1], mode))
+	  && ! sh_register_operand (operands[1], mode))
 	operands[1] = copy_to_mode_reg (mode, operands[1]);
 
       /* This case can happen while generating code to move the result
@@ -1012,12 +1019,12 @@ output_far_jump (insn, op)
   if (far && flag_pic && TARGET_SH2)
     {
       braf_base_lab = gen_label_rtx ();
-      ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
+      (*targetm.asm_out.internal_label) (asm_out_file, "L",
 				 CODE_LABEL_NUMBER (braf_base_lab));
     }
   if (far)
     output_asm_insn (".align	2", 0);
-  ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L", CODE_LABEL_NUMBER (this.lab));
+  (*targetm.asm_out.internal_label) (asm_out_file, "L", CODE_LABEL_NUMBER (this.lab));
   this.op = op;
   if (far && flag_pic)
     {
@@ -1076,7 +1083,7 @@ output_branch (logic, insn, operands)
     
 	  output_asm_insn ("bra\t%l0", &op0);
 	  fprintf (asm_out_file, "\tnop\n");
-	  ASM_OUTPUT_INTERNAL_LABEL(asm_out_file, "LF", label);
+	  (*targetm.asm_out.internal_label)(asm_out_file, "LF", label);
     
 	  return "";
 	}
@@ -2354,7 +2361,7 @@ dump_table (scan)
   int i;
   int need_align = 1;
   rtx lab, ref;
-  int have_di = 0;
+  int have_df = 0;
 
   /* Do two passes, first time dump out the HI sized constants.  */
 
@@ -2379,13 +2386,13 @@ dump_table (scan)
 	      scan = emit_insn_after (gen_consttable_window_end (lab), scan);
 	    }
 	}
-      else if (p->mode == DImode || p->mode == DFmode)
-	have_di = 1;
+      else if (p->mode == DFmode)
+	have_df = 1;
     }
 
   need_align = 1;
 
-  if (TARGET_SHCOMPACT && have_di)
+  if (TARGET_FMOVD && TARGET_ALIGN_DOUBLE && have_df)
     {
       rtx align_insn = NULL_RTX;
 
@@ -2429,13 +2436,13 @@ dump_table (scan)
 		}
 	      break;
 	    case DFmode:
-	    case DImode:
 	      if (need_align)
 		{
 		  scan = emit_insn_after (gen_align_log (GEN_INT (3)), scan);
 		  align_insn = scan;
 		  need_align = 0;
 		}
+	    case DImode:
 	      for (lab = p->label; lab; lab = LABEL_REFS (lab))
 		scan = emit_label_after (lab, scan);
 	      scan = emit_insn_after (gen_consttable_8 (p->value, const0_rtx),
@@ -4165,7 +4172,7 @@ final_prescan_insn (insn, opvec, noperands)
 	    asm_fprintf (asm_out_file, "\t.uses %LL%d\n",
 			 CODE_LABEL_NUMBER (XEXP (note, 0)));
 	  else if (GET_CODE (pattern) == SET)
-	    ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
+	    (*targetm.asm_out.internal_label) (asm_out_file, "L",
 				       CODE_LABEL_NUMBER (XEXP (note, 0)));
 	  else
 	    abort ();
@@ -4188,7 +4195,7 @@ output_jump_label_table ()
 	{
 	  pool_node *p = &pool_vector[i];
 
-	  ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
+	  (*targetm.asm_out.internal_label) (asm_out_file, "L",
 				     CODE_LABEL_NUMBER (p->label));
 	  output_asm_insn (".long	%O0", &p->value);
 	}
@@ -4305,6 +4312,8 @@ push (rn)
   rtx x;
   if (rn == FPUL_REG)
     x = gen_push_fpul ();
+  else if (rn == FPSCR_REG)
+    x = gen_push_fpscr ();
   else if (TARGET_SH4 && TARGET_FMOVD && ! TARGET_FPU_SINGLE
 	   && FP_OR_XD_REGISTER_P (rn))
     {
@@ -4333,6 +4342,8 @@ pop (rn)
   rtx x;
   if (rn == FPUL_REG)
     x = gen_pop_fpul ();
+  else if (rn == FPSCR_REG)
+    x = gen_pop_fpscr ();
   else if (TARGET_SH4 && TARGET_FMOVD && ! TARGET_FPU_SINGLE
 	   && FP_OR_XD_REGISTER_P (rn))
     {
@@ -4431,13 +4442,20 @@ calc_live_regs (count_ptr, live_regs_mask)
 		  && pr_live))
 	     && reg != STACK_POINTER_REGNUM && reg != ARG_POINTER_REGNUM
 	     && reg != RETURN_ADDRESS_POINTER_REGNUM
-	     && reg != T_REG && reg != GBR_REG)
+	     && reg != T_REG && reg != GBR_REG
+	     /* Push fpscr only on targets which have FPU */
+	     && (reg != FPSCR_REG || TARGET_FPU_ANY))
 	  : (/* Only push those regs which are used and need to be saved.  */
 	     (TARGET_SHCOMPACT
 	      && flag_pic
 	      && current_function_args_info.call_cookie
 	      && reg == PIC_OFFSET_TABLE_REGNUM)
-	     || (regs_ever_live[reg] && ! call_used_regs[reg])))
+	     || (regs_ever_live[reg] && ! call_used_regs[reg])
+	     || (current_function_calls_eh_return
+		 && (reg == EH_RETURN_DATA_REGNO (0)
+		     || reg == EH_RETURN_DATA_REGNO (1)
+		     || reg == EH_RETURN_DATA_REGNO (2)
+		     || reg == EH_RETURN_DATA_REGNO (3)))))
 	{
 	  live_regs_mask[reg / 32] |= 1 << (reg % 32);
 	  count += GET_MODE_SIZE (REGISTER_NATURAL_MODE (reg));
@@ -4622,6 +4640,9 @@ sh_expand_prologue ()
 	 higher addresses, that are known to be aligned.  Then, we
 	 proceed to saving 32-bit registers that don't need 8-byte
 	 alignment.  */
+      /* Note that if you change this code in a way that affects where
+	 the return register is saved, you have to update not only
+	 sh_expand_epilogue, but also sh_set_return_address.  */
       for (align = 1; align >= 0; align--)
 	for (i = FIRST_PSEUDO_REGISTER - 1; i >= 0; i--)
 	  if (live_regs_mask[i/32] & (1 << (i % 32)))
@@ -5033,6 +5054,10 @@ sh_expand_epilogue ()
 		       + current_function_args_info.stack_regs * 8,
 		       stack_pointer_rtx, 7, emit_insn);
 
+  if (current_function_calls_eh_return)
+    emit_insn (GEN_ADD3 (stack_pointer_rtx, stack_pointer_rtx,
+			 EH_RETURN_STACKADJ_RTX));
+
   /* Switch back to the normal stack if necessary.  */
   if (sp_switch)
     emit_insn (gen_sp_switch_2 ());
@@ -5061,6 +5086,105 @@ sh_need_epilogue ()
       sh_need_epilogue_known = (epilogue == NULL ? -1 : 1);
     }
   return sh_need_epilogue_known > 0;
+}
+
+/* Emit code to change the current function's return address to RA.
+   TEMP is available as a scratch register, if needed.  */
+
+void
+sh_set_return_address (ra, tmp)
+     rtx ra, tmp;
+{
+  HOST_WIDE_INT live_regs_mask[(FIRST_PSEUDO_REGISTER + 31) / 32];
+  int d;
+  int d_rounding = 0;
+  int pr_reg = TARGET_SHMEDIA ? PR_MEDIA_REG : PR_REG;
+  int pr_offset;
+
+  calc_live_regs (&d, live_regs_mask);
+
+  /* If pr_reg isn't life, we can set it (or the register given in
+     sh_media_register_for_return) directly.  */
+  if ((live_regs_mask[pr_reg / 32] & (1 << (pr_reg % 32))) == 0)
+    {
+      rtx rr;
+
+      if (TARGET_SHMEDIA)
+	{
+	  int rr_regno = sh_media_register_for_return ();
+
+	  if (rr_regno < 0)
+	    rr_regno = pr_reg;
+
+	  rr = gen_rtx_REG (DImode, rr_regno);
+	}
+      else
+	rr = gen_rtx_REG (SImode, pr_reg);
+
+      emit_insn (GEN_MOV (rr, ra));
+      /* Tell flow the register for return isn't dead.  */
+      emit_insn (gen_rtx_USE (VOIDmode, rr));
+      return;
+    }
+
+  if (TARGET_SH5)
+    {
+      int i;
+      int offset;
+      int align;
+      
+      if (d % (STACK_BOUNDARY / BITS_PER_UNIT))
+	d_rounding = ((STACK_BOUNDARY / BITS_PER_UNIT)
+		      - d % (STACK_BOUNDARY / BITS_PER_UNIT));
+
+      offset = 0;
+
+      /* We loop twice: first, we save 8-byte aligned registers in the
+	 higher addresses, that are known to be aligned.  Then, we
+	 proceed to saving 32-bit registers that don't need 8-byte
+	 alignment.  */
+      for (align = 0; align <= 1; align++)
+	for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+	  if (live_regs_mask[i/32] & (1 << (i % 32)))
+	    {
+	      enum machine_mode mode = REGISTER_NATURAL_MODE (i);
+
+	      if (mode == SFmode && (i % 2) == 0
+		  && ! TARGET_FPU_SINGLE && FP_REGISTER_P (i)
+		  && (live_regs_mask[(i ^ 1) / 32] & (1 << ((i ^ 1) % 32))))
+		{
+		  mode = DFmode;
+		  i++;
+		}
+
+	      /* If we're doing the aligned pass and this is not aligned,
+		 or we're doing the unaligned pass and this is aligned,
+		 skip it.  */
+	      if ((GET_MODE_SIZE (mode) % (STACK_BOUNDARY / BITS_PER_UNIT)
+		   == 0) != align)
+		continue;
+
+	      if (i == pr_reg)
+		goto found;
+
+	      offset += GET_MODE_SIZE (mode);
+	    }
+
+      /* We can't find pr register.  */
+      abort ();
+
+    found:
+      pr_offset = (rounded_frame_size (d) - d_rounding + offset
+		   + SHMEDIA_REGS_STACK_ADJUST ());
+    }
+  else
+    pr_offset = rounded_frame_size (d) - d_rounding;
+
+  emit_insn (GEN_MOV (tmp, GEN_INT (pr_offset)));
+  emit_insn (GEN_ADD3 (tmp, tmp, frame_pointer_rtx));
+
+  tmp = gen_rtx_MEM (Pmode, tmp);
+  emit_insn (GEN_MOV (tmp, ra));
 }
 
 /* Clear variables at function end.  */
@@ -7002,12 +7126,13 @@ sh_hard_regno_rename_ok (old_reg, new_reg)
    return 1;
 }
 
-/* A C statement (sans semicolon) to update the integer variable COST
+/* Function to update the integer COST
    based on the relationship between INSN that is dependent on
    DEP_INSN through the dependence LINK.  The default is to make no
    adjustment to COST.  This can be used for example to specify to
    the scheduler that an output- or anti-dependence does not incur
-   the same cost as a data-dependence.  */
+   the same cost as a data-dependence.  The return value should be
+   the new value for COST.  */
 static int
 sh_adjust_cost (insn, link, dep_insn, cost)
      rtx insn;
@@ -7034,7 +7159,7 @@ sh_adjust_cost (insn, link, dep_insn, cost)
 
       if (recog_memoized (insn) < 0
 	  || recog_memoized (dep_insn) < 0)
-	return;
+	return cost;
 
       dep_type = get_attr_type (dep_insn);
       if (dep_type == TYPE_FLOAD || dep_type == TYPE_PCFLOAD)
@@ -7397,6 +7522,19 @@ sh_initialize_trampoline (tramp, fnaddr, cxt)
     }
 }
 
+/* FIXME: This is overly conservative.  A SHcompact function that
+   receives arguments ``by reference'' will have them stored in its
+   own stack frame, so it must not pass pointers or references to
+   these arguments to other functions by means of sibling calls.  */
+static bool
+sh_function_ok_for_sibcall (decl, exp)
+     tree decl;
+     tree exp ATTRIBUTE_UNUSED;
+{
+  return (decl 
+	  && (! TARGET_SHCOMPACT
+	      || current_function_args_info.stack_regs == 0));
+}
 
 /* Machine specific built-in functions.  */
 
@@ -7693,6 +7831,8 @@ sh_expand_builtin (exp, target, subtarget, mode, ignore)
     case 4:
       pat = (*insn_data[d->icode].genfun) (op[0], op[1], op[2], op[3]);
       break;
+    default:
+      abort ();
     }
   if (! pat)
     return 0;
@@ -7770,6 +7910,74 @@ sh_mark_label (address, nuses)
   if (GET_CODE (address) == LABEL_REF
       && GET_CODE (XEXP (address, 0)) == CODE_LABEL)
     LABEL_NUSES (XEXP (address, 0)) += nuses;
+}
+
+/* Compute extra cost of moving data between one register class
+   and another.  */
+
+/* If SECONDARY*_RELOAD_CLASS says something about the src/dst pair, regclass
+   uses this information.  Hence, the general register <-> floating point
+   register information here is not used for SFmode.  */
+
+int
+sh_register_move_cost (mode, srcclass, dstclass)
+     enum machine_mode mode;
+     enum reg_class srcclass, dstclass;
+{
+  if (dstclass == T_REGS || dstclass == PR_REGS)
+    return 10;
+
+  if (mode == SImode && ! TARGET_SHMEDIA && TARGET_FMOVD
+      && REGCLASS_HAS_FP_REG (srcclass)
+      && REGCLASS_HAS_FP_REG (dstclass))
+    return 4;
+
+  if ((REGCLASS_HAS_FP_REG (dstclass)
+       && REGCLASS_HAS_GENERAL_REG (srcclass))
+      || (REGCLASS_HAS_GENERAL_REG (dstclass)
+	  && REGCLASS_HAS_FP_REG (srcclass)))
+   return ((TARGET_SHMEDIA ? 4 : TARGET_FMOVD ? 8 : 12)
+	   * ((GET_MODE_SIZE (mode) + 7) / 8U));
+
+  if ((dstclass == FPUL_REGS
+       && REGCLASS_HAS_GENERAL_REG (srcclass))
+      || (srcclass == FPUL_REGS
+	  && REGCLASS_HAS_GENERAL_REG (dstclass)))
+    return 5;
+
+  if ((dstclass == FPUL_REGS
+       && (srcclass == PR_REGS || srcclass == MAC_REGS || srcclass == T_REGS))
+      || (srcclass == FPUL_REGS		
+	  && (dstclass == PR_REGS || dstclass == MAC_REGS)))
+    return 7;
+
+  if ((srcclass == TARGET_REGS && ! REGCLASS_HAS_GENERAL_REG (dstclass))
+      || ((dstclass) == TARGET_REGS && ! REGCLASS_HAS_GENERAL_REG (srcclass)))
+    return 20;
+
+  if ((srcclass == FPSCR_REGS && ! REGCLASS_HAS_GENERAL_REG (dstclass))
+      || (dstclass == FPSCR_REGS && ! REGCLASS_HAS_GENERAL_REG (srcclass)))
+  return 4;
+
+  if (TARGET_SHMEDIA
+      || (TARGET_FMOVD
+	  && ! REGCLASS_HAS_GENERAL_REG (srcclass)
+	  && ! REGCLASS_HAS_GENERAL_REG (dstclass)))
+    return 2 * ((GET_MODE_SIZE (mode) + 7) / 8U);
+
+  return 2 * ((GET_MODE_SIZE (mode) + 3) / 4U);
+}
+
+/* Like register_operand, but take into account that SHMEDIA can use
+   the constant zero like a general register.  */
+int
+sh_register_operand (op, mode)
+     rtx op;
+     enum machine_mode mode;
+{
+  if (op == CONST0_RTX (mode) && TARGET_SHMEDIA)
+    return 1;
+  return register_operand (op, mode);
 }
 
 #include "gt-sh.h"

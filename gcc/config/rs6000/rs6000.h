@@ -69,6 +69,7 @@ Boston, MA 02111-1307, USA.  */
 %{mcpu=401: -mppc} \
 %{mcpu=403: -m403} \
 %{mcpu=405: -m405} \
+%{mcpu=405f: -m405} \
 %{mcpu=505: -mppc} \
 %{mcpu=601: -m601} \
 %{mcpu=602: -mppc} \
@@ -479,6 +480,26 @@ extern int rs6000_default_long_calls;
 /* Target #defines.  */
 #define TARGET_CPU_CPP_BUILTINS() \
   rs6000_cpu_cpp_builtins (pfile)
+
+/* This is used by rs6000_cpu_cpp_builtins to indicate the byte order
+   we're compiling for.  Some configurations may need to override it.  */
+#define RS6000_CPU_CPP_ENDIAN_BUILTINS()	\
+  do						\
+    {						\
+      if (BYTES_BIG_ENDIAN)			\
+	{					\
+	  builtin_define ("__BIG_ENDIAN__");	\
+	  builtin_define ("_BIG_ENDIAN");	\
+	  builtin_assert ("machine=bigendian");	\
+	}					\
+      else					\
+	{					\
+	  builtin_define ("__LITTLE_ENDIAN__");	\
+	  builtin_define ("_LITTLE_ENDIAN");	\
+	  builtin_assert ("machine=littleendian"); \
+	}					\
+    }						\
+  while (0)
 
 /* Target machine storage layout.  */
 
@@ -1530,13 +1551,17 @@ typedef struct rs6000_stack {
    default, and -m switches get the final word.  See
    rs6000_override_options for more details.
 
+   The PPC32 SVR4 ABI uses IEEE double extended for long double, if 128-bit
+   long double support is enabled.  These values are returned in memory.
+
    int_size_in_bytes returns -1 for variable size objects, which go in
    memory always.  The cast to unsigned makes -1 > 8.  */
 
 #define RETURN_IN_MEMORY(TYPE) \
-  (AGGREGATE_TYPE_P (TYPE) && \
-   (TARGET_AIX_STRUCT_RET || \
-    (unsigned HOST_WIDE_INT) int_size_in_bytes (TYPE) > 8))
+  ((AGGREGATE_TYPE_P (TYPE)						\
+    && (TARGET_AIX_STRUCT_RET						\
+	|| (unsigned HOST_WIDE_INT) int_size_in_bytes (TYPE) > 8))	\
+   || (DEFAULT_ABI == ABI_V4 && TYPE_MODE (TYPE) == TFmode))
 
 /* DRAFT_V4_STRUCT_RET defaults off.  */
 #define DRAFT_V4_STRUCT_RET 0
@@ -1780,10 +1805,6 @@ typedef struct rs6000_args
    argument is passed depends on whether or not it is a named argument.  */
 #define STRICT_ARGUMENT_NAMING 1
 
-/* We do not allow indirect calls to be optimized into sibling calls, nor
-   do we allow calls with vector parameters.  */
-#define FUNCTION_OK_FOR_SIBCALL(DECL) function_ok_for_sibcall ((DECL))
-
 /* Output assembler code to FILE to increment profiler label # LABELNO
    for profiling a function entry.  */
 
@@ -1908,9 +1929,6 @@ typedef struct rs6000_args
 }
 
 /* Addressing modes, and classification of registers for them.  */
-
-/* #define HAVE_POST_INCREMENT 0 */
-/* #define HAVE_POST_DECREMENT 0 */
 
 #define HAVE_PRE_DECREMENT 1
 #define HAVE_PRE_INCREMENT 1
@@ -2777,14 +2795,6 @@ extern char rs6000_reg_names[][8];	/* register names (0 vs. %r0).  */
   if ((LOG) != 0)			\
     fprintf (FILE, "\t.align %d\n", (LOG))
 
-/* Store in OUTPUT a string (made with alloca) containing
-   an assembler-name for a local static variable named NAME.
-   LABELNO is an integer which is different for each call.  */
-
-#define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO)	\
-( (OUTPUT) = (char *) alloca (strlen ((NAME)) + 10),	\
-  sprintf ((OUTPUT), "%s.%d", (NAME), (LABELNO)))
-
 /* Pick up the return address upon entry to a procedure. Used for
    dwarf2 unwind information.  This also enables the table driven
    mechanism.  */
@@ -3182,16 +3192,8 @@ enum rs6000_builtins
   SPE_BUILTIN_EVMWHSSFA,
   SPE_BUILTIN_EVMWHUMI,
   SPE_BUILTIN_EVMWHUMIA,
-  SPE_BUILTIN_EVMWLSMF,
-  SPE_BUILTIN_EVMWLSMFA,
-  SPE_BUILTIN_EVMWLSMFAAW,
-  SPE_BUILTIN_EVMWLSMFANW,
   SPE_BUILTIN_EVMWLSMIAAW,
   SPE_BUILTIN_EVMWLSMIANW,
-  SPE_BUILTIN_EVMWLSSF,
-  SPE_BUILTIN_EVMWLSSFA,
-  SPE_BUILTIN_EVMWLSSFAAW,
-  SPE_BUILTIN_EVMWLSSFANW,
   SPE_BUILTIN_EVMWLSSIAAW,
   SPE_BUILTIN_EVMWLSSIANW,
   SPE_BUILTIN_EVMWLUMI,

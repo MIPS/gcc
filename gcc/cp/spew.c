@@ -25,6 +25,8 @@ Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "input.h"
 #include "tree.h"
 #include "cp-tree.h"
@@ -386,7 +388,8 @@ feed_input (input)
 #ifdef SPEW_DEBUG
   if (spew_debug)
     fprintf (stderr, "\tfeeding %s:%d [%d tokens]\n",
-	     input->locus.file, input->locus.line, input->limit - input->pos);
+	     input->locus.file, input->locus.line,
+	     input->last_pos - input->cur_pos);
 #endif
 
   f->input = input;
@@ -1041,11 +1044,13 @@ remove_last_token (t)
   t->last_pos--;
   if (t->last_pos == 0 && t->last_chunk != t->tokens)
     {
-      struct token_chunk **tc;
-      for (tc = &t->tokens; (*tc)->next != NULL; tc = &(*tc)->next)
-	;
-      *tc = NULL;
-      t->last_pos = ARRAY_SIZE ((*tc)->toks);
+      struct token_chunk *c;
+      c = t->tokens;
+      while (c->next != t->last_chunk)
+	c = c->next;
+      c->next = NULL;
+      t->last_chunk = c;
+      t->last_pos = ARRAY_SIZE (c->toks);
     }
   return result;
 }
@@ -1211,7 +1216,7 @@ snarf_method (decl)
 #ifdef SPEW_DEBUG
   if (spew_debug)
     fprintf (stderr, "\tsaved method of %d tokens from %s:%d\n",
-	     meth->limit, starting.file, starting.line);
+	     meth->last_pos, starting.file, starting.line);
 #endif
 
   DECL_PENDING_INLINE_INFO (decl) = meth;
@@ -1272,7 +1277,7 @@ snarf_defarg ()
 #ifdef SPEW_DEBUG
   if (spew_debug)
     fprintf (stderr, "\tsaved defarg of %d tokens from %s:%d\n",
-	     buf->limit, starting.file, starting.line);
+	     buf->last_pos, starting.file, starting.line);
 #endif
 
   arg = make_node (DEFAULT_ARG);

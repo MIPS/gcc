@@ -451,6 +451,7 @@ extern const char *progname;
 #define NODE_DIAGNOSTIC (1 << 3)	/* Possible diagnostic when lexed.  */
 #define NODE_WARN	(1 << 4)	/* Warn if redefined or undefined.  */
 #define NODE_DISABLED	(1 << 5)	/* A disabled macro.  */
+#define NODE_MACRO_ARG	(1 << 6)	/* Used during #define processing. */
 
 /* Different flavors of hash node.  */
 enum node_type
@@ -485,22 +486,24 @@ enum builtin_type
 struct cpp_hashnode GTY(())
 {
   struct ht_identifier ident;
-  unsigned short arg_index;		/* Macro argument index.  */
-  unsigned char directive_index;	/* Index into directive table.  */
+  unsigned int is_directive : 1;
+  unsigned int directive_index : 7;	/* If is_directive, 
+					   then index into directive table.
+					   Otherwise, a NODE_OPERATOR. */
   unsigned char rid_code;		/* Rid code - for front ends.  */
   ENUM_BITFIELD(node_type) type : 8;	/* CPP node type.  */
   unsigned char flags;			/* CPP flags.  */
 
-  union cpp_hashnode_u
+  union _cpp_hashnode_value
   {
     /* If a macro.  */
     cpp_macro * GTY((skip (""))) macro;
     /* Answers to an assertion.  */
     struct answer * GTY ((skip (""))) answers;
-    /* Code for a named operator.  */
-    enum cpp_ttype GTY ((tag ("0"))) operator;
     /* Code for a builtin macro.  */
-    enum builtin_type GTY ((tag ("1"))) builtin; 
+    enum builtin_type GTY ((tag ("1"))) builtin;
+    /* Macro argument index.  */
+    unsigned short GTY ((tag ("0"))) arg_index;
   } GTY ((desc ("0"))) value;
 };
 

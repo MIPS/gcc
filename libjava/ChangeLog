@@ -1,3 +1,427 @@
+2002-12-13  Casey Marshall  <rsdio@metastatic.org>
+	    Mark Wielaard  <mark@klomp.org>
+
+	* java/security/SecurityRandom (digest): Removed field.
+	(SecureRandom): Check all providers for case-insensitive SecureRandom
+	implementation. Don't ignore classname == null. Fallback to SHA1PRNG
+	if necessary.
+	(getInstance(String,Provider,boolean): New method.
+	(getInstance(String)): Use new method.
+	(getInstance(String,String)): Likewise.
+	(getInstance(String,Provider)): Likewise.
+
+2002-12-13  Casey Marshall  <rsdio@metastatic.org>
+
+	* java/security/Security.java (loadProviders): Increment i only once.
+
+2002-12-12  Mark Wielaard  <mark@klomp.org>
+
+	* java/lang/ClassLoader.java (resolveClass0): Transform
+	ClassNotFoundException to NoClassDefFoundError. Transform all other
+	throwables to LinkageError.
+
+2002-12-11  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/ClassLoader.java (findLoadedClass): Now synchronized.
+
+	* java/lang/ClassLoader.java (loadedClasses): New field.
+	(defineClass): Fixed indentation.  Put new class in
+	loadedClasses.
+	(findLoadedClass): Implement here.
+	* java/lang/natClassLoader.cc (findLoadedClass): Removed.
+
+2002-12-10  Tom Tromey  <tromey@redhat.com>
+
+	* Makefile.in: Rebuilt.
+	* Makefile.am (nat_source_files): Added natVMClassLoader.cc.
+	* gnu/gcj/runtime/natVMClassLoader.cc: New file.
+	(gnu::gcj::runtime::VMClassLoader::findClass): Moved here.
+	* java/lang/natClassLoader.cc
+	(gnu::gcj::runtime::VMClassLoader::findClass): Removed.
+
+2002-12-10  Mark Wielaard  <mark@klomp.org>
+	    Tom Tromey  <tromey@redhat.com>
+
+	* java/net/URLClassLoader.java (getCanonicalFileURL): New method.
+	(JarURLLoader): Use it.
+	(FileURLLoader): Likewise.
+	(JarURLResource.getURL): Use chained exception.
+	(FileResource.getURL): Likewise.
+	(FileURLLoader.getResource): Use canonical file name.
+	(addURL): Indentation fix.
+
+2002-12-10  Tom Tromey  <tromey@redhat.com>
+
+	* include/win32.h: Fixed typo in "DISABLE_JAVA_NET".
+	From Laurent Bardet <l.bardet@magic.fr>.
+
+2002-12-09  Tom Tromey  <tromey@redhat.com>
+
+	* include/win32.h (_Jv_platform_solib_prefix): New define.
+	(_Jv_platform_solib_suffix): Likewise.
+	* include/posix.h (_Jv_platform_solib_prefix): New define.
+	(_Jv_platform_solib_suffix): Likewise.
+	* java/lang/natRuntime.cc: Include StackTrace.h.
+	(_load): Use findLibrary and new platform defines.
+	(nativeGetLibname): Use new platform defines.
+
+	* java/util/natResourceBundle.cc (getCallingClassLoader): Assume
+	`t' won't be null.
+
+2002-12-08  Mark Wielaard  <mark@klomp.org>
+
+	* gnu/gcj/protocol/jar/Connection.java (getJarFile): download and
+	cache remote jar files.
+	* gnu/gcj/runtime/VMClassLoader.java: Don't construct jar URL, only
+	add File.separator to URL when it is a directory.
+	* java/lang/ClassLoader.java: Add Classpath javadoc.
+	(parent): final.
+	(getParent): Add (disabled) security check.
+	(findLibrary): New default method.
+	* java/net/JarURLConnection.java (getManifest): Implement.
+	(getInputStream): Only create InputStream when entry exists.
+	(getHeaders): Only use jarFileURLConnection or JarEntry to set length
+	when they exist.
+	* java/net/URLClassLoader.java: New/Rewritten version from Classpath.
+
+2002-12-08  Mark Wielaard  <mark@klomp.org>
+
+	* java/util/ResourceBundle.java (resourceBundleCache): Not final.
+	(lastDefaultLocale): New field.
+	(getBundle): When Locale.getDefault != lastDefaultLocale reset
+	resourceBundleCache.
+
+2002-12-06  Mark Wielaard  <mark@klomp.org>
+
+	* java/net/InetAddress.java (toString): Use hostname when not null,
+	don't do an explicit reverse getHostName() lookup.
+	* java/net/Socket.java (setSocketImplFactory): When fac == null throw
+	NullPointerException.
+
+2002-12-06  Tom Tromey  <tromey@redhat.com>
+
+	* include/java-interp.h (class _Jv_InterpMethod): Added
+	JV_MARKOBJ_DECL.
+	* boehm.cc (_Jv_MarkObj): Consolidated interpreter code.  Also
+	mark `prepared' field of interpreted method.
+	* interpret.cc (compile): Use _Jv_AllocBytes.
+
+2002-12-05  Andrew Haley  <aph@redhat.com>
+
+	* gnu/gcj/runtime/natStackTrace.cc (fillInStackTrace): Throw
+	#ifdef (HAVE_BACKTRACE) around the whole function body.
+
+2002-12-05  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/Class.h (_Jv_SetVTableEntries): Updated declaration.
+	* resolve.cc: Don't include AbstractMethodError.h.
+	(_Jv_abstractMethodError): Removed.
+	* defineclass.cc (handleMethodsBegin): Initialize method index to
+	-1.
+	* java/lang/natClass.cc (_Jv_LayoutVTableMethods): Don't set
+	method index for "new" final method.
+	(_Jv_SetVTableEntries): Compare index against -1 instead of using
+	isVirtualMethod.  Added `flags' argument.
+	(_Jv_MakeVTable): Throw exception for abstract method in concrete
+	class.
+
+2002-12-04  Tom Tromey  <tromey@redhat.com>
+
+	* java/net/SocketPermission.java (hashCode): Rewrote.
+
+2002-12-04  Tom Tromey  <tromey@redhat.com>
+
+	* Makefile.in: Rebuilt.
+	* Makefile.am (nat_source_files): Added natVMSecurityManager,
+	natResourceBundle.
+	* java/util/ResourceBundle.java (Security): Removed.
+	(getCallingClassLoader): Now native.
+	* java/util/natResourceBundle.cc: New file.
+	* java/lang/natVMSecurityManager.cc: New file.
+	* java/lang/VMSecurityManager.java (getClassContext): Now native.
+
+2002-12-03  Mark Wielaard  <mark@klomp.org>
+
+	* java/util/jar/JarFile.java (manifest): Not final.
+	(manifestRead): New field.
+	(JarFile): Don't read Manifest in constructor.
+	(getManifest): New method.
+	(JarEnumeration.nextElement): Use new method.
+	(getEntry): Likewise.
+	* java/util/zip/ZipFile.java (name): Final.
+	(raf): Likewsie.
+	(entries): Change type to Hashtable.
+	(closed): New field.
+	(ZipFile): Don't read enties in constructor.
+	(readEntries): Use Hashtable.
+	(close): Set new close flag and set entries to null inside
+	synchronized block.
+	(entries): Contruct enumeration using new getEntries() method and
+	entries Hashtable.
+	(getEntryIndex): Removed.
+	(getEntries): New method.
+	(getEntry): Use new getEntries() method and entries Hastable.
+	(getInputStream): Likewise.
+	(size): Return getEntries().size().
+	(ZipEntryEnumeration): Wrap entries Hashtable elements.
+	* java/util/zip/ZipEntry.java (cal): Don't initialize.
+	(time): Removed
+	(dostime): New field.
+	(zipFileIndex): Removed.
+	(ZipEntry(ZipEntry)): Copy dostime.
+	(setDOSTime): Now final and doesn't convert dos time.
+	(getDOSTime): Likewise.
+	(setTime): Convert dos time.
+	(getTime): Likewise.
+	(getCalendar): New method.
+	(setExtra): Use setTime().
+	* java/util/zip/ZipInputStream.java (getNextEntry): Format error msg.
+
+2002-12-03  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/Character.java (forDigit): Formatting fix.
+
+2002-12-03  Raif Naffah  <raif@fl.net.au>
+
+	* java/security/spec/DSAParameterSpec.java (getP): Return p, not q.
+	* java/security/spec/DSAPrivateKeySpec.java (getP): Likewise.
+	* java/security/spec/DSAPublicKeySpec.java (getP): Likewise.
+
+2002-12-03  Andrew Haley  <aph@redhat.com>
+
+	* java/lang/natClassLoader.cc (_Jv_PrepareCompiledClass): Call
+	_Jv_PushClass.
+	(_Jv_InitNewClassFields): Set protectionDomain and chain = NULL.
+	(_Jv_PopClass): New.
+	(_Jv_PushClass): New.
+	* java/lang/natClass.cc (forName (jstring)): Use a StackTrace to
+	discover the ClassLoader of our caller.
+	(_Jv_CheckArrayStore): Don't check that a class is assignment
+	compatible with Object.
+	* java/lang/natVMTHrowable.cc: Delete.
+	* gnu/gcj/runtime/StackTrace.java: New, partly copied from
+	java.lang.VMThrowable.
+	(StackTrace(), StackTrace(int)): New constructors.
+	(classAt, methodAt, update, methodAtAddress): New methods.
+	(map): New field.
+	* java/lang/VMThrowable.java: Use StackTrace instead of
+	natVMTHrowable.
+	* java/lang/Class.h (getClassLoaderInternal): New.
+	(class Class): Be friendly with _Jv_PopClass and _Jv_PushClass.
+	Be friendly with gnu::gcj::runtime::StackTrace.
+	(Object.chain): New field.
+	* include/java-interp.h (class _Jv_InterpMethod): Be friendly with
+	gnu::gcj::runtime::StackTrace.
+	* gnu/gcj/runtime/natStackTrace.cc: New file.
+	* gnu/gcj/runtime/MethodRef.java: New file.
+	* prims.cc (_Jv_NewObjectArray): Use getClassLoaderInternal()
+	instead of getClassLoader().
+	* verify.cc (class _Jv_BytecodeVerifier): Likewise.
+	java::lang::VMThrowable.
+	* Makefile.am (core_java_source_files): Add MethodRef.java,
+	StackTrace.java.
+	(nat_source_files): Remove natVMThrowable.cc; add natStackTrace.cc.
+	* Makefile.in: Rebuild.
+
+2002-12-02  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* configure.host [sh-linux* | sh[34]*-linux*]: Don't set
+	CHECKREFSPEC and EXCEPTIONSPEC. Set can_unwind_signal to
+	yes also for sh-linux* and sh[34]*-linux*.
+	* configure.in: Add sh-linux* and sh[34]*-linux* cases and
+	set SIGNAL_HANDLER to use DWARF2 exception for them.
+	* configure: Regenerate.
+
+2002-12-02  Tom Tromey  <tromey@redhat.com>
+
+	* jni.cc: Added `name' argument.
+	* include/jni.h (struct JNINativeInterface) [DefineClass]: Added
+	`const char *' argument.
+	(class _Jv_JNIEnv) [DefineClass]: Likewise.
+
+2002-12-01  Tom Tromey  <tromey@redhat.com>
+
+	Bug compatibility, for PR libgcj/8738:
+	* java/io/CharArrayWriter.java (close): Do nothing.
+	(flush): Likewise.
+	(reset): Don't touch `closed'.
+	(write(int)): Don't throw IOException.
+	(write(char[],int,int)): Likewise.
+	(write(String,int,int)): Likewise.
+	(closed): Removed.
+
+2002-12-01  Mark Wielaard  <mark@klomp.org>
+
+	* java/lang/SecurityManager.java: Remerge comments, indenting and
+	checkXXX methods with Classpath.
+
+2002-11-29  Scott Gilbertson  <scottg@mantatest.com>
+
+	* java/awt/image/ColorModel.java (getUnnormalizedComponents,
+	getNormalizedComponents): Fix calculation which was using one too
+	many bits in the unnormalized format.
+
+2002-11-29  Gary Benson  <gbenson@redhat.com>
+
+	For PR libgcj/8759:
+	* java/beans/Introspector.java (flushCaches): New method.
+	(flushFromCaches): Likewise.
+
+2002-11-29  Michael Koch <konqueror@gmx.de>
+
+	* java/nio/channels/DatagramChannel.java
+	(open): Added exception documentation.
+	(write): Added exception documentation.
+	(connect): Added exception documentation.
+	(disconnect): Added exception documentation.
+	(isConnected): Added exception documentation.
+	(read): Added exception documentation.
+	(receive): Added exception documentation.
+	(send): Added exception documentation.
+	(validOps): Added exception documentation.
+	* java/nio/channels/SocketChannel.java
+	(open): Added exception documentation.
+	(read): Added exception documentation.
+	(write): Added exception documentation.
+	(connect): Added exception documentation.
+	(finishConnect): Added exception documentation.
+
+2002-11-29  Michael Koch <konqueror@gmx.de>
+
+	* gnu/java/nio/DatagramChannelImpl:
+	(fd): New member variable to store file descriptor of socket.
+	* gnu/java/nio/SelectionKeyImpl.java:
+	(ops): Removed.
+	(readyOps): New member variable.
+	(interestOps): New member variable.
+	(readyOps): Implemented.
+	(readyOps): New method to set member variable readyOps.
+	(interestOps): Replaced ops by interestOps.
+	* gnu/java/nio/SelectorImpl.java:
+	(SelectorImpl): Initialize key sets.
+	(select): Call select with -1 instead of Long.MAX_VALUE).
+	(java_do_select): Make it a native method.
+	(getFDsAsArray): New helper method.
+	(select): Remove canceled keys, give only interested file discriptors
+	to java_do_select, set ready ops.
+	(add): No need to initialize keys set here.
+	(add_selected): No need to initialize selected set here.
+	(deregisterCanceledKeys): New helper method.
+	(register): Set interest ops, set attachments, added handling of datagram
+	channels.
+	* gnu/java/nio/ServerSocketChannelImpl:
+	(SocketAccept): Renamed from NioSocketAccept.
+	(implConfigureBlocking): Implemented.
+	(accept): Use SocketAccept instead of NioSocketAccept.
+	* gnu/java/nio/SocketChannelImpl:
+	Reactivate native methods.
+
+2002-11-29  Michael Koch <konqueror@gmx.de>
+
+	* gnu/java/nio/natByteBufferImpl.cc,
+	gnu/java/nio/natCharBufferImpl.cc,
+	gnu/java/nio/natDoubleBufferImpl.cc,
+	gnu/java/nio/natFloatBufferImpl.cc,
+	gnu/java/nio/natIntBufferImpl.cc,
+	gnu/java/nio/natLongBufferImpl.cc,
+	gnu/java/nio/natSelectorImpl.cc,
+	gnu/java/nio/natServerSocketChannelImpl.cc,
+	gnu/java/nio/natShortBufferImpl.cc,
+	gnu/java/nio/natSocketChannelImpl.cc:
+	New files that implement native functionalities.
+
+2002-11-29  Michael Koch <konqueror@gmx.de>
+
+	* gnu/java/nio/ByteBufferImpl.java
+	(ByteBufferImpl): Moved position() after limit.
+	(nio_*): Use native implementation.
+	* gnu/java/nio/CharBufferImpl.java:
+	Reformated.
+	(endian): New member variable string endianess of buffer.
+	(CharBufferImpl): Moved position() after limit.
+	(nio_*): Use native implementation.
+	(subSequence): Implemented.
+	* gnu/java/nio/DoubleBufferImpl.java
+	(DoubleBufferImpl): Moved position() after limit.
+	(nio_*): Use native implementation.
+	* gnu/java/nio/FloatBufferImpl.java
+	Reformated.
+	(FloatBufferImpl): Moved position() after limit.
+	(nio_*): Use native implementation.
+	* gnu/java/nio/IntBufferImpl.java
+	Added needed imports, Reformated.
+	(IntBufferImpl): Moved position() after limit.
+	(nio_*): Use native implementation.
+	* gnu/java/nio/LongBufferImpl.java
+	Reformated.
+	(LongBufferImpl): Moved position() after limit.
+	(nio_*): Use native implementation.
+	* gnu/java/nio/ShortBufferImpl.java
+	Reformated.
+	(ShortBufferImpl): Moved position() after limit.
+	(nio_*): Use native implementation.
+
+2002-11-27  Julian Dolby  <dolby@us.ibm.com>
+
+	* java/util/Locale.java (toString): Improve efficiency if country
+	and variant are both empty.
+
+2002-11-26  Tom Tromey  <tromey@redhat.com>
+
+	* verify.cc (pop_init_ref): New method.
+	(verify_instructions_0) [op_iaload, op_laload, op_faload,
+	op_daload, op_aaload, op_baload, op_caload, op_saload, op_iastore,
+	op_lastore, op_fastore, op_dastore, op_aastore, op_bastore,
+	op_castore, op_sastore, op_areturn, op_arraylength, op_checkcast,
+	op_instanceof, op_monitorenter, op_monitorexit]: Use it.
+	(verify_instructions_0) [op_invokevirtual, op_invokespecial,
+	op_invokestatic, op_invokeinterface]:  Use pop_init_ref.  Don't
+	let `this' argument be uninitialized.  Don't let `null' be passed
+	as `this' to construtor.
+
+2002-11-26  Mark Wielaard  <mark@klomp.org>
+
+	* javax/transaction/HeuristicCommitException.java: Classpath merge.
+	* javax/transaction/HeuristicMixedException.java: Likewise.
+	* javax/transaction/HeuristicRollbackException.java: Likewise.
+	* javax/transaction/InvalidTransactionException.java: Likewise.
+	* javax/transaction/NotSupportedException.java: Likewise.
+	* javax/transaction/RollbackException.java: Likewise.
+	* javax/transaction/Status.java: Likewise.
+	* javax/transaction/Synchronization.java: Likewise.
+	* javax/transaction/SystemException.java: Likewise.
+	* javax/transaction/Transaction.java: Likewise.
+	* javax/transaction/TransactionManager.java: Likewise.
+	* javax/transaction/TransactionRequiredException.java: Likewise.
+	* javax/transaction/TransactionRolledbackException.java: Likewise.
+	* javax/transaction/UserTransaction.java: Likewise.
+	* javax/transaction/xa/XAException.java: Likewise.
+	* javax/transaction/xa/XAResource.java: Likewise.
+	* javax/transaction/xa/Xid.java: Likewise.
+
+2002-11-26  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* java/net/natPlainDatagramSocketImpl.cc (socklen_t): Don't
+	define.
+	* java/net/natPlainSocketImpl.cc (socklen_t): Don't define.
+	* include/posix.h (socklen_t): Define if not already defined.
+
+2002-11-25  Tom Tromey  <tromey@redhat.com>
+
+	* verify.cc (type::compatible): Backed out broken change.
+
+	* verify.cc (type::compatible): Check initialization status
+	first.
+	* interpret.cc (run) [insn_invokespecial, invokespecial_resolved]:
+	Don't use NULLCHECK.
+
+2002-11-23  H.J. Lu <hjl@gnu.org>
+
+	* acinclude.m4 (AC_COMPILE_CHECK_SIZEOF): Removed.
+	Include ../config/accross.m4.
+	* aclocal.m4; Rebuild.
+	* configure: Likewise.
+
 2002-11-23  Mark Wielaard  <mark@klomp.org>
 
 	* javax/naming/AuthenticationException.java: Update copyright header.
@@ -103,12 +527,12 @@
 
 	* include/posix.h: I put too much into the #ifndef DISABLE_JAVA_NET.
 	Only the new network functions should be in it.
-	
+
 2002-11-21  Michael Koch <konqueror@gmx.de>
 
 	* include/posix.h: Moved new functions into a #ifndef DISABLE_JAVA_NET
 	* include/win32.h: Moved new functions into a #ifndef DISABLE_JAVA_NET
-	
+
 2002-11-21  Michael Koch <konqueror@gmx.de>
 
 	* java/nio/channels/AsynchronousCloseException.java,
@@ -171,7 +595,7 @@
 	* Makefile.am (ordinary_java_source_files):
 	Added java/nio/channels/FileChannel.java.
 	* Makefile.in: Regenerated.
-	
+
 2002-11-20  Michael Koch <konqueror@gmx.de>
 
 	* java/io/FileInputStream.java
@@ -215,9 +639,9 @@
 
 2002-11-18  Jesse Rosenstock <jmr@ugcs.caltech.edu>
 
-        * java/nio/charset/CoderResult.java (Cache.get): Fix a bug
-        that was causing CoderResults to be cached, not WeakReferences
-        to CoderResults.
+	* java/nio/charset/CoderResult.java (Cache.get): Fix a bug
+	that was causing CoderResults to be cached, not WeakReferences
+	to CoderResults.
 
 2002-11-18  Joerg Brunsmann  <joerg_brunsmann@yahoo.de>
 
@@ -590,7 +1014,7 @@
 
 2002-11-07  Mark Wielaard  <mark@klomp.org>
 
-        Merge Orp RMI patches from Wu Gansha <gansha.wu@intel.com>
+	Merge Orp RMI patches from Wu Gansha <gansha.wu@intel.com>
 	* java/rmi/MarshalledObject.java (equals): Check hashcode first.
 
 	* java/rmi/server/RMIClassLoader.java (MyClassLoader): Create/Use
@@ -737,13 +1161,13 @@
 
 2002-10-31  Wu Gansha <gansha.wu@intel.com>:
 
-        * java/util/ArrayList.java (readObject, writeObject): Only read/write
-        size items.
+	* java/util/ArrayList.java (readObject, writeObject): Only read/write
+	size items.
 
 2002-10-31  Wu Gansha <gansha.wu@intel.com>:
 
-        * java/io/DataInputStream.java (convertFromUTF): Give StringBuffer an
-        initial estimated size to avoid enlarge buffer frequently.
+	* java/io/DataInputStream.java (convertFromUTF): Give StringBuffer an
+	initial estimated size to avoid enlarge buffer frequently.
 
 2002-10-31  Wu Gansha <gansha.wu@intel.com>:
 
@@ -755,7 +1179,7 @@
 
 2002-10-31  Mark Wielaard  <mark@klomp.org>
 
-        * java/net/URLDecoder.java (decode): Initialize Stringbuffer size to
+	* java/net/URLDecoder.java (decode): Initialize Stringbuffer size to
 	length of String.
 	* java/net/URLEncoder.java (encode): Likewise.
 
@@ -921,12 +1345,13 @@
 
 	* aclocal.m4 (CHECK_FOR_BROKEN_MINGW_LD): added
 	* configure.in: enabled hash sync on Win32
-        * include/win32-threads.h (_Jv_ThreadId_t): added.
-        * java/lang/natObject.cc (_Jv_MonitorEnter, _Jv_MonitorExit,
+	* include/win32-threads.h (_Jv_ThreadId_t): added.
+	* java/lang/natObject.cc (_Jv_MonitorEnter, _Jv_MonitorExit,
 	heavy_lock_obj_finalization_proc, wait, notify, notifyAll):
 	removed some posix-isms, use Thread::sleep() instead of usleep,
 	added code to clear bottom three bits if platform has a broken
-	linker.  * include/win32-threads.h (_Jv_ThreadId_t): added.
+	linker.
+	* include/win32-threads.h (_Jv_ThreadId_t): added.
 
 2002-10-19  Ranjit Mathew <rmathew@hotmail.com>
 
@@ -1962,7 +2387,7 @@
 	java/net/URLConnection.java: add/update of some @since/@deprecated
 
 2002-08-27  Tony Kimball <alk@pobox.com>
-            Tom Tromey  <tromey@redhat.com>
+	    Tom Tromey  <tromey@redhat.com>
 
 	* java/net/natPlainDatagramSocketImpl.cc (NATIVE_CLOSE): New
 	define.
@@ -2576,7 +3001,7 @@
 2002-08-01  Kaz Kojima  <kkojima@gcc.gnu.org>
 
 	* configure.host: Add SH support.
-        * sysdep/sh/locks.h: New file.
+	* sysdep/sh/locks.h: New file.
 
 2002-07-31  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
 
@@ -2615,7 +3040,7 @@
 	argument to _load.
 
 2002-07-24  Tom Tromey  <tromey@redhat.com>
-            Tony Kimball <alk@pobox.com>
+	    Tony Kimball <alk@pobox.com>
 
 	* java/io/natFileDescriptorWin32.cc (setLength): New method.
 	* java/io/natFileDescriptorPosix.cc (setLength): New method.
@@ -2742,7 +3167,7 @@
 	* java/lang/natRuntime.cc (nativeGetLibname): Added missing `#'.
 
 2002-07-04  Tom Tromey  <tromey@redhat.com>
-            Jeff Sturm  <jsturm@one-point.com>
+	    Jeff Sturm  <jsturm@one-point.com>
 
 	Fix for PR libgcj/7060:
 	* java/lang/Class.h (_getMethod): Renamed from getMethod.
@@ -2753,7 +3178,7 @@
 	(_getMethod): New native method.
 
 2002-07-02  Tom Tromey  <tromey@redhat.com>
-            David Hovemeyer  <daveho@cs.umd.edu>
+	    David Hovemeyer  <daveho@cs.umd.edu>
 
 	* java/text/ChoiceFormat.java
 	(format(double,StringBuffer,FieldPosition)): Fix fencepost error
@@ -3134,8 +3559,8 @@
 
 2002-06-06  Adam Megacz <adam@xwt.org>
 
-        * java/io/natFileDescriptorWin32.cc (open): Disable Win32 file
-        locking, just like the Sun JVM does.
+	* java/io/natFileDescriptorWin32.cc (open): Disable Win32 file
+	locking, just like the Sun JVM does.
 
 2002-06-05  H.J. Lu  (hjl@gnu.org)
 
@@ -3238,7 +3663,7 @@
 	* Makefile.am: Add new CertPath classes.
 	* Makefile.in: Rebuilt.
 
-        * gnu/java/util/EmptyEnumeration.java: New file from classpath.
+	* gnu/java/util/EmptyEnumeration.java: New file from classpath.
 
 2002-05-24  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
 
@@ -3593,8 +4018,8 @@
 
 2002-04-07  Mark Wielaard <mark@klomp.org>
 
-        * java/util/AbstractMap.java (putAll): Use entrySet size.
-        (toString): Explicitly use getKey() and getValue().
+	* java/util/AbstractMap.java (putAll): Use entrySet size.
+	(toString): Explicitly use getKey() and getValue().
 
 2002-04-07  Mark Wielaard <mark@klomp.org>
 
@@ -3635,7 +4060,7 @@
 
 2002-04-05  Adam Megacz <adam@xwt.org>
 
-        * exception.cc (abort): added static modifier
+	* exception.cc (abort): added static modifier
 
 2002-04-04  Adam Megacz <adam@xwt.org>
 
@@ -3682,14 +4107,14 @@
 
 2002-04-01  Mark Wielaard  <mark@klomp.org>
 
-        * java/util/BitSet.java (BitSet(int)): if nbits < 0 throw
-        NegativeArraySizeException
-        (clear(int)): Use sign extended shift.
-        (flip(int)): Likewise.
-        (get(int)): Likewise.
-        (nextClearBit(int)): Likewise.
-        (nextSetBit(int)): Likewise.
-        (set(int)): Likewise.
+	* java/util/BitSet.java (BitSet(int)): if nbits < 0 throw
+	NegativeArraySizeException
+	(clear(int)): Use sign extended shift.
+	(flip(int)): Likewise.
+	(get(int)): Likewise.
+	(nextClearBit(int)): Likewise.
+	(nextSetBit(int)): Likewise.
+	(set(int)): Likewise.
 
 2002-04-01  Mark Wielaard  <mark@klomp.org>
 
@@ -3733,10 +4158,10 @@
 
 2002-03-25  Andrew Haley <aph@cambridge.redhat.com>, Hans Boehm <Hans_Boehm@hp.com>
 
-        * include/dwarf2-signal.h (MAKE_THROW_FRAME): Add for IA-64.
-        (INIT_SEGV, INIT_FPE): Add versions that use __libc_sigaction
-        instead of syscall on IA-64.
-        Add FIXME comment.
+	* include/dwarf2-signal.h (MAKE_THROW_FRAME): Add for IA-64.
+	(INIT_SEGV, INIT_FPE): Add versions that use __libc_sigaction
+	instead of syscall on IA-64.
+	Add FIXME comment.
 
 2002-03-27  Anthony Green  <green@redhat.com>
 
@@ -3966,7 +4391,7 @@
 
 2002-03-10  Adam Megacz <adam@xwt.org>
 
-        * java/net/natPlainSocketImpl.cc: Added #include <platform.h>.
+	* java/net/natPlainSocketImpl.cc: Added #include <platform.h>.
 
 2002-03-10  Tom Tromey  <tromey@redhat.com>
 
@@ -4027,17 +4452,17 @@
 
 2002-03-09  Adam Megacz  <adam@xwt.org>
 
-        * java/io/natFileDescriptorWin32.cc (read): Return -1 if zero
-        bytes read and no failure code returned.
+	* java/io/natFileDescriptorWin32.cc (read): Return -1 if zero
+	bytes read and no failure code returned.
 
 2002-03-09  Adam Megacz  <adam@xwt.org>
 
-        * win32.cc (_CRT_MT, __mingwthr_key_dtor) Added fake
-        definitions to simulate -mthreads.
+	* win32.cc (_CRT_MT, __mingwthr_key_dtor) Added fake
+	definitions to simulate -mthreads.
 
 2002-03-09  Adam Megacz  <adam@xwt.org>
 
-        * win32.cc (_Jv_platform_gettimeofday) Cast 1000 to long long to
+	* win32.cc (_Jv_platform_gettimeofday) Cast 1000 to long long to
 	avoid precision loss.
 
 2002-03-09  Per Bothner  <per@bothner.com>
@@ -4048,13 +4473,13 @@
 
 2002-03-09  Adam Megacz  <adam@xwt.org>
 
-        * java/lang/Win32Process.java (ConcreteProcess): Now throws an
-        IOException so that Throwable.printStackTrace fails correctly.
+	* java/lang/Win32Process.java (ConcreteProcess): Now throws an
+	IOException so that Throwable.printStackTrace fails correctly.
 
 2002-03-08  Adam Megacz  <adam@xwt.org>
 
-        * java/net/natPlainSocketImpl.cc (read, write, close): Formatting
-        fixed.
+	* java/net/natPlainSocketImpl.cc (read, write, close): Formatting
+	fixed.
 
 2002-03-09  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
 
@@ -4072,23 +4497,23 @@
 
 2002-03-07  Adam Megacz  <adam@xwt.org>
 
-        * java/net/natPlainSocketImpl.cc: Changed USE_WINSOCK to
-        WIN32, and added thunks for read(), write(), and close().
-        * java/net/natPlainSocketImpl.cc (accept, read, read):
-        Disabled timeouts on WIN32 pending discussion.
+	* java/net/natPlainSocketImpl.cc: Changed USE_WINSOCK to
+	WIN32, and added thunks for read(), write(), and close().
+	* java/net/natPlainSocketImpl.cc (accept, read, read):
+	Disabled timeouts on WIN32 pending discussion.
 
 2002-03-07  Adam Megacz  <adam@xwt.org>
 
-        * win32.cc (_Jv_platform_gettimeofday): Now takes no args,
-        returns jlong. Added implementation
-        * posix.cc (_Jv_platform_gettimeofday): Now takes no args,
-        returns jlong.
-        * win32.h (_Jv_platform_gettimeofday): Now takes no args,
-        returns jlong.
-        * posix.h (_Jv_platform_gettimeofday): Now takes no args,
-        returns jlong.
-        * java/lang/natSystem.cc (currentTimeMillis): Now uses updated
-        _Jv_platform_gettimeofday signature.
+	* win32.cc (_Jv_platform_gettimeofday): Now takes no args,
+	returns jlong. Added implementation
+	* posix.cc (_Jv_platform_gettimeofday): Now takes no args,
+	returns jlong.
+	* win32.h (_Jv_platform_gettimeofday): Now takes no args,
+	returns jlong.
+	* posix.h (_Jv_platform_gettimeofday): Now takes no args,
+	returns jlong.
+	* java/lang/natSystem.cc (currentTimeMillis): Now uses updated
+	_Jv_platform_gettimeofday signature.
 
 2002-03-07  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
 
@@ -4109,10 +4534,10 @@
 
 2002-03-06  Adam Megacz  <adam@xwt.org>
 
-        * java/io/FileDescriptor.java: Initialize in/out/err in init().
-        * java/io/natFileDescriptorWin32.cc (init()): Added function.
-        * java/io/natFileDescriptorPosix.cc (init()): Added function.
-        * java/io/natFileDescriptorEcos.cc (init()): Added function.
+	* java/io/FileDescriptor.java: Initialize in/out/err in init().
+	* java/io/natFileDescriptorWin32.cc (init()): Added function.
+	* java/io/natFileDescriptorPosix.cc (init()): Added function.
+	* java/io/natFileDescriptorEcos.cc (init()): Added function.
 
 2002-03-06  Eric Blake  <ebb9@email.byu.edu>
 
@@ -4386,12 +4811,12 @@
 
 2002-02-12  Adam Megacz <adam@xwt.org>
 
-        * java/lang/Win32Process.java: Filled in a placeholder
+	* java/lang/Win32Process.java: Filled in a placeholder
 	implementation so Win32 will build.
 
 2002-02-12  Adam Megacz <adam@xwt.org>
 
-        * java/io/natFilePosix.cc: Copied this from natFile.cc.
+	* java/io/natFilePosix.cc: Copied this from natFile.cc.
 	* java/io/natFile.cc: Removed from repository.
 	* configure.in: Added AC_LINK_FILES for natFile${PLATFORM}.
 
@@ -4547,8 +4972,8 @@
 	* prims.cc (_Jv_RunMain): Use DISABLE_MAIN_ARGS.
 	* configure: Rebuilt.
 	* configure.in: Add --disable-main-args option.  Test for
-          opendir function.  Replace AC_CHECK_SIZEOF with
-          AC_COMPILE_CHECK_SIZEOF.
+	  opendir function.  Replace AC_CHECK_SIZEOF with
+	  AC_COMPILE_CHECK_SIZEOF.
 	* java/io/natFile.cc (performList): Check HAVE_OPENDIR.
 	* aclocal.m4: Rebuilt.
 	* acinclude.m4: Add AC_COMPILE_CHECK_SIZEOF.
