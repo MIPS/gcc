@@ -3405,11 +3405,11 @@ propagate_copy (tree *op_p, tree var)
       new_ann->is_dereferenced_store |= orig_ann->is_dereferenced_store;
       new_ann->is_dereferenced_load |= orig_ann->is_dereferenced_load;
 
-      if (new_ann->mem_tag == NULL_TREE)
-	new_ann->mem_tag = orig_ann->mem_tag;
-      else if (orig_ann->mem_tag == NULL_TREE)
-	orig_ann->mem_tag = new_ann->mem_tag;
-      else if (new_ann->mem_tag != orig_ann->mem_tag)
+      if (new_ann->type_mem_tag == NULL_TREE)
+	new_ann->type_mem_tag = orig_ann->type_mem_tag;
+      else if (orig_ann->type_mem_tag == NULL_TREE)
+	orig_ann->type_mem_tag = new_ann->type_mem_tag;
+      else if (new_ann->type_mem_tag != orig_ann->type_mem_tag)
 	abort ();
     }
 

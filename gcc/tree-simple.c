@@ -416,26 +416,6 @@ is_gimple_reg_type (tree type)
 }
 
 
-
-
-/* Return true if T (assumed to be a DECL) must be assigned a memory
-   location.  */
-
-bool
-needs_to_live_in_memory (tree t)
-{
-  /* First the quick checks.  */
-  if (TREE_STATIC (t)
-      || DECL_EXTERNAL (t)
-      || DECL_NONLOCAL (t)
-      || (TREE_CODE (t) == RESULT_DECL
-	  && aggregate_value_p (t, current_function_decl))
-      || decl_function_context (t) != current_function_decl)
-    return true;
-
-  return false;
-}
-
 /* Return nonzero if T is a scalar register variable.  */
 
 bool
@@ -453,7 +433,7 @@ is_gimple_reg (tree t)
 	  && ! needs_to_live_in_memory (t));
 }
 
-/* Return nonzero if T does not need to live in memory.  */
+/* Return nonzero if T is a GIMPLE variable whose address is not needed.  */
 
 bool
 is_gimple_non_addressable (tree t)
@@ -464,19 +444,6 @@ is_gimple_non_addressable (tree t)
   return (is_gimple_variable (t)
 	  && ! TREE_ADDRESSABLE (t)
 	  && ! needs_to_live_in_memory (t));
-}
-
-/* Return true if T may be clobbered by function calls.  */
-
-bool
-is_gimple_call_clobbered (tree t)
-{
-  if (TREE_CODE (t) == SSA_NAME)
-    t = SSA_NAME_VAR (t);
-
-  return (is_gimple_variable (t)
-          && (TREE_ADDRESSABLE (t)
-	      || needs_to_live_in_memory (t)));
 }
 
 /*  Return nonzero if T is a GIMPLE rvalue, i.e. an identifier or a
@@ -527,6 +494,28 @@ is_gimple_cast (tree t)
           || TREE_CODE (t) == FIX_FLOOR_EXPR
           || TREE_CODE (t) == FIX_ROUND_EXPR);
 }
+
+
+/* If T makes a function call, return the corresponding CALL_EXPR operand.
+   Otherwise, return NULL_TREE.  */
+
+tree
+get_call_expr_in (tree t)
+{
+  if (TREE_CODE (t) == CALL_EXPR)
+    return t;
+  else if (TREE_CODE (t) == MODIFY_EXPR
+	   && TREE_CODE (TREE_OPERAND (t, 1)) == CALL_EXPR)
+    return TREE_OPERAND (t, 1);
+  else if (TREE_CODE (t) == RETURN_EXPR
+           && TREE_OPERAND (t, 0)
+	   && TREE_CODE (TREE_OPERAND (t, 0)) == MODIFY_EXPR
+	   && TREE_CODE (TREE_OPERAND (TREE_OPERAND (t, 0), 1)) == CALL_EXPR)
+    return TREE_OPERAND (TREE_OPERAND (t, 0), 1);
+
+  return NULL_TREE;
+}
+
 
 /* Given an _EXPR TOP, reorganize all of the nested _EXPRs with the same
    code so that they only appear as the second operand.  This should only
@@ -597,25 +586,68 @@ rationalize_compound_expr (tree top)
   return top;
 }
 
-/* Given a GIMPLE varname (an ID, an arrayref or a compref), return the
-   base symbol for the variable.  */
+/* Given a GIMPLE variable or memory reference T (e.g., ID, an ARRAY_REF, an
+   INDIRECT_REF), return the base variable of T (either a _DECL or an
+   SSA_NAME).  If T is not a variable or a memory reference, NULL_TREE is
+   returned.  */
 
 tree
-get_base_symbol (tree t)
+get_base_var (tree t)
 {
   do
     {
-      STRIP_NOPS (t);
-
-      if (DECL_P (t))
+      if (SSA_VAR_P (t))
 	return t;
 
       switch (TREE_CODE (t))
 	{
-	case SSA_NAME:
-	  t = SSA_NAME_VAR (t);
+	case ARRAY_REF:
+	case COMPONENT_REF:
+	case REALPART_EXPR:
+	case IMAGPART_EXPR:
+	case INDIRECT_REF:
+	  t = TREE_OPERAND (t, 0);
 	  break;
 
+	default:
+	  return NULL_TREE;
+	}
+    }
+  while (t);
+
+  return t;
+}
+
+/* Given a GIMPLE variable or memory reference T, return the base _DECL
+   symbol.  If T is not a variable or memory reference, NULL_TREE is
+   returned.  */
+
+tree
+get_base_decl (tree t)
+{
+  t = get_base_var (t);
+  if (t && TREE_CODE (t) == SSA_NAME)
+    return SSA_NAME_VAR (t);
+
+  return t;
+}
+
+/* Given a memory reference expression, return the base address.  Not that,
+   in contrast with get_base_var, this will not recurse inside INDIRECT_REF
+   expressions.  Therefore, given the reference PTR->FIELD, this function
+   will return *PTR.  Whereas get_base_var would've returned PTR.  */
+
+tree
+get_base_address (tree t)
+{
+  do
+    {
+      if (SSA_VAR_P (t)
+	  || TREE_CODE (t) == INDIRECT_REF)
+	return t;
+
+      switch (TREE_CODE (t))
+	{
 	case ARRAY_REF:
 	case COMPONENT_REF:
 	case REALPART_EXPR:
@@ -631,6 +663,7 @@ get_base_symbol (tree t)
 
   return t;
 }
+
 
 void
 recalculate_side_effects (tree t)

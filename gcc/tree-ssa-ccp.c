@@ -1393,13 +1393,7 @@ likely_value (tree stmt)
 
   /* A CALL_EXPR is assumed to be varying.  This may be overly conservative,
      in the presence of const and pure calls.  */
-  if (TREE_CODE (stmt) == CALL_EXPR
-      || (TREE_CODE (stmt) == MODIFY_EXPR
-	  && TREE_CODE (TREE_OPERAND (stmt, 1)) == CALL_EXPR)
-      || (TREE_CODE (stmt) == RETURN_EXPR
-	  && TREE_OPERAND (stmt, 0)
-	  && TREE_CODE (TREE_OPERAND (stmt, 0)) == MODIFY_EXPR
-	  && TREE_CODE (TREE_OPERAND (TREE_OPERAND (stmt, 0), 1)) == CALL_EXPR))
+  if (get_call_expr_in (stmt) != NULL_TREE)
     return VARYING;
 
   get_stmt_operands (stmt);
@@ -1990,7 +1984,7 @@ get_default_value (tree var)
   value val;
   tree sym;
 
-  sym = (!DECL_P (var)) ? get_base_symbol (var) : var;
+  sym = (!DECL_P (var)) ? get_base_decl (var) : var;
 
   val.lattice_val = UNDEFINED;
   val.const_val = NULL_TREE;

@@ -40,7 +40,7 @@ typedef struct basic_block_def *basic_block;
 /*---------------------------------------------------------------------------
 		   Tree annotations stored in tree_common.ann
 ---------------------------------------------------------------------------*/
-enum tree_ann_type { TREE_ANN_COMMON, VAR_ANN, STMT_ANN };
+enum tree_ann_type { TREE_ANN_COMMON, VAR_ANN, STMT_ANN, SSA_NAME_ANN };
 
 struct tree_ann_common_d GTY(())
 {
@@ -72,15 +72,28 @@ enum need_phi_state {
   NEED_PHI_STATE_MAYBE
 };
 
+
+/* When computing aliasing information, we represent the memory pointed-to
+   by pointers with artificial variables called "memory tags" (MT).  There
+   are two kinds of tags: type and name.  Type tags (TMT) are used in
+   type-based alias analysis, they represent all the pointed-to locations
+   and variables of the same alias set class.  Name tags (NMT) are used in
+   flow-sensitive points-to alias analysis, they represent the variables
+   and memory locations pointed-to by a specific SSA_NAME pointer.  */
+enum mem_tag_kind {
+  /* This variable is not a memory tag.  */
+  NOT_A_TAG,
+
+  /* This variable is a type memory tag (TMT).  */
+  TYPE_TAG,
+
+  /* This variable is a name memory tag (NMT).  */
+  NAME_TAG
+};
+
 struct var_ann_d GTY(())
 {
   struct tree_ann_common_d common;
-
-  /* Nonzero if this variable may alias global memory.  */
-  unsigned may_alias_global_mem : 1;
-
-  /* Nonzero if this pointer may point to global memory.  */
-  unsigned may_point_to_global_mem : 1;
 
   /* Nonzero if this variable has uses which may not appear
      in the IL.  This can happen in the following cases:
@@ -96,9 +109,6 @@ struct var_ann_d GTY(())
   /* Nonzero if this variable was stored/written in the function.  */
   unsigned is_stored : 1;
 
-  /* Nonzero if the variable may be modified by function calls.  */
-  unsigned is_call_clobbered : 1;
-
   /* Used by the out of SSA pass to determine whether this variable has
      been seen yet or not.  */
   unsigned out_of_ssa_tag : 1;
@@ -106,9 +116,8 @@ struct var_ann_d GTY(())
   /* Used when building root_var structures in tree_ssa_live.[ch].  */
   unsigned root_var_processed : 1;
 
-  /* Nonzero if this variable is a memory tag used to represent the memory
-     pointed-to by the pointer in MEM_TAG.  */
-  unsigned is_mem_tag : 1;
+  /* If nonzero, this variable is a memory tag.  */
+  ENUM_BITFIELD (mem_tag_kind) mem_tag_kind : 2;
 
   /* Nonzero if this variable is an alias tag that represents references to
      other variables (i.e., this variable appears in the MAY_ALIASES array
@@ -131,9 +140,10 @@ struct var_ann_d GTY(())
   ENUM_BITFIELD (need_phi_state) need_phi_state : 2;
 
   /* An artificial variable representing the memory location pointed-to by
-     this pointer.  If the variable is not a pointer or if it is never
+     all the pointers that TBAA (type-based alias analysis) considers
+     to be aliased.  If the variable is not a pointer or if it is never
      dereferenced, this must be NULL.  */
-  tree mem_tag;
+  tree type_mem_tag;
 
   /* Variables that may alias this variable.  */
   varray_type may_aliases;
@@ -234,8 +244,33 @@ struct stmt_ann_d GTY(())
   /* Dataflow information.  */
   dataflow_t df;
 
-  /* Array of variables that have had their address taken in the statement.  */
-  varray_type addresses_taken;
+  /* Set of variables that have had their address taken in the statement.  */
+  bitmap addresses_taken;
+};
+
+
+struct ssa_name_ann_d GTY(())
+{
+  struct tree_ann_common_d common;
+
+  /* Nonzero if points-to analysis couldn't determine where this pointer
+     is pointing to.  */
+  unsigned int pt_anything : 1;
+
+  /* Nonzero if this pointer is the result of a call to malloc.  */
+  unsigned int pt_malloc : 1;
+
+  /* Nonzero if the value of this pointer escapes the current function.  */
+  unsigned int value_escapes_p : 1;
+
+  /* Set of variables that this pointer may point to.  */
+  bitmap pt_vars;
+
+  /* If this pointer has been dereferenced, and points-to information is
+     more precise than type-based aliasing, indirect references to this
+     pointer will be represented by this memory tag, instead of the type
+     tag computed by TBAA.  */
+  tree name_mem_tag;
 };
 
 
@@ -244,16 +279,20 @@ union tree_ann_d GTY((desc ("ann_type ((tree_ann)&%h)")))
   struct tree_ann_common_d GTY((tag ("TREE_ANN_COMMON"))) common;
   struct var_ann_d GTY((tag ("VAR_ANN"))) decl;
   struct stmt_ann_d GTY((tag ("STMT_ANN"))) stmt;
+  struct ssa_name_ann_d GTY((tag ("SSA_NAME_ANN"))) ssa_name;
 };
 
 typedef union tree_ann_d *tree_ann;
 typedef struct var_ann_d *var_ann_t;
 typedef struct stmt_ann_d *stmt_ann_t;
+typedef struct ssa_name_ann_d *ssa_name_ann_t;
 
 static inline var_ann_t var_ann (tree);
 static inline var_ann_t get_var_ann (tree);
 static inline stmt_ann_t stmt_ann (tree);
 static inline stmt_ann_t get_stmt_ann (tree);
+static inline ssa_name_ann_t ssa_name_ann (tree);
+static inline ssa_name_ann_t get_ssa_name_ann (tree);
 static inline enum tree_ann_type ann_type (tree_ann);
 static inline basic_block bb_for_stmt (tree);
 extern void set_bb_for_stmt (tree, basic_block);
@@ -261,10 +300,6 @@ static inline void modify_stmt (tree);
 static inline void unmodify_stmt (tree);
 static inline bool stmt_modified_p (tree);
 static inline varray_type may_aliases (tree);
-static inline void set_may_alias_global_mem (tree);
-static inline bool may_alias_global_mem_p (tree);
-static inline bool may_point_to_global_mem_p (tree);
-static inline void set_may_point_to_global_mem (tree);
 static inline int get_lineno (tree);
 static inline const char *get_filename (tree);
 static inline bool is_exec_stmt (tree);
@@ -273,7 +308,7 @@ static inline vdef_optype get_vdef_ops (stmt_ann_t);
 static inline vuse_optype get_vuse_ops (stmt_ann_t);
 static inline use_optype get_use_ops (stmt_ann_t);
 static inline def_optype get_def_ops (stmt_ann_t);
-static inline varray_type addresses_taken (tree);
+static inline bitmap addresses_taken (tree);
 static inline int num_immediate_uses (dataflow_t);
 static inline tree immediate_use (dataflow_t, int);
 static inline dataflow_t get_immediate_uses (tree);
@@ -313,6 +348,9 @@ struct bb_ann_d GTY(())
      used to detect loops during cfg cleanups.  */
   unsigned forwardable: 1;
 
+  /* Nonzero if this block contains an escape point (see is_escape_site).  */
+  unsigned has_escape_site : 1;
+
   struct edge_prediction *predictions;
 };
 
@@ -335,11 +373,9 @@ extern GTY(()) varray_type referenced_vars;
 /* Artificial variable used to model the effects of function calls.  */
 extern GTY(()) tree global_var;
 
-/* Array of all variables that are call clobbered in the function.  */
-extern GTY(()) varray_type call_clobbered_vars;
-
-#define num_call_clobbered_vars	VARRAY_ACTIVE_SIZE (call_clobbered_vars)
-#define call_clobbered_var(i) VARRAY_TREE (call_clobbered_vars, i)
+/* Call clobbered variables in the function.  If bit I is set, then
+   REFERENCED_VARS (I) is call-clobbered.  */
+extern bitmap call_clobbered_vars;
 
 /* 'true' after aliases have been computed (see compute_may_aliases).  */
 extern bool aliases_computed_p;
@@ -451,6 +487,7 @@ extern void dump_generic_bb (FILE *, basic_block, int, int);
 /* In tree-dfa.c  */
 extern var_ann_t create_var_ann (tree);
 extern stmt_ann_t create_stmt_ann (tree);
+extern ssa_name_ann_t create_ssa_name_ann (tree);
 extern tree create_phi_node (tree, basic_block);
 extern void add_phi_arg (tree *, tree, edge);
 extern void remove_phi_arg (tree, basic_block);
@@ -463,8 +500,6 @@ extern void debug_referenced_vars (void);
 extern void dump_referenced_vars (FILE *);
 extern void dump_variable (FILE *, tree);
 extern void debug_variable (tree);
-extern void dump_may_aliases_for (FILE *, tree);
-extern void debug_may_aliases_for (tree);
 extern void dump_immediate_uses (FILE *);
 extern void debug_immediate_uses (void);
 extern void dump_immediate_uses_for (FILE *, tree);
@@ -475,10 +510,7 @@ extern void compute_reached_uses (int);
 extern void compute_immediate_uses (int, bool (*)(tree));
 extern void free_df (void);
 extern void compute_reaching_defs (int);
-extern void dump_alias_info (FILE *);
-extern void debug_alias_info (void);
 extern tree get_virtual_var (tree);
-extern void create_global_var (void);
 extern void add_referenced_tmp_var (tree var);
 extern void mark_new_vars_to_rename (tree, bitmap);
 extern void discover_nonconstant_array_refs (void);
@@ -494,6 +526,18 @@ extern void expand_used_vars (void);
 extern void remove_useless_vars (void);
 extern void record_vars (tree);
 extern bool block_may_fallthru (tree block);
+
+/* In tree-ssa-alias.c  */
+extern void dump_may_aliases_for (FILE *, tree);
+extern void debug_may_aliases_for (tree);
+extern void dump_alias_info (FILE *);
+extern void debug_alias_info (void);
+extern void dump_points_to_info (FILE *);
+extern void debug_points_to_info (void);
+
+/* Call-back function for walk_use_def_chains().  At each reaching
+   definition, a function with this prototype is called.  */
+typedef void (*walk_use_def_chains_fn) (tree, tree, void *);
 
 /* In tree-ssa.c  */
 extern void init_tree_ssa (void);
@@ -514,6 +558,7 @@ extern bool tree_ssa_useless_type_conversion_1 (tree, tree);
 extern void verify_ssa (void);
 extern void delete_tree_ssa (void);
 extern void register_new_def (tree, tree, varray_type *, varray_type);
+extern void walk_use_def_chains (tree, walk_use_def_chains_fn, void *);
 
 extern unsigned int highest_ssa_version;
 extern void kill_redundant_phi_nodes (void);
@@ -534,6 +579,8 @@ extern void propagate_copy (tree *, tree);
 static inline int phi_arg_from_edge (tree, edge);
 static inline struct phi_arg_d *phi_element_for_edge (tree, edge);
 static inline bool may_propagate_copy (tree, tree);
+static inline bool is_call_clobbered (tree);
+static inline void mark_call_clobbered (tree);
 
 /* In tree-eh.c  */
 extern void make_eh_edges (tree);

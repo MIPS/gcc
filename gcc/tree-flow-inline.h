@@ -64,6 +64,28 @@ get_stmt_ann (tree stmt)
   return (ann) ? ann : create_stmt_ann (stmt);
 }
 
+static inline ssa_name_ann_t
+ssa_name_ann (tree t)
+{
+#if defined ENABLE_CHECKING
+  if (t == NULL_TREE
+      || TREE_CODE (t) != SSA_NAME
+      || (t->common.ann
+	  && t->common.ann->common.type != SSA_NAME_ANN))
+    abort ();
+#endif
+
+  return (ssa_name_ann_t) t->common.ann;
+}
+
+static inline ssa_name_ann_t
+get_ssa_name_ann (tree var)
+{
+  ssa_name_ann_t ann = ssa_name_ann (var);
+  return (ann) ? ann : create_ssa_name_ann (var);
+}
+
+
 static inline enum tree_ann_type
 ann_type (tree_ann ann)
 {
@@ -82,45 +104,6 @@ may_aliases (tree var)
 {
   var_ann_t ann = var_ann (var);
   return ann ? ann->may_aliases : NULL;
-}
-
-static inline void
-set_may_alias_global_mem (tree var)
-{
-  var_ann_t ann = var_ann (var);
-  if (ann == NULL)
-    ann = create_var_ann (var);
-  ann->may_alias_global_mem = 1;
-}
-
-static inline bool
-may_alias_global_mem_p (tree var)
-{
-  var_ann_t ann = var_ann (var);
-  return ann ? ann->may_alias_global_mem : false;
-}
-
-static inline void
-set_may_point_to_global_mem (tree var)
-{
-  var_ann_t ann;
-
-#if defined ENABLE_CHECKING
-  if (!POINTER_TYPE_P (TREE_TYPE (var)))
-    abort ();
-#endif
-
-  ann = var_ann (var);
-  if (ann == NULL)
-    ann = create_var_ann (var);
-  ann->may_point_to_global_mem = 1;
-}
-
-static inline bool
-may_point_to_global_mem_p (tree var)
-{
-  var_ann_t ann = var_ann (var);
-  return ann ? ann->may_point_to_global_mem : false;
 }
 
 static inline bool
@@ -280,7 +263,7 @@ start_ssa_stmt_operands (tree stmt ATTRIBUTE_UNUSED)
 #endif
 }
 
-static inline varray_type
+static inline bitmap
 addresses_taken (tree stmt)
 {
   stmt_ann_t ann = stmt_ann (stmt);
@@ -449,8 +432,8 @@ may_propagate_copy (tree dest, tree orig)
       && POINTER_TYPE_P (TREE_TYPE (dest))
       && POINTER_TYPE_P (TREE_TYPE (orig)))
     {
-      tree mt_dest = var_ann (SSA_NAME_VAR (dest))->mem_tag;
-      tree mt_orig = var_ann (SSA_NAME_VAR (orig))->mem_tag;
+      tree mt_dest = var_ann (SSA_NAME_VAR (dest))->type_mem_tag;
+      tree mt_orig = var_ann (SSA_NAME_VAR (orig))->type_mem_tag;
       if (mt_dest && mt_orig && mt_dest != mt_orig)
 	return false;
     }
@@ -568,6 +551,30 @@ may_be_aliased (tree var)
 {
   return (TREE_ADDRESSABLE (var)
           || decl_function_context (var) != current_function_decl);
+}
+
+static inline bool
+is_call_clobbered (tree var)
+{
+  return needs_to_live_in_memory (var)
+	 || bitmap_bit_p (call_clobbered_vars, var_ann (var)->uid);
+}
+
+static inline void
+mark_call_clobbered (tree var)
+{
+  var_ann_t ann = var_ann (var);
+  /* Call-clobbered variables need to live in memory.  */
+  DECL_NEEDS_TO_LIVE_IN_MEMORY_INTERNAL (var) = 1;
+  bitmap_set_bit (call_clobbered_vars, ann->uid);
+}
+
+static inline void
+mark_non_addressable (tree var)
+{
+  bitmap_clear_bit (call_clobbered_vars, var_ann (var)->uid);
+  DECL_NEEDS_TO_LIVE_IN_MEMORY_INTERNAL (var) = 0;
+  TREE_ADDRESSABLE (var) = 0;
 }
 
 #endif /* _TREE_FLOW_INLINE_H  */

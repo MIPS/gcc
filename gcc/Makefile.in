@@ -869,7 +869,7 @@ OBJS-common = \
  tree-cfg.o tree-dfa.o tree-eh.o tree-ssa.o tree-optimize.o tree-simple.o  \
  tree-alias-type.o gimplify.o tree-pretty-print.o                          \
  tree-alias-common.o tree-ssa-ccp.o tree-browser.o @ANDER@ tree-ssa-dce.o  \
- tree-ssa-pre.o tree-ssa-live.o tree-ssa-operands.o	                   \
+ tree-ssa-pre.o tree-ssa-live.o tree-ssa-operands.o tree-ssa-alias.o       \
  tree-ssa-dom.o domwalk.o tree-tailcall.o gimple-low.o tree-iterator.o	   \
  tree-phinodes.o tree-ssanames.o tree-sra.o tree-complex.o tree-ssa-loop.o \
  alias.o bb-reorder.o bitmap.o builtins.o caller-save.o calls.o	  	   \
@@ -1571,7 +1571,7 @@ tree-dfa.o : tree-dfa.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
    $(TREE_DUMP_H) tree-pass.h params.h
 tree-ssa-operands.o : tree-ssa-operands.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(TREE_H) $(TM_P_H) $(GGC_H) diagnostic.h \
-   tree-inline.h flags.h function.h $(TM_H) 
+   tree-inline.h flags.h function.h $(TM_H) $(TIMEVAR_H) tree-pass.h
 tree-eh.o : tree-eh.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
    $(RTL_H) $(TREE_H) $(TM_H) flags.h function.h except.h langhooks.h \
    $(GGC_H) tree-pass.h gt-tree-eh.h
@@ -1579,6 +1579,10 @@ tree-ssa-loop.o : tree-ssa-loop.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) cfgloop.h \
    output.h diagnostic.h $(TIMEVAR_H) $(TM_H) coretypes.h $(TREE_DUMP_H) \
    tree-pass.h flags.h
+tree-ssa-alias.o : tree-ssa-alias.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
+   $(RTL_H) $(TREE_H) $(TM_P_H) $(EXPR_H) $(GGC_H) tree-inline.h flags.h \
+   function.h $(TIMEVAR_H) tree-alias-common.h convert.h $(TM_H) coretypes.h \
+   langhooks.h $(TREE_DUMP_H) tree-pass.h params.h
 tree-optimize.o : tree-optimize.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(EXPR_H) \
    $(GGC_H) output.h diagnostic.h errors.h flags.h tree-alias-common.h \
@@ -2216,7 +2220,7 @@ gt-dwarf2out.h gt-ra-build.h gt-reg-stack.h gt-dwarf2asm.h \
 gt-dbxout.h gt-c-common.h gt-c-decl.h gt-c-parse.h \
 gt-c-pragma.h gtype-c.h gt-input.h gt-cfglayout.h \
 gt-tree-alias-common.h gt-tree-mudflap.h \
-gt-tree-ssa.h gt-tree-dfa.h gt-tree-ssa-ccp.h gt-tree-eh.h \
+gt-tree-ssa.h gt-tree-ssa-ccp.h gt-tree-eh.h \
 gt-tree-ssanames.h gt-tree-iterator.h gt-gimplify.h \
 gt-tree-phinodes.h gt-tree-cfg.h \
 gt-stringpool.h gt-langhooks.h : s-gtype ; @true

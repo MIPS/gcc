@@ -5206,4 +5206,20 @@ is_essa_node (tree t)
   return false;
 }
 
+
+/* Return true if T (assumed to be a DECL) must be assigned a memory
+   location.  */
+
+bool
+needs_to_live_in_memory (tree t)
+{
+  return (DECL_NEEDS_TO_LIVE_IN_MEMORY_INTERNAL (t)
+	  || TREE_STATIC (t)
+          || DECL_EXTERNAL (t)
+	  || DECL_NONLOCAL (t)
+	  || (TREE_CODE (t) == RESULT_DECL
+	      && aggregate_value_p (t, current_function_decl))
+	  || decl_function_context (t) != current_function_decl);
+}
+
 #include "gt-tree.h"

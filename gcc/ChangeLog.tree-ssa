@@ -1,3 +1,112 @@
+2004-02-10  Diego Novillo  <dnovillo@redhat.com>
+
+	* Makefile.in (OBJS-common): Add tree-ssa-alias.o.
+	(tree-ssa-alias.o): New rule.
+	(tree-ssa-operands.o): Add dependency on $(TIMEVAR_H) and tree-pass.h
+	(gt-tree-dfa.h): Remove.
+	* timevar.def (TV_TREE_OPS): Rename from unused entry TV_TREE_DFA.
+	* tree-ssa-alias.c: New file.
+	* tree-dfa.c (struct alias_stats_d, alias_stats, dump_alias_stats,
+	may_alias_p, add_may_alias, global_var, aliases_computed_p,
+	compute_may_aliases): Move to tree-ssa-alias.c.
+	(struct walk_state): Remove fields 'is_asm_expr' and 'num_calls'.
+	Update all users.
+	(compute_alias_sets, create_memory_tags, may_access_global_mem_p,
+	get_memory_tag_for, promote_call_clobbered_vars,
+	find_addressable_vars): Remove.
+	(call_clobbered_vars): Move to tree-ssa-alias.c and convert to
+	bitmap.
+	(find_referenced_vars): Move logic to create .GLOBAL_VAR to
+	tree-ssa-alias.c.
+	(create_ssa_name_ann): New.
+	(dump_variable): Rearrange.
+	(dump_dfa_stats): Do not show the number of call clobbered
+	variables.
+	(find_vars_r): Do not try to determine if an assignment my access
+	global memory.
+	(add_referenced_var): Remove hacks to establish global memory
+	dependencies.
+	If the variable needs to live in memory mark it call-clobbered.
+	* tree-flow-inline.h (ssa_name_ann): New.
+	(get_ssa_name_ann): New.
+	(set_may_alias_global_mem): Remove.
+	(may_alias_global_mem_p): Remove.
+	(set_may_point_to_global_mem): Remove.
+	(may_point_to_global_mem_p): Remove.
+	(is_call_clobbered): New
+	(mark_call_clobbered): New
+	(mark_non_addressable): New
+	* tree-flow.h (enum tree_ann_type): Add SSA_NAME_ANN.
+	(enum mem_tag_kind): Declare.
+	(struct var_ann_d): Remove fields 'is_call_clobbered',
+	'may_alias_global_mem' and 'may_point_to_global_mem'.
+	Replace bitfield 'mem_tag' with enum bitfield 'mem_tag_kind'.
+	Rename field 'mem_tag' to 'type_mem_tag'.
+	(struct stmt_ann_d): Change type of field 'addresses_taken' to a
+	bitmap.  Update all users.
+	(struct ssa_name_ann_d): Declare.
+	(union tree_ann_d): Add field 'ssa_name'.
+	(ssa_name_ann_t): New type.
+	(struct bb_ann_d): Add field 'has_escape_site'.
+	(num_call_clobbered_vars): Remove.
+	(call_clobbered_var): Remove.
+	(call_clobbered_vars): Change to bitmap.
+	(dump_points_to_info): Declare.
+	(debug_points_to_info): Declare.
+	(walk_use_def_chains_fn): New type.
+	(walk_use_def_chains): Declare.
+	(is_call_clobbered): Declare.
+	(mark_call_clobbered): Declare.
+	* tree-simple.c (needs_to_live_in_memory): Move to tree.c.
+	(is_gimple_non_addressable): Update comment.
+	(is_gimple_call_clobbered): Remove.
+	(get_call_expr_in): New.
+	(get_base_var): Rename from get_base_symbol.  Update all callers.
+	Don't strip SSA_NAME wrappers.
+	(get_base_decl): New.
+	(get_base_address): New.
+	* tree-simple.h (is_gimple_call_clobbered): Remove.
+	(needs_to_live_in_memory): Remove.
+	(get_base_decl): Declare.
+	(get_base_var): Declare.
+	(get_base_address): Declare.
+	* tree-ssa-dce.c (need_to_preserve_store): Reduce to calling
+	needs_to_live_in_memory.
+	* tree-ssa-operands.c: Include tree-pass.h and timevar.h
+	(get_stmt_operands): Push/pop TV_TREE_OPS time var.
+	Call mark_call_clobbered for asms that store to memory.
+	(get_expr_operands): When adding operands for INDIRECT_REF
+	expressions, use flow-sensitive aliasing, if available.
+	Assume that malloc-like function calls won't clobber.
+	(add_call_clobber_ops):
+	(add_call_read_ops):
+	* tree-ssa.c (rewrite_into_ssa): If any variable in vars_to_rename
+	is a pointer, invalidate all name memory tags.
+	(create_temp): Call is_call_clobbered and mark_call_clobbered.
+	(walk_use_def_chains_1): New.
+	(walk_use_def_chains): New.
+
+	* tree.c (needs_to_live_in_memory): New.
+	* tree.h (DECL_NEEDS_TO_LIVE_IN_MEMORY_INTERNAL): Define.
+	(struct tree_decl): Add bitfield 'needs_to_live_in_memory'.
+	Update unused bits comment.
+	(needs_to_live_in_memory): Declare.
+
+	* tree-simple.h (get_call_expr_in): Declare.
+	* tree-sra.c (scalarize_stmt): Call get_call_expr_in when handling
+	function calls.
+	* tree-ssa-ccp.c (likely_value): Likewise.
+
+	* params.def (PARAM_MAX_CLOBBERED_VARS_GLOBAL_VAR): Remove.
+	(PARAM_MAX_CALLS_GLOBAL_VAR): Remove.
+	(PARAM_GLOBAL_VAR_THRESHOLD): Define.
+	(PARAM_MAX_ALIAS_SET_SIZE): Define.
+	Update all users.
+	* params.h (MAX_CALLS_FOR_GLOBAL_VAR): Remove.
+	(MAX_CLOBBERED_VARS_FOR_GLOBAL_VAR): Remove.
+	(GLOBAL_VAR_THRESHOLD): Define.
+	(MAX_ALIAS_SET_SIZE): Define.
+
 2004-02-09  Richard Henderson  <rth@redhat.com>
 
 	* langhooks.h (lang_hooks_for_functions): Add missing_noreturn_ok_p.

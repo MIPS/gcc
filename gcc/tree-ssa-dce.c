@@ -269,31 +269,10 @@ mark_operand_necessary (tree op)
 
 /* Return true if a store to a variable needs to be preserved.  */
 
-static bool
+static inline bool
 need_to_preserve_store (tree var)
 {
-  tree base_symbol;
-  tree sym;
-
-  if (var == NULL)
-    return false;
-
-  sym = SSA_NAME_VAR (var);
-  base_symbol = get_base_symbol (var);
-
-  /* Store to global variables must be preserved.  */
-  if (decl_function_context (base_symbol) != current_function_decl)
-    return true;
-
-  /* Static locals must be preserved as well.  */
-  if (TREE_STATIC (base_symbol))
-    return true;
-
-  /* If SYM may alias global memory, we also need to preserve the store.  */
-  if (may_alias_global_mem_p (sym))
-    return true;
-
-  return false;
+  return (needs_to_live_in_memory (get_base_decl (var)));
 }
 
 

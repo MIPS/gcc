@@ -72,12 +72,9 @@ bool is_gimple_cast (tree);
 bool is_gimple_constructor_elt (tree);
 /* Returns true iff T is a variable that does not need to live in memory.  */
 bool is_gimple_non_addressable (tree t);
-/* Returns true iff T is a variable that may be modified by function
-   calls.  */
-bool is_gimple_call_clobbered (tree t);
-/* Returns true iff T (assumed to be a variable) needs to be assigned a
-   memory location.  */
-bool needs_to_live_in_memory (tree t);
+
+/* If T makes a function call, returns the CALL_EXPR operand.  */
+tree get_call_expr_in (tree t);
 
 void recalculate_side_effects (tree);
 
@@ -110,7 +107,9 @@ void push_gimplify_context (void);
 void pop_gimplify_context (tree);
 
 /* Miscellaneous helpers.  */
-tree get_base_symbol (tree);
+tree get_base_decl (tree);
+tree get_base_var (tree);
+tree get_base_address (tree t);
 void gimple_add_tmp_var (tree);
 tree gimple_current_bind_expr (void);
 void gimple_push_bind_expr (tree);

@@ -331,7 +331,35 @@ rewrite_into_ssa (void)
 
   /* Initialize the array of variables to rename.  */
   if (vars_to_rename != NULL)
-    remove_all_phi_nodes_for (vars_to_rename);
+    {
+      size_t i;
+      bool rename_name_tags_p;
+
+      /* If any of the variables in VARS_TO_RENAME is a pointer, we need to
+	 invalidate all the name memory tags associated with the variables
+	 that we are about to rename.  FIXME: Currently we just invalidate
+	 *all* the NMTs.  Make this more selective.  */
+      rename_name_tags_p = false;
+      EXECUTE_IF_SET_IN_BITMAP (vars_to_rename, 0, i,
+	  if (POINTER_TYPE_P (TREE_TYPE (referenced_var (i))))
+	    {
+	      rename_name_tags_p = true;
+	      break;
+	    });
+
+      if (rename_name_tags_p)
+	for (i = 0; i < num_referenced_vars; i++)
+	  {
+	    var_ann_t ann = var_ann (referenced_var (i));
+
+	    if (ann->mem_tag_kind == NAME_TAG)
+	      bitmap_set_bit (vars_to_rename, ann->uid);
+	  }
+
+      /* Now remove all the existing PHI nodes (if any) for the variables
+	 that we are about to rename into SSA.  */
+      remove_all_phi_nodes_for (vars_to_rename);
+    }
 
   /* Allocate memory for the DEF_BLOCKS hash table.  */
   def_blocks = htab_create (VARRAY_ACTIVE_SIZE (referenced_vars),
@@ -948,10 +976,11 @@ create_temp (tree t)
   /* add_referenced_tmp_var will create the annotation and set up some
      of the flags in the annotation.  However, some flags we need to
      inherit from our original variable.  */
-  var_ann (tmp)->mem_tag = var_ann (t)->mem_tag;
+  var_ann (tmp)->type_mem_tag = var_ann (t)->type_mem_tag;
   var_ann (tmp)->is_dereferenced_load = var_ann (t)->is_dereferenced_load;
   var_ann (tmp)->is_dereferenced_store = var_ann (t)->is_dereferenced_store;
-  var_ann (tmp)->is_call_clobbered = var_ann (t)->is_call_clobbered;
+  if (is_call_clobbered (t))
+    mark_call_clobbered (tmp);
   var_ann (tmp)->is_stored = var_ann (t)->is_stored;
 
   return tmp;
@@ -3327,7 +3356,7 @@ rewrite_stmt (block_stmt_iterator si, varray_type *block_defs_p)
 void
 set_is_used (tree t)
 {
-  t = get_base_symbol (t);
+  t = get_base_decl (t);
   var_ann (t)->used = 1;
 }
 
@@ -3379,7 +3408,8 @@ void
 init_tree_ssa (void)
 {
   VARRAY_TREE_INIT (referenced_vars, 20, "referenced_vars");
-  VARRAY_TREE_INIT (call_clobbered_vars, 20, "call_clobbered_vars");
+  call_clobbered_vars = BITMAP_XMALLOC ();
+  bitmap_clear (call_clobbered_vars);
   init_ssa_operands ();
   init_ssanames ();
   init_phinodes ();
@@ -3416,6 +3446,7 @@ delete_tree_ssa (void)
   fini_ssa_operands ();
 
   global_var = NULL_TREE;
+  BITMAP_FREE (call_clobbered_vars);
   call_clobbered_vars = NULL;
   aliases_computed_p = false;
 }
@@ -3581,6 +3612,86 @@ tree_ssa_useless_type_conversion (tree expr)
 
 
   return false;
+}
+
+
+/* Internal helper for walk_use_def_chains.  VAR, FN and DATA are as
+   described in walk_use_def_chains.  VISITED is a bitmap used to mark
+   visited SSA_NAMEs to avoid infinite loops.  */
+
+static void
+walk_use_def_chains_1 (tree var, walk_use_def_chains_fn fn, void *data,
+		       bitmap visited)
+{
+  tree def_stmt;
+
+  if (bitmap_bit_p (visited, SSA_NAME_VERSION (var)))
+    return;
+
+  bitmap_set_bit (visited, SSA_NAME_VERSION (var));
+
+  def_stmt = SSA_NAME_DEF_STMT (var);
+
+  if (TREE_CODE (def_stmt) != PHI_NODE)
+    {
+      /* If we reached the end of the use-def chain, call FN.  */
+      (*fn) (var, def_stmt, data);
+    }
+  else
+    {
+      int i;
+
+      /* Otherwise, follow use-def links out of each PHI argument and call
+	 FN after visiting each one.  */
+      for (i = 0; i < PHI_NUM_ARGS (def_stmt); i++)
+	{
+	  tree arg = PHI_ARG_DEF (def_stmt, i);
+	  if (TREE_CODE (arg) == SSA_NAME)
+	    walk_use_def_chains_1 (arg, fn, data, visited);
+	  (*fn) (arg, def_stmt, data);
+	}
+    }
+}
+  
+
+
+/* Walk use-def chains starting at the SSA variable VAR.  Call function FN
+   at each reaching definition found.  FN takes three arguments: VAR, its
+   defining statement (DEF_STMT) and a generic pointer to whatever state
+   information that FN may want to maintain (DATA).
+
+   Note, that if DEF_STMT is a PHI node, the semantics are slightly
+   different.  For each argument ARG of the PHI node, this function will:
+
+	1- Walk the use-def chains for ARG.
+	2- Call (*FN) (ARG, PHI, DATA).
+
+   Note how the first argument to FN is no longer the original variable
+   VAR, but the PHI argument currently being examined.  If FN wants to get
+   at VAR, it should call PHI_RESULT (PHI).  */
+
+void
+walk_use_def_chains (tree var, walk_use_def_chains_fn fn, void *data)
+{
+  tree def_stmt;
+
+#if defined ENABLE_CHECKING
+  if (TREE_CODE (var) != SSA_NAME)
+    abort ();
+#endif
+
+  def_stmt = SSA_NAME_DEF_STMT (var);
+
+  /* We only need to recurse if the reaching definition comes from a PHI
+     node.  */
+  if (TREE_CODE (def_stmt) != PHI_NODE)
+    (*fn) (var, def_stmt, data);
+  else
+    {
+      bitmap visited = BITMAP_XMALLOC ();
+      walk_use_def_chains_1 (var, fn, data, visited);
+      BITMAP_XFREE (visited);
+    }
 }
 
 /* Replaces immediate uses of VAR by REPL.  */
