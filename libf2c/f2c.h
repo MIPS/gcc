@@ -1,64 +1,223 @@
-/* f2c.h file for GNU Fortran run-time library
-   Copyright (C) 1998 Free Software Foundation, Inc.
-   Contributed by James Craig Burley.
+/* f2c.h  --  Standard Fortran to C header file */
 
-This file is part of GNU Fortran.
+/**  barf  [ba:rf]  2.  "He suggested using FORTRAN, and everybody barfed."
 
-GNU Fortran is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+	- From The Shogakukan DICTIONARY OF NEW ENGLISH (Second edition) */
 
-GNU Fortran is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+#ifndef F2C_INCLUDE
+#define F2C_INCLUDE
 
-You should have received a copy of the GNU General Public License
-along with GNU Fortran; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+typedef long int integer;
+typedef unsigned long uinteger;
+typedef char *address;
+typedef short int shortint;
+typedef float real;
+typedef double doublereal;
+typedef struct { real r, i; } complex;
+typedef struct { doublereal r, i; } doublecomplex;
+typedef long int logical;
+typedef short int shortlogical;
+typedef char logical1;
+typedef char integer1;
+#if 0	/* Adjust for integer*8. */
+typedef long long longint;		/* system-dependent */
+typedef unsigned long long ulongint;	/* system-dependent */
+#define qbit_clear(a,b)	((a) & ~((ulongint)1 << (b)))
+#define qbit_set(a,b)	((a) |  ((ulongint)1 << (b)))
+#endif
 
-/* This file currently is just a stub through which g77's copy
-   of netlib's libf2c, which g77 builds and installs as libg2c.a
-   (to avoid conflict), #include's g77's version of f2c.h, named
-   g2c.h.  That file is, in turn, produced via g77's library
-   configuration process from g2c.h.in.
+#define TRUE_ (1)
+#define FALSE_ (0)
 
-   By going through this extra "hoop", it is easy to provide for
-   libg2c-specific configuration and typedefs that aren't appropriate
-   in g2c.h itself (since that is intended to be installed so it can
-   be shared with f2c users), without changing the libf2c (libg2c)
-   routines themselves.  (They continue to #include "f2c.h", just
-   like they do in netlib's version.)  */
+/* Extern is for use with -E */
+#ifndef Extern
+#define Extern extern
+#endif
 
-#include "g2c.h"
+/* I/O stuff */
 
-/* For GNU Fortran (g77), we always enable the following behaviors for
-   libf2c, to make things easy on the programmer.  The alternate
-   behaviors have their uses, and g77 might provide them as compiler,
-   rather than library, options, so only a single copy of a shared libf2c
-   need be built for a system.  */
+#ifdef f2c_i2
+/* for -i2 */
+typedef short flag;
+typedef short ftnlen;
+typedef short ftnint;
+#else
+typedef long int flag;
+typedef long int ftnlen;
+typedef long int ftnint;
+#endif
 
-/* This makes unformatted I/O more consistent in relation to other
-   systems.  It is not required by the F77 standard.  */
+/*external read, write*/
+typedef struct
+{	flag cierr;
+	ftnint ciunit;
+	flag ciend;
+	char *cifmt;
+	ftnint cirec;
+} cilist;
 
-#define Pad_UDread
+/*internal read, write*/
+typedef struct
+{	flag icierr;
+	char *iciunit;
+	flag iciend;
+	char *icifmt;
+	ftnint icirlen;
+	ftnint icirnum;
+} icilist;
 
-/* This makes ERR= and IOSTAT= returns work properly in disk-full
-   situations, making things work more as expected.  It slows things
-   down, so g77 will probably someday choose the original implementation
-   on a case-by-case basis when it can be shown to not be necessary
-   (e.g. no ERR= or IOSTAT=) or when it is given the appropriate
-   compile-time option or, perhaps, source-code directive.
+/*open*/
+typedef struct
+{	flag oerr;
+	ftnint ounit;
+	char *ofnm;
+	ftnlen ofnmlen;
+	char *osta;
+	char *oacc;
+	char *ofm;
+	ftnint orl;
+	char *oblnk;
+} olist;
 
-   (No longer defined, since it really slows down NFS access too much.)  */
+/*close*/
+typedef struct
+{	flag cerr;
+	ftnint cunit;
+	char *csta;
+} cllist;
 
-/* #define ALWAYS_FLUSH */
+/*rewind, backspace, endfile*/
+typedef struct
+{	flag aerr;
+	ftnint aunit;
+} alist;
 
-/* Most Fortran implementations do this, so to make it easier
-   to compare the output of g77-compiled programs to those compiled
-   by most other compilers, tell libf2c to put leading zeros in
-   appropriate places on output.  */
+/* inquire */
+typedef struct
+{	flag inerr;
+	ftnint inunit;
+	char *infile;
+	ftnlen infilen;
+	ftnint	*inex;	/*parameters in standard's order*/
+	ftnint	*inopen;
+	ftnint	*innum;
+	ftnint	*innamed;
+	char	*inname;
+	ftnlen	innamlen;
+	char	*inacc;
+	ftnlen	inacclen;
+	char	*inseq;
+	ftnlen	inseqlen;
+	char 	*indir;
+	ftnlen	indirlen;
+	char	*infmt;
+	ftnlen	infmtlen;
+	char	*inform;
+	ftnint	informlen;
+	char	*inunf;
+	ftnlen	inunflen;
+	ftnint	*inrecl;
+	ftnint	*innrec;
+	char	*inblank;
+	ftnlen	inblanklen;
+} inlist;
 
-#define WANT_LEAD_0
+#define VOID void
+
+union Multitype {	/* for multiple entry points */
+	integer1 g;
+	shortint h;
+	integer i;
+	/* longint j; */
+	real r;
+	doublereal d;
+	complex c;
+	doublecomplex z;
+	};
+
+typedef union Multitype Multitype;
+
+/*typedef long int Long;*/	/* No longer used; formerly in Namelist */
+
+struct Vardesc {	/* for Namelist */
+	char *name;
+	char *addr;
+	ftnlen *dims;
+	int  type;
+	};
+typedef struct Vardesc Vardesc;
+
+struct Namelist {
+	char *name;
+	Vardesc **vars;
+	int nvars;
+	};
+typedef struct Namelist Namelist;
+
+#define abs(x) ((x) >= 0 ? (x) : -(x))
+#define dabs(x) (doublereal)abs(x)
+#define min(a,b) ((a) <= (b) ? (a) : (b))
+#define max(a,b) ((a) >= (b) ? (a) : (b))
+#define dmin(a,b) (doublereal)min(a,b)
+#define dmax(a,b) (doublereal)max(a,b)
+#define bit_test(a,b)	((a) >> (b) & 1)
+#define bit_clear(a,b)	((a) & ~((uinteger)1 << (b)))
+#define bit_set(a,b)	((a) |  ((uinteger)1 << (b)))
+
+/* procedure parameter types for -A and -C++ */
+
+#define F2C_proc_par_types 1
+#ifdef __cplusplus
+typedef int /* Unknown procedure type */ (*U_fp)(...);
+typedef shortint (*J_fp)(...);
+typedef integer (*I_fp)(...);
+typedef real (*R_fp)(...);
+typedef doublereal (*D_fp)(...), (*E_fp)(...);
+typedef /* Complex */ VOID (*C_fp)(...);
+typedef /* Double Complex */ VOID (*Z_fp)(...);
+typedef logical (*L_fp)(...);
+typedef shortlogical (*K_fp)(...);
+typedef /* Character */ VOID (*H_fp)(...);
+typedef /* Subroutine */ int (*S_fp)(...);
+#else
+typedef int /* Unknown procedure type */ (*U_fp)();
+typedef shortint (*J_fp)();
+typedef integer (*I_fp)();
+typedef real (*R_fp)();
+typedef doublereal (*D_fp)(), (*E_fp)();
+typedef /* Complex */ VOID (*C_fp)();
+typedef /* Double Complex */ VOID (*Z_fp)();
+typedef logical (*L_fp)();
+typedef shortlogical (*K_fp)();
+typedef /* Character */ VOID (*H_fp)();
+typedef /* Subroutine */ int (*S_fp)();
+#endif
+/* E_fp is for real functions when -R is not specified */
+typedef VOID C_f;	/* complex function */
+typedef VOID H_f;	/* character function */
+typedef VOID Z_f;	/* double complex function */
+typedef doublereal E_f;	/* real function with -R not specified */
+
+/* undef any lower-case symbols that your C compiler predefines, e.g.: */
+
+#ifndef Skip_f2c_Undefs
+#undef cray
+#undef gcos
+#undef mc68010
+#undef mc68020
+#undef mips
+#undef pdp11
+#undef sgi
+#undef sparc
+#undef sun
+#undef sun2
+#undef sun3
+#undef sun4
+#undef u370
+#undef u3b
+#undef u3b2
+#undef u3b5
+#undef unix
+#undef vax
+#endif
+#endif
