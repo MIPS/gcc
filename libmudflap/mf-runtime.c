@@ -2272,7 +2272,8 @@ __mf_sigusr1_respond ()
   if (__mf_sigusr1_received > __mf_sigusr1_handled)
     {
       __mf_sigusr1_handled ++;
-      __mf_report ();
+      assert (__mf_state == reentrant);
+      __mfu_report ();
       handler_installed = 0; /* We may need to re-enable signal; this might be a SysV library. */
     }
 }

@@ -1,5 +1,10 @@
 2003-05-23  Frank Ch. Eigler  <fche@redhat.com>
 
+	* mf-runtime.c (__mf_sigusr1_handle): Call unlocked variant of
+	__mf_report, asserting reentrant calling context.
+
+2003-05-23  Frank Ch. Eigler  <fche@redhat.com>
+
 	* mf-hooks.c (realloc): Correct reentrancy logic.
 	* testsuite/libmudflap.c/hook-allocstuff.c: New test case.
 
