@@ -119,6 +119,14 @@ extern void _Unwind_Resume (struct _Unwind_Exception *);
    a normal exception that was handled.  */
 extern _Unwind_Reason_Code _Unwind_Resume_or_Rethrow (struct _Unwind_Exception *);
 
+/* @@@ Use unwind data to perform a stack backtrace.  The trace callback
+   is called for every stack frame in the call chain, but no cleanup
+   actions are performed.  */
+typedef _Unwind_Reason_Code (*_Unwind_Trace_Fn)
+     (struct _Unwind_Context *, void *);
+
+extern _Unwind_Reason_Code _Unwind_Backtrace (_Unwind_Trace_Fn, void *);
+
 /* These functions are used for communicating information about the unwind
    context (i.e. the unwind descriptors and the user register state) between
    the unwind library and the personality routine and landing pad.  Only
@@ -194,6 +202,10 @@ _Unwind_GetTextRelBase (struct _Unwind_Context *_C)
 extern _Unwind_Ptr _Unwind_GetDataRelBase (struct _Unwind_Context *);
 extern _Unwind_Ptr _Unwind_GetTextRelBase (struct _Unwind_Context *);
 #endif
+
+/* @@@ Given an address, return the entry point of the function that
+   contains it.  */
+extern void * _Unwind_FindEnclosingFunction (void *pc);
 
 #ifdef __cplusplus
 }

@@ -217,6 +217,12 @@ _Unwind_GetRegionStart (struct _Unwind_Context *context __attribute__((unused)) 
   return 0;
 }
 
+void *
+_Unwind_FindEnclosingFunction (void *pc)
+{
+  return NULL;
+}
+
 #ifndef __ia64__
 _Unwind_Ptr
 _Unwind_GetDataRelBase (struct _Unwind_Context *context __attribute__((unused)) )

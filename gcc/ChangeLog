@@ -1,3 +1,26 @@
+2003-04-15  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* unwind.inc (_Unwind_Backtrace): New function.
+	* unwind.h (_Unwind_Backtrace): Declare it.
+	* libgcc-std.ver (_Unwind_Backtrace): Export it.
+
+2002-11-26  Andrew Haley  <aph@redhat.com>
+
+	* unwind-sjlj.c (_Unwind_FindEnclosingFunction): Rename
+	from_Unwind_Find_Enclosing_Function.
+	* unwind-dw2.c (_Unwind_FindEnclosingFunction): Likewise.
+	* config/ia64/unwind-ia64.c (_Unwind_FindEnclosingFunction): Likewise.
+	* libgcc-std.ver (_Unwind_FindEnclosingFunction): Rename from
+	_Unwind_Find_Enclosing_Function, export @@GCC_3.3.
+	* unwind.h (_Unwind_FindEnclosingFunction): Add.
+
+2002-11-25  Andrew Haley  <aph@redhat.com>
+
+	* libgcc-std.ver (_Unwind_Find_Enclosing_Function): Add.
+	* config/ia64/unwind-ia64.c (_Unwind_Find_Enclosing_Function): New.
+	* unwind-sjlj.c (_Unwind_Find_Enclosing_Function): Likewise.
+	* unwind-dw2.c (_Unwind_Find_Enclosing_Function): Likewise.
+
 2003-06-10  Jakub Jelinek  <jakub@redhat.com>
 
 	* gcc.c (default_compilers): Pass -D__EXCEPTIONS if -fexceptions
