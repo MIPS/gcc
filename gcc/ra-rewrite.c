@@ -34,6 +34,7 @@
 #include "except.h"
 #include "obstack.h"
 #include "ra.h"
+#include "reload.h"
 #include "pre-reload.h"
 
 /* This file is part of the graph coloring register allocator, and

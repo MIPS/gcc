@@ -32,6 +32,7 @@
 #include "output.h"
 #include "ggc.h"
 #include "obstack.h"
+#include "reload.h"
 #include "pre-reload.h"
 #include "ra.h"
 
