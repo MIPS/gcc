@@ -651,7 +651,7 @@ static void invalidate_skipped_block (rtx);
 static void cse_check_loop_start (rtx, rtx, void *);
 static void cse_set_around_loop (rtx, rtx, rtx);
 static rtx cse_basic_block (rtx, rtx, struct branch_path *, int);
-static void count_reg_usage (rtx, int *, int);
+static void count_reg_usage (rtx, int *, rtx, int);
 static int check_for_label_ref (rtx *, void *);
 extern void dump_class (struct table_elt*);
 static struct cse_reg_info * get_cse_reg_info (unsigned int);
@@ -7267,10 +7267,16 @@ check_for_label_ref (rtx *rtl, void *data)
 
 /* Count the number of times registers are used (not set) in X.
    COUNTS is an array in which we accumulate the count, INCR is how much
-   we count each register usage.  */
+   we count each register usage.
+
+   Don't count a usage of DEST, which is the SET_DEST of a SET which
+   contains X in its SET_SRC.  This is because such a SET does not
+   modify the liveness of DEST.
+   DEST is set to pc_rtx for a trapping insn, which means that we must count
+   uses of a SET_DEST regardless because the insn can't be deleted here.  */
 
 static void
-count_reg_usage (rtx x, int *counts, int incr)
+count_reg_usage (rtx x, int *counts, rtx dest, int incr)
 {
   enum rtx_code code;
   rtx note;
@@ -7283,7 +7289,8 @@ count_reg_usage (rtx x, int *counts, int incr)
   switch (code = GET_CODE (x))
     {
     case REG:
-      counts[REGNO (x)] += incr;
+      if (x != dest)
+	counts[REGNO (x)] += incr;
       return;
 
     case PC:
@@ -7300,23 +7307,28 @@ count_reg_usage (rtx x, int *counts, int incr)
       /* If we are clobbering a MEM, mark any registers inside the address
          as being used.  */
       if (GET_CODE (XEXP (x, 0)) == MEM)
-	count_reg_usage (XEXP (XEXP (x, 0), 0), counts, incr);
+	count_reg_usage (XEXP (XEXP (x, 0), 0), counts, NULL_RTX, incr);
       return;
 
     case SET:
       /* Unless we are setting a REG, count everything in SET_DEST.  */
       if (GET_CODE (SET_DEST (x)) != REG)
-	count_reg_usage (SET_DEST (x), counts, incr);
-      count_reg_usage (SET_SRC (x), counts, incr);
+	count_reg_usage (SET_DEST (x), counts, NULL_RTX, incr);
+      count_reg_usage (SET_SRC (x), counts,
+		       dest ? dest : SET_DEST (x),
+		       incr);
       return;
 
     case CALL_INSN:
-      count_reg_usage (CALL_INSN_FUNCTION_USAGE (x), counts, incr);
-      /* Fall through.  */
-
     case INSN:
     case JUMP_INSN:
-      count_reg_usage (PATTERN (x), counts, incr);
+    /* We expect dest to be NULL_RTX here.  If the insn may trap, mark
+       this fact by setting DEST to pc_rtx.  */
+      if (flag_non_call_exceptions && may_trap_p (PATTERN (x)))
+	dest = pc_rtx;
+      if (code == CALL_INSN)
+        count_reg_usage (CALL_INSN_FUNCTION_USAGE (x), counts, dest, incr);
+      count_reg_usage (PATTERN (x), counts, dest, incr);
 
       /* Things used in a REG_EQUAL note aren't dead since loop may try to
 	 use them.  */
@@ -7331,12 +7343,12 @@ count_reg_usage (rtx x, int *counts, int incr)
 	     Process all the arguments.  */
 	    do
 	      {
-		count_reg_usage (XEXP (eqv, 0), counts, incr);
+		count_reg_usage (XEXP (eqv, 0), counts, dest, incr);
 		eqv = XEXP (eqv, 1);
 	      }
 	    while (eqv && GET_CODE (eqv) == EXPR_LIST);
 	  else
-	    count_reg_usage (eqv, counts, incr);
+	    count_reg_usage (eqv, counts, dest, incr);
 	}
       return;
 
@@ -7346,15 +7358,19 @@ count_reg_usage (rtx x, int *counts, int incr)
 	  /* FUNCTION_USAGE expression lists may include (CLOBBER (mem /u)),
 	     involving registers in the address.  */
 	  || GET_CODE (XEXP (x, 0)) == CLOBBER)
-	count_reg_usage (XEXP (x, 0), counts, incr);
+	count_reg_usage (XEXP (x, 0), counts, NULL_RTX, incr);
 
-      count_reg_usage (XEXP (x, 1), counts, incr);
+      count_reg_usage (XEXP (x, 1), counts, NULL_RTX, incr);
       return;
 
     case ASM_OPERANDS:
+      /* If the asm is volatile, then this insn cannot be deleted,
+	 and so the inputs *must* be live.  */
+      if (MEM_VOLATILE_P (x))
+	dest = NULL_RTX;
       /* Iterate over just the inputs, not the constraints as well.  */
       for (i = ASM_OPERANDS_INPUT_LENGTH (x) - 1; i >= 0; i--)
-	count_reg_usage (ASM_OPERANDS_INPUT (x, i), counts, incr);
+	count_reg_usage (ASM_OPERANDS_INPUT (x, i), counts, dest, incr);
       return;
 
     case INSN_LIST:
@@ -7368,10 +7384,10 @@ count_reg_usage (rtx x, int *counts, int incr)
   for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
     {
       if (fmt[i] == 'e')
-	count_reg_usage (XEXP (x, i), counts, incr);
+	count_reg_usage (XEXP (x, i), counts, dest, incr);
       else if (fmt[i] == 'E')
 	for (j = XVECLEN (x, i) - 1; j >= 0; j--)
-	  count_reg_usage (XVECEXP (x, i, j), counts, incr);
+	  count_reg_usage (XVECEXP (x, i, j), counts, dest, incr);
     }
 }
 
@@ -7463,11 +7479,11 @@ dead_libcall_p (rtx insn, int *counts)
     new = XEXP (note, 0);
 
   /* While changing insn, we must update the counts accordingly.  */
-  count_reg_usage (insn, counts, -1);
+  count_reg_usage (insn, counts, NULL_RTX, -1);
 
   if (validate_change (insn, &SET_SRC (set), new, 0))
     {
-      count_reg_usage (insn, counts, 1);
+      count_reg_usage (insn, counts, NULL_RTX, 1);
       remove_note (insn, find_reg_note (insn, REG_RETVAL, NULL_RTX));
       remove_note (insn, note);
       return true;
@@ -7478,14 +7494,14 @@ dead_libcall_p (rtx insn, int *counts)
       new = force_const_mem (GET_MODE (SET_DEST (set)), new);
       if (new && validate_change (insn, &SET_SRC (set), new, 0))
 	{
-	  count_reg_usage (insn, counts, 1);
+	  count_reg_usage (insn, counts, NULL_RTX, 1);
 	  remove_note (insn, find_reg_note (insn, REG_RETVAL, NULL_RTX));
 	  remove_note (insn, note);
 	  return true;
 	}
     }
 
-  count_reg_usage (insn, counts, 1);
+  count_reg_usage (insn, counts, NULL_RTX, 1);
   return false;
 }
 
@@ -7509,7 +7525,7 @@ delete_trivially_dead_insns (rtx insns, int nreg)
   /* First count the number of times each register is used.  */
   counts = xcalloc (nreg, sizeof (int));
   for (insn = next_real_insn (insns); insn; insn = next_real_insn (insn))
-    count_reg_usage (insn, counts, 1);
+    count_reg_usage (insn, counts, NULL_RTX, 1);
 
   do
     {
@@ -7553,7 +7569,7 @@ delete_trivially_dead_insns (rtx insns, int nreg)
 
 	  if (! live_insn)
 	    {
-	      count_reg_usage (insn, counts, -1);
+	      count_reg_usage (insn, counts, NULL_RTX, -1);
 	      delete_insn_and_edges (insn);
 	      ndead++;
 	    }
