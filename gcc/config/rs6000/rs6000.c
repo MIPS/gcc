@@ -20437,8 +20437,8 @@ rs6000_binds_local_p (tree decl)
   /* APPLE LOCAL begin kext treat vtables as overridable  */
   return default_binds_local_p_1 (decl, 
 	flag_apple_kext && lang_hooks.vtable_p (decl));
-  /* APPLE LOCAL end kext treat vtables as overridable  */
 }
+/* APPLE LOCAL end kext treat vtables as overridable  */
 
 /* APPLE LOCAL begin pragma reverse_bitfields */
 /* Pragma reverse_bitfields.  For compatibility with CW.

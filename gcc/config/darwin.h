@@ -1268,7 +1268,9 @@ enum machopic_addr_class {
     c_register_pragma (0, "reverse_bitfields",			\
 			darwin_pragma_reverse_bitfields);	\
     /* APPLE LOCAL end pragma reverse_bitfields */		\
+    /* APPLE LOCAL begin too many changes confuse diff */	\
   } while (0)
+/* APPLE LOCAL end too many changes confuse diff */
 
 /* APPLE LOCAL begin insert assembly ".abort" directive on fatal error   */
 #define EXIT_FROM_FATAL_DIAGNOSTIC(status) abort_assembly_and_exit (status)

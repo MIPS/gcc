@@ -94,8 +94,10 @@ enum darwin_builtins
    sizeof(bool) to be 1. */
 const char *darwin_one_byte_bool = 0;
 
-/* APPLE LOCAL pragma reverse_bitfields */
+/* APPLE LOCAL begin pragma reverse_bitfields */
+/* Shouldn't there be a comment here?  */
 int darwin_reverse_bitfields = 0;
+/* APPLE LOCAL end pragma reverse_bitfields */
 
 int
 name_needs_quotes (const char *name)
@@ -108,6 +110,7 @@ name_needs_quotes (const char *name)
 }
 
 /* Return true if SYM_REF can be used without an indirection.  */
+/* APPLE LOCAL what is this change for? */
 int
 machopic_symbol_defined_p (rtx sym_ref)
 {
