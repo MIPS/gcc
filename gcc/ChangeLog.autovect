@@ -1,3 +1,17 @@
+2004-12-08 Devang Patel  <dpatel@apple.com>
+
+        * tree-ssa-forwprop.c (cast_conversion_assignment_p): New.
+        (replace_use_in_cond_expr): New.
+        (all_uses_are_replacable): New.
+        (eliminate_unnecessary_casts): New.
+        (tree_ssa_forward_propagate_single_use_var): Eliminate unnecessary
+        casts.
+
+2004-12-08 Devang Patel  <dpatel@apple.com>
+
+        * config/rs6000/rs6000.c (rs6000_emit_vector_select): Adjust
+        vector select insn parameters.
+
 2004-12-06  Keith Besaw  <kbesaw@us.ibm.com>
 
 	* tree-vectorizer.c (update_vuses_to_preheader): New, fixup VUSEs for
