@@ -1,3 +1,7 @@
+2004-10-26  Geoffrey Keating  <geoffk@apple.com>
+
+	* gcc.c-torture/compile/20041026-1.c: New.
+
 2004-10-14  Geoffrey Keating  <geoffk@apple.com>
 
 	* gcc.dg/darwin-misaligned.c: Don't supply -force_cpusubtype_ALL.
