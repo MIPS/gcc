@@ -1,3 +1,10 @@
+2003-09-19  Lars Segerlund  <Lars.Segerlund@comsys.se>
+	Paul Brook  <paul@nowt.org>
+
+	* intrinsics/random.c: New file.
+	* Makefile.am (gfor_hemper_src): Add it.
+	(gfor_specific_c): Fix typo.
+
 2003-09-19  Paul Brook  <paul@nowt.org>
 
 	* All: rename g95->gfc.
