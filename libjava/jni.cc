@@ -693,7 +693,13 @@ array_from_valist (jvalue *values, JArray<jclass> *arg_types, va_list vargs)
     {
       // Here we assume that sizeof(int) >= sizeof(jint), because we
       // use `int' when decoding the varargs.  Likewise for
-      // long/jlong, float, and double.
+      // float, and double.  Also we assume that sizeof(jlong) >=
+      // sizeof(int), i.e. that jlong values are not further
+      // promoted.
+      JvAssert (sizeof (int) >= sizeof (jint));
+      JvAssert (sizeof (jlong) >= sizeof (int));
+      JvAssert (sizeof (double) >= sizeof (jfloat));
+      JvAssert (sizeof (double) >= sizeof (jdouble));
       if (arg_elts[i] == JvPrimClass (byte))
 	values[i].b = (jbyte) va_arg (vargs, int);
       else if (arg_elts[i] == JvPrimClass (short))
@@ -701,7 +707,7 @@ array_from_valist (jvalue *values, JArray<jclass> *arg_types, va_list vargs)
       else if (arg_elts[i] == JvPrimClass (int))
 	values[i].i = (jint) va_arg (vargs, int);
       else if (arg_elts[i] == JvPrimClass (long))
-	values[i].j = (jlong) va_arg (vargs, long);
+	values[i].j = (jlong) va_arg (vargs, jlong);
       else if (arg_elts[i] == JvPrimClass (float))
 	values[i].f = (jfloat) va_arg (vargs, double);
       else if (arg_elts[i] == JvPrimClass (double))
@@ -1978,9 +1984,9 @@ _Jv_GetJNIEnvNewFrame (jclass klass)
     {
       env = (JNIEnv *) _Jv_MallocUnchecked (sizeof (JNIEnv));
       env->p = &_Jv_JNIFunctions;
-      env->ex = NULL;
       env->klass = klass;
       env->locals = NULL;
+      // We set env->ex below.
 
       _Jv_SetCurrentJNIEnv (env);
     }
@@ -1993,10 +1999,12 @@ _Jv_GetJNIEnvNewFrame (jclass klass)
   frame->marker = MARK_SYSTEM;
   frame->size = FRAME_SIZE;
   frame->next = env->locals;
-  env->locals = frame;
 
   for (int i = 0; i < frame->size; ++i)
     frame->vec[i] = NULL;
+
+  env->locals = frame;
+  env->ex = NULL;
 
   return env;
 }

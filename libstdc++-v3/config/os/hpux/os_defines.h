@@ -84,4 +84,9 @@ namespace std
 typedef long int __padding_type;
 #endif
 
+/* We need explicit instantiation of the atomicity lock on HPPA if
+   there is no weak support.  */
+#if !defined(_GLIBCPP_SUPPORTS_WEAK) && defined (__hppa__)
+#define _GLIBCPP_INST_ATOMICITY_LOCK 1
+#endif
 #endif

@@ -31,6 +31,7 @@ extern void   arm_finalize_pic		PARAMS ((int));
 extern int    arm_volatile_func		PARAMS ((void));
 extern const char * arm_output_epilogue	PARAMS ((int));
 extern void   arm_expand_prologue	PARAMS ((void));
+extern HOST_WIDE_INT arm_get_frame_size	PARAMS ((void));
 /* Used in arm.md, but defined in output.c.  */
 extern void   assemble_align		PARAMS ((int)); 
 extern const char * arm_strip_name_encoding	PARAMS ((const char *));
@@ -43,7 +44,8 @@ extern int    arm_return_in_memory	PARAMS ((tree));
 extern void   arm_encode_call_attribute	PARAMS ((tree, int));
 #endif
 #ifdef RTX_CODE
-extern int    arm_hard_regno_mode_ok	PARAMS ((unsigned int, enum machine_mode));
+extern int    arm_hard_regno_mode_ok	PARAMS ((unsigned int,
+						enum machine_mode));
 extern int    const_ok_for_arm		PARAMS ((HOST_WIDE_INT));
 extern int    arm_split_constant	PARAMS ((RTX_CODE, enum machine_mode,
 						HOST_WIDE_INT, rtx, rtx, int));
@@ -122,7 +124,8 @@ extern const char * output_move_double	PARAMS ((rtx *));
 extern const char * output_mov_immediate PARAMS ((rtx *));
 extern const char * output_add_immediate PARAMS ((rtx *));
 extern const char * arithmetic_instr	PARAMS ((rtx, int));
-extern void   output_ascii_pseudo_op	PARAMS ((FILE *, const unsigned char *, int));
+extern void   output_ascii_pseudo_op	PARAMS ((FILE *, const unsigned char *,
+						int));
 extern const char * output_return_instruction PARAMS ((rtx, int, int));
 extern void   arm_poke_function_name	PARAMS ((FILE *, const char *));
 extern void   arm_print_operand		PARAMS ((FILE *, rtx, int));
@@ -137,6 +140,11 @@ extern rtx    arm_function_arg		PARAMS ((CUMULATIVE_ARGS *,
 						enum machine_mode, tree, int));
 extern void   arm_init_cumulative_args	PARAMS ((CUMULATIVE_ARGS *, tree, rtx,
 						int));
+extern rtx    arm_va_arg                PARAMS ((tree, tree));
+extern int    arm_function_arg_pass_by_reference PARAMS ((CUMULATIVE_ARGS *,
+							 enum machine_mode,
+						         tree, int));
+
 #endif
 
 #if defined AOF_ASSEMBLER 
@@ -159,6 +167,7 @@ extern int    arm_float_words_big_endian PARAMS ((void));
 extern void   arm_init_expanders	PARAMS ((void));
 extern int    thumb_far_jump_used_p	PARAMS ((int));
 extern const char * thumb_unexpanded_epilogue	PARAMS ((void));
+extern HOST_WIDE_INT thumb_get_frame_size PARAMS ((void));
 extern void   thumb_expand_prologue	PARAMS ((void));
 extern void   thumb_expand_epilogue	PARAMS ((void));
 #ifdef TREE_CODE

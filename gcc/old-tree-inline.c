@@ -1352,10 +1352,18 @@ optimize_inline_calls (fn)
   htab_delete (id.tree_pruner);
   if (DECL_LANG_SPECIFIC (fn))
     {
-      tree ifn = make_tree_vec (VARRAY_ACTIVE_SIZE (id.inlined_fns));
+      tree ifn;
 
-      memcpy (&TREE_VEC_ELT (ifn, 0), &VARRAY_TREE (id.inlined_fns, 0),
-	      VARRAY_ACTIVE_SIZE (id.inlined_fns) * sizeof (tree));
+      if (VARRAY_ACTIVE_SIZE (id.inlined_fns) > 0)
+	{
+	  ifn = make_tree_vec (VARRAY_ACTIVE_SIZE (id.inlined_fns));
+
+	  memcpy (&TREE_VEC_ELT (ifn, 0), &VARRAY_TREE (id.inlined_fns, 0),
+		  VARRAY_ACTIVE_SIZE (id.inlined_fns) * sizeof (tree));
+	}
+      else
+	ifn = NULL_TREE;
+
       DECL_INLINED_FNS (fn) = ifn;
     }
 }

@@ -56,6 +56,7 @@ import java.io.UnsupportedEncodingException;
   */
 public class DataFlavor implements java.io.Externalizable, Cloneable
 {
+  static final long serialVersionUID = 8367026044764648243L;
 
 // FIXME: Serialization: Need to write methods for.
 
@@ -86,6 +87,8 @@ public static final DataFlavor stringFlavor;
   * the list being a <code>java.io.File</code>.
   */
 public static final DataFlavor javaFileListFlavor;
+
+public static final DataFlavor imageFlavor;
 
 /**
   * This is the MIME type used for transferring a serialized object.
@@ -125,6 +128,10 @@ static
 		       "Java File List");
 
   // javaFileListFlavor.mimeType = "application/x-java-file-list";
+
+  imageFlavor
+      = new DataFlavor(java.awt.Image.class,
+                       "Java Image");
 }
 
 /*************************************************************************/
@@ -498,7 +505,7 @@ setHumanPresentableName(String humanPresentableName)
   * @return <code>true</code> if the MIME type is equal to this object's
   * MIME type, <code>false</code> otherwise.
   */
-public boolean
+public final boolean
 isMimeTypeEqual(String mimeType)
 {
   // FIXME: Need to handle default attributes and parameters
@@ -861,7 +868,7 @@ getTextPlainUnicodeFlavor()
   *
   * @since 1.3
   */
-public static final Class
+public final Class
 getDefaultRepresentationClass()
 {
   return(java.io.InputStream.class);
@@ -871,7 +878,7 @@ getDefaultRepresentationClass()
 /**
   * XXX - Currently returns <code>java.io.InputStream</code>.
   */
-public static final String
+public final String
 getDefaultRepresentationClassAsString()
 {
   return(getDefaultRepresentationClass().getName());

@@ -1,4 +1,4 @@
-/* This testcase exposed two branch shortening bugs on powerpc.  */
+* This testcase exposed two branch shortening bugs on powerpc.  */
 
 #define C(a,b) \
   if (a > b)  goto gt; \

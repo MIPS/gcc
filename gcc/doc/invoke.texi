@@ -313,12 +313,12 @@ in the following sections.
 -iprefix @var{file}  -iwithprefix @var{dir} @gol
 -iwithprefixbefore @var{dir}  -isystem @var{dir} @gol
 -M  -MM  -MF  -MG  -MP  -MQ  -MT  -nostdinc  -P  -remap @gol
--trigraphs  -undef  -U@var{macro}  -Wp,@var{option}}
+-trigraphs  -undef  -U@var{macro}  -Wp,@var{option} -Xpreprocessor @var{option}}
 
 @item Assembler Option
 @xref{Assembler Options,,Passing Options to the Assembler}.
 @gccoptlist{
--Wa,@var{option}}
+-Wa,@var{option} -Xassembler @var{option}}
 
 @item Linker Options
 @xref{Link Options,,Options for Linking}.
@@ -4312,6 +4312,29 @@ compilation for profile feedback and one for compilation without.  The value
 for compilation with profile feedback needs to be more conservative (higher) in
 order to make tracer effective.
 
+@item ggc-min-expand
+
+GCC uses a garbage collector to manage its own memory allocation.  This
+parameter specifies the minimum percentage by which the garbage
+collector's heap should be allowed to expand between collections.
+Tuning this may improve compilation speed; it has no effect on code
+generation.
+
+The default is 30%.  Setting this parameter to zero causes a full
+collection to occur at every opportunity.  This is extremely slow, but
+can be useful for debugging.
+
+@item ggc-min-heapsize
+
+Minimum size of the garbage collector's heap before it begins bothering
+to collect garbage.  The first collection occurs after the heap expands
+by @option{ggc-min-expand}% beyond @option{ggc-min-heapsize}.  Again,
+tuning this may improve compilation speed, and has no effect on code
+generation.
+
+The default is 4096 (four megabytes).  Setting this parameter very large
+effectively disables garbage collection.
+
 @end table
 @end table
 
@@ -4328,6 +4351,7 @@ Some of these options make sense only together with @option{-E} because
 they cause the preprocessor output to be unsuitable for actual
 compilation.
 
+@table @gcctabopt
 @opindex Wp
 You can use @option{-Wp,@var{option}} to bypass the compiler driver
 and pass @var{option} directly through to the preprocessor.  If
@@ -4338,6 +4362,16 @@ by the compiler driver before being passed to the preprocessor, and
 interface is undocumented and subject to change, so whenever possible
 you should avoid using @option{-Wp} and let the driver handle the
 options instead.
+
+@item -Xpreprocessor @var{option}
+@opindex preprocessor
+Pass @var{option} as an option to the preprocessor.  You can use this to
+supply system-specific preprocessor options which GCC does not know how to
+recognize.
+
+If you want to pass an option that takes an argument, you must use
+@option{-Xpreprocessor} twice, once for the option and once for the argument.
+@end table
 
 @include cppopts.texi
 
@@ -4352,6 +4386,16 @@ You can pass options to the assembler.
 @opindex Wa
 Pass @var{option} as an option to the assembler.  If @var{option}
 contains commas, it is split into multiple options at the commas.
+
+@item -Xassembler @var{option}
+@opindex Xassembler
+Pass @var{option} as an option to the assembler.  You can use this to
+supply system-specific assembler options which GCC does not know how to
+recognize.
+
+If you want to pass an option that takes an argument, you must use
+@option{-Xassembler} twice, once for the option and once for the argument.
+
 @end table
 
 @node Link Options

@@ -1,3 +1,80 @@
+2002-11-14  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/abi/vcall1.C: New test.
+
+2002-11-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/20021029-1.c: New test.
+	* gcc.dg/20021029-2.c: New test.
+
+2002-11-13  John David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	* g++.dg/abi/vague1.C (dg-final): Return if target is hppa*-*-hpux*.
+
+2002-11-09  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR c/8439
+	* gcc.dg/20021110.c: Move to ...
+	* gcc.c-torture/compile/20021110.c: .... here.
+
+2002-11-11  Franz Sirl  <Franz.Sirl-kernel@lauterbach.com>
+
+	PR c/8467
+	* gcc.c-torture/execute/20021111-1.c
+
+2002-11-09  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR c/8439
+	* gcc.dg/20021110.c: New test.
+
+2002-11-10  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/abi/vthunk3.C: Run only on x86.
+
+2002-11-10  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* gcc.dg/c90-idem-qual-2.c, gcc.dg/c99-idem-qual-2.c: New tests.
+
+2002-11-09  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* lib/compat.exp (compat-execute): Fix logic error in last
+	change.
+
+2002-11-09  Neil Booth  <neil@daikokuya.co.uk>
+
+	* gcc.dg/cpp/trad/assembler.S, gcc.dg/cpp/trad/directive.c: Update.
+
+2002-11-09  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/8389
+	* g++.dg/template/access6.C: New test.
+
+Fri Nov  8 13:13:53 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* gcc.dg/i386-ssefp-1.c: New test.
+	* gcc.dg/i386-ssefp-1.c: New test.
+
+Fri Nov  8 10:52:15 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* gcc.c-torture/compile/20021108-1.c: New testcase for x86-64 failure.
+
+2002-11-07  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/abi/vthunk3.C: New test.
+
+	PR c++/8338
+	* g++.dg/template/crash2.C: New test.
+
+2002-11-07  Mark Mitchell  <mark@codesourcery.com>
+
+	* testsuite/g++.dg/abi/dtor1.C: New test.
+	* testsuite/g++.dg/abi/dtor2.C: Likewise.
+
+2002-11-05  Geoffrey Keating  <geoffk@apple.com>
+
+	* g++.old-deja/g++.eh/badalloc1.C: XFAIL excess errors test on
+	Darwin.
+
 2002-11-04  Adam Nemet  <anemet@lnxw.com>
 
 	* gcc.c-torture/execute/941014-1.x: thumb-elf was deprecated, use

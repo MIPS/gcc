@@ -1,3 +1,8 @@
+2002-11-24  Diego Novillo  <dnovillo@redhat.com>
+
+	* testsuite/gcc.c-torture/compile/20001226-1.c: Introduce
+	a deliberate syntax error.
+
 2002-11-13  Diego Novillo  <dnovillo@redhat.com>
 
 	* testsuite/gcc.c-torture/execute/20021113-1.c: New test.

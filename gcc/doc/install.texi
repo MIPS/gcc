@@ -741,6 +741,14 @@ Specify that a user visible @command{cpp} program should not be installed.
 Specify that the user visible @command{cpp} program should be installed
 in @file{@var{prefix}/@var{dirname}/cpp}, in addition to @var{bindir}.
 
+@item --enable-initfini-array
+Force the use of sections @code{.init_array} and @code{.fini_array}
+(instead of @code{.init} and @code{.fini}) for constructors and
+destructors.  Option @option{--disable-initfini-array} has the
+opposite effect.  If neither option is specified, the configure script
+will try to guess whether the @code{.init_array} and
+@code{.fini_array} sections are supported and, if they are, use them.
+
 @item --enable-maintainer-mode
 The build rules that
 regenerate the GCC master message catalog @file{gcc.pot} are normally
@@ -1278,6 +1286,19 @@ To get a list of the possible @file{*.exp} files, pipe the
 output of @samp{make check} into a file and look at the
 @samp{Running @dots{}  .exp} lines.
 
+To run only the tests for a library, run @samp{make check} from the
+the library's testsuite in a subdirectory of the object directory:
+@file{libstdc++-v3/testsuite} or @file{libcgj/testsuite}.
+
+@section Additional testing for Java Class Libraries
+
+The @uref{http://sources.redhat.com/mauve/,,Mauve Project} provides
+a suite of tests for the Java Class Libraries.  This suite can be run
+as part of libgcj testing by placing the Mauve tree within the libjava
+testsuite at @file{libjava/testsuite/libjava.mauve/mauve}, or by
+specifying the location of that tree when invoking @samp{make}, as in
+@samp{make MAUVEDIR=~/mauve check}.
+
 @section How to interpret test results
 
 After the testsuite has run you'll find various @file{*.sum} and @file{*.log}
@@ -1703,6 +1724,8 @@ GNU Compiler Collection on your machine.
 @item
 @uref{#vax-dec-ultrix,,vax-dec-ultrix}
 @item
+@uref{#*-*-vxworks*,,*-*-vxworks*}
+@item
 @uref{#xtensa-*-elf,,xtensa-*-elf}
 @item
 @uref{#xtensa-*-linux*,,xtensa-*-linux*}
@@ -2073,8 +2096,7 @@ longer a multiple of 2 bytes.
 
 We @emph{highly} recommend using gas/binutils 2.8 or newer on all hppa
 platforms; you may encounter a variety of problems when using the HP
-assembler.  The HP assembler does not work with the @samp{hppa64-hp-hpux11*}
-port.
+assembler.
 
 Specifically, @option{-g} does not work on HP-UX (since that system
 uses a peculiar debugging format which GCC does not know about), unless you
@@ -2176,16 +2198,27 @@ compile GCC 3.0 and up.  Refer to @uref{binaries.html,,binaries} for
 information about obtaining precompiled GCC binaries for HP-UX.
 
 GNU binutils 2.13 or later is recommended with the 64-bit port.
-The HP assembler is not supported.  It is @emph{highly} recommended
-that the GNU linker be used as well.  Either binutils must be built
-prior to gcc, or a binary distribution of gcc or binutils must be
-obtained for the initial builds.  When starting with a HP compiler,
-it is preferable to use the ANSI compiler as the bundled compiler
-only supports traditional C.  Bootstrapping with the bundled compiler
-is tested infrequently and problems often arise because of the subtle
-differences in semantics between traditional and ISO C.  There also
-have been problems reported with various binary distributions.  This
-port still is undergoing significant development.
+The HP assembler has many limitations and is not recommended.  For
+example, it does not support weak symbols or alias definitions.
+As a result, explicit template instantiations are required when
+using C++.  Either the HP or GNU linker can be used but it may be
+necessary to use the GNU linker when dwarf2 exception support is
+implemented.
+
+There are several possible approaches to building the distribution.
+Binutils can be built first using the HP tools.  Then, the GCC
+distribution can be built.  The second approach is to build GCC
+first using the HP tools, then build binutils, then rebuild GCC.
+There have been problems with various binary distributions, so
+it is best not to start from a binary distribution.
+
+When starting with a HP compiler, it is preferable to use the ANSI
+compiler as the bundled compiler only supports traditional C.
+Bootstrapping with the bundled compiler is tested infrequently and
+problems often arise because of the subtle differences in semantics
+between traditional and ISO C.
+
+This port still is undergoing significant development.
 
 @html
 <hr />
@@ -2892,7 +2925,7 @@ PowerPC system in big endian mode, running System V.4.
 @heading @anchor{powerpc-*-linux-gnu*}powerpc-*-linux-gnu*
 
 You will need
-@uref{ftp://ftp.kernel.org/pub/linux/devel/binutils,,binutils 2.12.90.0.7}
+@uref{ftp://ftp.kernel.org/pub/linux/devel/binutils,,binutils 2.13.90.0.10}
 or newer for a working GCC@.
 
 @html
@@ -3195,6 +3228,41 @@ On a System V release 4 system, make sure @file{/usr/bin} precedes
 @heading @anchor{vax-dec-ultrix}vax-dec-ultrix
 Don't try compiling with VAX C (@code{vcc}).  It produces incorrect code
 in some cases (for example, when @code{alloca} is used).
+
+@html
+<hr />
+@end html
+@heading @anchor{*-*-vxworks*}*-*-vxworks*
+Support for VxWorks is in flux.  At present GCC supports @emph{only} the
+very recent VxWorks 5.5 (aka Tornado 2.2) release, and only on PowerPC.
+We welcome patches for other architectures supported by VxWorks 5.5.
+Support for VxWorks AE would also be welcome; we believe this is merely
+a matter of writing an appropriate ``configlette'' (see below).  We are
+not interested in supporting older, a.out or COFF-based, versions of
+VxWorks in GCC 3.
+
+VxWorks comes with an older version of GCC installed in
+@file{@var{$WIND_BASE}/host}; we recommend you do not overwrite it.
+Choose an installation @var{prefix} entirely outside @var{$WIND_BASE}.
+Before running @command{configure}, create the directories @file{@var{prefix}}
+and @file{@var{prefix}/bin}.  Link or copy the appropriate assembler,
+linker, etc. into @file{@var{prefix}/bin}, and set your @var{PATH} to
+include that directory while running both @command{configure} and
+@command{make}.
+
+You must give @command{configure} the
+@option{--with-headers=@var{$WIND_BASE}/target/h} switch so that it can
+find the VxWorks system headers.  Since VxWorks is a cross compilation
+target only, you must also specify @option{--target=@var{target}}.
+@command{configure} will attempt to create the directory
+@file{@var{prefix}/@var{target}/sys-include} and copy files into it;
+make sure the user running @command{configure} has sufficient privilege
+to do so.
+
+GCC's exception handling runtime requires a special ``configlette''
+module, @file{contrib/gthr_supp_vxw_5x.c}.  Follow the instructions in
+that file to add the module to your kernel build.  (Future versions of
+VxWorks will incorporate this module.)  
 
 @html
 <hr />

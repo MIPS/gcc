@@ -4384,7 +4384,9 @@ const struct real_format *real_format_for_mode[TFmode - QFmode + 1] =
 
 
 /* Calculate the square root of X in mode MODE, and store the result
-   in R.  */
+   in R.  For details see "High Precision Division and Square Root",
+   Alan H. Karp and Peter Markstein, HP Lab Report 93-93-42, June
+   1993.  http://www.hpl.hp.com/techreports/93/HPL-93-42.pdf.  */
 
 void
 real_sqrt (r, mode, x)

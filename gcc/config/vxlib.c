@@ -98,11 +98,11 @@ __gthread_once (__gthread_once_t *guard, void (*func)(void))
 #define MAX_KEYS 4
 
 /* This is the structure pointed to by the pointer returned
-   by __gthread_get_tsd_data.  It must match the definition
-   in the kernel file defining __gthread_get_tsd_data.  */
+   by __gthread_get_tsd_data.  */
 struct tsd_data
 {
   void *values[MAX_KEYS];
+  unsigned int generation[MAX_KEYS];
 };
 
 
@@ -116,23 +116,51 @@ extern void __gthread_leave_tsd_dtor_context (WIND_TCB *tcb);
 typedef void (*fet_callback_t) (WIND_TCB *, unsigned int);
 extern void __gthread_for_all_tasks (fet_callback_t fun, unsigned int number);
 
-/* This is a global structure which records all of the active keys.  A
-   key with NULL dtor is valid; a key with dtor == (void (*)(void))-1
-   is valid, but has no dtor.  */
+/* This is a global structure which records all of the active keys.
+
+   A key is potentially valid (i.e. has been handed out by
+   __gthread_key_create) iff its generation count in this structure is
+   even.  In that case, the matching entry in the dtors array is a
+   routine to be called when a thread terminates with a valid,
+   non-NULL specific value for that key.
+
+   A key is actually valid in a thread T iff the generation count
+   stored in this structure is equal to the generation count stored in
+   T's specific-value structure.  */
 
 typedef void (*tsd_dtor) (void *);
-static tsd_dtor tsd_dtors[MAX_KEYS];
-#define KEY_INVALID ((tsd_dtor) 0)
-#define KEY_NO_DTOR ((tsd_dtor) -1)
+
+struct tsd_keys
+{
+  tsd_dtor dtor[MAX_KEYS];
+  unsigned int generation[MAX_KEYS];
+};
+
+#define KEY_VALID_P(key) !(tsd_keys.generation[key] & 1)
+
+/* Note: if MAX_KEYS is increased, this initializer must be updated
+   to match.  All the generation counts begin at 1, which means no
+   key is valid.  */
+static struct tsd_keys tsd_keys =
+{
+  { 0, 0, 0, 0 },
+  { 1, 1, 1, 1 }
+};
+
+/* This lock protects the tsd_keys structure.  */
+static __gthread_mutex_t tsd_lock;
 
 static __gthread_once_t tsd_init_guard = __GTHREAD_ONCE_INIT;
-static __gthread_mutex_t tsd_lock;
 
 /* Internal routines.  */
 
 /* The task TCB has just been deleted.  Call the destructor
    function for each TSD key that has both a destructor and
-   a non-NULL specific value in this thread.  */
+   a non-NULL specific value in this thread.
+
+   This routine does not need to take tsd_lock; the generation
+   count protects us from calling a stale destructor.  It does
+   need to read tsd_keys.dtor[key] atomically.  */
 
 static void
 tsd_delete_hook (WIND_TCB *tcb)
@@ -145,10 +173,13 @@ tsd_delete_hook (WIND_TCB *tcb)
       __gthread_enter_tsd_dtor_context (tcb);
       for (key = 0; key < MAX_KEYS; key++)
 	{
-	  if (tsd_dtors[key] == KEY_INVALID || tsd_dtors[key] == KEY_NO_DTOR)
-	    continue;
-	  if (data->values[key])
-	    tsd_dtors[key] (data->values[key]);
+	  if (data->generation[key] == tsd_keys.generation[key])
+	    {
+	      tsd_dtor dtor = tsd_keys.dtor[key];
+
+	      if (dtor)
+		dtor (data->values[key]);
+	    }
 	}
       free (data);
       __gthread_set_tsd_data (tcb, 0);
@@ -183,7 +214,7 @@ __gthread_key_create (__gthread_key_t *keyp, tsd_dtor dtor)
     return errno;
 
   for (key = 0; key < MAX_KEYS; key++)
-    if (tsd_dtors[key] == KEY_INVALID)
+    if (!KEY_VALID_P (key))
       goto found_slot;
 
   /* no room */
@@ -191,21 +222,11 @@ __gthread_key_create (__gthread_key_t *keyp, tsd_dtor dtor)
   return EAGAIN;
 
  found_slot:
-  tsd_dtors[key] = dtor ? dtor : KEY_NO_DTOR;
+  tsd_keys.generation[key]++;  /* making it even */
+  tsd_keys.dtor[key] = dtor;
   *keyp = key;
   __gthread_mutex_unlock (&tsd_lock);
   return 0;
-}
-
-/* Subroutine of __gthread_key_delete.  Clear the thread-specific
-   value associated with key INDEX in TCB.  */
-
-static void
-key_delete_iter (WIND_TCB *tcb, unsigned int index)
-{
-  struct tsd_data *data = __gthread_get_tsd_data (tcb);
-  if (data)
-    data->values[index] = 0;
 }
 
 /* Invalidate KEY; it can no longer be used as an argument to
@@ -222,15 +243,14 @@ __gthread_key_delete (__gthread_key_t key)
   if (__gthread_mutex_lock (&tsd_lock) == ERROR)
     return errno;
 
-  if (tsd_dtors[key] == KEY_INVALID)
+  if (!KEY_VALID_P (key))
     {
       __gthread_mutex_unlock (&tsd_lock);
       return EINVAL;
     }
 
-  __gthread_for_all_tasks (key_delete_iter, key);
-
-  tsd_dtors[key] = KEY_INVALID;
+  tsd_keys.generation[key]++;  /* making it odd */
+  tsd_keys.dtor[key] = 0;
 
   __gthread_mutex_unlock (&tsd_lock);
   return 0;
@@ -248,63 +268,58 @@ __gthread_getspecific (__gthread_key_t key)
 {
   struct tsd_data *data;
 
-  if (key >= MAX_KEYS || tsd_dtors[key] == KEY_INVALID)
+  if (key >= MAX_KEYS)
     return 0;
 
   data = __gthread_get_tsd_data (taskTcb (taskIdSelf ()));
 
-  if (data)
-    return data->values[key];
-  else
+  if (!data)
     return 0;
+
+  if (data->generation[key] != tsd_keys.generation[key])
+    return 0;
+
+  return data->values[key];
 }
 
 /* Set the thread-specific value for KEY.  If KEY is invalid, or
    memory allocation fails, returns -1, otherwise 0.
 
-   It does matter if this function races with key_create/key_delete,
-   so we have to take the lock, which should be okay since this is
-   called much less often than getspecific (usually once per key
-   per thread).  */
+   The generation count protects this function against races with
+   key_create/key_delete; the worst thing that can happen is that a
+   value is successfully stored into a dead generation (and then
+   immediately becomes invalid).  However, we do have to make sure
+   to read tsd_keys.generation[key] atomically.  */
 
 int
 __gthread_setspecific (__gthread_key_t key, void *value)
 {
   struct tsd_data *data;
   WIND_TCB *tcb;
+  unsigned int generation;
 
   if (key >= MAX_KEYS)
     return EINVAL;
-
-  __gthread_once (&tsd_init_guard, tsd_init);
-
-  if (__gthread_mutex_lock (&tsd_lock) == ERROR)
-    return errno;
-
-  if (tsd_dtors[key] == KEY_INVALID)
-    {
-      __gthread_mutex_unlock (&tsd_lock);
-      return EINVAL;
-    }
 
   tcb = taskTcb (taskIdSelf ());
   data = __gthread_get_tsd_data (tcb);
   if (!data)
     {
-      data = calloc (MAX_KEYS, sizeof (void *));
+      data = malloc (sizeof (struct tsd_data));
       if (!data)
-	{
-	  __gthread_mutex_unlock (&tsd_lock);
-	  return ENOMEM;
-	}
+	return ENOMEM;
+
+      memset (data, 0, sizeof (struct tsd_data));
       __gthread_set_tsd_data (tcb, data);
     }
 
+  generation = tsd_keys.generation[key];
+
+  if (generation & 1)
+    return EINVAL;
+
+  data->generation[key] = generation;
   data->values[key] = value;
 
-  __gthread_mutex_unlock (&tsd_lock);
   return 0;
 }
-
-
-

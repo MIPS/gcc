@@ -2939,6 +2939,8 @@ while (0)
    to match gdb.  */
 /* svr4.h undefines this macro, yet we really want to use the same numbers
    for coff as for elf, so we go via another macro: SH_DBX_REGISTER_NUMBER.  */
+/* expand_builtin_init_dwarf_reg_sizes uses this to test if a
+   register exists, so we should return -1 for invalid register numbers.  */
 #define DBX_REGISTER_NUMBER(REGNO) SH_DBX_REGISTER_NUMBER (REGNO)
 
 #define SH_DBX_REGISTER_NUMBER(REGNO) \
@@ -2953,6 +2955,8 @@ while (0)
    ? ((REGNO) - FIRST_TARGET_REG + 68) \
    : (REGNO) == PR_REG \
    ? (TARGET_SH5 ? 241 : 17) \
+   : (REGNO) == PR_MEDIA_REG \
+   ? (TARGET_SH5 ? 18 : -1) \
    : (REGNO) == T_REG \
    ? (TARGET_SH5 ? 242 : 18) \
    : (REGNO) == GBR_REG \
@@ -2963,7 +2967,7 @@ while (0)
    ? (TARGET_SH5 ? 240 : 21) \
    : (REGNO) == FPUL_REG \
    ? (TARGET_SH5 ? 244 : 23) \
-   : (abort(), -1))
+   : -1)
 
 /* This is how to output a reference to a user-level label named NAME.  */
 #define ASM_OUTPUT_LABELREF(FILE, NAME)			\
@@ -3302,7 +3306,13 @@ extern int rtx_equal_function_value_matters;
 #define MD_CAN_REDIRECT_BRANCH(INSN, SEQ) \
   sh_can_redirect_branch ((INSN), (SEQ))
 
-#define DWARF_FRAME_RETURN_COLUMN (TARGET_SH5 ? PR_MEDIA_REG : PR_REG)
+#define DWARF_FRAME_RETURN_COLUMN \
+  (TARGET_SH5 ? DWARF_FRAME_REGNUM (PR_MEDIA_REG) : DWARF_FRAME_REGNUM (PR_REG))
+
+#define EH_RETURN_DATA_REGNO(N)	\
+  ((N) < 4 ? (N) + (TARGET_SH5 ? 2 : 4) : INVALID_REGNUM)
+
+#define EH_RETURN_STACKADJ_RTX	gen_rtx_REG (Pmode, STATIC_CHAIN_REGNUM)
 
 #if (defined CRT_BEGIN || defined CRT_END) && ! __SHMEDIA__
 /* SH constant pool breaks the devices in crtstuff.c to control section

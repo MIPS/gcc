@@ -814,6 +814,7 @@ static bool ix86_function_ok_for_sibcall PARAMS ((tree, tree));
 static tree ix86_handle_cdecl_attribute PARAMS ((tree *, tree, tree, int, bool *));
 static tree ix86_handle_regparm_attribute PARAMS ((tree *, tree, tree, int, bool *));
 static int ix86_value_regno PARAMS ((enum machine_mode));
+static bool ix86_ms_bitfield_layout_p PARAMS ((tree));
 
 #if defined (DO_GLOBAL_CTORS_BODY) && defined (HAS_INIT_SECTION)
 static void ix86_svr3_asm_out_constructor PARAMS ((rtx, int));
@@ -919,6 +920,9 @@ static enum x86_64_reg_class merge_classes PARAMS ((enum x86_64_reg_class,
 #undef TARGET_HAVE_TLS
 #define TARGET_HAVE_TLS true
 #endif
+
+#undef TARGET_MS_BITFIELD_LAYOUT_P
+#define TARGET_MS_BITFIELD_LAYOUT_P ix86_ms_bitfield_layout_p
 
 #undef TARGET_ASM_OUTPUT_MI_THUNK
 #define TARGET_ASM_OUTPUT_MI_THUNK x86_output_mi_thunk
@@ -2185,14 +2189,16 @@ construct_container (mode, type, in_return, nintregs, nsseregs, intreg, sse_regn
 	    sse_regno++;
 	    break;
 	  case X86_64_SSE_CLASS:
-	    if (i < n && class[i + 1] == X86_64_SSEUP_CLASS)
-	      tmpmode = TImode, i++;
+	    if (i < n - 1 && class[i + 1] == X86_64_SSEUP_CLASS)
+	      tmpmode = TImode;
 	    else
 	      tmpmode = DImode;
 	    exp [nexps++] = gen_rtx_EXPR_LIST (VOIDmode,
 					       gen_rtx_REG (tmpmode,
 							    SSE_REGNO (sse_regno)),
 					       GEN_INT (i*8));
+	    if (tmpmode == TImode)
+	      i++;
 	    sse_regno++;
 	    break;
 	  default:
@@ -9632,8 +9638,14 @@ ix86_expand_fp_movcc (operands)
       if (rtx_equal_p (operands[2], op0) && rtx_equal_p (operands[3], op1))
 	{
 	  /* Check for min operation.  */
-	  if (code == LT)
+	  if (code == LT || code == UNLE)
 	    {
+	       if (code == UNLE)
+		{
+		  rtx tmp = op0;
+		  op0 = op1;
+		  op1 = tmp;
+		}
 	       operands[0] = force_reg (GET_MODE (operands[0]), operands[0]);
 	       if (memory_operand (op0, VOIDmode))
 		 op0 = force_reg (GET_MODE (operands[0]), op0);
@@ -9644,8 +9656,14 @@ ix86_expand_fp_movcc (operands)
 	       return 1;
 	    }
 	  /* Check for max operation.  */
-	  if (code == GT)
+	  if (code == GT || code == UNGE)
 	    {
+	       if (code == UNGE)
+		{
+		  rtx tmp = op0;
+		  op0 = op1;
+		  op1 = tmp;
+		}
 	       operands[0] = force_reg (GET_MODE (operands[0]), operands[0]);
 	       if (memory_operand (op0, VOIDmode))
 		 op0 = force_reg (GET_MODE (operands[0]), op0);
@@ -14211,6 +14229,17 @@ x86_order_regs_for_local_alloc ()
      reg_alloc_order [pos++] = 0;
 }
 
+#ifndef TARGET_USE_MS_BITFIELD_LAYOUT
+#define TARGET_USE_MS_BITFIELD_LAYOUT 0
+#endif
+
+static bool
+ix86_ms_bitfield_layout_p (record_type)
+     tree record_type ATTRIBUTE_UNUSED;
+{
+  return TARGET_USE_MS_BITFIELD_LAYOUT;
+}
+
 /* Returns an expression indicating where the this parameter is
    located on entry to the FUNCTION.  */
 
@@ -14419,6 +14448,46 @@ x86_field_alignment (field, computed)
   return computed;
 }
 
+/* Output assembler code to FILE to increment profiler label # LABELNO
+   for profiling a function entry.  */
+void
+x86_function_profiler (file, labelno)
+     FILE *file;
+     int labelno;
+{
+  if (TARGET_64BIT)
+    if (flag_pic)
+      {
+#ifndef NO_PROFILE_COUNTERS
+	fprintf (file, "\tleaq\t%sP%d@(%%rip),%%r11\n", LPREFIX, labelno);
+#endif
+	fprintf (file, "\tcall\t*%s@GOTPCREL(%%rip)\n", MCOUNT_NAME);
+      }
+    else
+      {
+#ifndef NO_PROFILE_COUNTERS
+	fprintf (file, "\tmovq\t$%sP%d,%%r11\n", LPREFIX, labelno);
+#endif
+	fprintf (file, "\tcall\t%s\n", MCOUNT_NAME);
+      }
+  else if (flag_pic)
+    {
+#ifndef NO_PROFILE_COUNTERS
+      fprintf (file, "\tleal\t%sP%d@GOTOFF(%%ebx),%%%s\n",
+	       LPREFIX, labelno, PROFILE_COUNT_REGISTER);
+#endif
+      fprintf (file, "\tcall\t*%s@GOT(%%ebx)\n", MCOUNT_NAME);
+    }
+  else
+    {
+#ifndef NO_PROFILE_COUNTERS
+      fprintf (file, "\tmovl\t$%sP%d,%%$s\n", LPREFIX, labelno,
+	       PROFILE_COUNT_REGISTER);
+#endif
+      fprintf (file, "\tcall\t%s\n", MCOUNT_NAME);
+    }
+}
+
 /* Implement machine specific optimizations.  
    At the moment we implement single transformation: AMD Athlon works faster
    when RET is not destination of conditional jump or directly preceeded
@@ -14441,20 +14510,26 @@ x86_machine_dependent_reorg (first)
 
     if (!returnjump_p (ret) || !maybe_hot_bb_p (bb))
       continue;
-    prev = prev_nonnote_insn (ret);
+    for (prev = PREV_INSN (ret); prev; prev = PREV_INSN (prev))
+      if (active_insn_p (prev) || GET_CODE (prev) == CODE_LABEL)
+	break;
     if (prev && GET_CODE (prev) == CODE_LABEL)
       {
 	edge e;
 	for (e = bb->pred; e; e = e->pred_next)
-	  if (EDGE_FREQUENCY (e) && e->src->index > 0
+	  if (EDGE_FREQUENCY (e) && e->src->index >= 0
 	      && !(e->flags & EDGE_FALLTHRU))
 	    insert = 1;
       }
     if (!insert)
       {
-	prev = prev_real_insn (ret);
+	prev = prev_active_insn (ret);
 	if (prev && GET_CODE (prev) == JUMP_INSN
 	    && any_condjump_p (prev))
+	  insert = 1;
+	/* Empty functions get branch misspredict even when the jump destination
+	   is not visible to us.  */
+	if (!prev && cfun->function_frequency > FUNCTION_FREQUENCY_UNLIKELY_EXECUTED)
 	  insert = 1;
       }
     if (insert)

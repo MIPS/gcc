@@ -453,6 +453,7 @@ gcov_write_length (file, place)
   return result;
 }
 
+#define GCOV_SUMMARY_LENGTH 44
 static int
 gcov_read_summary (da_file, summary)
      FILE *da_file;

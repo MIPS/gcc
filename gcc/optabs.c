@@ -5173,6 +5173,11 @@ init_optabs ()
   one_cmpl_optab = init_optab (NOT);
   ffs_optab = init_optab (FFS);
   sqrt_optab = init_optab (SQRT);
+  floor_optab = init_optab (UNKNOWN);
+  ceil_optab = init_optab (UNKNOWN);
+  round_optab = init_optab (UNKNOWN);
+  trunc_optab = init_optab (UNKNOWN);
+  nearbyint_optab = init_optab (UNKNOWN);
   sin_optab = init_optab (UNKNOWN);
   cos_optab = init_optab (UNKNOWN);
   exp_optab = init_optab (UNKNOWN);

@@ -1764,7 +1764,7 @@ output_vtable_inherit (vars)
 }
 
 /* If necessary, write out the vtables for the dynamic class CTYPE.
-   Returns non-zero if any vtables were emitted.  */
+   Returns nonzero if any vtables were emitted.  */
 
 static int
 maybe_emit_vtables (tree ctype)
@@ -2720,7 +2720,7 @@ finish_file ()
 
      All of these may cause others to be needed.  For example,
      instantiating one function may cause another to be needed, and
-     generating the intiailzer for an object may cause templates to be
+     generating the initializer for an object may cause templates to be
      instantiated, etc., etc.  */
 
   timevar_push (TV_VARCONST);

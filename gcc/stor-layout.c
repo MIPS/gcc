@@ -60,6 +60,9 @@ static int reference_types_internal = 0;
 static void finalize_record_size	PARAMS ((record_layout_info));
 static void finalize_type_size		PARAMS ((tree));
 static void place_union_field		PARAMS ((record_layout_info, tree));
+static int excess_unit_span		PARAMS ((HOST_WIDE_INT, HOST_WIDE_INT,
+						HOST_WIDE_INT, HOST_WIDE_INT,
+						tree));
 static unsigned int update_alignment_for_field
                                         PARAMS ((record_layout_info, tree, 
 						 unsigned int));
@@ -779,6 +782,24 @@ place_union_field (rli, field)
 			       DECL_SIZE_UNIT (field), rli->offset));
 }
 
+/* A bitfield of SIZE with a required access alignment of ALIGN is allocated
+   at BYTE_OFFSET / BIT_OFFSET.  Return non-zero if the field would span more
+   units of alignment than the underlying TYPE.  */
+static int
+excess_unit_span (byte_offset, bit_offset, size, align, type)
+     HOST_WIDE_INT byte_offset, bit_offset, size, align;
+     tree type;
+{
+  /* Note that the calculation of OFFSET might overflow; we calculate it so
+     that we still get the right result as long as ALIGN is a power of two.  */
+  unsigned HOST_WIDE_INT offset = byte_offset * BITS_PER_UNIT + bit_offset;
+
+  offset = offset % align;
+  return ((offset + size + align - 1) / align
+	  > ((unsigned HOST_WIDE_INT) tree_low_cst (TYPE_SIZE (type), 1)
+	     / align));
+}
+
 /* RLI contains information about the layout of a RECORD_TYPE.  FIELD
    is a FIELD_DECL to be added after those fields already present in
    T.  (FIELD is not actually added to the TYPE_FIELDS list here;
@@ -917,11 +938,7 @@ place_field (rli, field)
 
       /* A bit field may not span more units of alignment of its type
 	 than its type itself.  Advance to next boundary if necessary.  */
-      if ((((offset * BITS_PER_UNIT + bit_offset + field_size +
-	     type_align - 1)
-	    / type_align)
-	   - (offset * BITS_PER_UNIT + bit_offset) / type_align)
-	  > tree_low_cst (TYPE_SIZE (type), 1) / type_align)
+      if (excess_unit_span (offset, bit_offset, field_size, type_align, type))
 	rli->bitpos = round_up (rli->bitpos, type_align);
 
       TYPE_USER_ALIGN (rli->t) |= TYPE_USER_ALIGN (type);
@@ -960,11 +977,7 @@ place_field (rli, field)
 
       /* A bit field may not span the unit of alignment of its type.
 	 Advance to next boundary if necessary.  */
-      /* ??? This code should match the code above for the
-	 PCC_BITFIELD_TYPE_MATTERS case.  */
-      if ((offset * BITS_PER_UNIT + bit_offset) / type_align
-	  != ((offset * BITS_PER_UNIT + bit_offset + field_size - 1)
-	      / type_align))
+      if (excess_unit_span (offset, bit_offset, field_size, type_align, type))
 	rli->bitpos = round_up (rli->bitpos, type_align);
 
       TYPE_USER_ALIGN (rli->t) |= TYPE_USER_ALIGN (type);

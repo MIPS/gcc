@@ -1388,7 +1388,6 @@ mark_jump_label (x, insn, in_mem)
     case PC:
     case CC0:
     case REG:
-    case SUBREG:
     case CONST_INT:
     case CONST_DOUBLE:
     case CLOBBER:
