@@ -1,3 +1,8 @@
+2004-04-05  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* tree-ssa-ccp.c (fold_stmt_r): Fix whitespace formatting.
+	(set_rhs): Likewise.
+
 2004-04-03  Paolo Bonzini  <bonzini@gnu.org>
 	    Diego Novillo  <dnovillo@redhat.com>
 
