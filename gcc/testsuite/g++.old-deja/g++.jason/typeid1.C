@@ -1,5 +1,3 @@
-// Build don't run:
-
 #include <typeinfo>
 #include <iostream>
 

@@ -4621,6 +4621,8 @@ cp_parser_unary_expression (cp_parser *parser, bool address_p)
 	{
 	  tree identifier;
 
+	  /* Consume the '&&' token.  */
+	  cp_lexer_consume_token (parser->lexer);
 	  /* Look for the identifier.  */
 	  identifier = cp_parser_identifier (parser);
 	  /* Create an expression representing the address.  */
@@ -6303,6 +6305,11 @@ cp_parser_for_init_statement (parser)
      return expression [opt] ;
      goto identifier ;  
 
+   GNU extension:
+
+   jump-statement:
+     goto * expression ;
+
    Returns the new BREAK_STMT, CONTINUE_STMT, RETURN_STMT, or
    GOTO_STMT.  */
 
@@ -6352,7 +6359,18 @@ cp_parser_jump_statement (parser)
 
     case RID_GOTO:
       /* Create the goto-statement.  */
-      finish_goto_stmt (cp_parser_identifier (parser));
+      if (cp_lexer_next_token_is (parser->lexer, CPP_MULT))
+	{
+	  /* Issue a warning about this use of a GNU extension.  */
+	  if (pedantic)
+	    pedwarn ("ISO C++ forbids computed gotos");
+	  /* Consume the '*' token.  */
+	  cp_lexer_consume_token (parser->lexer);
+	  /* Parse the dependent expression.  */
+	  finish_goto_stmt (cp_parser_expression (parser));
+	}
+      else
+	finish_goto_stmt (cp_parser_identifier (parser));
       /* Look for the final `;'.  */
       cp_parser_require (parser, CPP_SEMICOLON, "`;'");
       break;

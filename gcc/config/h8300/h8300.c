@@ -153,7 +153,7 @@ enum shift_type
 /* The shift algorithms for each machine, mode, shift type, and shift
    count are defined below.  The three tables below correspond to
    QImode, HImode, and SImode, respectively.  Each table is organized
-   by, in the order of indecies, machine, shift type, and shift count.  */
+   by, in the order of indices, machine, shift type, and shift count.  */
 
 static enum shift_alg shift_alg_qi[3][3][8] = {
   {
@@ -1032,7 +1032,7 @@ bit_operand (op, mode)
      rtx op;
      enum machine_mode mode;
 {
-  /* We can except any general operand, expept that MEM operands must
+  /* We can accept any general operand, except that MEM operands must
      be limited to those that use addresses valid for the 'U' constraint.  */
   if (!general_operand (op, mode))
     return 0;
@@ -1067,7 +1067,7 @@ bit_memory_operand (op, mode)
 /* Handle machine specific pragmas for compatibility with existing
    compilers for the H8/300.
 
-   pragma saveall generates prolog/epilog code which saves and
+   pragma saveall generates prologue/epilogue code which saves and
    restores all the registers on function entry.
 
    pragma interrupt saves and restores all registers, and exits with
@@ -1654,11 +1654,7 @@ print_operand_address (file, addr)
 	int n = INTVAL (addr);
 	if (TARGET_H8300)
 	  n = (int) (short) n;
-	if (n < 0)
-	  /* ??? Why the special case for -ve values?  */
-	  fprintf (file, "-%d", -n);
-	else
-	  fprintf (file, "%d", n);
+	fprintf (file, "%d", n);
 	break;
       }
 
@@ -1891,6 +1887,176 @@ bit_operator (x, mode)
   return (code == XOR
 	  || code == AND
 	  || code == IOR);
+}
+
+const char *
+output_plussi (operands)
+     rtx *operands;
+{
+  enum machine_mode mode = GET_MODE (operands[0]);
+
+  if (mode != SImode)
+    abort ();
+
+  if (TARGET_H8300)
+    {
+      /* Currently we do not support H8/300 here yet.  */
+      abort ();
+    }
+  else
+    {
+      if (GET_CODE (operands[2]) == REG)
+	return "add.l\t%S2,%S0";
+
+      if (GET_CODE (operands[2]) == CONST_INT)
+	{
+	  HOST_WIDE_INT intval = INTVAL (operands[2]);
+
+	  /* See if we can finish with 2 bytes.  */
+
+	  switch (intval & 0xffffffff)
+	    {
+	    case 0x00000001:
+	    case 0x00000002:
+	    case 0x00000004:
+	      return "adds\t%2,%S0";
+
+	    case 0xffffffff:
+	    case 0xfffffffe:
+	    case 0xfffffffc:
+	      return "subs\t%G2,%S0";
+
+	    case 0x00010000:
+	    case 0x00020000:
+	      operands[2] = GEN_INT (intval >> 16);
+	      return "inc.w\t%2,%e0";
+
+	    case 0xffff0000:
+	    case 0xfffe0000:
+	      operands[2] = GEN_INT (intval >> 16);
+	      return "dec.w\t%G2,%e0";
+	    }
+
+	  /* See if we can finish with 4 bytes.  */
+	  if ((intval & 0xffff) == 0)
+	    {
+	      operands[2] = GEN_INT (intval >> 16);
+	      return "add.w\t%2,%e0";
+	    }
+	}
+
+      return "add.l\t%S2,%S0";
+    }
+}
+
+unsigned int
+compute_plussi_length (operands)
+     rtx *operands;
+{
+  enum machine_mode mode = GET_MODE (operands[0]);
+
+  if (mode != SImode)
+    abort ();
+
+  if (TARGET_H8300)
+    {
+      /* Currently we do not support H8/300 here yet.  */
+      abort ();
+    }
+  else
+    {
+      if (GET_CODE (operands[2]) == REG)
+	return 2;
+
+      if (GET_CODE (operands[2]) == CONST_INT)
+	{
+	  HOST_WIDE_INT intval = INTVAL (operands[2]);
+
+	  /* See if we can finish with 2 bytes.  */
+
+	  switch (intval & 0xffffffff)
+	    {
+	    case 0x00000001:
+	    case 0x00000002:
+	    case 0x00000004:
+	      return 2;
+
+	    case 0xffffffff:
+	    case 0xfffffffe:
+	    case 0xfffffffc:
+	      return 2;
+
+	    case 0x00010000:
+	    case 0x00020000:
+	      return 2;
+
+	    case 0xffff0000:
+	    case 0xfffe0000:
+	      return 2;
+	    }
+
+	  /* See if we can finish with 4 bytes.  */
+	  if ((intval & 0xffff) == 0)
+	    return 4;
+	}
+
+      return 6;
+    }
+}
+
+enum attr_cc
+compute_plussi_cc (operands)
+     rtx *operands;
+{
+  enum machine_mode mode = GET_MODE (operands[0]);
+
+  if (mode != SImode)
+    abort ();
+
+  if (TARGET_H8300)
+    {
+      /* Currently we do not support H8/300 here yet.  */
+      abort ();
+    }
+  else
+    {
+      if (GET_CODE (operands[2]) == REG)
+	return CC_SET_ZN;
+
+      if (GET_CODE (operands[2]) == CONST_INT)
+	{
+	  HOST_WIDE_INT intval = INTVAL (operands[2]);
+
+	  /* See if we can finish with 2 bytes.  */
+
+	  switch (intval & 0xffffffff)
+	    {
+	    case 0x00000001:
+	    case 0x00000002:
+	    case 0x00000004:
+	      return CC_NONE_0HIT;
+
+	    case 0xffffffff:
+	    case 0xfffffffe:
+	    case 0xfffffffc:
+	      return CC_NONE_0HIT;
+
+	    case 0x00010000:
+	    case 0x00020000:
+	      return CC_CLOBBER;
+
+	    case 0xffff0000:
+	    case 0xfffe0000:
+	      return CC_CLOBBER;
+	    }
+
+	  /* See if we can finish with 4 bytes.  */
+	  if ((intval & 0xffff) == 0)
+	    return CC_CLOBBER;
+	}
+
+      return CC_SET_ZN;
+    }
 }
 
 const char *
@@ -2218,7 +2384,7 @@ compute_logical_op_cc (mode, operands)
      simulate a shift by 8, 16, or 24 bits.  Once moved, a few inline
      shifts can be added if the shift count is slightly more than 8 or
      16.  This case also includes other oddballs that are not worth
-     explaning here.
+     explaining here.
 
    o SHIFT_LOOP: Emit a loop using one (or two on H8S) bit shifts.
 
@@ -3977,7 +4143,7 @@ h8300_adjust_insn_length (insn, length)
 	  states += 6;
 	}
 
-      /* We use 2-bit rotatations on the H8S.  */
+      /* We use 2-bit rotations on the H8S.  */
       if (TARGET_H8300S)
 	amount = amount / 2 + amount % 2;
 

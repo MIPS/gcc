@@ -1,3 +1,158 @@
+2002-12-27  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* doc/include/texinfo.tex: Update to version 2002-12-26.16.
+
+2002-12-27  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* doc/contrib.texi (Contributors): Add Abramo and Roberto Bagnara.
+
+2002-12-26  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300-protos.h: Fix comment typos.
+	Update copyright.
+	* config/h8300/h8300.c: Fix comment typos.
+
+2002-12-26  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.h (IDENT_ASM_OP): End with a tab.
+
+2002-12-26  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/i386/athlon.md: Fix comment typos.
+	* config/i386/crtdll.h: Likewise.
+	* config/i386/djgpp.h: Likewise.
+	* config/i386/i386-interix.h: Likewise.
+	* config/i386/i386.c: Likewise.
+	* config/i386/i386.h: Likewise.
+	* config/i386/i386.md: Likewise.
+	* config/i386/k6.md: Likewise.
+	* config/i386/mingw32.h: Likewise.
+	* config/i386/pentium.md: Likewise.
+	* config/i386/sco5.h: Likewise.
+	* config/i386/winnt.c: Likewise.
+	* config/i386/xmmintrin.h: Likewise.
+
+2002-12-26  Jose Renau <renau@cs.uiuc.edu>
+
+	* ssa-dce.c (EXECUTE_IF_UNNECESSARY): Verify INSN is an
+	INSN_P before checking to see if it is dead.
+	(mark_all_insn_unnecessary): Similarly.
+	(ssa_eliminate_dead_code): Similarly.
+	* rtl.h (struct rtx_def): Update comments for in_struct usage
+	in dead code elimination pass.
+	(INSN_DEAD_CODE_P): Allow JUMP_INSN and CALL_INSN as well.
+
+2002-12-26  Andreas Schwab  <schwab@suse.de>
+
+	* config.gcc (powerpc*-*-*, rs6000-*-*): Fix assignment syntax. 
+
+2002-12-25  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/rs6000.c (rs6000_override_options): Convert to
+	tartet_flags_explicit.
+	* config/rs6000/rs6000.h (MASK_MULTIPLE_SET, MASK_STRING_SET): Delete.
+	Compact target_flags bits.
+	(TARGET_MULTIPLE_SET, TARGET_STRING_SET): Delete.
+	(TARGET_SWITCHES): Delete references to *_SET flags.
+
+Wed Dec 25 20:30:53 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.md (memory attribute): Fix setcc attribute.
+
+2002-12-25  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* output.h: Fix comment typos.
+	* predict.c: Likewise.
+	* print-tree.c: Likewise.
+	* profile.c: Likewise.
+	* ra-build.c: Likewise.
+	* ra-colorize.c: Likewise.
+	* ra-debug.c: Likewise.
+	* ra-rewrite.c: Likewise.
+	* ra.c: Likewise.
+	* ra.h: Likewise.
+	* real.c: Likewise.
+	* recog.c: Likewise.
+	* reg-stack.c: Likewise.
+	* regclass.c: Likewise.
+
+2002-12-25  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.c (print_operand_address): Do not negate
+	a negative number when printing one.
+
+2002-12-25  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300-protos.h: Add prototypes for
+	output_plussi, compute_plussi_length, and compute_plussi_cc.
+	* config/h8300/h8300.c (output_plussi): New.
+	(compute_plussi_length): Likewise.
+	(compute_plussi_cc): Likewise.
+	* config/h8300/h8300.md (addsi_h8300h): Call
+	output_plussi, compute_plussi_length, and compute_plussi_cc.
+
+2002-12-24  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.md (two peepholes): Use match_dup instead
+	of match_operand in the new patterns.
+
+2002-12-24  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* doc/include/texinfo.tex: Update to version 2002-11-25.11.
+
+2002-12-24  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* configure.in (enable-coverage): Add SELF_COVERAGE.
+	* profile.c (end_branch_prob): Use SELF_COVERAGE.
+
+2002-12-24  Jim Wilson  <wilson@redhat.com>
+
+	* alias.c (record_set): Handle multi-reg hard registers.
+
+2002-12-24  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* regmove.c: Fix comment typos.
+	* reload.c: Likewise.
+	* reload1.c: Likewise.
+	* resource.c: Likewise.
+	* rtl.def: Likewise.
+	* rtl.h: Likewise.
+	* rtlanal.c: Likewise.
+	* sched-deps.c: Likewise.
+	* sched-rgn.c: Likewise.
+	* sibcall.c: Likewise.
+	* simplify-rtx.c: Likewise.
+	* ssa-ccp.c: Likewise.
+	* ssa.c: Likewise.
+	* stmt.c: Likewise.
+	* stor-layout.c: Likewise.
+	* system.h: Likewise.
+	* tlink.c: Likewise.
+	* toplev.c: Likewise.
+	* tracer.c: Likewise.
+	* tree-inline.c: Likewise.
+	* tree.c: Likewise.
+	* tree.h: Likewise.
+	* unroll.c: Likewise.
+	* varasm.c: Likewise.
+
+2002-12-23  Larin Hennessy  <larin@science.oregonstate.edu>
+
+	* doc/install.texi: Remove i386-*-isc, i860-*-bsd,
+	m68k-altos-sysv, m68k-isi-bsd, m68k-sony-bsd entries.
+	* doc/invoke.texi: Remove AMD 29K, ARM RISC/iX, Clipper, Convex,
+	DG/UX entries.
+	* doc/md.texi: Remove AMD 29K entries.
+	* doc/trouble.texi: Remove Alliant, DG/UX, Iris 4.0.5F, GAS
+	1.38.1, NewsOS, RT PC, WE32K entries.
+
+2002-12-23  Aldy Hernandez  <aldyh@redhat.com>
+
+        PR/8763
+        * config/rs6000/altivec.md (mulv4sf3): Rewrite to add -0.0 vector.
+        (altivec_vspltisw_v4sf): Name pattern.
+        (altivec_vslw_v4sf): New pattern.
+
 2002-12-23  Joseph S. Myers  <jsm@polyomino.org.uk>
 
 	* doc/include/gcc-common.texi: Define DEVELOPMENT.
