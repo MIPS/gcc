@@ -1,3 +1,8 @@
+Tue Jan 5  8:52:18 PST 1999 Bruce Korb (korb@datadesign.com)
+
+	* fixinc/fixincl.c (various): added debug code so
+	Manfred can trace the processing.
+
 Sun Jan 3 23:32:18 PST 1999 Jeff Law  (law@cygnus.com)
 
 	* version.c: Bump for snapshot.

@@ -136,7 +136,7 @@ void runCompiles (void);
 #include "fixincl.x"
 
 static const char zProgramId[] =
-        "$Id: fixincl.c,v 1.1.2.4 1998/12/10 06:15:42 manfred Exp $";
+        "fixincl version 1.0";
 
 int
 main (argc, argv)
@@ -276,11 +276,30 @@ main (argc, argv)
                    errno, strerror (errno));
           exit (EXIT_FAILURE);
         }
-
-      waitpid (child, (int *) NULL, 0);
+#ifdef DEBUG
+      fprintf( stderr, "Waiting for %d to complete %d files\n",
+               child, fileNameCt );
+#endif
+      {
+        int status;
+        pid_t dead_kid = wait( &status );
+        if (dead_kid != child)
+          fprintf( stderr, "fixincl woke up from a strange child %d (not %d)\n",
+                   dead_kid, child );
+#ifdef DEBUG
+        else
+          fprintf( stderr, "child finished %d files %s\n", fileNameCt,
+                   status ? strerror( status & 0xFF ) : "ok" );
+#endif
+      }
     }
 #else
 #error "NON-BOGUS LIMITS NOT SUPPORTED?!?!"
+#endif
+
+#ifdef DEBUG
+  fprintf( stderr, "Child start  --  processing %d files\n",
+           fileNameCt );
 #endif
 
   /*
@@ -736,8 +755,6 @@ process (pzDta, pzDir, pzFile)
             }
         }
 
-      egrepRes = PROBLEM;
-
       /*
        *  IF there are no tests
        *  THEN we always run the fixup
@@ -746,83 +763,81 @@ process (pzDta, pzDir, pzFile)
            tstCt-- > 0;
            pTD++)
         {
+#ifdef DEBUG
+          static const char z_test_fail[] =
+            "%16s test %2d failed for %s\n";
+#endif
           switch (pTD->type)
             {
             case TT_TEST:
-              /*
-               *  IF *any* of the shell tests fail,
-               *  THEN do not process the fix.
-               */
               if (!SUCCESSFUL (testTest (pTD, pzFile)))
-                goto nextFix;
+                {
+#ifdef DEBUG
+                  fprintf( stderr, z_test_fail, pFD->pzFixName,
+                           pFD->testCt - tstCt, pzFile );
+#endif
+                  goto nextFix;
+                }
               break;
 
             case TT_EGREP:
-              /*
-               *  IF       we have not had a successful egrep test
-               *    *AND*  this test does not pass,
-               *  THEN mark the egrep test as failing.  It starts
-               *       out as a "PROBLEM", meaning that if we do not
-               *       encounter any egrep tests, then we will let it pass.
-               */
-              if ((!SUCCESSFUL (egrepRes))
-                  && (!SUCCESSFUL (egrepTest (pzDta, pTD))))
-
-                egrepRes = FAILURE;
-
+              if (!SUCCESSFUL (egrepTest (pzDta, pTD)))
+                {
+#ifdef DEBUG
+                  fprintf( stderr, z_test_fail, pFD->pzFixName,
+                           pFD->testCt - tstCt, pzFile );
+#endif
+                  goto nextFix;
+                }
               break;
 
             case TT_NEGREP:
-              /*
-               *  IF *any* of the negative egrep tests fail,
-               *  THEN do not process the fix.
-               */
               if (SUCCESSFUL (egrepTest (pzDta, pTD)))
-                goto nextFix;
+                {
+#ifdef DEBUG
+                  fprintf( stderr, z_test_fail, pFD->pzFixName,
+                           pFD->testCt - tstCt, pzFile );
+#endif
+                  goto nextFix;
+                }
               break;
             }
         }
 
-      /*
-       *  IF there were no egrep tests *OR* at least one passed, ...
-       */
-      if (!FAILED (egrepRes))
+      fprintf (stderr, "Applying %-32s to %s\n",
+               pFD->pzFixName, pzFile);
+
+      if (fdp.readFd == -1)
         {
-          fprintf (stderr, "Applying %-32s to %s\n",
-                   pFD->pzFixName, pzFile);
-
-          if (fdp.readFd == -1)
+          fdp.readFd = open (pzFile, O_RDONLY);
+          if (fdp.readFd < 0)
             {
-              fdp.readFd = open (pzFile, O_RDONLY);
-              if (fdp.readFd < 0)
-                {
-                  fprintf (stderr, "Error %d (%s) opening %s\n", errno,
-                           strerror (errno), pzFile);
-                  exit (EXIT_FAILURE);
-                }
+              fprintf (stderr, "Error %d (%s) opening %s\n", errno,
+                       strerror (errno), pzFile);
+              exit (EXIT_FAILURE);
+            }
+        }
+
+      for (;;)
+        {
+          static int failCt = 0;
+          int newFd = chainOpen (fdp.readFd,
+                                 (tpChar *) pFD->papzPatchArgs,
+                                 (chainHead == -1)
+                                 ? &chainHead : (pid_t *) NULL);
+          if (newFd != -1)
+            {
+              fdp.readFd = newFd;
+              break;
             }
 
-          for (;;)
-            {
-              static int failCt = 0;
-              int newFd = chainOpen (fdp.readFd,
-                                     (tpChar *) pFD->papzPatchArgs,
-                                     (chainHead == -1)
-                                     ? &chainHead : (pid_t *) NULL);
-              if (newFd != -1)
-                {
-                  fdp.readFd = newFd;
-                  break;
-                }
+          fprintf (stderr, "Error %d (%s) starting filter process "
+                   "for %s\n", errno, strerror (errno),
+                   pFD->pzFixName);
 
-              fprintf (stderr, "Error %d (%s) starting filter process "
-                       "for %s\n", errno, strerror (errno),
-                       pFD->pzFixName);
-
-              if ((errno != EAGAIN) || (++failCt > 10))
-                exit (EXIT_FAILURE);
-              sleep (1);
-            }
+          if ((errno != EAGAIN) || (++failCt > 10))
+            exit (EXIT_FAILURE);
+          sleep (1);
         }
 
     nextFix:;
