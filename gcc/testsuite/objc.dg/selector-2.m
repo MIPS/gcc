@@ -11,7 +11,6 @@
 -(void) foo
 {
   SEL a;
-  a = @selector(b1ar);
+  a = @selector(b1ar); /* { dg-warning "creating selector for nonexistent method .b1ar." } */
 }
-@end /* { dg-warning "creating selector for nonexistent method .b1ar." } */
-
+@end

@@ -1,3 +1,7 @@
+2005-03-09  Ziemowit Laski  <zlaski@apple.com>
+
+	* objc.dg/selector-2.m: Move dg-warning to correct line.
+
 2005-03-08  Devang Patel  <dpatel@apple.com>
 
 	* gcc.dg/vect/vect-none.c: One test that uses condition
