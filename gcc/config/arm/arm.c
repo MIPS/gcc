@@ -216,10 +216,12 @@ char * arm_condition_codes[] =
   "hi", "ls", "ge", "lt", "gt", "le", "al", "nv"
 };
 
-/* Data for propagating the return address.  */
+/* Per function data.  */
 struct machine_function
 {
-  rtx ra_rtx;
+  rtx ra_rtx;		/* Records return address.  */
+  int far_jump_used;	/* Records if LR has to be saved for far jumps.  */
+  int arg_pointer_live;	/* Records if ARG_POINTER was ever live.  */
 };
 
 #define streq(string1, string2) (strcmp (string1, string2) == 0)
@@ -8563,12 +8565,55 @@ thumb_shiftable_const (val)
   return 0;
 }
 
-/* Returns non-zero if the current function contains a far jump */
+/* Returns non-zero if the current function contains,
+   or might contain a far jump.  */
 int
-thumb_far_jump_used_p (void)
+thumb_far_jump_used_p (int in_prologue)
 {
   rtx insn;
+
+  /* This test is only important for leaf functions.  */
+  /* assert (! leaf_function_p ()); */
   
+  /* If we have already decided that far jumps may be used,
+     do not bother checking again, and always return true even if
+     it turns out that they are not being used.  Once we have made
+     the decision that far jumps are present (and that hence the link
+     register will be pushed onto the stack) we cannot go back on it.  */
+  if (cfun->machine->far_jump_used)
+    return 1;
+
+  /* If this function is not being called from the prologue/epilogue
+     generation code then it must be being called from the
+     INITIAL_ELIMINATION_OFFSET macro.  */
+  if (! in_prologue)
+    {
+      /* In this case we know that we are being asked about the elimination
+	 of the arg pointer register.  If that register is not being used,
+	 then there are no arguments on the stack, and we do not have to
+	 worry that a far jump might force the prologue to push the link
+	 register, changing the stack offsets.  In this case we can just
+	 return false, since the presence of far jumps in the function will
+	 not affect stack offsets.
+
+	 If the arg pointer is live (or if it was live, but has now been
+	 eliminated and so set to dead) then we do have to test to see if
+	 the function might contain a far jump.  This test can lead to some
+	 false negatives, since before reload is completed, then length of
+	 branch instructions is not known, so gcc defaults to returning their
+	 longest length, which in turn sets the far jump attribute to true.
+
+	 A false negative will not result in bad code being generated, but it
+	 will result in a needless push and pop of the link register.  We
+	 hope that this does not occur too often.  */
+      if (regs_ever_live [ARG_POINTER_REGNUM])
+	cfun->machine->arg_pointer_live = 1;
+      else if (! cfun->machine->arg_pointer_live)
+	return 0;
+    }
+
+  /* Check to see if the function contains a branch
+     insn with the far jump attribute set.  */
   for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
     {
       if (GET_CODE (insn) == JUMP_INSN
@@ -8577,9 +8622,14 @@ thumb_far_jump_used_p (void)
 	  && GET_CODE (PATTERN (insn)) != ADDR_DIFF_VEC
 	  && get_attr_far_jump (insn) == FAR_JUMP_YES
 	  )
-	return 1;
+	{
+	  /* Record the fact that we have decied that
+	     the function does use far jumps.  */
+	  cfun->machine->far_jump_used = 1;
+	  return 1;
+	}
     }
-
+  
   return 0;
 }
 
@@ -8710,7 +8760,7 @@ thumb_unexpanded_epilogue ()
     }
 
   had_to_push_lr = (live_regs_mask || ! leaf_function
-		    || thumb_far_jump_used_p ());
+		    || thumb_far_jump_used_p (1));
   
   if (TARGET_BACKTRACE
       && (live_regs_mask & 0xFF) == 0
@@ -9038,7 +9088,7 @@ output_thumb_prologue (f)
 	&& ! (TARGET_SINGLE_PIC_BASE && (regno == arm_pic_register)))
       live_regs_mask |= 1 << regno;
 
-  if (live_regs_mask || ! leaf_function_p () || thumb_far_jump_used_p ())
+  if (live_regs_mask || ! leaf_function_p () || thumb_far_jump_used_p (1))
     live_regs_mask |= 1 << LR_REGNUM;
 
   if (TARGET_BACKTRACE)

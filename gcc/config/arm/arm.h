@@ -1622,7 +1622,7 @@ typedef struct
       for (regno = 0; regno <= LAST_LO_REGNUM; regno ++)		\
 	if (regs_ever_live[regno] && ! call_used_regs[regno])		\
 	  count_regs ++;						\
-      if (count_regs || ! leaf_function_p () || thumb_far_jump_used_p ())\
+      if (count_regs || ! leaf_function_p () || thumb_far_jump_used_p (0))\
 	(OFFSET) += 4 * (count_regs + 1);				\
       if (TARGET_BACKTRACE)						\
         {								\

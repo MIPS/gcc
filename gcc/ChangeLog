@@ -1,3 +1,21 @@
+2000-03-23  Nick Clifton  <nickc@cygnus.com>
+
+	* config/arm/arm.h (THUMB_INITIAL_ELIMINATION_OFFSET): Pass 0
+	to thumb_far_jump_used_p.
+
+	* config/arm/arm-protos.h (thumb_far_jump_used_p): Take a
+	single integer parameter.
+
+	* config/arm/arm.c (struct machine_function): Add two new
+	fields, 'far_jump_used' and 'arg_pointer_live'.
+	(thumb_far_jump_used_p): Once the decision has been made that
+	far jumps might be used, always return true.
+	If being called from the initial elimination offset macro then
+	do not bother to perform the test if the arg pointer is not
+	being used.
+	(thumb_unexpand_epilogue): Pass 1 to thumb_far_jump_used_p().
+	(output_thumb_prologue): Pass 1 to thumb_far_jump_used_p().
+
 2000-03-23  Richard Earnshaw (rearnsha@arm.com)
 
 	* arm.c (output_return_instruction): Handle more cases where we can

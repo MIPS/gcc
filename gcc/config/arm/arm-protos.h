@@ -152,7 +152,7 @@ extern void   aof_dump_imports		PARAMS ((FILE *));
 
 /* Thumb functions */
 extern void   arm_init_expanders	PARAMS ((void));
-extern int    thumb_far_jump_used_p	PARAMS ((void));
+extern int    thumb_far_jump_used_p	PARAMS ((int));
 extern char * thumb_unexpanded_epilogue	PARAMS ((void));
 extern void   thumb_expand_prologue	PARAMS ((void));
 extern void   thumb_expand_epilogue	PARAMS ((void));
