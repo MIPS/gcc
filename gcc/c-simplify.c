@@ -964,13 +964,14 @@ gimplify_stmt_expr (tree *expr_p)
 	if (TREE_CODE (substmt) != SCOPE_STMT)
 	  last_stmt = substmt;
 
-      if (TREE_CODE (last_stmt) != EXPR_STMT
+      if (last_stmt == NULL_TREE
+	  || TREE_CODE (last_stmt) != EXPR_STMT
 	  || (TREE_TYPE (last_stmt)
 	      && VOID_TYPE_P (TREE_TYPE (last_stmt))))
 	{
 	  location_t loc;
 	  loc.file = input_filename;
-	  loc.line = STMT_LINENO (last_stmt);
+	  loc.line = STMT_LINENO (last_stmt ? last_stmt : *expr_p);
 	  warning ("%Hstatement-expressions should end with a "
 		   "non-void expression", &loc);
 	  last_expr = NULL_TREE;
@@ -986,7 +987,7 @@ gimplify_stmt_expr (tree *expr_p)
 	}
 
 #if defined ENABLE_CHECKING
-      if (!is_last_stmt_of_scope (last_stmt))
+      if (last_stmt && !is_last_stmt_of_scope (last_stmt))
 	abort ();
 #endif
 
