@@ -1,3 +1,9 @@
+2005-01-24  Robert Bowdidge <bowdidge@apple.com>
+	Radar 3971437
+	* build_gcc: run nmedit on libcc_kext.a so that dependent kexts can
+        all have their own copy of (say) divdi3.  This returns libcc_kext.a to
+        how things were done in gcc-3.3.
+
 2005-01-18  Stuart Hastings  <stuart@apple.com>
 
 	Radar 3939868
