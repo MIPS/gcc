@@ -78,9 +78,12 @@
 #    endif
 #    define mach_type_known
 # endif
-# if defined(mips) || defined(__mips)
+# if defined(mips) || defined(__mips) || defined(_mips)
 #    define MIPS
-#    if !defined(LINUX)
+#    if defined(nec_ews) || defined(_nec_ews)
+#      define EWS4800
+#    endif
+#    if !defined(LINUX) && !defined(EWS4800)
 #      if defined(ultrix) || defined(__ultrix) || defined(__NetBSD__)
 #	 define ULTRIX
 #      else
@@ -715,8 +718,11 @@
 #   define MACH_TYPE "SPARC"
 #   if defined(__arch64__) || defined(__sparcv9)
 #     define ALIGNMENT 8
+#     define CPP_WORDSZ 64
+#     define ELF_CLASS ELFCLASS64
 #   else
 #     define ALIGNMENT 4	/* Required by hardware	*/
+#     define CPP_WORDSZ 32
 #   endif
 #   define ALIGN_DOUBLE
 #   ifdef SUNOS5
@@ -726,8 +732,12 @@
 	extern char * GC_SysVGetDataStart();
 #       define DATASTART (ptr_t)GC_SysVGetDataStart(0x10000, &_etext)
 #	define DATAEND (&_end)
-#	ifndef USE_MMAP
+#	if !defined(USE_MMAP) && defined(REDIRECT_MALLOC)
 #	    define USE_MMAP
+	    /* Otherwise we now use calloc.  Mmap may result in the	*/
+	    /* heap interleaved with thread stacks, which can result in	*/
+	    /* excessive blacklisting.  Sbrk is unusable since it	*/
+	    /* doesn't interact correctly with the system malloc.	*/
 #	endif
 #       ifdef USE_MMAP
 #         define HEAP_START (ptr_t)0x40000000
@@ -751,7 +761,9 @@
 #       define GETPAGESIZE()  sysconf(_SC_PAGESIZE)
 		/* getpagesize() appeared to be missing from at least one */
 		/* Solaris 5.4 installation.  Weird.			  */
-#	define DYNAMIC_LOADING
+#       if CPP_WORDSZ == 32
+#	  define DYNAMIC_LOADING
+#    	endif
 #   endif
 #   ifdef SUNOS4
 #	define OS_TYPE "SUNOS4"
@@ -773,7 +785,6 @@
 # 	define DYNAMIC_LOADING
 #   endif
 #   ifdef DRSNX
-#       define CPP_WORDSZ 32
 #	define OS_TYPE "DRSNX"
 	extern char * GC_SysVGetDataStart();
 	extern int etext;
@@ -796,7 +807,6 @@
 #     ifdef __arch64__
 #       define STACKBOTTOM ((ptr_t) 0x80000000000ULL)
 #	define DATASTART (ptr_t)GC_SysVGetDataStart(0x100000, &_etext)
-#	define CPP_WORDSZ 64
 #     else
 #       define STACKBOTTOM ((ptr_t) 0xf0000000)
 #	define DATASTART (ptr_t)GC_SysVGetDataStart(0x10000, &_etext)
@@ -849,21 +859,29 @@
 #   endif
 #   ifdef SUNOS5
 #	define OS_TYPE "SUNOS5"
-  	extern int etext, _start;
+        extern int _etext, _end;
   	extern char * GC_SysVGetDataStart();
-#       define DATASTART GC_SysVGetDataStart(0x1000, &etext)
+#       define DATASTART GC_SysVGetDataStart(0x1000, &_etext)
+#	define DATAEND (&_end)
 /*	# define STACKBOTTOM ((ptr_t)(&_start)) worked through 2.7,  	*/
 /*      but reportedly breaks under 2.8.  It appears that the stack	*/
 /* 	base is a property of the executable, so this should not break	*/
 /* 	old executables.						*/
 /*  	HEURISTIC2 probably works, but this appears to be preferable.	*/
-#       include <sys/vmparam.h>
+#       include <sys/vm.h>
 #	define STACKBOTTOM USRSTACK
-/** At least in Solaris 2.5, PROC_VDB gives wrong values for dirty bits. */
-/*#	define PROC_VDB*/
+/* At least in Solaris 2.5, PROC_VDB gives wrong values for dirty bits. */
+/* It appears to be fixed in 2.8 and 2.9.				*/
+#	ifdef SOLARIS25_PROC_VDB_BUG_FIXED
+#	  define PROC_VDB
+#	endif
 #	define DYNAMIC_LOADING
-#	ifndef USE_MMAP
+#	if !defined(USE_MMAP) && defined(REDIRECT_MALLOC)
 #	    define USE_MMAP
+	    /* Otherwise we now use calloc.  Mmap may result in the	*/
+	    /* heap interleaved with thread stacks, which can result in	*/
+	    /* excessive blacklisting.  Sbrk is unusable since it	*/
+	    /* doesn't interact correctly with the system malloc.	*/
 #	endif
 #       ifdef USE_MMAP
 #         define HEAP_START (ptr_t)0x40000000
@@ -888,6 +906,10 @@
 #	define ELF_CLASS ELFCLASS32
 #   endif
 #   ifdef LINUX
+#	ifndef __GNUC__
+	  /* The Intel compiler doesn't like inline assembly */
+#	  define USE_GENERIC_PUSH_REGS
+# 	endif
 #	define OS_TYPE "LINUX"
 #       define LINUX_STACKBOTTOM
 #	if 0
@@ -1014,11 +1036,17 @@
 #   endif
 #   ifdef FREEBSD
 #	define OS_TYPE "FREEBSD"
-#	define MPROTECT_VDB
+#	ifndef GC_FREEBSD_THREADS
+#	    define MPROTECT_VDB
+#	endif
+#	define SIG_SUSPEND SIGUSR1
+#	define SIG_THR_RESTART SIGUSR2
 #	define FREEBSD_STACKBOTTOM
 #	ifdef __ELF__
 #	    define DYNAMIC_LOADING
 #	endif
+	extern char etext;
+#	define DATASTART ((ptr_t)(&etext))
 #   endif
 #   ifdef NETBSD
 #	define OS_TYPE "NETBSD"
@@ -1029,7 +1057,7 @@
 #   ifdef BSDI
 #	define OS_TYPE "BSDI"
 #   endif
-#   if defined(OPENBSD) || defined(NETBSD) || defined(FREEBSD) \
+#   if defined(OPENBSD) || defined(NETBSD) \
         || defined(THREE86BSD) || defined(BSDI)
 #	define HEURISTIC2
 	extern char etext;
@@ -1097,6 +1125,29 @@
 	/* instead. But some kernel versions seem to give the wrong	*/
 	/* value from /proc.						*/
 #   endif /* Linux */
+#   ifdef EWS4800
+#      define HEURISTIC2
+#      if defined(_MIPS_SZPTR) && (_MIPS_SZPTR == 64)
+         extern int _fdata[], _end[];
+#        define DATASTART ((ptr_t)_fdata)
+#        define DATAEND ((ptr_t)_end)
+#        define CPP_WORDSZ _MIPS_SZPTR
+#        define ALIGNMENT (_MIPS_SZPTR/8)
+#      else
+         extern int etext, edata, end;
+         extern int _DYNAMIC_LINKING, _gp;
+#        define DATASTART ((ptr_t)((((word)&etext + 0x3ffff) & ~0x3ffff) \
+               + ((word)&etext & 0xffff)))
+#        define DATAEND (&edata)
+#        define DATASTART2 (&_DYNAMIC_LINKING \
+               ? (ptr_t)(((word)&_gp + 0x8000 + 0x3ffff) & ~0x3ffff) \
+               : (ptr_t)&edata)
+#        define DATAEND2 (&end)
+#        define ALIGNMENT 4
+#      endif
+#      define OS_TYPE "EWS4800"
+#      define USE_GENERIC_PUSH_REGS 1
+#   endif
 #   ifdef ULTRIX
 #	define HEURISTIC2
 #       define DATASTART (ptr_t)0x10000000
@@ -1374,7 +1425,13 @@
 #	define BACKING_STORE_BASE ((ptr_t)GC_register_stackbottom)
 #	define SEARCH_FOR_DATA_START
 #	define DATASTART GC_data_start
-#       define DYNAMIC_LOADING
+#	ifdef __GNUC__
+#         define DYNAMIC_LOADING
+#	else
+	  /* In the Intel compiler environment, we seem to end up with  */
+	  /* statically linked executables and an undefined reference	*/
+	  /* to _DYNAMIC						*/
+#  	endif
 #	define MPROTECT_VDB
 		/* Requires Linux 2.3.47 or later.	*/
 	extern int _end;
@@ -1678,17 +1735,68 @@
 	/* descriptions.						*/
 #	define USE_GENERIC_PUSH_REGS
 # endif
-# if defined(I386) && defined(LINUX)
-    /* SAVE_CALL_CHAIN is supported if the code is compiled to save	*/
-    /* frame pointers by default, i.e. no -fomit-frame-pointer flag.	*/
-# ifdef SAVE_CALL_COUNT
-#   define SAVE_CALL_CHAIN 
-# endif
-# endif
+
 # if defined(SPARC)
-#   define SAVE_CALL_CHAIN
 #   define ASM_CLEAR_CODE	/* Stack clearing is crucial, and we 	*/
 				/* include assembly code to do it well.	*/
+# endif
+
+/* Can we save call chain in objects for debugging?   		        */
+/* SET NFRAMES (# of saved frames) and NARGS (#of args for each frame)	*/
+/* to reasonable values for the platform.				*/
+/* Set SAVE_CALL_CHAIN if we can.  SAVE_CALL_COUNT can be specified at	*/
+/* build time, though we feel free to adjust it slightly.		*/
+/* Define NEED_CALLINFO if we either save the call stack or 		*/
+/* GC_ADD_CALLER is defined.						*/
+#ifdef LINUX
+# include <features.h>
+# if __GLIBC__ == 2 && __GLIBC_MINOR__ >= 1 || __GLIBC__ > 2
+#   define HAVE_BUILTIN_BACKTRACE
+# endif
+#endif
+
+#if defined(SPARC)
+# define CAN_SAVE_CALL_STACKS
+# define CAN_SAVE_CALL_ARGS
+#endif
+#if defined(I386) && defined(LINUX)
+    /* SAVE_CALL_CHAIN is supported if the code is compiled to save	*/
+    /* frame pointers by default, i.e. no -fomit-frame-pointer flag.	*/
+# define CAN_SAVE_CALL_STACKS
+# define CAN_SAVE_CALL_ARGS
+#endif
+#if defined(HAVE_BUILTIN_BACKTRACE) && !defined(CAN_SAVE_CALL_STACKS)
+# define CAN_SAVE_CALL_STACKS
+#endif
+
+# if defined(SAVE_CALL_COUNT) && !defined(GC_ADD_CALLER) \
+     && defined(CAN_SAVE_CALL_STACKS)
+#   define SAVE_CALL_CHAIN 
+# endif
+# ifdef SAVE_CALL_CHAIN
+#   if defined(SAVE_CALL_NARGS) && defined(CAN_SAVE_CALL_ARGS)
+#     define NARGS SAVE_CALL_NARGS
+#   else
+#     define NARGS 0	/* Number of arguments to save for each call.	*/
+#   endif
+# endif
+# ifdef SAVE_CALL_CHAIN
+#   ifndef SAVE_CALL_COUNT
+#     define NFRAMES 6	/* Number of frames to save. Even for		*/
+			/* alignment reasons.				*/
+#   else
+#     define NFRAMES ((SAVE_CALL_COUNT + 1) & ~1)
+#   endif
+#   define NEED_CALLINFO
+# endif /* SAVE_CALL_CHAIN */
+# ifdef GC_ADD_CALLER
+#   define NFRAMES 1
+#   define NARGS 0
+#   define NEED_CALLINFO
+# endif
+
+# if defined(MAKE_BACK_GRAPH) && !defined(DBG_HDRS_ALL)
+#   define DBG_HDRS_ALL
 # endif
 
 # endif /* GCCONFIG_H */
