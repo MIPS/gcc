@@ -1032,7 +1032,7 @@ insert_occ_in_preorder_dt_order (struct expr_info *ei)
 	    newref = create_expr_ref (ei, ei->expr, EEXIT_NODE, 
 				      block,
 				      NULL);
-	    VARRAY_PUSH_TREE (ei->euses_dt_order, newref);
+	    VARRAY_PUSH_TREE (ei->euses_dt_order, newref); 
 	  }
       }
   }
@@ -1343,9 +1343,13 @@ bool load_modified_phi_result (basic_block bb, tree cr)
   basic_block defbb = bb_for_stmt (SSA_NAME_DEF_STMT (cr));
   if (defbb != bb)
     {
-      if (!defbb)
+      /* This guards against moving around undefined variables.
+	 However, PARM_DECL is special because it *IS* live on entry,
+	 so it's not really undefined.  */
+      if (!defbb && TREE_CODE (SSA_NAME_VAR (cr)) != PARM_DECL)
 	return true;
-
+      else if (!defbb && TREE_CODE (SSA_NAME_VAR (cr)) == PARM_DECL)
+        return false;
       if (dominated_by_p (CDI_DOMINATORS, bb, defbb))
 	return false;
     }
@@ -1616,6 +1620,12 @@ rename_1 (struct expr_info *ei)
     if (ephi != NULL && EREF_STMT (ephi) != NULL)
       process_delayed_rename (ei, ephi, EREF_STMT (ephi));
   }
+
+  /* If we didn't process the delayed rename for an ephi argument, 
+     but thought we needed to, mark the operand as NULL.  Also, if the
+     operand was defined by an  EPHI, we can mark it not downsafe
+     because there can't have been a real occurrence (or else we would
+     have processed a rename for it).  */
   FOR_EACH_BB (phi_bb)
   {
     tree ephi = ephi_at_block (phi_bb);

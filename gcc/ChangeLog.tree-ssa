@@ -1,3 +1,9 @@
+2004-01-21  Daniel Berlin  <dberlin@dberlin.org>
+	
+	* tree-ssa-pre.c (load_modified_phi_result): PARM_DECL is okay
+	to not have a defbb.
+	(rename_1): Add a comment.
+
 2004-01-21  Jeff Law  <law@redhat.com>
 
 	* tree-ssa-dom.c (thread_across_edge): Remove bogus restriction
