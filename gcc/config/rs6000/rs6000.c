@@ -12649,9 +12649,8 @@ rs6000_stack_info (void)
 
 	  /* Align stack so vector save area is on a quadword boundary.  */
 	  if (info_ptr->altivec_size != 0)
-	    /* APPLE LOCAL AltiVec dating from the Sept. 02 1.169 sshebs*/
 	    info_ptr->altivec_padding_size
-	      = (16 - (-info_ptr->vrsave_save_offset % 16)) % 16;
+	      = 16 - (-info_ptr->vrsave_save_offset % 16);
 	  else
 	    info_ptr->altivec_padding_size = 0;
 
