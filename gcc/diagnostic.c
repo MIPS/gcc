@@ -573,6 +573,11 @@ output_format (buffer, text)
               (buffer, va_arg (*text->args_ptr, unsigned int));
 	  break;
 
+	case 'p':
+	  output_long_hexadecimal
+	    (buffer, (unsigned long) va_arg (*text->args_ptr, void *));
+	  break;
+
 	case '%':
 	  output_add_character (buffer, '%');
 	  break;

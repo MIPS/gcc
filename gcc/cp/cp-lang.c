@@ -32,7 +32,7 @@ static HOST_WIDE_INT cxx_get_alias_set PARAMS ((tree));
 static bool ok_to_generate_alias_set_for_type PARAMS ((tree));
 static bool cxx_warn_unused_global_decl PARAMS ((tree));
 static tree cp_expr_size PARAMS ((tree));
-static void cp_expand_decl PARAMS ((tree));
+static int cp_expand_decl PARAMS ((tree));
 
 #undef LANG_HOOKS_NAME
 #define LANG_HOOKS_NAME "GNU C++"
@@ -117,7 +117,7 @@ static void cp_expand_decl PARAMS ((tree));
   cp_add_pending_fn_decls
 #undef LANG_HOOKS_TREE_INLINING_TREE_CHAIN_MATTERS_P
 #define LANG_HOOKS_TREE_INLINING_TREE_CHAIN_MATTERS_P \
-  cp_is_overload_p
+  cp_tree_chain_matters_p
 #undef LANG_HOOKS_TREE_INLINING_AUTO_VAR_IN_FN_P
 #define LANG_HOOKS_TREE_INLINING_AUTO_VAR_IN_FN_P \
   cp_auto_var_in_fn_p
@@ -317,12 +317,34 @@ cp_expr_size (exp)
 /* Expand DECL if it declares an entity not handled by the
    common code.  */
 
-static void
+static int
 cp_expand_decl (decl)
      tree decl;
 {
-  if (TREE_CODE (decl) == LABEL_DECL 
-      && C_DECLARED_LABEL_FLAG (decl))
+  if (TREE_CODE (decl) == VAR_DECL && !TREE_STATIC (decl))
+    {
+      /* Let the back-end know about this variable.  */
+      if (!anon_aggr_type_p (TREE_TYPE (decl)))
+	emit_local_var (decl);
+      else
+	expand_anon_union_decl (decl, NULL_TREE, 
+				DECL_ANON_UNION_ELEMS (decl));
+    }
+  else if (TREE_CODE (decl) == VAR_DECL && TREE_STATIC (decl))
+    make_rtl_for_local_static (decl);
+  else if (TREE_CODE (decl) == LABEL_DECL 
+	   && C_DECLARED_LABEL_FLAG (decl))
     declare_nonlocal_label (decl);
+  else
+    return 0;
+
+  return 1;
+}
+
+int
+cp_tree_chain_matters_p (t)
+     tree t;
+{
+  return cp_is_overload_p (t) || c_tree_chain_matters_p (t);
 }
 

@@ -64,23 +64,13 @@ int is_simple_initializer              PARAMS ((tree));
 int is_simplifiable_builtin            PARAMS ((tree));
 int is_simple_stmt                     PARAMS ((tree));
 
-
-typedef struct simplify_ctx
-{
-  /* PRE_P points to the list for side effects that must happen before
-     the current expression is evaluated.  */
-  tree *pre_p;
-  /* POST_P points to the list for side effects that must happen after
-     the current expression is evaluated.  */
-  tree *post_p;
-  /* DECL_SCOPE points to the BIND_EXPR for the current scope.  */
-  tree decl_scope;
-} simplify_ctx;
+void recalculate_side_effects		PARAMS ((tree));
 
 /* FIXME this needs a better name.  */
 tree add_tree			       PARAMS ((tree, tree *));
 /* FIXME we should deduce this from the predicate.  */
 typedef enum fallback_t {
+  fb_none = 0,
   fb_rvalue=1,
   fb_lvalue=2,
   fb_either=1|2

@@ -1650,6 +1650,10 @@ unsafe_for_reeval (expr)
     {
     case SAVE_EXPR:
     case RTL_EXPR:
+
+      /* A label can only be emitted once.  */
+    case LABEL_EXPR:
+    case BIND_EXPR:
       return 2;
 
     case TREE_LIST:
@@ -4860,6 +4864,18 @@ initializer_zerop (init)
     default:
       return false;
     }
+}
+
+void
+add_var_to_bind_expr (bind_expr, var)
+     tree bind_expr;
+     tree var;
+{
+  BIND_EXPR_VARS (bind_expr)
+    = chainon (BIND_EXPR_VARS (bind_expr), var);
+  if (BIND_EXPR_BLOCK (bind_expr))
+    BLOCK_VARS (BIND_EXPR_BLOCK (bind_expr))
+      = BIND_EXPR_VARS (bind_expr);
 }
 
 #include "gt-tree.h"

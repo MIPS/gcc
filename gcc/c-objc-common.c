@@ -107,10 +107,11 @@ inline_forbidden_p (nodep, walk_subtrees, fn)
 
       break;
 
-    case DECL_STMT:
+    case BIND_EXPR:
       /* We cannot inline functions that contain other functions.  */
-      if (TREE_CODE (TREE_OPERAND (node, 0)) == FUNCTION_DECL
-	  && DECL_INITIAL (TREE_OPERAND (node, 0)))
+      for (t = BIND_EXPR_VARS (node); t; t = TREE_CHAIN (t))
+	if (TREE_CODE (t) == FUNCTION_DECL
+	    && DECL_INITIAL (t))
 	return node;
       break;
 
@@ -199,6 +200,13 @@ c_cannot_inline_tree_fn (fnp)
 	t = DECL_CONTEXT (t);
       if (! t)
 	return 0;
+    }
+
+  /* We can't inline this function if genericization failed.  */
+  if (statement_code_p (TREE_CODE (DECL_SAVED_TREE (fn))))
+    {
+      DECL_UNINLINABLE (fn) = 1;
+      return 1;
     }
     
   if (walk_tree (&DECL_SAVED_TREE (fn), inline_forbidden_p, fn, NULL))

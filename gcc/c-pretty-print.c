@@ -466,7 +466,7 @@ dump_c_node (buffer, node, spc, brief_dump)
       if (DECL_NAME (node))
 	output_add_string (buffer, IDENTIFIER_POINTER (DECL_NAME (node)));
       else
-        output_add_string (buffer, "<unnamed label>");
+        output_printf (buffer, "<unnamed label %p>", node);
       break;
 
     case CONST_DECL:
@@ -510,7 +510,7 @@ dump_c_node (buffer, node, spc, brief_dump)
       if (DECL_NAME (node))
 	output_add_string (buffer, IDENTIFIER_POINTER (DECL_NAME (node)));
       else
-        output_add_string (buffer, "<unnamed var>");
+        output_printf (buffer, "<unnamed var %p>", node);
       break;
 
     case RESULT_DECL:

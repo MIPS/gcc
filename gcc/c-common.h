@@ -353,13 +353,6 @@ struct c_lang_decl GTY(()) {
   unsigned declared_inline : 1;
 };
 
-/* In a FUNCTION_DECL for which DECL_BUILT_IN does not hold, this is
-     the approximate number of statements in this function.  There is
-     no need for this number to be exact; it is only used in various
-     heuristics regarding optimization.  */
-#define DECL_NUM_STMTS(NODE) \
-  (FUNCTION_DECL_CHECK (NODE)->decl.u1.i)
-
 /* The variant of the C language being processed.  Each C language
    front-end defines this variable.  */
 
@@ -1196,5 +1189,7 @@ extern void dump_time_statistics		PARAMS ((void));
 extern int c_dump_tree				PARAMS ((void *, tree));
 
 extern int c_simplify_expr			PARAMS ((tree *, tree *, tree *));
+extern tree c_walk_subtrees PARAMS ((tree*, int*, walk_tree_fn, void*, void*));
+extern int c_tree_chain_matters_p		PARAMS ((tree));
 
 #endif /* ! GCC_C_COMMON_H */

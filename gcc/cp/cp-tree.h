@@ -4245,6 +4245,7 @@ extern tree find_tree                           PARAMS ((tree, tree));
 extern linkage_kind decl_linkage                PARAMS ((tree));
 extern tree cp_walk_subtrees PARAMS ((tree*, int*, walk_tree_fn,
 				      void*, void*));
+extern int cp_tree_chain_matters_p		PARAMS ((tree));
 extern int cp_cannot_inline_tree_fn PARAMS ((tree*));
 extern tree cp_add_pending_fn_decls PARAMS ((void*,tree));
 extern int cp_is_overload_p PARAMS ((tree));

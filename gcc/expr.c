@@ -6572,7 +6572,9 @@ expand_expr (exp, target, tmode, modifier)
 	if (EXPR_WFL_EMIT_LINE_NOTE (exp))
 	  emit_line_note (input_filename, lineno);
 	/* Possibly avoid switching back and forth here.  */
-	to_return = expand_expr (EXPR_WFL_NODE (exp), target, tmode, modifier);
+	to_return = expand_expr (EXPR_WFL_NODE (exp),
+				 (ignore ? const0_rtx : target),
+				 tmode, modifier);
 	input_filename = saved_input_filename;
 	lineno = saved_lineno;
 	return to_return;
@@ -6744,7 +6746,6 @@ expand_expr (exp, target, tmode, modifier)
       {
 	tree vars;
 	tree block = BIND_EXPR_BLOCK (exp);
-	int vars_need_expansion = 0;
 	int mark_ends;
 
 	if (TREE_CODE (BIND_EXPR_BODY (exp)) != RTL_EXPR)
@@ -6777,17 +6778,23 @@ expand_expr (exp, target, tmode, modifier)
 	/* If VARS have not yet been expanded, expand them now.  */
 	for (vars = BIND_EXPR_VARS (exp); vars; vars = TREE_CHAIN (vars))
 	  {
-	    if (!DECL_RTL_SET_P (vars))
+	    if (DECL_EXTERNAL (vars))
+	      /* Do nothing.  */;
+	    else if (TREE_STATIC (vars)
+		     ? !TREE_ASM_WRITTEN (vars)
+		     : !DECL_RTL_SET_P (vars))
 	      {
-		vars_need_expansion = 1;
-		if (DECL_EXTERNAL (vars))
-		  /* Do nothing.  */;
+		if ((*lang_hooks.expand_decl) (vars))
+		  /* OK.  */;
 		else if (TREE_CODE (vars) == VAR_DECL && !TREE_STATIC (vars))
 		  expand_decl (vars);
 		else if (TREE_CODE (vars) == VAR_DECL && TREE_STATIC (vars))
 		  rest_of_decl_compilation (vars, NULL, 0, 0);
+		else if (TREE_CODE (vars) == TYPE_DECL
+			 || TREE_CODE (vars) == CONST_DECL)
+		  /* No expansion needed.  */;
 		else
-		  (*lang_hooks.expand_decl) (vars);
+		  abort ();
 	      }
 	    expand_decl_init (vars);
 	  }
@@ -8312,6 +8319,12 @@ expand_expr (exp, target, tmode, modifier)
 	{
 	  expand_expr (TREE_OPERAND (exp, 0), const0_rtx, VOIDmode, 0);
 	  emit_queue ();
+#if 0
+	  /* FIXME try this.  */
+	  /* Free any temporaries used to evaluate this expression.  */
+	  if (ignore)
+	    free_temp_slots ();
+#endif
 	}
       return expand_expr (exp, (ignore ? const0_rtx : target), VOIDmode, 0);
 

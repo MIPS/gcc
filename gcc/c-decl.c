@@ -6397,6 +6397,10 @@ finish_function (nested, can_defer_p)
       && DECL_INLINE (fndecl))
     warning ("no return statement in function returning non-void");
 
+  /* Simplify before inlining.  Really this only needs to genericize,
+     but that currently happens via the simplifier.  */
+  simplify_function_tree (fndecl);
+
   /* Clear out memory we no longer need.  */
   free_after_parsing (cfun);
   /* Since we never call rest_of_compilation, we never clear
@@ -6878,18 +6882,33 @@ c_begin_compound_stmt ()
 /* Expand DECL if it declares an entity not handled by the
    common code.  */
 
-void
+int
 c_expand_decl (decl)
      tree decl;
 {
+  if (TREE_CODE (decl) == VAR_DECL && !TREE_STATIC (decl))
+    {
+      /* Let the back-end know about this variable.  */
+      if (!anon_aggr_type_p (TREE_TYPE (decl)))
+	emit_local_var (decl);
+      else
+	expand_anon_union_decl (decl, NULL_TREE, 
+				DECL_ANON_UNION_ELEMS (decl));
+    }
+  else if (TREE_CODE (decl) == VAR_DECL && TREE_STATIC (decl))
+    make_rtl_for_local_static (decl);
   /* Expand nested functions.  */
-  if (TREE_CODE (decl) == FUNCTION_DECL
-      && DECL_CONTEXT (decl) == current_function_decl
-      && DECL_SAVED_TREE (decl))
+  else if (TREE_CODE (decl) == FUNCTION_DECL
+	   && DECL_CONTEXT (decl) == current_function_decl
+	   && DECL_SAVED_TREE (decl))
     c_expand_body (decl, /*nested_p=*/1, /*can_defer_p=*/0);
   else if (TREE_CODE (decl) == LABEL_DECL 
 	   && C_DECLARED_LABEL_FLAG (decl))
     declare_nonlocal_label (decl);
+  else
+    return 0;
+
+  return 1;
 }
 
 /* Return the IDENTIFIER_GLOBAL_VALUE of T, for use in common code, since
