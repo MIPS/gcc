@@ -1,3 +1,9 @@
+2002-06-09  Jason Merrill  <jason@redhat.com>
+
+	* c-pretty-print.c (debug_c_tree): Add a trailing newline.
+	(debug_c_node): Likewise.
+	* gdbinit.in (pct): New macro, calls debug_c_tree.
+
 2002-06-08  Jason Merrill  <jason@redhat.com>
 
 	* tree-simple.c (is_simple_unary_expr): Only allow the address of

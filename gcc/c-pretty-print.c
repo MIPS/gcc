@@ -94,6 +94,7 @@ debug_c_tree (t)
      tree t;
 {
   print_c_tree (stderr, t);
+  fputc ('\n', stderr);
 }
 
 /* Print the node T on stderr.  */
@@ -103,6 +104,7 @@ debug_c_node (t)
      tree t;
 {
   print_c_node (stderr, t);
+  fputc ('\n', stderr);
 }
 
 /* Dump the tree T on the output_buffer BUFFER.  */
