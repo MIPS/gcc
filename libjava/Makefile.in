@@ -1007,7 +1007,6 @@ javax/swing/plaf/basic/BasicSliderUI.java \
 javax/swing/plaf/basic/BasicSplitPaneDivider.java \
 javax/swing/plaf/basic/BasicSplitPaneUI.java \
 javax/swing/plaf/basic/BasicTabbedPaneUI.java \
-javax/swing/plaf/basic/BasicTableUI.java \
 javax/swing/plaf/basic/BasicTextFieldUI.java \
 javax/swing/plaf/basic/BasicTextUI.java \
 javax/swing/plaf/basic/BasicToggleButtonUI.java \
@@ -3148,7 +3147,6 @@ javax/swing/plaf/basic/BasicSliderUI.lo \
 javax/swing/plaf/basic/BasicSplitPaneDivider.lo \
 javax/swing/plaf/basic/BasicSplitPaneUI.lo \
 javax/swing/plaf/basic/BasicTabbedPaneUI.lo \
-javax/swing/plaf/basic/BasicTableUI.lo \
 javax/swing/plaf/basic/BasicTextFieldUI.lo \
 javax/swing/plaf/basic/BasicTextUI.lo \
 javax/swing/plaf/basic/BasicToggleButtonUI.lo \
@@ -5332,7 +5330,6 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/javax/swing/plaf/basic/BasicSplitPaneDivider.P \
 .deps/javax/swing/plaf/basic/BasicSplitPaneUI.P \
 .deps/javax/swing/plaf/basic/BasicTabbedPaneUI.P \
-.deps/javax/swing/plaf/basic/BasicTableUI.P \
 .deps/javax/swing/plaf/basic/BasicTextFieldUI.P \
 .deps/javax/swing/plaf/basic/BasicTextUI.P \
 .deps/javax/swing/plaf/basic/BasicToggleButtonUI.P \
