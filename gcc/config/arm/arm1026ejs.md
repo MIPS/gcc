@@ -48,8 +48,8 @@
 ;;
 ;;   The LSU pipeline has decode, execute, memory, and write stages.
 
-(define_cpu_unit "a_f,a_i,a_d,a_e,a_m,a_w" "arm1026ejs")
-(define_cpu_unit "l_d,l_e,l_m,l_w" "arm1026ejs")
+(define_cpu_unit "a_e,a_m,a_w" "arm1026ejs")
+(define_cpu_unit "l_e,l_m,l_w" "arm1026ejs")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; ALU Instructions
@@ -62,10 +62,10 @@
 ;; If the destination register is the PC, the pipelines are stalled
 ;; for several cycles.  That case is not modeled here.
 
-(define_insn_reservation "alu_op" 4 
+(define_insn_reservation "alu_op" 1 
  (and (eq_attr "tune" "arm1026ejs")
       (eq_attr "type" "normal"))
- "a_f,a_i,a_d,a_e,a_m,a_w")
+ "a_e,a_m,a_w")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Multiplication Instructions
@@ -77,34 +77,34 @@
 
 ;; The result of the "smul" and "smulw" instructions is not available
 ;; until after the memory stage.
-(define_insn_reservation "mult1" 5
+(define_insn_reservation "mult1" 2
  (and (eq_attr "tune" "arm1026ejs")
       (eq_attr "insn" "smulxy,smulwy"))
- "a_f,a_i,a_d,a_e,a_m,a_w")
+ "a_e,a_m,a_w")
 
 ;; The "smlaxy" and "smlawx" instructions require two iterations through
 ;; the execute stage; the result is available immediately following
 ;; the execute stage.
-(define_insn_reservation "mult2" 5
+(define_insn_reservation "mult2" 2
  (and (eq_attr "tune" "arm1026ejs")
       (eq_attr "insn" "smlaxy,smlalxy,smlawx"))
- "a_f,a_i,a_d,a_e*2,a_m,a_w")
+ "a_e*2,a_m,a_w")
 
 ;; The "smlalxy", "mul", and "mla" instructions require two iterations
 ;; through the execute stage; the result is not available until after
 ;; the memory stage.
-(define_insn_reservation "mult3" 6
+(define_insn_reservation "mult3" 3
  (and (eq_attr "tune" "arm1026ejs")
       (eq_attr "insn" "smlalxy,mul,mla"))
- "a_f,a_i,a_d,a_e*2,a_m,a_w")
+ "a_e*2,a_m,a_w")
 
 ;; The "muls" and "mlas" instructions loop in the execute stage for
 ;; four iterations in order to set the flags.  The value result is
 ;; available after three iterations.
-(define_insn_reservation "mult4" 6
+(define_insn_reservation "mult4" 3
  (and (eq_attr "tune" "arm1026ejs")
       (eq_attr "insn" "muls,mlas"))
- "a_f,a_i,a_d,a_e*4,a_m,a_w")
+ "a_e*4,a_m,a_w")
 
 ;; Long multiply instructions that produce two registers of
 ;; output (such as umull) make their results available in two cycles;
@@ -116,18 +116,18 @@
 ;; The "umull", "umlal", "smull", and "smlal" instructions all take
 ;; three iterations through the execute cycle, and make their results
 ;; available after the memory cycle.
-(define_insn_reservation "mult5" 7
+(define_insn_reservation "mult5" 4
  (and (eq_attr "tune" "arm1026ejs")
       (eq_attr "insn" "umull,umlal,smull,smlal"))
- "a_f,a_i,a_d,a_e*3,a_m,a_w")
+ "a_e*3,a_m,a_w")
 
 ;; The "umulls", "umlals", "smulls", and "smlals" instructions loop in
 ;; the execute stage for five iterations in order to set the flags.
 ;; The value result is vailable after four iterations.
-(define_insn_reservation "mult6" 7
+(define_insn_reservation "mult6" 4
  (and (eq_attr "tune" "arm1026ejs")
       (eq_attr "insn" "umulls,umlals,smulls,smlals"))
- "a_f,a_i,a_d,a_e*5,a_m,a_w")
+ "a_e*5,a_m,a_w")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Load/Store Instructions
@@ -142,10 +142,15 @@
 ;; pipeline in all but the 5th cycle, and the LSU pipeline in cycles
 ;; three through six.
 
-(define_insn_reservation "lsu_op" 5
+(define_insn_reservation "load1_op" 2
  (and (eq_attr "tune" "arm1026ejs")
-      (eq_attr "type" "load,store1"))
- "a_f,a_i,a_d+l_d,a_e+l_e,l_m,a_w+l_w")
+      (eq_attr "type" "load"))
+ "a_e+l_e,l_m,a_w+l_w")
+
+(define_insn_reservation "store1_op" 0
+ (and (eq_attr "tune" "arm1026ejs")
+      (eq_attr "type" "store1"))
+ "a_e+l_e,l_m,a_w+l_w")
 
 ;; On a LDM/STM operation, the LSU pipeline iterates until all of the
 ;; registers have been processed.
@@ -164,15 +169,25 @@
 ;; As with ALU operations, if one of the destination registers is the
 ;; PC, there are additional stalls; that is not modeled.
 
-(define_insn_reservation "lsm2_op" 5
+(define_insn_reservation "load2_op" 2
  (and (eq_attr "tune" "arm1026ejs")
-      (eq_attr "type" "load2,store2"))
- "a_f,a_i,a_d+l_d,a_e+l_e,l_m,a_w+l_w")
+      (eq_attr "type" "load2"))
+ "a_e+l_e,l_m,a_w+l_w")
 
-(define_insn_reservation "lsm3_op" 6
+(define_insn_reservation "store2_op" 0
  (and (eq_attr "tune" "arm1026ejs")
-      (eq_attr "type" "load3,store3,load4,store4"))
- "a_f,a_i,a_d+l_d,a_e+l_d+l_e,a_e+l_e+l_m,a_e+l_m,a_w+l_w")
+      (eq_attr "type" "store2"))
+ "a_e+l_e,l_m,a_w+l_w")
+
+(define_insn_reservation "load34_op" 3
+ (and (eq_attr "tune" "arm1026ejs")
+      (eq_attr "type" "load3,load4"))
+ "a_e+l_e,a_e+l_e+l_m,a_e+l_m,a_w+l_w")
+
+(define_insn_reservation "store34_op" 0
+ (and (eq_attr "tune" "arm1026ejs")
+      (eq_attr "type" "store3,store4"))
+ "a_e+l_e,a_e+l_e+l_m,a_e+l_m,a_w+l_w")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Branch and Call Instructions

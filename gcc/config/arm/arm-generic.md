@@ -48,105 +48,105 @@
 (define_cpu_unit "core" "arm")
 
 (define_insn_reservation "r_mem_f_wbuf" 5
-  (and (eq_attr "tune" "!arm1026ejs")
+  (and (eq_attr "generic_sched" "yes")
        (and (eq_attr "model_wbuf" "yes")
 	    (eq_attr "type" "r_mem_f")))
   "core+write_buf*3")
 
 (define_insn_reservation "store_wbuf" 5
-  (and (eq_attr "tune" "!arm1026ejs")
+  (and (eq_attr "generic_sched" "yes")
        (and (eq_attr "model_wbuf" "yes")
        	    (eq_attr "type" "store1")))
   "core+write_buf*3+write_blockage*5")
 
 (define_insn_reservation "store2_wbuf" 7
-  (and (eq_attr "tune" "!arm1026ejs")
+  (and (eq_attr "generic_sched" "yes")
        (and (eq_attr "model_wbuf" "yes")
 	    (eq_attr "type" "store2")))
   "core+write_buf*4+write_blockage*7")
 
 (define_insn_reservation "store3_wbuf" 9
-  (and (eq_attr "tune" "!arm1026ejs")
+  (and (eq_attr "generic_sched" "yes")
        (and (eq_attr "model_wbuf" "yes")
 	    (eq_attr "type" "store3")))
   "core+write_buf*5+write_blockage*9")
 
 (define_insn_reservation "store4_wbuf" 11
-  (and (eq_attr "tune" "!arm1026ejs")
+  (and (eq_attr "generic_sched" "yes")
        (and (eq_attr "model_wbuf" "yes")
             (eq_attr "type" "store4")))
   "core+write_buf*6+write_blockage*11")
 
 (define_insn_reservation "store2" 3
-  (and (eq_attr "tune" "!arm1026ejs")
+  (and (eq_attr "generic_sched" "yes")
        (and (eq_attr "model_wbuf" "no")
             (eq_attr "type" "store2")))
   "core*3")
 
 (define_insn_reservation "store3" 4
-  (and (eq_attr "tune" "!arm1026ejs")
+  (and (eq_attr "generic_sched" "yes")
        (and (eq_attr "model_wbuf" "no")
             (eq_attr "type" "store3")))
   "core*4")
 
 (define_insn_reservation "store4" 5
-  (and (eq_attr "tune" "!arm1026ejs")
+  (and (eq_attr "generic_sched" "yes")
        (and (eq_attr "model_wbuf" "no")
 	    (eq_attr "type" "store4")))
   "core*5")
 
 (define_insn_reservation "store_ldsched" 1
-  (and (eq_attr "tune" "!arm1026ejs")
+  (and (eq_attr "generic_sched" "yes")
        (and (eq_attr "ldsched" "yes") 
 	    (eq_attr "type" "store1")))
   "core")
 
 (define_insn_reservation "load_ldsched_xscale" 3
-  (and (eq_attr "tune" "!arm1026ejs")
+  (and (eq_attr "generic_sched" "yes")
        (and (eq_attr "ldsched" "yes") 
 	    (and (eq_attr "type" "load")
 	         (eq_attr "is_xscale" "yes"))))
   "core")
 
 (define_insn_reservation "load_ldsched" 2
-  (and (eq_attr "tune" "!arm1026ejs")
+  (and (eq_attr "generic_sched" "yes")
        (and (eq_attr "ldsched" "yes") 
 	    (and (eq_attr "type" "load")
 	         (eq_attr "is_xscale" "no"))))
   "core")
 
 (define_insn_reservation "load_or_store" 2
-  (and (eq_attr "tune" "!arm1026ejs")
+  (and (eq_attr "generic_sched" "yes")
        (and (eq_attr "ldsched" "!yes") 
 	    (eq_attr "type" "load,load2,load3,load4,store1")))
   "core*2")
 
 (define_insn_reservation "mult" 16
-  (and (eq_attr "tune" "!arm1026ejs")
+  (and (eq_attr "generic_sched" "yes")
        (and (eq_attr "ldsched" "no") (eq_attr "type" "mult")))
   "core*16")
 
 (define_insn_reservation "mult_ldsched_strongarm" 3
-  (and (eq_attr "tune" "!arm1026ejs")
+  (and (eq_attr "generic_sched" "yes")
        (and (eq_attr "ldsched" "yes") 
 	    (and (eq_attr "is_strongarm" "yes")
 	         (eq_attr "type" "mult"))))
   "core*2")
 
 (define_insn_reservation "mult_ldsched" 4
-  (and (eq_attr "tune" "!arm1026ejs")
+  (and (eq_attr "generic_sched" "yes")
        (and (eq_attr "ldsched" "yes") 
 	    (and (eq_attr "is_strongarm" "no")
 	         (eq_attr "type" "mult"))))
   "core*4")
 
 (define_insn_reservation "multi_cycle" 32
-  (and (eq_attr "tune" "!arm1026ejs")
+  (and (eq_attr "generic_sched" "yes")
        (and (eq_attr "core_cycles" "multi")
             (eq_attr "type" "!mult,load,load2,load3,load4,store1,store2,store3,store4")))
   "core*32")
 
 (define_insn_reservation "single_cycle" 1
-  (and (eq_attr "tune" "!arm1026ejs")
+  (and (eq_attr "generic_sched" "yes")
        (eq_attr "core_cycles" "single"))
   "core")

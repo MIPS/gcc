@@ -1,3 +1,12 @@
+2003-11-05  Phil Edwards  <phil@codesourcery.com>
+
+	* gcc/config/arm/arm.md (insn):  Add new V6 instruction names.
+	(generic_sched):  New attr.
+	* gcc/config/arm/arm-generic.md:  Use generic_sched here.
+	* gcc/config/arm/arm1026ejs.md:  Do not model fetch/issue/decode
+	stages of pipeline.  Adjust latency counts accordingly.
+	* gcc/config/arm/arm1136jfs.md:  New file.
+
 2003-10-20  Phil Edwards  <phil@codesourcery.com>
 
 	* configure.in (*-*-vxworks):  Add target-libiberty to noconfdirs.

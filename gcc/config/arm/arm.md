@@ -172,7 +172,7 @@
 ;; scheduling information.
 
 (define_attr "insn"
-        "smulxy,smlaxy,smlalxy,smulwy,smlawx,mul,muls,mla,mlas,umull,umulls,umlal,umlals,smull,smulls,smlal,smlals,other"
+        "smulxy,smlaxy,smlalxy,smulwy,smlawx,mul,muls,mla,mlas,umull,umulls,umlal,umlals,smull,smulls,smlal,smlals,smlawy,smuad,smuadx,smlad,smladx,smusd,smusdx,smlsd,smlsdx,smmul,smmulr,other"
         (const_string "other"))
 
 ; TYPE attribute is used to detect floating point instructions which, if
@@ -199,6 +199,7 @@
 ; r_mem_f	the reverse of f_mem_r
 ; f_2_r		fast transfer float to arm (no memory needed)
 ; r_2_f		fast transfer arm to float
+; branch	a branch
 ; call		a subroutine call
 ; load		load 1 word from memory to arm registers
 ; load2         load 2 words from memory to arm registers
@@ -290,8 +291,17 @@
 	     "arm2,arm250,arm3,arm6,arm60,arm600,arm610,arm620,arm7,arm7m,arm7d,arm7dm,arm7di,arm7dmi,arm70,arm700,arm700i,arm710,arm720,arm710c,arm7100,arm7500,arm7500fe,arm7tdmi,arm710t,arm720t,arm740t,arm8,arm810,arm9,arm920,arm920t,arm940t,arm9tdmi,arm9e,ep9312,strongarm,strongarm110,strongarm1100,strongarm1110,arm10tdmi,arm1020t,arm926ejs,arm1026ejs,xscale,iwmmxt,arm1136js,arm1136jfs"
 	     (const (symbol_ref "arm_tune")))
 
+;; True if the generic scheduling description should be used.
+
+(define_attr "generic_sched" "yes,no"
+        (if_then_else 
+         (eq_attr "tune" "arm1026ejs,arm1136js,arm1136jfs") 
+         (const_string "no")
+         (const_string "yes")))
+	
 (include "arm-generic.md")
 (include "arm1026ejs.md")
+(include "arm1136jfs.md")
 
 
 ;;---------------------------------------------------------------------------
