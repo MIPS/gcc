@@ -974,12 +974,12 @@ place_field (rli, field)
      A subtlety:
 	When a bit field is inserted into a packed record, the whole
 	size of the underlying type is used by one or more same-size
-	adjacent bitfields.  (That is, if its long:3, 32 bits is 
+	adjacent bitfields.  (That is, if its long:3, 32 bits is
 	used in the record, and any additional adjacent long bitfields are
 	packed into the same chunk of 32 bits. However, if the size
 	changes, a new field of that size is allocated.)  In an unpacked
 	record, this is the same as using alignment, but not eqivalent
-	when packing. 
+	when packing.
 
      Note: for compatability, we use the type size, not the type alignment
      to determine alignment, since that matches the documentation */
@@ -1027,8 +1027,8 @@ place_field (rli, field)
 	    }
 	  else
 	    {
-	      /* End of a run: if leaving a run of bitfields of the same type 
-		 size, we have to "use up" the rest of the bits of the type 
+	      /* End of a run: if leaving a run of bitfields of the same type
+		 size, we have to "use up" the rest of the bits of the type
 		 size.
 
 		 Compute the new position as the sum of the size for the prior
@@ -1050,7 +1050,7 @@ place_field (rli, field)
 		  prev_saved = NULL;
 		}
 
-	      /* Cause a new bitfield to be captured, either this time (if 
+	      /* Cause a new bitfield to be captured, either this time (if
 		 currently a bitfield) or next time we see one.  */
 	      if (!DECL_BIT_FIELD_TYPE(field)
 		 || integer_zerop (DECL_SIZE (field)))
@@ -1063,7 +1063,7 @@ place_field (rli, field)
 
       /* If we're starting a new run of same size type bitfields
 	 (or a run of non-bitfields), set up the "first of the run"
-	 fields. 
+	 fields.
 
 	 That is, if the current field is not a bitfield, or if there
 	 was a prior bitfield the type sizes differ, or if there wasn't
@@ -1074,20 +1074,20 @@ place_field (rli, field)
 	 there wasn't.  */
 
       if (!DECL_BIT_FIELD_TYPE (field)
-	  || ( prev_saved != NULL 
+	  || ( prev_saved != NULL
 	       ? !simple_cst_equal (TYPE_SIZE (type),
 	              TYPE_SIZE (TREE_TYPE (prev_saved)))
 	       : !integer_zerop (DECL_SIZE (field)) ))
 	{
 	  unsigned int type_align = 8;  /* Never below 8 for compatability */
 
-	  /* (When not a bitfield), we could be seeing a flex array (with 
+	  /* (When not a bitfield), we could be seeing a flex array (with
 	     no DECL_SIZE).  Since we won't be using remaining_in_alignment
-	     until we see a bitfield (and come by here again) we just skip 
+	     until we see a bitfield (and come by here again) we just skip
 	     calculating it.  */
-	     
+
 	  if (DECL_SIZE (field) != NULL)
-	      rli->remaining_in_alignment 
+	      rli->remaining_in_alignment
 		  = TREE_INT_CST_LOW (TYPE_SIZE(TREE_TYPE(field)))
 		    - TREE_INT_CST_LOW (DECL_SIZE (field));
 
@@ -1509,7 +1509,7 @@ finish_builtin_struct (type, name, fields, align_type)
       TYPE_ALIGN (type) = TYPE_ALIGN (align_type);
       TYPE_USER_ALIGN (type) = TYPE_USER_ALIGN (align_type);
     }
-  
+
   layout_type (type);
 #if 0 /* not yet, should get fixed properly later */
   TYPE_NAME (type) = make_type_decl (get_identifier (name), type);
@@ -1622,13 +1622,15 @@ layout_type (type)
       {
 
 	enum machine_mode mode = ((TREE_CODE (type) == REFERENCE_TYPE
-		      && reference_types_internal)
+				   && reference_types_internal)
 				  ? Pmode : TYPE_MODE (type));
 
-	TYPE_SIZE (type) = bitsize_int (GET_MODE_BITSIZE (mode));
+	int nbits = GET_MODE_BITSIZE (mode);
+
+	TYPE_SIZE (type) = bitsize_int (nbits);
 	TYPE_SIZE_UNIT (type) = size_int (GET_MODE_SIZE (mode));
 	TREE_UNSIGNED (type) = 1;
-	TYPE_PRECISION (type) = GET_MODE_BITSIZE (mode);
+	TYPE_PRECISION (type) = nbits;
       }
       break;
 

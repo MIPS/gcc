@@ -5201,7 +5201,9 @@ obtain_incomplete_type (type_name)
   else
     abort ();
 
+  /* Workaround from build_pointer_type for incomplete types.  */
   BUILD_PTR_FROM_NAME (ptr, name);
+  TYPE_MODE (ptr) = ptr_mode;
   layout_type (ptr);
 
   return ptr;
@@ -7469,7 +7471,7 @@ source_end_java_method ()
      patched.  Dump it to a file if the user requested it.  */
   dump_java_tree (TDI_original, fndecl);
 
-  java_optimize_inline (fndecl); 
+  java_optimize_inline (fndecl);
 
   /* Generate function's code */
   if (BLOCK_EXPR_BODY (DECL_FUNCTION_BODY (fndecl))
@@ -8127,9 +8129,9 @@ java_expand_method_bodies (class)
 
       /* Save the function for inlining.  */
       if (flag_inline_trees)
-	DECL_SAVED_TREE (decl) = 
+	DECL_SAVED_TREE (decl) =
 	  BLOCK_EXPR_BODY (DECL_FUNCTION_BODY (decl));
-      
+
       /* It's time to assign the variable flagging static class
 	 initialization based on which classes invoked static methods
 	 are definitely initializing. This should be flagged. */

@@ -1,3 +1,9 @@
+2002-10-15  Eric Christopher  <echristo@redhat.com>
+
+	* stor-layout.c (layout_type): Call GET_MODE_BITSIZE once.
+	* java/parse.y (obtain_incomplete_type): Make pointer
+	ptr_mode.
+
 Mon Oct 14 19:22:19 CEST 2002  Jan Hubicka  <jh@suse.cz>
 
 	* gcov-io.h (gcov_info): Fix type.
