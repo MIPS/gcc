@@ -1,5 +1,10 @@
 2004-03-31  Jan Hubicka  <jh@suse.cz>
 
+	* cfgbuild.c (control_flow_insn_p):  Conditional noreturn call is not
+	control flow insn.
+
+2004-03-31  Jan Hubicka  <jh@suse.cz>
+
 	* Merge from tree-ssa (tree-profiling-merge-20030330)
 
 2004-03-18  Jan Hubicka  <jh@suse.cz>
