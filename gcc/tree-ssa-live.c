@@ -110,6 +110,14 @@ register_ssa_partition (var_map map, tree ssa_var, bool is_use)
 #if defined ENABLE_CHECKING
   if (TREE_CODE (ssa_var) != SSA_NAME)
     abort ();
+
+  if (!is_gimple_reg (SSA_NAME_VAR (ssa_var)))
+    {
+      fprintf (stderr, "Illegally registering a virtual SSA name :");
+      print_generic_expr (stderr, ssa_var, TDF_SLIM);
+      fprintf (stderr, " in the SSA->Normal phase.\n");
+      abort();
+    }
 #endif
 
   version = SSA_NAME_VERSION (ssa_var);
@@ -355,17 +363,17 @@ create_ssa_var_map (int flags)
 
   FOR_EACH_BB (bb)
     {
-      if (flags & SSA_VAR_MAP_REF_COUNT)
+      tree phi, arg;
+      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
 	{
-	  tree phi, arg;
-	  int x;
-	  for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
-	    for (x = 0; x < PHI_NUM_ARGS (phi); x++)
-	      {
-		arg = PHI_ARG_DEF (phi, x);
-		if (TREE_CODE (arg) == SSA_NAME)
-		  map->ref_count[SSA_NAME_VERSION (arg)]++;
-	      }
+	  int i;
+	  register_ssa_partition (map, PHI_RESULT (phi), false);
+	  for (i = 0; i < PHI_NUM_ARGS (phi); i++)
+	    {
+	      arg = PHI_ARG_DEF (phi, i);
+	      if (TREE_CODE (arg) == SSA_NAME)
+		register_ssa_partition (map, arg, true);
+	    }
 	}
 
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))

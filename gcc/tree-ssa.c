@@ -222,7 +222,7 @@ static void eliminate_phi (edge, int, elim_graph);
 static tree_live_info_p coalesce_ssa_name (var_map);
 static void assign_vars (var_map);
 static bool replace_variable (var_map, tree *, tree *);
-static void eliminate_extraneous_phis (var_map);
+static void eliminate_virtual_phis (void);
 static void coalesce_abnormal_edges (var_map, conflict_graph, root_var_p);
 static void print_exprs (FILE *, const char *, tree, const char *, tree,
 			 const char *);
@@ -1684,9 +1684,9 @@ replace_variable (var_map map, tree *p, tree *expr)
 }
 
 
-/* Remove any PHI node which is not in the partition map.  */
+/* Remove any PHI node which is virtual PHI.  */
 static void
-eliminate_extraneous_phis (var_map map)
+eliminate_virtual_phis (void)
 {
   basic_block bb;
   tree phi, next;
@@ -1696,7 +1696,7 @@ eliminate_extraneous_phis (var_map map)
       for (phi = phi_nodes (bb); phi; phi = next)
         {
 	  next = TREE_CHAIN (phi);
-	  if (var_to_partition_to_var (map, PHI_RESULT (phi)) == NULL_TREE)
+	  if (!is_gimple_reg (SSA_NAME_VAR (PHI_RESULT (phi))))
 	    {
 #ifdef ENABLE_CHECKING
 	      int i;
@@ -1706,14 +1706,12 @@ eliminate_extraneous_phis (var_map map)
 	        {
 		  tree arg = PHI_ARG_DEF (phi, i);
 		  if (TREE_CODE (arg) == SSA_NAME 
-		      && var_to_partition (map, arg) != NO_PARTITION)
+		      && is_gimple_reg (SSA_NAME_VAR (arg)))
 		    {
-		      fprintf (stderr, "Argument of PHI is in a partition :(");
+		      fprintf (stderr, "Argument of PHI is not virtual (");
 		      print_generic_expr (stderr, arg, TDF_SLIM);
-		      fprintf (stderr, "), but the result is not :");
+		      fprintf (stderr, "), but the result is :");
 		      print_generic_stmt (stderr, phi, TDF_SLIM);
-		      if (dump_file && (dump_flags & TDF_DETAILS))
-		        dump_var_map (dump_file, map);
 		      abort();
 		    }
 		}
@@ -2596,6 +2594,8 @@ rewrite_out_of_ssa (tree fndecl, enum tree_dump_index phase)
 
   dump_file = dump_begin (phase, &dump_flags);
 
+  eliminate_virtual_phis ();
+
   if (dump_file && (dump_flags & TDF_DETAILS))
     dump_tree_cfg (dump_file, dump_flags & ~TDF_DETAILS);
 
@@ -2603,9 +2603,6 @@ rewrite_out_of_ssa (tree fndecl, enum tree_dump_index phase)
     var_flags = SSA_VAR_MAP_REF_COUNT;
 
   map = create_ssa_var_map (var_flags);
-
-  compact_var_map (map, VARMAP_NORMAL);
-  eliminate_extraneous_phis (map);
 
   if (flag_tree_combine_temps)
     ssa_flags |= SSANORM_COMBINE_TEMPS;

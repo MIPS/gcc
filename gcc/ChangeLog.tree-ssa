@@ -1,3 +1,13 @@
+2003-11-27  Andrew MacLeod  <amacleod@redhat.com>
+
+	* tree-ssa-live.c (register_ssa_partition): Abort if a virtual SSA
+	version is registered.
+	(create_ssa_var_map): Always process PHI nodes.
+	* tree-ssa.c (Eliminate_virtual_phis): Rename from 
+	eliminate_extraneous_phis, and look specifically for virtuals.
+	(rewrite_out_of_ssa): Eliminate virtual PHI nodes before building
+	partitions.
+
 2003-11-27  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-ssa-ccp.c (get_strlen): Mark the visited variables.
