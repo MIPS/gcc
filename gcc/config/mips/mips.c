@@ -1866,6 +1866,17 @@ mips_legitimize_symbol (dest, xloc, offsetable_p)
       return true;
     }
 
+  /* Likewise for normal-mode code.  In this case we can use $gp
+     as a base register.  */
+  if (!TARGET_MIPS16
+      && TARGET_EXPLICIT_RELOCS
+      && symbol_type == SYMBOL_SMALL_DATA)
+    {
+      *xloc = gen_rtx_PLUS (Pmode, pic_offset_table_rtx,
+			    mips_reloc (*xloc, RELOC_GPREL16));
+      return true;
+    }
+
   /* If a non-offsetable address is OK, convert general symbols into
      a HIGH/LO_SUM pair.  */
   if (!offsetable_p && mips_splittable_symbol_p (symbol_type))
@@ -6446,7 +6457,7 @@ mips_reloc_string (reloc)
 {
   switch (reloc)
     {
-    case RELOC_GPREL16:	  return "%gprel(";
+    case RELOC_GPREL16:	  return (TARGET_MIPS16 ? "%gprel(" : "%gp_rel(");
     case RELOC_GOT_HI:	  return "%got_hi(";
     case RELOC_GOT_LO:	  return "%got_lo(";
     case RELOC_GOT_PAGE:  return (TARGET_NEWABI ? "%got_page(" : "%got(");

@@ -1,5 +1,12 @@
 2003-03-13  Richard Sandiford  <rsandifo@redhat.com>
 
+	* config/mips/mips.c (mips_legitimize_symbol): Handle small data
+	references for TARGET_EXPLICIT_RELOCS.
+	(mips_reloc_string): Return "%gp_rel(" for RELOC_GPREL16 if
+	!TARGET_MIPS16.
+
+2003-03-13  Richard Sandiford  <rsandifo@redhat.com>
+
 	* config/mips/mips.md: Replace 'IQ' mips16 constraints with just 'Q'.
 	(addsi3): Remove redundant constraints.
 	(addsi3_internal): Use separate register & constant alternatives.
