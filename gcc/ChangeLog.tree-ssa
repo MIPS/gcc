@@ -4,6 +4,12 @@
 	unused variables.
 
 2003-09-11  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-ssa-pre.c (reset_down_safe): Make test less conservative.
+	(cba_search_start_from): Start from abnormal edge arguments, too.
+	(cba_search_continue_from_to): Ditto here.
+
+2003-09-11  Daniel Berlin  <dberlin@dberlin.org>
 	
 	* tree-ssa-pre.c: s/#if ENABLE_CHECKING/#ifdef ENABLE_CHECKING/g.
 	Add more comments to DFS searching functions.

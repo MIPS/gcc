@@ -1338,8 +1338,7 @@ reset_down_safe (tree currphi, int opnum)
   tree ephi;
   int i;
 
-  if (EPHI_ARG_HAS_REAL_USE (currphi, opnum) 
-      && !(EPHI_ARG_EDGE (currphi, opnum)->flags & EDGE_ABNORMAL))
+  if (EPHI_ARG_HAS_REAL_USE (currphi, opnum)) 
     return;
   ephi = EPHI_ARG_DEF (currphi, opnum);
   if (!ephi || TREE_CODE (ephi) != EPHI_NODE)
@@ -1906,7 +1905,8 @@ cba_search_start_from (tree phi)
     {
       int i;
       for (i = 0; i < EPHI_NUM_ARGS (phi); i++)
-	if (EPHI_ARG_DEF (phi, i) == NULL_TREE)
+	if (EPHI_ARG_DEF (phi, i) == NULL_TREE 
+	    || EPHI_ARG_EDGE (phi, i)->flags & EDGE_ABNORMAL)
 	  return true;
     }
   return false;
@@ -1919,7 +1919,8 @@ cba_search_continue_from_to (tree def_phi ATTRIBUTE_UNUSED,
 			     int opnd_indx, 
 			     tree use_phi)
 {
-  if (EPHI_ARG_HAS_REAL_USE (use_phi, opnd_indx))
+  if (EPHI_ARG_HAS_REAL_USE (use_phi, opnd_indx) && 
+      !(EPHI_ARG_EDGE (use_phi, opnd_indx)->flags & EDGE_ABNORMAL))
     return false;
   if (!EPHI_DOWNSAFE (use_phi))
     return true;
