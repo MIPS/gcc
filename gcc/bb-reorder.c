@@ -881,6 +881,14 @@ copy_bb_p (bb, size_can_grow)
 
   if (size <= max_size)
     return true;
+
+  if (rtl_dump_file)
+    {
+      fprintf (rtl_dump_file,
+	       "Block %d can't be copied because its size = %d.\n",
+	       bb->index, size);
+    }
+
   return false;
 }
 
