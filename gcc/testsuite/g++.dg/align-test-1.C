@@ -1,7 +1,7 @@
 /* APPLE LOCAL file Macintosh alignment */
 
 /* { dg-do run } */
-/* { dg-options "-Wno-long-long" } */
+/* { dg-options "-Wno-long-long -Wno-invalid-offsetof" } */
 
 /*
  * Macintosh compiler alignment test for C++.
@@ -253,8 +253,7 @@ int main(int argc, char *argv[])
     check(Q(sizeof(C7)), 1, "empty class, power mode");
     check(Q(sizeof(C8)), 2, "empty class, mac68k mode");
     check(Q(sizeof(C9)), 2, "class with empty base class and one char, mac68k");
-    check(Q(offsetof(C9, f1)), 0, "offset of 1st field after empty base class"); /* { dg-warning "invalid access" "" } */
-    /* { dg-warning "macro was used incorrectly" "" { target *-*-* } 256 } */
+    check(Q(offsetof(C9, f1)), 0, "offset of 1st field after empty base class");
     check(Q(sizeof(C10)), 1, "class based on an empty class, power mode");
     check(Q(sizeof(C11)), 8, "class with long, char");
 #ifdef GCC3
@@ -263,17 +262,14 @@ int main(int argc, char *argv[])
     check(Q(sizeof(C12)), 12, "class with base class with long, char and its own char");
 #endif
 #ifdef GCC3
-    check(Q(offsetof(C12, f3)), 5, "offset of 1st field in class with a base class with a long, char"); /* { dg-warning "invalid access" "" } */
-    /* { dg-warning "macro was used incorrectly" "" { target *-*-* } 266 } */
+    check(Q(offsetof(C12, f3)), 5, "offset of 1st field in class with a base class with a long, char");
 #else
     check(Q(offsetof(C12, f3)), 8, "offset of 1st field in class with a base class with a long, char");
 #endif
     check(Q(sizeof(C13)), 8, "class with long, short");
     check(Q(sizeof(C14)), 16, "derived class with short, long");
-    check(Q(offsetof(C14, f3)), 8, "offset of 1st field after base class with padding"); /* { dg-warning "invalid access" "" } */
-    /* { dg-warning "macro was used incorrectly" "" { target *-*-* } 273 } */
-    check(Q(offsetof(C14, f4)), 12, "offset of 2nd field after base class with padding"); /* { dg-warning "invalid access" "" } */
-    /* { dg-warning "macro was used incorrectly" "" { target *-*-* } 275 } */
+    check(Q(offsetof(C14, f3)), 8, "offset of 1st field after base class with padding");
+    check(Q(offsetof(C14, f4)), 12, "offset of 2nd field after base class with padding");
 
     check(Q(sizeof(C15)), 16, "base class with double, long");
     check(Q(sizeof(C16)), 16, "empty derived class with base with double, long");
@@ -294,8 +290,7 @@ int main(int argc, char *argv[])
 #endif
 #ifdef GCC3
     check(Q(sizeof(C20)), 16, "class with double and v-table ptr");
-    check(Q(offsetof(C20, f1)), 8, "offset of double 1st field in class with v-table ptr"); /* { dg-warning "invalid access" "" } */
-    /* { dg-warning "macro was used incorrectly" "" { target *-*-* } 297 } */
+    check(Q(offsetof(C20, f1)), 8, "offset of double 1st field in class with v-table ptr");
 #else
     check(Q(sizeof(C20)), 16, "class with double and v-table ptr");
     check(Q(offsetof(C20, f1)), 0, "offset of 1st field in class with v-table ptr");
