@@ -58,7 +58,7 @@ import java.util.Set;
 public class InputMap
   implements Serializable
 {
-  static final long serialVersionUID = -5429059542008604257L;
+  private static final long serialVersionUID = -5429059542008604257L;
 
   /**
    * inputMap
@@ -68,10 +68,10 @@ public class InputMap
   /**
    * parent
    */
-  private InputMap parent = null;
+  private InputMap parent;
 
   /**
-   * Constructor InputMap
+   * Creates a new <code>InputMap</code> instance.
    */
   public InputMap()
   {
@@ -79,28 +79,27 @@ public class InputMap
   }
 
   /**
-   * get
-   * @param value0 TODO
-   * @returns Object
+   * Returns the binding for keystroke.
+   *
+   * @param key the key of the enty
+   *
+   * @return the binding associated with keystroke may be null
    */
   public Object get(KeyStroke keystroke)
   {
-    // Variables
-    Object result;
+    Object result = inputMap.get(keystroke);
 
-    // Check Local store
-    result = inputMap.get(keystroke);
-
-    // Check Parent
     if (result == null)
       result = parent.get(keystroke);
     return result;
   }
 
   /**
-   * put
-   * @param keystroke TODO
-   * @param actionMapKey TODO
+   * Puts a new entry into the <code>InputMap</code>.
+   * If actionMapKey is null an existing entry will be removed.
+   *
+   * @param keystroke the keystroke for the entry
+   * @param actionMapKey the action.
    */
   public void put(KeyStroke keystroke, Object actionMapKey)
   {
@@ -111,8 +110,9 @@ public class InputMap
   }
 
   /**
-   * remove
-   * @param keystroke TODO
+   * Remove an entry from the <code>InputMap</code>.
+   *
+   * @param key the key of the entry to remove
    */
   public void remove(KeyStroke keystroke)
   {
@@ -120,8 +120,9 @@ public class InputMap
   }
 
   /**
-   * getParent
-   * @returns InputMap
+   * Returns the parent of this <code>InputMap</code>.
+   *
+   * @return the parent, may be null.
    */
   public InputMap getParent()
   {
@@ -129,8 +130,9 @@ public class InputMap
   }
 
   /**
-   * setParent
-   * @param parentMap TODO
+   * Sets a parent for this <code>InputMap</code>.
+   *
+   * @param parentMap the new parent
    */
   public void setParent(InputMap parentMap)
   {
@@ -138,8 +140,9 @@ public class InputMap
   }
 
   /**
-   * size
-   * @returns int
+   * Returns the number of entries in this <code>InputMap</code>.
+   *
+   * @return the number of entries
    */
   public int size()
   {
@@ -147,7 +150,7 @@ public class InputMap
   }
 
   /**
-   * clear
+   * Clears the <code>InputMap</code>.
    */
   public void clear()
   {
@@ -155,54 +158,40 @@ public class InputMap
   }
 
   /**
-   * keys
-   * @returns KeyStroke[]
+   * Returns all keys of entries in this <code>InputMap</code>.
+   *
+   * @return an array of keys
    */
   public KeyStroke[] keys()
   {
-    return convertSet(inputMap.keySet());
+    KeyStroke[] array = new KeyStroke[size()];
+    return (KeyStroke[]) inputMap.keySet().toArray(array);
   }
 
   /**
-   * allKeys
-   * @returns KeyStroke[]
+   * Returns all keys of entries in this <code>InputMap</code>
+   * and all its parents.
+   *
+   * @return an array of keys
    */
   public KeyStroke[] allKeys()
   {
-    // Variables
-    Set set;
+    Set set = new HashSet();
 
-    // Initialize
-    set = new HashSet();
-
-    // Get Key Sets
     if (parent != null)
       set.addAll(Arrays.asList(parent.allKeys()));
+
     set.addAll(inputMap.keySet());
-
-    return convertSet(set);
-  } // allKeys()
-
-  private KeyStroke[] convertSet(Set set)
-  {
-    // Variables
-    int index;
-    Iterator iterator;
-    KeyStroke[] keys;
-
-    // Create Final array
-    keys = new KeyStroke[set.size()];
-    iterator = set.iterator();
-    index = 0;
-    while (iterator.hasNext())
-      keys[index++] = (KeyStroke) iterator.next();
-    return keys;
+    KeyStroke[] array = new KeyStroke[size()];
+    return (KeyStroke[]) set.toArray(array);
   }
 
   /**
    * writeObject
-   * @param stream TODO
-   * @exception IOException TODO
+   *
+   * @param stream the stream to write to
+   *
+   * @exception IOException If an error occurs
    */
   private void writeObject(ObjectOutputStream stream) throws IOException
   {
@@ -211,9 +200,11 @@ public class InputMap
 
   /**
    * readObject
-   * @param stream TODO
-   * @exception ClassNotFoundException TODO
-   * @exception IOException TODO
+   *
+   * @param stream the stream to read from
+   *
+   * @exception ClassNotFoundException If the serialized class cannot be found
+   * @exception IOException If an error occurs
    */
   private void readObject(ObjectInputStream stream)
     throws ClassNotFoundException, IOException

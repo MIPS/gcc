@@ -45,61 +45,86 @@ package javax.swing;
 public class ComponentInputMap extends InputMap
 {
   /**
-   * component
+   * The component to notify.
    */
   private JComponent component;
 
   /**
-   * Constructor ComponentInputMap
-   * @param value0 TODO
+   * Creates <code>ComponentInputMap</code> object that notifies the given
+   * component about changes to it.
+   *
+   * @param comp the component to notify
+   *
+   * @exception IllegalArgumentException if comp is null
    */
-  public ComponentInputMap(JComponent value0)
+  public ComponentInputMap(JComponent comp)
   {
-    // TODO
+    if (comp == null)
+      throw new IllegalArgumentException();
+    
+    this.component = comp;
   }
 
   /**
-   * put
-   * @param keystroke TODO
-   * @param value TODO
+   * Puts a new entry into the <code>InputMap</code>.
+   * If actionMapKey is null an existing entry will be removed.
+   *
+   * @param keystroke the keystroke for the entry
+   * @param actionMapKey the action.
    */
   public void put(KeyStroke keystroke, Object value)
   {
-    // TODO
+    super.put(keystroke, value);
+    // FIXME: Notify component.
   }
 
   /**
-   * clear
+   * Clears the <code>InputMap</code>.
    */
   public void clear()
   {
-    // TODO
+    super.clear();
+    // FIXME: Notify component.
   }
 
   /**
-   * remove
-   * @param keystroke TODO
+   * Remove an entry from the <code>InputMap</code>.
+   *
+   * @param key the key of the entry to remove
    */
   public void remove(KeyStroke keystroke)
   {
-    // TODO
+    super.remove(keystroke);
+    // FIXME: Notify component.
   }
 
   /**
-   * setParent
-   * @param parent TODO
+   * Sets a parent for this <code>ComponentInputMap</code>.
+   *
+   * @param parentMap the new parent
+   *
+   * @exception IllegalArgument if parentMap is not a
+   * <code>ComponentInputMap</code> or not associated with the same component
    */
-  public void setParent(InputMap parent)
+  public void setParent(InputMap parentMap)
   {
-    // TODO
+    if (! (parentMap instanceof ComponentInputMap))
+      throw new IllegalArgumentException();
+
+    if (((ComponentInputMap) parentMap).getComponent() != component)
+      throw new IllegalArgumentException();
+   
+    super.setParent(parentMap);
+    // FIXME: Notify component.
   }
 
   /**
-   * getComponent
-   * @returns JComponent
+   * Returns the component to notify about changes.
+   *
+   * @return a <code>JComponent</code> object
    */
   public JComponent getComponent()
   {
-    return null; // TODO
+    return component;
   }
 }

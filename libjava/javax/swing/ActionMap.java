@@ -56,7 +56,7 @@ import java.util.Set;
 public class ActionMap
   implements Serializable
 {
-  static final long serialVersionUID = -6277518704513986346L;
+  private static final long serialVersionUID = -6277518704513986346L;
 
   /**
    * actionMap
@@ -66,29 +66,26 @@ public class ActionMap
   /**
    * parent
    */
-  private ActionMap parent = null;
+  private ActionMap parent;
 
   /**
-   * Constructor ActionMap
+   * Creates a new <code>ActionMap</code> instance.
    */
   public ActionMap()
   {
   }
 
   /**
-   * get
-   * @param key TODO
-   * @returns Action
+   * Returns an action associated with an object.
+   *
+   * @param key the key of the enty
+   *
+   * @return the action associated with key, may be null
    */
   public Action get(Object key)
   {
-    // Variables
-    Object result;
+    Object result = actionMap.get(key);
 
-    // Check Local store
-    result = actionMap.get(key);
-
-    // Check Parent
     if (result == null)
       result = parent.get(key);
 
@@ -96,9 +93,11 @@ public class ActionMap
   }
 
   /**
-   * put
-   * @param key TODO
-   * @param action TODO
+   * Puts a new <code>Action</code> into the <code>ActionMap</code>.
+   * If action is null an existing entry will be removed.
+   *
+   * @param key the key for the entry
+   * @param action the action.
    */
   public void put(Object key, Action action)
   {
@@ -109,8 +108,9 @@ public class ActionMap
   }
 
   /**
-   * remove
-   * @param key TODO
+   * Remove an entry from the <code>ActionMap</code>.
+   *
+   * @param key the key of the entry to remove
    */
   public void remove(Object key)
   {
@@ -118,8 +118,9 @@ public class ActionMap
   }
 
   /**
-   * getParent
-   * @returns ActionMap
+   * Returns the parent of this <code>ActionMap</code>.
+   *
+   * @return the parent, may be null.
    */
   public ActionMap getParent()
   {
@@ -127,8 +128,9 @@ public class ActionMap
   }
 
   /**
-   * setParent
-   * @param parentMap TODO
+   * Sets a parent for this <code>ActionMap</code>.
+   *
+   * @param parentMap the new parent
    */
   public void setParent(ActionMap parentMap)
   {
@@ -136,8 +138,9 @@ public class ActionMap
   }
 
   /**
-   * size
-   * @returns int
+   * Returns the number of entries in this <code>ActionMap</code>.
+   *
+   * @return the number of entries
    */
   public int size()
   {
@@ -145,7 +148,7 @@ public class ActionMap
   }
 
   /**
-   * clear
+   * Clears the <code>ActionMap</code>.
    */
   public void clear()
   {
@@ -153,67 +156,54 @@ public class ActionMap
   }
 
   /**
-   * keys
-   * @returns Object[]
+   * Returns all keys of entries in this <code>ActionMap</code>.
+   *
+   * @return an array of keys
    */
   public Object[] keys()
   {
-    return convertSet(actionMap.keySet());
+    return actionMap.keySet().toArray();
   }
 
   /**
-   * allKeys
-   * @returns Object[]
+   * Returns all keys of entries in this <code>ActionMap</code>
+   * and all its parents.
+   *
+   * @return an array of keys
    */
   public Object[] allKeys()
   {
-    // Variables
-    Set set;
+    Set set = new HashSet();
 
-    // Initialize
-    set = new HashSet();
-
-    // Get Key Sets
     if (parent != null)
       set.addAll(Arrays.asList(parent.allKeys()));
+
     set.addAll(actionMap.keySet());
-
-    return convertSet(set);
-  } // allKeys()
-
-  private Object[] convertSet(Set set)
-  {
-    // Variables
-    int index;
-    Iterator iterator;
-    Object[] keys;
-
-    // Create Final array
-    keys = new Object[set.size()];
-    iterator = set.iterator();
-    index = 0;
-    while (iterator.hasNext())
-      keys[index++] = iterator.next();
-    return keys;
+    return set.toArray();
   }
 
   /**
    * writeObject
-   * @param stream TODO
-   * @exception IOException TODO
+   *
+   * @param stream the stream to write to
+   *
+   * @exception IOException If an error occurs
    */
-  private void writeObject(ObjectOutputStream value0) throws IOException
+  private void writeObject(ObjectOutputStream stream)
+    throws IOException
   {
     // TODO
   }
 
   /**
    * readObject
-   * @param stream TODO
-   * @exception ClassNotFoundException TODO
-   * @exception IOException TODO
+   *
+   * @param stream the stream to read from
+   *
+   * @exception ClassNotFoundException If the serialized class cannot be found
+   * @exception IOException If an error occurs
    */
-  private void readObject(ObjectInputStream value0)
+  private void readObject(ObjectInputStream stream)
     throws ClassNotFoundException, IOException
   {
     // TODO

@@ -1,5 +1,32 @@
 2004-07-10  Michael Koch  <konqueror@gmx.de>
 
+	* javax/swing/ActionMap.java:
+	Fixed javadocs all over.
+	(serialVersionUID): Made private.
+	(parent): Don't explicitely initialize with default value.
+	(get): SImplified.
+	(keys): Reimplemented.
+	(allKeys): Likewise.
+	(convertSet): Removed.
+	* javax/swing/ComponentInputMap.java:
+	Fixed javadocs all over.
+	(ComponentInputMap): Implemented.
+	(put): Likewise.
+	(clear): Likewise.
+	(remove): Likewise.
+	(SetParent): Likewise.
+	(getComponent): Likewise.
+	* javax/swing/InputMap.java:
+	Fixed javadocs all over.
+	(serialVersionUID): Made private.
+	(parent): Don't explicitely initialize with default value.
+	(get): SImplified.
+	(keys): Reimplemented.
+	(allKeys): Likewise.
+	(convertSet): Removed.
+
+2004-07-10  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/ActionMap.java,
 	javax/swing/ComponentInputMap.java,
 	javax/swing/InputMap.java,
