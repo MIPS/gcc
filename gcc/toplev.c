@@ -3087,7 +3087,7 @@ rest_of_compilation (decl)
       ggc_collect ();
     }
 
-  if (optimize > 0)
+  if (flag_rerun_cse_after_loop)
     {
       timevar_push (TV_CSE2);
       open_dump_file (DFI_cse2, decl);
