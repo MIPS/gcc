@@ -1,3 +1,73 @@
+2003-06-30  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-flow.h (struct tree_ann_common_d): Remove 'stmt' field.
+	Update all users.
+	(struct var_ann_d): Remove field 'has_real_refs'.  Update all callers
+	with calls to SSA_NAME_HAS_REAL_REFS.
+	Remove field 'occurs_in_abnormal_phi'.  Update all callers with
+	calls to SSA_NAME_OCCURS_IN_ABNORMAL_PHI.
+	* tree-flow-inline.h (var_ann): Only accept _DECL nodes.
+	(stmt_ann): Only accept GIMPLE statements.
+	(tree_stmt): Remove.  Update all users.
+
+	* tree-cfg.c (linearize_cond_expr): Handle cases where BB doesn't
+	have a postdominator.
+	(find_contained_blocks): Do not look inside COND_EXPR_COND nor
+	SWITCH_COND expressions.
+
+	* tree-dfa.c (get_stmt_operands): Force virtual operands on
+	ASM_EXPRs.
+	(get_expr_operands): Handle SSA names when adding operands for
+	memory tags.
+	(add_stmt_operand): Handle SSA names.
+	Move checks for volatile operands earlier in the code.
+	(add_vdef): Re-format for readability.
+	(create_var_ann): Only allow _DECL nodes.
+	(create_stmt_ann): Only allow GIMPLE statements.
+	(dump_variable): Handle SSA names.
+	(dump_may_aliases_for): Likewise.
+	(may_access_global_mem_p): Handle SSA names.
+	(remove_phi_arg): If the argument removed was the last one with
+	real references, update the LHS of the PHI node.
+	(add_phi_arg): If the argument added has real references, propagate
+	the attribute into the LHS of the PHI node.
+
+	* tree-pretty-print.c (dump_generic_node): Only retrieve basic
+	block information from GIMPLE statements.
+	Always output the THEN and ELSE clauses of COND_EXPR nodes.
+
+	* tree-simple.c (is_gimple_stmt): Accept PHI_NODEs.
+	(is_gimple_id): Accept SSA_NAMEs.
+
+	* tree-ssa-copyprop.c (copyprop_phi): If an argument is used as a
+	real operand, propagate the attribute into the LHS of the PHI.
+
+	* tree-ssa-live.c (create_ssa_var_map): Don't set 'used' flag on
+	both the operand and the result of VDEFs.
+	Only register PHI results and arguments that have been used as real
+	operands.
+	(calculate_live_on_entry): Fix formatting in debugging message.
+
+	* tree-ssa.c (register_new_def): Add new argument
+	'is_real_operand'.  If it's set, set SSA_NAME_HAS_REAL_REFS for the
+	new name.  Update all callers.
+	(rewrite_operand): Add new argument 'is_real_operand'.  If it's
+	set, set SSA_NAME_HAS_REAL_REFS to the operand.
+	(eliminate_build): Ignore PHI arguments and PHI results that have
+	not been used in real operands.
+	(rewrite_vdefs): Remove.  Update all users.
+	(set_is_used): Don't handle SSA names.
+	(coalesce_ssa_name): Ignore PHI arguments that have not had real
+	references in the program.
+
+	* tree.c (make_ssa_name): Update documentation.
+	* tree.h (IS_EMPTY_STMT): Call integer_zerop instead of comparing
+	against size_zero_node.
+	(SSA_NAME_HAS_REAL_REFS): Define.
+	(SSA_NAME_OCCURS_IN_ABNORMAL_PHI): Define.
+	(struct tree_ssa_name): Add bitfields 'has_real_refs' and
+	'occurs_in_abnormal_phi'.
+
 2003-06-30  Jeff Law  <law@redhat.com>
 
 	* c-simplify.c (gimplify_c_loop): Don't return a LOOP_EXPR for

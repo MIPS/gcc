@@ -992,7 +992,6 @@ find_contained_blocks (tree *stmt_p, bitmap my_blocks, tree **last_p)
 	}
       else if (code == COND_EXPR)
 	{
-	  find_contained_blocks (&COND_EXPR_COND (stmt), my_blocks, last_p);
 	  find_contained_blocks (&COND_EXPR_THEN (stmt), my_blocks, last_p);
 	  find_contained_blocks (&COND_EXPR_ELSE (stmt), my_blocks, last_p);
 	}
@@ -1029,7 +1028,6 @@ find_contained_blocks (tree *stmt_p, bitmap my_blocks, tree **last_p)
 	}
       else if (code == SWITCH_EXPR)
 	{
-	  find_contained_blocks (&SWITCH_COND (stmt), my_blocks, last_p);
 	  find_contained_blocks (&SWITCH_BODY (stmt), my_blocks, last_p);
 	}
       else if (code == BIND_EXPR)
@@ -2363,7 +2361,7 @@ linearize_cond_expr (tree *entry_p, basic_block bb)
       if (pdom_info == NULL)
 	pdom_info = calculate_dominance_info (CDI_POST_DOMINATORS);
       pdom_bb = get_immediate_dominator (pdom_info, bb);
-      if (!phi_nodes (pdom_bb))
+      if (!pdom_bb || !phi_nodes (pdom_bb))
         {
 	  remove_stmt (entry_p);
 	  return true;

@@ -371,7 +371,7 @@ visit_phi_node (tree phi)
   /* If the variable is volatile or the variable is never referenced in a
      real operand, then consider the PHI node VARYING.  */
   if (TREE_THIS_VOLATILE (SSA_NAME_VAR (PHI_RESULT (phi)))
-      || !var_ann (SSA_NAME_VAR (PHI_RESULT (phi)))->has_real_refs)
+      || !SSA_NAME_HAS_REAL_REFS (PHI_RESULT (phi)))
     phi_val.lattice_val = VARYING;
   else
     for (i = 0; i < PHI_NUM_ARGS (phi); i++)

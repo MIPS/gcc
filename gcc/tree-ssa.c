@@ -167,8 +167,8 @@ static void rewrite_block (basic_block, tree);
 static int rewrite_and_optimize_stmt (block_stmt_iterator, varray_type *,
 				      varray_type *);
 static void rewrite_stmt (block_stmt_iterator, varray_type *);
-static inline void rewrite_operand (tree *);
-static void register_new_def (tree, tree, varray_type *);
+static inline void rewrite_operand (tree *, bool);
+static void register_new_def (tree, tree, varray_type *, bool);
 static void insert_phi_nodes_for (tree, bitmap *, varray_type);
 static tree remove_annotations_r (tree *, int *, void *);
 static tree get_reaching_def (tree);
@@ -205,7 +205,6 @@ static inline void set_if_valid (var_map, sbitmap, tree);
 static inline void add_conflicts_if_valid (root_var_p, conflict_graph,
 					   var_map, sbitmap, tree);
 static void replace_variable (var_map, tree *);
-static void rewrite_vdefs (block_stmt_iterator *, varray_type, var_map);
 
 /* Main entry point to the SSA builder.  FNDECL is the gimplified function
    to convert.
@@ -745,7 +744,7 @@ rewrite_block (basic_block bb, tree eq_expr_value)
      node introduces a new version for the associated variable.  */
   for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
     register_new_def (SSA_NAME_VAR (PHI_RESULT (phi)), PHI_RESULT (phi),
-		      &block_defs);
+		      &block_defs, false);
 
   /* Step 2.  Rewrite every variable used in each statement the block with
      its immediate reaching definitions.  Update the current definition of
@@ -777,8 +776,8 @@ rewrite_block (basic_block bb, tree eq_expr_value)
 
       for (phi = phi_nodes (e->dest); phi; phi = TREE_CHAIN (phi))
 	{
-	  /* FIXME.  [UNSSA] After fixing the SSA->normal pass, allow
-	     constants and copies to be propagated into PHI arguments.  */
+	  /* FIXME.  [UNSSA] If -ftree-dominator-opts, allow constants and
+	     copies to be propagated into PHI arguments.  */
 	  tree currdef = get_reaching_def (SSA_NAME_VAR (PHI_RESULT (phi)));
 	  add_phi_arg (phi, currdef, e);
 	}
@@ -1002,6 +1001,10 @@ eliminate_build (elim_graph g, basic_block B, int i)
   
   for (phi = phi_nodes (B); phi; phi = TREE_CHAIN (phi))
     {
+      if (!SSA_NAME_HAS_REAL_REFS (PHI_RESULT (phi))
+	  || !SSA_NAME_HAS_REAL_REFS (PHI_ARG_DEF (phi, i)))
+	continue;
+
       T0 = var_to_partition_to_var (g->map, PHI_RESULT (phi));
       Ti = var_to_partition_to_var (g->map, PHI_ARG_DEF (phi, i));
       if (T0 != Ti)
@@ -1346,16 +1349,20 @@ coalesce_ssa_name (var_map map)
 	       edge, and attempt to coalesce the argument with the result.  */
 	    var = PHI_RESULT (phi);
 
-	    /* Ignore variables that have no real references, as those
+	    /* Ignore SSA names that have no real references, as those
 	       don't generate code.  */
-	    if (!var_ann (var)->has_real_refs)
+	    if (!SSA_NAME_HAS_REAL_REFS (var))
 	      continue;
 
 	    x = var_to_partition (map, var);
 	    y = phi_arg_from_edge (phi, e);
 	    if (y == -1)
 	      abort ();
+
 	    tmp = PHI_ARG_DEF (phi, y);
+	    if (!SSA_NAME_HAS_REAL_REFS (tmp))
+	      continue;
+
 	    y = var_to_partition (map, tmp);
 	    if (x == NO_PARTITION || y == NO_PARTITION)
 	      abort ();
@@ -1628,10 +1635,6 @@ rewrite_out_of_ssa (tree fndecl)
 
 	  get_stmt_operands (stmt);
 
-	  ops = vdef_ops (stmt);
-	  if (ops)
-	    rewrite_vdefs (&si, ops, map);
-
 	  if (TREE_CODE (stmt) == MODIFY_EXPR 
 	      && (TREE_CODE (TREE_OPERAND (stmt, 1)) == SSA_NAME))
 	    is_copy = 1;
@@ -1706,52 +1709,6 @@ rewrite_out_of_ssa (tree fndecl)
 
   if (tree_ssa_dump_file)
     dump_end (TDI_optimized, tree_ssa_dump_file);
-}
-
-
-/* Rewrite virtual definitions in VDEFS from the statement pointed by
-   iterator SI_P, potentially converting them into real copy operations.  A
-   virtual definition is converted into a copy operation when the LHS of
-   the VDEF has been used as a real operand in some statement.
-   
-   This happens when variables are aliased and are referenced directly or
-   via their aliased pointers.  Converting the VDEF into a real copy
-   operation is necessary for correctly coalescing the different names when
-   two or more are live simultaneously.  */
-
-static void
-rewrite_vdefs (block_stmt_iterator *si_p, varray_type vdefs, var_map map)
-{
-  size_t i;
-
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (vdefs); i++)
-    {
-      tree lhs, rhs, vdef = VARRAY_TREE (vdefs, i);
-
-      if (!var_ann (SSA_NAME_VAR (VDEF_RESULT (vdef)))->has_real_refs)
-	continue;
-
-      lhs = var_to_partition_to_var (map, VDEF_RESULT (vdef));
-      rhs = var_to_partition_to_var (map, VDEF_OP (vdef));
-
-      if (lhs
-	  && rhs
-	  && TREE_CODE (lhs) != SSA_NAME
-	  && TREE_CODE (rhs) != SSA_NAME
-	  && lhs != rhs)
-	{
-	  tree t = build (MODIFY_EXPR, TREE_TYPE (lhs), lhs, rhs);
-	  bsi_insert_before (si_p, t, BSI_SAME_STMT);
-	  if (tree_ssa_dump_file && (tree_ssa_dump_flags & TDF_DETAILS))
-	    {
-	      fprintf (tree_ssa_dump_file, "Promoting VDEF ");
-	      print_generic_stmt (tree_ssa_dump_file, vdef, 0);
-	      fprintf (tree_ssa_dump_file, "into the real assignment ");
-	      print_generic_stmt (tree_ssa_dump_file, t, 0);
-	      fprintf (tree_ssa_dump_file, "\n");
-	    }
-	}
-    }
 }
 
 
@@ -2107,7 +2064,7 @@ rewrite_and_optimize_stmt (block_stmt_iterator si, varray_type *block_defs_p,
     {
       tree val;
       tree *op_p = (tree *) VARRAY_GENERIC_PTR (uses, i);
-      rewrite_operand (op_p);
+      rewrite_operand (op_p, true);
 
       /* If the operand has a known constant value or it is known to be a
 	 copy of some other variable, use the value or copy stored in
@@ -2140,7 +2097,7 @@ rewrite_and_optimize_stmt (block_stmt_iterator si, varray_type *block_defs_p,
 
   /* Rewrite virtual uses in the statement.  */
   for (i = 0; vuses && i < VARRAY_ACTIVE_SIZE (vuses); i++)
-    rewrite_operand (&(VARRAY_TREE (vuses, i)));
+    rewrite_operand (&(VARRAY_TREE (vuses, i)), false);
 
   /* If the statement has been modified with constant replacements,
       fold its RHS before checking for redundant computations.  */
@@ -2196,7 +2153,7 @@ rewrite_and_optimize_stmt (block_stmt_iterator si, varray_type *block_defs_p,
       tree rhs;
 
       *def_p = make_ssa_name (*def_p, stmt);
-      register_new_def (SSA_NAME_VAR (*def_p), *def_p, block_defs_p);
+      register_new_def (SSA_NAME_VAR (*def_p), *def_p, block_defs_p, true);
 
       /* If the RHS of the assignment is a constant or another variable
 	 that may be propagated, register it in the CONST_AND_COPIES table.  */
@@ -2213,10 +2170,10 @@ rewrite_and_optimize_stmt (block_stmt_iterator si, varray_type *block_defs_p,
   for (i = 0; vdefs && i < VARRAY_ACTIVE_SIZE (vdefs); i++)
     {
       tree vdef = VARRAY_TREE (vdefs, i);
-      rewrite_operand (&(VDEF_OP (vdef)));
+      rewrite_operand (&(VDEF_OP (vdef)), false);
       VDEF_RESULT (vdef) = make_ssa_name (VDEF_RESULT (vdef), stmt);
       register_new_def (SSA_NAME_VAR (VDEF_RESULT (vdef)), 
-			VDEF_RESULT (vdef), block_defs_p);
+			VDEF_RESULT (vdef), block_defs_p, false);
     }
 
   return 0;
@@ -2279,30 +2236,31 @@ rewrite_stmt (block_stmt_iterator si, varray_type *block_defs_p)
   for (i = 0; uses && i < VARRAY_ACTIVE_SIZE (uses); i++)
     {
       tree *op_p = (tree *) VARRAY_GENERIC_PTR (uses, i);
-      rewrite_operand (op_p);
+      rewrite_operand (op_p, true);
     }
 
   /* Rewrite virtual uses in the statement.  */
   for (i = 0; vuses && i < VARRAY_ACTIVE_SIZE (vuses); i++)
-    rewrite_operand (&(VARRAY_TREE (vuses, i)));
+    rewrite_operand (&(VARRAY_TREE (vuses, i)), false);
 
   /* Step 2.  Register the statement's DEF and VDEF operands.  */
   if (def_p)
     {
       *def_p = make_ssa_name (*def_p, stmt);
-      register_new_def (SSA_NAME_VAR (*def_p), *def_p, block_defs_p);
+      register_new_def (SSA_NAME_VAR (*def_p), *def_p, block_defs_p, true);
     }
 
   /* Register new virtual definitions made by the statement.  */
   for (i = 0; vdefs && i < VARRAY_ACTIVE_SIZE (vdefs); i++)
     {
       tree vdef = VARRAY_TREE (vdefs, i);
-      rewrite_operand (&(VDEF_OP (vdef)));
+      rewrite_operand (&(VDEF_OP (vdef)), false);
       VDEF_RESULT (vdef) = make_ssa_name (VDEF_RESULT (vdef), stmt);
       register_new_def (SSA_NAME_VAR (VDEF_RESULT (vdef)), 
-			VDEF_RESULT (vdef), block_defs_p);
+			VDEF_RESULT (vdef), block_defs_p, false);
     }
 }
+
 
 /* Set the USED bit in the annotation for T.  */
 
@@ -2310,17 +2268,15 @@ void
 set_is_used (tree t)
 {
   t = get_base_symbol (t);
-  if (TREE_CODE (t) == SSA_NAME)
-    t = SSA_NAME_VAR (t);
   var_ann (t)->used = 1;
 }
 
 
 /* Replace the operand pointed by OP_P with its immediate reaching
-   definition.  */
+   definition.  IS_REAL_OPERAND is true when this is a USE operand.  */
 
 static inline void
-rewrite_operand (tree *op_p)
+rewrite_operand (tree *op_p, bool is_real_operand)
 {
 #if defined ENABLE_CHECKING
   if (TREE_CODE (*op_p) == SSA_NAME)
@@ -2328,14 +2284,18 @@ rewrite_operand (tree *op_p)
 #endif
 
   *op_p = get_reaching_def (*op_p);
+  if (is_real_operand)
+    SSA_NAME_HAS_REAL_REFS (*op_p) = true;
 }
 
 
 /* Register DEF to be a new definition for variable VAR and push VAR's
-   current reaching definition into the stack pointed by BLOCK_DEFS_P.  */
+   current reaching definition into the stack pointed by BLOCK_DEFS_P.
+   IS_REAL_OPERAND is true when DEF is a real definition.  */
 
 static void
-register_new_def (tree var, tree def, varray_type *block_defs_p)
+register_new_def (tree var, tree def, varray_type *block_defs_p,
+		  bool is_real_operand)
 {
   tree currdef = get_value_for (var, currdefs);
 
@@ -2354,6 +2314,9 @@ register_new_def (tree var, tree def, varray_type *block_defs_p)
 
   /* Set the current reaching definition for VAR to be DEF.  */
   set_value_for (var, def, currdefs);
+
+  if (is_real_operand)
+    SSA_NAME_HAS_REAL_REFS (def) = true;
 }
 
 

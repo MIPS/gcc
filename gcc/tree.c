@@ -5176,7 +5176,7 @@ make_phi_node (var, len)
 /* Return an SSA_NAME node for variable VAR defined in statement STMT.
    STMT may be an empty statement for artificial references (e.g., default
    definitions created when a variable is used without a preceding
-   definition.  See currdef_for.)  */
+   definition).  */
 
 tree
 make_ssa_name (var, stmt)

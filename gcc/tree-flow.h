@@ -45,8 +45,6 @@ struct tree_ann_common_d GTY(())
 {
   /* Annotation type.  */
   enum tree_ann_type type;
-  /* Statement this annotation belongs to. */
-  tree stmt;
 };
 
 
@@ -77,15 +75,12 @@ struct var_ann_d GTY(())
   /* Nonzero if the variable may be modified by function calls.  */
   unsigned is_call_clobbered : 1;
 
-  /* Used by the out of SSA pass to determine whether this var has been
-     seen yet or not.  */
+  /* Used by the out of SSA pass to determine whether this variable has
+     been seen yet or not.  */
   unsigned out_of_ssa_tag : 1;
 
   /* Used when building root_var structures in tree_ssa_live.[ch].  */
   unsigned root_var_processed : 1;
-
-  /* Nonzero if the variable occurs in an abnormal PHI.  */
-  unsigned occurs_in_abnormal_phi : 1;
 
   /* Nonzero if this variable is a memory tag used to represent the memory
      pointed-to by the pointer in MEM_TAG.  */
@@ -95,13 +90,6 @@ struct var_ann_d GTY(())
      other variables (i.e., this variable appears in the MAY_ALIASES array
      of other variables).  */
   unsigned is_alias_tag : 1;
-
-  /* Nonzero if this variable is used as a real operand in this function.
-     This is used by the SSA->normal pass to determine which variables to
-     ignore in the coalescing phase.  By default, all variables start with
-     this flag set to 0.  This changes if the variable is added as an
-     operand using add_use or set_def.  */
-  unsigned has_real_refs : 1;
 
   /* Nonzero if this variable was used after SSA optimizations were
      applied.  We set this when translating out of SSA form.  */
@@ -249,7 +237,6 @@ typedef union tree_ann_d *tree_ann;
 typedef struct var_ann_d *var_ann_t;
 typedef struct stmt_ann_d *stmt_ann_t;
 
-static inline tree tree_stmt			PARAMS ((tree));
 static inline var_ann_t var_ann			PARAMS ((tree));
 static inline var_ann_t get_var_ann		PARAMS ((tree));
 static inline stmt_ann_t stmt_ann		PARAMS ((tree));

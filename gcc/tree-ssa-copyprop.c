@@ -113,8 +113,8 @@ copyprop_stmt (tree stmt)
       tree orig = get_original (*use_p, &vuse);
 
       if (orig
-	  && ! var_ann (SSA_NAME_VAR (*use_p))->occurs_in_abnormal_phi
-	  && ! var_ann (SSA_NAME_VAR (orig))->occurs_in_abnormal_phi)
+	  && !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (*use_p)
+	  && !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (orig))
 	{
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
@@ -159,8 +159,8 @@ copyprop_phi (tree phi)
       tree orig = get_original (arg, &vuse);
 
       if (orig
-	  && ! var_ann (SSA_NAME_VAR (arg))->occurs_in_abnormal_phi
-	  && ! var_ann (SSA_NAME_VAR (orig))->occurs_in_abnormal_phi)
+	  && !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (arg)
+	  && !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (orig))
 	{
 	  if (dump_file && dump_flags & TDF_DETAILS)
 	    {
@@ -172,6 +172,9 @@ copyprop_phi (tree phi)
 	    }
 
 	  PHI_ARG_DEF (phi, i) = orig;
+
+	  if (SSA_NAME_HAS_REAL_REFS (orig))
+	    SSA_NAME_HAS_REAL_REFS (PHI_RESULT (phi)) = 1;
 	}
     }
 }

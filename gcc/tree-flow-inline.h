@@ -30,22 +30,16 @@ var_ann (t)
      tree t;
 {
 #if defined ENABLE_CHECKING
-  if (!SSA_VAR_P (t))
+  if (t == NULL_TREE
+      || !DECL_P (t)
+      || (t->common.ann
+	  && t->common.ann->common.type != VAR_ANN))
     abort ();
 #endif
 
-  /* SSA_NAME nodes share the same annotations as the VAR_DECL
-     node that they wrap.  */
-  if (TREE_CODE (t) == SSA_NAME)
-    t = SSA_NAME_VAR (t);
-
-  return (t->common.ann && t->common.ann->common.type == VAR_ANN)
-	 ? (var_ann_t) t->common.ann
-	 : NULL;
+  return (var_ann_t) t->common.ann;
 }
 
-/* Return the annotation for variable VAR.  If none exists, create a new
-   one.  */
 static inline var_ann_t
 get_var_ann (tree var)
 {
@@ -53,24 +47,18 @@ get_var_ann (tree var)
   return (ann) ? ann : create_var_ann (var);
 }
 
-static inline tree
-tree_stmt (t)
-     tree t;
-{
-  return t->common.ann->common.stmt;
-}
-
 static inline stmt_ann_t
 stmt_ann (t)
      tree t;
 {
-  return (t->common.ann && t->common.ann->common.type == STMT_ANN)
-	 ? (stmt_ann_t) t->common.ann
-	 : NULL;
+#if defined ENABLE_CHECKING
+  if (!is_gimple_stmt (t))
+    abort ();
+#endif
+
+  return (stmt_ann_t) t->common.ann;
 }
 
-/* Return the annotation for statement STMT.  If none exists, create a new
-   one.  */
 static inline stmt_ann_t
 get_stmt_ann (tree stmt)
 {

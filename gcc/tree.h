@@ -848,7 +848,7 @@ struct tree_vec GTY(())
 /* Non-zero if NODE is an emtpy statement (NOP_EXPR <0>).  */
 #define IS_EMPTY_STMT(NODE)	(TREE_CODE (NODE) == NOP_EXPR \
 				 && VOID_TYPE_P (TREE_TYPE (NODE)) \
-				 && TREE_OPERAND (NODE, 0) == size_zero_node)
+				 && integer_zerop (TREE_OPERAND (NODE, 0)))
 
 /* In a SAVE_EXPR node.  */
 #define SAVE_EXPR_CONTEXT(NODE) TREE_OPERAND_CHECK_CODE (NODE, SAVE_EXPR, 1)
@@ -978,12 +978,31 @@ struct tree_exp GTY(())
 #define SSA_NAME_VAR(NODE)	SSA_NAME_CHECK (NODE)->ssa_name.var
 #define SSA_NAME_DEF_STMT(NODE)	SSA_NAME_CHECK (NODE)->ssa_name.def_stmt
 #define SSA_NAME_VERSION(NODE)	SSA_NAME_CHECK (NODE)->ssa_name.version
+#define SSA_NAME_HAS_REAL_REFS(NODE) \
+    SSA_NAME_CHECK (NODE)->ssa_name.has_real_refs
+#define SSA_NAME_OCCURS_IN_ABNORMAL_PHI(NODE) \
+    SSA_NAME_CHECK (NODE)->ssa_name.occurs_in_abnormal_phi
 
 struct tree_ssa_name GTY(())
 {
   struct tree_common common;
+
+  /* Nonzero if this SSA name is used as a real operand in this function.
+     This is used by the SSA->normal pass to determine which variables to
+     ignore in the coalescing phase.  By default, SSA names are assumed to
+     have no real references.  This is changed by the SSA rename pass.  */
+  unsigned has_real_refs : 1;
+
+  /* Nonzero if the SSA name occurs in an abnormal PHI.  */
+  unsigned occurs_in_abnormal_phi : 1;
+
+  /* _DECL wrapped by this SSA name.  */
   tree var;
+
+  /* Statement that creates this SSA name.  */
   tree def_stmt;
+
+  /* SSA version number.  */
   unsigned int version;
 };
 

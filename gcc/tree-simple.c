@@ -631,6 +631,12 @@ is_gimple_stmt (tree t)
       /* Might be OK.  */
       break;
 
+    case 'x':
+      if (code == PHI_NODE)
+	return 1;
+      else
+	return 0;
+
     default:
       /* Not an expression?!?  */
       return 0;
@@ -699,7 +705,8 @@ is_gimple_id (t)
 	  || (TREE_CODE (t) == ADDR_EXPR
 	      && TREE_CODE (TREE_OPERAND (t, 0)) == FUNCTION_DECL)
 	  /* Allow string constants.  */
-	  || TREE_CODE (t) == STRING_CST);
+	  || TREE_CODE (t) == STRING_CST
+	  || TREE_CODE (t) == SSA_NAME);
 }
 
 

@@ -155,7 +155,8 @@ dump_generic_node (buffer, node, spc, flags)
   if (node == NULL_TREE)
     return spc;
 
-  if (node != error_mark_node)
+  if (TREE_CODE (node) != ERROR_MARK
+      && is_gimple_stmt (node))
     {
       basic_block curr_bb = bb_for_stmt (node);
 
@@ -698,28 +699,27 @@ dump_generic_node (buffer, node, spc, flags)
 	  output_add_character (buffer, ')');
 	  if (!(flags & TDF_SLIM))
 	    {
-	      if (IS_EMPTY_STMT (COND_EXPR_THEN (node)))
-		{
-		  output_add_character (buffer, ';');
-		}
-	      else
+	      /* Output COND_EXPR_THEN.  */
+	      if (COND_EXPR_THEN (node))
 		{
 		  newline_and_indent (buffer, spc+2);
 		  output_add_character (buffer, '{');
 		  newline_and_indent (buffer, spc+4);
-		  dump_generic_node (buffer, TREE_OPERAND (node, 1), spc+4,
-		                     flags);
+		  dump_generic_node (buffer, COND_EXPR_THEN (node), spc+4,
+				     flags);
 		  newline_and_indent (buffer, spc+2);
 		  output_add_character (buffer, '}');
 		}
-	      if (!IS_EMPTY_STMT (COND_EXPR_ELSE (node)))
+
+	      /* Output COND_EXPR_ELSE.  */
+	      if (COND_EXPR_ELSE (node))
 		{
 		  newline_and_indent (buffer, spc);
 		  output_add_string (buffer, "else");
 		  newline_and_indent (buffer, spc+2);
 		  output_add_character (buffer, '{');
 		  newline_and_indent (buffer, spc+4);
-		  dump_generic_node (buffer, TREE_OPERAND (node, 2), spc+4,
+		  dump_generic_node (buffer, COND_EXPR_ELSE (node), spc+4,
 			             flags);
 		  newline_and_indent (buffer, spc+2);
 		  output_add_character (buffer, '}');

@@ -208,9 +208,15 @@ get_stmt_operands (tree stmt)
       break;
 
     case ASM_EXPR:
-      get_expr_operands (stmt, &ASM_INPUTS (stmt), opf_none, prev_vops);
-      get_expr_operands (stmt, &ASM_OUTPUTS (stmt), opf_is_def, prev_vops);
-      get_expr_operands (stmt, &ASM_CLOBBERS (stmt), opf_is_def, prev_vops);
+      /* FIXME: We don't treat ASM_EXPR operands as real operands so that
+	 optimizations don't try to transform them.  In execute/20020107-1.c
+	 CCP tries to propagate constants into some __asm__ operands,
+	 causing an ICE during RTL expansion.  */
+      get_expr_operands (stmt, &ASM_INPUTS (stmt), opf_force_vop, prev_vops);
+      get_expr_operands (stmt, &ASM_OUTPUTS (stmt), opf_is_def|opf_force_vop,
+			 prev_vops);
+      get_expr_operands (stmt, &ASM_CLOBBERS (stmt), opf_is_def|opf_force_vop,
+			 prev_vops);
       break;
 
     case RETURN_EXPR:
@@ -357,7 +363,7 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, voperands_t prev_vops)
 
       if (SSA_VAR_P (ptr))
 	{
-	  ann = var_ann (ptr);
+	  ann = var_ann (TREE_CODE (ptr) == SSA_NAME ? SSA_NAME_VAR (ptr) : ptr);
 	  if (ann->mem_tag)
 	    add_stmt_operand (&ann->mem_tag, stmt, flags|opf_force_vop,
 			      prev_vops);
@@ -533,7 +539,7 @@ add_stmt_operand (tree *var_p, tree stmt, int flags, voperands_t prev_vops)
     return;
 
   s_ann = stmt_ann (stmt);
-  v_ann = var_ann (var);
+  v_ann = var_ann (TREE_CODE (var) == SSA_NAME ? SSA_NAME_VAR (var) : var);
 
   /* FIXME: Currently, global and local static variables are always treated as
      virtual operands.  Otherwise, we would have to insert copy-in/copy-out
@@ -547,20 +553,23 @@ add_stmt_operand (tree *var_p, tree stmt, int flags, voperands_t prev_vops)
       s_ann->has_volatile_ops = 1;
     }
 
+  /* If the variable is an alias tag, it means that its address has been
+     taken and it's being accessed directly and via pointers.  To avoid
+     mixing real and virtual operands, we treat all references to aliased
+     variables as virtual.  */
+  if (v_ann->is_alias_tag)
+    flags |= opf_force_vop;
+
+  /* If the variable is volatile, inform the statement that it makes
+      volatile storage references.  */
+  if (TREE_THIS_VOLATILE (var))
+    s_ann->has_volatile_ops = 1;
+
   aliases = v_ann->may_aliases;
   if (aliases == NULL)
     {
-      /* The variable is not aliased.  If it's a scalar that is not used as
-	 an alias tag for other variables, process it as a real operand.
-	 Otherwise, add it to the virtual operands.  Note that we never
-	 consider ASM_EXPR operands as real.  They are always added to
-	 virtual operands so that optimizations don't try to optimize them.
-
-	 FIXME: This is true for CCP.  It tries to propagate constants in
-		some __asm__ operands causing ICEs during RTL expansion
-		(execute/20020107-1.c).  Do we really need to be this
-		drastic?  Or should each optimization take care when
-		dealing with ASM_EXPRs?  */
+      /* The variable is not aliased.  Add it as a real operand (unless
+	 opf_force_vop is set).  */
       if (flags & opf_is_def)
 	{
 	  if (is_scalar
@@ -577,21 +586,15 @@ add_stmt_operand (tree *var_p, tree stmt, int flags, voperands_t prev_vops)
       else
 	{
 	  if (is_scalar
-	      && !(flags & opf_force_vop)
-	      && TREE_CODE (stmt) != ASM_EXPR)
+	      && !(flags & opf_force_vop))
 	    add_use (var_p, stmt);
 	  else
 	    add_vuse (var, stmt, prev_vops);
 
 	  /* If the variable is an alias tag, mark the statement.  */
 	  if (v_ann->is_alias_tag)
-	    s_ann->makes_aliased_stores = 1;
+	    s_ann->makes_aliased_loads = 1;
 	}
-
-      /* If the variable is volatile, inform the statement that it makes
-	 volatile storage references.  */
-      if (TREE_THIS_VOLATILE (var))
-	s_ann->has_volatile_ops = 1;
     }
   else
     {
@@ -645,7 +648,6 @@ set_def (tree *def_p, tree stmt)
     }
 
   ann->ops->def_op = def_p;
-  get_var_ann (*def_p)->has_real_refs = 1;
 }
 
 
@@ -674,7 +676,6 @@ add_use (tree *use_p, tree stmt)
     VARRAY_GENERIC_PTR_INIT (ann->ops->use_ops, 3, "use_ops");
 
   VARRAY_PUSH_GENERIC_PTR (ann->ops->use_ops, use_p);
-  get_var_ann (*use_p)->has_real_refs = 1;
 }
 
 
@@ -690,11 +691,11 @@ add_vdef (tree var, tree stmt, voperands_t prev_vops)
   stmt_ann_t ann;
   size_t i;
 
+  /* The statement already had virtual definitions.  Do nothing.  */
   if (prev_vops && prev_vops->vdef_ops)
     return;
-  else
-    vdef = build_vdef_expr (var);
 
+  vdef = build_vdef_expr (var);
   ann = stmt_ann (stmt);
   if (ann->vops == NULL)
     {
@@ -725,6 +726,7 @@ add_vuse (tree var, tree stmt, voperands_t prev_vops)
   stmt_ann_t ann;
   size_t i;
 
+  /* The statement already had virtual uses.  Do nothing.  */
   if (prev_vops && prev_vops->vuse_ops)
     return;
 
@@ -794,13 +796,17 @@ add_phi_arg (tree phi, tree def, edge e)
      PHI nodes.  This is a convenient place to record such information.  */
   if (e->flags & EDGE_ABNORMAL)
     {
-      var_ann (def)->occurs_in_abnormal_phi = 1;
-      var_ann (PHI_RESULT (phi))->occurs_in_abnormal_phi = 1;
+      SSA_NAME_OCCURS_IN_ABNORMAL_PHI (def) = 1;
+      SSA_NAME_OCCURS_IN_ABNORMAL_PHI (PHI_RESULT (phi)) = 1;
     }
 
   PHI_ARG_DEF (phi, i) = def;
   PHI_ARG_EDGE (phi, i) = e;
   PHI_NUM_ARGS (phi)++;
+
+  /* Propagate HAS_REAL_REFS to the result of the PHI node.  */
+  if (SSA_NAME_HAS_REAL_REFS (def))
+    SSA_NAME_HAS_REAL_REFS (PHI_RESULT (phi)) = true;
 }
 
 
@@ -842,6 +848,12 @@ void
 remove_phi_arg_num (tree phi, int i)
 {
   int num_elem = PHI_NUM_ARGS (phi);
+  bool last_real_arg_p;
+
+  /* If argument ARG was the last argument used as a real operand, we will
+     want to update PHI_RESULT so that it is not considered by the
+     coalescer in the SSA->normal pass.  */
+  last_real_arg_p = SSA_NAME_HAS_REAL_REFS (PHI_ARG_DEF (phi, i));
 
   /* If we are not at the last element, switch the last element
      with the element we want to delete.  */
@@ -855,6 +867,18 @@ remove_phi_arg_num (tree phi, int i)
   PHI_ARG_DEF (phi, num_elem - 1) = NULL_TREE;
   PHI_ARG_EDGE (phi, num_elem - 1) = NULL;
   PHI_NUM_ARGS (phi)--;
+
+  /* Update SSA_NAME_HAS_REAL_REFS for the LHS of the PHI, if needed.  */
+  if (last_real_arg_p)
+    {
+      for (i = 0; i < num_elem - 1; i++)
+	if (SSA_NAME_HAS_REAL_REFS (PHI_ARG_DEF (phi, i)))
+	  return;
+
+      /* There are no arguments left with real references, update the LHS of
+	the PHI.  */
+      SSA_NAME_HAS_REAL_REFS (PHI_RESULT (phi)) = false;
+    }
 }
 
 
@@ -1015,7 +1039,10 @@ create_var_ann (tree t)
   var_ann_t ann;
 
 #if defined ENABLE_CHECKING
-  if (t == NULL_TREE || !DECL_P (t))
+  if (t == NULL_TREE
+      || !DECL_P (t)
+      || (t->common.ann
+	  && t->common.ann->common.type != VAR_ANN))
     abort ();
 #endif
 
@@ -1038,9 +1065,9 @@ create_stmt_ann (tree t)
   stmt_ann_t ann;
 
 #if defined ENABLE_CHECKING
-  if (t == NULL_TREE
-      || TREE_CODE_CLASS (TREE_CODE (t)) == 'c'
-      || TREE_CODE_CLASS (TREE_CODE (t)) == 't')
+  if (!is_gimple_stmt (t)
+      || (t->common.ann
+	  && t->common.ann->common.type != STMT_ANN))
     abort ();
 #endif
 
@@ -1053,29 +1080,6 @@ create_stmt_ann (tree t)
   ann->modified = true;
 
   t->common.ann = (tree_ann) ann;
-  ann->common.stmt = t; 
-
-  /* SSA-PRE currently needs to be able to get to the parent node of an
-     arbitrary RHS.  This should eventually be fixed as it makes removal
-     of annotations more complicated than it should be (consider 
-     propagation of a constant that appeared on the RHS of a MODIFY_EXPR
-     and eventual removal of the MODIFY_EXPR). 
-
-     If additional annotations are created, then the removal code for
-     annotations needs to be updated.  Such code appears in 
-     remove_annotation_r and remove_stmt.  */
-  if (TREE_CODE (t) == MODIFY_EXPR)
-    {
-      tree op = TREE_OPERAND (t, 1);
-      if (op->common.ann != NULL)
-        op->common.ann->common.stmt = t;
-      else
-        {
-          op->common.ann = ggc_alloc (sizeof (struct tree_ann_common_d));
-          op->common.ann->common.type = TREE_ANN_COMMON;
-	  op->common.ann->common.stmt = t;
-        }
-    }
 
   return ann;
 }
@@ -1129,6 +1133,9 @@ dump_variable (FILE *file, tree var)
 
   print_generic_expr (file, var, 0);
   
+  if (TREE_CODE (var) == SSA_NAME)
+    var = SSA_NAME_VAR (var);
+
   ann = var_ann (var);
 
   if (ann->mem_tag)
@@ -1151,9 +1158,6 @@ dump_variable (FILE *file, tree var)
 
   if (ann->is_call_clobbered)
     fprintf (file, ", call clobbered");
-
-  if (ann->occurs_in_abnormal_phi)
-    fprintf (file, ", occurs in an abnormal PHI node");
 
   if (ann->is_stored)
     fprintf (file, ", is stored");
@@ -1182,8 +1186,12 @@ debug_variable (tree var)
 void
 dump_may_aliases_for (FILE *file, tree var)
 {
-  varray_type aliases = var_ann (var)->may_aliases;
+  varray_type aliases;
+  
+  if (TREE_CODE (var) == SSA_NAME)
+    var = SSA_NAME_VAR (var);
 
+  aliases = var_ann (var)->may_aliases;
   if (aliases)
     {
       size_t i, num_aliases = VARRAY_ACTIVE_SIZE (aliases);
@@ -1901,7 +1909,8 @@ may_access_global_mem_p (tree expr)
      return true.  */
   if (SSA_VAR_P (expr))
     {
-      var_ann_t ann = var_ann (expr);
+      var_ann_t ann;
+      ann = var_ann (TREE_CODE (expr) == SSA_NAME ? SSA_NAME_VAR (expr) : expr);
       if (ann->may_point_to_global_mem || ann->may_alias_global_mem)
 	return true;
     }
@@ -2120,11 +2129,6 @@ add_referenced_var (tree var, struct walk_state *walk_state)
 	  && (TREE_CODE (var) == PARM_DECL
 	      || decl_function_context (var) == NULL_TREE))
 	v_ann->may_point_to_global_mem = 1;
-
-      /* By default, assume that the variable has no real references.  If
-	 the variable is used as a real operand to a statement (i.e.,
-	 add_use and set_def), this field will be set to 1.  */
-      v_ann->has_real_refs = 0;
 
       is_addressable = TREE_ADDRESSABLE (var)
 		       || decl_function_context (var) == NULL;

@@ -301,6 +301,7 @@ create_ssa_var_map (void)
 	  stmt = bsi_stmt (bsi);
 	  get_stmt_operands (stmt);
 
+	  /* Register USE and DEF operands in each statement.  */
 	  ops = use_ops (stmt);
 	  for (x = 0; ops && x < VARRAY_ACTIVE_SIZE (ops); x++)
 	    {
@@ -325,28 +326,27 @@ create_ssa_var_map (void)
 
 	  ops = vdef_ops (stmt);
 	  for (x = 0; ops && x < VARRAY_ACTIVE_SIZE (ops); x++)
-	    {
-	      set_is_used (VDEF_OP (VARRAY_TREE (ops, x)));
-	      set_is_used (VDEF_RESULT (VARRAY_TREE (ops, x)));
-	    }
-	  
+	    set_is_used (VDEF_OP (VARRAY_TREE (ops, x)));
 	}
 
       /* Now register elements of PHI nodes.  */
       for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
         {
-	  tree var = PHI_RESULT (phi);
-	  
-	  /* Only process variables that have real references.  */
-	  if (var_ann (var)->has_real_refs)
+	  /* Only register PHI node variables that have had real uses in
+	     the program.  */
+	  if (SSA_NAME_HAS_REAL_REFS (PHI_RESULT (phi)))
 	    {
-	      register_ssa_partition (map, var);
+	      register_ssa_partition (map, PHI_RESULT (phi));
 	      set_is_used (PHI_RESULT (phi));
+
+	      /* Similarly, only register PHI arguments that have had real uses
+		in the program.  */
 	      for (i = 0; i < PHI_NUM_ARGS (phi); i++)
-		{
-		  register_ssa_partition (map, PHI_ARG_DEF (phi, i));
-		  set_is_used (PHI_ARG_DEF (phi, i));
-		}
+		if (SSA_NAME_HAS_REAL_REFS (PHI_ARG_DEF (phi, i)))
+		  {
+		    register_ssa_partition (map, PHI_ARG_DEF (phi, i));
+		    set_is_used (PHI_ARG_DEF (phi, i));
+		  }
 	    }
 	}
     }
@@ -579,7 +579,7 @@ calculate_live_on_entry (var_map map)
 	    {
 	      num++;
 	      print_generic_expr (stderr, var, TDF_SLIM);
-	      fprintf (stderr, " is defined, but is also live on entry.");
+	      fprintf (stderr, " is defined, but is also live on entry.\n");
 	    }
 	}
     }
