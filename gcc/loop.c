@@ -2705,7 +2705,7 @@ find_and_verify_loops (f, loops)
   /* Any loop containing a label used for an exception handler must be
      invalidated, because it can be jumped into from anywhere.  */
 
-  for (label = exception_handler_labels; label; label = XEXP (label, 1))
+  for (label = get_exception_handler_labels (); label; label = XEXP (label, 1))
     {
       for (loop = uid_loop[INSN_UID (XEXP (label, 0))];
 	   loop; loop = loop->outer)

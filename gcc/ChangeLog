@@ -1,5 +1,20 @@
 2002-04-04  Geoffrey Keating  <geoffk@redhat.com>
 
+	* except.h (exception_handler_labels): Delete.
+	(get_exception_handler_labels): New.
+	* except.c (exception_handler_labels): Delete.
+	(struct eh_status): Add exception_handler_labels field.
+	(doing_eh): Don't add exception_handler_labels as root.
+	(free_eh_status): Don't need to free exception_handler_labels.
+	(get_exception_handler_labels): New.
+	(find_exception_handler_labels): Update for move of
+	exception_handler_labels.
+	(remove_exception_handler_label): Likewise.
+	* cfgrtl.c (can_delete_label_p): Use get_exception_handler_labels.
+	* jump.c (rebuild_jump_labels): Likewise.
+	* loop.c (find_and_verify_loops): Likewise.
+	* sched-rgn.c (is_cfg_nonregular): Likewise.
+
 	* gengtype.c (write_gc_structure_fields): Handle variable-length
 	TYPE_ARRAYs.
 

@@ -98,7 +98,7 @@ extern void end_protect_partials		PARAMS ((void));
 
 
 /* A list of labels used for exception handlers.  */
-extern rtx exception_handler_labels;
+extern rtx get_exception_handler_labels		PARAMS ((void));
 
 /* Determine if the given INSN can throw an exception.  */
 extern bool can_throw_internal			PARAMS ((rtx));

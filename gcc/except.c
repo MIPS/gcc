@@ -97,9 +97,6 @@ int (*lang_eh_type_covers) PARAMS ((tree a, tree b));
 /* Map a type to a runtime object to match type.  */
 tree (*lang_eh_runtime_type) PARAMS ((tree));
 
-/* A list of labels used for exception handlers.  */
-rtx exception_handler_labels;
-
 static int call_site_base;
 static unsigned int sjlj_funcdef_number;
 static htab_t type_to_runtime_map;
@@ -246,6 +243,9 @@ struct eh_status GTY(())
 
   rtx sjlj_fc;
   rtx sjlj_exit_after;
+
+  /* A list of labels used for exception handlers.  */
+  rtx exception_handler_labels;
 };
 
 
@@ -370,8 +370,6 @@ doing_eh (do_warn)
 void
 init_eh ()
 {
-  ggc_add_rtx_root (&exception_handler_labels, 1);
-
   if (! flag_exceptions)
     return;
 
@@ -481,7 +479,6 @@ free_eh_status (f)
   VARRAY_FREE (eh->action_record_data);
 
   f->eh = NULL;
-  exception_handler_labels = NULL;
 }
 
 
@@ -1221,7 +1218,7 @@ find_exception_handler_labels ()
   rtx list = NULL_RTX;
   int i;
 
-  free_EXPR_LIST_list (&exception_handler_labels);
+  free_EXPR_LIST_list (&cfun->eh->exception_handler_labels);
 
   if (cfun->eh->region_tree == NULL)
     return;
@@ -1247,9 +1244,14 @@ find_exception_handler_labels ()
   if (USING_SJLJ_EXCEPTIONS && ! cfun->eh->built_landing_pads)
     list = alloc_EXPR_LIST (0, return_label, list);
 
-  exception_handler_labels = list;
+  cfun->eh->exception_handler_labels = list;
 }
 
+rtx
+get_exception_handler_labels ()
+{
+  return cfun->eh->exception_handler_labels;
+}
 
 static struct eh_region *
 duplicate_eh_region_1 (o, map)
@@ -2328,10 +2330,10 @@ remove_exception_handler_label (label)
 
   /* If exception_handler_labels was not built yet,
      there is nothing to do.  */
-  if (exception_handler_labels == NULL)
+  if (cfun->eh->exception_handler_labels == NULL)
     return;
 
-  for (pl = &exception_handler_labels, l = *pl;
+  for (pl = &cfun->eh->exception_handler_labels, l = *pl;
        XEXP (l, 0) != label;
        pl = &XEXP (l, 1), l = *pl)
     continue;

@@ -95,7 +95,7 @@ rebuild_jump_labels (f)
   /* Keep track of labels used for marking handlers for exception
      regions; they cannot usually be deleted.  */
 
-  for (insn = exception_handler_labels; insn; insn = XEXP (insn, 1))
+  for (insn = get_exception_handler_labels (); insn; insn = XEXP (insn, 1))
     if (GET_CODE (XEXP (insn, 0)) == CODE_LABEL)
       LABEL_NUSES (XEXP (insn, 0))++;
 }

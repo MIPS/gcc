@@ -102,7 +102,7 @@ can_delete_label_p (label)
 	  && LABEL_NAME (label) == 0
 	  && !in_expr_list_p (forced_labels, label)
 	  && !in_expr_list_p (label_value_list, label)
-	  && !in_expr_list_p (exception_handler_labels, label));
+	  && !in_expr_list_p (get_exception_handler_labels (), label));
 }
 
 /* Delete INSN by patching it out.  Return the next insn.  */
