@@ -840,6 +840,13 @@ cfg_layout_redirect_edge (e, dest)
     redirect_edge_succ (e, dest);
   else
     redirect_edge_and_branch (e, dest);
+
+  /* We don't want simplejumps in the insn stream during cfglayout.  */
+  if (simplejump_p (e->src->end))
+    {
+      delete_insn (e->src->end);
+      e->flags |= EDGE_FALLTHRU;
+    }
   dest->index = old_index;
 }
 

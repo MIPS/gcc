@@ -1165,15 +1165,8 @@ loop_redirect_edge (e, dest)
   if (e->dest == dest)
     return;
 
-  if (!e->src->succ->succ_next)
-    {
-      /* Code of cfglayout should be able to handle this, and redirection
-	 is happier.  */
-      e->flags |= EDGE_FALLTHRU;
-    }
-
-    cfg_layout_redirect_edge (e, dest);
-  }
+  cfg_layout_redirect_edge (e, dest);
+}
 
 /* Deletes edge if possible.  */
 static void
