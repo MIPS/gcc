@@ -2583,15 +2583,19 @@ legitimate_offset_address_p (mode, x, strict)
 
     case DFmode:
     case DImode:
-      if (mode == DFmode || !TARGET_POWERPC64)
+      /* Both DFmode and DImode may end up in gprs.  If gprs are 32-bit,
+	 then we need to load/store at both offset and offset+4.  */
+      if (!TARGET_POWERPC64)
 	extra = 4;
+      /* The 64-bit gpr load and store instructions must have an offset
+	 that is a multiple of 4.  */
       else if (offset & 3)
 	return false;
       break;
 
     case TFmode:
     case TImode:
-      if (mode == TFmode || !TARGET_POWERPC64)
+      if (!TARGET_POWERPC64)
 	extra = 12;
       else if (offset & 3)
 	return false;
@@ -2603,7 +2607,8 @@ legitimate_offset_address_p (mode, x, strict)
       break;
     }
 
-  return (offset + extra >= offset) && (offset + extra + 0x8000 < 0x10000);
+  offset += 0x8000;
+  return offset < 0x10000 && offset + extra < 0x10000;
 }
 
 static bool
@@ -3186,8 +3191,17 @@ rs6000_legitimize_reload_address (x, mode, opnum, type, ind_levels, win)
       HOST_WIDE_INT high
 	= (((val - low) & 0xffffffff) ^ 0x80000000) - 0x80000000;
 
-      /* Check for 32-bit overflow.  */
-      if (high + low != val)
+      /* We get here for two reasons: a) The offset is too large,
+	 or b) the offset is invalid, for example, not a multiple of
+	 4 on a DImode access.  Leave case b, and when we get 32-bit
+	 overflow, to the generic parts of reload to handle.  */
+
+      if (high + low != val
+	  || high == 0
+	  || ((low & 3) != 0
+	      && (mode == DImode || mode == TImode
+		  || mode == DFmode || mode == TFmode)
+	      && TARGET_POWERPC64))
 	{
 	  *win = 0;
 	  return x;
