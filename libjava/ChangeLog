@@ -1,3 +1,8 @@
+2004-10-01  Jerry Quinn  <jlquinn@optonline.net>
+
+	* java/awt/image/IndexColorModel.java: Fix use of immutable
+	BigIntegers.
+
 2004-09-29  Tom Tromey  <tromey@redhat.com>
 
 	* javax/swing/plaf/basic/BasicOptionPaneUI.java (MessageIcon):
