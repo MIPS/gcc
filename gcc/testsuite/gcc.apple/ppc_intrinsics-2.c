@@ -1,5 +1,5 @@
 /* { dg-options "-I ${srcdir}/../../more-hdrs -Wshorten-64-to-32 -Wno-long-long" } */
-/* { dg-do run } */
+/* { dg-do run { target "powerpc*-*-darwin*" } } */
 #include "ppc_intrinsics.h"
 #include <stdlib.h>
 

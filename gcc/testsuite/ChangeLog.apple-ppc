@@ -1,3 +1,9 @@
+2005-03-02  Stan Shebs  <shebs@apple.com>
+
+	Radar 3951637
+	* gcc.dg/ppc_intrinsics-2.c: New.
+	* gcc.dg/ppc_intrinsics-1.c: Is ppc-only.
+
 2005-03-01  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 4015382 (Part II)
