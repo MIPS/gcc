@@ -1,3 +1,7 @@
+2002-10-24  Tom Tromey  <tromey@redhat.com>
+
+	* gcj.texi (Invoking gij): Document --showversion.
+
 2002-10-21  Matthias Klose  <doko@debian.org>
 
 	* Backport, without whitespace change:

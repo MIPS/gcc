@@ -1,6 +1,6 @@
 // natSystem.cc - Native code implementing System class.
 
-/* Copyright (C) 1998, 1999, 2000, 2001 , 2002 Free Software Foundation
+/* Copyright (C) 1998, 1999, 2000, 2001, 2002 Free Software Foundation
 
    This file is part of libgcj.
 
@@ -285,6 +285,8 @@ java::lang::System::getSystemTimeZone (void)
   return retval;
 }
 
+extern void _Jv_SetDLLSearchPath (const char *);
+
 void
 java::lang::System::init_properties (void)
 {
@@ -502,6 +504,25 @@ java::lang::System::init_properties (void)
 
   // Allow platform specific settings and overrides.
   _Jv_platform_initProperties (newprops);
+
+  // If java.library.path is set, tell libltdl so we search the new
+  // directories as well.  FIXME: does this work properly on Windows?
+  String *path = newprops->getProperty(JvNewStringLatin1("java.library.path"));
+  if (path)
+    {
+      char *val = (char *) _Jv_Malloc (JvGetStringUTFLength (path) + 1);
+      jsize total = JvGetStringUTFRegion (path, 0, path->length(), val);
+      val[total] = '\0';
+      _Jv_SetDLLSearchPath (val);
+      _Jv_Free (val);
+    }
+  else
+    {
+      // Set a value for user code to see.
+      // FIXME: JDK sets this to the actual path used, including
+      // LD_LIBRARY_PATH, etc.
+      SET ("java.library.path", "");
+    }
 
   // Finally, set the field. This ensures that concurrent getProperty() 
   // calls will return initialized values without requiring them to be 

@@ -73,12 +73,24 @@ _Jv_FindSymbolInExecutable (const char *symname)
   return NULL;
 }
 
+void
+_Jv_SetDLLSearchPath (const char *path)
+{
+  lt_dlsetsearchpath (path);
+}
+
 #else
 
 void *
-_Jv_FindSymbolInExecutable (const char *symname)
+_Jv_FindSymbolInExecutable (const char *)
 {
   return NULL;
+}
+
+void
+_Jv_SetDLLSearchPath (const char *)
+{
+  // Nothing.
 }
 
 #endif /* USE_LTDL */

@@ -32,6 +32,7 @@ help ()
   printf ("  --help            print this help, then exit\n");
   printf ("  --ms=NUMBER       set initial heap size\n");
   printf ("  --mx=NUMBER       set maximum heap size\n");
+  printf ("  --showversion     print version number, then keep going\n");
   printf ("  --version         print version number, then exit\n");
   printf ("\nSee http://gcc.gnu.org/java/ for information on reporting bugs\n");
   exit (0);
@@ -44,7 +45,6 @@ version ()
   printf ("Copyright (C) 2002 Free Software Foundation, Inc.\n");
   printf ("This is free software; see the source for copying conditions.  There is NO\n");
   printf ("warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n");
-  exit (0);
 }
 
 int
@@ -90,6 +90,11 @@ main (int argc, const char **argv)
       if (! strcmp (arg, "-help"))
 	help ();
       else if (! strcmp (arg, "-version"))
+	{
+	  version ();
+	  exit (0);
+	}
+      else if (! strcmp (arg, "-showversion"))
 	version ();
       /* FIXME: use getopt and avoid the ugliness here.
 	 We at least need to handle the argument in a better way.  */
