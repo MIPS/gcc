@@ -200,7 +200,6 @@ and again mark them read/write.
 static struct obstack df_ref_obstack;
 static struct df *ddf;
 
-static void df_reg_table_realloc PARAMS((struct df *, int));
 static void df_insn_table_realloc PARAMS((struct df *, unsigned int));
 static void df_bitmaps_alloc PARAMS((struct df *, int));
 static void df_bitmaps_free PARAMS((struct df *, int));
@@ -210,8 +209,6 @@ static void df_alloc PARAMS((struct df *, int));
 static rtx df_reg_clobber_gen PARAMS((unsigned int));
 static rtx df_reg_use_gen PARAMS((unsigned int));
 
-static inline struct df_link *df_link_create PARAMS((struct ref *,
-						     struct df_link *));
 static struct df_link *df_ref_unlink PARAMS((struct df_link **, struct ref *));
 static void df_def_unlink PARAMS((struct df *, struct ref *));
 static void df_use_unlink PARAMS((struct df *, struct ref *));
@@ -235,7 +232,6 @@ static void df_defs_record PARAMS((struct df *, rtx, basic_block, rtx));
 static void df_uses_record PARAMS((struct df *, rtx *,
 				   enum df_ref_type, basic_block, rtx,
 				   enum df_ref_flags));
-static void df_insn_refs_record PARAMS((struct df *, basic_block, rtx));
 static void df_bb_refs_record PARAMS((struct df *, basic_block));
 static void df_refs_record PARAMS((struct df *, bitmap));
 
@@ -256,12 +252,9 @@ static void df_lr_local_compute PARAMS((struct df *, bitmap));
 static void df_bb_reg_info_compute PARAMS((struct df *, basic_block, bitmap));
 static void df_reg_info_compute PARAMS((struct df *, bitmap));
 
-static int df_bb_luids_set PARAMS((struct df *df, basic_block));
 static int df_luids_set PARAMS((struct df *df, bitmap));
 
 static int df_modified_p PARAMS ((struct df *, bitmap));
-static int df_refs_queue PARAMS ((struct df *));
-static int df_refs_process PARAMS ((struct df *));
 static int df_bb_refs_update PARAMS ((struct df *, basic_block));
 static int df_refs_update PARAMS ((struct df *));
 static void df_analyse_1 PARAMS((struct df *, bitmap, int, int));
@@ -344,7 +337,7 @@ df_insn_table_realloc (df, size)
 
 
 /* Increase the reg info table by SIZE more elements.  */
-static void
+void
 df_reg_table_realloc (df, size)
      struct df *df;
      int size;
@@ -622,7 +615,7 @@ static rtx df_reg_clobber_gen (regno)
 /* Local chain manipulation routines.  */
 
 /* Create a link in a def-use or use-def chain.  */
-static inline struct df_link *
+inline struct df_link *
 df_link_create (ref, next)
      struct ref *ref;
      struct df_link *next;
@@ -1192,7 +1185,7 @@ df_uses_record (df, loc, ref_type, bb, insn, flags)
 
 
 /* Record all the df within INSN of basic block BB.  */
-static void
+void
 df_insn_refs_record (df, bb, insn)
      struct df *df;
      basic_block bb;
@@ -1517,6 +1510,69 @@ df_du_chain_create (df, blocks)
   BITMAP_XFREE (ru);
 }
 
+/* Create use-def chains from reaching def bitmaps for insn INSN.  */
+void
+df_insn_ud_chain_create (df, bb, insn)
+     struct df *df;
+     basic_block bb;
+     rtx insn;
+{
+  struct bb_info *bb_info = DF_BB_INFO (df, bb);
+  struct ref **reg_def_last = df->reg_def_last;
+  unsigned int uid = INSN_UID (insn);
+  struct df_link *use_link;
+  struct df_link *def_link;
+
+  if (! INSN_P (insn))
+    return;
+
+  /* For each use in insn...  */
+  for (use_link = df->insns[uid].uses; use_link; use_link = use_link->next)
+    {
+      struct ref *use = use_link->ref;
+      unsigned int regno = DF_REF_REGNO (use);
+
+      DF_REF_CHAIN (use) = 0;
+
+      /* Has regno been defined in this BB yet?  If so, use
+	 the last def as the single entry for the use-def
+	 chain for this use.  Otherwise, we need to add all
+	 the defs using this regno that reach the start of
+	 this BB.  */
+      if (reg_def_last[regno])
+	{
+	  DF_REF_CHAIN (use)
+	    = df_link_create (reg_def_last[regno], 0);
+	}
+      else
+	{
+	  /* While the reg-def chains are not essential, it is
+	     _much_ faster to search these short lists rather than
+	     all the reaching defs, especially for large
+	     functions.  */
+	  for (def_link = df->regs[regno].defs; def_link;
+	       def_link = def_link->next)
+	    {
+	      struct ref *def = def_link->ref;
+
+	      if (bitmap_bit_p (bb_info->rd_in, DF_REF_ID (def)))
+		{
+		  DF_REF_CHAIN (use)
+		    = df_link_create (def, DF_REF_CHAIN (use));
+		}
+	    }
+	}
+    }
+
+  /* For each def in insn... record the last def of each reg.  */
+  for (def_link = df->insns[uid].defs; def_link; def_link = def_link->next)
+    {
+      struct ref *def = def_link->ref;
+      int dregno = DF_REF_REGNO (def);
+
+      reg_def_last[dregno] = def;
+    }
+}
 
 /* Create use-def chains from reaching def bitmaps for basic block BB.  */
 static void
@@ -1524,7 +1580,6 @@ df_bb_ud_chain_create (df, bb)
      struct df *df;
      basic_block bb;
 {
-  struct bb_info *bb_info = DF_BB_INFO (df, bb);
   struct ref **reg_def_last = df->reg_def_last;
   rtx insn;
 
@@ -1534,62 +1589,7 @@ df_bb_ud_chain_create (df, bb)
      that reach the use.  */
   for (insn = bb->head; insn && insn != NEXT_INSN (bb->end);
        insn = NEXT_INSN (insn))
-    {
-      unsigned int uid = INSN_UID (insn);
-      struct df_link *use_link;
-      struct df_link *def_link;
-
-      if (! INSN_P (insn))
-	continue;
-
-      /* For each use in insn...  */
-      for (use_link = df->insns[uid].uses; use_link; use_link = use_link->next)
-	{
-	  struct ref *use = use_link->ref;
-	  unsigned int regno = DF_REF_REGNO (use);
-
-	  DF_REF_CHAIN (use) = 0;
-
-	  /* Has regno been defined in this BB yet?  If so, use
-	     the last def as the single entry for the use-def
-	     chain for this use.  Otherwise, we need to add all
-	     the defs using this regno that reach the start of
-	     this BB.  */
-	  if (reg_def_last[regno])
-	    {
-	      DF_REF_CHAIN (use)
-		= df_link_create (reg_def_last[regno], 0);
-	    }
-	  else
-	    {
-	      /* While the reg-def chains are not essential, it is
-		 _much_ faster to search these short lists rather than
-		 all the reaching defs, especially for large
-		 functions.  */
-	      for (def_link = df->regs[regno].defs; def_link;
-		   def_link = def_link->next)
-		{
-		  struct ref *def = def_link->ref;
-
-		  if (bitmap_bit_p (bb_info->rd_in, DF_REF_ID (def)))
-		    {
-		      DF_REF_CHAIN (use)
-			= df_link_create (def, DF_REF_CHAIN (use));
-		    }
-		}
-	    }
-	}
-
-
-      /* For each def in insn... record the last def of each reg.  */
-      for (def_link = df->insns[uid].defs; def_link; def_link = def_link->next)
-	{
-	  struct ref *def = def_link->ref;
-	  int dregno = DF_REF_REGNO (def);
-
-	  reg_def_last[dregno] = def;
-	}
-    }
+    df_insn_ud_chain_create (df, bb, insn);
 }
 
 
@@ -1907,7 +1907,7 @@ df_reg_info_compute (df, blocks)
 
 
 /* Assign LUIDs for BB.  */
-static int
+int
 df_bb_luids_set (df, bb)
      struct df *df;
      basic_block bb;
@@ -2169,7 +2169,7 @@ df_init ()
 
 
 /* Start queuing refs.  */
-static int
+int
 df_refs_queue (df)
      struct df *df;
 {
@@ -2182,7 +2182,7 @@ df_refs_queue (df)
 
 
 /* Process queued refs.  */
-static int
+int
 df_refs_process (df)
      struct df *df;
 {

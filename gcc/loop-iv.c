@@ -50,6 +50,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 /* Maximal register number.  */
 static unsigned max_regno;
 
+/* The loops for that we compute the ivs.  */
+static struct loops *current_loops;
+
 /* Dataflow informations.  */
 static struct df *df;
 
@@ -92,6 +95,9 @@ static rtx iteration_rtx[NUM_MACHINE_MODES];
 
 static sbitmap suitable_code;		/* Bitmap of rtl codes we are able
 					   to handle.  */
+
+/* For each loop, a linklist of induction variable occurences.  */
+struct iv_occurence_step_class **iv_occurences;
 
 #define good_constant_p(EXPR) \
   (GET_CODE (EXPR) == CONST_INT \
@@ -140,8 +146,19 @@ static void simplify_register_values	PARAMS ((void));
 static void compute_loop_end_values	PARAMS ((struct loop *, rtx *));
 static void compute_initial_values	PARAMS ((struct loop *));
 static void fill_loop_rd_in_for_def	PARAMS ((struct ref *));
+static void fill_rd_for_defs		PARAMS ((basic_block, bitmap));
+static void enter_iv_occurence		PARAMS ((struct iv_occurence_step_class **,
+						 rtx, rtx, rtx, rtx, rtx *,
+						 enum machine_mode, enum machine_mode,
+						 enum rtx_code));
+static int record_iv_occurences_1	PARAMS ((rtx *, void *));
+static void record_iv_occurences	PARAMS ((struct iv_occurence_step_class **,
+						 rtx));
+static void iv_new_insn_changes_commit	PARAMS ((basic_block, rtx, rtx));
 extern void dump_equations		PARAMS ((FILE *, rtx *));
 extern void dump_insn_ivs		PARAMS ((FILE *, rtx));
+extern void dump_iv_occurences		PARAMS ((FILE *,
+						 struct iv_occurence_step_class *));
 
 /* Dump equations for induction variables in VALUES to FILE.  */
 void
@@ -181,8 +198,6 @@ dump_insn_ivs (file, insn)
   fprintf (file, "USES:\n");
   for (; use; use = use->next)
     {
-      if (!DF_REF_REG_USE_P (use->ref))
-	continue;
       if (!TEST_BIT (interesting_reg, DF_REF_REGNO (use->ref)))
 	continue;
       fprintf (file, " reg %d:\n", DF_REF_REGNO (use->ref));
@@ -193,14 +208,48 @@ dump_insn_ivs (file, insn)
   fprintf (file, "DEFS:\n");
   for (; def; def = def->next)
     {
-      if (!DF_REF_REG_DEF_P (def->ref))
-	continue;
       if (!TEST_BIT (interesting_reg, DF_REF_REGNO (def->ref)))
 	continue;
       fprintf (file, " reg %d:\n", DF_REF_REGNO (def->ref));
       print_rtl (file, def->ref->aux);
       fprintf (file, "\n");
     }
+}
+
+/* Dump equations for induction variables in list of step classes SC to FILE.  */
+void
+dump_iv_occurences (file, sc)
+     FILE *file;
+     struct iv_occurence_step_class *sc;
+{
+  struct iv_occurence_base_class *bc;
+  struct iv_occurence *oc;
+
+  for (; sc; sc = sc->sc_next)
+    {
+      fprintf (file, "  Step class ");
+      print_rtl (file, sc->step);
+      fprintf (file, ":\n");
+
+      for (bc = sc->bc_first; bc; bc = bc->bc_next)
+	{
+	  fprintf (file, "   Base class ");
+	  print_rtl (file, bc->base);
+	  fprintf (file, ":\n");
+
+	  for (oc = bc->oc_first; oc; oc = oc->oc_next)
+	    {
+	      fprintf (file, "    In insn %d, with delta ", INSN_UID (oc->insn));
+	      fprintf (file, HOST_WIDE_INT_PRINT_DEC, INTVAL (oc->delta));
+	      fprintf (file, ":\n");
+	      print_rtl (file, *oc->occurence);
+	      fprintf (file, "\n");
+	    }
+	  fprintf (file, "\n");
+	}
+      fprintf (file, "\n");
+    }
+  fprintf (file, "\n");
 }
 
 /* Generate INITIAL_VALUE for register REGNO (they are shared, so just return
@@ -250,12 +299,8 @@ record_def_value (insn, regno, value)
   struct df_link *def = DF_INSN_DEFS (df, insn);
 
   for (; def; def = def->next)
-    {
-      if (!DF_REF_REG_DEF_P (def->ref))
-	continue;
-      if (DF_REF_REGNO (def->ref) == regno)
-	break;
-    }
+    if (DF_REF_REGNO (def->ref) == regno)
+      break;
   if (!def)
     abort ();
 
@@ -272,12 +317,8 @@ record_use_value (insn, regno, value)
   struct df_link *use = DF_INSN_USES (df, insn);
 
   for (; use; use = use->next)
-    {
-      if (!DF_REF_REG_USE_P (use->ref))
-	continue;
-      if (DF_REF_REGNO (use->ref) == regno)
-	break;
-    }
+    if (DF_REF_REGNO (use->ref) == regno)
+      break;
   if (!use)
     abort ();
 
@@ -293,12 +334,8 @@ get_def_value (insn, regno)
   struct df_link *def = DF_INSN_DEFS (df, insn);
 
   for (; def; def = def->next)
-    {
-      if (!DF_REF_REG_DEF_P (def->ref))
-	continue;
-      if (DF_REF_REGNO (def->ref) == regno)
-	break;
-    }
+    if (DF_REF_REGNO (def->ref) == regno)
+      break;
   if (!def)
     abort ();
 
@@ -314,12 +351,8 @@ get_use_value (insn, regno)
   struct df_link *use = DF_INSN_USES (df, insn);
 
   for (; use; use = use->next)
-    {
-      if (!DF_REF_REG_USE_P (use->ref))
-	continue;
-      if (DF_REF_REGNO (use->ref) == regno)
-	break;
-    }
+    if (DF_REF_REGNO (use->ref) == regno)
+      break;
   if (!use)
     abort ();
 
@@ -1831,8 +1864,6 @@ iv_load_used_values (insn, values)
   use = DF_INSN_USES (df, insn);
   for (; use; use = use->next)
     {
-      if (!DF_REF_REG_USE_P (use->ref))
-	continue;
       regno = DF_REF_REGNO (use->ref);
       values[regno] = (rtx) use->ref->aux;
     }
@@ -1857,8 +1888,6 @@ compute_reg_values (bb, insn)
   /* First compute the values of used registers.  */
   for (; use; use = use->next)
     {
-      if (!DF_REF_REG_USE_P (use->ref))
-	continue;
       regno = DF_REF_REGNO (use->ref);
       if (!TEST_BIT (interesting_reg, regno))
 	continue;
@@ -1892,9 +1921,7 @@ compute_register_values (including_top)
       if (!including_top && !bb->loop_father->outer)
 	continue;
 
-      for (insn = bb->head;
-	   insn != NEXT_INSN (bb->end);
-	   insn = NEXT_INSN (insn))
+      FOR_BB_INSNS (bb, insn)
 	compute_reg_values (bb, insn);
     }
 }
@@ -1944,9 +1971,7 @@ simplify_register_values ()
       if (!bb->loop_father->outer)
 	continue;
 
-      for (insn = bb->head;
-	   insn != NEXT_INSN (bb->end);
-	   insn = NEXT_INSN (insn))
+      FOR_BB_INSNS (bb, insn)
 	simplify_reg_values (bb, insn);
     }
 }
@@ -1964,8 +1989,7 @@ fill_loop_rd_in_for_def (def)
   edge latch = def_loop->outer ? loop_latch_edge (def_loop) : NULL;
 
   SET_BIT (loop_rd_in_ok, defno);
-  if (!DF_REF_REG_DEF_P (def)
-      || !TEST_BIT (interesting_reg, DF_REF_REGNO (def))
+  if (!TEST_BIT (interesting_reg, DF_REF_REGNO (def))
       || !bitmap_bit_p (DF_BB_INFO (df, def_bb)->rd_out, defno)
       || !def_bb->succ)
     return;
@@ -2002,6 +2026,65 @@ fill_loop_rd_in_for_def (def)
   free (stack);
 }
 
+/* Fill in reaching definitions for DEFS with unique set in basic block BB.  */
+static void
+fill_rd_for_defs (bb, defs)
+     basic_block bb;
+     bitmap defs;
+{
+  basic_block dest;
+  edge *stack, act;
+  int stack_top = 0;
+  sbitmap processed;
+
+  bitmap_operation (DF_BB_INFO (df, bb)->rd_gen,
+		    DF_BB_INFO (df, bb)->rd_gen,
+		    defs, BITMAP_IOR);
+  bitmap_operation (DF_BB_INFO (df, bb)->rd_out,
+		    DF_BB_INFO (df, bb)->rd_out,
+		    defs, BITMAP_IOR);
+
+  stack = xmalloc (sizeof (edge) * n_basic_blocks);
+  processed = sbitmap_alloc (last_basic_block);
+  sbitmap_zero (processed);
+  act = bb->succ;
+
+  while (1)
+    {
+      for (; act; act = act->succ_next)
+	{
+	  dest = act->dest;
+	  if (dest == EXIT_BLOCK_PTR
+	      || TEST_BIT (processed, dest->index))
+	    continue;
+
+	  SET_BIT (processed, dest->index);
+	  bitmap_operation (DF_BB_INFO (df, dest)->rd_in,
+			    DF_BB_INFO (df, dest)->rd_in,
+			    defs, BITMAP_IOR);
+	  if (dest != bb)
+	    {
+	      bitmap_operation (DF_BB_INFO (df, dest)->rd_out,
+				DF_BB_INFO (df, dest)->rd_out,
+				defs, BITMAP_IOR);
+	      break;
+	    }
+	}
+
+      if (act)
+	{
+	  if (act->succ_next)
+	    stack[stack_top++] = act->succ_next;
+	  act = dest->succ;
+	}
+      else if (stack_top == 0)
+	break;
+      else act = stack[--stack_top];
+    }
+  sbitmap_free (processed);
+  free (stack);
+}
+
 /* Initialize variables used by the analysis.  */
 void
 initialize_iv_analysis (loops)
@@ -2022,7 +2105,8 @@ initialize_iv_analysis (loops)
   loop_rd_in_ok = sbitmap_alloc (df->n_defs);
   sbitmap_zero (loop_rd_in_ok);
 
-  dom = create_fq_dominators (loops->cfg.dom);
+  current_loops = loops;
+  dom = create_fq_dominators (current_loops->cfg.dom);
 
   init_suitable_codes ();
   max_regno = max_reg_num ();
@@ -2046,45 +2130,52 @@ initialize_iv_analysis (loops)
 	initial_value_rtx[i] = NULL_RTX;
       else
 	initial_value_rtx[i] = gen_rtx_fmt_e (INITIAL_VALUE,
-					      GET_MODE (regno_reg_rtx[i]),
-					      regno_reg_rtx[i]);
+					      mode, regno_reg_rtx[i]);
     }
   for (i = 0; i < NUM_MACHINE_MODES; i++)
     iteration_rtx[i] = gen_rtx (ITERATION, i);
 
-  modified_regs = sbitmap_vector_alloc (loops->num, max_regno);
+  modified_regs = xmalloc (current_loops->num * sizeof (sbitmap));
+  for (i = 0; i < current_loops->num; i++)
+    if (current_loops->parray[i])
+      modified_regs[i] = sbitmap_alloc (max_regno);
   insn_processed = sbitmap_alloc (get_max_uid () + 1);
   iv_register_values = xmalloc (max_regno * sizeof (rtx));
 
-  initial_values = xmalloc (sizeof (rtx *) * loops->num);
-  loop_entry_values = xmalloc (sizeof (rtx *) * loops->num);
-  loop_end_values = xmalloc (sizeof (rtx *) * loops->num);
-  for (i = 0; i < loops->num; i++)
-    if (loops->parray[i])
+  initial_values = xmalloc (sizeof (rtx *) * current_loops->num);
+  loop_entry_values = xmalloc (sizeof (rtx *) * current_loops->num);
+  loop_end_values = xmalloc (sizeof (rtx *) * current_loops->num);
+  for (i = 0; i < current_loops->num; i++)
+    if (current_loops->parray[i])
       {
 	initial_values[i] = xmalloc (sizeof (rtx) * max_regno);
 	loop_entry_values[i] = xmalloc (sizeof (rtx) * max_regno);
 	loop_end_values[i] = xmalloc (sizeof (rtx) * max_regno);
       }
+
+  iv_occurences = xcalloc (current_loops->num,
+			   sizeof (struct iv_occurence_step_class *));
 }
 
 /* Free variables used by the analysis.  */
 void
-finalize_iv_analysis (loops)
-     struct loops *loops;
+finalize_iv_analysis ()
 {
   unsigned i;
   basic_block bb;
+  struct iv_occurence_step_class *sc_next;
+  struct iv_occurence_base_class *bc_act, *bc_next;
+  struct iv_occurence *oc_act, *oc_next;
 
-  sbitmap_vector_free (modified_regs);
   sbitmap_free (insn_processed);
   free (iv_register_values);
 
   sbitmap_free (interesting_reg);
 
-  for (i = 0; i < loops->num; i++)
-    if (loops->parray[i])
+  for (i = 0; i < current_loops->num; i++)
+    if (current_loops->parray[i])
       {
+	sbitmap_free (modified_regs[i]);
 	free (initial_values[i]);
 	free (loop_entry_values[i]);
 	free (loop_end_values[i]);
@@ -2102,6 +2193,24 @@ finalize_iv_analysis (loops)
     }
   free (loop_rd_in);
   sbitmap_free (loop_rd_in_ok);
+
+  for (i = 1; i < current_loops->num; i++)
+    for (; iv_occurences[i]; iv_occurences[i] = sc_next)
+      {
+	sc_next = iv_occurences[i]->sc_next;
+	for (bc_act = iv_occurences[i]->bc_first; bc_act; bc_act = bc_next)
+	  {
+	    bc_next = bc_act->bc_next;
+	    for (oc_act = bc_act->oc_first; oc_act; oc_act = oc_next)
+	      {
+		oc_next = oc_act->oc_next;
+		free (oc_act);
+	      }
+	    free (bc_act);
+	  }
+	free (iv_occurences[i]);
+      }
+  free (iv_occurences);
 
   release_fq_dominators (dom);
 }
@@ -2128,18 +2237,15 @@ compute_loop_end_values (loop, values)
     {
       def = df->defs[defno];
       def_bb = DF_REF_BB (def);
-      if (DF_REF_REG_DEF_P (def))
+      regno = DF_REF_REGNO (def);
+      if (TEST_BIT (modified_regs[loop->num], regno)
+	  && flow_bb_inside_loop_p (loop, def_bb))
 	{
-	  regno = DF_REF_REGNO (def);
-	  if (TEST_BIT (modified_regs[loop->num], regno)
-	      && flow_bb_inside_loop_p (loop, def_bb))
-	    {
-	      if (def_bb->loop_father == loop
-		  && fast_dominated_by_p (dom, loop->latch, def_bb))
-		found_def[regno] = def;
-	      else
-		SET_BIT (invalid, regno);
-	    }
+	  if (def_bb->loop_father == loop
+	      && fast_dominated_by_p (dom, loop->latch, def_bb))
+	    found_def[regno] = def;
+	  else
+	    SET_BIT (invalid, regno);
 	}
     });
 
@@ -2197,18 +2303,15 @@ compute_initial_values (loop)
     {
       def = df->defs[defno];
       def_bb = DF_REF_BB (def);
-      if (DF_REF_REG_DEF_P (def))
+      regno = DF_REF_REGNO (def);
+      if (flow_bb_inside_loop_p (outer, def_bb))
 	{
-	  regno = DF_REF_REGNO (def);
-	  if (flow_bb_inside_loop_p (outer, def_bb))
-	    {
-	      if (!fast_dominated_by_p (dom, preheader, def_bb))
-		SET_BIT (invalid, regno);
-	      else if (found_def[regno])
-		abort ();
-	      else
-		found_def[regno] = def;
-	    }
+	  if (!fast_dominated_by_p (dom, preheader, def_bb))
+	    SET_BIT (invalid, regno);
+	  else if (found_def[regno])
+	    abort ();
+	  else
+	    found_def[regno] = def;
 	}
     });
 
@@ -2228,7 +2331,12 @@ compute_initial_values (loop)
 	    values[regno] = def->aux;
 	}
       else if (outer_values[regno]
-	       && expr_mentions_iteration_p (outer_values[regno]))
+	       && (expr_mentions_iteration_p (outer_values[regno])
+		   /* This is neccesary, as INITIAL_VALUE is relative to the
+		      outer loop's father.  ??? We should instead keep
+		      initial values free of INITIAL_VALUE by substituting
+		      initial values from outer loop in the = def->aux case.  */
+		   || expr_mentions_code_p (outer_values[regno], INITIAL_VALUE)))
 	values[regno] = gen_value_at (regno, outer_preheader_end,
 				      outer_preheader_end_after);
       else
@@ -2238,11 +2346,366 @@ compute_initial_values (loop)
   sbitmap_free (invalid);
 }
 
+/* Enters occurence with given parameters into list TO.  */
+static void
+enter_iv_occurence (to, base, delta, step, insn, occurence,
+		    real_mode, extended_mode, extend)
+     struct iv_occurence_step_class **to;
+     rtx base;
+     rtx delta;
+     rtx step;
+     rtx insn;
+     rtx *occurence;
+     enum machine_mode real_mode;
+     enum machine_mode extended_mode;
+     enum rtx_code extend;
+{
+  struct iv_occurence *nw = xmalloc (sizeof (struct iv_occurence));
+  struct iv_occurence_base_class **bc;
+
+  while (*to && !rtx_equal_p (step, (*to)->step))
+    to = &(*to)->sc_next;
+  if (!*to)
+    {
+      *to = xmalloc (sizeof (struct iv_occurence_step_class));
+      (*to)->sc_next = NULL;
+      (*to)->bc_first = NULL;
+      (*to)->step = step;
+    }
+
+  bc = &(*to)->bc_first;
+  while (*bc && !rtx_equal_p (base, (*bc)->base))
+    bc = &(*bc)->bc_next;
+  if (!*bc)
+    {
+      *bc = xmalloc (sizeof (struct iv_occurence_base_class));
+      (*bc)->bc_next = NULL;
+      (*bc)->oc_first = NULL;
+      (*bc)->base = base;
+      (*bc)->step_class = *to;
+    }
+
+  nw->insn = insn;
+  nw->occurence = occurence;
+  nw->delta = delta;
+  nw->real_mode = real_mode;
+  nw->extended_mode = extended_mode;
+  nw->extend = extend;
+  nw->base_class = *bc;
+  nw->oc_next = (*bc)->oc_first;
+  (*bc)->oc_first = nw;
+}
+
+/* Called through for_each_rtx from record_iv_occurences.  Record the
+   occurences found.  */
+static int
+record_iv_occurences_1 (expr, data)
+     rtx *expr;
+     void *data;
+{
+  struct iv_occurence_step_class **to = data;
+  rtx val, dest, base, sbase, step, delta, *tmp, *last;
+  struct loop *loop = BLOCK_FOR_INSN (current_insn)->loop_father;
+  enum machine_mode real_mode, extended_mode;
+  enum rtx_code extend;
+
+  if (GET_CODE (*expr) == SET)
+    {
+      dest = SET_DEST (*expr);
+      if (GET_CODE (dest) != REG
+	  || !TEST_BIT (interesting_reg, REGNO (dest)))
+	return 0;
+      val = get_def_value (current_insn, REGNO (dest));
+    }
+  else if (GET_CODE (*expr) == MEM)
+    {
+      val = XEXP (*expr, 0);
+      val = substitute_into_expr (val, iv_register_values, true);
+    }
+  else
+    return 0;
+
+  if (!val)
+    return 0;
+
+  extended_mode = GET_MODE (val);
+  if (GET_CODE (val) == SIGN_EXTEND
+      || GET_CODE (val) == ZERO_EXTEND)
+    {
+      extend = GET_CODE (val);
+      val = XEXP (val, 0);
+    }
+  else
+    extend = NIL;
+  real_mode = GET_MODE (val);
+
+  iv_split (val, &base, &step);
+  if (!base
+      || !invariant_wrto_ivs_p (step, loop_entry_values[loop->num])
+      || expr_mentions_code_p (base, VALUE_AT))
+    return 0;
+
+  sbase = substitute_into_expr (base, initial_values[loop->num], true);
+
+  if (sbase
+      && !expr_mentions_code_p (base, VALUE_AT)
+      && !expr_mentions_code_p (base, ITERATION)
+      && !expr_mentions_code_p (base, INITIAL_VALUE))
+    base = sbase;
+
+  tmp = &base;
+  last = NULL;
+  while (GET_CODE (*tmp) == PLUS)
+    {
+      last = tmp;
+      tmp = &XEXP (*tmp, 0);
+    }
+  if (GET_CODE (*tmp) == CONST_INT)
+    {
+      delta = *tmp;
+      if (!last)
+	base = const0_rtx;
+      else
+	*last = XEXP (*last, 1);
+    }
+  else
+    delta = const0_rtx;
+
+  enter_iv_occurence (to, base, delta, step, current_insn, expr,
+		      real_mode, extended_mode, extend);
+  return 0;
+}
+
+/* Record iv occurences in INSN to list *TO.  */
+static void
+record_iv_occurences (to, insn)
+     struct iv_occurence_step_class **to;
+     rtx insn;
+{
+  struct df_link *use = DF_INSN_USES (df, insn);
+  struct df_link *def = DF_INSN_DEFS (df, insn);
+
+  /* Check that there is anything to bother with.  */
+  for (; use; use = use->next)
+    if (DF_REF_REG_MEM_P (use->ref)
+	&& TEST_BIT (interesting_reg, DF_REF_REGNO (use->ref))
+	&& expr_mentions_iteration_p ((rtx) use->ref->aux))
+      break;
+  if (!use)
+    {
+      for (; def; def = def->next)
+	if (TEST_BIT (interesting_reg, DF_REF_REGNO (def->ref))
+	    && expr_mentions_iteration_p ((rtx) def->ref->aux))
+	  break;
+      if (!def)
+	return;
+    }
+
+  current_insn = insn;
+  iv_load_used_values (insn, iv_register_values);
+  for_each_rtx (&PATTERN (insn), record_iv_occurences_1, to);
+}
+
+/* Updates a df and iv information for new INSN.  It is expecting the situation
+   in that it is called from iv_emit_insn_*, i.e. that it is used to
+   sequentially process newly created insns that set only entirely new
+   registers.  We also are not allowed to create new bivs this way.
+
+   We do the following:
+
+   -- scan the insn for defs and uses
+   -- for each def -- add it to reaching defs of all reachable blocks in the
+		      function; this is slow (it is quadratic on functions
+		      with a lot of small loops) and almost unnecessary
+		      (we don't need the information outside the current
+		      loop), so we may change it in the future. For now
+		      play it safe and keep the state consistent.
+   -- for each use -- find the defs that reach it and form the UD chain
+		      from them; calculate their value for iv analysis.
+   -- for each def -- calculate their value for iv analysis
+
+   It is split into two phases -- first we find the new defs & uses,
+   then we reallocate the structures if needed and finally we fill in
+   the info.
+
+   It would be nice if we could reuse more of the df.c code, but it is
+   not very well suited for this type of "I know what I am doing" changes.
+
+   BB is the altered basic block, FIRST and LAST are the first and the last
+   of the altered insns.  */
+static void
+iv_new_insn_changes_commit (bb, first, last)
+     basic_block bb;
+     rtx first;
+     rtx last;
+{
+  unsigned i, regno;
+  enum machine_mode mode;
+  unsigned new_max_regno = max_reg_num ();
+  rtx x;
+  struct df_link *def;
+  struct loop *loop = bb->loop_father;
+
+  df_refs_queue (df);
+  for (x = first; x != NEXT_INSN (last); x = NEXT_INSN (x))
+    {
+      df_insn_modify (df, bb, x);
+      df_insn_refs_record (df, bb, x);
+    }
+  df_refs_process (df);
+    
+  if (new_max_regno > max_regno)
+    {
+      interesting_reg = sbitmap_resize (interesting_reg, new_max_regno, 0);
+      for (regno = max_regno; regno < new_max_regno; regno++)
+	{
+	  mode = GET_MODE (regno_reg_rtx[regno]);
+	  if (GET_MODE_CLASS (mode) == MODE_INT
+	      || GET_MODE_CLASS (mode) == MODE_PARTIAL_INT)
+	    SET_BIT (interesting_reg, regno);
+	}
+
+      initial_value_rtx = xrealloc (initial_value_rtx,
+				    sizeof (rtx) * new_max_regno);
+      for (regno = max_regno; regno < new_max_regno; regno++)
+	{
+	  mode = GET_MODE (regno_reg_rtx[regno]);
+	  if (!TEST_BIT (interesting_reg, regno))
+	    initial_value_rtx[regno] = NULL_RTX;
+	  else
+	    initial_value_rtx[regno] =
+	      gen_rtx_fmt_e (INITIAL_VALUE,
+			     mode, regno_reg_rtx[regno]);
+	}
+
+      iv_register_values = xrealloc (iv_register_values,
+				     new_max_regno * sizeof (rtx));
+
+      for (i = 0; i < current_loops->num; i++)
+	if (current_loops->parray[i])
+	  {
+	    /* We do not reallocate loop_end_values at all, as they are only
+	       used internally during biv analysis.  We also do not try to
+	       determine the initial values, as saying "don't know" is
+	       conservative and it is not probable that we will need to know
+	       them.  */
+	    modified_regs[i] = sbitmap_resize (modified_regs[i],
+					       new_max_regno, 0);
+	    initial_values[i] = xrealloc (initial_values[i],
+					  sizeof (rtx) * new_max_regno);
+	    loop_entry_values[i] = xrealloc (loop_entry_values[i],
+					     sizeof (rtx) * new_max_regno);
+	    for (regno = max_regno; regno < new_max_regno; regno++)
+	      {
+		if (!TEST_BIT (interesting_reg, regno))
+		  continue;
+
+		if (i != 0
+		    && flow_bb_inside_loop_p (current_loops->parray[i], bb))
+		  loop_entry_values[i][regno] =
+		    gen_value_at (regno,
+				  current_loops->parray[i]->header->head,
+				  false);
+		else
+		  loop_entry_values[i][regno] = gen_initial_value (regno);
+		initial_values[i][regno] = NULL_RTX;
+	      }
+	  }
+      df->reg_def_last = xrealloc (df->reg_def_last,
+				   new_max_regno * sizeof (struct ref *));
+      df_reg_table_realloc (df, new_max_regno);
+      df->n_regs = new_max_regno;
+      max_regno = new_max_regno;
+    }
+
+  if (df->def_id > df->n_defs)
+    {
+      bitmap defs = BITMAP_XMALLOC ();
+      loop_rd_in_ok = sbitmap_resize (loop_rd_in_ok, df->def_id, 0);
+
+      for (i = df->n_defs; i < df->def_id; i++)
+	{
+	  struct ref *def = df->defs[i];
+	  bitmap_set_bit (defs, i);
+	  df->regs[DF_REF_REGNO (def)].defs =
+	    df_link_create (def, df->regs[DF_REF_REGNO (def)].defs);
+	}
+      fill_rd_for_defs (bb, defs);
+      BITMAP_XFREE (defs);
+      df->n_defs = df->def_id;
+    }
+
+  df->n_uses = df->use_id;
+
+  insn_processed = sbitmap_resize (insn_processed, get_max_uid () + 1, 0);
+
+  for (x = bb->head; x != first; x = NEXT_INSN (x))
+    {
+      if (! INSN_P (x))
+	continue;
+
+      /* For each def in insn record the last def of each reg.  We could
+	 instead pass reg-def chains for uses, which perhaps might be faster.  */
+      for (def = DF_INSN_DEFS (df, x); def; def = def->next)
+	{
+	  struct ref *ref = def->ref;
+	  int dregno = DF_REF_REGNO (ref);
+
+	  df->reg_def_last[dregno] = ref;
+	}
+    }
+  
+  df_bb_luids_set (df, bb);
+  for (x = first; x != NEXT_INSN (last); x = NEXT_INSN (x))
+    {
+      if (! INSN_P (x))
+	continue;
+
+      df_insn_ud_chain_create (df, bb, x);
+      compute_reg_values (bb, x);
+      record_iv_occurences (&iv_occurences[loop->num], x);
+    }
+}
+
+/* Insert insns SEQ before INSN. The sequence must not contain jumps
+   and must not set any registers that are not entirely new.  */
+void
+iv_emit_insn_before (seq, insn)
+     rtx seq;
+     rtx insn;
+{
+  rtx prev = PREV_INSN (insn);
+  basic_block bb = BLOCK_FOR_INSN (insn);
+
+  if (!seq)
+    return;
+  emit_insn_before (seq, insn);
+
+  prev = prev ? NEXT_INSN (prev) : get_insns ();
+  iv_new_insn_changes_commit (bb, prev, PREV_INSN (insn));
+}
+
+/* Insert insns SEQ before INSN. The sequence must not contain jumps
+   and must not set any registers that are not entirely new.  */
+void
+iv_emit_insn_after (seq, insn)
+     rtx seq;
+     rtx insn;
+{
+  rtx next = NEXT_INSN (insn);
+  basic_block bb = BLOCK_FOR_INSN (insn);
+
+  if (!seq)
+    return;
+  emit_insn_after (seq, insn);
+  next = next ? PREV_INSN (next) : get_last_insn ();
+  iv_new_insn_changes_commit (bb, NEXT_INSN (insn), next);
+}
+
 /* The main entry point.  Run the analysis for all LOOPS starting from
    innermost ones.  */
 void
-analyse_induction_variables (loops)
-     struct loops *loops;
+analyse_induction_variables ()
 {
   unsigned i, regno;
   rtx eq;
@@ -2253,8 +2716,8 @@ analyse_induction_variables (loops)
   enum rtx_code extend;
 
   /* Compute register values in the first iteration.  */
-  for (i = 0; i < loops->num; i++)
-    if (loops->parray[i])
+  for (i = 0; i < current_loops->num; i++)
+    if (current_loops->parray[i])
       {
 	sbitmap_zero (modified_regs[i]);
 	for (regno = FIRST_PSEUDO_REGISTER; regno < max_regno; regno++)
@@ -2263,9 +2726,9 @@ analyse_induction_variables (loops)
   compute_register_values (true);
 
   /* Now identify the induction variables.  */
-  for (i = 1; i < loops->num; i++)
+  for (i = 1; i < current_loops->num; i++)
     {
-      loop = loops->parray[i];
+      loop = current_loops->parray[i];
       if (!loop)
 	continue;
 
@@ -2341,7 +2804,7 @@ analyse_induction_variables (loops)
   insn = ENTRY_BLOCK_PTR->succ->dest->head;
   for (regno = FIRST_PSEUDO_REGISTER; regno < max_regno; regno++)
     initial_values[0][regno] = gen_value_at (regno, insn, false);
-  loop = loops->tree_root->inner;
+  loop = current_loops->tree_root->inner;
   while (loop)
     {
       compute_initial_values (loop);
@@ -2361,13 +2824,27 @@ analyse_induction_variables (loops)
   /* Simplify values stored at insns using this knowledge.  */
   simplify_register_values ();
 
+  /* Extract information about ivs, sorted by loop, step and base.  */
+  FOR_EACH_BB (bb)
+    {
+      loop = bb->loop_father;
+      if (!loop->outer)
+	continue;
+
+      FOR_BB_INSNS (bb, insn)
+	{
+	  if (INSN_P (insn))
+	    record_iv_occurences (&iv_occurences[loop->num], insn);
+	}
+    }
+
   if (rtl_dump_file)
     {
       fprintf (rtl_dump_file, ";; Induction variables:\n\n");
 
-      for (i = 1; i < loops->num; i++)
+      for (i = 1; i < current_loops->num; i++)
 	{
-	  loop = loops->parray[i];
+	  loop = current_loops->parray[i];
 	  if(!loop)
 	    continue;
 
@@ -2383,14 +2860,20 @@ analyse_induction_variables (loops)
 	{
 	  fprintf (rtl_dump_file, ";; Basic block: %d (loop %d)\n\n",
 		   bb->index, bb->loop_father->num);
-	  for (insn = bb->head;
-	       insn != NEXT_INSN (bb->end);
-	       insn = NEXT_INSN (insn))
+	  FOR_BB_INSNS (bb, insn)
 	    {
 	      print_rtl_single (rtl_dump_file, insn);
 	      if (INSN_P (insn))
 		dump_insn_ivs (rtl_dump_file, insn);
 	    }
 	}
+      fprintf (rtl_dump_file, "\n\nSorted:\n");
+      for (i = 1; i < current_loops->num; i++)
+	if (iv_occurences[i])
+	  {
+	    fprintf (rtl_dump_file, " Loop %d:\n", i);
+	    dump_iv_occurences (rtl_dump_file, iv_occurences[i]);
+	    fprintf (rtl_dump_file, "\n");
+	  }
     }
 }

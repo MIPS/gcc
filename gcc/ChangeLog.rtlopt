@@ -1,5 +1,47 @@
 2003-05-04  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
+	* loop-prefetch.c: New.
+	* Makefile.in (loop-prefetch.o): New.
+	* basic-block.h (FOR_BB_INSNS, FOR_BB_INSNS_REVERSE): New.
+	* cfgloop.h (struct iv_occurence, iv_occurence_base_class,
+	iv_occurence_step_class): New.
+	(iv_occurences): Declare.
+	(finalize_iv_analysis, analyse_induction_variables): Types changes.
+	(iv_emit_insn_before, iv_emit_insn_after, prefetch_loop_arrays):
+	Declare.
+	* df.c (df_reg_table_realloc, df_link_create, df_insn_refs_record,
+	df_bb_luids_set, df_refs_queue, df_refs_process): Export.
+	(df_insn_ud_chain_create): Split from df_bb_ud_chain_create.
+	* df.h (df_insn_refs_record, df_reg_table_realloc, df_link_create,
+	df_insn_ud_chain_create, df_bb_luids_set, df_refs_queue,
+	df_refs_process): Declare.
+	* loop-iv.c (current_loops): New static variable.
+	(iv_occurences): New variable.
+	(fill_rd_for_defs, enter_iv_occurence, record_iv_occurences_1,
+	record_iv_occurences, dump_iv_occurences, iv_new_insn_changes_commit):
+	New static functions.
+	(dump_insn_ivs, record_def_value, record_use_value,
+	get_def_value, get_use_value, iv_load_used_values,
+	compute_reg_values, compute_register_values,
+	simplify_register_values, fill_loop_rd_in_for_def,
+	compute_loop_end_values, compute_initial_values): Do not test ref
+	type unnecesarily.  Use FOR_BB_INSNS.
+	(initialize_iv_analysis): Initialize current_loops and
+	iv_occurences.
+	(finalize_iv_analysis, analyse_induction_variables): Use current_loops
+	instead of loops parameter.
+	(iv_emit_insn_before, iv_emit_insn_after): New.
+	* loop.c (prescan_loop, strength_reduce, check_dbra_loop): Remove
+	prefetching references.
+	(struct prefetch_info, check_store, rtx_equal_for_prefetch_p,
+	emit_prefetch_instructions): Removed.
+	* loop.h (LOOP_PREFETCH): Removed.
+	(struct loop_info): has_prefetch field removed.
+	* toplev.c (rest_of_compilation): Move prefetching to the new loop
+	optimizer.
+
+2003-05-04  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
 	* loop-iv.c (fill_loop_rd_in_for_def): Fix.
 	(get_reg_value_at): Do not call fill_loop_rd_in_for_def unnecessarily.
 

@@ -3048,7 +3048,7 @@ rest_of_compilation (decl)
 
   if (optimize > 0 && flag_loop_optimize)
     {
-      int do_unroll, do_prefetch;
+      int do_unroll;
 
       timevar_push (TV_LOOP);
       delete_dead_jumptables ();
@@ -3061,7 +3061,6 @@ rest_of_compilation (decl)
 	do_unroll = 0;		/* Having two unrollers is useless.  */
       else
 	do_unroll = flag_old_unroll_loops ? LOOP_UNROLL : LOOP_AUTO_UNROLL;
-      do_prefetch = flag_prefetch_loop_arrays ? LOOP_PREFETCH : 0;
       if (flag_rerun_loop_opt)
 	{
 	  cleanup_barriers ();
@@ -3081,7 +3080,7 @@ rest_of_compilation (decl)
 	  reg_scan (insns, max_reg_num (), 1);
 	}
       cleanup_barriers ();
-      loop_optimize (insns, rtl_dump_file, do_unroll | do_prefetch);
+      loop_optimize (insns, rtl_dump_file, do_unroll);
 
       /* Loop can create trivially dead instructions.  */
       delete_trivially_dead_insns (insns, max_reg_num ());
@@ -3247,6 +3246,9 @@ rest_of_compilation (decl)
 #ifdef HAVE_doloop_end
 	  || (HAVE_doloop_end && flag_branch_on_count_reg)
 #endif
+#ifdef HAVE_prefetch
+	  || (HAVE_prefetch && flag_prefetch_loop_arrays)
+#endif
 	  ))
     {
       struct loops *loops;
@@ -3263,20 +3265,24 @@ rest_of_compilation (decl)
 	  if (flag_unswitch_loops)
 	    unswitch_loops (loops);
 
- 	  if (flag_peel_loops || flag_unroll_loops)
-	    {
-	      timevar_push (TV_IV_ANAL);
-	      initialize_iv_analysis (loops);
-	      analyse_induction_variables (loops);
-	      compute_simple_loop_info (loops);
-	      finalize_iv_analysis (loops);
-	      timevar_pop (TV_IV_ANAL);
+	  timevar_push (TV_IV_ANAL);
+	  initialize_iv_analysis (loops);
+	  analyse_induction_variables ();
+	  compute_simple_loop_info (loops);
 
-	      unroll_and_peel_loops (loops,
-			(flag_peel_loops ? UAP_PEEL : 0) |
-			(flag_unroll_loops ? UAP_UNROLL : 0) |
-			(flag_unroll_all_loops ? UAP_UNROLL_ALL : 0));
-	    }
+#ifdef HAVE_prefetch
+	  if (HAVE_prefetch && flag_prefetch_loop_arrays)
+	    prefetch_loop_arrays (loops);
+#endif
+
+	  finalize_iv_analysis ();
+	  timevar_pop (TV_IV_ANAL);
+
+	  if (flag_peel_loops || flag_unroll_loops)
+	    unroll_and_peel_loops (loops,
+			   	   (flag_peel_loops ? UAP_PEEL : 0) |
+				   (flag_unroll_loops ? UAP_UNROLL : 0) |
+				   (flag_unroll_all_loops ? UAP_UNROLL_ALL : 0));
 
 #ifdef HAVE_doloop_end
 	  if (HAVE_doloop_end && flag_branch_on_count_reg)

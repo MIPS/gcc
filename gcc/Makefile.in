@@ -805,7 +805,7 @@ OBJS = alias.o bb-reorder.o bitmap.o builtins.o caller-save.o calls.o	   \
  dwarf2asm.o dwarf2out.o dwarfout.o emit-rtl.o except.o explow.o expmed.o  \
  expr.o final.o flow.o fold-const.o function.o gcse.o gcse-utils.o	   \
  gcse-classic.o gcse-hoist.o gcse-cprop.o gcse-pre.o gcse-store.o	   \
- gcse-null.o gcse.o gcse-utils.o loop-reroll.o				   \
+ gcse-null.o gcse.o gcse-utils.o loop-reroll.o loop-prefetch.o		   \
  genrtl.o ggc-common.o global.o graph.o gtype-desc.o heap.o		   \
  haifa-sched.o hashtable.o hooks.o ifcvt.o insn-attrtab.o insn-emit.o	   \
  insn-extract.o insn-opinit.o insn-output.o insn-peep.o insn-recog.o	   \
@@ -1700,6 +1700,9 @@ loop-unroll.o: loop-unroll.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TM_H) \
 loop-reroll.o: loop-reroll.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TM_H) \
    $(BASIC_BLOCK_H) hard-reg-set.h output.h coretypes.h $(TM_H) \
    cfgloop.h $(EXPR_H)
+loop-prefetch.o: loop-prefetch.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TM_H) \
+   $(BASIC_BLOCK_H) hard-reg-set.h output.h coretypes.h $(TM_H) \
+   cfgloop.h $(RECOG_H) $(EXPR_H) insn-config.h $(OPTABS_H)
 dominance.o : dominance.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    hard-reg-set.h $(BASIC_BLOCK_H) et-forest.h
 et-forest.o : et-forest.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) et-forest.h alloc-pool.h

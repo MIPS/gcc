@@ -355,3 +355,13 @@ extern void iterative_dataflow_bitmap PARAMS ((bitmap *, bitmap *, bitmap *,
 					       transfer_function_bitmap, 
 					       int *, void *));
 extern bool read_modify_subreg_p PARAMS ((rtx));
+
+/* Exported to make updating of df info from loop-iv.c possible.  */
+extern void df_insn_refs_record PARAMS((struct df *, basic_block, rtx));
+extern void df_reg_table_realloc PARAMS((struct df *, int));
+extern inline struct df_link *df_link_create PARAMS((struct ref *,
+						     struct df_link *));
+extern void df_insn_ud_chain_create PARAMS((struct df *, basic_block, rtx));
+extern int df_bb_luids_set PARAMS((struct df *df, basic_block));
+extern int df_refs_queue PARAMS ((struct df *));
+extern int df_refs_process PARAMS ((struct df *));

@@ -286,6 +286,18 @@ extern varray_type basic_block_info;
 #define FOR_ALL_BB(BB) \
   for (BB = ENTRY_BLOCK_PTR; BB; BB = BB->next_bb)
 
+/* Pass over insns in basic block.  */
+#define FOR_BB_INSNS(BB, INSN)			\
+  for (INSN = (BB)->head;			\
+       INSN != NEXT_INSN ((BB)->end);		\
+       INSN = NEXT_INSN (INSN))
+
+/* And in the other direction.  */
+#define FOR_BB_INSNS_REVERSE(BB, INSN)		\
+  for (INSN = (BB)->end;			\
+       INSN != PREV_INSN ((BB)->head);		\
+       INSN = PREV_INSN (INSN))
+   
 /* What registers are live at the setjmp call.  */
 
 extern regset regs_live_at_setjmp;

@@ -287,6 +287,53 @@ extern rtx **loop_entry_values;
 /* The values of registers at entries to the loops.  */
 extern rtx **initial_values;
 
+/* The induction variable occurences.  */
+struct iv_occurence_base_class;
+struct iv_occurence_step_class;
+
+struct iv_occurence
+{
+  struct iv_occurence_base_class *base_class;
+					/* The base class it belongs to.  */
+  struct iv_occurence *oc_next;		/* The next occurence.  */
+  enum machine_mode real_mode;		/* Mode in that iv iterates.  */
+  enum machine_mode extended_mode;	/* Mode to that that iv is extended.  */
+  enum rtx_code extend;			/* Type of extend used for it.  */
+  rtx delta;				/* The induction variable is in the
+					   form base + delta + iteration * step,
+					   where delta is const_int;
+					   base and step can be obtained
+					   from base_class.  */
+  rtx insn;				/* The insn where the iv occurs.  */
+  rtx *occurence;			/* The occurence itself. Either
+					   a set with this value, or a mem
+					   whose address is this value.  */
+};
+
+struct iv_occurence_base_class
+{
+  struct iv_occurence_step_class *step_class;
+					/* The step class it belongs to.  */
+  struct iv_occurence_base_class *bc_next;
+					/* Next occurence with a different base.  */
+  struct iv_occurence *oc_first;	/* The occurences.  */
+  rtx base;				/* Base of ivs in this class; step can
+					   be obtained from step_class.  */
+};
+
+struct iv_occurence_step_class
+{
+  struct iv_occurence_step_class *sc_next;
+					/* Next occurence with a different step.  */
+  struct iv_occurence_base_class *bc_first;
+					/* The occurences with this step.  */
+  rtx step;				/* Step of ivs in this class.  */
+};
+
+
+/* For each loop, a linklist of induction variable occurences.  */
+extern struct iv_occurence_step_class **iv_occurences;
+
 /* Loop recognition.  */
 extern int flow_loops_find		PARAMS ((struct loops *, int flags));
 extern int flow_loops_update		PARAMS ((struct loops *, int flags));
@@ -375,9 +422,10 @@ extern edge split_loop_bb		PARAMS ((struct loops *, basic_block,
 
 /* Induction variables analysis.  */
 extern void initialize_iv_analysis	PARAMS ((struct loops *));
-extern void finalize_iv_analysis	PARAMS ((struct loops *));
-extern void analyse_induction_variables	PARAMS ((struct loops *));
+extern void finalize_iv_analysis	PARAMS ((void));
+extern void analyse_induction_variables	PARAMS ((void));
 
+/* Functions to query and manipulate iv analysis results.  */
 extern void iv_load_used_values		PARAMS ((rtx, rtx *));
 extern rtx get_def_value		PARAMS ((rtx, unsigned));
 extern rtx get_use_value		PARAMS ((rtx, unsigned));
@@ -396,6 +444,10 @@ extern rtx iv_base			PARAMS ((rtx));
 extern rtx iv_step			PARAMS ((rtx));
 extern bool iv_simple_p			PARAMS ((rtx));
 
+/* Functions to alter insns while keeping the iv information up-to-date.  */
+extern void iv_emit_insn_before		PARAMS ((rtx, rtx));
+extern void iv_emit_insn_after		PARAMS ((rtx, rtx));
+
 /* Loop optimizer initialization.  */
 extern struct loops *loop_optimizer_init PARAMS ((FILE *));
 extern void loop_optimizer_finalize	PARAMS ((struct loops *, FILE *));
@@ -412,4 +464,5 @@ enum
 
 extern void unroll_and_peel_loops	PARAMS ((struct loops *, int));
 extern void doloop_optimize_loops	PARAMS ((struct loops *));
+extern void prefetch_loop_arrays	PARAMS ((struct loops *));
 extern bool reroll_loops		PARAMS ((void));

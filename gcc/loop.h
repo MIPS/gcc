@@ -26,8 +26,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 /* Flags passed to loop_optimize.  */
 #define LOOP_UNROLL 1
-#define LOOP_PREFETCH 2
-#define LOOP_AUTO_UNROLL 4
+#define LOOP_AUTO_UNROLL 2
 
 /* Get the loop info pointer of a loop.  */
 #define LOOP_INFO(LOOP) ((struct loop_info *) (LOOP)->aux)
@@ -303,8 +302,6 @@ struct loop_info
   int has_libcall;
   /* Nonzero if there is a non constant call in the current loop.  */
   int has_nonconst_call;
-  /* Nonzero if there is a prefetch instruction in the current loop.  */
-  int has_prefetch;
   /* Nonzero if there is a volatile memory reference in the current
      loop.  */
   int has_volatile;
