@@ -224,6 +224,8 @@ struct tree_common GTY(())
 
        TREE_SIDE_EFFECTS in
            all expressions
+       FORCED_LABEL in
+	   LABEL_DECL
 
    volatile_flag:
 
@@ -238,6 +240,10 @@ struct tree_common GTY(())
            all expressions
        TYPE_READONLY in
            ..._TYPE
+       FUNCTION_RECEIVES_NONLOCAL_GOTO
+	   FUNCTION_DECL
+       NONLOCAL_LABEL in
+	   LABEL_DECL
 
    constant_flag:
 
@@ -595,6 +601,11 @@ extern void tree_vec_elt_check_failed PARAMS ((int, int, const char *,
    In a ..._DECL, this is set only if the declaration said `volatile'.  */
 #define TREE_SIDE_EFFECTS(NODE) ((NODE)->common.side_effects_flag)
 
+/* In a LABEL_DECL, nonzero means this label had its address taken
+   and therefore can never be deleted and is a jump target for
+   computed gotos.  */
+#define FORCED_LABEL(NODE) ((NODE)->common.side_effects_flag)
+
 /* Nonzero means this expression is volatile in the C sense:
    its address should be of type `volatile WHATEVER *'.
    In other words, the declared item is volatile qualified.
@@ -613,6 +624,12 @@ extern void tree_vec_elt_check_failed PARAMS ((int, int, const char *,
    (but the macro TYPE_READONLY should be used instead of this macro
    when the node is a type).  */
 #define TREE_READONLY(NODE) ((NODE)->common.readonly_flag)
+
+#define FUNCTION_RECEIVES_NONLOCAL_GOTO(NODE) ((NODE)->common.readonly_flag)
+
+/* In a LABEL_DECL, nonzero means this label is a jump target for
+   a nonlocal goto.  */
+#define NONLOCAL_LABEL(NODE) ((NODE)->common.readonly_flag)
 
 /* Nonzero if NODE is a _DECL with TREE_READONLY set.  */
 #define TREE_READONLY_DECL_P(NODE) (TREE_READONLY (NODE) && DECL_P (NODE))

@@ -1,3 +1,25 @@
+2003-01-22  Jeff Law <law@redhat.com>
+
+	* gimplify.c (simplify_expr, case GOTO_EXPR): Identify and mark
+	labels which are targets of nonlocal gotos and mark functions which
+	have labels which are targets of nonlocal gotos.
+	(simplify_expr, case LABEL_DECL): New case.  Mark labels which
+	have their address taken.
+	* tree-cfg.c (is_nonlocal_label_block): Remove.  All callers
+	updated.
+	(make_exit_edges, case GOTO_EXPR): Handle computed gotos sanely.
+	(make_exit_edges, case CALL_EXPR): Handle abnormal edges from
+	nonlocal gotos at call sites.
+	(make_exit_edges, case RETURN_EXPR): Likewise.
+	(make_exit_edges, case MODIFY_EXPR): New case to handle abnormal
+	edges from nonlocal gotos as call sites.
+	(make_goto_expr_edges): Handle computed gotos and nonlocal gotos.
+	(is_ctrl_altering_stmt): Handle abnormal edges in CALL_EXPRs
+	functions which receive nonlocal gotos.  Similarly for CALL_EXPRs
+	which occur on the RHS of a MODIFY_EXPR.
+	* tree.h (FORCED_LABEL, NONLOCAL_LABEL): New defines.
+	(FUNCTION_RECEIVES_NONLOCAL_GOTO): Likewise.
+
 2003-01-22  Frank Ch. Eigler  <fche@redhat.com>
 
 	* doc/invoke.texi: Provide some information about -fmudflap.

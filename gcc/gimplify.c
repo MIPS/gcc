@@ -442,10 +442,29 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
 	  break;
 
 	case GOTO_EXPR:
-	  if (TREE_CODE (GOTO_DESTINATION (*expr_p)) != LABEL_DECL)
-	    simplify_expr (&GOTO_DESTINATION (*expr_p), pre_p, NULL,
-			   is_simple_val, fb_rvalue);
-	  break;
+	  {
+	    tree dest = GOTO_DESTINATION (*expr_p);
+
+	    /* If this label is in a different context (function), then
+	       mark it as a nonlocal label and mark its context as
+	       receiving nonlocal gotos.  */
+	    if (TREE_CODE (dest) == LABEL_DECL
+		&& current_function_decl != decl_function_context (dest))
+	      {
+		tree context = decl_function_context (dest);
+
+		NONLOCAL_LABEL (dest) = 1;
+		FUNCTION_RECEIVES_NONLOCAL_GOTO (context) = 1;
+	      }
+	
+	    /* If the target is not LABEL, then it is a computed jump
+	       and the target needs to be simplified.  */
+	    if (TREE_CODE (GOTO_DESTINATION (*expr_p)) != LABEL_DECL)
+	      simplify_expr (&GOTO_DESTINATION (*expr_p), pre_p, NULL,
+			     is_simple_val, fb_rvalue);
+
+	    break;
+	  }
 
 	case LABEL_EXPR:
 	case CASE_LABEL_EXPR:
@@ -523,9 +542,16 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
 	  simplify_minimax_expr (expr_p, pre_p);
 	  break; */
 
+	case LABEL_DECL:
+	  /* We get here when taking the address of a label.  We mark
+	     the label as "forced"; meaning it can never be removed and
+	     it is a potential target for any computed goto.  */
+	  FORCED_LABEL (*expr_p) = 1;
+	  break;
+
+	default:
 	  /* If *EXPR_P does not need to be special-cased, handle it
 	     according to its class.  */
-	default:
 	  {
 	    if (TREE_CODE_CLASS (TREE_CODE (*expr_p)) == '1')
 	      {

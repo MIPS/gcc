@@ -91,7 +91,6 @@ static bool blocks_unreachable_p	PARAMS ((varray_type));
 static void remove_blocks		PARAMS ((varray_type));
 static varray_type find_subblocks	PARAMS ((basic_block));
 static bool is_parent			PARAMS ((basic_block, basic_block));
-static bool is_nonlocal_label_block	PARAMS ((basic_block));
 static void cleanup_control_flow	PARAMS ((void));
 static void cleanup_cond_expr_graph	PARAMS ((basic_block));
 static void cleanup_switch_expr_graph	PARAMS ((basic_block));
@@ -553,13 +552,55 @@ make_exit_edges (bb)
     {
     case GOTO_EXPR:
       make_goto_expr_edges (bb);
+
+      /* If this is potentially a nonlocal goto, then this should also
+	 create an edge to the exit block.   */
+      if ((GOTO_DESTINATION (last) == LABEL_DECL
+	   && (decl_function_context (GOTO_DESTINATION (last))
+	       != current_function_decl))
+	  || (GOTO_DESTINATION (last) != LABEL_DECL
+	      && DECL_CONTEXT (current_function_decl)))
+	make_edge (bb, EXIT_BLOCK_PTR, EDGE_ABNORMAL);
       break;
 
       /* A CALL_EXPR node here means that the last statement of the block
 	 is a call to a non-returning function.  */
     case CALL_EXPR:
+      /* Some calls are known not to return, so we just need to make
+	 an edge from them to the exit block.  Note that we do not
+	 need to worry about nonlocal gotos for such calls.  */
+      if (call_expr_flags (last) & (ECF_NORETURN | ECF_LONGJMP))
+	make_edge (bb, EXIT_BLOCK_PTR, 0);
+      else if (FUNCTION_RECEIVES_NONLOCAL_GOTO (current_function_decl))
+	{
+	  make_goto_expr_edges (bb);
+          make_edge (bb, successor_block (bb), EDGE_FALLTHRU);
+	}
+      break;
+
     case RETURN_EXPR:
       make_edge (bb, EXIT_BLOCK_PTR, 0);
+
+      /* A RETURN_EXPR may contain a CALL_EXPR and the CALL_EXPR may
+	 have an abnormal edge.  Search the operand of the RETURN_EXPR
+	 for this case and create any required edges.  */
+      if (TREE_OPERAND (last, 0)
+	  && TREE_CODE (TREE_OPERAND (last, 0)) == MODIFY_EXPR
+	  && TREE_CODE (TREE_OPERAND (TREE_OPERAND (last, 0), 1)) == CALL_EXPR
+	  && FUNCTION_RECEIVES_NONLOCAL_GOTO (current_function_decl))
+	make_goto_expr_edges (bb);
+      break;
+
+    case MODIFY_EXPR:
+      /* A MODIFY_EXPR may have a CALL_EXPR on its RHS and the CALL_EXPR
+	 may have an abnormal edge.  Search the RHS for this case and
+	 create any required edges.  */
+      if (TREE_CODE (TREE_OPERAND (last, 1)) == CALL_EXPR
+	  && FUNCTION_RECEIVES_NONLOCAL_GOTO (current_function_decl))
+	{
+	  make_goto_expr_edges (bb);
+          make_edge (bb, successor_block (bb), EDGE_FALLTHRU);
+	}
       break;
 
     default:
@@ -658,7 +699,8 @@ make_cond_expr_edges (bb)
 }
 
 
-/** @brief Create edges for a goto statement.
+/** @brief Create edges for a goto statement or for a nonlocal goto due
+    to a CALL_EXPR.
     @param bb is the basic block to create edges for.  */
 
 static void
@@ -667,15 +709,30 @@ make_goto_expr_edges (bb)
 {
   tree goto_t, dest;
   basic_block target_bb;
+  int edge_flags;
+  int for_call;
 
   goto_t = last_stmt (bb);
 
-#if defined ENABLE_CHECKING
-  if (goto_t == NULL_TREE || TREE_CODE (goto_t) != GOTO_EXPR)
-    abort ();
-#endif
-
-  dest = GOTO_DESTINATION (goto_t);
+  /* If the last statement is not a GOTO (ie, it is a RETURN_EXPR, CALL_EXPR
+     or MODIFY_EXPR, then the edge is an abnormal edge resulting from
+     a nonlocal goto.  */
+  if (TREE_CODE (goto_t) != GOTO_EXPR)
+    {
+      dest = error_mark_node;
+      for_call = 1;
+      edge_flags = EDGE_ABNORMAL;
+    }
+  else
+    {
+      dest = GOTO_DESTINATION (goto_t);
+      for_call = 0;
+      /* The RTL CFG code got this wrong.  A computed goto creates
+	 normal edges, except for one case.  Namely a computed goto
+	 in a nested function has an abnormal edge to the exit block
+	 (which is handled elsewhere).  */
+      edge_flags = 0;
+    }
 
   /* Look for the block starting with the destination label.  In the
      case of a computed goto, make an edge to any label block we find
@@ -693,23 +750,25 @@ make_goto_expr_edges (bb)
 	  && TREE_CODE (target) == LABEL_EXPR
 	  && LABEL_EXPR_LABEL (target) == dest)
 	{
-	  make_edge (bb, target_bb, 0);
-
-	  /* FIXME.  This is stupid and unnecessary.  We should find
-	     out which labels can be the target of a nonlocal goto and make
-	     the abnormal edge from the blocks that call nested functions
-	     or setjmp.   */
-	  if (is_nonlocal_label_block (target_bb))
-	    make_edge (BASIC_BLOCK (0), target_bb, EDGE_ABNORMAL);
+	  make_edge (bb, target_bb, edge_flags);
 	  break;
 	}
 
-      /* Computed GOTOs.  Make an edge to every label block.  FIXME  it
-	 should be possible to trim down the number of labels we make the
-	 edges to.  See cfgbuild.c.  */
+      /* Computed GOTOs.  Make an edge to every label block that has
+	 been marked as a potential target for a computed goto.  */
       else if (TREE_CODE (dest) != LABEL_DECL
-	       && TREE_CODE (target) == LABEL_EXPR)
-	make_edge (bb, target_bb, EDGE_ABNORMAL);
+	       && TREE_CODE (target) == LABEL_EXPR
+	       && FORCED_LABEL (target)
+	       && for_call == 0)
+	make_edge (bb, target_bb, edge_flags);
+
+      /* Nonlocal GOTO target.  Make an edge to every label block that has
+	 been marked as a potential target for a nonlocal goto.  */
+      else if (TREE_CODE (dest) != LABEL_DECL
+	       && TREE_CODE (target) == LABEL_EXPR
+	       && NONLOCAL_LABEL (target)
+	       && for_call == 1)
+	make_edge (bb, target_bb, edge_flags);
     }
 }
 
@@ -782,13 +841,13 @@ remove_unreachable_blocks ()
 	      if (blocks_unreachable_p (subblocks))
 		{
 		  remove_blocks (subblocks);
-		  remove_tree_bb (bb, !is_nonlocal_label_block (bb));
+		  remove_tree_bb (bb, 1);
 		}
 	      else
 		remove_tree_bb (bb, 0);
 	    }
 	  else
-	    remove_tree_bb (bb, !is_nonlocal_label_block (bb));
+	    remove_tree_bb (bb, 1);
 	}
     }
 }
@@ -858,7 +917,7 @@ remove_blocks (bb_array)
   for (i = 0; i < VARRAY_ACTIVE_SIZE (bb_array); i++)
     {
       basic_block bb = VARRAY_BB (bb_array, i);
-      remove_tree_bb (bb, !is_nonlocal_label_block (bb));
+      remove_tree_bb (bb, 1);
     }
 }
 
@@ -874,29 +933,11 @@ blocks_unreachable_p (bb_array)
   for (i = 0; i < VARRAY_ACTIVE_SIZE (bb_array); i++)
     {
       basic_block bb = VARRAY_BB (bb_array, i);
-      if (bb->flags & BB_REACHABLE || is_nonlocal_label_block (bb))
+      if (bb->flags & BB_REACHABLE)
 	return false;
     }
 
   return true;
-}
-
-
-/** @brief Return true if block BB starts with a nonlocal label.  */
-
-static bool
-is_nonlocal_label_block (bb)
-     basic_block bb;
-{
-  tree t = first_stmt (bb);
-
-  if (t == NULL_TREE)
-    return false;
-
-  /* FIXME  We don't compute nonlocal labels until RTL expansion.  This
-     will always return true.  This will likely break programs with nested
-     functions and nonlocal gotos.  */
-  return (TREE_CODE (t) == LABEL_EXPR && DECL_NONLOCAL (LABEL_EXPR_LABEL (t)));
 }
 
 
@@ -1700,13 +1741,27 @@ is_ctrl_altering_stmt (t)
     abort ();
 #endif
 
+  /* GOTO_EXPRs and RETURN_EXPRs always alter flow control.  */
   if (TREE_CODE (t) == GOTO_EXPR || TREE_CODE (t) == RETURN_EXPR)
     return true;
 
-  /* Special calls that may not return.  */
+  /* A CALL_EXPR alters flow control if the current function has
+     nonlocal labels.  */
+  if (TREE_CODE (t) == CALL_EXPR
+      && FUNCTION_RECEIVES_NONLOCAL_GOTO (current_function_decl))
+    return true;
+
+  /* A CALL_EXPR also alters flow control if it does not return.  */
   if (TREE_CODE (t) == CALL_EXPR)
     return call_expr_flags (t) & (ECF_NORETURN | ECF_LONGJMP);
 
+  /* A MODIFY_EXPR may contain a CALL_EXPR, which in turn may have
+     an abnormal edge if the current function has nonlocal labels.  */
+  if (TREE_CODE (t) == MODIFY_EXPR
+      && TREE_CODE (TREE_OPERAND (t, 1)) == CALL_EXPR
+      && FUNCTION_RECEIVES_NONLOCAL_GOTO (current_function_decl))
+    return true;
+  
   return false;
 }
 
