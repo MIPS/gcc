@@ -319,7 +319,6 @@ do {					\
 #define CC1PLUS_SPEC "-D__private_extern__=extern"
 /* APPLE LOCAL end private extern */
 
-/* APPLE LOCAL begin fat builds */
 /* This is mostly a clone of the standard LINK_COMMAND_SPEC, plus
    precomp, libtool, and fat build additions.  Also we
    don't specify a second %G after %L because libSystem is
@@ -328,26 +327,19 @@ do {					\
    instead of LINK_COMMAND_SPEC.  The command spec is better for
    specifying the handling of options understood by generic Unix
    linkers, and for positional arguments like libraries.  */
-/* APPLE LOCAL add fcreate-profile */
+/* APPLE LOCAL begin symbol separation */
 #define LINK_COMMAND_SPEC "\
 %{!foutput-dbg*:%{!fdump=*:%{!fsyntax-only:%{!precomp:%{!c:%{!M:%{!MM:%{!E:%{!S:\
     %{!Zdynamiclib:%(linker)}%{Zdynamiclib:/usr/bin/libtool} \
-    %(darwin_arch_ld_spec) \
     %l %X %{d} %{s} %{t} %{Z} \
     %{!Zdynamiclib:%{A} %{e*} %{m} %{N} %{n} %{r} %{u*} %{x} %{z}} \
     %{@:-o %f%u.out}%{!@:%{o*}%{!o:-o a.out}} \
     %{!Zdynamiclib:%{!A:%{!nostdlib:%{!nostartfiles:%S}}}} \
+"/* APPLE LOCAL add fcreate-profile */"\
     %{L*} %(link_libgcc) %o %{fprofile-arcs|fprofile-generate|fcreate-profile:-lgcov} \
     %{!nostdlib:%{!nodefaultlibs:%G %L}} \
     %{!A:%{!nostdlib:%{!nostartfiles:%E}}} %{T*} %{F*} }}}}}}}}}"
-
-/* Note that the linker
-   output is always piped through c++filt (unless -no-c++filt is
-   specified) to ensure error messages have demangled C++ names.
-   We do this even for C.  */
-/* nice idea, needs some work
-   "%{!no-c++filt|c++filt:| " STANDARD_BINDIR_PREFIX cppfilt " }}}}}}}}" */
-/* APPLE LOCAL end fat builds */
+/* APPLE LOCAL end symbol separation */
 
 /* Please keep the random linker options in alphabetical order (modulo
    'Z' and 'no' prefixes).  Options that can only go to one of libtool
@@ -360,13 +352,14 @@ do {					\
   "%{static}%{!static:-dynamic} \
    %{fgnu-runtime:%:replace-outfile(-lobjc -lobjc-gnu)}\
    %{!Zdynamiclib: \
+     %{Zforce_cpusubtype_ALL:-arch %(darwin_arch) -force_cpusubtype_ALL} \
+     %{!Zforce_cpusubtype_ALL:-arch %(darwin_subarch)} \
      %{Zbundle:-bundle} \
      %{Zbundle_loader*:-bundle_loader %*} \
      %{client_name*} \
      %{compatibility_version*:%e-compatibility_version only allowed with -dynamiclib\
 } \
      %{current_version*:%e-current_version only allowed with -dynamiclib} \
-     %{Zforce_cpusubtype_ALL:-force_cpusubtype_ALL} \
      %{Zforce_flat_namespace:-force_flat_namespace} \
      %{Zinstall_name*:%e-install_name only allowed with -dynamiclib} \
      %{keep_private_externs} \
@@ -378,7 +371,8 @@ do {					\
      %{client_name*:%e-client_name not allowed with -dynamiclib} \
      %{compatibility_version*} \
      %{current_version*} \
-     %{Zforce_cpusubtype_ALL:%e-force_cpusubtype_ALL not allowed with -dynamiclib} \
+     %{Zforce_cpusubtype_ALL:-arch_only %(darwin_arch)} \
+     %{!Zforce_cpusubtype_ALL: -arch_only %(darwin_subarch)} \
      %{Zforce_flat_namespace:%e-force_flat_namespace not allowed with -dynamiclib} \
      %{Zinstall_name*:-install_name %*} \
      %{keep_private_externs:%e-keep_private_externs not allowed with -dynamiclib} \
@@ -422,7 +416,7 @@ do {					\
    %{pagezero_size*} %{segs_read_*} %{seglinkedit} %{noseglinkedit}  \
    %{sectalign*} %{sectobjectsymbols*} %{segcreate*} %{whyload} \
    %{whatsloaded} %{dylinker_install_name*} \
-   %{dylinker} %{Mach} " 
+   %{dylinker} %{Mach} "
 
 
 /* Machine dependent libraries but do not redefine it if we already on 7.0 and
@@ -473,7 +467,8 @@ do {					\
 /* #define ENDFILE_SPEC "" */
 
 /* Default Darwin ASM_SPEC, very simple.  */
-#define ASM_SPEC "-arch %(darwin_arch)"
+#define ASM_SPEC "-arch %(darwin_arch) \
+  %{Zforce_cpusubtype_ALL:-force_cpusubtype_ALL}"
 
 /* We use Dbx symbol format.  */
 

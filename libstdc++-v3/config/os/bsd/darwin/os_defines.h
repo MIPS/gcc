@@ -1,7 +1,6 @@
-// APPLE LOCAL file darwin-specific headers
-// Specific definitions for BSD  -*- C++ -*-
+// Specific definitions for Darwin -*- C++ -*-
 
-// Copyright (C) 2000 Free Software Foundation, Inc.
+// Copyright (C) 2004 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -29,15 +28,15 @@
 // the GNU General Public License.
 
 
-#ifndef _GLIBCPP_OS_DEFINES
-#define _GLIBCPP_OS_DEFINES 1
+#ifndef _GLIBCXX_OS_DEFINES
+#define _GLIBCXX_OS_DEFINES 1
 
 // System-specific #define, typedefs, corrections, etc, go here.  This
 // file will come before all others.
 
-#define __glibcpp_long_double_bits __glibcpp_double_bits
-
-#define _GLIBCPP_AVOID_FSEEK 1
+/* Darwin has the pthread routines in libSystem, which every program
+   links to, so there's no need for weak-ness for that.  */
+#define _GLIBCXX_GTHREAD_USE_WEAK 0
 
 /* APPLE LOCAL begin keymgr */
 /* Copyright (C) 1989, 92-97, 1998, Free Software Foundation, Inc.
@@ -177,5 +176,4 @@ typedef struct _Sinfo_Node {
 
 #endif /* __KEYMGR_H */
 /* APPLE LOCAL end keymgr */
-
-#endif	/* _GLIBCPP_OS_DEFINES */
+#endif
