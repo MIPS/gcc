@@ -666,7 +666,7 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
 
       /* If this is not a MODIFY_EXPR which sets an SSA_NAME to a new
 	 value, then stop our search here.  Ideally when we stop a
-	 search we stop on a COND_EXPR.  */
+	 search we stop on a COND_EXPR or SWITCH_EXPR.  */
       if (TREE_CODE (stmt) != MODIFY_EXPR
 	  || TREE_CODE (TREE_OPERAND (stmt, 0)) != SSA_NAME)
 	break;
@@ -783,11 +783,12 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
       VARRAY_PUSH_TREE (bd->const_and_copies, prev_value);
     }
 
-  /* If we stopped at a COND_EXPR, then see if we know which arm will
-     be taken.  */
-  if (stmt && TREE_CODE (stmt) == COND_EXPR)
+  /* If we stopped at a COND_EXPR or SWITCH_EXPR, then see if we know which
+     arm will be taken.  */
+  if (stmt
+      && (TREE_CODE (stmt) == COND_EXPR  || TREE_CODE (stmt) == SWITCH_EXPR))
     {
-      tree cached_lhs;
+      tree cond, cached_lhs;
       edge e1;
 
       /* Do not forward a back edge in the CFG.  This avoids short circuiting
@@ -811,14 +812,19 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
 
       /* Now temporarily cprop the operands and try to find the resulting
 	 expression in the hash tables.  */
-      if (TREE_CODE_CLASS (TREE_CODE (COND_EXPR_COND (stmt))) == '<')
+      if (TREE_CODE (stmt) == COND_EXPR)
+	cond = COND_EXPR_COND (stmt);
+      else
+	cond = SWITCH_COND (stmt);
+
+      if (TREE_CODE_CLASS (TREE_CODE (cond)) == '<')
 	{
 	  tree dummy_cond, op0, op1;
 	  enum tree_code cond_code;
 
-	  op0 = TREE_OPERAND (COND_EXPR_COND (stmt), 0);
-	  op1 = TREE_OPERAND (COND_EXPR_COND (stmt), 1);
-	  cond_code = TREE_CODE (COND_EXPR_COND (stmt));
+	  op0 = TREE_OPERAND (cond, 0);
+	  op1 = TREE_OPERAND (cond, 1);
+	  cond_code = TREE_CODE (cond);
 
 	  /* Get the current value of both operands.  */
 	  if (TREE_CODE (op0) == SSA_NAME)
@@ -869,9 +875,9 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
       /* We can have conditionals which just test the state of a
 	 variable rather than use a relational operator.  These are
 	 simpler to handle.  */
-      else if (TREE_CODE (COND_EXPR_COND (stmt)) == SSA_NAME)
+      else if (TREE_CODE (cond) == SSA_NAME)
 	{
-	  cached_lhs = COND_EXPR_COND (stmt);
+	  cached_lhs = cond;
 	  cached_lhs = get_value_for (cached_lhs, const_and_copies);
 	  if (cached_lhs && ! is_gimple_min_invariant (cached_lhs))
 	    cached_lhs = 0;
