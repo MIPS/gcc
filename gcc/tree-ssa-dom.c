@@ -1181,12 +1181,12 @@ thread_jumps_walk_stmts (struct dom_walk_data *walk_data,
 	  if (TREE_CODE (stmt) == COND_EXPR)
 	    {
 	      COND_EXPR_COND (stmt) = cached_lhs;
-	      cfg_altered = cleanup_cond_expr_graph (bb, si);
+	      cfg_altered = cleanup_control_expr_graph (bb, si);
 	    }
 	  else if (TREE_CODE (stmt) == SWITCH_EXPR)
 	    {
 	      SWITCH_COND (stmt) = cached_lhs;
-	      cfg_altered = cleanup_switch_expr_graph (bb, si);
+	      cfg_altered = cleanup_control_expr_graph (bb, si);
 	    }
 
 	  continue;
@@ -2344,11 +2344,9 @@ optimize_stmt (struct dom_walk_data *walk_data, block_stmt_iterator si)
      etc.  */
   if (ann->modified)
     {
-      if (TREE_CODE (stmt) == COND_EXPR)
-	cfg_altered |= cleanup_cond_expr_graph (bb_for_stmt (stmt), si);
-
-      if (TREE_CODE (stmt) == SWITCH_EXPR)
-	cfg_altered |= cleanup_switch_expr_graph (bb_for_stmt (stmt), si);
+      if (TREE_CODE (stmt) == COND_EXPR
+	  || TREE_CODE (stmt) == SWITCH_EXPR)
+	cfg_altered |= cleanup_control_expr_graph (bb_for_stmt (stmt), si);
     }
                                                                                 
   return may_have_exposed_new_symbols;

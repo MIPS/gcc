@@ -405,6 +405,7 @@ extern void bsi_replace (const block_stmt_iterator *, tree, bool);
 /* In tree-cfg.c  */
 extern void build_tree_cfg (tree *);
 extern void delete_tree_cfg (void);
+extern void disband_implicit_edges (void);
 extern bool stmt_ends_bb_p (tree);
 extern bool is_ctrl_stmt (tree);
 extern bool is_ctrl_altering_stmt (tree);
@@ -433,8 +434,7 @@ extern void cfg_remove_useless_stmts (void);
 extern basic_block tree_split_edge (edge);
 extern edge thread_edge (edge, basic_block);
 extern basic_block label_to_block (tree);
-extern bool cleanup_cond_expr_graph (basic_block, block_stmt_iterator);
-extern bool cleanup_switch_expr_graph (basic_block, block_stmt_iterator);
+extern bool cleanup_control_expr_graph (basic_block, block_stmt_iterator);
 extern void tree_optimize_tail_calls (void);
 extern basic_block tree_block_forwards_to (basic_block bb);
 extern void bsi_insert_on_edge (edge, tree);
@@ -510,6 +510,7 @@ extern edge ssa_redirect_edge (edge, basic_block);
 extern void set_is_used (tree);
 extern bool tree_ssa_useless_type_conversion (tree);
 extern void build_dominator_tree (dominance_info);
+extern void delete_tree_ssa (void);
 extern unsigned int highest_ssa_version;
 
 /* In tree-ssa-pre.c  */

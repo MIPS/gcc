@@ -179,7 +179,6 @@ static void rewrite_initialize_block (struct dom_walk_data *,
 static void rewrite_walk_stmts (struct dom_walk_data *, basic_block, tree);
 static void rewrite_add_phi_arguments (struct dom_walk_data *,
 				       basic_block, tree);
-static void delete_tree_ssa (void);
 static void mark_def_sites (struct dom_walk_data *walk_data,
 			    basic_block bb,
 			    tree parent_block_last_stmt ATTRIBUTE_UNUSED);
@@ -2628,7 +2627,6 @@ rewrite_out_of_ssa (tree fndecl, enum tree_dump_index phase)
     }
 
   /* Flush out flow graph and SSA data.  */
-  delete_tree_ssa ();
   delete_var_map (map);
   timevar_pop (TV_TREE_SSA_TO_NORMAL);
 }
@@ -2965,7 +2963,7 @@ init_tree_ssa (void)
 
 /* Deallocate memory associated with SSA data structures for FNDECL.  */
 
-static void
+void
 delete_tree_ssa (void)
 {
   size_t i;
@@ -2978,13 +2976,16 @@ delete_tree_ssa (void)
       bsi_stmt (bsi)->common.ann = NULL;
 
   /* Remove annotations from every referenced variable.  */
-  for (i = 0; i < num_referenced_vars; i++)
-    referenced_var (i)->common.ann = NULL;
+  if (referenced_vars)
+    {
+      for (i = 0; i < num_referenced_vars; i++)
+	referenced_var (i)->common.ann = NULL;
+      referenced_vars = NULL;
+    }
 
   fini_ssanames ();
   fini_phinodes ();
 
-  referenced_vars = NULL;
   global_var = NULL_TREE;
   call_clobbered_vars = NULL;
 }

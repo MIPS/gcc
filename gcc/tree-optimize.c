@@ -46,6 +46,8 @@ Boston, MA 02111-1307, USA.  */
 #include "ggc.h"
 #include "cgraph.h"
 
+static void tree_ssa_finish (tree *);
+
 /* Rewrite a function tree to the SSA form and perform the SSA-based
    optimizations on it.  */
 
@@ -203,18 +205,34 @@ optimize_function_tree (tree fndecl, tree *chain)
       sbitmap_free (vars_to_rename);
     }
 
-  /* Re-chain the statements from the blocks.  */
-  {
-    basic_block bb;
-
-    *chain = NULL;
-    FOR_EACH_BB (bb)
-      append_to_statement_list_force (bb->stmt_list, chain);
-  }
-
-  delete_tree_cfg ();
+  tree_ssa_finish (chain);
 }
 
+/* Do the actions requiered to finish with tree-ssa optimization
+   passes.  Return the final chain of statements in CHAIN.  */
+
+static void
+tree_ssa_finish (tree *chain)
+{
+  basic_block bb;
+
+  /* Emit gotos for implicit jumps.  */
+  disband_implicit_edges ();
+
+  /* Remove the ssa structures.  Do it here since this includes statement
+     annotations that need to be intact during disband_implicit_edges.  */
+  delete_tree_ssa ();
+
+  /* Re-chain the statements from the blocks.  */
+  *chain = NULL;
+  FOR_EACH_BB (bb)
+    {
+      append_to_statement_list_force (bb->stmt_list, chain);
+    }
+
+  /* And get rid of the cfg.  */
+  delete_tree_cfg ();
+}
 
 /* Called to move the SAVE_EXPRs for parameter declarations in a
    nested function into the nested function.  DATA is really the

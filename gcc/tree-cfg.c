@@ -451,6 +451,7 @@ static void
 make_edges (void)
 {
   basic_block bb;
+  edge e;
 
   /* Create an edge from entry to the first block with executable
      statements in it.  */
@@ -477,6 +478,29 @@ make_edges (void)
 	 basic block that only needs a fallthru edge.  */
       if (bb->succ == NULL)
 	make_edge (bb, bb->next_bb, EDGE_FALLTHRU);
+    }
+
+  /* If there is a fallthru edge to exit out of the last block, transform it
+     to a return statement.  */
+  for (e = EXIT_BLOCK_PTR->prev_bb->succ; e; e = e->succ_next)
+    if (e->flags & EDGE_FALLTHRU)
+      break;
+  if (e && e->dest == EXIT_BLOCK_PTR)
+    {
+      block_stmt_iterator bsi;
+      tree x;
+
+      /* ??? Can we have multiple outgoing edges here?  COND_EXPR
+	 always has two gotos, and I can't think how one would have
+	 achived this via EH.  */
+      if (e != EXIT_BLOCK_PTR->prev_bb->succ || e->succ_next)
+	abort ();
+	
+      x = build (RETURN_EXPR, void_type_node, NULL_TREE);
+      bsi = bsi_last (EXIT_BLOCK_PTR->prev_bb);
+      bsi_insert_after (&bsi, x, BSI_NEW_STMT);
+
+      e->flags &= ~EDGE_FALLTHRU;
     }
 
   /* We do not care about fake edges, so remove any that the CFG
@@ -508,11 +532,6 @@ make_ctrl_stmt_edges (basic_block bb)
     {
     case GOTO_EXPR:
       make_goto_expr_edges (bb);
-
-      /* If this is potentially a nonlocal goto, then this should also
-	 create an edge to the exit block.   */
-      if (nonlocal_goto_p (last))
-	make_edge (bb, EXIT_BLOCK_PTR, EDGE_ABNORMAL);
       break;
 
     case RETURN_EXPR:
@@ -660,10 +679,10 @@ make_goto_expr_edges (basic_block bb)
 {
   tree goto_t, dest;
   basic_block target_bb;
-  int edge_flags;
   int for_call;
+  block_stmt_iterator last = bsi_last (bb);
 
-  goto_t = last_stmt (bb);
+  goto_t = bsi_stmt (last);
 
   /* If the last statement is not a GOTO (i.e., it is a RETURN_EXPR,
      CALL_EXPR or MODIFY_EXPR), then the edge is an abnormal edge resulting
@@ -672,7 +691,6 @@ make_goto_expr_edges (basic_block bb)
     {
       dest = error_mark_node;
       for_call = 1;
-      edge_flags = EDGE_ABNORMAL;
     }
   else
     {
@@ -682,13 +700,21 @@ make_goto_expr_edges (basic_block bb)
       /* A GOTO to a local label creates normal edges.  */
       if (simple_goto_p (goto_t))
 	{
-	  make_edge (bb, label_to_block (dest), 0);
+	  make_edge (bb, label_to_block (dest), EDGE_FALLTHRU);
+	  bsi_remove (&last);
 	  return;
 	}
 
-      /* If we reach here, then we either have a computed goto or
-	 a nonlocal goto.  */
-      edge_flags = EDGE_ABNORMAL;
+      /* If this is potentially a nonlocal goto, then this should
+	 create an edge to the exit block.   */
+      if (nonlocal_goto_p (goto_t))
+	make_edge (bb, EXIT_BLOCK_PTR, EDGE_ABNORMAL);
+
+      /* Nothing more to do for nonlocal gotos. */
+      if (TREE_CODE (dest) == LABEL_DECL)
+	return;
+
+      /* Computed gotos remain.  */
     }
 
   /* Look for the block starting with the destination label.  In the
@@ -705,9 +731,6 @@ make_goto_expr_edges (basic_block bb)
 	  if (TREE_CODE (target) != LABEL_EXPR)
 	    break;
 
-	  if (TREE_CODE (dest) == LABEL_DECL)
-	    continue;
-
 	  if (
 	      /* Computed GOTOs.  Make an edge to every label block that has
 		 been marked as a potential target for a computed goto.  */
@@ -717,7 +740,7 @@ make_goto_expr_edges (basic_block bb)
 		 goto.  */
 	      || (NONLOCAL_LABEL (LABEL_EXPR_LABEL (target)) && for_call == 1))
 	    {
-	      make_edge (bb, target_bb, edge_flags);
+	      make_edge (bb, target_bb, EDGE_ABNORMAL);
 	      break;
 	    }
 	}
@@ -1287,81 +1310,63 @@ cfg_remove_useless_stmts_bb (basic_block bb)
 {
   block_stmt_iterator bsi;
   tree stmt = NULL_TREE;
-  tree *gotos[2], *pstmt;
-  int n_gotos, n_rem_gotos;
   tree cond, var = NULL_TREE, val = NULL_TREE;
   struct var_ann_d *ann;
 
   /* Check whether we come here from a condition, and if so, get the
      condition.  */
-  if (bb->pred && !bb->pred->pred_next
-      && (bb->pred->flags & (EDGE_TRUE_VALUE | EDGE_FALSE_VALUE)))
+  if (!bb->pred
+      || bb->pred->pred_next
+      || !(bb->pred->flags & (EDGE_TRUE_VALUE | EDGE_FALSE_VALUE)))
+    return;
+
+  cond = COND_EXPR_COND (last_stmt (bb->pred->src));
+  if (bb->pred->flags & EDGE_FALSE_VALUE)
+    cond = invert_truthvalue (cond);
+
+  if (TREE_CODE (cond) == VAR_DECL
+      || TREE_CODE (cond) == PARM_DECL)
     {
-      cond = COND_EXPR_COND (last_stmt (bb->pred->src));
-      if (bb->pred->flags & EDGE_FALSE_VALUE)
-	cond = invert_truthvalue (cond);
-
-      if (TREE_CODE (cond) == VAR_DECL
-	  || TREE_CODE (cond) == PARM_DECL)
-	{
-	  var = cond;
-	  val = convert (TREE_TYPE (cond), integer_zero_node);
-	}
-      else if ((TREE_CODE (cond) == EQ_EXPR)
-	       && (TREE_CODE (TREE_OPERAND (cond, 0)) == VAR_DECL
-		   || TREE_CODE (TREE_OPERAND (cond, 0)) == PARM_DECL)
-	       && (TREE_CODE (TREE_OPERAND (cond, 1)) == VAR_DECL
-		   || TREE_CODE (TREE_OPERAND (cond, 1)) == PARM_DECL
-		   || TREE_CONSTANT (TREE_OPERAND (cond, 1))))
-	{
-	  var = TREE_OPERAND (cond, 0);
-	  val = TREE_OPERAND (cond, 1);
-	}
-
-      if (var)
-	{
-	  /* Only work for normal local variables.  */
-	  ann = var_ann (var);
-	  if (!ann
-	      || ann->may_aliases
-	      || TREE_ADDRESSABLE (var))
-	    {
-	      var = NULL_TREE;
-	      val = NULL_TREE;
-	    }
-
-	  if (var && ! TREE_CONSTANT (val))
-	    {
-	      ann = var_ann (val);
-	      if (!ann
-		  || ann->may_aliases
-		  || TREE_ADDRESSABLE (val))
-		{
-		  val = NULL_TREE;
-		  var = NULL_TREE;
-		}
-	    }
-	}
-
-      /* Ignore floating point variables, since comparison behaves weird for
-	 them.  */
-      if (var
-	  && FLOAT_TYPE_P (TREE_TYPE (var)))
-	{
-	  var = NULL_TREE;
-	  val = NULL_TREE;
-	}
+      var = cond;
+      val = convert (TREE_TYPE (cond), integer_zero_node);
     }
+  else if ((TREE_CODE (cond) == EQ_EXPR)
+	   && (TREE_CODE (TREE_OPERAND (cond, 0)) == VAR_DECL
+	       || TREE_CODE (TREE_OPERAND (cond, 0)) == PARM_DECL)
+	   && (TREE_CODE (TREE_OPERAND (cond, 1)) == VAR_DECL
+	       || TREE_CODE (TREE_OPERAND (cond, 1)) == PARM_DECL
+	       || TREE_CONSTANT (TREE_OPERAND (cond, 1))))
+    {
+      var = TREE_OPERAND (cond, 0);
+      val = TREE_OPERAND (cond, 1);
+    }
+  else
+    return;
+
+  /* Only work for normal local variables.  */
+  ann = var_ann (var);
+  if (!ann
+      || ann->may_aliases
+      || TREE_ADDRESSABLE (var))
+    return;
+
+  if (! TREE_CONSTANT (val))
+    {
+      ann = var_ann (val);
+      if (!ann
+	  || ann->may_aliases
+	  || TREE_ADDRESSABLE (val))
+	return;
+    }
+
+  /* Ignore floating point variables, since comparison behaves weird for
+     them.  */
+  if (FLOAT_TYPE_P (TREE_TYPE (var)))
+    return;
 
   for (bsi = bsi_start (bb); !bsi_end_p (bsi);)
     {
       stmt = bsi_stmt (bsi);
-
-      if (!var)
-	{
-	  bsi_next (&bsi);
-	  continue;
-	}
 
       /* If the THEN/ELSE clause merely assigns a value to a variable/parameter
 	 which is already known to contain that value, then remove the useless
@@ -1381,64 +1386,9 @@ cfg_remove_useless_stmts_bb (basic_block bb)
 	      && (TREE_OPERAND (stmt, 0) == var
 		  || TREE_OPERAND (stmt, 0) == val
 		  || TREE_CODE (TREE_OPERAND (stmt, 1)) == VA_ARG_EXPR)))
-	{
-	  var = NULL_TREE;
-	  val = NULL_TREE;
-	}
+	return;
   
       bsi_next (&bsi);
-    }
-
-  if (!stmt)
-    return;
-
-  /* Remove useless GOTOs from COND_EXPRs.  Other useless gotos could be
-     removed by cfg cleanup, but it is not done currently, so do it here
-     also.  */
-  if (TREE_CODE (stmt) == GOTO_EXPR
-      && (bb->succ->flags & EDGE_ABNORMAL) == 0)
-    {
-      gotos[0] = &stmt;
-      n_gotos = 1;
-    }
-  else if (TREE_CODE (stmt) == COND_EXPR
-	   && (bb->succ->flags & EDGE_ABNORMAL) == 0
-	   && (bb->succ->succ_next->flags & EDGE_ABNORMAL) == 0)
-    {
-      gotos[0] = &COND_EXPR_THEN (stmt);
-      gotos[1] = &COND_EXPR_ELSE (stmt);
-      n_gotos = 2;
-    }
-  else
-    return;
-
-  n_rem_gotos = n_gotos;
-  while (n_gotos--)
-    {
-      pstmt = gotos[n_gotos];
-      stmt = *pstmt;
-
-      if (TREE_CODE (GOTO_DESTINATION (stmt)) != LABEL_DECL)
-	continue;
-
-      if (label_to_block (GOTO_DESTINATION (stmt)) != bb->next_bb)
-	continue;
-
-      *pstmt = build_empty_stmt ();
-      n_rem_gotos--;
-    }
-
-  /* The statement does nothing, remove it completely.  */
-  if (!n_rem_gotos)
-    {
-      bsi = bsi_last (bb);
-      bsi_remove (&bsi);
-
-      if (bb->succ->succ_next)
-	abort ();
-
-      bb->succ->flags &= ~(EDGE_TRUE_VALUE | EDGE_FALSE_VALUE);
-      bb->succ->flags |= EDGE_FALLTHRU;
     }
 }
 
@@ -1607,24 +1557,16 @@ tree_block_forwards_to (basic_block bb)
     return NULL;
 
   /* Walk past any labels at the start of this block.  */
-  bsi = bsi_start (bb);
-  while (1)
+  for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
     {
-      stmt = NULL;
-      if (bsi_end_p (bsi))
-	break;
       stmt = bsi_stmt (bsi);
-      if (TREE_CODE (stmt) == LABEL_EXPR)
-	bsi_next (&bsi);
-      else
+      if (TREE_CODE (stmt) != LABEL_EXPR)
 	break;
     }
 
-  /* If we reached the end of this block, or hit a GOTO_EXPR to an known
-     location, then we may be able to optimize this case.  */
-  if (!stmt
-      || (TREE_CODE (stmt) == GOTO_EXPR
-	  && TREE_CODE (GOTO_DESTINATION (stmt)) == LABEL_DECL))
+  /* If we reached the end of this block we may be able to optimize this
+     case.  */
+  if (bsi_end_p (bsi))
     {
       basic_block dest;
 
@@ -1651,46 +1593,53 @@ cleanup_control_flow (void)
   basic_block bb;
   block_stmt_iterator bsi;
   bool retval = false;
+  tree stmt;
 
   FOR_EACH_BB (bb)
     {
       bsi = bsi_last (bb);
 
-      if (!bsi_end_p (bsi))
-	{
-	  enum tree_code code = TREE_CODE (bsi_stmt (bsi));
-	  if (code == COND_EXPR)
-	    retval |= cleanup_cond_expr_graph (bb, bsi);
-	  else if (code == SWITCH_EXPR)
-	    retval |= cleanup_switch_expr_graph (bb, bsi);
-	}
+      if (bsi_end_p (bsi))
+	continue;
+      
+      stmt = bsi_stmt (bsi);
+      if (TREE_CODE (stmt) == COND_EXPR
+	  || TREE_CODE (stmt) == SWITCH_EXPR)
+	retval |= cleanup_control_expr_graph (bb, bsi);
     }
   return retval;
 }
 
-/* Disconnect an unreachable block in the conditional expression starting
+/* Disconnect an unreachable block in the control expression starting
    at block BB.  */
 
 bool
-cleanup_cond_expr_graph (basic_block bb, block_stmt_iterator bsi)
+cleanup_control_expr_graph (basic_block bb, block_stmt_iterator bsi)
 {
-  tree val;
   edge taken_edge;
   bool retval = false;
-  tree cond_expr = bsi_stmt (bsi);
-
-#if defined ENABLE_CHECKING
-  if (cond_expr == NULL_TREE
-      || TREE_CODE (cond_expr) != COND_EXPR
-      || !bb->succ)
-    abort ();
-#endif
+  tree expr = bsi_stmt (bsi), val;
 
   if (bb->succ->succ_next)
     {
       edge e, next;
 
-      val = COND_EXPR_COND (cond_expr);
+      switch (TREE_CODE (expr))
+	{
+	case COND_EXPR:
+	  val = COND_EXPR_COND (expr);
+	  break;
+
+	case SWITCH_EXPR:
+	  val = SWITCH_COND (expr);
+	  if (TREE_CODE (val) != INTEGER_CST)
+	    return false;
+	  break;
+
+	default:
+	  abort ();
+	}
+
       taken_edge = find_taken_edge (bb, val);
       if (!taken_edge)
 	return false;
@@ -1709,74 +1658,8 @@ cleanup_cond_expr_graph (basic_block bb, block_stmt_iterator bsi)
   else
     taken_edge = bb->succ;
 
-  if (taken_edge->flags & EDGE_TRUE_VALUE)
-    bsi_replace (&bsi, COND_EXPR_THEN (cond_expr), false);
-  else if (taken_edge->flags & EDGE_FALSE_VALUE)
-    bsi_replace (&bsi, COND_EXPR_ELSE (cond_expr), false);
-  else
-    abort ();
-
-  taken_edge->flags &= ~(EDGE_TRUE_VALUE | EDGE_FALSE_VALUE);
-
-  return retval;
-}
-
-/* Disconnect unreachable blocks in the 'switch' expression starting at
-   block SWITCH_BB.
-
-   If the switch condition of the SWITCH_EXPR node in block SWITCH_BB is
-   constant, disconnect all the subgraphs for all the case labels that will
-   never be taken.  */
-
-bool
-cleanup_switch_expr_graph (basic_block bb, block_stmt_iterator bsi)
-{
-  tree switch_expr = bsi_stmt (bsi);
-  tree switch_val, taken_case;
-  basic_block dest_bb;
-  bool retval;
-
-#if defined ENABLE_CHECKING
-  if (switch_expr == NULL_TREE || TREE_CODE (switch_expr) != SWITCH_EXPR)
-    abort ();
-#endif
-
-  retval = false;
-  if (bb->succ->succ_next)
-    {
-      edge e, next;
-
-      /* Multiple destination edges.  If we've got a integer constant,
-	 we can look up the value in the switch condition and replace.  */
-      switch_val = SWITCH_COND (switch_expr);
-      if (TREE_CODE (switch_val) != INTEGER_CST)
-	return retval;
-
-      taken_case = find_case_label_for_value (switch_expr, switch_val);
-      dest_bb = label_to_block (CASE_LABEL (taken_case));
-
-      /* Remove all the edges that will never be taken.  */
-      for (e = bb->succ; e ; e = next)
-	{
-	  next = e->succ_next;
-	  if (e->dest != dest_bb)
-            {
-	      ssa_remove_edge (e);
-	      retval = true;
-	    }
-	}
-    }
-  else
-    {
-      /* There is only one destination edge, which means that all of
-	 the labels go to the same place.  */
-      dest_bb = bb->succ->dest;
-      taken_case = TREE_VEC_ELT (SWITCH_LABELS (switch_expr), 0);
-    }
-
-  /* Simplify the SWITCH_EXPR itself.  */
-  taken_case = build (GOTO_EXPR, void_type_node, CASE_LABEL (taken_case));
-  bsi_replace (&bsi, taken_case, false);
+  bsi_remove (&bsi);
+  taken_edge->flags = EDGE_FALLTHRU;
 
   return retval;
 }
@@ -2414,6 +2297,86 @@ stmt_ends_bb_p (tree t)
   return is_ctrl_stmt (t) || is_ctrl_altering_stmt (t);
 }
 
+/* Add gotos that used to be represented implicitly in cfg.  */
+
+void
+disband_implicit_edges (void)
+{
+  basic_block bb;
+  block_stmt_iterator last;
+  edge e;
+  tree stmt;
+
+  FOR_EACH_BB (bb)
+    {
+      last = bsi_last (bb);
+      stmt = last_stmt (bb);
+
+      if (stmt && TREE_CODE (stmt) == COND_EXPR)
+	{
+	  /* Remove superfluous gotos from COND_EXPR branches.  Moved
+	     from cfg_remove_useless_stmts here since it violates the
+	     invariants for tree--cfg correspondence and thus fits better
+	     here where we do it anyway.  */
+
+	  for (e = bb->succ; e; e = e->succ_next)
+	    {
+	      if (e->dest != bb->next_bb)
+		continue;
+
+	      if (e->flags & EDGE_TRUE_VALUE)
+		COND_EXPR_THEN (stmt) = build_empty_stmt ();
+	      else if (e->flags & EDGE_FALSE_VALUE)
+		COND_EXPR_ELSE (stmt) = build_empty_stmt ();
+	      else
+		abort ();
+	    }
+
+	  continue;
+	}
+
+      if (stmt && TREE_CODE (stmt) == RETURN_EXPR)
+	{
+	  /* Remove the RETURN_EXPR if we may fallthru to the exit
+	     instead.  */
+	  if (!bb->succ
+	      || bb->succ->succ_next
+	      || bb->succ->dest != EXIT_BLOCK_PTR)
+	    abort ();
+
+	  if (bb->next_bb == EXIT_BLOCK_PTR
+	      && !TREE_OPERAND (stmt, 0))
+	    {
+	      bsi_remove (&last);
+	      bb->succ->flags |= EDGE_FALLTHRU;
+	    }
+	  continue;
+	}
+
+      /* There can be no fallthru edge if the last statement is a control
+         one.  */
+      if (stmt && is_ctrl_stmt (stmt))
+	continue;
+
+      /* Find a fallthru edge and emit the goto if neccesary.  */
+      for (e = bb->succ; e; e = e->succ_next)
+	if (e->flags & EDGE_FALLTHRU)
+	  break;
+
+      if (!e
+	  || e->dest == bb->next_bb)
+	continue;
+
+      if (e->dest == EXIT_BLOCK_PTR)
+	abort ();
+
+      bsi_insert_after (&last,
+			build1 (GOTO_EXPR, void_type_node,
+				tree_block_label (e->dest)),
+			BSI_NEW_STMT);
+    }
+}
+
 /* Remove all the blocks and edges that make up the flowgraph.  */
 
 void
@@ -2421,6 +2384,7 @@ delete_tree_cfg (void)
 {
   if (n_basic_blocks > 0)
     free_blocks_annotations ();
+
   free_basic_block_vars (0);
   tree_bb_root = NULL;
   tree_phi_root = NULL;
@@ -2665,8 +2629,9 @@ tree_find_edge_insert_loc (edge e, block_stmt_iterator *bsi)
 	return false;
     }
 
-  /* If the source has one successor and the edge is not abnormal,
-     insert there.  Except for the entry block.  */
+  /* If the source has one successor, the edge is not abnormal and
+     the last statement does not end a basic block, insert there.
+     Except for the entry block.  */
   src = e->src;
   if ((e->flags & EDGE_ABNORMAL) == 0
       && src->succ->succ_next == NULL
@@ -2676,9 +2641,9 @@ tree_find_edge_insert_loc (edge e, block_stmt_iterator *bsi)
       if (bsi_end_p (*bsi))
 	return true;
 
-      /* Make sure we insert before a final goto statement.  */
       tmp = bsi_stmt (*bsi);
-      return !is_ctrl_stmt (tmp);
+      if (!stmt_ends_bb_p (tmp))
+	return true;
     }
 
   /* Otherwise, create a new basic block, and split this edge.  */
@@ -2778,7 +2743,7 @@ basic_block
 tree_split_edge (edge edge_in)
 {
   basic_block new_bb, after_bb, dest;
-  edge new_edge;
+  edge new_edge, e;
   tree phi;
   int i, num_elem;
 
@@ -2791,66 +2756,21 @@ tree_split_edge (edge edge_in)
   /* Place the new block in the block list.  Try to keep the new block
      near its "logical" location.  This is of most help to humans looking
      at debugging dumps.  */
-  if (edge_in->flags & EDGE_FALLTHRU)
-    after_bb = edge_in->src;
+
+  for (e = dest->pred; e; e = e->pred_next)
+    if (e->src->next_bb == dest)
+      break;
+  if (!e)
+    after_bb = dest->prev_bb;
   else
-    {
-      edge e;
-
-      for (e = dest->pred; e ; e = e->pred_next)
-	if (e->flags & EDGE_FALLTHRU)
-	  break;
-      if (!e)
-	after_bb = dest->prev_bb;
-      else
-	{
-	  after_bb = EXIT_BLOCK_PTR->prev_bb;
-	  for (e = after_bb->succ; e ; e = e->succ_next)
-	    if (e->flags & EDGE_FALLTHRU)
-	      break;
-	  if (e)
-	    {
-	      block_stmt_iterator bsi;
-	      tree x;
-
-	      /* We have a fallthru to exit out of the last block.
-		 Transform this to a return statement.  */
-	      /* ??? Can we have multiple outgoing edges here?  COND_EXPR
-		 always has two gotos, and I can't think how one would have
-		 achived this via EH.  */
-	      if (e != after_bb->succ || e->succ_next)
-		abort ();
-	
-	      x = build (RETURN_EXPR, void_type_node, NULL_TREE);
-	      bsi = bsi_last (after_bb);
-	      bsi_insert_after (&bsi, x, BSI_NEW_STMT);
-
-	      e->flags &= ~EDGE_FALLTHRU;
-	    }
-	}
-    }
+    after_bb = edge_in->src;
 
   new_bb = create_bb (NULL, after_bb);
   create_block_annotation (new_bb);
-  new_edge = make_edge (new_bb, dest, 0);
+  new_edge = make_edge (new_bb, dest, EDGE_FALLTHRU);
 
-  if (edge_in->flags & EDGE_FALLTHRU)
-    {
-      new_edge->flags = EDGE_FALLTHRU;
-      redirect_edge_succ (edge_in, new_bb);
-    }
-  else
-    {
-      block_stmt_iterator i;
-      tree x;
-
-      if (!tree_redirect_edge_and_branch_1 (edge_in, new_bb, true))
-	abort ();
-
-      x = build (GOTO_EXPR, void_type_node, tree_block_label (dest));
-      i = bsi_last (new_bb);
-      bsi_insert_after (&i, x, BSI_NEW_STMT);
-    }
+  if (!tree_redirect_edge_and_branch_1 (edge_in, new_bb, true))
+    abort ();
 
   /* Find all the PHI arguments on the original edge, and change them to
      the new edge.  */
@@ -2895,6 +2815,7 @@ tree_verify_flow_info (void)
   basic_block bb;
   block_stmt_iterator bsi;
   tree stmt;
+  edge e;
 
   if (ENTRY_BLOCK_PTR->stmt_list)
     {
@@ -2907,9 +2828,15 @@ tree_verify_flow_info (void)
       err = 1;
     }
 
+  for (e = EXIT_BLOCK_PTR->pred; e; e = e->pred_next)
+    if (e->flags & EDGE_FALLTHRU)
+      {
+	error ("Fallthru to exit from bb %d\n", e->src->index);
+	err = 1;
+      }
+
   FOR_EACH_BB (bb)
     {
-      edge e;
       bool found_ctrl_stmt = false;
       tree phi;
       int i;
@@ -3003,15 +2930,19 @@ tree_verify_flow_info (void)
       if (bsi_end_p (bsi))
 	continue;
 
-      for (e = bb->succ; e; e = e->succ_next)
-	if (e->flags & EDGE_FALLTHRU && e->dest != bb->next_bb)
-	  {
-	    error ("Fallthru edge of bb %d does not point to following block\n", bb->index);
-	    err = 1;
-	  }
-
-
       stmt = bsi_stmt (bsi);
+
+      if (is_ctrl_stmt (stmt))
+	{
+	  for (e = bb->succ; e; e = e->succ_next)
+	    if (e->flags & EDGE_FALLTHRU)
+	      {
+		error ("Fallthru edge after a control statement in bb %d \n",
+		       bb->index);
+		err = 1;
+	      }
+	}
+
       switch (TREE_CODE (stmt))
 	{
 	case COND_EXPR:
@@ -3050,23 +2981,12 @@ tree_verify_flow_info (void)
 	      }
 	  }
 	  break;
+
 	case GOTO_EXPR:
 	  if (simple_goto_p (stmt))
 	    {
-	      if (!bb->succ || bb->succ->succ_next
-		  || (bb->succ->flags & (EDGE_FALLTHRU | EDGE_ABNORMAL
-					 | EDGE_TRUE_VALUE | EDGE_FALSE_VALUE)))
-		{
-		  error ("Wrong outgoing edge flags at end of bb %d\n", bb->index);
-		  err = 1;
-		}
-	      if (!has_label_p (bb->succ->dest, GOTO_DESTINATION (stmt)))
-		{
-		  error ("Label %s does not match edge at end of bb %d\n",
-			 IDENTIFIER_POINTER (DECL_NAME (stmt)),
-			 bb->index);
-		  err = 1;
-		}
+	      error ("Explicit goto at end of bb %d\n", bb->index);
+    	      err = 1;
 	    }
 	  else
 	    {
@@ -3093,6 +3013,7 @@ tree_verify_flow_info (void)
 		}
 	    }
 	  break;
+
 	case RETURN_EXPR:
 	  if (!bb->succ || bb->succ->succ_next
 	      || (bb->succ->flags & (EDGE_FALLTHRU | EDGE_ABNORMAL
@@ -3107,6 +3028,7 @@ tree_verify_flow_info (void)
 	      err = 1;
 	    }
 	  break;
+
 	case SWITCH_EXPR:
 	  {
 	    edge e;
@@ -3157,6 +3079,7 @@ tree_verify_flow_info (void)
 	    for (e = bb->succ; e; e = e->succ_next)
 	      e->dest->aux = (void *)0;
 	  }
+
 	default: ;
 	}
     }
@@ -3331,8 +3254,8 @@ tree_forwarder_block_p (basic_block bb)
       return false; 
     }
 
-  /* Now walk through the statements.  We can ignore labels, gotos and
-     empty statements.  Anything else means this is not a forwarder block.  */
+  /* Now walk through the statements.  We can ignore labels, anything else
+     means this is not a forwarder block.  */
   for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
     {
       tree stmt = bsi_stmt (bsi);
@@ -3340,7 +3263,6 @@ tree_forwarder_block_p (basic_block bb)
       switch (TREE_CODE (stmt))
 	{
 	case LABEL_EXPR:
-	case GOTO_EXPR:
 	  break;
 
 	default:
@@ -3362,7 +3284,7 @@ thread_jumps (void)
 {
   edge e, next, last, old;
   basic_block bb, dest, tmp;
-  tree phi, stmt;
+  tree phi;
   int arg;
   bool retval = false;
 
@@ -3379,18 +3301,6 @@ thread_jumps (void)
       if (tree_forwarder_block_p (bb))
 	continue;
       
-      /* Due to limitations of ir, it is difficult to redirect edge except
-	 in some simple cases.  Given that ir is slowly getting more sane,
-	 don't invest too much energy into monsters of bsi_insert_on_edge
-	 type.  */
-      stmt = last_stmt (bb);
-      if (stmt
-	  && stmt_ends_bb_p (stmt)
-	  && TREE_CODE (stmt) != GOTO_EXPR
-	  && TREE_CODE (stmt) != COND_EXPR
-	  && TREE_CODE (stmt) != SWITCH_EXPR)
-	continue;
-
       /* This block is now part of a forwarding path, mark it as not
 	 forwardable so that we can detect loops.   This bit will be
 	 reset below.  */
@@ -3524,7 +3434,6 @@ tree_try_redirect_by_replacing_jump (edge e, basic_block target)
   edge tmp;
   block_stmt_iterator b;
   tree stmt;
-  int flags;
 
   /* Verify that all targets will be TARGET.  */
   for (tmp = src->succ; tmp; tmp = tmp->succ_next)
@@ -3540,22 +3449,11 @@ tree_try_redirect_by_replacing_jump (edge e, basic_block target)
   stmt = bsi_stmt (b);
 
   if (TREE_CODE (stmt) == COND_EXPR
-      || TREE_CODE (stmt) == SWITCH_EXPR
-      || (TREE_CODE (stmt) == GOTO_EXPR && target == src->next_bb))
+      || TREE_CODE (stmt) == SWITCH_EXPR)
     {
-      if (target == src->next_bb)
-	{
-	  flags = EDGE_FALLTHRU;
-          bsi_remove (&b);
-	}
-      else
-	{
-	  flags = 0;
-          stmt = build1 (GOTO_EXPR, void_type_node, tree_block_label (target));
-          bsi_replace (&b, stmt, false);
-	}
+      bsi_remove (&b);
       e = ssa_redirect_edge (e, target);
-      e->flags = flags;
+      e->flags = EDGE_FALLTHRU;
       return e;
     }
 
@@ -3586,9 +3484,6 @@ tree_redirect_edge_and_branch_1 (edge e, basic_block dest, bool splitting)
 
   label = tree_block_label (dest);
 
-  /* If our block does not end with a GOTO, then create one.
-     Otherwise redirect the existing GOTO_EXPR to LABEL.  */
-
   bsi = bsi_last (bb);
   stmt = bsi_end_p (bsi) ? NULL : bsi_stmt (bsi);
   flags = 0;
@@ -3600,11 +3495,13 @@ tree_redirect_edge_and_branch_1 (edge e, basic_block dest, bool splitting)
 	      ? COND_EXPR_THEN (stmt)
 	      : COND_EXPR_ELSE (stmt));
       flags = e->flags;
-      /* FALLTHRU */
-
-    case GOTO_EXPR:
       GOTO_DESTINATION (stmt) = label;
       break;
+
+    case GOTO_EXPR:
+      /* No nonabnormal edges should lead from a non-simple goto, and simple
+	 ones should be represented implicitly.  */
+      abort ();
 
     case SWITCH_EXPR:
       {
@@ -3620,28 +3517,11 @@ tree_redirect_edge_and_branch_1 (edge e, basic_block dest, bool splitting)
       }
       break;
 
-    case CALL_EXPR:
-    case MODIFY_EXPR:
-      /* If this block ends with a statement that can alter control flow,
-	 e.g. via throw or longjmp, then we can't just append to the 
-	 current block.  We have to create a new block just to contain
-	 the goto statement.  */
-      /* ??? In RTL equivalent we never create new basic blocks here.
-	 Hopefully this will be just a temporary side case before we switch
-	 to cfg_layout style mode with no explicit GOTO statements.  */
-      if (is_ctrl_altering_stmt (stmt))
-	{
-	  bb = tree_split_edge (e);
-	  bsi = bsi_last (bb);
-	  e = bb->succ;
-	}
-      /* FALLTHRU */
-
     default:
-      /* Otherwise we can just append a goto to this block.  */
-      stmt = build1 (GOTO_EXPR, void_type_node, label);
-      bsi_insert_after (&bsi, stmt, BSI_NEW_STMT);
-      e->flags &= ~EDGE_FALLTHRU;
+      /* Otherwise it must be a fallthru edge, and we don't need to
+	 do anything except for redirecting it.  */
+      if (!(e->flags & EDGE_FALLTHRU))
+	abort ();
       break;
     }
 
@@ -3667,14 +3547,15 @@ tree_redirect_edge_and_branch (edge e, basic_block dest)
 }
 
 /* Simple wrapper as we always can redirect fallthru edges.  */
+
 static basic_block
 tree_redirect_edge_and_branch_force (edge e, basic_block dest)
 {
-  basic_block old = e->src;
   e = tree_redirect_edge_and_branch (e, dest);
   if (!e)
     abort ();
-  return e->src == old ? NULL : old;
+
+  return NULL;
 }
 
 /* Dump FUNCTION_DECL FN to file FILE using FLAGS (see TDF_* in tree.h)  */

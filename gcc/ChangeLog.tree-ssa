@@ -1,3 +1,33 @@
+2003-12-03  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-cfg.c: (make_edges): Eliminate fallthru to exit.
+	(make_ctrl_stmt_edges): Nonlocal goto handling moved to
+	make_goto_expr_edges.
+	(make_goto_expr_edges): Remove simple gotos.
+	(cfg_remove_useless_stmts_bb): Goto removal cancelled.
+	(cleanup_cond_expr_graph, cleanup_switch_expr_graph):
+	Replaced by ...
+	(cleanup_control_expr_graph): New.
+	(cleanup_control_flow): Use it.
+	(disband_implicit_edges): New.
+	(tree_find_edge_insert_loc): Never insert before a control statement.
+	(tree_split_edge, thread_jumps, tree_try_redirect_by_replacing_jump,
+	tree_redirect_edge_and_branch): Work over no-gotos form.
+	(tree_verify_flow_info): Check no-gotos form invariants.
+	* tree-pretty-print.c (pp_cfg_jump, dump_implicit_edges): New.
+	(dump_generic_bb_buff): Call dump_implicit_edges.
+	* tree-flow.h (cleanup_cond_expr_graph, cleanup_switch_expr_graph):
+	Declaration removed.
+	(cleanup_control_expr_graph, delete_tree_ssa, disband_implicit_edges):
+	Declare.
+	* tree-optimize.c (tree_ssa_finish): New.
+	(optimize_function_tree): Call it.
+	* tree-ssa-dom.c (thread_jumps_walk_stmts, optimize_stmt): Use
+	cleanup_control_expr_graph.
+	* tree-ssa.c (delete_tree_ssa): Export, work even if there are no
+	referenced_vars.
+	(rewrite_out_of_ssa): Don't call it.
+
 2003-12-03  Jan Hubicka  <jh@suse.cz>
 
 	* tree-ssa.dom.c (tree_ssa_domionator_thread_jumps): Mark back edges.

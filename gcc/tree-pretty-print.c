@@ -1281,6 +1281,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 		  dump_generic_node (buffer, elt, spc+4, flags, false);
 		  pp_string (buffer, " goto ");
 		  dump_generic_node (buffer, CASE_LABEL (elt), spc+4, flags, true);
+		  pp_semicolon (buffer);
 		}
 	    }
 	  newline_and_indent (buffer, spc+2);
@@ -2147,6 +2148,38 @@ dump_phi_nodes (pretty_printer *buffer, basic_block bb, int indent, int flags)
     }
 }
 
+/* Dump jump to basic block BB that is represented implicitly in the cfg
+   to BUFFER.  */
+
+static void
+pp_cfg_jump (pretty_printer *buffer, basic_block bb)
+{
+  pp_string (buffer, "goto <bb ");
+  pp_decimal_int (buffer, bb->index);
+  pp_string (buffer, ">;");
+}
+
+/* Dump edges represented implicitly in basic block BB to BUFFER, indented
+   by INDENT spaces, with details given by FLAGS.  */
+
+static void
+dump_implicit_edges (pretty_printer *buffer, basic_block bb, int indent)
+{
+  edge e;
+
+  /* If there is a fallthru edge, we may need to add an artificial goto to the
+     dump.  */
+  for (e = bb->succ; e; e = e->succ_next)
+    if (e->flags & EDGE_FALLTHRU)
+      break;
+  if (e && e->dest != bb->next_bb)
+    {
+      INDENT (indent);
+      pp_cfg_jump (buffer, e->dest);
+      pp_newline (buffer);
+    }
+}
+
 /* Dumps basic block BB to buffer BUFFER with details described by FLAGS and
    indented by INDENT spaces.  */
 
@@ -2178,6 +2211,8 @@ dump_generic_bb_buff (pretty_printer *buffer, basic_block bb,
       dump_generic_node (buffer, stmt, curr_indent, flags, true);
       pp_newline (buffer);
     }
+
+  dump_implicit_edges (buffer, bb, indent);
 
   if (flags & TDF_BLOCKS)
     dump_bb_end (buffer, bb, indent);
