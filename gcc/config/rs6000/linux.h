@@ -74,6 +74,10 @@ Boston, MA 02111-1307, USA.  */
 #undef DRAFT_V4_STRUCT_RET
 #define DRAFT_V4_STRUCT_RET 1
 
+/* We are 32-bit all the time, so optimize a little.  */
+#undef TARGET_64BIT
+#define TARGET_64BIT 0
+
 /* We don't need to generate entries in .fixup.  */
 #undef RELOCATABLE_NEEDS_FIXUP
 

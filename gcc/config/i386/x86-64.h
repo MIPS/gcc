@@ -27,7 +27,7 @@ Boston, MA 02111-1307, USA.  */
   (TARGET_64BIT ? dbx64_register_map[n] : svr4_dbx_register_map[n])
 
 /* Output assembler code to FILE to call the profiler.  */
-#define NO_PROFILE_COUNTERS
+#define NO_PROFILE_COUNTERS	1
 
 #undef MCOUNT_NAME
 #define MCOUNT_NAME "mcount"

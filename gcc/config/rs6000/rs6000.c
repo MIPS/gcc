@@ -7114,11 +7114,10 @@ print_operand (file, x, code)
 	      break;
 	    }
 	}
-#if TARGET_AIX
-      RS6000_OUTPUT_BASENAME (file, XSTR (x, 0));
-#else
-      assemble_name (file, XSTR (x, 0));
-#endif
+      if (TARGET_AIX)
+	RS6000_OUTPUT_BASENAME (file, XSTR (x, 0));
+      else
+	assemble_name (file, XSTR (x, 0));
       return;
 
     case 'Z':
@@ -8569,7 +8568,6 @@ create_TOC_reference (symbol)
 		 gen_rtx_SYMBOL_REF (Pmode, toc_label_name))));
 }
 
-#if TARGET_AIX
 /* __throw will restore its own return address to be the same as the
    return address of the function that the throw is being made to.
    This is unfortunate, because we want to check the original
@@ -8699,7 +8697,6 @@ rs6000_emit_eh_toc_restore (stacksize)
   emit_note (NULL, NOTE_INSN_LOOP_END);
   emit_label (loop_exit);
 }
-#endif /* TARGET_AIX */
 
 /* This ties together stack memory (MEM with an alias set of
    rs6000_sr_alias_set) and the change to the stack pointer.  */
@@ -10796,20 +10793,24 @@ output_profile_hook (labelno)
 {
   if (DEFAULT_ABI == ABI_AIX)
     {
-#ifdef NO_PROFILE_COUNTERS
-      emit_library_call (init_one_libfunc (RS6000_MCOUNT), 0, VOIDmode, 0);
-#else
-      char buf[30];
-      const char *label_name;
-      rtx fun;
-
-      ASM_GENERATE_INTERNAL_LABEL (buf, "LP", labelno);
-      STRIP_NAME_ENCODING (label_name, ggc_strdup (buf));
-      fun = gen_rtx_SYMBOL_REF (Pmode, label_name);
-
-      emit_library_call (init_one_libfunc (RS6000_MCOUNT), 0, VOIDmode, 1,
-                         fun, Pmode);
+#ifndef NO_PROFILE_COUNTERS
+# define NO_PROFILE_COUNTERS 0
 #endif
+      if (NO_PROFILE_COUNTERS)
+	emit_library_call (init_one_libfunc (RS6000_MCOUNT), 0, VOIDmode, 0);
+      else
+	{
+	  char buf[30];
+	  const char *label_name;
+	  rtx fun;
+
+	  ASM_GENERATE_INTERNAL_LABEL (buf, "LP", labelno);
+	  STRIP_NAME_ENCODING (label_name, ggc_strdup (buf));
+	  fun = gen_rtx_SYMBOL_REF (Pmode, label_name);
+
+	  emit_library_call (init_one_libfunc (RS6000_MCOUNT), 0, VOIDmode, 1,
+			     fun, Pmode);
+	}
     }
   else if (DEFAULT_ABI == ABI_DARWIN)
     {
@@ -11969,6 +11970,83 @@ rs6000_elf_asm_out_destructor (symbol, priority)
     }
   else
     assemble_integer (symbol, POINTER_SIZE / BITS_PER_UNIT, POINTER_SIZE, 1);
+}
+
+void
+rs6000_elf_declare_function_name (file, name, decl)
+     FILE *file;
+     const char *name;
+     tree decl;
+{
+  if (TARGET_64BIT)
+    {
+      fputs ("\t.section\t\".opd\",\"aw\"\n\t.align 3\n", file);
+      ASM_OUTPUT_LABEL (file, name);
+      fputs (DOUBLE_INT_ASM_OP, file);
+      putc ('.', file);
+      assemble_name (file, name);
+      fputs (",.TOC.@tocbase,0\n\t.previous\n\t.size\t", file);
+      assemble_name (file, name);
+      fputs (",24\n\t.type\t.", file);
+      assemble_name (file, name);
+      fputs (",@function\n", file);
+      if (TREE_PUBLIC (decl) && ! DECL_WEAK (decl))
+	{
+	  fputs ("\t.globl\t.", file);
+	  assemble_name (file, name);
+	  putc ('\n', file);
+	}
+      ASM_DECLARE_RESULT (file, DECL_RESULT (decl));
+      putc ('.', file);
+      ASM_OUTPUT_LABEL (file, name);
+      return;
+    }
+
+  if (TARGET_RELOCATABLE
+      && (get_pool_size () != 0 || current_function_profile)
+      && uses_TOC())
+    {
+      char buf[256];
+
+      ASM_OUTPUT_INTERNAL_LABEL (file, "LCL", rs6000_pic_labelno);
+
+      ASM_GENERATE_INTERNAL_LABEL (buf, "LCTOC", 1);
+      fprintf (file, "\t.long ");
+      assemble_name (file, buf);
+      putc ('-', file);
+      ASM_GENERATE_INTERNAL_LABEL (buf, "LCF", rs6000_pic_labelno);
+      assemble_name (file, buf);
+      putc ('\n', file);
+    }
+
+  fprintf (file, "%s", TYPE_ASM_OP);
+  assemble_name (file, name);
+  putc (',', file);
+  fprintf (file, TYPE_OPERAND_FMT, "function");
+  putc ('\n', file);
+  ASM_DECLARE_RESULT (file, DECL_RESULT (decl));
+
+  if (DEFAULT_ABI == ABI_AIX)
+    {
+      const char *desc_name, *orig_name;
+
+      STRIP_NAME_ENCODING (orig_name, name);
+      desc_name = orig_name;
+      while (*desc_name == '.')
+	desc_name++;
+
+      if (TREE_PUBLIC (decl))
+	fprintf (file, "\t.globl %s\n", desc_name);
+
+      fprintf (file, "%s\n", MINIMAL_TOC_SECTION_ASM_OP);
+      fprintf (file, "%s:\n", desc_name);
+      fprintf (file, "\t.long %s\n", orig_name);
+      fputs ("\t.long _GLOBAL_OFFSET_TABLE_\n", file);
+      if (DEFAULT_ABI == ABI_AIX)
+	fputs ("\t.long 0\n", file);
+      fprintf (file, "\t.previous\n");
+    }
+  ASM_OUTPUT_LABEL (file, name);
 }
 #endif
 
