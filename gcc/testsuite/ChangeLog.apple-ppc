@@ -1,3 +1,15 @@
+2005-01-20  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 3958413
+	* gcc.dg/cpp/cpp.exp: Copy headermap test files into '.'.
+	* gcc.dg/cpp/headermap-1.c: New.
+	* gcc.dg/cpp/headermap-2.c: New.
+	* gcc.dg/cpp/headermap.hmap: New.
+	* gcc.dg/cpp/inc/A.h: New.
+	* gcc.dg/cpp/inc/bA.h: New.
+	* gcc.dg/cpp/inc/c.h: New.
+	* gcc.dg/cpp/inc/d/d.h: New.
+
 2005-01-20  Robert Bowdidge <bowdidge@apple.com>
 	Radar 3962986
 	* g++.dg/kext8.C: new check for no coalesced sections in .o's.
