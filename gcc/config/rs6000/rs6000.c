@@ -15694,7 +15694,7 @@ macho_branch_islands (void)
 	      strcpy (name_buf+1, name);
 	    }
 
-	  sprintf (local_label_0, "%s_%d_pic", local_label_unique_number, name_buf);
+	  sprintf (local_label_0, "%s_%d_pic", name_buf, local_label_unique_number);
 	  local_label_unique_number++;
 	  strcpy (tmp_buf, "\n");
 	  strcat (tmp_buf, label);

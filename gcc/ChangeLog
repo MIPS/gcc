@@ -1,4 +1,9 @@
 /* APPLE LOCAL IN FSF 2004-04-27 */
+2004-04-28  Stuart Hastings  <stuart@apple.com>
+	
+	* config/rs6000/rs6000.c (macho_branch_islands): Fix sprintf arguments.
+	* config/rs6000/rs6000.md (output_call): Fix arguments.
+
 2004-04-27  Geoffrey Keating  <geoffk@apple.com>
 
 	* config/darwin.h (STARTFILE_SPEC): Use %s to find crt2.o.
