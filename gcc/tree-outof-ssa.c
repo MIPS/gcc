@@ -1656,7 +1656,7 @@ find_replaceable_in_bb (temp_expr_table_p tab, basic_block bb)
       stmt = bsi_stmt (bsi);
       ann = stmt_ann (stmt);
 
-      /* APPLE LOCAL begin do not move insns after an asm volatile. */
+      /* APPLE LOCAL begin do not move insns after an asm volatile (radar 3813922). */
       if (TREE_CODE (stmt) == ASM_EXPR && ASM_VOLATILE_P (stmt))
 	{
 	  /* Volatile ASM_EXPRs kill all current expressions.  */
@@ -1666,7 +1666,7 @@ find_replaceable_in_bb (temp_expr_table_p tab, basic_block bb)
 	    }); 
 	  continue;
 	}
-      /* APPLE LOCAL end do not move insns after an asm volatile. */
+      /* APPLE LOCAL end do not move insns after an asm volatile (radar 3813922). */
       /* Determine if this stmt finishes an existing expression.  */
       FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter, SSA_OP_USE)
 	{
