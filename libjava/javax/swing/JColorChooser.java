@@ -580,7 +580,7 @@ public class JColorChooser extends JComponent implements Accessible
   /**
    * A helper class that hides a JDialog when the action is performed.
    */
-  class DefaultOKCancelListener implements ActionListener
+  static class DefaultOKCancelListener implements ActionListener
   {
     /** The JDialog to hide. */
     private JDialog dialog;
@@ -611,7 +611,7 @@ public class JColorChooser extends JComponent implements Accessible
    * This method resets the JColorChooser color to the initial color when the
    * action is performed.
    */
-  class DefaultResetListener implements ActionListener
+  static class DefaultResetListener implements ActionListener
   {
     /** The JColorChooser to reset. */
     private JColorChooser chooser;
@@ -646,7 +646,7 @@ public class JColorChooser extends JComponent implements Accessible
    * This is a custom JDialog that will notify when it is hidden and the modal
    * property is set.
    */
-  class ModalDialog extends JDialog
+  static class ModalDialog extends JDialog
   {
     /** The modal property. */
     private boolean modal;
