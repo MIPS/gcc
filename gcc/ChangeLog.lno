@@ -1,5 +1,11 @@
 2004-04-20  Sebastian Pop  <sebastian.pop@ensmp.fr>
 
+	* tree-chrec.c (chrec_fold_multiply_ival_cst, 
+	chrec_fold_multiply_ival_ival, chrec_fold_plus_1): When the fold 
+	resulted in an overflow, conservatively answer chrec_top.
+
+2004-04-20  Sebastian Pop  <sebastian.pop@ensmp.fr>
+
 	* tree-chrec.c (chrec_fold_multiply_ival_cst): Compute the min
 	and max on the multiplication result.
 	(chrec_fold_negate): Removed.

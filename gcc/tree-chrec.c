@@ -471,6 +471,14 @@ chrec_fold_multiply_ival_cst (tree type,
   lowm = chrec_fold_multiply (type, CHREC_LOW (ival), cst);
   upm = chrec_fold_multiply (type, CHREC_UP (ival), cst);
 
+  /* When the fold resulted in an overflow, conservatively answer
+     chrec_top.  */
+  if (!evolution_function_is_constant_p (lowm)
+      || !evolution_function_is_constant_p (upm)
+      || TREE_OVERFLOW (lowm)
+      || TREE_OVERFLOW (upm))
+    return chrec_top;
+
   return build_interval_chrec (tree_fold_min (type, lowm, upm),
 			       tree_fold_max (type, lowm, upm));
 }
@@ -688,7 +696,19 @@ chrec_fold_multiply_ival_ival (tree type,
   ad = tree_fold_multiply (type, CHREC_LOW (ival0), CHREC_UP (ival1));
   bc = tree_fold_multiply (type, CHREC_UP (ival0), CHREC_LOW (ival1));
   bd = tree_fold_multiply (type, CHREC_UP (ival0), CHREC_UP (ival1));
-  
+
+  /* When the fold resulted in an overflow, conservatively answer
+     chrec_top.  */
+  if (!evolution_function_is_constant_p (ac)
+      || !evolution_function_is_constant_p (ad)
+      || !evolution_function_is_constant_p (bc)
+      || !evolution_function_is_constant_p (bd)
+      || TREE_OVERFLOW (ac)
+      || TREE_OVERFLOW (ad)
+      || TREE_OVERFLOW (bc)
+      || TREE_OVERFLOW (bd))
+    return chrec_top;
+
   /* [a, b] * [c, d]  ->  [min (ac, ad, bc, bd), max (ac, ad, bc, bd)],
      for reference, see Moore's "Interval Arithmetic".  */
   return build_interval_chrec 
@@ -830,7 +850,15 @@ chrec_fold_plus_1 (enum tree_code code,
 	  t2 = (code == PLUS_EXPR ? 
 		chrec_fold_plus (type, CHREC_UP (op0), CHREC_UP (op1)) :
 		chrec_fold_minus (type, CHREC_UP (op0), CHREC_UP (op1)));
-	  
+
+	  /* When the fold resulted in an overflow, conservatively answer
+	     chrec_top.  */
+	  if (!evolution_function_is_constant_p (t1)
+	      || !evolution_function_is_constant_p (t2)
+	      || TREE_OVERFLOW (t1)
+	      || TREE_OVERFLOW (t2))
+	    return chrec_top;
+
 	  return build_interval_chrec 
 	    (tree_fold_min (type, t1, t2),
 	     tree_fold_max (type, t1, t2));
@@ -843,6 +871,14 @@ chrec_fold_plus_1 (enum tree_code code,
 		chrec_fold_plus (type, CHREC_UP (op0), op1) : 
 		chrec_fold_minus (type, CHREC_UP (op0), op1));
 	  
+	  /* When the fold resulted in an overflow, conservatively answer
+	     chrec_top.  */
+	  if (!evolution_function_is_constant_p (t1)
+	      || !evolution_function_is_constant_p (t2)
+	      || TREE_OVERFLOW (t1)
+	      || TREE_OVERFLOW (t2))
+	    return chrec_top;
+
 	  return build_interval_chrec 
 	    (tree_fold_min (type, t1, t2),
 	     tree_fold_max (type, t1, t2));
@@ -887,7 +923,15 @@ chrec_fold_plus_1 (enum tree_code code,
 	  t2 = (code == PLUS_EXPR ? 
 		chrec_fold_plus (type, op0, CHREC_UP (op1)) :
 		chrec_fold_minus (type, op0, CHREC_UP (op1)));
-	  
+
+	  /* When the fold resulted in an overflow, conservatively answer
+	     chrec_top.  */
+	  if (!evolution_function_is_constant_p (t1)
+	      || !evolution_function_is_constant_p (t2)
+	      || TREE_OVERFLOW (t1)
+	      || TREE_OVERFLOW (t2))
+	    return chrec_top;
+
 	  return build_interval_chrec 
 	      (tree_fold_min (type, t1, t2),
 	       tree_fold_max (type, t1, t2));
