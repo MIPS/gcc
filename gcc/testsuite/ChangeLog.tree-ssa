@@ -1,3 +1,7 @@
+2003-11-11  Canqun Yang  <canqun@nudt.edu.cn>
+
+	* gfortran.fortran-torture/execute/stack_varsize.f90: New test.
+
 2003-11-08  Paul Brook  <paul@nowt.org>
 
 	* gfortran.fortran-toriture/execute/intrinsic_mmloc_3.f90: Extra test.
