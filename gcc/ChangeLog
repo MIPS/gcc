@@ -1,3 +1,10 @@
+2004-03-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/rs6000/rs6000-protos.h (rs6000_output_dwarf_dtprel): Add
+	prototype.
+	* config/rs6000/rs6000.c (rs6000_output_dwarf_dtprel): New.
+	* config/rs6000/rs6000.h (ASM_OUTPUT_DWARF_DTPREL): Define.
+
 2004-01-21  Caroline Tice <ctice@apple.com>
 
 	PR target/12308
