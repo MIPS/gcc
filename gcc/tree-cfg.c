@@ -1283,7 +1283,7 @@ static void
 cfg_remove_useless_stmts_bb (basic_block bb)
 {
   block_stmt_iterator bsi;
-  tree stmt;
+  tree stmt = NULL_TREE;
   tree *gotos[2], *pstmt;
   int n_gotos, n_rem_gotos;
   tree cond, var = NULL_TREE, val = NULL_TREE;
