@@ -2348,7 +2348,7 @@ case "$target" in
   | x86_64*-*-* | hppa*-*-* | arm*-*-* | strongarm*-*-* | xscale*-*-*)
     insn="nop"
     ;;
-  ia64*-*-*)
+  ia64*-*-* | s390*-*-*)
     insn="nop 0"
     ;;
   esac
