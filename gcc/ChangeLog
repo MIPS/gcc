@@ -1,3 +1,14 @@
+Thu Dec  5 00:52:37 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.c (x86_rep_movl_optimal): New variable.
+	(ix86_expand_movstr, ix86_expand_clrstr): Use TARGET_REP_MOVL_OPTIMAL
+	* i386.h (TARGET_REP_MOVL_OPTIMAL): New macro.
+
+	* i386.md (negsf2_ifs, negdf2_ifs, negdf2_ifs_rex64, abssf2_ifs,
+	absdf2_ifs, absdf2_ifs_rex64): Fix constraints.
+	neg?f2_ifs, abs?f2_ifs splitters): Refuse memory operand; do not
+        generate unnecesary subregs.
+
 Wed Dec  4 11:53:07 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* i386.c (ix86_expand_int_movcc): Force operand into register for QImode
