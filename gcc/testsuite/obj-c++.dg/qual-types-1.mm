@@ -4,8 +4,8 @@
 /* { dg-do run } */
 
 #include <objc/Object.h>
+#include <stdlib.h>
 
-extern void abort(void);
 #define CHECK_IF(expr) if(!(expr)) abort()
 
 @protocol Zone

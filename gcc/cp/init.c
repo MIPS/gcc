@@ -72,7 +72,7 @@ begin_init_stmts (tree *stmt_expr_p, tree *compound_stmt_p)
   bool is_global = !building_stmt_tree ();
   
   *stmt_expr_p = begin_stmt_expr ();
-  *compound_stmt_p = begin_compound_stmt (/*has_no_scope=*/true);
+  *compound_stmt_p = begin_compound_stmt (BCS_NO_SCOPE);
 
   return is_global;
 }
@@ -826,7 +826,6 @@ static void
 construct_virtual_base (tree vbase, tree arguments)
 {
   tree inner_if_stmt;
-  tree compound_stmt;
   tree exp;
   tree flag;  
 
@@ -847,7 +846,6 @@ construct_virtual_base (tree vbase, tree arguments)
   flag = TREE_CHAIN (DECL_ARGUMENTS (current_function_decl));
   inner_if_stmt = begin_if_stmt ();
   finish_if_stmt_cond (flag, inner_if_stmt);
-  compound_stmt = begin_compound_stmt (/*has_no_scope=*/true);
 
   /* Compute the location of the virtual base.  If we're
      constructing virtual bases, then we must be the most derived
@@ -857,9 +855,8 @@ construct_virtual_base (tree vbase, tree arguments)
 
   expand_aggr_init_1 (vbase, current_class_ref, exp, arguments, 
 		      LOOKUP_COMPLAIN);
-  finish_compound_stmt (compound_stmt);
   finish_then_clause (inner_if_stmt);
-  finish_if_stmt ();
+  finish_if_stmt (inner_if_stmt);
 
   expand_cleanup_for_base (vbase, flag);
 }
@@ -1668,125 +1665,18 @@ build_builtin_delete_call (tree addr)
    PLACEMENT is the `placement' list for user-defined operator new ().  */
 
 tree
-build_new (tree placement, tree decl, tree init, int use_global_new)
+build_new (tree placement, tree type, tree nelts, tree init, 
+	   int use_global_new)
 {
-  tree type, rval;
-  tree nelts = NULL_TREE, t;
-  int has_array = 0;
+  tree rval;
 
-  if (decl == error_mark_node)
+  if (type == error_mark_node)
     return error_mark_node;
-
-  if (TREE_CODE (decl) == TREE_LIST)
-    {
-      tree absdcl = TREE_VALUE (decl);
-      tree last_absdcl = NULL_TREE;
-
-      if (current_function_decl
-	  && DECL_CONSTRUCTOR_P (current_function_decl))
-	my_friendly_assert (immediate_size_expand == 0, 19990926);
-
-      nelts = integer_one_node;
-
-      if (absdcl && TREE_CODE (absdcl) == CALL_EXPR)
-	abort ();
-      while (absdcl && TREE_CODE (absdcl) == INDIRECT_REF)
-	{
-	  last_absdcl = absdcl;
-	  absdcl = TREE_OPERAND (absdcl, 0);
-	}
-
-      if (absdcl && TREE_CODE (absdcl) == ARRAY_REF)
-	{
-	  /* Probably meant to be a vec new.  */
-	  tree this_nelts;
-
-	  while (TREE_OPERAND (absdcl, 0)
-		 && TREE_CODE (TREE_OPERAND (absdcl, 0)) == ARRAY_REF)
-	    {
-	      last_absdcl = absdcl;
-	      absdcl = TREE_OPERAND (absdcl, 0);
-	    }
-
-	  has_array = 1;
-	  this_nelts = TREE_OPERAND (absdcl, 1);
-	  if (this_nelts != error_mark_node)
-	    {
-	      if (this_nelts == NULL_TREE)
-		error ("new of array type fails to specify size");
-	      else if (processing_template_decl)
-		{
-		  nelts = this_nelts;
-		  absdcl = TREE_OPERAND (absdcl, 0);
-		}
-	      else
-		{
-		  if (build_expr_type_conversion (WANT_INT | WANT_ENUM, 
-						  this_nelts, false)
-		      == NULL_TREE)
-		    pedwarn ("size in array new must have integral type");
-
-		  this_nelts = save_expr (cp_convert (sizetype, this_nelts));
-		  absdcl = TREE_OPERAND (absdcl, 0);
-	          if (this_nelts == integer_zero_node)
-		    {
-		      warning ("zero size array reserves no space");
-		      nelts = integer_zero_node;
-		    }
-		  else
-		    nelts = cp_build_binary_op (MULT_EXPR, nelts, this_nelts);
-		}
-	    }
-	  else
-	    nelts = integer_zero_node;
-	}
-
-      if (last_absdcl)
-	TREE_OPERAND (last_absdcl, 0) = absdcl;
-      else
-	TREE_VALUE (decl) = absdcl;
-
-      type = groktypename (decl);
-      if (! type || type == error_mark_node)
-	return error_mark_node;
-    }
-  else if (TREE_CODE (decl) == IDENTIFIER_NODE)
-    {
-      if (IDENTIFIER_HAS_TYPE_VALUE (decl))
-	{
-	  /* An aggregate type.  */
-	  type = IDENTIFIER_TYPE_VALUE (decl);
-	  decl = TYPE_MAIN_DECL (type);
-	}
-      else
-	{
-	  /* A builtin type.  */
-	  decl = lookup_name (decl, 1);
-	  my_friendly_assert (TREE_CODE (decl) == TYPE_DECL, 215);
-	  type = TREE_TYPE (decl);
-	}
-    }
-  else if (TREE_CODE (decl) == TYPE_DECL)
-    {
-      type = TREE_TYPE (decl);
-    }
-  else
-    {
-      type = decl;
-      decl = TYPE_MAIN_DECL (type);
-    }
 
   if (processing_template_decl)
     {
-      if (has_array)
-	t = tree_cons (tree_cons (NULL_TREE, type, NULL_TREE),
-		       build_min_nt (ARRAY_REF, NULL_TREE, nelts),
-		       NULL_TREE);
-      else
-	t = type;
-	
       rval = build_min (NEW_EXPR, build_pointer_type (type), 
-			placement, t, init);
+			placement, type, nelts, init);
       NEW_EXPR_USE_GLOBAL (rval) = use_global_new;
       TREE_SIDE_EFFECTS (rval) = 1;
       return rval;
@@ -1807,22 +1697,8 @@ build_new (tree placement, tree decl, tree init, int use_global_new)
       return error_mark_node;
     }
 
-  /* When the object being created is an array, the new-expression yields a
-     pointer to the initial element (if any) of the array.  For example,
-     both new int and new int[10] return an int*.  5.3.4.  */
-  if (TREE_CODE (type) == ARRAY_TYPE && has_array == 0)
-    {
-      nelts = array_type_nelts_top (type);
-      has_array = 1;
-      type = TREE_TYPE (type);
-    }
-
-  if (has_array)
-    t = build_nt (ARRAY_REF, type, nelts);
-  else
-    t = type;
-
-  rval = build (NEW_EXPR, build_pointer_type (type), placement, t, init);
+  rval = build (NEW_EXPR, build_pointer_type (type), placement, type,
+		nelts, init);
   NEW_EXPR_USE_GLOBAL (rval) = use_global_new;
   TREE_SIDE_EFFECTS (rval) = 1;
   rval = build_new_1 (rval);
@@ -1959,15 +1835,14 @@ build_new_1 (tree exp)
 
   placement = TREE_OPERAND (exp, 0);
   type = TREE_OPERAND (exp, 1);
-  init = TREE_OPERAND (exp, 2);
+  nelts = TREE_OPERAND (exp, 2);
+  init = TREE_OPERAND (exp, 3);
   globally_qualified_p = NEW_EXPR_USE_GLOBAL (exp);
 
-  if (TREE_CODE (type) == ARRAY_REF)
+  if (nelts)
     {
       has_array = 1;
-      nelts = outer_nelts = TREE_OPERAND (type, 1);
-      type = TREE_OPERAND (type, 0);
-
+      outer_nelts = nelts;
       /* Use an incomplete array type to avoid VLA headaches.  */
       full_type = build_cplus_array_type (type, NULL_TREE);
     }
@@ -2485,7 +2360,7 @@ get_temp_regvar (tree type, tree init)
   tree decl;
 
   decl = create_temporary_var (type);
-  add_decl_stmt (decl);
+  add_decl_expr (decl);
   
   finish_expr_stmt (build_modify_expr (decl, INIT_EXPR, init));
 
@@ -2526,7 +2401,6 @@ build_vec_init (tree base, tree maxindex, tree init, int from_array)
   tree compound_stmt;
   int destroy_temps;
   tree try_block = NULL_TREE;
-  tree try_body = NULL_TREE;
   int num_initialized_elts = 0;
   bool is_global;
   
@@ -2605,7 +2479,6 @@ build_vec_init (tree base, tree maxindex, tree init, int from_array)
       && from_array != 2)
     {
       try_block = begin_try_block ();
-      try_body = begin_compound_stmt (/*has_no_scope=*/true);
     }
 
   if (init != NULL_TREE && TREE_CODE (init) == CONSTRUCTOR)
@@ -2674,7 +2547,6 @@ build_vec_init (tree base, tree maxindex, tree init, int from_array)
       /* If the ITERATOR is equal to -1, then we don't have to loop;
 	 we've already initialized all the elements.  */
       tree for_stmt;
-      tree for_body;
       tree elt_init;
 
       for_stmt = begin_for_stmt ();
@@ -2684,9 +2556,6 @@ build_vec_init (tree base, tree maxindex, tree init, int from_array)
 		       for_stmt);
       finish_for_expr (build_unary_op (PREDECREMENT_EXPR, iterator, 0),
 		       for_stmt);
-
-      /* Otherwise, loop through the elements.  */
-      for_body = begin_compound_stmt (/*has_no_scope=*/true);
 
       if (from_array)
 	{
@@ -2727,7 +2596,6 @@ build_vec_init (tree base, tree maxindex, tree init, int from_array)
       if (base2)
 	finish_expr_stmt (build_unary_op (PREINCREMENT_EXPR, base2, 0));
 
-      finish_compound_stmt (for_body);
       finish_for_stmt (for_stmt);
     }
 
@@ -2747,7 +2615,6 @@ build_vec_init (tree base, tree maxindex, tree init, int from_array)
 	  type = strip_array_types (type);
 	}
 
-      finish_compound_stmt (try_body);
       finish_cleanup_try_block (try_block);
       e = build_vec_delete_1 (rval, m, type, sfk_base_destructor,
 			      /*use_global_delete=*/0);
@@ -2756,7 +2623,7 @@ build_vec_init (tree base, tree maxindex, tree init, int from_array)
 
   /* The value of the array initialization is the array itself, RVAL
      is a pointer to the first element.  */
-  finish_stmt_expr_expr (rval);
+  finish_stmt_expr_expr (rval, stmt_expr);
 
   stmt_expr = finish_init_stmts (is_global, stmt_expr, compound_stmt);
 

@@ -91,6 +91,10 @@ lvalue_p_1 (tree ref,
     case COMPONENT_REF:
       op1_lvalue_kind = lvalue_p_1 (TREE_OPERAND (ref, 0),
 				    treat_class_rvalues_as_lvalues);
+      /* In an expression of the form "X.Y", the packed-ness of the
+	 expression does not depend on "X".  */
+      op1_lvalue_kind &= ~clk_packed;
+      /* Look at the member designator.  */
       if (!op1_lvalue_kind 
 	  /* The "field" can be a FUNCTION_DECL or an OVERLOAD in some	
   	     situations.  */
@@ -299,7 +303,8 @@ build_cplus_new (tree type, tree init)
      type, don't mess with AGGR_INIT_EXPR.  */
   if (is_ctor || TREE_ADDRESSABLE (type))
     {
-      rval = build (AGGR_INIT_EXPR, type, fn, TREE_OPERAND (init, 1), slot);
+      rval = build (AGGR_INIT_EXPR, void_type_node, fn,
+		    TREE_OPERAND (init, 1), slot);
       TREE_SIDE_EFFECTS (rval) = 1;
       AGGR_INIT_VIA_CTOR_P (rval) = is_ctor;
     }
@@ -1022,11 +1027,13 @@ bind_template_template_parm (tree t, tree newargs)
 /* Called from count_trees via walk_tree.  */
 
 static tree
-count_trees_r (tree* tp ATTRIBUTE_UNUSED , 
-               int* walk_subtrees ATTRIBUTE_UNUSED , 
-               void* data)
+count_trees_r (tree *tp, int *walk_subtrees, void *data)
 {
-  ++ *((int*) data);
+  ++*((int *) data);
+
+  if (TYPE_P (*tp))
+    *walk_subtrees = 0;
+
   return NULL_TREE;
 }
 
@@ -1103,9 +1110,8 @@ find_tree (tree t, tree x)
 /* Passed to walk_tree.  Checks for the use of types with no linkage.  */
 
 static tree
-no_linkage_helper (tree* tp, 
-                   int* walk_subtrees ATTRIBUTE_UNUSED , 
-                   void* data ATTRIBUTE_UNUSED )
+no_linkage_helper (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
+		   void *data ATTRIBUTE_UNUSED)
 {
   tree t = *tp;
 
@@ -1114,6 +1120,7 @@ no_linkage_helper (tree* tp,
       && (decl_function_context (TYPE_MAIN_DECL (t))
 	  || TYPE_ANONYMOUS_P (t)))
     return t;
+
   return NULL_TREE;
 }
 
@@ -1956,14 +1963,11 @@ cp_build_type_attribute_variant (tree type, tree attributes)
 }
 
 /* Apply FUNC to all language-specific sub-trees of TP in a pre-order
-   traversal.  Called from walk_tree().  */
+   traversal.  Called from walk_tree.  */
 
 tree 
-cp_walk_subtrees (tree* tp, 
-                  int* walk_subtrees_p, 
-                  walk_tree_fn func, 
-                  void* data, 
-                  void* htab)
+cp_walk_subtrees (tree *tp, int *walk_subtrees_p, walk_tree_fn func,
+		  void *data, void *htab)
 {
   enum tree_code code = TREE_CODE (*tp);
   location_t save_locus;
@@ -2024,7 +2028,7 @@ cp_walk_subtrees (tree* tp,
 
     default:
       input_location = save_locus;
-      return c_walk_subtrees (tp, walk_subtrees_p, func, data, htab);
+      return NULL_TREE;
     }
 
   /* We didn't find what we were looking for.  */
@@ -2054,7 +2058,7 @@ cp_cannot_inline_tree_fn (tree* fnp)
 			(template_for_substitution (fn))))
 	return 1;
 
-      fn = *fnp = instantiate_decl (fn, /*defer_ok=*/0);
+      fn = *fnp = instantiate_decl (fn, /*defer_ok=*/0, /*undefined_ok=*/0);
 
       if (TI_PENDING_TEMPLATE_FLAG (DECL_TEMPLATE_INFO (fn)))
 	return 1;
@@ -2192,11 +2196,10 @@ cp_update_decl_after_saving (tree fn,
 void
 init_tree (void)
 {
-  lang_gimplify_stmt = cp_gimplify_stmt;
   list_hash_table = htab_create_ggc (31, list_hash, list_hash_eq, NULL);
 }
 
-/* Called via walk_tree.  If *TP points to a DECL_STMT for a local
+/* Called via walk_tree.  If *TP points to a DECL_EXPR for a local
    declaration, copies the declaration and enters it in the splay_tree
    pointed to by DATA (which is really a `splay_tree *').  */
 
@@ -2210,16 +2213,16 @@ mark_local_for_remap_r (tree* tp,
   tree decl;
 
   
-  if (TREE_CODE (t) == DECL_STMT
-      && nonstatic_local_decl_p (DECL_STMT_DECL (t)))
-    decl = DECL_STMT_DECL (t);
-  else if (TREE_CODE (t) == LABEL_STMT)
-    decl = LABEL_STMT_LABEL (t);
+  if (TREE_CODE (t) == DECL_EXPR
+      && nonstatic_local_decl_p (DECL_EXPR_DECL (t)))
+    decl = DECL_EXPR_DECL (t);
+  else if (TREE_CODE (t) == LABEL_EXPR)
+    decl = LABEL_EXPR_LABEL (t);
   else if (TREE_CODE (t) == TARGET_EXPR
 	   && nonstatic_local_decl_p (TREE_OPERAND (t, 0)))
     decl = TREE_OPERAND (t, 0);
-  else if (TREE_CODE (t) == CASE_LABEL)
-    decl = CASE_LABEL_DECL (t);
+  else if (TREE_CODE (t) == CASE_LABEL_EXPR)
+    decl = CASE_LABEL (t);
   else
     decl = NULL_TREE;
 

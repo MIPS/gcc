@@ -96,35 +96,6 @@ cp_expr_size (tree exp)
     return lhd_expr_size (exp);
 }
 
-/* Expand DECL if it declares an entity not handled by the
-   common code.  */
-
-int
-cp_expand_decl (tree decl)
-{
-  if (TREE_CODE (decl) == VAR_DECL && !TREE_STATIC (decl))
-    {
-      /* Let the back-end know about this variable.  */
-      if (!anon_aggr_type_p (TREE_TYPE (decl)))
-	emit_local_var (decl);
-      else
-	expand_anon_union_decl (decl, NULL_TREE, 
-				DECL_ANON_UNION_ELEMS (decl));
-    }
-  else if (TREE_CODE (decl) == VAR_DECL && TREE_STATIC (decl))
-    make_rtl_for_local_static (decl);
-  else
-    return 0;
-
-  return 1;
-}
-
-int
-cp_tree_chain_matters_p (tree t)
-{
-  return cp_is_overload_p (t) || c_tree_chain_matters_p (t);
-}
-
 /* Langhook for tree_size: determine size of our 'x' and 'c' nodes.  */
 size_t
 cp_tree_size (enum tree_code code)
@@ -183,4 +154,11 @@ push_file_scope (void)
 void
 pop_file_scope (void)
 {
+}
+
+/* c-pragma.c needs to query whether a decl has extern "C" linkage.  */
+bool
+has_c_linkage (tree decl)
+{
+  return DECL_EXTERN_C_P (decl);
 }

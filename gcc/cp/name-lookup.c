@@ -552,7 +552,7 @@ add_decl_to_level (tree decl, cxx_scope *b)
       /* If appropriate, add decl to separate list of statics.  We
 	 include extern variables because they might turn out to be 
 	 static later.  It's OK for this list to contain a few false
-	 positives. */
+	 positives.  */
       if (b->kind == sk_namespace)
 	if ((TREE_CODE (decl) == VAR_DECL
 	     && (TREE_STATIC (decl) || DECL_EXTERNAL (decl)))
@@ -677,9 +677,15 @@ pushdecl (tree x)
 	      if (decls_match (x, t))
 		/* The standard only says that the local extern
 		   inherits linkage from the previous decl; in
-		   particular, default args are not shared.  It would
-		   be nice to propagate inlining info, though.  FIXME.  */
-		TREE_PUBLIC (x) = TREE_PUBLIC (t);
+		   particular, default args are not shared.  We must
+		   also tell cgraph to treat these decls as the same,
+		   or we may neglect to emit an "unused" static - we
+		   do this by making the DECL_UIDs equal, which should
+		   be viewed as a kludge.  FIXME.  */
+		{
+		  TREE_PUBLIC (x) = TREE_PUBLIC (t);
+		  DECL_UID (x) = DECL_UID (t);
+		}
 	    }
 	  else if (TREE_CODE (t) == PARM_DECL)
 	    {
@@ -1433,8 +1439,8 @@ maybe_push_cleanup_level (tree type)
       && current_binding_level->more_cleanups_ok == 0)
     {
       begin_scope (sk_cleanup, NULL);
+      current_binding_level->statement_list = push_stmt_list ();
       clear_last_expr ();
-      add_scope_stmt (/*begin_p=*/1, /*partial_p=*/1);
     }
 }
 
@@ -2263,7 +2269,7 @@ do_local_using_decl (tree decl, tree scope, tree name)
 
   if (building_stmt_tree ()
       && at_function_scope_p ())
-    add_decl_stmt (decl);
+    add_decl_expr (decl);
 
   oldval = lookup_name_current_level (name);
   oldtype = lookup_type_current_level (name);
@@ -3761,16 +3767,17 @@ unqualified_namespace_lookup (tree name, int flags)
       cxx_binding *b =
          cxx_scope_find_binding_for_name (NAMESPACE_LEVEL (scope), name);
 
-      /* Ignore anticipated built-in functions.  */
-      if (b && b->value && DECL_P (b->value)
-          && DECL_LANG_SPECIFIC (b->value) && DECL_ANTICIPATED (b->value))
-        /* Keep binding cleared.  */;
-      else if (b)
-        {
-          /* Initialize binding for this context.  */
-          binding.value = b->value;
-          binding.type = b->type;
-        }
+      if (b)
+	{
+	  if (b->value && DECL_P (b->value)
+	      && DECL_LANG_SPECIFIC (b->value) 
+	      && DECL_ANTICIPATED (b->value))
+	    /* Ignore anticipated built-in functions.  */
+	    ;
+	  else
+	    binding.value = b->value;
+	  binding.type = b->type;
+	}
 
       /* Add all _DECLs seen through local using-directives.  */
       for (level = current_binding_level;
@@ -4306,11 +4313,21 @@ arg_assoc_class (struct arg_lookup *k, tree type)
     if (k->name == FRIEND_NAME (list))
       for (friends = FRIEND_DECLS (list); friends; 
 	   friends = TREE_CHAIN (friends))
-	/* Only interested in global functions with potentially hidden
-           (i.e. unqualified) declarations.  */
-	if (CP_DECL_CONTEXT (TREE_VALUE (friends)) == context)
-	  if (add_function (k, TREE_VALUE (friends)))
+	{
+	  tree fn = TREE_VALUE (friends);
+
+	  /* Only interested in global functions with potentially hidden
+	     (i.e. unqualified) declarations.  */
+	  if (CP_DECL_CONTEXT (fn) != context)
+	    continue;
+	  /* Template specializations are never found by name lookup.
+	     (Templates themselves can be found, but not template
+	     specializations.)  */
+	  if (TREE_CODE (fn) == FUNCTION_DECL && DECL_USE_TEMPLATE (fn))
+	    continue;
+	  if (add_function (k, fn))
 	    return true;
+	}
 
   /* Process template arguments.  */
   if (CLASSTYPE_TEMPLATE_INFO (type) 
@@ -4624,7 +4641,16 @@ pushtag (tree name, tree type, int globalize)
 
   timevar_push (TV_NAME_LOOKUP);
   b = current_binding_level;
-  while (b->kind == sk_cleanup
+  while (/* Cleanup scopes are not scopes from the point of view of
+	    the language.  */
+	 b->kind == sk_cleanup
+	 /* Neither are the scopes used to hold template parameters
+	    for an explicit specialization.  For an ordinary template
+	    declaration, these scopes are not scopes from the point of
+	    view of the language -- but we need a place to stash
+	    things that will go in the containing namespace when the
+	    template is instantiated.  */
+	 || (b->kind == sk_template_parms && b->explicit_spec_p)
 	 || (b->kind == sk_class
 	     && (globalize
 		 /* We may be defining a new type in the initializer

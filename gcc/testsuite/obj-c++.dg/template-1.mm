@@ -1,9 +1,10 @@
 /* Test for using ObjC classes as C++ template parameters.  */
 /* Author:  Ziemowit Laski <zlaski@apple.com>.  */
 /* { dg-do run } */
-#include <objc/Object.h>
 
-extern void abort(void);
+#include <objc/Object.h>
+#include <stdlib.h>
+
 #define CHECK_IF(expr) if(!(expr)) abort()
 
 @interface Base: Object

@@ -33,7 +33,7 @@ void objc_finish_file (void);
 
 /* Objective-C structures */
 
-#define CLASS_BINFO_ELTS		6
+#define CLASS_BINFO_ELTS		5
 #define PROTOCOL_BINFO_ELTS		2
 
 /* KEYWORD_DECL */
@@ -59,7 +59,6 @@ void objc_finish_file (void);
 #define CLASS_STATIC_TEMPLATE(CLASS) TREE_VEC_ELT (TYPE_BINFO (CLASS), 2)
 #define CLASS_CATEGORY_LIST(CLASS) TREE_VEC_ELT (TYPE_BINFO (CLASS), 3)
 #define CLASS_PROTOCOL_LIST(CLASS) TREE_VEC_ELT (TYPE_BINFO (CLASS), 4)
-#define CLASS_OWN_IVARS(CLASS) TREE_VEC_ELT (TYPE_BINFO (CLASS), 5)
 #define PROTOCOL_NAME(CLASS) ((CLASS)->type.name)
 #define PROTOCOL_LIST(CLASS) TREE_VEC_ELT (TYPE_BINFO (CLASS), 0)
 #define PROTOCOL_NST_METHODS(CLASS) ((CLASS)->type.minval)
@@ -235,7 +234,6 @@ enum objc_tree_index
     OCTI_LOCAL_EXCEPTION_DECL,
     OCTI_RETHROW_EXCEPTION_DECL,
     OCTI_EVAL_ONCE_DECL,
-    OCTI_EXCEPTION_BLK_STACK,
     OCTI_CATCH_TYPE,
     OCTI_EXECCLASS_DECL,
 
@@ -265,12 +263,12 @@ extern GTY(()) tree objc_global_trees[OCTI_MAX];
 #define objc_get_meta_class_decl			\
 				objc_global_trees[OCTI_GET_MCLASS_DECL]
 
-#define super_type		objc_global_trees[OCTI_SUPER_TYPE]
-#define selector_type		objc_global_trees[OCTI_SEL_TYPE]
+#define objc_super_type		objc_global_trees[OCTI_SUPER_TYPE]
+#define objc_selector_type		objc_global_trees[OCTI_SEL_TYPE]
 #define objc_object_type	objc_global_trees[OCTI_ID_TYPE]
 #define objc_class_type		objc_global_trees[OCTI_CLS_TYPE]
-#define instance_type		objc_global_trees[OCTI_NST_TYPE]
-#define protocol_type		objc_global_trees[OCTI_PROTO_TYPE]
+#define objc_instance_type	objc_global_trees[OCTI_NST_TYPE]
+#define objc_protocol_type	objc_global_trees[OCTI_PROTO_TYPE]
 
 /* Type checking macros.  */
 
@@ -358,8 +356,6 @@ extern GTY(()) tree objc_global_trees[OCTI_MAX];
 #define objc_caught_exception	objc_global_trees[OCTI_LOCAL_EXCEPTION_DECL]	
 #define objc_rethrow_exception	objc_global_trees[OCTI_RETHROW_EXCEPTION_DECL]	
 #define objc_eval_once		objc_global_trees[OCTI_EVAL_ONCE_DECL]	
-#define objc_exception_block_stack		\
-				objc_global_trees[OCTI_EXCEPTION_BLK_STACK]
 #define objc_catch_type		objc_global_trees[OCTI_CATCH_TYPE]
 
 #define execclass_decl		objc_global_trees[OCTI_EXECCLASS_DECL]

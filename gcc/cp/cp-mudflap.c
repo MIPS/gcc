@@ -63,6 +63,7 @@ void
 mflang_flush_calls (tree enqueued_call_stmt_chain)
 {
   tree fnname, fndecl, body;
+  tree type;
 
   /* Short-circuit!  */
   if (enqueued_call_stmt_chain == NULL_TREE)
@@ -70,19 +71,17 @@ mflang_flush_calls (tree enqueued_call_stmt_chain)
 
   /* Create a ctor function declaration.  */
   fnname = get_identifier ("__static_initialization_and_destruction_mudflap");
+  type = build_function_type (void_type_node, void_list_node);
+  fndecl = build_lang_decl (FUNCTION_DECL, fnname, type);
 
-  start_function (void_list_node,
-		  make_call_declarator (fnname, void_list_node, NULL_TREE,
-					NULL_TREE),
-		  NULL_TREE, SF_DEFAULT);
-
-  TREE_PUBLIC (current_function_decl) = 0;
-  TREE_USED (current_function_decl) = 1;
-  DECL_ARTIFICIAL (current_function_decl) = 1;
-  mf_mark (current_function_decl);
+  TREE_PUBLIC (fndecl) = 0;
+  TREE_USED (fndecl) = 1;
+  DECL_ARTIFICIAL (fndecl) = 1;
+  mf_mark (fndecl);
 
   /* Generate the body, one statement at a time.  */
-  body = begin_compound_stmt (/*has_no_scope=*/false);
+  start_preparsed_function (fndecl, /*attrs=*/NULL_TREE, SF_PRE_PARSED);
+  body = begin_compound_stmt (BCS_FN_BODY);
 
   while (enqueued_call_stmt_chain)
     {

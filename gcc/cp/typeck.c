@@ -24,11 +24,7 @@ Boston, MA 02111-1307, USA.  */
 /* This file is part of the C++ front end.
    It contains routines to build C++ expressions given their operands,
    including computing the types of the result, C and C++ specific error
-   checks, and some optimization.
-
-   There are also routines to build RETURN_STMT nodes and CASE_STMT nodes,
-   and to process initializations in declarations (since they work
-   like a strange sort of assignment).  */
+   checks, and some optimization.  */
 
 #include "config.h"
 #include "system.h"
@@ -1033,7 +1029,7 @@ comptypes (tree t1, tree t2, int strict)
       if (!comptypes (TYPE_OFFSET_BASETYPE (t1), TYPE_OFFSET_BASETYPE (t2),
 		      strict & ~COMPARE_REDECLARATION))
 	return false;
-      /* Fall through. */
+      /* Fall through.  */
 
     case POINTER_TYPE:
     case REFERENCE_TYPE:
@@ -1299,6 +1295,33 @@ cxx_sizeof_or_alignof_expr (tree e, enum tree_code op)
 }
   
 
+/* EXPR is being used in a context that is not a function call.
+   Enforce:
+
+     [expr.ref] 
+
+     The expression can be used only as the left-hand operand of a
+     member function call.  
+
+     [expr.mptr.operator]
+
+     If the result of .* or ->* is a function, then that result can be
+     used only as the operand for the function call operator ().  
+
+   by issuing an error message if appropriate.  Returns true iff EXPR
+   violates these rules.  */
+
+bool
+invalid_nonstatic_memfn_p (tree expr)
+{
+  if (TREE_CODE (TREE_TYPE (expr)) == METHOD_TYPE)
+    {
+      error ("invalid use of non-static member function");
+      return true;
+    }
+  return false;
+}
+
 /* Perform the conversions in [expr] that apply when an lvalue appears
    in an rvalue context: the lvalue-to-rvalue, array-to-pointer, and
    function-to-pointer conversions.
@@ -1351,11 +1374,8 @@ decay_conversion (tree exp)
       error ("void value not ignored as it ought to be");
       return error_mark_node;
     }
-  if (code == METHOD_TYPE)
-    {
-      error ("invalid use of non-static member function");
-      return error_mark_node;
-    }
+  if (invalid_nonstatic_memfn_p (exp))
+    return error_mark_node;
   if (code == FUNCTION_TYPE || is_overloaded_fn (exp))
     return build_unary_op (ADDR_EXPR, exp, 0);
   if (code == ARRAY_TYPE)
@@ -1739,7 +1759,8 @@ build_class_member_access_expr (tree object, tree member,
 	  member_type = cp_build_qualified_type (member_type, type_quals);
 	}
 
-      result = fold (build (COMPONENT_REF, member_type, object, member));
+      result = fold (build (COMPONENT_REF, member_type, object, member,
+			    NULL_TREE));
 
       /* Mark the expression const or volatile, as appropriate.  Even
 	 though we've dealt with the type above, we still have to mark the
@@ -1766,7 +1787,7 @@ build_class_member_access_expr (tree object, tree member,
 	type = unknown_type_node;
       /* Note that we do not convert OBJECT to the BASELINK_BINFO
 	 base.  That will happen when the function is called.  */
-      result = build (COMPONENT_REF, type, object, member);
+      result = build (COMPONENT_REF, type, object, member, NULL_TREE);
     }
   else if (TREE_CODE (member) == CONST_DECL)
     {
@@ -1865,7 +1886,7 @@ finish_class_member_access_expr (tree object, tree name)
 	  || (TREE_CODE (name) == SCOPE_REF
 	      && TYPE_P (TREE_OPERAND (name, 0))
 	      && dependent_type_p (TREE_OPERAND (name, 0))))
-	return build_min_nt (COMPONENT_REF, object, name);
+	return build_min_nt (COMPONENT_REF, object, name, NULL_TREE);
       object = build_non_dependent_expr (object);
     }
   
@@ -1992,7 +2013,7 @@ finish_class_member_access_expr (tree object, tree name)
 					 /*preserve_reference=*/false);
   if (processing_template_decl && expr != error_mark_node)
     return build_min_non_dep (COMPONENT_REF, expr,
-			      orig_object, orig_name);
+			      orig_object, orig_name, NULL_TREE);
   return expr;
 }
 
@@ -2020,7 +2041,7 @@ build_ptrmemfunc_access_expr (tree ptrmem, tree member_name)
 			  /*want_type=*/false);
   member_type = cp_build_qualified_type (TREE_TYPE (member),
 					 cp_type_quals (ptrmem_type));
-  return fold (build (COMPONENT_REF, member_type, ptrmem, member));
+  return fold (build (COMPONENT_REF, member_type, ptrmem, member, NULL_TREE));
 }
 
 /* Given an expression PTR for a pointer, return an expression
@@ -2236,7 +2257,7 @@ build_array_ref (tree array, tree idx)
 	}
 
       type = TREE_TYPE (TREE_TYPE (array));
-      rval = build (ARRAY_REF, type, array, idx);
+      rval = build (ARRAY_REF, type, array, idx, NULL_TREE, NULL_TREE);
       /* Array ref is const/volatile if the array elements are
 	 or if the array is..  */
       TREE_READONLY (rval)
@@ -2397,7 +2418,6 @@ build_function_call (tree function, tree params)
 {
   tree fntype, fndecl;
   tree coerced_params;
-  tree result;
   tree name = NULL_TREE;
   int is_method;
   tree original = function;
@@ -2475,21 +2495,7 @@ build_function_call (tree function, tree params)
   if (warn_format)
     check_function_format (NULL, TYPE_ATTRIBUTES (fntype), coerced_params);
 
-  /* Recognize certain built-in functions so we can make tree-codes
-     other than CALL_EXPR.  We do this when it enables fold-const.c
-     to do something useful.  */
-
-  if (TREE_CODE (function) == ADDR_EXPR
-      && TREE_CODE (TREE_OPERAND (function, 0)) == FUNCTION_DECL
-      && DECL_BUILT_IN (TREE_OPERAND (function, 0)))
-    {
-      result = expand_tree_builtin (TREE_OPERAND (function, 0),
-				    params, coerced_params);
-      if (result)
-	return result;
-    }
-
-  return build_cxx_call (function, params, coerced_params);
+  return build_cxx_call (function, coerced_params);
 }
 
 /* Convert the actual parameter expressions in the list VALUES
@@ -4301,7 +4307,6 @@ cxx_mark_addressable (tree exp)
 
       case FUNCTION_DECL:
 	TREE_ADDRESSABLE (x) = 1;
-	TREE_ADDRESSABLE (DECL_ASSEMBLER_NAME (x)) = 1;
 	return true;
 
       case CONSTRUCTOR:
@@ -4518,7 +4523,17 @@ build_static_cast (tree type, tree expr)
      t.  */
   result = perform_direct_initialization_if_possible (type, expr);
   if (result)
-    return convert_from_reference (result);
+    {
+      result = convert_from_reference (result);
+      /* [expr.static.cast]
+
+         If T is a reference type, the result is an lvalue; otherwise,
+	 the result is an rvalue.  */
+      if (TREE_CODE (type) != REFERENCE_TYPE
+	  && real_lvalue_p (result))
+	result = build1 (NON_LVALUE_EXPR, TREE_TYPE (result), result);
+      return result;
+    }
   
   /* [expr.static.cast]
 
@@ -6001,7 +6016,7 @@ check_return_expr (tree retval)
      returned expression uses the chosen variable somehow.  And people expect
      this restriction, anyway.  (jason 2000-11-19)
 
-     See finish_function and finalize_nrv for the rest of this optimization. */
+     See finish_function and finalize_nrv for the rest of this optimization.  */
 
   if (fn_returns_value_p && flag_elide_constructors)
     {

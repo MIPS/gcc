@@ -3,14 +3,13 @@
 
 #include <objc/Object.h>
 #include <stdarg.h>
-
-extern void abort(void);
+#include <stdlib.h>
 
 /* Test methods with "C-style" trailing arguments, with or without ellipsis. */
 
 @interface MathClass: Object
 /* sum positive numbers; -1 ends the list */
-+ (int) sum: (int)firstNumber, int secondNumber, ...;
++ (int) sum: (int) firstNumber, int secondNumber, ...;
 + (int) prod: (int) firstNumber, int secondNumber, int thirdNumber;
 + (int) minimum: (int) firstNumber, ...;
 @end
@@ -20,7 +19,7 @@ extern "C" int some_func(id self, SEL _cmd, int firstN, int secondN, int thirdN,
 }
 
 @implementation MathClass
-+ (int) sum: (int)firstNumber, int secondNumber, ...
++ (int) sum: (int) firstNumber, int secondNumber, ...
 {
   va_list ap;
   int sum = 0, number = 0;
@@ -41,7 +40,7 @@ extern "C" int some_func(id self, SEL _cmd, int firstN, int secondN, int thirdN,
 + (int) prod: (int) firstNumber, int secondNumber, int thirdNumber {
   return firstNumber * secondNumber * thirdNumber;
 }
-+ (int) minimum: (int)firstNumber, ...
++ (int) minimum: (int) firstNumber, ...
 {
   va_list ap;
   int minimum = 999, number = 0;

@@ -1,3 +1,26 @@
+2004-07-30  Ziemowit Laski  <zlaski@apple.com>
+
+	* Make-lang.in (objcp/objcp-act.o): Depend on objcp/objcp-decl.h.
+	* config-lang.in (gtfiles): Remove $(srcdir)/cp/lex.h.
+	* objcp-decl.c: Do not #include lex.h or gt-objcp-objcp-decl.h.
+	(objcp_parmlist, objcp_start_function, objcp_start_decl,
+	objcp_finish_decl, objcp_push_parm_decl, objcp_get_parm_info,
+	objcp_store_parm_decls, objcp_build_function_call,
+	objcp_grokfield, objcp_pushlevel, objcp_builtin_function): Remove.
+	(objcp_comptypes): Remove last parameter.
+	(objcp_begin_compound_stmt, objcp_end_compound_stmt): New functions.
+	* objcp-decl.h (objcp_start_function, objcp_start_decl,
+	objcp_finish_decl, objcp_push_parm_decl, objcp_get_parm_info,
+	objcp_store_parm_decls, objcp_grokfield, objcp_pushlevel): Remove
+	prototypes.
+	(objcp_comptypes): Remove last parameter from prototype.
+	(objcp_begin_compound_stmt, objcp_end_compound_stmt): New prototypes.
+	(start_function, start_decl, finish_decl, push_parm_decl,
+	get_parm_info, store_parm_decls, build_function_call, grokfield):
+	Remove macro definitions.
+	(comptypes): Remove last parameter from macro definition.
+	(c_begin_compound_stmt, c_end_compound_stmt): New macros.
+	
 2004-06-23  Ziemowit Laski  <zlaski@apple.com>
 
 	* lang-specs.h: Add missing initializer, analogously to

@@ -29,7 +29,6 @@ extern bool cxx_warn_unused_global_decl (tree);
 extern tree cp_expr_size (tree);
 extern size_t cp_tree_size (enum tree_code);
 extern bool cp_var_mod_type_p (tree);
-extern int cp_expand_decl (tree);
 extern void cxx_initialize_diagnostics (struct diagnostic_context *);
 
 /* In cp/cp-lang.c and objcp/objcp-lang.c.  */
@@ -66,9 +65,7 @@ extern tree objcp_tsubst_copy_and_build (tree, tree, tsubst_flags_t,
 #undef LANG_HOOKS_EXPAND_EXPR
 #define LANG_HOOKS_EXPAND_EXPR cxx_expand_expr
 #undef LANG_HOOKS_EXPAND_DECL
-#define LANG_HOOKS_EXPAND_DECL cp_expand_decl
-#undef LANG_HOOKS_SAFE_FROM_P
-#define LANG_HOOKS_SAFE_FROM_P c_safe_from_p
+#define LANG_HOOKS_EXPAND_DECL c_expand_decl
 #undef LANG_HOOKS_PARSE_FILE
 #define LANG_HOOKS_PARSE_FILE c_common_parse_file
 #undef LANG_HOOKS_DUP_LANG_SPECIFIC_DECL
@@ -131,9 +128,6 @@ extern tree objcp_tsubst_copy_and_build (tree, tree, tsubst_flags_t,
 #undef LANG_HOOKS_TREE_INLINING_ADD_PENDING_FN_DECLS
 #define LANG_HOOKS_TREE_INLINING_ADD_PENDING_FN_DECLS \
   cp_add_pending_fn_decls
-#undef LANG_HOOKS_TREE_INLINING_TREE_CHAIN_MATTERS_P
-#define LANG_HOOKS_TREE_INLINING_TREE_CHAIN_MATTERS_P \
-  cp_tree_chain_matters_p
 #undef LANG_HOOKS_TREE_INLINING_AUTO_VAR_IN_FN_P
 #define LANG_HOOKS_TREE_INLINING_AUTO_VAR_IN_FN_P \
   cp_auto_var_in_fn_p
@@ -176,5 +170,7 @@ extern tree objcp_tsubst_copy_and_build (tree, tree, tsubst_flags_t,
 #define LANG_HOOKS_REGISTER_BUILTIN_TYPE c_register_builtin_type
 #undef LANG_HOOKS_GIMPLIFY_EXPR
 #define LANG_HOOKS_GIMPLIFY_EXPR cp_gimplify_expr
+#undef LANG_HOOKS_FOLD_OBJ_TYPE_REF
+#define LANG_HOOKS_FOLD_OBJ_TYPE_REF cp_fold_obj_type_ref
 
 #endif /* GCC_CP_OBJCP_COMMON */

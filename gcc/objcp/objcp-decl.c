@@ -28,7 +28,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "rtl.h"
 #include "expr.h"
 #include "cp-tree.h"
-#include "lex.h"
 #include "c-common.h"
 #include "flags.h"
 #include "input.h"
@@ -42,8 +41,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "objc-act.h"
 #include "objcp-decl.h"
-
-static GTY(()) tree objcp_parmlist = NULL_TREE;
 
 /* Hacks to simulate start_struct() and finish_struct(). */
 
@@ -80,12 +77,6 @@ objcp_finish_struct (tree t, tree fieldlist, tree attributes ATTRIBUTE_UNUSED)
   return t;
 }
 
-int
-objcp_start_function (tree declspecs, tree declarator, tree attributes)
-{
-  return start_function (declspecs, declarator, attributes, 0);
-}
-
 void
 objcp_finish_function (void)
 {
@@ -94,80 +85,16 @@ objcp_finish_function (void)
   expand_body (finish_function (0));
 }
 
-tree 
-objcp_start_decl (tree declarator, tree declspecs, int initialized, tree attributes)
-{
-  return start_decl (declarator, declspecs, initialized, 
-		     attributes, NULL_TREE);
-}
-			  
-void
-objcp_finish_decl (tree decl, tree init, tree asmspec)
-{
-  cp_finish_decl (decl, init, asmspec, 0);
-}
-
 tree
 objcp_lookup_name (tree name)
 {
   return lookup_name (name, -1);
 }
 
-/* Hacks to simulate push_parm_decl() and get_parm_info(). */
-
-tree
-objcp_push_parm_decl (tree parm)
-{
-  /* C++ parms are laid out slightly differently from C parms.  Adjust
-     for this here.  */
-  TREE_VALUE (parm) = TREE_PURPOSE (parm);
-  TREE_PURPOSE (parm) = NULL_TREE;   
-
-  if (objcp_parmlist)
-    objcp_parmlist = chainon (objcp_parmlist, parm);
-  else
-    objcp_parmlist = parm;
-
-  return objcp_parmlist;
-}
-
-tree
-objcp_get_parm_info (int have_ellipsis)
-{
-  tree parm_info = finish_parmlist (objcp_parmlist, have_ellipsis);
-
-  /* The C++ notion of a parameter list differs slightly from that of
-     C.  Adjust for this.  */
-  parm_info = build_tree_list (parm_info, NULL_TREE);
-  objcp_parmlist = NULL_TREE;
-
-  return parm_info;
-}
-
-void 
-objcp_store_parm_decls (void)
-{
-  /* In C++ land, 'start_function' calls 'store_parm_decls'; hence we
-     do not need to do anything here.  */
-}
-
-tree
-objcp_build_function_call (tree function, tree args)
-{
-  return build_function_call (function, args);
-}
-
 tree
 objcp_xref_tag (enum tree_code code ATTRIBUTE_UNUSED, tree name)
 {
   return xref_tag (record_type, name, true, false);
-}
-
-tree
-objcp_grokfield (tree declarator, tree declspecs, tree width)
-{     
-  return (width) ? grokbitfield (declarator, declspecs, width)
-		 : grokfield (declarator, declspecs, 0, 0, 0);
 }
 
 tree
@@ -193,42 +120,28 @@ objcp_build_compound_expr (tree list)
 }
 
 int
-objcp_comptypes (tree type1, tree type2, int flags ATTRIBUTE_UNUSED)
+objcp_comptypes (tree type1, tree type2)
 {     
-  return comptypes (type1, type2, 0);
+  return comptypes (type1, type2, COMPARE_STRICT);
 }
 
-void
-objcp_pushlevel (int flags ATTRIBUTE_UNUSED)
-{
-  do_pushlevel (sk_block);
-}
-
-/* C++'s version of 'builtin_function' winds up placing our precious
-   objc_msgSend and friends in namespace std!  This will not do.
-   We shall hence duplicate C's 'builtin_function' here instead.   */
-   
 tree
-objcp_builtin_function (const char *name, tree type, int code,
-			enum built_in_class class,
-			const char *libname ATTRIBUTE_UNUSED, tree attrs)
+objcp_begin_compound_stmt (int flags ATTRIBUTE_UNUSED)
 {
-  tree decl = build_decl (FUNCTION_DECL, get_identifier (name), type);
-  DECL_EXTERNAL (decl) = 1;
-  TREE_PUBLIC (decl) = 1;
-  make_decl_rtl (decl, NULL);
-  pushdecl (decl);
-  DECL_BUILT_IN_CLASS (decl) = class;
-  DECL_FUNCTION_CODE (decl) = code;
-  DECL_ANTICIPATED (decl) = 1;
-
-  /* Possibly apply some default attributes to this built-in function.  */
-  if (attrs)
-    decl_attributes (&decl, attrs, ATTR_FLAG_BUILT_IN);
-  else
-    decl_attributes (&decl, NULL_TREE, 0);
-
-  return decl;
+  return begin_compound_stmt (0);
 }
 
-#include "gt-objcp-objcp-decl.h"
+tree
+objcp_end_compound_stmt (tree stmt, int flags ATTRIBUTE_UNUSED)
+{
+  /* The following has been snarfed from
+     cp/semantics.c:finish_compound_stmt().  */
+  if (TREE_CODE (stmt) == BIND_EXPR)
+    BIND_EXPR_BODY (stmt) = do_poplevel (BIND_EXPR_BODY (stmt));
+  else if (STATEMENT_LIST_NO_SCOPE (stmt))
+    stmt = pop_stmt_list (stmt);
+  else
+    stmt = do_poplevel (stmt);
+
+  return stmt;
+}

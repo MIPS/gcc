@@ -31,7 +31,6 @@ Boston, MA 02111-1307, USA.  */
 #include "tree.h"
 #include "cp-tree.h"
 #include "cpplib.h"
-#include "lex.h"
 #include "flags.h"
 #include "c-pragma.h"
 #include "toplev.h"
@@ -82,62 +81,6 @@ struct impl_files
 
 static struct impl_files *impl_file_chain;
 
-
-/* Return something to represent absolute declarators containing a *.
-   TARGET is the absolute declarator that the * contains.
-   CV_QUALIFIERS is a list of modifiers such as const or volatile
-   to apply to the pointer type, represented as identifiers.
-
-   We return an INDIRECT_REF whose "contents" are TARGET
-   and whose type is the modifier list.  */
-
-tree
-make_pointer_declarator (tree cv_qualifiers, tree target)
-{
-  if (target && TREE_CODE (target) == IDENTIFIER_NODE
-      && ANON_AGGRNAME_P (target))
-    error ("type name expected before `*'");
-  target = build_nt (INDIRECT_REF, target);
-  TREE_TYPE (target) = cv_qualifiers;
-  return target;
-}
-
-/* Return something to represent absolute declarators containing a &.
-   TARGET is the absolute declarator that the & contains.
-   CV_QUALIFIERS is a list of modifiers such as const or volatile
-   to apply to the reference type, represented as identifiers.
-
-   We return an ADDR_EXPR whose "contents" are TARGET
-   and whose type is the modifier list.  */
-
-tree
-make_reference_declarator (tree cv_qualifiers, tree target)
-{
-  target = build_nt (ADDR_EXPR, target);
-  TREE_TYPE (target) = cv_qualifiers;
-  return target;
-}
-
-tree
-make_call_declarator (tree target, tree parms, tree cv_qualifiers, 
-                      tree exception_specification)
-{
-  target = build_nt (CALL_EXPR, target,
-		     tree_cons (parms, cv_qualifiers, NULL_TREE),
-		     /* The third operand is really RTL.  We
-			shouldn't put anything there.  */
-		     NULL_TREE);
-  CALL_DECLARATOR_EXCEPTION_SPEC (target) = exception_specification;
-  return target;
-}
-
-void
-set_quals_and_spec (tree call_declarator, tree cv_qualifiers, 
-                    tree exception_specification)
-{
-  CALL_DECLARATOR_QUALS (call_declarator) = cv_qualifiers;
-  CALL_DECLARATOR_EXCEPTION_SPEC (call_declarator) = exception_specification;
-}
 
 int interface_only;		/* whether or not current file is only for
 				   interface definitions.  */
@@ -254,6 +197,7 @@ static const struct resword reswords[] =
   { "__asm__",		RID_ASM,	0 },
   { "__attribute",	RID_ATTRIBUTE,	0 },
   { "__attribute__",	RID_ATTRIBUTE,	0 },
+  { "__builtin_offsetof", RID_OFFSETOF, 0 },
   { "__builtin_va_arg",	RID_VA_ARG,	0 },
   { "__complex",	RID_COMPLEX,	0 },
   { "__complex__",	RID_COMPLEX,	0 },
@@ -267,8 +211,6 @@ static const struct resword reswords[] =
   { "__inline__",	RID_INLINE,	0 },
   { "__label__",	RID_LABEL,	0 },
   { "__null",		RID_NULL,	0 },
-  { "__offsetof",       RID_OFFSETOF,   0 },
-  { "__offsetof__",     RID_OFFSETOF,   0 },
   { "__real",		RID_REALPART,	0 },
   { "__real__",		RID_REALPART,	0 },
   { "__restrict",	RID_RESTRICT,	0 },

@@ -33,7 +33,6 @@ Boston, MA 02111-1307, USA.  */
 #include "rtl.h"
 #include "output.h"
 #include "toplev.h"
-#include "lex.h"
 #include "target.h"
 #include "convert.h"
 
@@ -542,19 +541,24 @@ build_vtbl_ref (tree instance, tree idx)
   return aref;
 }
 
-/* Given an object INSTANCE, return an expression which yields a
-   function pointer corresponding to vtable element INDEX.  */
+/* Given a stable object pointer INSTANCE_PTR, return an expression which
+   yields a function pointer corresponding to vtable element INDEX.  */
 
 tree
-build_vfn_ref (tree instance, tree idx)
+build_vfn_ref (tree instance_ptr, tree idx)
 {
-  tree aref = build_vtbl_ref_1 (instance, idx);
+  tree aref;
+
+  aref = build_vtbl_ref_1 (build_indirect_ref (instance_ptr, 0), idx);
 
   /* When using function descriptors, the address of the
      vtable entry is treated as a function pointer.  */
   if (TARGET_VTABLE_USES_DESCRIPTORS)
     aref = build1 (NOP_EXPR, TREE_TYPE (aref),
 		   build_unary_op (ADDR_EXPR, aref, /*noconvert=*/1));
+
+  /* Remember this as a method reference, for later devirtualization.  */
+  aref = build (OBJ_TYPE_REF, TREE_TYPE (aref), aref, instance_ptr, idx);
 
   return aref;
 }
@@ -2619,8 +2623,6 @@ add_implicitly_declared_members (tree t,
   tree virtual_dtor = NULL_TREE;
   tree *f;
 
-  ++adding_implicit_members;
-
   /* Destructor.  */
   if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (t) && !TYPE_HAS_DESTRUCTOR (t))
     {
@@ -2695,8 +2697,6 @@ add_implicitly_declared_members (tree t,
       *f = TYPE_METHODS (t);
       TYPE_METHODS (t) = implicit_fns;
     }
-
-  --adding_implicit_members;
 }
 
 /* Subroutine of finish_struct_1.  Recursively count the number of fields
@@ -3012,7 +3012,7 @@ check_field_decls (tree t, tree *access_decls,
 	  /* [class.union]
 
 	     If a union contains a static data member, or a member of
-	     reference type, the program is ill-formed. */
+	     reference type, the program is ill-formed.  */
 	  if (TREE_CODE (x) == VAR_DECL)
 	    {
 	      cp_error_at ("`%D' may not be static because it is a member of a union", x);
@@ -3915,8 +3915,6 @@ build_clone (tree fn, tree name)
       DECL_TEMPLATE_INFO (result) = copy_node (DECL_TEMPLATE_INFO (result));
       DECL_TI_TEMPLATE (result) = clone;
     }
-  else if (DECL_DEFERRED_FN (fn))
-    defer_fn (clone);
 
   return clone;
 }
@@ -4203,8 +4201,7 @@ check_bases_and_members (tree t)
   TYPE_HAS_COMPLEX_ASSIGN_REF (t)
     |= TYPE_HAS_ASSIGN_REF (t) || TYPE_CONTAINS_VPTR_P (t);
 
-  /* Synthesize any needed methods.  Note that methods will be synthesized
-     for anonymous unions; grok_x_components undoes that.  */
+  /* Synthesize any needed methods.   */
   add_implicitly_declared_members (t, cant_have_default_ctor,
 				   cant_have_const_ctor,
 				   no_const_asn_ref);
@@ -7913,4 +7910,32 @@ build_rtti_vtbl_entries (tree binfo, vtbl_init_data* vid)
   init = build_nop (vfunc_ptr_type_node, offset);
   *vid->last_init = build_tree_list (NULL_TREE, init);
   vid->last_init = &TREE_CHAIN (*vid->last_init);
+}
+
+/* Fold a OBJ_TYPE_REF expression to the address of a function.
+   KNOWN_TYPE carries the true type of OBJ_TYPE_REF_OBJECT(REF).  */
+
+tree
+cp_fold_obj_type_ref (tree ref, tree known_type)
+{
+  HOST_WIDE_INT index = tree_low_cst (OBJ_TYPE_REF_TOKEN (ref), 1);
+  HOST_WIDE_INT i = 0;
+  tree v = TYPE_BINFO_VIRTUALS (known_type); 
+  tree fndecl;
+
+  while (i != index)
+    {
+      i += (TARGET_VTABLE_USES_DESCRIPTORS
+	    ? TARGET_VTABLE_USES_DESCRIPTORS : 1);
+      v = TREE_CHAIN (v);
+    }
+
+  fndecl = BV_FN (v);
+
+#ifdef ENABLE_CHECKING
+  if (!tree_int_cst_equal (OBJ_TYPE_REF_TOKEN (ref), DECL_VINDEX (fndecl)))
+    abort ();
+#endif
+
+  return build_address (fndecl);
 }

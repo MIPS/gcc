@@ -7,12 +7,12 @@
 #include <objc/objc-api.h>
 #endif
 #include <stdio.h>
+#include <stdlib.h>
 
 /* The encoded parameter sizes will be rounded up to match pointer alignment.  */
 #define ROUND(s,a) (a * ((s + a - 1) / a))
 #define aligned_sizeof(T) ROUND(sizeof(T),__alignof(void *))
 
-extern void abort(void);
 #define CHECK_IF(expr) if(!(expr)) abort()
 
 @protocol Retain

@@ -1,3 +1,16 @@
+2004-07-30  Ziemowit Laski  <zlaski@apple.com>
+
+	* cp-objcp-common.c (cp_expand_decl, cp_tree_matters_p): Remove.
+	(has_c_linkage): New.
+	* cp-objcp-common.h (cp_expand_decl): Remove prototype.
+	(LANG_HOOKS_SAFE_FROM_P, LANG_HOOKS_TREE_INLINING_TREE_CHAIN_MATTERS_P):
+	Remove.
+	(LANG_HOOKS_EXPAND_DECL): Point at c_expand_decl.
+	(LANG_HOOKS_FOLD_OBJ_TYPE_REF): New.
+	* parser.c (cp_parser_objc_protocol_qualifiers): New function.
+	(cp_parser_objc_typename): Assemble the type out of calls to
+	cp_parser_objc_protocol_qualifiers() and cp_parser_type_id().
+
 2004-06-25  Ziemowit Laski  <zlaski@apple.com>
 
 	* decl2.c (generate_ctor_or_dtor_function): If present, call
@@ -13,6 +26,8 @@
 	arguments to methods.
 	(cp_parser_objc_method_definition_list): Do not call
 	objc_continue_method_definition().
+	(cp_parser_objc_class_ivars): Call grokfield() or grokbitfield() on
+	the ivars before passing them to objc_add_instance_variable().
 
 2004-06-09  Ziemowit Laski  <zlaski@apple.com>
 

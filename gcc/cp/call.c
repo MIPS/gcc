@@ -182,7 +182,7 @@ static conversion *direct_reference_binding (tree, conversion *);
 static bool promoted_arithmetic_type_p (tree);
 static conversion *conditional_conversion (tree, tree);
 static char *name_as_c_string (tree, tree, bool *);
-static tree call_builtin_trap (tree);
+static tree call_builtin_trap (void);
 static tree prep_operand (tree);
 static void add_candidates (tree, tree, tree, bool, tree, tree,
 			    int, struct z_candidate **);
@@ -203,7 +203,7 @@ build_vfield_ref (tree datum, tree type)
     datum = convert_to_base (datum, type, /*check_access=*/false);
 
   return build (COMPONENT_REF, TREE_TYPE (TYPE_VFIELD (type)),
-		datum, TYPE_VFIELD (type));
+		datum, TYPE_VFIELD (type), NULL_TREE);
 }
 
 /* Returns nonzero iff the destructor name specified in NAME
@@ -3174,7 +3174,7 @@ build_conditional_expr (tree arg1, tree arg2, tree arg3)
 
          We must avoid calling force_rvalue for expressions of type
 	 "void" because it will complain that their value is being
-	 used.   */
+	 used.  */
       if (TREE_CODE (arg2) == THROW_EXPR 
 	  && TREE_CODE (arg3) != THROW_EXPR)
 	{
@@ -3868,8 +3868,7 @@ builtin:
       return build_conditional_expr (arg1, arg2, arg3);
 
     case MEMBER_REF:
-      return build_m_component_ref
-	(build_indirect_ref (arg1, NULL), arg2);
+      return build_m_component_ref (build_indirect_ref (arg1, NULL), arg2);
 
       /* The caller will deal with these.  */
     case ADDR_EXPR:
@@ -4024,7 +4023,7 @@ build_op_delete_call (enum tree_code code, tree addr, tree size,
 	  /* The placement args might not be suitable for overload
 	     resolution at this point, so build the call directly.  */
 	  mark_used (fn);
-	  return build_cxx_call (fn, args, args);
+	  return build_cxx_call (fn, args);
 	}
       else
 	return build_function_call (fn, args);
@@ -4325,18 +4324,15 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 		      LOOKUP_NORMAL|LOOKUP_NO_CONVERSION);
 }
 
-/* Build a call to __builtin_trap which can be used as an expression of
-   type TYPE.  */
+/* Build a call to __builtin_trap.  */
 
 static tree
-call_builtin_trap (tree type)
+call_builtin_trap (void)
 {
   tree fn = implicit_built_in_decls[BUILT_IN_TRAP];
 
   my_friendly_assert (fn != NULL, 20030927);
   fn = build_call (fn, NULL_TREE);
-  fn = build (COMPOUND_EXPR, type, fn, error_mark_node);
-  fn = force_target_expr (type, fn);
   return fn;
 }
 
@@ -4379,7 +4375,9 @@ convert_arg_to_ellipsis (tree arg)
       if (!skip_evaluation)
 	warning ("cannot pass objects of non-POD type `%#T' through `...'; "
 	         "call will abort at runtime", TREE_TYPE (arg));
-      arg = call_builtin_trap (TREE_TYPE (arg));
+      arg = call_builtin_trap ();
+      arg = build (COMPOUND_EXPR, integer_type_node, arg,
+		   integer_zero_node);
     }
 
   return arg;
@@ -4404,7 +4402,11 @@ build_x_va_arg (tree expr, tree type)
       warning ("cannot receive objects of non-POD type `%#T' through `...'; \
 call will abort at runtime",
 	       type);
-      return call_builtin_trap (type);
+      expr = convert (build_pointer_type (type), null_node);
+      expr = build (COMPOUND_EXPR, TREE_TYPE (expr),
+		    call_builtin_trap (), expr);
+      expr = build_indirect_ref (expr, NULL);
+      return expr;
     }
   
   return build_va_arg (expr, type);
@@ -4561,6 +4563,8 @@ build_over_call (struct z_candidate *cand, int flags)
       tree return_type;
       return_type = TREE_TYPE (TREE_TYPE (fn));
       expr = build (CALL_EXPR, return_type, fn, args, NULL_TREE);
+      if (TREE_THIS_VOLATILE (fn) && cfun)
+	current_function_returns_abnormally = 1;
       if (!VOID_TYPE_P (return_type))
 	require_complete_type (return_type);
       return convert_from_reference (expr);
@@ -4831,7 +4835,7 @@ build_over_call (struct z_candidate *cand, int flags)
       if (DECL_CONTEXT (fn) && TYPE_JAVA_INTERFACE (DECL_CONTEXT (fn)))
 	fn = build_java_interface_fn_ref (fn, *p);
       else
-	fn = build_vfn_ref (build_indirect_ref (*p, 0), DECL_VINDEX (fn));
+	fn = build_vfn_ref (*p, DECL_VINDEX (fn));
       TREE_TYPE (fn) = t;
     }
   else if (DECL_INLINE (fn))
@@ -4839,33 +4843,19 @@ build_over_call (struct z_candidate *cand, int flags)
   else
     fn = build_addr_func (fn);
 
-  return build_cxx_call (fn, args, converted_args);
+  return build_cxx_call (fn, converted_args);
 }
 
-/* Build and return a call to FN, using the the CONVERTED_ARGS.  ARGS
-   gives the original form of the arguments.  This function performs
+/* Build and return a call to FN, using ARGS.  This function performs
    no overload resolution, conversion, or other high-level
    operations.  */
 
 tree
-build_cxx_call(tree fn, tree args, tree converted_args)
+build_cxx_call (tree fn, tree args)
 {
   tree fndecl;
 
-  /* Recognize certain built-in functions so we can make tree-codes
-     other than CALL_EXPR.  We do this when it enables fold-const.c
-     to do something useful.  */
-  if (TREE_CODE (fn) == ADDR_EXPR
-      && TREE_CODE (TREE_OPERAND (fn, 0)) == FUNCTION_DECL
-      && DECL_BUILT_IN (TREE_OPERAND (fn, 0)))
-    {
-      tree exp;
-      exp = expand_tree_builtin (TREE_OPERAND (fn, 0), args, converted_args);
-      if (exp)
-	return exp;
-    }
-
-  fn = build_call (fn, converted_args);
+  fn = build_call (fn, args);
 
   /* If this call might throw an exception, note that fact.  */
   fndecl = get_callee_fndecl (fn);
@@ -5355,7 +5345,7 @@ build_new_method_call (tree instance, tree fns, tree args,
   if (processing_template_decl && call != error_mark_node)
     call = (build_min_non_dep
 	    (CALL_EXPR, call,
-	     build_min_nt (COMPONENT_REF, orig_instance, orig_fns),
+	     build_min_nt (COMPONENT_REF, orig_instance, orig_fns, NULL_TREE),
 	     orig_args, NULL_TREE));
 
  /* Free all the conversions we allocated.  */
@@ -6357,9 +6347,9 @@ make_temporary_var_for_ref_to_temp (tree decl, tree type)
    the VAR_DECL being initialized with the EXPR.  (In that case, the
    type of DECL will be TYPE.)  If DECL is non-NULL, then CLEANUP must
    also be non-NULL, and with *CLEANUP initialized to NULL.  Upon
-   return, if *CLEANUP is no longer NULL, it will be a CLEANUP_STMT
-   that should be inserted after the returned expression is used to
-   initialize DECL.
+   return, if *CLEANUP is no longer NULL, it will be an expression
+   that should be pushed as a cleanup after the returned expression
+   is used to initialize DECL.
 
    Return the converted expression.  */
 
@@ -6470,7 +6460,7 @@ initialize_reference (tree type, tree expr, tree decl, tree *cleanup)
 	     TARGET_EXPR here.  It is important that EXPR be a
 	     TARGET_EXPR below since otherwise the INIT_EXPR will
 	     attempt to make a bitwise copy of EXPR to initialize
-	     VAR. */
+	     VAR.  */
 	  if (TREE_CODE (expr) != TARGET_EXPR)
 	    expr = get_target_expr (expr);
 	  /* Create the INIT_EXPR that will initialize the temporary
@@ -6478,28 +6468,27 @@ initialize_reference (tree type, tree expr, tree decl, tree *cleanup)
 	  init = build (INIT_EXPR, type, var, expr);
 	  if (at_function_scope_p ())
 	    {
-	      add_decl_stmt (var);
+	      add_decl_expr (var);
 	      *cleanup = cxx_maybe_build_cleanup (var);
-	      if (*cleanup)
-		/* We must be careful to destroy the temporary only
-		   after its initialization has taken place.  If the
-		   initialization throws an exception, then the
-		   destructor should not be run.  We cannot simply
-		   transform INIT into something like:
+
+	      /* We must be careful to destroy the temporary only
+		 after its initialization has taken place.  If the
+		 initialization throws an exception, then the
+		 destructor should not be run.  We cannot simply
+		 transform INIT into something like:
 	     
 		     (INIT, ({ CLEANUP_STMT; }))
 
-		   because emit_local_var always treats the
-		   initializer as a full-expression.  Thus, the
-		   destructor would run too early; it would run at the
-		   end of initializing the reference variable, rather
-		   than at the end of the block enclosing the
-		   reference variable.
+		 because emit_local_var always treats the
+		 initializer as a full-expression.  Thus, the
+		 destructor would run too early; it would run at the
+		 end of initializing the reference variable, rather
+		 than at the end of the block enclosing the
+		 reference variable.
 
-		   The solution is to pass back a CLEANUP_STMT which
-		   the caller is responsible for attaching to the
-		   statement tree.  */
-		*cleanup = build_stmt (CLEANUP_STMT, var, *cleanup);
+		 The solution is to pass back a cleanup expression
+		 which the caller is responsible for attaching to
+		 the statement tree.  */
 	    }
 	  else
 	    {

@@ -26,11 +26,7 @@ Boston, MA 02111-1307, USA.  */
 /* This file is part of the C++ front end.
    It contains routines to build C++ expressions given their operands,
    including computing the types of the result, C and C++ specific error
-   checks, and some optimization.
-
-   There are also routines to build RETURN_STMT nodes and CASE_STMT nodes,
-   and to process initializations in declarations (since they work
-   like a strange sort of assignment).  */
+   checks, and some optimization.  */
 
 #include "config.h"
 #include "system.h"
@@ -149,34 +145,41 @@ abstract_virtuals_error (tree decl, tree type)
 	return 0;
 
       if (TREE_CODE (decl) == VAR_DECL)
-	error ("cannot declare variable `%D' to be of type `%T'",
-		    decl, type);
+	cp_error_at ("cannot declare variable `%+D' to be of abstract "
+		     "type `%T'", decl, type);
       else if (TREE_CODE (decl) == PARM_DECL)
-	error ("cannot declare parameter `%D' to be of type `%T'",
-		    decl, type);
+	cp_error_at ("cannot declare parameter `%+D' to be of abstract "
+		     "type `%T'", decl, type);
       else if (TREE_CODE (decl) == FIELD_DECL)
-	error ("cannot declare field `%D' to be of type `%T'",
-		    decl, type);
+	cp_error_at ("cannot declare field `%+D' to be of abstract "
+		     "type `%T'", decl, type);
       else if (TREE_CODE (decl) == FUNCTION_DECL
 	       && TREE_CODE (TREE_TYPE (decl)) == METHOD_TYPE)
-	error ("invalid return type for member function `%#D'", decl);
+	cp_error_at ("invalid abstract return type for member function `%+#D'",
+		     decl);
       else if (TREE_CODE (decl) == FUNCTION_DECL)
-	error ("invalid return type for function `%#D'", decl);
+	cp_error_at ("invalid abstract return type for function `%+#D'", 
+		     decl);
+      else
+	cp_error_at ("invalid abstract type for `%+D'", decl);
     }
   else
-    error ("cannot allocate an object of type `%T'", type);
+    error ("cannot allocate an object of abstract type `%T'", type);
 
   /* Only go through this once.  */
   if (TREE_PURPOSE (u) == NULL_TREE)
     {
       TREE_PURPOSE (u) = error_mark_node;
 
-      error ("  because the following virtual functions are abstract:");
+      inform ("%J  because the following virtual functions are pure "
+	      "within `%T':", TYPE_MAIN_DECL (type), type);
+
       for (tu = u; tu; tu = TREE_CHAIN (tu))
-	cp_error_at ("\t%#D", TREE_VALUE (tu));
+	inform ("%J\t%#D", TREE_VALUE (tu), TREE_VALUE (tu));
     }
   else
-    error ("  since type `%T' has abstract virtual functions", type);
+    inform ("%J  since type `%T' has pure virtual functions", 
+	    TYPE_MAIN_DECL (type), type);
 
   return 1;
 }
@@ -286,13 +289,10 @@ cxx_incomplete_type_error (tree value, tree type)
 
 
 /* The recursive part of split_nonconstant_init.  DEST is an lvalue
-   expression to which INIT should be assigned.  INIT is a CONSTRUCTOR.
-   PCODE is a pointer to the tail of a chain of statements being emitted.
-   The return value is the new tail of that chain after new statements
-   are generated.  */
+   expression to which INIT should be assigned.  INIT is a CONSTRUCTOR.  */
 
-static tree *
-split_nonconstant_init_1 (tree dest, tree init, tree *pcode)
+static void
+split_nonconstant_init_1 (tree dest, tree init)
 {
   tree *pelt, elt, type = TREE_TYPE (dest);
   tree sub, code, inner_type = NULL;
@@ -320,28 +320,31 @@ split_nonconstant_init_1 (tree dest, tree init, tree *pcode)
 	  if (TREE_CODE (value) == CONSTRUCTOR)
 	    {
 	      if (array_type_p)
-	        sub = build (ARRAY_REF, inner_type, dest, field_index);
+	        sub = build (ARRAY_REF, inner_type, dest, field_index,
+			     NULL_TREE, NULL_TREE);
 	      else
-	        sub = build (COMPONENT_REF, inner_type, dest, field_index);
+	        sub = build (COMPONENT_REF, inner_type, dest, field_index,
+			     NULL_TREE);
 
-	      pcode = split_nonconstant_init_1 (sub, value, pcode);
+	      split_nonconstant_init_1 (sub, value);
 	    }
 	  else if (!initializer_constant_valid_p (value, inner_type))
 	    {
 	      *pelt = TREE_CHAIN (elt);
 
 	      if (array_type_p)
-	        sub = build (ARRAY_REF, inner_type, dest, field_index);
+	        sub = build (ARRAY_REF, inner_type, dest, field_index,
+			     NULL_TREE, NULL_TREE);
 	      else
-	        sub = build (COMPONENT_REF, inner_type, dest, field_index);
+	        sub = build (COMPONENT_REF, inner_type, dest, field_index,
+			     NULL_TREE);
 
 	      code = build (MODIFY_EXPR, inner_type, sub, value);
 	      code = build_stmt (EXPR_STMT, code);
-
-	      *pcode = code;
-	      pcode = &TREE_CHAIN (code);
+	      add_stmt (code);
 	      continue;
 	    }
+
 	  pelt = &TREE_CHAIN (elt);
 	}
       break;
@@ -352,15 +355,13 @@ split_nonconstant_init_1 (tree dest, tree init, tree *pcode)
 	  CONSTRUCTOR_ELTS (init) = NULL;
 	  code = build (MODIFY_EXPR, type, dest, init);
 	  code = build_stmt (EXPR_STMT, code);
-	  pcode = &TREE_CHAIN (code);
+	  add_stmt (code);
 	}
       break;
 
     default:
       abort ();
     }
-
-  return pcode;
 }
 
 /* A subroutine of store_init_value.  Splits non-constant static 
@@ -375,10 +376,9 @@ split_nonconstant_init (tree dest, tree init)
 
   if (TREE_CODE (init) == CONSTRUCTOR)
     {
-      code = build_stmt (COMPOUND_STMT, NULL_TREE);
-      split_nonconstant_init_1 (dest, init, &COMPOUND_BODY (code));
-      code = build1 (STMT_EXPR, void_type_node, code);
-      TREE_SIDE_EFFECTS (code) = 1;
+      code = push_stmt_list ();
+      split_nonconstant_init_1 (dest, init);
+      code = pop_stmt_list (code);
       DECL_INITIAL (dest) = init;
       TREE_READONLY (dest) = 0;
     }
