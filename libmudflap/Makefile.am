@@ -14,7 +14,7 @@ TESTS = test/fail1.x test/fail10.x test/fail11.x test/fail12.x				\
  test/fail2.x test/fail3.x test/fail4.x test/fail5.x test/fail6.x			\
  test/fail7.x test/fail8.x test/fail9.x test/pass1.x test/pass10.x			\
  test/pass11.x test/pass12.x test/pass13.x test/pass14.x test/pass15.x			\
- test/pass16.x test/pass17.x test/pass2.x test/pass3.x test/pass4.x test/pass5.x	\
+ test/pass16.x test/pass17.x test/pass18.x test/pass19.x test/pass2.x test/pass3.x test/pass4.x test/pass5.x	\
  test/pass6.x test/pass7.x test/pass8.x test/pass9.x
 
 
@@ -28,13 +28,22 @@ test/%.c: test/%-frag.c test/mf-driver.c test/buildtest.sh
 clean-local:
 	rm -f $(TESTS)
 
+# Various possibilities
+TESTFLAGS=-rdynamic
+#TESTFLAGS=-static
+#TESTFLAGS=-fdisable-simple
+#TESTFLAGS=-O3
+
 test/fail%.x: test/fail%.c
-	$(CC) -DSHOULD_FAIL -rdynamic -fmudflap -g -o $@ $<
+	$(CC) -DSHOULD_FAIL -fmudflap $(TESTFLAGS) -g -o $@ $<
 
 test/pass%.x: test/pass%.c
-	$(CC) -DSHOULD_PASS -rdynamic -fmudflap -g -o $@ $<
+	$(CC) -DSHOULD_PASS -fmudflap $(TESTFLAGS) -g -o $@ $<
 
-$(TESTS): $(lib_LTLIBRARIES)
+$(TESTS): clean-tests $(lib_LTLIBRARIES)
+
+clean-tests:
+	rm -f $(TESTS)
 
 # SUBDIRS = 
 # PWD = $${PWDCMD-pwd}

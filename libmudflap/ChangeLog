@@ -1,5 +1,11 @@
 2002-09-06  Frank Ch. Eigler  <fche@redhat.com>
 
+	* test/pass18-frag.c, pass19-frag.c: New tests.
+	* Makefile.am (check): Run them.  Rebuild test programs each time.
+	* Makefile.in: Regenerated.
+
+2002-09-06  Frank Ch. Eigler  <fche@redhat.com>
+
 	* mf-runtime.c (__mf_register): Correct SEGV-inducing error in
 	overlapping object search.
 	(__mf_violation): Likewise for nearby objects.
