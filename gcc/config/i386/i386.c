@@ -14962,6 +14962,95 @@ x86_function_profiler (file, labelno)
     }
 }
 
+/* We don't have exact information about the insn sizes, but we may assume
+   quite safely that we are informed about all 1 byte insns and memory
+   address sizes.  This is enought to elliminate unnecesary padding in
+   99% of cases.  */
+static int
+min_insn_size (insn)
+     rtx insn;
+{
+  int l = 0;
+
+  if (!INSN_P (insn) && !active_insn_p (insn))
+    return 0;
+  if (GET_CODE (PATTERN (insn)) == UNSPEC_VOLATILE
+      && XINT (PATTERN (insn), 1) == UNSPECV_ALIGN)
+    return 0;
+  /* Important case - calls are always 5 bytes.
+     It is common to have many calls in the row.  */
+  if (GET_CODE (insn) == CALL_INSN
+      && !SIBLING_CALL_P (insn))
+    return 5;
+  if (get_attr_length (insn) <= 1)
+    return 1;
+  if (GET_CODE (insn) != JUMP_INSN)
+    l = get_attr_length_address (insn);
+  if (l)
+    return 1+l;
+  else
+    return 2;
+}
+
+/* AMD K8 core misspredicts jumps when there are more than 3 jumps in 16 byte
+   window.  */
+static void
+k8_avoid_jump_misspredicts (first)
+     rtx first;
+{
+  rtx insn, start = first;
+  int nbytes = 0, njumps = 0;
+
+  for (insn = first; insn; insn = NEXT_INSN (insn))
+    {
+      int size;
+      bool jump = false;
+
+      if ((GET_CODE (insn) == JUMP_INSN
+	   && GET_CODE (PATTERN (insn)) != ADDR_VEC
+	   && GET_CODE (PATTERN (insn)) != ADDR_DIFF_VEC)
+	  || GET_CODE (insn) == CALL_INSN)
+	njumps++, jump = true;
+      nbytes += min_insn_size (insn);
+      while (nbytes - (size = min_insn_size (start)) >= 16)
+	{
+	  nbytes -= size;
+	  if ((GET_CODE (start) == JUMP_INSN
+	       && GET_CODE (PATTERN (start)) != ADDR_VEC
+	       && GET_CODE (PATTERN (start)) != ADDR_DIFF_VEC)
+	      || GET_CODE (start) == CALL_INSN)
+	    njumps--;
+	  start = NEXT_INSN (start);
+	}
+      if (njumps > 3 && jump)
+	{
+	  int padsize = 0;
+	  rtx tmp = start;
+	  int n = njumps;
+
+	  size = 0;
+	  while (n > 3)
+	    {
+	      padsize += size;
+	      size += min_insn_size (tmp);
+	      if ((GET_CODE (tmp) == JUMP_INSN
+		   && GET_CODE (PATTERN (tmp)) != ADDR_VEC
+		   && GET_CODE (PATTERN (tmp)) != ADDR_DIFF_VEC)
+		  || GET_CODE (tmp) == CALL_INSN)
+		n--;
+	      tmp = NEXT_INSN (tmp);
+	    }
+	  padsize += 1;
+	  if (rtl_dump_file)
+	    fprintf (rtl_dump_file, "Padding insn %i by %i bytes!\n", INSN_UID (insn), padsize);
+	  if (padsize)
+	    {
+	      emit_insn_before (gen_align (GEN_INT (padsize)), insn);
+	    }
+	}
+    }
+}
+
 /* Implement machine specific optimizations.  
    At the moment we implement single transformation: AMD Athlon works faster
    when RET is not destination of conditional jump or directly preceded
