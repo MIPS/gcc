@@ -45,12 +45,22 @@ Boston, MA 02111-1307, USA.  */
 #include "c-common.h"
 #include "c-tree.h"
 #include "bitmap.h"
+#include "splay-tree.h"
+#define EXTRANEOUS_EPHI_REMOVAL 0
 
+/* See http://citeseer.nj.nec.com/chow97new.html, and
+   http://citeseer.nj.nec.com/kennedy99partial.html for details of the
+   algorithm.
 
+   kennedy99partial is newer, and is what this implementation is based
+   on.
+   Pieces are also taken from Open64's SSAPRE implementation.
+
+*/
 struct expr_info;
-static hashval_t hash_binary_tree PARAMS ((const void *));
-static int binexpr_lexically_eq PARAMS ((const void *, const void *));
-static void free_expr_info PARAMS ((void *));
+static hashval_t hash_expr_tree PARAMS ((const void *));
+static int expr_lexically_eq PARAMS ((tree, tree));
+static void free_expr_info PARAMS ((struct expr_info *));
 static sbitmap compute_idfs PARAMS ((sbitmap *, tree));
 static void compute_domchildren PARAMS ((int *, sbitmap *));
 
@@ -59,8 +69,8 @@ static void set_var_phis PARAMS ((varref, int));
 static inline varref find_varref_for_var PARAMS ((struct expr_info *, tree, tree));
 static inline varref find_def_for_stmt PARAMS ((tree));
 static void expr_phi_insertion PARAMS ((sbitmap *, struct expr_info *));
-static int pre_part_1_trav PARAMS ((void **, void *));
-static int add_call_to_ei PARAMS ((void **, void *));
+static int pre_part_1_trav PARAMS ((struct expr_info *, void *));
+static int add_call_to_ei PARAMS ((struct expr_info *, void *));
 static void reset_down_safe PARAMS ((varref));
 static void down_safety PARAMS ((struct expr_info *));
 static void will_be_avail PARAMS ((struct expr_info *));
@@ -79,13 +89,14 @@ static void insert_euse_in_preorder_dt_order_1 PARAMS ((struct expr_info *, fibh
 static void insert_euse_in_preorder_dt_order PARAMS ((struct expr_info *, fibheap_t));
 static inline int opnum_of_phi PARAMS ((varref, int));
 static varray_type phi_opnd_from_res PARAMS ((varref, int, basic_block));
-static void rename_2 PARAMS ((struct expr_info *, varray_type *));
+static splay_tree rename_2 PARAMS ((struct expr_info *, varray_type *));
 static void rename_1 PARAMS ((struct expr_info *));
 static void finalize_2 PARAMS ((struct expr_info *));
 static void finalize_1 PARAMS ((struct expr_info *, tree));
 static varref phi_for_operand PARAMS ((struct expr_info *, varref));\
 static void set_save PARAMS ((struct expr_info *, varref));
 static void set_replacement PARAMS ((struct expr_info *, varref, varref));
+static bool requires_edge_placement PARAMS ((varref));
 
 static int *pre_preorder;
 static int *pre_idom;
@@ -115,7 +126,8 @@ struct expr_info
   varray_type phis;
   /* All the erefs. */
   varray_type erefs;
-
+  /* All the refs. */
+  varray_type refs;
 };
 
 /* Returns true if a dominates b */
@@ -143,11 +155,11 @@ compute_domchildren (idom, domc)
      int *idom;
      sbitmap *domc;
 {
-  int i;
-  for (i = 0; i < n_basic_blocks; i++)
+  basic_block bb;
+  FOR_EACH_BB (bb)
     {     
-      if (idom[i] >= 0)
-        SET_BIT (domc[idom[i]], i);
+      if (idom[bb->index] >= 0)
+        SET_BIT (domc[idom[bb->index]], bb->index);
     }
 }
 
@@ -192,34 +204,53 @@ compute_idfs (dfs, stmt)
    equality function, so the hash needs to make sure they end up
    colliding.  */
 static hashval_t 
-hash_binary_tree (v)
+hash_expr_tree (v)
      const void *v;
 {
   tree t = (tree) v;
-  return TREE_CODE (t) 
-    + TREE_CODE (TREE_OPERAND (t, 0)) 
-    + TREE_CODE (TREE_OPERAND (t, 1));
+  tree op0, op1;
+  hashval_t ret = 0;
+
+  STRIP_NOPS (t);
+  ret += TREE_CODE (t);
+  if (TREE_CODE_CLASS (TREE_CODE (t)) != 'd')
+  {
+  if (TREE_OPERAND (t, 0))
+    {
+       op0 = TREE_OPERAND (t, 0);
+       STRIP_NOPS (op0);
+       ret += TREE_CODE (op0);
+    }
+  if (TREE_OPERAND (t, 1))
+    {
+      op1 = TREE_OPERAND (t, 1);
+      STRIP_NOPS (op1);
+      ret += TREE_CODE (op1);
+    }
+  }
+  return ret;
 }
 
 /* Determine if two expressions are lexically equivalent.
-   The first argument will be the struct expr_info already in the
-   table, the second  argument will be a tree to compare for
-   equality. */
+   Return a value like one that would be used for qsort comparisons,
+   so 0 if equal, something else otherwise.
+   -+
+   */
 static int 
-binexpr_lexically_eq (v1, v2)
-     const void *v1;
-     const void *v2;
+expr_lexically_eq (v1, v2)
+     tree v1;
+     tree v2;
 {
-  struct expr_info *e1 = (struct expr_info *) v1;
-  tree t2 = (tree) v2;
+  const tree t1 = (tree) v1;
+  const tree t2 = (tree) v2;
   /* XXX: Is this too restrictive, not restrictive enough, or just right? */
-  return operand_equal_p (e1->expr, t2, 0);
+  return operand_equal_p (t1, t2, 0);
 }
 
 /* Free an expression info structure.  */
 static void 
 free_expr_info (v1)
-     void *v1;
+     struct expr_info * v1;
 {
   struct expr_info *e1 = (struct expr_info *)v1;
   VARRAY_FREE (e1->occurs);
@@ -228,6 +259,7 @@ free_expr_info (v1)
   VARRAY_FREE (e1->realstmts);
   VARRAY_FREE (e1->phis);
   VARRAY_FREE (e1->erefs);
+  VARRAY_FREE (e1->refs);
   free (e1);
 }
 
@@ -235,12 +267,22 @@ free_expr_info (v1)
 static sbitmap dfphis;
 static sbitmap *varphis;
 
-/* Implementation of set_var_phis, as described in paper. */
+/* Figure out which variables are defined by PHI's, and record them so
+   we can insert ExprPHI's in the right places. */
 static void
 set_var_phis (phi, i)
      varref phi;
      int i;
 {
+  /* 
+     if (phi ! a member of varphis[i]) 
+     {
+        varphis[i] = varphis[i] U {block containing phi} 
+        for each operand V of phi do
+        if (V is defined by phi)
+           set_var_phis (Phi(V), i, j)
+     }
+  */
   if (!TEST_BIT (varphis[i], VARREF_BB (phi)->index))
     {
       varref phi_operand;
@@ -331,10 +373,13 @@ defs_y_dom_x ( y, x)
   
   treerefs = TREE_REFS (EXPRREF_STMT (y));
 
-  /* It's a binary expression, so it has only two operands. */
+  /* It's a binary or unary expression, so it has only two operands at
+     most. */
 
   for (i =  0; i < 2; i++)
-    {      
+    {
+      if (!TREE_OPERAND (EXPRREF_EXPR (y), i))
+        continue;
       for (j = 0; j < VARRAY_ACTIVE_SIZE (treerefs) ; j++)
         {
           varref ref = VARRAY_GENERIC_PTR (treerefs, j);
@@ -373,7 +418,7 @@ defs_match_p (ei, t1, t2)
                       (TREE_CODE (VARREF_EXPR (use1)) != TREE_CODE (t2)))
         continue;
       use2 = find_varref_for_var (ei, t2, VARREF_SYM (use1));
-      if (VARUSE_CHAIN (use2) != VARUSE_CHAIN (use1))
+      if (!use2 || (VARUSE_CHAIN (use2) != VARUSE_CHAIN (use1)))
         return false;
     }
   return true;
@@ -386,6 +431,10 @@ assign_new_class (occ, stack)
      varref occ;
      varray_type *stack;
 {
+  /* class(occ) <- count
+     Push(occ, stack)
+     count <- count + 1
+  */
   EXPRREF_CLASS (occ) = class_count;
   VARRAY_PUSH_GENERIC_PTR (*stack, occ);
   class_count++;
@@ -423,7 +472,7 @@ insert_euse_in_preorder_dt_order (ei, fh)
      fibheap_t fh;
 {
   preorder_count = 0;
-  insert_euse_in_preorder_dt_order_1 (ei, fh, BASIC_BLOCK (0));
+  insert_euse_in_preorder_dt_order_1 (ei, fh, ENTRY_BLOCK_PTR->next_bb);
 }
 
 /* Insert the occurrences in preorder DT order, in the fibheap.  */
@@ -443,7 +492,9 @@ insert_occ_in_preorder_dt_order_1 (ei, fh, block)
     {
       varref newref;
       tree occurstmt = VARRAY_TREE (ei->occurstmts, i);
-      if (BB_FOR_STMT (occurstmt) != block)
+      varref occurref = VARRAY_GENERIC_PTR (ei->refs, i);
+      if (VARREF_BB (occurref) != block)
+	/*BB_FOR_STMT (occurstmt) != block)*/
         continue;
       if (TREE_CODE (VARRAY_TREE (ei->occurs, i)) == CALL_EXPR)
 	{
@@ -481,7 +532,7 @@ insert_occ_in_preorder_dt_order_1 (ei, fh, block)
               EXPRUSE_DEF (newref) = NULL;
               EXPRREF_CLASS (newref) = 0;
               EXPRUSE_PHIOP (newref) = 1;
-              EXPRUSE_HAS_REAL_USE (newref) = 0;              
+              EXPRUSE_HAS_REAL_USE (newref) = 0;
 	      EXPRREF_SAVE (newref) = 0;
 	      EXPRREF_RELOAD (newref) = 0;
 	      EXPRREF_INSERTED (newref) = 0;
@@ -492,7 +543,10 @@ insert_occ_in_preorder_dt_order_1 (ei, fh, block)
       
       else
         {
-          fibheap_insert (fh, preorder_count++, (void *) EXIT_BLOCK_PTR);
+	  /* No point in inserting exit blocks into heap first, since
+	     they'll never be anything on the stack. */
+	  if (preorder_count != 0)
+	    fibheap_insert (fh, preorder_count++, (void *) EXIT_BLOCK_PTR);
         }
           
     }
@@ -508,7 +562,7 @@ insert_occ_in_preorder_dt_order (ei, fh)
      fibheap_t fh;
 {
   preorder_count = 0;
-  insert_occ_in_preorder_dt_order_1 (ei, fh, BASIC_BLOCK (0));
+  insert_occ_in_preorder_dt_order_1 (ei, fh, ENTRY_BLOCK_PTR->next_bb);
 }
 
 /* Determine the phi operand index for J, for PHI.  */
@@ -542,22 +596,28 @@ phi_opnd_from_res (Z, j, b)
   varray_type Q;
   varray_type Zrefs;
   size_t i;
+
   VARRAY_GENERIC_PTR_INIT (Q, 1, "Temp ops");
   Zrefs = TREE_REFS (EXPRREF_STMT (Z));
+
+  /* b <- block containing phi that defines Z.
+     Q <- copy of Z */
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (Zrefs); i++)
+    VARRAY_PUSH_GENERIC_PTR (Q, VARRAY_GENERIC_PTR (Zrefs, i));
+
+  /* For each variable v in Z */
   for (i = 0; i < VARRAY_ACTIVE_SIZE (Zrefs); i++)
     {
-      VARRAY_PUSH_GENERIC_PTR (Q, VARRAY_GENERIC_PTR (Zrefs, i));
-    }
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (Zrefs); i++)
-    {
-      varref v;
-      v = VARRAY_GENERIC_PTR (Zrefs, i);
+      varref v = VARRAY_GENERIC_PTR (Zrefs, i);
+      
+      /* If v is defined by phi in b */
       if (VARREF_TYPE (v) == VARUSE
           && VARREF_TYPE (VARUSE_CHAIN (v)) == VARPHI)
         {
           varref phi = VARUSE_CHAIN (v);
           if (VARREF_BB (phi) == b)
-            {    
+	    {
+	      /* replace v in Q by j'th operand of v's phi */
               int opnum = opnum_of_phi (phi, j);
               varref op = VARRAY_GENERIC_PTR (VARDEF_PHI_CHAIN (phi), opnum);
               VARRAY_GENERIC_PTR (Q, i) = op;
@@ -567,40 +627,60 @@ phi_opnd_from_res (Z, j, b)
       else if (VARREF_TYPE (v) == VARDEF 
                || VARREF_TYPE (v) == VARPHI
                || EXPRREF_TYPE (v) == EXPRUSE)
-        {
-          VARRAY_GENERIC_PTR (Q, i) = NULL;
-        }
+	VARRAY_GENERIC_PTR (Q, i) = NULL;
     }
   return Q;
 }
 
 /* Second pass of delayed renaming algorithm.  */
-static void
+static splay_tree
 rename_2 (ei, rename2_set)
      struct expr_info *ei;
      varray_type *rename2_set;
 {
   size_t i;
+  splay_tree touched_set;
+  basic_block block;
+
+  /* Keep track of which phi operands we touch.  */
+  touched_set = splay_tree_new (splay_tree_compare_pointers, NULL, NULL);
+
+  /* For each exprphi f in the program do
+	for each operand w of f do
+	  processed (w) = false.  */
   for (i = 0; i < VARRAY_SIZE (ei->phis); i++)
     {
       varref phi = VARRAY_GENERIC_PTR (ei->phis, i);
       if (phi != NULL)
         bitmap_clear (EXPRPHI_PROCESSED(phi));
     }
+  
+  /* while (set_for_rename2 not empty) do { */
   while (VARRAY_ACTIVE_SIZE (*rename2_set) > 0)
     {
       varref Z; 
       varref phiZ;
+
+      /* Remove real occurrence Z from set_for_rename2.  */
       Z = VARRAY_TOP_GENERIC_PTR (*rename2_set);
       VARRAY_POP (*rename2_set);
+
+      splay_tree_insert (touched_set, (splay_tree_key) Z, 0);
+      
+      /* f <- phi that defines Z. */
       phiZ = EXPRUSE_DEF (Z);
-      for (i = 0; i < n_basic_blocks; i++)
-        {
+      
+      /* for each operand w of f do { */
+      FOR_EACH_BB (block)
+	{
           varref w;
-          basic_block blocki = BASIC_BLOCK (i);
-          if (phi_operand (phiZ, blocki) == NULL)
+	  i = block->index;
+	  
+          if (phi_operand (phiZ, block) == NULL)
             continue;
-          w = phi_operand (phiZ, blocki);
+          w = phi_operand (phiZ, block);
+
+	  /* if (not processed(w)) { */
           if (!bitmap_bit_p (EXPRPHI_PROCESSED (phiZ), i))
             {
               /* j = i because we lookup the real index in the
@@ -609,15 +689,27 @@ rename_2 (ei, rename2_set)
               size_t k;
               varray_type Y;
               varref X;
-              varray_type Xops;       
+              varray_type Xops; 
+	      
+	      /* j <- index of w in f
+   		 Y <- phi_operand_from_res (Z, j)
+		 X <- def(w)  */     
               Y = phi_opnd_from_res (Z, j, EXPRREF_BB (phiZ));
               X = EXPRUSE_DEF (w);
-	      if (!X)
-		continue;
 	      
-              if (EXPRREF_TYPE (X) == EXPRUSE)
+	      if (!X)
+	        {
+	          VARRAY_FREE (Y);
+		  continue;
+	        }
+	      
+	      /* if (X is a real occurrence) */
+	      if (EXPRREF_TYPE (X) == EXPRUSE)
                 {
                   bool match = true;
+		  
+		  /* if (all corresponding variables in Y and X have
+		     the same SSA version) */
                   Xops = TREE_REFS (EXPRREF_STMT (X));
                   for (k = 0; k < VARRAY_ACTIVE_SIZE (Xops); k++)
                     {
@@ -639,18 +731,22 @@ rename_2 (ei, rename2_set)
                         }
                     }
                   if (!match)
-                    {
+                    {		
+		      /* def(w) <- tack  */
                       EXPRUSE_DEF (w) = NULL;
 		      EXPRUSE_HAS_REAL_USE (w) = 0;
                     } 
 		  else
-		    {
+		    {	
+		      /* no change needed  */
 		      EXPRUSE_HAS_REAL_USE (w) = 1;
 		    }
                 }
               else /* X is a ExprPhi occurrence */
                 {
                   bool match = true;
+
+		  /* if (definitions of all variables in Y dominate X) */
                   for (k = 0; k < VARRAY_ACTIVE_SIZE (Y); k++)
                     {
                       varref ref = VARRAY_GENERIC_PTR (Y, k);
@@ -666,20 +762,25 @@ rename_2 (ei, rename2_set)
                         }
                     }
                   if (match)
-                    {
+                    { 
+		      /* No change needed. 
+			 set_for_rename2 <- set_for_rename2 U {Y} */
                       VARRAY_PUSH_GENERIC_PTR (*rename2_set, Z);
                     }
                   else
                     {
-                      EXPRUSE_DEF (w) = NULL;
+		      /* def(w) <- tack */
+		      EXPRUSE_DEF (w) = NULL;
                       EXPRPHI_DOWNSAFE (phiZ) = 0;
                     }
                 }
-              bitmap_set_bit (EXPRPHI_PROCESSED (phiZ), i);
-              
+	      /* processed (w) <- true */
+	      bitmap_set_bit (EXPRPHI_PROCESSED (phiZ), i);
+              VARRAY_FREE (Y); 
             }
         }
     }
+  return touched_set;
 }
 
 /* First pass of delayed renaming algorithm.  */
@@ -691,16 +792,27 @@ rename_1 (ei)
   varref y;
   varray_type stack;
   varray_type rename2_set;
+  varray_type recheck_set;
+  splay_tree touched_set;
+  size_t i;
+  
+  /* count <- 0
+     stack <- empty
+     set_for_rename2 <- {} */
   VARRAY_GENERIC_PTR_INIT (stack, 1, "Stack");
   VARRAY_GENERIC_PTR_INIT (rename2_set, 1, "Rename2 set");
+  VARRAY_GENERIC_PTR_INIT (recheck_set, 1, "Recheck set");
   class_count = 1;
+  
+ /* for each occurrence Y in the current expression in preorder DT
+     traversal order do { */
   insert_occ_in_preorder_dt_order (ei, fh);
   while (!fibheap_empty (fh))
     {
       y = fibheap_extract_min (fh);
       if ((basic_block) y == EXIT_BLOCK_PTR)
         {
-          if (VARRAY_ACTIVE_SIZE (stack) > 0)
+	  if (VARRAY_ACTIVE_SIZE (stack) > 0)
             {
               varref stackref = VARRAY_TOP_GENERIC_PTR (stack);
               if (EXPRREF_TYPE (stackref) == EXPRPHI)
@@ -711,7 +823,7 @@ rename_1 (ei)
       if (EXPRREF_TYPE (y) == EXPRKILL 
 	  && TREE_CODE (EXPRREF_EXPR (y)) == CALL_EXPR)
         {
-          if (VARRAY_ACTIVE_SIZE (stack) > 0)
+		if (VARRAY_ACTIVE_SIZE (stack) > 0)
             {
               varref stackref = VARRAY_TOP_GENERIC_PTR (stack);
               if (EXPRREF_TYPE (stackref) == EXPRPHI)
@@ -720,7 +832,9 @@ rename_1 (ei)
             }
           continue;       
         }
-
+      
+      /* while (Top(stack) does not dominate Y) do 
+	   Pop(stack)  */
       while (VARRAY_ACTIVE_SIZE (stack) > 0)
         {
           varref stackref = VARRAY_TOP_GENERIC_PTR (stack);
@@ -728,38 +842,45 @@ rename_1 (ei)
             break;           
           VARRAY_POP (stack);
         }
-      /* (EXPRPHI  == ExprPHI occurrence.  */
+
+      /* if (Y is an exprphi occurrence)
+           assign_new_class (Y)  */
       if (EXPRREF_TYPE (y) == EXPRPHI)
         {
-          assign_new_class (y, &stack);
+	  assign_new_class (y, &stack);
         }
-      /* Non-NOP_EXPR == real occurrence */
+      /* else if (Y is a real occurrence) */
       else if (EXPRREF_TYPE (y) == EXPRUSE && EXPRUSE_PHIOP (y) == 0)
         {
-          /* If stack is empty, assign new class */
+	  /* if (stack is empty)
+	       Assign_New_Class(Y) */
           if (VARRAY_ACTIVE_SIZE (stack) == 0)
             {
               assign_new_class ( y, &stack);
             }
+          /* else */
           else
             {
+	      /* X <- Top(stack) */
               varref x = VARRAY_TOP_GENERIC_PTR (stack);
-              /* If X is a real occurrence. */
+	      
+              /* If (X is a real occurrence) */
               if (EXPRREF_TYPE (x) == EXPRUSE)
                 {
-                  /* If all corresponding variables in Y and X have
-                     the same version. */
+                  /* If (all corresponding variables in Y and X have
+                     the same SSA version) */
                   if (defs_match_p (ei, EXPRREF_STMT (y), EXPRREF_EXPR (x)))
                     {
                       /* class(Y) <- class(X)
                          def(Y) <- X */
                       EXPRREF_CLASS (y) = EXPRREF_CLASS (x);
-#if not_in_open64
+#if 0
                       EXPRUSE_DEF (y) = x;
 #else
 		      EXPRUSE_DEF (y) = EXPRUSE_DEF (x) != NULL ? EXPRUSE_DEF (x) : x;
 #endif
                     }
+		  /* else Assign_New_Class (Y) */
                   else
                     {
                       assign_new_class ( y, &stack);
@@ -769,7 +890,9 @@ rename_1 (ei)
                 {
                   if (EXPRREF_TYPE (x) != EXPRPHI)
                     abort();
-                  if (defs_y_dom_x (y, x))
+		  /* if (definitions of all variables in Y dominate X)
+		     { */
+		  if (defs_y_dom_x (y, x))
                     {
                       /* class(Y) <- class(X)
                          def(Y) <- X
@@ -811,9 +934,8 @@ doesn't dominate whatever  occurrences we see while it's at the top,
 we'll pop it, and if the phi isn't really going to be downsafe, we'll
 catch it in rename_2 or during downsafety propagation. */
 
-		      VARRAY_PUSH_GENERIC_PTR (stack, y);
-		      
-                      VARRAY_PUSH_GENERIC_PTR (rename2_set, y);
+		      VARRAY_PUSH_GENERIC_PTR (stack, y);		      
+		      VARRAY_PUSH_GENERIC_PTR (rename2_set, y);
                     }
                   else
                     {
@@ -823,13 +945,14 @@ catch it in rename_2 or during downsafety propagation. */
                 } 
             } 
         }
-      /* ExprPhi operand occurrence. */
+      /* else if (Y is an exprphi operand occurrence) */
       else if (EXPRREF_TYPE (y) == EXPRUSE && EXPRUSE_PHIOP (y) == 1)
         {
           if (VARRAY_ACTIVE_SIZE (stack) == 0)
             {
               /* def(Y) <- tack */
 	      EXPRUSE_DEF (y) = NULL;
+	      EXPRUSE_HAS_REAL_USE (y) = 0;
             }
           else
             {
@@ -840,16 +963,69 @@ catch it in rename_2 or during downsafety propagation. */
               varref x = VARRAY_TOP_GENERIC_PTR (stack);
               EXPRREF_CLASS (y) = EXPRREF_CLASS (x);
               EXPRUSE_DEF (y) = x;
+	      if (EXPRREF_TYPE (x) != EXPRPHI)		
+		{
+		  EXPRUSE_HAS_REAL_USE (y) = 1;
+		  if (EXPRUSE_DEF (x) && EXPRREF_TYPE (EXPRUSE_DEF (x)) == EXPRPHI)
+			VARRAY_PUSH_GENERIC_PTR (rename2_set, x);
+		}
+	      else
+		{
+		  EXPRUSE_HAS_REAL_USE (y) = 0;
+		  VARRAY_PUSH_GENERIC_PTR (recheck_set, y);
+		}
 	    }
         }
       else
         abort();
     }
-  rename_2 (ei, &rename2_set);
+  /* This is based on Open64, rather than something in the paper. 
+     If phi_result, phi_operand is still delayed, there must be no
+     real occurrence between them, and thus, it's okay to set
+     downsafe.
+  */
+  touched_set = rename_2 (ei, &rename2_set);
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (recheck_set); i++)
+    {
+      
+      if (splay_tree_lookup (touched_set, (splay_tree_key)
+			     VARRAY_GENERIC_PTR (recheck_set, i)) != NULL)
+	VARRAY_GENERIC_PTR (recheck_set, i) = NULL;
+    }
+
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (recheck_set); i++)
+    {
+      varref ref = VARRAY_GENERIC_PTR (recheck_set, i);
+      varref def;
+      bool needcheck = true;
+      edge succ;
+      if (!ref)
+	continue;
+      def = EXPRUSE_DEF (ref);
+      for (succ = EXPRREF_BB (ref)->succ; succ; succ = succ->succ_next)
+	{
+	  if (phi_at_block (ei, succ->dest) != NULL)
+	    {
+	      varref phi = phi_at_block (ei, succ->dest);
+	      if (bitmap_bit_p (EXPRPHI_PROCESSED (phi), 
+				EXPRREF_BB (ref)->index))
+		needcheck = false;
+	    }
+	}
+      if (!needcheck)
+	continue;
+
+      if (def && EXPRREF_TYPE (def) == EXPRPHI)
+	{
+	  EXPRPHI_DOWNSAFE (def) = 0;
+	}
+      EXPRUSE_DEF (ref) = NULL;
+    }
   fibheap_delete (fh);
   VARRAY_FREE (stack);
   VARRAY_FREE (rename2_set);
-  
+  VARRAY_FREE (recheck_set);
+  splay_tree_delete (touched_set);
 }
 
 /* XXX: Do this smarter */
@@ -859,22 +1035,25 @@ phi_for_operand (ei, operand)
      struct expr_info *ei;
      varref operand;
 {
-  int i;
   int count = 0;
   varref retval = NULL;
-  for (i = 0; i < n_basic_blocks; i++)
+  basic_block bb;
+
+  FOR_EACH_BB (bb)
     {
-      varref phi = phi_at_block (ei, BASIC_BLOCK (i));
+      varref phi = phi_at_block (ei, bb);
       if (phi != NULL)
         {
-          int j;
-          for (j = 0; j < n_basic_blocks; j++)
-            if (phi_operand (phi, BASIC_BLOCK (j)) ==  operand)
+	  basic_block bb2;
+	  FOR_EACH_BB (bb2)
+	    {
+	      if (phi_operand (phi, bb2) ==  operand)
 	      {
 		count++;
 		retval = phi;
 	      }	  
-        }
+	    }
+	}
     }
   /* Theoretically, phi operand to phi is a 1 to many mapping.  But we
      don't return more than one value right now, so if we found multiple
@@ -891,14 +1070,17 @@ set_save (ei, X)
      struct expr_info *ei;
      varref X;
 {
+  basic_block bb;
   if (EXPRREF_TYPE (X) == EXPRUSE && !EXPRUSE_PHIOP (X))
     EXPRREF_SAVE (X) = 1;
   else if (EXPRREF_TYPE (X) == EXPRPHI)
     {
       int i;
-      for (i = 0; i < n_basic_blocks; i++)
+      FOR_EACH_BB (bb)
 	{
-	  varref w = phi_operand (X, BASIC_BLOCK (i));
+	  varref w = phi_operand (X, bb);
+	  i = bb->index;
+
 	  if (w && !bitmap_bit_p (EXPRPHI_PROCESSED (X), i))
 	    {
 	      bitmap_set_bit (EXPRPHI_PROCESSED (X), i);
@@ -906,6 +1088,7 @@ set_save (ei, X)
 	    }
 	}
     }
+#if EXTRANEOUS_EPHI_REMOVAL 
   if (EXPRREF_TYPE (X) == EXPRUSE && !EXPRUSE_PHIOP (X))
     {
       sbitmap idfs = compute_idfs (pre_dfs, EXPRREF_STMT (X));
@@ -918,6 +1101,7 @@ set_save (ei, X)
       });	  
       sbitmap_free (idfs);
     }
+#endif
 }
 
 /* Set replacement for ExprPhi minimization.  */
@@ -928,12 +1112,13 @@ set_replacement (ei, g, replacing_def)
      varref replacing_def;
 {
   int i;
+
   for (i = 0; i < n_basic_blocks; i++)
     {
       int j;
       size_t k;
       varref f = phi_at_block (ei, BASIC_BLOCK (i));
-      if (f == NULL || !EXPRPHI_WILLBEAVAIL (f))
+      if (f == NULL || !EXPRPHI_WILLBEAVAIL (f) || f == g)
 	continue;
       for (j = 0; j < n_basic_blocks; j++)
 	{
@@ -987,7 +1172,7 @@ finalize_2 (ei)
     {
       varref ref = VARRAY_GENERIC_PTR (ei->erefs, i);
       if (EXPRREF_TYPE (ref) == EXPRUSE 
-	  && EXPRUSE_PHIOP (ref) == 0)
+	  && EXPRUSE_PHIOP (ref) == 0 && !EXPRREF_INSERTED (ref))
 	{	 
 	  if (EXPRREF_RELOAD (ref))
 	    set_save (ei, EXPRUSE_DEF (ref));
@@ -1049,15 +1234,6 @@ finalize_1 (ei, temp)
         }
       else if (EXPRREF_TYPE (X) == EXPRUSE && EXPRUSE_PHIOP (X) == 0)
         {
-#if 0
-	  /* Unnecessary now, because we handle it in renaming.  But
-	     it would work here as well.  */
-	  if (TREE_CODE (EXPRREF_EXPR (X)) == CALL_EXPR)
-	    {
-	      memset (avdefs, 0, sizeof (varref *) * class_count);
-	      continue;
-	    }
-#endif
           if (avdefs[x] == NULL 
               || !a_dom_b (EXPRREF_BB (avdefs[x]), EXPRREF_BB (X)))
             {
@@ -1082,16 +1258,18 @@ finalize_1 (ei, temp)
 		  tree stmt;
 		  tree expr;
 		  basic_block bb;
+		  tree endtree;
                   /* Insert definition of expr at end of BB containing X. */
 		  if (dump_file)
 		    {
-		      
 		      fprintf (dump_file, "In BB %d, insert save of ",
 			       EXPRREF_BB (X)->index);
 		      print_c_tree (dump_file, ei->expr);
 		      fprintf (dump_file, " to ");
 		      print_c_tree (dump_file, temp);
-		      fprintf (dump_file, " at end of BB, because of ExprPhi");
+		      fprintf (dump_file, " after ");
+		      print_c_node (dump_file, BLOCK_END_TREE (EXPRREF_BB(X)->index));
+		      fprintf (dump_file, " (at end of BB), because of ExprPhi");
 		      fprintf (dump_file, " in BB %d\n", 
 			       EXPRREF_BB (phi)->index);
 		    }
@@ -1101,34 +1279,29 @@ finalize_1 (ei, temp)
 		  /* If it's a goto, we need to insert *before* it.
 		     This might not be necessary once goto elimination
 		     is functional.  */
-		  if (is_ctrl_altering_stmt (BLOCK_END_TREE (bb->index)))
-		    {
-		      insert_stmt_tree_before (stmt, 
-					       BLOCK_END_TREE (bb->index), 
-					       bb);
-		    }
+		  endtree = BLOCK_END_TREE (bb->index);
+		  if (is_ctrl_altering_stmt (endtree))
+		    insert_stmt_tree_before (stmt, endtree, bb);
 		  else
-		    {
-		      insert_stmt_tree_after (stmt, 
-					      BLOCK_END_TREE (bb->index), 
-					      bb);
-		    }
+		    insert_stmt_tree_after (stmt, endtree, bb);
+		  
 		  EXPRUSE_DEF (X) = create_ref (expr, EXPRUSE, 
-						   EXPRREF_BB (X), stmt, expr);
+						EXPRREF_BB (X), stmt, expr);
 		  VARRAY_PUSH_GENERIC_PTR (ei->erefs, EXPRUSE_DEF (X));
 		  EXPRREF_RELOAD (EXPRUSE_DEF (X)) = 0;
-		  EXPRREF_SAVE (EXPRUSE_DEF (X)) = 0;
+		  EXPRREF_SAVE (EXPRUSE_DEF (X)) = 1;
 		  EXPRREF_INSERTED (EXPRUSE_DEF (X)) = 1;
 		  EXPRUSE_PHIOP (EXPRUSE_DEF (X)) = 0;
-		  EXPRUSE_HAS_REAL_USE (EXPRUSE_DEF (X)) = 0;
-		  
+		  EXPRUSE_HAS_REAL_USE (EXPRUSE_DEF (X)) = 1;
+		  EXPRREF_SAVE (X) = 0;
+		  EXPRREF_RELOAD (X) = 0;
                   /*
                     EXPRUSE_DEF (X) = new occurrence. 
 		  */
                 }
               else
                 {
-                  EXPRUSE_DEF (X) = avdefs[x];
+                  EXPRUSE_DEF (X) = avdefs[x];		  
                 }
             }
         }
@@ -1155,7 +1328,9 @@ expr_phi_insertion (dfs, ei)
       sbitmap temp = compute_idfs (dfs, VARRAY_TREE (ei->realstmts, i));      
       sbitmap_a_or_b (dfphis, dfphis, temp);
       sbitmap_free (temp);
-      if (DECL_P (TREE_OPERAND (real, 0)) || DECL_P (TREE_OPERAND (real, 1)))
+      if (is_simple_id (TREE_OPERAND (real, 0)) 
+	  || (TREE_OPERAND (real, 1) 
+	      && is_simple_id (TREE_OPERAND (real, 1))))
         {
           varray_type treerefs;
           varref ref;
@@ -1168,7 +1343,8 @@ expr_phi_insertion (dfs, ei)
                   || VARREF_EXPR (ref) != real)
                 continue;
               if (VARREF_SYM (ref) != TREE_OPERAND (real, 0)
-                  && VARREF_SYM (ref) != TREE_OPERAND (real, 1))
+                  && (TREE_OPERAND (real, 1) == NULL 
+		      || VARREF_SYM (ref) != TREE_OPERAND (real, 1)))
                 continue;
               if (VARREF_TYPE (VARUSE_CHAIN (ref)) != VARPHI)
                 continue;
@@ -1201,7 +1377,7 @@ reset_down_safe (phiop)
      varref phiop;
 {
   varref phi;
-  int i;
+  basic_block bb;
   
   if (EXPRUSE_HAS_REAL_USE (phiop))
     return;
@@ -1211,9 +1387,9 @@ reset_down_safe (phiop)
   if (!EXPRPHI_DOWNSAFE (phi))
     return;  
   EXPRPHI_DOWNSAFE (phi) = 0;
-  for (i = 0; i < n_basic_blocks; i++)
-    if (phi_operand (phi, BASIC_BLOCK (i)) != NULL)
-      reset_down_safe (phi_operand (phi, BASIC_BLOCK (i)));
+  FOR_EACH_BB (bb)
+    if (phi_operand (phi, bb) != NULL)
+      reset_down_safe (phi_operand (phi, bb));
 }
 
 /* Compute down_safety.  */
@@ -1221,46 +1397,70 @@ static void
 down_safety (ei)
      struct expr_info *ei;
 {
-  int i;
-  for (i = 0; i < n_basic_blocks; i++)
+  basic_block block;
+  FOR_EACH_BB (block)
     {
-      basic_block block = BASIC_BLOCK (i);
       varref phi = phi_at_block (ei, block);
-      int j;
+      basic_block block2;
       if (phi == NULL || EXPRPHI_DOWNSAFE (phi))
         continue;
-      for (j = 0; j < n_basic_blocks; j++)
-        if (phi_operand (phi, BASIC_BLOCK (j)) != NULL)
-          reset_down_safe (phi_operand (phi, BASIC_BLOCK (j)));
+      FOR_EACH_BB (block2)
+        if (phi_operand (phi, block2) != NULL)
+          reset_down_safe (phi_operand (phi, block2));
     }      
 } 
-
+static bool
+requires_edge_placement (phi)
+     varref phi;
+{
+  edge pred;
+  for (pred = VARREF_BB (phi)->pred; pred; pred = pred->pred_next)
+    {
+      if (pred->src != ENTRY_BLOCK_PTR)
+	{
+	  varref operand = phi_operand (phi, pred->src);
+	  if (EXPRUSE_DEF (operand) == NULL && EDGE_CRITICAL_P (pred))
+	    return true;
+	}
+    }
+  return false;
+}
 /* Compute can_be_avail.  */
 static void
 compute_can_be_avail (ei)
      struct expr_info *ei;
 {
-  int i;
-  for (i = 0; i < n_basic_blocks; i++)
+  basic_block block;
+
+  FOR_EACH_BB (block)
     {
-      basic_block block = BASIC_BLOCK (i);
       varref phi = phi_at_block (ei, block);
       if (phi == NULL)
         continue;
       EXPRPHI_CANBEAVAIL (phi) = 1;
     }
-  for (i = 0; i < n_basic_blocks; i++)
-    {
-      basic_block block = BASIC_BLOCK (i);
+
+  FOR_EACH_BB (block)
+    {     
       varref phi = phi_at_block (ei, block);
       edge pred;
       if (phi == NULL)
         continue;
       if (!EXPRPHI_CANBEAVAIL(phi))
         continue;
+      
+      /* We don't need this right now because our insertion mechanism
+	 can build scopes and whatnot on the fly, which is the equivalent of
+	 creating new bb's */
+#if 0
+      if (requires_edge_placement (phi))
+	{
+	  reset_can_be_avail (ei, phi);
+	  continue;
+	}      
+#endif
       if (EXPRPHI_DOWNSAFE (phi))
         continue;
-      
       for (pred = block->pred; pred; pred = pred->pred_next)
         {
           if (pred->src != ENTRY_BLOCK_PTR)
@@ -1269,7 +1469,6 @@ compute_can_be_avail (ei)
               if (EXPRUSE_DEF (operand) == NULL)
                 {
                   reset_can_be_avail (ei, phi);
-                  break;
                 }
             }
         }
@@ -1282,12 +1481,12 @@ reset_can_be_avail (ei, phi)
      struct expr_info *ei;   
      varref phi;
 {
-  int i;
+  basic_block block;
+
   EXPRPHI_CANBEAVAIL (phi) = 0;
-  for (i = 0; i < n_basic_blocks; i++)
+  FOR_EACH_BB (block)
     {
       edge pred;
-      basic_block block = BASIC_BLOCK (i);
       varref other = phi_at_block (ei, block);
       
       if (other == NULL)
@@ -1302,8 +1501,6 @@ reset_can_be_avail (ei, phi)
                 {
                   if (!EXPRUSE_HAS_REAL_USE(operand))
 		    {
-		      /* chow97 has this, kennedy99 does not 
-			 EXPRUSE_DEF (operand) = NULL;*/
 		      if (!EXPRPHI_DOWNSAFE (other) 
 			  && EXPRPHI_CANBEAVAIL (other))
 			reset_can_be_avail (ei, other);
@@ -1320,12 +1517,12 @@ reset_later (ei, phi)
      struct expr_info *ei;
      varref phi;
 {
-  int i;
+
+  basic_block block;
   EXPRPHI_LATER (phi) = 0;
-  for (i = 0; i < n_basic_blocks; i++)
+  FOR_EACH_BB (block)
     {
       edge pred;
-      basic_block block = BASIC_BLOCK (i);
       varref other = phi_at_block (ei, block);
       
       if (other == NULL)
@@ -1351,19 +1548,17 @@ static void
 compute_later (ei)
      struct expr_info *ei;
 {
-  int i;
-  for (i = 0; i < n_basic_blocks; i++)
+  basic_block block;
+  FOR_EACH_BB (block)
     {
-      basic_block block = BASIC_BLOCK (i);
       varref phi = phi_at_block (ei, block);
       if (phi == NULL)
         continue;
       EXPRPHI_LATER (phi) = EXPRPHI_CANBEAVAIL (phi);
     }
       
-  for (i = 0; i < n_basic_blocks; i++)
+  FOR_EACH_BB (block)
     {
-      basic_block block = BASIC_BLOCK (i);
       varref phi = phi_at_block (ei, block);
       edge pred;
       if (phi == NULL)
@@ -1377,8 +1572,10 @@ compute_later (ei)
             {
               varref operand = phi_operand (phi, pred->src);
               if (EXPRUSE_DEF (operand) != NULL 
-		  && EXPRUSE_HAS_REAL_USE (operand))                
+		  && EXPRUSE_HAS_REAL_USE (operand))
+	      {
                 reset_later (ei, phi);
+	      }
             }
         }
     }
@@ -1414,9 +1611,15 @@ code_motion (ei, temp)
   while (!fibheap_empty (exprs))
     {
       use = fibheap_extract_min (exprs);
+      if (EXPRREF_BB (use)->index == 104 && EXPRREF_TYPE (use) == EXPRUSE)
+	{
+	  EXPRREF_TYPE (use) = EXPRUSE;
+	}
       if (EXPRREF_TYPE (use) == EXPRUSE /*&& !EXPRUSE_PHIOP (use) */
 	  && !EXPRREF_INSERTED (use))
 	{
+	  if (EXPRUSE_PHIOP (use) && (EXPRREF_RELOAD (use) || EXPRREF_SAVE (use)))
+	    abort();
 	  if (EXPRREF_SAVE (use))
 	    {
 	      basic_block use_bb = EXPRREF_BB (use);
@@ -1471,31 +1674,46 @@ will_be_avail (ei)
 /* Add call expression to expr-infos.  */
 static int
 add_call_to_ei (slot, data)
-     void **slot;
+     struct expr_info *slot;
      void *data;
 {
   varref call = (varref) data;
-  struct expr_info *ei = (struct expr_info *) *slot;
+  struct expr_info *ei = (struct expr_info *) slot;
   VARRAY_PUSH_TREE (ei->occurs, VARREF_EXPR (call));
   VARRAY_PUSH_TREE (ei->occurstmts, VARREF_STMT (call));
-  return 1;
+  VARRAY_PUSH_GENERIC_PTR (ei->refs, call);
+  return 0;
 }
 
 /* Traverse over expressions to perform PRE on.  */
 static int
 pre_part_1_trav (slot, data)
-     void **slot;
+     struct expr_info *slot;
      void *data;
 {
   tree temp;
-  tree temp2;
-  struct expr_info *ei = (struct expr_info *) *slot;
+
+  struct expr_info *ei = (struct expr_info *) slot;
   if (VARRAY_ACTIVE_SIZE (ei->reals) < 2)
-    return 1;
+    return 0;
   expr_phi_insertion ((sbitmap *)data, ei);
   rename_1 (ei);
+  if (dump_file)
+    {
+      fprintf (dump_file, "Occurrences for expression ");
+      print_c_tree (dump_file, ei->expr);
+      fprintf (dump_file, "\n");
+      dump_varref_list (dump_file, "", ei->refs, 0, 1);
+    }
   down_safety (ei);
   will_be_avail (ei);
+  if (dump_file)
+    {
+      fprintf (dump_file, "ExprPhi's for expression ");
+      print_c_tree (dump_file, ei->expr);
+      fprintf (dump_file, "\n");
+      dump_varref_list (dump_file, "", ei->phis, 0, 1);
+    }
   {
     varref def = NULL;
     tree type_of_expr;
@@ -1508,14 +1726,17 @@ pre_part_1_trav (slot, data)
     else
       type_of_expr = TREE_TYPE (VARRAY_TREE (ei->reals, 0));
 
+    pushlevel (0);
     temp = create_tmp_var (type_of_expr);
-    declare_tmp_vars (temp, BLOCK_HEAD_TREE (0));    
+    declare_tmp_vars (getdecls(), 
+		      COMPOUND_BODY (DECL_SAVED_TREE (current_function_decl)));
+    poplevel (1, 1, 0);
     finalize_1 (ei, temp);
     finalize_2 (ei);
     code_motion (ei, temp);
   }
   
-  return 1;
+  return 0;
 }
 
 
@@ -1524,10 +1745,11 @@ tree_perform_ssapre ()
 {
   tree fn = DECL_SAVED_TREE (current_function_decl);
     /* First, we need to find our candidate expressions. */
-  htab_t bexprs = htab_create (37, hash_binary_tree, 
-                               binexpr_lexically_eq, free_expr_info);
+  varray_type bexprs;
   htab_t seen = htab_create (37, htab_hash_pointer, htab_eq_pointer, NULL);
   int i;
+  size_t j, k;
+  VARRAY_GENERIC_PTR_INIT (bexprs, 1, "bexprs");
   /* Debugging dump before SSA PRE */
   dump_file = dump_begin (TDI_ssa_pre, &dump_flags);
   if (dump_file)
@@ -1560,56 +1782,81 @@ tree_perform_ssapre ()
   for (i = 0; i < n_basic_blocks; i++)
     {    
       varray_type bbrefs = BB_REFS (BASIC_BLOCK (i));
-      size_t j;
+      htab_empty (seen);
       for (j = 0; j < VARRAY_ACTIVE_SIZE (bbrefs); j++)
 	{
 	  varref ref = VARRAY_GENERIC_PTR (bbrefs, j);
+	  tree expr = VARREF_EXPR (ref);
+	  tree stmt = VARREF_STMT (ref);
+	  if ((strcmp (IDENTIFIER_POINTER (DECL_NAME (VARREF_SYM (ref))), "la") == 0) 
+	      && VARREF_BB (ref)->index == 104)
+	    {
+	      expr = VARREF_EXPR (ref);	      
+	    }
 	  if (VARREF_TYPE (ref) != VARUSE)
 	    continue;
-	  if (htab_find (seen, VARREF_EXPR (ref)) != NULL)
+	  if (htab_find (seen, expr) != NULL)
 	    continue;
-	  if (is_simple_binary_expr (VARREF_EXPR (ref)))
+	  if ((is_simple_binary_expr (expr)
+/*	       || is_simple_cast (expr)
+	       || is_simple_unary_expr (expr)*/)
+	     && TREE_CODE (expr) != INDIRECT_REF)
 	    {
 	      struct expr_info *slot;
-	      slot = (struct expr_info *)htab_find (bexprs, VARREF_EXPR (ref));
+	      size_t k;
+	      for (k = 0; k < VARRAY_ACTIVE_SIZE (bexprs); k++)
+	        {
+		  slot = VARRAY_GENERIC_PTR (bexprs, k);
+		  if (expr_lexically_eq (slot->expr, expr))
+		    break;
+		}
+	      if (k >= VARRAY_ACTIVE_SIZE (bexprs))
+	        slot = NULL;
 	      if (slot)
 		{
-		  VARRAY_PUSH_TREE (slot->occurs, VARREF_EXPR (ref));
-		  VARRAY_PUSH_TREE (slot->occurstmts, VARREF_STMT (ref));
-		  VARRAY_PUSH_TREE (slot->reals, VARREF_EXPR (ref));
-		  VARRAY_PUSH_TREE (slot->realstmts, VARREF_STMT (ref));
+		  VARRAY_PUSH_TREE (slot->occurs, expr);
+		  VARRAY_PUSH_TREE (slot->occurstmts, stmt);
+		  VARRAY_PUSH_TREE (slot->reals, expr);
+		  VARRAY_PUSH_TREE (slot->realstmts, stmt);
+		  VARRAY_PUSH_GENERIC_PTR (slot->refs, ref);
 		}
 	      else
 		{
-		  void **newslot;
 		  slot = xmalloc (sizeof (struct expr_info));
-		  slot->expr = VARREF_EXPR (ref);
+		  slot->expr = expr;
 		  VARRAY_TREE_INIT (slot->occurs, 1, "Kills and occurrence");
 		  VARRAY_TREE_INIT (slot->occurstmts, 1, 
-				    "Kills and occurrence statements");		  
+				    "Kills and occurrence statements");
 		  VARRAY_TREE_INIT (slot->reals, 1, "Real occurrences");
-		  VARRAY_TREE_INIT (slot->realstmts, 1, "Real occurrence statements");
-		  VARRAY_GENERIC_PTR_INIT (slot->phis, n_basic_blocks, "EPHIs");
+		  VARRAY_TREE_INIT (slot->realstmts, 1, 
+				    "Real occurrence statements");
+		  VARRAY_GENERIC_PTR_INIT (slot->phis, n_basic_blocks, 
+					   "EPHIs");
 		  VARRAY_GENERIC_PTR_INIT (slot->erefs, 1, "EREFs");
-		  VARRAY_PUSH_TREE (slot->occurs, VARREF_EXPR (ref));
-		  VARRAY_PUSH_TREE (slot->occurstmts, VARREF_STMT (ref));
-		  VARRAY_PUSH_TREE (slot->reals, VARREF_EXPR (ref));
-		  VARRAY_PUSH_TREE (slot->realstmts, VARREF_STMT (ref));
-		  
-		  newslot = htab_find_slot (bexprs, VARREF_EXPR (ref), INSERT);
-		  *newslot = slot;
+		  VARRAY_GENERIC_PTR_INIT (slot->refs, 1, "REFs");
+		  VARRAY_PUSH_TREE (slot->occurs, expr);
+		  VARRAY_PUSH_TREE (slot->occurstmts, stmt);
+		  VARRAY_PUSH_TREE (slot->reals, expr);
+		  VARRAY_PUSH_TREE (slot->realstmts, stmt);
+		  VARRAY_PUSH_GENERIC_PTR (slot->refs, ref);
+
+		  VARRAY_PUSH_GENERIC_PTR (bexprs, slot);
 		}
 	    }
-	  else if (TREE_CODE (VARREF_EXPR (ref)) == CALL_EXPR && TREE_CODE (VARREF_SYM (ref)) == FUNCTION_DECL)
+	  else if (TREE_CODE (expr) == CALL_EXPR 
+		   && TREE_CODE (VARREF_SYM (ref)) == FUNCTION_DECL)
 	    {
 	      if (!DECL_IS_PURE (VARREF_SYM (ref)))
-		htab_traverse (bexprs, add_call_to_ei,  ref);
+	      {
+		for (k = 0; k < VARRAY_ACTIVE_SIZE (bexprs); k++)
+	  	  add_call_to_ei (VARRAY_GENERIC_PTR (bexprs, k), ref);
+	      }
 	    }  
-	  *(htab_find_slot  (seen, VARREF_EXPR (ref), INSERT)) = VARREF_EXPR (ref);
-	  
+	  *(htab_find_slot  (seen, expr, INSERT)) = expr;
 	}
     }
-  htab_traverse (bexprs, pre_part_1_trav, pre_dfs);
+  for (j = 0; j < VARRAY_ACTIVE_SIZE (bexprs); j++)
+     pre_part_1_trav (VARRAY_GENERIC_PTR (bexprs, j), pre_dfs);
   /*  simplify_stmt (fn, NULL_TREE); */
   /* Debugging dump after SSA PRE */
   if (dump_file)
@@ -1624,7 +1871,10 @@ tree_perform_ssapre ()
       dump_end (TDI_ssa_pre, dump_file);
     }
   
-  htab_delete (bexprs);
+  for (j = 0; j < VARRAY_ACTIVE_SIZE (bexprs); j++)
+    free_expr_info (VARRAY_GENERIC_PTR (bexprs, j));
+  VARRAY_FREE (bexprs);
+  htab_delete (seen);
   free (pre_idom);
   free (pre_preorder);
   sbitmap_vector_free (pre_doms);

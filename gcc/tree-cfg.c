@@ -1877,6 +1877,17 @@ insert_before_ctrl_stmt (stmt, where, bb)
 	{
 	  if (first_exec_stmt (FOR_INIT_STMT (parent)) == NULL)
 	    FOR_INIT_STMT (parent) = stmt;
+	  else if (TREE_CODE (stmt) == EXPR_STMT)
+	    {
+	      tree init_stmt = FOR_INIT_STMT (parent);
+	      tree init_stmt_expr = EXPR_STMT_EXPR (init_stmt);
+
+	      EXPR_STMT_EXPR (init_stmt) = build (COMPOUND_EXPR, 
+						  TREE_TYPE (init_stmt_expr),
+						  init_stmt_expr, 
+						  EXPR_STMT_EXPR (stmt), 
+						  init_stmt_expr);
+	    }
 	  else
 	    insert_before_normal_stmt (stmt, where, bb);
 	}
@@ -1887,11 +1898,18 @@ insert_before_ctrl_stmt (stmt, where, bb)
 	{
 	  tree last_stmt = last_exec_stmt (FOR_INIT_STMT (parent));
 	  if (last_stmt)
-	    insert_after_normal_stmt (stmt, last_stmt,
-				      BB_FOR_STMT (last_stmt));
+	    {
+	      tree init_stmt = FOR_INIT_STMT (parent); 
+              tree init_stmt_expr = EXPR_STMT_EXPR (init_stmt); 
+ 
+              EXPR_STMT_EXPR (init_stmt) = build (COMPOUND_EXPR,  
+                                                  TREE_TYPE (init_stmt_expr), 
+                                                  init_stmt_expr,  
+                                                  EXPR_STMT_EXPR (stmt),  
+                                                  init_stmt_expr); 
+	  }
 	  else
 	    FOR_INIT_STMT (parent) = stmt;
-
 	  last_stmt = last_exec_stmt (FOR_EXPR (parent));
 	  if (last_stmt)
 	    insert_after_normal_stmt (copy_node (stmt), last_stmt,
@@ -2072,12 +2090,16 @@ insert_after_ctrl_stmt (stmt, bb)
   if (TREE_CODE (parent) == IF_STMT)
     {
       t = first_exec_stmt (first_non_decl_stmt (THEN_CLAUSE (parent)));
+      while (t && (!is_exec_stmt (t)  || first_non_decl_stmt (t) != t))
+        t = first_exec_stmt (first_non_decl_stmt (t));
       if (t == NULL)
 	THEN_CLAUSE (parent) = stmt;
       else
 	insert_before_normal_stmt (stmt, t, BB_FOR_STMT (t));
 
       t = first_exec_stmt (first_non_decl_stmt (ELSE_CLAUSE (parent)));
+      while (t && (!is_exec_stmt (t)  || first_non_decl_stmt (t) != t))
+        t = first_exec_stmt (first_non_decl_stmt (t));
       if (t == NULL)
 	ELSE_CLAUSE (parent) = copy_node (stmt);
       else
@@ -2102,6 +2124,8 @@ insert_after_ctrl_stmt (stmt, bb)
   else if (TREE_CODE (parent) == WHILE_STMT)
     {
       t = first_exec_stmt (first_non_decl_stmt (WHILE_BODY (parent)));
+      while (t && (!is_exec_stmt (t)  || first_non_decl_stmt (t) != t))
+        t = first_exec_stmt (first_non_decl_stmt (t));
       if (t == NULL)
 	WHILE_BODY (parent) = stmt;
       else
@@ -2114,6 +2138,8 @@ insert_after_ctrl_stmt (stmt, bb)
   else if (TREE_CODE (parent) == DO_STMT)
     {
       t = first_exec_stmt (first_non_decl_stmt (DO_BODY (parent)));
+      while (t && (!is_exec_stmt (t)  || first_non_decl_stmt (t) != t))
+        t = first_exec_stmt (first_non_decl_stmt (t));
       if (t == NULL)
 	DO_BODY (parent) = stmt;
       else
@@ -2130,6 +2156,17 @@ insert_after_ctrl_stmt (stmt, bb)
 	  t = last_exec_stmt (FOR_INIT_STMT (parent));
 	  if (t == NULL)
 	    FOR_INIT_STMT (parent) = stmt;
+	  else if (TREE_CODE (stmt) == EXPR_STMT)
+	    {
+	      tree init_stmt = FOR_INIT_STMT (parent); 
+              tree init_stmt_expr = EXPR_STMT_EXPR (init_stmt); 
+ 
+              EXPR_STMT_EXPR (init_stmt) = build (COMPOUND_EXPR,  
+                                                  TREE_TYPE (init_stmt_expr), 
+                                                  init_stmt_expr,  
+                                                  EXPR_STMT_EXPR (stmt),  
+                                                  init_stmt_expr); 
+	    }
 	  else
 	    insert_after_normal_stmt (stmt, t, bb);
 	}
@@ -2138,6 +2175,8 @@ insert_after_ctrl_stmt (stmt, bb)
       else if (bb == FOR_COND_BB (parent_bb))
 	{
 	  t = first_exec_stmt (first_non_decl_stmt (FOR_BODY (parent)));
+	  while (t && (!is_exec_stmt (t)  || first_non_decl_stmt (t) != t))
+	    t = first_exec_stmt (first_non_decl_stmt (t));
 	  if (t == NULL)
 	    FOR_BODY (parent) = stmt;
 	  else

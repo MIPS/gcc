@@ -785,8 +785,12 @@ dump_varref (outf, prefix, ref, indent, details)
 	}
       else if (VARREF_TYPE (ref) == EXPRPHI && EXPRPHI_PHI_CHAIN (ref))
 	{
+	  if (details)
+	    fprintf (outf, " class:%d downsafe:%d can_be_avail:%d later:%d\n", 
+		     EXPRREF_CLASS (ref), EXPRPHI_DOWNSAFE (ref), 
+		     EXPRPHI_CANBEAVAIL (ref), EXPRPHI_LATER (ref));
 	  fputs (" exprphi-args:\n", outf);
-	  dump_varref_list (outf, prefix, EXPRPHI_PHI_CHAIN (ref), indent + 4, 0);
+	  dump_varref_list (outf, prefix, EXPRPHI_PHI_CHAIN (ref), indent + 4, 1);
 	}	
       else if (VARREF_TYPE (ref) == VARDEF && VARDEF_IMM_USES (ref))
 	{
@@ -799,6 +803,21 @@ dump_varref (outf, prefix, ref, indent, details)
 	  fputs (" reaching def:\n", outf);
 	  dump_varref (outf, prefix, VARUSE_CHAIN (ref), indent + 4, 0);
 	}	  
+      else if (VARREF_TYPE (ref) == EXPRUSE && EXPRUSE_PHIOP (ref) == 1)
+	{
+	  char *temp_indent;
+	  fprintf (outf, " class:%d has_real_use:%d  operand defined by:\n", 
+		   EXPRREF_CLASS (ref), EXPRUSE_HAS_REAL_USE (ref));	  
+	  temp_indent = (char *) alloca ((size_t) indent + 4 + 1);
+	  memset ((void *) temp_indent, ' ', (size_t) indent + 4);
+	  temp_indent[indent + 4] = '\0';
+	  if (EXPRUSE_DEF (ref) == NULL)
+	    fprintf (outf, "%snothing\n", temp_indent);
+	  else
+	    dump_varref (outf, prefix, EXPRUSE_DEF (ref), indent + 4, 0);
+	}
+      
+	    
     }
 
   fputc ('\n', outf);

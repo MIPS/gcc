@@ -62,18 +62,18 @@ struct exprref_common
   struct treeref_common common;
 
   /* SSAPRE: True if expression needs to be saved to a temporary. */
-  int save:1;
+  unsigned int save:1;
   
   /* SSAPRE: True if expression needs to be reloaded from a
      temporary.  */
-  int reload:1;
+  unsigned int reload:1;
 
   /* SSAPRE: True if expression was inserted as a PHI operand
      occurrence.  */
-  int inserted:1;
+  unsigned int inserted:1;
   
   /* SSAPRE: Redundancy class of expression.  */
-  int class;
+  unsigned int class;
 };
 
 /* Expression PHI's */

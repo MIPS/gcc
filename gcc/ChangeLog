@@ -1,3 +1,35 @@
+2002-06-03  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-cfg.c (insert_before_*):  For insertion into FOR_INIT's, if
+	we have an expression statement, transform into a compound
+	expression. 
+	Pick the right place to insert a statement by iterating until we
+	have a first_exec_stmt (first_non_decl_stmt) that is really the
+	first executable non decl statement.
+	(insert_after_*): Ditto.
+
+2002-06-03  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-ssa-pre.c: Update BB stuff to new basic block structure.
+	Add some comments throughout (more coming, particularly describing
+	the algorithm, rather than the implementation).
+	(free_expr_info): Free refs as well.
+	(defs_y_dom_x): Handle unary expressions as well.
+	(insert_euse_in_preorder_dt_order_1): Use block of ref, not block
+	of statement. 
+	Don't insert exit blocks if we hit them before hitting an
+	occurrence (it's pointless).
+	(rename_2): Return set of phi operands we touched, don't forget to
+	free VARRAY's we allocated.
+	(rename_1): Correct downsafety computation. Now get exact same
+	results as Open64.
+	Correct setting of has_real_use.
+	(finalize_1): Fix up insertion.
+	(code_motion): Fix up insertion.
+
+	* tree-dfa.c (dump_varref):  Improve dumping of expression 
+	references.
+
 2002-06-03  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-cfg.c (delete_bb): Rename to tree_delete_bb.  Update callers.
