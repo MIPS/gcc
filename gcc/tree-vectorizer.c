@@ -2185,8 +2185,8 @@ vect_analyze_scalar_cycles (loop_vec_info loop_vinfo)
         fprintf (dump_file, "analyze cycles: call monev analyzer!\n");
 
       access_fn = instantiate_parameters
-	(loop_num (loop),
-	 analyze_scalar_evolution (loop_num (loop), PHI_RESULT (phi)));
+	(loop,
+	 analyze_scalar_evolution (loop, PHI_RESULT (phi)));
 
       if (!access_fn)
 	{

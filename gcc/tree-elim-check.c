@@ -207,9 +207,9 @@ try_eliminate_check (tree cond)
   bool value;
   tree test, opnd0, opnd1;
   tree chrec0, chrec1;
-  unsigned loop_nb = loop_num (loop_of_stmt (cond));
-  tree nb_iters = number_of_iterations_in_loop (loop_of_stmt (cond));
-  
+  struct loop *loop = loop_of_stmt (cond);
+  tree nb_iters = number_of_iterations_in_loop (loop);
+
   if (automatically_generated_chrec_p (nb_iters))
     return;
   
@@ -227,16 +227,16 @@ try_eliminate_check (tree cond)
     case SSA_NAME:
       /* Matched "if (opnd0)" ie, "if (opnd0 != 0)".  */
       opnd0 = test;
-      chrec0 = analyze_scalar_evolution (loop_nb, opnd0);
+      chrec0 = analyze_scalar_evolution (loop, opnd0);
       if (chrec_contains_undetermined (chrec0))
 	break;
-      chrec0 = instantiate_parameters (loop_nb, chrec0);
+      chrec0 = instantiate_parameters (loop, chrec0);
       
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
 	  fprintf (dump_file, "  (test = ");
 	  print_generic_expr (dump_file, test, 0);
-	  fprintf (dump_file, ")\n  (loop_nb = %d)\n", loop_nb);
+	  fprintf (dump_file, ")\n  (loop_nb = %d)\n", loop->num);
 	  fprintf (dump_file, "  (nb_iters = ");
 	  print_generic_expr (dump_file, nb_iters, 0);
 	  fprintf (dump_file, ")\n  (chrec0 = ");
@@ -244,7 +244,7 @@ try_eliminate_check (tree cond)
 	  fprintf (dump_file, ")\n");
 	}
       
-      if (prove_truth_value (NE_EXPR, loop_nb, chrec0, integer_zero_node, 
+      if (prove_truth_value (NE_EXPR, loop->num, chrec0, integer_zero_node, 
 			     nb_iters, &value))
 	remove_redundant_check (cond, value);
       break;
@@ -257,22 +257,22 @@ try_eliminate_check (tree cond)
     case NE_EXPR:
       opnd0 = TREE_OPERAND (test, 0);
       opnd1 = TREE_OPERAND (test, 1);
-      chrec0 = analyze_scalar_evolution (loop_nb, opnd0);
+      chrec0 = analyze_scalar_evolution (loop, opnd0);
       if (chrec_contains_undetermined (chrec0))
 	break;
       
-      chrec1 = analyze_scalar_evolution (loop_nb, opnd1);
+      chrec1 = analyze_scalar_evolution (loop, opnd1);
       if (chrec_contains_undetermined (chrec1))
 	break;
       
-      chrec0 = instantiate_parameters (loop_nb, chrec0);
-      chrec1 = instantiate_parameters (loop_nb, chrec1);
+      chrec0 = instantiate_parameters (loop, chrec0);
+      chrec1 = instantiate_parameters (loop, chrec1);
       
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
 	  fprintf (dump_file, "  (test = ");
 	  print_generic_expr (dump_file, test, 0);
-	  fprintf (dump_file, ")\n  (loop_nb = %d)\n", loop_nb);
+	  fprintf (dump_file, ")\n  (loop_nb = %d)\n", loop->num);
 	  fprintf (dump_file, "  (nb_iters = ");
 	  print_generic_expr (dump_file, nb_iters, 0);
 	  fprintf (dump_file, ")\n  (chrec0 = ");
@@ -282,7 +282,7 @@ try_eliminate_check (tree cond)
 	  fprintf (dump_file, ")\n");
 	}
       
-      if (prove_truth_value (TREE_CODE (test), loop_nb, chrec0, chrec1, 
+      if (prove_truth_value (TREE_CODE (test), loop->num, chrec0, chrec1, 
 			     nb_iters, &value))
 	remove_redundant_check (cond, value);
       break;

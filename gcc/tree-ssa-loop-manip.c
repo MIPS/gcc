@@ -729,8 +729,10 @@ add_exit_phis_use (basic_block bb, tree use, bitmap names_to_rename,
 		   unsigned n_exits, basic_block *exits)
 {
   tree def;
-  basic_block def_bb;
+  basic_block def_bb, ign_bb;
   unsigned i;
+  edge e;
+  struct loop *src_loop;
   
   if (TREE_CODE (use) != SSA_NAME)
     return;
@@ -745,18 +747,31 @@ add_exit_phis_use (basic_block bb, tree use, bitmap names_to_rename,
     return;
   bitmap_set_bit (names_to_rename, SSA_NAME_VERSION (use));
 
-  /* We must add phi nodes for all loop exits (not just those involved),
-     since ssa rewriting creates new phi nodes in loop headers.  ??? Perhaps
-     it would be sufficient to do this for superloops of the
-     def_bb->loop_father?  */
-
   /* Do not insert a new phi if there already is one defining the use.  */
-  if (TREE_CODE (def) != PHI_NODE)
-    def_bb = NULL;
+  ign_bb = (TREE_CODE (def) == PHI_NODE) ? def_bb : NULL;
 
   for (i = 0; i < n_exits; i++)
-    if (exits[i] != def_bb)
+    {
+      if (exits[i] == ign_bb)
+	continue;
+
+      /* We must add phi nodes for all loop exits of the superloops of
+	 def_bb->loop_father.  */
+
+      for (e = exits[i]->pred; e; e = e->pred_next)
+	{
+	  src_loop = find_common_loop (e->src->loop_father,
+				       def_bb->loop_father);
+
+	  if (!flow_bb_inside_loop_p (src_loop, e->dest))
+	    break;
+	}
+
+      if (!e)
+	continue;
+
       add_exit_phis_edge (exits[i], use);
+    }
 }
 
 /* Add exit phis for the names used in STMT in BB.  Mark the ssa names in

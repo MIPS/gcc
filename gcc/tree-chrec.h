@@ -78,6 +78,7 @@ static inline tree build_peeled_chrec (unsigned, tree, tree);
 /* Chrec folding functions.  */
 extern tree chrec_fold_plus (tree, tree, tree);
 extern tree chrec_fold_minus (tree, tree, tree);
+extern tree chrec_fold_negate (tree, tree);
 extern tree chrec_fold_multiply (tree, tree, tree);
 extern tree chrec_convert (tree, tree);
 extern tree chrec_type (tree);

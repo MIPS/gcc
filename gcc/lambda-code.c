@@ -1099,8 +1099,8 @@ gcc_loop_to_lambda_loop (struct loop *loop, int depth,
     }
   
   access_fn = instantiate_parameters
-    (loop_num (loop),
-     analyze_scalar_evolution (loop_num (loop), PHI_RESULT (phi)));
+    (loop,
+     analyze_scalar_evolution (loop, PHI_RESULT (phi)));
   if (!access_fn)
     {
       if (dump_file && (dump_flags & TDF_DETAILS))

@@ -29,35 +29,10 @@ extern tree get_loop_exit_condition (struct loop *);
 
 extern void scev_initialize (struct loops *loops);
 extern void scev_finalize (void);
-extern tree analyze_scalar_evolution (unsigned, tree);
-extern tree instantiate_parameters (unsigned, tree);
+extern tree analyze_scalar_evolution (struct loop *, tree);
+extern tree instantiate_parameters (struct loop *, tree);
 extern void eliminate_redundant_checks (void);
 extern void gather_stats_on_scev_database (void);
 
-
-struct scev_info_str {
-  tree var;
-  tree inner_loops_chrec;
-  tree outer_loops_chrec;
-};
-
-#define MI_VAR(MI) MI->var
-#define MI_INNER_LOOPS_CHREC(MI) MI->inner_loops_chrec
-#define MI_OUTER_LOOPS_CHREC(MI) MI->outer_loops_chrec
-
-/* Constructs a new SCEV_INFO_STR structure.  */
-
-static inline struct scev_info_str *
-new_scev_info_str (tree var)
-{
-  struct scev_info_str *res;
-  
-  res = ggc_alloc (sizeof (struct scev_info_str));
-  MI_VAR (res) = var;
-  MI_INNER_LOOPS_CHREC (res) = chrec_not_analyzed_yet;
-  MI_OUTER_LOOPS_CHREC (res) = chrec_not_analyzed_yet;
-  
-  return res;
-}
 
 #endif  /* GCC_TREE_SCALAR_EVOLUTION_H  */

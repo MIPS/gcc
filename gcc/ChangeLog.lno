@@ -1,3 +1,32 @@
+2004-03-30  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* lambda-code.c (gcc_loop_to_lambda_loop): Changed due to changes in
+	scev.
+	* tree-data-ref.c (analyze_array_indexes, analyze_array): Ditto.
+	* tree-elim-check.c (try_eliminate_check): Ditto.
+	* tree-vectorizer.c (vect_analyze_scalar_cycles): Ditto.
+	* tree-chrec.c (chrec_fold_plus_1): Handle exponential + peeled chrec
+	correctly.  Use correct types.
+	(chrec_fold_negate): New.
+	(chrec_merge):  Short-circuit the case when the merged values are
+	identical.
+	(no_evolution_in_loop_p): Handle chrec_top correctly.
+	(chrec_convert): Handle polynomial and exponential chrecs corectly.
+	(chrec_type): Use TREE_TYPE.
+	* tree-chrec.h (chrec_fold_negate): Declare.
+	* tree-phinodes.c (create_phi_node): Do not initialize PHI_MARKED.
+	* tree-scalar-evolution.c: Handle evolutions analysed from different
+	loops correctly.  Do not use PHI_MARKED.  Use correct types.
+	* tree-scalar-evolution.h (analyze_scalar_evolution,
+	instantiate_parameters): Declaration changed.
+	(struct scev_info_str): Moved to tree-scalar-evolution.c.
+	(MI_VAR, MI_INNER_LOOPS_CHREC, MI_OUTER_LOOPS_CHREC): Removed.
+	(new_scev_info_str): Moved to tree-scalar-evolution.c.
+	* tree-ssa-loop-manip.c (add_exit_phis_use): Just add exit phis for 
+	superloops of the loop containing the definition.
+	* tree.h (PHI_MARKED): Removed.
+	(tree_phi_node): Field 'marked' removed.
+
 2004-03-30  Sebastian Pop  <sebastian.pop@ensmp.fr>
 
 	* tree-chrec.c (chrec_contains_symbols): Factorize conditions,

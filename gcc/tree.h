@@ -1077,7 +1077,6 @@ struct tree_ssa_name GTY(())
 /* Nonzero if the PHI node was rewritten by a previous pass through the
    SSA renamer.  */
 #define PHI_REWRITTEN(NODE)	PHI_NODE_CHECK (NODE)->phi.rewritten
-#define PHI_MARKED(NODE)	PHI_NODE_CHECK (NODE)->phi.marked
 #define PHI_NUM_ARGS(NODE)	PHI_NODE_CHECK (NODE)->phi.num_args
 #define PHI_ARG_CAPACITY(NODE)	PHI_NODE_CHECK (NODE)->phi.capacity
 #define PHI_ARG_ELT(NODE, I)	PHI_NODE_ELT_CHECK (NODE, I)
@@ -1103,10 +1102,6 @@ struct tree_phi_node GTY(())
      SSA renamer.  */
   unsigned int rewritten:1;
   
-  /* Nonzero if the PHI node has already been walked by the scalar
-     evolution analyzer.  */
-  unsigned int marked:1;
-
   struct phi_arg_d GTY ((length ("((tree)&%h)->phi.capacity"))) a[1];
 };
 

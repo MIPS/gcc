@@ -97,7 +97,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-pass.h"
 #include "lambda.h"
 
-static tree analyze_array_indexes (unsigned, varray_type, tree);
+static tree analyze_array_indexes (struct loop *, varray_type, tree);
 static bool access_functions_are_affine_or_constant_p (struct data_reference *);
 
 static struct data_dependence_relation *
@@ -344,7 +344,7 @@ access_functions_are_affine_or_constant_p (struct data_reference *a)
    "A[i]".  The function returns the base name: "A".  */
 
 static tree
-analyze_array_indexes (unsigned loop_nb, 
+analyze_array_indexes (struct loop *loop,
 		       varray_type access_fns, 
 		       tree ref)
 {
@@ -359,13 +359,13 @@ analyze_array_indexes (unsigned loop_nb,
      the computation of access functions that are of no interest for
      the optimizers.  */
   access_fn = instantiate_parameters 
-    (loop_nb, analyze_scalar_evolution (loop_nb, opnd1));
+    (loop, analyze_scalar_evolution (loop, opnd1));
   
   VARRAY_PUSH_TREE (access_fns, access_fn);
   
   /* Recursively record other array access functions.  */
   if (TREE_CODE (opnd0) == ARRAY_REF)
-    return analyze_array_indexes (loop_nb, access_fns, opnd0);
+    return analyze_array_indexes (loop, access_fns, opnd0);
   
   /* Return the base name of the data access.  */
   else
@@ -396,7 +396,7 @@ analyze_array (tree stmt,
   DR_REF (res) = ref;
   VARRAY_TREE_INIT (DR_ACCESS_FNS (res), 5, "access_fns");
   DR_BASE_NAME (res) = analyze_array_indexes 
-    (loop_num (loop_of_stmt (stmt)), DR_ACCESS_FNS (res), ref);
+    (loop_of_stmt (stmt), DR_ACCESS_FNS (res), ref);
   
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, ")\n");
