@@ -103,6 +103,11 @@ A copy of the license is included in the section entitled ``GNU
 Free Documentation License''.
 @end copying
 
+@dircategory GNU Ada tools
+@direntry
+* GNAT User's Guide: (gnat_ug).  User's Guide for GNU Ada tools.
+@end direntry
+
 @titlepage
 
 @ifset vms

@@ -157,11 +157,11 @@ const char *object_library_extension = ".a";
 
 #elif defined (linux)
 const char *object_file_option = "";
-const char *run_path_option = "-Wl,-rpath,";
-char shared_libgnat_default = STATIC;
+const char *run_path_option = "";
+char shared_libgnat_default = SHARED;
 int link_max = 2147483647;
 unsigned char objlist_file_supported = 0;
-unsigned char using_gnu_linker = 0;
+unsigned char using_gnu_linker = 1;
 const char *object_library_extension = ".a";
 
 #elif defined (__svr4__) && defined (i386)

@@ -2244,13 +2244,6 @@ int _flush_cache()
 }
 #endif
 
-#if defined (CROSS_COMPILE)  \
-  || (! (defined (sparc) && defined (sun) && defined (__SVR4)) \
-      && ! defined (linux) \
-      && ! defined (hpux) \
-      && ! (defined (__alpha__)  && defined (__osf__)) \
-      && ! defined (__MINGW32__))
-
 /* Dummy function to satisfy g-trasym.o.  Currently Solaris sparc, HP/UX,
    GNU/Linux, Tru64 & Windows provide a non-dummy version of this procedure in
    libaddr2line.a.  */
@@ -2264,7 +2257,6 @@ convert_addresses (addrs, n_addr, buf, len)
 {
   *len = 0;
 }
-#endif
 
 #if defined (_WIN32)
 int __gnat_argument_needs_quote = 1;

@@ -143,7 +143,7 @@ MISCLIB =
 objext = .o
 exeext =
 arext  = .a
-soext  = .so
+soext  = .so.1
 shext  =
 
 HOST_CC=$(CC)
@@ -658,7 +658,7 @@ ifeq ($(strip $(filter-out %86 linux%,$(arch) $(osys))),)
   system.ads<5lsystem.ads
 
   TOOLS_TARGET_PAIRS = mlib-tgt.adb<5lml-tgt.adb
-  SYMLIB = -laddr2line -lbfd $(INTLLIBS)
+  SYMLIB = $(INTLLIBS)
   THREADSLIB = -lpthread
   GNATLIB_SHARED = gnatlib-shared-dual
   GMEM_LIB = gmemlib
@@ -698,6 +698,78 @@ ifeq ($(strip $(filter-out %86 linux%,$(arch) $(osys))),)
 
     RT_FLAGS = -D__RT__
   endif
+endif
+
+ifeq ($(strip $(filter-out alpha% linux%,$(arch) $(osys))),)
+  TOOLS_TARGET_PAIRS = mlib-tgt.adb<5lml-tgt.adb
+  THREADSLIB=-lpthread
+  GNATLIB_SHARED=gnatlib-shared-dual
+  GMEM_LIB=gmemlib
+  LIBRARY_VERSION := $(strip $(shell grep Library_Version $(fsrcpfx)gnatvsn.ads | sed -e 's/.*GNAT Lib v\(.*\)[ "].*/\1/'))
+endif
+
+ifeq ($(strip $(filter-out sparc% linux%,$(arch) $(osys))),)
+  TOOLS_TARGET_PAIRS = mlib-tgt.adb<5lml-tgt.adb
+  THREADSLIB=-lpthread
+  GNATLIB_SHARED=gnatlib-shared-dual
+  GMEM_LIB=gmemlib
+  LIBRARY_VERSION := $(strip $(shell grep Library_Version $(fsrcpfx)gnatvsn.ads | sed -e 's/.*GNAT Lib v\(.*\)[ "].*/\1/'))
+endif
+
+ifeq ($(strip $(filter-out ia64 linux%,$(arch) $(osys))),)
+  TOOLS_TARGET_PAIRS = mlib-tgt.adb<5lml-tgt.adb
+  THREADSLIB=-lpthread
+  GNATLIB_SHARED=gnatlib-shared-dual
+  GMEM_LIB=gmemlib
+  LIBRARY_VERSION := $(strip $(shell grep Library_Version $(fsrcpfx)gnatvsn.ads | sed -e 's/.*GNAT Lib v\(.*\)[ "].*/\1/'))
+endif
+
+ifeq ($(strip $(filter-out x86_64 linux%,$(arch) $(osys))),)
+  TOOLS_TARGET_PAIRS = mlib-tgt.adb<5lml-tgt.adb
+  THREADSLIB=-lpthread
+  GNATLIB_SHARED=gnatlib-shared-dual
+  GMEM_LIB=gmemlib
+  LIBRARY_VERSION := $(strip $(shell grep Library_Version $(fsrcpfx)gnatvsn.ads | sed -e 's/.*GNAT Lib v\(.*\)[ "].*/\1/'))
+endif
+
+ifeq ($(strip $(filter-out ppc linux%,$(arch) $(osys))),)
+  TOOLS_TARGET_PAIRS = mlib-tgt.adb<5lml-tgt.adb
+  THREADSLIB=-lpthread
+  GNATLIB_SHARED=gnatlib-shared-dual
+  GMEM_LIB=gmemlib
+  LIBRARY_VERSION := $(strip $(shell grep Library_Version $(fsrcpfx)gnatvsn.ads | sed -e 's/.*GNAT Lib v\(.*\)[ "].*/\1/'))
+endif
+
+ifeq ($(strip $(filter-out powerpc linux%,$(arch) $(osys))),)
+  TOOLS_TARGET_PAIRS = mlib-tgt.adb<5lml-tgt.adb
+  THREADSLIB=-lpthread
+  GNATLIB_SHARED=gnatlib-shared-dual
+  GMEM_LIB=gmemlib
+  LIBRARY_VERSION := $(strip $(shell grep Library_Version $(fsrcpfx)gnatvsn.ads | sed -e 's/.*GNAT Lib v\(.*\)[ "].*/\1/'))
+endif
+
+ifeq ($(strip $(filter-out powerpc64 linux%,$(arch) $(osys))),)
+  TOOLS_TARGET_PAIRS = mlib-tgt.adb<5lml-tgt.adb
+  THREADSLIB=-lpthread
+  GNATLIB_SHARED=gnatlib-shared-dual
+  GMEM_LIB=gmemlib
+  LIBRARY_VERSION := $(strip $(shell grep Library_Version $(fsrcpfx)gnatvsn.ads | sed -e 's/.*GNAT Lib v\(.*\)[ "].*/\1/'))
+endif
+
+ifeq ($(strip $(filter-out s390 linux%,$(arch) $(osys))),)
+  TOOLS_TARGET_PAIRS = mlib-tgt.adb<5lml-tgt.adb
+  THREADSLIB=-lpthread
+  GNATLIB_SHARED=gnatlib-shared-dual
+  GMEM_LIB=gmemlib
+  LIBRARY_VERSION := $(strip $(shell grep Library_Version $(fsrcpfx)gnatvsn.ads | sed -e 's/.*GNAT Lib v\(.*\)[ "].*/\1/'))
+endif
+
+ifeq ($(strip $(filter-out s390x linux%,$(arch) $(osys))),)
+  TOOLS_TARGET_PAIRS = mlib-tgt.adb<5lml-tgt.adb
+  THREADSLIB=-lpthread
+  GNATLIB_SHARED=gnatlib-shared-dual
+  GMEM_LIB=gmemlib
+  LIBRARY_VERSION := $(strip $(shell grep Library_Version $(fsrcpfx)gnatvsn.ads | sed -e 's/.*GNAT Lib v\(.*\)[ "].*/\1/'))
 endif
 
 ifeq ($(strip $(filter-out mips sgi irix%,$(targ))),)
@@ -1811,6 +1883,9 @@ endif
 
 gnatlib: ../stamp-gnatlib1 ../stamp-gnatlib2
 #	../xgcc -B../ -dD -E ../tconfig.h $(INCLUDES) > rts/tconfig.h
+	$(RMDIR) save
+	$(MKDIR) save
+	$(MV) *.o save/
 	$(MAKE) -C rts CC="../../xgcc -B../../" \
 	        INCLUDES="$(INCLUDES_FOR_SUBDIR) -I./../.." \
                 CFLAGS="$(GNATLIBCFLAGS_FOR_C)" \
@@ -1823,6 +1898,8 @@ gnatlib: ../stamp-gnatlib1 ../stamp-gnatlib2
 		srcdir=$(fsrcdir) VPATH=$(fsrcdir) \
 	        -f ../Makefile \
 	        $(GNATRTL_OBJS)
+	$(MV) save/*.o .
+	$(RMDIR) save
 	$(RM) rts/libgnat$(arext) rts/libgnarl$(arext)
 	$(AR) $(AR_FLAGS) rts/libgnat$(arext) \
 	   $(addprefix rts/,$(GNATRTL_NONTASKING_OBJS) $(LIBGNAT_OBJS) prefix.o)
@@ -1966,14 +2043,15 @@ gnatlib-shared-default:
 	     THREAD_KIND="$(THREAD_KIND)" \
              gnatlib
 	$(RM) rts/libgnat$(soext) rts/libgnarl$(soext)
-	cd rts; ../../xgcc -B../../ -shared $(TARGET_LIBGCC2_CFLAGS) \
+	cd rts; ../../xgcc -B../../ -shared -shared-libgcc $(TARGET_LIBGCC2_CFLAGS) \
 		-o libgnat-$(LIBRARY_VERSION)$(soext) \
 		$(GNATRTL_NONTASKING_OBJS) $(LIBGNAT_OBJS) \
 		$(SO_OPTS)libgnat-$(LIBRARY_VERSION)$(soext) $(MISCLIB) -lm
 	cd rts; ../../xgcc -B../../ -shared $(TARGET_LIBGCC2_CFLAGS) \
 		-o libgnarl-$(LIBRARY_VERSION)$(soext) \
 		$(GNATRTL_TASKING_OBJS) \
-		$(SO_OPTS)libgnarl-$(LIBRARY_VERSION)$(soext) $(THREADSLIB)
+		$(SO_OPTS)libgnarl-$(LIBRARY_VERSION)$(soext) $(THREADSLIB) \
+		./libgnat-$(LIBRARY_VERSION)$(soext)
 	cd rts; $(LN_S) libgnat-$(LIBRARY_VERSION)$(soext) libgnat$(soext)
 	cd rts; $(LN_S) libgnarl-$(LIBRARY_VERSION)$(soext) libgnarl$(soext)
 
