@@ -1,3 +1,17 @@
+2003-06-13  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.c-torture/execute/20030611-1.c: New test.
+
+2003-06-12  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/10635
+	* g++.dg/expr/cast1.C: New test.
+
+2003-06-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/noreturn-1.c: Move noreturn warning line.
+	* gcc.dg/return-type-1.c: Move control reaches end warning line.
+
 2003-06-10  Richard Henderson  <rth@redhat.com>
 
         * gcc.dg/asm-7.c: Adjust expected warning text.

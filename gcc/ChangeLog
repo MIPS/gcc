@@ -1,3 +1,110 @@
+2003-06-14  Richard Earnshaw  <rearnsha@arm.com>
+
+	PR optimization/10842
+	From trunk:
+	2003-01-20  Nick Clifton  <nickc@redhat.com>
+
+	* config/arm/arm.md (sibcall_epilogue): Add an
+	UNSPEC_PROLOGUE_USE to prevent the link register from being
+	considered dead.
+
+	2003-02-02  Richard Earnshaw  <rearnsha@arm.com>
+
+	* arm.md (sibcall_epilogue): Set the "conds" to "clob".
+	(epilogue_insns): Likewise.
+
+2003-06-14  Richard Earnshaw  <rearnsha@arm.com>
+
+	PR target/11183
+	* arm.c (output_move_double): Pass SImode to adjust_address.
+
+2003-06-13  Janis Johnson  <janis187@us.ibm.com>
+
+	* doc/install.texi (m32r-*-elf): Change company to Renesas.
+
+2003-06-13  Richard Earnshaw  <rearnsha@arm.com>
+
+	* arm.c (output_call_mem): If the address references the link-register
+	use an instruction sequence that avoids early-clobbering IP.
+	(eliminate_lr2ip): Delete.
+
+2003-06-12  Richard Henderson  <rth@redhat.com>
+
+        PR target/11089
+        * config/i386/i386.md (sse_movaps): Use an expander to force
+        one operand to be a register.
+        (sse_movups): Likewise.
+
+2003-06-12  Richard Henderson  <rth@redhat.com>
+
+        PR middle-end/10557
+        * rtlanal.c (subreg_offset_representable_p): Relax subreg check.
+
+2003-06-13  Eric Botcazou  <ebotcazou@libertysurf.fr>
+            Christian Ehrhardt <ehrhardt@mathematik.uni-ulm.de>
+
+	PR target/10142
+	* config/sparc/sparc.c (function_arg_record_value_parms): Add
+	new 'stack' field.
+	(function_arg_record_value_1): Set 'stack' to 1 if we run out of
+	integer slots for an integer field.
+	(function_arg_record_value_3): Shift vector index.
+	(function_arg_record_value_2): Likewise.
+	(function_arg_record_value): Initialize 'stack' to 0.
+	Set 'stack' to 1 if we run out of integer slots for an integer field.
+	Generate (parallel [(expr_list (nil) ...) ...]) if 'stack' is set to 1.
+
+2003-06-13  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR optimization/10955
+	* unroll.c (unroll_loop): Fix off-by-one bug.
+
+2003-06-12  Richard Henderson  <rth@redhat.com>
+
+	PR middle-end/10475
+	* expmed.c (emit_store_flag): Use simplify_gen_subreg directly
+	for extracting sub-words.
+
+2003-06-12  Richard Henderson  <rth@redhat.com>
+
+	PR target/7594
+        * config/m68k/m68k.md (zero_extendhisi2): Use gen_lowpart_SUBREG.
+        (zero_extendqihi2, zero_extendqisi2): Likewise.
+
+2003-06-12  Richard Henderson  <rth@redhat.com>
+
+	PR inline-asm/4823
+	* reg-stack.c (any_malformed_asm): New.
+	(check_asm_stack_operands): Set it.
+	(convert_regs_1): Check it before aborting.
+
+2003-06-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-decl.c (c_expand_body): Save input_filename and lineno,
+	set it before tree inlining and restore before return.
+
+2003-06-12  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* config/s390/s390.c (s390_emit_prologue): Use LA instead of AR
+	to initialize GOT register.
+
+2003-06-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-opts.c (complain_wrong_lang): Add on argument.
+	Print no- switch if on is false.
+	(c_common_decode_option): Adjust caller.
+
+2003-06-11  Richard Henderson  <rth@redhat.com>
+
+        * stmt.c (expand_asm_operands): Don't warn for memories with
+        queued addresses.
+
+2003-06-11  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR target/8787
+	* config/i386/djgpp.h (ASM_FILE_START): emit `.intel_syntax'
+	if -masm=intel.
+
 2003-06-10  Andrew Haley  <aph@redhat.com>
 
 	* langhooks-def.h (LANG_HOOKS_DECL_OK_FOR_SIBCALL): New.
