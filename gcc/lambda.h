@@ -76,6 +76,7 @@ typedef struct
 
 lambda_loopnest lambda_loopnest_new (int, int);
 lambda_loopnest lambda_loopnest_transform (lambda_loopnest, lambda_trans_matrix);
+bool lambda_transform_legal_p (lambda_trans_matrix, int, varray_type, varray_type);
 void print_lambda_loopnest (FILE *, lambda_loopnest, char);
 
 #define lambda_loop_new() (lambda_loop) ggc_alloc_cleared (sizeof (struct lambda_loop_s))
@@ -113,10 +114,10 @@ void lambda_matrix_project_to_null (lambda_matrix, int, int, int,
 void print_lambda_matrix (FILE *, lambda_matrix, int, int);
 
 lambda_trans_matrix lambda_trans_matrix_new (int, int);
-bool lambda_trans_matrix_is_nonsingular (lambda_trans_matrix);
-bool lambda_trans_matrix_is_fullrank (lambda_trans_matrix);
+bool lambda_trans_matrix_nonsingular_p (lambda_trans_matrix);
+bool lambda_trans_matrix_fullrank_p (lambda_trans_matrix);
 int lambda_trans_matrix_rank (lambda_trans_matrix);
-lambda_trans_matrix lambda_trans_matrix_base (lambda_trans_matrix);
+lambda_trans_matrix lambda_trans_matrix_basis (lambda_trans_matrix);
 lambda_trans_matrix lambda_trans_matrix_padding (lambda_trans_matrix);
 lambda_trans_matrix lambda_trans_matrix_inverse (lambda_trans_matrix);
 void print_lambda_trans_matrix (FILE *, lambda_trans_matrix);

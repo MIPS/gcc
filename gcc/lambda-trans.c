@@ -28,16 +28,16 @@ lambda_trans_matrix_new (int colsize, int rowsize)
 /* Return true if the transformation matrix is nonsingular.  */
 
 bool
-lambda_trans_matrix_is_nonsingular (lambda_trans_matrix t)
+lambda_trans_matrix_nonsingular_p (lambda_trans_matrix t)
 {
-  return lambda_trans_matrix_is_fullrank (t);
+  return lambda_trans_matrix_fullrank_p (t);
 }
 
 
 /* Return true if the transformation matrix is full row rank.  */
 
 bool
-lambda_trans_matrix_is_fullrank (lambda_trans_matrix t)
+lambda_trans_matrix_fullrank_p (lambda_trans_matrix t)
 {
   return (lambda_trans_matrix_rank (t) == LTM_ROWSIZE (t));
 }
@@ -118,10 +118,10 @@ lambda_trans_matrix_rank (lambda_trans_matrix t)
 }
 
 
-/* Compute the base matrix.  */
+/* Compute the basis matrix.  */
 
 lambda_trans_matrix
-lambda_trans_matrix_base (lambda_trans_matrix mat)
+lambda_trans_matrix_basis (lambda_trans_matrix mat)
 {
   int rowsize, colsize;
   int i, j, nextrow;
@@ -129,12 +129,12 @@ lambda_trans_matrix_base (lambda_trans_matrix mat)
   lambda_vector row;
   int minimum_column, factor;
   
-  lambda_trans_matrix base;
+  lambda_trans_matrix basis;
   
   rowsize = LTM_ROWSIZE (mat);
   colsize = LTM_COLSIZE (mat);
-  base = lambda_trans_matrix_new (rowsize, colsize);
-  partial = LTM_MATRIX (base);
+  basis = lambda_trans_matrix_new (rowsize, colsize);
+  partial = LTM_MATRIX (basis);
   lambda_matrix_copy (LTM_MATRIX (mat), partial, rowsize, colsize);
   tempmatrix = lambda_matrix_new (rowsize, colsize);
   lambda_matrix_copy (partial, tempmatrix, rowsize, colsize);
@@ -186,8 +186,8 @@ lambda_trans_matrix_base (lambda_trans_matrix mat)
       j++;
     }
   /* Store the rank.  */
-  LTM_ROWSIZE (base) = j;
-  return base;
+  LTM_ROWSIZE (basis) = j;
+  return basis;
 }
 
 /* Pad the legal base matrix to an invertible matrix.  */

@@ -1,5 +1,32 @@
 2004-06-28  Daniel Berlin  <dberlin@dberlin.org>
 
+	* lambda-code.c (print_linear_expression): Rename a few variables,
+	simplify some code.
+	(print_lambda_loop): Ditto.
+	(lambda_compute_auxillary_space): Update a comment.
+	(gcc_loop_to_lambda_loop): Update code for chrec_dont_know change.
+	(struct dir_dist_pair): New.
+	(reverse_dep): Ditto.
+	(lambda_dep_mult_constant): New function.	
+	(lambda_dep_add): Ditto.
+	(lambda_vec_distdirvec_mult): Ditto.
+	(lambda_vec_distdirmat_mult): Ditto.
+	(lambda_deps_positive): Ditto.
+	(lambda_transform_legal_p): Ditto.
+	* lambda-mat.c (lambda_matrix_mult): Cleanup
+	(lambda_matrix_delete_rows): Ditto.
+	(lambda_matrix_row_add): Ditto.
+	(lambda_matrix_col_exchange): Ditto.
+	(lambda_trans_matrix_is_nonsingular): Rename to standard gcc predicate
+	naming.
+	(lambda_trans_matrix_is_fullrank): Ditto.
+	(lambda_trans_matrix_base): Rename to reflect actual computation.
+	* lambda.h (lambda_transform_legal_p): Add prototype.
+	* tree-loop-linear.c (linear_transform_loops): Rewrite a bit, use legality
+	tester to test transforms.
+
+2004-06-28  Daniel Berlin  <dberlin@dberlin.org>
+
 	* tree-data-ref.c (build_classic_dist_vector): Add argument, stop 
 	making out-of-bounds array accesses when analyzing less than
 	all the loops.  Add checks to verify.

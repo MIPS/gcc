@@ -129,17 +129,14 @@ lambda_matrix_mult (lambda_matrix mat1, lambda_matrix mat2,
 {
 
   int i, j, k;
-  lambda_vector row1, row3;
 
   for (i = 0; i < m; i++)
     {
-      row3 = mat3[i];
       for (j = 0; j < n; j++)
 	{
-	  row1 = mat1[i];
-	  row3[j] = 0;
+	  mat3[i][j] = 0;
 	  for (k = 0; k < r; k++)
-	    row3[j] += row1[k] * mat2[k][j];
+	    mat3[i][j] += mat1[i][k] * mat2[k][j];
 	}
     }
 }
@@ -157,18 +154,19 @@ lambda_matrix_get_column (lambda_matrix mat, int n, int col,
     vec[i] = mat[i][col];
 }
 
-/* Delete rows r1 to r2 (not including r2).  TODO */
+/* Delete rows r1 to r2 (not including r2). */
 
 void
 lambda_matrix_delete_rows (lambda_matrix mat, int rows, int from, int to)
 {
-  int i, d;
-  d = to - from;
+  int i;
+  int dist;
+  dist = to - from;
 
   for (i = to; i < rows; i++)
-    mat[i - d] = mat[i];
+    mat[i - dist] = mat[i];
 
-  for (i = rows - d; i < rows; i++)
+  for (i = rows - dist; i < rows; i++)
     mat[i] = NULL;
 }
 
@@ -191,16 +189,12 @@ void
 lambda_matrix_row_add (lambda_matrix mat, int n, int r1, int r2, int const1)
 {
   int i;
-  lambda_vector row1, row2;
 
   if (const1 == 0)
     return;
 
-  row1 = mat[r1];
-  row2 = mat[r2];
-
   for (i = 0; i < n; i++)
-    row2[i] += const1 * row1[i];
+    mat[r2][i] += const1 * mat[r1][i];
 }
 
 /* Negate row R1 of matrix MAT which has N columns.  */
@@ -227,15 +221,13 @@ lambda_matrix_row_mc (lambda_matrix mat, int n, int r1, int const1)
 void
 lambda_matrix_col_exchange (lambda_matrix mat, int m, int col1, int col2)
 {
-  lambda_vector row;
   int i;
   int tmp;
   for (i = 0; i < m; i++)
     {
-      row = mat[i];
-      tmp = row[col1];
-      row[col1] = row[col2];
-      row[col2] = tmp;
+      tmp = mat[i][col1];
+      mat[i][col1] = mat[i][col2];
+      mat[i][col2] = tmp;
     }
 }
 
@@ -420,7 +412,7 @@ lambda_matrix_inverse_hard (lambda_matrix mat, lambda_matrix inv, int n)
   return determinant;
 }
 
-/* Decompose mat to a product of a lower triangular H and a unimodular
+/* Decompose MAT to a product of a lower triangular H and a unimodular
    U matrix.  */
 
 void

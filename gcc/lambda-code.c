@@ -164,22 +164,22 @@ print_linear_expression (FILE *outfile, lambda_vector expr, int size,
 			 char start)
 {
   int i;
-  bool starting = true;
+  bool first = true;
   for (i = 0; i < size; i++)
     {
       if (expr[i] != 0)
 	{
-	  if (starting)
+	  if (first)
 	    {
 	      if (expr[i] < 0)
 		fprintf (outfile, "-");
-	      starting = false;
+	      first = false;
 	    }
 	  else if (expr[i] > 0)
 	    fprintf (outfile, " + ");
 	  else
 	    fprintf (outfile, " - ");
-	  if (expr[i] == 1 || expr [i] == -1)
+	  if (abs(expr[i]) == 1)
 	    fprintf (outfile, "%c", start + i);
 	  else
 	    fprintf (outfile, "%d%c", abs(expr[i]), start + i);
@@ -225,13 +225,11 @@ print_lambda_loop (FILE *outfile, lambda_loop loop, int depth,
     }
 
   fprintf (outfile, "  lower bound: \n");
-  expr = LL_LOWER_BOUND (loop);
-  for (; expr != NULL; expr = LLE_NEXT (expr))
+  for (expr = LL_LOWER_BOUND (loop); expr != NULL; expr = LLE_NEXT (expr))
     print_lambda_linear_expression (outfile, expr, depth, invariants,
 				    start);
   fprintf (outfile, "  upper bound: \n");
-  expr = LL_UPPER_BOUND (loop);
-  for (; expr != NULL; expr = LLE_NEXT (expr))
+  for (expr = LL_UPPER_BOUND (loop); expr != NULL; expr = LLE_NEXT (expr))
     print_lambda_linear_expression (outfile, expr, depth, invariants,
 				    start);
 
@@ -299,7 +297,7 @@ lambda_lattice_compute_base (lambda_loopnest nest)
 
   depth = LN_DEPTH (nest);
   invariants = LN_INVARIANTS (nest);
-
+  
   ret = lambda_lattice_new (depth, invariants);  
   base = LATTICE_BASE (ret);
   for (i = 0; i < depth; i++)
@@ -501,7 +499,7 @@ lambda_compute_auxillary_space (lambda_loopnest nest,
 
   /* Ax <= a + B becomes ALy <= a+B - A*origin.  L is the lattice base  */
 
-  /* A1 = AL */
+  /* A1 = A * L */
   lambda_matrix_mult (A, LATTICE_BASE (lattice), A1, size, depth, depth);
   
   /* a1 = a - A * origin constant.  */
@@ -1111,8 +1109,6 @@ gcc_loop_to_lambda_loop (struct loop *loop, int depth,
       return NULL;
     }
   
-  
-  
   test = TREE_OPERAND (exit_cond, 0);
   if (TREE_CODE (test) != LE_EXPR 
       && TREE_CODE (test) != LT_EXPR
@@ -1127,14 +1123,14 @@ gcc_loop_to_lambda_loop (struct loop *loop, int depth,
 	}
       return NULL;
     }
-#if 0  
+#if 0
   ev = analyze_scalar_evolution (loop, inductionvar);
   
   if (!evolution_function_is_affine_or_constant_p (ev))
     return NULL;
   
   nb_iter = number_of_iterations_in_loop (loop);
-  if (chrec_contains_undetermined (nb_iter))
+  if (nb_iter == chrec_dont_know)
     return NULL;
   nb_iter = chrec_fold_minus (chrec_type (nb_iter), nb_iter, 
 			      convert (chrec_type (nb_iter), integer_one_node));
@@ -1194,7 +1190,7 @@ gcc_loop_to_lambda_loop (struct loop *loop, int depth,
     }
   
   step = evolution_part_in_loop_num (access_fn, loop_num (loop));
-  if (!step)
+  if (!step || step == chrec_dont_know)
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file, "Unable to convert loop: Cannot determine step of loop.\n");
@@ -1765,3 +1761,212 @@ lambda_loopnest_to_gcc_loopnest (struct loop *old_loopnest,
       }
 }
 
+/* A data dependence direction and distance pair.  */
+
+typedef struct dir_dist_pair
+{
+  enum data_dependence_direction dir;
+  int dist;
+} dd_pair;
+
+/* If a dependence direction is reversed, reverse_dep[old_direction]
+   gives the new direction.  MUST BE KEPT IN SYNC WITH enum
+   data_dependence_dir.  
+*/
+static const enum data_dependence_direction reverse_dep[] = 
+  {
+    dir_negative,
+    dir_positive,
+    dir_equal,
+    dir_positive_or_negative,
+    dir_negative_or_equal,
+    dir_positive_or_equal,
+    dir_star,
+    dir_independent
+  };
+
+/* Multiply a dependence pair DEP by CONSTANT, return the new
+   dependence pair.  */
+
+static dd_pair
+lambda_dep_mult_constant (dd_pair dep, int constant)
+{
+  dd_pair ret;
+  ret.dist = dep.dist * constant;
+  
+  /* If the distance is now 0, the direction is now equal.
+     Otherwise, the direction only changes if the constant is < 0.  */
+
+  if (ret.dist == 0)
+    {
+      ret.dir = dir_equal;
+    }
+  else if (constant < 0)
+    {
+      ret.dir = reverse_dep[dep.dir];
+    }
+  else
+    {
+      ret.dir = dep.dir;
+    }
+  return ret;
+}
+
+/* Add two dependence pairs, FIRST and SECOND, and return the new
+   dependence pair.  */
+static dd_pair
+lambda_dep_add (dd_pair first, dd_pair second)
+{
+  dd_pair ret;
+  ret.dist = first.dist + second.dist;
+  switch (first.dir)
+    {
+    case dir_equal:
+      {
+	ret.dir = second.dir;
+	ret.dist = second.dist;
+	break;
+      }
+    case dir_positive_or_equal:
+    case dir_positive:
+      {
+	switch (second.dir)
+	  { 
+	  case dir_negative:
+	  case dir_negative_or_equal:
+	  case dir_star:
+	    ret.dir = dir_star;
+	    ret.dist = 0;
+	    break;
+	  default:
+	    ret.dir = first.dir;
+	    break;
+	  }
+	break;
+      }
+    case dir_negative_or_equal:
+    case dir_negative:
+      {
+	switch (second.dir)
+	  {
+	  case dir_positive:
+	  case dir_positive_or_equal:
+	  case dir_star:
+	    ret.dir = dir_star;
+	    ret.dist = 0;
+	    break;
+	  default:
+	    ret.dir = first.dir;
+	    break;
+	  }
+	break;
+      }
+    case dir_star:
+      {
+	ret.dir = dir_star;
+	ret.dist = 0;
+	break;
+      }
+    default:
+      abort ();
+    }
+  return ret;
+}
+/* Compute the dot product of an integer vector VECTOR, 
+   a vector containing dependence distance DISTANCE, and a vector containing
+   dependence direction DIRECTION. All vectors are of dimension SIZE.
+   Return the resulting distance/direction pair.  */
+
+static dd_pair
+lambda_vec_distdirvec_mult  (lambda_vector vector,
+			     lambda_vector distance,
+			     lambda_vector direction, 
+			     int size)
+{
+  int i;
+  dd_pair ret;
+  ret.dir = dir_equal;
+  ret.dist = 0;
+  for (i = 0; i < size; i++)
+    {
+      dd_pair elem;
+      elem.dist = distance[i];
+      elem.dir = direction[i];
+      elem = lambda_dep_mult_constant (elem, vector[i]);
+      ret = lambda_dep_add (ret, elem);
+    }
+  return ret;
+}
+
+/* Compute the dot product of an integer vector VECTOR, and a
+   dependence matrix represented by varrays of distance and direction
+   vectors, DISTS and DIRS.
+   All vectors are of dimension DIM.  */
+
+static void
+lambda_vec_distdirmat_mult (lambda_vector vector,
+			    int dim,
+			    varray_type dirs,
+			    varray_type dists,
+			    lambda_vector dirres,
+			    lambda_vector distres)
+{
+  size_t i;
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (dists); i++)
+    {
+      dd_pair result;
+      lambda_vector distance = VARRAY_GENERIC_PTR (dists, i);
+      lambda_vector direction = VARRAY_GENERIC_PTR (dirs, i);
+      result = lambda_vec_distdirvec_mult (vector, distance, direction, dim);
+      distres[i] = result.dist;
+      dirres[i] = result.dir;
+    }
+  
+}
+
+/* Return true if the direction vector DIR is all positive or equal
+   elements.  */
+static bool
+lambda_deps_positive (lambda_vector dir, int dirsize)
+{
+  int i;
+  for (i = 0; i < dirsize; i++)
+    {
+      switch (dir[i])
+      {
+      case dir_negative:
+      case dir_negative_or_equal:
+      case dir_star:
+	return false;
+	break;
+      }
+    }
+  return true;
+}
+
+      
+	
+/* Return true if TRANS is a legal transformation matrix that respects
+   the dependence vectors in DISTS and DIRS.  */
+bool
+lambda_transform_legal_p (lambda_trans_matrix trans, 
+			  int nb_loops,
+			  varray_type dirs,
+			  varray_type dists)
+{
+  int i;
+  int distsize = VARRAY_ACTIVE_SIZE (dists);
+  int dirsize = VARRAY_ACTIVE_SIZE (dirs);
+  lambda_vector distres;
+  lambda_vector dirres;
+  distres = lambda_vector_new (distsize);
+  dirres = lambda_vector_new (dirsize);
+  for (i = 0; i < LTM_ROWSIZE (trans); i++)
+    {
+      lambda_vec_distdirmat_mult (LTM_MATRIX (trans)[i], nb_loops,
+				  dirs, dists, dirres, distres);
+      if (!lambda_deps_positive (dirres, dirsize))
+	return false;
+    }
+  return true;
+}
