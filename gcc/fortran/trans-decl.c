@@ -1,5 +1,5 @@
 /* Backend function setup
-   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Paul Brook
 
 This file is part of GCC.
@@ -148,9 +148,9 @@ gfc_add_decl_to_function (tree decl)
 }
 
 
-/* Build a  backend label declaration.  Set TREE_USED for named labels.
-   The context of the label is always the current_function_decl.  All
-   labels are marked artificial.  */
+/* Build a  backend label declaration.
+   Set TREE_USED for named lables.  For artificial labels it's up to the
+   caller to mark the label as used.  */
 
 tree
 gfc_build_label_decl (tree label_id)
@@ -174,13 +174,19 @@ gfc_build_label_decl (tree label_id)
   DECL_CONTEXT (label_decl) = current_function_decl;
   DECL_MODE (label_decl) = VOIDmode;
 
-  /* We always define the label as used, even if the original source
-     file never references the label.  We don't want all kinds of
-     spurious warnings for old-style Fortran code with too many
-     labels.  */
-  TREE_USED (label_decl) = 1;
+  if (label_name)
+    {
+      DECL_ARTIFICIAL (label_decl) = 1;
+    }
+  else
+    {
+      /* We always define the label as used, even if the original source
+         file never references the label.  We don't want all kinds of
+         spurious warnings for old-style Fortran code with too many
+         labels.  */
+      TREE_USED (label_decl) = 1;
+    }
 
-  DECL_ARTIFICIAL (label_decl) = 1;
   return label_decl;
 }
 
@@ -404,9 +410,9 @@ gfc_finish_var_decl (tree decl, gfc_symbol * sym)
       DECL_EXTERNAL (decl) = 1;
       TREE_PUBLIC (decl) = 1;
     }
-  else if (sym->module[0] && !sym->attr.result && !sym->attr.dummy)
+  else if (sym->module[0] && !sym->attr.result)
     {
-      /* TODO: Don't set sym->module for result or dummy variables.  */
+      /* TODO: Don't set sym->module for result variables.  */
       gcc_assert (current_function_decl == NULL_TREE);
       /* This is the declaration of a module variable.  */
       TREE_PUBLIC (decl) = 1;
@@ -1129,7 +1135,6 @@ create_function_arglist (gfc_symbol * sym)
       DECL_CONTEXT (parm) = fndecl;
       DECL_ARG_TYPE (parm) = type;
       TREE_READONLY (parm) = 1;
-      DECL_ARTIFICIAL (parm) = 1;
       gfc_finish_decl (parm, NULL_TREE);
 
       arglist = chainon (arglist, parm);
@@ -1157,7 +1162,6 @@ create_function_arglist (gfc_symbol * sym)
 	  DECL_CONTEXT (length) = fndecl;
 	  DECL_ARG_TYPE (length) = type;
 	  TREE_READONLY (length) = 1;
-	  DECL_ARTIFICIAL (length) = 1;
 	  gfc_finish_decl (length, NULL_TREE);
 	}
     }
@@ -1212,7 +1216,6 @@ create_function_arglist (gfc_symbol * sym)
 
       arglist = chainon (arglist, length);
       DECL_CONTEXT (length) = fndecl;
-      DECL_ARTIFICIAL (length) = 1;
       DECL_ARG_TYPE (length) = type;
       TREE_READONLY (length) = 1;
       gfc_finish_decl (length, NULL_TREE);
@@ -1992,7 +1995,7 @@ gfc_create_module_variable (gfc_symbol * sym)
       internal_error ("module symbol %s in wrong namespace", sym->name);
     }
 
-  /* Only output variables and array valued parameters.  */
+  /* Only output variables and array valued parametes.  */
   if (sym->attr.flavor != FL_VARIABLE
       && (sym->attr.flavor != FL_PARAMETER || sym->attr.dimension == 0))
     return;
@@ -2085,12 +2088,12 @@ generate_local_decl (gfc_symbol * sym)
       if (sym->attr.referenced)
         gfc_get_symbol_decl (sym);
       else if (sym->attr.dummy && warn_unused_parameter)
-            warning ("unused parameter %qs", sym->name);
+            warning ("unused parameter `%s'", sym->name);
       /* Warn for unused variables, but not if they're inside a common
 	 block or are use-associated.  */
       else if (warn_unused_variable
 	       && !(sym->attr.in_common || sym->attr.use_assoc))
-	warning ("unused variable %qs", sym->name); 
+	warning ("unused variable `%s'", sym->name); 
     }
 }
 
@@ -2116,13 +2119,16 @@ gfc_trans_entry_master_switch (gfc_entry_list * el)
   for (; el; el = el->next)
     {
       /* Add the case label.  */
-      label = gfc_build_label_decl (NULL_TREE);
+      label = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
+      DECL_CONTEXT (label) = current_function_decl;
       val = build_int_cst (gfc_array_index_type, el->id);
       tmp = build3_v (CASE_LABEL_EXPR, val, NULL_TREE, label);
       gfc_add_expr_to_block (&block, tmp);
       
       /* And jump to the actual entry point.  */
       label = gfc_build_label_decl (NULL_TREE);
+      TREE_USED (label) = 1;
+      DECL_CONTEXT (label) = current_function_decl;
       tmp = build1_v (GOTO_EXPR, label);
       gfc_add_expr_to_block (&block, tmp);
 

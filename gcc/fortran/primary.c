@@ -1,6 +1,5 @@
 /* Primary expression subroutines
-   Copyright (C) 2000, 2001, 2002, 2004, 2005 Free Software Foundation,
-   Inc.
+   Copyright (C) 2000, 2001, 2002, 2004 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -24,6 +23,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "config.h"
 #include "system.h"
 #include "flags.h"
+
+#include <string.h>
+#include <stdlib.h>
 #include "gfortran.h"
 #include "arith.h"
 #include "match.h"
@@ -115,7 +117,7 @@ check_digit (int c, int radix)
       break;
 
     case 16:
-      r = ISXDIGIT (c);
+      r = ('0' <= c && c <= '9') || ('a' <= c && c <= 'f');
       break;
 
     default:
@@ -144,7 +146,6 @@ match_digits (int signflag, int radix, char *buffer)
     {
       if (buffer != NULL)
 	*buffer++ = c;
-      gfc_gobble_whitespace ();
       c = gfc_next_char ();
       length++;
     }
@@ -330,8 +331,7 @@ backup:
 }
 
 
-/* Match a real constant of some sort.  Allow a signed constant if signflag
-   is nonzero.  Allow integer constants if allow_int is true.  */
+/* Match a real constant of some sort.  */
 
 static match
 match_real_constant (gfc_expr ** result, int signflag)
@@ -340,7 +340,6 @@ match_real_constant (gfc_expr ** result, int signflag)
   locus old_loc, temp_loc;
   char *p, *buffer;
   gfc_expr *e;
-  bool negate;
 
   old_loc = gfc_current_locus;
   gfc_gobble_whitespace ();
@@ -351,16 +350,12 @@ match_real_constant (gfc_expr ** result, int signflag)
   seen_dp = 0;
   seen_digits = 0;
   exp_char = ' ';
-  negate = FALSE;
 
   c = gfc_next_char ();
   if (signflag && (c == '+' || c == '-'))
     {
-      if (c == '-')
-	negate = TRUE;
-
-      gfc_gobble_whitespace ();
       c = gfc_next_char ();
+      count++;
     }
 
   /* Scan significand.  */
@@ -379,7 +374,7 @@ match_real_constant (gfc_expr ** result, int signflag)
 	    {
 	      c = gfc_next_char ();
 	      if (c == '.')
-		goto done;	/* Operator named .e. or .d.  */
+		goto done;	/* Operator named .e. or .d. */
 	    }
 
 	  if (ISALPHA (c))
@@ -399,8 +394,7 @@ match_real_constant (gfc_expr ** result, int signflag)
       break;
     }
 
-  if (!seen_digits
-      || (c != 'e' && c != 'd' && c != 'q'))
+  if (!seen_digits || (c != 'e' && c != 'd' && c != 'q'))
     goto done;
   exp_char = c;
 
@@ -416,6 +410,13 @@ match_real_constant (gfc_expr ** result, int signflag)
 
   if (!ISDIGIT (c))
     {
+      /* TODO: seen_digits is always true at this point */
+      if (!seen_digits)
+	{
+	  gfc_current_locus = old_loc;
+	  return MATCH_NO;	/* ".e" can be something else */
+	}
+
       gfc_error ("Missing exponent in real number at %C");
       return MATCH_ERROR;
     }
@@ -427,7 +428,7 @@ match_real_constant (gfc_expr ** result, int signflag)
     }
 
 done:
-  /* Check that we have a numeric constant.  */
+  /* See what we've got!  */
   if (!seen_digits || (!seen_dp && exp_char == ' '))
     {
       gfc_current_locus = old_loc;
@@ -441,26 +442,15 @@ done:
   buffer = alloca (count + 1);
   memset (buffer, '\0', count + 1);
 
-  p = buffer;
-  c = gfc_next_char ();
-  if (c == '+' || c == '-')
-    {
-      gfc_gobble_whitespace ();
-      c = gfc_next_char ();
-    }
-
   /* Hack for mpfr_set_str().  */
-  for (;;)
+  p = buffer;
+  while (count > 0)
     {
-      if (c == 'd' || c == 'q')
+      *p = gfc_next_char ();
+      if (*p == 'd' || *p == 'q')
 	*p = 'e';
-      else
-	*p = c;
       p++;
-      if (--count == 0)
-	break;
-
-      c = gfc_next_char ();
+      count--;
     }
 
   kind = get_kind ();
@@ -501,8 +491,6 @@ done:
     }
 
   e = gfc_convert_real (buffer, kind, &gfc_current_locus);
-  if (negate)
-    mpfr_neg (e->value.real, e->value.real, GFC_RND_MODE);
 
   switch (gfc_range_check (e))
     {
@@ -1008,6 +996,152 @@ error:
 }
 
 
+/* Match the real and imaginary parts of a complex number.  This
+   subroutine is essentially match_real_constant() modified in a
+   couple of ways: A sign is always allowed and numbers that would
+   look like an integer to match_real_constant() are automatically
+   created as floating point numbers.  The messiness involved with
+   making sure a decimal point belongs to the number and not a
+   trailing operator is not necessary here either (Hooray!).  */
+
+static match
+match_const_complex_part (gfc_expr ** result)
+{
+  int kind, seen_digits, seen_dp, count;
+  char *p, c, exp_char, *buffer;
+  locus old_loc;
+
+  old_loc = gfc_current_locus;
+  gfc_gobble_whitespace ();
+
+  seen_dp = 0;
+  seen_digits = 0;
+  count = 0;
+  exp_char = ' ';
+
+  c = gfc_next_char ();
+  if (c == '-' || c == '+')
+    {
+      c = gfc_next_char ();
+      count++;
+    }
+
+  for (;; c = gfc_next_char (), count++)
+    {
+      if (c == '.')
+	{
+	  if (seen_dp)
+	    goto no_match;
+	  seen_dp = 1;
+	  continue;
+	}
+
+      if (ISDIGIT (c))
+	{
+	  seen_digits = 1;
+	  continue;
+	}
+
+      break;
+    }
+
+  if (!seen_digits || (c != 'd' && c != 'e'))
+    goto done;
+  exp_char = c;
+
+  /* Scan exponent.  */
+  c = gfc_next_char ();
+  count++;
+
+  if (c == '+' || c == '-')
+    {				/* optional sign */
+      c = gfc_next_char ();
+      count++;
+    }
+
+  if (!ISDIGIT (c))
+    {
+      gfc_error ("Missing exponent in real number at %C");
+      return MATCH_ERROR;
+    }
+
+  while (ISDIGIT (c))
+    {
+      c = gfc_next_char ();
+      count++;
+    }
+
+done:
+  if (!seen_digits)
+    goto no_match;
+
+  /* Convert the number.  */
+  gfc_current_locus = old_loc;
+  gfc_gobble_whitespace ();
+
+  buffer = alloca (count + 1);
+  memset (buffer, '\0', count + 1);
+
+  /* Hack for mpfr_set_str().  */
+  p = buffer;
+  while (count > 0)
+    {
+      c = gfc_next_char ();
+      if (c == 'd' || c == 'q')
+	c = 'e';
+      *p++ = c;
+      count--;
+    }
+
+  *p = '\0';
+
+  kind = get_kind ();
+  if (kind == -1)
+    return MATCH_ERROR;
+
+  /* If the number looked like an integer, forget about a kind we may
+     have seen, otherwise validate the kind against real kinds.  */
+  if (seen_dp == 0 && exp_char == ' ')
+    {
+      if (kind == -2)
+	kind = gfc_default_integer_kind;
+
+    }
+  else
+    {
+      if (exp_char == 'd')
+	{
+	  if (kind != -2)
+	    {
+	      gfc_error
+		("Real number at %C has a 'd' exponent and an explicit kind");
+	      return MATCH_ERROR;
+	    }
+	  kind = gfc_default_double_kind;
+
+	}
+      else
+	{
+	  if (kind == -2)
+	    kind = gfc_default_real_kind;
+	}
+
+      if (gfc_validate_kind (BT_REAL, kind, true) < 0)
+	{
+	  gfc_error ("Invalid real kind %d at %C", kind);
+	  return MATCH_ERROR;
+	}
+    }
+
+  *result = gfc_convert_real (buffer, kind, &gfc_current_locus);
+  return MATCH_YES;
+
+no_match:
+  gfc_current_locus = old_loc;
+  return MATCH_NO;
+}
+
+
 /* Match a real or imaginary part of a complex number.  */
 
 static match
@@ -1019,11 +1153,7 @@ match_complex_part (gfc_expr ** result)
   if (m != MATCH_NO)
     return m;
 
-  m = match_real_constant (result, 1);
-  if (m != MATCH_NO)
-    return m;
-
-  return match_integer_constant (result, 1);
+  return match_const_complex_part (result);
 }
 
 
@@ -1082,26 +1212,13 @@ match_complex_constant (gfc_expr ** result)
     goto cleanup;
 
   /* Decide on the kind of this complex number.  */
-  if (real->ts.type == BT_REAL)
-    {
-      if (imag->ts.type == BT_REAL)
-	kind = gfc_kind_max (real, imag);
-      else
-	kind = real->ts.kind;
-    }
-  else
-    {
-      if (imag->ts.type == BT_REAL)
-	kind = imag->ts.kind;
-      else
-	kind = gfc_default_real_kind;
-    }
+  kind = gfc_kind_max (real, imag);
   target.type = BT_REAL;
   target.kind = kind;
 
-  if (real->ts.type != BT_REAL || kind != real->ts.kind)
+  if (kind != real->ts.kind)
     gfc_convert_type (real, &target, 2);
-  if (imag->ts.type != BT_REAL || kind != imag->ts.kind)
+  if (kind != imag->ts.kind)
     gfc_convert_type (imag, &target, 2);
 
   e = gfc_convert_complex (real, imag, kind);
@@ -1537,7 +1654,7 @@ check_substring:
    dumped).  If we see a full part or section of an array, the
    expression is also an array.
 
-   We can have at most one full array reference.  */
+   We can have at most one full array reference. */
 
 symbol_attribute
 gfc_variable_attr (gfc_expr * expr, gfc_typespec * ts)
@@ -1877,7 +1994,7 @@ gfc_match_rvalue (gfc_expr ** result)
 	e->rank = sym->as->rank;
 
       if (!sym->attr.function
-	  && gfc_add_function (&sym->attr, sym->name, NULL) == FAILURE)
+	  && gfc_add_function (&sym->attr, NULL) == FAILURE)
 	{
 	  m = MATCH_ERROR;
 	  break;
@@ -1896,7 +2013,6 @@ gfc_match_rvalue (gfc_expr ** result)
          resolution phase.  */
 
       if (gfc_peek_char () == '%'
-	  && sym->ts.type == BT_UNKNOWN
 	  && gfc_get_default_type (sym, sym->ns)->type == BT_DERIVED)
 	gfc_set_default_type (sym, 0, sym->ns);
 
@@ -1905,8 +2021,7 @@ gfc_match_rvalue (gfc_expr ** result)
 
       if (sym->attr.dimension)
 	{
-	  if (gfc_add_flavor (&sym->attr, FL_VARIABLE,
-			      sym->name, NULL) == FAILURE)
+	  if (gfc_add_flavor (&sym->attr, FL_VARIABLE, NULL) == FAILURE)
 	    {
 	      m = MATCH_ERROR;
 	      break;
@@ -1931,8 +2046,7 @@ gfc_match_rvalue (gfc_expr ** result)
 	  e->symtree = symtree;
 	  e->expr_type = EXPR_VARIABLE;
 
-	  if (gfc_add_flavor (&sym->attr, FL_VARIABLE,
-			      sym->name, NULL) == FAILURE)
+	  if (gfc_add_flavor (&sym->attr, FL_VARIABLE, NULL) == FAILURE)
 	    {
 	      m = MATCH_ERROR;
 	      break;
@@ -1966,8 +2080,7 @@ gfc_match_rvalue (gfc_expr ** result)
 	      e->expr_type = EXPR_VARIABLE;
 
 	      if (sym->attr.flavor != FL_VARIABLE
-		  && gfc_add_flavor (&sym->attr, FL_VARIABLE,
-				     sym->name, NULL) == FAILURE)
+		  && gfc_add_flavor (&sym->attr, FL_VARIABLE, NULL) == FAILURE)
 		{
 		  m = MATCH_ERROR;
 		  break;
@@ -1993,7 +2106,7 @@ gfc_match_rvalue (gfc_expr ** result)
       e->expr_type = EXPR_FUNCTION;
 
       if (!sym->attr.function
-	  && gfc_add_function (&sym->attr, sym->name, NULL) == FAILURE)
+	  && gfc_add_function (&sym->attr, NULL) == FAILURE)
 	{
 	  m = MATCH_ERROR;
 	  break;
@@ -2075,21 +2188,31 @@ gfc_match_variable (gfc_expr ** result, int equiv_flag)
       break;
 
     case FL_UNKNOWN:
-      if (gfc_add_flavor (&sym->attr, FL_VARIABLE,
-			  sym->name, NULL) == FAILURE)
+      if (gfc_add_flavor (&sym->attr, FL_VARIABLE, NULL) == FAILURE)
 	return MATCH_ERROR;
+
+      /* Special case for derived type variables that get their types
+         via an IMPLICIT statement.  This can't wait for the
+         resolution phase.  */
+
+      if (gfc_peek_char () == '%'
+	  && gfc_get_default_type (sym, sym->ns)->type == BT_DERIVED)
+	gfc_set_default_type (sym, 0, sym->ns);
+
       break;
 
     case FL_PROCEDURE:
       /* Check for a nonrecursive function result */
       if (sym->attr.function && (sym->result == sym || sym->attr.entry))
 	{
+
 	  /* If a function result is a derived type, then the derived
 	     type may still have to be resolved.  */
 
 	  if (sym->ts.type == BT_DERIVED
 	      && gfc_use_derived (sym->ts.derived) == NULL)
 	    return MATCH_ERROR;
+
 	  break;
 	}
 
@@ -2098,24 +2221,6 @@ gfc_match_variable (gfc_expr ** result, int equiv_flag)
     default:
       gfc_error ("Expected VARIABLE at %C");
       return MATCH_ERROR;
-    }
-
-  /* Special case for derived type variables that get their types
-     via an IMPLICIT statement.  This can't wait for the
-     resolution phase.  */
-
-    {
-      gfc_namespace * implicit_ns;
-
-      if (gfc_current_ns->proc_name == sym)
-	implicit_ns = gfc_current_ns;
-      else
-	implicit_ns = sym->ns;
-	
-      if (gfc_peek_char () == '%'
-	  && sym->ts.type == BT_UNKNOWN
-	  && gfc_get_default_type (sym, implicit_ns)->type == BT_DERIVED)
-	gfc_set_default_type (sym, 0, implicit_ns);
     }
 
   expr = gfc_get_expr ();

@@ -1,7 +1,7 @@
 /* Program to dump out a Java(TM) .class file.
    Functionally similar to Sun's javap.
 
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -54,6 +54,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "coretypes.h"
 #include "tm.h"
 #include "ggc.h"
+#include "intl.h"
 
 #include "jcf.h"
 #include "tree.h"
@@ -73,7 +74,7 @@ int verbose = 0;
 
 int flag_disassemble_methods = 0;
 int flag_print_class_info = 1;
-int flag_print_constant_pool = 1;
+int flag_print_constant_pool = 0;
 int flag_print_fields = 1;
 int flag_print_methods = 1;
 int flag_print_attributes = 1;
@@ -90,7 +91,7 @@ int this_class_index = 0;
 
 int class_access_flags = 0;
 
-/* Print in format similar to javap.  VERY IMCOMPLETE. */
+/* Print in format similar to javap.  VERY INCOMPLETE. */
 int flag_javap_compatible = 0;
 
 static void print_access_flags (FILE *, uint16, char);
@@ -151,9 +152,7 @@ utf8_equal_string (JCF *jcf, int index, const char * value)
       print_access_flags (out, ACCESS_FLAGS, 'c'); \
       fputc ('\n', out); \
       fprintf (out, "This class: "); \
-      if (flag_print_constant_pool) \
-        fprintf (out, "%d=", THIS); \
-      print_constant_terse (out, jcf, THIS, CONSTANT_Class); \
+      print_constant_terse_with_index (out, jcf, THIS, CONSTANT_Class); \
       if (flag_print_constant_pool || SUPER != 0) \
         fprintf (out, ", super: "); \
       if (flag_print_constant_pool) \
@@ -172,8 +171,8 @@ utf8_equal_string (JCF *jcf, int index, const char * value)
 
 #define HANDLE_CLASS_INTERFACE(INDEX) \
   if (flag_print_class_info) \
-    { fprintf (out, "- Implements: %d=", INDEX); \
-      print_constant_terse (out, jcf, INDEX, CONSTANT_Class); \
+    { fprintf (out, "- Implements: "); \
+      print_constant_terse_with_index (out, jcf, INDEX, CONSTANT_Class); \
       fputc ('\n', out); }
 
 #define HANDLE_START_FIELDS(FIELDS_COUNT) \
@@ -286,9 +285,13 @@ utf8_equal_string (JCF *jcf, int index, const char * value)
     int name_index = JCF_readu2 (jcf); \
     int signature_index = JCF_readu2 (jcf); \
     int slot = JCF_readu2 (jcf); \
-    fprintf (out, "  slot#%d: name: %d=", slot, name_index); \
+    fprintf (out, "  slot#%d: name: ", slot); \
+    if (flag_print_constant_pool) \
+      fprintf (out, "%d=", name_index); \
     print_name (out, jcf, name_index); \
-    fprintf (out, ", type: %d=", signature_index); \
+    fprintf (out, ", type: "); \
+    if (flag_print_constant_pool) \
+      fprintf (out, "%d=", signature_index); \
     print_signature (out, jcf, signature_index, 0); \
     fprintf (out, " (pc: %d length: %d)\n", start_pc, length); }}
 
@@ -316,19 +319,22 @@ utf8_equal_string (JCF *jcf, int index, const char * value)
 									    \
       if (flag_print_class_info)					    \
 	{								    \
-	  fprintf (out, "\n  class: ");					    \
-	  if (flag_print_constant_pool)					    \
-	    fprintf (out, "%d=", inner_class_info_index);		    \
-	  print_constant_terse (out, jcf,				    \
+	  fprintf (out, "\n  inner: ");					    \
+	  print_constant_terse_with_index (out, jcf,			    \
 				inner_class_info_index, CONSTANT_Class);    \
-	  fprintf (out, " (%d=", inner_name_index);			    \
-	  print_constant_terse (out, jcf, inner_name_index, CONSTANT_Utf8); \
-	  fprintf (out, "), access flags: 0x%x", inner_class_access_flags); \
+	  if (inner_name_index == 0)					    \
+	    fprintf (out, " (anonymous)");				    \
+	  else if (verbose || flag_print_constant_pool)			    \
+	    {								    \
+	      fprintf (out, " (");					    \
+	      print_constant_terse_with_index (out, jcf, inner_name_index,  \
+					       CONSTANT_Utf8);		    \
+	      fputc (')', out);						    \
+	    }								    \
+	  fprintf (out, ", access flags: 0x%x", inner_class_access_flags);  \
 	  print_access_flags (out, inner_class_access_flags, 'c');	    \
 	  fprintf (out, ", outer class: ");				    \
-	  if (flag_print_constant_pool)					    \
-	    fprintf (out, "%d=", outer_class_info_index);		    \
-	  print_constant_terse (out, jcf,				    \
+	  print_constant_terse_with_index (out, jcf,			    \
 				outer_class_info_index, CONSTANT_Class);    \
 	}								    \
     }									    \
@@ -349,12 +355,16 @@ utf8_equal_string (JCF *jcf, int index, const char * value)
 static void
 print_constant_ref (FILE *stream, JCF *jcf, int index)
 {
-  fprintf (stream, "#%d=<", index);
   if (index <= 0 || index >= JPOOL_SIZE(jcf))
-    fprintf (stream, "out of range");
+    fprintf (stream, "<out of range>");
   else
-    print_constant (stream, jcf, index, 1);
-  fprintf (stream, ">");
+    {
+      if (flag_print_constant_pool)
+	fprintf (stream, "#%d=", index);
+      fputc ('<', stream);
+      print_constant (stream, jcf, index, 1);
+      fputc ('>', stream);
+    }
 }
 
 /* Print the access flags given by FLAGS.
@@ -411,6 +421,14 @@ print_constant_terse (FILE *out, JCF *jcf, int index, int expected)
     }
   else
     print_constant (out, jcf, index, 0);
+}
+
+static void
+print_constant_terse_with_index (FILE *out, JCF *jcf, int index, int expected)
+{
+  if (flag_print_constant_pool)
+    fprintf (out, "%d=", index);
+  print_constant_terse (out, jcf, index, expected);
 }
 
 /* Print the constant at INDEX in JCF's constant pool.
@@ -615,7 +633,7 @@ print_constant (FILE *out, JCF *jcf, int index, int verbosity)
       break;
     case CONSTANT_Utf8:
       {
-	register const unsigned char *str = JPOOL_UTF_DATA (jcf, index);
+	const unsigned char *str = JPOOL_UTF_DATA (jcf, index);
 	int length = JPOOL_UTF_LENGTH (jcf, index);
 	if (verbosity > 0)
 	  { /* Print as 8-bit bytes. */
@@ -774,15 +792,13 @@ print_exception_table (JCF *jcf, const unsigned char *entries, int count)
 	  int end_pc = GET_u2 (ptr+2);
 	  int handler_pc = GET_u2 (ptr+4);
 	  int catch_type = GET_u2 (ptr+6);
-	  fprintf (out, "  start: %d, end: %d, handler: %d, type: %d",
-		   start_pc, end_pc, handler_pc, catch_type);
+	  fprintf (out, "  start: %d, end: %d, handler: %d, type: ",
+		   start_pc, end_pc, handler_pc);
 	  if (catch_type == 0)
-	    fputs (" /* finally */", out);
+	    fputs ("0 /* finally */", out);
 	  else
-	    {
-	      fputc('=', out);
-	      print_constant_terse (out, jcf, catch_type, CONSTANT_Class);
-	    }
+	    print_constant_terse_with_index (out, jcf,
+					     catch_type, CONSTANT_Class);
 	  fputc ('\n', out);
 	}
     }
@@ -795,19 +811,19 @@ process_class (JCF *jcf)
 {
   int code;
   if (jcf_parse_preamble (jcf) != 0)
-    fprintf (stderr, "Not a valid Java .class file.\n");    
+    fprintf (stderr, _("Not a valid Java .class file.\n"));    
 
   /* Parse and possibly print constant pool */
   code = jcf_parse_constant_pool (jcf);
   if (code != 0)
     {
-      fprintf (stderr, "error while parsing constant pool\n");
+      fprintf (stderr, _("error while parsing constant pool\n"));
       exit (FATAL_EXIT_CODE);
     }
   code = verify_constant_pool (jcf);
   if (code > 0)
     {
-      fprintf (stderr, "error in constant pool entry #%d\n", code);
+      fprintf (stderr, _("error in constant pool entry #%d\n"), code);
       exit (FATAL_EXIT_CODE);
     }
   if (flag_print_constant_pool)
@@ -817,19 +833,19 @@ process_class (JCF *jcf)
   code = jcf_parse_fields (jcf);
   if (code != 0)
     {
-      fprintf (stderr, "error while parsing fields\n");
+      fprintf (stderr, _("error while parsing fields\n"));
       exit (FATAL_EXIT_CODE);
     }
   code = jcf_parse_methods (jcf);
   if (code != 0)
     {
-      fprintf (stderr, "error while parsing methods\n");
+      fprintf (stderr, _("error while parsing methods\n"));
       exit (FATAL_EXIT_CODE);
     }
   code = jcf_parse_final_attributes (jcf);
   if (code != 0)
     {
-      fprintf (stderr, "error while parsing final attributes\n");
+      fprintf (stderr, _("error while parsing final attributes\n"));
       exit (FATAL_EXIT_CODE);
     }
   jcf->filename = NULL;
@@ -858,37 +874,38 @@ static const struct option options[] =
   { "verbose",       no_argument,       NULL, 'v' },
   { "version",       no_argument,       NULL, OPT_VERSION },
   { "javap",         no_argument,       NULL, OPT_JAVAP },
-  { "print-main",    no_argument,      &flag_print_main, 1 },
+  { "print-main",    no_argument,       &flag_print_main, 1 },
+  { "print-constants", no_argument,     &flag_print_constant_pool, 1 },
   { NULL,            no_argument,       NULL, 0 }
 };
 
 static void
 usage (void)
 {
-  fprintf (stderr, "Try `jcf-dump --help' for more information.\n");
+  fprintf (stderr, _("Try `jcf-dump --help' for more information.\n"));
   exit (1);
 }
 
 static void
 help (void)
 {
-  printf ("Usage: jcf-dump [OPTION]... CLASS...\n\n");
-  printf ("Display contents of a class file in readable form.\n\n");
-  printf ("  -c                      Disassemble method bodies\n");
-  printf ("  --javap                 Generate output in `javap' format\n");
+  printf (_("Usage: jcf-dump [OPTION]... CLASS...\n\n"));
+  printf (_("Display contents of a class file in readable form.\n\n"));
+  printf (_("  -c                      Disassemble method bodies\n"));
+  printf (_("  --javap                 Generate output in `javap' format\n"));
   printf ("\n");
-  printf ("  --classpath PATH        Set path to find .class files\n");
-  printf ("  -IDIR                   Append directory to class path\n");
-  printf ("  --bootclasspath PATH    Override built-in class path\n");
-  printf ("  --extdirs PATH          Set extensions directory path\n");
-  printf ("  -o FILE                 Set output file name\n");
+  printf (_("  --classpath PATH        Set path to find .class files\n"));
+  printf (_("  -IDIR                   Append directory to class path\n"));
+  printf (_("  --bootclasspath PATH    Override built-in class path\n"));
+  printf (_("  --extdirs PATH          Set extensions directory path\n"));
+  printf (_("  -o FILE                 Set output file name\n"));
   printf ("\n");
-  printf ("  --help                  Print this help, then exit\n");
-  printf ("  --version               Print version number, then exit\n");
-  printf ("  -v, --verbose           Print extra information while running\n");
+  printf (_("  --help                  Print this help, then exit\n"));
+  printf (_("  --version               Print version number, then exit\n"));
+  printf (_("  -v, --verbose           Print extra information while running\n"));
   printf ("\n");
-  printf ("For bug reporting instructions, please see:\n");
-  printf ("%s.\n", bug_report_url);
+  printf (_("For bug reporting instructions, please see:\n"
+	    "%s.\n"), bug_report_url);
   exit (0);
 }
 
@@ -896,9 +913,9 @@ static void
 version (void)
 {
   printf ("jcf-dump (GCC) %s\n\n", version_string);
-  printf ("Copyright (C) 2002 Free Software Foundation, Inc.\n");
-  printf ("This is free software; see the source for copying conditions.  There is NO\n");
-  printf ("warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n");
+  printf ("Copyright %s 2004 Free Software Foundation, Inc.\n", _("(C)"));
+  printf (_("This is free software; see the source for copying conditions.  There is NO\n"
+	    "warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"));
   exit (0);
 }
 
@@ -908,9 +925,11 @@ main (int argc, char** argv)
   JCF jcf[1];
   int argi, opt;
 
+  gcc_init_libintl ();
+
   if (argc <= 1)
     {
-      fprintf (stderr, "jcf-dump: no classes specified\n");
+      fprintf (stderr, _("jcf-dump: no classes specified\n"));
       usage ();
     }
 
@@ -973,9 +992,12 @@ main (int argc, char** argv)
 	}
     }
 
+  if (verbose && ! flag_javap_compatible)
+    flag_print_constant_pool = 1;
+
   if (optind == argc)
     {
-      fprintf (stderr, "jcf-dump: no classes specified\n");
+      fprintf (stderr, _("jcf-dump: no classes specified\n"));
       usage ();
     }
 
@@ -995,7 +1017,7 @@ main (int argc, char** argv)
       out = fopen (output_file, "w");
       if (! out)
 	{
-	  fprintf (stderr, "Cannot open '%s' for output.\n", output_file);
+	  fprintf (stderr, _("Cannot open '%s' for output.\n"), output_file);
 	  return FATAL_EXIT_CODE;
 	}
     }
@@ -1041,7 +1063,7 @@ main (int argc, char** argv)
 		    break;  /* got to central directory */
 		  if (magic != 0x04034b50) /* ZIPMAGIC (little-endian) */
 		    {
-		      fprintf (stderr, "bad format of .zip/.jar archive\n");
+		      fprintf (stderr, _("bad format of .zip/.jar archive\n"));
 		      return FATAL_EXIT_CODE;
 		    }
 		  JCF_FILL (jcf, 26);
@@ -1058,7 +1080,7 @@ main (int argc, char** argv)
 		  if (jcf->read_end - jcf->read_ptr < total_length)
 		    jcf_trim_old_input (jcf);
 		  JCF_FILL (jcf, total_length);
-		  filename = jcf->read_ptr;
+		  filename = (const char *) jcf->read_ptr;
 		  JCF_SKIP (jcf, filename_length);
 		  JCF_SKIP (jcf, extra_length);
 		  if (filename_length > 0
@@ -1159,7 +1181,7 @@ disassemble_method (JCF* jcf, const unsigned char *byte_ops, int len)
 #define VAR_INDEX_2 (saw_index = 1, IMMEDIATE_u2)
 
 #define CHECK_PC_IN_RANGE(PC) (PC < 0 || PC > len ? \
-  (fprintf(stderr, "Bad byte codes.\n"), exit(-1)) : 1)
+  (fprintf(stderr, _("Bad byte codes.\n")), exit(-1), 0) : 1)
 
 /* Print out operand (if not implied by the opcode) for PUSCH opcodes.
    These all push a constant onto the opcode stack. */

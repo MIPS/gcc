@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler.  TMS320C[34]x
-   Copyright (C) 1994, 1995, 1996, 1997, 1998, 1999, 2003
+   Copyright (C) 1994, 1995, 1996, 1997, 1998, 1999, 2003, 2004
    Free Software Foundation, Inc.
 
    Contributed by Michael Hayes (m.hayes@elec.canterbury.ac.nz)
@@ -56,8 +56,6 @@ extern struct rtx_def *c4x_function_arg (CUMULATIVE_ARGS *,
 #if defined(RTX_CODE) && defined(TREE_CODE)
 extern void c4x_init_cumulative_args (CUMULATIVE_ARGS *c, tree, rtx);
 
-extern struct rtx_def *c4x_va_arg (tree, tree);
-
 extern rtx c4x_expand_builtin (tree, rtx, rtx, enum machine_mode, int);
 
 extern void c4x_init_builtins (void);
@@ -68,7 +66,7 @@ extern void c4x_init_builtins (void);
 #ifdef RTX_CODE
 extern struct rtx_def *c4x_gen_compare_reg (enum rtx_code, rtx, rtx);
 
-extern int c4x_check_legit_addr (enum machine_mode, rtx, int);
+extern int c4x_legitimate_address_p (enum machine_mode, rtx, int);
 
 extern int c4x_hard_regno_mode_ok (unsigned int, enum machine_mode);
 

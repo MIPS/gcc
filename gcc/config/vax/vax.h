@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler.  VAX version.
    Copyright (C) 1987, 1988, 1991, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -230,7 +230,7 @@ extern int target_flags;
 
 /* Register in which address to store a structure value
    is passed to a function.  */
-#define STRUCT_VALUE_REGNUM 1
+#define VAX_STRUCT_VALUE_REGNUM 1
 
 /* Define the classes of registers for register constraints in the
    machine description.  Also define ranges of constants.
@@ -441,7 +441,7 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
 
    On the VAX, the offset starts at 0.  */
 
-#define INIT_CUMULATIVE_ARGS(CUM,FNTYPE,LIBNAME,INDIRECT)	\
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT, N_NAMED_ARGS) \
  ((CUM) = 0)
 
 /* Update the data in CUM to advance over an argument
@@ -758,23 +758,6 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
 	    goto ADDR;							\
 	  GO_IF_REG_PLUS_INDEX (XEXP (X, 0), MODE, ADDR); } } }
 
-/* Try machine-dependent ways of modifying an illegitimate address
-   to be legitimate.  If we find one, return the new, valid address.
-   This macro is used in only one place: `memory_address' in explow.c.
-
-   OLDX is the address as it was before break_out_memory_refs was called.
-   In some cases it is useful to look at this to decide what needs to be done.
-
-   MODE and WIN are passed so that this macro can use
-   GO_IF_LEGITIMATE_ADDRESS.
-
-   It is always safe for this macro to do nothing.  It exists to recognize
-   opportunities to optimize the output.
-
-   For the VAX, nothing needs to be done.  */
-
-#define LEGITIMIZE_ADDRESS(X,OLDX,MODE,WIN)  {}
-
 /* Go to LABEL if ADDR (a legitimate address expression)
    has an effect that depends on the machine mode it is used for.
    On the VAX, the predecrement and postincrement address depend thus
@@ -833,10 +816,6 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
    is done just by pretending it is already truncated.  */
 #define TRULY_NOOP_TRUNCATION(OUTPREC, INPREC) 1
 
-/* When a prototype says `char' or `short', really pass an `int'.
-   (On the VAX, this is required for system-library compatibility.)  */
-#define PROMOTE_PROTOTYPES 1
-
 /* Specify the machine mode that pointers have.
    After generation of rtl, the compiler makes no further distinction
    between pointers and any other objects of this machine mode.  */
@@ -870,61 +849,7 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
    Do not alter them if the instruction would not alter the cc's.  */
 
 #define NOTICE_UPDATE_CC(EXP, INSN) \
-{ if (GET_CODE (EXP) == SET)					\
-    { if (GET_CODE (SET_SRC (EXP)) == CALL)			\
-	CC_STATUS_INIT;						\
-      else if (GET_CODE (SET_DEST (EXP)) != ZERO_EXTRACT	\
-	       && GET_CODE (SET_DEST (EXP)) != PC)		\
-	{							\
-	  cc_status.flags = 0;					\
-	  /* The integer operations below don't set carry or	\
-	     set it in an incompatible way.  That's ok though	\
-	     as the Z bit is all we need when doing unsigned	\
-	     comparisons on the result of these insns (since	\
-	     they're always with 0).  Set CC_NO_OVERFLOW to	\
-	     generate the correct unsigned branches.  */	\
-	  switch (GET_CODE (SET_SRC (EXP)))			\
-	    {							\
-	    case NEG:						\
-	      if (GET_MODE_CLASS (GET_MODE (EXP)) == MODE_FLOAT)\
-	 	break;						\
-	    case AND:						\
-	    case IOR:						\
-	    case XOR:						\
-	    case NOT:						\
-	    case MEM:						\
-	    case REG:						\
-	      cc_status.flags = CC_NO_OVERFLOW;			\
-	      break;						\
-	    default:						\
-	      break;						\
-	    }							\
-	  cc_status.value1 = SET_DEST (EXP);			\
-	  cc_status.value2 = SET_SRC (EXP); } }			\
-  else if (GET_CODE (EXP) == PARALLEL				\
-	   && GET_CODE (XVECEXP (EXP, 0, 0)) == SET)		\
-    {								\
-      if (GET_CODE (SET_SRC (XVECEXP (EXP, 0, 0))) == CALL)	\
-	CC_STATUS_INIT;					        \
-      else if (GET_CODE (SET_DEST (XVECEXP (EXP, 0, 0))) != PC) \
-	{ cc_status.flags = 0;					\
-	  cc_status.value1 = SET_DEST (XVECEXP (EXP, 0, 0));	\
-	  cc_status.value2 = SET_SRC (XVECEXP (EXP, 0, 0)); }   \
-      else							\
-	/* PARALLELs whose first element sets the PC are aob,   \
-	   sob insns.  They do change the cc's.  */		\
-	CC_STATUS_INIT; }					\
-  else CC_STATUS_INIT;						\
-  if (cc_status.value1 && GET_CODE (cc_status.value1) == REG	\
-      && cc_status.value2					\
-      && reg_overlap_mentioned_p (cc_status.value1, cc_status.value2))	\
-    cc_status.value2 = 0;					\
-  if (cc_status.value1 && GET_CODE (cc_status.value1) == MEM	\
-      && cc_status.value2					\
-      && GET_CODE (cc_status.value2) == MEM)			\
-    cc_status.value2 = 0; }
-/* Actual condition, one line up, should be that value2's address
-   depends on value1, but that is too much of a pain.  */
+  vax_notice_update_cc ((EXP), (INSN))
 
 #define OUTPUT_JUMP(NORMAL, FLOAT, NO_OV)  \
 { if (cc_status.flags & CC_NO_OVERFLOW)				\
@@ -932,6 +857,12 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
   return NORMAL; }
 
 /* Control the assembler format that we output.  */
+
+/* A C string constant describing how to begin a comment in the target
+   assembler language.  The compiler assumes that the comment will end at
+   the end of the line.  */
+
+#define ASM_COMMENT_START "#"
 
 /* Output to assembler file text saying following lines
    may contain character constants, extra white space, comments, etc.  */
@@ -1106,7 +1037,13 @@ VAX operand formatting codes:
 
 /* The purpose of D is to get around a quirk or bug in VAX assembler
    whereby -1 in a 64-bit immediate operand means 0x00000000ffffffff,
-   which is not a 64-bit minus one.  */
+   which is not a 64-bit minus one.  As a workaround, we output negative
+   values in hex.  */
+#if HOST_BITS_PER_WIDE_INT == 64
+#  define NEG_HWI_PRINT_HEX16 HOST_WIDE_INT_PRINT_HEX
+#else
+#  define NEG_HWI_PRINT_HEX16 "0xffffffff%08lx"
+#endif
 
 #define PRINT_OPERAND_PUNCT_VALID_P(CODE)				\
   ((CODE) == '#' || (CODE) == '|')
@@ -1118,7 +1055,7 @@ VAX operand formatting codes:
   else if (CODE == 'C')							\
     fputs (rev_cond_name (X), FILE);					\
   else if (CODE == 'D' && GET_CODE (X) == CONST_INT && INTVAL (X) < 0)	\
-    fprintf (FILE, "$0xffffffff%08x", INTVAL (X));			\
+    fprintf (FILE, "$" NEG_HWI_PRINT_HEX16, INTVAL (X));		\
   else if (CODE == 'P' && GET_CODE (X) == CONST_INT)			\
     fprintf (FILE, "$" HOST_WIDE_INT_PRINT_DEC, INTVAL (X) + 1);	\
   else if (CODE == 'N' && GET_CODE (X) == CONST_INT)			\

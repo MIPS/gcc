@@ -1,5 +1,5 @@
 /* Definitions of target machine for GCC, for SPARClite w/o FPU, COFF.
-   Copyright (C) 1994, 1996, 2000, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1994, 1996, 2000, 2002, 2004 Free Software Foundation, Inc.
    Written by Ken Raeburn (raeburn@cygnus.com).
 
 This file is part of GCC.
@@ -61,9 +61,3 @@ do {									\
 /* Output before writable data.  */
 
 #define DATA_SECTION_ASM_OP "\t.data"
-
-/* How to renumber registers for dbx and gdb.  In the flat model, the frame
-   pointer is really %i7.  */
-
-#define DBX_REGISTER_NUMBER(REGNO) \
-  (TARGET_FLAT && (REGNO) == HARD_FRAME_POINTER_REGNUM ? 31 : REGNO)

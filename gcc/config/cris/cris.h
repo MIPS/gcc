@@ -1,5 +1,6 @@
 /* Definitions for GCC.  Part of the machine description for CRIS.
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Free Software Foundation, Inc.
    Contributed by Axis Communications.  Written by Hans-Peter Nilsson.
 
 This file is part of GCC.
@@ -67,7 +68,6 @@ Boston, MA 02111-1307, USA.  */
 #define CRIS_PLT_GOTOFFSET_SUFFIX ":PLTG"
 #define CRIS_PLT_PCOFFSET_SUFFIX ":PLT"
 
-/* If you tweak this, don't forget to check cris_expand_builtin_va_arg.  */
 #define CRIS_FUNCTION_ARG_SIZE(MODE, TYPE)	\
   ((MODE) != BLKmode ? GET_MODE_SIZE (MODE)	\
    : (unsigned) int_size_in_bytes (TYPE))
@@ -170,9 +170,17 @@ extern const char *cris_elinux_stacksize_str;
    %{!melinux:%{!maout|melf:%{!fno-vtable-gc:-fvtable-gc}}}}}".  */
 #define CC1PLUS_SPEC ""
 
+#ifdef HAVE_AS_NO_MUL_BUG_ABORT_OPTION
+#define MAYBE_AS_NO_MUL_BUG_ABORT \
+ "%{mno-mul-bug-workaround:-no-mul-bug-abort} "
+#else
+#define MAYBE_AS_NO_MUL_BUG_ABORT
+#endif
+
 /* Override previous definitions (linux.h).  */
 #undef ASM_SPEC
 #define ASM_SPEC \
+ MAYBE_AS_NO_MUL_BUG_ABORT \
  "%{v:-v}\
   %(asm_subtarget)"
 
@@ -251,13 +259,15 @@ extern const char *cris_elinux_stacksize_str;
       builtin_define_std ("CRIS");		\
       builtin_define_std ("GNU_CRIS");		\
       builtin_define ("__CRIS_ABI_version=2");	\
+      builtin_assert ("cpu=cris");		\
+      builtin_assert ("machine=cris");		\
     }						\
   while (0)
 
 /* This needs to be at least 32 bits.  */
 extern int target_flags;
 
-/* Currently this just affects aligment.  FIXME:  Redundant with
+/* Currently this just affects alignment.  FIXME:  Redundant with
    TARGET_ALIGN_BY_32, or put machine stuff here?  */
 #define TARGET_MASK_SVINTO 1
 #define TARGET_SVINTO (target_flags & TARGET_MASK_SVINTO)
@@ -323,8 +333,34 @@ extern int target_flags;
 #define TARGET_MASK_AVOID_GOTPLT 8192
 #define TARGET_AVOID_GOTPLT (target_flags & TARGET_MASK_AVOID_GOTPLT)
 
+/* Whether or not to work around multiplication instruction hardware bug
+   when generating code for models where it may be present.  From the
+   trouble report for Etrax 100 LX: "A multiply operation may cause
+   incorrect cache behaviour under some specific circumstances. The
+   problem can occur if the instruction following the multiply instruction
+   causes a cache miss, and multiply operand 1 (source operand) bits
+   [31:27] matches the logical mapping of the mode register address
+   (0xb0....), and bits [9:2] of operand 1 matches the TLB register
+   address (0x258-0x25f).  There is such a mapping in kernel mode or when
+   the MMU is off.  Normally there is no such mapping in user mode, and
+   the problem will therefore probably not occur in Linux user mode
+   programs."
+
+   We have no sure-fire way to know from within GCC that we're compiling a
+   user program.  For example, -fpic/PIC is used in libgcc which is linked
+   into the kernel.  However, the workaround option -mno-mul-bug can be
+   safely used per-package when compiling programs.  The same goes for
+   general user-only libraries such as glibc, since there's no user-space
+   driver-like program that gets a mapping of I/O registers (all on the
+   same page, including the TLB registers).  */
+#define TARGET_MASK_MUL_BUG 16384
+#define TARGET_MUL_BUG (target_flags & TARGET_MASK_MUL_BUG)
+
 #define TARGET_SWITCHES							\
  {									\
+  {"mul-bug-workaround",		 TARGET_MASK_MUL_BUG,		\
+   N_("Work around bug in multiplication instruction")},		\
+  {"no-mul-bug-workaround",		-TARGET_MASK_MUL_BUG, ""},	\
   /* No "no-etrax" as it does not really imply any model.		\
      On the other hand, "etrax" implies the common (and large)		\
      subset matching all models.  */					\
@@ -402,7 +438,7 @@ extern int target_flags;
 # define TARGET_DEFAULT \
  (TARGET_MASK_SIDE_EFFECT_PREFIXES + TARGET_MASK_STACK_ALIGN \
   + TARGET_MASK_CONST_ALIGN + TARGET_MASK_DATA_ALIGN \
-  + TARGET_MASK_PROLOGUE_EPILOGUE)
+  + TARGET_MASK_PROLOGUE_EPILOGUE + TARGET_MASK_MUL_BUG)
 #endif
 
 /* For the cris-*-elf subtarget.  */
@@ -474,25 +510,23 @@ extern int target_flags;
 
 #define UNITS_PER_WORD 4
 
-/* A combination of defining PROMOTE_MODE, PROMOTE_FUNCTION_ARGS,
-   PROMOTE_FOR_CALL_ONLY and *not* defining PROMOTE_PROTOTYPES gives the
+/* A combination of defining PROMOTE_FUNCTION_MODE,
+   TARGET_PROMOTE_FUNCTION_ARGS that always returns true
+   and *not* defining TARGET_PROMOTE_PROTOTYPES or PROMOTE_MODE gives the
    best code size and speed for gcc, ipps and products in gcc-2.7.2.  */
 #define CRIS_PROMOTED_MODE(MODE, UNSIGNEDP, TYPE) \
  (GET_MODE_CLASS (MODE) == MODE_INT && GET_MODE_SIZE (MODE) < 4) \
   ? SImode : MODE
 
-#define PROMOTE_MODE(MODE, UNSIGNEDP, TYPE)  \
+#define PROMOTE_FUNCTION_MODE(MODE, UNSIGNEDP, TYPE)  \
   (MODE) = CRIS_PROMOTED_MODE (MODE, UNSIGNEDP, TYPE)
-
-#define PROMOTE_FUNCTION_ARGS
 
 /* Defining PROMOTE_FUNCTION_RETURN in gcc-2.7.2 uncovers bug 981110 (even
    if defining FUNCTION_VALUE with MODE as PROMOTED_MODE ;-)
 
    FIXME: Report this when cris.h is part of GCC, so others can easily
    see the problem.  Maybe check other systems that define
-   PROMOTE_FUNCTION_RETURN.  */
-#define PROMOTE_FOR_CALL_ONLY
+   TARGET_PROMOTE_FUNCTION_RETURN that always returns true.  */
 
 /* We will be using prototype promotion, so they will be 32 bit.  */
 #define PARM_BOUNDARY 32
@@ -564,8 +598,6 @@ extern int target_flags;
 
 /* For compatibility and historical reasons, a char should be signed.  */
 #define DEFAULT_SIGNED_CHAR 1
-
-/* No DEFAULT_SHORT_ENUMS, please.  */
 
 /* Note that WCHAR_TYPE_SIZE is used in cexp.y,
    where TARGET_SHORT is not available.  */
@@ -820,7 +852,7 @@ enum reg_class {NO_REGS, ALL_REGS, LIM_REG_CLASSES};
 #define RETURN_ADDR_RTX(COUNT, FRAMEADDR) \
  cris_return_addr_rtx (COUNT, FRAMEADDR)
 
-#define INCOMING_RETURN_ADDR_RTX gen_rtx (REG, Pmode, CRIS_SRP_REGNUM)
+#define INCOMING_RETURN_ADDR_RTX gen_rtx_REG (Pmode, CRIS_SRP_REGNUM)
 
 /* FIXME: Any __builtin_eh_return callers must not return anything and
    there must not be collisions with incoming parameters.  Luckily the
@@ -830,7 +862,7 @@ enum reg_class {NO_REGS, ALL_REGS, LIM_REG_CLASSES};
   (IN_RANGE ((N), 0, 3) ? (CRIS_FIRST_ARG_REG + 3 - (N)) : INVALID_REGNUM)
 
 /* Store the stack adjustment in the structure-return-address register.  */
-#define CRIS_STACKADJ_REG STRUCT_VALUE_REGNUM
+#define CRIS_STACKADJ_REG CRIS_STRUCT_VALUE_REGNUM
 #define EH_RETURN_STACKADJ_RTX gen_rtx_REG (SImode, CRIS_STACKADJ_REG)
 
 #define EH_RETURN_HANDLER_RTX \
@@ -848,7 +880,7 @@ enum reg_class {NO_REGS, ALL_REGS, LIM_REG_CLASSES};
 
 /* If we would ever need an exact mapping between canonical register
    number and dwarf frame register, we would either need to include all
-   registers in the gcc decription (with some marked fixed of course), or
+   registers in the gcc description (with some marked fixed of course), or
    an inverse mapping from dwarf register to gcc register.  There is one
    need in dwarf2out.c:expand_builtin_init_dwarf_reg_sizes.  Right now, I
    don't see that we need exact correspondence between DWARF *frame*
@@ -895,8 +927,9 @@ enum reg_class {NO_REGS, ALL_REGS, LIM_REG_CLASSES};
 /* Node: Stack Arguments */
 
 /* Since many parameters take up one register each in any case,
-   PROMOTE_PROTOTYPES would seem like a good idea, but measurements
-   indicate that a combination using PROMOTE_MODE is better.  */
+   defining TARGET_PROMOTE_PROTOTYPES that always returns true would
+   seem like a good idea, but measurements indicate that a combination
+   using PROMOTE_MODE is better.  */
 
 #define ACCUMULATE_OUTGOING_ARGS 1
 
@@ -905,39 +938,27 @@ enum reg_class {NO_REGS, ALL_REGS, LIM_REG_CLASSES};
 
 /* Node: Register Arguments */
 
-/* The void_type_node is sent as a "closing" call.  We have to stop it
-   since it's invalid to FUNCTION_ARG_PASS_BY_REFERENCE (or was invalid at
-   some time).  */
+/* The void_type_node is sent as a "closing" call.  */
 #define FUNCTION_ARG(CUM, MODE, TYPE, NAMED)			\
  ((CUM).regs < CRIS_MAX_ARGS_IN_REGS				\
-  && (TYPE) != void_type_node					\
-  && ! FUNCTION_ARG_PASS_BY_REFERENCE (CUM, MODE, TYPE, NAMED)	\
-  ? gen_rtx (REG, MODE, (CRIS_FIRST_ARG_REG) + (CUM).regs)	\
+  ? gen_rtx_REG (MODE, (CRIS_FIRST_ARG_REG) + (CUM).regs)	\
   : NULL_RTX)
 
 /* The differences between this and the previous, is that this one checks
    that an argument is named, since incoming stdarg/varargs arguments are
    pushed onto the stack, and we don't have to check against the "closing"
    void_type_node TYPE parameter.  */
-#define FUNCTION_INCOMING_ARG(CUM, MODE, TYPE, NAMED)			\
- (((NAMED) && (CUM).regs < CRIS_MAX_ARGS_IN_REGS			\
-   && ! FUNCTION_ARG_PASS_BY_REFERENCE (CUM, MODE, TYPE, NAMED))	\
-  ? gen_rtx (REG, MODE, CRIS_FIRST_ARG_REG + (CUM).regs)		\
+#define FUNCTION_INCOMING_ARG(CUM, MODE, TYPE, NAMED)		\
+ ((NAMED) && (CUM).regs < CRIS_MAX_ARGS_IN_REGS			\
+  ? gen_rtx_REG (MODE, CRIS_FIRST_ARG_REG + (CUM).regs)		\
   : NULL_RTX)
 
 #define FUNCTION_ARG_PARTIAL_NREGS(CUM, MODE, TYPE, NAMED)	\
  (((CUM).regs == (CRIS_MAX_ARGS_IN_REGS - 1)			\
-   && !MUST_PASS_IN_STACK (MODE, TYPE)				\
+   && !targetm.calls.must_pass_in_stack (MODE, TYPE)		\
    && CRIS_FUNCTION_ARG_SIZE (MODE, TYPE) > 4			\
    && CRIS_FUNCTION_ARG_SIZE (MODE, TYPE) <= 8)			\
   ? 1 : 0)
-
-/* Structs may be passed by value, but they must not be more than 8
-   bytes long.  If you tweak this, don't forget to adjust
-   cris_expand_builtin_va_arg.  */
-#define FUNCTION_ARG_PASS_BY_REFERENCE(CUM, MODE, TYPE, NAMED)		\
- (MUST_PASS_IN_STACK (MODE, TYPE)					\
-  || CRIS_FUNCTION_ARG_SIZE (MODE, TYPE) > 8)				\
 
 /* Contrary to what you'd believe, defining FUNCTION_ARG_CALLEE_COPIES
    seems like a (small total) loss, at least for gcc-2.7.2 compiling and
@@ -953,15 +974,11 @@ struct cum_args {int regs;};
 
 /* The regs member is an integer, the number of arguments got into
    registers so far.  */
-#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, FNDECL)	  \
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, FNDECL, N_NAMED_ARGS) \
  ((CUM).regs = 0)
 
 #define FUNCTION_ARG_ADVANCE(CUM, MODE, TYPE, NAMED)		\
- ((CUM).regs							\
-  = (FUNCTION_ARG_PASS_BY_REFERENCE(CUM, MODE, TYPE, NAMED)	\
-     ? (CRIS_MAX_ARGS_IN_REGS) + 1				\
-     : ((CUM).regs						\
-	+ (3 + (CRIS_FUNCTION_ARG_SIZE (MODE, TYPE))) / 4)))
+ ((CUM).regs += (3 + CRIS_FUNCTION_ARG_SIZE (MODE, TYPE)) / 4)
 
 #define FUNCTION_ARG_REGNO_P(REGNO)			\
  ((REGNO) >= CRIS_FIRST_ARG_REG				\
@@ -973,9 +990,9 @@ struct cum_args {int regs;};
 /* Let's assume all functions return in r[CRIS_FIRST_ARG_REG] for the
    time being.  */
 #define FUNCTION_VALUE(VALTYPE, FUNC)  \
- gen_rtx (REG, TYPE_MODE (VALTYPE), CRIS_FIRST_ARG_REG)
+ gen_rtx_REG (TYPE_MODE (VALTYPE), CRIS_FIRST_ARG_REG)
 
-#define LIBCALL_VALUE(MODE) gen_rtx (REG, MODE, CRIS_FIRST_ARG_REG)
+#define LIBCALL_VALUE(MODE) gen_rtx_REG (MODE, CRIS_FIRST_ARG_REG)
 
 #define FUNCTION_VALUE_REGNO_P(N) ((N) == CRIS_FIRST_ARG_REG)
 
@@ -990,7 +1007,7 @@ struct cum_args {int regs;};
  ((unsigned) int_size_in_bytes (TYPE) > CRIS_MAX_ARGS_IN_REGS * UNITS_PER_WORD)
 #endif
 
-#define STRUCT_VALUE_REGNUM ((CRIS_FIRST_ARG_REG) - 1)
+#define CRIS_STRUCT_VALUE_REGNUM ((CRIS_FIRST_ARG_REG) - 1)
 
 
 /* Node: Caller Saves */
@@ -1015,36 +1032,6 @@ struct cum_args {int regs;};
 
 /* FIXME: Some of the undefined macros might be mandatory.  If so, fix
    documentation.  */
-
-
-/* Node: Varargs */
-
-/* We save the register number of the first anonymous argument in
-   first_vararg_reg, and take care of this in the function prologue.
-   This behavior is used by at least one more port (the ARM?), but
-   may be unsafe when compiling nested functions.  (With varargs? Hairy.)
-   Note that nested-functions is a GNU C extension.
-
-   FIXME: We can actually put the size in PRETEND and deduce the number
-   of registers from it in the prologue and epilogue.  */
-#define SETUP_INCOMING_VARARGS(ARGSSF, MODE, TYPE, PRETEND, SECOND)	\
-  do									\
-    {									\
-      if ((ARGSSF).regs < (CRIS_MAX_ARGS_IN_REGS))			\
-	(PRETEND) = ((CRIS_MAX_ARGS_IN_REGS) - (ARGSSF).regs) * 4;	\
-      if (TARGET_PDEBUG)						\
-	{								\
-	  fprintf (asm_out_file,					\
-		   "\n; VA:: ANSI: %d args before, anon @ #%d, %dtime\n", \
-		   (ARGSSF).regs, PRETEND, SECOND);			\
-	}								\
-    }									\
-  while (0)
-
-/* FIXME: This and other EXPAND_BUILTIN_VA_... target macros are not
-   documented, although used by several targets.  */
-#define EXPAND_BUILTIN_VA_ARG(VALIST, TYPE) \
- cris_expand_builtin_va_arg (VALIST, TYPE)
 
 
 /* Node: Trampolines */
@@ -1082,10 +1069,10 @@ struct cum_args {int regs;};
 #define INITIALIZE_TRAMPOLINE(TRAMP, FNADDR, CXT)		\
   do								\
     {								\
-      emit_move_insn (gen_rtx (MEM, SImode,			\
+      emit_move_insn (gen_rtx_MEM (SImode,			\
 			       plus_constant (TRAMP, 10)),	\
 		      CXT);					\
-      emit_move_insn (gen_rtx (MEM, SImode,			\
+      emit_move_insn (gen_rtx_MEM (SImode,			\
 			       plus_constant (TRAMP, 16)),	\
 		      FNADDR);					\
     }								\
@@ -1495,7 +1482,8 @@ call_ ## FUNC (void)						\
  cris_print_operand (FILE, X, CODE)
 
 /* For delay-slot handling.  */
-#define PRINT_OPERAND_PUNCT_VALID_P(CODE) (CODE == '#')
+#define PRINT_OPERAND_PUNCT_VALID_P(CODE)	\
+ ((CODE) == '#' || (CODE) == '!')
 
 #define PRINT_OPERAND_ADDRESS(FILE, ADDR)	\
    cris_print_operand_address (FILE, ADDR)
@@ -1549,8 +1537,9 @@ call_ ## FUNC (void)						\
 		   CODE_LABEL_NUMBER					\
 		    (XEXP (XEXP (XEXP					\
 				  (XVECEXP				\
-				    (PATTERN (PREV_INSN (PREV_INSN	\
-							  (TABLE))),	\
+				    (PATTERN				\
+				     (prev_nonnote_insn			\
+				      (PREV_INSN (TABLE))),		\
 				     0, 0), 1), 2), 0)),		\
 		   NUM,							\
 		   (TARGET_PDEBUG ? "; default" : ""));			\
@@ -1613,6 +1602,8 @@ call_ ## FUNC (void)						\
   {ZERO_EXTEND, SIGN_EXTEND}},				\
  {"cris_plus_or_bound_operator",			\
   {PLUS, UMIN}},					\
+ {"cris_mem_op",					\
+  {MEM}},						\
  {"cris_bdap_operand",					\
   {SUBREG, REG, LABEL_REF, SYMBOL_REF, MEM, CONST_INT,	\
    CONST_DOUBLE, CONST, SIGN_EXTEND}},			\

@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler. NEC V850 series
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
    Contributed by Jeff Law (law@cygnus.com).
 
@@ -124,7 +124,7 @@ extern int target_flags;
      as GHS.  We don't have enough documentation on their conventions
      to be compatible.
 
-     * Tests of SETUP_INCOMING_VARARGS need to be made runtime checks
+     * Tests of TARGET_SETUP_INCOMING_VARARGS need to be made runtime checks
      since it depends on TARGET_GHS.  */
 #define TARGET_GHS (target_flags & MASK_GHS)
  
@@ -275,7 +275,7 @@ extern struct small_memory_info small_memory[(int)SMALL_MEMORY_max];
    enable machine-specific optimizations.
 
    *Do not examine `write_symbols' in this macro!* The debugging
-   options are not supposed to alter the generated code. */
+   options are not supposed to alter the generated code.  */
 
 #define OPTIMIZATION_OPTIONS(LEVEL,SIZE)				\
 {									\
@@ -343,7 +343,7 @@ extern struct small_memory_info small_memory[(int)SMALL_MEMORY_max];
 
 /* Define this as 1 if `char' should by default be signed; else as 0.
 
-   On the NEC V850, loads do sign extension, so make this default. */
+   On the NEC V850, loads do sign extension, so make this default.  */
 #define DEFAULT_SIGNED_CHAR 1
 
 /* Standard register usage.  */
@@ -401,7 +401,7 @@ extern struct small_memory_info small_memory[(int)SMALL_MEMORY_max];
 }
 
 /* If TARGET_NO_APP_REGS is not defined then add r2 and r5 to
-   the pool of fixed registers. See PR 14505. */
+   the pool of fixed registers. See PR 14505.  */
 #define CONDITIONAL_REGISTER_USAGE  \
 {                                                       \
   if (TARGET_NO_APP_REGS)                               \
@@ -461,7 +461,7 @@ enum reg_class
 
 #define N_REG_CLASSES (int) LIM_REG_CLASSES
 
-/* Give names of register classes as strings for dump file.   */
+/* Give names of register classes as strings for dump file.  */
 
 #define REG_CLASS_NAMES \
 { "NO_REGS", "GENERAL_REGS", "ALL_REGS", "LIM_REGS" }
@@ -634,7 +634,7 @@ enum reg_class
    `HARD_FRAME_POINTER_REGNUM' or `STACK_POINTER_REGNUM'.
 
    Do not define this macro if it would be the same as
-   `FRAME_POINTER_REGNUM'. */
+   `FRAME_POINTER_REGNUM'.  */
 #undef  HARD_FRAME_POINTER_REGNUM 
 #define HARD_FRAME_POINTER_REGNUM 29
 
@@ -674,7 +674,7 @@ enum reg_class
          {FRAME_POINTER_REGNUM, STACK_POINTER_REGNUM}}
 
    Note that the elimination of the argument pointer with the stack
-   pointer is specified first since that is the preferred elimination. */
+   pointer is specified first since that is the preferred elimination.  */
 
 #define ELIMINABLE_REGS							\
 {{ FRAME_POINTER_REGNUM, STACK_POINTER_REGNUM },			\
@@ -687,7 +687,7 @@ enum reg_class
    TO-REG.  This macro need only be defined if `ELIMINABLE_REGS' is
    defined, and will usually be the constant 1, since most of the
    cases preventing register elimination are things that the compiler
-   already knows about. */
+   already knows about.  */
 
 #define CAN_ELIMINATE(FROM, TO) \
  ((TO) == STACK_POINTER_REGNUM ? ! frame_pointer_needed : 1)
@@ -695,7 +695,7 @@ enum reg_class
 /* This macro is similar to `INITIAL_FRAME_POINTER_OFFSET'.  It
    specifies the initial difference between the specified pair of
    registers.  This macro must be defined if `ELIMINABLE_REGS' is
-   defined. */
+   defined.  */
 
 #define INITIAL_ELIMINATION_OFFSET(FROM, TO, OFFSET)			\
 {									\
@@ -706,9 +706,6 @@ enum reg_class
   else									\
     abort ();								\
 }
-
-/* A guess for the V850.  */
-#define PROMOTE_PROTOTYPES 1
 
 /* Keep the stack pointer constant throughout the function.  */
 #define ACCUMULATE_OUTGOING_ARGS 1
@@ -756,7 +753,7 @@ struct cum_arg { int nbytes; int anonymous_args; };
    for a call to a function whose data type is FNTYPE.
    For a library call, FNTYPE is 0.  */
 
-#define INIT_CUMULATIVE_ARGS(CUM,FNTYPE,LIBNAME,INDIRECT)	\
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT, N_NAMED_ARGS) \
  ((CUM).nbytes = 0, (CUM).anonymous_args = 0)
 
 /* Update the data in CUM to advance over an argument
@@ -776,20 +773,6 @@ struct cum_arg { int nbytes; int anonymous_args; };
    space allocated by the caller.  */
 #define OUTGOING_REG_PARM_STACK_SPACE
 
-/* Do any setup necessary for varargs/stdargs functions.  */
-#define SETUP_INCOMING_VARARGS(CUM, MODE, TYPE, PAS, SECOND) \
-  (CUM).anonymous_args = (!TARGET_GHS ? 1 : 0);
-
-/* Implement `va_arg'.  */
-#define EXPAND_BUILTIN_VA_ARG(valist, type) \
-  v850_va_arg (valist, type)
-
-#define FUNCTION_ARG_PASS_BY_REFERENCE(CUM, MODE, TYPE, NAMED)		\
-  ((TYPE) && int_size_in_bytes (TYPE) > 8)
- 
-#define FUNCTION_ARG_CALLEE_COPIES(CUM, MODE, TYPE, NAMED) \
-  ((TYPE) && int_size_in_bytes (TYPE) > 8)
-
 /* 1 if N is a possible register number for function argument passing.  */
 
 #define FUNCTION_ARG_REGNO_P(N) (N >= 6 && N <= 9)
@@ -797,7 +780,7 @@ struct cum_arg { int nbytes; int anonymous_args; };
 /* Define how to find the value returned by a function.
    VALTYPE is the data type of the value (as a tree).
    If the precise function being called is known, FUNC is its FUNCTION_DECL;
-   otherwise, FUNC is 0.   */
+   otherwise, FUNC is 0.  */
    
 #define FUNCTION_VALUE(VALTYPE, FUNC) \
   gen_rtx_REG (TYPE_MODE (VALTYPE), 10)
@@ -812,16 +795,7 @@ struct cum_arg { int nbytes; int anonymous_args; };
 
 #define FUNCTION_VALUE_REGNO_P(N) ((N) == 10)
 
-/* Return values > 8 bytes in length in memory.  */
 #define DEFAULT_PCC_STRUCT_RETURN 0
-#define RETURN_IN_MEMORY(TYPE)  \
-  (int_size_in_bytes (TYPE) > 8 || TYPE_MODE (TYPE) == BLKmode)
-
-/* Register in which address to store a structure value
-   is passed to a function.  On the V850 it's passed as
-   the first parameter.  */
-
-#define STRUCT_VALUE 0
 
 /* EXIT_IGNORE_STACK should be nonzero if, when returning from a function,
    the stack pointer does not matter.  The value is tested only in
@@ -992,21 +966,6 @@ do {									\
 } while (0)
 
 
-/* Try machine-dependent ways of modifying an illegitimate address
-   to be legitimate.  If we find one, return the new, valid address.
-   This macro is used in only one place: `memory_address' in explow.c.
-
-   OLDX is the address as it was before break_out_memory_refs was called.
-   In some cases it is useful to look at this to decide what needs to be done.
-
-   MODE and WIN are passed so that this macro can use
-   GO_IF_LEGITIMATE_ADDRESS.
-
-   It is always safe for this macro to do nothing.  It exists to recognize
-   opportunities to optimize the output.   */
-
-#define LEGITIMIZE_ADDRESS(X,OLDX,MODE,WIN)  {}
-
 /* Go to LABEL if ADDR (a legitimate address expression)
    has an effect that depends on the machine mode it is used for.  */
 
@@ -1068,10 +1027,10 @@ typedef enum
 /* One or more functions to be defined in `varasm.c'.  These
    functions should do jobs analogous to those of `text_section' and
    `data_section', for your additional sections.  Do not define this
-   macro if you do not define `EXTRA_SECTIONS'. */
+   macro if you do not define `EXTRA_SECTIONS'.  */
 #undef	EXTRA_SECTION_FUNCTIONS
 
-/* This could be done a lot more cleanly using ANSI C ... */
+/* This could be done a lot more cleanly using ANSI C....  */
 #define EXTRA_SECTION_FUNCTIONS						\
 void									\
 sdata_section ()							\
@@ -1188,14 +1147,14 @@ zbss_section ()								\
   v850_output_aligned_bss (FILE, DECL, NAME, SIZE, ALIGN)
 
 /* This says how to output the assembler to define a global
-   uninitialized, common symbol. */
+   uninitialized, common symbol.  */
 #undef  ASM_OUTPUT_ALIGNED_COMMON
 #undef  ASM_OUTPUT_COMMON
 #define ASM_OUTPUT_ALIGNED_DECL_COMMON(FILE, DECL, NAME, SIZE, ALIGN) \
      v850_output_common (FILE, DECL, NAME, SIZE, ALIGN)
 
 /* This says how to output the assembler to define a local
-   uninitialized symbol. */
+   uninitialized symbol.  */
 #undef  ASM_OUTPUT_ALIGNED_LOCAL
 #undef  ASM_OUTPUT_LOCAL
 #define ASM_OUTPUT_ALIGNED_DECL_LOCAL(FILE, DECL, NAME, SIZE, ALIGN) \
@@ -1289,11 +1248,11 @@ zbss_section ()								\
 /* Define as C expression which evaluates to nonzero if the tablejump
    instruction expects the table to contain offsets from the address of the
    table.
-   Do not define this if the table should contain absolute addresses. */
+   Do not define this if the table should contain absolute addresses.  */
 #define CASE_VECTOR_PC_RELATIVE 1
 
 /* The switch instruction requires that the jump table immediately follow
-   it. */
+   it.  */
 #define JUMP_TABLES_IN_TEXT_SECTION 1
 
 /* svr4.h defines this assuming that 4 byte alignment is required.  */
@@ -1349,7 +1308,7 @@ zbss_section ()								\
    can appear in the "ghs section" pragma.  These names are used to index
    into the GHS_default_section_names[] and GHS_current_section_names[]
    that are defined in v850.c, and so the ordering of each must remain
-   consistant. 
+   consistent. 
 
    These arrays give the default and current names for each kind of 
    section defined by the GHS pragmas.  The current names can be changed

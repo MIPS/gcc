@@ -1,5 +1,5 @@
 /* Definitions for MIPS running Linux-based GNU systems with ELF format.
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -51,16 +51,14 @@ Boston, MA 02111-1307, USA.  */
 
 /* If we don't set MASK_ABICALLS, we can't default to PIC.  */
 #undef TARGET_DEFAULT
-#define TARGET_DEFAULT (MASK_ABICALLS|MASK_GAS)
+#define TARGET_DEFAULT MASK_ABICALLS
 
 #define TARGET_OS_CPP_BUILTINS()				\
     do {							\
-	builtin_define ("__gnu_linux__");			\
+	LINUX_TARGET_OS_CPP_BUILTINS();				\
 	builtin_define ("__PIC__");				\
 	builtin_define ("__pic__");				\
-	builtin_define_std ("unix");				\
-	builtin_define_std ("linux");				\
-	builtin_assert ("system=linux");			\
+        builtin_assert ("machine=mips");			\
 	/* The GNU C++ standard library requires this.  */	\
 	if (c_dialect_cxx ())					\
 	  builtin_define ("_GNU_SOURCE");			\
@@ -81,7 +79,8 @@ Boston, MA 02111-1307, USA.  */
       }								\
      else							\
       {								\
-        builtin_define ("_MIPS_SIM=_MIPS_SIM_ABI32");		\
+	builtin_define ("_ABIO32=1");			\
+	builtin_define ("_MIPS_SIM=_ABIO32");		\
         builtin_define ("_MIPS_SZLONG=32");			\
         builtin_define ("_MIPS_SZPTR=32");			\
       }								\
@@ -126,9 +125,6 @@ Boston, MA 02111-1307, USA.  */
 %{!fno-PIC:%{!fno-pic:-KPIC}} \
 %{fno-PIC:-non_shared} %{fno-pic:-non_shared}"
 
-#undef  SUBTARGET_ASM_DEBUGGING_SPEC
-#define SUBTARGET_ASM_DEBUGGING_SPEC "-g0"
-
 /* The MIPS assembler has different syntax for .set. We set it to
    .dummy to trap any errors.  */
 #undef SET_ASM_OP
@@ -171,12 +167,8 @@ Boston, MA 02111-1307, USA.  */
 
 /* Tell function_prologue in mips.c that we have already output the .ent/.end
    pseudo-ops.  */
-#define FUNCTION_NAME_ALREADY_DECLARED
-
-#define ASM_PREFERRED_EH_DATA_FORMAT(CODE, GLOBAL)       		\
-  (flag_pic								\
-    ? ((GLOBAL) ? DW_EH_PE_indirect : 0) | DW_EH_PE_pcrel | DW_EH_PE_sdata4\
-   : DW_EH_PE_absptr)
+#undef FUNCTION_NAME_ALREADY_DECLARED
+#define FUNCTION_NAME_ALREADY_DECLARED 1
 
 /* The glibc _mcount stub will save $v0 for us.  Don't mess with saving
    it, since ASM_OUTPUT_REG_PUSH/ASM_OUTPUT_REG_POP do not work in the
@@ -190,3 +182,5 @@ Boston, MA 02111-1307, USA.  */
 %{!static:-rpath-link %R/lib:%R/usr/lib} \
 %{!shared: %{pthread:-lpthread} \
   %{profile:-lc_p} %{!profile: -lc}}"
+
+#define MD_UNWIND_SUPPORT "config/mips/linux-unwind.h"

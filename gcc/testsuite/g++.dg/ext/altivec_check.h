@@ -2,11 +2,7 @@
 /* Contributed by Ziemowit Laski  <zlaski@apple.com>  */
 
 #include <signal.h>
-extern
-#ifdef __cplusplus
-"C"
-#endif
-void exit(int);
+extern "C" void exit(int);
 
 void 
 sig_ill_handler (int sig)

@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler.  NS32000 version.
    Copyright (C) 1988, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002 Free Software Foundation, Inc.
+   2001, 2002, 2004 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -40,7 +40,7 @@ Boston, MA 02111-1307, USA.  */
       else if (TARGET_32081)				\
 	builtin_define ("__ns32081__");			\
 							\
-      /* Misc. */					\
+      /* Misc.  */					\
       if (TARGET_RTD)					\
 	builtin_define ("__RTD__");			\
 							\
@@ -56,7 +56,7 @@ Boston, MA 02111-1307, USA.  */
 /* ABSOLUTE PREFIX, IMMEDIATE_PREFIX and EXTERNAL_PREFIX can be defined
    to cover most NS32k addressing syntax variations.  This way we don't
    need to redefine long macros in all the tm.h files for just slight
-   variations in assembler syntax. */
+   variations in assembler syntax.  */
 
 #ifndef ABSOLUTE_PREFIX
 #define ABSOLUTE_PREFIX '@'
@@ -360,10 +360,10 @@ while (0)
 /* NS32000 pc is not overloaded on a register.  */
 /* #define PC_REGNUM */
 
-/* Register to use for pushing function arguments. */
+/* Register to use for pushing function arguments.  */
 #define STACK_POINTER_REGNUM 25
 
-/* Base register for access to local variables of the function. */
+/* Base register for access to local variables of the function.  */
 #define FRAME_POINTER_REGNUM 24
 
 
@@ -383,14 +383,7 @@ while (0)
 /* Value is 1 if it is a good idea to tie two pseudo registers
    when one has mode MODE1 and one has mode MODE2.
    If HARD_REGNO_MODE_OK could produce different values for MODE1 and MODE2,
-   for any hard reg, then this must be 0 for correct output.
-
-   Early documentation says SI and DI are not tieable if some reg can
-   be OK for SI but not for DI. However other ports (mips, i860, mvs
-   and tahoe) don't meet the above criterion. Evidently the real
-   requirement is somewhat laxer. Documentation was changed for gcc
-   2.8 but was not picked up by egcs (at least egcs 1.0). Having all
-   integer modes tieable definitely generates faster code. */
+   for any hard reg, then this must be 0 for correct output.  */
 
 #define MODES_TIEABLE_P(MODE1, MODE2)					\
   ((FLOAT_MODE_P(MODE1) && FLOAT_MODE_P(MODE2)				\
@@ -411,7 +404,7 @@ while (0)
 
 /* Register in which address to store a structure value
    is passed to a function.  */
-#define STRUCT_VALUE_REGNUM 2
+#define NS32K_STRUCT_VALUE_REGNUM 2
 
 /* Define the classes of registers for register constraints in the
    machine description.  Also define ranges of constants.
@@ -440,7 +433,7 @@ enum reg_class
 
 #define N_REG_CLASSES (int) LIM_REG_CLASSES
 
-/* Give names of register classes as strings for dump file.   */
+/* Give names of register classes as strings for dump file.  */
 
 #define REG_CLASS_NAMES							    \
  {"NO_REGS", "GENERAL_REGS", "FLOAT_REG0", "LONG_FLOAT_REG0", "FLOAT_REGS", \
@@ -576,7 +569,7 @@ enum reg_class
    Before the prologue, RA is at 0(sp).  */
 
 #define INCOMING_RETURN_ADDR_RTX \
-  gen_rtx (MEM, VOIDmode, gen_rtx (REG, VOIDmode, STACK_POINTER_REGNUM))
+  gen_rtx_MEM (VOIDmode, gen_rtx_REG (VOIDmode, STACK_POINTER_REGNUM))
 
 /* A C expression whose value is RTL representing the value of the
    return address for the frame COUNT steps up from the current frame,
@@ -588,7 +581,7 @@ enum reg_class
 
 #define RETURN_ADDR_RTX(COUNT, FRAME)					\
   ((COUNT> 0 && flag_omit_frame_pointer)? NULL_RTX			\
-   : gen_rtx (MEM, Pmode, gen_rtx (PLUS, Pmode, (FRAME), GEN_INT(4))))
+   : gen_rtx_MEM (Pmode, gen_rtx_PLUS (Pmode, (FRAME), GEN_INT(4))))
 
 /* A C expression whose value is an integer giving the offset, in
    bytes, from the value of the stack pointer register to the top of
@@ -682,7 +675,7 @@ enum reg_class
 
    On the ns32k, the offset starts at 0.  */
 
-#define INIT_CUMULATIVE_ARGS(CUM,FNTYPE,LIBNAME,INDIRECT)	\
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT, N_NAMED_ARGS) \
  ((CUM) = 0)
 
 /* Update the data in CUM to advance over an argument
@@ -767,20 +760,25 @@ enum reg_class
    of a trampoline, leaving space for the variable parts.  */
 
 /* On the 32k, the trampoline looks like this:
-     addr  0(pc),r2
-     jump  @__trampoline
-     .int STATIC
-     .int FUNCTION
-Doing trampolines with a library assist function is easier than figuring
-out how to do stores to memory in reverse byte order (the way immediate
-operands on the 32k are stored).  */
+
+	addr    0(pc),r2
+        movd    16(r2),tos
+        movd    12(r2),r1
+        ret     0
+	.align 4
+	.int STATIC
+	.int FUNCTION
+  
+   Putting the data in following data is easier than figuring out how to
+   do stores to memory in reverse byte order (the way immediate operands
+   on the 32k are stored).  */
 
 #define TRAMPOLINE_TEMPLATE(FILE)					\
 {									\
-  fprintf (FILE, "\taddr 0(pc),r2\n" );					\
-  fprintf (FILE, "\tjump " );						\
-  PUT_ABSOLUTE_PREFIX (FILE);						\
-  fprintf (FILE, "__trampoline\n" );					\
+  fprintf (FILE, "\taddr 0(pc),r2\n");					\
+  fprintf (FILE, "\tmovd 16(r2),tos\n");				\
+  fprintf (FILE, "\tmovd 12(r2),r1\n");					\
+  fprintf (FILE, "\tret 0\n");						\
   assemble_aligned_integer (UNITS_PER_WORD, const0_rtx);		\
   assemble_aligned_integer (UNITS_PER_WORD, const0_rtx);		\
 }
@@ -797,24 +795,6 @@ operands on the 32k are stored).  */
 {									     \
   emit_move_insn (gen_rtx_MEM (SImode, plus_constant (TRAMP, 12)), CXT);    \
   emit_move_insn (gen_rtx_MEM (SImode, plus_constant (TRAMP, 16)), FNADDR); \
-}
-
-/* This is the library routine that is used
-   to transfer control from the trampoline
-   to the actual nested function.  */
-
-/* The function name __transfer_from_trampoline is not actually used.
-   The function definition just permits use of "asm with operands"
-   (though the operand list is empty).  */
-#define TRANSFER_FROM_TRAMPOLINE	\
-void					\
-__transfer_from_trampoline ()		\
-{					\
-  asm (".globl __trampoline");		\
-  asm ("__trampoline:");		\
-  asm ("movd 16(r2),tos");		\
-  asm ("movd 12(r2),r1");		\
-  asm ("ret 0");			\
 }
 
 /* Addressing modes, and classification of registers for them.  */
@@ -1064,23 +1044,6 @@ __transfer_from_trampoline ()		\
     }									\
 }
 
-/* Try machine-dependent ways of modifying an illegitimate address
-   to be legitimate.  If we find one, return the new, valid address.
-   This macro is used in only one place: `memory_address' in explow.c.
-
-   OLDX is the address as it was before break_out_memory_refs was called.
-   In some cases it is useful to look at this to decide what needs to be done.
-
-   MODE and WIN are passed so that this macro can use
-   GO_IF_LEGITIMATE_ADDRESS.
-
-   It is always safe for this macro to do nothing.  It exists to recognize
-   opportunities to optimize the output.
-
-   For the ns32k, we do nothing */
-
-#define LEGITIMIZE_ADDRESS(X,OLDX,MODE,WIN)   {}
-
 /* Nonzero if the constant value X is a legitimate general operand
    when generating PIC code.  It is given that flag_pic is on and
    that X satisfies CONSTANT_P or is a CONST_DOUBLE.  */
@@ -1109,13 +1072,13 @@ __transfer_from_trampoline ()		\
 /* Specify the machine mode that this machine uses
    for the index in the tablejump instruction.
    HI mode is more efficient but the range is not wide enough for
-   all programs. */
+   all programs.  */
 #define CASE_VECTOR_MODE SImode
 
 /* Define as C expression which evaluates to nonzero if the tablejump
    instruction expects the table to contain offsets from the address of the
    table.
-   Do not define this if the table should contain absolute addresses. */
+   Do not define this if the table should contain absolute addresses.  */
 #define CASE_VECTOR_PC_RELATIVE 1
 
 /* Define this as 1 if `char' should by default be signed; else as 0.  */
@@ -1128,13 +1091,13 @@ __transfer_from_trampoline ()		\
 /* The number of scalar move insns which should be generated instead
    of a string move insn or a library call.
    
-   We have a smart movstrsi insn */
+   We have a smart movmemsi insn */
 #define MOVE_RATIO 0
 
 #define STORE_RATIO (optimize_size ? 3 : 15)
 #define STORE_BY_PIECES_P(SIZE, ALIGN) \
-  (move_by_pieces_ninsns (SIZE, ALIGN) < (unsigned int) STORE_RATIO)
-
+  (move_by_pieces_ninsns (SIZE, ALIGN, STORE_MAX_PIECES + 1) \
+   < (unsigned int) STORE_RATIO)
 
 /* Nonzero if access to memory by bytes is slow and undesirable.  */
 #define SLOW_BYTE_ACCESS 0
@@ -1181,51 +1144,7 @@ __transfer_from_trampoline ()		\
    Do not alter them if the instruction would not alter the cc's.  */
 
 #define NOTICE_UPDATE_CC(EXP, INSN) \
-{ if (GET_CODE (EXP) == SET)					\
-    { if (GET_CODE (SET_DEST (EXP)) == CC0)			\
-	{ cc_status.flags = 0;					\
-	  cc_status.value1 = SET_DEST (EXP);			\
-	  cc_status.value2 = SET_SRC (EXP);			\
-	}							\
-      else if (GET_CODE (SET_SRC (EXP)) == CALL)		\
-	{ CC_STATUS_INIT; }					\
-      else if (GET_CODE (SET_DEST (EXP)) == REG)		\
-	{ if (cc_status.value1					\
-	      && reg_overlap_mentioned_p (SET_DEST (EXP), cc_status.value1)) \
-	    cc_status.value1 = 0;				\
-	  if (cc_status.value2					\
-	      && reg_overlap_mentioned_p (SET_DEST (EXP), cc_status.value2)) \
-	    cc_status.value2 = 0;				\
-	}							\
-      else if (GET_CODE (SET_DEST (EXP)) == MEM)		\
-	{ CC_STATUS_INIT; }					\
-    }								\
-  else if (GET_CODE (EXP) == PARALLEL				\
-	   && GET_CODE (XVECEXP (EXP, 0, 0)) == SET)		\
-    { if (GET_CODE (SET_DEST (XVECEXP (EXP, 0, 0))) == CC0)	\
-	{ cc_status.flags = 0;					\
-	  cc_status.value1 = SET_DEST (XVECEXP (EXP, 0, 0));	\
-	  cc_status.value2 = SET_SRC (XVECEXP (EXP, 0, 0));	\
-	}							\
-      else if (GET_CODE (SET_DEST (XVECEXP (EXP, 0, 0))) == REG) \
-	{ if (cc_status.value1					\
-	      && reg_overlap_mentioned_p (SET_DEST (XVECEXP (EXP, 0, 0)), cc_status.value1)) \
-	    cc_status.value1 = 0;				\
-	  if (cc_status.value2					\
-	      && reg_overlap_mentioned_p (SET_DEST (XVECEXP (EXP, 0, 0)), cc_status.value2)) \
-	    cc_status.value2 = 0;				\
-	}							\
-      else if (GET_CODE (SET_DEST (XVECEXP (EXP, 0, 0))) == MEM) \
-	{ CC_STATUS_INIT; }					\
-    }								\
-  else if (GET_CODE (EXP) == CALL)				\
-    { /* all bets are off */ CC_STATUS_INIT; }			\
-  else { /* nothing happens? CC_STATUS_INIT; */}		\
-  if (cc_status.value1 && GET_CODE (cc_status.value1) == REG	\
-      && cc_status.value2					\
-      && reg_overlap_mentioned_p (cc_status.value1, cc_status.value2))	\
-    abort ();			\
-}
+  ns32k_notice_update_cc ((EXP), (INSN))
 
 /* Describe the costs of the following register moves which are discouraged:
    1.) Moves between the Floating point registers and the frame pointer and stack pointer
@@ -1271,7 +1190,7 @@ __transfer_from_trampoline ()		\
 /* This is how to output an assembler line defining an external/static
    address which is not in tree format (for collect.c).  */
 
-/* The prefix to add to user-visible assembler symbols. */
+/* The prefix to add to user-visible assembler symbols.  */
 #define USER_LABEL_PREFIX "_"
 
 /* This is how to output an insn to push a register on the stack.

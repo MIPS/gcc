@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler.
-   Hitachi H8/300 version generating elf
-   Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
+   Renesas H8/300 version generating elf
+   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Steve Chamberlain (sac@cygnus.com),
    Jim Wilson (wilson@cygnus.com), and Doug Evans (dje@cygnus.com).
 
@@ -40,6 +40,6 @@ Boston, MA 02111-1307, USA.  */
 #define JUMP_TABLES_IN_TEXT_SECTION (flag_pic)
 
 #undef LINK_SPEC
-#define LINK_SPEC "%{mh:%{mn:-m h8300hnelf}} %{mh:%{!mn:-m h8300helf}} %{ms:%{mn:-m h8300snelf}} %{ms:%{!mn:-m h8300self}}"
+#define LINK_SPEC "%{mh:%{mn:-m h8300hnelf}} %{mh:%{!mn:-m h8300helf}} %{ms:%{mn:-m h8300snelf}} %{ms:%{!mn:-m h8300self}} %{msx:%{mn:-m h8300sxnelf;:-m h8300sxelf}}"
 
 #endif /* h8300/elf.h */

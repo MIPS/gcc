@@ -1,5 +1,5 @@
 /* Handle exceptions for GNU compiler for the Java(TM) language.
-   Copyright (C) 1997, 1998, 1999, 2000, 2002, 2003
+   Copyright (C) 1997, 1998, 1999, 2000, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -40,7 +40,6 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "toplev.h"
 
 static void expand_start_java_handler (struct eh_range *);
-static void expand_end_java_handler (struct eh_range *);
 static struct eh_range *find_handler_in_range (int, struct eh_range *,
 					       struct eh_range *);
 static void link_handler (struct eh_range *, struct eh_range *);
@@ -170,6 +169,7 @@ link_handler (struct eh_range *range, struct eh_range *outer)
 				     TREE_VALUE (range->handlers));
       h->next_sibling = NULL;
       h->expanded = 0;
+      h->stmt = NULL;
       /* Restart both from the top to avoid having to make this
 	 function smart about reentrancy.  */
       link_handler (h, &whole_range);
@@ -287,13 +287,13 @@ add_handler (int start_pc, int end_pc, tree handler, tree type)
   h->handlers = build_tree_list (type, handler);
   h->next_sibling = NULL;
   h->expanded = 0;
+  h->stmt = NULL;
 
   if (prev == NULL)
     whole_range.first_child = h;
   else
     prev->next_sibling = h;
 }
-
 
 /* if there are any handlers for this range, issue start of region */
 static void
@@ -304,59 +304,103 @@ expand_start_java_handler (struct eh_range *range)
   fprintf (stderr, "expand start handler pc %d --> %d\n",
 	   current_pc, range->end_pc);
 #endif /* defined(DEBUG_JAVA_BINDING_LEVELS) */
+  pushlevel (0);
+  register_exception_range (range,  range->start_pc, range->end_pc);
   range->expanded = 1;
-  expand_eh_region_start ();
 }
 
 tree
 prepare_eh_table_type (tree type)
 {
   tree exp;
+  tree *slot;
+  const char *name;
+  char *buf;
+  tree decl;
+  tree utf8_ref;
 
-  /* The "type" (metch_info) in a (Java) exception table is one:
+  /* The "type" (match_info) in a (Java) exception table is a pointer to:
    * a) NULL - meaning match any type in a try-finally.
-   * b) a pointer to a (compiled) class (low-order bit 0).
-   * c) a pointer to the Utf8Const name of the class, plus one
-   * (which yields a value with low-order bit 1). */
+   * b) a pointer to a pointer to a class.
+   * c) a pointer to a pointer to a utf8_ref.  The pointer is
+   * rewritten to point to the appropriate class.  */
 
   if (type == NULL_TREE)
-    exp = NULL_TREE;
-  else if (is_compiled_class (type))
-    exp = build_class_ref (type);
-  else
+    return NULL_TREE;
+
+  if (TYPE_TO_RUNTIME_MAP (output_class) == NULL)
+    TYPE_TO_RUNTIME_MAP (output_class) = java_treetreehash_create (10, 1);
+  
+  slot = java_treetreehash_new (TYPE_TO_RUNTIME_MAP (output_class), type);
+  if (*slot != NULL)
+    return TREE_VALUE (*slot);
+
+  if (is_compiled_class (type) && !flag_indirect_dispatch)
     {
-      tree ctype = make_node (RECORD_TYPE);
-      tree field = NULL_TREE;
-      tree cinit, decl;
-      tree utf8_ref = build_utf8_ref (DECL_NAME (TYPE_NAME (type)));
-      char buf[64];
-      sprintf (buf, "%s_ref", 
-	       IDENTIFIER_POINTER (DECL_NAME (TREE_OPERAND (utf8_ref, 0))));
-      PUSH_FIELD (ctype, field, "dummy", ptr_type_node);
-      PUSH_FIELD (ctype, field, "utf8",  utf8const_ptr_type);
-      FINISH_RECORD (ctype);
-      START_RECORD_CONSTRUCTOR (cinit, ctype);
-      PUSH_FIELD_VALUE (cinit, "dummy", 
-			convert (ptr_type_node, integer_minus_one_node));
-      PUSH_FIELD_VALUE (cinit, "utf8", utf8_ref);
-      FINISH_RECORD_CONSTRUCTOR (cinit);
-      TREE_CONSTANT (cinit) = 1;
-      decl = build_decl (VAR_DECL, get_identifier (buf), ctype);
+      name = IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (type)));
+      buf = alloca (strlen (name) + 5);
+      sprintf (buf, "%s_ref", name);
+      decl = build_decl (VAR_DECL, get_identifier (buf), ptr_type_node);
       TREE_STATIC (decl) = 1;
       DECL_ARTIFICIAL (decl) = 1;
       DECL_IGNORED_P (decl) = 1;
       TREE_READONLY (decl) = 1;
       TREE_THIS_VOLATILE (decl) = 0;
-      DECL_INITIAL (decl) = cinit;
+      DECL_INITIAL (decl) = build_class_ref (type);
       layout_decl (decl, 0);
       pushdecl (decl);
-      rest_of_decl_compilation (decl, (char*) 0, global_bindings_p (), 0);
-      make_decl_rtl (decl, (char*) 0);
-      exp = build1 (ADDR_EXPR, build_pointer_type (ctype), decl);
+      exp = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (decl)), decl);
     }
+  else
+    {
+      utf8_ref = build_utf8_ref (DECL_NAME (TYPE_NAME (type)));
+      name = IDENTIFIER_POINTER (DECL_NAME (TREE_OPERAND (utf8_ref, 0)));
+      buf = alloca (strlen (name) + 5);
+      sprintf (buf, "%s_ref", name);
+      decl = build_decl (VAR_DECL, get_identifier (buf), utf8const_ptr_type);
+      TREE_STATIC (decl) = 1;
+      DECL_ARTIFICIAL (decl) = 1;
+      DECL_IGNORED_P (decl) = 1;
+      TREE_READONLY (decl) = 1;
+      TREE_THIS_VOLATILE (decl) = 0;
+      layout_decl (decl, 0);
+      pushdecl (decl);
+      exp = build1 (ADDR_EXPR, build_pointer_type (utf8const_ptr_type), decl);
+      TYPE_CATCH_CLASSES (output_class) = 
+	tree_cons (NULL, make_catch_class_record (exp, utf8_ref), 
+		   TYPE_CATCH_CLASSES (output_class));
+    }
+
+  exp = convert (ptr_type_node, exp);
+
+  *slot = tree_cons (type, exp, NULL_TREE);
+
   return exp;
 }
 
+static int
+expand_catch_class (void **entry, void *x ATTRIBUTE_UNUSED)
+{
+  struct treetreehash_entry *ite = (struct treetreehash_entry *) *entry;
+  tree addr = TREE_VALUE ((tree)ite->value);
+  tree decl;
+  STRIP_NOPS (addr);
+  decl = TREE_OPERAND (addr, 0);
+  rest_of_decl_compilation (decl, global_bindings_p (), 0);
+  return true;
+}
+  
+/* For every class in the TYPE_TO_RUNTIME_MAP, expand the
+   corresponding object that is used by the runtime type matcher.  */
+
+void
+java_expand_catch_classes (tree this_class)
+{
+  if (TYPE_TO_RUNTIME_MAP (this_class))
+    htab_traverse 
+      (TYPE_TO_RUNTIME_MAP (this_class),
+       expand_catch_class, NULL);
+}
 
 /* Build a reference to the jthrowable object being carried in the
    exception header.  */
@@ -368,9 +412,9 @@ build_exception_object_ref (tree type)
 
   /* Java only passes object via pointer and doesn't require adjusting.
      The java object is immediately before the generic exception header.  */
-  obj = build (EXC_PTR_EXPR, build_pointer_type (type));
-  obj = build (MINUS_EXPR, TREE_TYPE (obj), obj,
-	       TYPE_SIZE_UNIT (TREE_TYPE (obj)));
+  obj = build0 (EXC_PTR_EXPR, build_pointer_type (type));
+  obj = build2 (MINUS_EXPR, TREE_TYPE (obj), obj,
+		TYPE_SIZE_UNIT (TREE_TYPE (obj)));
   obj = build1 (INDIRECT_REF, type, obj);
 
   return obj;
@@ -378,12 +422,11 @@ build_exception_object_ref (tree type)
 
 /* If there are any handlers for this range, isssue end of range,
    and then all handler blocks */
-static void
+void
 expand_end_java_handler (struct eh_range *range)
 {  
   tree handler = range->handlers;
-  force_poplevels (range->start_pc);
-  expand_start_all_catch ();
+
   for ( ; handler != NULL_TREE; handler = TREE_CHAIN (handler))
     {
       /* For bytecode we treat exceptions a little unusually.  A
@@ -395,12 +438,17 @@ expand_end_java_handler (struct eh_range *range)
       tree type = TREE_PURPOSE (handler);
       if (type == NULL)
 	type = throwable_type_node;
+      type = prepare_eh_table_type (type);
 
-      expand_start_catch (type);
-      expand_goto (TREE_VALUE (handler));
-      expand_end_catch ();
+      {
+	tree catch_expr = build2 (CATCH_EXPR, void_type_node, type,
+				  build1 (GOTO_EXPR, void_type_node,
+					  TREE_VALUE (handler)));
+	tree try_catch_expr = build2 (TRY_CATCH_EXPR, void_type_node,
+				      *get_stmts (), catch_expr);	
+	*get_stmts () = try_catch_expr;
+      }
     }
-  expand_end_all_catch ();
 #if defined(DEBUG_JAVA_BINDING_LEVELS)
   indent ();
   fprintf (stderr, "expand end handler pc %d <-- %d\n",
@@ -443,19 +491,3 @@ maybe_start_try (int start_pc, int end_pc)
   check_start_handlers (range, start_pc);
 }
 
-/* Emit any end-of-try-range ending at end_pc and starting before
-   start_pc. */
-
-void
-maybe_end_try (int start_pc, int end_pc)
-{
-  if (! doing_eh (1))
-    return;
-
-  while (current_range != NULL_EH_RANGE && current_range->end_pc <= end_pc
-	 && current_range->start_pc >= start_pc)
-    {
-      expand_end_java_handler (current_range);
-      current_range = current_range->outer;
-    }
-}

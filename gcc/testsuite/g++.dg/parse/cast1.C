@@ -1,5 +1,4 @@
 // PR c++/13536
-// { dg-require-effective-target ilp32 } */
 // { dg-options "-w" }
 
 #include <typeinfo>

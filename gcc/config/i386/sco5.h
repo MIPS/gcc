@@ -1,5 +1,5 @@
 /* Definitions for Intel 386 running SCO Unix System V 3.2 Version 5.
-   Copyright (C) 1992, 1995, 1996, 1997, 1998, 1999, 2000, 2002, 2003
+   Copyright (C) 1992, 1995, 1996, 1997, 1998, 1999, 2000, 2002, 2003, 2004
    Free Software Foundation, Inc.
    Contributed by Kean Johnston (jkj@sco.com)
 
@@ -60,7 +60,6 @@ Boston, MA 02111-1307, USA.  */
 #define DBX_REGISTER_NUMBER(n)	svr4_dbx_register_map[n]
 
 #define DWARF2_DEBUGGING_INFO		1
-#define DWARF_DEBUGGING_INFO		1
 #define DBX_DEBUGGING_INFO		1
 
 #undef PREFERRED_DEBUGGING_TYPE
@@ -97,13 +96,11 @@ Boston, MA 02111-1307, USA.  */
 #undef WCHAR_TYPE
 #undef WCHAR_TYPE_SIZE
 #undef WINT_TYPE
-#undef LONG_DOUBLE_TYPE_SIZE
 #define SIZE_TYPE		"unsigned int"
 #define PTRDIFF_TYPE		"int"
 #define WCHAR_TYPE		"long int"
 #define WCHAR_TYPE_SIZE		BITS_PER_WORD
 #define WINT_TYPE		"long int"
-#define LONG_DOUBLE_TYPE_SIZE 	96
 
 /*
  * New for multilib support. Set the default switches for multilib,
@@ -146,7 +143,7 @@ Boston, MA 02111-1307, USA.  */
    assume that /usr/gnu is the prefix for the GNU tools, because thats
    where the SCO provided ones go. This is especially important for
    include and library search path ordering. We want to look in /usr/gnu
-   first, becuase frequently people are linking against -lintl, and they
+   first because frequently people are linking against -lintl, and they
    MEAN to link with gettext. What they get is the SCO intl library. Its
    a REAL pity that GNU gettext chose that name; perhaps in a future
    version they can be persuaded to change it to -lgnuintl and have a

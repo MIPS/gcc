@@ -1,5 +1,5 @@
 /* gfortran header file
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation,
+   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation,
    Inc.
    Contributed by Andy Vaught
 
@@ -29,6 +29,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    multiple header files.  Besides, Microsoft's winnt.h was 250k last
    time I looked, so by comparison this is perfectly reasonable.  */
 
+/* We need system.h for HOST_WIDE_INT. Including hwint.h by itself doesn't
+   seem to be sufficient on some systems.  */
 #include "system.h"
 #include "coretypes.h"
 #include "input.h"
@@ -51,6 +53,9 @@ char *alloca ();
 #endif /* not _AIX */
 #endif /* do not HAVE_ALLOCA_H */
 #endif /* not __GNUC__ */
+
+
+#include <stdio.h>		/* need FILE * here */
 
 /* Major control parameters.  */
 
@@ -91,14 +96,13 @@ typedef struct
 mstring;
 
 
-/* Flags to specify which standard/extension contains a feature.  */
-#define GFC_STD_GNU                (1<<5)    /* GNU Fortran extension.  */
-#define GFC_STD_F2003             (1<<4)    /* New in F2003.  */
-/* Note that no features were obsoleted nor deleted in F2003.  */
-#define GFC_STD_F95                 (1<<3)    /* New in F95.  */
-#define GFC_STD_F95_DEL         (1<<2)    /* Deleted in F95.  */
-#define GFC_STD_F95_OBS        (1<<1)    /* Obsoleted in F95.  */
-#define GFC_STD_F77                 (1<<0)    /* Up to and including F77.  */
+/* Flags to specify which standardi/extension contains a feature.  */
+#define GFC_STD_GNU		(1<<5)	/* GNU Fortran extension.  */
+#define GFC_STD_F2003		(1<<4)	/* New in F2003.  */
+#define GFC_STD_F2003_DEL	(1<<3)	/* Deleted in F2003.  */
+#define GFC_STD_F2003_OBS	(1<<2)	/* Obsoleted in F2003.  */
+#define GFC_STD_F95_DEL		(1<<1)	/* Deleted in F95.  */
+#define GFC_STD_F95_OBS		(1<<0)	/* Obsoleted in F95.  */
 
 /*************************** Enums *****************************/
 
@@ -181,7 +185,7 @@ extern mstring intrinsic_operators[];
 /* Arithmetic results.  */
 typedef enum
 { ARITH_OK = 1, ARITH_OVERFLOW, ARITH_UNDERFLOW, ARITH_NAN,
-  ARITH_DIV0, ARITH_0TO0, ARITH_INCOMMENSURATE, ARITH_ASYMMETRIC
+  ARITH_DIV0, ARITH_0TO0, ARITH_INCOMMENSURATE
 }
 arith;
 
@@ -310,9 +314,7 @@ enum gfc_generic_isym_id
   GFC_ISYM_EXP,
   GFC_ISYM_EXPONENT,
   GFC_ISYM_FLOOR,
-  GFC_ISYM_FNUM,
   GFC_ISYM_FRACTION,
-  GFC_ISYM_FSTAT,
   GFC_ISYM_GETCWD,
   GFC_ISYM_GETGID,
   GFC_ISYM_GETPID,
@@ -376,7 +378,6 @@ enum gfc_generic_isym_id
   GFC_ISYM_SPREAD,
   GFC_ISYM_SQRT,
   GFC_ISYM_SR_KIND,
-  GFC_ISYM_STAT,
   GFC_ISYM_SUM,
   GFC_ISYM_SYSTEM,
   GFC_ISYM_TAN,
@@ -385,8 +386,6 @@ enum gfc_generic_isym_id
   GFC_ISYM_TRANSPOSE,
   GFC_ISYM_TRIM,
   GFC_ISYM_UBOUND,
-  GFC_ISYM_UMASK,
-  GFC_ISYM_UNLINK,
   GFC_ISYM_UNPACK,
   GFC_ISYM_VERIFY,
   GFC_ISYM_CONVERSION
@@ -1005,7 +1004,7 @@ typedef struct gfc_intrinsic_sym
   char name[GFC_MAX_SYMBOL_LEN + 1], lib_name[GFC_MAX_SYMBOL_LEN + 1];
   gfc_intrinsic_arg *formal;
   gfc_typespec ts;
-  int elemental, pure, generic, specific, actual_ok, standard;
+  int elemental, pure, generic, specific, actual_ok;
 
   gfc_simplify_f simplify;
   gfc_check_f check;
@@ -1070,7 +1069,7 @@ typedef struct gfc_expr
     struct
     {
       gfc_actual_arglist *actual;
-      const char *name;	/* Points to the ultimate name of the function */
+      char *name;	/* Points to the ultimate name of the function */
       gfc_intrinsic_sym *isym;
       gfc_symbol *esym;
     }
@@ -1101,7 +1100,7 @@ gfc_expr;
 typedef struct
 {
   /* Values really representable by the target.  */
-  mpz_t huge, pedantic_min_int, min_int, max_int;
+  mpz_t huge, min_int, max_int;
 
   int kind, radix, digits, bit_size, range;
 
@@ -1168,8 +1167,8 @@ gfc_equiv;
    a single value.  If *high is NULL, the selection is from *low
    upwards, if *low is NULL the selection is *high downwards.
 
-   This structure has separate fields to allow single and double linked
-   lists of CASEs at the same time.  The singe linked list along the NEXT
+   This structure has separate fields to allow singe and double linked
+   lists of CASEs the same time.  The singe linked list along the NEXT
    field is a list of cases for a single CASE label.  The double linked
    list along the LEFT/RIGHT fields is used to detect overlap and to
    build a table of the cases for SELECT constructs with a CHARACTER
@@ -1209,7 +1208,7 @@ gfc_iterator;
 #define gfc_get_iterator() gfc_getmem(sizeof(gfc_iterator))
 
 
-/* Allocation structure for ALLOCATE, DEALLOCATE and NULLIFY statements.  */
+/* Allocation structure for ALLOCATE, DEALLOCATE and NULLIFY statements. */
 
 typedef struct gfc_alloc
 {
@@ -1404,7 +1403,6 @@ typedef struct
   int d8;
   int warn_std;
   int allow_std;
-  int warn_nonstd_intrinsics;
 }
 gfc_option_t;
 
@@ -1504,7 +1502,9 @@ int gfc_handle_option (size_t, const char *, int);
 bool gfc_post_options (const char **);
 
 /* iresolve.c */
-const char * gfc_get_string (const char *, ...) ATTRIBUTE_PRINTF_1;
+char * gfc_get_string (const char *, ...) ATTRIBUTE_PRINTF_1;
+void gfc_iresolve_init_1 (void);
+void gfc_iresolve_done_1 (void);
 
 /* error.c */
 
@@ -1573,33 +1573,32 @@ void gfc_get_component_attr (symbol_attribute *, gfc_component *);
 void gfc_set_sym_referenced (gfc_symbol * sym);
 
 try gfc_add_allocatable (symbol_attribute *, locus *);
-try gfc_add_dimension (symbol_attribute *, const char *, locus *);
+try gfc_add_dimension (symbol_attribute *, locus *);
 try gfc_add_external (symbol_attribute *, locus *);
 try gfc_add_intrinsic (symbol_attribute *, locus *);
 try gfc_add_optional (symbol_attribute *, locus *);
 try gfc_add_pointer (symbol_attribute *, locus *);
-try gfc_add_result (symbol_attribute *, const char *, locus *);
-try gfc_add_save (symbol_attribute *, const char *, locus *);
+try gfc_add_result (symbol_attribute *, locus *);
+try gfc_add_save (symbol_attribute *, locus *);
 try gfc_add_saved_common (symbol_attribute *, locus *);
 try gfc_add_target (symbol_attribute *, locus *);
-try gfc_add_dummy (symbol_attribute *, const char *, locus *);
-try gfc_add_generic (symbol_attribute *, const char *, locus *);
+try gfc_add_dummy (symbol_attribute *, locus *);
+try gfc_add_generic (symbol_attribute *, locus *);
 try gfc_add_common (symbol_attribute *, locus *);
-try gfc_add_in_common (symbol_attribute *, const char *, locus *);
-try gfc_add_data (symbol_attribute *, const char *, locus *);
-try gfc_add_in_namelist (symbol_attribute *, const char *, locus *);
-try gfc_add_sequence (symbol_attribute *, const char *, locus *);
+try gfc_add_in_common (symbol_attribute *, locus *);
+try gfc_add_data (symbol_attribute *, locus *);
+try gfc_add_in_namelist (symbol_attribute *, locus *);
+try gfc_add_sequence (symbol_attribute *, locus *);
 try gfc_add_elemental (symbol_attribute *, locus *);
 try gfc_add_pure (symbol_attribute *, locus *);
 try gfc_add_recursive (symbol_attribute *, locus *);
-try gfc_add_function (symbol_attribute *, const char *, locus *);
-try gfc_add_subroutine (symbol_attribute *, const char *, locus *);
+try gfc_add_function (symbol_attribute *, locus *);
+try gfc_add_subroutine (symbol_attribute *, locus *);
 
-try gfc_add_access (symbol_attribute *, gfc_access, const char *, locus *);
-try gfc_add_flavor (symbol_attribute *, sym_flavor, const char *, locus *);
-try gfc_add_entry (symbol_attribute *, const char *, locus *);
-try gfc_add_procedure (symbol_attribute *, procedure_type,
-		       const char *, locus *);
+try gfc_add_access (symbol_attribute *, gfc_access, locus *);
+try gfc_add_flavor (symbol_attribute *, sym_flavor, locus *);
+try gfc_add_entry (symbol_attribute *, locus *);
+try gfc_add_procedure (symbol_attribute *, procedure_type, locus *);
 try gfc_add_intent (symbol_attribute *, sym_intent, locus *);
 try gfc_add_explicit_interface (gfc_symbol *, ifsrc,
 				gfc_formal_arglist *, locus *);
@@ -1737,7 +1736,7 @@ void gfc_resolve (gfc_namespace *);
 int gfc_impure_variable (gfc_symbol *);
 int gfc_pure (gfc_symbol *);
 int gfc_elemental (gfc_symbol *);
-try gfc_resolve_iterator (gfc_iterator *, bool);
+try gfc_resolve_iterator (gfc_iterator *);
 try gfc_resolve_index (gfc_expr *, int);
 
 /* array.c */
@@ -1803,7 +1802,6 @@ try gfc_resolve_dt (gfc_dt *);
 void gfc_module_init_2 (void);
 void gfc_module_done_2 (void);
 void gfc_dump_module (const char *, int);
-bool gfc_check_access (gfc_access, gfc_access);
 
 /* primary.c */
 symbol_attribute gfc_variable_attr (gfc_expr *, gfc_typespec *);

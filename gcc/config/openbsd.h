@@ -1,5 +1,5 @@
 /* Base configuration file for all OpenBSD targets.
-   Copyright (C) 1999, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -129,13 +129,6 @@ Boston, MA 02111-1307, USA.  */
 
 
 /* Runtime target specification.  */
-
-/* Implicit calls to library routines.  */
-
-/* Use memcpy and memset instead of bcopy and bzero.  */
-#ifndef TARGET_MEM_FUNCTIONS
-#define TARGET_MEM_FUNCTIONS
-#endif
 
 /* Miscellaneous parameters.  */
 

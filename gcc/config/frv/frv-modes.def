@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler for FRV.
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -25,6 +25,9 @@ Boston, MA 02111-1307, USA.  */
    CC_FPmode	set FCC's from comparing floating point
    CC_CCRmode	set CCR's to do conditional execution */
 
-CC (CC_UNS)
-CC (CC_FP)
-CC (CC_CCR)
+CC_MODE (CC_UNS);
+CC_MODE (CC_FP);
+CC_MODE (CC_CCR);
+
+VECTOR_MODE (INT, QI, 4);     /*                 V4QI */
+VECTOR_MODE (INT, SI, 4);     /*                 V4SI */

@@ -1,5 +1,5 @@
 /* Definitions for DEC Alpha/AXP running FreeBSD using the ELF format
-   Copyright (C) 2000, 2002 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2002, 2004 Free Software Foundation, Inc.
    Contributed by David E. O'Brien <obrien@FreeBSD.org> and BSDi.
 
 This file is part of GCC.
@@ -20,12 +20,16 @@ the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
 
+#undef  SUBTARGET_EXTRA_SPECS
+#define SUBTARGET_EXTRA_SPECS \
+  { "fbsd_dynamic_linker", FBSD_DYNAMIC_LINKER }
+
 /* Provide a FBSD_TARGET_CPU_CPP_BUILTINS and CPP_SPEC appropriate for
    FreeBSD/alpha.  Besides the dealing with
    the GCC option `-posix', and PIC issues as on all FreeBSD platforms, we must
    deal with the Alpha's FP issues.  */
 
-#undef FBSD_TARGET_CPU_CPP_BUILTINS
+#undef  FBSD_TARGET_CPU_CPP_BUILTINS
 #define FBSD_TARGET_CPU_CPP_BUILTINS()		\
   do						\
     {						\
@@ -45,12 +49,12 @@ Boston, MA 02111-1307, USA.  */
   %{Wl,*:%*}								\
   %{assert*} %{R*} %{rpath*} %{defsym*}					\
   %{shared:-Bshareable %{h*} %{soname*}}				\
-  %{symbolic:-Bsymbolic}						\
   %{!shared:								\
     %{!static:								\
       %{rdynamic:-export-dynamic}					\
-      %{!dynamic-linker:-dynamic-linker /usr/libexec/ld-elf.so.1}}	\
-    %{static:-Bstatic}}"
+      %{!dynamic-linker:-dynamic-linker %(fbsd_dynamic_linker) }}	\
+    %{static:-Bstatic}}							\
+  %{symbolic:-Bsymbolic}"
 
 
 /************************[  Target stuff  ]***********************************/

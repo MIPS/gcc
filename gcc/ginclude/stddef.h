@@ -1,4 +1,5 @@
-/* Copyright (C) 1989, 1997, 1998, 1999, 2000, 2002 Free Software Foundation, Inc.
+/* Copyright (C) 1989, 1997, 1998, 1999, 2000, 2002, 2004
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -295,7 +296,7 @@ typedef _BSD_RUNE_T_ rune_t;
 #define _BSD_WCHAR_T_DEFINED_
 #define _BSD_RUNE_T_DEFINED_	/* Darwin */
 #if defined (__FreeBSD__) && (__FreeBSD__ < 5)
-/* Why is this file so hard to maintain properly?  In constrast to
+/* Why is this file so hard to maintain properly?  In contrast to
    the comment above regarding BSD/386 1.1, on FreeBSD for as long
    as the symbol has existed, _BSD_RUNE_T_ must not stay defined or
    redundant typedefs will occur when stdlib.h is included after this file. */
@@ -410,25 +411,8 @@ typedef __WINT_TYPE__ wint_t;
 #ifdef _STDDEF_H
 
 /* Offset of member MEMBER in a struct of type TYPE. */
-#ifndef __cplusplus
-#define offsetof(TYPE, MEMBER) ((size_t) &((TYPE *)0)->MEMBER)
-#else
-/* In C++ a POD type can have a user defined address-of operator, and
-   that will break offsetof. C++ core defect 273 addresses this and
-   claims that reinterpret_casts to char & type are sufficient to
-   overcome this problem.
+#define offsetof(TYPE, MEMBER) __builtin_offsetof (TYPE, MEMBER)
 
-   (reinterpret_cast <size_t>
-     (&reinterpret_cast <char &>(static_cast <TYPE *> (0)->MEMBER)))
-
-   But, such casts are not permitted in integral constant expressions,
-   which offsetof is supposed to be.
-
-   It appears that offsetof is unimplementable in C++ without a
-   compiler extension.  */
-#define offsetof(TYPE, MEMBER) (reinterpret_cast <size_t> \
-	(&static_cast<TYPE *> (0)->MEMBER))
-#endif /* C++ */
 #endif /* _STDDEF_H was defined this time */
 
 #endif /* !_STDDEF_H && !_STDDEF_H_ && !_ANSI_STDDEF_H && !__STDDEF_H__

@@ -1,5 +1,5 @@
 /* Definitions for SPARC running Linux-based GNU systems with ELF.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2002, 2003
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2002, 2003, 2004
    Free Software Foundation, Inc.
    Contributed by Eddie C. Dost (ecd@skynet.be)
 
@@ -26,6 +26,7 @@ Boston, MA 02111-1307, USA.  */
 	builtin_define_std ("unix");		\
 	builtin_define_std ("linux");		\
 	builtin_define ("__gnu_linux__");	\
+	builtin_assert ("system=linux");	\
 	builtin_assert ("system=unix");		\
 	builtin_assert ("system=posix");	\
     }						\
@@ -43,12 +44,7 @@ Boston, MA 02111-1307, USA.  */
    object constructed before entering `main'.  */
    
 #undef  STARTFILE_SPEC
-#ifdef USE_GNULIBC_1
-#define STARTFILE_SPEC \
-  "%{!shared: \
-     %{pg:gcrt1.o%s} %{!pg:%{p:gcrt1.o%s} %{!p:crt1.o%s}}}\
-   crti.o%s %{!shared:crtbegin.o%s} %{shared:crtbeginS.o%s}"
-#elif defined HAVE_LD_PIE
+#if defined HAVE_LD_PIE
 #define STARTFILE_SPEC \
   "%{!shared: %{pg|p:gcrt1.o%s;pie:Scrt1.o%s;:crt1.o%s}}\
    crti.o%s %{static:crtbeginT.o%s;shared|pie:crtbeginS.o%s;:crtbegin.o%s}"
@@ -103,37 +99,15 @@ Boston, MA 02111-1307, USA.  */
 #define WCHAR_TYPE_SIZE 32
 
 #undef CPP_SUBTARGET_SPEC
-#ifdef USE_GNULIBC_1
-#define CPP_SUBTARGET_SPEC \
-"%{fPIC|fPIE|fpic|fpie:-D__PIC__ -D__pic__} %{posix:-D_POSIX_SOURCE} \
-%{mlong-double-128:-D__LONG_DOUBLE_128__}"
-#else
 #define CPP_SUBTARGET_SPEC \
 "%{fPIC|fPIE|fpic|fpie:-D__PIC__ -D__pic__} %{posix:-D_POSIX_SOURCE} \
 %{pthread:-D_REENTRANT} %{mlong-double-128:-D__LONG_DOUBLE_128__}"
-#endif
 
 #undef LIB_SPEC
-/* We no longer link with libc_p.a or libg.a by default. If you
-   want to profile or debug the GNU/Linux C library, please add
-   -lc_p or -ggdb to LDFLAGS at the link time, respectively.  */
-#if 1
-#ifdef USE_GNULIBC_1
-#define LIB_SPEC \
-  "%{!shared: %{p:-lgmon} %{pg:-lgmon} %{profile:-lgmon -lc_p} \
-     %{!profile:%{!ggdb:-lc} %{ggdb:-lg}}}"
-#else
 #define LIB_SPEC \
   "%{pthread:-lpthread} \
    %{shared:-lc} \
    %{!shared:%{mieee-fp:-lieee} %{profile:-lc_p}%{!profile:-lc}}"
-#endif
-#else
-#define LIB_SPEC \
-  "%{!shared: \
-     %{mieee-fp:-lieee} %{p:-lgmon -lc_p} %{pg:-lgmon -lc_p} \
-       %{!p:%{!pg:%{!g*:-lc} %{g*:-lg}}}}"
-#endif
 
 /* Provide a LINK_SPEC appropriate for GNU/Linux.  Here we provide support
    for the special GCC options -static and -shared, which allow us to
@@ -152,15 +126,6 @@ Boston, MA 02111-1307, USA.  */
 /* If ELF is the default format, we should not use /lib/elf.  */
 
 #undef  LINK_SPEC
-#ifdef USE_GNULIBC_1
-#define LINK_SPEC "-m elf32_sparc -Y P,/usr/lib %{shared:-shared} \
-  %{!shared: \
-    %{!ibcs: \
-      %{!static: \
-        %{rdynamic:-export-dynamic} \
-        %{!dynamic-linker:-dynamic-linker /lib/ld-linux.so.1}} \
-        %{static:-static}}}"
-#else
 #define LINK_SPEC "-m elf32_sparc -Y P,/usr/lib %{shared:-shared} \
   %{!mno-relax:%{!r:-relax}} \
   %{!shared: \
@@ -169,7 +134,6 @@ Boston, MA 02111-1307, USA.  */
         %{rdynamic:-export-dynamic} \
         %{!dynamic-linker:-dynamic-linker /lib/ld-linux.so.2}} \
         %{static:-static}}}"
-#endif
 
 /* The sun bundled assembler doesn't accept -Yd, (and neither does gas).
    It's safe to pass -s always, even if -g is not used.  */
@@ -218,9 +182,6 @@ do {									\
    SPARC ABI says that long double is 4 words.  */
 #define LONG_DOUBLE_TYPE_SIZE (TARGET_LONG_DOUBLE_128 ? 128 : 64)
 
-/* Constant which presents upper bound of the above value.  */
-#define MAX_LONG_DOUBLE_TYPE_SIZE 128
-
 /* Define this to set long double type size to use in libgcc2.c, which can
    not depend on target_flags.  */
 #ifdef __LONG_DOUBLE_128__
@@ -229,7 +190,10 @@ do {									\
 #define LIBGCC2_LONG_DOUBLE_TYPE_SIZE 64
 #endif
 
-#if !defined(USE_GNULIBC_1) && defined(HAVE_LD_EH_FRAME_HDR)
+#undef DITF_CONVERSION_LIBFUNCS
+#define DITF_CONVERSION_LIBFUNCS 1
+
+#if defined(HAVE_LD_EH_FRAME_HDR)
 #define LINK_EH_SPEC "%{!static:--eh-frame-hdr} "
 #endif
 
@@ -249,70 +213,19 @@ do {									\
 
 #define TARGET_ASM_FILE_END file_end_indicate_exec_stack
 
+/* Determine whether the the entire c99 runtime is present in the
+   runtime library.  */
+#define TARGET_C99_FUNCTIONS 1
+
+#define TARGET_HAS_F_SETLKW
+
 #undef LINK_GCC_C_SEQUENCE_SPEC
 #define LINK_GCC_C_SEQUENCE_SPEC \
   "%{static:--start-group} %G %L %{static:--end-group}%{!static:%G}"
 
-/* Do code reading to identify a signal frame, and set the frame
-   state data appropriately.  See unwind-dw2.c for the structs.  */
+/* Use --as-needed -lgcc_s for eh support.  */
+#ifdef HAVE_LD_AS_NEEDED
+#define USE_LD_AS_NEEDED 1
+#endif
 
-#define MD_FALLBACK_FRAME_STATE_FOR(CONTEXT, FS, SUCCESS)		\
-  do {									\
-    unsigned int *pc_ = (CONTEXT)->ra;					\
-    int new_cfa_, i_, oldstyle_;					\
-    int regs_off_, fpu_save_off_;					\
-    int fpu_save_, this_cfa_;						\
-									\
-    if (pc_[1] != 0x91d02010)		/* ta 0x10 */			\
-      break;								\
-    if (pc_[0] == 0x821020d8)		/* mov NR_sigreturn, %g1 */	\
-      oldstyle_ = 1;							\
-    else if (pc_[0] == 0x82102065)	/* mov NR_rt_sigreturn, %g1 */	\
-      oldstyle_ = 0;							\
-    else								\
-      break;								\
-    if (oldstyle_)							\
-      {									\
-        regs_off_ = 96;							\
-        fpu_save_off_ = regs_off_ + (4 * 4) + (16 * 4);			\
-      }									\
-    else								\
-      {									\
-        regs_off_ = 96 + 128;						\
-        fpu_save_off_ = regs_off_ + (4 * 4) + (16 * 4) + (2 * 4);	\
-      }									\
-    this_cfa_ = (int) (CONTEXT)->cfa;					\
-    new_cfa_ = *(int *)(((CONTEXT)->cfa) + (regs_off_+(4*4)+(14 * 4)));	\
-    fpu_save_ = *(int *)((this_cfa_) + (fpu_save_off_));		\
-    (FS)->cfa_how = CFA_REG_OFFSET;					\
-    (FS)->cfa_reg = 14;							\
-    (FS)->cfa_offset = new_cfa_ - (int) (CONTEXT)->cfa;			\
-    for (i_ = 1; i_ < 16; ++i_)						\
-      {									\
-        if (i_ == 14)							\
-          continue;							\
-	(FS)->regs.reg[i_].how = REG_SAVED_OFFSET;			\
-	(FS)->regs.reg[i_].loc.offset =					\
-	   this_cfa_ + (regs_off_+(4 * 4)+(i_ * 4)) - new_cfa_;		\
-      }									\
-    for (i_ = 0; i_ < 16; ++i_)						\
-      {									\
-	(FS)->regs.reg[i_ + 16].how = REG_SAVED_OFFSET;			\
-	(FS)->regs.reg[i_ + 16].loc.offset =				\
-	  this_cfa_ + (i_ * 4) - new_cfa_;				\
-      }									\
-    if (fpu_save_)							\
-      {									\
-	for (i_ = 0; i_ < 32; ++i_)					\
-	  {								\
-	    (FS)->regs.reg[i_ + 32].how = REG_SAVED_OFFSET;		\
-	    (FS)->regs.reg[i_ + 32].loc.offset =			\
-	      (fpu_save_ + (i_ * 4)) - new_cfa_;			\
-	  }								\
-      }									\
-    /* Stick return address into %g0, same trick Alpha uses.  */	\
-    (FS)->regs.reg[0].how = REG_SAVED_OFFSET;				\
-    (FS)->regs.reg[0].loc.offset = this_cfa_+(regs_off_+4)-new_cfa_;	\
-    (FS)->retaddr_column = 0;						\
-    goto SUCCESS;							\
-  } while (0)
+#define MD_UNWIND_SUPPORT "config/sparc/linux-unwind.h"

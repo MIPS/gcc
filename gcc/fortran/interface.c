@@ -1,5 +1,5 @@
 /* Deal with interfaces.
-   Copyright (C) 2000, 2001, 2002, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2004 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -65,7 +65,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    the program unit name.  */
 
 #include "config.h"
-#include "system.h"
+#include <string.h>
+#include <stdlib.h>
+
 #include "gfortran.h"
 #include "match.h"
 
@@ -213,8 +215,7 @@ gfc_match_interface (void)
       if (gfc_get_symbol (name, NULL, &sym))
 	return MATCH_ERROR;
 
-      if (!sym->attr.generic 
-	  && gfc_add_generic (&sym->attr, sym->name, NULL) == FAILURE)
+      if (!sym->attr.generic && gfc_add_generic (&sym->attr, NULL) == FAILURE)
 	return MATCH_ERROR;
 
       current_interface.sym = gfc_new_block = sym;
@@ -709,7 +710,7 @@ count_types_test (gfc_formal_arglist * f1, gfc_formal_arglist * f2)
 	  ac1++;
 
       /* Count the number of arguments in f2 with that type, including
-         those that are optional.  */
+         those that are optional. */
       ac2 = 0;
 
       for (f = f2; f; f = f->next)
@@ -1312,7 +1313,7 @@ argpair;
    order:
     - p->a->expr == NULL
     - p->a->expr->expr_type != EXPR_VARIABLE
-    - growing p->a->expr->symbol.  */
+    - growing p->a->expr->symbol.   */
 
 static int
 pair_cmp (const void *p1, const void *p2)

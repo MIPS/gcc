@@ -58,7 +58,10 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    Also, enable TPF profiling support and the standard backchain by default.  */
 #undef TARGET_DEFAULT
 #define TARGET_DEFAULT		(MASK_64BIT | MASK_ZARCH | MASK_HARD_FLOAT \
-				 | MASK_TPF_PROFILING | MASK_BACKCHAIN)
+				 | MASK_TPF_PROFILING)
+#undef TARGET_DEFAULT_BACKCHAIN
+#define TARGET_DEFAULT_BACKCHAIN "1"
+
 /* Exception handling.  */
 
 /* Select a format to encode pointers in exception handling data.  */

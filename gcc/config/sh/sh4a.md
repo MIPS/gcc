@@ -1,7 +1,7 @@
 ;; Scheduling description for Renesas SH4a
-;; Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+;; Copyright (C) 2003 Free Software Foundation, Inc.
 ;;
-;; This file is part of GCC.
+;; This file is part of GNU CC.
 ;;
 ;; GNU CC is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by

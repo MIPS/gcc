@@ -1,5 +1,5 @@
 /* Definitions of C specific functions for GNU compiler.
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Steve Ellcey <sje@cup.hp.com>
 
 This file is part of GCC.
@@ -60,7 +60,7 @@ ia64_hpux_handle_builtin_pragma (cpp_reader *pfile ATTRIBUTE_UNUSED)
 typedef struct c89_mathlib_names
 {
         const char *realname; /* User visible function name.  */
-        const char *c89name;  /* libm special name needed to set errno. */
+        const char *c89name;  /* libm special name needed to set errno.  */
 } c89_mathlib_names;
 
 static const c89_mathlib_names c89_mathlib_name_list [] =

@@ -1,5 +1,6 @@
 /* Definitions of target machine GNU compiler.  IA-64 version.
-   Copyright (C) 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004
+   Free Software Foundation, Inc.
    Contributed by Steve Ellcey <sje@cup.hp.com> and
                   Reva Cuthbertson <reva@cup.hp.com>
 
@@ -25,6 +26,10 @@ Boston, MA 02111-1307, USA.  */
 
 #define TARGET_VERSION fprintf (stderr, " (IA-64) HP-UX");
 
+/* Enable HPUX ABI quirks.  */
+#undef  TARGET_HPUX
+#define TARGET_HPUX 1
+
 /* Target OS builtins.  */
 #define TARGET_OS_CPP_BUILTINS()			\
 do {							\
@@ -35,12 +40,16 @@ do {							\
 	builtin_define_std("unix");			\
 	builtin_define("__IA64__");			\
 	builtin_define("_LONGLONG");			\
+	builtin_define("_INCLUDE_LONGLONG");		\
 	builtin_define("_UINT128_T");			\
 	if (c_dialect_cxx () || !flag_iso)		\
 	  {						\
 	    builtin_define("_HPUX_SOURCE");		\
 	    builtin_define("__STDC_EXT__");		\
+	    builtin_define("__STDCPP__");		\
 	  }						\
+	if (TARGET_ILP32)				\
+	  builtin_define("_ILP32");			\
 } while (0)
 
 #undef CPP_SPEC
@@ -79,7 +88,7 @@ do {							\
 #ifndef CROSS_COMPILE
 #undef LIBGCC_SPEC
 #define LIBGCC_SPEC \
-  "%{shared-libgcc:%{!mlp64:-lgcc_s_hpux32}%{mlp64:-lgcc_s_hpux64} -lgcc} \
+  "%{shared-libgcc:%{!mlp64:-lgcc_s}%{mlp64:-lgcc_s_hpux64} -lgcc} \
    %{!shared-libgcc:-lgcc}"
 #endif
 
@@ -87,6 +96,8 @@ do {							\
 #define SUBTARGET_SWITCHES \
   { "ilp32",    MASK_ILP32,     "Generate ILP32 code" }, \
   { "lp64",    -MASK_ILP32,     "Generate LP64 code" },
+
+#define MULTILIB_DEFAULTS { "milp32" }
 
 /* A C expression whose value is zero if pointers that need to be extended
    from being `POINTER_SIZE' bits wide to `Pmode' are sign-extended and
@@ -98,15 +109,17 @@ do {							\
 #define JMP_BUF_SIZE  (8 * 76)
 
 #undef TARGET_DEFAULT
-#define TARGET_DEFAULT (MASK_DWARF2_ASM | MASK_BIG_ENDIAN | MASK_ILP32)
+#define TARGET_DEFAULT \
+  (MASK_DWARF2_ASM | MASK_BIG_ENDIAN | MASK_ILP32 | MASK_INLINE_FLOAT_DIV_THR)
 
 /* This needs to be set to force structure arguments with a single
-   field to be treated as structures and not as the type of their
-   field.  Without this a structure with a single char will be
-   returned just like a char variable and that is wrong on HP-UX
-   IA64.  */
+   integer field to be treated as structures and not as the type of
+   their field.  Without this a structure with a single char will be
+   returned just like a char variable, instead of being returned at the
+   top of the register as specified for big-endian IA64.  */
 
-#define MEMBER_TYPE_FORCES_BLK(FIELD, MODE) (TREE_CODE (TREE_TYPE (FIELD)) != REAL_TYPE || (MODE == TFmode && !INTEL_EXTENDED_IEEE_FORMAT))
+#define MEMBER_TYPE_FORCES_BLK(FIELD, MODE) \
+  (!FLOAT_MODE_P (MODE) || (MODE) == TFmode)
 
 /* ASM_OUTPUT_EXTERNAL_LIBCALL defaults to just a globalize_label call,
    but that doesn't put out the @function type information which causes
@@ -187,10 +200,7 @@ do {								\
 #undef TARGET_C99_FUNCTIONS
 #define TARGET_C99_FUNCTIONS  1
 
-/* We are using IEEE quad precision, not a double-extended with padding.  */
-#undef INTEL_EXTENDED_IEEE_FORMAT
-#define INTEL_EXTENDED_IEEE_FORMAT 0
-
+#undef TARGET_INIT_LIBFUNCS
 #define TARGET_INIT_LIBFUNCS ia64_hpux_init_libfuncs
 
 #define FLOAT_LIB_COMPARE_RETURNS_BOOL(MODE, COMPARISON) ((MODE) == TFmode)

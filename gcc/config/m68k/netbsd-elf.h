@@ -1,7 +1,7 @@
 /* Definitions of target machine for GNU compiler,
    for m68k (including m68010) NetBSD platforms using the
    ELF object format.
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Wasabi Systems. Inc.
 
    This file is derived from <m68k/m68kv4.h>, <m68k/m68kelf.h>,
@@ -43,12 +43,12 @@ Boston, MA 02111-1307, USA.  */
 #undef LONG_DOUBLE_TYPE_SIZE
 #define LONG_DOUBLE_TYPE_SIZE			\
   ((TARGET_68020 || TARGET_68040 || TARGET_68040_ONLY || \
-    TARGET_68060) ? 96 : 64)
+    TARGET_68060) ? 80 : 64)
 
 #ifdef __mc68010__
 #define LIBGCC2_LONG_DOUBLE_TYPE_SIZE 64
 #else
-#define LIBGCC2_LONG_DOUBLE_TYPE_SIZE 96
+#define LIBGCC2_LONG_DOUBLE_TYPE_SIZE 80
 #endif
 
 #define EXTRA_SPECS \
@@ -143,9 +143,6 @@ while (0)
    Here is a bunch of stuff lifted from m68kelf.h.  We don't use that
    file directly, because it has a lot of baggage we don't want.  */
 
-#define MOTOROLA	/* Use Motorola syntax */
-#define USE_GAS		/* But GAS wants jbsr instead of jsr */
-
 
 /* The prefix for register names.  Note that REGISTER_NAMES
    is supposed to include this prefix.  Also note that this is NOT an
@@ -176,19 +173,6 @@ while (0)
 
 #undef ASM_COMMENT_START
 #define ASM_COMMENT_START "|"
-
-
-/* How to refer to registers in assembler output.
-   This sequence is indexed by compiler's hard-register-number.
-   Motorola format uses different register names than defined in m68k.h.
-   We also take this chance to convert 'a6' to 'fp' */
-
-#undef REGISTER_NAMES
-
-#define REGISTER_NAMES							\
-{"%d0",   "%d1",   "%d2",   "%d3",   "%d4",   "%d5",   "%d6",   "%d7",	\
- "%a0",   "%a1",   "%a2",   "%a3",   "%a4",   "%a5",   "%fp",   "%sp",	\
- "%fp0",  "%fp1",  "%fp2",  "%fp3",  "%fp4",  "%fp5",  "%fp6",  "%fp7" }
 
 
 /* Currently, JUMP_TABLES_IN_TEXT_SECTION must be defined in order to
@@ -276,8 +260,8 @@ while (0)
 /* Register in which address to store a structure value is passed to a
    function.  The default in m68k.h is a1.  For m68k/SVR4 it is a0. */
 
-#undef STRUCT_VALUE_REGNUM
-#define STRUCT_VALUE_REGNUM 8
+#undef M68K_STRUCT_VALUE_REGNUM
+#define M68K_STRUCT_VALUE_REGNUM 8
 
 
 /* Register in which static-chain is passed to a function.  The
@@ -319,7 +303,7 @@ while (0)
    function.  VALTYPE is the data type of the value (as a tree).  If
    the precise function being called is known, FUNC is its
    FUNCTION_DECL; otherwise, FUNC is 0.  For m68k/SVR4 generate the
-   result in d0, a0, or fp0 as appropriate. */
+   result in d0, a0, or fp0 as appropriate.  */
 
 #undef FUNCTION_VALUE
 #define FUNCTION_VALUE(VALTYPE, FUNC)					\
@@ -362,14 +346,14 @@ while (0)
 
 
 /* Boundary (in *bits*) on which stack pointer should be aligned.
-   The m68k/SVR4 convention is to keep the stack pointer longword aligned. */
+   The m68k/SVR4 convention is to keep the stack pointer longword aligned.  */
 
 #undef STACK_BOUNDARY
 #define STACK_BOUNDARY 32
 
 
 /* Alignment of field after `int : 0' in a structure.
-   For m68k/SVR4, this is the next longword boundary. */
+   For m68k/SVR4, this is the next longword boundary.  */
 
 #undef EMPTY_FIELD_BOUNDARY
 #define EMPTY_FIELD_BOUNDARY 32
@@ -384,7 +368,7 @@ while (0)
 
 
 /* For m68k SVR4, structures are returned using the reentrant
-   technique. */
+   technique.  */
 
 #undef PCC_STATIC_STRUCT_RETURN
 

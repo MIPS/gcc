@@ -54,11 +54,10 @@
 */
 
 #include <string.h>
-#include <stdlib.h>
 
 char *stringdup (char *s)
 {
-  char *result = malloc(sizeof(char)*(strlen(s)+1));
+  char *result = (char *) malloc(sizeof(char)*(strlen(s)+1));
   return strcpy(result,s);
 }
 

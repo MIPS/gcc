@@ -1,5 +1,5 @@
 /* Output variables, constants and external declarations, for GNU compiler.
-   Copyright (C) 1996, 1997, 1998, 2000, 2001, 2002
+   Copyright (C) 1996, 1997, 1998, 2000, 2001, 2002, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -51,9 +51,6 @@ Boston, MA 02111-1307, USA.  */
 #undef TARGET_VERSION
 #define TARGET_VERSION fprintf (stderr, " (%s)", TARGET_NAME);           
 
-/* The structure return address arrives as an "argument" on VMS.  */
-#undef STRUCT_VALUE_REGNUM
-#define STRUCT_VALUE 0
 #undef PCC_STATIC_STRUCT_RETURN
 
 /* "long" is 32 bits, but 64 bits for Ada.  */
@@ -175,14 +172,14 @@ typedef struct {int num_args; enum avms_arg_type atypes[6];} avms_arg_info;
    For a library call, FNTYPE is 0.  */
 
 #undef INIT_CUMULATIVE_ARGS
-#define INIT_CUMULATIVE_ARGS(CUM,FNTYPE,LIBNAME,INDIRECT) \
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT, N_NAMED_ARGS) \
   (CUM).num_args = 0;						\
   (CUM).atypes[0] = (CUM).atypes[1] = (CUM).atypes[2] = I64;	\
   (CUM).atypes[3] = (CUM).atypes[4] = (CUM).atypes[5] = I64;
 
 #undef FUNCTION_ARG_ADVANCE
 #define FUNCTION_ARG_ADVANCE(CUM, MODE, TYPE, NAMED)			\
-  if (MUST_PASS_IN_STACK (MODE, TYPE))					\
+  if (targetm.calls.must_pass_in_stack (MODE, TYPE))			\
     (CUM).num_args += 6;						\
   else									\
     {									\
@@ -202,42 +199,6 @@ typedef struct {int num_args; enum avms_arg_type atypes[6];} avms_arg_info;
    + ALPHA_ARG_SIZE (MODE, TYPE, NAMED)					\
  ? 6 - (CUM).num_args : 0)
 
-/* Perform any needed actions needed for a function that is receiving a
-   variable number of arguments. 
-
-   CUM is as for INIT_CUMULATIVE_ARGS.
-
-   MODE and TYPE are the mode and type of the current parameter.
-
-   PRETEND_SIZE is a variable that should be set to the amount of stack
-   that must be pushed by the prolog to pretend that our caller pushed
-   it.
-
-   Normally, this macro will push all remaining incoming registers on the
-   stack and set PRETEND_SIZE to the length of the registers pushed. 
-
-   For VMS, we allocate space for all 6 arg registers plus a count.
-
-   However, if NO registers need to be saved, don't allocate any space.
-   This is not only because we won't need the space, but because AP includes
-   the current_pretend_args_size and we don't want to mess up any
-   ap-relative addresses already made.  */
-
-#undef SETUP_INCOMING_VARARGS
-#define SETUP_INCOMING_VARARGS(CUM,MODE,TYPE,PRETEND_SIZE,NO_RTL)	\
-{ if ((CUM).num_args < 6)				\
-    {							\
-      if (! (NO_RTL))					\
-	{						\
-	  emit_move_insn (gen_rtx_REG (DImode, 1),	\
-			  virtual_incoming_args_rtx);	\
-	  emit_insn (gen_arg_home ());			\
-	}						\
-						        \
-      PRETEND_SIZE = 7 * UNITS_PER_WORD;		\
-    }							\
-}
-
 /* ABI has stack checking, but it's broken.  */
 #undef STACK_CHECK_BUILTIN
 #define STACK_CHECK_BUILTIN 0
@@ -254,7 +215,7 @@ typedef struct {int num_args; enum avms_arg_type atypes[6];} avms_arg_info;
 #undef EXTRA_SECTION_FUNCTIONS
 #define EXTRA_SECTION_FUNCTIONS					\
 void								\
-link_section ()							\
+link_section (void)						\
 {								\
   if (in_section != in_link)					\
     {								\
@@ -263,7 +224,7 @@ link_section ()							\
     }								\
 }                                                               \
 void								\
-literals_section ()						\
+literals_section (void)						\
 {								\
   if (in_section != in_literals)				\
     {								\
@@ -357,55 +318,7 @@ do {									\
 
 #define LINK_EH_SPEC "vms-dwarf2eh.o%s "
 
-#ifdef IN_LIBGCC2
-#include <pdscdef.h>
-
-#define MD_FALLBACK_FRAME_STATE_FOR(CONTEXT, FS, SUCCESS)		\
- do {									\
-  PDSCDEF *pv = *((PDSCDEF **) (CONTEXT)->reg [29]);                    \
-									\
-  if (pv && ((long) pv & 0x7) == 0) /* low bits 0 means address */      \
-    pv = *(PDSCDEF **) pv;                                              \
-									\
-  if (pv && ((pv->pdsc$w_flags & 0xf) == PDSC$K_KIND_FP_STACK))		\
-    {									\
-      int i, j;								\
-									\
-      (FS)->cfa_offset = pv->pdsc$l_size;				\
-      (FS)->cfa_reg = pv->pdsc$w_flags & PDSC$M_BASE_REG_IS_FP ? 29 : 30; \
-      (FS)->retaddr_column = 26;					\
-      (FS)->cfa_how = CFA_REG_OFFSET;					\
-      (FS)->regs.reg[27].loc.offset = -pv->pdsc$l_size;			\
-      (FS)->regs.reg[27].how = REG_SAVED_OFFSET;			\
-      (FS)->regs.reg[26].loc.offset					\
-	 = -(pv->pdsc$l_size - pv->pdsc$w_rsa_offset);			\
-      (FS)->regs.reg[26].how = REG_SAVED_OFFSET;			\
-									\
-      for (i = 0, j = 0; i < 32; i++)					\
-	if (1<<i & pv->pdsc$l_ireg_mask)				\
-	  {								\
-	    (FS)->regs.reg[i].loc.offset				\
-	      = -(pv->pdsc$l_size - pv->pdsc$w_rsa_offset - 8 * ++j);	\
-	    (FS)->regs.reg[i].how = REG_SAVED_OFFSET;			\
-	  }								\
-									\
-      goto SUCCESS;							\
-    }									\
-  else if (pv && ((pv->pdsc$w_flags & 0xf) == PDSC$K_KIND_FP_REGISTER))	\
-    {									\
-      (FS)->cfa_offset = pv->pdsc$l_size;				\
-      (FS)->cfa_reg = pv->pdsc$w_flags & PDSC$M_BASE_REG_IS_FP ? 29 : 30; \
-      (FS)->retaddr_column = 26;					\
-      (FS)->cfa_how = CFA_REG_OFFSET;					\
-      (FS)->regs.reg[26].loc.reg = pv->pdsc$b_save_ra;			\
-      (FS)->regs.reg[26].how = REG_SAVED_REG;			        \
-      (FS)->regs.reg[29].loc.reg = pv->pdsc$b_save_fp;			\
-      (FS)->regs.reg[29].how = REG_SAVED_REG;			        \
-									\
-      goto SUCCESS;							\
-    }									\
-} while (0)
-#endif
+#define MD_UNWIND_SUPPORT "config/alpha/vms-unwind.h"
 
 /* This is how to output an assembler line
    that says to advance the location counter
@@ -458,7 +371,7 @@ do {									\
 }
 
 /* Link with vms-dwarf2.o if -g (except -g0). This causes the
-   VMS link to pull all the dwarf2 debug sections together. */
+   VMS link to pull all the dwarf2 debug sections together.  */
 #undef LINK_SPEC
 #define LINK_SPEC "%{g:-g vms-dwarf2.o%s} %{g0} %{g1:-g1 vms-dwarf2.o%s} \
 %{g2:-g2 vms-dwarf2.o%s} %{g3:-g3 vms-dwarf2.o%s} %{shared} %{v} %{map}"

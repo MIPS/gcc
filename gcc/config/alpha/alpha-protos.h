@@ -1,5 +1,6 @@
 /* Prototypes for alpha.c functions used in the md file & elsewhere.
-   Copyright (C) 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -33,56 +34,6 @@ extern int alpha_using_fp (void);
 extern void alpha_expand_prologue (void);
 extern void alpha_expand_epilogue (void);
 extern void alpha_output_filename (FILE *, const char *);
-extern void alpha_output_lineno (FILE *, int);
-
-extern int reg_or_0_operand (rtx, enum machine_mode);
-extern int reg_or_6bit_operand (rtx, enum machine_mode);
-extern int reg_or_8bit_operand (rtx, enum machine_mode);
-extern int reg_or_const_int_operand (rtx, enum machine_mode);
-extern int cint8_operand (rtx, enum machine_mode);
-extern int add_operand (rtx, enum machine_mode);
-extern int sext_add_operand (rtx, enum machine_mode);
-extern int const48_operand (rtx, enum machine_mode);
-extern int and_operand (rtx, enum machine_mode);
-extern int or_operand (rtx, enum machine_mode);
-extern int mode_width_operand (rtx, enum machine_mode);
-extern int mode_mask_operand (rtx, enum machine_mode);
-extern int mul8_operand (rtx, enum machine_mode);
-extern int const0_operand (rtx, enum machine_mode);
-extern int hard_fp_register_operand (rtx, enum machine_mode);
-extern int hard_int_register_operand (rtx, enum machine_mode);
-extern int reg_or_cint_operand (rtx, enum machine_mode);
-extern int some_operand (rtx, enum machine_mode);
-extern int some_ni_operand (rtx, enum machine_mode);
-extern int input_operand (rtx, enum machine_mode);
-extern int samegp_function_operand (rtx, enum machine_mode);
-extern int direct_call_operand (rtx, enum machine_mode);
-extern int local_symbolic_operand (rtx, enum machine_mode);
-extern int small_symbolic_operand (rtx, enum machine_mode);
-extern int some_small_symbolic_operand (rtx, enum machine_mode);
-extern int global_symbolic_operand (rtx, enum machine_mode);
-extern int dtp16_symbolic_operand (rtx, enum machine_mode);
-extern int dtp32_symbolic_operand (rtx, enum machine_mode);
-extern int gotdtp_symbolic_operand (rtx, enum machine_mode);
-extern int tp16_symbolic_operand (rtx, enum machine_mode);
-extern int tp32_symbolic_operand (rtx, enum machine_mode);
-extern int gottp_symbolic_operand (rtx, enum machine_mode);
-extern int call_operand (rtx, enum machine_mode);
-extern int symbolic_operand (rtx, enum machine_mode);
-extern int alpha_comparison_operator (rtx, enum machine_mode);
-extern int alpha_zero_comparison_operator (rtx, enum machine_mode);
-extern int alpha_swapped_comparison_operator (rtx, enum machine_mode);
-extern int signed_comparison_operator (rtx, enum machine_mode);
-extern int alpha_fp_comparison_operator (rtx, enum machine_mode);
-extern int divmod_operator (rtx, enum machine_mode);
-extern int aligned_memory_operand (rtx, enum machine_mode);
-extern int unaligned_memory_operand (rtx, enum machine_mode);
-extern int reg_or_unaligned_mem_operand (rtx, enum machine_mode);
-extern int any_memory_operand (rtx, enum machine_mode);
-extern int reg_not_elim_operand (rtx, enum machine_mode);
-extern int normal_memory_operand (rtx, enum machine_mode);
-extern int reg_no_subreg_operand (rtx, enum machine_mode);
-extern int addition_operation (rtx, enum machine_mode);
 
 extern bool alpha_const_ok_for_letter_p (HOST_WIDE_INT, int);
 extern bool alpha_const_double_ok_for_letter_p (rtx, int);
@@ -129,14 +80,10 @@ extern void print_operand (FILE *, rtx, int);
 extern void print_operand_address (FILE *, rtx);
 extern void alpha_initialize_trampoline (rtx, rtx, rtx, int, int, int);
 
-extern tree alpha_build_va_list (void);
-extern void alpha_setup_incoming_varargs (CUMULATIVE_ARGS, enum machine_mode,
-					  tree, int *, int);
 extern void alpha_va_start (tree, rtx);
 extern rtx alpha_va_arg (tree, tree);
 extern rtx function_arg (CUMULATIVE_ARGS, enum machine_mode, tree, int);
 extern rtx function_value (tree, tree, enum machine_mode);
-extern bool return_in_memory (tree, enum machine_mode);
 
 extern void alpha_start_function (FILE *, const char *, tree);
 extern void alpha_end_function (FILE *, const char *, tree);
@@ -174,3 +121,7 @@ extern char * unicosmk_data_section (void);
 extern void unicosmk_output_common (FILE *, const char *, int, int);
 extern int unicosmk_initial_elimination_offset (int, int);
 #endif
+
+extern int some_small_symbolic_operand_int (rtx *, void *);
+extern int tls_symbolic_operand_1 (rtx, int, int);
+extern rtx resolve_reload_operand (rtx);

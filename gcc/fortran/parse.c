@@ -1,5 +1,5 @@
 /* Main parser.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, 
+   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation, 
    Inc.
    Contributed by Andy Vaught
 
@@ -22,8 +22,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 
 #include "config.h"
-#include "system.h"
+#include <string.h>
 #include <setjmp.h>
+
 #include "gfortran.h"
 #include "match.h"
 #include "parse.h"
@@ -399,7 +400,7 @@ next_fixed (void)
 	  break;
 
           /* Comments have already been skipped by the time we get
-	     here so don't bother checking for them.  */
+	     here so don't bother checking for them. */
 
 	default:
 	  gfc_buffer_error (0);
@@ -1349,8 +1350,7 @@ parse_derived (void)
 	    }
 
 	  seen_sequence = 1;
-	  gfc_add_sequence (&gfc_current_block ()->attr, 
-			    gfc_current_block ()->name, NULL);
+	  gfc_add_sequence (&gfc_current_block ()->attr, NULL);
 	  break;
 
 	default:
@@ -1452,9 +1452,9 @@ loop:
       if (current_state == COMP_NONE)
 	{
 	  if (new_state == COMP_FUNCTION)
-	    gfc_add_function (&sym->attr, sym->name, NULL);
-	  else if (new_state == COMP_SUBROUTINE)
-	    gfc_add_subroutine (&sym->attr, sym->name, NULL);
+	    gfc_add_function (&sym->attr, NULL);
+	  if (new_state == COMP_SUBROUTINE)
+	    gfc_add_subroutine (&sym->attr, NULL);
 
 	  current_state = new_state;
 	}
@@ -2201,15 +2201,15 @@ parse_contained (int module)
 		   gfc_new_block->name);
 	      else
 		{
-		  if (gfc_add_procedure (&sym->attr, PROC_INTERNAL, sym->name,
+		  if (gfc_add_procedure (&sym->attr, PROC_INTERNAL,
 					 &gfc_new_block->declared_at) ==
 		      SUCCESS)
 		    {
 		      if (st == ST_FUNCTION)
-			gfc_add_function (&sym->attr, sym->name,
+			gfc_add_function (&sym->attr,
 					  &gfc_new_block->declared_at);
 		      else
-			gfc_add_subroutine (&sym->attr, sym->name,
+			gfc_add_subroutine (&sym->attr,
 					    &gfc_new_block->declared_at);
 		    }
 		}

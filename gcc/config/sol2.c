@@ -24,7 +24,6 @@ Boston, MA 02111-1307, USA.  */
 #include "coretypes.h"
 #include "tree.h"
 #include "tm.h"
-#include "rtl.h"
 #include "tm_p.h"
 #include "toplev.h"
 #include "ggc.h"
@@ -106,14 +105,14 @@ solaris_output_init_fini (FILE *file, tree decl)
   if (lookup_attribute ("init", DECL_ATTRIBUTES (decl)))
     {
       fprintf (file, "\t.pushsection\t\".init\"\n");
-      ASM_OUTPUT_CALL (file, decl);
+      ASM_OUTPUT_CALL (file, IDENTIFIER_POINTER (DECL_NAME (decl)));
       fprintf (file, "\t.popsection\n");
     }
 
   if (lookup_attribute ("fini", DECL_ATTRIBUTES (decl)))
     {
       fprintf (file, "\t.pushsection\t\".fini\"\n");
-      ASM_OUTPUT_CALL (file, decl);
+      ASM_OUTPUT_CALL (file, IDENTIFIER_POINTER (DECL_NAME (decl)));
       fprintf (file, "\t.popsection\n");
     }
 }

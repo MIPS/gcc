@@ -1,5 +1,5 @@
 /* Deal with I/O statements & related stuff.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation,
+   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation,
    Inc.
    Contributed by Andy Vaught
 
@@ -23,6 +23,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "config.h"
 #include "system.h"
 #include "flags.h"
+
+#include <string.h>
+
 #include "gfortran.h"
 #include "match.h"
 #include "parse.h"
@@ -965,10 +968,10 @@ resolve_tag (const io_tag * tag, gfc_expr * e)
   if (e->ts.type != tag->type)
     {
       /* Format label can be integer varibale.  */
-      if (tag != &tag_format || e->ts.type != BT_INTEGER)
+      if (tag != &tag_format)
         {
           gfc_error ("%s tag at %L must be of type %s", tag->name, &e->where,
-		     gfc_basic_typename (tag->type));
+          gfc_basic_typename (tag->type));
           return FAILURE;
         }
     }
@@ -1098,7 +1101,7 @@ gfc_resolve_open (gfc_open * open)
 }
 
 
-/* Match an OPEN statement.  */
+/* Match an OPEN statmement.  */
 
 match
 gfc_match_open (void)
@@ -1178,7 +1181,7 @@ gfc_free_close (gfc_close * close)
 }
 
 
-/* Match elements of a CLOSE statement.  */
+/* Match elements of a CLOSE statment.  */
 
 static match
 match_close_element (gfc_close * close)
@@ -1425,7 +1428,7 @@ gfc_match_rewind (void)
 }
 
 
-/******************** Data Transfer Statements *********************/
+/******************** Data Transfer Statments *********************/
 
 typedef enum
 { M_READ, M_WRITE, M_PRINT, M_INQUIRE }

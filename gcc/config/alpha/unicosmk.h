@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler, for DEC Alpha on Cray
    T3E running Unicos/Mk.
-   Copyright (C) 2001, 2002
+   Copyright (C) 2001, 2002, 2004
    Free Software Foundation, Inc.
    Contributed by Roman Lechtchinsky (rl@cs.tu-berlin.de)
 
@@ -124,15 +124,6 @@ Boston, MA 02111-1307, USA.  */
 
 #define STACK_PARMS_IN_REG_PARM_AREA
 
-/* This evaluates to nonzero if we do not know how to pass TYPE solely in
-   registers. This is the case for all arguments that do not fit in two
-   registers.  */
-
-#define MUST_PASS_IN_STACK(MODE,TYPE)					\
-  ((TYPE) != 0                                          		\
-   && (TREE_CODE (TYPE_SIZE (TYPE)) != INTEGER_CST      		\
-       || (TREE_ADDRESSABLE (TYPE) || ALPHA_ARG_SIZE (MODE, TYPE, 0) > 2)))
-
 /* Define a data type for recording info about an argument list
    during the scan of that argument list.  This data type should
    hold all necessary information about the function itself
@@ -176,7 +167,7 @@ typedef struct {
    function whose data type is FNTYPE.  For a library call, FNTYPE is 0.  */
 
 #undef INIT_CUMULATIVE_ARGS
-#define INIT_CUMULATIVE_ARGS(CUM,FNTYPE,LIBNAME,INDIRECT)	\
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT, N_NAMED_ARGS) \
   do { (CUM).num_args = 0;					\
        (CUM).num_arg_words = 0;					\
        (CUM).num_reg_words = 0;					\
@@ -198,8 +189,9 @@ do {								\
 								\
   size = ALPHA_ARG_SIZE (MODE, TYPE, NAMED);			\
                                                                 \
-  if (size > 2 || MUST_PASS_IN_STACK (MODE, TYPE)		\
-      || (CUM).num_reg_words + size > 6)			\
+  if (size > 2							\
+      || (CUM).num_reg_words + size > 6				\
+      || targetm.calls.must_pass_in_stack (MODE, TYPE))		\
     (CUM).force_stack = 1;					\
                                                                 \
   if (! (CUM).force_stack)					\
@@ -222,30 +214,6 @@ do {								\
  
 #undef FUNCTION_ARG_PARTIAL_NREGS
 /* #define FUNCTION_ARG_PARTIAL_NREGS(CUM,MODE,TYPE,NAMED) 0 */
-
-/* Perform any needed actions needed for a function that is receiving a
-   variable number of arguments.
-
-   On Unicos/Mk, the standard subroutine __T3E_MISMATCH stores all register
-   arguments on the stack. Unfortunately, it doesn't always store the first
-   one (i.e. the one that arrives in $16 or $f16). This is not a problem
-   with stdargs as we always have at least one named argument there.  */
-
-#undef SETUP_INCOMING_VARARGS
-#define SETUP_INCOMING_VARARGS(CUM,MODE,TYPE,PRETEND_SIZE,NO_RTL)	\
-{ if ((CUM).num_reg_words < 6)						\
-    {									\
-      if (! (NO_RTL))							\
-        {								\
-	  int start = (CUM).num_reg_words + 1;				\
-									\
-          emit_insn (gen_umk_mismatch_args (GEN_INT (start)));		\
-	  emit_insn (gen_arg_home_umk ());				\
-        }								\
-									\
-      PRETEND_SIZE = 0;							\
-    }									\
-}
 
 /* This ensures that $15 increments/decrements in leaf functions won't get
    eliminated.  */
@@ -314,7 +282,7 @@ SSIB_SECTION
 extern void common_section (void);
 #define COMMON_SECTION		\
 void				\
-common_section ()		\
+common_section (void)		\
 {				\
   in_section = in_common;	\
 }
@@ -322,7 +290,7 @@ common_section ()		\
 extern void ssib_section (void);
 #define SSIB_SECTION		\
 void				\
-ssib_section ()			\
+ssib_section (void)		\
 {				\
   in_section = in_ssib;		\
 }
@@ -484,11 +452,6 @@ ssib_section ()			\
          }						\
   } while(0)
 
-/*
-#define ASM_OUTPUT_SECTION_NAME(STREAM, DECL, NAME, RELOC)	\
-  unicosmk_output_section_name ((STREAM), (DECL), (NAME), (RELOC))
-*/
-
 /* Switch into a generic section.  */
 #define TARGET_ASM_NAMED_SECTION unicosmk_asm_named_section
 
@@ -504,11 +467,10 @@ ssib_section ()			\
 #undef SDB_DEBUGGING_INFO
 #undef MIPS_DEBUGGING_INFO
 #undef DBX_DEBUGGING_INFO
-#undef DWARF_DEBUGGING_INFO
 #undef DWARF2_DEBUGGING_INFO
 #undef DWARF2_UNWIND_INFO
 #undef INCOMING_RETURN_ADDR_RTX
-#undef ASM_OUTPUT_SOURCE_LINE
+#undef PREFERRED_DEBUGGING_TYPE
 
 /* We don't need a start file.  */
 
@@ -520,8 +482,6 @@ ssib_section ()			\
 #undef LIB_SPEC
 #define LIB_SPEC "-L/opt/ctl/craylibs/craylibs -lu -lm -lc -lsma"
 
-#undef BUILD_VA_LIST_TYPE
 #undef EXPAND_BUILTIN_VA_START
-#undef EXPAND_BUILTIN_VA_ARG
 
 #define EH_FRAME_IN_DATA_SECTION 1

@@ -1,5 +1,5 @@
 /* Definitions of Tensilica's Xtensa target machine for GNU compiler.
-   Copyright 2001,2002,2003 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Bob Wilson (bwilson@tensilica.com) at Tensilica.
 
 This file is part of GCC.
@@ -106,6 +106,7 @@ extern unsigned xtensa_current_frame_size;
   do {									\
     builtin_assert ("cpu=xtensa");					\
     builtin_assert ("machine=xtensa");					\
+    builtin_define ("__xtensa__");					\
     builtin_define ("__XTENSA__");					\
     builtin_define (TARGET_BIG_ENDIAN ? "__XTENSA_EB__" : "__XTENSA_EL__"); \
     if (!TARGET_HARD_FLOAT)						\
@@ -142,10 +143,10 @@ extern unsigned xtensa_current_frame_size;
    in instructions that operate on numbered bit-fields.  */
 #define BITS_BIG_ENDIAN (TARGET_BIG_ENDIAN != 0)
 
-/* Define this if most significant byte of a word is the lowest numbered. */
+/* Define this if most significant byte of a word is the lowest numbered.  */
 #define BYTES_BIG_ENDIAN (TARGET_BIG_ENDIAN != 0)
 
-/* Define this if most significant word of a multiword number is the lowest. */
+/* Define this if most significant word of a multiword number is the lowest.  */
 #define WORDS_BIG_ENDIAN (TARGET_BIG_ENDIAN != 0)
 
 #define MAX_BITS_PER_WORD 32
@@ -161,7 +162,6 @@ extern unsigned xtensa_current_frame_size;
 #define INT_TYPE_SIZE 32
 #define SHORT_TYPE_SIZE 16
 #define LONG_TYPE_SIZE 32
-#define MAX_LONG_TYPE_SIZE 32
 #define LONG_LONG_TYPE_SIZE 64
 #define FLOAT_TYPE_SIZE 32
 #define DOUBLE_TYPE_SIZE 64
@@ -204,15 +204,6 @@ extern unsigned xtensa_current_frame_size;
       }									\
   } while (0)
 
-/* The promotion described by `PROMOTE_MODE' should also be done for
-   outgoing function arguments.  */
-#define PROMOTE_FUNCTION_ARGS
-
-/* The promotion described by `PROMOTE_MODE' should also be done for
-   the return value of functions.  Note: `FUNCTION_VALUE' must perform
-   the same promotions done by `PROMOTE_MODE'.  */
-#define PROMOTE_FUNCTION_RETURN
-
 /* Imitate the way many other C compilers handle alignment of
    bitfields and the structures that contain them.  */
 #define PCC_BITFIELD_TYPE_MATTERS 1
@@ -238,10 +229,6 @@ extern unsigned xtensa_current_frame_size;
     && (TREE_CODE (TYPE) == ARRAY_TYPE					\
 	|| TREE_CODE (TYPE) == UNION_TYPE				\
 	|| TREE_CODE (TYPE) == RECORD_TYPE)) ? BITS_PER_WORD : (ALIGN))
-
-/* An argument declared as 'char' or 'short' in a prototype should
-   actually be passed as an 'int'.  */
-#define PROMOTE_PROTOTYPES 1
 
 /* Operations between registers always perform the operation
    on the full register even if a narrower mode is specified.  */
@@ -271,11 +258,11 @@ extern unsigned xtensa_current_frame_size;
 
 #define FIRST_PSEUDO_REGISTER 36
 
-/* Return the stabs register number to use for REGNO. */
+/* Return the stabs register number to use for REGNO.  */
 #define DBX_REGISTER_NUMBER(REGNO) xtensa_dbx_register_number (REGNO)
 
 /* 1 for registers that have pervasive standard uses
-   and are not available for the register allocator. */
+   and are not available for the register allocator.  */
 #define FIXED_REGISTERS							\
 {									\
   1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,			\
@@ -326,18 +313,18 @@ extern unsigned xtensa_current_frame_size;
    giving preference to call-used registers.  To minimize window
    overflows for the AR registers, we want to give preference to the
    lower-numbered AR registers.  For other register files, which are
-   not windowed, we still prefer call-used registers, if there are any. */
+   not windowed, we still prefer call-used registers, if there are any.  */
 extern const char xtensa_leaf_regs[FIRST_PSEUDO_REGISTER];
 #define LEAF_REGISTERS xtensa_leaf_regs
 
 /* For Xtensa, no remapping is necessary, but this macro must be
-   defined if LEAF_REGISTERS is defined. */
+   defined if LEAF_REGISTERS is defined.  */
 #define LEAF_REG_REMAP(REGNO) (REGNO)
 
-/* this must be declared if LEAF_REGISTERS is set */
+/* This must be declared if LEAF_REGISTERS is set.  */
 extern int leaf_function;
 
-/* Internal macros to classify a register number. */
+/* Internal macros to classify a register number.  */
 
 /* 16 address registers + fake registers */
 #define GP_REG_FIRST 0
@@ -372,7 +359,7 @@ extern int leaf_function;
 	((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD))
 
 /* Value is 1 if hard register REGNO can hold a value of machine-mode
-   MODE. */
+   MODE.  */
 extern char xtensa_hard_regno_mode_ok[][FIRST_PSEUDO_REGISTER];
 
 #define HARD_REGNO_MODE_OK(REGNO, MODE)					\
@@ -397,7 +384,7 @@ extern char xtensa_hard_regno_mode_ok[][FIRST_PSEUDO_REGISTER];
 /* The register number of the frame pointer register, which is used to
    access automatic variables in the stack frame.  For Xtensa, this
    register never appears in the output.  It is always eliminated to
-   either the stack pointer or the hard frame pointer. */
+   either the stack pointer or the hard frame pointer.  */
 #define FRAME_POINTER_REGNUM (GP_REG_FIRST + 16)
 
 /* Value should be nonzero if functions must have frame pointers.
@@ -425,16 +412,9 @@ extern char xtensa_hard_regno_mode_ok[][FIRST_PSEUDO_REGISTER];
    a real pain to get them reloaded.  */
 #define FPCC_REGNUM (BR_REG_FIRST + 0)
 
-/* Pass structure value address as an "invisible" first argument.  */
-#define STRUCT_VALUE 0
-
 /* It is as good or better to call a constant function address than to
    call an address kept in a register.  */
 #define NO_FUNCTION_CSE 1
-
-/* It is as good or better for a function to call itself with an
-   explicit address than to call an address kept in a register.  */
-#define NO_RECURSIVE_FUNCTION_CSE 1
 
 /* Xtensa processors have "register windows".  GCC does not currently
    take advantage of the possibility for variable-sized windows; instead,
@@ -518,7 +498,7 @@ extern const enum reg_class xtensa_regno_to_class[FIRST_PSEUDO_REGISTER];
 
 /* SMALL_REGISTER_CLASSES is required for Xtensa, because all of the
    16 AR registers may be explicitly used in the RTL, as either
-   incoming or outgoing arguments. */
+   incoming or outgoing arguments.  */
 #define SMALL_REGISTER_CLASSES 1
 
 
@@ -599,7 +579,7 @@ extern enum reg_class xtensa_char_to_class[256];
    the meantime, the constraints are checked and none match.  The
    solution seems to be to simply skip the offset check here.  The
    address will be checked anyway because of the code in
-   GO_IF_LEGITIMATE_ADDRESS. */
+   GO_IF_LEGITIMATE_ADDRESS.  */
 
 #define EXTRA_CONSTRAINT(OP, CODE)					\
   ((GET_CODE (OP) != MEM) ?						\
@@ -701,20 +681,10 @@ extern enum reg_class xtensa_char_to_class[256];
 /* Don't worry about compatibility with PCC.  */
 #define DEFAULT_PCC_STRUCT_RETURN 0
 
-/* For Xtensa, up to 4 words can be returned in registers.  (It would
-   have been nice to allow up to 6 words in registers but GCC cannot
-   support that.  The return value must be given one of the standard
-   MODE_INT modes, and there is no 6 word mode.  Instead, if we try to
-   return a 6 word structure, GCC selects the next biggest mode
-   (OImode, 8 words) and then the register allocator fails because
-   there is no 8-register group beginning with a10.)  */
-#define RETURN_IN_MEMORY(TYPE)						\
-  ((unsigned HOST_WIDE_INT) int_size_in_bytes (TYPE) > 4 * UNITS_PER_WORD)
-
 /* Define how to find the value returned by a library function
    assuming the value has mode MODE.  Because we have defined
-   PROMOTE_FUNCTION_RETURN, we have to perform the same promotions as
-   PROMOTE_MODE. */
+   TARGET_PROMOTE_FUNCTION_RETURN that returns true, we have to
+   perform the same promotions as PROMOTE_MODE.  */
 #define XTENSA_LIBCALL_VALUE(MODE, OUTGOINGP)				\
   gen_rtx_REG ((GET_MODE_CLASS (MODE) == MODE_INT			\
 		&& GET_MODE_SIZE (MODE) < UNITS_PER_WORD)		\
@@ -750,7 +720,7 @@ extern enum reg_class xtensa_char_to_class[256];
    be recognized by this macro.  If the machine has register windows,
    so that the caller and the called function use different registers
    for the return value, this macro should recognize only the caller's
-   register numbers. */
+   register numbers.  */
 #define FUNCTION_VALUE_REGNO_P(N)					\
   ((N) == GP_RETURN)
 
@@ -759,27 +729,25 @@ extern enum reg_class xtensa_char_to_class[256];
    does *not* include implicit arguments such as the static chain and
    the structure-value address.  On many machines, no registers can be
    used for this purpose since all function arguments are pushed on
-   the stack. */
+   the stack.  */
 #define FUNCTION_ARG_REGNO_P(N)						\
   ((N) >= GP_OUTGOING_ARG_FIRST && (N) <= GP_OUTGOING_ARG_LAST)
 
-/* Define a data type for recording info about an argument list
-   during the scan of that argument list.  This data type should
-   hold all necessary information about the function itself
-   and about the args processed so far, enough to enable macros
-   such as FUNCTION_ARG to determine where the next arg should go. */
-typedef struct xtensa_args {
-    int arg_words;		/* # total words the arguments take */
+/* Record the number of argument words seen so far, along with a flag to
+   indicate whether these are incoming arguments.  (FUNCTION_INCOMING_ARG
+   is used for both incoming and outgoing args, so a separate flag is
+   needed.  */
+typedef struct xtensa_args
+{
+  int arg_words;
+  int incoming;
 } CUMULATIVE_ARGS;
 
-/* Initialize a variable CUM of type CUMULATIVE_ARGS
-   for a call to a function whose data type is FNTYPE.
-   For a library call, FNTYPE is 0. */
-#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT)		\
-  init_cumulative_args (&CUM, FNTYPE, LIBNAME)
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT, N_NAMED_ARGS) \
+  init_cumulative_args (&CUM, 0)
 
 #define INIT_CUMULATIVE_INCOMING_ARGS(CUM, FNTYPE, LIBNAME)		\
-  init_cumulative_args (&CUM, FNTYPE, LIBNAME)
+  init_cumulative_args (&CUM, 1)
 
 /* Update the data in CUM to advance over an argument
    of mode MODE and data type TYPE.
@@ -806,23 +774,6 @@ typedef struct xtensa_args {
       ? PARM_BOUNDARY							\
       : GET_MODE_ALIGNMENT (MODE)))
 
-
-/* Nonzero if we do not know how to pass TYPE solely in registers.
-   We cannot do so in the following cases:
-
-   - if the type has variable size
-   - if the type is marked as addressable (it is required to be constructed
-     into the stack)
-
-   This differs from the default in that it does not check if the padding
-   and mode of the type are such that a copy into a register would put it
-   into the wrong part of the register. */
-
-#define MUST_PASS_IN_STACK(MODE, TYPE)					\
-  ((TYPE) != 0								\
-   && (TREE_CODE (TYPE_SIZE (TYPE)) != INTEGER_CST			\
-       || TREE_ADDRESSABLE (TYPE)))
-
 /* Profiling Xtensa code is typically done with the built-in profiling
    feature of Tensilica's instruction set simulator, which does not
    require any compiler support.  Profiling code on a real (i.e.,
@@ -835,7 +786,7 @@ typedef struct xtensa_args {
    values contain window size information in the two most significant
    bits; we assume that _mcount will mask off those bits.  The call to
    _mcount uses a window size of 8 to make sure that it doesn't clobber
-   any incoming argument values. */
+   any incoming argument values.  */
 
 #define NO_PROFILE_COUNTERS	1
 
@@ -865,7 +816,7 @@ typedef struct xtensa_args {
    from the entry instruction at the target and the current frame is
    adjusted to match.  The trampoline then transfers control to the
    instruction following the entry at the target.  Note: this assumes
-   that the target begins with an entry instruction. */
+   that the target begins with an entry instruction.  */
 
 /* minimum frame = reg save area (4 words) plus static chain (1 word)
    and the total number of words must be a multiple of 128 bits */
@@ -926,29 +877,13 @@ typedef struct xtensa_args {
     rtx addr = ADDR;							\
     emit_move_insn (gen_rtx_MEM (SImode, plus_constant (addr, 12)), CHAIN); \
     emit_move_insn (gen_rtx_MEM (SImode, plus_constant (addr, 16)), FUNC); \
-    emit_library_call (gen_rtx (SYMBOL_REF, Pmode, "__xtensa_sync_caches"), \
+    emit_library_call (gen_rtx_SYMBOL_REF (Pmode, "__xtensa_sync_caches"), \
 		       0, VOIDmode, 1, addr, Pmode);			\
   } while (0)
-
-/* Define the `__builtin_va_list' type for the ABI.  */
-#define BUILD_VA_LIST_TYPE(VALIST) \
-  (VALIST) = xtensa_build_va_list ()
-
-/* If defined, is a C expression that produces the machine-specific
-   code for a call to '__builtin_saveregs'.  This code will be moved
-   to the very beginning of the function, before any parameter access
-   are made.  The return value of this function should be an RTX that
-   contains the value to use as the return of '__builtin_saveregs'. */
-#define EXPAND_BUILTIN_SAVEREGS \
-  xtensa_builtin_saveregs
 
 /* Implement `va_start' for varargs and stdarg.  */
 #define EXPAND_BUILTIN_VA_START(valist, nextarg) \
   xtensa_va_start (valist, nextarg)
-
-/* Implement `va_arg'.  */
-#define EXPAND_BUILTIN_VA_ARG(valist, type) \
-  xtensa_va_arg (valist, type)
 
 /* If defined, a C expression that produces the machine-specific code
    to setup the stack so that arbitrary frames can be accessed.
@@ -966,7 +901,7 @@ typedef struct xtensa_args {
    specify whether to start from the stack pointer or frame pointer.  That
    would also allow us to skip the machine->accesses_prev_frame stuff that
    we currently need to ensure that there is a frame pointer when these
-   builtin functions are used. */
+   builtin functions are used.  */
 
 #define SETUP_FRAME_ADDRESSES  xtensa_setup_frame_addresses
 
@@ -980,14 +915,13 @@ typedef struct xtensa_args {
    macro is used for continuing to walk back up the stack, so it must
    return the stack pointer address.  Thus, there is some inconsistency
    here in that __builtin_frame_address will return the frame pointer
-   when count == 0 and the stack pointer when count > 0. */
+   when count == 0 and the stack pointer when count > 0.  */
 
 #define DYNAMIC_CHAIN_ADDRESS(frame)					\
-  gen_rtx (PLUS, Pmode, frame,						\
-	   gen_rtx_CONST_INT (VOIDmode, -3 * UNITS_PER_WORD))
+  gen_rtx_PLUS (Pmode, frame, GEN_INT (-3 * UNITS_PER_WORD))
 
 /* Define this if the return address of a particular stack frame is
-   accessed from the frame pointer of the previous stack frame. */
+   accessed from the frame pointer of the previous stack frame.  */
 #define RETURN_ADDR_IN_PREVIOUS_FRAME
 
 /* A C expression whose value is RTL representing the value of the
@@ -1002,7 +936,7 @@ typedef struct xtensa_args {
    be either a suitable hard register or a pseudo register that has
    been allocated such a hard register. The difference between an
    index register and a base register is that the index register may
-   be scaled. */
+   be scaled.  */
 
 #define REGNO_OK_FOR_BASE_P(NUM) \
   (GP_REG_P (NUM) || GP_REG_P ((unsigned) reg_renumber[NUM]))
@@ -1016,7 +950,7 @@ typedef struct xtensa_args {
    must be controlled by `REG_OK_STRICT'.  This usually requires two
    variant definitions, of which `REG_OK_STRICT' controls the one
    actually used. The difference between an index register and a base
-   register is that the index register may be scaled. */
+   register is that the index register may be scaled.  */
 
 #ifdef REG_OK_STRICT
 
@@ -1095,14 +1029,15 @@ typedef struct xtensa_args {
     || (GET_CODE (X) == CONST)))
 
 /* Nonzero if the constant value X is a legitimate general operand.
-   It is given that X satisfies CONSTANT_P or is a CONST_DOUBLE. */
+   It is given that X satisfies CONSTANT_P or is a CONST_DOUBLE.  */
 #define LEGITIMATE_CONSTANT_P(X) 1
 
 /* A C expression that is nonzero if X is a legitimate immediate
    operand on the target machine when generating position independent
    code.  */
 #define LEGITIMATE_PIC_OPERAND_P(X)					\
-  ((GET_CODE (X) != SYMBOL_REF || SYMBOL_REF_LOCAL_P (X))		\
+  ((GET_CODE (X) != SYMBOL_REF						\
+    || (SYMBOL_REF_LOCAL_P (X) && !SYMBOL_REF_EXTERNAL_P (X)))		\
    && GET_CODE (X) != LABEL_REF						\
    && GET_CODE (X) != CONST)
 
@@ -1129,10 +1064,10 @@ typedef struct xtensa_args {
 	    && xtensa_simm8x256 (INTVAL (plus1) & ~0xff))		\
 	  {								\
 	    rtx temp = gen_reg_rtx (Pmode);				\
-	    emit_insn (gen_rtx (SET, Pmode, temp,			\
-				gen_rtx (PLUS, Pmode, plus0,		\
+	    emit_insn (gen_rtx_SET (Pmode, temp,			\
+				gen_rtx_PLUS (Pmode, plus0,		\
 					 GEN_INT (INTVAL (plus1) & ~0xff)))); \
-	    (X) = gen_rtx (PLUS, Pmode, temp,				\
+	    (X) = gen_rtx_PLUS (Pmode, temp,				\
 			   GEN_INT (INTVAL (plus1) & 0xff));		\
 	    goto WIN;							\
 	  }								\
@@ -1158,11 +1093,6 @@ typedef struct xtensa_args {
    for the index in the tablejump instruction.  */
 #define CASE_VECTOR_MODE (SImode)
 
-/* Define this if the tablejump instruction expects the table
-   to contain offsets from the address of the table.
-   Do not define this if the table should contain absolute addresses.  */
-/* #define CASE_VECTOR_PC_RELATIVE */
-
 /* Define this as 1 if 'char' should by default be signed; else as 0.  */
 #define DEFAULT_SIGNED_CHAR 0
 
@@ -1174,16 +1104,11 @@ typedef struct xtensa_args {
 /* Prefer word-sized loads.  */
 #define SLOW_BYTE_ACCESS 1
 
-/* ??? Xtensa doesn't have any instructions that set integer values
-   based on the results of comparisons, but the simplification code in
-   the combiner also uses STORE_FLAG_VALUE.  The default value (1) is
-   fine for us, but (-1) might be better.  */
-
 /* Shift instructions ignore all but the low-order few bits.  */
 #define SHIFT_COUNT_TRUNCATED 1
 
 /* Value is 1 if truncating an integer of INPREC bits to OUTPREC bits
-   is done just by pretending it is already truncated. */
+   is done just by pretending it is already truncated.  */
 #define TRULY_NOOP_TRUNCATION(OUTPREC, INPREC) 1
 
 /* Specify the machine mode that pointers have.
@@ -1249,7 +1174,7 @@ typedef struct xtensa_args {
 /* Control the assembler format that we output.  */
 
 /* How to refer to registers in assembler output.
-   This sequence is indexed by compiler's hard-register-number (see above). */
+   This sequence is indexed by compiler's hard-register-number (see above).  */
 #define REGISTER_NAMES							\
 {									\
   "a0",   "sp",   "a2",   "a3",   "a4",   "a5",   "a6",   "a7",		\
@@ -1263,7 +1188,7 @@ typedef struct xtensa_args {
 /* If defined, a C initializer for an array of structures containing a
    name and a register number.  This macro defines additional names
    for hard registers, thus allowing the 'asm' option in declarations
-   to refer to registers using alternate names. */
+   to refer to registers using alternate names.  */
 #define ADDITIONAL_REGISTER_NAMES					\
 {									\
   { "a1",	 1 + GP_REG_FIRST }					\
@@ -1306,7 +1231,7 @@ typedef struct xtensa_args {
 	   LOCAL_LABEL_PREFIX, VALUE)
 
 /* This is how to output an element of a case-vector that is relative.
-   This is used for pc-relative code. */
+   This is used for pc-relative code.  */
 #define ASM_OUTPUT_ADDR_DIFF_ELT(STREAM, BODY, VALUE, REL)		\
   do {									\
     fprintf (STREAM, "%s%sL%u-%sL%u\n",	integer_asm_op (4, TRUE),	\
@@ -1336,7 +1261,7 @@ typedef struct xtensa_args {
 /* Define output to appear before the constant pool.  If the function
    has been assigned to a specific ELF section, or if it goes into a
    unique section, set the name of that section to be the literal
-   prefix. */
+   prefix.  */
 #define ASM_OUTPUT_POOL_PROLOGUE(FILE, FUNNAME, FUNDECL, SIZE)          \
   do {									\
     tree fnsection;							\
@@ -1371,7 +1296,7 @@ typedef struct xtensa_args {
     goto JUMPTO;							\
   } while (0)
 
-/* How to start an assembler comment. */
+/* How to start an assembler comment.  */
 #define ASM_COMMENT_START "#"
 
 /* Exception handling TODO!! */

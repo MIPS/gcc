@@ -7,8 +7,8 @@
 
 template <int> struct A
 {
-    typedef A<0> B;		// { dg-error "previous declaration" }
-    template <B> struct B {};	// { dg-error "not a valid type|typedef" }
+    typedef A<0> B;		// { dg-error "not a valid type|conflict" }
+    template <B> struct B {};	// { dg-error "not a valid type|declaration" }
 };
 
-A<0> a;
+A<0> a;				// { dg-error "instantiated" }

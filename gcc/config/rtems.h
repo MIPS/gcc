@@ -1,5 +1,5 @@
 /* Configuration common to all targets running RTEMS. 
-   Copyright (C) 2000, 2002 Free Software Foundation, Inc. 
+   Copyright (C) 2000, 2002, 2004 Free Software Foundation, Inc. 
 
 This file is part of GCC.
 
@@ -21,11 +21,6 @@ Boston, MA 02111-1307, USA.  */
 /* The system headers under RTEMS are C++-aware.  */
 #define NO_IMPLICIT_EXTERN_C
 
-/* Generate calls to memcpy, memcmp and memset.  */
-#ifndef TARGET_MEM_FUNCTIONS
-#define TARGET_MEM_FUNCTIONS
-#endif
-
 /*
  * Dummy start/end specification to let linker work as
  * needed by autoconf scripts using this compiler.
@@ -35,3 +30,15 @@ Boston, MA 02111-1307, USA.  */
 
 #undef ENDFILE_SPEC
 #define ENDFILE_SPEC   ""
+
+/*
+ * Some targets do not set up LIB_SPECS, override it, here.
+ */
+#define STD_LIB_SPEC "%{!shared:%{g*:-lg} %{!p:%{!pg:-lc}}%{p:-lc_p}%{pg:-lc_p}}"
+
+#undef LIB_SPEC
+#define LIB_SPEC "%{!qrtems: " STD_LIB_SPEC "} " \
+"%{!nostdlib: %{qrtems: --start-group \
+ %{!qrtems_debug: -lrtemsbsp -lrtemscpu} \
+ %{qrtems_debug: -lrtemsbsp_g -lrtemscpu_g} \
+ -lc -lgcc --end-group %{!qnolinkcmds: -T linkcmds%s}}}"

@@ -1,5 +1,5 @@
 /* Subroutines for gcc2 for pdp11.
-   Copyright (C) 1994, 1995, 1996, 1997, 1998, 1999, 2001
+   Copyright (C) 1994, 1995, 1996, 1997, 1998, 1999, 2001, 2004
    Free Software Foundation, Inc.
    Contributed by Michael K. Gschwind (mike@vlsivie.tuwien.ac.at).
 
@@ -51,6 +51,90 @@ Boston, MA 02111-1307, USA.  */
    defined in tm.h */
 int current_first_parm_offset;
 
+/* Routines to encode/decode pdp11 floats */
+static void encode_pdp11_f (const struct real_format *fmt,
+			    long *, const REAL_VALUE_TYPE *);
+static void decode_pdp11_f (const struct real_format *,
+			    REAL_VALUE_TYPE *, const long *);
+static void encode_pdp11_d (const struct real_format *fmt,
+			    long *, const REAL_VALUE_TYPE *);
+static void decode_pdp11_d (const struct real_format *,
+			    REAL_VALUE_TYPE *, const long *);
+
+/* These two are taken from the corresponding vax descriptors
+   in real.c, changing only the encode/decode routine pointers.  */
+const struct real_format pdp11_f_format =
+  {
+    encode_pdp11_f,
+    decode_pdp11_f,
+    2,
+    1,
+    24,
+    24,
+    -127,
+    127,
+    15,
+    false,
+    false,
+    false,
+    false,
+    false
+  };
+
+const struct real_format pdp11_d_format =
+  {
+    encode_pdp11_d,
+    decode_pdp11_d,
+    2,
+    1,
+    56,
+    56,
+    -127,
+    127,
+    15,
+    false,
+    false,
+    false,
+    false,
+    false
+  };
+
+static void
+encode_pdp11_f (const struct real_format *fmt ATTRIBUTE_UNUSED, long *buf,
+		const REAL_VALUE_TYPE *r)
+{
+  (*vax_f_format.encode) (fmt, buf, r);
+  buf[0] = ((buf[0] >> 16) & 0xffff) | ((buf[0] & 0xffff) << 16);
+}
+
+static void
+decode_pdp11_f (const struct real_format *fmt ATTRIBUTE_UNUSED,
+		REAL_VALUE_TYPE *r, const long *buf)
+{
+  long tbuf;
+  tbuf = ((buf[0] >> 16) & 0xffff) | ((buf[0] & 0xffff) << 16);
+  (*vax_f_format.decode) (fmt, r, &tbuf);
+}
+
+static void
+encode_pdp11_d (const struct real_format *fmt ATTRIBUTE_UNUSED, long *buf,
+		const REAL_VALUE_TYPE *r)
+{
+  (*vax_d_format.encode) (fmt, buf, r);
+  buf[0] = ((buf[0] >> 16) & 0xffff) | ((buf[0] & 0xffff) << 16);
+  buf[1] = ((buf[1] >> 16) & 0xffff) | ((buf[1] & 0xffff) << 16);
+}
+
+static void
+decode_pdp11_d (const struct real_format *fmt ATTRIBUTE_UNUSED,
+		REAL_VALUE_TYPE *r, const long *buf)
+{
+  long tbuf[2];
+  tbuf[0] = ((buf[0] >> 16) & 0xffff) | ((buf[0] & 0xffff) << 16);
+  tbuf[1] = ((buf[1] >> 16) & 0xffff) | ((buf[1] & 0xffff) << 16);
+  (*vax_d_format.decode) (fmt, r, tbuf);
+}
+
 /* This is where the condition code register lives.  */
 /* rtx cc0_reg_rtx; - no longer needed? */
 
@@ -60,6 +144,7 @@ static bool pdp11_assemble_integer (rtx, unsigned int, int);
 static void pdp11_output_function_prologue (FILE *, HOST_WIDE_INT);
 static void pdp11_output_function_epilogue (FILE *, HOST_WIDE_INT);
 static bool pdp11_rtx_costs (rtx, int, int, int *);
+static bool pdp11_return_in_memory (tree, tree);
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ASM_BYTE_OP
@@ -83,6 +168,9 @@ static bool pdp11_rtx_costs (rtx, int, int, int *);
 
 #undef TARGET_RTX_COSTS
 #define TARGET_RTX_COSTS pdp11_rtx_costs
+
+#undef TARGET_RETURN_IN_MEMORY
+#define TARGET_RETURN_IN_MEMORY pdp11_return_in_memory
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -148,7 +236,8 @@ pdp11_output_function_prologue (FILE *stream, HOST_WIDE_INT size)
     int via_ac = -1;
 
     fprintf (stream,
-	     "\n\t;	/* function prologue %s*/\n", current_function_name);
+	     "\n\t;	/* function prologue %s*/\n",
+	     current_function_name ());
 
     /* if we are outputting code for main, 
        the switch FPU to right mode if TARGET_FPU */
@@ -676,26 +765,16 @@ output_move_quad (rtx *operands)
     {
       if (GET_CODE (operands[1]) == CONST_DOUBLE)
 	{
-	    /* floats only. not yet supported!
-
-	     -- compute it into PDP float format, - internally,
-	     just use IEEE and ignore possible problems ;-)
-
-	     we might get away with it !!!! */
-
-	    abort();
-	    
-#ifndef HOST_WORDS_BIG_ENDIAN
-	  latehalf[1] = GEN_INT (CONST_DOUBLE_LOW (operands[1]));
-	  operands[1] = GEN_INT	(CONST_DOUBLE_HIGH (operands[1]));
-#else /* HOST_WORDS_BIG_ENDIAN */
-	  latehalf[1] = GEN_INT (CONST_DOUBLE_HIGH (operands[1]));
-	  operands[1] = GEN_INT (CONST_DOUBLE_LOW (operands[1]));
-#endif /* HOST_WORDS_BIG_ENDIAN */
+	  REAL_VALUE_TYPE r;
+	  long dval[2];
+	  REAL_VALUE_FROM_CONST_DOUBLE (r, operands[1]);
+	  REAL_VALUE_TO_TARGET_DOUBLE (r, dval);
+	  latehalf[1] = GEN_INT (dval[1]);
+	  operands[1] = GEN_INT	(dval[0]);
 	}
       else if (GET_CODE(operands[1]) == CONST_INT)
 	{
-	  latehalf[1] = GEN_INT (0);
+	  latehalf[1] = const0_rtx;
 	}
       else
 	abort();
@@ -1521,55 +1600,6 @@ output_block_move(rtx *operands)
     return "";
 }
 
-/* for future use */
-int
-comparison_operator_index(rtx op)
-{
-    switch (GET_CODE(op))
-    {
-      case NE:
-	return 0;
-	
-      case EQ:
-	return 1;
-	
-      case GE:
-	return 2;
-	
-      case GT:
-	return 3;
-	
-      case LE:
-	return 4;
-	
-      case LT:
-	return 5;
-	
-      case GEU:
-	return 6;
-	
-      case GTU:
-	return 7;
-
-      case LEU:
-	return 8;
-	
-      case LTU:
-	return 9;
-	
-      default:
-	return -1;
-    }
-}    
-	
-/* tests whether the rtx is a comparison operator */
-int
-comp_operator (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
-{
-    return comparison_operator_index(op) >= 0;
-}
-
-    
 int
 legitimate_address_p (enum machine_mode mode, rtx address)
 {
@@ -1582,6 +1612,21 @@ legitimate_address_p (enum machine_mode mode, rtx address)
     return 1;
 
 /* #undef REG_OK_STRICT */
+}
+
+/* This function checks whether a real value can be encoded as
+   a literal, i.e., addressing mode 27.  In that mode, real values
+   are one word values, so the remaining 48 bits have to be zero.  */
+int
+legitimate_const_double_p (rtx address)
+{
+  REAL_VALUE_TYPE r;
+  long sval[2];
+  REAL_VALUE_FROM_CONST_DOUBLE (r, address);
+  REAL_VALUE_TO_TARGET_DOUBLE (r, sval);
+  if ((sval[0] & 0xffff) == 0 && sval[1] == 0)
+    return 1;
+  return 0;
 }
 
 /* A copy of output_addr_const modified for pdp11 expression syntax.
@@ -1646,7 +1691,7 @@ output_addr_const_pdp11 (FILE *file, rtx x)
       break;
 
     case PLUS:
-      /* Some assemblers need integer constants to appear last (eg masm).  */
+      /* Some assemblers need integer constants to appear last (e.g. masm).  */
       if (GET_CODE (XEXP (x, 0)) == CONST_INT)
 	{
 	  output_addr_const_pdp11 (file, XEXP (x, 1));
@@ -1691,4 +1736,19 @@ output_addr_const_pdp11 (FILE *file, rtx x)
     default:
       output_operand_lossage ("invalid expression as operand");
     }
+}
+
+/* Worker function for TARGET_RETURN_IN_MEMORY.  */
+
+static bool
+pdp11_return_in_memory (tree type, tree fntype ATTRIBUTE_UNUSED)
+{
+  /* Should probably return DImode and DFmode in memory, lest
+     we fill up all regs!
+
+     have to, else we crash - exception: maybe return result in 
+     ac0 if DFmode and FPU present - compatibility problem with
+     libraries for non-floating point....  */
+  return (TYPE_MODE (type) == DImode
+	  || (TYPE_MODE (type) == DFmode && ! TARGET_AC0));
 }

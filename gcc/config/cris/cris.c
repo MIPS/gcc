@@ -1,5 +1,6 @@
 /* Definitions for GCC.  Part of the machine description for CRIS.
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Free Software Foundation, Inc.
    Contributed by Axis Communications.  Written by Hans-Peter Nilsson.
 
 This file is part of GCC.
@@ -91,6 +92,11 @@ static void cris_print_index (rtx, FILE *);
 
 static struct machine_function * cris_init_machine_status (void);
 
+static rtx cris_struct_value_rtx (tree, int);
+
+static void cris_setup_incoming_varargs (CUMULATIVE_ARGS *, enum machine_mode,
+					 tree type, int *, int);
+
 static int cris_initial_frame_pointer_offset (void);
 
 static int saved_regs_mentioned (rtx);
@@ -109,6 +115,8 @@ static void cris_init_libfuncs (void);
 
 static bool cris_rtx_costs (rtx, int, int, int *);
 static int cris_address_cost (rtx);
+static bool cris_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode,
+				    tree, bool);
 
 /* The function cris_target_asm_function_epilogue puts the last insn to
    output here.  It always fits; there won't be a symbol operand.  Used in
@@ -174,6 +182,15 @@ int cris_cpu_version = CRIS_DEFAULT_CPU_VERSION;
 #define TARGET_RTX_COSTS cris_rtx_costs
 #undef TARGET_ADDRESS_COST
 #define TARGET_ADDRESS_COST cris_address_cost
+
+#undef TARGET_PROMOTE_FUNCTION_ARGS
+#define TARGET_PROMOTE_FUNCTION_ARGS hook_bool_tree_true
+#undef TARGET_STRUCT_VALUE_RTX
+#define TARGET_STRUCT_VALUE_RTX cris_struct_value_rtx
+#undef TARGET_SETUP_INCOMING_VARARGS
+#define TARGET_SETUP_INCOMING_VARARGS cris_setup_incoming_varargs
+#undef TARGET_PASS_BY_REFERENCE
+#define TARGET_PASS_BY_REFERENCE cris_pass_by_reference
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -317,7 +334,10 @@ cris_commutative_orth_op (rtx x, enum machine_mode mode)
 	   || code == IOR || code == AND || code == UMIN));
 }
 
-/* Check if MODE is same as mode for X, and X is PLUS or MINUS or UMIN.  */
+/* Check if MODE is same as mode for X, and X is PLUS or MINUS or UMIN.
+   By the name, you might think we should include MULT.  We don't because
+   it doesn't accept the same addressing modes as the others (ony
+   registers) and there's also the problem of handling TARGET_MUL_BUG.  */
 
 int
 cris_operand_extend_operator (rtx x, enum machine_mode mode)
@@ -372,6 +392,19 @@ cris_plus_or_bound_operator (rtx x, enum machine_mode mode)
 
   return
     (GET_MODE (x) == mode && (code == UMIN || code == PLUS));
+}
+
+/* Used as an operator to get a handle on a already-known-valid MEM rtx:es
+   (no need to validate the address), where some address expression parts
+   have their own match_operand.  */
+
+int
+cris_mem_op (rtx x, enum machine_mode mode)
+{
+  if (mode == VOIDmode)
+    mode = GET_MODE (x);
+
+  return GET_MODE (x) == mode && GET_CODE (x) == MEM;
 }
 
 /* Since with -fPIC, not all symbols are valid PIC symbols or indeed
@@ -431,7 +464,7 @@ cris_mem_call_operand (rtx op, enum machine_mode mode)
   return cris_general_operand_or_symbol (xmem, GET_MODE (op));
 }
 
-/* The CONDITIONAL_REGISTER_USAGE worker.   */
+/* The CONDITIONAL_REGISTER_USAGE worker.  */
 
 void
 cris_conditional_register_usage (void)
@@ -471,7 +504,11 @@ cris_op_str (rtx x)
       break;
 
     case MULT:
-      return "mul";
+      /* This function is for retrieving a part of an instruction name for
+	 an operator, for immediate output.  If that ever happens for
+	 MULT, we need to apply TARGET_MUL_BUG in the caller.  Make sure
+	 we notice.  */
+      abort ();
       break;
 
     case DIV:
@@ -1246,7 +1283,7 @@ cris_target_asm_function_epilogue (FILE *file, HOST_WIDE_INT size)
 
       /* Output the delay-slot-insn the mandated way.  */
       final_scan_insn (XEXP (current_function_epilogue_delay_list, 0),
-		       file, 1, -2, 1);
+		       file, 1, -2, 1, NULL);
     }
   else if (file)
     {
@@ -1280,7 +1317,7 @@ cris_print_operand (FILE *file, rtx x, int code)
   switch (code)
     {
     case 'b':
-      /* Print the unsigned supplied integer as if it was signed
+      /* Print the unsigned supplied integer as if it were signed
 	 and < 0, i.e print 255 or 65535 as -1, 254, 65534 as -2, etc.  */
       if (GET_CODE (x) != CONST_INT
 	  || ! CONST_OK_FOR_LETTER_P (INTVAL (x), 'O'))
@@ -1362,6 +1399,23 @@ cris_print_operand (FILE *file, rtx x, int code)
 	 This method stolen from the sparc files.  */
       if (dbr_sequence_length () == 0)
 	fputs ("\n\tnop", file);
+      return;
+
+    case '!':
+      /* Output directive for alignment padded with "nop" insns.
+	 Optimizing for size, it's plain 4-byte alignment, otherwise we
+	 align the section to a cache-line (32 bytes) and skip at max 2
+	 bytes, i.e. we skip if it's the last insn on a cache-line.  The
+	 latter is faster by a small amount (for two test-programs 99.6%
+	 and 99.9%) and larger by a small amount (ditto 100.1% and
+	 100.2%).  This is supposed to be the simplest yet performance-
+	 wise least intrusive way to make sure the immediately following
+	 (supposed) muls/mulu insn isn't located at the end of a
+	 cache-line.  */
+      if (TARGET_MUL_BUG)
+	fputs (optimize_size
+	       ? ".p2alignw 2,0x050f\n\t"
+	       : ".p2alignw 5,0x050f,2\n\t", file);
       return;
 
     case 'H':
@@ -1646,6 +1700,15 @@ cris_return_addr_rtx (int count, rtx frameaddr ATTRIBUTE_UNUSED)
     : NULL_RTX;
 }
 
+/* Accessor used in cris.md:return because cfun->machine isn't available
+   there.  */
+
+int
+cris_return_address_on_stack ()
+{
+  return cfun->machine->needs_return_address_on_stack;
+}
+
 /* This used to be the INITIAL_FRAME_POINTER_OFFSET worker; now only
    handles FP -> SP elimination offset.  */
 
@@ -1706,7 +1769,7 @@ cris_initial_elimination_offset (int fromreg, int toreg)
     = regs_ever_live[CRIS_SRP_REGNUM]
     || cfun->machine->needs_return_address_on_stack != 0;
 
-  /* Here we act as if the frame-pointer is needed.  */
+  /* Here we act as if the frame-pointer were needed.  */
   int ap_fp_offset = 4 + (return_address_on_stack ? 4 : 0);
 
   if (fromreg == ARG_POINTER_REGNUM
@@ -1962,8 +2025,8 @@ cris_notice_update_cc (rtx exp, rtx insn)
 		     value1=rz and value2=[rx] */
 		  cc_status.value1 = XEXP (XVECEXP (exp, 0, 0), 0);
 		  cc_status.value2
-		    = gen_rtx_MEM (GET_MODE (XEXP (XVECEXP (exp, 0, 0), 0)),
-				   XEXP (XVECEXP (exp, 0, 1), 0));
+		    = replace_equiv_address (XEXP (XVECEXP (exp, 0, 0), 1),
+					     XEXP (XVECEXP (exp, 0, 1), 0));
 		  cc_status.flags = 0;
 
 		  /* Huh?  A side-effect cannot change the destination
@@ -2387,12 +2450,13 @@ cris_reg_overlap_mentioned_p (rtx x, rtx in)
    We just dispatch to the functions for ELF and a.out.  */
 
 void
-cris_target_asm_named_section (const char *name, unsigned int flags)
+cris_target_asm_named_section (const char *name, unsigned int flags,
+			       tree decl)
 {
   if (! TARGET_ELF)
-    default_no_named_section (name, flags);
+    default_no_named_section (name, flags, decl);
   else
-    default_elf_asm_named_section (name, flags);
+    default_elf_asm_named_section (name, flags, decl);
 }
 
 /* The LEGITIMATE_PIC_OPERAND_P worker.  */
@@ -2436,7 +2500,6 @@ cris_symbol (rtx x)
 
     case CONST_INT:
     case CONST_DOUBLE:
-    case CONSTANT_P_RTX:
       return 0;
 
     default:
@@ -2498,7 +2561,6 @@ cris_gotless_symbol (rtx x)
 
     case CONST_INT:
     case CONST_DOUBLE:
-    case CONSTANT_P_RTX:
       return 0;
 
     default:
@@ -2543,7 +2605,6 @@ cris_got_symbol (rtx x)
 
     case CONST_INT:
     case CONST_DOUBLE:
-    case CONSTANT_P_RTX:
       return 0;
 
     default:
@@ -2661,8 +2722,7 @@ cris_override_options (void)
       flag_no_function_cse = 1;
     }
 
-  if ((write_symbols == DWARF_DEBUG
-       || write_symbols == DWARF2_DEBUG) && ! TARGET_ELF)
+  if (write_symbols == DWARF2_DEBUG && ! TARGET_ELF)
     {
       warning ("that particular -g option is invalid with -maout and -melinux");
       write_symbols = DBX_DEBUG;
@@ -2734,86 +2794,6 @@ cris_init_libfuncs (void)
   set_optab_libfunc (udiv_optab, SImode, "__Udiv");
   set_optab_libfunc (smod_optab, SImode, "__Mod");
   set_optab_libfunc (umod_optab, SImode, "__Umod");
-}
-
-/* The EXPAND_BUILTIN_VA_ARG worker.  This is modified from the
-   "standard" implementation of va_arg: read the value from the current
-   address and increment by the size of one or two registers.  The
-   important difference for CRIS is that if the type is
-   pass-by-reference, then perform an indirection.  */
-
-rtx
-cris_expand_builtin_va_arg (tree valist, tree type)
-{
-  tree addr_tree, t;
-  rtx addr;
-  tree passed_size = size_zero_node;
-  tree type_size = NULL;
-  tree size3 = size_int (3);
-  tree size4 = size_int (4);
-  tree size8 = size_int (8);
-  tree rounded_size;
-
-  /* Get AP.  */
-  addr_tree = valist;
-
-  if (type == error_mark_node
-      || (type_size = TYPE_SIZE_UNIT (TYPE_MAIN_VARIANT (type))) == NULL
-      || TREE_OVERFLOW (type_size))
-    /* Presumably an error; the size isn't computable.  A message has
-       supposedly been emitted elsewhere.  */
-    rounded_size = size_zero_node;
-  else
-    rounded_size
-      = fold (build (MULT_EXPR, sizetype,
-		     fold (build (TRUNC_DIV_EXPR, sizetype,
-				  fold (build (PLUS_EXPR, sizetype,
-					       type_size, size3)),
-				  size4)),
-		     size4));
-
-  if (!integer_zerop (rounded_size))
-    {
-      /* Check if the type is passed by value or by reference.  Values up
-	 to 8 bytes are passed by-value, padded to register-size (4
-	 bytes).  Larger values and varying-size types are passed
-	 by reference.  */
-      passed_size
-	= (!really_constant_p (type_size)
-	   ? size4
-	   : fold (build (COND_EXPR, sizetype,
-			  fold (build (GT_EXPR, sizetype,
-				       rounded_size,
-				       size8)),
-			  size4,
-			  rounded_size)));
-
-      addr_tree
-	= (!really_constant_p (type_size)
-	   ? build1 (INDIRECT_REF, build_pointer_type (type), addr_tree)
-	   : fold (build (COND_EXPR, TREE_TYPE (addr_tree),
-			  fold (build (GT_EXPR, sizetype,
-				       rounded_size,
-				       size8)),
-			  build1 (INDIRECT_REF, build_pointer_type (type),
-				  addr_tree),
-			  addr_tree)));
-    }
-
-  addr = expand_expr (addr_tree, NULL_RTX, Pmode, EXPAND_NORMAL);
-  addr = copy_to_reg (addr);
-
-  if (!integer_zerop (rounded_size))
-    {
-      /* Compute new value for AP.  */
-      t = build (MODIFY_EXPR, TREE_TYPE (valist), valist,
-		 build (PLUS_EXPR, TREE_TYPE (valist), valist,
-			passed_size));
-      TREE_SIDE_EFFECTS (t) = 1;
-      expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
-    }
-
-  return addr;
 }
 
 /* The INIT_EXPANDERS worker sets the per-function-data initializer and
@@ -2895,7 +2875,7 @@ cris_split_movdx (rtx *operands)
 	  int reverse
 	    = (refers_to_regno_p (dregno, dregno + 1, addr, NULL) != 0);
 
-	  /* The original code imples that we can't do
+	  /* The original code implies that we can't do
 	     move.x [rN+],rM  move.x [rN],rM+1
 	     when rN is dead, because of REG_NOTES damage.  That is
 	     consistent with what I've seen, so don't try it.
@@ -3119,7 +3099,7 @@ restart:
       break;
 
     case PLUS:
-      /* Some assemblers need integer constants to appear last (eg masm).  */
+      /* Some assemblers need integer constants to appear last (e.g. masm).  */
       if (GET_CODE (XEXP (x, 0)) == CONST_INT)
 	{
 	  cris_output_addr_const (file, XEXP (x, 1));
@@ -3162,6 +3142,47 @@ restart:
       LOSE_AND_RETURN ("unexpected address expression", x);
     }
 }
+
+/* Worker function for TARGET_STRUCT_VALUE_RTX.  */
+
+static rtx
+cris_struct_value_rtx (tree fntype ATTRIBUTE_UNUSED,
+		       int incoming ATTRIBUTE_UNUSED)
+{
+  return gen_rtx_REG (Pmode, CRIS_STRUCT_VALUE_REGNUM);
+}
+
+/* Worker function for TARGET_SETUP_INCOMING_VARARGS.  */
+
+static void
+cris_setup_incoming_varargs (CUMULATIVE_ARGS *ca,
+			     enum machine_mode mode ATTRIBUTE_UNUSED,
+			     tree type ATTRIBUTE_UNUSED,
+			     int *pretend_arg_size,
+			     int second_time)
+{
+  if (ca->regs < CRIS_MAX_ARGS_IN_REGS)
+    *pretend_arg_size = (CRIS_MAX_ARGS_IN_REGS - ca->regs) * 4;
+  if (TARGET_PDEBUG)
+    {
+      fprintf (asm_out_file,
+	       "\n; VA:: ANSI: %d args before, anon @ #%d, %dtime\n",
+	       ca->regs, *pretend_arg_size, second_time);
+    }
+}
+
+/* Return true if TYPE must be passed by invisible reference.
+   For cris, we pass <= 8 bytes by value, others by reference.  */
+
+static bool
+cris_pass_by_reference (CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED,
+			enum machine_mode mode, tree type,
+			bool named ATTRIBUTE_UNUSED)
+{
+  return (targetm.calls.must_pass_in_stack (mode, type)
+	  || CRIS_FUNCTION_ARG_SIZE (mode, type) > 8);
+}
+
 
 #if 0
 /* Various small functions to replace macros.  Only called from a

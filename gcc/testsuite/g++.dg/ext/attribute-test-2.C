@@ -11,7 +11,7 @@ class vector_holder
    char __attribute__((vector_size(16))) vec;
    char __attribute__((vector_size(16))) vec1;
 public:
-   operator __attribute__((vector_size(16))) short (void) { // { dg-warning "vector returned by ref" "" { target { powerpc*-*-linux* && ilp32 } } }
+   operator __attribute__((vector_size(16))) short (void) {
      return (__attribute__((vector_size(16))) short) vec;
    }
 

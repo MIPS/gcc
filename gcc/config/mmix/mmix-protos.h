@@ -1,5 +1,5 @@
 /* Prototypes for exported functions defined in mmix.c
-   Copyright (C) 2000, 2001, 2002, 2003  Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004  Free Software Foundation, Inc.
    Contributed by Hans-Peter Nilsson (hp@bitrange.com)
 
 This file is part of GCC.
@@ -53,15 +53,11 @@ extern int mmix_local_regno (int);
 extern int mmix_dbx_register_number (int);
 extern int mmix_use_simple_return (void);
 extern void mmix_make_decl_one_only (tree);
-extern int mmix_function_arg_pass_by_reference
-  (const CUMULATIVE_ARGS *, enum machine_mode, tree, int);
 extern rtx mmix_function_outgoing_value (tree, tree);
 extern int mmix_function_value_regno_p (int);
 extern int mmix_data_alignment (tree, int);
 extern int mmix_constant_alignment (tree, int);
 extern int mmix_local_alignment (tree, int);
-extern void mmix_setup_incoming_varargs
-  (CUMULATIVE_ARGS *, enum machine_mode, tree, int *, int);
 extern void mmix_asm_output_pool_prologue (FILE *, const char *, tree, int);
 extern void mmix_asm_output_aligned_common (FILE *, const char *, int, int);
 extern void mmix_asm_output_aligned_local (FILE *, const char *, int, int);
@@ -69,7 +65,6 @@ extern void mmix_asm_declare_register_global
   (FILE *, tree, int, const char *);
 extern rtx mmix_function_arg
   (const CUMULATIVE_ARGS *, enum machine_mode, tree, int, int);
-extern rtx mmix_expand_builtin_va_arg (tree, tree);
 extern void mmix_asm_output_addr_diff_elt (FILE *, rtx, int, int);
 extern void mmix_asm_output_addr_vec_elt (FILE *, int);
 extern enum reg_class mmix_preferred_reload_class (rtx, enum reg_class);

@@ -203,7 +203,7 @@
 				   (eq_attr "memory" "load,both")))
 			 "athlon-vector,athlon-load,athlon-ieu,athlon-mult,athlon-ieu")
 
-;; Idiv can not execute in parallel with other instructions.  Dealing with it
+;; Idiv cannot execute in parallel with other instructions.  Dealing with it
 ;; as with short latency vector instruction is good approximation avoiding
 ;; scheduler from trying too hard to can hide it's latency by overlap with
 ;; other instructions.
@@ -220,7 +220,7 @@
 			      (and (eq_attr "type" "idiv")
 				   (eq_attr "memory" "load,both")))
 			 "athlon-vector,((athlon-load,athlon-ieu0*6)+(athlon-fpsched,athlon-fvector))")
-;; The paralelism of string instructions is not documented.  Model it same way
+;; The parallelism of string instructions is not documented.  Model it same way
 ;; as idiv to create smaller automata.  This probably does not matter much.
 (define_insn_reservation "athlon_str" 6
 			 (and (eq_attr "cpu" "athlon,k8")
@@ -581,7 +581,7 @@
 			 (and (eq_attr "cpu" "k8")
 			      (eq_attr "type" "sselog"))
 			 "athlon-double,athlon-fpsched,athlon-fmul")
-;; ??? pcmp executes in addmul, probably not wortwhile to brother about that.
+;; ??? pcmp executes in addmul, probably not worthwhile to bother about that.
 (define_insn_reservation "athlon_ssecmp_load" 2
 			 (and (eq_attr "cpu" "athlon")
 			      (and (eq_attr "type" "ssecmp")
@@ -831,7 +831,7 @@
 			 (and (eq_attr "cpu" "k8")
 			      (eq_attr "type" "ssemul"))
 			 "athlon-double,athlon-fpsched,(athlon-fmul*2)")
-;; divsd timmings.  divss is faster
+;; divsd timings.  divss is faster
 (define_insn_reservation "athlon_ssediv_load" 20
 			 (and (eq_attr "cpu" "athlon")
 			      (and (eq_attr "type" "ssediv")

@@ -53,10 +53,6 @@ Wline-truncation
 F95
 Warn about truncated source lines
 
-Wnonstd-intrinsics
-F95
-Warn about usage of non-standard intrinsics
-
 Wsurprising
 F95
 Warn about \"suspicious\" constructs

@@ -46,12 +46,13 @@ Boston, MA 02111-1307, USA.  */
 #include "target.h"
 #include "target-def.h"
 
-static void i960_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
-static void i960_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
-static void i960_output_mi_thunk PARAMS ((FILE *, tree, HOST_WIDE_INT,
-					  HOST_WIDE_INT, tree));
-static bool i960_rtx_costs PARAMS ((rtx, int, int, int *));
-static int i960_address_cost PARAMS ((rtx));
+static void i960_output_function_prologue (FILE *, HOST_WIDE_INT);
+static void i960_output_function_epilogue (FILE *, HOST_WIDE_INT);
+static void i960_output_mi_thunk (FILE *, tree, HOST_WIDE_INT,
+				  HOST_WIDE_INT, tree);
+static bool i960_rtx_costs (rtx, int, int, int *);
+static int i960_address_cost (rtx);
+static tree i960_build_builtin_va_list (void);
 
 /* Save the operands last given to a compare for use when we
    generate a scc or bcc insn.  */
@@ -114,6 +115,9 @@ static int ret_label = 0;
 #undef TARGET_ADDRESS_COST
 #define TARGET_ADDRESS_COST i960_address_cost
 
+#undef TARGET_BUILD_BUILTIN_VA_LIST
+#define TARGET_BUILD_BUILTIN_VA_LIST i960_build_builtin_va_list
+
 struct gcc_target targetm = TARGET_INITIALIZER;
 
 /* Override conflicting target switch options.
@@ -167,9 +171,6 @@ i960_initialize ()
       i960_maxbitalignment = 128;
       i960_last_maxbitalignment = 8;
     }
-
-  /* Tell the compiler which flavor of TFmode we're using.  */
-  REAL_MODE_FORMAT (TFmode) = &ieee_extended_intel_128_format;
 }
 
 /* Return true if OP can be used as the source of an fp move insn.  */
@@ -1234,10 +1235,10 @@ struct reg_group
   char length;
 };
 
-static int i960_form_reg_groups PARAMS ((int, int, int *, int, struct reg_group *));
-static int i960_reg_group_compare PARAMS ((const void *, const void *));
-static int i960_split_reg_group PARAMS ((struct reg_group *, int, int));
-static void i960_arg_size_and_align PARAMS ((enum machine_mode, tree, int *, int *));
+static int i960_form_reg_groups (int, int, int *, int, struct reg_group *);
+static int i960_reg_group_compare (const void *, const void *);
+static int i960_split_reg_group (struct reg_group *, int, int);
+static void i960_arg_size_and_align (enum machine_mode, tree, int *, int *);
 
 /* The following functions forms the biggest as possible register
    groups with registers in STATE.  REGS contain states of the
@@ -2603,8 +2604,8 @@ i960_setup_incoming_varargs (cum, mode, type, pretend_size, no_rtl)
 
 /* Define the `__builtin_va_list' type for the ABI.  */
 
-tree
-i960_build_va_list ()
+static tree
+i960_build_builtin_va_list ()
 {
   return build_array_type (unsigned_type_node,
 			   build_index_type (size_one_node));

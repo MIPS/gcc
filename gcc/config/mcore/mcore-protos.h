@@ -1,5 +1,5 @@
 /* Prototypes for exported functions defined in mcore.c
-   Copyright (C) 2000, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Nick Clifton (nickc@redhat.com)
 
    This file is part of GCC.
@@ -37,9 +37,7 @@ extern int          mcore_naked_function_p       	(void);
 #ifdef TREE_CODE
 #ifdef HAVE_MACHINE_MODES
 extern int          mcore_function_arg_partial_nregs	(CUMULATIVE_ARGS, enum machine_mode, tree, int);
-extern void         mcore_setup_incoming_varargs	(CUMULATIVE_ARGS, enum machine_mode, tree, int *);
 extern int          mcore_num_arg_regs           	(enum machine_mode, tree);
-extern int          mcore_must_pass_on_stack     	(enum machine_mode, tree);
 #endif /* HAVE_MACHINE_MODES */
 
 #ifdef RTX_CODE
@@ -59,7 +57,7 @@ extern char *       mcore_output_call          		(rtx *, int);
 extern int          mcore_is_dead                	(rtx, rtx);
 extern int          mcore_expand_insv            	(rtx *);
 extern int          mcore_modify_comparison      	(RTX_CODE);
-extern void         mcore_expand_block_move      	(rtx, rtx, rtx *);
+extern bool         mcore_expand_block_move      	(rtx *);
 extern const char * mcore_output_andn          		(rtx, rtx *);
 extern void         mcore_print_operand_address  	(FILE *, rtx);
 extern void         mcore_print_operand          	(FILE *, rtx, int);

@@ -1,5 +1,5 @@
 /* Routines for manipulation of expression nodes.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation,
+   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation,
    Inc.
    Contributed by Andy Vaught
 
@@ -21,7 +21,10 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
 #include "config.h"
-#include "system.h"
+#include <stdarg.h>
+#include <stdio.h>
+#include <string.h>
+
 #include "gfortran.h"
 #include "arith.h"
 #include "match.h"
@@ -393,6 +396,9 @@ gfc_copy_expr (gfc_expr * p)
       q->value.character.string = s;
 
       memcpy (s, p->value.character.string, p->value.character.length + 1);
+
+      q->op1 = gfc_copy_expr (p->op1);
+      q->op2 = gfc_copy_expr (p->op2);
       break;
 
     case EXPR_CONSTANT:
@@ -577,7 +583,7 @@ gfc_build_conversion (gfc_expr * e)
    The exception is that the operands of an exponential don't have to
    have the same type.  If possible, the base is promoted to the type
    of the exponent.  For example, 1**2.3 becomes 1.0**2.3, but
-   1.0**2 stays as it is.  */
+   1.0**2 stays as it is. */
 
 void
 gfc_type_convert_binary (gfc_expr * e)
@@ -696,8 +702,7 @@ gfc_is_constant_expr (gfc_expr * e)
       break;
 
     case EXPR_SUBSTRING:
-      rv = (gfc_is_constant_expr (e->ref->u.ss.start)
-	    && gfc_is_constant_expr (e->ref->u.ss.end));
+      rv = gfc_is_constant_expr (e->op1) && gfc_is_constant_expr (e->op2);
       break;
 
     case EXPR_STRUCTURE:
@@ -1113,10 +1118,12 @@ gfc_simplify_expr (gfc_expr * p, int type)
       break;
 
     case EXPR_SUBSTRING:
-      if (simplify_ref_chain (p->ref, type) == FAILURE)
+      if (gfc_simplify_expr (p->op1, type) == FAILURE
+	  || gfc_simplify_expr (p->op2, type) == FAILURE)
 	return FAILURE;
 
       /* TODO: evaluate constant substrings.  */
+
       break;
 
     case EXPR_OP:
@@ -1435,11 +1442,11 @@ check_init_expr (gfc_expr * e)
       break;
 
     case EXPR_SUBSTRING:
-      t = check_init_expr (e->ref->u.ss.start);
+      t = check_init_expr (e->op1);
       if (t == FAILURE)
 	break;
 
-      t = check_init_expr (e->ref->u.ss.end);
+      t = check_init_expr (e->op2);
       if (t == SUCCESS)
 	t = gfc_simplify_expr (e, 0);
 
@@ -1658,11 +1665,11 @@ check_restricted (gfc_expr * e)
       break;
 
     case EXPR_SUBSTRING:
-      t = gfc_specification_expr (e->ref->u.ss.start);
+      t = gfc_specification_expr (e->op1);
       if (t == FAILURE)
 	break;
 
-      t = gfc_specification_expr (e->ref->u.ss.end);
+      t = gfc_specification_expr (e->op2);
       if (t == SUCCESS)
 	t = gfc_simplify_expr (e, 0);
 
@@ -1814,9 +1821,6 @@ gfc_check_assign (gfc_expr * lvalue, gfc_expr * rvalue, int conform)
   if (!conform)
     {
       if (gfc_numeric_ts (&lvalue->ts) && gfc_numeric_ts (&rvalue->ts))
-	return SUCCESS;
-
-      if (lvalue->ts.type == BT_LOGICAL && rvalue->ts.type == BT_LOGICAL)
 	return SUCCESS;
 
       gfc_error ("Incompatible types in assignment at %L, %s to %s",

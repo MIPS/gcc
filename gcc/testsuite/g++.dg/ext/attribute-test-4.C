@@ -23,7 +23,7 @@ class Star
 	friend vector float fTest();
 };
 
-vector float Star::foo()   // { dg-warning "vector returned by ref" "" { target { powerpc*-*-linux* && ilp32 } } }
+vector float Star::foo() 
 {
     return data.v;
 }

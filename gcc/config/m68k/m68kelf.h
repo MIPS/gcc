@@ -1,7 +1,8 @@
 /* m68kelf support, derived from m68kv4.h */
 
 /* Target definitions for GNU compiler for mc680x0 running System V.4
-   Copyright (C) 1991, 1993, 2000, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1991, 1993, 2000, 2002, 2003, 2004
+   Free Software Foundation, Inc.
 
    Written by Ron Guilmette (rfg@netcom.com) and Fred Fish (fnf@cygnus.com).
 
@@ -22,13 +23,6 @@ along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-/* These are necessary for -fpic/-fPIC to work correctly.  */
-#ifndef MOTOROLA
-#define MOTOROLA                /* Use MOTOROLA syntax.  */
-#endif
-#ifndef  USE_GAS  /* forces jsbr instead of jsr.  */
-#define  USE_GAS
-#endif
 
 #ifndef SWBEG_ASM_OP
 #define SWBEG_ASM_OP "\t.swbeg\t"
@@ -84,18 +78,6 @@ Boston, MA 02111-1307, USA.  */
       return "jmp %%pc@(2,%0:w)";			\
   } while (0)
 
-/* How to refer to registers in assembler output.
-   This sequence is indexed by compiler's hard-register-number.
-   Motorola format uses different register names than defined 
-   in m68k.h.  */
-
-#undef REGISTER_NAMES
-
-#define REGISTER_NAMES \
-{"%d0",   "%d1",   "%d2",   "%d3",   "%d4",   "%d5",   "%d6",   "%d7",	     \
- "%a0",   "%a1",   "%a2",   "%a3",   "%a4",   "%a5",   "%a6",   "%sp",	     \
- "%fp0",  "%fp1",  "%fp2",  "%fp3",  "%fp4",  "%fp5",  "%fp6",  "%fp7", "argptr" }
-
 /* This is how to output an assembler line that says to advance the
    location counter to a multiple of 2**LOG bytes.  */
 
@@ -144,8 +126,8 @@ do {								\
 /* Register in which address to store a structure value is passed to a
    function.  The default in m68k.h is a1.  For m68k/SVR4 it is a0.  */
 
-#undef STRUCT_VALUE_REGNUM
-#define STRUCT_VALUE_REGNUM 8
+#undef M68K_STRUCT_VALUE_REGNUM
+#define M68K_STRUCT_VALUE_REGNUM 8
 
 #define ASM_COMMENT_START "|"
 
@@ -177,7 +159,7 @@ do {								\
 #endif
 
 /* The `string' directive on m68k svr4 does not handle string with
-   escape char (ie., `\') right. Use normal way to output ASCII bytes
+   escape char (i.e., `\') right. Use normal way to output ASCII bytes
    seems to be safer.  */
 #undef ASM_OUTPUT_ASCII
 #define ASM_OUTPUT_ASCII(FILE,PTR,LEN)				\
@@ -209,19 +191,6 @@ do {								\
   putc ('\n', (FILE));						\
 } while (0)
 
-/* SVR4 m68k assembler is bitching on the syntax `2.b'.
-   So use the "LLDnnn-LLnnn" format.  Define LLDnnn after the table.  */
-
-#undef ASM_OUTPUT_CASE_END
-#define ASM_OUTPUT_CASE_END(FILE,NUM,TABLE)				\
-do {									\
-  if (switch_table_difference_label_flag)				\
-    asm_fprintf ((FILE), "%s%LLD%d,%LL%d\n", SET_ASM_OP, (NUM), (NUM));	\
-  switch_table_difference_label_flag = 0;				\
-} while (0)
-
-extern int switch_table_difference_label_flag;
-
 #undef ASM_OUTPUT_COMMON
 #undef ASM_OUTPUT_LOCAL
 #define ASM_OUTPUT_COMMON(FILE, NAME, SIZE, ROUNDED)  \
@@ -245,8 +214,6 @@ extern int switch_table_difference_label_flag;
 #define ASM_OUTPUT_BEFORE_CASE_LABEL(FILE,PREFIX,NUM,TABLE)		\
   fprintf ((FILE), "%s&%d\n", SWBEG_ASM_OP, XVECLEN (PATTERN (TABLE), 1));
 /* end of stuff from m68kv4.h */
-
-#undef SGS_CMP_ORDER
 
 #undef ENDFILE_SPEC
 #define ENDFILE_SPEC "crtend.o%s"

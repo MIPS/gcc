@@ -1,5 +1,6 @@
 /* Definitions for rtems targeting a PowerPC using elf.
-   Copyright (C) 1996, 1997, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1996, 1997, 2000, 2001, 2002, 2003, 2004
+   Free Software Foundation, Inc.
    Contributed by Joel Sherrill (joel@OARcorp.com).
 
    This file is part of GCC.
@@ -27,6 +28,7 @@
     {                                     \
       builtin_define_std ("PPC");         \
       builtin_define ("__rtems__");       \
+      builtin_define ("__USE_INIT_FINI__"); \
       builtin_assert ("system=rtems");    \
       builtin_assert ("cpu=powerpc");     \
       builtin_assert ("machine=powerpc"); \

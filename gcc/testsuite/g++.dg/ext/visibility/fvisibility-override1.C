@@ -2,9 +2,9 @@
 /* { dg-do compile } */
 /* { dg-require-visibility "" } */
 /* { dg-options "-fvisibility=hidden" } */
-/* { dg-final { scan-not-hidden "methodEv" } } */
+/* { dg-final { scan-assembler "\\.internal.*Foo.methodEv" } } */
 
-class __attribute__ ((visibility ("default"))) Foo
+class __attribute__ ((visibility ("internal"))) Foo
 {
   void method();
 };

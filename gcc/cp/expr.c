@@ -1,7 +1,7 @@
 /* Convert language-specific tree expression to rtl instructions,
    for GNU compiler.
    Copyright (C) 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -51,8 +51,21 @@ cplus_expand_constant (tree cst)
 	member = PTRMEM_CST_MEMBER (cst);
 
 	if (TREE_CODE (member) == FIELD_DECL) 
-	  /* Find the offset for the field.  */
-	  cst = fold (build_nop (type, byte_position (member)));
+	  {
+	    /* Find the offset for the field.  */
+	    cst = byte_position (member);
+	    while (!same_type_p (DECL_CONTEXT (member),
+				 TYPE_PTRMEM_CLASS_TYPE (type)))
+	      {
+		/* The MEMBER must have been nestled within an
+		   anonymous aggregate contained in TYPE.  Find the
+		   anonymous aggregate.  */
+		member = lookup_anon_field (TYPE_PTRMEM_CLASS_TYPE (type),
+					    DECL_CONTEXT (member));
+		cst = size_binop (PLUS_EXPR, cst, byte_position (member));
+	      }
+	    cst = fold (build_nop (type, cst));
+	  }
 	else
 	  {
 	    tree delta;
@@ -73,14 +86,17 @@ cplus_expand_constant (tree cst)
 }
 
 /* Hook used by expand_expr to expand language-specific tree codes.  */
+/* ??? The only thing that should be here are things needed to expand
+   constant initializers; everything else should be handled by the
+   gimplification routines.  Are EMPTY_CLASS_EXPR or BASELINK needed?  */
 
 rtx
-cxx_expand_expr (tree exp, rtx target, enum machine_mode tmode, int modifier)
+cxx_expand_expr (tree exp, rtx target, enum machine_mode tmode, int modifier,
+		 rtx *alt_rtl)
 {
   tree type = TREE_TYPE (exp);
-  register enum machine_mode mode = TYPE_MODE (type);
-  register enum tree_code code = TREE_CODE (exp);
-  rtx ret;
+  enum machine_mode mode = TYPE_MODE (type);
+  enum tree_code code = TREE_CODE (exp);
 
   /* No sense saving up arithmetic to be done
      if it's all in the wrong mode to form part of an address.
@@ -98,17 +114,6 @@ cxx_expand_expr (tree exp, rtx target, enum machine_mode tmode, int modifier)
     case OFFSET_REF:
       /* Offset refs should not make it through to here.  */
       abort ();
-      return const0_rtx;
-      
-    case THROW_EXPR:
-      expand_expr (TREE_OPERAND (exp, 0), const0_rtx, VOIDmode, 0);
-      return const0_rtx;
-
-    case MUST_NOT_THROW_EXPR:
-      expand_eh_region_start ();
-      ret = expand_expr (TREE_OPERAND (exp, 0), target, tmode, modifier);
-      expand_eh_region_end_must_not_throw (build_call (terminate_node, 0));
-      return ret;
 
     case EMPTY_CLASS_EXPR:
       /* We don't need to generate any code for an empty class.  */
@@ -119,9 +124,6 @@ cxx_expand_expr (tree exp, rtx target, enum machine_mode tmode, int modifier)
 			  modifier);
 
     default:
-      return c_expand_expr (exp, target, tmode, modifier);
+      return c_expand_expr (exp, target, tmode, modifier, alt_rtl);
     }
-  abort ();
-  /* NOTREACHED */
-  return NULL;
 }

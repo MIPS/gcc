@@ -1,5 +1,5 @@
 ;; Scheduling description for Alpha EV4.
-;;   Copyright (C) 2002 Free Software Foundation, Inc.
+;;   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
 ;;
@@ -98,7 +98,7 @@
   "ev4_ist"
   "store_data_bypass_p")
 
-; Multiplies use a non-piplined imul unit.  Also, "no [ebox] insn can
+; Multiplies use a non-pipelined imul unit.  Also, "no [ebox] insn can
 ; be issued exactly three cycles before an integer multiply completes".
 
 (define_insn_reservation "ev4_imulsi" 21

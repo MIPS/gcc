@@ -1,6 +1,6 @@
 /* Core target definitions for GNU compiler
    for PowerPC embedded targeted systems with SPE support.
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Aldy Hernandez (aldyh@redhat.com).
 
    This file is part of GCC.
@@ -30,7 +30,7 @@
 #define SUBSUBTARGET_OVERRIDE_OPTIONS \
   if (rs6000_select[1].string == NULL) \
     rs6000_cpu = PROCESSOR_PPC8540; \
-  if (rs6000_abi_string == NULL || strstr (rs6000_abi_string, "spe") == NULL) \
+  if (rs6000_abi_string == NULL) \
     rs6000_spe_abi = 1; \
   if (rs6000_float_gprs_string == NULL) \
     rs6000_float_gprs = 1; \
@@ -40,7 +40,9 @@
   if (rs6000_spe_string == NULL) \
     rs6000_spe = 1; \
   if (rs6000_isel_string == NULL) \
-    rs6000_isel = 1
+    rs6000_isel = 1; \
+  if (target_flags & MASK_64BIT) \
+    error ("-m64 not supported in this configuration")
 
 /* The e500 ABI says that either long doubles are 128 bits, or if
    implemented in any other size, the compiler/linker should error out.

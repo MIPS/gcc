@@ -1,5 +1,5 @@
 /* Subroutines for insn-output.c for VAX.
-   Copyright (C) 1987, 1994, 1995, 1997, 1998, 1999, 2000, 2001, 2002
+   Copyright (C) 1987, 1994, 1995, 1997, 1998, 1999, 2000, 2001, 2002, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -38,6 +38,7 @@ Boston, MA 02111-1307, USA.  */
 #include "optabs.h"
 #include "flags.h"
 #include "debug.h"
+#include "toplev.h"
 #include "tm_p.h"
 #include "target.h"
 #include "target-def.h"
@@ -51,6 +52,7 @@ static int vax_address_cost_1 (rtx);
 static int vax_address_cost (rtx);
 static int vax_rtx_costs_1 (rtx, enum rtx_code, enum rtx_code);
 static bool vax_rtx_costs (rtx, int, int, int *);
+static rtx vax_struct_value_rtx (tree, int);
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ASM_ALIGNED_HI_OP
@@ -77,6 +79,12 @@ static bool vax_rtx_costs (rtx, int, int, int *);
 #undef TARGET_ADDRESS_COST
 #define TARGET_ADDRESS_COST vax_address_cost
 
+#undef TARGET_PROMOTE_PROTOTYPES
+#define TARGET_PROMOTE_PROTOTYPES hook_bool_tree_true
+
+#undef TARGET_STRUCT_VALUE_RTX
+#define TARGET_STRUCT_VALUE_RTX vax_struct_value_rtx
+
 struct gcc_target targetm = TARGET_INITIALIZER;
 
 /* Set global variables as needed for the options enabled.  */
@@ -85,9 +93,8 @@ void
 override_options (void)
 {
   /* We're VAX floating point, not IEEE floating point.  */
-  memset (real_format_for_mode, 0, sizeof real_format_for_mode);
-  REAL_MODE_FORMAT (SFmode) = &vax_f_format;
-  REAL_MODE_FORMAT (DFmode) = (TARGET_G_FLOAT ? &vax_g_format : &vax_d_format);
+  if (TARGET_G_FLOAT)
+    REAL_MODE_FORMAT (DFmode) = &vax_g_format;
 }
 
 /* Generate the assembly code for function entry.  FILE is a stdio
@@ -153,7 +160,7 @@ static void
 vax_init_libfuncs (void)
 {
   set_optab_libfunc (udiv_optab, SImode, TARGET_ELF ? "*__udiv" : "*udiv");
-  set_optab_libfunc (umod_optab, SImode, TARGET_ELF ? "*__umod" : "*umod");
+  set_optab_libfunc (umod_optab, SImode, TARGET_ELF ? "*__urem" : "*urem");
 }
 
 /* This is like nonimmediate_operand with a restriction on the type of MEM.  */
@@ -773,4 +780,80 @@ vax_output_mi_thunk (FILE * file,
   fprintf (file, "\tjmp ");						
   assemble_name (file,  XSTR (XEXP (DECL_RTL (function), 0), 0));	
   fprintf (file, "+2\n");						
+}
+
+static rtx
+vax_struct_value_rtx (tree fntype ATTRIBUTE_UNUSED,
+		      int incoming ATTRIBUTE_UNUSED)
+{
+  return gen_rtx_REG (Pmode, VAX_STRUCT_VALUE_REGNUM);
+}
+
+/* Worker function for NOTICE_UPDATE_CC.  */
+
+void
+vax_notice_update_cc (rtx exp, rtx insn ATTRIBUTE_UNUSED)
+{
+  if (GET_CODE (exp) == SET)
+    {
+      if (GET_CODE (SET_SRC (exp)) == CALL)
+	CC_STATUS_INIT;
+      else if (GET_CODE (SET_DEST (exp)) != ZERO_EXTRACT
+	       && GET_CODE (SET_DEST (exp)) != PC)
+	{
+	  cc_status.flags = 0;
+	  /* The integer operations below don't set carry or
+	     set it in an incompatible way.  That's ok though
+	     as the Z bit is all we need when doing unsigned
+	     comparisons on the result of these insns (since
+	     they're always with 0).  Set CC_NO_OVERFLOW to
+	     generate the correct unsigned branches.  */
+	  switch (GET_CODE (SET_SRC (exp)))
+	    {
+	    case NEG:
+	      if (GET_MODE_CLASS (GET_MODE (exp)) == MODE_FLOAT)
+	 	break;
+	    case AND:
+	    case IOR:
+	    case XOR:
+	    case NOT:
+	    case MEM:
+	    case REG:
+	      cc_status.flags = CC_NO_OVERFLOW;
+	      break;
+	    default:
+	      break;
+	    }
+	  cc_status.value1 = SET_DEST (exp);
+	  cc_status.value2 = SET_SRC (exp);
+	}
+    }
+  else if (GET_CODE (exp) == PARALLEL
+	   && GET_CODE (XVECEXP (exp, 0, 0)) == SET)
+    {
+      if (GET_CODE (SET_SRC (XVECEXP (exp, 0, 0))) == CALL)
+	CC_STATUS_INIT;
+      else if (GET_CODE (SET_DEST (XVECEXP (exp, 0, 0))) != PC)
+	{
+	  cc_status.flags = 0;
+	  cc_status.value1 = SET_DEST (XVECEXP (exp, 0, 0));
+	  cc_status.value2 = SET_SRC (XVECEXP (exp, 0, 0));
+	}
+      else
+	/* PARALLELs whose first element sets the PC are aob,
+	   sob insns.  They do change the cc's.  */
+	CC_STATUS_INIT;
+    }
+  else
+    CC_STATUS_INIT;
+  if (cc_status.value1 && GET_CODE (cc_status.value1) == REG
+      && cc_status.value2
+      && reg_overlap_mentioned_p (cc_status.value1, cc_status.value2))
+    cc_status.value2 = 0;
+  if (cc_status.value1 && GET_CODE (cc_status.value1) == MEM
+      && cc_status.value2
+      && GET_CODE (cc_status.value2) == MEM)
+    cc_status.value2 = 0;
+  /* Actual condition, one line up, should be that value2's address
+     depends on value1, but that is too much of a pain.  */
 }

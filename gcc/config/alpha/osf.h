@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler, for DEC Alpha on OSF/1.
-   Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 2001, 2002, 2003
-   Free Software Foundation, Inc.
+   Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 2001, 2002, 2003,
+   2004 Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
 This file is part of GCC.
@@ -41,7 +41,6 @@ Boston, MA 02111-1307, USA.  */
 	builtin_define ("__digital__");			\
 	builtin_define ("__arch64__");			\
 	builtin_define ("_LONGLONG");			\
-	builtin_define ("__PRAGMA_EXTERN_PREFIX");	\
 	builtin_assert ("system=unix");			\
 	builtin_assert ("system=xpg4");			\
 	/* Tru64 UNIX V5 has a 16 byte long		\
@@ -49,6 +48,13 @@ Boston, MA 02111-1307, USA.  */
 	   to be defined for <math.h>.  */		\
         if (LONG_DOUBLE_TYPE_SIZE == 128)		\
           builtin_define ("__X_FLOAT");			\
+							\
+	/* Tru64 UNIX V4/V5 provide several ISO C94	\
+	   features protected by the corresponding	\
+	   __STDC_VERSION__ macro.  libstdc++ v3	\
+	   needs them as well.  */			\
+	if (c_dialect_cxx ())				\
+	  builtin_define ("__STDC_VERSION__=199409L");	\
     } while (0)
 
 /* Accept DEC C flags for multithreaded programs.  We use _PTHREAD_USE_D4
@@ -138,7 +144,7 @@ Boston, MA 02111-1307, USA.  */
 
 /* Attempt to turn on access permissions for the stack.  */
 
-#define TRANSFER_FROM_TRAMPOLINE					\
+#define ENABLE_EXECUTE_STACK						\
 void									\
 __enable_execute_stack (void *addr)					\
 {									\
@@ -161,6 +167,10 @@ __enable_execute_stack (void *addr)					\
 #define HAS_INIT_SECTION
 #define LD_INIT_SWITCH "-init"
 #define LD_FINI_SWITCH "-fini"
+
+/* The linker needs a space after "-o".  This allows -oldstyle_liblookup to
+   be passed to ld.  */
+#define SWITCHES_NEED_SPACES "o"
 
 /* Select a format to encode pointers in exception handling data.  CODE
    is 0 for data, 1 for code labels, 2 for function pointers.  GLOBAL is
@@ -200,4 +210,4 @@ __enable_execute_stack (void *addr)					\
 
 /* Handle #pragma extern_prefix.  Technically only needed for Tru64 5.x,
    but easier to manipulate preprocessor bits from here.  */
-#define HANDLE_PRAGMA_EXTERN_PREFIX 1
+#define TARGET_HANDLE_PRAGMA_EXTERN_PREFIX 1

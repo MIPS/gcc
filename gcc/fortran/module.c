@@ -1,6 +1,6 @@
 /* Handle modules, which amounts to loading and saving symbols and
    their attendant structures.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, 
+   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation, 
    Inc.
    Contributed by Andy Vaught
 
@@ -64,7 +64,12 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    particular order.  */
 
 #include "config.h"
-#include "system.h"
+#include <string.h>
+#include <stdio.h>
+#include <errno.h>
+#include <unistd.h>
+#include <time.h>
+
 #include "gfortran.h"
 #include "arith.h"
 #include "match.h"
@@ -1325,18 +1330,16 @@ mio_integer (int *ip)
 /* Read or write a character pointer that points to a string on the
    heap.  */
 
-static const char *
-mio_allocated_string (const char *s)
+static void
+mio_allocated_string (char **sp)
 {
+
   if (iomode == IO_OUTPUT)
-    {
-      write_atom (ATOM_STRING, s);
-      return s;
-    }
+    write_atom (ATOM_STRING, *sp);
   else
     {
       require_atom (ATOM_STRING);
-      return atom_string;
+      *sp = atom_string;
     }
 }
 
@@ -1395,7 +1398,7 @@ static const mstring attr_bits[] =
     minit (NULL, -1)
 };
 
-/* Specialisation of mio_name.  */
+/* Specialisation of mio_name. */
 DECL_MIO_NAME(ab_attribute)
 DECL_MIO_NAME(ar_type)
 DECL_MIO_NAME(array_type)
@@ -2331,7 +2334,7 @@ static const mstring expr_types[] = {
 
 /* INTRINSIC_ASSIGN is missing because it is used as an index for
    generic operators, not in expressions.  INTRINSIC_USER is also
-   replaced by the correct function name by the time we see it.  */
+   replaced by the correct function name by the time we see it. */
 
 static const mstring intrinsics[] =
 {
@@ -2446,8 +2449,7 @@ mio_expr (gfc_expr ** ep)
 
       if (iomode == IO_OUTPUT)
 	{
-	  e->value.function.name
-	    = mio_allocated_string (e->value.function.name);
+	  mio_allocated_string (&e->value.function.name);
 	  flag = e->value.function.esym != NULL;
 	  mio_integer (&flag);
 	  if (flag)
@@ -2481,9 +2483,9 @@ mio_expr (gfc_expr ** ep)
       break;
 
     case EXPR_SUBSTRING:
-      e->value.character.string = (char *)
-	mio_allocated_string (e->value.character.string);
-      mio_ref_list (&e->ref);
+      mio_allocated_string (&e->value.character.string);
+      mio_expr (&e->op1);
+      mio_expr (&e->op2);
       break;
 
     case EXPR_STRUCTURE:
@@ -2516,8 +2518,7 @@ mio_expr (gfc_expr ** ep)
 
 	case BT_CHARACTER:
 	  mio_integer (&e->value.character.length);
-	  e->value.character.string = (char *)
-	    mio_allocated_string (e->value.character.string);
+	  mio_allocated_string (&e->value.character.string);
 	  break;
 
 	default:
@@ -3135,23 +3136,29 @@ read_module (void)
 
 
 /* Given an access type that is specific to an entity and the default
-   access, return nonzero if the entity is publicly accessible.  */
+   access, return nonzero if we should write the entity.  */
 
-bool
-gfc_check_access (gfc_access specific_access, gfc_access default_access)
+static int
+check_access (gfc_access specific_access, gfc_access default_access)
 {
 
   if (specific_access == ACCESS_PUBLIC)
-    return TRUE;
+    return 1;
   if (specific_access == ACCESS_PRIVATE)
-    return FALSE;
+    return 0;
 
   if (gfc_option.flag_module_access_private)
-    return default_access == ACCESS_PUBLIC;
+    {
+      if (default_access == ACCESS_PUBLIC)
+	return 1;
+    }
   else
-    return default_access != ACCESS_PRIVATE;
+    {
+      if (default_access != ACCESS_PRIVATE)
+	return 1;
+    }
 
-  return FALSE;
+  return 0;
 }
 
 
@@ -3223,7 +3230,7 @@ write_symbol0 (gfc_symtree * st)
       && !sym->attr.subroutine && !sym->attr.function)
     return;
 
-  if (!gfc_check_access (sym->attr.access, sym->ns->default_access))
+  if (!check_access (sym->attr.access, sym->ns->default_access))
     return;
 
   p = get_pointer (sym);
@@ -3262,11 +3269,6 @@ write_symbol1 (pointer_info * p)
   if (p->type != P_SYMBOL || p->u.wsym.state != NEEDS_WRITE)
     return 0;
 
-  /* FIXME: This shouldn't be necessary, but it works around
-     deficiencies in the module loader or/and symbol handling.  */
-  if (p->u.wsym.sym->module[0] == '\0' && p->u.wsym.sym->attr.dummy)
-    strcpy (p->u.wsym.sym->module, module_name);
-
   p->u.wsym.state = WRITTEN;
   write_symbol (p->integer, p->u.wsym.sym);
 
@@ -3282,7 +3284,7 @@ write_operator (gfc_user_op * uop)
   static char nullstring[] = "";
 
   if (uop->operator == NULL
-      || !gfc_check_access (uop->access, uop->ns->default_access))
+      || !check_access (uop->access, uop->ns->default_access))
     return;
 
   mio_symbol_interface (uop->name, nullstring, &uop->operator);
@@ -3296,7 +3298,7 @@ write_generic (gfc_symbol * sym)
 {
 
   if (sym->generic == NULL
-      || !gfc_check_access (sym->attr.access, sym->ns->default_access))
+      || !check_access (sym->attr.access, sym->ns->default_access))
     return;
 
   mio_symbol_interface (sym->name, sym->module, &sym->generic);
@@ -3310,7 +3312,7 @@ write_symtree (gfc_symtree * st)
   pointer_info *p;
 
   sym = st->n.sym;
-  if (!gfc_check_access (sym->attr.access, sym->ns->default_access)
+  if (!check_access (sym->attr.access, sym->ns->default_access)
       || (sym->attr.flavor == FL_PROCEDURE && sym->attr.generic
 	  && !sym->attr.subroutine && !sym->attr.function))
     return;
@@ -3341,8 +3343,8 @@ write_module (void)
       if (i == INTRINSIC_USER)
 	continue;
 
-      mio_interface (gfc_check_access (gfc_current_ns->operator_access[i],
-				       gfc_current_ns->default_access)
+      mio_interface (check_access (gfc_current_ns->operator_access[i],
+				   gfc_current_ns->default_access)
 		     ? &gfc_current_ns->operator[i] : NULL);
     }
 

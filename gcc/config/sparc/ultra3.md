@@ -1,5 +1,5 @@
 ;; Scheduling description for UltraSPARC-III.
-;;   Copyright (C) 2002 Free Software Foundation, Inc.
+;;   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
 ;;
@@ -37,7 +37,7 @@
 
 (define_insn_reservation "us3_single" 1
   (and (eq_attr "cpu" "ultrasparc3")
-    (eq_attr "type" "multi,flushw,iflush,trap"))
+    (eq_attr "type" "multi,savew,flushw,iflush,trap"))
   "us3_single_issue")
 
 (define_insn_reservation "us3_integer" 1
@@ -167,3 +167,24 @@
 
 ;; If FMOVfcc is user of FPCMP, latency is only 1 cycle.
 (define_bypass 1 "us3_fpcmp" "us3_fcmov")
+
+;; VIS scheduling
+(define_insn_reservation "us3_fga"
+  3
+  (and (eq_attr "cpu" "ultrasparc3")
+       (eq_attr "type" "fga"))
+  "us3_fpa + us3_slotany, nothing*2")
+
+(define_insn_reservation "us3_fgm"
+  4
+  (and (eq_attr "cpu" "ultrasparc3")
+       (eq_attr "type" "fgm_pack,fgm_mul,fgm_cmp"))
+  "us3_fpm + us3_slotany, nothing*3")
+
+(define_insn_reservation "us3_pdist"
+  4
+  (and (eq_attr "cpu" "ultrasparc3")
+       (eq_attr "type" "fgm_pdist"))
+  "us3_fpm + us3_slotany, nothing*3")
+
+(define_bypass 1 "us3_pdist" "us3_pdist")
