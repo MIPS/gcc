@@ -148,11 +148,11 @@ Boston, MA 02111-1307, USA.  */
 #ifndef CROSS_COMPILE
 #define LINK_OS_LINUX_SPEC "-m elf64ppc %{!shared: %{!static: \
   %{rdynamic:-export-dynamic} \
-  %{!dynamic-linker:-dynamic-linker /lib64/ld.so.1}}}"
+  %{!dynamic-linker:-dynamic-linker /lib64/ld64.so.1}}}"
 #else
 #define LINK_OS_LINUX_SPEC "-m elf64ppc %{!shared: %{!static: \
   %{rdynamic:-export-dynamic} \
-  %{!dynamic-linker:-dynamic-linker ld.so.1}}}"
+  %{!dynamic-linker:-dynamic-linker ld64.so.1}}}"
 #endif
 
 #ifndef CROSS_COMPILE
