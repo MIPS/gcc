@@ -1154,6 +1154,7 @@ java/awt/image/PackedColorModel.java \
 java/awt/image/PixelInterleavedSampleModel.java \
 java/awt/image/Raster.java \
 java/awt/image/RasterOp.java \
+java/awt/image/RescaleOp.java \
 java/awt/image/SampleModel.java \
 java/awt/image/ShortLookupTable.java \
 java/awt/image/SinglePixelPackedSampleModel.java \

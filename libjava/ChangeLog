@@ -1,3 +1,7 @@
+2004-09-28  Jerry Quinn  <jlquinn@optonline.net>
+
+	* java/awt/image/RescaleOp.java: Implement.
+
 2004-09-27  Jerry Quinn  <jlquinn@optonline.net>
 
 	* java/awt/image/IndexColorModel.java (getRGBs,
