@@ -505,7 +505,7 @@ change_decl_assembler_name (tree decl, tree name)
 	htab_find_slot_with_hash (cgraph_hash, name,
 				  IDENTIFIER_HASH_VALUE (name), INSERT);
       if (*slot)
-	abort ();
+	cgraph_remove_node (*slot);
       *slot = node;
     }
   if (vnode)

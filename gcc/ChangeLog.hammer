@@ -1,3 +1,8 @@
+2003-12-29  Jan Hubicka  <jh@suse.cz>
+
+	* cgraph.c (change_decl_assembler_name): Work around late renaming of
+	asms.
+
 2003-12-28  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	Merge from mainline:
