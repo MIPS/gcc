@@ -135,7 +135,8 @@ static void       mcore_mark_dllimport          (tree);
 static int        mcore_dllexport_p             (tree);
 static int        mcore_dllimport_p             (tree);
 const struct attribute_spec mcore_attribute_table[];
-static tree       mcore_handle_naked_attribute  (tree *, tree, tree, int, bool *);
+static void       mcore_handle_naked_attribute  (tree *, tree, tree, int,
+						 bool *, bool *);
 #ifdef OBJECT_FORMAT_ELF
 static void	  mcore_asm_named_section       (const char *,
 						 unsigned int, tree);
@@ -3275,7 +3276,7 @@ mcore_dllexport_p (tree decl)
       && TREE_CODE (decl) != FUNCTION_DECL)
     return 0;
 
-  return lookup_attribute ("dllexport", DECL_ATTRIBUTES (decl)) != 0;
+  return has_attribute_p ("dllexport", DECL_ATTRIBUTES (decl));
 }
 
 static int
@@ -3285,7 +3286,7 @@ mcore_dllimport_p (tree decl)
       && TREE_CODE (decl) != FUNCTION_DECL)
     return 0;
 
-  return lookup_attribute ("dllimport", DECL_ATTRIBUTES (decl)) != 0;
+  return has_attribute_p ("dllimport", DECL_ATTRIBUTES (decl));
 }
 
 /* We must mark dll symbols specially.  Definitions of dllexport'd objects
@@ -3348,9 +3349,11 @@ const struct attribute_spec mcore_attribute_table[] =
 /* Handle a "naked" attribute; arguments as in
    struct attribute_spec.handler.  */
 
-static tree
-mcore_handle_naked_attribute (tree * node, tree name, tree args ATTRIBUTE_UNUSED,
-			      int flags ATTRIBUTE_UNUSED, bool * no_add_attrs)
+static void
+mcore_handle_naked_attribute (tree * node, tree name, 
+			      tree args ATTRIBUTE_UNUSED,
+			      int flags ATTRIBUTE_UNUSED, bool * no_add_attrs,
+			      bool * ARG_UNUSED (defer))
 {
   if (TREE_CODE (*node) == FUNCTION_DECL)
     {
@@ -3376,8 +3379,6 @@ mcore_handle_naked_attribute (tree * node, tree name, tree args ATTRIBUTE_UNUSED
 	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
-
-  return NULL_TREE;
 }
 
 /* ??? It looks like this is PE specific?  Oh well, this is what the
@@ -3419,7 +3420,7 @@ mcore_unique_section (tree decl, int reloc ATTRIBUTE_UNUSED)
 int
 mcore_naked_function_p (void)
 {
-  return lookup_attribute ("naked", DECL_ATTRIBUTES (current_function_decl)) != NULL_TREE;
+  return has_attribute_p ("naked", DECL_ATTRIBUTES (current_function_decl));
 }
 
 #ifdef OBJECT_FORMAT_ELF

@@ -48,9 +48,12 @@ static tree verify_stmt_tree_r (tree *, int *, void *);
 static tree find_tree_r (tree *, int *, void *);
 static tree build_local_temp (tree);
 
-static tree handle_java_interface_attribute (tree *, tree, tree, int, bool *);
-static tree handle_com_interface_attribute (tree *, tree, tree, int, bool *);
-static tree handle_init_priority_attribute (tree *, tree, tree, int, bool *);
+static void handle_java_interface_attribute (tree *, tree, tree, int, bool *,
+					     bool *);
+static void handle_com_interface_attribute (tree *, tree, tree, int, bool *,
+					    bool *);
+static void handle_init_priority_attribute (tree *, tree, tree, int, bool *,
+					    bool *);
 
 /* If REF is an lvalue, returns the kind of lvalue that REF is.
    Otherwise, returns clk_none.  If TREAT_CLASS_RVALUES_AS_LVALUES is
@@ -1754,12 +1757,13 @@ const struct attribute_spec cxx_attribute_table[] =
 
 /* Handle a "java_interface" attribute; arguments as in
    struct attribute_spec.handler.  */
-static tree
+static void
 handle_java_interface_attribute (tree* node,
                                  tree name,
                                  tree args ATTRIBUTE_UNUSED ,
                                  int flags,
-                                 bool* no_add_attrs)
+                                 bool* no_add_attrs,
+				 bool * ARG_UNUSED (defer))
 {
   if (DECL_P (*node)
       || !CLASS_TYPE_P (*node)
@@ -1768,23 +1772,22 @@ handle_java_interface_attribute (tree* node,
       error ("`%E' attribute can only be applied to Java class definitions",
 	     name);
       *no_add_attrs = true;
-      return NULL_TREE;
+      return;
     }
   if (!(flags & (int) ATTR_FLAG_TYPE_IN_PLACE))
     *node = build_variant_type_copy (*node);
   TYPE_JAVA_INTERFACE (*node) = 1;
-
-  return NULL_TREE;
 }
 
 /* Handle a "com_interface" attribute; arguments as in
    struct attribute_spec.handler.  */
-static tree
+static void
 handle_com_interface_attribute (tree* node,
                                 tree name,
                                 tree args ATTRIBUTE_UNUSED ,
                                 int flags ATTRIBUTE_UNUSED ,
-                                bool* no_add_attrs)
+                                bool* no_add_attrs,
+				bool * ARG_UNUSED (defer))
 {
   static int warned;
 
@@ -1796,24 +1799,23 @@ handle_com_interface_attribute (tree* node,
     {
       warning ("`%E' attribute can only be applied to class definitions",
 	       name);
-      return NULL_TREE;
+      return;
     }
 
   if (!warned++)
     warning ("`%E' is obsolete; g++ vtables are now COM-compatible by default",
 	     name);
-
-  return NULL_TREE;
 }
 
 /* Handle an "init_priority" attribute; arguments as in
    struct attribute_spec.handler.  */
-static tree
+static void
 handle_init_priority_attribute (tree* node,
                                 tree name,
                                 tree args,
                                 int flags ATTRIBUTE_UNUSED ,
-                                bool* no_add_attrs)
+                                bool* no_add_attrs,
+				bool * ARG_UNUSED (defer))
 {
   tree initp_expr = TREE_VALUE (args);
   tree decl = *node;
@@ -1826,7 +1828,7 @@ handle_init_priority_attribute (tree* node,
     {
       error ("requested init_priority is not an integer constant");
       *no_add_attrs = true;
-      return NULL_TREE;
+      return;
     }
 
   pri = TREE_INT_CST_LOW (initp_expr);
@@ -1848,14 +1850,14 @@ handle_init_priority_attribute (tree* node,
       error ("can only use `%E' attribute on file-scope definitions "
              "of objects of class type", name);
       *no_add_attrs = true;
-      return NULL_TREE;
+      return;
     }
 
   if (pri > MAX_INIT_PRIORITY || pri <= 0)
     {
       error ("requested init_priority is out of range");
       *no_add_attrs = true;
-      return NULL_TREE;
+      return;
     }
 
   /* Check for init_priorities that are reserved for
@@ -1867,15 +1869,11 @@ handle_init_priority_attribute (tree* node,
     }
 
   if (SUPPORTS_INIT_PRIORITY)
-    {
-      DECL_INIT_PRIORITY (decl) = pri;
-      return NULL_TREE;
-    }
+    DECL_INIT_PRIORITY (decl) = pri;
   else
     {
       error ("`%E' attribute is not supported on this platform", name);
       *no_add_attrs = true;
-      return NULL_TREE;
     }
 }
 
@@ -1906,7 +1904,7 @@ make_ptrmem_cst (tree type, tree member)
    return an existing type of an appropriate type already exists.  */
 
 tree
-cp_build_type_attribute_variant (tree type, tree attributes)
+cp_build_type_attribute_variant (tree type, attribute_list attributes)
 {
   tree new_type;
 
@@ -2027,7 +2025,7 @@ cp_cannot_inline_tree_fn (tree* fnp)
     }
 
   if (flag_really_no_inline
-      && lookup_attribute ("always_inline", DECL_ATTRIBUTES (fn)) == NULL)
+      && !has_attribute_p ("always_inline", DECL_ATTRIBUTES (fn)))
     return 1;
 
   /* Don't auto-inline anything that might not be bound within

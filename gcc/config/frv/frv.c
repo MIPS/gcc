@@ -5495,7 +5495,7 @@ frv_emit_movsi (rtx dest, rtx src)
 		    reloc = compute_reloc_for_constant (init);
 		  
 		  named_section = TREE_CODE (decl) == VAR_DECL
-		    && lookup_attribute ("section", DECL_ATTRIBUTES (decl));
+		    && has_attribute_p ("section", DECL_ATTRIBUTES (decl));
 		  readonly = decl_readonly_section (decl, reloc);
 		  
 		  if (named_section)

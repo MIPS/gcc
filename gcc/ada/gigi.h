@@ -681,7 +681,7 @@ extern bool gnat_mark_addressable (tree);
 
 /* Implementation of the builtin_function langhook.  */
 extern tree builtin_function (const char *, tree, int, enum built_in_class,
-			      const char *, tree);
+			      const char *, attribute_list);
 
 /* This function is called by the front end to enumerate all the supported
    modes for the machine.  We pass a function which is called back with

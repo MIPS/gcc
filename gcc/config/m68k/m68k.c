@@ -114,9 +114,6 @@ static void m68k_output_mi_thunk (FILE *, tree, HOST_WIDE_INT,
 					  HOST_WIDE_INT, tree);
 static rtx m68k_struct_value_rtx (tree, int);
 static bool m68k_interrupt_function_p (tree func);
-static tree m68k_handle_fndecl_attribute (tree *node, tree name,
-					  tree args, int flags,
-					  bool *no_add_attrs);
 static void m68k_compute_frame_layout (void);
 static bool m68k_save_reg (unsigned int regno, bool interrupt_handler);
 static int const_int_cost (rtx);
@@ -189,7 +186,7 @@ int m68k_last_compare_had_fp_operands;
 static const struct attribute_spec m68k_attribute_table[] =
 {
   /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */
-  { "interrupt_handler", 0, 0, true,  false, false, m68k_handle_fndecl_attribute },
+  { "interrupt_handler", 0, 0, true,  false, false, handle_fndecl_attribute },
   { NULL,                0, 0, false, false, false, NULL }
 };
 
@@ -266,31 +263,10 @@ override_options (void)
 static bool
 m68k_interrupt_function_p(tree func)
 {
-  tree a;
-
   if (TREE_CODE (func) != FUNCTION_DECL)
     return false;
 
-  a = lookup_attribute ("interrupt_handler", DECL_ATTRIBUTES (func));
-  return (a != NULL_TREE);
-}
-
-/* Handle an attribute requiring a FUNCTION_DECL; arguments as in
-   struct attribute_spec.handler.  */
-static tree
-m68k_handle_fndecl_attribute (tree *node, tree name,
-			      tree args ATTRIBUTE_UNUSED,
-			      int flags ATTRIBUTE_UNUSED,
-			      bool *no_add_attrs)
-{
-  if (TREE_CODE (*node) != FUNCTION_DECL)
-    {
-      warning ("`%s' attribute only applies to functions",
-	       IDENTIFIER_POINTER (name));
-      *no_add_attrs = true;
-    }
-
-  return NULL_TREE;
+  return has_attribute_p ("interrupt_handler", DECL_ATTRIBUTES (func));
 }
 
 static void

@@ -19,6 +19,7 @@ along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-extern void solaris_insert_attributes (tree, tree *);
+extern attribute_count solaris_add_attributes (tree, attribute_list,
+					       const struct one_attribute **);
 extern void solaris_register_pragmas (void);
 extern void solaris_output_init_fini (FILE *, tree);

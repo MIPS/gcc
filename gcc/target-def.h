@@ -343,7 +343,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_FUNCTION_OK_FOR_SIBCALL hook_bool_tree_tree_false
 #define TARGET_COMP_TYPE_ATTRIBUTES hook_int_tree_tree_1
 #define TARGET_SET_DEFAULT_TYPE_ATTRIBUTES hook_void_tree
-#define TARGET_INSERT_ATTRIBUTES hook_void_tree_treeptr
+#define TARGET_ADD_ATTRIBUTES default_add_attributes
 #define TARGET_FUNCTION_ATTRIBUTE_INLINABLE_P hook_bool_tree_false
 #define TARGET_MS_BITFIELD_LAYOUT_P hook_bool_tree_false
 #define TARGET_ALIGN_ANON_BITFIELD hook_bool_void_false
@@ -484,7 +484,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   TARGET_ATTRIBUTE_TABLE,			\
   TARGET_COMP_TYPE_ATTRIBUTES,			\
   TARGET_SET_DEFAULT_TYPE_ATTRIBUTES,		\
-  TARGET_INSERT_ATTRIBUTES,			\
+  TARGET_ADD_ATTRIBUTES,			\
   TARGET_FUNCTION_ATTRIBUTE_INLINABLE_P,	\
   TARGET_MS_BITFIELD_LAYOUT_P,			\
   TARGET_ALIGN_ANON_BITFIELD,			\

@@ -327,7 +327,7 @@ extern tree do_class_using_decl (tree);
 extern void do_using_directive (tree);
 extern tree lookup_arg_dependent (tree, tree, tree);
 extern bool is_associated_namespace (tree, tree);
-extern void parse_using_directive (tree, tree);
+extern void parse_using_directive (tree, attribute_list);
 extern tree innermost_non_namespace_value (tree);
 extern cxx_binding *outer_binding (tree, cxx_binding *, bool);
 

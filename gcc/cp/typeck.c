@@ -260,7 +260,7 @@ type_after_usual_arithmetic_conversions (tree t1, tree t2)
 {
   enum tree_code code1 = TREE_CODE (t1);
   enum tree_code code2 = TREE_CODE (t2);
-  tree attributes;
+  attribute_list attributes;
 
   /* FIXME: Attributes.  */
   gcc_assert (ARITHMETIC_TYPE_P (t1) 
@@ -401,7 +401,7 @@ composite_pointer_type_r (tree t1, tree t2, const char* location)
   tree pointee1;
   tree pointee2;
   tree result_type;
-  tree attributes;
+  attribute_list attributes;
 
   /* Determine the types pointed to by T1 and T2.  */
   if (TREE_CODE (t1) == POINTER_TYPE)
@@ -503,7 +503,7 @@ composite_pointer_type (tree t1, tree t2, tree arg1, tree arg2,
   /* Now, if T1 is a pointer to void, merge the qualifiers.  */
   if (TREE_CODE (t1) == POINTER_TYPE && VOID_TYPE_P (TREE_TYPE (t1)))
     {
-      tree attributes;
+      attribute_list attributes;
       tree result_type;
 
       if (pedantic && TYPE_PTRFN_P (t2))
@@ -578,7 +578,7 @@ merge_types (tree t1, tree t2)
 {
   enum tree_code code1;
   enum tree_code code2;
-  tree attributes;
+  attribute_list attributes;
 
   /* Save time if the two types are the same.  */
   if (t1 == t2)

@@ -282,7 +282,7 @@ decide_is_function_needed (struct cgraph_node *node, tree decl)
     return true;
 
   /* If the user told us it is used, then it must be so.  */
-  if (lookup_attribute ("used", DECL_ATTRIBUTES (decl)))
+  if (has_attribute_p ("used", DECL_ATTRIBUTES (decl)))
     return true;
 
   /* ??? If the assembler name is set by hand, it is possible to assemble

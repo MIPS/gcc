@@ -76,8 +76,8 @@ static void ip2k_reorg (void);
 static int ip2k_check_can_adjust_stack_ref (rtx, int);
 static void ip2k_adjust_stack_ref (rtx *, int);
 static int ip2k_xexp_not_uses_reg_for_mem (rtx, unsigned int);
-static tree ip2k_handle_progmem_attribute (tree *, tree, tree, int, bool *);
-static tree ip2k_handle_fndecl_attribute (tree *, tree, tree, int, bool *);
+static void ip2k_handle_progmem_attribute (tree *, tree, tree, int, bool *,
+					   bool *);
 static bool ip2k_rtx_costs (rtx, int, int, int *);
 static int ip2k_address_cost (rtx);
 static void ip2k_init_libfuncs (void);
@@ -187,13 +187,10 @@ ip2k_return_pops_args (tree fundecl ATTRIBUTE_UNUSED, tree funtype, int size)
 static int
 ip2k_naked_function_p (tree func)
 {
-  tree a;
-
   if (TREE_CODE (func) != FUNCTION_DECL)
     abort ();
   
-  a = lookup_attribute ("naked", DECL_ATTRIBUTES (func));
-  return a != NULL_TREE;
+  return has_attribute_p ("naked", DECL_ATTRIBUTES (func));
 }
 
 /* Output function prologue.  */
@@ -3122,17 +3119,18 @@ const struct attribute_spec ip2k_attribute_table[] =
 {
   /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */
   { "progmem",   0, 0, false, false, false,  ip2k_handle_progmem_attribute },
-  { "naked",     0, 0, true,  false, false,  ip2k_handle_fndecl_attribute },
+  { "naked",     0, 0, true,  false, false,  handle_fndecl_attribute },
   { NULL,        0, 0, false, false, false, NULL }
 };
 
 /* Handle a "progmem" attribute; arguments as in
    struct attribute_spec.handler.  */
-static tree
+static void
 ip2k_handle_progmem_attribute (tree *node, tree name,
 			       tree args ATTRIBUTE_UNUSED,
 			       int flags ATTRIBUTE_UNUSED,
-			       bool *no_add_attrs)
+			       bool *no_add_attrs,
+			       bool * ARG_UNUSED (defer))
 {
   if (DECL_P (*node))
     {
@@ -3142,8 +3140,16 @@ ip2k_handle_progmem_attribute (tree *node, tree name,
 	     but try to handle it for GCC 3.0 backwards compatibility.  */
 
 	  tree type = TREE_TYPE (*node);
-	  tree attr = tree_cons (name, args, TYPE_ATTRIBUTES (type));
-	  tree newtype = build_type_attribute_variant (type, attr);
+	  tree newtype;
+	  struct one_attribute attr;
+	  attribute_list new_type_at;
+
+	  attr.name = name;
+	  attr.value = args;
+	  
+	  new_type_at = merge_attributes_1 (TYPE_ATTRIBUTES (type),
+					    1, &attr, NULL, 0);
+	  newtype = build_type_attribute_variant (type, new_type_at);
 
 	  TYPE_MAIN_VARIANT (newtype) = TYPE_MAIN_VARIANT (type);
 	  TREE_TYPE (*node) = newtype;
@@ -3164,26 +3170,6 @@ ip2k_handle_progmem_attribute (tree *node, tree name,
 	  *no_add_attrs = true;
 	}
     }
-
-  return NULL_TREE;
-}
-
-/* Handle an attribute requiring a FUNCTION_DECL; arguments as in
-   struct attribute_spec.handler.  */
-static tree
-ip2k_handle_fndecl_attribute (tree *node, tree name,
-			      tree args ATTRIBUTE_UNUSED,
-			      int flags ATTRIBUTE_UNUSED,
-			      bool *no_add_attrs)
-{
-  if (TREE_CODE (*node) != FUNCTION_DECL)
-    {
-      warning ("`%s' attribute only applies to functions",
-	       IDENTIFIER_POINTER (name));
-      *no_add_attrs = true;
-    }
-
-  return NULL_TREE;
 }
 
 /* Cost functions.  */

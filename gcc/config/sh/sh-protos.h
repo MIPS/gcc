@@ -156,7 +156,8 @@ extern bool         sh_symbian_dllexport_name_p       (const char *);
 extern int          symbian_import_export_class       (tree, int);
 #ifdef TREE_CODE
 extern bool         sh_symbian_dllexport_p            (tree);
-extern tree         sh_symbian_handle_dll_attribute   (tree *, tree, tree, int, bool *);
+extern void         sh_symbian_handle_dll_attribute   (tree *, tree, tree, int,
+						       bool *, bool *);
 #ifdef RTX_CODE
 extern void         sh_symbian_encode_section_info    (tree, rtx, int);
 #endif

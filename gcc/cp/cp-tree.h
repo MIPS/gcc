@@ -3434,7 +3434,7 @@ typedef struct cp_decl_specifier_seq {
      was used, in which case it will be a TYPE_DECL.  */
   tree type;
   /* The attributes, if any, provided with the specifier sequence.  */
-  tree attributes;
+  attribute_list attributes;
   /* If non-NULL, a built-in type that the user attempted to redefine
      to some other type.  */
   tree redefined_builtin_type;
@@ -3495,7 +3495,7 @@ struct cp_declarator {
   /* The kind of declarator.  */
   cp_declarator_kind kind;
   /* Attributes that apply to this declarator.  */
-  tree attributes;
+  attribute_list attributes;
   /* For all but cdk_id and cdk_error, the contained declarator.  For
      cdk_id and cdk_error, guaranteed to be NULL.  */
   cp_declarator *declarator;
@@ -3592,7 +3592,7 @@ extern void resort_type_method_vec
 extern void add_method				(tree, tree);
 extern int currently_open_class			(tree);
 extern tree currently_open_derived_class	(tree);
-extern tree finish_struct			(tree, tree);
+extern tree finish_struct			(tree, attribute_list);
 extern void finish_struct_1			(tree);
 extern int resolves_to_fixed_type_p		(tree, int *);
 extern void init_class_processing		(void);
@@ -3689,7 +3689,9 @@ extern int init_type_desc			(void);
 extern tree check_tag_decl			(cp_decl_specifier_seq *);
 extern tree shadow_tag				(cp_decl_specifier_seq *);
 extern tree groktypename			(cp_decl_specifier_seq *, const cp_declarator *);
-extern tree start_decl				(const cp_declarator *, cp_decl_specifier_seq *, int, tree, tree, bool *);
+extern tree start_decl
+  (const cp_declarator *, cp_decl_specifier_seq *, int, attribute_list,
+   attribute_list, bool *);
 extern void start_decl_1			(tree);
 extern void cp_finish_decl			(tree, tree, tree, int);
 extern void finish_decl				(tree, tree, tree);
@@ -3708,12 +3710,13 @@ extern void xref_basetypes			(tree, tree);
 extern tree start_enum				(tree);
 extern void finish_enum				(tree);
 extern void build_enumerator			(tree, tree, tree);
-extern void start_preparsed_function            (tree, tree, int);
-extern int start_function			(cp_decl_specifier_seq *, const cp_declarator *, tree);
+extern void start_preparsed_function            (tree, attribute_list, int);
+extern int start_function			(cp_decl_specifier_seq *, const cp_declarator *, attribute_list);
 extern tree begin_function_body			(void);
 extern void finish_function_body		(tree);
 extern tree finish_function			(int);
-extern tree start_method			(cp_decl_specifier_seq *, const cp_declarator *, tree);
+extern tree start_method
+  (cp_decl_specifier_seq *, const cp_declarator *, attribute_list);
 extern tree finish_method			(tree);
 extern void maybe_register_incomplete_var       (tree);
 extern void complete_vars			(tree);
@@ -3748,7 +3751,7 @@ extern tree cp_fname_init			(const char *, tree *);
 extern tree builtin_function (const char *name, tree type,
 			      int code,
 			      enum built_in_class cl,
-			      const char *libname, tree attrs);
+			      const char *libname, attribute_list attrs);
 extern tree check_elaborated_type_specifier     (enum tag_types, tree, bool);
 extern void warn_extern_redeclared_static (tree, tree);
 extern const char *cxx_comdat_group             (tree);
@@ -3767,10 +3770,11 @@ extern tree grok_array_decl (tree, tree);
 extern tree delete_sanity (tree, tree, bool, int);
 extern tree check_classfn (tree, tree, tree);
 extern void check_member_template (tree);
-extern tree grokfield (const cp_declarator *, cp_decl_specifier_seq *, tree, tree, tree);
+extern tree grokfield (const cp_declarator *, cp_decl_specifier_seq *, tree,
+		       tree, attribute_list);
 extern tree grokbitfield (const cp_declarator *, cp_decl_specifier_seq *, tree);
 extern tree groktypefield			(tree, tree);
-extern void cplus_decl_attributes (tree *, tree, int);
+extern void cplus_decl_attributes (tree *, attribute_list, int);
 extern void finish_anon_union (tree);
 extern tree finish_table (tree, tree, tree, int);
 extern void cp_finish_file (void);
@@ -3836,7 +3840,8 @@ extern tree cplus_expand_constant               (tree);
 extern int is_friend				(tree, tree);
 extern void make_friend_class			(tree, tree, bool);
 extern void add_friend                          (tree, tree, bool);
-extern tree do_friend				(tree, tree, tree, tree, enum overload_flags, cp_cv_quals, int);
+extern tree do_friend
+  (tree, tree, tree, attribute_list, enum overload_flags, cp_cv_quals, int);
 
 /* in init.c */
 extern tree expand_member_init			(tree);
@@ -4193,7 +4198,7 @@ extern int is_dummy_object			(tree);
 extern const struct attribute_spec cxx_attribute_table[];
 extern tree make_tinst_level                    (tree, location_t);
 extern tree make_ptrmem_cst                     (tree, tree);
-extern tree cp_build_type_attribute_variant     (tree, tree);
+extern tree cp_build_type_attribute_variant     (tree, attribute_list);
 extern tree cp_build_qualified_type_real        (tree, int, tsubst_flags_t);
 #define cp_build_qualified_type(TYPE, QUALS) \
   cp_build_qualified_type_real ((TYPE), (QUALS), tf_error | tf_warning)

@@ -247,11 +247,15 @@ apply_pragma_weak (tree decl, tree value)
 {
   if (value)
     {
+      struct one_attribute oa;
+      attribute_list al;
       value = build_string (IDENTIFIER_LENGTH (value),
 			    IDENTIFIER_POINTER (value));
-      decl_attributes (&decl, build_tree_list (get_identifier ("alias"),
-					       build_tree_list (NULL, value)),
-		       0);
+
+      oa.name = get_identifier ("alias");
+      oa.value = build_tree_list (NULL, value);
+      al = merge_attributes_1 (NULL, 1, &oa, NULL, 0);
+      decl_attributes (&decl, al, 0);
     }
 
   if (SUPPORTS_WEAK && DECL_EXTERNAL (decl) && TREE_USED (decl)

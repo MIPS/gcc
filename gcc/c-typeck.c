@@ -232,7 +232,7 @@ composite_type (tree t1, tree t2)
 {
   enum tree_code code1;
   enum tree_code code2;
-  tree attributes;
+  attribute_list attributes;
 
   /* Save time if the two types are the same.  */
 
@@ -415,7 +415,7 @@ composite_type (tree t1, tree t2)
 static tree
 common_pointer_type (tree t1, tree t2)
 {
-  tree attributes;
+  attribute_list attributes;
   tree pointed_to_1;
   tree pointed_to_2;
   tree target;
@@ -475,11 +475,11 @@ common_type (tree t1, tree t2)
   if (TYPE_QUALS (t2) != TYPE_UNQUALIFIED)
     t2 = TYPE_MAIN_VARIANT (t2);
 
-  if (TYPE_ATTRIBUTES (t1) != NULL_TREE)
-    t1 = build_type_attribute_variant (t1, NULL_TREE);
+  if (TYPE_ATTRIBUTES (t1) != NULL)
+    t1 = build_type_attribute_variant (t1, NULL);
 
-  if (TYPE_ATTRIBUTES (t2) != NULL_TREE)
-    t2 = build_type_attribute_variant (t2, NULL_TREE);
+  if (TYPE_ATTRIBUTES (t2) != NULL)
+    t2 = build_type_attribute_variant (t2, NULL);
 
   /* Save time if the two types are the same.  */
 

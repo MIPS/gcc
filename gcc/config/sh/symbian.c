@@ -76,21 +76,21 @@ sh_symbian_associated_type (tree decl)
 bool
 sh_symbian_dllexport_p (tree decl)
 {
-  tree exp;
+  bool exp;
 
   if (   TREE_CODE (decl) != VAR_DECL
       && TREE_CODE (decl) != FUNCTION_DECL)
     return false;
 
-  exp = lookup_attribute ("dllexport", DECL_ATTRIBUTES (decl));
+  exp = has_attribute_p ("dllexport", DECL_ATTRIBUTES (decl));
 
   /* Class members get the dllexport status of their class.  */
-  if (exp == NULL)
+  if (exp)
     {
       tree class = sh_symbian_associated_type (decl);
 
       if (class)
-	exp = lookup_attribute ("dllexport", TYPE_ATTRIBUTES (class));
+	exp = has_attribute_p ("dllexport", TYPE_ATTRIBUTES (class));
     }
 #if SYMBIAN_DEBUG
   if (exp)
@@ -107,7 +107,7 @@ sh_symbian_dllexport_p (tree decl)
       fprintf (stderr, "\n");
     }
 #endif
-  return exp ? true : false;
+  return exp;
 }
 
 /* Return nonzero if DECL is a dllimport'd object.  */
@@ -121,8 +121,7 @@ sh_symbian_dllimport_p (tree decl)
       && TREE_CODE (decl) != FUNCTION_DECL)
     return false;
 
-  imp = lookup_attribute ("dllimport", DECL_ATTRIBUTES (decl));
-  if (imp)
+  if (has_attribute_p ("dllimport", DECL_ATTRIBUTES (decl)))
     return true;
 
   /* Class members get the dllimport status of their class.  */
@@ -130,8 +129,7 @@ sh_symbian_dllimport_p (tree decl)
   if (! imp)
     return false;
 
-  imp = lookup_attribute ("dllimport", TYPE_ATTRIBUTES (imp));
-  if (!imp)
+  if (!has_attribute_p ("dllimport", TYPE_ATTRIBUTES (imp)))
     return false;
 
   /* Don't mark defined functions as dllimport.  If the definition itself
@@ -377,7 +375,7 @@ symbian_add_attribute (tree node, const char *attr_name)
 
   attrs = DECL_P (node) ? DECL_ATTRIBUTES (node) : TYPE_ATTRIBUTES (node);
 
-  if (lookup_attribute (attr_name, attrs) != NULL_TREE)
+  if (has_attribute_p (attr_name, attrs))
     return;
 
   attr = get_identifier (attr_name);
@@ -395,9 +393,10 @@ symbian_add_attribute (tree node, const char *attr_name)
 /* Handle a "dllimport" or "dllexport" attribute;
    arguments as in struct attribute_spec.handler.  */
 
-tree
+void
 sh_symbian_handle_dll_attribute (tree *pnode, tree name, tree args,
-				 int flags, bool *no_add_attrs)
+				 int flags, bool *no_add_attrs,
+				 bool * defer)
 {
   tree thunk;
   tree node = *pnode;
@@ -412,8 +411,8 @@ sh_symbian_handle_dll_attribute (tree *pnode, tree name, tree args,
 		   | (int) ATTR_FLAG_ARRAY_NEXT))
 	{
 	  warning ("`%s' attribute ignored", attr);
-	  *no_add_attrs = true;
-	  return tree_cons (name, args, NULL_TREE);
+	  *defer = true;
+	  return;
 	}
 
       if (TREE_CODE (node) != RECORD_TYPE && TREE_CODE (node) != UNION_TYPE)
@@ -422,7 +421,7 @@ sh_symbian_handle_dll_attribute (tree *pnode, tree name, tree args,
 	  *no_add_attrs = true;
 	}
 
-      return NULL_TREE;
+      return;
     }
 
   /* Report error on dllimport ambiguities
@@ -517,8 +516,6 @@ sh_symbian_handle_dll_attribute (tree *pnode, tree name, tree args,
   print_node_brief (stderr, "mark node", node, 0);
   fprintf (stderr, " as %s\n", attr);
 #endif
-
-  return NULL_TREE;
 }
 
 /* This code implements a specification for exporting the vtable and rtti of
@@ -684,7 +681,7 @@ symbian_export_vtable_and_rtti_p (tree ctype)
 		      || DECL_MAYBE_IN_CHARGE_DESTRUCTOR_P (member)))
 		inline_ctor_dtor = true;
 
-	      if (lookup_attribute ("dllimport", DECL_ATTRIBUTES (member)))
+	      if (has_attribute_p ("dllimport", DECL_ATTRIBUTES (member)))
 		dllimport_ctor_dtor = true;
 	    }
 	  else
@@ -698,7 +695,7 @@ symbian_export_vtable_and_rtti_p (tree ctype)
 	      if (DECL_INLINE (member))
 		continue;
 
-	      if (lookup_attribute ("dllimport", DECL_ATTRIBUTES (member)))
+	      if (has_attribute_p ("dllimport", DECL_ATTRIBUTES (member)))
 		dllimport_member = true;
 	    }
 	}
@@ -765,7 +762,7 @@ symbian_class_needs_attribute_p (tree ctype, const char *attribute_name)
   /* If the key function has the attribute then the class needs it too.  */
   if (TYPE_POLYMORPHIC_P (ctype)
       && CLASSTYPE_KEY_METHOD (ctype)
-      && lookup_attribute (attribute_name,
+      && has_attribute_p (attribute_name,
 			   DECL_ATTRIBUTES (CLASSTYPE_KEY_METHOD (ctype))))
     return true;
 
@@ -795,7 +792,7 @@ symbian_class_needs_attribute_p (tree ctype, const char *attribute_name)
 	      if (! DECL_VIRTUAL_P (member))
 		continue;
 
-	      if (lookup_attribute (attribute_name, DECL_ATTRIBUTES (member)))
+	      if (has_attribute_p (attribute_name, DECL_ATTRIBUTES (member)))
 		{
 #if SYMBIAN_DEBUG
 		  print_node_brief (stderr, "", ctype, 0);
@@ -832,7 +829,7 @@ symbian_import_export_class (tree ctype, int import_export)
     }
 
   if (attr_name
-      && ! lookup_attribute (attr_name, TYPE_ATTRIBUTES (ctype)))
+      && ! has_attribute_p (attr_name, TYPE_ATTRIBUTES (ctype)))
     {
       if (symbian_class_needs_attribute_p (ctype, attr_name))
 	symbian_add_attribute_to_class_vtable_and_rtti (ctype, attr_name);

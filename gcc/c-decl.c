@@ -1422,14 +1422,14 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
     {
       /* Diagnose inline __attribute__ ((noinline)) which is silly.  */
       if (DECL_DECLARED_INLINE_P (newdecl)
-	  && lookup_attribute ("noinline", DECL_ATTRIBUTES (olddecl)))
+	  && has_attribute_p ("noinline", DECL_ATTRIBUTES (olddecl)))
 	{
 	  warning ("%Jinline declaration of %qD follows "
 		   "declaration with attribute noinline", newdecl, newdecl);
 	  warned = true;
 	}
       else if (DECL_DECLARED_INLINE_P (olddecl)
-	       && lookup_attribute ("noinline", DECL_ATTRIBUTES (newdecl)))
+	       && has_attribute_p ("noinline", DECL_ATTRIBUTES (newdecl)))
 	{
 	  warning ("%Jdeclaration of %qD with attribute noinline follows "
 		   "inline declaration ", newdecl, newdecl);
@@ -2261,7 +2261,7 @@ implicitly_declare (tree functionid)
   gen_aux_info_record (decl, 0, 1, 0);
 
   /* Possibly apply some default attributes to this implicit declaration.  */
-  decl_attributes (&decl, NULL_TREE, 0);
+  decl_attributes (&decl, NULL, 0);
 
   return decl;
 }
@@ -2642,7 +2642,7 @@ c_make_fname_decl (tree id, int type_dep)
 tree
 builtin_function (const char *name, tree type, int function_code,
 		  enum built_in_class cl, const char *library_name,
-		  tree attrs)
+		  attribute_list attrs)
 {
   tree id = get_identifier (name);
   tree decl = build_decl (FUNCTION_DECL, id, type);
@@ -2671,7 +2671,7 @@ builtin_function (const char *name, tree type, int function_code,
   if (attrs)
     decl_attributes (&decl, attrs, ATTR_FLAG_BUILT_IN);
   else
-    decl_attributes (&decl, NULL_TREE, 0);
+    decl_attributes (&decl, NULL, 0);
 
   return decl;
 }
@@ -2847,7 +2847,7 @@ build_array_declarator (tree expr, struct c_declspecs *quals, bool static_p,
     }
   else
     {
-      declarator->u.array.attrs = NULL_TREE;
+      declarator->u.array.attrs = NULL;
       declarator->u.array.quals = 0;
     }
   declarator->u.array.static_p = static_p;
@@ -2878,7 +2878,7 @@ set_array_declarator_inner (struct c_declarator *decl,
 {
   decl->declarator = inner;
   if (abstract_p && (decl->u.array.quals != TYPE_UNQUALIFIED
-		     || decl->u.array.attrs != NULL_TREE
+		     || decl->u.array.attrs != NULL
 		     || decl->u.array.static_p))
     error ("static or type qualifiers in abstract declarator");
   return decl;
@@ -2890,9 +2890,9 @@ tree
 groktypename (struct c_type_name *type_name)
 {
   tree type;
-  tree attrs = type_name->specs->attrs;
+  attribute_list attrs = type_name->specs->attrs;
 
-  type_name->specs->attrs = NULL_TREE;
+  type_name->specs->attrs = NULL;
 
   type = grokdeclarator (type_name->declarator, type_name->specs, TYPENAME,
 			 false, NULL);
@@ -2920,14 +2920,14 @@ groktypename (struct c_type_name *type_name)
 
 tree
 start_decl (struct c_declarator *declarator, struct c_declspecs *declspecs,
-	    bool initialized, tree attributes)
+	    bool initialized, attribute_list attributes)
 {
   tree decl;
   tree tem;
 
   /* An object declared as __attribute__((deprecated)) suppresses
      warnings of uses of other deprecated items.  */
-  if (lookup_attribute ("deprecated", attributes))
+  if (has_attribute_p ("deprecated", attributes))
     deprecated_state = DEPRECATED_SUPPRESS;
 
   decl = grokdeclarator (declarator, declspecs,
@@ -3062,7 +3062,7 @@ start_decl (struct c_declarator *declarator, struct c_declspecs *declspecs,
   if (TREE_CODE (decl) == FUNCTION_DECL
       && DECL_DECLARED_INLINE_P (decl)
       && DECL_UNINLINABLE (decl)
-      && lookup_attribute ("noinline", DECL_ATTRIBUTES (decl)))
+      && has_attribute_p ("noinline", DECL_ATTRIBUTES (decl)))
     warning ("%Jinline function %qD given attribute noinline", decl, decl);
 
   /* Add this decl to the current scope.
@@ -3315,7 +3315,7 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
     }
 
   /* If this was marked 'used', be sure it will be output.  */
-  if (lookup_attribute ("used", DECL_ATTRIBUTES (decl)))
+  if (has_attribute_p ("used", DECL_ATTRIBUTES (decl)))
     mark_decl_referenced (decl);
 
   if (TREE_CODE (decl) == TYPE_DECL)
@@ -3334,12 +3334,13 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
     get_pending_sizes ();
 
   /* Install a cleanup (aka destructor) if one was given.  */
-  if (TREE_CODE (decl) == VAR_DECL && !TREE_STATIC (decl))
+  if (TREE_CODE (decl) == VAR_DECL && !TREE_STATIC (decl) 
+      && DECL_ATTRIBUTES (decl))
     {
-      tree attr = lookup_attribute ("cleanup", DECL_ATTRIBUTES (decl));
-      if (attr)
+      tree value = get_attribute ("cleanup", DECL_ATTRIBUTES (decl));
+      if (value)
 	{
-	  tree cleanup_id = TREE_VALUE (TREE_VALUE (attr));
+	  tree cleanup_id = TREE_VALUE (value);
 	  tree cleanup_decl = lookup_name (cleanup_id);
 	  tree cleanup;
 
@@ -3704,11 +3705,11 @@ grokdeclarator (const struct c_declarator *declarator,
   int funcdef_flag = 0;
   bool funcdef_syntax = false;
   int size_varies = 0;
-  tree decl_attr = declspecs->decl_attr;
+  attribute_list decl_attr = declspecs->decl_attr;
   int array_ptr_quals = TYPE_UNQUALIFIED;
-  tree array_ptr_attrs = NULL_TREE;
+  attribute_list array_ptr_attrs = NULL;
   int array_parm_static = 0;
-  tree returned_attrs = NULL_TREE;
+  attribute_list returned_attrs = NULL;
   bool bitfield = width != NULL;
   tree element_type;
   struct c_arg_info *arg_info = 0;
@@ -3928,7 +3929,7 @@ grokdeclarator (const struct c_declarator *declarator,
 	 outermost layer removed.  */
 
       if (array_ptr_quals != TYPE_UNQUALIFIED
-	  || array_ptr_attrs != NULL_TREE
+	  || array_ptr_attrs != NULL
 	  || array_parm_static)
 	{
 	  /* Only the innermost declarator (making a parameter be of
@@ -3936,7 +3937,7 @@ grokdeclarator (const struct c_declarator *declarator,
 	     may have static or type qualifiers.  */
 	  error ("static or type qualifiers in non-parameter array declarator");
 	  array_ptr_quals = TYPE_UNQUALIFIED;
-	  array_ptr_attrs = NULL_TREE;
+	  array_ptr_attrs = NULL;
 	  array_parm_static = 0;
 	}
 
@@ -3945,7 +3946,7 @@ grokdeclarator (const struct c_declarator *declarator,
 	case cdk_attrs:
 	  {
 	    /* A declarator with embedded attributes.  */
-	    tree attrs = declarator->u.attrs;
+	    attribute_list attrs = declarator->u.attrs;
 	    const struct c_declarator *inner_decl;
 	    int attr_flags = 0;
 	    declarator = declarator->declarator;
@@ -3959,7 +3960,8 @@ grokdeclarator (const struct c_declarator *declarator,
 	    else if (inner_decl->kind == cdk_array)
 	      attr_flags |= (int) ATTR_FLAG_ARRAY_NEXT;
 	    returned_attrs = decl_attributes (&type,
-					      chainon (returned_attrs, attrs),
+					      merge_attributes (returned_attrs,
+								attrs),
 					      attr_flags);
 	    break;
 	  }
@@ -4125,12 +4127,12 @@ grokdeclarator (const struct c_declarator *declarator,
 
 	    if (decl_context != PARM
 		&& (array_ptr_quals != TYPE_UNQUALIFIED
-		    || array_ptr_attrs != NULL_TREE
+		    || array_ptr_attrs != NULL
 		    || array_parm_static))
 	      {
 		error ("static or type qualifiers in non-parameter array declarator");
 		array_ptr_quals = TYPE_UNQUALIFIED;
-		array_ptr_attrs = NULL_TREE;
+		array_ptr_attrs = NULL;
 		array_parm_static = 0;
 	      }
 	    break;
@@ -4342,7 +4344,7 @@ grokdeclarator (const struct c_declarator *declarator,
 	    type_quals = array_ptr_quals;
 
 	    /* We don't yet implement attributes in this context.  */
-	    if (array_ptr_attrs != NULL_TREE)
+	    if (array_ptr_attrs != NULL)
 	      warning ("attributes in parameter array declarator ignored");
 
 	    size_varies = 0;
@@ -5098,7 +5100,7 @@ detect_field_duplicates (tree fieldlist)
    ATTRIBUTES are attributes to be applied to the structure.  */
 
 tree
-finish_struct (tree t, tree fieldlist, tree attributes)
+finish_struct (tree t, tree fieldlist, attribute_list attributes)
 {
   tree x;
   bool toplevel = file_scope == current_scope;
@@ -5392,7 +5394,7 @@ start_enum (tree name)
    Returns ENUMTYPE.  */
 
 tree
-finish_enum (tree enumtype, tree values, tree attributes)
+finish_enum (tree enumtype, tree values, attribute_list attributes)
 {
   tree pair, tem;
   tree minnode = 0, maxnode = 0;
@@ -5611,7 +5613,7 @@ build_enumerator (tree name, tree value)
 
 int
 start_function (struct c_declspecs *declspecs, struct c_declarator *declarator,
-		tree attributes)
+		attribute_list attributes)
 {
   tree decl1, old_decl;
   tree restype, resdecl;
@@ -5639,7 +5641,7 @@ start_function (struct c_declspecs *declspecs, struct c_declarator *declarator,
 
   if (DECL_DECLARED_INLINE_P (decl1)
       && DECL_UNINLINABLE (decl1)
-      && lookup_attribute ("noinline", DECL_ATTRIBUTES (decl1)))
+      && has_attribute_p ("noinline", DECL_ATTRIBUTES (decl1)))
     warning ("%Jinline function %qD given attribute noinline", decl1, decl1);
 
   announce_function (decl1);
@@ -6547,7 +6549,7 @@ build_void_list_node (void)
 /* Return a c_parm structure with the given SPECS, ATTRS and DECLARATOR.  */
 
 struct c_parm *
-build_c_parm (struct c_declspecs *specs, tree attrs,
+build_c_parm (struct c_declspecs *specs, attribute_list attrs,
 	      struct c_declarator *declarator)
 {
   struct c_parm *ret = XOBNEW (&parser_obstack, struct c_parm);
@@ -6562,7 +6564,7 @@ build_c_parm (struct c_declspecs *specs, tree attrs,
    attributes.  */
 
 struct c_declarator *
-build_attrs_declarator (tree attrs, struct c_declarator *target)
+build_attrs_declarator (attribute_list attrs, struct c_declarator *target)
 {
   struct c_declarator *ret = XOBNEW (&parser_obstack, struct c_declarator);
   ret->kind = cdk_attrs;
@@ -6607,7 +6609,7 @@ struct c_declarator *
 make_pointer_declarator (struct c_declspecs *type_quals_attrs,
 			 struct c_declarator *target)
 {
-  tree attrs;
+  attribute_list attrs;
   int quals = 0;
   struct c_declarator *itarget = target;
   struct c_declarator *ret = XOBNEW (&parser_obstack, struct c_declarator);
@@ -6615,7 +6617,7 @@ make_pointer_declarator (struct c_declspecs *type_quals_attrs,
     {
       attrs = type_quals_attrs->attrs;
       quals = quals_from_declspecs (type_quals_attrs);
-      if (attrs != NULL_TREE)
+      if (attrs != NULL)
 	itarget = build_attrs_declarator (attrs, target);
     }
   ret->kind = cdk_pointer;
@@ -7063,9 +7065,9 @@ declspecs_add_scspec (struct c_declspecs *specs, tree scspec)
    returning SPECS.  */
 
 struct c_declspecs *
-declspecs_add_attrs (struct c_declspecs *specs, tree attrs)
+declspecs_add_attrs (struct c_declspecs *specs, attribute_list attrs)
 {
-  specs->attrs = chainon (attrs, specs->attrs);
+  specs->attrs = merge_attributes (attrs, specs->attrs);
   return specs;
 }
 

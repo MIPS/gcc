@@ -7445,12 +7445,12 @@ s390_init_builtins (void)
   ftype = build_function_type (ptr_type_node, void_list_node);
   lang_hooks.builtin_function ("__builtin_thread_pointer", ftype,
 			       S390_BUILTIN_THREAD_POINTER, BUILT_IN_MD,
-			       NULL, NULL_TREE);
+			       NULL, NULL);
 
   ftype = build_function_type_list (void_type_node, ptr_type_node, NULL_TREE);
   lang_hooks.builtin_function ("__builtin_set_thread_pointer", ftype,
 			       S390_BUILTIN_SET_THREAD_POINTER, BUILT_IN_MD,
-			       NULL, NULL_TREE);
+			       NULL, NULL);
 }
 
 /* Expand an expression EXP that calls a built-in function,

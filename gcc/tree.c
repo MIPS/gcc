@@ -132,7 +132,7 @@ static void print_type_hash_statistics (void);
 static tree make_vector_type (tree, int, enum machine_mode);
 static int type_hash_marked_p (const void *);
 static unsigned int type_hash_list (tree, hashval_t);
-static unsigned int attribute_hash_list (tree, hashval_t);
+static unsigned int attribute_hash_list (attribute_list, hashval_t);
 
 tree global_trees[TI_MAX];
 tree integer_types[itk_none];
@@ -362,7 +362,7 @@ make_node_stat (enum tree_code code MEM_STAT_DECL)
       TYPE_MAIN_VARIANT (t) = t;
 
       /* Default to no attributes for type, but let target change that.  */
-      TYPE_ATTRIBUTES (t) = NULL_TREE;
+      TYPE_ATTRIBUTES (t) = NULL;
       targetm.set_default_type_attributes (t);
 
       /* We have not yet computed the alias set for this type.  */
@@ -2791,7 +2791,7 @@ annotate_with_locus (tree node, location_t locus)
    is ATTRIBUTE.  */
 
 tree
-build_decl_attribute_variant (tree ddecl, tree attribute)
+build_decl_attribute_variant (tree ddecl, attribute_list attribute)
 {
   DECL_ATTRIBUTES (ddecl) = attribute;
   return ddecl;
@@ -2871,7 +2871,7 @@ iterative_hash_host_wide_int (HOST_WIDE_INT val, hashval_t val2)
    Record such modified types already made so we don't make duplicates.  */
 
 tree
-build_type_attribute_variant (tree ttype, tree attribute)
+build_type_attribute_variant (tree ttype, attribute_list attribute)
 {
   if (! attribute_list_equal (TYPE_ATTRIBUTES (ttype), attribute))
     {
@@ -2975,80 +2975,151 @@ is_attribute_p (const char *attr, tree ident)
   return 0;
 }
 
-/* Given an attribute name and a list of attributes, return a pointer to the
-   attribute's list element if the attribute is part of the list, or NULL_TREE
-   if not found.  If the attribute appears more than once, this only
-   returns the first occurrence; the TREE_CHAIN of the return value should
-   be passed back in if further occurrences are wanted.  */
+/* Return the index of the first attribute, starting with the
+   attribute indexed by START, named NAME in ATTRIBUTES.  If no such
+   attribute exists, return attributes->n_attributes.  ATTRIBUTES must
+   be non-NULL.  */
+
+attribute_count
+lookup_attribute (const char *name, 
+		  attribute_list attributes,
+		  attribute_count start)
+{
+  attribute_count result;
+  for (result = start; result < attributes->n_attributes; result++)
+    {
+      gcc_assert (TREE_CODE (attributes->attribs[result].name) 
+		  == IDENTIFIER_NODE);
+      if (is_attribute_p (name, attributes->attribs[result].name))
+	break;
+    }
+  return result;
+}
+
+/* Does ATTRIBUTES contain NAME?  */
+
+bool
+has_attribute_p (const char *name, attribute_list attributes)
+{
+  if (!attributes)
+    return false;
+  return lookup_attribute (name, attributes, 0) != attributes->n_attributes;
+}
+
+/* If ATTRIBUTES contains NAME, return the associated value, otherwise
+   NULL.  The attribute must not have a NULL value.  */
 
 tree
-lookup_attribute (const char *attr_name, tree list)
+get_attribute (const char *name, attribute_list attributes)
 {
-  tree l;
+  attribute_count i;
+  
+  if (!attributes)
+    return NULL_TREE;
+  i = lookup_attribute (name, attributes, 0);
+  if (i == attributes->n_attributes)
+    return NULL_TREE;
+  gcc_assert (attributes->attribs[i].value);
+  return attributes->attribs[i].value;
+}
 
-  for (l = list; l; l = TREE_CHAIN (l))
+/* Given a list of attributes A and NUM extra attributes in EXTRA,
+   and an NUM-sized array of FLAGS, return a list of attributes that
+   contains every attribute in A plus each attribute in EXTRA for which
+   FLAGS is SELECT.  A may be NULL.  May return A.  FLAGS may be NULL,
+   in which case every element of EXTRA is selected.
+
+   Every attribute list is created using this routine.  */
+
+attribute_list
+merge_attributes_1 (attribute_list a, attribute_count num,
+		    const struct one_attribute *extra,
+		    const char * flags, char select)
+{
+  /* Number of attributes selected, in a, and in result, respectively.  */
+  attribute_count n_select, n_a, n_result;
+  attribute_count i, ir;
+  attribute_list result;
+
+  if (flags)
+    for (n_select = i = 0; i < num; i++)
+      n_select += flags[i] == select;
+  else
+    n_select = num;
+  
+  /* Don't allocate memory in trivial case.  */
+  if (n_select == 0)
+    return a;
+
+  n_a = ATTRIBUTE_COUNT (a);
+  n_result = n_a + n_select;
+  if (n_result < n_a || n_result == (attribute_count)-1)
     {
-      gcc_assert (TREE_CODE (TREE_PURPOSE (l)) == IDENTIFIER_NODE);
-      if (is_attribute_p (attr_name, TREE_PURPOSE (l)))
-	return l;
+      error ("too many attributes");
+      return a;
     }
-
-  return NULL_TREE;
+  
+  /* Unfortunately we can't use ggc_realloc because attribute lists
+     can be shared.  */
+  result = ggc_alloc (sizeof (struct attribute_list_s)
+		      + (n_result - 1) * sizeof (struct one_attribute));
+  result->n_attributes = n_result;
+  if (n_a)
+    memcpy (result->attribs, a->attribs, sizeof (struct one_attribute) * n_a);
+  if (!flags)
+    memcpy (result->attribs + n_a, extra, sizeof (struct one_attribute) * num);
+  else
+    for (ir = n_a, i = 0; i < num; i++)
+      if (flags[i] == select)
+	result->attribs[ir++] = extra[i];
+  return result;
 }
 
 /* Return an attribute list that is the union of a1 and a2.  */
 
-tree
-merge_attributes (tree a1, tree a2)
+attribute_list
+merge_attributes (attribute_list a1, attribute_list a2)
 {
-  tree attributes;
+  char * add_from_2;
+  attribute_count i2;
 
-  /* Either one unset?  Take the set one.  */
+  /* If one is NULL, take the other.  */
+  if (a2 == NULL)
+    return a1;
+  if (a1 == NULL)
+    return a2;
 
-  if ((attributes = a1) == 0)
-    attributes = a2;
-
-  /* One that completely contains the other?  Take it.  */
-
-  else if (a2 != 0 && ! attribute_list_contained (a1, a2))
+  /* Save on temporaries: pick the shorter one as 'a2'.  */
+  if (a1->n_attributes < a2->n_attributes)
     {
-      if (attribute_list_contained (a2, a1))
-	attributes = a2;
-      else
-	{
-	  /* Pick the longest list, and hang on the other list.  */
-
-	  if (list_length (a1) < list_length (a2))
-	    attributes = a2, a2 = a1;
-
-	  for (; a2 != 0; a2 = TREE_CHAIN (a2))
-	    {
-	      tree a;
-	      for (a = lookup_attribute (IDENTIFIER_POINTER (TREE_PURPOSE (a2)),
-					 attributes);
-		   a != NULL_TREE;
-		   a = lookup_attribute (IDENTIFIER_POINTER (TREE_PURPOSE (a2)),
-					 TREE_CHAIN (a)))
-		{
-		  if (simple_cst_equal (TREE_VALUE (a), TREE_VALUE (a2)) == 1)
-		    break;
-		}
-	      if (a == NULL_TREE)
-		{
-		  a1 = copy_node (a2);
-		  TREE_CHAIN (a1) = attributes;
-		  attributes = a1;
-		}
-	    }
-	}
+      attribute_list tmp;
+      tmp = a1;
+      a1 = a2;
+      a2 = tmp;
     }
-  return attributes;
+
+  /* Determine which elements of a2 need to be added to a1.  */
+  add_from_2 = alloca (sizeof (bool) * a2->n_attributes);
+  for (i2 = 0; i2 < a2->n_attributes; i2++)
+    {
+      attribute_count i1;
+      tree v2 = a2->attribs[i2].value;
+      tree n2 = a2->attribs[i2].name;
+      for (i1 = 0; i1 < a1->n_attributes; i1++)
+	if (is_attribute_p (IDENTIFIER_POINTER (n2), a1->attribs[i1].name)
+	    && simple_cst_equal (v2, a1->attribs[i1].value) == 1)
+	  break;
+      add_from_2[i2] = i1 == a1->n_attributes;
+    }
+
+  return merge_attributes_1 (a1, a2->n_attributes, a2->attribs,
+			     add_from_2, true);
 }
 
 /* Given types T1 and T2, merge their attributes and return
   the result.  */
 
-tree
+attribute_list
 merge_type_attributes (tree t1, tree t2)
 {
   return merge_attributes (TYPE_ATTRIBUTES (t1),
@@ -3058,12 +3129,31 @@ merge_type_attributes (tree t1, tree t2)
 /* Given decls OLDDECL and NEWDECL, merge their attributes and return
    the result.  */
 
-tree
+attribute_list
 merge_decl_attributes (tree olddecl, tree newdecl)
 {
   return merge_attributes (DECL_ATTRIBUTES (olddecl),
 			   DECL_ATTRIBUTES (newdecl));
 }
+
+/* Handle an attribute requiring a FUNCTION_DECL; arguments as in
+   struct attribute_spec.handler.  */
+
+void
+handle_fndecl_attribute (tree *node, tree name,
+			 tree ARG_UNUSED (args),
+			 int ARG_UNUSED (flags),
+			 bool *no_add_attrs,
+			 bool * ARG_UNUSED (defer))
+{
+  if (TREE_CODE (*node) != FUNCTION_DECL)
+    {
+      warning ("`%s' attribute only applies to functions",
+	       IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
+    }
+}
+
 
 #if TARGET_DLLIMPORT_DECL_ATTRIBUTES
 
@@ -3076,54 +3166,39 @@ merge_decl_attributes (tree olddecl, tree newdecl)
 
    The second instance of `foo' nullifies the dllimport.  */
 
-tree
-merge_dllimport_decl_attributes (tree old, tree new)
+attribute_list
+merge_dllimport_decl_attributes (tree old_p, tree new_p)
 {
-  tree a;
-  int delete_dllimport_p;
+  attribute_list old, new;
+  char *mask;
+  attribute_count oldc;
 
-  old = DECL_ATTRIBUTES (old);
-  new = DECL_ATTRIBUTES (new);
+  old = DECL_ATTRIBUTES (old_p);
+  new = DECL_ATTRIBUTES (new_p);
 
+  oldc = ATTRIBUTE_COUNT (old);
+  mask = alloca (oldc * sizeof (char));
+  
   /* What we need to do here is remove from `old' dllimport if it doesn't
      appear in `new'.  dllimport behaves like extern: if a declaration is
      marked dllimport and a definition appears later, then the object
      is not dllimport'd.  */
-  if (lookup_attribute ("dllimport", old) != NULL_TREE
-      && lookup_attribute ("dllimport", new) == NULL_TREE)
-    delete_dllimport_p = 1;
-  else
-    delete_dllimport_p = 0;
-
-  a = merge_attributes (old, new);
-
-  if (delete_dllimport_p)
+  if (!has_attribute_p ("dllimport", new))
     {
-      tree prev, t;
-
-      /* Scan the list for dllimport and delete it.  */
-      for (prev = NULL_TREE, t = a; t; prev = t, t = TREE_CHAIN (t))
-	{
-	  if (is_attribute_p ("dllimport", TREE_PURPOSE (t)))
-	    {
-	      if (prev == NULL_TREE)
-		a = TREE_CHAIN (a);
-	      else
-		TREE_CHAIN (prev) = TREE_CHAIN (t);
-	      break;
-	    }
-	}
+      attribute_count i;
+      for (i = 0; i < oldc; i++)
+	mask[i] = ! is_attribute_p ("dllimport", old->attribs[i].name);
     }
 
-  return a;
+  return merge_attributes_1 (new, oldc, old ? old->attribs : NULL, mask, true);
 }
 
 /* Handle a "dllimport" or "dllexport" attribute; arguments as in
    struct attribute_spec.handler.  */
 
-tree
-handle_dll_attribute (tree * pnode, tree name, tree args, int flags,
-		      bool *no_add_attrs)
+void
+handle_dll_attribute (tree * pnode, tree name, tree ARG_UNUSED (args),
+		      int flags, bool *no_add_attrs, bool *defer)
 {
   tree node = *pnode;
 
@@ -3133,17 +3208,15 @@ handle_dll_attribute (tree * pnode, tree name, tree args, int flags,
     {
       if (flags & ((int) ATTR_FLAG_DECL_NEXT | (int) ATTR_FLAG_FUNCTION_NEXT
 		   | (int) ATTR_FLAG_ARRAY_NEXT))
-	{
-	  *no_add_attrs = true;
-	  return tree_cons (name, args, NULL_TREE);
-	}
-      if (TREE_CODE (node) != RECORD_TYPE && TREE_CODE (node) != UNION_TYPE)
+	*defer = true;
+      else if (TREE_CODE (node) != RECORD_TYPE 
+	       && TREE_CODE (node) != UNION_TYPE)
 	{
 	  warning ("%qs attribute ignored", IDENTIFIER_POINTER (name));
 	  *no_add_attrs = true;
 	}
 
-      return NULL_TREE;
+      return;
     }
 
   /* Report error on dllimport ambiguities seen now before they cause
@@ -3189,8 +3262,6 @@ handle_dll_attribute (tree * pnode, tree name, tree args, int flags,
 	     "%qs attribute.", node, node, IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
-
-  return NULL_TREE;
 }
 
 #endif /* TARGET_DLLIMPORT_DECL_ATTRIBUTES  */
@@ -3522,26 +3593,40 @@ print_type_hash_statistics (void)
    with names in the TREE_PURPOSE slots and args in the TREE_VALUE slots),
    by adding the hash codes of the individual attributes.  */
 
-unsigned int
-attribute_hash_list (tree list, hashval_t hashcode)
+static unsigned int
+attribute_hash_list (attribute_list list, hashval_t hashcode)
 {
-  tree tail;
+  attribute_count i;
 
-  for (tail = list; tail; tail = TREE_CHAIN (tail))
-    /* ??? Do we want to add in TREE_VALUE too? */
-    hashcode = iterative_hash_object
-      (IDENTIFIER_HASH_VALUE (TREE_PURPOSE (tail)), hashcode);
+  if (list != NULL)
+    for (i = 0; i < list->n_attributes; i++)
+      /* ??? Do we want to add in TREE_VALUE too? */
+      hashcode = iterative_hash_object
+	(IDENTIFIER_HASH_VALUE (list->attribs[i].name), hashcode);
   return hashcode;
 }
 
 /* Given two lists of attributes, return true if list l2 is
    equivalent to l1.  */
 
-int
-attribute_list_equal (tree l1, tree l2)
+bool
+attribute_list_equal (attribute_list l1, attribute_list l2)
 {
-  return attribute_list_contained (l1, l2)
-	 && attribute_list_contained (l2, l1);
+  bool result;
+  
+  result = l1 == l2;
+  if (l1 == NULL || l2 == NULL || result)
+    return result;
+
+  /* Attribute lists are supposed to contain only unique entries,
+     so if they're the same size then 'contained' should be equivalent
+     to 'equal'.  */
+  result = (l1->n_attributes == l2->n_attributes
+	    && attribute_list_contained (l1, l2));
+  gcc_assert (l1->n_attributes != l2->n_attributes 
+	      || result == attribute_list_contained (l2, l1));
+
+  return result;
 }
 
 /* Given two lists of attributes, return true if list L2 is
@@ -3552,46 +3637,47 @@ attribute_list_equal (tree l1, tree l2)
 /* ??? It's not clear that attributes with arguments will always be handled
    correctly.  */
 
-int
-attribute_list_contained (tree l1, tree l2)
+bool
+attribute_list_contained (attribute_list a1, attribute_list a2)
 {
-  tree t1, t2;
+  attribute_count i;
 
   /* First check the obvious, maybe the lists are identical.  */
-  if (l1 == l2)
-    return 1;
+  if (a1 == a2)
+    return true;
 
-  /* Maybe the lists are similar.  */
-  for (t1 = l1, t2 = l2;
-       t1 != 0 && t2 != 0
-        && TREE_PURPOSE (t1) == TREE_PURPOSE (t2)
-        && TREE_VALUE (t1) == TREE_VALUE (t2);
-       t1 = TREE_CHAIN (t1), t2 = TREE_CHAIN (t2));
+  /* Check for NULLs.  */
+  if (a1 == NULL)
+    return false;
+  if (a2 == NULL)
+    return true;
 
-  /* Maybe the lists are equal.  */
-  if (t1 == 0 && t2 == 0)
-    return 1;
+  /* Maybe a2 is obviously not a subset because it's larger.  */
+  if (a1->n_attributes < a2->n_attributes)
+    return false;
 
-  for (; t2 != 0; t2 = TREE_CHAIN (t2))
+  /* Compare a common initial part of the two lists.  */
+  i = 0;
+  while (i < a2->n_attributes
+	 && a1->attribs[i].name == a2->attribs[i].name
+	 && a1->attribs[i].value == a2->attribs[i].value)
+    i++;
+    
+  while (i < a2->n_attributes)
     {
-      tree attr;
-      for (attr = lookup_attribute (IDENTIFIER_POINTER (TREE_PURPOSE (t2)), l1);
-	   attr != NULL_TREE;
-	   attr = lookup_attribute (IDENTIFIER_POINTER (TREE_PURPOSE (t2)),
-				    TREE_CHAIN (attr)))
-	{
-	  if (simple_cst_equal (TREE_VALUE (t2), TREE_VALUE (attr)) == 1)
-	    break;
-	}
+      attribute_count i1;
+      tree v2 = a2->attribs[i].value;
+      tree n2 = a2->attribs[i].name;
 
-      if (attr == 0)
-	return 0;
-
-      if (simple_cst_equal (TREE_VALUE (t2), TREE_VALUE (attr)) != 1)
-	return 0;
+      for (i1 = 0; i1 < a1->n_attributes; i1++)
+	if (is_attribute_p (IDENTIFIER_POINTER (n2), a1->attribs[i1].name)
+	    && simple_cst_equal (v2, a1->attribs[i1].value) == 1)
+	  break;
+      if (i1 == a1->n_attributes)
+	return false;
+      i++;
     }
-
-  return 1;
+  return true;
 }
 
 /* Given two lists of types

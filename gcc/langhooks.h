@@ -414,7 +414,7 @@ struct lang_hooks
      ATTRS is nonzero, use that for the function's attribute list.  */
   tree (*builtin_function) (const char *name, tree type, int function_code,
 			    enum built_in_class bt_class,
-			    const char *library_name, tree attrs);
+			    const char *library_name, attribute_list attrs);
 
   /* Whenever you add entries here, make sure you adjust langhooks-def.h
      and langhooks.c accordingly.  */

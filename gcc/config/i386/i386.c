@@ -909,13 +909,16 @@ static int ix86_comp_type_attributes (tree, tree);
 static int ix86_function_regparm (tree, tree);
 const struct attribute_spec ix86_attribute_table[];
 static bool ix86_function_ok_for_sibcall (tree, tree);
-static tree ix86_handle_cdecl_attribute (tree *, tree, tree, int, bool *);
-static tree ix86_handle_regparm_attribute (tree *, tree, tree, int, bool *);
+static void ix86_handle_cdecl_attribute (tree *, tree, tree, int, bool *,
+					 bool *);
+static void ix86_handle_regparm_attribute (tree *, tree, tree, int, bool *,
+					   bool *);
 static int ix86_value_regno (enum machine_mode);
 static bool contains_128bit_aligned_vector_p (tree);
 static rtx ix86_struct_value_rtx (tree, int);
 static bool ix86_ms_bitfield_layout_p (tree);
-static tree ix86_handle_struct_attribute (tree *, tree, tree, int, bool *);
+static void ix86_handle_struct_attribute (tree *, tree, tree, int, bool *,
+					  bool *);
 static int extended_reg_mentioned_1 (rtx *, void *);
 static bool ix86_rtx_costs (rtx, int, int, int *);
 static int min_insn_size (rtx);
@@ -1078,9 +1081,9 @@ static void init_ext_80387_constants (void);
 #undef TARGET_VECTOR_MODE_SUPPORTED_P
 #define TARGET_VECTOR_MODE_SUPPORTED_P ix86_vector_mode_supported_p
 
-#ifdef SUBTARGET_INSERT_ATTRIBUTES
-#undef TARGET_INSERT_ATTRIBUTES
-#define TARGET_INSERT_ATTRIBUTES SUBTARGET_INSERT_ATTRIBUTES
+#ifdef SUBTARGET_ADD_ATTRIBUTES
+#undef TARGET_ADD_ATTRIBUTES
+#define TARGET_ADD_ATTRIBUTES SUBTARGET_ADD_ATTRIBUTES
 #endif
 
 struct gcc_target targetm = TARGET_INITIALIZER;
@@ -1672,10 +1675,11 @@ ix86_function_ok_for_sibcall (tree decl, tree exp)
 
 /* Handle a "cdecl", "stdcall", or "fastcall" attribute;
    arguments as in struct attribute_spec.handler.  */
-static tree
+static void
 ix86_handle_cdecl_attribute (tree *node, tree name,
 			     tree args ATTRIBUTE_UNUSED,
-			     int flags ATTRIBUTE_UNUSED, bool *no_add_attrs)
+			     int flags ATTRIBUTE_UNUSED, bool *no_add_attrs,
+			     bool * ARG_UNUSED (defer))
 {
   if (TREE_CODE (*node) != FUNCTION_TYPE
       && TREE_CODE (*node) != METHOD_TYPE
@@ -1690,18 +1694,18 @@ ix86_handle_cdecl_attribute (tree *node, tree name,
     {
       if (is_attribute_p ("fastcall", name))
         {
-          if (lookup_attribute ("stdcall", TYPE_ATTRIBUTES (*node)))
+          if (has_attribute_p ("stdcall", TYPE_ATTRIBUTES (*node)))
             {
               error ("fastcall and stdcall attributes are not compatible");
             }
-           else if (lookup_attribute ("regparm", TYPE_ATTRIBUTES (*node)))
+           else if (has_attribute_p ("regparm", TYPE_ATTRIBUTES (*node)))
             {
               error ("fastcall and regparm attributes are not compatible");
             }
         }
       else if (is_attribute_p ("stdcall", name))
         {
-          if (lookup_attribute ("fastcall", TYPE_ATTRIBUTES (*node)))
+          if (has_attribute_p ("fastcall", TYPE_ATTRIBUTES (*node)))
             {
               error ("fastcall and stdcall attributes are not compatible");
             }
@@ -1713,15 +1717,14 @@ ix86_handle_cdecl_attribute (tree *node, tree name,
       warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
-
-  return NULL_TREE;
 }
 
 /* Handle a "regparm" attribute;
    arguments as in struct attribute_spec.handler.  */
-static tree
+static void
 ix86_handle_regparm_attribute (tree *node, tree name, tree args,
-			       int flags ATTRIBUTE_UNUSED, bool *no_add_attrs)
+			       int flags ATTRIBUTE_UNUSED, bool *no_add_attrs,
+			       bool * ARG_UNUSED (defer))
 {
   if (TREE_CODE (*node) != FUNCTION_TYPE
       && TREE_CODE (*node) != METHOD_TYPE
@@ -1750,13 +1753,11 @@ ix86_handle_regparm_attribute (tree *node, tree name, tree args,
 	  *no_add_attrs = true;
 	}
 
-      if (lookup_attribute ("fastcall", TYPE_ATTRIBUTES (*node)))
+      if (has_attribute_p ("fastcall", TYPE_ATTRIBUTES (*node)))
 	{
 	  error ("fastcall and regparm attributes are not compatible");
 	}
     }
-
-  return NULL_TREE;
 }
 
 /* Return 0 if the attributes for two types are incompatible, 1 if they
@@ -1773,13 +1774,13 @@ ix86_comp_type_attributes (tree type1, tree type2)
     return 1;
 
   /*  Check for mismatched fastcall types */
-  if (!lookup_attribute ("fastcall", TYPE_ATTRIBUTES (type1))
-      != !lookup_attribute ("fastcall", TYPE_ATTRIBUTES (type2)))
+  if (!has_attribute_p ("fastcall", TYPE_ATTRIBUTES (type1))
+      != !has_attribute_p ("fastcall", TYPE_ATTRIBUTES (type2)))
     return 0;
 
   /* Check for mismatched return types (cdecl vs stdcall).  */
-  if (!lookup_attribute (rtdstr, TYPE_ATTRIBUTES (type1))
-      != !lookup_attribute (rtdstr, TYPE_ATTRIBUTES (type2)))
+  if (!has_attribute_p (rtdstr, TYPE_ATTRIBUTES (type1))
+      != !has_attribute_p (rtdstr, TYPE_ATTRIBUTES (type2)))
     return 0;
   if (ix86_function_regparm (type1, NULL)
       != ix86_function_regparm (type2, NULL))
@@ -1800,14 +1801,14 @@ ix86_function_regparm (tree type, tree decl)
 
   if (!TARGET_64BIT)
     {
-      attr = lookup_attribute ("regparm", TYPE_ATTRIBUTES (type));
+      attr = get_attribute ("regparm", TYPE_ATTRIBUTES (type));
       if (attr)
 	{
-	  regparm = TREE_INT_CST_LOW (TREE_VALUE (TREE_VALUE (attr)));
+	  regparm = TREE_INT_CST_LOW (TREE_VALUE (attr));
 	  user_convention = true;
 	}
 
-      if (lookup_attribute ("fastcall", TYPE_ATTRIBUTES (type)))
+      if (has_attribute_p ("fastcall", TYPE_ATTRIBUTES (type)))
 	{
 	  regparm = 2;
 	  user_convention = true;
@@ -1871,12 +1872,12 @@ ix86_return_pops_args (tree fundecl, tree funtype, int size)
   int rtd = TARGET_RTD && (!fundecl || TREE_CODE (fundecl) != IDENTIFIER_NODE);
 
   /* Cdecl functions override -mrtd, and never pop the stack.  */
-  if (! lookup_attribute ("cdecl", TYPE_ATTRIBUTES (funtype))) {
+  if (! has_attribute_p ("cdecl", TYPE_ATTRIBUTES (funtype))) {
 
     /* Stdcall and fastcall functions will pop the stack if not
        variable args.  */
-    if (lookup_attribute ("stdcall", TYPE_ATTRIBUTES (funtype))
-        || lookup_attribute ("fastcall", TYPE_ATTRIBUTES (funtype)))
+    if (has_attribute_p ("stdcall", TYPE_ATTRIBUTES (funtype))
+        || has_attribute_p ("fastcall", TYPE_ATTRIBUTES (funtype)))
       rtd = 1;
 
     if (rtd
@@ -1976,7 +1977,7 @@ init_cumulative_args (CUMULATIVE_ARGS *cum,  /* Argument info to initialize */
   /* Use ecx and edx registers if function has fastcall attribute */
   if (fntype && !TARGET_64BIT)
     {
-      if (lookup_attribute ("fastcall", TYPE_ATTRIBUTES (fntype)))
+      if (has_attribute_p ("fastcall", TYPE_ATTRIBUTES (fntype)))
 	{
 	  cum->nregs = 2;
 	  cum->fastcall = 1;
@@ -11860,7 +11861,7 @@ do {									\
   if ((MASK) & target_flags						\
       && (!((MASK) & MASK_64BIT) || TARGET_64BIT))			\
     lang_hooks.builtin_function ((NAME), (TYPE), (CODE), BUILT_IN_MD,	\
-				 NULL, NULL_TREE);			\
+				 NULL, NULL);				\
 } while (0)
 
 struct builtin_description
@@ -14493,10 +14494,11 @@ x86_order_regs_for_local_alloc (void)
 
 /* Handle a "ms_struct" or "gcc_struct" attribute; arguments as in
    struct attribute_spec.handler.  */
-static tree
+static void
 ix86_handle_struct_attribute (tree *node, tree name,
 			      tree args ATTRIBUTE_UNUSED,
-			      int flags ATTRIBUTE_UNUSED, bool *no_add_attrs)
+			      int flags ATTRIBUTE_UNUSED, bool *no_add_attrs,
+			      bool * ARG_UNUSED (defer))
 {
   tree *type = NULL;
   if (DECL_P (*node))
@@ -14515,24 +14517,22 @@ ix86_handle_struct_attribute (tree *node, tree name,
     }
 
   else if ((is_attribute_p ("ms_struct", name)
-	    && lookup_attribute ("gcc_struct", TYPE_ATTRIBUTES (*type)))
+	    && has_attribute_p ("gcc_struct", TYPE_ATTRIBUTES (*type)))
 	   || ((is_attribute_p ("gcc_struct", name)
-		&& lookup_attribute ("ms_struct", TYPE_ATTRIBUTES (*type)))))
+		&& has_attribute_p ("ms_struct", TYPE_ATTRIBUTES (*type)))))
     {
       warning ("`%s' incompatible attribute ignored",
                IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
-
-  return NULL_TREE;
 }
 
 static bool
 ix86_ms_bitfield_layout_p (tree record_type)
 {
   return (TARGET_USE_MS_BITFIELD_LAYOUT &&
-	  !lookup_attribute ("gcc_struct", TYPE_ATTRIBUTES (record_type)))
-    || lookup_attribute ("ms_struct", TYPE_ATTRIBUTES (record_type));
+	  !has_attribute_p ("gcc_struct", TYPE_ATTRIBUTES (record_type)))
+    || has_attribute_p ("ms_struct", TYPE_ATTRIBUTES (record_type));
 }
 
 /* Returns an expression indicating where the this parameter is
@@ -14563,7 +14563,7 @@ x86_this_parameter (tree function)
       if (parm)
 	{
 	  int regno = 0;
-	  if (lookup_attribute ("fastcall", TYPE_ATTRIBUTES (type)))
+	  if (has_attribute_p ("fastcall", TYPE_ATTRIBUTES (type)))
 	    regno = 2;
 	  return gen_rtx_REG (SImode, regno);
 	}
@@ -14660,7 +14660,7 @@ x86_output_mi_thunk (FILE *file ATTRIBUTE_UNUSED,
       else
 	{
 	  int tmp_regno = 2 /* ECX */;
-	  if (lookup_attribute ("fastcall",
+	  if (has_attribute_p ("fastcall",
 	      TYPE_ATTRIBUTES (TREE_TYPE (function))))
 	    tmp_regno = 0 /* EAX */;
 	  tmp = gen_rtx_REG (SImode, tmp_regno);

@@ -84,7 +84,8 @@ static void  init_reg_tables (void);
 static void  block_move_call (rtx, rtx, rtx);
 static int   m32r_is_insn (rtx);
 const struct attribute_spec m32r_attribute_table[];
-static tree  m32r_handle_model_attribute (tree *, tree, tree, int, bool *);
+static void  m32r_handle_model_attribute (tree *, tree, tree, int, bool *,
+					  bool *);
 static void  m32r_output_function_prologue (FILE *, HOST_WIDE_INT);
 static void  m32r_output_function_epilogue (FILE *, HOST_WIDE_INT);
 
@@ -336,10 +337,11 @@ const struct attribute_spec m32r_attribute_table[] =
 
 /* Handle an "model" attribute; arguments as in
    struct attribute_spec.handler.  */
-static tree
+static void
 m32r_handle_model_attribute (tree *node ATTRIBUTE_UNUSED, tree name,
 			     tree args, int flags ATTRIBUTE_UNUSED,
-			     bool *no_add_attrs)
+			     bool *no_add_attrs,
+			     bool * ARG_UNUSED (defer))
 {
   tree arg;
 
@@ -357,8 +359,6 @@ m32r_handle_model_attribute (tree *node ATTRIBUTE_UNUSED, tree name,
 	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
-
-  return NULL_TREE;
 }
 
 /* Encode section information of DECL, which is either a VAR_DECL,
@@ -382,14 +382,14 @@ m32r_encode_section_info (tree decl, rtx rtl, int first)
   if (!DECL_P (decl))
     return;
 
-  model_attr = lookup_attribute ("model", DECL_ATTRIBUTES (decl));
+  model_attr = get_attribute ("model", DECL_ATTRIBUTES (decl));
   if (model_attr)
     {
       tree id;
 
       init_idents ();
 
-      id = TREE_VALUE (TREE_VALUE (model_attr));
+      id = TREE_VALUE (model_attr);
 
       if (id == small_ident1 || id == small_ident2)
 	model = M32R_MODEL_SMALL;
@@ -435,7 +435,7 @@ m32r_in_small_data_p (tree decl)
   if (TREE_CODE (decl) != VAR_DECL)
     return false;
 
-  if (lookup_attribute ("model", DECL_ATTRIBUTES (decl)))
+  if (has_attribute_p ("model", DECL_ATTRIBUTES (decl)))
     return false;
 
   section = DECL_SECTION_NAME (decl);
@@ -1506,7 +1506,7 @@ m32r_compute_function_type (tree decl)
     return fn_type;
 
   /* Compute function type.  */
-  fn_type = (lookup_attribute ("interrupt", DECL_ATTRIBUTES (current_function_decl)) != NULL_TREE
+  fn_type = (has_attribute_p ("interrupt", DECL_ATTRIBUTES (current_function_decl))
 	     ? M32R_FUNCTION_INTERRUPT
 	     : M32R_FUNCTION_NORMAL);
 
@@ -2846,7 +2846,7 @@ m32r_hard_regno_rename_ok (unsigned int old_reg ATTRIBUTE_UNUSED,
 			   unsigned int new_reg)
 {
   /* Interrupt routines can't clobber any register that isn't already used.  */
-  if (lookup_attribute ("interrupt", DECL_ATTRIBUTES (current_function_decl))
+  if (has_attribute_p ("interrupt", DECL_ATTRIBUTES (current_function_decl))
       && !regs_ever_live[new_reg])
     return 0;
 

@@ -1,3 +1,10 @@
+2004-09-30  Geoffrey Keating  <geoffk@apple.com>
+
+	* objc-act.c: Replace 'tree' with 'attribute_list' where appropriate.
+	Use NULL not NULL_TREE for attributes.
+	(build_objc_exception_stuff): Use merge_attributes_1 to build
+	attribute lists.
+
 2004-09-24  Ziemowit Laski  <zlaski@apple.com>
 
 	* objc-act.c (init_objc_symtab, init_module_descriptor,

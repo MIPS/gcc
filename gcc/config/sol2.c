@@ -36,10 +36,15 @@ tree solaris_pending_aligns, solaris_pending_inits, solaris_pending_finis;
    all languages to avoid changing the target machine initializer
    depending on the language.  */
 
-void
-solaris_insert_attributes (tree decl, tree *attributes)
+attribute_count
+solaris_add_attributes (tree decl, attribute_list attributes,
+			const struct one_attribute **to_add)
 {
+  static struct one_attribute a[4];
+  attribute_count ac = 0;
   tree *x, next;
+
+  *to_add = a;
 
   if (solaris_pending_aligns != NULL && TREE_CODE (decl) == VAR_DECL)
     for (x = &solaris_pending_aligns; *x; x = &TREE_CHAIN (*x))
@@ -48,13 +53,15 @@ solaris_insert_attributes (tree decl, tree *attributes)
 	tree value = TREE_VALUE (*x);
 	if (DECL_NAME (decl) == name)
 	  {
-	    if (lookup_attribute ("aligned", DECL_ATTRIBUTES (decl))
-		|| lookup_attribute ("aligned", *attributes))
+	    if (has_attribute_p ("aligned", DECL_ATTRIBUTES (decl))
+		|| has_attribute_p ("aligned", attributes))
 	      warning ("%Jignoring %<#pragma align%> for explicitly "
 		       "aligned %<%D%>", decl, decl);
 	    else
-	      *attributes = tree_cons (get_identifier ("aligned"), value,
-				       *attributes);
+	      {
+		a[ac].name = get_identifier ("aligned");
+		a[ac++].value = value;
+	      }
 	    next = TREE_CHAIN (*x);
 	    ggc_free (*x);
 	    *x = next;
@@ -68,10 +75,10 @@ solaris_insert_attributes (tree decl, tree *attributes)
 	tree name = TREE_PURPOSE (*x);
 	if (DECL_NAME (decl) == name)
 	  {
-	    *attributes = tree_cons (get_identifier ("init"), NULL,
-				     *attributes);
-	    *attributes = tree_cons (get_identifier ("used"), NULL,
-				     *attributes);
+	    a[ac].name = get_identifier ("init");
+	    a[ac++].value = NULL_TREE;
+	    a[ac].name = get_identifier ("used");
+	    a[ac++].value = NULL_TREE;
 	    next = TREE_CHAIN (*x);
 	    ggc_free (*x);
 	    *x = next;
@@ -85,16 +92,17 @@ solaris_insert_attributes (tree decl, tree *attributes)
 	tree name = TREE_PURPOSE (*x);
 	if (DECL_NAME (decl) == name)
 	  {
-	    *attributes = tree_cons (get_identifier ("fini"), NULL,
-				     *attributes);
-	    *attributes = tree_cons (get_identifier ("used"), NULL,
-				     *attributes);
+	    a[ac].name = get_identifier ("fini");
+	    a[ac++].value = NULL_TREE;
+	    a[ac].name = get_identifier ("used");
+	    a[ac++].value = NULL_TREE;
 	    next = TREE_CHAIN (*x);
 	    ggc_free (*x);
 	    *x = next;
 	    break;
 	  }
       }
+  return ac;
 }
 
 /* Output initializer or finalizer entries for DECL to FILE.  */
@@ -102,14 +110,14 @@ solaris_insert_attributes (tree decl, tree *attributes)
 void
 solaris_output_init_fini (FILE *file, tree decl)
 {
-  if (lookup_attribute ("init", DECL_ATTRIBUTES (decl)))
+  if (has_attribute_p ("init", DECL_ATTRIBUTES (decl)))
     {
       fprintf (file, "\t.pushsection\t\".init\"\n");
       ASM_OUTPUT_CALL (file, IDENTIFIER_POINTER (DECL_NAME (decl)));
       fprintf (file, "\t.popsection\n");
     }
 
-  if (lookup_attribute ("fini", DECL_ATTRIBUTES (decl)))
+  if (has_attribute_p ("fini", DECL_ATTRIBUTES (decl)))
     {
       fprintf (file, "\t.pushsection\t\".fini\"\n");
       ASM_OUTPUT_CALL (file, IDENTIFIER_POINTER (DECL_NAME (decl)));

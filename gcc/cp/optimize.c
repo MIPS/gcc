@@ -132,7 +132,7 @@ maybe_clone_body (tree fn)
 	update_cloned_parm (parm, clone_parm);
 
       /* Start processing the function.  */
-      start_preparsed_function (clone, NULL_TREE, SF_PRE_PARSED);
+      start_preparsed_function (clone, NULL, SF_PRE_PARSED);
 
       /* Remap the parameters.  */
       decl_map = splay_tree_new (splay_tree_compare_pointers, NULL, NULL);

@@ -937,7 +937,7 @@ inline_forbidden_p_1 (tree *nodep, int *walk_subtrees ATTRIBUTE_UNUSED,
 	 SPEC2000 inlining into schedule_block cause it to require 2GB of
 	 RAM instead of 256MB.  */
       if (alloca_call_p (node)
-	  && !lookup_attribute ("always_inline", DECL_ATTRIBUTES (fn)))
+	  && !has_attribute_p ("always_inline", DECL_ATTRIBUTES (fn)))
 	{
 	  inline_forbidden_reason
 	    = N_("%Jfunction '%F' can never be inlined because it uses "
@@ -1122,7 +1122,7 @@ inlinable_function_p (tree fn)
 			 && DECL_DECLARED_INLINE_P (fn)
 			 && !DECL_IN_SYSTEM_HEADER (fn));
 
-      if (lookup_attribute ("always_inline", DECL_ATTRIBUTES (fn)))
+      if (has_attribute_p ("always_inline", DECL_ATTRIBUTES (fn)))
 	sorry (inline_forbidden_reason, fn, fn);
       else if (do_warning)
 	warning (inline_forbidden_reason, fn, fn);
@@ -1468,7 +1468,7 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
      inlining.  */
   if (!cgraph_inline_p (edge, &reason))
     {
-      if (lookup_attribute ("always_inline", DECL_ATTRIBUTES (fn)))
+      if (has_attribute_p ("always_inline", DECL_ATTRIBUTES (fn)))
 	{
 	  sorry ("%Jinlining failed in call to '%F': %s", fn, fn, reason);
 	  sorry ("called from here");

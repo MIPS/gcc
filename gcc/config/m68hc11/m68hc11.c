@@ -73,7 +73,6 @@ static int m68hc11_shift_cost (enum machine_mode, rtx, int);
 static int m68hc11_rtx_costs_1 (rtx, enum rtx_code, enum rtx_code);
 static bool m68hc11_rtx_costs (rtx, int, int, int *);
 static int m68hc11_auto_inc_p (rtx);
-static tree m68hc11_handle_fntype_attribute (tree *, tree, tree, int, bool *);
 const struct attribute_spec m68hc11_attribute_table[];
 
 void create_regs_rtx (void);
@@ -1298,10 +1297,11 @@ m68hc11_initialize_trampoline (rtx tramp, rtx fnaddr, rtx cxt)
 
 /* Handle an "tiny_data" attribute; arguments as in
    struct attribute_spec.handler.  */
-static tree
+static void
 m68hc11_handle_page0_attribute (tree *node, tree name,
                                 tree args ATTRIBUTE_UNUSED,
-                                int flags ATTRIBUTE_UNUSED, bool *no_add_attrs)
+                                int flags ATTRIBUTE_UNUSED, bool *no_add_attrs,
+				bool * ARG_UNUSED (defer))
 {
   tree decl = *node;
 
@@ -1314,17 +1314,15 @@ m68hc11_handle_page0_attribute (tree *node, tree name,
       warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
-
-  return NULL_TREE;
 }
 
 const struct attribute_spec m68hc11_attribute_table[] =
 {
   /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */
-  { "interrupt", 0, 0, false, true,  true,  m68hc11_handle_fntype_attribute },
-  { "trap",      0, 0, false, true,  true,  m68hc11_handle_fntype_attribute },
-  { "far",       0, 0, false, true,  true,  m68hc11_handle_fntype_attribute },
-  { "near",      0, 0, false, true,  true,  m68hc11_handle_fntype_attribute },
+  { "interrupt", 0, 0, false, true,  true,  handle_fndecl_attribute },
+  { "trap",      0, 0, false, true,  true,  handle_fndecl_attribute },
+  { "far",       0, 0, false, true,  true,  handle_fndecl_attribute },
+  { "near",      0, 0, false, true,  true,  handle_fndecl_attribute },
   { "page0",     0, 0, false, false, false, m68hc11_handle_page0_attribute },
   { NULL,        0, 0, false, false, false, NULL }
 };
@@ -1334,26 +1332,6 @@ const struct attribute_spec m68hc11_attribute_table[] =
    record one such symbol.  If there are several, a warning is reported.  */
 static rtx trap_handler_symbol = 0;
 
-/* Handle an attribute requiring a FUNCTION_TYPE, FIELD_DECL or TYPE_DECL;
-   arguments as in struct attribute_spec.handler.  */
-static tree
-m68hc11_handle_fntype_attribute (tree *node, tree name,
-                                 tree args ATTRIBUTE_UNUSED,
-                                 int flags ATTRIBUTE_UNUSED,
-                                 bool *no_add_attrs)
-{
-  if (TREE_CODE (*node) != FUNCTION_TYPE
-      && TREE_CODE (*node) != METHOD_TYPE
-      && TREE_CODE (*node) != FIELD_DECL
-      && TREE_CODE (*node) != TYPE_DECL)
-    {
-      warning ("`%s' attribute only applies to functions",
-	       IDENTIFIER_POINTER (name));
-      *no_add_attrs = true;
-    }
-
-  return NULL_TREE;
-}
 /* Undo the effects of the above.  */
 
 static const char *
@@ -1407,13 +1385,13 @@ m68hc11_page0_symbol_p (rtx x)
 static void
 m68hc11_encode_section_info (tree decl, rtx rtl, int first ATTRIBUTE_UNUSED)
 {
-  tree func_attr;
+  attribute_list func_attr;
   int trap_handler;
   int is_far = 0;
   
   if (TREE_CODE (decl) == VAR_DECL)
     {
-      if (lookup_attribute ("page0", DECL_ATTRIBUTES (decl)) != 0)
+      if (has_attribute_p ("page0", DECL_ATTRIBUTES (decl)))
         m68hc11_encode_label (decl);
       return;
     }
@@ -1423,13 +1401,12 @@ m68hc11_encode_section_info (tree decl, rtx rtl, int first ATTRIBUTE_UNUSED)
 
   func_attr = TYPE_ATTRIBUTES (TREE_TYPE (decl));
 
-
-  if (lookup_attribute ("far", func_attr) != NULL_TREE)
+  if (has_attribute_p ("far", func_attr))
     is_far = 1;
-  else if (lookup_attribute ("near", func_attr) == NULL_TREE)
+  else if (!has_attribute_p ("near", func_attr))
     is_far = TARGET_LONG_CALLS != 0;
 
-  trap_handler = lookup_attribute ("trap", func_attr) != NULL_TREE;
+  trap_handler = has_attribute_p ("trap", func_attr);
   if (trap_handler && is_far)
     {
       warning ("`trap' and `far' attributes are not compatible, ignoring `far'");
@@ -1484,21 +1461,20 @@ m68hc11_is_trap_symbol (rtx sym)
 int
 m68hc11_initial_elimination_offset (int from, int to)
 {
-  int trap_handler;
-  tree func_attr;
+  bool trap_handler;
+  attribute_list func_attr;
   int size;
   int regno;
 
   /* For a trap handler, we must take into account the registers which
      are pushed on the stack during the trap (except the PC).  */
   func_attr = TYPE_ATTRIBUTES (TREE_TYPE (current_function_decl));
-  current_function_interrupt = lookup_attribute ("interrupt",
-						 func_attr) != NULL_TREE;
-  trap_handler = lookup_attribute ("trap", func_attr) != NULL_TREE;
+  current_function_interrupt = has_attribute_p ("interrupt", func_attr);
+  trap_handler = has_attribute_p ("trap", func_attr);
 
-  if (lookup_attribute ("far", func_attr) != 0)
+  if (has_attribute_p ("far", func_attr))
     current_function_far = 1;
-  else if (lookup_attribute ("near", func_attr) != 0)
+  else if (has_attribute_p ("near", func_attr))
     current_function_far = 0;
   else
     current_function_far = (TARGET_LONG_CALLS != 0
@@ -1762,7 +1738,7 @@ m68hc11_output_function_epilogue (FILE *out ATTRIBUTE_UNUSED,
 void
 expand_prologue (void)
 {
-  tree func_attr;
+  attribute_list func_attr;
   int size;
   int regno;
   rtx scratch;
@@ -1776,12 +1752,11 @@ expand_prologue (void)
 
   /* Generate specific prologue for interrupt handlers.  */
   func_attr = TYPE_ATTRIBUTES (TREE_TYPE (current_function_decl));
-  current_function_interrupt = lookup_attribute ("interrupt",
-						 func_attr) != NULL_TREE;
-  current_function_trap = lookup_attribute ("trap", func_attr) != NULL_TREE;
-  if (lookup_attribute ("far", func_attr) != NULL_TREE)
+  current_function_interrupt = has_attribute_p ("interrupt", func_attr);
+  current_function_trap = has_attribute_p ("trap", func_attr);
+  if (has_attribute_p ("far", func_attr))
     current_function_far = 1;
-  else if (lookup_attribute ("near", func_attr) != NULL_TREE)
+  else if (has_attribute_p ("near", func_attr))
     current_function_far = 0;
   else
     current_function_far = (TARGET_LONG_CALLS != 0

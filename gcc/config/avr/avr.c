@@ -60,15 +60,16 @@ static int out_adj_frame_ptr (FILE *, int);
 static int out_set_stack_ptr (FILE *, int, int);
 static RTX_CODE compare_condition (rtx insn);
 static int compare_sign_p (rtx insn);
-static tree avr_handle_progmem_attribute (tree *, tree, tree, int, bool *);
-static tree avr_handle_fndecl_attribute (tree *, tree, tree, int, bool *);
+static void avr_handle_progmem_attribute (tree *, tree, tree, int, bool *,
+					  bool *);
 const struct attribute_spec avr_attribute_table[];
 static bool avr_assemble_integer (rtx, unsigned int, int);
 static void avr_file_start (void);
 static void avr_file_end (void);
 static void avr_output_function_prologue (FILE *, HOST_WIDE_INT);
 static void avr_output_function_epilogue (FILE *, HOST_WIDE_INT);
-static void avr_insert_attributes (tree, tree *);
+static attribute_count avr_add_attributes (tree, attribute_list,
+					   const struct one_attribute **);
 static unsigned int avr_section_type_flags (tree, const char *, int);
 
 static void avr_reorg (void);
@@ -232,8 +233,8 @@ int avr_case_values_threshold = 30000;
 #define TARGET_ATTRIBUTE_TABLE avr_attribute_table
 #undef TARGET_ASM_FUNCTION_RODATA_SECTION
 #define TARGET_ASM_FUNCTION_RODATA_SECTION default_no_function_rodata_section
-#undef TARGET_INSERT_ATTRIBUTES
-#define TARGET_INSERT_ATTRIBUTES avr_insert_attributes
+#undef TARGET_ADD_ATTRIBUTES
+#define TARGET_ADD_ATTRIBUTES avr_add_attributes
 #undef TARGET_SECTION_TYPE_FLAGS
 #define TARGET_SECTION_TYPE_FLAGS avr_section_type_flags
 #undef TARGET_RTX_COSTS
@@ -343,13 +344,10 @@ avr_reg_class_from_letter  (int c)
 static int
 avr_naked_function_p (tree func)
 {
-  tree a;
-
   if (TREE_CODE (func) != FUNCTION_DECL)
     abort ();
   
-  a = lookup_attribute ("naked", DECL_ATTRIBUTES (func));
-  return a != NULL_TREE;
+  return has_attribute_p ("naked", DECL_ATTRIBUTES (func));
 }
 
 /* Return nonzero if FUNC is an interrupt function as specified
@@ -358,13 +356,10 @@ avr_naked_function_p (tree func)
 static int
 interrupt_function_p (tree func)
 {
-  tree a;
-
   if (TREE_CODE (func) != FUNCTION_DECL)
     return 0;
 
-  a = lookup_attribute ("interrupt", DECL_ATTRIBUTES (func));
-  return a != NULL_TREE;
+  return has_attribute_p ("interrupt", DECL_ATTRIBUTES (func));
 }
 
 /* Return nonzero if FUNC is a signal function as specified
@@ -373,13 +368,10 @@ interrupt_function_p (tree func)
 static int
 signal_function_p (tree func)
 {
-  tree a;
-
   if (TREE_CODE (func) != FUNCTION_DECL)
     return 0;
 
-  a = lookup_attribute ("signal", DECL_ATTRIBUTES (func));
-  return a != NULL_TREE;
+  return has_attribute_p ("signal", DECL_ATTRIBUTES (func));
 }
 
 /* Return the number of hard registers to push/pop in the prologue/epilogue
@@ -4471,19 +4463,20 @@ const struct attribute_spec avr_attribute_table[] =
 {
   /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */
   { "progmem",   0, 0, false, false, false,  avr_handle_progmem_attribute },
-  { "signal",    0, 0, true,  false, false,  avr_handle_fndecl_attribute },
-  { "interrupt", 0, 0, true,  false, false,  avr_handle_fndecl_attribute },
-  { "naked",     0, 0, true,  false, false,  avr_handle_fndecl_attribute },
+  { "signal",    0, 0, true,  false, false,  handle_fndecl_attribute },
+  { "interrupt", 0, 0, true,  false, false,  handle_fndecl_attribute },
+  { "naked",     0, 0, true,  false, false,  handle_fndecl_attribute },
   { NULL,        0, 0, false, false, false, NULL }
 };
 
 /* Handle a "progmem" attribute; arguments as in
    struct attribute_spec.handler.  */
-static tree
+static void
 avr_handle_progmem_attribute (tree *node, tree name,
-			      tree args ATTRIBUTE_UNUSED,
+			      tree args,
 			      int flags ATTRIBUTE_UNUSED,
-			      bool *no_add_attrs)
+			      bool *no_add_attrs,
+			      bool * ARG_UNUSED (defer))
 {
   if (DECL_P (*node))
     {
@@ -4493,8 +4486,16 @@ avr_handle_progmem_attribute (tree *node, tree name,
 	     but try to handle it for GCC 3.0 backwards compatibility.  */
 
 	  tree type = TREE_TYPE (*node);
-	  tree attr = tree_cons (name, args, TYPE_ATTRIBUTES (type));
-	  tree newtype = build_type_attribute_variant (type, attr);
+	  tree newtype;
+	  struct one_attribute attr;
+	  attribute_list new_type_at;
+
+	  attr.name = name;
+	  attr.value = args;
+	  
+	  new_type_at = merge_attributes_1 (TYPE_ATTRIBUTES (type),
+					    1, &attr, NULL, 0);
+	  newtype = build_type_attribute_variant (type, new_type_at);
 
 	  TYPE_MAIN_VARIANT (newtype) = TYPE_MAIN_VARIANT (type);
 	  TREE_TYPE (*node) = newtype;
@@ -4515,42 +4516,20 @@ avr_handle_progmem_attribute (tree *node, tree name,
 	  *no_add_attrs = true;
 	}
     }
-
-  return NULL_TREE;
-}
-
-/* Handle an attribute requiring a FUNCTION_DECL; arguments as in
-   struct attribute_spec.handler.  */
-
-static tree
-avr_handle_fndecl_attribute (tree *node, tree name,
-			     tree args ATTRIBUTE_UNUSED,
-			     int flags ATTRIBUTE_UNUSED,
-			     bool *no_add_attrs)
-{
-  if (TREE_CODE (*node) != FUNCTION_DECL)
-    {
-      warning ("`%s' attribute only applies to functions",
-	       IDENTIFIER_POINTER (name));
-      *no_add_attrs = true;
-    }
-
-  return NULL_TREE;
 }
 
 /* Look for attribute `progmem' in DECL
    if found return 1, otherwise 0.  */
 
-int
-avr_progmem_p (tree decl, tree attributes)
+static int
+avr_progmem_p (tree decl, attribute_list attributes)
 {
   tree a;
 
   if (TREE_CODE (decl) != VAR_DECL)
     return 0;
 
-  if (NULL_TREE
-      != lookup_attribute ("progmem", attributes))
+  if (has_attribute_p ("progmem", attributes))
     return 1;
 
   a=decl;
@@ -4561,7 +4540,7 @@ avr_progmem_p (tree decl, tree attributes)
   if (a == error_mark_node)
     return 0;
 
-  if (NULL_TREE != lookup_attribute ("progmem", TYPE_ATTRIBUTES (a)))
+  if (has_attribute_p ("progmem", TYPE_ATTRIBUTES (a)))
     return 1;
   
   return 0;
@@ -4569,22 +4548,29 @@ avr_progmem_p (tree decl, tree attributes)
 
 /* Add the section attribute if the variable is in progmem.  */
 
-static void
-avr_insert_attributes (tree node, tree *attributes)
+static attribute_count
+avr_add_attributes (tree node, attribute_list attributes,
+		    const struct one_attribute ** to_add)
 {
   if (TREE_CODE (node) == VAR_DECL
       && (TREE_STATIC (node) || DECL_EXTERNAL (node))
-      && avr_progmem_p (node, *attributes))
+      && avr_progmem_p (node, attributes))
     {
       static const char dsec[] = ".progmem.data";
-      *attributes = tree_cons (get_identifier ("section"),
-		build_tree_list (NULL, build_string (strlen (dsec), dsec)),
-		*attributes);
+      static struct one_attribute add;
 
       /* ??? This seems sketchy.  Why can't the user declare the
 	 thing const in the first place?  */
       TREE_READONLY (node) = 1;
+
+      *to_add = &add;
+      add.name = get_identifier ("section");
+      add.value = build_tree_list (NULL, build_string (strlen (dsec), dsec));
+
+      return 1;
     }
+  else
+    return 0;
 }
 
 static unsigned int

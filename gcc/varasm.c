@@ -4476,12 +4476,12 @@ enum tls_model
 decl_tls_model (tree decl)
 {
   enum tls_model kind;
-  tree attr = lookup_attribute ("tls_model", DECL_ATTRIBUTES (decl));
+  tree at = get_attribute ("tls_model", DECL_ATTRIBUTES (decl));
   bool is_local;
 
-  if (attr)
+  if (at)
     {
-      attr = TREE_VALUE (TREE_VALUE (attr));
+      tree attr = TREE_VALUE (at);
       if (TREE_CODE (attr) != STRING_CST)
 	abort ();
       if (!strcmp (TREE_STRING_POINTER (attr), "local-exec"))

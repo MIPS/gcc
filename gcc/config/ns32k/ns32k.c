@@ -67,7 +67,6 @@ static const char *const ns32k_out_reg_names[] = OUTPUT_REGISTER_NAMES;
 static rtx gen_indexed_expr (rtx, rtx, rtx);
 static const char *singlemove_string (rtx *);
 static void move_tail (rtx[], int, int);
-static tree ns32k_handle_fntype_attribute (tree *, tree, tree, int, bool *);
 const struct attribute_spec ns32k_attribute_table[];
 static void ns32k_output_function_prologue (FILE *, HOST_WIDE_INT);
 static void ns32k_output_function_epilogue (FILE *, HOST_WIDE_INT);
@@ -1047,31 +1046,11 @@ const struct attribute_spec ns32k_attribute_table[] =
   /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */
   /* Stdcall attribute says callee is responsible for popping arguments
      if they are not variable.  */
-  { "stdcall", 0, 0, false, true,  true,  ns32k_handle_fntype_attribute },
+  { "stdcall", 0, 0, false, true,  true,  NULL },
   /* Cdecl attribute says the callee is a normal C declaration */
-  { "cdecl",   0, 0, false, true,  true,  ns32k_handle_fntype_attribute },
+  { "cdecl",   0, 0, false, true,  true,  NULL },
   { NULL,      0, 0, false, false, false, NULL }
 };
-
-/* Handle an attribute requiring a FUNCTION_TYPE, FIELD_DECL or TYPE_DECL;
-   arguments as in struct attribute_spec.handler.  */
-static tree
-ns32k_handle_fntype_attribute (tree *node, tree name,
-			       tree args ATTRIBUTE_UNUSED,
-			       int flags ATTRIBUTE_UNUSED,
-			       bool *no_add_attrs)
-{
-  if (TREE_CODE (*node) != FUNCTION_TYPE
-      && TREE_CODE (*node) != FIELD_DECL
-      && TREE_CODE (*node) != TYPE_DECL)
-    {
-      warning ("`%s' attribute only applies to functions",
-	       IDENTIFIER_POINTER (name));
-      *no_add_attrs = true;
-    }
-
-  return NULL_TREE;
-}
 
 
 /* Value is the number of bytes of arguments automatically
@@ -1100,11 +1079,11 @@ ns32k_return_pops_args (tree fundecl ATTRIBUTE_UNUSED, tree funtype, int size)
     return rtd ? size : 0;
 
   /* Cdecl functions override -mrtd, and never pop the stack */
-  if (lookup_attribute ("cdecl", TYPE_ATTRIBUTES (funtype)))
+  if (has_attribute_p ("cdecl", TYPE_ATTRIBUTES (funtype)))
     return 0;
 
   /* Stdcall functions will pop the stack if not variable args */
-  if (lookup_attribute ("stdcall", TYPE_ATTRIBUTES (funtype)))
+  if (has_attribute_p ("stdcall", TYPE_ATTRIBUTES (funtype)))
     rtd = 1;
 
   if (rtd)

@@ -311,7 +311,7 @@ int
 lhd_tree_inlining_cannot_inline_tree_fn (tree *fnp)
 {
   if (flag_really_no_inline
-      && lookup_attribute ("always_inline", DECL_ATTRIBUTES (*fnp)) == NULL)
+      && !has_attribute_p ("always_inline", DECL_ATTRIBUTES (*fnp)))
     return 1;
 
   return 0;
@@ -324,7 +324,7 @@ lhd_tree_inlining_cannot_inline_tree_fn (tree *fnp)
 int
 lhd_tree_inlining_disregard_inline_limits (tree fn)
 {
-  if (lookup_attribute ("always_inline", DECL_ATTRIBUTES (fn)) != NULL)
+  if (has_attribute_p ("always_inline", DECL_ATTRIBUTES (fn)))
     return 1;
 
   return 0;

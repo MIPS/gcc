@@ -445,7 +445,7 @@ use_thunk (tree thunk_fndecl, bool emit_p)
 
       DECL_RESULT (thunk_fndecl) = NULL_TREE;
 
-      start_preparsed_function (thunk_fndecl, NULL_TREE, SF_PRE_PARSED);
+      start_preparsed_function (thunk_fndecl, NULL, SF_PRE_PARSED);
       /* We don't bother with a body block for thunks.  */
 
       /* There's no need to check accessibility inside the thunk body.  */
@@ -725,7 +725,7 @@ synthesize_method (tree fndecl)
      function.  */
   DECL_SOURCE_LOCATION (fndecl) = input_location;
 
-  start_preparsed_function (fndecl, NULL_TREE, SF_DEFAULT | SF_PRE_PARSED);
+  start_preparsed_function (fndecl, NULL, SF_DEFAULT | SF_PRE_PARSED);
   stmt = begin_function_body ();
 
   if (DECL_OVERLOADED_OPERATOR_P (fndecl) == NOP_EXPR)

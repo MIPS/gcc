@@ -19,6 +19,8 @@ along with GCC; see the file COPYING.  If not, write to the Free
 Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
+/* FIXME: what does this file do?  */
+
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
@@ -368,12 +370,7 @@ browse_tree (tree begin)
 	  break;
 
 	case TB_ATTRIBUTES:
-	  if (head && DECL_P (head))
-	    TB_SET_HEAD (DECL_ATTRIBUTES (head));
-	  else if (head && TYPE_P (head))
-	    TB_SET_HEAD (TYPE_ATTRIBUTES (head));
-	  else
-	    TB_WF;
+	  TB_WF;
 	  break;
 
 	case TB_CONTEXT:

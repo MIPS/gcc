@@ -5737,36 +5737,36 @@ alpha_init_builtins (void)
   for (i = 0; i < ARRAY_SIZE (zero_arg_builtins); ++i, ++p)
     if ((target_flags & p->target_mask) == p->target_mask)
       lang_hooks.builtin_function (p->name, ftype, p->code, BUILT_IN_MD,
-				   NULL, NULL_TREE);
+				   NULL, NULL);
 
   ftype = build_function_type_list (long_integer_type_node,
-				    long_integer_type_node, NULL_TREE);
+				    long_integer_type_node, NULL);
 
   p = one_arg_builtins;
   for (i = 0; i < ARRAY_SIZE (one_arg_builtins); ++i, ++p)
     if ((target_flags & p->target_mask) == p->target_mask)
       lang_hooks.builtin_function (p->name, ftype, p->code, BUILT_IN_MD,
-				   NULL, NULL_TREE);
+				   NULL, NULL);
 
   ftype = build_function_type_list (long_integer_type_node,
 				    long_integer_type_node,
-				    long_integer_type_node, NULL_TREE);
+				    long_integer_type_node, NULL);
 
   p = two_arg_builtins;
   for (i = 0; i < ARRAY_SIZE (two_arg_builtins); ++i, ++p)
     if ((target_flags & p->target_mask) == p->target_mask)
       lang_hooks.builtin_function (p->name, ftype, p->code, BUILT_IN_MD,
-				   NULL, NULL_TREE);
+				   NULL, NULL);
 
   ftype = build_function_type (ptr_type_node, void_list_node);
   lang_hooks.builtin_function ("__builtin_thread_pointer", ftype,
 			       ALPHA_BUILTIN_THREAD_POINTER, BUILT_IN_MD,
-			       NULL, NULL_TREE);
+			       NULL, NULL);
 
-  ftype = build_function_type_list (void_type_node, ptr_type_node, NULL_TREE);
+  ftype = build_function_type_list (void_type_node, ptr_type_node, NULL);
   lang_hooks.builtin_function ("__builtin_set_thread_pointer", ftype,
 			       ALPHA_BUILTIN_SET_THREAD_POINTER, BUILT_IN_MD,
-			       NULL, NULL_TREE);
+			       NULL, NULL);
 }
 
 /* Expand an expression EXP that calls a built-in function,
@@ -8427,14 +8427,14 @@ vms_section_type_flags (tree decl, const char *name, int reloc)
 {
   unsigned int flags = default_section_type_flags (decl, name, reloc);
 
-  if (decl && DECL_ATTRIBUTES (decl)
-      && lookup_attribute ("overlaid", DECL_ATTRIBUTES (decl)))
+  if (!decl)
+    return flags;
+
+  if (has_attribute_p ("overlaid", DECL_ATTRIBUTES (decl)))
     flags |= SECTION_VMS_OVERLAY;
-  if (decl && DECL_ATTRIBUTES (decl)
-      && lookup_attribute ("global", DECL_ATTRIBUTES (decl)))
+  if (has_attribute_p ("global", DECL_ATTRIBUTES (decl)))
     flags |= SECTION_VMS_GLOBAL;
-  if (decl && DECL_ATTRIBUTES (decl)
-      && lookup_attribute ("initialize", DECL_ATTRIBUTES (decl)))
+  if (has_attribute_p ("initialize", DECL_ATTRIBUTES (decl)))
     flags |= SECTION_VMS_INITIALIZE;
 
   return flags;
@@ -8698,12 +8698,14 @@ unicosmk_asm_named_section (const char *name, unsigned int flags,
     fprintf (asm_out_file, "\t.psect\t%s,%s\n", name, kind);
 }
 
-static void
-unicosmk_insert_attributes (tree decl, tree *attr_ptr ATTRIBUTE_UNUSED)
+static attribute_count
+unicosmk_add_attributes (tree decl, attribute_list ARG_UNUSED (attrs),
+			 const struct one_attribute ** ARG_UNUSED (oa))
 {
   if (DECL_P (decl)
       && (TREE_PUBLIC (decl) || TREE_CODE (decl) == FUNCTION_DECL))
     unicosmk_unique_section (decl, 0);
+  return 0;
 }
 
 /* Output an alignment directive. We have to use the macro 'gcc@code@align'
@@ -9312,8 +9314,8 @@ alpha_init_libfuncs (void)
 #define TARGET_IN_SMALL_DATA_P alpha_in_small_data_p
 
 #if TARGET_ABI_UNICOSMK
-# undef TARGET_INSERT_ATTRIBUTES
-# define TARGET_INSERT_ATTRIBUTES unicosmk_insert_attributes
+# undef TARGET_ADD_ATTRIBUTES
+# define TARGET_ADD_ATTRIBUTES unicosmk_add_attributes
 # undef TARGET_SECTION_TYPE_FLAGS
 # define TARGET_SECTION_TYPE_FLAGS unicosmk_section_type_flags
 # undef TARGET_ASM_UNIQUE_SECTION

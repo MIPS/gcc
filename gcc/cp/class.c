@@ -5089,7 +5089,7 @@ unreverse_member_declarations (tree t)
 }
 
 tree
-finish_struct (tree t, tree attributes)
+finish_struct (tree t, attribute_list attributes)
 {
   location_t saved_loc = input_location;
 

@@ -146,6 +146,24 @@ indent_to (FILE *file, int column)
   for (i = 0; i < column; i++)
     fprintf (file, " ");
 }
+
+/* Print some attributes of a node.  */
+void
+print_attributes (FILE *file, attribute_list al, int indent)
+{
+  attribute_count ac;
+  
+  if (! al)
+    return;
+  fprintf (file, " attributes <");
+  for (ac = 0; ac < al->n_attributes; ac++)
+    if (al->attribs[ac].value)
+      print_node (file, IDENTIFIER_POINTER (al->attribs[ac].name),
+		  al->attribs[ac].value, indent);
+    else
+      fprintf (file, " %s", IDENTIFIER_POINTER (al->attribs[ac].name));
+  fputc ('>', file);
+}
 
 /* Print the node NODE in full on file FILE, preceded by PREFIX,
    starting in column INDENT.  */
@@ -416,8 +434,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	}
 
       print_node_brief (file, "context", DECL_CONTEXT (node), indent + 4);
-      print_node_brief (file, "attributes",
-			DECL_ATTRIBUTES (node), indent + 4);
+      print_attributes (file, DECL_ATTRIBUTES (node), indent + 4);
       print_node_brief (file, "abstract_origin",
 			DECL_ABSTRACT_ORIGIN (node), indent + 4);
 
@@ -527,7 +544,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	       TYPE_ALIGN (node), TYPE_SYMTAB_ADDRESS (node),
 	       TYPE_ALIAS_SET (node));
 
-      print_node (file, "attributes", TYPE_ATTRIBUTES (node), indent + 4);
+      print_attributes (file, TYPE_ATTRIBUTES (node), indent + 4);
 
       if (INTEGRAL_TYPE_P (node) || TREE_CODE (node) == REAL_TYPE)
 	{

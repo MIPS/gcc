@@ -1750,8 +1750,8 @@ xstormy16_encode_section_info (tree decl,
 			       int first ATTRIBUTE_UNUSED)
 {
   if (TREE_CODE (decl) == VAR_DECL
-      && (lookup_attribute ("below100", DECL_ATTRIBUTES (decl))
-	  || lookup_attribute ("BELOW100", DECL_ATTRIBUTES (decl))))
+      && (has_attribute_p ("below100", DECL_ATTRIBUTES (decl))
+	  || has_attribute_p ("BELOW100", DECL_ATTRIBUTES (decl))))
     {
       const char *newsection = 0;
       char *newname;
@@ -2372,7 +2372,7 @@ xstormy16_output_shift (enum machine_mode mode, enum rtx_code code,
 int
 xstormy16_interrupt_function_p (void)
 {
-  tree attributes;
+  attribute_list attributes;
   
   /* The dwarf2 mechanism asks for INCOMING_FRAME_SP_OFFSET before
      any functions are declared, which is demonstrably wrong, but
@@ -2381,51 +2381,32 @@ xstormy16_interrupt_function_p (void)
     return 0;
 
   attributes = TYPE_ATTRIBUTES (TREE_TYPE (current_function_decl));
-  return lookup_attribute ("interrupt", attributes) != NULL_TREE;
+  return has_attribute_p ("interrupt", attributes);
 }
 
 #undef TARGET_ATTRIBUTE_TABLE
 #define TARGET_ATTRIBUTE_TABLE xstormy16_attribute_table
-static tree xstormy16_handle_interrupt_attribute
-  (tree *, tree, tree, int, bool *);
-static tree xstormy16_handle_below100_attribute
-  (tree *, tree, tree, int, bool *);
+static void xstormy16_handle_below100_attribute
+  (tree *, tree, tree, int, bool *, bool *);
 
 static const struct attribute_spec xstormy16_attribute_table[] =
 {
   /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */
-  { "interrupt", 0, 0, false, true,  true,  xstormy16_handle_interrupt_attribute },
+  { "interrupt", 0, 0, false, true,  true,  NULL },
   { "BELOW100",  0, 0, false, false, false, xstormy16_handle_below100_attribute },
   { "below100",  0, 0, false, false, false, xstormy16_handle_below100_attribute },
   { NULL,        0, 0, false, false, false, NULL }
 };
 
-/* Handle an "interrupt" attribute;
-   arguments as in struct attribute_spec.handler.  */
-static tree
-xstormy16_handle_interrupt_attribute (tree *node, tree name,
-				      tree args ATTRIBUTE_UNUSED,
-				      int flags ATTRIBUTE_UNUSED,
-				      bool *no_add_attrs)
-{
-  if (TREE_CODE (*node) != FUNCTION_TYPE)
-    {
-      warning ("`%s' attribute only applies to functions",
-	       IDENTIFIER_POINTER (name));
-      *no_add_attrs = true;
-    }
-
-  return NULL_TREE;
-}
-
 /* Handle an "below" attribute;
    arguments as in struct attribute_spec.handler.  */
-static tree
+static void
 xstormy16_handle_below100_attribute (tree *node,
 				     tree name ATTRIBUTE_UNUSED,
 				     tree args ATTRIBUTE_UNUSED,
 				     int flags ATTRIBUTE_UNUSED,
-				     bool *no_add_attrs)
+				     bool *no_add_attrs,
+				     bool * ARG_UNUSED (defer))
 {
   if (TREE_CODE (*node) != VAR_DECL
       && TREE_CODE (*node) != POINTER_TYPE
@@ -2442,8 +2423,6 @@ xstormy16_handle_below100_attribute (tree *node,
 	  *no_add_attrs = true;
 	}
     }
-  
-  return NULL_TREE;
 }
 
 #undef TARGET_INIT_BUILTINS

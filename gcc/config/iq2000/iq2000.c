@@ -2689,7 +2689,7 @@ iq2000_output_conditional_branch (rtx insn, rtx * operands, int two_operands_p,
 
 #define def_builtin(NAME, TYPE, CODE)					\
   lang_hooks.builtin_function ((NAME), (TYPE), (CODE), BUILT_IN_MD,	\
-			       NULL, NULL_TREE)
+			       NULL, NULL)
 
 static void
 iq2000_init_builtins (void)

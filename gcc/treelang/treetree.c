@@ -146,7 +146,7 @@ static tree* getstmtlist (void);
 /* Langhooks.  */
 static tree builtin_function (const char *name, tree type, int function_code,
 		  enum built_in_class class, const char *library_name,
-		  tree attrs);
+		  attribute_list attrs);
 static tree getdecls (void);
 static int global_bindings_p (void);
 static void insert_block (tree);
@@ -1252,7 +1252,7 @@ treelang_init_decl_processing (void)
 static tree
 builtin_function (const char *name, tree type, int function_code,
 		  enum built_in_class class, const char *library_name,
-		  tree attrs)
+		  attribute_list attrs)
 {
   tree decl = build_decl (FUNCTION_DECL, get_identifier (name), type);
   DECL_EXTERNAL (decl) = 1;
@@ -1267,7 +1267,7 @@ builtin_function (const char *name, tree type, int function_code,
   if (attrs)
     decl_attributes (&decl, attrs, ATTR_FLAG_BUILT_IN);
   else
-    decl_attributes (&decl, NULL_TREE, 0);
+    decl_attributes (&decl, NULL, 0);
 
   return decl;
 }

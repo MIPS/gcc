@@ -64,14 +64,14 @@ static tree grok_reference_init (tree, tree, tree, tree *);
 static tree grokfndecl (tree, tree, tree, tree, tree, int,
 			enum overload_flags, cp_cv_quals,
 			tree, int, int, int, int, int, int, tree, 
-			tree *);
+			attribute_list *);
 static tree grokvardecl (tree, tree, const cp_decl_specifier_seq *,
 			 int, int, tree);
 static void record_unknown_type (tree, const char *);
 static tree builtin_function_1 (const char *, tree, tree,
 				enum built_in_function code,
                                 enum built_in_class cl, const char *,
-				tree);
+				attribute_list);
 static tree build_library_fn_1 (tree, enum tree_code, tree);
 static int member_function_or_else (tree, tree, enum overload_flags);
 static void bad_specifiers (tree, const char *, int, int, int, int,
@@ -1173,15 +1173,15 @@ duplicate_decls (tree newdecl, tree olddecl)
     {
       if (DECL_DECLARED_INLINE_P (newdecl)
 	  && DECL_UNINLINABLE (newdecl)
-	  && lookup_attribute ("noinline", DECL_ATTRIBUTES (newdecl)))
+	  && has_attribute_p ("noinline", DECL_ATTRIBUTES (newdecl)))
 	/* Already warned elsewhere.  */;
       else if (DECL_DECLARED_INLINE_P (olddecl)
 	       && DECL_UNINLINABLE (olddecl)
-	       && lookup_attribute ("noinline", DECL_ATTRIBUTES (olddecl)))
+	       && has_attribute_p ("noinline", DECL_ATTRIBUTES (olddecl)))
 	/* Already warned.  */;
       else if (DECL_DECLARED_INLINE_P (newdecl)
 	       && DECL_UNINLINABLE (olddecl)
-	       && lookup_attribute ("noinline", DECL_ATTRIBUTES (olddecl)))
+	       && has_attribute_p ("noinline", DECL_ATTRIBUTES (olddecl)))
 	{
 	  warning ("%Jfunction '%D' redeclared as inline", newdecl, newdecl);
 	  warning ("%Jprevious declaration of '%D' with attribute noinline",
@@ -1189,7 +1189,7 @@ duplicate_decls (tree newdecl, tree olddecl)
 	}
       else if (DECL_DECLARED_INLINE_P (olddecl)
 	       && DECL_UNINLINABLE (newdecl)
-	       && lookup_attribute ("noinline", DECL_ATTRIBUTES (newdecl)))
+	       && has_attribute_p ("noinline", DECL_ATTRIBUTES (newdecl)))
 	{
 	  warning ("%Jfunction '%D' redeclared with attribute noinline",
 		   newdecl, newdecl);
@@ -1301,7 +1301,7 @@ duplicate_decls (tree newdecl, tree olddecl)
       else if (DECL_ANTICIPATED (olddecl))
 	{
 	  tree type = TREE_TYPE (newdecl);
-	  tree attribs = (*targetm.merge_type_attributes)
+	  attribute_list attribs = (*targetm.merge_type_attributes)
 	    (TREE_TYPE (olddecl), type);
 
 	  type = cp_build_type_attribute_variant (type, attribs);
@@ -3222,7 +3222,7 @@ builtin_function_1 (const char* name,
 		    enum built_in_function code,
                     enum built_in_class class,
                     const char* libname,
-                    tree attrs)
+                    attribute_list attrs)
 {
   tree decl = build_library_fn_1 (get_identifier (name), ERROR_MARK, type);
   DECL_BUILT_IN_CLASS (decl) = class;
@@ -3246,7 +3246,7 @@ builtin_function_1 (const char* name,
   if (attrs)
     decl_attributes (&decl, attrs, ATTR_FLAG_BUILT_IN);
   else
-    decl_attributes (&decl, NULL_TREE, 0);
+    decl_attributes (&decl, NULL, 0);
 
   return decl;
 }
@@ -3273,7 +3273,7 @@ builtin_function (const char* name,
                   int code,
                   enum built_in_class cl,
                   const char* libname,
-                  tree attrs)
+                  attribute_list attrs)
 {
   /* All builtins that don't begin with an '_' should additionally
      go in the 'std' namespace.  */
@@ -3606,10 +3606,10 @@ tree
 groktypename (cp_decl_specifier_seq *type_specifiers,
 	      const cp_declarator *declarator)
 {
-  tree attrs;
+  attribute_list attrs;
   tree type;
   attrs = type_specifiers->attributes;
-  type_specifiers->attributes = NULL_TREE;
+  type_specifiers->attributes = NULL;
   type = grokdeclarator (declarator, type_specifiers, TYPENAME, 0, &attrs);
   if (attrs)
     cplus_decl_attributes (&type, attrs, 0);
@@ -3635,8 +3635,8 @@ tree
 start_decl (const cp_declarator *declarator,
 	    cp_decl_specifier_seq *declspecs,
             int initialized,
-            tree attributes,
-            tree prefix_attributes, 
+            attribute_list attributes,
+            attribute_list prefix_attributes, 
 	    bool *pop_scope_p)
 {
   tree decl;
@@ -3652,10 +3652,10 @@ start_decl (const cp_declarator *declarator,
 
   /* An object declared as __attribute__((deprecated)) suppresses
      warnings of uses of other deprecated items.  */
-  if (lookup_attribute ("deprecated", attributes))
+  if (has_attribute_p ("deprecated", attributes))
     deprecated_state = DEPRECATED_SUPPRESS;
 
-  attributes = chainon (attributes, prefix_attributes);
+  attributes = merge_attributes (attributes, prefix_attributes);
 
   decl = grokdeclarator (declarator, declspecs, NORMAL, initialized,
 			 &attributes);
@@ -3727,7 +3727,7 @@ start_decl (const cp_declarator *declarator,
   if (TREE_CODE (decl) == FUNCTION_DECL
       && DECL_DECLARED_INLINE_P (decl)
       && DECL_UNINLINABLE (decl)
-      && lookup_attribute ("noinline", DECL_ATTRIBUTES (decl)))
+      && has_attribute_p ("noinline", DECL_ATTRIBUTES (decl)))
     warning ("%Jinline function '%D' given attribute noinline", decl, decl);
 
   if (context && COMPLETE_TYPE_P (complete_type (context)))
@@ -4982,7 +4982,7 @@ cp_finish_decl (tree decl, tree init, tree asmspec_tree, int flags)
     TREE_READONLY (decl) = 1;
 
   /* If this was marked 'used', be sure it will be output.  */
-  if (lookup_attribute ("used", DECL_ATTRIBUTES (decl)))
+  if (has_attribute_p ("used", DECL_ATTRIBUTES (decl)))
     mark_decl_referenced (decl);
 }
 
@@ -5153,7 +5153,7 @@ start_cleanup_fn (void)
     }
 
   pushdecl (fndecl);
-  start_preparsed_function (fndecl, NULL_TREE, SF_PRE_PARSED);
+  start_preparsed_function (fndecl, NULL, SF_PRE_PARSED);
 
   pop_lang_context ();
 
@@ -5542,7 +5542,7 @@ grokfndecl (tree ctype,
             int funcdef_flag,
             int template_count,
             tree in_namespace,
-	    tree* attrlist)
+	    attribute_list * attrlist)
 {
   tree decl;
   int staticp = ctype && TREE_CODE (type) == FUNCTION_TYPE;
@@ -5766,7 +5766,7 @@ grokfndecl (tree ctype,
   if (attrlist)
     {
       cplus_decl_attributes (&decl, *attrlist, 0);
-      *attrlist = NULL_TREE;
+      *attrlist = NULL;
     }
 
   if (ctype != NULL_TREE
@@ -6430,7 +6430,7 @@ grokdeclarator (const cp_declarator *declarator,
 		const cp_decl_specifier_seq *declspecs,
                 enum decl_context decl_context,
                 int initialized,
-                tree* attrlist)
+                attribute_list* attrlist)
 {
   tree type = NULL_TREE;
   int longlong = 0;
@@ -6463,7 +6463,7 @@ grokdeclarator (const cp_declarator *declarator,
   cp_cv_quals quals = TYPE_UNQUALIFIED;
   tree raises = NULL_TREE;
   int template_count = 0;
-  tree returned_attrs = NULL_TREE;
+  attribute_list returned_attrs = NULL;
   tree parms = NULL_TREE;
   const cp_declarator *id_declarator;
   /* The unqualified name of the declarator; either an
@@ -7120,7 +7120,7 @@ grokdeclarator (const cp_declarator *declarator,
        declarator = declarator->declarator)
     {
       const cp_declarator *inner_declarator;
-      tree attrs;
+      attribute_list attrs;
 
       if (type == error_mark_node)
 	return error_mark_node;
@@ -7140,7 +7140,8 @@ grokdeclarator (const cp_declarator *declarator,
 	  if (declarator->kind == cdk_array)
 	    attr_flags |= (int) ATTR_FLAG_ARRAY_NEXT;
 	  returned_attrs = decl_attributes (&type,
-					    chainon (returned_attrs, attrs),
+					    merge_attributes (returned_attrs,
+							      attrs),
 					    attr_flags);
 	}
 
@@ -7471,7 +7472,7 @@ grokdeclarator (const cp_declarator *declarator,
   if (returned_attrs)
     {
       if (attrlist)
-	*attrlist = chainon (returned_attrs, *attrlist);
+	*attrlist = merge_attributes (returned_attrs, *attrlist);
       else
 	attrlist = &returned_attrs;
     }
@@ -8350,14 +8351,14 @@ grokparms (cp_parameter_declarator *first_parm, tree *parms)
     {
       tree type = NULL_TREE;
       tree init = parm->default_argument;
-      tree attrs;
+      attribute_list attrs;
       tree decl;
 
       if (parm == no_parameters)
         break;
 
       attrs = parm->decl_specifiers.attributes;
-      parm->decl_specifiers.attributes = NULL_TREE;
+      parm->decl_specifiers.attributes = NULL;
       decl = grokdeclarator (parm->declarator, &parm->decl_specifiers,
 			     PARM, init != NULL_TREE, &attrs);
       if (! decl || TREE_TYPE (decl) == error_mark_node)
@@ -9783,7 +9784,7 @@ check_function_type (tree decl, tree current_function_parms)
    applied to it with the argument list [1, 2].  */
 
 void
-start_preparsed_function (tree decl1, tree attrs, int flags)
+start_preparsed_function (tree decl1, attribute_list attrs, int flags)
 {
   tree ctype = NULL_TREE;
   tree fntype;
@@ -9817,7 +9818,7 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
     }
 
   if (DECL_DECLARED_INLINE_P (decl1)
-      && lookup_attribute ("noinline", attrs))
+      && has_attribute_p ("noinline", attrs))
     warning ("%Jinline function '%D' given attribute noinline", decl1, decl1);
 
   if (DECL_MAYBE_IN_CHARGE_CONSTRUCTOR_P (decl1))
@@ -10102,7 +10103,7 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
 int
 start_function (cp_decl_specifier_seq *declspecs,
 		const cp_declarator *declarator,
-		tree attrs)
+		attribute_list attrs)
 {
   tree decl1;
 
@@ -10651,7 +10652,7 @@ finish_function (int flags)
 
 tree
 start_method (cp_decl_specifier_seq *declspecs,
-              const cp_declarator *declarator, tree attrlist)
+              const cp_declarator *declarator, attribute_list attrlist)
 {
   tree fndecl = grokdeclarator (declarator, declspecs, MEMFUNCDEF, 0,
 				&attrlist);

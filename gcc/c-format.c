@@ -82,9 +82,10 @@ static bool get_constant (tree expr, unsigned HOST_WIDE_INT *value,
 
 /* Handle a "format_arg" attribute; arguments as in
    struct attribute_spec.handler.  */
-tree
+void
 handle_format_arg_attribute (tree *node, tree ARG_UNUSED (name),
-			     tree args, int flags, bool *no_add_attrs)
+			     tree args, int flags, bool *no_add_attrs,
+			     bool * ARG_UNUSED (defer))
 {
   tree type = *node;
   tree format_num_expr = TREE_VALUE (args);
@@ -95,14 +96,14 @@ handle_format_arg_attribute (tree *node, tree ARG_UNUSED (name),
     {
       error ("format string has invalid operand number");
       *no_add_attrs = true;
-      return NULL_TREE;
+      return;
     }
 
   argument = TYPE_ARG_TYPES (type);
   if (argument)
     {
       if (!check_format_string (argument, format_num, flags, no_add_attrs))
-	return NULL_TREE;
+	return;
     }
 
   if (TREE_CODE (TREE_TYPE (type)) != POINTER_TYPE
@@ -112,10 +113,8 @@ handle_format_arg_attribute (tree *node, tree ARG_UNUSED (name),
       if (!(flags & (int) ATTR_FLAG_BUILT_IN))
 	error ("function does not return string type");
       *no_add_attrs = true;
-      return NULL_TREE;
+      return;
     }
-
-  return NULL_TREE;
 }
 
 /* Verify that the format_num argument is actually a string, in case
@@ -788,39 +787,38 @@ decode_format_type (const char *s)
 
 
 /* Check the argument list of a call to printf, scanf, etc.
-   ATTRS are the attributes on the function type.
+   ATTRS are the attributes on the function type, guaranteed not NULL.
    PARAMS is the list of argument values.  Also, if -Wmissing-format-attribute,
    warn for calls to vprintf or vscanf in functions with no such format
    attribute themselves.  */
 
 void
-check_function_format (tree attrs, tree params)
+check_function_format (attribute_list attrs, tree params)
 {
-  tree a;
+  attribute_count i;
 
   /* See if this function has any format attributes.  */
-  for (a = attrs; a; a = TREE_CHAIN (a))
+  for (i = 0; i < attrs->n_attributes; i++)
     {
-      if (is_attribute_p ("format", TREE_PURPOSE (a)))
+      if (is_attribute_p ("format", attrs->attribs[i].name))
 	{
 	  /* Yup; check it.  */
 	  function_format_info info;
-	  decode_format_attr (TREE_VALUE (a), &info, 1);
+	  decode_format_attr (attrs->attribs[i].value, &info, 1);
 	  check_format_info (&info, params);
 	  if (warn_missing_format_attribute && info.first_arg_num == 0
 	      && (format_types[info.format_type].flags
 		  & (int) FMT_FLAG_ARG_CONVERT))
 	    {
-	      tree c;
-	      for (c = TYPE_ATTRIBUTES (TREE_TYPE (current_function_decl));
-		   c;
-		   c = TREE_CHAIN (c))
-		if (is_attribute_p ("format", TREE_PURPOSE (c))
+	      attribute_count c;
+	      attribute_list a = TYPE_ATTRIBUTES (TREE_TYPE (current_function_decl));
+	      for (c = 0; c < ATTRIBUTE_COUNT (a); c++)
+		if (is_attribute_p ("format", a->attribs[c].name)
 		    && (decode_format_type (IDENTIFIER_POINTER
-					    (TREE_VALUE (TREE_VALUE (c))))
+					    (TREE_VALUE (a->attribs[c].value)))
 			== info.format_type))
 		  break;
-	      if (c == NULL_TREE)
+	      if (c == ATTRIBUTE_COUNT (a))
 		{
 		  /* Check if the current function has a parameter to which
 		     the format attribute could be attached; if not, it
@@ -2446,9 +2444,10 @@ extern const format_kind_info TARGET_FORMAT_TYPES[];
 
 /* Handle a "format" attribute; arguments as in
    struct attribute_spec.handler.  */
-tree
+void
 handle_format_attribute (tree *node, tree ARG_UNUSED (name), tree args,
-			 int flags, bool *no_add_attrs)
+			 int flags, bool *no_add_attrs,
+			 bool * ARG_UNUSED (defer))
 {
   tree type = *node;
   function_format_info info;
@@ -2474,7 +2473,7 @@ handle_format_attribute (tree *node, tree ARG_UNUSED (name), tree args,
   if (!decode_format_attr (args, &info, 0))
     {
       *no_add_attrs = true;
-      return NULL_TREE;
+      return;
     }
 
   argument = TYPE_ARG_TYPES (type);
@@ -2482,7 +2481,7 @@ handle_format_attribute (tree *node, tree ARG_UNUSED (name), tree args,
     {
       if (!check_format_string (argument, info.format_num, flags,
 				no_add_attrs))
-	return NULL_TREE;
+	return;
 
       if (info.first_arg_num != 0)
 	{
@@ -2498,7 +2497,7 @@ handle_format_attribute (tree *node, tree ARG_UNUSED (name), tree args,
 	      if (!(flags & (int) ATTR_FLAG_BUILT_IN))
 		error ("args to be formatted is not '...'");
 	      *no_add_attrs = true;
-	      return NULL_TREE;
+	      return;
 	    }
 	}
     }
@@ -2507,7 +2506,7 @@ handle_format_attribute (tree *node, tree ARG_UNUSED (name), tree args,
     {
       error ("strftime formats cannot format arguments");
       *no_add_attrs = true;
-      return NULL_TREE;
+      return;
     }
 
   /* If this is a custom GCC-internal format type, we have to
@@ -2537,6 +2536,4 @@ handle_format_attribute (tree *node, tree ARG_UNUSED (name), tree args,
       else
 	gcc_unreachable();
     }
-
-  return NULL_TREE;
 }

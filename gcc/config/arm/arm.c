@@ -112,8 +112,7 @@ static unsigned long arm_compute_save_reg0_reg12_mask (void);
 static unsigned long arm_compute_save_reg_mask (void);
 static unsigned long arm_isr_value (tree);
 static unsigned long arm_compute_func_type (void);
-static tree arm_handle_fndecl_attribute (tree *, tree, tree, int, bool *);
-static tree arm_handle_isr_attribute (tree *, tree, tree, int, bool *);
+static void arm_handle_isr_attribute (tree *, tree, tree, int, bool *, bool *);
 static void arm_output_function_epilogue (FILE *, HOST_WIDE_INT);
 static void arm_output_function_prologue (FILE *, HOST_WIDE_INT);
 static void thumb_output_function_prologue (FILE *, HOST_WIDE_INT);
@@ -1238,7 +1237,7 @@ arm_compute_func_type (void)
 {
   unsigned long type = ARM_FT_UNKNOWN;
   tree a;
-  tree attr;
+  attribute_list attr;
 
   if (TREE_CODE (current_function_decl) != FUNCTION_DECL)
     abort ();
@@ -1257,18 +1256,17 @@ arm_compute_func_type (void)
 
   attr = DECL_ATTRIBUTES (current_function_decl);
 
-  a = lookup_attribute ("naked", attr);
-  if (a != NULL_TREE)
+  if (has_attribute_p ("naked", attr))
     type |= ARM_FT_NAKED;
 
-  a = lookup_attribute ("isr", attr);
+  a = get_attribute ("isr", attr);
   if (a == NULL_TREE)
-    a = lookup_attribute ("interrupt", attr);
+    a = get_attribute ("interrupt", attr);
 
   if (a == NULL_TREE)
     type |= TARGET_INTERWORK ? ARM_FT_INTERWORKED : ARM_FT_NORMAL;
   else
-    type |= arm_isr_value (TREE_VALUE (a));
+    type |= arm_isr_value (a);
 
   return type;
 }
@@ -2420,9 +2418,9 @@ arm_init_cumulative_args (CUMULATIVE_ARGS *pcum, tree fntype,
      override any command line option.  */
   if (fntype)
     {
-      if (lookup_attribute ("short_call", TYPE_ATTRIBUTES (fntype)))
+      if (has_attribute_p ("short_call", TYPE_ATTRIBUTES (fntype)))
 	pcum->call_cookie = CALL_SHORT;
-      else if (lookup_attribute ("long_call", TYPE_ATTRIBUTES (fntype)))
+      else if (has_attribute_p ("long_call", TYPE_ATTRIBUTES (fntype)))
 	pcum->call_cookie = CALL_LONG;
     }
 
@@ -2564,9 +2562,9 @@ const struct attribute_spec arm_attribute_table[] =
      addressing range.  */
   { "short_call",   0, 0, false, true,  true,  NULL },
   /* Interrupt Service Routines have special prologue and epilogue requirements.  */
-  { "isr",          0, 1, false, false, false, arm_handle_isr_attribute },
-  { "interrupt",    0, 1, false, false, false, arm_handle_isr_attribute },
-  { "naked",        0, 0, true,  false, false, arm_handle_fndecl_attribute },
+  { "isr",          0, 1, false, true,  true,  arm_handle_isr_attribute },
+  { "interrupt",    0, 1, false, true,  true,  arm_handle_isr_attribute },
+  { "naked",        0, 0, true,  false, false, handle_fndecl_attribute },
 #ifdef ARM_PE
   /* ARM/PE has three new attributes:
      interfacearm - ?
@@ -2579,7 +2577,7 @@ const struct attribute_spec arm_attribute_table[] =
   */
   { "dllimport",    0, 0, true,  false, false, NULL },
   { "dllexport",    0, 0, true,  false, false, NULL },
-  { "interfacearm", 0, 0, true,  false, false, arm_handle_fndecl_attribute },
+  { "interfacearm", 0, 0, true,  false, false, handle_fndecl_attribute },
 #elif TARGET_DLLIMPORT_DECL_ATTRIBUTES
   { "dllimport",    0, 0, false, false, false, handle_dll_attribute },
   { "dllexport",    0, 0, false, false, false, handle_dll_attribute },
@@ -2587,79 +2585,18 @@ const struct attribute_spec arm_attribute_table[] =
   { NULL,           0, 0, false, false, false, NULL }
 };
 
-/* Handle an attribute requiring a FUNCTION_DECL;
-   arguments as in struct attribute_spec.handler.  */
-static tree
-arm_handle_fndecl_attribute (tree *node, tree name, tree args ATTRIBUTE_UNUSED,
-			     int flags ATTRIBUTE_UNUSED, bool *no_add_attrs)
-{
-  if (TREE_CODE (*node) != FUNCTION_DECL)
-    {
-      warning ("`%s' attribute only applies to functions",
-	       IDENTIFIER_POINTER (name));
-      *no_add_attrs = true;
-    }
-
-  return NULL_TREE;
-}
-
 /* Handle an "interrupt" or "isr" attribute;
    arguments as in struct attribute_spec.handler.  */
-static tree
-arm_handle_isr_attribute (tree *node, tree name, tree args, int flags,
-			  bool *no_add_attrs)
+static void
+arm_handle_isr_attribute (tree * ARG_UNUSED (node), tree name, tree args,
+			  int ARG_UNUSED (flags),
+			  bool *no_add_attrs, bool * ARG_UNUSED (defer))
 {
-  if (DECL_P (*node))
+  if (arm_isr_value (args) == ARM_FT_UNKNOWN)
     {
-      if (TREE_CODE (*node) != FUNCTION_DECL)
-	{
-	  warning ("`%s' attribute only applies to functions",
-		   IDENTIFIER_POINTER (name));
-	  *no_add_attrs = true;
-	}
-      /* FIXME: the argument if any is checked for type attributes;
-	 should it be checked for decl ones?  */
+      warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
     }
-  else
-    {
-      if (TREE_CODE (*node) == FUNCTION_TYPE
-	  || TREE_CODE (*node) == METHOD_TYPE)
-	{
-	  if (arm_isr_value (args) == ARM_FT_UNKNOWN)
-	    {
-	      warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
-	      *no_add_attrs = true;
-	    }
-	}
-      else if (TREE_CODE (*node) == POINTER_TYPE
-	       && (TREE_CODE (TREE_TYPE (*node)) == FUNCTION_TYPE
-		   || TREE_CODE (TREE_TYPE (*node)) == METHOD_TYPE)
-	       && arm_isr_value (args) != ARM_FT_UNKNOWN)
-	{
-	  *node = build_variant_type_copy (*node);
-	  TREE_TYPE (*node) = build_type_attribute_variant
-	    (TREE_TYPE (*node),
-	     tree_cons (name, args, TYPE_ATTRIBUTES (TREE_TYPE (*node))));
-	  *no_add_attrs = true;
-	}
-      else
-	{
-	  /* Possibly pass this attribute on from the type to a decl.  */
-	  if (flags & ((int) ATTR_FLAG_DECL_NEXT
-		       | (int) ATTR_FLAG_FUNCTION_NEXT
-		       | (int) ATTR_FLAG_ARRAY_NEXT))
-	    {
-	      *no_add_attrs = true;
-	      return tree_cons (name, args, NULL_TREE);
-	    }
-	  else
-	    {
-	      warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
-	    }
-	}
-    }
-
-  return NULL_TREE;
 }
 
 /* Return 0 if the attributes for two types are incompatible, 1 if they
@@ -2668,17 +2605,17 @@ arm_handle_isr_attribute (tree *node, tree name, tree args, int flags,
 static int
 arm_comp_type_attributes (tree type1, tree type2)
 {
-  int l1, l2, s1, s2;
+  bool l1, l2, s1, s2;
 
   /* Check for mismatch of non-default calling convention.  */
   if (TREE_CODE (type1) != FUNCTION_TYPE)
     return 1;
 
   /* Check for mismatched call attributes.  */
-  l1 = lookup_attribute ("long_call", TYPE_ATTRIBUTES (type1)) != NULL;
-  l2 = lookup_attribute ("long_call", TYPE_ATTRIBUTES (type2)) != NULL;
-  s1 = lookup_attribute ("short_call", TYPE_ATTRIBUTES (type1)) != NULL;
-  s2 = lookup_attribute ("short_call", TYPE_ATTRIBUTES (type2)) != NULL;
+  l1 = has_attribute_p ("long_call", TYPE_ATTRIBUTES (type1));
+  l2 = has_attribute_p ("long_call", TYPE_ATTRIBUTES (type2));
+  s1 = has_attribute_p ("short_call", TYPE_ATTRIBUTES (type1));
+  s2 = has_attribute_p ("short_call", TYPE_ATTRIBUTES (type2));
 
   /* Only bother to check if an attribute is defined.  */
   if (l1 | l2 | s1 | s2)
@@ -2693,12 +2630,12 @@ arm_comp_type_attributes (tree type1, tree type2)
     }
 
   /* Check for mismatched ISR attribute.  */
-  l1 = lookup_attribute ("isr", TYPE_ATTRIBUTES (type1)) != NULL;
+  l1 = has_attribute_p ("isr", TYPE_ATTRIBUTES (type1));
   if (! l1)
-    l1 = lookup_attribute ("interrupt", TYPE_ATTRIBUTES (type1)) != NULL;
-  l2 = lookup_attribute ("isr", TYPE_ATTRIBUTES (type2)) != NULL;
+    l1 = has_attribute_p ("interrupt", TYPE_ATTRIBUTES (type1));
+  l2 = has_attribute_p ("isr", TYPE_ATTRIBUTES (type2));
   if (! l2)
-    l1 = lookup_attribute ("interrupt", TYPE_ATTRIBUTES (type2)) != NULL;
+    l1 = has_attribute_p ("interrupt", TYPE_ATTRIBUTES (type2));
   if (l1 != l2)
     return 0;
 
@@ -2737,18 +2674,18 @@ arm_set_default_type_attributes (tree type)
      when inside #pragma no_long_calls.  */
   if (TREE_CODE (type) == FUNCTION_TYPE || TREE_CODE (type) == METHOD_TYPE)
     {
-      tree type_attr_list, attr_name;
-      type_attr_list = TYPE_ATTRIBUTES (type);
+      struct one_attribute at;
 
       if (arm_pragma_long_calls == LONG)
- 	attr_name = get_identifier ("long_call");
+ 	at.name = get_identifier ("long_call");
       else if (arm_pragma_long_calls == SHORT)
- 	attr_name = get_identifier ("short_call");
+ 	at.name = get_identifier ("short_call");
       else
  	return;
-
-      type_attr_list = tree_cons (attr_name, NULL_TREE, type_attr_list);
-      TYPE_ATTRIBUTES (type) = type_attr_list;
+      at.value = NULL_TREE;
+      
+      TYPE_ATTRIBUTES (type) = merge_attributes_1 (TYPE_ATTRIBUTES (type),
+						   1, &at, NULL, 0);
     }
 }
 
@@ -2848,9 +2785,9 @@ arm_function_ok_for_sibcall (tree decl, tree exp ATTRIBUTE_UNUSED)
     return false;
 
   /* Get the calling method.  */
-  if (lookup_attribute ("short_call", TYPE_ATTRIBUTES (TREE_TYPE (decl))))
+  if (has_attribute_p ("short_call", TYPE_ATTRIBUTES (TREE_TYPE (decl))))
     call_type = CALL_SHORT;
-  else if (lookup_attribute ("long_call", TYPE_ATTRIBUTES (TREE_TYPE (decl))))
+  else if (has_attribute_p ("long_call", TYPE_ATTRIBUTES (TREE_TYPE (decl))))
     call_type = CALL_LONG;
 
   /* Cannot tail-call to long calls, since these are out of range of
@@ -11298,7 +11235,7 @@ arm_debugger_arg_offset (int value, rtx addr)
     {									\
       if ((MASK) & insn_flags)						\
         lang_hooks.builtin_function ((NAME), (TYPE), (CODE),		\
-				     BUILT_IN_MD, NULL, NULL_TREE);	\
+				     BUILT_IN_MD, NULL, NULL);		\
     }									\
   while (0)
 
@@ -12611,7 +12548,7 @@ is_called_in_ARM_mode (tree func)
     return TRUE;
 
 #ifdef ARM_PE
-  return lookup_attribute ("interfacearm", DECL_ATTRIBUTES (func)) != NULL_TREE;
+  return has_attribute_p ("interfacearm", DECL_ATTRIBUTES (func));
 #else
   return FALSE;
 #endif

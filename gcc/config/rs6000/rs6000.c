@@ -628,8 +628,8 @@ static bool rs6000_assemble_integer (rtx, unsigned int, int);
 static void rs6000_assemble_visibility (tree, int);
 #endif
 static int rs6000_ra_ever_killed (void);
-static tree rs6000_handle_longcall_attribute (tree *, tree, tree, int, bool *);
-static tree rs6000_handle_altivec_attribute (tree *, tree, tree, int, bool *);
+static void rs6000_handle_altivec_attribute (tree *, tree, tree, int, bool *,
+					     bool *);
 static void rs6000_eliminate_indexed_memrefs (rtx operands[2]);
 static const char *rs6000_mangle_fundamental_type (tree);
 extern const struct attribute_spec rs6000_attribute_table[];
@@ -4595,8 +4595,8 @@ init_cumulative_args (CUMULATIVE_ARGS *cum, tree fntype,
 
   /* Check for a longcall attribute.  */
   if (fntype
-      && lookup_attribute ("longcall", TYPE_ATTRIBUTES (fntype))
-      && !lookup_attribute ("shortcall", TYPE_ATTRIBUTES (fntype)))
+      && has_attribute_p ("longcall", TYPE_ATTRIBUTES (fntype))
+      && !has_attribute_p ("shortcall", TYPE_ATTRIBUTES (fntype)))
     cum->call_cookie = CALL_LONG;
 
   if (TARGET_DEBUG_ARG)
@@ -5745,7 +5745,7 @@ rs6000_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
 do {									\
   if ((MASK) & target_flags)						\
     lang_hooks.builtin_function ((NAME), (TYPE), (CODE), BUILT_IN_MD,	\
-				 NULL, NULL_TREE);			\
+				 NULL, NULL);				\
 } while (0)
 
 /* Simple ternary operations: VECd = foo (VECa, VECb, VECc).  */
@@ -12390,10 +12390,10 @@ rs6000_function_ok_for_sibcall (tree decl, tree exp ATTRIBUTE_UNUSED)
       if (DEFAULT_ABI == ABI_DARWIN
 	  || (*targetm.binds_local_p) (decl))
 	{
-	  tree attr_list = TYPE_ATTRIBUTES (TREE_TYPE (decl));
+	  attribute_list attr_list = TYPE_ATTRIBUTES (TREE_TYPE (decl));
 
-	  if (!lookup_attribute ("longcall", attr_list)
-	      || lookup_attribute ("shortcall", attr_list))
+	  if (!has_attribute_p ("longcall", attr_list)
+	      || has_attribute_p ("shortcall", attr_list))
 	    return true;
 	}
     }
@@ -16243,8 +16243,8 @@ const struct attribute_spec rs6000_attribute_table[] =
 {
   /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */
   { "altivec",   1, 1, false, true,  false, rs6000_handle_altivec_attribute },
-  { "longcall",  0, 0, false, true,  true,  rs6000_handle_longcall_attribute },
-  { "shortcall", 0, 0, false, true,  true,  rs6000_handle_longcall_attribute },
+  { "longcall",  0, 0, false, true,  true,  NULL },
+  { "shortcall", 0, 0, false, true,  true,  NULL },
   { NULL,        0, 0, false, false, false, NULL }
 };
 
@@ -16258,10 +16258,11 @@ const struct attribute_spec rs6000_attribute_table[] =
   and may appear more than once (e.g., 'vector bool char') in a
   given declaration.  */
 
-static tree
+static void
 rs6000_handle_altivec_attribute (tree *node, tree name, tree args,
 				 int flags ATTRIBUTE_UNUSED,
-				 bool *no_add_attrs)
+				 bool *no_add_attrs,
+				 bool * ARG_UNUSED (defer))
 {
   tree type = *node, result = NULL_TREE;
   enum machine_mode mode;
@@ -16334,8 +16335,6 @@ rs6000_handle_altivec_attribute (tree *node, tree name, tree args,
     warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
   else
     *node = reconstruct_complex_type (*node, result);
-
-  return NULL_TREE;
 }
 
 /* AltiVec defines four built-in scalar types that serve as vector
@@ -16353,27 +16352,6 @@ rs6000_mangle_fundamental_type (tree type)
   return NULL;
 }
 
-/* Handle a "longcall" or "shortcall" attribute; arguments as in
-   struct attribute_spec.handler.  */
-
-static tree
-rs6000_handle_longcall_attribute (tree *node, tree name,
-				  tree args ATTRIBUTE_UNUSED,
-				  int flags ATTRIBUTE_UNUSED,
-				  bool *no_add_attrs)
-{
-  if (TREE_CODE (*node) != FUNCTION_TYPE
-      && TREE_CODE (*node) != FIELD_DECL
-      && TREE_CODE (*node) != TYPE_DECL)
-    {
-      warning ("`%s' attribute only applies to functions",
-	       IDENTIFIER_POINTER (name));
-      *no_add_attrs = true;
-    }
-
-  return NULL_TREE;
-}
-
 /* Set longcall attributes on all functions declared when
    rs6000_default_long_calls is true.  */
 static void
@@ -16382,9 +16360,13 @@ rs6000_set_default_type_attributes (tree type)
   if (rs6000_default_long_calls
       && (TREE_CODE (type) == FUNCTION_TYPE
 	  || TREE_CODE (type) == METHOD_TYPE))
-    TYPE_ATTRIBUTES (type) = tree_cons (get_identifier ("longcall"),
-					NULL_TREE,
-					TYPE_ATTRIBUTES (type));
+    {
+      struct one_attribute oa;
+      oa.name = get_identifier ("longcall");
+      oa.value = NULL_TREE;
+      TYPE_ATTRIBUTES (type) = merge_attributes_1 (TYPE_ATTRIBUTES (type),
+						   1, &oa, NULL, 0);
+    }
 }
 
 /* Return a reference suitable for calling a function with the

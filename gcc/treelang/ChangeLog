@@ -1,3 +1,8 @@
+2004-09-30  Geoffrey Keating  <geoffk@apple.com>
+
+	* treetree.c (builtin_function): Replace 'tree' with 'attribute_list'
+	for last parameter.  Use NULL not NULL_TREE for attributes.
+
 2004-09-17  Jeffrey D. Oldham  <oldham@codesourcery.com>
 	    Zack Weinberg  <zack@codesourcery.com>
 

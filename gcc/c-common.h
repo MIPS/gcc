@@ -626,16 +626,17 @@ extern void finish_fname_decls (void);
 extern const char *fname_as_string (int);
 extern tree fname_decl (unsigned, tree);
 
-extern void check_function_arguments (tree, tree);
+extern void check_function_arguments (attribute_list, tree);
 extern void check_function_arguments_recurse (void (*)
 					      (void *, tree,
 					       unsigned HOST_WIDE_INT),
 					      void *, tree,
 					      unsigned HOST_WIDE_INT);
-extern void check_function_format (tree, tree);
+extern void check_function_format (attribute_list, tree);
 extern void set_Wformat (int);
-extern tree handle_format_attribute (tree *, tree, tree, int, bool *);
-extern tree handle_format_arg_attribute (tree *, tree, tree, int, bool *);
+extern void handle_format_attribute (tree *, tree, tree, int, bool *, bool *);
+extern void handle_format_arg_attribute (tree *, tree, tree, int, bool *,
+					 bool *);
 extern int c_common_handle_option (size_t code, const char *arg, int value);
 extern bool c_common_missing_argument (const char *opt, size_t code);
 extern tree c_common_type_for_mode (enum machine_mode, int);

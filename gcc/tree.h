@@ -215,6 +215,24 @@ extern const char *const built_in_names[(int) END_BUILTINS];
 extern GTY(()) tree built_in_decls[(int) END_BUILTINS];
 extern GTY(()) tree implicit_built_in_decls[(int) END_BUILTINS];
 
+/* A structure representing 'attributes' on a DECL or TYPE node.
+   Each attribute has a NAME (an IDENTIFIER_NODE) and possibly a VALUE.  */
+struct one_attribute GTY(())
+{
+  tree name;
+  tree value;
+};
+
+/* A counted list of attributes.  */
+struct attribute_list_s GTY(())
+{
+  attribute_count n_attributes;
+  /* There are 16 bits free here.  */
+  struct one_attribute GTY((length ("%h.n_attributes"))) attribs[1];
+};
+
+#define ATTRIBUTE_COUNT(a) ((a) ? (a)->n_attributes : 0)
+
 /* The definition of tree nodes fills the next several pages.  */
 
 /* A tree node can represent a data type, a variable, an expression
@@ -1670,7 +1688,7 @@ struct tree_type GTY(())
   tree values;
   tree size;
   tree size_unit;
-  tree attributes;
+  attribute_list attributes;
   unsigned int uid;
 
   unsigned int precision : 9;
@@ -2388,7 +2406,7 @@ struct tree_decl GTY(())
   tree abstract_origin;
   tree assembler_name;
   tree section_name;
-  tree attributes;
+  attribute_list attributes;
   rtx rtl;	/* RTL representation for object.  */
 
   /* In FUNCTION_DECL, if it is inline, holds the saved insn chain.
@@ -2739,12 +2757,12 @@ extern tree decl_assembler_name (tree);
 /* Compute the number of bytes occupied by 'node'.  This routine only
    looks at TREE_CODE and, if the code is TREE_VEC, TREE_VEC_LENGTH.  */
 
-extern size_t tree_size (tree);
+extern size_t tree_size (tree node);
 
 /* Compute the number of bytes occupied by a tree with code CODE.  This
    function cannot be used for TREE_VEC or PHI_NODE codes, which are of
    variable length.  */
-extern size_t tree_code_size (enum tree_code);
+extern size_t tree_code_size (enum tree_code code);
 
 /* Lowest level primitive for allocating a node.
    The TREE_CODE is the only argument.  Contents are initialized
@@ -2904,8 +2922,8 @@ extern bool in_array_bounds_p (tree);
 extern tree value_member (tree, tree);
 extern tree purpose_member (tree, tree);
 
-extern int attribute_list_equal (tree, tree);
-extern int attribute_list_contained (tree, tree);
+extern bool attribute_list_equal (attribute_list, attribute_list);
+extern bool attribute_list_contained (attribute_list, attribute_list);
 extern int tree_int_cst_equal (tree, tree);
 extern int tree_int_cst_lt (tree, tree);
 extern int tree_int_cst_compare (tree, tree);
@@ -2929,8 +2947,10 @@ extern tree make_tree (tree, rtx);
    Such modified types already made are recorded so that duplicates
    are not made.  */
 
-extern tree build_type_attribute_variant (tree, tree);
-extern tree build_decl_attribute_variant (tree, tree);
+extern tree build_type_attribute_variant (tree ttype,
+					  attribute_list attribute);
+extern tree build_decl_attribute_variant (tree ddecl,
+					  attribute_list attribute);
 
 /* Structure describing an attribute and a function to handle it.  */
 struct attribute_spec
@@ -2959,22 +2979,22 @@ struct attribute_spec
      and from a function return type (which is not itself a function
      pointer type) to the function type.  */
   const bool function_type_required;
-  /* Function to handle this attribute.  NODE points to the node to which
-     the attribute is to be applied.  If a DECL, it should be modified in
-     place; if a TYPE, a copy should be created.  NAME is the name of the
-     attribute (possibly with leading or trailing __).  ARGS is the TREE_LIST
-     of the arguments (which may be NULL).  FLAGS gives further information
-     about the context of the attribute.  Afterwards, the attributes will
-     be added to the DECL_ATTRIBUTES or TYPE_ATTRIBUTES, as appropriate,
-     unless *NO_ADD_ATTRS is set to true (which should be done on error,
-     as well as in any other cases when the attributes should not be added
-     to the DECL or TYPE).  Depending on FLAGS, any attributes to be
-     applied to another type or DECL later may be returned;
-     otherwise the return value should be NULL_TREE.  This pointer may be
-     NULL if no special handling is required beyond the checks implied
-     by the rest of this structure.  */
-  tree (*const handler) (tree *node, tree name, tree args,
-				 int flags, bool *no_add_attrs);
+  /* Function to handle this attribute.  NODE points to the node to
+     which the attribute is to be applied.  If a DECL, it should be
+     modified in place; if a TYPE, a copy should be created.  NAME is
+     the name of the attribute (possibly with leading or trailing __).
+     ARGS is the 'value' of the arguments (which may be NULL).  FLAGS
+     gives further information about the context of the attribute.
+     Afterwards, the attributes will be added to the DECL_ATTRIBUTES
+     or TYPE_ATTRIBUTES, as appropriate, unless *IGNORE or *DEFER are
+     set to true (which should be done on error, as well as in any
+     other cases when the attributes should not be added to the DECL
+     or TYPE).  If the attribute should be deferred to an enclosing
+     object (like a DECL if this is a TYPE), *DEFER should be set.
+     This pointer may be NULL if no special handling is required
+     beyond the checks implied by the rest of this structure.  */
+  void (*const handler) (tree *node, tree name, tree args,
+			 int flags, bool *ignore, bool *defer);
 };
 
 /* Flags that may be passed in the third argument of decl_attributes, and
@@ -3004,8 +3024,8 @@ enum attribute_flags
 
 /* Default versions of target-overridable functions.  */
 
-extern tree merge_decl_attributes (tree, tree);
-extern tree merge_type_attributes (tree, tree);
+extern attribute_list merge_decl_attributes (tree, tree);
+extern attribute_list merge_type_attributes (tree, tree);
 extern void default_register_cpp_builtins (struct cpp_reader *);
 
 /* Return 1 if an attribute and its arguments are valid for a decl or type.  */
@@ -3017,22 +3037,54 @@ extern int valid_machine_attribute (tree, tree, tree, tree);
 
 extern int is_attribute_p (const char *, tree);
 
-/* Given an attribute name and a list of attributes, return the list element
-   of the attribute or NULL_TREE if not found.  */
+/* Return the index of the first attribute, starting with the
+   attribute indexed by START, named NAME in ATTRIBUTES.  If no such
+   attribute exists, return attributes->n_attributes.  */
 
-extern tree lookup_attribute (const char *, tree);
+extern attribute_count lookup_attribute (const char *name, 
+					 attribute_list attributes,
+					 attribute_count start);
+
+/* Does ATTRIBUTES contain NAME?  */
+
+extern bool has_attribute_p (const char *name, attribute_list attributes);
+
+/* If ATTRIBUTES contains NAME, return the associated value, otherwise
+   NULL.  The attribute must not have a NULL value.  */
+
+extern tree get_attribute (const char *name, attribute_list attributes);
+
+/* Given a list of attributes A and NUM extra attributes in EXTRA,
+   and an NUM-sized array of FLAGS, return a list of attributes that
+   contains every attribute in A plus each attribute in EXTRA for which
+   FLAGS is SELECT.  A may be NULL.  May return A.  FLAGS may be NULL,
+   in which case every element of EXTRA is selected.
+
+   Every attribute list is created using this routine.  */
+extern attribute_list merge_attributes_1 (attribute_list a,
+					  attribute_count num,
+					  const struct one_attribute *extra,
+					  const char * flags,
+					  char select);
 
 /* Given two attributes lists, return a list of their union.  */
 
-extern tree merge_attributes (tree, tree);
+extern attribute_list merge_attributes (attribute_list, attribute_list);
+
+/* Handle an attribute requiring a FUNCTION_DECL; arguments as in
+   struct attribute_spec.handler.  */
+
+void handle_fndecl_attribute (tree *node, tree name,
+			      tree args, int flags,
+			      bool *no_add_attrs, bool * defer);
 
 #if TARGET_DLLIMPORT_DECL_ATTRIBUTES
 /* Given two Windows decl attributes lists, possibly including
    dllimport, return a list of their union .  */
-extern tree merge_dllimport_decl_attributes (tree, tree);
+extern attribute_list merge_dllimport_decl_attributes (tree, tree);
 
 /* Handle a "dllimport" or "dllexport" attribute.  */
-extern tree handle_dll_attribute (tree *, tree, tree, int, bool *);
+extern void handle_dll_attribute (tree *, tree, tree, int, bool *, bool *);
 #endif
 
 /* Check whether CAND is suitable to be returned from get_qualified_type
@@ -3647,6 +3699,7 @@ extern void debug_tree (tree);
 #ifdef BUFSIZ
 extern void print_node (FILE *, const char *, tree, int);
 extern void print_node_brief (FILE *, const char *, tree, int);
+extern void print_attributes (FILE *, attribute_list, int);
 extern void indent_to (FILE *, int);
 #endif
 
@@ -3711,7 +3764,8 @@ extern bool must_pass_in_stack_var_size_or_pad (enum machine_mode, tree);
    from tree.h.  Depending on these flags, some attributes may be
    returned to be applied at a later stage (for example, to apply
    a decl attribute to the declaration rather than to its type).  */
-extern tree decl_attributes (tree *, tree, int);
+extern attribute_list decl_attributes (tree *node, attribute_list attributes,
+				       int flags);
 
 /* In integrate.c */
 extern void set_decl_abstract_flags (tree, int);

@@ -3409,15 +3409,15 @@ do_using_directive (tree namespace)
    handle attributes here, since they cannot appear inside a template.  */
 
 void
-parse_using_directive (tree namespace, tree attribs)
+parse_using_directive (tree namespace, attribute_list attribs)
 {
-  tree a;
-
+  attribute_count ac;
+  
   do_using_directive (namespace);
 
-  for (a = attribs; a; a = TREE_CHAIN (a))
+  for (ac = 0; ac < ATTRIBUTE_COUNT (attribs); ac++)
     {
-      tree name = TREE_PURPOSE (a);
+      tree name = attribs->attribs[ac].name;
       if (is_attribute_p ("strong", name))
 	{
 	  if (!toplevel_bindings_p ())

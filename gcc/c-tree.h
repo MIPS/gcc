@@ -161,11 +161,11 @@ struct c_declspecs {
      "char" is used.  Does not include qualifiers.  */
   tree type;
   /* The attributes from a typedef decl.  */
-  tree decl_attr;
+  attribute_list decl_attr;
   /* When parsing, the attributes.  Outside the parser, this will be
      NULL; attributes (possibly from multiple lists) will be passed
      separately.  */
-  tree attrs;
+  attribute_list attrs;
   /* Any type specifier keyword used such as "int", not reflecting
      modifiers such as "short", or cts_none if none.  */
   enum c_typespec_keyword typespec_word;
@@ -258,7 +258,7 @@ struct c_declarator {
       /* The qualifiers inside [].  */
       int quals;
       /* The attributes (currently ignored) inside [].  */
-      tree attrs;
+      attribute_list attrs;
       /* Whether [static] was used.  */
       BOOL_BITFIELD static_p : 1;
       /* Whether [*] was used.  */
@@ -267,7 +267,7 @@ struct c_declarator {
     /* For pointers, the qualifiers on the pointer type.  */
     int pointer_quals;
     /* For attributes.  */
-    tree attrs;
+    attribute_list attrs;
   } u;
 };
 
@@ -284,7 +284,7 @@ struct c_parm {
   /* The declaration specifiers, minus any prefix attributes.  */
   struct c_declspecs *specs;
   /* The attributes.  */
-  tree attrs;
+  attribute_list attrs;
   /* The declarator.  */
   struct c_declarator *declarator;
 };
@@ -341,9 +341,9 @@ extern void undeclared_variable (tree);
 extern tree declare_label (tree);
 extern tree define_label (location_t, tree);
 extern void finish_decl (tree, tree, tree);
-extern tree finish_enum (tree, tree, tree);
+extern tree finish_enum (tree, tree, attribute_list);
 extern void finish_function (void);
-extern tree finish_struct (tree, tree, tree);
+extern tree finish_struct (tree, tree, attribute_list);
 extern struct c_arg_info *get_parm_info (bool);
 extern tree grokfield (struct c_declarator *, struct c_declspecs *, tree);
 extern tree groktypename (struct c_type_name *);
@@ -360,21 +360,22 @@ extern struct c_declarator *set_array_declarator_inner (struct c_declarator *,
 							struct c_declarator *,
 							bool);
 extern tree builtin_function (const char *, tree, int, enum built_in_class,
-			      const char *, tree);
+			      const char *, attribute_list);
 extern void shadow_tag (const struct c_declspecs *);
 extern void shadow_tag_warned (const struct c_declspecs *, int);
 extern tree start_enum (tree);
-extern int  start_function (struct c_declspecs *, struct c_declarator *, tree);
+extern int  start_function (struct c_declspecs *, struct c_declarator *, 
+			    attribute_list);
 extern tree start_decl (struct c_declarator *, struct c_declspecs *, bool,
-			tree);
+			attribute_list);
 extern tree start_struct (enum tree_code, tree);
 extern void store_parm_decls (void);
 extern void store_parm_decls_from (struct c_arg_info *);
 extern tree xref_tag (enum tree_code, tree);
 extern int c_expand_decl (tree);
-extern struct c_parm *build_c_parm (struct c_declspecs *, tree,
+extern struct c_parm *build_c_parm (struct c_declspecs *, attribute_list,
 				    struct c_declarator *);
-extern struct c_declarator *build_attrs_declarator (tree,
+extern struct c_declarator *build_attrs_declarator (attribute_list,
 						    struct c_declarator *);
 extern struct c_declarator *build_function_declarator (struct c_arg_info *,
 						       struct c_declarator *);
@@ -385,7 +386,8 @@ extern struct c_declspecs *build_null_declspecs (void);
 extern struct c_declspecs *declspecs_add_qual (struct c_declspecs *, tree);
 extern struct c_declspecs *declspecs_add_type (struct c_declspecs *, tree);
 extern struct c_declspecs *declspecs_add_scspec (struct c_declspecs *, tree);
-extern struct c_declspecs *declspecs_add_attrs (struct c_declspecs *, tree);
+extern struct c_declspecs *declspecs_add_attrs (struct c_declspecs *,
+						attribute_list);
 extern struct c_declspecs *finish_declspecs (struct c_declspecs *);
 
 /* in c-objc-common.c */

@@ -64,10 +64,11 @@ static void i386_pe_mark_dllimport (tree);
 
 /* Handle a "shared" attribute;
    arguments as in struct attribute_spec.handler.  */
-tree
+void
 ix86_handle_shared_attribute (tree *node, tree name,
 			      tree args ATTRIBUTE_UNUSED,
-			      int flags ATTRIBUTE_UNUSED, bool *no_add_attrs)
+			      int flags ATTRIBUTE_UNUSED, bool *no_add_attrs,
+			      bool * ARG_UNUSED (defer))
 {
   if (TREE_CODE (*node) != VAR_DECL)
     {
@@ -75,8 +76,6 @@ ix86_handle_shared_attribute (tree *node, tree name,
 	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
-
-  return NULL_TREE;
 }
 
 /* Return the type that we should use to determine if DECL is
@@ -110,21 +109,17 @@ associated_type (tree decl)
 static int
 i386_pe_dllexport_p (tree decl)
 {
-  tree exp;
-
   if (TREE_CODE (decl) != VAR_DECL
       && TREE_CODE (decl) != FUNCTION_DECL)
     return 0;
-  exp = lookup_attribute ("dllexport", DECL_ATTRIBUTES (decl));
-  if (exp)
+  if (has_attribute_p ("dllexport", DECL_ATTRIBUTES (decl)))
     return 1;
 
   /* Class members get the dllexport status of their class.  */
   if (associated_type (decl))
     {
-      exp = lookup_attribute ("dllexport",
-			      TYPE_ATTRIBUTES (associated_type (decl)));
-      if (exp)
+      if (has_attribute_p ("dllexport",
+			   TYPE_ATTRIBUTES (associated_type (decl)))
 	return 1;
     }
 
@@ -136,7 +131,7 @@ i386_pe_dllexport_p (tree decl)
 static int
 i386_pe_dllimport_p (tree decl)
 {
-  tree imp;
+  bool imp;
   int context_imp = 0;
 
   if (TREE_CODE (decl) == FUNCTION_DECL
@@ -147,12 +142,12 @@ i386_pe_dllimport_p (tree decl)
       && TREE_CODE (decl) != FUNCTION_DECL)
     return 0;
 
-  imp = lookup_attribute ("dllimport", DECL_ATTRIBUTES (decl));
+  imp = has_attribute_p ("dllimport", DECL_ATTRIBUTES (decl));
 
   /* Class members get the dllimport status of their class.  */
   if (!imp && associated_type (decl))
     {
-      imp = lookup_attribute ("dllimport",
+      imp = has_attribute_p ("dllimport",
 			      TYPE_ATTRIBUTES (associated_type (decl)));
       if (imp)
 	context_imp = 1;
@@ -393,9 +388,9 @@ i386_pe_encode_section_info (tree decl, rtx rtl, int first)
       tree type_attributes = TYPE_ATTRIBUTES (TREE_TYPE (decl));
       tree newid = NULL_TREE;
 
-      if (lookup_attribute ("stdcall", type_attributes))
+      if (has_attribute_p ("stdcall", type_attributes))
 	newid = gen_stdcall_or_fastcall_suffix (decl, false);
-      else if (lookup_attribute ("fastcall", type_attributes))
+      else if (has_attribute_p ("fastcall", type_attributes))
 	newid = gen_stdcall_or_fastcall_suffix (decl, true);
       if (newid != NULL_TREE) 	
 	{
@@ -597,7 +592,7 @@ i386_pe_section_type_flags (tree decl, const char *name, int reloc)
       flags = SECTION_WRITE;
 
       if (decl && TREE_CODE (decl) == VAR_DECL
-	  && lookup_attribute ("shared", DECL_ATTRIBUTES (decl)))
+	  && has_attribute_p ("shared", DECL_ATTRIBUTES (decl)))
 	flags |= SECTION_PE_SHARED;
     }
 

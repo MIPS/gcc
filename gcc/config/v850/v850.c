@@ -58,9 +58,10 @@ static void v850_reorg		     (void);
 static int  ep_memory_offset         (enum machine_mode, int);
 static void v850_set_data_area       (tree, v850_data_area);
 const struct attribute_spec v850_attribute_table[];
-static tree v850_handle_interrupt_attribute (tree *, tree, tree, int, bool *);
-static tree v850_handle_data_area_attribute (tree *, tree, tree, int, bool *);
-static void v850_insert_attributes   (tree, tree *);
+static void v850_handle_data_area_attribute (tree *, tree, tree, int, bool *,
+					     bool *);
+static attribute_count v850_add_attributes (tree, attribute_list,
+					    const struct one_attribute **);
 static void v850_select_section (tree, int, unsigned HOST_WIDE_INT);
 static void v850_encode_data_area    (tree, rtx);
 static void v850_encode_section_info (tree, rtx, int);
@@ -101,8 +102,8 @@ static int v850_interrupt_p = FALSE;
 #undef TARGET_ATTRIBUTE_TABLE
 #define TARGET_ATTRIBUTE_TABLE v850_attribute_table
 
-#undef TARGET_INSERT_ATTRIBUTES
-#define TARGET_INSERT_ATTRIBUTES v850_insert_attributes
+#undef TARGET_ADD_ATTRIBUTES
+#define TARGET_ADD_ATTRIBUTES v850_add_attributes
 
 #undef  TARGET_ASM_SELECT_SECTION
 #define TARGET_ASM_SELECT_SECTION  v850_select_section
@@ -2150,76 +2151,73 @@ notice_update_cc (rtx body, rtx insn)
 v850_data_area
 v850_get_data_area (tree decl)
 {
-  if (lookup_attribute ("sda", DECL_ATTRIBUTES (decl)) != NULL_TREE)
+  if (has_attribute_p ("sda", DECL_ATTRIBUTES (decl)))
     return DATA_AREA_SDA;
   
-  if (lookup_attribute ("tda", DECL_ATTRIBUTES (decl)) != NULL_TREE)
+  if (has_attribute_p ("tda", DECL_ATTRIBUTES (decl)))
     return DATA_AREA_TDA;
   
-  if (lookup_attribute ("zda", DECL_ATTRIBUTES (decl)) != NULL_TREE)
+  if (has_attribute_p ("zda", DECL_ATTRIBUTES (decl)))
     return DATA_AREA_ZDA;
 
   return DATA_AREA_NORMAL;
 }
+
+/* Return zero or one attributes to add to give effect to DATA_AREA.  */
+
+static attribute_count
+v850_set_data_area_1 (v850_data_area data_area,
+		      const struct one_attribute ** to_add)
+{
+  static struct one_attribute at;
+  
+  switch (data_area)
+    {
+    case DATA_AREA_SDA: at.name = get_identifier ("sda"); break;
+    case DATA_AREA_TDA: at.name = get_identifier ("tda"); break;
+    case DATA_AREA_ZDA: at.name = get_identifier ("zda"); break;
+    default:
+      return 0;
+    }
+  at.value = NULL_TREE;
+  *to_add = &at;
+  return 1;
+}
+
 
 /* Store the indicated data area in the decl's attributes.  */
 
 static void
 v850_set_data_area (tree decl, v850_data_area data_area)
 {
-  tree name;
-  
-  switch (data_area)
-    {
-    case DATA_AREA_SDA: name = get_identifier ("sda"); break;
-    case DATA_AREA_TDA: name = get_identifier ("tda"); break;
-    case DATA_AREA_ZDA: name = get_identifier ("zda"); break;
-    default:
-      return;
-    }
+  const struct one_attribute *oa;
+  attribute_count ac;
 
-  DECL_ATTRIBUTES (decl) = tree_cons
-    (name, NULL, DECL_ATTRIBUTES (decl));
+  ac = v850_set_data_area_1 (data_area, &oa);
+  DECL_ATTRIBUTES (decl) = merge_attributes_1 (DECL_ATTRIBUTES (decl),
+					       ac, oa, NULL, 0);
 }
 
 const struct attribute_spec v850_attribute_table[] =
 {
   /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */
-  { "interrupt_handler", 0, 0, true,  false, false, v850_handle_interrupt_attribute },
-  { "interrupt",         0, 0, true,  false, false, v850_handle_interrupt_attribute },
+  { "interrupt_handler", 0, 0, true,  false, false, handle_fndecl_attribute },
+  { "interrupt",         0, 0, true,  false, false, handle_fndecl_attribute },
   { "sda",               0, 0, true,  false, false, v850_handle_data_area_attribute },
   { "tda",               0, 0, true,  false, false, v850_handle_data_area_attribute },
   { "zda",               0, 0, true,  false, false, v850_handle_data_area_attribute },
   { NULL,                0, 0, false, false, false, NULL }
 };
 
-/* Handle an "interrupt" attribute; arguments as in
-   struct attribute_spec.handler.  */
-static tree
-v850_handle_interrupt_attribute (tree * node,
-                                 tree name,
-                                 tree args ATTRIBUTE_UNUSED,
-                                 int flags ATTRIBUTE_UNUSED,
-                                 bool * no_add_attrs)
-{
-  if (TREE_CODE (*node) != FUNCTION_DECL)
-    {
-      warning ("`%s' attribute only applies to functions",
-	       IDENTIFIER_POINTER (name));
-      *no_add_attrs = true;
-    }
-
-  return NULL_TREE;
-}
-
 /* Handle a "sda", "tda" or "zda" attribute; arguments as in
    struct attribute_spec.handler.  */
-static tree
+static void
 v850_handle_data_area_attribute (tree* node,
                                  tree name,
                                  tree args ATTRIBUTE_UNUSED,
                                  int flags ATTRIBUTE_UNUSED,
-                                 bool * no_add_attrs)
+                                 bool * no_add_attrs,
+				 bool * ARG_UNUSED (defer))
 {
   v850_data_area data_area;
   v850_data_area area;
@@ -2260,8 +2258,6 @@ v850_handle_data_area_attribute (tree* node,
     default:
       break;
     }
-
-  return NULL_TREE;
 }
 
 
@@ -2271,8 +2267,7 @@ v850_handle_data_area_attribute (tree* node,
 int
 v850_interrupt_function_p (tree func)
 {
-  tree a;
-  int ret = 0;
+  bool ret;
 
   if (v850_interrupt_cache_p)
     return v850_interrupt_p;
@@ -2280,15 +2275,8 @@ v850_interrupt_function_p (tree func)
   if (TREE_CODE (func) != FUNCTION_DECL)
     return 0;
 
-  a = lookup_attribute ("interrupt_handler", DECL_ATTRIBUTES (func));
-  if (a != NULL_TREE)
-    ret = 1;
-
-  else
-    {
-      a = lookup_attribute ("interrupt", DECL_ATTRIBUTES (func));
-      ret = a != NULL_TREE;
-    }
+  ret = (has_attribute_p ("interrupt_handler", DECL_ATTRIBUTES (func))
+	 || has_attribute_p ("interrupt", DECL_ATTRIBUTES (func)));
 
   /* Its not safe to trust global variables until after function inlining has
      been done.  */
@@ -2847,15 +2835,18 @@ v850_output_local (FILE * file,
 
 /* Add data area to the given declaration if a ghs data area pragma is
    currently in effect (#pragma ghs startXXX/endXXX).  */
-static void
-v850_insert_attributes (tree decl, tree * attr_ptr ATTRIBUTE_UNUSED )
+static attribute_count
+v850_add_attributes (tree decl, attribute_list attributes ATTRIBUTE_UNUSED,
+		     const struct one_attribute ** ats)
 {
+  attribute_count result = 0;
+  
   if (data_area_stack
       && data_area_stack->data_area
       && current_function_decl == NULL_TREE
       && (TREE_CODE (decl) == VAR_DECL || TREE_CODE (decl) == CONST_DECL)
       && v850_get_data_area (decl) == DATA_AREA_NORMAL)
-    v850_set_data_area (decl, data_area_stack->data_area);
+    result = v850_set_data_area_1 (data_area_stack->data_area, ats);
 
   /* Initialize the default names of the v850 specific sections,
      if this has not been done before.  */
@@ -2941,6 +2932,7 @@ v850_insert_attributes (tree decl, tree * attr_ptr ATTRIBUTE_UNUSED )
 	  DECL_SECTION_NAME (decl) = chosen_section;
 	}
     }
+  return result;
 }
 
 /* Return nonzero if the given RTX is suitable

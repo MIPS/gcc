@@ -1,3 +1,30 @@
+2004-09-30  Geoffrey Keating  <geoffk@apple.com>
+
+	General changes that apply to every file listed:
+	Update parameters and return value of attribute handlers.  Replace
+	'tree' with 'attribute_list' in many places.  Replace
+	'lookup_attribute' with 'has_attribute_p' or 'get_attribute'.
+	Replace NULL_TREE with NULL when referring to an attribute list.
+	Use 'merge_attributes' instead of 'chainon'.
+
+  	* call.c (build_java_interface_fn_ref): General changes.
+	* class.c: General changes only.
+	* cp-tree.h: General changes only.
+	* decl.c: General changes only.
+	* decl.h: General changes only.
+	* decl2.c: General changes only.
+	* method.c: General changes only.
+	* name-lookup.c: General changes only.
+	* name-lookup.h: General changes only.
+	* optimize.c: General changes only.
+	* parser.c (cp_parser_member_declaration): Delete first_attribute.
+	(struct attribute_builder_data): New.
+	(cp_parser_attributes_opt): Rewrite.
+	(cp_parser_attribute_list): Rewrite.
+	* pt.c: General changes only.
+	* tree.c: General changes only.
+	* typeck.c: General changes only.
+
 2004-09-30  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* cp-tree.h (struct lang_decl): Shrink by reordering fields and

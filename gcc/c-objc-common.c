@@ -57,7 +57,7 @@ c_missing_noreturn_ok_p (tree decl)
 int
 c_disregard_inline_limits (tree fn)
 {
-  if (lookup_attribute ("always_inline", DECL_ATTRIBUTES (fn)) != NULL)
+  if (has_attribute_p ("always_inline", DECL_ATTRIBUTES (fn)))
     return 1;
 
   return (!flag_really_no_inline && DECL_DECLARED_INLINE_P (fn)
@@ -75,7 +75,7 @@ c_cannot_inline_tree_fn (tree *fnp)
 		     && !DECL_IN_SYSTEM_HEADER (fn));
 
   if (flag_really_no_inline
-      && lookup_attribute ("always_inline", DECL_ATTRIBUTES (fn)) == NULL)
+      && !has_attribute_p ("always_inline", DECL_ATTRIBUTES (fn)))
     {
       if (do_warning)
 	warning ("%Jfunction %qF can never be inlined because it "

@@ -28,7 +28,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "jcf.h"
 #include "zipfile.h"
 
-static int get_attribute (JCF *);
+static int jcf_get_attribute (JCF *);
 static int jcf_parse_preamble (JCF *);
 static int jcf_parse_constant_pool (JCF *);
 static void jcf_parse_class (JCF *);
@@ -103,7 +103,7 @@ skip_attribute (JCF *jcf, int number_of_attribute)
 #endif
 
 static int
-get_attribute (JCF *jcf)
+jcf_get_attribute (JCF *jcf)
 {
   uint16 attribute_name = (JCF_FILL (jcf, 6), JCF_readu2 (jcf));
   uint32 attribute_length = JCF_readu4 (jcf);
@@ -168,7 +168,7 @@ get_attribute (JCF *jcf)
       attributes_count = JCF_readu2 (jcf);
       for (j = 0; j < attributes_count; j++)
 	{
-	  int code = get_attribute (jcf);
+	  int code = jcf_get_attribute (jcf);
 	  if (code != 0)
 	    return code;
 	}
@@ -377,7 +377,7 @@ jcf_parse_fields (JCF* jcf)
 #endif
       for (j = 0; j < attribute_count; j++)
 	{
-	  int code = get_attribute (jcf);
+	  int code = jcf_get_attribute (jcf);
 	  if (code != 0)
 	    return code;
 	}
@@ -406,7 +406,7 @@ jcf_parse_one_method (JCF* jcf)
 #endif
   for (i = 0; i < attribute_count; i++)
     {
-      int code = get_attribute (jcf);
+      int code = jcf_get_attribute (jcf);
       if (code != 0)
 	return code;
     }
@@ -449,7 +449,7 @@ jcf_parse_final_attributes (JCF *jcf)
 #endif
   for (i = 0; i < attributes_count; i++)
     {
-      int code = get_attribute (jcf);
+      int code = jcf_get_attribute (jcf);
       if (code != 0)
 	return code;
     }

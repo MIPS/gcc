@@ -1831,7 +1831,7 @@ gnat_gimplify_function (tree fndecl)
 tree
 builtin_function (const char *name, tree type, int function_code,
                   enum built_in_class class, const char *library_name,
-                  tree attrs)
+                  attribute_list attrs)
 {
   tree decl = build_decl (FUNCTION_DECL, get_identifier (name), type);
 

@@ -103,7 +103,8 @@ do {									\
 	struct c_arg_info *arginfotype; struct c_declarator *dtrtype;
 	struct c_type_name *typenametype; struct c_parm *parmtype;
 	struct c_declspecs *dsptype; enum tree_code code;
-	location_t location; }
+	location_t location;
+        attribute_list attrs; struct one_attribute attrib; }
 
 /* All identifiers that are not reserved words
    and are not declared typedefs in the current block */
@@ -213,7 +214,8 @@ do {									\
 %type <exprtype> init
 %type <ttype> simple_asm_expr maybeasm asm_stmt asm_argument
 %type <ttype> asm_operands nonnull_asm_operands asm_operand asm_clobbers
-%type <ttype> maybe_attribute attributes attribute attribute_list attrib
+%type <attrib> attrib
+%type <attrs> maybe_attribute attributes attribute attribute_list
 %type <ttype> any_word
 
 %type <ttype> compstmt compstmt_start compstmt_primary_start
@@ -232,7 +234,7 @@ do {									\
 %type <ttype> component_decl components components_notype component_declarator
 %type <ttype> component_notype_declarator
 %type <ttype> enumlist enumerator
-%type <ttype> struct_head union_head enum_head
+%type <attrs> struct_head union_head enum_head
 %type <typenametype> typename
 %type <dtrtype> absdcl absdcl1 absdcl1_ea absdcl1_noea direct_absdcl1
 %type <parmtype> absdcl_maybe_attribute
@@ -270,21 +272,21 @@ do {									\
 %{
 /* Declaration specifiers of the current declaration.  */
 static struct c_declspecs *current_declspecs;
-static GTY(()) tree prefix_attributes;
+static GTY(()) attribute_list prefix_attributes;
 
 /* List of all the attributes applying to the identifier currently being
    declared; includes prefix_attributes and possibly some more attributes
    just after a comma.  */
-static GTY(()) tree all_prefix_attributes;
+static GTY(()) attribute_list all_prefix_attributes;
 
 /* Structure to save declaration specifiers.  */
 struct c_declspec_stack {
   /* Saved value of current_declspecs.  */
   struct c_declspecs *current_declspecs;
   /* Saved value of prefix_attributes.  */
-  tree prefix_attributes;
+  attribute_list prefix_attributes;
   /* Saved value of all_prefix_attributes.  */
-  tree all_prefix_attributes;
+  attribute_list all_prefix_attributes;
   /* Next level of stack.  */
   struct c_declspec_stack *next;
 };
@@ -865,12 +867,12 @@ setspecs: /* empty */
 		  if ($<dsptype>0)
 		    {
 		      prefix_attributes = $<dsptype>0->attrs;
-		      $<dsptype>0->attrs = NULL_TREE;
+		      $<dsptype>0->attrs = NULL;
 		      current_declspecs = $<dsptype>0;
 		    }
 		  else
 		    {
-		      prefix_attributes = NULL_TREE;
+		      prefix_attributes = NULL;
 		      current_declspecs = build_null_declspecs ();
 		    }
 		  current_declspecs = finish_declspecs (current_declspecs);
@@ -881,7 +883,7 @@ setspecs: /* empty */
    to prefix_attributes with these ones chained on the front.  */
 maybe_resetattrs:
 	  maybe_attribute
-		{ all_prefix_attributes = chainon ($1, prefix_attributes); }
+		{ all_prefix_attributes = merge_attributes ($1, prefix_attributes); }
 	;
 
 decl:
@@ -1315,7 +1317,7 @@ notype_initdecls:
 initdcl:
 	  declarator maybeasm maybe_attribute '='
 		{ $<ttype>$ = start_decl ($1, current_declspecs, true,
-					  chainon ($3, all_prefix_attributes));
+					  merge_attributes ($3, all_prefix_attributes));
 		  start_init ($<ttype>$, $2, global_bindings_p ()); }
 	  init
 /* Note how the declaration of the variable is in effect while its init is parsed! */
@@ -1324,7 +1326,7 @@ initdcl:
 		  finish_decl ($<ttype>5, $6.value, $2); }
 	| declarator maybeasm maybe_attribute
 		{ tree d = start_decl ($1, current_declspecs, false,
-				       chainon ($3, all_prefix_attributes));
+				       merge_attributes ($3, all_prefix_attributes));
 		  finish_decl (d, NULL_TREE, $2);
                 }
 	;
@@ -1332,7 +1334,7 @@ initdcl:
 notype_initdcl:
 	  notype_declarator maybeasm maybe_attribute '='
 		{ $<ttype>$ = start_decl ($1, current_declspecs, true,
-					  chainon ($3, all_prefix_attributes));
+					  merge_attributes ($3, all_prefix_attributes));
 		  start_init ($<ttype>$, $2, global_bindings_p ()); }
 	  init
 /* Note how the declaration of the variable is in effect while its init is parsed! */
@@ -1341,14 +1343,14 @@ notype_initdcl:
 		  finish_decl ($<ttype>5, $6.value, $2); }
 	| notype_declarator maybeasm maybe_attribute
 		{ tree d = start_decl ($1, current_declspecs, false,
-				       chainon ($3, all_prefix_attributes));
+				       merge_attributes ($3, all_prefix_attributes));
 		  finish_decl (d, NULL_TREE, $2); }
 	;
 /* the * rules are dummies to accept the Apollo extended syntax
    so that the header files compile. */
 maybe_attribute:
       /* empty */
-		{ $$ = NULL_TREE; }
+		{ $$ = NULL; }
 	| attributes
 		{ $$ = $1; }
 	;
@@ -1357,7 +1359,7 @@ attributes:
       attribute
 		{ $$ = $1; }
 	| attributes attribute
-		{ $$ = chainon ($1, $2); }
+		{ $$ = merge_attributes ($1, $2); }
 	;
 
 attribute:
@@ -1365,27 +1367,29 @@ attribute:
                 '(' '(' attribute_list ')' ')' start_string_translation
 		{ $$ = $5; }
       | ATTRIBUTE error start_string_translation
-                { $$ = NULL_TREE; }
+                { $$ = NULL; }
 	;
 
 attribute_list:
       attrib
-		{ $$ = $1; }
+		{ $$ = ($1.name ? merge_attributes_1 (NULL, 1, &$1, NULL, 0) 
+			: 0); }
 	| attribute_list ',' attrib
-		{ $$ = chainon ($1, $3); }
+		{ $$ = ($3.name ? merge_attributes_1 ($1, 1, &$3, NULL, 0) 
+			: 0); }
 	;
 
 attrib:
     /* empty */
-		{ $$ = NULL_TREE; }
+		{ $$.name = NULL; }
 	| any_word
-		{ $$ = build_tree_list ($1, NULL_TREE); }
+		{ $$.name = $1; }
 	| any_word '(' IDENTIFIER ')'
-		{ $$ = build_tree_list ($1, build_tree_list (NULL_TREE, $3)); }
+		{ $$.name = $1, $$.value = build_tree_list (NULL_TREE, $3); }
 	| any_word '(' IDENTIFIER ',' nonnull_exprlist ')'
-		{ $$ = build_tree_list ($1, tree_cons (NULL_TREE, $3, $5)); }
+		{ $$.name = $1, $$.value = tree_cons (NULL_TREE, $3, $5); }
 	| any_word '(' exprlist ')'
-		{ $$ = build_tree_list ($1, $3); }
+		{ $$.name = $1, $$.value = $3; }
 	;
 
 /* This still leaves out most reserved keywords,
@@ -1613,21 +1617,21 @@ notype_declarator:
 
 struct_head:
 	  STRUCT
-		{ $$ = NULL_TREE; }
+		{ $$ = NULL; }
 	| STRUCT attributes
 		{ $$ = $2; }
 	;
 
 union_head:
 	  UNION
-		{ $$ = NULL_TREE; }
+		{ $$ = NULL; }
 	| UNION attributes
 		{ $$ = $2; }
 	;
 
 enum_head:
 	  ENUM
-		{ $$ = NULL_TREE; }
+		{ $$ = NULL; }
 	| ENUM attributes
 		{ $$ = $2; }
 	;
@@ -1645,30 +1649,30 @@ structsp_attr:
 		}
 	  component_decl_list '}' maybe_attribute
 		{ $$ = finish_struct ($<ttype>4, nreverse ($5),
-				      chainon ($1, $7)); }
+				      merge_attributes ($1, $7)); }
 	| struct_head '{' component_decl_list '}' maybe_attribute
 		{ $$ = finish_struct (start_struct (RECORD_TYPE, NULL_TREE),
-				      nreverse ($3), chainon ($1, $5));
+				      nreverse ($3), merge_attributes ($1, $5));
 		}
 	| union_head identifier '{'
 		{ $$ = start_struct (UNION_TYPE, $2); }
 	  component_decl_list '}' maybe_attribute
 		{ $$ = finish_struct ($<ttype>4, nreverse ($5),
-				      chainon ($1, $7)); }
+				      merge_attributes ($1, $7)); }
 	| union_head '{' component_decl_list '}' maybe_attribute
 		{ $$ = finish_struct (start_struct (UNION_TYPE, NULL_TREE),
-				      nreverse ($3), chainon ($1, $5));
+				      nreverse ($3), merge_attributes ($1, $5));
 		}
 	| enum_head identifier '{'
 		{ $$ = start_enum ($2); }
 	  enumlist maybecomma_warn '}' maybe_attribute
 		{ $$ = finish_enum ($<ttype>4, nreverse ($5),
-				    chainon ($1, $8)); }
+				    merge_attributes ($1, $8)); }
 	| enum_head '{'
 		{ $$ = start_enum (NULL_TREE); }
 	  enumlist maybecomma_warn '}' maybe_attribute
 		{ $$ = finish_enum ($<ttype>3, nreverse ($4),
-				    chainon ($1, $7)); }
+				    merge_attributes ($1, $7)); }
 	;
 
 structsp_nonattr:
@@ -1776,32 +1780,32 @@ component_declarator:
 	  declarator maybe_attribute
 		{ $$ = grokfield ($1, current_declspecs, NULL_TREE);
 		  decl_attributes (&$$,
-				   chainon ($2, all_prefix_attributes), 0); }
+				   merge_attributes ($2, all_prefix_attributes), 0); }
 	| declarator ':' expr_no_commas maybe_attribute
 		{ $$ = grokfield ($1, current_declspecs, $3.value);
 		  decl_attributes (&$$,
-				   chainon ($4, all_prefix_attributes), 0); }
+				   merge_attributes ($4, all_prefix_attributes), 0); }
 	| ':' expr_no_commas maybe_attribute
 		{ $$ = grokfield (build_id_declarator (NULL_TREE),
 				  current_declspecs, $2.value);
 		  decl_attributes (&$$,
-				   chainon ($3, all_prefix_attributes), 0); }
+				   merge_attributes ($3, all_prefix_attributes), 0); }
 	;
 
 component_notype_declarator:
 	  notype_declarator maybe_attribute
 		{ $$ = grokfield ($1, current_declspecs, NULL_TREE);
 		  decl_attributes (&$$,
-				   chainon ($2, all_prefix_attributes), 0); }
+				   merge_attributes ($2, all_prefix_attributes), 0); }
 	| notype_declarator ':' expr_no_commas maybe_attribute
 		{ $$ = grokfield ($1, current_declspecs, $3.value);
 		  decl_attributes (&$$,
-				   chainon ($4, all_prefix_attributes), 0); }
+				   merge_attributes ($4, all_prefix_attributes), 0); }
 	| ':' expr_no_commas maybe_attribute
 		{ $$ = grokfield (build_id_declarator (NULL_TREE),
 				  current_declspecs, $2.value);
 		  decl_attributes (&$$,
-				   chainon ($3, all_prefix_attributes), 0); }
+				   merge_attributes ($3, all_prefix_attributes), 0); }
 	;
 
 /* We chain the enumerators in reverse order.
@@ -1851,7 +1855,7 @@ absdcl_maybe_attribute:   /* absdcl maybe_attribute, but not just attributes */
 				     $1); }
 	| absdcl1_noea attributes
 		{ $$ = build_c_parm (current_declspecs,
-				     chainon ($2, all_prefix_attributes),
+				     merge_attributes ($2, all_prefix_attributes),
 				     $1); }
 	;
 
@@ -2474,18 +2478,18 @@ parms:
 parm:
 	  declspecs_ts setspecs parm_declarator maybe_attribute
 		{ $$ = build_c_parm (current_declspecs,
-				     chainon ($4, all_prefix_attributes), $3);
+				     merge_attributes ($4, all_prefix_attributes), $3);
 		  POP_DECLSPEC_STACK; }
 	| declspecs_ts setspecs notype_declarator maybe_attribute
 		{ $$ = build_c_parm (current_declspecs,
-				     chainon ($4, all_prefix_attributes), $3);
+				     merge_attributes ($4, all_prefix_attributes), $3);
 		  POP_DECLSPEC_STACK; }
 	| declspecs_ts setspecs absdcl_maybe_attribute
 		{ $$ = $3;
 		  POP_DECLSPEC_STACK; }
 	| declspecs_nots setspecs notype_declarator maybe_attribute
 		{ $$ = build_c_parm (current_declspecs,
-				     chainon ($4, all_prefix_attributes), $3);
+				     merge_attributes ($4, all_prefix_attributes), $3);
 		  POP_DECLSPEC_STACK; }
 
 	| declspecs_nots setspecs absdcl_maybe_attribute
@@ -2498,18 +2502,18 @@ parm:
 firstparm:
 	  declspecs_ts_nosa setspecs_fp parm_declarator maybe_attribute
 		{ $$ = build_c_parm (current_declspecs,
-				     chainon ($4, all_prefix_attributes), $3);
+				     merge_attributes ($4, all_prefix_attributes), $3);
 		  POP_DECLSPEC_STACK; }
 	| declspecs_ts_nosa setspecs_fp notype_declarator maybe_attribute
 		{ $$ = build_c_parm (current_declspecs,
-				     chainon ($4, all_prefix_attributes), $3);
+				     merge_attributes ($4, all_prefix_attributes), $3);
 		  POP_DECLSPEC_STACK; }
 	| declspecs_ts_nosa setspecs_fp absdcl_maybe_attribute
 		{ $$ = $3;
 		  POP_DECLSPEC_STACK; }
 	| declspecs_nots_nosa setspecs_fp notype_declarator maybe_attribute
 		{ $$ = build_c_parm (current_declspecs,
-				     chainon ($4, all_prefix_attributes), $3);
+				     merge_attributes ($4, all_prefix_attributes), $3);
 		  POP_DECLSPEC_STACK; }
 
 	| declspecs_nots_nosa setspecs_fp absdcl_maybe_attribute
@@ -2519,7 +2523,7 @@ firstparm:
 
 setspecs_fp:
 	  setspecs
-		{ prefix_attributes = chainon (prefix_attributes, $<ttype>-2);
+		{ prefix_attributes = merge_attributes (prefix_attributes, $<attrs>-2);
 		  all_prefix_attributes = prefix_attributes; }
 	;
 

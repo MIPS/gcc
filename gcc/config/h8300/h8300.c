@@ -110,9 +110,10 @@ static void push (int);
 static void pop (int);
 static const char *cond_string (enum rtx_code);
 static unsigned int h8300_asm_insn_count (const char *);
-static tree h8300_handle_fndecl_attribute (tree *, tree, tree, int, bool *);
-static tree h8300_handle_eightbit_data_attribute (tree *, tree, tree, int, bool *);
-static tree h8300_handle_tiny_data_attribute (tree *, tree, tree, int, bool *);
+static void h8300_handle_eightbit_data_attribute (tree *, tree, tree, int,
+						  bool *, bool *);
+static void h8300_handle_tiny_data_attribute (tree *, tree, tree, int, bool *,
+					      bool *);
 #ifndef OBJECT_FORMAT_ELF
 static void h8300_asm_named_section (const char *, unsigned int, tree);
 #endif
@@ -5584,13 +5585,10 @@ fix_bit_operand (rtx *operands, enum rtx_code code)
 static int
 h8300_interrupt_function_p (tree func)
 {
-  tree a;
-
   if (TREE_CODE (func) != FUNCTION_DECL)
     return 0;
 
-  a = lookup_attribute ("interrupt_handler", DECL_ATTRIBUTES (func));
-  return a != NULL_TREE;
+  return has_attribute_p ("interrupt_handler", DECL_ATTRIBUTES (func));
 }
 
 /* Return nonzero if FUNC is a saveall function as specified by the
@@ -5599,13 +5597,10 @@ h8300_interrupt_function_p (tree func)
 static int
 h8300_saveall_function_p (tree func)
 {
-  tree a;
-
   if (TREE_CODE (func) != FUNCTION_DECL)
     return 0;
 
-  a = lookup_attribute ("saveall", DECL_ATTRIBUTES (func));
-  return a != NULL_TREE;
+  return has_attribute_p ("saveall", DECL_ATTRIBUTES (func));
 }
 
 /* Return nonzero if FUNC is an OS_Task function as specified
@@ -5614,13 +5609,10 @@ h8300_saveall_function_p (tree func)
 static int
 h8300_os_task_function_p (tree func)
 {
-  tree a;
-
   if (TREE_CODE (func) != FUNCTION_DECL)
     return 0;
 
-  a = lookup_attribute ("OS_Task", DECL_ATTRIBUTES (func));
-  return a != NULL_TREE;
+  return has_attribute_p ("OS_Task", DECL_ATTRIBUTES (func));
 }
 
 /* Return nonzero if FUNC is a monitor function as specified
@@ -5629,13 +5621,10 @@ h8300_os_task_function_p (tree func)
 static int
 h8300_monitor_function_p (tree func)
 {
-  tree a;
-
   if (TREE_CODE (func) != FUNCTION_DECL)
     return 0;
 
-  a = lookup_attribute ("monitor", DECL_ATTRIBUTES (func));
-  return a != NULL_TREE;
+  return has_attribute_p ("monitor", DECL_ATTRIBUTES (func));
 }
 
 /* Return nonzero if FUNC is a function that should be called
@@ -5644,13 +5633,10 @@ h8300_monitor_function_p (tree func)
 int
 h8300_funcvec_function_p (tree func)
 {
-  tree a;
-
   if (TREE_CODE (func) != FUNCTION_DECL)
     return 0;
 
-  a = lookup_attribute ("function_vector", DECL_ATTRIBUTES (func));
-  return a != NULL_TREE;
+  return has_attribute_p ("function_vector", DECL_ATTRIBUTES (func));
 }
 
 /* Return nonzero if DECL is a variable that's in the eight bit
@@ -5659,13 +5645,10 @@ h8300_funcvec_function_p (tree func)
 int
 h8300_eightbit_data_p (tree decl)
 {
-  tree a;
-
   if (TREE_CODE (decl) != VAR_DECL)
     return 0;
 
-  a = lookup_attribute ("eightbit_data", DECL_ATTRIBUTES (decl));
-  return a != NULL_TREE;
+  return has_attribute_p ("eightbit_data", DECL_ATTRIBUTES (decl));
 }
 
 /* Return nonzero if DECL is a variable that's in the tiny
@@ -5674,21 +5657,22 @@ h8300_eightbit_data_p (tree decl)
 int
 h8300_tiny_data_p (tree decl)
 {
-  tree a;
-
   if (TREE_CODE (decl) != VAR_DECL)
     return 0;
 
-  a = lookup_attribute ("tiny_data", DECL_ATTRIBUTES (decl));
-  return a != NULL_TREE;
+  return has_attribute_p ("tiny_data", DECL_ATTRIBUTES (decl));
 }
 
 /* Generate an 'interrupt_handler' attribute for decls.  We convert
    all the pragmas to corresponding attributes.  */
 
-static void
-h8300_insert_attributes (tree node, tree *attributes)
+static attribute_count
+h8300_add_attributes (tree node, attribute_list ARG_UNUSED (attrs),
+		      const struct one_attribute **to_add)
 {
+  static struct one_attribute at[2];
+  attribute_count ac = 0;
+  
   if (TREE_CODE (node) == FUNCTION_DECL)
     {
       if (pragma_interrupt)
@@ -5696,8 +5680,7 @@ h8300_insert_attributes (tree node, tree *attributes)
 	  pragma_interrupt = 0;
 
 	  /* Add an 'interrupt_handler' attribute.  */
-	  *attributes = tree_cons (get_identifier ("interrupt_handler"),
-				   NULL, *attributes);
+	  at[ac++].name = get_identifier ("interrupt_handler");
 	}
 
       if (pragma_saveall)
@@ -5705,10 +5688,12 @@ h8300_insert_attributes (tree node, tree *attributes)
 	  pragma_saveall = 0;
 
 	  /* Add an 'saveall' attribute.  */
-	  *attributes = tree_cons (get_identifier ("saveall"),
-				   NULL, *attributes);
+	  at[ac++].name = get_identifier ("saveall");
 	}
     }
+  
+  *to_add = at;
+  return ac;
 }
 
 /* Supported attributes:
@@ -5731,42 +5716,25 @@ h8300_insert_attributes (tree node, tree *attributes)
 const struct attribute_spec h8300_attribute_table[] =
 {
   /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */
-  { "interrupt_handler", 0, 0, true,  false, false, h8300_handle_fndecl_attribute },
-  { "saveall",           0, 0, true,  false, false, h8300_handle_fndecl_attribute },
-  { "OS_Task",           0, 0, true,  false, false, h8300_handle_fndecl_attribute },
-  { "monitor",           0, 0, true,  false, false, h8300_handle_fndecl_attribute },
-  { "function_vector",   0, 0, true,  false, false, h8300_handle_fndecl_attribute },
+  { "interrupt_handler", 0, 0, true,  false, false, handle_fndecl_attribute },
+  { "saveall",           0, 0, true,  false, false, handle_fndecl_attribute },
+  { "OS_Task",           0, 0, true,  false, false, handle_fndecl_attribute },
+  { "monitor",           0, 0, true,  false, false, handle_fndecl_attribute },
+  { "function_vector",   0, 0, true,  false, false, handle_fndecl_attribute },
   { "eightbit_data",     0, 0, true,  false, false, h8300_handle_eightbit_data_attribute },
   { "tiny_data",         0, 0, true,  false, false, h8300_handle_tiny_data_attribute },
   { NULL,                0, 0, false, false, false, NULL }
 };
 
 
-/* Handle an attribute requiring a FUNCTION_DECL; arguments as in
-   struct attribute_spec.handler.  */
-static tree
-h8300_handle_fndecl_attribute (tree *node, tree name,
-			       tree args ATTRIBUTE_UNUSED,
-			       int flags ATTRIBUTE_UNUSED,
-			       bool *no_add_attrs)
-{
-  if (TREE_CODE (*node) != FUNCTION_DECL)
-    {
-      warning ("`%s' attribute only applies to functions",
-	       IDENTIFIER_POINTER (name));
-      *no_add_attrs = true;
-    }
-
-  return NULL_TREE;
-}
-
 /* Handle an "eightbit_data" attribute; arguments as in
    struct attribute_spec.handler.  */
-static tree
+static void
 h8300_handle_eightbit_data_attribute (tree *node, tree name,
 				      tree args ATTRIBUTE_UNUSED,
 				      int flags ATTRIBUTE_UNUSED,
-				      bool *no_add_attrs)
+				      bool *no_add_attrs,
+				      bool * ARG_UNUSED (defer))
 {
   tree decl = *node;
 
@@ -5779,17 +5747,16 @@ h8300_handle_eightbit_data_attribute (tree *node, tree name,
       warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
-
-  return NULL_TREE;
 }
 
 /* Handle an "tiny_data" attribute; arguments as in
    struct attribute_spec.handler.  */
-static tree
+static void
 h8300_handle_tiny_data_attribute (tree *node, tree name,
 				  tree args ATTRIBUTE_UNUSED,
 				  int flags ATTRIBUTE_UNUSED,
-				  bool *no_add_attrs)
+				  bool *no_add_attrs,
+				  bool * ARG_UNUSED (defer))
 {
   tree decl = *node;
 
@@ -5802,8 +5769,6 @@ h8300_handle_tiny_data_attribute (tree *node, tree name,
       warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
-
-  return NULL_TREE;
 }
 
 /* Mark function vectors, and various small data objects.  */
@@ -6226,8 +6191,8 @@ h8300_return_in_memory (tree type, tree fntype ATTRIBUTE_UNUSED)
 #undef TARGET_ENCODE_SECTION_INFO
 #define TARGET_ENCODE_SECTION_INFO h8300_encode_section_info
 
-#undef TARGET_INSERT_ATTRIBUTES
-#define TARGET_INSERT_ATTRIBUTES h8300_insert_attributes
+#undef TARGET_ADD_ATTRIBUTES
+#define TARGET_ADD_ATTRIBUTES h8300_add_attributes
 
 #undef TARGET_RTX_COSTS
 #define TARGET_RTX_COSTS h8300_rtx_costs

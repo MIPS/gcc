@@ -11176,7 +11176,7 @@ instantiate_decl (tree d, int defer_ok, int undefined_ok)
 					   NULL);
 
       /* Set up context.  */
-      start_preparsed_function (d, NULL_TREE, SF_PRE_PARSED);
+      start_preparsed_function (d, NULL, SF_PRE_PARSED);
 
       /* Create substitution entries for the parameters.  */
       subst_decl = DECL_TEMPLATE_RESULT (template_for_substitution (d));

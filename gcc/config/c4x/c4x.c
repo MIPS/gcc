@@ -42,7 +42,6 @@ Boston, MA 02111-1307, USA.  */
 #include "optabs.h"
 #include "libfuncs.h"
 #include "flags.h"
-#include "loop.h"
 #include "recog.h"
 #include "ggc.h"
 #include "cpplib.h"
@@ -187,14 +186,16 @@ static int c4x_arn_reg_operand (rtx, enum machine_mode, unsigned int);
 static int c4x_arn_mem_operand (rtx, enum machine_mode, unsigned int);
 static void c4x_file_start (void);
 static void c4x_file_end (void);
-static void c4x_check_attribute (const char *, tree, tree, tree *);
+static void c4x_check_attribute (const char *attrib, tree list, tree decl, 
+				 struct one_attribute * *addp);
 static int c4x_r11_set_p (rtx);
 static int c4x_rptb_valid_p (rtx, rtx);
 static void c4x_reorg (void);
 static int c4x_label_ref_used_p (rtx, rtx);
-static tree c4x_handle_fntype_attribute (tree *, tree, tree, int, bool *);
 const struct attribute_spec c4x_attribute_table[];
-static void c4x_insert_attributes (tree, tree *);
+static attribute_count c4x_add_attributes
+  (tree decl, attribute_list attributes,
+   const struct one_attribute * * to_add_p);
 static void c4x_asm_named_section (const char *, unsigned int, tree);
 static int c4x_adjust_cost (rtx, rtx, rtx, int);
 static void c4x_globalize_label (FILE *, const char *);
@@ -225,8 +226,8 @@ static tree c4x_gimplify_va_arg_expr (tree, tree, tree *, tree *);
 #undef TARGET_ATTRIBUTE_TABLE
 #define TARGET_ATTRIBUTE_TABLE c4x_attribute_table
 
-#undef TARGET_INSERT_ATTRIBUTES
-#define TARGET_INSERT_ATTRIBUTES c4x_insert_attributes
+#undef TARGET_ADD_ATTRIBUTES
+#define TARGET_ADD_ATTRIBUTES c4x_add_attributes
 
 #undef TARGET_INIT_BUILTINS
 #define TARGET_INIT_BUILTINS c4x_init_builtins
@@ -785,7 +786,7 @@ c4x_leaf_function_p (void)
      to define LEAF_REGISTERS and all that it entails.
      Let's check ourselves....  */
 
-  if (lookup_attribute ("leaf_pretend",
+  if (has_attribute_p ("leaf_pretend",
 			TYPE_ATTRIBUTES (TREE_TYPE (current_function_decl))))
     return 1;
 
@@ -809,7 +810,7 @@ c4x_naked_function_p (void)
   tree type;
 
   type = TREE_TYPE (current_function_decl);
-  return lookup_attribute ("naked", TYPE_ATTRIBUTES (type)) != NULL;
+  return has_attribute_p ("naked", TYPE_ATTRIBUTES (type));
 }
 
 
@@ -817,7 +818,7 @@ int
 c4x_interrupt_function_p (void)
 {
   const char *cfun_name;
-  if (lookup_attribute ("interrupt",
+  if (has_attribute_p ("interrupt",
 			TYPE_ATTRIBUTES (TREE_TYPE (current_function_decl))))
     return 1;
 
@@ -4443,68 +4444,60 @@ c4x_file_end (void)
 
 
 static void
-c4x_check_attribute (const char *attrib, tree list, tree decl, tree *attributes)
+c4x_check_attribute (const char *attrib, tree list, tree decl, 
+		     struct one_attribute * *addp)
 {
   while (list != NULL_TREE
          && IDENTIFIER_POINTER (TREE_PURPOSE (list))
 	 != IDENTIFIER_POINTER (DECL_NAME (decl)))
     list = TREE_CHAIN (list);
   if (list)
-    *attributes = tree_cons (get_identifier (attrib), TREE_VALUE (list),
-			     *attributes);
+    {
+      (*addp)->name = get_identifier (attrib);
+      (*addp)->value = TREE_VALUE (list);
+      (*addp)++;
+    }
 }
 
-
-static void
-c4x_insert_attributes (tree decl, tree *attributes)
+static attribute_count
+c4x_add_attributes (tree decl, attribute_list ARG_UNUSED (attributes),
+		    const struct one_attribute * * to_add_p)
 {
+  static struct one_attribute to_add[5];
+  struct one_attribute * addp = to_add;
+  
+  *to_add_p = to_add;
+  
   switch (TREE_CODE (decl))
     {
     case FUNCTION_DECL:
-      c4x_check_attribute ("section", code_tree, decl, attributes);
-      c4x_check_attribute ("const", pure_tree, decl, attributes);
-      c4x_check_attribute ("noreturn", noreturn_tree, decl, attributes);
-      c4x_check_attribute ("interrupt", interrupt_tree, decl, attributes);
-      c4x_check_attribute ("naked", naked_tree, decl, attributes);
+      c4x_check_attribute ("section", code_tree, decl, &addp);
+      c4x_check_attribute ("const", pure_tree, decl, &addp);
+      c4x_check_attribute ("noreturn", noreturn_tree, decl, &addp);
+      c4x_check_attribute ("interrupt", interrupt_tree, decl, &addp);
+      c4x_check_attribute ("naked", naked_tree, decl, &addp);
       break;
 
     case VAR_DECL:
-      c4x_check_attribute ("section", data_tree, decl, attributes);
+      c4x_check_attribute ("section", data_tree, decl, &addp);
       break;
 
     default:
       break;
     }
+
+  return addp - to_add;
 }
 
 /* Table of valid machine attributes.  */
 const struct attribute_spec c4x_attribute_table[] =
 {
   /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */
-  { "interrupt",    0, 0, false, true,  true,  c4x_handle_fntype_attribute },
-  { "naked",    0, 0, false, true,  true,  c4x_handle_fntype_attribute },
-  { "leaf_pretend", 0, 0, false, true,  true,  c4x_handle_fntype_attribute },
+  { "interrupt",    0, 0, false, true,  true,  NULL },
+  { "naked",        0, 0, false, true,  true,  NULL },
+  { "leaf_pretend", 0, 0, false, true,  true,  NULL },
   { NULL,           0, 0, false, false, false, NULL }
 };
-
-/* Handle an attribute requiring a FUNCTION_TYPE;
-   arguments as in struct attribute_spec.handler.  */
-static tree
-c4x_handle_fntype_attribute (tree *node, tree name,
-			     tree args ATTRIBUTE_UNUSED,
-			     int flags ATTRIBUTE_UNUSED,
-			     bool *no_add_attrs)
-{
-  if (TREE_CODE (*node) != FUNCTION_TYPE)
-    {
-      warning ("`%s' attribute only applies to functions",
-	       IDENTIFIER_POINTER (name));
-      *no_add_attrs = true;
-    }
-
-  return NULL_TREE;
-}
-
 
 /* !!! FIXME to emit RPTS correctly.  */
 
@@ -4768,14 +4761,13 @@ c4x_init_builtins (void)
 			       (integer_type_node,
 				tree_cons (NULL_TREE, double_type_node,
 					   endlink)),
-			       C4X_BUILTIN_FIX, BUILT_IN_MD, NULL, NULL_TREE);
+			       C4X_BUILTIN_FIX, BUILT_IN_MD, NULL, NULL);
   lang_hooks.builtin_function ("ansi_ftoi",
 			       build_function_type 
 			       (integer_type_node, 
 				tree_cons (NULL_TREE, double_type_node,
 					   endlink)),
-			       C4X_BUILTIN_FIX_ANSI, BUILT_IN_MD, NULL,
-			       NULL_TREE);
+			       C4X_BUILTIN_FIX_ANSI, BUILT_IN_MD, NULL, NULL);
   if (TARGET_C3X)
     lang_hooks.builtin_function ("fast_imult",
 				 build_function_type
@@ -4784,8 +4776,7 @@ c4x_init_builtins (void)
 					     tree_cons (NULL_TREE,
 							integer_type_node,
 							endlink))),
-				 C4X_BUILTIN_MPYI, BUILT_IN_MD, NULL,
-				 NULL_TREE);
+				 C4X_BUILTIN_MPYI, BUILT_IN_MD, NULL, NULL);
   else
     {
       lang_hooks.builtin_function ("toieee",
@@ -4794,21 +4785,21 @@ c4x_init_builtins (void)
 				    tree_cons (NULL_TREE, double_type_node,
 					       endlink)),
 				   C4X_BUILTIN_TOIEEE, BUILT_IN_MD, NULL,
-				   NULL_TREE);
+				   NULL);
       lang_hooks.builtin_function ("frieee",
 				   build_function_type
 				   (double_type_node, 
 				    tree_cons (NULL_TREE, double_type_node,
 					       endlink)),
 				   C4X_BUILTIN_FRIEEE, BUILT_IN_MD, NULL,
-				   NULL_TREE);
+				   NULL);
       lang_hooks.builtin_function ("fast_invf",
 				   build_function_type 
 				   (double_type_node, 
 				    tree_cons (NULL_TREE, double_type_node,
 					       endlink)),
 				   C4X_BUILTIN_RCPF, BUILT_IN_MD, NULL,
-				   NULL_TREE);
+				   NULL);
     }
 }
 

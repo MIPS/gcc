@@ -826,7 +826,7 @@ tree
 grokfield (const cp_declarator *declarator, 
 	   cp_decl_specifier_seq *declspecs, 
 	   tree init, tree asmspec_tree,
-           tree attrlist)
+           attribute_list attrlist)
 {
   tree value;
   const char *asmspec = 0;
@@ -1099,7 +1099,7 @@ grok_function_init (tree decl, tree init)
 }
 
 void
-cplus_decl_attributes (tree *decl, tree attributes, int flags)
+cplus_decl_attributes (tree *decl, attribute_list attributes, int flags)
 {
   if (*decl == NULL_TREE || *decl == void_type_node)
     return;
@@ -1446,9 +1446,9 @@ import_export_class (tree ctype)
   if (CLASSTYPE_INTERFACE_ONLY (ctype))
     return;
 
-  if (lookup_attribute ("dllimport", TYPE_ATTRIBUTES (ctype)))
+  if (has_attribute_p ("dllimport", TYPE_ATTRIBUTES (ctype)))
     import_export = -1;
-  else if (lookup_attribute ("dllexport", TYPE_ATTRIBUTES (ctype)))
+  else if (has_attribute_p ("dllexport", TYPE_ATTRIBUTES (ctype)))
     import_export = 1;
   else if (CLASSTYPE_IMPLICIT_INSTANTIATION (ctype)
 	   && !flag_implicit_templates)
@@ -1656,7 +1656,7 @@ determine_visibility (tree decl)
   if (class_type)
     {
       if (TARGET_DLLIMPORT_DECL_ATTRIBUTES
-	  && lookup_attribute ("dllexport", TYPE_ATTRIBUTES (class_type)))
+	  && has_attribute_p ("dllexport", TYPE_ATTRIBUTES (class_type)))
 	{
 	  DECL_VISIBILITY (decl) = VISIBILITY_DEFAULT;
 	  DECL_VISIBILITY_SPECIFIED (decl) = 1;
@@ -2088,7 +2088,7 @@ start_objects (int method_type, int initp)
 			    get_file_function_name_long (type),
 			    build_function_type (void_type_node,
 						 void_list_node));
-  start_preparsed_function (fndecl, /*attrs=*/NULL_TREE, SF_PRE_PARSED);
+  start_preparsed_function (fndecl, /*attrs=*/NULL, SF_PRE_PARSED);
 
   /* It can be a static function as long as collect2 does not have
      to scan the object file to find its ctor/dtor routine.  */
@@ -2256,7 +2256,7 @@ start_static_storage_duration_function (unsigned count)
      It is static because we only need to call this function from the
      various constructor and destructor functions for this module.  */
   start_preparsed_function (ssdf_decl,
-			    /*attrs=*/NULL_TREE,
+			    /*attrs=*/NULL,
 			    SF_PRE_PARSED);
 
   /* Set up the scope of the outermost block in the function.  */

@@ -169,18 +169,18 @@ i386_nlm_encode_section_info (tree decl, rtx rtl, int first)
       rtx rtlname = XEXP (rtl, 0);
       if (GET_CODE (rtlname) == MEM)
 	rtlname = XEXP (rtlname, 0);
-      if (lookup_attribute ("stdcall", type_attributes))
+      if (has_attribute_p ("stdcall", type_attributes))
 	XSTR (rtlname, 0) = gen_stdcall_decoration (decl);
-      else if (lookup_attribute ("fastcall", type_attributes))
+      else if (has_attribute_p ("fastcall", type_attributes))
 	XSTR (rtlname, 0) = gen_fastcall_decoration (decl);
       else
 	{
-	  tree attr = lookup_attribute ("regparm", type_attributes);
+	  tree attr = get_attribute ("regparm", type_attributes);
 
 	  if (attr)
 	    XSTR (rtlname, 0) =
 	      gen_regparm_prefix (decl,
-		      TREE_INT_CST_LOW (TREE_VALUE (TREE_VALUE (attr))));
+		      TREE_INT_CST_LOW (TREE_VALUE (attr)));
 	}
     }
 }

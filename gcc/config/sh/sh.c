@@ -220,12 +220,16 @@ static void mark_use (rtx, rtx *);
 static HOST_WIDE_INT rounded_frame_size (int);
 static rtx mark_constant_pool_use (rtx);
 const struct attribute_spec sh_attribute_table[];
-static tree sh_handle_interrupt_handler_attribute (tree *, tree, tree, int, bool *);
-static tree sh_handle_sp_switch_attribute (tree *, tree, tree, int, bool *);
-static tree sh_handle_trap_exit_attribute (tree *, tree, tree, int, bool *);
-static tree sh_handle_renesas_attribute (tree *, tree, tree, int, bool *);
+static void sh_handle_interrupt_handler_attribute (tree *, tree, tree, int,
+						   bool *, bool *);
+static void sh_handle_sp_switch_attribute (tree *, tree, tree, int, bool *,
+					   bool *);
+static void sh_handle_trap_exit_attribute (tree *, tree, tree, int, bool *,
+					   bool *);
 static void sh_output_function_epilogue (FILE *, HOST_WIDE_INT);
-static void sh_insert_attributes (tree, tree *);
+static attribute_count sh_add_attributes (tree node,
+					  attribute_list attrs,
+					  const struct one_attribute **to_add);
 static int sh_adjust_cost (rtx, rtx, rtx, int);
 static int sh_issue_rate (void);
 static int sh_dfa_new_cycle (FILE *, int, rtx, int, int, int *sort_p);
@@ -317,8 +321,8 @@ static bool sh_callee_copies (CUMULATIVE_ARGS *, enum machine_mode,
 #undef TARGET_ASM_FILE_START_FILE_DIRECTIVE
 #define TARGET_ASM_FILE_START_FILE_DIRECTIVE true
 
-#undef TARGET_INSERT_ATTRIBUTES
-#define TARGET_INSERT_ATTRIBUTES sh_insert_attributes
+#undef TARGET_ADD_ATTRIBUTES
+#define TARGET_ADD_ATTRIBUTES sh_add_attributes
 
 #undef TARGET_SCHED_ADJUST_COST
 #define TARGET_SCHED_ADJUST_COST sh_adjust_cost
@@ -5263,7 +5267,7 @@ sh_media_register_for_return (void)
 
   if (! current_function_is_leaf)
     return -1;
-  if (lookup_attribute ("interrupt_handler",
+  if (has_attribute_p ("interrupt_handler",
 			DECL_ATTRIBUTES (current_function_decl)))
     return -1;
 
@@ -7075,21 +7079,24 @@ sh_pr_nosave_low_regs (struct cpp_reader *pfile ATTRIBUTE_UNUSED)
 
 /* Generate 'handle_interrupt' attribute for decls */
 
-static void
-sh_insert_attributes (tree node, tree *attributes)
+static attribute_count
+sh_add_attributes (tree node, attribute_list ARG_UNUSED (attrs),
+		   const struct one_attribute **to_add)
 {
+  static struct one_attribute oa;
+  
   if (! pragma_interrupt
       || TREE_CODE (node) != FUNCTION_DECL)
-    return;
+    return 0;
 
   /* We are only interested in fields.  */
   if (!DECL_P (node))
-    return;
+    return 0;
 
   /* Add a 'handle_interrupt' attribute.  */
-  * attributes = tree_cons (get_identifier ("interrupt_handler"), NULL, * attributes);
-
-  return;
+  oa.name = get_identifier ("interrupt_handler");
+  *to_add = &oa;
+  return 1;
 }
 
 /* Supported attributes:
@@ -7113,7 +7120,7 @@ const struct attribute_spec sh_attribute_table[] =
   { "interrupt_handler", 0, 0, true,  false, false, sh_handle_interrupt_handler_attribute },
   { "sp_switch",         1, 1, true,  false, false, sh_handle_sp_switch_attribute },
   { "trap_exit",         1, 1, true,  false, false, sh_handle_trap_exit_attribute },
-  { "renesas",           0, 0, false, true, false, sh_handle_renesas_attribute },
+  { "renesas",           0, 0, false, true, false, NULL },
 #ifdef SYMBIAN
   /* Symbian support adds three new attributes:
      dllexport - for exporting a function/variable that will live in a dll
@@ -7130,11 +7137,12 @@ const struct attribute_spec sh_attribute_table[] =
 
 /* Handle an "interrupt_handler" attribute; arguments as in
    struct attribute_spec.handler.  */
-static tree
+static void
 sh_handle_interrupt_handler_attribute (tree *node, tree name,
 				       tree args ATTRIBUTE_UNUSED,
 				       int flags ATTRIBUTE_UNUSED,
-				       bool *no_add_attrs)
+				       bool *no_add_attrs,
+				       bool * ARG_UNUSED (defer))
 {
   if (TREE_CODE (*node) != FUNCTION_DECL)
     {
@@ -7147,15 +7155,14 @@ sh_handle_interrupt_handler_attribute (tree *node, tree name,
       error ("attribute interrupt_handler is not compatible with -m5-compact");
       *no_add_attrs = true;
     }
-
-  return NULL_TREE;
 }
 
 /* Handle an "sp_switch" attribute; arguments as in
    struct attribute_spec.handler.  */
-static tree
+static void
 sh_handle_sp_switch_attribute (tree *node, tree name, tree args,
-			       int flags ATTRIBUTE_UNUSED, bool *no_add_attrs)
+			       int flags ATTRIBUTE_UNUSED, bool *no_add_attrs,
+			       bool * ARG_UNUSED (defer))
 {
   if (TREE_CODE (*node) != FUNCTION_DECL)
     {
@@ -7179,18 +7186,17 @@ sh_handle_sp_switch_attribute (tree *node, tree name, tree args,
     }
   else
     {
-      char *s = ggc_strdup (TREE_STRING_POINTER (TREE_VALUE (args)));
+      const char *s = ggc_strdup (TREE_STRING_POINTER (TREE_VALUE (args)));
       sp_switch = gen_rtx_SYMBOL_REF (VOIDmode, s);
     }
-
-  return NULL_TREE;
 }
 
 /* Handle an "trap_exit" attribute; arguments as in
    struct attribute_spec.handler.  */
-static tree
+static void
 sh_handle_trap_exit_attribute (tree *node, tree name, tree args,
-			       int flags ATTRIBUTE_UNUSED, bool *no_add_attrs)
+			       int flags ATTRIBUTE_UNUSED, bool *no_add_attrs,
+			       bool * ARG_UNUSED (defer))
 {
   if (TREE_CODE (*node) != FUNCTION_DECL)
     {
@@ -7216,18 +7222,6 @@ sh_handle_trap_exit_attribute (tree *node, tree name, tree args,
     {
       trap_exit = TREE_INT_CST_LOW (TREE_VALUE (args));
     }
-
-  return NULL_TREE;
-}
-
-static tree
-sh_handle_renesas_attribute (tree *node ATTRIBUTE_UNUSED,
-			     tree name ATTRIBUTE_UNUSED,
-			     tree args ATTRIBUTE_UNUSED,
-			     int flags ATTRIBUTE_UNUSED,
-			     bool *no_add_attrs ATTRIBUTE_UNUSED)
-{
-  return NULL_TREE;
 }
 
 /* True if __attribute__((renesas)) or -mrenesas.  */
@@ -7240,8 +7234,7 @@ sh_attr_renesas_p (tree td)
     return 0;
   if (DECL_P (td))
     td = TREE_TYPE (td);
-  return (lookup_attribute ("renesas", TYPE_ATTRIBUTES (td))
-	  != NULL_TREE);
+  return has_attribute_p ("renesas", TYPE_ATTRIBUTES (td));
 }
 
 /* True if __attribute__((renesas)) or -mrenesas, for the current
@@ -7255,9 +7248,8 @@ sh_cfun_attr_renesas_p (void)
 int
 sh_cfun_interrupt_handler_p (void)
 {
-  return (lookup_attribute ("interrupt_handler",
-			    DECL_ATTRIBUTES (current_function_decl))
-	  != NULL_TREE);
+  return has_attribute_p ("interrupt_handler",
+			  DECL_ATTRIBUTES (current_function_decl));
 }
 
 /* ??? target_switches in toplev.c is static, hence we have to duplicate it.  */
@@ -9378,7 +9370,7 @@ sh_media_init_builtins (void)
 	    shared[signature] = type;
 	}
       lang_hooks.builtin_function (d->name, type, d - bdesc, BUILT_IN_MD,
-				   NULL, NULL_TREE);
+				   NULL, NULL);
     }
 }
 

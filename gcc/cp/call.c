@@ -4907,7 +4907,7 @@ build_java_interface_fn_ref (tree fn, tree instance)
       java_iface_lookup_fn 
 	= builtin_function ("_Jv_LookupInterfaceMethodIdx",
 			    build_function_type (ptr_type_node, t),
-			    0, NOT_BUILT_IN, NULL, NULL_TREE);
+			    0, NOT_BUILT_IN, NULL, NULL);
     }
 
   /* Look up the pointer to the runtime java.lang.Class object for `instance'. 

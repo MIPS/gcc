@@ -303,10 +303,10 @@ struct gcc_target
   enum machine_mode (* eh_return_filter_mode) (void);
 
   /* Given two decls, merge their attributes and return the result.  */
-  tree (* merge_decl_attributes) (tree, tree);
+  attribute_list (* merge_decl_attributes) (tree, tree);
 
   /* Given two types, merge their attributes and return the result.  */
-  tree (* merge_type_attributes) (tree, tree);
+  attribute_list (* merge_type_attributes) (tree, tree);
 
   /* Table of machine attributes and functions to handle them.
      Ignored if NULL.  */
@@ -320,8 +320,10 @@ struct gcc_target
   /* Assign default attributes to the newly defined TYPE.  */
   void (* set_default_type_attributes) (tree type);
 
-  /* Insert attributes on the newly created DECL.  */
-  void (* insert_attributes) (tree decl, tree *attributes);
+  /* Possibly add some extra attributes to DECL, which is already
+     going to have ATTRIBUTES added.  */
+  attribute_count (* add_attributes) (tree decl, attribute_list attributes,
+				      const struct one_attribute * * to_add);
 
   /* Return true if FNDECL (which has at least one machine attribute)
      can be inlined despite its machine attributes, false otherwise.  */

@@ -285,3 +285,13 @@ hook_bool_CUMULATIVE_ARGS_mode_tree_bool_true (
 {
   return true;
 }
+
+/* The default implementation of TARGET_ADD_ATTRIBUTES: don't add anything.  */
+
+attribute_count
+default_add_attributes (tree decl ATTRIBUTE_UNUSED,
+			attribute_list attributes ATTRIBUTE_UNUSED,
+			const struct one_attribute * * to_add ATTRIBUTE_UNUSED)
+{
+  return 0;
+}

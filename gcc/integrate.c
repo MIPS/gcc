@@ -87,13 +87,14 @@ get_label_from_map (struct inline_remap *map, int i)
 bool
 function_attribute_inlinable_p (tree fndecl)
 {
-  if (targetm.attribute_table)
+  if (targetm.attribute_table && DECL_ATTRIBUTES (fndecl))
     {
-      tree a;
+      attribute_list at = DECL_ATTRIBUTES (fndecl);
+      attribute_count ac;
 
-      for (a = DECL_ATTRIBUTES (fndecl); a; a = TREE_CHAIN (a))
+      for (ac = 0; ac < at->n_attributes; ac++)
 	{
-	  tree name = TREE_PURPOSE (a);
+	  tree name = at->attribs[ac].name;
 	  int i;
 
 	  for (i = 0; targetm.attribute_table[i].name != NULL; i++)

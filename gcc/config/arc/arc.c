@@ -90,7 +90,8 @@ static void record_cc_ref (rtx);
 static void arc_init_reg_tables (void);
 static int get_arc_condition_code (rtx);
 const struct attribute_spec arc_attribute_table[];
-static tree arc_handle_interrupt_attribute (tree *, tree, tree, int, bool *);
+static void arc_handle_interrupt_attribute (tree *, tree, tree, int, bool *,
+					    bool *);
 static bool arc_assemble_integer (rtx, unsigned int, int);
 static void arc_output_function_prologue (FILE *, HOST_WIDE_INT);
 static void arc_output_function_epilogue (FILE *, HOST_WIDE_INT);
@@ -380,12 +381,13 @@ const struct attribute_spec arc_attribute_table[] =
 
 /* Handle an "interrupt" attribute; arguments as in
    struct attribute_spec.handler.  */
-static tree
+static void
 arc_handle_interrupt_attribute (tree *node ATTRIBUTE_UNUSED,
                                 tree name,
                                 tree args,
                                 int flags ATTRIBUTE_UNUSED,
-                                bool *no_add_attrs)
+                                bool *no_add_attrs,
+				bool * ARG_UNUSED (defer))
 {
   tree value = TREE_VALUE (args);
 
@@ -402,8 +404,6 @@ arc_handle_interrupt_attribute (tree *node ATTRIBUTE_UNUSED,
 	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
-
-  return NULL_TREE;
 }
 
 
@@ -1004,7 +1004,6 @@ static struct arc_frame_info zero_frame_info;
 enum arc_function_type
 arc_compute_function_type (tree decl)
 {
-  tree a;
   /* Cached value.  */
   static enum arc_function_type fn_type = ARC_FUNCTION_UNKNOWN;
   /* Last function we were called for.  */
@@ -1025,27 +1024,22 @@ arc_compute_function_type (tree decl)
   fn_type = ARC_FUNCTION_NORMAL;
 
   /* Now see if this is an interrupt handler.  */
-  for (a = DECL_ATTRIBUTES (current_function_decl);
-       a;
-       a = TREE_CHAIN (a))
-    {
-      tree name = TREE_PURPOSE (a), args = TREE_VALUE (a);
+  {
+    tree args = get_attribute ("interrupt",
+			       DECL_ATTRIBUTES (current_function_decl));
 
-      if (name == get_identifier ("__interrupt__")
-	  && list_length (args) == 1
-	  && TREE_CODE (TREE_VALUE (args)) == STRING_CST)
-	{
-	  tree value = TREE_VALUE (args);
-
-	  if (!strcmp (TREE_STRING_POINTER (value), "ilink1"))
-	    fn_type = ARC_FUNCTION_ILINK1;
-	  else if (!strcmp (TREE_STRING_POINTER (value), "ilink2"))
-	    fn_type = ARC_FUNCTION_ILINK2;
-	  else
-	    abort ();
-	  break;
-	}
-    }
+    if (args && TREE_CODE (TREE_VALUE (args)) == STRING_CST)
+      {
+	tree value = TREE_VALUE (args);
+	
+	if (!strcmp (TREE_STRING_POINTER (value), "ilink1"))
+	  fn_type = ARC_FUNCTION_ILINK1;
+	else if (!strcmp (TREE_STRING_POINTER (value), "ilink2"))
+	  fn_type = ARC_FUNCTION_ILINK2;
+	else
+	  abort ();
+      }
+  }
 
   last_fn = decl;
   return fn_type;

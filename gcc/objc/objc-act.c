@@ -157,9 +157,10 @@ static tree continue_class (tree);
 static void finish_class (tree);
 static void start_method_def (tree);
 #ifdef OBJCPLUS
-static void objc_start_function (tree, tree, tree, tree);
+static void objc_start_function (tree, tree, attribute_list, tree);
 #else
-static void objc_start_function (tree, tree, tree, struct c_arg_info *);
+static void objc_start_function (tree, tree, attribute_list,
+				 struct c_arg_info *);
 #endif
 static tree start_protocol (enum tree_code, tree, tree);
 static tree build_method_decl (enum tree_code, tree, tree, tree);
@@ -496,7 +497,7 @@ generate_struct_by_value_array (void)
 					  buffer);
 	  chainon (field_decl_chain, field_decl);
 	}
-      finish_struct (type, field_decl_chain, NULL_TREE);
+      finish_struct (type, field_decl_chain, NULL);
 
       aggregate_in_mem[i] = aggregate_value_p (type, 0);
       if (!aggregate_in_mem[i])
@@ -1406,16 +1407,16 @@ synth_module_prologue (void)
 						     NULL_TREE)));
       umsg_decl = builtin_function (TAG_MSGSEND,
 				    type, 0, NOT_BUILT_IN,
-				    NULL, NULL_TREE);
+				    NULL, NULL);
       umsg_nonnil_decl = builtin_function (TAG_MSGSEND_NONNIL,
 					   type, 0, NOT_BUILT_IN,
-					   NULL, NULL_TREE);
+					   NULL, NULL);
       umsg_stret_decl = builtin_function (TAG_MSGSEND_STRET,
 					  type, 0, NOT_BUILT_IN,
-					  NULL, NULL_TREE);
+					  NULL, NULL);
       umsg_nonnil_stret_decl = builtin_function (TAG_MSGSEND_NONNIL_STRET,
 						 type, 0, NOT_BUILT_IN,
-						 NULL, NULL_TREE);
+						 NULL, NULL);
 
       /* id objc_msgSendSuper (struct objc_super *, SEL, ...); */
       /* id objc_msgSendSuper_stret (struct objc_super *, SEL, ...); */
@@ -1426,10 +1427,10 @@ synth_module_prologue (void)
 						     NULL_TREE)));
       umsg_super_decl = builtin_function (TAG_MSGSENDSUPER,
 					  type, 0, NOT_BUILT_IN,
-					  NULL, NULL_TREE);
+					  NULL, NULL);
       umsg_super_stret_decl = builtin_function (TAG_MSGSENDSUPER_STRET,
 						type, 0, NOT_BUILT_IN, 0,
-						NULL_TREE);
+						NULL);
     }
   else
     {
@@ -1451,7 +1452,7 @@ synth_module_prologue (void)
 						     OBJC_VOID_AT_END)));
       umsg_decl = builtin_function (TAG_MSGSEND,
 				    type, 0, NOT_BUILT_IN,
-				    NULL, NULL_TREE);
+				    NULL, NULL);
 
       /* IMP objc_msg_lookup_super (struct objc_super *, SEL); */
       type
@@ -1461,7 +1462,7 @@ synth_module_prologue (void)
 						     OBJC_VOID_AT_END)));
       umsg_super_decl = builtin_function (TAG_MSGSENDSUPER,
 					  type, 0, NOT_BUILT_IN,
-					  NULL, NULL_TREE);
+					  NULL, NULL);
 
       /* The following GNU runtime entry point is called to initialize
 	 each module:
@@ -1473,7 +1474,7 @@ synth_module_prologue (void)
 					  OBJC_VOID_AT_END));
       execclass_decl = builtin_function (TAG_EXECCLASS,
 					 type, 0, NOT_BUILT_IN,
-					 NULL, NULL_TREE);
+					 NULL, NULL);
     }
 
   /* id objc_getClass (const char *); */
@@ -1485,12 +1486,12 @@ synth_module_prologue (void)
 
   objc_get_class_decl
     = builtin_function (TAG_GETCLASS, type, 0, NOT_BUILT_IN,
-			NULL, NULL_TREE);
+			NULL, NULL);
 
   /* id objc_getMetaClass (const char *); */
 
   objc_get_meta_class_decl
-    = builtin_function (TAG_GETMETACLASS, type, 0, NOT_BUILT_IN, NULL, NULL_TREE);
+    = builtin_function (TAG_GETMETACLASS, type, 0, NOT_BUILT_IN, NULL, NULL);
 
   build_class_template ();
   build_super_template ();
@@ -1813,7 +1814,7 @@ build_objc_symtab_template (void)
       chainon (field_decl_chain, field_decl);
     }
 
-  finish_struct (objc_symtab_template, field_decl_chain, NULL_TREE);
+  finish_struct (objc_symtab_template, field_decl_chain, NULL);
 }
 
 /* Create the initial value for the `defs' field of _objc_symtab.
@@ -2031,7 +2032,7 @@ build_module_descriptor (void)
 			 "symtab");
   chainon (field_decl_chain, field_decl);
 
-  finish_struct (objc_module_template, field_decl_chain, NULL_TREE);
+  finish_struct (objc_module_template, field_decl_chain, NULL);
 
   /* Create an instance of "_objc_module".  */
   UOBJC_MODULES_decl = start_var_decl (objc_module_template, "_OBJC_MODULES");
@@ -2063,7 +2064,7 @@ build_module_initializer_routine (void)
   objc_start_function (get_identifier (TAG_GNUINIT),
 		       build_function_type (void_type_node,
 					    OBJC_VOID_AT_END),
-		       NULL_TREE, objc_get_parm_info (0));
+		       NULL, objc_get_parm_info (0));
 
   body = c_begin_compound_stmt (true);
   add_stmt (build_function_call
@@ -3398,14 +3399,14 @@ build_next_objc_exception_stuff (void)
 				  "pointers");
   chainon (field_decl_chain, field_decl);
 
-  finish_struct (objc_exception_data_template, field_decl_chain, NULL_TREE);
+  finish_struct (objc_exception_data_template, field_decl_chain, NULL);
 
   /* int _setjmp(...); */
   /* If the user includes <setjmp.h>, this shall be superseded by
      'int _setjmp(jmp_buf);' */
   temp_type = build_function_type (integer_type_node, NULL_TREE);
   objc_setjmp_decl
-    = builtin_function (TAG_SETJMP, temp_type, 0, NOT_BUILT_IN, NULL, NULL_TREE);
+    = builtin_function (TAG_SETJMP, temp_type, 0, NOT_BUILT_IN, NULL, NULL);
 
   /* id objc_exception_extract(struct _objc_exception_data *); */
   temp_type
@@ -3414,7 +3415,7 @@ build_next_objc_exception_stuff (void)
 				      build_pointer_type (objc_exception_data_template),
 				      OBJC_VOID_AT_END));
   objc_exception_extract_decl
-    = builtin_function (TAG_EXCEPTIONEXTRACT, temp_type, 0, NOT_BUILT_IN, NULL, NULL_TREE);
+    = builtin_function (TAG_EXCEPTIONEXTRACT, temp_type, 0, NOT_BUILT_IN, NULL, NULL);
   /* void objc_exception_try_enter(struct _objc_exception_data *); */
   /* void objc_exception_try_exit(struct _objc_exception_data *); */
   temp_type
@@ -3423,9 +3424,9 @@ build_next_objc_exception_stuff (void)
 				      build_pointer_type (objc_exception_data_template),
 				      OBJC_VOID_AT_END));
   objc_exception_try_enter_decl
-    = builtin_function (TAG_EXCEPTIONTRYENTER, temp_type, 0, NOT_BUILT_IN, NULL, NULL_TREE);
+    = builtin_function (TAG_EXCEPTIONTRYENTER, temp_type, 0, NOT_BUILT_IN, NULL, NULL);
   objc_exception_try_exit_decl
-    = builtin_function (TAG_EXCEPTIONTRYEXIT, temp_type, 0, NOT_BUILT_IN, NULL, NULL_TREE);
+    = builtin_function (TAG_EXCEPTIONTRYEXIT, temp_type, 0, NOT_BUILT_IN, NULL, NULL);
 
   /* int objc_exception_match(id, id); */
   temp_type 
@@ -3434,16 +3435,21 @@ build_next_objc_exception_stuff (void)
 				      tree_cons (NULL_TREE, objc_object_type,
 						 OBJC_VOID_AT_END)));
   objc_exception_match_decl
-    = builtin_function (TAG_EXCEPTIONMATCH, temp_type, 0, NOT_BUILT_IN, NULL, NULL_TREE);
+    = builtin_function (TAG_EXCEPTIONMATCH, temp_type, 0, NOT_BUILT_IN, NULL, NULL);
 }
 
 static void
 build_objc_exception_stuff (void)
 {
-  tree noreturn_list, nothrow_list, temp_type;
+  attribute_list noreturn_list, nothrow_list;
+  tree temp_type;
+  struct one_attribute oa;
 
-  noreturn_list = tree_cons (get_identifier ("noreturn"), NULL, NULL);
-  nothrow_list = tree_cons (get_identifier ("nothrow"), NULL, NULL);
+  oa.value = NULL_TREE;
+  oa.name = get_identifier ("noreturn");
+  noreturn_list = merge_attributes_1 (NULL, 1, &oa, NULL, 0);
+  oa.name = get_identifier ("nothrow");
+  nothrow_list = merge_attributes_1 (NULL, 1, &oa, NULL, 0);
 
   /* void objc_exception_throw(id) __attribute__((noreturn)); */
   /* void objc_sync_enter(id); */
@@ -3483,7 +3489,7 @@ build_private_template (tree class)
       uprivate_record = start_struct (RECORD_TYPE, CLASS_NAME (class));
       ivar_context = get_class_ivars (class);
 
-      finish_struct (uprivate_record, ivar_context, NULL_TREE);
+      finish_struct (uprivate_record, ivar_context, NULL);
 
       CLASS_STATIC_TEMPLATE (class) = uprivate_record;
 
@@ -3548,7 +3554,7 @@ build_protocol_template (void)
 				  "class_methods");
   chainon (field_decl_chain, field_decl);
 
-  finish_struct (objc_protocol_template, field_decl_chain, NULL_TREE);
+  finish_struct (objc_protocol_template, field_decl_chain, NULL);
 }
 
 static tree
@@ -3612,7 +3618,7 @@ build_method_prototype_list_template (tree list_type, int size)
 				  "method_list");
   chainon (field_decl_chain, field_decl);
 
-  finish_struct (objc_ivar_list_record, field_decl_chain, NULL_TREE);
+  finish_struct (objc_ivar_list_record, field_decl_chain, NULL);
 
   return objc_ivar_list_record;
 }
@@ -3634,7 +3640,7 @@ build_method_prototype_template (void)
   field_decl = create_field_decl (string_type_node, "method_types");
   chainon (field_decl_chain, field_decl);
 
-  finish_struct (proto_record, field_decl_chain, NULL_TREE);
+  finish_struct (proto_record, field_decl_chain, NULL);
 
   return proto_record;
 }
@@ -4023,7 +4029,7 @@ build_category_template (void)
 				  "protocol_list");
   chainon (field_decl_chain, field_decl);
 
-  finish_struct (objc_category_template, field_decl_chain, NULL_TREE);
+  finish_struct (objc_category_template, field_decl_chain, NULL);
 }
 
 /* struct _objc_selector {
@@ -4048,7 +4054,7 @@ build_selector_template (void)
   field_decl = create_field_decl (string_type_node, "sel_type");
   chainon (field_decl_chain, field_decl);
 
-  finish_struct (objc_selector_template, field_decl_chain, NULL_TREE);
+  finish_struct (objc_selector_template, field_decl_chain, NULL);
 }
 
 /* struct _objc_class {
@@ -4184,7 +4190,7 @@ build_class_template (void)
 				  "gc_object_type");
   chainon (field_decl_chain, field_decl);
 
-  finish_struct (objc_class_template, field_decl_chain, NULL_TREE);
+  finish_struct (objc_class_template, field_decl_chain, NULL);
 }
 
 /* Generate appropriate forward declarations for an implementation.  */
@@ -4296,7 +4302,7 @@ build_super_template (void)
 				  "super_class");
   chainon (field_decl_chain, field_decl);
 
-  finish_struct (objc_super_template, field_decl_chain, NULL_TREE);
+  finish_struct (objc_super_template, field_decl_chain, NULL);
 }
 
 /* struct _objc_ivar {
@@ -4326,7 +4332,7 @@ build_ivar_template (void)
   field_decl = create_field_decl (integer_type_node, "ivar_offset");
   chainon (field_decl_chain, field_decl);
 
-  finish_struct (objc_ivar_record, field_decl_chain, NULL_TREE);
+  finish_struct (objc_ivar_record, field_decl_chain, NULL);
 
   return objc_ivar_record;
 }
@@ -4356,7 +4362,7 @@ build_ivar_list_template (tree list_type, int size)
 				  "ivar_list");
   chainon (field_decl_chain, field_decl);
 
-  finish_struct (objc_ivar_list_record, field_decl_chain, NULL_TREE);
+  finish_struct (objc_ivar_list_record, field_decl_chain, NULL);
 
   return objc_ivar_list_record;
 }
@@ -4395,7 +4401,7 @@ build_method_list_template (tree list_type, int size)
 				  "method_list");
   chainon (field_decl_chain, field_decl);
 
-  finish_struct (objc_ivar_list_record, field_decl_chain, NULL_TREE);
+  finish_struct (objc_ivar_list_record, field_decl_chain, NULL);
 
   return objc_ivar_list_record;
 }
@@ -4601,7 +4607,7 @@ build_method_template (void)
 				  "_imp");
   chainon (field_decl_chain, field_decl);
 
-  finish_struct (_SLT_record, field_decl_chain, NULL_TREE);
+  finish_struct (_SLT_record, field_decl_chain, NULL);
 
   return _SLT_record;
 }
@@ -6782,7 +6788,7 @@ continue_class (tree class)
       if (!CLASS_STATIC_TEMPLATE (class))
 	{
 	  tree record = start_struct (RECORD_TYPE, CLASS_NAME (class));
-	  finish_struct (record, get_class_ivars (class), NULL_TREE);
+	  finish_struct (record, get_class_ivars (class), NULL);
 	  CLASS_STATIC_TEMPLATE (class) = record;
 
 	  /* Mark this record as a class template for static typing.  */
@@ -7559,7 +7565,7 @@ objc_fold_obj_type_ref (tree ref ATTRIBUTE_UNUSED,
 }
 
 static void
-objc_start_function (tree name, tree type, tree attrs,
+objc_start_function (tree name, tree type, attribute_list attrs,
 #ifdef OBJCPLUS
 		     tree params
 #else
@@ -7645,7 +7651,7 @@ really_start_method (tree method,
   meth_type
     = build_function_type (ret_type,
 			   get_arg_type_list (method, METHOD_DEF, 0));
-  objc_start_function (method_id, meth_type, NULL_TREE, parmlist);
+  objc_start_function (method_id, meth_type, NULL, parmlist);
 
   /* Set self_decl from the first argument.  */
   self_decl = DECL_ARGUMENTS (current_function_decl);

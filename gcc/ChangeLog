@@ -1,3 +1,127 @@
+2004-09-30  Geoffrey Keating  <geoffk@apple.com>
+
+	General changes that apply to every file listed:
+	Update parameters and return value of attribute handlers.  Replace
+	'tree' with 'attribute_list' in many places.  Replace
+	'lookup_attribute' with 'has_attribute_p' or 'get_attribute'.
+	Replace NULL_TREE with NULL when referring to an attribute list.
+	Use 'merge_attributes' instead of 'chainon'.  Change each
+	machine-specific insert_attribute function into an add_attribute
+	function.  Replace each copy of handle_fndecl_attribute in the
+	backends with either a call to the generic routine or NULL.
+	
+	* attribs.c (enum attribute_disposition): New.
+	(determine_dispositions): New.
+	(decl_attributes): Support new attribute representation.
+	* builtin-attrs.def: Use new DEF_ATTR and DEF_ATTR_NULL macros.
+	* c-common.c: (c_init_attributes): Use DEF_ATTR and DEF_ATTR_NULL
+	macros.
+	(check_function_nonnull): Update for new attribute list format.
+	(check_function_sentinel): Likewise.
+	(check_function_arguments): Do nothing if no attributes.
+	(check_function_arguments_recurse): Update for new attribute list
+	format.
+	* c-common.h: General changes only.
+	* c-decl.c: General changes only.
+	* c-format.c (check_function_format): Update for new attribute format.
+	* c-objc-common.c: General changes only.
+	* c-parse.in: Update rules to return an attribute_list when
+	appropriate.
+	(attribute_list): Ignore one_attribute structures with NULL names.
+	Use merge_attributes_1 to create attribute lists.
+	(attrib): Return a struct one_attribute.
+	* c-pragma.c (apply_pragma_weak): Use merge_attributes_1 to create
+	attribute list.
+	* c-tree.h: General changes only.
+	* c-typeck.c: General changes only.
+	* cgraphunit.c: General changes only.
+	* coretypes.h: Declare struct one_attribute, struct
+	attribute_list_s, attribute_list, attribute_count.
+	* fold-const.c: General changes only.
+	* integrate.c (function_attribute_inlinable_p): Update for new
+	attribute list format.
+	* langhooks.c: General changes only.
+	* langhooks.h (builtin_function): General changes.
+	* passes.c (rest_of_decl_compilation): General changes.
+	* print-tree.c (print_attributes): New.
+	(print_node): Use print_attributes.
+	* system.h: Poison TARGET_INSERT_ATTRIBUTES.
+	* target-def.h (TARGET_ADD_ATTRIBUTES): Rename from
+	TARGET_INSERT_ATTRIBUTES.
+	* target.h (merge_decl_attributes): General changes.
+	(merge_type_attributes): General changes.
+	(add_attributes): Rename from insert_attributes, change parameters.
+	* targhooks.h (default_add_attributes): New.
+	* tree-browser.c: Add comment asking for documentation.  Fudge
+	enough so that it keeps compiling.
+	* tree-inline.c: General changes.
+	* tree.c (lookup_attribute): Rewrite.
+	(has_attribute_p): New.
+	(get_attribute): New.
+	(merge_attributes_1): New.
+	(merge_attributes): Rewrite.
+	(handle_fndecl_attribute): New.
+	(merge_dllimport_decl_attributes): Use merge_attributes_1 to delete
+	attributes.
+	(attribute_hash_list): Update for new attribute list format.
+	(attribute_list_equal): Rewrite.
+	(attribute_list_contained): Rewrite.
+	* tree.h: Add names to arguments of some prototypes when referenced
+	by their comments.
+	(struct one_attribute): Define.
+	(struct attribute_list_s): Define.
+	(ATTRIBUTE_COUNT): New.
+	(struct attribute_spec): Change parameters and return value of
+	field 'handler'.
+	(has_attribute_p): Prototype.
+	(get_attribute): Prototype.
+	(merge_attributes_1): Prototype.
+	(handle_fndecl_attribute): Prototype.
+	(lookup_attribute): Change parameters.
+	(print_attributes): Prototype.
+	* varasm.c (decl_tls_model): General changes.
+	* config/sol2.h: General changes only.
+	* config/sol2.c: General changes only.
+	* config/alpha/alpha.c: General changes only.
+	* config/arc/arc.c: General changes only.
+	* config/arm/arm.c (arm_handle_fndecl_attribute): Replace with generic
+	routine.
+	(arm_handle_isr_attribute): Greatly simplify.
+	(arm_comp_type_attributes): Boolify.  Use merge_attributes_1.
+	* config/arm/pe.c: General changes only.
+	* config/avr/avr-protos.h (avr_progmem_p): Delete prototype.
+	* config/avr/avr.c: General changes only.
+	* config/c4x/c4x.c: Remove use of loop.h, and general changes.
+	* config/frv/frv.c: General changes only.
+	* config/h8300/h8300.c: General changes only.
+	* config/i386/i386-protos.h: General changes only.
+	* config/i386/i386.c: General changes only.
+	* config/i386/netware.c: General changes only.
+	* config/i386/sol2.h: General changes only.
+	* config/i386/winnt.h: General changes only.
+	* config/ia64/ia64.c: General changes only.
+	* config/ip2k/ip2k.c (ip2k_handle_progmem_attribute): Use
+	merge_attributes_1.
+	* config/iq2000/iq2000.c: General changes only.
+	* config/m32r/m32r.c: General changes only.
+	* config/m68hc11/m68hc11.c: General changes only.
+	* config/m68k/m68k.c: General changes only.
+	* config/mcore/mcore.c: General changes only.
+	* config/ns32k/ns32k.c: General changes only.
+	* config/rs6000/rs6000.c (rs6000_set_default_type_attributes): Use
+	merge_attributes_1.
+	* config/s390/s390.c: General changes only.
+	* config/sh/sh-protos.h: General changes only.
+	* config/sh/sh.c (sh_handle_renesas_attribute): Delete.
+	* config/sh/symbian.c: General changes only.
+	* config/sparc/sol2.h: General changes only.
+	* config/sparc/sparc.c: General changes only.
+	* config/stormy16/stormy16.c: General changes only.
+	* config/v850/v850.c (v850_set_data_area_1): New function.
+	(v850_set_data_area): Call v850_set_data_area_1,
+	then call merge_attributes_1.
+	(v850_add_attributes): Call v850_set_data_area_1.
+
 2004-09-30  Ulrich Weigand  <uweigand@de.ibm.com>
 
 	* config/s390/s390-protos.h (s390_expand_logical_operator): Add

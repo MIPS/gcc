@@ -7922,13 +7922,13 @@ fold (tree expr)
 	  && TREE_CODE (arg0) == ADDR_EXPR
 	  && DECL_P (TREE_OPERAND (arg0, 0))
 	  && ! DECL_WEAK (TREE_OPERAND (arg0, 0))
-	  && ! lookup_attribute ("alias",
+	  && ! has_attribute_p ("alias",
 				 DECL_ATTRIBUTES (TREE_OPERAND (arg0, 0)))
 	  && ! DECL_EXTERNAL (TREE_OPERAND (arg0, 0))
 	  && TREE_CODE (arg1) == ADDR_EXPR
 	  && DECL_P (TREE_OPERAND (arg1, 0))
 	  && ! DECL_WEAK (TREE_OPERAND (arg1, 0))
-	  && ! lookup_attribute ("alias",
+	  && ! has_attribute_p ("alias",
 				 DECL_ATTRIBUTES (TREE_OPERAND (arg1, 0)))
 	  && ! DECL_EXTERNAL (TREE_OPERAND (arg1, 0)))
 	return constant_boolean_node (operand_equal_p (arg0, arg1, 0)

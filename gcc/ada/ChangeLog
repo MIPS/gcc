@@ -1,3 +1,8 @@
+2004-09-30  Geoffrey Keating  <geoffk@apple.com>
+
+	* gigi.h (builtin_function): Update parameters.
+	* utils.c (builtin_function): Update parameters.
+
 2004-09-23  Robert Dewar  <dewar@gnat.com>
 
 	PR ada/17540

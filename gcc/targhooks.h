@@ -58,3 +58,7 @@ extern bool hook_bool_CUMULATIVE_ARGS_mode_tree_bool_false
   (CUMULATIVE_ARGS *, enum machine_mode, tree, bool);
 extern bool hook_bool_CUMULATIVE_ARGS_mode_tree_bool_true
   (CUMULATIVE_ARGS *, enum machine_mode, tree, bool);
+
+extern attribute_count default_add_attributes
+  (tree decl, attribute_list attributes,
+   const struct one_attribute * * to_add);

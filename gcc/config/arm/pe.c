@@ -48,11 +48,7 @@ arm_dllexport_p (decl)
   if (TREE_CODE (decl) != VAR_DECL
       && TREE_CODE (decl) != FUNCTION_DECL)
     return 0;
-  exp = lookup_attribute ("dllexport", DECL_ATTRIBUTES (decl));
-  if (exp)
-    return 1;
-
-  return 0;
+  return has_attribute_p ("dllexport", DECL_ATTRIBUTES (decl));
 }
 
 /* Return nonzero if DECL is a dllimport'd object.  */
@@ -70,11 +66,7 @@ arm_dllimport_p (decl)
   if (TREE_CODE (decl) != VAR_DECL
       && TREE_CODE (decl) != FUNCTION_DECL)
     return 0;
-  imp = lookup_attribute ("dllimport", DECL_ATTRIBUTES (decl));
-  if (imp)
-    return 1;
-
-  return 0;
+  return has_attribute_p ("dllimport", DECL_ATTRIBUTES (decl));
 }
 
 /* Return nonzero if SYMBOL is marked as being dllexport'd.  */

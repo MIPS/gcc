@@ -162,7 +162,7 @@ Boston, MA 02111-1307, USA.  */
 
 /* Solaris-specific #pragmas are implemented on top of attributes.  Hook in
    the bits from config/sol2.c.  */
-#define SUBTARGET_INSERT_ATTRIBUTES solaris_insert_attributes
+#define SUBTARGET_ADD_ATTRIBUTES solaris_add_attributes
 #define SUBTARGET_ATTRIBUTE_TABLE SOLARIS_ATTRIBUTE_TABLE
 
 /* Output a simple call for .init/.fini.  */

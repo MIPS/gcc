@@ -44,6 +44,12 @@ typedef struct rtvec_def *rtvec;
 union tree_node;
 typedef union tree_node *tree;
 
+struct one_attribute;
+struct attribute_list_s;
+typedef struct attribute_list_s * attribute_list;
+/* Assume never more than 64k attributes.  */
+typedef unsigned short attribute_count;
+
 /* Provide forward struct declaration so that we don't have to include
    all of cpplib.h whenever a random prototype includes a pointer.
    Note that the cpp_reader typedef remains part of cpplib.h.  */

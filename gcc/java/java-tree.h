@@ -1358,7 +1358,7 @@ extern int split_qualified_name (tree *left, tree *right, tree source);
 extern int in_same_package (tree, tree);
 
 extern tree builtin_function (const char *, tree, int, enum built_in_class,
-			      const char *, tree);
+			      const char *, attribute_list);
 
 #define DECL_FINAL(DECL) DECL_LANG_FLAG_3 (DECL)
 

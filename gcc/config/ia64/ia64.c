@@ -272,7 +272,8 @@ static void ia64_sysv4_init_libfuncs (void)
 static void ia64_vms_init_libfuncs (void)
      ATTRIBUTE_UNUSED;
 
-static tree ia64_handle_model_attribute (tree *, tree, tree, int, bool *);
+static void ia64_handle_model_attribute (tree *, tree, tree, int, bool *,
+					 bool *);
 static void ia64_encode_section_info (tree, rtx, int);
 static rtx ia64_struct_value_rtx (tree, int);
 static tree ia64_gimplify_va_arg (tree, tree, tree *, tree *);
@@ -449,21 +450,23 @@ ia64_get_addr_area (tree decl)
 {
   tree model_attr;
 
-  model_attr = lookup_attribute ("model", DECL_ATTRIBUTES (decl));
+  model_attr = get_attribute ("model", DECL_ATTRIBUTES (decl));
   if (model_attr)
     {
       tree id;
 
       init_idents ();
-      id = TREE_VALUE (TREE_VALUE (model_attr));
+      id = TREE_VALUE (model_attr);
       if (id == small_ident1 || id == small_ident2)
 	return ADDR_AREA_SMALL;
     }
   return ADDR_AREA_NORMAL;
 }
 
-static tree
-ia64_handle_model_attribute (tree *node, tree name, tree args, int flags ATTRIBUTE_UNUSED, bool *no_add_attrs)
+static void
+ia64_handle_model_attribute (tree *node, tree name, tree args,
+			     int flags ATTRIBUTE_UNUSED, bool *no_add_attrs,
+			     bool * ARG_UNUSED (defer))
 {
   ia64_addr_area addr_area = ADDR_AREA_NORMAL;
   ia64_addr_area area;
@@ -513,8 +516,6 @@ ia64_handle_model_attribute (tree *node, tree name, tree args, int flags ATTRIBU
       *no_add_attrs = true;
       break;
     }
-
-  return NULL_TREE;
 }
 
 static void
@@ -1482,7 +1483,7 @@ ia64_compute_frame_size (HOST_WIDE_INT size)
      the caller.  */
 
   if (cfun->machine->n_varargs > 0
-      || lookup_attribute ("syscall_linkage",
+      || has_attribute_p ("syscall_linkage",
 			   TYPE_ATTRIBUTES (TREE_TYPE (current_function_decl))))
     current_frame_info.n_input_regs = 8;
   else
@@ -3370,7 +3371,7 @@ ia64_function_ok_for_sibcall (tree decl, tree exp ATTRIBUTE_UNUSED)
 {
   /* We can't perform a sibcall if the current function has the syscall_linkage
      attribute.  */
-  if (lookup_attribute ("syscall_linkage",
+  if (has_attribute_p ("syscall_linkage",
 			TYPE_ATTRIBUTES (TREE_TYPE (current_function_decl))))
     return false;
 
@@ -7135,7 +7136,7 @@ ia64_epilogue_uses (int regno)
 	 which in turn makes it possible to restart a system call after
 	 an interrupt without having to save/restore the input registers.
 	 This also prevents kernel data from leaking to application code.  */
-      return lookup_attribute ("syscall_linkage",
+      return has_attribute_p ("syscall_linkage",
 	   TYPE_ATTRIBUTES (TREE_TYPE (current_function_decl))) != NULL;
 
     case R_BR (0):
@@ -7594,7 +7595,7 @@ ia64_init_builtins (void)
 
 #define def_builtin(name, type, code)					\
   lang_hooks.builtin_function ((name), (type), (code), BUILT_IN_MD,	\
-			       NULL, NULL_TREE)
+			       NULL, NULL)
 
   def_builtin ("__sync_val_compare_and_swap_si", si_ftype_psi_si_si,
 	       IA64_BUILTIN_VAL_COMPARE_AND_SWAP_SI);

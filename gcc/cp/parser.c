@@ -849,7 +849,7 @@ make_declarator (cp_declarator_kind kind)
 
   declarator = (cp_declarator *) alloc_declarator (sizeof (cp_declarator));
   declarator->kind = kind;
-  declarator->attributes = NULL_TREE;
+  declarator->attributes = NULL;
   declarator->declarator = NULL;
 
   return declarator;
@@ -1581,7 +1581,7 @@ static tree cp_parser_class_name
 static tree cp_parser_class_specifier
   (cp_parser *);
 static tree cp_parser_class_head
-  (cp_parser *, bool *, tree *);
+  (cp_parser *, bool *, attribute_list *);
 static enum tag_types cp_parser_class_key
   (cp_parser *);
 static void cp_parser_member_specification_opt
@@ -1674,10 +1674,11 @@ static tree cp_parser_asm_operand_list
   (cp_parser *);
 static tree cp_parser_asm_clobber_list
   (cp_parser *);
-static tree cp_parser_attributes_opt
+static attribute_list cp_parser_attributes_opt
   (cp_parser *);
-static tree cp_parser_attribute_list
-  (cp_parser *);
+struct attribute_builder_data;
+static void cp_parser_attribute_list
+  (cp_parser *, struct attribute_builder_data *);
 static bool cp_parser_extension_opt
   (cp_parser *, int *);
 static void cp_parser_label_declaration
@@ -1702,7 +1703,8 @@ static tree cp_parser_global_scope_opt
 static bool cp_parser_constructor_declarator_p
   (cp_parser *, bool);
 static tree cp_parser_function_definition_from_specifiers_and_declarator
-  (cp_parser *, cp_decl_specifier_seq *, tree, const cp_declarator *);
+  (cp_parser *, cp_decl_specifier_seq *, attribute_list,
+   const cp_declarator *);
 static tree cp_parser_function_definition_after_declarator
   (cp_parser *, bool);
 static void cp_parser_template_declaration_after_export
@@ -1712,7 +1714,7 @@ static tree cp_parser_single_declaration
 static tree cp_parser_functional_cast
   (cp_parser *, tree);
 static tree cp_parser_save_member_function_body
-  (cp_parser *, cp_decl_specifier_seq *, cp_declarator *, tree);
+  (cp_parser *, cp_decl_specifier_seq *, cp_declarator *, attribute_list);
 static tree cp_parser_enclosed_template_argument_list
   (cp_parser *);
 static void cp_parser_save_default_args
@@ -6240,7 +6242,7 @@ cp_parser_condition (cp_parser* parser)
     {
       tree decl;
       tree asm_specification;
-      tree attributes;
+      attribute_list attributes;
       cp_declarator *declarator;
       tree initializer = NULL_TREE;
 
@@ -6269,7 +6271,7 @@ cp_parser_condition (cp_parser* parser)
 	  /* Create the declaration.  */
 	  decl = start_decl (declarator, &type_specifiers,
 			     /*initialized_p=*/true,
-			     attributes, /*prefix_attributes=*/NULL_TREE,
+			     attributes, /*prefix_attributes=*/NULL,
 			     &pop_p);
 	  /* Parse the assignment-expression.  */
 	  initializer = cp_parser_assignment_expression (parser);
@@ -7091,8 +7093,8 @@ cp_parser_decl_specifier_seq (cp_parser* parser,
 	{
 	  /* Parse the attributes.  */
 	  decl_specs->attributes
-	    = chainon (decl_specs->attributes,
-		       cp_parser_attributes_opt (parser));
+	    = merge_attributes (decl_specs->attributes,
+				cp_parser_attributes_opt (parser));
 	  continue;
 	}
       /* Assume we will find a decl-specifier keyword.  */
@@ -7481,7 +7483,7 @@ cp_parser_conversion_function_id (cp_parser* parser)
 static tree
 cp_parser_conversion_type_id (cp_parser* parser)
 {
-  tree attributes;
+  attribute_list attributes;
   cp_decl_specifier_seq type_specifiers;
   cp_declarator *declarator;
   tree type_specified;
@@ -9603,7 +9605,7 @@ cp_parser_elaborated_type_specifier (cp_parser* parser,
   enum tag_types tag_type;
   tree identifier;
   tree type = NULL_TREE;
-  tree attributes = NULL_TREE;
+  attribute_list attributes = NULL;
 
   /* See if we're looking at the `enum' keyword.  */
   if (cp_lexer_next_token_is_keyword (parser->lexer, RID_ENUM))
@@ -10220,7 +10222,7 @@ static void
 cp_parser_using_directive (cp_parser* parser)
 {
   tree namespace_decl;
-  tree attribs;
+  attribute_list attribs;
 
   /* Look for the `using' keyword.  */
   cp_parser_require_keyword (parser, RID_USING, "`using'");
@@ -10424,8 +10426,8 @@ cp_parser_init_declarator (cp_parser* parser,
 {
   cp_token *token;
   cp_declarator *declarator;
-  tree prefix_attributes;
-  tree attributes;
+  attribute_list prefix_attributes;
+  attribute_list attributes;
   tree asm_specification;
   tree initializer;
   tree decl = NULL_TREE;
@@ -10484,7 +10486,7 @@ cp_parser_init_declarator (cp_parser* parser,
   else
     {
       asm_specification = NULL_TREE;
-      attributes = NULL_TREE;
+      attributes = NULL;
     }
 
   /* Peek at the next token.  */
@@ -10649,7 +10651,7 @@ cp_parser_init_declarator (cp_parser* parser,
 	pop_scope (scope);
       decl = grokfield (declarator, decl_specifiers,
 			initializer, /*asmspec=*/NULL_TREE,
-			/*attributes=*/NULL_TREE);
+			/*attributes=*/NULL);
       if (decl && TREE_CODE (decl) == FUNCTION_DECL)
 	cp_parser_save_default_args (parser, decl);
     }
@@ -10728,7 +10730,7 @@ cp_parser_declarator (cp_parser* parser,
   enum tree_code code;
   cp_cv_quals cv_quals;
   tree class_type;
-  tree attributes = NULL_TREE;
+  attribute_list attributes = NULL;
 
   /* Assume this is not a constructor, destructor, or type-conversion
      operator.  */
@@ -11423,8 +11425,8 @@ cp_parser_type_specifier_seq (cp_parser* parser,
       if (cp_lexer_next_token_is_keyword (parser->lexer, RID_ATTRIBUTE))
 	{
 	  type_specifier_seq->attributes =
-	    chainon (type_specifier_seq->attributes,
-		     cp_parser_attributes_opt (parser));
+	    merge_attributes (type_specifier_seq->attributes,
+			      cp_parser_attributes_opt (parser));
 	  continue;
 	}
 
@@ -11743,8 +11745,8 @@ cp_parser_parameter_declaration (cp_parser *parser,
       parser->default_arg_ok_p = saved_default_arg_ok_p;
       /* After the declarator, allow more attributes.  */
       decl_specifiers.attributes
-	= chainon (decl_specifiers.attributes,
-		   cp_parser_attributes_opt (parser));
+	= merge_attributes (decl_specifiers.attributes,
+			    cp_parser_attributes_opt (parser));
     }
 
   /* The restriction on defining new types applies only to the type
@@ -12259,7 +12261,7 @@ cp_parser_class_specifier (cp_parser* parser)
 {
   cp_token *token;
   tree type;
-  tree attributes = NULL_TREE;
+  attribute_list attributes = NULL;
   int has_trailing_semicolon;
   bool nested_name_specifier_p;
   unsigned saved_num_template_parameter_lists;
@@ -12322,8 +12324,8 @@ cp_parser_class_specifier (cp_parser* parser)
   /* Look for trailing attributes to apply to this class.  */
   if (cp_parser_allow_gnu_extensions_p (parser))
     {
-      tree sub_attr = cp_parser_attributes_opt (parser);
-      attributes = chainon (attributes, sub_attr);
+      attribute_list sub_attr = cp_parser_attributes_opt (parser);
+      attributes = merge_attributes (attributes, sub_attr);
     }
   if (type != error_mark_node)
     type = finish_struct (type, attributes);
@@ -12447,13 +12449,13 @@ cp_parser_class_specifier (cp_parser* parser)
 static tree
 cp_parser_class_head (cp_parser* parser,
 		      bool* nested_name_specifier_p,
-		      tree *attributes_p)
+		      attribute_list *attributes_p)
 {
   tree nested_name_specifier;
   enum tag_types class_key;
   tree id = NULL_TREE;
   tree type = NULL_TREE;
-  tree attributes;
+  attribute_list attributes;
   bool template_id_p = false;
   bool qualified_p = false;
   bool invalid_nested_name_p = false;
@@ -12865,7 +12867,7 @@ static void
 cp_parser_member_declaration (cp_parser* parser)
 {
   cp_decl_specifier_seq decl_specifiers;
-  tree prefix_attributes;
+  attribute_list prefix_attributes;
   tree decl;
   int declares_class_or_enum;
   bool friend_p;
@@ -12907,7 +12909,7 @@ cp_parser_member_declaration (cp_parser* parser)
 				&decl_specifiers,
 				&declares_class_or_enum);
   prefix_attributes = decl_specifiers.attributes;
-  decl_specifiers.attributes = NULL_TREE;
+  decl_specifiers.attributes = NULL;
   /* Check for an invalid type-name.  */
   if (cp_parser_parse_and_diagnose_invalid_type_name (parser))
     return;
@@ -12996,8 +12998,7 @@ cp_parser_member_declaration (cp_parser* parser)
 	 declaration.  */
       while (cp_lexer_next_token_is_not (parser->lexer, CPP_SEMICOLON))
 	{
-	  tree attributes = NULL_TREE;
-	  tree first_attribute;
+	  attribute_list attributes = NULL;
 
 	  /* Peek at the next token.  */
 	  token = cp_lexer_peek_token (parser->lexer);
@@ -13029,11 +13030,8 @@ cp_parser_member_declaration (cp_parser* parser)
 
 	      /* Look for attributes that apply to the bitfield.  */
 	      attributes = cp_parser_attributes_opt (parser);
-	      /* Remember which attributes are prefix attributes and
-		 which are not.  */
-	      first_attribute = attributes;
 	      /* Combine the attributes.  */
-	      attributes = chainon (prefix_attributes, attributes);
+	      attributes = merge_attributes (prefix_attributes, attributes);
 
 	      /* Create the bitfield declaration.  */
 	      decl = grokbitfield (identifier
@@ -13081,11 +13079,8 @@ cp_parser_member_declaration (cp_parser* parser)
 	      asm_specification = cp_parser_asm_specification_opt (parser);
 	      /* Look for attributes that apply to the declaration.  */
 	      attributes = cp_parser_attributes_opt (parser);
-	      /* Remember which attributes are prefix attributes and
-		 which are not.  */
-	      first_attribute = attributes;
 	      /* Combine the attributes.  */
-	      attributes = chainon (prefix_attributes, attributes);
+	      attributes = merge_attributes (prefix_attributes, attributes);
 
 	      /* If it's an `=', then we have a constant-initializer or a
 		 pure-specifier.  It is not correct to parse the
@@ -13160,12 +13155,6 @@ cp_parser_member_declaration (cp_parser* parser)
 		    DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (decl) = 1;
 		}
 	    }
-
-	  /* Reset PREFIX_ATTRIBUTES.  */
-	  while (attributes && TREE_CHAIN (attributes) != first_attribute)
-	    attributes = TREE_CHAIN (attributes);
-	  if (attributes)
-	    TREE_CHAIN (attributes) = NULL_TREE;
 
 	  /* If there is any qualification still in effect, clear it
 	     now; we will be starting fresh with the next declarator.  */
@@ -13864,17 +13853,34 @@ cp_parser_asm_clobber_list (cp_parser* parser)
    attribute:
      __attribute__ (( attribute-list [opt] ))
 
-   The return value is as for cp_parser_attribute_list.  */
+   The return value is an attribute list.  */
 
-static tree
+/* This is used to construct the array of attributes.  We expect that
+   most of the time, there will be less (much less!) than 10 attributes.
+   USED holds the number of entries in *ATTRS that have been used,
+   SIZE holds the maximum number of entries in *ATTRS.  If SIZE is
+   insufficient, ATTRS must be enlarged by using xrealloc, or using
+   xmemdup if ATTRS points to INIT_ATTRS.  */
+struct attribute_builder_data {
+  struct one_attribute *attrs;
+  attribute_count size;
+  attribute_count used;
+  struct one_attribute init_attrs[10];
+};
+
+static attribute_list
 cp_parser_attributes_opt (cp_parser* parser)
 {
-  tree attributes = NULL_TREE;
-
+  struct attribute_builder_data abd;
+  attribute_list attributes;
+  
+  abd.attrs = abd.init_attrs;
+  abd.size = ARRAY_SIZE (abd.init_attrs);
+  abd.used = 0;
+  
   while (true)
     {
       cp_token *token;
-      tree attribute_list;
 
       /* Peek at the next token.  */
       token = cp_lexer_peek_token (parser->lexer);
@@ -13890,21 +13896,20 @@ cp_parser_attributes_opt (cp_parser* parser)
 
       /* Peek at the next token.  */
       token = cp_lexer_peek_token (parser->lexer);
+      /* If the next token is a `)', then there is no attribute
+	 list.  */
       if (token->type != CPP_CLOSE_PAREN)
 	/* Parse the attribute-list.  */
-	attribute_list = cp_parser_attribute_list (parser);
-      else
-	/* If the next token is a `)', then there is no attribute
-	   list.  */
-	attribute_list = NULL;
+	cp_parser_attribute_list (parser, &abd);
 
       /* Look for the two `)' tokens.  */
       cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
       cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
-
-      /* Add these new attributes to the list.  */
-      attributes = chainon (attributes, attribute_list);
     }
+
+  attributes = merge_attributes_1 (NULL, abd.used, abd.attrs, NULL, 0);
+  if (abd.attrs != abd.init_attrs)
+    free (abd.attrs);
 
   return attributes;
 }
@@ -13921,36 +13926,43 @@ cp_parser_attributes_opt (cp_parser* parser)
      identifier ( identifier , expression-list )
      identifier ( expression-list )
 
-   Returns a TREE_LIST.  Each node corresponds to an attribute.  THe
-   TREE_PURPOSE of each node is the identifier indicating which
-   attribute is in use.  The TREE_VALUE represents the arguments, if
-   any.  */
+   Adds each attribute to ABD.  */
 
-static tree
-cp_parser_attribute_list (cp_parser* parser)
+static void
+cp_parser_attribute_list (cp_parser* parser,
+			  struct attribute_builder_data *abd)
 {
-  tree attribute_list = NULL_TREE;
   bool save_translate_strings_p = parser->translate_strings_p;
 
   parser->translate_strings_p = false;
   while (true)
     {
       cp_token *token;
-      tree identifier;
-      tree attribute;
 
       /* Look for the identifier.  We also allow keywords here; for
 	 example `__attribute__ ((const))' is legal.  */
       token = cp_lexer_peek_token (parser->lexer);
       if (token->type != CPP_NAME
 	  && token->type != CPP_KEYWORD)
-	return error_mark_node;
+	return;
       /* Consume the token.  */
       token = cp_lexer_consume_token (parser->lexer);
 
+      /* Make room for more attributes, if necessary.  */
+      if (abd->used == abd->size)
+	{
+	  abd->size *= 2;
+	  if (abd->attrs == abd->init_attrs)
+	    abd->attrs = xmemdup (abd->attrs,
+				  abd->used * sizeof (*abd->attrs),
+				  abd->size * sizeof (*abd->attrs));
+	  else
+	    abd->attrs = xrealloc (abd->attrs,
+				   abd->size * sizeof (*abd->attrs));
+	}
+
       /* Save away the identifier that indicates which attribute this is.  */
-      identifier = token->value;
-      attribute = build_tree_list (identifier, NULL_TREE);
+      abd->attrs[abd->used].name = token->value;
 
       /* Peek at the next token.  */
       token = cp_lexer_peek_token (parser->lexer);
@@ -13962,13 +13974,16 @@ cp_parser_attribute_list (cp_parser* parser)
 	  arguments = (cp_parser_parenthesized_expression_list
 		       (parser, true, /*non_constant_p=*/NULL));
 	  /* Save the identifier and arguments away.  */
-	  TREE_VALUE (attribute) = arguments;
+	  abd->attrs[abd->used].value = arguments;
 	}
+      else
+	abd->attrs[abd->used].value = NULL_TREE;
 
-      /* Add this attribute to the list.  */
-      TREE_CHAIN (attribute) = attribute_list;
-      attribute_list = attribute;
-
+      /* Keep this attribute.  */
+      abd->used++;
+      if (abd->used == 0)
+	error ("too many attributes");
+      
       /* Now, look for more attributes.  */
       token = cp_lexer_peek_token (parser->lexer);
       /* If the next token isn't a `,', we're done.  */
@@ -13979,9 +13994,6 @@ cp_parser_attribute_list (cp_parser* parser)
       cp_lexer_consume_token (parser->lexer);
     }
   parser->translate_strings_p = save_translate_strings_p;
-
-  /* We built up the list in reverse order.  */
-  return nreverse (attribute_list);
 }
 
 /* Parse an optional `__extension__' keyword.  Returns TRUE if it is
@@ -14629,7 +14641,7 @@ static tree
 cp_parser_function_definition_from_specifiers_and_declarator
   (cp_parser* parser,
    cp_decl_specifier_seq *decl_specifiers,
-   tree attributes,
+   attribute_list attributes,
    const cp_declarator *declarator)
 {
   tree fn;
@@ -14939,7 +14951,7 @@ static tree
 cp_parser_save_member_function_body (cp_parser* parser,
 				     cp_decl_specifier_seq *decl_specifiers,
 				     cp_declarator *declarator,
-				     tree attributes)
+				     attribute_list attributes)
 {
   cp_token *first;
   cp_token *last;
@@ -15116,7 +15128,7 @@ cp_parser_late_parsing_for_member (cp_parser* parser, tree member_function)
 
       /* Let the front end know that we going to be defining this
 	 function.  */
-      start_preparsed_function (member_function, NULL_TREE,
+      start_preparsed_function (member_function, NULL,
 				SF_PRE_PARSED | SF_INCLASS_INLINE);
 
       /* Now, parse the body of the function.  */
