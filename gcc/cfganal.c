@@ -157,7 +157,7 @@ could_fall_through (basic_block src, basic_block target)
 bool
 mark_dfs_back_edges (void)
 {
-  struct edge_stack *stack;
+  edge_iterator *stack;
   int *pre;
   int *post;
   int sp;
@@ -171,7 +171,7 @@ mark_dfs_back_edges (void)
   post = xcalloc (last_basic_block, sizeof (int));
 
   /* Allocate stack for back-tracking up CFG.  */
-  stack = xmalloc ((n_basic_blocks + 1) * sizeof (struct edge_stack));
+  stack = xmalloc ((n_basic_blocks + 1) * sizeof (edge_iterator));
   sp = 0;
 
   /* Allocate bitmap to track nodes that have been visited.  */
@@ -181,22 +181,19 @@ mark_dfs_back_edges (void)
   sbitmap_zero (visited);
 
   /* Push the first edge on to the stack.  */
-  stack[sp].ev = ENTRY_BLOCK_PTR->succs;
-  stack[sp++].ix = 0;
+  stack[sp++] = ei_start (ENTRY_BLOCK_PTR->succs);
 
   while (sp)
     {
-      VEC(edge) *ev;
+      edge_iterator ei;
       basic_block src;
       basic_block dest;
-      unsigned ix;
 
       /* Look at the edge on the top of the stack.  */
-      ev = stack[sp - 1].ev;
-      ix = stack[sp - 1].ix;
-      src = EDGE_I (ev, ix)->src;
-      dest = EDGE_I (ev, ix)->dest;
-      EDGE_I (ev, ix)->flags &= ~EDGE_DFS_BACK;
+      ei = stack[sp - 1];
+      src = ei_edge (ei)->src;
+      dest = ei_edge (ei)->dest;
+      ei_edge (ei)->flags &= ~EDGE_DFS_BACK;
 
       /* Check if the edge destination has been visited yet.  */
       if (dest != EXIT_BLOCK_PTR && ! TEST_BIT (visited, dest->index))
@@ -209,8 +206,7 @@ mark_dfs_back_edges (void)
 	    {
 	      /* Since the DEST node has been visited for the first
 		 time, check its successors.  */
-	      stack[sp].ev = dest->succs;
-	      stack[sp++].ix = 0;
+	      stack[sp++] = ei_start (dest->succs);
 	    }
 	  else
 	    post[dest->index] = postnum++;
@@ -220,13 +216,13 @@ mark_dfs_back_edges (void)
 	  if (dest != EXIT_BLOCK_PTR && src != ENTRY_BLOCK_PTR
 	      && pre[src->index] >= pre[dest->index]
 	      && post[dest->index] == 0)
-	    EDGE_I (ev, ix)->flags |= EDGE_DFS_BACK, found = true;
+	    ei_edge (ei)->flags |= EDGE_DFS_BACK, found = true;
 
-	  if (EDGE_COUNT (ev) <= (ix + 1) && src != ENTRY_BLOCK_PTR)
+	  if (ei_one_before_end_p (ei) && src != ENTRY_BLOCK_PTR)
 	    post[src->index] = postnum++;
 
-	  if (EDGE_COUNT (ev) > (ix + 1))
-	    stack[sp - 1].ix++;
+	  if (!ei_one_before_end_p (ei))
+	    ei_next (&stack[sp - 1]);
 	  else
 	    sp--;
 	}
@@ -652,13 +648,13 @@ connect_infinite_loops_to_exit (void)
 void
 flow_reverse_top_sort_order_compute (int *rts_order)
 {
-  struct edge_stack *stack;
+  edge_iterator *stack;
   int sp;
   int postnum = 0;
   sbitmap visited;
 
   /* Allocate stack for back-tracking up CFG.  */
-  stack = xmalloc ((n_basic_blocks + 1) * sizeof (struct edge_stack));
+  stack = xmalloc ((n_basic_blocks + 1) * sizeof (edge_iterator));
   sp = 0;
 
   /* Allocate bitmap to track nodes that have been visited.  */
@@ -668,21 +664,18 @@ flow_reverse_top_sort_order_compute (int *rts_order)
   sbitmap_zero (visited);
 
   /* Push the first edge on to the stack.  */
-  stack[sp].ev = ENTRY_BLOCK_PTR->succs;
-  stack[sp++].ix = 0;
+  stack[sp++] = ei_start (ENTRY_BLOCK_PTR->succs);
 
   while (sp)
     {
-      VEC(edge) *ev;
-      unsigned ix;
+      edge_iterator ei;
       basic_block src;
       basic_block dest;
 
       /* Look at the edge on the top of the stack.  */
-      ev = stack[sp - 1].ev;
-      ix = stack[sp - 1].ix;
-      src = EDGE_I (ev, ix)->src;
-      dest = EDGE_I (ev, ix)->dest;
+      ei = stack[sp - 1];
+      src = ei_edge (ei)->src;
+      dest = ei_edge (ei)->dest;
 
       /* Check if the edge destination has been visited yet.  */
       if (dest != EXIT_BLOCK_PTR && ! TEST_BIT (visited, dest->index))
@@ -694,19 +687,18 @@ flow_reverse_top_sort_order_compute (int *rts_order)
 	    {
 	      /* Since the DEST node has been visited for the first
 	         time, check its successors.  */
-	      stack[sp].ev = dest->succs;
-	      stack[sp++].ix = 0;
+	      stack[sp++] = ei_start (dest->succs);
 	    }
 	  else
 	    rts_order[postnum++] = dest->index;
 	}
       else
 	{
-	  if (EDGE_COUNT (ev) <= (ix + 1) && src != ENTRY_BLOCK_PTR)
+	  if (ei_one_before_end_p (ei) && src != ENTRY_BLOCK_PTR)
 	   rts_order[postnum++] = src->index;
 
-	  if (EDGE_COUNT (ev) > (ix + 1))
-	    stack[sp - 1].ix++;
+	  if (!ei_one_before_end_p (ei))
+	    ei_next (&stack[sp - 1]);
 	  else
 	    sp--;
 	}
@@ -726,14 +718,14 @@ flow_reverse_top_sort_order_compute (int *rts_order)
 int
 flow_depth_first_order_compute (int *dfs_order, int *rc_order)
 {
-  struct edge_stack *stack;
+  edge_iterator *stack;
   int sp;
   int dfsnum = 0;
   int rcnum = n_basic_blocks - 1;
   sbitmap visited;
 
   /* Allocate stack for back-tracking up CFG.  */
-  stack = xmalloc ((n_basic_blocks + 1) * sizeof (struct edge_stack));
+  stack = xmalloc ((n_basic_blocks + 1) * sizeof (edge_iterator));
   sp = 0;
 
   /* Allocate bitmap to track nodes that have been visited.  */
@@ -743,21 +735,18 @@ flow_depth_first_order_compute (int *dfs_order, int *rc_order)
   sbitmap_zero (visited);
 
   /* Push the first edge on to the stack.  */
-  stack[sp].ev = ENTRY_BLOCK_PTR->succs;
-  stack[sp++].ix = 0;
+  stack[sp++] = ei_start (ENTRY_BLOCK_PTR->succs);
 
   while (sp)
     {
-      VEC(edge) *ev;
-      unsigned ix;
+      edge_iterator ei;
       basic_block src;
       basic_block dest;
 
       /* Look at the edge on the top of the stack.  */
-      ev = stack[sp - 1].ev;
-      ix = stack[sp - 1].ix;
-      src = EDGE_I (ev, ix)->src;
-      dest = EDGE_I (ev, ix)->dest;
+      ei = stack[sp - 1];
+      src = ei_edge (ei)->src;
+      dest = ei_edge (ei)->dest;
 
       /* Check if the edge destination has been visited yet.  */
       if (dest != EXIT_BLOCK_PTR && ! TEST_BIT (visited, dest->index))
@@ -774,8 +763,7 @@ flow_depth_first_order_compute (int *dfs_order, int *rc_order)
 	    {
 	      /* Since the DEST node has been visited for the first
 	         time, check its successors.  */
-	      stack[sp].ev = dest->succs;
-	      stack[sp++].ix = 0;
+	      stack[sp++] = ei_start (dest->succs);
 	    }
 	  else if (rc_order)
 	    /* There are no successors for the DEST node so assign
@@ -784,13 +772,13 @@ flow_depth_first_order_compute (int *dfs_order, int *rc_order)
 	}
       else
 	{
-	  if (EDGE_COUNT (ev) <= (ix + 1) && src != ENTRY_BLOCK_PTR && rc_order)
+	  if (ei_one_before_end_p (ei) && src != ENTRY_BLOCK_PTR && rc_order)
 	    /* There are no more successors for the SRC node
 	       so assign its reverse completion number.  */
 	    rc_order[rcnum--] = src->index;
 
-	  if (EDGE_COUNT (ev) > (ix + 1))
-	    stack[sp - 1].ix++;
+	  if (!ei_one_before_end_p (ei))
+	    ei_next (&stack[sp - 1]);
 	  else
 	    sp--;
 	}
@@ -826,8 +814,7 @@ struct dfst_node
 void
 flow_preorder_transversal_compute (int *pot_order)
 {
-  VEC(edge) *ev;
-  struct edge_stack *stack;
+  edge_iterator *stack, ei;
   int i;
   int max_successors;
   int sp;
@@ -835,7 +822,6 @@ flow_preorder_transversal_compute (int *pot_order)
   struct dfst_node *node;
   struct dfst_node *dfst;
   basic_block bb;
-  unsigned ix;
 
   /* Allocate stack for back-tracking up CFG.  */
   stack = xmalloc ((n_basic_blocks + 1) * sizeof (edge));
@@ -859,8 +845,7 @@ flow_preorder_transversal_compute (int *pot_order)
   sbitmap_zero (visited);
 
   /* Push the first edge on to the stack.  */
-  stack[sp].ev = ENTRY_BLOCK_PTR->succs;
-  stack[sp++].ix = 0;
+  stack[sp++] = ei_start (ENTRY_BLOCK_PTR->succs);
 
   while (sp)
     {
@@ -868,10 +853,9 @@ flow_preorder_transversal_compute (int *pot_order)
       basic_block dest;
 
       /* Look at the edge on the top of the stack.  */
-      ev = stack[sp - 1].ev;
-      ix = stack[sp - 1].ix;
-      src = EDGE_I (ev, ix)->src;
-      dest = EDGE_I (ev, ix)->dest;
+      ei = stack[sp - 1];
+      src = ei_edge (ei)->src;
+      dest = ei_edge (ei)->dest;
 
       /* Check if the edge destination has been visited yet.  */
       if (dest != EXIT_BLOCK_PTR && ! TEST_BIT (visited, dest->index))
@@ -891,13 +875,12 @@ flow_preorder_transversal_compute (int *pot_order)
 	    {
 	      /* Since the DEST node has been visited for the first
 	         time, check its successors.  */
-	      stack[sp].ev = dest->succs;
-	      stack[sp++].ix = 0;
+	      stack[sp++] = ei_start (dest->succs);
 	    }
 	}
 
-      else if (EDGE_COUNT (ev) > (ix + 1))
-	stack[sp - 1].ix++;
+      else if (! ei_one_before_end_p (ei))
+	ei_next (&stack[sp - 1]);
       else
 	sp--;
     }

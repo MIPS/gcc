@@ -526,33 +526,30 @@ prologue_stack_adjust (void)
 static bool
 vt_stack_adjustments (void)
 {
-  struct edge_stack *stack;
+  edge_iterator *stack;
   int sp;
-  unsigned ix;
 
   /* Initialize entry block.  */
   VTI (ENTRY_BLOCK_PTR)->visited = true;
   VTI (ENTRY_BLOCK_PTR)->out.stack_adjust = frame_stack_adjust;
 
   /* Allocate stack for back-tracking up CFG.  */
-  stack = xmalloc ((n_basic_blocks + 1) * sizeof (struct edge_stack));
+  stack = xmalloc ((n_basic_blocks + 1) * sizeof (edge_iterator));
   sp = 0;
 
   /* Push the first edge on to the stack.  */
-  stack[sp].ev = ENTRY_BLOCK_PTR->succs;
-  stack[sp++].ix = 0;
+  stack[sp++] = ei_start (ENTRY_BLOCK_PTR->succs);
 
   while (sp)
     {
-      VEC(edge) *ev;
+      edge_iterator ei;
       basic_block src;
       basic_block dest;
 
       /* Look at the edge on the top of the stack.  */
-      ev = stack[sp - 1].ev;
-      ix = stack[sp - 1].ix;
-      src = EDGE_I (ev, ix)->src;
-      dest = EDGE_I (ev, ix)->dest;
+      ei = stack[sp - 1];
+      src = ei_edge (ei)->src;
+      dest = ei_edge (ei)->dest;
 
       /* Check if the edge destination has been visited yet.  */
       if (!VTI (dest)->visited)
@@ -565,8 +562,7 @@ vt_stack_adjustments (void)
 	    {
 	      /* Since the DEST node has been visited for the first
 		 time, check its successors.  */
-	      stack[sp].ev = dest->succs;
-	      stack[sp++].ix = 0;
+	      stack[sp++] = ei_start (dest->succs);
 	    }
 	}
       else
@@ -578,9 +574,9 @@ vt_stack_adjustments (void)
 	      return false;
 	    }
 
-	  if (EDGE_COUNT (ev) > (ix + 1))
+	  if (! ei_end_p (ei))
 	    /* Go to the next edge.  */
-	    stack[sp - 1].ix++;
+	    ei_next (&stack[sp - 1]);
 	  else
 	    /* Return to previous level if there are no more edges.  */
 	    sp--;

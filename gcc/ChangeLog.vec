@@ -1,3 +1,24 @@
+2004-09-17  Ben Elliston  <bje@au.ibm.com>
+
+	* basic-block.h (struct edge_stack): Remove.
+	(edge_iterator): New type.
+	(ei_start, ei_last, ei_end_p, ei_one_before_end_p): New functions.
+	(ei_next, ei_prev, ei_edge): Likewise.
+	* cfganal.c (could_fall_through): Use a edge_iterator and
+	associated functions, not an edge_stack.
+	(mark_dfs_back_edges): Likewise.
+	(connect_infinite_loops_to_exit): Likewise.
+	(flow_reverse_top_sort_order_compute): Likewise.
+	(flow_dpeth_first_order_compute): Likewise.
+	(flow_preorder_transversal_compute): Likewise.
+	* dominance.c (calc_dfs_tree_nonrec): Likewise.
+	(calc_idoms): Likewise.
+	* gcse.c (bypass_block): Likewise.
+	(insert_store): Likewise.
+	(remove_reachable_equiv_notes): Likewise.
+	* var-tracking.c (prologue_stack_adjust): Likewise.
+	(vt_stack_adjustments): Likewise.
+
 2004-09-10  Ben Elliston  <bje@au.ibm.com>
 
 	* Merge with edge-vector-mergepoint-20040910.

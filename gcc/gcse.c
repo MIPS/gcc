@@ -3569,7 +3569,8 @@ bypass_block (basic_block bb, rtx setcc, rtx jump)
   edge e, edest;
   int i, change;
   int may_be_loop_header;
-  unsigned ix, removed_p;
+  unsigned removed_p;
+  unsigned ix;
 
   insn = (setcc != NULL) ? setcc : jump;
 
@@ -6283,24 +6284,20 @@ insert_store (struct ls_expr * expr, edge e)
 static void
 remove_reachable_equiv_notes (basic_block bb, struct ls_expr *smexpr)
 {
-  struct edge_stack *stack;
+  edge_iterator *stack, ei;
   int sp;
-  VEC(edge) *ev;
-  unsigned ix;
   edge act;
   sbitmap visited = sbitmap_alloc (last_basic_block);
   rtx last, insn, note;
   rtx mem = smexpr->pattern;
 
-  stack = xmalloc (sizeof (struct edge_stack) * n_basic_blocks);
+  stack = xmalloc (sizeof (edge_iterator) * n_basic_blocks);
   sp = 0;
-
-  ev = bb->succs;
-  ix = 0;
+  ei = ei_start (bb->succs);
 
   sbitmap_zero (visited);
 
-  act = (EDGE_COUNT (ev) > 0 ? EDGE_I (ev, 0) : NULL);
+  act = (EDGE_COUNT (ei.container) > 0 ? EDGE_I (ei.container, 0) : NULL);
   while (1)
     {
       if (!act)
@@ -6311,16 +6308,16 @@ remove_reachable_equiv_notes (basic_block bb, struct ls_expr *smexpr)
 	      sbitmap_free (visited);
 	      return;
 	    }
-	  ev = stack[--sp].ev;
-	  ix = stack[sp].ix;
-	  act = EDGE_I (ev, ix);
+	  act = ei_edge (stack[--sp]);
 	}
       bb = act->dest;
 
       if (bb == EXIT_BLOCK_PTR
 	  || TEST_BIT (visited, bb->index))
 	{
-	  act = (EDGE_COUNT (ev) > ++ix ? EDGE_I (ev, ix) : NULL);
+	  if (!ei_end_p (ei))
+	      ei_next (&ei);
+	  act = (! ei_end_p (ei)) ? ei_edge (ei) : NULL;
 	  continue;
 	}
       SET_BIT (visited, bb->index);
@@ -6349,17 +6346,16 @@ remove_reachable_equiv_notes (basic_block bb, struct ls_expr *smexpr)
 	    remove_note (insn, note);
 	  }
 
-      act = (EDGE_COUNT (ev) > ++ix ? EDGE_I (ev, ix) : NULL);
+      if (!ei_end_p (ei))
+	ei_next (&ei);
+      act = (! ei_end_p (ei)) ? ei_edge (ei) : NULL;
+
       if (EDGE_COUNT (bb->succs) > 0)
 	{
 	  if (act)
-	    {
-	      stack[sp].ev = ev;
-	      stack[sp++].ix = ix;
-	    }
-	  ev = bb->succs;
-	  ix = 0;
-	  act = (EDGE_COUNT (ev) > 0 ? EDGE_I (ev, 0) : NULL);
+	    stack[sp++] = ei;
+	  ei = ei_start (bb->succs);
+	  act = (EDGE_COUNT (ei.container) > 0 ? EDGE_I (ei.container, 0) : NULL);
 	}
     }
 }
