@@ -983,6 +983,7 @@ int final_time;
 int symout_time;
 int dump_time;
 int gc_time;
+int all_time;
 
 /* Return time used so far, in microseconds.  */
 
@@ -1062,8 +1063,9 @@ print_time (str, total)
      int total;
 {
   fprintf (stderr,
-	   "time in %s: %d.%06d\n",
-	   str, total / 1000000, total % 1000000);
+	   "time in %s: %d.%06d (%.0f%%)\n",
+	   str, total / 1000000, total % 1000000,
+	   (double)total / (double)all_time * 100.0);
 }
 
 /* Count an error or warning.  Return 1 if the message should be printed.  */
@@ -2824,9 +2826,11 @@ compile_file (name)
 
   if (! quiet_flag)
     {
-      fprintf (stderr,"\n");
-      print_time ("parse", parse_time);
+      all_time = get_run_time ();
 
+      fprintf (stderr,"\n");
+
+      print_time ("parse", parse_time);
       print_time ("integration", integration_time);
       print_time ("jump", jump_time);
       print_time ("cse", cse_time);
