@@ -120,7 +120,6 @@ extern const char *output_387_reg_move (rtx, rtx*);
 extern const char *output_fix_trunc (rtx, rtx*);
 extern const char *output_fp_compare (rtx, rtx*, int, int);
 
-extern void i386_dwarf_output_addr_const (FILE*, rtx);
 extern void i386_output_dwarf_dtprel (FILE*, int, rtx);
 
 extern void ix86_expand_clear (rtx);
@@ -131,6 +130,8 @@ extern void ix86_expand_binary_operator (enum rtx_code,
 extern int ix86_binary_operator_ok (enum rtx_code, enum machine_mode, rtx[]);
 extern void ix86_expand_unary_operator (enum rtx_code, enum machine_mode,
 					rtx[]);
+extern void ix86_expand_fp_absneg_operator (enum rtx_code, enum machine_mode,
+					    rtx[]);
 extern int ix86_unary_operator_ok (enum rtx_code, enum machine_mode, rtx[]);
 extern int ix86_match_ccmode (rtx, enum machine_mode);
 extern rtx ix86_expand_compare (enum rtx_code, rtx *, rtx *);
@@ -166,7 +167,8 @@ extern rtx ix86_va_arg (tree, tree);
 
 extern rtx ix86_force_to_memory (enum machine_mode, rtx);
 extern void ix86_free_from_memory (enum machine_mode);
-extern void ix86_split_fp_branch (enum rtx_code code, rtx, rtx, rtx, rtx, rtx);
+extern void ix86_split_fp_branch (enum rtx_code code, rtx, rtx,
+				  rtx, rtx, rtx, rtx);
 extern int ix86_hard_regno_mode_ok (int, enum machine_mode);
 extern int ix86_register_move_cost (enum machine_mode, enum reg_class,
 				    enum reg_class);

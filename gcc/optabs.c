@@ -294,9 +294,6 @@ optab_for_tree_code (enum tree_code code, tree type)
     case MIN_EXPR:
       return TYPE_UNSIGNED (type) ? umin_optab : smin_optab;
 
-    case REALIGN_STORE_EXPR:
-      return vec_realign_store_optab;
-
     case REALIGN_LOAD_EXPR:
       return vec_realign_load_optab;
 
@@ -427,7 +424,7 @@ simplify_expand_binop (enum machine_mode mode, optab binoptab,
 /* Like simplify_expand_binop, but always put the result in TARGET.
    Return true if the expansion succeeded.  */
 
-static bool
+bool
 force_expand_binop (enum machine_mode mode, optab binoptab,
 		    rtx op0, rtx op1, rtx target, int unsignedp,
 		    enum optab_methods methods)
@@ -2131,6 +2128,26 @@ expand_parity (enum machine_mode mode, rtx op0, rtx target)
   return 0;
 }
 
+/* Extract the OMODE lowpart from VAL, which has IMODE.  Under certain 
+   conditions, VAL may already be a SUBREG against which we cannot generate
+   a further SUBREG.  In this case, we expect forcing the value into a
+   register will work around the situation.  */
+
+static rtx
+lowpart_subreg_maybe_copy (enum machine_mode omode, rtx val,
+			   enum machine_mode imode)
+{
+  rtx ret;
+  ret = lowpart_subreg (omode, val, imode);
+  if (ret == NULL)
+    {
+      val = force_reg (imode, val);
+      ret = lowpart_subreg (omode, val, imode);
+      gcc_assert (ret != NULL);
+    }
+  return ret;
+}
+
 /* Generate code to perform an operation specified by UNOPTAB
    on operand OP0, with result having machine-mode MODE.
 
@@ -2322,7 +2339,8 @@ expand_unop (enum machine_mode mode, optab unoptab, rtx op0, rtx target,
 	      rtx insn;
 	      if (target == 0)
 		target = gen_reg_rtx (mode);
-	      insn = emit_move_insn (target, gen_lowpart (mode, temp));
+	      temp = lowpart_subreg_maybe_copy (mode, temp, imode);
+	      insn = emit_move_insn (target, temp);
 	      set_unique_reg_note (insn, REG_EQUAL,
 				   gen_rtx_fmt_e (NEG, mode,
 						  copy_rtx (op0)));
@@ -2513,7 +2531,8 @@ expand_abs_nojump (enum machine_mode mode, rtx op0, rtx target,
 	      rtx insn;
 	      if (target == 0)
 		target = gen_reg_rtx (mode);
-	      insn = emit_move_insn (target, gen_lowpart (mode, temp));
+	      temp = lowpart_subreg_maybe_copy (mode, temp, imode);
+	      insn = emit_move_insn (target, temp);
 	      set_unique_reg_note (insn, REG_EQUAL,
 				   gen_rtx_fmt_e (ABS, mode,
 						  copy_rtx (op0)));

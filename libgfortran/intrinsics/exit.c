@@ -30,20 +30,20 @@ Boston, MA 02111-1307, USA.  */
 /* SUBROUTINE EXIT(STATUS)
    INTEGER, INTENT(IN), OPTIONAL :: STATUS  */
 
-void
-prefix(exit_i4) (GFC_INTEGER_4 * status)
-{
+extern void exit_i4 (GFC_INTEGER_4 *);
+export_proto(exit_i4);
 
-  if (status == NULL)
-    exit(0);
-  exit(*status);
+void
+exit_i4 (GFC_INTEGER_4 * status)
+{
+  exit (status ? *status : 0);
 }
 
-void
-prefix(exit_i8) (GFC_INTEGER_8 * status)
-{
+extern void exit_i8 (GFC_INTEGER_8 *);
+export_proto(exit_i8);
 
-  if (status == NULL)
-    exit(0);
-  exit((int) *status);
+void
+exit_i8 (GFC_INTEGER_8 * status)
+{
+  exit (status ? *status : 0);
 }

@@ -37,8 +37,11 @@ Boston, MA 02111-1307, USA.  */
          C(I,J) = C(I,J)+A(I,K)*B(K,J)
 */
 
+extern void matmul_i8 (gfc_array_i8 * retarray, gfc_array_i8 * a, gfc_array_i8 * b);
+export_proto(matmul_i8);
+
 void
-__matmul_i8 (gfc_array_i8 * retarray, gfc_array_i8 * a, gfc_array_i8 * b)
+matmul_i8 (gfc_array_i8 * retarray, gfc_array_i8 * a, gfc_array_i8 * b)
 {
   GFC_INTEGER_8 *abase;
   GFC_INTEGER_8 *bbase;
@@ -86,7 +89,8 @@ __matmul_i8 (gfc_array_i8 * retarray, gfc_array_i8 * a, gfc_array_i8 * b)
           retarray->dim[1].stride = retarray->dim[0].ubound+1;
         }
           
-      retarray->data = internal_malloc (sizeof (GFC_INTEGER_8) * size0 (retarray));
+      retarray->data
+	= internal_malloc_size (sizeof (GFC_INTEGER_8) * size0 (retarray));
       retarray->base = 0;
     }
 
@@ -199,4 +203,3 @@ __matmul_i8 (gfc_array_i8 * retarray, gfc_array_i8 * a, gfc_array_i8 * b)
 	    dest[x*rxstride + y*rystride] += abase[x*axstride + n*aystride] * bbase[n*bxstride + y*bystride];
     }
 }
-

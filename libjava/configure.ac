@@ -134,9 +134,11 @@ libgcj_javaflags=
 LIBGCJ_CFLAGS="${libgcj_cflags}"
 LIBGCJ_CXXFLAGS="${libgcj_cxxflags}"
 LIBGCJ_JAVAFLAGS="${libgcj_javaflags}"
+LIBGCJ_LD_SYMBOLIC="${libgcj_ld_symbolic}"
 AC_SUBST(LIBGCJ_CFLAGS)
 AC_SUBST(LIBGCJ_CXXFLAGS)
 AC_SUBST(LIBGCJ_JAVAFLAGS)
+AC_SUBST(LIBGCJ_LD_SYMBOLIC)
 
 AC_CONFIG_HEADERS([include/config.h gcj/libgcj-config.h])
 
@@ -617,7 +619,7 @@ case "$THREADS" in
  no | none | single)
     THREADS=none
     ;;
- posix | pthreads)
+ posix | posix95 | pthreads)
     THREADS=posix
     case "$host" in
      *-*-linux*)
@@ -728,13 +730,11 @@ AM_CONDITIONAL(USING_GCC, test "$GCC" = yes)
 # We're in the tree with gcc, and need to include some of its headers.
 GCC_UNWIND_INCLUDE='-I$(libgcj_basedir)/../gcc'
 
+TL_AC_GCC_VERSION([$srcdir/..])
+
 # Figure out where generated headers like libgcj-config.h get installed.
-gcc_version_trigger=${libgcj_basedir}/../gcc/version.c
-gcc_version_full=`grep version_string ${gcc_version_trigger} | sed -e 's/.*\"\([[^\"]]*\)\".*/\1/'`
-gcc_version=`echo ${gcc_version_full} | sed -e 's/\([[^ ]]*\) .*/\1/'`
 tool_include_dir='$(libdir)/gcc/$(target_noncanonical)/'${gcc_version}/include
 AC_SUBST(tool_include_dir)
-AC_SUBST(gcc_version)
 
 if test "x${with_newlib}" = "xyes"; then
    # We are being configured with a cross compiler.  AC_REPLACE_FUNCS
@@ -1201,6 +1201,8 @@ gcjversion=`$GCJ -v 2>&1 | sed -n 's/^.*version \([[^ ]]*\).*$/\1/p'`
 GCJVERSION=$gcjversion
 AC_SUBST(GCJVERSION)
 AC_DEFINE_UNQUOTED(GCJVERSION, "$GCJVERSION", [Short GCJ version ID])
+
+TL_AC_GXX_INCLUDE_DIR
 
 # We check for sys/filio.h because Solaris 2.5 defines FIONREAD there.
 # On that system, sys/ioctl.h will not include sys/filio.h unless

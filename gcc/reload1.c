@@ -682,17 +682,6 @@ reload (rtx first, int global)
       if (! call_used_regs[i] && ! fixed_regs[i] && ! LOCAL_REGNO (i))
 	regs_ever_live[i] = 1;
 
-#ifdef NON_SAVING_SETJMP
-  /* A function that calls setjmp should save and restore all the
-     call-saved registers on a system where longjmp clobbers them.  */
-  if (NON_SAVING_SETJMP && current_function_calls_setjmp)
-    {
-      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-	if (! call_used_regs[i])
-	  regs_ever_live[i] = 1;
-    }
-#endif
-
   /* Find all the pseudo registers that didn't get hard regs
      but do have known equivalent constants or memory slots.
      These include parameters (known equivalent to parameter slots)
@@ -3327,6 +3316,14 @@ set_initial_elim_offsets (void)
   num_not_at_initial_offset = 0;
 }
 
+/* Subroutine of set_initial_label_offsets called via for_each_eh_label.  */
+
+static void
+set_initial_eh_label_offset (rtx label)
+{
+  set_label_offsets (label, NULL_RTX, 1);
+}
+
 /* Initialize the known label offsets.
    Set a known offset for each forced label to be at the initial offset
    of each elimination.  We do this because we assume that all
@@ -3343,6 +3340,8 @@ set_initial_label_offsets (void)
   for (x = forced_labels; x; x = XEXP (x, 1))
     if (XEXP (x, 0))
       set_label_offsets (XEXP (x, 0), NULL_RTX, 1);
+
+  for_each_eh_label (set_initial_eh_label_offset);
 }
 
 /* Set all elimination offsets to the known values for the code label given

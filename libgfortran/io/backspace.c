@@ -71,16 +71,16 @@ formatted_backspace (void)
     }
   while (base != 0);
 
-/* base is the new pointer.  Seek to it exactly */
-
-done:
+  /* base is the new pointer.  Seek to it exactly */
+ done:
   if (sseek (current_unit->s, base) == FAILURE)
     goto io_error;
   current_unit->last_record--;
+  current_unit->endfile = NO_ENDFILE;
 
   return;
 
-io_error:
+ io_error:
   generate_error (ERROR_OS, NULL);
 }
 
@@ -109,10 +109,13 @@ unformatted_backspace (void)
   current_unit->last_record--;
   return;
 
-io_error:
+ io_error:
   generate_error (ERROR_OS, NULL);
 }
 
+
+extern void st_backspace (void);
+export_proto(st_backspace);
 
 void
 st_backspace (void)
@@ -155,6 +158,6 @@ st_backspace (void)
 	unformatted_backspace ();
     }
 
-done:
+ done:
   library_end ();
 }

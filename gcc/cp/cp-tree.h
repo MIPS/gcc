@@ -47,6 +47,8 @@ struct diagnostic_context;
       STATEMENT_LIST_NO_SCOPE (in STATEMENT_LIST).
       EXPR_STMT_STMT_EXPR_RESULT (in EXPR_STMT)
       BIND_EXPR_TRY_BLOCK (in BIND_EXPR)
+      TYPENAME_IS_ENUM_P (in TYPENAME_TYPE)
+      REFERENCE_REF_P (in INDIRECT_EXPR)
    1: IDENTIFIER_VIRTUAL_P (in IDENTIFIER_NODE)
       TI_PENDING_TEMPLATE_FLAG.
       TEMPLATE_PARMS_FOR_INLINE.
@@ -54,6 +56,7 @@ struct diagnostic_context;
       (TREE_CALLS_NEW) (in _EXPR or _REF) (commented-out).
       ICS_ELLIPSIS_FLAG (in _CONV)
       DECL_INITIALIZED_P (in VAR_DECL)
+      TYPENAME_IS_CLASS_P (in TYPENAME_TYPE)
    2: IDENTIFIER_OPNAME_P (in IDENTIFIER_NODE)
       ICS_THIS_FLAG (in _CONV)
       DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (in VAR_DECL)
@@ -481,9 +484,8 @@ enum cp_tree_index
     CPTI_VTBL_PTR_TYPE,
     CPTI_STD,
     CPTI_ABI,
-    CPTI_TYPE_INFO_TYPE,
+    CPTI_CONST_TYPE_INFO_TYPE,
     CPTI_TYPE_INFO_PTR_TYPE,
-    CPTI_TYPE_INFO_REF_TYPE,
     CPTI_ABORT_FNDECL,
     CPTI_GLOBAL_DELETE_FNDECL,
     CPTI_AGGR_TAG,
@@ -559,9 +561,8 @@ extern GTY(()) tree cp_global_trees[CPTI_MAX];
 #define vtbl_ptr_type_node		cp_global_trees[CPTI_VTBL_PTR_TYPE]
 #define std_node			cp_global_trees[CPTI_STD]
 #define abi_node                        cp_global_trees[CPTI_ABI]
-#define type_info_type_node		cp_global_trees[CPTI_TYPE_INFO_TYPE]
+#define const_type_info_type_node	cp_global_trees[CPTI_CONST_TYPE_INFO_TYPE]
 #define type_info_ptr_type		cp_global_trees[CPTI_TYPE_INFO_PTR_TYPE]
-#define type_info_ref_type              cp_global_trees[CPTI_TYPE_INFO_REF_TYPE]
 #define abort_fndecl			cp_global_trees[CPTI_ABORT_FNDECL]
 #define global_delete_fndecl		cp_global_trees[CPTI_GLOBAL_DELETE_FNDECL]
 #define current_aggr			cp_global_trees[CPTI_AGGR_TAG]
@@ -1060,6 +1061,10 @@ struct lang_type_class GTY(())
   tree decl_list;
   tree template_info;
   tree befriending_classes;
+  /* In a RECORD_TYPE, information specific to Objective-C++, such
+     as a list of adopted protocols or a pointer to a corresponding
+     @interface.  See objc/objc-act.h for details.  */
+  tree objc_info;
 };
 
 struct lang_type_ptrmem GTY(())
@@ -2187,10 +2192,11 @@ struct lang_decl GTY(())
 
 /* For a template instantiation TYPE, returns the TYPE corresponding
    to the primary template.  Otherwise returns TYPE itself.  */
-#define CLASSTYPE_PRIMARY_TEMPLATE_TYPE(TYPE)						\
-  ((CLASSTYPE_USE_TEMPLATE ((TYPE)) && !CLASSTYPE_TEMPLATE_SPECIALIZATION ((TYPE)))	\
-   ? TREE_TYPE (DECL_TEMPLATE_RESULT (DECL_PRIMARY_TEMPLATE				\
-				      (CLASSTYPE_TI_TEMPLATE ((TYPE)))))		\
+#define CLASSTYPE_PRIMARY_TEMPLATE_TYPE(TYPE)				\
+  ((CLASSTYPE_USE_TEMPLATE ((TYPE))					\
+    && !CLASSTYPE_TEMPLATE_SPECIALIZATION ((TYPE)))			\
+   ? TREE_TYPE (DECL_TEMPLATE_RESULT (DECL_PRIMARY_TEMPLATE		\
+				      (CLASSTYPE_TI_TEMPLATE ((TYPE))))) \
    : (TYPE))
 
 /* Like DECL_TI_TEMPLATE, but for an ENUMERAL_, RECORD_, or UNION_TYPE.  */
@@ -2217,6 +2223,10 @@ struct lang_decl GTY(())
 #define DECL_SAVED_FUNCTION_DATA(NODE)			\
   (DECL_LANG_SPECIFIC (FUNCTION_DECL_CHECK (NODE))	\
    ->u.f.u.saved_language_function)
+
+/* Indicates an indirect_expr is for converting a reference.  */
+#define REFERENCE_REF_P(NODE) \
+  TREE_LANG_FLAG_0 (INDIRECT_REF_CHECK (NODE))
 
 #define NEW_EXPR_USE_GLOBAL(NODE) \
   TREE_LANG_FLAG_0 (NEW_EXPR_CHECK (NODE))
@@ -2253,6 +2263,15 @@ struct lang_decl GTY(())
    corresponding TYPE_DECL.  However, this may also be a
    TEMPLATE_ID_EXPR if we had something like `typename X::Y<T>'.  */
 #define TYPENAME_TYPE_FULLNAME(NODE) (TYPENAME_TYPE_CHECK (NODE))->type.values
+
+/* True if a TYPENAME_TYPE was declared as an "enum".  */
+#define TYPENAME_IS_ENUM_P(NODE) \
+  (TREE_LANG_FLAG_0 (TYPENAME_TYPE_CHECK (NODE)))
+
+/* True if a TYPENAME_TYPE was declared as a "class", "struct", or
+   "union".  */
+#define TYPENAME_IS_CLASS_P(NODE) \
+  (TREE_LANG_FLAG_1 (TYPENAME_TYPE_CHECK (NODE)))
 
 /* Nonzero in INTEGER_CST means that this int is negative by dint of
    using a twos-complement negated operand.  */
@@ -3162,8 +3181,6 @@ extern GTY(()) varray_type local_classes;
 #endif	/* NO_DOLLAR_IN_LABEL */
 
 #define THIS_NAME "this"
-#define CTOR_NAME "__ct"
-#define DTOR_NAME "__dt"
 
 #define IN_CHARGE_NAME "__in_chrg"
 
@@ -3709,9 +3726,8 @@ extern void delete_block			(tree);
 extern void add_block_current_level		(tree);
 extern void push_switch				(tree);
 extern void pop_switch				(void);
-extern void pushtag				(tree, tree, int);
+extern tree pushtag				(tree, tree, int);
 extern tree make_anon_name			(void);
-extern void clear_anon_tags			(void);
 extern int decls_match				(tree, tree);
 extern tree duplicate_decls			(tree, tree);
 extern tree pushdecl_top_level			(tree);
@@ -3721,7 +3737,7 @@ extern tree declare_local_label                 (tree);
 extern tree define_label			(location_t, tree);
 extern void check_goto				(tree);
 extern void define_case_label			(void);
-extern tree make_typename_type			(tree, tree, tsubst_flags_t);
+extern tree make_typename_type			(tree, tree, enum tag_types, tsubst_flags_t);
 extern tree make_unbound_class_template		(tree, tree, tree, tsubst_flags_t);
 extern tree check_for_out_of_scope_variable     (tree);
 extern tree build_library_fn			(tree, tree);
@@ -3747,8 +3763,8 @@ extern tree get_scope_of_declarator             (const cp_declarator *);
 extern void grok_special_member_properties	(tree);
 extern int grok_ctor_properties			(tree, tree);
 extern bool grok_op_properties			(tree, int, bool);
-extern tree xref_tag				(enum tag_types, tree, bool, bool);
-extern tree xref_tag_from_type			(tree, tree, int);
+extern tree xref_tag				(enum tag_types, tree, tag_scope, bool);
+extern tree xref_tag_from_type			(tree, tree, tag_scope);
 extern void xref_basetypes			(tree, tree);
 extern tree start_enum				(tree);
 extern void finish_enum				(tree);
@@ -3831,7 +3847,6 @@ extern void check_default_args (tree);
 extern void mark_used (tree);
 extern void finish_static_data_member_decl (tree, tree, tree, int);
 extern tree cp_build_parm_decl (tree, tree);
-extern tree build_artificial_parm (tree, tree);
 extern tree get_guard (tree);
 extern tree get_guard_cond (tree);
 extern tree set_guard (tree);
@@ -3853,7 +3868,6 @@ extern void init_error				(void);
 extern const char *type_as_string		(tree, int);
 extern const char *decl_as_string		(tree, int);
 extern const char *expr_as_string		(tree, int);
-extern const char *context_as_string            (tree, int);
 extern const char *lang_decl_name		(tree, int);
 extern const char *language_to_string           (enum languages);
 extern const char *class_key_or_enum_as_string  (tree);
@@ -3904,6 +3918,7 @@ extern tree build_vec_delete			(tree, tree, special_function_kind, int);
 extern tree create_temporary_var                (tree);
 extern void initialize_vtbl_ptrs                (tree);
 extern tree build_java_class_ref                (tree);
+extern tree integral_constant_value 		(tree);
 
 /* in lex.c */
 extern void cxx_dup_lang_specific_decl		(tree);
@@ -3923,7 +3938,6 @@ extern tree cxx_make_type			(enum tree_code);
 extern tree make_aggr_type			(enum tree_code);
 extern void yyerror				(const char *);
 extern void yyhook				(int);
-extern int cp_type_qual_from_rid                (tree);
 extern bool cxx_init				(void);
 extern void cxx_finish (void);
 
@@ -4056,7 +4070,6 @@ extern tree binfo_for_vtable			(tree);
 extern tree binfo_from_vbase			(tree);
 extern tree binfo_for_vbase			(tree, tree);
 extern tree look_for_overrides_here		(tree, tree);
-extern int check_final_overrider		(tree, tree);
 #define dfs_skip_bases ((tree)1)
 extern tree dfs_walk_all (tree, tree (*) (tree, void *),
 			  tree (*) (tree, void *), void *);
@@ -4080,7 +4093,6 @@ extern void pop_to_parent_deferring_access_checks	(void);
 extern void perform_deferred_access_checks	(void);
 extern void perform_or_defer_access_check	(tree, tree);
 extern void init_cp_semantics                   (void);
-extern tree do_poplevel				(tree);
 extern void add_decl_expr			(tree);
 extern tree finish_expr_stmt                    (tree);
 extern tree begin_if_stmt                       (void);
@@ -4157,7 +4169,6 @@ extern void finish_template_decl                (tree);
 extern tree finish_template_type                (tree, tree, int);
 extern tree finish_base_specifier               (tree, tree, bool);
 extern void finish_member_declaration           (tree);
-extern void check_multiple_declarators          (void);
 extern void qualified_name_lookup_error		(tree, tree, tree);
 extern tree finish_id_expression                (tree, tree, tree,
 						 cp_id_kind *, tree *,
@@ -4194,7 +4205,6 @@ extern tree copy_binfo				(tree, tree, tree,
 						 tree *, int);
 extern int member_p				(tree);
 extern cp_lvalue_kind real_lvalue_p             (tree);
-extern int lvalue_or_else			(tree, const char *);
 extern tree build_min				(enum tree_code, tree, ...);
 extern tree build_min_nt			(enum tree_code, ...);
 extern tree build_min_non_dep			(enum tree_code, tree, ...);

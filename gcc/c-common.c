@@ -755,7 +755,10 @@ fname_as_string (int pretty_p)
       strname.len = len - 1;
 
       if (cpp_interpret_string (parse_in, &strname, 1, &cstr, false))
-	return (char *) cstr.text;
+	{
+	  XDELETEVEC (namep);
+	  return (char *) cstr.text;
+	}
     }
   else
     namep = xstrdup (name);
@@ -1365,8 +1368,6 @@ verify_tree (tree x, struct tlist **pbefore_sp, struct tlist **pno_sp,
 	 Other non-expressions need not be processed.  */
       if (cl == tcc_unary)
 	{
-	  if (first_rtl_op (code) == 0)
-	    return;
 	  x = TREE_OPERAND (x, 0);
 	  writer = 0;
 	  goto restart;
@@ -1374,7 +1375,7 @@ verify_tree (tree x, struct tlist **pbefore_sp, struct tlist **pno_sp,
       else if (IS_EXPR_CODE_CLASS (cl))
 	{
 	  int lp;
-	  int max = first_rtl_op (TREE_CODE (x));
+	  int max = TREE_CODE_LENGTH (TREE_CODE (x));
 	  for (lp = 0; lp < max; lp++)
 	    {
 	      tmp_before = tmp_nosp = 0;
@@ -1984,14 +1985,6 @@ shorten_compare (tree *op0_ptr, tree *op1_ptr, tree *restype_ptr,
 
       type = c_common_signed_or_unsigned_type (unsignedp0,
 					       TREE_TYPE (primop0));
-
-      /* In C, if TYPE is an enumeration, then we need to get its
-	 min/max values from its underlying integral type, not the
-	 enumerated type itself.  In C++, TYPE_MAX_VALUE and
-	 TYPE_MIN_VALUE have already been set correctly on the
-	 enumeration type.  */
-      if (!c_dialect_cxx () && TREE_CODE (type) == ENUMERAL_TYPE)
-	type = c_common_type_for_size (TYPE_PRECISION (type), unsignedp0);
 
       maxval = TYPE_MAX_VALUE (type);
       minval = TYPE_MIN_VALUE (type);
@@ -4312,7 +4305,17 @@ handle_mode_attribute (tree *node, tree name, tree args,
 
 	  if (!(flags & (int) ATTR_FLAG_TYPE_IN_PLACE))
 	    type = build_variant_type_copy (type);
+
+	  /* We cannot use layout_type here, because that will attempt
+	     to re-layout all variants, corrupting our original.  */
 	  TYPE_PRECISION (type) = TYPE_PRECISION (typefm);
+	  TYPE_MIN_VALUE (type) = TYPE_MIN_VALUE (typefm);
+	  TYPE_MAX_VALUE (type) = TYPE_MAX_VALUE (typefm);
+	  TYPE_SIZE (type) = TYPE_SIZE (typefm);
+	  TYPE_SIZE_UNIT (type) = TYPE_SIZE_UNIT (typefm);
+	  if (!TYPE_USER_ALIGN (type))
+	    TYPE_ALIGN (type) = TYPE_ALIGN (typefm);
+
 	  typefm = type;
 	}
       else if (VECTOR_MODE_P (mode)
@@ -4324,8 +4327,6 @@ handle_mode_attribute (tree *node, tree name, tree args,
 	}
 
       *node = typefm;
-
-      /* No need to layout the type here.  The caller should do this.  */
     }
 
   return NULL_TREE;
@@ -4571,6 +4572,12 @@ handle_visibility_attribute (tree *node, tree name, tree args,
       decl = TYPE_NAME (decl);
       if (!decl)
         return NULL_TREE;
+      if (TREE_CODE (decl) == IDENTIFIER_NODE)
+	{
+	   warning ("%qE attribute ignored on types",
+		    name);
+	   return NULL_TREE;
+	}
     }
 
   if (strcmp (TREE_STRING_POINTER (id), "default") == 0)
@@ -5615,6 +5622,42 @@ fold_offsetof (tree expr)
 {
   /* Convert back from the internal sizetype to size_t.  */
   return convert (size_type_node, fold_offsetof_1 (expr));
+}
+
+/* Return nonzero if REF is an lvalue valid for this language;
+   otherwise, print an error message and return zero.  USE says
+   how the lvalue is being used and so selects the error message.  */
+
+int
+lvalue_or_else (tree ref, enum lvalue_use use)
+{
+  int win = lvalue_p (ref);
+
+  if (!win)
+    {
+      switch (use)
+	{
+	case lv_assign:
+	  error ("invalid lvalue in assignment");
+	  break;
+	case lv_increment:
+	  error ("invalid lvalue in increment");
+	  break;
+	case lv_decrement:
+	  error ("invalid lvalue in decrement");
+	  break;
+	case lv_addressof:
+	  error ("invalid lvalue in unary %<&%>");
+	  break;
+	case lv_asm:
+	  error ("invalid lvalue in asm statement");
+	  break;
+	default:
+	  gcc_unreachable ();
+	}
+    }
+
+  return win;
 }
 
 #include "gt-c-common.h"

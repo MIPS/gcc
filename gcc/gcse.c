@@ -675,7 +675,8 @@ static bool is_too_expensive (const char *);
 
 
 /* Entry point for global common subexpression elimination.
-   F is the first instruction in the function.  */
+   F is the first instruction in the function.  Return nonzero if a
+   change is mode.  */
 
 int
 gcse_main (rtx f, FILE *file)
@@ -2126,16 +2127,8 @@ compute_hash_table_work (struct hash_table *table)
 
 	  if (CALL_P (insn))
 	    {
-	      bool clobbers_all = false;
-#ifdef NON_SAVING_SETJMP
-	      if (NON_SAVING_SETJMP
-		  && find_reg_note (insn, REG_SETJMP, NULL_RTX))
-		clobbers_all = true;
-#endif
-
 	      for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
-		if (clobbers_all
-		    || TEST_HARD_REG_BIT (regs_invalidated_by_call, regno))
+		if (TEST_HARD_REG_BIT (regs_invalidated_by_call, regno))
 		  record_last_reg_set_info (insn, regno);
 
 	      mark_call (insn);
@@ -4227,7 +4220,7 @@ pre_edge_insert (struct edge_list *edge_list, struct expr **index_map)
 			   handling this situation.  This one is easiest for
 			   now.  */
 
-			if ((eg->flags & EDGE_ABNORMAL) == EDGE_ABNORMAL)
+			if (eg->flags & EDGE_ABNORMAL)
 			  insert_insn_end_bb (index_map[j], bb, 0);
 			else
 			  {
@@ -5784,16 +5777,8 @@ compute_store_table (void)
 
 	  if (CALL_P (insn))
 	    {
-	      bool clobbers_all = false;
-#ifdef NON_SAVING_SETJMP
-	      if (NON_SAVING_SETJMP
-		  && find_reg_note (insn, REG_SETJMP, NULL_RTX))
-		clobbers_all = true;
-#endif
-
 	      for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
-		if (clobbers_all
-		    || TEST_HARD_REG_BIT (regs_invalidated_by_call, regno))
+		if (TEST_HARD_REG_BIT (regs_invalidated_by_call, regno))
 		  {
 		    last_set_in[regno] = INSN_UID (insn);
 		    SET_BIT (reg_set_in_block[bb->index], regno);
@@ -5817,16 +5802,8 @@ compute_store_table (void)
 
 	  if (CALL_P (insn))
 	    {
-	      bool clobbers_all = false;
-#ifdef NON_SAVING_SETJMP
-	      if (NON_SAVING_SETJMP
-		  && find_reg_note (insn, REG_SETJMP, NULL_RTX))
-		clobbers_all = true;
-#endif
-
 	      for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
-		if (clobbers_all
-		    || TEST_HARD_REG_BIT (regs_invalidated_by_call, regno))
+		if (TEST_HARD_REG_BIT (regs_invalidated_by_call, regno))
 		  already_set[regno] = 1;
 	    }
 
@@ -5841,16 +5818,8 @@ compute_store_table (void)
 	  note_stores (pat, reg_clear_last_set, last_set_in);
 	  if (CALL_P (insn))
 	    {
-	      bool clobbers_all = false;
-#ifdef NON_SAVING_SETJMP
-	      if (NON_SAVING_SETJMP
-		  && find_reg_note (insn, REG_SETJMP, NULL_RTX))
-		clobbers_all = true;
-#endif
-
 	      for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
-		if ((clobbers_all
-		     || TEST_HARD_REG_BIT (regs_invalidated_by_call, regno))
+		if (TEST_HARD_REG_BIT (regs_invalidated_by_call, regno)
 		    && last_set_in[regno] == INSN_UID (insn))
 		  last_set_in[regno] = 0;
 	    }
@@ -6252,13 +6221,9 @@ insert_store (struct ls_expr * expr, edge e)
       return 0;
     }
 
-  /* We can't insert on this edge, so we'll insert at the head of the
-     successors block.  See Morgan, sec 10.5.  */
-  if ((e->flags & EDGE_ABNORMAL) == EDGE_ABNORMAL)
-    {
-      insert_insn_start_bb (insn, bb);
-      return 0;
-    }
+  /* We can't put stores in the front of blocks pointed to by abnormal
+     edges since that may put a store where one didn't used to be.  */
+  gcc_assert (!(e->flags & EDGE_ABNORMAL));
 
   insert_insn_on_edge (insn, e);
 
@@ -6522,6 +6487,25 @@ store_motion (void)
   /* Now we want to insert the new stores which are going to be needed.  */
   for (ptr = first_ls_expr (); ptr != NULL; ptr = next_ls_expr (ptr))
     {
+      /* If any of the edges we have above are abnormal, we can't move this
+	 store.  */
+      for (x = NUM_EDGES (edge_list) - 1; x >= 0; x--)
+	if (TEST_BIT (pre_insert_map[x], ptr->index)
+	    && (INDEX_EDGE (edge_list, x)->flags & EDGE_ABNORMAL))
+	  break;
+
+      if (x >= 0)
+	{
+	  if (gcse_file != NULL)
+	    fprintf (gcse_file,
+		     "Can't replace store %d: abnormal edge from %d to %d\n",
+		     ptr->index, INDEX_EDGE (edge_list, x)->src->index,
+		     INDEX_EDGE (edge_list, x)->dest->index);
+	  continue;
+	}
+		      
+      /* Now we want to insert the new stores which are going to be needed.  */
+
       FOR_EACH_BB (bb)
 	if (TEST_BIT (pre_delete_map[bb->index], ptr->index))
 	  delete_store (ptr, bb);

@@ -99,7 +99,8 @@ RTEMS Ports		Joel Sherrill		joel@oarcorp.com
 RTEMS Ports		Ralf Corsepius		ralf.corsepius@rtems.org
 VxWorks ports		Zack Weinberg		zack@codesourcery.com
 VxWorks ports		Nathan Sidwell		nathan@codesourcery.com
-windows, cygwin, mingw	Christopher Faylor	cgf@redhat.com
+windows, cygwin, mingw	Christopher Faylor	cgf@gcc.gnu.org
+windows, cygwin, mingw	Danny Smith		dannysmith@users.sourceforge.net
 
 			Language Front Ends Maintainers
 
@@ -248,7 +249,7 @@ Mumit Khan					khan@xraylith.wisc.edu
 Matthias Klose					doko@debian.org
 Jeff Knaggs					jknaggs@redhat.com
 Michael Koch					konqueror@gmx.de
-Matt Kraai					kraai@alumni.cmu.edu
+Matt Kraai					kraai@ftbfs.org
 Scott Robert Ladd				scott.ladd@coyotegulch.com
 Aaron W. LaFramboise				aaronavay62@aaronwl.com
 Marc Lehmann					pcg@goof.com
@@ -294,7 +295,6 @@ Tobias Schlüter					tobias.schlueter@physik.uni-muenchen.de
 Andreas Schwab					schwab@suse.de
 Svein Seldal                                    svein.seldal@solidas.com
 Franz Sirl					franz.sirl-kernel@lauterbach.com
-Danny Smith					dannysmith@users.sourceforge.net
 Michael Sokolov					msokolov@ivan.Harhan.ORG
 Richard Stallman				rms@gnu.org
 Graham Stott					graham.stott@btinternet.com

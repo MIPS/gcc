@@ -761,6 +761,57 @@ approx_reg_cost (rtx x)
   return cost;
 }
 
+/* Returns a canonical version of X for the address, from the point of view,
+   that all multiplications are represented as MULT instead of the multiply
+   by a power of 2 being represented as ASHIFT.  */
+
+static rtx
+canon_for_address (rtx x)
+{
+  enum rtx_code code;
+  enum machine_mode mode;
+  rtx new = 0;
+  int i;
+  const char *fmt;
+  
+  if (!x)
+    return x;
+  
+  code = GET_CODE (x);
+  mode = GET_MODE (x);
+  
+  switch (code)
+    {
+    case ASHIFT:
+      if (GET_CODE (XEXP (x, 1)) == CONST_INT
+	  && INTVAL (XEXP (x, 1)) < GET_MODE_BITSIZE (mode)
+	  && INTVAL (XEXP (x, 1)) >= 0)
+        {
+	  new = canon_for_address (XEXP (x, 0));
+	  new = gen_rtx_MULT (mode, new,
+			      gen_int_mode ((HOST_WIDE_INT) 1
+				            << INTVAL (XEXP (x, 1)),
+					    mode));
+	}
+      break;
+    default:
+      break;
+      
+    }
+  if (new)
+    return new;
+  
+  /* Now recursively process each operand of this operation.  */
+  fmt = GET_RTX_FORMAT (code);
+  for (i = 0; i < GET_RTX_LENGTH (code); i++)
+    if (fmt[i] == 'e')
+      {
+	new = canon_for_address (XEXP (x, i));
+	XEXP (x, i) = new;
+      }
+  return x;
+}
+
 /* Return a negative value if an rtx A, whose costs are given by COST_A
    and REGCOST_A, is more desirable than an rtx B.
    Return a positive value if A is less desirable, or 0 if the two are
@@ -2933,6 +2984,11 @@ find_best_addr (rtx insn, rtx *loc, enum machine_mode mode)
 		rtx new = simplify_gen_binary (GET_CODE (*loc), Pmode,
 					       p->exp, op1);
 		int new_cost;
+		
+		/* Get the canonical version of the address so we can accept
+		   more. */
+		new = canon_for_address (new);
+		
 		new_cost = address_cost (new, mode);
 
 		if (new_cost < best_addr_cost
@@ -4335,6 +4391,18 @@ record_jump_equiv (rtx insn, int taken)
   record_jump_cond (code, mode, op0, op1, reversed_nonequality);
 }
 
+/* Yet another form of subreg creation.  In this case, we want something in
+   MODE, and we should assume OP has MODE iff it is naturally modeless.  */
+
+static rtx
+record_jump_cond_subreg (enum machine_mode mode, rtx op)
+{
+  enum machine_mode op_mode = GET_MODE (op);
+  if (op_mode == mode || op_mode == VOIDmode)
+    return op;
+  return lowpart_subreg (mode, op, op_mode);
+}
+
 /* We know that comparison CODE applied to OP0 and OP1 in MODE is true.
    REVERSED_NONEQUALITY is nonzero if CODE had to be swapped.
    Make any useful entries we can with that information.  Called from
@@ -4359,11 +4427,10 @@ record_jump_cond (enum rtx_code code, enum machine_mode mode, rtx op0,
 	  > GET_MODE_SIZE (GET_MODE (SUBREG_REG (op0)))))
     {
       enum machine_mode inner_mode = GET_MODE (SUBREG_REG (op0));
-      rtx tem = gen_lowpart (inner_mode, op1);
-
-      record_jump_cond (code, mode, SUBREG_REG (op0),
-			tem ? tem : gen_rtx_SUBREG (inner_mode, op1, 0),
-			reversed_nonequality);
+      rtx tem = record_jump_cond_subreg (inner_mode, op1);
+      if (tem)
+	record_jump_cond (code, mode, SUBREG_REG (op0), tem,
+			  reversed_nonequality);
     }
 
   if (code == EQ && GET_CODE (op1) == SUBREG
@@ -4371,11 +4438,10 @@ record_jump_cond (enum rtx_code code, enum machine_mode mode, rtx op0,
 	  > GET_MODE_SIZE (GET_MODE (SUBREG_REG (op1)))))
     {
       enum machine_mode inner_mode = GET_MODE (SUBREG_REG (op1));
-      rtx tem = gen_lowpart (inner_mode, op0);
-
-      record_jump_cond (code, mode, SUBREG_REG (op1),
-			tem ? tem : gen_rtx_SUBREG (inner_mode, op0, 0),
-			reversed_nonequality);
+      rtx tem = record_jump_cond_subreg (inner_mode, op0);
+      if (tem)
+	record_jump_cond (code, mode, SUBREG_REG (op1), tem,
+			  reversed_nonequality);
     }
 
   /* Similarly, if this is an NE comparison, and either is a SUBREG
@@ -4391,11 +4457,10 @@ record_jump_cond (enum rtx_code code, enum machine_mode mode, rtx op0,
 	  < GET_MODE_SIZE (GET_MODE (SUBREG_REG (op0)))))
     {
       enum machine_mode inner_mode = GET_MODE (SUBREG_REG (op0));
-      rtx tem = gen_lowpart (inner_mode, op1);
-
-      record_jump_cond (code, mode, SUBREG_REG (op0),
-			tem ? tem : gen_rtx_SUBREG (inner_mode, op1, 0),
-			reversed_nonequality);
+      rtx tem = record_jump_cond_subreg (inner_mode, op1);
+      if (tem)
+	record_jump_cond (code, mode, SUBREG_REG (op0), tem,
+			  reversed_nonequality);
     }
 
   if (code == NE && GET_CODE (op1) == SUBREG
@@ -4404,11 +4469,10 @@ record_jump_cond (enum rtx_code code, enum machine_mode mode, rtx op0,
 	  < GET_MODE_SIZE (GET_MODE (SUBREG_REG (op1)))))
     {
       enum machine_mode inner_mode = GET_MODE (SUBREG_REG (op1));
-      rtx tem = gen_lowpart (inner_mode, op0);
-
-      record_jump_cond (code, mode, SUBREG_REG (op1),
-			tem ? tem : gen_rtx_SUBREG (inner_mode, op0, 0),
-			reversed_nonequality);
+      rtx tem = record_jump_cond_subreg (inner_mode, op0);
+      if (tem)
+	record_jump_cond (code, mode, SUBREG_REG (op1), tem,
+			  reversed_nonequality);
     }
 
   /* Hash both operands.  */

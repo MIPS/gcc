@@ -47,7 +47,8 @@ DIST_COMMON = README $(am__configure_deps) $(srcdir)/../config.guess \
 	$(top_srcdir)/configure AUTHORS COPYING ChangeLog INSTALL NEWS
 subdir = .
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
-am__aclocal_m4_deps = $(top_srcdir)/../config/no-executables.m4 \
+am__aclocal_m4_deps = $(top_srcdir)/../config/gcc-version.m4 \
+	$(top_srcdir)/../config/no-executables.m4 \
 	$(top_srcdir)/acinclude.m4 $(top_srcdir)/../libtool.m4 \
 	$(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
@@ -128,12 +129,13 @@ am__objects_32 = backspace.lo close.lo endfile.lo format.lo inquire.lo \
 am__objects_33 = associated.lo abort.lo args.lo bessel.lo \
 	c99_functions.lo cpu_time.lo cshift0.lo date_and_time.lo \
 	env.lo erf.lo eoshift0.lo eoshift2.lo etime.lo exit.lo \
-	getcwd.lo getXid.lo ishftc.lo mvbits.lo pack_generic.lo \
-	size.lo spread_generic.lo string_intrinsics.lo system.lo \
-	rand.lo random.lo reshape_generic.lo reshape_packed.lo \
-	selected_int_kind.lo selected_real_kind.lo system_clock.lo \
-	transpose_generic.lo umask.lo unlink.lo unpack_generic.lo \
-	in_pack_generic.lo in_unpack_generic.lo normalize.lo
+	flush.lo fnum.lo getcwd.lo getXid.lo ishftc.lo mvbits.lo \
+	pack_generic.lo size.lo spread_generic.lo string_intrinsics.lo \
+	system.lo rand.lo random.lo reshape_generic.lo \
+	reshape_packed.lo selected_int_kind.lo selected_real_kind.lo \
+	stat.lo system_clock.lo transpose_generic.lo umask.lo \
+	unlink.lo unpack_generic.lo in_pack_generic.lo \
+	in_unpack_generic.lo normalize.lo
 am__objects_34 =
 am__objects_35 = _abs_c4.lo _abs_c8.lo _abs_i4.lo _abs_i8.lo \
 	_abs_r4.lo _abs_r8.lo _exp_r4.lo _exp_r8.lo _exp_c4.lo \
@@ -264,6 +266,8 @@ enable_shared = @enable_shared@
 enable_static = @enable_static@
 exec_prefix = @exec_prefix@
 gcc_version = @gcc_version@
+gcc_version_full = @gcc_version_full@
+gcc_version_trigger = @gcc_version_trigger@
 host = @host@
 host_alias = @host_alias@
 host_cpu = @host_cpu@
@@ -297,7 +301,7 @@ toolexeclib_LTLIBRARIES = libgfortran.la libgfortranbegin.la
 libgfortran_la_LDFLAGS = -version-info `grep -v '^\#' $(srcdir)/libtool-version` -lm
 libgfortranbegin_la_SOURCES = fmain.c
 libgfortranbegin_la_LDFLAGS = -static
-AM_CPPFLAGS = -I$(srcdir)/io
+AM_CPPFLAGS = -iquote$(srcdir)/io
 libgfortranincludedir = $(includedir)/gforio
 gfor_io_src = \
 io/backspace.c \
@@ -333,6 +337,8 @@ intrinsics/eoshift0.c \
 intrinsics/eoshift2.c \
 intrinsics/etime.c \
 intrinsics/exit.c \
+intrinsics/flush.c \
+intrinsics/fnum.c \
 intrinsics/getcwd.c \
 intrinsics/getXid.c \
 intrinsics/ishftc.c \
@@ -348,6 +354,7 @@ intrinsics/reshape_generic.c \
 intrinsics/reshape_packed.c \
 intrinsics/selected_int_kind.f90 \
 intrinsics/selected_real_kind.f90 \
+intrinsics/stat.c \
 intrinsics/system_clock.c \
 intrinsics/transpose_generic.c \
 intrinsics/umask.c \
@@ -678,6 +685,7 @@ I_M4_DEPS = m4/iparm.m4
 I_M4_DEPS0 = $(I_M4_DEPS) m4/iforeach.m4
 I_M4_DEPS1 = $(I_M4_DEPS) m4/ifunction.m4
 EXTRA_DIST = $(m4_files)
+
 all: $(BUILT_SOURCES) config.h
 	$(MAKE) $(AM_MAKEFLAGS) all-am
 
@@ -1224,6 +1232,12 @@ etime.lo: intrinsics/etime.c
 exit.lo: intrinsics/exit.c
 	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o exit.lo `test -f 'intrinsics/exit.c' || echo '$(srcdir)/'`intrinsics/exit.c
 
+flush.lo: intrinsics/flush.c
+	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o flush.lo `test -f 'intrinsics/flush.c' || echo '$(srcdir)/'`intrinsics/flush.c
+
+fnum.lo: intrinsics/fnum.c
+	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o fnum.lo `test -f 'intrinsics/fnum.c' || echo '$(srcdir)/'`intrinsics/fnum.c
+
 getcwd.lo: intrinsics/getcwd.c
 	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o getcwd.lo `test -f 'intrinsics/getcwd.c' || echo '$(srcdir)/'`intrinsics/getcwd.c
 
@@ -1262,6 +1276,9 @@ reshape_generic.lo: intrinsics/reshape_generic.c
 
 reshape_packed.lo: intrinsics/reshape_packed.c
 	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o reshape_packed.lo `test -f 'intrinsics/reshape_packed.c' || echo '$(srcdir)/'`intrinsics/reshape_packed.c
+
+stat.lo: intrinsics/stat.c
+	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o stat.lo `test -f 'intrinsics/stat.c' || echo '$(srcdir)/'`intrinsics/stat.c
 
 system_clock.lo: intrinsics/system_clock.c
 	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o system_clock.lo `test -f 'intrinsics/system_clock.c' || echo '$(srcdir)/'`intrinsics/system_clock.c
@@ -1822,106 +1839,106 @@ selected_real_kind.inc: $(srcdir)/mk-srk-inc.sh
 	$(SHELL) $(srcdir)/mk-srk-inc.sh '$(FCCOMPILE)' > $@
 
 @MAINTAINER_MODE_TRUE@$(i_all_c): m4/all.m4 $(I_M4_DEPS1)
-@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 all.m4 > $@
+@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 all.m4 > $(srcdir)/$@
 
 @MAINTAINER_MODE_TRUE@$(i_any_c): m4/any.m4 $(I_M4_DEPS1)
-@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 any.m4> $@
+@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 any.m4> $(srcdir)/$@
 
 @MAINTAINER_MODE_TRUE@$(i_count_c): m4/count.m4 $(I_M4_DEPS1)
-@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 count.m4> $@
+@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 count.m4> $(srcdir)/$@
 
 @MAINTAINER_MODE_TRUE@$(i_maxloc0_c): m4/maxloc0.m4 $(I_M4_DEPS0)
-@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 maxloc0.m4 > $@
+@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 maxloc0.m4 > $(srcdir)/$@
 
 @MAINTAINER_MODE_TRUE@$(i_maxloc1_c): m4/maxloc1.m4 $(I_M4_DEPS1)
-@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 maxloc1.m4 > $@
+@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 maxloc1.m4 > $(srcdir)/$@
 
 @MAINTAINER_MODE_TRUE@$(i_maxval_c): m4/maxval.m4 $(I_M4_DEPS1)
-@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 maxval.m4 > $@
+@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 maxval.m4 > $(srcdir)/$@
 
 @MAINTAINER_MODE_TRUE@$(i_minloc0_c): m4/minloc0.m4 $(I_M4_DEPS0)
-@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 minloc0.m4 > $@
+@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 minloc0.m4 > $(srcdir)/$@
 
 @MAINTAINER_MODE_TRUE@$(i_minloc1_c): m4/minloc1.m4 $(I_M4_DEPS1)
-@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 minloc1.m4 > $@
+@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 minloc1.m4 > $(srcdir)/$@
 
 @MAINTAINER_MODE_TRUE@$(i_minval_c): m4/minval.m4 $(I_M4_DEPS1)
-@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 minval.m4 > $@
+@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 minval.m4 > $(srcdir)/$@
 
 @MAINTAINER_MODE_TRUE@$(i_product_c): m4/product.m4 $(I_M4_DEPS1)
-@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 product.m4 > $@
+@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 product.m4 > $(srcdir)/$@
 
 @MAINTAINER_MODE_TRUE@$(i_sum_c): m4/sum.m4 $(I_M4_DEPS1)
-@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 sum.m4 > $@
+@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 sum.m4 > $(srcdir)/$@
 
 @MAINTAINER_MODE_TRUE@$(i_dotprod_c): m4/dotprod.m4 $(I_M4_DEPS)
-@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 dotprod.m4 > $@
+@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 dotprod.m4 > $(srcdir)/$@
 
 @MAINTAINER_MODE_TRUE@$(i_dotprodl_c): m4/dotprodl.m4 $(I_M4_DEPS)
-@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 dotprodl.m4 > $@
+@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 dotprodl.m4 > $(srcdir)/$@
 
 @MAINTAINER_MODE_TRUE@$(i_dotprodc_c): m4/dotprodc.m4 $(I_M4_DEPS)
-@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 dotprodc.m4 > $@
+@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 dotprodc.m4 > $(srcdir)/$@
 
 @MAINTAINER_MODE_TRUE@$(i_matmul_c): m4/matmul.m4 $(I_M4_DEPS)
-@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 matmul.m4 > $@
+@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 matmul.m4 > $(srcdir)/$@
 
 @MAINTAINER_MODE_TRUE@$(i_matmull_c): m4/matmull.m4 $(I_M4_DEPS)
-@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 matmull.m4 > $@
+@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 matmull.m4 > $(srcdir)/$@
 
 @MAINTAINER_MODE_TRUE@$(i_transpose_c): m4/transpose.m4 $(I_M4_DEPS)
-@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 transpose.m4 > $@
+@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 transpose.m4 > $(srcdir)/$@
 
 @MAINTAINER_MODE_TRUE@$(i_shape_c): m4/shape.m4 $(I_M4_DEPS)
-@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 shape.m4 > $@
+@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 shape.m4 > $(srcdir)/$@
 
 @MAINTAINER_MODE_TRUE@$(i_reshape_c): m4/reshape.m4 $(I_M4_DEPS)
-@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 reshape.m4 > $@
+@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 reshape.m4 > $(srcdir)/$@
 
 @MAINTAINER_MODE_TRUE@$(i_eoshift1_c): m4/eoshift1.m4 $(I_M4_DEPS)
-@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 eoshift1.m4 > $@
+@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 eoshift1.m4 > $(srcdir)/$@
 
 @MAINTAINER_MODE_TRUE@$(i_eoshift3_c): m4/eoshift3.m4 $(I_M4_DEPS)
-@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 eoshift3.m4 > $@
+@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 eoshift3.m4 > $(srcdir)/$@
 
 @MAINTAINER_MODE_TRUE@$(i_cshift1_c): m4/cshift1.m4 $(I_M4_DEPS)
-@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 cshift1.m4 > $@
+@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 cshift1.m4 > $(srcdir)/$@
 
 @MAINTAINER_MODE_TRUE@$(in_pack_c): m4/in_pack.m4 $(I_M4_DEPS)
-@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 in_pack.m4 > $@
+@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 in_pack.m4 > $(srcdir)/$@
 
 @MAINTAINER_MODE_TRUE@$(in_unpack_c): m4/in_unpack.m4 $(I_M4_DEPS)
-@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 in_unpack.m4 > $@
+@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 in_unpack.m4 > $(srcdir)/$@
 
 @MAINTAINER_MODE_TRUE@$(i_exponent_c): m4/exponent.m4 m4/mtype.m4
-@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 exponent.m4 > $@
+@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 exponent.m4 > $(srcdir)/$@
 
 @MAINTAINER_MODE_TRUE@$(i_fraction_c): m4/fraction.m4 m4/mtype.m4
-@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 fraction.m4 > $@
+@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 fraction.m4 > $(srcdir)/$@
 
 @MAINTAINER_MODE_TRUE@$(i_nearest_c): m4/nearest.m4 m4/mtype.m4
-@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 nearest.m4 > $@
+@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 nearest.m4 > $(srcdir)/$@
 
 @MAINTAINER_MODE_TRUE@$(i_set_exponent_c): m4/set_exponent.m4 m4/mtype.m4
-@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 set_exponent.m4 > $@
+@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 set_exponent.m4 > $(srcdir)/$@
 
 @MAINTAINER_MODE_TRUE@$(i_pow_c): m4/pow.m4 $(I_M4_DEPS)
-@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 pow.m4 > $@
+@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 pow.m4 > $(srcdir)/$@
 
 @MAINTAINER_MODE_TRUE@$(gfor_math_trig_c): m4/ctrig.m4 m4/mtype.m4
-@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 ctrig.m4 > $@
+@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 ctrig.m4 > $(srcdir)/$@
 
 @MAINTAINER_MODE_TRUE@$(gfor_math_exp_c): m4/cexp.m4 m4/mtype.m4
-@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 cexp.m4 > $@
+@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 cexp.m4 > $(srcdir)/$@
 
 @MAINTAINER_MODE_TRUE@$(gfor_math_hyp_c): m4/chyp.m4 m4/mtype.m4
-@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 chyp.m4 > $@
+@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 chyp.m4 > $(srcdir)/$@
 
 @MAINTAINER_MODE_TRUE@$(gfor_built_specific_src): m4/specific.m4 m4/head.m4
-@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 specific.m4 > $@
+@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 specific.m4 > $(srcdir)/$@
 
 @MAINTAINER_MODE_TRUE@$(gfor_built_specific2_src): m4/specific2.m4 m4/head.m4
-@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 specific2.m4 > $@
+@MAINTAINER_MODE_TRUE@	m4 -Dfile=$@ -I$(srcdir)/m4 specific2.m4 > $(srcdir)/$@
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:

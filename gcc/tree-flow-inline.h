@@ -234,23 +234,7 @@ get_def_op_ptr (def_optype defs, unsigned int index)
   return defs->defs[index];
 }
 
-/* Return a pointer to an unsigned int that is the VUSE_OFFSET for the
-   VUSE at INDEX in the VUSES array.  */
-static inline unsigned int *
-get_vuse_offset_ptr(vuse_optype vuses, unsigned int index)
-{
-  gcc_assert (index <  vuses->num_vuses);
-  return &(vuses->vuses[index].offset);
-}
 
-/* Return a pointer to an unsigned int that is the VUSE_SIZE for the
-   VUSE at INDEX in the VUSES array.  */
-static inline unsigned int *
-get_vuse_size_ptr(vuse_optype vuses, unsigned int index)
-{
-  gcc_assert (index < vuses->num_vuses);
-  return &(vuses->vuses[index].size);
-}
 /* Return the def_operand_p that is the V_MAY_DEF_RESULT for the V_MAY_DEF
    at INDEX in the V_MAY_DEFS array.  */
 static inline def_operand_p
@@ -273,31 +257,13 @@ get_v_may_def_op_ptr(v_may_def_optype v_may_defs, unsigned int index)
   return op;
 }
 
-/* Return a pointer to an unsigned int that is the V_MAY_DEF_OFFSET for the
-   V_MAY_DEF at INDEX in the V_MAY_DEFS array.  */
-static inline unsigned int *
-get_v_may_def_offset_ptr(v_may_def_optype v_may_defs, unsigned int index)
-{
-  gcc_assert (index < v_may_defs->num_v_may_defs);
-  return &(v_may_defs->v_may_defs[index].offset);
-}
-
-/* Return a pointer to an unsigned int that is the V_MAY_DEF_SIZE for the
-   V_MAY_DEF at INDEX in the V_MAY_DEFS array.  */
-static inline unsigned int *
-get_v_may_def_size_ptr(v_may_def_optype v_may_defs, unsigned int index)
-{
-  gcc_assert (index < v_may_defs->num_v_may_defs);
-  return &(v_may_defs->v_may_defs[index].size);
-}
-
 /* Return a use_operand_p that is at INDEX in the VUSES array.  */
 static inline use_operand_p
 get_vuse_op_ptr(vuse_optype vuses, unsigned int index)
 {
   use_operand_p op;
   gcc_assert (index < vuses->num_vuses);
-  op.use = &(vuses->vuses[index].use);
+  op.use = &(vuses->vuses[index]);
   return op;
 }
 
@@ -427,15 +393,9 @@ set_phi_nodes (basic_block bb, tree l)
 static inline int
 phi_arg_from_edge (tree phi, edge e)
 {
-  int i;
   gcc_assert (phi);
   gcc_assert (TREE_CODE (phi) == PHI_NODE);
-
-  for (i = 0; i < PHI_NUM_ARGS (phi); i++)
-    if (PHI_ARG_EDGE (phi, i) == e)
-      return i;
-
-  return -1;
+  return e->dest_idx;
 }
 
 /* Mark VAR as used, so that it'll be preserved during rtl expansion.  */
@@ -661,6 +621,8 @@ mark_call_clobbered (tree var)
   if (ann->mem_tag_kind != NOT_A_TAG)
     DECL_EXTERNAL (var) = 1;
   bitmap_set_bit (call_clobbered_vars, ann->uid);
+  ssa_call_clobbered_cache_valid = false;
+  ssa_ro_call_cache_valid = false;
 }
 
 /* Mark variable VAR as being non-addressable.  */
@@ -669,6 +631,8 @@ mark_non_addressable (tree var)
 {
   bitmap_clear_bit (call_clobbered_vars, var_ann (var)->uid);
   TREE_ADDRESSABLE (var) = 0;
+  ssa_call_clobbered_cache_valid = false;
+  ssa_ro_call_cache_valid = false;
 }
 
 /* Return the common annotation for T.  Return NULL if the annotation
@@ -712,7 +676,6 @@ op_iter_next_use (ssa_op_iter *ptr)
     {
       return VUSE_OP_PTR (ptr->ops->vuse_ops, (ptr->vuse_i)++);
     }
-
   if (ptr->v_mayu_i < ptr->num_v_mayu)
     {
       return V_MAY_DEF_OP_PTR (ptr->ops->v_may_def_ops,
@@ -864,78 +827,33 @@ op_iter_next_mustdef (use_operand_p *kill, def_operand_p *def, ssa_op_iter *ptr)
   return;
 }
 /* Get the next iterator maydef value for PTR, returning the maydef values in
-   USE, DEF, OFFSET and SIZE.  */
+   USE and DEF.  */
 static inline void
-op_iter_next_maydef (use_operand_p *use, def_operand_p *def, 
-		     unsigned int *offset, unsigned int *size,
-		     ssa_op_iter *ptr)
+op_iter_next_maydef (use_operand_p *use, def_operand_p *def, ssa_op_iter *ptr)
 {
   if (ptr->v_mayu_i < ptr->num_v_mayu)
     {
       *def = V_MAY_DEF_RESULT_PTR (ptr->ops->v_may_def_ops, ptr->v_mayu_i);
-      *use = V_MAY_DEF_OP_PTR (ptr->ops->v_may_def_ops, ptr->v_mayu_i);
-      *offset = V_MAY_DEF_OFFSET (ptr->ops->v_may_def_ops, ptr->v_mayu_i);
-      *size = V_MAY_DEF_SIZE (ptr->ops->v_may_def_ops, ptr->v_mayu_i);
-      ptr->v_mayu_i++;
+      *use = V_MAY_DEF_OP_PTR (ptr->ops->v_may_def_ops, (ptr->v_mayu_i)++);
       return;
     }
   else
     {
       *def = NULL_DEF_OPERAND_P;
       *use = NULL_USE_OPERAND_P;
-      *offset = 0;
-      *size = 0;
     }
   ptr->done = true;
   return;
 }
 
-
-/* Get the next iterator partuse value for PTR, returning the partuse values in
-   USE, OFFSET, and SIZE.  */
-static inline void
-op_iter_next_partuse(use_operand_p *use,unsigned int *offset, 
-		     unsigned int *size, ssa_op_iter *ptr)
-{
-  if (ptr->vuse_i < ptr->num_vuse)
-    {
-      *use = VUSE_OP_PTR (ptr->ops->vuse_ops, ptr->vuse_i);
-      *offset = VUSE_OFFSET (ptr->ops->vuse_ops, ptr->vuse_i);
-      *size = VUSE_SIZE (ptr->ops->vuse_ops, ptr->vuse_i);
-      ptr->vuse_i++;
-      return;
-    }
-  else
-    {
-      *use = NULL_USE_OPERAND_P;
-      *offset = 0;
-      *size = 0;
-    }
-  ptr->done = true;
-  return;
-}
-
-/* Initialize iterator PTR to the V_MAY_DEF operands in STMT.  
-   Return the first operand in USE and DEF, OFFSET, and SIZE */
+/* Initialize iterator PTR to the operands in STMT.  Return the first operands
+   in USE and DEF.  */
 static inline void
 op_iter_init_maydef (ssa_op_iter *ptr, tree stmt, use_operand_p *use, 
-		     def_operand_p *def, unsigned int *offset, 
-		     unsigned int *size)
+		     def_operand_p *def)
 {
   op_iter_init (ptr, stmt, SSA_OP_VMAYUSE);
-  op_iter_next_maydef (use, def, offset, size, ptr);
-}
-
-
-/* Initialize iterator PTR to the VUSE operands in STMT.  
-   Return the first operands in USE, OFFSET, and SIZE */
-static inline void
-op_iter_init_partuse (ssa_op_iter *ptr, tree stmt, use_operand_p *use, 
-		     unsigned int *offset, 
-		     unsigned int *size)
-{
-  op_iter_init (ptr, stmt, SSA_OP_VUSE);
-  op_iter_next_partuse (use, offset, size, ptr);
+  op_iter_next_maydef (use, def, ptr);
 }
 
 /* Initialize iterator PTR to the operands in STMT.  Return the first operands

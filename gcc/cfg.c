@@ -66,8 +66,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 /* The obstack on which the flow graph components are allocated.  */
 
 struct bitmap_obstack reg_obstack;
-struct obstack flow_obstack;
-static char *flow_firstobj;
 
 /* Number of basic blocks in the current function.  */
 
@@ -102,21 +100,7 @@ enum profile_status profile_status;
 void
 init_flow (void)
 {
-  static int initialized;
-
   n_edges = 0;
-
-  if (!initialized)
-    {
-      gcc_obstack_init (&flow_obstack);
-      flow_firstobj = obstack_alloc (&flow_obstack, 0);
-      initialized = 1;
-    }
-  else
-    {
-      obstack_free (&flow_obstack, flow_firstobj);
-      flow_firstobj = obstack_alloc (&flow_obstack, 0);
-    }
 
   ENTRY_BLOCK_PTR = ggc_alloc_cleared (sizeof (*ENTRY_BLOCK_PTR));
   ENTRY_BLOCK_PTR->index = ENTRY_BLOCK;
@@ -277,6 +261,8 @@ unchecked_make_edge (basic_block src, basic_block dst, int flags)
   e->flags = flags;
   e->dest_idx = EDGE_COUNT (dst->preds) - 1;
 
+  execute_on_growing_pred (e);
+
   return e;
 }
 
@@ -358,6 +344,8 @@ remove_edge (edge e)
   bool found = false;
   edge_iterator ei;
 
+  execute_on_shrinking_pred (e);
+
   src = e->src;
   dest = e->dest;
   dest_idx = e->dest_idx;
@@ -394,6 +382,8 @@ redirect_edge_succ (edge e, basic_block new_succ)
   basic_block dest = e->dest;
   unsigned int dest_idx = e->dest_idx;
 
+  execute_on_shrinking_pred (e);
+
   VEC_unordered_remove (edge, dest->preds, dest_idx);
 
   /* If we removed an edge in the middle of the edge vector, we need
@@ -405,6 +395,7 @@ redirect_edge_succ (edge e, basic_block new_succ)
   VEC_safe_push (edge, new_succ->preds, e);
   e->dest = new_succ;
   e->dest_idx = EDGE_COUNT (new_succ->preds) - 1;
+  execute_on_growing_pred (e);
 }
 
 /* Like previous but avoid possible duplicate edge.  */
@@ -526,7 +517,8 @@ dump_flow_info (FILE *file)
   basic_block bb;
   static const char * const reg_class_names[] = REG_CLASS_NAMES;
 
-  if (reg_n_info)
+  /* There are no pseudo registers after reload.  Don't dump them.  */
+  if (reg_n_info && !reload_completed)
     {
       int max_regno = max_reg_num ();
       fprintf (file, "%d registers.\n", max_regno);

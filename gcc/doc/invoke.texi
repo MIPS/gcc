@@ -502,8 +502,11 @@ Objective-C and Objective-C++ Dialects}.
 -mconstant-gp  -mauto-pic  -minline-float-divide-min-latency @gol
 -minline-float-divide-max-throughput @gol
 -minline-int-divide-min-latency @gol
--minline-int-divide-max-throughput  -mno-dwarf2-asm @gol
--mfixed-range=@var{register-range}}
+-minline-int-divide-max-throughput  @gol
+-minline-sqrt-min-latency -minline-sqrt-max-throughput @gol
+-mno-dwarf2-asm -mearly-stop-bits @gol
+-mfixed-range=@var{register-range} -mtls-size=@var{tls-size} @gol
+-mtune=@var{cpu-type} -mt -pthread -milp32 -mlp64}
 
 @emph{M32R/D Options}
 @gccoptlist{-m32r2 -m32rx -m32r @gol
@@ -623,7 +626,8 @@ See RS/6000 and PowerPC Options.
 
 @emph{S/390 and zSeries Options}
 @gccoptlist{-mtune=@var{cpu-type}  -march=@var{cpu-type} @gol
--mhard-float  -msoft-float  -mbackchain  -mno-backchain -mkernel-backchain @gol
+-mhard-float  -msoft-float  -mbackchain  -mno-backchain @gol
+-mpacked-stack  -mno-packed-stack @gol
 -msmall-exec  -mno-small-exec  -mmvcle -mno-mvcle @gol
 -m64  -m31  -mdebug  -mno-debug  -mesa  -mzarch @gol
 -mtpf-trace -mno-tpf-trace  -mfused-madd  -mno-fused-madd @gol
@@ -5387,22 +5391,25 @@ be applied.
 The default value is 120.
 
 @item large-function-insns
-The limit specifying really large functions.  For functions greater than this
-limit inlining is constrained by @option{--param large-function-growth}.
-This parameter is useful primarily to avoid extreme compilation time caused by non-linear
-algorithms used by the backend.
+The limit specifying really large functions.  For functions larger than this
+limit after inlining inlining is constrained by
+@option{--param large-function-growth}.  This parameter is useful primarily
+to avoid extreme compilation time caused by non-linear algorithms used by the
+backend.
 This parameter is ignored when @option{-funit-at-a-time} is not used.
 The default value is 3000.
 
 @item large-function-growth
 Specifies maximal growth of large function caused by inlining in percents.
 This parameter is ignored when @option{-funit-at-a-time} is not used.
-The default value is 200.
+The default value is 100 which limits large function growth to 2.0 times
+the original size.
 
 @item inline-unit-growth
 Specifies maximal overall growth of the compilation unit caused by inlining.
 This parameter is ignored when @option{-funit-at-a-time} is not used.
-The default value is 150.
+The default value is 50 which limits unit growth to 1.5 times the original
+size.
 
 @item max-inline-insns-recursive
 @itemx max-inline-insns-recursive-auto
@@ -5424,12 +5431,6 @@ taken into acount.  For function not declared inline, recursive inlining
 happens only when @option{-finline-functions} (included in @option{-O3}) is
 enabled and @option{--param max-inline-recursive-depth-auto} is used.  The
 default value is 500.
-
-@item max-inline-insns-rtl
-For languages that use the RTL inliner (this happens at a later stage
-than tree inlining), you can set the maximum allowable size (counted
-in RTL instructions) for the RTL inliner with this parameter.
-The default value is 600.
 
 @item max-unrolled-insns
 The maximum number of instructions that a loop should have if that loop
@@ -5476,6 +5477,11 @@ if there are more candidates, to avoid quadratic time complexity.
 @item iv-max-considered-uses
 The induction variable optimizations give up on loops that contain more
 induction variable uses.
+
+@item iv-always-prune-cand-set-bound
+If number of candidates in the set is smaller than this value,
+we always try to remove unnecessary ivs from the set during its
+optimization when a new iv is added to the set.
 
 @item max-iterations-to-track
 
@@ -8842,12 +8848,30 @@ using the minimum latency algorithm.
 Generate code for inline divides of integer values
 using the maximum throughput algorithm.
 
+@item -minline-sqrt-min-latency
+@opindex minline-sqrt-min-latency
+Generate code for inline square roots
+using the minimum latency algorithm.
+
+@item -minline-sqrt-max-throughput
+@opindex minline-sqrt-max-throughput
+Generate code for inline square roots
+using the maximum throughput algorithm.
+
 @item -mno-dwarf2-asm
 @itemx -mdwarf2-asm
 @opindex mno-dwarf2-asm
 @opindex mdwarf2-asm
 Don't (or do) generate assembler code for the DWARF2 line number debugging
 info.  This may be useful when not using the GNU assembler.
+
+@item -mearly-stop-bits
+@itemx -mno-early-stop-bits
+@opindex mearly-stop-bits
+@opindex mno-early-stop-bits
+Allow stop bits to be placed earlier than immediately preceding the
+instruction that triggered the stop bit.  This can improve instruction
+scheduling, but does not always do so.
 
 @item -mfixed-range=@var{register-range}
 @opindex mfixed-range
@@ -8857,13 +8881,34 @@ useful when compiling kernel code.  A register range is specified as
 two registers separated by a dash.  Multiple register ranges can be
 specified separated by a comma.
 
-@item -mearly-stop-bits
-@itemx -mno-early-stop-bits
-@opindex mearly-stop-bits
-@opindex mno-early-stop-bits
-Allow stop bits to be placed earlier than immediately preceding the
-instruction that triggered the stop bit.  This can improve instruction
-scheduling, but does not always do so.
+@item -mtls-size=@var{tls-size}
+@opindex mtls-size
+Specify bit size of immediate TLS offsets.  Valid values are 14, 22, and
+64.
+
+@item -mtune-arch=@var{cpu-type}
+@opindex mtune-arch
+Tune the instruction scheduling for a particular CPU, Valid values are
+itanium, itanium1, merced, itanium2, and mckinley.
+
+@item -mt
+@itemx -pthread
+@opindex mt
+@opindex pthread
+Add support for multithreading using the POSIX threads library.  This
+option sets flags for both the preprocessor and linker.  It does
+not affect the thread safety of object code produced by the compiler or
+that of libraries supplied with it.  These are HP-UX specific flags.
+
+@item -milp32
+@itemx -mlp64
+@opindex milp32
+@opindex mlp64
+Generate code for a 32-bit or 64-bit environment.
+The 32-bit environment sets int, long and pointer to 32 bits.
+The 64-bit environment sets int to 32 bits and long and pointer
+to 64 bits.  These are HP-UX specific flags.
+
 @end table
 
 @node M32R/D Options
@@ -10827,27 +10872,49 @@ generates IEEE floating-point instructions.  This is the default.
 
 @item -mbackchain
 @itemx -mno-backchain
-@itemx -mkernel-backchain
 @opindex mbackchain
 @opindex mno-backchain
-@opindex mkernel-backchain
-In order to provide a backchain the address of the caller's frame
-is stored within the callee's stack frame.
+Store (do not store) the address of the caller's frame as backchain pointer
+into the callee's stack frame.
 A backchain may be needed to allow debugging using tools that do not understand
 DWARF-2 call frame information.
-For @option{-mno-backchain} no backchain is maintained at all which is the
-default.
-If one of the other options is present the backchain pointer is placed either
-on top of the stack frame  (@option{-mkernel-backchain}) or on
-the bottom (@option{-mbackchain}).
-Beside the different backchain location @option{-mkernel-backchain}
-also changes stack frame layout breaking the ABI@.  This option
-is intended to be used for code which internally needs a backchain but has
-to get by with a limited stack size e.g.@: the linux kernel.
-Internal unwinding code not using DWARF-2 info has to be able to locate the
-return address of a function.  That will be eased be the fact that
-the return address of a function is placed two words below the backchain
-pointer.
+When @option{-mno-packed-stack} is in effect, the backchain pointer is stored
+at the bottom of the stack frame; when @option{-mpacked-stack} is in effect,
+the backchain is placed into the topmost word of the 96/160 byte register
+save area.
+
+In general, code compiled with @option{-mbackchain} is call-compatible with
+code compiled with @option{-mmo-backchain}; however, use of the backchain
+for debugging purposes usually requires that the whole binary is built with
+@option{-mbackchain}.  Note that the combination of @option{-mbackchain} and
+@option{-mpacked-stack} generates code that is not ABI-compatible.
+
+The default is to not maintain the backchain.
+
+@item -mpacked-stack
+@item -mno-packed-stack
+@opindex mpacked-stack
+@opindex mno-packed-stack
+Use (do not use) the packed stack layout.  When @option{-mno-packed-stack} is
+specified, the compiler uses the all fields of the 96/160 byte register save
+area only for their default purpose; unused fields still take up stack space.
+When @option{-mpacked-stack} is specified, register save slots are densely
+packed at the top of the register save area; unused space is reused for other
+purposes, allowing for more efficient use of the available stack space.
+However, when @option{-mbackchain} is also in effect, the topmost word of
+the save area is always used to store the backchain, and the return address
+register is always saved two words below the backchain.
+
+As long as the stack frame backchain is not used, code generated with 
+@option{-mpacked-stack} is call-compatible with code generated with
+@option{-mno-packed-stack}.  Note that some non-FSF releases of GCC 2.95 for
+S/390 or zSeries generated code that uses the stack frame backchain at run
+time, not just for debugging purposes.  Such code is not call-compatible
+with code compiled with @option{-mpacked-stack}.  Also, note that the
+combination of @option{-mbackchain} and @option{-mpacked-stack} generates code
+that is not ABI-compatible.
+
+The default is to not use the packed stack layout.
 
 @item -msmall-exec
 @itemx -mno-small-exec

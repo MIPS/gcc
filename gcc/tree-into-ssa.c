@@ -53,7 +53,8 @@ Boston, MA 02111-1307, USA.  */
    Computing Static Single Assignment Form and the Control Dependence
    Graph. ACM Transactions on Programming Languages and Systems,
    13(4):451-490, October 1991.  */
-  
+
+
 /* Structure to map a variable VAR to the set of blocks that contain
    definitions for VAR.  */
 struct def_blocks_d
@@ -85,7 +86,7 @@ static htab_t def_blocks;
 /* Stack of trees used to restore the global currdefs to its original
    state after completing rewriting of a block and its dominator children.
 
-   This varray is used in two contexts.  The first is rewriting of _DECL
+   This vector is used in two contexts.  The first is rewriting of _DECL
    nodes into SSA_NAMEs.  In that context it's elements have the
    following properties:
 
@@ -99,7 +100,7 @@ static htab_t def_blocks;
      current block. 
 
 
-   This varray is also used when rewriting an SSA_NAME which has multiple
+   This vector is also used when rewriting an SSA_NAME which has multiple
    definition sites into multiple SSA_NAMEs.  In that context entries come
    in pairs.
 
@@ -108,9 +109,10 @@ static htab_t def_blocks;
 
      A NULL node at the top entry is used to mark the last node associated
      with the current block.  */
-static VEC(vd_pair_t) *block_defs_stack;
+static VEC(tree_on_heap) *block_defs_stack;
 
-/* FIXME: The other stacks should also be VEC(vd_pair_t).  */
+/* Basic block vectors used in this file ought to be allocated in the heap.  */
+DEF_VEC_MALLOC_P(basic_block);
 
 /* Global data to attach to the main dominator walk structure.  */
 struct mark_def_sites_global_data
@@ -153,10 +155,9 @@ static bool prepare_def_operand_for_rename (tree def, size_t *uid_p);
 static void insert_phi_nodes (bitmap *, bitmap);
 static void rewrite_stmt (struct dom_walk_data *, basic_block,
 			  block_stmt_iterator);
-static void insert_phi_nodes_for (tree, bitmap *, varray_type *);
+static inline void rewrite_operand (use_operand_p);
+static void insert_phi_nodes_for (tree, bitmap *, VEC(basic_block) **);
 static tree get_reaching_def (tree);
-static tree get_intersecting_reaching_def (tree, unsigned int, unsigned int);
-		
 static hashval_t def_blocks_hash (const void *);
 static int def_blocks_eq (const void *, const void *);
 static void def_blocks_free (void *);
@@ -164,6 +165,12 @@ static int debug_def_blocks_r (void **, void *);
 static inline struct def_blocks_d *get_def_blocks_for (tree);
 static inline struct def_blocks_d *find_def_blocks_for (tree);
 static void htab_statistics (FILE *, htab_t);
+
+/* Use TREE_VISITED to keep track of which statements we want to
+   rename.  When renaming a subset of the variables, not all
+   statements will be processed.  This is decided in mark_def_sites.  */
+#define REWRITE_THIS_STMT(T)	TREE_VISITED (T)
+
 
 /* Get the information associated with NAME.  */
 
@@ -372,21 +379,26 @@ mark_def_sites (struct dom_walk_data *walk_data,
   use_operand_p use_p;
   def_operand_p def_p;
   ssa_op_iter iter;
-  unsigned int offset, size;
 
   /* Mark all the blocks that have definitions for each variable in the
      VARS_TO_RENAME bitmap.  */
   stmt = bsi_stmt (bsi);
   get_stmt_operands (stmt);
 
+  REWRITE_THIS_STMT (stmt) = 0;
+
   /* If a variable is used before being set, then the variable is live
      across a block boundary, so mark it live-on-entry to BB.  */
 
-  FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_USE | SSA_OP_VUSE | SSA_OP_VMUSTDEFKILL)
+  FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter,
+			    SSA_OP_USE | SSA_OP_VUSE | SSA_OP_VMUSTDEFKILL)
     {
-      if (prepare_use_operand_for_rename (use_p, &uid)
-	  && !TEST_BIT (kills, uid))
-	set_livein_block (USE_FROM_PTR (use_p), bb);
+      if (prepare_use_operand_for_rename (use_p, &uid))
+	{
+	  REWRITE_THIS_STMT (stmt) = 1;
+	  if (!TEST_BIT (kills, uid))
+	    set_livein_block (USE_FROM_PTR (use_p), bb);
+	}
     }
   
   /* Note that virtual definitions are irrelevant for computing KILLS
@@ -394,8 +406,7 @@ mark_def_sites (struct dom_walk_data *walk_data,
      variable.  However, the operand of a virtual definitions is a use
      of the variable, so it may cause the variable to be considered
      live-on-entry.  */
-
-  FOR_EACH_SSA_MAYDEF_OPERAND (def_p, use_p, offset, size, stmt, iter)
+  FOR_EACH_SSA_MAYDEF_OPERAND (def_p, use_p, stmt, iter)
     {
       if (prepare_use_operand_for_rename (use_p, &uid))
 	{
@@ -406,22 +417,24 @@ mark_def_sites (struct dom_walk_data *walk_data,
 	    
           set_livein_block (USE_FROM_PTR (use_p), bb);
 	  set_def_block (DEF_FROM_PTR (def_p), bb, false, false);
+	  REWRITE_THIS_STMT (stmt) = 1;
 	}
     }
 
-  /* Now process the virtual must-defs made by this statement.  */
+  /* Now process the defs and must-defs made by this statement.  */
   FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter, SSA_OP_DEF | SSA_OP_VMUSTDEF)
     {
       if (prepare_def_operand_for_rename (def, &uid))
 	{
 	  set_def_block (def, bb, false, false);
 	  SET_BIT (kills, uid);
+	  REWRITE_THIS_STMT (stmt) = 1;
 	}
     }
-
 }
 
-/* Ditto, but works over ssa names.  */
+
+/* Same as mark_def_sites, but works over SSA names.  */
 
 static void
 ssa_mark_def_sites (struct dom_walk_data *walk_data,
@@ -585,11 +598,11 @@ prepare_def_operand_for_rename (tree def, size_t *uid_p)
 
 /* Helper for insert_phi_nodes.  If VAR needs PHI nodes, insert them
    at the dominance frontier (DFS) of blocks defining VAR.
-   WORK_STACK is the varray used to implement the worklist of basic
+   WORK_STACK is the vector used to implement the worklist of basic
    blocks.  */
 
-static inline
-void insert_phi_nodes_1 (tree var, bitmap *dfs, varray_type *work_stack)
+static inline void
+insert_phi_nodes_1 (tree var, bitmap *dfs, VEC(basic_block) **work_stack)
 {
   if (get_phi_state (var) != NEED_PHI_STATE_NO)
     insert_phi_nodes_for (var, dfs, work_stack);
@@ -607,14 +620,14 @@ static void
 insert_phi_nodes (bitmap *dfs, bitmap names_to_rename)
 {
   unsigned i;
-  varray_type work_stack;
+  VEC(basic_block) *work_stack;
   bitmap_iterator bi;
 
   timevar_push (TV_TREE_INSERT_PHI_NODES);
 
-  /* Array WORK_STACK is a stack of CFG blocks.  Each block that contains
+  /* Vector WORK_STACK is a stack of CFG blocks.  Each block that contains
      an assignment or PHI node will be pushed to this stack.  */
-  VARRAY_GENERIC_PTR_NOGC_INIT (work_stack, last_basic_block, "work_stack");
+  work_stack = VEC_alloc (basic_block, n_basic_blocks);
 
   /* Iterate over all variables in VARS_TO_RENAME.  For each variable, add
      to the work list all the blocks that have a definition for the
@@ -637,7 +650,7 @@ insert_phi_nodes (bitmap *dfs, bitmap names_to_rename)
     for (i = 0; i < num_referenced_vars; i++)
       insert_phi_nodes_1 (referenced_var (i), dfs, &work_stack);
 
-  VARRAY_FREE (work_stack);
+  VEC_free (basic_block, work_stack);
 
   timevar_pop (TV_TREE_INSERT_PHI_NODES);
 }
@@ -681,7 +694,7 @@ rewrite_initialize_block (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
     fprintf (dump_file, "\n\nRenaming block #%d\n\n", bb->index);
 
   /* Mark the unwind point for this block.  */
-  VEC_safe_push (vd_pair_t, block_defs_stack, NULL);
+  VEC_safe_push (tree_on_heap, block_defs_stack, NULL_TREE);
 
   /* Step 1.  Register new definitions for every PHI node in the block.
      Conceptually, all the PHI nodes are executed in parallel and each PHI
@@ -690,8 +703,40 @@ rewrite_initialize_block (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
     {
       tree result = PHI_RESULT (phi);
 
-      register_new_def (SSA_NAME_VAR (result), result, &block_defs_stack);
+      register_new_def (result, &block_defs_stack);
     }
+}
+
+/* Register DEF (an SSA_NAME) to be a new definition for the original
+   ssa name VAR and push VAR's current reaching definition
+   into the stack pointed by BLOCK_DEFS_P.  */
+
+static void
+ssa_register_new_def (tree var, tree def)
+{
+  tree currdef;
+   
+  /* If this variable is set in a single basic block and all uses are
+     dominated by the set(s) in that single basic block, then there is
+     nothing to do.  TODO we should not be called at all, and just
+     keep the original name.  */
+  if (get_phi_state (var) == NEED_PHI_STATE_NO)
+    {
+      set_current_def (var, def);
+      return;
+    }
+
+  currdef = get_current_def (var);
+
+  /* Push the current reaching definition into *BLOCK_DEFS_P.  This stack is
+     later used by the dominator tree callbacks to restore the reaching
+     definitions for all the variables defined in the block after a recursive
+     visit to all its immediately dominated blocks.  */
+  VEC_safe_push (tree_on_heap, block_defs_stack, currdef);
+  VEC_safe_push (tree_on_heap, block_defs_stack, var);
+
+  /* Set the current reaching definition for VAR to be DEF.  */
+  set_current_def (var, def);
 }
 
 /* Ditto, for rewriting ssa names.  */
@@ -709,7 +754,7 @@ ssa_rewrite_initialize_block (struct dom_walk_data *walk_data, basic_block bb)
     fprintf (dump_file, "\n\nRenaming block #%d\n\n", bb->index);
 
   /* Mark the unwind point for this block.  */
-  VEC_safe_push (vd_pair_t, block_defs_stack, NULL);
+  VEC_safe_push (tree_on_heap, block_defs_stack, NULL_TREE);
 
   FOR_EACH_EDGE (e, ei, bb->preds)
     if (e->flags & EDGE_ABNORMAL)
@@ -734,7 +779,7 @@ ssa_rewrite_initialize_block (struct dom_walk_data *walk_data, basic_block bb)
       else
 	new_name = result;
 
-      register_new_def (result, new_name, &block_defs_stack);
+      ssa_register_new_def (result, new_name);
     }
 }
 
@@ -765,7 +810,7 @@ rewrite_add_phi_arguments (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 	    break;
 
 	  currdef = get_reaching_def (SSA_NAME_VAR (PHI_RESULT (phi)));
-	  add_phi_arg (&phi, currdef, e);
+	  add_phi_arg (phi, currdef, e);
 	}
     }
 }
@@ -775,7 +820,7 @@ rewrite_add_phi_arguments (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
     phi nodes we want to add arguments for.  */
 
 static void
-rewrite_virtual_phi_arguments (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED, 
+rewrite_virtual_phi_arguments (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 			       basic_block bb)
 {
   edge e;
@@ -847,13 +892,53 @@ rewrite_finalize_block (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 			basic_block bb ATTRIBUTE_UNUSED)
 {
   /* Restore CURRDEFS to its original state.  */
-  while (VEC_length (vd_pair_t, block_defs_stack) > 0)
+  while (VEC_length (tree_on_heap, block_defs_stack) > 0)
     {
-      vd_pair_t pair = VEC_pop (vd_pair_t, block_defs_stack);
-      if (pair == NULL)
+      tree tmp = VEC_pop (tree_on_heap, block_defs_stack);
+      tree saved_def, var;
+
+      if (tmp == NULL_TREE)
 	break;
-      set_current_def (pair->var, pair->def);
-      pool_free (vd_pair_pool, pair);
+
+      /* If we recorded an SSA_NAME, then make the SSA_NAME the current
+	 definition of its underlying variable.  If we recorded anything
+	 else, it must have been an _DECL node and its current reaching
+	 definition must have been NULL.  */
+      if (TREE_CODE (tmp) == SSA_NAME)
+	{
+	  saved_def = tmp;
+	  var = SSA_NAME_VAR (saved_def);
+	}
+      else
+	{
+	  saved_def = NULL;
+	  var = tmp;
+	}
+                                                                                
+      set_current_def (var, saved_def);
+    }
+}
+
+/* Ditto, for rewriting ssa names.  */
+
+static void
+ssa_rewrite_finalize_block (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
+			    basic_block bb ATTRIBUTE_UNUSED)
+{
+
+  /* Step 5.  Restore the current reaching definition for each variable
+     referenced in the block (in reverse order).  */
+  while (VEC_length (tree_on_heap, block_defs_stack) > 0)
+    {
+      tree var = VEC_pop (tree_on_heap, block_defs_stack);
+      tree saved_def;
+      
+      if (var == NULL)
+	break;
+
+      saved_def = VEC_pop (tree_on_heap, block_defs_stack);
+
+      set_current_def (var, saved_def);
     }
 }
 
@@ -923,11 +1008,11 @@ htab_statistics (FILE *file, htab_t htab)
 
 
 /* Insert PHI nodes for variable VAR using the dominance frontier
-   information given in DFS.  WORK_STACK is the varray used to
+   information given in DFS.  WORK_STACK is the vector used to
    implement the worklist of basic blocks.  */
 
 static void
-insert_phi_nodes_for (tree var, bitmap *dfs, varray_type *work_stack)
+insert_phi_nodes_for (tree var, bitmap *dfs, VEC(basic_block) **work_stack)
 {
   struct def_blocks_d *def_map;
   bitmap phi_insertion_points;
@@ -945,7 +1030,7 @@ insert_phi_nodes_for (tree var, bitmap *dfs, varray_type *work_stack)
 
   EXECUTE_IF_SET_IN_BITMAP (def_map->def_blocks, 0, bb_index, bi)
     {
-      VARRAY_PUSH_GENERIC_PTR_NOGC (*work_stack, BASIC_BLOCK (bb_index));
+      VEC_safe_push (basic_block, *work_stack, BASIC_BLOCK (bb_index));
     }
 
   /* Pop a block off the worklist, add every block that appears in
@@ -960,15 +1045,13 @@ insert_phi_nodes_for (tree var, bitmap *dfs, varray_type *work_stack)
      determine if fully pruned or semi pruned SSA form was appropriate.
 
      We now always use fully pruned SSA form.  */
-  while (VARRAY_ACTIVE_SIZE (*work_stack) > 0)
+  while (VEC_length (basic_block, *work_stack) > 0)
     {
       unsigned dfs_index;
       bitmap_iterator bi;
 
-      bb = VARRAY_TOP_GENERIC_PTR_NOGC (*work_stack);
+      bb = VEC_pop (basic_block, *work_stack);
       bb_index = bb->index;
-
-      VARRAY_POP (*work_stack);
       
       EXECUTE_IF_AND_COMPL_IN_BITMAP (dfs[bb_index],
 				      phi_insertion_points,
@@ -976,7 +1059,10 @@ insert_phi_nodes_for (tree var, bitmap *dfs, varray_type *work_stack)
 	{
 	  basic_block bb = BASIC_BLOCK (dfs_index);
 
-	  VARRAY_PUSH_GENERIC_PTR_NOGC (*work_stack, bb);
+	  /* Use a safe push because if there is a definition of VAR
+	     in every basic block, then WORK_STACK may eventually have
+	     more than N_BASIC_BLOCK entries.  */
+	  VEC_safe_push (basic_block, *work_stack, bb);
 	  bitmap_set_bit (phi_insertion_points, dfs_index);
 	}
     }
@@ -1001,7 +1087,7 @@ insert_phi_nodes_for (tree var, bitmap *dfs, varray_type *work_stack)
 	{
 	  edge_iterator ei;
 	  FOR_EACH_EDGE (e, ei, bb->preds)
-	    add_phi_arg (&phi, var, e);
+	    add_phi_arg (phi, var, e);
 	}
     }
 
@@ -1019,13 +1105,17 @@ rewrite_stmt (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 {
   stmt_ann_t ann;
   tree stmt;
-  unsigned int offset, size;
   use_operand_p use_p;
   def_operand_p def_p;
   ssa_op_iter iter;
 
   stmt = bsi_stmt (si);
   ann = stmt_ann (stmt);
+
+  /* If mark_def_sites decided that we don't need to rewrite this
+     statement, ignore it.  */
+  if (!REWRITE_THIS_STMT (stmt))
+    return;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -1039,18 +1129,9 @@ rewrite_stmt (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
   gcc_assert (!ann->modified);
 
   /* Step 1.  Rewrite USES and VUSES in the statement.  */
-  FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_USE | SSA_OP_VMAYUSE | SSA_OP_ALL_KILLS)
-    {
-      if (TREE_CODE (USE_FROM_PTR (use_p)) != SSA_NAME)
-	SET_USE (use_p, get_reaching_def (USE_FROM_PTR (use_p)));
-    }
+  FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_ALL_USES | SSA_OP_ALL_KILLS)
+    rewrite_operand (use_p);
 
-  FOR_EACH_SSA_PARTUSE_OPERAND (use_p, offset, size, stmt, iter)
-    {
-      if (TREE_CODE (USE_FROM_PTR (use_p)) != SSA_NAME)
-	SET_USE (use_p, get_intersecting_reaching_def (USE_FROM_PTR (use_p),
-						       offset, size));
-    }
   /* Step 2.  Register the statement's DEF and VDEF operands.  */
   FOR_EACH_SSA_DEF_OPERAND (def_p, stmt, iter, SSA_OP_ALL_DEFS)
     {
@@ -1059,13 +1140,12 @@ rewrite_stmt (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 
       /* FIXME: We shouldn't be registering new defs if the variable
 	 doesn't need to be renamed.  */
-      register_new_def (SSA_NAME_VAR (DEF_FROM_PTR (def_p)), 
-			DEF_FROM_PTR (def_p), 
-			&block_defs_stack);
+      register_new_def (DEF_FROM_PTR (def_p), &block_defs_stack);
     }
 }
 
-/* Ditto, for rewriting ssa names.  */
+
+/* Same as rewrite_stmt, for rewriting ssa names.  */
 
 static void
 ssa_rewrite_stmt (struct dom_walk_data *walk_data,
@@ -1075,8 +1155,6 @@ ssa_rewrite_stmt (struct dom_walk_data *walk_data,
   stmt_ann_t ann;
   tree stmt, var;
   ssa_op_iter iter;
-  unsigned int offset;
-  unsigned int size;
   use_operand_p use_p;
   def_operand_p def_p;
   sbitmap names_to_rename = walk_data->global_data;
@@ -1096,17 +1174,10 @@ ssa_rewrite_stmt (struct dom_walk_data *walk_data,
   gcc_assert (!ann->modified);
 
   /* Step 1.  Rewrite USES and VUSES in the statement.  */
-  FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_USE | SSA_OP_VMAYUSE | SSA_OP_ALL_KILLS)
+  FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_ALL_USES | SSA_OP_ALL_KILLS)
     {
       if (TEST_BIT (names_to_rename, SSA_NAME_VERSION (USE_FROM_PTR (use_p))))
 	SET_USE (use_p, get_reaching_def (USE_FROM_PTR (use_p)));
-    }
-
-  FOR_EACH_SSA_PARTUSE_OPERAND (use_p, offset, size, stmt, iter)
-    {
-      if (TEST_BIT (names_to_rename, SSA_NAME_VERSION (USE_FROM_PTR (use_p))))
-	SET_USE (use_p, get_intersecting_reaching_def (USE_FROM_PTR (use_p),
-						       offset, size));
     }
 
   /* Step 2.  Register the statement's DEF and VDEF operands.  */
@@ -1118,7 +1189,30 @@ ssa_rewrite_stmt (struct dom_walk_data *walk_data,
 	continue;
 
       SET_DEF (def_p, duplicate_ssa_name (var, stmt));
-      register_new_def (var, DEF_FROM_PTR (def_p), &block_defs_stack);
+      ssa_register_new_def (var, DEF_FROM_PTR (def_p));
+    }
+}
+
+/* Replace the operand pointed by OP_P with its immediate reaching
+   definition.  */
+
+static inline void
+rewrite_operand (use_operand_p op_p)
+{
+  tree var = USE_FROM_PTR (op_p);
+  if (TREE_CODE (var) != SSA_NAME)
+    SET_USE (op_p, get_reaching_def (var));
+  else
+    {
+#if defined ENABLE_CHECKING
+      /* If we get to this point, VAR is an SSA_NAME.  If VAR's symbol
+	 was marked for renaming, make sure that its reaching
+	 definition is VAR itself.  Otherwise, something has gone
+	 wrong.  */
+      tree sym = SSA_NAME_VAR (var);
+      if (bitmap_bit_p (vars_to_rename, var_ann (sym)->uid))
+	gcc_assert (var == get_reaching_def (SSA_NAME_VAR (var)));
+#endif
     }
 }
 
@@ -1127,11 +1221,11 @@ ssa_rewrite_stmt (struct dom_walk_data *walk_data,
    into the stack pointed by BLOCK_DEFS_P.  */
 
 void
-register_new_def (tree var, tree def, VEC (vd_pair_t) **block_defs_p)
+register_new_def (tree def, VEC (tree_on_heap) **block_defs_p)
 {
+  tree var = SSA_NAME_VAR (def);
   tree currdef;
-  vd_pair_t pair;
-  
+   
   /* If this variable is set in a single basic block and all uses are
      dominated by the set(s) in that single basic block, then there is
      no reason to record anything for this variable in the block local
@@ -1147,136 +1241,16 @@ register_new_def (tree var, tree def, VEC (vd_pair_t) **block_defs_p)
     }
 
   currdef = get_current_def (var);
-  
+
   /* Push the current reaching definition into *BLOCK_DEFS_P.  This stack is
      later used by the dominator tree callbacks to restore the reaching
      definitions for all the variables defined in the block after a recursive
      visit to all its immediately dominated blocks.  If there is no current
      reaching definition, then just record the underlying _DECL node.  */
-  pair = pool_alloc (vd_pair_pool);
-
-  pair->var = var;
-  pair->def = currdef;
-  VEC_safe_push (vd_pair_t, *block_defs_p, pair);
+  VEC_safe_push (tree_on_heap, *block_defs_p, currdef ? currdef : var);
 
   /* Set the current reaching definition for VAR to be DEF.  */
   set_current_def (var, def);
-}
-
-
-/* Find the may_def in MAYDEFOPS that has USE as its result.
-   Fill in INDEX to be the index of that v_may_def.
-   Return false if we can't find such a may_def, or true if we did. */
-
-static bool
-find_may_def_for_use (v_may_def_optype maydefops, tree use, 
-		      unsigned int *index)
-{
-  unsigned int i;
-  for (i = 0; i < NUM_V_MAY_DEFS (maydefops); i++)
-    if (V_MAY_DEF_RESULT (maydefops, i) == use)
-      {
-	*index = i;
-	return true;
-      }
-  return false;
-}
-
-
-/* Find the must_def in MUSTDEFOPS that is a MUSTDEF of USE.
-   Fill in INDEX to be the index of that must_def.
-   Return false if we can't find such a must_def, or true if we did.  */
-   
-static bool
-find_must_def_for_use (v_must_def_optype mustdefops, tree use, 
-		       unsigned int *index)
-{
-  unsigned int i;
-  for (i = 0; i < NUM_V_MUST_DEFS (mustdefops); i++)
-    if (V_MUST_DEF_RESULT (mustdefops, i) == use)
-      {
-	*index = i;
-	return true;
-      }
-  return false;
-}
-
-/* Find the nearest definition of USE that overlaps  UBITPOS and UBITSIZE */
-
-static tree
-find_partial_def_for_use (tree use, 
-			 unsigned int ubytepos, 
-			 unsigned int ubytesize)
-{
-  unsigned int bytesize, bytepos;
-  tree defstmt = SSA_NAME_DEF_STMT (use);
-  v_may_def_optype vmaydefs;
-  v_must_def_optype vmustdefs;
-  bool result;
-  unsigned int i = 0;
-  
-  if (TREE_CODE (defstmt) != MODIFY_EXPR)
-    return use;
-  vmustdefs = STMT_V_MUST_DEF_OPS (defstmt);
-  result = find_must_def_for_use (vmustdefs, use, &i);
-  if (result)
-    return use;
-
-  vmaydefs = STMT_V_MAY_DEF_OPS (defstmt);
-  result = find_may_def_for_use (vmaydefs, use, &i);
-  /* If we can't find a may_def or must_def that has this as it's result,
-     the use-def chaining is broken.  */
-  gcc_assert (result != false);
-  
-  bytesize =  V_MAY_DEF_SIZE (vmaydefs, i);
-  bytepos = V_MAY_DEF_OFFSET (vmaydefs, i);
-  if (bytepos + bytesize <= ubytepos
-      || ubytepos + ubytesize <= bytepos)
-    return find_partial_def_for_use (V_MAY_DEF_OP (vmaydefs, i),
-				     ubytepos, ubytesize);
-  return use;  
-}
-/* Return the current definition for variable VAR.  If none is found,
-   create a new SSA name to act as the zeroth definition for VAR.  If VAR
-   is call clobbered and there exists a more recent definition of
-   GLOBAL_VAR, return the definition for GLOBAL_VAR.  This means that VAR
-   has been clobbered by a function call since its last assignment.  */
-
-static tree
-get_intersecting_reaching_def (tree var, unsigned int offset, 
-			       unsigned int size)
-{
-  tree default_d, currdef_var, avar;
-  
-  /* Lookup the current reaching definition for VAR.  */
-  default_d = NULL_TREE;
-  currdef_var = get_current_def (var);
-
-  /* If there is no reaching definition for VAR, create and register a
-     default definition for it (if needed).  */
-  if (currdef_var == NULL_TREE)
-    {
-      if (TREE_CODE (var) == SSA_NAME)
-	avar = SSA_NAME_VAR (var);
-      else
-	avar = var;
-
-      default_d = default_def (avar);
-      if (default_d == NULL_TREE)
-	{
-	  default_d = make_ssa_name (avar, build_empty_stmt ());
-	  set_default_def (avar, default_d);
-	}
-      set_current_def (var, default_d);
-      currdef_var = default_d;
-    }
-  else
-    {
-      currdef_var = find_partial_def_for_use (currdef_var,
-					      offset, size);
-    }
-
-  return currdef_var;
 }
 
 /* Return the current definition for variable VAR.  If none is found,
@@ -1494,7 +1468,7 @@ rewrite_blocks (bool fix_virtual_phis)
   walk_data.global_data = NULL;
   walk_data.block_local_data_size = 0;
 
-  block_defs_stack = VEC_alloc (vd_pair_t, 10);
+  block_defs_stack = VEC_alloc (tree_on_heap, 10);
 
   /* Initialize the dominator walker.  */
   init_walk_dominator_tree (&walk_data);
@@ -1508,7 +1482,7 @@ rewrite_blocks (bool fix_virtual_phis)
 
   htab_delete (def_blocks);
   
-  VEC_free (vd_pair_t, block_defs_stack);
+  VEC_free (tree_on_heap, block_defs_stack);
   block_defs_stack = NULL;
 
   timevar_pop (TV_TREE_SSA_REWRITE_BLOCKS);
@@ -1567,8 +1541,9 @@ mark_def_site_blocks (void)
 
   /* We no longer need this bitmap, clear and free it.  */
   sbitmap_free (mark_def_sites_global_data.kills);
-
 }
+
+
 /* Main entry point into the SSA builder.  The renaming process
    proceeds in five main phases:
 
@@ -1730,7 +1705,7 @@ rewrite_ssa_into_ssa (void)
   mark_def_sites_global_data.names_to_rename = snames_to_rename;
   walk_data.global_data = &mark_def_sites_global_data;
 
-  block_defs_stack = VEC_alloc (vd_pair_t, 10);
+  block_defs_stack = VEC_alloc (tree_on_heap, 10);
 
   /* We do not have any local data.  */
   walk_data.block_local_data_size = 0;
@@ -1766,7 +1741,7 @@ rewrite_ssa_into_ssa (void)
   walk_data.before_dom_children_after_stmts = ssa_rewrite_phi_arguments;
   walk_data.after_dom_children_before_stmts = NULL;
   walk_data.after_dom_children_walk_stmts =  NULL;
-  walk_data.after_dom_children_after_stmts =  rewrite_finalize_block;
+  walk_data.after_dom_children_after_stmts =  ssa_rewrite_finalize_block;
   walk_data.global_data = snames_to_rename;
   walk_data.block_local_data_size = 0;
 
@@ -1784,6 +1759,11 @@ rewrite_ssa_into_ssa (void)
 
   EXECUTE_IF_SET_IN_BITMAP (to_rename, 0, i, bi)
     {
+      /* Free SSA_NAME_AUX.  We don't have to zero it because
+	 release_ssa_name will.  */
+      if (SSA_NAME_AUX (ssa_name (i)))
+	free (SSA_NAME_AUX (ssa_name (i)));
+
       release_ssa_name (ssa_name (i));
     }
 
@@ -1814,9 +1794,10 @@ rewrite_ssa_into_ssa (void)
       free (SSA_NAME_AUX (name));
       SSA_NAME_AUX (name) = NULL;
     }
+
   BITMAP_XFREE (to_rename);
   
-  VEC_free (vd_pair_t, block_defs_stack);
+  VEC_free (tree_on_heap, block_defs_stack);
   block_defs_stack = NULL;
   timevar_pop (TV_TREE_SSA_OTHER);
 }

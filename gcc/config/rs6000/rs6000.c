@@ -147,8 +147,6 @@ enum rs6000_nop_insertion rs6000_sched_insert_nops;
 
 /* Support targetm.vectorize.builtin_mask_for_load.  */
 static GTY(()) tree altivec_builtin_mask_for_load;
-/* Support targetm.vectorize.builtin_mask_for_store.  */
-static GTY(()) tree altivec_builtin_mask_for_store;
 
 /* Size of long double */
 const char *rs6000_long_double_size_string;
@@ -278,7 +276,8 @@ static GTY(()) int rs6000_sr_alias_set;
 /* Call distance, overridden by -mlongcall and #pragma longcall(1).
    The only place that looks at this is rs6000_set_default_type_attributes;
    everywhere else should rely on the presence or absence of a longcall
-   attribute on the function declaration.  */
+   attribute on the function declaration.  Exception: init_cumulative_args
+   looks at it too, for libcalls.  */
 int rs6000_default_long_calls;
 const char *rs6000_longcall_switch;
 
@@ -692,7 +691,6 @@ static int pad_groups (FILE *, int, rtx, rtx);
 static void rs6000_sched_finish (FILE *, int);
 static int rs6000_use_sched_lookahead (void);
 static tree rs6000_builtin_mask_for_load (void);
-static tree rs6000_builtin_mask_for_store (void);
 
 static void rs6000_init_builtins (void);
 static rtx rs6000_expand_unop_builtin (enum insn_code, tree, rtx);
@@ -931,9 +929,6 @@ static const char alt_reg_names[][8] =
 
 #undef TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD
 #define TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD rs6000_builtin_mask_for_load
-
-#undef TARGET_VECTORIZE_BUILTIN_MASK_FOR_STORE
-#define TARGET_VECTORIZE_BUILTIN_MASK_FOR_STORE rs6000_builtin_mask_for_store
 
 #undef TARGET_INIT_BUILTINS
 #define TARGET_INIT_BUILTINS rs6000_init_builtins
@@ -1301,6 +1296,10 @@ rs6000_override_options (const char *default_cpu)
   if (DEFAULT_ABI == ABI_DARWIN && TARGET_64BIT)
     {
       rs6000_darwin64_abi = 1;
+      /* Setting to empty string is same as "-mone-byte-bool".  */
+#if TARGET_MACHO
+      darwin_one_byte_bool = "";
+#endif
     }
 
   /* Handle -mabi= options.  */
@@ -1583,16 +1582,6 @@ rs6000_builtin_mask_for_load (void)
 {
   if (TARGET_ALTIVEC)
     return altivec_builtin_mask_for_load;
-  else
-    return 0;
-}
-
-/* Implement targetm.vectorize.builtin_mask_for_store.  */
-static tree
-rs6000_builtin_mask_for_store (void)
-{
-  if (TARGET_ALTIVEC)
-    return altivec_builtin_mask_for_store;
   else
     return 0;
 }
@@ -4641,6 +4630,12 @@ rs6000_return_in_memory (tree type, tree fntype ATTRIBUTE_UNUSED)
 	  || (unsigned HOST_WIDE_INT) int_size_in_bytes (type) > 8))
     return true;
 
+  /* Allow -maltivec -mabi=no-altivec without warning.  Altivec vector
+     modes only exist for GCC vector types if -maltivec.  */
+  if (TARGET_32BIT && !TARGET_ALTIVEC_ABI
+      && ALTIVEC_VECTOR_MODE (TYPE_MODE (type)))
+    return false;
+
   /* Return synthetic vectors in memory.  */
   if (TREE_CODE (type) == VECTOR_TYPE
       && int_size_in_bytes (type) > (TARGET_ALTIVEC_ABI ? 16 : 8))
@@ -4648,7 +4643,7 @@ rs6000_return_in_memory (tree type, tree fntype ATTRIBUTE_UNUSED)
       static bool warned_for_return_big_vectors = false;
       if (!warned_for_return_big_vectors)
 	{
-	  warning ("synthetic vector returned by reference: "
+	  warning ("GCC vector returned by reference: "
 		   "non-standard ABI extension with no compatibility guarantee");
 	  warned_for_return_big_vectors = true;
 	}
@@ -4693,10 +4688,11 @@ init_cumulative_args (CUMULATIVE_ARGS *cum, tree fntype,
     cum->nargs_prototype = n_named_args;
 
   /* Check for a longcall attribute.  */
-  if (fntype
-      && lookup_attribute ("longcall", TYPE_ATTRIBUTES (fntype))
-      && !lookup_attribute ("shortcall", TYPE_ATTRIBUTES (fntype)))
-    cum->call_cookie = CALL_LONG;
+  if ((!fntype && rs6000_default_long_calls)
+      || (fntype
+	  && lookup_attribute ("longcall", TYPE_ATTRIBUTES (fntype))
+	  && !lookup_attribute ("shortcall", TYPE_ATTRIBUTES (fntype))))
+    cum->call_cookie |= CALL_LONG;
 
   if (TARGET_DEBUG_ARG)
     {
@@ -5656,23 +5652,44 @@ function_arg_partial_nregs (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 
 static bool
 rs6000_pass_by_reference (CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED,
-			  enum machine_mode mode ATTRIBUTE_UNUSED,
-			  tree type, bool named ATTRIBUTE_UNUSED)
+			  enum machine_mode mode, tree type,
+			  bool named ATTRIBUTE_UNUSED)
 {
-  if ((DEFAULT_ABI == ABI_V4
-       && ((type && AGGREGATE_TYPE_P (type))
-	   || mode == TFmode))
-      || (TARGET_32BIT && !TARGET_ALTIVEC_ABI && ALTIVEC_VECTOR_MODE (mode))
-      || (type && int_size_in_bytes (type) < 0))
+  if (DEFAULT_ABI == ABI_V4 && mode == TFmode)
     {
       if (TARGET_DEBUG_ARG)
-	fprintf (stderr, "function_arg_pass_by_reference\n");
+	fprintf (stderr, "function_arg_pass_by_reference: V4 long double\n");
+      return 1;
+    }
 
+  if (!type)
+    return 0;
+
+  if (DEFAULT_ABI == ABI_V4 && AGGREGATE_TYPE_P (type))
+    {
+      if (TARGET_DEBUG_ARG)
+	fprintf (stderr, "function_arg_pass_by_reference: V4 aggregate\n");
+      return 1;
+    }
+
+  if (int_size_in_bytes (type) < 0)
+    {
+      if (TARGET_DEBUG_ARG)
+	fprintf (stderr, "function_arg_pass_by_reference: variable size\n");
+      return 1;
+    }
+
+  /* Allow -maltivec -mabi=no-altivec without warning.  Altivec vector
+     modes only exist for GCC vector types if -maltivec.  */
+  if (TARGET_32BIT && !TARGET_ALTIVEC_ABI && ALTIVEC_VECTOR_MODE (mode))
+    {
+      if (TARGET_DEBUG_ARG)
+	fprintf (stderr, "function_arg_pass_by_reference: AltiVec\n");
       return 1;
     }
 
   /* Pass synthetic vectors in memory.  */
-  if (type && TREE_CODE (type) == VECTOR_TYPE
+  if (TREE_CODE (type) == VECTOR_TYPE
       && int_size_in_bytes (type) > (TARGET_ALTIVEC_ABI ? 16 : 8))
     {
       static bool warned_for_pass_big_vectors = false;
@@ -5680,7 +5697,7 @@ rs6000_pass_by_reference (CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED,
 	fprintf (stderr, "function_arg_pass_by_reference: synthetic vector\n");
       if (!warned_for_pass_big_vectors)
 	{
-	  warning ("synthetic vector passed by reference: "
+	  warning ("GCC vector passed by reference: "
 		   "non-standard ABI extension with no compatibility guarantee");
 	  warned_for_pass_big_vectors = true;
 	}
@@ -6123,18 +6140,18 @@ static const struct builtin_description bdesc_3arg[] =
   { MASK_ALTIVEC, CODE_FOR_altivec_vmsumuhs, "__builtin_altivec_vmsumuhs", ALTIVEC_BUILTIN_VMSUMUHS },
   { MASK_ALTIVEC, CODE_FOR_altivec_vmsumshs, "__builtin_altivec_vmsumshs", ALTIVEC_BUILTIN_VMSUMSHS },
   { MASK_ALTIVEC, CODE_FOR_altivec_vnmsubfp, "__builtin_altivec_vnmsubfp", ALTIVEC_BUILTIN_VNMSUBFP },
-  { MASK_ALTIVEC, CODE_FOR_altivec_vperm_4sf, "__builtin_altivec_vperm_4sf", ALTIVEC_BUILTIN_VPERM_4SF },
-  { MASK_ALTIVEC, CODE_FOR_altivec_vperm_4si, "__builtin_altivec_vperm_4si", ALTIVEC_BUILTIN_VPERM_4SI },
-  { MASK_ALTIVEC, CODE_FOR_altivec_vperm_8hi, "__builtin_altivec_vperm_8hi", ALTIVEC_BUILTIN_VPERM_8HI },
-  { MASK_ALTIVEC, CODE_FOR_altivec_vperm_16qi, "__builtin_altivec_vperm_16qi", ALTIVEC_BUILTIN_VPERM_16QI },
-  { MASK_ALTIVEC, CODE_FOR_altivec_vsel_4sf, "__builtin_altivec_vsel_4sf", ALTIVEC_BUILTIN_VSEL_4SF },
-  { MASK_ALTIVEC, CODE_FOR_altivec_vsel_4si, "__builtin_altivec_vsel_4si", ALTIVEC_BUILTIN_VSEL_4SI },
-  { MASK_ALTIVEC, CODE_FOR_altivec_vsel_8hi, "__builtin_altivec_vsel_8hi", ALTIVEC_BUILTIN_VSEL_8HI },
-  { MASK_ALTIVEC, CODE_FOR_altivec_vsel_16qi, "__builtin_altivec_vsel_16qi", ALTIVEC_BUILTIN_VSEL_16QI },
-  { MASK_ALTIVEC, CODE_FOR_altivec_vsldoi_16qi, "__builtin_altivec_vsldoi_16qi", ALTIVEC_BUILTIN_VSLDOI_16QI },
-  { MASK_ALTIVEC, CODE_FOR_altivec_vsldoi_8hi, "__builtin_altivec_vsldoi_8hi", ALTIVEC_BUILTIN_VSLDOI_8HI },
-  { MASK_ALTIVEC, CODE_FOR_altivec_vsldoi_4si, "__builtin_altivec_vsldoi_4si", ALTIVEC_BUILTIN_VSLDOI_4SI },
-  { MASK_ALTIVEC, CODE_FOR_altivec_vsldoi_4sf, "__builtin_altivec_vsldoi_4sf", ALTIVEC_BUILTIN_VSLDOI_4SF },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vperm_v4sf, "__builtin_altivec_vperm_4sf", ALTIVEC_BUILTIN_VPERM_4SF },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vperm_v4si, "__builtin_altivec_vperm_4si", ALTIVEC_BUILTIN_VPERM_4SI },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vperm_v8hi, "__builtin_altivec_vperm_8hi", ALTIVEC_BUILTIN_VPERM_8HI },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vperm_v16qi, "__builtin_altivec_vperm_16qi", ALTIVEC_BUILTIN_VPERM_16QI },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vsel_v4sf, "__builtin_altivec_vsel_4sf", ALTIVEC_BUILTIN_VSEL_4SF },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vsel_v4si, "__builtin_altivec_vsel_4si", ALTIVEC_BUILTIN_VSEL_4SI },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vsel_v8hi, "__builtin_altivec_vsel_8hi", ALTIVEC_BUILTIN_VSEL_8HI },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vsel_v16qi, "__builtin_altivec_vsel_16qi", ALTIVEC_BUILTIN_VSEL_16QI },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vsldoi_v16qi, "__builtin_altivec_vsldoi_16qi", ALTIVEC_BUILTIN_VSLDOI_16QI },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vsldoi_v8hi, "__builtin_altivec_vsldoi_8hi", ALTIVEC_BUILTIN_VSLDOI_8HI },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vsldoi_v4si, "__builtin_altivec_vsldoi_4si", ALTIVEC_BUILTIN_VSLDOI_4SI },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vsldoi_v4sf, "__builtin_altivec_vsldoi_4sf", ALTIVEC_BUILTIN_VSLDOI_4SF },
 };
 
 /* DST operations: void foo (void *, const int, const char).  */
@@ -6163,7 +6180,7 @@ static struct builtin_description bdesc_2arg[] =
   { MASK_ALTIVEC, CODE_FOR_altivec_vadduws, "__builtin_altivec_vadduws", ALTIVEC_BUILTIN_VADDUWS },
   { MASK_ALTIVEC, CODE_FOR_altivec_vaddsws, "__builtin_altivec_vaddsws", ALTIVEC_BUILTIN_VADDSWS },
   { MASK_ALTIVEC, CODE_FOR_andv4si3, "__builtin_altivec_vand", ALTIVEC_BUILTIN_VAND },
-  { MASK_ALTIVEC, CODE_FOR_altivec_vandc, "__builtin_altivec_vandc", ALTIVEC_BUILTIN_VANDC },
+  { MASK_ALTIVEC, CODE_FOR_andcv4si3, "__builtin_altivec_vandc", ALTIVEC_BUILTIN_VANDC },
   { MASK_ALTIVEC, CODE_FOR_altivec_vavgub, "__builtin_altivec_vavgub", ALTIVEC_BUILTIN_VAVGUB },
   { MASK_ALTIVEC, CODE_FOR_altivec_vavgsb, "__builtin_altivec_vavgsb", ALTIVEC_BUILTIN_VAVGSB },
   { MASK_ALTIVEC, CODE_FOR_altivec_vavguh, "__builtin_altivec_vavguh", ALTIVEC_BUILTIN_VAVGUH },
@@ -6922,10 +6939,10 @@ rs6000_expand_ternop_builtin (enum insn_code icode, tree arglist, rtx target)
       || arg2 == error_mark_node)
     return const0_rtx;
 
-  if (icode == CODE_FOR_altivec_vsldoi_4sf
-      || icode == CODE_FOR_altivec_vsldoi_4si
-      || icode == CODE_FOR_altivec_vsldoi_8hi
-      || icode == CODE_FOR_altivec_vsldoi_16qi)
+  if (icode == CODE_FOR_altivec_vsldoi_v4sf
+      || icode == CODE_FOR_altivec_vsldoi_v4si
+      || icode == CODE_FOR_altivec_vsldoi_v8hi
+      || icode == CODE_FOR_altivec_vsldoi_v16qi)
     {
       /* Only allow 4-bit unsigned literals.  */
       STRIP_NOPS (arg2);
@@ -8275,17 +8292,6 @@ altivec_init_builtins (void)
                                BUILT_IN_MD, NULL, NULL_TREE);
       /* Record the decl. Will be used by rs6000_builtin_mask_for_load.  */
       altivec_builtin_mask_for_load = decl;
-
-
-      /* Initialize target builtin that implements
-         targetm.vectorize.builtin_mask_for_store.  */
-
-      decl = lang_hooks.builtin_function ("__builtin_altivec_mask_for_store",
-                               v16qi_ftype_long_pcvoid,
-                               ALTIVEC_BUILTIN_MASK_FOR_STORE,
-                               BUILT_IN_MD, NULL, NULL_TREE);
-      /* Record the decl. Will be used by rs6000_builtin_mask_for_store.  */
-      altivec_builtin_mask_for_store = decl;
     }
 }
 
@@ -11105,7 +11111,7 @@ rs6000_assemble_integer (rtx x, unsigned int size, int aligned_p)
 {
 #ifdef RELOCATABLE_NEEDS_FIXUP
   /* Special handling for SI values.  */
-  if (size == 4 && aligned_p)
+  if (RELOCATABLE_NEEDS_FIXUP && size == 4 && aligned_p)
     {
       extern int in_toc_section (void);
       static int recurse = 0;
@@ -12393,23 +12399,25 @@ compute_vrsave_mask (void)
 }
 
 /* For a very restricted set of circumstances, we can cut down the
-   size of prologs/epilogs by calling our own save/restore-the-world
-   routines. */
+   size of prologues/epilogues by calling our own save/restore-the-world
+   routines.  */
 
 static void
-compute_save_world_info(rs6000_stack_t *info_ptr)
+compute_save_world_info (rs6000_stack_t *info_ptr)
 {
-  info_ptr->world_save_p =
-    (DEFAULT_ABI == ABI_DARWIN)
-    && ! (current_function_calls_setjmp && flag_exceptions)
-    && info_ptr->first_fp_reg_save == FIRST_SAVED_FP_REGNO
-    && info_ptr->first_gp_reg_save == FIRST_SAVED_GP_REGNO
-    && info_ptr->first_altivec_reg_save == FIRST_SAVED_ALTIVEC_REGNO
-    && info_ptr->cr_save_p;
+  info_ptr->world_save_p = 1;
+  info_ptr->world_save_p
+    = (WORLD_SAVE_P (info_ptr)
+       && DEFAULT_ABI == ABI_DARWIN
+       && ! (current_function_calls_setjmp && flag_exceptions)
+       && info_ptr->first_fp_reg_save == FIRST_SAVED_FP_REGNO
+       && info_ptr->first_gp_reg_save == FIRST_SAVED_GP_REGNO
+       && info_ptr->first_altivec_reg_save == FIRST_SAVED_ALTIVEC_REGNO
+       && info_ptr->cr_save_p);
 
   /* This will not work in conjunction with sibcalls.  Make sure there
      are none.  (This check is expensive, but seldom executed.) */
-  if ( info_ptr->world_save_p )
+  if (WORLD_SAVE_P (info_ptr))
     {
       rtx insn;
       for ( insn = get_last_insn_anywhere (); insn; insn = PREV_INSN (insn))
@@ -12421,7 +12429,7 @@ compute_save_world_info(rs6000_stack_t *info_ptr)
 	  }
     }
 
-  if (info_ptr->world_save_p)
+  if (WORLD_SAVE_P (info_ptr))
     {
       /* Even if we're not touching VRsave, make sure there's room on the
 	 stack for it, if it looks like we're calling SAVE_WORLD, which
@@ -13833,7 +13841,7 @@ rs6000_emit_prologue (void)
     }
 
   /* Handle world saves specially here.  */
-  if (info->world_save_p)
+  if (WORLD_SAVE_P (info))
     {
       int i, j, sz;
       rtx treg;
@@ -13953,7 +13961,7 @@ rs6000_emit_prologue (void)
     }
 
   /* Save AltiVec registers if needed.  */
-  if (! info->world_save_p && TARGET_ALTIVEC_ABI && info->altivec_size != 0)
+  if (!WORLD_SAVE_P (info) && TARGET_ALTIVEC_ABI && info->altivec_size != 0)
     {
       int i;
 
@@ -13994,13 +14002,15 @@ rs6000_emit_prologue (void)
      epilogue.  */
 
   if (TARGET_ALTIVEC && TARGET_ALTIVEC_VRSAVE
-      && ! info->world_save_p && info->vrsave_mask != 0)
+      && !WORLD_SAVE_P (info) && info->vrsave_mask != 0)
     {
       rtx reg, mem, vrsave;
       int offset;
 
-      /* Get VRSAVE onto a GPR.  */
-      reg = gen_rtx_REG (SImode, 12);
+      /* Get VRSAVE onto a GPR.  Note that ABI_V4 might be using r12
+	 as frame_reg_rtx and r11 as the static chain pointer for
+	 nested functions.  */
+      reg = gen_rtx_REG (SImode, 0);
       vrsave = gen_rtx_REG (SImode, VRSAVE_REGNO);
       if (TARGET_MACHO)
 	emit_insn (gen_get_vrsave_internal (reg));
@@ -14022,7 +14032,7 @@ rs6000_emit_prologue (void)
     }
 
   /* If we use the link register, get it into r0.  */
-  if (! info->world_save_p && info->lr_save_p)
+  if (!WORLD_SAVE_P (info) && info->lr_save_p)
     {
       insn = emit_move_insn (gen_rtx_REG (Pmode, 0),
 			     gen_rtx_REG (Pmode, LINK_REGISTER_REGNUM));
@@ -14030,7 +14040,7 @@ rs6000_emit_prologue (void)
     }
 
   /* If we need to save CR, put it into r12.  */
-  if (! info->world_save_p && info->cr_save_p && frame_reg_rtx != frame_ptr_rtx)
+  if (!WORLD_SAVE_P (info) && info->cr_save_p && frame_reg_rtx != frame_ptr_rtx)
     {
       rtx set;
 
@@ -14052,7 +14062,7 @@ rs6000_emit_prologue (void)
 
   /* Do any required saving of fpr's.  If only one or two to save, do
      it ourselves.  Otherwise, call function.  */
-  if (! info->world_save_p && saving_FPRs_inline)
+  if (!WORLD_SAVE_P (info) && saving_FPRs_inline)
     {
       int i;
       for (i = 0; i < 64 - info->first_fp_reg_save; i++)
@@ -14063,7 +14073,7 @@ rs6000_emit_prologue (void)
 			   info->fp_save_offset + sp_offset + 8 * i,
 			   info->total_size);
     }
-  else if (! info->world_save_p && info->first_fp_reg_save != 64)
+  else if (!WORLD_SAVE_P (info) && info->first_fp_reg_save != 64)
     {
       int i;
       char rname[30];
@@ -14099,7 +14109,7 @@ rs6000_emit_prologue (void)
 
   /* Save GPRs.  This is done as a PARALLEL if we are using
      the store-multiple instructions.  */
-  if (! info->world_save_p && using_store_multiple)
+  if (!WORLD_SAVE_P (info) && using_store_multiple)
     {
       rtvec p;
       int i;
@@ -14121,7 +14131,7 @@ rs6000_emit_prologue (void)
       rs6000_frame_related (insn, frame_ptr_rtx, info->total_size,
 			    NULL_RTX, NULL_RTX);
     }
-  else if (! info->world_save_p)
+  else if (!WORLD_SAVE_P (info))
     {
       int i;
       for (i = 0; i < 32 - info->first_gp_reg_save; i++)
@@ -14180,7 +14190,7 @@ rs6000_emit_prologue (void)
 
   /* ??? There's no need to emit actual instructions here, but it's the
      easiest way to get the frame unwind information emitted.  */
-  if (! info->world_save_p && current_function_calls_eh_return)
+  if (!WORLD_SAVE_P (info) && current_function_calls_eh_return)
     {
       unsigned int i, regno;
 
@@ -14215,7 +14225,7 @@ rs6000_emit_prologue (void)
     }
 
   /* Save lr if we used it.  */
-  if (! info->world_save_p && info->lr_save_p)
+  if (!WORLD_SAVE_P (info) && info->lr_save_p)
     {
       rtx addr = gen_rtx_PLUS (Pmode, frame_reg_rtx,
 			       GEN_INT (info->lr_save_offset + sp_offset));
@@ -14230,7 +14240,7 @@ rs6000_emit_prologue (void)
     }
 
   /* Save CR if we use any that must be preserved.  */
-  if (! info->world_save_p && info->cr_save_p)
+  if (!WORLD_SAVE_P (info) && info->cr_save_p)
     {
       rtx addr = gen_rtx_PLUS (Pmode, frame_reg_rtx,
 			       GEN_INT (info->cr_save_offset + sp_offset));
@@ -14263,7 +14273,7 @@ rs6000_emit_prologue (void)
 
   /* Update stack and set back pointer unless this is V.4,
      for which it was done previously.  */
-  if (! info->world_save_p && info->push_p
+  if (!WORLD_SAVE_P (info) && info->push_p
       && !(DEFAULT_ABI == ABI_V4 || current_function_calls_eh_return))
     rs6000_emit_allocate_stack (info->total_size, FALSE);
 
@@ -14432,7 +14442,7 @@ rs6000_emit_epilogue (int sibcall)
 			 || rs6000_cpu == PROCESSOR_PPC750
 			 || optimize_size);
 
-  if (info->world_save_p)
+  if (WORLD_SAVE_P (info))
     {
       int i, j;
       char rname[30];
@@ -16989,7 +16999,9 @@ const struct attribute_spec rs6000_attribute_table[] =
   given declaration.  */
 
 static tree
-rs6000_handle_altivec_attribute (tree *node, tree name, tree args,
+rs6000_handle_altivec_attribute (tree *node,
+				 tree name ATTRIBUTE_UNUSED,
+				 tree args,
 				 int flags ATTRIBUTE_UNUSED,
 				 bool *no_add_attrs)
 {
@@ -17010,9 +17022,25 @@ rs6000_handle_altivec_attribute (tree *node, tree name, tree args,
 
   mode = TYPE_MODE (type);
 
-  if (rs6000_warn_altivec_long
-      && (type == long_unsigned_type_node || type == long_integer_type_node))
-    warning ("use of 'long' in AltiVec types is deprecated; use 'int'");
+  /* Check for invalid AltiVec type qualifiers.  */
+  if (type == long_unsigned_type_node || type == long_integer_type_node)
+    {
+    if (TARGET_64BIT)
+      error ("use of %<long%> in AltiVec types is invalid for 64-bit code");
+    else if (rs6000_warn_altivec_long)
+      warning ("use of %<long%> in AltiVec types is deprecated; use %<int%>");
+    }
+  else if (type == long_long_unsigned_type_node
+           || type == long_long_integer_type_node)
+    error ("use of %<long long%> in AltiVec types is invalid");
+  else if (type == double_type_node)
+    error ("use of %<double%> in AltiVec types is invalid");
+  else if (type == long_double_type_node)
+    error ("use of %<long double%> in AltiVec types is invalid");
+  else if (type == boolean_type_node)
+    error ("use of boolean types in AltiVec types is invalid");
+  else if (TREE_CODE (type) == COMPLEX_TYPE)
+    error ("use of %<complex%> in AltiVec types is invalid");
 
   switch (altivec_type)
     {
@@ -17061,9 +17089,7 @@ rs6000_handle_altivec_attribute (tree *node, tree name, tree args,
 
   *no_add_attrs = true;  /* No need to hang on to the attribute.  */
 
-  if (!result)
-    warning ("%qs attribute ignored", IDENTIFIER_POINTER (name));
-  else
+  if (result)
     *node = reconstruct_complex_type (*node, result);
 
   return NULL_TREE;
@@ -17230,6 +17256,14 @@ static bool
 rs6000_elf_in_small_data_p (tree decl)
 {
   if (rs6000_sdata == SDATA_NONE)
+    return false;
+
+  /* We want to merge strings, so we never consider them small data.  */
+  if (TREE_CODE (decl) == STRING_CST)
+    return false;
+
+  /* Functions are never in the small data area.  */
+  if (TREE_CODE (decl) == FUNCTION_DECL)
     return false;
 
   if (TREE_CODE (decl) == VAR_DECL && DECL_SECTION_NAME (decl))
@@ -18007,16 +18041,15 @@ rs6000_rtx_costs (rtx x, int code, int outer_code, int *total)
 	    || outer_code == MINUS)
 	   && (CONST_OK_FOR_LETTER_P (INTVAL (x), 'I')
 	       || CONST_OK_FOR_LETTER_P (INTVAL (x), 'L')))
-	  || ((outer_code == IOR || outer_code == XOR)
-	      && (CONST_OK_FOR_LETTER_P (INTVAL (x), 'K')
-		  || CONST_OK_FOR_LETTER_P (INTVAL (x), 'L')))
-	  || ((outer_code == DIV || outer_code == UDIV
-	       || outer_code == MOD || outer_code == UMOD)
-	      && exact_log2 (INTVAL (x)) >= 0)
 	  || (outer_code == AND
 	      && (CONST_OK_FOR_LETTER_P (INTVAL (x), 'K')
-		  || CONST_OK_FOR_LETTER_P (INTVAL (x), 'L')
+		  || (CONST_OK_FOR_LETTER_P (INTVAL (x),
+					     mode == SImode ? 'L' : 'J'))
 		  || mask_operand (x, VOIDmode)))
+	  || ((outer_code == IOR || outer_code == XOR)
+	      && (CONST_OK_FOR_LETTER_P (INTVAL (x), 'K')
+		  || (CONST_OK_FOR_LETTER_P (INTVAL (x),
+					     mode == SImode ? 'L' : 'J'))))
 	  || outer_code == ASHIFT
 	  || outer_code == ASHIFTRT
 	  || outer_code == LSHIFTRT
@@ -18025,9 +18058,21 @@ rs6000_rtx_costs (rtx x, int code, int outer_code, int *total)
 	  || outer_code == ZERO_EXTRACT
 	  || (outer_code == MULT
 	      && CONST_OK_FOR_LETTER_P (INTVAL (x), 'I'))
+	  || ((outer_code == DIV || outer_code == UDIV
+	       || outer_code == MOD || outer_code == UMOD)
+	      && exact_log2 (INTVAL (x)) >= 0)
 	  || (outer_code == COMPARE
 	      && (CONST_OK_FOR_LETTER_P (INTVAL (x), 'I')
-		  || CONST_OK_FOR_LETTER_P (INTVAL (x), 'K'))))
+		  || CONST_OK_FOR_LETTER_P (INTVAL (x), 'K')))
+	  || (outer_code == EQ
+	      && (CONST_OK_FOR_LETTER_P (INTVAL (x), 'I')
+		  || CONST_OK_FOR_LETTER_P (INTVAL (x), 'K')
+		  || (CONST_OK_FOR_LETTER_P (INTVAL (x),
+					     mode == SImode ? 'L' : 'J'))))
+	  || (outer_code == GTU
+	      && CONST_OK_FOR_LETTER_P (INTVAL (x), 'I'))
+	  || (outer_code == LTU
+	      && CONST_OK_FOR_LETTER_P (INTVAL (x), 'P')))
 	{
 	  *total = 0;
 	  return true;
@@ -18305,26 +18350,44 @@ rs6000_rtx_costs (rtx x, int code, int outer_code, int *total)
     case EQ:
     case GTU:
     case LTU:
-      if (mode == Pmode)
+      /* Carry bit requires mode == Pmode.
+	 NEG or PLUS already counted so only add one.  */
+      if (mode == Pmode
+	  && (outer_code == NEG || outer_code == PLUS))
 	{
-	  switch (outer_code)
-	    {
-	    case PLUS:
-	    case NEG:
-	      /* PLUS or NEG already counted so only add one more.  */
-	      *total = COSTS_N_INSNS (1);
-	      break;
-	    case SET:
-	      *total = COSTS_N_INSNS (3);
-	      break;
-	    case COMPARE:
-	      *total = 0;
-	      return true;
-	    default:
-	      break;
-	    }
-	  return false;
+	  *total = COSTS_N_INSNS (1);
+	  return true;
 	}
+      if (outer_code == SET)
+	{
+	  if (XEXP (x, 1) == const0_rtx)
+	    {
+	      *total = COSTS_N_INSNS (2);
+	      return true;
+	    }
+	  else if (mode == Pmode)
+	    {
+	      *total = COSTS_N_INSNS (3);
+	      return false;
+	    }
+	}
+      /* FALLTHRU */
+
+    case GT:
+    case LT:
+    case UNORDERED:
+      if (outer_code == SET && (XEXP (x, 1) == const0_rtx))
+	{
+	  *total = COSTS_N_INSNS (2);
+	  return true;
+	}
+      /* CC COMPARE.  */
+      if (outer_code == COMPARE)
+	{
+	  *total = 0;
+	  return true;
+	}
+      break;
 
     default:
       break;

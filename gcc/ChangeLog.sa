@@ -1,3 +1,33 @@
+2004-12-22 Daniel Berlin <dberlin@dberlin.org>
+
+	* tree-ssa-alias.c: Include vec.h.
+	(get_fake_vars_for_var): New function.
+	(get_fake_vars_for_component_ref): Ditto.
+	(compute_flow_insensitive_aliasing): Use get_fake_vars_for_var.
+	(setup_pointers_and_addressables): Ditto here.
+	(add_pointed_to_var): If we were really passed a component ref,
+	try to get a set of fake variables from it.
+	Otherwise, make sure to include all the approriate fake variables
+	into the pointed-to set.
+	(bitpos_of_field): New function.
+	(push_fields_onto_fieldstack): Ditto.
+	(var_subvar_hash): Ditto.
+	(var_subvar_free): Ditto.
+	(var_subvar_eq): Ditto.
+	(lookup_subvars_for_var): Ditto.
+	(get_subvars_for_var): Ditto.
+	(create_overlap_variables_for): Ditto.
+	(create_structure_vars): Ditto.
+	(ref_contains_array_ref): Ditto.
+	(pass_create_structure_vars): New structure.	
+	* tree-flow.h (get_fake_vars_for_component_ref): Prototype.
+	(get_fake_vars_for_var): Ditto.
+	(mem_tag_kind): Add STRUCT_FIELD.
+	* tree-ssa-operands.c (note_addressable): Add fake vars into
+	addressable set.
+	(get_expr_operands): Add fake variables when we add regular
+	variable.
+	
 2004-11-18  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-ssa-structalias.c: Rewrite to use real offsets, instead of

@@ -1375,7 +1375,6 @@ extern rtvec gen_rtvec_v (int, rtx *);
 extern rtx gen_reg_rtx (enum machine_mode);
 extern rtx gen_rtx_REG_offset (rtx, enum machine_mode, unsigned int, int);
 extern rtx gen_label_rtx (void);
-extern int subreg_hard_regno (rtx, int);
 extern rtx gen_lowpart_common (enum machine_mode, rtx);
 
 /* In cse.c */
@@ -1384,8 +1383,6 @@ extern rtx gen_lowpart_if_possible (enum machine_mode, rtx);
 /* In emit-rtl.c */
 extern rtx gen_highpart (enum machine_mode, rtx);
 extern rtx gen_highpart_mode (enum machine_mode, enum machine_mode, rtx);
-extern rtx gen_realpart (enum machine_mode, rtx);
-extern rtx gen_imagpart (enum machine_mode, rtx);
 extern rtx operand_subword (rtx, unsigned int, int, enum machine_mode);
 
 /* In emit-rtl.c */
@@ -1965,6 +1962,8 @@ extern rtx delete_insn_and_edges (rtx);
 extern void delete_insn_chain_and_edges (rtx, rtx);
 extern rtx gen_lowpart_SUBREG (enum machine_mode, rtx);
 extern rtx gen_const_mem (enum machine_mode, rtx);
+extern bool validate_subreg (enum machine_mode, enum machine_mode,
+			     rtx, unsigned int);
 
 /* In combine.c */
 extern int combine_instructions (rtx, unsigned int);

@@ -33,12 +33,11 @@
 //
 
 /** @file streambuf
- *  This is a Standard C++ Library header.  You should @c #include this header
- *  in your programs, rather than any of the "st[dl]_*.h" implementation files.
+ *  This is a Standard C++ Library header.
  */
 
-#ifndef _CLIBXX_STREAMBUF
-#define _CLIBXX_STREAMBUF 1
+#ifndef _GLIBXX_STREAMBUF
+#define _GLIBXX_STREAMBUF 1
 
 #pragma GCC system_header
 

@@ -502,6 +502,7 @@ rest_of_handle_old_regalloc (void)
 
       rebuild_jump_labels (get_insns ());
       purge_all_dead_edges (0);
+      delete_unreachable_blocks ();
 
       timevar_pop (TV_JUMP);
     }
@@ -1314,24 +1315,6 @@ rest_of_handle_eh (void)
     }
 }
 
-
-static void
-rest_of_handle_prologue_epilogue (void)
-{
-  if (optimize && !flow2_completed)
-    cleanup_cfg (CLEANUP_EXPENSIVE);
-
-  /* On some machines, the prologue and epilogue code, or parts thereof,
-     can be represented as RTL.  Doing so lets us schedule insns between
-     it and the rest of the code and also allows delayed branch
-     scheduling to operate in the epilogue.  */
-  thread_prologue_and_epilogue_insns (get_insns ());
-  epilogue_completed = 1;
-
-  if (optimize && flow2_completed)
-    life_analysis (dump_file, PROP_POSTRELOAD);
-}
-
 static void
 rest_of_handle_stack_adjustments (void)
 {
@@ -1369,8 +1352,15 @@ rest_of_handle_flow2 (void)
   if (flag_branch_target_load_optimize)
     rest_of_handle_branch_target_load_optimize ();
 
-  if (!targetm.late_rtl_prologue_epilogue)
-    rest_of_handle_prologue_epilogue ();
+  if (optimize)
+    cleanup_cfg (CLEANUP_EXPENSIVE);
+
+  /* On some machines, the prologue and epilogue code, or parts thereof,
+     can be represented as RTL.  Doing so lets us schedule insns between
+     it and the rest of the code and also allows delayed branch
+     scheduling to operate in the epilogue.  */
+  thread_prologue_and_epilogue_insns (get_insns ());
+  epilogue_completed = 1;
 
   if (optimize)
     rest_of_handle_stack_adjustments ();
@@ -1513,8 +1503,7 @@ rest_of_clean_state (void)
   if (targetm.binds_local_p (current_function_decl))
     {
       int pref = cfun->preferred_stack_boundary;
-      if (cfun->recursive_call_emit
-          && cfun->stack_alignment_needed > cfun->preferred_stack_boundary)
+      if (cfun->stack_alignment_needed > cfun->preferred_stack_boundary)
 	pref = cfun->stack_alignment_needed;
       cgraph_rtl_info (current_function_decl)->preferred_incoming_stack_boundary
         = pref;
@@ -1549,10 +1538,6 @@ rest_of_clean_state (void)
 static void
 rest_of_compilation (void)
 {
-  /* Convert from NOTE_INSN_EH_REGION style notes, and do other
-     sorts of eh initialization.  */
-  convert_from_eh_region_ranges ();
-
   /* If we're emitting a nested function, make sure its parent gets
      emitted as well.  Doing otherwise confuses debug info.  */
   {
@@ -1764,9 +1749,6 @@ rest_of_compilation (void)
   current_function_uses_only_leaf_regs
     = optimize > 0 && only_leaf_regs_used () && leaf_function_p ();
 #endif
-
-  if (targetm.late_rtl_prologue_epilogue)
-    rest_of_handle_prologue_epilogue ();
 
 #ifdef INSN_SCHEDULING
   if (optimize > 0 && flag_schedule_insns_after_reload)

@@ -228,8 +228,6 @@ enum optab_index
   OTI_vec_extract,
   /* Initialize vector operand.  */
   OTI_vec_init,
-  /* Extract specified elements from vectors, for vector store.  */
-  OTI_vec_realign_store,
   /* Extract specified elements from vectors, for vector load.  */
   OTI_vec_realign_load,
 
@@ -334,7 +332,6 @@ extern GTY(()) optab optab_table[OTI_MAX];
 #define vec_set_optab (optab_table[OTI_vec_set])
 #define vec_extract_optab (optab_table[OTI_vec_extract])
 #define vec_init_optab (optab_table[OTI_vec_init])
-#define vec_realign_store_optab (optab_table[OTI_vec_realign_store])
 #define vec_realign_load_optab (optab_table[OTI_vec_realign_load])
 
 /* Conversion optabs have their own table and indexes.  */
@@ -424,6 +421,9 @@ extern rtx expand_ternary_op (enum machine_mode mode, optab ternary_optab,
 /* Expand a binary operation given optab and rtx operands.  */
 extern rtx expand_binop (enum machine_mode, optab, rtx, rtx, rtx, int,
 			 enum optab_methods);
+
+extern bool force_expand_binop (enum machine_mode, optab, rtx, rtx, rtx, int,
+				enum optab_methods);
 
 /* Expand a binary operation with both signed and unsigned forms.  */
 extern rtx sign_expand_binop (enum machine_mode, optab, optab, rtx, rtx,

@@ -739,21 +739,11 @@ fixup_reorder_chain (void)
 	    }
 	  else
 	    {
-#ifndef CASE_DROPS_THROUGH
 	      /* Otherwise we have some return, switch or computed
 		 jump.  In the 99% case, there should not have been a
 		 fallthru edge.  */
 	      gcc_assert (returnjump_p (bb_end_insn) || !e_fall);
 	      continue;
-#else
-	      if (returnjump_p (bb_end_insn) || !e_fall)
-		continue;
-	      /* Except for VAX.  Since we didn't have predication for the
-		 tablejump, the fallthru block should not have moved.  */
-	      if (bb->rbi->next == e_fall->dest)
-		continue;
-	      bb_end_insn = skip_insns_after_block (bb);
-#endif
 	    }
 	}
       else
@@ -1116,8 +1106,8 @@ cfg_layout_duplicate_bb (basic_block bb)
 
   if (bb->global_live_at_start)
     {
-      new_bb->global_live_at_start = OBSTACK_ALLOC_REG_SET (&reg_obstack);
-      new_bb->global_live_at_end = OBSTACK_ALLOC_REG_SET (&reg_obstack);
+      new_bb->global_live_at_start = ALLOC_REG_SET (&reg_obstack);
+      new_bb->global_live_at_end = ALLOC_REG_SET (&reg_obstack);
       COPY_REG_SET (new_bb->global_live_at_start, bb->global_live_at_start);
       COPY_REG_SET (new_bb->global_live_at_end, bb->global_live_at_end);
     }

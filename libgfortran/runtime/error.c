@@ -48,8 +48,11 @@ Boston, MA 02111-1307, USA.  */
  * that files that report loci and those that do not can be linked
  * together without reporting an erroneous position. */
 
-char *filename;
-unsigned line;
+char *filename = 0;
+iexport_data(filename);
+
+unsigned line = 0;
+iexport_data(line);
 
 static char buffer[32];		/* buffer for integer/ascii conversions */
 
@@ -281,7 +284,6 @@ st_sprintf (char *buffer, const char *format, ...)
 void
 show_locus (void)
 {
-
   if (!options.locus || filename == NULL)
     return;
 
@@ -300,8 +302,9 @@ recursion_check (void)
 {
   static int magic = 0;
 
+  /* Don't even try to print something at this point */
   if (magic == MAGIC)
-    sys_exit (4);		/* Don't even try to print something at this point */
+    sys_exit (4);
 
   magic = MAGIC;
 }
@@ -314,12 +317,9 @@ recursion_check (void)
 void
 os_error (const char *message)
 {
-
   recursion_check ();
-
   show_locus ();
   st_printf ("Operating system error: %s\n%s\n", get_oserror (), message);
-
   sys_exit (1);
 }
 
@@ -330,14 +330,12 @@ os_error (const char *message)
 void
 runtime_error (const char *message)
 {
-
   recursion_check ();
-
   show_locus ();
   st_printf ("Fortran runtime error: %s\n", message);
-
   sys_exit (2);
 }
+iexport(runtime_error);
 
 
 /* void internal_error()-- These are this-can't-happen errors
@@ -346,9 +344,7 @@ runtime_error (const char *message)
 void
 internal_error (const char *message)
 {
-
   recursion_check ();
-
   show_locus ();
   st_printf ("Internal Error: %s\n", message);
   sys_exit (3);

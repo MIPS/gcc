@@ -451,8 +451,6 @@ convert_to_reference (tree reftype, tree expr, int convtype,
     expr = instantiate_type (type, expr, 
 			     (flags & LOOKUP_COMPLAIN)
 			     ? tf_error | tf_warning : tf_none);
-  else
-    expr = convert_from_reference (expr);
 
   if (expr == error_mark_node)
     return error_mark_node;
@@ -553,7 +551,21 @@ tree
 convert_from_reference (tree val)
 {
   if (TREE_CODE (TREE_TYPE (val)) == REFERENCE_TYPE)
-    return build_indirect_ref (val, NULL);
+    {
+      tree t = canonical_type_variant (TREE_TYPE (TREE_TYPE (val)));
+      tree ref = build1 (INDIRECT_REF, t, val);
+      
+       /* We *must* set TREE_READONLY when dereferencing a pointer to const,
+	  so that we get the proper error message if the result is used
+	  to assign to.  Also, &* is supposed to be a no-op.  */
+      TREE_READONLY (ref) = CP_TYPE_CONST_P (t);
+      TREE_THIS_VOLATILE (ref) = CP_TYPE_VOLATILE_P (t);
+      TREE_SIDE_EFFECTS (ref)
+	= (TREE_THIS_VOLATILE (ref) || TREE_SIDE_EFFECTS (val));
+      REFERENCE_REF_P (ref) = 1;
+      val = ref;
+    }
+  
   return val;
 }
 
@@ -609,7 +621,7 @@ ocp_convert (tree type, tree expr, int convtype, int flags)
   complete_type (type);
   complete_type (TREE_TYPE (expr));
 
-  e = decl_constant_value (e);
+  e = integral_constant_value (e);
 
   if (IS_AGGR_TYPE (type) && (convtype & CONV_FORCE_TEMP)
       /* Some internal structures (vtable_entry_type, sigtbl_ptr_type)
@@ -933,10 +945,7 @@ convert (tree type, tree expr)
   intype = TREE_TYPE (expr);
 
   if (POINTER_TYPE_P (type) && POINTER_TYPE_P (intype))
-    {
-      expr = decl_constant_value (expr);
-      return fold_if_not_in_template (build_nop (type, expr));
-    }
+    return fold_if_not_in_template (build_nop (type, expr));
 
   return ocp_convert (type, expr, CONV_OLD_CONVERT,
 		      LOOKUP_NORMAL|LOOKUP_NO_CONVERSION);
@@ -956,8 +965,6 @@ convert_force (tree type, tree expr, int convtype)
     return (fold_if_not_in_template 
 	    (convert_to_reference (type, e, CONV_C_CAST, LOOKUP_COMPLAIN,
 				   NULL_TREE)));
-  else if (TREE_CODE (TREE_TYPE (e)) == REFERENCE_TYPE)
-    e = convert_from_reference (e);
 
   if (code == POINTER_TYPE)
     return fold_if_not_in_template (convert_to_pointer_force (type, e));
@@ -1012,7 +1019,6 @@ build_expr_type_conversion (int desires, tree expr, bool complain)
       && !(desires & WANT_NULL))
     warning ("converting NULL to non-pointer type");
     
-  expr = convert_from_reference (expr);
   basetype = TREE_TYPE (expr);
 
   if (basetype == error_mark_node)

@@ -93,7 +93,7 @@ static htab_t avail_exprs;
    (null).  When we finish processing the block, we pop off entries and
    remove the expressions from the global hash table until we hit the
    marker.  */
-static varray_type avail_exprs_stack;
+static VEC(tree_on_heap) *avail_exprs_stack;
 
 /* Stack of trees used to restore the global currdefs to its original
    state after completing optimization of a block and its dominator children.
@@ -106,9 +106,7 @@ static varray_type avail_exprs_stack;
 
    A NULL node is used to mark the last node associated with the
    current block.  */
-VEC(vd_pair_t) *block_defs_stack;
-
-/* FIXME: The other stacks should also be VEC(vd_pair_t).  */
+static VEC(tree_on_heap) *block_defs_stack;
 
 /* Stack of statements we need to rescan during finalization for newly
    exposed variables.
@@ -117,7 +115,7 @@ VEC(vd_pair_t) *block_defs_stack;
    expressions are removed from AVAIL_EXPRS.  Else we may change the
    hash code for an expression and be unable to find/remove it from
    AVAIL_EXPRS.  */
-varray_type stmts_to_rescan;
+static VEC(tree_on_heap) *stmts_to_rescan;
 
 /* Structure for entries in the expression hash table.
 
@@ -149,7 +147,7 @@ struct expr_hash_elt
 
    A NULL entry is used to mark the end of pairs which need to be
    restored during finalization of this block.  */
-static varray_type const_and_copies_stack;
+static VEC(tree_on_heap) *const_and_copies_stack;
 
 /* Bitmap of SSA_NAMEs known to have a nonzero value, even if we do not
    know their exact value.  */
@@ -160,7 +158,7 @@ static bitmap nonzero_vars;
 
    A NULL entry is used to mark the end of names needing their 
    entry in NONZERO_VARS cleared during finalization of this block.  */
-static varray_type nonzero_vars_stack;
+static VEC(tree_on_heap) *nonzero_vars_stack;
 
 /* Track whether or not we have changed the control flow graph.  */
 static bool cfg_altered;
@@ -238,7 +236,6 @@ static htab_t vrp_data;
 
 /* An entry in the VRP_DATA hash table.  We record the variable and a
    varray of VRP_ELEMENT records associated with that variable.  */
-
 struct vrp_hash_elt
 {
   tree var;
@@ -254,7 +251,7 @@ struct vrp_hash_elt
    list to determine which variables need their VRP data updated.
 
    A NULL entry marks the end of the SSA_NAMEs associated with this block.  */
-static varray_type vrp_variables_stack;
+static VEC(tree_on_heap) *vrp_variables_stack;
 
 struct eq_expr_value
 {
@@ -385,12 +382,12 @@ tree_ssa_dominator_optimize (void)
   /* Create our hash tables.  */
   avail_exprs = htab_create (1024, real_avail_expr_hash, avail_expr_eq, free);
   vrp_data = htab_create (ceil_log2 (num_ssa_names), vrp_hash, vrp_eq, free);
-  VARRAY_TREE_INIT (avail_exprs_stack, 20, "Available expression stack");
-  block_defs_stack = VEC_alloc (vd_pair_t, 20);
-  VARRAY_TREE_INIT (const_and_copies_stack, 20, "Block const_and_copies stack");
-  VARRAY_TREE_INIT (nonzero_vars_stack, 20, "Block nonzero_vars stack");
-  VARRAY_TREE_INIT (vrp_variables_stack, 20, "Block vrp_variables stack");
-  VARRAY_TREE_INIT (stmts_to_rescan, 20, "Statements to rescan");
+  avail_exprs_stack = VEC_alloc (tree_on_heap, 20);
+  block_defs_stack = VEC_alloc (tree_on_heap, 20);
+  const_and_copies_stack = VEC_alloc (tree_on_heap, 20);
+  nonzero_vars_stack = VEC_alloc (tree_on_heap, 20);
+  vrp_variables_stack = VEC_alloc (tree_on_heap, 20);
+  stmts_to_rescan = VEC_alloc (tree_on_heap, 20);
   nonzero_vars = BITMAP_XMALLOC ();
   need_eh_cleanup = BITMAP_XMALLOC ();
 
@@ -505,8 +502,12 @@ tree_ssa_dominator_optimize (void)
 	SSA_NAME_VALUE (name) = NULL;
     }
   
-  VEC_free (vd_pair_t, block_defs_stack);
-  block_defs_stack = NULL;
+  VEC_free (tree_on_heap, block_defs_stack);
+  VEC_free (tree_on_heap, avail_exprs_stack);
+  VEC_free (tree_on_heap, const_and_copies_stack);
+  VEC_free (tree_on_heap, nonzero_vars_stack);
+  VEC_free (tree_on_heap, vrp_variables_stack);
+  VEC_free (tree_on_heap, stmts_to_rescan);
 }
 
 static bool
@@ -549,8 +550,18 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
     {
       tree src = PHI_ARG_DEF_FROM_EDGE (phi, e);
       tree dst = PHI_RESULT (phi);
+
+      /* If the desired argument is not the same as this PHI's result 
+	 and it is set by a PHI in this block, then we can not thread
+	 through this block.  */
+      if (src != dst
+	  && TREE_CODE (src) == SSA_NAME
+	  && TREE_CODE (SSA_NAME_DEF_STMT (src)) == PHI_NODE
+	  && bb_for_stmt (SSA_NAME_DEF_STMT (src)) == e->dest)
+	return;
+
       record_const_or_copy (dst, src);
-      register_new_def (SSA_NAME_VAR (dst), dst, &block_defs_stack);
+      register_new_def (dst, &block_defs_stack);
     }
 
   for (bsi = bsi_start (e->dest); ! bsi_end_p (bsi); bsi_next (&bsi))
@@ -652,7 +663,7 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
       if (SSA_NAME_VAR (cached_lhs) != SSA_NAME_VAR (lhs))
 	break;
 
-      /* If CACHED_LHS does not represent the current value of the undering
+      /* If CACHED_LHS does not represent the current value of the underlying
 	 variable in CACHED_LHS/LHS, then we can not ignore this statement.  */
       if (var_ann (SSA_NAME_VAR (lhs))->current_def != cached_lhs)
 	break;
@@ -665,7 +676,7 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
 	 the result of this statement is used later we can copy propagate
 	 suitably.  */
       record_const_or_copy (lhs, cached_lhs);
-      register_new_def (SSA_NAME_VAR (lhs), lhs, &block_defs_stack);
+      register_new_def (lhs, &block_defs_stack);
     }
 
   /* If we stopped at a COND_EXPR or SWITCH_EXPR, then see if we know which
@@ -744,12 +755,12 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
 	     otherwise look it up in the hash tables.  */
 	  cached_lhs = local_fold (COND_EXPR_COND (dummy_cond));
 	  if (! is_gimple_min_invariant (cached_lhs))
-	    cached_lhs = lookup_avail_expr (dummy_cond, false);
- 	  if (!cached_lhs || ! is_gimple_min_invariant (cached_lhs))
 	    {
-	      cached_lhs = simplify_cond_and_lookup_avail_expr (dummy_cond,
-								NULL,
-								false);
+	      cached_lhs = lookup_avail_expr (dummy_cond, false);
+	      if (!cached_lhs || ! is_gimple_min_invariant (cached_lhs))
+		cached_lhs = simplify_cond_and_lookup_avail_expr (dummy_cond,
+								  NULL,
+								  false);
 	    }
 	}
       /* We can have conditionals which just test the state of a
@@ -794,6 +805,7 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
     }
 }
 
+
 /* Initialize local stacks for this optimizer and record equivalences
    upon entry to BB.  Equivalences can come from the edge traversed to
    reach BB or they may come from PHI nodes at the start of BB.  */
@@ -807,11 +819,11 @@ dom_opt_initialize_block (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 
   /* Push a marker on the stacks of local information so that we know how
      far to unwind when we finalize this block.  */
-  VARRAY_PUSH_TREE (avail_exprs_stack, NULL_TREE);
-  VEC_safe_push (vd_pair_t, block_defs_stack, NULL);
-  VARRAY_PUSH_TREE (const_and_copies_stack, NULL_TREE);
-  VARRAY_PUSH_TREE (nonzero_vars_stack, NULL_TREE);
-  VARRAY_PUSH_TREE (vrp_variables_stack, NULL_TREE);
+  VEC_safe_push (tree_on_heap, avail_exprs_stack, NULL_TREE);
+  VEC_safe_push (tree_on_heap, block_defs_stack, NULL_TREE);
+  VEC_safe_push (tree_on_heap, const_and_copies_stack, NULL_TREE);
+  VEC_safe_push (tree_on_heap, nonzero_vars_stack, NULL_TREE);
+  VEC_safe_push (tree_on_heap, vrp_variables_stack, NULL_TREE);
 
   record_equivalences_from_incoming_edge (bb);
 
@@ -867,11 +879,10 @@ static void
 remove_local_expressions_from_table (void)
 {
   /* Remove all the expressions made available in this block.  */
-  while (VARRAY_ACTIVE_SIZE (avail_exprs_stack) > 0)
+  while (VEC_length (tree_on_heap, avail_exprs_stack) > 0)
     {
       struct expr_hash_elt element;
-      tree expr = VARRAY_TOP_TREE (avail_exprs_stack);
-      VARRAY_POP (avail_exprs_stack);
+      tree expr = VEC_pop (tree_on_heap, avail_exprs_stack);
 
       if (expr == NULL_TREE)
 	break;
@@ -887,10 +898,9 @@ remove_local_expressions_from_table (void)
 static void
 restore_nonzero_vars_to_original_value (void)
 {
-  while (VARRAY_ACTIVE_SIZE (nonzero_vars_stack) > 0)
+  while (VEC_length (tree_on_heap, nonzero_vars_stack) > 0)
     {
-      tree name = VARRAY_TOP_TREE (nonzero_vars_stack);
-      VARRAY_POP (nonzero_vars_stack);
+      tree name = VEC_pop (tree_on_heap, nonzero_vars_stack);
 
       if (name == NULL)
 	break;
@@ -906,23 +916,19 @@ restore_nonzero_vars_to_original_value (void)
 static void
 restore_vars_to_original_value (void)
 {
-  while (VARRAY_ACTIVE_SIZE (const_and_copies_stack) > 0)
+  while (VEC_length (tree_on_heap, const_and_copies_stack) > 0)
     {
       tree prev_value, dest;
 
-      dest = VARRAY_TOP_TREE (const_and_copies_stack);
-      VARRAY_POP (const_and_copies_stack);
+      dest = VEC_pop (tree_on_heap, const_and_copies_stack);
 
       if (dest == NULL)
 	break;
 
-      prev_value = VARRAY_TOP_TREE (const_and_copies_stack);
-      VARRAY_POP (const_and_copies_stack);
-
+      prev_value = VEC_pop (tree_on_heap, const_and_copies_stack);
       SSA_NAME_VALUE (dest) =  prev_value;
     }
 }
-
 
 /* Similar to restore_vars_to_original_value, except that it restores 
    CURRDEFS to its original value.  */
@@ -930,13 +936,30 @@ static void
 restore_currdefs_to_original_value (void)
 {
   /* Restore CURRDEFS to its original state.  */
-  while (VEC_length (vd_pair_t, block_defs_stack) > 0)
+  while (VEC_length (tree_on_heap, block_defs_stack) > 0)
     {
-      vd_pair_t pair = VEC_pop (vd_pair_t, block_defs_stack);
-      if (pair == NULL)
+      tree tmp = VEC_pop (tree_on_heap, block_defs_stack);
+      tree saved_def, var;
+
+      if (tmp == NULL_TREE)
 	break;
-      var_ann (pair->var)->current_def = pair->def;
-      pool_free (vd_pair_pool, pair);
+
+      /* If we recorded an SSA_NAME, then make the SSA_NAME the current
+	 definition of its underlying variable.  If we recorded anything
+	 else, it must have been an _DECL node and its current reaching
+	 definition must have been NULL.  */
+      if (TREE_CODE (tmp) == SSA_NAME)
+	{
+	  saved_def = tmp;
+	  var = SSA_NAME_VAR (saved_def);
+	}
+      else
+	{
+	  saved_def = NULL;
+	  var = tmp;
+	}
+                                                                                
+      var_ann (var)->current_def = saved_def;
     }
 }
 
@@ -949,7 +972,7 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data, basic_block bb)
 {
   tree last;
 
-  /* If we are at a leaf node in the dominator graph, see if we can thread
+  /* If we are at a leaf node in the dominator tree, see if we can thread
      the edge from BB through its successor.
 
      Do this before we remove entries from our equivalence tables.  */
@@ -984,9 +1007,9 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data, basic_block bb)
 	  /* Push a marker onto the available expression stack so that we
 	     unwind any expressions related to the TRUE arm before processing
 	     the false arm below.  */
-	  VARRAY_PUSH_TREE (avail_exprs_stack, NULL_TREE);
-	  VEC_safe_push (vd_pair_t, block_defs_stack, NULL);
-	  VARRAY_PUSH_TREE (const_and_copies_stack, NULL_TREE);
+	  VEC_safe_push (tree_on_heap, avail_exprs_stack, NULL_TREE);
+	  VEC_safe_push (tree_on_heap, block_defs_stack, NULL_TREE);
+	  VEC_safe_push (tree_on_heap, const_and_copies_stack, NULL_TREE);
 
 	  edge_info = true_edge->aux;
 
@@ -1088,9 +1111,9 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data, basic_block bb)
      To be efficient, we note which variables have had their values
      constrained in this block.  So walk over each variable in the
      VRP_VARIABLEs array.  */
-  while (VARRAY_ACTIVE_SIZE (vrp_variables_stack) > 0)
+  while (VEC_length (tree_on_heap, vrp_variables_stack) > 0)
     {
-      tree var = VARRAY_TOP_TREE (vrp_variables_stack);
+      tree var = VEC_pop (tree_on_heap, vrp_variables_stack);
       struct vrp_hash_elt vrp_hash_elt, *vrp_hash_elt_p;
       void **slot;
 
@@ -1100,8 +1123,6 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data, basic_block bb)
 	 block.  Once we hit a record not associated with our block
 	 we are done.  */
       varray_type var_vrp_records;
-
-      VARRAY_POP (vrp_variables_stack);
 
       if (var == NULL)
 	break;
@@ -1128,15 +1149,15 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data, basic_block bb)
 
   /* If we queued any statements to rescan in this block, then
      go ahead and rescan them now.  */
-  while (VARRAY_ACTIVE_SIZE (stmts_to_rescan) > 0)
+  while (VEC_length (tree_on_heap, stmts_to_rescan) > 0)
     {
-      tree stmt = VARRAY_TOP_TREE (stmts_to_rescan);
+      tree stmt = VEC_last (tree_on_heap, stmts_to_rescan);
       basic_block stmt_bb = bb_for_stmt (stmt);
 
       if (stmt_bb != bb)
 	break;
 
-      VARRAY_POP (stmts_to_rescan);
+      VEC_pop (tree_on_heap, stmts_to_rescan);
       mark_new_vars_to_rename (stmt, vars_to_rename);
     }
 }
@@ -1166,23 +1187,20 @@ record_equivalences_from_phis (basic_block bb)
 	{
 	  tree t = PHI_ARG_DEF (phi, i);
 
-	  if (TREE_CODE (t) == SSA_NAME || is_gimple_min_invariant (t))
-	    {
-	      /* Ignore alternatives which are the same as our LHS.  */
-	      if (operand_equal_p (lhs, t, 0))
-		continue;
+	  /* Ignore alternatives which are the same as our LHS.  Since
+	     LHS is a PHI_RESULT, it is known to be a SSA_NAME, so we
+	     can simply compare pointers.  */
+	  if (lhs == t)
+	    continue;
 
-	      /* If we have not processed an alternative yet, then set
-		 RHS to this alternative.  */
-	      if (rhs == NULL)
-		rhs = t;
-	      /* If we have processed an alternative (stored in RHS), then
-		 see if it is equal to this one.  If it isn't, then stop
-		 the search.  */
-	      else if (! operand_equal_p (rhs, t, 0))
-		break;
-	    }
-	  else
+	  /* If we have not processed an alternative yet, then set
+	     RHS to this alternative.  */
+	  if (rhs == NULL)
+	    rhs = t;
+	  /* If we have processed an alternative (stored in RHS), then
+	     see if it is equal to this one.  If it isn't, then stop
+	     the search.  */
+	  else if (! operand_equal_for_phi_arg_p (rhs, t))
 	    break;
 	}
 
@@ -1212,7 +1230,7 @@ record_equivalences_from_phis (basic_block bb)
       if (i == PHI_NUM_ARGS (phi))
 	bitmap_set_bit (nonzero_vars, SSA_NAME_VERSION (PHI_RESULT (phi)));
 
-      register_new_def (SSA_NAME_VAR (lhs), lhs, &block_defs_stack);
+      register_new_def (lhs, &block_defs_stack);
     }
 }
 
@@ -1371,7 +1389,7 @@ record_var_is_nonzero (tree var)
 
   /* Record this SSA_NAME so that we can reset the global table
      when we leave this block.  */
-  VARRAY_PUSH_TREE (nonzero_vars_stack, var);
+  VEC_safe_push (tree_on_heap, nonzero_vars_stack, var);
 }
 
 /* Enter a statement into the true/false expression hash table indicating
@@ -1390,7 +1408,7 @@ record_cond (tree cond, tree value)
   if (*slot == NULL)
     {
       *slot = (void *) element;
-      VARRAY_PUSH_TREE (avail_exprs_stack, cond);
+      VEC_safe_push (tree_on_heap, avail_exprs_stack, cond);
     }
   else
     free (element);
@@ -1529,8 +1547,8 @@ record_const_or_copy_1 (tree x, tree y, tree prev_x)
 {
   SSA_NAME_VALUE (x) = y;
 
-  VARRAY_PUSH_TREE (const_and_copies_stack, prev_x);
-  VARRAY_PUSH_TREE (const_and_copies_stack, x);
+  VEC_safe_push (tree_on_heap, const_and_copies_stack, prev_x);
+  VEC_safe_push (tree_on_heap, const_and_copies_stack, x);
 }
 
 
@@ -1563,7 +1581,7 @@ loop_depth_of_name (tree x)
 
 
 /* Record that X is equal to Y in const_and_copies.  Record undo
-   information in the block-local varray.  */
+   information in the block-local vector.  */
 
 static void
 record_const_or_copy (tree x, tree y)
@@ -2279,8 +2297,7 @@ cprop_into_successor_phis (basic_block bb, bitmap nonzero_vars)
   FOR_EACH_EDGE (e, ei, bb->succs)
     {
       tree phi;
-      int phi_num_args;
-      int hint;
+      int indx;
 
       /* If this is an abnormal edge, then we do not want to copy propagate
 	 into the PHI alternative associated with this edge.  */
@@ -2291,46 +2308,16 @@ cprop_into_successor_phis (basic_block bb, bitmap nonzero_vars)
       if (! phi)
 	continue;
 
-      /* There is no guarantee that for any two PHI nodes in a block that
-	 the phi alternative associated with a particular edge will be
-	 at the same index in the phi alternative array.
-
-	 However, it is very likely they will be the same.  So we keep
-	 track of the index of the alternative where we found the edge in
-	 the previous phi node and check that index first in the next
-	 phi node.  If that hint fails, then we actually search all
-	 the entries.  */
-      phi_num_args = PHI_NUM_ARGS (phi);
-      hint = phi_num_args;
+      indx = e->dest_idx;
       for ( ; phi; phi = PHI_CHAIN (phi))
 	{
-	  int i;
 	  tree new;
 	  use_operand_p orig_p;
 	  tree orig;
 
-	  /* If the hint is valid (!= phi_num_args), see if it points
-	     us to the desired phi alternative.  */
-	  if (hint != phi_num_args && PHI_ARG_EDGE (phi, hint) == e)
-	    ;
-	  else
-	    {
-	      /* The hint was either invalid or did not point to the
-		 correct phi alternative.  Search all the alternatives
-		 for the correct one.  Update the hint.  */
-	      for (i = 0; i < phi_num_args; i++)
-		if (PHI_ARG_EDGE (phi, i) == e)
-		  break;
-	      hint = i;
-	    }
-
-	  /* If we did not find the proper alternative, then something is
-	     horribly wrong.  */
-	  gcc_assert (hint != phi_num_args);
-
 	  /* The alternative may be associated with a constant, so verify
 	     it is an SSA_NAME before doing anything with it.  */
-	  orig_p = PHI_ARG_DEF_PTR (phi, hint);
+	  orig_p = PHI_ARG_DEF_PTR (phi, indx);
 	  orig = USE_FROM_PTR (orig_p);
 	  if (TREE_CODE (orig) != SSA_NAME)
 	    continue;
@@ -2338,7 +2325,7 @@ cprop_into_successor_phis (basic_block bb, bitmap nonzero_vars)
 	  /* If the alternative is known to have a nonzero value, record
 	     that fact in the PHI node itself for future use.  */
 	  if (bitmap_bit_p (nonzero_vars, SSA_NAME_VERSION (orig)))
-	    PHI_ARG_NONZERO (phi, hint) = true;
+	    PHI_ARG_NONZERO (phi, indx) = true;
 
 	  /* If we have *ORIG_P in our constant/copy table, then replace
 	     ORIG_P with its value in our constant/copy table.  */
@@ -2476,9 +2463,9 @@ record_edge_info (basic_block bb)
 		    }
 		}
 
-	      if (is_gimple_min_invariant (op0)
-		  && (TREE_CODE (op1) == SSA_NAME
-		       || is_gimple_min_invariant (op1)))
+	      else if (is_gimple_min_invariant (op0)
+		       && (TREE_CODE (op1) == SSA_NAME
+			   || is_gimple_min_invariant (op1)))
 		{
 		  tree inverted = invert_truthvalue (cond);
 		  struct edge_info *edge_info;
@@ -2502,9 +2489,9 @@ record_edge_info (basic_block bb)
 		    }
 		}
 
-	      if (TREE_CODE (op0) == SSA_NAME
-		  && (is_gimple_min_invariant (op1)
-		      || TREE_CODE (op1) == SSA_NAME))
+	      else if (TREE_CODE (op0) == SSA_NAME
+		       && (is_gimple_min_invariant (op1)
+			   || TREE_CODE (op1) == SSA_NAME))
 		{
 		  tree inverted = invert_truthvalue (cond);
 		  struct edge_info *edge_info;
@@ -3042,7 +3029,7 @@ optimize_stmt (struct dom_walk_data *walk_data, basic_block bb,
     }
 
   if (may_have_exposed_new_symbols)
-    VARRAY_PUSH_TREE (stmts_to_rescan, bsi_stmt (si));
+    VEC_safe_push (tree_on_heap, stmts_to_rescan, bsi_stmt (si));
 }
 
 /* Replace the RHS of STMT with NEW_RHS.  If RHS can be found in the
@@ -3077,7 +3064,7 @@ update_rhs_and_lookup_avail_expr (tree stmt, tree new_rhs, bool insert)
 
      We know the call in optimize_stmt did not find an existing entry
      in the hash table, so a new entry was created.  At the same time
-     this statement was pushed onto the BLOCK_AVAIL_EXPRS varray. 
+     this statement was pushed onto the AVAIL_EXPRS_STACK vector. 
 
      If this call failed to find an existing entry on the hash table,
      then the new version of this statement was entered into the
@@ -3085,16 +3072,16 @@ update_rhs_and_lookup_avail_expr (tree stmt, tree new_rhs, bool insert)
      for the second time.  So there are two copies on BLOCK_AVAIL_EXPRs
 
      If this call succeeded, we still have one copy of this statement
-     on the BLOCK_AVAIL_EXPRs varray.
+     on the BLOCK_AVAIL_EXPRs vector.
 
      For both cases, we need to pop the most recent entry off the
-     BLOCK_AVAIL_EXPRs varray.  For the case where we never found this
+     BLOCK_AVAIL_EXPRs vector.  For the case where we never found this
      statement in the hash tables, that will leave precisely one
      copy of this statement on BLOCK_AVAIL_EXPRs.  For the case where
      we found a copy of this statement in the second hash table lookup
      we want _no_ copies of this statement in BLOCK_AVAIL_EXPRs.  */
   if (insert)
-    VARRAY_POP (avail_exprs_stack);
+    VEC_pop (tree_on_heap, avail_exprs_stack);
 
   /* And make sure we record the fact that we modified this
      statement.  */
@@ -3170,7 +3157,8 @@ lookup_avail_expr (tree stmt, bool insert)
   if (*slot == NULL)
     {
       *slot = (void *) element;
-      VARRAY_PUSH_TREE (avail_exprs_stack, stmt ? stmt : element->rhs);
+      VEC_safe_push (tree_on_heap, avail_exprs_stack,
+		     stmt ? stmt : element->rhs);
       return NULL_TREE;
     }
 
@@ -3302,7 +3290,7 @@ record_range (tree cond, basic_block bb)
 	VARRAY_GENERIC_PTR_INIT (*vrp_records_p, 2, "vrp records");
       
       VARRAY_PUSH_GENERIC_PTR (*vrp_records_p, element);
-      VARRAY_PUSH_TREE (vrp_variables_stack, TREE_OPERAND (cond, 0));
+      VEC_safe_push (tree_on_heap, vrp_variables_stack, TREE_OPERAND (cond, 0));
     }
 }
 
@@ -3442,7 +3430,7 @@ register_definitions_for_stmt (tree stmt)
 
       /* FIXME: We shouldn't be registering new defs if the variable
 	 doesn't need to be renamed.  */
-      register_new_def (SSA_NAME_VAR (def), def, &block_defs_stack);
+      register_new_def (def, &block_defs_stack);
     }
 }
 

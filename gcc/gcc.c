@@ -1094,6 +1094,7 @@ static const struct option_map option_map[] =
    {"--output", "-o", "a"},
    {"--output-class-directory", "-foutput-class-dir=", "ja"},
    {"--param", "--param", "a"},
+   {"--pass-exit-codes", "-pass-exit-codes", 0},
    {"--pedantic", "-pedantic", 0},
    {"--pedantic-errors", "-pedantic-errors", 0},
    {"--pie", "-pie", 0},
@@ -1714,7 +1715,11 @@ init_spec (void)
 			    "-lgcc",
 			    "-lgcc_eh"
 #ifdef USE_LIBUNWIND_EXCEPTIONS
+# ifdef HAVE_LD_STATIC_DYNAMIC
+			    " %{!static:-Bstatic} -lunwind %{!static:-Bdynamic}"
+# else
 			    " -lunwind"
+# endif
 #endif
 			    );
 
@@ -6547,7 +6552,6 @@ main (int argc, const char **argv)
 	{
 	  delete_failure_queue ();
 	  error_count++;
-	  break;
 	}
       /* If this compilation succeeded, don't delete those files later.  */
       clear_failure_queue ();

@@ -41,8 +41,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 /* This is the 4th arg to `expand_expr'.
    EXPAND_STACK_PARM means we are possibly expanding a call param onto
-   the stack.  Choosing a value of 2 isn't special;  It just allows
-   some code optimization in store_expr.
+   the stack.
    EXPAND_SUM means it is ok to return a PLUS rtx or MULT rtx.
    EXPAND_INITIALIZER is similar but also record any labels on forced_labels.
    EXPAND_CONST_ADDRESS means it is ok to return a MEM whose address
@@ -50,7 +49,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    EXPAND_WRITE means we are only going to write to the resulting rtx.
    EXPAND_MEMORY means we are interested in a memory result, even if
     the memory is constant and we could have propagated a constant value.  */
-enum expand_modifier {EXPAND_NORMAL = 0, EXPAND_STACK_PARM = 2, EXPAND_SUM,
+enum expand_modifier {EXPAND_NORMAL = 0, EXPAND_STACK_PARM, EXPAND_SUM,
 		      EXPAND_CONST_ADDRESS, EXPAND_INITIALIZER, EXPAND_WRITE,
 		      EXPAND_MEMORY};
 
@@ -530,11 +529,6 @@ extern unsigned int case_values_threshold (void);
 
 /* Functions from alias.c */
 #include "alias.h"
-/* extern HOST_WIDE_INT get_varargs_alias_set (void); */
-/* extern HOST_WIDE_INT get_frame_alias_set (void); */
-/* extern void record_base_value (unsigned int, rtx, int); */
-/* extern HOST_WIDE_INT new_alias_set (void); */
-/* extern int can_address_p (tree); */
 
 
 /* rtl.h and tree.h were included.  */
@@ -550,6 +544,8 @@ extern HOST_WIDE_INT int_expr_size (tree);
 extern rtx hard_function_value (tree, tree, int);
 
 extern rtx prepare_call_address (rtx, rtx, rtx *, int, int);
+
+extern bool shift_return_value (enum machine_mode, bool, rtx);
 
 extern rtx expand_call (tree, rtx, int);
 

@@ -367,11 +367,11 @@ int flag_evaluation_order = 0;
 const char *user_label_prefix;
 
 static const param_info lang_independent_params[] = {
-#define DEFPARAM(ENUM, OPTION, HELP, DEFAULT) \
-  { OPTION, DEFAULT, HELP },
+#define DEFPARAM(ENUM, OPTION, HELP, DEFAULT, MIN, MAX) \
+  { OPTION, DEFAULT, MIN, MAX, HELP },
 #include "params.def"
 #undef DEFPARAM
-  { NULL, 0, NULL }
+  { NULL, 0, 0, 0, NULL }
 };
 
 /* Here is a table, controlled by the tm.h file, listing each -m switch
@@ -819,6 +819,13 @@ check_global_declarations (tree *vec, int len)
     {
       decl = vec[i];
 
+      /* Do not emit debug information about variables that are in
+	 static storage, but not defined.  */
+      if (TREE_CODE (decl) == VAR_DECL
+	  && TREE_STATIC (decl)
+	  && !TREE_ASM_WRITTEN (decl))
+	DECL_IGNORED_P (decl) = 1;
+ 
       /* Warn about any function
 	 declared static but not defined.
 	 We don't warn about variables,
@@ -1026,6 +1033,11 @@ compile_file (void)
   /* Output some stuff at end of file if nec.  */
 
   dw2_output_indirect_constants ();
+
+  /* Flush any pending external directives.  cgraph did this for
+     assemble_external calls from the front end, but the RTL
+     expander can also generate them.  */
+  process_pending_assemble_externals ();
 
   /* Attach a special .ident directive to the end of the file to identify
      the version of GCC which compiled this code.  The format of the .ident

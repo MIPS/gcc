@@ -29,7 +29,6 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-gimple.h"
 #include "tree-ssa-operands.h"
 #include "cgraph.h"
-#include "alloc-pool.h"
 
 /* Forward declare structures for the garbage collector GTY markers.  */
 #ifndef GCC_BASIC_BLOCK_H
@@ -136,7 +135,10 @@ enum mem_tag_kind {
   TYPE_TAG,
 
   /* This variable is a name memory tag (NMT).  */
-  NAME_TAG
+  NAME_TAG,
+
+  /* This variable represents a structure field.  */
+  STRUCT_FIELD
 };
 
 struct var_ann_d GTY(())
@@ -166,6 +168,14 @@ struct var_ann_d GTY(())
      See the enum's definition for more detailed information about the
      states.  */
   ENUM_BITFIELD (need_phi_state) need_phi_state : 2;
+
+  /* Used during operand processing to determine if this variable is already 
+     in the vuse list.  */
+  unsigned in_vuse_list : 1;
+
+  /* Used during operand processing to determine if this variable is already 
+     in the v_may_def list.  */
+  unsigned in_v_may_def_list : 1;
 
   /* An artificial variable representing the memory location pointed-to by
      all the pointers that TBAA (type-based alias analysis) considers
@@ -338,10 +348,6 @@ struct bb_ann_d GTY(())
   /* Chain of PHI nodes for this block.  */
   tree phi_nodes;
 
-  /* Nonzero if this block is forwardable during cfg cleanups.  This is also
-     used to detect loops during cfg cleanups.  */
-  unsigned forwardable: 1;
-
   /* Nonzero if this block contains an escape point (see is_escape_site).  */
   unsigned has_escape_site : 1;
 
@@ -509,10 +515,10 @@ extern void dump_generic_bb (FILE *, basic_block, int, int);
 extern var_ann_t create_var_ann (tree);
 extern stmt_ann_t create_stmt_ann (tree);
 extern tree_ann_t create_tree_ann (tree);
+extern void reserve_phi_args_for_new_edge (basic_block);
 extern tree create_phi_node (tree, basic_block);
-extern void add_phi_arg (tree *, tree, edge);
-extern void remove_phi_arg (tree, basic_block);
-extern void remove_phi_arg_num (tree, int);
+extern void add_phi_arg (tree, tree, edge);
+extern void remove_phi_args (edge);
 extern void remove_phi_node (tree, tree, basic_block);
 extern void remove_all_phi_nodes_for (bitmap);
 extern tree phi_reverse (tree);
@@ -533,6 +539,7 @@ extern tree get_virtual_var (tree);
 extern void add_referenced_tmp_var (tree);
 extern void mark_new_vars_to_rename (tree, bitmap);
 extern void find_new_referenced_vars (tree *);
+void mark_call_clobbered_vars_to_rename (void);
 
 extern void redirect_immediate_uses (tree, tree);
 extern tree make_rename_temp (tree, const char *);
@@ -547,6 +554,9 @@ extern void lower_stmt_body (tree, struct lower_data *);
 extern void record_vars (tree);
 extern bool block_may_fallthru (tree block);
 
+typedef tree tree_on_heap;
+DEF_VEC_MALLOC_P (tree_on_heap);
+
 /* In tree-ssa-alias.c  */
 extern void dump_may_aliases_for (FILE *, tree);
 extern void debug_may_aliases_for (tree);
@@ -558,20 +568,13 @@ extern void dump_points_to_info_for (FILE *, tree);
 extern void debug_points_to_info_for (tree);
 extern bool may_be_aliased (tree);
 extern struct ptr_info_def *get_ptr_info (tree);
+extern VEC(tree_on_heap) *get_fake_vars_for_component_ref (tree);
+extern VEC(tree_on_heap) *get_fake_vars_for_var (tree);
 
 /* Call-back function for walk_use_def_chains().  At each reaching
    definition, a function with this prototype is called.  */
 typedef bool (*walk_use_def_chains_fn) (tree, tree, void *);
 
-struct var_def_pair
-{
-  tree var;
-  tree def;
-};
-typedef struct var_def_pair *vd_pair_t;
-extern alloc_pool vd_pair_pool;
-
-DEF_VEC_MALLOC_P (vd_pair_t);
 
 /* In tree-ssa.c  */
 extern void init_tree_ssa (void);
@@ -581,14 +584,13 @@ extern void debug_tree_ssa (void);
 extern void debug_def_blocks (void);
 extern void dump_tree_ssa_stats (FILE *);
 extern void debug_tree_ssa_stats (void);
-extern void ssa_remove_edge (edge);
 extern edge ssa_redirect_edge (edge, basic_block);
 extern void flush_pending_stmts (edge);
 extern bool tree_ssa_useless_type_conversion (tree);
 extern bool tree_ssa_useless_type_conversion_1 (tree, tree);
 extern void verify_ssa (void);
 extern void delete_tree_ssa (void);
-extern void register_new_def (tree, tree, VEC (vd_pair_t) **);
+extern void register_new_def (tree, VEC (tree_on_heap) **);
 extern void walk_use_def_chains (tree, walk_use_def_chains_fn, void *, bool);
 extern void kill_redundant_phi_nodes (void);
 extern bool stmt_references_memory_p (tree);

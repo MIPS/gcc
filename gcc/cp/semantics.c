@@ -401,7 +401,7 @@ anon_aggr_type_p (tree node)
 
 /* Finish a scope.  */
 
-tree
+static tree
 do_poplevel (tree stmt_list)
 {
   tree block = NULL;
@@ -1505,7 +1505,6 @@ finish_stmt_expr_expr (tree expr, tree stmt_expr)
 	      || TREE_CODE (type) == FUNCTION_TYPE)
 	    expr = decay_conversion (expr);
 
-	  expr = convert_from_reference (expr);
 	  expr = require_complete_type (expr);
 
 	  type = TREE_TYPE (expr);
@@ -2294,31 +2293,6 @@ finish_base_specifier (tree base, tree access, bool virtual_p)
   return result;
 }
 
-/* Called when multiple declarators are processed.  If that is not
-   permitted in this context, an error is issued.  */
-
-void
-check_multiple_declarators (void)
-{
-  /* [temp]
-     
-     In a template-declaration, explicit specialization, or explicit
-     instantiation the init-declarator-list in the declaration shall
-     contain at most one declarator.  
-
-     We don't just use PROCESSING_TEMPLATE_DECL for the first
-     condition since that would disallow the perfectly valid code, 
-     like `template <class T> struct S { int i, j; };'.  */
-  if (at_function_scope_p ())
-    /* It's OK to write `template <class T> void f() { int i, j;}'.  */
-    return;
-     
-  if (PROCESSING_REAL_TEMPLATE_DECL_P () 
-      || processing_explicit_instantiation
-      || processing_specialization)
-    error ("multiple declarators in template declaration");
-}
-
 /* Issue a diagnostic that NAME cannot be found in SCOPE.  DECL is
    what we found when we tried to do the lookup.  */
 
@@ -2455,12 +2429,16 @@ finish_id_expression (tree id_expression,
   if ((TREE_CODE (decl) == CONST_DECL && DECL_TEMPLATE_PARM_P (decl))
       || TREE_CODE (decl) == TEMPLATE_PARM_INDEX)
     {
+      tree r;
+      
       *idk = CP_ID_KIND_NONE;
       if (TREE_CODE (decl) == TEMPLATE_PARM_INDEX)
 	decl = TEMPLATE_PARM_DECL (decl);
+      r = convert_from_reference (DECL_INITIAL (decl));
+      
       if (integral_constant_expression_p 
 	  && !dependent_type_p (TREE_TYPE (decl))
-	  && !INTEGRAL_OR_ENUMERATION_TYPE_P (TREE_TYPE (decl))) 
+	  && !(INTEGRAL_OR_ENUMERATION_TYPE_P (TREE_TYPE (r))))
 	{
 	  if (!allow_non_integral_constant_expression_p)
 	    error ("template parameter %qD of type %qT is not allowed in "
@@ -2468,7 +2446,7 @@ finish_id_expression (tree id_expression,
 		   "integral or enumeration type", decl, TREE_TYPE (decl));
 	  *non_integral_constant_expression_p = true;
 	}
-      return DECL_INITIAL (decl);
+      return r;
     }
   /* Similarly, we resolve enumeration constants to their 
      underlying values.  */
@@ -2575,10 +2553,10 @@ finish_id_expression (tree id_expression,
 	      if (TYPE_P (scope) && dependent_type_p (scope))
 		return build_nt (SCOPE_REF, scope, id_expression);
 	      else if (TYPE_P (scope) && DECL_P (decl))
-		return build2 (SCOPE_REF, TREE_TYPE (decl), scope,
-			       id_expression);
+		return convert_from_reference
+		  (build2 (SCOPE_REF, TREE_TYPE (decl), scope, id_expression));
 	      else
-		return decl;
+		return convert_from_reference (decl);
 	    }
 	  /* A TEMPLATE_ID already contains all the information we
 	     need.  */
@@ -2595,13 +2573,19 @@ finish_id_expression (tree id_expression,
 	     (or an instantiation thereof).  */
 	  if (TREE_CODE (decl) == VAR_DECL
 	      || TREE_CODE (decl) == PARM_DECL)
-	    return decl;
+	    return convert_from_reference (decl);
+	  /* The same is true for FIELD_DECL, but we also need to
+	     make sure that the syntax is correct.  */
+	  else if (TREE_CODE (decl) == FIELD_DECL)
+	    return finish_non_static_data_member
+		     (decl, current_class_ref,
+		      /*qualifying_scope=*/NULL_TREE);
 	  return id_expression;
 	}
 
       /* Only certain kinds of names are allowed in constant
-       expression.  Enumerators and template parameters 
-       have already been handled above.  */
+         expression.  Enumerators and template parameters have already
+         been handled above.  */
       if (integral_constant_expression_p
 	  && !DECL_INTEGRAL_CONSTANT_VAR_P (decl))
 	{
@@ -2649,10 +2633,15 @@ finish_id_expression (tree id_expression,
 
 	  if (TREE_CODE (decl) == FIELD_DECL || BASELINK_P (decl))
 	    *qualifying_class = scope;
-	  else if (!processing_template_decl)
-	    decl = convert_from_reference (decl);
-	  else if (TYPE_P (scope))
-	    decl = build2 (SCOPE_REF, TREE_TYPE (decl), scope, decl);
+	  else
+	    {
+	      tree r = convert_from_reference (decl);
+	      
+	      if (processing_template_decl
+		  && TYPE_P (scope))
+		r = build2 (SCOPE_REF, TREE_TYPE (r), scope, decl);
+	      decl = r;
+	    }
 	}
       else if (TREE_CODE (decl) == FIELD_DECL)
 	decl = finish_non_static_data_member (decl, current_class_ref,
@@ -2705,8 +2694,7 @@ finish_id_expression (tree id_expression,
 	      perform_or_defer_access_check (TYPE_BINFO (path), decl);
 	    }
 	  
-	  if (! processing_template_decl)
-	    decl = convert_from_reference (decl);
+	  decl = convert_from_reference (decl);
 	}
       
       /* Resolve references to variables of anonymous unions

@@ -44,17 +44,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-iterator.h"
 #include "tree-gimple.h"
 
-/* Places where an lvalue, or modifiable lvalue, may be required.
-   Used to select diagnostic messages in lvalue_or_else and
-   readonly_error.  */
-enum lvalue_use {
-  lv_assign,
-  lv_increment,
-  lv_decrement,
-  lv_addressof,
-  lv_asm
-};
-
 /* Possible cases of implicit bad conversions.  Used to select
    diagnostic messages in convert_for_assignment.  */
 enum impl_conv {
@@ -109,7 +98,6 @@ static void add_pending_init (tree, tree);
 static void set_nonincremental_init (void);
 static void set_nonincremental_init_from_string (tree);
 static tree find_init_member (tree);
-static int lvalue_or_else (tree, enum lvalue_use);
 static void readonly_error (tree, enum lvalue_use);
 static void record_maybe_used_decl (tree);
 
@@ -1389,7 +1377,7 @@ lookup_field (tree decl, tree component)
      find the element.  Otherwise, do a linear search.  TYPE_LANG_SPECIFIC
      will always be set for structures which have many elements.  */
 
-  if (TYPE_LANG_SPECIFIC (type))
+  if (TYPE_LANG_SPECIFIC (type) && TYPE_LANG_SPECIFIC (type)->s)
     {
       int bot, top, half;
       tree *field_array = &TYPE_LANG_SPECIFIC (type)->s->elts[0];
@@ -2714,43 +2702,6 @@ lvalue_p (tree ref)
       return 0;
     }
 }
-
-/* Return nonzero if REF is an lvalue valid for this language;
-   otherwise, print an error message and return zero.  USE says
-   how the lvalue is being used and so selects the error message.  */
-
-static int
-lvalue_or_else (tree ref, enum lvalue_use use)
-{
-  int win = lvalue_p (ref);
-
-  if (!win)
-    {
-      switch (use)
-	{
-	case lv_assign:
-	  error ("invalid lvalue in assignment");
-	  break;
-	case lv_increment:
-	  error ("invalid lvalue in increment");
-	  break;
-	case lv_decrement:
-	  error ("invalid lvalue in decrement");
-	  break;
-	case lv_addressof:
-	  error ("invalid lvalue in unary %<&%>");
-	  break;
-	case lv_asm:
-	  error ("invalid lvalue in asm statement");
-	  break;
-	default:
-	  gcc_unreachable ();
-	}
-    }
-
-  return win;
-}
-
 
 /* Give an error for storing in something that is 'const'.  */
 
@@ -6556,6 +6507,7 @@ c_start_case (tree exp)
 	{
 	  error ("switch quantity not an integer");
 	  exp = integer_zero_node;
+	  orig_type = error_mark_node;
 	}
       else
 	{
@@ -6708,10 +6660,17 @@ c_finish_loop (location_t start_locus, tree cond, tree incr, tree body,
 {
   tree entry = NULL, exit = NULL, t;
 
-  /* Detect do { ... } while (0) and don't generate loop construct.  */
-  if (cond && !cond_is_first && integer_zerop (cond))
-    cond = NULL;
-  if (cond_is_first || cond)
+  /* If the condition is zero don't generate a loop construct.  */
+  if (cond && integer_zerop (cond))
+    {
+      if (cond_is_first)
+	{
+	  t = build_and_jump (&blab);
+	  SET_EXPR_LOCATION (t, start_locus);
+	  add_stmt (t);
+	}
+    }
+  else
     {
       tree top = build1 (LABEL_EXPR, void_type_node, NULL_TREE);
  
@@ -6720,7 +6679,7 @@ c_finish_loop (location_t start_locus, tree cond, tree incr, tree body,
          then we just build a jump back to the top.  */
       exit = build_and_jump (&LABEL_EXPR_LABEL (top));
  
-      if (cond)
+      if (cond && !integer_nonzerop (cond))
         {
           /* Canonicalize the loop condition to the end.  This means
              generating a branch to the loop condition.  Reuse the

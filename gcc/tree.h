@@ -648,9 +648,6 @@ extern void tree_operand_check_failed (int, enum tree_code,
 #define FUNC_OR_METHOD_CHECK(T)	TREE_CHECK2 (T, FUNCTION_TYPE, METHOD_TYPE)
 #define PTR_OR_REF_CHECK(T)	TREE_CHECK2 (T, POINTER_TYPE, REFERENCE_TYPE)
 
-#define SET_OR_ARRAY_CHECK(T) \
-  TREE_CHECK2 (T, ARRAY_TYPE, SET_TYPE)
-
 #define RECORD_OR_UNION_CHECK(T)	\
   TREE_CHECK3 (T, RECORD_TYPE, UNION_TYPE, QUAL_UNION_TYPE)
 #define NOT_RECORD_OR_UNION_CHECK(T) \
@@ -773,8 +770,7 @@ extern void tree_operand_check_failed (int, enum tree_code,
 
 #define AGGREGATE_TYPE_P(TYPE) \
   (TREE_CODE (TYPE) == ARRAY_TYPE || TREE_CODE (TYPE) == RECORD_TYPE \
-   || TREE_CODE (TYPE) == UNION_TYPE || TREE_CODE (TYPE) == QUAL_UNION_TYPE \
-   || TREE_CODE (TYPE) == SET_TYPE)
+   || TREE_CODE (TYPE) == UNION_TYPE || TREE_CODE (TYPE) == QUAL_UNION_TYPE)
 
 /* Nonzero if TYPE represents a pointer or reference type.
    (It should be renamed to INDIRECT_TYPE_P.)  */
@@ -1157,17 +1153,6 @@ struct tree_vec GTY(())
 #define REF_ORIGINAL(NODE) TREE_CHAIN (TREE_CHECK3 (NODE, 	\
 	INDIRECT_REF, ALIGN_INDIRECT_REF, MISALIGNED_INDIRECT_REF))
 
-/* In a LABELED_BLOCK_EXPR node.  */
-#define LABELED_BLOCK_LABEL(NODE) \
-  TREE_OPERAND_CHECK_CODE (NODE, LABELED_BLOCK_EXPR, 0)
-#define LABELED_BLOCK_BODY(NODE) \
-  TREE_OPERAND_CHECK_CODE (NODE, LABELED_BLOCK_EXPR, 1)
-
-/* In an EXIT_BLOCK_EXPR node.  */
-#define EXIT_BLOCK_LABELED_BLOCK(NODE) \
-  TREE_OPERAND_CHECK_CODE (NODE, EXIT_BLOCK_EXPR, 0)
-#define EXIT_BLOCK_RETURN(NODE) TREE_OPERAND_CHECK_CODE (NODE, EXIT_BLOCK_EXPR, 1)
-
 /* In a LOOP_EXPR node.  */
 #define LOOP_EXPR_BODY(NODE) TREE_OPERAND_CHECK_CODE (NODE, LOOP_EXPR, 0)
 
@@ -1374,7 +1359,7 @@ struct tree_ssa_name GTY(())
 #define PHI_NUM_ARGS(NODE)		PHI_NODE_CHECK (NODE)->phi.num_args
 #define PHI_ARG_CAPACITY(NODE)		PHI_NODE_CHECK (NODE)->phi.capacity
 #define PHI_ARG_ELT(NODE, I)		PHI_NODE_ELT_CHECK (NODE, I)
-#define PHI_ARG_EDGE(NODE, I)		PHI_NODE_ELT_CHECK (NODE, I).e
+#define PHI_ARG_EDGE(NODE, I) 		(EDGE_PRED (PHI_BB ((NODE)), (I)))
 #define PHI_ARG_NONZERO(NODE, I) 	PHI_NODE_ELT_CHECK (NODE, I).nonzero
 #define PHI_BB(NODE)			PHI_NODE_CHECK (NODE)->phi.bb
 #define PHI_DF(NODE)			PHI_NODE_CHECK (NODE)->phi.df
@@ -1384,7 +1369,6 @@ struct edge_def;
 struct phi_arg_d GTY(())
 {
   tree def;
-  struct edge_def * GTY((skip (""))) e;
   bool nonzero;
 };
 
@@ -1488,7 +1472,7 @@ struct tree_block GTY(())
 #define TYPE_SIZE_UNIT(NODE) (TYPE_CHECK (NODE)->type.size_unit)
 #define TYPE_MODE(NODE) (TYPE_CHECK (NODE)->type.mode)
 #define TYPE_VALUES(NODE) (ENUMERAL_TYPE_CHECK (NODE)->type.values)
-#define TYPE_DOMAIN(NODE) (SET_OR_ARRAY_CHECK (NODE)->type.values)
+#define TYPE_DOMAIN(NODE) (ARRAY_TYPE_CHECK (NODE)->type.values)
 #define TYPE_FIELDS(NODE) (RECORD_OR_UNION_CHECK (NODE)->type.values)
 #define TYPE_CACHED_VALUES(NODE) (TYPE_CHECK(NODE)->type.values)
 #define TYPE_ORIG_SIZE_TYPE(NODE)			\
@@ -3291,11 +3275,6 @@ extern tree save_expr (tree);
 
 extern tree skip_simple_arithmetic (tree);
 
-/* Returns the index of the first non-tree operand for CODE, or the number
-   of operands if all are trees.  */
-
-extern int first_rtl_op (enum tree_code);
-
 /* Return which tree structure is used by T.  */
 
 enum tree_node_structure_enum tree_node_structure (tree);
@@ -3454,6 +3433,7 @@ extern bool commutative_tree_code (enum tree_code);
 extern tree get_case_label (tree);
 extern tree upper_bound_in_type (tree, tree);
 extern tree lower_bound_in_type (tree, tree);
+extern int operand_equal_for_phi_arg_p (tree, tree);
 
 /* In stmt.c */
 
@@ -3525,8 +3505,8 @@ extern int operand_equal_p (tree, tree, unsigned int);
 extern tree omit_one_operand (tree, tree, tree);
 extern tree omit_two_operands (tree, tree, tree, tree);
 extern tree invert_truthvalue (tree);
-extern tree nondestructive_fold_unary_to_constant (enum tree_code, tree, tree);
-extern tree nondestructive_fold_binary_to_constant (enum tree_code, tree, tree, tree);
+extern tree fold_unary_to_constant (enum tree_code, tree, tree);
+extern tree fold_binary_to_constant (enum tree_code, tree, tree, tree);
 extern tree fold_read_from_constant_string (tree);
 extern tree int_const_binop (enum tree_code, tree, tree, int);
 extern tree build_fold_addr_expr (tree);
@@ -3546,6 +3526,7 @@ extern tree fold_builtin (tree, bool);
 extern tree fold_builtin_fputs (tree, bool, bool, tree);
 extern tree fold_builtin_strcpy (tree, tree);
 extern tree fold_builtin_strncpy (tree, tree);
+extern bool fold_builtin_next_arg (tree);
 extern enum built_in_function builtin_mathfn_code (tree);
 extern tree build_function_call_expr (tree, tree);
 extern tree mathfn_built_in (tree, enum built_in_function fn);
@@ -3649,9 +3630,11 @@ extern rtx emit_line_note (location_t);
 
 /* In calls.c */
 
-/* Nonzero if this is a call to a `const' function.  */
+/* Nonzero if this is a call to a function whose return value depends
+   solely on its arguments, has no side effects, and does not read
+   global memory.  */
 #define ECF_CONST		1
-/* Nonzero if this is a call to a `volatile' function.  */
+/* Nonzero if this call will never return.  */
 #define ECF_NORETURN		2
 /* Nonzero if this is a call to malloc or a related function.  */
 #define ECF_MALLOC		4
@@ -3661,21 +3644,18 @@ extern rtx emit_line_note (location_t);
 #define ECF_NOTHROW		16
 /* Nonzero if this is a call to setjmp or a related function.  */
 #define ECF_RETURNS_TWICE	32
-/* Nonzero if this is a call to `longjmp'.  */
-#define ECF_LONGJMP		64
-/* Nonzero if this is a syscall that makes a new process in the image of
-   the current one.  */
-#define ECF_SIBCALL		128
+/* Nonzero if this call replaces the current stack frame.  */
+#define ECF_SIBCALL		64
 /* Nonzero if this is a call to "pure" function (like const function,
    but may read memory.  */
-#define ECF_PURE		256
+#define ECF_PURE		128
 /* Nonzero if this is a call to a function that returns with the stack
    pointer depressed.  */
-#define ECF_SP_DEPRESSED	512
+#define ECF_SP_DEPRESSED	256
 /* Nonzero if this call is known to always return.  */
-#define ECF_ALWAYS_RETURN	1024
+#define ECF_ALWAYS_RETURN	512
 /* Create libcall block around the call.  */
-#define ECF_LIBCALL_BLOCK	2048
+#define ECF_LIBCALL_BLOCK	1024
 
 extern int flags_from_decl_or_type (tree);
 extern int call_expr_flags (tree);
@@ -3717,6 +3697,7 @@ extern void mark_referenced (tree);
 extern void mark_decl_referenced (tree);
 extern void notice_global_symbol (tree);
 extern void set_user_assembler_name (tree, const char *);
+extern void process_pending_assemble_externals (void);
 
 /* In stmt.c */
 extern void expand_computed_goto (tree);

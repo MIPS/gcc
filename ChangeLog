@@ -1,3 +1,87 @@
+2004-12-17  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* MAINTAINERS: Move myself to OS Port Maintainers for windows,
+	cygwin, mingw.
+
+2004-12-16  Andrew Stubbs  <andrew.stubbs@st.com>
+
+	* configure.in (sh64-*-*): Reenable gprof.
+	* configure: Regenerate.
+
+2004-12-08  David Edelsohn  <edelsohn@gnu.org>
+
+	* Makefile.def (flags_to_pass): Add PICFLAG_FOR_TARGET.
+	* Makefile.tpl (EXTRA_HOST_FLAGS): Add PICFLAG.
+	(EXTRA_TARGET_FLAGS): Add PICFLAG.
+	* Makefile.in: Regenerate.
+
+2004-12-08  Christopher Faylor  <cgf@gcc.gnu.org>
+
+	* MAINTAINERS: Update my email address.
+
+2004-12-07  Matt Kraai  <kraai@ftbfs.org>
+
+	* Makefile.tpl: Generate normal dependencies if the LHS module is
+	not bootstrapped.
+	* Makefile.in: Regenerate.
+
+2004-12-03  Richard Sandiford  <rsandifo@redhat.com>
+
+	* configure.in: Include config/gxx-include-dir.m4.  Use
+	TL_AC_GXX_INCLUDE_DIR.  Remove some now-redundant AC_SUBSTs.
+	* configure: Regenerate.
+
+2004-12-03  Richard Sandiford  <rsandifo@redhat.com>
+
+	* config.if: Delete.
+	* configure.in: Set libstdcxx_incdir directly.
+	* configure: Regenerate.
+
+2004-12-02  Eric Christopher  <echristo@redhat.com>
+
+	* Makefile.tpl (clean-target-libgcc): Make change in correct place.
+	* Makefile.in: Regenerate.
+
+2004-12-02  Richard Sandiford  <rsandifo@redhat.com>
+
+	* configure.in: Clear gcc_version_trigger if the file doesn't exist.
+	* configure: Regenerate.
+
+2004-12-02  Richard Sandiford  <rsandifo@redhat.com>
+
+	* configure.in: Include config/gcc-version.m4.  Use TL_AC_GCC_VERSION
+	to set gcc_version_trigger.  Remove some now-redundant AC_SUBSTs.
+	* configure: Regenerate.
+
+2004-12-01  Eric Christopher  <echristo@redhat.com>
+
+	* Makefile.in (clean-target-libgcc): Add stmp-dirs to list
+	of things to remove.
+
+2004-11-29  Matt Kraai  <kraai@ftbfs.org>
+
+	* MAINTAINERS (Write After Approval): Update my e-mail address.
+
+2004-11-29  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* libtool.m4 (AC_DEPLIBS_CHECK_METHOD): Re-import linux-gnu case
+	from CVS libtool to always pass_all.
+
+2004-11-25  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* configure.in (hppa*-*-linux*): Don't add libgcj to noconfigdirs.
+	(hppa*64*-*-*): Delete incorrect comment.
+	* configure: Rebuilt.
+
+2004-11-24  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* libtool.m4 (AC_DEPLIBS_CHECK_METHOD): Revert previous change.
+
+2004-11-24  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* libtool.m4 (AC_DEPLIBS_CHECK_METHOD): Import linux-gnu case
+	from CVS libtool to always pass_all.
+
 2004-11-15  Kelley Cook  <kcook@gcc.gnu.org>
 
 	* install-sh, compile: Import from automake.
@@ -210,7 +294,7 @@
 	* MAINTAINERS: Add self as c++ and type-safe vector maintainer.
 
 2004-09-09  Daniel Berlin  <dberlin@dberlin.org>
-	
+
 	* Makefile.def: Remove libbanshee.
 	* Makefile.tpl: Ditto.
 	* configure.in: Ditto.
@@ -231,7 +315,7 @@
 	* config.sub: Import latest version from master repository.
 	* config.guess: Likewise.
 	This includes these changes:
-	
+
 	2004-08-27  Hans-Peter Nilsson  <hp@axis.com>
 
 	* config.sub: Handle crisv32, alias etraxfs.
@@ -354,7 +438,7 @@
 	* Makefile.in: Move BOOT_CFLAGS above host makefile fragment include.
 	* configure.in: add test for powerpc-*-darwin* to specify makefile frag
 	* configure: regenerate
-	* config/mh-ppc-darwin: create file, override BOOT_CFLAGS for 
+	* config/mh-ppc-darwin: create file, override BOOT_CFLAGS for
         -mdynamic-no-pic
 
 
@@ -586,7 +670,7 @@
 	Use autoconf's AC_PROG_CC to find a C compiler.  Define
 	BUILD_DIR_PREFIX.  Look for flex, makeinfo and m4.
 	* configure: Regenerate.
-	
+
 2004-06-22  Paolo Bonzini  <bonzini@gnu.org>
 
 	* Makefile.tpl (HOST_EXPORTS): Fix pasto.

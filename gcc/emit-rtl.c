@@ -184,7 +184,6 @@ static int reg_attrs_htab_eq (const void *, const void *);
 static reg_attrs *get_reg_attrs (tree, int);
 static tree component_ref_for_mem_expr (tree);
 static rtx gen_const_vector (enum machine_mode, int);
-static rtx gen_complex_constant_part (enum machine_mode, rtx, int);
 static void copy_rtx_if_shared_1 (rtx *orig);
 
 /* Probability of the conditional branch currently proceeded by try_split.
@@ -607,20 +606,98 @@ gen_const_mem (enum machine_mode mode, rtx addr)
   return mem;
 }
 
+/* We want to create (subreg:OMODE (obj:IMODE) OFFSET).  Return true if
+   this construct would be valid, and false otherwise.  */
+
+bool
+validate_subreg (enum machine_mode omode, enum machine_mode imode,
+		 rtx reg, unsigned int offset)
+{
+  unsigned int isize = GET_MODE_SIZE (imode);
+  unsigned int osize = GET_MODE_SIZE (omode);
+
+  /* All subregs must be aligned.  */
+  if (offset % osize != 0)
+    return false;
+
+  /* The subreg offset cannot be outside the inner object.  */
+  if (offset >= isize)
+    return false;
+
+  /* ??? This should not be here.  Temporarily continue to allow word_mode
+     subregs of anything.  The most common offender is (subreg:SI (reg:DF)).
+     Generally, backends are doing something sketchy but it'll take time to
+     fix them all.  */
+  if (omode == word_mode)
+    ;
+  /* ??? Similarly, e.g. with (subreg:DF (reg:TI)).  Though store_bit_field
+     is the culprit here, and not the backends.  */
+  else if (osize >= UNITS_PER_WORD && isize >= osize)
+    ;
+  /* Allow component subregs of complex and vector.  Though given the below
+     extraction rules, it's not always clear what that means.  */
+  else if ((COMPLEX_MODE_P (imode) || VECTOR_MODE_P (imode))
+	   && GET_MODE_INNER (imode) == omode)
+    ;
+  /* ??? x86 sse code makes heavy use of *paradoxical* vector subregs,
+     i.e. (subreg:V4SF (reg:SF) 0).  This surely isn't the cleanest way to
+     represent this.  It's questionable if this ought to be represented at
+     all -- why can't this all be hidden in post-reload splitters that make
+     arbitrarily mode changes to the registers themselves.  */
+  else if (VECTOR_MODE_P (omode) && GET_MODE_INNER (omode) == imode)
+    ;
+  /* Subregs involving floating point modes are not allowed to
+     change size.  Therefore (subreg:DI (reg:DF) 0) is fine, but
+     (subreg:SI (reg:DF) 0) isn't.  */
+  else if (FLOAT_MODE_P (imode) || FLOAT_MODE_P (omode))
+    {
+      if (isize != osize)
+	return false;
+    }
+
+  /* Paradoxical subregs must have offset zero.  */
+  if (osize > isize)
+    return offset == 0;
+
+  /* This is a normal subreg.  Verify that the offset is representable.  */
+
+  /* For hard registers, we already have most of these rules collected in
+     subreg_offset_representable_p.  */
+  if (reg && REG_P (reg) && HARD_REGISTER_P (reg))
+    {
+      unsigned int regno = REGNO (reg);
+
+#ifdef CANNOT_CHANGE_MODE_CLASS
+      if ((COMPLEX_MODE_P (imode) || VECTOR_MODE_P (imode))
+	  && GET_MODE_INNER (imode) == omode)
+	;
+      else if (REG_CANNOT_CHANGE_MODE_P (regno, imode, omode))
+	return false;
+#endif
+
+      return subreg_offset_representable_p (regno, imode, offset, omode);
+    }
+
+  /* For pseudo registers, we want most of the same checks.  Namely:
+     If the register no larger than a word, the subreg must be lowpart.
+     If the register is larger than a word, the subreg must be the lowpart
+     of a subword.  A subreg does *not* perform arbitrary bit extraction.
+     Given that we've already checked mode/offset alignment, we only have
+     to check subword subregs here.  */
+  if (osize < UNITS_PER_WORD)
+    {
+      enum machine_mode wmode = isize > UNITS_PER_WORD ? word_mode : imode;
+      unsigned int low_off = subreg_lowpart_offset (omode, wmode);
+      if (offset % UNITS_PER_WORD != low_off)
+	return false;
+    }
+  return true;
+}
+
 rtx
 gen_rtx_SUBREG (enum machine_mode mode, rtx reg, int offset)
 {
-  /* This is the most common failure type.
-     Catch it early so we can see who does it.  */
-  gcc_assert (!(offset % GET_MODE_SIZE (mode)));
-
-  /* This check isn't usable right now because combine will
-     throw arbitrary crap like a CALL into a SUBREG in
-     gen_lowpart_for_combine so we must just eat it.  */
-#if 0
-  /* Check for this too.  */
-  gcc_assert (offset < GET_MODE_SIZE (GET_MODE (reg)));
-#endif
+  gcc_assert (validate_subreg (mode, GET_MODE (reg), reg, offset));
   return gen_rtx_raw_SUBREG (mode, reg, offset);
 }
 
@@ -1018,34 +1095,6 @@ maybe_set_first_label_num (rtx x)
     first_label_num = CODE_LABEL_NUMBER (x);
 }
 
-/* Return the final regno of X, which is a SUBREG of a hard
-   register.  */
-int
-subreg_hard_regno (rtx x, int check_mode)
-{
-  enum machine_mode mode = GET_MODE (x);
-  unsigned int byte_offset, base_regno, final_regno;
-  rtx reg = SUBREG_REG (x);
-
-  /* This is where we attempt to catch illegal subregs
-     created by the compiler.  */
-  gcc_assert (GET_CODE (x) == SUBREG && REG_P (reg));
-  base_regno = REGNO (reg);
-  gcc_assert (base_regno < FIRST_PSEUDO_REGISTER);
-  gcc_assert (!check_mode || HARD_REGNO_MODE_OK (base_regno, GET_MODE (reg)));
-#ifdef ENABLE_CHECKING
-  gcc_assert (subreg_offset_representable_p (REGNO (reg), GET_MODE (reg),
-					     SUBREG_BYTE (x), mode));
-#endif
-  /* Catch non-congruent offsets too.  */
-  byte_offset = SUBREG_BYTE (x);
-  gcc_assert (!(byte_offset % GET_MODE_SIZE (mode)));
-
-  final_regno = subreg_regno (x);
-
-  return final_regno;
-}
-
 /* Return a value representing some low-order bits of X, where the number
    of low-order bits is given by MODE.  Note that no conversion is done
    between floating-point and fixed-point values, rather, the bit
@@ -1117,81 +1166,6 @@ gen_lowpart_common (enum machine_mode mode, rtx x)
 
   /* Otherwise, we can't do this.  */
   return 0;
-}
-
-/* Return the constant real or imaginary part (which has mode MODE)
-   of a complex value X.  The IMAGPART_P argument determines whether
-   the real or complex component should be returned.  This function
-   returns NULL_RTX if the component isn't a constant.  */
-
-static rtx
-gen_complex_constant_part (enum machine_mode mode, rtx x, int imagpart_p)
-{
-  tree decl, part;
-
-  if (MEM_P (x)
-      && GET_CODE (XEXP (x, 0)) == SYMBOL_REF)
-    {
-      decl = SYMBOL_REF_DECL (XEXP (x, 0));
-      if (decl != NULL_TREE && TREE_CODE (decl) == COMPLEX_CST)
-	{
-	  part = imagpart_p ? TREE_IMAGPART (decl) : TREE_REALPART (decl);
-	  if (TREE_CODE (part) == REAL_CST
-	      || TREE_CODE (part) == INTEGER_CST)
-	    return expand_expr (part, NULL_RTX, mode, 0);
-	}
-    }
-  return NULL_RTX;
-}
-
-/* Return the real part (which has mode MODE) of a complex value X.
-   This always comes at the low address in memory.  */
-
-rtx
-gen_realpart (enum machine_mode mode, rtx x)
-{
-  rtx part;
-
-  /* Handle complex constants.  */
-  part = gen_complex_constant_part (mode, x, 0);
-  if (part != NULL_RTX)
-    return part;
-
-  if (WORDS_BIG_ENDIAN
-      && GET_MODE_BITSIZE (mode) < BITS_PER_WORD
-      && REG_P (x)
-      && REGNO (x) < FIRST_PSEUDO_REGISTER)
-    internal_error
-      ("can't access real part of complex value in hard register");
-  else if (WORDS_BIG_ENDIAN)
-    return gen_highpart (mode, x);
-  else
-    return gen_lowpart (mode, x);
-}
-
-/* Return the imaginary part (which has mode MODE) of a complex value X.
-   This always comes at the high address in memory.  */
-
-rtx
-gen_imagpart (enum machine_mode mode, rtx x)
-{
-  rtx part;
-
-  /* Handle complex constants.  */
-  part = gen_complex_constant_part (mode, x, 1);
-  if (part != NULL_RTX)
-    return part;
-
-  if (WORDS_BIG_ENDIAN)
-    return gen_lowpart (mode, x);
-  else if (! WORDS_BIG_ENDIAN
-	   && GET_MODE_BITSIZE (mode) < BITS_PER_WORD
-	   && REG_P (x)
-	   && REGNO (x) < FIRST_PSEUDO_REGISTER)
-    internal_error
-      ("can't access imaginary part of complex value in hard register");
-  else
-    return gen_highpart (mode, x);
 }
 
 rtx
@@ -1572,9 +1546,9 @@ set_mem_attributes_minus_bitpos (rtx ref, tree t, int objectp,
 	     || TREE_CODE (t) == SAVE_EXPR)
 	t = TREE_OPERAND (t, 0);
 
-      /* If this expression can't be addressed (e.g., it contains a reference
-	 to a non-addressable field), show we don't change its alias set.  */
-      if (! can_address_p (t))
+      /* If this expression uses it's parent's alias set, mark it such
+	 that we won't change it.  */
+      if (component_uses_parent_alias_set (t))
 	MEM_KEEP_ALIAS_SET_P (ref) = 1;
 
       /* If this is a decl, set the attributes of the MEM from it.  */
@@ -2740,11 +2714,19 @@ get_first_nonnote_insn (void)
 {
   rtx insn = first_insn;
 
-  while (insn)
+  if (insn)
     {
-      insn = next_insn (insn);
-      if (insn == 0 || !NOTE_P (insn))
-	break;
+      if (NOTE_P (insn))
+	for (insn = next_insn (insn);
+	     insn && NOTE_P (insn);
+	     insn = next_insn (insn))
+	  continue;
+      else
+	{
+	  if (GET_CODE (insn) == INSN
+	      && GET_CODE (PATTERN (insn)) == SEQUENCE)
+	    insn = XVECEXP (PATTERN (insn), 0, 0);
+	}
     }
 
   return insn;
@@ -2758,11 +2740,20 @@ get_last_nonnote_insn (void)
 {
   rtx insn = last_insn;
 
-  while (insn)
+  if (insn)
     {
-      insn = previous_insn (insn);
-      if (insn == 0 || !NOTE_P (insn))
-	break;
+      if (NOTE_P (insn))
+	for (insn = previous_insn (insn);
+	     insn && NOTE_P (insn);
+	     insn = previous_insn (insn))
+	  continue;
+      else
+	{
+	  if (GET_CODE (insn) == INSN
+	      && GET_CODE (PATTERN (insn)) == SEQUENCE)
+	    insn = XVECEXP (PATTERN (insn), 0,
+			    XVECLEN (PATTERN (insn), 0) - 1);
+	}
     }
 
   return insn;
@@ -3690,7 +3681,6 @@ find_line_note (rtx insn)
 void
 remove_unnecessary_notes (void)
 {
-  rtx block_stack = NULL_RTX;
   rtx eh_stack = NULL_RTX;
   rtx insn;
   rtx next;
@@ -3729,66 +3719,17 @@ remove_unnecessary_notes (void)
 	  break;
 
 	case NOTE_INSN_BLOCK_BEG:
-	  /* By now, all notes indicating lexical blocks should have
-	     NOTE_BLOCK filled in.  */
-	  gcc_assert (NOTE_BLOCK (insn));
-	  block_stack = alloc_INSN_LIST (insn, block_stack);
-	  break;
-
 	case NOTE_INSN_BLOCK_END:
-	  /* Too many end notes.  */
-	  gcc_assert (block_stack);
-	  /* Mismatched nesting.  */
-	  gcc_assert (NOTE_BLOCK (XEXP (block_stack, 0)) == NOTE_BLOCK (insn));
-	  tmp = block_stack;
-	  block_stack = XEXP (block_stack, 1);
-	  free_INSN_LIST_node (tmp);
+          /* BLOCK_END and BLOCK_BEG notes only exist in the `final' pass.  */
+          gcc_unreachable ();
 
-	  /* Scan back to see if there are any non-note instructions
-	     between INSN and the beginning of this block.  If not,
-	     then there is no PC range in the generated code that will
-	     actually be in this block, so there's no point in
-	     remembering the existence of the block.  */
-	  for (tmp = PREV_INSN (insn); tmp; tmp = PREV_INSN (tmp))
-	    {
-	      /* This block contains a real instruction.  Note that we
-		 don't include labels; if the only thing in the block
-		 is a label, then there are still no PC values that
-		 lie within the block.  */
-	      if (INSN_P (tmp))
-		break;
-
-	      /* We're only interested in NOTEs.  */
-	      if (!NOTE_P (tmp))
-		continue;
-
-	      if (NOTE_LINE_NUMBER (tmp) == NOTE_INSN_BLOCK_BEG)
-		{
-		  /* We just verified that this BLOCK matches us with
-		     the block_stack check above.  Never delete the
-		     BLOCK for the outermost scope of the function; we
-		     can refer to names from that scope even if the
-		     block notes are messed up.  */
-		  if (! is_body_block (NOTE_BLOCK (insn))
-		      && (*debug_hooks->ignore_block) (NOTE_BLOCK (insn)))
-		    {
-		      remove_insn (tmp);
-		      remove_insn (insn);
-		    }
-		  break;
-		}
-	      else if (NOTE_LINE_NUMBER (tmp) == NOTE_INSN_BLOCK_END)
-		/* There's a nested block.  We need to leave the
-		   current block in place since otherwise the debugger
-		   wouldn't be able to show symbols from our block in
-		   the nested block.  */
-		break;
-	    }
+	default:
+	  break;
 	}
     }
 
-  /* Too many begin notes.  */
-  gcc_assert (!block_stack && !eh_stack);
+  /* Too many EH_REGION_BEG notes.  */
+  gcc_assert (!eh_stack);
 }
 
 

@@ -27,16 +27,21 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
+/** @file ext/malloc_allocator.h
+ *  This file is a GNU extension to the Standard C++ Library.
+ */
+
 #ifndef _MALLOC_ALLOCATOR_H
 #define _MALLOC_ALLOCATOR_H 1
 
+#include <cstdlib>
 #include <new>
 #include <bits/functexcept.h>
 
 namespace __gnu_cxx
 {
   /**
-   *  @brief  An allocator that uses malloc
+   *  @brief  An allocator that uses malloc.
    *
    *  This is precisely the allocator defined in the C++ Standard. 
    *    - all allocation calls malloc

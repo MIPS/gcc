@@ -35,40 +35,40 @@ Boston, MA 02111-1307, USA.  */
 
 /* String functions.  */
 
-#define copy_string prefix(copy_string)
-void copy_string (GFC_INTEGER_4, char *, GFC_INTEGER_4, const char *);
+extern void copy_string (GFC_INTEGER_4, char *, GFC_INTEGER_4, const char *);
+export_proto(copy_string);
 
-#define concat_string prefix(concat_string)
-void concat_string (GFC_INTEGER_4, char *,
-		    GFC_INTEGER_4, const char *,
-		    GFC_INTEGER_4, const char *);
+extern void concat_string (GFC_INTEGER_4, char *,
+			   GFC_INTEGER_4, const char *,
+			   GFC_INTEGER_4, const char *);
+export_proto(concat_string);
 
-#define string_len_trim prefix(string_len_trim)
-GFC_INTEGER_4 string_len_trim (GFC_INTEGER_4, const char *);
+extern GFC_INTEGER_4 string_len_trim (GFC_INTEGER_4, const char *);
+export_proto(string_len_trim);
 
-#define adjustl prefix(adjustl)
-void adjustl (char *, GFC_INTEGER_4, const char *);
+extern void adjustl (char *, GFC_INTEGER_4, const char *);
+export_proto(adjustl);
 
-#define adjustr prefix(adjustr)
-void adjustr (char *, GFC_INTEGER_4, const char *);
+extern void adjustr (char *, GFC_INTEGER_4, const char *);
+export_proto(adjustr);
 
-#define string_index prefix(string_index)
-GFC_INTEGER_4 string_index (GFC_INTEGER_4, const char *, GFC_INTEGER_4,
-			    const char *, GFC_LOGICAL_4);
+extern GFC_INTEGER_4 string_index (GFC_INTEGER_4, const char *, GFC_INTEGER_4,
+				   const char *, GFC_LOGICAL_4);
+export_proto(string_index);
 
-#define string_scan prefix(string_scan)
-GFC_INTEGER_4 string_scan (GFC_INTEGER_4, const char *, GFC_INTEGER_4,
-                           const char *, GFC_LOGICAL_4);
+extern GFC_INTEGER_4 string_scan (GFC_INTEGER_4, const char *, GFC_INTEGER_4,
+				  const char *, GFC_LOGICAL_4);
+export_proto(string_scan);
 
-#define string_verify prefix(string_verify)
-GFC_INTEGER_4 string_verify (GFC_INTEGER_4, const char *, GFC_INTEGER_4,
-                             const char *, GFC_LOGICAL_4);
+extern GFC_INTEGER_4 string_verify (GFC_INTEGER_4, const char *, GFC_INTEGER_4,
+				    const char *, GFC_LOGICAL_4);
+export_proto(string_verify);
 
-#define string_trim prefix(string_trim)
-void string_trim (GFC_INTEGER_4 *, void **, GFC_INTEGER_4, const char *);
+extern void string_trim (GFC_INTEGER_4 *, void **, GFC_INTEGER_4, const char *);
+export_proto(string_trim);
 
-#define string_repeat prefix(string_repeat)
-void string_repeat (char *, GFC_INTEGER_4, const char *, GFC_INTEGER_4);
+extern void string_repeat (char *, GFC_INTEGER_4, const char *, GFC_INTEGER_4);
+export_proto(string_repeat);
 
 /* The two areas may overlap so we use memmove.  */
 
@@ -136,6 +136,7 @@ compare_string (GFC_INTEGER_4 len1, const char * s1,
 
   return 0;
 }
+iexport(compare_string);
 
 
 /* The destination and source should not overlap.  */
@@ -168,7 +169,8 @@ concat_string (GFC_INTEGER_4 destlen, char * dest,
 /* Return string with all trailing blanks removed.  */
 
 void
-string_trim (GFC_INTEGER_4 * len, void ** dest, GFC_INTEGER_4 slen, const char * src)
+string_trim (GFC_INTEGER_4 * len, void ** dest, GFC_INTEGER_4 slen,
+	     const char * src)
 {
   int i;
 
@@ -183,7 +185,7 @@ string_trim (GFC_INTEGER_4 * len, void ** dest, GFC_INTEGER_4 slen, const char *
   if (*len > 0)
     {
       /* Allocate space for result string.  */
-      *dest = internal_malloc (*len);
+      *dest = internal_malloc_size (*len);
 
       /* copy string if necessary.  */
       memmove (*dest, src, *len);
@@ -392,4 +394,3 @@ string_repeat (char * dest, GFC_INTEGER_4 slen,
       memmove (dest + (i * slen), src, slen);
     }
 }
-

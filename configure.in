@@ -19,6 +19,8 @@
 ### WARNING: this file contains embedded tabs.  Do not run untabify on this file.
 
 sinclude(config/acx.m4)
+sinclude(config/gcc-version.m4)
+sinclude(config/gxx-include-dir.m4)
 
 AC_INIT(move-if-change)
 AC_PREREQ(2.13)
@@ -98,25 +100,21 @@ fi
 topsrcdir=$srcpwd
 
 extra_host_args=
+
 # Define the trigger file to make sure configure will re-run whenever
 # the gcc version number changes.
-if test "${with_gcc_version_trigger+set}" = set ; then
-  gcc_version_trigger="$with_gcc_version_trigger"
-  gcc_version=`grep version_string ${with_gcc_version_trigger} | sed -e 's/.*\"\([[^ \"]]*\)[[ \"]].*/\1/'`
+TL_AC_GCC_VERSION([$topsrcdir])
+if test -f $gcc_version_trigger ; then
+  case "$ac_configure_args" in
+    *--with-gcc-version-trigger=$gcc_version_trigger* )
+      ;;
+    * )
+      # Add to all subconfigure arguments: build, host, and target.
+      ac_configure_args="$ac_configure_args --with-gcc-version-trigger=$gcc_version_trigger"
+      ;;
+  esac
 else
-  # If gcc's sources are available, define the trigger file.
-  if test -f ${topsrcdir}/gcc/version.c ; then
-    gcc_version_trigger=${topsrcdir}/gcc/version.c
-    gcc_version=`grep version_string ${gcc_version_trigger} | sed -e 's/.*\"\([[^ \"]]*\)[[ \"]].*/\1/'`
-    case "$ac_configure_args" in
-      *--with-gcc-version-trigger=$gcc_version_trigger* )
-        ;;
-      * )
-        # Add to all subconfigure arguments: build, host, and target.
-        ac_configure_args="$ac_configure_args --with-gcc-version-trigger=$gcc_version_trigger"
-        ;;
-    esac
-  fi
+  gcc_version_trigger=
 fi
 
 ### To add a new directory to the tree, first choose whether it is a target
@@ -534,13 +532,13 @@ case "${target}" in
     # headers, crt*.o, etc., all of which are needed by these.
     noconfigdirs="$noconfigdirs target-zlib"
     ;;
+  parisc*-*-linux* | hppa*-*-linux*)
+    ;;
   hppa*-*-*elf* | \
-  parisc*-*-linux* | hppa*-*-linux* | \
   hppa*-*-lites* | \
   hppa*-*-openbsd* | \
   hppa*64*-*-*)
     noconfigdirs="$noconfigdirs ${libgcj}"
-    # Do configure ld/binutils/gas for this case.
     ;;
   hppa*-*-*)
     # According to Alexandre Oliva <aoliva@redhat.com>, libjava won't
@@ -724,16 +722,13 @@ case "${target}" in
   romp-*-*)
     noconfigdirs="$noconfigdirs bfd binutils ld gas opcodes target-libgloss ${libgcj}"
     ;;
-  sh-*-*)
+  sh-*-* | sh64-*-*)
     case "${host}" in
       i[[3456789]]86-*-vsta) ;; # don't add gprof back in
       i[[3456789]]86-*-go32*) ;; # don't add gprof back in
       i[[3456789]]86-*-msdosdjgpp*) ;; # don't add gprof back in
       *) skipdirs=`echo " ${skipdirs} " | sed -e 's/ gprof / /'` ;;
     esac
-    noconfigdirs="$noconfigdirs target-libgloss ${libgcj}"
-    ;;
-  sh64-*-*)
     noconfigdirs="$noconfigdirs target-libgloss ${libgcj}"
     ;;
   sparc-*-elf*)
@@ -1966,22 +1961,7 @@ fi
 target_configargs="--cache-file=./config.cache --host=${target_alias} --build=${build_alias} ${target_configargs}"
 
 # provide a proper gxx_include_dir.
-# Note, if you change the default, make sure to fix both here and in
-# the gcc and libstdc++-v3 subdirectories.
-# Check whether --with-gxx-include-dir or --without-gxx-include-dir was given.
-case "${with_gxx_include_dir}" in
-  yes)
-    AC_MSG_ERROR([--with-gxx-include-dir=[[dir]] requires a directory])
-    ;;
-  no | "")
-    case "${enable_version_specific_runtime_libs}" in
-      yes) gxx_include_dir='${libsubdir}/include/c++' ;;
-      *)
-        . ${srcdir}/config.if
-        gxx_include_dir='${prefix}/include/'${libstdcxx_incdir} ;;
-    esac ;;
-  *) gxx_include_dir=${with_gxx_include_dir} ;;
-esac
+TL_AC_GXX_INCLUDE_DIR
 
 FLAGS_FOR_TARGET=
 case " $target_configdirs " in
@@ -2154,13 +2134,9 @@ AC_SUBST(SET_LIB_PATH)
 AC_SUBST(RPATH_ENVVAR)
 AC_SUBST(BUILD_PREFIX)
 AC_SUBST(BUILD_PREFIX_1)
-AC_SUBST(gcc_version_trigger)
-AC_SUBST(gcc_version)
 AC_SUBST(tooldir)
 AC_SUBST(build_tooldir)
 AC_SUBST(GDB_TK)
-AC_SUBST(gxx_include_dir)
-AC_SUBST(libstdcxx_incdir)
 
 # Build module lists & subconfigure args.
 AC_SUBST(build_configargs)

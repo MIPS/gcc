@@ -323,7 +323,6 @@ remap_type (tree type, inline_data *id)
       break;
 
     case FILE_TYPE:
-    case SET_TYPE:
     case OFFSET_TYPE:
     default:
       /* Shouldn't have been thought variable sized.  */
@@ -512,28 +511,28 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
     remap_save_expr (tp, id->decl_map, walk_subtrees);
   else if (TREE_CODE (*tp) == BIND_EXPR)
     copy_bind_expr (tp, walk_subtrees, id);
-  else if (TREE_CODE (*tp) == LABELED_BLOCK_EXPR)
-    {
-      /* We need a new copy of this labeled block; the EXIT_BLOCK_EXPR
-         will refer to it, so save a copy ready for remapping.  We
-         save it in the decl_map, although it isn't a decl.  */
-      tree new_block = copy_node (*tp);
-      insert_decl_map (id, *tp, new_block);
-      *tp = new_block;
-    }
-  else if (TREE_CODE (*tp) == EXIT_BLOCK_EXPR)
-    {
-      splay_tree_node n
-	= splay_tree_lookup (id->decl_map,
-			     (splay_tree_key) TREE_OPERAND (*tp, 0));
-      /* We _must_ have seen the enclosing LABELED_BLOCK_EXPR.  */
-      gcc_assert (n);
-      *tp = copy_node (*tp);
-      TREE_OPERAND (*tp, 0) = (tree) n->value;
-    }
   /* Types may need remapping as well.  */
   else if (TYPE_P (*tp))
     *tp = remap_type (*tp, id);
+
+  /* If this is a constant, we have to copy the node iff the type will be
+     remapped.  copy_tree_r will not copy a constant.  */
+  else if (TREE_CODE_CLASS (TREE_CODE (*tp)) == tcc_constant)
+    {
+      tree new_type = remap_type (TREE_TYPE (*tp), id);
+
+      if (new_type == TREE_TYPE (*tp))
+	*walk_subtrees = 0;
+
+      else if (TREE_CODE (*tp) == INTEGER_CST)
+	*tp = build_int_cst_wide (new_type, TREE_INT_CST_LOW (*tp),
+				  TREE_INT_CST_HIGH (*tp));
+      else
+	{
+	  *tp = copy_node (*tp);
+	  TREE_TYPE (*tp) = new_type;
+	}
+    }
 
   /* Otherwise, just copy the node.  Note that copy_tree_r already
      knows not to copy VAR_DECLs, etc., so this is safe.  */
@@ -656,6 +655,22 @@ copy_body (inline_data *id)
   return body;
 }
 
+/* Return true if VALUE is an ADDR_EXPR of an automatic variable
+   defined in function FN, or of a data member thereof.  */
+
+static bool
+self_inlining_addr_expr (tree value, tree fn)
+{
+  tree var;
+
+  if (TREE_CODE (value) != ADDR_EXPR)
+    return false;
+
+  var = get_base_address (TREE_OPERAND (value, 0));
+	      
+  return var && lang_hooks.tree_inlining.auto_var_in_fn_p (var, fn);
+}
+
 static void
 setup_one_parameter (inline_data *id, tree p, tree value, tree fn,
 		     tree *init_stmts, tree *vars, bool *gimplify_init_stmts_p)
@@ -680,7 +695,13 @@ setup_one_parameter (inline_data *id, tree p, tree value, tree fn,
 	 It is not big deal to prohibit constant propagation here as
 	 we will constant propagate in DOM1 pass anyway.  */
       if (is_gimple_min_invariant (value)
-	  && lang_hooks.types_compatible_p (TREE_TYPE (value), TREE_TYPE (p)))
+	  && lang_hooks.types_compatible_p (TREE_TYPE (value), TREE_TYPE (p))
+	  /* We have to be very careful about ADDR_EXPR.  Make sure
+	     the base variable isn't a local variable of the inlined
+	     function, e.g., when doing recursive inlining, direct or
+	     mutually-recursive or whatever, which is why we don't
+	     just test whether fn == current_function_decl.  */
+	  && ! self_inlining_addr_expr (value, fn))
 	{
 	  insert_decl_map (id, p, value);
 	  return;
@@ -1036,7 +1057,10 @@ inline_forbidden_p_1 (tree *nodep, int *walk_subtrees ATTRIBUTE_UNUSED,
 	 UNION_TYPE nodes, then it goes into infinite recursion on a
 	 structure containing a pointer to its own type.  If it doesn't,
 	 then the type node for S doesn't get adjusted properly when
-	 F is inlined, and we abort in find_function_data.  */
+	 F is inlined, and we abort in find_function_data.
+
+	 ??? This is likely no longer true, but it's too late in the 4.0
+	 cycle to try to find out.  This should be checked for 4.1.  */
       for (t = TYPE_FIELDS (node); t; t = TREE_CHAIN (t))
 	if (variably_modified_type_p (TREE_TYPE (t), NULL))
 	  {
@@ -1174,14 +1198,13 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case FILTER_EXPR: /* ??? */
     case COMPOUND_EXPR:
     case BIND_EXPR:
-    case LABELED_BLOCK_EXPR:
     case WITH_CLEANUP_EXPR:
     case NOP_EXPR:
     case VIEW_CONVERT_EXPR:
     case SAVE_EXPR:
     case ADDR_EXPR:
     case COMPLEX_EXPR:
-    case EXIT_BLOCK_EXPR:
+    case RANGE_EXPR:
     case CASE_LABEL_EXPR:
     case SSA_NAME:
     case CATCH_EXPR:
@@ -1390,7 +1413,7 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
   if (TREE_CODE (*tp) == TARGET_EXPR)
     {
 #if 0
-      int i, len = first_rtl_op (TARGET_EXPR);
+      int i, len = TREE_CODE_LENGTH (TARGET_EXPR);
 
       /* We're walking our own subtrees.  */
       *walk_subtrees = 0;
@@ -1602,8 +1625,11 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
   splay_tree_delete (id->decl_map);
   id->decl_map = st;
 
-  /* The new expression has side-effects if the old one did.  */
-  TREE_SIDE_EFFECTS (expr) = TREE_SIDE_EFFECTS (t);
+  /* Although, from the semantic viewpoint, the new expression has
+     side-effects only if the old one did, it is not possible, from
+     the technical viewpoint, to evaluate the body of a function
+     multiple times without serious havoc.  */
+  TREE_SIDE_EFFECTS (expr) = 1;
 
   tsi_link_before (&id->tsi, expr, TSI_SAME_STMT);
 
@@ -2080,15 +2106,14 @@ walk_tree (tree *tp, walk_tree_fn func, void *data, struct pointer_set_t *pset)
 	}
     }
 
-  else if (code != EXIT_BLOCK_EXPR
-	   && code != SAVE_EXPR
+  else if (code != SAVE_EXPR
 	   && code != BIND_EXPR
 	   && IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (code)))
     {
       int i, len;
 
       /* Walk over all the sub-trees of this operand.  */
-      len = first_rtl_op (code);
+      len = TREE_CODE_LENGTH (code);
       /* TARGET_EXPRs are peculiar: operands 1 and 3 can be the same.
 	 But, we only want to walk once.  */
       if (code == TARGET_EXPR
@@ -2170,9 +2195,6 @@ walk_tree (tree *tp, walk_tree_fn func, void *data, struct pointer_set_t *pset)
 
 	case CONSTRUCTOR:
 	  WALK_SUBTREE_TAIL (CONSTRUCTOR_ELTS (*tp));
-
-	case EXIT_BLOCK_EXPR:
-	  WALK_SUBTREE_TAIL (TREE_OPERAND (*tp, 1));
 
 	case SAVE_EXPR:
 	  WALK_SUBTREE_TAIL (TREE_OPERAND (*tp, 0));

@@ -28,6 +28,11 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
+/** @file istream.tcc
+ *  This is an internal header file, included by other library headers.
+ *  You should not attempt to use it directly.
+ */
+
 //
 // ISO C++ 14882: 27.6.1  Input streams
 //
@@ -528,7 +533,10 @@ namespace std
 	  catch(...)
 	    { this->_M_setstate(ios_base::badbit); }
 	}
-      *__s = char_type();
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+      // 243. get and getline when sentry reports failure.
+      if (__n > 0)
+	*__s = char_type();
       if (!_M_gcount)
 	__err |= ios_base::failbit;
       if (__err)
@@ -616,7 +624,10 @@ namespace std
           catch(...)
             { this->_M_setstate(ios_base::badbit); }
         }
-      *__s = char_type();
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+      // 243. get and getline when sentry reports failure.
+      if (__n > 0)
+	*__s = char_type();
       if (!_M_gcount)
         __err |= ios_base::failbit;
       if (__err)

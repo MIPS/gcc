@@ -169,7 +169,7 @@ remove_ctrl_stmt_and_useless_edges (basic_block bb, basic_block dest_bb)
   for (ei = ei_start (bb->succs); (e = ei_safe_edge (ei)); )
     {
       if (e->dest != dest_bb)
-	ssa_remove_edge (e);
+	remove_edge (e);
       else
 	ei_next (&ei);
     }
@@ -299,7 +299,7 @@ create_edge_and_update_destination_phis (struct redirection_data *rd)
   for (phi = phi_nodes (e->dest); phi; phi = PHI_CHAIN (phi))
     {
       int indx = phi_arg_from_edge (phi, rd->outgoing_edge);
-      add_phi_arg (&phi, PHI_ARG_DEF_TREE (phi, indx), e);
+      add_phi_arg (phi, PHI_ARG_DEF_TREE (phi, indx), e);
     }
 }
 

@@ -244,7 +244,6 @@ static tree get_vectype_for_scalar_type (tree);
 static tree vect_get_new_vect_var (tree, enum vect_var_kind, const char *);
 static tree vect_get_vec_def_for_operand (tree, tree);
 static tree vect_init_vector (tree, tree);
-static tree vect_build_symbol_bound (tree, int, struct loop *);
 static void vect_finish_stmt_generation 
   (tree stmt, tree vec_stmt, block_stmt_iterator *bsi);
 
@@ -505,7 +504,7 @@ slpeel_update_phis_for_duplicate_loop (struct loop *orig_loop,
     {
       /* step 1.  */
       def = PHI_ARG_DEF_FROM_EDGE (phi_orig, entry_arg_e);
-      add_phi_arg (&phi_new, def, new_loop_entry_e);
+      add_phi_arg (phi_new, def, new_loop_entry_e);
 
       /* step 2.  */
       def = PHI_ARG_DEF_FROM_EDGE (phi_orig, orig_loop_latch);
@@ -519,7 +518,7 @@ slpeel_update_phis_for_duplicate_loop (struct loop *orig_loop,
 
       /* An ordinary ssa name defined in the loop.  */
       new_ssa_name = *new_name_ptr;
-      add_phi_arg (&phi_new, new_ssa_name, loop_latch_edge (new_loop));
+      add_phi_arg (phi_new, new_ssa_name, loop_latch_edge (new_loop));
 
       /* step 3 (case 1).  */
       if (!after)
@@ -636,8 +635,8 @@ slpeel_update_phi_nodes_for_guard (edge guard_edge,
               loop_arg = orig_def;
             }
         }
-      add_phi_arg (&new_phi, loop_arg, loop->exit_edges[0]);
-      add_phi_arg (&new_phi, guard_arg, guard_edge);
+      add_phi_arg (new_phi, loop_arg, loop->exit_edges[0]);
+      add_phi_arg (new_phi, guard_arg, guard_edge);
 
       /* 3. Update phi in successor block.  */
       gcc_assert (PHI_ARG_DEF_FROM_EDGE (update_phi, e) == loop_arg
@@ -666,6 +665,8 @@ slpeel_make_loop_iterate_ntimes (struct loop *loop, tree niters)
   tree exit_label = tree_block_label (loop->single_exit->dest);
   tree init = build_int_cst (TREE_TYPE (niters), 0);
   tree step = build_int_cst (TREE_TYPE (niters), 1);
+  tree then_label;
+  tree else_label;
 
   orig_cond = get_loop_exit_condition (loop);
   gcc_assert (orig_cond);
@@ -678,14 +679,20 @@ slpeel_make_loop_iterate_ntimes (struct loop *loop, tree niters)
   gcc_assert (bsi_stmt (loop_exit_bsi) == orig_cond);
 
   if (exit_edge->flags & EDGE_TRUE_VALUE) /* 'then' edge exits the loop.  */
-    cond = build2 (GE_EXPR, boolean_type_node, indx_after_incr, niters);
+    {
+      cond = build2 (GE_EXPR, boolean_type_node, indx_after_incr, niters);
+      then_label = build1 (GOTO_EXPR, void_type_node, exit_label);
+      else_label = build1 (GOTO_EXPR, void_type_node, begin_label);
+    }
   else /* 'then' edge loops back.  */
-    cond = build2 (LT_EXPR, boolean_type_node, indx_after_incr, niters);
+    {
+      cond = build2 (LT_EXPR, boolean_type_node, indx_after_incr, niters);
+      then_label = build1 (GOTO_EXPR, void_type_node, begin_label);
+      else_label = build1 (GOTO_EXPR, void_type_node, exit_label);
+    }
 
-  begin_label = build1 (GOTO_EXPR, void_type_node, begin_label);
-  exit_label = build1 (GOTO_EXPR, void_type_node, exit_label);
-  cond_stmt = build (COND_EXPR, TREE_TYPE (orig_cond), cond,
-		     begin_label, exit_label);
+  cond_stmt = build3 (COND_EXPR, TREE_TYPE (orig_cond), cond,
+		     then_label, else_label);
   bsi_insert_before (&loop_exit_bsi, cond_stmt, BSI_SAME_STMT);
 
   /* Remove old loop exit test:  */
@@ -764,7 +771,7 @@ slpeel_tree_duplicate_loop_to_edge_cfg (struct loop *loop, struct loops *loops,
 	  else
 	    new_loop_exit_edge = EDGE_SUCC (new_loop->header, 0);
   
-	  add_phi_arg (&phi, phi_arg, new_loop_exit_edge);	
+	  add_phi_arg (phi, phi_arg, new_loop_exit_edge);	
 	}
     }    
    
@@ -797,7 +804,7 @@ slpeel_tree_duplicate_loop_to_edge_cfg (struct loop *loop, struct loops *loops,
 	{
 	  phi_arg = PHI_ARG_DEF_FROM_EDGE (phi, entry_e);
 	  if (phi_arg)
-	    add_phi_arg (&phi, phi_arg, new_exit_e);	
+	    add_phi_arg (phi, phi_arg, new_exit_e);	
 	}    
 
       redirect_edge_and_branch_force (entry_e, new_loop->header);
@@ -835,7 +842,7 @@ slpeel_add_loop_guard (basic_block guard_bb, tree cond, basic_block exit_bb,
                        tree_block_label (exit_bb));
   else_label = build1 (GOTO_EXPR, void_type_node,
                        tree_block_label (enter_e->dest));
-  cond_stmt = build (COND_EXPR, void_type_node, cond,
+  cond_stmt = build3 (COND_EXPR, void_type_node, cond,
    		     then_label, else_label);
   bsi_insert_after (&bsi, cond_stmt, BSI_NEW_STMT);
   /* Add new edge to connect entry block to the second loop.  */
@@ -1044,7 +1051,7 @@ slpeel_tree_peel_loop_to_edge (struct loop *loop, struct loops *loops,
   flow_loop_scan (second_loop, LOOP_ALL);
 
   pre_condition =
-        build (LE_EXPR, boolean_type_node, first_niters, integer_zero_node);
+        build2 (LE_EXPR, boolean_type_node, first_niters, integer_zero_node);
   skip_e = slpeel_add_loop_guard (bb_before_first_loop, pre_condition,
                                   bb_before_second_loop, bb_before_first_loop);
   slpeel_update_phi_nodes_for_guard (skip_e, first_loop, true /* entry-phis */,
@@ -1084,7 +1091,7 @@ slpeel_tree_peel_loop_to_edge (struct loop *loop, struct loops *loops,
   flow_loop_scan (first_loop, LOOP_ALL);
   flow_loop_scan (second_loop, LOOP_ALL);
 
-  pre_condition = build (EQ_EXPR, boolean_type_node, first_niters, niters);
+  pre_condition = build2 (EQ_EXPR, boolean_type_node, first_niters, niters);
   skip_e = slpeel_add_loop_guard (bb_between_loops, pre_condition,
                                   bb_after_second_loop, bb_before_first_loop);
   slpeel_update_phi_nodes_for_guard (skip_e, second_loop, false /* exit-phis */,
@@ -1510,6 +1517,9 @@ vect_can_force_dr_alignment_p (tree decl, unsigned int alignment)
   if (DECL_EXTERNAL (decl))
     return false;
 
+  if (TREE_ASM_WRITTEN (decl))
+    return false;
+
   if (TREE_STATIC (decl))
     return (alignment <= MAX_OFILE_ALIGNMENT);
   else
@@ -1866,6 +1876,7 @@ vect_create_data_ref_ptr (tree stmt, block_stmt_iterator *bsi, tree offset,
   tree vectype_size;
   tree ptr_update;
   tree data_ref_ptr;
+  tree type, tmp, size;
 
   base_name = unshare_expr (DR_BASE_NAME (dr));
   if (vect_debug_details (NULL))
@@ -1952,11 +1963,20 @@ vect_create_data_ref_ptr (tree stmt, block_stmt_iterator *bsi, tree offset,
   idx = vect_create_index_for_vector_ref (loop, bsi);
 
   /* Create: update = idx * vectype_size  */
-  ptr_update = create_tmp_var (integer_type_node, "update");
+  tmp = create_tmp_var (integer_type_node, "update");
+  add_referenced_tmp_var (tmp);
+  size = TYPE_SIZE (vect_ptr_type); 
+  type = lang_hooks.types.type_for_size (tree_low_cst (size, 1), 1);
+  ptr_update = create_tmp_var (type, "update");
   add_referenced_tmp_var (ptr_update);
   vectype_size = build_int_cst (integer_type_node,
                                 GET_MODE_SIZE (TYPE_MODE (vectype)));
   vec_stmt = build2 (MULT_EXPR, integer_type_node, idx, vectype_size);
+  vec_stmt = build2 (MODIFY_EXPR, void_type_node, tmp, vec_stmt);
+  new_temp = make_ssa_name (tmp, vec_stmt);
+  TREE_OPERAND (vec_stmt, 0) = new_temp;
+  bsi_insert_before (bsi, vec_stmt, BSI_SAME_STMT);
+  vec_stmt = fold_convert (type, new_temp);
   vec_stmt = build2 (MODIFY_EXPR, void_type_node, ptr_update, vec_stmt);
   new_temp = make_ssa_name (ptr_update, vec_stmt);
   TREE_OPERAND (vec_stmt, 0) = new_temp;
@@ -2623,6 +2643,10 @@ vectorizable_load (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
 	  new_bb = bsi_insert_on_edge_immediate (pe, new_stmt);
 	  gcc_assert (!new_bb);
 	  magic = TREE_OPERAND (new_stmt, 0);
+
+	  /* Since we have just created a CALL_EXPR, we may need to
+	     rename call-clobbered variables.  */
+	  mark_call_clobbered_vars_to_rename ();
 	}
       else
 	{
@@ -2637,8 +2661,8 @@ vectorizable_load (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
       msq = make_ssa_name (vec_dest, NULL_TREE);
       phi_stmt = create_phi_node (msq, loop->header); /* CHECKME */
       SSA_NAME_DEF_STMT (msq) = phi_stmt;
-      add_phi_arg (&phi_stmt, msq_init, loop_preheader_edge (loop));
-      add_phi_arg (&phi_stmt, lsq, loop_latch_edge (loop));
+      add_phi_arg (phi_stmt, msq_init, loop_preheader_edge (loop));
+      add_phi_arg (phi_stmt, lsq, loop_latch_edge (loop));
 
 
       /* <5> Create <vec_dest = realign_load (msq, lsq, magic)> in loop  */
@@ -2744,7 +2768,6 @@ vect_build_loop_niters (loop_vec_info loop_vinfo)
 {
   tree ni_name, stmt, var;
   edge pe;
-  basic_block new_bb = NULL;
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   tree ni = unshare_expr (LOOP_VINFO_NITERS (loop_vinfo));
 
@@ -2754,9 +2777,10 @@ vect_build_loop_niters (loop_vec_info loop_vinfo)
 
   pe = loop_preheader_edge (loop);
   if (stmt)
-    new_bb = bsi_insert_on_edge_immediate (pe, stmt);
-  if (new_bb)
-    add_bb_to_loop (new_bb, EDGE_PRED (new_bb, 0)->src->loop_father);
+    {
+      basic_block new_bb = bsi_insert_on_edge_immediate (pe, stmt);
+      gcc_assert (!new_bb);
+    }
       
   return ni_name;
 }
@@ -2771,99 +2795,61 @@ vect_build_loop_niters (loop_vec_info loop_vinfo)
  and places them at the loop preheader edge.  */
 
 static void 
-vect_generate_tmps_on_preheader (loop_vec_info loop_vinfo, tree *ni_name_p,
-				 tree *ratio_mult_vf_name_p, tree *ratio_p)
+vect_generate_tmps_on_preheader (loop_vec_info loop_vinfo, 
+				 tree *ni_name_ptr,
+				 tree *ratio_mult_vf_name_ptr, 
+				 tree *ratio_name_ptr)
 {
 
   edge pe;
   basic_block new_bb;
   tree stmt, ni_name;
-  tree ratio;
-  tree ratio_mult_vf_name, ratio_mult_vf;
+  tree var;
+  tree ratio_name;
+  tree ratio_mult_vf_name;
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
-  tree ni = LOOP_VINFO_NITERS(loop_vinfo);
-  
-  int vf, i;
+  tree ni = LOOP_VINFO_NITERS (loop_vinfo);
+  int vf = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
+  tree log_vf = build_int_cst (unsigned_type_node, exact_log2 (vf));
+
+  pe = loop_preheader_edge (loop);
 
   /* Generate temporary variable that contains 
      number of iterations loop executes.  */
 
   ni_name = vect_build_loop_niters (loop_vinfo);
 
-  /* ratio = ni / vf.
-     vf is power of 2; then if ratio =  = n >> log2 (vf).  */
-  vf = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
-  ratio = vect_build_symbol_bound (ni_name, vf, loop);
+  /* Create: ratio = ni >> log2(vf) */
+
+  var = create_tmp_var (TREE_TYPE (ni), "bnd");
+  add_referenced_tmp_var (var);
+  ratio_name = make_ssa_name (var, NULL_TREE);
+  stmt = build2 (MODIFY_EXPR, void_type_node, ratio_name,
+	   build2 (RSHIFT_EXPR, TREE_TYPE (ni_name), ni_name, log_vf));
+  SSA_NAME_DEF_STMT (ratio_name) = stmt;
+
+  pe = loop_preheader_edge (loop);
+  new_bb = bsi_insert_on_edge_immediate (pe, stmt);
+  gcc_assert (!new_bb);
        
-  /* Update initial conditions of loop copy.  */
-       
-  /* ratio_mult_vf = ratio * vf;  
-     then if ratio_mult_vf = ratio << log2 (vf).  */
+  /* Create: ratio_mult_vf = ratio << log2 (vf).  */
 
-  i = exact_log2 (vf);
-  ratio_mult_vf = create_tmp_var (TREE_TYPE (ni), "ratio_mult_vf");
-  add_referenced_tmp_var (ratio_mult_vf);
-
-  ratio_mult_vf_name = make_ssa_name (ratio_mult_vf, NULL_TREE);
-
+  var = create_tmp_var (TREE_TYPE (ni), "ratio_mult_vf");
+  add_referenced_tmp_var (var);
+  ratio_mult_vf_name = make_ssa_name (var, NULL_TREE);
   stmt = build2 (MODIFY_EXPR, void_type_node, ratio_mult_vf_name,
-		build2 (LSHIFT_EXPR, TREE_TYPE (ratio),
-		       ratio, build_int_cst (unsigned_type_node,
-					     i)));
-
+	   build2 (LSHIFT_EXPR, TREE_TYPE (ratio_name), ratio_name, log_vf));
   SSA_NAME_DEF_STMT (ratio_mult_vf_name) = stmt;
 
   pe = loop_preheader_edge (loop);
   new_bb = bsi_insert_on_edge_immediate (pe, stmt);
-  if (new_bb)
-    add_bb_to_loop (new_bb, EDGE_PRED (new_bb, 0)->src->loop_father);
+  gcc_assert (!new_bb);
 
-  *ni_name_p = ni_name;
-  *ratio_mult_vf_name_p = ratio_mult_vf_name;
-  *ratio_p = ratio;
+  *ni_name_ptr = ni_name;
+  *ratio_mult_vf_name_ptr = ratio_mult_vf_name;
+  *ratio_name_ptr = ratio_name;
     
   return;  
-}
-
-
-/* This function generates stmt 
-   
-   tmp = n / vf;
-
-   and attaches it to preheader of LOOP.  */
-
-static tree 
-vect_build_symbol_bound (tree n, int vf, struct loop * loop)
-{
-  tree var, stmt, var_name;
-  edge pe;
-  basic_block new_bb;
-  int i;
-
-  /* create temporary variable */
-  var = create_tmp_var (TREE_TYPE (n), "bnd");
-  add_referenced_tmp_var (var);
-
-  var_name = make_ssa_name (var, NULL_TREE);
-
-  /* vf is power of 2; then n/vf = n >> log2 (vf).  */
-
-  i = exact_log2 (vf);
-  stmt = build2 (MODIFY_EXPR, void_type_node, var_name,
-		build2 (RSHIFT_EXPR, TREE_TYPE (n),
-		       n, build_int_cst (unsigned_type_node,i)));
-
-  SSA_NAME_DEF_STMT (var_name) = stmt;
-
-  pe = loop_preheader_edge (loop);
-  new_bb = bsi_insert_on_edge_immediate (pe, stmt);
-  if (new_bb)
-    add_bb_to_loop (new_bb, EDGE_PRED (new_bb, 0)->src->loop_father);
-  else	
-    if (vect_debug_details (NULL))
-      fprintf (dump_file, "New bb on preheader edge was not generated.");
-
-  return var_name;
 }
 
 
@@ -3084,7 +3070,7 @@ vect_gen_niters_for_prolog_loop (loop_vec_info loop_vinfo, tree loop_niters)
 	vect_create_addr_base_for_vector_ref (dr_stmt, &new_stmts, NULL_TREE);
   tree ptr_type = TREE_TYPE (start_addr);
   tree size = TYPE_SIZE (ptr_type);
-  tree type = lang_hooks.types.type_for_size (TREE_INT_CST_LOW (size), 1);
+  tree type = lang_hooks.types.type_for_size (tree_low_cst (size, 1), 1);
   tree vectype_size_minus_1 = build_int_cst (type, vectype_align - 1);
   tree vf_minus_1 = build_int_cst (unsigned_type_node, vf - 1);
   tree niters_type = TREE_TYPE (loop_niters);
@@ -3094,8 +3080,7 @@ vect_gen_niters_for_prolog_loop (loop_vec_info loop_vinfo, tree loop_niters)
 
   pe = loop_preheader_edge (loop); 
   new_bb = bsi_insert_on_edge_immediate (pe, new_stmts); 
-  if (new_bb)
-    add_bb_to_loop (new_bb, EDGE_PRED (new_bb, 0)->src->loop_father);
+  gcc_assert (!new_bb);
 
   /* Create:  byte_misalign = addr & (vectype_size - 1)  */
   byte_misalign = build2 (BIT_AND_EXPR, type, start_addr, vectype_size_minus_1);
@@ -3108,9 +3093,14 @@ vect_gen_niters_for_prolog_loop (loop_vec_info loop_vinfo, tree loop_niters)
   iters = build2 (MINUS_EXPR, unsigned_type_node, vf_tree, elem_misalign);
   iters = build2 (BIT_AND_EXPR, unsigned_type_node, iters, vf_minus_1);
   iters = fold_convert (niters_type, iters);
-
+  
   /* Create:  prolog_loop_niters = min (iters, loop_niters) */
-  iters = build2 (MIN_EXPR, niters_type, iters, loop_niters);
+  /* If the loop bound is known at compile time we already verified that it is
+     greater than vf; since the misalignment ('iters') is at most vf, there's
+     no need to generate the MIN_EXPR in this case.  */
+  if (!host_integerp (loop_niters, 0))
+    iters = build2 (MIN_EXPR, niters_type, iters, loop_niters);
+
   var = create_tmp_var (niters_type, "prolog_loop_niters");
   add_referenced_tmp_var (var);
   iters_name = force_gimple_operand (iters, &stmt, false, var);
@@ -3118,9 +3108,10 @@ vect_gen_niters_for_prolog_loop (loop_vec_info loop_vinfo, tree loop_niters)
   /* Insert stmt on loop preheader edge.  */
   pe = loop_preheader_edge (loop);
   if (stmt)
-    new_bb = bsi_insert_on_edge_immediate (pe, stmt);
-  if (new_bb)
-    add_bb_to_loop (new_bb, EDGE_PRED (new_bb, 0)->src->loop_father);
+    {
+      basic_block new_bb = bsi_insert_on_edge_immediate (pe, stmt);
+      gcc_assert (!new_bb);
+    }
 
   return iters_name; 
 }
@@ -3144,8 +3135,8 @@ vect_update_inits_of_dr (struct data_reference *dr, struct loop *loop,
   step = evolution_part_in_loop_num (access_fn, loop->num);
   init = initial_condition (access_fn);
       
-  init_new = build (PLUS_EXPR, TREE_TYPE (init),
-		  build (MULT_EXPR, TREE_TYPE (niters),
+  init_new = build2 (PLUS_EXPR, TREE_TYPE (init),
+		  build2 (MULT_EXPR, TREE_TYPE (niters),
 			 niters, step), init);
   DR_ACCESS_FN (dr, 0) = chrec_replace_initial_condition (access_fn, init_new);
   
@@ -3431,7 +3422,7 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
   basic_block *bbs = LOOP_VINFO_BBS (loop_vinfo);
   int nbbs = loop->num_nodes;
   block_stmt_iterator si;
-  int vectorization_factor = 0;
+  unsigned int vectorization_factor = 0;
   int i;
   bool ok;
   tree scalar_type;
@@ -3446,7 +3437,7 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
       for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
 	{
 	  tree stmt = bsi_stmt (si);
-	  int nunits;
+	  unsigned int nunits;
 	  stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
 	  tree vectype;
 
@@ -3567,6 +3558,14 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
     fprintf (dump_file,
         "vectorization_factor = %d, niters = " HOST_WIDE_INT_PRINT_DEC,
         vectorization_factor, LOOP_VINFO_INT_NITERS (loop_vinfo));
+
+  if (LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo)
+      && LOOP_VINFO_INT_NITERS (loop_vinfo) < vectorization_factor)
+    {
+      if (vect_debug_stats (loop) || vect_debug_details (loop))
+	fprintf (dump_file, "not vectorized: iteration count too small.");
+      return false;
+    }
 
   if (!LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo)
       || LOOP_VINFO_INT_NITERS (loop_vinfo) % vectorization_factor != 0)
@@ -3925,7 +3924,7 @@ vect_get_first_index (tree ref, tree *array_first_index)
   else
     {
       array_start = array_ref_low_bound (ref);
-      if (!host_integerp (array_start,0))
+      if (!host_integerp (array_start, 0))
 	{
 	  if (vect_debug_details (NULL))
 	    {
@@ -4146,7 +4145,7 @@ vect_compute_data_ref_alignment (struct data_reference *dr,
       if (vect_debug_details (NULL))
 	fprintf (dump_file, "force alignment");
       DECL_ALIGN (base) = TYPE_ALIGN (vectype);
-      DECL_USER_ALIGN (base) = TYPE_ALIGN (vectype);
+      DECL_USER_ALIGN (base) = 1;
     }
 
   /* At this point we assume that the base is aligned, and the offset from it
@@ -5026,17 +5025,25 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo)
 	      switch (TREE_CODE (address_base))
 		{
 		case ARRAY_REF:
-		  dr = analyze_array (stmt, TREE_OPERAND (symbl, 0), 
-				      DR_IS_READ(dr));
-		  tag = vect_get_base_and_bit_offset (dr, DR_BASE_NAME (dr), 
-			   NULL_TREE, loop_vinfo, &offset, &base_aligned_p);
-		  if (!tag)
-		    {
-		      if (vect_debug_stats (loop) || vect_debug_details (loop))
-			fprintf (dump_file, "not vectorized: no memtag for ref.");
-		      return false;
-		    }
-		  STMT_VINFO_MEMTAG (stmt_info) = tag; 
+		  {
+		    struct data_reference *tmp_dr;
+		    
+		    tmp_dr = analyze_array (stmt, TREE_OPERAND (symbl, 0), 
+					    DR_IS_READ (dr));
+		    tag = vect_get_base_and_bit_offset
+		      (tmp_dr, DR_BASE_NAME (tmp_dr), 
+		       NULL_TREE, loop_vinfo, &offset, &base_aligned_p);
+		    if (!tag)
+		      {
+			if (vect_debug_stats (loop)
+			    || vect_debug_details (loop))
+			  fprintf (dump_file,
+				   "not vectorized: no memtag for ref.");
+			return false;
+		      }
+		    STMT_VINFO_MEMTAG (stmt_info) = tag;
+		  }
+		  
 		  break;
 		  
 		case VAR_DECL: 

@@ -348,7 +348,10 @@ dump_type (tree t, int flags)
     }
     case TYPENAME_TYPE:
       pp_cxx_cv_qualifier_seq (cxx_pp, t);
-      pp_cxx_identifier (cxx_pp, "typename");
+      pp_cxx_identifier (cxx_pp, 
+			 TYPENAME_IS_ENUM_P (t) ? "enum" 
+			 : TYPENAME_IS_CLASS_P (t) ? "class"
+			 : "typename");
       dump_typename (t, flags);
       break;
 
@@ -710,19 +713,17 @@ dump_decl (tree t, int flags)
   switch (TREE_CODE (t))
     {
     case TYPE_DECL:
-      {
-	/* Don't say 'typedef class A' */
-        if (DECL_ARTIFICIAL (t))
-	  {
-	    if ((flags & TFF_DECL_SPECIFIERS)
-	        && TREE_CODE (TREE_TYPE (t)) == TEMPLATE_TYPE_PARM)
-	      /* Say `class T' not just `T'.  */
-	      pp_cxx_identifier (cxx_pp, "class");
-
-	    dump_type (TREE_TYPE (t), flags);
-	    break;
-	  }
-      }
+      /* Don't say 'typedef class A' */
+      if (DECL_ARTIFICIAL (t))
+	{
+	  if ((flags & TFF_DECL_SPECIFIERS)
+	      && TREE_CODE (TREE_TYPE (t)) == TEMPLATE_TYPE_PARM)
+	    /* Say `class T' not just `T'.  */
+	    pp_cxx_identifier (cxx_pp, "class");
+	  
+	  dump_type (TREE_TYPE (t), flags);
+	  break;
+	}
       if (flags & TFF_DECL_SPECIFIERS)
 	pp_cxx_identifier (cxx_pp, "typedef");
       dump_simple_decl (t, DECL_ORIGINAL_TYPE (t)
@@ -1916,14 +1917,6 @@ decl_as_string (tree decl, int flags)
 {
   reinit_cxx_pp ();
   dump_decl (decl, flags);
-  return pp_formatted_text (cxx_pp);
-}
-
-const char *
-context_as_string (tree context, int flags)
-{
-  reinit_cxx_pp ();
-  dump_scope (context, flags);
   return pp_formatted_text (cxx_pp);
 }
 

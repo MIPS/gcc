@@ -1,3 +1,30 @@
+2004-12-13  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR 18458
+	* Makefile.in (install): Add @EXEEXT@ to the end of the program name,
+	fixincl.
+
+2004-12-02  Richard Sandiford  <rsandifo@redhat.com>
+
+	* configure.ac: Use TL_AC_GCC_VERSION to set gcc_version.
+	* aclocal.m4: Include ../config/gcc-version.m4.
+	* configure: Regenerate.
+
+2004-11-26  Mark Mitchell  <mark@codesourcery.com>
+
+	* inclhack.def (gnu_types): Do not use on Solaris 2.1x.
+	(stdio_va_list): Likewise.
+	(stdio_stdarg.h): Likewise.
+	(solaris_stdio_tag): Add bypass.
+	* fixincl.x: Regenerated.
+
+2004-11-23  Geoffrey Keating  <geoffk@apple.com>
+
+	* mkfixinc.sh: Check error code from 'cat'.  Don't try running
+	built fixincl program.
+	* mkheaders.in: Use @SHELL@ rather than ${SHELL} to avoid picking
+	up csh from user.
+
 2004-11-20  Roger Sayle  <roger@eyesopen.com>
 
 	* inclhack.def (alpha_pthread_init): Fix technical problems with

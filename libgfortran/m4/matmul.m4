@@ -38,8 +38,11 @@ include(iparm.m4)dnl
          C(I,J) = C(I,J)+A(I,K)*B(K,J)
 */
 
+extern void matmul_`'rtype_code (rtype * retarray, rtype * a, rtype * b);
+export_proto(matmul_`'rtype_code);
+
 void
-`__matmul_'rtype_code (rtype * retarray, rtype * a, rtype * b)
+matmul_`'rtype_code (rtype * retarray, rtype * a, rtype * b)
 {
   rtype_name *abase;
   rtype_name *bbase;
@@ -87,7 +90,8 @@ void
           retarray->dim[1].stride = retarray->dim[0].ubound+1;
         }
           
-      retarray->data = internal_malloc (sizeof (rtype_name) * size0 (retarray));
+      retarray->data
+	= internal_malloc_size (sizeof (rtype_name) * size0 (retarray));
       retarray->base = 0;
     }
 
@@ -201,4 +205,3 @@ sinclude(`matmul_asm_'rtype_code`.m4')dnl
 	    dest[x*rxstride + y*rystride] += abase[x*axstride + n*aystride] * bbase[n*bxstride + y*bystride];
     }
 }
-

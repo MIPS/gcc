@@ -345,10 +345,12 @@ init_tree_optimization_passes (void)
 
   p = &pass_all_optimizations.sub;
   NEXT_PASS (pass_referenced_vars);
+  NEXT_PASS (pass_maybe_create_global_var);
+  NEXT_PASS (pass_create_structure_vars);
   NEXT_PASS (pass_build_ssa);
-  NEXT_PASS (pass_build_pta); 
+/*   NEXT_PASS (pass_build_pta);  */
   NEXT_PASS (pass_may_alias);
-  NEXT_PASS (pass_del_pta); 
+/*   NEXT_PASS (pass_del_pta);  */
   NEXT_PASS (pass_rename_ssa_copies);
   NEXT_PASS (pass_early_warn_uninitialized);
   NEXT_PASS (pass_dce);
@@ -357,9 +359,9 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_dce);
   NEXT_PASS (pass_forwprop);
   NEXT_PASS (pass_phiopt);
-  NEXT_PASS (pass_build_pta); 
+/*   NEXT_PASS (pass_build_pta);  */
   NEXT_PASS (pass_may_alias);
-  NEXT_PASS (pass_del_pta); 
+/*   NEXT_PASS (pass_del_pta);  */
   NEXT_PASS (pass_tail_recursion);
   NEXT_PASS (pass_ch);
   NEXT_PASS (pass_profile);
@@ -369,23 +371,40 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_redundant_phi);
   NEXT_PASS (pass_dce);
   NEXT_PASS (pass_dse);
+/*   NEXT_PASS (pass_build_pta);  */
   NEXT_PASS (pass_may_alias);
+/*   NEXT_PASS (pass_del_pta); */
   NEXT_PASS (pass_forwprop);
   NEXT_PASS (pass_phiopt);
   NEXT_PASS (pass_ccp);
   NEXT_PASS (pass_redundant_phi);
   NEXT_PASS (pass_fold_builtins);
+  /* FIXME: May alias should a TODO but for 4.0.0,
+     we add may_alias right after fold builtins
+     which can create arbitrary GIMPLE.  */
+/*   NEXT_PASS (pass_build_pta);  */
+  NEXT_PASS (pass_may_alias);
+/*   NEXT_PASS (pass_del_pta); */
   NEXT_PASS (pass_split_crit_edges);
   NEXT_PASS (pass_pre);
   NEXT_PASS (pass_loop);
   NEXT_PASS (pass_dominator);
   NEXT_PASS (pass_redundant_phi);
+  /* FIXME: If DCE is not run before checking for uninitialized uses,
+     we may get false warnings (e.g., testsuite/gcc.dg/uninit-5.c).
+     However, this also causes us to misdiagnose cases that should be
+     real warnings (e.g., testsuite/gcc.dg/pr18501.c).
+     
+     To fix the false positives in uninit-5.c, we would have to
+     account for the predicates protecting the set and the use of each
+     variable.  Using a representation like Gated Single Assignment
+     may help.  */
+  NEXT_PASS (pass_late_warn_uninitialized);
   NEXT_PASS (pass_cd_dce);
   NEXT_PASS (pass_dse);
   NEXT_PASS (pass_forwprop);
   NEXT_PASS (pass_phiopt);
   NEXT_PASS (pass_tail_calls);
-  NEXT_PASS (pass_late_warn_uninitialized);
   NEXT_PASS (pass_del_ssa);
   NEXT_PASS (pass_nrv);
   NEXT_PASS (pass_remove_useless_vars);
@@ -402,7 +421,9 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_if_conversion);
   NEXT_PASS (pass_vectorize);
   NEXT_PASS (pass_complete_unroll);
-  NEXT_PASS (pass_iv_optimize);
+  /* XXX: ivopts thinks it knows what its doing in creating type/name tags,
+     but it doesn't, and should be calling may_alias instead.  */
+/*   NEXT_PASS (pass_iv_optimize); */ 
   NEXT_PASS (pass_loop_done);
   *p = NULL;
 

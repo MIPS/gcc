@@ -177,6 +177,9 @@ extern int target_flags;
    This is because FreeBSD lacks these in the math-emulator-code */
 #define TARGET_NO_FANCY_MATH_387 (target_flags & MASK_NO_FANCY_MATH_387)
 
+/* Generate 387 floating point intrinsics for the current target.  */
+#define TARGET_USE_FANCY_MATH_387 (! TARGET_NO_FANCY_MATH_387)
+
 /* Don't create frame pointers for leaf functions */
 #define TARGET_OMIT_LEAF_FRAME_POINTER \
   (target_flags & MASK_OMIT_LEAF_FRAME_POINTER)
@@ -244,6 +247,7 @@ extern const int x86_sse_partial_reg_dependency, x86_sse_partial_regs;
 extern const int x86_sse_typeless_stores, x86_sse_load0_by_pxor;
 extern const int x86_use_ffreep, x86_sse_partial_regs_for_cvtsd2ss;
 extern const int x86_inter_unit_moves, x86_schedule;
+extern const int x86_use_bt;
 extern int x86_prefetch_sse;
 
 #define TARGET_USE_LEAVE (x86_use_leave & TUNEMASK)
@@ -299,6 +303,7 @@ extern int x86_prefetch_sse;
 #define TARGET_INTER_UNIT_MOVES (x86_inter_unit_moves & TUNEMASK)
 #define TARGET_FOUR_JUMP_LIMIT (x86_four_jump_limit & TUNEMASK)
 #define TARGET_SCHEDULE (x86_schedule & TUNEMASK)
+#define TARGET_USE_BT (x86_use_bt & TUNEMASK)
 
 #define TARGET_STACK_PROBE (target_flags & MASK_STACK_PROBE)
 
@@ -1070,14 +1075,11 @@ do {									\
 
 #define VALID_SSE2_REG_MODE(MODE) \
     ((MODE) == V16QImode || (MODE) == V8HImode || (MODE) == V2DFmode    \
-     || (MODE) == V2DImode)
+     || (MODE) == V2DImode || (MODE) == DFmode)
 
 #define VALID_SSE_REG_MODE(MODE)					\
     ((MODE) == TImode || (MODE) == V4SFmode || (MODE) == V4SImode	\
-     || (MODE) == SFmode || (MODE) == TFmode				\
-     /* Always accept SSE2 modes so that xmmintrin.h compiles.  */	\
-     || VALID_SSE2_REG_MODE (MODE)					\
-     || (TARGET_SSE2 && ((MODE) == DFmode || VALID_MMX_REG_MODE (MODE))))
+     || (MODE) == SFmode || (MODE) == TFmode)
 
 #define VALID_MMX_REG_MODE_3DNOW(MODE) \
     ((MODE) == V2SFmode || (MODE) == SFmode)
@@ -1442,6 +1444,11 @@ enum reg_class
 #define INDEX_REG_CLASS INDEX_REGS
 #define BASE_REG_CLASS GENERAL_REGS
 
+/* Unused letters:
+    B                 TU W   
+          h jk          vw  z
+*/
+
 /* Get reg_class from a letter such as appears in the machine description.  */
 
 #define REG_CLASS_FROM_LETTER(C)	\
@@ -1467,7 +1474,9 @@ enum reg_class
    (C) == 'y' ? TARGET_MMX ? MMX_REGS : NO_REGS :		\
    (C) == 'A' ? AD_REGS :					\
    (C) == 'D' ? DIREG :						\
-   (C) == 'S' ? SIREG : NO_REGS)
+   (C) == 'S' ? SIREG :						\
+   (C) == 'l' ? INDEX_REGS :					\
+   NO_REGS)
 
 /* The letters I, J, K, L and M in a register constraint string
    can be used to stand for particular ranges of immediate operands.
@@ -2792,12 +2801,6 @@ do {									\
 
 #define JUMP_TABLES_IN_TEXT_SECTION \
   (!TARGET_64BIT && flag_pic && !HAVE_AS_GOTOFF_IN_DATA)
-
-/* A C statement that outputs an address constant appropriate to
-   for DWARF debugging.  */
-
-#define ASM_OUTPUT_DWARF_ADDR_CONST(FILE, X) \
-  i386_dwarf_output_addr_const ((FILE), (X))
 
 /* Emit a dtp-relative reference to a TLS variable.  */
 

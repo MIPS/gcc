@@ -295,8 +295,11 @@ build_base_path (enum tree_code code,
 
   /* Now that we've saved expr, build the real null test.  */
   if (null_test)
-    null_test = fold (build2 (NE_EXPR, boolean_type_node,
-			      expr, integer_zero_node));
+    {
+      tree zero = cp_convert (TREE_TYPE (expr), integer_zero_node);
+      null_test = fold (build2 (NE_EXPR, boolean_type_node,
+				expr, zero));
+    }
 
   /* If this is a simple base reference, express it as a COMPONENT_REF.  */
   if (code == PLUS_EXPR && !virtual_access
@@ -491,9 +494,6 @@ build_vfield_ref (tree datum, tree type)
 
   if (datum == error_mark_node)
     return error_mark_node;
-
-  if (TREE_CODE (TREE_TYPE (datum)) == REFERENCE_TYPE)
-    datum = convert_from_reference (datum);
 
   /* First, convert to the requested type.  */
   if (!same_type_ignoring_top_level_qualifiers_p (TREE_TYPE (datum), type))
@@ -857,7 +857,8 @@ add_method (tree type, tree method)
   int using;
   unsigned slot;
   tree overload;
-  int template_conv_p;
+  bool template_conv_p = false;
+  bool conv_p;
   VEC(tree) *method_vec;
   bool complete_p;
   bool insert_p = false;
@@ -868,8 +869,10 @@ add_method (tree type, tree method)
 
   complete_p = COMPLETE_TYPE_P (type);
   using = (DECL_CONTEXT (method) != type);
-  template_conv_p = (TREE_CODE (method) == TEMPLATE_DECL
-                     && DECL_TEMPLATE_CONV_FN_P (method));
+  conv_p = DECL_CONV_FN_P (method);
+  if (conv_p)
+    template_conv_p = (TREE_CODE (method) == TEMPLATE_DECL
+		       && DECL_TEMPLATE_CONV_FN_P (method));
 
   method_vec = CLASSTYPE_METHOD_VEC (type);
   if (!method_vec)
@@ -901,7 +904,6 @@ add_method (tree type, tree method)
     }
   else
     {
-      bool conv_p = DECL_CONV_FN_P (method);
       tree m;
 
       insert_p = true;
@@ -1012,7 +1014,7 @@ add_method (tree type, tree method)
   /* Add the new binding.  */ 
   overload = build_overload (method, current_fns);
   
-  if (slot >= CLASSTYPE_FIRST_CONVERSION_SLOT && !complete_p)
+  if (!conv_p && slot >= CLASSTYPE_FIRST_CONVERSION_SLOT && !complete_p)
     push_class_level_binding (DECL_NAME (method), overload);
 
   if (insert_p)
@@ -2613,10 +2615,7 @@ check_bitfield_decl (tree field)
       STRIP_NOPS (w);
 
       /* detect invalid field size.  */
-      if (TREE_CODE (w) == CONST_DECL)
-	w = DECL_INITIAL (w);
-      else
-	w = decl_constant_value (w);
+      w = integral_constant_value (w);
 
       if (TREE_CODE (w) != INTEGER_CST)
 	{
@@ -4556,7 +4555,13 @@ layout_class_type (tree t, tree *virtuals_p)
              At this point, finish_record_layout will be called, but
 	     S1 is still incomplete.)  */
 	  if (TREE_CODE (field) == VAR_DECL)
-	    maybe_register_incomplete_var (field);
+	    {
+	      maybe_register_incomplete_var (field);
+	      /* The visibility of static data members is determined
+		 at their point of declaration, not their point of
+		 definition.  */
+	      determine_visibility (field);
+	    }
 	  continue;
 	}
 
@@ -5376,8 +5381,6 @@ pushclass (tree type)
     pushlevel_class ();
   else
     restore_class_cache ();
-  
-  cxx_remember_type_decls (CLASSTYPE_NESTED_UTDS (type));
 }
 
 /* When we exit a toplevel class scope, we save its binding level so
@@ -5864,6 +5867,15 @@ instantiate_type (tree lhstype, tree rhs, tsubst_flags_t flags)
   if (TREE_CODE (rhs) == BASELINK)
     rhs = BASELINK_FUNCTIONS (rhs);
 
+  /* If we are in a template, and have a NON_DEPENDENT_EXPR, we cannot
+     deduce any type information.  */
+  if (TREE_CODE (rhs) == NON_DEPENDENT_EXPR)
+    {
+      if (flags & tf_error)
+	error ("not enough type information");
+      return error_mark_node;
+    }
+
   /* We don't overwrite rhs if it is an overloaded function.
      Copying it would destroy the tree link.  */
   if (TREE_CODE (rhs) != OVERLOAD)
@@ -5904,14 +5916,15 @@ instantiate_type (tree lhstype, tree rhs, tsubst_flags_t flags)
 
     case COMPONENT_REF:
       {
-	tree addr = instantiate_type (lhstype, TREE_OPERAND (rhs, 1), flags);
+	tree member = TREE_OPERAND (rhs, 1);
 
-	if (addr != error_mark_node
+	member = instantiate_type (lhstype, member, flags);
+	if (member != error_mark_node
 	    && TREE_SIDE_EFFECTS (TREE_OPERAND (rhs, 0)))
 	  /* Do not lose object's side effects.  */
-	  addr = build2 (COMPOUND_EXPR, TREE_TYPE (addr),
-			 TREE_OPERAND (rhs, 0), addr);
-	return addr;
+	  return build2 (COMPOUND_EXPR, TREE_TYPE (member),
+			 TREE_OPERAND (rhs, 0), member);
+	return member;
       }
 
     case OFFSET_REF:
@@ -5942,12 +5955,6 @@ instantiate_type (tree lhstype, tree rhs, tsubst_flags_t flags)
 	resolve_address_of_overloaded_function (lhstype, rhs, flags_in,
 						/*template_only=*/false,
 						/*explicit_targs=*/NULL_TREE);
-
-    case TREE_LIST:
-      /* Now we should have a baselink.  */
-      gcc_assert (BASELINK_P (rhs));
-
-      return instantiate_type (lhstype, BASELINK_FUNCTIONS (rhs), flags);
 
     case CALL_EXPR:
       /* This is too hard for now.  */

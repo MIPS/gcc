@@ -110,7 +110,6 @@ static bool check_operand_nalternatives (tree, tree);
 static bool check_unique_operand_names (tree, tree);
 static char *resolve_operand_name_1 (char *, tree, tree);
 static void expand_null_return_1 (void);
-static rtx shift_return_value (rtx);
 static void expand_value_return (rtx);
 static void do_jump_if_equal (rtx, rtx, rtx, int);
 static int estimate_case_costs (case_node_ptr);
@@ -1500,33 +1499,6 @@ expand_naked_return (void)
   emit_jump (end_label);
 }
 
-/* If the current function returns values in the most significant part
-   of a register, shift return value VAL appropriately.  The mode of
-   the function's return type is known not to be BLKmode.  */
-
-static rtx
-shift_return_value (rtx val)
-{
-  tree type;
-
-  type = TREE_TYPE (DECL_RESULT (current_function_decl));
-  if (targetm.calls.return_in_msb (type))
-    {
-      rtx target;
-      HOST_WIDE_INT shift;
-
-      target = DECL_RTL (DECL_RESULT (current_function_decl));
-      shift = (GET_MODE_BITSIZE (GET_MODE (target))
-	       - BITS_PER_UNIT * int_size_in_bytes (type));
-      if (shift > 0)
-	val = expand_shift (LSHIFT_EXPR, GET_MODE (target),
-			    gen_lowpart (GET_MODE (target), val),
-			    build_int_cst (NULL_TREE, shift), target, 1);
-    }
-  return val;
-}
-
-
 /* Generate RTL to return from the current function, with value VAL.  */
 
 static void
@@ -1737,7 +1709,7 @@ expand_return (tree retval)
       val = expand_expr (retval_rhs, val, GET_MODE (val), 0);
       val = force_not_mem (val);
       /* Return the calculated value.  */
-      expand_value_return (shift_return_value (val));
+      expand_value_return (val);
     }
   else
     {
@@ -2581,14 +2553,8 @@ expand_case (tree exp)
 	    emit_jump_insn (gen_rtx_ADDR_VEC (CASE_VECTOR_MODE,
 					      gen_rtvec_v (ncases, labelvec)));
 
-	  /* If the case insn drops through the table,
-	     after the table we must jump to the default-label.
-	     Otherwise record no drop-through after the table.  */
-#ifdef CASE_DROPS_THROUGH
-	  emit_jump (default_label);
-#else
+	  /* Record no drop-through after the table.  */
 	  emit_barrier ();
-#endif
 	}
 
       before_case = NEXT_INSN (before_case);
@@ -3075,11 +3041,12 @@ emit_case_nodes (rtx index, case_node_ptr node, rtx default_label,
 
       else if (node->right != 0 && node->left == 0)
 	{
-	  /* Here we have a right child but no left so we issue conditional
+	  /* Here we have a right child but no left so we issue a conditional
 	     branch to default and process the right child.
 
-	     Omit the conditional branch to default if we it avoid only one
-	     right child; it costs too much space to save so little time.  */
+	     Omit the conditional branch to default if the right child
+	     does not have any children and is single valued; it would
+	     cost too much space to save so little time.  */
 
 	  if (node->right->right || node->right->left
 	      || !tree_int_cst_equal (node->right->low, node->right->high))
