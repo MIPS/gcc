@@ -351,6 +351,18 @@ tree_builtins::map_new (model_class *klass, tree constructor, tree arguments)
 			 map_type (klass), constructor, arguments);
 }
 
+tree
+tree_builtins::map_utf8const (const std::string &value)
+{
+  std::map<std::string, tree>::const_iterator it = utf8map.find (value);
+  if (it == utf8map.end ())
+    {
+      // FIXME
+      utf8map[value] = NULL;
+    }
+  return utf8map[value];
+}
+
 void
 tree_builtins::lay_out_vtable (model_class *mklass)
 {

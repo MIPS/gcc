@@ -322,6 +322,9 @@ build_class_type ()
   push_field (type_class, field, "atable", type_atable_ptr, true);
   push_field (type_class, field, "atable_syms", 
 	      build_pointer_type (type_method_symbol_array), true);
+  push_field (type_class, field, "itable", type_atable_ptr, true);
+  push_field (type_class, field, "itable_syms", 
+	      build_pointer_type (type_method_symbol_array), true);
   push_field (type_class, field, "catch_classes", ptr_type_node, true);
   push_field (type_class, field, "interfaces",
 	      build_pointer_type (type_class_ptr), true);
@@ -334,9 +337,12 @@ build_class_type ()
   push_field (type_class, field, "idt", ptr_type_node, true);  
   push_field (type_class, field, "arrayclass", ptr_type_node, true);  
   push_field (type_class, field, "protectionDomain", ptr_type_node, true);
+  // FIXME: type of assertion_table field is wrong.
+  push_field (type_class, field, "assertion_table", ptr_type_node, true);
   push_field (type_class, field, "hack_signers", ptr_type_node, true);
   push_field (type_class, field, "chain", ptr_type_node, true);
   push_field (type_class, field, "aux_info", ptr_type_node, true);
+  push_field (type_class, field, "engine", ptr_type_node, true);
   push_super_field (type_class, type_object);
   layout_type (type_class);
 }

@@ -321,7 +321,7 @@ class_object_creator::create_class_instance (tree class_tree)
   inst.set_field ("arrayclass", null_pointer_node);
   inst.set_field ("protectionDomain", null_pointer_node);
   inst.set_field ("assertion_table", null_pointer_node);  // FIXME
-  inst.set_field ("signers", null_pointer_node);
+  inst.set_field ("hack_signers", null_pointer_node);
   inst.set_field ("chain", null_pointer_node);
   inst.set_field ("aux_info", null_pointer_node);
   inst.set_field ("engine", null_pointer_node);

@@ -38,6 +38,10 @@ class tree_builtins : public aot_class_factory
   // This maps a variable or parameter to its corresponding gcc tree.
   std::map<model_variable_decl *, tree> varmap;
 
+  // This maps a string to a gcc tree representing the corresponding
+  // Utf8Const.
+  std::map<std::string, tree> utf8map;
+
   // ABI instances.
   cxx_abi old_abi;
   bc_abi new_abi;
@@ -74,12 +78,8 @@ public:
   tree map_method_call (aot_class *, tree, tree, model_method *, bool);
   tree map_new (model_class *, tree, tree);
 
-  // Memoize a utf8const.
-  tree map_utf8const (const std::string &)
-  {
-    // FIXME.
-    abort ();
-  }
+  /// Memoize a utf8const.
+  tree map_utf8const (const std::string &);
 
   tree lay_out_class (model_class *);
 

@@ -1,5 +1,13 @@
 2005-02-09  Tom Tromey  <tromey@redhat.com>
 
+	* decl.cc (build_class_type): Register itable, itable_syms,
+	assertion_table, engine.
+	* builtins.cc (map_utf8const): New method.
+	* builtins.hh (tree_builtins::utf8map): New field.
+	(tree_builtins::map_utf8const): Moved body to .cc file.
+
+2005-02-09  Tom Tromey  <tromey@redhat.com>
+
 	* hooks.hh (gcj_abi_version): Declare.
 	* classobj.cc (create_class_instance): Rename 'next' field.
 	and initialize it properly.
