@@ -724,6 +724,11 @@ changequote([,])
    fi
 fi
 
+case "${build}" in
+    *mingw*) CLASSPATH_SEP=';' ;;
+    *) CLASSPATH_SEP=':' ;;
+esac
+
 # Which gcj do we use?
 which_gcj=default
 built_gcc_dir="`cd ${builddotdot}/../../gcc && ${PWDCMD-pwd}`"
@@ -835,6 +840,7 @@ AC_SUBST(DIVIDESPEC)
 AC_SUBST(CHECKREFSPEC)
 AC_SUBST(EXCEPTIONSPEC)
 AC_SUBST(IEEESPEC)
+AC_SUBST(CLASSPATH_SEP)
 
 AM_CONDITIONAL(CANADIAN, test "$CANADIAN" = yes)
 AM_CONDITIONAL(NULL_TARGET, test "$NULL_TARGET" = yes)

@@ -1,3 +1,11 @@
+2003-10-26  Christopher Faylor  <cgf@redhat.com>
+
+	* configure.in: Accommodate different path separators for mingw vs.
+	other systems.
+	* Makefile.am: Ditto.
+	* configure: Regenerate.
+	* Makefile.iN: Ditto.
+
 2003-08-01  Danny Smith  <dannysmith@users.sourceforge.net>
 
 	PR libgcj/11575 
