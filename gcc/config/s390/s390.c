@@ -3595,7 +3595,7 @@ void
 s390_encode_section_info (decl)
      tree decl;
 {
-  bool local_p = !DECL_P (decl) || !TREE_PUBLIC (decl) || MODULE_LOCAL_P (decl);
+  bool local_p = (*targetm.binds_local_p) (decl);
   rtx rtl, symbol;
 
   rtl = DECL_P (decl) ? DECL_RTL (decl) : TREE_CST_RTL (decl);

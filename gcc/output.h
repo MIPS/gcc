@@ -542,6 +542,8 @@ extern void default_named_section_asm_out_constructor PARAMS ((struct rtx_def *,
 							       int));
 extern void default_ctor_section_asm_out_constructor PARAMS ((struct rtx_def *,
 							      int));
+extern bool default_binds_local_p PARAMS ((union tree_node *));
+extern bool default_binds_local_p_1 PARAMS ((union tree_node *, int));
 
 /* Emit data for vtable gc for GNU binutils.  */
 extern void assemble_vtable_entry PARAMS ((struct rtx_def *, HOST_WIDE_INT));

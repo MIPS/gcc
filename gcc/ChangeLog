@@ -1,3 +1,28 @@
+2003-01-28  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/s390/s390.c (s390_encode_section_info): Use binds_local_p
+	target hook.
+	* config/rs6000/rs6000.c (TARGET_BINDS_LOCAL_P): Define.
+	(rs6000_binds_local_p): Use default_binds_local_p_1.
+	(rs6000_encode_section_info): Use *targetm.binds_local_p.
+
+2002-05-28  Richard Henderson  <rth@redhat.com>
+
+	* varasm.c (default_binds_local_p): Check TREE_PUBLIC before
+	DECL_EXTERNAL.
+
+2002-05-19  Richard Henderson  <rth@redhat.com>
+
+	* target-def.h (TARGET_BINDS_LOCAL_P): New.
+	* target.h (struct gcc_target): Add binds_local_p.
+	* varasm.c (default_binds_local_p, default_binds_local_p_1): New.
+	* output.h: Declare it.
+
+	* config/alpha/alpha.c (alpha_encode_section_info): Use the new
+	hook.
+	* config/i386/i386.c (i386_encode_section_info): Likewise.
+	* config/ia64/ia64.c (ia64_encode_section_info): Likewise.
+
 2003-01-27  Gabriel Dos_Reis  <gdosreis@sophia.inria.fr>
 	
 	PR objc/9267

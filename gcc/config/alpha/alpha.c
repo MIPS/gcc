@@ -1589,27 +1589,7 @@ alpha_encode_section_info (decl)
 
   /* A variable is considered "local" if it is defined in this module.  */
 
-  if (! TREE_PUBLIC (decl) || MODULE_LOCAL_P (decl))
-    is_local = true;
-  else if (DECL_EXTERNAL (decl))
-    is_local = false;
-  /* Linkonce and weak data is never local.  */
-  else if (DECL_ONE_ONLY (decl) || DECL_WEAK (decl))
-    is_local = false;
-  /* If PIC, then assume that any global name can be overridden by
-     symbols resolved from other modules.  */
-  else if (flag_pic)
-    is_local = false;
-  /* Uninitialized COMMON variable may be unified with symbols
-     resolved from other modules.  */
-  else if (DECL_COMMON (decl)
-	   && (DECL_INITIAL (decl) == NULL
-	       || DECL_INITIAL (decl) == error_mark_node))
-    is_local = false;
-  /* Otherwise we're left with initialized (or non-common) global data
-     which is of necessity defined locally.  */
-  else
-    is_local = true;
+  is_local = (*targetm.binds_local_p) (decl);
 
   /* Determine if DECL will wind up in .sdata/.sbss.  */
 

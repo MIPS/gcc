@@ -185,6 +185,10 @@ struct gcc_target
   /* True if the constant X cannot be placed in the constant pool.  */
   bool (* cannot_force_const_mem) PARAMS ((rtx));
 
+  /* True if EXP names an object for which name resolution must resolve
+     to the current module.  */
+  bool (* binds_local_p) PARAMS ((tree));
+
   /* True if arbitrary sections are supported.  */
   bool have_named_sections;
 

@@ -5540,7 +5540,7 @@ ix86_encode_section_info (decl)
   if (GET_CODE (symbol) != SYMBOL_REF)
     return;
 
-  local_p = !DECL_P (decl) || !TREE_PUBLIC (decl) || MODULE_LOCAL_P (decl);
+  local_p = (*targetm.binds_local_p) (decl);
 
   /* For basic x86, if using PIC, mark a SYMBOL_REF for a non-global
      symbol so that we may access it directly in the GOT.  */

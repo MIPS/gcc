@@ -5342,7 +5342,7 @@ decl_tls_model (decl)
       return kind;
     }
 
-  is_local = !DECL_P (decl) || !TREE_PUBLIC (decl) || MODULE_LOCAL_P (decl);
+  is_local = (*targetm.binds_local_p) (decl);
   if (!flag_pic)
     {
       if (is_local)
@@ -5525,4 +5525,54 @@ assemble_vtable_inherit (child, parent)
   fputs (", ", asm_out_file);
   output_addr_const (asm_out_file, parent);
   fputc ('\n', asm_out_file);
+}
+
+/* Assume ELF-ish defaults, since that's pretty much the most liberal
+   wrt cross-module name binding.  */
+
+bool
+default_binds_local_p (exp)
+     tree exp;
+{
+  return default_binds_local_p_1 (exp, flag_pic);
+}
+
+bool
+default_binds_local_p_1 (exp, shlib)
+     tree exp;
+     int shlib;
+{
+  bool local_p;
+
+  /* A non-decl is an entry in the constant pool.  */
+  if (!DECL_P (exp))
+    local_p = true;
+  /* Static variables are always local.  */
+  else if (! TREE_PUBLIC (exp))
+    local_p = true;
+  /* A variable is local if the user tells us so.  */
+  else if (MODULE_LOCAL_P (exp))
+    local_p = true;
+  /* Otherwise, variables defined outside this object may not be local.  */
+  else if (DECL_EXTERNAL (exp))
+    local_p = false;
+  /* Linkonce and weak data are never local.  */
+  else if (DECL_ONE_ONLY (exp) || DECL_WEAK (exp))
+    local_p = false;
+  /* If PIC, then assume that any global name can be overridden by
+     symbols resolved from other modules.  */
+  else if (shlib)
+    local_p = false;
+  /* Uninitialized COMMON variable may be unified with symbols
+     resolved from other modules.  */
+  else if (DECL_COMMON (exp)
+	   && (DECL_INITIAL (exp) == NULL
+	       || DECL_INITIAL (exp) == error_mark_node))
+    local_p = false;
+  /* Otherwise we're left with initialized (or non-common) global data
+     which is of necessity defined locally.  */
+  else
+    local_p = true;
+
+  return local_p;
 }

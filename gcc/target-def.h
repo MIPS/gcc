@@ -179,6 +179,10 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_SECTION_TYPE_FLAGS default_section_type_flags
 #endif
 
+#ifndef TARGET_BINDS_LOCAL_P
+#define TARGET_BINDS_LOCAL_P default_binds_local_p
+#endif
+
 /* In hook.c.  */
 #define TARGET_CANNOT_MODIFY_JUMPS_P hook_void_bool_false
 #define TARGET_CANNOT_FORCE_CONST_MEM hook_bool_rtx_false
@@ -201,6 +205,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   TARGET_SECTION_TYPE_FLAGS,			\
   TARGET_CANNOT_MODIFY_JUMPS_P,			\
   TARGET_CANNOT_FORCE_CONST_MEM,		\
+  TARGET_BINDS_LOCAL_P,				\
   TARGET_HAVE_NAMED_SECTIONS,			\
   TARGET_HAVE_CTORS_DTORS,			\
   TARGET_HAVE_TLS				\

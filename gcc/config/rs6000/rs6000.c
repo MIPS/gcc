@@ -284,6 +284,9 @@ static const char alt_reg_names[][8] =
 #undef TARGET_EXPAND_BUILTIN
 #define TARGET_EXPAND_BUILTIN rs6000_expand_builtin
 
+#undef TARGET_BINDS_LOCAL_P
+#define TARGET_BINDS_LOCAL_P rs6000_binds_local_p
+
 /* The VRSAVE bitmask puts bit %v0 as the most significant bit.  */
 #define ALTIVEC_REG_BIT(REGNO) (0x80000000 >> ((REGNO) - FIRST_ALTIVEC_REGNO))
 
@@ -10793,6 +10796,13 @@ rs6000_longcall_ref (call_ref)
 }
 
 
+static bool
+rs6000_binds_local_p (exp)
+     tree exp;
+{
+  return default_binds_local_p_1 (decl, flag_pic || rs6000_flag_pic);
+}
+
 /* A C statement or statements to switch to the appropriate section
    for output of RTX in mode MODE.  You can assume that RTX is some
    kind of constant in RTL.  The argument MODE is redundant except in
@@ -10949,44 +10959,6 @@ rs6000_unique_section (decl, reloc)
 }
 
 
-static bool
-rs6000_binds_local_p (exp)
-     tree exp;
-{
-  bool local_p;
-  tree attr;
-
-  /* A non-decl is an entry in the constant pool.  */
-  if (!DECL_P (exp))
-    local_p = true;
-  /* Static variables are always local.  */
-  else if (! TREE_PUBLIC (exp))
-    local_p = true;
-  /* Otherwise, variables defined outside this object may not be local.  */
-  else if (DECL_EXTERNAL (exp))
-    local_p = false;
-  /* Linkonce and weak data are never local.  */
-  else if (DECL_ONE_ONLY (exp) || DECL_WEAK (exp))
-    local_p = false;
-  /* If PIC, then assume that any global name can be overridden by
-   *      symbols resolved from other modules.  */
-  else if (flag_pic || rs6000_flag_pic)
-    local_p = false;
-  /* Uninitialized COMMON variable may be unified with symbols
-   *      resolved from other modules.  */
-  else if (DECL_COMMON (exp)
-	   && (DECL_INITIAL (exp) == NULL
-	       || DECL_INITIAL (exp) == error_mark_node))
-    local_p = false;
-  /* Otherwise we're left with initialized (or non-common) global data
-   *      which is of necessity defined locally.  */
-  else
-    local_p = true;
-
-  return local_p;
-}
-
-
 /* If we are referencing a function that is static or is known to be
    in this file, make the SYMBOL_REF special.  We can use this to indicate
    that we can branch to this function without emitting a no-op after the
@@ -11002,7 +10974,7 @@ rs6000_encode_section_info (decl)
   if (TREE_CODE (decl) == FUNCTION_DECL)
     {
       rtx sym_ref = XEXP (DECL_RTL (decl), 0);
-      if (rs6000_binds_local_p (decl))
+      if ((*targetm.binds_local_p) (decl))
 	SYMBOL_REF_FLAG (sym_ref) = 1;
 
       if (DEFAULT_ABI == ABI_AIX)
@@ -11027,7 +10999,7 @@ rs6000_encode_section_info (decl)
       const char *name = (char *)0;
       int len = 0;
 
-      if (rs6000_binds_local_p (decl))
+      if ((*targetm.binds_local_p) (decl))
 	SYMBOL_REF_FLAG (sym_ref) = 1;
 
       if (section_name)
