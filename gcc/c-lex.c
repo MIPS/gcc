@@ -508,10 +508,6 @@ c_lex_with_flags (tree *value, unsigned char *cpp_flags)
 	      
 	    case CPP_STRING:
 	    case CPP_WSTRING:
-	      /* APPLE LOCAL begin CW asm blocks */
-	      if (flag_cw_asm_blocks_local)
-		--c_lex_depth;
-	      /* APPLE LOCAL end CW asm blocks */
 	      type = lex_string (tok, value, true);
 	      break;
 
@@ -519,10 +515,6 @@ c_lex_with_flags (tree *value, unsigned char *cpp_flags)
 	      *value = HT_IDENT_TO_GCC_IDENT (HT_NODE (tok->val.node));
 	      if (objc_is_reserved_word (*value))
 		{
-		  /* APPLE LOCAL begin CW asm blocks */
-		  if (flag_cw_asm_blocks_local)
-		    --c_lex_depth;
-		  /* APPLE LOCAL end CW asm blocks */
 		  type = CPP_AT_NAME;
 		  break;
 		}
@@ -602,10 +594,6 @@ c_lex_with_flags (tree *value, unsigned char *cpp_flags)
     case CPP_WSTRING:
       if (!c_lex_return_raw_strings)
 	{
-	  /* APPLE LOCAL begin CW asm blocks */
-	  if (flag_cw_asm_blocks_local)
-	    --c_lex_depth;
-	  /* APPLE LOCAL end CW asm blocks */
 	  type = lex_string (tok, value, false);
 	  break;
 	}
