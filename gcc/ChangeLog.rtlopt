@@ -1,3 +1,8 @@
+2003-02-07  Josef Zlomek  <zlomekj@suse.cz>
+
+	* var-tracking.c (get_decl_and_offset): Remove abort().
+	(insert_function_parameters): Likewise.
+
 2003-02-06  Josef Zlomek  <zlomekj@suse.cz>
 
 	* Makefile.in (var-tracking.o): Add dependency to insn-config.h

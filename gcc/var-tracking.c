@@ -1565,8 +1565,6 @@ get_decl_and_offset (rtl, declp, offsetp)
 	  return true;
 	}
     }
-  else
-    abort ();
   return false;
 }
 
@@ -1590,7 +1588,7 @@ insert_function_parameters ()
 
       if (!get_decl_and_offset (incoming, &decl, &offset))
 	if (!get_decl_and_offset (decl_rtl, &decl, &offset))
-	  abort ();
+	  continue;
 
       if (parm != decl)
 	abort ();
@@ -1614,8 +1612,6 @@ insert_function_parameters ()
 	  attrs_htab_insert (mem_in, parm, offset, incoming);
 	  attrs_htab_insert (mem_out, parm, offset, incoming);
 	}
-      else
-	abort ();
     }
 }
 
