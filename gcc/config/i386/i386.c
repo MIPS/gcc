@@ -362,11 +362,11 @@ static const
 struct processor_costs pentium4_cost = {
   1,					/* cost of an add instruction */
   1,					/* cost of a lea instruction */
-  8,					/* variable shift costs */
-  8,					/* constant shift costs */
-  30,					/* cost of starting a multiply */
+  4,					/* variable shift costs */
+  4,					/* constant shift costs */
+  15,					/* cost of starting a multiply */
   0,					/* cost of multiply per each bit set */
-  112,					/* cost of a divide/mod */
+  56,					/* cost of a divide/mod */
   1,					/* cost of movsx */
   1,					/* cost of movzx */
   16,					/* "large" insn */
@@ -13876,7 +13876,8 @@ ix86_memory_move_cost (mode, class, in)
 	if (mode == TFmode)
 	  mode = XFmode;
 	return ((in ? ix86_cost->int_load[2] : ix86_cost->int_store[2])
-		* (int) GET_MODE_SIZE (mode) / 4);
+		* ((int) GET_MODE_SIZE (mode) + UNITS_PER_WORD - 1)
+		/ UNITS_PER_WORD);
     }
 }
 

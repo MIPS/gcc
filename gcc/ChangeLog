@@ -1,3 +1,8 @@
+Thu Oct 17 17:40:05 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.c (pentium4_cost): Fix according to Intel recommendations.
+	(ix86_memory_move_cost): Fix for 64bit compilation.
+
 2002-10-15  Eric Christopher  <echristo@redhat.com>
 
 	* stor-layout.c (layout_type): Call GET_MODE_BITSIZE once.
