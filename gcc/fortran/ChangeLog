@@ -1,3 +1,9 @@
+2003-11-24  Paul Brook  <paul@nowt.org>
+
+	PR fortran/13105
+	* array.c (gfc_array_ref_shape): Handle elemental dimensions.
+	* trans-array.c (gfc_trans_preloop_setup): Use correct dim lookup.
+
 2003-11-20  Richard Henderson  <rth@redhat.com>
 
 	* trans-array.c (gfc_trans_allocate_array_storage): Use convert.

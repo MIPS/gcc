@@ -1629,7 +1629,7 @@ gfc_trans_preloop_setup (gfc_loopinfo * loop, int dim, int flag,
 	  gfc_init_se (&se, NULL);
 	  se.loop = loop;
 	  se.expr = info->descriptor;
-	  stride = gfc_conv_array_stride (info->descriptor, i);
+	  stride = gfc_conv_array_stride (info->descriptor, info->dim[i]);
 	  index = gfc_conv_array_index_offset (&se, info, info->dim[i], i,
 					       ar, stride);
 	  gfc_add_block_to_block (pblock, &se.pre);

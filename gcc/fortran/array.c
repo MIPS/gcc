@@ -1913,6 +1913,7 @@ try
 gfc_array_ref_shape (gfc_array_ref * ar, mpz_t * shape)
 {
   int d;
+  int i;
 
   d = 0;
 
@@ -1926,9 +1927,15 @@ gfc_array_ref_shape (gfc_array_ref * ar, mpz_t * shape)
       return SUCCESS;
 
     case AR_SECTION:
-      for (; d < ar->dimen; d++)
-	if (ref_dimen_size (ar, d, &shape[d]) == FAILURE)
-	  goto cleanup;
+      for (i = 0; i < ar->dimen; i++)
+	{
+	  if (ar->dimen_type[i] != DIMEN_ELEMENT)
+	    {
+	      if (ref_dimen_size (ar, i, &shape[d]) == FAILURE)
+		goto cleanup;
+	      d++;
+	    }
+	}
 
       return SUCCESS;
 
