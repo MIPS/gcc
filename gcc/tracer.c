@@ -53,7 +53,7 @@ static void layout_superblocks		PARAMS ((void));
 static bool ignore_bb_p			PARAMS ((basic_block));
 
 /* Bellow are some parameters meant to keep code expansion under control.
-   Perhaps it can be usefull to add command line paramters to tune them, but
+   Perhaps it can be usefull to add command line parameters to tune them, but
    until I see practical testcase I believe their finetunning is not really
    important.  They are just meant to rule out cold regions of code
    that are usually easy to recognize.  */
@@ -83,7 +83,7 @@ static bool ignore_bb_p			PARAMS ((basic_block));
 
    We do not want to trace in both cases, as tracing in wrong direction is
    wastefull and overactive tracing of badly predictable jumps interfere
-   badly with if converison pass.  The thresholds needs to be different.  */
+   badly with if conversion pass.  The thresholds need to be different.  */
 
 #define MIN_BRANCH_PROBABILITY (flag_branch_probabilities ? 0.3 : 0.5)
 
@@ -225,7 +225,7 @@ find_trace (bb, trace)
 static void
 tail_duplicate ()
 {
-  fibnode_t *blocks = xmalloc (sizeof (fibnode_t) * n_basic_blocks);
+  fibnode_t *blocks = xcalloc (n_basic_blocks, sizeof (fibnode_t));
   basic_block *trace = xmalloc (sizeof (basic_block) * n_basic_blocks);
   int ninsns = 0, nduplicated = 0;
   gcov_type weighted_insns = 0, traced_insns = 0;
@@ -255,15 +255,14 @@ tail_duplicate ()
 
       if (!bb)
 	break;
+
+      blocks[bb->index] = NULL;
+
       if (ignore_bb_p (bb))
 	continue;
       if (seen (bb))
 	abort ();
 
-      blocks[bb->index] = NULL;
-
-      if (seen (bb))
-	abort ();
       n = find_trace (bb, trace);
 
       bb = trace[0];
@@ -343,14 +342,15 @@ layout_superblocks ()
 
       for (e = end->succ; e; e = e->succ_next)
 	if (e->dest != EXIT_BLOCK_PTR
+	    && e->dest != BASIC_BLOCK (0)
 	    && ! RBI (e->dest)->visited
 	    && (!best || EDGE_FREQUENCY (e) > EDGE_FREQUENCY (best)))
 	  best = e;
 
-      if (e)
+      if (best)
 	{
-	  RBI (end)->next = e->dest;
-	  RBI (e->dest)->visited = 1;
+	  RBI (end)->next = best->dest;
+	  RBI (best->dest)->visited = 1;
 	}
       else
 	for (; i < n_basic_blocks; i++)
