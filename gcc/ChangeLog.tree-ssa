@@ -1,5 +1,8 @@
 2003-11-11  Richard Henderson  <rth@redhat.com>
 
+	* c-common.c (c_gimplify_stmt): Fix botched removal of
+	rationalize_compound_expr calls.
+
 	* c-semantics.c (build_stmt): Set TREE_SIDE_EFFECTS.
 	* c-simplify.c (c_gimplify_stmt): Return a gimplify_status;
 	mind the status from subroutines to avoid re-gimplification.
