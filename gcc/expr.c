@@ -152,7 +152,6 @@ static rtx clear_storage_via_libcall (rtx, rtx);
 static tree clear_storage_libcall_fn (int);
 static rtx compress_float_constant (rtx, rtx);
 static rtx get_subtarget (rtx);
-static int is_zeros_p (tree);
 static void store_constructor_field (rtx, unsigned HOST_WIDE_INT,
 				     HOST_WIDE_INT, enum machine_mode,
 				     tree, tree, int, int);
@@ -4360,50 +4359,166 @@ store_expr (tree exp, rtx target, int want_value)
     return target;
 }
 
-/* Return 1 if EXP just contains zeros.  FIXME merge with initializer_zerop.  */
+/* Examine CTOR.  Discover how many scalar fields are set to non-zero
+   values and place it in *P_NZ_ELTS.  Discover how many scalar fields
+   are set to non-constant values and place it in  *P_NC_ELTS.  */
 
-static int
-is_zeros_p (tree exp)
+static void
+categorize_ctor_elements_1 (tree ctor, HOST_WIDE_INT *p_nz_elts,
+			    HOST_WIDE_INT *p_nc_elts)
 {
-  tree elt;
+  HOST_WIDE_INT nz_elts, nc_elts;
+  tree list;
 
-  switch (TREE_CODE (exp))
+  nz_elts = 0;
+  nc_elts = 0;
+  
+  for (list = CONSTRUCTOR_ELTS (ctor); list; list = TREE_CHAIN (list))
     {
-    case CONVERT_EXPR:
-    case NOP_EXPR:
-    case NON_LVALUE_EXPR:
-    case VIEW_CONVERT_EXPR:
-      return is_zeros_p (TREE_OPERAND (exp, 0));
+      tree value = TREE_VALUE (list);
+      tree purpose = TREE_PURPOSE (list);
+      HOST_WIDE_INT mult;
 
-    case INTEGER_CST:
-      return integer_zerop (exp);
+      mult = 1;
+      if (TREE_CODE (purpose) == RANGE_EXPR)
+	{
+	  tree lo_index = TREE_OPERAND (purpose, 0);
+	  tree hi_index = TREE_OPERAND (purpose, 1);
 
-    case COMPLEX_CST:
-      return
-	is_zeros_p (TREE_REALPART (exp)) && is_zeros_p (TREE_IMAGPART (exp));
+	  if (host_integerp (lo_index, 1) && host_integerp (hi_index, 1))
+	    mult = (tree_low_cst (hi_index, 1)
+		    - tree_low_cst (lo_index, 1) + 1);
+	}
 
-    case REAL_CST:
-      return REAL_VALUES_IDENTICAL (TREE_REAL_CST (exp), dconst0);
+      switch (TREE_CODE (value))
+	{
+	case CONSTRUCTOR:
+	  {
+	    HOST_WIDE_INT nz = 0, nc = 0;
+	    categorize_ctor_elements_1 (value, &nz, &nc);
+	    nz_elts += mult * nz;
+	    nc_elts += mult * nc;
+	  }
+	  break;
 
-    case VECTOR_CST:
-      for (elt = TREE_VECTOR_CST_ELTS (exp); elt;
-	   elt = TREE_CHAIN (elt))
-	if (!is_zeros_p (TREE_VALUE (elt)))
-	  return 0;
+	case INTEGER_CST:
+	case REAL_CST:
+	  if (!initializer_zerop (value))
+	    nz_elts += mult;
+	  break;
+	case COMPLEX_CST:
+	  if (!initializer_zerop (TREE_REALPART (value)))
+	    nz_elts += mult;
+	  if (!initializer_zerop (TREE_IMAGPART (value)))
+	    nz_elts += mult;
+	  break;
+	case VECTOR_CST:
+	  {
+	    tree v;
+	    for (v = TREE_VECTOR_CST_ELTS (value); v; v = TREE_CHAIN (v))
+	      if (!initializer_zerop (TREE_VALUE (v)))
+	        nz_elts += mult;
+	  }
+	  break;
 
+	default:
+	  nz_elts += mult;
+	  if (!initializer_constant_valid_p (value, TREE_TYPE (value)))
+	    nc_elts += mult;
+	  break;
+	}
+    }
+
+  *p_nz_elts += nz_elts;
+  *p_nc_elts += nc_elts;
+}
+
+void
+categorize_ctor_elements (tree ctor, HOST_WIDE_INT *p_nz_elts,
+			  HOST_WIDE_INT *p_nc_elts)
+{
+  *p_nz_elts = 0;
+  *p_nc_elts = 0;
+  categorize_ctor_elements_1 (ctor, p_nz_elts, p_nc_elts);
+}
+
+/* Count the number of scalars in TYPE.  Return -1 on overflow or
+   variable-sized.  */
+
+HOST_WIDE_INT
+count_type_elements (tree type)
+{
+  const HOST_WIDE_INT max = ~((HOST_WIDE_INT)1 << (HOST_BITS_PER_WIDE_INT-1));
+  switch (TREE_CODE (type))
+    {
+    case ARRAY_TYPE:
+      {
+	tree telts = array_type_nelts (type);
+	if (telts && host_integerp (telts, 1))
+	  {
+	    HOST_WIDE_INT n = tree_low_cst (telts, 1);
+	    HOST_WIDE_INT m = count_type_elements (TREE_TYPE (type));
+	    if (n == 0)
+	      return 0;
+	    if (max / n < m)
+	      return n * m;
+	  }
+	return -1;
+      }
+
+    case RECORD_TYPE:
+      {
+	HOST_WIDE_INT n = 0, t;
+	tree f;
+
+	for (f = TYPE_FIELDS (type); f ; f = TREE_CHAIN (f))
+	  if (TREE_CODE (f) == FIELD_DECL)
+	    {
+	      t = count_type_elements (TREE_TYPE (f));
+	      if (t < 0)
+		return -1;
+	      n += t;
+	    }
+
+	return n;
+      }
+
+    case UNION_TYPE:
+    case QUAL_UNION_TYPE:
+      {
+	/* Ho hum.  How in the world do we guess here?  Clearly it isn't
+	   right to count the fields.  Guess based on the number of words.  */
+        HOST_WIDE_INT n = int_size_in_bytes (type);
+	if (n < 0)
+	  return -1;
+	return n / UNITS_PER_WORD;
+      }
+
+    case COMPLEX_TYPE:
+      return 2;
+
+    case VECTOR_TYPE:
+      /* ??? This is broke.  We should encode the vector width in the tree.  */
+      return GET_MODE_NUNITS (TYPE_MODE (type));
+
+    case INTEGER_TYPE:
+    case REAL_TYPE:
+    case ENUMERAL_TYPE:
+    case BOOLEAN_TYPE:
+    case CHAR_TYPE:
+    case POINTER_TYPE:
+    case OFFSET_TYPE:
+    case REFERENCE_TYPE:
       return 1;
 
-    case CONSTRUCTOR:
-      if (TREE_TYPE (exp) && TREE_CODE (TREE_TYPE (exp)) == SET_TYPE)
-	return CONSTRUCTOR_ELTS (exp) == NULL_TREE;
-      for (elt = CONSTRUCTOR_ELTS (exp); elt; elt = TREE_CHAIN (elt))
-	if (! is_zeros_p (TREE_VALUE (elt)))
-	  return 0;
-
-      return 1;
-
+    case VOID_TYPE:
+    case METHOD_TYPE:
+    case FILE_TYPE:
+    case SET_TYPE:
+    case FUNCTION_TYPE:
+    case LANG_TYPE:
     default:
-      return 0;
+      abort ();
     }
 }
 
@@ -4413,30 +4528,21 @@ int
 mostly_zeros_p (tree exp)
 {
   if (TREE_CODE (exp) == CONSTRUCTOR)
+    
     {
-      int elts = 0, zeros = 0;
-      tree elt = CONSTRUCTOR_ELTS (exp);
-      if (TREE_TYPE (exp) && TREE_CODE (TREE_TYPE (exp)) == SET_TYPE)
-	{
-	  /* If there are no ranges of true bits, it is all zero.  */
-	  return elt == NULL_TREE;
-	}
-      for (; elt; elt = TREE_CHAIN (elt))
-	{
-	  /* We do not handle the case where the index is a RANGE_EXPR,
-	     so the statistic will be somewhat inaccurate.
-	     We do make a more accurate count in store_constructor itself,
-	     so since this function is only used for nested array elements,
-	     this should be close enough.  */
-	  if (mostly_zeros_p (TREE_VALUE (elt)))
-	    zeros++;
-	  elts++;
-	}
+      HOST_WIDE_INT nz_elts, nc_elts, elts;
 
-      return 4 * zeros >= 3 * elts;
+      /* If there are no ranges of true bits, it is all zero.  */
+      if (TREE_TYPE (exp) && TREE_CODE (TREE_TYPE (exp)) == SET_TYPE)
+	return CONSTRUCTOR_ELTS (exp) == NULL_TREE;
+
+      categorize_ctor_elements (exp, &nz_elts, &nc_elts);
+      elts = count_type_elements (TREE_TYPE (exp));
+
+      return nz_elts < elts / 4;
     }
 
-  return is_zeros_p (exp);
+  return initializer_zerop (exp);
 }
 
 /* Helper function for store_constructor.
@@ -4576,7 +4682,7 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 	  if (field == 0)
 	    continue;
 
-	  if (cleared && is_zeros_p (value))
+	  if (cleared && initializer_zerop (value))
 	    continue;
 
 	  if (host_integerp (DECL_SIZE (field), 1))
@@ -4811,7 +4917,7 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 	  tree index = TREE_PURPOSE (elt);
 	  rtx xtarget = target;
 
-	  if (cleared && is_zeros_p (value))
+	  if (cleared && initializer_zerop (value))
 	    continue;
 
 	  unsignedp = TREE_UNSIGNED (elttype);
@@ -6899,9 +7005,7 @@ expand_expr_1 (tree exp, rtx target, enum machine_mode tmode,
 			&& (! MOVE_BY_PIECES_P
 			    (tree_low_cst (TYPE_SIZE_UNIT (type), 1),
 			     TYPE_ALIGN (type)))
-			&& ((TREE_CODE (type) == VECTOR_TYPE
-			     && !is_zeros_p (exp))
-			    || ! mostly_zeros_p (exp)))))
+			&& ! mostly_zeros_p (exp))))
 	       || ((modifier == EXPAND_INITIALIZER
 		    || modifier == EXPAND_CONST_ADDRESS)
 		   && TREE_CONSTANT (exp)))
@@ -10110,7 +10214,7 @@ const_vector_from_tree (tree exp)
 
   mode = TYPE_MODE (TREE_TYPE (exp));
 
-  if (is_zeros_p (exp))
+  if (initializer_zerop (exp))
     return CONST0_RTX (mode);
 
   units = GET_MODE_NUNITS (mode);

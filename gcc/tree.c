@@ -5118,41 +5118,48 @@ make_vector (enum machine_mode mode, tree innertype, int unsignedp)
 bool
 initializer_zerop (tree init)
 {
+  tree elt;
+
   STRIP_NOPS (init);
 
   switch (TREE_CODE (init))
     {
     case INTEGER_CST:
       return integer_zerop (init);
+
     case REAL_CST:
+      /* ??? Note that this is not correct for C4X float formats.  There,
+	 a bit pattern of all zeros is 1.0; 0.0 is encoded with the most
+	 negative exponent.  */
       return real_zerop (init)
 	&& ! REAL_VALUE_MINUS_ZERO (TREE_REAL_CST (init));
+
     case COMPLEX_CST:
       return integer_zerop (init)
 	|| (real_zerop (init)
 	    && ! REAL_VALUE_MINUS_ZERO (TREE_REAL_CST (TREE_REALPART (init)))
 	    && ! REAL_VALUE_MINUS_ZERO (TREE_REAL_CST (TREE_IMAGPART (init))));
-    case CONSTRUCTOR:
-      {
-	/* Set is empty if it has no elements.  */
-        if ((TREE_CODE (TREE_TYPE (init)) == SET_TYPE)
-             && CONSTRUCTOR_ELTS (init))
+
+    case VECTOR_CST:
+      for (elt = TREE_VECTOR_CST_ELTS (init); elt; elt = TREE_CHAIN (elt))
+	if (!initializer_zerop (TREE_VALUE (elt)))
 	  return false;
+      return true;
 
-	if (AGGREGATE_TYPE_P (TREE_TYPE (init)))
-	  {
-	    tree aggr_init = CONSTRUCTOR_ELTS (init);
+    case CONSTRUCTOR:
+      elt = CONSTRUCTOR_ELTS (init);
+      if (elt == NULL_TREE)
+	return true;
 
-	    while (aggr_init)
-	      {
-		if (! initializer_zerop (TREE_VALUE (aggr_init)))
-		  return false;
-		aggr_init = TREE_CHAIN (aggr_init);
-	      }
-	    return true;
-	  }
+      /* A set is empty only if it has no elements.  */
+      if (TREE_CODE (TREE_TYPE (init)) == SET_TYPE)
 	return false;
-      }
+
+      for (; elt ; elt = TREE_CHAIN (elt))
+	if (! initializer_zerop (TREE_VALUE (elt)))
+	  return false;
+      return true;
+
     default:
       return false;
     }
