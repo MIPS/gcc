@@ -89,6 +89,7 @@ static void gimplify_conversion (tree *);
 static int gimplify_init_constructor (tree *, tree *, int);
 static void gimplify_minimax_expr (tree *, tree *, tree *);
 static void build_stack_save_restore (tree *, tree *);
+static void gimplify_va_arg_expr (tree *, tree *, tree *);
 
 static struct gimplify_ctx
 {
@@ -459,8 +460,8 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	  gimplify_addr_expr (expr_p, pre_p, post_p);
 	  break;
 
-	/* va_arg expressions are in GIMPLE form already.  */
 	case VA_ARG_EXPR:
+	  gimplify_va_arg_expr (expr_p, pre_p, post_p);
 	  break;
 
 	case CONVERT_EXPR:
@@ -2057,22 +2058,6 @@ gimplify_modify_expr (tree *expr_p, tree *pre_p, tree *post_p, int want_value)
 	  || (flag_non_call_exceptions && tree_could_trap_p (*from_p))))
     gimplify_expr (from_p, pre_p, post_p, is_gimple_val, fb_rvalue);
 
-  /* Structure copies must be lowered to calls to memcpy.  Except for
-     calls, which can use CALL_EXPR_HAS_RETURN_SLOT_ADDR to get the
-     target function to put things in the right place to begin with.  */
-  if (AGGREGATE_TYPE_P (TREE_TYPE (*to_p)))
-    {
-      tree args, fn;
-
-      args = tree_cons (NULL, TYPE_SIZE_UNIT (TREE_TYPE (*to_p)), NULL);
-      args = tree_cons (NULL, build_addr_expr (*from_p), args);
-      args = tree_cons (NULL, build_addr_expr (*to_p), args);
-      fn = implicit_built_in_decls[BUILT_IN_MEMCPY];
-      *expr_p = build_function_call_expr (fn, args);
-
-      gimplify_expr (expr_p, pre_p, post_p, is_gimple_stmt, fb_none);
-    }
-
   if (want_value)
     {
       add_tree (*expr_p, pre_p);
@@ -2955,4 +2940,11 @@ build_stack_save_restore (tree *save, tree *restore)
   *restore =
       build_function_call_expr (implicit_built_in_decls[BUILT_IN_STACK_RESTORE],
 				tree_cons (NULL_TREE, tmp_var, NULL_TREE));
+}
+
+/* Lower va_arg to something we can work with.  */
+
+static void
+gimplify_va_arg (tree *expr_p, tree *pre_p, tree *post_p)
+{
 }
