@@ -1,6 +1,9 @@
 2003-02-25  Jeff Law  <law@redhat.com>
 	    Diego Novillo  <dnovillo@redhat.com>
 
+	* tree-ssa-ccp.c (likely_value): If the statement has no
+	use operands, then return CONSTANT.
+
 	* fold-const.c (nondestructive_fold_binary): Handle TRUTH_AND_EXPR
 	and TRUTH_OR_EXPR.  Placeholder for TRUTH_XOR_EXPR.
 	* tree-ssa-ccp.c (ccp_fold): Handle TRUTH_{AND,OR,XOR}_EXPR.

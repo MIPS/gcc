@@ -1101,7 +1101,9 @@ replace_uses_in (stmt)
 
 /* Return the likely latticevalue for STMT.
 
-   If any operands of STMT are undefined, then return UNDEFINED.
+   If STMT has no operands, then return CONSTANT.
+
+   Else if any operands of STMT are undefined, then return UNDEFINED.
 
    Else if any operands of STMT are constants, then return CONSTANT.
 
@@ -1130,7 +1132,7 @@ likely_value (stmt)
 	found_constant = 1;
     }
 
-  return (found_constant ? CONSTANT : VARYING);
+  return (found_constant || ! uses ? CONSTANT : VARYING);
 }
 
 
