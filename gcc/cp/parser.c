@@ -1230,6 +1230,14 @@ typedef struct cp_parser GTY(())
      direct-declarator.  */
   bool in_declarator_p;
 
+  /* TRUE if we are presently parsing the body of an
+     iteration-statement.  */
+  bool in_iteration_statement_p;
+
+  /* TRUE if we are presently parsing the body of a switch
+     statement.  */
+  bool in_switch_statement_p;
+
   /* If non-NULL, then we are parsing a construct where new type
      definitions are not permitted.  The string stored here will be
      issued as an error message if a type is defined.  */
@@ -1623,6 +1631,8 @@ static tree cp_parser_single_declaration
   (cp_parser *, bool, bool *);
 static tree cp_parser_functional_cast
   (cp_parser *, tree);
+static tree cp_parser_enclosed_template_argument_list
+  (cp_parser *);
 static void cp_parser_save_default_args
   (cp_parser *, tree);
 static void cp_parser_late_parsing_for_member
@@ -2117,6 +2127,12 @@ cp_parser_new (void)
 
   /* We are not processing a declarator.  */
   parser->in_declarator_p = false;
+
+  /* We are not in an iteration statement.  */
+  parser->in_iteration_statement_p = false;
+
+  /* We are not in a switch statement.  */
+  parser->in_switch_statement_p = false;
 
   /* The unparsed function queue is empty.  */
   parser->unparsed_functions_queues = build_tree_list (NULL_TREE, NULL_TREE);
@@ -5228,7 +5244,7 @@ static tree
 cp_parser_labeled_statement (cp_parser* parser, bool in_statement_expr_p)
 {
   cp_token *token;
-  tree statement = NULL_TREE;
+  tree statement = error_mark_node;
 
   /* The next token should be an identifier.  */
   token = cp_lexer_peek_token (parser->lexer);
@@ -5251,16 +5267,20 @@ cp_parser_labeled_statement (cp_parser* parser, bool in_statement_expr_p)
 	expr = cp_parser_constant_expression (parser, 
 					      /*allow_non_constant_p=*/false,
 					      NULL);
-	/* Create the label.  */
-	statement = finish_case_label (expr, NULL_TREE);
+	if (!parser->in_switch_statement_p)
+	  error ("case label `%E' not within a switch statement", expr);
+	else
+	  statement = finish_case_label (expr, NULL_TREE);
       }
       break;
 
     case RID_DEFAULT:
       /* Consume the `default' token.  */
       cp_lexer_consume_token (parser->lexer);
-      /* Create the label.  */
-      statement = finish_case_label (NULL_TREE, NULL_TREE);
+      if (!parser->in_switch_statement_p)
+	error ("case label not within a switch statement");
+      else
+	statement = finish_case_label (NULL_TREE, NULL_TREE);
       break;
 
     default:
@@ -5443,12 +5463,16 @@ cp_parser_selection_statement (cp_parser* parser)
 	else
 	  {
 	    tree body;
+	    bool in_switch_statement_p;
 
 	    /* Add the condition.  */
 	    finish_switch_cond (condition, statement);
 
 	    /* Parse the body of the switch-statement.  */
+	    in_switch_statement_p = parser->in_switch_statement_p;
+	    parser->in_switch_statement_p = true;
 	    body = cp_parser_implicitly_scoped_statement (parser);
+	    parser->in_switch_statement_p = in_switch_statement_p;
 
 	    /* Now we're all done with the switch-statement.  */
 	    finish_switch_stmt (statement);
@@ -5564,11 +5588,17 @@ cp_parser_iteration_statement (cp_parser* parser)
   cp_token *token;
   enum rid keyword;
   tree statement;
+  bool in_iteration_statement_p;
+
 
   /* Peek at the next token.  */
   token = cp_parser_require (parser, CPP_KEYWORD, "iteration-statement");
   if (!token)
     return error_mark_node;
+
+  /* Remember whether or not we are already within an iteration
+     statement.  */ 
+  in_iteration_statement_p = parser->in_iteration_statement_p;
 
   /* See what kind of keyword it is.  */
   keyword = token->keyword;
@@ -5588,7 +5618,9 @@ cp_parser_iteration_statement (cp_parser* parser)
 	/* Look for the `)'.  */
 	cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
 	/* Parse the dependent statement.  */
+	parser->in_iteration_statement_p = true;
 	cp_parser_already_scoped_statement (parser);
+	parser->in_iteration_statement_p = in_iteration_statement_p;
 	/* We're done with the while-statement.  */
 	finish_while_stmt (statement);
       }
@@ -5601,7 +5633,9 @@ cp_parser_iteration_statement (cp_parser* parser)
 	/* Begin the do-statement.  */
 	statement = begin_do_stmt ();
 	/* Parse the body of the do-statement.  */
+	parser->in_iteration_statement_p = true;
 	cp_parser_implicitly_scoped_statement (parser);
+	parser->in_iteration_statement_p = in_iteration_statement_p;
 	finish_do_body (statement);
 	/* Look for the `while' keyword.  */
 	cp_parser_require_keyword (parser, RID_WHILE, "`while'");
@@ -5646,7 +5680,9 @@ cp_parser_iteration_statement (cp_parser* parser)
 	cp_parser_require (parser, CPP_CLOSE_PAREN, "`;'");
 
 	/* Parse the body of the for-statement.  */
+	parser->in_iteration_statement_p = true;
 	cp_parser_already_scoped_statement (parser);
+	parser->in_iteration_statement_p = in_iteration_statement_p;
 
 	/* We're done with the for-statement.  */
 	finish_for_stmt (statement);
@@ -5727,12 +5763,25 @@ cp_parser_jump_statement (cp_parser* parser)
   switch (keyword)
     {
     case RID_BREAK:
-      statement = finish_break_stmt ();
+      if (!parser->in_switch_statement_p
+	  && !parser->in_iteration_statement_p)
+	{
+	  error ("break statement not within loop or switch");
+	  statement = error_mark_node;
+	}
+      else
+	statement = finish_break_stmt ();
       cp_parser_require (parser, CPP_SEMICOLON, "`;'");
       break;
 
     case RID_CONTINUE:
-      statement = finish_continue_stmt ();
+      if (!parser->in_iteration_statement_p)
+	{
+	  error ("continue statement not within a loop");
+	  statement = error_mark_node;
+	}
+      else
+	statement = finish_continue_stmt ();
       cp_parser_require (parser, CPP_SEMICOLON, "`;'");
       break;
 
@@ -7462,11 +7511,7 @@ cp_parser_template_id (cp_parser *parser,
 {
   tree template;
   tree arguments;
-  tree saved_scope;
-  tree saved_qualifying_scope;
-  tree saved_object_scope;
   tree template_id;
-  bool saved_greater_than_is_operator_p;
   ptrdiff_t start_of_id;
   tree access_check = NULL_TREE;
   cp_token *next_token;
@@ -7529,33 +7574,8 @@ cp_parser_template_id (cp_parser *parser,
       return error_mark_node;
     }
 
-  /* [temp.names]
-
-     When parsing a template-id, the first non-nested `>' is taken as
-     the end of the template-argument-list rather than a greater-than
-     operator.  */
-  saved_greater_than_is_operator_p 
-    = parser->greater_than_is_operator_p;
-  parser->greater_than_is_operator_p = false;
-  /* Parsing the argument list may modify SCOPE, so we save it
-     here.  */
-  saved_scope = parser->scope;
-  saved_qualifying_scope = parser->qualifying_scope;
-  saved_object_scope = parser->object_scope;
-  /* Parse the template-argument-list itself.  */
-  if (cp_lexer_next_token_is (parser->lexer, CPP_GREATER))
-    arguments = NULL_TREE;
-  else
-    arguments = cp_parser_template_argument_list (parser);
-  /* Look for the `>' that ends the template-argument-list.  */
-  cp_parser_require (parser, CPP_GREATER, "`>'");
-  /* The `>' token might be a greater-than operator again now.  */
-  parser->greater_than_is_operator_p 
-    = saved_greater_than_is_operator_p;
-  /* Restore the SAVED_SCOPE.  */
-  parser->scope = saved_scope;
-  parser->qualifying_scope = saved_qualifying_scope;
-  parser->object_scope = saved_object_scope;
+  /* Parse the arguments.  */
+  arguments = cp_parser_enclosed_template_argument_list (parser);
 
   /* Build a representation of the specialization.  */
   if (TREE_CODE (template) == IDENTIFIER_NODE)
@@ -8383,6 +8403,21 @@ cp_parser_simple_type_specifier (cp_parser* parser, cp_parser_flags flags,
       return error_mark_node;
     }
 
+  /* There is no valid C++ program where a non-template type can never
+     be followed by a "<".  That usually indicates that the user
+     thought that the type was a template.  */
+  if (type && cp_lexer_next_token_is (parser->lexer, CPP_LESS))
+    {
+      error ("`%T' is not a template", TREE_TYPE (type));
+      /* Consume the "<".  */
+      cp_lexer_consume_token (parser->lexer);
+      /* Parse the template arguments.  */
+      cp_parser_enclosed_template_argument_list (parser);
+      /* Attempt to recover by using the basic type, ignoring the
+	 template arguments.  */
+      return type;
+    }
+
   return type;
 }
 
@@ -9078,6 +9113,7 @@ static void
 cp_parser_using_directive (cp_parser* parser)
 {
   tree namespace_decl;
+  tree attribs;
 
   /* Look for the `using' keyword.  */
   cp_parser_require_keyword (parser, RID_USING, "`using'");
@@ -9092,8 +9128,10 @@ cp_parser_using_directive (cp_parser* parser)
 				       /*type_p=*/false);
   /* Get the namespace being used.  */
   namespace_decl = cp_parser_namespace_name (parser);
+  /* And any specified attributes.  */
+  attribs = cp_parser_attributes_opt (parser);
   /* Update the symbol table.  */
-  do_using_directive (namespace_decl);
+  parse_using_directive (namespace_decl, attribs);
   /* Look for the final `;'.  */
   cp_parser_require (parser, CPP_SEMICOLON, "`;'");
 }
@@ -13804,6 +13842,51 @@ cp_parser_functional_cast (cp_parser* parser, tree type)
 
   return build_functional_cast (type, expression_list);
 }
+
+/* Parse a template-argument-list, as well as the trailing ">" (but
+   not the opening ">").  See cp_parser_template_argument_list for the
+   return value.  */
+
+static tree
+cp_parser_enclosed_template_argument_list (cp_parser* parser)
+{
+  tree arguments;
+  tree saved_scope;
+  tree saved_qualifying_scope;
+  tree saved_object_scope;
+  bool saved_greater_than_is_operator_p;
+
+  /* [temp.names]
+
+     When parsing a template-id, the first non-nested `>' is taken as
+     the end of the template-argument-list rather than a greater-than
+     operator.  */
+  saved_greater_than_is_operator_p 
+    = parser->greater_than_is_operator_p;
+  parser->greater_than_is_operator_p = false;
+  /* Parsing the argument list may modify SCOPE, so we save it
+     here.  */
+  saved_scope = parser->scope;
+  saved_qualifying_scope = parser->qualifying_scope;
+  saved_object_scope = parser->object_scope;
+  /* Parse the template-argument-list itself.  */
+  if (cp_lexer_next_token_is (parser->lexer, CPP_GREATER))
+    arguments = NULL_TREE;
+  else
+    arguments = cp_parser_template_argument_list (parser);
+  /* Look for the `>' that ends the template-argument-list.  */
+  cp_parser_require (parser, CPP_GREATER, "`>'");
+  /* The `>' token might be a greater-than operator again now.  */
+  parser->greater_than_is_operator_p 
+    = saved_greater_than_is_operator_p;
+  /* Restore the SAVED_SCOPE.  */
+  parser->scope = saved_scope;
+  parser->qualifying_scope = saved_qualifying_scope;
+  parser->object_scope = saved_object_scope;
+
+  return arguments;
+}
+
 
 /* MEMBER_FUNCTION is a member function, or a friend.  If default
    arguments, or the body of the function have not yet been parsed,

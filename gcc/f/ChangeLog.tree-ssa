@@ -1,3 +1,7 @@
+2003-11-16  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* config-lang.in: Re-add.
+
 2003-10-26  Richard Henderson  <rth@redhat.com>
 
 	* config-lang.in: Remove.

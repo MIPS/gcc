@@ -1,3 +1,285 @@
+2003-11-22  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/net/natPlainDatagramSocketImplWin32.cc
+	(peekData): Use offset and maximal free space in datagram packet.
+	(receive): Likewise.
+	(send): Use offset in datagram packet.
+
+2003-11-22  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/net/natPlainDatagramSocketImplPosix.cc
+	(peekData): Use offset and maximal free space in datagram packet.
+	(receive): Likewise.
+	(send): Use offset in datagram packet.
+
+2003-11-22  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/nio/DatagramChannelImpl.java
+	(getNativeFD): Use getPlainDatagramSocketImpl().
+	* gnu/java/nio/NIODatagramSocket.java
+	(getPlainDatagramSocketImpl): Renamed from getImpl().
+	* gnu/java/nio/NIOSocket.java
+	(getPlainSocketImpl): Renamed from getImpl().
+	(setChannel): Use getPlainSocketImpl().
+	* gnu/java/nio/SocketChannelImpl.java
+	(SocketChannelImpl): Use getPlainSocketImpl().
+	(getPlainSocketImpl): Renamed from getImpl().
+	(getNativeFD): Use getPlainSocketImpl().
+
+2003-11-18  Graydon Hoare  <graydon@redhat.com>
+
+	* javax/swing/JLayeredPane.java: Implement.
+	* javax/swing/JFrame.java (getContentPane): Make public
+	* javax/swing/javax/swing/JRootPane.java (setContentPane): 
+	Use JLayeredPane.FRAME_CONTENT_LAYER.
+
+2003-11-21  Mark Wielaard  <mark@klomp.org>
+
+	* java/lang/Float.java (static): Removed.
+
+2003-11-18  Graydon Hoare  <graydon@redhat.com>
+
+	* java/awt/font/TextLayout.java: Implement simple layouts
+	using attributed strings and glyph vectors.
+
+2003-11-17  Graydon Hoare  <graydon@redhat.com>
+
+	* gnu/java/awt/peer/gtk/GdkClasspathFontPeerMetrics.java: New file.
+	* gnu/java/awt/peer/gtk/GdkClasspathFontPeer.java 
+	(GdkFontLineMetrics): New inner class.
+	(getLineMetrics): Return new GdkFontLineMetrics.
+	(getFontMetrics): Return new GdkClasspathFontPeerMetrics.
+	(layoutGlyphVector): Create GdkGlyphVector.
+	* gnu/java/awt/peer/gtk/GdkGraphics2D.java (stateStack): New member.
+	(GdkGraphics2D): Initialize state via mathod calls.
+	(cairoSetMatrix, cairoShowGlyphs): Simplify native calls.
+	(cairoTranslate, cairoScale, cairoRotate): Remove.
+	(various methods): use setTransform for special transform cases.
+	(DrawState): New inner class.
+	(stateSave): New method.
+	(stateRestore): New method.
+	(various methods): use stateSave, stateRestore.
+	(getClipInDevSpace): New method.
+	(clip, clipRect, setClip, getClip, getClipBounds): 
+	Follow spec more closely.
+	(getTransform): Return clone of transform.
+	(setStroke): Set linewidth to passed width / 2.0.
+	(setPaintMode): Set SrcOver rather than Xor.
+	(setColor): Set paint to passed color.
+	(drawRaster, drawImage, PainterThread, drawPixels): Take affine
+	transform from image to user space.
+	(drawRenderedImage, drawRenderableImage): Implement.
+	(getFontRenderContext, getFontMetrics, drawString, getFont): 
+	Implement
+	(drawArc, drawOval, drawRoundRect, fillArc, fillOval, fillRoundRect): 
+	Implement.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics2D.c: 
+	Match changes to java side.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GdkClasspathFontPeer.c: 
+	Release resources.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGlyphVector.c: 
+	Don't use pango for metrics.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GdkClasspathFontPeerMetrics.c: 
+	New file.
+
+2003-11-19  Guilhem Lavaux <guilhem@kaffe.org>
+	    Jim Pick  <jim@kaffe.org>
+
+	* java/text/DecimalFormat.java (getCurrency, setCurrency): New
+	methods.
+
+2003-11-19  Guilhem Lavaux  <guilhem@kaffe.org>
+
+	* java/text/DecimalFormatSymbols.java (getCurrency,
+	setCurrency): New methods.
+
+2003-11-19  Sascha Brawer  <brawer@dandelis.ch>
+
+	* java/awt/geom/FlatteningPathIterator.java: Entirely re-written.
+	* java/awt/geom/doc-files/FlatteningPathIterator-1.html:
+	Describe how the implementation works.
+
+2003-11-19  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/Socket.java
+	(implCreated): New variable that indicates created impl.
+	(getImpl): New method.
+	(toString): Return more SUN compliant string representation.
+	(various): Use getImpl() instead of impl.
+
+2003-11-19  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* lib/libjava.exp: Add DYLD_LIBRARY_PATH for darwin. Look for
+	the right libgcc. Add -multiply_defined suppress and -bind_at_load
+	flags.
+
+2003-11-18  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/13026:
+	* verify.cc (state::copy): Only set local_changed if we're in a
+	subroutine.  Correctly copy local variables which were modified
+	by the subroutine.
+	(push_jump_merge): Added more debugging output.
+
+	* jni.cc (_Jv_JNI_GetStringUTFChars): Fail gracefully if string
+	is null.
+
+2003-11-17  Graydon Hoare  <graydon@redhat.com>
+
+	* javax/swing/plaf/basic/BasicDefaults.java: Rewrite to spec.
+	* javax/swing/UIDefaults.java: Modify to reflect rewrite.
+
+2003-11-16  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/13062:
+	* java/io/StreamTokenizer.java (commentChar): Clear other
+	attributes for character.
+	(quoteChar): Likewise.
+
+2003-11-14  Tom Fitzsimmons  <fitzsim@redhat.com>
+
+	* java/awt/GridBagLayout.java (getLayoutDimensions): Return array of two
+	zero-length int arrays when layoutInfo is null.
+	(getLayoutWeights): Return array of two zero-length double arrays when
+	layoutInfo is null.
+
+2003-11-13  Tom Tromey  <tromey@redhat.com>
+
+	* jni.cc (_Jv_JNI_GetStringUTFChars): Pass length of string to
+	JvGetStringUTFRegion.
+	* java/lang/natPosixProcess.cc (new_string): Pass length of string
+	to JvGetStringUTFRegion.
+	* java/lang/natDouble.cc (parseDouble): Pass length of string to
+	JvGetStringUTFRegion.
+	* java/lang/natWin32Process.cc (startProcess): Pass length of
+	string to JvGetStringUTFRegion.
+	* java/lang/natClass.cc (forName): Pass length of string to
+	JvGetStringUTFRegion.
+	* gnu/gcj/runtime/natNameFinder.cc (getExternalLabel): Pass length
+	of string to JvGetStringUTFRegion.
+	* gnu/gcj/convert/natIconv.cc (init): Pass length of string to
+	JvGetStringUTFRegion.
+	* gnu/awt/gtk/natGtkLabelPeer.cc (setText): Pass length of string
+	to JvGetStringUTFRegion.
+	* gnu/awt/gtk/natGtkButtonPeer.cc (setLabel): Pass length of
+	string to JvGetStringUTFRegion.
+
+2003-11-13  Mohan Embar  <gnustuff@thisiscool.com>
+
+	* gnu/java/nio/natSelectorImplPosix.cc
+	(helper_put_filedescriptors): Change to static linkage.
+	(helper_get_filedescriptors): Likewise.
+
+2003-11-12  Tom Fitzsimmons  <fitzsim@redhat.com>
+
+	* gnu/java/awt/peer/gtk/GtkComponentPeer.java (prepareImage): Remove
+	null check.
+	* gnu/java/awt/peer/gtk/GtkToolkit.java (prepareImage): Likewise.
+	* java/awt/Component.java (prepareImage): Likewise.
+
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkLabelPeer.c (setAlignment):
+	Rename to nativeSetAlignment.
+
+2003-11-11  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* jni.cc (JNI_CreateJavaVM): Remove JNIEXPORT.
+	(JNI_GetCreatedJavaVMs): Likewise.
+	(JNI_GetDefaultJavaVMInitArgs): Likewise.
+	* include/jni.h (JNIIMPEXP): Remove definition
+	and replace with...
+	(__GCJ_JNIIMPEXP__): New macro, applicable only to libgcj
+	symbols,
+	(__GCJ_DLL__): New macro, controlling __GCJ_JNIIMPEXP__.
+
+2003-11-11  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* Makefile.am: Add GdkPixbufDecoder.java and
+	gnu_java_awt_peer_gtk_GdkPixbufDecoder.c
+	* Makefile.in: Regenerate.
+	* gnu/java/awt/image/ImageDecoder.java (ImageDecoder(byte[],int,int)):
+	New constructor.
+	(startProduction): Create ByteArrayInputStream when url and filename are
+	null.
+	(produce): Declare stream parameter as InputStream.
+	* gnu/java/awt/image/XBMDecoder.java (produce): Declare stream parameter
+	as InputStream.
+	* gnu/java/awt/peer/gtk/GdkPixbufDecoder.java
+	(GdkPixbufDecoder(byte[],int,int)): New constructor.
+	(produce): Declare stream parameter as InputStream.
+	* gnu/java/awt/peer/gtk/GtkComponentPeer.java (prepareImage): Throw NPE
+	if image is null.  Set image's observer before running PrepareImage
+	thread.  Pass image to startProduction.
+	* gnu/java/awt/peer/gtk/GtkImage.java: Add null checks before calls to
+	source's member functions.
+	(observer): New field.
+	(setObserver): New method.
+	(setDimensions, setPixels, imageComplete): Call observer's imageUpdate.
+	* gnu/java/awt/peer/gtk/GtkToolkit.java (checkImage, getImage): Return
+	new GtkImage.
+	(prepareImage): Implement.
+	* java/awt/Component.java: Add static fields incrementalDraw and
+	redrawRate.
+	(imageUpdate): Implement.
+	(createImage): Call Toolkit's createImage if peer is null.
+	(prepareImage): Throw NPE if image is null.
+	* java/awt/MediaTracker.java: Fix return value.
+
+2003-11-11  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* gnu/java/awt/peer/gtk/GtkLabelPeer.java (create()): Call new create.
+	(create(String, float)): New method.
+	(setText): Make native.
+	(nativeSetAlignment): New method.
+	(setAlignment): Call nativeSetAlignment.
+	(getArgs): Remove method.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkComponentPeer.c
+	(find_fg_color_widget, find_bg_color_widget): New functions.
+	(gtkWidgetSetForeground): Call find_fg_color_widget.
+	(gtkWidgetSetBackground): Call find_bg_color_widget.  Modify active and
+	prelight colors.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkLabelPeer.c (create): Wrap label
+	widget in event box.
+	(setText, setAlignment): Implement new native methods.
+
+2003-11-11  Michael Koch  <konqueror@gmx.de>
+
+	* java/awt/Font.java,
+	java/awt/datatransfer/DataFlavor.java,
+	java/math/BigInteger.java,
+	java/net/Inet4Address.java,
+	java/net/Inet6Address.java,
+	java/rmi/MarshalledObject.java,
+	java/rmi/server/RMIClassLoader.java,
+	java/security/cert/CertStore.java,
+	java/sql/Timestamp.java,
+	java/text/SimpleDateFormat.java,
+	javax/naming/CompoundName.java:
+	Removed some redundant obj == null checks.
+
+2003-11-11  Michael Koch  <konqueror@gmx.de>
+
+	* java/nio/ByteBuffer.java
+	(equals): Remove redundant obj == null check.
+
+2003-11-11  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/nio/natPipeImpl.cc,
+	gnu/java/nio/natSelectorImpl.cc: Removed
+	* gnu/java/nio/natPipeImplEcos.cc,
+	gnu/java/nio/natPipeImplPosix.cc,
+	gnu/java/nio/natPipeImplWin32.cc,
+	gnu/java/nio/natSelectorImplEcos.cc,
+	gnu/java/nio/natSelectorImplPosix.cc,
+	gnu/java/nio/natSelectorImplWin32.cc: New files
+	* configure.in: Create links for gnu/java/nio/natPipeImpl.cc and
+	gnu/java/nio/natSelectorImpl.cc
+	* configure: Regenerated.
+
+2003-11-11  Micheal Koch  <konqueror@gmx.de>
+
+	* java/net/URLStreamHandler.java (toExternalForm): Print port only
+	if host is printed too and port was really given to URL.
+
 2003-11-10  Gary Benson  <gbenson@redhat.com>
 
 	* java/sql/Timestamp.java (valueOf): Correctly handle

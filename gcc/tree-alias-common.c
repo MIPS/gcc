@@ -42,7 +42,6 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "c-common.h"
 #include "tree-flow.h"
 #include "tree-inline.h"
-#include "ssa.h"
 #include "varray.h"
 #include "c-tree.h"
 #include "tree-simple.h"

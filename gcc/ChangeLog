@@ -1,7 +1,432 @@
+2003-11-23  Richard Earnshaw  <rearnsha@arm.com>
+
+	* recog.c (preprocess_constraints): Only zero those elements of
+	recog_op_alt that are needed for this insn.
+	* arm.c (note_invalid_constants): A function can't contain invalid
+	constants if it has no constraints.
+
+2003-11-22  Jan Hubicka  <jh@suse.cz>
+
+	* i386.c (classify_argument): Pass __float128 in memory.
+	(ix86_return_in_memory): Likewise.
+	(ix86_libcall_value): Likewsie.
+
+2003-11-22  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.c (dosize): Convert to ISO-C.
+
+2003-11-22  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* flow.c (update_life_info): Amend comment about when a register
+	can become dead.
+
+2003-11-21  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* doc/.cvsignore: Delete.
+
+2003-11-21  Daniel Berlin  <dberlin@dberlin.org>
+	    David Edelsohn  <edelsohn@gnu.org>
+
+	* dwarf2out.c (add_location_or_const_value_attribute): Add support
+	for PARALLEL.
+
+2003-11-21  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* config/mips/t-iris6 (CRTSTUFF_T_CFLAGS): Add -Wno-error.
+	(TARGET_LIBGCC2_CFLAGS): Define.
+
+	* crtstuff.c [HAS_INIT_SECTION] (__do_global_dtors): Declare.
+	(__do_global_ctors): Likewise.
+
+2003-11-21  Mark Wielaard  <mark@klomp.org>
+
+	* doc/invoke.texi (-O2): Doesn't enable -fweb.
+
+2003-11-21  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* doc/invoke.texi: Mention dV and dZ.
+
+2003-11-21  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* doc/invoke.texi: Update dump file names.
+	Remove de, dW, and dX.
+
+2003-11-20  James E Wilson  <wilson@specifixinc.com>
+
+	PR c/13133
+	* reload1.c (reload): Delete special handling for setjmp.
+
+2003-11-21  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* mklibgcc.in: Evaluate shlib_slibdir_qual during link
+	step too.
+	* config/t-slibgcc-darwin: Adjust install path.
+	* config/rs6000/t-darwin: Revert multilib matches since
+	it is not used on darwin.
+
+2003-11-20  Richard Henderson  <rth@redhat.com>
+
+	* ssa.c, ssa-dce.c, ssa-ccp.c: Remove files.
+	* Makefile.in (OBJS-common, GTFILES): Don't reference them.
+	(gtype-desc.o, toplev.o, flow.o): Remove ssa.h.
+	(ssa.o, ssa-dce.o, ssa-ccp.o): Remove.
+	* flow.c: Don't include ssa.h.
+	(set_phi_alternative_reg): Remove.
+	(calculate_global_regs_live): Don't call it.
+	(mark_used_regs): Don't handle PHI.
+	* gengtype.c (open_base_files): Don't reference ssa.h.
+	* rtl.def (PHI): Remove.
+	* timevar.def (TV_TO_SSA, TV_SSA_CCP, TV_SSA_DCE, TV_FROM_SSA): Kill.
+	* common.opt: Remove -fssa, -fssa-ccp, -fssa-dce.
+	* opts.c (common_handle_option): Likewise.
+	* toplev.c (f_options): Likewise.
+	(DFI_ssa, DFI_ssa_ccp, DFI_ssa_dce, DFI_ussa): Remove.
+	(dump_file): Update to match.
+	(flag_ssa, flag_ssa_ccp, flag_ssa_dce): Remove.
+	(rest_of_handle_ssa): Remove.
+	(rest_of_compilation): Don't call it.
+	* toplev.h (flag_ssa, flag_ssa_dce, flag_ssa_ccp): Remove.
+	* doc/invoke.texi: Remove -fssa, -fssa-ccp, -fssa-dce.
+	* doc/passes.texi (SSA optimizations): Remove.
+
+2003-11-20  Bob Wilson  <bob.wilson@acm.org>
+
+	* configure.in: Add xtensa-*-* targets to test for dwarf2 debug_line.
+	* configure: Regenerate.
+
+2003-11-20  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* Makefile.in (Makefile): Pass along CONFIG_SHELL.
+
+2003-11-20 David Mosberger  <davidm@hpl.hp.com>
+
+	* config/t-libunwind (LIB2ADDEH): Add unwind-c.c.
+	(SHLIB_LC): Define.
+	* unwind-libunwind.c (_Unwind_GetCFA): Implement.
+	(_Unwind_GetBSP) [UNW_TARGET_IA64]: New function.
+
+2003-11-20  Fariborz Jahanian  <fjahanian@apple.com>
+	    David Edelsohn  <edelsohn@gnu.org>
+
+	* calls.c (expand_call): Allocate new temp in pass1.
+	(store_one_arg): If PARALLEL, calculate excess using mode size of
+	rtvec elt. 
+	* expr.c (emit_push_insn): If PARALLEL, calculate offset using
+	mode size of rtvec elt.
+	* function.c (assign_parms): Use parm in register, if available.
+
+2003-11-20  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/lib1funcs.asm (MOVP): Remove.
+	(ADDP): Likewise.
+	(CMPP): Likewise.
+
+2003-11-20  Richard Earnshaw  <rearnsha@arm.com>
+
+	* arm.c (use_return_insn): New argument, SIBLING.  Support returning
+	with a single instruction if the stack has been decremented by 4
+	and we have a frame pointer.  Update all callers.
+	(output_return_instruction): Likewise.
+	(arm_output_epilogue): Change argument to SIBLING.  Calculate
+	really_return from the new argument.  Update all callers.
+	* arm.h (USE_RETURN_INSN): Pass NULL for the sibling.
+	* arm.md (sibcall_epilogue): Call use_return_insn directly, and
+	pass the sibling call.
+	* arm-protos.h (use_return_insn, arm_output_epilogue): Update
+	prototypes.
+
+2003-11-20  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* Makefile.in (extraclean): Delete.
+	* configure.in (target_list): Remove extraclean.
+	* configure: Regenerate.
+	* doc/makefile.texi, doc/sourcebuild.texi: Update.
+	* objc/Make-lang.in (objc.extraclean): Delete.
+
+2003-11-20  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* Makefile.in (lang_checks): Add.
+	(check-c++, check-f77, check-java, check-g++, check-g77,
+	check-objc): Remove hardcoded targets.
+	* doc/sourcebuild.texi: Document testsuite hooks.
+	* objc/Make-lang.in (check-objc, lang_checks): Add.
+
+2003-11-19  Scott Snyder  <snyder@fnal.gov>
+
+	PR target/13131
+	* dwarf2out.c (gen_array_type_die): DW_AT_declaration should be a
+	flag, not a constant.
+
+2003-11-19  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* config/arc/arc-protos.h: Update to C90 prototypes.
+	* config/arc/arc.c: Likewise.
+	* config/arc/initfini.c: Likewise.
+
+2003-11-19  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* stmt.c (expand_goto): Memory clobbers added.
+
+2003-11-19  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* reload.c (find_reloads): Added missing type casts.
+
+2003-11-19  James E Wilson  <wilson@specifixinc.com>
+
+	* combine.c (sets_function_arg_p): Delete unused function.
+
+2003-11-19  Eric Christopher  <echristo@redhat.com>
+
+	* reload1.c (reload): Revert 2 previous checkins.
+
+2003-11-19  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* cpptrad.c (_cpp_scan_out_logical_line): Improve test for
+	whether directive begins at the beginning of a line.
+
+2003-11-19  Richard Sandiford  <rsandifo@redhat.com>
+
+	* config/frv/frv.c (frv_init_libfuncs): Correct ufix_optab entries.
+
+2003-11-19  Gerald Pfeifer  <gp@suse.de>
+
+	* doc/install.texi (Specific): Remove information on old versions
+	of glibc versus old versions of GCC.
+
+2003-11-19  Richard SAndiford  <rsandifo@redhat.com>
+
+	* emit-rtl.c (gen_lowpart): Don't force MEMs into a register unless
+	the register lowpart is a TRULY_NOOP_TRUNCATION.
+
+2003-11-19  Richard Henderson  <rth@redhat.com>
+
+	* config/i386/i386.c (print_reg): Handle QI and HI modes for
+	non Q regs.
+
+2003-11-19  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* config/config.gcc (powerpc-*-darwin*): Add libgcc build
+	specification file.
+	* config/t-slibgcc-darwin: New file, libgcc build specification.
+	* config/t-darwin: Add libgcc2 flag -fPIC.
+	* config/rs6000/t-darwin: Multilib matches float.
+	* libgcc-darwin.ver: New file, contains libgcc symbols.
+
+2003-11-18  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* config/ns32k/ns32k.h: Remove obsolete comment.
+
+2003-11-18  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/11821
+	* config/arm/arm.c (arm_rtx_costs_1): Improve estimate of the code
+	size for calls to libgcc's div & mod subroutines when using -Os.
+
+2003-11-18  Jan Hubicka  <jh@suse.cz>
+
+	* cgraph.c (change_decl_assembler_name): Avoid bogus warnings.
+
+2003-11-18  Marc Espie  <espie@openbsd.org>
+
+	* config/rs6000/sysv4.h: OpenBSD hooks.
+
 2003-11-18  Richard Henderson  <rth@redhat.com>
 
-        * expr.c (expand_expr): Don't look through constant arrays if
-        they don't bind locally.
+	* expr.c (expand_expr): Don't look through constant arrays if
+	they don't bind locally.
+
+2003-11-17  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* expr.c (convert_move): Use GET_MODE_PRECISION instead of bitsize
+	when seeing if truncation or extension.
+
+2003-11-17  Eric Christopher  <echristo@redhat.com>
+
+	* reload1.c (reload): Fix previous change.
+
+2003-11-17  Scott Snyder  <snyder@fnal.gov>
+
+	PR debug/11325
+	* dwarf2out.c (struct die_struct): Add die_definition field.
+	(add_AT_specification): New.
+	(gen_subprogram_die, gen_variable_die,
+	gen_struct_or_union_type_die): Use it.
+	(prune_unused_types_mark): If we're marking a forward declaration,
+	also mark the full definition, if it exists.
+
+2003-11-16  Nick Clifton  <nickc@redhat.com>
+
+	* config/stormy16/stormy16.h (BUILD_VA_LIST_TYPE): Delete.
+	* config/stormy16/stormy16-protos.h (xstormy16_build_va_list):
+	Remove prototype.
+	* config/stormy16/stormy16.c (xstormy16_build_va_list): Rename
+	to xstormy16_build_builtin_va_list and make static.
+	(TARGET_BUILD_BUILTIN_VA_LIST): Define.
+
+2003-11-16  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300-protos.h: Add the prototype for
+	same_cmp_following_p.
+	* config/h8300/h8300.c (same_cmp_following_p): New.
+	* config/h8300/h8300.md (peephole2): Use it.
+
+2003-11-16  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.md: Don't use REGNO when its operand is
+	not guaranteed to be a REG.
+
+2003-11-16  Richard Sandiford  <rsandifo@redhat.com>
+
+	* Makefile.in (expr.o): Depend on $(TARGET_H).
+	* target.h (return_in_msb): New target hook.
+	* target-def.h (TARGET_RETURN_IN_MSB): New macro.
+	(TARGET_CALLS): Include it.
+	* calls.c (shift_returned_value): New function.
+	(expand_call): Use it.
+	* expr.c: Include target.h.
+	(copy_blkmode_from_reg): Check targetm.calls.return_in_msb when
+	deciding what padding is needed.  Change the name of the local
+	padding variable from big_endian_correction to padding_correction.
+	* stmt.c (shift_return_value): New function.
+	(expand_return): Use it.  Adjust memory->register copy in the same
+	way as copy_blkmode_from_reg.  Only change the return register's
+	mode if it was originally BLKmode.
+	* doc/tm.texi (TARGET_RETURN_IN_MSB): Document.
+	* config/mips/mips.c (TARGET_RETURN_IN_MSB): Define.
+	(mips_fpr_return_fields): New, split out from mips_function_value.
+	(mips_return_in_msb, mips_return_fpr_pair): New functions.
+	(mips_function_value): Rework to use the functions above.
+	* config/mips/irix6-libc-compat.c: Delete.
+	* config/mips/t-iris6 (LIB2FUNCS_STATIC_EXTRA): Undefine.
+
+2003-11-16  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* doc/install.texi (--enable-checking): Update valgrind's URL.
+
+2003-11-16  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.md: Fix warnings by replacing -2147483648
+	with -2147483647 - 1.
+
+2003-11-16  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	Fix links in online manuals.
+	* doc/invoke.texi (H8/300 Options): @xref to ld, not ld.info.
+	(Precompiled Headers): @pxref to cpp, not cpp.info.
+
+2003-11-16  Jason Merrill  <jason@redhat.com>
+
+	* Makefile.in, objc/Make-lang.in (objc.tags): Create TAGS.sub
+	files in each directory and TAGS files that include them for each
+	front end.
+
+2003-11-15  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/lib1funcs.asm (divnorm): Store the sign in bit
+	3 of S2L.
+	(modnorm): Likewise.
+	(exitdiv): Look at bit 3 of S2L only.
+
+2003-11-15  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.h (DO_GLOBAL_CTORS_BODY): Fix warnings.
+	(DO_GLOBAL_DTORS_BODY): Likewise.
+
+2003-11-15  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* doc/install.texi (Prerequisites): Refine documentation of
+	autoconf, automake and perl requirements.  Document required
+	gettext version.
+
+<2003-11-14  Jason Merrill  <jason@redhat.com>
+
+	* function.c (assign_parms): Use TREE_TYPE to determine the real
+	type of the argument object.
+
+2003-11-14  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/lib1funcs.asm (___udivsi3): Peel off the first
+	iteration.
+
+2003-11-14  Fariborz Jahanian <fjahanian@apple.com>
+
+	* config/rs6000/rs6000.c (rs6000_move_block_from_reg):
+	  New routine to save vararg registers on stack. Support for
+	  -mpowerpc64 in mixed mode.
+
+2003-11-14  Bernardo Innocenti  <bernie@develer.com>
+
+	* config/m68k/m68k.c: Use C statements instead of #ifdef's when testing
+	for MOTOROLA versus MIT syntax.  Improves readability and provides
+	better compile-time error checking for both code paths.
+
+2003-11-14  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* config/frv/frv-protos.h: Update for C90.
+	* config/frv/frv.h: Likewise.
+	* config/frv/frvbegin.c: Likewise.
+	* config/frv/frv.c: Likewise.
+	(frv_adjust_field_align): Delete unused variable.
+
+2003-11-14  Geoffrey Keating  <geoffk@apple.com>
+
+	* config/rs6000/rs6000.md: Add 'DEFAULT_ABI == ABI_DARWIN'
+	to each place where TARGET_LONG_DOUBLE_128 is used with
+	DEFAULT_ABI == ABI_AIX.
+
+	* cppfiles.c (_cpp_find_file): Make 'one or more PCH files were found'
+	message comply with GNU standards.
+
+2003-11-14  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	PR/6552
+	* function.c (struct epi_info): New field const_equiv.
+	(update_epilogue_consts): New function.
+	(keep_stack_depressed): Clear new field and verify scratch register
+	doesn't have it set.
+	Call new function via note_stores.
+	(handle_epilogue_set): Allow setting SP equiv reg in different mode.
+	Allow PLUS where second operand is register known set to constant.
+	(emit_equiv_load): Write load using proper mode if source different.
+	* config/mips/mips.md (return_internal): Put (return) first.
+
+2003-11-14  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/lib1funcs.asm (___udivsi3): Add a comment.
+
+2003-11-14  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/lib1funcs.asm (modsi3): Don't save unused
+	registers.
+	(divsi3): Likewise.
+	(reti): Don't restore unused registers.
+
+2003-11-14  Nick Clifton  <nickc@redhat.com>
+
+	* config/fr30/fr30.c: Include toplev.h
+
+2003-11-14  Richard Earnshaw  <rearnsha@arm.com>
+
+	* except.c (sjlj_emit_function_enter): Mark internal label as LOCAL.
+
+2003-11-14  Richard Earnshaw  <rearnsha@arm.com>
+
+	* arm.c (arm_emit_vector_const, arm_output_load_gr): Use ISO C
+	function definition syntax.
+
+2003-11-14  Eric Christopher  <echristo@redhat.com>
+
+	* reload1.c (reload): Revert previous patch. Make
+	check for assignment into reg_equiv_address stricter.
+
+2003-11-14  Arnaud Charlet  <charlet@act-europe.fr>
+
+	* Makefile.in (POSTSTAGE1_FLAGS_TO_PASS): Pass ADAFLAGS.
+
+2003-11-14  Richard Sandiford  <rsandifo@redhat.com>
+
+	* config/frv/frv.c (frv_in_small_data_p): Return false for unknown
+	section names.
 
 2003-11-14  Jason Merrill  <jason@redhat.com>
 
@@ -9,6 +434,195 @@
 	* tree.c (build): A CALL_EXPR has side-effects if its arguments do.
 	* calls.c (call_expr_flags): New fn.
 	* tree.h: Declare it.
+
+2003-11-13  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/lib1funcs.asm (__udivsi3): Remove.
+	(divmodsi3): Change the name to ___udivsi3.
+	Update all callers.
+
+2003-11-13  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* libgcc2.c (__negdi2, __addvsi3, __addvdi3, __subvsi3, __subvdi3,
+	__mulvsi3, __negvsi2, __negvdi2, __mulvdi3, __lshrdi3, __ashldi3,
+	__ashrdi3, __ffsDI2, __muldi3, __clzDI2, __ctzDI2, __parityDI2,
+	__udivmoddi4, __divdi3, __moddi3, __cmpdi2, __ucmpdi2,
+	__fixunstfDI, __fixunsxfDI, __fixunsdfDI, __fixunssfDI,
+	__floatdixf, __floatditf, __floatdidf, __floatdisf, __gcc_bcmp):
+	Const-ify and/or initialize automatic variables at declaration.
+
+2003-11-13  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/lib1funcs.asm (divmodsi4): Replace all the uses
+	of er4 with er3.  Adjust all callers.
+
+2003-11-13  Andrew Pinski <apinski@apple.com>
+
+	* config/darwin.c (machopic_output_possible_stub_label):
+	Allow stub symbol be not defined when outputting possible
+	stub label.
+
+2003-11-13  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/lib1funcs.asm (___udivsi3): Jump to reti
+	instead of exitdiv.
+	(___umodsi3): Likewise.
+	(exitdiv): Do not restore any register.
+	(reti): Restore registers.
+
+2003-11-13  Steven Bosscher  <stevenb@suse.de>
+
+	* tree-inline.c (walk_tree): Handle PLACEHOLDER_EXPR.
+
+2003-11-13  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/lib1funcs.asm: Fix comment typos.
+
+2003-11-13  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/lib1funcs.asm (udivsi3): Don't save/restore
+	unused registers.  Don't jump to exitdiv.
+	(umodsi3): Likewise.
+
+2003-11-13  Mark Mitchell  <mark@codesourcery.com>
+            Kean Johnston <jkj@sco.com>
+
+	PR c/13029
+	* toplev.c (check_global_declarations): Do not warn about unused
+	static consts.
+
+2003-11-13  Pavel Pisa  <pisa@cmp.felk.cvut.cz>
+	    Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/lib1funcs.asm (DenHighNonZero): Optimize using
+	the approximate quotient method.
+
+2003-11-13  Richard Earnshaw  <rearnsha@arm.com>
+
+	* combine.c (distribute_notes): When re-distributing the notes from
+	an insn we are about to delete, ensure we can't end up with a cyclic
+	list of notes.
+
+2003-11-13  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR optimization/12926
+	* expr.c (expand_assignment) [COMPONENT_REF]: Don't put
+	the UNCHANGING_RTX_P flag on memory references to read-only
+	components that are not addressable.
+
+2003-11-12  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/lib1funcs.asm (divmodsi4): Clear S0P in
+	DenHighNonZero.
+
+2003-11-13  Jan Hubicka  <jh@suse.cz>
+
+	PR opt/12275
+	* c-decl.c (finish_decl): Use change_decl_assembler_name.
+	* c-pragma.c (handle_pragma_redefine_extname): Likewise.
+	* varasm.c (make_decl_rtl): Likewise.
+	* cgraph.c (change_decl_assembler_name): New function.
+	* tree.h (set_decl_assembler_name): Kill dead declaration.
+	(change_decl_assembler_name): Declare.
+
+	* decl.c (make_rtl_for_nonlocal_decl): Use change_decl_assembler_name.
+	* decl2.c (make_rtl_for_nonlocal_decl): Use change_decl_assembler_name.
+
+2003-11-12  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/lib1funcs.asm (___mulsi3): Don't save/restore
+	an unused register.
+
+2003-11-12  Richard Sandiford  <rsandifo@redhat.com>
+
+	PR bootstrap/12752
+	* config/mips/t-iris6 (MULTILIB_OPTIONS): Put -mabi=n32 first.
+	(MULTILIB_OSDIRNAMES): Reorder accordingly.
+
+2003-11-12  Janis Johnson  <janis187@us.ibm.com>
+
+	* rs6000-protos.h (rs6000_initial_elimination_offset): Add.
+	(rs6000_stack_info): Remove.  (debug_stack_info): Remove.
+	(rs6000_emit_eh_reg_restore): Add
+	* rs6000.c (rs6000_stack_t): Move from rs6000.h, change data type
+	of vars_size and total_size to HOST_WIDE_INT.
+	(emit_frame_save): Change parameter size to HOST_WIDE_INT.
+	(rs6000_stack_info): Make static; change data size to HOST_WIDE_INT.
+	(debug_stack_info): Make static; change output format of HOST_WIDE_INT
+	values.
+	(rs6000_emit_eh_reg_restore): New, with code formerly in rs6000.md.
+	(rs6000_initial_elimination_offset): New, with code formerly in
+	INITIAL_ELIMINATION_OFFSET.
+	* rs6000.h (rs6000_stack_t): Remove.
+	(INITIAL_ELIMINATION_OFFSET): Replace code with call to function
+	rs6000_initial_elimination_offset.
+	* rs6000.md (UNSPECV_EH_RR split): Replace code with call to
+	rs6000_emit_eh_reg_restore.
+
+2003-11-12  Mike Stump  <mrs@apple.com>
+
+	* c-typeck.c (c_convert_parm_for_inlining): Add argnum, which
+	is the argumnt we are processing so that warnings and errors
+	will have that information.
+	* c-tree.h (c_convert_parm_for_inlining): Add argnum.
+	* lang-hooks-def.h
+	(lhd_tree_inlining_convert_parm_for_inlining): Likewse.
+	* langhooks.c (lhd_tree_inlining_convert_parm_for_inlining): Likewise.
+	* langhooks.h (convert_parm_for_inlining): Likewise.
+	* tree-inline.c (initialize_inlined_parameters): Compute and
+	pass argnum down.
+
+2003-11-12  Alexey Starovoytov  <alexey.starovoytov@sun.com>
+	    Roger Sayle  <roger@eyesopen.com>
+
+	PR optimization/12953
+	* tree-inline.c (inline_forbidden_p_1): Added check for BUILT_IN
+	before switch by FUNCTION_CODE.
+
+2003-11-12  Richard Earnshaw  <rearnsha@arm.com>
+
+	* arm.md (storehi): Avoid use of explicit subreg.
+	(storehi_bigend, storeinthi, movhi_bigend): Likewise.
+
+2003-11-12  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* config/sh/sh.md (prefetch): New pattern.
+
+2003-11-11  Eric Christopher  <echristo@redhat.com>
+
+	* reload1.c (reload): Verify that addresses for
+	reg_equiv_* are valid for the architecture.
+
+2003-11-11  Eric Christopher  <echristo@redhat.com>
+
+	* function.c (purge_addressof_1): Add libcall check.
+	Remove test for cached replacements on fallback case.
+	Simplify mode comparisons. Add libcall test for
+	paradoxical subregs.
+
+2003-11-11  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/t-h8300: Fix an obsolete comment.
+
+2003-11-11  James E Wilson  <wilson@specifixinc.com>
+
+	* expmed.c (store_bit_field, extract_bit_field): Revert last two
+	changes.
+
+2003-11-11  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/lib1funcs.asm: Replace DenHighZero with
+	DenHighNonZero.
+
+2003-11-11  Jan Hubicka  <jh@suse.cz>
+
+	* cgraphunit.c (cgraph_function_possibly_inlined_p): Use
+	really_no_inline.
+
+2003-11-11  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* pa.h (TRAMPOLINE_TEMPLATE): Fix flushing of cache lines when
+	generating 64-bit code.
 
 2003-11-10  David Edelsohn  <edelsohn@gnu.org>
 
@@ -34,7 +648,7 @@
 	anything other than VISIBILITY_DEFAULT and VISIBILITY_HIDDEN.
 	* config/darwin.h (TARGET_ASM_ASSEMBLE_VISIBILITY): Use
 	darwin_assemble_visibility instead of default.
-	
+
 2003-11-10  Waldek Hebisch  <hebisch@math.uni.wroc.pl>
 
 	PR target/12865
@@ -174,10 +788,10 @@
 	(decl_visibility): Remove declaration.
 	* varasm.c (maybe_assemble_visibility): Use DECL_VISIBILITY
 	instead of decl_visibility.
-	(default_binds_local_p_1):  Use DECL_VISIBILITY	instead of 
+	(default_binds_local_p_1):  Use DECL_VISIBILITY	instead of
 	decl_visibility.
 	(decl_visibility): Remove.
-	
+
 2003-11-06  Ulrich Weigand  <uweigand@de.ibm.com>
 
 	* config/s390/s390.c (s390_emit_epilogue): Recognize more cases
@@ -2716,7 +3330,7 @@
 
 	* config/i386/i386.c (x86_this_parameter): Fix typo.
 
-2003-10-11  Jan Hubicka  <jh@suse.cz>
+203-10-11  Jan Hubicka  <jh@suse.cz>
 
 	* Makefile.in (web.o): New.
 	* web.c: New file.

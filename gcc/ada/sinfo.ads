@@ -3008,13 +3008,15 @@ package Sinfo is
       --  Choices (List1)
       --  Loop_Actions (List2-Sem)
       --  Expression (Node3)
+      --  Box_Present (Flag15)
 
       --  Note: this structure is used for both record component associations
       --  and array component associations, since the two cases aren't always
       --  separable by the parser. The choices list may represent either a
       --  list of selector names in the record aggregate case, or a list of
       --  discrete choices in the array aggregate case or an N_Others_Choice
-      --  node (which appears as a singleton list).
+      --  node (which appears as a singleton list). Box_Present gives support
+      --  to Ada0Y (AI-287).
 
       ------------------------------------
       --  4.3.1  Commponent Choice List --
@@ -5088,6 +5090,9 @@ package Sinfo is
       --  Limited_View_Installed (Flag18-Sem)
       --  Unreferenced_In_Spec (Flag7-Sem)
       --  No_Entities_Ref_In_Spec (Flag8-Sem)
+
+      --  Note: Limited_Present and Limited_View_Installed give support to
+      --        Ada0Y (AI-50217).
 
       ----------------------
       -- With_Type clause --

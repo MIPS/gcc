@@ -175,8 +175,7 @@ namespace std
 	  const char_type __c = *__beg;
           const char_type* __p = __traits_type::find(__lit + _S_izero, 10, 
 						     __c);
-          // NB: strchr returns true for __c == 0x0
-          if (__p && !__traits_type::eq(__c, char_type()))
+          if (__p)
 	    {
 	      // Try first for acceptable digit; record it if found.
 	      __xtrc += _S_atoms_in[__p - __lit];
@@ -352,8 +351,7 @@ namespace std
 	  const char_type __c = *__beg;
           const char_type* __p = __traits_type::find(__lit + _S_izero,
 						     __len, __c);
-          // NB: strchr returns true for __c == 0x0
-          if (__p && !__traits_type::eq(__c, char_type()))
+          if (__p)
 	    {
 	      // Try first for acceptable digit; record it if found.
 	      __xtrc += _S_atoms_in[__p - __lit];
@@ -764,7 +762,7 @@ namespace std
     _M_group_int(const string& __grouping, _CharT __sep, ios_base& __io, 
 		 _CharT* __new, _CharT* __cs, int& __len) const
     {
-      // By itself __add_grouping cannot deal correctly with __ws when
+      // By itself __add_grouping cannot deal correctly with __cs when
       // ios::showbase is set and ios_base::oct || ios_base::hex.
       // Therefore we take care "by hand" of the initial 0, 0x or 0X.
       // However, remember that the latter do not occur if the number
@@ -2267,20 +2265,20 @@ namespace std
     __add_grouping(_CharT* __s, _CharT __sep,  
 		   const char* __gbeg, const char* __gend, 
 		   const _CharT* __first, const _CharT* __last)
-  {
-    if (__last - __first > *__gbeg)
-      {
-	const bool __bump = __gbeg + 1 != __gend;
-	__s = std::__add_grouping(__s,  __sep, __gbeg + __bump,
-				  __gend, __first, __last - *__gbeg);
-	__first = __last - *__gbeg;
-	*__s++ = __sep;
-      }
-    do
-      *__s++ = *__first++;
-    while (__first != __last);
-    return __s;
-  }
+    {
+      if (__last - __first > *__gbeg)
+	{
+	  const bool __bump = __gbeg + 1 != __gend;
+	  __s = std::__add_grouping(__s,  __sep, __gbeg + __bump,
+				    __gend, __first, __last - *__gbeg);
+	  __first = __last - *__gbeg;
+	  *__s++ = __sep;
+	}
+      do
+	*__s++ = *__first++;
+      while (__first != __last);
+      return __s;
+    }
 
   // Inhibit implicit instantiations for required instantiations,
   // which are defined via explicit instantiations elsewhere.  

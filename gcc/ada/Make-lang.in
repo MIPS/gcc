@@ -1,4 +1,4 @@
-# Top level makefile fragment for GNU Ada (GNAT).
+# Top level -*- makefile -*- fragment for GNU Ada (GNAT).
 #   Copyright (C) 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
 #   Free Software Foundation, Inc.
 
@@ -24,7 +24,7 @@
 #
 # foo.all.cross, foo.start.encap, foo.rest.encap,
 # foo.install-normal, foo.install-common, foo.install-man,
-# foo.uninstall, foo.mostlyclean, foo.clean, foo.distclean, foo.extraclean,
+# foo.uninstall, foo.mostlyclean, foo.clean, foo.distclean,
 # foo.maintainer-clean, foo.stage1, foo.stage2, foo.stage3, foo.stage4
 #
 # where `foo' is the name of the language.
@@ -432,7 +432,9 @@ ada.start.encap:
 ada.rest.encap: 
 
 ada.tags: force
-	cd $(srcdir)/ada; etags *.c *.h *.ads *.adb
+	cd $(srcdir)/ada; etags -o TAGS.sub *.c *.h *.ads *.adb; \
+	etags --include TAGS.sub --include ../TAGS.sub
+
 ada.generated-manpages:
 
 # Generate documentation.
@@ -911,7 +913,6 @@ ada.distclean:
 	-$(RMDIR) ada/rts
 	-$(RM) ada/tools/*
 	-$(RMDIR) ada/tools
-ada.extraclean:
 ada.maintainer-clean:
 	-$(RM) ada/a-sinfo.h
 	-$(RM) ada/a-einfo.h
@@ -2561,13 +2562,13 @@ ada/osint.o : ada/ada.ads ada/a-except.ads ada/a-uncdea.ads ada/alloc.ads \
    ada/debug.ads ada/fmap.ads ada/gnat.ads ada/g-htable.ads \
    ada/g-os_lib.ads ada/g-string.ads ada/gnatvsn.ads ada/hostparm.ads \
    ada/namet.ads ada/opt.ads ada/osint.ads ada/osint.adb ada/output.ads \
-   ada/sdefault.ads ada/system.ads ada/s-exctab.ads ada/s-htable.ads \
-   ada/s-htable.adb ada/s-memory.ads ada/s-secsta.ads ada/s-soflin.ads \
-   ada/s-stache.ads ada/s-stalib.ads ada/s-stoele.ads ada/s-stoele.adb \
-   ada/s-strops.ads ada/s-sopco3.ads ada/s-sopco4.ads ada/s-sopco5.ads \
-   ada/s-traent.ads ada/s-unstyp.ads ada/s-wchcon.ads ada/table.ads \
-   ada/table.adb ada/tree_io.ads ada/types.ads ada/unchconv.ads \
-   ada/unchdeal.ads 
+   ada/sdefault.ads ada/system.ads ada/s-casuti.ads ada/s-exctab.ads \
+   ada/s-htable.ads ada/s-htable.adb ada/s-memory.ads ada/s-secsta.ads \
+   ada/s-soflin.ads ada/s-stache.ads ada/s-stalib.ads ada/s-stoele.ads \
+   ada/s-stoele.adb ada/s-strops.ads ada/s-sopco3.ads ada/s-sopco4.ads \
+   ada/s-sopco5.ads ada/s-traent.ads ada/s-unstyp.ads ada/s-wchcon.ads \
+   ada/table.ads ada/table.adb ada/tree_io.ads ada/types.ads \
+   ada/unchconv.ads ada/unchdeal.ads 
 
 ada/output.o : ada/gnat.ads ada/g-os_lib.ads ada/g-string.ads \
    ada/output.ads ada/output.adb ada/system.ads ada/s-exctab.ads \

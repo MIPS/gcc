@@ -667,7 +667,7 @@ __gnat_open_new_temp (char *path, int fmode)
 
   strcpy (path, "GNAT-XXXXXX");
 
-#if defined (linux) && !defined (__vxworks)
+#if (defined (__FreeBSD__) || defined (linux)) && !defined (__vxworks)
   return mkstemp (path);
 #elif defined (__Lynx__)
   mktemp (path);
@@ -742,7 +742,7 @@ __gnat_tmp_name (char *tmp_filename)
     free (pname);
   }
 
-#elif defined (linux)
+#elif defined (linux) || defined (__FreeBSD__)
 #define MAX_SAFE_PATH 1000
   char *tmpdir = getenv ("TMPDIR");
 
@@ -2465,13 +2465,15 @@ __gnat_copy_attribs (char *from, char *to, int mode)
 extern void __gnat_install_locks (void (*) (void), void (*) (void));
 
 /* This function offers a hook for libgnarl to set the
-   locking subprograms for libgcc_eh. */
+   locking subprograms for libgcc_eh.
+   This is only needed on OpenVMS, since other platforms use standard
+   --enable-threads=posix option, or similar.  */
 
 void
 __gnatlib_install_locks (void (*lock) (void) ATTRIBUTE_UNUSED,
                          void (*unlock) (void) ATTRIBUTE_UNUSED)
 {
-#ifdef IN_RTS
+#if defined (IN_RTS) && defined (VMS)
   __gnat_install_locks (lock, unlock);
   /* There is a bootstrap path issue if adaint is build with this
      symbol unresolved for the stage1 compiler. Since the compiler

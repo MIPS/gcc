@@ -299,7 +299,7 @@ in the following sections.
 -fsched-stalled-insns=@var{n} -sched-stalled-insns-dep=@var{n} @gol
 -fsched2-use-superblocks @gol
 -fsched2-use-traces  -fsignaling-nans @gol
--fsingle-precision-constant  -fssa  -fssa-ccp  -fssa-dce @gol
+-fsingle-precision-constant  @gol
 -fstrength-reduce  -fstrict-aliasing  -ftracer  -fthread-jumps @gol
 -funroll-all-loops  -funroll-loops  -fpeel-loops @gol
 -funswitch-loops  -fold-unroll-loops  -fold-unroll-all-loops @gol
@@ -3281,7 +3281,7 @@ for most of the dumps are made by appending a pass number and a word to
 the @var{dumpname}. @var{dumpname} is generated from the name of the
 output file, if explicitly specified and it is not an executable,
 otherwise it is the basename of the source file. In both cases any
-suffix is removed (e.g.  @file{foo.00.rtl} or @file{foo.01.sibling}).
+suffix is removed (e.g.  @file{foo.01.rtl} or @file{foo.02.sibling}).
 Here are the possible letters for use in @var{letters}, and their
 meanings:
 
@@ -3291,47 +3291,43 @@ meanings:
 Annotate the assembler output with miscellaneous debugging information.
 @item b
 @opindex db
-Dump after computing branch probabilities, to @file{@var{file}.16.bp}.
+Dump after computing branch probabilities, to @file{@var{file}.12.bp}.
 @item B
 @opindex dB
-Dump after block reordering, to @file{@var{file}.32.bbro}.
+Dump after block reordering, to @file{@var{file}.30.bbro}.
 @item c
 @opindex dc
-Dump after instruction combination, to the file @file{@var{file}.22.combine}.
+Dump after instruction combination, to the file @file{@var{file}.20.combine}.
 @item C
 @opindex dC
-Dump after the first if conversion, to the file @file{@var{file}.17.ce1}.
-Also dump after the second if conversion, to the file @file{@var{file}.23.ce2}.
+Dump after the first if conversion, to the file @file{@var{file}.14.ce1}.
+Also dump after the second if conversion, to the file @file{@var{file}.21.ce2}.
 @item d
 @opindex dd
-Dump after branch target load optimization, to to @file{@var{file}.34.btl}.
-Also dump after delayed branch scheduling, to @file{@var{file}.37.dbr}.
+Dump after branch target load optimization, to to @file{@var{file}.32.btl}.
+Also dump after delayed branch scheduling, to @file{@var{file}.36.dbr}.
 @item D
 @opindex dD
 Dump all macro definitions, at the end of preprocessing, in addition to
 normal output.
-@item e
-@opindex de
-Dump after SSA optimizations, to @file{@var{file}.05.ssa} and
-@file{@var{file}.010.ussa}.
 @item E
 @opindex dE
-Dump after the second if conversion, to @file{@var{file}.33.ce3}.
+Dump after the second if conversion, to @file{@var{file}.31.ce3}.
 @item f
 @opindex df
-Dump after control and data flow analysis, to @file{@var{file}.15.cfg}.
-Also dump after life analysis, to @file{@var{file}.21.life}.
+Dump after control and data flow analysis, to @file{@var{file}.11.cfg}.
+Also dump after life analysis, to @file{@var{file}.19.life}.
 @item F
 @opindex dF
-Dump after purging @code{ADDRESSOF} codes, to @file{@var{file}.11.addressof}.
+Dump after purging @code{ADDRESSOF} codes, to @file{@var{file}.07.addressof}.
 @item g
 @opindex dg
-Dump after global register allocation, to @file{@var{file}.27.greg}.
+Dump after global register allocation, to @file{@var{file}.25.greg}.
 @item G
 @opindex dG
-Dump after GCSE, to @file{@var{file}.12.gcse}.
+Dump after GCSE, to @file{@var{file}.08.gcse}.
 Also dump after jump bypassing and control flow optimizations, to
-@file{@var{file}.14.bypass}.
+@file{@var{file}.10.bypass}.
 @item h
 @opindex dh
 Dump after finalization of EH handling code, to @file{@var{file}.03.eh}.
@@ -3343,66 +3339,65 @@ Dump after sibling call optimizations, to @file{@var{file}.02.sibling}.
 Dump after the first jump optimization, to @file{@var{file}.04.jump}.
 @item k
 @opindex dk
-Dump after conversion from registers to stack, to @file{@var{file}.36.stack}.
+Dump after conversion from registers to stack, to @file{@var{file}.34.stack}.
 @item l
 @opindex dl
-Dump after local register allocation, to @file{@var{file}.26.lreg}.
+Dump after local register allocation, to @file{@var{file}.24.lreg}.
 @item L
 @opindex dL
-Dump after loop optimization passes, to @file{@var{file}.13.loop} and
-@file{@var{file}.19.loop2}.
+Dump after loop optimization passes, to @file{@var{file}.09.loop} and
+@file{@var{file}.16.loop2}.
 @item M
 @opindex dM
 Dump after performing the machine dependent reorganization pass, to
-@file{@var{file}.37.mach}.
+@file{@var{file}.35.mach}.
 @item n
 @opindex dn
-Dump after register renumbering, to @file{@var{file}.31.rnreg}.
+Dump after register renumbering, to @file{@var{file}.29.rnreg}.
 @item N
 @opindex dN
-Dump after the register move pass, to @file{@var{file}.24.regmove}.
+Dump after the register move pass, to @file{@var{file}.22.regmove}.
 @item o
 @opindex do
-Dump after post-reload optimizations, to @file{@var{file}.28.postreload}.
+Dump after post-reload optimizations, to @file{@var{file}.26.postreload}.
 @item r
 @opindex dr
 Dump after RTL generation, to @file{@var{file}.01.rtl}.
 @item R
 @opindex dR
-Dump after the second scheduling pass, to @file{@var{file}.35.sched2}.
+Dump after the second scheduling pass, to @file{@var{file}.33.sched2}.
 @item s
 @opindex ds
 Dump after CSE (including the jump optimization that sometimes follows
-CSE), to @file{@var{file}.019.cse}.
+CSE), to @file{@var{file}.06.cse}.
 @item S
 @opindex dS
-Dump after the first scheduling pass, to @file{@var{file}.25.sched}.
+Dump after the first scheduling pass, to @file{@var{file}.23.sched}.
 @item t
 @opindex dt
 Dump after the second CSE pass (including the jump optimization that
-sometimes follows CSE), to @file{@var{file}.20.cse2}.
+sometimes follows CSE), to @file{@var{file}.18.cse2}.
 @item T
 @opindex dT
-Dump after running tracer, to @file{@var{file}.18.tracer}.
+Dump after running tracer, to @file{@var{file}.15.tracer}.
 @item u
 @opindex du
-Dump after null pointer elimination pass to @file{@var{file}.018.null}.
+Dump after null pointer elimination pass to @file{@var{file}.05.null}.
 @item U
 @opindex dU
 Dump callgraph and unit-at-a-time optimization @file{@var{file}.00.unit}.
+@item V
+@opindex dV
+Dump after the value profile transformations, to @file{@var{file}.13.vpt}.
 @item w
 @opindex dw
-Dump after the second flow pass, to @file{@var{file}.29.flow2}.
-@item W
-@opindex dW
-Dump after SSA conditional constant propagation, to
-@file{@var{file}.06.ssaccp}.
-@item X
-@opindex dX
-Dump after SSA dead code elimination, to @file{@var{file}.07.ssadce}.
+Dump after the second flow pass, to @file{@var{file}.27.flow2}.
 @item z
 @opindex dz
-Dump after the peephole pass, to @file{@var{file}.30.peephole2}.
+Dump after the peephole pass, to @file{@var{file}.28.peephole2}.
+@item Z
+@opindex dZ
+Dump after constructing the web, to @file{@var{file}.17.web}.
 @item a
 @opindex da
 Produce all the dumps listed above.
@@ -3795,7 +3790,7 @@ also turns on the following optimization flags:
 -fpeephole2 @gol
 -freorder-blocks  -freorder-functions @gol
 -fstrict-aliasing @gol
--funit-at-a-time -fweb @gol
+-funit-at-a-time @gol
 -falign-functions  -falign-jumps @gol
 -falign-loops  -falign-labels}
 
@@ -4862,23 +4857,6 @@ You will not be able to use @code{gprof} on all systems if you
 specify this option and you may have problems with debugging if
 you specify both this option and @option{-g}.
 
-@item -fssa
-@opindex fssa
-Perform optimizations in static single assignment form.  Each function's
-flow graph is translated into SSA form, optimizations are performed, and
-the flow graph is translated back from SSA form.  Users should not
-specify this option, since it is not yet ready for production use.
-
-@item -fssa-ccp
-@opindex fssa-ccp
-Perform Sparse Conditional Constant Propagation in SSA form.  Requires
-@option{-fssa}.  Like @option{-fssa}, this is an experimental feature.
-
-@item -fssa-dce
-@opindex fssa-dce
-Perform aggressive dead-code elimination in SSA form.  Requires @option{-fssa}.
-Like @option{-fssa}, this is an experimental feature.
-
 @item -fbranch-target-load-optimize
 @opindex fbranch-target-load-optimize
 Perform branch target register load optimization before prologue / epilogue
@@ -4891,9 +4869,6 @@ a separate optimization pass.
 @opindex fbranch-target-load-optimize2
 Perform branch target register load optimization after prologue / epilogue
 threading.
-
-
-
 
 @item --param @var{name}=@var{value}
 @opindex param
@@ -9691,7 +9666,7 @@ These @samp{-m} options are defined for the H8/300 implementations:
 @opindex mrelax
 Shorten some address references at link time, when possible; uses the
 linker option @option{-relax}.  @xref{H8/300,, @code{ld} and the H8/300,
-ld.info, Using ld}, for a fuller description.
+ld, Using ld}, for a fuller description.
 
 @item -mh
 @opindex mh
@@ -11897,7 +11872,7 @@ the headers it contains change.
 
 A precompiled header file will be searched for when @code{#include} is
 seen in the compilation.  As it searches for the included file
-(@pxref{Search Path,,Search Path,cpp.info,The C Preprocessor}) the
+(@pxref{Search Path,,Search Path,cpp,The C Preprocessor}) the
 compiler looks for a precompiled header in each directory just before it
 looks for the include file in that directory.  The name searched for is
 the name specified in the @code{#include} with @samp{.gch} appended.  If

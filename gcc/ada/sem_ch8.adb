@@ -792,6 +792,8 @@ package body Sem_Ch8 is
          Error_Msg_N
            ("expect package name in renaming", Name (N));
 
+      --  Ada0Y (AI-50217): Limited withed packages can not be renamed
+
       elsif Ekind (Old_P) = E_Package
         and then From_With_Type (Old_P)
       then
@@ -3389,6 +3391,8 @@ package body Sem_Ch8 is
          Set_Chars (Selector, Chars (Id));
       end if;
 
+      --  Ada0Y (AI-50217): Check usage of entities in limited withed units
+
       if Ekind (P_Name) = E_Package
         and then From_With_Type (P_Name)
       then
@@ -4063,10 +4067,9 @@ package body Sem_Ch8 is
                if Is_Access_Type (P_Type)
                  and then Ekind (Designated_Type (P_Type)) = E_Incomplete_Type
                then
-                  Error_Msg_Node_2 := Selector_Name (N);
-                  Error_Msg_NE (
-                    "\incomplete type& has no visible component&", P,
-                      Designated_Type (P_Type));
+                  Error_Msg_N
+                    ("\dereference must not be of an incomplete type " &
+                       "('R'M 3.10.1)", P);
                end if;
 
             else
@@ -5294,6 +5297,8 @@ package body Sem_Ch8 is
       end if;
 
       Set_In_Use (P);
+
+      --  Ada0Y (AI-50217): Check restriction.
 
       if From_With_Type (P) then
          Error_Msg_N ("limited withed package cannot appear in use clause", N);

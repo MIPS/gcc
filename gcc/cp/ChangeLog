@@ -1,8 +1,141 @@
+2003-11-23  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/12924
+	* typeck.c (finish_class_member_access_expr): Handle TEMPLATE_ID_EXPR
+	with OVERLOAD and DECL nodes as the first operand.
+
+2003-11-22  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	* pt.c (tsubst) <ARRAY_REF>: Remove erroneous argument to build_nt.
+
+2003-11-22  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/5369
+	* friend.c (is_friend): Handle member function of a class
+	template as template friend.
+	(do_friend): Likewise.
+	* decl2.c (check_classfn): Add template_header_p parameter.
+	* decl.c (start_decl): Adjust check_classfn call.
+	(grokfndecl): Likewise.
+	* pt.c (is_specialization_of_friend): New function.
+	(uses_template_parms_level): Likewise.
+	(push_template_decl_real): Use uses_template_parms_level.
+	(tsubst_friend_function): Adjust check_classfn call.
+	* cp-tree.h (check_classfn): Adjust declaration.
+	(uses_template_parms_level): Add declaration.
+	(is_specialization_of_friend): Likewise.
+
+2003-11-21  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/12515
+	* pt.c (build_non_dependent_expr): Handle GNU extension to ?:
+	operator.
+
+2003-11-21  Jan Hubicka  <jh@suse.cz>
+
+	* parser.c (cp_parser_postfix_expression): Initialize 's' to
+	NULL_TREE.
+
+2003-11-20  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* Make-lang.in (c++.extraclean): Delete.
+
+2003-11-20  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* Make-lang.in (check-g++, lang_checks): Add.
+
+2003-11-18  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/12932
+	* class.c (currently_open_derived_class): Check if
+	current_class_type is NULL_TREE.
+	* semantics.c (finish_call_expr): Check if
+	currently_open_derived_class returns NULL_TREE.
+	* cp-tree.h (DERIVED_FROM_P): Add parenthesis around PARENT
+	parameter.
+
 2003-11-17  Jason Merrill  <jason@redhat.com>
 
 	* init.c (build_new_1): Preevaluate placement args.
 	* call.c (build_op_delete_call): Don't expose placement args to
 	overload resolution.
+
+2003-11-16  Jason Merrill  <jason@redhat.com>
+
+	* Make-lang.in (c++.tags): Create TAGS.sub files in each directory
+	and TAGS files that include them for each front end.
+
+2003-11-15  Bernardo Innocenti  <bernie@develer.com>
+
+	PR c++/2294
+	* name-lookup.c: Revert previous patch for PR c++/2294 to prevent
+	build failure on libjava.
+
+2003-11-14  Giovanni Bajo  <giovannibajo@libero.it>
+
+        PR c++/2294
+        * name-lookup.c (push_overloaded_decl): Always construct an OVERLOAD
+        unless the declaration is a built-in.
+        (set_namespace_binding): While binding OVERLOADs with only one
+        declaration, we still need to call supplement_binding.
+
+2003-11-14  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/12762
+	* parser.c (cp_parser_enclosed_template_argument_list): New
+	function.
+	(cp_parser_template_id): Use it.
+	(cp_parser_simple_type_specifier): Recognize invalid template
+	syntax.
+
+2003-11-14  Giovanni Bajo  <giovannibajo@libero.it>
+
+        PR c++/2094
+        * pt.c (unify): Add support for PTRMEM_CST and
+        FIELD_DECL unification.
+
+2003-11-13  Richard Earnshaw  <rearnsha@arm.com>
+
+	* decl.c (grokfndecl): Change OK to type tree.
+
+2003-11-12  Mark Mitchell  <mark@codesourcery.com>
+
+	* tree.c (build_target_expr_with_type): Treate VA_ARG_EXPR like
+	CONSTRUCTOR.
+
+	* decl.c (cp_make_fname_decl): When creating a top-level
+	__FUNCTION__-like symbol, do register it with pushdecl.
+
+	* decl.c (finish_case_label): Do not check that we are within a
+	switch statement here.
+	* parser.c (struct cp_parser): Add in_iteration_statement_p and
+	in_switch_statement_p.
+	(cp_parser_new): Initialize them.
+	(cp_parser_labeled_statement): Check validity of case labels
+	here.
+	(cp_parser_selection_statement): Set in_switch_statement_p.
+	(cp_parser_iteration_statement): Set in_iteration_statement_p.
+	(cp_parser_jump_statement): Check validity of break/continue
+	statements here.
+
+	PR c++/12735
+	* cp-tree.h (duplicate_decls): Return a tree.
+	* decl.c (duplicate_decls): Clarify documentation.  Return
+	error_mark_node to indicate a failed redeclaration.
+	* friend.c (do_friend): Handle that case.
+	* name-lookup.c (pushdecl): Likewise.
+
+2003-11-11  Jason Merrill  <jason@redhat.com>
+
+	* cp-tree.h (DECL_NAMESPACE_ASSOCIATIONS): New macro.
+	* name-lookup.c (parse_using_directive): New fn.
+	(is_associated_namespace): New fn.
+	(arg_assoc_namespace): Also check associated namespaces.
+	* name-lookup.h: Declare new fns.
+	* pt.c (maybe_process_partial_specialization): Allow
+	specialization in associated namespace.
+	* parser.c (cp_parser_using_directive): Accept attributes.  Use
+	parse_using_directive.
 
 2003-11-10  Richard Henderson  <rth@redhat.com>
 

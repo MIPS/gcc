@@ -207,7 +207,7 @@ struct gcc_target
        correspondingly starts and finishes.  The function defined by
        init_dfa_pre_cycle_insn and init_dfa_post_cycle_insn are used
        to initialize the corresponding insns.  The default values of
-       the memebers result in not changing the automaton state when
+       the members result in not changing the automaton state when
        the new simulated processor cycle correspondingly starts and
        finishes.  */
     void (* init_dfa_pre_cycle_insn) (void);
@@ -429,6 +429,7 @@ struct gcc_target
     bool (*promote_prototypes) (tree fntype);
     rtx (*struct_value_rtx) (tree fndecl, int incoming);
     bool (*return_in_memory) (tree type, tree fndecl);
+    bool (*return_in_msb) (tree type);
     rtx (*expand_builtin_saveregs) (void);
     /* Returns pretend_argument_size.  */
     void (*setup_incoming_varargs) (CUMULATIVE_ARGS *ca, enum machine_mode mode,

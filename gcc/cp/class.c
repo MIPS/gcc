@@ -5587,6 +5587,9 @@ currently_open_derived_class (tree t)
   if (dependent_type_p (t))
     return NULL_TREE;
 
+  if (!current_class_type)
+    return NULL_TREE;
+
   if (DERIVED_FROM_P (t, current_class_type))
     return current_class_type;
 

@@ -1,3 +1,131 @@
+2003-11-23  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/12924
+	* g++.dg/template/template-id-2.C: New test.
+
+2003-11-22  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/5369
+	* g++.dg/template/memfriend1.C: New test.
+	* g++.dg/template/memfriend2.C: Likewise.
+	* g++.dg/template/memfriend3.C: Likewise.
+	* g++.dg/template/memfriend4.C: Likewise.
+	* g++.dg/template/memfriend5.C: Likewise.
+	* g++.dg/template/memfriend6.C: Likewise.
+	* g++.dg/template/memfriend7.C: Likewise.
+	* g++.dg/template/memfriend8.C: Likewise.
+	* g++.old-deja/g++.pt/friend44.C: Remove a bogus error.
+
+2003-11-21  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/12515
+	* g++.dg/ext/cond1.C: New test.
+
+2003-11-20  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/20020201-2.c: Remove.
+	* gcc.dg/20020201-4.c: Remove.
+	* gcc.dg/20020304-1.c: Remove.
+
+2003-11-19  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* gcc.dg/cpp/trad/xwin1.c: New test case.
+
+2003-11-19  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* g++.dg/compat/compat.exp: Add DYLD_LIBRARY_PATH for darwin.
+	* lib/g77.exp: Likewise.
+	* lib/objc.exp: Likewise.
+	* lib/g++.exp: Likewise, add -multiply_defined suppress flag
+	for darwin.
+
+2003-11-18  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/12932
+	* g++.dg/template/static5.C: New test.
+
+2003-11-18  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* gcc.dg/nested-func-1.c: New test.
+
+2003-11-16  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/cpp/assert4.c: New test.
+
+2003-11-14  Giovanni Bajo  <giovannibajo@libero.it>
+
+        PR c++/2294
+        * g++.dg/lookup/using9.c: New test.
+
+2003-11-14  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/12762
+	* g++.dg/template/error3.C: New test.
+
+2003-11-14  Arnaud Charlet  <charlet@act-europe.fr>
+
+	PR ada/13035
+	* ada/acats/run_acats, run_all.sh: Fix syntax error.
+	No longer use a wrapper for gcc, since this does not work under
+	Windows.
+
+2003-11-14  Giovanni Bajo  <giovannibajo@libero.it>
+
+        PR c++/2094
+        * g++.dg/template/ptrmem7.C: New test.
+
+2003-11-13  Andrew Pinski <apinski@apple.com>
+
+	* gcc.c-torture/compile/20031113-1.c: New test.
+
+2003-11-13  Mark Mitchell  <mark@codesourcery.com>
+            Kean Johnston <jkj@sco.com>
+
+	PR c/13029
+	* gcc.dg/unused-4.c: Update.
+
+2003-11-13  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* g++.dg/opt/const3.C: New test.
+
+2003-11-13  Jan Hubicka  <jh@suse.cz>
+
+	* gcc.c-torture/compile/20031112-1.c: New test.
+
+2003-11-12  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/parse/crash10.C: Remove bogus error marker.
+
+2003-11-12  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* ada/acats/run_acats (host_gnatmake): Use type in a /bin/sh script.
+	(host_gcc): Likewise.
+	(ROOT): Honor $PWDCMD.
+	(BASE): Likewise.
+	* ada/acats/run_all.sh (dir): Honor $PWDCMD.
+
+2003-11-12  Catherine Moore  <clm@redhat.com>
+
+	* gcc.c-torture/execute/20020720-1.x:  Add xfail for frv-*-*.
+
+2003-11-12  Andreas Jaeger  <aj@suse.de>
+	    Jakub Jelinek  <jakub@redhat.com>
+	    Andrew Pinski  <pinskia@physics.uc.edu>
+	    Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/c90-const-expr-2.c (foo): Avoid extra warning on 64-bit
+	systems.
+	* gcc.dg/c99-const-expr-2.c (foo): Likewise.
+
+	* gcc.dg/20030926-1.c: Make it work on x86_64 systems.
+	* gcc.dg/i386-pentium4-not-mull.c: Likewise.
+
+2003-11-11  Andreas Jaeger  <aj@suse.de>
+
+	* gcc.c-torture/execute/20020720-1.x: Test passes also on x86_64.
+
+	* gcc.c-torture/execute/20020227-1.x: Test passes also on x86_64.
+
 2003-11-10  Arnaud Charlet  <charlet@act-europe.fr>
 
 	* ada/acats/run_all.sh: Add handling of unsupported (tasking) tests.

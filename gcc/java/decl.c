@@ -116,7 +116,8 @@ push_jvm_slot (int index, tree decl)
   tmp = TREE_VEC_ELT (decl_map, index);
   while (tmp != NULL_TREE)
     {
-      if (TYPE_MODE (type) == TYPE_MODE (TREE_TYPE (tmp)))
+      if (TYPE_MODE (type) == TYPE_MODE (TREE_TYPE (tmp))
+	  && ! LOCAL_VAR_OUT_OF_SCOPE_P (tmp))
 	rtl = DECL_RTL_IF_SET (tmp);
       if (rtl != NULL)
 	break;
@@ -578,10 +579,6 @@ java_init_decl_processing (void)
     lookup_class (get_identifier ("java.lang.RuntimeException"));
   error_exception_type_node = 
     lookup_class (get_identifier ("java.lang.Error"));
-  class_not_found_type_node = 
-    lookup_class (get_identifier ("java.lang.ClassNotFoundException"));
-  no_class_def_found_type_node = 
-    lookup_class (get_identifier ("java.lang.NoClassDefFoundError"));
 
   rawdata_ptr_type_node
     = promote_type (lookup_class (get_identifier ("gnu.gcj.RawData")));
@@ -1297,6 +1294,7 @@ poplevel (int keep, int reverse, int functionbody)
   tree decl;
   tree bind = 0;
   int block_previously_created;
+    {
 
 #if defined(DEBUG_JAVA_BINDING_LEVELS)
   binding_depth--;
@@ -1337,12 +1335,13 @@ poplevel (int keep, int reverse, int functionbody)
 	&& DECL_INITIAL (decl) != 0
 	&& TREE_ADDRESSABLE (decl))
       {
-	/* If this decl was copied from a file-scope decl
-	   on account of a block-scope extern decl,
-	   propagate TREE_ADDRESSABLE to the file-scope decl.
-
-	   DECL_ABSTRACT_ORIGIN can be set to itself if warn_return_type is
-	   true, since then the decl goes through save_for_inline_copying.  */
+	  /* If this decl was copied from a file-scope decl on account
+	     of a block-scope extern decl, propagate TREE_ADDRESSABLE
+	     to the file-scope decl.
+	     
+	     DECL_ABSTRACT_ORIGIN can be set to itself if
+	     warn_return_type is true, since then the decl goes
+	     through save_for_inline_copying.  */
 	if (DECL_ABSTRACT_ORIGIN (decl) != 0
 	    && DECL_ABSTRACT_ORIGIN (decl) != decl)
 	  TREE_ADDRESSABLE (DECL_ABSTRACT_ORIGIN (decl)) = 1;
@@ -1353,6 +1352,11 @@ poplevel (int keep, int reverse, int functionbody)
 	    pop_function_context ();
 	  }
       }
+      else if (TREE_CODE (decl) == VAR_DECL
+	       && DECL_LANG_SPECIFIC (decl) != NULL
+	       && DECL_LOCAL_SLOT_NUMBER (decl))
+	LOCAL_VAR_OUT_OF_SCOPE_P (decl) = 1;
+    }
 
   /* If there were any declarations in that level,
      or if this level is a function body,

@@ -63,22 +63,21 @@ namespace std
       case 0:
       case 1:
 	// 1 The sign precedes the value and symbol.
+	__ret.field[0] = sign;
 	if (__space)
 	  {
 	    // Pattern starts with sign.
 	    if (__precedes)
 	      {
 		__ret.field[1] = symbol;
-		__ret.field[2] = space;
 		__ret.field[3] = value;
 	      }
 	    else
 	      {
 		__ret.field[1] = value;
-		__ret.field[2] = space;
 		__ret.field[3] = symbol;
 	      }
-	    __ret.field[0] = sign;
+	    __ret.field[2] = space;
 	  }
 	else
 	  {
@@ -93,7 +92,6 @@ namespace std
 		__ret.field[1] = value;
 		__ret.field[2] = symbol;
 	      }
-	    __ret.field[0] = sign;
 	    __ret.field[3] = none;
 	  }
 	break;
@@ -105,15 +103,14 @@ namespace std
 	    if (__precedes)
 	      {
 		__ret.field[0] = symbol;
-		__ret.field[1] = space;
 		__ret.field[2] = value;
 	      }
 	    else
 	      {
 		__ret.field[0] = value;
-		__ret.field[1] = space;
 		__ret.field[2] = symbol;
 	      }
+	    __ret.field[1] = space;
 	    __ret.field[3] = sign;
 	  }
 	else

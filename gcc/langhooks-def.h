@@ -84,7 +84,7 @@ extern tree lhd_tree_inlining_copy_res_decl_for_inlining (tree, tree, tree,
 extern int lhd_tree_inlining_anon_aggr_type_p (tree);
 extern int lhd_tree_inlining_start_inlining (tree);
 extern void lhd_tree_inlining_end_inlining (tree);
-extern tree lhd_tree_inlining_convert_parm_for_inlining (tree, tree, tree);
+extern tree lhd_tree_inlining_convert_parm_for_inlining (tree, tree, tree, int);
 extern void lhd_initialize_diagnostics (struct diagnostic_context *);
 extern tree lhd_callgraph_analyze_expr (tree *, int *, tree);
 
@@ -168,6 +168,8 @@ extern int lhd_gimplify_expr (tree *, tree *, tree *);
   lhd_tree_inlining_end_inlining
 #define LANG_HOOKS_TREE_INLINING_CONVERT_PARM_FOR_INLINING \
   lhd_tree_inlining_convert_parm_for_inlining
+#define LANG_HOOKS_TREE_INLINING_ESTIMATE_NUM_INSNS \
+  NULL
 
 #define LANG_HOOKS_TREE_INLINING_INITIALIZER { \
   LANG_HOOKS_TREE_INLINING_WALK_SUBTREES, \
@@ -182,6 +184,7 @@ extern int lhd_gimplify_expr (tree *, tree *, tree *);
   LANG_HOOKS_TREE_INLINING_START_INLINING, \
   LANG_HOOKS_TREE_INLINING_END_INLINING, \
   LANG_HOOKS_TREE_INLINING_CONVERT_PARM_FOR_INLINING, \
+  LANG_HOOKS_TREE_INLINING_ESTIMATE_NUM_INSNS \
 }
 
 #define LANG_HOOKS_CALLGRAPH_ANALYZE_EXPR lhd_callgraph_analyze_expr

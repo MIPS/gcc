@@ -53,6 +53,7 @@ i860 port		Jason Eckhardt		jle@rice.edu
 i960 port		Jim Wilson		wilson@specifixinc.com
 ia64 port		Jim Wilson		wilson@specifixinc.com
 ip2k port		Denis Chertykov		denisc@overta.ru
+iq2000 port		Stan Cox		scox@redhat.com
 m32r port		Nick Clifton		nickc@redhat.com
 m68hc11 port		Stephane Carrez		stcarrez@nerim.fr
 m68k port (?)		Jeff Law		law@redhat.com
@@ -77,6 +78,7 @@ sparc port		David S. Miller		davem@redhat.com
 sparc port		Jakub Jelinek		jakub@redhat.com
 v850 port		Nick Clifton		nickc@redhat.com
 vax port		Dave Anglin		dave.anglin@nrc.ca
+vax port		Matt Thomas		matt@3am-software.com
 x86-64 port		Jan Hubicka		jh@suse.cz
 xstormy16 port		Geoffrey Keating	geoffk@geoffk.org
 xtensa port		Bob Wilson		bob.wilson@acm.org

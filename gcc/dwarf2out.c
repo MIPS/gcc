@@ -3332,6 +3332,7 @@ typedef struct die_struct GTY(())
   dw_die_ref die_parent;
   dw_die_ref die_child;
   dw_die_ref die_sib;
+  dw_die_ref die_definition; /* ref from a specification to its definition */
   dw_offset die_offset;
   unsigned long die_abbrev;
   int die_mark;
@@ -3599,6 +3600,7 @@ static void add_AT_string (dw_die_ref, enum dwarf_attribute, const char *);
 static inline const char *AT_string (dw_attr_ref);
 static int AT_string_form (dw_attr_ref);
 static void add_AT_die_ref (dw_die_ref, enum dwarf_attribute, dw_die_ref);
+static void add_AT_specification (dw_die_ref, dw_die_ref);
 static inline dw_die_ref AT_ref (dw_attr_ref);
 static inline int AT_ref_external (dw_attr_ref);
 static inline void set_AT_ref_external (dw_attr_ref, int);
@@ -4662,6 +4664,18 @@ add_AT_die_ref (dw_die_ref die, enum dwarf_attribute attr_kind, dw_die_ref targ_
   attr->dw_attr_val.v.val_die_ref.die = targ_die;
   attr->dw_attr_val.v.val_die_ref.external = 0;
   add_dwarf_attr (die, attr);
+}
+
+/* Add an AT_specification attribute to a DIE, and also make the back
+   pointer from the specification to the definition. */
+
+static inline void
+add_AT_specification (dw_die_ref die, dw_die_ref targ_die)
+{
+  add_AT_die_ref (die, DW_AT_specification, targ_die);
+  if (targ_die->die_definition)
+    abort ();
+  targ_die->die_definition = die;
 }
 
 static inline dw_die_ref
@@ -9446,6 +9460,33 @@ add_location_or_const_value_attribute (dw_die_ref die, tree decl)
       add_AT_location_description (die, DW_AT_location, descr);
       break;
 
+    case PARALLEL:
+      {
+	rtvec par_elems = XVEC (rtl, 0);
+	int num_elem = GET_NUM_ELEM (par_elems);
+	enum machine_mode mode;
+	int i;
+
+	/* Create the first one, so we have something to add to.  */
+	descr = loc_descriptor (XEXP (RTVEC_ELT (par_elems, 0), 0));
+	mode = GET_MODE (XEXP (RTVEC_ELT (par_elems, 0), 0));
+	add_loc_descr (&descr,
+		       new_loc_descr (DW_OP_piece, GET_MODE_SIZE (mode), 0));
+	for (i = 1; i < num_elem; i++)
+	  {
+	    dw_loc_descr_ref temp;
+
+	    temp = loc_descriptor (XEXP (RTVEC_ELT (par_elems, i), 0));
+	    add_loc_descr (&descr, temp);
+	    mode = GET_MODE (XEXP (RTVEC_ELT (par_elems, i), 0));
+	    add_loc_descr (&descr,
+			   new_loc_descr (DW_OP_piece,
+					  GET_MODE_SIZE (mode), 0));
+	  }
+      }
+      add_AT_location_description (die, DW_AT_location, descr);
+      break;
+
     default:
       abort ();
     }
@@ -10191,7 +10232,7 @@ gen_array_type_die (tree type, dw_die_ref context_die)
   /* The SGI compilers handle arrays of unknown bound by setting
      AT_declaration and not emitting any subrange DIEs.  */
   if (! TYPE_DOMAIN (type))
-    add_AT_unsigned (array_die, DW_AT_declaration, 1);
+    add_AT_flag (array_die, DW_AT_declaration, 1);
   else
 #endif
     add_subscript_info (array_die, type);
@@ -10634,7 +10675,7 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
       else
 	{
 	  subr_die = new_die (DW_TAG_subprogram, context_die, decl);
-	  add_AT_die_ref (subr_die, DW_AT_specification, old_die);
+	  add_AT_specification (subr_die, old_die);
 	  if (get_AT_unsigned (old_die, DW_AT_decl_file) != file_index)
 	    add_AT_unsigned (subr_die, DW_AT_decl_file, file_index);
 	  if (get_AT_unsigned (old_die, DW_AT_decl_line)
@@ -10858,7 +10899,7 @@ gen_variable_die (tree decl, dw_die_ref context_die)
 	   && get_AT_flag (old_die, DW_AT_declaration) == 1)
     {
       /* This is a definition of a C++ class level static.  */
-      add_AT_die_ref (var_die, DW_AT_specification, old_die);
+      add_AT_specification (var_die, old_die);
       if (DECL_NAME (decl))
 	{
 	  unsigned file_index = lookup_filename (DECL_SOURCE_FILE (decl));
@@ -11306,7 +11347,7 @@ gen_struct_or_union_type_die (tree type, dw_die_ref context_die)
 			  scope_die, type);
       equate_type_number_to_die (type, type_die);
       if (old_die)
-	add_AT_die_ref (type_die, DW_AT_specification, old_die);
+	add_AT_specification (type_die, old_die);
       else
 	add_name_attribute (type_die, type_tag (type));
     }
@@ -12524,6 +12565,11 @@ prune_unused_types_mark (dw_die_ref die, int dokids)
 
       /* Mark any referenced nodes.  */
       prune_unused_types_walk_attribs (die);
+
+      /* If this node is a specification,
+         also mark the definition, if it exists. */
+      if (get_AT_flag (die, DW_AT_declaration) && die->die_definition)
+        prune_unused_types_mark (die->die_definition, 1);
     }
 
   if (dokids && die->die_mark != 2)

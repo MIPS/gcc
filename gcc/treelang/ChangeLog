@@ -1,3 +1,15 @@
+2003-11-21  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* .cvsignore: Delete.
+
+2003-11-20  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* Make-lang.in (treelang.extraclean): Delete.
+
+2003-11-20  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* Make-lang.in: Remove obsolete comment.
+
 2003-11-03  Kelley Cook  <kcook@gcc.gnu.org>
 
 	* Make-lang.in (dvi): Move targets to $(docobjdir).

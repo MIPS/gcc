@@ -35,10 +35,10 @@ with Ada.Text_IO; use Ada.Text_IO;
 with MLib.Fil;
 with MLib.Utl;
 with Namet;  use Namet;
+with Osint;  use Osint;
 with Opt;
 with Output; use Output;
 with Prj.Com;
-with Sdefault;
 
 package body MLib.Tgt is
 
@@ -120,6 +120,7 @@ package body MLib.Tgt is
       Interfaces   : Argument_List;
       Lib_Filename : String;
       Lib_Dir      : String;
+      Symbol_Data  : Symbol_Record;
       Driver_Name  : Name_Id := No_Name;
       Lib_Address  : String  := "";
       Lib_Version  : String  := "";
@@ -129,6 +130,7 @@ package body MLib.Tgt is
       pragma Unreferenced (Foreign);
       pragma Unreferenced (Afiles);
       pragma Unreferenced (Interfaces);
+      pragma Unreferenced (Symbol_Data);
       pragma Unreferenced (Lib_Address);
       pragma Unreferenced (Lib_Version);
       pragma Unreferenced (Relocatable);
@@ -175,9 +177,9 @@ package body MLib.Tgt is
                   Last : Natural;
 
                begin
-                  Open (File, In_File,
-                        Sdefault.Include_Dir_Default_Name.all &
-                        "/s-osinte.ads");
+                  Open
+                    (File, In_File,
+                     Include_Dir_Default_Prefix & "/s-osinte.ads");
 
                   while not End_Of_File (File) loop
                      Get_Line (File, Line, Last);

@@ -1,6 +1,25 @@
-2003-11-16  Toon Moene  <toon@moene.indiv.nluug.nl>
+2003-11-21  Kelley Cook  <kcook@gcc.gnu.org>
 
-	* config-lang.in: Re-add.
+	* .cvsignore: Delete.
+
+2003-11-20  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* Make-lang.in (f77.extraclean): Delete.
+
+2003-11-20  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* Make-lang.in (check-f77, lang_checks): Add.
+
+2003-11-16  Jason Merrill  <jason@redhat.com>
+
+	* Make-lang.in (f77.tags): Create TAGS.sub files in each directory
+	and TAGS files that include them for each front end.
+
+2003-11-12  Andreas Jaeger  <aj@suse.de>
+
+	* intdoc.in (Signal Intrinsic (subroutine)): Fix texinfo warning
+	using @code.
+	* intdoc.texi: Regenerated.
 
 2003-11-03  Kelley Cook  <kcook@gcc.gnu.org>
 

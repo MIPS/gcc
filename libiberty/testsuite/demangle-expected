@@ -2629,7 +2629,7 @@ operator<<(X const&, X const&)
 #
 --format=gnu-v3
 _ZN3FooIA4_iE3barE
-Foo<int[4]>::bar
+Foo<int [4]>::bar
 #
 --format=gnu-v3
 _Z1fIiEvi
@@ -2697,7 +2697,7 @@ typeinfo for a_class
 #
 --format=gnu-v3
 U4_farrVKPi
-int* restrict volatile const _far
+int* const volatile restrict _far
 # 
 --format=gnu-v3
 _Z3fooILi2EEvRAplT_Li1E_i
@@ -2749,11 +2749,11 @@ f(int (* const)(int))
 #
 --format=gnu-v3
 _Z1fAszL_ZZNK1N1A1fEvE3foo_0E_i
-f(int[sizeof(N::A::f() const::foo)])
+f(int [sizeof (N::A::f() const::foo)])
 #
 --format=gnu-v3
 _Z1fA37_iPS_
-f(int[37], int (*) [37])
+f(int [37], int (*) [37])
 #
 --format=gnu-v3
 _Z1fM1AFivEPS0_
@@ -2777,7 +2777,7 @@ s(int (*) [37], int (**) [37])
 #
 --format=gnu-v3
 _Z3fooA30_A_i
-foo(int[30][])
+foo(int [30][])
 #
 --format=gnu-v3
 _Z3kooPA28_A30_i
@@ -2858,6 +2858,27 @@ global constructors keyed to _Z2fnv
 --format=gnu-v3
 _Z1rM1GFivEMS_KFivES_M1HFivES1_4whatIKS_E5what2IS8_ES3_
 r(int (G::*)(), int (G::*)() const, G, int (H::*)(), int (G::*)(), what<G const>, what2<G const>, int (G::*)() const)
+#
+# This is from the gdb testsuite gdb.cp/cplusfuncs.exp.
+--format=gnu-v3
+_Z10hairyfunc5PFPFilEPcE
+hairyfunc5(int (*(*)(char*))(long))
+#
+# This is from gcc PR 8861
+--format=gnu-v3
+_Z1fILi1ELc120EEv1AIXplT_cviLd810000000000000000703DAD7A370C5EEE
+void f<1, 120>(A<(1) + (((int)((double)810000000000000000703DAD7A370C5)))>)
+#
+# This is also from gcc PR 8861
+--format=gnu-v3
+_Z1fILi1EEv1AIXplT_cvingLf3f800000EEE
+void f<1>(A<(1) + (((int)(-((float)3f800000))))>)
+#
+# This is from a libstdc++ debug mode patch.
+--format=gnu-v3
+_ZNK11__gnu_debug16_Error_formatter14_M_format_wordImEEvPciPKcT_
+void __gnu_debug::_Error_formatter::_M_format_word<unsigned long>(char*, int, char const*, unsigned long) const
+#
 # 
 # This caused an infinite loop.
 # We still don't demangle this correctly, but at least we don't hang.

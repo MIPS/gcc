@@ -39,7 +39,6 @@ Boston, MA 02111-1307, USA.  */
 #include "timevar.h"
 #include "fibheap.h"
 #include "hashtab.h"
-#include "ssa.h"
 #include "tree-iterator.h"
 #include "real.h"
 #include "alloc-pool.h"

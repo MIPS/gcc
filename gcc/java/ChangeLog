@@ -1,8 +1,92 @@
+2003-11-20  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* Make-lang.in (java.extraclean): Delete.
+
+2003-11-20  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* Make-lang.in (check-java): Add.
+
+2003-11-19  Jeff Sturm  <jsturm@one-point.com>
+
+	Fix PR java/13024.
+	* except.c (prepare_eh_table_type): Allocate variable-sized
+	buffer `buf' with alloca.
+
+2003-11-17  Jeff Sturm  <jsturm@one-point.com>
+
+	Fix PR java/12857.
+
+	decl.c (java_init_decl_processing): Don't initialize
+	class_not_found_type_node, no_class_def_found_type_node.
+
+	java-tree.h (JTI_CLASS_NOT_FOUND_TYPE_NODE,
+	JTI_NO_CLASS_DEF_FOUND_TYPE_NODE): Remove from java_tree_index.
+	(class_not_found_type_node, no_class_def_found_type_node):
+	Don't define.
+
+	parse.y (build_dot_class_method_invocation): Add this_class
+	argument.  Qualify method invocations to a different class.
+	(create_new_parser_context): Initialize saved_data_ctx to 0.
+	(java_parser_context_save_global): Initialize saved_data_ctx to 1.
+	(build_dot_class_method): Don't load classes.  Register
+	incomplete types.
+	(build_incomplete_class_ref): Special cases for interfaces
+	and inner classes.  Move build_dot_class_method call to here...
+	(patch_incomplete_class_ref): ...from here.  Pass current_class
+	to build_dot_class_method_invocation.
+	(build_assertion): Pass class_type to
+	build_dot_class_method_invocation.
+	(encapsulate_with_try_catch): Handle EXPR_WITH_FILE_LOCATION node.
+
+2003-11-17  Jeff Sturm  <jsturm@one-point.com>
+
+	Fix PR java/12739.
+	* java-tree.h (BLOCK_EMPTY_P): Define.
+	* parse.y (java_complete_lhs): Check for empty blocks
+	in TRY_FINALLY_EXPR case.
+
+2003-11-17  Andrew Haley  <aph@redhat.com>
+
+	* java-tree.h (LOCAL_VAR_OUT_OF_SCOPE_P): New.
+	(struct lang_decl_var:freed): New variable. 
+	* decl.c (poplevel): Mark local vars that have gone out of scope.
+	(push_jvm_slot): Don't use the RTL of a var that has gone out of
+	scope.
+
+2003-11-16  Jason Merrill  <jason@redhat.com>
+
+	* Make-lang.in (java.tags): Create TAGS.sub files in each directory
+	and TAGS files that include them for each front end.
+
+2003-11-15  Tom Tromey  <tromey@redhat.com>
+
+	* gjavah.c (print_stub_or_jni): Pass `env' to FatalError.
+
 2003-11-12  Jason Merrill  <jason@redhat.com>
 
 	PR optimization/12547
 	* lang.c (java_tree_inlining_walk_subtrees): Just walk
 	BLOCK_EXPR_BODY directly.
+
+2003-11-12  Andrew Haley  <aph@redhat.com>
+
+	PR java/11045
+	* parse.y (fold_constant_for_init): Check that we really do have a
+	constant.
+
+	PR java/11533
+	* lang.c (merge_init_test_initialization): Clear DECL_INITIAL for
+	init_test_decls being inlined.
+
+	PR java/12890:
+	* parse.y (do_resolve_class): Check return value from
+	breakdown_qualified().
+
+2003-11-11  Tom Tromey  <tromey@redhat.com>
+
+	PR java/12915:
+	* parse.y (merge_string_cste): Handle case where we have a
+	pointer that happens to be zero, not null_pointer_node.
 
 2003-11-10  Tom Tromey  <tromey@redhat.com>
 

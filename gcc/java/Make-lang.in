@@ -1,4 +1,4 @@
-# Top level makefile fragment for the GNU compiler for the Java(TM)
+# Top level -*- makefile -*- fragment for the GNU compiler for the Java(TM)
 # language.
 #   Copyright (C) 1996, 1998, 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 
@@ -29,7 +29,7 @@
 # foo.all.build, foo.all.cross, foo.start.encap, foo.rest.encap,
 # foo.install-normal, foo.install-common, foo.install-man,
 # foo.uninstall,
-# foo.mostlyclean, foo.clean, foo.distclean, foo.extraclean,
+# foo.mostlyclean, foo.clean, foo.distclean,
 # foo.maintainer-clean, foo.stage1, foo.stage2, foo.stage3, foo.stage4
 #
 # where `foo' is the name of the language.
@@ -159,7 +159,10 @@ java.rest.encap:
 
 
 java.tags: force
-	cd $(srcdir)/java; etags *.y *.c *.h --language=none --regex='/DEFTREECODE [(]\([A-Z_]+\)/\1/' java-tree.def
+	cd $(srcdir)/java; etags -o TAGS.sub *.y *.c *.h --language=none \
+	  --regex='/DEFTREECODE [(]\([A-Z_]+\)/\1/' java-tree.def; \
+	etags --include TAGS.sub --include ../TAGS.sub
+
 
 info:: $(docobjdir)/gcj.info
 dvi:: $(docobjdir)/gcj.dvi
@@ -167,6 +170,8 @@ generated-manpages:: $(docobjdir)/gcj.1 $(docobjdir)/gcjh.1 \
 	$(docobjdir)/jv-scan.1 $(docobjdir)/jcf-dump.1 \
 	$(docobjdir)/gij.1 $(docobjdir)/jv-convert.1 \
 	$(docobjdir)/rmic.1 $(docobjdir)/rmiregistry.1
+
+check-java :
 
 # Install hooks:
 # jc1, gcj, jvgenmain, and gcjh are installed elsewhere as part
@@ -227,7 +232,6 @@ java.clean:
 java.distclean:
 	-rm -f java/config.status java/Makefile
 	-rm -f java/parse.output
-java.extraclean:
 java.maintainer-clean:
 	-rm -f $(parsedir)/java/parse.c $(parsedir)/java/parse-scan.c java/parse.output java/y.tab.c
 	-rm -f $(docobjdir)/gcj.1 $(docobjdir)/gcjh.1

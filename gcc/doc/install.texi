@@ -287,16 +287,23 @@ systems' @command{tar} programs will also work, only try GNU
 @heading Tools/packages necessary for modifying GCC
 @table @asis
 
-@item autoconf version 2.13 (NO earlier or later versions) and
+@item autoconf versions 2.13 and 2.57
 @itemx GNU m4 version 1.4 (or later)
 
 Necessary when modifying @file{configure.in}, @file{aclocal.m4}, etc.@:
-to regenerate @file{configure} and @file{config.in} files
+to regenerate @file{configure} and @file{config.in} files.  Most
+directories require autoconf 2.13 (exactly), but @file{libiberty} and
+@file{libstdc++-v3} require autoconf 2.57 (exactly).
 
-@item automake version ???
+@item automake versions 1.4-p? and 1.7.?
 
 Necessary when modifying a @file{Makefile.am} file to regenerate its
-associated @file{Makefile.in}
+associated @file{Makefile.in}.  Most directories require a 1.4 series
+automake; @file{libstdc++-v3} requires a 1.7 series automake.
+
+@item gettext version 0.12 (or later)
+
+Needed to regenerate @file{gcc.pot}.
 
 @item gperf version 2.7.2 (or later)
 
@@ -362,8 +369,10 @@ snapshots of the development sources are also available via FTP.
 @item perl version 5.6.1 (or later)
 
 Necessary when regenerating @file{Makefile} dependencies in libiberty.
-Necessary when regenerating something with intl??? (pod2man???)
-Other stuff???
+Necessary when regenerating @file{libiberty/functions.texi}.
+Necessary when generating manpages from Texinfo manuals.
+Used by various scripts to generate some files included in CVS (mainly
+Unicode-related and rarely changing) from source tables.
 
 @item GNU diffutils version 2.7 (or later)
 
@@ -1063,7 +1072,7 @@ specifying @var{list}; the categories of checks available are
 @samp{misc}, @samp{tree}, @samp{gc}, @samp{rtl}, @samp{rtlflag},
 @samp{fold}, @samp{gcac} and @samp{valgrind}.  The check @samp{valgrind}
 requires the external @command{valgrind} simulator, available from
-@uref{http://developer.kde.org/~sewardj/}.  The default when @var{list} is
+@uref{http://valgrind.kde.org/}.  The default when @var{list} is
 not specified is @samp{misc,tree,gc,rtlflag}; the checks @samp{rtl},
 @samp{gcac} and @samp{valgrind} are very expensive.
 
@@ -2632,20 +2641,6 @@ have a higher-quality port for this machine soon.
 Versions of libstdc++-v3 starting with 3.2.1 require bugfixes present
 in glibc 2.2.5 and later.  More information is available in the
 libstdc++-v3 documentation.
-
-If you use glibc 2.2 (or 2.1.9x), GCC 2.95.2 won't install
-out-of-the-box.  You'll get compile errors while building @samp{libstdc++}.
-The patch @uref{glibc-2.2.patch,,glibc-2.2.patch}, that is to be
-applied in the GCC source tree, fixes the compatibility problems.
-
-Currently Glibc 2.2.3 (and older releases) and GCC 3.0 are out of sync
-since the latest exception handling changes for GCC@.  Compiling glibc
-with GCC 3.0 will give a binary incompatible glibc and therefore cause
-lots of problems and might make your system completely unusable.  This
-will definitely need fixes in glibc but might also need fixes in GCC@.  We
-strongly advise to wait for glibc 2.2.4 and to read the release notes of
-glibc 2.2.4 whether patches for GCC 3.0 are needed.  You can use glibc
-2.2.3 with GCC 3.0, just do not try to recompile it.
 
 @html
 <hr />

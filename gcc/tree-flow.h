@@ -448,6 +448,7 @@ extern void bsi_commit_edge_inserts (bool, int *);
 extern void bsi_insert_on_edge_immediate (edge, tree);
 extern void notice_special_calls (tree);
 extern void clear_special_calls (void);
+extern void compute_dominance_frontiers (bitmap *, dominance_info);
 
 /* In tree-pretty-print.c.  */
 extern void dump_generic_bb (FILE *, basic_block, int, int);

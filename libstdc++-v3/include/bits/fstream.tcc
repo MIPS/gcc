@@ -44,15 +44,15 @@ namespace std
     basic_filebuf<_CharT, _Traits>::
     _M_allocate_internal_buffer()
     {
-      if (!_M_buf_allocated && this->_M_buf_size)
+      // Allocate internal buffer only if one doesn't already exist
+      // (either allocated or provided by the user via setbuf).
+      if (!_M_buf_allocated && !this->_M_buf)
 	{
-	  // Allocate internal buffer.
 	  this->_M_buf = new char_type[this->_M_buf_size];
 	  _M_buf_allocated = true;
 	}
     }
 
-  // Both close and setbuf need to deallocate internal buffers, if it exists.
   template<typename _CharT, typename _Traits>
     void
     basic_filebuf<_CharT, _Traits>::
@@ -213,8 +213,8 @@ namespace std
 	  else
 	    {
               // Worst-case number of external bytes.
-              // XXX Not done encoding() == -1.
-              const int __enc = _M_codecvt->encoding();
+	      // XXX Not done encoding() == -1.
+	      const int __enc = _M_codecvt->encoding();
 	      streamsize __blen; // Minimum buffer size.
 	      streamsize __rlen; // Number of chars to read.
 	      if (__enc > 0)
@@ -269,9 +269,7 @@ namespace std
 		  __r = _M_codecvt->in(_M_state_cur, _M_ext_next,
 				       _M_ext_end, _M_ext_next, this->eback(), 
 				       this->eback() + __buflen, __iend);
-		  if (__r == codecvt_base::ok || __r == codecvt_base::partial)
-		    __ilen = __iend - this->eback();
-		  else if (__r == codecvt_base::noconv)
+		  if (__r == codecvt_base::noconv)
 		    {
 		      size_t __avail = _M_ext_end - _M_ext_buf;
 		      __ilen = std::min(__avail, __buflen);
@@ -279,11 +277,15 @@ namespace std
 					reinterpret_cast<char_type*>(_M_ext_buf), __ilen);
 		      _M_ext_next = _M_ext_buf + __ilen;
 		    }
-		  else 
-		    {
-		      __ilen = 0;
-		      break;
-		    }
+		  else
+		    __ilen = __iend - this->eback();
+		  
+		  // _M_codecvt->in may return error while __ilen > 0: this is
+		  // ok, and actually occurs in case of mixed encodings (e.g.,
+		  // XML files).
+		  if (__r == codecvt_base::error)
+		    break;
+
 		  __rlen = 1;
 		}
 	      while (!__got_eof && __ilen == 0);
@@ -539,29 +541,22 @@ namespace std
     basic_filebuf<_CharT, _Traits>::
     setbuf(char_type* __s, streamsize __n)
     {
-      if (!this->is_open() && __s == 0 && __n == 0)
-	this->_M_buf_size = 1;
-      else if (__s && __n > 0)
-	{
-	  // This is implementation-defined behavior, and assumes that
-	  // an external char_type array of length __n exists and has
-	  // been pre-allocated. If this is not the case, things will
-	  // quickly blow up. When __n > 1, __n - 1 positions will be
-	  // used for the get area, __n - 1 for the put area and 1
-	  // position to host the overflow char of a full put area.
-	  // When __n == 1, 1 position will be used for the get area
-	  // and 0 for the put area, as in the unbuffered case above.
-
-	  // Step 1: Destroy the current internal array.
-	  _M_destroy_internal_buffer();
-	  
-	  // Step 2: Use the external array.
-	  this->_M_buf = __s;
-	  this->_M_buf_size = __n;
-	  _M_reading = false;
-	  _M_writing = false;
-	  _M_set_buffer(-1);
-	}
+      if (!this->is_open())
+	if (__s == 0 && __n == 0)
+	  this->_M_buf_size = 1;
+	else if (__s && __n > 0)
+	  {
+	    // This is implementation-defined behavior, and assumes that
+	    // an external char_type array of length __n exists and has
+	    // been pre-allocated. If this is not the case, things will
+	    // quickly blow up. When __n > 1, __n - 1 positions will be
+	    // used for the get area, __n - 1 for the put area and 1
+	    // position to host the overflow char of a full put area.
+	    // When __n == 1, 1 position will be used for the get area
+	    // and 0 for the put area, as in the unbuffered case above.
+	    this->_M_buf = __s;
+	    this->_M_buf_size = __n;
+	  }
       return this; 
     }
   
@@ -749,34 +744,26 @@ namespace std
     basic_filebuf<_CharT, _Traits>::
     imbue(const locale& __loc)
     {
-      if (this->_M_buf_locale != __loc)
+      if (this->getloc() != __loc)
 	{
 	  bool __testfail = false;
 	  if (this->is_open())
 	    {
-	      const bool __testbeg =
+	      const bool __testseek =
 		this->seekoff(0, ios_base::cur, this->_M_mode) ==
-		pos_type(off_type(0));
+		pos_type(off_type(-1));
 	      const bool __teststate =
 		__check_facet(_M_codecvt).encoding() == -1;
 
-	      __testfail = !__testbeg || __teststate;
+	      __testfail = __testseek || __teststate;
 	    }
 
 	  if (!__testfail)
 	    {
-	      this->_M_buf_locale = __loc;
 	      if (__builtin_expect(has_facet<__codecvt_type>(__loc), true))
 		_M_codecvt = &use_facet<__codecvt_type>(__loc);
 	      else
 		_M_codecvt = 0;
-
-	      // NB This may require the reconversion of previously
-	      // converted chars. This in turn may cause the
-	      // reconstruction of the original file. YIKES!!  This
-	      // implementation interprets this requirement as requiring
-	      // the file position be at the beginning, and a stateless
-	      // encoding, or that the filebuf be closed. Opinions may differ.
 	    }
 	}
     }

@@ -345,7 +345,6 @@ static void setup_incoming_promotions (void);
 static void set_nonzero_bits_and_sign_copies (rtx, rtx, void *);
 static int cant_combine_insn_p (rtx);
 static int can_combine_p (rtx, rtx, rtx, rtx, rtx *, rtx *);
-static int sets_function_arg_p (rtx);
 static int combinable_i3pat (rtx, rtx *, rtx, rtx, int, rtx *);
 static int contains_muldiv (rtx);
 static rtx try_combine (rtx, rtx, rtx, int *);
@@ -1205,45 +1204,6 @@ can_combine_p (rtx insn, rtx i3, rtx pred ATTRIBUTE_UNUSED, rtx succ,
   return 1;
 }
 
-/* Check if PAT is an insn - or a part of it - used to set up an
-   argument for a function in a hard register.  */
-
-static int
-sets_function_arg_p (rtx pat)
-{
-  int i;
-  rtx inner_dest;
-
-  switch (GET_CODE (pat))
-    {
-    case INSN:
-      return sets_function_arg_p (PATTERN (pat));
-
-    case PARALLEL:
-      for (i = XVECLEN (pat, 0); --i >= 0;)
-	if (sets_function_arg_p (XVECEXP (pat, 0, i)))
-	  return 1;
-
-      break;
-
-    case SET:
-      inner_dest = SET_DEST (pat);
-      while (GET_CODE (inner_dest) == STRICT_LOW_PART
-	     || GET_CODE (inner_dest) == SUBREG
-	     || GET_CODE (inner_dest) == ZERO_EXTRACT)
-	inner_dest = XEXP (inner_dest, 0);
-
-      return (GET_CODE (inner_dest) == REG
-	      && REGNO (inner_dest) < FIRST_PSEUDO_REGISTER
-	      && FUNCTION_ARG_REGNO_P (REGNO (inner_dest)));
-
-    default:
-      break;
-    }
-
-  return 0;
-}
-
 /* LOC is the location within I3 that contains its pattern or the component
    of a PARALLEL of the pattern.  We validate that it is valid for combining.
 
@@ -12700,11 +12660,12 @@ distribute_notes (rtx notes, rtx from_insn, rtx i3, rtx i2)
 			     This might delete other dead insns recursively.
 			     First set the pattern to something that won't use
 			     any register.  */
+			  rtx old_notes = REG_NOTES (tem);
 
 			  PATTERN (tem) = pc_rtx;
+			  REG_NOTES (tem) = NULL;
 
-			  distribute_notes (REG_NOTES (tem), tem, tem,
-					    NULL_RTX);
+			  distribute_notes (old_notes, tem, tem, NULL_RTX);
 			  distribute_links (LOG_LINKS (tem));
 
 			  PUT_CODE (tem, NOTE);
@@ -12716,10 +12677,11 @@ distribute_notes (rtx notes, rtx from_insn, rtx i3, rtx i2)
 			  if (cc0_setter)
 			    {
 			      PATTERN (cc0_setter) = pc_rtx;
+			      old_notes = REG_NOTES (cc0_setter);
+			      REG_NOTES (cc0_setter) = NULL;
 
-			      distribute_notes (REG_NOTES (cc0_setter),
-						cc0_setter, cc0_setter,
-						NULL_RTX);
+			      distribute_notes (old_notes, cc0_setter,
+						cc0_setter, NULL_RTX);
 			      distribute_links (LOG_LINKS (cc0_setter));
 
 			      PUT_CODE (cc0_setter, NOTE);
