@@ -1,3 +1,19 @@
+Wed Apr 17 15:38:36 2002  Jeffrey A Law  (law@cygnus.com)
+
+	* pa.c (hppa_use_dfa_pipeline_interface): New function.
+	(TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE): Define.
+	(override_options): Add PA7300 scheduling support.
+	(pa_adjust_cost): Update various comments.  Properly
+	handle anti and output dependencies when using the
+	DFA scheduler.
+	(pa_issue_rate): Add PA7300 scheduling support.
+	(pa_can_combine_p): Call extract_insn before calling
+	constrain_operands (taken from mainline tree).
+	* pa.h (enum processor_type): Add PROCESSOR_PA7300.
+	* pa.md (cpu attr): Add 7300.  Rewrite pipeline
+	descriptions using DFA descriptions.  Add PA7300
+	scheduling support.
+
 2002-03-30  David S. Miller  <davem@redhat.com>
 
 	Add UltraSPARC-III DFA scheduling support.
