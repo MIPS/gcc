@@ -907,6 +907,8 @@ dbxout_finish (const char *filename ATTRIBUTE_UNUSED)
  {
    char letext_label[100];
    ASM_GENERATE_INTERNAL_LABEL (letext_label, "Letext", 0);
+   /* APPLE LOCAL STABS */
+   text_section ();
    fprintf (asm_out_file, "%s\"\",%d,0,0,", ASM_STABS_OP, N_SO);
    assemble_name (asm_out_file, letext_label);
    putc ('\n', asm_out_file);
