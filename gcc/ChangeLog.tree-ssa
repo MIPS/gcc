@@ -1,3 +1,18 @@
+2004-03-02  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-tailcall.c (struct tailcall): Remove return_block and return_bsi
+	fields, add m and a fields.
+	(m_acc, a_acc): New.
+	(find_tail_calls): Find tail calls on whose results simple operations
+	are performed.
+	(independent_on_stmt_p, process_assignment,
+	propagate_through_phis, adjust_accumulator_values,
+	adjust_return_value): New.
+	(eliminate_tail_call): Update the accumulators if needed.
+	(optimize_tail_call): Do not create phis.
+	(tree_optimize_tail_calls): Create phis and accumulators as needed.
+	Adjust return values.
+
 2004-03-02  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-ssa-operands.c (get_expr_operands): Mark CALL_EXPRs
