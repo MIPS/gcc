@@ -1,3 +1,5 @@
+// { dg-options "-mieee" { target alpha*-*-* } }
+
 // 1999-08-23 bkoz
 
 // Copyright (C) 1999, 2001, 2002 Free Software Foundation
@@ -91,6 +93,16 @@ void test_extrema<long double>()
   VERIFY( (limits_max / extrema_max) < (1 + epsilon) );
 }
 #endif
+
+template<typename T>
+void test_epsilon()
+{
+  bool test = true;
+  T epsilon = std::numeric_limits<T>::epsilon();
+  T one = 1;
+
+  VERIFY( one != (one + epsilon) );
+}
 
 #ifdef __CHAR_UNSIGNED__
 #define char_is_signed false
@@ -311,6 +323,10 @@ int main()
   test_extrema<float>();
   test_extrema<double>();
   test_extrema<long double>();
+
+  test_epsilon<float>();
+  test_epsilon<double>();
+  test_epsilon<long double>();
 
   test_sign();
 

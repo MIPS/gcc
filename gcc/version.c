@@ -1,4 +1,4 @@
 #include "ansidecl.h"
 #include "version.h"
 
-const char *const version_string = "3.4-bi 20020917 (experimental)";
+const char *const version_string = "3.4-bi 20020919 (experimental)";

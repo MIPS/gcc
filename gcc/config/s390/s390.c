@@ -797,7 +797,7 @@ s390_extract_qi (op, mode, part)
    LEVEL is the optimization level specified; 2 if `-O2' is
    specified, 1 if `-O' is specified, and 0 if neither is specified.
 
-   SIZE is non-zero if `-Os' is specified and zero otherwise.  */
+   SIZE is nonzero if `-Os' is specified and zero otherwise.  */
 
 void
 optimization_options (level, size)
@@ -1048,6 +1048,19 @@ q_constraint (op)
     return 0;
 
   return 1;
+}
+
+/* Return the cost of an address rtx ADDR.  */
+
+int
+s390_address_cost (addr)
+     rtx addr;
+{
+  struct s390_address ad;
+  if (!s390_decompose_address (addr, &ad))
+    return 1000;
+
+  return ad.indx? COSTS_N_INSNS (1) + 1 : COSTS_N_INSNS (1);
 }
 
 /* Return true if OP is a valid operand for the BRAS instruction.
@@ -2799,7 +2812,11 @@ addr_generation_dependency_p (dep_rtx, insn)
   if (GET_CODE (dep_rtx) == SET)
     {
       target = SET_DEST (dep_rtx);
-      
+      if (GET_CODE (target) == STRICT_LOW_PART)
+	target = XEXP (target, 0);
+      while (GET_CODE (target) == SUBREG)
+	target = SUBREG_REG (target);
+
       if (GET_CODE (target) == REG)
 	{
 	  int regno = REGNO (target);

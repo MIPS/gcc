@@ -239,7 +239,7 @@ sticky_rshift_significand (r, a, n)
      const struct real_value *a;
      unsigned int n;
 {
-  bool sticky = false;
+  unsigned long sticky = 0;
   unsigned int i, ofs = 0;
 
   if (n >= HOST_BITS_PER_LONG)
@@ -268,7 +268,7 @@ sticky_rshift_significand (r, a, n)
 	r->sig[i] = 0;
     }
 
-  r->sig[0] |= sticky;
+  r->sig[0] |= (sticky != 0);
 }
 
 /* Right-shift the significand of A by N bits; put the result in the
@@ -2121,7 +2121,8 @@ round_for_format (fmt, r)
      struct real_value *r;
 {
   int p2, np2, i, w;
-  bool sticky, guard, lsb;
+  unsigned long sticky;
+  bool guard, lsb;
   int emin2m1, emax2;
 
   p2 = fmt->p * fmt->log2_b;
@@ -2207,8 +2208,7 @@ round_for_format (fmt, r)
 
   sticky = 0;
   for (i = 0, w = (np2 - 1) / HOST_BITS_PER_LONG; i < w; ++i)
-    if (r->sig[i])
-      sticky = 1;
+    sticky |= r->sig[i];
   sticky |=
     r->sig[w] & (((unsigned long)1 << ((np2 - 1) % HOST_BITS_PER_LONG)) - 1);
 

@@ -1528,7 +1528,7 @@ enum sh_arg_class { SH_ARG_INT = 0, SH_ARG_FLOAT = 1 };
 struct sh_args {
     int arg_count[2];
     int force_mem;
-  /* Non-zero if a prototype is available for the function.  */
+  /* Nonzero if a prototype is available for the function.  */
     int prototype_p;
   /* The number of an odd floating-point register, that should be used
      for the next argument of type float.  */
@@ -2277,9 +2277,15 @@ while (0)
   (GET_CODE (OP) == CONST && GET_CODE (XEXP ((OP), 0)) == UNSPEC \
    && XINT (XEXP ((OP), 0), 1) == UNSPEC_GOTPLT)
 
+#define UNSPEC_GOTOFF_P(OP) \
+  (GET_CODE (OP) == UNSPEC && XINT ((OP), 1) == UNSPEC_GOTOFF)
+
 #define GOTOFF_P(OP) \
-  (GET_CODE (OP) == CONST && GET_CODE (XEXP ((OP), 0)) == UNSPEC \
-   && XINT (XEXP ((OP), 0), 1) == UNSPEC_GOTOFF)
+  (GET_CODE (OP) == CONST \
+   && (UNSPEC_GOTOFF_P (XEXP ((OP), 0)) \
+       || (GET_CODE (XEXP ((OP), 0)) == PLUS \
+           && UNSPEC_GOTOFF_P (XEXP (XEXP ((OP), 0), 0)) \
+	   && GET_CODE (XEXP (XEXP ((OP), 0), 1)) == CONST_INT)))
 
 #define PIC_ADDR_P(OP) \
   (GET_CODE (OP) == CONST && GET_CODE (XEXP ((OP), 0)) == UNSPEC \

@@ -1,3 +1,190 @@
+2002-09-19  Zack Weinberg  <zack@codesourcery.com>
+
+	* gcc.c (use_pipes): New flag.
+	(process_command): Set it.  Adjust check for -pipe conflicting
+	with -time or -save-temps.
+	(do_spec_1): Use it.  Handle %|SUFFIX, %mSUFFIX, and
+	%<SWITCH.  Drop %| (without a SUFFIX).
+	(handle_braces): Drop %{<SWITCH}, %{^SWITCH}, %{|...}.
+	(give_switch): Third argument eliminated.
+	(invoke_as, @assembler_with_cpp spec): Use %|.s or %m.s
+	depending on AS_NEEDS_DASH_FOR_PIPED_INPUT.
+	(specs documentation comment): Update.
+
+	* config/netbsd-aout.h, config/openbsd.h, config/ptx4.h,
+	config/svr4.h, config/i386/freebsd-aout.h,
+	config/m68k/netbsd-elf.h, config/m68k/netbsd.h,
+	config/m68k/openbsd.h, config/mips/openbsd.h,
+	config/sparc/sparc.h: Define AS_NEEDS_DASH_FOR_PIPED_INPUT
+	instead of putting %| into ASM_SPEC and/or ASM_FINAL_SPEC.
+	* config/avr/avr.h: Delete do-nothing ASM_FINAL_SPEC.
+	* config/cris/cris.h: Update comment.
+
+	* ada/lang-specs.h: Use %(invoke_as).  Straighten out
+	error messages.  Don't use %{^SWITCH}.
+	* ada/misc.c (gnat_decode_option): Handle -I with a
+	separate argument.
+
+	* f/lang-specs.h: Use %| and %m.
+	* java/jvspec.c: Use %m and %(invoke_as).  Change all
+	uses of %{<SWITCH} to %<SWITCH.
+
+	* doc/invoke.texi: Update documentation of specs.
+	* doc/tm.texi: Document AS_NEEDS_DASH_FOR_PIPED_INPUT.
+
+2002-09-19  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* config/s390/s390.c (addr_generation_dependency_p): Handle SUBREG
+	and STRICT_LOW_PART within SET_DEST.
+	* config/s390/s390.md ("*extractqi", "*extracthi"): New insns with
+	splitters, replacing pre-reload splitters.
+	("*zero_extendhisi2_31", "*zero_extendqisi2_31",
+	"*zero_extendqihi2_31"): New insns.
+	("*zero_extendqihi2_64"): Do not clobber CC.
+
+2002-09-18  Devang Patel  <dpatel@apple.com>
+
+	* cp/cp-tree.h: New prototype for walk_vtabls().
+	* cp/decl.c (walk_vtables_r): New function.
+	(struct cp_binding_level): Add new members, namespaces,
+	names_size and vtables.
+	(add_decl_to_level): Add decl in namespaces or vtables
+	chain, if conditions match.
+	(walk_vtables): New function.
+	(walk_namespaces_r): Travers separate namespace chain
+	for namespace decls.
+	(wrapup_globals_for_namespace): Use names_size instead
+	of list_length().
+	* cp/decl2.c (finish_file): Use walk_vtables() instead of
+	walk_globals() to walk vtable decls.
+
+2002-09-19  Steve Ellcey  <sje@cup.hp.com>
+
+	* config/ia64/hpux.h (CTORS_SECTION_ASM_OP): New.
+	(DTORS_SECTION_ASM_OP): Ditto.
+	(READONLY_DATA_SECTION_ASM_OP): Moved.
+	(DATA_SECTION_ASM_OP): New.
+	(SDATA_SECTION_ASM_OP): New.
+	(BSS_SECTION_ASM_OP): New.
+	(SBSS_SECTION_ASM_OP): New.
+	(TEXT_SECTION_ASM_OP): New.
+
+2002-09-19  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/fp-bit.c: Follow spelling conventions.
+	* config/d30v/d30v.c: Likewise.
+	* config/d30v/d30v.h: Likewise.
+	* config/fr30/fr30.c: Likewise.
+	* config/fr30/fr30.h: Likewise.
+	* config/fr30/fr30.md: Likewise.
+	* config/frv/frv.c: Likewise.
+	* config/frv/frv.h: Likewise.
+	* config/h8300/h8300.c: Likewise.
+	* config/h8300/lib1funcs.asm: Likewise.
+	* config/i370/i370.c: Likewise.
+	* config/i386/i386.h: Likewise.
+	* config/i386/i386.md: Likewise.
+	* config/i386/pentium.md: Likewise.
+	* config/i386/winnt.c: Likewise.
+	* config/i960/i960.c: Likewise.
+	* config/ia64/ia64.h: Likewise.
+	* config/ip2k/ip2k.c: Likewise.
+	* config/ip2k/ip2k.h: Likewise.
+	* config/ip2k/ip2k.md: Likewise.
+	* config/ip2k/libgcc.S: Likewise.
+
+2002-09-19  Stephen Clarke <stephen.clarke@superh.com>
+
+	* config/sh/sh.h (UNSPEC_GOTOFF_P): Define.
+	(GOTOFF_P): Extend to allow gotoff plus constant.
+
+2002-09-18  Richard Henderson  <rth@redhat.com>
+
+	* ifcvt.c (noce_process_if_block): Correctly detect X modified
+	with INSN_B before COND_EARLIEST.  Don't check A and B for
+	modification in condition range.  Reorder INSN_B for A==B properly.
+	(if_convert): Iterate until no matches for a block.
+
+2002-09-18  Richard Henderson  <rth@redhat.com>
+
+	* calls.c (store_one_arg): Rename default_align to parm_align;
+	always adjust parm_align for downward padding.
+
+2002-09-18  Richard Henderson  <rth@redhat.com>
+
+	* toplev.c (backend_init): Move init_real_once invocation ...
+	(do_compile): ... here.
+
+2002-09-18  Richard Henderson  <rth@redhat.com>
+
+	* sibcall.c (optimize_sibling_and_tail_recursive_call): Also remove
+	RTX_UNCHANGING_P markers for successful tail-recursive replacement.
+
+2002-09-18  Richard Henderson  <rth@redhat.com>
+
+	* real.c (round_for_format): Collect sticky as unsigned long, not bool.
+
+2002-09-19  Alan Modra  <amodra@bigpond.net.au>
+
+	* config/rs6000/rs6000.md: (floatdisf2): Rename to
+	floatdisf2_internal1.
+	(floatdisf2): New define_expand.
+	(floatdisf2_internal2): Likewise.
+
+2002-09-18  Richard Henderson  <rth@redhat.com>
+
+	* real.c (sticky_rshift_significand): Collect sticky as
+	unsigned long, not bool.
+
+2002-09-18  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* config/s390/s390.c (s390_address_cost): New function.
+	config/s390/s390-protos.h (s390_address_cost): Add prototype.
+	config/s390/s390.h (ADDRESS_COST): Call s390_address_cost.
+	(RTX_COST): Use COSTS_N_INSNS.
+
+2002-09-18  Douglas Rupp  <rupp@gnat.com>
+	    Donn Terry  <donnte@microsoft.com>
+
+	* stor-layout.c (place_field): Handle alignment of whole
+	structures when MSVC compatible bitfields are involved.
+	Change method of computing location of MS bitfields to
+	be compatible with #pragma pack(n).
+
+	* tree.h (record_layout_info): Add new field
+	remaining_in_alignment.
+
+	* doc/tm.texi: (TARGET_MS_BITFIELD_LAYOUT_P): Update.
+	(pragma pack): Add paragraph on MSVC bitfield packing.
+
+2002-09-18  Richard Earnshaw  (reanrsha@arm.com)
+
+	PR optimization/7967
+	* arm.md (ne_zeroextractsi): Add clobber of the condition code
+	register.
+
+2002-09-18  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/s390/s390.c: Follow spelling conventions.
+	* config/sh/lib1funcs.asm: Likewise.
+	* config/sh/sh.c: Likewise.
+	* config/sh/sh.h: Likewise.
+	* config/sparc/sparc.c: Likewise.
+	* config/sparc/sparc.h: Likewise.
+	* config/sparc/sparc.md: Likewise.
+	* config/stormy16/stormy16.c: Likewise.
+	* config/stormy16/stormy16.h: Likewise.
+	* config/v850/v850.c: Likewise.
+	* config/v850/v850.h: Likewise.
+	* config/vax/vax.c: Likewise.
+	* config/vax/vax.h: Likewise.
+
+2002-09-18  Nick Clifton  <nickc@redhat.com>
+
+	* config/rs60000/rs6000.c (rs6000_emit_move): Handle V1DImode moves.
+	* config/rs60000/rs6000.c (SPE_VECTOR_MODE): Include V1DImode.
+	* config/rs6000/spe.md (movv1di, movv1di_internal): New patterns.
+
 2002-09-17  Kazu Hirata  <kazu@cs.umass.edu>
 
 	* function.c (max_parm_reg_num): Remove.
@@ -8,6 +195,56 @@
 	* tree.c (chain_member_value, chain_member_purpose, listify,
 	tree_int_cst_msb, index_type_equal): Likewise.
 	* tree.h: Remove prototypes for unused functions.
+
+2002-09-17  Zack Weinberg  <zack@codesourcery.com>
+
+	* ABOUT-GCC-NLS: Remove reference to enquire, and out-of-date
+	statement that the only translation is to en_UK.
+
+2002-09-17  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/alpha/alpha.c: Follow spelling conventions.
+	* config/alpha/alpha.h: Likewise.
+	* config/alpha/alpha.md: Likewise.
+	* config/arc/arc.h: Likewise.
+	* config/arm/arm.c: Likewise.
+	* config/arm/arm.h: Likewise.
+	* config/arm/arm.md: Likewise.
+	* config/arm/pe.c: Likewise.
+	* config/arm/unknown-elf.h: Likewise.
+	* config/avr/avr.c: Likewise.
+	* config/avr/avr.h: Likewise.
+	* config/c4x/c4x.c: Likewise.
+	* config/cris/cris.c: Likewise.
+	* config/cris/cris.h: Likewise.
+
+2002-09-17  Samuel Figueroa  <figueroa@apple.com>
+
+	* final.c (final_scan_insn): Use new macro ASM_OUTPUT_ALIGN_WITH_NOP.
+	* config/sparc/sparc.h (ASM_OUTPUT_ALIGN_WITH_NOP) New macro.
+	* doc/tm.texi (ASM_OUTPUT_ALIGN_WITH_NOP) New description.
+
+2002-09-17  Dale Johannesen  <dalej@apple.com>
+
+	* cfgcleanup.c (try_forward_edges):  Do not forward a
+	branch to just after a loop exit before loop optimization;
+	this interfered with doloop detection.
+
+2002-09-17  Nick Clifton  <nickc@redhat.com>
+
+	* config/arm/arm.c (output_return_instruction): Do not
+	writeback the stack pointer when it is being loaded.
+	(arm_output_epilogue): Likewise.
+
+2002-09-17  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* optabs.c (prepare_cmp_insn): Let emit_library_call_value
+	generate a pseudo reg that receives the result of a libcall.
+	(prepare_float_lib_cmp): Likewise.
+
+2002-09-17  Steve Ellcey  <sje@cup.hp.com>
+
+	* config/ia64/elf.h: Remove CPP_PREDEFINES.
 
 Tue Sep 17 13:58:04 2002  Nicola Pero  <n.pero@mi.flashnet.it>
 
@@ -35,7 +272,7 @@ Tue Sep 17 13:40:13 2002  Nicola Pero  <n.pero@mi.flashnet.it>
 	* doc/objc.texi (Constant string objects): Extended documentation
 	to make clear that the constant string class ivar layout is
 	completely fixed.
-	
+
 2002-09-17  Roger Sayle  <roger@eyesopen.com>
 
 	* cfgrtl.c (flow_delete_block_noexpunge): Delete orphaned
@@ -79,7 +316,7 @@ Tue Sep 17 13:40:13 2002  Nicola Pero  <n.pero@mi.flashnet.it>
 2002-09-16  Richard Henderson  <rth@redhat.com>
 
 	PR fortran/3924
-        * sdbout.c (sdbout_symbol): Don't handle offsets from a symbol.
+	* sdbout.c (sdbout_symbol): Don't handle offsets from a symbol.
 
 2002-09-16  Richard Henderson  <rth@redhat.com>
 
@@ -88,10 +325,10 @@ Tue Sep 17 13:40:13 2002  Nicola Pero  <n.pero@mi.flashnet.it>
 
 2002-09-16  Jeff Garzik  <jgarzik@mandrakesoft.com>
 
-        * config.gcc: Treat winchip_c6-*|winchip2-*|c3-* as pentium-mmx.
-        * config/i386/i386.c (processor_alias_table): Add winchip-c6,
+	* config.gcc: Treat winchip_c6-*|winchip2-*|c3-* as pentium-mmx.
+	* config/i386/i386.c (processor_alias_table): Add winchip-c6,
 	winchip2 and c3.
-        * doc/invoke.texi: Mention new aliases.
+	* doc/invoke.texi: Mention new aliases.
 
 2002-09-16  John David Anglin  <dave@hiauly1.hia.nrc.ca>
 

@@ -323,8 +323,10 @@ Unrecognized value in TARGET_CPU_DEFAULT.
 /* Special flags to the Sun-4 assembler when using pipe for input.  */
 
 #define ASM_SPEC "\
-%| %{R} %{!pg:%{!p:%{fpic:-k} %{fPIC:-k}}} %{keep-local-as-symbols:-L} \
+%{R} %{!pg:%{!p:%{fpic:-k} %{fPIC:-k}}} %{keep-local-as-symbols:-L} \
 %(asm_cpu) %(asm_relax)"
+
+#define AS_NEEDS_DASH_FOR_PIPED_INPUT
 
 /* This macro defines names of additional specifications to put in the specs
    that can be used in various specifications like CC1_SPEC.  Its definition
@@ -411,7 +413,7 @@ extern int target_flags;
 #define MASK_V9 0x40
 #define TARGET_V9 (target_flags & MASK_V9)
 
-/* Non-zero to generate code that uses the instructions deprecated in
+/* Nonzero to generate code that uses the instructions deprecated in
    the v9 architecture.  This option only applies to v9 systems.  */
 /* ??? This isn't user selectable yet.  It's used to enable such insns
    on 32 bit v9 systems and for the moment they're permanently disabled
@@ -423,7 +425,7 @@ extern int target_flags;
 #define MASK_ISA \
 (MASK_V8 + MASK_SPARCLITE + MASK_SPARCLET + MASK_V9 + MASK_DEPRECATED_V8_INSNS)
 
-/* Non-zero means don't pass `-assert pure-text' to the linker.  */
+/* Nonzero means don't pass `-assert pure-text' to the linker.  */
 #define MASK_IMPURE_TEXT 0x100
 #define TARGET_IMPURE_TEXT (target_flags & MASK_IMPURE_TEXT)
 
@@ -446,7 +448,7 @@ extern int target_flags;
 #define MASK_HARD_QUAD 0x800
 #define TARGET_HARD_QUAD (target_flags & MASK_HARD_QUAD)
 
-/* Non-zero on little-endian machines.  */
+/* Nonzero on little-endian machines.  */
 /* ??? Little endian support currently only exists for sparclet-aout and
    sparc64-elf configurations.  May eventually want to expand the support
    to all targets, but for now it's kept local to only those two.  */
@@ -467,14 +469,14 @@ extern int target_flags;
 
 /* 0x20000,0x40000 unused */
 
-/* Non-zero means use a stack bias of 2047.  Stack offsets are obtained by
+/* Nonzero means use a stack bias of 2047.  Stack offsets are obtained by
    adding 2047 to %sp.  This option is for v9 only and is the default.  */
 #define MASK_STACK_BIAS 0x80000
 #define TARGET_STACK_BIAS (target_flags & MASK_STACK_BIAS)
 
 /* 0x100000,0x200000 unused */
 
-/* Non-zero means -m{,no-}fpu was passed on the command line.  */
+/* Nonzero means -m{,no-}fpu was passed on the command line.  */
 #define MASK_FPU_SET 0x400000
 #define TARGET_FPU_SET (target_flags & MASK_FPU_SET)
 
@@ -948,7 +950,7 @@ do								\
 	call_used_regs[PIC_OFFSET_TABLE_REGNUM] = 1;		\
       }								\
     /* If the user has passed -f{fixed,call-{used,saved}}-g5 */	\
-    /* then honour it.  */					\
+    /* then honor it.  */					\
     if (TARGET_ARCH32 && fixed_regs[5])				\
       fixed_regs[5] = 1;					\
     else if (TARGET_ARCH64 && fixed_regs[5] == 2)		\
@@ -973,7 +975,7 @@ do								\
 	  fixed_regs[regno] = 1;				\
       }								\
     /* If the user has passed -f{fixed,call-{used,saved}}-g2 */	\
-    /* then honour it.  Likewise with g3 and g4.  */		\
+    /* then honor it.  Likewise with g3 and g4.  */		\
     if (fixed_regs[2] == 2)					\
       fixed_regs[2] = ! TARGET_APP_REGS;			\
     if (fixed_regs[3] == 2)					\
@@ -1723,8 +1725,8 @@ extern char leaf_reg_remap[];
 
 struct sparc_args {
   int words;       /* number of words passed so far */
-  int prototype_p; /* non-zero if a prototype is present */
-  int libcall_p;   /* non-zero if a library call */
+  int prototype_p; /* nonzero if a prototype is present */
+  int libcall_p;   /* nonzero if a library call */
 };
 #define CUMULATIVE_ARGS struct sparc_args
 
@@ -2493,7 +2495,7 @@ do {                                                                    \
    processing is needed.  */
 #define SELECT_CC_MODE(OP,X,Y)  select_cc_mode ((OP), (X), (Y))
 
-/* Return non-zero if MODE implies a floating point inequality can be
+/* Return nonzero if MODE implies a floating point inequality can be
    reversed.  For SPARC this is always true because we have a full
    compliment of ordered and unordered comparisons, but until generic
    code knows how to reverse it correctly we keep the old definition.  */
@@ -2805,6 +2807,13 @@ do {									\
 #define ASM_OUTPUT_ALIGN(FILE,LOG)	\
   if ((LOG) != 0)			\
     fprintf (FILE, "\t.align %d\n", (1<<(LOG)))
+
+/* This is how to output an assembler line that says to advance
+   the location counter to a multiple of 2**LOG bytes using the
+   "nop" instruction as padding.  */
+#define ASM_OUTPUT_ALIGN_WITH_NOP(FILE,LOG)   \
+  if ((LOG) != 0)                             \
+    fprintf (FILE, "\t.align %d,0x1000000\n", (1<<(LOG)))
 
 #define ASM_OUTPUT_SKIP(FILE,SIZE)  \
   fprintf (FILE, "\t.skip %u\n", (SIZE))

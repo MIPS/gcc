@@ -4644,12 +4644,21 @@ for each @samp{%g.s} and another for each @samp{%U.s}.  Previously, @samp{%U} wa
 simply substituted with a file name chosen for the previous @samp{%u},
 without regard to any appended suffix.
 
-@item %j@var{SUFFIX}
+@item %j@var{suffix}
 Substitutes the name of the @code{HOST_BIT_BUCKET}, if any, and if it is
 writable, and if save-temps is off; otherwise, substitute the name
 of a temporary file, just like @samp{%u}.  This temporary file is not
 meant for communication between processes, but rather as a junk
 disposal mechanism.
+
+@item %|@var{suffix}
+@itemx %m@var{suffix}
+Like @samp{%g}, except if @option{-pipe} is in effect.  In that case
+@samp{%|} substitutes a single dash and @samp{%m} substitutes nothing at
+all.  These are the two most common ways to instruct a program that it
+should read from standard input or write to standard output.  If you
+need something more elaborate you can use an @samp{%@{pipe:@code{X}@}}
+construct: see for example @file{f/lang-specs.h}.
 
 @item %.@var{SUFFIX}
 Substitutes @var{.SUFFIX} for the suffixes of a matched switch's args
@@ -4700,9 +4709,6 @@ the full name found.
 @item %e@var{str}
 Print @var{str} as an error message.  @var{str} is terminated by a newline.
 Use this when inconsistent options are detected.
-
-@item %|
-Output @samp{-} if the input for the current command is coming from a pipe.
 
 @item %(@var{name})
 Substitute the contents of spec string @var{name} at this point.
@@ -4800,6 +4806,12 @@ Substitute the variable part of a matched option.  See below.
 Note that each comma in the substituted string is replaced by
 a single space.
 
+@item %<@code{S}
+Remove all occurrences of @code{-S} from the command line.  Note---this
+command is position dependent.  @samp{%} commands in the spec string
+before this one will see @code{-S}, @samp{%} commands in the spec string
+after this one will not.
+
 @item %@{@code{S}@}
 Substitutes the @code{-S} switch, if that switch was given to GCC@.
 If that switch was not specified, this substitutes nothing.  Note that
@@ -4820,21 +4832,11 @@ GCC considers @option{-o foo} as being
 one switch whose names starts with @samp{o}.  %@{o*@} would substitute this
 text, including the space.  Thus two arguments would be generated.
 
-@item %@{^@code{S}*@}
-Like %@{@code{S}*@}, but don't put a blank between a switch and its
-argument.  Thus %@{^o*@} would only generate one argument, not two.
-
 @item %@{@code{S}*&@code{T}*@}
 Like %@{@code{S}*@}, but preserve order of @code{S} and @code{T} options
 (the order of @code{S} and @code{T} in the spec is not significant).
 There can be any number of ampersand-separated variables; for each the
 wild card is optional.  Useful for CPP as @samp{%@{D*&U*&A*@}}.
-
-@item %@{<@code{S}@}
-Remove all occurrences of @code{-S} from the command line.  Note---this
-command is position dependent.  @samp{%} commands in the spec string
-before this option will see @code{-S}, @samp{%} commands in the spec
-string after this option will not.
 
 @item %@{@code{S}*:@code{X}@}
 Substitutes @code{X} if one or more switches whose names start with
@@ -4847,12 +4849,6 @@ Substitutes @code{X}, but only if the @samp{-S} switch was given to GCC@.
 
 @item %@{!@code{S}:@code{X}@}
 Substitutes @code{X}, but only if the @samp{-S} switch was @emph{not} given to GCC@.
-
-@item %@{|@code{S}:@code{X}@}
-Like %@{@code{S}:@code{X}@}, but if no @code{S} switch, substitute @samp{-}.
-
-@item %@{|!@code{S}:@code{X}@}
-Like %@{!@code{S}:@code{X}@}, but if there is an @code{S} switch, substitute @samp{-}.
 
 @item %@{.@code{S}:@code{X}@}
 Substitutes @code{X}, but only if processing a file with suffix @code{S}.
