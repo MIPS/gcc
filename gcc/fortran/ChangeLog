@@ -1,3 +1,8 @@
+2003-08-10  Paul Brook  <paul@nowt.org>
+
+	* trans-stmt.c (gfc_trans_allocate): Correctly handle non-array derived
+	type components.
+
 2003-08-10  Chun Huang  <compiler@sohu.com>
  
 	* resolve.c (resolve_formal_arglist): Resolve STATEMENT function.

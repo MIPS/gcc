@@ -2934,8 +2934,6 @@ gfc_trans_allocate (gfc_code * code)
 
       ref = expr->ref;
 
-      if (ref != NULL)
-	{
 	  /* Find the last reference in the chain.  */
 	  while (ref->next != NULL)
 	    {
@@ -2943,16 +2941,17 @@ gfc_trans_allocate (gfc_code * code)
 	      ref = ref->next;
 	    }
 
-	  if (ref->type != REF_ARRAY)
-	    ref = NULL;
+      if (ref != NULL && ref->type != REF_ARRAY)
+	ref = NULL;
 
+      if (ref != NULL && ref->type == REF_ARRAY)
+	{
 	  /* An array.  */
 	  gfc_array_allocate (&se, ref, pstat);
 	}
       else
 	{
 	  /* A scalar or derived type.  */
-	  /*TODO: allocation of derived types containing arrays.  */
 	  tree val;
 
 	  val = gfc_create_var (ppvoid_type_node, "ptr");
