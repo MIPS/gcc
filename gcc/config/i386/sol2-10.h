@@ -86,14 +86,6 @@ Boston, MA 02111-1307, USA.  */
 #define TARGET_LD_EMULATION ""
 #endif
 
-/* On, Solaris 2.10 some of the system utilities are built with GCC.
-   Sun does not want these utilities to be linked with libgcc because
-   a future installation of GCC in /usr/local might then result in the
-   base system utilities picking up a new version of libgcc.  */
-#undef LIBGCC_SPEC
-#define LIBGCC_SPEC \
-  "%{!nolibgcc:-lgcc}"
-
 #undef LINK_ARCH_SPEC
 #define LINK_ARCH_SPEC TARGET_LD_EMULATION \
 		       "%{m64:" LINK_ARCH64_SPEC "}%{!m64:" LINK_ARCH32_SPEC "}"

@@ -2618,6 +2618,9 @@ fix = {
     files    = stdio_tag.h;
 
     select   = '__cplusplus < 54321L';
+    /* In Solaris 2.10, the code in stdio_tag.h is conditionalized on 
+       "!defined(__GNUC__)" so we no longer need to fix it.  */
+    bypass   = '__GNUC__';
     sed      = 's/defined(__cplusplus) && (__cplusplus < 54321L)/0/';
 
     test_text = "#if\tdefined(__cplusplus) && (__cplusplus < 54321L)";
