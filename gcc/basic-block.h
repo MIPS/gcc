@@ -528,8 +528,10 @@ struct edge_list
 #define EDGE_CRITICAL_P(e)		(EDGE_COUNT ((e)->src->succs) >= 2 \
 					 && EDGE_COUNT ((e)->dest->preds) >= 2)
 
-#ifndef ENABLE_CHECKING
-#define ENABLE_CHECKING 0
+#if defined ENABLE_CHECKING
+#define ENABLE_VEC_CHECKING 1
+#else
+#define ENABLE_VEC_CHECKING 0
 #endif
 
 #define EDGE_COUNT(ev)			VEC_length (edge, (ev))
@@ -546,21 +548,21 @@ do {									\
   (EDGE) = NULL;							\
   for (__ix = 0; VEC_iterate (edge, __ev, __ix, (EDGE)); __ix++)	\
     {									\
-      if (ENABLE_CHECKING)						\
+      if (ENABLE_VEC_CHECKING)						\
 	__check_edge = (EDGE);
 
 #define END_FOR_EACH_EDGE						\
-      if (ENABLE_CHECKING						\
+      if (ENABLE_VEC_CHECKING						\
 	&& (__ix >= EDGE_COUNT (__ev)					\
 	    || EDGE_I (__ev, __ix) != __check_edge))			\
 	internal_error ("edge modified in FOR_EACH_EDGE: %s:%s",	\
 			__FILE__, __FUNCTION__);			\
     }									\
-  if (ENABLE_CHECKING							\
+  if (ENABLE_VEC_CHECKING						\
 	  && __num_edges > EDGE_COUNT (__ev))				\
 	internal_error ("insufficient edges FOR_EACH_EDGE: %s:%s", 	\
 			__FILE__, __FUNCTION__);			\
-  if (ENABLE_CHECKING							\
+  if (ENABLE_VEC_CHECKING						\
           && __num_edges < EDGE_COUNT (__ev))				\
   	internal_error ("excess edges FOR_EACH_EDGE: %s:%s",		\
 			__FILE__, __FUNCTION__);			\
