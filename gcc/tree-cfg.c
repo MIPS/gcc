@@ -4131,6 +4131,7 @@ dump_function_to_file (tree fn, FILE *file, int flags)
   if (basic_block_info)
     {
       /* Make a CFG based dump.  */
+      check_bb_profile (ENTRY_BLOCK_PTR, file);
       if (!ignore_topmost_bind)
 	fprintf (file, "{\n");
 
@@ -4141,6 +4142,7 @@ dump_function_to_file (tree fn, FILE *file, int flags)
 	dump_generic_bb (file, bb, 2, flags);
 	
       fprintf (file, "}\n");
+      check_bb_profile (EXIT_BLOCK_PTR, file);
     }
   else
     {

@@ -1,3 +1,11 @@
+2004-04-18  Jan Hubicka  <jh@suse.cz>
+
+	* basic-block.h (check_bb_profile):  Declare.
+	* cfg.c (check_bb_function):  Break out from...
+	(dump_flow_info): This one.
+	* tree-cfg.c (dump_function_to_file): Use it.
+	* tree-pretty-print.c (dump_bb_header): Likewise.
+
 2004-04-04  Jan Hubicka  <jh@suse.cz>
 
 	* predict.c (tree_estimate_probability): Fix early return predictor.

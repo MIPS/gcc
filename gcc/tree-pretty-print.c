@@ -2094,6 +2094,11 @@ dump_bb_header (pretty_printer *buffer, basic_block bb, int indent, int flags)
       INDENT (indent);
       pp_string (buffer, "# BLOCK ");
       pp_decimal_int (buffer, bb->index);
+      if (bb->frequency)
+	{
+	  pp_string (buffer, " freq ");
+          pp_decimal_int (buffer, bb->frequency);
+	}
 
       if (flags & TDF_LINENO)
 	{
@@ -2136,6 +2141,8 @@ dump_bb_header (pretty_printer *buffer, basic_block bb, int indent, int flags)
 	  pp_newline (buffer);
 	}
     }
+  pp_write_text_to_stream (buffer);
+  check_bb_profile (bb, buffer->buffer->stream);
 }
 
 /* Dumps end of basic block BB to buffer BUFFER indented by INDENT

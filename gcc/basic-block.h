@@ -709,6 +709,7 @@ extern basic_block first_dom_son (enum cdi_direction, basic_block);
 extern basic_block next_dom_son (enum cdi_direction, basic_block);
 extern edge try_redirect_by_replacing_jump (edge, basic_block, bool);
 extern void break_superblocks (void);
+extern void check_bb_profile (basic_block, FILE *);
 
 #include "cfghooks.h"
 
