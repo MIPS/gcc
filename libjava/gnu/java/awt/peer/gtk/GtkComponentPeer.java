@@ -136,7 +136,7 @@ public class GtkComponentPeer extends GtkGenericPeer
         && awtComponent.getWidth() == 0)
       {
         int[] dims = new int[2];
-        gtkWidgetGetDimensions(dims);
+        gtkWidgetGetPreferredDimensions(dims);
         ((GtkFileDialogPeer) this).setBoundsCallback((Window)awtComponent, 
                                                      awtComponent.getX(), 
                                                      awtComponent.getY(),

@@ -1,3 +1,12 @@
+2004-07-21  David Jee  <djee@redhat.com>
+
+	* gnu/java/awt/peer/gtk/GtkComponentPeer.java
+	(GtkComponentPeer): Use gtkWidgetGetPreferredDimensions() for
+	setting the size of GtkFileDialogPeers.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkComponentPeer.c
+	(gtkWidgetGetPreferredDimensions): For widgets extending GtkWindow,
+	use their default sizes rather than their natural requisitions.
+
 2004-07-21  Michael Koch  <konqueror@gmx.de>
 
 	* javax/swing/JFormattedTextField.java
