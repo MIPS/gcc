@@ -647,12 +647,14 @@ machopic_indirect_call_target (rtx target)
 	{
 	  /* APPLE LOCAL weak import */
 	  tree stub = machopic_stub_list_entry (name);
+	  tree decl = SYMBOL_REF_DECL (XEXP (target, 0));
 	  IDENTIFIER_WEAK_IMPORT (TREE_PURPOSE (stub)) = 
 	    IDENTIFIER_WEAK_IMPORT (TREE_VALUE (stub)) =
 	      SYMBOL_REF_WEAK_IMPORT (XEXP (target, 0));
 
 	  XEXP (target, 0) = gen_rtx_SYMBOL_REF (mode, 
 		IDENTIFIER_POINTER (TREE_PURPOSE (stub)));
+	  SYMBOL_REF_DECL (XEXP (target, 0)) = decl;
 	  RTX_UNCHANGING_P (target) = 1;
 	}
     }

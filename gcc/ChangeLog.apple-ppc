@@ -1,3 +1,8 @@
+2004-06-08 Robert Bowdidge <bowdidge@apple.com>
+	* config/darwin.c (machopic_indirect_call_target): Added patch from
+        PR/15720 (function marked inline which is called directly isn't
+	emitted).
+
 2004-06-08  Fariborz Jahanian <fjahanian@apple.com>
 	* varasm.c (assemble_variable): Resotored zerofill size optimization.
 	* config/rs6000/rs6000.c (rs6000_override_options): Place 
