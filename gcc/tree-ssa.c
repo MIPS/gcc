@@ -88,10 +88,6 @@ struct mark_def_sites_global_data
      solely to avoid the overhead of allocating and deallocating
      the bitmap.  */
   sbitmap kills;
-
-  /* We need dominance information when we find a use of a variable
-     that is not proceeded by a set of the variable in the same block.  */
-  dominance_info idom;
 };
 
 /* Table to store the current reaching definition for every variable in
@@ -183,7 +179,7 @@ static void mark_def_sites (struct dom_walk_data *walk_data,
 			    tree parent_block_last_stmt ATTRIBUTE_UNUSED);
 static void compute_global_livein (bitmap, bitmap);
 static void set_def_block (tree, basic_block);
-static void set_livein_block (tree, basic_block, dominance_info);
+static void set_livein_block (tree, basic_block);
 static bool prepare_operand_for_rename (tree *op_p, size_t *uid_p);
 static void insert_phi_nodes (bitmap *);
 static void rewrite_stmt (block_stmt_iterator, varray_type *);
@@ -226,9 +222,8 @@ static void print_exprs (FILE *, const char *, tree, const char *, tree,
 static void print_exprs_edge (FILE *, edge, const char *, tree, const char *,
 			      tree);
 static bool verify_def (basic_block, basic_block *, tree, tree);
-static bool verify_use (basic_block, basic_block, tree, tree, dominance_info,
-			bool);
-static bool verify_phi_args (tree, basic_block, dominance_info, basic_block *);
+static bool verify_use (basic_block, basic_block, tree, tree, bool);
+static bool verify_phi_args (tree, basic_block, basic_block *);
 
 /* Return the value associated with variable VAR in TABLE.  */
 
@@ -339,7 +334,6 @@ void
 rewrite_into_ssa (tree fndecl, bitmap vars, enum tree_dump_index phase)
 {
   bitmap *dfs;
-  dominance_info idom;
   basic_block bb;
   struct dom_walk_data walk_data;
   struct mark_def_sites_global_data mark_def_sites_global_data;
@@ -377,17 +371,11 @@ rewrite_into_ssa (tree fndecl, bitmap vars, enum tree_dump_index phase)
       dfs[bb->index] = BITMAP_XMALLOC ();
     }
 
-  /* Compute immediate dominators, dominance frontiers and the dominator
-     tree.  FIXME: DFS and dominator tree information should be cached.
-     Although, right now the only pass that doesn't mess dominance
-     information is must-alias. 
+  /* Ensure that the dominance information is OK.  */
+  calculate_dominance_info (CDI_DOMINATORS);
 
-     We also use the dominator information during the dominator walk to
-     find def/use sites.  So the dominator information can not be freed
-     until after the mark_def_sites dominator walk.  */
-  idom = calculate_dominance_info (CDI_DOMINATORS);
-  build_dominator_tree (idom);
-  compute_dominance_frontiers (dfs, idom);
+  /* Compute dominance frontiers.  */
+  compute_dominance_frontiers (dfs);
 
   /* Setup callbacks for the generic dominator tree walker to find and
      mark definition sites.  */
@@ -403,7 +391,6 @@ rewrite_into_ssa (tree fndecl, bitmap vars, enum tree_dump_index phase)
      large enough to accommodate all the variables referenced in the
      function, not just the ones we are renaming.  */
   mark_def_sites_global_data.kills = sbitmap_alloc (num_referenced_vars);
-  mark_def_sites_global_data.idom = idom;
   walk_data.global_data = &mark_def_sites_global_data;
 
   /* We do not have any local data.  */
@@ -420,9 +407,6 @@ rewrite_into_ssa (tree fndecl, bitmap vars, enum tree_dump_index phase)
 
   /* We no longer need this bitmap, clear and free it.  */
   sbitmap_free (mark_def_sites_global_data.kills);
-
-  /* We are done with the dominance information.  Release it.  */
-  free_dominance_info (idom);
 
   /* Insert PHI nodes at dominance frontiers of definition blocks.  */
   insert_phi_nodes (dfs);
@@ -475,28 +459,6 @@ rewrite_into_ssa (tree fndecl, bitmap vars, enum tree_dump_index phase)
   VARRAY_CLEAR (currdefs);
 
   timevar_pop (TV_TREE_SSA_OTHER);
-}
-
-/* Given immediate dominator information IDOM, build the dominator
-   tree.  */
-
-void
-build_dominator_tree (dominance_info idom)
-{
-  basic_block bb;
-
-  FOR_ALL_BB (bb)
-    clear_dom_children (bb);
-
-  /* Using the immediate dominators, build a dominator tree.  */
-  FOR_EACH_BB (bb)
-    {
-      /* Add BB to the set of dominator children of BB's immediate
-	 dominator.  */
-      basic_block idom_bb = get_immediate_dominator (idom, bb);
-      if (idom_bb)
-	add_dom_child (idom_bb, bb);
-    }
 }
 
 /* Compute global livein information given the set of blockx where
@@ -563,7 +525,6 @@ mark_def_sites (struct dom_walk_data *walk_data,
 {
   struct mark_def_sites_global_data *gd = walk_data->global_data;
   sbitmap kills = gd->kills;
-  dominance_info idom = gd->idom;
   block_stmt_iterator si;
 
   /* Mark all the blocks that have definitions for each variable in the
@@ -593,7 +554,7 @@ mark_def_sites (struct dom_walk_data *walk_data,
 
           if (prepare_operand_for_rename (use_p, &uid)
 	      && !TEST_BIT (kills, uid))
-	    set_livein_block (*use_p, bb, idom);
+	    set_livein_block (*use_p, bb);
 	}
 	  
       /* Similarly for virtual uses.  */
@@ -604,7 +565,7 @@ mark_def_sites (struct dom_walk_data *walk_data,
 
           if (prepare_operand_for_rename (use_p, &uid)
 	      && !TEST_BIT (kills, uid))
-	    set_livein_block (*use_p, bb, idom);
+	    set_livein_block (*use_p, bb);
 	}
 
       /* Note that virtual definitions are irrelevant for computing
@@ -625,7 +586,7 @@ mark_def_sites (struct dom_walk_data *walk_data,
 
 	      set_def_block (VDEF_RESULT (vdefs, i), bb);
 	      if (!TEST_BIT (kills, uid))
-		set_livein_block (VDEF_OP (vdefs, i), bb, idom);
+		set_livein_block (VDEF_OP (vdefs, i), bb);
 	    }
 	}
 
@@ -691,7 +652,7 @@ set_def_block (tree var, basic_block bb)
 /* Mark block BB as having VAR live at the entry to BB.  */
 
 static void
-set_livein_block (tree var, basic_block bb, dominance_info idom)
+set_livein_block (tree var, basic_block bb)
 {
   struct def_blocks_d db, *db_p;
   void **slot;
@@ -725,7 +686,7 @@ set_livein_block (tree var, basic_block bb, dominance_info idom)
       int def_block_index = bitmap_first_set_bit (db_p->def_blocks);
 
       if (def_block_index == -1
-	  || ! dominated_by_p (idom, bb, BASIC_BLOCK (def_block_index)))
+	  || ! dominated_by_p (CDI_DOMINATORS, bb, BASIC_BLOCK (def_block_index)))
 	var_ann (var)->need_phi_state = NEED_PHI_STATE_MAYBE;
     }
   else
@@ -2926,7 +2887,7 @@ verify_def (basic_block bb, basic_block *definition_block, tree ssa_name,
 
 static bool
 verify_use (basic_block bb, basic_block def_bb, tree ssa_name,
-	    tree stmt, dominance_info idom, bool check_abnormal)
+	    tree stmt, bool check_abnormal)
 {
   bool err = false;
 
@@ -2938,7 +2899,7 @@ verify_use (basic_block bb, basic_block def_bb, tree ssa_name,
       err = true;
     }
   else if (bb != def_bb
-	   && !dominated_by_p (idom, bb, def_bb))
+	   && !dominated_by_p (CDI_DOMINATORS, bb, def_bb))
     {
       error ("Definition in block %i does not dominate use in block %i",
 	     def_bb->index, bb->index);
@@ -2974,8 +2935,7 @@ verify_use (basic_block bb, basic_block def_bb, tree ssa_name,
       block in that array slot contains the definition of SSA_NAME.  */
 
 static bool
-verify_phi_args (tree phi, basic_block bb, dominance_info idom,
-		 basic_block *definition_block)
+verify_phi_args (tree phi, basic_block bb, basic_block *definition_block)
 {
   edge e;
   bool err = false;
@@ -2993,7 +2953,7 @@ verify_phi_args (tree phi, basic_block bb, dominance_info idom,
 
       if (TREE_CODE (op) == SSA_NAME)
 	err |= verify_use (e->src, definition_block[SSA_NAME_VERSION (op)], op,
-			   phi, idom, e->flags & EDGE_ABNORMAL);
+			   phi, e->flags & EDGE_ABNORMAL);
 
       if (e->dest != bb)
 	{
@@ -3055,13 +3015,12 @@ verify_ssa (void)
 {
   bool err = false;
   basic_block bb;
-  dominance_info idom;
   basic_block *definition_block = xcalloc (highest_ssa_version,
 		  			   sizeof (basic_block));
 
   timevar_push (TV_TREE_SSA_VERIFY);
 
-  idom = calculate_dominance_info (CDI_DOMINATORS);
+  calculate_dominance_info (CDI_DOMINATORS);
 
   /* Verify and register all the SSA_NAME definitions found in the
      function.  */
@@ -3135,7 +3094,7 @@ verify_ssa (void)
 
       /* Verify the arguments for every PHI node in the block.  */
       for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
-	err |= verify_phi_args (phi, bb, idom, definition_block);
+	err |= verify_phi_args (phi, bb, definition_block);
 
       /* Now verify all the uses and vuses in every statement of the block.  */
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
@@ -3158,7 +3117,7 @@ verify_ssa (void)
 		  err = true;
 		}
 	      err |= verify_use (bb, definition_block[SSA_NAME_VERSION (op)],
-				 op, stmt, idom, false);
+				 op, stmt, false);
 	    }
 
 	  uses = STMT_USE_OPS (stmt);
@@ -3174,12 +3133,11 @@ verify_ssa (void)
 		  err = true;
 		}
 	      err |= verify_use (bb, definition_block[SSA_NAME_VERSION (op)],
-				 op, stmt, idom, false);
+				 op, stmt, false);
 	    }
 	}
     }
 
-  free_dominance_info (idom);
   free (definition_block);
 
   timevar_pop (TV_TREE_SSA_VERIFY);

@@ -378,40 +378,6 @@ phi_element_for_edge (tree phi, edge e)
     return (struct phi_arg_d *)NULL;
 }
 
-static inline void
-add_dom_child (basic_block bb, basic_block child_bb)
-{
-  bb_ann_t ann = bb_ann (bb);
-  if (ann->dom_children == NULL)
-    ann->dom_children = BITMAP_GGC_ALLOC ();
-  bitmap_set_bit (ann->dom_children, child_bb->index);
-}
-
-static inline void
-remove_dom_child (basic_block bb, basic_block child_bb)
-{
-  bb_ann_t ann = bb_ann (bb);
-
-#if defined ENABLE_CHECKING
-  if (ann->dom_children == NULL)
-    abort ();
-#endif
-
-  bitmap_clear_bit (ann->dom_children, child_bb->index);
-}
-
-static inline void
-clear_dom_children (basic_block bb)
-{
-  bb_ann (bb)->dom_children = NULL;
-}
-
-static inline bitmap
-dom_children (basic_block bb)
-{
-  return bb_ann (bb)->dom_children;
-}
-
 /*  -----------------------------------------------------------------------  */
 
 static inline bool

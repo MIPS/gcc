@@ -342,26 +342,7 @@ tree_ssa_dominator_optimize (tree fndecl, bitmap vars,
   FOR_EACH_BB (bb)
     bb_ann (bb)->forwardable = 1;
 
-  /* Build the dominator tree if necessary. 
-
-     We don't have a flag indicating if the dominator tree is available,
-     but we can make a very accurate approximation by checking to see if
-     the successors of the entry block have any dominator children.  If
-     they do not, then we assume that the dominator tree is not available.  */
-  for (e = ENTRY_BLOCK_PTR->succ; e; e = e->succ_next)
-    if (dom_children (e->dest))
-      break;
-
-  /* If we did not find any dominator children in the successors of the
-     entry block, then rebuild the dominator tree.  */
-  if (e == NULL)
-    {
-      dominance_info idom;
-
-      idom = calculate_dominance_info (CDI_DOMINATORS);
-      build_dominator_tree (idom);
-      free_dominance_info (idom);
-    }
+  calculate_dominance_info (CDI_DOMINATORS);
 
   /* If we prove certain blocks are unreachable, then we want to
      repeat the dominator optimization process as PHI nodes may
@@ -461,6 +442,9 @@ tree_ssa_dominator_optimize (tree fndecl, bitmap vars,
 	      src = e->src;
 
 	      e = redirect_edge_and_branch (e, tgt);
+
+	      /* Updating the dominance information would be nontrivial.  */
+	      free_dominance_info (CDI_DOMINATORS);
 	      
 	      if ((dump_file && (dump_flags & TDF_DETAILS))
     		  && e->src != src)
@@ -481,11 +465,8 @@ tree_ssa_dominator_optimize (tree fndecl, bitmap vars,
 	 the dominator tree is strictly necessary.  */
       if (cfg_altered)
 	{
-	  dominance_info idom;
 	  cleanup_tree_cfg ();
-	  idom = calculate_dominance_info (CDI_DOMINATORS);
-	  build_dominator_tree (idom);
-	  free_dominance_info (idom);
+	  calculate_dominance_info (CDI_DOMINATORS);
 	}
 
       for (i = old_num_referenced_vars; i < num_referenced_vars; i++)
@@ -720,8 +701,7 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data,
   if (bb->succ
       && ! bb->succ->succ_next
       && (bb->succ->flags & EDGE_ABNORMAL) == 0
-      && (! dom_children (bb)
-	  || ! bitmap_bit_p (dom_children (bb), bb->succ->dest->index)))
+      && get_immediate_dominator (CDI_DOMINATORS, bb->succ->dest) != bb)
     {
       thread_across_edge (bb->succ);
     }
@@ -754,8 +734,7 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data,
 
       /* If the THEN arm is the end of a dominator tree, then try to thread
 	 through its edge.  */
-      if (! dom_children (bb)
-	  || ! bitmap_bit_p (dom_children (bb), true_edge->dest->index))
+      if (get_immediate_dominator (CDI_DOMINATORS, true_edge->dest) != bb)
 	{
 	  unsigned true_limit;
 	  unsigned false_limit;
@@ -781,8 +760,7 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data,
 	}
 
       /* Similarly for the ELSE arm.  */
-      if (! dom_children (bb)
-	  || ! bitmap_bit_p (dom_children (bb), false_edge->dest->index))
+      if (get_immediate_dominator (CDI_DOMINATORS, false_edge->dest) != bb)
 	{
 	  unsigned true_limit;
 	  unsigned false_limit;

@@ -294,9 +294,6 @@ struct bb_ann_d GTY(())
      SSA rewriting.  It is not maintained after conversion into SSA form.  */
   int num_preds;
 
-  /* Set of blocks immediately dominated by this node.  */
-  bitmap dom_children;
-
   /* Nonzero if this block is forwardable during cfg cleanups.  This is also
      used to detect loops during cfg cleanups.  */
   unsigned forwardable: 1;
@@ -308,8 +305,6 @@ typedef struct bb_ann_d *bb_ann_t;
 static inline bb_ann_t bb_ann (basic_block);
 static inline tree phi_nodes (basic_block);
 static inline void set_phi_nodes (basic_block, tree);
-static inline void add_dom_child (basic_block, basic_block);
-static inline bitmap dom_children (basic_block);
 
 /*---------------------------------------------------------------------------
 			      Global declarations
@@ -425,7 +420,7 @@ extern void bsi_commit_edge_inserts (bool, int *);
 extern void bsi_insert_on_edge_immediate (edge, tree);
 extern void notice_special_calls (tree);
 extern void clear_special_calls (void);
-extern void compute_dominance_frontiers (bitmap *, dominance_info);
+extern void compute_dominance_frontiers (bitmap *);
 extern bool verify_stmt (tree);
 extern void verify_stmts (void);
 
@@ -497,7 +492,6 @@ extern edge ssa_redirect_edge (edge, basic_block);
 extern void set_is_used (tree);
 extern bool tree_ssa_useless_type_conversion (tree);
 extern bool tree_ssa_useless_type_conversion_1 (tree, tree);
-extern void build_dominator_tree (dominance_info);
 extern void verify_ssa (void);
 extern void delete_tree_ssa (void);
 extern unsigned int highest_ssa_version;

@@ -2529,6 +2529,7 @@ rest_of_handle_branch_prob (tree decl, rtx insns)
     estimate_probability (&loops);
 
   flow_loops_free (&loops);
+  free_dominance_info (CDI_DOMINATORS);
   close_dump_file (DFI_bp, print_rtl_with_bb, insns);
   timevar_pop (TV_BRANCH_PROB);
 }

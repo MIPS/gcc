@@ -245,17 +245,11 @@ static bool split_critical_edges (void);
 static void collect_expressions (basic_block, varray_type *);
 static int build_dfn_array (basic_block, int);
 static int eref_compare (const void *, const void *);
-static inline bool fast_a_dominates_b (basic_block, basic_block);
-static void build_dfs_id_array_1 (basic_block, int *);
-static void build_dfs_id_array (void);
 
 
 /* Bitmap of E-PHI predecessor operands have already been created. 
    We only create one phi-pred per block.  */
 static bitmap created_phi_preds;
-
-/* PRE dominance info.  */
-static dominance_info pre_idom;
 
 /* PRE dominance frontiers.  */
 static bitmap *pre_dfs;
@@ -867,43 +861,6 @@ ephi_at_block (basic_block bb)
     return NULL_TREE;
 }
 
-static int *dfs_id;
-static int *dfs_id_last;
-
-/* Depth first ID calculation.
-   In order to not have to deal with the et-forest, which can be slow,
-   we calculate two arrays that can quickly tell us whether one block
-   dominates another.  One array tracks the dfs_id of each block.
-   The other array tracks the last dfs_id of the dominator children of
-   the block.  */
-
-static void
-build_dfs_id_array_1 (basic_block bb, int *id)
-{
-  int i;
-  if (bb->index >= 0)
-    dfs_id[bb->index] = *id;
-  
-  ++(*id);
-  if (dom_children (bb))
-    EXECUTE_IF_SET_IN_BITMAP(dom_children (bb), 0, i,
-    {
-      build_dfs_id_array_1 (BASIC_BLOCK (i), id);
-    });
-  if (bb->index >= 0)
-    dfs_id_last[bb->index] = *id - 1;
-  
-}
-static void
-build_dfs_id_array (void)
-{
-  int id = 0;
-  dfs_id = xcalloc (last_basic_block + 1, sizeof (int));
-  dfs_id_last = xcalloc (last_basic_block + 1, sizeof (int));
-  build_dfs_id_array_1 (ENTRY_BLOCK_PTR, &id);
-}
-
-			       
 static int *dfn;
 
 /* Build a depth first numbering array to be used in sorting in
@@ -912,14 +869,15 @@ static int *dfn;
 static int
 build_dfn_array (basic_block bb, int num)
 {
-  int i;
+  basic_block son;
+
   if (bb->index >= 0)
     dfn[bb->index] = num;
-  if (dom_children (bb))
-    EXECUTE_IF_SET_IN_BITMAP (dom_children (bb), 0, i,
-    {
-      num = build_dfn_array (BASIC_BLOCK (i), ++num);
-    });
+
+  for (son = first_dom_son (CDI_DOMINATORS, bb);
+       son;
+       son = next_dom_son (CDI_DOMINATORS, son))
+    num = build_dfn_array (son, ++num);
   return num;
 }
 
@@ -964,7 +922,7 @@ eref_compare (const void *elem1, const void *elem2)
     {
       if (dfn[bb1->index] == dfn[bb2->index])
 	{
-	  if (dominated_by_p (pre_idom, bb1, bb2))
+	  if (dominated_by_p (CDI_DOMINATORS, bb1, bb2))
 	    return 1;
 	  else
 	    return -1;
@@ -1394,7 +1352,10 @@ bool load_modified_phi_result (basic_block bb, tree cr)
   basic_block defbb = bb_for_stmt (SSA_NAME_DEF_STMT (cr));
   if (defbb != bb)
     {
-      if (fast_a_dominates_b (defbb, bb))
+      if (!defbb)
+	return true;
+
+      if (dominated_by_p (CDI_DOMINATORS, bb, defbb))
 	return false;
     }
   else
@@ -1545,19 +1506,6 @@ process_delayed_rename (struct expr_info *ei, tree use, tree real_occ)
     }
 }
 
-/* Return whether BB A dominates BB B without using the slow
-   et-forest all the time.  */
-
-static inline bool 
-fast_a_dominates_b (basic_block bb1, basic_block bb2)
-{
-  if (!bb1 || !bb2 || bb1->index < 0 || bb2->index < 0)
-    return dominated_by_p (pre_idom, bb1, bb2);
-  
-  return (dfs_id[bb2->index] >= dfs_id[bb1->index])
-    && (dfs_id[bb2->index] <= dfs_id_last[bb1->index]);
-}
-
 /* Renaming is done like Open64 does it.  Basically as the paper says, 
    except that we try to use earlier defined occurrences if they are
    available in order to keep the number of saves down.  */
@@ -1579,8 +1527,9 @@ rename_1 (struct expr_info *ei)
       occur = VARRAY_TREE (ei->euses_dt_order, i);
       
       while (VARRAY_ACTIVE_SIZE (stack) > 0	     
-	     && !fast_a_dominates_b (bb_for_stmt (VARRAY_TOP_TREE (stack)),
-				     bb_for_stmt (occur)))
+	     && !dominated_by_p (CDI_DOMINATORS,
+			     	 bb_for_stmt (occur),
+				 bb_for_stmt (VARRAY_TOP_TREE (stack))))
 	
 	VARRAY_POP (stack);
       if (VARRAY_TOP_TREE (stack) == NULL || VARRAY_ACTIVE_SIZE (stack) == 0)
@@ -1975,7 +1924,7 @@ reaching_def (tree var, tree currstmt, basic_block bb, tree ignore)
     }
   if (curruse != NULL_TREE)
     return curruse;
-  dom = get_immediate_dominator (pre_idom, bb);
+  dom = get_immediate_dominator (CDI_DOMINATORS, bb);
   if (bb == ENTRY_BLOCK_PTR)
     {
       htab_t temp;
@@ -2083,7 +2032,7 @@ finalize_1 (struct expr_info *ei)
       else if (TREE_CODE (x) == EUSE_NODE && !EUSE_PHIOP (x))
 	{
 	  if (avdefs[nx] == NULL
-	      || !dominated_by_p (pre_idom, bb_for_stmt (x), 
+	      || !dominated_by_p (CDI_DOMINATORS, bb_for_stmt (x), 
 				  bb_for_stmt (avdefs[nx])))
 	    {
 	      EREF_RELOAD (x) = false;
@@ -3093,8 +3042,8 @@ static void
 collect_expressions (basic_block block, varray_type *bexprsp)
 {
   size_t k;
-  int i;
   block_stmt_iterator j;
+  basic_block son;
 
   varray_type bexprs = *bexprsp;
   
@@ -3182,12 +3131,11 @@ collect_expressions (basic_block block, varray_type *bexprsp)
       process_left_occs_and_kills (bexprs, orig_expr);
     }
   *bexprsp = bexprs;
-  if (dom_children (block))
-    EXECUTE_IF_SET_IN_BITMAP (dom_children (block), 0, i,
-    {
-      collect_expressions (BASIC_BLOCK (i), bexprsp);
-    });
-  
+
+  for (son = first_dom_son (CDI_DOMINATORS, block);
+       son;
+       son = next_dom_son (CDI_DOMINATORS, son))
+    collect_expressions (son, bexprsp);
 }
 
 /* Main entry point to the SSA-PRE pass.
@@ -3220,13 +3168,12 @@ tree_perform_ssapre (tree fndecl, enum tree_dump_index phase)
               sizeof (struct ephi_use_entry), 30);
   VARRAY_GENERIC_PTR_INIT (bexprs, 1, "bexprs");
   VARRAY_TREE_INIT (added_phis, 1, "Added phis");
+
   /* Compute immediate dominators.  */
-  pre_idom = calculate_dominance_info (CDI_DOMINATORS);
+  calculate_dominance_info (CDI_DOMINATORS);
 
   /* DCE screws the dom_children up, without bothering to fix it. So fix it. */
   currbbs = n_basic_blocks;
-  build_dominator_tree (pre_idom);
-  build_dfs_id_array ();
   dfn = xcalloc (last_basic_block + 1, sizeof (int));
   build_dfn_array (ENTRY_BLOCK_PTR, 0);
 
@@ -3237,7 +3184,7 @@ tree_perform_ssapre (tree fndecl, enum tree_dump_index phase)
   pre_dfs = (bitmap *) xmalloc (sizeof (bitmap) * currbbs);
   for (i = 0; i < currbbs; i++)
      pre_dfs[i] = BITMAP_XMALLOC ();
-  compute_dominance_frontiers (pre_dfs, pre_idom);
+  compute_dominance_frontiers (pre_dfs);
 
   created_phi_preds = BITMAP_XMALLOC ();
   
@@ -3281,7 +3228,6 @@ tree_perform_ssapre (tree fndecl, enum tree_dump_index phase)
   free_alloc_pool (euse_node_pool);
   free_alloc_pool (eref_node_pool);
   VARRAY_CLEAR (bexprs);
-  free_dominance_info (pre_idom);
   for (i = 0; i < currbbs; i++)
     BITMAP_XFREE (pre_dfs[i]);
   free (pre_dfs);
@@ -3295,8 +3241,6 @@ tree_perform_ssapre (tree fndecl, enum tree_dump_index phase)
   if (bitmap_first_set_bit (vars_to_rename) != -1)
     rewrite_into_ssa (fndecl, vars_to_rename, TDI_pre);
   BITMAP_XFREE (vars_to_rename);
-  free (dfs_id);
-  free (dfs_id_last);
   free (dfn);
   timevar_pop (TV_TREE_PRE);
 }

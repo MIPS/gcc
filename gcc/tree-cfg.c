@@ -65,8 +65,6 @@ struct cfg_stats_d
   long num_merged_labels;
 };
 
-static dominance_info pdom_info = NULL;
-
 static struct cfg_stats_d cfg_stats;
 
 /* Nonzero if we found a computed goto while building basic blocks.  */
@@ -388,6 +386,9 @@ create_bb (tree stmt_list, basic_block after)
   n_basic_blocks++;
   last_basic_block++;
 
+  if (dom_computed[CDI_DOMINATORS] >= DOM_CONS_OK)
+    add_to_dominance_info (CDI_DOMINATORS, bb);
+
   return bb;
 }
 
@@ -707,11 +708,9 @@ make_goto_expr_edges (basic_block bb)
 void
 cleanup_tree_cfg (void)
 {
-  int orig_n_basic_blocks = n_basic_blocks;
   bool something_changed = true;
 
   timevar_push (TV_TREE_CLEANUP_CFG);
-  pdom_info = NULL;
 
   /* These three transformations can cascade, so we iterate on them until nothing
      changes.  */
@@ -722,22 +721,7 @@ cleanup_tree_cfg (void)
       something_changed |= remove_unreachable_blocks ();
     }
 
-  if (pdom_info != NULL)
-    {
-      free_dominance_info (pdom_info);
-      pdom_info = NULL;
-    }
   compact_blocks ();
-
-  /* If we expunged any basic blocks, then the dominator tree is
-     no longer valid.  */
-  if (n_basic_blocks != orig_n_basic_blocks)
-    {
-      basic_block bb;
-      
-      FOR_ALL_BB (bb)
-	clear_dom_children (bb);
-    }
 
 #ifdef ENABLE_CHECKING
   verify_flow_info ();
@@ -1449,11 +1433,6 @@ remove_bb (basic_block bb)
 
   remove_phi_nodes_and_edges_for_unreachable_block (bb);
 
-  /* If we have pdom information, then we must also make sure to
-     clean up the dominance information.  */
-  if (pdom_info)
-    delete_from_dominance_info (pdom_info, bb);
-
   /* Remove the basic block from the array.  */
   expunge_block (bb);
 }
@@ -1595,6 +1574,10 @@ cleanup_control_expr_graph (basic_block bb, block_stmt_iterator bsi)
 
   bsi_remove (&bsi);
   taken_edge->flags = EDGE_FALLTHRU;
+
+  /* We removed some paths from the cfg.  */
+  if (dom_computed[CDI_DOMINATORS] >= DOM_CONS_OK)
+    dom_computed[CDI_DOMINATORS] = DOM_CONS_OK;
 
   return retval;
 }
@@ -1766,83 +1749,50 @@ phi_alternatives_equal (basic_block dest, edge e1, edge e2)
 */
 
 static void
-compute_dominance_frontiers_1 (bitmap *frontiers, dominance_info idom,
-			       int bb, sbitmap done)
+compute_dominance_frontiers_1 (bitmap *frontiers, basic_block bb, sbitmap done)
 {
-  basic_block b = BASIC_BLOCK (bb);
   edge e;
   basic_block c;
-  unsigned int i;
-  bitmap dominated;
 
-  /* Ugh.  This could be called via the tree SSA code or via the
-     RTL SSA code.  The former has bb annotations, the latter does
-     not.  */
-  if (bb_ann (b))
-    dominated = dom_children (b);
-  else
-    {
-      basic_block *dominated_array;
-      unsigned int n_dominated;
-
-      /* Build a sparse bitmap.  This can be expensive as 
-         get_domianted_by allocates an array large enough to
-	 hold every basic block.  We should probably either
-	 make the RTL SSA code use bb annotations or rip it
-	 out.  */
-      dominated = BITMAP_XMALLOC ();
-      n_dominated = get_dominated_by (idom, b, &dominated_array);
-  
-      for (i = 0; i < n_dominated; i++)
-	bitmap_set_bit (dominated, dominated_array[i]->index);
-
-      free (dominated_array);
-    }
-
-  SET_BIT (done, bb);
+  SET_BIT (done, bb->index);
 
   /* Do the frontier of the children first.  Not all children in the
      dominator tree (blocks dominated by this one) are children in the
      CFG, so check all blocks.  */
-  if (dominated)
-    EXECUTE_IF_SET_IN_BITMAP (dominated, 0, i,
-      {
-        c = BASIC_BLOCK (i);
-        if (! TEST_BIT (done, c->index))
-          compute_dominance_frontiers_1 (frontiers, idom, c->index, done);
-      });
+  for (c = first_dom_son (CDI_DOMINATORS, bb);
+       c;
+       c = next_dom_son (CDI_DOMINATORS, c))
+    {
+      if (! TEST_BIT (done, c->index))
+    	compute_dominance_frontiers_1 (frontiers, c, done);
+    }
       
   /* Find blocks conforming to rule (1) above.  */
-  for (e = b->succ; e; e = e->succ_next)
+  for (e = bb->succ; e; e = e->succ_next)
     {
       if (e->dest == EXIT_BLOCK_PTR)
 	continue;
-      if (get_immediate_dominator (idom, e->dest)->index != bb)
-        bitmap_set_bit (frontiers[bb], e->dest->index);
+      if (get_immediate_dominator (CDI_DOMINATORS, e->dest) != bb)
+        bitmap_set_bit (frontiers[bb->index], e->dest->index);
     }
 
   /* Find blocks conforming to rule (2).  */
-  if (dominated)
-    EXECUTE_IF_SET_IN_BITMAP (dominated, 0, i,
-      {
-        int x;
-        c = BASIC_BLOCK (i);
+  for (c = first_dom_son (CDI_DOMINATORS, bb);
+       c;
+       c = next_dom_son (CDI_DOMINATORS, c))
+    {
+      int x;
 
-        EXECUTE_IF_SET_IN_BITMAP (frontiers[c->index], 0, x,
-	  {
-	    if (get_immediate_dominator (idom, BASIC_BLOCK (x))->index != bb)
-	      bitmap_set_bit (frontiers[bb], x);
-	  });
-      });
-
-  /* If we built the dominated bitmap rather than using the
-     one in the bb's annotation, then make sure we free it.  */
-  if (! bb_ann (b))
-    BITMAP_XFREE (dominated);
+      EXECUTE_IF_SET_IN_BITMAP (frontiers[c->index], 0, x,
+	{
+	  if (get_immediate_dominator (CDI_DOMINATORS, BASIC_BLOCK (x)) != bb)
+	    bitmap_set_bit (frontiers[bb->index], x);
+	});
+    }
 }
 
 void
-compute_dominance_frontiers (bitmap *frontiers, dominance_info idom)
+compute_dominance_frontiers (bitmap *frontiers)
 {
   sbitmap done = sbitmap_alloc (last_basic_block);
 
@@ -1850,9 +1800,7 @@ compute_dominance_frontiers (bitmap *frontiers, dominance_info idom)
 
   sbitmap_zero (done);
 
-  compute_dominance_frontiers_1 (frontiers, idom,
-				 ENTRY_BLOCK_PTR->succ->dest->index,
-				 done);
+  compute_dominance_frontiers_1 (frontiers, ENTRY_BLOCK_PTR->succ->dest, done);
 
   sbitmap_free (done);
 
@@ -2688,7 +2636,7 @@ bsi_insert_on_edge_immediate (edge e, tree stmt)
 basic_block
 tree_split_edge (edge edge_in)
 {
-  basic_block new_bb, after_bb, dest;
+  basic_block new_bb, after_bb, dest, src;
   edge new_edge, e;
   tree phi;
   int i, num_elem;
@@ -2697,6 +2645,7 @@ tree_split_edge (edge edge_in)
   if (edge_in->flags & EDGE_ABNORMAL)
     abort ();
 
+  src = edge_in->src;
   dest = edge_in->dest;
 
   /* Place the new block in the block list.  Try to keep the new block
@@ -2730,6 +2679,13 @@ tree_split_edge (edge edge_in)
 	    break;
 	  }
     }
+
+  if (dom_computed[CDI_DOMINATORS] >= DOM_CONS_OK)
+    set_immediate_dominator (CDI_DOMINATORS, new_bb, src);
+
+  if (dom_computed[CDI_DOMINATORS] >= DOM_NO_FAST_QUERY)
+    set_immediate_dominator (CDI_DOMINATORS, dest,
+			     recount_dominator (CDI_DOMINATORS, dest));
 
   return new_bb;
 }
@@ -3168,6 +3124,9 @@ tree_verify_flow_info (void)
 	}
     }
 
+  if (dom_computed[CDI_DOMINATORS] >= DOM_NO_FAST_QUERY)
+    verify_dominators (CDI_DOMINATORS);
+
   return err;
 }
 
@@ -3186,6 +3145,8 @@ tree_make_forwarder_block (basic_block bb, int redirect_latch,
   tree phi, new_phi, var, label;
   bool first;
   block_stmt_iterator bsi, bsi_tgt;
+
+  free_dominance_info (CDI_DOMINATORS);
 
   dummy = create_bb (NULL, bb->prev_bb);
   create_block_annotation (dummy);
@@ -3320,7 +3281,7 @@ tree_loop_optimizer_init (FILE *dumpfile)
   flow_loops_dump (loops, dumpfile, NULL, 1);
 
 #ifdef ENABLE_CHECKING
-  verify_dominators (loops->cfg.dom);
+  verify_dominators (CDI_DOMINATORS);
   verify_loop_structure (loops);
 #endif
 
@@ -3507,6 +3468,10 @@ thread_jumps (void)
 	  /* Perform the redirection.  */
 	  retval = true;
 	  e = tree_redirect_edge_and_branch (e, dest);
+
+	  /* TODO -- updating dominators in this case is simple.  */
+	  free_dominance_info (CDI_DOMINATORS);
+
 	  if (!old)
 	    {
 	      /* Update phi nodes.   We know that the new argument should

@@ -395,7 +395,10 @@ tree_optimize_tail_calls (bool opt_tailcalls, enum tree_dump_index pass)
     }
 
   if (changed)
-    cleanup_tree_cfg ();
+    {
+      free_dominance_info (CDI_DOMINATORS);
+      cleanup_tree_cfg ();
+    }
 
   if (dump_file)
     {

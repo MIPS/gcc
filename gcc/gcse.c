@@ -6146,9 +6146,6 @@ static sbitmap *hoist_vbeout;
 /* Hoistable expressions.  */
 static sbitmap *hoist_exprs;
 
-/* Dominator bitmaps.  */
-dominance_info dominators;
-
 /* ??? We could compute post dominators and run this algorithm in
    reverse to perform tail merging, doing so would probably be
    more effective than the tail merging code in jump.c.
@@ -6185,7 +6182,7 @@ free_code_hoist_mem (void)
   sbitmap_vector_free (hoist_exprs);
   sbitmap_vector_free (transpout);
 
-  free_dominance_info (dominators);
+  free_dominance_info (CDI_DOMINATORS);
 }
 
 /* Compute the very busy expressions at entry/exit from each block.
@@ -6234,7 +6231,7 @@ compute_code_hoist_data (void)
   compute_local_properties (transp, comp, antloc, &expr_hash_table);
   compute_transpout ();
   compute_code_hoist_vbeinout ();
-  dominators = calculate_dominance_info (CDI_DOMINATORS);
+  calculate_dominance_info (CDI_DOMINATORS);
   if (gcse_file)
     fprintf (gcse_file, "\n");
 }
@@ -6326,7 +6323,7 @@ hoist_code (void)
       int found = 0;
       int insn_inserted_p;
 
-      domby_len = get_dominated_by (dominators, bb, &domby);
+      domby_len = get_dominated_by (CDI_DOMINATORS, bb, &domby);
       /* Examine each expression that is very busy at the exit of this
 	 block.  These are the potentially hoistable expressions.  */
       for (i = 0; i < hoist_vbeout[bb->index]->n_bits; i++)

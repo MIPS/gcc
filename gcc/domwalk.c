@@ -60,8 +60,9 @@ walk_dominator_tree (struct dom_walk_data *walk_data,
 		     basic_block bb,
 		     tree last)
 {
-  bitmap children;
   void *bd = NULL;
+  basic_block dest;
+  tree clast;
 
   /* Callback to initialize the local data structure.  */
   if (walk_data->initialize_block_local_data)
@@ -104,28 +105,21 @@ walk_dominator_tree (struct dom_walk_data *walk_data,
   if (walk_data->before_dom_children_after_stmts)
     (*walk_data->before_dom_children_after_stmts) (walk_data, bb, last);
 
+  /* If this block ends with a control statement, pass it down so that we
+     might reason with it.  */
+  clast = last_stmt (bb);
+  if (clast && !is_ctrl_stmt (clast))
+    clast = NULL;
+
   /* Recursively call ourselves on the dominator children of BB.  */
-  children = dom_children (bb);
-  if (children)
+  for (dest = first_dom_son (CDI_DOMINATORS, bb);
+       dest;
+       dest = next_dom_son (CDI_DOMINATORS, dest))
     {
-      tree clast;
-      unsigned long i;
-
-      /* If this block ends with a control statement, pass it down
-	 so that we might reason with it.  */
-      clast = last_stmt (bb);
-      if (clast && !is_ctrl_stmt (clast))
-	clast = NULL;
-
-      EXECUTE_IF_SET_IN_BITMAP (children, 0, i,
-	{
-	  basic_block dest = BASIC_BLOCK (i);
-
-	  /* The destination block may have become unreachable, in
-	     which case there's no point in optimizing it.  */
-	  if (dest->pred)
-	    walk_dominator_tree (walk_data, dest, clast);
-	});
+      /* The destination block may have become unreachable, in
+	 which case there's no point in optimizing it.  */
+      if (dest->pred)
+	walk_dominator_tree (walk_data, dest, clast);
     }
 
   /* Callback for operations to execute after we have walked the

@@ -257,6 +257,8 @@ optimize_function_tree (tree fndecl, tree *chain)
 
       /* Flush out flow graph and SSA data.  */
       BITMAP_XFREE (vars_to_rename);
+  
+      free_dominance_info (CDI_DOMINATORS);
     }
 
   tree_ssa_finish (chain);
