@@ -2295,3 +2295,39 @@
   "vperm %0,%1,%2,%3"
   [(set_attr "type" "vecperm")])
 
+(define_expand "usat_subv16qi3"
+  [(set (match_operand:V16QI 0 "register_operand" "=v")
+        (unspec:V16QI [(match_operand:V16QI 1 "register_operand" "v")
+                       (match_operand:V16QI 2 "register_operand" "v")] 125))
+   (set (reg:SI 110) (unspec:SI [(const_int 0)] 213))]
+  "TARGET_ALTIVEC"
+  "
+{ 
+  emit_insn (gen_altivec_vsububs (operands[0], operands[1], operands[2])); 
+  DONE; 
+}")
+
+(define_expand "usat_subv8hi3"
+  [(set (match_operand:V8HI 0 "register_operand" "=v")
+        (unspec:V8HI [(match_operand:V8HI 1 "register_operand" "v")
+                       (match_operand:V8HI 2 "register_operand" "v")] 127))
+   (set (reg:SI 110) (unspec:SI [(const_int 0)] 213))]
+  "TARGET_ALTIVEC"
+  "
+{ 
+  emit_insn (gen_altivec_vsubuhs (operands[0], operands[1], operands[2])); 
+  DONE; 
+}")
+
+(define_expand "usat_subv4si3"
+  [(set (match_operand:V4SI 0 "register_operand" "=v")
+        (unspec:V4SI [(match_operand:V4SI 1 "register_operand" "v")
+                       (match_operand:V4SI 2 "register_operand" "v")] 129))
+   (set (reg:SI 110) (unspec:SI [(const_int 0)] 213))]
+  "TARGET_ALTIVEC"
+  "
+{
+  emit_insn (gen_altivec_vsubuws (operands[0], operands[1], operands[2])); 
+  DONE; 
+}")
+

@@ -1,3 +1,30 @@
+2004-12-13  Dorit Naishlos  <dorit@il.ibm.com>
+
+	* tree.def (SAT_MINUS_EXPR): New tree code.
+	* expr.c (expand_expr_real_1): Add SAT_MINUS_EXPR case.
+	* tree-pretty-print.c (dump_generic_node): Likewise.
+	(op_prio, op_symbol): Likewise.
+	* optabs.c (optab_for_tree_code): Likewise.
+	(init_optabs): Initializae ssat_sub_optab, usat_sub_optab.
+	* optabs.h (OTI_ssat_sub, OTI_usat_sub): New.
+	(ssat_sub_optab, usat_sub_optab): New.
+	* genopinit.c (ssat_sub_optab, usat_sub_optab): New optabs.
+	* tree-vectorizer.c (vect_pattern_recog): New function.
+	(vect_pattern_recog_1): New function.
+	(vect_recog_unsigned_subsat_pattern): New function.
+	(new_stmt_vec_info): Initialize new fields IN_PATTERN_P and RELATED_STMT.
+	(vectorizable_operation): Handle the case that the stmt to be vectorized is a
+	new stmt that was added to replace a pattern.
+	(vect_mark_relevant): Hanlde stmts that are marked as IN_PATTERN.
+	(vect_mark_stmts_to_be_vectorized): Don't reset to 0.
+	(vect_analyze_loop): Call vect_pattern_recog.
+	* tree-vectorizer.h (in_pattern_p, related_stmt): New fields in struct
+	_stmt_vec_info.
+	(TMT_VINFO_IN_PATTERN_P, STMT_VINFO_RELATED_STMT): New macros to access the
+	new fields.
+	(vect_pattern_recog_func): New array of pattern recognition functions.
+	* config/rs6000/altivec.md (usat_subv16qi3, usat_subv8hi3, usat_subv4si3): New.
+
 2004-12-08 Devang Patel  <dpatel@apple.com>
 
         * tree-ssa-forwprop.c (cast_conversion_assignment_p): New.

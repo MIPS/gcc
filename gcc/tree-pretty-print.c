@@ -968,6 +968,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
     case MULT_EXPR:
     case PLUS_EXPR:
     case MINUS_EXPR:
+    case SAT_MINUS_EXPR:
     case TRUNC_DIV_EXPR:
     case CEIL_DIV_EXPR:
     case FLOOR_DIV_EXPR:
@@ -1751,6 +1752,7 @@ op_prio (tree op)
 
     case PLUS_EXPR:
     case MINUS_EXPR:
+    case SAT_MINUS_EXPR:
       return 12;
 
     case MULT_EXPR:
@@ -1892,6 +1894,9 @@ op_symbol (tree op)
     case NEGATE_EXPR:
     case MINUS_EXPR:
       return "-";
+
+    case SAT_MINUS_EXPR:
+      return "s-";
 
     case BIT_NOT_EXPR:
       return "~";

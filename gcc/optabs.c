@@ -300,6 +300,9 @@ optab_for_tree_code (enum tree_code code, tree type)
     case REALIGN_LOAD_EXPR:
       return vec_realign_load_optab;
 
+    case SAT_MINUS_EXPR:
+      return TYPE_UNSIGNED (type) ? usat_sub_optab : ssat_sub_optab;
+
     default:
       break;
     }
@@ -4704,6 +4707,8 @@ init_optabs (void)
   umax_optab = init_optab (UMAX);
   pow_optab = init_optab (UNKNOWN);
   atan2_optab = init_optab (UNKNOWN);
+  ssat_sub_optab = init_optab (UNKNOWN);
+  usat_sub_optab = init_optab (UNKNOWN);
 
   /* These three have codes assigned exclusively for the sake of
      have_insn_for.  */

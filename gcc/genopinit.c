@@ -173,7 +173,9 @@ static const char * const optabs[] =
   "vec_realign_store_optab->handlers[$A].insn_code = CODE_FOR_$(vec_realign_store_$a$)",
   "vec_realign_load_optab->handlers[$A].insn_code = CODE_FOR_$(vec_realign_load_$a$)",
   "vcond_gen_code[$A] = CODE_FOR_$(vcond$a$)",
-  "vcondu_gen_code[$A] = CODE_FOR_$(vcondu$a$)" };
+  "vcondu_gen_code[$A] = CODE_FOR_$(vcondu$a$)",
+  "ssat_sub_optab->handlers[$A].insn_code = CODE_FOR_$(ssat_sub$I$a3$)",
+  "usat_sub_optab->handlers[$A].insn_code = CODE_FOR_$(usat_sub$I$a3$)" };
 
 static void gen_insn (rtx);
 

@@ -233,6 +233,10 @@ enum optab_index
   /* Extract specified elements from vectors, for vector load.  */
   OTI_vec_realign_load,
 
+  /* Saturated arithmetic.  */
+  OTI_ssat_sub,
+  OTI_usat_sub,
+
   OTI_MAX
 };
 
@@ -336,6 +340,9 @@ extern GTY(()) optab optab_table[OTI_MAX];
 #define vec_init_optab (optab_table[OTI_vec_init])
 #define vec_realign_store_optab (optab_table[OTI_vec_realign_store])
 #define vec_realign_load_optab (optab_table[OTI_vec_realign_load])
+
+#define ssat_sub_optab (optab_table[OTI_ssat_sub])
+#define usat_sub_optab (optab_table[OTI_usat_sub])
 
 /* Conversion optabs have their own table and indexes.  */
 enum convert_optab_index

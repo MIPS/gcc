@@ -7456,6 +7456,9 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 
       goto binop2;
 
+    case SAT_MINUS_EXPR:
+      goto binop;
+
     case MULT_EXPR:
       /* If first operand is constant, swap them.
 	 Thus the following special case checks need only

@@ -157,6 +157,7 @@ static bool vect_analyze_data_ref_accesses (loop_vec_info);
 static bool vect_analyze_data_refs_alignment (loop_vec_info);
 static bool vect_compute_data_refs_alignment (loop_vec_info);
 static bool vect_analyze_operations (loop_vec_info);
+static void vect_pattern_recog (loop_vec_info);
 
 /* Main code transformation functions.  */
 static void vect_transform_loop (loop_vec_info, struct loops *, bool *);
@@ -199,6 +200,8 @@ static tree vect_compute_array_ref_alignment
 static tree vect_get_ptr_offset (tree, tree, tree *);
 static tree vect_get_symbl_and_dr
   (tree, tree, bool, loop_vec_info, struct data_reference **);
+static void vect_pattern_recog_1 (tree (* ) 
+  (tree, varray_type), block_stmt_iterator);
 
 /* Utility functions for the code transformation.  */
 static tree vect_create_destination_var (tree, tree);
@@ -220,6 +223,9 @@ static void vect_generate_tmps_on_preheader (loop_vec_info,
 					     tree *);
 static tree vect_build_loop_niters (loop_vec_info);
 static void vect_update_ivs_after_vectorizer (struct loop *, tree); 
+
+/* Pattern recognition functions  */
+tree vect_recog_unsigned_subsat_pattern (tree, varray_type);
 
 /* Loop transformations prior to vectorization.  */
 
@@ -1159,6 +1165,8 @@ new_stmt_vec_info (tree stmt, struct loop *loop)
   STMT_VINFO_DATA_REF (res) = NULL;
   STMT_VINFO_MEMTAG (res) = NULL;
   STMT_VINFO_VECT_DR_BASE (res) = NULL;
+  STMT_VINFO_IN_PATTERN_P (res) = false;
+  STMT_VINFO_RELATED_STMT (res) = NULL;
 
   return res;
 }
@@ -2314,6 +2322,7 @@ vectorizable_operation (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   int op_type;
   tree op;
   optab optab;
+  tree orig_stmt_in_pattern;
 
   /* Is STMT a vectorizable binary/unary operation?   */
   if (TREE_CODE (stmt) != MODIFY_EXPR)
@@ -2397,6 +2406,18 @@ vectorizable_operation (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   new_temp = make_ssa_name (vec_dest, *vec_stmt);
   TREE_OPERAND (*vec_stmt, 0) = new_temp;
   vect_finish_stmt_generation (stmt, *vec_stmt, bsi);
+
+  orig_stmt_in_pattern = STMT_VINFO_RELATED_STMT (stmt_info);
+  if (orig_stmt_in_pattern)
+    {
+      /* STMT is a new stmt that was inserted by the vectorizer to replace a 
+         computation idiom. ORIG_STMT_IN_PATTERN is a stmt in the original
+         sequence that computed this idiom. We need to record a pointer to 
+         VEC_STMT in the stmt_info of ORIG_STMT_IN_PATTERN. See more detail in 
+         the documentation of vect_pattern_recog.
+       */
+      STMT_VINFO_VEC_STMT (vinfo_for_stmt (orig_stmt_in_pattern)) = *vec_stmt;
+    }
 
   return true;
 }
@@ -5406,6 +5427,15 @@ vect_mark_relevant (varray_type worklist, tree stmt)
       return;
     }
 
+  if (STMT_VINFO_IN_PATTERN_P (stmt_info))
+    {
+      /* Leave as irrelevant, but add to worklist.  */
+      if (dump_file && (dump_flags & TDF_DETAILS))
+        fprintf (dump_file, "part of pattern.\n");
+      VARRAY_PUSH_TREE (worklist, stmt);
+      return;
+    }
+
   STMT_VINFO_RELEVANT_P (stmt_info) = 1;
   VARRAY_PUSH_TREE (worklist, stmt);
 }
@@ -5518,8 +5548,6 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
 	    } 
 
 	  stmt_info = vinfo_for_stmt (stmt);
-	  STMT_VINFO_RELEVANT_P (stmt_info) = 0;
-
 	  if (vect_stmt_relevant_p (stmt, loop_vinfo))
 	    vect_mark_relevant (worklist, stmt);
 	}
@@ -5613,6 +5641,369 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
 
   varray_clear (worklist);
   return true;
+}
+
+
+/* Function vect_recog_unsigned_subsat_pattern
+  
+   Try to find a pattern of USAT(a-b) - an unsigned saturating subtraction. 
+   It can take any of the following forms:
+   
+   form1: a > (b - 1) ? a - b : 0
+   form2: a >= b ? a - b : 0 
+   form3: (a - b > 0) ? a - b : 0
+  
+   FORNOW: Detect only form1.
+
+   For example, this may look like:
+   S1: x = a - cnst
+   S2: a > (cnst_minus_1) ? x : 0
+
+   Input:
+   LAST_STMT: A stmt from which the pattern search begins. In the example,
+   when this function is called with S2, the pattern {S1,S2} will be detected.
+
+   Output:
+   STMT_LIST: If this pattern is detected, STMT_LIST will hold the stmts that 
+   are part of the pattern. In the example, STMT_LIST will consist of {S1,S2}.
+
+   Return value: A new stmt that will be used to replace the sequence of
+   stmts in STMT_LIST. In this case it will be: SAT_MINUS_EXPR (a,b).
+*/  
+  
+tree
+vect_recog_unsigned_subsat_pattern (tree last_stmt, varray_type stmt_list)
+{
+  tree stmt, expr;
+  tree type;
+  tree cond_expr;
+  tree then_clause = NULL_TREE;
+  tree else_clause = NULL_TREE;
+  enum tree_code code;
+  tree zero;
+  tree a, b, a_minus_b, b_minus_1;
+  tree pattern_expr;
+  tree new;
+
+  if (vect_debug_details (NULL))
+    {
+      fprintf (dump_file, "vect_recog_unsigned_subsat_pattern: ");
+      print_generic_expr (dump_file, last_stmt, TDF_SLIM);
+    }
+
+  if (TREE_CODE (last_stmt) != MODIFY_EXPR)
+    return NULL;
+
+  expr = TREE_OPERAND (last_stmt, 1);
+  type = TREE_TYPE (expr);
+
+  /* Look for the following pattern
+	a_minus_b = a - b 
+        x = (a > b_minus_1) ? a_minus_b : 0
+     in which all variables are of the same unsigned type.
+     This is equivalent to: USAT (name, k).
+   */
+
+  /* Starting from LAST_STMT, follow the defs of its ses in search
+     of the above pattern.  */
+
+  /* Expecting a cond_expr of one of the following forms:
+	   x = (a > b_minus_1) ? a_minus_b : 0
+	   x = (a <= b_minus_1) ? 0 : a_minus_b 
+     such that:
+     - x, a, a_minus_b are SSA_NAMES of type T
+     - b_minus_1 is an SSA_NAME or a constant also of type T
+     - T is an unsigned integer (uchar/ushort/uint/ulong...)
+   */
+
+  if (TREE_CODE (expr) != COND_EXPR)
+    return NULL;
+
+  if (!TYPE_UNSIGNED (type) || TREE_CODE (type) != INTEGER_TYPE) /* CHECKME */
+    return NULL;
+
+  cond_expr = TREE_OPERAND (expr, 0);
+  code = TREE_CODE (cond_expr);
+  then_clause = TREE_OPERAND (expr, 1);
+  else_clause = TREE_OPERAND (expr, 2);
+
+  if (TREE_CODE (then_clause) == SSA_NAME
+      && TREE_TYPE (then_clause) == type)
+    {
+      a_minus_b = then_clause;
+      zero = else_clause;
+    }
+  else if (TREE_CODE (else_clause) == SSA_NAME
+	   && TREE_TYPE (else_clause) == type)
+    {
+      a_minus_b = else_clause;
+      zero = then_clause;
+    }
+  else
+    return NULL;
+
+  if (!integer_zerop (zero))
+    return NULL;
+
+  if ((code == GT_EXPR && then_clause == a_minus_b)
+      || (code == LE_EXPR && then_clause == zero))
+    {
+      /* x = (a > b_minus_1) ? a_minus_b : 0, or
+	 x = (a <= b_minus_1) ? 0 : a_minus_b */
+      a = TREE_OPERAND (cond_expr, 0);
+      b_minus_1 = TREE_OPERAND (cond_expr, 1);	
+    }
+  else if  ((code == GT_EXPR && then_clause == a_minus_b)
+      || (code == LE_EXPR && then_clause == zero))
+    {
+      /* x = (b_minus_1 < a) ? a_minus_b : 0, or
+         x = (b_minus_1 >= a) ? 0 : a_minus_b */
+      a = TREE_OPERAND (cond_expr, 1);
+      b_minus_1 = TREE_OPERAND (cond_expr, 0);
+    }
+  else
+    return NULL;
+	
+  if (TREE_TYPE (a) != type)
+    return NULL;
+
+  VARRAY_PUSH_TREE (stmt_list, last_stmt);
+  
+  /* So far so good. Left to check that:
+	- a_minus_b == a - b
+	- b_minus_1 == b - 1
+   */
+
+  stmt = SSA_NAME_DEF_STMT (a_minus_b);
+  if (!stmt || TREE_CODE (stmt) != MODIFY_EXPR)
+    return NULL;
+
+  expr = TREE_OPERAND (stmt, 1);
+  if (TREE_CODE (expr) != MINUS_EXPR)
+    return NULL;
+
+  if (TREE_OPERAND (expr, 0) != a)
+    return NULL;
+
+  b = TREE_OPERAND (expr, 1);
+  /* CHECKME: */
+  if (host_integerp (b, 1))
+    new = fold (int_const_binop (MINUS_EXPR, b, integer_one_node, 1));
+  else if (TREE_CODE (b) == SSA_NAME)
+    new = fold (build2 (MINUS_EXPR, type, b, integer_one_node));
+  else
+    return NULL;
+
+  if (!expressions_equal_p (b_minus_1, new))
+    return NULL;
+
+  VARRAY_PUSH_TREE (stmt_list, stmt);
+  if (vect_debug_details (NULL))
+    {
+      fprintf (dump_file, "vect_recog_unsigned_subsat_pattern: ");
+      print_generic_expr (dump_file, stmt, TDF_SLIM);
+    }
+
+  /* Pattern detected. Create a stmt to be used to replace the pattern: */
+  pattern_expr = build (SAT_MINUS_EXPR, type, a, b);
+  return pattern_expr;
+}
+
+
+/* Function vect_pattern_recog_1 
+
+   Input:
+   PATTERN_RECOG_FUNC: A pointer to a function that detects a certain
+	computation pattern.
+   STMT: A stmt from which the pattern search should start.
+
+   If PATTERN_RECOG_FUNC successfully detected the pattern, it creates an
+   expression that computes the same functionality and can be used to 
+   replace the sequence of stmts that are involved in the pattern. 
+   This function checks if the returned expression is supported in vector
+   form by the target and does some bookeeping, as explained in the
+   documentation for vect_recog_pattern.  */
+
+static void
+vect_pattern_recog_1 (tree (* pattern_recog_func) (tree, varray_type),
+		      block_stmt_iterator si)
+{
+  tree stmt = bsi_stmt (si);
+  stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
+  struct loop *loop = STMT_VINFO_LOOP (stmt_info);
+  varray_type stmt_list;
+  tree pattern_expr;
+  enum tree_code code;
+  tree vectype;
+  optab optab;
+  enum machine_mode vec_mode; 
+  tree var, var_name;
+  stmt_ann_t ann;
+
+
+  VARRAY_TREE_INIT (stmt_list, 10, "stmt list");
+  pattern_expr = (* pattern_recog_func) (stmt, stmt_list); 
+  if (!pattern_expr)
+    {
+      varray_clear (stmt_list);
+      return;
+    }
+
+
+  /* Check that the pattern is supported in vector form:  */
+  code = TREE_CODE (pattern_expr);
+  vectype = get_vectype_for_scalar_type (TREE_TYPE (pattern_expr));
+  optab = optab_for_tree_code (code, vectype);
+  if (!optab)
+    {
+      varray_clear (stmt_list);
+      return;
+    }
+  vec_mode = TYPE_MODE (vectype);
+  if (optab->handlers[(int) vec_mode].insn_code == CODE_FOR_nothing)
+    {
+      varray_clear (stmt_list);
+      return;
+    }
+
+
+  /* Found a vectorizable pattern! */
+  if (vect_debug_details (NULL))
+    {
+      fprintf (dump_file, "pattern recognized: ");
+      print_generic_expr (dump_file, pattern_expr, TDF_SLIM);
+    }
+
+
+  /* Mark the stmts that are involved in the pattern,
+     and create a new stmt to express the pattern and add it to the code.  */
+  
+  var = create_tmp_var (TREE_TYPE (pattern_expr), "patt");
+  add_referenced_tmp_var (var);
+  var_name = make_ssa_name (var, NULL_TREE);
+  pattern_expr = build (MODIFY_EXPR, void_type_node, var_name, pattern_expr);
+  SSA_NAME_DEF_STMT (var_name) = pattern_expr;
+  bsi_insert_before (&si, pattern_expr, BSI_SAME_STMT);
+  get_stmt_operands (pattern_expr);
+  ann = stmt_ann (pattern_expr);
+  set_stmt_info (ann, new_stmt_vec_info (pattern_expr, loop));
+
+  STMT_VINFO_RELATED_STMT (vinfo_for_stmt (pattern_expr)) = stmt;
+  STMT_VINFO_RELATED_STMT (vinfo_for_stmt (stmt)) = pattern_expr;
+  STMT_VINFO_RELEVANT_P (vinfo_for_stmt (pattern_expr)) = true;
+  
+  while (VARRAY_ACTIVE_SIZE (stmt_list) > 0)
+    {
+      tree stmt_in_pattern = VARRAY_TOP_TREE (stmt_list);
+      VARRAY_POP (stmt_list);
+      STMT_VINFO_IN_PATTERN_P (vinfo_for_stmt (stmt_in_pattern)) = true;
+    }
+  varray_clear (stmt_list);
+  
+  return;
+}
+
+
+/* Function vect_pattern_recog
+
+   Input:
+   LOOP_VINFO - a struct_loop_info of a loop in which we want to look for
+	computation idioms.
+
+   Output - for each computation idiom that is detected we insert a new stmt
+	that provides the same functionality and that can be vectorized. We
+	also record some information in the struct_stmt_info of the relevant
+	stmts, as explained below through an example:
+
+   At the entry to this function we have the following stmts, with the
+   following initial value in the STMT_VINFO fields:
+
+         stmt                     in_pattern_p	related_stmt	vec_stmt
+         S1: a_i = ....			false
+         S2: a_2 = ..use(a_i)..		false
+         S3: a_1 = ..use(a_2)..		false
+         S4: a_0 = ..use(a_1)..		false
+         S5: ... = ..use(a_0)..		false
+
+
+   Say the sequence {S1,S2,S3,S4} was detected as a pattern that can be
+   represented by a single stmt. We then:
+   - create a new stmt S6 that will replace the pattern.
+   - insert the new stmt S6 before the last stmt in the pattern
+   - fill in the STMT_VINFO fields as follows:
+
+                                  in_pattern_p	related_stmt	vec_stmt
+         S1: a_i = ....			true
+         S2: a_2 = ..use(a_i)..		true
+         S3: a_1 = ..use(a_2)..		true
+       > S6: a_new = ....		false	S4
+         S4: a_0 = ..use(a_1)..		true	S6
+         S5: ... = ..use(a_0)..		false
+
+   (the last stmt in the pattern (S4) and the new pattern stmt (S6) point
+    to each other through the RELATED_STMT field).
+
+   S6 is marked as relevant. In vect_mark_stmts_to_be_vectorized the 
+   stmts {S1,S2,S3,S4} are marked as irrelevant.
+
+   If vectorization succeeds, vect_transform_stmt will skip over {S1,S2,S3}
+   (because they are marked as irrelevent). It will vectorize S6, and record
+   a pointer to the new vector stmt VS6 both from S6 (as usual), and also 
+   from S4. We do that so that when we get to vectorizing stmts that use the
+   def of S4 (like S5 that uses a_0), we'll know where to take the relevant
+   vector-def from. S4 will be skipped, and S5 will be vectorized as usual:
+
+                                  in_pattern_p	related_stmt	vec_stmt
+         S1: a_i = ....         	true            
+         S2: a_2 = ..use(a_i).. 	true    
+         S3: a_1 = ..use(a_2).. 	true    
+       > VS6: va_new = ....	
+         S6: a_new = ....       	false	S4		VS6
+         S4: a_0 = ..use(a_1).. 	true	S6		VS6
+       > VS5: ... = ..vuse(va_new)..
+         S5: ... = ..use(a_0).. false   
+
+   DCE could then get rid of {S1,S2,S3,S4,S5,S6} (if their defs are not used
+   elsewhere), and we'll end up with:
+
+	VS6: va_new = .... 
+	VS5: ... = ..vuse(va_new)..
+
+   If vectorization does not succeed, DCE will clean S6 away (its def is
+   not used), and we'll end up with the original sequence.
+*/
+
+static void
+vect_pattern_recog (loop_vec_info loop_vinfo)
+{
+  struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
+  basic_block *bbs = LOOP_VINFO_BBS (loop_vinfo);
+  unsigned int nbbs = loop->num_nodes;
+  block_stmt_iterator si;
+  tree stmt;
+  unsigned int i, j;
+  tree (* pattern_recog_func) (tree, varray_type);
+
+  if (vect_debug_details (NULL))
+    fprintf (dump_file, "\n<<vect_pattern_recog>>\n");
+
+  /* Scan through the loop stmts, trying to apply the pattern recognition
+     utility starting at each stmt visited:  */
+  for (i = 0; i < nbbs; i++)
+    {
+      basic_block bb = bbs[i];
+      for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
+        {
+          stmt = bsi_stmt (si);
+
+	  /* Scan over all vect_recog_xxx_pattern functions.  */
+	  for (j = 0; j < NUM_PATTERNS; j++)
+	    {
+	      pattern_recog_func = vect_pattern_recog_func[j];
+	      vect_pattern_recog_1 (pattern_recog_func, si);
+	    }
+	}
+    }
 }
 
 
@@ -5896,6 +6287,8 @@ vect_analyze_loop (struct loop *loop)
       destroy_loop_vec_info (loop_vinfo);
       return NULL;
     }
+
+  vect_pattern_recog (loop_vinfo);
 
   /* Data-flow analysis to detect stmts that do not need to be vectorized.  */
 

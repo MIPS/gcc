@@ -94,6 +94,18 @@ typedef struct _stmt_vec_info {
      a[i]	a		a
      a[i][j]	a		a[i]  */
   tree vect_dr_base;
+
+  /* Stmt is part of some pattern (computation idiom)  */
+  bool in_pattern_p;
+
+  /* If this stmt is part of a pattern (in_pattern_p is true):
+        related_stmt is the stmt whose vectorized_stmt should be used to get
+	the relevant vector-def that will replace the scalar-def of this stmt.
+     Otherwise (this stmt is not part of a pattern): 
+        currently used only if this stmt is a new stmt that replaces a 
+        computation pattern. related_stmt in this case is the last stmt in the
+        original pattern.  */
+  tree related_stmt;
 } *stmt_vec_info;
 
 /* Access Functions.  */
@@ -106,6 +118,8 @@ typedef struct _stmt_vec_info {
 #define STMT_VINFO_DATA_REF(S)      (S)->data_ref_info
 #define STMT_VINFO_MEMTAG(S)        (S)->memtag
 #define STMT_VINFO_VECT_DR_BASE(S)  (S)->vect_dr_base
+#define STMT_VINFO_IN_PATTERN_P(S)  (S)->in_pattern_p
+#define STMT_VINFO_RELATED_STMT(S)  (S)->related_stmt
 
 static inline void set_stmt_info (stmt_ann_t ann, stmt_vec_info stmt_info);
 static inline stmt_vec_info vinfo_for_stmt (tree stmt);
@@ -209,9 +223,21 @@ typedef struct _loop_vec_info {
 /* Main driver.  */
 extern void vectorize_loops (struct loops *);
 
-/* creation and deletion of loop and stmt info structs.  */
+/* Creation and deletion of loop and stmt info structs.  */
 extern loop_vec_info new_loop_vec_info (struct loop *loop);
 extern void destroy_loop_vec_info (loop_vec_info);
 extern stmt_vec_info new_stmt_vec_info (tree stmt, struct loop *loop);
+
+/* Pattern recognition functions.  */
+tree vect_recog_unsigned_subsat_pattern (tree, varray_type);
+
+typedef tree (* _recog_func_ptr) (tree, varray_type);
+
+/* Additional pattern recognition functions can (and will) be added
+   in the future.  */
+#define NUM_PATTERNS 1
+_recog_func_ptr vect_pattern_recog_func[NUM_PATTERNS] = {
+	vect_recog_unsigned_subsat_pattern};
+
 
 #endif  /* GCC_TREE_VECTORIZER_H  */
