@@ -427,7 +427,7 @@ toc_section ()						\
 /* This is how to advance the location counter by SIZE bytes.  */
 
 #define ASM_OUTPUT_SKIP(FILE,SIZE)  \
-  fprintf (FILE, "\t.space %d\n", (SIZE))
+  fprintf (FILE, "\t.space "HOST_WIDE_INT_PRINT_UNSIGNED"\n", (SIZE))
 
 /* This says how to output an assembler line
    to define a global common symbol.  */
@@ -436,9 +436,9 @@ toc_section ()						\
   do { fputs ("\t.comm ", (FILE));			\
        RS6000_OUTPUT_BASENAME ((FILE), (NAME));		\
        if ( (SIZE) > 4)					\
-         fprintf ((FILE), ",%d,3\n", (SIZE));		\
+         fprintf ((FILE), ","HOST_WIDE_INT_PRINT_UNSIGNED",3\n", (SIZE)); \
        else						\
-	 fprintf ((FILE), ",%d\n", (SIZE));		\
+	 fprintf ((FILE), ","HOST_WIDE_INT_PRINT_UNSIGNED"\n", (SIZE));	\
   } while (0)
 
 /* This says how to output an assembler line
@@ -450,7 +450,7 @@ toc_section ()						\
 #define ASM_OUTPUT_LOCAL(FILE, NAME, SIZE, ROUNDED)	\
   do { fputs ("\t.lcomm ", (FILE));			\
        RS6000_OUTPUT_BASENAME ((FILE), (NAME));		\
-       fprintf ((FILE), ",%d,%s\n", (TARGET_32BIT ? (SIZE) : (ROUNDED)), \
+       fprintf ((FILE), ","HOST_WIDE_INT_PRINT_UNSIGNED",%s\n", (TARGET_32BIT ? (SIZE) : (ROUNDED)), \
 		xcoff_bss_section_name);		\
      } while (0)
 

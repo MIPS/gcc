@@ -4431,11 +4431,11 @@ while (0)
 	READONLY_DATA_SECTION ();					\
 	ASM_OUTPUT_ALIGN (STREAM, floor_log2 (ALIGN / BITS_PER_UNIT));	\
 	mips_declare_object (STREAM, NAME, "", ":\n\t.space\t%u\n",	\
-	    (SIZE));							\
+	    (int)(SIZE));						\
       }									\
     else								\
       mips_declare_object (STREAM, NAME, "\n\t.comm\t", ",%u\n",	\
-	  (SIZE));							\
+	  (int)(SIZE));							\
   } while (0)
 
 
@@ -4443,7 +4443,7 @@ while (0)
    linker).  */
 
 #define ASM_OUTPUT_LOCAL(STREAM, NAME, SIZE, ROUNDED)			\
-  mips_declare_object (STREAM, NAME, "\n\t.lcomm\t", ",%u\n", (SIZE))
+  mips_declare_object (STREAM, NAME, "\n\t.lcomm\t", ",%u\n", (int)(SIZE))
 
 
 /* This says how to output an external.  It would be possible not to
@@ -4554,7 +4554,7 @@ do {									\
 
 #undef ASM_OUTPUT_SKIP
 #define ASM_OUTPUT_SKIP(STREAM,SIZE)					\
-  fprintf (STREAM, "\t.space\t%u\n", (SIZE))
+  fprintf (STREAM, "\t.space\t"HOST_WIDE_INT_PRINT_UNSIGNED"\n", (SIZE))
 
 /* This is how to output a string.  */
 #undef ASM_OUTPUT_ASCII

@@ -233,9 +233,9 @@ do {									\
   fprintf ((FILE), "%s", COMMON_ASM_OP);				\
   assemble_name ((FILE), (NAME));					\
   if (TARGET_ELF)							\
-    fprintf ((FILE), ",%u,%u\n", (SIZE), (ALIGN) / BITS_PER_UNIT);	\
+    fprintf ((FILE), ",%u,%u\n", (int)(SIZE), (ALIGN) / BITS_PER_UNIT);	\
   else									\
-    fprintf ((FILE), ",%u\n", (SIZE));					\
+    fprintf ((FILE), ",%u\n", (int)(SIZE));				\
 } while (0)
 
 #undef ASM_OUTPUT_ALIGNED_LOCAL
@@ -256,7 +256,7 @@ do {									\
     ASM_OUTPUT_ALIGN ((FILE), align == -1 ? 2 : align);			\
     fprintf ((FILE), "%s\t", "\t.lcomm");				\
     assemble_name ((FILE), (NAME));					\
-    fprintf ((FILE), ",%u\n", (SIZE));					\
+    fprintf ((FILE), ",%u\n", (int)(SIZE));				\
    }									\
 } while (0)
 
@@ -408,9 +408,9 @@ do {									\
 #define ASM_OUTPUT_SKIP(FILE,SIZE) \
 do {									\
   if (TARGET_ELF)							\
-    fprintf (FILE, "%s%u\n", SKIP_ASM_OP, (SIZE));			\
+    fprintf (FILE, "%s%u\n", SKIP_ASM_OP, (int)(SIZE));			\
   else									\
-    fprintf ((FILE), "%s.,.+%u\n", SET_ASM_OP, (SIZE));		\
+    fprintf ((FILE), "%s.,.+%u\n", SET_ASM_OP, (int)(SIZE));		\
 } while (0)
 
 

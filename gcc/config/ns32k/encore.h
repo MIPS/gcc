@@ -98,7 +98,7 @@ output_file_directive ((FILE), main_input_filename)
 #define ASM_OUTPUT_LOCAL(FILE, NAME, SIZE, ROUNDED)		\
 ( fputs ("\t.bss ", (FILE)),					\
   assemble_name ((FILE), (NAME)),				\
-  fprintf ((FILE), ",%u,%u\n", (SIZE), (ROUNDED)))
+  fprintf ((FILE), ",%u,%u\n", (int)(SIZE), (int)(ROUNDED)))
 
  /*
   *  Encore assembler can't handle huge string constants like the one in
@@ -162,7 +162,7 @@ do {							\
 #define ASM_OUTPUT_SHARED_COMMON(FILE, NAME, SIZE, ROUNDED) \
 ( fputs (".shrcomm ", (FILE)),			\
   assemble_name ((FILE), (NAME)),		\
-  fprintf ((FILE), ",%d\n", (ROUNDED)))
+  fprintf ((FILE), ",%d\n", (int)(ROUNDED)))
 
 /* This says how to output an assembler line
    to define a shared local symbol. */
@@ -170,7 +170,7 @@ do {							\
 #define ASM_OUTPUT_SHARED_LOCAL(FILE, NAME, SIZE, ROUNDED) \
 ( fputs ("\t.shrbss ", (FILE)),				\
   assemble_name ((FILE), (NAME)),			\
-  fprintf ((FILE), ",%d,%d\n", (SIZE), (ROUNDED)))
+  fprintf ((FILE), ",%d,%d\n", (int)(SIZE), (int)(ROUNDED)))
 
 #define FUNCTION_PROFILER(FILE, LABELNO)  \
    fprintf (FILE, "\taddr .LP%d,r0\n\tjsr mcount\n", (LABELNO))

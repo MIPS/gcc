@@ -90,7 +90,7 @@ extern const char *current_function_original_name;
     data_section ();					\
     ASM_OUTPUT_ALIGN ((FILE), align == -1 ? 2 : align);	\
     ASM_OUTPUT_LABEL ((FILE), (NAME));			\
-    fprintf ((FILE), "\t.set .,.+%u\n", (ROUNDED));	\
+    fprintf ((FILE), "\t.set .,.+%u\n", (int)(ROUNDED));\
   } while (0)
 
 /* The routine used to output string literals.  */

@@ -82,8 +82,8 @@ BOOT_CFLAGS = -g -O2
 # with other compilers.  This is partially controlled by configure in
 # stage1, as not all versions of gcc understand -Wno-long-long.
 LOOSE_WARN = -W -Wall -Wwrite-strings -Wstrict-prototypes -Wmissing-prototypes
-STRICT_WARN = -Wtraditional @strict1_warn@
-STRICT2_WARN = -Wtraditional -pedantic -Wno-long-long
+STRICT_WARN = @strict1_warn@
+STRICT2_WARN = -pedantic -Wno-long-long
 
 # This is how we control whether or not the additional warnings are applied.
 .-warn = $(STRICT_WARN)

@@ -280,7 +280,8 @@ Boston, MA 02111-1307, USA.  */
 #define ASM_OUTPUT_ALIGNED_LOCAL(FILE, NAME, SIZE, ALIGN) \
 ( fputs (".lcomm ", (FILE)),				\
   assemble_name ((FILE), (NAME)),			\
-  fprintf ((FILE), ",%u,%u\n", (SIZE), floor_log2 ((ALIGN) / BITS_PER_UNIT)))
+  fprintf ((FILE), ","HOST_WIDE_INT_PRINT_UNSIGNED",%u\n", (SIZE), \
+	   floor_log2 ((ALIGN) / BITS_PER_UNIT)))
 
 /* Output #ident as a .ident.  */
 

@@ -49,7 +49,7 @@ Boston, MA 02111-1307, USA.  */
 #define ASM_OUTPUT_ALIGNED_BSS(FILE, DECL, NAME, SIZE, ALIGN)	\
 do {								\
   ASM_GLOBALIZE_LABEL (FILE, NAME);				\
-  if (SIZE > 0 && SIZE <= mips_section_threshold)		\
+  if (SIZE > 0 && SIZE <= (unsigned HOST_WIDE_INT) mips_section_threshold) \
     sbss_section ();						\
   else								\
     bss_section ();						\

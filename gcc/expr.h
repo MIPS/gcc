@@ -784,7 +784,7 @@ extern int const_mult_add_overflow_p PARAMS ((rtx, rtx, rtx, enum machine_mode, 
 extern rtx expand_mult_add PARAMS ((rtx, rtx, rtx, rtx,enum machine_mode, int));
 extern rtx expand_mult_highpart_adjust PARAMS ((enum machine_mode, rtx, rtx, rtx, rtx, int));
 
-extern rtx assemble_static_space PARAMS ((int));
+extern rtx assemble_static_space PARAMS ((unsigned HOST_WIDE_INT));
 
 /* Hook called by expand_expr for language-specific tree codes.
    It is up to the language front end to install a hook

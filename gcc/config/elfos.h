@@ -110,7 +110,8 @@ Boston, MA 02111-1307, USA.  */
 
 #undef  ASM_OUTPUT_SKIP
 #define ASM_OUTPUT_SKIP(FILE, SIZE) \
-  fprintf (FILE, "%s%u\n", SKIP_ASM_OP, (SIZE))
+   fprintf ((FILE), "%s"HOST_WIDE_INT_PRINT_UNSIGNED"\n",\
+	    SKIP_ASM_OP, (SIZE))
 
 /* This is how to output an internal numbered label where
    PREFIX is the class of label and NUM is the number within the class.
@@ -187,7 +188,8 @@ Boston, MA 02111-1307, USA.  */
     {									\
       fprintf ((FILE), "%s", COMMON_ASM_OP);				\
       assemble_name ((FILE), (NAME));					\
-      fprintf ((FILE), ",%u,%u\n", (SIZE), (ALIGN) / BITS_PER_UNIT);	\
+      fprintf ((FILE), ","HOST_WIDE_INT_PRINT_UNSIGNED",%u\n",		\
+	       (SIZE), (ALIGN) / BITS_PER_UNIT);			\
     }									\
   while (0)
 

@@ -274,7 +274,8 @@ do { text_section ();							\
   do {  \
     fputs (".lcomm ", (FILE));				\
     assemble_name ((FILE), (NAME));			\
-    fprintf ((FILE), ",%u,%u\n", (SIZE), floor_log2 ((ALIGN) / BITS_PER_UNIT)); \
+    fprintf ((FILE), ","HOST_WIDE_INT_PRINT_UNSIGNED",%u\n", (SIZE), \
+	     floor_log2 ((ALIGN) / BITS_PER_UNIT)); \
     if ((DECL) && ((TREE_STATIC (DECL)                                             \
 	 && (!DECL_COMMON (DECL) || !TREE_PUBLIC (DECL)))               \
         || DECL_INITIAL (DECL)))                                         \

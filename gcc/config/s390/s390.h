@@ -1403,7 +1403,7 @@ extern int s390_nr_constants;
 	{								    \
 	  assemble_integer (EXP, GET_MODE_SIZE (MODE), ALIGN, 1);	    \
 	  if (GET_MODE_SIZE (MODE) == 1)				    \
-	    ASM_OUTPUT_SKIP ((FILE), 1);				    \
+	    ASM_OUTPUT_SKIP ((FILE), (unsigned HOST_WIDE_INT) 1);	    \
 	}								    \
       break;								    \
 									    \

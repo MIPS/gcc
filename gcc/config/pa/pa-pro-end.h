@@ -51,8 +51,9 @@ Boston, MA 02111-1307, USA.  */
 #define ASM_OUTPUT_ALIGNED_COMMON(FILE, NAME, SIZE, ALIGNED)		\
 { bss_section ();							\
   assemble_name ((FILE), (NAME));					\
-  fputs ("\t.comm ", (FILE));						\
-  fprintf ((FILE), "%d\n", MAX ((SIZE), ((ALIGNED) / BITS_PER_UNIT)));}
+  fprintf ((FILE), "\t.comm "HOST_WIDE_INT_PRINT_UNSIGNED"\n",		\
+	   MAX ((unsigned HOST_WIDE_INT)(SIZE),				\
+		(unsigned HOST_WIDE_INT)((ALIGNED) / BITS_PER_UNIT)));}
 
 /* This says how to output an assembler line to define a local common symbol
    with size SIZE (in bytes) and alignment ALIGN (in bits).  */
@@ -62,4 +63,5 @@ Boston, MA 02111-1307, USA.  */
 { bss_section ();							\
   fprintf ((FILE), "\t.align %d\n", ((ALIGNED) / BITS_PER_UNIT));	\
   assemble_name ((FILE), (NAME));					\
-  fprintf ((FILE), "\n\t.block %d\n", (SIZE));}
+  fprintf ((FILE), "\n\t.block "HOST_WIDE_INT_PRINT_UNSIGNED"\n",	\
+	   (unsigned HOST_WIDE_INT)(SIZE));}

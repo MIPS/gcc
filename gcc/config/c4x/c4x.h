@@ -1948,7 +1948,7 @@ do {						\
 #define ASM_OUTPUT_LOCAL(FILE, NAME, SIZE, ROUNDED)  \
 ( fputs ("\t.bss\t", FILE),			\
   assemble_name (FILE, (NAME)),		\
-  fprintf (FILE, ",%u\n", (ROUNDED)))
+  fprintf (FILE, ",%u\n", (int)(ROUNDED)))
 
 /* This says how to output an assembler line to define a global
    uninitialized variable.  */
@@ -1959,7 +1959,7 @@ do {						\
    assemble_name (FILE, (NAME)),	\
    fputs ("\n\t.bss\t", FILE),	\
    assemble_name (FILE, (NAME)),	\
-   fprintf (FILE, ",%u\n", (ROUNDED)))
+   fprintf (FILE, ",%u\n", (int)(ROUNDED)))
 
 #undef ASM_OUTPUT_BSS
 #define ASM_OUTPUT_BSS(FILE, DECL, NAME, SIZE, ALIGN)   \
@@ -1967,7 +1967,7 @@ do {						\
    assemble_name (FILE, (NAME)),	\
    fputs ("\n\t.bss\t", FILE),	\
    assemble_name (FILE, (NAME)),	\
-   fprintf (FILE, ",%u\n", (SIZE)))
+   fprintf (FILE, ",%u\n", (int)(SIZE)))
 
 /* Macros Controlling Initialization Routines.  */
 

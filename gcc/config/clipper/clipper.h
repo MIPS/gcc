@@ -983,7 +983,7 @@ do									      \
    that says to advance the location counter by SIZE bytes.  */
 
 #define ASM_OUTPUT_SKIP(FILE,SIZE)  \
-  fprintf (FILE, "\t.space %u\n", (SIZE))
+  fprintf (FILE, "\t.space %u\n", (int)(SIZE))
 
 /* This says how to output an assembler line
    to define a local common symbol.  */
@@ -993,7 +993,7 @@ do									      \
 ( data_section (),					\
   fputs ("\t.bss\t", (FILE)),				\
   assemble_name ((FILE), (NAME)),			\
-  fprintf ((FILE), ",%u,%u\n", (SIZE), (ALIGN)/BITS_PER_UNIT))
+  fprintf ((FILE), ",%u,%u\n", (int)(SIZE), (ALIGN)/BITS_PER_UNIT))
 
 /* Store in OUTPUT a string (made with alloca) containing
    an assembler-name for a local static variable named NAME.

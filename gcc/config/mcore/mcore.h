@@ -1241,7 +1241,7 @@ extern long mcore_current_compilation_timestamp;
    that says to advance the location counter by SIZE bytes.  */
 #undef  ASM_OUTPUT_SKIP
 #define ASM_OUTPUT_SKIP(FILE,SIZE)  \
-  fprintf (FILE, "\t.fill %d, 1\n", (SIZE))
+  fprintf (FILE, "\t.fill %d, 1\n", (int)(SIZE))
 
 /* This says how to output an assembler line
    to define a global common symbol, with alignment information.  */
@@ -1256,7 +1256,7 @@ extern long mcore_current_compilation_timestamp;
         {							\
           fputs ("\t.comm\t", FILE);				\
           assemble_name (FILE, NAME);				\
-          fprintf (FILE, ",%d\n", SIZE);			\
+          fprintf (FILE, ",%d\n", (int)(SIZE));			\
         }							\
     }								\
   while (0)
@@ -1298,7 +1298,7 @@ extern long mcore_current_compilation_timestamp;
 #define ASM_OUTPUT_LOCAL(FILE, NAME, SIZE, ROUNDED)	\
   (fputs ("\t.lcomm\t", FILE),				\
   assemble_name (FILE, NAME),				\
-  fprintf (FILE, ",%d\n", SIZE))
+  fprintf (FILE, ",%d\n", (int)(SIZE)))
 
 /* ... and how to define a local common symbol whose alignment
    we wish to specify.  ALIGN comes in as bits, we have to turn
@@ -1309,7 +1309,7 @@ extern long mcore_current_compilation_timestamp;
     {									\
       fputs ("\t.bss\t", (FILE));					\
       assemble_name ((FILE), (NAME));					\
-      fprintf ((FILE), ",%d,%d\n", (SIZE), (ALIGN) / BITS_PER_UNIT);	\
+      fprintf ((FILE), ",%d,%d\n", (int)(SIZE), (ALIGN) / BITS_PER_UNIT);\
     }									\
   while (0)
 

@@ -1102,14 +1102,14 @@ enum reg_class { NO_REGS, R2, R0_1, INDEX_REGS, BASE_REGS, ALL_REGS, LIM_REG_CLA
  fprintf(FILE,"; in ASM_OUTPUT_ALIGN: pwr_of_2_bytcnt=%d\n",LOG)
 
 #define ASM_OUTPUT_SKIP(FILE,SIZE)	\
-   fprintf(FILE,"; in ASM_OUTPUT_SKIP: size=%d\n",SIZE)
+   fprintf(FILE,"; in ASM_OUTPUT_SKIP: size=%d\n",(int)(SIZE))
 
 /* This says how to output an assembler line
    to define a global common symbol.  */
 
 #define ASM_OUTPUT_COMMON(FILE, NAME, SIZE, ROUNDED)  do {	\
 	check_section(Static);					  \
-	fprintf (FILE, "\tcommon  %s,%d\n", NAME, SIZE);	  \
+	fprintf (FILE, "\tcommon  %s,%d\n", NAME, (int)(SIZE));	  \
      } while (0)
 
 #define ASM_OUTPUT_EXTERNAL(FILE, DECL, NAME)  do {		\
@@ -1121,7 +1121,7 @@ enum reg_class { NO_REGS, R2, R0_1, INDEX_REGS, BASE_REGS, ALL_REGS, LIM_REG_CLA
 
 #define ASM_OUTPUT_LOCAL(FILE, NAME, SIZE, ROUNDED)  do {  \
 	check_section (Static);					\
-	fprintf(FILE,"%s \tblock   %d\t; local common\n",NAME,SIZE);	\
+	fprintf(FILE,"%s \tblock   %d\t; local common\n",NAME,(int)(SIZE));	\
      } while (0)
 
 /* Store in OUTPUT a string (made with alloca) containing

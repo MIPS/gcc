@@ -1489,7 +1489,7 @@ extern int a29k_debug_reg_map[FIRST_PSEUDO_REGISTER];
     fprintf (FILE, "\t.align %d\n", 1 << (LOG))
 
 #define ASM_OUTPUT_SKIP(FILE,SIZE)  \
-  fprintf (FILE, "\t.block %d\n", (SIZE))
+  fprintf (FILE, "\t.block %d\n", (int)(SIZE))
 
 /* This says how to output an assembler line
    to define a global common symbol.  */
@@ -1497,7 +1497,7 @@ extern int a29k_debug_reg_map[FIRST_PSEUDO_REGISTER];
 #define ASM_OUTPUT_COMMON(FILE, NAME, SIZE, ROUNDED)  \
 ( fputs ("\t.comm ", (FILE)),			\
   assemble_name ((FILE), (NAME)),		\
-  fprintf ((FILE), ",%d\n", (SIZE)))
+  fprintf ((FILE), ",%d\n", (int)(SIZE)))
 
 /* This says how to output an assembler line
    to define a local common symbol.  */
@@ -1505,7 +1505,7 @@ extern int a29k_debug_reg_map[FIRST_PSEUDO_REGISTER];
 #define ASM_OUTPUT_LOCAL(FILE, NAME, SIZE,ROUNDED)	\
 ( fputs ("\t.lcomm ", (FILE)),				\
   assemble_name ((FILE), (NAME)),			\
-  fprintf ((FILE), ",%d\n", (SIZE)))
+  fprintf ((FILE), ",%d\n", (int)(SIZE)))
 
 /* Store in OUTPUT a string (made with alloca) containing
    an assembler-name for a local static variable named NAME.

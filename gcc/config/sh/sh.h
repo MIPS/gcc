@@ -3052,7 +3052,7 @@ while (0)
    that says to advance the location counter by SIZE bytes.  */
 
 #define ASM_OUTPUT_SKIP(FILE,SIZE) \
-  fprintf ((FILE), "\t.space %d\n", (SIZE))
+  fprintf ((FILE), "\t.space %d\n", (int)(SIZE))
 
 /* This says how to output an assembler line
    to define a global common symbol.  */
@@ -3060,7 +3060,7 @@ while (0)
 #define ASM_OUTPUT_COMMON(FILE, NAME, SIZE, ROUNDED)	\
 ( fputs ("\t.comm ", (FILE)),			\
   assemble_name ((FILE), (NAME)),		\
-  fprintf ((FILE), ",%d\n", (SIZE)))
+  fprintf ((FILE), ",%d\n", (int)(SIZE)))
 
 /* This says how to output an assembler line
    to define a local common symbol.  */
@@ -3068,7 +3068,7 @@ while (0)
 #define ASM_OUTPUT_LOCAL(FILE, NAME, SIZE, ROUNDED)	\
 ( fputs ("\t.lcomm ", (FILE)),				\
   assemble_name ((FILE), (NAME)),			\
-  fprintf ((FILE), ",%d\n", (SIZE)))
+  fprintf ((FILE), ",%d\n", (int)(SIZE)))
 
 /* A C statement to be executed just prior to the output of
    assembler code for INSN, to modify the extracted operands so

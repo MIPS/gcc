@@ -330,7 +330,7 @@ do {							\
       fprintf ((STREAM), "\t.comm\t"); 			\
       assemble_name ((STREAM), (NAME));			\
       fprintf ((STREAM), ", %d\t%s %d\n",		\
-	       (ROUNDED), ASM_COMMENT_START, (SIZE));	\
+	       (ROUNDED), ASM_COMMENT_START, (int)(SIZE));	\
     }							\
 } while (0)
 

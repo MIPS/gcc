@@ -177,7 +177,7 @@ Boston, MA 02111-1307, USA.  */
 	  fprintf ((STREAM), "\t.comm\t"); 		\
 	  assemble_name ((STREAM), (NAME));		\
 	  asm_fprintf ((STREAM), ", %d\t%@ %d\n",	\
-		   (ROUNDED), (SIZE));			\
+		   (int)(ROUNDED), (int)(SIZE));	\
 	}						\
     }							\
   while (0)

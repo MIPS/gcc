@@ -131,7 +131,7 @@ Boston, MA 02111-1307, USA.  */
  */
 #undef ASM_OUTPUT_SKIP
 #define ASM_OUTPUT_SKIP(FILE,SIZE)  \
-  fprintf (FILE, "\tdcb.b %u,0\n", (SIZE))
+  fprintf (FILE, "\tdcb.b %u,0\n", (int)(SIZE))
 
 #undef GLOBAL_ASM_OP 
 #define GLOBAL_ASM_OP "\txdef\t"
@@ -329,7 +329,7 @@ Boston, MA 02111-1307, USA.  */
 #define ASM_OUTPUT_COMMON(FILE, NAME, SIZE, ROUNDED)  \
 ( fputs ("\t.comm ", (FILE)),			\
   assemble_name ((FILE), (NAME)),		\
-  fprintf ((FILE), ",%u\n", (ROUNDED)))
+  fprintf ((FILE), ",%u\n", (int)(ROUNDED)))
 
 #undef ASM_OUTPUT_LOCAL
 #define ASM_OUTPUT_LOCAL(FILE, NAME, SIZE, ROUNDED)	\
@@ -339,7 +339,7 @@ Boston, MA 02111-1307, USA.  */
     data_section ();					\
     ASM_OUTPUT_ALIGN ((FILE), align)                    \
     ASM_OUTPUT_LABEL ((FILE), (NAME));			\
-    fprintf ((FILE), "\tdcb.b %u,0\n", (ROUNDED));	\
+    fprintf ((FILE), "\tdcb.b %u,0\n", (int)(ROUNDED));	\
     /* fprintf ((FILE), "\tsection 10\n"); */             \
   } while (0)
 

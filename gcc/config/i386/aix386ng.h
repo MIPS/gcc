@@ -94,7 +94,7 @@ Boston, MA 02111-1307, USA.  */
 #define ASM_OUTPUT_LOCAL(FILE, NAME, SIZE, ROUNDED)  \
   (bss_section (),					\
    ASM_OUTPUT_LABEL ((FILE), (NAME)),			\
-   fprintf ((FILE), "\t.set .,.+%u\n", (ROUNDED)))
+   fprintf ((FILE), "\t.set .,.+%u\n", (int)(ROUNDED)))
 
 
 /* Undef all the .init and .fini section stuff if we are not using gas and

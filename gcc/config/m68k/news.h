@@ -160,7 +160,7 @@ Boston, MA 02111-1307, USA.  */
   fprintf (FILE, "\tmove.l (sp)+,%s\n", reg_names[REGNO])
   
 #define ASM_OUTPUT_SKIP(FILE,SIZE)  \
-  fprintf (FILE, "\t.space %u\n", (SIZE))
+  fprintf (FILE, "\t.space %u\n", (int)(SIZE))
 
 #if 0
 /* The NEWS assembler in version 3.4 complains about fmove.d, but this

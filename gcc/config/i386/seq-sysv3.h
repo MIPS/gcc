@@ -35,7 +35,7 @@
 #define ASM_OUTPUT_SHARED_COMMON(FILE, NAME, SIZE, ROUNDED) \
 ( fputs(".comm ", (FILE)),			\
   assemble_name((FILE), (NAME)),		\
-   fprintf((FILE), ",%u,-3\n", (SIZE)))
+   fprintf((FILE), ",%u,-3\n", (int)(SIZE)))
 
 /* Assembler pseudo-op for uninitialized shared local variables (.shbss).  */
 #undef  SHARED_BSS_SECTION_ASM_OP

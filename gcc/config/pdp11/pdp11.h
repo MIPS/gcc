@@ -1113,7 +1113,7 @@ fprintf (FILE, "$help$: . = .+8 ; space for tmp moves!\n")	\
     }
 
 #define ASM_OUTPUT_SKIP(FILE,SIZE)  \
-  fprintf (FILE, "\t.=.+ %o\n", (SIZE))
+  fprintf (FILE, "\t.=.+ %o\n", (int)(SIZE))
 
 /* This says how to output an assembler line
    to define a global common symbol.  */
@@ -1123,7 +1123,7 @@ fprintf (FILE, "$help$: . = .+8 ; space for tmp moves!\n")	\
   assemble_name ((FILE), (NAME)),		\
   fprintf ((FILE), "\n"),			\
   assemble_name ((FILE), (NAME)),		\
-  fprintf ((FILE), ": .=.+ %o\n", (ROUNDED))		\
+  fprintf ((FILE), ": .=.+ %o\n", (int)(ROUNDED))		\
 )
 
 /* This says how to output an assembler line
@@ -1131,7 +1131,7 @@ fprintf (FILE, "$help$: . = .+8 ; space for tmp moves!\n")	\
 
 #define ASM_OUTPUT_LOCAL(FILE, NAME, SIZE, ROUNDED)  \
 ( assemble_name ((FILE), (NAME)),				\
-  fprintf ((FILE), ":\t.=.+ %o\n", (ROUNDED)))
+  fprintf ((FILE), ":\t.=.+ %o\n", (int)(ROUNDED)))
 
 /* Store in OUTPUT a string (made with alloca) containing
    an assembler-name for a local static variable named NAME.

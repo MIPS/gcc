@@ -247,7 +247,7 @@ end_final (filename)
     {
       char name[20];
       int align = exact_log2 (BIGGEST_ALIGNMENT / BITS_PER_UNIT);
-      int size, rounded;
+      unsigned HOST_WIDE_INT size, rounded;
       int long_bytes = LONG_TYPE_SIZE / BITS_PER_UNIT;
       int gcov_type_bytes = GCOV_TYPE_SIZE / BITS_PER_UNIT;
       int pointer_bytes = POINTER_SIZE / BITS_PER_UNIT;

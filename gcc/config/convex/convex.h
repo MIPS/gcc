@@ -1293,7 +1293,7 @@ enum reg_class {
    that says to advance the location counter by SIZE bytes.  */
 
 #define ASM_OUTPUT_SKIP(FILE,SIZE)  \
-  fprintf (FILE, "\tds.b %u(0)\n", (SIZE))
+  fprintf (FILE, "\tds.b %u(0)\n", (int)(SIZE))
 
 /* This says how to output an assembler line
    to define a global common symbol.  */
@@ -1301,7 +1301,7 @@ enum reg_class {
 #define ASM_OUTPUT_COMMON(FILE, NAME, SIZE, ROUNDED)  \
 ( fputs (".comm ", (FILE)),			\
   assemble_name ((FILE), (NAME)),		\
-  fprintf ((FILE), ",%u\n", (ROUNDED)))
+  fprintf ((FILE), ",%u\n", (int)(ROUNDED)))
 
 /* This says how to output an assembler line
    to define a local common symbol.  */
@@ -1309,7 +1309,7 @@ enum reg_class {
 #define ASM_OUTPUT_LOCAL(FILE, NAME, SIZE, ROUNDED)  \
 ( bss_section (),				\
   assemble_name ((FILE), (NAME)),		\
-  fprintf ((FILE), ":\tbs.b %u\n", (ROUNDED)))
+  fprintf ((FILE), ":\tbs.b %u\n", (int)(ROUNDED)))
 
 /* Store in OUTPUT a string (made with alloca) containing
    an assembler-name for a local static variable named NAME.

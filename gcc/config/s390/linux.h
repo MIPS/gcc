@@ -210,7 +210,7 @@ Boston, MA 02111-1307, USA.  */
 
 #undef ASM_OUTPUT_SKIP
 #define ASM_OUTPUT_SKIP(FILE, SIZE)  \
-  fprintf ((FILE), "\t.set\t.,.+%u\n", (SIZE))
+  fprintf ((FILE), "\t.set\t.,.+"HOST_WIDE_INT_PRINT_UNSIGNED"\n", (SIZE))
 
 /* This is how to output assembler code to declare an
    uninitialized external linkage data object.  */

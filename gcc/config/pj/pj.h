@@ -1178,7 +1178,7 @@ do { fputs (current_function_varargs || current_function_stdarg         \
 
 #undef  ASM_OUTPUT_SKIP
 #define ASM_OUTPUT_SKIP(FILE,SIZE) \
-  fprintf ((FILE), "\t.space %d\n", (SIZE))
+  fprintf ((FILE), "\t.space %d\n", (int)(SIZE))
 
 /* This says how to output an assembler line
    to define a global common symbol.  */
@@ -1186,7 +1186,7 @@ do { fputs (current_function_varargs || current_function_stdarg         \
 #define ASM_OUTPUT_COMMON(FILE, NAME, SIZE, ROUNDED)    \
 ( fputs ("\t.comm ", (FILE)),                   	\
   assemble_name ((FILE), (NAME)),               	\
-  fprintf ((FILE), ",%d\n", (SIZE)))
+  fprintf ((FILE), ",%d\n", (int)(SIZE)))
 
 /* This says how to output an assembler line
    to define a local common symbol.  */
@@ -1194,7 +1194,7 @@ do { fputs (current_function_varargs || current_function_stdarg         \
 #define ASM_OUTPUT_LOCAL(FILE, NAME, SIZE, ROUNDED)     \
 ( fputs ("\t.lcomm ", (FILE)),                          \
   assemble_name ((FILE), (NAME)),                       \
-  fprintf ((FILE), ",%d\n", (SIZE)))
+  fprintf ((FILE), ",%d\n", (int)(SIZE)))
 
 /* We don't want the default switch handling.  */
 #undef ASM_OUTPUT_BEFORE_CASE_LABEL

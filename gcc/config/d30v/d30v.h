@@ -3802,7 +3802,7 @@ fprintf (STREAM, "\t.word .L%d\n", VALUE)
 
    Defined in svr4.h.  */
 /* #define ASM_OUTPUT_SKIP(STREAM, NBYTES) \
-  fprintf (STREAM, "\t.zero\t%u\n", (NBYTES)) */
+  fprintf (STREAM, "\t.zero\t%u\n", (int)(NBYTES)) */
 
 /* Define this macro if `ASM_OUTPUT_SKIP' should not be used in the text
    section because it fails put zeros in the bytes that are skipped.  This is
