@@ -319,7 +319,7 @@ create_canonical_iv (struct loop *loop, edge exit, tree niter)
 
 /* Computes an estimated number of insns in LOOP.  */
 
-static unsigned
+unsigned
 estimate_loop_size (struct loop *loop)
 {
   basic_block *body = get_loop_body (loop);

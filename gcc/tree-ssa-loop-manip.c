@@ -653,45 +653,34 @@ is the loop transformed in another way (or unchanged). 'condition'
 may be a run time test for things that were not resolved by static
 analysis (overlapping ranges (anti-aliasing), alignment, etc.).  */
 
-bool
-tree_ssa_loop_version (struct loops *loops,
-		       struct loop * loop,
-		       tree cond_expr)
+struct loop *
+tree_ssa_loop_version (struct loops *loops, struct loop * loop, tree cond_expr)
 {
   edge entry, latch_edge;
   basic_block first_head, second_head, condition_bb;
   int irred_flag;
   struct loop *nloop;
-  sbitmap zero_bitmap;
 
   /* CHECKME: Loop versioning does not handle nested loop at this point.  */
   if (loop->inner)
-    return false;
+    return NULL;
 
   /* Record entry and latch edges for the loop */
   entry = loop_preheader_edge (loop);
 
-  /* CHECKME: We split entry edge later in loop versioning. tree_split_edge() does not
-     set bb flags appropriately if entry edge is marked as EDGE_IRREDUCILE_LOOP. Skip
-     such looos for now.  */
-  if (entry->flags & EDGE_IRREDUCIBLE_LOOP)
-    return false;
-
   /* Note down head of loop as first_head.  */
   first_head = entry->dest;
-
-  zero_bitmap = sbitmap_alloc (2);
-  sbitmap_zero (zero_bitmap);
 
   /* Duplicate loop.  */
   irred_flag = entry->flags & EDGE_IRREDUCIBLE_LOOP;
   entry->flags &= ~EDGE_IRREDUCIBLE_LOOP;
   if (!tree_duplicate_loop_to_header_edge (loop, entry, loops, 1,
-					   zero_bitmap, NULL, NULL, NULL, 0))
-    return false;
-
+					   NULL, NULL, NULL, NULL, 0))
+    {
+      entry->flags |= irred_flag;
+      return NULL;
+    }
   entry->flags |= irred_flag;
-
 
   /* After duplication entry edge now points to new loop head blcok.
      Note down new head as second_head.  */
@@ -724,9 +713,7 @@ tree_ssa_loop_version (struct loops *loops,
   loop_split_edge_with (loop_latch_edge (loop), NULL);
   loop_split_edge_with (loop_latch_edge (nloop), NULL);
 
-  free (zero_bitmap);
-
-  return true;
+  return nloop;
 }
 
 

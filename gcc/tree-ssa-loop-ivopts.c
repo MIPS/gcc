@@ -1959,6 +1959,10 @@ find_interesting_uses_cond (tree stmt, tree *cond_p)
 
   const_iv.step = NULL_TREE;
 
+  if (integer_zerop (*cond_p)
+      || integer_nonzerop (*cond_p))
+    return;
+
   if (TREE_CODE (*cond_p) == SSA_NAME)
     {
       op0_p = cond_p;

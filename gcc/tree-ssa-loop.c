@@ -87,6 +87,10 @@ tree_ssa_loop_opt (void)
       /* Move the expensive loop invariants.  */
       tree_ssa_lim (loops);
 
+      /* Unswitch the loops.  */
+      if (flag_unswitch_loops)
+	tree_ssa_unswitch_loops (loops);
+
       /* Optimize the induction variables.  */
       tree_ssa_iv_optimize (loops);
 

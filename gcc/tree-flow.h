@@ -606,10 +606,12 @@ bool tree_duplicate_loop_to_header_edge (struct loop *, edge, struct loops *,
 void create_iv (tree, tree, tree, struct loop *, block_stmt_iterator *, bool,
 		tree *, tree *);
 void test_loop_versioning (struct loops *loops);
-bool tree_ssa_loop_version (struct loops *, struct loop *, tree);
+struct loop *tree_ssa_loop_version (struct loops *, struct loop *, tree);
 bool for_each_index (tree *, bool (*) (tree, tree *, void *), void *);
 void linear_transform_loops (struct loops *, varray_type);
 void loop_commit_inserts (void);
+void tree_ssa_unswitch_loops (struct loops *loops);
+unsigned estimate_loop_size (struct loop *loop);
 
 /* In tree-flow-inline.h  */
 static inline int phi_arg_from_edge (tree, edge);

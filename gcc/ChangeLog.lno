@@ -1,3 +1,22 @@
+2004-03-21  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-ssa-loop-unswitch.o: New file.
+	* Makefile.in (tree-ssa-loop-unswitch.o): Add.
+	(tree-ssa-loop-im.o): Add flags.h dependency.
+	* flags.h (flag_unswitch_loops): Declaration moved from ...
+	* toplev.h (flag_unswitch_loops): ... here.
+	* tree-flow.h (tree_ssa_loop_version): Declaration changed.
+	(tree_ssa_unswitch_loops, estimate_loop_size): Declare.
+	* tree-ssa-loop-im.c: Include flags.h.
+	(movement_possibility, stmt_cost, move_computations_stmt):
+	Handle unswitchable conditions.
+	* tree-ssa-loop-ivcanon.c (estimate_loop_size): Export.
+	* tree-ssa-loop-ivopts.c (find_interesting_uses_cond): Handle
+	if (0) and if (1).
+	* tree-ssa-loop-manip.c (tree_ssa_loop_version): Return the newly
+	created loop.
+	* tree-ssa-loop.c (tree_ssa_loop_opt): Call tree_ssa_unswitch_loops.
+
 2004-03-20  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	Merge from tree-ssa branch (lno-merge-20040321).

@@ -36,6 +36,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "domwalk.h"
 #include "params.h"
 #include "tree-pass.h"
+#include "flags.h"
 
 /* A list of dependencies.  */
 
@@ -144,6 +145,16 @@ movement_possibility (tree stmt)
 {
   tree lhs, rhs;
 
+  if (flag_unswitch_loops
+      && TREE_CODE (stmt) == COND_EXPR)
+    {
+      /* If we perform unswitching, force the operands of the invariant
+	 condition to be moved out of the loop.  */
+      get_stmt_operands (stmt);
+
+      return MOVE_POSSIBLE;
+    }
+
   if (TREE_CODE (stmt) != MODIFY_EXPR)
     return MOVE_IMPOSSIBLE;
 
@@ -244,6 +255,10 @@ stmt_cost (tree stmt)
 {
   tree lhs, rhs;
   unsigned cost = 1;
+
+  /* Always try to create possibilities for unswitching.  */
+  if (TREE_CODE (stmt) == COND_EXPR)
+    return 20;
 
   lhs = TREE_OPERAND (stmt, 0);
   rhs = TREE_OPERAND (stmt, 1);
@@ -527,6 +542,11 @@ move_computations_stmt (struct dom_walk_data *dw_data ATTRIBUTE_UNUSED,
 	  bsi_next (&bsi);
 	  continue;
 	}
+
+      /* We do not really want to move conditionals out of the loop; we just
+	 placed it here to force its operands to be moved if neccesary.  */
+      if (TREE_CODE (stmt) == COND_EXPR)
+	continue;
 
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
