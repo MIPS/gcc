@@ -1,5 +1,10 @@
 2004-01-10  Paul Brook  <paul@codesourcery.com>
 
+	* gfortran.fortran-torture/execute/mystery_proc.f90: New test.
+	* gfortran.fortran-torture/compile/mystery_proc.f90: Remove.
+
+2004-01-10  Paul Brook  <paul@codesourcery.com>
+
 	* gfortran.fortran-torture/execute/intrinsic_minmax.f90: Test
 	specific names.
 

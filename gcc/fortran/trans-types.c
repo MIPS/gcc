@@ -888,8 +888,8 @@ gfc_build_pointer_type (gfc_symbol * sym, tree type)
 
 /* Return the type for a symbol.  Special handling is required for character
    types to get the correct level of indirection.
-   For functions, returns the return type.
-   For Subroutines returns void_type_node.
+   For functions return the return type.
+   For subroutines return void_type_node.
  */
 tree
 gfc_sym_type (gfc_symbol * sym)
@@ -898,14 +898,12 @@ gfc_sym_type (gfc_symbol * sym)
   tree base_type;
   int byref;
 
-  /* It's possible thet we never find out if a dummy procedure is a function
-     or a subroutine, so assume it's a subroutine.  */
   if (sym->attr.flavor == FL_PROCEDURE && !sym->attr.function)
     return void_type_node;
 
   if (sym->backend_decl)
     {
-      if (sym->attr.function || sym->attr.subroutine)
+      if (sym->attr.function)
 	return TREE_TYPE (TREE_TYPE (sym->backend_decl));
       else
 	return TREE_TYPE (sym->backend_decl);
@@ -1103,7 +1101,7 @@ gfc_get_derived_type (gfc_symbol * derived)
 int
 gfc_return_by_reference (gfc_symbol * sym)
 {
-  if (sym->attr.subroutine)
+  if (!sym->attr.function)
     return 0;
 
   assert (sym->attr.function);
@@ -1133,8 +1131,8 @@ gfc_get_function_type (gfc_symbol * sym)
   int nstr;
   int alternate_return;
 
-  /* make sure this symbol is a function or a subroutine.  */
-  assert (sym->attr.function || sym->attr.subroutine);
+  /* Make sure this symbol is a function or a subroutine.  */
+  assert (sym->attr.flavor == FL_PROCEDURE);
 
   if (sym->backend_decl)
     return TREE_TYPE (sym->backend_decl);
@@ -1161,7 +1159,7 @@ gfc_get_function_type (gfc_symbol * sym)
       arg = f->sym;
       if (arg)
 	{
-	  if (arg->attr.function || arg->attr.subroutine)
+	  if (arg->attr.flavor == FL_PROCEDURE)
 	    {
 	      type = gfc_get_function_type (arg);
 	      type = build_pointer_type (type);
@@ -1203,7 +1201,7 @@ gfc_get_function_type (gfc_symbol * sym)
 
   if (alternate_return)
     type = integer_type_node;
-  else if (sym->attr.subroutine || gfc_return_by_reference (sym))
+  else if (!sym->attr.function || gfc_return_by_reference (sym))
     type = void_type_node;
   else
     type = gfc_sym_type (sym);

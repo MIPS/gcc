@@ -683,9 +683,6 @@ gfc_get_symbol_decl (gfc_symbol * sym)
   /* Catch function declarations.  Only used for actual parameters.  */
   if (sym->attr.flavor == FL_PROCEDURE)
     {
-      if (!(sym->attr.function || sym->attr.subroutine))
-	sym->attr.subroutine = 1;
-
       decl = gfc_get_extern_function_decl (sym);
       return decl;
     }

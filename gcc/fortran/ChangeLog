@@ -1,5 +1,12 @@
 2004-01-10  Paul Brook  <paul@codesourcery.com>
 
+	* trans-decl.c (gfc_get_symbol_decl): Don't set subroutine attr.
+	* trans-types.c (gfc_sym_type): Handle external dummy procedures.
+	(gfc_return_by_reference): Correct condition.
+	(gfc_get_function_type): Ditto.
+
+2004-01-10  Paul Brook  <paul@codesourcery.com>
+
 	* trans-intrinsic.c (gfc_conv_intrinsic_minmax): Convert mismatched
 	types.
 
