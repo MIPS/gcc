@@ -1,3 +1,26 @@
+2004-04-12  Richard Henderson  <rth@redhat.com>
+
+	* c-common.c (c_do_switch_warnings): Use EXPR_LOCUS instead
+	of STMT_LINENO.
+	(c_walk_subtrees): Likewise.
+	(c_estimate_num_insns_1): Remove FILE_STMT.
+	* c-common.def (FILE_STMT): Remove.
+	* c-common.h (FILE_STMT_FILENAME_NODE): Remove.
+	(FILE_STMT_FILENAME, STMT_LINENO, STMT_LINENO_FOR_FN_P): Remove.
+	(c_common_stmt_codes): Remove FILE_STMT.
+	* c-dump.c (dump_stmt): Use EXPR_LOCUS instead of STMT_LINENO.
+	* c-parse.in (lineno_stmt, lineno_label): Likewise.
+	* c-pretty-print.c (pp_c_statement): Remove FILE_STMT.
+	* c-semantics.c (add_stmt): Don't emit FILE_STMT.  Do set
+	EXPR_LOCUS if not yet set.
+	(finish_stmt_tree): Don't set line for end of function.
+	(build_stmt): Set EXPR_LOCUS instead of STMT_LINENO.
+	(prep_stmt): Use EXPR_LOCUS instead of STMT_LINENO.
+	* c-simplify.c (c_gimplify_stmt): Remove FILE_STMT.
+	(gimplify_block): Save and restore entire locus.
+	(stmt_expr_last_stmt): Use EXPR_LOCUS instead of STMT_LINENO.
+	* doc/c-tree.texi (FILE_STMT, FILE_STMT_FILENAME, STMT_LINENO): Remove.
+
 2004-04-12  Jeff Law  <law@redhat.com>
 
 	* tree-ssa-dom.c (true_exprs, false_exprs): Kill.

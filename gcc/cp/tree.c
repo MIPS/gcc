@@ -1988,10 +1988,10 @@ cp_walk_subtrees (tree* tp,
     }							\
   while (0)
 
-  /* Set input_line here so we get the right instantiation context
+  /* Set input_location here so we get the right instantiation context
      if we call instantiate_decl from inlinable_function_p.  */
-  if (STATEMENT_CODE_P (code) && !STMT_LINENO_FOR_FN_P (*tp))
-    input_line = STMT_LINENO (*tp);
+  if (EXPR_LOCUS (*tp))
+    input_location = *EXPR_LOCUS (*tp);
 
   /* Not one of the easy cases.  We must explicitly go through the
      children.  */

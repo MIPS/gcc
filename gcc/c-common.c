@@ -4137,19 +4137,20 @@ void
 c_do_switch_warnings (splay_tree cases, tree switch_stmt)
 {
   splay_tree_node default_node;  
-  location_t switch_locus;
+  location_t *switch_locus;
   tree type;
 
   if (!warn_switch && !warn_switch_enum && !warn_switch_default)
     return;
 
-  switch_locus.file = input_filename;
-  switch_locus.line = STMT_LINENO (switch_stmt);
+  switch_locus = EXPR_LOCUS (switch_stmt);
+  if (!switch_locus)
+    switch_locus = &input_location;
   type = SWITCH_TYPE (switch_stmt);
 
   default_node = splay_tree_lookup (cases, (splay_tree_key) NULL);
   if (warn_switch_default && !default_node)
-    warning ("%Hswitch missing default case", &switch_locus);
+    warning ("%Hswitch missing default case", switch_locus);
 
   /* If the switch expression was an enumerated type, check that
      exactly all enumeration literals are covered by the cases.
@@ -4184,7 +4185,7 @@ c_do_switch_warnings (splay_tree cases, tree switch_stmt)
 	      /* Warn if there are enumerators that don't correspond to
 		 case expressions.  */
 	      warning ("%Henumeration value `%E' not handled in switch",
-		       &switch_locus, TREE_PURPOSE (chain));
+		       switch_locus, TREE_PURPOSE (chain));
 	    }
 	}
 
@@ -5668,7 +5669,7 @@ check_function_arguments_recurse (void (*callback)
 }
 
 /* C implementation of lang_hooks.tree_inlining.walk_subtrees.  Tracks the
-   line number from STMT_LINENO and handles DECL_STMT specially.  */
+   locus from EXPR_LOCUS and handles DECL_STMT specially.  */
 
 tree 
 c_walk_subtrees (tree *tp, int *walk_subtrees_p ATTRIBUTE_UNUSED,
@@ -5686,10 +5687,10 @@ c_walk_subtrees (tree *tp, int *walk_subtrees_p ATTRIBUTE_UNUSED,
     }							\
   while (0)
 
-  /* Set input_line here so we get the right instantiation context
+  /* Set input_location here so we get the right instantiation context
      if we call instantiate_decl from inlinable_function_p.  */
-  if (STATEMENT_CODE_P (code) && !STMT_LINENO_FOR_FN_P (*tp))
-    input_line = STMT_LINENO (*tp);
+  if (EXPR_LOCUS (*tp))
+    input_location = *EXPR_LOCUS (*tp);
 
   if (code == DECL_STMT)
     {
@@ -5886,7 +5887,6 @@ c_estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case RETURN_STMT:
     case LABEL_STMT:
     case SCOPE_STMT:
-    case FILE_STMT:
     case CASE_LABEL:
     case STMT_EXPR:
     case CLEANUP_STMT:

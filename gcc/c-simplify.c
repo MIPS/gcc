@@ -300,10 +300,6 @@ c_gimplify_stmt (tree *stmt_p)
 	  }
 	  break;
 
-	case FILE_STMT:
-	  input_filename = FILE_STMT_FILENAME (stmt);
-	  goto cont;
-
 	default:
 	  if (lang_gimplify_stmt && (*lang_gimplify_stmt) (&stmt, &next))
 	    {
@@ -413,7 +409,7 @@ gimplify_block (tree *stmt_p, tree *next_p)
   tree block;
   tree bind;
   int depth;
-  int stmt_lineno;
+  location_t stmt_locus;
 
   if (!SCOPE_BEGIN_P (*stmt_p))
     {
@@ -440,12 +436,14 @@ gimplify_block (tree *stmt_p, tree *next_p)
 	    break;
 	}
     }
+
+  stmt_locus = input_location;
   if (*p)
     {
       if (SCOPE_STMT_BLOCK (*p) != block)
 	abort ();
-
-      stmt_lineno = STMT_LINENO (*p);
+      if (EXPR_LOCUS (*p))
+	stmt_locus = *EXPR_LOCUS (*p);
       *next_p = TREE_CHAIN (*p);
       *p = NULL_TREE;
     }
@@ -454,12 +452,11 @@ gimplify_block (tree *stmt_p, tree *next_p)
       /* Can wind up mismatched with syntax errors.  */
       if (!errorcount && !sorrycount)
 	abort ();
-      stmt_lineno = input_line;
     }
 
   bind = c_build_bind_expr (block, TREE_CHAIN (*stmt_p));
   *stmt_p = bind;
-  input_line = stmt_lineno;
+  input_location = stmt_locus;
 
   return GS_OK;
 }
@@ -980,11 +977,8 @@ stmt_expr_last_stmt (tree stmt_expr)
 	  && VOID_TYPE_P (TREE_TYPE (last_stmt))))
     {
       location_t loc;
-      if (last_stmt)
-	{
-	  loc.file = input_filename;
-	  loc.line = STMT_LINENO (last_stmt);
-	}
+      if (last_stmt && EXPR_LOCUS (last_stmt))
+	loc = *EXPR_LOCUS (last_stmt);
       else if (EXPR_LOCUS (stmt_expr))
 	loc = *EXPR_LOCUS (stmt_expr);
       else

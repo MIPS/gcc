@@ -2145,16 +2145,6 @@ pp_c_statement (c_pretty_printer *pp, tree stmt)
       }
       break;
 
-    case FILE_STMT:
-      pp_c_identifier (pp, "__FILE__");
-      pp_space (pp);
-      pp_equal (pp);
-      pp_c_whitespace (pp);
-      pp_c_identifier (pp, FILE_STMT_FILENAME (stmt));
-      pp_c_semicolon (pp);
-      pp_needs_newline (pp) = true;
-      break;
-
     default:
       pp_unsupported_tree (pp, stmt);
     }

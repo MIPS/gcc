@@ -1,3 +1,12 @@
+2004-04-12  Richard Henderson  <rth@redhat.com>
+
+	* except.c (check_handlers_1): Use EXPR_LOCUS instead of STMT_LINENO.
+	* semantics.c (finalize_nrv_r): Likewise.
+	* tree.c (cp_walk_subtrees): Likewise.
+	* parser.c (cp_parser_statement): Save and restore entire locus;
+	set EXPR_LOCUS.
+	* pt.c (tsubst_expr): Don't special-case LABEL_STMT.
+
 2004-04-01  Diego Novillo  <dnovillo@redhat.com>
 
 	* name-lookup.c (innermost_nonclass_level): Check for

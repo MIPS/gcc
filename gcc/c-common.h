@@ -37,7 +37,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
       STMT_EXPR_NO_SCOPE (in STMT_EXPR)
    1: C_DECLARED_LABEL_FLAG (in LABEL_DECL)
       STMT_IS_FULL_EXPR_P (in _STMT)
-   2: STMT_LINENO_FOR_FN_P (in _STMT)
+   2: unused
    3: SCOPE_NO_CLEANUPS_P (in SCOPE_STMT)
       COMPOUND_STMT_BODY_BLOCK (in COMPOUND_STMT)
    4: SCOPE_PARTIAL_P (in SCOPE_STMT)
@@ -1074,23 +1074,6 @@ extern void finish_file	(void);
 #define CLEANUP_EXPR(NODE) \
   TREE_OPERAND (CLEANUP_STMT_CHECK (NODE), 1)
 
-/* The filename we are changing to as of this FILE_STMT.  */
-#define FILE_STMT_FILENAME_NODE(NODE) \
-  (TREE_OPERAND (FILE_STMT_CHECK (NODE), 0))
-#define FILE_STMT_FILENAME(NODE) \
-  (IDENTIFIER_POINTER (FILE_STMT_FILENAME_NODE (NODE)))
-
-/* The line-number at which a statement began.  But if
-   STMT_LINENO_FOR_FN_P does holds, then this macro gives the
-   line number for the end of the current function instead.  */
-#define STMT_LINENO(NODE)			\
-  (TREE_COMPLEXITY ((NODE)))
-
-/* If nonzero, the STMT_LINENO for NODE is the line at which the
-   function ended.  */
-#define STMT_LINENO_FOR_FN_P(NODE)		\
-  (TREE_LANG_FLAG_2 ((NODE)))
-
 /* Nonzero if we want the new ISO rules for pushing a new scope for `for'
    initialization variables.  */
 #define NEW_FOR_SCOPE_P(NODE) (TREE_LANG_FLAG_0 (NODE))
@@ -1111,7 +1094,7 @@ enum c_tree_code {
    WHILE_STMT,		DO_STMT,	RETURN_STMT,	\
    BREAK_STMT,		CONTINUE_STMT,	SCOPE_STMT,	\
    SWITCH_STMT,		GOTO_STMT,	LABEL_STMT,	\
-   ASM_STMT,		FILE_STMT,	CASE_LABEL
+   ASM_STMT,		CASE_LABEL
 
 /* TRUE if a code represents a statement.  The front end init
    langhook should take care of initialization of this array.  */

@@ -2131,7 +2131,7 @@ simple_if:
 
 if_prefix:
 	  /* We must build the IF_STMT node before parsing its
-	     condition so that STMT_LINENO refers to the line
+	     condition so that EXPR_LOCUS refers to the line
 	     containing the "if", and not the line containing
 	     the close-parenthesis.
 
@@ -2195,12 +2195,8 @@ lineno_stmt:
 	  save_location stmt
 		{ if ($2)
 		    {
-		      STMT_LINENO ($2) = $1.line;
-		      /* ??? We currently have no way of recording
-			 the filename for a statement.  This probably
-			 matters little in practice at the moment,
-			 but I suspect that problems will occur when
-			 doing inlining at the tree level.  */
+		      SET_EXPR_LOCUS ($2, NULL);
+		      annotate_with_locus ($2, $1);
 		    }
 		}
 	;
@@ -2209,7 +2205,8 @@ lineno_label:
 	  save_location label
 		{ if ($2)
 		    {
-		      STMT_LINENO ($2) = $1.line;
+		      SET_EXPR_LOCUS ($2, NULL);
+		      annotate_with_locus ($2, $1);
 		    }
 		}
 	;
@@ -2238,7 +2235,7 @@ select_or_iter_stmt:
 	| simple_if ELSE error
 		{ c_expand_end_cond (); }
        /* We must build the WHILE_STMT node before parsing its
-	  condition so that STMT_LINENO refers to the line
+	  condition so that EXPR_LOCUS refers to the line
 	  containing the "while", and not the line containing
 	  the close-parenthesis.
 

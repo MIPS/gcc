@@ -2956,7 +2956,7 @@ finalize_nrv_r (tree* tp, int* walk_subtrees, void* data)
       else
 	init = NULL_TREE;
       init = build_stmt (EXPR_STMT, init);
-      STMT_LINENO (init) = STMT_LINENO (*tp);
+      SET_EXPR_LOCUS (init, EXPR_LOCUS (*tp));
       TREE_CHAIN (init) = TREE_CHAIN (*tp);
       *tp = init;
     }

@@ -65,18 +65,8 @@ begin_stmt_tree (tree *t)
 tree
 add_stmt (tree t)
 {
-  if (input_filename != last_expr_filename)
-    {
-      /* If the filename has changed, also add in a FILE_STMT.  Do a string
-	 compare first, though, as it might be an equivalent string.  */
-      int add = (strcmp (input_filename, last_expr_filename) != 0);
-      last_expr_filename = input_filename;
-      if (add)
-	{
-	  tree pos = build_nt (FILE_STMT, get_identifier (input_filename));
-	  add_stmt (pos);
-	}
-    }
+  if (!EXPR_LOCUS (t))
+    annotate_with_locus (t, input_location);
 
   /* Add T to the statement-tree.  */
   TREE_CHAIN (last_tree) = t;
@@ -155,19 +145,11 @@ finish_stmt_tree (tree *t)
   stmt = TREE_CHAIN (*t);
   *t = stmt;
   last_tree = NULL_TREE;
-
-  if (cfun && stmt)
-    {
-      /* The line-number recorded in the outermost statement in a function
-	 is the line number of the end of the function.  */
-      STMT_LINENO (stmt) = input_line;
-      STMT_LINENO_FOR_FN_P (stmt) = 1;
-    }
 }
 
 /* Build a generic statement based on the given type of node and
    arguments. Similar to `build_nt', except that we set
-   STMT_LINENO to be the current line number.  */
+   EXPR_LOCUS to be the current source location.  */
 /* ??? This should be obsolete with the lineno_stmt productions
    in the grammar.  */
 
@@ -183,7 +165,7 @@ build_stmt (enum tree_code code, ...)
 
   ret = make_node (code);
   length = TREE_CODE_LENGTH (code);
-  STMT_LINENO (ret) = input_line;
+  annotate_with_locus (ret, input_location);
 
   /* Most statements have implicit side effects all on their own, 
      such as control transfer.  For those that do, we'll compute
@@ -316,8 +298,8 @@ build_case_label (tree low_value, tree high_value, tree label_decl)
 void
 prep_stmt (tree t)
 {
-  if (!STMT_LINENO_FOR_FN_P (t))
-    input_line = STMT_LINENO (t);
+  if (EXPR_LOCUS (t))
+    input_location = *EXPR_LOCUS (t);
   current_stmt_tree ()->stmts_are_full_exprs_p = STMT_IS_FULL_EXPR_P (t);
 }
 
