@@ -1,3 +1,8 @@
+2005-02-27  Devang Patel  <dpatel@apple.com>
+
+	Radar 3982899
+	* directives.c (do_line): Save sysp early before line table is realloc'ed.
+
 2005-02-21  Devang Patel  <dpatel@apple.com>
 
 	Radar 4007432
