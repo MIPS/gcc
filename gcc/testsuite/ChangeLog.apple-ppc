@@ -1,3 +1,8 @@
+2005-01-26  Devang Patel  <dpatel@apple.com>
+
+	Radar 3971329
+	* obj-c++.dg/extern-c-1.mm: New test case.
+
 2005-01-26  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 3970884

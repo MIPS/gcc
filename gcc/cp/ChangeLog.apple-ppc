@@ -1,3 +1,9 @@
+2005-01-26  Devang Patel  <dpatel@apple.com>
+
+	Radar 3971329
+	* parser.c (cp_parser_objc_method_definition_list): Parse extern
+	linkage specification.
+
 2005-01-24  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 3968938

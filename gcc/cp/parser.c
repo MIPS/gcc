@@ -17510,6 +17510,7 @@ static void
 cp_parser_objc_method_definition_list (cp_parser* parser)
 {
   cp_token *token = cp_lexer_peek_token (parser->lexer);
+  cp_token *token2 = cp_lexer_peek_nth_token (parser->lexer, 2);
 
   while (token->keyword != RID_AT_END)
     {
@@ -17532,7 +17533,12 @@ cp_parser_objc_method_definition_list (cp_parser* parser)
 	  pop_deferring_access_checks ();
 	  objc_finish_method_definition (meth);
 	}
-
+      else
+	/* If the next token is `extern' and the following token is a string
+	   literal, then we have a linkage specification.  */
+	if (token->keyword == RID_EXTERN
+	    && cp_parser_is_string_literal (token2))
+	  cp_parser_linkage_specification (parser);
       else
 	/* Try to parse a block-declaration, or a function-definition.  */
 	cp_parser_block_declaration (parser, /*statement_p=*/false);
