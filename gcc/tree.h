@@ -1060,13 +1060,14 @@ struct tree_real_cst GTY(())
 
 /* In a STRING_CST */
 #define TREE_STRING_LENGTH(NODE) (STRING_CST_CHECK (NODE)->string.length)
-#define TREE_STRING_POINTER(NODE) (STRING_CST_CHECK (NODE)->string.str)
+#define TREE_STRING_POINTER(NODE) \
+  ((const char *)(STRING_CST_CHECK (NODE)->string.str))
 
 struct tree_string GTY(())
 {
   struct tree_common common;
   int length;
-  const char str[1];
+  char str[1];
 };
 
 /* In a COMPLEX_CST node.  */
@@ -3739,7 +3740,6 @@ extern bool parse_input_constraint (const char **, int, int, int, int,
 				    const char * const *, bool *, bool *);
 extern void expand_asm_operands (tree, tree, tree, tree, int, location_t);
 extern void expand_asm_expr (tree);
-extern bool asm_op_is_mem_input (tree, tree);
 extern tree resolve_asm_operand_names (tree, tree, tree);
 extern void expand_case (tree);
 extern void expand_decl (tree);
@@ -3789,10 +3789,14 @@ extern void dwarf2out_return_reg (const char *, unsigned);
 
 /* In tree-inline.c  */
 
+/* The type of a set of already-visited pointers.  Functions for creating
+   and manipulating it are declared in pointer-set.h */
+struct pointer_set_t;
+
 /* The type of a callback function for walking over tree structure.  */
 
 typedef tree (*walk_tree_fn) (tree *, int *, void *);
-extern tree walk_tree (tree*, walk_tree_fn, void*, void*);
+extern tree walk_tree (tree*, walk_tree_fn, void*, struct pointer_set_t*);
 extern tree walk_tree_without_duplicates (tree*, walk_tree_fn, void*);
 
 /* In tree-dump.c */

@@ -83,46 +83,24 @@ do {									\
   reg_set_to_hard_reg_set (&TO, FROM);					\
 } while (0)
 
+typedef bitmap_iterator reg_set_iterator;
+
 /* Loop over all registers in REGSET, starting with MIN, setting REGNUM to the
    register number and executing CODE for all registers that are set.  */
-#define EXECUTE_IF_SET_IN_REG_SET(REGSET, MIN, REGNUM, CODE)		\
-  do									\
-    {									\
-      bitmap_iterator bi;						\
-									\
-      EXECUTE_IF_SET_IN_BITMAP (REGSET, MIN, REGNUM, bi)		\
-	{								\
-	  CODE;								\
-        }								\
-    } while (0)
+#define EXECUTE_IF_SET_IN_REG_SET(REGSET, MIN, REGNUM, RSI)	\
+  EXECUTE_IF_SET_IN_BITMAP (REGSET, MIN, REGNUM, RSI)
 
 /* Loop over all registers in REGSET1 and REGSET2, starting with MIN, setting
    REGNUM to the register number and executing CODE for all registers that are
    set in the first regset and not set in the second.  */
-#define EXECUTE_IF_AND_COMPL_IN_REG_SET(REGSET1, REGSET2, MIN, REGNUM, CODE) \
-  do									\
-    {									\
-      bitmap_iterator bi;						\
-									\
-      EXECUTE_IF_AND_COMPL_IN_BITMAP (REGSET1, REGSET2, MIN, REGNUM, bi) \
-	{								\
-	  CODE;								\
-        }								\
-    } while (0)
+#define EXECUTE_IF_AND_COMPL_IN_REG_SET(REGSET, MIN, REGNUM, RSI)	\
+  EXECUTE_IF_AND_COMPL_IN_BITMAP (REGSET, MIN, REGNUM, RSI)
 
 /* Loop over all registers in REGSET1 and REGSET2, starting with MIN, setting
    REGNUM to the register number and executing CODE for all registers that are
    set in both regsets.  */
-#define EXECUTE_IF_AND_IN_REG_SET(REGSET1, REGSET2, MIN, REGNUM, CODE) \
-  do									\
-    {									\
-      bitmap_iterator bi;						\
-									\
-      EXECUTE_IF_AND_IN_BITMAP (REGSET1, REGSET2, MIN, REGNUM, bi)	\
-	{								\
-	  CODE;								\
-        }								\
-    } while (0)
+#define EXECUTE_IF_AND_IN_REG_SET(REGSET1, REGSET2, MIN, REGNUM, RSI) \
+  EXECUTE_IF_AND_IN_BITMAP (REGSET1, REGSET2, MIN, REGNUM, RSI)	\
 
 /* Allocate a register set with oballoc.  */
 #define OBSTACK_ALLOC_REG_SET(OBSTACK) BITMAP_OBSTACK_ALLOC (OBSTACK)
@@ -589,7 +567,7 @@ ei_start_1 (VEC(edge) **ev)
 }
 
 /* Return an iterator pointing to the last element of an edge
-   vector. */
+   vector.  */
 static inline edge_iterator
 ei_last_1 (VEC(edge) **ev)
 {
@@ -848,14 +826,13 @@ enum cdi_direction
 enum dom_state
 {
   DOM_NONE,		/* Not computed at all.  */
-  DOM_CONS_OK,		/* The data is conservatively OK, i.e. if it says you that A dominates B,
-			   it indeed does.  */
   DOM_NO_FAST_QUERY,	/* The data is OK, but the fast query data are not usable.  */
   DOM_OK		/* Everything is ok.  */
 };
 
 extern enum dom_state dom_computed[2];
 
+extern bool dom_info_available_p (enum cdi_direction);
 extern void calculate_dominance_info (enum cdi_direction);
 extern void free_dominance_info (enum cdi_direction);
 extern basic_block nearest_common_dominator (enum cdi_direction,

@@ -107,28 +107,9 @@ cp_convert_to_pointer (tree type, tree expr, bool force)
       && (TREE_CODE (TREE_TYPE (type)) == FUNCTION_TYPE
 	  || VOID_TYPE_P (TREE_TYPE (type))))
     {
-      /* Allow an implicit this pointer for pointer to member
-	 functions.  */
-      if (TYPE_PTRMEMFUNC_P (intype))
-	{
-	  if (pedantic || warn_pmf2ptr)
-	    pedwarn ("converting from `%T' to `%T'", intype, type);
-	  if (TREE_CODE (expr) == PTRMEM_CST)
-	    expr = build_address (PTRMEM_CST_MEMBER (expr));
-	  else
-	    {
-	      tree decl = maybe_dummy_object (TYPE_PTRMEM_CLASS_TYPE (intype), 
-					      0);
-	      decl = build_address (decl);
-	      expr = get_member_function_from_ptrfunc (&decl, expr);
-	    }
-	}
-      else if (TREE_CODE (TREE_TYPE (expr)) == METHOD_TYPE)
-	{
-	  if (pedantic || warn_pmf2ptr)
-	    pedwarn ("converting from `%T' to `%T'", intype, type);
-	  expr = build_addr_func (expr);
-	}
+      if (TYPE_PTRMEMFUNC_P (intype)
+	  || TREE_CODE (intype) == METHOD_TYPE)
+	return convert_member_func_to_ptr (type, expr);
       if (TREE_CODE (TREE_TYPE (expr)) == POINTER_TYPE)
 	return build_nop (type, expr);
       intype = TREE_TYPE (expr);
@@ -236,7 +217,8 @@ cp_convert_to_pointer (tree type, tree expr, bool force)
       return build_nop (type, expr);
     }
   else if (TYPE_PTRMEMFUNC_P (type) && TYPE_PTRMEMFUNC_P (intype))
-    return build_ptrmemfunc (TYPE_PTRMEMFUNC_FN_TYPE (type), expr, 0);
+    return build_ptrmemfunc (TYPE_PTRMEMFUNC_FN_TYPE (type), expr, 0,
+			     /*c_cast_p=*/false);
   else if (TYPE_PTRMEMFUNC_P (intype))
     {
       if (!warn_pmf2ptr)
@@ -260,7 +242,8 @@ cp_convert_to_pointer (tree type, tree expr, bool force)
   if (integer_zerop (expr))
     {
       if (TYPE_PTRMEMFUNC_P (type))
-	return build_ptrmemfunc (TYPE_PTRMEMFUNC_FN_TYPE (type), expr, 0);
+	return build_ptrmemfunc (TYPE_PTRMEMFUNC_FN_TYPE (type), expr, 0,
+				 /*c_cast_p=*/false);
 
       if (TYPE_PTRMEM_P (type))
 	{
@@ -327,11 +310,11 @@ convert_to_pointer_force (tree type, tree expr)
 	  tree binfo;
 
 	  binfo = lookup_base (TREE_TYPE (intype), TREE_TYPE (type),
-			       ba_ignore, NULL);
+			       ba_unique, NULL);
 	  if (!binfo)
 	    {
 	      binfo = lookup_base (TREE_TYPE (type), TREE_TYPE (intype),
-				   ba_ignore, NULL);
+				   ba_unique, NULL);
 	      code = MINUS_EXPR;
 	    }
 	  if (binfo == error_mark_node)
@@ -979,10 +962,9 @@ convert_force (tree type, tree expr, int convtype)
        || integer_zerop (e)
        || TYPE_PTRMEMFUNC_P (TREE_TYPE (e)))
       && TYPE_PTRMEMFUNC_P (type))
-    {
-      /* compatible pointer to member functions.  */
-      return build_ptrmemfunc (TYPE_PTRMEMFUNC_FN_TYPE (type), e, 1);
-    }
+    /* compatible pointer to member functions.  */
+    return build_ptrmemfunc (TYPE_PTRMEMFUNC_FN_TYPE (type), e, 1,
+			     /*c_cast_p=*/1);
 
   return ocp_convert (type, e, CONV_C_CAST|convtype, LOOKUP_NORMAL);
 }

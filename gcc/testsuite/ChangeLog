@@ -1,3 +1,289 @@
+2004-10-23  Andrew Pinski  <pinskia@physics.uc.edu>.
+
+	* gcc.dg/tree-ssa/loop-1.c: Add -static for *-*-darwin*.
+
+2004-10-23  Ben Elliston  <bje@au.ibm.com>
+
+	* gcc.c-torture/execute/loop-2e.x: Remove.
+
+2004-10-22  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/18095
+	* g++.dg/parse/crash18.C: New.
+	* g++.dg/parse/crash19.C: New.
+
+2004-10-22  Aaron W. LaFramboise  <aaronavay62@aaronwl.com>
+
+	* g++.dg/ext/dllimport1.C: Move dg-warnings.
+	* g++.dg/ext/dllimport2.C: Same.
+	* g++.dg/ext/dllimport8.C: Same.
+
+2004-10-21  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/10841
+	* g++.dg/conversion/cast1.C: New test.
+	* g++.dg/overload/pmf1.C: Adjust error marker.
+
+2004-10-21  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR objc/17923
+	* objc.dg/const-str-7.m: New test.
+
+2004-10-20  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	* g++.dg/template/memfriend11.C: Fix comment typo.
+	* g++.dg/template/memfriend14.C: Likewise.
+
+2004-10-20  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/cleanup-10.c, gcc.dg/cleanup-11.c, gcc.dg/cleanup-8.c,
+	gcc.dg/cleanup-9.c: Use -fnon-call-exceptions, not
+	-fasynchronous-unwind-tables.
+
+2004-10-20  Richard Henderson  <rth@redhat.com>
+
+	* gcc.c-torture/unsorted/call386.c (foo): Fix return type.
+	(main): Return success.
+	* gcc.c-torture/unsorted/subcc.c (foo, bar): Fix return types.
+	(main): Return success.
+
+2004-10-20  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/13495
+	* g++.dg/template/memfriend9.C: New test.
+	* g++.dg/template/memfriend10.C: Likewise.
+	* g++.dg/template/memfriend11.C: Likewise.
+	* g++.dg/template/memfriend12.C: Likewise.
+	* g++.dg/template/memfriend13.C: Likewise.
+	* g++.dg/template/memfriend14.C: Likewise.
+	* g++.dg/template/memfriend15.C: Likewise.
+	* g++.dg/template/memfriend16.C: Likewise.
+	* g++.dg/template/memfriend17.C: Likewise.
+	* g++.old-deja/g++.pt/friend44.C: Remove bogus error.
+
+2004-10-20  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/conversion/dr195.C: New.
+	* g++.old-deja/g++.mike/p10148.C: Remove ill-formed cast.
+
+2004-10-20  Ben Elliston  <bje@au.ibm.com>
+	    Devang Patel  <dpatel@apple.com>
+
+	* gcc.dg/tree-ssa/ifc-20040816-2.c: Use integer arithmetic instead
+	of floating point arithmetic, which could trap.
+
+2004-10-19  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/14035
+	* g++.dg/conversion/reinterpret1.C: Adjust error markers.
+	* g++.dg/conversion/const2.C: New test.
+	* g++.dg/expr/reinterpret2.C: New test.
+	* g++.dg/expr/reinterpret3.C: New test.
+	* g++.dg/expr/cast2.C: New test.
+	* g++.dg/expr/copy1.C: New test.
+	* g++.dg/other/conversion1.C: Change error message.
+	* g++.dg/parse/comma1.C: Use __extension__ to allow casts from
+	function pointers to void *.
+	* g++.old-deja/g++.mike/p10148.C: Likewise.
+
+2004-10-19  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/smod-1.c: Pass -mtune=i486 only on x86.
+
+2004-10-19  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR c++/18047
+
+	* g++.dg/parse/expr3.C: New test.
+
+2004-10-18  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/smod-1.c: New test.
+
+2004-10-18  Ziemowit Laski  <zlaski@apple.com>
+
+	* objc.dg/method-14.m: New test.
+
+2004-10-18  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* gcc.c-torture/compile/pr17529.c: Fix test for non x86.
+	Also xfail as the patch was reverted.
+
+2004-10-18  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/16973
+	* gcc.dg/pr16973.c: New test.
+
+2004-10-18  Diego Novillo  <dnovillo@redhat.com>
+
+	PR tree-optimization/17656
+	* testsuite/gcc.c-torture/compile/pr17656.c: New test.
+
+2004-10-18  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/eh/shadow1.C: New.
+
+2004-10-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/compile/20041018-1.c: New test.
+
+2004-10-18  Ben Elliston  <bje@au.ibm.com>
+
+	* gcc.dg/ppc-sdata-1.c: Update to consider the possibility of the
+	compiler referring to register 0 when accessing sdata.  The linker
+	now patches things up.
+
+2004-10-17  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c/17529
+	* gcc.c-torture/compile/pr17529.c: New test.
+
+2004-10-17  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/17743
+	* g++.dg/ext/attrib17.C: New test.
+
+2004-10-16  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/bf-spl1.c: Use 'float' as the base type for FP types.
+
+2004-10-16  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/10479
+	* g++.dg/ext/attrib16.C: New test.
+
+2004-10-15  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/17042
+	* g++.dg/init/dso_handle1.C: New test.
+
+	PR c++/14667
+	* g++.dg/parse/typedef6.C: New test.
+
+	PR c++/17916
+	* g++.dg/parse/pragma1.C: New test.
+
+2004-10-15  Aldy Hernandez  <aldyh@redhat.com>
+
+	* gcc.c-torture/execute/ieee/ieee.exp: Disable on powerpc-*-*spe.
+
+2004-10-15  Steve Ellcey  <sje@cup.hp.com>
+
+	* gcc.dg/compat/struct-layout-1_generate.c (switchfiles):  Use
+	-fno-common when on HPPA HP-UX platforms.
+
+2004-10-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR other/16820
+	* gcc.dg/compat/struct-layout-1.h: Don't include complex.h nor
+	stdint.h.
+	* gcc.dg/compat/struct-layout-1_x1.h (TX): Cast to long instead of
+	uintptr_t.
+
+2004-10-14  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c++/16301
+	* g++.dg/lookup/strong-using-4.C: New test.
+
+2004-10-14  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/16567
+        * gcc.c-torture/compile/nested-1.c: New test.
+
+2004-10-14  Dorit Naishlos  <dorit@il.ibm.com>
+
+	* testsuite/gcc.dg/vect/vect-44.c: xfail on i?86-*-*, x86_64-*-*,
+	and mipsisa64*-*-* (until support for misaligned loads is added).
+	* testsuite/gcc.dg/vect/vect-50.c: Likewise.
+	* testsuite/gcc.dg/vect/vect-52.c: Likewise.
+	* testsuite/gcc.dg/vect/vect-54.c: Likewise.
+	* testsuite/gcc.dg/vect/vect-58.c: Likewise.
+	* testsuite/gcc.dg/vect/vect-60.c: Likewise.
+	* testsuite/gcc.dg/vect/vect-80.c: Likewise.
+
+2004-10-14  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/17976
+	* g++.dg/init/dtor3.C: New test.
+
+2004-10-15  Ben Elliston  <bje@au.ibm.com>
+
+	* gcc.dg/ppc-stackalign-1.c: Set dg-options to {}.
+
+2004-10-14  Geoffrey Keating  <geoffk@apple.com>
+
+	* gcc.dg/darwin-misaligned.c: Don't supply -force_cpusubtype_ALL.
+	* gcc.dg/macho-lo-sum.c: Likewise.
+
+2004-10-14  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/ppc-spe64-1.c: New test.
+
+2004-10-14  Devang Patel  <dpatel@apple.com>
+
+	PR 17635
+	* gcc.dg/pr17635.c : New test.
+	
+2004-10-14  Olga Golovanevsky  <olga@il.ibm.com>
+
+	* testsuite/gcc.dg/vect/vect-28.c: Remove xfail.
+	* testsuite/gcc.dg/vect/vect-30.c: Remove xfail.
+	* testsuite/gcc.dg/vect/vect-31.c: Vectorize 4 loops instead of 2.
+	* testsuite/gcc.dg/vect/vect-33.c: Remove xfail.
+	* testsuite/gcc.dg/vect/vect-44.c: Remove xfail.
+	* testsuite/gcc.dg/vect/vect-46.c: Remove xfail.
+	* testsuite/gcc.dg/vect/vect-50.c: Remove xfail.
+	* testsuite/gcc.dg/vect/vect-52.c: Remove xfail.
+	* testsuite/gcc.dg/vect/vect-54.c: Remove xfail.
+	* testsuite/gcc.dg/vect/vect-58.c: Remove xfail.
+	* testsuite/gcc.dg/vect/vect-60.c: Remove xfail.
+	* testsuite/gcc.dg/vect/vect-64.c: Vectorize 3 loops instead of 1.
+	* testsuite/gcc.dg/vect/vect-66.c: Vectorize 3 loops instead of 2.
+	* testsuite/gcc.dg/vect/vect-68.c: Vectorize 4 loops instead of 2.
+	* testsuite/gcc.dg/vect/vect-69.c: Vectorize 4 loops instead of 2.
+	* testsuite/gcc.dg/vect/vect-8.c: Remove xfail.
+	* testsuite/gcc.dg/vect/vect-80.c: Remove xfail.
+	* testsuite/gcc.dg/vect/vect-none.c: Vectorize 1 loops instead of 0.
+
+2004-10-14  Dorit Naishlos  <dorit@il.ibm.com>
+
+	* gcc.dg/vect/vect-82.c: New testcase.	
+	* gcc.dg/vect/vect-82_64.c: New testcase.	
+	* gcc.dg/vect/vect-83.c: New testcase.	
+	* gcc.dg/vect/vect-83_64.c: New testcase.	
+
+2004-10-14  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* gcc.dg/cpp/error-1.c: New test.
+
+2004-10-14  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* gcc.dg/c99-tag-3.c, gcc.dg/declspec-14.c: New tests.
+
+2004-10-14  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR target/17984
+	* gcc.dg/cris-peep2-xsrand2.c: New test.
+
+2004-10-13  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c++/17661
+	* testsuite/g++.dg/expr/for2.C: New test.
+
+2004-10-13  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* g++.dg/inherit/thunk1.C: Run on the SPARC.
+
+2004-10-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/17724
+	* g++.dg/opt/pr17724-1.C: New test.
+	* g++.dg/opt/pr17724-2.C: New test.
+	* g++.dg/opt/pr17724-3.C: New test.
+	* g++.dg/opt/pr17724-4.C: New test.
+	* g++.dg/opt/pr17724-5.C: New test.
+	* g++.dg/opt/pr17724-6.C: New test.
+
 2004-10-12  Joseph S. Myers  <jsm@polyomino.org.uk>
 
 	PR c/17301

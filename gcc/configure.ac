@@ -1024,6 +1024,8 @@ AC_SUBST(LIBICONV_DEP)
 
 AM_LC_MESSAGES
 
+AM_LANGINFO_CODESET
+
 # We will need to find libiberty.h and ansidecl.h
 saved_CFLAGS="$CFLAGS"
 CFLAGS="$CFLAGS -I${srcdir} -I${srcdir}/../include"
@@ -1746,7 +1748,7 @@ elif test -f $gcc_cv_as_gas_srcdir/configure.in \
   in_tree_gas=yes
   _gcc_COMPUTE_GAS_VERSION
   rm -f as$host_exeext
-  $LN ../gas/as-new$host_exeext as$host_exeext 2>/dev/null
+  $LN_S ../gas/as-new$host_exeext as$host_exeext 2>/dev/null
   in_tree_gas_is_elf=no
   if grep 'obj_format = elf' ../gas/Makefile > /dev/null \
      || (grep 'obj_format = multi' ../gas/Makefile \
@@ -1879,7 +1881,7 @@ changequote(,)dnl
 	gcc_cv_gld_minor_version=`expr "$gcc_cv_gld_version" : "VERSION=[0-9]*\.\([0-9]*\)"`
 changequote([,])dnl
 	rm -f collect-ld$host_exeext
-	$LN ../ld/ld-new$host_exeext collect-ld$host_exeext 2>/dev/null
+	$LN_S ../ld/ld-new$host_exeext collect-ld$host_exeext 2>/dev/null
 elif test -x "$LD_FOR_TARGET"; then
         gcc_cv_ld="$LD_FOR_TARGET"
 elif test -x "$LD" && test x$host = x$target; then
@@ -1970,7 +1972,7 @@ elif test -f $gcc_cv_binutils_srcdir/configure.in \
 	in_tree_nm=yes
 	gcc_cv_nm=./nm$host_exeext
 	rm -f nm$host_exeext
-	$LN ../binutils/nm-new$host_exeext nm$host_exeext 2>/dev/null
+	$LN_S ../binutils/nm-new$host_exeext nm$host_exeext 2>/dev/null
 elif test "x$program_prefix" != xNONE; then
 	gcc_cv_nm=${program_prefix}nm$host_exeext
 else
@@ -1992,7 +1994,7 @@ elif test -f $gcc_cv_binutils_srcdir/configure.in \
 	in_tree_objdump=yes
 	gcc_cv_objdump=./objdump$host_exeext
 	rm -f objdump$host_exeext
-	$LN ../binutils/objdump$host_exeext objdump$host_exeext 2>/dev/null
+	$LN_S ../binutils/objdump$host_exeext objdump$host_exeext 2>/dev/null
 elif test "x$program_prefix" != xNONE; then
 	gcc_cv_objdump=${program_prefix}objdump$host_exeext
 else
@@ -2697,7 +2699,8 @@ foo:	nop
 	mfcr 3,128';;
       *-*-darwin*) conftest_s='	.text
 	mfcr r3,128';;
-      *)       conftest_s='	.text
+      *) conftest_s='	.machine power4
+	.text
 	mfcr 3,128';;
     esac
 

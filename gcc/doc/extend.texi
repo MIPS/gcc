@@ -2424,6 +2424,15 @@ declaration as a whole.  In the obsolescent usage where a type of
 specifiers and qualifiers may be an attribute specifier list with no
 other specifiers or qualifiers.
 
+At present, the first parameter in a function prototype must have some
+type specifier which is not an attribute specifier; this resolves an
+ambiguity in the interpretation of @code{void f(int
+(__attribute__((foo)) x))}, but is subject to change.  At present, if
+the parentheses of a function declarator contain only attributes then
+those attributes are ignored, rather than yielding an error or warning
+or implying a single parameter of type int, but this is subject to
+change.
+
 An attribute specifier list may appear immediately before a declarator
 (other than the first) in a comma-separated list of declarators in a
 declaration of more than one identifier using a single list of
@@ -3576,6 +3585,23 @@ register int *result asm ("r0");
 asm ("sysint" : "=r" (result) : "0" (p1), "r" (p2));
 @end smallexample
 
+@anchor{Example of asm with clobbered asm reg}
+In the above example, beware that a register that is call-clobbered by
+the target ABI will be overwritten by any function call in the
+assignment, including library calls for arithmetic operators.
+Assuming it is a call-clobbered register, this may happen to @code{r0}
+above by the assignment to @code{p2}.  If you have to use such a
+register, use temporary variables for expressions between the register
+assignment and use:
+
+@smallexample
+int t1 = @dots{};
+register int *p1 asm ("r0") = @dots{};
+register int *p2 asm ("r1") = t1;
+register int *result asm ("r0");
+asm ("sysint" : "=r" (result) : "0" (p1), "r" (p2));
+@end smallexample
+
 Some instructions clobber specific hard registers.  To describe this,
 write a third colon after the input operands, followed by the names of
 the clobbered hard registers (given as strings).  Here is a realistic
@@ -3724,8 +3750,8 @@ if your instruction does have a side effect on a variable that otherwise
 appears not to change, the old value of the variable may be reused later
 if it happens to be found in a register.
 
-You can prevent an @code{asm} instruction from being deleted, moved
-significantly, or combined, by writing the keyword @code{volatile} after
+You can prevent an @code{asm} instruction from being deleted
+by writing the keyword @code{volatile} after
 the @code{asm}.  For example:
 
 @smallexample
@@ -3737,40 +3763,42 @@ the @code{asm}.  For example:
 @end smallexample
 
 @noindent
-If you write an @code{asm} instruction with no outputs, GCC will know
-the instruction has side-effects and will not delete the instruction or
-move it outside of loops.
-
 The @code{volatile} keyword indicates that the instruction has
 important side-effects.  GCC will not delete a volatile @code{asm} if
 it is reachable.  (The instruction can still be deleted if GCC can
 prove that control-flow will never reach the location of the
-instruction.)  In addition, GCC will not reschedule instructions
-across a volatile @code{asm} instruction.  For example:
+instruction.)  Note that even a volatile @code{asm} instruction 
+can be moved relative to other code, including across jump
+instructions.  For example, on many targets there is a system 
+register which can be set to control the rounding mode of 
+floating point operations.  You might try
+setting it with a volatile @code{asm}, like this PowerPC example:
 
 @smallexample
-*(volatile int *)addr = foo;
-asm volatile ("eieio" : : );
+       asm volatile("mtfsf 255,%0" : : "f" (fpenv));
+       sum = x + y;
 @end smallexample
 
 @noindent
-Assume @code{addr} contains the address of a memory mapped device
-register.  The PowerPC @code{eieio} instruction (Enforce In-order
-Execution of I/O) tells the CPU to make sure that the store to that
-device register happens before it issues any other I/O@.
+This will not work reliably, as the compiler may move the addition back
+before the volatile @code{asm}.  To make it work you need to add an
+artificial dependency to the @code{asm} referencing a variable in the code
+you don't want moved, for example:
 
-Note that even a volatile @code{asm} instruction can be moved in ways
-that appear insignificant to the compiler, such as across jump
-instructions.  You can't expect a sequence of volatile @code{asm}
-instructions to remain perfectly consecutive.  If you want consecutive
-output, use a single @code{asm}.  Also, GCC will perform some
-optimizations across a volatile @code{asm} instruction; GCC does not
-``forget everything'' when it encounters a volatile @code{asm}
-instruction the way some other compilers do.
+@smallexample
+    asm volatile ("mtfsf 255,%1" : "=X"(sum): "f"(fpenv));
+    sum = x + y;
+@end smallexample
 
-An @code{asm} instruction without any operands or clobbers (an ``old
-style'' @code{asm}) will be treated identically to a volatile
-@code{asm} instruction.
+Similarly, you can't expect a
+sequence of volatile @code{asm} instructions to remain perfectly
+consecutive.  If you want consecutive output, use a single @code{asm}.
+Also, GCC will perform some optimizations across a volatile @code{asm}
+instruction; GCC does not ``forget everything'' when it encounters
+a volatile @code{asm} instruction the way some other compilers do.
+
+An @code{asm} instruction without any output operands will be treated
+identically to a volatile @code{asm} instruction.
 
 It is a natural idea to look for a way to give access to the condition
 code left by the assembler instruction.  However, when we attempted to
@@ -4129,6 +4157,20 @@ for the operand.
 Stores into local register variables may be deleted when they appear to be dead
 according to dataflow analysis.  References to local register variables may
 be deleted or moved or simplified.
+
+As for global register variables, it's recommended that you choose a
+register which is normally saved and restored by function calls on
+your machine, so that library routines will not clobber it.  A common
+pitfall is to initialize multiple call-clobbered registers with
+arbitrary expressions, where a function call or library call for an
+arithmetic operator will overwrite a register value from a previous
+assignment, for example @code{r0} below:
+@smallexample
+register int *p1 asm ("r0") = @dots{};
+register int *p2 asm ("r1") = @dots{};
+@end smallexample
+In those cases, a solution is to use a temporary variable for
+each arbitrary expression.   @xref{Example of asm with clobbered asm reg}.
 
 @node Alternate Keywords
 @section Alternate Keywords

@@ -879,6 +879,9 @@ grokfield (const cp_declarator *declarator,
       if (processing_template_decl)
 	value = push_template_decl (value);
 
+      if (attrlist)
+	cplus_decl_attributes (&value, attrlist, 0);
+
       return value;
     }
 
@@ -3065,11 +3068,6 @@ cp_finish_file (void)
 
   cgraph_finalize_compilation_unit ();
   cgraph_optimize ();
-
-  /* Emit mudflap static registration function.  This must be done
-     after all the user functions have been expanded.  */
-  if (flag_mudflap)
-    mudflap_finish_file ();
 
   /* Now, issue warnings about static, but not defined, functions,
      etc., and emit debugging information.  */

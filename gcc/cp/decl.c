@@ -2730,14 +2730,18 @@ make_typename_type (tree context, tree name, tsubst_flags_t complain)
   return build_typename_type (context, name, fullname);
 }
 
-/* Resolve `CONTEXT::template NAME'.  Returns an appropriate type,
-   unless an error occurs, in which case error_mark_node is returned.
-   If we locate a TYPE_DECL, we return that, rather than the _TYPE it
-   corresponds to.  If COMPLAIN zero, don't complain about any errors
-   that occur.  */
+/* Resolve `CONTEXT::template NAME'.  Returns a TEMPLATE_DECL if the name
+   can be resolved or an UNBOUND_CLASS_TEMPLATE, unless an error occurs, 
+   in which case error_mark_node is returned.
+
+   If PARM_LIST is non-NULL, also make sure that the template parameter
+   list of TEMPLATE_DECL matches.
+
+   If COMPLAIN zero, don't complain about any errors that occur.  */
 
 tree
-make_unbound_class_template (tree context, tree name, tsubst_flags_t complain)
+make_unbound_class_template (tree context, tree name, tree parm_list,
+			     tsubst_flags_t complain)
 {
   tree t;
   tree d;
@@ -2763,6 +2767,17 @@ make_unbound_class_template (tree context, tree name, tsubst_flags_t complain)
 	  return error_mark_node;
 	}
 
+      if (parm_list
+	  && !comp_template_parms (DECL_TEMPLATE_PARMS (tmpl), parm_list))
+	{
+	  if (complain & tf_error)
+	    {
+	      error ("template parameters do not match template");
+	      cp_error_at ("%qD declared here", tmpl);
+	    }
+	  return error_mark_node;
+	}
+
       if (complain & tf_error)
 	perform_or_defer_access_check (TYPE_BINFO (context), tmpl);
 
@@ -2780,6 +2795,7 @@ make_unbound_class_template (tree context, tree name, tsubst_flags_t complain)
   TYPE_STUB_DECL (TREE_TYPE (d)) = d;
   DECL_CONTEXT (d) = FROB_CONTEXT (context);
   DECL_ARTIFICIAL (d) = 1;
+  DECL_TEMPLATE_PARMS (d) = parm_list;
 
   return t;
 }
@@ -4763,6 +4779,7 @@ cp_finish_decl (tree decl, tree init, tree asmspec_tree, int flags)
   tree cleanup;
   const char *asmspec = NULL;
   int was_readonly = 0;
+  bool var_definition_p = false;
 
   if (decl == error_mark_node)
     return;
@@ -4904,6 +4921,11 @@ cp_finish_decl (tree decl, tree init, tree asmspec_tree, int flags)
 	  /* Remember that the initialization for this variable has
 	     taken place.  */
 	  DECL_INITIALIZED_P (decl) = 1;
+	  /* This declaration is the definition of this variable,
+	     unless we are initializing a static data member within
+	     the class specifier.  */
+	  if (!DECL_EXTERNAL (decl))
+	    var_definition_p = true;
 	  /* The variable is being defined, so determine its
 	     visibility.  */
 	  determine_visibility (decl);
@@ -4969,10 +4991,18 @@ cp_finish_decl (tree decl, tree init, tree asmspec_tree, int flags)
 	      else if (!TREE_STATIC (decl))
 		initialize_local_var (decl, init);
 	    }
-
-	  if (TREE_STATIC (decl))
-	    expand_static_init (decl, init);
-	}
+	  
+	  /* If a variable is defined, and then a subsequent
+	     definition with external linkage is encountered, we will
+	     get here twice for the same variable.  We want to avoid
+	     calling expand_static_init more than once.  For variables
+	     that are not static data members, we can call
+	     expand_static_init only when we actually process the
+	     initializer.  It is not legal to redeclare a static data
+	     member, so this issue does not arise in that case.  */
+	  if (var_definition_p && TREE_STATIC (decl))
+	    expand_static_init (decl, init); 
+	} 
     }
 
   /* If a CLEANUP_STMT was created to destroy a temporary bound to a
@@ -5015,7 +5045,11 @@ declare_global_var (tree name, tree type)
   TREE_PUBLIC (decl) = 1;
   DECL_EXTERNAL (decl) = 1;
   DECL_ARTIFICIAL (decl) = 1;
-  pushdecl (decl);
+  /* If the user has explicitly declared this variable (perhaps
+     because the code we are compiling is part of a low-level runtime
+     library), then it is possible that our declaration will be merged
+     with theirs by pushdecl.  */
+  decl = pushdecl (decl);
   cp_finish_decl (decl, NULL_TREE, NULL_TREE, 0);
   pop_from_top_level ();
 

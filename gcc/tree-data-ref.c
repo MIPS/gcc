@@ -44,7 +44,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
        - polyhedron dependence
      or with the chains of recurrences based representation,
      
-   - to define a knowledge base for storing the data dependeces 
+   - to define a knowledge base for storing the data dependence 
      information,
      
    - to define an interface to access this data.
@@ -1037,7 +1037,7 @@ analyze_siv_subscript_cst_affine (tree chrec_a,
     }
 }
 
-/* Helper recursive function for intializing the matrix A.  Returns
+/* Helper recursive function for initializing the matrix A.  Returns
    the initial value of CHREC.  */
 
 static int
@@ -1457,7 +1457,7 @@ analyze_subscript_affine_affine (tree chrec_a,
 		  else
 		    {
 		      /* FIXME: For the moment, the upper bound of the
-			 iteration domain for j is not checked. */
+			 iteration domain for j is not checked.  */
 		      *overlaps_a = chrec_dont_know;
 		      *overlaps_b = chrec_dont_know;
 		      *last_conflicts = chrec_dont_know;
@@ -1467,7 +1467,7 @@ analyze_subscript_affine_affine (tree chrec_a,
 	      else
 		{
 		  /* FIXME: For the moment, the upper bound of the
-		     iteration domain for i is not checked. */
+		     iteration domain for i is not checked.  */
 		  *overlaps_a = chrec_dont_know;
 		  *overlaps_b = chrec_dont_know;
 		  *last_conflicts = chrec_dont_know;

@@ -1446,8 +1446,6 @@ extern rtx get_pool_constant (rtx);
 extern rtx get_pool_constant_mark (rtx, bool *);
 extern enum machine_mode get_pool_mode (rtx);
 extern rtx get_pool_constant_for_function (struct function *, rtx);
-extern enum machine_mode get_pool_mode_for_function (struct function *, rtx);
-extern int get_pool_offset (rtx);
 extern rtx simplify_subtraction (rtx);
 
 /* In function.c  */
@@ -1570,6 +1568,7 @@ extern rtx simplify_gen_subreg (enum machine_mode, rtx, enum machine_mode,
 extern rtx simplify_replace_rtx (rtx, rtx, rtx);
 extern rtx simplify_rtx (rtx);
 extern rtx avoid_constant_pool_reference (rtx);
+extern bool mode_signbit_p (enum machine_mode, rtx);
 
 /* In regclass.c  */
 extern enum machine_mode choose_hard_reg_mode (unsigned int, unsigned int,

@@ -169,6 +169,10 @@ namespace __gnu_cxx
     _M_get_binmap(size_t __bytes)
     { return _M_binmap[__bytes]; }
 
+    const size_t
+    _M_get_align()
+    { return _M_options._M_align; }
+
     explicit __pool_base() 
     : _M_options(_Tune()), _M_binmap(NULL), _M_init(false) { }
 
@@ -681,6 +685,9 @@ namespace __gnu_cxx
     {
       this->_S_initialize_once();
 
+      if (__builtin_expect(__n > this->max_size(), false))
+	std::__throw_bad_alloc();
+
       // Requests larger than _M_max_bytes are handled by operator
       // new/delete directly.
       __pool_type& __pool = this->_S_get_pool();
@@ -690,7 +697,7 @@ namespace __gnu_cxx
 	  void* __ret = ::operator new(__bytes);
 	  return static_cast<_Tp*>(__ret);
 	}
-
+      
       // Round up to power of 2 and figure out which bin to use.
       const size_t __which = __pool._M_get_binmap(__bytes);
       const size_t __thread_id = __pool._M_get_thread_id();
@@ -705,11 +712,10 @@ namespace __gnu_cxx
 	  // Already reserved.
 	  typedef typename __pool_type::_Block_record _Block_record;
 	  _Block_record* __block = __bin._M_first[__thread_id];
-	  __bin._M_first[__thread_id] = __bin._M_first[__thread_id]->_M_next;
+	  __bin._M_first[__thread_id] = __block->_M_next;
 	  
 	  __pool._M_adjust_freelist(__bin, __block, __thread_id);
-	  const __pool_base::_Tune& __options = __pool._M_get_options();
-	  __c = reinterpret_cast<char*>(__block) + __options._M_align;
+	  __c = reinterpret_cast<char*>(__block) + __pool._M_get_align();
 	}
       else
 	{
@@ -724,14 +730,17 @@ namespace __gnu_cxx
     __mt_alloc<_Tp, _Poolp>::
     deallocate(pointer __p, size_type __n)
     {
-      // Requests larger than _M_max_bytes are handled by operators
-      // new/delete directly.
-      __pool_type& __pool = this->_S_get_pool();
-      const size_t __bytes = __n * sizeof(_Tp);
-      if (__pool._M_check_threshold(__bytes))
-	::operator delete(__p);
-      else
-	__pool._M_reclaim_block(reinterpret_cast<char*>(__p), __bytes);
+      if (__builtin_expect(__p != 0, true))
+	{
+	  // Requests larger than _M_max_bytes are handled by
+	  // operators new/delete directly.
+	  __pool_type& __pool = this->_S_get_pool();
+	  const size_t __bytes = __n * sizeof(_Tp);
+	  if (__pool._M_check_threshold(__bytes))
+	    ::operator delete(__p);
+	  else
+	    __pool._M_reclaim_block(reinterpret_cast<char*>(__p), __bytes);
+	}
     }
   
   template<typename _Tp, typename _Poolp>

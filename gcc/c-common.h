@@ -72,8 +72,8 @@ enum rid
 
   /* C extensions */
   RID_ASM,       RID_TYPEOF,   RID_ALIGNOF,  RID_ATTRIBUTE,  RID_VA_ARG,
-  RID_EXTENSION, RID_IMAGPART, RID_REALPART, RID_LABEL,      RID_PTRBASE,
-  RID_PTREXTENT, RID_PTRVALUE, RID_CHOOSE_EXPR, RID_TYPES_COMPATIBLE_P,
+  RID_EXTENSION, RID_IMAGPART, RID_REALPART, RID_LABEL,      RID_CHOOSE_EXPR,
+  RID_TYPES_COMPATIBLE_P,
 
   /* Too many ways of getting the name of a function as a string */
   RID_FUNCTION_NAME, RID_PRETTY_FUNCTION_NAME, RID_C99_FUNCTION_NAME,
@@ -295,7 +295,6 @@ extern void pop_file_scope (void);
 extern int yyparse (void);
 extern stmt_tree current_stmt_tree (void);
 extern tree push_stmt_list (void);
-extern tree re_push_stmt_list (tree);
 extern tree pop_stmt_list (tree);
 extern tree add_stmt (tree);
 extern void push_cleanup (tree, tree, bool);

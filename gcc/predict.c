@@ -695,7 +695,7 @@ predict_loops (struct loops *loops_info, bool rtlsimpleloops)
     }
 
   if (!rtlsimpleloops)
-    scev_reset ();
+    scev_finalize ();
 }
 
 /* Attempt to predict probabilities of BB outgoing edges using local
@@ -1300,6 +1300,7 @@ tree_estimate_probability (void)
 
   tree_bb_level_predictions ();
 
+  mark_irreducible_loops (&loops_info);
   predict_loops (&loops_info, false);
 
   FOR_EACH_BB (bb)

@@ -1,5 +1,5 @@
 /* Language lexer for the GNU compiler for the Java(TM) language.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
    Contributed by Alexandre Petit-Bianco (apbianco@cygnus.com)
 
@@ -253,7 +253,7 @@ java_new_lexer (FILE *finput, const char *encoding)
     }
 
   if (enc_error)
-    fatal_error ("unknown encoding: `%s'\nThis might mean that your locale's encoding is not supported\nby your system's iconv(3) implementation.  If you aren't trying\nto use a particular encoding for your input file, try the\n`--encoding=UTF-8' option", encoding);
+    fatal_error ("unknown encoding: %qs\nThis might mean that your locale's encoding is not supported\nby your system's iconv(3) implementation.  If you aren't trying\nto use a particular encoding for your input file, try the\n%<--encoding=UTF-8%> option", encoding);
 
   return lex;
 }
@@ -544,9 +544,10 @@ java_peek_unicode (void)
 {
   int unicode_escape_p;
   java_lexer *lex = ctxp->lexer;
+  int next;
+
   if (lex->avail_unicode)
     return lex->next_unicode;
-  int next;
 
   next = java_read_unicode (lex, &unicode_escape_p);
 

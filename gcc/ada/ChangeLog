@@ -1,3 +1,15 @@
+2004-10-19  Aaron W. LaFramboise  <aaronavay62@aaronwl.com>
+
+	* adaint.c (__gnat_get_libraries_from_registry): Cast value
+	to LPBYTE.
+	(__gnat_portable_spawn): Remove const.
+
+	* mingw32.h (MAXPATHLEN): Check for previous definition.
+
+2004-10-17  Matthias Klose  <doko@debian.org>
+
+	* gnatvsn.ads: Set gnat library version to 4.0.
+
 2004-10-05  Vincent Celier  <celier@gnat.com>
 
         * mlib-tgt.ads: (Build_Dynamic_Library): New parameter Options_2

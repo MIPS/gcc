@@ -558,33 +558,6 @@ parse_input_constraint (const char **constraint_p, int input_num,
   return true;
 }
 
-/* INPUT is one of the input operands from EXPR, an ASM_EXPR.  Returns true
-   if it is an operand which must be passed in memory (i.e. an "m"
-   constraint), false otherwise.  */
-
-bool
-asm_op_is_mem_input (tree input, tree expr)
-{
-  const char *constraint = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (input)));
-  tree outputs = ASM_OUTPUTS (expr);
-  int noutputs = list_length (outputs);
-  const char **constraints
-    = (const char **) alloca ((noutputs) * sizeof (const char *));
-  int i = 0;
-  bool allows_mem, allows_reg;
-  tree t;
-
-  /* Collect output constraints.  */
-  for (t = outputs; t ; t = TREE_CHAIN (t), i++)
-    constraints[i] = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (t)));
-
-  /* We pass 0 for input_num, ninputs and ninout; they are only used for
-     error checking which will be done at expand time.  */
-  parse_input_constraint (&constraint, 0, 0, noutputs, 0, constraints,
-			  &allows_mem, &allows_reg);
-  return (!allows_reg && allows_mem);
-}
-
 /* Check for overlap between registers marked in CLOBBERED_REGS and
    anything inappropriate in DECL.  Emit error and return TRUE for error,
    FALSE for ok.  */
@@ -1108,7 +1081,7 @@ expand_asm_expr (tree exp)
     {
       if (o[i] != TREE_VALUE (tail))
 	{
-	  expand_assignment (o[i], TREE_VALUE (tail), 0);
+	  expand_assignment (o[i], TREE_VALUE (tail));
 	  free_temp_slots ();
 
 	  /* Restore the original value so that it's correct the next
@@ -2139,8 +2112,10 @@ add_case_node (struct case_node *head, tree type, tree low, tree high,
   if (!high || tree_int_cst_equal (low, high))
     {
       /* If the simple case value is unreachable, ignore it.  */
-      if (tree_int_cst_compare (low, min_value) < 0
-	  || tree_int_cst_compare (low, max_value) > 0)
+      if ((TREE_CODE (min_value) == INTEGER_CST
+            && tree_int_cst_compare (low, min_value) < 0)
+	  || (TREE_CODE (max_value) == INTEGER_CST
+	      && tree_int_cst_compare (low, max_value) > 0))
 	return head;
       low = fold_convert (type, low);
       high = low;
@@ -2148,19 +2123,23 @@ add_case_node (struct case_node *head, tree type, tree low, tree high,
   else
     {
       /* If the entire case range is unreachable, ignore it.  */
-      if (tree_int_cst_compare (high, min_value) < 0
-	  || tree_int_cst_compare (low, max_value) > 0)
+      if ((TREE_CODE (min_value) == INTEGER_CST
+            && tree_int_cst_compare (high, min_value) < 0)
+	  || (TREE_CODE (max_value) == INTEGER_CST
+	      && tree_int_cst_compare (low, max_value) > 0))
 	return head;
 
       /* If the lower bound is less than the index type's minimum
 	 value, truncate the range bounds.  */
-      if (tree_int_cst_compare (low, min_value) < 0)
+      if (TREE_CODE (min_value) == INTEGER_CST
+            && tree_int_cst_compare (low, min_value) < 0)
 	low = min_value;
       low = fold_convert (type, low);
 
       /* If the upper bound is greater than the index type's maximum
 	 value, truncate the range bounds.  */
-      if (tree_int_cst_compare (high, max_value) > 0)
+      if (TREE_CODE (max_value) == INTEGER_CST
+	  && tree_int_cst_compare (high, max_value) > 0)
 	high = max_value;
       high = fold_convert (type, high);
     }
@@ -2362,7 +2341,7 @@ expand_case (tree exp)
   struct case_node *case_list = 0;
 
   /* Label to jump to if no case matches.  */
-  tree default_label_decl = 0;
+  tree default_label_decl;
 
   /* The switch body is lowered in gimplify.c, we should never have
      switches with a non-NULL SWITCH_BODY here.  */
@@ -2374,20 +2353,21 @@ expand_case (tree exp)
   /* An ERROR_MARK occurs for various reasons including invalid data type.  */
   if (index_type != error_mark_node)
     {
-      for (i = TREE_VEC_LENGTH (vec); --i >= 0; )
-	{
-	  tree elt = TREE_VEC_ELT (vec, i);
+      tree elt;
 
-	  /* Handle default labels specially.  */
-	  if (!CASE_HIGH (elt) && !CASE_LOW (elt))
-	    {
-	      gcc_assert (!default_label_decl);
-	      default_label_decl = CASE_LABEL (elt);
-	    }
-	  else
-	    case_list = add_case_node (case_list, index_type,
-				       CASE_LOW (elt), CASE_HIGH (elt),
-				       CASE_LABEL (elt));
+      /* The default case is at the end of TREE_VEC.  */
+      elt = TREE_VEC_ELT (vec, TREE_VEC_LENGTH (vec) - 1);
+      gcc_assert (!CASE_HIGH (elt));
+      gcc_assert (!CASE_LOW (elt));
+      default_label_decl = CASE_LABEL (elt);
+
+      for (i = TREE_VEC_LENGTH (vec) - 1; --i >= 0; )
+	{
+	  elt = TREE_VEC_ELT (vec, i);
+	  gcc_assert (CASE_LOW (elt));
+	  case_list = add_case_node (case_list, index_type,
+				     CASE_LOW (elt), CASE_HIGH (elt),
+				     CASE_LABEL (elt));
 	}
 
 
@@ -2400,14 +2380,6 @@ expand_case (tree exp)
 	  start = get_last_insn ();
 	}
 
-      /* If we don't have a default-label, create one here,
-	 after the body of the switch.  */
-      if (default_label_decl == 0)
-	{
-	  default_label_decl
-	    = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
-	  expand_label (default_label_decl);
-	}
       default_label = label_rtx (default_label_decl);
 
       before_case = get_last_insn ();

@@ -32,6 +32,7 @@
 
 #include <cstddef>
 #include <new>
+#include <bits/functexcept.h>
 #include <tr1/array>
 
 namespace __gnu_cxx
@@ -55,7 +56,7 @@ namespace __gnu_cxx
       address(const_reference __x) const { return &__x; }
 
       void
-      deallocate(pointer __p, size_type)
+      deallocate(pointer, size_type)
       { 
 	// Does nothing.
       }
@@ -116,11 +117,11 @@ namespace __gnu_cxx
       pointer
       allocate(size_type __n, const void* = 0)
       {
-	static size_type used;
-	if (__builtin_expect(used > array_type::_S_index, false))
-	  throw std::bad_alloc();
-	pointer __ret = _M_array->begin() + used;
-	used += __n;
+	static size_type __used;
+	if (__builtin_expect(__used + __n > array_type::_S_index, false))
+	  std::__throw_bad_alloc();
+	pointer __ret = _M_array->begin() + __used;
+	__used += __n;
 	return __ret;
       }
     };

@@ -466,7 +466,7 @@ extern void emit_push_insn (rtx, enum machine_mode, tree, rtx, unsigned int,
 			    int, rtx, int, rtx, rtx, int, rtx);
 
 /* Expand an assignment that stores the value of FROM into TO.  */
-extern rtx expand_assignment (tree, tree, int);
+extern void expand_assignment (tree, tree);
 
 /* Generate code for computing expression EXP,
    and storing the value into TARGET.
@@ -498,6 +498,9 @@ extern void expand_var (tree);
 /* At the start of a function, record that we have no previously-pushed
    arguments waiting to be popped.  */
 extern void init_pending_stack_adjust (void);
+
+/* Discard any pending stack adjustment.  */
+extern void discard_pending_stack_adjust (void);
 
 /* When exiting from function, if safe, clear out any pending stack adjust
    so the adjustment won't get done.  */

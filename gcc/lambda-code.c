@@ -357,7 +357,7 @@ print_lambda_loopnest (FILE * outfile, lambda_loopnest nest, char start)
 }
 
 /* Allocate a new lattice structure of DEPTH x DEPTH, with INVARIANTS number
-   of invariants.    */
+   of invariants.  */
 
 static lambda_lattice
 lambda_lattice_new (int depth, int invariants)
@@ -575,7 +575,7 @@ compute_nest_using_fourier_motzkin (int size,
 	  else if (A[j][i] > 0)
 	    {
 	      /* Any linear expression with a coefficient greater than 0
-		 becomes part of the new upper bound. */ 
+		 becomes part of the new upper bound.  */ 
 	      expression = lambda_linear_expression_new (depth, invariants);
 	      for (k = 0; k < i; k++)
 		LLE_COEFFICIENTS (expression)[k] = -1 * A[j][k];
@@ -1937,7 +1937,7 @@ lambda_loopnest_to_gcc_loopnest (struct loop *old_loopnest,
 		  LBV_COEFFICIENTS (lbv)[i] = 1;
 		  lbv = lambda_body_vector_compute_new (transform, lbv);
 		  newiv = lbv_to_gcc_expression (lbv, new_ivs, &stmts);
-		  bsi = stmt_for_bsi (stmt);
+		  bsi = bsi_for_stmt (stmt);
 		  /* Insert the statements to build that
 		     expression.  */
 		  bsi_insert_before (&bsi, stmts, BSI_SAME_STMT);
@@ -2008,7 +2008,7 @@ stmt_uses_phi_result (tree stmt, tree phi_result)
   use_optype uses = STMT_USE_OPS (stmt);
   
   /* This is conservatively true, because we only want SIMPLE bumpers
-     of the form x +- constant for our pass. */
+     of the form x +- constant for our pass.  */
   if (NUM_USES (uses) != 1)
     return false;
   if (USE_OP (uses, 0) == phi_result)
@@ -2148,7 +2148,7 @@ replace_uses_of_x_with_y (tree stmt, tree x, tree y)
     }
 }
 
-/* Return TRUE if STMT uses tree OP in it's uses. */
+/* Return TRUE if STMT uses tree OP in it's uses.  */
 
 static bool
 stmt_uses_op (tree stmt, tree op)
@@ -2206,7 +2206,7 @@ can_convert_to_perfect_nest (struct loop *loop,
 		  }
 	      
 	      /* If the bb of a statement we care about isn't dominated by 
-		 the header of the inner loop, then we are also screwed. */
+		 the header of the inner loop, then we are also screwed.  */
 	      if (!dominated_by_p (CDI_DOMINATORS,
 				   bb_for_stmt (stmt), 
 				   loop->inner->header))

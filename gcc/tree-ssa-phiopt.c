@@ -284,7 +284,7 @@ replace_phi_edge_with_variable (basic_block cond_block, basic_block bb,
     conditional replacement.  Return true if the replacement is done.
     Otherwise return false.
     BB is the basic block where the replacement is going to be done on.  ARG0
-    is argument 0 from PHI.  Likewise for ARG1.   */
+    is argument 0 from PHI.  Likewise for ARG1.  */
 
 static bool
 conditional_replacement (basic_block cond_bb, basic_block middle_bb,
@@ -392,7 +392,7 @@ conditional_replacement (basic_block cond_bb, basic_block middle_bb,
 	return false; 
 
       /* If what we get back is not gimple try to create it as gimple by
-	 using a temporary variable.   */
+	 using a temporary variable.  */
       if (is_gimple_cast (cond)
 	  && !is_gimple_val (TREE_OPERAND (cond, 0)))
 	{
@@ -424,7 +424,7 @@ conditional_replacement (basic_block cond_bb, basic_block middle_bb,
     replacement.  Return true if the replacement is done.  Otherwise return
     false.
     BB is the basic block where the replacement is going to be done on.  ARG0
-    is argument 0 from the PHI.  Likewise for ARG1.   */
+    is argument 0 from the PHI.  Likewise for ARG1.  */
 
 static bool
 value_replacement (basic_block cond_bb, basic_block middle_bb,
@@ -436,7 +436,7 @@ value_replacement (basic_block cond_bb, basic_block middle_bb,
   edge true_edge, false_edge;
 
   /* If the type says honor signed zeros we cannot do this
-     optimization.   */
+     optimization.  */
   if (HONOR_SIGNED_ZEROS (TYPE_MODE (TREE_TYPE (arg1))))
     return false;
 
@@ -522,7 +522,7 @@ abs_replacement (basic_block cond_bb, basic_block middle_bb,
   enum tree_code cond_code;
 
   /* If the type says honor signed zeros we cannot do this
-     optimization.   */
+     optimization.  */
   if (HONOR_SIGNED_ZEROS (TYPE_MODE (TREE_TYPE (arg1))))
     return false;
 
@@ -589,7 +589,7 @@ abs_replacement (basic_block cond_bb, basic_block middle_bb,
       && cond_code != LT_EXPR && cond_code != LE_EXPR)
     return false;
 
-  /* Make sure the conditional is arg[01] OP y.   */
+  /* Make sure the conditional is arg[01] OP y.  */
   if (TREE_OPERAND (cond, 0) != rhs)
     return false;
 
@@ -624,7 +624,7 @@ abs_replacement (basic_block cond_bb, basic_block middle_bb,
   else
     lhs = result;
 
-  /*  Build the modify expression with abs expression.   */
+  /* Build the modify expression with abs expression.  */
   new = build (MODIFY_EXPR, TREE_TYPE (lhs),
                lhs, build1 (ABS_EXPR, TREE_TYPE (lhs), rhs));
 
