@@ -139,12 +139,9 @@ __mf_heuristic_check (uintptr_t ptr, uintptr_t ptr_high)
 					 "%08lx-%08lx given %s",
 					 i, (uintptr_t) low, (uintptr_t) high, buf);
 			  
-			  /* XXX: bad hack; permit __mf_register to do its job.  */
-			  __mf_state = active;
 			  __mfu_register ((uintptr_t) low, (uintptr_t) (high-low),
 					  __MF_TYPE_GUESS, 
 					  "/proc/self/maps segment");
-			  __mf_state = reentrant;
 			  
 			  return 0; /* undecided (tending to cachable) */
 			} 

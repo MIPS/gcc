@@ -200,7 +200,10 @@ enum __mf_dynamic_index
 
 #ifdef LIBMUDFLAPTH
 extern pthread_mutex_t __mf_biglock;
-#define LOCKTH() do { int rc = pthread_mutex_lock (& __mf_biglock); \
+#define LOCKTH() do { extern unsigned long __mf_lock_contention; \
+                      int rc = pthread_mutex_trylock (& __mf_biglock); \
+                      if (rc) { __mf_lock_contention ++; \
+                                rc = pthread_mutex_lock (& __mf_biglock); } \
                       assert (rc==0); } while (0)
 #define UNLOCKTH() do { int rc = pthread_mutex_unlock (& __mf_biglock); \
                         assert (rc==0); } while (0)
@@ -209,7 +212,7 @@ extern pthread_mutex_t __mf_biglock;
 #define UNLOCKTH() do {} while (0)
 #endif
 
-extern enum __mf_state __mf_state;
+extern /* volatile? */ enum __mf_state __mf_state;
 extern struct __mf_options __mf_opts;
 
 /* ------------------------------------------------------------------------ */
@@ -223,18 +226,12 @@ extern struct __mf_options __mf_opts;
 #define VERBOSE_TRACE(...)                         \
   if (UNLIKELY (__mf_opts.verbose_trace)) \
     { \
-      enum __mf_state _ts = __mf_state; \
-      __mf_state = reentrant; \
       fprintf (stderr, __VA_ARGS__); \
-      __mf_state = _ts; \
     }
 #define TRACE(...)                         \
   if (UNLIKELY (__mf_opts.trace_mf_calls)) \
     { \
-      enum __mf_state _ts = __mf_state; \
-      __mf_state = reentrant; \
       fprintf (stderr, __VA_ARGS__); \
-      __mf_state = _ts; \
     }
 
 

@@ -8,7 +8,7 @@ AUTOMAKE_OPTIONS = 1.3 foreign
 MAINT_CHARSET = latin1
 SUBDIRS = testsuite
 
-AM_CFLAGS = -ansi -Wall
+AM_CFLAGS = -Wall
 
 if LIBMUDFLAPTH
 libmudflapth = libmudflapth.la

@@ -47,9 +47,14 @@ XXX: libgcc license?
 
 #define BEGIN_PROTECT(ty, fname, ...)       \
   ty result;                                \
-  enum __mf_state old_state;                \
   if (UNLIKELY (__mf_state == reentrant))   \
   {                                         \
+    extern unsigned long __mf_reentrancy;   \
+    if (UNLIKELY (__mf_opts.verbose_trace)) { \
+      write (2, "mf: reentrancy detected in `", 28); \
+      write (2, __PRETTY_FUNCTION__, strlen(__PRETTY_FUNCTION__)); \
+      write (2, "'\n", 2); } \
+    __mf_reentrancy ++; \
     return CALL_REAL(fname, __VA_ARGS__);   \
   }                                         \
   else if (UNLIKELY (__mf_state == starting)) \
@@ -58,14 +63,11 @@ XXX: libgcc license?
   }                                         \
   else                                      \
   {                                         \
-     old_state = __mf_state;                \
-     __mf_state = reentrant;                \
-     TRACE ("mf: %s\n", __PRETTY_FUNCTION__); \
+    TRACE ("mf: %s\n", __PRETTY_FUNCTION__); \
   }
 
 #define END_PROTECT(ty, fname, ...)              \
   result = (ty) CALL_REAL(fname, __VA_ARGS__);   \
-  __mf_state = old_state;                        \
   return result;
 
 
@@ -93,8 +95,6 @@ WRAPPER(void *, malloc, size_t c)
     CLAMPADD(c,CLAMPADD(__mf_opts.crumple_zone,
 			__mf_opts.crumple_zone));
   result = (char *) CALL_REAL(malloc, size_with_crumple_zones);
-  
-  __mf_state = old_state;
   
   if (LIKELY(result))
     {
@@ -137,8 +137,6 @@ WRAPPER(void *, calloc, size_t c, size_t n)
   if (LIKELY(result))
     memset (result, 0, size_with_crumple_zones);
   
-  __mf_state = old_state;
-  
   if (LIKELY(result))
     {
       result += __mf_opts.crumple_zone;
@@ -179,11 +177,10 @@ WRAPPER(void *, realloc, void *buf, size_t c)
 			 __mf_opts.crumple_zone));
   result = (char *) CALL_REAL(realloc, base, size_with_crumple_zones);
 
-  __mf_state = old_state;      
-
   /* Ensure heap wiping doesn't occur during this peculiar
      unregister/reregister pair.  */
   LOCKTH ();
+  /* XXX: reentrancy! */
   saved_wipe_heap = __mf_opts.wipe_heap;
   __mf_opts.wipe_heap = 0;
 
@@ -224,14 +221,9 @@ WRAPPER(void, free, void *buf)
   static void *free_queue [__MF_FREEQ_MAX];
   static unsigned free_ptr = 0;
   static int freeq_initialized = 0;
-  enum __mf_state old_state;
   DECLARE(void * , free, void *);  
 
-  if (UNLIKELY (__mf_state != active))
-    {
-      CALL_REAL(free, buf);
-      return;
-    }
+  BEGIN_PROTECT(void *, free, buf);
 
   if (UNLIKELY(!freeq_initialized))
     {
@@ -247,9 +239,6 @@ WRAPPER(void, free, void *buf)
 
   __mf_unregister (buf, 0);
 
-  old_state = __mf_state;
-  __mf_state = reentrant;
-      
   if (UNLIKELY(__mf_opts.free_queue_length > 0))
     {
       
@@ -284,8 +273,6 @@ WRAPPER(void, free, void *buf)
 	}
       CALL_REAL(free, base);
     }
-  
-  __mf_state = old_state;
 }
 #endif
 
@@ -321,8 +308,6 @@ WRAPPER(void *, mmap,
 		 (uintptr_t) start, (uintptr_t) length,
 		 (uintptr_t) result);
   */
-
-  __mf_state = old_state;
 
   if (result != (void *)-1)
     {
@@ -374,8 +359,6 @@ WRAPPER(int , munmap, void *start, size_t length)
 		 (uintptr_t) start, (uintptr_t) length,
 		 (uintptr_t) result);
   */
-
-  __mf_state = old_state;
 
   if (result == 0)
     {
@@ -479,6 +462,7 @@ WRAPPER(void *, alloca, size_t c)
 #ifdef WRAP_memcpy
 WRAPPER2(void *, memcpy, void *dest, const void *src, size_t n)
 {
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT(src, n, __MF_CHECK_READ, "memcpy source");
   MF_VALIDATE_EXTENT(dest, n, __MF_CHECK_WRITE, "memcpy dest");
   return memcpy (dest, src, n);
@@ -489,6 +473,7 @@ WRAPPER2(void *, memcpy, void *dest, const void *src, size_t n)
 #ifdef WRAP_memmove
 WRAPPER2(void *, memmove, void *dest, const void *src, size_t n)
 {
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT(src, n, __MF_CHECK_READ, "memmove src");
   MF_VALIDATE_EXTENT(dest, n, __MF_CHECK_WRITE, "memmove dest");
   return memmove (dest, src, n);
@@ -498,6 +483,7 @@ WRAPPER2(void *, memmove, void *dest, const void *src, size_t n)
 #ifdef WRAP_memset
 WRAPPER2(void *, memset, void *s, int c, size_t n)
 {
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT(s, n, __MF_CHECK_WRITE, "memset dest");
   return memset (s, c, n);
 }
@@ -506,6 +492,7 @@ WRAPPER2(void *, memset, void *s, int c, size_t n)
 #ifdef WRAP_memcmp
 WRAPPER2(int, memcmp, const void *s1, const void *s2, size_t n)
 {
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT(s1, n, __MF_CHECK_READ, "memcmp 1st arg");
   MF_VALIDATE_EXTENT(s2, n, __MF_CHECK_READ, "memcmp 2nd arg");
   return memcmp (s1, s2, n);
@@ -515,6 +502,7 @@ WRAPPER2(int, memcmp, const void *s1, const void *s2, size_t n)
 #ifdef WRAP_memchr
 WRAPPER2(void *, memchr, const void *s, int c, size_t n)
 {
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT(s, n, __MF_CHECK_READ, "memchr region");
   return memchr (s, c, n);
 }
@@ -523,6 +511,7 @@ WRAPPER2(void *, memchr, const void *s, int c, size_t n)
 #ifdef WRAP_memrchr
 WRAPPER2(void *, memrchr, const void *s, int c, size_t n)
 {
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT(s, n, __MF_CHECK_READ, "memrchr region");
   return memrchr (s, c, n);
 }
@@ -536,6 +525,7 @@ WRAPPER2(char *, strcpy, char *dest, const char *src)
      check anyways. */
 
   size_t n = strlen (src);
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT(src, CLAMPADD(n, 1), __MF_CHECK_READ, "strcpy src"); 
   MF_VALIDATE_EXTENT(dest, CLAMPADD(n, 1), __MF_CHECK_WRITE, "strcpy dest");
   return strcpy (dest, src);
@@ -546,6 +536,7 @@ WRAPPER2(char *, strcpy, char *dest, const char *src)
 WRAPPER2(char *, strncpy, char *dest, const char *src, size_t n)
 {
   size_t len = strnlen (src, n);
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT(src, len, __MF_CHECK_READ, "strncpy src");
   MF_VALIDATE_EXTENT(dest, len, __MF_CHECK_WRITE, "strncpy dest"); /* nb: strNcpy */
   return strncpy (dest, src, n);
@@ -557,7 +548,7 @@ WRAPPER2(char *, strcat, char *dest, const char *src)
 {
   size_t dest_sz;
   size_t src_sz;
-
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
   dest_sz = strlen (dest);
   src_sz = strlen (src);  
   MF_VALIDATE_EXTENT(src, CLAMPADD(src_sz, 1), __MF_CHECK_READ, "strcat src");
@@ -593,7 +584,7 @@ WRAPPER2(char *, strncat, char *dest, const char *src, size_t n)
 
   size_t src_sz;
   size_t dest_sz;
-
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
   src_sz = strnlen (src, n);
   dest_sz = strnlen (dest, n);
   MF_VALIDATE_EXTENT(src, src_sz, __MF_CHECK_READ, "strncat src");
@@ -608,7 +599,7 @@ WRAPPER2(int, strcmp, const char *s1, const char *s2)
 {
   size_t s1_sz;
   size_t s2_sz;
-
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
   s1_sz = strlen (s1);
   s2_sz = strlen (s2);  
   MF_VALIDATE_EXTENT(s1, CLAMPADD(s1_sz, 1), __MF_CHECK_READ, "strcmp 1st arg");
@@ -622,7 +613,7 @@ WRAPPER2(int, strcasecmp, const char *s1, const char *s2)
 {
   size_t s1_sz;
   size_t s2_sz;
-
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
   s1_sz = strlen (s1);
   s2_sz = strlen (s2);  
   MF_VALIDATE_EXTENT(s1, CLAMPADD(s1_sz, 1), __MF_CHECK_READ, "strcasecmp 1st arg");
@@ -636,7 +627,7 @@ WRAPPER2(int, strncmp, const char *s1, const char *s2, size_t n)
 {
   size_t s1_sz;
   size_t s2_sz;
-
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
   s1_sz = strnlen (s1, n);
   s2_sz = strnlen (s2, n);
   MF_VALIDATE_EXTENT(s1, s1_sz, __MF_CHECK_READ, "strncmp 1st arg");
@@ -650,7 +641,7 @@ WRAPPER2(int, strncasecmp, const char *s1, const char *s2, size_t n)
 {
   size_t s1_sz;
   size_t s2_sz;
-
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
   s1_sz = strnlen (s1, n);
   s2_sz = strnlen (s2, n);
   MF_VALIDATE_EXTENT(s1, s1_sz, __MF_CHECK_READ, "strncasecmp 1st arg");
@@ -665,7 +656,7 @@ WRAPPER2(char *, strdup, const char *s)
   DECLARE(void *, malloc, size_t sz);
   char *result;
   size_t n = strlen (s);
-
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT(s, CLAMPADD(n,1), __MF_CHECK_READ, "strdup region");
   result = (char *)CALL_REAL(malloc, 
 			     CLAMPADD(CLAMPADD(n,1),
@@ -689,7 +680,7 @@ WRAPPER2(char *, strndup, const char *s, size_t n)
   DECLARE(void *, malloc, size_t sz);
   char *result;
   size_t sz = strnlen (s, n);
-
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT(s, sz, __MF_CHECK_READ, "strndup region"); /* nb: strNdup */
 
   /* note: strndup still adds a \0, even with the N limit! */
@@ -713,7 +704,7 @@ WRAPPER2(char *, strndup, const char *s, size_t n)
 WRAPPER2(char *, strchr, const char *s, int c)
 {
   size_t n;
-
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
   n = strlen (s);
   MF_VALIDATE_EXTENT(s, CLAMPADD(n,1), __MF_CHECK_READ, "strchr region");
   return strchr (s, c);
@@ -724,7 +715,7 @@ WRAPPER2(char *, strchr, const char *s, int c)
 WRAPPER2(char *, strrchr, const char *s, int c)
 {
   size_t n;
-
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
   n = strlen (s);
   MF_VALIDATE_EXTENT(s, CLAMPADD(n,1), __MF_CHECK_READ, "strrchr region");
   return strrchr (s, c);
@@ -736,7 +727,7 @@ WRAPPER2(char *, strstr, const char *haystack, const char *needle)
 {
   size_t haystack_sz;
   size_t needle_sz;
-
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
   haystack_sz = strlen (haystack);
   needle_sz = strlen (needle);
   MF_VALIDATE_EXTENT(haystack, CLAMPADD(haystack_sz, 1), __MF_CHECK_READ, "strstr haystack");
@@ -750,6 +741,7 @@ WRAPPER2(void *, memmem,
 	const void *haystack, size_t haystacklen,
 	const void *needle, size_t needlelen)
 {
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT(haystack, haystacklen, __MF_CHECK_READ, "memmem haystack");
   MF_VALIDATE_EXTENT(needle, needlelen, __MF_CHECK_READ, "memmem needle");
   return memmem (haystack, haystacklen, needle, needlelen);
@@ -760,6 +752,7 @@ WRAPPER2(void *, memmem,
 WRAPPER2(size_t, strlen, const char *s)
 {
   size_t result = strlen (s);
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT(s, CLAMPADD(result, 1), __MF_CHECK_READ, "strlen region");
   return result;
 }
@@ -769,6 +762,7 @@ WRAPPER2(size_t, strlen, const char *s)
 WRAPPER2(size_t, strnlen, const char *s, size_t n)
 {
   size_t result = strnlen (s, n);
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT(s, result, __MF_CHECK_READ, "strnlen region");
   return result;
 }
@@ -777,6 +771,7 @@ WRAPPER2(size_t, strnlen, const char *s, size_t n)
 #ifdef WRAP_bzero
 WRAPPER2(void, bzero, void *s, size_t n)
 {
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT(s, n, __MF_CHECK_WRITE, "bzero region");
   bzero (s, n);
 }
@@ -786,6 +781,7 @@ WRAPPER2(void, bzero, void *s, size_t n)
 #undef bcopy
 WRAPPER2(void, bcopy, const void *src, void *dest, size_t n)
 {
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT(src, n, __MF_CHECK_READ, "bcopy src");
   MF_VALIDATE_EXTENT(dest, n, __MF_CHECK_WRITE, "bcopy dest");
   bcopy (src, dest, n);
@@ -796,6 +792,7 @@ WRAPPER2(void, bcopy, const void *src, void *dest, size_t n)
 #undef bcmp
 WRAPPER2(int, bcmp, const void *s1, const void *s2, size_t n)
 {
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT(s1, n, __MF_CHECK_READ, "bcmp 1st arg");
   MF_VALIDATE_EXTENT(s2, n, __MF_CHECK_READ, "bcmp 2nd arg");
   return bcmp (s1, s2, n);
@@ -806,6 +803,7 @@ WRAPPER2(int, bcmp, const void *s1, const void *s2, size_t n)
 WRAPPER2(char *, index, const char *s, int c)
 {
   size_t n = strlen (s);
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT(s, CLAMPADD(n, 1), __MF_CHECK_READ, "index region");
   return index (s, c);
 }
@@ -815,6 +813,7 @@ WRAPPER2(char *, index, const char *s, int c)
 WRAPPER2(char *, rindex, const char *s, int c)
 {
   size_t n = strlen (s);
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT(s, CLAMPADD(n, 1), __MF_CHECK_READ, "rindex region");
   return rindex (s, c);
 }
@@ -833,6 +832,7 @@ WRAPPER2(char *, asctime, struct tm *tm)
 {
   static char *reg_result = NULL;
   char *result;
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT(tm, sizeof (struct tm), __MF_CHECK_READ, "asctime tm");
   result = asctime (tm);
   if (reg_result == NULL)
@@ -849,6 +849,7 @@ WRAPPER2(char *, ctime, const time_t *timep)
 {
   static char *reg_result = NULL;
   char *result;
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT(timep, sizeof (time_t), __MF_CHECK_READ, "ctime time");
   result = ctime (timep);
   if (reg_result == NULL)
@@ -867,6 +868,7 @@ WRAPPER2(struct tm*, localtime, const time_t *timep)
 {
   static struct tm *reg_result = NULL;
   struct tm *result;
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT(timep, sizeof (time_t), __MF_CHECK_READ, "localtime time");
   result = localtime (timep);
   if (reg_result == NULL)
@@ -883,6 +885,7 @@ WRAPPER2(struct tm*, gmtime, const time_t *timep)
 {
   static struct tm *reg_result = NULL;
   struct tm *result;
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT(timep, sizeof (time_t), __MF_CHECK_READ, "gmtime time");
   result = gmtime (timep);
   if (reg_result == NULL)
@@ -996,8 +999,7 @@ WRAPPER(int, pthread_create, pthread_t *thr, const pthread_attr_t *attr,
 
   TRACE ("mf: pthread_create\n");
 
-  LOCKTH();
-
+  /* LOCKTH(); */
   /* Garbage collect dead thread stacks.  */
   for (i = 0; i < PTHREAD_THREADS_MAX; i++)
     {
@@ -1024,7 +1026,7 @@ WRAPPER(int, pthread_create, pthread_t *thr, const pthread_attr_t *attr,
 	  break;
 	}
     }
-  UNLOCKTH();
+  /* UNLOCKTH(); */
 
   if (i == PTHREAD_THREADS_MAX) /* no slots free - simulated out-of-memory.  */
     {
@@ -1042,6 +1044,7 @@ WRAPPER(int, pthread_create, pthread_t *thr, const pthread_attr_t *attr,
     pthread_attr_init (& override_attr);
 
   /* Get supplied attributes.  Give up on error.  */
+  /* XXX: consider using POSIX2K attr_getstack() */
   if (pthread_attr_getstackaddr (& override_attr, & override_stack) != 0 ||
       pthread_attr_getstacksize (& override_attr, & override_stacksize) != 0)
     {
@@ -1082,10 +1085,11 @@ WRAPPER(int, pthread_create, pthread_t *thr, const pthread_attr_t *attr,
 	(((uintptr_t) override_stack + override_stacksize - alignment)
 	 & (~(uintptr_t)(alignment-1)));
       
+      /* XXX: consider using POSIX2K attr_setstack() */
       if (pthread_attr_setstackaddr (& override_attr, override_stack) != 0 ||
 	  pthread_attr_setstacksize (& override_attr, override_stacksize) != 0)
 	{
-	  /* Er, what now?  */
+	  /* This should not happen.  */
 	  CALL_REAL (free, pi->stack);
 	  pi->stack = NULL;
 	  errno = EAGAIN;

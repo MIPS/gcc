@@ -57,15 +57,18 @@ XXX: libgcc license?
 #define __MF_VIOL_WATCH 5
 
 /* Protect against recursive calls. */
-#define BEGIN_RECURSION_PROTECT           \
-  enum __mf_state old_state;              \
-  if (UNLIKELY (__mf_state == reentrant)) \
-    return;                               \
-  old_state = __mf_state;                 \
-  __mf_state = reentrant;
+#define BEGIN_RECURSION_PROTECT() do { \
+  if (UNLIKELY (__mf_state == reentrant)) { \
+    write (2, "mf: erroneous reentrancy detected in `", 38); \
+    write (2, __PRETTY_FUNCTION__, strlen(__PRETTY_FUNCTION__)); \
+    write (2, "'\n", 2); \
+    abort (); } \
+  __mf_state = reentrant;  \
+  } while (0)
 
-#define END_RECURSION_PROTECT             \
-  __mf_state = old_state;
+#define END_RECURSION_PROTECT() do { \
+  __mf_state = active; \
+  } while (0)
 
 
 
@@ -115,6 +118,10 @@ static unsigned long __mf_total_unregister_size;
 static unsigned long __mf_count_violation [__MF_VIOL_WATCH+1];
 static unsigned long __mf_sigusr1_received;
 static unsigned long __mf_sigusr1_handled;
+/* not static */ unsigned long __mf_reentrancy;
+#ifdef LIBMUDFLAPTH
+/* not static */ unsigned long __mf_lock_contention;
+#endif
 
 
 /* ------------------------------------------------------------------------ */
@@ -388,7 +395,9 @@ __mf_set_options (const char *optstr)
 {
   int rc;
   LOCKTH ();
+  BEGIN_RECURSION_PROTECT ();
   rc = __mfu_set_options (optstr);
+  END_RECURSION_PROTECT ();
   UNLOCKTH ();
   return rc;
 }
@@ -482,6 +491,7 @@ __mfu_set_options (const char *optstr)
   __mf_opts.free_queue_length &= (__MF_FREEQ_MAX - 1);
 
   /* Clear the lookup cache, in case the parameters got changed.  */
+  /* XXX: race */
   memset (__mf_lookup_cache, 0, sizeof(__mf_lookup_cache));
   /* void slot 0 */
   __mf_lookup_cache[0].low = MAXPTR;
@@ -585,7 +595,7 @@ void __mf_init ()
   __mf_describe_object (NULL);
 
 #define REG_RESERVED(obj) \
-  __mfu_register (& obj, sizeof(obj), __MF_TYPE_NOACCESS, # obj)
+  __mf_register (& obj, sizeof(obj), __MF_TYPE_NOACCESS, # obj)
 
   REG_RESERVED (__mf_lookup_cache);
   REG_RESERVED (__mf_lc_mask);
@@ -593,19 +603,19 @@ void __mf_init ()
   /* XXX: others of our statics?  */
 
   /* Prevent access to *NULL. */
-  __mfu_register (MINPTR, 1, __MF_TYPE_NOACCESS, "NULL");
+  __mf_register (MINPTR, 1, __MF_TYPE_NOACCESS, "NULL");
   __mf_lookup_cache[0].low = (uintptr_t) -1;
 
   /* XXX: bad hack: assumes Linux process layout */
   if (__mf_opts.heur_argv_environ)
     {
       int foo = 0;
-      __mfu_register (& foo,
+      __mf_register (& foo,
 		      (size_t) 0xC0000000 - (size_t) (& foo),
 		      __MF_TYPE_GUESS,
 		      "argv/environ area");
       /* XXX: separate heuristic? */
-      __mfu_register (& errno, sizeof (errno),
+      __mf_register (& errno, sizeof (errno),
 		      __MF_TYPE_GUESS,
 		      "errno area");
     }
@@ -627,7 +637,9 @@ void __mf_fini ()
 void __mf_check (void *ptr, size_t sz, int type, const char *location)
 {
   LOCKTH ();
+  BEGIN_RECURSION_PROTECT ();
   __mfu_check (ptr, sz, type, location);
+  END_RECURSION_PROTECT ();
   UNLOCKTH ();
 }
 
@@ -640,8 +652,6 @@ void __mfu_check (void *ptr, size_t sz, int type, const char *location)
   uintptr_t ptr_low = (uintptr_t) ptr;
   uintptr_t ptr_high = CLAMPSZ (ptr, sz);
   struct __mf_cache old_entry = *entry;
-
-  BEGIN_RECURSION_PROTECT;
 
   if (UNLIKELY (__mf_opts.sigusr1_report))
     __mf_sigusr1_respond ();
@@ -867,8 +877,6 @@ void __mfu_check (void *ptr, size_t sz, int type, const char *location)
 	__mf_lookup_cache_reusecount [entry_idx] ++;    
     }
   
-  END_RECURSION_PROTECT;
-  
   if (UNLIKELY (judgement < 0))
     __mf_violation (ptr, sz,
 		    (uintptr_t) __builtin_return_address (0), location,
@@ -939,7 +947,9 @@ void
 __mf_register (void *ptr, size_t sz, int type, const char *name)
 {
   LOCKTH ();
+  BEGIN_RECURSION_PROTECT ();
   __mfu_register (ptr, sz, type, name);
+  END_RECURSION_PROTECT ();
   UNLOCKTH ();
 }
 
@@ -947,8 +957,6 @@ __mf_register (void *ptr, size_t sz, int type, const char *name)
 void
 __mfu_register (void *ptr, size_t sz, int type, const char *name)
 {
-  /* if (UNLIKELY (!(__mf_state == active || __mf_state == starting))) return; */
-
   TRACE ("mf: register ptr=%08lx size=%lu type=%x name='%s'\n", ptr, sz, 
 	type, name ? name : "");
 
@@ -959,7 +967,6 @@ __mfu_register (void *ptr, size_t sz, int type, const char *name)
 				(type > __MF_TYPE_MAX) ? 0 : 
 				type] += sz;
     }
-
 
   if (UNLIKELY (__mf_opts.sigusr1_report))
     __mf_sigusr1_respond ();
@@ -977,6 +984,7 @@ __mfu_register (void *ptr, size_t sz, int type, const char *name)
     case mode_populate:
       /* Clear the cache.  */
       /* XXX: why the entire cache? */
+      /* XXX: race */
       memset (__mf_lookup_cache, 0, sizeof(__mf_lookup_cache));
       /* void slot 0 */
       __mf_lookup_cache[0].low = MAXPTR;
@@ -989,8 +997,6 @@ __mfu_register (void *ptr, size_t sz, int type, const char *name)
 	uintptr_t low = (uintptr_t) ptr;
 	uintptr_t high = CLAMPSZ (ptr, sz);
 	uintptr_t pc = (uintptr_t) __builtin_return_address (0);
-	
-	BEGIN_RECURSION_PROTECT;
 	
 	/* Treat unknown size indication as 1.  */
 	if (UNLIKELY (sz == 0)) sz = 1;
@@ -1014,8 +1020,7 @@ __mfu_register (void *ptr, size_t sz, int type, const char *name)
 		VERBOSE_TRACE ("mf: duplicate static reg %08lx-%08lx `%s'\n", 
 			       low, high, 
 			       (ovr_obj->data.name ? ovr_obj->data.name : ""));
-		END_RECURSION_PROTECT;
-		return;
+		break;
 	      }
 
 	    /* Quietly accept a single duplicate registration for
@@ -1027,8 +1032,7 @@ __mfu_register (void *ptr, size_t sz, int type, const char *name)
 	      {
 		/* do nothing */
 		VERBOSE_TRACE ("mf: duplicate guess reg %08lx-%08lx\n", low, high);
-		END_RECURSION_PROTECT;
-		return;
+		break;
 	      }
 
 	    /* Quietly accept new a guess registration that overlaps
@@ -1058,7 +1062,7 @@ __mfu_register (void *ptr, size_t sz, int type, const char *name)
 
 		/* Add GUESS regions between the holes: before each
 		   overlapping region.  */
-		END_RECURSION_PROTECT;
+
 		next_low = low;
 		/* This makes use of the assumption that __mf_find_objects() returns
 		   overlapping objects in an increasing sequence.  */
@@ -1101,7 +1105,6 @@ __mfu_register (void *ptr, size_t sz, int type, const char *name)
   		   violation), or if no further overlap occurs.  The
   		   located GUESS region should end up being split up
   		   in any case.  */
-		END_RECURSION_PROTECT;
 		__mfu_unregister ((void *) old_low, old_high-old_low+1);
 		__mfu_register ((void *) low, sz, type, name);
 		__mfu_register ((void *) old_low, old_high-old_low+1,
@@ -1128,7 +1131,6 @@ __mfu_register (void *ptr, size_t sz, int type, const char *name)
 	/* We could conceivably call __mf_check() here to prime the cache,
 	   but then the read_count/write_count field is not reliable.  */
 	
-	END_RECURSION_PROTECT;
 	break;
       }
     } /* end switch (__mf_opts.mudflap_mode) */
@@ -1139,7 +1141,9 @@ void
 __mf_unregister (void *ptr, size_t sz)
 {
   LOCKTH ();
+  BEGIN_RECURSION_PROTECT ();
   __mfu_unregister (ptr, sz);
+  END_RECURSION_PROTECT ();
   UNLOCKTH ();
 }
 
@@ -1148,8 +1152,6 @@ void
 __mfu_unregister (void *ptr, size_t sz)
 {
   DECLARE (void, free, void *ptr);
-
-  BEGIN_RECURSION_PROTECT;
 
   if (UNLIKELY (__mf_opts.sigusr1_report))
   __mf_sigusr1_respond ();
@@ -1169,6 +1171,7 @@ __mfu_unregister (void *ptr, size_t sz)
 
     case mode_populate:
       /* Clear the cache.  */
+      /* XXX: race */
       memset (__mf_lookup_cache, 0, sizeof(__mf_lookup_cache));
       /* void slot 0 */
       __mf_lookup_cache[0].low = MAXPTR;
@@ -1194,11 +1197,10 @@ __mfu_unregister (void *ptr, size_t sz)
 	if (UNLIKELY (num_overlapping_objs != 1 ||
 		      ptr != old_obj->data.low)) /* XXX: what about sz? */
 	  {
-	    END_RECURSION_PROTECT;
 	    __mf_violation (ptr, sz,
 			    (uintptr_t) __builtin_return_address (0), NULL,
 			    __MF_VIOL_UNREGISTER);
-	    return;
+	    break;
 	  }
 
 	__mf_unlink_object (old_obj);
@@ -1290,8 +1292,6 @@ __mfu_unregister (void *ptr, size_t sz)
       __mf_count_unregister ++;
       __mf_total_unregister_size += sz;
     }
-
-  END_RECURSION_PROTECT;
 }
 
 /* ------------------------------------------------------------------------ */
@@ -1481,6 +1481,7 @@ __mf_adapt_cache ()
     {
       __mf_lc_mask = new_mask;
       __mf_lc_shift = new_shift;
+      /* XXX: race */
       memset (__mf_lookup_cache, 0, sizeof(__mf_lookup_cache));
       /* void slot 0 */
       __mf_lookup_cache[0].low = MAXPTR;
@@ -1827,15 +1828,15 @@ void
 __mf_report ()
 {
   LOCKTH ();
+  BEGIN_RECURSION_PROTECT ();
   __mfu_report ();
+  END_RECURSION_PROTECT ();
   UNLOCKTH ();
 }
 
 void
 __mfu_report ()
 {
-  /* if (UNLIKELY (__mf_state == active)) return; */
-
   if (__mf_opts.collect_stats)
     {
       fprintf (stderr,
@@ -1854,6 +1855,13 @@ __mfu_report ()
 	       __mf_count_violation[0], __mf_count_violation[1],
 	       __mf_count_violation[2], __mf_count_violation[3],
 	       __mf_count_violation[4]);
+
+      fprintf (stderr,
+	       "calls with reentrancy: %lu\n", __mf_reentrancy);
+#ifdef LIBMUDFLAPTH
+      fprintf (stderr,
+	       "           lock contention: %lu\n", __mf_lock_contention);
+#endif
 
       /* Lookup cache stats.  */
       {
@@ -2005,7 +2013,6 @@ __mf_violation (void *ptr, size_t sz, uintptr_t pc,
   char buf [128];
   static unsigned violation_number;
   DECLARE(void, free, void *ptr);
-  BEGIN_RECURSION_PROTECT;
 
   TRACE ("mf: violation pc=%08lx location=%s type=%d ptr=%08lx size=%lu\n", pc, 
 	 (location != NULL ? location : ""), type, ptr, sz);
@@ -2146,8 +2153,6 @@ __mf_violation (void *ptr, size_t sz, uintptr_t pc,
       gdb dies, then starting a new one is appropriate.)  */
       break;
     }
-  
-  END_RECURSION_PROTECT;
 }
 
 /* ------------------------------------------------------------------------ */
@@ -2157,7 +2162,9 @@ unsigned __mf_watch (void *ptr, size_t sz)
 {
   unsigned rc;
   LOCKTH ();
+  BEGIN_RECURSION_PROTECT ();
   rc = __mf_watch_or_not (ptr, sz, 1);
+  END_RECURSION_PROTECT ();
   UNLOCKTH ();
   return rc;
 }

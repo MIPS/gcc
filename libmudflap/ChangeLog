@@ -1,3 +1,28 @@
+2003-05-16  Frank Ch. Eigler  <fche@redhat.com>
+
+	* Makefile.am (AM_CFLAGS): Remove "-ansi".
+	* configure.in: Remove silly no-pthreads => no-shared logic.
+	* Makefile.in, configure: Regenerated.
+	* mf-heuristics.c (__mf_heuristic_check): Remove reentrancy hacks.
+	* mf-hooks.c (BEGIN_PROTECT, END_PROTECT): Reorganize reentrancy
+	code.  Count reentrancy events.
+	(all hook functions): Don't directly manipulate __mf_state variable.
+	Add TRACE calls to hook functions without them.
+	* mf-impl.h (LOCKTH): Try to count lock contention events.
+	(VERBOSE_TRACE, TRACE): Remove reentrancy hacks.
+	* mf-runtime.c (BEGIN_RECURSION_PROTECT, END_RECURSION_PROTECT):
+	Reorganize reentrancy code.
+	(external __mf_ entry points): Use RECURSION_PROTECT mechanism to
+	identify reentrancy with mutex holding times.
+	(internal __mfu_ entry points): Remove internal reentrancy code.
+	(__mf_init): Use ordinary locked calls.
+	(__mfu_report): Print the two new counts.
+	* testsuite/lib/libmudflap.exp:	Filter out junk ld/pthreads messages.
+	* testsuite/libmudfap.cth/cthfrags.exp: New test driver.
+	* testsuite/libmudflap.cth/pass37-frag.c: New pthreads test. 
+	* testsuite/libmudfap.cth/cfrags.exp: Adapt to new libmudflap
+	option defaults.
+
 2003-05-09  Frank Ch. Eigler  <fche@redhat.com>
 
 	* configure.in: Add pthread support, plus glibc and porting hacks.

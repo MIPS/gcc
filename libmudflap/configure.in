@@ -42,12 +42,6 @@ enable_shared=no])
 AC_CHECK_HEADERS(stdint.h execinfo.h signal.h pthread.h dlfcn.h)
 AC_CHECK_FUNCS(backtrace backtrace_symbols gettimeofday signal)
 
-# Disable shared libraries for hosts without pthread.h
-if test "x$ac_have_pthread_h" = ""; then
-   enable_shared=no
-fi
-
-
 AC_LIBTOOL_DLOPEN
 AM_PROG_LIBTOOL
 AC_SUBST(enable_shared)

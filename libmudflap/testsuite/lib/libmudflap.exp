@@ -227,5 +227,11 @@ proc prune_gcc_output { text } {
 
     regsub -all {(^|\n)[^\n]*ld: warning: libgcc_s[^\n]*not found[^\n]*try using[^\n]*} $text "" text
 
+    regsub -all {(^|\n)[^\n]*In function.*pthread_create[^\n]*} $text "" text
+
+    regsub -all {(^|\n)[^\n]*the use of .pthread.*is deprecated[^\n]*} $text "" text
+
+    regsub -all {(^|\n)[^\n]*Dwarf Error:.*FORM value: 14[^\n]*} $text "" text
+
     return $text
 }
