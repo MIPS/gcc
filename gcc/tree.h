@@ -2802,7 +2802,7 @@ extern struct rtx_def *emit_line_note		PARAMS ((const char *, int));
 
 /* In calls.c */
 
-extern int setjmp_call_p		PARAMS ((tree));
+extern const char *uninlinable_call_p		PARAMS ((tree));
 
 /* In front end.  */
 

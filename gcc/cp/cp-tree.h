@@ -3958,7 +3958,6 @@ extern tree skip_artificial_parms_for		PARAMS ((tree, tree));
 
 /* In optimize.c */
 extern void optimize_function                   PARAMS ((tree));
-extern int calls_setjmp_p                       PARAMS ((tree));
 extern int maybe_clone_body                     PARAMS ((tree));
 
 /* in pt.c */

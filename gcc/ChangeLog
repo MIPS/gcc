@@ -1,3 +1,15 @@
+2001-07-23  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* Makefile.in (calls.o): Depend on intl.h.
+	* calls.c: Include intl.h.
+	(ECF_NEED_STACK_FRAME, ECF_NEED_ARG_FRAME): New flags.
+	(special_function_p): Detect when we need a stack or arg
+	frame. Don't optimize on length.
+	(setjmp_call_p): Remove.
+	(uninlinable_call_p): New function.
+	* tree.h (setjmp_call_p): Remove.
+	(uninlinable_call_p): Declare.
+
 2001-07-22  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* params.def (PARAM_MAX_INLINE_AST): New parameter.

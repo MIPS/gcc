@@ -1,3 +1,7 @@
+2001-07-23  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.old-deja/g++.warn/inline1.C: New test.
+
 2001-07-21  Nathan Sidwell  <nathan@codesourcery.com>
 
 	Remove old-abi tests.

@@ -1382,7 +1382,7 @@ builtins.o : builtins.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h \
    $(RECOG_H) output.h typeclass.h hard-reg-set.h toplev.h hard-reg-set.h \
    except.h $(TM_P_H) $(PREDICT_H)
 calls.o : calls.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h $(EXPR_H) \
-   $(REGS_H) toplev.h output.h function.h $(TIMEVAR_H) $(TM_P_H)
+   $(REGS_H) toplev.h output.h function.h $(TIMEVAR_H) $(TM_P_H) intl.h
 expmed.o : expmed.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h  \
    insn-config.h $(EXPR_H) $(RECOG_H) real.h \
    toplev.h $(TM_P_H)

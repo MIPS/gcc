@@ -33,6 +33,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "params.h"
 #include "hashtab.h"
 #include "debug.h"
+#include "intl.h"
+#include "flags.h"
 
 /* To Do:
 
@@ -104,6 +106,12 @@ typedef struct inline_data
   HOST_WIDE_INT usage;
 } inline_data;
 
+/* Decide whether a function with a target specific attribute
+   attached can be inlined.  By default we disallow this.  */
+#ifndef FUNCTION_ATTRIBUTE_INLINABLE_P
+#define FUNCTION_ATTRIBUTE_INLINABLE_P(FNDECL) 0
+#endif
+
 /* Prototypes.  */
 
 static tree initialize_inlined_parameters PARAMS ((inline_data *, tree, tree));
@@ -119,7 +127,8 @@ static tree find_inlinable_call_sites PARAMS ((tree *, int *, void *));
 static int compare_inlinable_call_sites PARAMS ((const void *, const void *));
 static int optimize_inline_calls PARAMS ((tree, inline_data *));
 static void optimize_function_real PARAMS ((tree, inline_data *));
-static tree calls_setjmp_r PARAMS ((tree *, int *, void *));
+static tree uninlinable_expr_p PARAMS ((tree *, int *, void *));
+static int uninlinable_function_p PARAMS ((tree));
 static void update_cloned_parm PARAMS ((tree, tree));
 static FILE *dump_function PARAMS ((enum tree_dump_index, tree, int *));
 
@@ -1127,12 +1136,6 @@ optimize_function_real (fn, id)
 	 propagation, unreachable code elimination, return value
 	 optimization, etc. */
 
-      /* We can't inline varargs functions. (Well actually we could if
-     	 they never refer to the varadic arguments. We could have
-     	 checked for that in the preceding optimizations.)  */
-      if (varargs_function_p (fn))
-	DECL_UNINLINABLE (fn) = 1;
-  
       DECL_OPTIMIZED_PARTIAL_P (fn) = 1;
     }
 
@@ -1164,6 +1167,10 @@ optimize_function_real (fn, id)
 	 unreachable code elimination, etc. */
     }
 
+  /* Check if it contains something that makes it uninlinable. */
+  if (uninlinable_function_p (fn))
+    DECL_UNINLINABLE (fn) = 1;
+    
   if (!inlinable_size_p (fn))
     DECL_UNINLINABLE (fn) = 1;
   
@@ -1218,33 +1225,77 @@ optimize_function (fn)
   VARRAY_FREE (id.fns);
 }
 
-/* Called from calls_setjmp_p via walk_tree.  */
+/* Return non-zero if FN is not inlinable. Report to the user if they
+   declared it inline and asked to be warned. */
 
-static tree
-calls_setjmp_r (tp, walk_subtrees, data)
-     tree *tp;
-     int *walk_subtrees ATTRIBUTE_UNUSED;
-     void *data ATTRIBUTE_UNUSED;
-{
-  /* We're only interested in FUNCTION_DECLS.  */
-  if (TREE_CODE (*tp) != FUNCTION_DECL)
-    return NULL_TREE;
-
-  return setjmp_call_p (*tp) ? *tp : NULL_TREE;
-}
-
-/* Returns non-zero if FN calls `setjmp' or some other function that
-   can return more than once.  This function is conservative; it may
-   occasionally return a non-zero value even when FN does not actually
-   call `setjmp'.  */
-
-int
-calls_setjmp_p (fn)
+static int
+uninlinable_function_p (fn)
      tree fn;
 {
-  return walk_tree_without_duplicates (&DECL_SAVED_TREE (fn),
-				       calls_setjmp_r,
-				       NULL) != NULL_TREE;
+  const char *reason = NULL;
+  tree parms;
+
+  /* We can't inline functions that return structures of varying size.  */
+  if (!reason && !VOID_TYPE_P (TREE_TYPE (TREE_TYPE (fn)))
+      && int_size_in_bytes (TREE_TYPE (TREE_TYPE (fn))) < 0)
+    reason = N_("returns a varying-size object");
+
+  /* Cannot inline a function with a varying size argument. */
+  for (parms = DECL_ARGUMENTS (fn); parms && !reason;
+       parms = TREE_CHAIN (parms))
+    if (int_size_in_bytes (TREE_TYPE (parms)) < 0)
+      reason = N_("function with varying-size parameter cannot be inline");
+
+  /* If the function has a target specific attribute attached to it,
+     then we assume that we should not inline it.  This can be overriden
+     by the target if it defines FUNCTION_ATTRIBUTE_INLINABLE_P.  */
+  if (!reason && DECL_MACHINE_ATTRIBUTES (fn)
+      && !FUNCTION_ATTRIBUTE_INLINABLE_P (fn))
+    reason = N_("has uninlinable target specific attributes");
+
+  /* We will need to reject functions containing nested functions, if
+     we start supporting them here (they are in C, not C++). */
+
+  /* Walk the tree looking for uninlinable features. */
+  if (!reason)
+    reason = (const char *)walk_tree_without_duplicates (&DECL_SAVED_TREE (fn),
+							 uninlinable_expr_p,
+							 NULL);
+
+  if (reason && DECL_DECLARED_INLINE_P (fn) && warn_inline)
+    cp_warning_at ("cannot inline `%#D', because it %s", fn, reason);
+    
+  return reason != NULL;
+}
+
+/* Called from uninlinable_function_p via walk_tree.  Return a char
+   string describing why this function cannot be inline, if it can't
+   be. DATA is a pointer to HOST_WIDE_INT, used to count the number of
+   nodes. */
+
+static tree
+uninlinable_expr_p (tp, walk_subtrees, data)
+     tree *tp;
+     int *walk_subtrees;
+     void *data ATTRIBUTE_UNUSED;
+{
+  const char *reason = NULL;
+  tree t = *tp;
+
+  if (TREE_CODE (t) == FUNCTION_DECL)
+    reason = uninlinable_call_p (t);
+  if (reason)
+    ;
+  else if (TREE_CODE (t) == GOTO_STMT
+	   && TREE_CODE (GOTO_DESTINATION (t)) != LABEL_DECL)
+    reason = N_("has computed `goto'");
+  else if (TREE_CODE (t) == ADDR_EXPR
+	   && TREE_CODE (TREE_OPERAND (t, 0)) == LABEL_DECL)
+    reason = N_("takes address of label");
+  else if (TYPE_P (t))
+    walk_subtrees = 0;
+
+  return (tree) reason;
 }
 
 /* CLONED_PARM is a copy of CLONE, generated for a cloned constructor

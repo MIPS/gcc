@@ -32,6 +32,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tm_p.h"
 #include "timevar.h"
 #include "sbitmap.h"
+#include "intl.h"
 
 #if !defined FUNCTION_OK_FOR_SIBCALL
 #define FUNCTION_OK_FOR_SIBCALL(DECL) 1
@@ -177,6 +178,12 @@ static int calls_function_1	PARAMS ((tree, int));
 /* Nonzero if this is a call to a function that returns with the stack
    pointer depressed.  */
 #define ECF_SP_DEPRESSED	1024
+/* Nonzero if this call is to a function that examines the caller's
+   stack frame (like __builtin_frame_address). */
+#define ECF_NEED_STACK_FRAME 	2048
+/* Nonzero if this call is to a function that examines the caller's
+   incoming arguments (like __builtin_va_start). */
+#define ECF_NEED_ARG_FRAME	4096
 
 static void emit_call_1		PARAMS ((rtx, tree, tree, HOST_WIDE_INT,
 					 HOST_WIDE_INT, HOST_WIDE_INT, rtx,
@@ -673,7 +680,11 @@ emit_call_1 (funexp, fndecl, funtype, stack_size, rounded_stack_size,
    allocate from the heap.
 
    Set MAY_BE_ALLOCA for any memory allocation function that might allocate
-   space from the stack such as alloca.  */
+   space from the stack such as alloca.
+
+   Set NEED_STACK_FRAME for __builtin_frame_address et al.
+
+   Set NEED_ARG_FRAME for __builtin_va_start. */
 
 static int
 special_function_p (fndecl, flags)
@@ -682,7 +693,6 @@ special_function_p (fndecl, flags)
 {
   if (! (flags & ECF_MALLOC)
       && fndecl && DECL_NAME (fndecl)
-      && IDENTIFIER_LENGTH (DECL_NAME (fndecl)) <= 17
       /* Exclude functions not at the file scope, or not `extern',
 	 since they are not the magic functions we would otherwise
 	 think they are.  */
@@ -764,17 +774,35 @@ special_function_p (fndecl, flags)
 		   || ! strcmp (tname, "calloc")
 		   || ! strcmp (tname, "strdup")))
 	flags |= ECF_MALLOC;
+      else if (fndecl == built_in_decls[BUILT_IN_FRAME_ADDRESS]
+	       || fndecl == built_in_decls[BUILT_IN_RETURN_ADDRESS])
+	flags |= ECF_NEED_STACK_FRAME;
+      else if (fndecl == built_in_decls[BUILT_IN_APPLY_ARGS]
+	       || fndecl == built_in_decls[BUILT_IN_STDARG_START]
+	       || fndecl == built_in_decls[BUILT_IN_VARARGS_START])
+	flags |= ECF_NEED_ARG_FRAME;
     }
   return flags;
 }
 
 /* Return nonzero when tree represent call to longjmp.  */
 
-int
-setjmp_call_p (fndecl)
+const char *
+uninlinable_call_p (fndecl)
      tree fndecl;
 {
-  return special_function_p (fndecl, 0) & ECF_RETURNS_TWICE;
+  int flags = special_function_p (fndecl, 0);
+
+  if (flags & ECF_RETURNS_TWICE)
+    return N_ ("calls `setjmp' or related function");
+  if (flags & ECF_MAY_BE_ALLOCA)
+    return N_ ("calls `alloca' or related function");
+  if (flags & ECF_NEED_STACK_FRAME)
+    return N_ ("examines the stack frame with `__builtin_frame_address' or similar");
+  if (flags & ECF_NEED_ARG_FRAME)
+    return N_ ("examines the parameters with `__builtin_stdarg_start' or similar");
+  
+  return NULL;
 }
 
 /* Detect flags (function attributes) from the function type node.  */

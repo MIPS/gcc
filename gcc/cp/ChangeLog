@@ -1,3 +1,18 @@
+2001-07-23  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* Make-lang.in (cp/optimize.o): Depend on intl.h, flags.h.
+	* cp-tree.h (calls_setjmp_p): Remove.
+	* decl.c (finish_function): Don't call calls_setjmp_p.
+	* optimize.c: Include intl.h, flags.h.
+	(FUNCTION_ATTRIBUTE_INLINABLE_P): Provide default
+	implementation.
+	(optimize_function_real): Don't mark uninlinable, just cos it
+	is varadic. Call uninlinable_function_p.
+	(calls_setjmp_r): Remove.
+	(calls_setjmp_p): Remove.
+	(uninlinable_function_p): New function.
+	(uninlinable_expr_p): New function.
+
 2001-07-22  Nathan Sidwell  <nathan@codesourcery.com>
 
 	Change tree optimizer to bottom up inlining.
