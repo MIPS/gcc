@@ -1,3 +1,11 @@
+2003-07-14  Andreas Jaeger  <aj@suse.de>
+	Merge from mainline:
+
+	2003-07-08  Geoffrey Keating  <geoffk@apple.com>
+
+	* expr.c (MOVE_MAX_PIECES): Move from here...
+	* defaults.h (MOVE_MAX_PIECES): ... to here.
+
 2003-07-13  Josef Zlomek  <zlomekj@suse.cz>
 
 	* vrp.c (find_operations_1): Fix bug: OPER->DST has to be a REG.
