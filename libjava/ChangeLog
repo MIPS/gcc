@@ -1,5 +1,12 @@
 2004-06-08  Michael Koch  <konqueror@gmx.de>
 
+	* javax/swing/JToggleButton.java
+	(JToggleButton): New constructor.
+	(getAccessibleContext): Moved documentation into javadoc.
+	(getUIClassID): Likewise.
+
+2004-06-08  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/AbstractButton.java
 	(getDisabledIcon): Create disabled icon if none exists yet.
 
