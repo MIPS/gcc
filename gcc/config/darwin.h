@@ -223,14 +223,6 @@ do {									\
   darwin_running_cxx = (strstr (lang_hooks.name, "C++") != 0);		\
 } while(0)
 
-enum darwin_builtins
-{
-  DARWIN_BUILTIN_MIN = (int)TARGET_BUILTIN_MAX,
-
-  DARWIN_BUILTIN_CFSTRINGMAKECONSTANTSTRING,
-  DARWIN_BUILTIN_MAX
-};
-
 #define SUBTARGET_INIT_BUILTINS		\
 do {					\
   darwin_init_cfstring_builtins ();	\

@@ -54,6 +54,16 @@ static void update_non_lazy_ptrs (const char *);
 static void update_stubs (const char *);
 const char *machopic_non_lazy_ptr_name (const char*);
 
+/* APPLE LOCAL begin constant cfstrings */
+enum darwin_builtins
+{
+  DARWIN_BUILTIN_MIN = (int)TARGET_BUILTIN_MAX,
+
+  DARWIN_BUILTIN_CFSTRINGMAKECONSTANTSTRING,
+  DARWIN_BUILTIN_MAX
+};
+/* APPLE LOCAL end constant cfstrings */
+
 /* APPLE LOCAL prototypes  */
 static tree machopic_non_lazy_ptr_list_entry PARAMS ((const char*, int));
 static tree machopic_stub_list_entry PARAMS ((const char *));
