@@ -2136,8 +2136,6 @@ while (0)
 
 /* Addressing modes, and classification of registers for them.  */
 #define HAVE_POST_INCREMENT  TARGET_SH1
-/*#define HAVE_PRE_INCREMENT   1*/
-/*#define HAVE_POST_DECREMENT  1*/
 #define HAVE_PRE_DECREMENT   TARGET_SH1
 
 #define USE_LOAD_POST_INCREMENT(mode)    ((mode == SImode || mode == DImode) \

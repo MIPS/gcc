@@ -1288,9 +1288,6 @@ extern struct dsp16xx_frame_info current_frame_info;
 #define HAVE_POST_INCREMENT 1
 #define HAVE_POST_DECREMENT 1
 
-/* #define HAVE_PRE_DECREMENT 0 */
-/* #define HAVE_PRE_INCREMENT 0 */
-
 /* Recognize any constant value that is a valid address.  */
 #define CONSTANT_ADDRESS_P(X)  CONSTANT_P (X)
 

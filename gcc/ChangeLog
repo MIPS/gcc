@@ -1,5 +1,28 @@
 2002-09-23  Kazu Hirata  <kazu@cs.umass.edu>
 
+	* config/alpha/alpha.h: Remove commented-out macro
+	definitions of HAVE_{POST|PRE}_{INC|DEC}REMENT.
+	* config/avr/avr.h: Likewise.
+	* config/d30v/d30v.h: Likewise.
+	* config/dsp16xx/dsp16xx.h: Likewise.
+	* config/i370/i370.h: Likewise.
+	* config/i386/i386.h: Likewise.
+	* config/i960/i960.h: Likewise.
+	* config/m68k/m68k.h: Likewise.
+	* config/m88k/m88k.h: Likewise.
+	* config/mips/mips.h: Likewise.
+	* config/ns32k/ns32k.h: Likewise.
+	* config/pdp11/pdp11.h: Likewise.
+	* config/romp/romp.h: Likewise.
+	* config/rs6000/rs6000.h: Likewise.
+	* config/s390/s390.h: Likewise.
+	* config/sh/sh.h: Likewise.
+	* config/sparc/sparc.h: Likewise.
+	* config/stormy16/stormy16.h: Likewise.
+	* config/vax/vax.h: Likewise.
+
+2002-09-23  Kazu Hirata  <kazu@cs.umass.edu>
+
 	* function.c (push_temp_slots_for_block): Remove.
 	(push_temp_slots_for_target): Likewise.
 	(get_target_temp_slot_level): Likewise.

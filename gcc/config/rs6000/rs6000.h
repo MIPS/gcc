@@ -1932,9 +1932,6 @@ typedef struct rs6000_args
 
 /* Addressing modes, and classification of registers for them.  */
 
-/* #define HAVE_POST_INCREMENT 0 */
-/* #define HAVE_POST_DECREMENT 0 */
-
 #define HAVE_PRE_DECREMENT 1
 #define HAVE_PRE_INCREMENT 1
 

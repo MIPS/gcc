@@ -1307,8 +1307,6 @@ extern int avr_reg_order[];
    addressing.  */
 
 #define HAVE_PRE_DECREMENT 1
-/* #define HAVE_PRE_INCREMENT
-   #define HAVE_POST_DECREMENT  */
 /* Similar for other kinds of addressing.  */
 
 #define CONSTANT_ADDRESS_P(X) CONSTANT_P (X)

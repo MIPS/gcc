@@ -1155,12 +1155,6 @@ enum reg_class { NO_REGS, AP_REG, XRF_REGS, GENERAL_REGS, AGRF_REGS,
 
 #define SELECT_CC_MODE(OP,X,Y) CCmode
 
-/* #define HAVE_POST_INCREMENT 0 */
-/* #define HAVE_POST_DECREMENT 0 */
-
-/* #define HAVE_PRE_DECREMENT 0 */
-/* #define HAVE_PRE_INCREMENT 0 */
-
 /* Recognize any constant value that is a valid address.
    When PIC, we do not accept an address that would require a scratch reg
    to load into a register.  */

@@ -2023,8 +2023,6 @@ enum reg_class
 #define HAVE_POST_INCREMENT 1
 
 /* Similar for other kinds of addressing.  */
-/* #define HAVE_PRE_INCREMENT 1 */
-/* #define HAVE_POST_DECREMENT 1 */
 #define HAVE_PRE_DECREMENT 1
 
 /* A C expression that is 1 if the RTX X is a constant which is a valid
