@@ -1846,11 +1846,6 @@ process_options (void)
   if (flag_unroll_all_loops)
     flag_unroll_loops = 1;
 
- /* APPLE LOCAL begin lno */ 
- if (flag_loop_optimize2)
-    flag_loop_optimize = 0;
- /* APPLE LOCAL end lno */
-
   /* The loop unrolling code assumes that cse will be run after loop.  */
   if (flag_unroll_loops || flag_peel_loops)
     flag_rerun_cse_after_loop = 1;

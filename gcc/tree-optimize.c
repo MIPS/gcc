@@ -419,7 +419,6 @@ init_tree_optimization_passes (void)
   /* APPLE LOCAL end loops-to-memset */
   /* APPLE LOCAL begin lno */
   NEXT_PASS (pass_loop_test);
-  NEXT_PASS (pass_elim_checks);
   NEXT_PASS (pass_mark_maybe_inf_loops);
   /* APPLE LOCAL end lno */
   NEXT_PASS (pass_if_conversion);

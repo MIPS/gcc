@@ -140,7 +140,6 @@ extern struct tree_opt_pass pass_memset;
 extern struct tree_opt_pass pass_unswitch;
 /* APPLE LOCAL begin lno */
 extern struct tree_opt_pass pass_mark_maybe_inf_loops;
-extern struct tree_opt_pass pass_elim_checks;
 /* APPLE LOCAL end lno */
 extern struct tree_opt_pass pass_iv_canon;
 extern struct tree_opt_pass pass_record_bounds;
@@ -148,7 +147,6 @@ extern struct tree_opt_pass pass_if_conversion;
 extern struct tree_opt_pass pass_vectorize;
 extern struct tree_opt_pass pass_complete_unroll;
 /* APPLE LOCAL lno */
-extern struct tree_opt_pass pass_linear_transform;
 extern struct tree_opt_pass pass_iv_optimize;
 /* APPLE LOCAL lno */
 extern struct tree_opt_pass pass_loop_prefetch;

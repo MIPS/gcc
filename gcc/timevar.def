@@ -90,7 +90,6 @@ DEFTIMEVAR (TV_TREE_LOOP_BOUNDS	     , "tree record loop bounds")
 /* APPLE LOCAL begin lno */
 DEFTIMEVAR (TV_MARK_MILOOPS	     , "mark maybe infinite loops")
 DEFTIMEVAR (TV_TREE_PREFETCH	     , "tree prefetching")
-DEFTIMEVAR (TV_TREE_ELIM_CHECKS      , "chrec eliminate checks")
 DEFTIMEVAR (TV_DEP_GRAPH             , "data dependences graph")
 /* APPLE LOCAL end lno */
 DEFTIMEVAR (TV_LIM                   , "loop invariant motion")

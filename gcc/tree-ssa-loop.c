@@ -47,22 +47,18 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 struct loops *current_loops;
 
-/* APPLE LOCAL begin lno */
 /* Initializes the loop structures.  DUMP is the file to that the details
    about the analysis should be dumped.  If CANONICALIZE_SSA is true, loop
    closed ssa form is enforced and redundant phi nodes created by creating
    preheaders are cleaned up.  */
 
 struct loops *
-tree_loop_optimizer_init (FILE *dump, bool canonicalize_ssa)
+tree_loop_optimizer_init (FILE *dump)
 {
   struct loops *loops = loop_optimizer_init (dump);
 
   if (!loops)
     return NULL;
-
-  if (!canonicalize_ssa)
-    return loops;
 
   /* Creation of preheaders may create redundant phi nodes (if the loop is
      entered by more than one edge, but the initial value of the induction
@@ -79,7 +75,6 @@ tree_loop_optimizer_init (FILE *dump, bool canonicalize_ssa)
 
   return loops;
 }
-/* APPLE LOCAL end lno */
 
 /* The loop superpass.  */
 
@@ -111,8 +106,7 @@ struct tree_opt_pass pass_loop =
 static void
 tree_ssa_loop_init (void)
 {
-  /* APPLE LOCAL lno */
-  current_loops = tree_loop_optimizer_init (dump_file, true);
+  current_loops = tree_loop_optimizer_init (dump_file);
   if (!current_loops)
     return;
 
@@ -279,40 +273,6 @@ struct tree_opt_pass pass_mark_maybe_inf_loops =
   0
 };
 
-/* Removal of redundant checks.  */
-
-static void
-tree_elim_checks (void)
-{
-  if (!current_loops)
-    return;
-
-  /* This pass is disabled for now.  */
-  /* eliminate_redundant_checks (); */
-}
-
-static bool
-gate_tree_elim_checks (void)
-{
-  return flag_tree_elim_checks != 0;
-}
-
-struct tree_opt_pass pass_elim_checks = 
-{
-  "elck",				/* name */
-  gate_tree_elim_checks,		/* gate */
-  tree_elim_checks,			/* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  TV_TREE_ELIM_CHECKS,  		/* tv_id */
-  PROP_cfg | PROP_ssa,			/* properties_required */
-  0,					/* properties_provided */
-  0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  TODO_dump_func,                	/* todo_flags_finish */
-  0
-};
 /* APPLE LOCAL end lno */
 
 /* APPLE LOCAL begin loops-to-memset  */

@@ -713,7 +713,7 @@ extern enum move_pos movement_possibility (tree);
 
 /* APPLE LOCAL begin lno */
 /* In tree-ssa-loop*.c  */
-struct loops *tree_loop_optimizer_init (FILE *, bool);
+struct loops *tree_loop_optimizer_init (FILE *);
 void tree_ssa_prefetch_arrays (struct loops *);
 void mark_maybe_infinite_loops (struct loops *);
 /* APPLE LOCAL end lno */

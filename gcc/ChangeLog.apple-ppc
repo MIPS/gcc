@@ -1,3 +1,23 @@
+2005-03-08  Dale Johannesen  <dalej@apple.com>
+
+	* Makefile.in:  Remove useless code from LNO branch.
+	* cfgloop.h: Ditto.
+	* cfgloopmanip.c: Ditto.
+	* common.opt: Ditto.
+	* lambda-trans.c: Ditto.
+	* opts.c: Ditto.
+	* rtl.h: Ditto.
+	* timevar.def: Ditto.
+	* toplev.c: Ditto.
+	* toplev.h: Ditto.
+	* tree-flow.h: Ditto.
+	* tree-optimize.c: Ditto.
+	* tree-pass.h: Ditto.
+	* tree-ssa-loop-ch.c: Ditto.
+	* tree-ssa-loop.c: Ditto.
+	* tree.h: Ditto.
+	* varray.h: Ditto.
+
 2005-03-07  Devang Patel  <dpatel@apple.com>
 
 	* target-def.h (TARGET_VECT): Remove.

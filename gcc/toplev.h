@@ -123,8 +123,6 @@ extern bool user_defined_section_attribute;
 
 /* See toplev.c.  */
 extern int flag_loop_optimize;
-/* APPLE LOCAL lno */
-extern int flag_loop_optimize2;
 extern int flag_crossjumping;
 extern int flag_if_conversion;
 extern int flag_if_conversion2;
@@ -133,14 +131,14 @@ extern int flag_peel_loops;
 extern int flag_rerun_cse_after_loop;
 extern int flag_thread_jumps;
 extern int flag_tracer;
-/* APPLE LOCAL lno */
-/* extern int flag_unroll_loops; */
+extern int flag_unroll_loops;
 extern int flag_unroll_all_loops;
-/* APPLE LOCAL lno */
-/* extern int flag_unswitch_loops; */
+extern int flag_unswitch_loops;
 extern int flag_cprop_registers;
 extern int time_report;
 extern int flag_tree_based_profiling;
+/* APPLE LOCAL lno */
+extern int flag_loop_optimize2;
 
 /* Things to do with target switches.  */
 extern void display_target_options (void);

@@ -30,10 +30,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "cfglayout.h"
 #include "output.h"
 
-/* APPLE LOCAL begin lno */
-/* static struct loop * duplicate_loop (struct loops *, struct loop *,
-			   struct loop *);*/
-/* APPLE LOCAL end lno */
 static void duplicate_subloops (struct loops *, struct loop *, struct loop *);
 static void copy_loops_to (struct loops *, struct loop **, int,
 			   struct loop *);

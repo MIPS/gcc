@@ -520,12 +520,10 @@ decode_options (unsigned int argc, const char **argv)
       flag_tree_dse = 1;
       /* APPLE LOCAL begin lno */
       flag_tree_loop_im = 1;
-      flag_ivcanon = 1;
       flag_ivopts = 1;
       flag_tree_vectorize = 0;
       flag_tree_loop_linear = 0;
       flag_tree_pre = 1;
-      flag_tree_elim_checks = 0;
       /* APPLE LOCAL end lno */
       flag_tree_ter = 1;
       flag_tree_live_range_split = 1;
