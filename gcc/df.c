@@ -912,7 +912,7 @@ read_modify_subreg_p (x)
   isize = GET_MODE_SIZE (GET_MODE (SUBREG_REG (x)));
   osize = GET_MODE_SIZE (GET_MODE (x));
   if (isize <= osize)
-    return true;
+    return false;
   if (isize <= UNITS_PER_WORD)
     return false;
   if (osize > UNITS_PER_WORD)
