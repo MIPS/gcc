@@ -1,3 +1,16 @@
+2004-02-03  Daniel Berlin  <dberlin@dberlin.org>
+	
+	Fix PR other/12220
+	* engine/Makefile.am: Remove -fno-strict-aliasing.
+	* libcompat/Makefile.am: Ditto.
+	* points-to/Makefile.am: Ditto.
+	* configure: Regenerated.
+	* config.h.in: Ditto.
+	* Makefile.in: Ditto.
+	* engine/Makefile.am: Ditto.
+	* libcompat/Makefile.am: Ditto.
+	* points-to/Makefile.am: Ditto.
+	
 2003-07-01  Daniel Berlin  <dberlin@dberlin.org>
 
 	* acinclude.m4: New, copy the bool tests from gcc.
