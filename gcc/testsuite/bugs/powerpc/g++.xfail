@@ -187,6 +187,7 @@
 3878577: g++.dg/expr/cast2.C  (test for errors, line 4)
 #3878578: g++.old-deja/g++.other/comdat4.C (test for excess errors)
 #3878580: g++.dg/parse/parse3.C (test for excess errors)
+#
 # The following tests fail only when the c++ suite is run through Obj-C++.
 3904139: g++.dg/ext/fnname3.C execution test
 3904139: g++.old-deja/g++.ext/pretty2.C execution test
@@ -219,3 +220,62 @@
 3961370: g++.dg/ext/visibility/pragma-override1.C scan-assembler \\.internal.*Foo.methodEv
 3961370: g++.dg/ext/visibility/pragma-override2.C (test for excess errors)
 3961370: g++.dg/ext/visibility/pragma-override2.C scan-assembler \\.internal.*Foo.methodEv
+#
+# The following tests fail only when the c++ suite is run with -m64
+3965017: g++.dg/template/repo1.C (test for excess errors)
+3965017: g++.dg/template/repo3.C (test for excess errors)
+3964999: g++.old-deja/g++.pt/const2.C (test for excess errors)
+3965017: g++.old-deja/g++.pt/instantiate4.C (test for excess errors)
+3965017: g++.old-deja/g++.pt/instantiate6.C (test for excess errors)
+3965017: g++.old-deja/g++.pt/repo1.C (test for excess errors)
+3965017: g++.old-deja/g++.pt/repo2.C (test for excess errors)
+3965017: g++.old-deja/g++.pt/repo3.C (test for excess errors)
+3965017: g++.old-deja/g++.pt/repo4.C (test for excess errors)
+3953569: g++.old-deja/g++.law/profile1.C execution test
+3941491: g++.dg/debug/const1.C -gdwarf-21 (test for excess errors)
+3941491: g++.dg/debug/const1.C -gdwarf-21 -O2 (test for excess errors)
+3941491: g++.dg/debug/const1.C -gdwarf-21 -O3 (test for excess errors)
+3941491: g++.dg/debug/const1.C -gdwarf-21 -fastcp (test for excess errors)
+3941491: g++.dg/debug/const1.C -gdwarf-2 (test for excess errors)
+3941491: g++.dg/debug/const1.C -gdwarf-2 -O2 (test for excess errors)
+3941491: g++.dg/debug/const1.C -gdwarf-2 -O3 (test for excess errors)
+3941491: g++.dg/debug/const1.C -gdwarf-2 -fastcp (test for excess errors)
+3941491: g++.dg/debug/const1.C -gdwarf-23 (test for excess errors)
+3941491: g++.dg/debug/const1.C -gdwarf-23 -O2 (test for excess errors)
+3941491: g++.dg/debug/const1.C -gdwarf-23 -O3 (test for excess errors)
+3941491: g++.dg/debug/const1.C -gdwarf-23 -fastcp (test for excess errors)
+3941491: g++.dg/debug/debug4.C -gdwarf-21 (test for excess errors)
+3941491: g++.dg/debug/debug4.C -gdwarf-21 -O2 (test for excess errors)
+3941491: g++.dg/debug/debug4.C -gdwarf-21 -O3 (test for excess errors)
+3941491: g++.dg/debug/debug4.C -gdwarf-21 -fastcp (test for excess errors)
+3941491: g++.dg/debug/debug4.C -gdwarf-2 (test for excess errors)
+3941491: g++.dg/debug/debug4.C -gdwarf-2 -O2 (test for excess errors)
+3941491: g++.dg/debug/debug4.C -gdwarf-2 -O3 (test for excess errors)
+3941491: g++.dg/debug/debug4.C -gdwarf-2 -fastcp (test for excess errors)
+3941491: g++.dg/debug/debug4.C -gdwarf-23 (test for excess errors)
+3941491: g++.dg/debug/debug4.C -gdwarf-23 -O2 (test for excess errors)
+3941491: g++.dg/debug/debug4.C -gdwarf-23 -O3 (test for excess errors)
+3941491: g++.dg/debug/debug4.C -gdwarf-23 -fastcp (test for excess errors)
+3941491: g++.dg/debug/trivial.C -gdwarf-21 (test for excess errors)
+3941491: g++.dg/debug/trivial.C -gdwarf-21 -O2 (test for excess errors)
+3941491: g++.dg/debug/trivial.C -gdwarf-21 -O3 (test for excess errors)
+3941491: g++.dg/debug/trivial.C -gdwarf-21 -fastcp (test for excess errors)
+3941491: g++.dg/debug/trivial.C -gdwarf-2 (test for excess errors)
+3941491: g++.dg/debug/trivial.C -gdwarf-2 -O2 (test for excess errors)
+3941491: g++.dg/debug/trivial.C -gdwarf-2 -O3 (test for excess errors)
+3941491: g++.dg/debug/trivial.C -gdwarf-2 -fastcp (test for excess errors)
+3941491: g++.dg/debug/trivial.C -gdwarf-23 (test for excess errors)
+3941491: g++.dg/debug/trivial.C -gdwarf-23 -O2 (test for excess errors)
+3941491: g++.dg/debug/trivial.C -gdwarf-23 -O3 (test for excess errors)
+3941491: g++.dg/debug/trivial.C -gdwarf-23 -fastcp (test for excess errors)
+3939381: g++.dg/asm-block-2.C execution test
+3966342: g++.dg/asm-function-6.C execution test
+3939078: g++.dg/bprob/g++-bprob-1.C compilation,  -g  -fprofile-arcs
+3939078: g++.dg/bprob/g++-bprob-1.C compilation,  -O3 -g  -fprofile-arcs
+3939078: g++.dg/bprob/g++-bprob-1.C execution,    -fastcp  -fprofile-arcs
+3939078: g++.dg/bprob/g++-bprob-1.C compilation,  -g  -ftree-based-profiling -fprofile-arcs
+3939078: g++.dg/bprob/g++-bprob-1.C compilation,  -O3 -g  -ftree-based-profiling -fprofile-arcs
+3939078: g++.dg/bprob/g++-bprob-1.C execution,    -fastcp  -ftree-based-profiling -fprofile-arcs
+3967626: g++.dg/eh/forced1.C execution test
+3967626: g++.old-deja/g++.eh/terminate2.C execution test
+#
