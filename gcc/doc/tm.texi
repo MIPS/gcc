@@ -4228,18 +4228,18 @@ the function prologue.  Normally, the profiling code comes after.
 @subsection Permitting tail calls
 @cindex tail calls
 
-@table @code
-@findex FUNCTION_OK_FOR_SIBCALL
-@item FUNCTION_OK_FOR_SIBCALL (@var{decl})
-A C expression that evaluates to true if it is ok to perform a sibling
-call to @var{decl} from the current function.
+@deftypefn {Target Hook} bool TARGET_FUNCTION_OK_FOR_SIBCALL (tree @var{decl}, tree @var{exp})
+True if it is ok to do sibling call optimization for the specified
+call expression @var{exp}.  @var{decl} will be the called function,
+or @code{NULL} if this is an indirect call.
 
 It is not uncommon for limitations of calling conventions to prevent
 tail calls to functions outside the current unit of translation, or
-during PIC compilation.  Use this macro to enforce these restrictions,
+during PIC compilation.  The hook is used to enforce these restrictions,
 as the @code{sibcall} md pattern can not fail, or fall over to a
-``normal'' call.
-@end table
+``normal'' call.  The criteria for successful sibling call optimization
+may vary greatly between different architectures.
+@end deftypefn
 
 @node Varargs
 @section Implementing the Varargs Macros

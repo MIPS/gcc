@@ -1,3 +1,8 @@
+2002-10-03  Andreas Bauer  <baueran@in.tum.de>
+
+	* doc/tm.texi (FUNCTION_OK_FOR_SIBCALL): Remove.
+	(TARGET_FUNCTION_OK_FOR_SIBCALL): New.
+
 2002-10-02  David Mosberger-Tang  <David.Mosberger@acm.org>
 
 	* unwind.h (_Unwind_GetTextRelBase): Mark _C argument with
