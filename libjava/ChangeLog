@@ -1,3 +1,20 @@
+2004-07-12  David Jee  <djee@redhat.com>
+
+	* gnu/java/awt/peer/gtk/GtkImagePainter.java
+	(imageComplete): Call image.imageComplete().
+	* java/awt/image/MemoryImageSource.java:
+	Reimplement consumers as a Vector instead of a Hashtable.  This is
+	because enumeration on a Hashtable is not thread-safe.
+	(addConsumer): Adapt to Vector consumers.
+	(isConsumer): Adapt to Vector consumers.
+	(removeConsumer): Adapt to Vector consumers.
+	(startProduction): Adapt to Vector consumers. Call imageComplete()
+	with STATICIMAGEDONE flag instead of SINGLEFRAME flag.
+	(newPixels): Adapt to Vector consumers.
+	(sendPicture): Set the color model of the image consumer.
+	(newPixels(IIII)): Adapt to Vector consumers.
+	(newPixels(IIIIB)): Adapt to Vector consumers.
+
 2004-07-12  Graydon Hoare  <graydon@redhat.com>
 
 	* javax/swing/Timer.java (run): Queue events each time cycle.
