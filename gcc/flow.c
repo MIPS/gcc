@@ -644,10 +644,6 @@ update_life_info (blocks, extent, prop_flags)
       && (extent == UPDATE_LIFE_LOCAL || blocks))
     abort ();
 
-  /* Clear log links in case we are asked to (re)compute them.  */
-  if (prop_flags & PROP_LOG_LINKS)
-    clear_log_links (blocks);
-
   /* For a global update, we go through the relaxation process again.  */
   if (extent != UPDATE_LIFE_LOCAL)
     {
@@ -684,6 +680,10 @@ update_life_info (blocks, extent, prop_flags)
       if (extent == UPDATE_LIFE_GLOBAL_RM_NOTES)
 	count_or_remove_death_notes (blocks, 1);
     }
+
+  /* Clear log links in case we are asked to (re)compute them.  */
+  if (prop_flags & PROP_LOG_LINKS)
+    clear_log_links (blocks);
 
   if (blocks)
     {
