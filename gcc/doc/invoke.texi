@@ -1775,7 +1775,11 @@ programs:
 @opindex fconstant-string-class
 Use @var{class-name} as the name of the class to instantiate for each
 literal string specified with the syntax @code{@@"@dots{}"}.  The default
-class name is @code{NXConstantString}.
+class name is @code{NXConstantString} if the GNU runtime is being used, and
+@code{NSConstantString} if the NeXT runtime is being used (see below).  The
+@option{-fconstant-cfstrings} option, if also present, will override the
+@option{-fconstant-string-class} setting and cause @code{@@"@dots{}"} literals
+to be laid out as constant CoreFoundation strings.
 
 @item -fgnu-runtime
 @opindex fgnu-runtime
@@ -1875,6 +1879,12 @@ blocks for thread-safe execution:
     @dots{}
   @}
 @end smallexample
+
+Unlike Java, Objective-C does not allow for entire methods to be marked
+@code{@@synchronized}.  Note that throwing exceptions out of
+@code{@@synchronized} blocks is allowed, and will cause the guarding object
+to be unlocked properly.
+
 @item -freplace-objc-classes
 @opindex -freplace-objc-classes
 When compiling for the NeXT runtime, the compiler ordinarily replaces calls
