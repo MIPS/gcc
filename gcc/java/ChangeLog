@@ -1,5 +1,10 @@
 2005-03-26  Tom Tromey  <tromey@redhat.com>
 
+	* tree.cc (handle_op_assignment): Correct convert types of
+	arguments and result.
+
+2005-03-26  Tom Tromey  <tromey@redhat.com>
+
 	* tree.cc (visit_method): Emit explicit 'return' for void
 	methods.
 

@@ -1420,18 +1420,30 @@ tree_generator::handle_op_assignment (model_element *element,
   tree lhs_tree = save_expr (current);
   rhs->visit (this);
   tree rhs_tree = current;
-  current = build2 (MODIFY_EXPR, gcc_builtins->map_type (lhs->type ()),
-		    lhs_tree,
-		    build2 (op, gcc_builtins->map_type (lhs->type ()),
-			    lhs_tree, rhs_tree));
+
+  bool is_shift = (op == LSHIFT_EXPR || op == RSHIFT_EXPR);
+
+  // Note that we convert the LHS to the type of the RHS, because the
+  // RHS might have been promoted.  However, we don't do this for
+  // shift operators, as they don't undergo binary numeric promotion.
+  // FIXME: probably the model should be more clear on this point.
+  tree rhs_type = TREE_TYPE (rhs_tree);
+  tree lhs_dup_tree = lhs_tree;
+  if (! is_shift)
+    lhs_dup_tree = fold (convert (rhs_type, lhs_dup_tree));
+
+  current = build2 (MODIFY_EXPR, TREE_TYPE (lhs_tree), lhs_tree,
+		    fold (convert (TREE_TYPE (lhs_tree),
+				   build2 (op, rhs_type,
+					   lhs_dup_tree, rhs_tree))));
   TREE_SIDE_EFFECTS (current) = 1;
   annotate (current, element);
 
-  model_type *lhs_type = lhs->type ();
-  model_type *rhs_type = rhs->type ();
-  if (! lhs_type->primitive_p () && lhs_type != null_type
-      && ! rhs_type->primitive_p () && rhs_type != null_type)
-    emit_type_assertion (lhs_type, rhs_type);
+  model_type *lhs_mtype = lhs->type ();
+  model_type *rhs_mtype = rhs->type ();
+  if (! lhs_mtype->primitive_p () && lhs_mtype != null_type
+      && ! rhs_mtype->primitive_p () && rhs_mtype != null_type)
+    emit_type_assertion (lhs_mtype, rhs_mtype);
 }
 
 void
