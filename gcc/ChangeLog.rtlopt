@@ -1,5 +1,12 @@
 2003-02-19  Josef Zlomek  <zlomekj@suse.cz>
 
+	* var-tracking.c (note_insn_var_location_emit): Detect incomplete
+	variables.
+	(emit_note_if_var_changed): Moved protection agains emitting empty
+	location parts to note_insn_var_location_emit.
+
+2003-02-19  Josef Zlomek  <zlomekj@suse.cz>
+
 	* var-tracking.c (track_expr_p): Do not track BLKmode memory.
 
 2003-02-14  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>

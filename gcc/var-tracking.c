@@ -1125,11 +1125,38 @@ note_insn_var_location_emit (insn, where, var)
      variable var;
 {
   rtx note;
+  int i;
+  bool complete;
+  HOST_WIDE_INT last_limit;
+  tree type_size_unit;
 
 #ifdef ENABLE_CHECKING
   if (!var->decl)
     abort ();
 #endif
+
+  complete = true;
+  last_limit = 0;
+  for (i = 0; i < var->n_location_parts; i++)
+    {
+      if (last_limit < var->location_part[i].offset)
+	{
+	  complete = false;
+	  break;
+	}
+      last_limit = (var->location_part[i].offset
+		    + GET_MODE_SIZE (GET_MODE (var->location_part[i].loc)));
+    }
+  type_size_unit = TYPE_SIZE_UNIT (TREE_TYPE (var->decl));
+  if ((unsigned HOST_WIDE_INT) last_limit < TREE_INT_CST_LOW (type_size_unit))
+    complete = false;
+
+  /* If the variable is not complete a note with empty location should be
+     emitted to specify the end of variable location range.
+     The following test is a temporary workaround because dwarf2out.c does not
+     handle empty location yet.  */
+  if (!complete)
+    return;
 
   if (where == EMIT_NOTE_AFTER_INSN)
     note = emit_note_after (NOTE_INSN_VAR_LOCATION, insn);
@@ -1142,15 +1169,14 @@ note_insn_var_location_emit (insn, where, var)
 	= gen_rtx_EXPR_LIST (VOIDmode,
 			     var->location_part[0].loc,
 			     GEN_INT (var->location_part[0].offset));
-      rtx var_location = gen_rtx_VAR_LOCATION (VOIDmode, var->decl, expr_list);
-      NOTE_VAR_LOCATION (note) = var_location;
+
+      NOTE_VAR_LOCATION (note)
+	= gen_rtx_VAR_LOCATION (VOIDmode, var->decl, expr_list);
     }
   else if (var->n_location_parts)
     {
-      int i;
       rtx argp[MAX_LOC_PARTS];
       rtx parallel;
-      rtx var_location;
 
       for (i = 0; i < var->n_location_parts; i++)
 	argp[i] = gen_rtx_EXPR_LIST (VOIDmode,
@@ -1158,11 +1184,9 @@ note_insn_var_location_emit (insn, where, var)
 				     GEN_INT (var->location_part[i].offset));
       parallel = gen_rtx_PARALLEL (VOIDmode,
 				   gen_rtvec_v (var->n_location_parts, argp));
-      var_location = gen_rtx_VAR_LOCATION (VOIDmode, var->decl, parallel);
-      NOTE_VAR_LOCATION (note) = var_location;
+      NOTE_VAR_LOCATION (note)
+	= gen_rtx_VAR_LOCATION (VOIDmode, var->decl, parallel);
     }
-  else
-    abort ();
 }
 
 /* Set the part of variable's location.  The variable part is specified
@@ -1303,9 +1327,6 @@ emit_note_if_var_changed (slot, aux)
 {
   variable var = *slot;
   emit_note_data *data = (emit_note_data *) aux;
-
-  if (var->n_location_parts == 0)
-    var->changed = false;
 
   if (var->changed)
     {
