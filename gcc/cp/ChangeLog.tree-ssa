@@ -1,3 +1,8 @@
+2004-03-17  Richard Henderson  <rth@redhat.com>
+
+	* cp-lang.c (cxx_types_compatible_p): Use
+	same_type_ignoring_top_level_qualifiers_p.
+
 2004-03-16  Dale Johannesen  <dalej@apple.com>
 
 	* cp-lang.c (cxx_types_compatible_p): New.

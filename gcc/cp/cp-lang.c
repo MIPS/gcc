@@ -362,7 +362,7 @@ cp_var_mod_type_p (tree type)
 
 static int cxx_types_compatible_p (tree x, tree y)
 {
-    return comptypes (TYPE_MAIN_VARIANT (x), TYPE_MAIN_VARIANT (y), 0);
+  return same_type_ignoring_top_level_qualifiers_p (x, y);
 }
 
 /* Stub routine to tell people that this doesn't work yet.  */
