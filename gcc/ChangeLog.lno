@@ -1,3 +1,81 @@
+2004-01-14  Dorit Naishlos <dorit@il.ibm.com>
+            Sebastian Pop  <s.pop@laposte.net>
+
+        * tree-vectorizer.c: (vect_is_simple_iv_evolution): Correctly use
+        APIs of the new monev analyzer. Additional argument (loop_num).
+        (vect_transform_loop_bound): Additional argument to
+        vect_is_simple_iv_evolution.
+        (vect_analyze_scalar_cycles): Likewise.
+        (vect_analyze_data_ref_access): Likewise.
+        (vect_get_loop_niters): Likewise.
+
+2004-01-14  Dorit Naishlos <dorit@il.ibm.com>
+
+        * tree-optimize.c: (optimize_function_tree): Cleanup.
+
+        * tree-vectorizer.h: (DBG_VECT, DBG_VECT2): Removed.
+        (vec_array_base_name_differ_p): Removed.
+        (vec_analyze_array): Removed.
+        (struct _stmt_vec_info): New field: loop.
+        (STMT_VINFO_LOOP): New access function to above new field.
+        (new_stmt_vec_info): Additional argument.
+
+        * tree-vectorizer.c: (vect_is_simple_use): New function.
+        (vect_is_supportable_binop): Added call to vect_is_simple_use().
+        (vect_is_supportable_store): Added call to vect_is_simple_use().
+        (vect_is_supportable_load): Added call to vect_is_simple_use().
+
+        (vect_create_index_for_array_ref): Correct handling of accesses with
+        an offset (e.g, a[i+OFF]).
+        (vect_create_data_ref): Pass STMT as an argument to
+        vect_create_index_for_array_ref, instead of an operand.
+        (vect_transform_store): Handle accesses with an offset.
+        (vect_transform_load): Handle accesses with an offset.
+
+        (vect_create_data_ref): Set the mem_tag of the pointer used for the
+        vector data-access to reflect correct may-alias info.
+
+        (get_address_calculation_operands): Removed.
+        (exist_non_indexing_operands_for_use_p): New function, in place of
+        get_address_calculation_operands() to correctly handle induction (for
+        now this means to detect and not attempt to vectorize computations
+        like a[i]=i).
+        (vect_analyze_scalar_cycles): call above new function instead of
+        get_address_calculation_operands().
+        (vect_mark_stmts_to_be_vectorized): Likewise.
+
+        (get_vectype_for_scalar_type): Added test of VECTOR_MODE_SUPPORTED_P.
+
+        (new_stmt_vec_info): Takes also LOOP as an argument and initializes
+        new field STMT_VINFO_LOOP.
+        (new_loop_vec_info): Pass additional argument to new_stmt_vec_info.
+
+        (vect_stmt_relevant_p): Use flow_bb_inside_loop_p instead of comparing
+        loop->depth's.
+        (vect_analyze_operations): Likewise.
+
+        (vect_align_data_ref): Removed stderr debug printouts, some of which
+        replaced with code dumping dependending on TDF_DETAILS to dump_file.
+        (vect_create_index_for_array_ref): Likewise.
+        (vect_create_destination_var): Likewise.
+        (vect_create_data_ref): Likewise.
+        (vect_transform_binop): Likewise.
+        (vect_transform_store): Likewise.
+        (vect_transform_load): Likewise.
+        (vect_transform_stmt): Likewise.
+        (vect_transform_loop_bound): Likewise.
+        (vect_transform_loop): Likewise.
+        (vect_analyze_operations): Likewise.
+        (vect_is_simple_iv_evolution): Likewise.
+        (vect_analyze_scalar_cycles): Likewise.
+        (vect_analyze_data_ref_dependences): Likewise.
+        (vect_analyze_data_refs): Likewise.
+        (vect_mark_relevant): Likewise.
+        (vect_stmt_relevant_p): Likewise.
+        (vect_mark_stmts_to_be_vectorized): Likewise.
+        (vect_get_loop_niters): Likewise.
+        (vectorize_loops): Likewise.
+
 2004-01-13  Sebastian Pop  <s.pop@laposte.net>
             Daniel Berlin  <dberlin@dberlin.org>
 

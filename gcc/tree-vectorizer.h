@@ -39,6 +39,9 @@ typedef struct _stmt_vec_info {
   /* The stmt to which this info struct refers to.  */
   tree stmt;
 
+  /* The loop with resprct to which STMT is vectorized.  */
+  struct loop *loop;
+
   /* Not all stmts in the loop need to be vectorized. e.g, the incrementation
      of the loop induction variable and computation of array indexes. relevant
      indicates whether the stmt needs to be vectorized.  */
@@ -59,12 +62,12 @@ typedef struct _stmt_vec_info {
 /* Access Functions.  */
 #define STMT_VINFO_TYPE(S)       (S)->type
 #define STMT_VINFO_STMT(S)       (S)->stmt
+#define STMT_VINFO_LOOP(S)       (S)->loop
 #define STMT_VINFO_RELEVANT_P(S) (S)->relevant
 #define STMT_VINFO_VECTYPE(S)    (S)->vectype
 #define STMT_VINFO_VEC_STMT(S)   (S)->vectorized_stmt
 #define STMT_VINFO_DATA_REF(S)   (S)->data_ref_info
 
-stmt_vec_info new_stmt_vec_info (tree);
 static inline void set_stmt_info (stmt_ann_t ann, stmt_vec_info stmt_info);
 static inline stmt_vec_info vinfo_for_stmt (tree stmt);
 
@@ -135,19 +138,11 @@ extern void vectorize_loops (tree, bitmap, struct loops *, varray_type,
 /* creation and deletion of loop and stmt info structs.  */
 extern loop_vec_info new_loop_vec_info (struct loop *loop);
 extern void destroy_loop_vec_info (loop_vec_info);
-extern stmt_vec_info new_stmt_vec_info (tree stmt);
-
-/* From the monev analyzer  */
-extern bool vec_array_base_name_differ_p (struct data_reference *,
-					  struct data_reference *);
-extern struct data_reference *vec_analyze_array (struct loop *, tree, tree);
+extern stmt_vec_info new_stmt_vec_info (tree stmt, struct loop *loop);
 
 /* FORNOW: analyze and then vectorize each loop, rather than first analyzing all
    loops and then vetorizing all loops, which we may want to do in the future
    (for example, to exploit data reuse across loops?).  */
 #undef ANALYZE_ALL_THEN_VECTORIZE_ALL
-
-#define DBG_VECT(A)
-#define DBG_VECT2(A)
 
 #endif  /* GCC_TREE_VECTORIZER_H  */

@@ -281,16 +281,10 @@ optimize_function_tree (tree fndecl, tree *chain)
 		  bitmap_clear (vars_to_rename);
 
 		  vectorize_loops (fndecl, vars_to_rename, loops, ev_info, TDI_vect);
-#if 0
-		  /* CHECKME.  */
-	          compute_may_aliases (fndecl);
-#endif
+
 		  /* Run the SSA pass again if we need to rename new variables.  */
          	  if (bitmap_first_set_bit (vars_to_rename) >= 0)
             	      rewrite_into_ssa (fndecl, vars_to_rename, TDI_vect);
-
-	    	  DBG_VECT2 (dump_function_to_file (fndecl, stderr,
-                                 ~(TDF_RAW | TDF_SLIM | TDF_LINENO)));
 		}
 	      
 	      varray_clear (ev_info);
