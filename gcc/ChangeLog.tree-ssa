@@ -1,5 +1,9 @@
 2003-05-15  Diego Novillo  <dnovillo@redhat.com>
 
+	* tree-ssa.c (rewrite_out_of_ssa): Undo previous patch.
+
+2003-05-15  Diego Novillo  <dnovillo@redhat.com>
+
 	* tree-ssa.c (rewrite_out_of_ssa): Don't dump the optimized
 	function after the SSA->normal pass.
 

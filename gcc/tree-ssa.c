@@ -1703,6 +1703,9 @@ rewrite_out_of_ssa (fndecl)
   delete_tree_cfg ();
   delete_var_map (map);
   timevar_pop (TV_TREE_SSA_TO_NORMAL);
+
+  if (tree_ssa_dump_file)
+    dump_end (TDI_optimized, tree_ssa_dump_file);
 }
 
 
