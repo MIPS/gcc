@@ -1,3 +1,72 @@
+2005-02-06  Tom Tromey  <tromey@redhat.com>
+
+	* bytecode/generate.cc (write): Don't print note about
+	verification.
+	* model/bytecode.cc (resolve): Verify the method.
+	(verify): Print note about verification.
+	* model/bytecode.hh (class model_phony_block): New class.
+	* reader/classbytes.cc (apply): Removed assertion; pass 'emit' to
+	add_unit.
+	* factory.cc (find_derived_file): New method.
+	(find_derived_file): Use it.
+	(find_derived_file): New method.
+	(find_derived_file): Use it.
+	(load_class): Removed old comment.
+	(load_source_file): Handle class and jar files.
+	(jar_class_factory): Clear 'archive' on failure.
+	(read_all): New method.
+	* factory.hh (class_factory::find_derived_file): New abstract
+	method.
+	(directory_class_factory::find_derived_file): Declare.
+	(jar_class_factory::find_derived_file): Likewise.
+	(jar_class_factory::read_all): Declare.
+	* factory.cc (jar_file_p): Moved to util.cc.
+	* util.cc (jar_file_p): New function.
+	(class_file_p): Likewise.
+	(java_file_p): Likewise.
+	* util.hh (jar_file_p): Declare.
+	(class_file_p): Likewise.
+	(java_file_p): Likewise.
+	* bytecode/classreader.cc (parse_code): Use
+	keep_class_method_body_p.
+	(parse_exception_table): Handle case where method bodies aren't
+	used.
+	* header/cni.hh (cni_code_generator::handles_class_p): New
+	method.
+	* header/jni.hh (jni_code_generator::handles_class_p): New
+	method.
+	* codegen.hh (code_generator::handles_class_p): New method.
+	(code_generator::needs_class_method_bodies_p): Likewise.
+	(code_generator::handles_resources_p): Likewise.
+	(code_generator::compile_resource): Likewise.
+	* compiler.cc (compiler): Initialize new fields.  Don't mention
+	pre_semantic_analysis.
+	(find_class): Added assertion.
+	(set_class_factory): Likewise.
+	(semantic_analysis): Update 'state'.  Don't use
+	pre_semantic_analysis.
+	(generate_code): Update 'state'.
+	(load_source_file): Likewise.
+	(add_code_generator): Added assertion.
+	(set_source_1_5): Likewise.
+	(set_source_1_4): Likewise.
+	(set_source_1_3): Likewise.
+	(set_target_1_5): Likewise.
+	(set_target_1_4): Likewise.
+	(set_target_1_3): Likewise.
+	(set_wall): Likewise.
+	(add_unit): Use state, not pre_semantic_analysis.
+	(compile_resource): New method.
+	* compiler.hh (compiler::compiler_state): New enum.
+	(compiler::state): New field.
+	(compiler::pre_semantic_analysis): Removed.
+	(compiler::can_accept_classes): New field.
+	(compiler::need_class_method_bodies): Likewise.
+	(compiler::keep_class_method_body_p): New method.
+	(compiler::can_accept_resources): New field.
+	(compiler::handles_resources_p): New method.
+	(compiler::compile_resource): Declare.
+
 2005-02-05  Tom Tromey  <tromey@redhat.com>
 
 	* main.cc (class argument_parser): Document '-o none'.

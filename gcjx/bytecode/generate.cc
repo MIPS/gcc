@@ -268,12 +268,6 @@ bytecode_generator::write (bytecode_stream *out)
   // If requested, verify what we just wrote.
   if (global->get_compiler ()->target_verify ())
     {
-      if (global->get_compiler ()->verbose ())
-	std::cout << "[verifying method " << method->get_name ()
-		  << " (from class "
-		  << method->get_declaring_class ()->get_fully_qualified_name ()
-		  << ")]" << std::endl;
-
       ref_bytecode_block block
 	= new model_bytecode_block (method->get_location ());
       block->set_max_stack (max_stack);

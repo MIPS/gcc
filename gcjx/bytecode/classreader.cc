@@ -348,16 +348,25 @@ class_reader::parse_exception_table ()
 {
   uint16 tab_len = read_u2 ();
 
-  model_bytecode_block::exception *excs
-    = new model_bytecode_block::exception[tab_len];
-  for (int i = 0; i < tab_len; ++i)
+  if (current_block)
     {
-      excs[i].handler = read_u2 ();
-      excs[i].start = read_u2 ();
-      excs[i].end = read_u2 ();
-      excs[i].type = read_u2 ();
+      model_bytecode_block::exception *excs
+	= new model_bytecode_block::exception[tab_len];
+      for (int i = 0; i < tab_len; ++i)
+	{
+	  excs[i].handler = read_u2 ();
+	  excs[i].start = read_u2 ();
+	  excs[i].end = read_u2 ();
+	  excs[i].type = read_u2 ();
+	}
+      current_block->set_exceptions (tab_len, excs);
     }
-  current_block->set_exceptions (tab_len, excs);
+  else
+    {
+      // Not keeping method bodies.
+      for (int i = 0; i < tab_len * 4; ++i)
+	read_u2 ();
+    }
 }
 
 void
@@ -369,7 +378,8 @@ class_reader::parse_code ()
   uint16 max_locals = read_u2 ();
   uint32 length = read_u4 ();
 
-  if (1 /* FIXME: generating code for this class */)
+  bool keeping = global->get_compiler ()->keep_class_method_body_p ();
+  if (keeping)
     {
       current_block = new model_bytecode_block (where);
       current_block->set_max_stack (max_stack);
@@ -385,6 +395,9 @@ class_reader::parse_code ()
   parse_exception_table ();
   parse_attributes (ATTR_LINENUMBERTABLE | ATTR_LOCALVARIABLETABLE
 		    | ATTR_LOCALVARIABLETYPETABLE);
+
+  if (! keeping)
+    current_method->set_body (new model_phony_block (where));
 
   current_block = NULL;
 }

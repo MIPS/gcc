@@ -1,6 +1,6 @@
 // Represent a block of bytecode.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -23,8 +23,14 @@
 #include "verify.h"
 
 void
-model_bytecode_block::resolve (resolution_scope *)
+model_bytecode_block::resolve (resolution_scope *scope)
 {
+  // If we did't want to verify the method, we would have created a
+  // model_phony_block instead.
+  model_method *m = scope->get_current_method ();
+  model_unit_class *unit
+    = assert_cast<model_unit_class *> (scope->get_compilation_unit ());
+  verify (m, unit);
 }
 
 void
@@ -42,6 +48,13 @@ model_bytecode_block::verify (model_method *container, model_unit_class *unit)
 	  unit
 	    = assert_cast<model_unit_class *> (klass->get_compilation_unit ());
 	}
+
+      if (global->get_compiler ()->verbose ())
+	std::cout << "[verifying method "
+		  << decl->get_fully_qualified_name ()
+		  << "."
+		  << container->get_name ()
+		  << "]" << std::endl;
 
       vfy_method m (container, this, &scope, unit);
       _Jv_VerifyMethod (&m);

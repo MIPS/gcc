@@ -1,6 +1,6 @@
 // Utility functions.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -174,4 +174,40 @@ read_at_file (const char *filename, std::list<std::string> &results)
       if (! fname.empty ())
         results.push_back (fname);
     }
+}
+
+bool
+jar_file_p (const std::string &name)
+{
+  int name_len = name.length ();
+
+  // FIXME:
+  //   1. Fix this for case-insensitive file systems.
+  //   2. Ensure that name actually represents an existing file...
+  //   3. ...and not a folder, like "libjava.jar" in the GCJ testsuite.
+  return (name_len > 4
+          && (name.compare (name_len - 4, 4, ".jar") == 0
+              || name.compare (name_len - 4, 4, ".zip") == 0));
+}
+
+bool
+class_file_p (const std::string &name)
+{
+  int name_len = name.length ();
+
+  // FIXME:
+  //   1. Fix this for case-insensitive file systems.
+  //   2. Ensure that name actually represents an existing file
+  return name_len > 6 && name.compare (name_len - 6, 6, ".class") == 0;
+}
+
+bool
+java_file_p (const std::string &name)
+{
+  int name_len = name.length ();
+
+  // FIXME:
+  //   1. Fix this for case-insensitive file systems.
+  //   2. Ensure that name actually represents an existing file6
+  return name_len > 5 && name.compare (name_len - 5, 5, ".java") == 0;
 }

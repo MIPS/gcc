@@ -22,6 +22,8 @@
 #include "typedefs.hh"
 #include "codegen.hh"
 #include "bytecode/bytegen.hh"
+#include "reader/reader.hh"
+#include "buffer.hh"
 
 compiler::compiler (const std::string &name)
   : work_monitor (),
@@ -35,11 +37,14 @@ compiler::compiler (const std::string &name)
     primordial_package (new model_primordial_package ()),
     unnamed_package (new model_unnamed_package ()),
     generating_bytecode (false),
-    pre_semantic_analysis (true),
     ok (true),
     encoding ("UTF-8"),
     tab_width (8),
     name (name),
+    state (SETTING_OPTIONS),
+    can_accept_classes (true),
+    need_class_method_bodies (true),
+    can_accept_resources (false),
     // Currently we use the same mutex for all caches.
     // This is not as efficient as it could be.
     // FIXME?
@@ -162,7 +167,7 @@ compiler::add_unit (const ref_unit &unit, bool emit_code)
 {
   concurrence::exclusive_mutex::lock_sentinel sync (mt_monitor);
   units.push_back (unit);
-  if (emit_code && (pre_semantic_analysis || generating_bytecode))
+  if (emit_code && (state < ANALYZING_CLASSES || generating_bytecode))
     code_generation_units.push_back (unit);
 }
 
@@ -170,6 +175,7 @@ void
 compiler::set_class_factory (classpath_class_factory *fac)
 {
   assert (! factory);
+  assert (state == SETTING_OPTIONS);
   factory = fac;
 }
 
@@ -182,6 +188,7 @@ compiler::find_class (const std::string &name)
 model_class *
 compiler::find_class (const std::list<std::string> &name)
 {
+  assert (state > PARSING_FILES);
   Iname *obj = find_name (name);
   if (obj == NULL)
     {
@@ -220,14 +227,69 @@ compiler::find_name (const std::list<std::string> &name)
 void
 compiler::load_source_file (const std::string &name)
 {
-  work_item item (name);
-  add_job (item);
+  assert (state < ANALYZING_CLASSES);
+
+  if (state == SETTING_OPTIONS)
+    {
+      // See if we can accept class files, and, if so, whether reading
+      // a class this way should keep a method body around.
+      for (std::list<code_generator *>::const_iterator i = back_ends.begin ();
+	   i != back_ends.end ();
+	   ++i)
+	{
+	  // Note that the default is to accept class files and to
+	  // keep class method bodies.  This ensures that '-o none'
+	  // will verify the bytecode handed to the compiler.
+	  if (! (*i)->handles_class_p ())
+	    can_accept_classes = false;
+	  if (! (*i)->needs_class_method_bodies_p ())
+	    need_class_method_bodies = false;
+	  if ((*i)->handles_resources_p ())
+	    can_accept_resources = true;
+	}
+      // There's no point accepting resources if we can't also accept
+      // class files.
+      if (! can_accept_classes)
+	can_accept_resources = false;
+    }
+  state = PARSING_FILES;
+
+  if (! can_accept_classes && (jar_file_p (name) || class_file_p (name)))
+    {
+      std::cerr << get_name () << ": while reading "
+		<< name << ": back end can't handle jar, zip, or class file"
+		<< std::endl;
+      set_failed ();
+    }
+  else
+    {
+      work_item item (name);
+      add_job (item);
+    }
+}
+
+void
+compiler::compile_resource (const std::string &name, reader *contents)
+{
+  byte_buffer *bytes = contents->read_all ();
+  // FIXME: catch exceptions?
+  for (std::list<code_generator *>::const_iterator i = back_ends.begin ();
+       i != back_ends.end ();
+       ++i)
+    (*i)->compile_resource (name, bytes);
+  delete bytes;
+  delete contents;
 }
 
 bool
 compiler::semantic_analysis ()
 {
-  pre_semantic_analysis = false;
+  assert (state == PARSING_FILES);
+  state = ANALYZING_CLASSES;
+  // After we're finished parsing things from the command line, there
+  // is no longer a reason for the class reader to keep method bodies
+  // attached.
+  need_class_method_bodies = false;
 
   for (std::list<ref_unit>::const_iterator i = code_generation_units.begin ();
        ok && i != code_generation_units.end ();
@@ -243,6 +305,9 @@ bool
 compiler::generate_code ()
 {
   assert (ok);
+
+  assert (state == ANALYZING_CLASSES);
+  state = GENERATING_CODE;
 
   // Perhaps we aren't generating code at all.  This is perfectly ok.
   if (back_ends.empty ())
@@ -277,6 +342,7 @@ compiler::generate_code ()
 void
 compiler::add_code_generator (code_generator *cgen)
 {
+  assert (state == SETTING_OPTIONS);
   back_ends.push_back (cgen);
   // We only want the dependency compilation behavior if we are *only*
   // generating bytecode.
@@ -289,6 +355,7 @@ compiler::add_code_generator (code_generator *cgen)
 void
 compiler::set_source_1_5 ()
 {
+  assert (state == SETTING_OPTIONS);
   feature_assert = true;
   feature_enum = true;
   feature_static_import = true;
@@ -302,6 +369,7 @@ compiler::set_source_1_5 ()
 void
 compiler::set_source_1_4 ()
 {
+  assert (state == SETTING_OPTIONS);
   feature_assert = true;
   feature_enum = false;
   feature_static_import = false;
@@ -315,6 +383,7 @@ compiler::set_source_1_4 ()
 void
 compiler::set_source_1_3 ()
 {
+  assert (state == SETTING_OPTIONS);
   feature_assert = false;
   feature_enum = false;
   feature_static_import = false;
@@ -328,6 +397,7 @@ compiler::set_source_1_3 ()
 void
 compiler::set_target_1_5 ()
 {
+  assert (state == SETTING_OPTIONS);
   target_15 = true;
   target_14 = false;
   target_assert = true;
@@ -336,6 +406,7 @@ compiler::set_target_1_5 ()
 void
 compiler::set_target_1_4 ()
 {
+  assert (state == SETTING_OPTIONS);
   target_15 = false;
   target_14 = true;
   target_assert = true;
@@ -344,6 +415,7 @@ compiler::set_target_1_4 ()
 void
 compiler::set_target_1_3 ()
 {
+  assert (state == SETTING_OPTIONS);
   target_15 = false;
   target_14 = false;
   target_assert = false;
@@ -352,6 +424,7 @@ compiler::set_target_1_3 ()
 void
 compiler::set_wall (warning_state val)
 {
+  assert (state == SETTING_OPTIONS);
   set_warning (WARN_CANONICAL_MODIFIER_ORDER, val);
   set_warning (WARN_DEPRECATED, val);
   set_warning (WARN_JAVA_LANG_IMPORT, val);
@@ -499,7 +572,8 @@ compiler::do_load_source_file (const std::string &filename)
 {
   if (! factory->load_source_file (filename))
     {
-      std::cerr << get_name () << ": couldn't find file " << filename << std::endl;
+      std::cerr << get_name () << ": couldn't find file "
+		<< filename << std::endl;
       set_failed ();
     }
 }

@@ -51,6 +51,11 @@ public:
 
   /// This is called to generate code for a class and write it.
   void generate (model_class *);
+
+  bool handles_class_p () const
+  {
+    return true;
+  }
 };
 
 #endif // GCJX_HEADER_JNI_HH

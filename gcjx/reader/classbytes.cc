@@ -1,6 +1,6 @@
 // Create a class from a byte source.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -34,17 +34,16 @@ class_byte_creator::apply (bool emit)
   if (global->get_compiler ()->verbose ())
     std::cout << "  + " << file << std::endl;
 
-  assert (! emit);
   try
     {
       class_reader parser (the_reader->read_all ());
       ref_unit unit = parser.parse (file);
-      global->get_compiler ()->add_unit (unit);
+      global->get_compiler ()->add_unit (unit, emit);
     }
   catch (class_file_error &cfe)
     {
       // fixme file name
-      std::cerr << "while reading: " << cfe << std::endl;
+      std::cerr << global->get_compiler ()->get_name () << ": "
+		<< "while reading: " << cfe << std::endl;
     }
-  // fixme or propagate the exception on up?
 }

@@ -1,6 +1,6 @@
 // Classes that know how to load Java classes.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -58,6 +58,10 @@ public:
   virtual class_instance_creator *find_source_file (const std::list<std::string> &)
     = 0;
 
+  /// Return a new class_instance_creator representing a .class file,
+  /// given the name of the .class file.
+  virtual class_instance_creator *find_derived_file (const std::string &) = 0;
+
   /// Return a new class_instance_creator representing a .class file
   /// (or other derived class source) for a given fully-qualified
   /// class name.  (The name is a bit incorrect as it isn't necessary
@@ -82,15 +86,12 @@ private:
 
   class_instance_creator *find_source_file (const std::string &);
   class_instance_creator *find_source_file (const std::list<std::string> &);
+  class_instance_creator *find_derived_file (const std::string &);
   class_instance_creator *find_derived_file (const std::list<std::string> &);
 };
 
 class jar_class_factory : public class_factory
 {
-  friend class_factory *class_factory::get_class_factory (const std::string &, bool);
-
-private:
-
   // The JAR or ZIP file.
   std::string file;
 
@@ -99,10 +100,6 @@ private:
 
   // The cached ZIP directory entries.
   std::map<std::string, zip_entry_reader *> zip_entries;
-
-  jar_class_factory (const std::string &);
-
-  ~jar_class_factory ();
 
   void open_zip_file ();
   void read_zip_archive ();
@@ -117,9 +114,20 @@ private:
 
   zip_entry_reader *find_zip_entry (const std::string &);
 
+  friend class_factory *class_factory::get_class_factory (const std::string &, bool);
+
+public:
+
+  jar_class_factory (const std::string &);
+
+  ~jar_class_factory ();
+
   class_instance_creator *find_source_file (const std::string &);
   class_instance_creator *find_source_file (const std::list<std::string> &);
+  class_instance_creator *find_derived_file (const std::string &);
   class_instance_creator *find_derived_file (const std::list<std::string> &);
+
+  void read_all ();
 };
 
 // Load classes from a gcj-compiled .so.

@@ -1,6 +1,6 @@
 // Loading classes.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -52,20 +52,6 @@
 #include "reader/zereader.hh"
 #include "reader/source.hh"
 
-static inline bool
-jar_file_p (const std::string &name)
-{
-  int name_len = name.length ();
-
-  // FIXME:
-  //   1. Fix this for case-insensitive file systems.
-  //   2. Ensure that name actually represents an existing file...
-  //   3. ...and not a folder, like "libjava.jar" in the GCJ testsuite.
-  return (name_len > 4
-          && (name.compare (name_len - 4, 4, ".jar") == 0
-              || name.compare (name_len - 4, 4, ".zip") == 0));
-}
-
 #ifdef FIXME_USE_SOLIB
 
 static inline bool
@@ -108,6 +94,8 @@ class_factory::is_source_only () const
   return source_only;
 }
 
+
+
 directory_class_factory::directory_class_factory (const std::string &d)
   : class_factory (),
     directory (d)
@@ -138,25 +126,25 @@ directory_class_factory::find_source_file (const std::list<std::string> &name)
 }
 
 class_instance_creator *
-directory_class_factory::find_derived_file (const std::list<std::string> &name)
+directory_class_factory::find_derived_file (const std::string &name)
 {
-  assert (! is_source_only());
-  
-  // FIXME should cache directory contents, gcj does this.
-  std::string file = (directory
-		      + FILE_SEPARATOR + join (name, FILE_SEPARATOR)
-		      + ".class");
+  assert (! is_source_only ());
+  std::string file = directory + FILE_SEPARATOR + name;
   int fd = open (file.c_str (), O_RDONLY | O_BINARY);
   if (fd < 0)
     return NULL;
-
   return new class_byte_creator (file, new fd_reader (fd));
+}
+
+class_instance_creator *
+directory_class_factory::find_derived_file (const std::list<std::string> &name)
+{
+  return find_derived_file (join (name, FILE_SEPARATOR) + ".class");
 }
 
 
 
 /// Converts a 16-bit little-endian value to a native 16-bit quantity.
-
 static inline uint16
 make_u2 (const uint8 bytes[])
 {
@@ -165,7 +153,6 @@ make_u2 (const uint8 bytes[])
 }
 
 /// Converts a 32-bit little-endian value to a native 32-bit quantity.
-
 static inline uint32
 make_u4 (const uint8 bytes[])
 {
@@ -177,7 +164,6 @@ make_u4 (const uint8 bytes[])
 
 /// Returns the zip_entry_reader for the given filename, if found
 /// within this archive, else NULL.
-
 zip_entry_reader *
 jar_class_factory::find_zip_entry (const std::string &name)
 {
@@ -192,7 +178,6 @@ jar_class_factory::find_zip_entry (const std::string &name)
 
 /// Reads in the current ZIP archive and populates the cached zip
 /// entries map.  Throws an io_error on failure.
-
 void
 jar_class_factory::read_zip_archive ()
 {
@@ -228,9 +213,12 @@ jar_class_factory::check_magic (const uint8* buffer, const uint32 magic)
     }
 }
 
-static const int LREC_SIZE = 26;  // Length of local file header.
-static const int CREC_SIZE = 42;  // Length of central directory header.
-static const int ECREC_SIZE = 18; // Length of end-of-central-directory record.
+// Length of local file header.
+static const int LREC_SIZE = 26;
+// Length of central directory header.
+static const int CREC_SIZE = 42;
+// Length of end-of-central-directory record.
+static const int ECREC_SIZE = 18;
 
 void
 jar_class_factory::read_zip_file_header ()
@@ -339,12 +327,49 @@ jar_class_factory::process_zip_entry (const uint8 *dir_ptr)
 }
       
 void
-jar_class_factory::process_zip_entries (const uint8 *central_directory, uint16 count)
+jar_class_factory::process_zip_entries (const uint8 *central_directory,
+					uint16 count)
 {
   const uint8 *dir_ptr = central_directory;
   for (int i = 0; i < count; i++)
     {
       dir_ptr = process_zip_entry (dir_ptr);
+    }
+}
+
+void
+jar_class_factory::read_all ()
+{
+  // If the was a failure, we already issued the error message, so we
+  // don't need to do anything here.
+  if (! archive)
+    return;
+
+  compiler *comp = global->get_compiler ();
+  bool handle_resource = comp->handles_resources_p ();
+  for (std::map<std::string, zip_entry_reader *>::const_iterator i
+	 = zip_entries.begin ();
+       i != zip_entries.end ();
+       ++i)
+    {
+      const std::string &name ((*i).first);
+      zip_entry_reader *reader = (*i).second;
+
+      class_instance_creator *source = NULL;
+      if (class_file_p (name))
+	source = new class_byte_creator (name, reader);
+      else if (java_file_p (name))
+	source = new source_file_creator (name, reader);
+      else
+	{
+	  // Must be a resource file.
+	  if (handle_resource)
+	    comp->compile_resource (name, reader);
+	  continue;
+	}
+
+      // Compile the class or java code.
+      source->apply (true);
     }
 }
 
@@ -361,6 +386,7 @@ jar_class_factory::jar_class_factory (const std::string &f)
     {
       std::cerr << ex;
       delete archive;
+      archive = NULL;
     }
 }
 
@@ -390,18 +416,19 @@ jar_class_factory::find_source_file (const std::list<std::string> &name)
 }
 
 class_instance_creator *
-jar_class_factory::find_derived_file (const std::list<std::string> &name)
+jar_class_factory::find_derived_file (const std::string &name)
 {
   assert (! is_source_only());
-
-  std::string class_file = join (name, FILE_SEPARATOR) + ".class";
-
-  zip_entry_reader *ze_reader = find_zip_entry (class_file);
-
-  if (ze_reader != NULL)
-    return new class_byte_creator (class_file, ze_reader);
-  else
+  zip_entry_reader *ze_reader = find_zip_entry (name);
+  if (ze_reader == NULL)
     return NULL;
+  return new class_byte_creator (name, ze_reader);
+}
+
+class_instance_creator *
+jar_class_factory::find_derived_file (const std::list<std::string> &name)
+{
+  return find_derived_file (join (name, FILE_SEPARATOR) + ".class");
 }
 
 jar_class_factory::~jar_class_factory ()
@@ -497,10 +524,6 @@ classpath_class_factory::load_class (const std::list<std::string> &qualname)
   else
     return;
 
-  // fixme this API is a bit lame.
-  // we need to decide who issues the error message when not found
-  // us, or compiler::find_class() ?
-
   source->apply (emit_code);
   delete source;
 }
@@ -508,11 +531,33 @@ classpath_class_factory::load_class (const std::list<std::string> &qualname)
 bool
 classpath_class_factory::load_source_file (const std::string &name)
 {
+  if (jar_file_p (name))
+    {
+      // Read the entire jar file, parsing each .class or .java file,
+      // and handing other files to the compiler as resources if
+      // desired.
+      jar_class_factory fac (name);
+      fac.read_all ();
+      // We always return true since the factory itself would have
+      // done something on error.  FIXME: not the best API here...
+      return true;
+    }
+
+  bool is_derived = class_file_p (name);
   class_instance_creator *source = NULL;
   for (std::list<class_factory *>::const_iterator i = factories.begin ();
        ! source && i != factories.end ();
        ++i)
-    source = (*i)->find_source_file (name);
+    {
+      // FIXME: the API is a bit wrong here, maybe.
+      // Instead we could return byte sources and wrap them
+      // appropriately here.
+      // But... would this properly handle the .so case?
+      if (is_derived)
+	source = (*i)->find_derived_file (name);
+      else
+	source = (*i)->find_source_file (name);
+    }
 
   if (! source)
     return false;

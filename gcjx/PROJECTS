@@ -82,11 +82,9 @@ Many checks should be performed but are not.
 
 The class reader doesn't handle debug information.
 
-we don't handle some 1.5 features when reading .class files
+we don't handle some features when reading .class files
 - SourceFile
 - line number and local variable tables
-- enum, class, and attribute values for attributes
-- parameter annotations
 - enclosing method attribute
 
 We want a mode where we don't actually read other classes,
@@ -118,8 +116,7 @@ word breaks when appropriate
 
 Bytecode generation mostly works, but it occasionally generates
 incorrect bytecode.  Running the verifier over the output is helpful
-here.  (Having a mode for "gcjx --verify-only" would be very useful
-right now!)
+here.
 
 JNI header generation is probably ok
 
@@ -131,7 +128,7 @@ of outer classes
 should look at LLVM
 probably easy to write a back end for it
 if we compiled .class as well perhaps we could wind up with a jit
-
+if we do that, ideally we would share the code generator with libgcj
 
 Some code for tree generation exists, but it is incomplete.  Some
 random thoughts:
@@ -147,10 +144,6 @@ We need to reconsider how compilations are ordered.  If we could
 generate code earlier, we could free resources attached to a given
 class more easily.  Right now we parse and analyze everything before
 generating any code.
-
-the driver should be able to read entire .jar files
-
-we don't handle property files at all but we need to for GCC
 
 we don't handle -extdirs yet
 
@@ -193,6 +186,9 @@ locks.
 lock a class
   resolve_classes
   lock superclass when resolving parts of it
+
+it turns out that parsing can affect global state by creating packages
+we need a lock somewhere to deal with this
 
 
 ================================================================

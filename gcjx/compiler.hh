@@ -24,6 +24,7 @@
 
 class classpath_class_factory;
 class code_generator;
+class reader;
 
 /// A compiler flag is just a simple self-initializing bool wrapper
 /// that also exposes a functional form, so we can more safely use it
@@ -73,6 +74,17 @@ class compiler : public warning_scope
     PAUSE,
     DIE
   } job_type;
+
+  // The state of the compiler object.  This is used to enforce
+  // requirements of the compiler API, namely that some operations
+  // must occur in a specific order.
+  typedef enum
+  {
+    SETTING_OPTIONS,
+    PARSING_FILES,
+    ANALYZING_CLASSES,
+    GENERATING_CODE
+  } compiler_state;
 
   // A single job.  Note that jobs and the work list are only used
   // when multi-threaded; otherwise all actions are taken immediately.
@@ -169,10 +181,6 @@ class compiler : public warning_scope
   // list.  FIXME: should be on a "-dependency" option or so.
   bool generating_bytecode;
 
-  // True before we've started semantic analysis.  In particular this
-  // means we're still parsing files from the command line.
-  bool pre_semantic_analysis;
-
   // True if everything is going ok.  False if we've encountered an
   // error.
   bool ok;
@@ -202,6 +210,19 @@ class compiler : public warning_scope
 
   // What we call ourselves in error messages.
   std::string name;
+
+  // Our current state.
+  compiler_state state;
+
+  // True if this compiler can accept '.class' files.
+  bool can_accept_classes;
+
+  // True if method bodies from .class files should be kept.  This is
+  // only meaningful when CAN_ACCEPT_CLASSES is true.
+  bool need_class_method_bodies;
+
+  // True if this compiler will accept resource files.
+  bool can_accept_resources;
 
   void do_load_source_file (const std::string &);
   void do_generate_code (model_unit *);
@@ -434,6 +455,22 @@ public:
 
   /// FIXME: this probably shouldn't be public...
   void pause_workers ();
+
+  /// Return true if a class being read should preserve its method
+  /// body.
+  bool keep_class_method_body_p () const
+  {
+    return need_class_method_bodies;
+  }
+
+  /// Return true if this compilation can handle a resource file.
+  bool handles_resources_p () const
+  {
+    return can_accept_resources;
+  }
+
+  /// Compile a resource file given its file name and its contents.
+  void compile_resource (const std::string &, reader *);
 };
 
 #endif // GCJX_COMPILER_HH

@@ -1,6 +1,6 @@
 // Code generator for GENERIC.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -38,6 +38,21 @@ public:
   ~tree_code_generator ();
 
   void generate (model_class *);
+
+  bool handles_class_p () const
+  {
+    return true;
+  }
+
+  bool needs_class_method_bodies_p () const
+  {
+    return true;
+  }
+
+  bool handles_resources_p () const
+  {
+    return true;
+  }
 };
 
 #endif // GCC_TREE_TREEGEN_HH

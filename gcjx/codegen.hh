@@ -1,6 +1,6 @@
 // Code generator.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -48,6 +48,35 @@ public:
 
   virtual ~code_generator ()
   {
+  }
+
+  /// Return true if this code generator can generate code for a class
+  /// read from a .class file.  The default is to return 'false'.
+  virtual bool handles_class_p () const
+  {
+    return false;
+  }
+
+  /// Return true if this code generator requires method bodies to be
+  /// kept for classes read from .class files.  This is only
+  /// meaningful if the handles_class_p() returns true.  The default
+  /// is to return 'false'.
+  virtual bool needs_class_method_bodies_p () const
+  {
+    return false;
+  }
+
+  /// Returns 'true' if the code generator will properly handle
+  /// resource files read from a .jar or .zip.
+  virtual bool handles_resources_p () const
+  {
+    return false;
+  }
+
+  /// Compile the resource file given its name and contents.
+  virtual void compile_resource (const std::string &, byte_buffer *)
+  {
+    abort ();
   }
 };
 

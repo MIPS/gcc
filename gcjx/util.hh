@@ -1,6 +1,6 @@
 // Utility functions.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -111,5 +111,15 @@ void maybe_swap (jint &, jint &);
 /// On success puts file names in RESULTS.
 /// On failure throws an io_error.
 void read_at_file (const char *filename, std::list<std::string> &results);
+
+/// Return true if the string names a jar or zip file, false
+/// otherwise.
+bool jar_file_p (const std::string &);
+
+/// Return true if the string names a class file.
+bool class_file_p (const std::string &);
+
+/// Return true if the string names a java source file.
+bool java_file_p (const std::string &);
 
 #endif // GCJX_UTIL_HH

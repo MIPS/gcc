@@ -1,6 +1,6 @@
 // Write a CNI header.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -57,6 +57,11 @@ public:
   
   /// This is called to generate code for a class and write it.
   void generate (model_class *);	
+
+  bool handles_class_p () const
+  {
+    return true;
+  }
 };
 
 #endif // GCJX_HEADER_CNI_HH

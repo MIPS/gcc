@@ -1,3 +1,9 @@
+2005-02-06  Tom Tromey  <tromey@redhat.com>
+
+	* treegen.hh (tree_code_generator::handles_class_p): New method.
+	(tree_code_generator::needs_class_method_bodies_p): Likewise.
+	(tree_code_generator::handles_resources_p): Likewise.
+
 2005-01-30  Tom Tromey  <tromey@redhat.com>
 
 	* decl.cc (initialize_gcc_decls): Removed old comment.

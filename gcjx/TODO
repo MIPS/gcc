@@ -137,8 +137,6 @@ for interfaces we can't generate class$.  instead compilers build
 a new inner class and put it there.  should we?  we could just
 inline the code in <clinit>, couldn't we?
 
-the code generator api is ugly
-
 it would be nice to do coverage analysis of the code
 this is easy, just rebuild it correctly and run classpath
 and a couple other things through it

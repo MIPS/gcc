@@ -1,6 +1,6 @@
 // Represent a block of bytecode.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -176,6 +176,28 @@ public:
   /// come from a .class file, and that class' compilation unit is
   /// used.
   void verify (model_method *, model_unit_class * = NULL);
+};
+
+/// This is a phony block which is used when reading a .class file
+/// for which we do not need to keep method bodies around.
+class model_phony_block : public model_block
+{
+public:
+
+  model_phony_block (const location &w)
+    : model_block (w)
+  {
+  }
+
+  void compute_normal_completion (normal_completion_state &)
+  {
+    normal_completion = false;
+  }
+
+  void resolve (resolution_scope *)
+  {
+    // Nothing.
+  }
 };
 
 #endif // GCJX_MODEL_BYTECODE_HH
