@@ -1,5 +1,15 @@
 2000-01-12  Geoff Keating  <geoffk@cygnus.com>
 
+	* aix43.h (SUBSUBTARGET_SWITCHES): Document switches.
+	* aix41.h (SUBSUBTARGET_SWITCHES): Document switches.
+	* aix.h (SUBTARGET_SWITCHES): Document switches.
+	* rs6000.h: (TARGET_SWITCHES): Don't print options twice.  Make
+	sched-prolog and sched-epilog the same.  Document all the
+	switches.
+	(TARGET_OPTIONS): No longer allow -mdebug-.
+
+2000-01-12  Geoff Keating  <geoffk@cygnus.com>
+
 	* rs6000.h (ASM_FILE_END): Move to aix.h.
 	(EXTRA_SECTIONS): Move to aix.h.
 	(READONLY_DATA_SECTION): Move to aix.h.

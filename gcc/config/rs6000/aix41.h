@@ -26,8 +26,10 @@ Boston, MA 02111-1307, USA.  */
 
 #undef  SUBSUBTARGET_SWITCHES
 #define SUBSUBTARGET_SWITCHES		\
-  {"threads",		0},		\
-  {"pe",		0},
+  {"threads",		0,						\
+   "Use the thread library and reentrant C library" },			\
+  {"pe",		0,						\
+   "Support message passing with the Parallel Environment" },
 
 #undef ASM_SPEC
 #define ASM_SPEC "-u %(asm_cpu)"

@@ -209,10 +209,8 @@ extern int target_flags;
 /* Disable fused multiply/add operations */
 #define MASK_NO_FUSED_MADD	0x00020000
 
-/* Nonzero if we need to make scheduling prolog  */
-#define MASK_SCHED_PROLOG	(0x40000)
-/* Nonzero if we need to make scheduling epilog */
-#define MASK_SCHED_EPILOG	(0x80000)
+/* Nonzero if we need to schedule the prolog and epilog.  */
+#define MASK_SCHED_PROLOG	0x00040000
 
 #define TARGET_POWER		(target_flags & MASK_POWER)
 #define TARGET_POWER2		(target_flags & MASK_POWER2)
@@ -232,7 +230,6 @@ extern int target_flags;
 #define TARGET_NO_UPDATE	(target_flags & MASK_NO_UPDATE)
 #define TARGET_NO_FUSED_MADD	(target_flags & MASK_NO_FUSED_MADD)
 #define TARGET_SCHED_PROLOG	(target_flags & MASK_SCHED_PROLOG)
-#define TARGET_SCHED_EPILOG	(target_flags & MASK_SCHED_EPILOG)
 
 #define TARGET_32BIT		(! TARGET_64BIT)
 #define TARGET_HARD_FLOAT	(! TARGET_SOFT_FLOAT)
@@ -294,7 +291,7 @@ extern int target_flags;
 			"Use old mnemonics for PowerPC architecture"},	\
   {"full-toc",		- (MASK_NO_FP_IN_TOC | MASK_NO_SUM_IN_TOC	\
 			   | MASK_MINIMAL_TOC),				\
-			"no description yet"},				\
+			"Put everything in the regular TOC"},		\
   {"fp-in-toc",		- MASK_NO_FP_IN_TOC,				\
 			"Place floating point constants in TOC"},	\
   {"no-fp-in-toc",	MASK_NO_FP_IN_TOC,				\
@@ -304,11 +301,11 @@ extern int target_flags;
   {"no-sum-in-toc",	MASK_NO_SUM_IN_TOC,				\
 			"Don't place symbol+offset constants in TOC"},	\
   {"minimal-toc",	MASK_MINIMAL_TOC,				\
-			"no description yet"},				\
+			"Use only one TOC entry per procedure"},	\
   {"minimal-toc",	- (MASK_NO_FP_IN_TOC | MASK_NO_SUM_IN_TOC),	\
-			"no description yet"},				\
+			""},				\
   {"no-minimal-toc",	- MASK_MINIMAL_TOC,				\
-			"no description yet"},				\
+			"Place variable addresses in the regular TOC"},	\
   {"hard-float",	- MASK_SOFT_FLOAT,				\
 			"Use hardware fp"},				\
   {"soft-float",	MASK_SOFT_FLOAT,				\
@@ -318,13 +315,13 @@ extern int target_flags;
   {"no-multiple",	- MASK_MULTIPLE,				\
 			"Do not generate load/store multiple instructions"},\
   {"no-multiple",	MASK_MULTIPLE_SET,				\
-			"Do not generate load/store multiple instructions"},\
+			""},\
   {"string",		MASK_STRING | MASK_STRING_SET,			\
 			"Generate string instructions for block moves"},\
   {"no-string",		- MASK_STRING,					\
 			"Do not generate string instructions for block moves"},\
   {"no-string",		MASK_STRING_SET,				\
-			"Do not generate string instructions for block moves"},\
+			""},\
   {"update",		- MASK_NO_UPDATE,				\
 			"Generate load/store with update instructions"},\
   {"no-update",		MASK_NO_UPDATE,					\
@@ -334,13 +331,13 @@ extern int target_flags;
   {"no-fused-madd",	MASK_NO_FUSED_MADD,				\
 			"Don't generate fused multiply/add instructions"},\
   {"sched-prolog",      MASK_SCHED_PROLOG,                              \
-			"no description yet"},				\
+			"Schedule the start and end of the procedure"},	\
   {"no-sched-prolog",   -MASK_SCHED_PROLOG,                             \
-			"no description yet"},				\
-  {"sched-epilog",      MASK_SCHED_EPILOG,                              \
-			"no description yet"},				\
-  {"no-sched-epilog",   -MASK_SCHED_EPILOG,                             \
-			"no description yet"},				\
+			"Don't schedule the start and end of the procedure"},\
+  {"sched-epilog",      MASK_SCHED_PROLOG,                              \
+			""},						\
+  {"no-sched-epilog",   -MASK_SCHED_PROLOG,                             \
+			""},						\
   SUBTARGET_SWITCHES							\
   {"",			TARGET_DEFAULT,					\
 			""}}
@@ -410,7 +407,6 @@ extern enum processor_type rs6000_cpu;
 {									\
    {"cpu=",  &rs6000_select[1].string, "Use features of and schedule code for given CPU" },\
    {"tune=", &rs6000_select[2].string, "Schedule code for given CPU" },	\
-   {"debug-", &rs6000_debug_name, "Enable debug output" },		\
    {"debug=", &rs6000_debug_name, "Enable debug output" },		\
    SUBTARGET_OPTIONS							\
 }

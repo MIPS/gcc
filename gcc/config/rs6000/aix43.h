@@ -27,10 +27,14 @@ Boston, MA 02111-1307, USA.  */
 /* AIX 4.3 and above support 64-bit executables.  */
 #undef  SUBSUBTARGET_SWITCHES
 #define SUBSUBTARGET_SWITCHES					\
-  {"aix64", 		MASK_64BIT | MASK_POWERPC64 | MASK_POWERPC}, \
-  {"aix32",		- (MASK_64BIT | MASK_POWERPC64)},	\
-  {"threads",		0},					\
-  {"pe",		0},
+  {"aix64", 		MASK_64BIT | MASK_POWERPC64 | MASK_POWERPC,	\
+   "Compile for 64-bit pointers" },					\
+  {"aix32",		- (MASK_64BIT | MASK_POWERPC64),		\
+   "Compile for 32-bit pointers" },					\
+  {"threads",		0,						\
+   "Use the thread library and reentrant C library" },			\
+  {"pe",		0,						\
+   "Support message passing with the Parallel Environment" },
 
 /* Sometimes certain combinations of command options do not make sense
    on a particular target machine.  You can define a macro
