@@ -1,3 +1,7 @@
+2005-03-15  Jon Grimm  <jgrimm2@us.ibm.com>
+
+	* c-pretty-print.c (pp_c_floating_constant): Print dfp suffixes.
+
 2005-03-14  Ben Elliston  <bje@au.ibm.com>
 
 	* doc/rtl.texi (Machine Modes): Document SDmode, DDmode and
