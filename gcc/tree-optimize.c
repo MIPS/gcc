@@ -551,9 +551,6 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
   /* Set up parameters and prepare for return, for the function.  */
   expand_function_start (fndecl, 0);
 
-  /* Allow language dialects to perform special processing.  */
-  lang_hooks.rtl_expand.start ();
-
   /* If this function is `main', emit a call to `__main'
      to run global initializers, etc.  */
   if (DECL_NAME (fndecl)
@@ -562,7 +559,7 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
     expand_main_function ();
 
   /* Generate the RTL for this function.  */
-  lang_hooks.rtl_expand.stmt (DECL_SAVED_TREE (fndecl));
+  expand_expr_stmt_value (DECL_SAVED_TREE (fndecl), 0, 0);
 
   /* We hard-wired immediate_size_expand to zero above.
      expand_function_end will decrement this variable.  So, we set the
@@ -578,9 +575,6 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
   /* The following insns belong to the top scope.  */
   record_block_change (DECL_INITIAL (current_function_decl));
   
-  /* Allow language dialects to perform special processing.  */
-  lang_hooks.rtl_expand.end ();
-
   /* Generate rtl for function exit.  */
   expand_function_end ();
 

@@ -137,10 +137,6 @@ extern int lhd_gimplify_expr (tree *, tree *, tree *);
 #define LANG_HOOKS_FUNCTION_LEAVE_NESTED lhd_do_nothing_f
 #define LANG_HOOKS_FUNCTION_MISSING_NORETURN_OK_P hook_bool_tree_true
 
-#define LANG_HOOKS_RTL_EXPAND_START	lhd_do_nothing
-#define LANG_HOOKS_RTL_EXPAND_STMT	(void (*) (tree)) abort
-#define LANG_HOOKS_RTL_EXPAND_END	lhd_do_nothing
-
 /* Attribute hooks.  */
 #define LANG_HOOKS_ATTRIBUTE_TABLE		NULL
 #define LANG_HOOKS_COMMON_ATTRIBUTE_TABLE	NULL
@@ -203,12 +199,6 @@ extern int lhd_gimplify_expr (tree *, tree *, tree *);
   LANG_HOOKS_FUNCTION_ENTER_NESTED,		\
   LANG_HOOKS_FUNCTION_LEAVE_NESTED,		\
   LANG_HOOKS_FUNCTION_MISSING_NORETURN_OK_P	\
-}
-
-#define LANG_HOOKS_RTL_EXPAND_INITIALIZER {	\
-  LANG_HOOKS_RTL_EXPAND_START,			\
-  LANG_HOOKS_RTL_EXPAND_STMT,			\
-  LANG_HOOKS_RTL_EXPAND_END			\
 }
 
 /* Hooks for tree gimplification.  */
@@ -326,7 +316,6 @@ extern tree lhd_make_node (enum tree_code);
   LANG_HOOKS_TREE_DUMP_INITIALIZER, \
   LANG_HOOKS_DECLS, \
   LANG_HOOKS_FOR_TYPES_INITIALIZER, \
-  LANG_HOOKS_RTL_EXPAND_INITIALIZER, \
   LANG_HOOKS_GIMPLIFY_EXPR, \
   LANG_HOOKS_GIMPLE_BEFORE_INLINING \
 }

@@ -81,19 +81,6 @@ struct lang_hooks_for_functions
   bool (*missing_noreturn_ok_p) (tree);
 };
 
-/* Lang hooks for rtl code generation.  */
-struct lang_hooks_for_rtl_expansion
-{
-  /* Called after expand_function_start, but before expanding the body.  */
-  void (*start) (void);
-
-  /* Called to expand each statement.  */
-  void (*stmt) (tree);
-
-  /* Called after expanding the body but before expand_function_end.  */
-  void (*end) (void);
-};
-
 /* The following hooks are used by tree-dump.c.  */
 
 struct lang_hooks_for_tree_dump
@@ -425,8 +412,6 @@ struct lang_hooks
   struct lang_hooks_for_decls decls;
 
   struct lang_hooks_for_types types;
-
-  struct lang_hooks_for_rtl_expansion rtl_expand;
 
   /* Perform language-specific gimplification on the argument.  Returns an
      enum gimplify_status, though we can't see that type here.  */

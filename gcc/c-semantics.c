@@ -302,14 +302,3 @@ prep_stmt (tree t)
     input_location = *EXPR_LOCUS (t);
   current_stmt_tree ()->stmts_are_full_exprs_p = STMT_IS_FULL_EXPR_P (t);
 }
-
-/* Expand the statement at the outermost level of a function.  */
-
-void
-expand_stmt_toplev (tree t)
-{
-  /* Gimplification didn't happen, for some reason.  */
-  if (STATEMENT_CODE_P (TREE_CODE (t)))
-    abort ();
-  expand_expr_stmt_value (t, 0, 0);
-}

@@ -93,9 +93,6 @@ enum c_language_kind c_language = clk_objc;
 #undef LANG_HOOKS_FUNCTION_MISSING_NORETURN_OK_P
 #define LANG_HOOKS_FUNCTION_MISSING_NORETURN_OK_P c_missing_noreturn_ok_p
 
-#undef LANG_HOOKS_RTL_EXPAND_STMT
-#define LANG_HOOKS_RTL_EXPAND_STMT expand_stmt_toplev
-
 /* Attribute hooks.  */
 #undef LANG_HOOKS_COMMON_ATTRIBUTE_TABLE
 #define LANG_HOOKS_COMMON_ATTRIBUTE_TABLE c_common_attribute_table

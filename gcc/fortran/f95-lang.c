@@ -104,7 +104,6 @@ int global_bindings_p (void);
 void insert_block (tree);
 void set_block (tree);
 static void gfc_be_parse_file (int);
-static void gfc_expand_stmt (tree);
 static void gfc_expand_function (tree);
 
 #undef LANG_HOOKS_NAME
@@ -123,7 +122,6 @@ static void gfc_expand_function (tree);
 #undef LANG_HOOKS_SIGNED_TYPE
 #undef LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE
 #undef LANG_HOOKS_GIMPLE_BEFORE_INLINING
-#undef LANG_HOOKS_RTL_EXPAND_STMT
 #undef LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION
 
 /* Define lang hooks.  */
@@ -143,7 +141,6 @@ static void gfc_expand_function (tree);
 #define LANG_HOOKS_SIGNED_TYPE             gfc_signed_type
 #define LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE gfc_signed_or_unsigned_type
 #define LANG_HOOKS_GIMPLE_BEFORE_INLINING false
-#define LANG_HOOKS_RTL_EXPAND_STMT	gfc_expand_stmt
 #define LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION gfc_expand_function
 
 const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
@@ -200,15 +197,6 @@ static void
 gfc_expand_function (tree fndecl)
 {
   tree_rest_of_compilation (fndecl, 0);
-}
-
-/* We generate GENERIC trees, so just pass everything on to the backend
-   expanders.  */
-
-static void
-gfc_expand_stmt (tree t)
-{
-  expand_expr_stmt_value (t, 0, 0);
 }
 
 

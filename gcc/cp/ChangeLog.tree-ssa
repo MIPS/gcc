@@ -1,3 +1,9 @@
+2004-04-12  Diego Novillo  <dnovillo@redhat.com>
+
+	* cp-lang.c (LANG_HOOKS_RTL_EXPAND_START): Remove.
+	(LANG_HOOKS_RTL_EXPAND_STMT): Remove.
+	* semantics.c (cxx_expand_function_start): Remove.
+
 2004-04-12  Richard Henderson  <rth@redhat.com>
 
 	* except.c (check_handlers_1): Use EXPR_LOCUS instead of STMT_LINENO.

@@ -119,11 +119,6 @@ static void cxx_initialize_diagnostics (diagnostic_context *);
 #undef LANG_HOOKS_FUNCTION_MISSING_NORETURN_OK_P
 #define LANG_HOOKS_FUNCTION_MISSING_NORETURN_OK_P cp_missing_noreturn_ok_p
 
-#undef LANG_HOOKS_RTL_EXPAND_START
-#define LANG_HOOKS_RTL_EXPAND_START cxx_expand_function_start
-#undef LANG_HOOKS_RTL_EXPAND_STMT
-#define LANG_HOOKS_RTL_EXPAND_STMT expand_stmt_toplev
-
 /* Attribute hooks.  */
 #undef LANG_HOOKS_COMMON_ATTRIBUTE_TABLE
 #define LANG_HOOKS_COMMON_ATTRIBUTE_TABLE c_common_attribute_table

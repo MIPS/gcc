@@ -1343,7 +1343,6 @@ extern tree *get_stmts (void);
 
 extern void finish_method (tree);
 extern void java_expand_body (tree);
-extern void java_expand_stmt (tree);
 
 extern int get_symbol_table_index (tree, tree *);
 

@@ -3001,13 +3001,6 @@ finalize_nrv (tree *tp, tree var, tree result)
   htab_delete (data.visited);
 }
 
-/* Start generating the RTL for FN.  */
-
-void
-cxx_expand_function_start (void)
-{
-}
-
 /* Perform initialization related to this module.  */
 
 void

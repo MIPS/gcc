@@ -1,3 +1,20 @@
+2004-04-12  Diego Novillo  <dnovillo@redhat.com>
+
+	* c-lang.c (LANG_HOOKS_RTL_EXPAND_STMT): Remove.
+	* c-semantics.c (expand_stmt_toplev): Remove.
+	* langhooks-def.h (LANG_HOOKS_RTL_EXPAND_INITIALIZER): Remove.
+	(LANG_HOOKS_RTL_EXPAND_START): Remove.
+	(LANG_HOOKS_RTL_EXPAND_STMT): Remove.
+	(LANG_HOOKS_RTL_EXPAND_END): Remove.
+	* langhooks.h (struct lang_hooks_for_rtl_expansion): Remove.
+	(struct lang_hooks): Update.
+	* tree-optimize.c (tree_rest_of_compilation): Don't call
+	lang_hooks.rtl_expand.start nor lang_hooks.rtl_expand.end.
+	Call expand_expr_stmt_value instead of
+	lang_hooks.rtl_expand.stmt.
+	* objc/objc-lang.c (LANG_HOOKS_RTL_EXPAND_STMT): Remove.
+
+
 2004-04-12  Richard Henderson  <rth@redhat.com>
 
 	* c-common.c (c_do_switch_warnings): Use EXPR_LOCUS instead
