@@ -1,3 +1,9 @@
+2000-04-08  Richard Earnshaw (rearnsha@arm.com)
+
+	* arm.md (nop): Use the standard RTL expression.  Don't code as a
+	define_expand.
+	(*arm_nop, *thumb_nop): Delete.
+
 2000-04-03  Richard Earnshaw (rearnsha@arm.com)
 
 	Merge Change from trunk:

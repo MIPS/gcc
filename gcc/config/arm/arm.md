@@ -6229,23 +6229,18 @@
 
 ;; Misc insns
 
-(define_expand "nop"
-  [(clobber (const_int 0))]
+(define_insn "nop"
+  [(const_int 0)]
   "TARGET_EITHER"
-  ""
-)
-
-(define_insn "*arm_nop"
-  [(clobber (const_int 0))]
-  "TARGET_ARM"
-  "mov%?\\t%|r0, %|r0\\t%@ nop"
-)
-
-(define_insn "*thumb_nop"
-  [(clobber (const_int 0))]
-  "TARGET_THUMB"
-  "mov\\tr8, r8"
-  [(set_attr "length" "2")]
+  "*
+  if (TARGET_ARM)
+    return \"mov%?\\t%|r0, %|r0\\t%@ nop\";
+  return  \"mov\\tr8, r8\";
+  "
+  [(set (attr "length")
+	(if_then_else (eq_attr "is_thumb" "yes")
+		      (const_int 2)
+		      (const_int 4)))]
 )
 
 
