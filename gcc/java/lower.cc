@@ -1100,8 +1100,7 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 				     ret);
 	    tsi_link_after (&statements, push (ret_label),
 			    TSI_CONTINUE_LINKING);
-	    insn = build1 (GOTO_EXPR, void_type_node,
-			   dest);
+	    insn = build1 (GOTO_EXPR, void_type_node, dest);
 	  }
 	  break;
 
@@ -1110,23 +1109,18 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 	    int here = pc - 1;
 	    tree dest = find_label (here + get2s (bytes, pc));
 	    tree ret = find_label (pc);
-	    tree ret_label = build1 (ADDR_EXPR,
-				     type_nativecode_ptr,
-				     ret);
+	    tree ret_label = build1 (ADDR_EXPR, type_nativecode_ptr, ret);
 	    tsi_link_after (&statements, push (ret_label),
 			    TSI_CONTINUE_LINKING);
-	    insn = build1 (GOTO_EXPR, void_type_node,
-			   dest);
+	    insn = build1 (GOTO_EXPR, void_type_node, dest);
 	  }
 	  break;
 
 	case op_ret:
 	  {
 	    jint index = get1u (bytes, pc);
-	    tree where = load (index,
-			       type_nativecode_ptr);
-	    insn = build1 (GOTO_EXPR, void_type_node,
-			   where);
+	    tree where = load (index, type_nativecode_ptr);
+	    insn = build1 (GOTO_EXPR, void_type_node, where);
 	  }
 	  break;
 

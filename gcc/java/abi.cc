@@ -103,10 +103,11 @@ cxx_abi::build_method_call (tree_builtins *builtins,
 
       func = build2 (PLUS_EXPR, type_nativecode_ptr_ptr, dtable,
 		     convert (type_nativecode_ptr_ptr, index));
-      if (TARGET_VTABLE_USES_DESCRIPTORS)
-	func = build1 (NOP_EXPR, type_nativecode_ptr, func);
-      else
+      if (! TARGET_VTABLE_USES_DESCRIPTORS)
 	func = build1 (INDIRECT_REF, type_nativecode_ptr, func);
+      // Cast back to the correct type, not just 'void *'.
+      func = build1 (NOP_EXPR, build_pointer_type (TREE_TYPE (meth_tree)),
+		     func);
     }
 
   // METH_TREE is a method decl, so we need one TREE_TYPE to get the

@@ -1,3 +1,10 @@
+2005-02-25  Tom Tromey  <tromey@redhat.com>
+
+	* builtins.cc (add): Use build_function_type and
+	build_method_type_directly.  Use correct 'self' type for methods.
+
+	* abi.cc (build_method_call): Cast vtable lookup to correct type.
+
 2005-02-23  Tom Tromey  <tromey@redhat.com>
 
 	* classobj.cc (get_descriptor): New methods.

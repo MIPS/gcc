@@ -81,24 +81,23 @@ tree_builtins::map_identifier (const std::string &str)
 void
 tree_builtins::add (tree context, model_method *meth)
 {
-  // Create a function or method type.
-  tree mtype = make_node (meth->static_p () ? FUNCTION_TYPE : METHOD_TYPE);
-  if (! meth->static_p ())
-    TYPE_METHOD_BASETYPE (mtype) = map_type (meth->get_declaring_class ());
-  TREE_TYPE (mtype) = map_type (meth->get_return_type ());
-
   // Convert argument types.
   std::list<ref_variable_decl> args = meth->get_parameters ();
   tree argt = NULL_TREE;
-  if (! meth->static_p ())
-    argt = tree_cons (NULL_TREE, TYPE_METHOD_BASETYPE (mtype), argt);
   for (std::list<ref_variable_decl>::const_iterator i = args.begin ();
        i != args.end ();
        ++i)
     argt = tree_cons (NULL_TREE, map_type ((*i)->type ()), argt);
-  TYPE_ARG_TYPES (mtype) = chainon (nreverse (argt), void_list_node);
+  argt = chainon (nreverse (argt), void_list_node);
 
-  layout_type (mtype);
+  // Create a function or method type.
+  tree ret_type = map_type (meth->get_return_type ());
+  tree mtype;
+  tree klass_ptr = map_type (meth->get_declaring_class ());
+  if (meth->static_p ())
+    mtype = build_function_type (ret_type, argt);
+  else
+    mtype = build_method_type_directly (TREE_TYPE (klass_ptr), ret_type, argt);
 
   // Now create the function decl.
   tree result = build_decl (FUNCTION_DECL,
@@ -115,7 +114,7 @@ tree_builtins::add (tree context, model_method *meth)
   if (! meth->static_p ())
     {
       tree this_decl = build_decl (PARM_DECL, get_identifier ("this"),
-				   TYPE_METHOD_BASETYPE (mtype));
+				   klass_ptr);
       DECL_CONTEXT (this_decl) = result;
       TREE_CHAIN (this_decl) = formals;
       formals = this_decl;
