@@ -164,6 +164,7 @@ static void remove_superfluous_labels (void);
 static void thread_jumps (void);
 static bool tree_forwarder_block_p (basic_block);
 static void merge_seq_blocks (void);
+static tree CASE_GOTO (tree_stmt_iterator);
 
 /* Location to track pending stmt for edge insertion.  */
 #define PENDING_STMT(e)	((tree)(e->insns))
@@ -172,16 +173,18 @@ static void merge_seq_blocks (void);
 #define SET_PENDING_STMT(e, t)	((e->insns) = (rtx)t)
 
 /* Accessors for switch statement case list.  */
-#define CASE_END(STMT) (TREE_CODE (TREE_OPERAND (STMT, 1)) == GOTO_EXPR)
-#define CASE_NEXT_RAW(STMT) (TREE_OPERAND (TREE_OPERAND (STMT, 1), 1))
-#define CASE_NEXT(STMT) (CASE_END (STMT) ? NULL_TREE : CASE_NEXT_RAW (STMT))
-#define CASE_GOTO(STMT)							\
-  (CASE_END (STMT)							\
-   ? TREE_OPERAND (STMT, 1)						\
-   : TREE_OPERAND (TREE_OPERAND (STMT, 1), 0))
-#define CASE_DESTINATION(STMT) (GOTO_DESTINATION (CASE_GOTO (STMT)))
-#define CASE_CASE(STMT) (TREE_OPERAND (STMT, 0))
-#define CASE_EDGE(STMT) (get_stmt_ann (CASE_CASE (STMT))->case_edge)
+#define CASE_START(STMT) tsi_start (&SWITCH_BODY (STMT))
+#define CASE_NEXT(TSI) tsi_next (&TSI), tsi_next (&TSI)
+#define CASE_END_P(TSI) tsi_end_p (TSI)
+static tree
+CASE_GOTO (tree_stmt_iterator tsi)
+{
+  tsi_next (&tsi);
+  return tsi_stmt (tsi);
+}
+#define CASE_DESTINATION(TSI) (GOTO_DESTINATION (CASE_GOTO (TSI)))
+#define CASE_CASE(TSI) (tsi_stmt(TSI))
+#define CASE_EDGE(TSI) (get_stmt_ann (CASE_CASE (TSI))->case_edge)
      
 /* FIXME These need to be filled in with appropriate pointers.  But this
    implies an ABI change in some functions.  */
@@ -679,7 +682,8 @@ make_switch_expr_edges (basic_block bb)
 {
   tree entry = last_stmt (bb);
   basic_block label_bb;
-  tree label, stmt;
+  tree label;
+  tree_stmt_iterator case_entry;
   edge e;
 
 #if defined ENABLE_CHECKING
@@ -687,16 +691,18 @@ make_switch_expr_edges (basic_block bb)
     abort ();
 #endif
 
-  for (stmt = SWITCH_BODY (entry); stmt; stmt = CASE_NEXT (stmt))
+  for (case_entry = CASE_START (entry);
+       !CASE_END_P (case_entry);
+       CASE_NEXT (case_entry))
     {
-      label = CASE_DESTINATION (stmt);
+      label = CASE_DESTINATION (case_entry);
       label_bb = VARRAY_BB (label_to_block_map, LABEL_DECL_INDEX (label));
       e = make_edge (bb, label_bb, 0);
       if (!e)
 	e = find_edge (bb, label_bb);
       if (!e)
 	abort ();
-      CASE_EDGE (stmt) = e;
+      CASE_EDGE (case_entry) = e;
     }
 }
 
@@ -708,6 +714,7 @@ tree_redirect_edge_and_branch (edge e, basic_block dest)
   tree stmt, gto;
   basic_block bb = e->src;
   edge old;
+  tree_stmt_iterator case_entry;
 
   if (e->dest == dest)
     return true;
@@ -747,12 +754,14 @@ tree_redirect_edge_and_branch (edge e, basic_block dest)
     {
       /* This is more complicated, since there may be more gotos corresponding
 	 to this edge.  */
-      for (gto = SWITCH_BODY (stmt); gto; gto = CASE_NEXT (gto))
-	if (CASE_EDGE (gto) == e)
+      for (case_entry = CASE_START (stmt);
+	   !CASE_END_P (case_entry);
+	   CASE_NEXT (case_entry))
+	if (CASE_EDGE (case_entry) == e)
 	  {
-	    CASE_DESTINATION (gto) = tree_block_label (dest);
+	    CASE_DESTINATION (case_entry) = tree_block_label (dest);
 	    if (old)
-	      CASE_EDGE (gto) = old;
+	      CASE_EDGE (case_entry) = old;
 	  }
 
       goto redirect;
@@ -1279,14 +1288,17 @@ static edge
 find_taken_edge_switch_expr (basic_block bb, tree val)
 {
   edge e, default_edge;
-  tree case_label, stmt;
+  tree case_label;
+  tree_stmt_iterator case_entry;
 
   /* See if the switch() value matches one of the case labels.  */
   default_edge = NULL;
-  for (stmt = SWITCH_BODY (last_stmt (bb)); stmt; stmt = CASE_NEXT (stmt))
+  for (case_entry = CASE_START (last_stmt (bb));
+       !CASE_END_P (case_entry);
+       CASE_NEXT (case_entry))
     {
-      e = CASE_EDGE (stmt);
-      case_label = CASE_CASE (stmt);
+      e = CASE_EDGE (case_entry);
+      case_label = CASE_CASE (case_entry);
 
       if (value_matches_label (e, val, case_label, &default_edge))
 	return e;
@@ -2823,7 +2835,8 @@ tree_cleanup_block_edges (basic_block bb, int no_false_fallthru)
 {
   edge e, e_true, e_false, next;
   block_stmt_iterator bsi;
-  tree stmt, alt;
+  tree stmt;
+  tree_stmt_iterator alt;
 
   if (bb == ENTRY_BLOCK_PTR)
     return;
@@ -2925,7 +2938,7 @@ redo:
       if (!bb->succ)
 	break;
 
-      alt = SWITCH_BODY (stmt);
+      alt = CASE_START (stmt);
       if (bb->succ->succ_next)
 	{
 	  /* If there are more edges, but only one matches, we may proceed
@@ -2933,10 +2946,10 @@ redo:
 	  e_true = find_taken_edge (bb, SWITCH_COND (stmt));
 	  if (!e_true)
 	    break;
-	  for (alt = SWITCH_BODY (stmt); alt; alt = CASE_NEXT (alt))
+	  for (; !CASE_END_P (alt); CASE_NEXT (alt))
 	    if (CASE_EDGE (alt) == e_true)
 	      break;
-	  if (!alt)
+	  if (CASE_END_P (alt))
 	    abort ();
 
 	  for (e = bb->succ; e; e = next)
@@ -3131,7 +3144,8 @@ remove_superfluous_labels ()
   basic_block bb;
   edge e;
   block_stmt_iterator bsi;
-  tree stmt, label, alt;
+  tree stmt, label;
+  tree_stmt_iterator alt;
   int preserve;
 
   FOR_EACH_BB (bb)
@@ -3166,7 +3180,9 @@ remove_superfluous_labels ()
 	  stmt = last_stmt (e->src);
 	  if (TREE_CODE (stmt) == SWITCH_EXPR)
 	    {
-	      for (alt = SWITCH_BODY (stmt); alt; alt = CASE_NEXT (alt))
+	      for (alt = CASE_START (stmt);
+		   !CASE_END_P (alt);
+		   CASE_NEXT (alt))
 		if (CASE_EDGE (alt) == e)
 		  CASE_DESTINATION (alt) = label;
 	    }
@@ -3329,17 +3345,6 @@ thread_jumps ()
 	    }
 	}
     }
-}
-
-/* Creates a new anonymous label.  */
-tree
-build_new_label ()
-{
-  tree label = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
-  DECL_CONTEXT (label) = current_function_decl;
-  DECL_ARTIFICIAL (label) = 1;
-
-  return label;
 }
 
 /* Returns a GOTO_EXPR for edge E found in STMT.  */

@@ -43,6 +43,10 @@ struct lower_data
 {
   /* Block the current statement belongs to.  */
   tree block;
+
+  /* The end of chain of CASE_LABEL_EXPRs in the innermost SWITCH_EXPR it
+     belongs to.  */
+  tree_stmt_iterator encl_switch_body;
 };
 
 static void lower_stmt_body (tree *, struct lower_data *);
@@ -50,6 +54,7 @@ static void lower_stmt (tree_stmt_iterator *, struct lower_data *);
 static void lower_bind_expr (tree_stmt_iterator *, struct lower_data *);
 static void lower_cond_expr (tree_stmt_iterator *, struct lower_data *);
 static void lower_switch_expr (tree_stmt_iterator *, struct lower_data *);
+static void lower_case_label_expr (tree_stmt_iterator *, struct lower_data *);
 static bool simple_goto_p (tree);
 
 /* Lowers the BODY.  */
@@ -82,7 +87,7 @@ lower_stmt_body (tree *expr, struct lower_data *data)
 {
   tree_stmt_iterator tsi;
 
-  for (tsi = tsi_start (expr); !tsi_end_p (tsi); tsi_next (&tsi))
+  for (tsi = tsi_start (expr); !tsi_end_p (tsi); )
     lower_stmt (&tsi, data);
 }
 
@@ -111,7 +116,6 @@ lower_stmt (tree_stmt_iterator *tsi, struct lower_data *data)
     case CALL_EXPR:
     case GOTO_EXPR:
     case LABEL_EXPR:
-    case CASE_LABEL_EXPR:
     case VA_ARG_EXPR:
     case RESX_EXPR:
       break;
@@ -124,10 +128,18 @@ lower_stmt (tree_stmt_iterator *tsi, struct lower_data *data)
       lower_switch_expr (tsi, data);
       break;
 
+    case CASE_LABEL_EXPR:
+      lower_case_label_expr (tsi, data);
+      /* Avoid moving the tsi -- it is moved by delinking the statement
+	 already.  */
+      return;
+
     default:
       print_node_brief (stderr, "", tsi_stmt (*tsi), 0);
       abort ();
     }
+
+  tsi_next (tsi);
 }
 
 /* Lowers a bind_expr TSI.  DATA is passed through the recursion.  */
@@ -243,5 +255,108 @@ lower_cond_expr (tree_stmt_iterator *tsi, struct lower_data *data)
 static void
 lower_switch_expr (tree_stmt_iterator *tsi, struct lower_data *data)
 {
-  lower_stmt_body (&SWITCH_BODY (tsi_stmt (*tsi)), data);
+  tree stmt = tsi_stmt (*tsi);
+  tree body = SWITCH_BODY (stmt);
+  tree case_label = NULL_TREE;
+  tree label_end;
+  tree_stmt_iterator encl_switch_body = data->encl_switch_body;
+  tree_stmt_iterator tsi_tmp;
+
+  /* The body of the switch serves as a list to that CASE_LABEL_EXPRs
+     add new GOTO_EXPR entries.  Add a default alternative to the list
+     (if there is some in the switch body, it will replace it).  */
+  SWITCH_BODY (stmt) = NULL_TREE;
+  data->encl_switch_body = tsi_start (&SWITCH_BODY (stmt));
+  tsi_link_after (&data->encl_switch_body,
+		  build1 (GOTO_EXPR, void_type_node, NULL_TREE),
+		  TSI_NEW_STMT);
+  tsi_link_before (&data->encl_switch_body,
+		   build (CASE_LABEL_EXPR, void_type_node,
+			  NULL_TREE, NULL_TREE, NULL_TREE),
+		   TSI_NEW_STMT);
+
+  lower_stmt_body (&body, data);
+
+  /* Now we have a chain of CASE_LABEL_EXPR + GOTOs in SWITCH_BODY, and
+     body contains the chain of statements we want to add after the
+     SWITCH_EXPR.  If there was not a default alternative, add a corresponding
+     goto.  */
+
+  tsi_tmp = data->encl_switch_body;
+  tsi_next (&tsi_tmp);
+  if (!GOTO_DESTINATION (tsi_stmt (tsi_tmp)))
+    {
+      label_end = build1 (LABEL_EXPR, void_type_node, NULL_TREE);
+      *tsi_stmt_ptr (tsi_tmp) = build_and_jump (&LABEL_EXPR_LABEL (label_end));
+      case_label = build_new_label ();
+      CASE_LABEL (tsi_stmt (data->encl_switch_body)) = case_label;
+
+      /* Add the new entry to SWITCH_LABELS (is it really needed???)  */
+      if (SWITCH_LABELS (stmt))
+	{
+	  tree switch_labels = SWITCH_LABELS (stmt);
+	  tree new_switch_labels =
+		  make_tree_vec (TREE_VEC_LENGTH (switch_labels) + 1);
+	  int i;
+
+	  for (i = 0; i < TREE_VEC_LENGTH (switch_labels); i++)
+	    TREE_VEC_ELT (new_switch_labels, i) =
+		    TREE_VEC_ELT (switch_labels, i);
+	  TREE_VEC_ELT (new_switch_labels, i) = case_label;
+	  SWITCH_LABELS (stmt) = new_switch_labels;
+	}
+    }
+  else
+    label_end = NULL_TREE;
+
+  tsi_link_chain_after (tsi, body, TSI_CONTINUE_LINKING);
+  if (label_end)
+    tsi_link_after (tsi, label_end, TSI_CONTINUE_LINKING);
+
+  data->encl_switch_body = encl_switch_body;
+}
+
+/* Replace the CASE_LABEL_EXPR at TSI with an ordinary label, and place the
+   goto to this label to the enclosing SWITCH_EXPR body; this position is
+   taken from DATA passed through recursion.  */
+
+static void
+lower_case_label_expr (tree_stmt_iterator *tsi, struct lower_data *data)
+{
+  tree stmt = tsi_stmt (*tsi);
+  tree_stmt_iterator tsi_tmp, tsi_nxt;
+  tree goto_expr, label;
+ 
+  tsi_nxt = *tsi;
+  tsi_next (&tsi_nxt);
+  if (!tsi_end_p (tsi_nxt) && simple_goto_p (tsi_stmt (tsi_nxt)))
+    {
+      /* Reuse the label.  */
+      label = GOTO_DESTINATION (tsi_stmt (tsi_nxt));
+      goto_expr = build1 (GOTO_EXPR, void_type_node, label);
+    }
+  else
+    {
+      /* Create a new goto, and add the label.  */
+      label = build1 (LABEL_EXPR, void_type_node, NULL_TREE);
+      tsi_link_after (tsi, label, TSI_SAME_STMT);
+      goto_expr = build_and_jump (&LABEL_EXPR_LABEL (label));
+    }
+  
+  if (CASE_LOW (stmt) == NULL_TREE)
+    {
+      /* Replace the prepared default entry.  */
+      tsi_tmp = data->encl_switch_body;
+      *tsi_stmt_ptr (tsi_tmp) = stmt;
+      tsi_next (&tsi_tmp);
+      *tsi_stmt_ptr (tsi_tmp) = goto_expr;
+    }
+  else
+    {
+      /* Add a new entry.  */
+      tsi_link_before (&data->encl_switch_body, stmt, TSI_SAME_STMT);
+      tsi_link_before (&data->encl_switch_body, goto_expr, TSI_SAME_STMT);
+    }
+
+  tsi_delink (tsi);
 }

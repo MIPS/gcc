@@ -1085,6 +1085,18 @@ gimplify_exit_block_expr (tree *expr_p)
   *expr_p = build1 (GOTO_EXPR, void_type_node, label);
 }
 
+/* Creates a new anonymous label.  */
+
+tree
+build_new_label ()
+{
+  tree label = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
+  DECL_CONTEXT (label) = current_function_decl;
+  DECL_ARTIFICIAL (label) = 1;
+
+  return label;
+}
+
 /* Build a GOTO to the LABEL_DECL pointed to by LABEL_P, building it first
    if necessary.  */
 
@@ -1096,12 +1108,7 @@ build_and_jump (tree *label_p)
     return build_empty_stmt ();
 
   if (*label_p == NULL_TREE)
-    {
-      tree label = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
-      DECL_ARTIFICIAL (label) = 1;
-      DECL_CONTEXT (label) = current_function_decl;
-      *label_p = label;
-    }
+    *label_p = build_new_label ();
 
   return build1 (GOTO_EXPR, void_type_node, *label_p);
 }

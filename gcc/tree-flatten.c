@@ -121,84 +121,8 @@ tree_flatten_statement (tree stmt, tree_cell *after, tree enclosing_switch)
     case VA_ARG_EXPR:
     case RESX_EXPR:
     case COND_EXPR:
-      append (after, stmt, TCN_STATEMENT);
-      break;
-
     case SWITCH_EXPR:
-      {
-	tree body = SWITCH_BODY (stmt);
-	tree case_label, last_case_label;
-	tree label_end, dflt, dflt_goto;
-
-	SWITCH_BODY (stmt) = NULL_TREE;
-	append (after, stmt, TCN_STATEMENT);
-
-	tree_flatten_statement (body, after, stmt);
-
-	/* Now we have a chain of CASE_LABEL_EXPR + GOTOs in
-	   SWITCH_BODY.  If there is not a default alternative,
-	   add one.  */
-	last_case_label = SWITCH_BODY (stmt);
-	if (!last_case_label
-	    || CASE_LOW (TREE_CHAIN (last_case_label)) != NULL_TREE)
-	  {
-	    case_label = build_new_label ();
-	    label_end = build_new_label ();
-
-	    append (after, build1 (LABEL_EXPR, void_type_node, label_end),
-		    TCN_STATEMENT);
-
-	    dflt = build (CASE_LABEL_EXPR, void_type_node,
-			  NULL_TREE, NULL_TREE, case_label);
-	    dflt_goto = build1 (GOTO_EXPR, void_type_node, label_end);
-	    TREE_CHAIN (dflt_goto) = dflt;
-	    TREE_CHAIN (dflt) = last_case_label;
-	    last_case_label = dflt_goto;
-
-	    if (SWITCH_LABELS (stmt))
-	      {
-		tree switch_labels = SWITCH_LABELS (stmt);
-		tree new_switch_labels =
-			make_tree_vec (TREE_VEC_LENGTH (switch_labels) + 1);
-		int i;
-
-		for (i = 0; i < TREE_VEC_LENGTH (switch_labels); i++)
-		  TREE_VEC_ELT (new_switch_labels, i) =
-			  TREE_VEC_ELT (switch_labels, i);
-		TREE_VEC_ELT (new_switch_labels, i) = case_label;
-		SWITCH_LABELS (stmt) = new_switch_labels;
-	      }
-	  }
-
-	for (case_label = TREE_CHAIN (last_case_label);
-	     case_label;
-	     case_label = TREE_CHAIN (case_label))
-	  last_case_label = build (COMPOUND_EXPR, void_type_node,
-				   case_label, last_case_label);
-	SWITCH_BODY (stmt) = last_case_label;
-      }
-      break;
-
-    case CASE_LABEL_EXPR:
-      {
-	tree case_label = build_new_label ();
-	tree goto_stmt = build1 (GOTO_EXPR, void_type_node, case_label);
-	tree *where, chain = SWITCH_BODY (enclosing_switch);
-	
-	append (after, build1 (LABEL_EXPR, void_type_node, case_label),
-		TCN_STATEMENT);
-
-	/* Keep the default alternative first.  */
-	if (!chain
-	    || CASE_LOW (stmt) == NULL_TREE
-	    || CASE_LOW (TREE_CHAIN (chain)) != NULL_TREE)
-	  where = &SWITCH_BODY (enclosing_switch);
-	else
-	  where = &TREE_CHAIN (TREE_CHAIN (SWITCH_BODY (enclosing_switch)));
-	TREE_CHAIN (goto_stmt) = stmt;
-	TREE_CHAIN (stmt) = *where;
-	*where = goto_stmt;
-      }
+      append (after, stmt, TCN_STATEMENT);
       break;
 
     default:

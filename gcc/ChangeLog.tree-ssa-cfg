@@ -1,5 +1,24 @@
 2003-10-05  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
+	* gimple-low.c (struct lower_data): New field encl_switch_body.
+	(lower_case_label_expr): New.
+	(lower_stmt_body, lower_stmt, lower_switch_expr): Handle switch_expr
+	lowering.
+	* tree-cfg.c (CASE_END, CASE_NEXT_RAW): Removed.
+	(CASE_GOTO, CASE_NEXT, CASE_DESTINATION, CASE_CASE, CASE_EDGE): Work
+	over tree_stmt_iterators.
+	(CASE_START): New.
+	(make_switch_expr_edges, tree_redirect_edge_and_branch,
+	find_taken_edge_switch_expr, tree_cleanup_block_edges,
+	remove_superfluous_labels): Use tree_stmt_iterator for switch cases.
+	(build_new_label): Moved ...
+	* gimplify.c (build_new_label): ...here.
+	(build_and_jump): Use it.
+	* tree-flatten.c (tree_flatten_statement): Assume SWITCH_EXPRs are
+	lowered.
+
+2003-10-05  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
 	* gimple-low.c (simple_goto_p): New.
 	(lower_cond_expr): Lower COND_EXPR form.
 	* tree-cfg.c (tree_cleanup_block_edges): Cleanup edges that are both
