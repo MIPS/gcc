@@ -769,8 +769,12 @@ Makefile: $(srcdir)/Makefile.in config.status $(srcdir)/version.c \
 	$(SHELL) config.run
 	rm -f config.run
 
-$(srcdir)/configure: $(srcdir)/configure.in
-	cd $(srcdir); autoconf
+# CYGNUS LOCAL: autoconf/wilson
+# Don't automatically run autoconf, since configure.in might be accidentally
+# newer than configure.  Also, this writes into the source directory which
+# might be on a read-only file system.
+#$(srcdir)/configure: $(srcdir)/configure.in
+#	cd $(srcdir); autoconf
 
 # cstamp-h.in controls rebuilding of config.in.
 # It is named cstamp-h.in and not stamp-h.in so the mostlyclean rule doesn't
@@ -781,11 +785,13 @@ $(srcdir)/configure: $(srcdir)/configure.in
 # "echo timestamp" is used instead of touch to be consistent with other
 # packages that use autoconf (??? perhaps also to avoid problems with patch?).
 # ??? Newer versions have a maintainer mode that may be useful here.
-$(srcdir)/config.in: $(srcdir)/cstamp-h.in
-$(srcdir)/cstamp-h.in: $(srcdir)/configure.in $(srcdir)/acconfig.h
-	cd $(srcdir) && autoheader
-	@rm -f $(srcdir)/cstamp-h.in
-	echo timestamp > $(srcdir)/cstamp-h.in
+# CYGNUS LOCAL: autoheader/jason
+# Don't run autoheader automatically either.
+#$(srcdir)/config.in: $(srcdir)/cstamp-h.in
+#$(srcdir)/cstamp-h.in: $(srcdir)/configure.in $(srcdir)/acconfig.h
+#	cd $(srcdir) && autoheader
+#	@rm -f $(srcdir)/cstamp-h.in
+#	echo timestamp > $(srcdir)/cstamp-h.in
 auto-host.h: cstamp-h ; @true
 cstamp-h: config.in config.status
 	CONFIG_HEADERS=auto-host.h:config.in $(SHELL) config.status
