@@ -1,3 +1,9 @@
+2003-12-04  Jan Hubicka  <jh@suse.cz>
+
+	* tree-dump.c (dump_files): Reorder tailcall and mustalias
+	* tree.h (tree_dump_index): Likewise.
+	* tree-optimize.c (optimize_function_tree): Do tail call after mustalias.
+
 2003-12-04  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-dfa.c (opf_none, opf_is_def, opf_no_vops): Change to #define.

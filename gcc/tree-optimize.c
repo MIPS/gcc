@@ -134,10 +134,6 @@ optimize_function_tree (tree fndecl, tree *chain)
 
       ggc_collect ();
 
-#if 0
-      /* Eliminate tail recursion calls.  */
-      tree_optimize_tail_calls (false, TDI_tail1);
-#endif
 #ifdef ENABLE_CHECKING
       verify_ssa ();
 #endif
@@ -154,6 +150,13 @@ optimize_function_tree (tree fndecl, tree *chain)
 	    rewrite_into_ssa (fndecl, vars_to_rename, TDI_ssa_3);
           ggc_collect ();
 	}
+
+#ifdef ENABLE_CHECKING
+      verify_ssa ();
+#endif
+
+      /* Eliminate tail recursion calls.  */
+      tree_optimize_tail_calls ();
 
 #ifdef ENABLE_CHECKING
       verify_ssa ();

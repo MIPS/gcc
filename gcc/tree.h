@@ -3590,8 +3590,8 @@ enum tree_dump_index
   TDI_dom_1,
   TDI_ssa_2,
   TDI_dce_1,
-  TDI_tail,			/* dump after tail recursion elimination  */
   TDI_mustalias,
+  TDI_tail,			/* dump after tail recursion elimination  */
   TDI_ssa_3,
   TDI_sra,
   TDI_ssa_4,
