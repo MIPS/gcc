@@ -61,8 +61,9 @@ public class ImageIcon
     this(s, s);
   }
 
-  public ImageIcon(Image image)
+  public ImageIcon(Image im)
   {
+    image = Toolkit.getDefaultToolkit().createImage(im.getSource());
   }
 
   public ImageIcon(URL url)

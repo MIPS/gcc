@@ -1,3 +1,12 @@
+2004-06-29  Graydon Hoare  <graydon@redhat.com>
+
+	* java/awt/image/BufferedImage.java 
+	(getSource): Implement.
+	* javax/swing/ImageIcon.java 
+	(ImageIcon): Implement ctor.
+	* javax/swing/ScrollPaneLayout.java 
+	(preferredLayoutSize): Be more careful about nulls.
+
 2004-06-28  Michael Koch  <konqueror@gmx.de>
 
 	* javax/swing/UIDefaults.java

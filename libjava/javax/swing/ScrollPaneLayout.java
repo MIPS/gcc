@@ -199,7 +199,7 @@ public class ScrollPaneLayout
 
   public Dimension preferredLayoutSize(Container parent) 
   {
-    if (parent instanceof JScrollPane)
+    if (parent != null && parent instanceof JScrollPane)
       {
         JScrollPane sc = (JScrollPane) parent;
         synchronized (sc.getTreeLock ())
@@ -217,25 +217,30 @@ public class ScrollPaneLayout
             Insets viewportInsets = null;
 
             if (viewportBorder != null)
-              viewportInsets = viewportBorder.getBorderInsets(parent);
+              {
+                viewportInsets = viewportBorder.getBorderInsets(parent);
+                if (viewportInsets != null)
+                  viewportInsetsSize.setSize(viewportInsets.left + viewportInsets.right,
+                                             viewportInsets.top + viewportInsets.bottom);
+              }
 
             if (insets != null)
               insetsSize.setSize(insets.left + insets.right,
                                  insets.top + insets.bottom);
 
-            if (viewport != null)
+            if (viewport != null && viewport.getPreferredSize() != null)
               viewportSize.setSize(viewport.getPreferredSize());
 
-            if (colHead != null)
+            if (colHead != null && colHead.getPreferredSize() != null)
               columnHeaderSize.setSize(colHead.getPreferredSize());
             
-            if (rowHead != null)
+            if (rowHead != null && rowHead.getPreferredSize() != null)
               rowHeaderSize.setSize(rowHead.getPreferredSize());
 
-            if (vsb != null)
+            if (vsb != null && vsb.getPreferredSize() != null)
               verticalScrollBarSize.setSize(vsb.getPreferredSize());
 
-            if (hsb != null)
+            if (hsb != null && hsb.getPreferredSize() != null)
               horizontalScrollBarSize.setSize(hsb.getPreferredSize());
 
             /*
@@ -286,27 +291,34 @@ public class ScrollPaneLayout
             Insets viewportInsets = null;
 
             if (viewportBorder != null)
-              viewportInsets = viewportBorder.getBorderInsets(parent);
-
+              {
+                viewportInsets = viewportBorder.getBorderInsets(parent);
+                if (viewportInsets != null)
+                  viewportInsetsSize.setSize(viewportInsets.left + viewportInsets.right,
+                                             viewportInsets.top + viewportInsets.bottom);
+              }
+            
             if (insets != null)
               insetsSize.setSize(insets.left + insets.right,
                                  insets.top + insets.bottom);
-
-            if (viewport != null)
+            
+            if (viewport != null && viewport.getMinimumSize() != null)
               viewportSize.setSize(viewport.getMinimumSize());
-
-            if (colHead != null)
+            
+            if (colHead != null && colHead.getMinimumSize() != null)
               columnHeaderSize.setSize(colHead.getMinimumSize());
             
-            if (rowHead != null)
+            if (rowHead != null && rowHead.getMinimumSize() != null)
               rowHeaderSize.setSize(rowHead.getMinimumSize());
-
+            
             if (vsb != null
-                && vsbPolicy != VERTICAL_SCROLLBAR_NEVER)
+                && vsbPolicy != VERTICAL_SCROLLBAR_NEVER
+                && vsb.getMinimumSize() != null)
               verticalScrollBarSize.setSize(vsb.getMinimumSize());
 
             if (hsb != null 
-                && hsbPolicy != HORIZONTAL_SCROLLBAR_NEVER)
+                && hsbPolicy != HORIZONTAL_SCROLLBAR_NEVER
+                && hsb.getMinimumSize() != null)
               horizontalScrollBarSize.setSize(hsb.getMinimumSize());
             
             return new Dimension(insetsSize.width 
