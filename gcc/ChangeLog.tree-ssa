@@ -1,3 +1,8 @@
+2002-12-02  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-dfa.c (find_refs_in_expr): Look for references in
+	VA_ARG_EXPR nodes.
+
 2002-12-01  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-optimize.c (optimize_function_tree): Undo
