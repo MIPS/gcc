@@ -1,3 +1,7 @@
+2003-04-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* configure.in (powerpc64*-*-linux*): Remove.
+
 2003-05-14  Eric Botcazou  <ebotcazou@libertysurf.fr>
 
 	* config-ml.in: Propagate INSTALL variables.
