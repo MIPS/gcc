@@ -273,7 +273,9 @@ bb_ann (basic_block bb)
 static inline tree
 phi_nodes (basic_block bb)
 {
-  return bb_ann (bb)->phi_nodes;
+  if (bb->index < 0)
+    return NULL;
+  return VARRAY_TREE (tree_phi_root, bb->index);
 }
 
 

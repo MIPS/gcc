@@ -152,6 +152,7 @@ build_tree_cfg (tree *fnbody)
   memset ((void *) &cfg_stats, 0, sizeof (cfg_stats));
 
   VARRAY_TREE_INIT (tree_bb_root, initial_cfg_capacity, "tree_bb_root");
+  VARRAY_TREE_INIT (tree_phi_root, initial_cfg_capacity, "tree_phi_root");
 
   /* Build a mapping of labels to their associated blocks.  */
   VARRAY_BB_INIT (label_to_block_map, initial_cfg_capacity,
@@ -176,6 +177,7 @@ build_tree_cfg (tree *fnbody)
       /* Adjust the size of the array.  */
       VARRAY_GROW (basic_block_info, n_basic_blocks);
       VARRAY_GROW (tree_bb_root, n_basic_blocks);
+      VARRAY_GROW (tree_phi_root, n_basic_blocks);
 
       /* Create block annotations.  */
       create_blocks_annotations ();
@@ -426,6 +428,7 @@ create_bb (tree stmt_list, basic_block after)
       size_t new_size = n_basic_blocks + (n_basic_blocks + 3) / 4;
       VARRAY_GROW (basic_block_info, new_size);
       VARRAY_GROW (tree_bb_root, new_size);
+      VARRAY_GROW (tree_phi_root, new_size);
     }
 
   /* Add the newly created block to the array.  */
@@ -1564,6 +1567,7 @@ remove_bb (basic_block bb)
     delete_from_dominance_info (pdom_info, bb);
 
   VARRAY_TREE (tree_bb_root, bb->index) = NULL_TREE;
+  VARRAY_TREE (tree_phi_root, bb->index) = NULL_TREE;
 
   /* Remove the basic block from the array.  */
   expunge_block (bb);
@@ -2419,6 +2423,7 @@ delete_tree_cfg (void)
     free_blocks_annotations ();
   free_basic_block_vars (0);
   tree_bb_root = NULL;
+  tree_phi_root = NULL;
 }
 
 /* Return the first statement in basic block BB, stripped of any NOP

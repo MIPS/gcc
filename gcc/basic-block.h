@@ -292,6 +292,7 @@ extern varray_type basic_block_info;
 /* The root of statement_lists of basic blocks for the garbage collector.
    This is a hack; we really should GC the entire CFG structure.  */
 extern GTY(()) varray_type tree_bb_root;
+extern GTY(()) varray_type tree_phi_root;
 
 /* For iterating over basic blocks.  */
 #define FOR_BB_BETWEEN(BB, FROM, TO, DIR) \

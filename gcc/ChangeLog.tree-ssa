@@ -1,5 +1,18 @@
 2003-12-01  Jan Hubicka  <jh@suse.cz>
 
+	* basic-block.h (tree_phi_root): New variable.
+	* cfg.c: Include tree-flow.h.
+	(compact_blocks): Compact tree_phi_root
+	* tree-cfg.c (build_tree-cfg): Initialize tree_phi_root.
+	(create_bb, remove_bb, delete_tree_cfg): Update tree_phi_root.
+	* tree-dfa.c (tree_phi_root): Declare.
+	(create_phi_node, add_phi_arg, remove_phi_node,
+	remove_all_phi_nodes_for):  Always use ancesor functions for
+	getting, varray for setting phis.
+	* tree-ssa-pre.c (code_motion): Likewsie.
+	* tree-flow-inline.h (phi_nodes): Use varray.
+	* tree-flow.h (bb_ann_d): Remove phi_nodes.
+
 	* tree-ssanames.c (free_ssanames): Do not use deleteable GTY flag.
 
 2003-11-30  Jan Hubicka  <jh@suse.cz>

@@ -2631,7 +2631,6 @@ code_motion (struct expr_info *ei)
   tree newtemp;
   size_t euse_iter;
   tree temp = ei->temp;
-  bb_ann_t ann;
   basic_block bb;
 
   /* First, add the phi node temporaries so the reaching defs are
@@ -2648,11 +2647,10 @@ code_motion (struct expr_info *ei)
 	{
 	  bb = bb_for_stmt (use);
 	  /* Add the new PHI node to the list of PHI nodes for block BB.  */
-	  ann = bb_ann (bb);
-	  if (ann->phi_nodes == NULL)
-	    ann->phi_nodes = EREF_TEMP (use);
+	  if (phi_nodes (bb) == NULL)
+	    VARRAY_TREE (tree_phi_root, bb->index) = EREF_TEMP (use);
 	  else
-	    chainon (ann->phi_nodes, EREF_TEMP (use));
+	    chainon (phi_nodes (bb), EREF_TEMP (use));
 	  VARRAY_PUSH_TREE (added_phis, EREF_TEMP (use));
 	}
       else if (EPHI_IDENTITY (use))

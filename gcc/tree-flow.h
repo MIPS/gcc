@@ -305,9 +305,6 @@ static inline tree default_def (tree);
 ---------------------------------------------------------------------------*/
 struct bb_ann_d
 {
-  /* Chain of PHI nodes created in this block.  */
-  tree phi_nodes;
-
   /* Chain of EPHI nodes created in this block.  */
   tree ephi_nodes;
   

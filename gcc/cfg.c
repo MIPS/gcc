@@ -258,14 +258,23 @@ compact_blocks (void)
   basic_block bb;
 
   i = 0;
+  if (tree_phi_root)
+    FOR_EACH_BB (bb)
+      bb->aux = VARRAY_TREE (tree_phi_root, bb->index);
   FOR_EACH_BB (bb)
     {
       BASIC_BLOCK (i) = bb;
       if (tree_bb_root)
-	VARRAY_TREE (tree_bb_root, i) = bb->stmt_list;
+        {
+	  VARRAY_TREE (tree_bb_root, i) = bb->stmt_list;
+	  VARRAY_TREE (tree_phi_root, i) = bb->aux;
+        }
       bb->index = i;
       i++;
     }
+  if (tree_phi_root)
+    FOR_EACH_BB (bb)
+      bb->aux = NULL;
 
   if (i != n_basic_blocks)
     abort ();
@@ -274,7 +283,10 @@ compact_blocks (void)
     {
       BASIC_BLOCK (i) = NULL;
       if (tree_bb_root)
-	VARRAY_TREE (tree_bb_root, i) = NULL_TREE;
+        {
+	  VARRAY_TREE (tree_bb_root, i) = NULL_TREE;
+	  VARRAY_TREE (tree_phi_root, i) = NULL_TREE;
+        }
     }
 
   last_basic_block = n_basic_blocks;

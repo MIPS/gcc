@@ -45,6 +45,9 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-alias-common.h"
 #include "convert.h"
 
+/* The root of statement_lists of basic blocks for the garbage collector.
+   This is a hack; we really should GC the entire CFG structure.  */
+varray_type tree_phi_root;
 /* Build and maintain data flow information for trees.  */
 
 /* Counters used to display DFA and SSA statistics.  */
@@ -932,8 +935,8 @@ create_phi_node (tree var, basic_block bb)
 
   /* Add the new PHI node to the list of PHI nodes for block BB.  */
   ann = bb_ann (bb);
-  TREE_CHAIN (phi) = ann->phi_nodes;
-  ann->phi_nodes = phi;
+  TREE_CHAIN (phi) = phi_nodes (bb);
+  VARRAY_TREE (tree_phi_root, bb->index) = phi;
 
   /* Associate BB to the PHI node.  */
   set_bb_for_stmt (phi, bb);
@@ -956,7 +959,6 @@ add_phi_arg (tree *phi, tree def, edge e)
   if (i >= PHI_ARG_CAPACITY (*phi))
     {
       /* Resize the phi.  Unfortunately, this also relocates it...  */
-      bb_ann_t ann = bb_ann (e->dest);
       tree old_phi = *phi;
 
       resize_phi_node (phi, i + 4);
@@ -965,13 +967,13 @@ add_phi_arg (tree *phi, tree def, edge e)
       SSA_NAME_DEF_STMT (PHI_RESULT (*phi)) = *phi;
 
       /* Update the list head if replacing the first listed phi.  */
-      if (ann->phi_nodes == old_phi)
-	ann->phi_nodes = *phi;
+      if (phi_nodes (e->dest) == old_phi)
+	VARRAY_TREE (tree_phi_root, e->dest->index) = *phi;
       else
 	{
           /* Traverse the list looking for the phi node to chain to.  */
 	  tree p;
-	  for (p = ann->phi_nodes;
+	  for (p = phi_nodes (e->dest);
 	       p && TREE_CHAIN (p) != old_phi;
 	       p = TREE_CHAIN (p));
 
@@ -1067,8 +1069,7 @@ remove_phi_node (tree phi, tree prev, basic_block bb)
   else if (phi == phi_nodes (bb))
     {
       /* Update the list head if removing the first element.  */
-      bb_ann_t ann = bb_ann (bb);
-      ann->phi_nodes = TREE_CHAIN (phi);
+      VARRAY_TREE (tree_phi_root, bb->index) = TREE_CHAIN (phi);
 
       /* If we are deleting the PHI node, then we should release the
 	 SSA_NAME node so that it can be reused.  */
@@ -1098,10 +1099,9 @@ remove_all_phi_nodes_for (sbitmap vars)
     {
       /* Build a new PHI list for BB without variables in VARS.  */
       tree phi, new_phi_list, last_phi;
-      bb_ann_t ann = bb_ann (bb);
 
       last_phi = new_phi_list = NULL_TREE;
-      for (phi = ann->phi_nodes; phi; phi = TREE_CHAIN (phi))
+      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
 	{
 	  tree var = SSA_NAME_VAR (PHI_RESULT (phi));
 
@@ -1132,10 +1132,10 @@ remove_all_phi_nodes_for (sbitmap vars)
       /* Make sure the last node in the new list has no successors.  */
       if (last_phi)
 	TREE_CHAIN (last_phi) = NULL_TREE;
-      ann->phi_nodes = new_phi_list;
+      VARRAY_TREE (tree_phi_root, bb->index) = new_phi_list;
 
 #if defined ENABLE_CHECKING
-      for (phi = ann->phi_nodes; phi; phi = TREE_CHAIN (phi))
+      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
 	{
 	  tree var = SSA_NAME_VAR (PHI_RESULT (phi));
 	  if (TEST_BIT (vars, var_ann (var)->uid))
