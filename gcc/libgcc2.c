@@ -420,7 +420,6 @@ __ashrdi3 (DWtype u, word_type b)
 
 #ifdef L_ffssi2
 #undef int
-extern int __ffsSI2 (UWtype u);
 int
 __ffsSI2 (UWtype u)
 {
@@ -436,7 +435,6 @@ __ffsSI2 (UWtype u)
 
 #ifdef L_ffsdi2
 #undef int
-extern int __ffsDI2 (DWtype u);
 int
 __ffsDI2 (DWtype u)
 {
@@ -613,7 +611,6 @@ const UQItype __clz_tab[] =
 
 #ifdef L_clzsi2
 #undef int
-extern int __clzSI2 (UWtype x);
 int
 __clzSI2 (UWtype x)
 {
@@ -627,7 +624,6 @@ __clzSI2 (UWtype x)
 
 #ifdef L_clzdi2
 #undef int
-extern int __clzDI2 (UDWtype x);
 int
 __clzDI2 (UDWtype x)
 {
@@ -647,7 +643,6 @@ __clzDI2 (UDWtype x)
 
 #ifdef L_ctzsi2
 #undef int
-extern int __ctzSI2 (UWtype x);
 int
 __ctzSI2 (UWtype x)
 {
@@ -661,7 +656,6 @@ __ctzSI2 (UWtype x)
 
 #ifdef L_ctzdi2
 #undef int
-extern int __ctzDI2 (UDWtype x);
 int
 __ctzDI2 (UDWtype x)
 {
@@ -700,7 +694,6 @@ const UQItype __popcount_tab[] =
 
 #ifdef L_popcountsi2
 #undef int
-extern int __popcountSI2 (UWtype x);
 int
 __popcountSI2 (UWtype x)
 {
@@ -715,7 +708,6 @@ __popcountSI2 (UWtype x)
 
 #ifdef L_popcountdi2
 #undef int
-extern int __popcountDI2 (UDWtype x);
 int
 __popcountDI2 (UDWtype x)
 {
@@ -730,7 +722,6 @@ __popcountDI2 (UDWtype x)
 
 #ifdef L_paritysi2
 #undef int
-extern int __paritySI2 (UWtype x);
 int
 __paritySI2 (UWtype x)
 {
@@ -752,7 +743,6 @@ __paritySI2 (UWtype x)
 
 #ifdef L_paritydi2
 #undef int
-extern int __parityDI2 (UDWtype x);
 int
 __parityDI2 (UDWtype x)
 {
