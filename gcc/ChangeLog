@@ -1,3 +1,11 @@
+2000-02-02  Bernd Schmidt  <bernds@cygnus.co.uk>
+
+	* config/strongarm2/arm.c (soft_df_operand): Reject SUBREGs
+	containing a constant.
+
+	* arm.c (arm_gen_movstrqi): Generate halfword stores rather than two
+	byte stores.
+
 2000-02-02  Nick Clifton  <nickc@cygnus.com>
 
 	* config/arm/thumb.c (thumb_exit): Additional fix for same bug.

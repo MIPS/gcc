@@ -2673,6 +2673,9 @@ soft_df_operand (op, mode)
   if (mode != VOIDmode && GET_MODE (op) != mode)
     return FALSE;
 
+  if (GET_CODE (op) == SUBREG && CONSTANT_P (SUBREG_REG (op)))
+    return FALSE;
+
   if (GET_CODE (op) == SUBREG)
     op = SUBREG_REG (op);
   
@@ -3809,12 +3812,12 @@ arm_gen_movstrqi (operands)
       part_bytes_reg = copy_to_mode_reg (SImode, mem);
     }
 
+  if (last_bytes && part_bytes_reg == NULL)
+    abort ();
+
   if (BYTES_BIG_ENDIAN && last_bytes)
     {
       rtx tmp = gen_reg_rtx (SImode);
-
-      if (part_bytes_reg == NULL)
-	abort ();
 
       /* The bytes we want are in the top end of the word */
       emit_insn (gen_lshrsi3 (tmp, part_bytes_reg,
@@ -3840,25 +3843,31 @@ arm_gen_movstrqi (operands)
     }
   else
     {
-      while (last_bytes)
+      if (last_bytes > 1)
 	{
-	  if (part_bytes_reg == NULL)
-	    abort ();
+	  mem = gen_rtx_MEM (HImode, dst);
+	  RTX_UNCHANGING_P (mem) = dst_unchanging_p;
+	  MEM_IN_STRUCT_P (mem) = dst_in_struct_p;
+	  MEM_SCALAR_P (mem) = dst_scalar_p;
+	  emit_move_insn (mem, gen_rtx_SUBREG (HImode, part_bytes_reg, 0));
+	  last_bytes -= 2;
+	  if (last_bytes)
+	    {
+	      rtx tmp = gen_reg_rtx (SImode);
 
+	      emit_insn (gen_addsi3 (dst, dst, GEN_INT (2)));
+	      emit_insn (gen_lshrsi3 (tmp, part_bytes_reg, GEN_INT (16)));
+	      part_bytes_reg = tmp;
+	    }
+	}
+      
+      if (last_bytes)
+	{
 	  mem = gen_rtx_MEM (QImode, dst);
 	  RTX_UNCHANGING_P (mem) = dst_unchanging_p;
 	  MEM_IN_STRUCT_P (mem) = dst_in_struct_p;
 	  MEM_SCALAR_P (mem) = dst_scalar_p;
-	  emit_move_insn (mem, gen_rtx_SUBREG (QImode, part_bytes_reg, 0));
-	  
-	  if (--last_bytes)
-	    {
-	      rtx tmp = gen_reg_rtx (SImode);
-
-	      emit_insn (gen_addsi3 (dst, dst, const1_rtx));
-	      emit_insn (gen_lshrsi3 (tmp, part_bytes_reg, GEN_INT (8)));
-	      part_bytes_reg = tmp;
-	    }
+	  emit_move_insn (mem, gen_rtx_SUBREG (QImode, part_bytes_reg, 0));	  
 	}
     }
 
