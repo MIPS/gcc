@@ -1,3 +1,6 @@
+/* { dg-do compile } */
+/* { dg-options "-O1" } */
+
 /* This program requires the SSA renamer to be run after the second DOM
    pass.  Test provided by Falk Hueffner as Bugzilla #12825.  */
 
