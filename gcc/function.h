@@ -428,21 +428,7 @@ struct function GTY(())
 
   /* Nonzero if code to initialize arg_pointer_save_area has been emitted.  */
   unsigned int arg_pointer_save_area_init : 1;
-
-  /* Number of units of general registers that need saving in stdarg
-     function.  What unit is depends on the backend, either it is number
-     of bytes, or it can be number of registers.  */
-  unsigned int va_list_gpr_size : 8;
-
-  /* Number of units of floating point registers that need saving in stdarg
-     function.  */
-  unsigned int va_list_fpr_size : 8;
 };
-
-/* If va_list_[gf]pr_size is set to this, it means we don't know how
-   many units need to be saved.  */
-#define VA_LIST_MAX_GPR_SIZE	255
-#define VA_LIST_MAX_FPR_SIZE	255
 
 /* The function currently being compiled.  */
 extern GTY(()) struct function *cfun;
@@ -530,7 +516,6 @@ extern HOST_WIDE_INT get_func_frame_size (struct function *);
 extern struct machine_function * (*init_machine_status) (void);
 
 /* Save and restore status information for a nested function.  */
-extern void restore_emit_status (struct function *);
 extern void free_after_parsing (struct function *);
 extern void free_after_compilation (struct function *);
 

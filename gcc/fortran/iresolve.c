@@ -1022,15 +1022,33 @@ gfc_resolve_not (gfc_expr * f, gfc_expr * i)
 void
 gfc_resolve_pack (gfc_expr * f,
                   gfc_expr * array ATTRIBUTE_UNUSED,
-		  gfc_expr * mask ATTRIBUTE_UNUSED,
+		  gfc_expr * mask,
 		  gfc_expr * vector ATTRIBUTE_UNUSED)
 {
-  static char pack[] = "__pack";
+  static char pack[] = "__pack",
+    pack_s[] = "__pack_s";
 
   f->ts = array->ts;
   f->rank = 1;
 
-  f->value.function.name = pack;
+  if (mask->rank != 0)
+    f->value.function.name = pack;
+  else
+    {
+      /* We convert mask to default logical only in the scalar case.
+	 In the array case we can simply read the array as if it were
+	 of type default logical.  */
+      if (mask->ts.kind != gfc_default_logical_kind)
+	{
+	  gfc_typespec ts;
+
+	  ts.type = BT_LOGICAL;
+	  ts.kind = gfc_default_logical_kind;
+	  gfc_convert_type (mask, &ts, 2);
+	}
+
+      f->value.function.name = pack_s;
+    }
 }
 
 
@@ -1284,6 +1302,17 @@ gfc_resolve_sum (gfc_expr * f, gfc_expr * array, gfc_expr * dim,
 }
 
 
+/* Resolve the g77 compatibility function SYSTEM.  */
+
+void
+gfc_resolve_system (gfc_expr * f, gfc_expr * n ATTRIBUTE_UNUSED)
+{
+  f->ts.type = BT_INTEGER;
+  f->ts.kind = 4;
+  f->value.function.name = gfc_get_string (PREFIX("system"));
+}
+
+
 void
 gfc_resolve_tan (gfc_expr * f, gfc_expr * x)
 {
@@ -1444,6 +1473,19 @@ gfc_resolve_cpu_time (gfc_code * c ATTRIBUTE_UNUSED)
 
 
 void
+gfc_resolve_mvbits (gfc_code * c)
+{
+  const char *name;
+  int kind;
+
+  kind = c->ext.actual->expr->ts.kind;
+  name = gfc_get_string (PREFIX("mvbits_i%d"), kind);
+
+  c->resolved_sym = gfc_get_intrinsic_sub_symbol (name);
+}
+
+
+void
 gfc_resolve_random_number (gfc_code * c ATTRIBUTE_UNUSED)
 {
   const char *name;
@@ -1456,7 +1498,6 @@ gfc_resolve_random_number (gfc_code * c ATTRIBUTE_UNUSED)
     name = gfc_get_string (PREFIX("arandom_r%d"), kind);
   
   c->resolved_sym = gfc_get_intrinsic_sub_symbol (name);
-
 }
 
 
@@ -1566,6 +1607,16 @@ gfc_resolve_get_environment_variable (gfc_code * code)
   code->resolved_sym = gfc_get_intrinsic_sub_symbol (name);
 }
 
+/* Resolve the SYSTEM intrinsic subroutine.  */
+
+void
+gfc_resolve_system_sub (gfc_code * c)
+{
+  const char *name;
+
+  name = gfc_get_string (PREFIX("system_sub"));
+  c->resolved_sym = gfc_get_intrinsic_sub_symbol (name);
+}
 
 /* Determine if the arguments to SYSTEM_CLOCK are INTEGER(4) or INTEGER(8) */
 

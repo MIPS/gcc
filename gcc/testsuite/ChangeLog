@@ -1,3 +1,403 @@
+2004-10-12  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	PR c/17301
+	* gcc.dg/pr17301-2.c: New test.
+
+2004-10-11  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/15876
+	* g++.dg/parse/error22.C: New test.
+
+	PR c++/17936
+	* g++.dg/template/spec18.C: New test.
+
+2004-10-11  Steve Ellcey  <sje@cup.hp.com>
+
+	* testsuite/gcc.dg/ia64-asm-1.c: Add prototype for abort
+	* testsuite/gcc.dg/ia64-sync-1.c: Add prototype for abort and
+	memcpy. 
+	* testsuite/gcc.dg/ia64-sync-2.c: Ditto.
+	* testsuite/gcc.dg/ia64-sync-3.c: Ditto.
+
+2004-10-11  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* g++.dg/eh/cleanup5.C: Add dg-options "".
+
+2004-10-11  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/17657
+	* gcc.dg/switch-4.c: New test case.
+
+2004-10-11  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.c-torture/execute/20041011-1.c: New test.
+
+2004-10-10  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c++/17554
+	* g++.dg/init/for3.C: New test.
+
+	PR c++/17657
+	* g++.dg/opt/switch2.C: New test.
+
+	PR middle-end/17703
+	* g++.dg/warn/Wreturn-2.C: New test.
+
+2004-10-10  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c++/17907
+	* g++.dg/eh/cleanup5.C: New test.
+
+2004-10-10  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/17393
+	* g++.dg/parse/error21.C: New test.
+
+2004-10-10  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* g++.dg/overload/pmf1.C: Adjust quoting marks.
+	* g++.dg/warn/incomplete1.C: Likewise.
+	* g++.dg/template/qualttp20.C: Likewise.
+
+2004-10-10  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	PR c/17881
+	* parm-incomplete-1.c: New test.
+
+2004-10-09  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/17867
+	* g++.dg/parse/error19.C: New test.
+
+	PR c++/17670
+	* g++.dg/init/new11.C: New test.
+
+	PR c++/17821
+	* g++.dg/parse/error20.C: New test.
+
+	PR c++/17826
+	* g++.dg/template/crash24.C: New test.
+	
+2004-10-10  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	PR c/17301
+	* gcc.dg/pr17301-1.c: New test.
+
+2004-10-10  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	PR c/17189
+	* gcc.dg/anon-struct-5.c: New test.
+
+2004-10-09  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	PR c/17844
+	* gcc.dg/pr17844-1.c: New test.
+
+2004-10-09  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	PR tree-optimization/17906
+	* gcc.c-torture/compile/pr17906.c: New.
+
+2004-10-09  Stuart Hastings  <stuart@apple.com>
+	    Roger Sayle  <roger@eyesopen.com>
+
+	PR rtl-optimization/17853
+	* gcc.dg/i386-mmx-5.c: New testcase.
+
+2004-10-09  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* g++.dg/opt/pr17902.C: Fix typo in dg-do.
+
+2004-10-09  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/17524
+	* g++.dg/template/static9.C: New test.
+
+	PR c++/17685
+	* g++.dg/parse/operator5.C: New test.
+
+2004-10-09  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/17894
+	* gcc.c-torture/execute/divcmp-4.c: New test case.
+
+2004-10-08  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR tree-opt/17902
+	* g++.dg/opt/pr17902.C: New test.
+
+2004-10-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/cpp/ident-1.c: Add dg-options "".
+
+2004-10-08  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* gcc.dg/float-range-1.c, gcc.dg/float-range-2.c: New tests.
+
+2004-10-08  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* gcc.dg/assign-warn-3.c: New test.
+
+2004-10-08  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c/16999
+	* gcc.dg/cpp/ident-1.c: New test.
+
+2004-10-08  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gcc.c-torture/compile/acc1.c: New.
+
+2004-10-08  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* gcc.dg/darwin-longdouble.c: Include stdlib.h and string.h.
+	* gcc.dg/darwin-abi-2.c: Include stdlib.h.
+
+2004-10-08  Christian Ehrhardt  <ehrhardt@mathematik.uni-ulm.de>
+
+	* gcc.dg/ultrasp11.c: New test.
+
+2004-10-08  Michael Matz  <matz@suse.de>
+
+	* gcc.dg/doloop-2.c: New test.
+
+2004-10-08  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* gcc.dg/assign-warn-1.c, gcc.dg/assign-warn-2.c: New tests.
+	* gcc.dg/warn-1.c, gcc.dg/noncompile/20020213-1.c,
+	objc.dg/method-9.m: Update expected diagnostics.
+
+2004-10-07  Geoffrey Keating  <geoffk@apple.com>
+
+	* gcc.dg/ppc-fsel-3.c: New file.
+	* gcc.dg/ppc-fsel-1.c: Add -fno-trapping-math, update comment.
+
+2004-10-07  Paul Brook  <paul@codesourcery.com>
+
+	* gfortran.dg/intrinsic_verify_1.f90: New test.
+
+2004-10-07  Paul Brook  <paul@codesourcery.com>
+
+	* gfortran.dg/empty_format_1.f90: Remove stray commas.
+
+2004-10-07  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* gfortran.fortran-torture/execute/intrinsic_mvbits.f90, 
+	gfortran.dg/ishft.f90: Add more tests. Add dg-warning in followup
+	commit.
+
+2004-10-07  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* g++.dg/ext/asm6.C: Remove extraneous semicolon.
+
+2004-10-07  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/17115
+	* g++.dg/warn/Winline-4.C: New test.
+
+2004-10-07  Christian Ehrhardt  <ehrhardt@mathematik.uni-ulm.de>
+
+	* gcc.c-torture/compile/20041007-1.c: New test.
+
+2004-10-07  Paul Brook  <paul@codesourcery.com>
+
+	PR fortran/17678
+	* gfortran.dg/use_allocated_1.f90: New test.
+
+2004-10-06  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/17849
+	* gfortran.fortran-torture/compile/nested.f90: New test
+
+2004-10-06  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* gcc.dg/Wconversion-2.c, gcc.dg/func-args-1.c: New tests.
+
+2004-10-06  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c++/17368
+	* g++.dg/ext/asm6.C: New test.
+
+2004-10-06  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* gcc.dg/20011119-1.c : Added memory attribute to asm sequence.
+
+2004-10-06  Paul Brook  <paul@codesourcery.com>
+
+	PR libfortran/17709
+	* gfortran.dg/empty_format_1.f90: New test.
+
+2004-10-06  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/17568
+	* gfortran.dg/ishft.f90: New test.
+
+	PR fortran/17283
+	* gfortran.fortran-torture/execute/intrinsic_pack.f90: Enable new
+	tests.
+
+2004-10-06  Paul Brook  <paul@codesourcery.com>
+
+	* gfortran.dg/do_1.f90: New test.
+
+2004-10-06  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.c-torture/execute/builtins/lib/strcpy.c: Don't abort when
+	optimizing for size.
+
+2004-10-05  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* gcc.dg/complex-2.c, gcc.dg/complex-2.h: New test.
+
+2004-10-05  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* gcc.c-torture/compile/20041005-1.c: New test.
+
+2004-10-05  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/17829
+	* g++.dg/lookup/koenig4.C: New.
+
+2004-10-05  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* g++.dg/other/classkey1.C: Adjust quoting marks.
+	* g++.dg/parse/error15.C: Likewise.
+	* g++.dg/template/meminit2.C (int>): Likewise.
+
+2004-10-04  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/17283
+	* gfortran.fortran-torture/execute/intrinsic_pack.f90: Add more tests.
+
+	PR fortran/17631
+	* gfortran.fortran-torture/execute/intrinsic_mvbits.f90: New test.
+
+	PR fortran/17708
+	* gfortran.dg/pr17708.f90: New test.
+	
+2004-10-04  Chao-ying Fu  <fu@mips.com>
+
+	* gcc.dg/vect/pr16105.c: Enable for mipsisa64*-*-*.
+	* gcc.dg/vect/vect-4.c: Ditto.
+	* gcc.dg/vect/vect-5.c: Ditto.
+	* gcc.dg/vect/vect-6.c: Ditto.
+	* gcc.dg/vect/vect-8.c: Ditto.
+	* gcc.dg/vect/vect-16.c: Ditto.
+	* gcc.dg/vect/vect-30.c: Ditto.
+	* gcc.dg/vect/vect-40.c: Ditto.
+	* gcc.dg/vect/vect-41.c: Ditto.
+	* gcc.dg/vect/vect-42.c: Ditto.
+	* gcc.dg/vect/vect-43.c: Ditto.
+	* gcc.dg/vect/vect-44.c: Ditto.
+	* gcc.dg/vect/vect-45.c: Ditto.
+	* gcc.dg/vect/vect-46.c: Ditto.
+	* gcc.dg/vect/vect-47.c: Ditto.
+	* gcc.dg/vect/vect-48.c: Ditto.
+	* gcc.dg/vect/vect-49.c: Ditto.
+	* gcc.dg/vect/vect-50.c: Ditto.
+	* gcc.dg/vect/vect-51.c: Ditto.
+	* gcc.dg/vect/vect-52.c: Ditto.
+	* gcc.dg/vect/vect-53.c: Ditto.
+	* gcc.dg/vect/vect-54.c: Ditto.
+	* gcc.dg/vect/vect-55.c: Ditto.
+	* gcc.dg/vect/vect-56.c: Ditto.
+	* gcc.dg/vect/vect-57.c: Ditto.
+	* gcc.dg/vect/vect-58.c: Ditto.
+	* gcc.dg/vect/vect-59.c: Ditto.
+	* gcc.dg/vect/vect-60.c: Ditto.
+	* gcc.dg/vect/vect-74.c: Ditto.
+	* gcc.dg/vect/vect-79.c: Ditto.
+	* gcc.dg/vect/vect-80.c: Ditto.
+
+2004-10-04  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* gcc.dg/unused-7.c: Use the correct option.
+
+2004-10-04  Paul Brook  <paul@codesourcery.com>
+	Bud Davis  <bdavis9659@comcast.net>
+
+	PR fortran/17706
+	PR fortran/16434
+	* gfortran/pr17706.f90: New test.
+	* gfortran.dg/g77/f77-edit-s-out.f: Remove xfail.
+
+2004-10-04  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* gfortran.dg/pr17612.f90: New test.
+
+2004-10-03  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* g++.dg/template/local1.C: Adjust quoting marks in
+	testing for diagnostics.
+	* g++.dg/tls/diag-2.C: Likewise.
+	* g++.dg/other/error8.C: Likewise.
+
+2004-10-03  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c/17178
+	* gcc.dg/unused-4.c: Adjust to be correct.
+
+	PR c/17820
+	* gcc.dg/unused-7.c: New test.
+
+2004-10-03  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c++/17797
+	* g++.dg/overload/template2.C: New test.
+
+2004-10-03  Kazu Hirata  <kazu@cs.umass.edu>
+
+	PR tree-optimization/16632
+	* gcc.dg/tree-ssa/20041002-1.c: New.
+
+2004-10-03  Paul Brook  <paul@codesourcery.com>
+
+	* gfortran.dg/pr17286.f90: Add dg-do line.  Explicitly test bug,
+	rather than relying on default formatting.
+
+2004-10-02  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* gcc.dg/20040920-1.c: Update expected message text.
+
+2004-10-02  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* gcc.dg/tree-ssa/loop-1.c: Merge changed dg-options for s390-*-*.
+
+2004-10-01  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	* gcc.dg/tree-ssa/loop-1.c: Check that unrolling occurs already on
+	tree level.
+
+2004-10-01  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* gcc.dg/tree-ssa/pr17343.c: Remove.
+
+2004-10-01  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR tree-opt/17343
+	* gcc.dg/tree-ssa/pr17343.c: New test.
+
+2004-10-01  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/tree-ssa/stdarg-1.c: Removed.
+	* gcc.dg/tree-ssa/stdarg-2.c: Removed.
+	* gcc.dg/tree-ssa/stdarg-3.c: Removed.
+	* gcc.dg/tree-ssa/stdarg-4.c: Removed.
+	* gcc.dg/tree-ssa/stdarg-5.c: Removed.
+
+2004-09-30  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* gcc.dg/lvalue-2.c: New test.
+
+2004-09-30  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	PR c/17730
+	* gcc.dg/pr17730-1.c: New test
+
+2004-09-29  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	PR c/7425
+	* gcc.dg/deprecated-3.c, g++.dg/warn/deprecated-2.C: New tests.
+
 2004-09-29  Jakub Jelinek  <jakub@redhat.com>
 
 	* gcc.c-torture/execute/stdarg-1.c: New test.

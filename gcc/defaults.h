@@ -334,16 +334,6 @@ do { fputs (integer_asm_op (POINTER_SIZE / BITS_PER_UNIT, TRUE), FILE); \
 #endif
 #endif
 
-/* By default, we generate a label at the beginning and end of the
-   text section, and compute the size of the text section by
-   subtracting the two.  However, on some platforms that doesn't
-   work, and we use the section itself, rather than a label at the
-   beginning of it, to indicate the start of the section.  On such
-   platforms, define this to zero.  */
-#ifndef DWARF2_GENERATE_TEXT_SECTION_LABEL
-#define DWARF2_GENERATE_TEXT_SECTION_LABEL 1
-#endif
-
 /* Number of hardware registers that go into the DWARF-2 unwind info.
    If not defined, equals FIRST_PSEUDO_REGISTER  */
 
@@ -587,11 +577,38 @@ do { fputs (integer_asm_op (POINTER_SIZE / BITS_PER_UNIT, TRUE), FILE); \
 #define	TARGET_FLOAT_FORMAT	IEEE_FLOAT_FORMAT
 #endif
 
+/* Some macros can be defined by the backend in either a mode-dependent
+   or mode-independent form.  The compiler proper should only use the
+   mode-dependent form, providing VOIDmode when the mode is unknown.
+   We can't poison the macros because the backend may reference them.  */
+
+#ifndef REGNO_MODE_OK_FOR_BASE_P
+#define REGNO_MODE_OK_FOR_BASE_P(REGNO, MODE) REGNO_OK_FOR_BASE_P (REGNO)
+#endif
+
+#ifndef REG_MODE_OK_FOR_BASE_P
+#define REG_MODE_OK_FOR_BASE_P(REG, MODE) REG_OK_FOR_BASE_P (REG)
+#endif
+
 /* Determine the register class for registers suitable to be the base
    address register in a MEM.  Allow the choice to be dependent upon
    the mode of the memory access.  */
 #ifndef MODE_BASE_REG_CLASS
 #define MODE_BASE_REG_CLASS(MODE) BASE_REG_CLASS
+#endif
+
+/* Some machines require a different base register class if the index
+   is a register.  By default, assume that a base register is acceptable.  */
+#ifndef MODE_BASE_REG_REG_CLASS
+#define MODE_BASE_REG_REG_CLASS(MODE) MODE_BASE_REG_CLASS(MODE)
+#endif
+
+#ifndef REGNO_MODE_OK_FOR_REG_BASE_P
+#define REGNO_MODE_OK_FOR_REG_BASE_P(REGNO, MODE) REGNO_MODE_OK_FOR_BASE_P (REGNO, MODE)
+#endif
+
+#ifndef REG_MODE_OK_FOR_REG_BASE_P
+#define REG_MODE_OK_FOR_REG_BASE_P(REGNO, MODE) REG_MODE_OK_FOR_BASE_P (REGNO, MODE)
 #endif
 
 #ifndef LARGEST_EXPONENT_IS_NORMAL

@@ -93,7 +93,7 @@ c_cannot_inline_tree_fn (tree *fnp)
       goto cannot_inline;
     }
 
-  if (! function_attribute_inlinable_p (fn))
+  if (!function_attribute_inlinable_p (fn))
     {
       if (do_warning)
 	warning ("%Jfunction %qF can never be inlined because it uses "
@@ -117,7 +117,7 @@ c_cannot_inline_tree_fn (tree *fnp)
 	}
     }
 
-  if (! DECL_FILE_SCOPE_P (fn))
+  if (!DECL_FILE_SCOPE_P (fn))
     {
       /* If a nested function has pending sizes, we may have already
          saved them.  */
@@ -187,7 +187,7 @@ c_objc_common_init (void)
    source-level entity onto BUFFER.  The meaning of the format specifiers
    is as follows:
    %D: a general decl,
-   %E: An expression,
+   %E: an identifier or expression,
    %F: a function declaration,
    %T: a type.
 
@@ -235,7 +235,10 @@ c_tree_printer (pretty_printer *pp, text_info *text)
       if (TREE_CODE (t) == IDENTIFIER_NODE)
 	n = IDENTIFIER_POINTER (t);
       else
-	pp_expression (cpp, t);
+	{
+	  pp_expression (cpp, t);
+	  return true;
+	}
       break;
 
     default:

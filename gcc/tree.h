@@ -96,6 +96,12 @@ extern const enum tree_code_class tree_code_type[];
 #define DECL_P(CODE)\
         (TREE_CODE_CLASS (TREE_CODE (CODE)) == tcc_declaration)
 
+/* Nonzero if CODE represents a INDIRECT_REF.  */
+#define INDIRECT_REF_P(CODE)\
+  (TREE_CODE (CODE) == INDIRECT_REF \
+   || TREE_CODE (CODE) == MISALIGNED_INDIRECT_REF \
+   || TREE_CODE (CODE) == ALIGN_INDIRECT_REF)
+
 /* Nonzero if CODE represents a reference.  */
 
 #define REFERENCE_CLASS_P(CODE)\
@@ -2117,7 +2123,7 @@ struct tree_binfo GTY (())
 
 /* In a VAR_DECL, nonzero if the decl is a register variable with
    an explicit asm specification.  */
-#define DECL_HARD_REGISTER(NODE)  (DECL_CHECK (NODE)->decl.inline_flag)
+#define DECL_HARD_REGISTER(NODE)  (VAR_DECL_CHECK (NODE)->decl.inline_flag)
 
 /* Value of the decls's visibility attribute */
 #define DECL_VISIBILITY(NODE) (DECL_CHECK (NODE)->decl.visibility)
@@ -2568,8 +2574,6 @@ enum tree_index
   TI_PID_TYPE,
   TI_PTRDIFF_TYPE,
   TI_VA_LIST_TYPE,
-  TI_VA_LIST_GPR_COUNTER_FIELD,
-  TI_VA_LIST_FPR_COUNTER_FIELD,
   TI_BOOLEAN_TYPE,
   TI_FILEPTR_TYPE,
 
@@ -2636,8 +2640,6 @@ extern GTY(()) tree global_trees[TI_MAX];
 #define pid_type_node                   global_trees[TI_PID_TYPE]
 #define ptrdiff_type_node		global_trees[TI_PTRDIFF_TYPE]
 #define va_list_type_node		global_trees[TI_VA_LIST_TYPE]
-#define va_list_gpr_counter_field	global_trees[TI_VA_LIST_GPR_COUNTER_FIELD]
-#define va_list_fpr_counter_field	global_trees[TI_VA_LIST_FPR_COUNTER_FIELD]
 /* The C type `FILE *'.  */
 #define fileptr_type_node		global_trees[TI_FILEPTR_TYPE]
 
@@ -3464,7 +3466,6 @@ extern bool commutative_tree_code (enum tree_code);
 extern void expand_expr_stmt (tree);
 extern void expand_expr_stmt_value (tree, int, int);
 extern int warn_if_unused_value (tree, location_t);
-extern void expand_decl_init (tree);
 extern void expand_label (tree);
 extern void expand_goto (tree);
 extern void expand_asm (tree, int);
@@ -3537,6 +3538,7 @@ extern tree nondestructive_fold_binary_to_constant (enum tree_code, tree, tree, 
 extern tree fold_read_from_constant_string (tree);
 extern tree int_const_binop (enum tree_code, tree, tree, int);
 extern tree build_fold_addr_expr (tree);
+tree fold_build_cleanup_point_expr (tree type, tree expr);
 extern tree build_fold_addr_expr_with_type (tree, tree);
 extern tree build_fold_indirect_ref (tree);
 extern tree constant_boolean_node (int, tree);

@@ -40,6 +40,7 @@ Boston, MA 02111-1307, USA.  */
 #include "recog.h"
 #include "c-pragma.h"
 #include "integrate.h"
+#include "dwarf2.h"
 #include "tm_p.h"
 #include "target.h"
 #include "target-def.h"
@@ -285,6 +286,7 @@ static bool sh_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode,
 				  tree, bool);
 static bool sh_callee_copies (CUMULATIVE_ARGS *, enum machine_mode,
 			      tree, bool);
+static int sh_dwarf_calling_convention (tree);
 
 
 /* Initialize the GCC target structure.  */
@@ -453,6 +455,9 @@ static bool sh_callee_copies (CUMULATIVE_ARGS *, enum machine_mode,
 
 #undef TARGET_PCH_VALID_P
 #define TARGET_PCH_VALID_P sh_pch_valid_p
+
+#undef TARGET_DWARF_CALLING_CONVENTION
+#define TARGET_DWARF_CALLING_CONVENTION sh_dwarf_calling_convention
 
 /* Return regmode weight for insn.  */
 #define INSN_REGMODE_WEIGHT(INSN, MODE)  regmode_weight[((MODE) == SImode) ? 0 : 1][INSN_UID (INSN)]
@@ -9402,6 +9407,17 @@ sh_vector_mode_supported_p (enum machine_mode mode)
   return false;
 }
 
+/* Implements target hook dwarf_calling_convention.  Return an enum
+   of dwarf_calling_convention.  */
+int
+sh_dwarf_calling_convention (tree func)
+{
+  if (sh_attr_renesas_p (func))
+    return DW_CC_GNU_renesas_sh;
+
+  return DW_CC_normal;
+}
+
 static void
 sh_init_builtins (void)
 {
@@ -10036,7 +10052,7 @@ sh_fsca_int2sf (void)
   return sh_fsca_int2sf_rtx;
 }
 
-/* Initialise the CUMULATIVE_ARGS structure.  */
+/* Initialize the CUMULATIVE_ARGS structure.  */
 
 void
 sh_init_cumulative_args (CUMULATIVE_ARGS *  pcum,
@@ -10079,7 +10095,7 @@ sh_init_cumulative_args (CUMULATIVE_ARGS *  pcum,
       pcum->prototype_p = FALSE;
       if (mode != VOIDmode)
 	{
-	  pcum->call_cookie = 
+	  pcum->call_cookie =
 	    CALL_COOKIE_RET_TRAMP (TARGET_SHCOMPACT
 				   && GET_MODE_SIZE (mode) > 4
 				   && BASE_RETURN_VALUE_REG (mode) == FIRST_RET_REG);
@@ -10090,7 +10106,7 @@ sh_init_cumulative_args (CUMULATIVE_ARGS *  pcum,
 	     in memory then we must force the address of this memory
 	     block onto the stack.  Ideally we would like to call
 	     targetm.calls.return_in_memory() here but we do not have
-	     the TYPE or the FNDECL available so we synthesise the
+	     the TYPE or the FNDECL available so we synthesize the
 	     contents of that function as best we can.  */
 	  pcum->force_mem =
 	    (TARGET_DEFAULT & HITACHI_BIT)

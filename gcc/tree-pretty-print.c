@@ -285,8 +285,26 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	}
       break;
 
-    case TREE_VEC:
+    case TREE_BINFO:
       dump_generic_node (buffer, BINFO_TYPE (node), spc, flags, false);
+
+    case TREE_VEC:
+      {
+	size_t i;
+	if (TREE_VEC_LENGTH (node) > 0)
+	  {
+	    size_t len = TREE_VEC_LENGTH (node);
+	    for (i = 0; i < len - 1; i++)
+	      {	    
+		dump_generic_node (buffer, TREE_VEC_ELT (node, i), spc, flags,
+				   false);
+		pp_character (buffer, ',');
+		pp_space (buffer);
+	      }
+	    dump_generic_node (buffer, TREE_VEC_ELT (node, len - 1), spc, 
+			       flags, false);
+	  }
+      }
       break;
 
     case BLOCK:
@@ -827,9 +845,11 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	  pp_character (buffer, ')');
 	  /* The lowered cond_exprs should always be printed in full.  */
 	  if (COND_EXPR_THEN (node)
-	      && TREE_CODE (COND_EXPR_THEN (node)) == GOTO_EXPR
+	      && (IS_EMPTY_STMT (COND_EXPR_THEN (node))
+		  || TREE_CODE (COND_EXPR_THEN (node)) == GOTO_EXPR)
 	      && COND_EXPR_ELSE (node)
-	      && TREE_CODE (COND_EXPR_ELSE (node)) == GOTO_EXPR)
+	      && (IS_EMPTY_STMT (COND_EXPR_ELSE (node))
+		  || TREE_CODE (COND_EXPR_ELSE (node)) == GOTO_EXPR))
 	    {
 	      pp_space (buffer);
 	      dump_generic_node (buffer, COND_EXPR_THEN (node), 0, flags, true);
@@ -1564,6 +1584,14 @@ print_declaration (pretty_printer *buffer, tree t, int spc, int flags)
       /* Print variable's name.  */
       pp_space (buffer);
       dump_generic_node (buffer, t, spc, flags, false);
+    }
+
+  if (TREE_CODE (t) == VAR_DECL && DECL_HARD_REGISTER (t))
+    {
+      pp_string (buffer, " __asm__ ");
+      pp_character (buffer, '(');
+      dump_generic_node (buffer, DECL_ASSEMBLER_NAME (t), spc, flags, false);
+      pp_character (buffer, ')');
     }
 
   /* The initial value of a function serves to determine wether the function

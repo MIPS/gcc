@@ -340,7 +340,6 @@ conditional_replacement (basic_block cond_bb, basic_block middle_bb,
   bsi = bsi_last (cond_bb);
   bsi_insert_before (&bsi, build_empty_stmt (), BSI_NEW_STMT);
   
-  
   if (old_result)
     {
       tree new1;

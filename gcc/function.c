@@ -287,8 +287,6 @@ pop_function_context_from (tree context ATTRIBUTE_UNUSED)
   current_function_decl = p->decl;
   reg_renumber = 0;
 
-  restore_emit_status (p);
-
   lang_hooks.function.leave_nested (p);
 
   /* Reset variables that have known state during rtx generation.  */
@@ -535,7 +533,6 @@ insert_slot_to_list (struct temp_slot *temp, struct temp_slot **list)
 static struct temp_slot **
 temp_slots_at_level (int level)
 {
-  level++;
 
   if (!used_temp_slots)
     VARRAY_GENERIC_PTR_INIT (used_temp_slots, 3, "used_temp_slots");
@@ -2513,8 +2510,12 @@ assign_parm_setup_block_p (struct assign_parm_data_one *data)
     return true;
 
 #ifdef BLOCK_REG_PADDING
-  if (data->locate.where_pad == (BYTES_BIG_ENDIAN ? upward : downward)
-      && GET_MODE_SIZE (data->promoted_mode) < UNITS_PER_WORD)
+  /* Only assign_parm_setup_block knows how to deal with register arguments
+     that are padded at the least significant end.  */
+  if (REG_P (data->entry_parm)
+      && GET_MODE_SIZE (data->promoted_mode) < UNITS_PER_WORD
+      && (BLOCK_REG_PADDING (data->passed_mode, data->passed_type, 1)
+	  == (BYTES_BIG_ENDIAN ? upward : downward)))
     return true;
 #endif
 
@@ -3798,10 +3799,6 @@ allocate_struct_function (tree fndecl)
        && TYPE_ARG_TYPES (fntype) != 0
        && (TREE_VALUE (tree_last (TYPE_ARG_TYPES (fntype)))
 	   != void_type_node));
-
-  /* Assume all registers in stdarg functions need to be saved.  */
-  cfun->va_list_gpr_size = VA_LIST_MAX_GPR_SIZE;
-  cfun->va_list_fpr_size = VA_LIST_MAX_FPR_SIZE;
 }
 
 /* Reset cfun, and other non-struct-function variables to defaults as

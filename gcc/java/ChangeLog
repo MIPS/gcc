@@ -1,3 +1,166 @@
+2004-10-06  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* parse.y (issue_warning_error_from_context): Use va_list *
+	instead of va_list parameter.
+	(parse_error_context): Update call.
+	(parse_warning_context): Likewise.
+
+2004-10-05  Zack Weinberg  <zack@codesourcery.com>
+
+	* parse.y, parse-scan.y: Add list of diagnostic messages to
+	insulate translation template from version of yacc/bison used
+	to compile the grammar.
+
+2004-10-05  Ranjit Mathew  <rmathew@hotmail.com>
+
+	Prepare for %q, %< and %> in diagnostic message strings.
+	* java-tree.h (parse_error_context): remove ATTRIBUTE_PRINTF_2.
+	Name second parameter 'msgid'.
+	* parse.y: Additionally include pretty-print.h and diagnostic.h.
+	(issue_warning_error_from_context): Use pretty-printer functions
+	instead of vsprintf for constructing formatted messages. Rename
+	parameter 'msg' to 'msgid'.
+	(parse_error_context): Rename parameter 'msg' to 'msgid'.
+	(parse_warning_context): Likewise.
+
+2004-10-05  Andrew Haley  <aph@redhat.com>
+
+	PR java/17779
+	* jcf-parse.c (parse_zip_file_entries): If a class has a
+	superclass and a TYPE_SIZE of zero, lay it out.
+
+2004-09-30  Andrew Haley  <aph@redhat.com>
+
+	PR java/17733
+	* jcf-parse.c (compute_class_name): Rewrite.
+
+2004-10-01  Jan Hubicka  <jh@suse.cz>
+
+	* java.c (java_expand_body): Update call of tree_rest_of_compilation.
+
+2004-10-01  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* lex.c: Fix a comment typo.
+
+2004-10-01  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* java-tree.h: Fix a comment typo.
+
+2004-09-30  Per Bothner  <per@bothner.com>
+
+	Simplify lexer.  Implement --enable-mapped-location support.
+	* jcf-parse.c (parse_class_file):  Use linemap_line_start.
+	(parse_source_file_1): Pass filename as extra parameter, so we can call
+	linemap_add and set input_location here, rather than in both callers.
+	(read_class): Pass copied filename to parse_source_file_1.
+	Don't initialize wfl_operator - only needed for source compilation.
+	(read_class, jcf_parse):  Call linemap_add with LC_LEAVE.
+	* lex.h:  Remove a bunch of debugging macros.
+	* lex.h (struct_java_line, struct java_error):  Remove types.
+	(JAVA_COLUMN_DELTA):  Remove - use java_lexer.next_colums instead.
+	(struct java_lc_s):  Remove prev_col field.
+	(struct java_lexer):  New fields next_unicode, next_columns, and
+	avail_unicode.  New position field, and maybe token_start field.
+	Don't need hit_eof field - use next_unicode == -1 instead.
+	(JAVA_INTEGERAL_RANGE_ERROR):  Rename to JAVA_RANGE_ERROR.
+	(JAVA_RANGE_ERROR, JAVA_FLOAT_ANGE_ERROR):  Update accordingly.
+	* parse.h:  Various changes for USE_MAPPED_LOCATION.
+	(EXPR_WFL_EMIT_LINE_NOTE): XXX
+	(BUILD_EXPR_WFL, EXPR_WFL_ADD_COL): Remove no-longer-used macros.
+	(struct parser_ctxt):  New file_start_location field.
+	Remove p_line, c_line fields since we no longer save lines.
+	Remove elc, lineno, and current_jcf fields - no longer used.
+	* parse.y:  Updates for USE_MAPPED_LOCATION and new lexer.
+	Don't use EXPR_WFL_ADD_COL since that isn't trivial with
+	source_location and is probably not needed anymore anyway.
+	Use new expr_add_Location function.
+	(SET_EXPR_LOCATION_FROM_TOKEN):  New convenience macro.
+	(java_pop_parser_context):  Minor cleanup.
+	(java_parser_context_save_global, java_parser_context_restore_global,
+	java_pop_parser_context):  Save/restore input_location as a unit.
+	(issue_warning_error_from_context):  If USE_MAPPED_LOCATION take
+	a source_location instead of a wfl context node.
+	(check_class_interface_creation):  input_filename is not addressable.
+	(create_artificial_method):  Calling java_parser_context_save_global
+	and java_parser_context_restore_global is overkill.  Instead,
+	temporarily set input_location from class decl.
+	(java_layout_seen_class_methods): Set input_location from method decl.
+	(fix_constructors): Make more robust if no EXPR_WITH_FILE_LOCATION.
+	(finish_loop_body):  Likewise.
+	* lex.c: Updates for USE_MAPPED_LOCATION.  Use build_unknwon_wfl.
+	(java_sprint_unicode):  Take a character, not index in line.
+	(java_sneak_uncode):  Replaced by java_peek_unicode.
+	(java_unget_unicode):  No longer used.
+	(java_allocate_new_line. java_store_unicode):  Removed, since we
+	no longer remember "lines".
+	(java_new_lexer):  Update for new data structures.
+	(java_read_char):  Move unget_value checking to java_read_unicode.
+	(java_get_unicode, java_peek_unicode, java_next_unicode): New more
+	efficient functions that are used directly when lexing.
+	(java_read_unicode_collapsing_terminators):  No longer needed.
+	(java_parse_end_comment, java_parse_escape_sequence, do_java_lex):
+	Re-organize to use java_peek_unicode to avoid java_unget_unicode.
+	(java_parse_escape_sequence):  Rewrite to be simpler / more efficient.
+	(do_java_lex):  Lots of movings around to avoid java_unget_unicode,
+	combine switch branches, and test for common token kinds earlier.
+	(java_lex_error):  Rewrite.
+	* jv-scan.c (expand_location): New function, copied from tree.c.
+	(main): Set ctxp->filename instead of setting input_filename directly.
+
+2004-09-30  Per Bothner  <per@bothner.com>
+
+	More cleanup for --enable-mapped-location.
+	* class.c (push_class):  If USE_MAPPED_LOCATION don't set
+	input_location here.  Instead do it in give_name_to_class.
+	(build_class_ref):  Set DECL_ARTIFICIAL, for the sake of dwarf2out.
+	* expr.c (expand_byte_code): Call linemap_line_start.
+	* expr.c (build_expr_wfl):  If USE_MAPPED_LOCATION, change final
+	parameters to a source_location.  Don't need EXPR_WFL_FILENAME_NODE.
+	(expr_add_location):  New function, if USE_MAPPED_LOCATION.
+	* class.c (maybe_layout_super_class):  Adjust build_expr_wfl call
+	to USE_MAPPED_LOCATION case.
+
+	* java-tree.h (JAVA_FILE_P, ZIP_FILE_P):  Remove unused macros.
+	* jcf-parse.c (java_parse_file): Don't set input_filename.
+	Use IS_A_COMMAND_LINE_FILENAME_P to check for duplicate filenames.
+	Create a list of TRANSLATION_UNIT_DECL.
+	(current_file_list):  Is now a TRANSLATION_UNIT_DECL chain.  The
+	reason is so we can set a DECL_SOURCE_LOCATION for each file.
+	(java_parse_file):  Don't set unused ZIP_FILE_P, JAVA_FILE_P..
+	Create line-map LC_ENTER/LC_LEAVE entries for archive itself.
+	(file_start_location):  New static.
+	(set_source_filename):  Avoid extra access to input_filename macro.
+	Concatenate new name with class's package prefix.
+	(set_source_filename, give_name_to_class): Update.
+	(give_name_to_class):  Set class's "line 0" input_location here.
+	(parse_class_file):  Set input_location as a unit.
+
+	* jcf-parse.c (load_class): Sanity test if missing inner class file.
+
+2004-09-29  Per Bothner  <per@bothner.com>
+
+	* java-tree.h:  Redefine some macros and add some declaration
+	to handle the USE_MAPPED_LOCATION case.
+	* parse.h (EXPR_WFL_QUALIFICATION):  Use operand 1, not 2.
+	* java-tree.h (EXPR_WFL_FILENAME_NODE):  Use operand 2, not 1.
+	* java-tree.def (EXPR_WITH_FILE_LOCATION): Only need two operands in
+	USE_MAPPED_LOCATION case, since EXPR_WFL_FILENAME_NODE is gone.
+
+	* check-init.c (check_init): Handle USE_MAPPED_LOCATION case.
+	* decl.c (finish_method, java_add_stmt): Likewise.
+	* java-gimplify.c (java-gimplify.c):  Likewise.
+	* jcf-write.c (generate_bytecode_insns):  Likewise.
+	* lang.c (java_post_options): Likewise - call linemap_add.
+
+2004-09-29  Andrew Haley  <aph@redhat.com>
+
+	PR java/17007
+	* parse.y (patch_binop): Don't mess with the TREE_SIDE_EFFECTS of the
+	result of TRUNC_MOD_EXPR.
+	(patch_unaryop): Likewise for CONVERT_EXPR, which may throw.
+	* decl.c (java_init_decl_processing): Mark
+	soft_lookupinterfacemethod_node and soft_instanceof_node pure.
+
 2004-09-28  Tom Tromey  <tromey@redhat.com>
 
 	PR java/15710:
@@ -80,7 +243,7 @@
 	Fix bootstrap.
 	* gjavah.c (free_method_name_list): Fix function definition so
 	it's a proper C prototype.
-	
+
 2004-09-21  Tom Tromey  <tromey@redhat.com>
 
 	PR java/17575:

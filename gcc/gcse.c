@@ -4108,7 +4108,7 @@ insert_insn_end_bb (struct expr *expr, basic_block bb, int pre)
 	}
 #endif
       /* FIXME: What if something in cc0/jump uses value set in new insn?  */
-      new_insn = emit_insn_before (pat, insn);
+      new_insn = emit_insn_before_noloc (pat, insn);
     }
 
   /* Likewise if the last insn is a call, as will happen in the presence
@@ -4146,10 +4146,10 @@ insert_insn_end_bb (struct expr *expr, basic_block bb, int pre)
 	     || NOTE_INSN_BASIC_BLOCK_P (insn))
 	insn = NEXT_INSN (insn);
 
-      new_insn = emit_insn_before (pat, insn);
+      new_insn = emit_insn_before_noloc (pat, insn);
     }
   else
-    new_insn = emit_insn_after (pat, insn);
+    new_insn = emit_insn_after_noloc (pat, insn);
 
   while (1)
     {
@@ -6190,7 +6190,7 @@ insert_insn_start_bb (rtx insn, basic_block bb)
       before = NEXT_INSN (before);
     }
 
-  insn = emit_insn_after (insn, prev);
+  insn = emit_insn_after_noloc (insn, prev);
 
   if (gcse_file)
     {
@@ -6293,7 +6293,7 @@ remove_reachable_equiv_notes (basic_block bb, struct ls_expr *smexpr)
 
   sbitmap_zero (visited);
 
-  act = (EDGE_COUNT (ei.container) > 0 ? EDGE_I (ei.container, 0) : NULL);
+  act = (EDGE_COUNT (ei_container (ei)) > 0 ? EDGE_I (ei_container (ei), 0) : NULL);
   while (1)
     {
       if (!act)
@@ -6351,7 +6351,7 @@ remove_reachable_equiv_notes (basic_block bb, struct ls_expr *smexpr)
 	  if (act)
 	    stack[sp++] = ei;
 	  ei = ei_start (bb->succs);
-	  act = (EDGE_COUNT (ei.container) > 0 ? EDGE_I (ei.container, 0) : NULL);
+	  act = (EDGE_COUNT (ei_container (ei)) > 0 ? EDGE_I (ei_container (ei), 0) : NULL);
 	}
     }
 }

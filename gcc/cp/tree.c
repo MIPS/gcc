@@ -536,7 +536,7 @@ cp_build_qualified_type_real (tree type,
  	  tree bad_type = build_qualified_type (ptr_type_node, bad_quals);
 
  	  if (!(complain & tf_ignore_bad_quals))
- 	    error ("`%V' qualifiers cannot be applied to `%T'",
+ 	    error ("%qV qualifiers cannot be applied to %qT",
 		   bad_type, type);
  	}
     }
@@ -611,7 +611,7 @@ copy_binfo (tree binfo, tree type, tree t, tree *igo_prev, int virt)
       tree base_binfo;
 
       gcc_assert (!BINFO_DEPENDENT_BASE_P (binfo));
-      gcc_assert (type == BINFO_TYPE (binfo));
+      gcc_assert (SAME_BINFO_TYPE_P (BINFO_TYPE (binfo), type));
 
       BINFO_OFFSET (new_binfo) = BINFO_OFFSET (binfo);
       BINFO_VIRTUALS (new_binfo) = BINFO_VIRTUALS (binfo);
@@ -1500,6 +1500,12 @@ cp_tree_equal (tree t1, tree t2)
     case IDENTIFIER_NODE:
       return false;
 
+    case BASELINK:
+      return (BASELINK_BINFO (t1) == BASELINK_BINFO (t2)
+	      && BASELINK_ACCESS_BINFO (t1) == BASELINK_ACCESS_BINFO (t2)
+	      && cp_tree_equal (BASELINK_FUNCTIONS (t1),
+				BASELINK_FUNCTIONS (t2)));
+
     case TEMPLATE_PARM_INDEX:
       return (TEMPLATE_PARM_IDX (t1) == TEMPLATE_PARM_IDX (t2)
 	      && TEMPLATE_PARM_LEVEL (t1) == TEMPLATE_PARM_LEVEL (t2)
@@ -1765,7 +1771,7 @@ handle_java_interface_attribute (tree* node,
       || !CLASS_TYPE_P (*node)
       || !TYPE_FOR_JAVA (*node))
     {
-      error ("`%E' attribute can only be applied to Java class definitions",
+      error ("%qE attribute can only be applied to Java class definitions",
 	     name);
       *no_add_attrs = true;
       return NULL_TREE;
@@ -1794,13 +1800,12 @@ handle_com_interface_attribute (tree* node,
       || !CLASS_TYPE_P (*node)
       || *node != TYPE_MAIN_VARIANT (*node))
     {
-      warning ("`%E' attribute can only be applied to class definitions",
-	       name);
+      warning ("%qE attribute can only be applied to class definitions", name);
       return NULL_TREE;
     }
 
   if (!warned++)
-    warning ("`%E' is obsolete; g++ vtables are now COM-compatible by default",
+    warning ("%qE is obsolete; g++ vtables are now COM-compatible by default",
 	     name);
 
   return NULL_TREE;
@@ -1845,7 +1850,7 @@ handle_init_priority_attribute (tree* node,
 	 init_priority value, so don't allow it.  */
       || current_function_decl)
     {
-      error ("can only use `%E' attribute on file-scope definitions "
+      error ("can only use %qE attribute on file-scope definitions "
              "of objects of class type", name);
       *no_add_attrs = true;
       return NULL_TREE;
@@ -1873,7 +1878,7 @@ handle_init_priority_attribute (tree* node,
     }
   else
     {
-      error ("`%E' attribute is not supported on this platform", name);
+      error ("%qE attribute is not supported on this platform", name);
       *no_add_attrs = true;
       return NULL_TREE;
     }

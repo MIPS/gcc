@@ -1,3 +1,97 @@
+2004-10-12  Rutger Ovidius  <ovidr@users.sourceforge.net>
+
+	PR libgcj/17903:
+	* testsuite/libjava.lang/md5test.java: New file.
+	* testsuite/libjava.lang/md5test.out: Likewise.
+	* testsuite/libjava.lang/shatest.java: Likewise.
+	* testsuite/libjava.lang/shatest.out: Likewise.
+
+2004-10-11  Richard Henderson  <rth@redhat.com>
+
+	* include/posix-threads.h <__alpha__> (_Jv_ThreadId_t): Use void*.
+	(_Jv_ThreadSelf): Use __builtin_thread_pointer.
+
+2004-10-08  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* java/util/Calendar.java (set): Invalidate DST_OFFSET
+	field as a DST boundary may have been crossed.
+	* java/util/GregorianCalendar.java (add): Throw 
+	IllegalArgumentException on attempt to add to DST_OFFSET or 
+	ZONE_OFFSET fields. Update javadoc.
+
+2004-10-09  Michael Koch  <konqueror@gmx.de>
+
+	* java/io/CharArrayWriter.java
+	(resize): Removed redundant 'final' modifier.
+	* java/io/DataInputStream.java
+	(readFully): Throw IndexOutOfBoundsException of len < 0.
+	* java/io/FileDescriptor.java,
+	java/io/FileInputStream.java,
+	java/io/FileOutputStream.java,
+	java/io/ObjectOutputStream.java,
+	java/io/ObjectStreamClass.java,
+	java/io/PipedInputStream.java,
+	java/io/RandomAccessFile.java:
+	Reorganized import statements.
+
+2004-10-09  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/rmi/rmic/RMIC.java,
+	gnu/java/rmi/server/RMIHashes.java,
+	gnu/java/rmi/server/RMIObjectInputStream.java,
+	gnu/java/rmi/server/UnicastConnection.java,
+	gnu/java/rmi/server/UnicastConnectionManager.java,
+	gnu/java/rmi/server/UnicastRemoteCall.java,
+	gnu/java/rmi/server/UnicastServerRef.java:
+	Reworked import statements and fixed file headers.
+
+2004-10-04  Loren J. Rittle  <ljrittle@acm.org>
+
+	* configure.ac (*-*-freebsd[[1234]]*): Refine error message
+	emission rule.
+	* configure: Rebuilt.
+
+2004-09-30  Tom Tromey  <tromey@redhat.com>
+
+	* java/text/MessageFormat.java (Field): Constructor now
+	protected.
+
+2004-09-30  Tom Tromey  <tromey@redhat.com>
+
+	* javax/crypto/MacSpi.java: Fixed typo.
+
+2004-09-30  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/InetAddress.java: Reformatted.
+	(loopback): Initialize with Inet4Address object.
+	(static): Initialize ANY_IF with Inet4Address object.
+	(InetAddress): Removed unused package-private constructor.
+
+2004-09-30  Michael Koch  <konqueror@gmx.de>
+
+	* java/beans/Beans.java,
+	java/beans/EventHandler.java,
+	java/beans/EventSetDescriptor.java,
+	java/beans/Introspector.java,
+	java/beans/PropertyEditorManager.java,
+	java/beans/beancontext/BeanContext.java,
+	java/beans/beancontext/BeanContextChild.java,
+	java/beans/beancontext/BeanContextChildSupport.java,
+	java/beans/beancontext/BeanContextMembershipEvent.java:
+	Reordered import statements and removed redundant modifiers.
+
+2004-09-29  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/17715:
+	* Makefile.in: Rebuilt.
+	* Makefile.am (libgcj-@gcc_version@.jar): Include properties
+	files.
+	(all_property_files): New macro.
+
+	* Makefile.in: Rebuilt.
+	* Makefile.am (ordinary_java_source_files): Re-sorted.
+	(libgcj.la): Moved to old location near lib-gnu-awt-xlib.la.
+
 2004-09-28  Tom Tromey  <tromey@redhat.com>
 
 	* jni.cc (_Jv_JNI_RegisterNatives): Formatting fixlets.

@@ -39,7 +39,6 @@ struct diagnostic_context;
       DELETE_EXPR_USE_GLOBAL (in DELETE_EXPR).
       COMPOUND_EXPR_OVERLOADED (in COMPOUND_EXPR).
       TREE_INDIRECT_USING (in NAMESPACE_DECL).
-      ICS_USER_FLAG (in _CONV)
       CLEANUP_P (in TRY_BLOCK)
       AGGR_INIT_VIA_CTOR_P (in AGGR_INIT_EXPR)
       PTRMEM_OK_P (in ADDR_EXPR, OFFSET_REF)
@@ -90,6 +89,7 @@ struct diagnostic_context;
       DECL_MUTABLE_P (in FIELD_DECL)
    1: C_TYPEDEF_EXPLICITLY_SIGNED (in TYPE_DECL).
       DECL_TEMPLATE_INSTANTIATED (in a VAR_DECL or a FUNCTION_DECL)
+      DECL_MEMBER_TEMPLATE_P (in TEMPLATE_DECL)
    2: DECL_THIS_EXTERN (in VAR_DECL or FUNCTION_DECL).
       DECL_IMPLICIT_TYPEDEF_P (in a TYPE_DECL)
    3: DECL_IN_AGGR_P.
@@ -1370,6 +1370,14 @@ struct lang_type GTY(())
    have this flag set.  */
 #define BINFO_NEW_VTABLE_MARKED(B) (BINFO_FLAG_2 (B))
 
+/* Compare a BINFO_TYPE with another type for equality.  For a binfo,
+   this is functionally equivalent to using same_type_p, but
+   measurably faster.  At least one of the arguments must be a
+   BINFO_TYPE.  The other can be a BINFO_TYPE or a regular type.  If
+   BINFO_TYPE(T) ever stops being the main variant of the class the
+   binfo is for, this macro must change.  */
+#define SAME_BINFO_TYPE_P(A, B) ((A) == (B))
+
 /* Any subobject that needs a new vtable must have a vptr and must not
    be a non-virtual primary base (since it would then use the vtable from a
    derived class and never become non-primary.)  */
@@ -1530,6 +1538,21 @@ struct lang_decl GTY(())
     {
       struct full_lang_decl
       {
+	/* In an overloaded operator, this is the value of
+	   DECL_OVERLOADED_OPERATOR_P.  */
+	ENUM_BITFIELD (tree_code) operator_code : 8;
+
+	unsigned u3sel : 1;
+	unsigned pending_inline_p : 1;
+	unsigned spare : 3;
+	
+	/* In a FUNCTION_DECL for which THUNK_P holds this is the
+	   THUNK_FIXED_OFFSET.  The largest object that can be
+	   thunked is thus 262144, which is what is required [limits].
+	   We have to store a signed value as for regular thunks this
+	   is <= 0, and for covariant thunks it is >= 0.  */
+	signed fixed_offset : 19;
+
 	/* For a non-thunk function decl, this is a tree list of
   	   friendly classes. For a thunk function decl, it is the
   	   thunked to function decl.  */
@@ -1545,17 +1568,6 @@ struct lang_decl GTY(())
 
 	/* In a FUNCTION_DECL, this is DECL_CLONED_FUNCTION.  */
 	tree cloned_function;
-
-	/* In a FUNCTION_DECL for which THUNK_P holds, this is
-	   THUNK_FIXED_OFFSET.  */
-	HOST_WIDE_INT fixed_offset;
-
-	/* In an overloaded operator, this is the value of
-	   DECL_OVERLOADED_OPERATOR_P.  */
-	enum tree_code operator_code;
-
-	unsigned u3sel : 1;
-	unsigned pending_inline_p : 1;
 
 	union lang_decl_u3
 	{
@@ -2173,6 +2185,11 @@ struct lang_decl GTY(())
 
 #define INNERMOST_TEMPLATE_PARMS(NODE)  TREE_VALUE (NODE)
 
+/* Nonzero if NODE (a TEMPLATE_DECL) is a member template, in the
+   sense of [temp.mem].  */
+#define DECL_MEMBER_TEMPLATE_P(NODE) \
+  (DECL_LANG_FLAG_1 (TEMPLATE_DECL_CHECK (NODE)))
+
 /* Nonzero if the NODE corresponds to the template parameters for a
    member template, whose inline definition is being processed after
    the class definition is complete.  */
@@ -2696,6 +2713,9 @@ struct lang_decl GTY(())
 
 #define DECL_TEMPLATE_SPECIALIZATION(NODE) (DECL_USE_TEMPLATE (NODE) == 2)
 #define SET_DECL_TEMPLATE_SPECIALIZATION(NODE) (DECL_USE_TEMPLATE (NODE) = 2)
+
+/* Returns true for an explicit or partial specialization of a class
+   template.  */
 #define CLASSTYPE_TEMPLATE_SPECIALIZATION(NODE) \
   (CLASSTYPE_USE_TEMPLATE (NODE) == 2)
 #define SET_CLASSTYPE_TEMPLATE_SPECIALIZATION(NODE) \
@@ -3750,6 +3770,7 @@ extern void warn_extern_redeclared_static (tree, tree);
 extern const char *cxx_comdat_group             (tree);
 extern bool cp_missing_noreturn_ok_p		(tree);
 extern void initialize_artificial_var            (tree, tree);
+extern tree check_var_type (tree, tree);
 
 extern bool have_extern_spec;
 
@@ -3926,7 +3947,6 @@ extern tree instantiate_decl			(tree, int, int);
 extern int push_tinst_level			(tree);
 extern void pop_tinst_level			(void);
 extern int more_specialized_class		(tree, tree, tree);
-extern int is_member_template                   (tree);
 extern int comp_template_parms                  (tree, tree);
 extern int template_class_depth                 (tree);
 extern int is_specialization_of                 (tree, tree);
@@ -3981,11 +4001,12 @@ extern bool emit_tinfo_decl (tree);
 /* in search.c */
 extern bool accessible_base_p (tree, tree);
 extern tree lookup_base (tree, tree, base_access, base_kind *);
-extern tree get_dynamic_cast_base_type          (tree, tree);
+extern tree dcast_base_hint                     (tree, tree);
 extern int accessible_p                         (tree, tree);
 extern tree lookup_field_1                      (tree, tree, bool);
 extern tree lookup_field			(tree, tree, int, bool);
 extern int lookup_fnfields_1                    (tree, tree);
+extern int class_method_index_for_fn            (tree, tree);
 extern tree lookup_fnfields			(tree, tree, int);
 extern tree lookup_member			(tree, tree, int, bool);
 extern int look_for_overrides			(tree, tree);
@@ -4005,18 +4026,11 @@ extern tree binfo_from_vbase			(tree);
 extern tree binfo_for_vbase			(tree, tree);
 extern tree look_for_overrides_here		(tree, tree);
 extern int check_final_overrider		(tree, tree);
-extern tree dfs_walk                            (tree,
-						 tree (*) (tree, void *),
-						 tree (*) (tree, int, void *),
-						 void *);
-extern tree dfs_walk_real                      (tree,
-						tree (*) (tree, void *),
-						tree (*) (tree, void *),
-						tree (*) (tree, int, void *),
-						void *);
-extern tree dfs_unmark                          (tree, void *);
-extern tree markedp                             (tree, int, void *);
-extern tree unmarkedp                           (tree, int, void *);
+#define dfs_skip_bases ((tree)1)
+extern tree dfs_walk_all (tree, tree (*) (tree, void *),
+			  tree (*) (tree, void *), void *);
+extern tree dfs_walk_once (tree, tree (*) (tree, void *),
+			   tree (*) (tree, void *), void *);
 extern tree binfo_via_virtual                   (tree, tree);
 extern tree build_baselink                      (tree, tree, tree, tree);
 extern tree adjust_result_of_qualified_name_lookup

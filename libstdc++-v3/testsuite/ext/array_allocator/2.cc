@@ -32,7 +32,7 @@
 
 typedef char char_type;
 typedef std::char_traits<char_type> traits_type;
-typedef std::tr1::array<char_type, 32> array_type;
+typedef std::tr1::array<char_type, 17> array_type;
 
 array_type extern_array;
 
