@@ -1,3 +1,9 @@
+
+2005-03-03  Jan Hubicka  <jh@suse.cz>
+
+	* tree-dfa.c (add_referenced_var): Don't walk initializer of external
+	and non-constant public variables.
+
 2005-03-01  Jan Hubicka  <jh@suse.cz>
 
 	* Merge from mainline (tree-profiling-20050301)
