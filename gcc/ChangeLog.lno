@@ -1,3 +1,11 @@
+2003-03-18  Devang Patel  <dpatel@apple.com>
+
+	* tree-ssa-live.c (new_tree_live_info): Set num_blocks to 
+	last_basic_block instead of n_basic_blocks.
+	(calculate_live_on_entry): Use last_basic_block instead of
+	n_basic_blocks.
+	(calculate_live_on_exit): Same.
+
 2004-03-17  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-cfg.c (thread_jumps): Don't thread jumps over loop headers.

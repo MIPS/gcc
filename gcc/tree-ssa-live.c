@@ -450,7 +450,7 @@ new_tree_live_info (var_map map)
 
   live = (tree_live_info_p) xmalloc (sizeof (struct tree_live_info_d));
   live->map = map;
-  live->num_blocks = n_basic_blocks;
+  live->num_blocks = last_basic_block;
 
   live->global = BITMAP_XMALLOC ();
 
@@ -662,7 +662,7 @@ calculate_live_on_entry (var_map map)
 	}
     }
 
-  VARRAY_INT_INIT (stack, n_basic_blocks, "stack");
+  VARRAY_INT_INIT (stack, last_basic_block, "stack");
   EXECUTE_IF_SET_IN_BITMAP (live->global, 0, i,
     {
       live_worklist (live, stack, i);
@@ -771,8 +771,8 @@ calculate_live_on_exit (tree_live_info_p liveinfo)
   bitmap on_entry;
   var_map map = liveinfo->map;
 
-  on_exit = (bitmap *)xmalloc (n_basic_blocks * sizeof (bitmap));
-  for (x = 0; x < n_basic_blocks; x++)
+  on_exit = (bitmap *)xmalloc (last_basic_block * sizeof (bitmap));
+  for (x = 0; x < last_basic_block; x++)
     on_exit[x] = BITMAP_XMALLOC ();
 
   /* Set all the live-on-exit bits for uses in PHIs.  */
