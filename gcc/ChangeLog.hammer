@@ -1,3 +1,19 @@
+2003-12-01  Andreas Schwab  <schwab@suse.de>
+
+	Merge from mainline
+
+	2003-12-01  James E Wilson  <wilson@specifixinc.com>
+
+	PR target/8407
+	* config/ia64/ia64.c (ia64_function_arg): For single-reg HFA, call
+	gen_rtx_REG to create new reg with argument mode.
+
+	Merge from mainline
+
+	2003-08-27  Richard Sandiford  <rsandifo@redhat.com>
+
+	* function.c (assign_parms): Allocate BLKmode stack slots.
+
 2003-11-30  Jan Hubicka  <jh@suse.cz>
 
 	* i386.c (ix86_emit_restore_regs_using_mov):  Deal with large offsets.
