@@ -188,7 +188,7 @@ resolve_formal_arglist (gfc_symbol * proc)
         {
           if (sym->as != NULL)
             {
-              gfc_error 
+              gfc_error
                 ("Argument '%s' of statement function at %L must be scalar",
                  sym->name, &sym->declared_at);
               continue;

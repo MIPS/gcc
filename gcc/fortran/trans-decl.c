@@ -288,19 +288,19 @@ gfc_sym_mangled_function_id (gfc_symbol * sym)
     {
       if (strcmp (sym->name, "MAIN__") == 0
 	  || sym->attr.proc == PROC_INTRINSIC)
-        return get_identifier (sym->name);
+	return get_identifier (sym->name);
 
       if (gfc_option.flag_underscoring)
-        {
-          has_underscore = strchr (sym->name, '_') != 0;
-          if (gfc_option.flag_second_underscore && has_underscore)
-            snprintf (name, sizeof name, "%s__", sym->name);
-          else
-            snprintf (name, sizeof name, "%s_", sym->name);
-          return get_identifier (name);
-        }
+	{
+	  has_underscore = strchr (sym->name, '_') != 0;
+	  if (gfc_option.flag_second_underscore && has_underscore)
+	    snprintf (name, sizeof name, "%s__", sym->name);
+	  else
+	    snprintf (name, sizeof name, "%s_", sym->name);
+	  return get_identifier (name);
+	}
       else
-        return get_identifier (sym->name);
+	return get_identifier (sym->name);
     }
   else
     {
@@ -957,7 +957,10 @@ gfc_build_function_decl (gfc_symbol * sym)
   type = gfc_get_function_type (sym);
   fndecl = build_decl (FUNCTION_DECL, gfc_sym_identifier (sym), type);
 
-  SET_DECL_ASSEMBLER_NAME (fndecl, gfc_sym_mangled_function_id (sym));
+  /* Perform name mangling if this is a top level or module procedure.  */
+  if (current_function_decl == NULL_TREE)
+    SET_DECL_ASSEMBLER_NAME (fndecl, gfc_sym_mangled_function_id (sym));
+
   /* Figure out the return type of the declared function, and build a
      RESULT_DECL for it.  If this is subroutine with alternate
      returns, build a RESULT_DECL for it.  */

@@ -1,5 +1,9 @@
 2003-08-10  Paul Brook  <paul@nowt.org>
 
+	* trans-decl.c (gfc_build_function_decl): Only mangle global symbols.
+
+2003-08-10  Paul Brook  <paul@nowt.org>
+
 	* trans-stmt.c (gfc_trans_allocate): Correctly handle non-array derived
 	type components.
 
