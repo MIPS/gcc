@@ -1,3 +1,37 @@
+2002-11-19  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* config.gcc (sh*-*-linux*): Add t-slibgcc-elf-ver and t-linux
+	to tmake_file. Remove setting gas and gnu_ld here.
+	* config/sh/libgcc-glibc.ver: New file.
+	* config/sh/t-linux (EXTRA_MULTILIB_PARTS): Add crtbeginT.o.
+	(SHLIB_MAPFILES): New.
+	* config/sh/linux.h (MD_EXEC_PREFIX): Undefine.
+	(MD_STARTFILE_PREFIX): Likewise.
+	(HANDLE_PRAGMA_PACK_PACK_PUSH_POP): Define.
+	(DWARF2_UNWIND_INFO): Redefine.
+	(ASM_PREFERRED_EH_DATA_FORMAT): Define.
+	(LINK_EH_SPEC): Redefine.
+	(MD_FALLBACK_FRAME_STATE_FOR): Define except for SH-media.
+	(SH_FALLBACK_FRAME_FLOAT_STATE): Define.
+	(SH_DWARF_FRAME_GP0, SH_DWARF_FRAME_FP0, SH_DWARF_FRAME_XD0,
+	SH_DWARF_FRAME_BT0, SH_DWARF_FRAME_PR, SH_DWARF_FRAME_PR_MEDIA,
+	SH_DWARF_FRAME_GBR, SH_DWARF_FRAME_MACH, SH_DWARF_FRAME_MACL,
+	SH_DWARF_FRAME_PC, SH_DWARF_FRAME_SR, SH_DWARF_FRAME_FPUL,
+	SH_DWARF_FRAME_FPSCR): Likewise.
+	* config/sh/sh-protos.h (sh_set_return_address): Declare.
+	* config/sh/sh.c (calc_live_regs): Count EH_RETURN_DATA_REGNO
+	registers if the current function calls EH return.
+	(sh_expand_epilogue): Handle EH stack adjustments.
+	(sh_set_return_address): New function.
+	* config/sh/sh.h (SH_DBX_REGISTER_NUMBER): Handle PR_MEDIA_REG.
+	Don't abort even if the number is mapped to -1.
+	(EH_RETURN_DATA_REGNO): Define.
+	(EH_RETURN_STACKADJ_RTX): Define.
+	* config/sh/sh.md (UNSPEC_EH_RETURN): New.
+	(eh_return): New pattern.
+	(eh_set_ra_di, eh_set_ra_si): Likewise.
+	Add splitter to perform EH return after reload.
+
 Tue Nov 19 12:52:07 2002  J"orn Rennecke <joern.rennecke@superh.com>
 
 	* stor-layout.c (excess_unit_span): New function.
