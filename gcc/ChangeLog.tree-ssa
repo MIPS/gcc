@@ -1,3 +1,15 @@
+2004-03-05  Jeff Law  <law@redhat.com>
+
+        * tree-ssa-dce.c (remove_dead_stmt): Clear PENDING_STMT after
+        redirect_edge_and_branch call.
+ 
+        * tree-ssa-forwprop.c (record_single_argument_cond_exprs): Also
+        record COND_EXPRs with single use vars defined by SSA_NAME + CONST
+        expressions.
+        (substitute_single_use_vars): Corresponding changes to rewrite
+        COND_EXPRs using single use vars defined by SSA_NAME + CONST
+        expressions.
+ 
 2004-03-05  Ulrich Weigand  <uweigand@de.ibm.com>
 
 	* config/s390/s390.c (s390_expand_movstr): Do not use
