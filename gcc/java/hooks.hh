@@ -32,6 +32,7 @@ extern GTY (()) tree type_method_symbol_ptr;
 extern GTY (()) tree type_method_symbol_array;
 extern GTY (()) tree type_method;
 extern GTY (()) tree type_method_ptr;
+extern GTY (()) tree type_method_array;
 extern GTY (()) tree type_field;
 extern GTY (()) tree type_field_ptr;
 extern GTY (()) tree type_field_info_union;

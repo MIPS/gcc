@@ -104,6 +104,7 @@ class_object_creator::create_one_field_record (model_field *field)
   tree fdecl = builtins->map_field (field);
 
   inst.set_field ("name", builtins->map_utf8const (field->get_name ()));
+  // FIXME: ABI difference here.
   inst.set_field ("type", builtins->map_type (field->type ()));
   inst.set_field ("accflags", build_int_cst (type_jint,
 					     field->get_modifiers ()));
@@ -141,7 +142,8 @@ class_object_creator::create_field_array (model_class *real_class,
        ++i)
     {
       tree elt = create_one_field_record ((*i).get ());
-      field_array = tree_cons (NULL_TREE, elt, field_array);
+      field_array = tree_cons (NULL_TREE, // FIXME
+			       elt, field_array);
       if ((*i)->static_p ())
 	++num_static_fields;
       else
@@ -156,9 +158,48 @@ class_object_creator::create_field_array (model_class *real_class,
 }
 
 tree
-class_object_creator::create_method_array (model_class *real_class, int &)
+class_object_creator::create_one_method_record (model_method *method)
 {
-  return null_pointer_node;	// FIXME
+  record_creator inst (type_method);
+  tree mdecl = builtins->map_method (method);
+  inst.set_field ("name", builtins->map_utf8const (method->get_name()));
+  inst.set_field ("signature",
+		  builtins->map_utf8const (method->get_descriptor ()));
+  inst.set_field ("accflags",
+		  build_int_cst (type_jushort, method->get_modifiers ()));
+  inst.set_field ("index", integer_zero_node); // FIXME
+  inst.set_field ("ncode", null_pointer_node); // FIXME
+  inst.set_field ("throws", null_pointer_node);	// FIXME
+  return inst.finish_record ();
+}
+
+tree
+class_object_creator::create_method_array (model_class *real_class,
+					   int &num_methods)
+{
+  std::list<ref_method> methods = real_class->get_methods ();
+  num_methods = methods.size ();
+  if (num_methods == 0)
+    return null_pointer_node;
+
+  tree method_array = NULL_TREE;
+  int index = 0;
+  for (std::list<ref_method>::const_iterator i = methods.begin ();
+       i != methods.end ();
+       ++i, ++index)
+    {
+      tree elt = create_one_method_record ((*i).get ());
+      method_array = tree_cons (build_int_cst (type_jint, index),
+				elt, method_array);
+    }
+
+  method_array = nreverse (method_array);
+
+  tree ma_type
+    = build_array_type (type_method,
+			build_index_type (build_int_cst (type_jint,
+							 num_methods - 1)));
+  return make_decl (ma_type, build_constructor (ma_type, method_array));
 }
 
 void

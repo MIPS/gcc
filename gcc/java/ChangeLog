@@ -1,3 +1,14 @@
+2005-02-10  Tom Tromey  <tromey@redhat.com>
+
+	* classobj.hh (class_object_creator::create_one_field_record):
+	Declare.
+	* classobj.cc (create_method_array): Wrote.
+	(create_one_method_record): New method.
+	* hooks.hh (type_method_array): Declare.
+	* decl.cc (type_method_array): New global.
+	(start_type_initialization): Initialize it.
+	(build_method_type): Lay out new type.
+
 2005-02-09  Tom Tromey  <tromey@redhat.com>
 
 	* abi.cc (build_class_reference): New methods.

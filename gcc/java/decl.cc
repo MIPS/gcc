@@ -46,6 +46,9 @@ tree type_method_symbol_array;
 tree type_method;
 tree type_method_ptr;
 
+// Array of _Jv_Method objects.
+tree type_method_array;
+
 // Type of a _Jv_Field and a pointer to it.
 tree type_field;
 tree type_field_ptr;
@@ -194,6 +197,7 @@ start_type_initialization ()
   type_class_ptr = build_pointer_type (type_class);
   type_method = make_node (RECORD_TYPE);
   type_method_ptr = build_pointer_type (type_method);
+  type_method_array = build_array_type (type_method, type_jint);
   type_field = make_node (RECORD_TYPE);
   type_field_ptr = build_pointer_type (type_field);
 }
