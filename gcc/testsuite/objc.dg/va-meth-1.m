@@ -3,6 +3,7 @@
 
 #include <objc/Object.h>
 #include <stdarg.h>
+#include <stdlib.h>
 
 /* Test methods with "C-style" trailing arguments, with or without ellipsis. */
 

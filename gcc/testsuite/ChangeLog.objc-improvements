@@ -1,3 +1,8 @@
+2004-08-06  Ziemowit Laski  <zlaski@apple.com>
+
+	* objc.dg/const-str-3.m: Include <memory.h> and <stdlib.h>.
+	* objc.dg/va-meth-1.m: Include <stdlib.h>.
+
 2004-07-30  Ziemowit Laski  <zlaski@apple.com>
 
 	* obj-c++.dg/proto-qual-1.mm: Include <stdlib.h> instead of
