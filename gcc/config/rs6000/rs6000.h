@@ -350,6 +350,7 @@ enum processor_type
    PROCESSOR_MPCCORE,
    PROCESSOR_PPC403,
    PROCESSOR_PPC405,
+   PROCESSOR_PPC440,
    PROCESSOR_PPC601,
    PROCESSOR_PPC603,
    PROCESSOR_PPC604,
@@ -399,6 +400,10 @@ extern enum processor_type rs6000_cpu;
     N_("Specify size of long double (64 or 128 bits)") },		\
    {"isel=", &rs6000_isel_string,                                       \
     N_("Specify yes/no if isel instructions should be generated") },    \
+   {"spe=", &rs6000_spe_string,                                         \
+    N_("Specify yes/no if SPE SIMD instructions should be generated") },\
+   {"float-gprs=", &rs6000_float_gprs_string,                           \
+    N_("Specify yes/no if using floating point in the GPRs") },         \
    {"vrsave=", &rs6000_altivec_vrsave_string,                         \
     N_("Specify yes/no if VRSAVE instructions should be generated for AltiVec") }, \
    {"longcall", &rs6000_longcall_switch,				\
@@ -436,8 +441,11 @@ extern int rs6000_long_double_type_size;
 extern int rs6000_altivec_abi;
 extern int rs6000_spe_abi;
 extern int rs6000_isel;
-extern int rs6000_fprs;
+extern int rs6000_spe;
+extern int rs6000_float_gprs;
+extern const char *rs6000_float_gprs_string;
 extern const char *rs6000_isel_string;
+extern const char *rs6000_spe_string;
 extern const char *rs6000_altivec_vrsave_string;
 extern int rs6000_altivec_vrsave;
 extern const char *rs6000_longcall_switch;
@@ -449,6 +457,7 @@ extern int rs6000_default_long_calls;
 
 #define TARGET_SPE_ABI 0
 #define TARGET_SPE 0
+#define TARGET_E500 0
 #define TARGET_ISEL 0
 #define TARGET_FPRS 1
 
@@ -713,6 +722,20 @@ extern int rs6000_default_long_calls;
 
 /* This must be included for pre gcc 3.0 glibc compatibility.  */
 #define PRE_GCC3_DWARF_FRAME_REGISTERS 77
+
+/* Add 32 dwarf columns for synthetic SPE registers.  The SPE
+   synthetic registers are 113 through 145.  */
+#define DWARF_FRAME_REGISTERS (FIRST_PSEUDO_REGISTER + 32)
+
+/* The SPE has an additional 32 synthetic registers starting at 1200.
+   We must map them here to sane values in the unwinder to avoid a
+   huge hole in the unwind tables.
+
+   FIXME: the AltiVec ABI has AltiVec registers being 1124-1155, and
+   the VRSAVE SPR (SPR256) assigned to register 356.  When AltiVec EH
+   is verified to be working, this macro should be changed
+   accordingly.  */
+#define DWARF_REG_TO_UNWIND_COLUMN(r) ((r) > 1200 ? ((r) - 1200 + 113) : (r))
 
 /* 1 for registers that have pervasive standard uses
    and are not available for the register allocator.
@@ -1273,6 +1296,7 @@ enum reg_class
    'S' is a constant that can be placed into a 64-bit mask operand
    'T' is a constant that can be placed into a 32-bit mask operand
    'U' is for V.4 small data references.
+   'W' is a vector constant that can be easily generated (no mem refs).
    't' is for AND masks that can be performed by two rldic{l,r} insns.  */
 
 #define EXTRA_CONSTRAINT(OP, C)						\
@@ -1286,6 +1310,7 @@ enum reg_class
 		   && (fixed_regs[CR0_REGNO]				\
 		       || !logical_operand (OP, DImode))		\
 		   && !mask64_operand (OP, DImode))			\
+   : (C) == 'W' ? (easy_vector_constant (OP, GET_MODE (OP)))		\
    : 0)
 
 /* Given an rtx X being reloaded into a reg required to be
@@ -1405,6 +1430,7 @@ typedef struct rs6000_stack {
   int spe_padding_size;
   int toc_size;			/* size to hold TOC if not in save_size */
   int total_size;		/* total bytes allocated for stack */
+  int spe_64bit_regs_used;
 } rs6000_stack_t;
 
 /* Define this if pushing a word on the stack
@@ -1644,6 +1670,8 @@ typedef struct machine_function GTY(())
   int sysv_varargs_p;
   /* Flags if __builtin_return_address (n) with n >= 1 was used.  */
   int ra_needs_full_frame;
+  /* Whether the instruction chain has been scanned already.  */
+  int insn_chain_scanned_p;
 } machine_function;
 
 /* Define a data type for recording info about an argument list
@@ -2874,6 +2902,8 @@ extern char rs6000_reg_names[][8];	/* register names (0 vs. %r0).  */
   {"got_operand", {SYMBOL_REF, CONST, LABEL_REF}},			   \
   {"got_no_const_operand", {SYMBOL_REF, LABEL_REF}},			   \
   {"easy_fp_constant", {CONST_DOUBLE}},					   \
+  {"easy_vector_constant", {CONST_VECTOR}},				   \
+  {"easy_vector_constant_add_self", {CONST_VECTOR}},			   \
   {"zero_fp_constant", {CONST_DOUBLE}},					   \
   {"reg_or_mem_operand", {SUBREG, MEM, REG}},				   \
   {"lwa_operand", {SUBREG, MEM, REG}},					   \

@@ -121,3 +121,11 @@ hook_bool_rtx_false (a)
 {
   return false;
 }
+
+/* Generic hook that takes an rtx and returns NULL_RTX.  */
+rtx
+hook_rtx_rtx_null (x)
+     rtx x ATTRIBUTE_UNUSED;
+{
+  return 0;
+}

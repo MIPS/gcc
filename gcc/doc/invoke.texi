@@ -440,6 +440,8 @@ in the following sections.
 -mabi=altivec -mabi=no-altivec @gol
 -mabi=spe -mabi=no-spe @gol
 -misel=yes -misel=no @gol
+-mspe=yes -mspe=no @gol
+-mfloat-gprs=yes -mfloat-gprs=no @gol
 -mprototype  -mno-prototype @gol
 -msim  -mmvme  -mads  -myellowknife  -memb -msdata @gol
 -msdata=@var{opt}  -mvxworks -mwindiss -G @var{num} -pthread}
@@ -6828,6 +6830,19 @@ Disable Booke SPE ABI extensions for the current ABI.
 @itemx -misel
 @opindex misel
 This switch enables or disables the generation of ISEL instructions.
+
+@item -mspe=@var{yes/no}
+@itemx -mspe
+@opindex mspe
+This switch enables or disables the generation of SPE simd
+instructions.
+
+@item -mfloat-gprs=@var{yes/no}
+@itemx -mfloat-gprs
+@opindex mfloat-gprs
+This switch enables or disables the generation of floating point
+operations on the general purpose registers for architectures that
+support it.  This option is currently only available on the MPC8540.
 
 @item -mfull-toc
 @itemx -mno-fp-in-toc

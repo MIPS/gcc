@@ -1,0 +1,414 @@
+2003-04-21  Zack Weinberg  <zack@codesourcery.com>
+
+	* genautomata.c, genattrtab.h: Bring over from mainline.
+
+2003-04-08  Aldy Hernandez  <aldyh@redhat.com>
+
+	* config/rs6000/rs6000.c (rs6000_init_builtins): Set opaque types
+	regardless of architecture.
+	(spe_init_builtins): Change V2SI and V2SF types to opaque types.
+
+2003-04-07  Aldy Hernandez  <aldyh@redhat.com>
+
+	* config/rs6000/rs6000.c (rs6000_common_init_builtins): Rename all
+	V2SI_type_node to opaque_V2SI_type_node.  Rename all
+	V2SF_type_node to opaque_V2SF_type_node.
+	(rs6000_init_builtins): Define opaque_V2SI_type_node and
+	opaque_V2SF_type_node.
+	(is_ev64_opaque_type): The types opaque_V2SI_type_node and
+	opaque_V2SF_type_node are opaque types.
+
+2003-04-06  Aldy Hernandez  <aldyh@redhat.com>
+
+	* doc/invoke.texi (RS/6000 and PowerPC Options): Document -mspe
+	option.
+
+	* config/rs6000/eabispe.h (SUBSUBTARGET_OVERRIDE_OPTIONS): Set
+	rs6000_spe.
+
+	* config/rs6000/eabi.h (TARGET_E500): Define.
+
+	* config/rs6000/rs6000.h (TARGET_E500): Define.
+	(TARGET_OPTIONS): Add spe= option.
+	Declare rs6000_spe and rs6000_spe_string extern.
+
+	* config/rs6000/rs6000.c (branch_positive_comparison_operator):
+	Change TARGET_SPE to TARGET_E500.
+	(ccr_bit): Change TARGET_SPE to TARGET_E500.  Check for
+	!TARGET_FPRS.
+	(print_operand): Same.
+	(rs6000_generate_compare): Same.
+	(output_cbranch): Same.
+	(rs6000_spe): Declare.
+	(rs6000_spe_string): Declare.
+	(rs6000_override_options): Call rs6000_parse_spe_option.
+	(rs6000_parse_spe_option): New.
+
+2003-04-07  Aldy Hernandez  <aldyh@redhat.com>
+
+	* doc/invoke.texi (RS/6000 and PowerPC Options): Document
+	-mfloat-gprs.
+
+	* config/rs6000/rs6000.c: Delete rs6000_fprs.
+	Declare rs6000_float_gprs.
+	Declare rs6000_float_gprs_string.
+	(rs6000_parse_float_gprs_option): New.
+	(rs6000_override_options): Genericize rs6000_parse_* calls to use
+	rs6000_parse_yes_no_option.
+	Change check for cpu=8540, to use TARGET_E500.
+	(rs6000_parse_isel_option): Delete.
+	(rs6000_parse_spe_option): Delete.
+	(rs6000_parse_vrsave_option): Delete.
+
+	* config/rs6000/rs6000.h: Rename rs6000_fprs to rs6000_float_gprs.
+	Define rs6000_float_gprs_string.
+	(TARGET_OPTIONS): Add rs6000_float_gprs option.
+
+	* config/rs6000/eabi.h (TARGET_FPRS): Change to use rs6000_float_gprs.
+
+	* config/rs6000/eabispe.h: Set rs6000_float_gprs.
+
+2003-04-02  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* config/rs6000/rs6000.c
+	(TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD): Redefine the
+	macros.
+	(rs6000_issue_rate): Add case for 8540.
+	(rs6000_use_sched_lookahead): New function.
+
+	* config/rs6000/8540.md: Rename SIU units into SU ones and MIU
+	units into MU ones.
+	(ppc8540_branch, ppc8540_cr_logical): Add one cycle in the
+	reservation before retirement.
+	(ppc8540_multiply, ppc8540_load, ppc8540_store,
+	ppc8540_simple_float, ppc8540_vector_load, ppc8540_vector_store):
+	Remove additional cycle in the reservation before retirement.
+	(ppc8540_mfcr, ppc8540_mtcrf, ppc8540_mtjmpr): Add missed
+	reservation of ppc8540_issue.
+
+2003-02-31  Aldy Hernandez  <aldyh@redhat.com>
+
+	* testsuite/gcc.c-torture/execute/simd-3.c: New.
+
+	* expr.c (expand_expr): Handle VECTOR_CST.
+	(const_vector_from_tree): New.
+
+	* varasm.c (output_constant): Handle VECTOR_CST.
+
+	* c-typeck.c (digest_init): Build a vector constant from a
+	VECTOR_TYPE.
+
+	* config/rs6000/rs6000.c: Remove prototype for
+	easy_vector_constant.
+	(easy_vector_constant): Add mode parameter.  Rewrite to handle
+	more easy constants.
+	(rs6000_emit_move): Pass mode to easy_vector_constant.
+	Call emit_easy_vector_insn for SPE V2SI vector constant moves.
+	(emit_easy_vector_insn): New.
+	(easy_vector_same): New.
+	(EASY_VECTOR_15): New macro.
+	(EASY_VECTOR_15_ADD_SELF): New macro.
+	(bdesc_2arg): Rename to xorv2si3.
+	(easy_vector_constant_add_self): New.
+	(input_operand): Allow vector constants.
+
+	* config/rs6000/rs6000.h (PREDICATE_CODES): Add
+	easy_vector_constant, easy_vector_constant_add_self.
+	(EXTRA_CONSTRAINT): Add 'W'.
+
+	* config/rs6000/rs6000-protos.h: Add prototype for
+	easy_vector_constant, emit_easy_vector_insn.
+
+	* config/rs6000/altivec.md (xorv8hi3): New.
+	(xorv16qi3): New.
+	Remove all _const0 patterns.
+	(movv4si_internal): Rewrite to use code.  Add vector constant to
+	vector alternative.  Add splitter.
+	(movv8hi_internal): Same.
+	(movv16qi_internal): Same.
+	(movv4sf_internal): Same.
+	Change the unspecs for vspltis* to use constants.
+
+	* config/rs6000/spe.md ("xorv4hi3"): New.
+	("spe_evxor"): Rename to xorv2si3.
+	("xorv1di3"): New.
+	Remove all _const0 patterns.
+	(movv2si_internal): Rewrite to use code.  Add vector constant to
+	alternatives.  Add splitter.
+	(movv4hi_internal): Add vector constant to alternatives.
+	(movv1di_internal): Same.
+	(movv2sf_internal): Same.
+
+2003-03-27  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* config/rs6000/8540.md: Use presence_set instead of absence_set.
+
+2003-03-26  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* config/rs6000/8540.md: New file.
+
+	* config/rs6000/{40x.md, 603.md, 6xx.md, 7450.md, 7xx.md, mpc.md,
+	power4.md, rios1.md, rios2.md, rs64.md}: Add mult_compare to
+	reservations for imul.
+
+	* config/rs6000/rs6000.md: Include 8540.md.  Change
+	delayed_compare onto mult_compare for insns generating
+	multiplication.
+	(mult_compare, fpsimple, brinc, vecdiv, veccmpsimple, vecfdiv):
+	New type attribute values.
+
+	* config/rs6000/spe.md (*negsf2_gp, *abssf2_gpr): Use type
+	fpsimple instead of fp.
+	(*divsf3_gpr): Use type vecfdiv instead of fp.
+	(spe_evfsabs, spe_evfsnabs, spe_evfsneg): Use type vecsimple
+	instead of vecfloat.
+	(spe_evfsdive): Use type vecfdiv instead of vecfloat.
+	(spe_brinc): Use type brinc instead of veccomplex.
+	(spe_evaddw, spe_evaddiw): Use type vecsimple instead of
+	veccomplex.
+	(spe_evdivws, spe_evdivwu): Use type vecdiv instead of veccomplex.
+	(*movv2si_internal, *movv1di_internal, *movv4hi_internal,
+	*movv2sf_internal): Define type attribute values for all
+	alternatives.
+	(cmpsfeq_gpr, cmpsfgt_gpr, cmpsflt_gpr): Use type veccmp instead
+	of fpcompare.
+	(tstsfeq_gpr, tstsfgt_gpr, tstsflt_gpr): Use type veccmpsimple
+	instead of fpcompare.
+
+2003-03-13  Aldy Hernandez  <aldyh@redhat.com>
+
+	* config/rs6000/rs6000.c (rs6000_dwarf_register_span):
+	Differentiate endianness.
+	(s6000_override_options): Use cpu type instead of TARGET_SPE.
+
+2003-03-11  Aldy Hernandez  <aldyh@redhat.com>
+
+	* config/rs6000/rs6000.c (rs6000_stack_info): Remove
+	insn_chain_scanned.  Use insn_chain_scanned_p in machine_function.
+
+	* config/rs6000/rs6000.h (machine_function): Add insn_chain_scanned_p.
+
+2003-03-11  Aldy Hernandez  <aldyh@redhat.com>
+
+	* config/rs6000/rs6000.c (rs6000_override_options): Disable string
+	instructions for e500.
+
+2003-03-11  Aldy Hernandez  <aldyh@redhat.com>
+
+	* doc/tm.texi (Frame Registers): Document DWARF_REG_TO_UNWIND_COLUMN.
+
+	* unwind-dw2.c (DWARF_REG_TO_UNWIND_COLUMN): Define.
+	(_Unwind_GetGR): Use DWARF_REG_TO_UNWIND_COLUMN.
+	(_Unwind_SetGR): Same.
+	(_Unwind_GetGRPtr): New.
+	(_Unwind_SetGRPtr): New.
+	(uw_update_context_1): Use accesor functions instead of accessing
+	context->reg[] directly.
+	(uw_install_context_1): Same.
+	(execute_cfa_program): Same.
+	(__frame_state_for): Same.
+
+	* config/rs6000/rs6000.c (spe_synthesize_frame_save): Use 1200 as
+	the synthetic register offset.
+
+	* config/rs6000/rs6000.h (DWARF_REG_TO_UNWIND_COLUMN): New.
+
+2003-03-10  Aldy Hernandez  <aldyh@redhat.com>
+
+	* dwarf2out.c (multiple_reg_loc_descriptor): Fix thinko.
+
+2003-03-10  Aldy Hernandez  <aldyh@redhat.com>
+
+	* config/rs6000/rs6000.h (DWARF_FRAME_REGISTERS): Define.
+	(rs6000_stack_t): Add spe_64bit_regs_used.
+
+	* config/rs6000/rs6000.c (rs6000_stack_info): Calculate
+	spe_64bit_regs_used, and use it to determine the size of the
+	frame.
+	(spe_func_has_64bit_regs_p): New.
+	(spe_synthesize_frame_save): New.
+	(rs6000_frame_related): Handle SPE synthetic registers.
+	(rs6000_emit_prologue): Only save in 64-bits if the function used
+	any registers in 64-bit mode.
+	(rs6000_emit_epilogue): Same, but for restore.
+
+2003-03-05  Aldy Hernandez  <aldyh@redhat.com>
+
+	* doc/tm.texi: Document TARGET_DWARF_REGISTER_SPAN.
+
+	* config/rs6000/rs6000.c (rs6000_dwarf_register_span): New.
+
+	* hooks.c (hook_rtx_rtx_null): New.
+
+	* hooks.h (hook_rtx_rtx_null): Protoize.
+
+	* target-def.h (TARGET_DWARF_REGISTER_SPAN): New macro.
+	(TARGET_INITIALIZER): Add TARGET_DWARF_REGISTER_SPAN.
+
+	* target.h (struct gcc_target): Add dwarf_register_span.
+
+	* dwarf2out.c (multiple_reg_loc_descriptor): New.
+	(one_reg_loc_descriptor): New.
+	(reg_loc_descriptor): Add support for values that span more than
+	one register.
+
+2003-03-02  Aldy Hernandez  <aldyh@redhat.com>
+
+	* cp/decl.c (check_initializer): Check for vector_opaque_p.
+
+2003-02-20  Aldy Hernandez  <aldyh@redhat.com>
+
+	* doc/tm.texi: Document Rename TARGET_VECTOR_TYPES_COMPATIBLE to
+	TARGET_VECTOR_OPAQUE_P.  Document accordingly.
+
+	* testsuite/gcc.dg/20030218-1.c: Check that initialization of
+	opaque types fail.
+
+	* c-typeck.c (comptypes): Change call to vector_types_compatible
+	to vector_opaque_p.
+	(convert_for_assignment): Call vector_opaque_p instead of
+	vector_types_compatible.
+	(really_start_incremental_init): Disallow initialization of opaque
+	types.
+
+	* target-def.h: Remove TARGET_VECTOR_TYPES_COMPATIBLE.
+	Define TARGET_VECTOR_OPAQUE_P.
+	(TARGET_INITIALIZER): Same.
+
+	* target.h (struct gcc_target): Remove vector_types_compatible.
+	Add vector_opaque_p.
+
+	* config/rs6000/rs6000.c (rs6000_spe_vector_types_compatible):
+	Remove.
+	(is_ev64_opaque_type): Check for TARGET_SPE and make sure type is
+	a vector type.  Change return type to bool.
+	(TARGET_VECTOR_TYPES_COMPATIBLE): Remove.
+	(TARGET_VECTOR_OPAQUE_P): Define.
+
+	* cp/parser.c (cp_parser_init_declarator): Call vector_opaque_p
+	target hook.
+	Include target.h.
+	(cp_parser_init_declarator): Fix typo in function comments.
+
+2003-02-18  Nick Clifton  <nickc@redhat.com>
+	    Aldy Hernandez  <aldyh@redhat.com>
+
+	* testsuite/gcc.dg/20030218-1.c: New.
+
+	* doc/tm.texi: Document TARGET_VECTOR_TYPES_COMPATIBLE.
+
+	* target-def.h (TARGET_INITIALIZER): Add
+	TARGET_VECTOR_TYPES_COMPATIBLE.
+	(TARGET_VECTOR_TYPES_COMPATIBLE): New macro.
+
+	* target.h (struct gcc_target): Add field vector_types_compatible.
+
+	* c-typeck.c (comptypes): Take into account
+	TARGET_VECTOR_TYPES_COMPATIBLE.
+	(convert_for_assignment): Same.
+
+	* config/rs6000/rs6000.c (is_ev64_opaque_type): New.
+	(rs6000_spe_vector_types_compatible): New.
+	(TARGET_VECTOR_TYPES_COMPATIBLE): Define.
+
+2003-02-15  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/rs6000.h (processor_type): Add PPC440.
+	* config/rs6000/rs6000.c (TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE,
+	TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD,
+	TARGET_SCHED_VARIABLE_ISSUE): Define.
+	(rs6000_use_dfa_pipeline_interface): New function.
+	(rs6000_multipass_dfa_lookahead): New Function.
+	(rs6000_variable_issue): New function.
+	(rs6000_adjust_cost): Add CMP and DELAYED_CR types.
+	(rs6000_issue_rate): Add PPC440.
+	* config/rs6000/rs6000.md (unspec list): Correct typo.
+	(attr "type"): Add load_ext, load_ext_u, load_ext_ux, load_u,
+	store_ux, store_u, fpload_ux, fpload_u, fpstore_ux, fpstore_u,
+	cmp, delayed_cr, mfcr, mtcr.
+	(automata_option): Set "ndfa".
+	(extendMMNN2): Update attributes.
+	(movcc_internal1): Discourage move to non-cr0.  Update
+	attributes.
+	(movMM_update): Update attributes.
+	(cmpMM_internal): Update attributes.
+	(sCC CR materialization): Update attributes.
+	(branch patterns): Do not discourage non-cr0.
+	(cr logical patterns): Prefer destructive register allocation.
+	Update attributes.
+	(movesi_from_cr): Update attribute.
+	(mtcrf_operation): Update attribute.
+	(mtcrfsi): Update attribute.
+	* config/rs6000/40x.md: New file.
+	* config/rs6000/603.md: New file.
+	* config/rs6000/6xx.md: New file.
+	* config/rs6000/7450.md: New file.
+	* config/rs6000/7xx.md: New file.
+	* config/rs6000/mpc.md: New file.
+	* config/rs6000/power4.md: New file.
+	* config/rs6000/rios1.md: New file.
+	* config/rs6000/rios2.md: New file.
+	* config/rs6000/rs64.md: New file.
+	[Some DFA descriptions based on work by Michael Hayes]
+
+2003-02-10  Nick Clifton  <nickc@redhat.com>
+	    Aldy Hernandez  <aldyh@redhat.com>
+
+	* config/rs6000/eabispe.h (SUBSUBTARGET_OVERRIDE_OPTIONS): Do not
+	override options which have been specified on the command line.
+
+2003-02-10  Aldy Hernandez  <aldyh@redhat.com>
+
+	* config/rs6000/rs6000.c (bdesc_2arg): Change spe_evxor to xorv2si3.
+
+2003-02-09  Nick Clifton  <nickc@redhat.com>
+	    Aldy Hernandez  <aldyh@redhat.com>
+
+	* config/rs6000/spe.md: spe_evlhhesplat, spe_evlhhossplat,
+	spe_evlhhousplat, spe_evlwhsplat, spe_evlwwsplat, spe_evldd,
+	spe_evldh, spe_evldw, spe_evlwhe, spe_evlwhos, spe_evlwhou,
+	spe_evstdd, spe_evstdh, spe_evstdw, spe_evstdwx, spe_evstwhe,
+	spe_evstwho, spe_evstwwe, spe_evstwwo: Fix syntax to match newest
+	docs.  Add range test for immediate value.
+
+2003-02-09  Aldy Hernandez  <aldyh@redhat.com>
+
+	Rename spe_evxor to xorv2si3.
+	(xorv4hi3): New.
+	(xorv1di3): New.
+
+2003-01-06  Aldy Hernandez  <aldyh@redhat.com>
+
+	Segher Boessenkool  <segher@koffie.nl>
+
+	* config/rs6000/altivec.md: Remove spaces from assembler
+	instruction argument lists.
+
+2002-12-23  Aldy Hernandez  <aldyh@redhat.com>
+
+	PR/8763
+	* config/rs6000/altivec.md (mulv4sf3): Rewrite to add -0.0 vector.
+	(altivec_vspltisw_v4sf): Name pattern.
+	(altivec_vslw_v4sf): New pattern.
+
+2002-12-19  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/altivec.md (movv4si_internal): Set correct instruction
+	attributes.
+	(movv8hi_internal,movv16qi_internal,movv4sf_internal): Same.
+	(get_vrsave_internal,set_vrsave_internal): Same.
+	(altivec_vspltisb,altivec_vspltish,altivec_vspltisw): Same.
+	(absv16qi2,absv8hi2,absv4si2,absv4sf2): Same
+	(altivec_abss_v16qi,altivec_abss_v8hi,altivec_abss_v4si): Same.
+
+2002-12-19  Aldy Hernandez  <aldyh@redhat.com>
+
+	PR 8553
+	* config/rs6000/altivec.md ("absv8hi2"): Add & to clobbered
+	registers.
+	("absv16qi2"): Same.
+	("absv4si2"): Same.
+	("absv4sf2"): Same.
+	("altivec_abss_v16qi"): Same.
+	("altivec_abss_v8hi"): Same.
+	("altivec_abss_v4si"): Same.

@@ -1,24 +1,3 @@
-;; Scheduling description for PowerPC 604, PowerPC 604e, PowerPC 620,
-;; and PowerPC 630 processors.
-;;   Copyright (C) 2003 Free Software Foundation, Inc.
-;;
-;; This file is part of GCC.
-
-;; GCC is free software; you can redistribute it and/or modify it
-;; under the terms of the GNU General Public License as published
-;; by the Free Software Foundation; either version 2, or (at your
-;; option) any later version.
-
-;; GCC is distributed in the hope that it will be useful, but WITHOUT
-;; ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-;; or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
-;; License for more details.
-
-;; You should have received a copy of the GNU General Public License
-;; along with GCC; see the file COPYING.  If not, write to the
-;; Free Software Foundation, 59 Temple Place - Suite 330, Boston,
-;; MA 02111-1307, USA.
-
 (define_automaton "ppc6xx,ppc6xxfp,ppc6xxfp2,ppc6xxother")
 (define_cpu_unit "iu1_6xx,iu2_6xx,mciu_6xx" "ppc6xx")
 (define_cpu_unit "fpu_6xx" "ppc6xxfp")
@@ -69,17 +48,17 @@
   "iu1_6xx|iu2_6xx")
 
 (define_insn_reservation "ppc604-imul" 4
-  (and (eq_attr "type" "imul,imul2,imul3,imul_compare")
+  (and (eq_attr "type" "imul,imul2,imul3,mult_compare")
        (eq_attr "cpu" "ppc604"))
   "mciu_6xx*2")
 
 (define_insn_reservation "ppc604e-imul" 2
-  (and (eq_attr "type" "imul,imul2,imul3,imul_compare")
+  (and (eq_attr "type" "imul,imul2,imul3,mult_compare")
        (eq_attr "cpu" "ppc604e"))
   "mciu_6xx")
 
 (define_insn_reservation "ppc620-imul" 5
-  (and (eq_attr "type" "imul,imul_compare")
+  (and (eq_attr "type" "imul,mult_compare")
        (eq_attr "cpu" "ppc620,ppc630"))
   "mciu_6xx*3")
 
@@ -94,7 +73,7 @@
   "mciu_6xx*3")
 
 (define_insn_reservation "ppc620-lmul" 7
-  (and (eq_attr "type" "lmul,lmul_compare")
+  (and (eq_attr "type" "lmul")
        (eq_attr "cpu" "ppc620,ppc630"))
   "mciu_6xx*5")
 
@@ -119,7 +98,7 @@
   "mciu_6xx*36")
 
 (define_insn_reservation "ppc604-compare" 3
-  (and (eq_attr "type" "cmp,fast_compare,compare,delayed_compare")
+  (and (eq_attr "type" "cmp,compare,delayed_compare")
        (eq_attr "cpu" "ppc604,ppc604e,ppc620,ppc630"))
   "(iu1_6xx|iu2_6xx)")
 

@@ -41,4 +41,6 @@ int hook_int_tree_tree_1 PARAMS ((tree, tree));
 bool default_can_output_mi_thunk_no_vcall
   PARAMS ((tree, HOST_WIDE_INT, HOST_WIDE_INT, tree));
 
+rtx hook_rtx_rtx_null PARAMS ((rtx));
+
 #endif

@@ -572,6 +572,12 @@ comptypes (type1, type2)
 	val = 1;
       break;
 
+    case VECTOR_TYPE:
+      /* The target might allow certain vector types to be compatible.  */
+      val = (*targetm.vector_opaque_p) (t1)
+	|| (*targetm.vector_opaque_p) (t2);
+      break;
+
     default:
       break;
     }
@@ -4074,6 +4080,11 @@ convert_for_assignment (type, rhs, errtype, fundecl, funname, parmnum)
       rhs = build1 (NOP_EXPR, type, rhs);
       return rhs;
     }
+  /* Some types can interconvert without explicit casts.  */
+  else if (codel == VECTOR_TYPE && coder == VECTOR_TYPE
+	   && ((*targetm.vector_opaque_p) (type)
+	       || (*targetm.vector_opaque_p) (rhstype)))
+    return convert (type, rhs);
   /* Arithmetic types all interconvert, and enum is treated like int.  */
   else if ((codel == INTEGER_TYPE || codel == REAL_TYPE 
 	    || codel == ENUMERAL_TYPE || codel == COMPLEX_TYPE
@@ -4749,6 +4760,14 @@ digest_init (type, init, require_constant)
 	}
     }
 
+  /* Build a VECTOR_CST from a *constant* vector constructor.  If the
+     vector constructor is not constant (e.g. {1,2,3,foo()}) then punt
+     below and handle as a constructor.  */
+  if (code == VECTOR_TYPE
+      && comptypes (TREE_TYPE (inside_init), type)
+      && TREE_CONSTANT (inside_init))
+    return build_vector (type, TREE_OPERAND (inside_init, 1));
+
   /* Any type can be initialized
      from an expression of the same type, optionally with braces.  */
 
@@ -5158,6 +5177,9 @@ really_start_incremental_init (type)
 
   if (type == 0)
     type = TREE_TYPE (constructor_decl);
+
+  if ((*targetm.vector_opaque_p) (type))
+    error ("opaque vector types cannot be initialized");
 
   p->type = constructor_type;
   p->fields = constructor_fields;
