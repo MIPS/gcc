@@ -1,0 +1,67 @@
+2004-08-03  Richard Earnshaw <rearnsha@arm.com>
+
+	* contrib/gcc_update: gcc/config/arm/arm-tune.md -> arm-cores.def
+	gentune.sh.
+
+2003-12-23  Zack Weinberg  <zack@codesourcery.com>
+	    Nathan Sidwell  <nathan@codesourcery.com>
+	    Mark Mitchell  <mark@codesourcery.com>
+
+	* include/libiberty.h (pmkpipe): New function.
+	(pexec): Likewise.
+	(pexec_set_program_name): Likewise.
+	(WIFSIGNALED): Define.
+	(WTERMSIG): Likewise.
+	(WIFEXITED): Likewise.
+	(WEXITSTATUS): Likewise.
+	(WSTOPSIG): Likewise.
+	(WCOREDUMP): Likewise.
+
+2004-02-11  Mark Mitchell  <mark@codesourcery.com>
+
+	* libibery/make-relative-prefix.c (make_relative_prefix): Do not throw
+	out the last component of PROG_DIRS if it is a directory name.
+
+2004-01-23  Mark Mitchell  <mark@codesourcery.com>
+
+	* libiberty/pex-win32.c (pexec): Close duplicated handles in parent
+	after spawning child.  Return a process HANDLE, not a process
+	identifier.
+	(pwait): Expect a process HANDLE, not a process identifier.
+
+2003-12-23  Zack Weinberg  <zack@codesourcery.com>
+	    Nathan Sidwell  <nathan@codesourcery.com>
+	    Mark Mitchell  <mark@codesourcery.com>
+
+	* libiberty/pex-common.c (STDERR_FILE_NO): Define.
+	* libiberty/pex-win32.c: Rework extensively.
+	* libiberty/pex-unix.c: Likewise.
+	
+2004-07-03  Paul Brook  <paul@codesourcery.com>
+
+	* libstdc++-v3/configure.ac: Set ABI_TWEAKS_SRCDIR.
+	* libstdc++-v3/configure.host: Set abi_tweaks_dir.  Check for
+	atomicity.h when setting atomicity_dir.  Override type_cpu for
+	arm based targets.
+	* libstdc++-v3/include/Makefile.am (host_headers): Add cxxabi_tweaks.h.
+	* libstdc++-v3/libsupc++/cxxabi.h: Include bits/cxxabi.h. Don't
+	declare __guard.
+	* libstdc++-v3/libsupc++/guard.cc: Use definitions from
+	cxxabi_tweaks.h.
+	* libstdc++-v3/libsupc++/vec.cc: Ditto.
+	* libstdc++-v3/config/cpu/arm/cxxabi_tweaks.h: New file.
+	* libstdc++-v3/config/cpu/generic/cxxabi_tweaks.h: New file.
+	* libstdc++-v3/*/Makefile.in: Regenerate.
+	* libstdc++-v3/configure: Regenerate.
+
+2004-06-29  Paul Brook  <paul@codesourcery.com>
+
+	* libstdc++-v3/libsupc++/vec.cc (__cxa_vec_new2, __cxa_vec_new3):
+	Store the element size in the cookie.
+
+2004-06-25  Paul Brook  <paul@codesourcery.com>
+
+	* libstdc++-v3/libsupc++/cxxabi.h: Define __ARM_EABI__
+	(__guard): Use it.
+	* libstdc++-v3/libsupc++/guard.h (__cxa_guard_acquire)
+	(__cxa_guard_release): Ditto.

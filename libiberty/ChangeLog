@@ -1,15 +1,3 @@
-2004-02-11  Mark Mitchell  <mark@codesourcery.com>
-
-	* make-relative-prefix.c (make_relative_prefix): Do not throw out
-	the last component of PROG_DIRS if it is a directory name.
-
-2004-01-23  Mark Mitchell  <mark@codesourcery.com>
-
-	* pex-win32.c (pexec): Close duplicated handles in parent
-	after spawning child.  Return a process HANDLE, not a process
-	identifier.
-	(pwait): Expect a process HANDLE, not a process identifier.
-
 2004-02-25  Ian Lance Taylor  <ian@wasabisystems.com>
 
 	Taken from mainline:
@@ -143,14 +131,6 @@
 
 	* cp-demangle.c (is_ctor_or_dtor): Fix error in last change.
 
-2003-12-23  Zack Weinberg  <zack@codesourcery.com>
-	    Nathan Sidwell  <nathan@codesourcery.com>
-	    Mark Mitchell  <mark@codesourcery.com>
-
-	* pex-common.c (STDERR_FILE_NO): Define.
-	* pex-win32.c: Rework extensively.
-	* pex-unix.c: Likewise.
-	
 2003-12-22  Daniel Jacobowitz  <drow@mvista.com>
 
 	PR debug/13272

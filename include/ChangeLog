@@ -1,17 +1,3 @@
-2003-12-23  Zack Weinberg  <zack@codesourcery.com>
-	    Nathan Sidwell  <nathan@codesourcery.com>
-	    Mark Mitchell  <mark@codesourcery.com>
-
-	* libiberty.h (pmkpipe): New function.
-	(pexec): Likewise.
-	(pexec_set_program_name): Likewise.
-	(WIFSIGNALED): Define.
-	(WTERMSIG): Likewise.
-	(WIFEXITED): Likewise.
-	(WEXITSTATUS): Likewise.
-	(WSTOPSIG): Likewise.
-	(WCOREDUMP): Likewise.
-
 2004-01-12  Ian Lance Taylor  <ian@wasabisystems.com>
 
 	* demangle.h: Instead of checking ANSI_PROTOTYPES, just include
