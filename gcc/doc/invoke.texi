@@ -477,6 +477,8 @@ in the following sections.
 @gccoptlist{-all_load  -allowable_client  -arch  -arch_errors_fatal @gol
 -arch_only  -bind_at_load  -bundle  -bundle_loader @gol
 -client_name  -compatibility_version  -current_version @gol
+@c APPLE LOCAL added in FSF mainline on Aug 12, 2004 
+-dead_strip -no_dead_strip_inits_and_terms @gol
 -dependency-file  -dylib_file  -dylinker_install_name @gol
 -dynamic  -dynamiclib  -exported_symbols_list @gol
 -filelist  -flat_namespace  -force_cpusubtype_ALL @gol
@@ -7378,6 +7380,8 @@ output file being linked. See man ld(1) for more information.
 @itemx -client_name
 @itemx -compatibility_version
 @itemx -current_version
+@c APPLE LOCAL added in FSF mainline on Aug 12, 2004 
+@itemx -dead_strip
 @itemx -dependency-file
 @itemx -dylib_file
 @itemx -dylinker_install_name
@@ -7397,6 +7401,8 @@ output file being linked. See man ld(1) for more information.
 @itemx -multiply_defined
 @itemx -multiply_defined_unused
 @itemx -noall_load
+@c APPLE LOCAL added in FSF mainline on Aug 12, 2004 
+@itemx -no_dead_strip_inits_and_terms
 @itemx -nofixprebinding
 @itemx -nomultidefs
 @itemx -noprebind
@@ -7435,6 +7441,8 @@ output file being linked. See man ld(1) for more information.
 @opindex client_name
 @opindex compatibility_version
 @opindex current_version
+@c APPLE LOCAL added in FSF mainline on Aug 12, 2004 
+@opindex dead_strip
 @opindex dependency-file
 @opindex dylib_file
 @opindex dylinker_install_name
@@ -7454,6 +7462,8 @@ output file being linked. See man ld(1) for more information.
 @opindex multiply_defined
 @opindex multiply_defined_unused
 @opindex noall_load
+@c APPLE LOCAL added in FSF mainline on Aug 12, 2004 
+@opindex no_dead_strip_inits_and_terms
 @opindex nofixprebinding
 @opindex nomultidefs
 @opindex noprebind

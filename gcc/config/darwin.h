@@ -119,6 +119,10 @@ Boston, MA 02111-1307, USA.  */
   { "-bundle", "-Zbundle" },  \
   { "-bundle_loader", "-Zbundle_loader" },  \
   { "-weak_reference_mismatches", "-Zweak_reference_mismatches" },  \
+  /* APPLE LOCAL begin added in FSF mainline on Aug 12, 2004  */\
+  { "-dead_strip", "-Zdead_strip" }, \
+  { "-no_dead_strip_inits_and_terms", "-Zno_dead_strip_inits_and_terms" }, \
+  /* APPLE LOCAL end added in FSF mainline on Aug 12, 2004  */\
   { "-dependency-file", "-MF" }, \
   { "-dylib_file", "-Zdylib_file" }, \
   { "-dynamic", "-Zdynamic" },  \
@@ -337,6 +341,8 @@ do {					\
 /* Note that options taking arguments may appear multiple times on a
    command line with different arguments each time, so put a * after
    their names so all of them get passed.  */
+/* APPLE LOCAL added in FSF mainline on Aug 12, 2004  */ 
+/* dead_strip and no_dead_strip_inits_and_terms */
 #define LINK_SPEC  \
   "%{static}%{!static:-dynamic} \
    %{!Zdynamiclib: \
@@ -368,6 +374,8 @@ do {					\
    %{Zallowable_client*:-allowable_client %*} \
    %{Zbind_at_load:-bind_at_load} \
    %{Zarch_errors_fatal:-arch_errors_fatal} \
+   %{Zdead_strip:-dead_strip} \
+   %{Zno_dead_strip_inits_and_terms:-no_dead_strip_inits_and_terms} \
    %{Zdylib_file*:-dylib_file %*} \
    %{Zdynamic:-dynamic}\
    %{Zexported_symbols_list*:-exported_symbols_list %*} \

@@ -341,6 +341,8 @@ static void emit_pending_bincls         (void);
 static inline void emit_pending_bincls_if_required (void);
 
 static void dbxout_init (const char *);
+/* APPLE LOCAL 3729261 FSF candidate */
+static unsigned int get_lang_number (void);
 static void dbxout_finish (const char *);
 static void dbxout_start_source_file (unsigned, const char *);
 static void dbxout_end_source_file (unsigned);
@@ -374,6 +376,8 @@ static void dbxout_handle_pch (unsigned);
 #if defined (DBX_DEBUGGING_INFO)
 
 static void dbxout_source_line (unsigned int, const char *);
+/* APPLE LOCAL added in FSF mainline on Aug 12, 2004  */
+static void dbxout_begin_prologue (unsigned int, const char *);
 static void dbxout_source_file (FILE *, const char *);
 static void dbxout_function_end (void);
 static void dbxout_begin_function (tree);
@@ -393,8 +397,8 @@ const struct gcc_debug_hooks dbx_debug_hooks =
   dbxout_end_block,
   debug_true_tree,		         /* ignore_block */
   dbxout_source_line,		         /* source_line */
-  dbxout_source_line,		         /* begin_prologue: just output 
-					    line info */
+  /* APPLE LOCAL added in FSF mainline on Aug 12, 2004  */
+  dbxout_begin_prologue,	         /* begin_prologue */
   debug_nothing_int_charstar,	         /* end_prologue */
   debug_nothing_int_charstar,	         /* end_epilogue */
 #ifdef DBX_FUNCTION_FIRST
@@ -471,8 +475,39 @@ dbxout_function_end (void)
   assemble_name (asmfile, XSTR (XEXP (DECL_RTL (current_function_decl), 0), 0));
   fprintf (asmfile, "\n");
 #endif
+
+  /* APPLE LOCAL begin added in FSF mainline on Aug 12, 2004  */
+  if (!flag_debug_only_used_symbols)
+    fprintf (asmfile, "%s%d,0,0\n", ASM_STABD_OP, N_ENSYM);
+  /* APPLE LOCAL end added in FSF mainline on Aug 12, 2004  */
 }
 #endif /* DBX_DEBUGGING_INFO */
+
+/* APPLE LOCAL begin 3729261 FSF candidate */
+/* Get lang description for N_SO stab.  */
+
+static unsigned int
+get_lang_number (void)
+{
+  const char *language_string = lang_hooks.name;
+
+  if (strcmp (language_string, "GNU C") == 0)
+    return N_SO_C;
+  else if (strcmp (language_string, "GNU C++") == 0)
+    return N_SO_CC;
+  else if (strcmp (language_string, "GNU F77") == 0)
+    return N_SO_FORTRAN;
+  else if (strcmp (language_string, "GNU F95") == 0)
+    return N_SO_FORTRAN90; /* CHECKME */
+  else if (strcmp (language_string, "GNU Pascal") == 0)
+    return N_SO_PASCAL;
+  else if (strcmp (language_string, "GNU Objective-C") == 0)
+    return N_SO_OBJC;
+  else
+    return 0;
+
+}
+/* APPLE LOCAL end 3729261 FSF candidate */
 
 /* At the beginning of compilation, start writing the symbol table.
    Initialize `typevec' and output the standard data types of C.  */
@@ -507,7 +542,8 @@ dbxout_init (const char *input_file_name)
 	  fprintf (asmfile, "%s", ASM_STABS_OP);
 	  output_quoted_string (asmfile, cwd);
 	  /* APPLE LOCAL begin STABS SOL address suppression (radar 3109828) */
-	  fprintf (asmfile, ",%d,0,0,0\n", N_SO);
+	  /* APPLE LOCAL 3729261 FSF candidate */
+	  fprintf (asmfile, ",%d,0,%d,0\n", N_SO, get_lang_number ());
 	  /* APPLE LOCAL end */
 #endif /* no DBX_OUTPUT_MAIN_SOURCE_DIRECTORY */
 	}
@@ -522,7 +558,8 @@ dbxout_init (const char *input_file_name)
   fprintf (asmfile, "%s", ASM_STABS_OP);
   output_quoted_string (asmfile, input_file_name);
   /* APPLE LOCAL begin STABS SOL address suppression (radar 3109828) */
-  fprintf (asmfile, ",%d,0,0,0\n", N_SO);
+  /* APPLE LOCAL 3729261 FSF candidate */
+  fprintf (asmfile, ",%d,0,%d,0\n", N_SO, get_lang_number ());
   text_section ();
   /* APPLE LOCAL end */
   (*targetm.asm_out.internal_label) (asmfile, "Ltext", 0);
@@ -755,6 +792,20 @@ dbxout_source_file (FILE *file, const char *filename)
       lastfile = filename;
     }
 }
+
+/* APPLE LOCAL begin added in FSF mainline on Aug 12, 2004  */
+/* Output N_BNSYM and line number symbol entry.  */
+
+static void
+dbxout_begin_prologue (unsigned int lineno, const char *filename)
+{
+  if (use_gnu_debug_info_extensions
+      && flag_debug_only_used_symbols)
+    fprintf (asmfile, "%s%d,0,0\n", ASM_STABD_OP, N_BNSYM);
+
+  dbxout_source_line (lineno, filename);
+}
+/* APPLE LOCAL end added in FSF mainline on Aug 12, 2004  */
 
 /* Output a line number symbol entry for source file FILENAME and line
    number LINENO.  */

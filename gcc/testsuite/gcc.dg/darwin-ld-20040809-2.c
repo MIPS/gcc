@@ -1,3 +1,4 @@
+/* APPLE LOCAL added in FSF mainline on Aug 12, 2004  */
 /* Test -no_dead_strip_inits_and_terms support. */
 /* Contributed by Devang Patel  <dpatel@apple.com>  */
 

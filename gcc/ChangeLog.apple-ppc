@@ -1,3 +1,32 @@
+2004-08-13  Devang Patel  <dpatel@apple.com>
+
+	Radar 3729261. Reviewed by Dale.
+	* dbxout.c (get_lang_number): New.
+	(dbxout_init): Include lang number in N_SO  stab.
+	* dbxout.h (N_SO_AS, N_SO_C, N_SO_ANSI_C, N_SO_CC, N_SO_FORTRAN,
+	N_SO_PASCAL, N_SO_FORTRAN90, N_SO_OBJC, N_SO_OBJCPLUS): New #define.
+
+2004-08-13  Devang Patel  <dpatel@apple.com>
+
+	Merge from mainline. Radar 3739309.
+	2004-08-11  Devang Patel  <dpatel@apple.com>	
+
+	* dbxout.c (dbxout_begin_prologue): New function.
+	(dbx_debug_hooks): Use new begin prologue hook.
+	(dbxout_function_end): Emit N_ENSYM.
+	* stab.def (N_BNSYM, N_ENSYM): Define and document these two new stabs.
+
+2004-08-13  Devang Patel  <dpatel@apple.com>
+
+	Merge from mainline. Radar 3739302.
+	2004-08-10  Devang Patel  <dpatel@apple.com>
+
+	* config/darwin.h (TARGET_OPTION_TRANSLATE_TABLE): Add -dead_strip
+	and -no_dead_strip_inits_and_terms.
+	(LINK_SPEC): Same.
+	* doc/invoke.text (Darwin Options): Document -dead_strip and
+	-no_dead_strip_inits_and_terms.
+
 2004-08-12  Dale Johannesen  <dalej@apple.com>
 
 	* c-decl.c (diagnose_mismatched_decls): Improve

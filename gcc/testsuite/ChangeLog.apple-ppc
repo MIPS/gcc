@@ -1,3 +1,23 @@
+2004-08-13  Devang Patel  <dpatel@apple.com>
+
+	Radar 3729261. Reviewed by Dale.
+	* gcc.dg/20040813-1.c: New test.
+
+2004-08-13  Devang Patel  <dpatel@apple.com>
+
+	Merge from mainline. Radar 3739309.
+	2004-08-11  Devang Patel  <dpatel@apple.com>	
+
+	* gcc.dg/darwin-20040809-2.c: New test.
+
+2004-08-13  Devang Patel  <dpatel@apple.com>
+
+	Merge from mainline. Radar 3739302.
+	2004-08-10  Devang Patel  <dpatel@apple.com>
+
+	* gcc.dg/darwin-ld--20040809-1.c: New test.
+	* gcc.dg/darwin-ld-20040809-2.c: New test.
+
 2004-08-12  Jon Ziegler <jonz@apple.com>
 
 	Get rid of another APPLE LOCAL (to match Geoff's
