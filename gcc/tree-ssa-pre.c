@@ -129,7 +129,7 @@ static inline tree maybe_find_rhs_use_for_var (tree, tree, unsigned int);
 static inline tree find_rhs_use_for_var (tree, tree);
 static tree create_ephi_node (basic_block, unsigned int);
 static inline int opnum_of_phi (tree, int);
-static inline int opnum_of_ephi (tree, int);
+static inline int opnum_of_ephi (const tree, const edge);
 static tree subst_phis (struct expr_info *, tree, basic_block, basic_block);
 static void generate_expr_as_of_bb (struct expr_info *, tree, int,
 				    basic_block);
@@ -250,6 +250,7 @@ static inline bool injured_real_occ_phi_opnd (struct expr_info *,
 static void compute_du_info (struct expr_info *);
 static void add_ephi_use (tree, tree, int);
 static void insert_one_operand (struct expr_info *, tree, int, tree, edge);
+static void split_critical_edges (void);
 
 /* Bitmap of E-PHI predecessor operands have already been created. 
    We only create one phi-pred per block.  */
@@ -267,6 +268,9 @@ static int preorder_count;
 
 /* Whether we need to recompute dominators due to basic block changes.  */
 static bool redo_dominators = false;
+
+/* Iterated dominance frontiers cache.  */
+static bitmap *idfs_cache;
 
 /* Partial redundancies statistics. */
 static struct pre_stats_d
@@ -307,14 +311,67 @@ struct expr_info
   tree temp;
 };
 
+/* Trying to lookup ephi pred operand indexes takes forever on graphs
+   that have high connectivity because it's an O(n) linked list
+   traversal.  Thus, we set up a hashtable that tells us the operand
+   index for a given edge.  */
+
+typedef struct ephi_pred_index_elt
+{
+  tree ephi;
+  edge edge;
+  int opnd;
+} ephi_pindex_t;
+
+/* Hash an (ephi, edge, opnd) tuple.  */
+
+static hashval_t
+ephi_pindex_hash (const void *p)
+{
+  const ephi_pindex_t *ep = (const ephi_pindex_t *)p;
+  return htab_hash_pointer (ep->ephi) + htab_hash_pointer (ep->edge);
+}
+
+/* Determine equality of an (ephi, edge, opnd) tuple.  */
+
+static int
+ephi_pindex_eq (const void *p1, const void *p2)
+{
+  const ephi_pindex_t *ep1 = (const ephi_pindex_t *)p1;
+  const ephi_pindex_t *ep2 = (const ephi_pindex_t *)p2;
+  
+  return ep1->ephi == ep2->ephi && ep1->edge == ep2->edge;
+}
+
+/* The (ephi, edge) => opnd mapping hashtable.  */
+static htab_t ephi_pindex_htab;
+
 /* Add an ephi predecessor to a PHI.  */
+
 static int
 add_ephi_pred (tree phi, tree def, edge e)
 {
   int i = EPHI_NUM_ARGS (phi);
-
+  void **slot;
+  ephi_pindex_t ep, *epp;
+  
   EPHI_ARG_PRED (phi, i) = def;
   EPHI_ARG_EDGE (phi, i) = e;
+
+  ep.ephi = phi;
+  ep.edge = e;
+  slot = htab_find_slot (ephi_pindex_htab, (void *)&ep, INSERT);
+  if (*slot == NULL)
+    {
+      epp = xmalloc (sizeof (*epp));
+      epp->ephi = phi;
+      epp->edge = e;
+      epp->opnd = i;
+      *slot = (void *)epp;
+    }
+  else 
+    abort ();
+  
   EPHI_NUM_ARGS (phi)++;
   return i;
 }
@@ -641,7 +698,7 @@ expr_phi_insertion (bitmap * dfs, struct expr_info *ei)
   bitmap_zero (dfphis);
   varphis = BITMAP_XMALLOC ();
   bitmap_zero (varphis);
-
+  
   /*  Compute where we need to place EPHIS. There are two types of
       places we need EPHI's: Those places we would normally place a
       PHI for the occurrence (calculated by determining the IDF+ of
@@ -664,8 +721,7 @@ expr_phi_insertion (bitmap * dfs, struct expr_info *ei)
       occurp = occur ? occurp : kill ? killp : leftp;
       occur = occur ? occur : kill ? kill : left;
       temp = compute_idfs (dfs, occur);
-      bitmap_a_or_b (dfphis, dfphis, temp);
-      BITMAP_XFREE (temp);
+      bitmap_a_or_b (dfphis, dfphis, temp);      
       if (kill != NULL)
 	continue;
       occur = TREE_OPERAND (occur, 1);
@@ -927,13 +983,16 @@ injured_real_occ_real_occ (struct expr_info *ei ATTRIBUTE_UNUSED,
 
 /* Determine the operand number of predecessor block J in EPHI.  */
 static inline int
-opnum_of_ephi (tree ephi, int j)
+opnum_of_ephi (const tree ephi, const edge e)
 {
-  int i;
-  for (i = 0; i < EPHI_NUM_ARGS (ephi); i++)
-    if (EPHI_ARG_EDGE (ephi, i)->src->index == j)
-      return i;
-  abort ();
+  ephi_pindex_t ep, *epp;
+  
+  ep.ephi = ephi;
+  ep.edge = e;
+  epp = htab_find (ephi_pindex_htab, &ep);
+  if (epp == NULL)
+    abort ();
+  return epp->opnd;
 }
 
 /* Determine the phi operand index for J, for PHI.  */
@@ -1273,7 +1332,8 @@ rename_1 (struct expr_info *ei)
 		  if (ephi_at_block (e->dest) != NULL_TREE)
 		    {
 		      tree ephi = ephi_at_block (e->dest);
-		      int opnum = opnum_of_ephi (ephi, pred_bb->index);
+		      int opnum = opnum_of_ephi (ephi, e);
+
 		      EPHI_ARG_DELAYED_RENAME (ephi, opnum) = true;
 		      EPHI_ARG_DEF (ephi, opnum) = tos;
 		    }
@@ -1852,7 +1912,7 @@ finalize_1 (struct expr_info *ei)
 		continue;
 	      if (ephi_will_be_avail (ephi))
 		{
-		  int opnd_indx = opnum_of_ephi (ephi, bb_for_stmt (x)->index);
+		  int opnd_indx = opnum_of_ephi (ephi, succ);
 #ifdef ENABLE_CHECKING
 		  if (EPHI_ARG_PRED (ephi, opnd_indx) != x)
 		    abort ();
@@ -2519,19 +2579,30 @@ code_motion (struct expr_info *ei)
     }
 }
 
+/* Compute the iterated dominance frontier of a statement.  */
 
-/* Compute the iterated dominance frontier of a statement. */
 static bitmap
 compute_idfs (bitmap * dfs, tree stmt)
 {
   fibheap_t worklist;
-  sbitmap inworklist = sbitmap_alloc (last_basic_block);
-  bitmap idf = BITMAP_XMALLOC ();
+  sbitmap inworklist, done;
+  bitmap idf;
   size_t i;
   basic_block block;
+  
+  block = bb_for_stmt (stmt);
+  if (idfs_cache[block->index] != NULL)
+    return idfs_cache[block->index];
+
+  inworklist = sbitmap_alloc (last_basic_block);
+  done = sbitmap_alloc (last_basic_block);
   worklist = fibheap_new ();
   sbitmap_zero (inworklist);
+  sbitmap_zero (done);
+
+  idf = BITMAP_XMALLOC ();
   bitmap_zero (idf);
+
   block = bb_for_stmt (stmt);
   fibheap_insert (worklist, block->index, (void *)(size_t)block->index);
   SET_BIT (inworklist, block->index);
@@ -2539,18 +2610,36 @@ compute_idfs (bitmap * dfs, tree stmt)
   while (!fibheap_empty (worklist))
     {
       int a = (size_t) fibheap_extract_min (worklist);
-      bitmap_a_or_b (idf, idf, dfs[a]);
-      EXECUTE_IF_SET_IN_BITMAP (dfs[a], 0, i,
-      {
-	if (!TEST_BIT (inworklist, i))
-	  {
+      if (TEST_BIT (done, a))
+	continue;
+      SET_BIT (done, a);
+      if (idfs_cache[a])
+	{
+	  bitmap_a_or_b (idf, idf, idfs_cache[a]);
+	  EXECUTE_IF_SET_IN_BITMAP (idfs_cache[a], 0, i,
+          {
 	    SET_BIT (inworklist, i);
-	    fibheap_insert (worklist, i, (void *)i);
-	  }
-      });
+	    SET_BIT (done, i);
+	  });
+	}
+      else
+	{
+	  bitmap_a_or_b (idf, idf, dfs[a]);
+	  EXECUTE_IF_SET_IN_BITMAP (dfs[a], 0, i,
+          {
+	    if (!TEST_BIT (inworklist, i))
+	      {
+		SET_BIT (inworklist, i);
+		fibheap_insert (worklist, i, (void *)i);
+	      }
+	  });
+	}
+      
     }
   fibheap_delete (worklist);
   sbitmap_free (inworklist);
+  sbitmap_free (done);
+  idfs_cache[block->index] = idf;
   return idf;
 
 }
@@ -2717,6 +2806,8 @@ pre_expression (struct expr_info *slot, void *data)
   ei->temp = create_tmp_var (TREE_TYPE (ei->expr), "pretmp");
   add_referenced_tmp_var (ei->temp);
   bitmap_clear (created_phi_preds);
+  ephi_pindex_htab = htab_create (500, ephi_pindex_hash, ephi_pindex_eq, free);
+
   if (!expr_phi_insertion ((bitmap *)data, ei))
     goto cleanup;
   rename_1 (ei);
@@ -2771,7 +2862,30 @@ pre_expression (struct expr_info *slot, void *data)
   return 0;
 }
 
+static void
+split_critical_edges (void)
+{
+#if 0
+  struct edge_list *el = create_edge_list ();
+  int i;
+  edge e;
+  for (i = 0; i < NUM_EDGES (el); i++)
+  {
+    e = INDEX_EDGE (el, i);
+    if (EDGE_CRITICAL_P (e) && !(e->flags & EDGE_ABNORMAL))
+      {
+	tree label = build1 (LABEL_EXPR, void_type_node, NULL_TREE);
+	LABEL_EXPR_LABEL (label) = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
+	DECL_ARTIFICIAL (LABEL_EXPR_LABEL (label)) = 1;
+	DECL_CONTEXT (LABEL_EXPR_LABEL (label)) = current_function_decl;
 
+	bsi_insert_on_edge (e, label);
+      }
+  }
+  bsi_commit_edge_inserts (0, NULL);
+  free_edge_list (el);
+#endif
+}
 /* Main entry point to the SSA-PRE pass.
 
    PHASE indicates which dump file from the DUMP_FILES array to use when
@@ -2786,7 +2900,8 @@ tree_perform_ssapre (tree fndecl, enum tree_dump_index phase)
   varray_type bexprs;
   size_t k;
   int i;
-  
+
+  split_critical_edges ();  
   timevar_push (TV_TREE_PRE);
   dump_file = dump_begin (phase, &dump_flags);
   VARRAY_GENERIC_PTR_INIT (bexprs, 1, "bexprs");
@@ -2797,6 +2912,9 @@ tree_perform_ssapre (tree fndecl, enum tree_dump_index phase)
   /* DCE screws the dom_children up, without bothering to fix it. So fix it. */
   currbbs = n_basic_blocks;
   build_dominator_tree (pre_idom);
+  
+  /* Initialize IDFS cache.  */
+  idfs_cache = xcalloc (currbbs, sizeof (bitmap));
 
   /* Compute dominance frontiers.  */
   pre_dfs = (bitmap *) xmalloc (sizeof (bitmap) * currbbs);
@@ -2805,7 +2923,6 @@ tree_perform_ssapre (tree fndecl, enum tree_dump_index phase)
   compute_dominance_frontiers (pre_dfs, pre_idom);
 
   created_phi_preds = BITMAP_XMALLOC ();
- 
   FOR_EACH_BB (block)
     for (j = bsi_start (block); !bsi_end_p (j); bsi_next (&j))
       {
@@ -2873,11 +2990,17 @@ tree_perform_ssapre (tree fndecl, enum tree_dump_index phase)
 	process_left_occs_and_kills (bexprs, slot, bsi_stmt (j));
       }
   ggc_push_context ();  
+
   for (k = 0; k < VARRAY_ACTIVE_SIZE (bexprs); k++)
     {
       pre_expression (VARRAY_GENERIC_PTR (bexprs, k), pre_dfs);
       free_expr_info (VARRAY_GENERIC_PTR (bexprs, k));
       clear_all_eref_arrays ();
+      if (ephi_pindex_htab)
+	{
+	  htab_delete (ephi_pindex_htab);
+	  ephi_pindex_htab = NULL;
+	}
       ggc_collect (); 
       if (redo_dominators)
 	{
@@ -2887,7 +3010,9 @@ tree_perform_ssapre (tree fndecl, enum tree_dump_index phase)
 	  for (i = 0; i < currbbs; i++)
 	    BITMAP_XFREE (pre_dfs[i]);
 	  free (pre_dfs);
-
+	  for (i = 0; i < currbbs; i++)
+	    if (idfs_cache[i] != NULL)
+	      BITMAP_XFREE (idfs_cache[i]);
 	  /* Recompute immediate dominators.  */
 	  pre_idom = calculate_dominance_info (CDI_DOMINATORS);
 	  build_dominator_tree (pre_idom);
@@ -2898,7 +3023,7 @@ tree_perform_ssapre (tree fndecl, enum tree_dump_index phase)
 	  for (i = 0; i < currbbs; i++)
 	    pre_dfs[i] = BITMAP_XMALLOC ();
 	  compute_dominance_frontiers (pre_dfs, pre_idom);
-
+	  idfs_cache = xcalloc (currbbs, sizeof (bitmap));
 	}
     }
   ggc_pop_context (); 
@@ -2921,7 +3046,10 @@ tree_perform_ssapre (tree fndecl, enum tree_dump_index phase)
   free_dominance_info (pre_idom);
   for (i = 0; i < currbbs; i++)
     BITMAP_XFREE (pre_dfs[i]);
-  BITMAP_XFREE (created_phi_preds);
   free (pre_dfs);
+  BITMAP_XFREE (created_phi_preds);
+  for (i = 0; i < currbbs; i++)
+    if (idfs_cache[i] != NULL)
+      BITMAP_XFREE (idfs_cache[i]);
   timevar_pop (TV_TREE_PRE);
 }

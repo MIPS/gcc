@@ -15,6 +15,22 @@
 	* tree-cfg.c (handle_switch_split): Update container of previous stmt.
 
 2003-09-25  Daniel Berlin  <dberlin@dberlin.org>
+	
+	* tree-ssa-pre.c (split_critical_edges): New function, temporarily
+	disabled until some edge splitting/insertion problems are fixed.
+	(opnum_of_ephi): Take an edge argument, constify. Use hash table lookup.
+	Update all callers. 
+	(ephi_pindex_eq): New function.
+	(ephi_pindex_hash): New function.
+	(ephi_pindex_htab): New variable.
+	(add_ephi_pred): Update hash table.
+	(expr_phi_insertion): Don't free the bitmap returned by compute_idfs
+	anymore.
+	(idfs_cache): New variable.
+	(compute_idfs): Rewrite to use cache as much as possible, and not
+	recompute when we can avoid it.
+
+2003-09-25  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-alias-ander.c:  Fixup comment spacing.
 	(andersen_op_assign):  Handle >2 operands case.
