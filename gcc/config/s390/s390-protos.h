@@ -23,7 +23,7 @@ Boston, MA 02111-1307, USA.  */
 
 extern void optimization_options PARAMS ((int, int));
 extern void override_options PARAMS ((void));
-extern int s390_arg_frame_offset PARAMS ((void));
+extern HOST_WIDE_INT s390_arg_frame_offset PARAMS ((void));
 extern void s390_emit_prologue PARAMS ((void));
 extern void s390_emit_epilogue PARAMS ((void));
 extern void s390_function_profiler PARAMS ((FILE *, int));
