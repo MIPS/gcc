@@ -1,3 +1,20 @@
+2002-09-06  Frank Ch. Eigler  <fche@redhat.com>
+
+	* tree-mudflap.c (deferred_static_decl*): Correct GTY markup.
+	(mudflap_enqueue_decl): Correct iteration bounds.
+	(mf_init_extern_trees): Add more constness to mf_cache_structptr_type.
+	(mf_offset_expr_of_array_ref): Remove excess mx_flagging.  save_expr
+	array subscripts.
+	(mf_build_check_statement_for): Reorganize to take explicit
+	check-base/size arguments, in addition to value argument.  save_expr
+	array subscripts.  Copy value/base/size subtrees.
+	(mx_xfn_indirect_ref): Support marking of subtrees for nontraversal.
+	Track source line numbers more aggressively.  For arrays, check bounds
+	from base through indexed element, not just the indexed element.
+	Use nontraversal flagging to eliminate some excess instrumentation.
+	(mf_xform_derefs): Support nontraversal by a hash table.
+	(*): Remove "{{{"/"}}}" folding marks.
+	
 2002-09-02  Daniel Berlin  <dberlin@dberlin.org>
 	
 	* tree-alias-common.[ch]: New files.

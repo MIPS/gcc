@@ -43,7 +43,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "function.h"
 
 
-/* {{{ Internal function decls */
+/* Internal function decls */
 
 static void mf_xform_derefs PARAMS ((tree));
 static void mf_xform_decls PARAMS ((tree, tree));
@@ -54,6 +54,7 @@ static tree mf_varname_tree PARAMS ((tree));
 static tree mf_file_function_line_tree PARAMS ((const char *, int));
 static void mf_enqueue_register_call PARAMS ((const char*, tree, tree, tree));
 static void mf_flush_enqueued_calls PARAMS ((void));
+static tree mf_mostly_copy_tree_r PARAMS ((tree *, int *, void *));
 static tree mx_external_ref PARAMS ((tree, int));
 static tree mx_flag PARAMS ((tree));
 static tree mx_xfn_indirect_ref PARAMS ((tree *, int *, void *));
@@ -61,7 +62,7 @@ static tree mx_xfn_xform_decls PARAMS ((tree *, int *, void *));
 static tree mx_xfn_find_addrof PARAMS ((tree *, int *, void *));
 
 static tree mf_offset_expr_of_array_ref PARAMS ((tree, tree, tree *));
-static tree mf_build_check_statement_for PARAMS ((tree, tree*, const char *, int));
+static tree mf_build_check_statement_for PARAMS ((tree, tree, tree, const char *, int));
 static void mx_register_decl PARAMS ((tree *, tree, tree));
 
 
@@ -71,8 +72,7 @@ static void mx_register_decl PARAMS ((tree *, tree, tree));
 #define MARK_TREE_MUDFLAPPED(tree)  do { TREE_BOUNDED (tree) = 1; } while (0)
 #define TREE_MUDFLAPPED_P(tree)  TREE_BOUNDED (tree)
 
-/* }}} */
-/* {{{ extern mudflap functions */
+/* extern mudflap functions */
 
 /* Perform the mudflap tree transforms on the given function.  */
  
@@ -126,8 +126,8 @@ mudflap_c_function (t)
    delayed until program finish time.  If they're still incomplete by
    then, warnings are emitted.  */
 
-static varray_type GTY ((param_is(union tree_node))) deferred_static_decls;
-static varray_type GTY ((skip(""))) deferred_static_decl_labels;
+static GTY (()) varray_type deferred_static_decls;
+static GTY (()) varray_type deferred_static_decl_labels;
 static int deferred_static_decls_init;
 
 /* What I really want is a std::map<union tree_node,std::string> .. :-(  */
@@ -168,7 +168,7 @@ mudflap_enqueue_decl (obj, label)
       
       /* Ugh, linear search... */
       found_p = 0;
-      for (i=0; i < VARRAY_SIZE (deferred_static_decls); i++)
+      for (i=0; i < VARRAY_ACTIVE_SIZE (deferred_static_decls); i++)
 	if (VARRAY_TREE (deferred_static_decls, i) == obj)
 	  found_p = 1;
       
@@ -239,8 +239,7 @@ mudflap_finish_file ()
   mf_flush_enqueued_calls ();
 }
 
-/* }}} */
-/* {{{ global tree nodes */
+/* global tree nodes */
 
 /* Global tree objects for global variables and functions exported by
    mudflap runtime library.  mf_init_extern_trees must be called
@@ -289,8 +288,10 @@ mf_init_extern_trees ()
     layout_type (mf_cache_struct_type);
   }
 
-  mf_cache_structptr_type = build_qualified_type (build_pointer_type (mf_cache_struct_type),
-						  TYPE_QUAL_CONST);
+  mf_cache_structptr_type = 
+    build_qualified_type (build_pointer_type
+			  (build_qualified_type (mf_cache_struct_type, TYPE_QUAL_CONST)),
+			  TYPE_QUAL_CONST);
 
   mf_cache_array_decl = build_decl (VAR_DECL,
 				    get_identifier ("__mf_lookup_cache"),
@@ -374,8 +375,7 @@ mf_decl_extern_trees ()
   pushdecl (mf_unregister_fndecl);
 }
 
-/* }}} */
-/* {{{ utility functions */
+/* utility functions */
 
 /* Mark and return the given tree node to prevent further mudflap
    transforms.  */
@@ -398,6 +398,23 @@ mx_external_ref (t, fun)
   assemble_external (t);
   TREE_USED (t) = 1;
   return t;
+}
+
+
+
+/* A copy of c-simplify.c's mostly_copy_tree_r.  */
+static tree
+mf_mostly_copy_tree_r (tp, walk_subtrees, data)
+     tree *tp;
+     int *walk_subtrees;
+     void *data;
+{
+  if (TREE_CODE (*tp) == SAVE_EXPR)
+    *walk_subtrees = 0;
+  else
+    copy_tree_r (tp, walk_subtrees, data);
+
+  return NULL_TREE;
 }
 
 
@@ -559,34 +576,35 @@ mf_offset_expr_of_array_ref (t, offset, base)
      tree offset;
      tree *base;
 {
-
   if ( TREE_CODE (t) == ARRAY_REF )
     {
       /* It's a sub-array-ref; recurse. */
-      
-      tree factor = mx_flag (build (PLUS_EXPR, 
-				    integer_type_node, 
-				    integer_one_node, 
-				    TYPE_MAX_VALUE 
-				    (TYPE_DOMAIN (TREE_TYPE (t)))));
+
+      tree factor = build (PLUS_EXPR, 
+			   integer_type_node, 
+			   integer_one_node, 
+			   TYPE_MAX_VALUE 
+			   (TYPE_DOMAIN (TREE_TYPE (t))));
       tree child = TREE_OPERAND (t, 0);
       tree next_offset = TREE_OPERAND (t, 1);
+
+      /* Wrap the inner index in a SAVE_EXPR to prevent multiple evaluation.  */
+      TREE_OPERAND (t, 1) = save_expr (TREE_OPERAND (t, 1));
 
       /* mark this node to inhibit further transformation */
       mx_flag (t);
       
       return 
-	mx_flag 
-	(build (PLUS_EXPR, integer_type_node, offset, 
-		mx_flag
-		(build (MULT_EXPR, integer_type_node, factor, 
-			mf_offset_expr_of_array_ref (child, next_offset, base)))));
+	build (PLUS_EXPR, integer_type_node, offset, 
+	       build (MULT_EXPR, integer_type_node, factor, 
+		      mf_offset_expr_of_array_ref (child, next_offset, base)));
     } 
   else if ( TREE_CODE (TREE_TYPE (t)) == ARRAY_TYPE )
     {
       /* It's *not* an ARRAY_REF, but it *is* an ARRAY_TYPE; we are at the
 	 bottom of the ARRAY_REF expression */ 
       *base = t;
+
       return offset;
     }
   else 
@@ -598,9 +616,10 @@ mf_offset_expr_of_array_ref (t, offset, base)
 
 
 static tree 
-mf_build_check_statement_for (ptrvalue, finale, filename, lineno)
+mf_build_check_statement_for (ptrvalue, chkbase, chksize, filename, lineno)
      tree ptrvalue;
-     tree *finale;
+     tree chkbase;
+     tree chksize;
      const char *filename;
      int lineno;
 {
@@ -610,8 +629,10 @@ mf_build_check_statement_for (ptrvalue, finale, filename, lineno)
 
   tree t1_1;
   tree t1_2, t1_2_1;
+  tree t1_2a, t1_2a_1;
+  tree t1_2b, t1_2b_1;
   tree t1_3, t1_3_1;
-  tree t1_4, t1_4_1, t1_4_2, t1_4_size;
+  tree t1_4, t1_4_1, t1_4_2;
   tree t1_98;
   tree t1_99;
   tree t1;
@@ -634,6 +655,24 @@ mf_build_check_statement_for (ptrvalue, finale, filename, lineno)
   t1_2 = build1 (DECL_STMT, myptrtype, pushdecl (t1_2_1));
   TREE_CHAIN (t1_1) = t1_2;
 
+  /* uintptr_t __mf_base = <EXPR2>; */
+  t1_2a_1 = build_decl (VAR_DECL, get_identifier ("__mf_base"), mf_uintptr_type);
+  DECL_ARTIFICIAL (t1_2a_1) = 1;
+  DECL_INITIAL (t1_2a_1) = convert (mf_uintptr_type,
+				    ((chkbase == ptrvalue) ? t1_2_1 : chkbase));
+  t1_2a = build1 (DECL_STMT, mf_uintptr_type, pushdecl (t1_2a_1));
+  TREE_CHAIN (t1_2) = t1_2a;
+
+  /* uintptr_t __mf_size = <EXPR>; */
+  t1_2b_1 = build_decl (VAR_DECL, get_identifier ("__mf_size"), mf_uintptr_type);
+  DECL_ARTIFICIAL (t1_2b_1) = 1;
+  DECL_INITIAL (t1_2b_1) = convert (mf_uintptr_type,
+				    ((chksize == NULL_TREE) ? 
+				     integer_one_node : 
+				     chksize));
+  t1_2b = build1 (DECL_STMT, mf_uintptr_type, pushdecl (t1_2b_1));
+  TREE_CHAIN (t1_2a) = t1_2b;
+
   /* struct __mf_cache * const __mf_elem = [...] */
   t1_3_1 = build_decl (VAR_DECL, get_identifier ("__mf_elem"), mf_cache_structptr_type);
   DECL_ARTIFICIAL (t1_3_1) = 1;
@@ -646,20 +685,13 @@ mf_build_check_statement_for (ptrvalue, finale, filename, lineno)
 				     mx_external_ref (mf_cache_array_decl, 0),
 				     build (BIT_AND_EXPR, mf_uintptr_type,
 					    build (RSHIFT_EXPR, mf_uintptr_type,
-						   convert (mf_uintptr_type, t1_2_1),
+						   convert (mf_uintptr_type, t1_2a_1),
 						   mx_external_ref (mf_cache_shift_decl, 0)),
 					    mx_external_ref (mf_cache_mask_decl, 0))))));
   
   t1_3 = build1 (DECL_STMT, mf_cache_structptr_type, pushdecl (t1_3_1));
-  TREE_CHAIN (t1_2) = t1_3;
+  TREE_CHAIN (t1_2b) = t1_3;
   
-  t1_4_size = TYPE_SIZE_UNIT (TREE_TYPE (TREE_TYPE (ptrvalue)));
-  if (t1_4_size == NULL_TREE)
-    {
-      /* We may be dereferencing a void pointer.  */
-      t1_4_size = integer_one_node;
-    }
-
   /* Quick validity check.  */
   t1_4_1 = build (BIT_IOR_EXPR, integer_type_node,
 		  build (GT_EXPR, integer_type_node,
@@ -667,16 +699,16 @@ mf_build_check_statement_for (ptrvalue, finale, filename, lineno)
 				mx_flag (build1 (INDIRECT_REF, 
 						 mf_cache_struct_type, t1_3_1)),
 				TYPE_FIELDS (mf_cache_struct_type)),
-			 t1_2_1), /* __mf_value */
+			 t1_2a_1), /* __mf_base */
 		  build (LT_EXPR, integer_type_node,
 			 build (COMPONENT_REF, mf_uintptr_type, /* __mf_elem->high */
 				mx_flag (build1 (INDIRECT_REF, 
 						 mf_cache_struct_type, t1_3_1)),
 				TREE_CHAIN (TYPE_FIELDS (mf_cache_struct_type))),
-			 build (PLUS_EXPR, mf_uintptr_type, /* __mf_value + sizeof(T) - 1 */
-				t1_2_1,
+			 build (PLUS_EXPR, mf_uintptr_type, /* __mf_elem + sizeof(T) - 1 */
+				t1_2a_1,
 				fold (build (MINUS_EXPR, mf_uintptr_type,
-					     convert (mf_uintptr_type, t1_4_size),
+					     t1_2b_1,
 					     integer_one_node)))));
   
   /* Mark condition as UNLIKELY using __builtin_expect.  */
@@ -689,10 +721,9 @@ mf_build_check_statement_for (ptrvalue, finale, filename, lineno)
   
   t1_4_2 = build_function_call (mx_external_ref (mf_check_fndecl, 1),
 				tree_cons (NULL_TREE,
-					   convert (mf_uintptr_type, t1_2_1),
+					   t1_2a_1,
 					   tree_cons (NULL_TREE, 
-						      convert (mf_uintptr_type, 
-							       t1_4_size),
+						      t1_2b_1,
 						      tree_cons (NULL_TREE,
 								 location_string,
 								 NULL_TREE))));
@@ -703,16 +734,8 @@ mf_build_check_statement_for (ptrvalue, finale, filename, lineno)
 		     NULL_TREE);
   TREE_CHAIN (t1_3) = t1_4;
 
-  if (finale)
-    {
-      return_type = TREE_TYPE (*finale);
-      return_value = *finale;
-    } 
-  else 
-    {
-      return_type = myptrtype;
-      return_value = t1_2_1;
-    }
+  return_type = myptrtype;
+  return_value = t1_2_1;
 
   /* "return" __mf_value, or provided finale */
   t1_98 = build1 (EXPR_STMT, return_type, return_value);
@@ -730,9 +753,8 @@ mf_build_check_statement_for (ptrvalue, finale, filename, lineno)
   return t0;
 }
 
-/* }}} */
 /* ------------------------------------------------------------------------ */
-/* {{{ INDIRECT_REF transform */
+/* INDIRECT_REF transform */
 
 /* Perform the mudflap bounds-checking transform on the given function
    tree.  The tree is mutated in place, with possibly copied subtree
@@ -749,7 +771,6 @@ mf_build_check_statement_for (ptrvalue, finale, filename, lineno)
 			   __mf_check (value, sizeof(TYPE));
                         value;})
 
-   (not yet implemented:)
    (2) (ARRAY_REF ({ARRAY_REF ... (tree, indexM)}, indexN))  //  tree[N][M][O]...
        ==> (as if)
        (INDIRECT_REF (tree + (.... + sizeM*sizeO*indexO + sizeM*indexM + indexN))
@@ -760,10 +781,11 @@ static tree
 mx_xfn_indirect_ref (t, continue_p, data)
      tree *t;
      int *continue_p;
-     void *data; /* NOTUSED */
+     void *data;
 {
   static const char *last_filename = NULL;
   static int last_lineno = -1;
+  htab_t verboten = (htab_t) data;
 
 #if 0
   fprintf (stderr, "expr=%s\n", tree_code_name [TREE_CODE (*t)]);
@@ -771,19 +793,29 @@ mx_xfn_indirect_ref (t, continue_p, data)
   
   *continue_p = 1;
 
-  /* Avoid infinite recursion of transforming transformed code. */
-  if (TREE_MUDFLAPPED_P (*t))
-    return NULL_TREE;
-
   /* Track file-name/line-numbers.  */
   if (statement_code_p (TREE_CODE (*t)))
-    last_lineno = STMT_LINENO (*t);
+    last_lineno = (STMT_LINENO (*t) > 0 ? STMT_LINENO (*t) : last_lineno);
   if (TREE_CODE (*t) == FILE_STMT)
     last_filename = FILE_STMT_FILENAME (*t);
   if (TREE_CODE (*t) == EXPR_WITH_FILE_LOCATION)
     {
       last_filename = EXPR_WFL_FILENAME (*t);
-      last_lineno = EXPR_WFL_LINENO (*t);
+      last_lineno = (EXPR_WFL_LINENO (*t) > 0 ? EXPR_WFL_LINENO (*t) : last_lineno);
+    }
+
+  /* Avoid infinite recursion of transforming instrumented or
+     instrumentation code. */
+  if (TREE_MUDFLAPPED_P (*t))
+    return NULL_TREE;
+
+  /* Avoid traversal into subtrees specifically listed as
+     do-not-traverse.  This occurs for certain nested operator/array
+     expressions.  */
+  if (htab_find (verboten, *t) != NULL)
+    {
+      *continue_p = 0;
+      return NULL_TREE;
     }
       
   /* Process some node types.  */
@@ -797,8 +829,11 @@ mx_xfn_indirect_ref (t, continue_p, data)
       {
 	tree base_array, base_obj_type, base_ptr_type;
 	tree offset_expr;
-	tree check_ptr;
+	tree value_ptr, check_ptr, check_size;
 	tree tmp;
+
+	/* Wrap the outermost index in a SAVE_EXPR to prevent multiple evaluation.  */
+	TREE_OPERAND (*t, 1) = save_expr (TREE_OPERAND (*t, 1));
 
 	offset_expr = mf_offset_expr_of_array_ref (TREE_OPERAND (*t,0), 
 						   TREE_OPERAND (*t,1), 
@@ -811,33 +846,35 @@ mx_xfn_indirect_ref (t, continue_p, data)
 	base_obj_type = TREE_TYPE (TREE_TYPE (TREE_OPERAND(*t,0)));
 	base_ptr_type = build_pointer_type (base_obj_type);
 
-	check_ptr = 
-	  mx_flag 
-	  (build (PLUS_EXPR, 
-		  base_ptr_type,
-		  mx_flag 
-		  (build1 (ADDR_EXPR, 
-			   base_ptr_type, 
-			   mx_flag 
-			   (build (ARRAY_REF, 
-				   base_obj_type, 
-				   base_array, integer_zero_node)))),
-		  mx_flag 
-		  (build (MULT_EXPR, 
-			  integer_type_node,
-			  TYPE_SIZE_UNIT (base_obj_type),
-			  offset_expr))));
-	
-	tmp = mf_build_check_statement_for (check_ptr, NULL, last_filename, last_lineno);
-	*t = build1 (INDIRECT_REF, base_obj_type, mx_flag (tmp));;
-	mx_flag (*t);
+	check_ptr = mx_flag (build1 (ADDR_EXPR, 
+				    base_ptr_type, 
+				    mx_flag (build (ARRAY_REF, 
+						    base_obj_type, 
+						    base_array, integer_zero_node))));
+	walk_tree (& check_ptr, mf_mostly_copy_tree_r, NULL, NULL);
 
-	/*
-	fprintf (stderr, "\n");
- 	print_c_tree (stderr, *t);
-	fprintf (stderr, "\n");
-	*/
+	value_ptr = mx_flag (build1 (ADDR_EXPR,
+				     base_ptr_type,
+				     mx_flag (*t)));
+	walk_tree (& value_ptr, mf_mostly_copy_tree_r, NULL, NULL);
+	TREE_ADDRESSABLE (*t) = 1;
 
+	check_size = build (MULT_EXPR, 
+			    integer_type_node,
+			    TYPE_SIZE_UNIT (base_obj_type),
+			    build (PLUS_EXPR, c_size_type_node,
+				   integer_one_node,
+				   offset_expr));
+	walk_tree (& check_size, mf_mostly_copy_tree_r, NULL, NULL);
+
+	/* In case we're instrumenting an expression like a[b[c]], the
+	   following call is meant to eliminate the
+	   redundant/recursive check of the outer size=b[c] check. */
+	* (htab_find_slot (verboten, check_size, INSERT)) = check_size;
+  
+	tmp = mf_build_check_statement_for (value_ptr, check_ptr, check_size,
+					    last_filename, last_lineno);
+	*t = mx_flag (build1 (INDIRECT_REF, base_obj_type, tmp));
       }
       break;
       
@@ -847,27 +884,18 @@ mx_xfn_indirect_ref (t, continue_p, data)
       break;
 
     case INDIRECT_REF:
-      /*
-	fprintf (stderr, "\n");
-	print_c_tree (stderr, *t);
-	fprintf (stderr, "\n");
-      */
-      
       /* Substitute check statement for ptrvalue in INDIRECT_REF.  */
       TREE_OPERAND (*t, 0) = 
-	mf_build_check_statement_for (TREE_OPERAND (*t, 0), NULL, 
+	mf_build_check_statement_for (TREE_OPERAND (*t, 0),
+				      TREE_OPERAND (*t, 0),
+				      TYPE_SIZE_UNIT (TREE_TYPE
+						      (TREE_TYPE
+						       (TREE_OPERAND (*t, 0)))),
 				      last_filename, last_lineno);
-	
-	/*
-	  fprintf (stderr, "\n");
-	  print_c_tree (stderr, *t);
-	  fprintf (stderr, "\n");
-	*/
-	
 	/* Prevent this transform's reapplication to this tree node.
 	   Note that we do not prevent recusion in walk_tree toward
 	   subtrees of this node, in case of nested pointer expressions.  */
-	mx_flag (*t);
+      mx_flag (*t);
       break;
     }
 
@@ -880,12 +908,13 @@ static void
 mf_xform_derefs (fnbody)
      tree fnbody;
 {
-  walk_tree_without_duplicates (& fnbody, mx_xfn_indirect_ref, NULL);
+  htab_t verboten = htab_create (31, htab_hash_pointer, htab_eq_pointer, NULL);
+  walk_tree_without_duplicates (& fnbody, mx_xfn_indirect_ref, (void*) verboten);
+  htab_delete (verboten);
 }
 
-/* }}} */
 /* ------------------------------------------------------------------------ */
-/* {{{ ADDR_EXPR transform */
+/* ADDR_EXPR transform */
 
 /* This struct is passed between mf_xform_decls to store state needed
 during the traversal searching for objects that have their addresses
@@ -975,10 +1004,6 @@ mx_register_decl (posn, decl, containing_stmt)
    current traversal stage, so that each DECL_STMT knows its enclosing
    COMPOUND_STMT.  For appropriate DECL_STMTs, perform the mudflap
    lifetime-tracking transform.
-
-   XXX: what about static vars declared in function scope?  They probably
-   should never be __mf_unregister'd, and only be registered once per
-   program startup.  See TREE_STATIC.
 
    XXX: it would be nice to reuse the binding_level construct from
    c-decl.c for this stuff.
@@ -1129,9 +1154,8 @@ mf_find_addrof (stmt, decl)
   return walk_tree_without_duplicates (& stmt, mx_xfn_find_addrof, decl);
 }
 
-/* }}} */
 /* ------------------------------------------------------------------------ */
-/* {{{ global variable transform */
+/* global variable transform */
 
 /* A chain of EXPR_STMTs for calling __mf_register() at initialization
    time.  */
@@ -1272,7 +1296,6 @@ mf_flush_enqueued_calls ()
   /* XXX: We could free up enqueued_call_stmt_chain here. */
 }
 
-/* }}} */
 
 
 #include "gt-tree-mudflap.h"
