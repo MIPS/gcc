@@ -1,3 +1,26 @@
+2004-03-26  David Jee  <djee@redhat.com>
+
+	* gnu/java/awt/peer/gtk/GtkMenuItemPeer.java
+	(connectSignals): New native method declaration.
+	(GtkMenuItemPeer): Connect signals if the parent is a Menu.
+	* java/awt/MenuItem.java
+	(getActionCommand): Return the label if the action command is not set.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMenuBarPeer.c
+	(Java_gnu_java_awt_peer_gtk_GtkMenuBarPeer_addMenu): Use
+	gtk_menu_shell_append().
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMenuItemPeer.c
+	(item_activate): Fix argument type.
+	(Java_gnu_java_awt_peer_gtk_GtkMenuItemPeer_create): Do not connect
+	signal here.
+	(Java_gnu_java_awt_peer_gtk_GtkMenuItemPeer_connectSignals): New
+	method.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMenuPeer.c
+	(Java_gnu_java_awt_peer_gtk_GtkMenuPeer_create): Check if a label is
+	given. Add the menu widget's top-level GtkWindow to the global window
+	group, so it can grab the pointer.
+	(Java_gnu_java_awt_peer_gtk_GtkMenuPeer_addItem): Use
+	gtk_menu_shell_append().
+
 2004-03-23  Graydon Hoare  <graydon@redhat.com>
 
 	* java/text/AttributedString.java 
