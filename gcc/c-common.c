@@ -6310,8 +6310,8 @@ vector_constructor_from_expr (tree expr, tree vector_type)
   list = build_constructor (vector_type, list);
   if (cxx)
     TREE_LANG_FLAG_4 (list) = 1;  /* TREE_HAS_CONSTRUCTOR */
-  else  
-    TREE_CONSTANT (list) = all_constant;
+
+  TREE_CONSTANT (list) = all_constant;
   
   return list;
 }
