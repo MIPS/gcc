@@ -1,3 +1,8 @@
+2004-06-09  Jon Ziegler  <jonz@apple.com>
+
+	Radar 3667992
+	* gcc.apple/Wlong-double.c: Delete file.
+
 2004-06-08  Jon Ziegler  <jonz@apple.com>
 
 	Radar 3667992
