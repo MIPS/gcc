@@ -1,3 +1,21 @@
+2004-06-12  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* gnu/java/awt/peer/gtk/GtkTextAreaPeer.java (DEFAULT_ROWS,
+	DEFAULT_COLS): New variables.
+	(create): Don't allow 0 rows or 0 columns.  Instead, set the
+	values to DEFAULT_ROWS or DEFAULT_COLS.
+	(getMinimumSize): Likewise.
+	(getPreferredSize): Likewise.
+	(minimumSize): Likewise.
+	(preferredSize): Likewise.
+	(create): Set peer's editable state.
+	* java/awt/TextArea.java (TextArea()): Set rows and columns to
+	zero.  Update javadocs.
+	(TextArea(String)): Likewise.
+	(TextArea(int,int)): Fix javadocs.
+	(TextArea(String,int,int,int)): Only throw exception if one of
+	rows or columns is zero.  Fix javadocs.
+
 2004-06-11  Thomas Fitzsimmons  <fitzsim@redhat.com>
 
 	* java/awt/AWTEvent.java (toString): Handle MenuComponents in
