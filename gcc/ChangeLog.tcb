@@ -1,5 +1,42 @@
 2005-02-02  Diego Novillo  <dnovillo@redhat.com>
 
+	* Makefile.in (tree-into-ssa.o): Depend on pointer-set.h
+	* timevar.def (TV_TREE_SSA_INCREMENTAL): Define.
+	* tree-flow.h (update_ssa): Declare.
+	* tree-into-ssa.c: Include pointer-set.h.
+	(old_ssa_names): Declare.
+	(new_ssa_names): Declare.
+	(struct new_to_old_d): Declare.
+	(new_to_old): Declare.
+	(enum rewrite_mode): Declare.
+	(new_to_old_hash): New.
+	(new_to_old_eq): New.
+	(add_new_name_mapping): New.
+	(name_replaced_by): New.
+	(insert_phi_nodes_for): Add argument 'update_p'.
+	If update_p is true, add a new mapping from the LHS of the PHI
+	node to the name given in 'var'.
+	(insert_phi_nodes_1): Update call to insert_phi_nodes_for.
+	(register_new_update): New.
+	(rewrite_update_init_block): New.
+	(rewrite_update_fini_block): New.
+	(rewrite_update_stmt): New.
+	(rewrite_update_phi_arguments): New.
+	(rewrite_blocks): Remove argument 'fix_virtual_phis'.  Add
+	arguments 'entry' and 'what'.
+	Use 'what' to register the call-backs used for REWRITE_UPDATE,
+	REWRITE_ALL and REWRITE_DEF_DEF_CHAINS.
+	Start re-writing at block 'entry'.
+	(rewrite_into_ssa): Call rewrite_blocks with ENTRY_BLOCK_PTR
+	and REWRITE_ALL.
+	(rewrite_def_def_chains): Call rewrite_blocks with
+	ENTRY_BLOCK_PTR and REWRITE_FIX_DEF_DEF_CHAINS.
+	(prepare_block_for_update): New.
+	(remove_non_dominated): New.
+	(update_ssa): New.
+
+2005-02-02  Diego Novillo  <dnovillo@redhat.com>
+
 	* basic-block.h (nearest_common_dominator): Declare.
 	* dominance.c (nearest_common_dominator): New.
 

@@ -80,6 +80,34 @@ struct ptr_info_def GTY(())
 };
 
 
+/* Types of value ranges.  */
+enum value_range_type { VR_UNDEFINED, VR_RANGE, VR_ANTI_RANGE, VR_VARYING };
+
+
+/* Ranges of values that can be associated with an SSA_NAME after VRP
+   has executed.  */
+struct value_range_def GTY(())
+{
+  /* Lattice value represented by this range.  */
+  enum value_range_type type;
+
+  /* Minimum and maximum values represented by this range.  These
+     values are _CST nodes that should be interpreted as follows:
+
+     	- If TYPE == VR_UNDEFINED then MIN and MAX must be NULL.
+
+	- If TYPE == VR_RANGE then MIN holds the minimum value and
+	  MAX holds the maximum value of the range [MIN, MAX].
+
+	- If TYPE == ANTI_RANGE the variable is known to NOT
+	  take any values in the range [MIN, MAX].  */
+  tree min;
+  tree max;
+};
+
+typedef struct value_range_def value_range;
+
+
 /*---------------------------------------------------------------------------
 		   Tree annotations stored in tree_common.ann
 ---------------------------------------------------------------------------*/
@@ -567,6 +595,7 @@ extern void debug_points_to_info_for (tree);
 extern bool may_be_aliased (tree);
 extern struct ptr_info_def *get_ptr_info (tree);
 extern void add_type_alias (tree, tree);
+extern void count_uses_and_derefs (tree, tree, unsigned *, unsigned *, bool *);
 
 /* Call-back function for walk_use_def_chains().  At each reaching
    definition, a function with this prototype is called.  */
@@ -596,7 +625,7 @@ extern bool stmt_references_memory_p (tree);
 extern void rewrite_into_ssa (bool);
 extern void rewrite_ssa_into_ssa (void);
 extern void rewrite_def_def_chains (void);
-
+extern void update_ssa (VEC (tree_on_heap) *, VEC (tree_on_heap) *);
 void compute_global_livein (bitmap, bitmap);
 tree duplicate_ssa_name (tree, tree);
 
@@ -604,6 +633,13 @@ tree duplicate_ssa_name (tree, tree);
 void execute_ssa_ccp (bool);
 bool fold_stmt (tree *);
 tree widen_bitfield (tree, tree, tree);
+
+/* In tree-vrp.c  */
+value_range *get_value_range (tree);
+void dump_value_range (FILE *, value_range *);
+void debug_value_range (value_range *);
+void dump_all_value_ranges (FILE *);
+void debug_all_value_ranges (void);
 
 /* FIXME.  Move these to tree-ssa-propagate.[ch].  */
 
