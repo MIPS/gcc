@@ -769,13 +769,6 @@ build_vector (tree type, tree vals)
 
       /* APPLE LOCAL begin AltiVec */
       value = fold (value);
-      if (TREE_CODE (value) != INTEGER_CST && TREE_CODE (value) != REAL_CST)
-	{
-	  error ("vector literal contains an invalid constant expression");
-	  /* recover */
-	  set_fast_math_flags (1);
-	  value = fold (value);
-	}
       TREE_VALUE (link) = value;
       count++;
       list = link;
