@@ -82,7 +82,7 @@ void calculate_pre_post ()
   pre = (int *) xcalloc (last_basic_block+1, sizeof (int));
   post = (int *) xcalloc (last_basic_block+1, sizeof (int));
   pre_inverse = (int *) xcalloc (last_basic_block+1, sizeof (int));
-  
+
   /* Allocate stack for back-tracking up CFG.  */
   stack = (edge *) xmalloc ((last_basic_block + 1) * sizeof (edge));
   sp = 0;
@@ -159,7 +159,7 @@ dom_parent (block)
   abort();
 }
 
-  
+
 
 static unsigned int
 walk_dom_tree (block, index, level)
@@ -208,7 +208,7 @@ reach_under (block, head, loop)
 {
   sbitmap worklist;
   edge edge;
-  
+
   worklist = sbitmap_alloc (last_basic_block + 1);
   sbitmap_zero (worklist);
   SET_BIT (worklist, pre[block->index]);
@@ -239,8 +239,8 @@ reach_under (block, head, loop)
   sbitmap_free (worklist);
 }
 
-	      
-      
+
+
 static bool
 dominates (parent, child)
      basic_block parent;
@@ -260,7 +260,7 @@ dfs (i)
   scc_info[i].in_stack = TRUE;
   scc_info[i].next = dfs_stack;
   dfs_stack = i;
-  
+
   visit_successors (i, i);
   if (scc_info[i].low == scc_info[i].dfs_num)
     {
@@ -295,7 +295,7 @@ dfs (i)
 		      node->name = name;
 		      node->next = dj_graph_info[i].children;
 		      dj_graph_info[i].children = node;
-		    }		 
+		    }
 		}
 	    }
 	}
@@ -342,7 +342,7 @@ DFS_DJ_graph (block, index)
   edge succ;
   int child;
   SET_BIT (visited, block->index);
-  dj_graph_info[preorder_index].dfs_index = (*index)++; 
+  dj_graph_info[preorder_index].dfs_index = (*index)++;
   if (dom_node_for_block (domtree, block->index) < 0)
     child = -1;
   else
@@ -368,7 +368,7 @@ DFS_DJ_graph (block, index)
     }
   return dj_graph_info[preorder_index].dfs_size = size;
 }
-static void 
+static void
 find_nesting_depths()
 {
   unsigned int *depthtemp;
@@ -377,7 +377,7 @@ find_nesting_depths()
   int i;
   int *idom = (int *)alloca (last_basic_block * sizeof (int));
   sbitmap loop;
-  
+
   memset (idom, -1, (size_t) last_basic_block * sizeof (int));
   calculate_pre_post ();
   depths = (unsigned int *)xcalloc (last_basic_block + 1, sizeof(unsigned int));
@@ -386,7 +386,7 @@ find_nesting_depths()
   domtree = dom_tree_from_idoms (idom);
   dj_graph_info = (struct dj_graph_info *) ggc_alloc_cleared
     ((last_basic_block + 1) * sizeof (struct dj_graph_info));
-  walk_dom_tree (BASIC_BLOCK (0), &index,  level);    
+  walk_dom_tree (BASIC_BLOCK (0), &index,  level);
   levels = (struct linked_list **) ggc_alloc_cleared ((max_level + 1) * sizeof (struct linked_list *));
   for (i = 0; i < last_basic_block; i++)
     {
@@ -406,7 +406,7 @@ find_nesting_depths()
   DFS_DJ_graph (BASIC_BLOCK (0), &index);
   loop = sbitmap_alloc (last_basic_block + 1);
   sbitmap_zero (loop);
-  
+
   for (i = max_level; i >= 0; i--)
     {
       bool irreducible_loop = FALSE;
@@ -431,7 +431,7 @@ find_nesting_depths()
 	    {
 	      int block_index = pre [block->index];
 	      unsigned int i;
-	      EXECUTE_IF_SET_IN_SBITMAP (loop, 0, i, 
+	      EXECUTE_IF_SET_IN_SBITMAP (loop, 0, i,
 	      {
 		unsigned int depth = ++(depths[i]);
 		if (depth > max_depth) max_depth = depth;
@@ -491,7 +491,7 @@ static struct split_range *split_ranges;
 static struct linked_list **split_around;
 static struct linked_list **neighbors_with_color;
 static inline double powraise PARAMS ((unsigned int));
-static inline double 
+static inline double
 powraise (power)
      unsigned int power;
 {
@@ -500,14 +500,14 @@ powraise (power)
       i *= 10.0;
   return i;
 }
-static bool 
+static bool
 find_splits (name, colors)
      unsigned int name ATTRIBUTE_UNUSED;
      int *colors ATTRIBUTE_UNUSED;
 {
   return FALSE;
 }
-static void 
+static void
 splits_init ()
 {
   if (split_live_ranges)
@@ -527,4 +527,3 @@ splits_init ()
       any_splits_found = FALSE;
     }
 }
-

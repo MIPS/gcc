@@ -66,7 +66,7 @@ ra_debug_msg VPARAMS ((unsigned int level, const char *format, ...))
 #ifndef ANSI_PROTOTYPES
       format = va_arg (ap, const char *);
 #endif
-      
+
       vfprintf (rtl_dump_file, format, ap);
       va_end (ap);
     }
@@ -465,7 +465,7 @@ ra_print_rtx (file, x, with_pn)
 
       /* Different things of class 'x' */
       case SUBREG: ra_print_rtx_object (file, x); break;
-      case STRICT_LOW_PART: 
+      case STRICT_LOW_PART:
 		   fputs ("low(", file);
 		   ra_print_rtx (file, XEXP (x, 0), 0);
 		   fputs (")", file);
@@ -695,7 +695,7 @@ void
 dump_igraph_machine (void)
 {
   unsigned int i;
-  
+
   if (!rtl_dump_file || (debug_new_regalloc & DUMP_IGRAPH_M) == 0)
     return;
   ra_debug_msg (DUMP_IGRAPH_M, "g %d %d\n", num_webs - num_subwebs,
@@ -829,7 +829,7 @@ dump_ra (df)
   struct dlist *d;
   if (!rtl_dump_file || (debug_new_regalloc & DUMP_RESULTS) == 0)
     return;
-    
+
   ra_debug_msg (DUMP_RESULTS, "\nColored:\n");
   for (d = WEBS(COLORED); d; d = d->next)
     {
@@ -885,7 +885,7 @@ dump_static_insn_cost (file, message, prefix)
 	     sets only.  */
 	  if (INSN_P (insn) && ((set = single_set (insn)) != NULL))
 	    {
-	      rtx src = SET_SRC (set); 
+	      rtx src = SET_SRC (set);
 	      rtx dest = SET_DEST (set);
 	      struct cost *pcost = NULL;
 	      overall.cost += block_cost;
@@ -944,13 +944,13 @@ web_conflicts_p (web1, web2)
 {
   if (web1->type == PRECOLORED && web2->type == PRECOLORED)
     return 0;
-  
+
   if (web1->type == PRECOLORED)
     return TEST_HARD_REG_BIT (web2->usable_regs, web1->regno);
 
   if (web2->type == PRECOLORED)
     return TEST_HARD_REG_BIT (web1->usable_regs, web2->regno);
-    
+
   return hard_regs_intersect_p (&web1->usable_regs, &web2->usable_regs);
 }
 
@@ -960,13 +960,13 @@ dump_web_insns (web)
      struct web* web;
 {
   unsigned int i;
-  
+
   ra_debug_msg (DUMP_EVER, "Web: %i(%i)+%i class: %s freedom: %i degree %i\n",
 	     web->id, web->regno, web->add_hardregs,
 	     reg_class_names[web->regclass],
 	     web->num_freedom, web->num_conflicts);
   ra_debug_msg (DUMP_EVER, "   def insns:");
-  
+
   for (i = 0; i < web->num_defs; ++i)
     {
       ra_debug_msg (DUMP_EVER, " %d ", INSN_UID (web->defs[i]->insn));
@@ -993,14 +993,14 @@ dump_web_conflicts (web)
 	     web->id, web->regno, web->add_hardregs,
 	     reg_class_names[web->regclass],
 	     web->num_freedom, web->num_conflicts);
-  
+
   for (def2 = 0; def2 < num_webs; def2++)
     if (TEST_BIT (igraph, igraph_index (web->id, def2)) && web->id != def2)
       {
 	if ((num % 9) == 5)
 	  ra_debug_msg (DUMP_EVER, "\n             ");
 	num++;
-	
+
 	ra_debug_msg (DUMP_EVER, " %d(%d)", def2, id2web[def2]->regno);
 	if (id2web[def2]->add_hardregs)
 	  ra_debug_msg (DUMP_EVER, "+%d", id2web[def2]->add_hardregs);
@@ -1010,7 +1010,7 @@ dump_web_conflicts (web)
 
 	if (id2web[def2]->type == SELECT)
 	  ra_debug_msg (DUMP_EVER, "/s");
-	  
+
 	if (id2web[def2]->type == COALESCED)
 	  ra_debug_msg (DUMP_EVER,"/c/%d", alias (id2web[def2])->id);
       }
@@ -1028,7 +1028,7 @@ dump_web_conflicts (web)
 	ra_debug_msg (DUMP_EVER, "%d(%d)%s ", w->id, w->regno,
 		   web_conflicts_p (web, w) ? "+" : "");
       }
-    ra_debug_msg (DUMP_EVER, "\n");  
+    ra_debug_msg (DUMP_EVER, "\n");
   }
 }
 
@@ -1048,4 +1048,3 @@ debug_hard_reg_set (set)
     }
   fprintf (stderr, "\n");
 }
-

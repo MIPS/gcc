@@ -52,12 +52,12 @@
 */
 
 /* TODO
- 
+
    * Lattice based rematerialization
    * do lots of commenting
    * look through all XXX's and do something about them
    * handle REG_NO_CONFLICTS blocks correctly (the current ad hoc approach
-     might miss some conflicts due to insns which only seem to be in a 
+     might miss some conflicts due to insns which only seem to be in a
      REG_NO_CONLICTS block)
      -- Don't necessary anymore, I believe, because SUBREG tracking is
      implemented.
@@ -123,7 +123,7 @@ bitmap *live_at_end;
 int ra_pass;
 unsigned int max_normal_pseudo;
 int an_unusable_color;
- 
+
 /* The different lists on which a web can be (based on the type).  */
 struct dlist *web_lists[(int) LAST_NODE_TYPE];
 
@@ -470,7 +470,7 @@ init_ra (void)
 
   for (i = HARD_REGNO_NREGS (ARG_POINTER_REGNUM, Pmode); i--;)
     SET_HARD_REG_BIT (never_use_colors, ARG_POINTER_REGNUM + i);
-	
+
   for (i = 0; i < 256; i++)
     {
       unsigned char byte = ((unsigned) i) & 0xFF;
@@ -483,7 +483,7 @@ init_ra (void)
 	}
       byte2bitcount[i] = count;
     }
-  
+
   for (i = 0; i < N_REG_CLASSES; i++)
     {
       int size;
@@ -509,7 +509,7 @@ init_ra (void)
 	  }
       COPY_HARD_REG_SET (hardregs_for_mode[i], rs);
     }
-  
+
   for (an_unusable_color = 0; an_unusable_color < FIRST_PSEUDO_REGISTER;
        an_unusable_color++)
     if (TEST_HARD_REG_BIT (never_use_colors, an_unusable_color))
@@ -545,7 +545,7 @@ check_df (df)
   for (ui = 0; ui < df->use_id; ui++)
     if (!df->uses[ui])
       bitmap_set_bit (empty_uses, ui);
-  
+
   for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
     if (INSN_P (insn))
       {
@@ -556,7 +556,7 @@ check_df (df)
 	    abort ();
 	  else
 	    bitmap_set_bit (b, DF_REF_ID (link->ref));
-			    
+
 	bitmap_clear (b);
 	for (link = DF_INSN_USES (df, insn); link; link = link->next)
 	  if (!link->ref || bitmap_bit_p (empty_uses, DF_REF_ID (link->ref))
@@ -584,7 +584,7 @@ check_df (df)
 	else
 	  bitmap_set_bit (b, DF_REF_ID (link->ref));
     }
-  
+
   BITMAP_XFREE (empty_uses);
   BITMAP_XFREE (empty_defs);
   BITMAP_XFREE (b);
@@ -731,7 +731,7 @@ reg_alloc (void)
   }
   ra_info_free (ra_info);
   free (ra_info);*/
-  
+
   /* XXX the REG_EQUIV notes currently are screwed up, when pseudos are
      coalesced, which have such notes.  In that case, the whole combined
      web gets that note too, which is wrong.  */
@@ -791,14 +791,14 @@ reg_alloc (void)
 	death_insns_max_uid = orig_max_uid;
       }
 #endif
-      
+
       df_analyse (df, (ra_pass == 1) ? 0 : (bitmap) -1,
 		  DF_HARD_REGS | DF_RD_CHAIN | DF_RU_CHAIN
 #ifndef NO_REMAT
 		  | DF_DU_CHAIN | DF_UD_CHAIN
 #endif
 		 );
-      
+
       /* FIXME denisc@overta.ru
 	 Example of usage ra_info ... routines */
 #if 0
@@ -818,12 +818,12 @@ reg_alloc (void)
       alloc_mem (df);
       /*ra_debug_msg (DUMP_EVER, "before one_pass()\n");
       if (rtl_dump_file)
-	print_rtl_with_bb (rtl_dump_file, get_insns ()); 
+	print_rtl_with_bb (rtl_dump_file, get_insns ());
       verify_flow_info ();*/
       changed = one_pass (df, ra_pass > 1);
       /*ra_debug_msg (DUMP_EVER, "after one_pass()\n");
       if (rtl_dump_file)
-        print_rtl_with_bb (rtl_dump_file, get_insns ()); 
+        print_rtl_with_bb (rtl_dump_file, get_insns ());
       verify_flow_info ();*/
       /* FIXME denisc@overta.ru
 	 Example of usage ra_info ... routines */
@@ -832,7 +832,7 @@ reg_alloc (void)
       free (df2ra.def2def);
       free (df2ra.use2use);
       free (ra_info);
-#endif 
+#endif
       if (!changed)
 	{
           emit_colors (df);
@@ -879,8 +879,8 @@ reg_alloc (void)
   /*ra_debug_msg (DUMP_COSTS, "ticks for build-phase: %ld\n", ticks_build);
   ra_debug_msg (DUMP_COSTS, "ticks for rebuild-phase: %ld\n", ticks_rebuild);*/
   if ((debug_new_regalloc & (DUMP_FINAL_RTL | DUMP_RTL)) != 0)
-    ra_print_rtl_with_bb (rtl_dump_file, get_insns ()); 
-  
+    ra_print_rtl_with_bb (rtl_dump_file, get_insns ());
+
   if ((debug_new_regalloc & DUMP_SM) == 0)
     rtl_dump_file = NULL;
   no_new_pseudos = 0;
@@ -898,17 +898,17 @@ reg_alloc (void)
   find_basic_blocks (get_insns (), max_reg_num (), rtl_dump_file);*/
   /*compute_bb_for_insn ();*/
   /*clear_log_links (get_insns ());*/
-  life_analysis (get_insns (), rtl_dump_file, 
+  life_analysis (get_insns (), rtl_dump_file,
 		 PROP_DEATH_NOTES | PROP_LOG_LINKS  | PROP_REG_INFO);
 /*  recompute_reg_usage (get_insns (), TRUE);
-  life_analysis (get_insns (), rtl_dump_file, 
+  life_analysis (get_insns (), rtl_dump_file,
 		 PROP_SCAN_DEAD_CODE | PROP_KILL_DEAD_CODE); */
   cleanup_cfg (CLEANUP_EXPENSIVE);
   recompute_reg_usage (get_insns (), TRUE);
 /*  delete_trivially_dead_insns (get_insns (), max_reg_num ());*/
   if (rtl_dump_file)
     dump_flow_info (rtl_dump_file);
-	  
+
   /* XXX: reg_scan screws up reg_renumber, and without reg_scan, we can't do
      regclass. */
   /*reg_scan (get_insns (), max_reg_num (), 1);
@@ -931,7 +931,7 @@ reg_alloc (void)
 
   remove_suspicious_death_notes ();
   if ((debug_new_regalloc & DUMP_LAST_RTL) != 0)
-    ra_print_rtl_with_bb (rtl_dump_file, get_insns ()); 
+    ra_print_rtl_with_bb (rtl_dump_file, get_insns ());
   dump_static_insn_cost (rtl_dump_file,
 			 "after allocation/spilling, before reload", NULL);
 
@@ -982,7 +982,7 @@ web_class ()
 
       if (web->type == PRECOLORED)
 	continue;
-      
+
       for (i = 0; i < LIM_REG_CLASSES; ++i)
 	class[i] = 0;
 
@@ -1014,7 +1014,7 @@ web_class ()
 	      }
 	    else if (!reg_class_subset_p (best, i))
 	      best = NO_REGS;
-/*  	    fprintf (stderr, "%s: %d ", reg_class_names[i], class[i]); */
+/*	    fprintf (stderr, "%s: %d ", reg_class_names[i], class[i]); */
 	  }
 /*    fprintf (stderr, " BEST: %s\n", reg_class_names[best]); */
       if (best == NO_REGS)

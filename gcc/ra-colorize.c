@@ -484,7 +484,7 @@ merge_moves (u, v)
 {
   regset seen;
   struct move_list *ml;
-  
+
   seen = BITMAP_XMALLOC ();
   for (ml = u->moves; ml; ml = ml->next)
     bitmap_set_bit (seen, INSN_UID (ml->move->insn));
@@ -739,7 +739,7 @@ combine (u, v)
 	    decrement_degree (pweb, 1 + v->add_hardregs);
 	}
     }
-  
+
   /* Now merge the usable_regs together.  */
   /* XXX That merging might normally make it necessary to
      adjust add_hardregs, which also means to adjust neighbors.  This can
@@ -759,7 +759,7 @@ combine (u, v)
      possible hardreg in common), so abort.  */
   if (!u->num_freedom)
     abort();
-  
+
   if (u->num_conflicts >= NUM_REGS (u)
       && (u->type == FREEZE || simplify_p (u->type)))
     {
@@ -787,7 +787,7 @@ coalesce (void)
   struct move *m = DLIST_MOVE (d);
   struct web *source = alias (m->source_web);
   struct web *target = alias (m->target_web);
-  
+
   if (target->type == PRECOLORED)
     {
       struct web *h = source;
@@ -948,7 +948,7 @@ color_usable_p (c, dont_begin_colors, free_colors, mode)
     }
   return 0;
 }
-     
+
 /* Searches in FREE_COLORS for a block of hardregs of the right length
    for MODE.  If it needs more than one hardreg it prefers blocks beginning
    at an even hardreg, and only gives an odd begin reg if no other
@@ -963,7 +963,7 @@ get_free_reg (dont_begin_colors, free_colors, mode)
   int pref_reg = -1;
   int pref_reg_order = INT_MAX;
   int last_resort_reg_order = INT_MAX;
-  
+
   for (c = 0; c < FIRST_PSEUDO_REGISTER; c++)
     if (!TEST_HARD_REG_BIT (dont_begin_colors, c)
 	&& TEST_HARD_REG_BIT (free_colors, c)
@@ -973,10 +973,10 @@ get_free_reg (dont_begin_colors, free_colors, mode)
 	size = HARD_REGNO_NREGS (c, mode);
 	for (i = 1; i < size && TEST_HARD_REG_BIT (free_colors, c + i); i++);
 	if (i != size)
- 	  {
- 	    c += i;
- 	    continue;
- 	  }
+	  {
+	    c += i;
+	    continue;
+	  }
 	if (i == size)
 	  {
 	    if (size < 2 || (c & 1) == 0)
@@ -1177,7 +1177,7 @@ colorize_one_web (web, hard)
   int best_long_blocks = -1;
   HARD_REG_SET fat_colors;
   HARD_REG_SET bias;
-  
+
   if (web->regno >= max_normal_pseudo)
     hard = 0;
 
@@ -1221,14 +1221,14 @@ colorize_one_web (web, hard)
   while (1)
     {
       HARD_REG_SET call_clobbered;
-	
+
       /* Here we choose a hard-reg for the current web.  For non spill
          temporaries we first search in the hardregs for it's prefered
 	 class, then, if we found nothing appropriate, in those of the
 	 alternate class.  For spill temporaries we only search in
 	 usable_regs of this web (which is probably larger than that of
 	 the preferred or alternate class).  All searches first try to
-	 find a non-call-clobbered hard-reg.  
+	 find a non-call-clobbered hard-reg.
          XXX this should be more finegraned... First look into preferred
          non-callclobbered hardregs, then _if_ the web crosses calls, in
          alternate non-cc hardregs, and only _then_ also in preferred cc
@@ -1266,7 +1266,7 @@ colorize_one_web (web, hard)
       if (c < 0)
 	c = get_biased_reg (dont_begin, bias, web->prefer_colors,
 			  colors, PSEUDO_REGNO_MODE (web->regno));
-      
+
       if (/*!web->use_my_regs &&*/ c < 0)
 	{
 	  if (web->use_my_regs)
@@ -1281,7 +1281,7 @@ colorize_one_web (web, hard)
 #endif
 	  COPY_HARD_REG_SET (call_clobbered, colors);
 	  AND_HARD_REG_SET (call_clobbered, call_used_reg_set);
-	  
+
 	  c = get_biased_reg (dont_begin, bias, web->prefer_colors,
 			    call_clobbered, PSEUDO_REGNO_MODE (web->regno));
 	  if (c < 0)
@@ -1349,7 +1349,7 @@ colorize_one_web (web, hard)
 	 can result in endless iteration spilling the same register again and
 	 again.  That's why we try to find a neighbor, which spans more
 	 instructions that ourself, and got a color, and try to spill _that_.
-	 
+
 	 if (DLIST_WEB (d)->was_spilled < 0)
 	 abort (); */
       if (hard && (!web->was_spilled || web->spill_temp))
@@ -1387,7 +1387,7 @@ colorize_one_web (web, hard)
 		   heavy, that's why only done at the fifth pass.  */
 		if (loop > 3 && web->spill_temp)
 		  w = alias (w);
-	        if (w->type == COLORED 
+	        if (w->type == COLORED
 		    && (!w->spill_temp || (loop > 2 && w->spill_temp == 2))
 		    && (!w->is_coalesced || (loop > 1 && web->spill_temp))
 		    && (w->was_spilled || loop > 0)
@@ -2161,7 +2161,7 @@ restore_conflicts_from_coalesce (web)
     }
 
   /* We must restore usable_regs because record_conflict will use it.  */
-  COPY_HARD_REG_SET (web->usable_regs, web->orig_usable_regs); 
+  COPY_HARD_REG_SET (web->usable_regs, web->orig_usable_regs);
   /* We might have deleted some conflicts above, which really are still
      there (diamond pattern coalescing).  This is because we don't reference
      count interference edges but some of them were the result of different
@@ -2387,7 +2387,7 @@ aggressive_coalesce (void)
 	      {
 	        put_move (m, MV_COALESCED);
 		add_web_pair_cost (s, t, BLOCK_FOR_INSN (m->insn)->frequency,
-				   0); 
+				   0);
 	      }
 	    else if (s->type == PRECOLORED)
 	      /* It is !ok(t, s).  But later when coloring the graph it might
@@ -2577,7 +2577,7 @@ extended_coalesce_2 (void)
 				    source->id * num_webs + dest->id)
 		      && hard_regs_intersect_p (&source->usable_regs,
 						&dest->usable_regs))
-		    add_web_pair_cost (dest, source, 
+		    add_web_pair_cost (dest, source,
 				       BLOCK_FOR_INSN (insn)->frequency,
 				       dest->num_conflicts
 				       + source->num_conflicts);

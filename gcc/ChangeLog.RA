@@ -1,3 +1,13 @@
+2002-06-21  Andreas Jaeger  <aj@suse.de>
+
+	* ra.c: Cleanup whitespace.
+	* ra.h: Cleanup whitespace.
+	* ra-build.c: Cleanup whitespace.
+	* ra-colorize.c: Cleanup whitespace.
+	* ra-debug.c: Cleanup whitespace.
+	* ra-ranges.c: Cleanup whitespace.
+	* ra-rewrite.c: Cleanup whitespace.
+
 2002-06-20  Michael Matz  <matz@suse.de>
 
 	Split ra.c into ra.c, ra.h, ra-build.c, ra-colorize.c, ra-debug.c,

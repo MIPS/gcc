@@ -58,7 +58,7 @@ static int slots_overlap_p PARAMS ((rtx, rtx));
 static void delete_overlapping_slots PARAMS ((struct rtx_list **, rtx));
 static int slot_member_p PARAMS ((struct rtx_list *, rtx));
 static void insert_stores PARAMS ((bitmap));
-static int spill_same_color_p PARAMS ((struct web *, struct web *)); 
+static int spill_same_color_p PARAMS ((struct web *, struct web *));
 static int is_partly_live_1 PARAMS ((sbitmap, struct web *));
 static void update_spill_colors PARAMS ((HARD_REG_SET *, struct web *, int));
 static int spill_is_free PARAMS ((HARD_REG_SET *, struct web *));
@@ -369,7 +369,7 @@ rewrite_program (new_deaths)
 	rtx slot;
 	if (aweb->type != SPILLED)
 	  continue;
-      
+
 	if (flag_ra_spill_every_use)
 	  {
 	    bitmap_clear (b);
@@ -409,12 +409,12 @@ rewrite_program (new_deaths)
 		    set_block_for_insn (insn, bb);
 		    df_insn_modify (df, bb, insn);
 		  }
-		
+
 		emitted_spill_loads++;
 		spill_load_cost += bb->frequency + 1;
 	      }
 	  }
-	
+
 	/* If any uses were loaded from stackslots (compared to
 	   rematerialized or not reloaded due to IR spilling),
 	   aweb->stack_slot will be set.  If not, we don't need to emit
@@ -458,7 +458,7 @@ rewrite_program (new_deaths)
 		  else*/
 		    ra_emit_move_insn (dest, source);
 		}
-		
+
 	      insns = get_insns ();
 	      end_sequence ();
 	      if (insns)
@@ -945,7 +945,7 @@ detect_deaths_in_bb (bb, live, new_deaths)
   head_prev = PREV_INSN (bb->head);
   sbitmap_zero (live);
   EXECUTE_IF_SET_IN_BITMAP (live_at_end[bb->index], 0, j,
-    { 
+    {
       struct web *web = use2web[j];
       struct web *aweb = alias (find_web_for_subweb (web));
       /* See below in rewrite_program2() for a comment which webs we
@@ -1016,7 +1016,7 @@ detect_deaths_in_bb (bb, live, new_deaths)
 	      break;
 	    }
 	}
-      
+
       for (n = 0; n < info.num_uses; n++)
 	{
 	  struct web *web = use2web[DF_REF_ID (info.uses[n])];
@@ -1141,7 +1141,7 @@ rewrite_program2 (new_deaths)
       sbitmap_zero (ri.live);
       CLEAR_HARD_REG_SET (ri.colors_in_use);
       EXECUTE_IF_SET_IN_BITMAP (live_at_end[i - 2], 0, j,
-	{ 
+	{
 	  struct web *web = use2web[j];
 	  struct web *aweb = alias (find_web_for_subweb (web));
 	  /* A web is only live at end, if it isn't spilled.  If we wouldn't
@@ -1197,7 +1197,7 @@ rewrite_program2 (new_deaths)
 	    {
 	      int index = BLOCK_FOR_INSN (insn)->index + 2;
 	      EXECUTE_IF_SET_IN_BITMAP (live_at_end[index - 2], 0, j,
-		{ 
+		{
 		  struct web *web = use2web[j];
 		  struct web *aweb = alias (find_web_for_subweb (web));
 		  if (aweb->type != SPILLED)
@@ -1312,7 +1312,7 @@ rewrite_program2 (new_deaths)
 	  /* CALL_INSNs are not really deaths, but still more registers
 	     are free after a call, than before.
 	     XXX Note, that sometimes reload barfs when we emit insns between
-	     a call and the insn which copies the return register into a 
+	     a call and the insn which copies the return register into a
 	     pseudo.  */
 	  if (GET_CODE (insn) == CALL_INSN)
 	    ri.need_load = 1;
@@ -1334,7 +1334,7 @@ rewrite_program2 (new_deaths)
 		    break;
 		  }
 	      }
-	  
+
 	  if (INSN_P (insn) && ri.num_reloads)
 	    {
               int old_num_reloads = ri.num_reloads;
@@ -1365,7 +1365,7 @@ rewrite_program2 (new_deaths)
 		if (aweb->type != SPILLED)
 		  update_spill_colors (&(ri.colors_in_use), web, 1);
 	      }
-	  
+
 	  ri.any_spilltemps_spilled = 0;
 	  if (INSN_P (insn))
 	    for (n = 0; n < info.num_uses; n++)
@@ -1408,7 +1408,7 @@ rewrite_program2 (new_deaths)
 #endif
 	    break;
 	}
-      
+
       nl_first_reload = ri.nl_size;
       if (ri.num_reloads)
 	{
@@ -1422,7 +1422,7 @@ rewrite_program2 (new_deaths)
 	      int j;
 	      CLEAR_HARD_REG_SET (colors);
 	      EXECUTE_IF_SET_IN_BITMAP (live_at_end[e->src->index], 0, j,
-		{ 
+		{
 		  struct web *web = use2web[j];
 		  struct web *aweb = alias (find_web_for_subweb (web));
 		  if (aweb->type != SPILLED)
@@ -1432,7 +1432,7 @@ rewrite_program2 (new_deaths)
 	    }
 	  if (num == 5)
 	    in_ir = 1;
-	  
+
 	  bitmap_clear (ri.scratch);
 	  EXECUTE_IF_SET_IN_BITMAP (ri.need_reload, 0, j,
 	    {
@@ -1865,8 +1865,8 @@ delete_moves (void)
        Additionally: s->type != PRECOLORED && t->type != PRECOLORED, in case
        we want to prevent deletion of "special" copies.  */
     if (ml->move
-       	&& (s = alias (ml->move->source_web))->reg_rtx
-       	    == (t = alias (ml->move->target_web))->reg_rtx
+	&& (s = alias (ml->move->source_web))->reg_rtx
+	    == (t = alias (ml->move->target_web))->reg_rtx
 	&& s->type != PRECOLORED && t->type != PRECOLORED)
       {
 	basic_block bb = BLOCK_FOR_INSN (ml->move->insn);

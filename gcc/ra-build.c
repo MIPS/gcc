@@ -381,7 +381,7 @@ union_web_part_roots (r1, r2)
     {
       /* The new root is the smaller (pointerwise) of both.  This is crucial
          to make the construction of webs from web parts work (so, when
-	 scanning all parts, we see the roots before all it's childs).  
+	 scanning all parts, we see the roots before all it's childs).
          Additionally this ensures, that if the web has a def at all, than
          the root is a def (because all def parts are before use parts in the
 	 web_parts[] array), or put another way, as soon, as the root of a
@@ -511,7 +511,7 @@ struct curr_use {
    and a is a multi-word pseudo.  If DEF or USE are hardregs, they are in
    wordmode, so we don't need to check for further hardregs which would result
    from wider references.  We are never called with paradoxical subregs.
- 
+
    This returns:
    0 for no common bits,
    1 if DEF and USE exactly cover the same bytes,
@@ -676,7 +676,7 @@ live_out_1 (df, use, insn)
 		 the web parts.  */
 	      wp = union_web_parts (wp, &web_parts[DF_REF_ID (ref)]);
 	    }
-	  else 
+	  else
 	    {
 	      unsigned HOST_WIDE_INT undef = use->undefined;
 	      if (regno == source_regno)
@@ -1051,7 +1051,7 @@ prune_hardregs_for_mode (s, mode)
      enum machine_mode mode;
 {
   /* We work by first noting _all_ hardregs for which MODE is OK (including
-     it's consecutive regs), and later intersect that with *S.  
+     it's consecutive regs), and later intersect that with *S.
      We are not interested only in the beginning of a multi-reg, but in
      all the hardregs involved.  May be HARD_REGNO_MODE_OK() only ok's
      for beginnings.  */
@@ -1217,8 +1217,8 @@ add_subweb_2 (web, size_word)
      unsigned int size_word;
 {
   /* To get a correct mode for the to be produced subreg, we don't want to
-     simply do a mode_for_size() for the mode_class of the whole web.  
-     Suppose we deal with a CDImode web, but search for a 8 byte part.  
+     simply do a mode_for_size() for the mode_class of the whole web.
+     Suppose we deal with a CDImode web, but search for a 8 byte part.
      Now mode_for_size() would only search in the class MODE_COMPLEX_INT
      and would find CSImode which probably is not what we want.  Instead
      we want DImode, which is in a completely other class.  For this to work
@@ -1361,7 +1361,7 @@ add_conflict_edge (from, to)
       struct sub_conflict *sl;
       struct conflict_link *cl = pfrom->conflict_list;
       int may_delete = 1;
-      
+
       /* This can happen when subwebs of one web conflict with each
 	 other.  In live_out_1() we created such conflicts between yet
 	 undefined webparts and defs of parts which didn't overlap with the
@@ -1433,7 +1433,7 @@ record_conflict (web1, web2)
     return;
   /* Conflicts with hardregs, which are not even a candidate
      for this pseudo are also pointless.  */
-  if ((web1->type == PRECOLORED 
+  if ((web1->type == PRECOLORED
        && ! TEST_HARD_REG_BIT (web2->usable_regs, web1->regno))
       || (web2->type == PRECOLORED
 	  && ! TEST_HARD_REG_BIT (web1->usable_regs, web2->regno)))
@@ -1884,18 +1884,18 @@ reset_conflicts (void)
       if (web->orig_conflict_list)
 	abort ();
       if (web->type != PRECOLORED && !web->old_web)
- 	{
+	{
 	  *pcl = NULL;
- 	  /* Useless conflicts will be rebuilt completely.  */
- 	  if (bitmap_first_set_bit (web->useless_conflicts) >= 0)
- 	    abort ();
- 	}
+	  /* Useless conflicts will be rebuilt completely.  */
+	  if (bitmap_first_set_bit (web->useless_conflicts) >= 0)
+	    abort ();
+	}
       else
 	{
- 	  /* Useless conflicts with new webs will be rebuilt if they
- 	     are still there.  */
- 	  bitmap_operation (web->useless_conflicts, web->useless_conflicts,
- 			    newwebs, BITMAP_AND_COMPL);
+	  /* Useless conflicts with new webs will be rebuilt if they
+	     are still there.  */
+	  bitmap_operation (web->useless_conflicts, web->useless_conflicts,
+			    newwebs, BITMAP_AND_COMPL);
 	  for (cl = web->conflict_list; cl; cl = cl->next)
 	    {
 	      if (cl->t->old_web || cl->t->type == PRECOLORED)
@@ -1941,14 +1941,14 @@ check_conflict_numbers (void)
     }
 }
 
-/* Convert the conflicts between web parts to conflicts between full webs.  
+/* Convert the conflicts between web parts to conflicts between full webs.
 
    This can't be done in parts_to_webs(), because for recording conflicts
    between webs we need to know their final usable_regs set, which is used
-   to discard non-conflicts (between webs having no hard reg in common).  
+   to discard non-conflicts (between webs having no hard reg in common).
    But this is set for spill temporaries only after the webs itself are
    built.  Until then the usable_regs set is based on the pseudo regno used
-   in this web, which may contain far less registers than later determined.  
+   in this web, which may contain far less registers than later determined.
    This would result in us loosing conflicts (due to record_conflict()
    thinking that a web can only be allocated to the current usable_regs,
    whereas later this is extended) leading to colorings, where some regs which
@@ -2014,7 +2014,7 @@ conflicts_between_webs (df)
 	       set/test.  The current approach needs more memory, but
 	       locality is large.  */
 	    pass++;
-	      
+
 	    /* Note, that there are only defs in the conflicts bitset.  */
 	    EXECUTE_IF_SET_IN_BITMAP (
 	      cl->conflicts, 0, j,
@@ -2317,7 +2317,7 @@ want_to_remat (x)
   /* XXX For now we don't allow any clobbers to be added, not just no
      hardreg clobbers.  */
   return ((icode = recog (PATTERN (test_insn), test_insn, &num_clobbers)) >= 0
-	  && (num_clobbers == 0 
+	  && (num_clobbers == 0
 	      /*|| ! added_clobbers_hard_reg_p (icode)*/));
 }
 
@@ -2446,7 +2446,7 @@ determine_web_costs (void)
     }
 }
 
-/* Detect webs which are set in a conditional jump insn (possibly a 
+/* Detect webs which are set in a conditional jump insn (possibly a
    decrement-and-branch type of insn), and mark them not to be
    spillable.  The stores for them would need to be placed on edges,
    which destroys the CFG.  (Somewhen we want to deal with that XXX)  */
@@ -2581,7 +2581,7 @@ handle_asm_insn (df, insn)
     return;
   pat = PATTERN (insn);
   CLEAR_HARD_REG_SET (clobbered);
-  
+
   if (GET_CODE (pat) == PARALLEL)
     for (i = 0; i < XVECLEN (pat, 0); i++)
       {
@@ -2689,10 +2689,10 @@ handle_asm_insn (df, insn)
 	      default:
 		cls =
 		  (int) reg_class_subunion[cls][(int)
-		  				REG_CLASS_FROM_LETTER (c)];
+						REG_CLASS_FROM_LETTER (c)];
 	    }
 	}
-      
+
       /* Now make conflicts between this web, and all hardregs, which
 	 are not allowed by the constraints.  */
       if (nothing_allowed)
@@ -2784,7 +2784,7 @@ ra_build_realloc (df)
   for (i = 0; i < last_def_id + last_use_id; i++)
     {
       struct web_part *dest = &web_parts[i < last_def_id
-	  				 ? i : (df->def_id + i - last_def_id)];
+					 ? i : (df->def_id + i - last_def_id)];
       struct web_part *up;
       *dest = last_web_parts[i];
       up = dest->uplink;
@@ -2865,7 +2865,7 @@ ra_build_free (void)
 {
   struct dlist *d;
   unsigned int i;
-  
+
   /* We must also cycle over subwebs.  */
   for (i = 0; i < num_webs; i++)
     {
@@ -2903,7 +2903,7 @@ ra_build_free (void)
     }
 
   wl_moves = NULL;
-  
+
   free (id2web);
   free (move_handled);
   sbitmap_free (sup_igraph);

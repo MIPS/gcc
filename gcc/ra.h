@@ -98,7 +98,7 @@ struct web
      involved in coalescing in some way.  */
   unsigned int is_coalesced:1;
   unsigned int artificial:1;
-  		    /* != 0 : there is no rtl in the code which corresponds
+		    /* != 0 : there is no rtl in the code which corresponds
                        to this web.  Happens e.g. with conflicts to a web,
                        of which only a part was still undefined at the point
                        of that conflict.  In this case we construct a subweb
@@ -274,7 +274,7 @@ extern bitmap *live_at_end;
 extern int ra_pass;
 extern unsigned int max_normal_pseudo;
 extern int an_unusable_color;
- 
+
 extern int *number_seen;
 
 /* The different lists on which a web can be (based on the type).  */
