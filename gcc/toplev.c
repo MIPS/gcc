@@ -788,7 +788,7 @@ int flag_renumber_insns = 1;
 int flag_new_regalloc = 0;
 
 /* If nonzero, use tree-based instead of rtl-based profiling.  */
-int flag_tree_based_profiling = 0;
+int flag_tree_based_profiling = 1;
 
 /* Enable SSA-GVN on trees.  */
 int flag_tree_gvn = 0;
@@ -2331,8 +2331,6 @@ process_options (void)
     warning ("this target machine does not have delayed branches");
 #endif
 
-  if (flag_tree_based_profiling && flag_test_coverage)
-    sorry ("test-coverage not yet implemented in trees.");
   if (flag_tree_based_profiling && flag_profile_values)
     sorry ("value-based profiling not yet implemented in trees.");
 

@@ -1,5 +1,23 @@
 2004-03-15  Jan Hubicka  <jh@suse.cz>
 
+	* gimple-low.c (lower_cond_expr):  Do not re-use explicit gotos.
+	* profile.c (branch_prob): Do not verify flow info; re-invent fallthru
+	flags on trees; output coverage info for trees.
+	* toplev.c (flag_tree_based_profiling): Enable it by default.
+	(process_options): Do not sorry about coverage on trees.
+	* tree-cfg.c (make_edges): Only delete unreachable block or mess the
+	coverage info.
+	(make_goto_expr_edges): Preserve locators for elliminated explicit
+	gotos.
+	(tree_find_edge_insert_loc): Deal with inserting just before return
+	statement.
+	* tree-optimize.c (init_tree_optimization_passes): Make tree-profilng
+	to be run even when not optimizing.
+	* tree-profile.c (do_tree_profiling): Don't run profilng when we are
+	not profilng.
+
+2004-03-15  Jan Hubicka  <jh@suse.cz>
+
 	* cfgrtl.c (rtl_create_basic_block): Pre-allocate basic_block_info
 	array.
 
