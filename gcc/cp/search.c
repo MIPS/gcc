@@ -1124,7 +1124,7 @@ friend_accessible_p (scope, decl, binfo)
    context, DECL is accessible.  If TYPE is actually a BINFO node,
    then we can tell in what context the access is occurring by looking
    at the most derived class along the path indicated by BINFO.  */
-
+/* FIXME: TYPE should never be a BINFO any more.  */
 int 
 accessible_p (type, decl)
      tree type;
@@ -1203,6 +1203,41 @@ accessible_p (type, decl)
   assert_canonical_unmarked (binfo);
 
   return t != NULL_TREE;
+}
+
+/* Returns the scope through which DECL is being accessed.  If
+   OBJECT_TYPE is non-NULL, we have just seen `x->' or `x.'.  If the
+   DECL was named as `A::B' then NESTED_NAME_SPECIFIER is `A'.  */
+
+tree
+determine_scope_through_which_access_occurs (decl, 
+					     object_type,
+					     nested_name_specifier)
+     tree decl;
+     tree object_type;
+     tree nested_name_specifier;
+{
+  tree scope;
+  tree qualifying_type = NULL_TREE;
+  
+  /* Determine the SCOPE of DECL.  */
+  scope = context_for_name_lookup (decl);
+  /* Figure out the type through which DECL is being accessed.  If we
+     are processing a `->' or `.' expression, use the type of the
+     left-hand side.  */
+  if (object_type && DERIVED_FROM_P (scope, object_type))
+    qualifying_type = object_type;
+  /* Perhaps we are implicitly accessing the DECL because we are in a
+     class derived from SCOPE.  */
+  if (!qualifying_type && current_class_type)
+    qualifying_type 
+      = currently_open_derived_class (scope);
+  /* Otherwise, we are accessing the DECL via an explicit qualifying
+     scope.  */
+  if (!qualifying_type)
+    qualifying_type = nested_name_specifier;
+
+  return qualifying_type;
 }
 
 /* Routine to see if the sub-object denoted by the binfo PARENT can be
@@ -1598,6 +1633,8 @@ lookup_member (xbasetype, name, protect, want_type)
 
       rval = tree_cons (rval_binfo, rval, NULL_TREE);
       SET_BASELINK_P (rval);
+      if (IDENTIFIER_TYPENAME_P (name))
+	TREE_TYPE (rval) = TREE_TYPE (name);
     }
 
   return rval;
@@ -2548,10 +2585,8 @@ expand_upcast_fixups (binfo, addr, orig_addr, vbase, vbase_addr, t,
 	  assemble_external (vtbl);
 	  aref = build_array_ref (vtbl, idx);
 	  naref = build_array_ref (nvtbl, idx);
-	  old_delta = build_component_ref (aref, delta_identifier,
-					   NULL_TREE, 0);
-	  new_delta = build_component_ref (naref, delta_identifier,
-					   NULL_TREE, 0);
+	  old_delta = build_component_ref_by_name (aref, delta_identifier);
+	  new_delta = build_component_ref_by_name (naref, delta_identifier);
 
 	  /* This is a upcast, so we have to add the offset for the
 	     virtual base.  */

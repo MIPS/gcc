@@ -18,7 +18,7 @@ struct class3 {
 template<class ItIsClass2>
 int class3<ItIsClass2>::f()
 {
-  return class1<typename ItIsClass2::class2_value>::class11::class11_value(10);
+  return typename class1<typename ItIsClass2::class2_value>::class11::class11_value(10);
 }
 
 struct class2 {

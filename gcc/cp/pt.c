@@ -1310,6 +1310,25 @@ check_explicit_specialization (declarator, decl, flags)
       else
 	specialization = 1;
     }
+  else if (TREE_CODE (declarator) == TEMPLATE_ID_EXPR
+	   && is_friend)
+    /* This is something like:
+
+         template <class T> void f(T);
+	 class S { friend void f<>(int); }  */
+    specialization = 1;
+  else if (processing_template_decl && ctype 
+	   && CLASSTYPE_TEMPLATE_INSTANTIATION (ctype))
+    /* This is a specialization of a member template, without
+       specialization the containing class.  Something like:
+
+         template <class T> struct S {
+           template <class U> void f (U); 
+	 };
+	 template <> template <class U> void S<int>::f(U) {}
+	     
+       That's a specialization -- but of the entire template.  */
+    specialization = 1;
 
   if (specialization || member_specialization)
     {
@@ -4169,6 +4188,12 @@ for_each_template_parm_r (tp, walk_subtrees, d)
       /* Fall through.  */
 
     case CONST_DECL:
+      if (TREE_CODE (t) == CONST_DECL
+	  && DECL_TEMPLATE_PARM_P (t)
+	  && for_each_template_parm (DECL_INITIAL (t), fn, data))
+	return error_mark_node;
+      /* Fall through.  */
+      
     case PARM_DECL:
       if (DECL_CONTEXT (t) 
 	  && for_each_template_parm (DECL_CONTEXT (t), fn, data))
@@ -6855,7 +6880,9 @@ tsubst_copy (t, args, complain, in_decl)
     case CALL_EXPR:
       {
 	tree fn = TREE_OPERAND (t, 0);
-	if (is_overloaded_fn (fn))
+	if (TREE_CODE (fn) == TEMPLATE_ID_EXPR)
+	  fn = tsubst_copy (fn, args, complain, in_decl);
+	else if (is_overloaded_fn (fn))
 	  fn = tsubst_copy (get_first_fn (fn), args, complain, in_decl);
 	else
 	  /* Sometimes FN is a LOOKUP_EXPR.  */
@@ -6944,6 +6971,7 @@ tsubst_copy (t, args, complain, in_decl)
         /* Substituted template arguments */
 	tree targs = tsubst_copy (TREE_OPERAND (t, 1), args, complain,
 				  in_decl);
+	tree fn;
 
 	if (targs && TREE_CODE (targs) == TREE_LIST)
 	  {
@@ -6959,9 +6987,12 @@ tsubst_copy (t, args, complain, in_decl)
 		= maybe_fold_nontype_arg (TREE_VEC_ELT (targs, i));
 	  }
 
-	return lookup_template_function
-	  (tsubst_copy (TREE_OPERAND (t, 0), args, complain, in_decl), targs);
+	fn = tsubst_copy (TREE_OPERAND (t, 0), args, complain, in_decl);
+	return lookup_template_function (fn, targs);
       }
+
+    case OVERLOAD:
+      return DECL_NAME (get_first_fn (t));
 
     case TREE_LIST:
       {
@@ -6969,6 +7000,9 @@ tsubst_copy (t, args, complain, in_decl)
 
 	if (t == void_list_node)
 	  return t;
+
+	if (BASELINK_P (t))
+	  return DECL_NAME (get_first_fn (t));
 
 	purpose = TREE_PURPOSE (t);
 	if (purpose)
@@ -8746,6 +8780,8 @@ unify (tparms, targs, parm, arg, strict)
 		    strict);
 
     case CONST_DECL:
+      if (DECL_TEMPLATE_PARM_P (parm))
+	return unify (tparms, targs, DECL_INITIAL (parm), arg, strict);
       if (arg != decl_constant_value (parm)) 
 	return 1;
       return 0;

@@ -44,6 +44,9 @@ cp_tag_kind current_aggr;
    sure that the `extern' gets applied.  See the old have_extern_spec
    stuff.  */
 
+/* FIXME: Do we allow `foo::template bar' where bar is not a 
+   template?  */
+
 /* Prototypes.  */
 
 static void ggc_mark_token_obstack 
@@ -88,7 +91,9 @@ typedef struct cp_token
   /* If this token is a keyword, this value indicates which keyword.
      Otherwise, this value is RID_MAX.  */
   enum rid keyword;
-  /* The line-number at which this token was found.  */
+  /* The file in which this token was found.  */
+  const char *file_name;
+  /* The line at which this token was found.  */
   int line_number;
 } cp_token;
 
@@ -513,6 +518,7 @@ cp_lexer_get_preprocessor_token (lexer, token)
     {
       token->type = CPP_EOF;
       token->line_number = 0;
+      token->file_name = NULL;
       token->value = NULL_TREE;
       token->keyword = RID_MAX;
 
@@ -531,6 +537,7 @@ cp_lexer_get_preprocessor_token (lexer, token)
 	continue;
       /* Now we've got our token.  */
       token->line_number = lineno;
+      token->file_name = input_filename;
       break;
     }
 
@@ -779,7 +786,7 @@ cp_lexer_set_source_position_from_token (lexer, token)
 
   /* Update the line number.  */
   lineno = token->line_number;
-  /* FIXME: We should update the filename, too.  */
+  input_filename = token->file_name;
 }
 
 /* Mark the lexer for GC.  DATA is really a `cp_lexer *'.  */
@@ -1480,7 +1487,7 @@ static tree cp_parser_template_argument
 static void cp_parser_explicit_instantiation
   PARAMS ((cp_parser *));
 static void cp_parser_explicit_specialization
-  PARAMS ((cp_parser *));
+  PARAMS ((cp_parser *, unsigned));
 
 /* Exception handling [gram.exception] */
 
@@ -2188,31 +2195,38 @@ cp_parser_primary_expression (parser)
       {
 	tree id_expression;
 	tree decl;
+	tree object_type;
 
 	/* Parse the id-expression.  */
 	id_expression = cp_parser_id_expression (parser, 
 						 /*assume_typename_p=*/false);
-	/* If the name is an unqualified name, we might have to do
-	   Koenig lookup if the identifier is used as the
-	   postfix-expression in a function call.  So, in that case,
-	   we do not look up the name until later.  */
+	/* Look up the name. Eventually, the DECL should be returned
+	   from here directly.  FIXME.  */
+	decl = cp_parser_lookup_name (parser, id_expression,
+				      /*check_access=*/true,
+				      /*is_type=*/false);
+	/* If we didn't find anything, or what we found was a type,
+	   then this wasn't really an id-expression.  */
+	if (TREE_CODE (decl) == TYPE_DECL
+	    || TREE_CODE (decl) == NAMESPACE_DECL
+	    || (TREE_CODE (decl) == TEMPLATE_DECL
+		&& !DECL_FUNCTION_TEMPLATE_P (decl)))
+	  {
+	    cp_parser_error (parser, 
+			     "expected primary-expression");
+	    return error_mark_node;
+	  }
+
+	/* Return a representation of the primary-expression.  */
 	if (!parser->scope)
 	  decl = id_expression;
 	else
-	  {
-	    /* FIXME: Instead of building a SCOPE_REF, we should just
-	       resolve this to a declaration immediately.  The old code
-	       built an OFFSET_REF (with build_offset_ref) in this
-	       situation, so we have to rework some other parts of the
-	       compiler.  */
-	    decl = build_nt (SCOPE_REF, parser->scope, id_expression);
-	    /* Do name lookup to get accessibility error messages,
-	       even though we do not yet resolve the name to a
-	       declaration here.  */
-	    cp_parser_lookup_name (parser, id_expression,
-				   /*check_access=*/true,
-				   /*is_type=*/false);
-	  }
+	  /* FIXME: Instead of building a SCOPE_REF, we should just
+	     resolve this to a declaration immediately.  The old code
+	     qbuilt an OFFSET_REF (with build_offset_ref) in this
+	     situation, so we have to rework some other parts of the
+	     compiler.  */
+	  decl = build_nt (SCOPE_REF, parser->scope, id_expression);
 
 	return decl;
       }
@@ -2460,30 +2474,52 @@ cp_parser_nested_name_specifier_opt (parser, typename_keyword_p)
      bool typename_keyword_p;
 {
   bool success = false;
-  bool template_keyword_p = false;
 
   while (true)
     {
       tree new_scope;
       tree old_scope;
       cp_token *token;
+      bool template_keyword_p;
 
-      /* If the next token is not an identifier, then it is definitely
-	 not a class-or-namespace-name.  This, and the immediately
-	 following tests are optimizations; we want to avoid looking
-	 up names that we do not need to look up.  */
-      if (cp_lexer_next_token_is_not (parser->lexer, CPP_NAME))
-	break;
-      /* If the following token is neither a `<' (to begin a
-	 template-id), nor a `::', then we are not looking at a
-	 nested-name-specifier.  */
-      token = cp_lexer_peek_nth_token (parser->lexer, 2);
-      if (token->type != CPP_LESS && token->type != CPP_SCOPE)
-	break;
+      /* Spot cases that cannot be the beginning of a
+	 nested-name-specifier.  On the second and subsequent times
+	 through the loop, we look for the `template' keyword.  */
+      if (success 
+	  && cp_lexer_next_token_is_keyword (parser->lexer,
+					     RID_TEMPLATE))
+	;
+      else
+	{
+	  /* If the next token is not an identifier, then it is
+	     definitely not a class-or-namespace-name.  */
+	  if (cp_lexer_next_token_is_not (parser->lexer, CPP_NAME))
+	    break;
+	  /* If the following token is neither a `<' (to begin a
+	     template-id), nor a `::', then we are not looking at a
+	     nested-name-specifier.  */
+	  token = cp_lexer_peek_nth_token (parser->lexer, 2);
+	  if (token->type != CPP_LESS && token->type != CPP_SCOPE)
+	    break;
+	}
 
       /* The nested-name-specifier is optional, so we parse
 	 tentatively.  */
       cp_parser_parse_tentatively (parser);
+
+      /* Look for the optional `template' keyword, if this isn't the
+	 first time through the loop.  */
+      if (success
+	  && cp_lexer_next_token_is_keyword (parser->lexer, 
+					     RID_TEMPLATE))
+	{
+	  /* Consume the `template' token.  */
+	  cp_lexer_consume_token (parser->lexer);
+	  /* Remember that we saw it.  */
+	  template_keyword_p = true;
+	}
+      else
+	template_keyword_p = false;
 
       /* Save the old scope since the name lookup we are about to do
 	 might destroy it.  */
@@ -2515,18 +2551,6 @@ cp_parser_nested_name_specifier_opt (parser, typename_keyword_p)
       parser->scope = (TREE_CODE (new_scope) == TYPE_DECL 
 		       ? TREE_TYPE (new_scope)
 		       : new_scope);
-
-      /* Look for the optional `template' keyword.  */
-      if (cp_lexer_next_token_is_keyword (parser->lexer, 
-					  RID_TEMPLATE))
-	{
-	  /* Consume the `template' token.  */
-	  cp_lexer_consume_token (parser->lexer);
-	  /* Remember that we saw it.  */
-	  template_keyword_p = true;
-	}
-      else
-	template_keyword_p = false;
     }
 
   return success ? parser->scope : NULL_TREE;
@@ -2869,74 +2893,11 @@ cp_parser_postfix_expression (parser)
 	/* If the primary-expression was an id-expression, the name
 	   will not have been looked up at this point.  */
 	if (TREE_CODE (postfix_expression) == IDENTIFIER_NODE)
-	  {
-	    tree decl;
-	    
-	    /* If this turns out to be the postfix-expression for a
-	       function call, we will need to do Koenig lookup.  On
-	       the other hand, in order to determine whether or not
-	       this might be a function call, we must look up the
-	       name:
-	       
-		 [basic.lookup.unqual]
-
-		 For purposes of determining (during parsing) whether an
-		 expression is a postfix-pression for a function call,
-		 the usual name lookup rules apply.
-	       
-	       So, we look up the name here.  We do not check the
-	       accessibility of the declaration here because we will
-	       do that later when we resolve the name.  */
-	    /* FIXME: Should cp_parser_id_expression be rejecting
-	       identifiers that name types, namespaces, and such so
-	       that we do not have to do it here?  */
-	    decl = cp_parser_lookup_name (parser, postfix_expression,
-					  /*check_access=*/false,
-					  /*is_type=*/false);
-	    
-	    /* When name lookup fails inside a template, that just
-	       means that we need to look up the name at
-	       instantiation-time.  By resetting DECL to the
-	       IDENTIFIER_NODE, we'll get a LOOKUP_EXPR when
-	       cp_parser_maybe_lookup_name is called below.  */
-	    /* FIXME: Will this work when we get an error for some
-	       other reason, like an ambiguity in a class with
-	       multiple inheritance?  What about:
-	       
-	       struct A { int i; }; 
-	       struct B { int i; };
-	       struct C : public A, public B {
-	       template <typename T> 
-	       void f() { i = 3; }
-	       };
-	       
-	       ?  Perhaps we need to distinguish an ambiguous lookup
-	       from no result at all.  */
-	    if (decl == error_mark_node && current_template_parms)
-	      decl = postfix_expression;
-	    
-	    /* If we didn't find anything, or what we found was a
-	       type, then this wasn't really an id-expression after
-	       all.  */
-	    if (TREE_CODE (decl) == TYPE_DECL
-		|| TREE_CODE (decl) == NAMESPACE_DECL
-		|| (TREE_CODE (decl) == TEMPLATE_DECL
-		    && !DECL_FUNCTION_TEMPLATE_P (decl))
-		|| decl == error_mark_node)
-	      {
-		cp_parser_error (parser, 
-				 "expected primary-expression");
-		return error_mark_node;
-	      }
-	    
-	    /* Remember that we still have to look up this name for
-	       real.  */
-	    idk = CP_PARSER_ID_KIND_UNQUALIFIED;
-	  }
+	  /* Remember that we still have to look up this name for
+	     real.  */
+	  idk = CP_PARSER_ID_KIND_UNQUALIFIED;
 	/* Remember that this was a qualified-name so that we will
 	   know to look it up later.  */
-	/* FIXME: Should we be checking for TYPE_DECLs and such as
-	   above?  */
 	else if (TREE_CODE (postfix_expression) == SCOPE_REF)
 	  idk = CP_PARSER_ID_KIND_QUALIFIED;
       }
@@ -3008,7 +2969,7 @@ cp_parser_postfix_expression (parser)
 	    if (TREE_CODE (postfix_expression) == SCOPE_REF)
 	      postfix_expression 
 		= finish_qualified_call_expr (postfix_expression, args);
-	    else
+	    else 
 	      postfix_expression 
 		= finish_call_expr (postfix_expression, args, 
 				    idk == CP_PARSER_ID_KIND_UNQUALIFIED);
@@ -3105,19 +3066,11 @@ cp_parser_postfix_expression (parser)
 	    /* Resolve the name, if we know the type of the
 	       postfix-expression.  */
 	    if (!dependent_p)
-	      {
-		/* Destructor names must be handled specially.  */
-		if (TREE_CODE (id_expression) == BIT_NOT_EXPR)
-		  /* The call to build_x_component_ref will get us
-		     the destructor.  */
-		  ;
-		else
-		  id_expression 
-		    = cp_parser_lookup_name (parser,
-					     id_expression,
-					     /*check_access=*/true,
-					     /*is_type=*/false);
-	      }
+	      id_expression 
+		= cp_parser_lookup_name (parser,
+					 id_expression,
+					 /*check_access=*/true,
+					 /*is_type=*/false);
 
 	    /* If that worked, we don't have to try the
 	       pseudo-destructor-name production.  */
@@ -5320,7 +5273,8 @@ cp_parser_declaration (parser)
       /* `template <>' indicates a template specialization.  */
       if (token2.type == CPP_LESS
 	  && cp_lexer_peek_nth_token (parser->lexer, 3)->type == CPP_GREATER)
-	cp_parser_explicit_specialization (parser);
+	cp_parser_explicit_specialization (parser, 
+					   /*num_parameter_lists=*/0);
       /* `template <' indicates a template declaration.  */
       else if (token2.type == CPP_LESS)
 	cp_parser_template_declaration (parser, /*member_p=*/false);
@@ -6550,7 +6504,7 @@ cp_parser_template_parameter (parser)
      typename identifier [opt]
      typename identifier [opt] = type-id
      template < template-parameter-list > class identifier [opt]
-     template < tmeplate-parameter-list > class identifier [opt] 
+     template < template-parameter-list > class identifier [opt] 
        = id-expression  
 
    Returns a TREE_LIST.  The TREE_VALUE is itself a TREE_LIST.  The
@@ -6647,6 +6601,12 @@ cp_parser_type_parameter (parser)
 	    default_argument 
 	      = cp_parser_id_expression (parser,
 					 /*assume_typename_p=*/false);
+	    /* Look up the name.  */
+	    default_argument 
+	      = cp_parser_lookup_name (parser,
+				       default_argument,
+				       /*check_access=*/true,
+				       /*is_type=*/false);
 	    /* See if the default argument is valid.  */
 	    default_argument
 	      = check_template_template_default_arg (default_argument);
@@ -6738,7 +6698,8 @@ cp_parser_template_id (parser, template_keyword_p)
   /* If it's not a class-template or a template-template, it should be
      a function-template.  */
   my_friendly_assert ((DECL_FUNCTION_TEMPLATE_P (template)
-		       || TREE_CODE (template) == OVERLOAD),
+		       || TREE_CODE (template) == OVERLOAD
+		       || BASELINK_P (template)),
 		      20010716);
 
   return lookup_template_function (template, arguments);
@@ -6778,6 +6739,7 @@ cp_parser_template_name (parser, template_keyword_p)
 {
   tree identifier;
   tree decl;
+  tree fns;
 
   /* If the next token is `operator', then we have either an
      operator-function-id or a conversion-function-id.  */
@@ -6825,11 +6787,12 @@ cp_parser_template_name (parser, template_keyword_p)
      templates, is a template-name.  However, such a name should be a
      template-name; otherwise, there is no way to form a template-id
      for the overloaded templates.  */
-  if (TREE_CODE (decl) == OVERLOAD)
+  fns = BASELINK_P (decl) ? TREE_VALUE (decl) : decl;
+  if (TREE_CODE (fns) == OVERLOAD)
     {
       tree fn;
 
-      for (fn = decl; fn; fn = OVL_NEXT (fn))
+      for (fn = fns; fn; fn = OVL_NEXT (fn))
 	if (TREE_CODE (OVL_CURRENT (fn)) == TEMPLATE_DECL)
 	  return decl;
     }
@@ -7026,43 +6989,48 @@ cp_parser_explicit_instantiation (parser)
    Although the standard says `declaration', what it really means is:
 
    explicit-specialization:
-     template-specialization-seq decl-specifier [opt] init-declarator [opt] 
-     template-specialization-seq function-definition 
-
-   template-specialization-seq:
-     template < > template-specialization-seq [opt] */
+     template <> decl-specifier [opt] init-declarator [opt] ;
+     template <> function-definition 
+     template <> explicit-specialization
+     template <> template-declaration  */
 
 static void
-cp_parser_explicit_specialization (parser)
+cp_parser_explicit_specialization (parser, num_parameter_lists)
      cp_parser *parser;
+     unsigned num_parameter_lists;
 {
-  unsigned num_parameter_lists = 0;
+  /* Look for the `template' keyword.  */
+  cp_parser_require_keyword (parser, RID_TEMPLATE, "`template'");
+  /* Look for the `<'.  */
+  cp_parser_require (parser, CPP_LESS, "`<'");
+  /* Look for the `>'.  */
+  cp_parser_require (parser, CPP_GREATER, "`>'");
+  /* We have processed another parameter list.  */
+  ++num_parameter_lists;
+  /* Let the front end know that we are beginning a specialization.  */
+  begin_specialization ();
 
-  /* Parse the template-specialization-seq.  */
-  do
-    {
-      /* Look for the `template' keyword.  */
-      cp_parser_require_keyword (parser, RID_TEMPLATE, "`template'");
-      /* Look for the `<'.  */
-      cp_parser_require (parser, CPP_LESS, "`<'");
-      /* Look for the `>'.  */
-      cp_parser_require (parser, CPP_GREATER, "`>'");
-      /* We have processed another parameter list.  */
-      ++num_parameter_lists;
-      /* Let the front end know that we are beginning a 
-	 specialization.  */
-      begin_specialization ();
-    }
-  while (cp_lexer_next_token_is_keyword (parser->lexer, RID_TEMPLATE));
+  /* If the next keyword is `template', we need to figure out whether
+     or not we're looking a template-declaration.  */
+  if (cp_lexer_next_token_is_keyword (parser->lexer, RID_TEMPLATE))
+  {
+    if (cp_lexer_peek_nth_token (parser->lexer, 2)->type == CPP_LESS
+	&& cp_lexer_peek_nth_token (parser->lexer, 3)->type != CPP_GREATER)
+      cp_parser_template_declaration_after_export (parser,
+						   /*member_p=*/false,
+						   num_parameter_lists);
+    else
+      cp_parser_explicit_specialization (parser, num_parameter_lists);
+  }
+  else
+    /* Parse the dependent declaration.  */
+    cp_parser_single_declaration (parser, 
+				  num_parameter_lists,
+				  /*member_p=*/false,
+				  /*friend_p=*/NULL);
 
-  /* Parse the dependent declaration.  */
-  cp_parser_single_declaration (parser, 
-				num_parameter_lists,
-				/*member_p=*/false,
-				/*friend_p=*/NULL);
   /* We're done with the specialization.  */
-  while (num_parameter_lists-- != 0)
-    end_specialization ();
+  end_specialization ();
 }
 
 /* Parse a type-specifier.
@@ -7277,7 +7245,7 @@ cp_parser_simple_type_specifier (parser, flags)
   /* The type-specifier must be a user-defined type.  */
   if (!(flags & CP_PARSER_FLAGS_NO_USER_DEFINED_TYPES)) 
     {
-      /* Don't gobble tokens or issue error messages if this iss an
+      /* Don't gobble tokens or issue error messages if this is an
 	 optional type-specifier.  */
       if (flags & CP_PARSER_FLAGS_OPTIONAL)
 	cp_parser_parse_tentatively (parser);
@@ -7293,9 +7261,20 @@ cp_parser_simple_type_specifier (parser, flags)
       if (parser->scope 
 	  && cp_lexer_next_token_is_keyword (parser->lexer, RID_TEMPLATE))
 	{
-	  /* FIXME: Implement this.  */
-	  cp_parser_unimplemented ();
-	  type = NULL_TREE;
+	  /* FIXME: Perhaps cp_parser_type_name should take a
+	     template_keyword_p argument.  Nah.  */
+	  /* Consume the `template' keyword.  */
+	  cp_lexer_consume_token (parser->lexer);
+	  /* Look for the template-id.  */
+	  type = cp_parser_template_id (parser, 
+					/*template_keyword_p=*/true);
+	  /* If the template-id did not name a type, we are out of
+	     luck.  FIXME: Issue error message.  */
+	  if (TREE_CODE (type) != TYPE_DECL)
+	    {
+	      cp_parser_error (parser, "expected template-id for type");
+	      type = NULL_TREE;
+	    }
 	}
       /* Otherwise, look for a type-name.  */
       else
@@ -7303,9 +7282,10 @@ cp_parser_simple_type_specifier (parser, flags)
 	  type = cp_parser_type_name (parser);
 	  if (type == error_mark_node)
 	    type = NULL_TREE;
-	  else
-	    type = TREE_TYPE (type);
 	}
+      /* Resolve the TYPE_DECL to the underlying type.  */
+      if (type)
+	type = TREE_TYPE (type);
 
       /* If it didn't work out, we don't have a TYPE.  */
       if ((flags & CP_PARSER_FLAGS_OPTIONAL) 
@@ -10009,7 +9989,10 @@ cp_parser_class_head (parser,
       *nested_name_specifier_p = true;
     }
 
-  /* Now, look for a base-clause.  */
+  /* Enter the scope of the class; the names of base classes should be
+     looked up in that context.  */
+  push_scope (type);
+  /* Now, look for the base-clause.  */
   token = cp_lexer_peek_token (parser->lexer);
   if (token->type == CPP_COLON)
     {
@@ -10020,6 +10003,9 @@ cp_parser_class_head (parser,
       /* Process them.  */
       xref_basetypes (type, bases);
     }
+  /* Leave the class scope.  (It will be re-enetered when we start
+     processing the members of the class.)  */
+  pop_scope (type);
 
   return type;
 }
@@ -11288,9 +11274,10 @@ cp_parser_label_declaration (parser)
    simpler to check for this special case here, rather than at the
    call-sites.
 
-   In cases not explicitly covered above, this function returns a DECL
-   or OVERLOAD representing the result of the lookup.  If there was no
-   entity with the indicated NAME, the ERROR_MARK_NODE.  
+   In cases not explicitly covered above, this function returns a
+   DECL, OVERLOAD, or baselink representing the result of the lookup.
+   If there was no entity with the indicated NAME, the
+   ERROR_MARK_NODE.
 
    If CHECK_ACCESS is TRUE, then access control is performed on the
    declaration to which the name resolves, and an error message is
@@ -11324,6 +11311,22 @@ cp_parser_lookup_name (parser, name, check_access, is_type)
   if (TREE_CODE (name) == TEMPLATE_ID_EXPR)
     return name;
 
+  /* A BIT_NOT_EXPR is used to represent a destructor.  By this point,
+     it should already have been checked to make sure that the name
+     used matches the type being destroyed.  */
+  if (TREE_CODE (name) == BIT_NOT_EXPR)
+    {
+      tree type;
+
+      /* Figure out to which type this destructor applies.  */
+      type = TREE_TYPE (TREE_OPERAND (name, 0));
+      /* If that's not a class type, there is no destructor.  */
+      if (!CLASS_TYPE_P (type))
+	return error_mark_node;
+      /* If it was a class type, return the destructor.  */
+      return CLASSTYPE_DESTRUCTOR (type);
+    }
+
   /* By this point, the NAME should be an ordinary identifier.  If
      the id-expression was a qualified name, the qualifying scope is
      stored in PARSER->SCOPE at this point.  */
@@ -11332,7 +11335,7 @@ cp_parser_lookup_name (parser, name, check_access, is_type)
   
   /* Perform the lookup.  */
   if (parser->scope)
-    {
+    { 
       /* If the SCOPE is dependent, the lookup must be deferred until
 	 the template is instantiated.  */
       if (cp_parser_dependent_type_p (parser->scope))
@@ -11363,16 +11366,14 @@ cp_parser_lookup_name (parser, name, check_access, is_type)
   if (!decl)
     return error_mark_node;
 
-  /* If it's a baselink, get the underlying declaration.  */
-  if (BASELINK_P (decl))
-    decl = TREE_VALUE (decl);
   /* If it's a TREE_LIST, the result of the lookup was ambiguous.  */
-  else if (TREE_CODE (decl) == TREE_LIST)
+  if (!BASELINK_P (decl) && TREE_CODE (decl) == TREE_LIST)
     return error_mark_node;
 
   my_friendly_assert (DECL_P (decl) 
 		      || TREE_CODE (decl) == OVERLOAD
-		      || TREE_CODE (decl) == SCOPE_REF,
+		      || TREE_CODE (decl) == SCOPE_REF
+		      || BASELINK_P (decl),
 		      20000619);
 
   /* If we have resolved the name of a member declaration, check to
@@ -11386,23 +11387,14 @@ cp_parser_lookup_name (parser, name, check_access, is_type)
       /* If the SCOPE is a type, then this is a member.  */
       if (TYPE_P (scope))
 	{
-	  tree qualifying_type = NULL_TREE;
+	  tree qualifying_type;
 
-	  /* Figure out the type through which DECL is being accessed.
-	     If we are processing a `->' or `.' expression, use the
-	     type of the left-hand side.  */
-	  if (object_type && DERIVED_FROM_P (scope, object_type))
-	    qualifying_type = object_type;
-	  /* Perhaps we are implicitly accessing the DECL because we
-	     are in a class derived from SCOPE.  */
-	  if (!qualifying_type && current_class_type)
-	    qualifying_type 
-	      = currently_open_derived_class (scope);
-	  /* Otherwise, we are accessing the DECL via an explicit
-	     qualifying scope.  */
-	  if (!qualifying_type)
-	    qualifying_type = parser->scope;
-
+	  /* Figure out the type through which DECL is being
+	     accessed.  */
+	  qualifying_type 
+	    = determine_scope_through_which_access_occurs (decl,
+							   object_type,
+							   parser->scope);
 	  /* If we are supposed to defer access checks, just record
 	     the information for later.  */
 	  if (parser->context->deferring_access_checks_p)
@@ -11468,7 +11460,8 @@ cp_parser_maybe_lookup_name (parser, id, idk)
 	   that names a set of overloaded functions.  What if some of
 	   them have dependent types and some of them do not?
 	   Presumably, such a name should be treated as a dependent
-	   name.  For now, we just treat all OVERLOADs as dependent.  */
+	   name.  */
+	/* FIXME: Calls are supposed to be handled specially.  */
 	if (*id)
 	  {
 	    /* For anything except an OVERLOAD, just check its type.  */
@@ -11496,6 +11489,16 @@ cp_parser_maybe_lookup_name (parser, id, idk)
 	   LOOKUP_EXPR for resolution at template-instantiation time.  */
 	if (dependent_p)
 	  *id = build_min_nt (LOOKUP_EXPR, identifier);
+	/* The name of an enumeration constant or a template parameter
+	   is not interesting; obtain the underlying value.  */
+	/* FIXME: SHould really call some variant of do_identifier
+	   here.  And perhaps use/remove finish_id_expr?  */
+	else if (TREE_CODE (*id) == CONST_DECL)
+	  {
+	    if (!processing_template_decl 
+		|| DECL_TEMPLATE_PARM_P (*id))
+	      *id = DECL_INITIAL (*id);
+	  }
 	/* Convert non-static data members and non-static data
 	   member-functions to references relative to `this'.  */
 	else
@@ -11909,7 +11912,11 @@ cp_parser_template_declaration_after_export (parser,
 	      if (!decl)
 		;
 	      else if (TYPE_P (decl))
-		finish_member_class_template (decl);
+		{
+		  finish_member_class_template (decl);
+		  if (friend_p)
+		    make_friend_class (current_class_type, decl);
+		}
 	      else
 		decl = finish_member_template_decl (decl);
 	    }

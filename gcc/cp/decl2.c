@@ -4007,14 +4007,37 @@ build_expr_from_tree (t)
 	  return build_object_ref (object, 
 				   TREE_OPERAND (field, 0),
 				   TREE_OPERAND (field, 1));
-	else if (TREE_CODE (field) == BIT_NOT_EXPR
-		 && !CLASS_TYPE_P (TREE_TYPE (object)))
+	if (TREE_CODE (field) == BIT_NOT_EXPR
+	    && !CLASS_TYPE_P (TREE_TYPE (object)))
 	  return 
 	    finish_pseudo_destructor_expr (object,
 					   NULL_TREE,
 					   TREE_OPERAND (field, 0));
-	else
-	  return build_x_component_ref (object, field, NULL_TREE);
+	else if (TREE_CODE (field) == BIT_NOT_EXPR)
+	  {
+	    check_dtor_name (TREE_TYPE (object), field);
+	    field = complete_dtor_identifier;
+	  }
+
+	if (TREE_CODE (field) == IDENTIFIER_NODE)
+	  field = lookup_member (TREE_TYPE (object), field, 
+				 /*protect=*/1, /*want_type=*/0);
+	else if (TREE_CODE (field) == TEMPLATE_ID_EXPR
+		 && (TREE_CODE (TREE_OPERAND (field, 0)) 
+		     == IDENTIFIER_NODE))
+	  {
+	    tree template;
+
+	    template = lookup_member (TREE_TYPE (object), 
+				      TREE_OPERAND (field, 0),
+				      /*protect=*/1, /*want_type=*/0);
+	    field = build (TEMPLATE_ID_EXPR, 
+			   TREE_TYPE (template),
+			   template,
+			   TREE_OPERAND (field, 1));
+	  }
+
+	return build_x_component_ref (object, field, NULL_TREE);
       }
 
     case THROW_EXPR:

@@ -1918,16 +1918,17 @@ dump_expr (t, flags)
     case CONSTRUCTOR:
       if (TREE_TYPE (t) && TYPE_PTRMEMFUNC_P (TREE_TYPE (t)))
 	{
-	  tree idx = build_component_ref (t, index_identifier, NULL_TREE, 0);
+	  tree fn = pfn_from_ptrmemfunc (t);
 
-	  if (integer_all_onesp (idx))
+	  STRIP_NOPS (fn);
+
+	  if (TREE_CODE (fn) == ADDR_EXPR)
 	    {
-	      tree pfn = PFN_FROM_PTRMEMFUNC (t);
-	      dump_unary_op ("&", pfn, flags | TFF_EXPR_IN_PARENS);
+	      dump_unary_op ("&", fn, flags | TFF_EXPR_IN_PARENS);
 	      break;
 	    }
-	  else if (TREE_CODE (idx) == INTEGER_CST
-		   && tree_int_cst_equal (idx, integer_zero_node))
+	  else if (TREE_CODE (fn) == INTEGER_CST
+		   && integer_zerop (fn))
 	    {
 	      /* A NULL pointer-to-member constant.  */
 	      output_add_string (scratch_buffer, "((");
@@ -1935,7 +1936,7 @@ dump_expr (t, flags)
 	      output_add_string (scratch_buffer, ") 0)");
 	      break;
 	    }
-	  else if (host_integerp (idx, 0))
+	  else if (host_integerp (fn, 0))
 	    {
 	      tree virtuals;
 	      unsigned HOST_WIDE_INT n;
@@ -1944,12 +1945,7 @@ dump_expr (t, flags)
 	      t = TYPE_METHOD_BASETYPE (t);
 	      virtuals = TYPE_BINFO_VIRTUALS (TYPE_MAIN_VARIANT (t));
 
-	      n = tree_low_cst (idx, 0);
-
-	      /* Map vtable index back one, to allow for the null pointer to
-		 member.  */
-	      --n;
-
+	      n = (tree_low_cst (fn, 0) - 1) / 2;
 	      while (n > 0 && virtuals)
 		{
 		  --n;

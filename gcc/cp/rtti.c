@@ -139,7 +139,7 @@ build_headof (exp)
   if (flag_vtable_thunks)
     offset = aref;
   else
-    offset = build_component_ref (aref, delta_identifier, NULL_TREE, 0);
+    offset = build_component_ref_by_name (aref, delta_identifier);
 
   type = build_qualified_type (ptr_type_node, 
 			       CP_TYPE_QUALS (TREE_TYPE (exp)));

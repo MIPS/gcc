@@ -117,7 +117,7 @@ build_vfield_ref (datum, type)
     rval = build (COMPONENT_REF, TREE_TYPE (TYPE_VFIELD (type)),
 		  datum, TYPE_VFIELD (type));
   else
-    rval = build_component_ref (datum, DECL_NAME (TYPE_VFIELD (type)), NULL_TREE, 0);
+    rval = build_component_ref (datum, TYPE_VFIELD (type), NULL_TREE);
 
   return rval;
 }
@@ -149,7 +149,8 @@ build_field_call (basetype_path, instance_ptr, name, parms)
       /* If it's a field, try overloading operator (),
 	 or calling if the field is a pointer-to-function.  */
       instance = build_indirect_ref (instance_ptr, NULL);
-      instance = build_component_ref_1 (instance, field, 0);
+      instance = build_component_ref (instance, field, 
+				      /*basetype_path=*/NULL_TREE);
 
       if (instance == error_mark_node)
 	return error_mark_node;
@@ -167,48 +168,50 @@ build_field_call (basetype_path, instance_ptr, name, parms)
   return NULL_TREE;
 }
 
-/* Returns nonzero iff the destructor name specified in NAME
-   (a BIT_NOT_EXPR) matches BASETYPE.  The operand of NAME can take many
-   forms...  */
+/* Issue an error message iff the destructor name specified in NAME (a
+   BIT_NOT_EXPR) does not match BASETYPE.  The operand of NAME can
+   take many forms...  */
 
-int
+void
 check_dtor_name (basetype, name)
      tree basetype, name;
 {
-  name = TREE_OPERAND (name, 0);
+  tree type;
+
+  type = TREE_OPERAND (name, 0);
 
   /* Just accept something we've already complained about.  */
-  if (name == error_mark_node)
-    return 1;
-
-  if (TREE_CODE (name) == TYPE_DECL)
-    name = TREE_TYPE (name);
-  else if (TYPE_P (name))
+  if (type == error_mark_node)
+    return;
+  
+  if (TREE_CODE (type) == TYPE_DECL)
+    type = TREE_TYPE (type);
+  else if (TYPE_P (type))
     /* OK */;
-  else if (TREE_CODE (name) == IDENTIFIER_NODE)
+  else if (TREE_CODE (type) == IDENTIFIER_NODE)
     {
-      if ((IS_AGGR_TYPE (basetype) && name == constructor_name (basetype))
+      if ((IS_AGGR_TYPE (basetype) && type == constructor_name (basetype))
 	  || (TREE_CODE (basetype) == ENUMERAL_TYPE
-	      && name == TYPE_IDENTIFIER (basetype)))
-	name = basetype;
+	      && type == TYPE_IDENTIFIER (basetype)))
+	type = basetype;
       else
-	name = get_type_value (name);
+	type = get_type_value (type);
     }
   /* In the case of:
-      
+	      
        template <class T> struct S { ~S(); };
        int i;
        i.~S();
 
      NAME will be a class template.  */
-  else if (DECL_CLASS_TEMPLATE_P (name))
-    return 0;
-  else
+  else if (!DECL_CLASS_TEMPLATE_P (type))
     my_friendly_abort (980605);
 
-  if (name && TYPE_MAIN_VARIANT (basetype) == TYPE_MAIN_VARIANT (name))
-    return 1;
-  return 0;
+  if (type && TYPE_MAIN_VARIANT (basetype) == TYPE_MAIN_VARIANT (type))
+    return;
+
+  cp_error ("qualified type `%T' does not match destructor name `~%T'",
+	    basetype, TREE_OPERAND (name, 0));
 }
 
 /* Build a method call of the form `EXP->SCOPES::NAME (PARMS)'.
@@ -264,9 +267,7 @@ build_scoped_method_call (exp, basetype, name, parms)
       if (TREE_CODE (basetype) == NAMESPACE_DECL)
 	return build_method_call (exp, name, parms, NULL_TREE, LOOKUP_NORMAL);
 
-      if (! check_dtor_name (basetype, name))
-	cp_error ("qualified type `%T' does not match destructor name `~%T'",
-		  basetype, TREE_OPERAND (name, 0));
+      check_dtor_name (basetype, name);
 
       /* Destructors can be "called" for simple types; see 5.2.4 and 12.4 Note
 	 that explicit ~int is caught in the parser; this deals with typedefs
@@ -517,18 +518,14 @@ build_method_call (instance, name, parms, basetype_path, flags)
       return build_min_nt (METHOD_CALL_EXPR, name, instance, parms, NULL_TREE);
     }
 
-  if (TREE_CODE (name) == BIT_NOT_EXPR)
+  if (is_overloaded_fn (name) 
+      && DECL_DESTRUCTOR_P (get_first_fn (name)))
     {
       if (parms)
 	error ("destructors take no parameters");
       basetype = TREE_TYPE (instance);
       if (TREE_CODE (basetype) == REFERENCE_TYPE)
 	basetype = TREE_TYPE (basetype);
-
-      if (! check_dtor_name (basetype, name))
-	cp_error
-	  ("destructor name `~%T' does not match type `%T' of expression",
-	   TREE_OPERAND (name, 0), basetype);
 
       if (TYPE_HAS_TRIVIAL_DESTRUCTOR (complete_type (basetype)))
 	return cp_convert (void_type_node, instance);
@@ -4437,6 +4434,9 @@ in_charge_arg_for_name (name)
   return NULL_TREE;
 }
 
+/* FIXME: Is NAME still an IDENTIFIER_NODE, or is it always a list of
+   functions?  */
+
 static tree
 build_new_method_call (instance, name, args, basetype_path, flags)
      tree instance, name, args, basetype_path;
@@ -4499,17 +4499,7 @@ build_new_method_call (instance, name, args, basetype_path, flags)
     basetype_path = TYPE_BINFO (basetype);
 
   if (instance)
-    {
-      instance_ptr = build_this (instance);
-
-      if (! template_only)
-	{
-	  /* XXX this should be handled before we get here.  */
-	  fns = build_field_call (basetype_path, instance_ptr, name, args);
-	  if (fns)
-	    return fns;
-	}
-    }
+    instance_ptr = build_this (instance);
   else
     {
       instance_ptr = build_int_2 (0, 0);
@@ -4522,7 +4512,8 @@ build_new_method_call (instance, name, args, basetype_path, flags)
   /* Similarly for destructors.  */
   my_friendly_assert (name != dtor_identifier, 20000408);
 
-  if (IDENTIFIER_CTOR_OR_DTOR_P (name))
+  if (TREE_CODE (name) == IDENTIFIER_NODE
+      && IDENTIFIER_CTOR_OR_DTOR_P (name))
     {
       int constructor_p;
 
@@ -4564,14 +4555,33 @@ build_new_method_call (instance, name, args, basetype_path, flags)
   else
     pretty_name = name;
 
-  fns = lookup_fnfields (basetype_path, name, 1);
+  if (TREE_CODE (name) == IDENTIFIER_NODE)
+    fns = lookup_fnfields (basetype_path, name, 1);
+  else
+    fns = name;
 
   if (fns == error_mark_node)
     return error_mark_node;
   if (fns)
     {
-      tree base = BINFO_TYPE (TREE_PURPOSE (fns));
-      tree fn = TREE_VALUE (fns);
+      tree base;
+      tree fn;
+      tree return_type;
+
+      if (TREE_CODE (name) == IDENTIFIER_NODE
+	  || BASELINK_P (fns))
+	{
+	  base = BINFO_TYPE (TREE_PURPOSE (fns));
+	  fn = TREE_VALUE (fns);
+	  return_type = TREE_TYPE (fns);
+	}
+      else
+	{
+	  base = basetype;
+	  fn = fns;
+	  return_type = NULL_TREE;
+	}
+
       mem_args = tree_cons (NULL_TREE, instance_ptr, args);
       for (; fn; fn = OVL_NEXT (fn))
 	{
@@ -4595,7 +4605,7 @@ build_new_method_call (instance, name, args, basetype_path, flags)
 	      candidates = 
 		add_template_candidate (candidates, t, base, explicit_targs,
 					this_arglist,
-					TREE_TYPE (name), flags, DEDUCE_CALL); 
+					return_type, flags, DEDUCE_CALL); 
 	    }
 	  else if (! template_only)
 	    candidates = add_function_candidate (candidates, t, base,

@@ -2,30 +2,31 @@
 // Test of -fexternal-templates hackery in new template code
 // Special g++ options: -Wno-deprecated -fexternal-templates
 
-  #pragma implementation "foo.hh"
-  #pragma interface "foo.hh"
+#pragma implementation "foo.hh"
+#pragma interface "foo.hh"
 
-  template<class T>
-  class ONE
-  {
-    public:
-      static void func();
-  };
+template<class T>
+class ONE
+{
+  public:
+    static void func();
+};
 
-  template<class T>
-  void ONE<T>::func()
-  {
-  }
+template<class T>
+void ONE<T>::func()
+{
+}
 
-  class ONE<int>
-  {
-    public:
-      static void func();
-  };
+template<>
+class ONE<int>
+{
+  public:
+    static void func();
+};
 
-  void ONE<int>::func()
-  {
-  }
+void ONE<int>::func()
+{
+}
 
 int main()
   {

@@ -948,6 +948,8 @@ get_first_fn (from)
      tree from;
 {
   my_friendly_assert (is_overloaded_fn (from), 9);
+  if (TREE_CODE (from) == TEMPLATE_ID_EXPR)
+    from = TREE_OPERAND (from, 0);
   /* A baselink is also considered an overloaded function. */
   if (BASELINK_P (from))
     from = TREE_VALUE (from);

@@ -353,7 +353,7 @@ build_vbase_pointer (exp, type)
     {
       char *name;
       FORMAT_VBASE_NAME (name, type);
-      return build_component_ref (exp, get_identifier (name), NULL_TREE, 0);
+      return build_component_ref (exp, get_identifier (name), NULL_TREE);
     }
 }
 
@@ -658,10 +658,10 @@ build_vfn_ref (ptr_to_instptr, instance, idx)
 	= build (PLUS_EXPR, TREE_TYPE (*ptr_to_instptr),
 		 *ptr_to_instptr,
 		 cp_convert (ptrdiff_type_node,
-			     build_component_ref (aref, delta_identifier, NULL_TREE, 0)));
+			     build_component_ref_by_name (aref, delta_identifier)));
     }
 
-  return build_component_ref (aref, pfn_identifier, NULL_TREE, 0);
+  return build_component_ref_by_name (aref, pfn_identifier);
 }
 
 /* Return the name of the virtual function table (as an IDENTIFIER_NODE)

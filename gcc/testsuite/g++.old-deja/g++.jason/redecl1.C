@@ -6,7 +6,7 @@ public:
 };
 
 A // const
-re (const A& ref)
-{				// ERROR - mismatched decls
+re (const A& ref) // ERROR - mismatched decls
+{				
     return A (ref);
 }

@@ -518,73 +518,41 @@ inline  char& operator >>=(char& a,  const Char &   b)
 //# 291 "../../../../libg++/etc/benchmarks/Char.h"
 
 
-inline  Char  operator -  (const Char &   a) return r(a)
-{ r.negate();  }
-inline  Char  operator ~  (const Char &   a) return r(a)
-{ r.complement();  }
+inline  Char  operator -  (const Char &   a);
+inline  Char  operator ~  (const Char &   a);
 
-inline  Char  operator +  (const Char &   a, const Char &   b) return r(a)
-{ r += b.Char::val();  }
-inline  Char  operator -  (const Char &   a, const Char &   b) return r(a)
-{ r -= b.Char::val();  }
-inline  Char  operator *  (const Char &   a, const Char &   b) return r(a)
-{ r *= b.Char::val();  }
-inline  Char  operator /  (const Char &   a, const Char &   b) return r(a)
-{ r /= b.Char::val();  }
-inline  Char  operator %  (const Char &   a, const Char &   b) return r(a)
-{ r %= b.Char::val();  }
-inline  Char  operator << (const Char &   a, const Char &   b) return r(a)
-{ r <<= b.Char::val();  }
-inline  Char  operator >> (const Char &   a, const Char &   b) return r(a)
-{ r >>= b.Char::val();  }
-inline  Char  operator &  (const Char &   a, const Char &   b) return r(a)
-{ r &= b.Char::val();  }
-inline  Char  operator |  (const Char &   a, const Char &   b) return r(a)
-{ r |= b.Char::val();  }
-inline  Char  operator ^  (const Char &   a, const Char &   b) return r(a)
-{ r ^= b.Char::val();  }
+inline  Char  operator +  (const Char &   a, const Char &   b);
+inline  Char  operator -  (const Char &   a, const Char &   b);
+inline  Char  operator *  (const Char &   a, const Char &   b);
+inline  Char  operator /  (const Char &   a, const Char &   b);
+inline  Char  operator %  (const Char &   a, const Char &   b);
+inline  Char  operator << (const Char &   a, const Char &   b);
+inline  Char  operator >> (const Char &   a, const Char &   b);
+inline  Char  operator &  (const Char &   a, const Char &   b);
+inline  Char  operator |  (const Char &   a, const Char &   b);
+inline  Char  operator ^  (const Char &   a, const Char &   b);
 
-inline  Char  operator +  (const Char &   a, const char b) return r(a)
-{ r += b;  }
-inline  Char  operator -  (const Char &   a, const char b) return r(a)
-{ r -= b;  }
-inline  Char  operator *  (const Char &   a, const char b) return r(a)
-{ r *= b;  }
-inline  Char  operator /  (const Char &   a, const char b) return r(a)
-{ r /= b;  }
-inline  Char  operator %  (const Char &   a, const char b) return r(a)
-{ r %= b;  }
-inline  Char  operator << (const Char &   a, const char b) return r(a)
-{ r <<= b;  }
-inline  Char  operator >> (const Char &   a, const char b) return r(a)
-{ r >>= b;  }
-inline  Char  operator &  (const Char &   a, const char b) return r(a)
-{ r &= b;  }
-inline  Char  operator |  (const Char &   a, const char b) return r(a)
-{ r |= b;  }
-inline  Char  operator ^  (const Char &   a, const char b) return r(a)
-{ r ^= b;  }
+inline  Char  operator +  (const Char &   a, const char b);
+inline  Char  operator -  (const Char &   a, const char b);
+inline  Char  operator *  (const Char &   a, const char b); 
+inline  Char  operator /  (const Char &   a, const char b);
+inline  Char  operator %  (const Char &   a, const char b);
+inline  Char  operator << (const Char &   a, const char b);
+inline  Char  operator >> (const Char &   a, const char b);
+inline  Char  operator &  (const Char &   a, const char b);
+inline  Char  operator |  (const Char &   a, const char b);
+inline  Char  operator ^  (const Char &   a, const char b);
 
-inline  Char  operator +  (const char a, const Char &   b) return r(a)
-{ r += b.Char::val();  }
-inline  Char  operator -  (const char a, const Char &   b) return r(a)
-{ r -= b.Char::val();  }
-inline  Char  operator *  (const char a, const Char &   b) return r(a)
-{ r *= b.Char::val();  }
-inline  Char  operator /  (const char a, const Char &   b) return r(a)
-{ r /= b.Char::val();  }
-inline  Char  operator %  (const char a, const Char &   b) return r(a)
-{ r %= b.Char::val();  }
-inline  Char  operator << (const char a, const Char &   b) return r(a)
-{ r <<= b.Char::val();  }
-inline  Char  operator >> (const char a, const Char &   b) return r(a)
-{ r >>= b.Char::val();  }
-inline  Char  operator &  (const char a, const Char &   b) return r(a)
-{ r &= b.Char::val();  }
-inline  Char  operator |  (const char a, const Char &   b) return r(a)
-{ r |= b.Char::val();  }
-inline  Char  operator ^  (const char a, const Char &   b) return r(a)
-{ r ^= b.Char::val();  }
+inline  Char  operator +  (const char a, const Char &   b);
+inline  Char  operator -  (const char a, const Char &   b);
+inline  Char  operator *  (const char a, const Char &   b);
+inline  Char  operator /  (const char a, const Char &   b);
+inline  Char  operator %  (const char a, const Char &   b);
+inline  Char  operator << (const char a, const Char &   b);
+inline  Char  operator >> (const char a, const Char &   b);
+inline  Char  operator &  (const char a, const Char &   b);
+inline  Char  operator |  (const char a, const Char &   b);
+inline  Char  operator ^  (const char a, const Char &   b);
 
 
 

@@ -1000,7 +1000,7 @@ genrtl_named_return_value ()
 
 /* Bind a name and initialization to the return value of
    the current function.  */
-
+/* FIXME: Remove this and all traces of the named-return-value stuff.  */
 void
 finish_named_return_value (return_id, init)
      tree return_id, init;
@@ -1415,7 +1415,7 @@ finish_object_call_expr (fn, object, args)
      build_x_function_call cannot always undo what is done in
      build_component_ref entirely yet, we cannot do this.  */
 
-  tree real_fn = build_component_ref (object, fn, NULL_TREE, 1);
+  tree real_fn = build_component_ref (object, fn, NULL_TREE);
   return finish_call_expr (real_fn, args);
 #else
   if (DECL_DECLARES_TYPE_P (fn))

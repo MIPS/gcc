@@ -252,7 +252,7 @@ perform_member_init (member, init, explicit)
   tree decl;
   tree type = TREE_TYPE (member);
 
-  decl = build_component_ref (current_class_ref, member, NULL_TREE, explicit);
+  decl = build_component_ref (current_class_ref, member, NULL_TREE);
 
   if (decl == error_mark_node)
     return;
@@ -325,8 +325,7 @@ perform_member_init (member, init, explicit)
     {
       tree expr;
 
-      expr = build_component_ref (current_class_ref, member, NULL_TREE,
-				  explicit);
+      expr = build_component_ref (current_class_ref, member, NULL_TREE);
       expr = build_delete (type, expr, sfk_complete_destructor,
 			   LOOKUP_NONVIRTUAL|LOOKUP_DESTRUCTOR, 0);
 
@@ -1489,11 +1488,7 @@ build_member_call (type, name, parmlist)
 
   if (TREE_CODE (name) == TEMPLATE_ID_EXPR)
     {
-      method_name = TREE_OPERAND (name, 0);
-      if (TREE_CODE (method_name) == COMPONENT_REF)
-	method_name = TREE_OPERAND (method_name, 1);
-      if (is_overloaded_fn (method_name))
-	method_name = DECL_NAME (OVL_CURRENT (method_name));
+      method_name = DECL_NAME (get_first_fn (TREE_OPERAND (name, 0)));
       TREE_OPERAND (name, 0) = method_name;
     }
   else
@@ -1550,6 +1545,8 @@ build_member_call (type, name, parmlist)
 	}
     }
 
+  /* FIXME: We should not be doing name lookup here.  */
+  /* FIXME: Functional casts are now detected by the parser.  */
   if (constructor_name_p (method_name, type))
     return build_functional_cast (type, parmlist);
   if (lookup_fnfields (basetype_path, method_name, 0))
@@ -1673,9 +1670,7 @@ build_offset_ref (type, name)
 
   if (TREE_CODE (name) == BIT_NOT_EXPR)
     {
-      if (! check_dtor_name (type, name))
-	cp_error ("qualified type `%T' does not match destructor name `~%T'",
-		  type, TREE_OPERAND (name, 0));
+      check_dtor_name (type, name);
       name = dtor_identifier;
     }
 
@@ -3141,7 +3136,7 @@ build_delete (type, addr, auto_delete, flags, use_global_delete)
 	    continue;
 	  if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (TREE_TYPE (member)))
 	    {
-	      tree this_member = build_component_ref (ref, DECL_NAME (member), NULL_TREE, 0);
+	      tree this_member = build_component_ref (ref, member, NULL_TREE);
 	      tree this_type = TREE_TYPE (member);
 	      expr = build_delete (this_type, this_member,
 				   sfk_complete_destructor, flags, 0);

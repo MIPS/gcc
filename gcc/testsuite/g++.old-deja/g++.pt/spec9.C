@@ -13,8 +13,8 @@ int main()
 }
 
 template <>
-int f(int i) 
-{             // ERROR - specialization of f<int>(int) after instantiation
+int f(int i) // ERROR - specialization of f<int>(int) after instantiation
+{             
   return 1;
 }
 

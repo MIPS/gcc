@@ -399,7 +399,9 @@ struct tree_overload
 
 /* A `baselink' is a TREE_LIST whose TREE_PURPOSE is a BINFO
    indicating a particular base class, and whose TREE_VALUE is a
-   (possibly overloaded) function from that base class.  */
+   (possibly overloaded) function from that base class.  If the
+   function is a type conversion operator, the TREE_TYPE of the
+   baselink is the type that was used when performing the look up.  */
 #define BASELINK_P(NODE) \
   (TREE_CODE (NODE) == TREE_LIST && TREE_LANG_FLAG_1 (NODE))
 #define SET_BASELINK_P(NODE) \
@@ -3661,7 +3663,7 @@ extern operator_name_info_t operator_name_info[];
 extern operator_name_info_t assignment_operator_name_info[];
 
 /* in call.c */
-extern int check_dtor_name			PARAMS ((tree, tree));
+extern void check_dtor_name			PARAMS ((tree, tree));
 extern int get_arglist_len_in_bytes		PARAMS ((tree));
 
 extern tree build_vfield_ref			PARAMS ((tree, tree));
@@ -4154,6 +4156,8 @@ extern tree get_binfo				PARAMS ((tree, tree, int));
 extern int get_base_distance			PARAMS ((tree, tree, int, tree *));
 extern tree get_dynamic_cast_base_type          PARAMS ((tree, tree));
 extern int accessible_p                         PARAMS ((tree, tree));
+extern tree determine_scope_through_which_access_occurs
+                                                PARAMS ((tree, tree, tree));
 extern tree lookup_field			PARAMS ((tree, tree, int, int));
 extern int lookup_fnfields_1                    PARAMS ((tree, tree));
 extern tree lookup_fnfields			PARAMS ((tree, tree, int));
@@ -4399,9 +4403,9 @@ extern tree c_alignof				PARAMS ((tree));
 extern tree inline_conversion			PARAMS ((tree));
 extern tree decay_conversion			PARAMS ((tree));
 extern tree build_object_ref			PARAMS ((tree, tree, tree));
-extern tree build_component_ref_1		PARAMS ((tree, tree, int));
-extern tree build_component_ref			PARAMS ((tree, tree, tree, int));
+extern tree build_component_ref			PARAMS ((tree, tree, tree));
 extern tree build_x_component_ref		PARAMS ((tree, tree, tree));
+extern tree build_component_ref_by_name         PARAMS ((tree, tree));
 extern tree build_x_indirect_ref		PARAMS ((tree, const char *));
 extern tree build_indirect_ref			PARAMS ((tree, const char *));
 extern tree build_array_ref			PARAMS ((tree, tree));

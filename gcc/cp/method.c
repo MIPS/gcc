@@ -205,7 +205,7 @@ hack_identifier (value, name)
 	 this field was initialized by a base initializer,
 	 we can emit an error message.  */
       TREE_USED (value) = 1;
-      value = build_component_ref (current_class_ref, name, NULL_TREE, 1);
+      value = build_component_ref (current_class_ref, value, NULL_TREE);
     }
   else if ((TREE_CODE (value) == FUNCTION_DECL
 	    && DECL_FUNCTION_MEMBER_P (value))
@@ -213,12 +213,13 @@ hack_identifier (value, name)
 	       && DECL_FUNCTION_MEMBER_P (OVL_CURRENT (value))))
     {
       tree decl;
+      tree context;
 
-      if (TREE_CODE (value) == OVERLOAD)
-	value = OVL_CURRENT (value);
-
-      decl = maybe_dummy_object (DECL_CONTEXT (value), 0);
-      value = build_component_ref (decl, name, NULL_TREE, 1);
+      context = DECL_CONTEXT (get_first_fn (value));
+      decl = maybe_dummy_object (context, 0);
+      if (current_template_parms)
+	
+      value = build_component_ref (decl, value, NULL_TREE);
     }
   else if (really_overloaded_fn (value))
     ;

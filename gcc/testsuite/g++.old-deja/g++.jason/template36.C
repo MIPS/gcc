@@ -41,7 +41,7 @@ typename weird<T>::base weird<T>::f ()
 }
 
 template <class T>
-int weird<T>::base::* weird<T>::g ()
+int typename weird<T>::base::* weird<T>::g ()
 { return 0; }
 
 int main()

@@ -1928,19 +1928,6 @@ build_object_ref (datum, basetype, field)
   return error_mark_node;
 }
 
-/* Like `build_component_ref, but uses an already found field, and converts
-   from a reference.  Must compute access for current_class_ref.
-   Otherwise, ok.  */
-
-tree
-build_component_ref_1 (datum, field, protect)
-     tree datum, field;
-     int protect;
-{
-  return convert_from_reference
-    (build_component_ref (datum, field, NULL_TREE, protect));
-}
-
 /* Given a COND_EXPR, MIN_EXPR, or MAX_EXPR in T, return it in a form that we
    can, for example, use as an lvalue.  This code used to be in
    unary_complex_lvalue, but we needed it to deal with `a = (d == c) ? b : c'
@@ -2012,21 +1999,14 @@ lookup_anon_field (t, type)
 }
 
 /* Build a COMPONENT_REF for a given DATUM, and it's member COMPONENT.
-   COMPONENT can be an IDENTIFIER_NODE that is the name of the member
-   that we are interested in, or it can be a FIELD_DECL.  */
-
-/* FIXME: We can probably remove the name-lookup stuff from here at
-   this point, and expect COMPONENT to be a FIELD_DECL or an OVERLOAD,
-   or some similar entity.  */
+   COMPONENT must be a DECL or an OVERLOAD.  */
 
 tree
-build_component_ref (datum, component, basetype_path, protect)
+build_component_ref (datum, component, basetype_path)
      tree datum, component, basetype_path;
-     int protect;
 {
   register tree basetype;
   register enum tree_code code;
-  register tree field = NULL;
   register tree ref;
   tree field_type;
   int type_quals;
@@ -2052,15 +2032,14 @@ build_component_ref (datum, component, basetype_path, protect)
     case COMPOUND_EXPR:
       {
 	tree value = build_component_ref (TREE_OPERAND (datum, 1), component,
-					  basetype_path, protect);
+					  basetype_path);
 	return build (COMPOUND_EXPR, TREE_TYPE (value),
 		      TREE_OPERAND (datum, 0), value);
       }
 
     case TEMPLATE_DECL:
       cp_error ("invalid use of %D", datum);
-      datum = error_mark_node;
-      break;
+      return error_mark_node;
 
     default:
       break;
@@ -2092,36 +2071,8 @@ build_component_ref (datum, component, basetype_path, protect)
   if (!complete_type_or_else (basetype, datum))
     return error_mark_node;
 
-  if (TREE_CODE (component) == BIT_NOT_EXPR)
-    {
-      if (!check_dtor_name (basetype, component))
-	{
-	  cp_error ("destructor specifier `%T::~%T' must have matching names",
-		    basetype, TREE_OPERAND (component, 0));
-	  return error_mark_node;
-	}
-      if (! TYPE_HAS_DESTRUCTOR (basetype))
-	{
-	  cp_error ("type `%T' has no destructor", basetype);
-	  return error_mark_node;
-	}
-      component = CLASSTYPE_DESTRUCTOR (basetype);
-
-      return build (COMPONENT_REF,
-		    unknown_type_node,
-		    datum,
-		    ovl_cons (component, NULL_TREE));
-    }
-
-  /* Look up component name in the structure type definition.  */
-  if (TYPE_VFIELD (basetype)
-      && DECL_NAME (TYPE_VFIELD (basetype)) == component)
-    /* Special-case this because if we use normal lookups in an ambiguous
-       hierarchy, the compiler will abort (because vptr lookups are
-       not supposed to be ambiguous).  */
-    field = TYPE_VFIELD (basetype);
-  else if (TREE_CODE (component) == FIELD_DECL)
-    field = component;
+  if (TREE_CODE (component) == FIELD_DECL)
+    ;
   else if (TREE_CODE (component) == TYPE_DECL)
     {
       cp_error ("invalid use of type decl `%#D' as expression", component);
@@ -2135,93 +2086,61 @@ build_component_ref (datum, component, basetype_path, protect)
     }
   else
     {
-      tree name = component;
-
       /* In a template, we may not be able to resolve template-ids.
 	 Leave that for instantiation-time.  */
       if (TREE_CODE (component) == TEMPLATE_ID_EXPR)
 	return build (COMPONENT_REF, unknown_type_node,
 		      datum, component);
 
-      if (DECL_P (component))
-	name = DECL_NAME (component);
-      else if (TREE_CODE (component) == OVERLOAD)
-	name = DECL_NAME (OVL_FUNCTION (component));
-      if (basetype_path == NULL_TREE)
-	basetype_path = TYPE_BINFO (basetype);
-      field = lookup_field (basetype_path, name,
-			    protect && !VFIELD_NAME_P (name), 0);
-      if (field == error_mark_node)
-	return error_mark_node;
-
-      if (field == NULL_TREE)
+      if (TREE_CODE (component) == FUNCTION_DECL)
 	{
-	  /* Not found as a data field, look for it as a method.  If found,
-	     then if this is the only possible one, return it, else
-	     report ambiguity error.  */
-	  tree fndecls = lookup_fnfields (basetype_path, name, 1);
-	  if (fndecls == error_mark_node)
-	    return error_mark_node;
-	  if (fndecls)
+	  /* If the function is unique and static, we can resolve it
+	     now.  Otherwise, we have to wait and see what context it
+	     is used in; a component_ref involving a non-static member
+	     function can only be used in a call (expr.ref).  */
+	  if (DECL_STATIC_FUNCTION_P (component))
 	    {
-	      /* If the function is unique and static, we can resolve it
-		 now.  Otherwise, we have to wait and see what context it is
-		 used in; a component_ref involving a non-static member
-		 function can only be used in a call (expr.ref).  */
-
-	      if (TREE_CHAIN (fndecls) == NULL_TREE
-		  && TREE_CODE (TREE_VALUE (fndecls)) == FUNCTION_DECL)
-		{
-		  if (DECL_STATIC_FUNCTION_P (TREE_VALUE (fndecls)))
-		    {
-		      tree fndecl = TREE_VALUE (fndecls);
-		      mark_used (fndecl);
-		      return fndecl;
-		    }
-		  else
-		    {
-		      /* A unique non-static member function.  Other parts
-			 of the compiler expect something with
-			 unknown_type_node to be really overloaded, so
-			 let's oblige.  */
-		      TREE_VALUE (fndecls)
-			= ovl_cons (TREE_VALUE (fndecls), NULL_TREE);
-		    }
-		}
-
-	      ref = build (COMPONENT_REF, unknown_type_node,
-			   datum, TREE_VALUE (fndecls));
-	      return ref;
+	      mark_used (component);
+	      return component;
 	    }
-
-	  cp_error ("`%#T' has no member named `%D'", basetype, name);
-	  return error_mark_node;
-	}
-      else if (TREE_TYPE (field) == error_mark_node)
-	return error_mark_node;
-
-      if (TREE_CODE (field) != FIELD_DECL)
-	{
-	  if (TREE_CODE (field) == TYPE_DECL)
-	    cp_pedwarn ("invalid use of type decl `%#D' as expression", field);
-	  else if (DECL_RTL (field) != 0)
-	    mark_used (field);
 	  else
-	    TREE_USED (field) = 1;
+	    /* A unique non-static member function.  Other parts of
+	       the compiler expect something with unknown_type_node
+	       to be really overloaded, so let's oblige.  */
+	    component = ovl_cons (component, NULL_TREE);
+	}
+
+      if (TREE_CODE (component) == FUNCTION_DECL
+	  || TREE_CODE (component) == OVERLOAD
+	  || TREE_CODE (component) == TEMPLATE_DECL
+	  || BASELINK_P (component))
+	return build (COMPONENT_REF, unknown_type_node,
+		      datum, component);
+
+      if (TREE_CODE (component) != FIELD_DECL)
+	{
+	  if (TREE_CODE (component) == TYPE_DECL)
+	    cp_pedwarn ("invalid use of type decl `%#D' as  expression", 
+			component);
+	  else if (DECL_RTL (component) != 0)
+	    mark_used (component);
+	  else
+	    TREE_USED (component) = 1;
 
 	  /* Do evaluate the object when accessing a static member.  */
 	  if (TREE_SIDE_EFFECTS (datum))
-	    field = build (COMPOUND_EXPR, TREE_TYPE (field), datum, field);
+	    component = build (COMPOUND_EXPR, TREE_TYPE (component), 
+			       datum, component);
 
-	  return field;
+	  return component;
 	}
     }
 
-  /* See if we have to do any conversions so that we pick up the field from the
-     right context.  */
-  if (DECL_FIELD_CONTEXT (field) != basetype)
+  /* See if we have to do any conversions so that we pick up the field
+     from the right context.  */
+  if (DECL_FIELD_CONTEXT (component) != basetype)
     {
-      tree context = DECL_FIELD_CONTEXT (field);
+      tree context = DECL_FIELD_CONTEXT (component);
       tree base = context;
       while (!same_type_p (base, basetype) && TYPE_NAME (base)
 	     && ANON_AGGR_TYPE_P (base))
@@ -2236,7 +2155,7 @@ build_component_ref (datum, component, basetype_path, protect)
 	      error ("invalid reference to NULL ptr, use ptr-to-member instead");
 	      return error_mark_node;
 	    }
-	  if (VBASE_NAME_P (DECL_NAME (field)))
+	  if (VBASE_NAME_P (DECL_NAME (component)))
 	    {
 	      /* It doesn't matter which vbase pointer we grab, just
 		 find one of them.  */
@@ -2257,14 +2176,15 @@ build_component_ref (datum, component, basetype_path, protect)
 	{
 	  tree subfield = lookup_anon_field (basetype, context);
 	  tree subdatum = build_component_ref (datum, subfield,
-					       basetype_path, protect);
-	  return build_component_ref (subdatum, field, basetype_path, protect);
+					       basetype_path);
+	  return build_component_ref (subdatum, component,
+				      basetype_path);
 	}
     }
 
   /* Compute the type of the field, as described in [expr.ref].  */
   type_quals = TYPE_UNQUALIFIED;
-  field_type = TREE_TYPE (field);
+  field_type = TREE_TYPE (component);
   if (TREE_CODE (field_type) == REFERENCE_TYPE)
     /* The standard says that the type of the result should be the
        type referred to by the reference.  But for now, at least, we
@@ -2278,12 +2198,12 @@ build_component_ref (datum, component, basetype_path, protect)
       /* A field is const (volatile) if the enclosing object, or the
 	 field itself, is const (volatile).  But, a mutable field is
 	 not const, even within a const object.  */
-      if (DECL_MUTABLE_P (field))
+      if (DECL_MUTABLE_P (component))
 	type_quals &= ~TYPE_QUAL_CONST;
       field_type = cp_build_qualified_type (field_type, type_quals);
     }
 
-  ref = fold (build (COMPONENT_REF, field_type, datum, field));
+  ref = fold (build (COMPONENT_REF, field_type, datum, component));
 
   /* Mark the expression const or volatile, as appropriate.  Even
      though we've dealt with the type above, we still have to mark the
@@ -2303,14 +2223,30 @@ tree
 build_x_component_ref (datum, component, basetype_path)
      tree datum, component, basetype_path;
 {
-  tree t = build_component_ref (datum, component, basetype_path, 
-				/*protect=*/1);
+  tree t = build_component_ref (datum, component, basetype_path);
 
   if (! processing_template_decl)
     t = convert_from_reference (t);
 
   return t;
 }
+
+/* Build an expression for `OBJECT.NAME'.  HOBJECT is an expression
+   with class type, and NAME is an IDENTIFIER_NODE.  */
+
+tree
+build_component_ref_by_name (object, name)
+     tree object;
+     tree name;
+{
+  tree component;
+
+  component = lookup_member (TREE_TYPE (object), name, 
+			     /*protect=*/0, /*is_type=*/0);
+  return build_component_ref (object, component, 
+			      /*basetype_path=*/NULL_TREE);
+}
+
 
 /* Given an expression PTR for a pointer, return an expression
    for the value pointed to.
@@ -2746,22 +2682,6 @@ build_x_function_call (function, params, decl)
       decl = TREE_OPERAND (function, 0);
       function = TREE_OPERAND (function, 1);
 
-      if (TREE_CODE (function) != TEMPLATE_ID_EXPR)
-	{
-	  function = OVL_CURRENT (function);
-
-	  if (DECL_DESTRUCTOR_P (function))
-	    function = build1 (BIT_NOT_EXPR, NULL_TREE, DECL_NAME (function));
-	  else
-	    function = DECL_NAME (function);
-	  
-	  if (template_id)
-	    {
-	      TREE_OPERAND (template_id, 0) = function;
-	      function = template_id;
-	    }
-	}
-
       return build_method_call (decl, function, params,
 				NULL_TREE, LOOKUP_NORMAL);
     }
@@ -2917,8 +2837,8 @@ get_member_function_from_ptrfunc (instance_ptrptr, function)
 
       vtbl = convert_pointer_to (ptr_type_node, instance);
       delta = cp_convert (ptrdiff_type_node,
-			  build_component_ref (function, delta_identifier,
-					       NULL_TREE, 0));
+			  build_component_ref_by_name (function, 
+						       delta_identifier));
 
       /* This used to avoid checking for virtual functions if basetype
 	 has no virtual functions, according to an earlier ANSI draft.
@@ -2958,8 +2878,8 @@ get_member_function_from_ptrfunc (instance_ptrptr, function)
 	}
 
       delta = cp_convert (ptrdiff_type_node,
-			  build_component_ref (function, delta_identifier,
-					       NULL_TREE, 0));
+			  build_component_ref_by_name (function, 
+						       delta_identifier));
       /* DELTA2 is the amount by which to adjust the `this' pointer
 	 to find the vtbl.  */
       delta2 = delta;
@@ -2976,18 +2896,18 @@ get_member_function_from_ptrfunc (instance_ptrptr, function)
 	  
 	  delta = cp_build_binary_op
 	    (PLUS_EXPR,
-	     build_conditional_expr (e1,
-				     build_component_ref (aref,
-							  delta_identifier,
-							  NULL_TREE, 0),
-				     integer_zero_node),
+	     build_conditional_expr 
+	     (e1,
+	      build_component_ref_by_name (aref,
+					   delta_identifier),
+	      integer_zero_node),
 	     delta);
 	}
 
       if (flag_vtable_thunks)
 	e2 = aref;
       else
-	e2 = build_component_ref (aref, pfn_identifier, NULL_TREE, 0);
+	e2 = build_component_ref_by_name (aref, pfn_identifier);
       TREE_TYPE (e2) = TREE_TYPE (e3);
       e1 = build_conditional_expr (e1, e2, e3);
       
@@ -3687,7 +3607,7 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
 	}
       else if (TYPE_PTRMEMFUNC_P (type0) && null_ptr_cst_p (op1))
 	{
-	  op0 = build_component_ref (op0, pfn_identifier, NULL_TREE, 0);
+	  op0 = build_component_ref_by_name (op0, pfn_identifier);
 	  op1 = cp_convert (TREE_TYPE (op0), integer_zero_node);
 	  result_type = TREE_TYPE (op0);
 	}
@@ -3721,10 +3641,8 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
 	     DELTA field is unspecified.  */
 	  pfn0 = pfn_from_ptrmemfunc (op0);
 	  pfn1 = pfn_from_ptrmemfunc (op1);
-	  delta0 = build_component_ref (op0, delta_identifier,
-					NULL_TREE, 0);
-	  delta1 = build_component_ref (op1, delta_identifier,
-					NULL_TREE, 0);
+	  delta0 = build_component_ref_by_name (op0, delta_identifier);
+	  delta1 = build_component_ref_by_name (op1, delta_identifier);
 	  e1 = cp_build_binary_op (EQ_EXPR, delta0, delta1);
 	  e2 = cp_build_binary_op (EQ_EXPR, 
 				   pfn0,
@@ -4717,7 +4635,7 @@ build_unary_op (code, xarg, noconvert)
 	     a useful error here.  */
 
 	  tree base = TREE_TYPE (TREE_OPERAND (arg, 0));
-	  tree name = DECL_NAME (OVL_CURRENT (TREE_OPERAND (arg, 1)));
+	  tree name = DECL_NAME (get_first_fn (TREE_OPERAND (arg, 1)));
 
 	  if (! flag_ms_extensions)
 	    {
@@ -6121,8 +6039,8 @@ build_ptrmemfunc (type, pfn, force)
 	expand_ptrmemfunc_cst (pfn, &delta, &npfn);
       else
 	{
-	  npfn = build_component_ref (pfn, pfn_identifier, NULL_TREE, 0);
-	  delta = build_component_ref (pfn, delta_identifier, NULL_TREE, 0);
+	  npfn = build_component_ref_by_name (pfn, pfn_identifier);
+	  delta = build_component_ref_by_name (pfn, delta_identifier);
 	}
 
       /* Under the new ABI, the conversion is easy.  Just adjust
@@ -6239,7 +6157,7 @@ pfn_from_ptrmemfunc (t)
 	return pfn;
     }
 
-  return build_component_ref (t, pfn_identifier, NULL_TREE, 0);
+  return build_component_ref_by_name (t, pfn_identifier);
 }
 
 /* Expression EXPR is about to be implicitly converted to TYPE.  Warn
