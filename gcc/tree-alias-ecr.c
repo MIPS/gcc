@@ -57,7 +57,7 @@ ECR_new_with_type (type, var)
     {
       ECR_mapping = splay_tree_new (splay_tree_compare_ints, NULL, NULL);
     }
-  splay_tree_insert (ECR_mapping, (splay_tree_key) ECR_num, (splay_tree_value) ret);
+  splay_tree_insert (ECR_mapping, (splay_tree_key) ECR_num - 1, (splay_tree_value) ret);
   return ret;
 }
 

@@ -1,7 +1,27 @@
+2002-07-24  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-alias-ecr.c (ECR_new_with_type): Use correct number in mapping.
+
+2002-07-23  Daniel Berlin  <dberlin@dberlin.org>
+
+	* c-simplify.c (simplify_for_stmt): Deep copy the result of the
+	tail_expression, so it's unshared. 
+
+2002-07-23  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-flow.h: Add prototype for create_alias_vars.
+
+	* tree-alias-steen.c (display_points_to_set): New function.
+	(init_alias_vars): Display points to sets when we are done.
+
+	* disjoint-set.h (disjoint_set_def): ptr_alias to ECR_def so that
+	we mark parent properly.
+	
+
 2002-07-24  Diego Novillo  <dnovillo@redhat.com>
 
-	* Makefile.in (GTFILES): Move tree-aliast-type.[ch],
-	tree-alais-ecr.[ch], tree-alias-steen.[ch] from ...
+	* Makefile.in (GTFILES): Move tree-alias-type.[ch],
+	tree-alias-ecr.[ch], tree-alias-steen.[ch] from ...
 	* c-config-lang.in (gtfiles): ... here.
 
 	* tree-simple.c (is_simplifiable_builtin): Replace
