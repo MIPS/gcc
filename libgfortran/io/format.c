@@ -164,7 +164,8 @@ format_lex (void)
 {
   format_token token;
   int negative_flag;
-  char c, delim;
+  int c;
+  char delim;
 
   if (saved_token != FMT_NONE)
     {
@@ -500,6 +501,7 @@ format_item:
     p_descriptor:
       get_fnode (&head, &tail, FMT_P);
       tail->u.k = value;
+      tail->repeat = 1;
 
       t = format_lex ();
       if (t == FMT_F || t == FMT_EN || t == FMT_ES || t == FMT_D
@@ -542,7 +544,7 @@ format_item:
       tail->u.string.p = string;
       tail->u.string.length = value;
       tail->repeat = 1;
-      goto between_desc;
+      goto optional_comma;
 
     case FMT_S:
     case FMT_SS:
@@ -550,6 +552,7 @@ format_item:
     case FMT_BN:
     case FMT_BZ:
       get_fnode (&head, &tail, t);
+      tail->repeat = 1;
       goto between_desc;
 
     case FMT_COLON:

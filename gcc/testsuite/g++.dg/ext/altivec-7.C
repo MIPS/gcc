@@ -1,5 +1,6 @@
 /* Test for AltiVec type overloading and name mangling.  */
 /* { dg-do compile { target powerpc*-*-* } } */
+/* { dg-xfail-if "" { "powerpc-ibm-aix*" } { "-maltivec" } { "" } } */
 /* { dg-options "-maltivec" } */
 
 #include <altivec.h>
@@ -10,9 +11,9 @@ void foo(vector bool     char) { }
 void foo(vector unsigned short) { }
 void foo(vector signed short) { }
 void foo(vector bool short) { }
-void foo(vector unsigned long) { } /* { dg-warning "use of .long. in AltiVec types is deprecated. use .int." } */
-void foo(vector signed long) { }   /* { dg-warning "use of .long. in AltiVec types is deprecated. use .int." } */
-void foo(vector bool long) { }     /* { dg-warning "use of .long. in AltiVec types is deprecated. use .int." } */
+void foo(vector unsigned int) { }
+void foo(vector signed int) { }
+void foo(vector bool int) { }
 void foo(vector float) { }
 void foo(vector pixel) { }
 void foo(int) { }

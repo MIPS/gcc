@@ -1624,6 +1624,13 @@ namespace std
 
       void
       _M_cache(const locale& __loc);
+
+    private:
+      __numpunct_cache&
+      operator=(const __numpunct_cache&);
+      
+      explicit
+      __numpunct_cache(const __numpunct_cache&);
     };
 
   template<typename _CharT>
@@ -2487,8 +2494,8 @@ namespace std
       */
       explicit
       collate(size_t __refs = 0)
-      : facet(__refs)
-      { _M_c_locale_collate = _S_get_c_locale(); }
+      : facet(__refs), _M_c_locale_collate(_S_get_c_locale())
+      { }
 
       /**
        *  @brief  Internal constructor. Not for general use.
@@ -2501,8 +2508,8 @@ namespace std
       */
       explicit
       collate(__c_locale __cloc, size_t __refs = 0)
-      : facet(__refs)
-      { _M_c_locale_collate = _S_clone_c_locale(__cloc); }
+      : facet(__refs), _M_c_locale_collate(_S_clone_c_locale(__cloc))
+      { }
 
       /**
        *  @brief  Compare two strings.
@@ -2757,6 +2764,13 @@ namespace std
 
       void
       _M_cache(const locale& __loc);
+
+    private:
+      __timepunct_cache&
+      operator=(const __timepunct_cache&);
+      
+      explicit
+      __timepunct_cache(const __timepunct_cache&);
     };
 
   template<typename _CharT>
@@ -2820,6 +2834,8 @@ namespace std
       explicit
       __timepunct(__c_locale __cloc, const char* __s, size_t __refs = 0);
 
+      // FIXME: for error checking purposes _M_put should return the return
+      // value of strftime/wcsftime.
       void
       _M_put(_CharT* __s, size_t __maxlen, const _CharT* __format,
 	     const tm* __tm) const;
@@ -3493,6 +3509,13 @@ namespace std
 
       void
       _M_cache(const locale& __loc);
+
+    private:
+      __moneypunct_cache&
+      operator=(const __moneypunct_cache&);
+      
+      explicit
+      __moneypunct_cache(const __moneypunct_cache&);
     };
 
   template<typename _CharT, bool _Intl>

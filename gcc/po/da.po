@@ -1,6 +1,6 @@
 # Danish version of GCC strings.
-# Copyright (C) 2002, 03 Free Software Foundation, Inc.
-# Ole Laursen <olau@hardworking.dk>, 2001, 02, 03.
+# Copyright (C) 2002, 03, 04 Free Software Foundation, Inc.
+# Ole Laursen <olau@hardworking.dk>, 2001, 02, 03, 04.
 #
 # Konventioner:
 #
@@ -126,10 +126,10 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: gcc 3.3\n"
+"Project-Id-Version: gcc 3.4-b20040206\n"
 "Report-Msgid-Bugs-To: http://gcc.gnu.org/bugs.html\n"
 "POT-Creation-Date: 2004-02-06 01:40+0000\n"
-"PO-Revision-Date: 2003-05-25 18:00+0200\n"
+"PO-Revision-Date: 2004-10-03 19:17+0200\n"
 "Last-Translator: Ole Laursen <olau@hardworking.dk>\n"
 "Language-Team: Danish <dansk@klid.dk>\n"
 "MIME-Version: 1.0\n"
@@ -272,12 +272,11 @@ msgstr "målprocessoren understøtter ikke uendelig"
 
 #: c-common.c:934
 msgid "%Hsuggest explicit braces to avoid ambiguous `else'"
-msgstr ""
+msgstr "%Hforeslår eksplicitte krøllede paranteser for at undgå tvetydig 'else'"
 
 #: c-common.c:1158
-#, fuzzy
 msgid "%J'%D' is not defined outside of function scope"
-msgstr "'%s' er ikke defineret uden for funktionsvirkefelt"
+msgstr "%J'%D' er ikke defineret uden for funktionsvirkefelt"
 
 #: c-common.c:1178
 #, c-format
@@ -450,63 +449,58 @@ msgid "duplicate (or overlapping) case value"
 msgstr "case-værdi optræder mere end én gang (måske pga. intervalsammenfald)"
 
 #: c-common.c:4004
-#, fuzzy
 msgid "%Jthis is the first entry overlapping that value"
-msgstr "dette er det første punkt som falder sammen med den værdi"
+msgstr "%Jdette er det første punkt som falder sammen med den værdi"
 
 #: c-common.c:4008
 msgid "duplicate case value"
 msgstr "case-værdi optræder mere end én gang"
 
 #: c-common.c:4009
-#, fuzzy
 msgid "%Jpreviously used here"
-msgstr "tidligere benyttet her"
+msgstr "%Jtidligere benyttet her"
 
 #: c-common.c:4013
 msgid "multiple default labels in one switch"
 msgstr "flere default-etiketter i én switch-konstruktion"
 
 #: c-common.c:4014
-#, fuzzy
 msgid "%Jthis is the first default label"
-msgstr "dette er den første default-etiket"
+msgstr "%Jdette er den første default-etiket"
 
 #: c-common.c:4039
-#, fuzzy
 msgid "taking the address of a label is non-standard"
-msgstr "ISO C forbyder at tage adressen af en etiket"
+msgstr "at tage adressen af en etiket følger ikke standarden"
 
 #: c-common.c:4085
 msgid "%Hignoring return value of `%D', declared with attribute warn_unused_result"
-msgstr ""
+msgstr "%Hignorerer returværdi for '%D' erklæret med egenskaben warn_unused_result"
 
 #: c-common.c:4090
 msgid "%Hignoring return value of function declared with attribute warn_unused_result"
-msgstr ""
+msgstr "%Hignorerer returværdi af funktion erklæret med egenskaben warn_unused_result"
 
 #. SW_PARAM
 #: c-common.c:4297
-#, fuzzy, c-format
+#, c-format
 msgid "declaration of \"%s\" shadows a parameter"
 msgstr "erklæring af '%s' skygger for en parameter"
 
 #. SW_LOCAL
 #: c-common.c:4298
-#, fuzzy, c-format
+#, c-format
 msgid "declaration of \"%s\" shadows a previous local"
-msgstr "erklæring af '%s' skygger for en parameter"
+msgstr "erklæring af '%s' skygger for en tidligere lokal variabel"
 
 #. SW_GLOBAL
 #: c-common.c:4299
-#, fuzzy, c-format
+#, c-format
 msgid "declaration of \"%s\" shadows a global declaration"
-msgstr "erklæring af '%s' skygger for en parameter"
+msgstr "erklæring af '%s' skygger for en global erklæring"
 
 #: c-common.c:4303
-#, fuzzy
 msgid "%Jshadowed declaration is here"
-msgstr "variabelerklæring er ikke tilladt her"
+msgstr "%Jskygget erklæring er her"
 
 #: c-common.c:4686
 #, c-format
@@ -519,9 +513,9 @@ msgid "no data type for mode `%s'"
 msgstr "ingen datatype til tilstanden '%s'"
 
 #: c-common.c:4693
-#, fuzzy, c-format
+#, c-format
 msgid "invalid pointer mode `%s'"
-msgstr "ugyldig operandkode '%c'"
+msgstr "ugyldig henvisningstilstand '%s'"
 
 #: c-common.c:4700 c-common.c:5263
 #, c-format
@@ -3675,18 +3669,16 @@ msgid "comparison of promoted ~unsigned with unsigned"
 msgstr "sammenligning af forfremmet ~unsigned med unsigned"
 
 #: calls.c:1838
-#, fuzzy
 msgid "%Jinlining failed in call to '%F'"
-msgstr "indlejring mislykkedes i kald til '%s'"
+msgstr "%Jindlejring mislykkedes i kald til '%F'"
 
 #: calls.c:1839 calls.c:2208 tree-inline.c:1339 tree-inline.c:1346
 msgid "called from here"
 msgstr "kaldt herfra"
 
 #: calls.c:2207
-#, fuzzy
 msgid "%Jcan't inline call to '%F'"
-msgstr "kan ikke indlejre kald til '%s'"
+msgstr "%Jkan ikke indlejre kald til '%F'"
 
 #: calls.c:2216
 msgid "ignoring return value of `%D', declared with attribute warn_unused_result"
@@ -4976,7 +4968,7 @@ msgstr "ugyldig hashtype %d i cpp_macro_definition"
 
 #: cpppch.c:84 cpppch.c:332 cpppch.c:356 cpppch.c:365
 msgid "while writing precompiled header"
-msgstr ""
+msgstr "under skrivning af præoversat inkluderingsfil"
 
 #: cpppch.c:463
 #, fuzzy, c-format
@@ -4995,7 +4987,7 @@ msgstr "'%s' brugt, men aldrig defineret"
 
 #: cpppch.c:529 cpppch.c:715
 msgid "while reading precompiled header"
-msgstr ""
+msgstr "under læsning af præoversat inkluderingsfil"
 
 #: cppspec.c:106
 #, c-format
@@ -5787,7 +5779,7 @@ msgstr "  -v, --version                   Udskriv versionsnummeret og afslut\n"
 
 #: gcov.c:401
 msgid "  -a, --all-blocks                Show information for every basic block\n"
-msgstr ""
+msgstr "  -a, --all-blocks                Vis oplysninger for alle basisblokke\n"
 
 #: gcov.c:402
 msgid "  -b, --branch-probabilities      Include branch probabilities in output\n"
@@ -5823,7 +5815,7 @@ msgstr "  -p, --preserve-paths            Bevar alle stinavnskomponenter\n"
 
 #: gcov.c:411
 msgid "  -u, --unconditional-branches    Show unconditional branch counts too\n"
-msgstr ""
+msgstr "  -u, --unconditional-branches    Vis ubetingede forgreningstal også\n"
 
 #: gcov.c:412
 #, c-format
@@ -5894,32 +5886,32 @@ msgstr "%s: ikke en COFF-fil"
 #: gcov.c:730
 #, c-format
 msgid "%s:version `%.4s', prefer `%.4s'\n"
-msgstr ""
+msgstr "%s:version `%.4s', foretræk '%.4s'\n"
 
 #: gcov.c:782
 #, c-format
 msgid "%s:already seen blocks for `%s'\n"
-msgstr ""
+msgstr "%s:allerede set blokke for '%s'\n"
 
 #: gcov.c:903 gcov.c:1062
 #, c-format
 msgid "%s:corrupted\n"
-msgstr ""
+msgstr "%s:ødelagt\n"
 
 #: gcov.c:976
-#, fuzzy, c-format
+#, c-format
 msgid "%s:cannot open data file\n"
-msgstr "%s: kan ikke åbnes som en COFF-fil"
+msgstr "%s: kan ikke åbne datafil\n"
 
 #: gcov.c:981
 #, fuzzy, c-format
 msgid "%s:not a gcov data file\n"
-msgstr "%s: ikke en COFF-fil"
+msgstr "%s:ikke en gcov-datafil\n"
 
 #: gcov.c:994
 #, c-format
 msgid "%s:version `%.4s', prefer version `%.4s'\n"
-msgstr ""
+msgstr "%s:version `%.4s', foretræk version `%.4s'\n"
 
 #: gcov.c:1000
 #, c-format
@@ -5927,9 +5919,9 @@ msgid "%s:stamp mismatch with graph file\n"
 msgstr ""
 
 #: gcov.c:1026
-#, fuzzy, c-format
+#, c-format
 msgid "%s:unknown function `%u'\n"
-msgstr "ukendt specifikationsfunktion '%s'"
+msgstr "%s:ukendt funktion '%u'\n"
 
 #: gcov.c:1039
 #, c-format
@@ -6027,19 +6019,19 @@ msgid "branch %2d never executed\n"
 msgstr "forgrening %2d aldrig udført\n"
 
 #: gcov.c:1770
-#, fuzzy, c-format
+#, c-format
 msgid "unconditional %2d taken %s\n"
-msgstr "forgrening %2d valgt %s\n"
+msgstr "ubetinget %2d valgt %s\n"
 
 #: gcov.c:1773
-#, fuzzy, c-format
+#, c-format
 msgid "unconditional %2d never executed\n"
-msgstr "kald %2d aldrig udført\n"
+msgstr "ubetinget %2d aldrig udført\n"
 
 #: gcov.c:1805
-#, fuzzy, c-format
+#, c-format
 msgid "%s:cannot open source file\n"
-msgstr "%s: kan ikke åbnes som en COFF-fil"
+msgstr "%s:kan ikke åbne kildefil\n"
 
 #: gcov.c:1815
 #, fuzzy, c-format
@@ -6049,11 +6041,11 @@ msgstr "Advarsel: kildefil %s er nyere end %s\n"
 #. Return if there's nothing to do, or it is too expensive.
 #: gcse.c:747
 msgid "GCSE disabled"
-msgstr ""
+msgstr "GCSE deaktiveret"
 
 #: gcse.c:6108
 msgid "NULL pointer checks disabled"
-msgstr ""
+msgstr "NULL-henvisningstjek deaktiveret"
 
 #. Return if there's nothing to do, or it is too expensive.
 #: gcse.c:7994
@@ -6101,7 +6093,7 @@ msgstr ""
 #: ggc-page.c:1325
 #, c-format
 msgid "open /dev/zero: %m"
-msgstr ""
+msgstr "åbn /dev/zero: %m"
 
 #: ggc-page.c:2047 ggc-page.c:2053
 #, fuzzy
@@ -6113,15 +6105,15 @@ msgid "Generating PCH files is not supported when using ggc-simple.c"
 msgstr ""
 
 #: global.c:356 global.c:369 global.c:383
-#, fuzzy, c-format
+#, c-format
 msgid "%s cannot be used in asm here"
-msgstr "\"%s\" kan ikke bruges som et makronavn"
+msgstr "%s kan ikke bruges i asm her"
 
 #: graph.c:403 toplev.c:1481 toplev.c:4408 f/com.c:14202 java/jcf-parse.c:883
 #: java/jcf-parse.c:1030 java/lex.c:1828 objc/objc-act.c:503
-#, fuzzy, c-format
+#, c-format
 msgid "can't open %s: %m"
-msgstr "kan ikke åbne %s"
+msgstr "kan ikke åbne %s: %m"
 
 #: haifa-sched.c:196
 #, c-format
@@ -6141,9 +6133,8 @@ msgid "function using alloca cannot be inline"
 msgstr "funktion der bruger alloca, kan ikke indbygges"
 
 #: integrate.c:176
-#, fuzzy
 msgid "function using longjmp cannot be inline"
-msgstr "funktion der bruger setjmp, kan ikke indbygges"
+msgstr "funktion der bruger longjmp, kan ikke indbygges"
 
 #: integrate.c:179
 msgid "function using setjmp cannot be inline"
@@ -6198,9 +6189,8 @@ msgid "function with target specific attribute(s) cannot be inlined"
 msgstr "funktioner med målspecifikke egenskaber kan ikke indbygges"
 
 #: jump.c:1896
-#, fuzzy
 msgid "%Hwill never be executed"
-msgstr "kald %2d aldrig udført\n"
+msgstr "%Hvil aldrig blive udført"
 
 #: line-map.c:202
 #, c-format
@@ -6231,7 +6221,7 @@ msgstr ""
 #. What to print when a switch has no documentation.
 #: opts.c:149
 msgid "This switch lacks documentation"
-msgstr ""
+msgstr "Denne switch mangler dokumentation"
 
 #. Eventually this should become a hard error IMO.
 #: opts.c:318
@@ -6269,43 +6259,41 @@ msgid "unknown tls-model \"%s\""
 msgstr "'%s': ukendt tls-model-tilvalg"
 
 #: opts.c:1450
-#, fuzzy
 msgid "-fwritable-strings is deprecated; see documentation for details"
-msgstr "tilvalget '%s' er forældet, se venligst dokumentationen for detaljer"
+msgstr "-fwritable-strings er forældet; se dokumentationen for detaljer"
 
 #: opts.c:1534
 #, c-format
 msgid "%s: --param arguments should be of the form NAME=VALUE"
-msgstr ""
+msgstr "%s: '--param'-parametre skal være på formen NAVN=VÆRDI"
 
 #: opts.c:1539
-#, fuzzy, c-format
+#, c-format
 msgid "invalid --param value `%s'"
-msgstr "ugyldig parameterværdi '%s'"
+msgstr "ugyldig '--param'-værdi '%s'"
 
 #: opts.c:1635
-#, fuzzy
 msgid "target system does not support debug output"
-msgstr "målprocessoren understøtter ikke uendelig"
+msgstr "målsystemet understøtter ikke fejlfindingsuddata"
 
 #: opts.c:1642
-#, fuzzy, c-format
+#, c-format
 msgid "debug format \"%s\" conflicts with prior selection"
-msgstr "dataområdet '%s' er i modstrid med tidligere erklæring"
+msgstr "fejlfindingsformatet \"%s\" er i modstrid med tidligere valg"
 
 #: opts.c:1658
-#, fuzzy, c-format
+#, c-format
 msgid "unrecognised debug output level \"%s\""
-msgstr "ukendt sektionsnavn \"%s\""
+msgstr "ukendt fejlfindingsuddataniveau \"%s\""
 
 #: opts.c:1660
 #, c-format
 msgid "debug output level %s is too high"
-msgstr ""
+msgstr "fejlfindingsuddataniveau %s er for højt"
 
 #: opts.c:1679
 msgid "The following options are language-independent:\n"
-msgstr ""
+msgstr "De følgende tilvalg er sproguafhængige:\n"
 
 #: opts.c:1686
 #, c-format
@@ -6313,10 +6301,12 @@ msgid ""
 "The %s front end recognizes the following options:\n"
 "\n"
 msgstr ""
+"Forenden %s genkender de følgende tilvalg:\n"
+"\n"
 
 #: opts.c:1700
 msgid "The --param option recognizes the following as parameters:\n"
-msgstr ""
+msgstr "Tilvalget --param genkender følgende som parametre:\n"
 
 #. If we didn't find this parameter, issue an error message.
 #: params.c:76
@@ -6326,25 +6316,22 @@ msgstr "ugyldig parameter '%s'"
 
 #: profile.c:288
 msgid "corrupted profile info: run_max * runs < sum_max"
-msgstr ""
+msgstr "ødelagt profilinfo: run_max * runs < sum_max"
 
 #: profile.c:294
 msgid "corrupted profile info: sum_all is smaller than sum_max"
-msgstr ""
+msgstr "ødelagt profilinfo: sum_all er mindre end sum_max"
 
-# 'prob' står for sandsynlighed
 #: profile.c:336
 #, fuzzy, c-format
 msgid "corrupted profile info: edge from %i to %i exceeds maximal count"
 msgstr "ødelagte profilinfo: sandsynlighed for %d-%d menes at være %d"
 
-# 'prob' står for sandsynlighed
 #: profile.c:499
 #, fuzzy, c-format
 msgid "corrupted profile info: number of iterations for basic block %d thought to be %i"
 msgstr "ødelagte profilinfo: sandsynlighed for %d-%d menes at være %d"
 
-# 'prob' står for sandsynlighed
 #: profile.c:526
 #, fuzzy, c-format
 msgid "corrupted profile info: number of executions for edge %d-%d thought to be %i"
@@ -6848,9 +6835,8 @@ msgid "jump to `%s' invalidly jumps into binding contour"
 msgstr "spring til '%s' rammer på ugyldig vis ind i bindingskontur"
 
 #: stmt.c:977 stmt.c:3793
-#, fuzzy
 msgid "%Jlabel '%D' used before containing binding contour"
-msgstr "etiket '%s' brugt før indholdende bindingskontur"
+msgstr "%Jetiket '%D' brugt før indeholdende bindingskontur"
 
 #: stmt.c:1156
 msgid "output operand constraint lacks `='"
@@ -6965,17 +6951,15 @@ msgstr "ikkedefineret navngiven operand '%s'"
 
 #: stmt.c:2161
 msgid "%Hstatement with no effect"
-msgstr ""
+msgstr "%Hsætning uden nogen virkning"
 
 #: stmt.c:2317
-#, fuzzy
 msgid "%Hvalue computed is not used"
-msgstr "automat '%s' bliver ikke benyttet"
+msgstr "%Hberegnet værdi benyttes ikke"
 
 #: stmt.c:3733
-#, fuzzy
 msgid "%Junused variable '%D'"
-msgstr "ubrugt variabel '%s'"
+msgstr "%Jubrugt variabel '%D'"
 
 #: stmt.c:4508
 #, fuzzy
@@ -7010,29 +6994,24 @@ msgid "variable-size type declared outside of any function"
 msgstr "en type med en variabel størrelse er erklæret uden for en funktion"
 
 #: stor-layout.c:515
-#, fuzzy
 msgid "%Jsize of '%D' is %d bytes"
-msgstr "størrelsen af '%s' er %d byte"
+msgstr "%Jstørrelsen af '%D' er %d byte"
 
 #: stor-layout.c:517
-#, fuzzy
 msgid "%Jsize of '%D' is larger than %d bytes"
-msgstr "størrelsen af '%s' er større end %d byte"
+msgstr "%Jstørrelsen af '%D' er større end %d byte"
 
 #: stor-layout.c:883
-#, fuzzy
 msgid "%Jpacked attribute causes inefficient alignment for '%D'"
-msgstr "packed-egenskab forårsager ineffektiv justering af '%s'"
+msgstr "%Jpacked-egenskab forårsager ineffektiv justering af '%D'"
 
 #: stor-layout.c:886
-#, fuzzy
 msgid "%Jpacked attribute is unnecessary for '%D'"
-msgstr "packed-egenskab er unødvendig for '%s'"
+msgstr "%Jpacked-egenskab er unødvendig for '%D'"
 
 #: stor-layout.c:902
-#, fuzzy
 msgid "%Jpadding struct to align '%D'"
-msgstr "udfylder struct for at justere '%s'"
+msgstr "%Judfylder struct for at justere '%D'"
 
 #: stor-layout.c:1245
 msgid "padding struct size to alignment boundary"
@@ -7120,9 +7099,9 @@ msgid " %s"
 msgstr " %s"
 
 #: toplev.c:1293
-#, fuzzy, c-format
+#, c-format
 msgid "invalid option argument `%s'"
-msgstr "ugyldigt tilvalg '%s'"
+msgstr "ugyldig tilvalgsparameter '%s'"
 
 #: toplev.c:1356
 #, c-format
@@ -7135,19 +7114,16 @@ msgid "setting core file size limit to maximum: %m"
 msgstr ""
 
 #: toplev.c:1678
-#, fuzzy
 msgid "%J'%F' used but never defined"
-msgstr "'%s' brugt, men aldrig defineret"
+msgstr "%J'%F' brugt, men aldrig defineret"
 
 #: toplev.c:1680
-#, fuzzy
 msgid "%J'%F' declared `static' but never defined"
-msgstr "'%s' erklæret 'static', men aldrig defineret"
+msgstr "%J'%F' erklæret 'static', men aldrig defineret"
 
 #: toplev.c:1705
-#, fuzzy
 msgid "%J'%D' defined but not used"
-msgstr "'%s' defineret, men aldrig brugt"
+msgstr "%J'%D' defineret, men aldrig brugt"
 
 #: toplev.c:1726 toplev.c:1743
 #, c-format
@@ -7187,9 +7163,9 @@ msgstr ""
 "Målspecifikke tilvalg:\n"
 
 #: toplev.c:3703 toplev.c:3722
-#, fuzzy, c-format
+#, c-format
 msgid "  -m%-23s [undocumented]\n"
-msgstr "  -m%-23.23s [ikke dokumenteret]\n"
+msgstr "  -m%-23s [ikke dokumenteret]\n"
 
 #: toplev.c:3731
 #, c-format
@@ -7240,9 +7216,9 @@ msgid "options enabled: "
 msgstr "tilvalg slået til: "
 
 #: toplev.c:4011 java/jcf-write.c:3422
-#, fuzzy, c-format
+#, c-format
 msgid "can't open %s for writing: %m"
-msgstr "kan ikke åbne '%s' til skrivning"
+msgstr "kan ikke åbne %s til skrivning: %m"
 
 #: toplev.c:4094 config/sh/sh.c:6883
 msgid "created and used with different settings of -fpic"
@@ -7255,11 +7231,11 @@ msgstr ""
 #: toplev.c:4147 config/sh/sh.c:6935
 #, c-format
 msgid "created and used with differing settings of `-m%s'"
-msgstr ""
+msgstr "oprettet og brugt med en anden indstilling af '-m%s'"
 
 #: toplev.c:4150 config/sh/sh.c:6938
 msgid "out of memory"
-msgstr ""
+msgstr "løbet tør for hukommelse"
 
 #: toplev.c:4331
 msgid "instruction scheduling not supported on this target machine"
@@ -7360,19 +7336,16 @@ msgid "%Jfunction '%F' can never be inlined because it uses variable sized varia
 msgstr ""
 
 #: tree-inline.c:1338 tree-inline.c:1345
-#, fuzzy
 msgid "%Jinlining failed in call to '%F': %s"
-msgstr "indlejring mislykkedes i kald til '%s'"
+msgstr "%Jindlejring mislykkedes i kald til '%F': %s"
 
 #: tree-optimize.c:190
-#, fuzzy
 msgid "%Jsize of return value of '%D' is %u bytes"
-msgstr "størrelsen af returtypen til '%s' er %u byte"
+msgstr "%Jstørrelsen af returtypen til '%D' er %u byte"
 
 #: tree-optimize.c:193
-#, fuzzy
 msgid "%Jsize of return value of '%D' is larger than %wd bytes"
-msgstr "størrelsen af returtypen til '%s' er større end %d byte"
+msgstr "%Jstørrelsen af returtypen til '%D' er større end %wd byte"
 
 #: tree.c:3800
 msgid "arrays of functions are not meaningful"
@@ -7399,37 +7372,32 @@ msgstr "træ-kontrol: forventede klasse '%c', har '%c' (%s) i %s, ved %s:%d"
 #: tree.c:4762
 #, c-format
 msgid "tree check: accessed elt %d of tree_vec with %d elts in %s, at %s:%d"
-msgstr "RTL-kontrol: tilgik udtrykstræ %d af tree_vec med %d udtrykstræer i %s, ved %s:%d"
+msgstr "trækontrol: tilgik udtrykstræ %d af tree_vec med %d udtrykstræer i %s, ved %s:%d"
 
 #: tree.c:4774
 #, fuzzy, c-format
 msgid "tree check: accessed operand %d of %s with %d operands in %s, at %s:%d"
-msgstr "RTL-kontrol: tilgik udtrykstræ %d af tree_vec med %d udtrykstræer i %s, ved %s:%d"
+msgstr "trækontrol: tilgik operand %d af %s med %d operander i %s, ved %s:%d"
 
 #: varasm.c:434
-#, fuzzy
 msgid "%J%D causes a section type conflict"
-msgstr "%s forårsager en sektionstypekonflikt"
+msgstr "%J%D forårsager en sektionstypekonflikt"
 
 #: varasm.c:796
-#, fuzzy
 msgid "%Jregister name not specified for '%D'"
-msgstr "registernavn ikke angivet for '%s'"
+msgstr "%Jregisternavn ikke angivet for '%D'"
 
 #: varasm.c:798
-#, fuzzy
 msgid "%Jinvalid register name for '%D'"
-msgstr "ugyldigt registernavn for '%s'"
+msgstr "%Jugyldigt registernavn for '%D'"
 
 #: varasm.c:800
-#, fuzzy
 msgid "%Jdata type of '%D' isn't suitable for a register"
-msgstr "datatypen for '%s' passer ikke med et register"
+msgstr "%Jdatatypen for '%D' passer ikke med et register"
 
 #: varasm.c:803
-#, fuzzy
 msgid "%Jregister specified for '%D' isn't suitable for data type"
-msgstr "registeret som er angivet for '%s' passer ikke med datatypen"
+msgstr "%Jregisteret som er angivet for '%D' passer ikke med datatypen"
 
 #: varasm.c:813
 msgid "global register variable has initial value"
@@ -7440,28 +7408,24 @@ msgid "volatile register variables don't work as you might wish"
 msgstr "registervariable erklæret volatile virker ikke som du måske ønsker"
 
 #: varasm.c:848
-#, fuzzy
 msgid "%Jregister name given for non-register variable '%D'"
-msgstr "registernavn givet for ikke-registervariablen '%s'"
+msgstr "%Jregisternavn givet for ikke-registervariablen '%D'"
 
 #: varasm.c:1380
-#, fuzzy
 msgid "%Jstorage size of `%D' isn't known"
-msgstr "lagringsstørrelsen af '%D' er ikke kendt"
+msgstr "%Jlagringsstørrelsen af '%D' er ikke kendt"
 
 #: varasm.c:1434
-#, fuzzy
 msgid "%Jalignment of '%D' is greater than maximum object file alignment.  Using %d"
-msgstr "justering af '%s' er større end den maksimale objektfilsjustering - bruger %d"
+msgstr "%Jjustering af '%D' er større end den maksimale objektfilsjustering - bruger %d"
 
 #: varasm.c:1480
 msgid "thread-local COMMON data not implemented"
 msgstr "tråd-lokal COMMON-data er ikke implementeret"
 
 #: varasm.c:1505
-#, fuzzy
 msgid "%Jrequested alignment for '%D' is greater than implemented alignment of %d"
-msgstr "forespurgt justering for %s er større end den implementerede justering af %d"
+msgstr "%Jforespurgt justering for '%D' er større end den implementerede justering på %d"
 
 #: varasm.c:3787
 msgid "initializer for integer value is too complicated"
@@ -7481,24 +7445,20 @@ msgid "invalid initial value for member `%s'"
 msgstr "ugyldig startværdi for medlemmet '%s'"
 
 #: varasm.c:4264 varasm.c:4308
-#, fuzzy
 msgid "%Jweak declaration of '%D' must precede definition"
-msgstr "svag erklæring af '%s' skal komme før definitionen"
+msgstr "%Jsvag erklæring af '%D' skal komme før definitionen"
 
 #: varasm.c:4272
-#, fuzzy
 msgid "%Jweak declaration of '%D' after first use results in unspecified behavior"
-msgstr "svag erklæring af '%s' efter første brug resulterer i ikke-defineret opførsel"
+msgstr "%Jsvag erklæring af '%D' efter første brug resulterer i ikke-defineret opførsel"
 
 #: varasm.c:4306
-#, fuzzy
 msgid "%Jweak declaration of '%D' must be public"
-msgstr "svag erklæring af '%s' skal være public"
+msgstr "%Jsvag erklæring af '%D' skal være public"
 
 #: varasm.c:4315
-#, fuzzy
 msgid "%Jweak declaration of '%D' not supported"
-msgstr "svag erklæring af '%s' ikke understøttet"
+msgstr "%Jsvag erklæring af '%D' ikke understøttet"
 
 #: varasm.c:4344 varasm.c:4434
 msgid "only weak aliases are supported in this configuration"
@@ -7534,37 +7494,32 @@ msgstr "ingen sclass for %s stab (0x%x)\n"
 #. End:
 #.
 #: diagnostic.def:1
-#, fuzzy
 msgid "fatal error: "
-msgstr "intern fejl: "
+msgstr "fatal fejl: "
 
 #: diagnostic.def:2
-#, fuzzy
 msgid "internal compiler error: "
-msgstr "intern fejl: "
+msgstr "intern oversætterfejl: "
 
 #: diagnostic.def:3
-#, fuzzy
 msgid "error: "
-msgstr "intern fejl: "
+msgstr "fejl: "
 
 #: diagnostic.def:4
-#, fuzzy
 msgid "sorry, unimplemented: "
 msgstr "desværre, ikke implementeret: "
 
 #: diagnostic.def:6
 msgid "anachronism: "
-msgstr ""
+msgstr "anakronisme: "
 
 #: diagnostic.def:7
-#, fuzzy
 msgid "note: "
-msgstr "bemærk:"
+msgstr "bemærk: "
 
 #: diagnostic.def:8
 msgid "debug: "
-msgstr ""
+msgstr "fejlfinding: "
 
 #: params.def:53
 msgid "The maximum number of instructions in a single function eligible for inlining"
@@ -7592,16 +7547,15 @@ msgstr "Den maksimale længde af planlæggerens liste over ventende operationer"
 
 #: params.def:112
 msgid "The size of function body to be considered large"
-msgstr ""
+msgstr "Størrelsen af en funktionskrop som anses for stor"
 
 #: params.def:116
-#, fuzzy
 msgid "Maximal growth due to inlining of large function (in percent)"
-msgstr "Maksimal kodevækst forårsaget af haleduplikering (i procent)"
+msgstr "Maksimal kodevækst forårsaget af indlejring af stor funktion (i procent)"
 
 #: params.def:120
 msgid "how much can given compilation unit grow because of the inlining (in percent)"
-msgstr ""
+msgstr "Hvor meget en oversættelsesenhed kan vokse pga. indlejring (i procent)"
 
 #: params.def:127
 msgid "The maximum amount of memory to be allocated by GCSE"
@@ -8169,7 +8123,7 @@ msgstr "ugyldigt tilvalg til kommatalsemulering: -mfpe-%s"
 
 #: config/arm/arm.c:803
 msgid "-mfpe switch not supported by ep9312 target cpu - ignored."
-msgstr ""
+msgstr "tilvalget -mfpe understøttes ikke af målprocessoren ep9312 - ignoreret."
 
 #: config/arm/arm.c:823
 msgid "structure size boundary can only be set to 8 or 32"
@@ -8218,14 +8172,12 @@ msgid "interrupt Service Routines cannot be coded in Thumb mode"
 msgstr "afbrydelsesservicerutiner kan ikke kodes i Thumb-tilstand"
 
 #: config/arm/pe.c:170 config/mcore/mcore.c:3241
-#, fuzzy
 msgid "%Jinitialized variable '%D' is marked dllimport"
-msgstr "variablen '%s' med startværdi er markeret dllimport"
+msgstr "%Jvariablen '%D' med startværdi er markeret dllimport"
 
 #: config/arm/pe.c:179
-#, fuzzy
 msgid "%Jstatic variable '%D' is marked dllimport"
-msgstr "statisk variabel '%s' er markeret dllimport"
+msgstr "%Jstatisk variabel '%D' er markeret dllimport"
 
 #: config/arm/arm.h:450
 msgid "Generate APCS conformant stack frames"
@@ -9594,9 +9546,8 @@ msgid "%i-bit mode not compiled in"
 msgstr "%i bit-tilstand er ikke oversat med ind"
 
 #: config/i386/i386.c:1221 config/i386/i386.c:1233
-#, fuzzy
 msgid "CPU you selected does not support x86-64 instruction set"
-msgstr "målprocessoren understøtter ikke THUMB-instruktioner"
+msgstr "den valgte processor understøtter ikke x86-64-instruktionssættet"
 
 #: config/i386/i386.c:1226 config/iq2000/iq2000.c:1840
 #, c-format
@@ -9667,14 +9618,12 @@ msgid "bad value (%s) for -mfpmath= switch"
 msgstr "ugyldig værdi (%s) til tilvalget -mfpmath="
 
 #: config/i386/i386.c:1581 config/i386/i386.c:1592
-#, fuzzy
 msgid "fastcall and stdcall attributes are not compatible"
-msgstr "shared og mdll er indbyrdes uforenelige"
+msgstr "fastcall og stdcall er indbyrdes uforenelige"
 
 #: config/i386/i386.c:1585 config/i386/i386.c:1641
-#, fuzzy
 msgid "fastcall and regparm attributes are not compatible"
-msgstr "egenskaberne 'trap' og 'far' kan ikke bruges på samme tid, ignorerer 'far'"
+msgstr "fastcall og regparm er indbyrdes uforenelige"
 
 #: config/i386/i386.c:1628
 #, c-format
@@ -9737,9 +9686,9 @@ msgid "shift must be an immediate"
 msgstr "skifteværdi skal være en umiddelbar værdi"
 
 #: config/i386/i386.c:15308
-#, fuzzy, c-format
+#, c-format
 msgid "`%s' incompatible attribute ignored"
-msgstr "egenskaben '%s' ignoreret"
+msgstr "uforenelig egenskab '%s' ignoreret"
 
 #: config/i386/winnt.c:104
 #, fuzzy

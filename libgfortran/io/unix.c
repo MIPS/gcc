@@ -28,7 +28,9 @@ Boston, MA 02111-1307, USA.  */
 #include <sys/stat.h>
 #include <fcntl.h>
 
+#ifdef HAVE_SYS_MMAN_H
 #include <sys/mman.h>
+#endif
 #include <string.h>
 #include <errno.h>
 
@@ -41,6 +43,14 @@ Boston, MA 02111-1307, USA.  */
 
 #ifndef MAP_FAILED
 #define MAP_FAILED ((void *) -1)
+#endif
+
+#ifndef PROT_READ
+#define PROT_READ 1
+#endif
+
+#ifndef PROT_WRITE
+#define PROT_WRITE 2
 #endif
 
 /* This implementation of stream I/O is based on the paper:
@@ -86,11 +96,11 @@ typedef struct
   stream st;
 
   int fd;
-  offset_t buffer_offset;	/* File offset of the start of the buffer */
-  offset_t physical_offset;	/* Current physical file offset */
-  offset_t logical_offset;	/* Current logical file offset */
-  offset_t dirty_offset;	/* Start of modified bytes in buffer */
-  offset_t file_length;		/* Length of the file, -1 if not seekable. */
+  gfc_offset buffer_offset;	/* File offset of the start of the buffer */
+  gfc_offset physical_offset;	/* Current physical file offset */
+  gfc_offset logical_offset;	/* Current logical file offset */
+  gfc_offset dirty_offset;	/* Start of modified bytes in buffer */
+  gfc_offset file_length;	/* Length of the file, -1 if not seekable. */
 
   char *buffer;
   int len;			/* Physical length of the current buffer */
@@ -280,7 +290,9 @@ fd_flush (unix_stream * s)
     return FAILURE;
 
   s->physical_offset = s->dirty_offset + s->ndirty;
-  if (s->physical_offset > s->file_length)
+
+  /* don't increment file_length if the file is non-seekable */
+  if (s->file_length != -1 && s->physical_offset > s->file_length)
     s->file_length = s->physical_offset;
   s->ndirty = 0;
 
@@ -293,7 +305,7 @@ fd_flush (unix_stream * s)
  * to come next. */
 
 static void
-fd_alloc (unix_stream * s, offset_t where, int *len)
+fd_alloc (unix_stream * s, gfc_offset where, int *len)
 {
   char *new_buffer;
   int n, read_len;
@@ -344,9 +356,9 @@ fd_alloc (unix_stream * s, offset_t where, int *len)
  * NULL on I/O error. */
 
 static char *
-fd_alloc_r_at (unix_stream * s, int *len, offset_t where)
+fd_alloc_r_at (unix_stream * s, int *len, gfc_offset where)
 {
-  offset_t m;
+  gfc_offset m;
   int n;
 
   if (where == -1)
@@ -389,9 +401,9 @@ fd_alloc_r_at (unix_stream * s, int *len, offset_t where)
  * we've already buffered the data or we need to load it. */
 
 static char *
-fd_alloc_w_at (unix_stream * s, int *len, offset_t where)
+fd_alloc_w_at (unix_stream * s, int *len, gfc_offset where)
 {
-  offset_t n;
+  gfc_offset n;
 
   if (where == -1)
     where = s->logical_offset;
@@ -406,18 +418,28 @@ fd_alloc_w_at (unix_stream * s, int *len, offset_t where)
     }
 
   /* Return a position within the current buffer */
-
-  if (s->ndirty == 0)
-    {				/* First write into a clean buffer */
-      s->dirty_offset = where;
-      s->ndirty = *len;
+  if (s->ndirty == 0 
+      || where > s->dirty_offset + s->ndirty    
+      || s->dirty_offset > where + *len)
+    {  /* Discontiguous blocks, start with a clean buffer.  */  
+        /* Flush the buffer.  */  
+       if (s->ndirty != 0)    
+         fd_flush (s);  
+       s->dirty_offset = where;  
+       s->ndirty = *len;
     }
   else
-    {
-      if (s->dirty_offset + s->ndirty == where)
-	s->ndirty += *len;
-      else
-	fd_flush (s);		/* Can't combine two dirty blocks */
+    {  
+      gfc_offset start;  /* Merge with the existing data.  */  
+      if (where < s->dirty_offset)    
+        start = where;  
+      else    
+        start = s->dirty_offset;  
+      if (where + *len > s->dirty_offset + s->ndirty)    
+        s->ndirty = where + *len - start;  
+      else    
+        s->ndirty = s->dirty_offset + s->ndirty - start;  
+        s->dirty_offset = start;
     }
 
   s->logical_offset = where + *len;
@@ -444,7 +466,7 @@ fd_sfree (unix_stream * s)
 
 
 static int
-fd_seek (unix_stream * s, offset_t offset)
+fd_seek (unix_stream * s, gfc_offset offset)
 {
 
   s->physical_offset = s->logical_offset = offset;
@@ -461,13 +483,18 @@ static try
 fd_truncate (unix_stream * s)
 {
 
-  if (ftruncate (s->fd, s->logical_offset))
+  if (lseek (s->fd, s->logical_offset, SEEK_SET) == -1)
     return FAILURE;
+
+  /* non-seekable files, like terminals and fifo's fail the lseek.
+     the fd is a regular file at this point */
+
+  if (ftruncate (s->fd, s->logical_offset))
+   {
+    return FAILURE;
+   }
 
   s->physical_offset = s->file_length = s->logical_offset;
-
-  if (lseek (s->fd, s->file_length, SEEK_SET) == -1)
-    return FAILURE;
 
   return SUCCESS;
 }
@@ -551,9 +578,9 @@ mmap_flush (unix_stream * s)
  * guaranteed to be mappable. */
 
 static try
-mmap_alloc (unix_stream * s, offset_t where, int *len)
+mmap_alloc (unix_stream * s, gfc_offset where, int *len)
 {
-  offset_t offset;
+  gfc_offset offset;
   int length;
   char *p;
 
@@ -578,9 +605,9 @@ mmap_alloc (unix_stream * s, offset_t where, int *len)
 
 
 static char *
-mmap_alloc_r_at (unix_stream * s, int *len, offset_t where)
+mmap_alloc_r_at (unix_stream * s, int *len, gfc_offset where)
 {
-  offset_t m;
+  gfc_offset m;
 
   if (where == -1)
     where = s->logical_offset;
@@ -605,7 +632,7 @@ mmap_alloc_r_at (unix_stream * s, int *len, offset_t where)
 
 
 static char *
-mmap_alloc_w_at (unix_stream * s, int *len, offset_t where)
+mmap_alloc_w_at (unix_stream * s, int *len, gfc_offset where)
 {
   if (where == -1)
     where = s->logical_offset;
@@ -632,7 +659,7 @@ mmap_alloc_w_at (unix_stream * s, int *len, offset_t where)
 
 
 static int
-mmap_seek (unix_stream * s, offset_t offset)
+mmap_seek (unix_stream * s, gfc_offset offset)
 {
 
   s->logical_offset = offset;
@@ -719,9 +746,9 @@ mmap_open (unix_stream * s)
 
 
 static char *
-mem_alloc_r_at (unix_stream * s, int *len, offset_t where)
+mem_alloc_r_at (unix_stream * s, int *len, gfc_offset where)
 {
-  offset_t n;
+  gfc_offset n;
 
   if (where == -1)
     where = s->logical_offset;
@@ -729,12 +756,9 @@ mem_alloc_r_at (unix_stream * s, int *len, offset_t where)
   if (where < s->buffer_offset || where > s->buffer_offset + s->active)
     return NULL;
 
-  if (is_internal_unit() && where + *len > s->file_length)
-    return NULL;
-
   s->logical_offset = where + *len;
 
-  n = (where - s->buffer_offset) - s->active;
+  n = s->buffer_offset + s->active - where;
   if (*len > n)
     *len = n;
 
@@ -743,9 +767,9 @@ mem_alloc_r_at (unix_stream * s, int *len, offset_t where)
 
 
 static char *
-mem_alloc_w_at (unix_stream * s, int *len, offset_t where)
+mem_alloc_w_at (unix_stream * s, int *len, gfc_offset where)
 {
-  offset_t m;
+  gfc_offset m;
 
   if (where == -1)
     where = s->logical_offset;
@@ -762,7 +786,7 @@ mem_alloc_w_at (unix_stream * s, int *len, offset_t where)
 
 
 static int
-mem_seek (unix_stream * s, offset_t offset)
+mem_seek (unix_stream * s, gfc_offset offset)
 {
 
   if (offset > s->file_length)
@@ -982,7 +1006,7 @@ regular_file (unit_action action, unit_status status)
       break;
 
     case STATUS_REPLACE:
-      mode |= O_TRUNC;
+        mode |= O_CREAT | O_TRUNC;
       break;
 
     default:
@@ -1112,11 +1136,11 @@ compare_file_filename (stream * s, const char *name, int len)
 
 /* find_file0()-- Recursive work function for find_file() */
 
-static unit_t *
-find_file0 (unit_t * u, struct stat *st1)
+static gfc_unit *
+find_file0 (gfc_unit * u, struct stat *st1)
 {
   struct stat st2;
-  unit_t *v;
+  gfc_unit *v;
 
   if (u == NULL)
     return NULL;
@@ -1140,7 +1164,7 @@ find_file0 (unit_t * u, struct stat *st1)
 /* find_file()-- Take the current filename and see if there is a unit
  * that has the file already open.  Returns a pointer to the unit if so. */
 
-unit_t *
+gfc_unit *
 find_file (void)
 {
   char path[PATH_MAX + 1];
@@ -1194,7 +1218,7 @@ stream_at_eof (stream * s)
  * with the unit.  Returns nonzero if something went wrong. */
 
 int
-delete_file (unit_t * u)
+delete_file (gfc_unit * u)
 {
   char path[PATH_MAX + 1];
 
@@ -1366,7 +1390,7 @@ inquire_readwrite (const char *string, int len)
 
 /* file_length()-- Return the file length in bytes, -1 if unknown */
 
-offset_t
+gfc_offset
 file_length (stream * s)
 {
 
@@ -1376,7 +1400,7 @@ file_length (stream * s)
 
 /* file_position()-- Return the current position of the file */
 
-offset_t
+gfc_offset
 file_position (stream * s)
 {
 
@@ -1390,8 +1414,16 @@ file_position (stream * s)
 int
 is_seekable (stream * s)
 {
+  /* by convention, if file_length == -1, the file is not seekable
+     note that a mmapped file is always seekable, an fd_ file may
+     or may not be. */
+  return ((unix_stream *) s)->file_length!=-1;
+}
 
-  return ((unix_stream *) s)->mmaped;
+try
+flush (stream *s)
+{
+  return fd_flush( (unix_stream *) s);
 }
 
 

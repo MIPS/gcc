@@ -46,8 +46,7 @@ namespace __gnu_internal
 
 namespace __gnu_cxx
 {
-  void
-  __pool<false>::_M_destroy() throw()
+  __pool<false>::~__pool()
   {
     if (_M_init && !_M_options._M_force_new)
       {
@@ -173,8 +172,7 @@ namespace __gnu_cxx
   }
   
 #ifdef __GTHREADS
-  void
-  __pool<true>::_M_destroy() throw()
+  __pool<true>::~__pool()
   {
     if (_M_init && !_M_options._M_force_new)
       {

@@ -394,18 +394,18 @@ namespace _GLIBCXX_STD
       typedef _List_base<_Tp, _Alloc>                   _Base;
 
     public:
-      typedef _Tp                                       value_type;
-      typedef value_type*                               pointer;
-      typedef const value_type*                         const_pointer;
-      typedef _List_iterator<_Tp>                       iterator;
-      typedef _List_const_iterator<_Tp>                 const_iterator;
-      typedef std::reverse_iterator<const_iterator>     const_reverse_iterator;
-      typedef std::reverse_iterator<iterator>           reverse_iterator;
-      typedef value_type&                               reference;
-      typedef const value_type&                         const_reference;
-      typedef size_t                                    size_type;
-      typedef ptrdiff_t                                 difference_type;
-      typedef typename _Base::allocator_type            allocator_type;
+      typedef _Tp                                        value_type;
+      typedef typename _Alloc::pointer                   pointer;
+      typedef typename _Alloc::const_pointer             const_pointer;
+      typedef typename _Alloc::reference                 reference;
+      typedef typename _Alloc::const_reference           const_reference;
+      typedef _List_iterator<_Tp>                        iterator;
+      typedef _List_const_iterator<_Tp>                  const_iterator;
+      typedef std::reverse_iterator<const_iterator>      const_reverse_iterator;
+      typedef std::reverse_iterator<iterator>            reverse_iterator;
+      typedef size_t                                     size_type;
+      typedef ptrdiff_t                                  difference_type;
+      typedef typename _Base::allocator_type             allocator_type;
 
     protected:
       // Note that pointers-to-_Node's can be ctor-converted to
@@ -435,29 +435,7 @@ namespace _GLIBCXX_STD
 	_Node* __p = this->_M_get_node();
 	try
 	  {
-	    std::_Construct(&__p->_M_data, __x);
-	  }
-	catch(...)
-	  {
-	    _M_put_node(__p);
-	    __throw_exception_again;
-	  }
-	return __p;
-      }
-
-      /**
-       *  @if maint
-       *  Allocates space for a new node and default-constructs a new
-       *  instance of @c value_type in it.
-       *  @endif
-       */
-      _Node*
-      _M_create_node()
-      {
-	_Node* __p = this->_M_get_node();
-	try
-	  {
-	    std::_Construct(&__p->_M_data);
+	    this->get_allocator().construct(&__p->_M_data, __x);
 	  }
 	catch(...)
 	  {
@@ -910,7 +888,7 @@ namespace _GLIBCXX_STD
        */
       void
       swap(list& __x)
-      { _List_node_base::swap(this->_M_impl._M_node,__x._M_impl._M_node); }
+      { _List_node_base::swap(this->_M_impl._M_node, __x._M_impl._M_node); }
 
       /**
        *  Erases all the elements.  Note that this function only erases
@@ -1137,7 +1115,7 @@ namespace _GLIBCXX_STD
 			   _InputIterator __first, _InputIterator __last,
 			   __false_type)
         {
-	  for ( ; __first != __last; ++__first)
+	  for (; __first != __last; ++__first)
 	    _M_insert(__pos, *__first);
 	}
 
@@ -1146,7 +1124,7 @@ namespace _GLIBCXX_STD
       void
       _M_fill_insert(iterator __pos, size_type __n, const value_type& __x)
       {
-	for ( ; __n > 0; --__n)
+	for (; __n > 0; --__n)
 	  _M_insert(__pos, __x);
       }
 
@@ -1154,7 +1132,7 @@ namespace _GLIBCXX_STD
       // Moves the elements from [first,last) before position.
       void
       _M_transfer(iterator __position, iterator __first, iterator __last)
-      { __position._M_node->transfer(__first._M_node,__last._M_node); }
+      { __position._M_node->transfer(__first._M_node, __last._M_node); }
 
       // Inserts new element at position given and with value given.
       void
@@ -1170,7 +1148,7 @@ namespace _GLIBCXX_STD
       {
         __position._M_node->unhook();
         _Node* __n = static_cast<_Node*>(__position._M_node);
-        std::_Destroy(&__n->_M_data);
+        this->get_allocator().destroy(&__n->_M_data);
         _M_put_node(__n);
       }
     };
@@ -1187,9 +1165,9 @@ namespace _GLIBCXX_STD
   */
   template<typename _Tp, typename _Alloc>
     inline bool
-    operator==(const list<_Tp,_Alloc>& __x, const list<_Tp,_Alloc>& __y)
+    operator==(const list<_Tp, _Alloc>& __x, const list<_Tp, _Alloc>& __y)
     {
-      typedef typename list<_Tp,_Alloc>::const_iterator const_iterator;
+      typedef typename list<_Tp, _Alloc>::const_iterator const_iterator;
       const_iterator __end1 = __x.end();
       const_iterator __end2 = __y.end();
 
@@ -1216,32 +1194,32 @@ namespace _GLIBCXX_STD
   */
   template<typename _Tp, typename _Alloc>
     inline bool
-    operator<(const list<_Tp,_Alloc>& __x, const list<_Tp,_Alloc>& __y)
+    operator<(const list<_Tp, _Alloc>& __x, const list<_Tp, _Alloc>& __y)
     { return std::lexicographical_compare(__x.begin(), __x.end(),
 					  __y.begin(), __y.end()); }
 
   /// Based on operator==
   template<typename _Tp, typename _Alloc>
     inline bool
-    operator!=(const list<_Tp,_Alloc>& __x, const list<_Tp,_Alloc>& __y)
+    operator!=(const list<_Tp, _Alloc>& __x, const list<_Tp, _Alloc>& __y)
     { return !(__x == __y); }
 
   /// Based on operator<
   template<typename _Tp, typename _Alloc>
     inline bool
-    operator>(const list<_Tp,_Alloc>& __x, const list<_Tp,_Alloc>& __y)
+    operator>(const list<_Tp, _Alloc>& __x, const list<_Tp, _Alloc>& __y)
     { return __y < __x; }
 
   /// Based on operator<
   template<typename _Tp, typename _Alloc>
     inline bool
-    operator<=(const list<_Tp,_Alloc>& __x, const list<_Tp,_Alloc>& __y)
+    operator<=(const list<_Tp, _Alloc>& __x, const list<_Tp, _Alloc>& __y)
     { return !(__y < __x); }
 
   /// Based on operator<
   template<typename _Tp, typename _Alloc>
     inline bool
-    operator>=(const list<_Tp,_Alloc>& __x, const list<_Tp,_Alloc>& __y)
+    operator>=(const list<_Tp, _Alloc>& __x, const list<_Tp, _Alloc>& __y)
     { return !(__x < __y); }
 
   /// See std::list::swap().

@@ -25,11 +25,10 @@
 include $(top_srcdir)/fragment.am
 
 if GLIBCXX_HOSTED
-  # Possibly libmath as well...
-  hosted_source = src po
+  hosted_source = libmath src po testsuite
 endif
 ## Keep this list sync'd with acinclude.m4:GLIBCXX_CONFIGURE.
-SUBDIRS = include libmath libsupc++ $(hosted_source) testsuite
+SUBDIRS = include libsupc++ $(hosted_source)
 
 # These rules are messy, but are hella worth it.
 doxygen:
@@ -58,38 +57,6 @@ check-%:
 
 # Multilib support.
 MAKEOVERRIDES=
-
-# Multilib support variables.
-MULTISRCTOP =
-MULTIBUILDTOP =
-MULTIDIRS =
-MULTISUBDIR =
-MULTIDO = true
-MULTICLEAN = true
-
-# Multilib support.
-.PHONY: all-multi mostlyclean-multi clean-multi distclean-multi \
-	maintainer-clean-multi
-
-all-recursive: all-multi
-install-recursive: install-multi
-mostlyclean-recursive: mostlyclean-multi
-clean-recursive: clean-multi
-distclean-recursive: distclean-multi
-maintainer-clean-recursive: maintainer-clean-multi
-
-all-multi:
-	: $(MAKE) ; exec $(MULTIDO) $(AM_MAKEFLAGS) DO=all multi-do
-install-multi:
-	$(MULTIDO) $(AM_MAKEFLAGS) DO=install multi-do
-mostlyclean-multi:
-	$(MULTICLEAN) $(AM_MAKEFLAGS) DO=mostlyclean multi-clean
-clean-multi:
-	$(MULTICLEAN) $(AM_MAKEFLAGS) DO=clean multi-clean
-distclean-multi:
-	$(MULTICLEAN) $(AM_MAKEFLAGS) DO=distclean multi-clean
-maintainer-clean-multi:
-	$(MULTICLEAN) $(AM_MAKEFLAGS) DO=maintainer-clean multi-clean
 
 # All the machinations with string instantiations messes up the
 # automake-generated TAGS rule. Make a simple one here.
