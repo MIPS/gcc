@@ -7,6 +7,11 @@
 
 2004-09-26  Jerry Quinn  <jlquinn@optonline.net>
 
+	* java/awt/image/ColorModel.java (getDataElement,
+	getDataElements): Document since 1.4.
+
+2004-09-26  Jerry Quinn  <jlquinn@optonline.net>
+
 	* java/awt/image/BandedSampleModel.java: Implement.
 	* Makefile.am: Add java/awt/image/BandedSampleModel.java.
 	* Makefile.in: Regenerated.
