@@ -258,6 +258,7 @@ public:
     print ("-o jni", "generate JNI headers", 3);
     print ("-o cni", "generate CNI headers", 3);
     print ("-o jnistub", "generate JNI stubs", 3);
+    print ("-o none", "check syntax but do not generate code", 3);
 
     os << std::endl;
 
@@ -445,6 +446,10 @@ public:
 	    else if (otype == "jnistub")
 	      comp->add_code_generator (new jni_stub_generator (comp,
 							        comp->get_directory_cache ()));
+	    else if (otype == "none")
+	      {
+		// Nothing.
+	      }
 	    else
 	      die_unrecognized ("output type", otype);
 	    outputs.insert (otype);

@@ -1,5 +1,10 @@
 2005-02-05  Tom Tromey  <tromey@redhat.com>
 
+	* main.cc (class argument_parser): Document '-o none'.
+	(class argument_parser): Recognize it.
+
+2005-02-05  Tom Tromey  <tromey@redhat.com>
+
 	* thread/thread.hh: Disable.
 
 	* main.cc (gcjx_main): Pause workers.
