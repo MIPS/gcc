@@ -1,3 +1,17 @@
+2004-02-20  Jan Hubicka  <jh@suse.cz>
+
+	* cfgcleanup.c (try_optimize_cfg): Do not merge blocks separated by
+	tablejump.
+
+	* tree-cfg.c (cleanup_control_expr_graph): Update profile.
+
+	* tree-cfg.c (disband_implicit_edges): Set fallthru edges correctly.
+
+	* cfg.c (dump_flow_info): Work on trees too.
+
+	* tree-pretty-print.c (dump_generic_bb_stuff):  Do not touch bb
+	annotations when not allocated.
+
 2004-02-16  Jan Hubicka  <jh@suse.cz>
 
 	* Merge from tree-ssa branch  (tree-profilng-merge-20040216)

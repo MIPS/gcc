@@ -1673,6 +1673,8 @@ cleanup_control_expr_graph (basic_block bb, block_stmt_iterator bsi)
 	  next = e->succ_next;
 	  if (e != taken_edge)
 	    {
+	      taken_edge->probability += e->probability;
+	      taken_edge->count += e->count;
 	      ssa_remove_edge (e);
 	      retval = true;
 	    }
@@ -2291,6 +2293,7 @@ disband_implicit_edges (void)
 		COND_EXPR_ELSE (stmt) = build_empty_stmt ();
 	      else
 		abort ();
+	      e->flags |= EDGE_FALLTHRU;
 	    }
 
 	  continue;
@@ -2341,6 +2344,7 @@ disband_implicit_edges (void)
       bsi_insert_after (&last,
 			build1 (GOTO_EXPR, void_type_node, label),
 			BSI_NEW_STMT);
+      e->flags &= ~EDGE_FALLTHRU;
     }
 
   factored_computed_goto = NULL;
