@@ -1089,16 +1089,18 @@ finish_fname_decls (void)
 const char *
 fname_as_string (int pretty_p)
 {
-  const char *name = NULL;
+  const char *name = "top level";
+  int vrb = 2;
 
-  if (pretty_p)
-    name = (current_function_decl
-	    ? (*lang_hooks.decl_printable_name) (current_function_decl, 2)
-	    : "top level");
-  else if (current_function_decl && DECL_NAME (current_function_decl))
-    name = IDENTIFIER_POINTER (DECL_NAME (current_function_decl));
-  else
-    name = "";
+  if (! pretty_p)
+    {
+      name = "";
+      vrb = 0;
+    }
+
+  if (current_function_decl)
+    name = (*lang_hooks.decl_printable_name) (current_function_decl, vrb);
+
   return name;
 }
 
@@ -2021,6 +2023,21 @@ c_common_signed_or_unsigned_type (int unsignedp, tree type)
 
   return type;
 }
+
+/* The C version of the register_builtin_type langhook.  */
+
+void
+c_register_builtin_type (tree type, const char* name)
+{
+  tree decl;
+
+  decl = build_decl (TYPE_DECL, get_identifier (name), type);
+  DECL_ARTIFICIAL (decl) = 1;
+  if (!TYPE_NAME (type))
+    TYPE_NAME (type) = decl;
+  pushdecl (decl);
+}
+
 
 /* Return the minimum number of bits needed to represent VALUE in a
    signed or unsigned type, UNSIGNEDP says which.  */

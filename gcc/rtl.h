@@ -1816,8 +1816,6 @@ extern GTY(()) rtx global_rtl[GR_MAX];
 #define arg_pointer_rtx		(global_rtl[GR_ARG_POINTER])
 
 extern GTY(()) rtx pic_offset_table_rtx;
-extern GTY(()) rtx struct_value_rtx;
-extern GTY(()) rtx struct_value_incoming_rtx;
 extern GTY(()) rtx static_chain_rtx;
 extern GTY(()) rtx static_chain_incoming_rtx;
 extern GTY(()) rtx return_address_pointer_rtx;
@@ -2255,6 +2253,7 @@ extern int canon_true_dependence (rtx, enum machine_mode, rtx, rtx,
 extern int read_dependence (rtx, rtx);
 extern int anti_dependence (rtx, rtx);
 extern int output_dependence (rtx, rtx);
+extern int unchanging_anti_dependence (rtx, rtx);
 extern void mark_constant_function (void);
 extern void init_alias_once (void);
 extern void init_alias_analysis (void);

@@ -701,16 +701,25 @@ standard_conversion (tree to, tree from, tree expr)
 	    }
 	}
       else if (IS_AGGR_TYPE (TREE_TYPE (from))
-	       && IS_AGGR_TYPE (TREE_TYPE (to)))
+	       && IS_AGGR_TYPE (TREE_TYPE (to))
+	       /* [conv.ptr]
+		  
+	          An rvalue of type "pointer to cv D," where D is a
+		  class type, can be converted to an rvalue of type
+		  "pointer to cv B," where B is a base class (clause
+		  _class.derived_) of D.  If B is an inaccessible
+		  (clause _class.access_) or ambiguous
+		  (_class.member.lookup_) base class of D, a program
+		  that necessitates this conversion is ill-formed.  */
+	       /* Therefore, we use DERIVED_FROM_P, and not
+		  ACESSIBLY_UNIQUELY_DERIVED_FROM_P, in this test.  */
+	       && DERIVED_FROM_P (TREE_TYPE (to), TREE_TYPE (from)))
 	{
-	  if (DERIVED_FROM_P (TREE_TYPE (to), TREE_TYPE (from)))
-	    {
-	      from = 
-		cp_build_qualified_type (TREE_TYPE (to),
-					 cp_type_quals (TREE_TYPE (from)));
-	      from = build_pointer_type (from);
-	      conv = build_conv (PTR_CONV, from, conv);
-	    }
+	  from = 
+	    cp_build_qualified_type (TREE_TYPE (to),
+				     cp_type_quals (TREE_TYPE (from)));
+	  from = build_pointer_type (from);
+	  conv = build_conv (PTR_CONV, from, conv);
 	}
 
       if (tcode == POINTER_TYPE)
@@ -3193,8 +3202,9 @@ build_conditional_expr (tree arg1, tree arg2, tree arg3)
 
      If the second and third operands are lvalues and have the same
      type, the result is of that type and is an lvalue.  */
-  if (real_lvalue_p (arg2) && real_lvalue_p (arg3) && 
-      same_type_p (arg2_type, arg3_type))
+  if (real_lvalue_p (arg2) 
+      && real_lvalue_p (arg3) 
+      && same_type_p (arg2_type, arg3_type))
     {
       result_type = arg2_type;
       goto valid_operands;
@@ -4126,7 +4136,7 @@ convert_like_real (tree convs, tree expr, tree fn, int argnum, int inner,
 	tree ref_type = totype;
 
 	/* If necessary, create a temporary.  */
-	if (NEED_TEMPORARY_P (convs) || !non_cast_lvalue_p (expr))
+	if (NEED_TEMPORARY_P (convs) || !lvalue_p (expr))
 	  {
 	    tree type = TREE_TYPE (TREE_OPERAND (convs, 0));
 
@@ -5080,9 +5090,10 @@ build_new_method_call (tree instance, tree fns, tree args,
  finish:;
   
   if (processing_template_decl && call != error_mark_node)
-    return build_min (CALL_EXPR, TREE_TYPE (call),
-		      build_min_nt (COMPONENT_REF, orig_instance, orig_fns),
-		      orig_args);
+    return build_min_non_dep
+      (CALL_EXPR, call,
+       build_min_nt (COMPONENT_REF, orig_instance, orig_fns),
+       orig_args);
   return call;
 }
 
@@ -5949,7 +5960,8 @@ perform_implicit_conversion (tree type, tree expr)
 
 /* Convert EXPR to TYPE (as a direct-initialization) if that is
    permitted.  If the conversion is valid, the converted expression is
-   returned.  Otherwise, NULL_TREE is returned.  */
+   returned.  Otherwise, NULL_TREE is returned, except in the case
+   that TYPE is a class type; in that case, an error is issued.  */
 
 tree
 perform_direct_initialization_if_possible (tree type, tree expr)
@@ -5958,6 +5970,22 @@ perform_direct_initialization_if_possible (tree type, tree expr)
   
   if (type == error_mark_node || error_operand_p (expr))
     return error_mark_node;
+  /* [dcl.init]
+
+     If the destination type is a (possibly cv-qualified) class type:
+
+     -- If the initialization is direct-initialization ...,
+     constructors are considered. ... If no constructor applies, or
+     the overload resolution is ambiguous, the initialization is
+     ill-formed.  */
+  if (CLASS_TYPE_P (type))
+    {
+      expr = build_special_member_call (NULL_TREE, complete_ctor_identifier,
+					build_tree_list (NULL_TREE, expr),
+					TYPE_BINFO (type),
+					LOOKUP_NORMAL);
+      return build_cplus_new (type, expr);
+    }
   conv = implicit_conversion (type, TREE_TYPE (expr), expr,
 			      LOOKUP_NORMAL);
   if (!conv || ICS_BAD_FLAG (conv))
@@ -6005,14 +6033,18 @@ make_temporary_var_for_ref_to_temp (tree decl, tree type)
 }
 
 /* Convert EXPR to the indicated reference TYPE, in a way suitable for
-   initializing a variable of that TYPE.   If DECL is non-NULL, it is
+   initializing a variable of that TYPE.  If DECL is non-NULL, it is
    the VAR_DECL being initialized with the EXPR.  (In that case, the
-   type of DECL will be TYPE.)
+   type of DECL will be TYPE.)  If DECL is non-NULL, then CLEANUP must
+   also be non-NULL, and with *CLEANUP initialized to NULL.  Upon
+   return, if *CLEANUP is no longer NULL, it will be a CLEANUP_STMT
+   that should be inserted after the returned expression is used to
+   initialize DECL.
 
    Return the converted expression.  */
 
 tree
-initialize_reference (tree type, tree expr, tree decl)
+initialize_reference (tree type, tree expr, tree decl, tree *cleanup)
 {
   tree conv;
 
@@ -6085,7 +6117,7 @@ initialize_reference (tree type, tree expr, tree decl)
 	base_conv_type = NULL_TREE;
       /* Perform the remainder of the conversion.  */
       expr = convert_like (conv, expr);
-      if (!real_non_cast_lvalue_p (expr))
+      if (!real_lvalue_p (expr))
 	{
 	  tree init;
 	  tree type;
@@ -6094,14 +6126,33 @@ initialize_reference (tree type, tree expr, tree decl)
 	  type = TREE_TYPE (expr);
 	  var = make_temporary_var_for_ref_to_temp (decl, type);
 	  layout_decl (var, 0);
+	  /* Create the INIT_EXPR that will initialize the temporary
+	     variable.  */
+	  init = build (INIT_EXPR, type, var, expr);
 	  if (at_function_scope_p ())
 	    {
-	      tree cleanup;
-
 	      add_decl_stmt (var);
-	      cleanup = cxx_maybe_build_cleanup (var);
-	      if (cleanup)
-		finish_decl_cleanup (var, cleanup);
+	      *cleanup = cxx_maybe_build_cleanup (var);
+	      if (*cleanup)
+		/* We must be careful to destroy the temporary only
+		   after its initialization has taken place.  If the
+		   initialization throws an exception, then the
+		   destructor should not be run.  We cannot simply
+		   transform INIT into something like:
+	     
+		     (INIT, ({ CLEANUP_STMT; }))
+
+		   because emit_local_var always treats the
+		   initializer as a full-expression.  Thus, the
+		   destructor would run too early; it would run at the
+		   end of initializing the reference variable, rather
+		   than at the end of the block enclosing the
+		   reference variable.
+
+		   The solution is to pass back a CLEANUP_STMT which
+		   the caller is responsible for attaching to the
+		   statement tree.  */
+		*cleanup = build_stmt (CLEANUP_STMT, var, *cleanup);
 	    }
 	  else
 	    {
@@ -6110,7 +6161,6 @@ initialize_reference (tree type, tree expr, tree decl)
 		static_aggregates = tree_cons (NULL_TREE, var,
 					       static_aggregates);
 	    }
-	  init = build (INIT_EXPR, type, var, expr);
 	  /* Use its address to initialize the reference variable.  */
 	  expr = build_address (var);
 	  expr = build (COMPOUND_EXPR, TREE_TYPE (expr), init, expr);

@@ -93,7 +93,7 @@ static void pop_access_scope (tree);
 static int resolve_overloaded_unification (tree, tree, tree, tree,
 					   unification_kind_t, int);
 static int try_one_overload (tree, tree, tree, tree, tree,
-			     unification_kind_t, int);
+			     unification_kind_t, int, bool);
 static int unify (tree, tree, tree, tree, int);
 static void add_pending_template (tree);
 static void reopen_tinst_level (tree);
@@ -3209,9 +3209,12 @@ convert_nontype_argument (tree type, tree expr)
 	tree type_referred_to = TREE_TYPE (type);
 
 	/* If this expression already has reference type, get the
-	   underling object.  */
+	   underlying object.  */
 	if (TREE_CODE (expr_type) == REFERENCE_TYPE) 
 	  {
+	    if (TREE_CODE (expr) == NOP_EXPR
+		&& TREE_CODE (TREE_OPERAND (expr, 0)) == ADDR_EXPR)
+	      STRIP_NOPS (expr);
 	    my_friendly_assert (TREE_CODE (expr) == ADDR_EXPR, 20000604);
 	    expr = TREE_OPERAND (expr, 0);
 	    expr_type = TREE_TYPE (expr);
@@ -3265,7 +3268,7 @@ convert_nontype_argument (tree type, tree expr)
 	  }
 
 	cxx_mark_addressable (expr);
-	return build1 (ADDR_EXPR, type, expr);
+	return build_nop (type, build_address (expr));
       }
       break;
 
@@ -3851,7 +3854,8 @@ lookup_template_function (tree fns, tree arglist)
     return error_mark_node;
 
   my_friendly_assert (!arglist || TREE_CODE (arglist) == TREE_VEC, 20030726);
-  if (fns == NULL_TREE)
+  if (fns == NULL_TREE 
+      || TREE_CODE (fns) == FUNCTION_DECL)
     {
       error ("non-template used as template");
       return error_mark_node;
@@ -7088,7 +7092,17 @@ tsubst_qualified_id (tree qualified_id, tree args,
   my_friendly_assert (!dependent_type_p (scope), 20030729);
   
   if (!BASELINK_P (name) && !DECL_P (expr))
-    expr = lookup_qualified_name (scope, expr, /*is_type_p=*/0, false);
+    {
+      expr = lookup_qualified_name (scope, expr, /*is_type_p=*/0, false);
+      if (TREE_CODE (TREE_CODE (expr) == TEMPLATE_DECL
+		     ? DECL_TEMPLATE_RESULT (expr) : expr) == TYPE_DECL)
+	{
+	  if (complain & tf_error)
+	    error ("`%E' names a type, but a non-type is expected",
+		   qualified_id);
+	  return error_mark_node;
+	}
+    }
   
   if (DECL_P (expr))
     check_accessibility_of_qualified_id (expr, /*object_type=*/NULL_TREE,
@@ -7302,7 +7316,6 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
     case ROUND_DIV_EXPR:
     case EXACT_DIV_EXPR:
     case BIT_AND_EXPR:
-    case BIT_ANDTC_EXPR:
     case BIT_IOR_EXPR:
     case BIT_XOR_EXPR:
     case TRUNC_MOD_EXPR:
@@ -7547,7 +7560,8 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	    
 	    scope = tsubst_expr (scope, args, complain, in_decl);
 	    decl = lookup_qualified_name (scope, name,
-					  /*is_type_p=*/0, /*complain=*/false);
+					  /*is_type_p=*/false,
+					  /*complain=*/false);
 	    if (decl == error_mark_node)
 	      qualified_name_lookup_error (scope, name);
 	    else
@@ -7972,6 +7986,8 @@ tsubst_copy_and_build (tree t,
       else
 	op1 = tsubst_non_call_postfix_expression (op1, args, complain, 
 						  in_decl);
+      if (TREE_CODE (op1) == LABEL_DECL)
+	return finish_label_address_expr (DECL_NAME (op1));
       return build_x_unary_op (ADDR_EXPR, op1);
 
     case PLUS_EXPR:
@@ -7983,7 +7999,6 @@ tsubst_copy_and_build (tree t,
     case ROUND_DIV_EXPR:
     case EXACT_DIV_EXPR:
     case BIT_AND_EXPR:
-    case BIT_ANDTC_EXPR:
     case BIT_IOR_EXPR:
     case BIT_XOR_EXPR:
     case TRUNC_MOD_EXPR:
@@ -8045,10 +8060,10 @@ tsubst_copy_and_build (tree t,
 	  op1 = RECUR (op1);
 	  --skip_evaluation;
 	}
-      if (TREE_CODE (t) == SIZEOF_EXPR)
-	return finish_sizeof (op1);
+      if (TYPE_P (op1))
+	return cxx_sizeof_or_alignof_type (op1, TREE_CODE (t), true);
       else
-	return finish_alignof (op1);
+	return cxx_sizeof_or_alignof_expr (op1, TREE_CODE (t));
 
     case MODOP_EXPR:
       return build_x_modify_expr
@@ -8090,18 +8105,9 @@ tsubst_copy_and_build (tree t,
 	bool koenig_p;
 
 	function = TREE_OPERAND (t, 0);
-	/* To determine whether or not we should perform Koenig lookup
-	   we must look at the form of the FUNCTION.  */
-	koenig_p = !(/* Koenig lookup does not apply to qualified
-			names.  */
-		     TREE_CODE (function) == SCOPE_REF
-		     /* Or to references to members of classes.  */
-		     || TREE_CODE (function) == COMPONENT_REF
-		     /* If it is a FUNCTION_DECL or a baselink, then
-			the name was already resolved when the
-			template was parsed.  */
-		     || TREE_CODE (function) == FUNCTION_DECL
-		     || TREE_CODE (function) == BASELINK);
+	/* When we parsed the expression,  we determined whether or
+	   not Koenig lookup should be performed.  */
+	koenig_p = KOENIG_LOOKUP_P (t);
 	if (TREE_CODE (function) == SCOPE_REF)
 	  {
 	    qualified_p = true;
@@ -8117,23 +8123,22 @@ tsubst_copy_and_build (tree t,
 	    function = tsubst_copy_and_build (function, args, complain, 
 					      in_decl,
 					      !qualified_p);
+	    if (BASELINK_P (function))
+	      qualified_p = true;
 	  }
 
 	call_args = RECUR (TREE_OPERAND (t, 1));
 	  
-	if (BASELINK_P (function))
-	  qualified_p = 1;
-
 	if (koenig_p
-	    && TREE_CODE (function) != TEMPLATE_ID_EXPR
 	    && (is_overloaded_fn (function)
 		|| DECL_P (function)
 		|| TREE_CODE (function) == IDENTIFIER_NODE))
+	  function = perform_koenig_lookup (function, call_args);
+
+	if (TREE_CODE (function) == IDENTIFIER_NODE)
 	  {
-	    if (call_args)
-	      function = perform_koenig_lookup (function, call_args);
-	    else if (TREE_CODE (function) == IDENTIFIER_NODE)
-	      function = unqualified_name_lookup_error (function);
+	    unqualified_name_lookup_error (function);
+	    return error_mark_node;
 	  }
 
 	/* Remember that there was a reference to this entity.  */
@@ -8151,7 +8156,8 @@ tsubst_copy_and_build (tree t,
 		   call_args, NULL_TREE, 
 		   qualified_p ? LOOKUP_NONVIRTUAL : LOOKUP_NORMAL));
 	return finish_call_expr (function, call_args, 
-				 /*disallow_virtual=*/qualified_p);
+				 /*disallow_virtual=*/qualified_p,
+				 koenig_p);
       }
 
     case COND_EXPR:
@@ -8231,7 +8237,8 @@ tsubst_copy_and_build (tree t,
 	    tmpl = TREE_OPERAND (TREE_OPERAND (member, 1), 0);
 	    args = TREE_OPERAND (TREE_OPERAND (member, 1), 1);
 	    member = lookup_qualified_name (TREE_OPERAND (member, 0), tmpl, 
-					    /*is_type=*/0, /*complain=*/false);
+					    /*is_type_p=*/false,
+					    /*complain=*/false);
 	    if (BASELINK_P (member))
 	      BASELINK_FUNCTIONS (member) 
 		= build_nt (TEMPLATE_ID_EXPR, BASELINK_FUNCTIONS (member),
@@ -8917,9 +8924,15 @@ resolve_overloaded_unification (tree tparms,
 {
   tree tempargs = copy_node (targs);
   int good = 0;
+  bool addr_p;
 
   if (TREE_CODE (arg) == ADDR_EXPR)
-    arg = TREE_OPERAND (arg, 0);
+    {
+      arg = TREE_OPERAND (arg, 0);
+      addr_p = true;
+    }
+  else
+    addr_p = false;
 
   if (TREE_CODE (arg) == COMPONENT_REF)
     /* Handle `&x' where `x' is some static or non-static member
@@ -8955,10 +8968,8 @@ resolve_overloaded_unification (tree tparms,
 	  if (subargs)
 	    {
 	      elem = tsubst (TREE_TYPE (fn), subargs, tf_none, NULL_TREE);
-	      if (TREE_CODE (elem) == METHOD_TYPE)
-		elem = build_ptrmemfunc_type (build_pointer_type (elem));
-	      good += try_one_overload (tparms, targs, tempargs, parm, elem,
-					strict, sub_strict);
+	      good += try_one_overload (tparms, targs, tempargs, parm, 
+					elem, strict, sub_strict, addr_p);
 	    }
 	}
     }
@@ -8966,14 +8977,9 @@ resolve_overloaded_unification (tree tparms,
 	   || TREE_CODE (arg) == FUNCTION_DECL)
     {
       for (; arg; arg = OVL_NEXT (arg))
-	{
-	  tree type = TREE_TYPE (OVL_CURRENT (arg));
-	  if (TREE_CODE (type) == METHOD_TYPE)
-	    type = build_ptrmemfunc_type (build_pointer_type (type));
-	  good += try_one_overload (tparms, targs, tempargs, parm,
-				    type,
-				    strict, sub_strict);
-	}
+	good += try_one_overload (tparms, targs, tempargs, parm,
+				  TREE_TYPE (OVL_CURRENT (arg)),
+				  strict, sub_strict, addr_p);
     }
   else
     abort ();
@@ -9002,6 +9008,9 @@ resolve_overloaded_unification (tree tparms,
 /* Subroutine of resolve_overloaded_unification; does deduction for a single
    overload.  Fills TARGS with any deduced arguments, or error_mark_node if
    different overloads deduce different arguments for a given parm.
+   ADDR_P is true if the expression for which deduction is being
+   performed was of the form "& fn" rather than simply "fn".
+
    Returns 1 on success.  */
 
 static int
@@ -9011,7 +9020,8 @@ try_one_overload (tree tparms,
                   tree parm, 
                   tree arg, 
                   unification_kind_t strict,
-		  int sub_strict)
+		  int sub_strict,
+		  bool addr_p)
 {
   int nargs;
   tree tempargs;
@@ -9026,6 +9036,11 @@ try_one_overload (tree tparms,
 
   if (uses_template_parms (arg))
     return 1;
+
+  if (TREE_CODE (arg) == METHOD_TYPE)
+    arg = build_ptrmemfunc_type (build_pointer_type (arg));
+  else if (addr_p)
+    arg = build_pointer_type (arg);
 
   sub_strict |= maybe_adjust_types_for_deduction (strict, &parm, &arg);
 
@@ -10723,9 +10738,13 @@ instantiate_decl (tree d, int defer_ok)
 
   timevar_push (TV_PARSE);
 
-  /* We may be in the middle of deferred access check.  Disable
-     it now.  */
+  /* We may be in the middle of deferred access check.  Disable it now.  */
   push_deferring_access_checks (dk_no_deferred);
+
+  /* Our caller does not expect collection to happen, which it might if
+     we decide to compile the function to rtl now.  Arrange for a new
+     gc context to be created if so.  */
+  function_depth++;
 
   /* Set TD to the template whose DECL_TEMPLATE_RESULT is the pattern
      for the instantiation.  */
@@ -10971,6 +10990,7 @@ out:
   input_location = saved_loc;
   pop_deferring_access_checks ();
   pop_tinst_level ();
+  function_depth--;
 
   timevar_pop (TV_PARSE);
 
@@ -11332,7 +11352,8 @@ dependent_type_p_r (tree type)
   /* ... or any of the template arguments is a dependent type or
 	an expression that is type-dependent or value-dependent.   */
   else if (CLASS_TYPE_P (type) && CLASSTYPE_TEMPLATE_INFO (type)
-      && any_dependent_template_arguments_p (CLASSTYPE_TI_ARGS (type)))
+	   && (any_dependent_template_arguments_p 
+	       (INNERMOST_TEMPLATE_ARGS (CLASSTYPE_TI_ARGS (type)))))
     return true;
   
   /* All TYPEOF_TYPEs are dependent; if the argument of the `typeof'
@@ -11804,6 +11825,11 @@ build_non_dependent_expr (tree expr)
      types.  */
   if (TREE_CODE (expr) == OVERLOAD)
     return expr;
+  /* Preserve string constants; conversions from string constants to
+     "char *" are allowed, even though normally a "const char *"
+     cannot be used to initialize a "char *".  */
+  if (TREE_CODE (expr) == STRING_CST)
+    return expr;
 
   if (TREE_CODE (expr) == COND_EXPR)
     return build (COND_EXPR,
@@ -11811,7 +11837,8 @@ build_non_dependent_expr (tree expr)
 		  TREE_OPERAND (expr, 0),
 		  build_non_dependent_expr (TREE_OPERAND (expr, 1)),
 		  build_non_dependent_expr (TREE_OPERAND (expr, 2)));
-  if (TREE_CODE (expr) == COMPOUND_EXPR)
+  if (TREE_CODE (expr) == COMPOUND_EXPR
+      && !COMPOUND_EXPR_OVERLOADED (expr))
     return build (COMPOUND_EXPR,
 		  TREE_TYPE (expr),
 		  TREE_OPERAND (expr, 0),

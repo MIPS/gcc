@@ -53,9 +53,10 @@ struct lang_hooks_for_tree_inlining
 
 struct lang_hooks_for_callgraph
 {
-  /* Function passed as argument is needed and will be compiled.
-     Lower the representation so the calls are explicit.  */
-  void (*lower_function) (tree);
+  /* The node passed is a language-specific tree node.  If its contents
+     are relevant to use of other declarations, mark them.  */
+  tree (*analyze_expr) (tree *, int *, tree);
+
   /* Produce RTL for function passed as argument.  */
   void (*expand_function) (tree);
 };
@@ -75,6 +76,19 @@ struct lang_hooks_for_functions
 
   /* Called when leaving a nested function.  */
   void (*leave_nested) (struct function *);
+};
+
+/* Lang hooks for rtl code generation.  */
+struct lang_hooks_for_rtl_expansion
+{
+  /* Called after expand_function_start, but before expanding the body.  */
+  void (*start) (void);
+
+  /* Called to expand each statement.  */
+  void (*stmt) (tree);
+
+  /* Called after expanding the body but before expand_function_end.  */
+  void (*end) (void);
 };
 
 /* The following hooks are used by tree-dump.c.  */
@@ -122,6 +136,15 @@ struct lang_hooks_for_types
      change.  Required by any language that supports variadic
      arguments.  The default hook aborts.  */
   tree (*type_promotes_to) (tree);
+
+  /* Register TYPE as a builtin type with the indicated NAME.  The
+     TYPE is placed in the outermost lexical scope.  The semantics
+     should be analogous to:
+
+       typedef TYPE NAME;
+
+     in C.  The default hook ignores the declaration.  */
+  void (*register_builtin_type) (tree, const char *);
 
   /* This routine is called in tree.c to print an error message for
      invalid use of an incomplete type.  VALUE is the expression that
@@ -386,6 +409,8 @@ struct lang_hooks
   struct lang_hooks_for_decls decls;
 
   struct lang_hooks_for_types types;
+
+  struct lang_hooks_for_rtl_expansion rtl_expand;
 
   /* Whenever you add entries here, make sure you adjust langhooks-def.h
      and langhooks.c accordingly.  */

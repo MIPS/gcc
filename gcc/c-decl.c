@@ -185,7 +185,7 @@ static int current_extern_inline;
    the end of the list on each insertion, or reverse the lists later,
    we maintain a pointer to the last list entry for each of the lists.
 
-   The order of the tags, shadowed, shadowed_tags, and incomplete
+   The order of the tags, shadowed, and shadowed_tags
    lists does not matter, so we just prepend to these lists.  */
 
 struct c_scope GTY(())
@@ -224,9 +224,6 @@ struct c_scope GTY(())
      for all the scopes that were entered and exited one level down.  */
   tree blocks;
   tree blocks_last;
-
-  /* Variable declarations with incomplete type in this scope.  */
-  tree incomplete;
 
   /* True if we are currently filling this scope with parameter
      declarations.  */
@@ -542,7 +539,8 @@ poplevel (int keep, int dummy ATTRIBUTE_UNUSED, int functionbody)
   tree decl;
   tree p;
 
-  scope->function_body |= functionbody;
+  /* The following line does not use |= due to a bug in HP's C compiler */
+  scope->function_body = scope->function_body | functionbody;
 
   if (keep == KEEP_MAYBE)
     keep = (scope->names || scope->tags);
@@ -812,10 +810,8 @@ static int
 duplicate_decls (tree newdecl, tree olddecl, int different_binding_level,
 		 int different_tu)
 {
-  int comptype_flags = (different_tu ? COMPARE_DIFFERENT_TU
-			: COMPARE_STRICT);
   int types_match = comptypes (TREE_TYPE (newdecl), TREE_TYPE (olddecl),
-			       comptype_flags);
+			       COMPARE_STRICT);
   int new_is_definition = (TREE_CODE (newdecl) == FUNCTION_DECL
 			   && DECL_INITIAL (newdecl) != 0);
   tree oldtype = TREE_TYPE (olddecl);
@@ -934,7 +930,7 @@ duplicate_decls (tree newdecl, tree olddecl, int different_binding_level,
 
 	  if (trytype)
 	    {
-	      types_match = comptypes (newtype, trytype, comptype_flags);
+	      types_match = comptypes (newtype, trytype, COMPARE_STRICT);
 	      if (types_match)
 		oldtype = trytype;
 	      if (! different_binding_level)
@@ -1020,7 +1016,7 @@ duplicate_decls (tree newdecl, tree olddecl, int different_binding_level,
 		 && ! pedantic
 		 /* Return types must still match.  */
 		 && comptypes (TREE_TYPE (oldtype),
-			       TREE_TYPE (newtype), comptype_flags)
+			       TREE_TYPE (newtype), COMPARE_STRICT)
 		 && TYPE_ARG_TYPES (newtype) == 0))
     {
       error ("%Hconflicting types for '%D'",
@@ -1029,7 +1025,7 @@ duplicate_decls (tree newdecl, tree olddecl, int different_binding_level,
 	 involving an empty arglist vs a nonempty one.  */
       if (TREE_CODE (olddecl) == FUNCTION_DECL
 	  && comptypes (TREE_TYPE (oldtype),
-			TREE_TYPE (newtype), comptype_flags)
+			TREE_TYPE (newtype), COMPARE_STRICT)
 	  && ((TYPE_ARG_TYPES (oldtype) == 0
 	       && DECL_INITIAL (olddecl) == 0)
 	      ||
@@ -1172,7 +1168,7 @@ duplicate_decls (tree newdecl, tree olddecl, int different_binding_level,
 	      /* Type for passing arg must be consistent
 		 with that declared for the arg.  */
 	      if (! comptypes (TREE_VALUE (parm), TREE_VALUE (type),
-			       comptype_flags))
+			       COMPARE_STRICT))
 		{
                   const location_t *locus = &DECL_SOURCE_LOCATION (newdecl);
 		  error ("%Hprototype for '%D' follows and argument %d "
@@ -1605,7 +1601,7 @@ warn_if_shadowing (tree x, tree old)
   name = IDENTIFIER_POINTER (DECL_NAME (x));
   if (TREE_CODE (old) == PARM_DECL)
     shadow_warning (SW_PARAM, name, old);
-  else if (C_DECL_FILE_SCOPE (old))
+  else if (DECL_FILE_SCOPE_P (old))
     shadow_warning (SW_GLOBAL, name, old);
   else
     shadow_warning (SW_LOCAL, name, old);
@@ -1779,14 +1775,15 @@ pushdecl (tree x)
       IDENTIFIER_SYMBOL_VALUE (name) = x;
       C_DECL_INVISIBLE (x) = 0;
 
-      /* Keep list of variables in this scope with incomplete type.
+      /* If x's type is incomplete because it's based on a
+	 structure or union which has not yet been fully declared,
+	 attach it to that structure or union type, so we can go
+	 back and complete the variable declaration later, if the
+	 structure or union gets fully declared.
+
 	 If the input is erroneous, we can have error_mark in the type
 	 slot (e.g. "f(void a, ...)") - that doesn't count as an
-	 incomplete type.
-
-	 FIXME: Chain these off the TYPE_DECL for the incomplete type,
-	 then we don't have to do (potentially quite costly) searches
-	 in finish_struct.  */
+	 incomplete type.  */
       if (TREE_TYPE (x) != error_mark_node
 	  && !COMPLETE_TYPE_P (TREE_TYPE (x)))
 	{
@@ -1794,11 +1791,15 @@ pushdecl (tree x)
 
 	  while (TREE_CODE (element) == ARRAY_TYPE)
 	    element = TREE_TYPE (element);
+	  element = TYPE_MAIN_VARIANT (element);
+
 	  if ((TREE_CODE (element) == RECORD_TYPE
 	       || TREE_CODE (element) == UNION_TYPE)
 	      && (TREE_CODE (x) != TYPE_DECL
-		  || TREE_CODE (TREE_TYPE (x)) == ARRAY_TYPE))
-	    scope->incomplete = tree_cons (NULL_TREE, x, scope->incomplete);
+		  || TREE_CODE (TREE_TYPE (x)) == ARRAY_TYPE)
+	      && !COMPLETE_TYPE_P (element))
+	    C_TYPE_INCOMPLETE_VARS (element)
+	      = tree_cons (NULL_TREE, x, C_TYPE_INCOMPLETE_VARS (element));
 	}
     }
 
@@ -1852,7 +1853,7 @@ implicitly_declare (tree functionid)
       if (!C_DECL_IMPLICIT (decl))
 	{
 	  implicit_decl_warning (DECL_NAME (decl));
-	  if (! C_DECL_FILE_SCOPE (decl))
+	  if (! DECL_FILE_SCOPE_P (decl))
 	    warning ("%Hprevious declaration of '%D'",
                      &DECL_SOURCE_LOCATION (decl), decl);
 	  C_DECL_IMPLICIT (decl) = 1;
@@ -1932,7 +1933,7 @@ redeclaration_error_message (tree newdecl, tree olddecl)
 	return 1;
       return 0;
     }
-  else if (C_DECL_FILE_SCOPE (newdecl))
+  else if (DECL_FILE_SCOPE_P (newdecl))
     {
       /* Objects declared at file scope:  */
       /* If at least one is a reference, it's ok.  */
@@ -2707,6 +2708,26 @@ start_decl (tree declarator, tree declspecs, int initialized, tree attributes)
   decl_attributes (&decl, attributes, 0);
 
   if (TREE_CODE (decl) == FUNCTION_DECL
+      && targetm.calls.promote_prototypes (TREE_TYPE (decl)))
+    {
+      tree ce = declarator;
+
+      if (TREE_CODE (ce) == INDIRECT_REF)
+	ce = TREE_OPERAND (declarator, 0);
+      if (TREE_CODE (ce) == CALL_EXPR)
+	{
+	  tree args = TREE_PURPOSE (TREE_OPERAND (ce, 1));
+	  for (; args; args = TREE_CHAIN (args))
+	    {
+	      tree type = TREE_TYPE (args);
+	      if (INTEGRAL_TYPE_P (type)
+		  && TYPE_PRECISION (type) < TYPE_PRECISION (integer_type_node))
+		DECL_ARG_TYPE (args) = integer_type_node;
+	    }
+	}
+    }
+
+  if (TREE_CODE (decl) == FUNCTION_DECL
       && DECL_DECLARED_INLINE_P (decl)
       && DECL_UNINLINABLE (decl)
       && lookup_attribute ("noinline", DECL_ATTRIBUTES (decl)))
@@ -2723,7 +2744,7 @@ start_decl (tree declarator, tree declspecs, int initialized, tree attributes)
 	 and we preserved the rtl from the previous one
 	 (which may or may not happen).  */
       && !DECL_RTL_SET_P (tem)
-      && C_DECL_FILE_SCOPE (tem))
+      && DECL_FILE_SCOPE_P (tem))
     {
       if (TREE_TYPE (tem) != error_mark_node
 	  && (COMPLETE_TYPE_P (TREE_TYPE (tem))
@@ -2833,7 +2854,7 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
 		   Otherwise, let it through, but if it is not `extern'
 		   then it may cause an error message later.  */
 		(DECL_INITIAL (decl) != 0
-		 || !C_DECL_FILE_SCOPE (decl))
+		 || !DECL_FILE_SCOPE_P (decl))
 	      :
 		/* An automatic variable with an incomplete type
 		   is an error.  */
@@ -2904,7 +2925,7 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
       if (c_dialect_objc ())
 	objc_check_decl (decl);
 
-      if (C_DECL_FILE_SCOPE (decl))
+      if (DECL_FILE_SCOPE_P (decl))
 	{
 	  if (DECL_INITIAL (decl) == NULL_TREE
 	      || DECL_INITIAL (decl) == error_mark_node)
@@ -2944,7 +2965,7 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
 	    add_decl_stmt (decl);
 	}
 
-      if (!C_DECL_FILE_SCOPE (decl))
+      if (!DECL_FILE_SCOPE_P (decl))
 	{
 	  /* Recompute the RTL of a local array now
 	     if it used to be an incomplete type.  */
@@ -2965,7 +2986,7 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
     mark_referenced (DECL_ASSEMBLER_NAME (decl));
 
   if (TREE_CODE (decl) == TYPE_DECL)
-    rest_of_decl_compilation (decl, NULL, C_DECL_FILE_SCOPE (decl), 0);
+    rest_of_decl_compilation (decl, NULL, DECL_FILE_SCOPE_P (decl), 0);
 
   /* At the end of a declaration, throw away any variable type sizes
      of types defined inside that declaration.  There is no use
@@ -4608,10 +4629,6 @@ get_parm_info (int void_at_end)
 	 declared types.  The back end may override this.  */
       type = TREE_TYPE (decl);
       DECL_ARG_TYPE (decl) = type;
-      if (PROMOTE_PROTOTYPES
-	  && INTEGRAL_TYPE_P (type)
-	  && TYPE_PRECISION (type) < TYPE_PRECISION (integer_type_node))
-	DECL_ARG_TYPE (decl) = integer_type_node;
 
       /* Check for (..., void, ...) and issue an error.  */
       if (VOID_TYPE_P (type) && !DECL_NAME (decl) && !gave_void_only_once_err)
@@ -5175,57 +5192,24 @@ finish_struct (tree t, tree fieldlist, tree attributes)
 
   /* If this structure or union completes the type of any previous
      variable declaration, lay it out and output its rtl.  */
-
-  if (current_scope->incomplete != NULL_TREE)
+  for (x = C_TYPE_INCOMPLETE_VARS (TYPE_MAIN_VARIANT (t));
+       x;
+       x = TREE_CHAIN (x))
     {
-      tree prev = NULL_TREE;
-
-      for (x = current_scope->incomplete; x; x = TREE_CHAIN (x))
-        {
-	  tree decl = TREE_VALUE (x);
-
-	  if (TYPE_MAIN_VARIANT (TREE_TYPE (decl)) == TYPE_MAIN_VARIANT (t)
-	      && TREE_CODE (decl) != TYPE_DECL)
-	    {
-	      layout_decl (decl, 0);
-	      rest_of_decl_compilation (decl, NULL, toplevel, 0);
-	      if (! toplevel)
-		expand_decl (decl);
-	      /* Unlink X from the incomplete list.  */
-	      if (prev)
-		TREE_CHAIN (prev) = TREE_CHAIN (x);
-	      else
-	        current_scope->incomplete = TREE_CHAIN (x);
-	    }
-	  else if (!COMPLETE_TYPE_P (TREE_TYPE (decl))
-		   && TREE_CODE (TREE_TYPE (decl)) == ARRAY_TYPE)
-	    {
-	      tree element = TREE_TYPE (decl);
-	      while (TREE_CODE (element) == ARRAY_TYPE)
-		element = TREE_TYPE (element);
-	      if (element == t)
-		{
-		  layout_array_type (TREE_TYPE (decl));
-		  if (TREE_CODE (decl) != TYPE_DECL)
-		    {
-		      layout_decl (decl, 0);
-		      rest_of_decl_compilation (decl, NULL, toplevel, 0);
-		      if (! toplevel)
-			expand_decl (decl);
-		    }
-		  /* Unlink X from the incomplete list.  */
-		  if (prev)
-		    TREE_CHAIN (prev) = TREE_CHAIN (x);
-		  else
-		    current_scope->incomplete = TREE_CHAIN (x);
-		}
-	      else
-		prev = x;
-	    }
-	  else
-	    prev = x;
+      tree decl = TREE_VALUE (x);
+      if (TREE_CODE (TREE_TYPE (decl)) == ARRAY_TYPE)
+	layout_array_type (TREE_TYPE (decl));
+      if (TREE_CODE (decl) != TYPE_DECL)
+	{
+	  layout_decl (decl, 0);
+	  if (c_dialect_objc ())
+	    objc_check_decl (decl);
+	  rest_of_decl_compilation (decl, NULL, toplevel, 0);
+	  if (! toplevel)
+	    expand_decl (decl);
 	}
     }
+  C_TYPE_INCOMPLETE_VARS (TYPE_MAIN_VARIANT (t)) = 0;
 
   /* Finish debugging output for this type.  */
   rest_of_type_compilation (t, toplevel);
@@ -5964,7 +5948,7 @@ store_parm_decls_oldstyle (void)
 		     useful for argument types like uid_t.  */
 		  DECL_ARG_TYPE (parm) = TREE_TYPE (parm);
 
-		  if (PROMOTE_PROTOTYPES
+		  if (targetm.calls.promote_prototypes (TREE_TYPE (current_function_decl))
 		      && INTEGRAL_TYPE_P (TREE_TYPE (parm))
 		      && TYPE_PRECISION (TREE_TYPE (parm))
 		      < TYPE_PRECISION (integer_type_node))
@@ -6058,7 +6042,7 @@ store_parm_decls (void)
   gen_aux_info_record (fndecl, 1, 0, prototype);
 
   /* Initialize the RTL code for the function.  */
-  init_function_start (fndecl);
+  allocate_struct_function (fndecl);
 
   /* Begin the statement tree for this function.  */
   begin_stmt_tree (&DECL_SAVED_TREE (fndecl));
@@ -6093,13 +6077,10 @@ store_parm_decls (void)
    all the way to assembler language output.  The free the storage
    for the function definition.
 
-   This is called after parsing the body of the function definition.
-
-   NESTED is nonzero if the function being finished is nested in another.
-   CAN_DEFER_P is nonzero if the function may be deferred.  */
+   This is called after parsing the body of the function definition.  */
 
 void
-finish_function (int nested, int can_defer_p)
+finish_function ()
 {
   tree fndecl = current_function_decl;
 
@@ -6117,6 +6098,19 @@ finish_function (int nested, int can_defer_p)
     {
       pushlevel (0);
       poplevel (0, 0, 0);
+    }
+
+  if (TREE_CODE (fndecl) == FUNCTION_DECL
+      && targetm.calls.promote_prototypes (TREE_TYPE (fndecl)))
+    {
+      tree args = DECL_ARGUMENTS (fndecl);
+      for (; args; args = TREE_CHAIN (args))
+ 	{
+ 	  tree type = TREE_TYPE (args);
+ 	  if (INTEGRAL_TYPE_P (type)
+ 	      && TYPE_PRECISION (type) < TYPE_PRECISION (integer_type_node))
+ 	    DECL_ARG_TYPE (args) = integer_type_node;
+ 	}
     }
 
   BLOCK_SUPERCONTEXT (DECL_INITIAL (fndecl)) = fndecl;
@@ -6168,81 +6162,24 @@ finish_function (int nested, int can_defer_p)
       && DECL_INLINE (fndecl))
     warning ("no return statement in function returning non-void");
 
-  /* Clear out memory we no longer need.  */
-  free_after_parsing (cfun);
-  /* Since we never call rest_of_compilation, we never clear
-     CFUN.  Do so explicitly.  */
-  free_after_compilation (cfun);
+  /* With just -Wextra, complain only if function returns both with
+     and without a value.  */
+  if (extra_warnings
+      && current_function_returns_value
+      && current_function_returns_null)
+    warning ("this function may return with or without a value");
+
+  /* We're leaving the context of this function, so zap cfun.  It's still in
+     DECL_SAVED_INSNS, and we'll restore it in tree_rest_of_compilation.  */
   cfun = NULL;
 
-  if (flag_unit_at_a_time && can_defer_p)
-    {
-      cgraph_finalize_function (fndecl, DECL_SAVED_TREE (fndecl));
-      current_function_decl = NULL;
-      return;
-    }
-
-  if (! nested)
-    {
-      /* Function is parsed.
-	 Generate RTL for the body of this function or defer
-	 it for later expansion.  */
-      bool uninlinable = true;
-
-      /* There's no reason to do any of the work here if we're only doing
-	 semantic analysis; this code just generates RTL.  */
-      if (flag_syntax_only)
-	{
-	  current_function_decl = NULL;
-	  DECL_SAVED_TREE (fndecl) = NULL_TREE;
-	  return;
-	}
-
-      if (flag_inline_trees)
-	{
-	  /* First, cache whether the current function is inlinable.  Some
-	     predicates depend on cfun and current_function_decl to
-	     function completely.  */
-	  timevar_push (TV_INTEGRATION);
-	  uninlinable = !tree_inlinable_function_p (fndecl);
-
-	  if (can_defer_p
-	      /* We defer functions marked inline *even if* the function
-		 itself is not inlinable.  This is because we don't yet
-		 know if the function will actually be used; we may be
-		 able to avoid emitting it entirely.  */
-	      && (!uninlinable || DECL_DECLARED_INLINE_P (fndecl))
-	      /* Save function tree for inlining.  Should return 0 if the
-		 language does not support function deferring or the
-		 function could not be deferred.  */
-	      && defer_fn (fndecl))
-	    {
-	      /* Let the back-end know that this function exists.  */
-	      (*debug_hooks->deferred_inline_function) (fndecl);
-	      timevar_pop (TV_INTEGRATION);
-	      current_function_decl = NULL;
-	      return;
-	    }
-
-	  /* Then, inline any functions called in it.  */
-	  optimize_inline_calls (fndecl);
-	  timevar_pop (TV_INTEGRATION);
-	}
-
-      c_expand_body (fndecl);
-
-      /* Keep the function body if it's needed for inlining or dumping.  */
-      if (uninlinable && !dump_enabled_p (TDI_all))
-	{
-	  /* Allow the body of the function to be garbage collected.  */
-	  DECL_SAVED_TREE (fndecl) = NULL_TREE;
-	}
-
-      /* Let the error reporting routines know that we're outside a
-	 function.  For a nested function, this value is used in
-	 c_pop_function_context and then reset via pop_function_context.  */
-      current_function_decl = NULL;
-    }
+  /* ??? Objc emits functions after finalizing the compilation unit.
+     This should be cleaned up later and this conditional removed.  */
+  if (!cgraph_global_info_ready)
+    cgraph_finalize_function (fndecl, false);
+  else
+    c_expand_body (fndecl);
+  current_function_decl = NULL;
 }
 
 /* Generate the RTL for a deferred function FNDECL.  */
@@ -6265,152 +6202,28 @@ c_expand_deferred_function (tree fndecl)
     }
 }
 
-/* Called to move the SAVE_EXPRs for parameter declarations in a
-   nested function into the nested function.  DATA is really the
-   nested FUNCTION_DECL.  */
-
-static tree
-set_save_expr_context (tree *tp,
-		       int *walk_subtrees,
-		       void *data)
-{
-  if (TREE_CODE (*tp) == SAVE_EXPR && !SAVE_EXPR_CONTEXT (*tp))
-    SAVE_EXPR_CONTEXT (*tp) = (tree) data;
-  /* Do not walk back into the SAVE_EXPR_CONTEXT; that will cause
-     circularity.  */
-  else if (DECL_P (*tp))
-    *walk_subtrees = 0;
-
-  return NULL_TREE;
-}
-
 /* Generate the RTL for the body of FNDECL.  If NESTED_P is nonzero,
    then we are already in the process of generating RTL for another
-   function.  If can_defer_p is zero, we won't attempt to defer the
-   generation of RTL.  */
+   function.  */
 
 static void
 c_expand_body_1 (tree fndecl, int nested_p)
 {
-  timevar_push (TV_EXPAND);
-
   if (nested_p)
     {
       /* Make sure that we will evaluate variable-sized types involved
 	 in our function's type.  */
       expand_pending_sizes (DECL_LANG_SPECIFIC (fndecl)->pending_sizes);
+
       /* Squirrel away our current state.  */
       push_function_context ();
     }
 
-  /* Initialize the RTL code for the function.  */
-  current_function_decl = fndecl;
-  input_location = DECL_SOURCE_LOCATION (fndecl);
-  init_function_start (fndecl);
+  tree_rest_of_compilation (fndecl, nested_p);
 
-  /* This function is being processed in whole-function mode.  */
-  cfun->x_whole_function_mode_p = 1;
-
-  /* Even though we're inside a function body, we still don't want to
-     call expand_expr to calculate the size of a variable-sized array.
-     We haven't necessarily assigned RTL to all variables yet, so it's
-     not safe to try to expand expressions involving them.  */
-  immediate_size_expand = 0;
-  cfun->x_dont_save_pending_sizes_p = 1;
-
-  /* Set up parameters and prepare for return, for the function.  */
-  expand_function_start (fndecl, 0);
-
-  /* If the function has a variably modified type, there may be
-     SAVE_EXPRs in the parameter types.  Their context must be set to
-     refer to this function; they cannot be expanded in the containing
-     function.  */
-  if (decl_function_context (fndecl)
-      && variably_modified_type_p (TREE_TYPE (fndecl)))
-    walk_tree (&TREE_TYPE (fndecl), set_save_expr_context, fndecl,
-	       NULL);
-
-  /* If this function is `main', emit a call to `__main'
-     to run global initializers, etc.  */
-  if (DECL_NAME (fndecl)
-      && MAIN_NAME_P (DECL_NAME (fndecl))
-      && C_DECL_FILE_SCOPE (fndecl))
-    expand_main_function ();
-
-  /* Generate the RTL for this function.  */
-  expand_stmt (DECL_SAVED_TREE (fndecl));
-
-  /* We hard-wired immediate_size_expand to zero above.
-     expand_function_end will decrement this variable.  So, we set the
-     variable to one here, so that after the decrement it will remain
-     zero.  */
-  immediate_size_expand = 1;
-
-  /* Allow language dialects to perform special processing.  */
-  if (lang_expand_function_end)
-    (*lang_expand_function_end) ();
-
-  /* Generate rtl for function exit.  */
-  expand_function_end ();
-
-  /* If this is a nested function, protect the local variables in the stack
-     above us from being collected while we're compiling this function.  */
   if (nested_p)
-    ggc_push_context ();
-
-  /* Run the optimizers and output the assembler code for this function.  */
-  rest_of_compilation (fndecl);
-
-  /* Undo the GC context switch.  */
-  if (nested_p)
-    ggc_pop_context ();
-
-  /* With just -Wextra, complain only if function returns both with
-     and without a value.  */
-  if (extra_warnings
-      && current_function_returns_value
-      && current_function_returns_null)
-    warning ("this function may return with or without a value");
-
-  /* If requested, warn about function definitions where the function will
-     return a value (usually of some struct or union type) which itself will
-     take up a lot of stack space.  */
-
-  if (warn_larger_than && !DECL_EXTERNAL (fndecl) && TREE_TYPE (fndecl))
-    {
-      tree ret_type = TREE_TYPE (TREE_TYPE (fndecl));
-
-      if (ret_type && TYPE_SIZE_UNIT (ret_type)
-	  && TREE_CODE (TYPE_SIZE_UNIT (ret_type)) == INTEGER_CST
-	  && 0 < compare_tree_int (TYPE_SIZE_UNIT (ret_type),
-				   larger_than_size))
-	{
-          const location_t *locus = &DECL_SOURCE_LOCATION (fndecl);
-	  unsigned int size_as_int
-	    = TREE_INT_CST_LOW (TYPE_SIZE_UNIT (ret_type));
-
-	  if (compare_tree_int (TYPE_SIZE_UNIT (ret_type), size_as_int) == 0)
-	    warning ("%Hsize of return value of '%D' is %u bytes",
-                     locus, fndecl, size_as_int);
-	  else
-	    warning ("%Hsize of return value of '%D' is larger than %wd bytes",
-                     locus, fndecl, larger_than_size);
-	}
-    }
-
-  if (DECL_SAVED_INSNS (fndecl) == 0 && ! nested_p
-      && ! flag_inline_trees)
-    {
-      /* Stop pointing to the local nodes about to be freed.
-	 But DECL_INITIAL must remain nonzero so we know this
-	 was an actual function definition.
-	 For a nested function, this is done in c_pop_function_context.
-	 If rest_of_compilation set this to 0, leave it 0.  */
-      if (DECL_INITIAL (fndecl) != 0)
-	DECL_INITIAL (fndecl) = error_mark_node;
-
-      DECL_ARGUMENTS (fndecl) = 0;
-    }
+    /* Return to the enclosing function.  */
+    pop_function_context ();
 
   if (DECL_STATIC_CONSTRUCTOR (fndecl))
     {
@@ -6429,11 +6242,6 @@ c_expand_body_1 (tree fndecl, int nested_p)
       else
 	static_dtors = tree_cons (NULL_TREE, fndecl, static_dtors);
     }
-
-  if (nested_p)
-    /* Return to the enclosing function.  */
-    pop_function_context ();
-  timevar_pop (TV_EXPAND);
 }
 
 /* Like c_expand_body_1 but only for unnested functions.  */
@@ -6666,7 +6474,7 @@ tree
 identifier_global_value	(tree t)
 {
   tree decl = IDENTIFIER_SYMBOL_VALUE (t);
-  if (decl == 0 || C_DECL_FILE_SCOPE (decl))
+  if (decl == 0 || DECL_FILE_SCOPE_P (decl))
     return decl;
 
   /* Shadowed by something else; find the true global value.  */
@@ -6896,6 +6704,7 @@ c_reset_state (void)
       current_scope = global_scope;
   file_scope_decl = current_file_decl;
   DECL_INITIAL (file_scope_decl) = poplevel (1, 0, 0);
+  BLOCK_SUPERCONTEXT (DECL_INITIAL (file_scope_decl)) = file_scope_decl;
   truly_local_externals = NULL_TREE;
 
   /* Start a new global binding level.  */

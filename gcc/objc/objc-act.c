@@ -467,7 +467,7 @@ generate_struct_by_value_array ()
 	}
       finish_struct (type, field_decl_chain, NULL_TREE);
  
-      aggregate_in_mem[i] = aggregate_value_p (type);
+      aggregate_in_mem[i] = aggregate_value_p (type, 0);
       if (!aggregate_in_mem[i])
 	found = 1;
     }
@@ -1965,7 +1965,7 @@ build_module_descriptor ()
 
     c_expand_expr_stmt (decelerator);
 
-    finish_function (0, 0);
+    finish_function ();
 
     return XEXP (DECL_RTL (init_function_decl), 0);
   }
@@ -4829,13 +4829,14 @@ mark_referenced_methods ()
       chain = CLASS_CLS_METHODS (impent->imp_context);
       while (chain)
 	{
-	  cgraph_mark_needed_node (cgraph_node (METHOD_DEFINITION (chain)), 1);
+	  cgraph_mark_needed_node (cgraph_node (METHOD_DEFINITION (chain)));
 	  chain = TREE_CHAIN (chain);
 	}
+
       chain = CLASS_NST_METHODS (impent->imp_context);
       while (chain)
 	{
-	  cgraph_mark_needed_node (cgraph_node (METHOD_DEFINITION (chain)), 1);
+	  cgraph_mark_needed_node (cgraph_node (METHOD_DEFINITION (chain)));
 	  chain = TREE_CHAIN (chain);
 	}
     }
@@ -8174,7 +8175,7 @@ finish_method_def ()
   DECL_UNINLINABLE (current_function_decl) = 1;
   current_function_cannot_inline = "methods cannot be inlined";
 
-  finish_function (0, 1);
+  finish_function ();
   lang_expand_function_end = NULL;
 
   /* Required to implement _msgSuper. This must be done AFTER finish_function,

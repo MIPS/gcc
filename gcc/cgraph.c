@@ -234,21 +234,18 @@ cgraph_remove_node (struct cgraph_node *node)
   /* Do not free the structure itself so the walk over chain can continue.  */
 }
 
-/* Notify finalize_compilation_unit that given node is reachable
-   or needed.  */
-void
-cgraph_mark_needed_node (struct cgraph_node *node, int needed)
-{
-  if (needed)
-    node->needed = 1;
+/* Notify finalize_compilation_unit that given node is reachable.  */
 
-  if (!node->reachable && DECL_SAVED_TREE (node->decl))
+void
+cgraph_mark_reachable_node (struct cgraph_node *node)
+{
+  if (!node->reachable && node->local.finalized)
     {
+      notice_global_symbol (node->decl);
       node->reachable = 1;
 
       node->next_needed = cgraph_nodes_queue;
       cgraph_nodes_queue = node;
-      notice_global_symbol (node->decl);
 
       /* At the moment frontend automatically emits all nested functions.  */
       if (node->nested)
@@ -257,11 +254,20 @@ cgraph_mark_needed_node (struct cgraph_node *node, int needed)
 
 	  for (node2 = node->nested; node2; node2 = node2->next_nested)
 	    if (!node2->reachable)
-	      cgraph_mark_needed_node (node2, 0);
+	      cgraph_mark_reachable_node (node2);
 	}
     }
 }
 
+/* Likewise indicate that a node is needed, i.e. reachable via some
+   external means.  */
+
+void
+cgraph_mark_needed_node (struct cgraph_node *node)
+{
+  node->needed = 1;
+  cgraph_mark_reachable_node (node);
+}
 
 /* Record call from CALLER to CALLEE  */
 
@@ -475,11 +481,18 @@ void
 cgraph_varpool_finalize_decl (tree decl)
 {
   struct cgraph_varpool_node *node = cgraph_varpool_node (decl);
-
-  if (node->needed && !node->finalized)
+ 
+  /* The first declaration of a variable that comes through this function
+     decides whether it is global (in C, has external linkage)
+     or local (in C, has internal linkage).  So do nothing more
+     if this function has already run.  */
+  if (node->finalized)
+    return;
+  if (node->needed)
     {
       node->next_needed = cgraph_varpool_nodes_queue;
       cgraph_varpool_nodes_queue = node;
+      notice_global_symbol (decl);
     }
   node->finalized = true;
 

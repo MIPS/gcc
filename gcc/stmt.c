@@ -57,6 +57,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "langhooks.h"
 #include "predict.h"
 #include "optabs.h"
+#include "target.h"
 
 /* Assume that case vectors are not pc-relative.  */
 #ifndef CASE_VECTOR_PC_RELATIVE
@@ -433,25 +434,7 @@ using_eh_for_cleanups (void)
 void
 init_stmt_for_function (void)
 {
-  cfun->stmt =ggc_alloc (sizeof (struct stmt_status));
-
-  /* We are not currently within any block, conditional, loop or case.  */
-  block_stack = 0;
-  stack_block_stack = 0;
-  loop_stack = 0;
-  case_stack = 0;
-  cond_stack = 0;
-  nesting_stack = 0;
-  nesting_depth = 0;
-
-  current_block_start_count = 0;
-
-  /* No gotos have been expanded yet.  */
-  goto_fixup_chain = 0;
-
-  /* We are not processing a ({...}) grouping.  */
-  expr_stmts_for_value = 0;
-  clear_last_expr ();
+  cfun->stmt = ggc_alloc_cleared (sizeof (struct stmt_status));
 }
 
 /* Record the current file and line.  Called from emit_line_note.  */
@@ -2955,16 +2938,17 @@ expand_value_return (rtx val)
   if (return_reg != val)
     {
       tree type = TREE_TYPE (DECL_RESULT (current_function_decl));
-#ifdef PROMOTE_FUNCTION_RETURN
-      int unsignedp = TREE_UNSIGNED (type);
-      enum machine_mode old_mode
-	= DECL_MODE (DECL_RESULT (current_function_decl));
-      enum machine_mode mode
-	= promote_mode (type, old_mode, &unsignedp, 1);
+      if (targetm.calls.promote_function_return (TREE_TYPE (current_function_decl)))
+      {
+	int unsignedp = TREE_UNSIGNED (type);
+	enum machine_mode old_mode
+	  = DECL_MODE (DECL_RESULT (current_function_decl));
+	enum machine_mode mode
+	  = promote_mode (type, old_mode, &unsignedp, 1);
 
-      if (mode != old_mode)
-	val = convert_modes (mode, old_mode, val, unsignedp);
-#endif
+	if (mode != old_mode)
+	  val = convert_modes (mode, old_mode, val, unsignedp);
+      }
       if (GET_CODE (return_reg) == PARALLEL)
 	emit_group_load (return_reg, val, type, int_size_in_bytes (type));
       else
@@ -5437,7 +5421,8 @@ expand_end_case_type (tree orig_index, tree orig_type)
 	 because we can optimize it.  */
 
       else if (count < case_values_threshold ()
-	       || compare_tree_int (range, 10 * count) > 0
+	       || compare_tree_int (range,
+				    (optimize_size ? 3 : 10) * count) > 0
 	       /* RANGE may be signed, and really large ranges will show up
 		  as negative numbers.  */
 	       || compare_tree_int (range, 0) < 0

@@ -31,7 +31,7 @@ David S. Miller					davem@redhat.com
 Mark Mitchell					mark@codesourcery.com
 Bernd Schmidt					bernds@redhat.com
 Zack Weinberg					zack@codesourcery.com
-Jim Wilson					wilson@tuliptree.org
+Jim Wilson					wilson@specifixinc.com
 
 
 			CPU Port Maintainers	(CPU alphabetical order)
@@ -50,8 +50,8 @@ hppa port		Jeff Law		law@redhat.com
 hppa port		Dave Anglin		dave.anglin@nrc.ca
 i386 port		Richard Henderson	rth@redhat.com
 i860 port		Jason Eckhardt		jle@rice.edu
-i960 port		Jim Wilson		wilson@tuliptree.org
-ia64 port		Jim Wilson		wilson@tuliptree.org
+i960 port		Jim Wilson		wilson@specifixinc.com
+ia64 port		Jim Wilson		wilson@specifixinc.com
 ip2k port		Denis Chertykov		denisc@overta.ru
 m32r port		Nick Clifton		nickc@redhat.com
 m68hc11 port		Stephane Carrez		stcarrez@nerim.fr
@@ -113,14 +113,14 @@ mercury			Fergus Henderson	fjh@cs.mu.oz.au
 objective-c		Stan Shebs		shebs@apple.com
 objective-c		Ovidiu Predescu		ovidiu@cup.hp.com
 alias analysis		John Carr		jfc@mit.edu
-loop unrolling		Jim Wilson		wilson@tuliptree.org
+loop unrolling		Jim Wilson		wilson@specifixinc.com
 loop discovery		Michael Hayes		m.hayes@elec.canterbury.ac.nz
-scheduler (+ haifa)	Jim Wilson		wilson@tuliptree.org
+scheduler (+ haifa)	Jim Wilson		wilson@specifixinc.com
 scheduler (+ haifa)	Michael Meissner	gnu@the-meissners.org
 scheduler (+ haifa)	Jeff Law		law@redhat.com
 reorg			Jeff Law		law@redhat.com
 caller-save.c		Jeff Law		law@redhat.com
-debugging code		Jim Wilson		wilson@tuliptree.org
+debugging code		Jim Wilson		wilson@specifixinc.com
 dwarf debugging code	Jason Merrill		jason@redhat.com
 c++ runtime libs	Paolo Carlini		pcarlini@unitus.it
 c++ runtime libs        Gabriel Dos Reis        gdr@integrable-solutions.net
@@ -134,7 +134,7 @@ fixincludes		Bruce Korb		bkorb@gnu.org
 gcse.c 			Jeff Law		law@redhat.com
 global opt framework	Jeff Law		law@redhat.com
 jump.c			David S. Miller		davem@redhat.com
-web pages		Gerald Pfeifer		pfeifer@dbai.tuwien.ac.at
+web pages		Gerald Pfeifer		gerald@pfeifer.com
 web pages		Janis Johnson		janis187@us.ibm.com
 config.sub/config.guess	Ben Elliston		config-patches@gnu.org
 basic block reordering	Jason Eckhardt		jle@rice.edu
@@ -146,7 +146,7 @@ libiberty		DJ Delorie		dj@redhat.com
 build machinery (*.in)	DJ Delorie		dj@redhat.com
 build machinery (*.in)	Nathanael Nerode	neroden@gcc.gnu.org
 build machinery (*.in)	Alexandre Oliva		aoliva@redhat.com
-docs co-maintainer	Gerald Pfeifer		pfeifer@dbai.tuwien.ac.at
+docs co-maintainer	Gerald Pfeifer		gerald@pfeifer.com
 docs co-maintainer	Joseph Myers		jsm28@cam.ac.uk
 Pico-Java port		Steve Chamberlain	sac@transmeta.com
 RTEMS Ports		Joel Sherrill		joel@oarcorp.com
@@ -183,8 +183,10 @@ Chandra Chavva					cchavva@redhat.com
 William Cohen					wcohen@redhat.com
 Christian Cornelssen				ccorn@cs.tu-berlin.de
 Chris Demetriou					cgd@broadcom.com
+Zdenek Dvorak					dvorakz@suse.cz
 Steve Ellcey					sje@cup.hp.com
 Ben Elliston					bje@wasabisystems.com
+Mohan Embar					gnustuff@thisiscool.com
 Marc Espie					espie@cvs.openbsd.org
 Ansgar Esztermann				ansgar@thphy.uni-duesseldorf.de
 Doug Evans					dje@transmeta.com
@@ -254,7 +256,7 @@ Richard Stallman				rms@gnu.org
 Graham Stott					graham.stott@btinternet.com
 Mike Stump					mrs@apple.com
 Jeff Sturm					jsturm@gcc.gnu.org
-Ian Taylor					ian@airs.com
+Ian Taylor					ian@wasabisystems.com
 Michael Tiemann					tiemann@redhat.com
 Kresten Krab Thorup				krab@gcc.gnu.org
 Andreas Tobler					andreast@gcc.gnu.org

@@ -75,6 +75,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
+#include "tree.h"
 #include "tm_p.h"
 #include "flags.h"
 #include "regs.h"
@@ -88,6 +89,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "recog.h"
 #include "real.h"
 #include "toplev.h"
+#include "target.h"
 
 /* It is not safe to use ordinary gen_lowpart in combine.
    Use gen_lowpart_for_combine instead.  See comments there.  */
@@ -799,30 +801,31 @@ init_reg_last_arrays (void)
 static void
 setup_incoming_promotions (void)
 {
-#ifdef PROMOTE_FUNCTION_ARGS
   unsigned int regno;
   rtx reg;
   enum machine_mode mode;
   int unsignedp;
   rtx first = get_insns ();
 
+  if (targetm.calls.promote_function_args (TREE_TYPE (cfun->decl)))
+    {
 #ifndef OUTGOING_REGNO
 #define OUTGOING_REGNO(N) N
 #endif
-  for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
-    /* Check whether this register can hold an incoming pointer
-       argument.  FUNCTION_ARG_REGNO_P tests outgoing register
-       numbers, so translate if necessary due to register windows.  */
-    if (FUNCTION_ARG_REGNO_P (OUTGOING_REGNO (regno))
-	&& (reg = promoted_input_arg (regno, &mode, &unsignedp)) != 0)
-      {
-	record_value_for_reg
-	  (reg, first, gen_rtx_fmt_e ((unsignedp ? ZERO_EXTEND
-				       : SIGN_EXTEND),
-				      GET_MODE (reg),
-				      gen_rtx_CLOBBER (mode, const0_rtx)));
-      }
-#endif
+      for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
+	/* Check whether this register can hold an incoming pointer
+	   argument.  FUNCTION_ARG_REGNO_P tests outgoing register
+	   numbers, so translate if necessary due to register windows.  */
+	if (FUNCTION_ARG_REGNO_P (OUTGOING_REGNO (regno))
+	    && (reg = promoted_input_arg (regno, &mode, &unsignedp)) != 0)
+	  {
+	    record_value_for_reg
+	      (reg, first, gen_rtx_fmt_e ((unsignedp ? ZERO_EXTEND
+					   : SIGN_EXTEND),
+					  GET_MODE (reg),
+					  gen_rtx_CLOBBER (mode, const0_rtx)));
+	  }
+    }
 }
 
 /* Called via note_stores.  If X is a pseudo that is narrower than
@@ -3844,33 +3847,6 @@ combine_simplify_rtx (rtx x, enum machine_mode op0_mode, int last,
       break;
 
     case NOT:
-      /* (not (plus X -1)) can become (neg X).  */
-      if (GET_CODE (XEXP (x, 0)) == PLUS
-	  && XEXP (XEXP (x, 0), 1) == constm1_rtx)
-	return gen_rtx_NEG (mode, XEXP (XEXP (x, 0), 0));
-
-      /* Similarly, (not (neg X)) is (plus X -1).  */
-      if (GET_CODE (XEXP (x, 0)) == NEG)
-	return gen_rtx_PLUS (mode, XEXP (XEXP (x, 0), 0), constm1_rtx);
-
-      /* (not (xor X C)) for C constant is (xor X D) with D = ~C.  */
-      if (GET_CODE (XEXP (x, 0)) == XOR
-	  && GET_CODE (XEXP (XEXP (x, 0), 1)) == CONST_INT
-	  && (temp = simplify_unary_operation (NOT, mode,
-					       XEXP (XEXP (x, 0), 1),
-					       mode)) != 0)
-	return gen_binary (XOR, mode, XEXP (XEXP (x, 0), 0), temp);
-
-      /* (not (ashift 1 X)) is (rotate ~1 X).  We used to do this for operands
-	 other than 1, but that is not valid.  We could do a similar
-	 simplification for (not (lshiftrt C X)) where C is just the sign bit,
-	 but this doesn't seem common enough to bother with.  */
-      if (GET_CODE (XEXP (x, 0)) == ASHIFT
-	  && XEXP (XEXP (x, 0), 0) == const1_rtx)
-	return gen_rtx_ROTATE (mode, simplify_gen_unary (NOT, mode,
-							 const1_rtx, mode),
-			       XEXP (XEXP (x, 0), 1));
-
       if (GET_CODE (XEXP (x, 0)) == SUBREG
 	  && subreg_lowpart_p (XEXP (x, 0))
 	  && (GET_MODE_SIZE (GET_MODE (XEXP (x, 0)))
@@ -3886,24 +3862,6 @@ combine_simplify_rtx (rtx x, enum machine_mode op0_mode, int last,
 			      XEXP (SUBREG_REG (XEXP (x, 0)), 1));
 	  return gen_lowpart_for_combine (mode, x);
 	}
-
-      /* If STORE_FLAG_VALUE is -1, (not (comparison foo bar)) can be done by
-	 reversing the comparison code if valid.  */
-      if (STORE_FLAG_VALUE == -1
-	  && GET_RTX_CLASS (GET_CODE (XEXP (x, 0))) == '<'
-	  && (reversed = reversed_comparison (x, mode, XEXP (XEXP (x, 0), 0),
-					      XEXP (XEXP (x, 0), 1))))
-	return reversed;
-
-      /* (not (ashiftrt foo C)) where C is the number of bits in FOO minus 1
-	 is (ge foo (const_int 0)) if STORE_FLAG_VALUE is -1, so we can
-	 perform the above simplification.  */
-
-      if (STORE_FLAG_VALUE == -1
-	  && GET_CODE (XEXP (x, 0)) == ASHIFTRT
-	  && GET_CODE (XEXP (XEXP (x, 0), 1)) == CONST_INT
-	  && INTVAL (XEXP (XEXP (x, 0), 1)) == GET_MODE_BITSIZE (mode) - 1)
-	return gen_rtx_GE (mode, XEXP (XEXP (x, 0), 0), const0_rtx);
 
       /* Apply De Morgan's laws to reduce number of patterns for machines
 	 with negating logical insns (and-not, nand, etc.).  If result has
@@ -3935,60 +3893,11 @@ combine_simplify_rtx (rtx x, enum machine_mode op0_mode, int last,
       break;
 
     case NEG:
-      /* (neg (plus X 1)) can become (not X).  */
-      if (GET_CODE (XEXP (x, 0)) == PLUS
-	  && XEXP (XEXP (x, 0), 1) == const1_rtx)
-	return gen_rtx_NOT (mode, XEXP (XEXP (x, 0), 0));
-
-      /* Similarly, (neg (not X)) is (plus X 1).  */
-      if (GET_CODE (XEXP (x, 0)) == NOT)
-	return plus_constant (XEXP (XEXP (x, 0), 0), 1);
-
-      /* (neg (minus X Y)) can become (minus Y X).  This transformation
-	 isn't safe for modes with signed zeros, since if X and Y are
-	 both +0, (minus Y X) is the same as (minus X Y).  If the rounding
-	 mode is towards +infinity (or -infinity) then the two expressions
-	 will be rounded differently.  */
-      if (GET_CODE (XEXP (x, 0)) == MINUS
-	  && !HONOR_SIGNED_ZEROS (mode)
-	  && !HONOR_SIGN_DEPENDENT_ROUNDING (mode))
-	return gen_binary (MINUS, mode, XEXP (XEXP (x, 0), 1),
-			   XEXP (XEXP (x, 0), 0));
-
-      /* (neg (plus A B)) is canonicalized to (minus (neg A) B).  */
-      if (GET_CODE (XEXP (x, 0)) == PLUS
-	  && !HONOR_SIGNED_ZEROS (mode)
-	  && !HONOR_SIGN_DEPENDENT_ROUNDING (mode))
-	{
-	  temp = simplify_gen_unary (NEG, mode, XEXP (XEXP (x, 0), 0), mode);
-	  temp = combine_simplify_rtx (temp, mode, last, in_dest);
-	  return gen_binary (MINUS, mode, temp, XEXP (XEXP (x, 0), 1));
-	}
-
-      /* (neg (mult A B)) becomes (mult (neg A) B).
-         This works even for floating-point values.  */
-      if (GET_CODE (XEXP (x, 0)) == MULT)
-	{
-	  temp = simplify_gen_unary (NEG, mode, XEXP (XEXP (x, 0), 0), mode);
-	  return gen_binary (MULT, mode, temp, XEXP (XEXP (x, 0), 1));
-	}
-
       /* (neg (xor A 1)) is (plus A -1) if A is known to be either 0 or 1.  */
-      if (GET_CODE (XEXP (x, 0)) == XOR && XEXP (XEXP (x, 0), 1) == const1_rtx
+      if (GET_CODE (XEXP (x, 0)) == XOR
+	  && XEXP (XEXP (x, 0), 1) == const1_rtx
 	  && nonzero_bits (XEXP (XEXP (x, 0), 0), mode) == 1)
 	return gen_binary (PLUS, mode, XEXP (XEXP (x, 0), 0), constm1_rtx);
-
-      /* NEG commutes with ASHIFT since it is multiplication.  Only do this
-	 if we can then eliminate the NEG (e.g.,
-	 if the operand is a constant).  */
-
-      if (GET_CODE (XEXP (x, 0)) == ASHIFT)
-	{
-	  temp = simplify_unary_operation (NEG, mode,
-					   XEXP (XEXP (x, 0), 0), mode);
-	  if (temp)
-	    return gen_binary (ASHIFT, mode, temp, XEXP (XEXP (x, 0), 1));
-	}
 
       temp = expand_compound_operation (XEXP (x, 0));
 
@@ -6828,15 +6737,13 @@ force_to_mode (rtx x, enum machine_mode mode, unsigned HOST_WIDE_INT mask,
     mask &= GET_MODE_MASK (op_mode);
 
   /* When we have an arithmetic operation, or a shift whose count we
-     do not know, we need to assume that all bit the up to the highest-order
+     do not know, we need to assume that all bits up to the highest-order
      bit in MASK will be needed.  This is how we form such a mask.  */
-  if (op_mode)
-    fuller_mask = (GET_MODE_BITSIZE (op_mode) >= HOST_BITS_PER_WIDE_INT
-		   ? GET_MODE_MASK (op_mode)
-		   : (((unsigned HOST_WIDE_INT) 1 << (floor_log2 (mask) + 1))
-		      - 1));
+  if (mask & ((unsigned HOST_WIDE_INT) 1 << (HOST_BITS_PER_WIDE_INT - 1)))
+    fuller_mask = ~(unsigned HOST_WIDE_INT) 0;
   else
-    fuller_mask = ~(HOST_WIDE_INT) 0;
+    fuller_mask = (((unsigned HOST_WIDE_INT) 1 << (floor_log2 (mask) + 1))
+		   - 1);
 
   /* Determine what bits of X are guaranteed to be (non)zero.  */
   nonzero = nonzero_bits (x, mode);

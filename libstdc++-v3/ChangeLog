@@ -1,3 +1,205 @@
+2003-09-10  Daniel Jacobowitz  <drow@mvista.com>
+	    Andreas Jaeger <aj@suse.de>
+
+	PR libstdc++/12189
+	* acinclude.m4 (GLIBCXX_CONFIGURE_TESTSUITE): Don't build
+	abi_check if cross compiling.
+	* aclocal.m4: Regenerated.
+	* configure: Regenerated.
+
+2003-09-10  Jeffrey D. Oldham  <oldham@codesourcery.com>
+
+	* libsupc++/vec.cc (__cxa_vec_new2): If the allocator returns
+	NULL, return NULL.  This reflects a C++ ABI change 2003 Sep 05.
+	(__cxa_vec_new3): Likewise.
+
+2003-09-10  Petur Runolfsson  <peturr02@ru.is>
+
+	* include/bits/fstream.tcc (basic_filebuf::seekoff):
+	Use codecvt::length to handle variable-width stateless encodings
+	correctly.
+	* testsuite/27_io/basic_filebuf/seekoff/wchar_t/1.cc: New test.
+	* testsuite/27_io/basic_filebuf/seekoff/wchar_t/2.cc: New test.
+
+2003-09-10  Alan Modra  <amodra@bigpond.net.au>
+
+	* config/io/basic_file_stdio.cc (_M_open_mode): Assign __p_mode
+	rather than or'ing.
+
+2003-09-09  Alan Modra  <amodra@bigpond.net.au>
+
+	* configure: Regenerate.
+
+2003-09-09  David Edelsohn  <edelsohn@gnu.org>
+
+	* src/ios.cc (ios_base::Init::Init): Remove unnecessary
+	qualifier from _S_synced_with_stdio.
+
+2003-09-09  Bernardo Innocenti  <bernie@develer.com>
+
+	* include/c_std/std_cstdlib.h: Avoid using missing C library symbols.
+
+2003-09-04  Petur Runolfsson  <peturr02@ru.is>
+
+	PR libstdc++/9028
+	* include/bits/fstream.tcc
+	(basic_filebuf::_M_destroy_internal_buffer): Destroy _M_ext_buf.
+	(basic_filebuf::basic_filebuf): Initialize _M_ext_buf,
+	_M_ext_buf_size, _M_ext_next and _M_ext_end.
+	(basic_filebuf::underflow): Handle variable-width stateless
+	encodings (codecvt::encoding() == 0), including UTF-8.
+	* include/std/std_fstream.h (basic_filebuf):
+	Declare _M_ext_buf, _M_ext_buf_size, _M_ext_next, _M_ext_end.
+	* testsuite/27_io/basic_filebuf/underflow/wchar_t/1.cc: New test.
+	* testsuite/27_io/basic_filebuf/underflow/wchar_t/2.cc: New test.
+	* testsuite/27_io/basic_filebuf/underflow/wchar_t/3.cc: New test.
+	* testsuite/27_io/basic_filebuf/underflow/wchar_t/4.cc: New test.
+	* testsuite/27_io/basic_filebuf/underflow/wchar_t/5.cc: New test.
+	* testsuite/27_io/objects/wchar_t/12.cc: New test.
+	* testsuite/27_io/objects/wchar_t/13.cc: New test.
+
+2003-09-04  Jonathan Wakely  <redi@gcc.gnu.org>
+
+	* docs/html/faq/index.html: Note that a namespace alias can't be
+	used when specialising templates in extension namespace.
+	* docs/html/faq/index.txt: Regenerate.
+
+2003-09-03  Petur Runolfsson  <peturr02@ru.is>
+
+	PR libstdc++/12048
+	* include/ext/stdio_sync_filebuf.h
+	(stdio_sync_filebuf::_M_unget_buf): Declare it.
+	(stdio_sync_filebuf::stdio_sync_filebuf): Initialize _M_unget_buf.
+	(stdio_sync_filebuf::uflow): Store the returned character in
+	_M_unget_buf.
+	(stdio_sync_filebuf::pbackfail): If argument is eof(), pass
+	_M_unget_buf to syncungetc(). Set _M_unget_buf to eof().
+	(stdio_sync_filebuf<char>::xsgetn): Store last read character in
+	_M_unget_buf, if any, else eof().
+	(stdio_sync_filebuf<wchar_t>::xsgetn: Store last read character in
+	_M_unget_buf, if any, else eof().
+	* testsuite/27_io/objects/char/12048.cc: Rename to...
+	* testsuite/27_io/objects/char/12048-1.cc: ...this.
+	* testsuite/27_io/objects/char/12048-2.cc: New test.
+	* testsuite/27_io/objects/char/12048-3.cc: New test.
+	* testsuite/27_io/objects/char/12048-4.cc: New test.
+	* testsuite/27_io/objects/char/12048-5.cc: New test. XFAIL.
+	* testsuite/27_io/objects/wchar_t/12048-1.cc: New test.
+	* testsuite/27_io/objects/wchar_t/12048-2.cc: New test.
+	* testsuite/27_io/objects/wchar_t/12048-3.cc: New test.
+	* testsuite/27_io/objects/wchar_t/12048-4.cc: New test.
+	* testsuite/27_io/objects/wchar_t/12048-5.cc: New test. XFAIL.
+	* testsuite/ext/stdio_sync_filebuf_char.cc
+	(test02, test03, test04, test05): New tests.
+	* testsuite/ext/stdio_sync_filebuf_wchar_t.cc
+	(test02, test03, test04, test05): New tests.
+
+2003-09-03  Petur Runolfsson  <peturr02@ru.is>
+
+	* docs/html/27_io/howto.html: setbuf(0, 0) has no effect on
+	stringbuf or strstreambuf. Fix typos.
+
+2003-09-02  Phil Edwards  <phil@codesourcery.com>
+
+	* acinclude.m4 (GLIBCXX_ENABLE_HOSTED):  #define _GLIBCXX_HOSTED
+	appropriately.
+	* config.h.in:  Add _GLIBCXX_HOSTED.
+	* libsupc++/eh_term_handler.cc:  Test it here; initialize
+	__terminate_handler to std::abort if freestanding.
+	* aclocal.m4, configure:  Regenerated.
+	* docs/html/configopts.html:  Document --disable-hosted-libstdcxx.
+
+2003-08-29  Nathan Myers  <ncm@cantrip.org>
+	
+	PR libstdc++/11990	
+	* include/bits/locale_facets.tcc (__pad): delete dead code.
+
+2003-08-28  Alan Modra  <amodra@bigpond.net.au>
+
+	* configure.ac: Test $with_cross_host against $build_alias, not $build.
+	* configure: Regenerate.
+
+2003-08-27  Petur Runolfsson  <peturr02@ru.is>
+
+	* testsuite/27_io/objects/wchar_t/10.cc: Move wcout stuff...
+	* testsuite/27_io/objects/wchar_t/11.cc: ...here. New file.
+
+2003-08-27  Phil Edwards  <pme@gcc.gnu.org>
+
+	* Makefile.am:  Remove trailing whitespace.  Remove needless
+	"foo = @foo@" assignments.  Replace direct uses of @foo@ with $(foo).
+	* include/Makefile.am:  Likewise.
+	* libmath/Makefile.am:  Likewise.
+	* libsupc++/Makefile.am:  Likewise.
+	* po/Makefile.am:  Likewise.
+	* src/Makefile.am:  Likewise.
+	* testsuite/Makefile.am:  Likewise.
+
+	* Makefile.in, include/Makefile.in, libmath/Makefile.in,
+	libsupc++/Makefile.in, po/Makefile.in, src/Makefile.in,
+	testsuite/Makefile.in:  Regenerated.
+
+2003-08-27  Phil Edwards  <pme@gcc.gnu.org>
+
+	* acinclude.m4 (GLIBCXX_EXPORT_INCLUDES):  Change quoting of
+	includedir.
+	* aclocal.m4, configure:  Regenerate.
+
+2003-08-27  Daniel Jacobowitz  <drow@mvista.com>
+
+	* acinclude.m4: Include no-executables.m4.
+	* configure.ac: Uncomment GCC_NO_EXECUTABLES.
+	* aclocal.m4: Regenerated.
+	* configure: Regenerated.
+
+2003-08-27  Daniel Jacobowitz  <drow@mvista.com>
+
+	* acinclude.m4: Don't call AC_ISC_POSIX.
+	* aclocal.m4: Regenerated.
+	* configure: Regenerated.
+
+2003-08-27  Phil Edwards  <pme@gcc.gnu.org>
+
+	* acinclude.m4 (GLIBCXX_CONDITIONAL):  New macro.  Wrap
+	AM_CONDITIONAL.  Replace all calls to AM_CONDITIONAL with this one.
+	(GLIBCXX_ENABLE_HOSTED):  New macro, sets new variable is_hosted,
+	used elsewhere in this file.
+	(GLIBCXX_EVALUATE_CONDITIONALS):  New macro...
+	* configure.ac:  ...called here to expand all conditionals.
+	* Makefile.am:  Conditionalize SUBDIRS on GLIBCXX_HOSTED.
+	* include/Makefile.am:  Remove redundant gxx_include_dir assignment.
+	(install-freestanding-headers):  New target, a subset of
+	install-headers.  Conditionalize install-data-local on GLIBCXX_HOSTED.
+
+	* aclocal.m4, configure, Makefile.in, include/Makefile.in,
+	libmath/Makefile.in, libsupc++/Makefile.in, po/Makefile.in,
+	src/Makefile.in, testsuite/Makefile.in:  Regenerated.
+
+2003-08-26  Phil Edwards  <pme@gcc.gnu.org>
+
+	* docs/doxygen/run_doxygen:  Shell fixes.  Remove hardcoded local
+	pathnames from generated tag file.
+
+2003-08-26  Phil Edwards  <pme@gcc.gnu.org>
+
+	* Makefile.am:  Add comment.
+	* acinclude.m4 (GLIBCXX_CONFIGURE):  Set new glibcxx_SUBDIRS and
+	SUBDIRS variables.
+	* configure.ac:  Use them both here, instead of hardcoded lists.
+
+	* fragment.am:  Add STAMP varaible.
+	* include/Makefile.am:  Cosmetic whitespace cleanup.  Use $(LN_S)
+	instead of @LN_S@.
+	(stamp-*):  Move file creation rule outside of 'if' branches to
+	ensure the stamp-* files are actually updated.  Use $(STAMP).
+	* src/Makefile.am:  Remove now-nonexistant variable.
+	* libsupc++/Makefile.am:  Likewise.  Snap the assignment chain
+	for -prefer-pic.
+	* po/Makefile.am:  Include same fragment as all the others.
+
+	* aclocal.m4, configure, Makefile.in, include/Makefile.in,
+	libsupc++/Makefile.in, po/Makefile.in, src/Makefile.in:  Regenerated.
+
 2003-08-26  Loren J. Rittle  <ljrittle@acm.org>
 
 	* testsuite/data/cin_unget-1.txt: New.

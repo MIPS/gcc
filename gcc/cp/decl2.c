@@ -463,8 +463,8 @@ grok_array_decl (tree array_expr, tree index_exp)
       expr = build_array_ref (array_expr, index_exp);
     }
   if (processing_template_decl && expr != error_mark_node)
-    return build_min (ARRAY_REF, TREE_TYPE (expr), orig_array_expr, 
-		      orig_index_exp);
+    return build_min_non_dep (ARRAY_REF, expr,
+			      orig_array_expr, orig_index_exp);
   return expr;
 }
 
@@ -1621,6 +1621,17 @@ import_export_class (tree ctype)
     }
 }
 
+/* Return true if VAR has already been provided to the back end; in that
+   case VAR should not be modified further by the front end.  */
+static bool
+var_finalized_p (tree var)
+{
+  if (flag_unit_at_a_time)
+    return cgraph_varpool_node (var)->finalized;
+  else
+    return TREE_ASM_WRITTEN (var);
+}
+
 /* If necessary, write out the vtables for the dynamic class CTYPE.
    Returns true if any vtables were emitted.  */
 
@@ -1634,7 +1645,7 @@ maybe_emit_vtables (tree ctype)
   /* If the vtables for this class have already been emitted there is
      nothing more to do.  */
   primary_vtbl = CLASSTYPE_VTABLES (ctype);
-  if (TREE_ASM_WRITTEN (primary_vtbl))
+  if (var_finalized_p (primary_vtbl))
     return false;
   /* Ignore dummy vtables made by get_vtable_decl.  */
   if (TREE_TYPE (primary_vtbl) == void_type_node)
@@ -2452,7 +2463,7 @@ write_out_vars (tree vars)
   tree v;
 
   for (v = vars; v; v = TREE_CHAIN (v))
-    if (! TREE_ASM_WRITTEN (TREE_VALUE (v)))
+    if (!var_finalized_p (TREE_VALUE (v)))
       rest_of_decl_compilation (TREE_VALUE (v), 0, 1, 1);
 }
 
@@ -2553,63 +2564,30 @@ generate_ctor_and_dtor_functions_for_priority (splay_tree_node n, void * data)
   return 0;
 }
 
-/* Callgraph code does not understand the member pointers.  Mark the methods
-   referenced as used.  */
-static tree
-mark_member_pointers_and_eh_handlers (tree *tp,
-				      int *walk_subtrees,
-		      		      void *data ATTRIBUTE_UNUSED)
+/* Called via LANGHOOK_CALLGRAPH_ANALYZE_EXPR.  It is supposed to mark
+   decls referenced from frontend specific constructs; it will be called
+   only for language-specific tree nodes.
+
+   Here we must deal with member pointers.  */
+
+tree
+cxx_callgraph_analyze_expr (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
+			    tree from ATTRIBUTE_UNUSED)
 {
-  /* Avoid useless walking of complex type and declaration nodes.  */
-  if (TYPE_P (*tp) || DECL_P (*tp))
-    {
-      *walk_subtrees = 0;
-      return 0;
-    }
-  switch (TREE_CODE (*tp))
+  tree t = *tp;
+
+  switch (TREE_CODE (t))
     {
     case PTRMEM_CST:
-      if (TYPE_PTRMEMFUNC_P (TREE_TYPE (*tp)))
-	cgraph_mark_needed_node (cgraph_node (PTRMEM_CST_MEMBER (*tp)), 1);
+      if (TYPE_PTRMEMFUNC_P (TREE_TYPE (t)))
+	cgraph_mark_needed_node (cgraph_node (PTRMEM_CST_MEMBER (t)));
       break;
 
-    /* EH handlers will emit EH tables referencing typeinfo.  */
-    case HANDLER:
-      if (HANDLER_TYPE (*tp))
-	{
-	  tree tinfo = eh_type_info (HANDLER_TYPE (*tp));
-
-	  cgraph_varpool_mark_needed_node (cgraph_varpool_node (tinfo));
-	}
-      break;
-
-    case EH_SPEC_BLOCK:
-	{
-	  tree type;
-
-	  for (type = EH_SPEC_RAISES ((*tp)); type;
-	       type = TREE_CHAIN (type))
-	    {
-	       tree tinfo = eh_type_info (TREE_VALUE (type));
-
-	       cgraph_varpool_mark_needed_node (cgraph_varpool_node (tinfo));
-	    }
-	}
-      break;
     default:
       break;
     }
-  return 0;
-}
 
-/* Called via LANGHOOK_CALLGRAPH_LOWER_FUNCTION.  It is supposed to lower
-   frontend specific constructs that would otherwise confuse the middle end.  */
-void
-lower_function (tree fn)
-{
-  walk_tree_without_duplicates (&DECL_SAVED_TREE (fn),
-		  		mark_member_pointers_and_eh_handlers,
-				NULL);
+  return NULL;
 }
 
 /* This routine is called from the last rule in yyparse ().
@@ -2727,12 +2705,12 @@ finish_file ()
   	 them to the beginning of the array, then get rid of the
   	 leftovers.  */
       n_new = VARRAY_ACTIVE_SIZE (unemitted_tinfo_decls) - n_old;
-      memmove (&VARRAY_TREE (unemitted_tinfo_decls, 0),
-  	       &VARRAY_TREE (unemitted_tinfo_decls, n_old),
-  	       n_new * sizeof (tree));
+      if (n_new)
+	memmove (&VARRAY_TREE (unemitted_tinfo_decls, 0),
+		 &VARRAY_TREE (unemitted_tinfo_decls, n_old),
+		 n_new * sizeof (tree));
       memset (&VARRAY_TREE (unemitted_tinfo_decls, n_new),
-  	      0,
-  	      n_old * sizeof (tree));
+  	      0, n_old * sizeof (tree));
       VARRAY_ACTIVE_SIZE (unemitted_tinfo_decls) = n_new;
 
       /* The list of objects with static storage duration is built up
@@ -2875,7 +2853,7 @@ finish_file ()
       for (i = 0; i < pending_statics_used; ++i) 
 	{
 	  tree decl = VARRAY_TREE (pending_statics, i);
-	  if (TREE_ASM_WRITTEN (decl))
+	  if (var_finalized_p (decl))
 	    continue;
 	  import_export_decl (decl);
 	  if (DECL_NOT_REALLY_EXTERN (decl) && ! DECL_IN_AGGR_P (decl))
@@ -3029,7 +3007,7 @@ build_offset_ref_call_from_tree (tree fn, tree args)
 
   expr = build_function_call (fn, args);
   if (processing_template_decl && expr != error_mark_node)
-    return build_min (CALL_EXPR, TREE_TYPE (expr), orig_fn, orig_args);
+    return build_min_non_dep (CALL_EXPR, expr, orig_fn, orig_args);
   return expr;
 }
 
@@ -3499,6 +3477,8 @@ add_function (struct arg_lookup *k, tree fn)
   /* We must find only functions, or exactly one non-function.  */
   if (!k->functions) 
     k->functions = fn;
+  else if (fn == k->functions)
+    ;
   else if (is_overloaded_fn (k->functions) && is_overloaded_fn (fn))
     k->functions = build_overload (fn, k->functions);
   else

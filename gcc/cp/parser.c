@@ -68,19 +68,20 @@
 typedef struct cp_token GTY (())
 {
   /* The kind of token.  */
-  enum cpp_ttype type;
-  /* The value associated with this token, if any.  */
-  tree value;
+  enum cpp_ttype type : 8;
   /* If this token is a keyword, this value indicates which keyword.
      Otherwise, this value is RID_MAX.  */
-  enum rid keyword;
+  enum rid keyword : 8;
+  /* The value associated with this token, if any.  */
+  tree value;
   /* The location at which this token was found.  */
   location_t location;
 } cp_token;
 
-/* The number of tokens in a single token block.  */
+/* The number of tokens in a single token block.
+   Computed so that cp_token_block fits in a 512B allocation unit.  */
 
-#define CP_TOKEN_BLOCK_NUM_TOKENS 32
+#define CP_TOKEN_BLOCK_NUM_TOKENS ((512 - 3*sizeof (char*))/sizeof (cp_token))
 
 /* A group of tokens.  These groups are chained together to store
    large numbers of tokens.  (For example, a token block is created
@@ -1062,9 +1063,9 @@ typedef enum cp_parser_declarator_kind
 typedef struct cp_parser_token_tree_map_node
 {
   /* The token type.  */
-  enum cpp_ttype token_type;
+  enum cpp_ttype token_type : 8;
   /* The corresponding tree code.  */
-  enum tree_code tree_type;
+  enum tree_code tree_type : 8;
 } cp_parser_token_tree_map_node;
 
 /* A complete map consists of several ordinary entries, followed by a
@@ -3505,6 +3506,7 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p)
 	case CPP_OPEN_PAREN:
 	  /* postfix-expression ( expression-list [opt] ) */
 	  {
+	    bool koenig_p;
 	    tree args = (cp_parser_parenthesized_expression_list 
 			 (parser, false, /*non_constant_p=*/NULL));
 
@@ -3523,14 +3525,18 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p)
 		parser->non_constant_expression_p = true;
 	      }
 
+	    koenig_p = false;
 	    if (idk == CP_ID_KIND_UNQUALIFIED)
 	      {
 		if (args
 		    && (is_overloaded_fn (postfix_expression)
 			|| DECL_P (postfix_expression)
 			|| TREE_CODE (postfix_expression) == IDENTIFIER_NODE))
-		  postfix_expression 
-		    = perform_koenig_lookup (postfix_expression, args);
+		  {
+		    koenig_p = true;
+		    postfix_expression 
+		      = perform_koenig_lookup (postfix_expression, args);
+		  }
 		else if (TREE_CODE (postfix_expression) == IDENTIFIER_NODE)
 		  postfix_expression
 		    = unqualified_fn_lookup_error (postfix_expression);
@@ -3569,12 +3575,14 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p)
 		 function.  */
 	      postfix_expression
 		= finish_call_expr (postfix_expression, args,
-				    /*disallow_virtual=*/true);
+				    /*disallow_virtual=*/true,
+				    koenig_p);
 	    else
 	      /* All other function calls.  */
 	      postfix_expression 
 		= finish_call_expr (postfix_expression, args, 
-				    /*disallow_virtual=*/false);
+				    /*disallow_virtual=*/false,
+				    koenig_p);
 
 	    /* The POSTFIX_EXPRESSION is certainly no longer an id.  */
 	    idk = CP_ID_KIND_NONE;
@@ -3961,32 +3969,21 @@ cp_parser_unary_expression (cp_parser *parser, bool address_p)
       switch (keyword)
 	{
 	case RID_ALIGNOF:
-	  {
-	    /* Consume the `alignof' token.  */
-	    cp_lexer_consume_token (parser->lexer);
-	    /* Parse the operand.  */
-	    return finish_alignof (cp_parser_sizeof_operand 
-				   (parser, keyword));
-	  }
-
 	case RID_SIZEOF:
 	  {
 	    tree operand;
+	    enum tree_code op;
 	    
-	    /* Consume the `sizeof' token.  */
+	    op = keyword == RID_ALIGNOF ? ALIGNOF_EXPR : SIZEOF_EXPR;
+	    /* Consume the token.  */
 	    cp_lexer_consume_token (parser->lexer);
 	    /* Parse the operand.  */
 	    operand = cp_parser_sizeof_operand (parser, keyword);
 
-	    /* If the type of the operand cannot be determined build a
-	       SIZEOF_EXPR.  */
-	    if (TYPE_P (operand)
-		? dependent_type_p (operand)
-		: type_dependent_expression_p (operand))
-	      return build_min (SIZEOF_EXPR, size_type_node, operand);
-	    /* Otherwise, compute the constant value.  */
+	    if (TYPE_P (operand))
+	      return cxx_sizeof_or_alignof_type (operand, op, true);
 	    else
-	      return finish_sizeof (operand);
+	      return cxx_sizeof_or_alignof_expr (operand, op);
 	  }
 
 	case RID_NEW:
@@ -6304,7 +6301,10 @@ cp_parser_decl_specifier_seq (cp_parser* parser,
 	case RID_FRIEND:
 	  /* decl-specifier:
 	       friend  */
-	  friend_p = true;
+	  if (friend_p)
+	    error ("duplicate `friend'");
+	  else
+	    friend_p = true;
 	  /* The representation of the specifier is simply the
 	     appropriate TREE_IDENTIFIER node.  */
 	  decl_spec = token->value;
@@ -13883,6 +13883,13 @@ cp_parser_late_parsing_default_args (cp_parser *parser, tree fn)
   bool saved_local_variables_forbidden_p;
   tree parameters;
 
+  /* While we're parsing the default args, we might (due to the
+     statement expression extension) encounter more classes.  We want
+     to handle them right away, but we don't want them getting mixed
+     up with default args that are currently in the queue.  */
+  parser->unparsed_functions_queues
+    = tree_cons (NULL_TREE, NULL_TREE, parser->unparsed_functions_queues);
+
   for (parameters = TYPE_ARG_TYPES (TREE_TYPE (fn));
        parameters;
        parameters = TREE_CHAIN (parameters))
@@ -13916,6 +13923,10 @@ cp_parser_late_parsing_default_args (cp_parser *parser, tree fn)
       parser->lexer = saved_lexer;
       parser->local_variables_forbidden_p = saved_local_variables_forbidden_p;
     }
+
+  /* Restore the queue.  */
+  parser->unparsed_functions_queues 
+    = TREE_CHAIN (parser->unparsed_functions_queues);
 }
 
 /* Parse the operand of `sizeof' (or a similar operator).  Returns

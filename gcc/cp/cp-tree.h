@@ -39,6 +39,7 @@ struct diagnostic_context;
       IDENTIFIER_MARKED (IDENTIFIER_NODEs)
       NEW_EXPR_USE_GLOBAL (in NEW_EXPR).
       DELETE_EXPR_USE_GLOBAL (in DELETE_EXPR).
+      COMPOUND_EXPR_OVERLOADED (in COMPOUND_EXPR).
       TREE_INDIRECT_USING (in NAMESPACE_DECL).
       ICS_USER_FLAG (in _CONV)
       CLEANUP_P (in TRY_BLOCK)
@@ -46,6 +47,7 @@ struct diagnostic_context;
       PTRMEM_OK_P (in ADDR_EXPR, OFFSET_REF)
       PARMLIST_ELLIPSIS_P (in PARMLIST)
       DECL_PRETTY_FUNCTION_P (in VAR_DECL)
+      KOENIG_LOOKUP_P (in CALL_EXPR)
    1: IDENTIFIER_VIRTUAL_P.
       TI_PENDING_TEMPLATE_FLAG.
       TEMPLATE_PARMS_FOR_INLINE.
@@ -2293,6 +2295,14 @@ struct lang_decl GTY(())
 #define DELETE_EXPR_USE_GLOBAL(NODE)	TREE_LANG_FLAG_0 (NODE)
 #define DELETE_EXPR_USE_VEC(NODE)	TREE_LANG_FLAG_1 (NODE)
 
+/* Indicates that this is a non-dependent COMPOUND_EXPR which will
+   resolve to a function call.  */
+#define COMPOUND_EXPR_OVERLOADED(NODE)	TREE_LANG_FLAG_0 (NODE)
+
+/* In a CALL_EXPR appearing in a template, true if Koenig lookup
+   should be performed at instantiation time.  */
+#define KOENIG_LOOKUP_P(NODE) TREE_LANG_FLAG_0(NODE)
+
 /* Nonzero if this AGGR_INIT_EXPR provides for initialization via a
    constructor call, rather than an ordinary function call.  */
 #define AGGR_INIT_VIA_CTOR_P(NODE) \
@@ -3524,7 +3534,7 @@ extern tree type_passed_as (tree);
 extern tree convert_for_arg_passing (tree, tree);
 extern tree cp_convert_parm_for_inlining        (tree, tree, tree);
 extern bool is_properly_derived_from (tree, tree);
-extern tree initialize_reference (tree, tree, tree);
+extern tree initialize_reference (tree, tree, tree, tree *);
 extern tree make_temporary_var_for_ref_to_temp (tree, tree);
 extern tree strip_top_quals (tree);
 extern tree perform_implicit_conversion (tree, tree);
@@ -3744,7 +3754,6 @@ extern void register_dtor_fn                    (tree);
 extern tmpl_spec_kind current_tmpl_spec_kind    (int);
 extern tree cp_fname_init			(const char *);
 extern tree check_elaborated_type_specifier     (enum tag_types, tree, bool);
-extern int add_binding                          (cxx_binding *, tree);
 extern bool have_extern_spec;
 
 /* in decl2.c */
@@ -3797,7 +3806,7 @@ extern tree build_artificial_parm (tree, tree);
 extern tree get_guard (tree);
 extern tree get_guard_cond (tree);
 extern tree set_guard (tree);
-extern void lower_function (tree);
+extern tree cxx_callgraph_analyze_expr (tree *, int *, tree);
 
 /* XXX Not i18n clean.  */
 #define cp_deprecated(STR)						\
@@ -4105,7 +4114,7 @@ extern tree begin_stmt_expr                     (void);
 extern tree finish_stmt_expr_expr 		(tree);
 extern tree finish_stmt_expr                    (tree, bool);
 extern tree perform_koenig_lookup               (tree, tree);
-extern tree finish_call_expr                    (tree, tree, bool);
+extern tree finish_call_expr                    (tree, tree, bool, bool);
 extern tree finish_increment_expr               (tree, enum tree_code);
 extern tree finish_this_expr                    (void);
 extern tree finish_object_call_expr             (tree, tree, tree);
@@ -4132,11 +4141,10 @@ extern tree finish_id_expression                (tree, tree, tree,
 						 bool, bool, bool *, 
 						 const char **);
 extern tree finish_typeof			(tree);
-extern tree finish_sizeof			(tree);
-extern tree finish_alignof			(tree);
 extern void finish_decl_cleanup                 (tree, tree);
 extern void finish_eh_cleanup                   (tree);
 extern void expand_body                         (tree);
+extern void cxx_expand_function_start		(void);
 extern tree nullify_returns_r		      (tree *, int *, void *);
 extern void do_pushlevel                        (scope_kind);
 extern tree do_poplevel                         (void);
@@ -4161,13 +4169,10 @@ extern int zero_init_p				(tree);
 extern tree canonical_type_variant              (tree);
 extern tree copy_base_binfos			(tree, tree, tree);
 extern int member_p				(tree);
-extern cp_lvalue_kind real_lvalue_p		(tree);
-extern int non_cast_lvalue_p			(tree);
-extern cp_lvalue_kind real_non_cast_lvalue_p    (tree);
-extern int non_cast_lvalue_or_else		(tree, const char *);
-extern tree build_min				(enum tree_code, tree,
-							 ...);
+extern cp_lvalue_kind real_lvalue_p             (tree);
+extern tree build_min				(enum tree_code, tree, ...);
 extern tree build_min_nt			(enum tree_code, ...);
+extern tree build_min_non_dep			(enum tree_code, tree, ...);
 extern tree build_cplus_new			(tree, tree);
 extern tree get_target_expr			(tree);
 extern tree build_cplus_staticfn_type		(tree, tree, tree);
@@ -4245,8 +4250,8 @@ extern bool comptypes				(tree, tree, int);
 extern bool compparms				(tree, tree);
 extern int comp_cv_qualification                (tree, tree);
 extern int comp_cv_qual_signature               (tree, tree);
-extern tree expr_sizeof				(tree);
-extern tree cxx_sizeof_or_alignof_type    (tree, enum tree_code, int);
+extern tree cxx_sizeof_or_alignof_expr    (tree, enum tree_code);
+extern tree cxx_sizeof_or_alignof_type    (tree, enum tree_code, bool);
 #define cxx_sizeof_nowarn(T) cxx_sizeof_or_alignof_type (T, SIZEOF_EXPR, false)
 extern tree inline_conversion			(tree);
 extern tree decay_conversion			(tree);

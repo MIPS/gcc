@@ -556,6 +556,7 @@ decode_options (unsigned int argc, const char **argv)
       flag_delete_null_pointer_checks = 1;
       flag_reorder_blocks = 1;
       flag_reorder_functions = 1;
+      flag_unit_at_a_time = 1;
     }
 
   if (optimize >= 3)
@@ -563,7 +564,6 @@ decode_options (unsigned int argc, const char **argv)
       flag_inline_functions = 1;
       flag_rename_registers = 1;
       flag_unswitch_loops = 1;
-      flag_unit_at_a_time = 1;
     }
 
   if (optimize < 2 || optimize_size)
@@ -1220,8 +1220,12 @@ common_handle_option (size_t scode, const char *arg,
       flag_rerun_loop_opt = value;
       break;
 
+    case OPT_frounding_math:
+      flag_rounding_math = value;
+      break;
+
     case OPT_fsched_interblock:
-      flag_schedule_interblock= value;
+      flag_schedule_interblock = value;
       break;
 
     case OPT_fsched_spec:
@@ -1547,7 +1551,10 @@ set_fast_math_flags (int set)
   flag_finite_math_only = set;
   flag_errno_math = !set;
   if (set)
-    flag_signaling_nans = 0;
+    {
+      flag_signaling_nans = 0;
+      flag_rounding_math = 0;
+    }
 }
 
 /* Return true iff flags are set as if -ffast-math.  */

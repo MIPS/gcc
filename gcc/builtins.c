@@ -79,11 +79,6 @@ tree built_in_decls[(int) END_BUILTINS];
    required to implement the function call in all cases.  */
 tree implicit_built_in_decls[(int) END_BUILTINS];
 
-/* Trigonometric and mathematical constants used in builtin folding.  */
-static bool builtin_dconsts_init = 0;
-static REAL_VALUE_TYPE dconstpi;
-static REAL_VALUE_TYPE dconste;
-
 static int get_pointer_alignment (tree, unsigned int);
 static tree c_strlen (tree, int);
 static const char *c_getstr (tree);
@@ -157,26 +152,11 @@ static tree fold_trunc_transparent_mathfn (tree);
 static bool readonly_data_expr (tree);
 static rtx expand_builtin_fabs (tree, rtx, rtx);
 static rtx expand_builtin_cabs (tree, rtx);
-static void init_builtin_dconsts (void);
 static tree fold_builtin_cabs (tree, tree, tree);
 static tree fold_builtin_trunc (tree);
 static tree fold_builtin_floor (tree);
 static tree fold_builtin_ceil (tree);
 static tree fold_builtin_bitop (tree);
-
-/* Initialize mathematical constants for constant folding builtins.
-   These constants need to be given to at least 160 bits precision.  */
-
-static void
-init_builtin_dconsts (void)
-{
-  real_from_string (&dconstpi,
-    "3.1415926535897932384626433832795028841971693993751058209749445923078");
-  real_from_string (&dconste,
-    "2.7182818284590452353602874713526624977572470936999595749669676277241");
-
-  builtin_dconsts_init = true;
-}
 
 /* Return the alignment in bits of EXP, a pointer valued expression.
    But don't return more than MAX_ALIGN no matter what.
@@ -639,10 +619,11 @@ expand_builtin_setjmp (tree arglist, rtx target)
 
   expand_builtin_setjmp_setup (buf_addr, next_lab);
 
-  /* Set TARGET to zero and branch to the continue label.  */
+  /* Set TARGET to zero and branch to the continue label.  Use emit_jump to
+     ensure that pending stack adjustments are flushed.  */
   emit_move_insn (target, const0_rtx);
-  emit_jump_insn (gen_jump (cont_lab));
-  emit_barrier ();
+  emit_jump (cont_lab);
+
   emit_label (next_lab);
 
   expand_builtin_setjmp_receiver (next_lab);
@@ -940,7 +921,7 @@ apply_args_size (void)
 
       /* The second value is the structure value address unless this is
 	 passed as an "invisible" first argument.  */
-      if (struct_value_rtx)
+      if (targetm.calls.struct_value_rtx (cfun ? TREE_TYPE (cfun->decl) : 0, 0))
 	size += GET_MODE_SIZE (Pmode);
 
       for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
@@ -1115,6 +1096,7 @@ expand_builtin_apply_args_1 (void)
   rtx registers;
   int size, align, regno;
   enum machine_mode mode;
+  rtx struct_incoming_value = targetm.calls.struct_value_rtx (cfun ? TREE_TYPE (cfun->decl) : 0, 1);
 
   /* Create a block where the arg-pointer, structure value address,
      and argument registers can be saved.  */
@@ -1122,7 +1104,7 @@ expand_builtin_apply_args_1 (void)
 
   /* Walk past the arg-pointer and structure value address.  */
   size = GET_MODE_SIZE (Pmode);
-  if (struct_value_rtx)
+  if (targetm.calls.struct_value_rtx (cfun ? TREE_TYPE (cfun->decl) : 0, 0))
     size += GET_MODE_SIZE (Pmode);
 
   /* Save each register used in calling a function to the block.  */
@@ -1148,10 +1130,10 @@ expand_builtin_apply_args_1 (void)
 
   /* Save the structure value address unless this is passed as an
      "invisible" first argument.  */
-  if (struct_value_incoming_rtx)
+  if (struct_incoming_value)
     {
       emit_move_insn (adjust_address (registers, Pmode, size),
-		      copy_to_reg (struct_value_incoming_rtx));
+		      copy_to_reg (struct_incoming_value));
       size += GET_MODE_SIZE (Pmode);
     }
 
@@ -1209,6 +1191,7 @@ expand_builtin_apply (rtx function, rtx arguments, rtx argsize)
   rtx incoming_args, result, reg, dest, src, call_insn;
   rtx old_stack_level = 0;
   rtx call_fusage = 0;
+  rtx struct_value = targetm.calls.struct_value_rtx (cfun ? TREE_TYPE (cfun->decl) : 0, 0);
 
 #ifdef POINTERS_EXTEND_UNSIGNED
   if (GET_MODE (arguments) != Pmode)
@@ -1262,7 +1245,7 @@ expand_builtin_apply (rtx function, rtx arguments, rtx argsize)
 
   /* Walk past the arg-pointer and structure value address.  */
   size = GET_MODE_SIZE (Pmode);
-  if (struct_value_rtx)
+  if (struct_value)
     size += GET_MODE_SIZE (Pmode);
 
   /* Restore each of the registers previously saved.  Make USE insns
@@ -1282,13 +1265,13 @@ expand_builtin_apply (rtx function, rtx arguments, rtx argsize)
   /* Restore the structure value address unless this is passed as an
      "invisible" first argument.  */
   size = GET_MODE_SIZE (Pmode);
-  if (struct_value_rtx)
+  if (struct_value)
     {
       rtx value = gen_reg_rtx (Pmode);
       emit_move_insn (value, adjust_address (arguments, Pmode, size));
-      emit_move_insn (struct_value_rtx, value);
-      if (GET_CODE (struct_value_rtx) == REG)
-	use_reg (&call_fusage, struct_value_rtx);
+      emit_move_insn (struct_value, value);
+      if (GET_CODE (struct_value) == REG)
+	use_reg (&call_fusage, struct_value);
       size += GET_MODE_SIZE (Pmode);
     }
 
@@ -1462,7 +1445,11 @@ expand_builtin_constant_p (tree arglist, enum machine_mode target_mode)
 
   /* We have taken care of the easy cases during constant folding.  This
      case is not obvious, so emit (constant_p_rtx (ARGLIST)) and let CSE
-     get a chance to see if it can deduce whether ARGLIST is constant.  */
+     get a chance to see if it can deduce whether ARGLIST is constant.
+     If CSE isn't going to run, of course, don't bother waiting.  */
+
+  if (cse_not_expected)
+    return const0_rtx;
 
   current_function_calls_constant_p = 1;
 
@@ -1490,18 +1477,79 @@ mathfn_built_in (tree type, enum built_in_function fn)
 
   switch (fn)
     {
+      CASE_MATHFN (BUILT_IN_ACOS)
+      CASE_MATHFN (BUILT_IN_ACOSH)
+      CASE_MATHFN (BUILT_IN_ASIN)
+      CASE_MATHFN (BUILT_IN_ASINH)
       CASE_MATHFN (BUILT_IN_ATAN)
+      CASE_MATHFN (BUILT_IN_ATAN2)
+      CASE_MATHFN (BUILT_IN_ATANH)
+      CASE_MATHFN (BUILT_IN_CBRT)
       CASE_MATHFN (BUILT_IN_CEIL)
+      CASE_MATHFN (BUILT_IN_COPYSIGN)
       CASE_MATHFN (BUILT_IN_COS)
+      CASE_MATHFN (BUILT_IN_COSH)
+      CASE_MATHFN (BUILT_IN_DREM)
+      CASE_MATHFN (BUILT_IN_ERF)
+      CASE_MATHFN (BUILT_IN_ERFC)
       CASE_MATHFN (BUILT_IN_EXP)
+      CASE_MATHFN (BUILT_IN_EXP10)
+      CASE_MATHFN (BUILT_IN_EXP2)
+      CASE_MATHFN (BUILT_IN_EXPM1)
+      CASE_MATHFN (BUILT_IN_FABS)
+      CASE_MATHFN (BUILT_IN_FDIM)
       CASE_MATHFN (BUILT_IN_FLOOR)
+      CASE_MATHFN (BUILT_IN_FMA)
+      CASE_MATHFN (BUILT_IN_FMAX)
+      CASE_MATHFN (BUILT_IN_FMIN)
+      CASE_MATHFN (BUILT_IN_FMOD)
+      CASE_MATHFN (BUILT_IN_FREXP)
+      CASE_MATHFN (BUILT_IN_GAMMA)
+      CASE_MATHFN (BUILT_IN_HUGE_VAL)
+      CASE_MATHFN (BUILT_IN_HYPOT)
+      CASE_MATHFN (BUILT_IN_ILOGB)
+      CASE_MATHFN (BUILT_IN_INF)
+      CASE_MATHFN (BUILT_IN_J0)
+      CASE_MATHFN (BUILT_IN_J1)
+      CASE_MATHFN (BUILT_IN_JN)
+      CASE_MATHFN (BUILT_IN_LDEXP)
+      CASE_MATHFN (BUILT_IN_LGAMMA)
+      CASE_MATHFN (BUILT_IN_LLRINT)
+      CASE_MATHFN (BUILT_IN_LLROUND)
       CASE_MATHFN (BUILT_IN_LOG)
+      CASE_MATHFN (BUILT_IN_LOG10)
+      CASE_MATHFN (BUILT_IN_LOG1P)
+      CASE_MATHFN (BUILT_IN_LOG2)
+      CASE_MATHFN (BUILT_IN_LOGB)
+      CASE_MATHFN (BUILT_IN_LRINT)
+      CASE_MATHFN (BUILT_IN_LROUND)
+      CASE_MATHFN (BUILT_IN_MODF)
+      CASE_MATHFN (BUILT_IN_NAN)
+      CASE_MATHFN (BUILT_IN_NANS)
       CASE_MATHFN (BUILT_IN_NEARBYINT)
+      CASE_MATHFN (BUILT_IN_NEXTAFTER)
+      CASE_MATHFN (BUILT_IN_NEXTTOWARD)
+      CASE_MATHFN (BUILT_IN_POW)
+      CASE_MATHFN (BUILT_IN_POW10)
+      CASE_MATHFN (BUILT_IN_REMAINDER)
+      CASE_MATHFN (BUILT_IN_REMQUO)
+      CASE_MATHFN (BUILT_IN_RINT)
       CASE_MATHFN (BUILT_IN_ROUND)
+      CASE_MATHFN (BUILT_IN_SCALB)
+      CASE_MATHFN (BUILT_IN_SCALBLN)
+      CASE_MATHFN (BUILT_IN_SCALBN)
+      CASE_MATHFN (BUILT_IN_SIGNIFICAND)
       CASE_MATHFN (BUILT_IN_SIN)
+      CASE_MATHFN (BUILT_IN_SINCOS)
+      CASE_MATHFN (BUILT_IN_SINH)
       CASE_MATHFN (BUILT_IN_SQRT)
       CASE_MATHFN (BUILT_IN_TAN)
+      CASE_MATHFN (BUILT_IN_TANH)
+      CASE_MATHFN (BUILT_IN_TGAMMA)
       CASE_MATHFN (BUILT_IN_TRUNC)
+      CASE_MATHFN (BUILT_IN_Y0)
+      CASE_MATHFN (BUILT_IN_Y1)
+      CASE_MATHFN (BUILT_IN_YN)
 
       default:
 	return 0;
@@ -3662,21 +3710,8 @@ expand_builtin_saveregs (void)
 
   start_sequence ();
 
-#ifdef EXPAND_BUILTIN_SAVEREGS
   /* Do whatever the machine needs done in this case.  */
-  val = EXPAND_BUILTIN_SAVEREGS ();
-#else
-  /* ??? We used to try and build up a call to the out of line function,
-     guessing about what registers needed saving etc.  This became much
-     harder with __builtin_va_start, since we don't have a tree for a
-     call to __builtin_saveregs to fall back on.  There was exactly one
-     port (i860) that used this code, and I'm unconvinced it could actually
-     handle the general case.  So we no longer try to handle anything
-     weird and make the backend absorb the evil.  */
-
-  error ("__builtin_saveregs not supported by this target");
-  val = const0_rtx;
-#endif
+  val = targetm.calls.expand_builtin_saveregs ();
 
   seq = get_insns ();
   end_sequence ();
@@ -4330,6 +4365,7 @@ expand_builtin_expect_jump (tree exp, rtx if_false_label, rtx if_true_label)
       && (integer_zerop (arg1) || integer_onep (arg1)))
     {
       int num_jumps = 0;
+      int save_pending_stack_adjust = pending_stack_adjust;
       rtx insn;
 
       /* If we fail to locate an appropriate conditional jump, we'll
@@ -4421,7 +4457,10 @@ expand_builtin_expect_jump (tree exp, rtx if_false_label, rtx if_true_label)
       /* If no jumps were modified, fail and do __builtin_expect the normal
 	 way.  */
       if (num_jumps == 0)
-	ret = NULL_RTX;
+	{
+	  ret = NULL_RTX;
+	  pending_stack_adjust = save_pending_stack_adjust;
+	}
     }
 
   return ret;
@@ -5405,15 +5444,14 @@ fold_builtin_constant_p (tree arglist)
 	  && TREE_CODE (TREE_OPERAND (arglist, 0)) == STRING_CST))
     return integer_one_node;
 
-  /* If we aren't going to be running CSE or this expression
-     has side effects, show we don't know it to be a constant.
-     Likewise if it's a pointer or aggregate type since in those
-     case we only want literals, since those are only optimized
+  /* If this expression has side effects, show we don't know it to be a
+     constant.  Likewise if it's a pointer or aggregate type since in
+     those case we only want literals, since those are only optimized
      when generating RTL, not later.
      And finally, if we are compiling an initializer, not code, we
      need to return a definite result now; there's not going to be any
      more optimization done.  */
-  if (TREE_SIDE_EFFECTS (arglist) || cse_not_expected
+  if (TREE_SIDE_EFFECTS (arglist)
       || AGGREGATE_TYPE_P (TREE_TYPE (arglist))
       || POINTER_TYPE_P (TREE_TYPE (arglist))
       || cfun == 0)
@@ -5660,6 +5698,8 @@ fold_builtin_cabs (tree fndecl, tree arglist, tree type)
 	{
 	  tree rpart, ipart, result, arglist;
 
+	  arg = save_expr (arg);
+
 	  rpart = fold (build1 (REALPART_EXPR, type, arg));
 	  ipart = fold (build1 (IMAGPART_EXPR, type, arg));
 
@@ -5879,6 +5919,216 @@ fold_builtin_bitop (tree exp)
   return NULL_TREE;
 }
 
+/* Return true if EXPR is the real constant contained in VALUE.  */
+
+static bool
+real_dconstp (tree expr, const REAL_VALUE_TYPE *value)
+{
+  STRIP_NOPS (expr);
+
+  return ((TREE_CODE (expr) == REAL_CST
+           && ! TREE_CONSTANT_OVERFLOW (expr)
+           && REAL_VALUES_EQUAL (TREE_REAL_CST (expr), *value))
+          || (TREE_CODE (expr) == COMPLEX_CST
+              && real_dconstp (TREE_REALPART (expr), value)
+              && real_zerop (TREE_IMAGPART (expr))));
+}
+
+/* A subroutine of fold_builtin to fold the various logarithmic
+   functions.  EXP is the CALL_EXPR of a call to a builtin log*
+   function.  VALUE is the base of the log* function.  */
+
+static tree
+fold_builtin_logarithm (tree exp, const REAL_VALUE_TYPE *value)
+{
+  tree arglist = TREE_OPERAND (exp, 1);
+
+  if (validate_arglist (arglist, REAL_TYPE, VOID_TYPE))
+    {
+      tree fndecl = get_callee_fndecl (exp);
+      tree type = TREE_TYPE (TREE_TYPE (fndecl));
+      tree arg = TREE_VALUE (arglist);
+      const enum built_in_function fcode = builtin_mathfn_code (arg);
+	
+      /* Optimize log*(1.0) = 0.0.  */
+      if (real_onep (arg))
+	return build_real (type, dconst0);
+
+      /* Optimize logN(N) = 1.0.  If N can't be truncated to MODE
+         exactly, then only do this if flag_unsafe_math_optimizations.  */
+      if (exact_real_truncate (TYPE_MODE (type), value)
+	  || flag_unsafe_math_optimizations)
+        {
+	  const REAL_VALUE_TYPE value_truncate =
+	    real_value_truncate (TYPE_MODE (type), *value);
+	  if (real_dconstp (arg, &value_truncate))
+	    return build_real (type, dconst1);
+	}
+      
+      /* Special case, optimize logN(expN(x)) = x.  */
+      if (flag_unsafe_math_optimizations
+	  && ((value == &dconste
+	       && (fcode == BUILT_IN_EXP
+		   || fcode == BUILT_IN_EXPF
+		   || fcode == BUILT_IN_EXPL))
+	      || (value == &dconst2
+		  && (fcode == BUILT_IN_EXP2
+		      || fcode == BUILT_IN_EXP2F
+		      || fcode == BUILT_IN_EXP2L))
+	      || (value == &dconst10
+		  && (fcode == BUILT_IN_EXP10
+		      || fcode == BUILT_IN_EXP10F
+		      || fcode == BUILT_IN_EXP10L))))
+	return convert (type, TREE_VALUE (TREE_OPERAND (arg, 1)));
+
+      /* Optimize log*(func()) for various exponential functions.  We
+         want to determine the value "x" and the power "exponent" in
+         order to transform logN(x**exponent) into exponent*logN(x).  */
+      if (flag_unsafe_math_optimizations)
+        {
+	  tree exponent = 0, x = 0;
+	  
+	  switch (fcode)
+	  {
+	  case BUILT_IN_EXP:
+	  case BUILT_IN_EXPF:
+	  case BUILT_IN_EXPL:
+	    /* Prepare to do logN(exp(exponent) -> exponent*logN(e).  */
+	    x = build_real (type,
+			    real_value_truncate (TYPE_MODE (type), dconste));
+	    exponent = TREE_VALUE (TREE_OPERAND (arg, 1));
+	    break;
+	  case BUILT_IN_EXP2:
+	  case BUILT_IN_EXP2F:
+	  case BUILT_IN_EXP2L:
+	    /* Prepare to do logN(exp2(exponent) -> exponent*logN(2).  */
+	    x = build_real (type, dconst2);
+	    exponent = TREE_VALUE (TREE_OPERAND (arg, 1));
+	    break;
+	  case BUILT_IN_EXP10:
+	  case BUILT_IN_EXP10F:
+	  case BUILT_IN_EXP10L:
+	  case BUILT_IN_POW10:
+	  case BUILT_IN_POW10F:
+	  case BUILT_IN_POW10L:
+	    /* Prepare to do logN(exp10(exponent) -> exponent*logN(10).  */
+	    x = build_real (type, dconst10);
+	    exponent = TREE_VALUE (TREE_OPERAND (arg, 1));
+	    break;
+	  case BUILT_IN_SQRT:
+	  case BUILT_IN_SQRTF:
+	  case BUILT_IN_SQRTL:
+	    /* Prepare to do logN(sqrt(x) -> 0.5*logN(x).  */
+	    x = TREE_VALUE (TREE_OPERAND (arg, 1));
+	    exponent = build_real (type, dconsthalf);
+	    break;
+	  case BUILT_IN_CBRT:
+	  case BUILT_IN_CBRTF:
+	  case BUILT_IN_CBRTL:
+	    /* Prepare to do logN(cbrt(x) -> (1/3)*logN(x).  */
+	    x = TREE_VALUE (TREE_OPERAND (arg, 1));
+	    exponent = build_real (type, real_value_truncate (TYPE_MODE (type),
+							      dconstthird));
+	    break;
+	  case BUILT_IN_POW:
+	  case BUILT_IN_POWF:
+	  case BUILT_IN_POWL:
+	    /* Prepare to do logN(pow(x,exponent) -> exponent*logN(x).  */
+	    x = TREE_VALUE (TREE_OPERAND (arg, 1));
+	    exponent = TREE_VALUE (TREE_CHAIN (TREE_OPERAND (arg, 1)));
+	    break;
+	  default:
+	    break;
+	  }
+
+	  /* Now perform the optimization.  */
+	  if (x && exponent)
+	    {
+	      tree logfn;
+	      arglist = build_tree_list (NULL_TREE, x);
+	      logfn = build_function_call_expr (fndecl, arglist);
+	      return fold (build (MULT_EXPR, type, exponent, logfn));
+	    }
+	}
+    }
+
+  return 0;
+}
+	  
+/* A subroutine of fold_builtin to fold the various exponent
+   functions.  EXP is the CALL_EXPR of a call to a builtin function.
+   VALUE is the value which will be raised to a power.  */
+
+static tree
+fold_builtin_exponent (tree exp, const REAL_VALUE_TYPE *value)
+{
+  tree arglist = TREE_OPERAND (exp, 1);
+
+  if (validate_arglist (arglist, REAL_TYPE, VOID_TYPE))
+    {
+      tree fndecl = get_callee_fndecl (exp);
+      tree type = TREE_TYPE (TREE_TYPE (fndecl));
+      tree arg = TREE_VALUE (arglist);
+
+      /* Optimize exp*(0.0) = 1.0.  */
+      if (real_zerop (arg))
+	return build_real (type, dconst1);
+
+      /* Optimize expN(1.0) = N.  */
+      if (real_onep (arg))
+        {
+	  REAL_VALUE_TYPE cst;
+
+	  real_convert (&cst, TYPE_MODE (type), value);
+	  return build_real (type, cst);
+	}
+
+      /* Attempt to evaluate expN(integer) at compile-time.  */
+      if (flag_unsafe_math_optimizations
+	  && TREE_CODE (arg) == REAL_CST
+	  && ! TREE_CONSTANT_OVERFLOW (arg))
+        {
+	  REAL_VALUE_TYPE cint;
+	  REAL_VALUE_TYPE c;
+	  HOST_WIDE_INT n;
+
+	  c = TREE_REAL_CST (arg);
+	  n = real_to_integer (&c);
+	  real_from_integer (&cint, VOIDmode, n,
+			     n < 0 ? -1 : 0, 0);
+	  if (real_identical (&c, &cint))
+	    {
+	      REAL_VALUE_TYPE x;
+
+	      real_powi (&x, TYPE_MODE (type), value, n);
+	      return build_real (type, x);
+	    }
+	}
+
+      /* Optimize expN(logN(x)) = x.  */
+      if (flag_unsafe_math_optimizations)
+        {
+	  const enum built_in_function fcode = builtin_mathfn_code (arg);
+
+	  if ((value == &dconste
+	       && (fcode == BUILT_IN_LOG
+		   || fcode == BUILT_IN_LOGF
+		   || fcode == BUILT_IN_LOGL))
+	      || (value == &dconst2
+		  && (fcode == BUILT_IN_LOG2
+		      || fcode == BUILT_IN_LOG2F
+		      || fcode == BUILT_IN_LOG2L))
+	      || (value == &dconst10
+		  && (fcode == BUILT_IN_LOG10
+		      || fcode == BUILT_IN_LOG10F
+		      || fcode == BUILT_IN_LOG10L)))
+	    return convert (type, TREE_VALUE (TREE_OPERAND (arg, 1)));
+	}
+    }
+
+  return 0;
+}
+
 /* Used by constant folding to eliminate some builtin calls early.  EXP is
    the CALL_EXPR of a call to a builtin function.  */
 
@@ -6016,107 +6266,32 @@ fold_builtin (tree exp)
     case BUILT_IN_EXP:
     case BUILT_IN_EXPF:
     case BUILT_IN_EXPL:
-      if (validate_arglist (arglist, REAL_TYPE, VOID_TYPE))
-	{
-	  enum built_in_function fcode;
-	  tree arg = TREE_VALUE (arglist);
-
-	  /* Optimize exp(0.0) = 1.0.  */
-	  if (real_zerop (arg))
-	    return build_real (type, dconst1);
-
-	  /* Optimize exp(1.0) = e.  */
-	  if (real_onep (arg))
-	    {
-	      REAL_VALUE_TYPE cst;
-
-	      if (! builtin_dconsts_init)
-		init_builtin_dconsts ();
-	      real_convert (&cst, TYPE_MODE (type), &dconste);
-	      return build_real (type, cst);
-	    }
-
-	  /* Attempt to evaluate exp at compile-time.  */
-	  if (flag_unsafe_math_optimizations
-	      && TREE_CODE (arg) == REAL_CST
-	      && ! TREE_CONSTANT_OVERFLOW (arg))
-	    {
-	      REAL_VALUE_TYPE cint;
-	      REAL_VALUE_TYPE c;
-	      HOST_WIDE_INT n;
-
-	      c = TREE_REAL_CST (arg);
-	      n = real_to_integer (&c);
-	      real_from_integer (&cint, VOIDmode, n,
-				 n < 0 ? -1 : 0, 0);
-	      if (real_identical (&c, &cint))
-		{
-		  REAL_VALUE_TYPE x;
-
-		  if (! builtin_dconsts_init)
-		    init_builtin_dconsts ();
-		  real_powi (&x, TYPE_MODE (type), &dconste, n);
-		  return build_real (type, x);
-		}
-	    }
-
-	  /* Optimize exp(log(x)) = x.  */
-	  fcode = builtin_mathfn_code (arg);
-	  if (flag_unsafe_math_optimizations
-	      && (fcode == BUILT_IN_LOG
-		  || fcode == BUILT_IN_LOGF
-		  || fcode == BUILT_IN_LOGL))
-	    return TREE_VALUE (TREE_OPERAND (arg, 1));
-	}
-      break;
-
+      return fold_builtin_exponent (exp, &dconste);
+    case BUILT_IN_EXP2:
+    case BUILT_IN_EXP2F:
+    case BUILT_IN_EXP2L:
+      return fold_builtin_exponent (exp, &dconst2);
+    case BUILT_IN_EXP10:
+    case BUILT_IN_EXP10F:
+    case BUILT_IN_EXP10L:
+    case BUILT_IN_POW10:
+    case BUILT_IN_POW10F:
+    case BUILT_IN_POW10L:
+      return fold_builtin_exponent (exp, &dconst10);
     case BUILT_IN_LOG:
     case BUILT_IN_LOGF:
     case BUILT_IN_LOGL:
-      if (validate_arglist (arglist, REAL_TYPE, VOID_TYPE))
-	{
-	  enum built_in_function fcode;
-	  tree arg = TREE_VALUE (arglist);
-
-	  /* Optimize log(1.0) = 0.0.  */
-	  if (real_onep (arg))
-	    return build_real (type, dconst0);
-
-	  /* Optimize log(exp(x)) = x.  */
-	  fcode = builtin_mathfn_code (arg);
-	  if (flag_unsafe_math_optimizations
-	      && (fcode == BUILT_IN_EXP
-		  || fcode == BUILT_IN_EXPF
-		  || fcode == BUILT_IN_EXPL))
-	    return TREE_VALUE (TREE_OPERAND (arg, 1));
-
-	  /* Optimize log(sqrt(x)) = log(x)*0.5.  */
-	  if (flag_unsafe_math_optimizations
-	      && (fcode == BUILT_IN_SQRT
-		  || fcode == BUILT_IN_SQRTF
-		  || fcode == BUILT_IN_SQRTL))
-	    {
-	      tree logfn = build_function_call_expr (fndecl,
-						     TREE_OPERAND (arg, 1));
-	      return fold (build (MULT_EXPR, type, logfn,
-				  build_real (type, dconsthalf)));
-	    }
-
-	  /* Optimize log(pow(x,y)) = y*log(x).  */
-          if (flag_unsafe_math_optimizations
-	      && (fcode == BUILT_IN_POW
-		  || fcode == BUILT_IN_POWF
-		  || fcode == BUILT_IN_POWL))
-	    {
-	      tree arg0, arg1, logfn;
-
-	      arg0 = TREE_VALUE (TREE_OPERAND (arg, 1));
-	      arg1 = TREE_VALUE (TREE_CHAIN (TREE_OPERAND (arg, 1)));
-	      arglist = build_tree_list (NULL_TREE, arg0);
-	      logfn = build_function_call_expr (fndecl, arglist);
-	      return fold (build (MULT_EXPR, type, arg1, logfn));
-	    }
-	}
+      return fold_builtin_logarithm (exp, &dconste);
+      break;
+    case BUILT_IN_LOG2:
+    case BUILT_IN_LOG2F:
+    case BUILT_IN_LOG2L:
+      return fold_builtin_logarithm (exp, &dconst2);
+      break;
+    case BUILT_IN_LOG10:
+    case BUILT_IN_LOG10F:
+    case BUILT_IN_LOG10L:
+      return fold_builtin_logarithm (exp, &dconst10);
       break;
 
     case BUILT_IN_TAN:
@@ -6157,8 +6332,6 @@ fold_builtin (tree exp)
 	    {
 	      REAL_VALUE_TYPE cst;
 
-	      if (! builtin_dconsts_init)
-		init_builtin_dconsts ();
 	      real_convert (&cst, TYPE_MODE (type), &dconstpi);
 	      cst.exp -= 2;
 	      return build_real (type, cst);

@@ -94,6 +94,10 @@ struct lang_decl GTY(())
    nonzero if the definition of the type has already started.  */
 #define C_TYPE_BEING_DEFINED(TYPE) TYPE_LANG_FLAG_0 (TYPE)
 
+/* In an incomplete RECORD_TYPE or UNION_TYPE, a list of variable
+   declarations whose type would be completed by completing that type.  */
+#define C_TYPE_INCOMPLETE_VARS(TYPE) TYPE_VFIELD (TYPE)
+
 /* In an IDENTIFIER_NODE, nonzero if this identifier is actually a
    keyword.  C_RID_CODE (node) is then the RID_* value of the keyword,
    and C_RID_YYCODE is the token number wanted by Yacc.  */
@@ -137,11 +141,6 @@ struct lang_type GTY(())
        (EXP == 0					\
 	|| (TYPE_ARG_TYPES (TREE_TYPE (EXP)) == 0	\
 	    && !DECL_BUILT_IN (EXP)))
-
-/* Nonzero for a decl which is at file scope.  */
-#define C_DECL_FILE_SCOPE(EXP) 					\
-  (! DECL_CONTEXT (EXP)						\
-   || TREE_CODE (DECL_CONTEXT (EXP)) == TRANSLATION_UNIT_DECL)
 
 /* For FUNCTION_TYPE, a hidden list of types of arguments.  The same as
    TYPE_ARG_TYPES for functions with prototypes, but created for functions
@@ -193,7 +192,7 @@ extern tree declare_label (tree);
 extern tree define_label (location_t, tree);
 extern void finish_decl (tree, tree, tree);
 extern tree finish_enum (tree, tree, tree);
-extern void finish_function (int, int);
+extern void finish_function (void);
 extern tree finish_struct (tree, tree, tree);
 extern tree get_parm_info (int);
 extern tree grokfield (tree, tree, tree);
@@ -245,8 +244,7 @@ extern bool c_warn_unused_global_decl (tree);
 
 /* For use with comptypes.  */
 enum {
-  COMPARE_STRICT = 0,
-  COMPARE_DIFFERENT_TU = 1
+  COMPARE_STRICT = 0
 };
 
 extern tree require_complete_type (tree);

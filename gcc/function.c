@@ -62,6 +62,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tm_p.h"
 #include "integrate.h"
 #include "langhooks.h"
+#include "target.h"
 
 #ifndef TRAMPOLINE_ALIGNMENT
 #define TRAMPOLINE_ALIGNMENT FUNCTION_BOUNDARY
@@ -284,7 +285,7 @@ static hashval_t insns_for_mem_hash (const void *);
 static int insns_for_mem_comp (const void *, const void *);
 static int insns_for_mem_walk (rtx *, void *);
 static void compute_insns_for_mem (rtx, rtx, htab_t);
-static void prepare_function_start (void);
+static void prepare_function_start (tree);
 static void do_clobber_return_reg (rtx, void *);
 static void do_use_return_reg (rtx, void *);
 static void instantiate_virtual_regs_lossage (rtx);
@@ -4177,16 +4178,37 @@ get_first_nonparm_insn (void)
    EXP may be a type node or an expression (whose type is tested).  */
 
 int
-aggregate_value_p (tree exp)
+aggregate_value_p (tree exp, tree fntype)
 {
   int i, regno, nregs;
   rtx reg;
 
   tree type = (TYPE_P (exp)) ? exp : TREE_TYPE (exp);
 
+  if (fntype)
+    switch (TREE_CODE (fntype))
+      {
+      case CALL_EXPR:
+	fntype = get_callee_fndecl (fntype);
+	fntype = fntype ? TREE_TYPE (fntype) : 0;
+	break;
+      case FUNCTION_DECL:
+	fntype = TREE_TYPE (fntype);
+	break;
+      case FUNCTION_TYPE:
+      case METHOD_TYPE:
+        break;
+      case IDENTIFIER_NODE:
+	fntype = 0;
+	break;
+      default:
+	/* We don't expect other rtl types here.  */
+	abort();
+      }
+
   if (TREE_CODE (type) == VOID_TYPE)
     return 0;
-  if (RETURN_IN_MEMORY (type))
+  if (targetm.calls.return_in_memory (type, fntype))
     return 1;
   /* Types that are TREE_ADDRESSABLE must be constructed in memory,
      and thus can't be returned in registers.  */
@@ -4230,9 +4252,7 @@ assign_parms (tree fndecl)
   /* This is a dummy PARM_DECL that we used for the function result if
      the function returns a structure.  */
   tree function_result_decl = 0;
-#ifdef SETUP_INCOMING_VARARGS
   int varargs_setup = 0;
-#endif
   int reg_parm_stack_space = 0;
   rtx conversion_insns = 0;
 
@@ -4265,9 +4285,9 @@ assign_parms (tree fndecl)
   stack_args_size.var = 0;
 
   /* If struct value address is treated as the first argument, make it so.  */
-  if (aggregate_value_p (DECL_RESULT (fndecl))
+  if (aggregate_value_p (DECL_RESULT (fndecl), fndecl)
       && ! current_function_returns_pcc_struct
-      && struct_value_incoming_rtx == 0)
+      && targetm.calls.struct_value_rtx (TREE_TYPE (fndecl), 1) == 0)
     {
       tree type = build_pointer_type (TREE_TYPE (fntype));
 
@@ -4336,7 +4356,7 @@ assign_parms (tree fndecl)
       /* Set NAMED_ARG if this arg should be treated as a named arg.  For
 	 most machines, if this is a varargs/stdarg function, then we treat
 	 the last named arg as if it were anonymous too.  */
-      named_arg = STRICT_ARGUMENT_NAMING ? 1 : ! last_named;
+      named_arg = targetm.calls.strict_argument_naming (&args_so_far) ? 1 : ! last_named;
 
       if (TREE_TYPE (parm) == error_mark_node
 	  /* This can happen after weird syntax errors
@@ -4401,11 +4421,12 @@ assign_parms (tree fndecl)
 
       promoted_mode = passed_mode;
 
-#ifdef PROMOTE_FUNCTION_ARGS
-      /* Compute the mode in which the arg is actually extended to.  */
-      unsignedp = TREE_UNSIGNED (passed_type);
-      promoted_mode = promote_mode (passed_type, promoted_mode, &unsignedp, 1);
-#endif
+      if (targetm.calls.promote_function_args (TREE_TYPE (fndecl)))
+	{
+	  /* Compute the mode in which the arg is actually extended to.  */
+	  unsignedp = TREE_UNSIGNED (passed_type);
+	  promoted_mode = promote_mode (passed_type, promoted_mode, &unsignedp, 1);
+	}
 
       /* Let machine desc say which reg (if any) the parm arrives in.
 	 0 means it arrives on the stack.  */
@@ -4420,7 +4441,6 @@ assign_parms (tree fndecl)
       if (entry_parm == 0)
 	promoted_mode = passed_mode;
 
-#ifdef SETUP_INCOMING_VARARGS
       /* If this is the last named parameter, do any required setup for
 	 varargs or stdargs.  We need to know about the case of this being an
 	 addressable type, in which case we skip the registers it
@@ -4433,11 +4453,11 @@ assign_parms (tree fndecl)
 	 Also, indicate when RTL generation is to be suppressed.  */
       if (last_named && !varargs_setup)
 	{
-	  SETUP_INCOMING_VARARGS (args_so_far, promoted_mode, passed_type,
-				  current_function_pretend_args_size, 0);
+	  targetm.calls.setup_incoming_varargs (&args_so_far, promoted_mode,
+						  passed_type,
+						  &current_function_pretend_args_size, 0);
 	  varargs_setup = 1;
 	}
-#endif
 
       /* Determine parm's home in the stack,
 	 in case it arrives in the stack or we should pretend it did.
@@ -4457,7 +4477,8 @@ assign_parms (tree fndecl)
 #endif
       if (!in_regs && !named_arg)
 	{
-	  int pretend_named = PRETEND_OUTGOING_VARARGS_NAMED;
+	  int pretend_named =
+	    targetm.calls.pretend_outgoing_varargs_named (&args_so_far);
 	  if (pretend_named)
 	    {
 #ifdef FUNCTION_INCOMING_ARG
@@ -4674,9 +4695,8 @@ assign_parms (tree fndecl)
 
 	      if (stack_parm == 0)
 		{
-		  stack_parm
-		    = assign_stack_local (GET_MODE (entry_parm),
-					  size_stored, 0);
+		  stack_parm = assign_stack_local (BLKmode, size_stored, 0);
+		  PUT_MODE (stack_parm, GET_MODE (entry_parm));
 		  set_mem_attributes (stack_parm, parm, 1);
 		}
 
@@ -5276,8 +5296,6 @@ split_complex_args (tree args)
    that REGNO is promoted from and whether the promotion was signed or
    unsigned.  */
 
-#ifdef PROMOTE_FUNCTION_ARGS
-
 rtx
 promoted_input_arg (unsigned int regno, enum machine_mode *pmode, int *punsignedp)
 {
@@ -5305,7 +5323,6 @@ promoted_input_arg (unsigned int regno, enum machine_mode *pmode, int *punsigned
   return 0;
 }
 
-#endif
 
 /* Compute the size and offset from the start of the stacked arguments for a
    parm passed in mode PASSED_MODE and with type TYPE.
@@ -6247,103 +6264,77 @@ debug_find_var_in_block_tree (tree var, tree block)
   return NULL_TREE;
 }
 
-/* Allocate a function structure and reset its contents to the defaults.  */
+/* Allocate a function structure for FNDECL and set its contents
+   to the defaults.  */
 
-static void
-prepare_function_start (void)
+void
+allocate_struct_function (tree fndecl)
 {
+  tree result;
+
   cfun = ggc_alloc_cleared (sizeof (struct function));
+
+  max_parm_reg = LAST_VIRTUAL_REGISTER + 1;
+
+  cfun->stack_alignment_needed = STACK_BOUNDARY;
+  cfun->preferred_stack_boundary = STACK_BOUNDARY;
+
+  current_function_funcdef_no = funcdef_no++;
+
+  cfun->function_frequency = FUNCTION_FREQUENCY_NORMAL;
 
   init_stmt_for_function ();
   init_eh_for_function ();
+  init_emit ();
+  init_expr ();
+  init_varasm_status (cfun);
+
+  (*lang_hooks.function.init) (cfun);
+  if (init_machine_status)
+    cfun->machine = (*init_machine_status) ();
+
+  if (fndecl == NULL)
+    return;
+
+  DECL_SAVED_INSNS (fndecl) = cfun;
+  cfun->decl = fndecl;
+
+  current_function_name = (*lang_hooks.decl_printable_name) (fndecl, 2);
+
+  result = DECL_RESULT (fndecl);
+  if (aggregate_value_p (result, fndecl))
+    {
+#ifdef PCC_STATIC_STRUCT_RETURN
+      current_function_returns_pcc_struct = 1;
+#endif
+      current_function_returns_struct = 1;
+    }
+
+  current_function_returns_pointer = POINTER_TYPE_P (TREE_TYPE (result));
+
+  current_function_needs_context
+    = (decl_function_context (current_function_decl) != 0
+       && ! DECL_NO_STATIC_CHAIN (current_function_decl));
+}
+
+/* Reset cfun, and other non-struct-function variables to defaults as
+   appropriate for emiiting rtl at the start of a function.  */
+
+static void
+prepare_function_start (tree fndecl)
+{
+  if (fndecl && DECL_SAVED_INSNS (fndecl))
+    cfun = DECL_SAVED_INSNS (fndecl);
+  else
+    allocate_struct_function (fndecl);
 
   cse_not_expected = ! optimize;
 
   /* Caller save not needed yet.  */
   caller_save_needed = 0;
 
-  /* No stack slots have been made yet.  */
-  stack_slot_list = 0;
-
-  current_function_has_nonlocal_label = 0;
-  current_function_has_nonlocal_goto = 0;
-
-  /* There is no stack slot for handling nonlocal gotos.  */
-  nonlocal_goto_handler_slots = 0;
-  nonlocal_goto_stack_level = 0;
-
-  /* No labels have been declared for nonlocal use.  */
-  nonlocal_labels = 0;
-  nonlocal_goto_handler_labels = 0;
-
-  /* No function calls so far in this function.  */
-  function_call_count = 0;
-
-  /* No parm regs have been allocated.
-     (This is important for output_inline_function.)  */
-  max_parm_reg = LAST_VIRTUAL_REGISTER + 1;
-
-  /* Initialize the RTL mechanism.  */
-  init_emit ();
-
-  /* Initialize the queue of pending postincrement and postdecrements,
-     and some other info in expr.c.  */
-  init_expr ();
-
   /* We haven't done register allocation yet.  */
   reg_renumber = 0;
-
-  init_varasm_status (cfun);
-
-  /* Clear out data used for inlining.  */
-  cfun->inlinable = 0;
-  cfun->original_decl_initial = 0;
-  cfun->original_arg_vector = 0;
-
-  cfun->stack_alignment_needed = STACK_BOUNDARY;
-  cfun->preferred_stack_boundary = STACK_BOUNDARY;
-
-  /* Set if a call to setjmp is seen.  */
-  current_function_calls_setjmp = 0;
-
-  /* Set if a call to longjmp is seen.  */
-  current_function_calls_longjmp = 0;
-
-  current_function_calls_alloca = 0;
-  current_function_calls_eh_return = 0;
-  current_function_calls_constant_p = 0;
-  current_function_contains_functions = 0;
-  current_function_is_leaf = 0;
-  current_function_nothrow = 0;
-  current_function_sp_is_unchanging = 0;
-  current_function_uses_only_leaf_regs = 0;
-  current_function_has_computed_jump = 0;
-  current_function_is_thunk = 0;
-
-  current_function_returns_pcc_struct = 0;
-  current_function_returns_struct = 0;
-  current_function_epilogue_delay_list = 0;
-  current_function_uses_const_pool = 0;
-  current_function_uses_pic_offset_table = 0;
-  current_function_cannot_inline = 0;
-
-  /* We have not yet needed to make a label to jump to for tail-recursion.  */
-  tail_recursion_label = 0;
-
-  /* We haven't had a need to make a save area for ap yet.  */
-  arg_pointer_save_area = 0;
-
-  /* No stack slots allocated yet.  */
-  frame_offset = 0;
-
-  /* No SAVE_EXPRs in this function yet.  */
-  save_expr_regs = 0;
-
-  /* No RTL_EXPRs in this function yet.  */
-  rtl_expr_chain = 0;
-
-  /* Set up to allocate temporaries.  */
-  init_temp_slots ();
 
   /* Indicate that we need to distinguish between the return value of the
      present function and the return value of a function being called.  */
@@ -6357,27 +6348,6 @@ prepare_function_start (void)
 
   /* Indicate we have no need of a frame pointer yet.  */
   frame_pointer_needed = 0;
-
-  /* By default assume not stdarg.  */
-  current_function_stdarg = 0;
-
-  /* We haven't made any trampolines for this function yet.  */
-  trampoline_list = 0;
-
-  init_pending_stack_adjust ();
-  inhibit_defer_pop = 0;
-
-  current_function_outgoing_args_size = 0;
-
-  current_function_funcdef_no = funcdef_no++;
-
-  cfun->function_frequency = FUNCTION_FREQUENCY_NORMAL;
-
-  cfun->max_jumptable_ents = 0;
-
-  (*lang_hooks.function.init) (cfun);
-  if (init_machine_status)
-    cfun->machine = (*init_machine_status) ();
 }
 
 /* Initialize the rtl expansion mechanism so that we can do simple things
@@ -6386,7 +6356,7 @@ prepare_function_start (void)
 void
 init_dummy_function_start (void)
 {
-  prepare_function_start ();
+  prepare_function_start (NULL);
 }
 
 /* Generate RTL for the start of the function SUBR (a FUNCTION_DECL tree node)
@@ -6396,16 +6366,7 @@ init_dummy_function_start (void)
 void
 init_function_start (tree subr)
 {
-  prepare_function_start ();
-
-  current_function_name = (*lang_hooks.decl_printable_name) (subr, 2);
-  cfun->decl = subr;
-
-  /* Nonzero if this is a nested function that uses a static chain.  */
-
-  current_function_needs_context
-    = (decl_function_context (current_function_decl) != 0
-       && ! DECL_NO_STATIC_CHAIN (current_function_decl));
+  prepare_function_start (subr);
 
   /* Within function body, compute a type's size as soon it is laid out.  */
   immediate_size_expand++;
@@ -6422,23 +6383,11 @@ init_function_start (tree subr)
      Also, final expects a note to appear there.  */
   emit_note (NOTE_INSN_DELETED);
 
-  /* Set flags used by final.c.  */
-  if (aggregate_value_p (DECL_RESULT (subr)))
-    {
-#ifdef PCC_STATIC_STRUCT_RETURN
-      current_function_returns_pcc_struct = 1;
-#endif
-      current_function_returns_struct = 1;
-    }
-
   /* Warn if this value is an aggregate type,
      regardless of which calling convention we are using for it.  */
   if (warn_aggregate_return
       && AGGREGATE_TYPE_P (TREE_TYPE (DECL_RESULT (subr))))
     warning ("function returns an aggregate");
-
-  current_function_returns_pointer
-    = POINTER_TYPE_P (TREE_TYPE (DECL_RESULT (subr)));
 }
 
 /* Make sure all values used by the optimization passes have sane
@@ -6584,7 +6533,7 @@ expand_function_start (tree subr, int parms_have_cleanups)
      before any library calls that assign parms might generate.  */
 
   /* Decide whether to return the value in memory or in a register.  */
-  if (aggregate_value_p (DECL_RESULT (subr)))
+  if (aggregate_value_p (DECL_RESULT (subr), subr))
     {
       /* Returning something that won't go in a register.  */
       rtx value_address = 0;
@@ -6598,13 +6547,14 @@ expand_function_start (tree subr, int parms_have_cleanups)
       else
 #endif
 	{
+	  rtx sv = targetm.calls.struct_value_rtx (TREE_TYPE (subr), 1);
 	  /* Expect to be passed the address of a place to store the value.
 	     If it is passed as an argument, assign_parms will take care of
 	     it.  */
-	  if (struct_value_incoming_rtx)
+	  if (sv)
 	    {
 	      value_address = gen_reg_rtx (Pmode);
-	      emit_move_insn (value_address, struct_value_incoming_rtx);
+	      emit_move_insn (value_address, sv);
 	    }
 	}
       if (value_address)
@@ -7042,10 +6992,9 @@ expand_function_end (void)
 	    {
 	      int unsignedp = TREE_UNSIGNED (TREE_TYPE (decl_result));
 
-#ifdef PROMOTE_FUNCTION_RETURN
-	      promote_mode (TREE_TYPE (decl_result), GET_MODE (decl_rtl),
-			    &unsignedp, 1);
-#endif
+	      if (targetm.calls.promote_function_return (TREE_TYPE (current_function_decl)))
+		promote_mode (TREE_TYPE (decl_result), GET_MODE (decl_rtl),
+			      &unsignedp, 1);
 
 	      convert_move (real_decl_rtl, decl_rtl, unsignedp);
 	    }

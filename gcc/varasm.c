@@ -1048,11 +1048,11 @@ void
 notice_global_symbol (tree decl)
 {
   if ((!first_global_object_name || !weak_global_object_name)
-      && TREE_PUBLIC (decl)
+      && TREE_PUBLIC (decl) && !DECL_COMMON (decl)
       && (TREE_CODE (decl) == FUNCTION_DECL
-	  || ! (DECL_COMMON (decl)
-	    	&& (DECL_INITIAL (decl) == 0
-		    || DECL_INITIAL (decl) == error_mark_node))))
+	  || (TREE_CODE (decl) == VAR_DECL
+	      && (DECL_INITIAL (decl) != 0
+		  && DECL_INITIAL (decl) != error_mark_node))))
     {
       const char *p;
       char *name;
@@ -1662,7 +1662,7 @@ mark_referenced (tree id)
 	{
 	  node = cgraph_node_for_identifier (id);
 	  if (node)
-	    cgraph_mark_needed_node (node, 1);
+	    cgraph_mark_needed_node (node);
 	}
 
       vnode = cgraph_varpool_node_for_identifier (id);
@@ -3476,11 +3476,27 @@ initializer_constant_valid_p (tree value, tree endtype)
 	   || TREE_CODE (TREE_TYPE (value)) == RECORD_TYPE)
 	  && TREE_CONSTANT (value)
 	  && CONSTRUCTOR_ELTS (value))
-	return
-	  initializer_constant_valid_p (TREE_VALUE (CONSTRUCTOR_ELTS (value)),
-					endtype);
+	{
+	  tree elt;
+	  bool absolute = true;
 
-      return TREE_STATIC (value) ? null_pointer_node : 0;
+	  for (elt = CONSTRUCTOR_ELTS (value); elt; elt = TREE_CHAIN (elt))
+	    {
+	      tree reloc;
+	      value = TREE_VALUE (elt);
+	      reloc = initializer_constant_valid_p (value, TREE_TYPE (value));
+	      if (!reloc)
+		return NULL_TREE;
+	      if (reloc != null_pointer_node)
+		absolute = false;
+	    }
+	  /* For a non-absolute relocation, there is no single
+	     variable that can be "the variable that determines the
+	     relocation."  */
+	  return absolute ? null_pointer_node : error_mark_node;
+	}
+
+      return TREE_STATIC (value) ? null_pointer_node : NULL_TREE;
 
     case INTEGER_CST:
     case VECTOR_CST:

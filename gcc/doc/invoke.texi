@@ -286,7 +286,7 @@ in the following sections.
 -freduce-all-givs  -fregmove  -frename-registers @gol
 -freorder-blocks  -freorder-functions @gol
 -frerun-cse-after-loop  -frerun-loop-opt @gol
--fschedule-insns  -fschedule-insns2 @gol
+-frounding-math -fschedule-insns  -fschedule-insns2 @gol
 -fno-sched-interblock  -fno-sched-spec  -fsched-spec-load @gol
 -fsched-spec-load-dangerous  -fsched2-use-superblocks @gol
 -fsched2-use-traces  -fsignaling-nans @gol
@@ -453,7 +453,7 @@ in the following sections.
 -force_flat_namespace  -headerpad_max_install_names @gol
 -image_base  -init  -install_name  -keep_private_externs @gol
 -multi_module  -multiply_defined  -multiply_defined_unused @gol
--noall_load  -nomultidefs  -noprebind  -noseglinkedit @gol
+-noall_load  -nofixprebinding -nomultidefs  -noprebind  -noseglinkedit @gol
 -pagezero_size  -prebind  -prebind_all_twolevel_modules @gol
 -private_bundle  -read_only_relocs  -sectalign @gol
 -sectobjectsymbols  -whyload  -seg1addr @gol
@@ -477,7 +477,7 @@ in the following sections.
 -mgas  -mgp32  -mgp64  -mhard-float  -mint64  -mips1 @gol
 -mips2  -mips3  -mips4  -mips32  -mips32r2  -mips64 @gol
 -mlong64  -mlong32  -mlong-calls  -mmemcpy @gol
--mmips-as  -mmips-tfile  -mno-abicalls @gol
+-mmips-as  -mmips-tfile  -mno-abicalls  -mxgot @gol
 -mno-embedded-data  -mno-uninit-const-in-rodata @gol
 -mno-embedded-pic  -mno-long-calls @gol
 -mno-memcpy  -mno-mips-tfile  -mno-rnames @gol
@@ -577,6 +577,7 @@ in the following sections.
 -mtda=@var{n}  -msda=@var{n}  -mzda=@var{n} @gol
 -mapp-regs  -mno-app-regs @gol
 -mdisable-callt  -mno-disable-callt @gol
+-mv850e1 @gol
 -mv850e @gol
 -mv850  -mbig-switch}
 
@@ -642,19 +643,7 @@ in the following sections.
 @gccoptlist{-msim}
 
 @emph{Xtensa Options}
-@gccoptlist{-mbig-endian  -mlittle-endian @gol
--mdensity  -mno-density @gol
--mconst16 -mno-const16 @gol
--mabs -mno-abs @gol
--maddx -mno-addx @gol
--mmac16  -mno-mac16 @gol
--mmul16  -mno-mul16 @gol
--mmul32  -mno-mul32 @gol
--mnsa  -mno-nsa @gol
--mminmax  -mno-minmax @gol
--msext  -mno-sext @gol
--mbooleans  -mno-booleans @gol
--mhard-float  -msoft-float @gol
+@gccoptlist{-mconst16 -mno-const16 @gol
 -mfused-madd  -mno-fused-madd @gol
 -mtext-section-literals  -mno-text-section-literals @gol
 -mtarget-align  -mno-target-align @gol
@@ -4374,8 +4363,8 @@ them to store all pertinent intermediate computations into variables.
 @item -ffast-math
 @opindex ffast-math
 Sets @option{-fno-math-errno}, @option{-funsafe-math-optimizations}, @*
-@option{-fno-trapping-math}, @option{-ffinite-math-only} and @*
-@option{-fno-signaling-nans}.
+@option{-fno-trapping-math}, @option{-ffinite-math-only},
+@option{-fno-rounding-math} and @option{-fno-signaling-nans}.
 
 This option causes the preprocessor macro @code{__FAST_MATH__} to be defined.
 
@@ -4438,6 +4427,26 @@ an exact implementation of IEEE or ISO rules/specifications for
 math functions.
 
 The default is @option{-ftrapping-math}.
+
+@item -frounding-math
+@opindex frounding-math
+Disable transformations and optimizations that assume default floating
+point rounding behavior.  This is round-to-zero for all floating point
+to integer conversions, and round-to-nearest for all other arithmetic
+truncations.  This option should be specified for programs that change
+the FP rounding mode dynamically, or that may be executed with a
+non-default rounding mode.  This option disables constant folding of
+floating point expressions at compile-time (which may be affected by
+rounding mode) and arithmetic transformations that are unsafe in the
+presence of sign-dependent rounding modes.
+
+The default is @option{-fno-rounding-math}.
+
+This option is experimental and does not currently guarantee to
+disable all GCC optimizations that are affected by rounding mode.
+Future versions of gcc may provide finer control of this setting
+using C99's @code{FENV_ACCESS} pragma.  This command line option
+will be used to specify the default state for @code{FENV_ACCESS}.
 
 @item -fsignaling-nans
 @opindex fsignaling-nans
@@ -4684,7 +4693,7 @@ This number sets the maximum number of instructions (counted in gcc's
 internal representation) in a single function that the tree inliner 
 will consider for inlining.  This only affects functions declared
 inline and methods implemented in a class declaration (C++).
-The default value is 100.
+The default value is 500.
 
 @item max-inline-insns-auto
 When you use @option{-finline-functions} (included in @option{-O3}),
@@ -4692,7 +4701,7 @@ a lot of functions that would otherwise not be considered for inlining
 by the compiler will be investigated.  To those functions, a different
 (more restrictive) limit compared to functions declared inline can
 be applied.
-The default value is 100.
+The default value is 150.
 
 @item max-inline-insns
 The tree inliner does decrease the allowable size for single functions 
@@ -7761,6 +7770,7 @@ output file being linked. See man ld(1) for more information.
 @item -multiply_defined      
 @item -multiply_defined_unused      
 @item -noall_load  
+@item -nofixprebinding
 @item -nomultidefs
 @item -noprebind     
 @item -noseglinkedit
@@ -7817,6 +7827,7 @@ output file being linked. See man ld(1) for more information.
 @opindex multiply_defined
 @opindex multiply_defined_unused   
 @opindex noall_load  
+@opindex nofixprebinding
 @opindex nomultidefs   
 @opindex noprebind
 @opindex noseglinkedit      
@@ -8180,6 +8191,35 @@ default if you use the unmodified sources.
 Emit (or do not emit) the pseudo operations @samp{.abicalls},
 @samp{.cpload}, and @samp{.cprestore} that some System V.4 ports use for
 position independent code.
+
+@item -mxgot
+@itemx -mno-xgot
+@opindex mxgot
+@opindex mno-xgot
+Lift (or do not lift) the usual restrictions on the size of the global
+offset table.
+
+GCC normally uses a single instruction to load values from the GOT.
+While this is relatively efficient, it will only work if the GOT
+is smaller than about 64k.  Anything larger will cause the linker
+to report an error such as:
+
+@cindex relocation truncated to fit (MIPS)
+@smallexample
+relocation truncated to fit: R_MIPS_GOT16 foobar
+@end smallexample
+
+If this happens, you should recompile your code with @option{-mxgot}.
+It should then work with very large GOTs, although it will also be
+less efficient, since it will take three instructions to fetch the
+value of a global symbol.
+
+Note that some linkers can create multiple GOTs.  If you have such a
+linker, you should only need to use @option{-mxgot} when a single object
+file accesses more than 64k's worth of GOT entries.  Very few do.
+
+These options have no effect unless GCC is generating position
+independent code.
 
 @item -mlong-calls
 @itemx -mno-long-calls
@@ -9765,14 +9805,20 @@ the compiler.  This setting is the default.
 @opindex mno-app-regs
 This option will cause r2 and r5 to be treated as fixed registers.
   
+@item -mv850e1
+@opindex mv850e1
+Specify that the target processor is the V850E1.  The preprocessor
+constants @samp{__v850e1__} and @samp{__v850e__} will be defined if
+this option is used.
+
 @item -mv850e
 @opindex mv850e
 Specify that the target processor is the V850E.  The preprocessor
 constant @samp{__v850e__} will be defined if this option is used.
 
-If neither @option{-mv850} nor @option{-mv850e} are defined
-then a default target processor will be chosen and the relevant
-@samp{__v850*__} preprocessor constant will be defined.
+If neither @option{-mv850} nor @option{-mv850e} nor @option{-mv850e1}
+are defined then a default target processor will be chosen and the
+relevant @samp{__v850*__} preprocessor constant will be defined.
 
 The preprocessor constants @samp{__v850} and @samp{__v851__} are always
 defined, regardless of which processor variant is the target.
@@ -9780,7 +9826,7 @@ defined, regardless of which processor variant is the target.
 @item -mdisable-callt
 @opindex mdisable-callt
 This option will suppress generation of the CALLT instruction for the
-v850e flavors of the v850 architecture.  The default is
+v850e and v850e1 flavors of the v850 architecture.  The default is
 @option{-mno-disable-callt} which allows the CALLT instruction to be used.
 
 @end table
@@ -10918,26 +10964,9 @@ Select the processor type for which to generate code.  Possible values are
 @subsection Xtensa Options
 @cindex Xtensa Options
 
-The Xtensa architecture is designed to support many different
-configurations.  The compiler's default options can be set to match a
-particular Xtensa configuration by copying a configuration file into the
-GCC sources when building GCC@.  The options below may be used to
-override the default options.
+These options are supported for Xtensa targets:
 
 @table @gcctabopt
-@item -mbig-endian
-@itemx -mlittle-endian
-@opindex mbig-endian
-@opindex mlittle-endian
-Specify big-endian or little-endian byte ordering for the target Xtensa
-processor.
-
-@item -mdensity
-@itemx -mno-density
-@opindex mdensity
-@opindex mno-density
-Enable or disable use of the optional Xtensa code density instructions.
-
 @item -mconst16
 @itemx -mno-const16
 @opindex mconst16
@@ -10948,95 +10977,6 @@ standard option from Tensilica.  When enabled, @code{CONST16}
 instructions are always used in place of the standard @code{L32R}
 instructions.  The use of @code{CONST16} is enabled by default only if
 the @code{L32R} instruction is not available.
-
-@item -mabs
-@itemx -mno-abs
-@opindex mabs
-@opindex mno-abs
-Enable or disable use of the Xtensa @code{ABS} instruction for absolute
-value operations.
-
-@item -maddx
-@itemx -mno-addx
-@opindex maddx
-@opindex mno-addx
-Enable or disable use of the Xtensa @code{ADDX} and @code{SUBX}
-instructions.
-
-@item -mmac16
-@itemx -mno-mac16
-@opindex mmac16
-@opindex mno-mac16
-Enable or disable use of the Xtensa MAC16 option.  When enabled, GCC
-will generate MAC16 instructions from standard C code, with the
-limitation that it will use neither the MR register file nor any
-instruction that operates on the MR registers.  When this option is
-disabled, GCC will translate 16-bit multiply/accumulate operations to a
-combination of core instructions and library calls, depending on whether
-any other multiplier options are enabled.
-
-@item -mmul16
-@itemx -mno-mul16
-@opindex mmul16
-@opindex mno-mul16
-Enable or disable use of the 16-bit integer multiplier option.  When
-enabled, the compiler will generate 16-bit multiply instructions for
-multiplications of 16 bits or smaller in standard C code.  When this
-option is disabled, the compiler will either use 32-bit multiply or
-MAC16 instructions if they are available or generate library calls to
-perform the multiply operations using shifts and adds.
-
-@item -mmul32
-@itemx -mno-mul32
-@opindex mmul32
-@opindex mno-mul32
-Enable or disable use of the 32-bit integer multiplier option.  When
-enabled, the compiler will generate 32-bit multiply instructions for
-multiplications of 32 bits or smaller in standard C code.  When this
-option is disabled, the compiler will generate library calls to perform
-the multiply operations using either shifts and adds or 16-bit multiply
-instructions if they are available.
-
-@item -mnsa
-@itemx -mno-nsa
-@opindex mnsa
-@opindex mno-nsa
-Enable or disable use of the optional normalization shift amount
-(@code{NSA}) instructions to implement the built-in @code{ffs} function.
-
-@item -mminmax
-@itemx -mno-minmax
-@opindex mminmax
-@opindex mno-minmax
-Enable or disable use of the optional minimum and maximum value
-instructions.
-
-@item -msext
-@itemx -mno-sext
-@opindex msext
-@opindex mno-sext
-Enable or disable use of the optional sign extend (@code{SEXT})
-instruction.
-
-@item -mbooleans
-@itemx -mno-booleans
-@opindex mbooleans
-@opindex mno-booleans
-Enable or disable support for the boolean register file used by Xtensa
-coprocessors.  This is not typically useful by itself but may be
-required for other options that make use of the boolean registers (e.g.,
-the floating-point option).
-
-@item -mhard-float
-@itemx -msoft-float
-@opindex mhard-float
-@opindex msoft-float
-Enable or disable use of the floating-point option.  When enabled, GCC
-generates floating-point instructions for 32-bit @code{float}
-operations.  When this option is disabled, GCC generates library calls
-to emulate 32-bit floating-point operations using integer instructions.
-Regardless of this option, 64-bit @code{double} operations are always
-emulated with calls to library functions.
 
 @item -mfused-madd
 @itemx -mno-fused-madd

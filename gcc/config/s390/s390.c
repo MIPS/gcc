@@ -183,9 +183,6 @@ const char *s390_arch_string;		/* for -march=<xxx> */
 
 struct machine_function GTY(())
 {
-  /* Label of start of initial literal pool.  */
-  rtx literal_pool_label;
-
   /* Set, if some of the fprs 8-15 need to be saved (64 bit abi).  */
   int save_fprs_p;
 
@@ -223,7 +220,7 @@ static void find_constant_pool_ref (rtx, rtx *);
 static void replace_constant_pool_ref (rtx *, rtx, rtx);
 static rtx find_ltrel_base (rtx);
 static void replace_ltrel_base (rtx *, rtx);
-static void s390_optimize_prolog (int);
+static void s390_optimize_prolog (bool, bool);
 static int find_unused_clobbered_reg (void);
 static void s390_frame_info (void);
 static rtx save_fpr (rtx, int, int);
@@ -1139,30 +1136,30 @@ general_s_operand (register rtx op, enum machine_mode mode,
 
   switch (GET_CODE (op))
     {
-      /* Constants that we are sure will be forced to the
-         literal pool in reload are OK as s-operand.  Note
-	 that we cannot call s390_preferred_reload_class here
-	 because it might not be known yet at this point
-	 whether the current function is a leaf or not.  */
+      /* Constants are OK as s-operand if ALLOW_IMMEDIATE
+	 is true and we are still before reload.  */
       case CONST_INT:
       case CONST_DOUBLE:
 	if (!allow_immediate || reload_completed)
-	  break;
-	if (!legitimate_reload_constant_p (op))
-	  return 1;
-	if (!TARGET_64BIT)
-	  return 1;
-	break;
+	  return 0;
+	return 1;
 
       /* Memory operands are OK unless they already use an
 	 index register.  */
       case MEM:
 	if (GET_CODE (XEXP (op, 0)) == ADDRESSOF)
 	  return 1;
-	if (s390_decompose_address (XEXP (op, 0), &addr)
-	    && !addr.indx)
-	  return 1;
-	break;
+	if (!s390_decompose_address (XEXP (op, 0), &addr))
+	  return 0;
+	if (addr.indx)
+	  return 0;
+	/* Do not allow literal pool references unless ALLOW_IMMEDIATE 
+	   is true.  This prevents compares between two literal pool 
+	   entries from being accepted.  */
+	if (!allow_immediate 
+	    && addr.base && REGNO (addr.base) == BASE_REGISTER)
+	  return 0;
+	return 1;
 
       default:
 	break;
@@ -1634,7 +1631,7 @@ legitimate_constant_p (register rtx op)
     return 1;
 
   /* Accept immediate LARL operands.  */
-  if (TARGET_64BIT && larl_operand (op, VOIDmode))
+  if (TARGET_CPU_ZARCH && larl_operand (op, VOIDmode))
     return 1;
 
   /* Thread-local symbols are never legal constants.  This is
@@ -1733,12 +1730,12 @@ legitimate_reload_constant_p (register rtx op)
     return 1;
 
   /* Accept lliXX operands.  */
-  if (TARGET_64BIT
+  if (TARGET_ZARCH
       && s390_single_hi (op, DImode, 0) >= 0)
   return 1;
 
   /* Accept larl operands.  */
-  if (TARGET_64BIT
+  if (TARGET_CPU_ZARCH
       && larl_operand (op, VOIDmode))
     return 1;
 
@@ -2263,7 +2260,7 @@ legitimize_pic_address (rtx orig, rtx reg)
       || (GET_CODE (addr) == SYMBOL_REF && SYMBOL_REF_LOCAL_P (addr)))
     {
       /* This is a local symbol.  */
-      if (TARGET_64BIT && larl_operand (addr, VOIDmode))
+      if (TARGET_CPU_ZARCH && larl_operand (addr, VOIDmode))
         {
           /* Access local symbols PC-relative via LARL.
              This is the same as in the non-PIC case, so it is
@@ -2312,7 +2309,7 @@ legitimize_pic_address (rtx orig, rtx reg)
           emit_move_insn (reg, new);
           new = reg;
         }
-      else if (TARGET_64BIT)
+      else if (TARGET_CPU_ZARCH)
         {
           /* If the GOT offset might be >= 4k, we determine the position
              of the GOT entry via a PC-relative LARL (@GOTENT).  */
@@ -2381,7 +2378,7 @@ legitimize_pic_address (rtx orig, rtx reg)
                   /* @PLT is OK as is on 64-bit, must be converted to
                      GOT-relative @PLTOFF on 31-bit.  */
                   case UNSPEC_PLT:
-                    if (!TARGET_64BIT)
+                    if (!TARGET_CPU_ZARCH)
                       {
                         rtx temp = reg? reg : gen_reg_rtx (Pmode);
 
@@ -2421,7 +2418,7 @@ legitimize_pic_address (rtx orig, rtx reg)
 		|| (GET_CODE (op0) == SYMBOL_REF && SYMBOL_REF_LOCAL_P (op0)))
 	      && GET_CODE (op1) == CONST_INT)
 	    {
-              if (TARGET_64BIT && larl_operand (op0, VOIDmode))
+              if (TARGET_CPU_ZARCH && larl_operand (op0, VOIDmode))
                 {
                   if (INTVAL (op1) & 1)
                     {
@@ -2628,7 +2625,7 @@ legitimize_tls_address (rtx addr, rtx reg)
 	    temp = gen_reg_rtx (Pmode);
 	    emit_move_insn (temp, new);
 	  }
-	else if (TARGET_64BIT)
+	else if (TARGET_CPU_ZARCH)
 	  {
 	    /* If the GOT offset might be >= 4k, we determine the position
 	       of the GOT entry via a PC-relative LARL.  */
@@ -2717,7 +2714,7 @@ legitimize_tls_address (rtx addr, rtx reg)
       switch (XINT (XEXP (addr, 0), 1))
 	{
 	case UNSPEC_INDNTPOFF:
-	  if (TARGET_64BIT)
+	  if (TARGET_CPU_ZARCH)
 	    new = addr;
 	  else
 	    abort ();
@@ -3278,11 +3275,6 @@ s390_output_symbolic_const (FILE *file, rtx x)
         output_operand_lossage ("invalid UNSPEC as operand (1)");
       switch (XINT (x, 1))
         {
-        case UNSPEC_LTREL_OFFSET:
-	  s390_output_symbolic_const (file, XVECEXP (x, 0, 0));
-          fprintf (file, "-");
-	  s390_output_symbolic_const (file, cfun->machine->literal_pool_label);
-	  break;
 	case UNSPEC_GOTENT:
 	  s390_output_symbolic_const (file, XVECEXP (x, 0, 0));
 	  fprintf (file, "@GOTENT");
@@ -3814,12 +3806,12 @@ s390_split_branches (rtx temp_reg, bool *temp_used)
       else
 	continue;
 
-      if (get_attr_length (insn) <= (TARGET_64BIT ? 6 : 4))
+      if (get_attr_length (insn) <= (TARGET_CPU_ZARCH ? 6 : 4))
 	continue;
 
       *temp_used = 1;
 
-      if (TARGET_64BIT)
+      if (TARGET_CPU_ZARCH)
 	{
 	  tmp = emit_insn_before (gen_rtx_SET (Pmode, temp_reg, *label), insn);
 	  INSN_ADDRESSES_NEW (tmp, -1);
@@ -3875,6 +3867,10 @@ find_constant_pool_ref (rtx x, rtx *ref)
   /* Ignore LTREL_BASE references.  */
   if (GET_CODE (x) == UNSPEC
       && XINT (x, 1) == UNSPEC_LTREL_BASE)
+    return;
+  /* Likewise POOL_ENTRY insns.  */
+  if (GET_CODE (x) == UNSPEC_VOLATILE
+      && XINT (x, 1) == UNSPECV_POOL_ENTRY)
     return;
 
   if (GET_CODE (x) == SYMBOL_REF
@@ -4071,8 +4067,12 @@ struct constant_pool
   int size;
 };
 
-static struct constant_pool * s390_chunkify_start (void);
-static void s390_chunkify_finish (struct constant_pool *);
+static struct constant_pool * s390_mainpool_start (void);
+static void s390_mainpool_finish (struct constant_pool *, rtx base_reg);
+static void s390_mainpool_cancel (struct constant_pool *);
+
+static struct constant_pool * s390_chunkify_start (rtx base_reg);
+static void s390_chunkify_finish (struct constant_pool *, rtx base_reg);
 static void s390_chunkify_cancel (struct constant_pool *);
 
 static struct constant_pool *s390_start_pool (struct constant_pool **, rtx);
@@ -4081,7 +4081,8 @@ static void s390_add_pool_insn (struct constant_pool *, rtx);
 static struct constant_pool *s390_find_pool (struct constant_pool *, rtx);
 static void s390_add_constant (struct constant_pool *, rtx, enum machine_mode);
 static rtx s390_find_constant (struct constant_pool *, rtx, enum machine_mode);
-static rtx s390_dump_pool (struct constant_pool *);
+static rtx s390_dump_pool (struct constant_pool *, bool);
+static struct constant_pool *s390_alloc_pool (void);
 static void s390_free_pool (struct constant_pool *);
 
 /* Create new constant pool covering instructions starting at INSN
@@ -4091,18 +4092,9 @@ static struct constant_pool *
 s390_start_pool (struct constant_pool **pool_list, rtx insn)
 {
   struct constant_pool *pool, **prev;
-  int i;
 
-  pool = (struct constant_pool *) xmalloc (sizeof *pool);
-  pool->next = NULL;
-  for (i = 0; i < NR_C_MODES; i++)
-    pool->constants[i] = NULL;
-
-  pool->label = gen_label_rtx ();
+  pool = s390_alloc_pool ();
   pool->first_insn = insn;
-  pool->pool_insn = NULL_RTX;
-  pool->insns = BITMAP_XMALLOC ();
-  pool->size = 0;
 
   for (prev = pool_list; *prev; prev = &(*prev)->next)
     ;
@@ -4208,10 +4200,11 @@ s390_find_constant (struct constant_pool *pool, rtx val,
   return offset;
 }
 
-/* Dump out the constants in POOL.  */
+/* Dump out the constants in POOL.  If REMOTE_LABEL is true,
+   do not emit the pool base label.  */
 
 static rtx
-s390_dump_pool (struct constant_pool *pool)
+s390_dump_pool (struct constant_pool *pool, bool remote_label)
 {
   struct constant *c;
   rtx insn;
@@ -4219,14 +4212,17 @@ s390_dump_pool (struct constant_pool *pool)
 
   /* Pool start insn switches to proper section
      and guarantees necessary alignment.  */
-  if (TARGET_64BIT)
+  if (TARGET_CPU_ZARCH)
     insn = emit_insn_after (gen_pool_start_64 (), pool->pool_insn);
   else
     insn = emit_insn_after (gen_pool_start_31 (), pool->pool_insn);
   INSN_ADDRESSES_NEW (insn, -1);
 
-  insn = emit_label_after (pool->label, insn);
-  INSN_ADDRESSES_NEW (insn, -1);
+  if (!remote_label)
+    {
+      insn = emit_label_after (pool->label, insn);
+      INSN_ADDRESSES_NEW (insn, -1);
+    }
 
   /* Dump constants in descending alignment requirement order,
      ensuring proper alignment for every constant.  */
@@ -4257,7 +4253,7 @@ s390_dump_pool (struct constant_pool *pool)
 
   /* Pool end insn switches back to previous section
      and guarantees necessary alignment.  */
-  if (TARGET_64BIT)
+  if (TARGET_CPU_ZARCH)
     insn = emit_insn_after (gen_pool_end_64 (), insn);
   else
     insn = emit_insn_after (gen_pool_end_31 (), insn);
@@ -4270,6 +4266,28 @@ s390_dump_pool (struct constant_pool *pool)
   remove_insn (pool->pool_insn);
 
   return insn;
+}
+
+/* Allocate new constant_pool structure.  */
+
+static struct constant_pool *
+s390_alloc_pool (void)
+{
+  struct constant_pool *pool;
+  int i;
+
+  pool = (struct constant_pool *) xmalloc (sizeof *pool);
+  pool->next = NULL;
+  for (i = 0; i < NR_C_MODES; i++)
+    pool->constants[i] = NULL;
+
+  pool->label = gen_label_rtx ();
+  pool->first_insn = NULL_RTX;
+  pool->pool_insn = NULL_RTX;
+  pool->insns = BITMAP_XMALLOC ();
+  pool->size = 0;
+
+  return pool;
 }
 
 /* Free all memory used by POOL.  */
@@ -4295,16 +4313,182 @@ s390_free_pool (struct constant_pool *pool)
 }
 
 
-/* Chunkify the literal pool if required.  */
+/* Collect main literal pool.  Return NULL on overflow.  */
+
+static struct constant_pool *
+s390_mainpool_start (void)
+{
+  struct constant_pool *pool;
+  rtx insn;
+
+  pool = s390_alloc_pool ();
+
+  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
+    {
+      if (GET_CODE (insn) == INSN
+	  && GET_CODE (PATTERN (insn)) == UNSPEC_VOLATILE
+	  && XINT (PATTERN (insn), 1) == UNSPECV_MAIN_POOL)
+	{
+	  if (pool->pool_insn)
+	    abort ();
+	  pool->pool_insn = insn;
+	}
+
+      if (GET_CODE (insn) == INSN || GET_CODE (insn) == CALL_INSN)
+	{
+	  rtx pool_ref = NULL_RTX;
+	  find_constant_pool_ref (PATTERN (insn), &pool_ref);
+	  if (pool_ref)
+	    {
+	      rtx constant = get_pool_constant (pool_ref);
+	      enum machine_mode mode = get_pool_mode (pool_ref);
+	      s390_add_constant (pool, constant, mode);
+	    }
+	}
+    }
+
+  if (!pool->pool_insn)
+    abort ();
+
+  if (pool->size >= 4096)
+    {
+      s390_free_pool (pool);
+      pool = NULL;
+    }
+
+  return pool;
+}
+
+/* POOL holds the main literal pool as collected by s390_mainpool_start.
+   Modify the current function to output the pool constants as well as
+   the pool register setup instruction.  BASE_REG is the register to
+   be used as pool base register.  */
+
+static void
+s390_mainpool_finish (struct constant_pool *pool, rtx base_reg)
+{
+  rtx insn;
+
+  /* If the pool is empty, we're done.  */
+  if (pool->size == 0)
+    {
+      remove_insn (pool->pool_insn);
+      s390_free_pool (pool);
+      return;
+    }
+
+  /* We need correct insn addresses.  */
+  shorten_branches (get_insns ());
+
+  /* On zSeries, we use a LARL to load the pool register.  The pool is
+     located in the .rodata section, so we emit it after the function.  */
+  if (TARGET_CPU_ZARCH)
+    {
+      insn = gen_main_base_64 (base_reg, pool->label);
+      insn = emit_insn_after (insn, pool->pool_insn);
+      INSN_ADDRESSES_NEW (insn, -1);
+      remove_insn (pool->pool_insn);
+     
+      insn = get_last_insn (); 
+      pool->pool_insn = emit_insn_after (gen_pool (const0_rtx), insn);
+      INSN_ADDRESSES_NEW (pool->pool_insn, -1);
+
+      s390_dump_pool (pool, 0);
+    }
+
+  /* On S/390, if the total size of the function's code plus literal pool
+     does not exceed 4096 bytes, we use BASR to set up a function base
+     pointer, and emit the literal pool at the end of the function.  */
+  else if (INSN_ADDRESSES (INSN_UID (get_last_insn ()))
+	   + pool->size + 8 /* alignment slop */ < 4096)
+    {
+      insn = gen_main_base_31_small (base_reg, pool->label);
+      insn = emit_insn_after (insn, pool->pool_insn);
+      INSN_ADDRESSES_NEW (insn, -1);
+      remove_insn (pool->pool_insn);
+
+      insn = emit_label_after (pool->label, insn);
+      INSN_ADDRESSES_NEW (insn, -1);
+
+      insn = get_last_insn ();
+      pool->pool_insn = emit_insn_after (gen_pool (const0_rtx), insn);
+      INSN_ADDRESSES_NEW (pool->pool_insn, -1);
+
+      s390_dump_pool (pool, 1);
+    }
+
+  /* Otherwise, we emit an inline literal pool and use BASR to branch
+     over it, setting up the pool register at the same time.  */
+  else
+    {
+      rtx pool_end = gen_label_rtx ();
+
+      insn = gen_main_base_31_large (base_reg, pool->label, pool_end);
+      insn = emit_insn_after (insn, pool->pool_insn);
+      INSN_ADDRESSES_NEW (insn, -1);
+      remove_insn (pool->pool_insn);
+
+      insn = emit_label_after (pool->label, insn);
+      INSN_ADDRESSES_NEW (insn, -1);
+
+      pool->pool_insn = emit_insn_after (gen_pool (const0_rtx), insn);
+      INSN_ADDRESSES_NEW (pool->pool_insn, -1);
+
+      insn = emit_label_after (pool_end, pool->pool_insn);
+      INSN_ADDRESSES_NEW (insn, -1);
+
+      s390_dump_pool (pool, 1);
+    }
+
+
+  /* Replace all literal pool references.  */
+
+  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
+    {
+      if (INSN_P (insn))
+	replace_ltrel_base (&PATTERN (insn), base_reg);
+
+      if (GET_CODE (insn) == INSN || GET_CODE (insn) == CALL_INSN)
+        {
+          rtx addr, pool_ref = NULL_RTX;
+          find_constant_pool_ref (PATTERN (insn), &pool_ref);
+          if (pool_ref)
+            {
+              addr = s390_find_constant (pool, get_pool_constant (pool_ref),
+                                               get_pool_mode (pool_ref));
+              addr = gen_rtx_PLUS (Pmode, base_reg, addr);
+              replace_constant_pool_ref (&PATTERN (insn), pool_ref, addr);
+              INSN_CODE (insn) = -1;
+            }
+        }
+    }
+
+
+  /* Free the pool.  */
+  s390_free_pool (pool);
+}
+
+/* POOL holds the main literal pool as collected by s390_mainpool_start.
+   We have decided we cannot use this pool, so revert all changes
+   to the current function that were done by s390_mainpool_start.  */
+static void
+s390_mainpool_cancel (struct constant_pool *pool)
+{
+  /* We didn't actually change the instruction stream, so simply
+     free the pool memory.  */
+  s390_free_pool (pool);
+}
+
+
+/* Chunkify the literal pool.  BASE_REG is to be used as pool
+   register.  */
 
 #define S390_POOL_CHUNK_MIN	0xc00
 #define S390_POOL_CHUNK_MAX	0xe00
 
 static struct constant_pool *
-s390_chunkify_start (void)
+s390_chunkify_start (rtx base_reg)
 {
-  rtx base_reg = gen_rtx_REG (Pmode, BASE_REGISTER);
-
   struct constant_pool *curr_pool = NULL, *pool_list = NULL;
   int extra_size = 0;
   bitmap far_labels;
@@ -4312,13 +4496,8 @@ s390_chunkify_start (void)
   rtx insn;
 
   rtx (*gen_reload_base) (rtx, rtx) =
-    TARGET_64BIT? gen_reload_base_64 : gen_reload_base_31;
+    TARGET_CPU_ZARCH? gen_reload_base_64 : gen_reload_base_31;
 
-
-  /* Do we need to chunkify the literal pool?  */
-
-  if (get_pool_size () < S390_POOL_CHUNK_MAX)
-    return NULL;
 
   /* We need correct insn addresses.  */
 
@@ -4383,7 +4562,7 @@ s390_chunkify_start (void)
           || INSN_ADDRESSES (INSN_UID (insn)) == -1)
 	continue;
 
-      if (TARGET_64BIT)
+      if (TARGET_CPU_ZARCH)
 	{
 	  if (curr_pool->size < S390_POOL_CHUNK_MAX)
 	    continue;
@@ -4568,12 +4747,12 @@ s390_chunkify_start (void)
 
 /* POOL_LIST is a chunk list as prepared by s390_chunkify_start.
    After we have decided to use this list, finish implementing
-   all changes to the current function as required.  */
+   all changes to the current function as required.  BASE_REG is
+   to be used as pool base register.  */
 
 static void
-s390_chunkify_finish (struct constant_pool *pool_list)
+s390_chunkify_finish (struct constant_pool *pool_list, rtx base_reg)
 {
-  rtx base_reg = gen_rtx_REG (Pmode, BASE_REGISTER);
   struct constant_pool *curr_pool = NULL;
   rtx insn;
 
@@ -4607,7 +4786,7 @@ s390_chunkify_finish (struct constant_pool *pool_list)
   /* Dump out all literal pools.  */
 
   for (curr_pool = pool_list; curr_pool; curr_pool = curr_pool->next)
-    s390_dump_pool (curr_pool);
+    s390_dump_pool (curr_pool, 0);
 
   /* Free pool list.  */
 
@@ -4680,45 +4859,6 @@ s390_chunkify_cancel (struct constant_pool *pool_list)
 }
 
 
-/* Index of constant pool chunk that is currently being processed.
-   Set to -1 before function output has started.  */
-int s390_pool_count = -1;
-
-/* Number of elements of current constant pool.  */
-int s390_nr_constants;
-
-/* Output main constant pool to stdio stream FILE.  */
-
-void
-s390_output_constant_pool (rtx start_label, rtx end_label)
-{
-  if (TARGET_64BIT)
-    {
-      readonly_data_section ();
-      ASM_OUTPUT_ALIGN (asm_out_file, 3);
-      targetm.asm_out.internal_label (asm_out_file, "L",
-				      CODE_LABEL_NUMBER (start_label));
-    }
-  else
-    {
-      targetm.asm_out.internal_label (asm_out_file, "L",
-				      CODE_LABEL_NUMBER (start_label));
-      ASM_OUTPUT_ALIGN (asm_out_file, 2);
-    }
-
-  s390_pool_count = 0;
-  output_constant_pool (current_function_name, current_function_decl);
-  s390_pool_count = -1;
-  if (TARGET_64BIT)
-    function_section (current_function_decl);
-  else
-    {
-      ASM_OUTPUT_ALIGN (asm_out_file, 1);
-      targetm.asm_out.internal_label (asm_out_file, "L",
-				      CODE_LABEL_NUMBER (end_label));
-    }
-}
-
 /* Output to FILE the constant pool entry EXP in mode MODE
    with alignment ALIGN.  */
 
@@ -4760,28 +4900,22 @@ s390_output_pool_entry (FILE *file, rtx exp, enum machine_mode mode,
 
 
 /* Rework the prolog/epilog to avoid saving/restoring
-   registers unnecessarily.  If TEMP_REGNO is nonnegative,
-   it specifies the number of a caller-saved register used
-   as temporary scratch register by code emitted during
-   machine dependent reorg.  */
+   registers unnecessarily.  BASE_USED specifies whether
+   the literal pool base register needs to be saved, 
+   TEMP_USED specifies whether the return register needs
+   to be saved.  */
 
 static void
-s390_optimize_prolog (int temp_regno)
+s390_optimize_prolog (bool base_used, bool temp_used)
 {
   int save_first, save_last, restore_first, restore_last;
   int i, j;
   rtx insn, new_insn, next_insn;
 
   /* Recompute regs_ever_live data for special registers.  */
-  regs_ever_live[BASE_REGISTER] = 0;
-  regs_ever_live[RETURN_REGNUM] = 0;
+  regs_ever_live[BASE_REGISTER] = base_used;
+  regs_ever_live[RETURN_REGNUM] = temp_used;
   regs_ever_live[STACK_POINTER_REGNUM] = cfun->machine->frame_size > 0;
-
-  /* If there is (possibly) any pool entry, we need to
-     load the base register.
-     ??? FIXME: this should be more precise.  */
-  if (get_pool_size ())
-    regs_ever_live[BASE_REGISTER] = 1;
 
   /* In non-leaf functions, the prolog/epilog code relies
      on RETURN_REGNUM being saved in any case.  We also need
@@ -4790,10 +4924,6 @@ s390_optimize_prolog (int temp_regno)
   if (!current_function_is_leaf 
       || cfun->machine->save_return_addr_p)
     regs_ever_live[RETURN_REGNUM] = 1;
-
-  /* We need to save/restore the temporary register.  */
-  if (temp_regno >= 0)
-    regs_ever_live[temp_regno] = 1;
 
 
   /* Find first and last gpr to be saved.  */
@@ -4919,14 +5049,27 @@ static void
 s390_reorg (void)
 {
   rtx temp_reg = gen_rtx_REG (Pmode, RETURN_REGNUM);
-  bool temp_used = 0;
+  rtx base_reg = gen_rtx_REG (Pmode, BASE_REGISTER);
+  bool temp_used = false;
+  bool base_used = false;
+  bool pool_overflow = false;
 
   /* Make sure all splits have been performed; splits after
      machine_dependent_reorg might confuse insn length counts.  */
   split_all_insns_noflow ();
 
 
-  /* There are two problematic situations we need to correct:
+  /* In small leaf functions, try to use an unused call-clobbered
+     register as base register to avoid save/restore overhead.  */
+  if (current_function_is_leaf && !regs_ever_live[5])
+    base_reg = gen_rtx_REG (Pmode, 5);
+
+
+  /* Install the main literal pool and the associated base
+     register load insns.
+
+     In addition, there are two problematic situations we need 
+     to correct:
 
      - the literal pool might be > 4096 bytes in size, so that
        some of its elements cannot be directly accessed
@@ -4957,31 +5100,48 @@ s390_reorg (void)
 
   for (;;)
     {
-      struct constant_pool *pool_list;
+      struct constant_pool *pool = NULL;
 
-      /* Try to chunkify the literal pool.  */
-      pool_list = s390_chunkify_start ();
+      /* Collect the literal pool.  */
+      if (!pool_overflow)
+	{
+	  pool = s390_mainpool_start ();
+	  if (!pool)
+	    pool_overflow = true;
+	}
+
+      /* If literal pool overflowed, start to chunkify it.  */
+      if (pool_overflow)
+        pool = s390_chunkify_start (base_reg);
 
       /* Split out-of-range branches.  If this has created new
 	 literal pool entries, cancel current chunk list and
 	 recompute it.  */
       if (s390_split_branches (temp_reg, &temp_used))
         {
-          if (pool_list)
-            s390_chunkify_cancel (pool_list);
+          if (pool_overflow)
+            s390_chunkify_cancel (pool);
+	  else
+            s390_mainpool_cancel (pool);
 
           continue;
         }
 
       /* If we made it up to here, both conditions are satisfied.
-	 Finish up pool chunkification if required.  */
-      if (pool_list)
-	s390_chunkify_finish (pool_list);
+	 Finish up literal pool related changes.  */
+      if ((pool_overflow || pool->size > 0)
+	   && REGNO (base_reg) == BASE_REGISTER)
+	base_used = true;
+
+      if (pool_overflow)
+	s390_chunkify_finish (pool, base_reg);
+      else
+	s390_mainpool_finish (pool, base_reg);
 
       break;
     }
 
-  s390_optimize_prolog (temp_used? RETURN_REGNUM : -1);
+  s390_optimize_prolog (base_used, temp_used);
 }
 
 
@@ -5266,7 +5426,7 @@ s390_load_got (int maybe_dead)
       SYMBOL_REF_FLAGS (got_symbol) = SYMBOL_FLAG_LOCAL;
     }
 
-  if (TARGET_64BIT)
+  if (TARGET_CPU_ZARCH)
     {
       rtx insn = emit_move_insn (pic_offset_table_rtx, got_symbol);
       if (maybe_dead)
@@ -5305,7 +5465,6 @@ s390_emit_prologue (void)
 {
   rtx insn, addr;
   rtx temp_reg;
-  rtx pool_start_label, pool_end_label;
   int i;
 
   /* Compute frame_info.  */
@@ -5327,18 +5486,9 @@ s390_emit_prologue (void)
 		    cfun->machine->first_save_gpr, cfun->machine->last_save_gpr);
   emit_insn (insn);
 
-  /* Dump constant pool and set constant pool register.  */
+  /* Dummy insn to mark literal pool slot.  */
 
-  pool_start_label = gen_label_rtx();
-  pool_end_label = gen_label_rtx();
-  cfun->machine->literal_pool_label = pool_start_label;
-
-  if (TARGET_64BIT)
-    insn = emit_insn (gen_literal_pool_64 (gen_rtx_REG (Pmode, BASE_REGISTER),
-			   pool_start_label, pool_end_label));
-  else
-    insn = emit_insn (gen_literal_pool_31 (gen_rtx_REG (Pmode, BASE_REGISTER),
-					     pool_start_label, pool_end_label));
+  emit_insn (gen_main_pool ());
 
   /* Save fprs for variable args.  */
 
@@ -6433,7 +6583,7 @@ s390_select_rtx_section (enum machine_mode mode ATTRIBUTE_UNUSED,
 			 rtx x ATTRIBUTE_UNUSED,
 			 unsigned HOST_WIDE_INT align ATTRIBUTE_UNUSED)
 {
-  if (TARGET_64BIT)
+  if (TARGET_CPU_ZARCH)
     readonly_data_section ();
   else
     function_section (current_function_decl);
@@ -6479,7 +6629,7 @@ s390_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
     }
 
   /* Operand 1 is the 'this' pointer.  */
-  if (aggregate_value_p (TREE_TYPE (TREE_TYPE (function))))
+  if (aggregate_value_p (TREE_TYPE (TREE_TYPE (function)), function))
     op[1] = gen_rtx_REG (Pmode, 3);
   else
     op[1] = gen_rtx_REG (Pmode, 2);

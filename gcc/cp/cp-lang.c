@@ -115,6 +115,11 @@ static void cxx_initialize_diagnostics (diagnostic_context *);
 #undef LANG_HOOKS_FUNCTION_FINAL
 #define LANG_HOOKS_FUNCTION_FINAL cxx_pop_function_context
 
+#undef LANG_HOOKS_RTL_EXPAND_START
+#define LANG_HOOKS_RTL_EXPAND_START cxx_expand_function_start
+#undef LANG_HOOKS_RTL_EXPAND_STMT
+#define LANG_HOOKS_RTL_EXPAND_STMT expand_stmt
+
 /* Attribute hooks.  */
 #undef LANG_HOOKS_COMMON_ATTRIBUTE_TABLE
 #define LANG_HOOKS_COMMON_ATTRIBUTE_TABLE c_common_attribute_table
@@ -158,10 +163,10 @@ static void cxx_initialize_diagnostics (diagnostic_context *);
 #undef LANG_HOOKS_EXPR_SIZE
 #define LANG_HOOKS_EXPR_SIZE cp_expr_size
 
+#undef LANG_HOOKS_CALLGRAPH_ANALYZE_EXPR
+#define LANG_HOOKS_CALLGRAPH_ANALYZE_EXPR cxx_callgraph_analyze_expr
 #undef LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION
 #define LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION expand_body
-#undef LANG_HOOKS_CALLGRAPH_LOWER_FUNCTION
-#define LANG_HOOKS_CALLGRAPH_LOWER_FUNCTION lower_function
 
 #undef LANG_HOOKS_MAKE_TYPE
 #define LANG_HOOKS_MAKE_TYPE cxx_make_type
@@ -179,6 +184,8 @@ static void cxx_initialize_diagnostics (diagnostic_context *);
 #define LANG_HOOKS_INCOMPLETE_TYPE_ERROR cxx_incomplete_type_error
 #undef LANG_HOOKS_TYPE_PROMOTES_TO
 #define LANG_HOOKS_TYPE_PROMOTES_TO cxx_type_promotes_to
+#undef LANG_HOOKS_REGISTER_BUILTIN_TYPE
+#define LANG_HOOKS_REGISTER_BUILTIN_TYPE c_register_builtin_type
 
 /* Each front end provides its own hooks, for toplev.c.  */
 const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;

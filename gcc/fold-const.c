@@ -1108,10 +1108,6 @@ int_const_binop (enum tree_code code, tree arg1, tree arg2, int notrunc)
       low = int1l & int2l, hi = int1h & int2h;
       break;
 
-    case BIT_ANDTC_EXPR:
-      low = int1l & ~int2l, hi = int1h & ~int2h;
-      break;
-
     case RSHIFT_EXPR:
       int2l = -int2l;
     case LSHIFT_EXPR:
@@ -1826,13 +1822,27 @@ truth_value_p (enum tree_code code)
 	  || code == TRUTH_XOR_EXPR || code == TRUTH_NOT_EXPR);
 }
 
-/* Return nonzero if two operands are necessarily equal.
+/* Return nonzero if two operands (typically of the same tree node)
+   are necessarily equal.  If either argument has side-effects this
+   function returns zero.
+
    If ONLY_CONST is nonzero, only return nonzero for constants.
    This function tests whether the operands are indistinguishable;
    it does not test whether they are equal using C's == operation.
    The distinction is important for IEEE floating point, because
    (1) -0.0 and 0.0 are distinguishable, but -0.0==0.0, and
-   (2) two NaNs may be indistinguishable, but NaN!=NaN.  */
+   (2) two NaNs may be indistinguishable, but NaN!=NaN.
+
+   If ONLY_CONST is zero, a VAR_DECL is considered equal to itself
+   even though it may hold multiple values during a function.
+   This is because a GCC tree node guarantees that nothing else is
+   executed between the evaluation of its "operands" (which may often
+   be evaluated in arbitrary order).  Hence if the operands themselves
+   don't side-effect, the VAR_DECLs, PARM_DECLs etc... must hold the
+   same value in each operand/subexpression.  Hence a zero value for
+   ONLY_CONST assumes isochronic (or instantaneous) tree equivalence.
+   If comparing arbitrary expression trees, such as from different
+   statements, ONLY_CONST must usually be non-zero.  */
 
 int
 operand_equal_p (tree arg0, tree arg1, int only_const)
@@ -6100,10 +6110,20 @@ fold (tree expr)
 		  return build_function_call_expr (sqrtfn, arglist);
 		}
 
-	      /* Optimize exp(x)*exp(y) as exp(x+y).  */
-	      if ((fcode0 == BUILT_IN_EXP && fcode1 == BUILT_IN_EXP)
-		  || (fcode0 == BUILT_IN_EXPF && fcode1 == BUILT_IN_EXPF)
-		  || (fcode0 == BUILT_IN_EXPL && fcode1 == BUILT_IN_EXPL))
+	      /* Optimize expN(x)*expN(y) as expN(x+y).  */
+	      if (fcode0 == fcode1
+		  && (fcode0 == BUILT_IN_EXP
+		      || fcode0 == BUILT_IN_EXPF
+		      || fcode0 == BUILT_IN_EXPL
+		      || fcode0 == BUILT_IN_EXP2
+		      || fcode0 == BUILT_IN_EXP2F
+		      || fcode0 == BUILT_IN_EXP2L
+		      || fcode0 == BUILT_IN_EXP10
+		      || fcode0 == BUILT_IN_EXP10F
+		      || fcode0 == BUILT_IN_EXP10L
+		      || fcode0 == BUILT_IN_POW10
+		      || fcode0 == BUILT_IN_POW10F
+		      || fcode0 == BUILT_IN_POW10L))
 		{
 		  tree expfn = TREE_OPERAND (TREE_OPERAND (arg0, 0), 0);
 		  tree arg = build (PLUS_EXPR, type,
@@ -6316,7 +6336,6 @@ fold (tree expr)
       goto bit_rotate;
 
     case BIT_AND_EXPR:
-    bit_and:
       if (integer_all_onesp (arg1))
 	return non_lvalue (convert (type, arg0));
       if (integer_zerop (arg1))
@@ -6353,19 +6372,6 @@ fold (tree expr)
 	}
 
       goto associate;
-
-    case BIT_ANDTC_EXPR:
-      if (integer_all_onesp (arg0))
-	return non_lvalue (convert (type, arg1));
-      if (integer_zerop (arg0))
-	return omit_one_operand (type, arg0, arg1);
-      if (TREE_CODE (arg1) == INTEGER_CST)
-	{
-	  arg1 = fold (build1 (BIT_NOT_EXPR, type, arg1));
-	  code = BIT_AND_EXPR;
-	  goto bit_and;
-	}
-      goto binary;
 
     case RDIV_EXPR:
       /* Don't touch a floating-point divide by zero unless the mode
@@ -6449,10 +6455,19 @@ fold (tree expr)
       if (flag_unsafe_math_optimizations)
 	{
 	  enum built_in_function fcode = builtin_mathfn_code (arg1);
-	  /* Optimize x/exp(y) into x*exp(-y).  */
+	  /* Optimize x/expN(y) into x*expN(-y).  */
 	  if (fcode == BUILT_IN_EXP
 	      || fcode == BUILT_IN_EXPF
-	      || fcode == BUILT_IN_EXPL)
+	      || fcode == BUILT_IN_EXPL
+	      || fcode == BUILT_IN_EXP2
+	      || fcode == BUILT_IN_EXP2F
+	      || fcode == BUILT_IN_EXP2L
+	      || fcode == BUILT_IN_EXP10
+	      || fcode == BUILT_IN_EXP10F
+	      || fcode == BUILT_IN_EXP10L
+	      || fcode == BUILT_IN_POW10
+	      || fcode == BUILT_IN_POW10F
+	      || fcode == BUILT_IN_POW10L)
 	    {
 	      tree expfn = TREE_OPERAND (TREE_OPERAND (arg1, 0), 0);
 	      tree arg = build1 (NEGATE_EXPR, type,
@@ -6649,7 +6664,6 @@ fold (tree expr)
 	 permute the two operations.  */
       if (code == RROTATE_EXPR && TREE_CODE (arg1) == INTEGER_CST
 	  && (TREE_CODE (arg0) == BIT_AND_EXPR
-	      || TREE_CODE (arg0) == BIT_ANDTC_EXPR
 	      || TREE_CODE (arg0) == BIT_IOR_EXPR
 	      || TREE_CODE (arg0) == BIT_XOR_EXPR)
 	  && TREE_CODE (TREE_OPERAND (arg0, 1)) == INTEGER_CST)
@@ -7418,8 +7432,11 @@ fold (tree expr)
 	  && TREE_CODE (arg1) == INTEGER_CST
 	  && TREE_CODE (TREE_OPERAND (arg0, 1)) == INTEGER_CST)
 	{
-	  tree dandnotc = fold (build (BIT_ANDTC_EXPR, TREE_TYPE (arg0),
-				       arg1, TREE_OPERAND (arg0, 1)));
+	  tree dandnotc
+	    = fold (build (BIT_AND_EXPR, TREE_TYPE (arg0),
+			   arg1, build1 (BIT_NOT_EXPR,
+					 TREE_TYPE (TREE_OPERAND (arg0, 1)),
+					 TREE_OPERAND (arg0, 1))));
 	  tree rslt = code == EQ_EXPR ? integer_zero_node : integer_one_node;
 	  if (integer_nonzerop (dandnotc))
 	    return omit_one_operand (type, rslt, arg0);
@@ -7432,8 +7449,10 @@ fold (tree expr)
 	  && TREE_CODE (arg1) == INTEGER_CST
 	  && TREE_CODE (TREE_OPERAND (arg0, 1)) == INTEGER_CST)
 	{
-	  tree candnotd = fold (build (BIT_ANDTC_EXPR, TREE_TYPE (arg0),
-				       TREE_OPERAND (arg0, 1), arg1));
+	  tree candnotd
+	    = fold (build (BIT_AND_EXPR, TREE_TYPE (arg0),
+			   TREE_OPERAND (arg0, 1),
+			   build1 (BIT_NOT_EXPR, TREE_TYPE (arg1), arg1)));
 	  tree rslt = code == EQ_EXPR ? integer_zero_node : integer_one_node;
 	  if (integer_nonzerop (candnotd))
 	    return omit_one_operand (type, rslt, arg0);
@@ -8674,6 +8693,15 @@ tree_expr_nonnegative_p (tree t)
 	    case BUILT_IN_EXP:
 	    case BUILT_IN_EXPF:
 	    case BUILT_IN_EXPL:
+	    case BUILT_IN_EXP2:
+	    case BUILT_IN_EXP2F:
+	    case BUILT_IN_EXP2L:
+	    case BUILT_IN_EXP10:
+	    case BUILT_IN_EXP10F:
+	    case BUILT_IN_EXP10L:
+	    case BUILT_IN_POW10:
+	    case BUILT_IN_POW10F:
+	    case BUILT_IN_POW10L:
 	    case BUILT_IN_FABS:
 	    case BUILT_IN_FABSF:
 	    case BUILT_IN_FABSL:

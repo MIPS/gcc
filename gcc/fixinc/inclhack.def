@@ -235,7 +235,6 @@ fix = {
     mach     = "powerpcle-*-solaris2.[0-4]";
     mach     = "sparc-*-solaris2.[0-4]";
     mach     = "i[34567]86-sequent-ptx*";
-    mach     = "i[34567]86-sequent-sysv3*";
     files    = sys/byteorder.h;
     replace  = <<-  _EndOfHeader_
 	#ifndef _SYS_BYTEORDER_H
@@ -1653,6 +1652,21 @@ fix = {
 
 
 /*
+ * Apparently some SVR4 systems typedef longlong_t to long ?
+ */
+#ifdef SVR4
+fix = {
+    hackname  = longlong_t;
+    select    = "typedef[ \t]+(unsigned[ \t]+)?long[ \t]+(u_)?longlong_t";
+    c_fix     = format;
+    c_fix_arg = "typedef %1long long %2longlong_t";
+    test_text = "typedef long longlong_t\n"
+                "typedef unsigned long u_longlong_t";
+};
+#endif
+
+
+/*
  *  Delete the '#define void int' line from curses.h on Lynx
  */
 fix = {
@@ -1999,30 +2013,6 @@ fix = {
     c_fix_arg = "extern %0";
     test_text = "int __page_size;";
 };
-
-
-/*
- * In pwd.h, PTX 1.x needs stdio.h included since FILE * was added in a
- * prototype later on in the file.  (It's not clear that this is
- * still true, and even if it is, FILE * may be added after this fix runs by
- * fixproto.)
- */
-#ifdef PTX
-fix = {
-    hackname  = ptx_pwd_h;
-    files     = pwd.h;
-    select    = 'FILE \*';
-    bypass    = 'stdio.h';
-    sed       = "/#include <sys\\/types\\.h/a\\\n"
-                "\\\n"
-                "#if defined(__STDC__) || defined(__cplusplus)\\\n"
-                "#include <stdio.h>\\\n"
-                "#endif  /*  __STDC__ */\\\n"
-                "\n";
-    test_text = "#include <sys/types.h>\n"
-                "void foo (FILE *)";
-};
-#endif
 
 
 /*
@@ -2854,7 +2844,6 @@ fix = {
      * in any case. -- Nathanael */
     mach     = '*-*-sysv4*';
     mach     = 'i?86-sequent-ptx*';
-    mach     = 'i?86-sequent-sysv3*';
     files    = fs/rfs/rf_cache.h;
     files    = sys/erec.h;
     files    = sys/err.h;
@@ -3427,6 +3416,8 @@ fix = {
 /*
  *  Fix multiple defines for NULL.  Sometimes, we stumble into \r\n
  *  terminated lines, so accommodate these.  Test both ways.
+ *  Don't bother to reproduce the \r\n termination, as GCC has to
+ *  recognize \n termination anyway.
  */
 fix = {
     hackname  = undefine_null;
@@ -3434,10 +3425,11 @@ fix = {
     bypass    = "#[ \t]*(ifn|un)def[ \t]+NULL($|[ \t\r])";
 
     c_fix     = format;
-    c_fix_arg = "#ifndef NULL%2\n#define NULL%1%2\n#endif%2\n";
-    c_fix_arg = "^#[ \t]*define[ \t]*[ \t]NULL([^\r\n]+)([\r]*)\n";
+    c_fix_arg = "#ifndef NULL\n#define NULL%1\n#endif\n";
+    c_fix_arg = "^#[ \t]*define[ \t]+NULL([^\r\n]+)[\r]*\n";
 
-    test_text = "#define NULL 0UL\r\n#define NULL\t((void*)0)\n";
+    test_text = "#define NULL 0UL\r\n"
+                "#define NULL\t((void*)0)\n";
 };
 
 /*

@@ -1624,6 +1624,11 @@ struct tree_type GTY(())
 #define DECL_ESTIMATED_INSNS(NODE) \
   (FUNCTION_DECL_CHECK (NODE)->decl.u1.i)
 
+/* Nonzero for a decl which is at file scope.  */
+#define DECL_FILE_SCOPE_P(EXP) 					\
+  (! DECL_CONTEXT (EXP)						\
+   || TREE_CODE (DECL_CONTEXT (EXP)) == TRANSLATION_UNIT_DECL)
+
 struct function;
 
 struct tree_decl GTY(())
@@ -1809,6 +1814,11 @@ enum tree_index
   TI_DOUBLE_TYPE,
   TI_LONG_DOUBLE_TYPE,
 
+  TI_FLOAT_PTR_TYPE,
+  TI_DOUBLE_PTR_TYPE,
+  TI_LONG_DOUBLE_PTR_TYPE,
+  TI_INTEGER_PTR_TYPE,
+
   TI_VOID_TYPE,
   TI_PTR_TYPE,
   TI_CONST_PTR_TYPE,
@@ -1886,6 +1896,11 @@ extern GTY(()) tree global_trees[TI_MAX];
 #define float_type_node			global_trees[TI_FLOAT_TYPE]
 #define double_type_node		global_trees[TI_DOUBLE_TYPE]
 #define long_double_type_node		global_trees[TI_LONG_DOUBLE_TYPE]
+
+#define float_ptr_type_node		global_trees[TI_FLOAT_PTR_TYPE]
+#define double_ptr_type_node		global_trees[TI_DOUBLE_PTR_TYPE]
+#define long_double_ptr_type_node	global_trees[TI_LONG_DOUBLE_PTR_TYPE]
+#define integer_ptr_type_node		global_trees[TI_INTEGER_PTR_TYPE]
 
 #define complex_integer_type_node	global_trees[TI_COMPLEX_INTEGER_TYPE]
 #define complex_float_type_node		global_trees[TI_COMPLEX_FLOAT_TYPE]
@@ -2841,6 +2856,7 @@ extern void expand_main_function (void);
 extern void init_dummy_function_start (void);
 extern void expand_dummy_function_end (void);
 extern void init_function_for_compilation (void);
+extern void allocate_struct_function (tree);
 extern void init_function_start (tree);
 extern void assign_parms (tree);
 extern void put_var_into_stack (tree, int);
@@ -2855,7 +2871,7 @@ extern void pop_temp_slots (void);
 extern void push_temp_slots (void);
 extern void preserve_temp_slots (rtx);
 extern void preserve_rtl_expr_temps (tree);
-extern int aggregate_value_p (tree);
+extern int aggregate_value_p (tree, tree);
 extern void free_temps_for_rtl_expr (tree);
 extern void instantiate_virtual_regs (tree, rtx);
 extern void unshare_all_rtl (tree, rtx);

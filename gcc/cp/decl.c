@@ -68,7 +68,7 @@ static cxx_saved_binding *store_bindings (tree, cxx_saved_binding *);
 static tree lookup_tag_reverse (tree, tree);
 static void push_local_name (tree);
 static void warn_extern_redeclared_static (tree, tree);
-static tree grok_reference_init (tree, tree, tree);
+static tree grok_reference_init (tree, tree, tree, tree *);
 static tree grokfndecl (tree, tree, tree, tree, int,
 			enum overload_flags, tree,
 			tree, int, int, int, int, int, int, tree);
@@ -117,7 +117,7 @@ static void pop_labels (tree);
 static void maybe_deduce_size_from_array_init (tree, tree);
 static void layout_var_decl (tree);
 static void maybe_commonize_var (tree);
-static tree check_initializer (tree, tree, int);
+static tree check_initializer (tree, tree, int, tree *);
 static void make_rtl_for_nonlocal_decl (tree, tree, const char *);
 static void save_function_data (tree);
 static void check_function_type (tree, tree);
@@ -911,82 +911,6 @@ push_binding (tree id, tree decl, cxx_scope* level)
   IDENTIFIER_BINDING (id) = binding;
 }
 
-/* ID is already bound in the current scope.  But, DECL is an
-   additional binding for ID in the same scope.  This is the `struct
-   stat' hack whereby a non-typedef class-name or enum-name can be
-   bound at the same level as some other kind of entity.  It's the
-   responsibility of the caller to check that inserting this name is
-   valid here.  Returns nonzero if the new binding was successful.  */
-
-int
-add_binding (cxx_binding *binding, tree decl)
-{
-  tree bval = BINDING_VALUE (binding);
-  int ok = 1;
-
-  timevar_push (TV_NAME_LOOKUP);
-  if (TREE_CODE (decl) == TYPE_DECL && DECL_ARTIFICIAL (decl))
-    /* The new name is the type name.  */
-    BINDING_TYPE (binding) = decl;
-  else if (!bval)
-    /* This situation arises when push_class_level_binding moves an
-       inherited type-binding out of the way to make room for a new
-       value binding.  */
-    BINDING_VALUE (binding) = decl;
-  else if (TREE_CODE (bval) == TYPE_DECL && DECL_ARTIFICIAL (bval))
-    {
-      /* The old binding was a type name.  It was placed in
-	 BINDING_VALUE because it was thought, at the point it was
-	 declared, to be the only entity with such a name.  Move the
-	 type name into the type slot; it is now hidden by the new
-	 binding.  */
-      BINDING_TYPE (binding) = bval;
-      BINDING_VALUE (binding) = decl;
-      INHERITED_VALUE_BINDING_P (binding) = 0;
-    }
-  else if (TREE_CODE (bval) == TYPE_DECL
-	   && TREE_CODE (decl) == TYPE_DECL
-	   && DECL_NAME (decl) == DECL_NAME (bval)
-	   && (same_type_p (TREE_TYPE (decl), TREE_TYPE (bval))
-	       /* If either type involves template parameters, we must
-		  wait until instantiation.  */
-	       || uses_template_parms (TREE_TYPE (decl))
-	       || uses_template_parms (TREE_TYPE (bval))))
-    /* We have two typedef-names, both naming the same type to have
-       the same name.  This is OK because of:
-
-         [dcl.typedef]
-
-	 In a given scope, a typedef specifier can be used to redefine
-	 the name of any type declared in that scope to refer to the
-	 type to which it already refers.  */
-    ok = 0;
-  /* There can be two block-scope declarations of the same variable,
-     so long as they are `extern' declarations.  However, there cannot
-     be two declarations of the same static data member:
-
-       [class.mem]
-
-       A member shall not be declared twice in the
-       member-specification.  */
-  else if (TREE_CODE (decl) == VAR_DECL && TREE_CODE (bval) == VAR_DECL
-	   && DECL_EXTERNAL (decl) && DECL_EXTERNAL (bval)
-	   && !DECL_CLASS_SCOPE_P (decl))
-    {
-      duplicate_decls (decl, BINDING_VALUE (binding));
-      ok = 0;
-    }
-  else
-    {
-      error ("declaration of `%#D'", decl);
-      cp_error_at ("conflicts with previous declaration `%#D'",
-		   BINDING_VALUE (binding));
-      ok = 0;
-    }
-
-  POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, ok);
-}
-
 /* Add DECL to the list of things declared in B.  */
 
 static void
@@ -1040,7 +964,7 @@ push_local_binding (tree id, tree decl, int flags)
   if (lookup_name_current_level (id))
     {
       /* Supplement the existing binding.  */
-      if (!add_binding (IDENTIFIER_BINDING (id), decl))
+      if (!supplement_binding (IDENTIFIER_BINDING (id), decl))
 	/* It didn't work.  Something else must be bound at this
 	   level.  Do not add DECL to the list of things to pop
 	   later.  */
@@ -1079,7 +1003,7 @@ push_class_binding (tree id, tree decl)
 
   if (binding && BINDING_SCOPE (binding) == class_binding_level)
     /* Supplement the existing binding.  */
-    result = add_binding (IDENTIFIER_BINDING (id), decl);
+    result = supplement_binding (IDENTIFIER_BINDING (id), decl);
   else
     /* Create a new binding.  */
     push_binding (id, decl, class_binding_level);
@@ -2336,7 +2260,7 @@ set_identifier_type_value_with_scope (tree id,
       if (decl)
 	{
 	  if (BINDING_VALUE (binding))
-	    add_binding (binding, decl);
+	    supplement_binding (binding, decl);
 	  else
 	    BINDING_VALUE (binding) = decl;
 	}
@@ -2812,7 +2736,8 @@ warn_extern_redeclared_static (tree newdecl, tree olddecl)
 
   if (TREE_CODE (newdecl) == TYPE_DECL
       || TREE_CODE (newdecl) == TEMPLATE_DECL
-      || TREE_CODE (newdecl) == CONST_DECL)
+      || TREE_CODE (newdecl) == CONST_DECL
+      || TREE_CODE (newdecl) == NAMESPACE_DECL)
     return;
 
   /* Don't get confused by static member functions; that's a different
@@ -2940,9 +2865,9 @@ duplicate_decls (tree newdecl, tree olddecl)
           if (DECL_ANTICIPATED (olddecl))
             ;  /* Do nothing yet.  */
 	  else if ((DECL_EXTERN_C_P (newdecl)
-	       && DECL_EXTERN_C_P (olddecl))
-	      || compparms (TYPE_ARG_TYPES (TREE_TYPE (newdecl)),
-			    TYPE_ARG_TYPES (TREE_TYPE (olddecl))))
+		    && DECL_EXTERN_C_P (olddecl))
+		   || compparms (TYPE_ARG_TYPES (TREE_TYPE (newdecl)),
+				 TYPE_ARG_TYPES (TREE_TYPE (olddecl))))
 	    {
 	      /* A near match; override the builtin.  */
 
@@ -2968,6 +2893,10 @@ duplicate_decls (tree newdecl, tree olddecl)
 	 for anticipated built-ins, for exception lists, etc...  */
       else if (DECL_ANTICIPATED (olddecl))
 	TREE_TYPE (olddecl) = TREE_TYPE (newdecl);
+
+      /* Whether or not the builtin can throw exceptions has no
+	 bearing on this declarator.  */
+      TREE_NOTHROW (olddecl) = 0;
 
       if (DECL_THIS_STATIC (newdecl) && !DECL_THIS_STATIC (olddecl))
 	{
@@ -3076,8 +3005,10 @@ duplicate_decls (tree newdecl, tree olddecl)
       else if (current_class_type == NULL_TREE
 	  || IDENTIFIER_ERROR_LOCUS (DECL_ASSEMBLER_NAME (newdecl)) != current_class_type)
 	{
-	  error ("conflicting types for `%#D'", newdecl);
-	  cp_error_at ("previous declaration as `%#D'", olddecl);
+	  error ("conflicting declaration '%#D'", newdecl);
+	  cp_error_at ("'%D' has a previous declaration as `%#D'",
+                       olddecl, olddecl);
+          return false;
 	}
     }
   else if (TREE_CODE (newdecl) == FUNCTION_DECL
@@ -4933,8 +4864,7 @@ check_goto (tree decl)
 }
 
 /* Define a label, specifying the location in the source file.
-   Return the LABEL_DECL node for the label, if the definition is valid.
-   Otherwise return 0.  */
+   Return the LABEL_DECL node for the label.  */
 
 tree
 define_label (location_t location, tree name)
@@ -4957,10 +4887,7 @@ define_label (location_t location, tree name)
     pedwarn ("label named wchar_t");
 
   if (DECL_INITIAL (decl) != NULL_TREE)
-    {
-      error ("duplicate label `%D'", decl);
-      POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, NULL_TREE);
-    }
+    error ("duplicate label `%D'", decl);
   else
     {
       /* Mark label as having been defined.  */
@@ -4973,9 +4900,10 @@ define_label (location_t location, tree name)
 	  ent->binding_level = current_binding_level;
 	}
       check_previous_gotos (decl);
-      POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, decl);
     }
+
   timevar_pop (TV_NAME_LOOKUP);
+  return decl;
 }
 
 struct cp_switch
@@ -7174,14 +7102,18 @@ start_decl_1 (tree decl)
     DECL_INITIAL (decl) = NULL_TREE;
 }
 
-/* Handle initialization of references.
-   These three arguments are from `cp_finish_decl', and have the
-   same meaning here that they do there.
+/* Handle initialization of references.  DECL, TYPE, and INIT have the
+   same meaning as in cp_finish_decl.  *CLEANUP must be NULL on entry,
+   but will be set to a new CLEANUP_STMT if a temporary is created
+   that must be destroeyd subsequently.
+
+   Returns an initializer expression to use to initialize DECL, or
+   NULL if the initialization can be performed statically.
 
    Quotes on semantics can be found in ARM 8.4.3.  */
 
 static tree
-grok_reference_init (tree decl, tree type, tree init)
+grok_reference_init (tree decl, tree type, tree init, tree *cleanup)
 {
   tree tmp;
 
@@ -7218,7 +7150,7 @@ grok_reference_init (tree decl, tree type, tree init)
      DECL_INITIAL for local references (instead assigning to them
      explicitly); we need to allow the temporary to be initialized
      first.  */
-  tmp = initialize_reference (type, init, decl);
+  tmp = initialize_reference (type, init, decl, cleanup);
 
   if (tmp == error_mark_node)
     return NULL_TREE;
@@ -7638,13 +7570,14 @@ reshape_init (tree type, tree *initp)
 }
 
 /* Verify INIT (the initializer for DECL), and record the
-   initialization in DECL_INITIAL, if appropriate.  
+   initialization in DECL_INITIAL, if appropriate.  CLEANUP is as for
+   grok_reference_init.
 
    If the return value is non-NULL, it is an expression that must be
    evaluated dynamically to initialize DECL.  */
 
 static tree
-check_initializer (tree decl, tree init, int flags)
+check_initializer (tree decl, tree init, int flags, tree *cleanup)
 {
   tree type = TREE_TYPE (decl);
 
@@ -7694,7 +7627,7 @@ check_initializer (tree decl, tree init, int flags)
       init = NULL_TREE;
     }
   else if (!DECL_EXTERNAL (decl) && TREE_CODE (type) == REFERENCE_TYPE)
-    init = grok_reference_init (decl, type, init);
+    init = grok_reference_init (decl, type, init, cleanup);
   else if (init)
     {
       if (TREE_CODE (init) == CONSTRUCTOR && TREE_HAS_CONSTRUCTOR (init))
@@ -8001,8 +7934,9 @@ initialize_local_var (tree decl, tree init)
 void
 cp_finish_decl (tree decl, tree init, tree asmspec_tree, int flags)
 {
-  register tree type;
+  tree type;
   tree ttype = NULL_TREE;
+  tree cleanup;
   const char *asmspec = NULL;
   int was_readonly = 0;
 
@@ -8014,6 +7948,9 @@ cp_finish_decl (tree decl, tree init, tree asmspec_tree, int flags)
     }
 
   my_friendly_assert (TREE_CODE (decl) != RESULT_DECL, 20030619);
+
+  /* Assume no cleanup is required.  */
+  cleanup = NULL_TREE;
 
   /* If a name was specified, get the string.  */
   if (global_scope_p (current_binding_level))
@@ -8128,7 +8065,7 @@ cp_finish_decl (tree decl, tree init, tree asmspec_tree, int flags)
 	     is *not* defined.  */
 	  && (!DECL_EXTERNAL (decl) || init))
 	{
-	  init = check_initializer (decl, init, flags);
+	  init = check_initializer (decl, init, flags, &cleanup);
 	  /* Thread-local storage cannot be dynamically initialized.  */
 	  if (DECL_THREAD_LOCAL (decl) && init)
 	    {
@@ -8243,6 +8180,11 @@ cp_finish_decl (tree decl, tree init, tree asmspec_tree, int flags)
 	  pop_nested_class ();
       }
     }
+
+  /* If a CLEANUP_STMT was created to destroy a temporary bound to a
+     reference, insert it in the statement-tree now.  */
+  if (cleanup)
+    add_stmt (cleanup);
 
  finish_end:
 
@@ -13539,7 +13481,7 @@ start_function (tree declspecs, tree declarator, tree attrs, int flags)
      CFUN set up, and our per-function variables initialized.
      FIXME factor out the non-RTL stuff.  */
   bl = current_binding_level;
-  init_function_start (decl1);
+  allocate_struct_function (decl1);
   current_binding_level = bl;
 
   /* Even though we're inside a function body, we still don't want to
@@ -14084,6 +14026,10 @@ finish_function (int flags)
     }
   poplevel (1, 0, 1);
 
+  /* Statements should always be full-expressions at the outermost set
+     of curly braces for a function.  */
+  my_friendly_assert (stmts_are_full_exprs_p (), 19990831);
+
   /* Set up the named return value optimization, if we can.  Here, we
      eliminate the copy from the nrv into the RESULT_DECL and any cleanup
      for the nrv.  genrtl_start_function and declare_return_variable
@@ -14096,7 +14042,7 @@ finish_function (int flags)
       if (r != error_mark_node
 	  /* This is only worth doing for fns that return in memory--and
 	     simpler, since we don't have to worry about promoted modes.  */
-	  && aggregate_value_p (TREE_TYPE (TREE_TYPE (fndecl)))
+	  && aggregate_value_p (TREE_TYPE (TREE_TYPE (fndecl)), fndecl)
 	  /* Only allow this for variables declared in the outer scope of
 	     the function so we know that their lifetime always ends with a
 	     return; see g++.dg/opt/nrv6.C.  We could be more flexible if
@@ -14154,13 +14100,11 @@ finish_function (int flags)
 	 inline function, as we might never be compiled separately.  */
       && (DECL_INLINE (fndecl) || processing_template_decl))
     warning ("no return statement in function returning non-void");
-    
-  /* Clear out memory we no longer need.  */
-  free_after_parsing (cfun);
-  /* Since we never call rest_of_compilation, we never clear
-     CFUN.  Do so explicitly.  */
-  free_after_compilation (cfun);
+
+  /* We're leaving the context of this function, so zap cfun.  It's still in
+     DECL_SAVED_INSNS, and we'll restore it in tree_rest_of_compilation.  */
   cfun = NULL;
+  current_function_decl = NULL;
 
   /* If this is an in-class inline definition, we may have to pop the
      bindings for the template parameters that we added in
@@ -14479,6 +14423,31 @@ cxx_push_function_context (struct function * f)
   /* Whenever we start a new function, we destroy temporaries in the
      usual way.  */
   current_stmt_tree ()->stmts_are_full_exprs_p = 1;
+
+  if (f->decl)
+    {
+      tree fn = f->decl;
+
+      current_function_is_thunk = DECL_THUNK_P (fn);
+
+      if (DECL_SAVED_FUNCTION_DATA (fn))
+	{
+	  /* If we already parsed this function, and we're just expanding it
+	     now, restore saved state.  */
+	  *cp_function_chain = *DECL_SAVED_FUNCTION_DATA (fn);
+
+	  /* If we decided that we didn't want to inline this function,
+	     make sure the back-end knows that.  */
+	  if (!current_function_cannot_inline)
+	    current_function_cannot_inline = cp_function_chain->cannot_inline;
+
+	  /* We don't need the saved data anymore.  Unless this is an inline
+	     function; we need the named return value info for
+	     cp_copy_res_decl_for_inlining.  */
+	  if (! DECL_INLINE (fn))
+	    DECL_SAVED_FUNCTION_DATA (fn) = NULL;
+	}
+    }
 }
 
 /* Free the language-specific parts of F, now that we've finished

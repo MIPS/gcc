@@ -10,6 +10,15 @@ else
 SUBDIRS = $(DIRLTDL) gcj include
 endif
 
+# write_entries_to_file - writes each entry in a list
+# to the specified file. Each entry is written individually
+# to accomodate systems with severe command-line-length
+# limitations.
+# Parameters:
+# $(1): variable containing entries to iterate over
+# $(2): output file
+write_entries_to_file = $(shell rm -f $(2) || :) $(shell touch $(2)) $(foreach object,$(1),$(shell echo $(object) >> $(2)))
+
 ## ################################################################
 
 ##
@@ -330,16 +339,22 @@ all_java_source_files = \
 
 all_java_class_files = $(all_java_source_files:.java=.class)
 
-.java.class:
-	$(JAVAC) $(JCFLAGS) -classpath '' -bootclasspath $(here):$(srcdir) \
-             -d $(here) $<
-
-libgcj-@gcc_version@.jar: $(all_java_class_files)
+libgcj-@gcc_version@.jar: $(all_java_source_files)
 	-@rm -f libgcj-@gcc_version@.jar
+	@echo Compiling Java sourcefiles...
+	@: $(call write_entries_to_file,$?,libgcj.sourcelist)
+	$(JAVAC) $(JCFLAGS) -classpath '' -bootclasspath $(here):$(srcdir) -d $(here) @libgcj.sourcelist
 ## Note that we explicitly want to include directory information.
 	find java gnu javax org -type d -o -type f -name '*.class' | \
 	  sed -e '/\/\./d' -e '/\/xlib/d' | \
 	  $(ZIP) cfM0E@ $@
+
+# This next rule seems backward, but reflects the fact
+# that 1) all classfiles are compiled in one go when the
+# libgcj jarfile is built and 2) anything which depends
+# on a particular .class file must wait until the jarfile
+# is built.
+$(all_java_class_files): libgcj-@gcc_version@.jar
 
 MOSTLYCLEANFILES = $(javao_files) $(nat_files) $(nat_headers) $(c_files) $(x_javao_files) $(x_nat_files) $(x_nat_headers)
 CLEANFILES = libgcj-@gcc_version@.jar
@@ -390,13 +405,15 @@ $(gtk_awt_peer_sources:.java=.lo): %.lo: %.java
 ## Pass the list of object files to libtool in a temporary file to 
 ## avoid tripping platform command line length limits.
 libgcj.la: $(libgcj_la_OBJECTS) $(libgcj_la_DEPENDENCIES)
-	@: $(shell echo Creating list of files to link...) $(shell rm -f libgcj.objectlist || :) $(shell touch libgcj.objectlist) $(foreach object,$(libgcj_la_OBJECTS) $(libgcj_la_LIBADD),$(shell echo $(object) >> libgcj.objectlist))
+	@echo Creating list of files to link...
+	@: $(call write_entries_to_file,$(libgcj_la_OBJECTS) $(libgcj_la_LIBADD),libgcj.objectlist)
 	$(libgcj_la_LINK) -objectlist libgcj.objectlist \
 	@GCLIBS@ @LIBFFI@ @ZLIBS@ \
 	-rpath $(toolexeclibdir) $(libgcj_la_LDFLAGS) $(LIBS)
 
 lib-gnu-awt-xlib.la: $(lib_gnu_awt_xlib_la_OBJECTS) $(lib_gnu_awt_xlib_la_DEPENDENCIES)
-	@: $(shell echo Creating list of files to link...) $(shell rm -f lib_gnu_awt_xlib.objectlist || :) $(shell touch lib_gnu_awt_xlib.objectlist) $(foreach object,$(lib_gnu_awt_xlib_la_OBJECTS) $(lib_gnu_awt_xlib_la_LIBADD),$(shell echo $(object) >> lib_gnu_awt_xlib.objectlist))
+	@echo Creating list of files to link...
+	@: $(call write_entries_to_file,$(lib_gnu_awt_xlib_la_OBJECTS) $(lib_gnu_awt_xlib_la_LIBADD),lib_gnu_awt_xlib.objectlist)
 	$(lib_gnu_awt_xlib_la_LINK) -objectlist lib_gnu_awt_xlib.objectlist \
 	-rpath $(toolexeclibdir) $(lib_gnu_awt_xlib_la_LDFLAGS) $(LIBS)
 
@@ -513,7 +530,8 @@ install-data-local:
 	$(PRE_INSTALL)
 ## We use a GNU make trick here so that we don't go over the command
 ## length limit of some shells.
-	@: $(shell echo Creating list of headers to install...) $(shell rm -f tmp-ilist || :) $(shell touch tmp-ilist) $(foreach hdr,$(nat_headers) $(extra_headers),$(shell echo $(hdr) >> tmp-ilist))
+	@echo Creating list of headers to install...
+	@: $(call write_entries_to_file,$(nat_headers) $(extra_headers),tmp-ilist)
 	@cat tmp-ilist | while read f; do \
 	  d="`echo $$f | sed -e 's,/[^/]*$$,,'`"; \
 	  $(mkinstalldirs) $(DESTDIR)$(includedir)/$$d; \
@@ -568,6 +586,11 @@ class-check: libgcj-@gcc_version@.jar
 	  if $(GCJ_WITH_FLAGS) --syntax-only $$f; then \
 	  :; else ok=1; fi; \
 	done; exit $$ok
+
+## This rule checks whether write_entries_to_file works properly.
+write-entries-to-file-check:
+	@echo Creating list of files to link...
+	@: $(call write_entries_to_file,$(libgcj_la_OBJECTS) $(libgcj_la_LIBADD),libgcj.objectlist)
 
 ## ################################################################
 
@@ -1951,12 +1974,15 @@ gnu/gcj/protocol/http/Connection.java \
 gnu/gcj/protocol/http/Handler.java \
 gnu/gcj/protocol/jar/Connection.java \
 gnu/gcj/protocol/jar/Handler.java \
+gnu/gcj/protocol/gcjlib/Connection.java \
+gnu/gcj/protocol/gcjlib/Handler.java \
 gnu/gcj/runtime/FileDeleter.java \
 gnu/gcj/runtime/FinalizerThread.java \
 gnu/gcj/runtime/FirstThread.java \
 gnu/gcj/runtime/JNIWeakRef.java \
 gnu/gcj/runtime/MethodRef.java \
 gnu/gcj/runtime/NameFinder.java \
+gnu/gcj/runtime/SharedLibHelper.java \
 gnu/gcj/runtime/SharedLibLoader.java \
 gnu/gcj/runtime/StackTrace.java \
 gnu/gcj/runtime/StringBuffer.java \
@@ -2110,6 +2136,8 @@ gnu/java/locale/LocaleInformation_zh_HK.java \
 gnu/java/locale/LocaleInformation_zh_SG.java \
 gnu/java/locale/LocaleInformation_zh_TW.java \
 gnu/java/math/MPN.java \
+gnu/java/net/PlainDatagramSocketImpl.java \
+gnu/java/net/PlainSocketImpl.java \
 gnu/java/nio/DatagramChannelImpl.java \
 gnu/java/nio/FileLockImpl.java \
 gnu/java/nio/PipeImpl.java \
@@ -2206,8 +2234,6 @@ java/net/NetPermission.java \
 java/net/NetworkInterface.java \
 java/net/NoRouteToHostException.java \
 java/net/PasswordAuthentication.java \
-java/net/PlainDatagramSocketImpl.java \
-java/net/PlainSocketImpl.java \
 java/net/PortUnreachableException.java \
 java/net/ProtocolException.java	\
 java/net/ServerSocket.java \
@@ -2578,6 +2604,8 @@ gnu/gcj/runtime/natStackTrace.cc \
 gnu/gcj/runtime/natStringBuffer.cc \
 gnu/gcj/runtime/natVMClassLoader.cc \
 gnu/java/awt/natEmbeddedWindow.cc \
+gnu/java/net/natPlainDatagramSocketImpl.cc \
+gnu/java/net/natPlainSocketImpl.cc \
 gnu/java/nio/natFileLockImpl.cc \
 gnu/java/nio/natSelectorImpl.cc \
 java/io/natFile.cc \
@@ -2606,8 +2634,6 @@ java/lang/reflect/natMethod.cc \
 java/lang/reflect/natProxy.cc \
 java/net/natNetworkInterface.cc \
 java/net/natInetAddress.cc \
-java/net/natPlainDatagramSocketImpl.cc \
-java/net/natPlainSocketImpl.cc \
 java/nio/natDirectByteBufferImpl.cc \
 java/nio/channels/natFileChannelImpl.cc \
 java/text/natCollator.cc \
@@ -2726,7 +2752,7 @@ texinfo: TexinfoDoclet.class
 ## the C++ code whenever any .java file is touched.
 ## Also force all the class files to build first. This makes them build in
 ## the right order to improve performance.
-all-recursive: $(all_java_class_files) $(nat_headers) $(x_nat_headers)
+all-recursive: libgcj-@gcc_version@.jar $(nat_headers) $(x_nat_headers)
 
 ## ################################################################
 
