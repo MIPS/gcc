@@ -1354,9 +1354,26 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case FLOOR_MOD_EXPR:
     case ROUND_MOD_EXPR:
     case RDIV_EXPR:
-    case CALL_EXPR:
       *count += 10;
       break;
+    case CALL_EXPR:
+      {
+	tree decl = get_callee_fndecl (x);
+
+	if (decl && DECL_BUILT_IN (decl))
+	  switch (DECL_FUNCTION_CODE (decl))
+	    {
+	    case BUILT_IN_CONSTANT_P:
+	      *walk_subtrees = 0;
+	      return NULL_TREE;
+	    case BUILT_IN_EXPECT:
+	      return NULL_TREE;
+	    default:
+	      break;
+	    }
+	*count += 10;
+	break;
+      }
     default:
       /* Abort here se we know we don't miss any nodes.  */
       abort ();

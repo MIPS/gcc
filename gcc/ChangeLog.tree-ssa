@@ -1,3 +1,8 @@
+2004-04-18  Jan Hubicka  <jh@suse.cz>
+
+	* tree-inline.c (estimate_num_insn_1): Deal properly with
+	builtin_constant_p and builtin_expect.
+
 2004-04-17  Andrew MacLeod  <amacleod@redhat.com>
 
 	* doc/invoke.texi (tree-ter, tree-lrs): Document options.
