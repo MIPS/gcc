@@ -1,5 +1,9 @@
 2003-06-03  Diego Novillo  <dnovillo@redhat.com>
 
+	* c-parse.y: Fix botched merge.
+
+2003-06-03  Diego Novillo  <dnovillo@redhat.com>
+
 	* tree-mudflap.c (MARK_TREE_MUDFLAPPED, TREE_MUDFLAPPED):
 	Use TREE_VISITED instead of TREE_BOUNDED.
 	* c-mudflap.c (TREE_MUDFLAPPED): Likewise.
