@@ -1,3 +1,12 @@
+2003-11-05  Phil Edwards  <phil@codesourcery.com>
+
+	* config/arm/arm.md (insn):  Add new V6 instruction names.
+	(generic_sched):  New attr.
+	* config/arm/arm-generic.md:  Use generic_sched here.
+	* config/arm/arm1026ejs.md:  Do not model fetch/issue/decode
+	stages of pipeline.  Adjust latency counts accordingly.
+	* config/arm/arm1136jfs.md:  New file.
+
 2003-11-05  Mark Mitchell  <mark@codesourcery.com>
 
 	* calls.c (initialize_argument_information): Add CALL_FROM_THUNK_P
