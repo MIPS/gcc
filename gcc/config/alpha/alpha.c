@@ -245,6 +245,8 @@ static void unicosmk_unique_section PARAMS ((tree, int));
 # define TARGET_SECTION_TYPE_FLAGS unicosmk_section_type_flags
 # undef TARGET_ASM_UNIQUE_SECTION
 # define TARGET_ASM_UNIQUE_SECTION unicosmk_unique_section
+# undef TARGET_ASM_GLOBALIZE_LABEL
+# define TARGET_ASM_GLOBALIZE_LABEL hook_FILEptr_constcharptr_void
 #endif
 
 #undef TARGET_ASM_ALIGNED_HI_OP
@@ -3308,7 +3310,7 @@ alpha_emit_conditional_branch (code)
 	}
       else
 	{
-	  /* ??? We mark the the branch mode to be CCmode to prevent the
+	  /* ??? We mark the branch mode to be CCmode to prevent the
 	     compare and branch from being combined, since the compare 
 	     insn follows IEEE rules that the branch does not.  */
 	  branch_mode = CCmode;

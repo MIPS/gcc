@@ -2832,7 +2832,8 @@ get_qualified_type (type, type_quals)
      like the one we need to have.  If so, use that existing one.  We must
      preserve the TYPE_NAME, since there is code that depends on this.  */
   for (t = TYPE_MAIN_VARIANT (type); t; t = TYPE_NEXT_VARIANT (t))
-    if (TYPE_QUALS (t) == type_quals && TYPE_NAME (t) == TYPE_NAME (type))
+    if (TYPE_QUALS (t) == type_quals && TYPE_NAME (t) == TYPE_NAME (type)
+        && TYPE_CONTEXT (t) == TYPE_CONTEXT (type))
       return t;
 
   return NULL_TREE;
@@ -4609,7 +4610,7 @@ tree_class_check_failed (node, cl, file, line, function)
 #endif /* ENABLE_TREE_CHECKING */
 
 /* For a new vector type node T, build the information necessary for
-   debuggint output.  */
+   debugging output.  */
 
 static void
 finish_vector_type (t)

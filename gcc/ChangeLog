@@ -1,3 +1,409 @@
+2002-08-24  Stuart Hastings  <stuart@apple.com>
+
+	* function.h (struct function): Add flag
+	all_throwers_are_sibcalls.
+	* except.c (set_nothrow_function_flags): Replaces
+	nothrow_function_p. Set new flag.
+	* except.h (set_nothrow_function_flags): Replaces
+	nothrow_function_p.
+	* dwarf2out.c (struct dw_fde_struct): Add flag
+	all_throwers_are_sibcalls.
+	(output_call_frame_info): Test it.
+	(dwarf2out_begin_prologue) Propagate it from cfun to
+	dw_fde_struct.
+	* toplev.c (rest_of_compilation): Update calls to
+	nothrow_function_p.
+
+2002-08-23  Zack Weinberg  <zack@codesourcery.com>
+
+	* ggc-page.c (compute_inverse): Short circuit calculation for
+	object sizes larger than half a page.
+
+2002-08-23  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/rs6000.c (rs6000_elf_select_section): Treat
+	DEFAULT_ABI == ABI_AIX like PIC.  Test PIC & reloc for readonly
+	default.
+	(rs6000_elf_unique_section): Likewise.
+
+2002-08-23  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* ns32k.c (ns32k_globalize_label): Delete.
+	* ns32k.h (ASM_OUTPUT_LABEL, TARGET_ASM_GLOBALIZE_LABEL): Delete.
+
+2002-08-23  Alan Modra  <amodra@bigpond.net.au>
+
+	* config/rs6000/rs6000.c (output_mi_thunk): Don't determine insns
+	for loading delta with num_insns_constant_wide.  Calculate
+	delta_low, delta_high without using a conditional.
+
+2002-08-22  Jason Merrill  <jason@redhat.com>
+
+	* c-common.h (RETURN_STMT_EXPR): Rename from RETURN_EXPR.
+	* c-common.def: Adjust.
+	* c-dump.c (c_dump_tree): Adjust.
+	* c-semantics.c (genrtl_return_stmt): Adjust.
+	* c-pretty-print.c (pp_c_statement): Adjust.
+	* tree-inline.c (copy_body_r): Adjust.
+
+2002-08-22  Zack Weinberg  <zack@codesourcery.com>
+
+	* ggc-page.c: Avoid division in ggc_set_mark.
+	(DIV_MULT, DIV_SHIFT, OFFSET_TO_BIT, inverse_table,
+	compute_inverse): New.
+	(ggc_set_mark, ggc_marked_p): Use OFFSET_TO_BIT.
+	(init_ggc): Initialize inverse_table.
+
+2002-08-22  Tom Tromey  <tromey@redhat.com>
+
+	* doc/install.texi (Configuration): Document --datadir.
+
+2002-08-22  Alexandre Oliva  <aoliva@redhat.com>
+
+	* Makefile.in ($(BUILD_PREFIX_1)varray.o): Depend on $(GGC_H).
+
+2002-08-22  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* gengtype-lex.l (ID): Allow underscore as first character.
+
+2002-08-21  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/rs6000.c (rs6000_xcoff_asm_globalize_label): New
+	function.
+	(rs6000_xcoff_asm_named_section): Rename.
+	* config/rs6000/xcoff.h (TARGET_ASM_GLOBALIZE_LABEL): Define.
+
+2002-08-21  Tom Tromey  <tromey@redhat.com>
+
+	For PR java/6005 and PR java/7611:
+	* fold-const.c (fold_truthop): Use can_use_bit_fields_p.
+	(fold): Likewise.
+	* langhooks.c (lhd_can_use_bit_fields_p): New function.
+	* langhooks-def.h (lhd_can_use_bit_fields_p): Declare.
+	(LANG_HOOKS_CAN_USE_BIT_FIELDS_P): New define.
+	(LANG_HOOKS_INITIALIZER): Use it.
+	* langhooks.h (struct lang_hooks) [can_use_bit_fields_p]: New
+	field.
+
+2002-08-21  Stan Shebs  <shebs@apple.com>
+
+	* tree.c (finish_vector_type): Fix a typo in a comment.
+	* Makefile.in: Fix "the the" stutters in comments.
+	* genautomata.c: Ditto.
+	* ifcvt.c: Ditto.
+	* regrename.c: Ditto.
+	* config/alpha/alpha.c: Ditto.
+	* config/alpha/vms-crt0-64.c: Ditto.
+	* config/alpha/vms-crt0.c: Ditto.
+	* config/alpha/vms-psxcrt0-64.c: Ditto.
+	* config/alpha/vms-psxcrt0.c: Ditto.
+	* config/d30v/d30v.h: Ditto.
+	* config/fr30/fr30.h: Ditto.
+	* config/rs6000/rs6000.c: Ditto.
+	* config/stormy16/stormy16.h: Ditto.
+	* doc/md.texi: Ditto.
+
+2002-08-21  John David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	* cppinit.c (remove_dup_nonsys_dirs): Fix warning and return value.
+
+2002-08-21  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* c-decl.c (grokdeclarator): Make invalid combinations with long,
+	short, signed or unsigned into hard errors.  Fixes PR c/4319.
+	Also make duplicate modifiers such as "short short" into hard
+	errors.
+
+2002-08-21  Andrew Pinski <pinskia@physics.uc.edu>
+	    Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* doc/tm.texi (TARGET_ASM_GLOBALIZE_LABEL): Move '@end deftypefn'
+	to the actual end.  Add '@end table' and '@table @code'.
+
+2002-08-20  Geoffrey Keating  <geoffk@redhat.com>
+
+	* doc/tm.texi (Label Output): Add missing '@end deftypefn'.
+
+	* unroll.c (biv_total_increment): Don't try to compute the total
+	increment for FP BIVs.
+
+2002-08-20  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* alpha.c (TARGET_ASM_GLOBALIZE_LABEL): Define for unicosmk.
+	* alpha/elf.h (ASM_OUTPUT_EXTERNAL_LIBCALL,
+	ASM_OUTPUT_ALIGNED_BSS): Use target hook.
+	* alpha/osf.h (ASM_OUTPUT_WEAK_ALIAS): Likewise.
+	* alpha/unicosmk.h (ASM_GLOBALIZE_LABEL): Delete.
+	* arm/aof.h (ASM_GLOBALIZE_LABEL): Likewise.
+	(GLOBAL_ASM_OP): Define.
+	* arm.c (aof_globalize_label): New function.
+	(TARGET_ASM_GLOBALIZE_LABEL): Define for AOF.
+	* arm/unknown-elf.h (ASM_OUTPUT_ALIGNED_BSS): Use target hook.
+	* c4x.c (c4x_globalize_label): New function.
+	(TARGET_ASM_GLOBALIZE_LABEL): Define for c4x.
+	* c4x.h (ASM_GLOBALIZE_LABEL): Delete.
+	(GLOBAL_ASM_OP): Define.
+	* cris/aout.h (ASM_OUTPUT_EXTERNAL_LIBCALL): Use target hook.
+	* darwin-protos.h (darwin_globalize_label): Declare.
+	* darwin.c (darwin_globalize_label): New function.
+	* darwin.h (ASM_DECLARE_CLASS_REFERENCE): Use target hook.
+	(ASM_GLOBALIZE_LABEL): Delete.
+	(GLOBAL_ASM_OP, TARGET_ASM_GLOBALIZE_LABEL): Define.
+	* dsp16xx.c (asm_output_common): Use target hook.
+	* elfos.h (ASM_OUTPUT_EXTERNAL_LIBCALL): Likewise.
+	* frv.h (ASM_GLOBALIZE_LABEL): Delete.
+	(GLOBAL_ASM_OP): Define.
+	* i370.c (i370_globalize_label): New function.
+	(TARGET_ASM_GLOBALIZE_LABEL): Define for i370.
+	* i370.h (ASM_GLOBALIZE_LABEL): Delete.
+	* i386.c (ix86_asm_file_end): Use target hook.
+	* i386/sco5.h (ASM_GLOBALIZE_LABEL): Don't undef.
+	(ASM_OUTPUT_EXTERNAL_LIBCALL): Use target hook.
+	* ia64.c (ia64_asm_output_external): Likewise.
+	* ia64/sysv4.h: Update comment.
+	* m32r.h (ASM_OUTPUT_ALIGNED_BSS): Use target hook.
+	* mips/elf.h (ASM_OUTPUT_ALIGNED_BSS): Likewise.
+	* mips/iris5.h (ASM_OUTPUT_WEAK_ALIAS): Use target hook.
+	* mips/linux.h (ASM_OUTPUT_ALIGNED_BSS): Likewise.
+	* mips.h (ASM_OUTPUT_ALIGNED_DECL_COMMON): Use target hook.
+	* mmix-protos.h (mmix_asm_globalize_label): Delete.
+	* mmix.c (mmix_asm_globalize_label): Likewise.
+	* mmix.h (ASM_GLOBALIZE_LABEL): Likewise.
+	(GLOBAL_ASM_OP): Define.
+	* ns32k.c (ns32k_globalize_label): New function.
+	* ns32k.h (TARGET_ASM_GLOBALIZE_LABEL): Define for ns32k.
+	(ASM_GLOBALIZE_LABEL): Delete.
+	* pa/pa-linux.h (ASM_GLOBALIZE_LABEL): Don't undef.
+	(TARGET_ASM_GLOBALIZE_LABEL): Undefine.
+	* pa.c (pa_globalize_label): New function.
+	* pa.h (ASM_GLOBALIZE_LABEL): Delete.
+	(TARGET_ASM_GLOBALIZE_LABEL): Define for pa.
+	* rs6000/darwin.h (ASM_GLOBALIZE_LABEL): Delete.
+	(GLOBAL_ASM_OP): Define.
+	(TARGET_ASM_GLOBALIZE_LABEL): Undef.
+	* rs6000/sysv4.h (ASM_OUTPUT_ALIGNED_BSS): Use target hook.
+	* rs6000/xcoff.h (ASM_GLOBALIZE_LABEL): Delete.
+	(GLOBAL_ASM_OP): Define.
+	* v850.c (v850_output_aligned_bss): Use target hook.
+	* vax.c (vms_globalize_label): New function.
+	(TARGET_ASM_GLOBALIZE_LABEL): Define for vms.
+	* vax/vms.h (ASM_GLOBALIZE_LABEL): Delete.
+	(GLOBAL_ASM_OP): Define.
+	* defaults.h (ASM_GLOBALIZE_LABEL): Delete.
+	* doc/tm.texi: Update docs.
+	* dwarf2out.c (default_eh_frame_section, output_die_symbol): Use
+	target hook.
+	* final.c (output_alternate_entry_point): Likewise.
+	* hooks.c (hook_FILEptr_constcharptr_void): New function.
+	* hooks.h (hook_FILEptr_constcharptr_void): Declare.
+	* output.h (assemble_global): Delete.
+	(default_globalize_label): Declare.
+	* system.h (ASM_GLOBALIZE_LABEL): Poison.
+	* target-def.h (TARGET_ASM_GLOBALIZE_LABEL): Define.
+	(TARGET_ASM_OUT): Add TARGET_ASM_GLOBALIZE_LABEL.
+	* target.h (gcc_target): Add globalize_label member.
+	* varasm.c (asm_output_bss, asm_output_aligned_bss,
+	globalize_decl): Use target hook.
+	(assemble_global): Delete.
+	(default_globalize_label): New function.
+
+2002-08-20  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* dsp16xx.h (dsp16xx_umulhi3_libcall): Delete.
+
+2002-08-20  Devang Patel  <dpatel@apple.com>
+	* tree.c (get_qualified_type): Add TYPE_CONTEXT check.
+
+2002-08-20  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* arc.c (output_shift): Use stdio instead of asm_fprintf.
+	* arm.c (thumb_output_function_prologue): Likewise.
+	* avr.c (print_operand): Likewise.
+	* c4x.c (c4x_print_operand): Likewise.
+	* c4x.h (ASM_OUTPUT_INTERNAL_LABEL, TRAMPOLINE_TEMPLATE,
+	ASM_OUTPUT_REG_PUSH, ASM_OUTPUT_REG_POP): Likewise.
+	* cris.c (cris_target_asm_function_prologue,
+	cris_asm_output_mi_thunk): Likewise.
+	* h8300.c (print_operand): Likewise.
+	* h8300.h (ASM_OUTPUT_ADDR_VEC_ELT): Likewise.
+	* ip2k.c (print_operand): Likewise.  Fix format specifier.
+	* m68hc11.c (asm_print_register, print_operand,
+	print_operand_address): Use stdio instead of asm_fprintf.
+	(print_operand_address): Fix format specifier.
+	* m68hc11.h (FUNCTION_PROFILER, ASM_OUTPUT_ADDR_DIFF_ELT,
+	ASM_OUTPUT_ADDR_VEC_ELT, ASM_OUTPUT_ALIGN): Use stdio instead of
+	asm_fprintf.
+	* m68k/amix.h (ASM_OUTPUT_INTERNAL_LABEL): Likewise.
+	* m68k/atari.h (ASM_OUTPUT_INTERNAL_LABEL): Likewise.
+	* m68k.c (m68k_output_function_prologue,
+	m68k_output_function_epilogue, print_operand): Likewise.
+	* mmix.c (mmix_asm_output_mi_thunk, mmix_asm_weaken_label):
+	Likewise.  Fix format specifier.
+	* mn10200.h (ASM_OUTPUT_ADDR_VEC_ELT): Likewise.
+	* mn10300.h (ASM_OUTPUT_ADDR_VEC_ELT): Likewise.
+	* v850.h (ASM_OUTPUT_ADDR_VEC_ELT): Likewise.
+
+2002-08-15  Eric Christopher  <echristo@redhat.com>
+	    Jeff Knaggs  <jknaggs@redhat.com>
+
+	* config.gcc (mipsisa64sr71k-elf): New target.
+	* config/mips/sr71k.md: New file.
+	* config/mips/mips.md: Use it.
+	(rot*): Add sr71k specifics.
+	* config/mips/t-sr71k: New file.
+	* config/mips/mips.h (sr71k): New cpu.
+	(TARGET_SR71K): Use it.
+	(TUNE_SR71K): Ditto.
+	(GENERATE_BRANCHLIKELY): Ditto.
+	(ISA_HAS_MULHI, ISA_HAS_MULS, ISA_HAS_MSAC, ISA_HAS_MACC,
+	ISA_HAS_ROTR_SIISA_HAS_ROTR_DI): Ditto.
+	* config/mips/mips.c (sr71k): New cpu.
+	(mips_use_dfa_pipeline_interface): Use.
+
+2002-08-15  Eric Christopher  <echristo@redhat.com>
+	    Richard Sandiford <rsandifo@redhat.com>
+	    Aldy Hernandez  <aldyh@redhat.com>
+	    Graham Stott    <grahams@redhat.com>
+	    Michael Meissner  <meissner@redhat.com>
+	    Gavin Romig-Koch  <gavin@redhat.com>
+	    Ken Raeburn  <raeburn@cygnus.com>
+	    Alexandre Oliva <aoliva@redhat.com>
+
+	* config.gcc (mips64vr-elf): New target.
+	* config/mips/5400.md: New file.
+	* config/mips/5500.md: Ditto.
+	* config/mips/mips.md: Use them.
+	(frsqrt): New.
+	* config/mips/mips.c (vr4111, vr4121, vr4320, vr5400, vr5500): New
+	cpus.
+	(mips_issue_rate): Use them.
+	(mips_use_dfa_pipeline_interface): New function. Use for 5400 and 5500.
+	(TARGET_SCHEDUSE_DFA_PIPELINE_INTERFACE): Define. Use above.
+	* config/mips/mips.h (vr4111, vr4121, vr4320, vr5400, vr5500): New
+	cpus.
+	(TARGET_MIPSx): Use them.
+	(TUNE_MIPSx): Ditto.
+	(GETNATE_MULT3_SI): Ditto.
+	(ISA_HAS_BRANCHLIKELY): Ditto.
+	(ISA_HAS_CONDMOVE): Ditto.
+	(ISA_HAS_NMADD_NMSUB): Ditto.
+	(ISA_HAS_MULHI): New. Ditto.
+	(ISA_HAS_MULS): Ditto.
+	(ISA_HAS_MSAC): Ditto.
+	(ISA_HAS_MACC): Ditto.
+	(ISA_HAS_ROTR_SI): Ditto.
+	(ISA_HAS_ROTR_DI): Ditto.
+	(RTX_COSTS): Use.
+
+2002-08-20  John David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	* cppinit.c (remove_dup_dir): Add head_ptr argument to handle removal
+	at head.
+	(remove_dup_nonsys_dirs): New function.
+	(remove_dup_dirs): Change argument head to head_ptr.  Remove warnings.
+	(merge_include_chains): Remove non-system include directories from
+	quote and bracket include chains when they duplicate equivalent system
+	directories.
+	* doc/cpp.texi (-I): Update.
+	* doc/cppopts.texi (-I): Update.
+	* doc/install.texi (--with-local-prefix): Further document usage of
+	this option.
+	* doc/invoke.texi (-I): Update.
+
+2002-08-20  Richard Henderson  <rth@redhat.com>
+
+	* expr.c (TARGET_MEM_FUNCTIONS): Transform to boolean.
+	(emit_block_move): Split out subroutines.
+	(emit_block_move_via_movstr): New.
+	(emit_block_move_via_libcall): New.  Emit bcopy via normal call also.
+	(emit_block_move_libcall_fn): New.  Construct function prototype for
+	bcopy as well.
+	(clear_storage): Split out subroutines.
+	(clear_storage_via_clrstr): New.
+	(clear_storage_via_libcall): New. Emit bzero as a normal call also.
+	(clear_storage_libcall_fn): New.  Construct function prototype for
+	bzero as well.
+	(emit_push_insn): Use emit_block_move.
+	(expand_assignment): Booleanize TARGET_MEM_FUNCTIONS.
+	(store_constructor): Likewise.
+
+2002-08-19  Ziemowit Laski  <zlaski@apple.com>
+
+	* objc/objc-act.c (building_objc_message_expr): Rename to
+	current_objc_message_selector.
+
+2002-08-19  Ziemowit Laski  <zlaski@apple.com>
+
+	* objc/objc-act.c (build_ivar_chain): Remove.
+	(objc_copy_list): Likewise.
+	(get_class_ivars): Inline call to removed build_ivar_chain
+	function.  Save off a clean copy of ivars in the CLASS_OWN_IVARS
+	slot; use that slot (rather than CLASS_IVARS) when accessing
+	ivars for base classes.  Call copy_list and chainon instead of
+	objc_copy_list.
+	(build_private_template): Call get_class_ivars instead of
+	build_ivar_chain.
+	(start_class): Allocate room for the CLASS_OWN_IVARS slot.
+	(continue_class): Call get_class_ivars instead of
+	build_ivar_chain.
+	(encode_field_decl): Check for DECL_BIT_FIELD_TYPE instead
+	of DECL_BIT_FIELD (which may have been cleared).
+	* objc/objc-act.h (CLASS_OWN_IVARS): New accessor macro.
+
+2002-08-19  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* genautomata.c (output_translate_vect, output_state_ainsn_table,
+	output_min_issue_delay_table): Mark variable with ATTRIBUTE_UNUSED
+	in output file.
+	(output_internal_min_issue_delay_func): Initialize variable in
+	output file.
+
+2002-08-19  Alexandre Oliva  <aoliva@redhat.com>
+
+	* Makefile.in (GCC_FOR_TARGET): Prepend STAGE_CC_WRAPPER.
+	(stage2_build, stage3_build, stage4_build): Likewise, to CC.
+
+2002-08-19  Geoffrey Keating  <geoffk@redhat.com>
+	    Steve Ellcey  <sje@cup.hp.com>
+
+	* machmode.h (SCALAR_INT_MODE_P): New macro to test for
+	scaler integer mode (MODE_INT or MODE_PARTIAL_INT).
+	* explow.c (trunc_int_for_mode): Abort when the mode is not
+	a scaler integer mode.
+	* combine.c (expand_compound_operation): Don't expand Vector
+	or Complex modes into shifts.
+	(expand_field_assignment): Don't do bitwise arithmatic and
+	shifts on Vector or Complex modes.
+	(simplify_comparison): Don't call trunc_int_for_mode
+	for VOIDmode.
+	* recog.c (general_operand): Likewise.
+	(immediate_operand): Likewise.
+	(nonmemory_operand): Likewise.
+
+2002-08-19  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/rs6000.c (rs6000_emit_set_const): Inline
+	multi-instruction SImode constant.  Add REG_EQUAL note.
+	* config/rs6000/rs6000.md (movsi splitter): Use
+	rs6000_emit_set_const.
+
+2002-08-19  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* tree-inline.c (initialize_inlined_parameters): Wrap variable in
+	the macro test controlling its use.
+
+2002-08-18  H.J. Lu  (hjl@gnu.org)
+
+	* config.gcc (*-*-linux*): Set extra_parts="crtbegin.o
+	crtbeginS.o crtbeginT.o crtend.o crtendS.o", gas=yes and
+	gnu_ld=yes.
+	(alpha*-*-linux*, cris-*-linux*, i370-*-linux*,
+	i[34567]86-*-linux*, x86_64-*-linux*, mips*-*-linux*,
+	s390-*-linux*, s390x-*-linux*, sparc-*-linux*, sparc64-*-linux*,
+	xtensa-*-linux*): Remove setting extra_parts, gas, and gnu_ld
+	here.
+	(cris-*-linux*): Remove setting thread_file here.
+
 2002-08-18  Neil Booth  <neil@daikokuya.co.uk>
 
 	PR preprocessor/7602
@@ -204,11 +610,11 @@
 
 	Fix PR/7566
 	* c-semantics.c (genrtl_case_label): Don't (mis)use
-	warning_with_decl. 
+	warning_with_decl.
 
 2002-08-14  Dale Johannesen  <dalej@apple.com>
 
-        * explow.c (emit_stack_restore):  Emit memory clobbers
+	* explow.c (emit_stack_restore):  Emit memory clobbers
 	preceding the stack pop, to prevent the scheduler from
 	moving refs to variable arrays below this pop.
 	* reload1.c (reload):  Preserve these clobbers for sched2.
@@ -229,11 +635,11 @@
 
 2002-08-14  Ulrich Weigand  <uweigand@de.ibm.com>
 
-	* reload.c (find_reloads): Handle constraint letters marked by 
+	* reload.c (find_reloads): Handle constraint letters marked by
 	EXTRA_ADDRESS_CONSTRAINT and EXTRA_MEMORY_CONSTRAINT.
 	(alternative_allows_memconst): Likewise.
 	* reload1.c (maybe_fix_stack_asms): Likewise.
-	* recog.c (asm_operand_ok, preprocess_constraints, 
+	* recog.c (asm_operand_ok, preprocess_constraints,
 	constrain_operands): Likewise.
 	* regclass.c (record_operand_costs, record_reg_classes): Likewise.
 	* local-alloc.c (block_alloc, requires_inout): Likewise.
@@ -282,7 +688,7 @@
 	(__premain, exit, abort, _cleanup, memcpy, memset, ___adddi3,
 	___subdi3, ___notdi2, __mulhi32, __mulsi3): Use them to use 'rtc'
 	and declare the symbol far when compiled with -mlong-calls.
-	(__far_trampoline): New for 68HC12 trampoline code to invoke a 
+	(__far_trampoline): New for 68HC12 trampoline code to invoke a
 	far handler using jsr/bsr.
 
 	* config/m68hc11/m68hc11-crt0.S: Put a mode for ELF ABI flags.
@@ -294,7 +700,7 @@
 
 	* config/m68hc11/m68hc11.h (CPP_SPEC): Pass -D__USE_RTC__ when
 	-mlong-calls is specified.
-	(ASM_DECLARE_FUNCTION_NAME): Define to generate .far and .interrupt 
+	(ASM_DECLARE_FUNCTION_NAME): Define to generate .far and .interrupt
 	assembler directives.
 	(TARGET_LONG_CALL, MASK_LONG_CALL): Declare.
 	(TARGET_SWITCHES): Add -mlong-calls options.
@@ -399,10 +805,10 @@ Tue Aug 13 17:40:25 2002  J"orn Rennecke <joern.rennecke@superh.com>
 	"*tmqi_mem", "*tmhi_full", "*tmqi_full"): ... these new patterns.
 
 	("*ltgr", "*cmpdi_ccs_0_64", "*cmpdi_ccs_0_31", "*ltr", "*icm15",
-	"*icm15_cconly", "*cmpsi_ccs_0", "*icm3", "*cmphi_ccs_0", "*icm1", 
+	"*icm15_cconly", "*cmpsi_ccs_0", "*icm3", "*cmphi_ccs_0", "*icm1",
 	"*cmpqi_ccs_0"): Remove, replace by ...
 	("*tstdi_sign", "*tstdi", "*tstdi_cconly", "*tstdi_cconly_31",
-	"*tstsi", "*tstsi_cconly", "*tstsi_cconly2", "*tsthi", "*tsthi_cconly", 
+	"*tstsi", "*tstsi_cconly", "*tstsi_cconly2", "*tsthi", "*tsthi_cconly",
 	"*tstqi", "*tstqi_cconly"): ... these new patterns.
 
 	("*cmpsidi_ccs"): Remove, replace by ...
@@ -420,7 +826,7 @@ Tue Aug 13 17:40:25 2002  J"orn Rennecke <joern.rennecke@superh.com>
 	("adddi3"): Adapt expander.
 
 	("*addsi3_cc"): Allow "general_operand" for operand 2.
-	("*addsi3_carry1_cc", "*addsi3_carry1_cconly", 
+	("*addsi3_carry1_cc", "*addsi3_carry1_cconly",
 	"*addsi3_carry2_cc", "*addsi3_carry2_cconly"): New patterns.
 
 	("addhi3", "addqi3"): Remove, replace by ...
@@ -444,7 +850,7 @@ Tue Aug 13 17:40:25 2002  J"orn Rennecke <joern.rennecke@superh.com>
 2002-08-13  Denis Chertykov  <denisc@overta.ru>
 
 	* config/avr/avr.md: Call CC_STATUS_INIT in all peepnoles
-        which can change CC0.
+	which can change CC0.
 
 Tue Aug 13 14:49:20 2002  J"orn Rennecke <joern.rennecke@superh.com>
 
@@ -466,7 +872,7 @@ Tue Aug 13 14:49:20 2002  J"orn Rennecke <joern.rennecke@superh.com>
 	(ip2k_set_compare): Don't use lookup_const_double.
 	(asm_file_start): Initialization of commands_in_file removed.
 	(asm_file_end): Output of commands_in_file removed.
-	
+
 	* config/ip2k/ip2k.c (CPP_PREDEFINES): Remove definition of
 	__INT_MAX__.
 
@@ -526,7 +932,7 @@ Tue Aug 13 14:49:20 2002  J"orn Rennecke <joern.rennecke@superh.com>
 2002-08-12  Gabriel Dos Reis  <gdr@nerim.net>
 
 	* diagnostic.h (output_formatted_scalar): Rename from
-	output_formatted_integer. 
+	output_formatted_integer.
 	* diagnostic.def: Add DK_DEBUG.
 	* diagnostic.c (output_decimal): Adjust.
 	(output_long_decimal): Likewise.
@@ -1007,10 +1413,10 @@ Sat Aug 10 19:59:43 CEST 2002  Jan Hubicka  <jh@suse.cz>
 
 2002-08-06  Aldy Hernandez  <aldyh@redhat.com>
 
-        * c-decl.c (duplicate_decls): Error out for incompatible TLS
-        declarations.
+	* c-decl.c (duplicate_decls): Error out for incompatible TLS
+	declarations.
 
-        * testsuite/gcc.dg/tls/diag-3.c: New.
+	* testsuite/gcc.dg/tls/diag-3.c: New.
 
 2002-08-06  Jason Merrill  <jason@redhat.com>
 
@@ -1019,7 +1425,7 @@ Sat Aug 10 19:59:43 CEST 2002  Jan Hubicka  <jh@suse.cz>
 
 2002-08-06  Dale Johannesen  <dalej@apple.com>
 	* c-common.c (fname_decl): Use line number 0 for
-        __func__, to avoid confusing debuggers.
+	__func__, to avoid confusing debuggers.
 
 2002-08-06  Nathan Sidwell  <nathan@codesourcery.com>
 

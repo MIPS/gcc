@@ -1145,14 +1145,14 @@ dump_c_node (buffer, node, spc, brief_dump)
     case RETURN_STMT:
       INDENT (spc);
       output_add_string (buffer, "return");
-      if (RETURN_EXPR (node))
+      if (RETURN_STMT_EXPR (node))
 	{
 	  output_add_space (buffer);
-	  if (TREE_CODE (RETURN_EXPR (node)) == MODIFY_EXPR)
-	    dump_c_node (buffer, TREE_OPERAND (RETURN_EXPR (node), 1), spc,
+	  if (TREE_CODE (RETURN_STMT_EXPR (node)) == MODIFY_EXPR)
+	    dump_c_node (buffer, TREE_OPERAND (RETURN_STMT_EXPR (node), 1), spc,
 			 brief_dump);
 	  else
-	    dump_c_node (buffer, RETURN_EXPR (node), spc, brief_dump);
+	    dump_c_node (buffer, RETURN_STMT_EXPR (node), spc, brief_dump);
 	}
       output_add_character (buffer, ';');
       if (!brief_dump)

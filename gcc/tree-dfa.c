@@ -179,7 +179,8 @@ find_refs_in_stmt (t, bb)
       break;
 
     case RETURN_STMT:
-      find_refs_in_expr (&RETURN_EXPR (t), VARUSE, bb, t, RETURN_EXPR (t));
+      find_refs_in_expr (&RETURN_STMT_EXPR (t), VARUSE, bb, t, 
+	                 RETURN_STMT_EXPR (t));
       break;
 
     case GOTO_STMT:

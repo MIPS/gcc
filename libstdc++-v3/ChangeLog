@@ -1,3 +1,77 @@
+2002-08-23  Phil Edwards  <pme@gcc.gnu.org>
+
+	* Makefile.am (check-abi):  Specify current directory.
+	* acinclude.m4 (GLIBCPP_CONFIGURE_TESTSUITE):  Fix shell syntax, use
+	abi_baseline_triplet in baseline_file.
+	* Makefile.in, aclocal.m4, configure:  Regenerate.
+	* configure.target:  Add abi_baseline_triplet with default.
+	* testsuite/abi_check.cc:  More error checking.
+
+2002-08-23  Phil Edwards  <pme@gcc.gnu.org>
+
+	* config/linker-map.gnu:  Verbose comments, clean up spacing.
+	* include/bits/stl_alloc.h:  Fix indentation of 'if' bodies, return
+	statements.
+	__allocator:  Change class declaration to struct.
+	* docs/html/17_intro/C++STYLE:  Fix typo.
+	* include/bits/stl_deque.h, include/bits/stl_list.h,
+	include/bits/stl_map.h, include/bits/stl_multimap.h,
+	include/bits/stl_vector.h:  Fix fallout from typo.
+
+2002-08-22  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* acinclude.m4 (GLIBCPP_CONFIGURE_TESTSUITE): Set
+	GLIBCPP_BUILD_ABI_CHECK based on cross compiling, build, host
+	variables.
+	* aclocal.m4: Regenerate.
+	* testsuite/Makefile.am (noinst_PROGRAMS): Make conditional on
+	native compiling.
+	* testsuite/Makefile.in: Regenerate.
+	
+2002-08-22  Loren J. Rittle <ljrittle@acm.org>
+
+	* testsuite/abi_check.cc: Enhance shell portability.
+	Support older binutils/readelf.
+	* config/abi/i386-unknown-freebsd4.6: Add.
+	* config/abi/i386-unknown-freebsd4.6/baseline_symbols.txt: New file.
+
+2002-08-22  Paolo Carlini  <pcarlini@unitus.it>
+
+	* docs/html/faq/index.html: Add Loren James Rittle and
+	Paolo Carlini to the list of v3 maintainers.
+	* docs/html/faq/index.txt: Ditto.
+	* docs/html/17_intro/RELEASE-NOTES: Ditto.
+
+2002-08-22  Benjamin Kosnik  <bkoz@redhat.com>
+	    Phil Edwards  <pme@gcc.gnu.org>
+	    Ulrich Drepper  <drepper@redhat.com>
+	
+	* Makefile.am (check-abi): New rule.
+	* Makefile.in: Regenerate.
+	* acinclude.m4 (GLIBCPP_CONFIGURE_TESTSUITE): Export baseline_file.
+	* aclocal.m4: Regenerate.
+	* configure: Regenerate.
+	* testsuite/Makefile.am (noinst_PROGRAMS): Add abi_check.
+	(abi_check_SOURCES): Add.
+	* testsuite/Makefile.in: Regenerate.	
+	* testsuite/abi_check.cc: New file.
+	* config/abi: Add.
+	* config/abi/i686-pc-linux-gnu: Add.
+	* config/abi/i686-pc-linux-gnu/baseline_symbols.txt: New file.
+	
+2002-08-19  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* configure.in (libtool_VERSION): Update to 5:1:0.
+	* configure: Regenerate.
+	
+2002-08-19  Jonathan Wakely  <jw@kayari.org>
+
+	* docs/html/configopts.html, docs/html/documentation.html,
+	docs/html/install.html, docs/html/22_locale/codecvt.html,
+	docs/html/22_locale/ctype.html, docs/html/22_locale/howto.html,
+	docs/html/22_locale/locale.html,
+	docs/html/22_locale/messages.html: Conform to HTML 4.01 standard.
+
 2002-08-15  Benjamin Kosnik  <bkoz@redhat.com>
 
 	* include/ext/stdio_filebuf.h (stdio_filebuf): Explicitly set

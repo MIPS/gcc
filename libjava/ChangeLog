@@ -1,3 +1,75 @@
+2002-08-24  Mark Wielaard <mark@klomp.org>
+
+	* Makefile.am (libgcj_la_SOURCES): Remove name-finder.cc.
+	(core_java_source_files): Add VMThrowable.java and NameFinder.java
+	(nat_source_files): Remove natThrowable.cc, add natVMThrowable.cc
+	and natNameFinder.cc.
+	* Makefile.in: Regenerate.
+	* prims.cc: Use trace_enabled from VMThrowable.
+	* name-finder.cc: Removed.
+	* gcj/javaprims.h: Add class VMThrowable.
+	* gnu/gcj/runtime/NameFinder.java: New file.
+	* gnu/gcj/runtime/natNameFinder.cc: Likewise.
+	* include/name-finder.h: Removed.
+	* java/lang/Throwable.java (printStackTrace (PrintStream)): Use new
+	method stackTraceString().
+	(printStackTrace (PrintWriter)): Likewise.
+	(stackTraceString): Complete rewrite of old printStackTrace using
+	StringBuffer.
+	(stackTraceStringBuffer): New helper method for stackTraceString().
+	(fillInStackTrace): Delegate to VMTrowable.
+	(getStackTrace): Likewise.
+	(getStackTrace0): Removed. 
+	(trace_enabled, stackTraceBytes): Moved to new VMThrowable.java.
+	(setStackTrace): Copy given array.
+	* java/lang/natThrowable.cc: Removed (replaced by natVMThrowable).
+	* java/lang/VMThrowable.java: New class.
+	* java/lang/natVMThrowable.cc: New file.
+
+2003-08-23  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/URLConnection.java,
+	java/netJarURLConnection.java,
+	gnu/gcj/protocol/core/Connection.java,
+	gnu/gcj/protocol/file/Connection.java,
+	gnu/gcj/protocol/http/Connection.java: Added implementation of
+	getHeaderFields().
+
+2002-08-22  Tom Tromey  <tromey@redhat.com>
+
+	* gij.cc (help): Document -cp and -classpath.
+	(main): Handle -classpath.
+
+2002-08-21  Tom Tromey  <tromey@redhat.com>
+
+	* Makefile.in: Rebuilt.
+	* Makefile.am (ordinary_java_source_files): Added
+	SocketAddress.java, InetSocketAddress.java.
+	* java/net/PortUnreachableException.java: Merged with Classpath.
+	* java/net/SocketTimeoutException.java: Likewise.
+	* java/net/URISyntaxException.java: Likewise.
+	* java/net/SocketAddress.java: New class from Classpath.
+	* java/net/InetSocketAddress.java: Likewise.
+
+2003-08-21  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/Authenticator.java: updated JDK 1.4
+	* java/net/ContentHandler.java: updated JDK 1.4
+
+2002-08-20  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/URISyntaxException.java: New file.
+	* java/net/SocketTimeoutException.java: New file.
+	* java/net/PortUnreachableException.java: New file.	
+	* Makefile.am: Updated.
+	* Makefile.in: Rebuilt.
+
+2002-08-18  Mark Wielaard  <mark@klomp.org>
+
+	Thanks to Vladimir Puskas <vpuskas@eunet.yu>
+	* gnu/java/security/provider/MD5.java: Extends MessageDigest, not
+	MessageDigestSpi (fixes Classpath bug #783).
+
 2002-08-14  Jesse Rosenstock  <jmr@ugcs.caltech.edu>
 
 	* java/lang/natPosixProcess.cc (cleanup): Added `path' argument.

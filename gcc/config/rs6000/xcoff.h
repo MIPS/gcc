@@ -196,9 +196,8 @@ toc_section ()						\
 /* This is how to output a command to make the user-level label named NAME
    defined for reference from other files.  */
 
-#define ASM_GLOBALIZE_LABEL(FILE,NAME)	\
-  do { fputs ("\t.globl ", FILE);	\
-       RS6000_OUTPUT_BASENAME (FILE, NAME); putc ('\n', FILE);} while (0)
+/* Globalizing directive for a label.  */
+#define GLOBAL_ASM_OP "\t.globl "
 
 /* Output at beginning of assembler file.
 
@@ -418,7 +417,10 @@ toc_section ()						\
 #define TARGET_ASM_UNIQUE_SECTION  rs6000_xcoff_unique_section
 
 /* Switch into a generic section.  */
-#define TARGET_ASM_NAMED_SECTION  xcoff_asm_named_section
+#define TARGET_ASM_NAMED_SECTION  rs6000_xcoff_asm_named_section
+
+/* Globalize a label.  */
+#define TARGET_ASM_GLOBALIZE_LABEL  rs6000_xcoff_asm_globalize_label
 
 /* Define the name of the section to use for the EH language specific
    data areas (.gcc_except_table on most other systems).  */

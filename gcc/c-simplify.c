@@ -820,7 +820,7 @@ simplify_return_stmt (stmt, pre_p)
      tree stmt;
      tree *pre_p;
 {
-  tree ret_expr = RETURN_EXPR (stmt);
+  tree ret_expr = RETURN_STMT_EXPR (stmt);
 
   if (ret_expr)
     {
@@ -831,7 +831,7 @@ simplify_return_stmt (stmt, pre_p)
 	  walk_tree (&ret_expr, mostly_copy_tree_r, NULL, NULL);
 	  simplify_expr (&ret_expr, pre_p, NULL, is_simple_expr, fb_rvalue);
 	  add_tree (ret_expr, pre_p);
-	  RETURN_EXPR (stmt) = NULL_TREE;
+	  RETURN_STMT_EXPR (stmt) = NULL_TREE;
 	}
       else
 	{
@@ -2582,7 +2582,7 @@ deep_copy_node (node)
       break;
 
     case RETURN_STMT:
-      res = build_stmt (RETURN_STMT, deep_copy_node (RETURN_EXPR (node)));
+      res = build_stmt (RETURN_STMT, deep_copy_node (RETURN_STMT_EXPR (node)));
       break;
 
     case TREE_LIST:
