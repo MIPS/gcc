@@ -219,7 +219,15 @@ find_useful_stmts (void)
       for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
 	{
 	  clear_necessary (phi);
-	  if (need_to_preserve_store (PHI_RESULT (phi)))
+
+	  /* PHIs for virtual variables do not directly affect code
+	     generation and need not be considered inherently necessary
+	     regardless of the bits set in their decl.
+
+	     Thus, we only need to mark PHIs for real variables which
+	     need their result preserved as being inherently necessary.  */
+	  if (is_gimple_reg (PHI_RESULT (phi))
+	      && need_to_preserve_store (PHI_RESULT (phi)))
 	    mark_necessary (PHI_RESULT (phi), phi);
 	}
 
