@@ -1,3 +1,75 @@
+2002-09-20  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* rtl.def (DEFINE_QUERY_CPU_UNIT, AUTOMATA_OPTION): Change
+	comments about queried units and the minimization.
+	
+	* doc/md.texi: Ditto.
+	
+	* genautomata.c (create_composed_state): Return nonzero if the new
+	state has been created.
+	(first_cycle_unit_presence): New function.
+	(state_is_differed): Add new parameter.  Use the new function.
+	Take queried units into account.
+	(partition_equiv_class): Pass additional parameter to
+	`state_is_differed'.
+	(merge_states): Process composed states too.
+	(build_automaton, create_automata, output_min_issue_delay_table,
+	output_tables, output_statistics): Output more information.
+	(output_reserved_units_table): Use function
+	`first_cycle_unit_presence'.
+	(output_tables): Output table of queried units even if the
+	minimization is switched on.
+	(write_automata): Output code for querying units even if the
+	minimization is switched on.
+	
+2002-09-19  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* rtl.def (PRESENCE_SET, ABSENCE_SET): Add comments about extended
+	syntax of the constructions.
+	
+	* doc/md.texi (PRESENCE_SET, ABSENCE_SET): Add description of
+	extended syntax of the constructions.
+	
+	* genautomata.c (unit_rel_decl): Rename it to
+	`unit_pattern_rel_decl'.
+	(pattern_set_el, pattern_reserv): New structures.
+	(pattern_set_el_t, pattern_reserv_t): New types.
+	(gen_presence_absence_set): New function.
+	(process_presence_absence): Remove it.
+	(process_presence_absence_names,
+	process_presence_absence_patterns): New functions.
+	(get_presence_absence_set): Remove it.
+	(initiate_presence_absence_sets): Rename it on
+	`initiate_presence_absence_pattern_sets'.  Use new function
+	`form_reserv_sets_list'.
+	(form_reserv_sets_list, check_presence_pattern_sets,
+	check_absence_pattern_sets, output_pattern_set_el_list): New
+	functions.
+	(unit_decl): Change types of members `presence_list' and
+	`absence_list'.
+	(unit_rel_decl): Rename member `names_num' to `all_names_num'.
+	(decl): Change types of members `excl', `presence', and `absence'.
+	(get_str_vect): Rename `par_flag' to `paren_p'.  Add null element
+	at the end of the vector.
+	(gen_cpu_unit, gen_query_cpu_unit, gen_bypass, gen_excl_set,
+	gen_automaton, gen_regexp_repeat, gen_regexp_allof,
+	gen_regexp_oneof, gen_regexp_sequence): Use boolean values.
+	(gen_presence_set, gen_absence_set): Use new function
+	`gen_presence_absence_set'.
+	(add_presence_absence): Process `pattern_list' instead of
+	`source_list'.
+	(process_decls): USe new functions
+	`process_presence_absence_names' and
+	`process_presence_absence_patterns'.
+	(reserv_sets_are_intersected): Use new function
+	`check_presence_pattern_sets'.
+	(presence_set, absence_set): Remove them.
+	(unit_presence_set_table, unit_absence_set_table): New global
+	variables.
+	(output_description): Use new function
+	`output_pattern_set_el_list'.
+	(generate): Use `initiate_presence_absence_pattern_sets'.
+	
 2002-09-18  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* genattr.c (main): Add output of prototype of new interface
