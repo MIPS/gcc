@@ -15065,7 +15065,7 @@ k8_avoid_jump_misspredicts (first)
 
       if (njumps == 3 && isjump && nbytes < 16)
 	{
-	  int padsize = 16 - nbytes + min_insn_size (insn);
+	  int padsize = 15 - nbytes + min_insn_size (insn);
 
 	  if (rtl_dump_file)
 	    fprintf (rtl_dump_file, "Padding insn %i by %i bytes!\n", INSN_UID (insn), padsize);
