@@ -1,3 +1,16 @@
+2004-01-17  Jan Hubicka  <jh@suse.cz>
+
+	PR optimization/11761
+	* Makefile.in: Remove tree-simple.c from GTYized files.
+	* tree-dfa.c (find_addressable_vars): Parse nontrivial ADDR_EXPRs.
+	(discover_nonconstant_array_refs_r): New static function.
+	(discover_nonconstant_array_refs): New global function.
+	* tree-flow.h (discover_nonconstant_array_refs): Declare.
+	* tree-simple.c (types_checked, types_in_memory): Kill.
+	(struct_needs_to_live_in_memory): Kill.
+	(needs_to_live_in_memory): aggregates are safe.
+	* tree-ssa.c (rewrite_out_of_ssa): Call the new function.
+
 2004-01-17  Richard Henderson  <rth@redhat.com>
 
 	* tree-sra.c (scalarize_tree_list): Take bitmap argument to 

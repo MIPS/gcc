@@ -2206,7 +2206,6 @@ GTFILES = $(srcdir)/input.h $(srcdir)/coretypes.h $(srcdir)/cpplib.h \
   $(srcdir)/tree-alias-type.h $(srcdir)/tree-alias-common.h \
   $(srcdir)/tree-alias-type.c $(srcdir)/tree-alias-common.c \
   $(srcdir)/tree-ssa-operands.h $(srcdir)/tree-ssa-operands.c \
-  $(srcdir)/tree-simple.c \
   $(out_file) \
   @all_gtfiles@
 

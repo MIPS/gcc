@@ -481,6 +481,7 @@ extern tree get_virtual_var (tree);
 extern void create_global_var (void);
 extern void add_referenced_tmp_var (tree var);
 extern void mark_new_vars_to_rename (tree, bitmap);
+extern void discover_nonconstant_array_refs (void);
 
 /* Flags used when computing reaching definitions and reached uses.  */
 #define TDFA_USE_OPS		1 << 0

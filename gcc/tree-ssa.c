@@ -2717,6 +2717,11 @@ rewrite_out_of_ssa (void)
 
   /* Flush out flow graph and SSA data.  */
   delete_var_map (map);
+
+  /* Mark arrays indexed with non-constant indices with TREE_ADDRESSABLE.
+     FIXME: Is this really needed long-term?  This is done for the benefit
+     of the RTL expanders.  */
+  discover_nonconstant_array_refs ();
 }
 
 struct tree_opt_pass pass_del_ssa = 
