@@ -1,3 +1,12 @@
+2004-11-03  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3863563 (fix from mainline)
+	* c-lang.c (LANG_HOOKS_TYPES_COMPATIBLE_P): Remove.
+	(c_types_compatible_p): Move function definition...
+	* c-objc-common.c (c_types_compatible_p): ...here.
+	* c-objc-common.h (LANG_HOOKS_TYPES_COMPATIBLE_P): Moved here from
+	c-lang.c.
+
 2004-11-02  Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 3857727
