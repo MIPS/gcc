@@ -1540,11 +1540,13 @@ s-options: $(lang_opt_files) Makefile $(srcdir)/opt-gather.awk
 
 options.c: optionlist $(srcdir)/opt-functions.awk $(srcdir)/optc-gen.awk
 	$(AWK) -f $(srcdir)/opt-functions.awk -f $(srcdir)/optc-gen.awk \
-	       -v header_name="options.h" < $< > $@ 
+	       -v header_name="options.h" < $< > tmp-$@
+	mv tmp-$@ $@
 
 options.h: optionlist $(srcdir)/opt-functions.awk $(srcdir)/opth-gen.awk
 	$(AWK) -f $(srcdir)/opt-functions.awk -f $(srcdir)/opth-gen.awk \
-	       < $< > $@
+	       < $< > tmp-$@
+	mv tmp-$@ $@
 
 options.o: options.c options.h opts.h intl.h
 

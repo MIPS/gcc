@@ -1,3 +1,8 @@
+2004-06-25  Jakub Jelinek  <jakub@redhat.com>
+
+	* Makefile.in (options.c, options.h): Generate sources into
+	temporary files and afterwards move to the desired location.
+
 2004-09-20  Jakub Jelinek  <jakub@redhat.com>
 
 	* config/rs6000/ppc-asm.h: Add .note.GNU-stack section also
