@@ -299,14 +299,17 @@ INSTALL_HEADERS_DIR = @build_install_headers_dir@
 
 # Header files that are made available under the same name
 # to programs compiled with GCC.
+# APPLE LOCAL begin radar 2872232 add tgmath.h
 USER_H = $(srcdir)/ginclude/float.h \
 	 $(srcdir)/ginclude/iso646.h \
 	 $(srcdir)/ginclude/stdarg.h \
 	 $(srcdir)/ginclude/stdbool.h \
 	 $(srcdir)/ginclude/stddef.h \
+	 $(srcdir)/ginclude/tgmath.h \
 	 $(srcdir)/ginclude/varargs.h \
 	 $(srcdir)/unwind.h \
 	 $(EXTRA_HEADERS)
+# APPLE LOCAL end radar 2872232 add tgmath.h
 
 # The GCC to use for compiling libgcc.a and crt*.o.
 # Usually the one we just built.

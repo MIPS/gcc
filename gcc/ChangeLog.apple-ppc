@@ -1,3 +1,9 @@
+2004-08-13  Matt Austern  <austern@apple.com>
+
+	Radar 2872232
+	* ginclude/tgmath.h: New file.
+	* Makefile.in: Add tgmath.h to list of installed headers.
+	
 2004-08-13  Devang Patel  <dpatel@apple.com>
 
 	Radar 3729261. Reviewed by Dale.
