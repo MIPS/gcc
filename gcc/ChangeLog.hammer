@@ -1,3 +1,33 @@
+2004-01-22  Hartmut Penner  <hpenner@de.ibm.com>
+	Backport new 64bit abi from mainline.
+	2004-01-22  Hartmut Penner  <hpenner@de.ibm.com>
+
+	* gcc/config/rs6000/rs6000.c (function_arg) Handle 
+	vector register special in function without prototype.
+	(function_arg_advance): Vector parameters get always
+	GPRs allocated for the linux64 target.
+
+	2004-01-15  Jan Hubicka  <jh@suse.cz>
+
+	* builtins.c (std_expand_builtin_va_arg): Align operand when needed.
+
+	2003-12-18  Hartmut Penner  <hpenner@de.ibm.com>
+
+	* gcc/config/rs6000/rs6000.c (USE_ALTIVEC_FOR_ARG_P): Don't check
+	for SVR4 ABI.
+
+	2003-11-06  Geoffrey Keating  <geoffk@apple.com>
+
+	* config/rs6000/rs6000.h (USE_FP_FOR_ARG_P): Move to rs6000.c.
+	(USE_ALTIVEC_FOR_ARG_P): Likewise.
+	* config/rs6000/rs6000.c (USE_FP_FOR_ARG_P): Move from rs6000.h.
+	Take a pointer as the CUM parameter.  Update callers.
+	(USE_ALTIVEC_FOR_ARG_P): Likewise.  Also correct for Darwin/AIX
+	32-bit ABIs.
+	(function_arg_advance): Use USE_ALTIVEC_FOR_ARG_P.  Correct case
+	of vector parameters as named arguments of stdarg function.
+	(function_arg): Likewise.
+
 2004-01-22  Jan Hubicka  <jh@suse.cz>
 
 	* i386.md (lea and add splitters): Make sure that all the operands

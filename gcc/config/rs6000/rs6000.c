@@ -1502,6 +1502,7 @@ easy_vector_constant (rtx op, enum machine_mode mode)
 	  break;
 	cst = cst >> 8;
       case V16QImode:
+	  debug_rtx (op);
 	if (EASY_VECTOR_15 (cst, op, mode))
 	  return 1;
       default: 
@@ -3352,6 +3353,19 @@ rs6000_emit_move (dest, source, mode)
   emit_insn (gen_rtx_SET (VOIDmode, operands[0], operands[1]));
 }
 
+/* Nonzero if we can use a floating-point register to pass this arg.  */
+#define USE_FP_FOR_ARG_P(CUM,MODE,TYPE)		\
+  (GET_MODE_CLASS (MODE) == MODE_FLOAT		\
+   && (CUM)->fregno <= FP_ARG_MAX_REG		\
+   && TARGET_HARD_FLOAT && TARGET_FPRS)
+
+/* Nonzero if we can use an AltiVec register to pass this arg.  */
+#define USE_ALTIVEC_FOR_ARG_P(CUM,MODE,TYPE,NAMED)	\
+  (ALTIVEC_VECTOR_MODE (MODE)				\
+   && (CUM)->vregno <= ALTIVEC_ARG_MAX_REG		\
+   && TARGET_ALTIVEC_ABI				\
+   && (NAMED))
+
 /* Initialize a variable CUM of type CUMULATIVE_ARGS
    for a call to a function whose data type is FNTYPE.
    For a library call, FNTYPE is 0.
@@ -3377,6 +3391,10 @@ init_cumulative_args (cum, fntype, libname, incoming, libcall)
   cum->call_cookie = ((DEFAULT_ABI == ABI_V4 && libcall)
 		      ? CALL_LIBCALL : CALL_NORMAL);
   cum->sysv_gregno = GP_ARG_MIN_REG;
+  cum->stdarg = fntype
+    && (TYPE_ARG_TYPES (fntype) != 0
+	&& (TREE_VALUE (tree_last  (TYPE_ARG_TYPES (fntype)))
+	    != void_type_node));
 
   if (incoming)
     cum->nargs_prototype = 1000;		/* don't return a PARALLEL */
@@ -3515,10 +3533,39 @@ function_arg_advance (cum, mode, type, named)
 
   if (TARGET_ALTIVEC_ABI && ALTIVEC_VECTOR_MODE (mode))
     {
-      if (cum->vregno <= ALTIVEC_ARG_MAX_REG && cum->nargs_prototype >= 0)
+      if (USE_ALTIVEC_FOR_ARG_P (cum, mode, type, named))
 	cum->vregno++;
-      else
-	cum->words += RS6000_ARG_SIZE (mode, type);
+ 
+      /* PowerPC64 Linux and AIX allocates GPRs for a vector argument
+	 even if it is going to be passed in a vector register.  
+	 Darwin does the same for variable-argument functions.  */
+      if ((DEFAULT_ABI == ABI_AIX && TARGET_64BIT)
+		   || (cum->stdarg && DEFAULT_ABI != ABI_V4))
+        {
+	  int align;
+	  
+	  /* Vector parameters must be 16-byte aligned.  This places
+	     them at 2 mod 4 in terms of words in 32-bit mode, since
+	     the parameter save area starts at offset 24 from the
+	     stack.  In 64-bit mode, they just have to start on an
+	     even word, since the parameter save area is 16-byte
+	     aligned.  Space for GPRs is reserved even if the argument
+	     will be passed in memory.  */
+	  if (TARGET_32BIT)
+	    align = ((6 - (cum->words & 3)) & 3);
+	  else
+	    align = cum->words & 1;
+	  cum->words += align + RS6000_ARG_SIZE (mode, type);
+	  
+	  if (TARGET_DEBUG_ARG)
+	    {
+	      fprintf (stderr, "function_adv: words = %2d, align=%d, ", 
+		       cum->words, align);
+	      fprintf (stderr, "nargs = %4d, proto = %d, mode = %4s\n",
+		       cum->nargs_prototype, cum->prototype, 
+		       GET_MODE_NAME (mode));
+	    }
+	}
     }
   else if (TARGET_SPE_ABI && TARGET_SPE && SPE_VECTOR_MODE (mode)
 	   && named && cum->sysv_gregno <= GP_ARG_MAX_REG)
@@ -3657,12 +3704,69 @@ function_arg (cum, mode, type, named)
       return GEN_INT (cum->call_cookie);
     }
 
-  if (TARGET_ALTIVEC_ABI && ALTIVEC_VECTOR_MODE (mode))
+  if (USE_ALTIVEC_FOR_ARG_P (cum, mode, type, named))
+    if (TARGET_64BIT && ! cum->prototype)
+      {
+       /* Vector parameters get passed in vector register
+          and also in GPRs or memory, in absence of prototype.  */
+       int align_words;
+       rtx slot;
+       align_words = (cum->words + 1) & ~1;
+
+       if (align_words >= GP_ARG_NUM_REG)
+         {
+           slot = NULL_RTX;
+         }
+       else
+         {
+           slot = gen_rtx_REG (mode, GP_ARG_MIN_REG + align_words);
+         }
+       return gen_rtx_PARALLEL (mode,
+                gen_rtvec (2,
+                           gen_rtx_EXPR_LIST (VOIDmode,
+                                              slot, const0_rtx),
+                           gen_rtx_EXPR_LIST (VOIDmode,
+                                              gen_rtx_REG (mode, cum->vregno),
+                                              const0_rtx)));
+      }
+    else
+      return gen_rtx_REG (mode, cum->vregno);
+  else if (TARGET_ALTIVEC_ABI && ALTIVEC_VECTOR_MODE (mode))
     {
-      if (named && cum->vregno <= ALTIVEC_ARG_MAX_REG)
-	return gen_rtx_REG (mode, cum->vregno);
+      if (named || abi == ABI_V4)
+	return NULL_RTX;
       else
-	return NULL;
+	{
+	  /* Vector parameters to varargs functions under AIX or Darwin
+	     get passed in memory and possibly also in GPRs.  */
+	  int align, align_words;
+	  enum machine_mode part_mode = mode;
+
+	  /* Vector parameters must be 16-byte aligned.  This places them at
+	     2 mod 4 in terms of words in 32-bit mode, since the parameter
+	     save area starts at offset 24 from the stack.  In 64-bit mode,
+	     they just have to start on an even word, since the parameter
+	     save area is 16-byte aligned.  */
+	  if (TARGET_32BIT)
+	    align = ((6 - (cum->words & 3)) & 3);
+	  else
+	    align = cum->words & 1;
+	  align_words = cum->words + align;
+
+	  /* Out of registers?  Memory, then.  */
+	  if (align_words >= GP_ARG_NUM_REG)
+	    return NULL_RTX;
+	  
+	  /* The vector value goes in GPRs.  Only the part of the
+	     value in GPRs is reported here.  */
+	  if (align_words + CLASS_MAX_NREGS (mode, GENERAL_REGS)
+	      > GP_ARG_NUM_REG)
+	    /* Fortunately, there are only two possibilities, the value
+	       is either wholly in GPRs or half in GPRs and half not.  */
+	    part_mode = DImode;
+	  
+	  return gen_rtx_REG (part_mode, GP_ARG_MIN_REG + align_words);
+	}
     }
   else if (TARGET_SPE_ABI && TARGET_SPE && SPE_VECTOR_MODE (mode) && named)
     {
@@ -3729,7 +3833,7 @@ function_arg (cum, mode, type, named)
       if (type && TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST)
         return NULL_RTX;
 
-      if (USE_FP_FOR_ARG_P (*cum, mode, type))
+      if (USE_FP_FOR_ARG_P (cum, mode, type))
 	{
 	  if (! type
 	      || ((cum->nargs_prototype > 0)
@@ -3782,8 +3886,8 @@ function_arg_partial_nregs (cum, mode, type, named)
   if (DEFAULT_ABI == ABI_V4)
     return 0;
 
-  if (USE_FP_FOR_ARG_P (*cum, mode, type)
-      || USE_ALTIVEC_FOR_ARG_P (*cum, mode, type))
+  if (USE_FP_FOR_ARG_P (cum, mode, type)
+      || USE_ALTIVEC_FOR_ARG_P (cum, mode, type, named))
     {
       if (cum->nargs_prototype >= 0)
 	return 0;
@@ -3860,17 +3964,14 @@ setup_incoming_varargs (cum, mode, type, pretend_size, no_rtl)
   rtx save_area = NULL_RTX, mem;
   int first_reg_offset, set;
   tree fntype;
-  int stdarg_p;
 
   fntype = TREE_TYPE (current_function_decl);
-  stdarg_p = (TYPE_ARG_TYPES (fntype) != 0
-	      && (TREE_VALUE (tree_last (TYPE_ARG_TYPES (fntype)))
-		  != void_type_node));
 
   /* For varargs, we do not want to skip the dummy va_dcl argument.
      For stdargs, we do want to skip the last named argument.  */
   next_cum = *cum;
-  if (stdarg_p)
+
+  if (cum->stdarg)
     function_arg_advance (&next_cum, mode, type, 1);
 
   if (DEFAULT_ABI == ABI_V4)
