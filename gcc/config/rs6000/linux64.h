@@ -352,7 +352,7 @@ Boston, MA 02111-1307, USA.  */
 
 #define LINK_OS_LINUX_SPEC64 "-m elf64ppc %{!shared: %{!static: \
   %{rdynamic:-export-dynamic} \
-  %{!dynamic-linker:-dynamic-linker /opt/powerpc64_3_3/lib/ld64.so.1}}}"
+  %{!dynamic-linker:-dynamic-linker /lib64/ld64.so.1}}}"
 
 #undef  TOC_SECTION_ASM_OP
 #define TOC_SECTION_ASM_OP \

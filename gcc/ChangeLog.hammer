@@ -1,3 +1,7 @@
+2004-01-23  Andreas Jaeger  <aj@suse.de>
+
+	* config/rs6000/linux64.h (LINK_OS_LINUX_SPEC64): Fix.
+
 2004-01-22  Hartmut Penner  <hpenner@de.ibm.com>
 	Backport new 64bit abi from mainline.
 	2004-01-22  Hartmut Penner  <hpenner@de.ibm.com>
@@ -69,7 +73,7 @@
 
 2004-01-21  Hartmut Penner  <hpenner@de.ibm.com>
 
-	* f/com.h (ffecom_gfrt_basictype): Fix prototype.	
+	* f/com.h (ffecom_gfrt_basictype): Fix prototype.
 
 2004-01-21  Andreas Jaeger  <aj@suse.de>
 
@@ -617,7 +621,7 @@
 
 	* tree-inline.c (walk_tree): Sanity check that CALL_EXPR is not shared.
 	* cp/calls.c (build_op_delete_call): Unshare expr.
-	
+
 2004-01-03  Josef Zlomek  <zlomekj@suse.cz>
 
 	* var-tracking.c (add_uses): Mark USEs or registers which are not
@@ -792,7 +796,7 @@
 	(pro_epilogue_adjust_stack):  Update comment.
 
 	* explow.c (round_push): Fix handling of large sizes.
-	
+
 2003-11-27  Josef Zlomek  <zlomekj@suse.cz>
 
 	* toplev.c (rest_of_compilation): Disable VRP when tracer was used and
@@ -941,7 +945,7 @@
 		(s390_function_arg): Likewise.
 		(s390_va_arg): Likewise
 
-		* config/s390/s390.c (s390_va_arg): Fix alignment when retrieving 
+		* config/s390/s390.c (s390_va_arg): Fix alignment when retrieving
 		non-integral types from integer register save area slots.
 
 		* combine.c (simplify_comparison): Re-enable widening of comparisons
@@ -1125,7 +1129,7 @@
 	2003-09-26  Andreas Krebbel <krebbel1@de.ibm.com>
 	* config/s390/s390.md ("builtin_setjmp_setup"): Insn deleted.
 	("builtin_longjmp"): Insn deleted.
-	("save_stack_nonlocal"): Save literal pool base pointer behind 
+	("save_stack_nonlocal"): Save literal pool base pointer behind
 	backchain and stack pointer.
 	("restore_stack_nonlocal"): Restore literal pool base pointer.
 	* config/s390/s390.h ("STACK_SAVEAREA_MODE"): Double size of
@@ -1198,8 +1202,8 @@ Sat Oct 11 21:33:44 CEST 2003  Jan Hubicka  <jh@suse.cz>
 	* dwarfout.c (dwarf_debug_hooks): Likewise.
 	* sdbout.c (sdb_debug_hooks): Likewise.
 	* vmsdbgout.c (vmsdbg_debug_hooks): Likewise.
-	* final.c (final_scan_insn): Call var_location debug hook for each 
-	NOTE_INSN_VAR_LOCATION. 
+	* final.c (final_scan_insn): Call var_location debug hook for each
+	NOTE_INSN_VAR_LOCATION.
 	* dwarf2out.c (struct gcc_debug_hooks): Call dwarf2out_begin_function
 	at the beginning of function, call dwarf2out_var_location for
 	NOTE_INSN_VAR_LOCATION note.
@@ -1240,7 +1244,7 @@ Sat Oct 11 21:33:44 CEST 2003  Jan Hubicka  <jh@suse.cz>
 	Merge from mainline:
 
 	2003-02-28  Josef Zlomek  <zlomekj@suse.cz>
-	
+
 		* emit-rtl.c (set_reg_attrs_for_parm): New function.
 		* rtl.h (set_reg_attrs_for_parm): New exported function.
 		* function.c (assign_parms): Use set_reg_attrs_for_parm instead of
@@ -1300,12 +1304,12 @@ Sat Oct 11 21:33:44 CEST 2003  Jan Hubicka  <jh@suse.cz>
 	Merge from mainline:
 
 	2003-06-05  Jakub Jelinek  <jakub@redhat.com>
-	
+
 		* mklibgcc.in: Propagate .note.GNU-stack section if needed into
 		the .hidden assembly stubs.
-	
+
 	2003-06-04  Jakub Jelinek  <jakub@redhat.com>
-	
+
 		* function.c (trampolines_created): New variable.
 		(expand_function_end): Set it when doing INITIALIZE_TRAMPOLINE.
 		* function.h (trampolines_created): Add.
@@ -1496,7 +1500,7 @@ Thu Aug 14 15:08:13 CEST 2003  Jan Hubicka  <jh@suse.cz>
 	* i386.c (ix86_return_pops_args, x86_this_parameter,
 	x86_can_output_mi_thunk): Also test for local functions.
 	(pic_symbolic_operand): Test for correct form of pic operands.
- 
+
 2003-08-05  Josef Zlomek  <zlomekj@suse.cz>
 
 	* gcse.c (try_replace_reg): Fix updating of note.
@@ -1688,7 +1692,7 @@ Sat Jul 12 17:40:50 CEST 2003  Jan Hubicka  <jh@suse.cz>
 		(cgraph_inlined_into, cgraph_inlined_callees,
 		cgraph_estimate_size_after_inlining, cgraph_estimate_growth,
 		cgraph_mark_inline, cgraph_check_inline_limits,
-		cgraph_default_inline_p, cgraph_decide_inling_of_small_functions, 
+		cgraph_default_inline_p, cgraph_decide_inling_of_small_functions,
 		cgraph_decide_inlining, cgraph_inline_p): New functions.
 		* params.def (PARAM_LARGE_FUNCTION_INSNS, PARAM_LARGE_FUNCTION_GROWTH,
 		PARAM_INLINE_UNIT_GROWTH): New parameters.
@@ -1828,7 +1832,7 @@ Thu Jul  3 18:23:33 CEST 2003  Jan Hubicka  <jh@suse.cz>
 	(TARGET_OPTIONS): Define.
 	* config/s390/s390.c (s390_tune, s390_tune_flags, s390_tune_string,
 	s390_arch, s390_arch_flags, s390_arch_string): New variables.
-	(override_options): Decode -march and -mtune flags.  Fill in 
+	(override_options): Decode -march and -mtune flags.  Fill in
 	s390_tune* and s390_arch* global variables.
 	* config/s390/linux.h (ASM_DEFAULT_ABI_SPEC, ASM_DEFAULT_MODE_SPEC,
 	ASM_DEFAULT_ARCH_SPEC): New macros.
@@ -1857,7 +1861,7 @@ Thu Jul  3 18:23:33 CEST 2003  Jan Hubicka  <jh@suse.cz>
 	* config/s390/s390-protos.h: (s390_agen_dep_p): Declare.
 	* config/s390/s390.md (attr "type"): Add "larl", "fsimpd", "fsimps",
 	"floadd", "floads", "fstored", "fstores", "fmuld", "fmuls", "fdivd",
-	"fdivs", "ftoi", "itof", "fsqrtd", "fsqrts".  Remove "lmul", "fmul", 
+	"fdivs", "ftoi", "itof", "fsqrtd", "fsqrts".  Remove "lmul", "fmul",
 	"ldiv", and "fdiv".
 	(attr "atype"): Add "agen", remove "mem".
 	(function units): Adapt to attr "type" changes.
@@ -1887,18 +1891,18 @@ Thu Jul  3 18:23:33 CEST 2003  Jan Hubicka  <jh@suse.cz>
 	"*tstsi", "*tstsi_cconly", "*tsthiCCT", "*tsthiCCT_cconly",
 	"*tsthi", "*tsthi_cconly", "*tstqiCCT", "*tstqiCCT_cconly",
 	"*tstqi", "*tstqi_cconly", "*cmpsi_ccs_sign", "*cmpsi_ccs",
-	"*cmpsi_ccu", "*cmphi_ccu", "*cmpqi_ccu", "*cli", 
+	"*cmpsi_ccu", "*cmphi_ccu", "*cmpqi_ccu", "*cli",
 	"movti", "*movdi_64", "*movdi_31", "*movsi", "movhi", "movqi_64",
 	"movqi", "*movstrictqi", "*movstricthi", "movstrictsi",
-	"*movdf_64", "*movdf_31", "*movsf", 
+	"*movdf_64", "*movdf_31", "*movsf",
 	"*load_multiple_si", "*store_multiple_di",
-	"*sethighqisi", "*sethighhisi", "*sethighqidi_31", "*extendhisi2", 
-	"*la_64", "*la_31", "*la_31_and", "force_la_31", 
+	"*sethighqisi", "*sethighhisi", "*sethighqidi_31", "*extendhisi2",
+	"*la_64", "*la_31", "*la_31_and", "force_la_31",
 	"*addsi3_carry1_cc", *addsi3_carry1_cconly",
 	"*addsi3_carry2_cc", *addsi3_carry2_cconly",
 	"*addsi3_cc", "*addsi3_cconly", "*addsi3_cconly2",
-	"*addsi3_sign", "*addsi3_sub", "addsi3", 
-	"*subsi3_borrow_cc", "*subsi3_borrow_cconly", "*subsi3_cc", 
+	"*addsi3_sign", "*addsi3_sub", "addsi3",
+	"*subsi3_borrow_cc", "*subsi3_borrow_cconly", "*subsi3_cc",
 	"*subsi3_cconly", "*subsi3_sign", "*subsi3_sub", "subsi3",
 	"mulsi3"
 	"*andsi3_cc", "*andsi3_cconly", "andsi3",
@@ -1910,7 +1914,7 @@ Thu Jul  3 18:23:33 CEST 2003  Jan Hubicka  <jh@suse.cz>
 	"*tls_load_31"): Add alternatives for long-displacement instructions.
 	("*cmpdf_ccs", "*cmpdf_ccs_ibm", "*cmpsf_ccs", "*cmpsf_ccs_ibm",
 	"*load_multiple_di", "*store_multiple_di",
-	"*sethighqidi_64", "*zero_extendhisi2_31", 
+	"*sethighqidi_64", "*zero_extendhisi2_31",
 	"truncdfsf2_ibm", "extendsfdf2_ieee", "extendsfdf2_ibm",
 	"adddf3", "*adddf3", "*adddf3_ibm",
 	"addsf3", "*addsf3", "*addsf3_ibm",
@@ -1921,17 +1925,17 @@ Thu Jul  3 18:23:33 CEST 2003  Jan Hubicka  <jh@suse.cz>
 	"mulsf3", "*mulsf3", "*mulsf3_ibm",
 	"divdf3", "*divdf3", "*divdf3_ibm",
 	"divsf3", "div*sf3", "*divsf3_ibm",
-	"sqrtdf2", "sqrtsf2", 
+	"sqrtdf2", "sqrtsf2",
 	"*cjump_long", "*icjump_long", "indirect_jump", "casesi_jump",
 	"*doloop_si_long", "*doloop_di_long", "bas_64", "bas_31",
-	"bas_r_64", "bas_r_31", "bas_tls_31", "bas_tls_64"): Adapt memory 
-	and address constraints for instructions that do not accept long 
+	"bas_r_64", "bas_r_31", "bas_tls_31", "bas_tls_64"): Adapt memory
+	and address constraints for instructions that do not accept long
 	displacements.
 
 2003-06-29  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* loop.c (count_one_set): Fix detection of registers set in more
-	than one basic block.	
+	than one basic block.
 
 2003-06-27  Josef Zlomek  <zlomekj@suse.cz>
 
@@ -2028,7 +2032,7 @@ Fri Jun 20 18:58:58 CEST 2003  Jan Hubicka  <jh@suse.cz>
 		* alloc-pool.c (last_id): Put in ENABLE_CHECKING guards.
 
 	2003-05-12  Josef Zlomek  <zlomekj@suse.cz>
-	
+
 		* alloc-pool.h (ALLOC_POOL_ID_TYPE): New type.
 		(struct alloc_pool_def): New element 'id'.
 		* alloc-pool.c (fancy_abort): Extern function prototype.
@@ -2199,7 +2203,7 @@ Thu Jun  5 14:29:16 CEST 2003  Jan Hubicka  <jh@suse.cz>
 Thu Jun  5 11:40:30 CEST 2003  Jan Hubicka  <jh@suse.cz>
 
 	* combine.c (simplify_if_then_else): (IF_THEN_ELSE (NE REG 0) (0) (8))
-	is REG for nonzero_bits (REG) == 8.  
+	is REG for nonzero_bits (REG) == 8.
 
 2003-06-03  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
@@ -2306,7 +2310,7 @@ Wed Apr  2 23:57:03 CEST 2003  Jan Hubicka  <jh@suse.cz>
 	(stage[2-4]_build): Add POSTSTAGE1_FLAGS_TO_PASS.
 	(stageprofile_build, stageprofile_copy, stagefeedback_build,
 	stagefeedback_copy): New.
-	(restageprofile, restagefeedback, stageprofile-start, 
+	(restageprofile, restagefeedback, stageprofile-start,
 	stageprofile, stagefeedback-start): Likewise.
 
 	* Make-lang.in:  Add support for stageprofile and stagefeedback
@@ -2817,7 +2821,7 @@ Sat Jan 11 12:21:45 CET 2003  Jan Hubicka  <jh@suse.cz>
 Thu Jan  9 14:17:47 CET 2003  Josef Zlomek <zlomekj@suse.cz>
 
 	Merge from rtlopt branch:
-	
+
 	2003-01-02  Josef Zlomek <zlomekj@suse.cz>
 
 	* bb-reorder.c (copy_bb_p): Parameter code_may_grow was added.
