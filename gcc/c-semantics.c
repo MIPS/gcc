@@ -47,7 +47,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 void (*lang_expand_stmt) PARAMS ((tree));
 
 static tree find_reachable_label_1	PARAMS ((tree *, int *, void *));
-static tree find_reachable_label	PARAMS ((tree));
 static bool expand_unreachable_if_stmt	PARAMS ((tree));
 static bool expand_unreachable_stmt	PARAMS ((tree, int));
 
@@ -929,7 +928,7 @@ find_reachable_label_1 (tp, walk_subtrees, data)
 
 /* Determine whether expression EXP contains a potentially
    reachable label.  */
-static tree
+tree
 find_reachable_label (exp)
      tree exp;
 {

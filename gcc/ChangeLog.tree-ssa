@@ -1,3 +1,15 @@
+2003-04-21  Jeff Law  <law@redhat.com>
+
+	* c-common.h (find_reachable_label): Prototype.
+	* c-semantics.c (find_reachable_label): No longer static.
+	* c-simplify.c (c_build_bind_expr): Avoid creating unnecessary
+	BIND_EXPRs.
+	(simplify_cleanup): Avoid creating unnecessary TRY_CATCH_EXPRs
+	or TRY_FINALLY_EXPRs.
+	(simplify_if_stmt): If the condition is constant and the
+	unexecuted arm has no reachable code, then just emit
+	the executed arm.
+
 2003-04-18  Sebastian Pop  <s.pop@laposte.net>
 
 	* cfghooks.h, cfghooks.c: New files.

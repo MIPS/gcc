@@ -1283,4 +1283,6 @@ extern void init_pp_output			PARAMS ((FILE *));
 extern void preprocess_file			PARAMS ((cpp_reader *));
 extern void pp_file_change		PARAMS ((const struct line_map *));
 
+extern tree find_reachable_label	PARAMS ((tree));
+
 #endif /* ! GCC_C_COMMON_H */

@@ -367,6 +367,11 @@ c_build_bind_expr (block, body)
   c_simplify_stmt (&BIND_EXPR_BODY (bind));
   gimple_pop_bind_expr ();
 
+  /* If the block has an empty body and no decls, then just
+     return an empty statement.  */
+  if (BIND_EXPR_BODY (bind) == empty_stmt_node && decls == NULL_TREE)
+    return empty_stmt_node;
+
   return bind;
 }
 
@@ -433,7 +438,22 @@ simplify_cleanup (stmt_p, next_p)
 
   c_simplify_stmt (&body);
 
-  *stmt_p = build (code, void_type_node, body, cleanup);
+  if (body == empty_stmt_node)
+    {
+      /* If the body of a TRY_FINALLY is empty, then we can just
+	 emit the handler without the enclosing TRY_FINALLY. 
+
+	 If the body of a TRY_CATCH is empty and the handler has
+	 no reachable code, then we can emit an empty statement
+	 without the enclosing TRY_CATCH.  */
+      if (code == TRY_FINALLY_EXPR)
+	*stmt_p = cleanup;
+      else if (! find_reachable_label (cleanup))
+	*stmt_p = empty_stmt_node;
+    }
+  else
+    *stmt_p = build (code, void_type_node, body, cleanup);
+
   *next_p = NULL_TREE;
 }
 
@@ -681,8 +701,31 @@ simplify_if_stmt (stmt_p)
   tree else_ = ELSE_CLAUSE (stmt);
   tree cond = IF_COND (stmt);
 
-  simplify_condition (&cond);
+  /* Avoid generating silly code.  */
+  if (integer_nonzerop (cond))
+    {
+      /* If there are no reachable statements in the ELSE arm, then
+         we can just emit the THEN arm (skipping the conditional).  */
+      if (! find_reachable_label (else_))
+        {
+	  c_simplify_stmt (&then_);
+	  *stmt_p = then_;
+	  return;
+        }
+    }
+  else if (integer_zerop (cond))
+    {
+      /* If there are no reachable statements in the THEN arm, then
+         we can just emit the ELSE arm (skipping the conditional).  */
+      if (! find_reachable_label (then_))
+        {
+	  c_simplify_stmt (&else_);
+	  *stmt_p = else_;
+	  return;
+        }
+    }
 
+  simplify_condition (&cond);
   c_simplify_stmt (&then_);
   c_simplify_stmt (&else_);
 
