@@ -1,5 +1,12 @@
 2004-07-10  Michael Koch  <konqueror@gmx.de>
 
+	* javax/swing/JTextArea.java
+	(tabSize): New field.
+	(getTabSize): New method.
+	(setTabSize): Likewise.
+
+2004-07-10  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/ActionMap.java:
 	Fixed javadocs all over.
 	(serialVersionUID): Made private.
