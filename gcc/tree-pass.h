@@ -79,11 +79,10 @@ struct tree_opt_pass
 /* To-do flags.  */
 #define TODO_dump_func		(1 << 0)	/* pass doesn't dump itself */
 #define TODO_rename_vars	(1 << 1)	/* rewrite new vars to ssa */
-#define TODO_redundant_phi	(1 << 2)	/* kill_redundant_phi_nodes */
-#define TODO_ggc_collect	(1 << 3)	/* run the collector */
-#define TODO_verify_ssa		(1 << 4)
-#define TODO_verify_flow	(1 << 5)
-#define TODO_verify_stmts	(1 << 6)
+#define TODO_ggc_collect	(1 << 2)	/* run the collector */
+#define TODO_verify_ssa		(1 << 3)
+#define TODO_verify_flow	(1 << 4)
+#define TODO_verify_stmts	(1 << 5)
 
 #define TODO_verify_all \
   (TODO_verify_ssa | TODO_verify_flow | TODO_verify_stmts)
@@ -120,6 +119,7 @@ extern struct tree_opt_pass pass_late_warn_uninitialized;
 extern struct tree_opt_pass pass_warn_function_return;
 extern struct tree_opt_pass pass_phiopt;
 extern struct tree_opt_pass pass_forwprop;
+extern struct tree_opt_pass pass_redundant_phi;
 
 
 #endif /* GCC_TREE_PASS_H */

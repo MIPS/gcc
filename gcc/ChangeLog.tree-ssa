@@ -1,3 +1,18 @@
+2004-02-12  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-flow.h (kill_redundant_phi_nodes): Remove declaration.
+	* tree-optimize.c (init_tree_optimization_passes): Add
+	pass_redundant_phi after DOM and CCP.
+	(execute_todo): Do not call kill_redundant_phi_nodes.
+	* tree-pass.h (TODO_redundant_phi): Remove.
+	Update all users.
+	Adjust values for all the other TODO_* entries.
+	(pass_redundant_phi): Declare.
+	* tree-ssa.c (replace_immediate_uses): Call mark_new_vars_to_rename
+	if a pointer was replaced.
+	(kill_redundant_phi_nodes): Make static.
+	(pass_redundant_phi): Define.
+
 2004-02-12  Dale Johannesen  <dalej@apple.com>
 
 	* Makefile.in (OBJS-common): Add rtl-profile.o, tree-profile.o.

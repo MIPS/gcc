@@ -283,6 +283,7 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_early_warn_uninitialized);
   NEXT_PASS (pass_dce);
   NEXT_PASS (pass_dominator);
+  NEXT_PASS (pass_redundant_phi);
   NEXT_PASS (DUP_PASS (pass_dce));
   NEXT_PASS (pass_forwprop);
   NEXT_PASS (pass_phiopt);
@@ -292,16 +293,19 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_lower_complex);
   NEXT_PASS (pass_sra);
   NEXT_PASS (DUP_PASS (pass_dominator));
+  NEXT_PASS (DUP_PASS (pass_redundant_phi));
   NEXT_PASS (DUP_PASS (pass_dce));
   NEXT_PASS (DUP_PASS (pass_forwprop));
   NEXT_PASS (DUP_PASS (pass_phiopt));
   NEXT_PASS (pass_tail_recursion);
   NEXT_PASS (pass_loop);
   NEXT_PASS (pass_ccp);
+  NEXT_PASS (DUP_PASS (pass_redundant_phi));
   NEXT_PASS (pass_fold_builtins);
   NEXT_PASS (pass_split_crit_edges);
   NEXT_PASS (pass_pre);
   NEXT_PASS (DUP_PASS (pass_dominator));
+  NEXT_PASS (DUP_PASS (pass_redundant_phi));
   NEXT_PASS (pass_cd_dce);
   NEXT_PASS (DUP_PASS (pass_forwprop));
   NEXT_PASS (DUP_PASS (pass_phiopt));
@@ -324,7 +328,8 @@ static void execute_pass_list (struct tree_opt_pass *);
 static unsigned int current_properties;
 static unsigned int last_verified;
 
-static void execute_todo (unsigned int flags)
+static void
+execute_todo (unsigned int flags)
 {
   if (flags & TODO_rename_vars)
     {
@@ -332,9 +337,6 @@ static void execute_todo (unsigned int flags)
 	rewrite_into_ssa ();
       BITMAP_XFREE (vars_to_rename);
     }
-
-  if (flags & TODO_redundant_phi)
-    kill_redundant_phi_nodes ();
 
   if ((flags & TODO_dump_func) && tree_dump_file)
     dump_function_to_file (current_function_decl,

@@ -3827,7 +3827,16 @@ replace_immediate_uses (tree var, tree repl)
 	    if (VDEF_OP (vdefs, j) == var)
 	      *VDEF_OP_PTR (vdefs, j) = repl;
 	}
+
       modify_stmt (stmt);
+
+      /* If REPL is a pointer, it may have different memory tags associated
+	 with it.  For instance, VAR may have had a name tag while REPL
+	 only had a type tag.  In these cases, the virtual operands (if
+	 any) in the statement will refer to different symbols which need
+	 to be renamed.  */
+      if (POINTER_TYPE_P (TREE_TYPE (repl)))
+	mark_new_vars_to_rename (stmt, vars_to_rename);
     }
 }
 
@@ -3903,7 +3912,7 @@ raise_value (tree phi, tree val, tree *eq_to)
    The most important effect of this pass is to remove degenerate PHI
    nodes created by removing unreachable code.  */
 
-void
+static void
 kill_redundant_phi_nodes (void)
 {
   tree *eq_to, *ssa_names;
@@ -3999,6 +4008,23 @@ kill_redundant_phi_nodes (void)
   free (eq_to);
   free (ssa_names);
 }
+
+struct tree_opt_pass pass_redundant_phi =
+{
+  "redphi",				/* name */
+  NULL,					/* gate */
+  kill_redundant_phi_nodes,		/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  0,					/* tv_id */
+  PROP_cfg | PROP_ssa,			/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func | TODO_rename_vars 
+    | TODO_ggc_collect | TODO_verify_ssa /* todo_flags_finish */
+};
 
 /* Emit warnings for uninitialized variables.  This is done in two passes.
 

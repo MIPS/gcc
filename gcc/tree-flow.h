@@ -563,7 +563,6 @@ extern void register_new_def (tree, tree, varray_type *, varray_type);
 extern void walk_use_def_chains (tree, walk_use_def_chains_fn, void *);
 
 extern unsigned int highest_ssa_version;
-extern void kill_redundant_phi_nodes (void);
 
 /* In tree-ssa-pre.c  */
 extern void tree_perform_ssapre (tree, enum tree_dump_index);
