@@ -2,7 +2,7 @@
    Copyright (C) 2003 Free Software Foundation Inc.  */
 
 /* { dg-do compile } */
-/* { dg-options "-O -finline-functions -Wextra" } */
+/* { dg-options "-O -finline-functions -W" } */
 
 extern int i;
 extern int foo (void);
