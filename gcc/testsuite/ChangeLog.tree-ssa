@@ -1,5 +1,8 @@
 2003-08-15  Jeff Law  <law@redhat.com>
 
+	* gcc.dg/tree-ssa/20030814-6.c: New test.
+	* gcc.dg/tree-ssa/20030814-7.c: New test.
+
 	* gcc.dg/tree-ssa/20030814-4.c: Test optimized output to verify
 	useless statement created by out-of-ssa pass is removed.
 	* gcc.dg/tree-ssa/20030814-5.c: Similarly.
