@@ -434,8 +434,10 @@ push (int rn)
 
   if (TARGET_H8300)
     x = gen_push_h8300 (reg);
-  else
+  else if (!TARGET_NORMAL_MODE)
     x = gen_push_h8300hs (reg);
+  else
+    x = gen_push_h8300hs_normal (reg);
   x = emit_insn (x);
   REG_NOTES (x) = gen_rtx_EXPR_LIST (REG_INC, stack_pointer_rtx, 0);
 }
@@ -450,8 +452,10 @@ pop (int rn)
 
   if (TARGET_H8300)
     x = gen_pop_h8300 (reg);
-  else
+  else if (!TARGET_NORMAL_MODE)
     x = gen_pop_h8300hs (reg);
+  else
+    x = gen_pop_h8300hs_normal (reg);
   x = emit_insn (x);
   REG_NOTES (x) = gen_rtx_EXPR_LIST (REG_INC, stack_pointer_rtx, 0);
 }
@@ -1977,7 +1981,7 @@ compute_mov_length (rtx *operands)
 
 		  if (val == (val & 0x00ff) || val == (val & 0xff00))
 		    return 4;
-		  
+
 		  switch (val & 0xffffffff)
 		    {
 		    case 0xffffffff:
@@ -4546,7 +4550,7 @@ h8300_hard_regno_rename_ok (unsigned int old_reg ATTRIBUTE_UNUSED,
       && !regs_ever_live[new_reg])
     return 0;
 
-   return 1;
+  return 1;
 }
 
 /* Perform target dependent optabs initialization.  */

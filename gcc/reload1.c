@@ -673,6 +673,17 @@ reload (rtx first, int global)
       if (! call_used_regs[i] && ! fixed_regs[i] && ! LOCAL_REGNO (i))
 	regs_ever_live[i] = 1;
 
+#ifdef NON_SAVING_SETJMP
+  /* A function that calls setjmp should save and restore all the
+     call-saved registers on a system where longjmp clobbers them.  */
+  if (NON_SAVING_SETJMP && current_function_calls_setjmp)
+    {
+      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+	if (! call_used_regs[i])
+	  regs_ever_live[i] = 1;
+    }
+#endif
+
   /* Find all the pseudo registers that didn't get hard regs
      but do have known equivalent constants or memory slots.
      These include parameters (known equivalent to parameter slots)
@@ -1240,6 +1251,14 @@ reload (rtx first, int global)
      created shared rtx.  Subsequent passes would get confused
      by this, so unshare everything here.  */
   unshare_all_rtl_again (first);
+
+#ifdef STACK_BOUNDARY
+  /* init_emit has set the alignment of the hard frame pointer
+     to STACK_BOUNDARY.  It is very likely no longer valid if
+     the hard frame pointer was used for register allocation.  */
+  if (!frame_pointer_needed)
+    REGNO_POINTER_ALIGN (HARD_FRAME_POINTER_REGNUM) = BITS_PER_UNIT;
+#endif
 
   return failure;
 }

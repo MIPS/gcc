@@ -1,3 +1,393 @@
+2003-11-29  James E Wilson  <wilson@specifixinc.com>
+
+	* final.c (final_start_function): Delete code for NON_SAVING_SETJMP.
+	* reload1.c (reload): Re-add it here.
+
+2003-11-30  Alan Modra  <amodra@bigpond.net.au>
+
+	* config/rs6000/rs6000.c (rs6000_elf_section_type_flags): Don't
+	set SECTION_WRITE on TARGET_RELOCATABLE.
+
+2003-11-29  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.h (LIBCALL_VALUE): Use R0_REG.
+
+2003-11-28  Gunther Nikl  <gni@gecko.de>
+
+	* config/m68k/m68k.c (MOTOROLA): Move from here...
+	* config/m68k/m68k.h (MOTOROLA): ... to here.
+	(OUTPUT_JUMP): Use do {...} while (0).
+	* config/m68k/m68k.md: Replace #ifdef MOTOROLA with C statements.
+
+2003-11-28  Gunther Nikl  <gni@gecko.de>
+
+	* config.gcc (m68020-*-elf*, m68k-*-elf*, m68010-*-netbsdelf*,
+	m68k*-*-netbsdelf*, m68k-*-rtems*): Add tm_defines containing
+	MOTOROLA and USE_GAS.
+	* config/m68k/rtemself.h (MOTOROLA): Delete.
+	* config/m68k/netbsd-elf.h (MOTOROLA, USE_GAS): Delete.
+	* config/m68k/m68kelf.h (MOTOROLA, USE_GAS, SGS_CMP_ORDER): Delete.
+
+2003-11-29  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.h (WORDS_BIG_ENDIAN): Update the comment.
+
+2003-11-29  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* Makefile.in (install-info): Install gccinstall.info too.
+
+2003-11-29  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* config/s390/s390.md ("cmpint_di"): Fix incorrect instruction lengths.
+
+2003-11-29  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* config/s390/s390.md ("movhi"): Do not emit extender pattern
+	when loading from a (MEM (ADDRESSOF ...)).
+	("movqi"): Likewise.
+
+2003-11-29  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	PR c/10333
+	* c-parse.in (typespec_reserved_nonattr): Reject typeof on
+	bit-fields.
+
+2003-11-29  Richard Sandiford  <rsandifo@redhat.com>
+
+	* stmt.c (expand_asm_operands): Check whether force_const_mem
+	succeeded.
+
+2003-11-28  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* config/gnu.h (HURD_TARGET_OS_CPP_BUILTINS): New.
+	* config/linux.h (LINUX_TARGET_OS_CPP_BUILTINS): New.
+	
+	* config/alpha/gnu.h, config/alpha/linux.h,
+	config/arm/linux-elf.h, config/cris/cris.h, config/cris/linux.h,
+	config/i370/linux.h, config/i386/gnu.h, config/i386/i386.h,
+	config/i386/linux-aout.h, config/i386/linux.h,
+	config/i386/linux64.h, config/ia64/linux.h, config/m68k/linux.h,
+	config/m68k/uclinux.h, config/mips/linux.h,
+	config/mn10300/linux.h, config/pa/pa-linux.h,
+	config/rs6000/sysv4.h, config/s390/linux.h, config/sh/linux.h,
+	config/sparc/linux.h, config/sparc/linux64.h,
+	config/xtensa/linux.h (TARGET_OS_CPP_BUILTINS): Use
+	HURD_TARGET_OS_CPP_BUILTINS/LINUX_TARGET_OS_CPP_BUILTINS or ensure
+	all necessary assertions are included.
+
+2003-11-28  Jan Hubicka  <jh@suse.cz>
+
+	* emit-rtl.c (set_used_flags): New.
+	(verify_rtx_sharing, verify_rtl_sharing): New.
+	(unshare_all_rtl_1): Rename to....
+	(unshare_all_rtl_in_chain): ... this one; make static.
+	(copy_rtx_if_shared): LABEL_REF chan be shared.
+	* ifcvt.c (unshare_ifcvt_sequence): New.
+	(noce_try_move, noce_try_store_flag, noce_try_store_flag_constants,
+	noce_try_addcc, noce_try_addcc, noce_try_store_flag_mask,
+	noce_try_cmove, noce_try_store_flag_mask, noce_try_minmax,
+	noce_try_abs, noce_process_if_block, find_cond_trap
+	* rtl.h (verify_rtl_sharing, set_used_flags, unshare_all_rtl_in_chain):
+	Declare.
+
+2003-11-28  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.md: Fix a comment typo.
+
+2003-11-28  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.md (*movsf_h8300h): Change to
+	*movsf_h8300hs.
+	(addsi_h8300): Change to *addsi_h8300.
+	(addsi_h8300h): Change to *addsi_h8300hs.
+	(subsi3_h8300): Change to *subsi3_h8300.
+	(subsi3_h8300h): Change to *subsi3_h8300hs.
+	(neghi2_h8300h): Change to *neghi2_h8300hs.
+	(negsi2_h8300h): Change to *negsi2_h8300hs.
+
+2003-11-28  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.md (*subhi3_h8300): Remove '&' from the
+	constraint.
+	(*subhi3_h8300hs): Likewise.
+
+2003-11-28  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/rs6000.h (MASK_MFCRF): New.
+	(TARGET_MFCRF): Test target_flags, not processor type.
+	(TARGET_SWITCHES): Add mfcrf and no-mfcrf.
+	Change Don't to Do not.
+	* config/rs6000/rs6000.c (processors_target_table): Add MASK_MFCRF
+	to power4, 970, G5.
+
+2003-11-27  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* cse.c (cse_set_around_loop): When changing a constant load
+	to a register -register copy, add a REG_EQUAL note.
+
+2003-11-27  Randolph Chung  <tausq@debian.org>
+	    John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* pa.c (hppa_profile_hook): Split gen_call_profiler into separate 
+	insns.  Use the regular call expander for the call to the profiler.
+	* pa.md (call_profiler): Delete.
+	(load_offset_label_address): New insn to load the address of the
+	current function for the profiler.
+	(lcla1, lcla2): New insns to output a code label and load its address.
+
+2003-11-27  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* final.c (final_scan_insn): Remove commented-out code.
+
+2003-11-27  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* doc/install.texi: Remove ADAC reference and make accurate.
+
+2003-11-27  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.h (FUNCTION_VALUE): Use R0_REG.
+	(FUNCTION_VALUE_REGNO_P): Likewise.
+	* config/h8300/h8300.md: Define R0_REG.
+
+2003-11-27  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.c: Fix formatting.
+	* config/h8300/h8300.md: Likewise.
+
+2003-11-27  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.h (ELIMINABLE_REGS): Update a comment.
+
+2003-11-27  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.md: Give names to anonymous insns.
+
+2003-11-27  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.md (extendqisi2): Remove constraints.
+
+2003-11-27  Gunther Nikl  <gni@gecko.de>
+
+	* doc/tm.texi (SYSROOT_HEADERS_SUFFIX_SPEC): Fix typo.
+
+2003-11-27  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR optimization/13041
+	* final.c (frame_pointer_needed): Fix comment.
+	* reload1.c (reload): Decrease alignment of the frame
+	pointer if it was used for register allocation.
+
+2003-11-27  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR target/12900
+	* reg-stack (move_for_stack_reg): New prototype.  Return
+	whether a control flow insn was deleted.
+	(subst_stack_regs_pat): Likewise, using the information provided
+	by move_for_stack_reg.
+	(subst_stack_regs): Likewise, using the information provided
+	by subst_stack_regs_pat.
+	(convert_regs_1): Record whether a control flow insn was deleted,
+	using the information provided by subst_stack_regs.  Purge dead
+	edges only if a control flow insn was deleted.
+
+2003-11-27  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR middle-end/8028
+	PR middle-end/9890
+	PR middle-end/11151
+	PR middle-end/12210
+	PR middle-end/12503
+	PR middle-end/12692
+	* builtins.c (expand_builtin_apply): Use virtual_outgoing_args_rtx
+	as the base address to copy the memory arguments to.
+
+2003-11-26  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* config/i386/cygming.h (ASM_OUTPUT_DEF_FROM_DECLS): Declare
+	function aliases as functions.
+
+2003-11-26  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* aclocal.m4 (gcc_AC_PROG_GNAT): Rewrite to account for removal
+	of ADAC.
+	* configure: Regenerate.
+
+	* Makefile.in: Remove references to ADAC.
+
+	* configure.in: Remove check for whether ${ADAC} accepts -Wno-long-long.
+	* configure: Regenerate.
+
+2003-11-26  Eric Botcazou  <ebotcazou@libertysurf.fr>
+            Olivier Hainque  <hainque@act-europe.fr>
+
+	PR target/6466
+	* config/sparc/sparc-protos.h (compute_frame_size): New prototype.
+	(sparc_flat_compute_frame_size): Likewise.
+	(sparc_flat_save_restore): Move prototype...
+	* config/sparc/sparc.c (sparc_flat_save_restore): ...here.
+	(save_regs): New prototype.
+	(build_big_number): Likewise.
+	(apparent_fsize): Change type to HOST_WIDE_INT.
+	(actual_fsize): Likewise.
+	(frame_base_offset): Likewise.
+	(build_big_number): Add support for HOST_BITS_PER_WIDE_INT == 64.
+	Change string descriptor to HOST_WIDE_INT_PRINT_DEC.
+	[TARGET_ARCH64]: Use the sequence of sparc_emit_set_const64_longway
+	to load a 64-bit constant.
+	(sparc_nonflat_function_prologue): Change string descriptor to
+	HOST_WIDE_INT_PRINT_DEC.  Change offset type to HOST_WIDE_INT.
+	(output_restore_regs): Change offset type to HOST_WIDE_INT.
+	(sparc_nonflat_function_epilogue): Change string descriptor to
+	HOST_WIDE_INT_PRINT_DEC.  Use build_big_number.
+	(output_sibcall): Change size type to HOST_WIDE_INT.  Use
+	build_big_number.  Change string descriptor to HOST_WIDE_INT_PRINT_DEC.
+	(sparc_frame_info): Change types for several components.
+	(sparc_flat_compute_frame_size): Update types according to previous
+	change.
+	(sparc_flat_function_prologue): Change string descriptor to
+	HOST_WIDE_INT_PRINT_DEC.  Change offset type to int.  Use
+	build_big_number.
+	(sparc_flat_function_epilogue): Change offset type to int.
+	Rename 'size1' into 'reg_offset1'.  Change string descriptor to
+	HOST_WIDE_INT_PRINT_DEC.  Use build_big_number.  Change big number
+	limit to 4096 instead of 4095.
+
+	* config/sparc/sparc.c (mems_ok_for_ldd_peep): Change offset type to
+	HOST_WIDE_INT.
+
+2003-11-24  Waldek Hebisch <hebisch@math.uni.wroc.pl>
+
+	* function.c: Make outer_function-chain external.
+	* function.h: Likewise.
+
+2003-11-24  Richard Sandiford  <rsandifo@redhat.com>
+
+	* config.gcc (mips-sgi-irix6*): Add t-iris6gld to tmake_file when
+	using GNU ld.
+	* config/mips/iris6.h (IRIX6_STARTFILE_SPEC): New, taking the
+	whole of the previous STARTFILE_SPEC except crtbegin.o%s.
+	(IRIX6_ENDFILE_SPEC): Likewise ENDFILE_SPEC and crtend.o%s.
+	(STARTFILE_SPEC, ENDFILE_SPEC): Define in terms of the above.
+	(SUBTARGET_EXTRA_SPECS): Define.
+	* config/mips/iris6gld.h (LINK_SPEC): Change -init function
+	to __gcc_init and -fini function to __gcc_fini.
+	(STARTFILE_SPEC): Redefine, including irix6-crti.o before crtbegin.o.
+	(ENDFILE_SPEC): Likewise, including irix6-crtn.o after crtend.o.
+	(INIT_SECTION_ASM_OP, FINI_SECTION_ASM_OP): Define.
+	* config/mips/t-iris6gld,
+	* config/mips/irix6-crti.asm,
+	* config/mips/irix6-crtn.asm: New files.
+
+2003-11-24  Eric Christopher  <echristo@redhat.com>
+
+	PR C/13014
+	* c-decl.c (c_in_iteration_stmt, c_in_case_stmt): New.
+	(start_function): Use.
+	(c_push_function_context): Ditto.
+	(c-pop_function_context): Ditto.
+        (language_function): Move...
+	* c-tree.h: ... here. Add x_in_iteration_stmt, and
+	x_in_case_stmt.
+	* c-parse.in (do_stmt_start, select_or_iter_stmt, stmt): Use
+	c_in_iteration_stmt, c_in_case_stmt for parser state. Move
+	check for valid break or continue statment here...
+	* c-semantics.c (genrtl_break_stmt, genrtl_continue_stmt): From
+	here. Change original errors to abort.
+
+2003-11-24  Jan Hubicka  <jh@suse.cz>
+
+	* fold-const.c (fold):  Do not return early when optimizing
+	COMPONENT_REF and constant.
+
+2003-11-24  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.md (tablejump_h8300): Change to
+	*tablejump_h8300.
+	(tablejump_h8300h): Change to *tablejump_h8300hs_advanced.
+	(tablejump_normal_mode): Change to *tablejump_h8300hs_normal.
+	(indirect_jump_h8300): Change to *indirect_jump_h8300.
+	(indirect_jump_h8300h): Change to
+	*indirect_jump_h8300hs_advanced.
+	(indirect_jump_normal_mode): Change to
+	*indirect_jump_h8300hs_normal.
+
+2003-11-24  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.md: Remove constraints from expanders.
+
+2003-11-24  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.md: (stm_h8300s_2): Change the name to
+	stm_h8300s_2_advanced.
+	(stm_h8300s_2_normal): New.
+	(stm_h8300s_2): Likewise.
+	(stm_h8300s_3): Change the name to stm_h8300s_3_advanced.
+	(stm_h8300s_3_normal): New.
+	(stm_h8300s_3): Likewise.
+	(stm_h8300s_4): Change the name to stm_h8300s_4_advanced.
+	(stm_h8300s_4_normal): New.
+	(stm_h8300s_4): Likewise.
+	(ldm_h8300s_2): Change the name to ldm_h8300s_2_advanced.
+	(ldm_h8300s_2_normal): New.
+	(ldm_h8300s_2): Likewise.
+	(ldm_h8300s_3): Change the name to ldm_h8300s_3_advanced.
+	(ldm_h8300s_3_normal): New.
+	(ldm_h8300s_3): Likewise.
+	(ldm_h8300s_4): Change the name to ldm_h8300s_4_advanced.
+	(ldm_h8300s_4_normal): New.
+	(ldm_h8300s_4): Likewise.
+	(two peephole2's): Enable only with !TARGET_NORMAL_MODE.
+	(two peephole2's): New.
+
+2003-11-24  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* genattrtab.c (simplify_cond): Update indices correctly.
+	(attr_alt_subset_p, attr_alt_subset_of_compl_p, attr_alt_intersection,
+	attr_alt_union, attr_alt_complement, attr_alt_bit_p, mk_attr_alt): New.
+	(check_attr_test, encode_units_mask, compute_alternative_mask,
+	make_alternative_compare, simplify_and_tree,
+	attr_rtx_cost, simplify_test_exp, gen_attr,
+	write_test_expr, walk_attr_value): Handle EQ_ATTR_ALT.
+	* rtl.def (EQ_ATTR_ALT): New.
+
+2003-11-23  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* genattrtab.c (strcmp_check, DEF_ATTR_STRING): New macros.
+	(length_str, delay_type_str, delay_1_0_str, num_delay_slots_str):
+	New variables.
+	(main): Initialize them.
+	(find_attr): Canonicalize the attribute name string.
+	(attr_rtx_1, copy_boolean, expand_delays, gen_unit): Always canonicalize
+	string arguments.
+	(attr_printf, attr_eq): Use DEF_ATTR_STRING.
+	(check_attr_test, check_attr_value, make_length_attrs,
+	write_length_unit_log, simplify_by_exploding, gen_attr,
+	write_test_expr, write_attr_value, write_eligible_delay,
+	write_complex_function, make_internal_attr,
+	write_const_num_delay_slots): Changed due to change of type of
+	find_attr.
+	(fill_attr, evaluate_eq_attr, simplify_and_tree,
+	attr_rtx_cost, simplify_by_exploding, walk_attr_value): Use
+	strcmp_check.
+
+2003-11-23  Kazu Hirata  <kazu@cs.umass.edu>
+
+	PR target/13122
+	* config/h8300/h8300.c (push): Call push_h8300hs_normal in
+	normal mode.
+	(pop): Call pop_h8300hs_normal in normal mode.
+	* config/h8300/h8300.md: Likewise.
+	(pushqi1_h8300hs_normal): New.
+	(pushqi1): Call pushqi1_h8300hs_normal in normal mode.
+	(pushhi1_h8300hs_normal): New.
+	(pushhi1): Call pushhi1_h8300hs_normal in normal mode.
+	(push_h8300hs_normal): New.
+	(pop_h8300hs_normal): Likewise.
+
+2003-11-23  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* genattrtab.c (count_sub_rtxs): Removed.
+
 2003-11-23  Richard Earnshaw  <rearnsha@arm.com>
 
 	* recog.c (preprocess_constraints): Only zero those elements of
@@ -110,7 +500,7 @@
 
 	* calls.c (expand_call): Allocate new temp in pass1.
 	(store_one_arg): If PARALLEL, calculate excess using mode size of
-	rtvec elt. 
+	rtvec elt.
 	* expr.c (emit_push_insn): If PARALLEL, calculate offset using
 	mode size of rtvec elt.
 	* function.c (assign_parms): Use parm in register, if available.
@@ -2057,7 +2447,7 @@
 
 2003-10-24  Danny Smith  <dannysmith@users.sourceforge.net>
 
-	* config/i386/cygwin.asm. Add copyright notice. Add comment
+	* config/i386/cygwin.asm: Add copyright notice. Add comment
 	on why this code is needed.
 
 2003-10-23  Kazu Hirata  <kazu@cs.umass.edu>
@@ -3330,7 +3720,7 @@
 
 	* config/i386/i386.c (x86_this_parameter): Fix typo.
 
-203-10-11  Jan Hubicka  <jh@suse.cz>
+203-10-11  Jan Hubicka  <jh@suse.cz>
 
 	* Makefile.in (web.o): New.
 	* web.c: New file.

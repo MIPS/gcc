@@ -1324,12 +1324,14 @@ m68k-*-coff*)
 	;;
 m68020-*-elf* | m68k-*-elf*)
 	tm_file="m68k/m68k.h m68k/m68k-none.h m68k/m68kelf.h dbxelf.h elfos.h m68k/m68kemb.h m68k/m68020-elf.h"
+	tm_defines="MOTOROLA USE_GAS"
 	tmake_file=m68k/t-m68kelf
 	extra_parts="crtbegin.o crtend.o"
 	use_fixproto=yes
 	;;
 m68010-*-netbsdelf* | m68k*-*-netbsdelf*)
 	tm_file="${tm_file} dbxelf.h elfos.h netbsd.h netbsd-elf.h m68k/netbsd-elf.h"
+	tm_defines="MOTOROLA USE_GAS"
 	case ${target} in
 	m68010*)
 		target_cpu_default="0"
@@ -1376,6 +1378,7 @@ m68k-*-linux*)		# Motorola m68k's running GNU/Linux
 m68k-*-rtems*)
 	tmake_file="m68k/t-m68kbare m68k/t-crtstuff t-rtems m68k/t-rtems"
 	tm_file="m68k/m68k.h m68k/m68k-none.h m68k/m68kelf.h dbxelf.h elfos.h m68k/m68kemb.h m68k/m68020-elf.h m68k/rtemself.h rtems.h"
+	tm_defines="MOTOROLA USE_GAS"
 	extra_parts="crtbegin.o crtend.o"
 	;;
 mcore-*-elf)
@@ -1418,6 +1421,7 @@ mips-sgi-irix6*o32)		# SGI System V.4., IRIX 6, O32 ABI
 	;;
 mips-sgi-irix6*)		# SGI System V.4., IRIX 6
 	tm_file="${tm_file} mips/iris5.h mips/iris6.h"
+	tmake_file="mips/t-iris mips/t-iris5-6 mips/t-iris6"
 	if test x$gas = xyes
 	then
 		tm_file="${tm_file} mips/iris6gas.h"
@@ -1425,8 +1429,8 @@ mips-sgi-irix6*)		# SGI System V.4., IRIX 6
 	if test "x$gnu_ld" = xyes
 	then
 		tm_file="${tm_file} mips/iris6gld.h"
+		tmake_file="$tmake_file mips/t-iris6gld"
 	fi
-	tmake_file="mips/t-iris mips/t-iris5-6 mips/t-iris6"
 	target_cpu_default="MASK_ABICALLS|MASK_FLOAT64|MASK_64BIT"
 	tm_defines="MIPS_ISA_DEFAULT=3 MIPS_ABI_DEFAULT=ABI_N32"
 	# See comment in mips/iris5.h file.  Only enabled for O32 ABI

@@ -645,7 +645,7 @@ rs6000_override_options (const char *default_cpu)
 	    MASK_POWERPC | MASK_PPC_GFXOPT | MASK_NEW_MNEMONICS,
 	    POWER_MASKS},
 	 {"power4", PROCESSOR_POWER4,
-            MASK_POWERPC | MASK_PPC_GFXOPT | MASK_NEW_MNEMONICS,
+            MASK_POWERPC | MASK_PPC_GFXOPT | MASK_NEW_MNEMONICS | MASK_MFCRF,
             POWER_MASKS},
 	 {"powerpc", PROCESSOR_POWERPC,
 	    MASK_POWERPC | MASK_NEW_MNEMONICS,
@@ -753,10 +753,10 @@ rs6000_override_options (const char *default_cpu)
 	    MASK_POWERPC | MASK_SOFT_FLOAT | MASK_NEW_MNEMONICS,
 	    POWER_MASKS | POWERPC_OPT_MASKS | MASK_POWERPC64},
 	 {"970", PROCESSOR_POWER4,
-	    MASK_POWERPC | POWERPC_OPT_MASKS | MASK_NEW_MNEMONICS,
+	    MASK_POWERPC | POWERPC_OPT_MASKS | MASK_NEW_MNEMONICS | MASK_MFCRF,
 	    POWER_MASKS},
 	 {"G5", PROCESSOR_POWER4,
-	    MASK_POWERPC | POWERPC_OPT_MASKS | MASK_NEW_MNEMONICS,
+	    MASK_POWERPC | POWERPC_OPT_MASKS | MASK_NEW_MNEMONICS | MASK_MFCRF,
 	    POWER_MASKS}};
 
   const size_t ptt_size = ARRAY_SIZE (processor_target_table);
@@ -14991,14 +14991,8 @@ toc_section (void)
 static unsigned int
 rs6000_elf_section_type_flags (tree decl, const char *name, int reloc)
 {
-  unsigned int flags
-    = default_section_type_flags_1 (decl, name, reloc,
-				    flag_pic || DEFAULT_ABI == ABI_AIX);
-
-  if (TARGET_RELOCATABLE)
-    flags |= SECTION_WRITE;
-
-  return flags;
+  return default_section_type_flags_1 (decl, name, reloc,
+				       flag_pic || DEFAULT_ABI == ABI_AIX);
 }
 
 /* Record an element in the table of global constructors.  SYMBOL is

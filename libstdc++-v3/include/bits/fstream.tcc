@@ -134,9 +134,7 @@ namespace std
 		__testfail = true;
 	    }
 	  catch(...)
-	    {
-	      __testfail = true;
-	    }
+	    { __testfail = true; }
 	      
 	  // NB: Do this here so that re-opened filebufs will be cool...
 	  this->_M_mode = ios_base::openmode(0);
@@ -203,6 +201,7 @@ namespace std
 	  bool __got_eof = false;
 	  // Number of internal characters produced.
 	  streamsize __ilen = 0;
+	  codecvt_base::result __r = codecvt_base::ok;	  
 	  if (__check_facet(_M_codecvt).always_noconv())
 	    {
 	      __ilen = _M_file.xsgetn(reinterpret_cast<char*>(this->eback()), 
@@ -263,9 +262,8 @@ namespace std
 			__got_eof = true;
 		      _M_ext_end += __elen;
 		    }
-		  
+
 		  char_type* __iend;
-		  codecvt_base::result __r;
 		  __r = _M_codecvt->in(_M_state_cur, _M_ext_next,
 				       _M_ext_end, _M_ext_next, this->eback(), 
 				       this->eback() + __buflen, __iend);
@@ -279,7 +277,7 @@ namespace std
 		    }
 		  else
 		    __ilen = __iend - this->eback();
-		  
+
 		  // _M_codecvt->in may return error while __ilen > 0: this is
 		  // ok, and actually occurs in case of mixed encodings (e.g.,
 		  // XML files).
@@ -288,7 +286,7 @@ namespace std
 
 		  __rlen = 1;
 		}
-	      while (!__got_eof && __ilen == 0);
+	      while (__ilen == 0 && !__got_eof);
 	    }
 
 	  if (__ilen > 0)
@@ -304,7 +302,13 @@ namespace std
 	      // intervening seek.
 	      _M_set_buffer(-1);
 	      _M_reading = false;
+	      // However, reaching it while looping on partial means that
+	      // the file has got an incomplete character.
+	      if (__r == codecvt_base::partial)
+		__throw_ios_failure("incomplete character in file");
 	    }
+	  else
+	    __throw_ios_failure("invalid byte sequence in file");
 	}
       return __ret;
     }
@@ -744,27 +748,22 @@ namespace std
     basic_filebuf<_CharT, _Traits>::
     imbue(const locale& __loc)
     {
-      if (this->getloc() != __loc)
+      bool __testfail = false;
+
+      if (this->is_open())
 	{
-	  bool __testfail = false;
-	  if (this->is_open())
-	    {
-	      const bool __testseek =
-		this->seekoff(0, ios_base::cur, this->_M_mode) ==
-		pos_type(off_type(-1));
-	      const bool __teststate =
-		__check_facet(_M_codecvt).encoding() == -1;
+	  const pos_type __ret = this->seekoff(0, ios_base::cur,
+					       this->_M_mode);
+	  const bool __teststate = __check_facet(_M_codecvt).encoding() == -1;
+	  __testfail = __teststate && __ret != pos_type(off_type(0));
+	}
 
-	      __testfail = __testseek || __teststate;
-	    }
-
-	  if (!__testfail)
-	    {
-	      if (__builtin_expect(has_facet<__codecvt_type>(__loc), true))
-		_M_codecvt = &use_facet<__codecvt_type>(__loc);
-	      else
-		_M_codecvt = 0;
-	    }
+      if (!__testfail)
+	{
+	  if (__builtin_expect(has_facet<__codecvt_type>(__loc), true))
+	    _M_codecvt = &use_facet<__codecvt_type>(__loc);
+	  else
+	    _M_codecvt = 0;
 	}
     }
 

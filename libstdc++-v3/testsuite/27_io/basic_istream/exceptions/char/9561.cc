@@ -21,44 +21,36 @@
 #include <istream>
 #include <streambuf>
 #include <testsuite_hooks.h>
+#include <testsuite_io.h>
 
 // libstdc++/9561
-struct foobar: std::exception { };
-
-struct buf: std::streambuf
-{
-    virtual int_type underflow () {
-        throw foobar ();
-        return -1;
-    }
-    virtual int_type uflow () {
-        throw foobar ();
-        return -1;
-    }
-};
-
 void test01()
 {
   using namespace std;
   bool test __attribute__((unused)) = true;
 
-  buf b;
+  __gnu_test::fail_streambuf b;
   std::istream strm (&b);
   strm.exceptions (std::ios::badbit);
   int i = 0;
 
-  try {
-    i = strm.get();
-  }
-  catch (foobar) {
-    // strm should throw foobar and not do anything else
-    VERIFY(strm.bad());
-  }
-  catch (...) {
-    VERIFY(false);
-  }
+  try 
+    {
+      i = strm.get();
+      i = strm.get();
+      i = strm.get();
+    }
+  catch (__gnu_test::underflow_error&) 
+    {
+      // strm should throw facet_error and not do anything else
+      VERIFY(strm.bad());
+    }
+  catch (...) 
+    {
+      VERIFY(false);
+    }
 
-  VERIFY(i == 0);
+  VERIFY(i == 's');
 }
 
 

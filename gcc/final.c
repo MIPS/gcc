@@ -171,8 +171,8 @@ CC_STATUS cc_prev_status;
 char regs_ever_live[FIRST_PSEUDO_REGISTER];
 
 /* Nonzero means current function must be given a frame pointer.
-   Set in stmt.c if anything is allocated on the stack there.
-   Set in reload1.c if anything is allocated on the stack there.  */
+   Initialized in function.c to 0.  Set only in reload1.c as per
+   the needs of the function.  */
 
 int frame_pointer_needed;
 
@@ -1336,19 +1336,6 @@ final_start_function (rtx first ATTRIBUTE_UNUSED, FILE *file,
 
   this_is_asm_operands = 0;
 
-#ifdef NON_SAVING_SETJMP
-  /* A function that calls setjmp should save and restore all the
-     call-saved registers on a system where longjmp clobbers them.  */
-  if (NON_SAVING_SETJMP && current_function_calls_setjmp)
-    {
-      int i;
-
-      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-	if (!call_used_regs[i])
-	  regs_ever_live[i] = 1;
-    }
-#endif
-
   last_filename = locator_file (prologue_locator);
   last_linenum = locator_line (prologue_locator);
 
@@ -2153,10 +2140,6 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 
 	if (optimize)
 	  {
-#if 0
-	    rtx set = single_set (insn);
-#endif
-
 	    if (set
 		&& GET_CODE (SET_DEST (set)) == CC0
 		&& insn != last_ignored_compare)

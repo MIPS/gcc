@@ -1,3 +1,419 @@
+2003-11-28  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/InetAddress.java
+	(lookup): New method that doesnt lookup "0.0.0.0".
+	(ImplLookup): Renamed from lookup.
+	* java/net/natInetAddressNoNet.cc
+	(ImplLookup): Renamed from lookup.
+	* java/net/natInetAddressPosix.cc
+	(ImplLookup): Renamed from lookup.
+	* java/net/natInetAddressWin32.cc
+	(ImplLookup): Renamed from lookup.
+
+2003-11-28  Bryce McKinlay  <bryce@mckinlay.net.nz>
+
+	* configure: Rebuilt.
+	* configure.in: Require gtk and glib 2.2.0.
+
+2003-11-27  Dalibor Topic <robilad@kaffe.org>
+
+	* java/text/FieldPosition.java (equals): Adapted to handle
+	field_attribute. Added fast-circuit check for comparison to self.
+	Replaced use of instanceof by getClass to fix symmetry for derived
+	types.
+	(toString): Adapted to handle field_attribute. Improved readability.
+	(hashCode): New method.
+
+2003-11-27  Guilhem Lavaux <guilhem@kaffe.org>
+
+	* java/text/FieldPosition.java (field_attribute): New field.
+	(FieldPosition (Format.Field), FieldPosition(Format.Field, int),
+	getFieldAttribute): New methods.
+
+2003-11-27  Guilhem Lavaux <guilhem@kaffe.org>
+
+	* java/text/DecimalFormatSymbols.java (locale): New field.
+	(DecimalFormatSymbols (Locale)): Set locale.
+	(serialVersionOnStream): Upgraded to number 2.
+	(readObject): Assign locale if it wasn't by the serializer.
+
+2003-11-27  Guilhem Lavaux <guilhem@kaffe.org>
+
+	* java/text/FormatCharacterIterator.java: Documented the class and
+
+2003-11-27  Guilhem Lavaux <guilhem@kaffe.org>
+
+	* java/text/FormatCharacterIterator.java: Fixed some typos.
+
+2003-11-27  Guilhem Lavaux <guilhem@kaffe.org>
+
+	* java/text/NumberFormat.java:
+	(getIntegerInstance) Added the java version in the comments.
+
+2003-11-27  Mark Wielaard  <mark@klomp.org>
+
+	* java/text/NumberFormat.java: Import java.io.InvalidObjectException.
+	(readResolve): Reformat.
+
+2003-11-27  Guilhem Lavaux <guilhem@kaffe.org>
+
+	* java/text/NumberFormat.java
+	(NumberFormat.Field): New implemented class to match Java 1.4. 
+	(getIntegerInstance): Two new Java 1.4 methods.o
+
+2003-11-27  Ito Kazumitsu  <kaz@maczuka.gcd.org>
+
+	* java/util/GregorianCalendar.java (getLinearTime): Avoid counting
+	the leap day of the leap year twice.
+	(computeFields): First week of month is 1 not 0.
+
+2003-11-27  Mark Wielaard  <mark@klomp.org>
+
+	* javax/swing/plaf/basic/BasicDefaults.java (BasicDefaults): Put
+	AbstractUndoableEdit.undoText and AbstractUndoableEdit.redoText.
+
+2003-11-27  Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/UIDefaults.java:
+	Reformated to match classpath's version.
+
+2003-11-27  Sascha Brawer  <brawer@dandelis.ch>
+
+	* javax/swing/UIManager.java (getDefaults, getDimension,
+	getIcon, getInsets, getInstalledLookAndFeels, getInt,
+	getLookAndFeel, getString, getSystemLookAndFeelClassName):
+	Declare as public.
+
+2003-11-26  Sascha Brawer  <brawer@dandelis.ch>
+
+	* javax/swing/undo/StateEdit.java (getPresentationName): Docfix.
+	* javax/swing/undo/AbstractUndoableEdit.java (canUndo, canRedo,
+	isSignificant): Likewise.
+
+2003-11-26  Sascha Brawer  <brawer@dandelis.ch>
+
+	* javax/swing/undo/CompoundEdit.java: Re-format, document.
+	(inProgress): Set initial value to true.
+	(undo, redo, die, canUndo, canRedo): Also call inherited
+	implementation; simplify code structure.
+	(getPresentationName, getUndoPresentationName,
+	getRedoPresentationName): Make behavior dependent on lastEdit.
+	(addEdit, isSignificant): Completely re-written.
+
+2003-11-26  Sascha Brawer  <brawer@dandelis.ch>
+
+	* javax/swing/undo/StateEdit.java: Re-format, document.
+	(undo, redo): Also call inherited implementation.
+
+2003-11-26  Sascha Brawer  <brawer@dandelis.ch>
+
+	* javax/swing/undo/StateEditable.java: Re-format, document.
+
+2003-11-26  Sascha Brawer  <brawer@dandelis.ch>
+
+	* javax/swing/undo/AbstractUndoableEdit.java: Re-format, document.
+	(AbstractUndoableEdit): Initialize hasBeenDone to true.
+	(canUndo, canRedo): Simplify.
+	(getUndoPresentationName, getRedoPresentationName): Support
+	localized message; call getPresentationName() only once.
+
+2003-11-26  David Belanger  <dbelan2@cs.mcgill.ca>
+
+	* java/util/zip/ZipFile (Zipfile(File)): Set file path as name.
+	(ZipFile(File,int)): Likewise.
+
+2003-11-26  Stuart Ballard <stuart.ballard@corp.fast.net>
+
+	* java/util/HashMap.java (putAll): Use Iterator hasNext() method.
+	(putAllInternal): Likewise.
+	* java/util/Hashtable.java (putAll): Use Iterator hasNext() method.
+	(putAllInternal): Likewise.
+
+2003-11-26  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/URLStreamHandler.java
+	(parseURL): Added comment in catch statement.
+	(canonicalizeFilename): Add documentation.
+	(sameURL): Completed documentation.
+	(equals): Likewise.
+	(hostsEqual): Likewise.
+	(getDefaulPort): Likewise.
+	(hashCode): Likewise.
+	(toExternalForm): Likewise.
+	(getHostName): Fix empty hostname check, completed documentation.
+
+2003-11-26  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/natDouble.cc (parseDouble): Reverted patch of
+	2003-11-13.
+
+2003-11-26  Guilhem Lavaux  <guilhem@kaffe.org>
+	    Mark Wielaard  <mark@klomp.org>
+
+	* java/net/URLStreamHandler (parseUrl): Fixed URL parsing
+	('@' should be checked to distinguish port from userinfo).
+	(toExternalForm): Add @ userInfo if necessary.
+
+
+2003-11-26  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/DatagramSocket.java
+	(DategramSocket, bind): Moved binding code from DatagramSocket
+	constructor to bind method.
+
+2003-11-26  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/DatagramSocket.java
+	(impl): Made private.
+	(bound): New private member variable.
+	(DatagramSocket): Fixed documentation, use getImpl().
+	(getImpl): New package-private method.
+	(isClosed): Use getImpl().
+	(getLocalAddress): Completed documentation, use getImpl().
+	(getLocalPort): Use getImpl().
+	(getSoTimeout): Likewise.
+	(setSoTimeout): Likewise.
+	(getSendBufferSize): Likewise.
+	(setSendBufferSize): Likewise.
+	(getReceiveBufferSize): Likewise.
+	(setReceiveBufferSize): Likewise.
+	(connect): Likewise.
+	(disconnect): Likewise.
+	(receive): Likewise.
+	(send): Likewise.
+	(setReuseAddress): Likewise.
+	(setTrafficClass): Likewise.
+	(bind): Added message to exception.
+	(isClosed): Completed documentation.
+	(getChannel): Likewise.
+	(connect): Added missing exception, refined exception message.
+	(isBound): Completed documentation, just return bound.
+	(isConnected): Completed documentation.
+	(getRemoteSocketAddress): Likewise.
+	(getReuseAddress): Completed documentation, use getImpl().
+	(setSoBroadcast): Likewise.
+	(getSoBroadcast): Likewise.
+	(getTrafficClass): Likewise.
+	(getLocalSocketAddress): Simplified.
+	* java/net/MulticastSocket.java
+	(MulticastSocket): Removed comment not applying anymore.
+	(getInterface): Use getImpl().
+	(getTTL): Likewise.
+	(getTimeToLive): Likewise.
+	(setInterface): Likewise.
+	(setNetworkInterface): Likewise.
+	(getNetworkInterface): Likewise.
+	(setLoopback): Likewise.
+	(getLoopback): Likewise.
+	(setTTL): Likewise.
+	(setTimeToLive): Likewise.
+	(joinGroup): Likewise.
+	(leaveGroup): Likewise.
+	(send): Likewise.
+
+2003-11-26  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/Socket.java
+	(implCreated): Dont set default value explicitely, added
+	documentation.
+	(inputShutdown): Likewise.
+	(outputShutdown): Likewise.
+	(bound): New private member variable.
+	(bind): Set bound to true.
+	(close): Set bound to false.
+	(isBound): Return bound.
+	* java/net/ServerSocket.java
+	(bound): New private member variable.
+	(bind): Set bound to true.
+	(close): Set bound to false.
+	(isBound): Return bound.
+
+2003-11-26  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/URL.java
+	(URL): Fixed documentation to be HTML compliant.
+	(getContent): Completed documentation.
+	(getFile): Likewise.
+	(getPath): Likewise.
+	(getAuthority): Likewise.
+	(getHost): Likewise.
+	(getDefaultPort): Likewise.
+	(getProtocol): Likewise.
+	(hashCode): Likewise.
+	(openConnection): Likewise.
+	(openStream): Likewise.
+	(set): Likewise.
+	(getURLStreamHandler): Wrapped lines to fit into our 79 chars rule.
+
+2003-11-26  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/InetSocketAddress.java
+	(hostname): Made private, added documentation.
+	(addr): Likewise.
+	(port): Likewise.
+	(equals): Completed documentation.
+	(getAddress): Likewise.
+	(getHostName): Likewise.
+	(getPort): Likewise.
+	(hashCode): Likewise.
+	(isUnresolved): Likewise.
+	(toString): Likewise.
+
+2003-11-26  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/net/protocol/file/Handler.java
+	(Handler): New explicit constructor.
+	(openConnection): Added documentation.
+	* gnu/java/net/protocol/jar/Handler.java
+	(Handler): New explicit constructor.
+	(openConnection): Added documentation.
+
+2003-11-26  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/DatagramPacket.java
+	(DatagramPacket): Fixed documentation to become legal HTML.
+
+2003-11-25  Michael Koch  <konqueror@gmx.de>
+
+	* gcj/javaprims.h: Added missing java.util.Currency.
+
+2003-11-25  Michael Koch  <konqueror@gmx.de>
+
+	* testsuite/libjava.mauve/xfails:
+	Removed these two tests, they mystically pass now:
+	-FAIL: gnu.testlet.java.net.ServerSocket.ServerSocketTest: Error :
+	test_params failed - 5getInetAddress did not return proper values
+	(number 1)
+	-FAIL: gnu.testlet.java.net.Socket.SocketTest: Error :
+	test_BasicServer failed - 11 exception was thrown :Illegal seek
+	(number 1)
+
+2003-11-25  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/DatagramSocket.java
+	(factory): Made private.
+	(closed): Removed.
+	(DatagramSocket): Check impl argument, use constructor with
+	SocketAddress argument.
+	(close): Set impl to null, use isClosed().
+	(isClosed): Check for impl == null.
+	(getLocalAddress): Use isClosed().
+	(getLocalPort): Check if socket is closed.
+	(getSoTimeout): Likewise.
+	(setSoTimeout): Likewise.
+	(getSendBufferSize): Likewise.
+	(setSendBufferSize): Likewise.
+	(getReceiveBufferSize): Likewise.
+	(setReceiveBufferSize): Likewise.
+	(receive): Likewise.
+	(send): Likewise.
+	(bind): Likewise.
+	(connect): Likewise.
+	(setReuseAddress): Likewise.
+	(getReuseAddress): Likewise.
+	(setBroadcast): Likewise.
+	(getBroadcast): Likewise.
+	(setTrafficClass): Likewise.
+	(getTrafficClass): Likewise.
+	* java/net/MulticastSocket.java
+	(getInterface): Check if socket is closed.
+	(getTTL): Likewise.
+	(getTimeToLive): Likewise.
+	(setInterface): Likewise.
+	(setNetworkInterface): Likewise.
+	(getNetworkInterface): Likewise.
+	(setLoopbackMode): Likewise.
+	(setTTL): Likewise.
+	(setTimeToLive): Likewise.
+	(joinGroup): Likewise.
+	(leaveGroup): Likewise.
+	(send): Likewise.
+	* java/net/ServerSocket.java
+	(closed): Removed.
+	(close): Check if socket is closed, set impl to null.
+	(isClosed): Check impl == null;
+	(ServerSocket): Check impl argument.
+	(getInetAddress): Check if socket is bound.
+	(getLocalPort): Likewise.
+	(getLocalSocketAddress): Likewise.
+	(bind): Check if socket is closed.
+	(implAccept): Likewise.
+	(setSoTimeout): Likewise.
+	(getSoTimeout): Likewise.
+	(setReuseAddress): Likewise.
+	(getReuseAddress): Likewise.
+	(setReceiveBufferSize): Likewise.
+	(getReceiveBufferSize): Likewise.
+	(toString): Make output compliant to JDK 1.4.2.
+	* java/net/Socket.java
+	(closed): Removed.
+	(Socket): Fixed documentation.
+	(connect): Check if socket is closed, changed exception text,
+	fixed documentation.
+	(getInputStream): Check of socket is closed  and connected.
+	(getOutputStream): Likewise.
+	(bind): Check if socket is closed.
+	(setTcpNoDelay): Likewise.
+	(getTcpNoDelay): Likewise.
+	(setSoLinger): Likewise.
+	(getSoLinger): Likewise.
+	(sendUrgentData): Likewise.
+	(setOOBInline): Likewise.
+	(getOOBInline): Likewise.
+	(setSoTimeout): Likewise.
+	(getSoTimeout): Likewise.
+	(setSendBufferSize): Likewise.
+	(getSendBufferSize): Likewise.
+	(setReceiveBufferSize): Likewise.
+	(getReceiveBufferSize): Likewise.
+	(setKeepAlive): Likewise.
+	(getKeepAlive): Likewise.
+	(close): Likewise.
+	(shutdownInput): Likewise.
+	(shutdownOutput): Likewise.
+	(getReuseAddress): Likewise.
+	(getTrafficClass): Likewise.
+	(setTrafficClass): Likewise.
+	(isClosed): Check impl == null.
+	(toString): Added missing ']'.
+
+2003-11-24  Tom Tromey  <tromey@redhat.com>
+
+	* Makefile.in: Rebuilt.
+	* Makefile.am (propdir): New macro.
+	(install-data-local): Install logging.properties.
+	(core_java_source_files): Added java.util.logging.*.
+	* java/util/logging/logging.properties: New file.
+
+2003-11-25  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/DatagramSocket.java
+	(DatagramSocket): Move binding code to bind(), simplify constructors.
+	* java/net/MulticastSocket.java
+	(MulticastSocket): Call parent constructor with null argument,
+	bind socket after setReuseAddress is called, simplify constructors.
+
+2003-11-24  Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/BoxLayout.java
+	(serialVersionUIR): New member variable.
+	(X_AXIS, Y_AXIS): Documentation added.
+	(LINE_AXIS, PAGE_AXIS): New constants.
+	(grid): Renamed from gridbag.
+	(BoxLayout): Use new constants, throw exception if invalid value for
+	way, added documentation.
+	(BoxLayout): Removed.
+	(addLayoutComponent): Use new constants, added documentation.
+	(removeLayoutComponent): Likewise.
+	(addLayoutContainer): Added documentation.
+	(preferredLayoutSize): Added documentation, check given argument.
+	(minimumLayoutSize): Likewise.
+	(layoutContainer): Likewise.
+	(getLayoutAlignmentX): Likewise.
+	(getLayoutAlignmentY): Likewise.
+	(invalidateLayout): Likewise.
+	(maximumLayoutSize): Likewise.
+
 2003-11-22  Michael Koch  <konqueror@gmx.de>
 
 	* gnu/java/net/natPlainDatagramSocketImplWin32.cc
