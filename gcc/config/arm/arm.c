@@ -160,6 +160,8 @@ static bool arm_promote_prototypes (tree);
 
 static tree arm_cxx_guard_type (void);
 static bool arm_cxx_guard_mask_bit (void);
+static tree arm_get_cookie_size (tree);
+static bool arm_cookie_has_size (void);
 
 
 /* Initialize the GCC target structure.  */
@@ -259,6 +261,12 @@ static bool arm_cxx_guard_mask_bit (void);
 
 #undef TARGET_CXX_GUARD_MASK_BIT
 #define TARGET_CXX_GUARD_MASK_BIT arm_cxx_guard_mask_bit
+
+#undef TARGET_CXX_GET_COOKIE_SIZE
+#define TARGET_CXX_GET_COOKIE_SIZE arm_get_cookie_size
+
+#undef TARGET_CXX_COOKIE_HAS_SIZE
+#define TARGET_CXX_COOKIE_HAS_SIZE arm_cookie_has_size
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -14432,6 +14440,31 @@ arm_cxx_guard_type (void)
 
 static bool
 arm_cxx_guard_mask_bit (void)
+{
+  return TARGET_AAPCS_BASED;
+}
+
+
+/* The EABI specifies that all array cookies are 8 bytes long.  */
+
+static tree
+arm_get_cookie_size (tree type)
+{
+  tree size;
+
+  if (!TARGET_AAPCS_BASED)
+    return default_cxx_get_cookie_size (type);
+
+  size = build_int_2 (8, 0);
+  TREE_TYPE (size) = sizetype;
+  return size;
+}
+
+
+/* The EABI says that array cookies should also contain the element size.  */
+
+static bool
+arm_cookie_has_size (void)
 {
   return TARGET_AAPCS_BASED;
 }

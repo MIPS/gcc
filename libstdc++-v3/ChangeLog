@@ -1,3 +1,9 @@
+2004-06-29  Paul Brook  <paul@codesourcery.com>
+
+libstdc++-v3/
+	* libsupc++/vec.cc (__cxa_vec_new2, __cxa_vec_new3): Store the
+	element size in the cookie.
+
 2004-06-25  Paul Brook  <paul@codesourcery.com>
 
 	* libsupc++/cxxabi.h: Define __ARM_EABI__
