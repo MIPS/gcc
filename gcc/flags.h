@@ -678,6 +678,9 @@ extern int flag_signaling_nans;
 
 extern int flag_unit_at_time;
 
+/* Nonzero if we should track variables.  */
+extern int flag_var_tracking;
+
 /* A string that's used when a random name is required.  NULL means
    to make it really random.  */
 
