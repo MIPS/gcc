@@ -326,7 +326,7 @@ Unrecognized value in TARGET_CPU_DEFAULT.
 /* Special flags to the Sun-4 assembler when using pipe for input.  */
 
 #define ASM_SPEC "\
-%| %{R} %{!pg:%{!p:%{fpic:-k} %{fPIC:-k}}} %{keep-local-as-symbols:-L} \
+%| %{R} %{!pg:%{!p:%{fpic|fPIC|fpie|fPIE:-k}}} %{keep-local-as-symbols:-L} \
 %(asm_cpu) %(asm_relax)"
 
 /* This macro defines names of additional specifications to put in the specs

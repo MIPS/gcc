@@ -25,7 +25,7 @@ Boston, MA 02111-1307, USA.  */
 #undef ASM_SPEC
 #define ASM_SPEC \
   "%{V} %{v:%{!V:-V}} %{Qy:} %{!Qn:-Qy} %{n} %{T} %{Ym,*} %{Wa,*:%*} -e1 \
-   %{fpic:-K PIC} %{fPIC:-K PIC}"
+   %{fpic|fpie|fPIC|fPIE:-K PIC}"
 
 /* Need DWARF for debuggers.  */
 

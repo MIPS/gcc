@@ -66,7 +66,7 @@ Boston, MA 02111-1307, USA.  */
 #undef ASM_SPEC
 #define ASM_SPEC \
   "%{v:-V} %{Qy:} %{!Qn:-Qy} %{n} %{T} %{Ym,*} %{Yd,*} %{Wa,*:%*} \
-   %{fpic:-K PIC} %{fPIC:-K PIC} %(asm_cpu)"
+   %{fpic|fPIC|fpie|fPIE:-K PIC} %(asm_cpu)"
 
 /* Must use data section for relocatable constants when pic.  */
 #undef SELECT_RTX_SECTION

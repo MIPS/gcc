@@ -881,7 +881,7 @@ do {						\
 #define	ASM_SPEC "%(asm_cpu) \
 %{.s: %{mregnames} %{mno-regnames}} %{.S: %{mregnames} %{mno-regnames}} \
 %{v:-V} %{Qy:} %{!Qn:-Qy} %{n} %{T} %{Ym,*} %{Yd,*} %{Wa,*:%*} \
-%{mrelocatable} %{mrelocatable-lib} %{fpic:-K PIC} %{fPIC:-K PIC} \
+%{mrelocatable} %{mrelocatable-lib} %{fpic|fPIC|fpie|fPIE:-K PIC} \
 %{memb} %{!memb: %{msdata: -memb} %{msdata=eabi: -memb}} \
 %{mlittle} %{mlittle-endian} %{mbig} %{mbig-endian} \
 %{!mlittle: %{!mlittle-endian: %{!mbig: %{!mbig-endian: \
@@ -1021,9 +1021,9 @@ do {						\
 
 #define CPP_SYSV_SPEC \
 "%{mrelocatable*: -D_RELOCATABLE} \
-%{fpic: -D__PIC__=1 -D__pic__=1} \
-%{!fpic: %{fPIC: -D__PIC__=2 -D__pic__=2}} \
-%{!fpic: %{!fPIC: %(cpp_pic_default)}} \
+%{fpic|fpie: -D__PIC__=1 -D__pic__=1} \
+%{!fpic:%{!fpie: %{fPIC: -D__PIC__=2 -D__pic__=2}}} \
+%{!fpic:%{!fPIC:%{!fpie:%{!fPIE: %(cpp_pic_default)}}}} \
 %{mlong-double-128: -D__LONG_DOUBLE_128__=1} \
 %{!mlong-double-64: %(cpp_longdouble_default)} \
 %{mcall-sysv: -D_CALL_SYSV} \
@@ -1218,14 +1218,22 @@ do {						\
 %{mnewlib: ecrti.o%s} %{!mnewlib: crti.o%s} \
 %{!shared:crtbegin.o%s} %{shared:crtbeginS.o%s}"
 #else
+#if defined HAVE_LD_PIE
+#define	STARTFILE_LINUX_SPEC "\
+%{!shared: %{pg:gcrt1.o%s} %{!pg:%{p:gcrt1.o%s} %{!p:%{pie:Scrt1.o%s}%{!pie:crt1.o%s}}}} \
+%{mnewlib: ecrti.o%s} %{!mnewlib: crti.o%s} \
+%{static:crtbeginT.o%s} \
+%{!static:%{!shared:%{!pie:crtbegin.o%s}} %{shared|pie:crtbeginS.o%s}}"
+#else
 #define	STARTFILE_LINUX_SPEC "\
 %{!shared: %{pg:gcrt1.o%s} %{!pg:%{p:gcrt1.o%s} %{!p:crt1.o%s}}} \
 %{mnewlib: ecrti.o%s} %{!mnewlib: crti.o%s} \
 %{static:crtbeginT.o%s} \
-%{!static:%{!shared:crtbegin.o%s} %{shared:crtbeginS.o%s}}"
+%{!static:%{!shared:%{!pie:crtbegin.o%s}} %{shared|pie:crtbeginS.o%s}}"
+#endif
 #endif
 
-#define	ENDFILE_LINUX_SPEC "%{!shared:crtend.o%s} %{shared:crtendS.o%s} \
+#define	ENDFILE_LINUX_SPEC "%{!shared:%{!pie:crtend.o%s}} %{shared|pie:crtendS.o%s} \
 %{mnewlib: ecrtn.o%s} %{!mnewlib: crtn.o%s}"
 
 #define LINK_START_LINUX_SPEC ""

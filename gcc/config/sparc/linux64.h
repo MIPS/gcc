@@ -56,11 +56,19 @@ Boston, MA 02111-1307, USA.  */
    
 #undef  STARTFILE_SPEC
 
+#ifdef HAVE_LD_PIE
+#define STARTFILE_SPEC \
+  "%{!shared: \
+     %{pg:gcrt1.o%s} %{!pg:%{p:gcrt1.o%s} %{!p:%{pie:Scrt1.o%s}%{!pie:crt1.o%s}}}}\
+   crti.o%s %{static:crtbeginT.o%s}\
+   %{!static:%{!shared:%{!pie:crtbegin.o%s}} %{shared|pie:crtbeginS.o%s}}"
+#else
 #define STARTFILE_SPEC \
   "%{!shared: \
      %{pg:gcrt1.o%s} %{!pg:%{p:gcrt1.o%s} %{!p:crt1.o%s}}}\
    crti.o%s %{static:crtbeginT.o%s}\
-   %{!static:%{!shared:crtbegin.o%s} %{shared:crtbeginS.o%s}}"
+   %{!static:%{!shared:%{!pie:crtbegin.o%s}} %{shared|pie:crtbeginS.o%s}}"
+#endif
 
 /* Provide a ENDFILE_SPEC appropriate for GNU/Linux.  Here we tack on
    the GNU/Linux magical crtend.o file (see crtstuff.c) which
@@ -71,7 +79,7 @@ Boston, MA 02111-1307, USA.  */
 #undef  ENDFILE_SPEC
 
 #define ENDFILE_SPEC \
-  "%{!shared:crtend.o%s} %{shared:crtendS.o%s} crtn.o%s\
+  "%{!shared:%{!pie:crtend.o%s}} %{shared|pie:crtendS.o%s} crtn.o%s\
    %{ffast-math|funsafe-math-optimizations:crtfastmath.o%s}"
 
 /* The GNU C++ standard library requires that these macros be defined.  */
@@ -118,8 +126,7 @@ Boston, MA 02111-1307, USA.  */
 
 #undef CPP_SUBTARGET_SPEC
 #define CPP_SUBTARGET_SPEC "\
-%{fPIC:-D__PIC__ -D__pic__} \
-%{fpic:-D__PIC__ -D__pic__} \
+%{fPIC|fpic|fPIE|fpie:-D__PIC__ -D__pic__} \
 %{posix:-D_POSIX_SOURCE} \
 %{pthread:-D_REENTRANT} \
 "
@@ -248,7 +255,7 @@ Boston, MA 02111-1307, USA.  */
 %{T} \
 %{Ym,*} \
 %{Wa,*:%*} \
--s %{fpic:-K PIC} %{fPIC:-K PIC} \
+-s %{fpic|fPIC|fpie|fPIE:-K PIC} \
 %{mlittle-endian:-EL} \
 %(asm_cpu) %(asm_arch) %(asm_relax)"
 

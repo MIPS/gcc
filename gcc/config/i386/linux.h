@@ -84,9 +84,9 @@ Boston, MA 02111-1307, USA.  */
 
 #undef CPP_SPEC
 #ifdef USE_GNULIBC_1
-#define CPP_SPEC "%(cpp_cpu) %{fPIC:-D__PIC__ -D__pic__} %{fpic:-D__PIC__ -D__pic__} %{posix:-D_POSIX_SOURCE}"
+#define CPP_SPEC "%(cpp_cpu) %{fPIC|fpic|fPIE|fpie:-D__PIC__ -D__pic__} %{posix:-D_POSIX_SOURCE}"
 #else
-#define CPP_SPEC "%(cpp_cpu) %{fPIC:-D__PIC__ -D__pic__} %{fpic:-D__PIC__ -D__pic__} %{posix:-D_POSIX_SOURCE} %{pthread:-D_REENTRANT}"
+#define CPP_SPEC "%(cpp_cpu) %{fPIC|fpic|fPIE|fpie:-D__PIC__ -D__pic__} %{posix:-D_POSIX_SOURCE} %{pthread:-D_REENTRANT}"
 #endif
 
 #undef CC1_SPEC

@@ -54,13 +54,23 @@ Boston, MA 02111-1307, USA.  */
 			 %{!profile:crt1.o%s}}}} \
    crti.o%s %{!shared:crtbegin.o%s} %{shared:crtbeginS.o%s}"
 #else
+#if defined HAVE_LD_PIE
+#define STARTFILE_SPEC \
+  "%{!shared: \
+     %{pg:gcrt1.o%s} %{!pg:%{p:gcrt1.o%s} \
+		       %{!p:%{profile:gcrt1.o%s} \
+			 %{!profile:%{pie:Scrt1.o%s}%{!pie:crt1.o%s}}}}} \
+   crti.o%s %{static:crtbeginT.o%s}\
+   %{!static:%{!shared:%{!pie:crtbegin.o%s}} %{shared|pie:crtbeginS.o%s}}"
+#else
 #define STARTFILE_SPEC \
   "%{!shared: \
      %{pg:gcrt1.o%s} %{!pg:%{p:gcrt1.o%s} \
 		       %{!p:%{profile:gcrt1.o%s} \
 			 %{!profile:crt1.o%s}}}} \
    crti.o%s %{static:crtbeginT.o%s}\
-   %{!static:%{!shared:crtbegin.o%s} %{shared:crtbeginS.o%s}}"
+   %{!static:%{!shared:%{!pie:crtbegin.o%s}} %{shared|pie:crtbeginS.o%s}}"
+#endif
 #endif
 
 /* Provide a ENDFILE_SPEC appropriate for GNU/Linux.  Here we tack on
@@ -71,7 +81,7 @@ Boston, MA 02111-1307, USA.  */
 
 #undef	ENDFILE_SPEC
 #define ENDFILE_SPEC \
-  "%{!shared:crtend.o%s} %{shared:crtendS.o%s} crtn.o%s"
+  "%{!shared:%{!pie:crtend.o%s}} %{shared|pie:crtendS.o%s} crtn.o%s"
 
 /* This is for -profile to use -lc_p instead of -lc. */
 #ifndef CC1_SPEC

@@ -649,11 +649,18 @@ do {									\
    before entering `main'.   */
 
 #undef	STARTFILE_SPEC
+#ifdef HAVE_LD_PIE
+  "%{!shared: \
+     %{pg:gcrt1.o%s} %{!pg:%{p:gcrt1.o%s} %{!p:%{pie:Scrt1.o%s}%{!pie:crt1.o%s}}}}\
+   crti.o%s %{static:crtbeginT.o%s}\
+   %{!static:%{shared|pie:crtbeginS.o%s}%{!shared:%{!pie:crtbegin.o%s}}}"
+#else
 #define STARTFILE_SPEC \
   "%{!shared: \
      %{pg:gcrt1.o%s} %{!pg:%{p:gcrt1.o%s} %{!p:crt1.o%s}}}\
    crti.o%s %{static:crtbeginT.o%s}\
-   %{!static:%{shared:crtbeginS.o%s}%{!shared:crtbegin.o%s}}"
+   %{!static:%{shared|pie:crtbeginS.o%s}%{!shared:%{!pie:crtbegin.o%s}}}"
+#endif
 
 /* Provide a ENDFILE_SPEC appropriate for ELF.  Here we tack on the
    magical crtend.o file which provides part of the support for
@@ -663,7 +670,7 @@ do {									\
 #undef	ENDFILE_SPEC
 #define ENDFILE_SPEC \
   "%{ffast-math|funsafe-math-optimizations:crtfastmath.o%s} \
-   %{shared:crtendS.o%s}%{!shared:crtend.o%s} crtn.o%s"
+   %{shared|pie:crtendS.o%s}%{!shared:%{!pie:crtend.o%s}} crtn.o%s"
 
 /* We support #pragma.  */
 #define HANDLE_SYSV_PRAGMA

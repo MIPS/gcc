@@ -186,7 +186,7 @@ void FN ()							\
 %{mabi=64: -U__mips64} \
 %{!mabi*: -U__mips64} \
 %{fno-PIC:-U__PIC__ -U__pic__} %{fno-pic:-U__PIC__ -U__pic__} \
-%{fPIC:-D__PIC__ -D__pic__} %{fpic:-D__PIC__ -D__pic__} \
+%{fPIC|fPIE|fpic|fpie:-D__PIC__ -D__pic__} \
 %{pthread:-D_REENTRANT}"
 
 /* The GNU C++ standard library requires that these macros be defined.  */
