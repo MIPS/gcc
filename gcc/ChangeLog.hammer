@@ -1,3 +1,7 @@
+Wed Feb  5 11:05:24 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* emit-rtl.c (emit_copy_of_insn_after): Copy INSN_CODE cache too.
+
 Mon Feb  3 15:58:28 CET 2003  Jan Hubicka  <jh@suse.cz>
 
 	* i386.c (ix86_expand_int_movcc):  Fix setcc sign bit case.
