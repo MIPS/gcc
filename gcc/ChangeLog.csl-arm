@@ -1,3 +1,9 @@
+2005-03-02  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* config/arm/linux-elf.h (ARM_FUNCTION_PROFILER): Do not use (PLT)
+	for Thumb.
+	* config/arm/netbsd-elf.h (ARM_FUNCTION_PROFILER): Likewise.
+
 2005-02-25  Julian Brown  <julian@codesourcery.com>
 
 	* config/elfos.h (MAKE_DECL_ONE_ONLY): Redefined to stop DECL_WEAK
