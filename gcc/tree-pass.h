@@ -135,7 +135,6 @@ extern struct tree_opt_pass pass_phiopt;
 extern struct tree_opt_pass pass_forwprop;
 extern struct tree_opt_pass pass_redundant_phi;
 extern struct tree_opt_pass pass_dse;
-extern struct tree_opt_pass pass_return;
 extern struct tree_opt_pass pass_nrv;
 extern struct tree_opt_pass pass_remove_useless_vars;
 extern struct tree_opt_pass pass_rename_ssa_copies;

@@ -1,3 +1,13 @@
+2004-06-14  Andrew Pinski  <apinski@apple.com>
+
+	* tree-ssa-return.c: Remove.
+	* Makefile.in (OBJS-common): Remove tree-ssa-return.o
+	(tree-ssa-return.o): Remove.
+	* timevar.def (TV_TREE_RETURN): Remove.
+	* tree-optimize.c (init_tree_optimization_passes):
+	Do not run pass_return.
+	* tree-pass.h (pass_return): Remove declaration.
+
 2004-06-14  Dorit Naishlos <dorit@il.ibm.com>
 
         * tree-data-ref.c (init_data_ref): New function.
