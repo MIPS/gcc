@@ -520,7 +520,7 @@ lex_identifier (cpp_reader *pfile, const uchar *base)
   /* Pick up the non-alpha char and go around again.  */
   pfile->buffer->cur++;
   }
-  /* APPLE LOCAL CW asm blocks */
+  /* APPLE LOCAL end CW asm blocks */
 
 
   result = (cpp_hashnode *)

@@ -628,7 +628,6 @@ vect_create_index_for_array_ref (tree stmt, block_stmt_iterator *bsi,
   return indx_before_incr;
 }
 #endif
-/* APPLE LOCAL end MERGE FIXME revert to lno-branch version */
 
 static tree
 vect_create_index_for_array_ref (tree stmt, block_stmt_iterator *bsi)
@@ -1789,8 +1788,6 @@ vect_transform_stmt (tree stmt, block_stmt_iterator *bsi)
 
   return is_store;
 }
-
-/* APPLE LOCAL begin AV --haifa */
 
 
 /* This function generate the following statements:
