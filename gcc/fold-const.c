@@ -7428,17 +7428,135 @@ fold (tree expr)
 	    }
 	}
 
-      t1 = fold_relational_hi_lo (&code, type, &arg0, &arg1);
+      /* Comparisons with the highest or lowest possible integer of
+	 the specified size will have known values. 
 
-      /* If fold_relational_hi_lo returns non-null, then it folded the
-         relational into a constant.  So just return it.  Otherwise,
-	 rebuild the expression since the underlying components may have
-	 changed.  */
-      if (t1)
-	return t1;
-      else if (code != TREE_CODE (t)
-	       || TREE_OPERAND (t, 0) != arg0 || TREE_OPERAND (t, 1) != arg1)
-	tem = build (code, type, arg0, convert (TREE_TYPE (arg0), arg1));
+	 This is quite similar to fold_relational_hi_lo; however, my
+	 attempts to share the code have been nothing but trouble.
+	 I give up for now.  */
+      {
+	int width = GET_MODE_BITSIZE (TYPE_MODE (TREE_TYPE (arg1)));
+
+	if (TREE_CODE (arg1) == INTEGER_CST
+	    && ! TREE_CONSTANT_OVERFLOW (arg1)
+	    && width <= HOST_BITS_PER_WIDE_INT
+	    && (INTEGRAL_TYPE_P (TREE_TYPE (arg1))
+		|| POINTER_TYPE_P (TREE_TYPE (arg1))))
+	  {
+	    unsigned HOST_WIDE_INT signed_max;
+	    unsigned HOST_WIDE_INT max, min;
+
+	    signed_max = ((unsigned HOST_WIDE_INT) 1 << (width - 1)) - 1;
+
+	    if (TREE_UNSIGNED (TREE_TYPE (arg1)))
+	      {
+	        max = ((unsigned HOST_WIDE_INT) 2 << (width - 1)) - 1;
+		min = 0;
+	      }
+	    else
+	      {
+	        max = signed_max;
+		min = ((unsigned HOST_WIDE_INT) -1 << (width - 1));
+	      }
+
+	    if (TREE_INT_CST_HIGH (arg1) == 0
+		&& TREE_INT_CST_LOW (arg1) == max)
+	      switch (code)
+		{
+		case GT_EXPR:
+		  return omit_one_operand (type,
+					   fold_convert (type,
+							 integer_zero_node),
+					   arg0);
+		case GE_EXPR:
+		  return fold (build (EQ_EXPR, type, arg0, arg1));
+
+		case LE_EXPR:
+		  return omit_one_operand (type,
+					   fold_convert (type,
+							 integer_one_node),
+					   arg0);
+		case LT_EXPR:
+		  return fold (build (NE_EXPR, type, arg0, arg1));
+
+		/* The GE_EXPR and LT_EXPR cases above are not normally
+		   reached because of previous transformations.  */
+
+		default:
+		  break;
+		}
+	    else if (TREE_INT_CST_HIGH (arg1) == 0
+		     && TREE_INT_CST_LOW (arg1) == max - 1)
+	      switch (code)
+		{
+		case GT_EXPR:
+		  arg1 = const_binop (PLUS_EXPR, arg1, integer_one_node, 0);
+		  return fold (build (EQ_EXPR, type, arg0, arg1));
+		case LE_EXPR:
+		  arg1 = const_binop (PLUS_EXPR, arg1, integer_one_node, 0);
+		  return fold (build (NE_EXPR, type, arg0, arg1));
+		default:
+		  break;
+		}
+	    else if (TREE_INT_CST_HIGH (arg1) == (min ? -1 : 0)
+		     && TREE_INT_CST_LOW (arg1) == min)
+	      switch (code)
+		{
+		case LT_EXPR:
+		  return omit_one_operand (type,
+					   fold_convert (type,
+							 integer_zero_node),
+					   arg0);
+		case LE_EXPR:
+		  return fold (build (EQ_EXPR, type, arg0, arg1));
+
+		case GE_EXPR:
+		  return omit_one_operand (type,
+					   fold_convert (type,
+							 integer_one_node),
+					   arg0);
+		case GT_EXPR:
+		  return fold (build (NE_EXPR, type, arg0, arg1));
+
+		default:
+		  break;
+		}
+	    else if (TREE_INT_CST_HIGH (arg1) == (min ? -1 : 0)
+		     && TREE_INT_CST_LOW (arg1) == min + 1)
+	      switch (code)
+		{
+		case GE_EXPR:
+		  arg1 = const_binop (MINUS_EXPR, arg1, integer_one_node, 0);
+		  return fold (build (NE_EXPR, type, arg0, arg1));
+		case LT_EXPR:
+		  arg1 = const_binop (MINUS_EXPR, arg1, integer_one_node, 0);
+		  return fold (build (EQ_EXPR, type, arg0, arg1));
+		default:
+		  break;
+		}
+
+	    else if (!in_gimple_form
+		     && TREE_INT_CST_HIGH (arg1) == 0
+		     && TREE_INT_CST_LOW (arg1) == signed_max
+		     && TREE_UNSIGNED (TREE_TYPE (arg1))
+		     /* signed_type does not work on pointer types.  */
+		     && INTEGRAL_TYPE_P (TREE_TYPE (arg1)))
+	      {
+		/* The following case also applies to X < signed_max+1
+		   and X >= signed_max+1 because previous transformations.  */
+		if (code == LE_EXPR || code == GT_EXPR)
+		  {
+		    tree st0, st1;
+		    st0 = lang_hooks.types.signed_type (TREE_TYPE (arg0));
+		    st1 = lang_hooks.types.signed_type (TREE_TYPE (arg1));
+		    return fold
+		      (build (code == LE_EXPR ? GE_EXPR: LT_EXPR,
+			      type, fold_convert (st0, arg0),
+			      fold_convert (st1, integer_zero_node)));
+		  }
+	      }
+	  }
+      }
 
       /* If this is an EQ or NE comparison of a constant with a PLUS_EXPR or
 	 a MINUS_EXPR of a constant, we can convert it into a comparison with
