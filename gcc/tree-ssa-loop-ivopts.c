@@ -1,5 +1,5 @@
 /* Induction variable optimizations.
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
    
 This file is part of GCC.
    
@@ -1400,6 +1400,37 @@ idx_record_use (tree base, tree *idx,
   return true;
 }
 
+/* Returns true if memory reference REF may be unaligned.  */
+
+static bool
+may_be_unaligned_p (tree ref)
+{
+  tree base;
+  tree base_type;
+  HOST_WIDE_INT bitsize;
+  HOST_WIDE_INT bitpos;
+  tree toffset;
+  enum machine_mode mode;
+  int unsignedp, volatilep;
+  unsigned base_align;
+
+  /* The test below is basically copy of what expr.c:normal_inner_ref
+     does to check whether the object must be loaded by parts when
+     STRICT_ALIGNMENT is true.  */
+  base = get_inner_reference (ref, &bitsize, &bitpos, &toffset, &mode,
+			      &unsignedp, &volatilep, true);
+  base_type = TREE_TYPE (base);
+  base_align = TYPE_ALIGN (base_type);
+
+  if (mode != BLKmode
+      && (base_align < GET_MODE_ALIGNMENT (mode)
+	  || bitpos % GET_MODE_ALIGNMENT (mode) != 0
+	  || bitpos % BITS_PER_UNIT != 0))
+    return true;
+
+  return false;
+}
+
 /* Finds addresses in *OP_P inside STMT.  */
 
 static void
@@ -1413,6 +1444,10 @@ find_interesting_uses_address (struct ivopts_data *data, tree stmt, tree *op_p)
      to handle.  TODO.  */
   if (TREE_CODE (base) == COMPONENT_REF
       && DECL_NONADDRESSABLE_P (TREE_OPERAND (base, 1)))
+    goto fail;
+
+  if (STRICT_ALIGNMENT
+      && may_be_unaligned_p (base))
     goto fail;
 
   ifs_ivopts_data.ivopts_data = data;
@@ -1744,6 +1779,27 @@ add_candidate_1 (struct ivopts_data *data,
   return cand;
 }
 
+/* Returns true if incrementing the induction variable at the end of the LOOP
+   is allowed.
+
+   The purpose is to avoid splitting latch edge with a biv increment, thus
+   creating a jump, possibly confusing other optimization passes and leaving
+   less freedom to scheduler.  So we allow IP_END_POS only if IP_NORMAL_POS
+   is not available (so we do not have a better alternative), or if the latch
+   edge is already nonempty.  */
+
+static bool
+allow_ip_end_pos_p (struct loop *loop)
+{
+  if (!ip_normal_pos (loop))
+    return true;
+
+  if (!empty_block_p (ip_end_pos (loop)))
+    return true;
+
+  return false;
+}
+
 /* Adds a candidate BASE + STEP * i.  Important field is set to IMPORTANT and
    position to POS.  If USE is not NULL, the candidate is set as related to
    it.  The candidate computation is scheduled on all available positions.  */
@@ -1754,7 +1810,8 @@ add_candidate (struct ivopts_data *data,
 {
   if (ip_normal_pos (data->current_loop))
     add_candidate_1 (data, base, step, important, IP_NORMAL, use, NULL_TREE);
-  if (ip_end_pos (data->current_loop))
+  if (ip_end_pos (data->current_loop)
+      && allow_ip_end_pos_p (data->current_loop))
     add_candidate_1 (data, base, step, important, IP_END, use, NULL_TREE);
 }
 
@@ -3483,8 +3540,7 @@ static void
 determine_iv_cost (struct ivopts_data *data, struct iv_cand *cand)
 {
   unsigned cost_base, cost_step;
-  tree base, last;
-  basic_block bb;
+  tree base;
 
   if (!cand->iv)
     {
@@ -3508,15 +3564,9 @@ determine_iv_cost (struct ivopts_data *data, struct iv_cand *cand)
   
   /* Prefer not to insert statements into latch unless there are some
      already (so that we do not create unnecessary jumps).  */
-  if (cand->pos == IP_END)
-    {
-      bb = ip_end_pos (data->current_loop);
-      last = last_stmt (bb);
-
-      if (!last
-	  || TREE_CODE (last) == LABEL_EXPR)
-	cand->cost++;
-    }
+  if (cand->pos == IP_END
+      && empty_block_p (ip_end_pos (data->current_loop)))
+    cand->cost++;
 }
 
 /* Determines costs of computation of the candidates.  */

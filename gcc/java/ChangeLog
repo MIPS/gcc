@@ -1,3 +1,33 @@
+2005-01-17  Tom Tromey  <tromey@redhat.com>
+
+	* verify-impl.c (get_short): Sign extend.
+	(get_int): Likewise.
+
+2005-01-12  Ranjit Mathew  <rmathew@hotmail.com>
+
+	* expr.c (build_jni_stub): Replace mistaken use of TYPE_SIZE_UNIT
+	with TYPE_SIZE.
+
+2005-01-10  Ranjit Mathew  <rmathew@hotmail.com>
+
+	* verify.c: Revert to the version before the BC-ABI merge.
+
+2005-01-10  Ranjit Mathew  <rmathew@hotmail.com>
+
+	PR java/19277
+	* check-init.c (check_init): Take care of references that do not
+	have an explicit final variable declaration (e.g. array length
+	access) for pre/post in/de-crement operators.
+
+2005-01-08  Mark Wielaard  <mark@klomp.org>
+
+	* parse.y (process_imports): Allocate (and free) original_name only
+	when not already defined.
+	* jcf-parse.c (read_class): Free results of find_class() and
+	lrealpath().
+	(java_parse_file): Keep pointer to head of file_list and free when
+	done. Free result of lrealpath().
+
 2005-01-05  Tom Tromey  <tromey@redhat.com>
 
 	* gcj.texi (Standard Properties): java.ext.dirs is now used.

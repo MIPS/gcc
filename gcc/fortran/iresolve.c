@@ -1,5 +1,5 @@
 /* Intrinsic function resolution.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation,
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation,
    Inc.
    Contributed by Andy Vaught & Katherine Holcomb
 
@@ -1147,7 +1147,7 @@ gfc_resolve_set_exponent (gfc_expr * f, gfc_expr * x, gfc_expr * i)
   f->ts = x->ts;
 
   /* The library implementation uses GFC_INTEGER_4 unconditionally,
-     convert type so we don't have to implment all possible
+     convert type so we don't have to implement all possible
      permutations.  */
   if (i->ts.kind != 4)
     {

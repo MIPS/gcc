@@ -1,6 +1,6 @@
 /* Fold a constant sub-tree into a single node for C-compiler
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -8439,28 +8439,57 @@ fold (tree expr)
 
 	if (TREE_CODE (arg1) == INTEGER_CST
 	    && ! TREE_CONSTANT_OVERFLOW (arg1)
-	    && width <= HOST_BITS_PER_WIDE_INT
+	    && width <= 2 * HOST_BITS_PER_WIDE_INT
 	    && (INTEGRAL_TYPE_P (TREE_TYPE (arg1))
 		|| POINTER_TYPE_P (TREE_TYPE (arg1))))
 	  {
-	    unsigned HOST_WIDE_INT signed_max;
-	    unsigned HOST_WIDE_INT max, min;
+	    HOST_WIDE_INT signed_max_hi;
+	    unsigned HOST_WIDE_INT signed_max_lo;
+	    unsigned HOST_WIDE_INT max_hi, max_lo, min_hi, min_lo;
 
-	    signed_max = ((unsigned HOST_WIDE_INT) 1 << (width - 1)) - 1;
-
-	    if (TYPE_UNSIGNED (TREE_TYPE (arg1)))
+	    if (width <= HOST_BITS_PER_WIDE_INT)
 	      {
-	        max = ((unsigned HOST_WIDE_INT) 2 << (width - 1)) - 1;
-		min = 0;
+		signed_max_lo = ((unsigned HOST_WIDE_INT) 1 << (width - 1))
+				- 1;
+		signed_max_hi = 0;
+		max_hi = 0;
+
+		if (TYPE_UNSIGNED (TREE_TYPE (arg1)))
+		  {
+		    max_lo = ((unsigned HOST_WIDE_INT) 2 << (width - 1)) - 1;
+		    min_lo = 0;
+		    min_hi = 0;
+		  }
+		else
+		  {
+		    max_lo = signed_max_lo;
+		    min_lo = ((unsigned HOST_WIDE_INT) -1 << (width - 1));
+		    min_hi = -1;
+		  }
 	      }
 	    else
 	      {
-	        max = signed_max;
-		min = ((unsigned HOST_WIDE_INT) -1 << (width - 1));
+		width -= HOST_BITS_PER_WIDE_INT;
+		signed_max_lo = -1;
+		signed_max_hi = ((unsigned HOST_WIDE_INT) 1 << (width - 1))
+				- 1;
+		max_lo = -1;
+		min_lo = 0;
+
+		if (TYPE_UNSIGNED (TREE_TYPE (arg1)))
+		  {
+		    max_hi = ((unsigned HOST_WIDE_INT) 2 << (width - 1)) - 1;
+		    min_hi = 0;
+		  }
+		else
+		  {
+		    max_hi = signed_max_hi;
+		    min_hi = ((unsigned HOST_WIDE_INT) -1 << (width - 1));
+		  }
 	      }
 
-	    if (TREE_INT_CST_HIGH (arg1) == 0
-		&& TREE_INT_CST_LOW (arg1) == max)
+	    if ((unsigned HOST_WIDE_INT) TREE_INT_CST_HIGH (arg1) == max_hi
+		&& TREE_INT_CST_LOW (arg1) == max_lo)
 	      switch (code)
 		{
 		case GT_EXPR:
@@ -8481,8 +8510,9 @@ fold (tree expr)
 		default:
 		  break;
 		}
-	    else if (TREE_INT_CST_HIGH (arg1) == 0
-		     && TREE_INT_CST_LOW (arg1) == max - 1)
+	    else if ((unsigned HOST_WIDE_INT) TREE_INT_CST_HIGH (arg1)
+		     == max_hi
+		     && TREE_INT_CST_LOW (arg1) == max_lo - 1)
 	      switch (code)
 		{
 		case GT_EXPR:
@@ -8494,8 +8524,9 @@ fold (tree expr)
 		default:
 		  break;
 		}
-	    else if (TREE_INT_CST_HIGH (arg1) == (min ? -1 : 0)
-		     && TREE_INT_CST_LOW (arg1) == min)
+	    else if ((unsigned HOST_WIDE_INT) TREE_INT_CST_HIGH (arg1)
+		     == min_hi
+		     && TREE_INT_CST_LOW (arg1) == min_lo)
 	      switch (code)
 		{
 		case LT_EXPR:
@@ -8513,8 +8544,9 @@ fold (tree expr)
 		default:
 		  break;
 		}
-	    else if (TREE_INT_CST_HIGH (arg1) == (min ? -1 : 0)
-		     && TREE_INT_CST_LOW (arg1) == min + 1)
+	    else if ((unsigned HOST_WIDE_INT) TREE_INT_CST_HIGH (arg1)
+		     == min_hi
+		     && TREE_INT_CST_LOW (arg1) == min_lo + 1)
 	      switch (code)
 		{
 		case GE_EXPR:
@@ -8528,8 +8560,8 @@ fold (tree expr)
 		}
 
 	    else if (!in_gimple_form
-		     && TREE_INT_CST_HIGH (arg1) == 0
-		     && TREE_INT_CST_LOW (arg1) == signed_max
+		     && TREE_INT_CST_HIGH (arg1) == signed_max_hi
+		     && TREE_INT_CST_LOW (arg1) == signed_max_lo
 		     && TYPE_UNSIGNED (TREE_TYPE (arg1))
 		     /* signed_type does not work on pointer types.  */
 		     && INTEGRAL_TYPE_P (TREE_TYPE (arg1)))
@@ -8950,8 +8982,7 @@ fold (tree expr)
 	  tree arglist;
 
 	  if (fndecl
-	      && DECL_BUILT_IN (fndecl)
-	      && DECL_BUILT_IN_CLASS (fndecl) != BUILT_IN_MD
+	      && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
 	      && DECL_FUNCTION_CODE (fndecl) == BUILT_IN_STRLEN
 	      && (arglist = TREE_OPERAND (arg0, 1))
 	      && TREE_CODE (TREE_TYPE (TREE_VALUE (arglist))) == POINTER_TYPE
@@ -8965,7 +8996,8 @@ fold (tree expr)
 
       /* We can fold X/C1 op C2 where C1 and C2 are integer constants
 	 into a single range test.  */
-      if (TREE_CODE (arg0) == TRUNC_DIV_EXPR
+      if ((TREE_CODE (arg0) == TRUNC_DIV_EXPR
+	   || TREE_CODE (arg0) == EXACT_DIV_EXPR)
 	  && TREE_CODE (arg1) == INTEGER_CST
 	  && TREE_CODE (TREE_OPERAND (arg0, 1)) == INTEGER_CST
 	  && !integer_zerop (TREE_OPERAND (arg0, 1))
@@ -9776,9 +9808,7 @@ tree_expr_nonnegative_p (tree t)
       {
 	tree fndecl = get_callee_fndecl (t);
 	tree arglist = TREE_OPERAND (t, 1);
-	if (fndecl
-	    && DECL_BUILT_IN (fndecl)
-	    && DECL_BUILT_IN_CLASS (fndecl) != BUILT_IN_MD)
+	if (fndecl && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL)
 	  switch (DECL_FUNCTION_CODE (fndecl))
 	    {
 #define CASE_BUILTIN_F(BUILT_IN_FN) \

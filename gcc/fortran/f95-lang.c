@@ -1,5 +1,5 @@
 /* gfortran backend interface
-   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation,
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation,
    Inc.
    Contributed by Paul Brook.
 
@@ -863,6 +863,8 @@ gfc_init_builtin_functions (void)
   ftype = build_function_type (pvoid_type_node, tmp);
   gfc_define_builtin ("__builtin_alloca", ftype, BUILT_IN_ALLOCA,
 		      "alloca", false);
+
+  targetm.init_builtins ();
 }
 
 #undef DEFINE_MATH_BUILTIN_C

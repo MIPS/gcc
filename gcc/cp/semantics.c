@@ -3,7 +3,7 @@
    building RTL.  These routines are used both during actual parsing
    and during the instantiation of template functions. 
 
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
    Written by Mark Mitchell (mmitchell@usa.net) based on code found
    formerly in parse.y and pt.c.  
@@ -1206,8 +1206,14 @@ finish_asm_stmt (int volatile_p, tree string, tree output_operands,
 	    {
 	      /* If the operand is going to end up in memory,
 		 mark it addressable.  */
-	      if (!allows_reg && allows_mem && !cxx_mark_addressable (operand))
-		operand = error_mark_node;
+	      if (!allows_reg && allows_mem)
+		{
+		  /* Strip the nops as we allow this case.  FIXME, this really
+		     should be rejected or made deprecated.  */
+		  STRIP_NOPS (operand);
+		  if (!cxx_mark_addressable (operand))
+		    operand = error_mark_node;
+		}
 	    }
 	  else
 	    operand = error_mark_node;
@@ -2633,9 +2639,17 @@ finish_id_expression (tree id_expression,
 	  /* The same is true for FIELD_DECL, but we also need to
 	     make sure that the syntax is correct.  */
 	  else if (TREE_CODE (decl) == FIELD_DECL)
-	    return finish_non_static_data_member
-		     (decl, current_class_ref,
-		      /*qualifying_scope=*/NULL_TREE);
+	    {
+	      /* Since SCOPE is NULL here, this is an unqualified name.
+		 Access checking has been performed during name lookup
+		 already.  Turn off checking to avoid duplicate errors.  */
+	      push_deferring_access_checks (dk_no_check);
+	      decl = finish_non_static_data_member
+		       (decl, current_class_ref,
+			/*qualifying_scope=*/NULL_TREE);
+	      pop_deferring_access_checks ();
+	      return decl;
+	    }
 	  return id_expression;
 	}
 
@@ -2700,8 +2714,15 @@ finish_id_expression (tree id_expression,
 	    }
 	}
       else if (TREE_CODE (decl) == FIELD_DECL)
-	decl = finish_non_static_data_member (decl, current_class_ref,
-					      /*qualifying_scope=*/NULL_TREE);
+	{
+	  /* Since SCOPE is NULL here, this is an unqualified name.
+	     Access checking has been performed during name lookup
+	     already.  Turn off checking to avoid duplicate errors.  */
+	  push_deferring_access_checks (dk_no_check);
+	  decl = finish_non_static_data_member (decl, current_class_ref,
+						/*qualifying_scope=*/NULL_TREE);
+	  pop_deferring_access_checks ();
+	}
       else if (is_overloaded_fn (decl))
 	{
 	  tree first_fn = OVL_CURRENT (decl);

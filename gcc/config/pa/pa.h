@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler, for the HP Spectrum.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) of Cygnus Support
    and Tim Moore (moore@defmacro.cs.utah.edu) of the Center for
    Software Science at the University of Utah.
@@ -484,6 +484,15 @@ typedef struct machine_function GTY(())
 
 /* Width of a word, in units (bytes).  */
 #define UNITS_PER_WORD (TARGET_64BIT ? 8 : 4)
+
+/* Minimum number of units in a word.  If this is undefined, the default
+   is UNITS_PER_WORD.  Otherwise, it is the constant value that is the
+   smallest value that UNITS_PER_WORD can have at run-time.
+
+   FIXME: This needs to be 4 when TARGET_64BIT is true to suppress the
+   building of various TImode routines in libgcc.  The HP runtime
+   specification doesn't provide the alignment requirements and calling
+   conventions for TImode variables.  */
 #define MIN_UNITS_PER_WORD 4
 
 /* Allocation boundary (in *bits*) for storing arguments in argument list.  */
@@ -1296,7 +1305,12 @@ extern int may_call_alloca;
 
    `T' is for floating-point loads and stores.
 
-   `U' is the constant 63.  */
+   `U' is the constant 63.
+
+   `W' is a register indirect memory operand.  We could allow short
+       displacements but GO_IF_LEGITIMATE_ADDRESS can't tell when a
+       long displacement is valid.  This is only used for prefetch
+       instructions with the `sl' completer.  */
 
 #define EXTRA_CONSTRAINT(OP, C) \
   ((C) == 'Q' ?								\
@@ -1307,6 +1321,10 @@ extern int may_call_alloca;
 	&& !symbolic_memory_operand (OP, VOIDmode)			\
 	&& !IS_LO_SUM_DLT_ADDR_P (XEXP (OP, 0))				\
 	&& !IS_INDEX_ADDR_P (XEXP (OP, 0))))				\
+   : ((C) == 'W' ?							\
+      (GET_CODE (OP) == MEM						\
+       && REG_P (XEXP (OP, 0))						\
+       && REG_OK_FOR_BASE_P (XEXP (OP, 0)))				\
    : ((C) == 'A' ?							\
       (GET_CODE (OP) == MEM						\
        && IS_LO_SUM_DLT_ADDR_P (XEXP (OP, 0)))				\
@@ -1336,7 +1354,7 @@ extern int may_call_alloca;
    : ((C) == 'S' ?							\
       (GET_CODE (OP) == CONST_INT && INTVAL (OP) == 31)			\
    : ((C) == 'U' ?							\
-      (GET_CODE (OP) == CONST_INT && INTVAL (OP) == 63) : 0))))))
+      (GET_CODE (OP) == CONST_INT && INTVAL (OP) == 63) : 0)))))))
 	
 
 /* The macros REG_OK_FOR..._P assume that the arg is a REG rtx
@@ -2102,7 +2120,8 @@ forget_section (void)							\
 				       CONST_DOUBLE}},			\
   {"move_dest_operand", {SUBREG, REG, MEM}},				\
   {"move_src_operand", {SUBREG, REG, CONST_INT, MEM}},			\
-  {"prefetch_operand", {MEM}},						\
+  {"prefetch_cc_operand", {MEM}},					\
+  {"prefetch_nocc_operand", {MEM}},					\
   {"reg_or_cint_move_operand", {SUBREG, REG, CONST_INT}},		\
   {"pic_label_operand", {LABEL_REF, CONST}},				\
   {"fp_reg_operand", {REG}},						\

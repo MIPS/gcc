@@ -1,6 +1,6 @@
 /* Convert tree expression to rtl instructions, for GNU compiler.
    Copyright (C) 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -2707,13 +2707,14 @@ read_complex_part (rtx cplx, bool imag_p)
 			    true, NULL_RTX, imode, imode);
 }
 
-/* A subroutine of emit_move_via_alt_mode.  Yet another lowpart generator.
+/* A subroutine of emit_move_insn_1.  Yet another lowpart generator.
    NEW_MODE and OLD_MODE are the same size.  Return NULL if X cannot be
-   represented in NEW_MODE.  */
+   represented in NEW_MODE.  If FORCE is true, this will never happen, as
+   we'll force-create a SUBREG if needed.  */
 
 static rtx
 emit_move_change_mode (enum machine_mode new_mode,
-		       enum machine_mode old_mode, rtx x)
+		       enum machine_mode old_mode, rtx x, bool force)
 {
   rtx ret;
 
@@ -2735,28 +2736,15 @@ emit_move_change_mode (enum machine_mode new_mode,
 	 that the new mode is ok for a hard register.  If we were to use
 	 simplify_gen_subreg, we would create the subreg, but would
 	 probably run into the target not being able to implement it.  */
-      ret = simplify_subreg (new_mode, x, old_mode, 0);
+      /* Except, of course, when FORCE is true, when this is exactly what
+	 we want.  Which is needed for CCmodes on some targets.  */
+      if (force)
+	ret = simplify_gen_subreg (new_mode, x, old_mode, 0);
+      else
+	ret = simplify_subreg (new_mode, x, old_mode, 0);
     }
 
   return ret;
-}
-
-/* A subroutine of emit_move_insn_1.  Generate a move from Y into X using
-   ALT_MODE instead of the operand's natural mode, MODE.  CODE is the insn
-   code for the move in ALT_MODE, and is known to be valid.  Returns the
-   instruction emitted, or NULL if X or Y cannot be represented in ALT_MODE.  */
-
-static rtx
-emit_move_via_alt_mode (enum machine_mode alt_mode, enum machine_mode mode,
-			enum insn_code code, rtx x, rtx y)
-{
-  x = emit_move_change_mode (alt_mode, mode, x);
-  if (x == NULL_RTX)
-    return NULL_RTX;
-  y = emit_move_change_mode (alt_mode, mode, y);
-  if (y == NULL_RTX)
-    return NULL_RTX;
-  return emit_insn (GEN_FCN (code) (x, y));
 }
 
 /* A subroutine of emit_move_insn_1.  Generate a move from Y into X using
@@ -2779,7 +2767,13 @@ emit_move_via_integer (enum machine_mode mode, rtx x, rtx y)
   if (code == CODE_FOR_nothing)
     return NULL_RTX;
 
-  return emit_move_via_alt_mode (imode, mode, code, x, y);
+  x = emit_move_change_mode (imode, mode, x, false);
+  if (x == NULL_RTX)
+    return NULL_RTX;
+  y = emit_move_change_mode (imode, mode, y, false);
+  if (y == NULL_RTX)
+    return NULL_RTX;
+  return emit_insn (GEN_FCN (code) (x, y));
 }
 
 /* A subroutine of emit_move_insn_1.  X is a push_operand in MODE.
@@ -2943,7 +2937,11 @@ emit_move_ccmode (enum machine_mode mode, rtx x, rtx y)
     {
       enum insn_code code = mov_optab->handlers[CCmode].insn_code;
       if (code != CODE_FOR_nothing)
-	return emit_move_via_alt_mode (CCmode, mode, code, x, y);
+	{
+	  x = emit_move_change_mode (CCmode, mode, x, true);
+	  y = emit_move_change_mode (CCmode, mode, y, true);
+	  return emit_insn (GEN_FCN (code) (x, y));
+	}
     }
 
   /* Otherwise, find the MODE_INT mode of the same width.  */
@@ -4970,7 +4968,7 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 	enum machine_mode eltmode = TYPE_MODE (elttype);
 	HOST_WIDE_INT bitsize;
 	HOST_WIDE_INT bitpos;
-	rtx *vector = NULL;
+	rtvec vector = NULL;
 	unsigned n_elts;
 	
 	gcc_assert (eltmode != BLKmode);
@@ -4985,9 +4983,9 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 	      {
 		unsigned int i;
 		
-		vector = alloca (n_elts);
+		vector = rtvec_alloc (n_elts);
 		for (i = 0; i < n_elts; i++)
-		  vector [i] = CONST0_RTX (GET_MODE_INNER (mode));
+		  RTVEC_ELT (vector, i) = CONST0_RTX (GET_MODE_INNER (mode));
 	      }
 	  }
 	
@@ -5058,7 +5056,8 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 	        /* Vector CONSTRUCTORs should only be built from smaller
 		   vectors in the case of BLKmode vectors.  */
 		gcc_assert (TREE_CODE (TREE_TYPE (value)) != VECTOR_TYPE);
-		vector[eltpos] = expand_expr (value, NULL_RTX, VOIDmode, 0);
+		RTVEC_ELT (vector, eltpos)
+		  = expand_expr (value, NULL_RTX, VOIDmode, 0);
 	      }
 	    else
 	      {
@@ -5076,8 +5075,7 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 	if (vector)
 	  emit_insn (GEN_FCN (icode)
 		     (target,
-		      gen_rtx_PARALLEL (GET_MODE (target),
-					gen_rtvec_v (n_elts, vector))));
+		      gen_rtx_PARALLEL (GET_MODE (target), vector)));
 	break;
       }
       

@@ -1,5 +1,5 @@
 /* params.def - Run-time parameters.
-   Copyright (C) 2001, 2002, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2004, 2005 Free Software Foundation, Inc.
    Written by Mark Mitchell <mark@codesourcery.com>.
 
 This file is part of GCC.
@@ -407,6 +407,11 @@ DEFPARAM(PARAM_MAX_SCHED_REGION_INSNS,
 	 "max-sched-region-insns",
 	 "The maximum number of insns in a region to be considered for interblock scheduling",
 	 100, 0, 0)
+
+DEFPARAM(PARAM_MAX_LAST_VALUE_RTL,
+	 "max-last-value-rtl",
+	 "The maximum number of RTL nodes that can be recorded as combiner's last value",
+	 10000, 0, 0)
 
 /* INTEGER_CST nodes are shared for values [{-1,0} .. N) for
    {signed,unsigned} integral types.  This determines N.

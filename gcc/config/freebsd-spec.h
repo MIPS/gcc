@@ -1,5 +1,5 @@
 /* Base configuration file for all FreeBSD targets.
-   Copyright (C) 1999, 2000, 2001, 2004 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -129,13 +129,7 @@ is built with the --enable-threads configure-time option.}		\
     %{pg:  -lc_p}							\
   }"
 #else
-#if FBSD_MAJOR >= 5
-#define FBSD_LIB_SPEC "							\
-  %{!shared:								\
-    %{!pg: %{pthread:-lpthread} -lc}					\
-    %{pg:  %{pthread:-lpthread_p} -lc_p}				\
-  }"
-#else
+#if FBSD_MAJOR < 5
 #define FBSD_LIB_SPEC "							\
   %{!shared:								\
     %{!pg:								\
@@ -144,6 +138,12 @@ is built with the --enable-threads configure-time option.}		\
     %{pg:								\
       %{!pthread:-lc_p}							\
       %{pthread:-lc_r_p}}						\
+  }"
+#else
+#define FBSD_LIB_SPEC "							\
+  %{!shared:								\
+    %{!pg: %{pthread:-lpthread} -lc}					\
+    %{pg:  %{pthread:-lpthread_p} -lc_p}				\
   }"
 #endif
 #endif

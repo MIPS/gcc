@@ -1,5 +1,5 @@
 /* Backend support for Fortran 95 basic types and derived types.
-   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
    and Steven Bosscher <s.bosscher@student.tudelft.nl>
 
@@ -580,7 +580,7 @@ gfc_get_character_type_len (int kind, tree len)
 
   gfc_validate_kind (BT_CHARACTER, kind, false);
 
-  bounds = build_range_type (gfc_array_index_type, gfc_index_one_node, len);
+  bounds = build_range_type (gfc_charlen_type_node, gfc_index_one_node, len);
   type = build_array_type (gfc_character1_type_node, bounds);
   TYPE_STRING_FLAG (type) = 1;
 
@@ -849,7 +849,7 @@ gfc_get_desc_dim_type (void)
 }
 
 
-/* Return the DTYPE for an array.  This desribes the type and type parameters
+/* Return the DTYPE for an array.  This describes the type and type parameters
    of the array.  */
 /* TODO: Only call this when the value is actually used, and make all the
    unknown cases abort.  */

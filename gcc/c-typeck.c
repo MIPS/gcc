@@ -3202,9 +3202,6 @@ build_c_cast (tree type, tree expr)
 	pedwarn ("ISO C forbids conversion of object pointer to function pointer type");
 
       ovalue = value;
-      /* Replace a nonvolatile const static variable with its value.  */
-      if (optimize && TREE_CODE (value) == VAR_DECL)
-	value = decl_constant_value (value);
       value = convert (type, value);
 
       /* Ignore any integer overflow caused by the cast.  */
@@ -3654,7 +3651,7 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
 		       || target_cmp)
 		;
 	      /* If there is a mismatch, do warn.  */
-	      else
+	      else if (warn_pointer_sign)
 		WARN_FOR_ASSIGNMENT (N_("pointer targets in passing argument "
 					"%d of %qE differ in signedness"),
 				     N_("pointer targets in assignment "
@@ -4146,18 +4143,32 @@ digest_init (tree type, tree init, bool strict_string, int require_constant)
   /* Build a VECTOR_CST from a *constant* vector constructor.  If the
      vector constructor is not constant (e.g. {1,2,3,foo()}) then punt
      below and handle as a constructor.  */
-    if (code == VECTOR_TYPE
-	&& TREE_CODE (TREE_TYPE (inside_init)) == VECTOR_TYPE
-        && vector_types_convertible_p (TREE_TYPE (inside_init), type)
-        && TREE_CONSTANT (inside_init))
-      {
-	if (TREE_CODE (inside_init) == VECTOR_CST
-            && comptypes (TYPE_MAIN_VARIANT (TREE_TYPE (inside_init)),
-			  TYPE_MAIN_VARIANT (type)))
-	  return inside_init;
-	else
-	  return build_vector (type, CONSTRUCTOR_ELTS (inside_init));
-      }
+  if (code == VECTOR_TYPE
+      && TREE_CODE (TREE_TYPE (inside_init)) == VECTOR_TYPE
+      && vector_types_convertible_p (TREE_TYPE (inside_init), type)
+      && TREE_CONSTANT (inside_init))
+    {
+      if (TREE_CODE (inside_init) == VECTOR_CST
+	  && comptypes (TYPE_MAIN_VARIANT (TREE_TYPE (inside_init)),
+			TYPE_MAIN_VARIANT (type)))
+	return inside_init;
+
+      if (TREE_CODE (inside_init) == CONSTRUCTOR)
+	{
+	  tree link;
+
+	  /* Iterate through elements and check if all constructor
+	     elements are *_CSTs.  */
+	  for (link = CONSTRUCTOR_ELTS (inside_init);
+	       link;
+	       link = TREE_CHAIN (link))
+	    if (! CONSTANT_CLASS_P (TREE_VALUE (link)))
+	      break;
+
+	  if (link == NULL)
+	    return build_vector (type, CONSTRUCTOR_ELTS (inside_init));
+	}
+    }
 
   /* Any type can be initialized
      from an expression of the same type, optionally with braces.  */
@@ -6338,8 +6349,14 @@ build_asm_expr (tree string, tree outputs, tree inputs, tree clobbers,
 	{
 	  /* If the operand is going to end up in memory,
 	     mark it addressable.  */
-	  if (!allows_reg && allows_mem && !c_mark_addressable (input))
-	    input = error_mark_node;
+	  if (!allows_reg && allows_mem)
+	    {
+	      /* Strip the nops as we allow this case.  FIXME, this really
+		 should be rejected or made deprecated.  */
+	      STRIP_NOPS (input);
+	      if (!c_mark_addressable (input))
+		input = error_mark_node;
+	  }
 	}
       else
 	input = error_mark_node;

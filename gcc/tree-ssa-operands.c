@@ -1,5 +1,5 @@
 /* SSA operands management for trees.
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1544,13 +1544,10 @@ add_stmt_operand (tree *var_p, stmt_ann_t s_ann, int flags)
   sym = (TREE_CODE (var) == SSA_NAME ? SSA_NAME_VAR (var) : var);
   v_ann = var_ann (sym);
 
-  /* Don't expose volatile variables to the optimizers.  */
-  if (TREE_THIS_VOLATILE (sym))
-    {
-      if (s_ann)
-	s_ann->has_volatile_ops = true;
-      return;
-    }
+  /* Mark statements with volatile operands.  Optimizers should back
+     off from statements having volatile operands.  */
+  if (TREE_THIS_VOLATILE (sym) && s_ann)
+    s_ann->has_volatile_ops = true;
 
   if (is_real_op)
     {

@@ -1,3 +1,146 @@
+2005-01-18  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* arith.c, array.c, check.c, decl.c, expr.c, f95-lang.c,
+	gfortran.h, interface.c, intrinsic.c, io.c, iresolve.c,
+	match.c, matchexp.c, misc.c, module.c, options.c, parse.c,
+	scanner.c, simplify.c, symbol.c, trans-array.c, trans-expr.c,
+	trans-io.c, trans-stmt.c, trans.c: Update copyright.
+
+2005-01-17  Ira Rosen  <irar@il.ibm.com>
+
+	* f95-lang.c (gfc_init_builtin_functions): Call targetm.init_builtins.
+
+2005-01-16  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/19182
+	* error.c (error_char): Line-buffer errors / warnings.
+
+2005-01-16  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* trans-intrinsic.c (gfc_conv_intrinsic_ishft): Fix signed /
+	unsigned issue.  Use build_int_cst instead of converting
+	integer_zero_node.  Remove unnecessary conversion.
+
+	* trans-types.c (gfc_get_character_type_len): : Use
+	gfc_charlen_type_node as basic type for the range field.
+
+	* trans-intrinsic.c (build_fixbound_expr,
+	gfc_conv_intrinsic_bound, gfc_conv_intrinsic_anyall,
+	gfc_conv_intrinsic_count, gfc_conv_intrinsic_btest,
+	gfc_conv_intrinsic_singlebitop): Use 'build_int_cst' instead
+	of converting 'integer_zero_node' or 'integer_one_node'
+	respectively.
+	(gfc_conv_intrinsic_ishftc): Same, but store in local variable to
+	evade re-building.
+	(gfc_conv_intrinsic_strcmp, gfc_conv_intrinsic_rrspacing,
+	gfc_conv_intrinsic_trim, gfc_conv_intrinsic_iargc): Use
+	'build_int_cst' instead of converting 'integer_zero_node' or
+	'integer_one_node' respectively.
+
+	* trans-intrinsic.c (gfc_conv_intrinsic_index,
+	gfc_conv_intrinsic_scan, gfc_conv_intrinsic_verify): Remove
+	'gfc'-prefix from local variable, remove dead code, use correct
+	type when inserting argument.
+
+	* trans-intrinsic.c, trans-types.c: Update copyright years.
+
+2005-01-16  Steven G. Kargl  <kargls@comcast.net>
+
+	PR 19168
+	* resolve.c (check_case_overlap): Typo in comment.
+	(validate_case_label_expr):  Fix up kinds of case values
+	(resolve_select): Properly handle kind mismatches.
+
+2004-01-16  Paul Brook  <paul@codesourcery.com>
+
+	PR fortran/17675
+	* trans-common.c (translate_common): Remove duplicate function call.
+	(finish_equivalences): Preserve alignment when biasing offsets.
+
+2005-01-15  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de
+
+	* primary.c (check_digit): Call 'ISXDIGIT' instead of assuming
+	ASCII-like character encoding.
+
+2005-01-14  Steven G. Kargl  <kargls@comcast.net>
+
+	* resolve.c (compare_case): Cleanup.
+
+2005-01-14  Steven G. Kargl  <kargls@comcast.net>
+
+	* resolve.c (compare_case): Give arguments correct type.
+
+2005-01-13  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* iresolve.c, trans-common.c, trans-types.c: Fix comment
+	typos.
+
+2005-01-09  Paul Brook  <paul@codesourcery.com>
+
+	PR fortran/17675
+	* trans-common.c (current_common, current_offset): Remove.
+	(create_common): Add head argument.
+	(align_segment): New function.
+	(apply_segment_offset): New function.
+	(translate_common): Merge code from new_segment.  Handle alignment.
+	(new_segment): Remove.
+	(finish_equivalences): Ensure proper alignment.
+
+2005-01-08  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* trans-const.c: Don't include unused math.h.
+
+	* trans-intrinsic.c (gfc_get_intrinsic_lib_fndecl,
+	gfc_conv_intrinsic_bound, gfc_conv_intrinsic_minmaxloc,
+	gfc_conv_intrinsic_ishft, gfc_conv_intrinsic_len): Remove
+	trailing whitespace.
+	(prepare_arg_info): Fix formatting, indenting and remove trailing
+	whitespace.
+	(gfc_conv_intrinsic_spacing, gfc_conv_intrinsic_trim): Remove
+	trailing whitespace.
+
+	* arith.c (arctangent2, gfc_arith_init_1, gfc_arith_done_1,
+	gfc_constant_result, gfc_range_check, gfc_arith_power,
+	eval_type_intrinsic0, eval_intrinsic_f2, gfc_real2real,
+	gfc_real2complex, gfc_complex2int, gfc_complex2real,
+	gfc_complex2complex): Fix whitespace issues.
+	* check.c (must_be, type_check, numeric_check, int_or_real_check,
+	logical_array_check, array_check, scalar_check, nonoptional_check,
+	variable_check, dim_check, check_a_kind, gfc_check_a_ikind,
+	gfc_check_a_xkind, gfc_check_abs, gfc_check_all_any,
+	gfc_check_allocated, gfc_check_a_p, gfc_check_besn,
+	gfc_check_btest, gfc_check_char, gfc_check_cmplx, gfc_check_count,
+	gfc_check_cshift, gfc_check_dcmplx, gfc_check_dble,
+	gfc_check_digits, gfc_check_dot_product, gfc_check_eoshift,
+	gfc_check_fnum, gfc_check_g77_math1, gfc_check_huge, gfc_check_i,
+	gfc_check_iand, gfc_check_ibclr, gfc_check_ibits, gfc_check_ibset,
+	gfc_check_idnint, gfc_check_ieor, gfc_check_index, gfc_check_int,
+	gfc_check_ior, gfc_check_ishft, gfc_check_ishftc, gfc_check_kind,
+	gfc_check_lbound, gfc_check_logical, min_max_args,
+	gfc_check_min_max_integer, gfc_check_min_max_real,
+	gfc_check_min_max_double, gfc_check_matmul,
+	gfc_check_minval_maxval, gfc_check_merge, gfc_check_nearest,
+	gfc_check_pack, gfc_check_precision, gfc_check_radix,
+	gfc_check_range, gfc_check_real, gfc_check_repeat,
+	gfc_check_scale, gfc_check_scan, gfc_check_selected_real_kind,
+	gfc_check_set_exponent): Fix formatting issues.
+	(gfc_check_size, gfc_check_sign): Alphabetize function order,
+	remove whitespace-only line.
+	(gfc_check_fstat, gfc_check_fstat_sub, gfc_check_stat,
+	gfc_check_stat_sub, gfc_check_transfer, gfc_check_transpose,
+	gfc_check_ubound, gfc_check_unpack, gfc_check_verify, gfc_check_x,
+	gfc_check_cpu_time, gfc_check_date_and_time, gfc_check_mvbits,
+	gfc_check_random_number, gfc_check_random_seed,
+	gfc_check_second_sub, gfc_check_system_clock,
+	gfc_check_getcwd_sub, gfc_check_exit, gfc_check_flush,
+	gfc_check_umask, gfc_check_umask_sub, gfc_check_unlink,
+	gfc_check_unlink_sub): Fix formatting issues.
+	
+2005-01-08  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* gfortran.h: Remove outdated comment.  Don't include stdio.h
+	explicitly.
+
 2005-01-06  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
 
 	* gfortranspec.c (lang_specific_driver): Change year to 2005 in

@@ -1,12 +1,12 @@
 @c Copyright (C) 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-@c 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+@c 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
 @ignore
 @c man begin COPYRIGHT
 Copyright @copyright{} 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997,
-1998, 1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 Permission is granted to copy, distribute and/or modify this document
 under the terms of the GNU Free Documentation License, Version 1.2 or
@@ -242,7 +242,7 @@ Objective-C and Objective-C++ Dialects}.
 @gccoptlist{-Wbad-function-cast  -Wmissing-declarations @gol
 -Wmissing-prototypes  -Wnested-externs  -Wold-style-definition @gol
 -Wstrict-prototypes  -Wtraditional @gol
--Wdeclaration-after-statement}
+-Wdeclaration-after-statement -Wno-pointer-sign}
 
 @item Debugging Options
 @xref{Debugging Options,,Options for Debugging Your Program or GCC}.
@@ -294,7 +294,7 @@ Objective-C and Objective-C++ Dialects}.
 -floop-optimize -fcrossjumping  -fif-conversion  -fif-conversion2 @gol
 -finline-functions  -finline-limit=@var{n}  -fkeep-inline-functions @gol
 -fkeep-static-consts  -fmerge-constants  -fmerge-all-constants @gol
--fmodulo-sched -fnew-ra  -fno-branch-count-reg @gol
+-fmodulo-sched -fno-branch-count-reg @gol
 -fno-default-inline  -fno-defer-pop -floop-optimize2 -fmove-loop-invariants @gol
 -fno-function-cse  -fno-guess-branch-probability @gol
 -fno-inline  -fno-math-errno  -fno-peephole  -fno-peephole2 @gol
@@ -3135,6 +3135,12 @@ effectively.  Often, the problem is that your code is too big or too
 complex; GCC will refuse to optimize programs when the optimization
 itself is likely to take inordinate amounts of time.
 
+@item -Wno-pointer-sign
+@opindex Wno-pointer-sign
+Don't warn for pointer argument passing or assignment with different signedness.
+Only useful in the negative form since this warning is enabled by default.
+This option is only supported for C and Objective-C@.
+
 @item -Werror
 @opindex Werror
 Make all warnings into errors.
@@ -4282,12 +4288,6 @@ Perform swing modulo scheduling immediately before the first scheduling
 pass.  This pass looks at innermost loops and reorders their
 instructions by overlapping different iterations.
 
-@item -fnew-ra
-@opindex fnew-ra
-Use a graph coloring register allocator.  Currently this option is meant
-only for testing.  Users should not specify this option, since it is not
-yet ready for production use.
-
 @item -fno-branch-count-reg
 @opindex fno-branch-count-reg
 Do not use ``decrement and branch'' instructions on a count register,
@@ -5211,12 +5211,6 @@ a ``home register''.
 
 Not enabled by default at any level because it has known bugs.
 
-@item -fnew-ra
-@opindex fnew-ra
-Use a graph coloring register allocator.  Currently this option is meant
-for testing, so we are interested to hear about miscompilations with
-@option{-fnew-ra}.
-
 @item -ftracer
 @opindex ftracer
 Perform tail duplication to enlarge superblock size.  This transformation
@@ -5620,6 +5614,12 @@ interblock scheduling.  The default value is 10.
 @item max-sched-region-insns
 The maximum number of insns in a region to be considered for
 interblock scheduling.  The default value is 100.
+
+@item max-last-value-rtl
+
+The maximum size measured as number of RTLs that can be recorded in an expression
+in combiner for a pseudo register as last known value of that register.  The default
+is 10000.
 
 @item integer-share-limit
 Small integer constants can use a shared data structure, reducing the
@@ -10892,8 +10892,9 @@ save area.
 In general, code compiled with @option{-mbackchain} is call-compatible with
 code compiled with @option{-mmo-backchain}; however, use of the backchain
 for debugging purposes usually requires that the whole binary is built with
-@option{-mbackchain}.  Note that the combination of @option{-mbackchain} and
-@option{-mpacked-stack} generates code that is not ABI-compatible.
+@option{-mbackchain}.  Note that the combination of @option{-mbackchain},
+@option{-mpacked-stack} and @option{-mhard-float} is not supported.  In order
+to build a linux kernel use @option{-msoft-float}.
 
 The default is to not maintain the backchain.
 
@@ -10911,14 +10912,15 @@ However, when @option{-mbackchain} is also in effect, the topmost word of
 the save area is always used to store the backchain, and the return address
 register is always saved two words below the backchain.
 
-As long as the stack frame backchain is not used, code generated with 
+As long as the stack frame backchain is not used, code generated with
 @option{-mpacked-stack} is call-compatible with code generated with
 @option{-mno-packed-stack}.  Note that some non-FSF releases of GCC 2.95 for
 S/390 or zSeries generated code that uses the stack frame backchain at run
 time, not just for debugging purposes.  Such code is not call-compatible
 with code compiled with @option{-mpacked-stack}.  Also, note that the
-combination of @option{-mbackchain} and @option{-mpacked-stack} generates code
-that is not ABI-compatible.
+combination of @option{-mbackchain},
+@option{-mpacked-stack} and @option{-mhard-float} is not supported.  In order
+to build a linux kernel use @option{-msoft-float}.
 
 The default is to not use the packed stack layout.
 
@@ -12063,8 +12065,8 @@ position-independent.
 @opindex fPIC
 If supported for the target machine, emit position-independent code,
 suitable for dynamic linking and avoiding any limit on the size of the
-global offset table.  This option makes a difference on the m68k
-and the SPARC@.
+global offset table.  This option makes a difference on the m68k,
+PowerPC and SPARC@.
 
 Position-independent code requires special support, and therefore works
 only on certain machines.

@@ -1,3 +1,39 @@
+2005-01-20  Richard Henderson  <rth@redhat.com>
+
+	* Makefile.in (alpha-linux, LIBGNAT_TARGET_PAIRS): Use
+	a-intnam-linux.ads and system-linux-alpha.ads.
+	* a-intnam-linux-alpha.ads: Remove file.
+	* s-osinte-linux-alpha.ads (SIGUNUSED, SIGSTKFLT, SIGLOST): New.
+	* system-linux-alpha.ads: New file.
+
+2005-01-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR ada/13470
+	* a-stunau.adb (Get_String): Don't return U.Reference, but Ret that is
+	set to the new string.
+
+2005-01-18  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* system-linux-ppc.ads: Set ZCX_By_Default and GCC_ZCX_Support
+	to True.
+
+2005-01-18  Richard Henderson  <rth@redhat.com>
+
+	* Makefile.in (LIBGNAT_TARGET_PAIRS, TOOLS_TARGET_PAIRS, MISCLIB,
+	THREADSLIB, GNATLIB_SHARED, PREFIX_OBJS, LIBRARY_VERSION): Specialize
+	for alpha-linux.
+	* s-osinte-linux-alpha.ads, a-intnam-linux-alpha.ads: New files.
+
+2005-01-14  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* system-darwin-ppc.ads (ZCX_By_Default): Change to True.
+	(GCC_ZCX_Support): Likewise.
+
+2005-01-11  Bastian Blank  <waldi@debian.org>
+
+	* system-linux-s390.ads: Define Preallocated_Stacks.
+	* system-linux-s390x.ads: Likewise.
+
 2005-01-04  Arnaud Charlet  <charlet@adacore.com>
 
 	* gnat_ugn.texi: Fix texi errors with null variables.

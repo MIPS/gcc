@@ -1,5 +1,5 @@
 /* Loop invariant motion.
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
    
 This file is part of GCC.
    
@@ -376,7 +376,7 @@ stmt_cost (tree stmt)
       /* Unless the call is a builtin_constant_p; this always folds to a
 	 constant, so moving it is useless.  */
       rhs = get_callee_fndecl (rhs);
-      if (DECL_BUILT_IN (rhs)
+      if (DECL_BUILT_IN_CLASS (rhs) == BUILT_IN_NORMAL
 	  && DECL_FUNCTION_CODE (rhs) == BUILT_IN_CONSTANT_P)
 	return 0;
 

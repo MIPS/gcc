@@ -1,6 +1,6 @@
 /* Top level of GCC compilers (cc1, cc1plus, etc.)
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1043,6 +1043,9 @@ compile_file (void)
      expander can also generate them.  */
   process_pending_assemble_externals ();
 
+  /* Flush any pending equate directives.  */
+  process_pending_assemble_output_defs ();
+
   /* Attach a special .ident directive to the end of the file to identify
      the version of GCC which compiled this code.  The format of the .ident
      string is patterned after the ones produced by native SVR4 compilers.  */
@@ -1410,11 +1413,6 @@ init_asm_output (const char *name)
       if (asm_out_file == 0)
 	fatal_error ("can%'t open %s for writing: %m", asm_file_name);
     }
-
-#ifdef IO_BUFFER_SIZE
-  setvbuf (asm_out_file, xmalloc (IO_BUFFER_SIZE),
-	   _IOFBF, IO_BUFFER_SIZE);
-#endif
 
   if (!flag_syntax_only)
     {

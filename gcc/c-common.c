@@ -1,6 +1,6 @@
 /* Subroutines shared by all languages that are variants of C.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -2326,10 +2326,15 @@ c_common_truthvalue_conversion (tree expr)
     case TRUTH_AND_EXPR:
     case TRUTH_OR_EXPR:
     case TRUTH_XOR_EXPR:
-    case TRUTH_NOT_EXPR:
       if (TREE_TYPE (expr) != truthvalue_type_node)
 	return build2 (TREE_CODE (expr), truthvalue_type_node,
 		       TREE_OPERAND (expr, 0), TREE_OPERAND (expr, 1));
+      return expr;
+
+    case TRUTH_NOT_EXPR:
+      if (TREE_TYPE (expr) != truthvalue_type_node)
+	return build1 (TREE_CODE (expr), truthvalue_type_node,
+		       TREE_OPERAND (expr, 0));
       return expr;
 
     case ERROR_MARK:
@@ -4341,6 +4346,7 @@ handle_mode_attribute (tree *node, tree name, tree args,
 	  TYPE_MAX_VALUE (type) = TYPE_MAX_VALUE (typefm);
 	  TYPE_SIZE (type) = TYPE_SIZE (typefm);
 	  TYPE_SIZE_UNIT (type) = TYPE_SIZE_UNIT (typefm);
+	  TYPE_MODE (type) = TYPE_MODE (typefm);
 	  if (!TYPE_USER_ALIGN (type))
 	    TYPE_ALIGN (type) = TYPE_ALIGN (typefm);
 

@@ -1,5 +1,5 @@
 /* SSA Dominator optimizations for trees
-   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -374,11 +374,6 @@ tree_ssa_dominator_optimize (void)
   for (i = 0; i < num_referenced_vars; i++)
     var_ann (referenced_var (i))->current_def = NULL;
 
-  /* Mark loop edges so we avoid threading across loop boundaries.
-     This may result in transforming natural loop into irreducible
-     region.  */
-  mark_dfs_back_edges ();
-
   /* Create our hash tables.  */
   avail_exprs = htab_create (1024, real_avail_expr_hash, avail_expr_eq, free);
   vrp_data = htab_create (ceil_log2 (num_ssa_names), vrp_hash, vrp_eq, free);
@@ -462,6 +457,27 @@ tree_ssa_dominator_optimize (void)
 
       for (i = 0; i < num_referenced_vars; i++)
 	var_ann (referenced_var (i))->current_def = NULL;
+
+      /* Finally, remove everything except invariants in SSA_NAME_VALUE.
+
+	 This must be done before we iterate as we might have a
+	 reference to an SSA_NAME which was removed by the call to
+	 rewrite_ssa_into_ssa.
+
+	 Long term we will be able to let everything in SSA_NAME_VALUE
+	 persist.  However, for now, we know this is the safe thing to do.  */
+      for (i = 0; i < num_ssa_names; i++)
+	{
+	  tree name = ssa_name (i);
+	  tree value;
+
+	  if (!name)
+	    continue;
+
+	  value = SSA_NAME_VALUE (name);
+	  if (value && !is_gimple_min_invariant (value))
+	    SSA_NAME_VALUE (name) = NULL;
+	}
     }
   while (cfg_altered);
 
@@ -483,24 +499,6 @@ tree_ssa_dominator_optimize (void)
   /* Free nonzero_vars.  */
   BITMAP_XFREE (nonzero_vars);
   BITMAP_XFREE (need_eh_cleanup);
-
-  /* Finally, remove everything except invariants in SSA_NAME_VALUE.
-
-     Long term we will be able to let everything in SSA_NAME_VALUE
-     persist.  However, for now, we know this is the safe thing to
-     do.  */
-  for (i = 0; i < num_ssa_names; i++)
-    {
-      tree name = ssa_name (i);
-      tree value;
-
-      if (!name)
-	continue;
-
-      value = SSA_NAME_VALUE (name);
-      if (value && !is_gimple_min_invariant (value))
-	SSA_NAME_VALUE (name) = NULL;
-    }
   
   VEC_free (tree_on_heap, block_defs_stack);
   VEC_free (tree_on_heap, avail_exprs_stack);
@@ -2088,10 +2086,18 @@ simplify_cond_and_lookup_avail_expr (tree stmt,
 	      tree tmp_high, tmp_low;
 	      int dummy;
 
-	      /* The last element has not been processed.  Process it now.  */
-	      extract_range_from_cond (element->cond, &tmp_high,
-				       &tmp_low, &dummy);
-	  
+	      /* The last element has not been processed.  Process it now.
+		 record_range should ensure for cond inverted is not set.
+		 This call can only fail if cond is x < min or x > max,
+		 which fold should have optimized into false.
+		 If that doesn't happen, just pretend all values are
+		 in the range.  */
+	      if (! extract_range_from_cond (element->cond, &tmp_high,
+					     &tmp_low, &dummy))
+		gcc_unreachable ();
+	      else
+		gcc_assert (dummy == 0);
+
 	      /* If this is the only element, then no merging is necessary, 
 		 the high/low values from extract_range_from_cond are all
 		 we need.  */
@@ -3204,8 +3210,10 @@ extract_range_from_cond (tree cond, tree *hi_p, tree *lo_p, int *inverted_p)
       break;
 
     case GT_EXPR:
-      low = int_const_binop (PLUS_EXPR, op1, integer_one_node, 1);
       high = TYPE_MAX_VALUE (type);
+      if (!tree_int_cst_lt (op1, high))
+	return 0;
+      low = int_const_binop (PLUS_EXPR, op1, integer_one_node, 1);
       inverted = 0;
       break;
 
@@ -3216,8 +3224,10 @@ extract_range_from_cond (tree cond, tree *hi_p, tree *lo_p, int *inverted_p)
       break;
 
     case LT_EXPR:
-      high = int_const_binop (MINUS_EXPR, op1, integer_one_node, 1);
       low = TYPE_MIN_VALUE (type);
+      if (!tree_int_cst_lt (low, op1))
+	return 0;
+      high = int_const_binop (MINUS_EXPR, op1, integer_one_node, 1);
       inverted = 0;
       break;
 

@@ -1,5 +1,6 @@
 /* Branch prediction routines for the GNU compiler.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -947,7 +948,8 @@ expr_expected_value (tree expr, bitmap visited)
       tree decl = get_callee_fndecl (expr);
       if (!decl)
 	return NULL;
-      if (DECL_BUILT_IN (decl) && DECL_FUNCTION_CODE (decl) == BUILT_IN_EXPECT)
+      if (DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL
+	  && DECL_FUNCTION_CODE (decl) == BUILT_IN_EXPECT)
 	{
 	  tree arglist = TREE_OPERAND (expr, 1);
 	  tree val;
@@ -1006,7 +1008,7 @@ strip_builtin_expect (void)
 	  if (TREE_CODE (stmt) == MODIFY_EXPR
 	      && TREE_CODE (TREE_OPERAND (stmt, 1)) == CALL_EXPR
 	      && (fndecl = get_callee_fndecl (TREE_OPERAND (stmt, 1)))
-	      && DECL_BUILT_IN (fndecl)
+	      && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
 	      && DECL_FUNCTION_CODE (fndecl) == BUILT_IN_EXPECT
 	      && (arglist = TREE_OPERAND (TREE_OPERAND (stmt, 1), 1))
 	      && TREE_CHAIN (arglist))

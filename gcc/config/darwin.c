@@ -1,5 +1,6 @@
 /* Functions for generic Darwin as target machine for GNU C compiler.
-   Copyright (C) 1989, 1990, 1991, 1992, 1993, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1989, 1990, 1991, 1992, 1993, 2000, 2001, 2002, 2003, 2004,
+   2005
    Free Software Foundation, Inc.
    Contributed by Apple Computer Inc.
 
@@ -1037,7 +1038,7 @@ machopic_select_section (tree exp, int reloc,
   else if ((TREE_CODE (exp) == INTEGER_CST || TREE_CODE (exp) == REAL_CST)
 	   && flag_merge_constants)
     {
-      tree size = TYPE_SIZE (TREE_TYPE (exp));
+      tree size = TYPE_SIZE_UNIT (TREE_TYPE (exp));
 
       if (TREE_CODE (size) == INTEGER_CST &&
 	  TREE_INT_CST_LOW (size) == 4 &&

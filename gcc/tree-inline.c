@@ -1,5 +1,5 @@
 /* Tree inlining.
-   Copyright 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Alexandre Oliva <aoliva@redhat.com>
 
 This file is part of GCC.
@@ -1190,6 +1190,8 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case COMPONENT_REF:
     case BIT_FIELD_REF:
     case INDIRECT_REF:
+    case ALIGN_INDIRECT_REF:
+    case MISALIGNED_INDIRECT_REF:
     case ARRAY_REF:
     case ARRAY_RANGE_REF:
     case OBJ_TYPE_REF:
@@ -1322,6 +1324,8 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
 
     case ASM_EXPR:
 
+    case REALIGN_LOAD_EXPR:
+
     case RESX_EXPR:
       *count += 1;
       break;
@@ -1344,7 +1348,7 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
       {
 	tree decl = get_callee_fndecl (x);
 
-	if (decl && DECL_BUILT_IN (decl))
+	if (decl && DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL)
 	  switch (DECL_FUNCTION_CODE (decl))
 	    {
 	    case BUILT_IN_CONSTANT_P:
@@ -1580,7 +1584,18 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
   /* Find the lhs to which the result of this call is assigned.  */
   modify_dest = tsi_stmt (id->tsi);
   if (TREE_CODE (modify_dest) == MODIFY_EXPR)
-    modify_dest = TREE_OPERAND (modify_dest, 0);
+    {
+      modify_dest = TREE_OPERAND (modify_dest, 0);
+
+      /* The function which we are inlining might not return a value,
+	 in which case we should issue a warning that the function
+	 does not return a value.  In that case the optimizers will
+	 see that the variable to which the value is assigned was not
+	 initialized.  We do not want to issue a warning about that
+	 uninitialized variable.  */
+      if (DECL_P (modify_dest))
+	TREE_NO_WARNING (modify_dest) = 1;
+    }
   else
     modify_dest = NULL;
 

@@ -1,5 +1,5 @@
 /* gfortran header file
-   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation,
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation,
    Inc.
    Contributed by Andy Vaught
 
@@ -29,8 +29,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    multiple header files.  Besides, Microsoft's winnt.h was 250k last
    time I looked, so by comparison this is perfectly reasonable.  */
 
-/* We need system.h for HOST_WIDE_INT. Including hwint.h by itself doesn't
-   seem to be sufficient on some systems.  */
 #include "system.h"
 #include "coretypes.h"
 #include "input.h"
@@ -53,9 +51,6 @@ char *alloca ();
 #endif /* not _AIX */
 #endif /* do not HAVE_ALLOCA_H */
 #endif /* not __GNUC__ */
-
-
-#include <stdio.h>		/* need FILE * here */
 
 /* Major control parameters.  */
 

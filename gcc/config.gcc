@@ -1,5 +1,5 @@
 # GCC target-specific configuration file.
-# Copyright 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+# Copyright 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
 # Free Software Foundation, Inc.
 
 #This file is part of GCC.
@@ -493,6 +493,10 @@ case ${target} in
       tmake_file="${tmake_file} t-openbsd-thread"
       ;;
   esac
+  case ${target} in
+    *-*-openbsd2.*|*-*-openbsd3.[012])
+      tm_defines="${tm_defines} HAS_LIBC_R=1" ;;
+  esac
   ;;
 *-*-rtems*)
   case ${enable_threads} in
@@ -930,12 +934,19 @@ i[34567]86-*-netbsd*)
 x86_64-*-netbsd*)
 	tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h netbsd.h netbsd-elf.h i386/x86-64.h i386/netbsd64.h"
 	;;
-i[34567]86-*-openbsd*)
+i[34567]86-*-openbsd2.*|i[34567]86-*openbsd3.[0123])
 	tm_file="i386/i386.h i386/unix.h i386/bsd.h i386/gas.h i386/gstabs.h openbsd-oldgas.h openbsd.h i386/openbsd.h"
 	# needed to unconfuse gdb
 	tmake_file="t-libc-ok t-openbsd i386/t-openbsd"
 	# we need collect2 until our bug is fixed...
 	use_collect2=yes
+	;;
+i[34567]86-*-openbsd*)
+	tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h i386/i386elf.h"
+	tm_file="${tm_file} openbsd.h i386/openbsdelf.h"
+	gas=yes
+	gnu_ld=yes
+	stabs=yes
 	;;
 i[34567]86-*-coff*)
 	tm_file="${tm_file} i386/unix.h i386/bsd.h i386/gas.h dbxcoff.h i386/i386-coff.h"
@@ -1373,15 +1384,7 @@ mips*-*-netbsd*)			# NetBSD/mips, either endian.
 mips64*-*-linux*)
 	tm_file="dbxelf.h elfos.h svr4.h linux.h ${tm_file} mips/linux.h mips/linux64.h"
 	tmake_file="${tmake_file} mips/t-linux64"
-
-	# This default ABI is a partial lie: t-linux64 overrides the
-	# DRIVER_SELF_SPEC that sets the default abi, in the spec file
-	# that is installed.  What GCC thinks of as the default must
-	# remain as ABI_32 such that the SONAMEs of the libgcc shared
-	# libraries remain compatible with those of mips-linux-gnu.
-	tm_defines="MIPS_ISA_DEFAULT=1 MIPS_ABI_DEFAULT=ABI_32"
-	target_cpu_default="MASK_ABICALLS|MASK_FLOAT64|MASK_64BIT"
-	extra_parts="crtbegin.o crtbeginS.o crtbeginT.o crtend.o crtendS.o"
+	tm_defines="MIPS_ABI_DEFAULT=ABI_N32"
 	gnu_ld=yes
 	gas=yes
 	;;
@@ -1854,11 +1857,11 @@ sh-*-symbianelf* | sh[12346l]*-*-symbianelf* | \
 	use_fixproto=yes
 	;;
 sh-*-rtemscoff*)
-	tmake_file="sh/t-sh t-rtems"
+	tmake_file="sh/t-sh t-rtems sh/t-rtems"
 	tm_file="${tm_file} dbxcoff.h sh/coff.h sh/rtems.h rtems.h"
 	;;
 sh-*-rtems*)
-	tmake_file="sh/t-sh sh/t-elf t-rtems"
+	tmake_file="sh/t-sh sh/t-elf t-rtems sh/t-rtems"
 	tm_file="${tm_file} dbxelf.h elfos.h svr4.h sh/elf.h sh/embed-elf.h sh/rtemself.h rtems.h"
 	;;
 sh-wrs-vxworks)

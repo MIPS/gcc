@@ -1,3 +1,76 @@
+2005-01-20  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* typeck.c (more_qualified_p): Remove.
+	* cp-tree.h: Remove the corresponding prototype.
+
+2005-01-19  Matt Austern  <austern@apple.com>
+
+	* typeck.c (comptypes): Handle return code from objc_comptypes
+	correctly.
+	
+2005-01-19  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* cp-tree.h, name-lookup.h: Remove unused prototypes.
+
+2005-01-19  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/19375
+	* semantics.c (finish_id_expression): Disable access checking for
+	already lookuped FIELD_DECL.
+
+2005-01-18  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* decl.c (delete_block): Remove.
+	* cp-tree.h: Remove the corresponding prototype.
+
+	* decl.c (vtable_decl_p, vtype_decl_p, walk_globals_data,
+	walk_vtables_r, walk_vtables, walk_globals_r, walk_globals):
+	Remove.
+	* cp-tree.h: Remove the corresponding prototypes.
+
+	* tree.c (count_functions, bound_pmf_p, cp_is_overload_p,
+	cp_update_decl_after_saving, name_p): Remove.
+	* cp-tree.h: Remove the corresponding prototypes.
+
+2005-01-18  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c/19472
+	* semantics.c (finish_asm_stmt): Strip nops off
+	input memory operands.
+
+2005-01-18  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* Make-lang.in, call.c, cvt.c, init.c, rtti.c, tree.c,
+	typeck2.c: Update copyright.
+
+2005-01-16  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* class.c (get_enclosing_class): Remove.
+	* cp-tree.h: Remove the corresponding prototypes.
+
+	* cvt.c (convert_lvalue): Remove.
+	* cp-tree.h: Remove the corresponding prototype.
+
+	* pt.c (tinst_for_decl): Remove.
+	* cp-tree.h: Remove the corresponding prototypes.
+
+	* tree.c (hash_chainon): Remove.
+	* cp-tree.h: Remove the corresponding prototypes.
+
+2005-01-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/19263
+	* typeck2.c (split_nonconstant_init_1) <case VECTOR_TYPE>: Put a copy
+	of CONSTRUCTOR's node into MODIFY_EXPR, as the original is modified.
+
+2005-01-12  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* Make-lang.in (cp-warn): Don't append $(WERROR).
+
+2005-01-10  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* cp-tree.h: Fix a comment typo.
+
 2005-01-07  Nathan Sidwell  <nathan@codesourcery.com>
 
 	PR c++/19298

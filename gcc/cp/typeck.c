@@ -1020,7 +1020,7 @@ comptypes (tree t1, tree t2, int strict)
       
       /* We may be dealing with Objective-C instances...  */
       if (TREE_CODE (t1) == RECORD_TYPE
-	  && (retval = objc_comptypes (t1, t2, 0) >= 0))
+	  && ((retval = objc_comptypes (t1, t2, 0)) >= 0))
          return retval;
       /* ...but fall through if we are not.  */
 
@@ -1087,17 +1087,6 @@ at_least_as_qualified_p (tree type1, tree type2)
   
   /* All qualifiers for TYPE2 must also appear in TYPE1.  */
   return (q1 & q2) == q2;
-}
-
-/* Returns 1 if TYPE1 is more qualified than TYPE2.  */
-
-bool
-more_qualified_p (tree type1, tree type2)
-{
-  int q1 = cp_type_quals (type1);
-  int q2 = cp_type_quals (type2);
-
-  return q1 != q2 && (q1 & q2) == q2;
 }
 
 /* Returns 1 if TYPE1 is more cv-qualified than TYPE2, -1 if TYPE2 is
