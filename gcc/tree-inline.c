@@ -54,34 +54,33 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-gimple.h"
 
 /* Inlining, Saving, Cloning
- *
- * Inlining: a function body is duplicated, but the PARM_DECLs are
- * remapped into VAR_DECLs, and non-void RETURN_EXPRs become
- * MODIFY_EXPRs that store to a dedicated returned-value variable.
- * The duplicated eh_region info of the copy will later be appended 
- * to the info for the caller; the eh_region info in copied throwing 
- * statements and RESX_EXPRs is adjusted accordingly.
- *
- * Saving: make a semantically-identical copy of the function body.
- * Necessary when we want to generate code for the body (a destructive
- * operation), but we expect to need this body in the future (e.g. for
- * inlining into another function).
- *
- * Cloning: (only in C++) We have one body for a con/de/structor, and
- * multiple function decls, each with a unique parameter list.
- * Duplicate the body, using the given splay tree; some parameters
- * will become constants (like 0 or 1).
- *
- * All of these will simultaneously lookup any callgraph edges.  If
- * we're going to inline the duplicated function body, and the given
- * function has some cloned callgraph nodes (one for each place this
- * function will be inlined) those callgraph edges will be duplicated.
- * If we're saving or cloning the body, those callgraph edges will be
- * updated to point into the new body.  (Note that the original
- * callgraph node and edge list will not be altered.)
- *
- * See the CALL_EXPR handling case in copy_body_r ().
- */
+
+   Inlining: a function body is duplicated, but the PARM_DECLs are
+   remapped into VAR_DECLs, and non-void RETURN_EXPRs become
+   MODIFY_EXPRs that store to a dedicated returned-value variable.
+   The duplicated eh_region info of the copy will later be appended 
+   to the info for the caller; the eh_region info in copied throwing 
+   statements and RESX_EXPRs is adjusted accordingly.
+
+   Saving: make a semantically-identical copy of the function body.
+   Necessary when we want to generate code for the body (a destructive
+   operation), but we expect to need this body in the future (e.g. for
+   inlining into another function).
+
+   Cloning: (only in C++) We have one body for a con/de/structor, and
+   multiple function decls, each with a unique parameter list.
+   Duplicate the body, using the given splay tree; some parameters
+   will become constants (like 0 or 1).
+
+   All of these will simultaneously lookup any callgraph edges.  If
+   we're going to inline the duplicated function body, and the given
+   function has some cloned callgraph nodes (one for each place this
+   function will be inlined) those callgraph edges will be duplicated.
+   If we're saving or cloning the body, those callgraph edges will be
+   updated to point into the new body.  (Note that the original
+   callgraph node and edge list will not be altered.)
+
+   See the CALL_EXPR handling case in copy_body_r ().  */
 
 /* 0 if we should not perform inlining.
    1 if we should expand functions calls inline at the tree level.
@@ -260,6 +259,7 @@ remap_decl (tree decl, inline_data *id)
 	  && (TREE_CODE (t) == VAR_DECL
 	      || TREE_CODE (t) == PARM_DECL))
 	declare_inline_vars (id->bind_expr, t);
+
       /* Remember it, so that if we encounter this local entity
 	 again we can reuse this copy.  */
       insert_decl_map (id, decl, t);
@@ -539,31 +539,34 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 	 the result decl has already been set (e.g. a recent "foo (&result_decl,
 	 ...)"); just toss the entire RETURN_EXPR.  */
       if (assignment && TREE_CODE (assignment) == MODIFY_EXPR)
-        {
-	      /* Replace the RETURN_EXPR with (a copy of) the
-		 MODIFY_EXPR hangning underneath.  */
-	      *tp = copy_node (assignment);
-	      /* If we're working on CFGs, add an outgoing CFG edge to the
-		 return block.  */
-		make_edge (id->copy_basic_block, id->return_block,
-			   EDGE_FALLTHRU);
-	    }
+	{
+	  /* Replace the RETURN_EXPR with (a copy of) the
+	     MODIFY_EXPR hangning underneath.  */
+	  *tp = copy_node (assignment);
+
+	  /* If we're working on CFGs, add an outgoing CFG edge to the
+	     return block.  */
+	  make_edge (id->copy_basic_block, id->return_block,
+		     EDGE_FALLTHRU);
+	}
       else /* Else the RETURN_EXPR returns no value.  */
 	{
-	      /* Since we're not returning anything, just delete the
-		 RETURN_EXPR.  This is spooky, as we're altering a
-		 tree_stmt_iterator owned by our caller, who is using
-		 it to iterate through the statemetns of this
-		 block.  */
-	      tsi_delink (&id->copy_tsi);
-	      /* If we're working on CFGs, add an outgoing CFG edge to the
-		 return block.  */
-		make_edge (id->copy_basic_block, id->return_block,
-			   EDGE_FALLTHRU);
-		/* Return something to stop iterating.  */
-	      return (void *)1;
-	    }
+	  /* Since we're not returning anything, just delete the
+	     RETURN_EXPR.  This is spooky, as we're altering a
+	     tree_stmt_iterator owned by our caller, who is using
+	     it to iterate through the statemetns of this
+	     block.  */
+	  tsi_delink (&id->copy_tsi);
+
+	  /* If we're working on CFGs, add an outgoing CFG edge to the
+	     return block.  */
+	  make_edge (id->copy_basic_block, id->return_block,
+		     EDGE_FALLTHRU);
+	  /* Return something to stop iterating.  */
+	  return (void *)1;
+	}
     }
+
   /* Local variables and labels need to be replaced by equivalent
      variables.  We don't want to copy static variables; there's only
      one of those, no matter how many times we inline the containing
@@ -847,9 +850,9 @@ copy_cfg_body (inline_data *id)
   else	/* Else we're inlining normally.  */
     {
       /* create_block() will append new blocks onto the ends of the
-       * callers basic_block_info/label_to_block_map varrays.
-       * basic_block_info will be re-written by compact_blocks() when
-       * we're done inlining into this caller.  */
+	 callers basic_block_info/label_to_block_map varrays.
+	 basic_block_info will be re-written by compact_blocks() when
+	 we're done inlining into this caller.  */
       basic_block_info = basic_block_info_for_function (caller_cfun);
       label_to_block_map = label_to_block_map_for_function (caller_cfun);
       last_basic_block = last_basic_block_for_function (caller_cfun);
@@ -859,6 +862,7 @@ copy_cfg_body (inline_data *id)
 		    "temporary basic_block_info (copy_body)");
       new_cfun->last_label_uid = caller_cfun->last_label_uid;
     }
+
   /* Duplicate any exception-handling regions.  */
   if (cfun->eh)
     {
@@ -947,9 +951,10 @@ copy_cfg_body (inline_data *id)
 		       VARRAY_BB (new_bb_info, old_dest_index),
 		       old_edge->flags);
 	}
+
       tsi_end = tsi_last (bb->stmt_list);
-      for (tsi = tsi_start (bb->stmt_list)
-	   , tsi_copy = tsi_start (new_bb->stmt_list);
+      for (tsi = tsi_start (bb->stmt_list),
+	     tsi_copy = tsi_start (new_bb->stmt_list);
 	   !tsi_end_p (tsi_copy);
 	   tsi_next (&tsi))
 	{
@@ -957,6 +962,7 @@ copy_cfg_body (inline_data *id)
 	  copy_stmt = tsi_stmt (tsi_copy);
 	  /* Do this before the possible split_block.  */
 	  tsi_next (&tsi_copy);
+
 	  /* If this tree could throw an exception, there are two
 	     cases where we need to add abnormal edge(s): the
 	     tree wasn't in a region and there is a "current
@@ -968,6 +974,7 @@ copy_cfg_body (inline_data *id)
 	     propagation can change an INDIRECT_REF which throws
 	     into a COMPONENT_REF which doesn't.  If the copy
 	     can throw, the original could also throw.  */
+
 	  if (tree_could_throw_p (copy_stmt)
 	      && ((lookup_stmt_eh_region_fn (
 			    DECL_STRUCT_FUNCTION (id->callee),
@@ -986,6 +993,7 @@ copy_cfg_body (inline_data *id)
 		  edge e = split_block (new_bb, copy_stmt);
 		  new_bb = e->dest;
 		}
+
 	      /* If this tree doesn't have a region associated with it,
 		 and there is a "current region,"
 		 then associate this tree with the current region
@@ -999,11 +1007,12 @@ copy_cfg_body (inline_data *id)
 		  cfun->eh = caller_cfun->eh;
 		  add_stmt_to_eh_region (copy_stmt,
 					 get_eh_cur_region (caller_cfun));
-	      make_eh_edges (copy_stmt);
-	      cfun->eh = saved_eh;
-	    }
+		  make_eh_edges (copy_stmt);
+		  cfun->eh = saved_eh;
+		}
+
 	      /* If the original call that we're inlining had EH
-	     edges, attach EH edges with the same destination
+		 edges, attach EH edges with the same destination
 		 to this block.  */
 	      if (eh_dst)
 	      for (i = 0; i < VARRAY_ACTIVE_SIZE (eh_dst); i++)
@@ -1014,9 +1023,9 @@ copy_cfg_body (inline_data *id)
     }
   if (saving_or_cloning)
     {
-  make_edge (ENTRY_BLOCK_PTR, BASIC_BLOCK (0), EDGE_FALLTHRU);
-  make_edge (BASIC_BLOCK (last_basic_block-1), EXIT_BLOCK_PTR,
-		    EDGE_FALLTHRU);
+      make_edge (ENTRY_BLOCK_PTR, BASIC_BLOCK (0), EDGE_FALLTHRU);
+      make_edge (BASIC_BLOCK (last_basic_block-1), EXIT_BLOCK_PTR,
+		 EDGE_FALLTHRU);
     }
   id->copy_basic_block = (basic_block)0;
   if (!saving_or_cloning)
@@ -1025,6 +1034,7 @@ copy_cfg_body (inline_data *id)
   DECL_SAVED_TREE (new_fndecl) = ENTRY_BLOCK_PTR->next_bb->stmt_list;
 
   pop_cfun ();
+
   /* These varrays have grown, and probably have been realloced.  */
   if (!saving_or_cloning)
     {
@@ -1518,6 +1528,7 @@ inline_forbidden_p (tree fndecl)
   block_stmt_iterator bsi;
   basic_block bb;
   tree ret = NULL_TREE;
+
   /* We should always be called after the CFG is built. */
   if (basic_block_info_for_function (DECL_STRUCT_FUNCTION (fndecl))== (varray_type) 0)
     abort ();
@@ -1530,6 +1541,7 @@ inline_forbidden_p (tree fndecl)
 	if (ret)
 	  goto egress;
       }
+
 egress:
   input_location = saved_loc;
   return ret;
@@ -1853,6 +1865,7 @@ estimate_num_insns (tree expr)
     }
   else
     walk_tree_without_duplicates (&expr, estimate_num_insns_1, &num);
+
   return num;
 }
 
@@ -3199,7 +3212,6 @@ static void
 declare_inline_vars (tree bind_expr, tree vars)
 {
   tree t;
-
   for (t = vars; t; t = TREE_CHAIN (t))
     DECL_SEEN_IN_BIND_EXPR_P (t) = 1;
 
