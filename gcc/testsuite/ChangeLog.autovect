@@ -1,4 +1,9 @@
-2004-01-10  Devang Patel  <dpatel@apple.com>
+2005-02-12  Dorit Naishlos  <dorit@il.ibm.com>
+
+	* gcc.dg/vect/vect-62.c: Only one loop should be vectorized.
+	* gcc.dg/vect/vect-85.c: Remove xfail.
+
+2005-02-10  Devang Patel  <dpatel@apple.com>
 
         * lib/target-supports.exp (check_effective_target_vect_shif): New.
         * gcc.dg/vect/vect-shift-1.c: New test.

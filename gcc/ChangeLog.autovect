@@ -1,4 +1,46 @@
-2004-02-10  Devang Patel  <dpatel@apple.com>
+2005-02-12  Dorit Naishlos  <dorit@il.ibm.com>
+
+	* tree-vectorizer.h (vect_def_type): New enum definition.
+	(_stmt_vec_info): New fields "live"  and "def_type" added.
+	(STMT_VINFO_LIVE_P, STMT_VINFO_DEF_TYPE): New macros to access above
+	new fields.
+	(set_stmt_info): Argument type changed to tree_ann_t.
+	(vinfo_for_stmt): Type of variable "ann" changed to tree_ann_t. 
+	* tree-vectorizer.c (vect_analyze_scalar_cycles): Function made void 
+	instead of bool. Set STMT_VINFO_DEF_TYPE for phi nodes.
+	(vect_is_simple_use): Takes additional arguments. Consider 
+	STMT_VINFO_DEF_TYPE.
+	(vect_mark_relevant): Takes additional arguments. Set STMT_VINFO_LIVE_P.
+	(vect_stmt_relevant_p): Takes additional arguments.
+	(new_stmt_vec_info): Initialize the new fields STMT_VINFO_LIVE_P and
+	STMT_VINFO_DEF_TYPE.
+	(new_loop_vec_info): Set a stmt_vec_info for phi node.
+	(destroy_loop_vec_info): Free the stmt_vec_info for phi nodes.
+	(vect_get_vec_def_for_operand): Use new outputs of vect_is_simple_use.
+	(vectorizable_assignment): Use new API for vect_is_simple_use.
+	Support the case when the def of the assignment is used out of the loop
+	and the use of the assignment is invariant. 
+	(vectorizable_operation): Use new API for vect_is_simple_use. Check
+	if the def of the operation is used out side the loop.
+	(vectorizable_load): Likewise.
+	(vectorizable_select) Likewise.
+	(vectorizable_store): Use new API for vect_is_simple_use.
+	(vect_is_simple_cond): Use new API for vect_is_simple_use.
+	(vect_analyze_operations): Check if operations are used after the loop.
+	Also check phi nodes.
+	(vect_enhance_data_refs_alignment): Call vect_can_advance_ivs_p.
+	(vect_mark_stmts_to_be_vectorized): Check vect_stmt_relevant_p also for
+	phis when initializing the worklist. Use new API for vect_mark_relevant
+	ans vect_stmt_relevant_p. Use new API for vect_is_simple_use. Mark
+	"liveness" (i.e. presence of uses after loop) seperately from 
+	"relevance" (i.e. need to be vectorized).
+	(vect_analyze_loop): Call to vect_analyze_scalar_cycles moved earlier.
+	(vect_pattern_recog_1): Cast to tree_ann_t in call to set_stmt_info.
+	(vect_transform_loop): Likewise.
+	(vect_update_ivs_after_vectorizer): Add debug printouts.
+	(vect_can_advance_ivs_p): Likewise.
+
+2005-02-10  Devang Patel  <dpatel@apple.com>
 
         * config/rs600/altivec.md (altivec_vsr<VI_char>): Rename to ..
         (lhsr<mode>3): ... new name.
@@ -20,8 +62,8 @@
 	(slpeel_tree_peel_loop_to_edge): Call above new functions instead of
 	slpeel_update_phi_nodes_for_guard.
 	(vect_update_ivs_after_vectorizer): Remove assersion.
-	(vect_transform_loop): Remove redundant argument need_loop_closed_rewrite
-	and its uses.
+	(vect_transform_loop): Remove redundant argument 
+	need_loop_closed_rewrite and its uses.
 	(vectorize_loops): Remove all uses of need_loop_closed_rewrite. Remove
 	call to loop_closed_rewrite.
 	

@@ -193,7 +193,7 @@ static loop_vec_info vect_analyze_loop (struct loop *);
 static loop_vec_info vect_analyze_loop_form (struct loop *);
 static bool vect_analyze_data_refs (loop_vec_info);
 static bool vect_mark_stmts_to_be_vectorized (loop_vec_info);
-static bool vect_analyze_scalar_cycles (loop_vec_info);
+static void vect_analyze_scalar_cycles (loop_vec_info);
 static bool vect_analyze_data_ref_accesses (loop_vec_info);
 static bool vect_analyze_data_refs_alignment (loop_vec_info);
 static bool vect_compute_data_refs_alignment (loop_vec_info);
@@ -217,12 +217,13 @@ static void vect_update_misalignment_for_peel
 static bool vect_enhance_data_refs_alignment (loop_vec_info);
 
 /* Utility functions for the analyses.  */
-static bool vect_is_simple_use (tree , struct loop *, tree *);
+static bool vect_is_simple_use 
+  (tree , struct loop *, tree *, tree *, enum vect_def_type *);
 static bool vect_is_simple_cond (tree, struct loop *);
 static bool exist_non_indexing_operands_for_use_p (tree, tree);
 static bool vect_is_simple_iv_evolution (unsigned, tree, tree *, tree *);
-static void vect_mark_relevant (varray_type *, tree);
-static bool vect_stmt_relevant_p (tree, loop_vec_info);
+static void vect_mark_relevant (varray_type *, tree, bool, bool);
+static bool vect_stmt_relevant_p (tree, loop_vec_info, bool *, bool *);
 static tree vect_get_loop_niters (struct loop *, tree *);
 static bool vect_compute_data_ref_alignment (struct data_reference *);
 static bool vect_analyze_data_ref_access (struct data_reference *);
@@ -1514,6 +1515,7 @@ new_stmt_vec_info (tree stmt, struct loop *loop)
   STMT_VINFO_STMT (res) = stmt;
   STMT_VINFO_LOOP (res) = loop;
   STMT_VINFO_RELEVANT_P (res) = 0;
+  STMT_VINFO_LIVE_P (res) = 0;
   STMT_VINFO_VECTYPE (res) = NULL;
   STMT_VINFO_VEC_STMT (res) = NULL;
   STMT_VINFO_DATA_REF (res) = NULL;
@@ -1525,6 +1527,10 @@ new_stmt_vec_info (tree stmt, struct loop *loop)
   STMT_VINFO_VECT_STEP (res) = NULL_TREE;
   STMT_VINFO_VECT_BASE_ALIGNED_P (res) = false;
   STMT_VINFO_VECT_MISALIGNMENT (res) = NULL_TREE;
+  if (TREE_CODE (stmt) == PHI_NODE)
+    STMT_VINFO_DEF_TYPE (res) = vect_unknown_def_type;
+  else
+    STMT_VINFO_DEF_TYPE (res) = vect_loop_def;
   VARRAY_GENERIC_PTR_INIT (STMT_VINFO_SAME_ALIGN_REFS (res), 20,
 			   "same_align_datarefs");
 
@@ -1553,6 +1559,14 @@ new_loop_vec_info (struct loop *loop)
   for (i = 0; i < loop->num_nodes; i++)
     {
       basic_block bb = bbs[i];
+      tree phi;
+
+      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
+	{
+	  tree_ann_t ann = get_tree_ann (phi);
+	  set_stmt_info (ann, new_stmt_vec_info (phi, loop));
+	}
+
       for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
 	{
 	  tree stmt = bsi_stmt (si);
@@ -1560,7 +1574,7 @@ new_loop_vec_info (struct loop *loop)
 
 	  get_stmt_operands (stmt);
 	  ann = stmt_ann (stmt);
-	  set_stmt_info (ann, new_stmt_vec_info (stmt, loop));
+	  set_stmt_info ((tree_ann_t)ann, new_stmt_vec_info (stmt, loop));
 	}
     }
 
@@ -1608,16 +1622,29 @@ destroy_loop_vec_info (loop_vec_info loop_vinfo)
   for (j = 0; j < nbbs; j++)
     {
       basic_block bb = bbs[j];
+      tree phi;
+      stmt_vec_info stmt_info;
+
+      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
+        {
+	  tree_ann_t ann = get_tree_ann (phi);
+
+	  stmt_info = vinfo_for_stmt (phi);
+	  free (stmt_info);
+	  set_stmt_info (ann, NULL);
+	}
+
       for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
 	{
 	  tree stmt = bsi_stmt (si);
 	  stmt_ann_t ann = stmt_ann (stmt);
-	  stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
+
+	  stmt_info = vinfo_for_stmt (stmt);
 	  if (stmt_info)
 	    { /* CHECKME: newly created stmts have NULL in stmt_info?  */
 	      VARRAY_CLEAR (STMT_VINFO_SAME_ALIGN_REFS (stmt_info));
 	      free (stmt_info);
-	      set_stmt_info (ann, NULL);
+	      set_stmt_info ((tree_ann_t)ann, NULL);
 	    }
 	}
     }
@@ -2708,11 +2735,12 @@ vect_get_vec_def_for_operand (tree op, tree stmt)
   tree vectype = STMT_VINFO_VECTYPE (stmt_vinfo);
   int nunits = GET_MODE_NUNITS (TYPE_MODE (vectype));
   struct loop *loop = STMT_VINFO_LOOP (stmt_vinfo);
-  basic_block bb;
   tree vec_inv;
+  tree vec_cst;
   tree t = NULL_TREE;
   tree def;
   int i;
+  enum vect_def_type dt;
 
   if (vect_debug_details (NULL))
     {
@@ -2720,102 +2748,77 @@ vect_get_vec_def_for_operand (tree op, tree stmt)
       print_generic_expr (dump_file, op, TDF_SLIM);
     }
 
-  /** ===> Case 1: operand is a constant.  **/
-
-  if (TREE_CODE (op) == INTEGER_CST || TREE_CODE (op) == REAL_CST)
+  gcc_assert (vect_is_simple_use (op, loop, &def_stmt, &def, &dt));
+  if (vect_debug_details (NULL))
     {
-      /* Create 'vect_cst_ = {cst,cst,...,cst}'  */
-
-      tree vec_cst;
-
-      /* Build a tree with vector elements.  */
-      if (vect_debug_details (NULL))
-        fprintf (dump_file, "Create vector_cst. nunits = %d", nunits);
-
-      for (i = nunits - 1; i >= 0; --i)
+      if (def)
         {
-          t = tree_cons (NULL_TREE, op, t);
+          fprintf (dump_file, "def =  ");
+          print_generic_expr (dump_file, def, TDF_SLIM);
         }
-      vec_cst = build_vector (vectype, t);
-      return vect_init_vector (stmt, vec_cst);
+      if (def_stmt)
+        {
+          fprintf (dump_file, "  def_stmt =  ");
+          print_generic_expr (dump_file, def_stmt, TDF_SLIM);
+        }
     }
 
-  gcc_assert (TREE_CODE (op) == SSA_NAME);
- 
-  /** ===> Case 2: operand is an SSA_NAME - find the stmt that defines it.  **/
-
-  def_stmt = SSA_NAME_DEF_STMT (op);
-  def_stmt_info = vinfo_for_stmt (def_stmt);
-
-  if (vect_debug_details (NULL))
+  switch (dt)
     {
-      fprintf (dump_file, "vect_get_vec_def_for_operand: def_stmt: ");
-      print_generic_expr (dump_file, def_stmt, TDF_SLIM);
-    }
+    /* Case 1: operand is a constant.  */
+    case vect_constant_def:
+      {
+        /* Create 'vect_cst_ = {cst,cst,...,cst}'  */
+        if (vect_debug_details (NULL))
+          fprintf (dump_file, "Create vector_cst. nunits = %d", nunits);
 
+        for (i = nunits - 1; i >= 0; --i)
+          {
+            t = tree_cons (NULL_TREE, op, t);
+          }
+        vec_cst = build_vector (vectype, t);
+        return vect_init_vector (stmt, vec_cst);
+      }
 
-  /** ==> Case 2.1: operand is defined inside the loop.  **/
+    /* Case 2: operand is defined outside the loop - loop invariant.  */
+    case vect_invariant_def:
+      {
+        /* Create 'vec_inv = {inv,inv,..,inv}'  */
+        if (vect_debug_details (NULL))
+          fprintf (dump_file, "Create vector_inv.");
 
-  if (def_stmt_info)
-    {
-      /* Get the def from the vectorized stmt.  */
+        for (i = nunits - 1; i >= 0; --i)
+          {
+            t = tree_cons (NULL_TREE, def, t);
+          }
+   
+        vec_inv = build_constructor (vectype, t);
+        return vect_init_vector (stmt, vec_inv);
+      }
+  
+    /* Case 3: operand is defined inside the loop.  */
+    case vect_loop_def:
+      {
+        /* Get the def from the vectorized stmt.  */
+        def_stmt_info = vinfo_for_stmt (def_stmt);
+        vec_stmt = STMT_VINFO_VEC_STMT (def_stmt_info);
+        gcc_assert (vec_stmt); 
+        vec_oprnd = TREE_OPERAND (vec_stmt, 0);
+        return vec_oprnd;
+      }
 
-      vec_stmt = STMT_VINFO_VEC_STMT (def_stmt_info);
-      gcc_assert (vec_stmt);
-      vec_oprnd = TREE_OPERAND (vec_stmt, 0);
-      return vec_oprnd;
-    }
-
-
-  /** ==> Case 2.2: operand is defined by the loop-header phi-node - 
-                    it is a reduction/induction.  **/
-
-  bb = bb_for_stmt (def_stmt);
-  if (TREE_CODE (def_stmt) == PHI_NODE && flow_bb_inside_loop_p (loop, bb))
-    {
-      if (vect_debug_details (NULL))
-	fprintf (dump_file, "reduction/induction - unsupported.");
-      internal_error ("no support for reduction/induction"); /* FORNOW */
-    }
-
-
-  /** ==> Case 2.3: operand is defined outside the loop - 
-                    it is a loop invariant.  */
-
-  switch (TREE_CODE (def_stmt))
-    {
-    case PHI_NODE:
-      def = PHI_RESULT (def_stmt);
-      break;
-    case MODIFY_EXPR:
-      def = TREE_OPERAND (def_stmt, 0);
-      break;
-    case NOP_EXPR:
-      def = TREE_OPERAND (def_stmt, 0);
-      gcc_assert (IS_EMPTY_STMT (def_stmt));
-      def = op;
-      break;
+    /* Case 4: operand is defined by loop-header phi - reduction/induction.  */
+    case vect_induction_def: 
+    case vect_reduction_def:
+      {
+        if (vect_debug_details (NULL))
+          fprintf (dump_file, "reduction/induction - unsupported.");
+        internal_error ("no support for reduction/induction"); /* FORNOW */
+      } 
+   
     default:
-      if (vect_debug_details (NULL))
-	{
-          fprintf (dump_file, "unsupported defining stmt: ");
-	  print_generic_expr (dump_file, def_stmt, TDF_SLIM);
-	}
-      internal_error ("unsupported defining stmt");
+      gcc_unreachable (); 
     }
-
-  /* Build a tree with vector elements. Create 'vec_inv = {inv,inv,..,inv}'  */
-
-  if (vect_debug_details (NULL))
-    fprintf (dump_file, "Create vector_inv.");
-
-  for (i = nunits - 1; i >= 0; --i)
-    {
-      t = tree_cons (NULL_TREE, def, t);
-    }
-
-  vec_inv = build_constructor (vectype, t);
-  return vect_init_vector (stmt, vec_inv);
 }
 
 
@@ -2864,6 +2867,8 @@ vectorizable_assignment (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   tree vectype = STMT_VINFO_VECTYPE (stmt_info);
   struct loop *loop = STMT_VINFO_LOOP (stmt_info);
   tree new_temp;
+  tree def, def_stmt;
+  enum vect_def_type dt;
 
   /* Is vectorizable assignment?  */
 
@@ -2875,11 +2880,27 @@ vectorizable_assignment (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
     return false;
 
   op = TREE_OPERAND (stmt, 1);
-  if (!vect_is_simple_use (op, loop, NULL))
+  if (!vect_is_simple_use (op, loop, &def_stmt, &def, &dt))
     {
       if (vect_debug_details (NULL))
         fprintf (dump_file, "use not simple.");
       return false;
+    }
+
+  if (STMT_VINFO_LIVE_P (stmt_info))
+    {
+      if (dt != vect_invariant_def)
+        {
+          /* FORNOW: not yet supported.  */
+          if (vect_debug_details (loop))
+            fprintf (dump_file, "value used after loop.");
+          return false;
+        }
+      else
+        {
+	  if (vect_debug_details (loop))
+            fprintf (dump_file, "invariant value used after loop.");
+        }
     }
 
   if (!vec_stmt) /* transformation not required.  */
@@ -2935,8 +2956,19 @@ vectorizable_operation (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   tree op;
   optab optab;
   tree orig_stmt_in_pattern;
+  tree def, def_stmt;
+  enum vect_def_type dt;
 
   /* Is STMT a vectorizable binary/unary operation?   */
+
+  if (STMT_VINFO_LIVE_P (stmt_info))
+    {
+      /* FORNOW: not yet supported.  */
+      if (vect_debug_details (loop))
+        fprintf (dump_file, "value used after loop.");
+      return false;
+    }
+
   if (TREE_CODE (stmt) != MODIFY_EXPR)
     return false;
 
@@ -2959,7 +2991,7 @@ vectorizable_operation (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   for (i = 0; i < op_type; i++)
     {
       op = TREE_OPERAND (operation, i);
-      if (!vect_is_simple_use (op, loop, NULL))
+      if (!vect_is_simple_use (op, loop, &def_stmt, &def, &dt))
 	{
 	  if (vect_debug_details (NULL))
 	    fprintf (dump_file, "use not simple.");
@@ -3059,6 +3091,8 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   enum dr_alignment_support alignment_support_cheme;
   v_may_def_optype v_may_defs;
   int nv_may_defs, i;
+  tree def, def_stmt;
+  enum vect_def_type dt;
 
   /* Is vectorizable store? */
 
@@ -3071,7 +3105,7 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
     return false;
 
   op = TREE_OPERAND (stmt, 1);
-  if (!vect_is_simple_use (op, loop, NULL))
+  if (!vect_is_simple_use (op, loop, &def_stmt, &def, &dt))
     {
       if (vect_debug_details (NULL))
         fprintf (dump_file, "use not simple.");
@@ -3163,6 +3197,14 @@ vectorizable_load (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   enum dr_alignment_support alignment_support_cheme;
 
   /* Is vectorizable load? */
+
+  if (STMT_VINFO_LIVE_P (stmt_info))
+    {
+      /* FORNOW: not yet supported.  */
+      if (vect_debug_details (loop))
+        fprintf (dump_file, "value used after loop.");
+      return false;
+    }
 
   if (TREE_CODE (stmt) != MODIFY_EXPR)
     return false;
@@ -3399,6 +3441,16 @@ vectorizable_select (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   tree new_temp;
   struct loop *loop = STMT_VINFO_LOOP (stmt_info);
   enum machine_mode vec_mode;
+  tree def;
+  enum vect_def_type dt;
+
+  if (STMT_VINFO_LIVE_P (stmt_info))
+    {
+      /* FORNOW: not yet supported.  */
+      if (vect_debug_details (loop))
+        fprintf (dump_file, "value used after loop.");
+      return false;
+    }
 
   if (TREE_CODE (stmt) != MODIFY_EXPR)
     return false;
@@ -3418,7 +3470,7 @@ vectorizable_select (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   if (TREE_CODE (then_clause) == SSA_NAME)
     {
       tree then_def_stmt = SSA_NAME_DEF_STMT (then_clause);
-      if (!vect_is_simple_use (then_clause, loop, &then_def_stmt))
+      if (!vect_is_simple_use (then_clause, loop, &then_def_stmt, &def, &dt))
 	return false;
     }
   else if (TREE_CODE (then_clause) != INTEGER_CST 
@@ -3428,7 +3480,7 @@ vectorizable_select (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   if (TREE_CODE (else_clause) == SSA_NAME)
     {
       tree else_def_stmt = SSA_NAME_DEF_STMT (else_clause);
-      if (!vect_is_simple_use (else_clause, loop, &else_def_stmt))
+      if (!vect_is_simple_use (else_clause, loop, &else_def_stmt, &def, &dt))
 	return false;
     }
   else if (TREE_CODE (else_clause) != INTEGER_CST 
@@ -3678,6 +3730,12 @@ vect_update_ivs_after_vectorizer (struct loop *loop, tree niters, edge update_e)
       tree var, stmt, ni, ni_name;
       block_stmt_iterator last_bsi;
 
+      if (vect_debug_details (NULL))
+	{
+	  fprintf (dump_file, "vect_update_ivs_after_vectorizer: phi: ");
+	  print_generic_expr (dump_file, phi, TDF_SLIM);
+	}
+
       /* Skip virtual phi's.  */
       if (!is_gimple_reg (SSA_NAME_VAR (PHI_RESULT (phi))))
 	{
@@ -3688,6 +3746,13 @@ vect_update_ivs_after_vectorizer (struct loop *loop, tree niters, edge update_e)
 
       access_fn = analyze_scalar_evolution (loop, PHI_RESULT (phi)); 
       gcc_assert (access_fn);
+
+      if (vect_debug_details (NULL))
+	{
+	  fprintf (dump_file, "accesses funcion for phi: ");
+	  print_generic_expr (dump_file, access_fn, TDF_SLIM);
+	}
+
       evolution_part =
 	 unshare_expr (evolution_part_in_loop_num (access_fn, loop->num));
       gcc_assert (evolution_part != NULL_TREE);
@@ -4228,7 +4293,7 @@ vect_transform_loop (loop_vec_info loop_vinfo,
 	      /* free the attached stmt_vec_info and remove the stmt.  */
 	      stmt_ann_t ann = stmt_ann (stmt);
 	      free (stmt_info);
-	      set_stmt_info (ann, NULL);
+	      set_stmt_info ((tree_ann_t)ann, NULL);
 	      bsi_remove (&si);
 	      continue;
 	    }
@@ -4245,7 +4310,7 @@ vect_transform_loop (loop_vec_info loop_vinfo,
     fprintf (dump_file, "LOOP VECTORIZED.");
 }
 
-/* FUnction vect_is_simple_cond.
+/* Function vect_is_simple_cond.
   
    Input:
    LOOP - the loop that is being vectorized.
@@ -4258,6 +4323,8 @@ static bool
 vect_is_simple_cond (tree cond, struct loop *loop)
 {
   tree lhs, rhs;
+  tree def;
+  enum vect_def_type dt;
 
   if (TREE_CODE_CLASS (TREE_CODE (cond)) != tcc_comparison)
     return false;
@@ -4268,7 +4335,7 @@ vect_is_simple_cond (tree cond, struct loop *loop)
   if (TREE_CODE (lhs) == SSA_NAME)
     {
       tree lhs_def_stmt = SSA_NAME_DEF_STMT (lhs);
-      if (!vect_is_simple_use (lhs, loop, &lhs_def_stmt))
+      if (!vect_is_simple_use (lhs, loop, &lhs_def_stmt, &def, &dt))
 	return false;
     }
   else if (TREE_CODE (lhs) != INTEGER_CST && TREE_CODE (lhs) != REAL_CST)
@@ -4277,7 +4344,7 @@ vect_is_simple_cond (tree cond, struct loop *loop)
   if (TREE_CODE (rhs) == SSA_NAME)
     {
       tree rhs_def_stmt = SSA_NAME_DEF_STMT (rhs);
-      if (!vect_is_simple_use (rhs, loop, &rhs_def_stmt))
+      if (!vect_is_simple_use (rhs, loop, &rhs_def_stmt, &def, &dt))
 	return false;
     }
   else if (TREE_CODE (rhs) != INTEGER_CST  && TREE_CODE (rhs) != REAL_CST)
@@ -4300,63 +4367,115 @@ vect_is_simple_cond (tree cond, struct loop *loop)
    in reduction/induction computations).  */
 
 static bool
-vect_is_simple_use (tree operand, struct loop *loop, tree *def)
+vect_is_simple_use (tree operand, struct loop *loop, tree *def_stmt,
+		    tree *def, enum vect_def_type *dt)
 { 
-  tree def_stmt;
   basic_block bb;
+  stmt_vec_info stmt_vinfo;
 
-  if (def)
-    *def = NULL_TREE;
+  *def_stmt = NULL_TREE;
+  *def = NULL_TREE;
+
+  if (vect_debug_details (NULL))
+    {
+      fprintf (dump_file, "vect_is_simple_use: operand ");
+      print_generic_expr (dump_file, operand, TDF_SLIM);
+    }
 
   if (TREE_CODE (operand) == INTEGER_CST || TREE_CODE (operand) == REAL_CST)
-    return true;
+    {
+      *dt = vect_constant_def;
+      return true;
+    }
 
   if (TREE_CODE (operand) != SSA_NAME)
-    return false;
+    {
+      if (vect_debug_details (NULL))
+        fprintf (dump_file, "not ssa-name.");
+      return false;
+    }
 
-  def_stmt = SSA_NAME_DEF_STMT (operand);
-  if (def_stmt == NULL_TREE )
+  *def_stmt = SSA_NAME_DEF_STMT (operand);
+  if (*def_stmt == NULL_TREE )
     {
       if (vect_debug_details (NULL))
         fprintf (dump_file, "no def_stmt.");
       return false;
     }
 
+  if (vect_debug_details (NULL))
+    {
+      fprintf (dump_file, "def_stmt: ");
+      print_generic_expr (dump_file, *def_stmt, TDF_SLIM);
+    }
+
   /* empty stmt is expected only in case of a function argument.
      (Otherwise - we expect a phi_node or a modify_expr).  */
-  if (IS_EMPTY_STMT (def_stmt))
+  if (IS_EMPTY_STMT (*def_stmt))
     {
-      tree arg = TREE_OPERAND (def_stmt, 0);
+      tree arg = TREE_OPERAND (*def_stmt, 0);
       if (TREE_CODE (arg) == INTEGER_CST || TREE_CODE (arg) == REAL_CST)
-	return true;
+        {
+          *def = operand;
+          *dt = vect_invariant_def;
+          return true;
+        }
+
       if (vect_debug_details (NULL))
-	{
-	  fprintf (dump_file, "Unexpected empty stmt: ");
-	  print_generic_expr (dump_file, def_stmt, TDF_SLIM);
-	}
-      return false;  
+        fprintf (dump_file, "Unexpected empty stmt.");
+      return false;
     }
 
-  /* phi_node inside the loop indicates an induction/reduction pattern.
-     This is not supported yet.  */
-  bb = bb_for_stmt (def_stmt);
-  if (TREE_CODE (def_stmt) == PHI_NODE && flow_bb_inside_loop_p (loop, bb))
+  bb = bb_for_stmt (*def_stmt);
+  if (!flow_bb_inside_loop_p (loop, bb))
+    *dt = vect_invariant_def;
+  else
+    {
+      stmt_vinfo = vinfo_for_stmt (*def_stmt);
+      *dt = STMT_VINFO_DEF_TYPE (stmt_vinfo);
+    }
+
+  if (*dt == vect_unknown_def_type)
     {
       if (vect_debug_details (NULL))
-	fprintf (dump_file, "reduction/induction - unsupported.");
-      return false; /* FORNOW: not supported yet.  */
+        fprintf (dump_file, "Unsupported pattern.");
+      return false;
     }
 
-  /* Expecting a modify_expr or a phi_node.  */
-  if (TREE_CODE (def_stmt) == MODIFY_EXPR
-      || TREE_CODE (def_stmt) == PHI_NODE)
+  /* stmts inside the loop that have been identified as performing
+     a reduction operation cannot have uses in the loop.  */
+  if (*dt == vect_reduction_def && TREE_CODE (*def_stmt) != PHI_NODE)
     {
-      if (def)
-        *def = def_stmt; 	
-      return true;
+      if (vect_debug_details (NULL))
+        fprintf (dump_file, "reduction used in loop.");
+      return false;
     }
 
-  return false;
+  if (vect_debug_details (NULL))
+    fprintf (dump_file, "type of def: %d.",*dt);
+
+  switch (TREE_CODE (*def_stmt))
+    {
+    case PHI_NODE:
+      *def = PHI_RESULT (*def_stmt);
+      gcc_assert (*dt == vect_induction_def || *dt == vect_reduction_def 
+		  || *dt == vect_invariant_def);
+      if (vect_debug_details (NULL))
+	fprintf (dump_file, "unsupported reduction/induction: ");
+      return false;
+
+    case MODIFY_EXPR:
+      *def = TREE_OPERAND (*def_stmt, 0);
+      gcc_assert (*dt == vect_loop_def || *dt == vect_invariant_def);
+      break;
+
+    default:
+      if (vect_debug_details (NULL))
+	fprintf (dump_file, "unsupported defining stmt: ");
+      return false;
+    }
+
+  return true;
 }
 
 
@@ -4493,6 +4612,8 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
   unsigned int vectorization_factor = 0;
   int i;
   bool ok;
+  tree phi;
+  stmt_vec_info stmt_info;
 
   if (vect_debug_details (NULL))
     fprintf (dump_file, "\n<<vect_analyze_operations>>\n");
@@ -4503,6 +4624,28 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
   for (i = 0; i < nbbs; i++)
     {
       basic_block bb = bbs[i];
+
+      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
+        {
+          stmt_info = vinfo_for_stmt (phi);
+          if (vect_debug_details (NULL))
+            {
+              fprintf (dump_file, "==> examining statement: ");
+              print_generic_expr (dump_file, phi, TDF_SLIM);
+            }
+
+          gcc_assert (stmt_info);
+
+          if (STMT_VINFO_LIVE_P (stmt_info))
+            {
+              /* FORNOW: not yet supported.  */
+              if (vect_debug_stats (loop) || vect_debug_details (loop))
+                fprintf (dump_file, "not vectorized: value used after loop.");
+              return false;
+            }
+
+          gcc_assert (!STMT_VINFO_RELEVANT_P (stmt_info));
+        }
 
       for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
 	{
@@ -4524,7 +4667,8 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
 	     - computations that are used only for array indexing or loop
 	     control  */
 
-	  if (!STMT_VINFO_RELEVANT_P (stmt_info))
+	  if (!STMT_VINFO_RELEVANT_P (stmt_info)
+	      && !STMT_VINFO_LIVE_P (stmt_info))
 	    {
 	      if (vect_debug_details (NULL))
 	        fprintf (dump_file, "irrelevant.");
@@ -4532,8 +4676,11 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
 	    }
 
 #ifdef ENABLE_CHECKING
-	  gcc_assert (!VECTOR_MODE_P (TYPE_MODE (TREE_TYPE (stmt))));
-	  gcc_assert (STMT_VINFO_VECTYPE (stmt_info));
+	  if (STMT_VINFO_RELEVANT_P (stmt_info))
+	    {
+	      gcc_assert (!VECTOR_MODE_P (TYPE_MODE (TREE_TYPE (stmt))));
+	      gcc_assert (STMT_VINFO_VECTYPE (stmt_info));
+	    }
 #endif
 
 	  ok = (vectorizable_operation (stmt, NULL, NULL)
@@ -4570,7 +4717,8 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
     }
 
   if (!LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo)
-      || LOOP_VINFO_INT_NITERS (loop_vinfo) % vectorization_factor != 0)
+      || LOOP_VINFO_INT_NITERS (loop_vinfo) % vectorization_factor != 0
+      || LOOP_PEELING_FOR_ALIGNMENT (loop_vinfo))
     {
       if (vect_debug_stats (loop) || vect_debug_details (loop))
         fprintf (dump_file, "epilog loop required.");
@@ -4689,40 +4837,43 @@ vect_is_simple_iv_evolution (unsigned loop_nb, tree access_fn, tree *init,
 /* Function vect_analyze_scalar_cycles.
 
    Examine the cross iteration def-use cycles of scalar variables, by
-   analyzing the loop (scalar) PHIs; verify that the cross iteration def-use
-   cycles that they represent do not impede vectorization.
+   analyzing the loop (scalar) PHIs; Classify each cycle as one of the
+   following: invariant, induction, reduction, unknown.
+  
+   Some forms of scalar cycles are not yet supported.
 
-   FORNOW: Reduction as in the following loop, is not supported yet:
+   Example1: reduction: (unsupported yet)
+
               loop1:
               for (i=0; i<N; i++)
                  sum += a[i];
-	   The cross-iteration cycle corresponding to variable 'sum' will be
-	   considered too complicated and will impede vectorization.
 
-   FORNOW: Induction as in the following loop, is not supported yet:
+   Example2: induction: (unsupported yet)
+
               loop2:
               for (i=0; i<N; i++)
                  a[i] = i;
 
-           However, the following loop *is* vectorizable:
+   Note: the following loop *is* vectorizable:
+
               loop3:
               for (i=0; i<N; i++)
                  a[i] = b[i];
 
-           In both loops there exists a def-use cycle for the variable i:
+         even though it has a def-use cycle caused by the induction variable i:
+
               loop: i_2 = PHI (i_0, i_1)
                     a[i_2] = ...;
                     i_1 = i_2 + 1;
                     GOTO loop;
 
-           The evolution of the above cycle is considered simple enough,
-	   however, we also check that the cycle does not need to be
-	   vectorized, i.e - we check that the variable that this cycle
-	   defines is only used for array indexing or in stmts that do not
-	   need to be vectorized. This is not the case in loop2, but it
-	   *is* the case in loop3.  */
+         because the def-use cycle in loop3 is considered "not relevant" - i.e.,
+         it does not need to be vectorized because it is only used for array
+         indexing (see 'mark_stmts_to_be_vectorized'). The def-use cycle in 
+	 loop2 on the other hand is relevant (it is being written to memory).
+*/
 
-static bool
+static void
 vect_analyze_scalar_cycles (loop_vec_info loop_vinfo)
 {
   tree phi;
@@ -4736,6 +4887,8 @@ vect_analyze_scalar_cycles (loop_vec_info loop_vinfo)
   for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
     {
       tree access_fn = NULL;
+      tree def = PHI_RESULT (phi);
+      stmt_vec_info stmt_vinfo = vinfo_for_stmt (phi);
 
       if (vect_debug_details (NULL))
 	{
@@ -4746,34 +4899,21 @@ vect_analyze_scalar_cycles (loop_vec_info loop_vinfo)
       /* Skip virtual phi's. The data dependences that are associated with
          virtual defs/uses (i.e., memory accesses) are analyzed elsewhere.  */
 
-      if (!is_gimple_reg (SSA_NAME_VAR (PHI_RESULT (phi))))
-	{
-	  if (vect_debug_details (NULL))
-	    fprintf (dump_file, "virtual phi. skip.");
-	  continue;
-	}
+      if (!is_gimple_reg (SSA_NAME_VAR (def)))
+        {
+          if (vect_debug_details (NULL))
+            fprintf (dump_file, "virtual phi. skip.");
+          continue;
+        }
+
+      STMT_VINFO_DEF_TYPE (stmt_vinfo) = vect_unknown_def_type;
 
       /* Analyze the evolution function.  */
 
-      /* FORNOW: The only scalar cross-iteration cycles that we allow are
-         those of loop induction variables; This property is verified here.
-
-         Furthermore, if that induction variable is used in an operation
-         that needs to be vectorized (i.e, is not solely used to index
-         arrays and check the exit condition) - we do not support its
-         vectorization yet. This property is verified in vect_is_simple_use,
-         during vect_analyze_operations.  */
-
-      access_fn = /* instantiate_parameters
-		     (loop,*/
-	 analyze_scalar_evolution (loop, PHI_RESULT (phi));
+      access_fn = analyze_scalar_evolution (loop, def);
 
       if (!access_fn)
-	{
-	  if (vect_debug_stats (loop) || vect_debug_details (loop))
-	    fprintf (dump_file, "not vectorized: unsupported scalar cycle.");
-	  return false;
-	}
+        continue;
 
       if (vect_debug_details (NULL))
         {
@@ -4781,16 +4921,18 @@ vect_analyze_scalar_cycles (loop_vec_info loop_vinfo)
            print_generic_expr (dump_file, access_fn, TDF_SLIM);
         }
 
-      if (!vect_is_simple_iv_evolution (loop->num, access_fn, &dummy, &dummy))
-	{
-	  if (vect_debug_stats (loop) || vect_debug_details (loop))
-	    fprintf (dump_file, "not vectorized: unsupported scalar cycle.");
-	  return false;
-	}
+      if (vect_is_simple_iv_evolution (loop->num, access_fn, &dummy, &dummy))
+        STMT_VINFO_DEF_TYPE (stmt_vinfo) = vect_induction_def;
+
+      /* TODO: handle invariant phis  */
+
+      /* TODO: recognize other kinds of vectorizable scalar cycles
+         (e.g. reduction).  */
     }
 
-  return true;
+  return;
 }
+
 
 /* Function vect_build_dist_vector.
 
@@ -5308,6 +5450,11 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
 	  break;
         }
     }
+
+  /* Often peeling for alignment will require peeling for loop-bound, which in turn
+     requires that we know how to adjust the loop ivs after the loop.  */
+  if (!vect_can_advance_ivs_p (loop))
+    do_peeling = false;
 
   if (do_peeling)
     {
@@ -6056,48 +6203,40 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo)
    Mark STMT as "relevant for vectorization" and add it to WORKLIST.  */
 
 static void
-vect_mark_relevant (varray_type *worklist, tree stmt)
+vect_mark_relevant (varray_type *worklist, tree stmt,
+                    bool relevant_p, bool live_p)
 {
-  stmt_vec_info stmt_info;
+  stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
+  bool save_relevant_p = STMT_VINFO_RELEVANT_P (stmt_info);
+  bool save_live_p = STMT_VINFO_LIVE_P (stmt_info);
 
   if (vect_debug_details (NULL))
-    fprintf (dump_file, "mark relevant.");
+    fprintf (dump_file, "mark relevant %d, live %d.",relevant_p, live_p);
 
+  STMT_VINFO_LIVE_P (stmt_info) |= live_p;
+
+  /* CHECKME */
   if (TREE_CODE (stmt) == PHI_NODE)
-    {
-      VARRAY_PUSH_TREE (*worklist, stmt);
-      return;
-    }
-
-  stmt_info = vinfo_for_stmt (stmt);
-
-  if (!stmt_info)
-    {
-      if (vect_debug_details (NULL))
-	{
-	  fprintf (dump_file, "mark relevant: no stmt info!!.");
-	  print_generic_expr (dump_file, stmt, TDF_SLIM);
-	}
-      return;
-    }
-
-  if (STMT_VINFO_RELEVANT_P (stmt_info))
-    {
-      if (vect_debug_details (NULL))
-        fprintf (dump_file, "already marked relevant.");
-      return;
-    }
+    /* Don't mark as relevant because it's not going to vectorized.  */
+    return;
 
   if (STMT_VINFO_IN_PATTERN_P (stmt_info))
     {
-      /* Leave as irrelevant, but add to worklist.  */
-      if (dump_file && (dump_flags & TDF_DETAILS))
-        fprintf (dump_file, "part of pattern.\n");
+      /* Don't mark as relevant because it's not going to vectorized.  */
       VARRAY_PUSH_TREE (*worklist, stmt);
       return;
     }
 
-  STMT_VINFO_RELEVANT_P (stmt_info) = 1;
+  STMT_VINFO_RELEVANT_P (stmt_info) |= relevant_p;
+
+  if (STMT_VINFO_RELEVANT_P (stmt_info) == save_relevant_p
+      && STMT_VINFO_LIVE_P (stmt_info) == save_live_p)
+    {
+      if (vect_debug_details (NULL))
+        fprintf (dump_file, "already marked relevant/live.");
+      return;
+    }
+
   VARRAY_PUSH_TREE (*worklist, stmt);
 }
 
@@ -6115,7 +6254,8 @@ vect_mark_relevant (varray_type *worklist, tree stmt)
    CHECKME: what other side effects would the vectorizer allow?  */
 
 static bool
-vect_stmt_relevant_p (tree stmt, loop_vec_info loop_vinfo)
+vect_stmt_relevant_p (tree stmt, loop_vec_info loop_vinfo,
+		      bool *relevant_p, bool *live_p)
 {
   v_may_def_optype v_may_defs;
   v_must_def_optype v_must_defs;
@@ -6124,18 +6264,24 @@ vect_stmt_relevant_p (tree stmt, loop_vec_info loop_vinfo)
   dataflow_t df;
   int num_uses;
 
-  /* cond stmt other than loop exit cond.  */
-  if (is_ctrl_stmt (stmt) && (stmt != LOOP_VINFO_EXIT_COND (loop_vinfo)))
-    return true;
+  *relevant_p = false;
+  *live_p = false;
 
-  /* changing memory.  */
-  v_may_defs = STMT_V_MAY_DEF_OPS (stmt);
-  v_must_defs = STMT_V_MUST_DEF_OPS (stmt);
-  if (v_may_defs || v_must_defs)
+  if (TREE_CODE (stmt) != PHI_NODE)
     {
-      if (vect_debug_details (NULL))
-        fprintf (dump_file, "vec_stmt_relevant_p: stmt has vdefs.");
-      return true;
+      /* cond stmt other than loop exit cond.  */
+      if (is_ctrl_stmt (stmt) && (stmt != LOOP_VINFO_EXIT_COND (loop_vinfo)))
+        *relevant_p = true;
+
+      /* changing memory.  */
+      v_may_defs = STMT_V_MAY_DEF_OPS (stmt);
+      v_must_defs = STMT_V_MUST_DEF_OPS (stmt);
+      if (v_may_defs || v_must_defs)
+        {
+          if (vect_debug_details (NULL))
+            fprintf (dump_file, "vec_stmt_relevant_p: stmt has vdefs.");
+          *relevant_p = true;
+        }
     }
 
   /* uses outside the loop.  */
@@ -6149,11 +6295,11 @@ vect_stmt_relevant_p (tree stmt, loop_vec_info loop_vinfo)
 	{
 	  if (vect_debug_details (NULL))
 	    fprintf (dump_file, "vec_stmt_relevant_p: used out of loop.");
-	  return true;
+	  *live_p = true;
 	}
     }
 
-  return false;
+  return (*live_p || *relevant_p);
 }
 
 
@@ -6184,9 +6330,13 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
   tree stmt;
   stmt_ann_t ann;
   unsigned int i;
-  int j;
   use_optype use_ops;
-  stmt_vec_info stmt_info;
+  stmt_vec_info stmt_vinfo;
+  basic_block bb;
+  tree phi;
+  bool relevant_p, live_p;
+  tree def, def_stmt;
+  enum vect_def_type dt;
 
   if (vect_debug_details (NULL))
     fprintf (dump_file, "\n<<vect_mark_stmts_to_be_vectorized>>\n");
@@ -6194,6 +6344,19 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
   VARRAY_TREE_INIT (worklist, 64, "work list");
 
   /* 1. Init worklist.  */
+
+  bb = loop->header;
+  for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
+    {
+      if (vect_debug_details (NULL))
+        {
+          fprintf (dump_file, "init: phi relevant? ");
+          print_generic_expr (dump_file, phi, TDF_SLIM);
+        }
+
+      if (vect_stmt_relevant_p (phi, loop_vinfo, &relevant_p, &live_p))
+        vect_mark_relevant (&worklist, phi, relevant_p, live_p);
+    }
 
   for (i = 0; i < nbbs; i++)
     {
@@ -6208,9 +6371,8 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
 	      print_generic_expr (dump_file, stmt, TDF_SLIM);
 	    } 
 
-	  stmt_info = vinfo_for_stmt (stmt);
-	  if (vect_stmt_relevant_p (stmt, loop_vinfo))
-	    vect_mark_relevant (&worklist, stmt);
+	  if (vect_stmt_relevant_p (stmt, loop_vinfo, &relevant_p, &live_p))
+	    vect_mark_relevant (&worklist, stmt, relevant_p, live_p);
 	}
     }
 
@@ -6232,38 +6394,13 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
          feed this statement's uses as "relevant", unless the USE is used as
          an array index.  */
 
-      if (TREE_CODE (stmt) == PHI_NODE)
-	{
-	  /* follow the def-use chain inside the loop.  */
-	  for (j = 0; j < PHI_NUM_ARGS (stmt); j++)
-	    {
-	      tree arg = PHI_ARG_DEF (stmt, j);
-	      tree def_stmt = NULL_TREE;
-	      basic_block bb;
-	      if (!vect_is_simple_use (arg, loop, &def_stmt))
-		{
-		  if (vect_debug_details (NULL))	
-		    fprintf (dump_file, "worklist: unsupported use.");
-		  varray_clear (worklist);
-		  return false;
-		}
-	      if (!def_stmt)
-		continue;
-
-	      if (vect_debug_details (NULL))
-	        {
-	          fprintf (dump_file, "worklist: def_stmt: ");
-		  print_generic_expr (dump_file, def_stmt, TDF_SLIM);
-		}
-
-	      bb = bb_for_stmt (def_stmt);
-	      if (flow_bb_inside_loop_p (loop, bb))
-	        vect_mark_relevant (&worklist, def_stmt);
-	    }
-	} 
+      gcc_assert (TREE_CODE (stmt) != PHI_NODE);
 
       ann = stmt_ann (stmt);
       use_ops = USE_OPS (ann);
+      stmt_vinfo = vinfo_for_stmt (stmt);
+      relevant_p = STMT_VINFO_RELEVANT_P (stmt_vinfo);
+      live_p = STMT_VINFO_LIVE_P (stmt_vinfo);
 
       for (i = 0; i < NUM_USES (use_ops); i++)
 	{
@@ -6274,9 +6411,7 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
 	   */
 	  if (exist_non_indexing_operands_for_use_p (use, stmt))
 	    {
-              tree def_stmt = NULL_TREE;
-              basic_block bb;
-              if (!vect_is_simple_use (use, loop, &def_stmt))
+              if (!vect_is_simple_use (use, loop, &def_stmt, &def, &dt))
                 {
                   if (vect_debug_details (NULL))        
                     fprintf (dump_file, "worklist: unsupported use.");
@@ -6284,7 +6419,7 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
                   return false;
                 }
 
-	      if (!def_stmt)
+	      if (!def_stmt || IS_EMPTY_STMT (def_stmt))
 		continue;
 
               if (vect_debug_details (NULL))
@@ -6294,8 +6429,18 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
                 }
 
 	      bb = bb_for_stmt (def_stmt);
-	      if (flow_bb_inside_loop_p (loop, bb))
-		vect_mark_relevant (&worklist, def_stmt);
+	      if (!flow_bb_inside_loop_p (loop, bb))
+		continue;
+
+	      if (STMT_VINFO_DEF_TYPE (stmt_vinfo) == vect_reduction_def)
+		{
+		  gcc_assert (!relevant_p && live_p);
+		  vect_mark_relevant (&worklist, def_stmt, true, false);
+		}
+	      else if (STMT_VINFO_IN_PATTERN_P (stmt_vinfo))
+	        vect_mark_relevant (&worklist, def_stmt, true, live_p);
+	      else
+		vect_mark_relevant (&worklist, def_stmt, relevant_p, live_p);
 	    }
 	}
     }				/* while worklist */
@@ -6547,7 +6692,7 @@ vect_pattern_recog_1 (tree (* pattern_recog_func) (tree, varray_type *),
   bsi_insert_before (&si, pattern_expr, BSI_SAME_STMT);
   get_stmt_operands (pattern_expr);
   ann = stmt_ann (pattern_expr);
-  set_stmt_info (ann, new_stmt_vec_info (pattern_expr, loop));
+  set_stmt_info ((tree_ann_t)ann, new_stmt_vec_info (pattern_expr, loop));
 
   STMT_VINFO_RELATED_STMT (vinfo_for_stmt (pattern_expr)) = stmt;
   STMT_VINFO_RELATED_STMT (vinfo_for_stmt (stmt)) = pattern_expr;
@@ -6685,6 +6830,9 @@ vect_can_advance_ivs_p (struct loop *loop)
 
   /* Analyze phi functions of the loop header.  */
 
+  if (vect_debug_details (NULL))
+    fprintf (dump_file, "\n<<vect_can_advance_ivs_p>>\n");
+
   for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
     {
       tree access_fn = NULL;
@@ -6727,7 +6875,11 @@ vect_can_advance_ivs_p (struct loop *loop)
       evolution_part = evolution_part_in_loop_num (access_fn, loop->num);
       
       if (evolution_part == NULL_TREE)
-	return false;
+	{
+	  if (vect_debug_details (NULL))
+	    fprintf (dump_file, "No evolution.");
+	  return false;
+	}
   
       /* FORNOW: We do not transform initial conditions of IVs 
 	 which evolution functions are a polynomial of degree >= 2.  */
@@ -6948,6 +7100,11 @@ vect_analyze_loop (struct loop *loop)
 
   vect_pattern_recog (loop_vinfo);
 
+  /* Check that all cross-iteration scalar data-flow cycles are OK.
+     Cross-iteration cycles caused by virtual phis are analyzed separately.  */
+
+  vect_analyze_scalar_cycles (loop_vinfo);
+
   /* Data-flow analysis to detect stmts that do not need to be vectorized.  */
 
   ok = vect_mark_stmts_to_be_vectorized (loop_vinfo);
@@ -6957,18 +7114,6 @@ vect_analyze_loop (struct loop *loop)
 	fprintf (dump_file, "unexpected pattern.");
       if (vect_debug_details (loop))
 	fprintf (dump_file, "not vectorized: unexpected pattern.");
-      destroy_loop_vec_info (loop_vinfo);
-      return NULL;
-    }
-
-  /* Check that all cross-iteration scalar data-flow cycles are OK.
-     Cross-iteration cycles caused by virtual phis are analyzed separately.  */
-
-  ok = vect_analyze_scalar_cycles (loop_vinfo);
-  if (!ok)
-    {
-      if (vect_debug_details (loop))
-	fprintf (dump_file, "bad scalar cycle.");
       destroy_loop_vec_info (loop_vinfo);
       return NULL;
     }
