@@ -1,3 +1,8 @@
+2002-05-15  Geoffrey Keating  <geoffk@redhat.com>
+
+	* Makefile.in (explow.o): Add dependency on gt-explow.h.
+	(sdbout.o): Add dependency on gt-sdbout.h.
+
 2002-05-13  Geoffrey Keating  <geoffk@redhat.com>
 
 	* emit-rtl.c (const_int_htab): Use gengtype to clear unused entries.
