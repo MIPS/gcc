@@ -1,5 +1,10 @@
 2005-01-15  Tom Tromey  <tromey@redhat.com>
 
+	* model/fieldref.cc (resolve): Use current class, not declaring
+	class, as implicit qualifier.
+
+2005-01-15  Tom Tromey  <tromey@redhat.com>
+
 	* source/lex.cc (get): Rewrote.
 	(get_raw): Don't handle newlines for purposes of location
 	updating.

@@ -1,6 +1,6 @@
 // Field references.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -169,7 +169,11 @@ model_field_ref::resolve (resolution_scope *scope)
   if (expression)
     qualifier = assert_cast<model_class *> (expression->type ());
   else
-    qualifier = field->get_declaring_class ();
+    {
+      // This is an unqualified reference to a field.  In this case we
+      // use the implicit qualifier, which is the current class.
+      qualifier = scope->get_current_class ();
+    }
 
   set_type (field->type ());
 }
