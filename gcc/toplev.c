@@ -304,7 +304,7 @@ enum dump_file_index
 	"         JK   O Q     WXY "
 */
 
-static struct dump_file_info dump_file[DFI_MAX] =
+static struct dump_file_info dump_file_tbl[DFI_MAX] =
 {
   { "cgraph",	'U', 0, 0, 0 },
   { "rtl",	'r', 0, 0, 0 },
@@ -1249,7 +1249,7 @@ int warn_return_type;
 
 FILE *asm_out_file;
 FILE *aux_info_file;
-FILE *rtl_dump_file = NULL;
+FILE *dump_file = NULL;
 FILE *cgraph_dump_file = NULL;
 
 /* The current working directory of a translation.  It's generally the
@@ -1520,42 +1520,42 @@ open_dump_file (enum dump_file_index index, tree decl)
   const char *open_arg;
   char seq[16];
 
-  if (! dump_file[index].enabled)
+  if (! dump_file_tbl[index].enabled)
     return 0;
 
   timevar_push (TV_DUMP);
-  if (rtl_dump_file != NULL)
-    fclose (rtl_dump_file);
+  if (dump_file != NULL)
+    fclose (dump_file);
 
   sprintf (seq, DUMPFILE_FORMAT, index);
 
-  if (! dump_file[index].initialized)
+  if (! dump_file_tbl[index].initialized)
     {
       /* If we've not initialized the files, do so now.  */
       if (graph_dump_format != no_graph
-	  && dump_file[index].graph_dump_p)
+	  && dump_file_tbl[index].graph_dump_p)
 	{
-	  dump_name = concat (seq, dump_file[index].extension, NULL);
+	  dump_name = concat (seq, dump_file_tbl[index].extension, NULL);
 	  clean_graph_dump_file (dump_base_name, dump_name);
 	  free (dump_name);
 	}
-      dump_file[index].initialized = 1;
+      dump_file_tbl[index].initialized = 1;
       open_arg = "w";
     }
   else
     open_arg = "a";
 
   dump_name = concat (dump_base_name, seq,
-		      dump_file[index].extension, NULL);
+		      dump_file_tbl[index].extension, NULL);
 
-  rtl_dump_file = fopen (dump_name, open_arg);
-  if (rtl_dump_file == NULL)
+  dump_file = fopen (dump_name, open_arg);
+  if (dump_file == NULL)
     fatal_error ("can't open %s: %m", dump_name);
 
   free (dump_name);
 
   if (decl)
-    fprintf (rtl_dump_file, "\n;; Function %s%s\n\n",
+    fprintf (dump_file, "\n;; Function %s%s\n\n",
 	     (*lang_hooks.decl_printable_name) (decl, 2),
 	     cfun->function_frequency == FUNCTION_FREQUENCY_HOT
 	     ? " (hot)"
@@ -1574,30 +1574,30 @@ close_dump_file (enum dump_file_index index,
 		 void (*func) (FILE *, rtx),
 		 rtx insns)
 {
-  if (! rtl_dump_file)
+  if (! dump_file)
     return;
 
   timevar_push (TV_DUMP);
   if (insns
       && graph_dump_format != no_graph
-      && dump_file[index].graph_dump_p)
+      && dump_file_tbl[index].graph_dump_p)
     {
       char seq[16];
       char *suffix;
 
       sprintf (seq, DUMPFILE_FORMAT, index);
-      suffix = concat (seq, dump_file[index].extension, NULL);
+      suffix = concat (seq, dump_file_tbl[index].extension, NULL);
       print_rtl_graph_with_bb (dump_base_name, suffix, insns);
       free (suffix);
     }
 
   if (func && insns)
-    func (rtl_dump_file, insns);
+    func (dump_file, insns);
 
-  fflush (rtl_dump_file);
-  fclose (rtl_dump_file);
+  fflush (dump_file);
+  fclose (dump_file);
 
-  rtl_dump_file = NULL;
+  dump_file = NULL;
   timevar_pop (TV_DUMP);
 }
 
@@ -1934,7 +1934,7 @@ compile_file (void)
   if (optimize > 0 && open_dump_file (DFI_combine, NULL))
     {
       timevar_push (TV_DUMP);
-      dump_combine_total_stats (rtl_dump_file);
+      dump_combine_total_stats (dump_file);
       close_dump_file (DFI_combine, NULL, NULL_RTX);
       timevar_pop (TV_DUMP);
     }
@@ -2161,7 +2161,7 @@ rest_of_handle_delay_slots (tree decl, rtx insns)
   timevar_push (TV_DBR_SCHED);
   open_dump_file (DFI_dbr, decl);
 
-  dbr_schedule (insns, rtl_dump_file);
+  dbr_schedule (insns, dump_file);
 
   close_dump_file (DFI_dbr, print_rtl, insns);
   timevar_pop (TV_DBR_SCHED);
@@ -2196,7 +2196,7 @@ rest_of_handle_stack_regs (tree decl, rtx insns)
   timevar_push (TV_REG_STACK);
   open_dump_file (DFI_stack, decl);
 
-  if (reg_to_stack (insns, rtl_dump_file) && optimize)
+  if (reg_to_stack (insns, dump_file) && optimize)
     {
       if (cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_POST_REGSTACK
 		       | (flag_crossjumping ? CLEANUP_CROSSJUMP : 0))
@@ -2254,7 +2254,7 @@ rest_of_handle_new_regalloc (tree decl, rtx insns)
   reg_alloc ();
 
   timevar_pop (TV_LOCAL_ALLOC);
-  if (dump_file[DFI_lreg].enabled)
+  if (dump_file_tbl[DFI_lreg].enabled)
     {
       timevar_push (TV_DUMP);
 
@@ -2271,11 +2271,11 @@ rest_of_handle_new_regalloc (tree decl, rtx insns)
 
   timevar_pop (TV_GLOBAL_ALLOC);
 
-  if (dump_file[DFI_greg].enabled)
+  if (dump_file_tbl[DFI_greg].enabled)
     {
       timevar_push (TV_DUMP);
 
-      dump_global_regs (rtl_dump_file);
+      dump_global_regs (dump_file);
 
       close_dump_file (DFI_greg, print_rtl_with_bb, insns);
       timevar_pop (TV_DUMP);
@@ -2305,7 +2305,7 @@ rest_of_handle_old_regalloc (tree decl, rtx insns)
 
   allocate_initial_values (reg_equiv_memory_loc);
 
-  regclass (insns, max_reg_num (), rtl_dump_file);
+  regclass (insns, max_reg_num (), dump_file);
   rebuild_notes = local_alloc ();
 
   timevar_pop (TV_LOCAL_ALLOC);
@@ -2323,12 +2323,12 @@ rest_of_handle_old_regalloc (tree decl, rtx insns)
       timevar_pop (TV_JUMP);
     }
 
-  if (dump_file[DFI_lreg].enabled)
+  if (dump_file_tbl[DFI_lreg].enabled)
     {
       timevar_push (TV_DUMP);
 
-      dump_flow_info (rtl_dump_file);
-      dump_local_alloc (rtl_dump_file);
+      dump_flow_info (dump_file);
+      dump_local_alloc (dump_file);
 
       close_dump_file (DFI_lreg, print_rtl_with_bb, insns);
       timevar_pop (TV_DUMP);
@@ -2343,7 +2343,7 @@ rest_of_handle_old_regalloc (tree decl, rtx insns)
      pass fixing up any insns that are invalid.  */
 
   if (optimize)
-    failure = global_alloc (rtl_dump_file);
+    failure = global_alloc (dump_file);
   else
     {
       build_insn_chain (insns);
@@ -2352,11 +2352,11 @@ rest_of_handle_old_regalloc (tree decl, rtx insns)
 
   timevar_pop (TV_GLOBAL_ALLOC);
 
-  if (dump_file[DFI_greg].enabled)
+  if (dump_file_tbl[DFI_greg].enabled)
     {
       timevar_push (TV_DUMP);
 
-      dump_global_regs (rtl_dump_file);
+      dump_global_regs (dump_file);
 
       close_dump_file (DFI_greg, print_rtl_with_bb, insns);
       timevar_pop (TV_DUMP);
@@ -2429,7 +2429,7 @@ rest_of_handle_sched (tree decl, rtx insns)
       /* Do control and data sched analysis,
 	 and write some of the results to dump file.  */
 
-      schedule_insns (rtl_dump_file);
+      schedule_insns (dump_file);
 
       close_dump_file (DFI_sched, print_rtl_with_bb, insns);
     }
@@ -2452,14 +2452,14 @@ rest_of_handle_sched2 (tree decl, rtx insns)
 
   if (flag_sched2_use_superblocks || flag_sched2_use_traces)
     {
-      schedule_ebbs (rtl_dump_file);
+      schedule_ebbs (dump_file);
       /* No liveness updating code yet, but it should be easy to do.
 	 reg-stack recompute the liveness when needed for now.  */
       count_or_remove_death_notes (NULL, 1);
       cleanup_cfg (CLEANUP_EXPENSIVE);
     }
   else
-    schedule_insns (rtl_dump_file);
+    schedule_insns (dump_file);
 
   close_dump_file (DFI_sched2, print_rtl_with_bb, insns);
   timevar_pop (TV_SCHED2);
@@ -2476,7 +2476,7 @@ rest_of_handle_regmove (tree decl, rtx insns)
   timevar_push (TV_REGMOVE);
   open_dump_file (DFI_regmove, decl);
 
-  regmove_optimize (insns, max_reg_num (), rtl_dump_file);
+  regmove_optimize (insns, max_reg_num (), dump_file);
 
   cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE);
   close_dump_file (DFI_regmove, print_rtl_with_bb, insns);
@@ -2490,8 +2490,8 @@ static void
 rest_of_handle_tracer (tree decl, rtx insns)
 {
   open_dump_file (DFI_tracer, decl);
-  if (rtl_dump_file)
-    dump_flow_info (rtl_dump_file);
+  if (dump_file)
+    dump_flow_info (dump_file);
   tracer ();
   cleanup_cfg (CLEANUP_EXPENSIVE);
   reg_scan (insns, max_reg_num (), 0);
@@ -2506,8 +2506,8 @@ rest_of_handle_if_conversion (tree decl, rtx insns)
   if (flag_if_conversion)
     {
       timevar_push (TV_IFCVT);
-      if (rtl_dump_file)
-	dump_flow_info (rtl_dump_file);
+      if (dump_file)
+	dump_flow_info (dump_file);
       cleanup_cfg (CLEANUP_EXPENSIVE);
       reg_scan (insns, max_reg_num (), 0);
       if_convert (0);
@@ -2566,8 +2566,8 @@ rest_of_handle_branch_prob (tree decl, rtx insns)
      block.  The loop infrastructure does the real job for us.  */
   flow_loops_find (&loops, LOOP_TREE);
 
-  if (rtl_dump_file)
-    flow_loops_dump (&loops, rtl_dump_file, NULL, 0);
+  if (dump_file)
+    flow_loops_dump (&loops, dump_file, NULL, 0);
 
   /* Estimate using heuristics if no profiling info is available.  */
   if (flag_guess_branch_prob)
@@ -2599,8 +2599,8 @@ static void
 rest_of_handle_cfg (tree decl, rtx insns)
 {
   open_dump_file (DFI_cfg, decl);
-  if (rtl_dump_file)
-    dump_flow_info (rtl_dump_file);
+  if (dump_file)
+    dump_flow_info (dump_file);
   if (optimize)
     cleanup_cfg (CLEANUP_EXPENSIVE
 		 | (flag_thread_jumps ? CLEANUP_THREADING : 0));
@@ -2647,7 +2647,7 @@ rest_of_handle_jump_bypass (tree decl, rtx insns)
   cleanup_cfg (CLEANUP_EXPENSIVE);
   reg_scan (insns, max_reg_num (), 1);
 
-  if (bypass_jumps (rtl_dump_file))
+  if (bypass_jumps (dump_file))
     {
       rebuild_jump_labels (insns);
       cleanup_cfg (CLEANUP_EXPENSIVE);
@@ -2669,8 +2669,8 @@ static void
 rest_of_handle_null_pointer (tree decl, rtx insns)
 {
   open_dump_file (DFI_null, decl);
-  if (rtl_dump_file)
-    dump_flow_info (rtl_dump_file);
+  if (dump_file)
+    dump_flow_info (dump_file);
 
   if (delete_null_pointer_checks (insns))
     cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
@@ -2718,7 +2718,7 @@ rest_of_handle_life (tree decl, rtx insns)
 #ifdef ENABLE_CHECKING
   verify_flow_info ();
 #endif
-  life_analysis (insns, rtl_dump_file, PROP_FINAL);
+  life_analysis (insns, dump_file, PROP_FINAL);
   if (optimize)
     cleanup_cfg ((optimize ? CLEANUP_EXPENSIVE : 0) | CLEANUP_UPDATE_LIFE
 		 | CLEANUP_LOG_LINKS
@@ -2760,13 +2760,13 @@ rest_of_handle_cse (tree decl, rtx insns)
   int tem;
 
   open_dump_file (DFI_cse, decl);
-  if (rtl_dump_file)
-    dump_flow_info (rtl_dump_file);
+  if (dump_file)
+    dump_flow_info (dump_file);
   timevar_push (TV_CSE);
 
   reg_scan (insns, max_reg_num (), 1);
 
-  tem = cse_main (insns, max_reg_num (), 0, rtl_dump_file);
+  tem = cse_main (insns, max_reg_num (), 0, dump_file);
   if (tem)
     rebuild_jump_labels (insns);
   if (purge_all_dead_edges (0))
@@ -2792,7 +2792,7 @@ rest_of_handle_cse (tree decl, rtx insns)
 
   /* The second pass of jump optimization is likely to have
      removed a bunch more instructions.  */
-  renumber_insns (rtl_dump_file);
+  renumber_insns (dump_file);
 
   timevar_pop (TV_CSE);
   close_dump_file (DFI_cse, print_rtl_with_bb, insns);
@@ -2806,10 +2806,10 @@ rest_of_handle_cse2 (tree decl, rtx insns)
 
   timevar_push (TV_CSE2);
   open_dump_file (DFI_cse2, decl);
-  if (rtl_dump_file)
-    dump_flow_info (rtl_dump_file);
+  if (dump_file)
+    dump_flow_info (dump_file);
   /* CFG is no longer maintained up-to-date.  */
-  tem = cse_main (insns, max_reg_num (), 1, rtl_dump_file);
+  tem = cse_main (insns, max_reg_num (), 1, dump_file);
 
   /* Run a pass to eliminate duplicated assignments to condition code
      registers.  We have to run this after bypass_jumps, because it
@@ -2843,7 +2843,7 @@ rest_of_handle_gcse (tree decl, rtx insns)
   timevar_push (TV_GCSE);
   open_dump_file (DFI_gcse, decl);
 
-  tem = gcse_main (insns, rtl_dump_file);
+  tem = gcse_main (insns, dump_file);
   rebuild_jump_labels (insns);
   delete_trivially_dead_insns (insns, max_reg_num ());
 
@@ -2861,7 +2861,7 @@ rest_of_handle_gcse (tree decl, rtx insns)
     {
       timevar_push (TV_CSE);
       reg_scan (insns, max_reg_num (), 1);
-      tem2 = cse_main (insns, max_reg_num (), 0, rtl_dump_file);
+      tem2 = cse_main (insns, max_reg_num (), 0, dump_file);
       purge_all_dead_edges (0);
       delete_trivially_dead_insns (insns, max_reg_num ());
       timevar_pop (TV_CSE);
@@ -2882,7 +2882,7 @@ rest_of_handle_gcse (tree decl, rtx insns)
 	{
 	  timevar_push (TV_CSE);
 	  reg_scan (insns, max_reg_num (), 1);
-	  tem2 = cse_main (insns, max_reg_num (), 0, rtl_dump_file);
+	  tem2 = cse_main (insns, max_reg_num (), 0, dump_file);
 	  purge_all_dead_edges (0);
 	  delete_trivially_dead_insns (insns, max_reg_num ());
 	  timevar_pop (TV_CSE);
@@ -2925,7 +2925,7 @@ rest_of_handle_loop_optimize (tree decl, rtx insns)
       cleanup_barriers ();
 
       /* We only want to perform unrolling once.  */
-      loop_optimize (insns, rtl_dump_file, do_unroll);
+      loop_optimize (insns, dump_file, do_unroll);
       do_unroll = 0;
 
       /* The first call to loop_optimize makes some instructions
@@ -2939,13 +2939,13 @@ rest_of_handle_loop_optimize (tree decl, rtx insns)
       reg_scan (insns, max_reg_num (), 1);
     }
   cleanup_barriers ();
-  loop_optimize (insns, rtl_dump_file, do_unroll | LOOP_BCT | do_prefetch);
+  loop_optimize (insns, dump_file, do_unroll | LOOP_BCT | do_prefetch);
 
   /* Loop can create trivially dead instructions.  */
   delete_trivially_dead_insns (insns, max_reg_num ());
   close_dump_file (DFI_loop, print_rtl, insns);
   timevar_pop (TV_LOOP);
-  find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
+  find_basic_blocks (insns, max_reg_num (), dump_file);
 
   ggc_collect ();
 }
@@ -2961,13 +2961,13 @@ rest_of_handle_loop2 (tree decl, rtx insns)
 
   timevar_push (TV_LOOP);
   open_dump_file (DFI_loop2, decl);
-  if (rtl_dump_file)
-    dump_flow_info (rtl_dump_file);
+  if (dump_file)
+    dump_flow_info (dump_file);
 
   /* Initialize structures for layout changes.  */
   cfg_layout_initialize ();
 
-  loops = loop_optimizer_init (rtl_dump_file);
+  loops = loop_optimizer_init (dump_file);
 
   if (loops)
     {
@@ -2981,7 +2981,7 @@ rest_of_handle_loop2 (tree decl, rtx insns)
 			       (flag_unroll_loops ? UAP_UNROLL : 0) |
 			       (flag_unroll_all_loops ? UAP_UNROLL_ALL : 0));
 
-      loop_optimizer_finalize (loops, rtl_dump_file);
+      loop_optimizer_finalize (loops, dump_file);
     }
 
   /* Finalize layout changes.  */
@@ -2995,8 +2995,8 @@ rest_of_handle_loop2 (tree decl, rtx insns)
   cleanup_cfg (CLEANUP_EXPENSIVE);
   delete_trivially_dead_insns (insns, max_reg_num ());
   reg_scan (insns, max_reg_num (), 0);
-  if (rtl_dump_file)
-    dump_flow_info (rtl_dump_file);
+  if (dump_file)
+    dump_flow_info (dump_file);
   close_dump_file (DFI_loop2, print_rtl_with_bb, get_insns ());
   timevar_pop (TV_LOOP);
   ggc_collect ();
@@ -3101,7 +3101,7 @@ rest_of_compilation (tree decl)
   insns = get_insns ();
   rebuild_jump_labels (insns);
   find_exception_handler_labels ();
-  find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
+  find_basic_blocks (insns, max_reg_num (), dump_file);
 
   delete_unreachable_blocks ();
 
@@ -3175,10 +3175,10 @@ rest_of_compilation (tree decl)
 
   reg_scan (insns, max_reg_num (), 0);
   rebuild_jump_labels (insns);
-  find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
+  find_basic_blocks (insns, max_reg_num (), dump_file);
   delete_trivially_dead_insns (insns, max_reg_num ());
-  if (rtl_dump_file)
-    dump_flow_info (rtl_dump_file);
+  if (dump_file)
+    dump_flow_info (dump_file);
   cleanup_cfg ((optimize ? CLEANUP_EXPENSIVE : 0) | CLEANUP_PRE_LOOP
 	       | (flag_thread_jumps ? CLEANUP_THREADING : 0));
 
@@ -3206,7 +3206,7 @@ rest_of_compilation (tree decl)
      future passes, allocate arrays whose dimensions involve the
      maximum instruction UID, so if we can reduce the maximum UID
      we'll save big on memory.  */
-  renumber_insns (rtl_dump_file);
+  renumber_insns (dump_file);
   timevar_pop (TV_JUMP);
 
   close_dump_file (DFI_jump, print_rtl_with_bb, insns);
@@ -3382,7 +3382,7 @@ rest_of_compilation (tree decl)
 
   if (optimize)
     {
-      life_analysis (insns, rtl_dump_file, PROP_POSTRELOAD);
+      life_analysis (insns, dump_file, PROP_POSTRELOAD);
       cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE
 		   | (flag_crossjumping ? CLEANUP_CROSSJUMP : 0));
 
@@ -3409,7 +3409,7 @@ rest_of_compilation (tree decl)
       timevar_push (TV_PEEPHOLE2);
       open_dump_file (DFI_peephole2, decl);
 
-      peephole2_optimize (rtl_dump_file);
+      peephole2_optimize (dump_file);
 
       close_dump_file (DFI_peephole2, print_rtl_with_bb, insns);
       timevar_pop (TV_PEEPHOLE2);
@@ -3670,7 +3670,7 @@ decode_d_option (const char *arg)
       {
       case 'a':
 	for (i = 0; i < (int) DFI_MAX; ++i)
-	  dump_file[i].enabled = 1;
+	  dump_file_tbl[i].enabled = 1;
 	break;
       case 'A':
 	flag_debug_asm = 1;
@@ -3701,9 +3701,9 @@ decode_d_option (const char *arg)
       default:
 	matched = 0;
 	for (i = 0; i < (int) DFI_MAX; ++i)
-	  if (c == dump_file[i].debug_switch)
+	  if (c == dump_file_tbl[i].debug_switch)
 	    {
-	      dump_file[i].enabled = 1;
+	      dump_file_tbl[i].enabled = 1;
 	      matched = 1;
 	    }
 
@@ -4505,13 +4505,13 @@ finalize (void)
       int i;
 
       for (i = 0; i < (int) DFI_MAX; ++i)
-	if (dump_file[i].initialized && dump_file[i].graph_dump_p)
+	if (dump_file_tbl[i].initialized && dump_file_tbl[i].graph_dump_p)
 	  {
 	    char seq[16];
 	    char *suffix;
 
 	    sprintf (seq, DUMPFILE_FORMAT, i);
-	    suffix = concat (seq, dump_file[i].extension, NULL);
+	    suffix = concat (seq, dump_file_tbl[i].extension, NULL);
 	    finish_graph_dump_file (dump_base_name, suffix);
 	    free (suffix);
 	  }
@@ -4559,15 +4559,15 @@ do_compile (void)
 	  if (flag_unit_at_a_time)
 	    {
 	      open_dump_file (DFI_cgraph, NULL);
-	      cgraph_dump_file = rtl_dump_file;
-	      rtl_dump_file = NULL;
+	      cgraph_dump_file = dump_file;
+	      dump_file = NULL;
 	    }
 
 	  compile_file ();
 
 	  if (flag_unit_at_a_time)
 	    {
-	      rtl_dump_file = cgraph_dump_file;
+	      dump_file = cgraph_dump_file;
 	      cgraph_dump_file = NULL;
               close_dump_file (DFI_cgraph, NULL, NULL_RTX);
 	    }

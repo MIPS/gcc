@@ -331,8 +331,8 @@ combine_predictions_for_insn (rtx insn, basic_block bb)
   bool first_match = false;
   bool found = false;
 
-  if (rtl_dump_file)
-    fprintf (rtl_dump_file, "Predictions for insn %i bb %i\n", INSN_UID (insn),
+  if (dump_file)
+    fprintf (dump_file, "Predictions for insn %i bb %i\n", INSN_UID (insn),
 	     bb->index);
 
   /* We implement "first match" heuristics and use probability guessed
@@ -368,19 +368,19 @@ combine_predictions_for_insn (rtx insn, basic_block bb)
     first_match = true;
 
   if (!found)
-    dump_prediction (rtl_dump_file, PRED_NO_PREDICTION,
+    dump_prediction (dump_file, PRED_NO_PREDICTION,
 		     combined_probability, bb, true);
   else
     {
-      dump_prediction (rtl_dump_file, PRED_DS_THEORY, combined_probability,
+      dump_prediction (dump_file, PRED_DS_THEORY, combined_probability,
 		       bb, !first_match);
-      dump_prediction (rtl_dump_file, PRED_FIRST_MATCH, best_probability,
+      dump_prediction (dump_file, PRED_FIRST_MATCH, best_probability,
 		       bb, first_match);
     }
 
   if (first_match)
     combined_probability = best_probability;
-  dump_prediction (rtl_dump_file, PRED_COMBINED, combined_probability, bb, true);
+  dump_prediction (dump_file, PRED_COMBINED, combined_probability, bb, true);
 
   while (*pnote)
     {
@@ -389,7 +389,7 @@ combine_predictions_for_insn (rtx insn, basic_block bb)
 	  int predictor = INTVAL (XEXP (XEXP (*pnote, 0), 0));
 	  int probability = INTVAL (XEXP (XEXP (*pnote, 0), 1));
 
-	  dump_prediction (rtl_dump_file, predictor, probability, bb,
+	  dump_prediction (dump_file, predictor, probability, bb,
 			   !first_match || best_predictor == predictor);
 	  *pnote = XEXP (*pnote, 1);
 	}
@@ -1270,8 +1270,8 @@ propagate_freq (struct loop *loop)
 	    if (BLOCK_INFO (e->src)->tovisit && !(e->flags & EDGE_DFS_BACK))
 	      count++;
 	    else if (BLOCK_INFO (e->src)->tovisit
-		     && rtl_dump_file && !EDGE_INFO (e)->back_edge)
-	      fprintf (rtl_dump_file,
+		     && dump_file && !EDGE_INFO (e)->back_edge)
+	      fprintf (dump_file,
 		       "Irreducible region hit, ignoring edge to %i->%i\n",
 		       e->src->index, bb->index);
 	  BLOCK_INFO (bb)->npredecessors = count;
