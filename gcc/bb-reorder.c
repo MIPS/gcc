@@ -381,7 +381,6 @@ find_traces_1_round (branch_th, exec_th, traces, n_traces, round, heap,
 		  if (rtl_dump_file)
 		    fprintf (rtl_dump_file, "Duplicated bb %d (created bb %d)\n",
 			     old_bb->index, new_bb->index);
-		  RBI (old_bb)->visited = *n_traces;
 		  RBI (old_bb)->duplicated = *n_traces;
 		  RBI (bb)->next = new_bb;
 		  RBI (bb)->visited = *n_traces;
