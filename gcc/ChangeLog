@@ -1,3 +1,242 @@
+2005-04-02  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/19345
+	* tree-inline.c (remap_type): Remap TYPE_STUB_DECL.
+	(remap_decl): Insert type decl in map earlier.
+
+2005-04-02  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR tree-optimization/20640
+	* tree-ssa-dce.c (remove_dead_stmt): Don't redirect edge to
+	post-dominator if it has phi nodes.
+	(eliminate_unnecessary_stmts): Remove dead phis in all blocks
+	before dead statements.
+
+2005-04-02  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR middle-end/20491
+	* final.c (alter_subreg): Don't call subreg_regno for a non-REG.
+
+2005-04-02  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR rtl-optimization/20290
+	* loop.c (for_each_insn_in_loop): Don't assume the loop body runs
+	in every iteration if the entry point is the exit test.
+
+2005-04-02  Geoffrey Keating  <geoffk@apple.com>
+
+	* config/rs6000/t-darwin8: Comment out ppc64 multilib.
+
+2005-04-01  Richard Guenther <rguenth@tat.physik.uni-tuebingen.de>
+	    Jan Hubicka  <jh@suse.cz>
+	    Steven Bosscher <stevenb@suse.de>
+
+	* cgraphunit.c (cgraph_estimate_size_after_inlining): Compute
+	call cost based on argument sizes.
+	(cgraph_mark_inline_edge): Avoid inline unit from shrinking by
+	inlining.
+	* params.def: (max-inline-inssn-single): Set to 450.
+	(max-inline-insns-auto): Set to 90.
+	(max-inline-insns-recursive): Set to 450
+	(max-inline-insns-recursive-auto): Set to 450.
+	(large-function-insns): Set to 2700.
+	(inline-call-cost): New parameter.
+	* tree-inline.c (estimate_move_cost): New function.
+	(estimate_num_insns_1): Compute move sizes costs by estimate_move_cost
+	for non-gimple-regs, set cost to 0 for gimple-regs.  Compute call size
+	based on arguments.
+	* tree-inline.h (estimate_move_cost): Declare.
+	* invoke.texi: (max-inline-inssn-single): Change default to 450.
+	(max-inline-insns-auto): Change default to 90.
+	(max-inline-insns-recursive): Change default to 450
+	(max-inline-insns-recursive-auto): Change default to 450.
+	(large-function-insns): Change default to 2700.
+	(inline-call-cost): Document new parameter.
+
+2005-04-01  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/arm.c (thumb_call_via_label): Include space for SP.
+	(arm_output_function_epilogue): Allow call_via_SP.
+	(thumb_call_via_reg, arm_file_end): Ditto.
+	* config/arm/arm.h (struct machine_function): Include space for SP.
+	(thumb_call_via_label): Update declaration.
+
+2005-04-01  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* c-decl.c (validate_proto_after_old_defn): Look at
+	TYPE_MAIN_VARIANT of argument types.
+
+2005-04-01  Jan Hubicka  <jh@suse.cz>
+
+	PR middle-end/20635
+	* varasm.c (mark_decl_referenced): Do not mark extern inline functions
+	as needed.
+
+2005-04-01  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR middle-end/19454
+	PR rtl-optimization/20600
+
+	* combine.c (gen_binary): Remove.
+	(known_cond, simplify_shift_const, find_split_point,
+	combine_simplify_rtx, simplify_if_then_else, simplify_set,
+	simplify_logical, expand_field_assignment, extract_left_shift,
+	force_to_mode, if_then_else_cond, apply_distributive_law,
+	simplify_and_const_int, simplify_shift_const, gen_lowpart_for_combine,
+	simplify_comparison, reversed_comparison): Replace with
+	simplify_gen_binary, simplify_gen_relational or
+	distribute_and_simplify_rtx.
+	(distribute_and_simplify_rtx): New function.
+
+	* config/i386/i386.c (ix86_decompose_address): Look inside SUBREGs
+	to fix addresses involving EBP and ESP.
+	(aligned_operand, legitimate_address_p, ix86_address_cost): Be prepared
+	for SUBREGed registers.
+	(legitimate_address_p): Accept SUBREGed registers.
+
+2005-04-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/19406
+	* dwarf2out.c (gen_type_die_for_member): Handle FIELD_DECL.
+	(dwarf2out_imported_module_or_decl): Use gen_type_die_for_member
+	for FIELD_DECLs.
+
+2005-04-01  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* doc/contrib.texi, doc/invoke.texi, doc/tm.texi: Fix typos.
+
+2005-04-01  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR c/17855
+	* gimplify.c (gimplify_expr): Create a temporary for lvalue
+	COND_EXPR and CALL_EXPR.
+
+2005-03-31  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* doc/tree-ssa.texi: Fix a typo.
+
+2005-03-31  Olivier Hainque  <hainque@adacore.com>
+
+        * dwarf2out.c (dwarf2out_frame_finish): Honor DWARF2_FRAME_INFO
+        defined and non-zero.
+	
+2005-03-31  Alan Modra  <amodra@bigpond.net.au>
+
+	PR target/20611
+	* config/rs6000/rs6000.md (load_toc_v4_PIC_1b): Remove inline
+	label operand.  Remove (use (unspec..)).  Don't emit a label on
+	the offset word.
+	* config/rs6000/rs6000.c (rs6000_legitimize_tls_address): Don't
+	generate inline label for load_toc_v4_PIC_1b.
+	(rs6000_emit_load_toc_table): Likewise.
+
+2005-03-31  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config.gcc: Obsolete i860-*-sysv4*, ip2k-*-elf,
+	ns32k-*-netbsdelf*, and ns32k-*-netbsd*.
+
+2005-03-31  Alan Modra  <amodra@bigpond.net.au>
+
+	* config.gcc (cpu_is_64bit): Set for 64-bit powerpc cpus.
+	(powerpc64-*-linux*): Use it.  Rearrange tm_file assignment.
+	(powerpc-*-linux*): Build a biarch compiler when --enable-targets
+	is given with "powerpc64*" or "all", or when --with-cpu chooses
+	a 64-bit cpu.
+
+2005-03-30  Richard Henderson  <rth@redhat.com>
+
+	* cgraph.h (struct cgraph_node): Add alias.
+	* varasm.c (assemble_alias): Set it.
+	* cgraphunit.c (cgraph_assemble_pending_functions): Check it and
+	avoid calling cgraph_expand_function.
+
+2005-03-30  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR c/772
+	PR c/17913
+	* c-tree.h (C_DECL_UNJUMPABLE_STMT_EXPR,
+	C_DECL_UNDEFINABLE_STMT_EXPR, struct c_label_list, struct
+	c_label_context, label_context_stack): New.
+	* c-decl.c (define_label): Check for jumps into statement
+	expressions.  Add label to list of defined labels.
+	(start_function): Push context on label_context_stack.
+	(finish_function): Pop context from label_context_stack.
+	* c-typeck.c (label_context_stack): New.
+	(c_finish_goto_label): Check for jumps into statement
+	expressions.  Add label to list of jumped to labels.
+	(struct c_switch): Add blocked_stmt_expr.
+	(c_start_case): Initialize it.
+	(do_case): Check it.
+	(c_finish_case): Verify !blocked_stmt_expr.
+	(c_begin_stmt_expr):  Push context on label_context_stack.
+	Increment blocked_stmt_expr.  Mark labels jumped to from outside
+	as undefinable.
+	(c_finish_stmt_expr): December blocked_stmt_expr.  Mark labels
+	defined in the statement expression and no longer jumpable to.
+	Mark labels jumped to from just outside the statement expression
+	as again definable.  Pop context from label_context_stack.
+	* doc/extend.texi (Statement Exprs): Update.
+
+2005-03-30  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR c/20368
+	* c-decl.c (start_function): Check for old_decl being
+	error_mark_node.
+
+2005-03-30 Mostafa Hagog <mustafa@il.ibm.com>
+
+	PR middle-end/20177
+	* ddg.c (create_ddg_dependence): Ignore reg-anti dependency.
+	* modulo-sched.c (const_iteration_count): Return on NULL
+	pre-header.
+	(print_node_sched_params): Return on NULL dump_file.
+	(generate_reg_moves): Handle reg-anti dependencies and disregard
+	closing branch when generating register moves.
+	(sms_schedule): Mark the SMSed block dirty.
+	* passes.c (rest_of_handle_sms): Call update_life_info for all
+	basic-blocks.
+	* testsuite/gcc.dg/20050321-1.c: New test.
+	* testsuite/gcc.dg/20050330-1.c: New test.
+
+2005-03-30  Sebastian Pop  <pop@cri.ensmp.fr>
+
+	* tree-scalar-evolution.c (instantiate_parameters_1): Return
+	as soon as a chrec_dont_know is detected.
+
+2005-03-30  Alan Modra  <amodra@bigpond.net.au>
+
+	* doc/install.texi: Update binutils requirement for powerpc*-linux.
+
+2005-03-30  Alan Modra  <amodra@bigpond.net.au>
+
+	PR target/20203
+	* builtins.c (get_memory_rtx): Expand address exp using EXPAND_NORMAL.
+	Remove convert_memory_address call duplicating that in memory_address.
+
+2005-03-29  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR rtl-optimization/20532
+	* simplify-rtx.c (simplify_binary_operation): Protect from
+	overflow when adding coefficients for PLUS or MINUS.  Handle
+	CONST_DOUBLE exact power of two as multiplier.
+
+2005-03-29  Richard Henderson  <rth@redhat.com>
+
+	PR c/20519
+	* c-decl.c (c_finish_incomplete_decl): Update complete_array_type call.
+	(build_compound_literal): Likewise.  Propagate decl type into the
+	initializer.
+	(finish_decl): Likewise.  Use new return value from complete_array_type
+	for zero sized arrays.
+	(complete_array_type): Move ...
+	* c-common.c (complete_array_type): ... here.  Change first argument
+	to pointer-to-type-node.  Consistently use sizetype for the index
+	except for zero sized arrays.  Detect zero sized arrays for pedantic
+	mode diagnostics.  Create a new type node instead of modifying the
+	old node in place.
+	* c-tree.h (complete_array_type): Move decl ...
+	* c-common.h (complete_array_type): ... here.
+
 2005-03-29  Richard Henderson  <rth@redhat.com>
 
 	PR tree-opt/19108
@@ -23,13 +262,13 @@
 
 	* c.opt (fvisibility-inlines-hidden): Allow for ObjC++.
 
-        * config/i386/darwin.h (TARGET_SUBTARGET_DEFAULT): Add
-        MASK_128BIT_LONG_DOUBLE, MASK_ALIGN_DOUBLE.
+	* config/i386/darwin.h (TARGET_SUBTARGET_DEFAULT): Add
+	MASK_128BIT_LONG_DOUBLE, MASK_ALIGN_DOUBLE.
 
 2005-03-25  John David Anglin  <dave.anglin@nrc-crnc.gc.ca>
 
 	PR target/15491
-        * vax.c (vax_rtx_costs_1): Merge with vax_rtx_costs.
+	* vax.c (vax_rtx_costs_1): Merge with vax_rtx_costs.
 	(vax_rtx_costs): Return false when passed unsupported rtx's.  Handle
 	FLOAT_EXTEND, FLOAT_TRUNCATE and TRUNCATE.  Fix costs for POST_INC,
 	PRE_DEC, NEG and NOT.
@@ -148,7 +387,7 @@
 	current_function_name() in a label, use a local label instead.
 
 2005-03-08  Dorit Naishlos  <dorit@il.ibm.com>
-            Ira Rosen  <irar@il.ibm.com>
+	    Ira Rosen  <irar@il.ibm.com>
 
 	PR tree-optimization/20474
 	* tree-vect-analyze.c (vect_analyze_pointer_ref_access): Check the
@@ -352,12 +591,6 @@
 	* config/mips/mips.c (override_options): Only warn about -mint64
 	deprecation if TARGET_INT64.
 
-2005-01-26  Daniel Berlin  <dberlin@dberlin.org>
-
-	Fix PR debug/19345
-	* dwarf2out.c (add_abstract_origin_attribute): TYPE_STUB_DECL is
-	not always going to give us a non-NULL result, so guard against that.
-
 2005-03-10  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	PR rtl-opt/20412
@@ -507,7 +740,7 @@
 2005-03-04  Andrew Haley  <aph@redhat.com>
 
 	* unwind-dw2-fde-glibc.c (struct
-	unw_eh_callback_data.check_cache): 
+	unw_eh_callback_data.check_cache):
 	(frame_hdr_cache): New.
 	(_Unwind_IteratePhdrCallback): Add ext_dl_phdr_info.
 	Cache frame header info.
@@ -585,7 +818,7 @@
 	not including (reg). Do not check for reg being CRIS_PC_REGNUM.
 	(EXTRA_MEMORY_CONSTRAINT): Define as 'Q'.
 	* config/cris/cris.md: Tweak comments referring to Q.
- 	("cmpsi", "cmphi", "cmpqi", "*movsi_internal", "movhi")
+	("cmpsi", "cmphi", "cmpqi", "*movsi_internal", "movhi")
 	("movstricthi", "movqi", "movstrictqi", "movsf", "addsi3")
 	("addhi3", "addqi3", "subsi3", "subhi3", "subqi3")
 	("*expanded_andsi", "*expanded_andhi", "*andhi_lowpart", "andqi3")

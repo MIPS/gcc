@@ -1,3 +1,88 @@
+2005-04-02  Mark Wielaard  <mark@klomp.org>
+
+	* javax/naming/directory/BasicAttributes.java (equals): Compare to any
+	Attributes and attribute order doesn't matter.
+	(BasicAttributesEnumeration.where): Initialize to zero.
+	(BasicAttributesEnumeration.nextElement): Update and compare where
+	appropriately (zero based).
+
+2005-04-01  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	PR libgcj/20090, PR libgcj/20526
+	* gij.cc (nonstandard_opts_help): New function.
+	(add_option): New function.
+	(main): Support java options.  Set java.class.path.  Don't set
+	_Jv_Jar_Class_Path.
+	* prims.cc (parse_x_arg): New function.
+	(parse_init_args): Call parse_x_arg for -X and _ options, when
+	ignoreUnrecognized is true.
+	(new _Jv_RunMain): New vm_args variant.
+	(old _Jv_RunMain): Call new vm_args _Jv_RunMain.
+	(_Jv_Jar_Class_Path): Remove variable.
+	* include/java-props.h: Likewise.
+	* include/cni.h (JvRealloc): New function.
+	* include/jvm.h (_Jv_RunMain): Declare vm_args variant.
+	* java/lang/natRuntime.cc (insertSystemProperties): Remove
+	_Jv_Jar_Class_Path logic.  Use JV_VERSION and JV_API_VERSION
+	macros.
+	* configure.ac (JV_VERSION): Define.
+	(JV_API_VERSION): Likewise.
+	* configure: Regenerate.
+	* include/config.h.in: Regenerate.
+
+2005-04-01  Mark Anderson <mark@panonet.net>
+
+	* java/lang/natDouble.cc (parseDouble): Handle NaN, Infinity and
+	-Infinity as parameters.
+
+2005-04-01  Michael Koch  <konqueror@gmx.de>
+
+	* java/io/PipedInputStream.java
+	(read): Make sure a positive byte value is returned. Revised javadoc.
+	Thanks to Olafur Bragason for reporting these bugs.
+
+2005-04-01  Jeroen Frijters  <jeroen@frijters.net>
+
+	* java/util/Timer.java
+	(run): Stop the queue if a task throws an exception.
+
+2005-03-31  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* javax/swing/text/JTextComponent.java (viewToModel): New method.
+
+2005-03-30  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* Makefile.am (gtk_c_source_files): Remove jni/classpath/jcl.c,
+	jni/classpath/jnilink.c, jni/classpath/primlib.c.
+	(lib_gnu_java_awt_peer_gtk_la_SOURCES): jni/classpath/jcl.h,
+	jni/classpath/jnilink.h, jni/classpath/primlib.h.
+	* Makefile.in: Regenerate.
+	* jni/classpath/jcl.h: Remove.
+	* jni/classpath/jcl.c: Likewise.
+	* jni/classpath/jnilink.h: Likewise.
+	* jni/classpath/jnilink.c: Likewise.
+	* jni/classpath/primlib.h: Likewise.
+	* jni/classpath/primlib.c: Likewise.
+
+2005-03-30  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* Makefile.am (classes.stamp): Add gnu/gcj/tools/gcj_dbtool/Main.java
+	to fix a ONESTEP fallout.
+	* Makefile.in: Regenerate.
+
+2005-03-30  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* testsuite/lib/libjava.exp (libjava_init): Use the same target
+	check for Darwin.
+	(libjava_arguments): Likewise.
+
+	* testsuite/libjava.jni/jni.exp (gcj_jni_compile_c_to_so): Likewise.
+	(gcj_jni_test_one): Likewise.
+	(gcj_jni_invocation_compile_c_to_binary): Likewise.
+	Add flags to keep the Darwin linker quiet.
+	(gcj_jni_invocation_test_one): Use the same target check for Darwin.
+	Add -liconv and lgcc_s for Darwin.
+
 2005-03-26  Chris Burdess  <dog@gnu.org>
 
 	* gnu/xml/dom/DomNode.java (notifyNode): grow listener array as

@@ -300,7 +300,9 @@ cgraph_assemble_pending_functions (void)
 
       cgraph_nodes_queue = cgraph_nodes_queue->next_needed;
       n->next_needed = NULL;
-      if (!n->global.inlined_to && !DECL_EXTERNAL (n->decl))
+      if (!n->global.inlined_to
+	  && !n->alias
+	  && !DECL_EXTERNAL (n->decl))
 	{
 	  cgraph_expand_function (n);
 	  output = true;
@@ -1030,7 +1032,12 @@ static int
 cgraph_estimate_size_after_inlining (int times, struct cgraph_node *to,
 				     struct cgraph_node *what)
 {
-  return (what->global.insns - INSNS_PER_CALL) * times + to->global.insns;
+  tree fndecl = what->decl;
+  tree arg;
+  int call_insns = PARAM_VALUE (PARAM_INLINE_CALL_COST);
+  for (arg = DECL_ARGUMENTS (fndecl); arg; arg = TREE_CHAIN (arg))
+    call_insns += estimate_move_cost (TREE_TYPE (arg));
+  return (what->global.insns - call_insns) * times + to->global.insns;
 }
 
 /* Estimate the growth caused by inlining NODE into all callees.  */
@@ -1124,7 +1131,8 @@ cgraph_mark_inline_edge (struct cgraph_edge *e)
       to->global.insns = new_insns;
     }
   gcc_assert (what->global.inlined_to == to);
-  overall_insns += new_insns - old_insns;
+  if (new_insns > old_insns)
+    overall_insns += new_insns - old_insns;
   ncalls_inlined++;
 }
 

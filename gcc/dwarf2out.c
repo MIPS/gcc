@@ -2468,7 +2468,12 @@ void
 dwarf2out_frame_finish (void)
 {
   /* Output call frame information.  */
-  if (write_symbols == DWARF2_DEBUG || write_symbols == VMS_AND_DWARF2_DEBUG)
+  if (write_symbols == DWARF2_DEBUG
+      || write_symbols == VMS_AND_DWARF2_DEBUG
+#ifdef DWARF2_FRAME_INFO
+      || DWARF2_FRAME_INFO
+#endif
+      )
     output_call_frame_info (0);
 
 #ifndef TARGET_UNWIND_INFO
@@ -10498,12 +10503,8 @@ add_abstract_origin_attribute (dw_die_ref die, tree origin)
 
       if (TYPE_P (fn))
 	fn = TYPE_STUB_DECL (fn);
-      
-      /* TYPE_STUB_DECL may have given us a NULL, which decl_function_context
-	 won't like.  */
-      if (fn)	
-	fn = decl_function_context (fn);
 
+      fn = decl_function_context (fn);
       if (fn)
 	dwarf2out_abstract_function (fn);
     }
