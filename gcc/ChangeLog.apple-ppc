@@ -1,3 +1,20 @@
+2004-07-15  Devang Patel  <dpatel@apple.com>
+
+        * tree-if-conv.c: Add brief description at the beginning.
+        (is_appropriate_for_if_conv): Rename to ..
+        (if_convertable_loop_p): ... new name.
+        (bb_with_exit_edge): Rename to ..
+        (bb_with_exit_edge_p): ... new name.
+        (make_cond_modify_expr): Update comment before function body.
+        (replace_phi_with_cond_modify_expr): Same.
+        (tree_if_convert_stmt): Same. Use new fn name, bb_with_exit_edge_p.
+        (if_convertable_loop_p): New function name. Remove some dead code. 
+        (collapse_blocks): Update comment before function body. Format code.
+        Use bb_with_exit_edge_p.
+        (tree_if_conversion): Move this function body at the end of file.
+        (handle_siblint_pattern): Update comment before function body.
+        (fold_sibling_stmts): Same. Update dump info.
+
 2004-07-14  Devang Patel  <dpatel@apple.com>
 
         * target.h (gcc_target): Additional parameter for

@@ -24,7 +24,18 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
    A short description of if-conversion:
 
-   TODO */
+     o Decide if loop is if-convertable or not.
+     o Walk all loop basic blocks in BFS order.
+       o Remove conditional statements (at the end of basic block)
+         and propogate condition into destination basic blcoks'
+	 predicate list.
+       o Replace modify expression with conditional modify expression
+         using current basic block's condition.
+     o Merge all basic blocks
+       o Replace phi nodes with conditional modify expr
+       o If required, Connect exit block to loop header
+       o Merge all basic blocks into header
+*/
 
 #include "config.h"
 #include "system.h"
@@ -54,9 +65,10 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 static tree tree_if_convert_stmt (tree, tree, block_stmt_iterator *);
 static void add_to_predicate_list (basic_block, tree);
 static void clean_predicate_lists (struct loop *loop, basic_block *);
-static bool is_appropriate_for_if_conv (struct loop *, bool);
-static tree make_ifcvt_temp_variable (tree, tree, tree, block_stmt_iterator *, bool);
-static bool bb_with_exit_edge (basic_block);
+static bool if_convertable_loop_p (struct loop *, bool);
+static tree make_ifcvt_temp_variable (tree, tree, tree, block_stmt_iterator *, 
+				      bool);
+static bool bb_with_exit_edge_p (basic_block);
 static void collapse_blocks (struct loop *, basic_block *);
 static void make_cond_modify_expr (tree, block_stmt_iterator *);
 static void mark_vdefs_vuses_for_rename (tree);
@@ -67,7 +79,8 @@ static void fold_sibling_stmts (tree, tree, block_stmt_iterator *);
    to the variable.  */
 
 static tree
-make_ifcvt_temp_variable (tree type, tree exp, tree orig_stmt, block_stmt_iterator *bsi, bool before)
+make_ifcvt_temp_variable (tree type, tree exp, tree orig_stmt, 
+			  block_stmt_iterator *bsi, bool before)
 {
   const char *name = "__ifcvt";
   tree var, stmt, new_name;
@@ -82,8 +95,6 @@ make_ifcvt_temp_variable (tree type, tree exp, tree orig_stmt, block_stmt_iterat
   /* Build new statement to assigne EXP to new variable.  */
   stmt = build (MODIFY_EXPR, type, var, exp);
   
-  /*bitmap_set_bit (vars_to_rename, var_ann (var)->uid);*/
-
   /* Get SSA name for the new variable and set make new statement
      its definition statment.  */
   new_name = make_ssa_name (var, stmt);
@@ -166,7 +177,10 @@ add_to_dst_predicate_list (tree t, tree cond)
 }
 
 /* Input T is a modify expr. Make it conditional modify expr.
-   Condition is saved in basic block's aux field.  */
+   COND is saved in basic block's aux field.  If COND is true
+   or NULL then do not update this statement. If COND is 
+   TRUTH_NOT_EXPR then exchange true and false arguments and
+   use TRUTH_EXPR.  */
 
 static void
 make_cond_modify_expr (tree t, block_stmt_iterator *bsi)
@@ -219,12 +233,15 @@ make_cond_modify_expr (tree t, block_stmt_iterator *bsi)
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      fprintf (dump_file, "new stmt\n");
+      fprintf (dump_file, "new conditional modify expr\n");
       print_generic_stmt (dump_file, t, TDF_SLIM);
     }
 }
 
-/* Replace PHI node with conditional modify expr.  */
+/* Replace PHI node with conditional modify expr.  This routine does not handle
+   PHI nodes with more than two arguments. Update vdef/vuse associated with
+   PHI node.  */
+
 static void
 replace_phi_with_cond_modify_expr (tree phi)
 {
@@ -262,7 +279,6 @@ replace_phi_with_cond_modify_expr (tree phi)
 
   /* Use condition that is not TRUTH_NOT_EXPR in conditional modify expr.  */
   if (TREE_CODE (cond_0) == TRUTH_NOT_EXPR)
-    /*      && cond_1 == TREE_OPERAND (cond_0, 0))*/
     {
       /* Use cond from edge e_0.  */
       cond  = cond_1;
@@ -270,8 +286,6 @@ replace_phi_with_cond_modify_expr (tree phi)
       arg_1 = PHI_ARG_DEF (phi, 0);
     }
   else if (TREE_CODE (cond_0) != TRUTH_NOT_EXPR)
-    /* else if (TREE_CODE (cond_1) == TRUTH_NOT_EXPR)
-    	   && cond_0 == TREE_OPERAND (cond_1, 0))*/
     {
       /* Use cond from edge e_1.  */
       cond  = cond_0;
@@ -284,7 +298,8 @@ replace_phi_with_cond_modify_expr (tree phi)
       abort ();
     }
 
-  cond = make_ifcvt_temp_variable (TREE_TYPE (cond), unshare_expr (cond), NULL, &bsi, false);
+  cond = make_ifcvt_temp_variable (TREE_TYPE (cond), unshare_expr (cond), 
+				   NULL, &bsi, false);
 
   if (TREE_CODE (cond) == VAR_DECL)
     bitmap_set_bit (vars_to_rename, var_ann (cond)->uid);
@@ -326,7 +341,10 @@ replace_phi_with_cond_modify_expr (tree phi)
 
 }
 
-/* if-convert stmt T */
+/* if-convert stmt T. If T is a MODIFY_EXPR than it is converted
+   into conditional modify expression using COND.  For conditional
+   expressions, add condition in the destination basic block's predicate
+   list and remove conditional expression itself.  */
 
 static tree
 tree_if_convert_stmt (tree t, tree cond, block_stmt_iterator *bsi)
@@ -364,7 +382,7 @@ tree_if_convert_stmt (tree t, tree cond, block_stmt_iterator *bsi)
 	 condition expression.  */
 
       /* Hey, do not if-convert exit condition!  */
-      if (bb_with_exit_edge (bb_for_stmt (t)))
+      if (bb_with_exit_edge_p (bb_for_stmt (t)))
 	{
 	  cond = NULL_TREE;
 	  break;
@@ -377,7 +395,8 @@ tree_if_convert_stmt (tree t, tree cond, block_stmt_iterator *bsi)
 	dst1 = TREE_OPERAND (t, 1);
 	dst2 = TREE_OPERAND (t, 2);
 
-	c = make_ifcvt_temp_variable (TREE_TYPE (c), unshare_expr (c), t, bsi, true);
+	c = make_ifcvt_temp_variable (TREE_TYPE (c), unshare_expr (c), 
+				      t, bsi, true);
 	/* Add new condition into destination's predicate list.  */
 	if (dst1)
 	  {
@@ -388,7 +407,8 @@ tree_if_convert_stmt (tree t, tree cond, block_stmt_iterator *bsi)
 	    else
 	      new_cond = 
 		make_ifcvt_temp_variable (boolean_type_node, 
-					  build (TRUTH_AND_EXPR, boolean_type_node,
+					  build (TRUTH_AND_EXPR, 
+						 boolean_type_node,
 						 unshare_expr (cond), c),
 					  t, bsi, true);
 	    add_to_dst_predicate_list (dst1, new_cond);
@@ -406,7 +426,8 @@ tree_if_convert_stmt (tree t, tree cond, block_stmt_iterator *bsi)
 	    else
 	      new_cond = 
 		make_ifcvt_temp_variable (boolean_type_node, 
-					  build (TRUTH_AND_EXPR, boolean_type_node,
+					  build (TRUTH_AND_EXPR, 
+						 boolean_type_node,
 						 unshare_expr (cond), c2),
 					  t, bsi, true);
 	    
@@ -429,7 +450,7 @@ tree_if_convert_stmt (tree t, tree cond, block_stmt_iterator *bsi)
 /* Return true if one of the basic block BB edge is loop exit.  */
 
 static bool
-bb_with_exit_edge (basic_block bb)
+bb_with_exit_edge_p (basic_block bb)
 {
   edge e;
   bool exit_edge_found = false;
@@ -441,10 +462,10 @@ bb_with_exit_edge (basic_block bb)
   return exit_edge_found;
 }
 
-/* Filter for if-conversion.  */
+/* Return true, iff LOOP is if-convertable.  */
 
 static bool
-is_appropriate_for_if_conv (struct loop *loop, bool for_vectorizer)
+if_convertable_loop_p (struct loop *loop, bool for_vectorizer)
 {
   basic_block bb;
   basic_block *bbs;
@@ -530,7 +551,6 @@ is_appropriate_for_if_conv (struct loop *loop, bool for_vectorizer)
 		{
 		  if (dump_file && (dump_flags & TDF_DETAILS))
 		    fprintf (dump_file, "stmt is movable. Don't take risk\n");
-		  free_dominance_info (CDI_POST_DOMINATORS);
 		  return false;
 		}
 	      {
@@ -546,32 +566,14 @@ is_appropriate_for_if_conv (struct loop *loop, bool for_vectorizer)
 			basic_block t_bb = bb_for_stmt (t);
 
 			if (dump_file && (dump_flags & TDF_DETAILS))
-			  fprintf (dump_file, "t_bb = %d, use_bb = %d (%d)\n", t_bb->index, 
-				   use_bb->index,
+			  fprintf (dump_file, "t_bb = %d, use_bb = %d (%d)\n",
+				   t_bb->index, use_bb->index,
 				   flow_bb_inside_loop_p (loop, use_bb) ? 1 : 0);
 
-			/* Case 1 */
-			if (dominated_by_p (CDI_DOMINATORS, t_bb, use_bb))
+			if (bb != loop->header && PHI_NUM_ARGS (use) != 2)
 			  {
 			    if (dump_file && (dump_flags & TDF_DETAILS))
-			      fprintf (dump_file,"t_bb is dominated by use_bb\n");
-			  }
-			/* Case 2 */
-			else if (dominated_by_p (CDI_POST_DOMINATORS, t_bb, use_bb)
-				     && !dominated_by_p (CDI_DOMINATORS, use_bb, t_bb))
-			  {
-			    if (dump_file && (dump_flags & TDF_DETAILS))
-			      {
-				fprintf (dump_file,"t_bb is post dominated by use_bb AND");
-				fprintf (dump_file,"use_bb is dominated by t_bb\n");
-			      }
-			  }
-			/* case 4 */
-			else if (bb != loop->header && PHI_NUM_ARGS (use) != 2)
-			  {
-			    if (dump_file && (dump_flags & TDF_DETAILS))
-				fprintf (dump_file, "More than two phi node args.\n");
-			    free_dominance_info(CDI_POST_DOMINATORS);
+			      fprintf (dump_file, "More than two phi node args.\n");
 			    return false;
 			  }
 		      }
@@ -590,7 +592,7 @@ is_appropriate_for_if_conv (struct loop *loop, bool for_vectorizer)
 		  fprintf (dump_file, "don't know what to do\n");
 		  print_generic_stmt (dump_file, t, TDF_SLIM);
 		}
-	      free_dominance_info (CDI_POST_DOMINATORS);
+
 	      return false;
 	      break;
 	    }
@@ -613,7 +615,6 @@ is_appropriate_for_if_conv (struct loop *loop, bool for_vectorizer)
 	      {
 		if (dump_file && (dump_flags & TDF_DETAILS))
 		  fprintf (dump_file, "More than two phi node args.\n");
-		free_dominance_info (CDI_POST_DOMINATORS);
 		return false;
 	      }
 
@@ -626,7 +627,6 @@ is_appropriate_for_if_conv (struct loop *loop, bool for_vectorizer)
 	  {
 	    if (dump_file && (dump_flags & TDF_DETAILS))
 	      fprintf (dump_file,"Difficult to handle edges\n");
-	    free_dominance_info (CDI_POST_DOMINATORS);
 	    return false;
 	  }
     }
@@ -653,7 +653,8 @@ clean_predicate_lists (struct loop *loop, basic_block *bbs)
     bbs[i]->aux = NULL;
 }
 
-/* Collapse all basic block into one huge basic block.  */
+/* Collapse all basic block into one huge basic block.  Replace PHI
+   nodes with conditional modify expression. */
 
 static void
 collapse_blocks (struct loop *loop, basic_block *bbs)
@@ -678,7 +679,8 @@ collapse_blocks (struct loop *loop, basic_block *bbs)
 	  tree next = TREE_CHAIN (phi);
 	  tree result = SSA_NAME_VAR (PHI_RESULT (phi));
 	  var_ann_t ann = var_ann (result);
-	  if (ann && (ann->mem_tag_kind == TYPE_TAG || ann->mem_tag_kind == NAME_TAG))
+	  if (ann && (ann->mem_tag_kind == TYPE_TAG 
+		      || ann->mem_tag_kind == NAME_TAG))
 	    {
 	      if (dump_file && (dump_flags & TDF_DETAILS))
 		{
@@ -716,9 +718,8 @@ collapse_blocks (struct loop *loop, basic_block *bbs)
       if (bb == loop->latch)
 	continue;
 
-      for (e = bb->succ; e && !exit_bb; e = e->succ_next)
-	  if (e->flags & EDGE_LOOP_EXIT)
-	      exit_bb = bb;
+      if (!exit_bb && bb_with_exit_edge_p (bb))
+	exit_bb = bb;
 
       if (bb == exit_bb)
 	{
@@ -776,87 +777,8 @@ collapse_blocks (struct loop *loop, basic_block *bbs)
     }
 }
 
-/* Main entry point.
-   Apply if-conversion to the loop. Return true if successful otherwise return
-   false. If false is returned, loop remains unchanged.  */
-
-bool
-tree_if_conversion (struct loop *loop, bool for_vectorizer)
-{
-  basic_block bb;
-  basic_block *bbs;
-  block_stmt_iterator itr;
-  tree cond;
-  unsigned int i;
-
-  flow_loop_scan (loop, LOOP_ALL);
-
-  /* if-conversion is not appropriate for all loops.  */
-  if (!is_appropriate_for_if_conv (loop, for_vectorizer))
-    {
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	fprintf (dump_file,"-------------------------\n");
-	return false;
-    }
-
-  cond = boolean_true_node;
-  
-  /* Walk statements and add conditions.  */
-  bbs = get_loop_body_in_bfs_order (loop);
-
-  /* Do actual work now.  */
-  for (i = 0; i < loop->num_nodes; i++)  
-    {
-      bb = bbs [i];
-
-      /* Update condition using predicate list.  */
-      cond = bb->aux;
-
-      /* Process all statements in this basic block.
-	 Remove conditional expresion, if any, and annotate
-	 destination basic block(s) appropriately.  */
-      for (itr = bsi_start (bb); !bsi_end_p (itr); /* empty */)
-	{
-	  tree t = bsi_stmt (itr);
-	  cond = tree_if_convert_stmt (t, cond, &itr);
-	  if (!bsi_end_p (itr))
-	    bsi_next (&itr);
-	}
-
-      /* If current bb has only one successor, then consider it as an 
-	 unconditional goto.  */
-      if (bb->succ && !bb->succ->succ_next)
-	{
-	  basic_block bb_n = bb->succ->dest;
-	  if (cond != NULL_TREE)
-	    add_to_predicate_list (bb_n, cond);
-	  cond = NULL_TREE;
-	}
-    }
-
-  /* Now, all statements are if-converted and basic blocks are
-     annotated appropriately. Collapse all basic block into one huge
-     basic block.  */
-  collapse_blocks (loop, bbs); 
-
-  /* Re-write in SSA form */
-  rewrite_into_ssa (false);
-  rewrite_into_loop_closed_ssa ();
-  bitmap_clear (vars_to_rename);
-
-  /* Update ddg */
-  /* TODO */
-
-  /* clean up */
-  clean_predicate_lists (loop, bbs);
-  free (bbs);
-  free_df ();
-
-  handle_sibling_pattern (loop);
-  compute_immediate_uses (TDFA_USE_OPS, NULL);
-  compute_immediate_uses (TDFA_USE_VOPS, NULL);
-  return true;
-}
+/* Mark vdefs and vuses of STMT for renaming.  
+   CHECKME do we need to make this general purpose routine? */
 
 static void
 mark_vdefs_vuses_for_rename (tree stmt)
@@ -901,7 +823,13 @@ mark_vdefs_vuses_for_rename (tree stmt)
 }
 
 /* Identify sibling conditional modify expressions and replace them
-   with one conditional modify expression.  */
+   with one conditional modify expression.  
+
+   Two statements are considered iff:
+   1) both statements are conditional modify expr
+   2) RHS of first statement is immediately used in LHS of second
+      statement.
+*/
 
 static void
 handle_sibling_pattern (struct loop *loop)
@@ -951,9 +879,6 @@ handle_sibling_pattern (struct loop *loop)
 	  if (!bsi_end_p (bsi))
 	    bsi_next (&bsi);
 	}
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	tree_dump_bb (bb, dump_file, 4);		
-  
     }
   free (bbs);
   free_df ();
@@ -961,7 +886,16 @@ handle_sibling_pattern (struct loop *loop)
 
 /* FIRST and SECOND statements are sibling statements.
    If possible fold FIRST statement into SECOND statement
-   and remove FIRST statement.  */
+   and remove FIRST statement.  
+
+   1) 
+     T1 = cond ? (void)0 : B;
+     T2 = cond ? A : (void)B;
+
+     is folded into
+
+     T2 = cond ? A : B;
+*/
 
 static void
 fold_sibling_stmts (tree first, tree second, block_stmt_iterator *bsi)
@@ -1007,12 +941,97 @@ fold_sibling_stmts (tree first, tree second, block_stmt_iterator *bsi)
 	 FIRST  : remove
 	 SECOND : t2 = cond ? ABC : XYZ
       */
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	fprintf (dump_file, "fold this sibling\n");
-
       TREE_OPERAND (op2, 2) = TREE_OPERAND (op1, 2);
+
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	{
+	  fprintf (dump_file, "fold this sibling into :\n");
+	  print_generic_stmt (dump_file, second, TDF_SLIM);	
+	}
       modify_stmt (second);
       bsi_remove (bsi);
     } 
-
+  else if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, "sibling candidates are ignored\n");
 }
+
+/* Main entry point.
+   Apply if-conversion to the loop. Return true if successful otherwise return
+   false. If false is returned, loop remains unchanged.  */
+
+bool
+tree_if_conversion (struct loop *loop, bool for_vectorizer)
+{
+  basic_block bb;
+  basic_block *bbs;
+  block_stmt_iterator itr;
+  tree cond;
+  unsigned int i;
+
+  flow_loop_scan (loop, LOOP_ALL);
+
+  /* if-conversion is not appropriate for all loops.  */
+  if (!if_convertable_loop_p (loop, for_vectorizer))
+    {
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file,"-------------------------\n");
+      free_dominance_info (CDI_POST_DOMINATORS);
+      return false;
+    }
+
+  cond = boolean_true_node;
+  
+  /* Walk statements and add conditions.  */
+  bbs = get_loop_body_in_bfs_order (loop);
+
+  /* Do actual work now.  */
+  for (i = 0; i < loop->num_nodes; i++)  
+    {
+      bb = bbs [i];
+
+      /* Update condition using predicate list.  */
+      cond = bb->aux;
+
+      /* Process all statements in this basic block.
+	 Remove conditional expresion, if any, and annotate
+	 destination basic block(s) appropriately.  */
+      for (itr = bsi_start (bb); !bsi_end_p (itr); /* empty */)
+	{
+	  tree t = bsi_stmt (itr);
+	  cond = tree_if_convert_stmt (t, cond, &itr);
+	  if (!bsi_end_p (itr))
+	    bsi_next (&itr);
+	}
+
+      /* If current bb has only one successor, then consider it as an 
+	 unconditional goto.  */
+      if (bb->succ && !bb->succ->succ_next)
+	{
+	  basic_block bb_n = bb->succ->dest;
+	  if (cond != NULL_TREE)
+	    add_to_predicate_list (bb_n, cond);
+	  cond = NULL_TREE;
+	}
+    }
+
+  /* Now, all statements are if-converted and basic blocks are
+     annotated appropriately. Collapse all basic block into one huge
+     basic block.  */
+  collapse_blocks (loop, bbs); 
+
+  /* Re-write in SSA form */
+  rewrite_into_ssa (false);
+  rewrite_into_loop_closed_ssa ();
+  bitmap_clear (vars_to_rename);
+
+  /* clean up */
+  clean_predicate_lists (loop, bbs);
+  free (bbs);
+  free_df ();
+
+  handle_sibling_pattern (loop);
+  compute_immediate_uses (TDFA_USE_OPS, NULL);
+  compute_immediate_uses (TDFA_USE_VOPS, NULL);
+  return true;
+}
+
