@@ -71,13 +71,7 @@ extern int __mf_heuristic_check (uintptr_t, uintptr_t);
 
 /* The mf_state type codes describe recursion and initialization order. */
 
-enum __mf_state
-  {
-    inactive, 
-    starting, 
-    active, 
-    reentrant
-  }; 
+enum __mf_state_enum { active, reentrant }; 
 
 /* The __mf_options structure records optional or tunable aspects of the
  mudflap library's behavior. There is a single global instance of this
@@ -212,7 +206,14 @@ extern pthread_mutex_t __mf_biglock;
 #define UNLOCKTH() do {} while (0)
 #endif
 
-extern /* volatile? */ enum __mf_state __mf_state;
+#ifdef LIBMUDFLAPTH
+extern enum __mf_state_enum *__mf_state_perthread ();
+#define __mf_state (* __mf_state_perthread ())
+#else 
+extern enum __mf_state_enum __mf_state;
+#endif
+extern int __mf_starting_p;
+
 extern struct __mf_options __mf_opts;
 
 /* ------------------------------------------------------------------------ */
@@ -223,16 +224,30 @@ extern struct __mf_options __mf_opts;
 #define LIKELY(e) (__builtin_expect (!!(e), 1))
 #define STRINGIFY2(e) #e
 #define STRINGIFY(e) STRINGIFY2(e)
-#define VERBOSE_TRACE(...)                         \
-  if (UNLIKELY (__mf_opts.verbose_trace)) \
-    { \
+
+#ifdef LIBMUDFLAPTH
+#define VERBOSE_TRACE(...) \
+  do { if (UNLIKELY (__mf_opts.verbose_trace)) {  \
+      fprintf (stderr, "mf(%u): ", (unsigned) pthread_self ()); \
       fprintf (stderr, __VA_ARGS__); \
-    }
-#define TRACE(...)                         \
-  if (UNLIKELY (__mf_opts.trace_mf_calls)) \
-    { \
+    } } while (0)
+#define TRACE(...) \
+  do { if (UNLIKELY (__mf_opts.trace_mf_calls)) { \
+      fprintf (stderr, "mf(%u): ", (unsigned) pthread_self ()); \
       fprintf (stderr, __VA_ARGS__); \
-    }
+    } } while (0)
+#else
+#define VERBOSE_TRACE(...) \
+  do { if (UNLIKELY (__mf_opts.verbose_trace)) {  \
+      fprintf (stderr, "mf: "); \
+      fprintf (stderr, __VA_ARGS__); \
+    } } while (0)
+#define TRACE(...) \
+  do { if (UNLIKELY (__mf_opts.trace_mf_calls)) { \
+      fprintf (stderr, "mf: "); \
+      fprintf (stderr, __VA_ARGS__); \
+    } } while (0)
+#endif
 
 
 #define __MF_PERSIST_MAX 256
@@ -283,7 +298,7 @@ ret fname (__VA_ARGS__)
  typedef ty (*__mf_fn_ ## fname) (__VA_ARGS__);       \
  extern ty __mf_0fn_ ## fname (__VA_ARGS__);
 #define CALL_REAL(fname, ...)                         \
-  ({(__mf_state == starting) \
+  ({__mf_starting_p \
      ? __mf_0fn_ ## fname (__VA_ARGS__) \
     : (__mf_resolve_single_dynamic (& __mf_dynamic[dyn_ ## fname]), \
        (((__mf_fn_ ## fname)(__mf_dynamic[dyn_ ## fname].pointer)) (__VA_ARGS__)));})
@@ -306,6 +321,39 @@ ret __wrap_ ## fname (__VA_ARGS__)
 /* WRAPPER2 is for functions intercepted via macros at compile time. */
 #define WRAPPER2(ret, fname, ...)                     \
 ret __mfwrap_ ## fname (__VA_ARGS__)
+
+
+/* Utility macros for mf-hooks*.c */
+
+#define MF_VALIDATE_EXTENT(value,size,acc,context) \
+ do { \
+  if (UNLIKELY (size > 0 && __MF_CACHE_MISS_P (value, size))) \
+    __mf_check ((void *) (value), (size), acc, "(" context ")"); \
+ } while (0)
+#define BEGIN_PROTECT(ty, fname, ...)       \
+  ty result;                                \
+  if (UNLIKELY (__mf_state == reentrant))   \
+  {                                         \
+    extern unsigned long __mf_reentrancy;   \
+    if (UNLIKELY (__mf_opts.verbose_trace)) { \
+      write (2, "mf: reentrancy detected in `", 28); \
+      write (2, __PRETTY_FUNCTION__, strlen(__PRETTY_FUNCTION__)); \
+      write (2, "'\n", 2); } \
+    __mf_reentrancy ++; \
+    return CALL_REAL(fname, __VA_ARGS__);   \
+  }                                         \
+  else if (UNLIKELY (__mf_starting_p)) \
+  {                                         \
+    return CALL_BACKUP(fname, __VA_ARGS__); \
+  }                                         \
+  else                                      \
+  {                                         \
+    TRACE ("%s\n", __PRETTY_FUNCTION__); \
+  }
+
+#define END_PROTECT(ty, fname, ...)              \
+  result = (ty) CALL_REAL(fname, __VA_ARGS__);   \
+  return result;
 
 
 /* Unlocked variants of main entry points from mf-runtime.h.  */

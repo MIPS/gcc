@@ -39,6 +39,9 @@ proc dg-test { args } {
 
     set keep 0
     set i 0
+    set dg-repetitions 1 ;# may be overridden by { dg-repetitions N }
+    global dg-timeout
+    set dg-timeout 0 ;# likewise by { dg-timeout N }
 
     if { [string index [lindex $args 0] 0] == "-" } {
 	for { set i 0 } { $i < [llength $args] } { incr i } {
@@ -254,47 +257,51 @@ proc dg-test { args } {
 	if ![file exists $output_file] {
 	    warning "$name compilation failed to produce executable"
 	} else {
-	    set status -1
-	    set result [${tool}_load $output_file]
-	    set status [lindex $result 0];
-	    set output [lindex $result 1];
-	    #send_user "After exec, status: $status\n"
+	    set testname $name
+	    for {set rep 0} {$rep < ${dg-repetitions}} {incr rep} {
+		# include repetition number in test name
+		if {$rep > 0} { set name "$testname (rerun $rep)" }
 
-	    # FChE: reorganized logic below
+		set status -1
+		set result [${tool}_load $output_file]
+		set status [lindex $result 0];
+		set output [lindex $result 1];
+		#send_user "After exec, status: $status\n"
 
-	    if { "$status" == "pass" } {
-		verbose "Exec succeeded." 3
-	    } elseif { "$status" == "fail" } {
-		# It would be nice to get some info out of errorCode.
-		if [info exists errorCode] {
-		    verbose "Exec failed, errorCode: $errorCode" 3
-		} else {
-		    verbose "Exec failed, errorCode not defined!" 3
+		if { "$status" == "pass" } {
+		    verbose "Exec succeeded." 3
+		} elseif { "$status" == "fail" } {
+		    # It would be nice to get some info out of errorCode.
+		    if [info exists errorCode] {
+			verbose "Exec failed, errorCode: $errorCode" 3
+		    } else {
+			verbose "Exec failed, errorCode not defined!" 3
+		    }
 		}
-	    }
-
-	    if { [lindex ${dg-do-what} 2] == "F" } {
-		# Instead of modelling this as an xfail (via setup_xfail), 
-		# treat an expected crash as a success.
-		if { $status == "pass" } then { set status fail } else { set status pass }
-		set testtype "crash"
-	    } else { set testtype "execution" }
-
-	    $status "$name $testtype test"
-
-	    if { [llength ${dg-output-text}] > 1 } {
-		#send_user "${dg-output-text}\n"
-		if { [lindex ${dg-output-text} 0] == "F" } {
-		    setup_xfail "*-*-*"
+		
+		if { [lindex ${dg-do-what} 2] == "F" } {
+		    # Instead of modelling this as an xfail (via setup_xfail), 
+		    # treat an expected crash as a success.
+		    if { $status == "pass" } then { set status fail } else { set status pass }
+		    set testtype "crash"
+		} else { set testtype "execution" }
+		
+		$status "$name $testtype test"
+		
+		if { [llength ${dg-output-text}] > 1 } {
+		    #send_user "${dg-output-text}\n"
+		    if { [lindex ${dg-output-text} 0] == "F" } {
+			setup_xfail "*-*-*"
+		    }
+		    set texttmp [lindex ${dg-output-text} 1]
+		    if { ![regexp $texttmp ${output}] } {
+			fail "$name output pattern test"
+		    } else {
+			pass "$name output pattern test"
+		    }
+		    verbose -log "Output pattern $texttmp"
+		    unset texttmp
 		}
-		set texttmp [lindex ${dg-output-text} 1]
-		if { ![regexp $texttmp ${output}] } {
-		    fail "$name output pattern test"
-		} else {
-		    pass "$name output pattern test"
-		}
-		verbose -log "Output pattern $texttmp"
-		unset texttmp
 	    }
 	}
     }
@@ -325,4 +332,46 @@ proc dg-test { args } {
     if { ! ${keep} && ${dg-interpreter-batch-mode} == 0 } {
 	catch "exec rm -f $output_file"
     }
+}
+
+
+
+# 
+# Indicate that this test case is to be rerun several times.  This
+# is useful if it is nondeterministic.  This applies to rerunning the
+# test program only, not rebuilding it.
+# The embedded format is "{ dg-repetitions N }", where N is the number
+# of repetitions.  It better be greater than zero.
+#
+proc dg-repetitions { line value } {
+    upvar dg-repetitions repetitions
+    set repetitions $value
+}
+
+
+# 
+# Indicate that this test case is to be run with a short timeout.
+# The embedded format is "{ dg-timeout N }", where N is in seconds.
+#
+proc dg-timeout { line value } {
+    global dg-timeout
+    set dg-timeout $value
+}
+
+
+# dejagnu's config/unix.exp hard-codes 300 seconds as the timeout
+# for any natively run executable.  That's too long for tests run
+# multiple times and that may possibly hang.  So we override it here
+# to provide some degree of control.
+rename standard_wait hooked_standard_wait
+proc standard_wait { dest timeout } {
+    global dg-timeout
+    if {[info exists dg-timeout]} {
+	if {${dg-timeout} > 0} {
+	    verbose -log "Overriding timeout = ${dg-timeout}"
+	    set timeout ${dg-timeout}
+	}
+    }
+
+    hooked_standard_wait $dest $timeout
 }

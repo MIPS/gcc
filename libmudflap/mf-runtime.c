@@ -85,7 +85,14 @@ unsigned char __mf_lc_shift = LOOKUP_CACHE_SHIFT_DFL;
 #define LOOKUP_CACHE_SIZE (__mf_lc_mask + 1)
 
 struct __mf_options __mf_opts;
-enum __mf_state __mf_state = starting;
+
+int __mf_starting_p = 1;
+#ifndef LIBMUDFLAPTH
+enum __mf_state_enum __mf_state = active;
+#else
+/* See __mf_state_perthread() in mf-hooks.c. */
+#endif
+
 
 #ifdef LIBMUDFLAPTH
 pthread_mutex_t __mf_biglock =
@@ -164,19 +171,6 @@ static __mf_object_tree_t *__mf_object_root;
 /* Dead objects: circular arrays; _MIN_CEM .. _MAX_CEM only */
 static unsigned __mf_object_dead_head[__MF_TYPE_MAX_CEM+1]; /* next empty spot */
 static __mf_object_tree_t *__mf_object_cemetary[__MF_TYPE_MAX_CEM+1][__MF_PERSIST_MAX];
-
-/* Deferred registration/unregistration requests. */
-typedef struct {
-  int register_p; /* or else unregister */
-  void *base;
-  size_t size;
-  int type;
-  char *name;
-} deferred_request_t;
-
-#define MAX_DEFERRED_REQUESTS 2000
-static deferred_request_t __mf_deferred_requests[MAX_DEFERRED_REQUESTS];
-static unsigned __mf_num_deferred_requests = 0;
 
 
 /* ------------------------------------------------------------------------ */
@@ -397,6 +391,9 @@ __mf_set_options (const char *optstr)
   LOCKTH ();
   BEGIN_RECURSION_PROTECT ();
   rc = __mfu_set_options (optstr);
+  /* XXX: It's not really that easy.  A change to a bunch of parameters
+     can require updating auxiliary state or risk crashing: 
+     free_queue_length, crumple_zone ... */
   END_RECURSION_PROTECT ();
   UNLOCKTH ();
   return rc;
@@ -496,7 +493,7 @@ __mfu_set_options (const char *optstr)
   /* void slot 0 */
   __mf_lookup_cache[0].low = MAXPTR;
 
-  TRACE ("mf: set options from `%s'\n", saved_optstr);
+  TRACE ("set options from `%s'\n", saved_optstr);
 
   /* Call this unconditionally, in case -sigusr1-report was toggled. */
   __mf_sigusr1_respond ();
@@ -573,10 +570,11 @@ void __mf_init ()
 {
   char *ov = 0;
 
+  /* This initial bootstrap phase requires that __mf_starting_p = 1. */
 #ifdef PIC
   __mf_resolve_dynamics ();
 #endif
-  __mf_state = active;
+  __mf_starting_p = 0;
 
   __mf_set_default_options ();
 
@@ -656,7 +654,7 @@ __wrap_main (int argc, char* argv[])
 extern void __mf_fini () DTOR;
 void __mf_fini ()
 {
-  TRACE ("mf: __mf_fini\n");
+  TRACE ("__mf_fini\n");
   __mfu_report ();
 }
 
@@ -687,7 +685,7 @@ void __mfu_check (void *ptr, size_t sz, int type, const char *location)
   if (UNLIKELY (__mf_opts.sigusr1_report))
     __mf_sigusr1_respond ();
 
-  TRACE ("mf: check ptr=%p b=%u size=%lu %s location=`%s'\n",
+  TRACE ("check ptr=%p b=%u size=%lu %s location=`%s'\n",
 	 ptr, entry_idx, sz, (type == 0 ? "read" : "write"), location);
   
   switch (__mf_opts.mudflap_mode)
@@ -988,7 +986,7 @@ __mf_register (void *ptr, size_t sz, int type, const char *name)
 void
 __mfu_register (void *ptr, size_t sz, int type, const char *name)
 {
-  TRACE ("mf: register ptr=%p size=%lu type=%x name='%s'\n", ptr, sz, 
+  TRACE ("register ptr=%p size=%lu type=%x name='%s'\n", ptr, sz, 
 	type, name ? name : "");
 
   if (__mf_opts.collect_stats)
@@ -1048,7 +1046,7 @@ __mfu_register (void *ptr, size_t sz, int type, const char *name)
 		&& ovr_obj->data.high == high)
 	      {
 		/* do nothing */
-		VERBOSE_TRACE ("mf: duplicate static reg %p-%p `%s'\n", 
+		VERBOSE_TRACE ("duplicate static reg %p-%p `%s'\n", 
 			       low, high, 
 			       (ovr_obj->data.name ? ovr_obj->data.name : ""));
 		break;
@@ -1062,7 +1060,7 @@ __mfu_register (void *ptr, size_t sz, int type, const char *name)
 		ovr_obj->data.high == high)
 	      {
 		/* do nothing */
-		VERBOSE_TRACE ("mf: duplicate guess reg %p-%p\n", low, high);
+		VERBOSE_TRACE ("duplicate guess reg %p-%p\n", low, high);
 		break;
 	      }
 
@@ -1088,7 +1086,7 @@ __mfu_register (void *ptr, size_t sz, int type, const char *name)
 						  num_overlapping_objs);
 		assert (num_ovr_objs == num_overlapping_objs);
 
-		VERBOSE_TRACE ("mf: splitting guess %p-%p, # overlaps: %u\n",
+		VERBOSE_TRACE ("splitting guess %p-%p, # overlaps: %u\n",
 			       low, high, num_ovr_objs);
 
 		/* Add GUESS regions between the holes: before each
@@ -1187,7 +1185,7 @@ __mfu_unregister (void *ptr, size_t sz)
   if (UNLIKELY (__mf_opts.sigusr1_report))
   __mf_sigusr1_respond ();
 
-  TRACE ("mf: unregister ptr=%p size=%lu\n", ptr, sz);
+  TRACE ("unregister ptr=%p size=%lu\n", ptr, sz);
 
   switch (__mf_opts.mudflap_mode)
     { 
@@ -1422,7 +1420,7 @@ __mf_tree_analyze (__mf_object_tree_t *obj, struct tree_stats* s)
 	  unsigned i;
 	  uintptr_t addr;
 
-	  VERBOSE_TRACE ("mf: analyze low=%p live=%u name=`%s'\n",
+	  VERBOSE_TRACE ("analyze low=%p live=%u name=`%s'\n",
 			 obj->data.low, obj->data.liveness, obj->data.name);
 
 	  s->live_obj_count ++;
@@ -1498,7 +1496,7 @@ __mf_adapt_cache ()
   new_mask |= 0x3ff; /* XXX: force a large cache.  */
   new_mask &= (LOOKUP_CACHE_SIZE_MAX - 1);
 
-  VERBOSE_TRACE ("mf: adapt cache obj=%u/%u sizes=%lu/%.0f/%.0f => "
+  VERBOSE_TRACE ("adapt cache obj=%u/%u sizes=%lu/%.0f/%.0f => "
 		 "util=%u%% m=%p s=%u\n",
 		 s.obj_count, s.live_obj_count, s.total_size, s.total_weight, s.weighted_size,
 		 (unsigned)(cache_utilization*100.0), new_mask, new_shift);
@@ -2042,7 +2040,7 @@ __mf_violation (void *ptr, size_t sz, uintptr_t pc,
   static unsigned violation_number;
   DECLARE(void, free, void *ptr);
 
-  TRACE ("mf: violation pc=%p location=%s type=%d ptr=%p size=%lu\n", pc, 
+  TRACE ("violation pc=%p location=%s type=%d ptr=%p size=%lu\n", pc, 
 	 (location != NULL ? location : ""), type, ptr, sz);
 
   if (__mf_opts.collect_stats)
@@ -2214,7 +2212,7 @@ __mf_watch_or_not (void *ptr, size_t sz, char flag)
   uintptr_t ptr_low = (uintptr_t) ptr;
   unsigned count = 0;
 
-  TRACE ("mf: %s ptr=%p size=%lu",
+  TRACE ("%s ptr=%p size=%lu",
 	 (flag ? "watch" : "unwatch"), ptr, sz);
   
   switch (__mf_opts.mudflap_mode)

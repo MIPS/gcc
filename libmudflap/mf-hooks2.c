@@ -36,458 +36,8 @@ XXX: libgcc license?
 #endif
 
 
-
-
-/* ------------------------------------------------------------------------ */
-/* These hook functions are intercepted via linker wrapping or shared
-   library ordering.  */
-
-
-#define MF_VALIDATE_EXTENT(value,size,acc,context)            \
- {                                                            \
-  if (UNLIKELY (size > 0 && __MF_CACHE_MISS_P (value, size))) \
-    __mf_check ((void *) (value), (size), acc, "(" context ")");       \
- }
-
-
-#define BEGIN_PROTECT(ty, fname, ...)       \
-  ty result;                                \
-  if (UNLIKELY (__mf_state == reentrant))   \
-  {                                         \
-    extern unsigned long __mf_reentrancy;   \
-    if (UNLIKELY (__mf_opts.verbose_trace)) { \
-      write (2, "mf: reentrancy detected in `", 28); \
-      write (2, __PRETTY_FUNCTION__, strlen(__PRETTY_FUNCTION__)); \
-      write (2, "'\n", 2); } \
-    __mf_reentrancy ++; \
-    return CALL_REAL(fname, __VA_ARGS__);   \
-  }                                         \
-  else if (UNLIKELY (__mf_state == starting)) \
-  {                                         \
-    return CALL_BACKUP(fname, __VA_ARGS__); \
-  }                                         \
-  else                                      \
-  {                                         \
-    TRACE ("mf: %s\n", __PRETTY_FUNCTION__); \
-  }
-
-#define END_PROTECT(ty, fname, ...)              \
-  result = (ty) CALL_REAL(fname, __VA_ARGS__);   \
-  return result;
-
-
-/* malloc/free etc. */
-
-#ifdef WRAP_malloc
-
-#if PIC
-/* A special bootstrap variant. */
-void *
-__mf_0fn_malloc (size_t c)
-{
-  /* fprintf (stderr, "0fn malloc c=%lu\n", c); */
-  return NULL;
-}
-#endif
-
-#undef malloc
-WRAPPER(void *, malloc, size_t c)
-{
-  size_t size_with_crumple_zones;
-  DECLARE(void *, malloc, size_t c);
-  BEGIN_PROTECT (void *, malloc, c);
-  
-  size_with_crumple_zones = 
-    CLAMPADD(c,CLAMPADD(__mf_opts.crumple_zone,
-			__mf_opts.crumple_zone));
-  result = (char *) CALL_REAL(malloc, size_with_crumple_zones);
-  
-  if (LIKELY(result))
-    {
-      result += __mf_opts.crumple_zone;
-      __mf_register (result, c, __MF_TYPE_HEAP, "malloc region");
-      /* XXX: register __MF_TYPE_NOACCESS for crumple zones.  */
-    }
-
-  return result;
-}
-#endif
-
-
-#ifdef WRAP_calloc
-
-#ifdef PIC
-/* A special bootstrap variant. */
-void *
-__mf_0fn_calloc (size_t c, size_t n)
-{
-  enum foo { BS = 4096, NB=10 };
-  static char bufs[NB][BS];
-  static unsigned bufs_used[NB];
-  unsigned i;
-
-  /* fprintf (stderr, "0fn calloc c=%lu n=%lu\n", c, n); */
-  for (i=0; i<NB; i++)
-    {
-      if (! bufs_used[i] && (c*n) < BS)
-	{
-	  bufs_used[i] = 1;
-	  return & bufs[i][0];
-	}
-    }
-  return NULL;
-}
-#endif
-
-#undef calloc
-WRAPPER(void *, calloc, size_t c, size_t n)
-{
-  size_t size_with_crumple_zones;
-  DECLARE(void *, calloc, size_t, size_t);
-  DECLARE(void *, malloc, size_t);
-  DECLARE(void *, memset, void *, int, size_t);
-  BEGIN_PROTECT (char *, calloc, c, n);
-  
-  size_with_crumple_zones = 
-    CLAMPADD((c * n), /* XXX: CLAMPMUL */
-	     CLAMPADD(__mf_opts.crumple_zone,
-		      __mf_opts.crumple_zone));  
-  result = (char *) CALL_REAL(malloc, size_with_crumple_zones);
-  
-  if (LIKELY(result))
-    memset (result, 0, size_with_crumple_zones);
-  
-  if (LIKELY(result))
-    {
-      result += __mf_opts.crumple_zone;
-      __mf_register (result, c*n /* XXX: clamp */, __MF_TYPE_HEAP_I, "calloc region");
-      /* XXX: register __MF_TYPE_NOACCESS for crumple zones.  */
-    }
-  
-  return result;
-}
-#endif
-
-#ifdef WRAP_realloc
-
-#if PIC
-/* A special bootstrap variant. */
-void *
-__mf_0fn_realloc (void *buf, size_t c)
-{
-  return NULL;
-}
-#endif
-
-#undef realloc
-WRAPPER(void *, realloc, void *buf, size_t c)
-{
-  DECLARE(void * , realloc, void *, size_t);
-  size_t size_with_crumple_zones;
-  char *base = buf;
-  unsigned saved_wipe_heap;
-
-  BEGIN_PROTECT (char *, realloc, buf, c);
-
-  if (LIKELY(buf))
-    base -= __mf_opts.crumple_zone;
-
-  size_with_crumple_zones = 
-    CLAMPADD(c, CLAMPADD(__mf_opts.crumple_zone,
-			 __mf_opts.crumple_zone));
-  result = (char *) CALL_REAL(realloc, base, size_with_crumple_zones);
-
-  /* Ensure heap wiping doesn't occur during this peculiar
-     unregister/reregister pair.  */
-  LOCKTH ();
-  __mf_state = reentrant;
-  saved_wipe_heap = __mf_opts.wipe_heap;
-  __mf_opts.wipe_heap = 0;
-
-  if (LIKELY(buf))
-    __mfu_unregister (buf, 0);
-  
-  if (LIKELY(result))
-    {
-      result += __mf_opts.crumple_zone;
-      __mfu_register (result, c, __MF_TYPE_HEAP_I, "realloc region");
-      /* XXX: register __MF_TYPE_NOACCESS for crumple zones.  */
-    }
-
-  /* Restore previous setting.  */
-  __mf_opts.wipe_heap = saved_wipe_heap;
-
-  __mf_state = active;
-  UNLOCKTH ();
-
-  return result;
-}
-#endif
-
-
-#ifdef WRAP_free
-
-#if PIC
-/* A special bootstrap variant. */
-void
-__mf_0fn_free (void *buf)
-{
-  return;
-}
-#endif
-
-#undef free
-WRAPPER(void, free, void *buf)
-{
-  /* Use a circular queue to delay some number (__mf_opts.free_queue_length) of free()s.  */
-  static void *free_queue [__MF_FREEQ_MAX];
-  static unsigned free_ptr = 0;
-  static int freeq_initialized = 0;
-  DECLARE(void * , free, void *);  
-
-  BEGIN_PROTECT(void *, free, buf);
-
-  if (UNLIKELY(!freeq_initialized))
-    {
-      memset (free_queue, 0, 
-		     __MF_FREEQ_MAX * sizeof (void *));
-      freeq_initialized = 1;
-    }
-
-  if (UNLIKELY(buf == NULL))
-    return;
-
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
-
-  __mf_unregister (buf, 0);
-
-  if (UNLIKELY(__mf_opts.free_queue_length > 0))
-    {
-      
-      if (free_queue [free_ptr] != NULL)
-	{
-	  char *base = free_queue [free_ptr];
-	  base -= __mf_opts.crumple_zone;
-	  if (__mf_opts.trace_mf_calls)
-	    {
-	      VERBOSE_TRACE ("mf: freeing deferred pointer #%d %08lx = %08lx - %u\n", 
-			     __mf_opts.free_queue_length, 
-			     (uintptr_t) base,
-			     (uintptr_t) free_queue [free_ptr],
-			     __mf_opts.crumple_zone);
-	    }
-	  CALL_REAL(free, base);
-	}
-      free_queue [free_ptr] = buf;
-      free_ptr = (free_ptr == (__mf_opts.free_queue_length-1) ? 0 : free_ptr + 1);
-    } 
-  else 
-    {
-      /* back pointer up a bit to the beginning of crumple zone */
-      char *base = (char *)buf;
-      base -= __mf_opts.crumple_zone;
-      if (__mf_opts.trace_mf_calls)
-	{
-	  VERBOSE_TRACE ("mf: freeing pointer %08lx = %08lx - %u\n",
-			 (uintptr_t) base, 
-			 (uintptr_t) buf, 
-			 __mf_opts.crumple_zone);
-	}
-      CALL_REAL(free, base);
-    }
-}
-#endif
-
-
-#ifdef WRAP_mmap
-
-#if PIC
-/* A special bootstrap variant. */
-void *
-__mf_0fn_mmap (void *start, size_t l, int prot, int f, int fd, off_t off)
-{
-  return (void *) -1;
-}
-#endif
-
-
-#undef mmap
-WRAPPER(void *, mmap, 
-	void  *start,  size_t length, int prot, 
-	int flags, int fd, off_t offset)
-{
-
-  DECLARE(void *, mmap, void *, size_t, int, 
-			    int, int, off_t);
-  BEGIN_PROTECT(void *, mmap, start, length, 
-		prot, flags, fd, offset);
-
-  result = CALL_REAL(mmap, start, length, prot, 
-			flags, fd, offset);
-
-  /*
-  VERBOSE_TRACE ("mf: mmap (%08lx, %08lx, ...) => %08lx\n", 
-		 (uintptr_t) start, (uintptr_t) length,
-		 (uintptr_t) result);
-  */
-
-  if (result != (void *)-1)
-    {
-      /* Register each page as a heap object.  Why not register it all
-	 as a single segment?  That's so that a later munmap() call
-	 can unmap individual pages.  XXX: would __MF_TYPE_GUESS make
-	 this more automatic?  */
-      size_t ps = getpagesize ();
-      uintptr_t base = (uintptr_t) result;
-      uintptr_t offset;
-
-      for (offset=0; offset<length; offset+=ps)
-	{
-	  /* XXX: We could map PROT_NONE to __MF_TYPE_NOACCESS. */
-	  /* XXX: Unaccessed HEAP pages are reported as leaks.  Is this
-	     appropriate for unaccessed mmap pages? */
-	  __mf_register ((void *) CLAMPADD (base, offset), ps,
-			 __MF_TYPE_HEAP_I, "mmap page");
-	}
-    }
-
-  return result;
-}
-#endif
-
-
-#ifdef WRAP_munmap
-
-#if PIC
-/* A special bootstrap variant. */
-int
-__mf_0fn_munmap (void *start, size_t length)
-{
-  return -1;
-}
-#endif
-
-
-#undef munmap
-WRAPPER(int , munmap, void *start, size_t length)
-{
-  DECLARE(int, munmap, void *, size_t);
-  BEGIN_PROTECT(int, munmap, start, length);
-  
-  result = CALL_REAL(munmap, start, length);
-
-  /*
-  VERBOSE_TRACE ("mf: munmap (%08lx, %08lx, ...) => %08lx\n", 
-		 (uintptr_t) start, (uintptr_t) length,
-		 (uintptr_t) result);
-  */
-
-  if (result == 0)
-    {
-      /* Unregister each page as a heap object.  */
-      size_t ps = getpagesize ();
-      uintptr_t base = (uintptr_t) start & (~ (ps - 1)); /* page align */
-      uintptr_t offset;
-
-      for (offset=0; offset<length; offset+=ps)
-	__mf_unregister ((void *) CLAMPADD (base, offset), ps);
-    }
-  return result;
-}
-#endif
-
-
-#ifdef WRAP_alloca
-
-/* This wrapper is a little different, as it's called indirectly from
-   __mf_fini also to clean up pending allocations.  */ 
-void *
-__mf_wrap_alloca_indirect (size_t c)
-{
-  DECLARE (void *, malloc, size_t);
-  DECLARE (void, free, void *);
-
-  /* This struct, a linked list, tracks alloca'd objects.  The newest
-     object is at the head of the list.  If we detect that we've
-     popped a few levels of stack, then the listed objects are freed
-     as needed.  NB: The tracking struct is allocated with
-     real_malloc; the user data with wrap_malloc.
-  */
-  struct alloca_tracking { void *ptr; void *stack; struct alloca_tracking* next; };
-  static struct alloca_tracking *alloca_history = NULL;
-
-  void *stack = __builtin_frame_address (0);
-  void *result;
-  struct alloca_tracking *track;
-
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
-  VERBOSE_TRACE ("mf: alloca stack level %08lx\n", (uintptr_t) stack);
-
-  /* Free any previously alloca'd blocks that belong to deeper-nested functions,
-     which must therefore have exited by now.  */
-#define DEEPER_THAN < /* for x86 */
-  while (alloca_history &&
-	 ((uintptr_t) alloca_history->stack DEEPER_THAN (uintptr_t) stack))
-    {
-      struct alloca_tracking *next = alloca_history->next;
-      __mf_unregister (alloca_history->ptr, 0);
-      CALL_REAL (free, alloca_history->ptr);
-      CALL_REAL (free, alloca_history);
-      alloca_history = next;
-    }
-
-  /* Allocate new block.  */
-  result = NULL;
-  if (LIKELY (c > 0)) /* alloca(0) causes no allocation.  */
-    {
-      track = (struct alloca_tracking *) CALL_REAL (malloc, 
-						    sizeof (struct alloca_tracking));
-      if (LIKELY (track != NULL))
-	{
-	  result = CALL_REAL (malloc, c);
-	  if (UNLIKELY (result == NULL))
-	    {
-	      CALL_REAL (free, track);
-	      /* Too bad.  XXX: What about errno?  */
-	    }
-	  else
-	    {
-	      __mf_register (result, c, __MF_TYPE_HEAP, "alloca region");
-	      track->ptr = result;
-	      track->stack = stack;
-	      track->next = alloca_history;
-	      alloca_history = track;
-	    }
-	}
-    }
-  
-  return result;
-}
-
-
-#undef alloca
-WRAPPER(void *, alloca, size_t c)
-{
-  return __mf_wrap_alloca_indirect (c);
-}
-
-#endif
-
-
-
-/* ------------------------------------------------------------------------ */
-/* These hook functions are intercepted via compile-time macros only.  */
-
-
-#undef MF_VALIDATE_EXTENT
-#define MF_VALIDATE_EXTENT(value,size,acc,context)            \
- do {                                                         \
-  if (UNLIKELY (size > 0 && __MF_CACHE_MISS_P (value, size))) \
-    {                                                         \
-    __mf_check ((void *) (value), (size), acc, "(" context ")");  \
-    }                                                         \
- } while (0)
-
+/* A bunch of independent stdlib/unistd hook functions, all
+   intercepted by mf-runtime.h macros.  */
 
 
 /* str*,mem*,b* */
@@ -495,7 +45,7 @@ WRAPPER(void *, alloca, size_t c)
 #ifdef WRAP_memcpy
 WRAPPER2(void *, memcpy, void *dest, const void *src, size_t n)
 {
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT(src, n, __MF_CHECK_READ, "memcpy source");
   MF_VALIDATE_EXTENT(dest, n, __MF_CHECK_WRITE, "memcpy dest");
   return memcpy (dest, src, n);
@@ -506,7 +56,7 @@ WRAPPER2(void *, memcpy, void *dest, const void *src, size_t n)
 #ifdef WRAP_memmove
 WRAPPER2(void *, memmove, void *dest, const void *src, size_t n)
 {
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT(src, n, __MF_CHECK_READ, "memmove src");
   MF_VALIDATE_EXTENT(dest, n, __MF_CHECK_WRITE, "memmove dest");
   return memmove (dest, src, n);
@@ -516,7 +66,7 @@ WRAPPER2(void *, memmove, void *dest, const void *src, size_t n)
 #ifdef WRAP_memset
 WRAPPER2(void *, memset, void *s, int c, size_t n)
 {
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT(s, n, __MF_CHECK_WRITE, "memset dest");
   return memset (s, c, n);
 }
@@ -525,7 +75,7 @@ WRAPPER2(void *, memset, void *s, int c, size_t n)
 #ifdef WRAP_memcmp
 WRAPPER2(int, memcmp, const void *s1, const void *s2, size_t n)
 {
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT(s1, n, __MF_CHECK_READ, "memcmp 1st arg");
   MF_VALIDATE_EXTENT(s2, n, __MF_CHECK_READ, "memcmp 2nd arg");
   return memcmp (s1, s2, n);
@@ -535,7 +85,7 @@ WRAPPER2(int, memcmp, const void *s1, const void *s2, size_t n)
 #ifdef WRAP_memchr
 WRAPPER2(void *, memchr, const void *s, int c, size_t n)
 {
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT(s, n, __MF_CHECK_READ, "memchr region");
   return memchr (s, c, n);
 }
@@ -544,7 +94,7 @@ WRAPPER2(void *, memchr, const void *s, int c, size_t n)
 #ifdef WRAP_memrchr
 WRAPPER2(void *, memrchr, const void *s, int c, size_t n)
 {
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT(s, n, __MF_CHECK_READ, "memrchr region");
   return memrchr (s, c, n);
 }
@@ -558,7 +108,7 @@ WRAPPER2(char *, strcpy, char *dest, const char *src)
      check anyways. */
 
   size_t n = strlen (src);
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT(src, CLAMPADD(n, 1), __MF_CHECK_READ, "strcpy src"); 
   MF_VALIDATE_EXTENT(dest, CLAMPADD(n, 1), __MF_CHECK_WRITE, "strcpy dest");
   return strcpy (dest, src);
@@ -569,7 +119,7 @@ WRAPPER2(char *, strcpy, char *dest, const char *src)
 WRAPPER2(char *, strncpy, char *dest, const char *src, size_t n)
 {
   size_t len = strnlen (src, n);
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT(src, len, __MF_CHECK_READ, "strncpy src");
   MF_VALIDATE_EXTENT(dest, len, __MF_CHECK_WRITE, "strncpy dest"); /* nb: strNcpy */
   return strncpy (dest, src, n);
@@ -581,7 +131,7 @@ WRAPPER2(char *, strcat, char *dest, const char *src)
 {
   size_t dest_sz;
   size_t src_sz;
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   dest_sz = strlen (dest);
   src_sz = strlen (src);  
   MF_VALIDATE_EXTENT(src, CLAMPADD(src_sz, 1), __MF_CHECK_READ, "strcat src");
@@ -617,7 +167,7 @@ WRAPPER2(char *, strncat, char *dest, const char *src, size_t n)
 
   size_t src_sz;
   size_t dest_sz;
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   src_sz = strnlen (src, n);
   dest_sz = strnlen (dest, n);
   MF_VALIDATE_EXTENT(src, src_sz, __MF_CHECK_READ, "strncat src");
@@ -632,7 +182,7 @@ WRAPPER2(int, strcmp, const char *s1, const char *s2)
 {
   size_t s1_sz;
   size_t s2_sz;
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   s1_sz = strlen (s1);
   s2_sz = strlen (s2);  
   MF_VALIDATE_EXTENT(s1, CLAMPADD(s1_sz, 1), __MF_CHECK_READ, "strcmp 1st arg");
@@ -646,7 +196,7 @@ WRAPPER2(int, strcasecmp, const char *s1, const char *s2)
 {
   size_t s1_sz;
   size_t s2_sz;
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   s1_sz = strlen (s1);
   s2_sz = strlen (s2);  
   MF_VALIDATE_EXTENT(s1, CLAMPADD(s1_sz, 1), __MF_CHECK_READ, "strcasecmp 1st arg");
@@ -660,7 +210,7 @@ WRAPPER2(int, strncmp, const char *s1, const char *s2, size_t n)
 {
   size_t s1_sz;
   size_t s2_sz;
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   s1_sz = strnlen (s1, n);
   s2_sz = strnlen (s2, n);
   MF_VALIDATE_EXTENT(s1, s1_sz, __MF_CHECK_READ, "strncmp 1st arg");
@@ -674,7 +224,7 @@ WRAPPER2(int, strncasecmp, const char *s1, const char *s2, size_t n)
 {
   size_t s1_sz;
   size_t s2_sz;
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   s1_sz = strnlen (s1, n);
   s2_sz = strnlen (s2, n);
   MF_VALIDATE_EXTENT(s1, s1_sz, __MF_CHECK_READ, "strncasecmp 1st arg");
@@ -689,7 +239,7 @@ WRAPPER2(char *, strdup, const char *s)
   DECLARE(void *, malloc, size_t sz);
   char *result;
   size_t n = strlen (s);
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT(s, CLAMPADD(n,1), __MF_CHECK_READ, "strdup region");
   result = (char *)CALL_REAL(malloc, 
 			     CLAMPADD(CLAMPADD(n,1),
@@ -713,7 +263,7 @@ WRAPPER2(char *, strndup, const char *s, size_t n)
   DECLARE(void *, malloc, size_t sz);
   char *result;
   size_t sz = strnlen (s, n);
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT(s, sz, __MF_CHECK_READ, "strndup region"); /* nb: strNdup */
 
   /* note: strndup still adds a \0, even with the N limit! */
@@ -737,7 +287,7 @@ WRAPPER2(char *, strndup, const char *s, size_t n)
 WRAPPER2(char *, strchr, const char *s, int c)
 {
   size_t n;
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   n = strlen (s);
   MF_VALIDATE_EXTENT(s, CLAMPADD(n,1), __MF_CHECK_READ, "strchr region");
   return strchr (s, c);
@@ -748,7 +298,7 @@ WRAPPER2(char *, strchr, const char *s, int c)
 WRAPPER2(char *, strrchr, const char *s, int c)
 {
   size_t n;
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   n = strlen (s);
   MF_VALIDATE_EXTENT(s, CLAMPADD(n,1), __MF_CHECK_READ, "strrchr region");
   return strrchr (s, c);
@@ -760,7 +310,7 @@ WRAPPER2(char *, strstr, const char *haystack, const char *needle)
 {
   size_t haystack_sz;
   size_t needle_sz;
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   haystack_sz = strlen (haystack);
   needle_sz = strlen (needle);
   MF_VALIDATE_EXTENT(haystack, CLAMPADD(haystack_sz, 1), __MF_CHECK_READ, "strstr haystack");
@@ -774,7 +324,7 @@ WRAPPER2(void *, memmem,
 	const void *haystack, size_t haystacklen,
 	const void *needle, size_t needlelen)
 {
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT(haystack, haystacklen, __MF_CHECK_READ, "memmem haystack");
   MF_VALIDATE_EXTENT(needle, needlelen, __MF_CHECK_READ, "memmem needle");
   return memmem (haystack, haystacklen, needle, needlelen);
@@ -785,7 +335,7 @@ WRAPPER2(void *, memmem,
 WRAPPER2(size_t, strlen, const char *s)
 {
   size_t result = strlen (s);
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT(s, CLAMPADD(result, 1), __MF_CHECK_READ, "strlen region");
   return result;
 }
@@ -795,7 +345,7 @@ WRAPPER2(size_t, strlen, const char *s)
 WRAPPER2(size_t, strnlen, const char *s, size_t n)
 {
   size_t result = strnlen (s, n);
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT(s, result, __MF_CHECK_READ, "strnlen region");
   return result;
 }
@@ -804,7 +354,7 @@ WRAPPER2(size_t, strnlen, const char *s, size_t n)
 #ifdef WRAP_bzero
 WRAPPER2(void, bzero, void *s, size_t n)
 {
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT(s, n, __MF_CHECK_WRITE, "bzero region");
   bzero (s, n);
 }
@@ -814,7 +364,7 @@ WRAPPER2(void, bzero, void *s, size_t n)
 #undef bcopy
 WRAPPER2(void, bcopy, const void *src, void *dest, size_t n)
 {
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT(src, n, __MF_CHECK_READ, "bcopy src");
   MF_VALIDATE_EXTENT(dest, n, __MF_CHECK_WRITE, "bcopy dest");
   bcopy (src, dest, n);
@@ -825,7 +375,7 @@ WRAPPER2(void, bcopy, const void *src, void *dest, size_t n)
 #undef bcmp
 WRAPPER2(int, bcmp, const void *s1, const void *s2, size_t n)
 {
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT(s1, n, __MF_CHECK_READ, "bcmp 1st arg");
   MF_VALIDATE_EXTENT(s2, n, __MF_CHECK_READ, "bcmp 2nd arg");
   return bcmp (s1, s2, n);
@@ -836,7 +386,7 @@ WRAPPER2(int, bcmp, const void *s1, const void *s2, size_t n)
 WRAPPER2(char *, index, const char *s, int c)
 {
   size_t n = strlen (s);
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT(s, CLAMPADD(n, 1), __MF_CHECK_READ, "index region");
   return index (s, c);
 }
@@ -846,7 +396,7 @@ WRAPPER2(char *, index, const char *s, int c)
 WRAPPER2(char *, rindex, const char *s, int c)
 {
   size_t n = strlen (s);
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT(s, CLAMPADD(n, 1), __MF_CHECK_READ, "rindex region");
   return rindex (s, c);
 }
@@ -865,7 +415,7 @@ WRAPPER2(char *, asctime, struct tm *tm)
 {
   static char *reg_result = NULL;
   char *result;
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT(tm, sizeof (struct tm), __MF_CHECK_READ, "asctime tm");
   result = asctime (tm);
   if (reg_result == NULL)
@@ -882,7 +432,7 @@ WRAPPER2(char *, ctime, const time_t *timep)
 {
   static char *reg_result = NULL;
   char *result;
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT(timep, sizeof (time_t), __MF_CHECK_READ, "ctime time");
   result = ctime (timep);
   if (reg_result == NULL)
@@ -901,7 +451,7 @@ WRAPPER2(struct tm*, localtime, const time_t *timep)
 {
   static struct tm *reg_result = NULL;
   struct tm *result;
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT(timep, sizeof (time_t), __MF_CHECK_READ, "localtime time");
   result = localtime (timep);
   if (reg_result == NULL)
@@ -918,7 +468,7 @@ WRAPPER2(struct tm*, gmtime, const time_t *timep)
 {
   static struct tm *reg_result = NULL;
   struct tm *result;
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT(timep, sizeof (time_t), __MF_CHECK_READ, "gmtime time");
   result = gmtime (timep);
   if (reg_result == NULL)
@@ -931,235 +481,6 @@ WRAPPER2(struct tm*, gmtime, const time_t *timep)
 #endif
 
 
-/* ------------------------------------------------------------------------ */
-
-#ifdef WRAP_pthreadstuff
-#ifndef LIBMUDFLAPTH
-#error "pthreadstuff is to be included only in libmudflapth"
-#endif
-
-
-/* Describes a thread (dead or alive). */
-struct pthread_info
-{
-  short used_p;  /* Is this slot in use?  */
-
-  pthread_t self; /* The thread id.  */
-  short dead_p;  /* Has thread died?  */
-
-  /* The user's thread entry point and argument.  */
-  void * (*user_fn)(void *);
-  void *user_arg;
-
-  /* If libmudflapth allocated the stack, store its base/size.  */
-  void *stack;
-  size_t stack_size;
-
-  int *thread_errno;
-};
-
-
-/* To avoid dynamic memory allocation, use static array.  */
-#define LIBMUDFLAPTH_THREADS_MAX 1000
-
-static struct pthread_info __mf_pthread_info[LIBMUDFLAPTH_THREADS_MAX];
-/* XXX: needs a lock */
-
-
-static void 
-__mf_pthread_cleanup (void *arg)
-{
-  struct pthread_info *pi = arg;
-  pi->dead_p = 1;
-
-  if (__mf_opts.heur_std_data)
-    __mf_unregister (pi->thread_errno, sizeof (int));
-
-  /* Some subsequent pthread_create will garbage_collect our stack.  */
-}
-
-
-
-static void *
-__mf_pthread_spawner (void *arg)
-{
-  struct pthread_info *pi = arg;
-  void *result = NULL;
-
-  if (__mf_opts.heur_std_data)
-    {
-      pi->thread_errno = & errno;
-      __mf_register (pi->thread_errno, sizeof (int), __MF_TYPE_GUESS, "errno area (thread)");
-      // NB: we could use __MF_TYPE_STATIC above, but we guess that
-      // the thread errno is coming out of some dynamically allocated
-      // pool that we already know of as __MF_TYPE_HEAP.
-    }
-
-  pthread_cleanup_push (& __mf_pthread_cleanup, arg);
-
-  pi->self = pthread_self ();
-
-  /* Call user thread */
-  result = pi->user_fn (pi->user_arg);
-
-  pthread_cleanup_pop (1 /* execute */);
-
-  /* NB: there is a slight race here.  The pthread_info field will now
-     say this thread is dead, but it may still be running .. right
-     here.  We try to check for this possibility using the
-     pthread_signal test below. */
-  /* XXX: Consider using pthread_key_t objects instead of cleanup
-     stacks. */
-
-  return result;
-}
-
-
-#if PIC
-/* A special bootstrap variant. */
-int
-__mf_0fn_pthread_create (pthread_t *thr, pthread_attr_t *attr, 
-			 void * (*start) (void *), void *arg)
-{
-  return -1;
-}
-#endif
-
-
-#undef pthread_create
-WRAPPER(int, pthread_create, pthread_t *thr, const pthread_attr_t *attr, 
-	 void * (*start) (void *), void *arg)
-{
-  DECLARE(void, free, void *p);
-  DECLARE(void *, malloc, size_t c);
-  DECLARE(int, pthread_create, pthread_t *thr, const pthread_attr_t *attr, 
-	  void * (*start) (void *), void *arg);
-  int result;
-  struct pthread_info *pi;
-  pthread_attr_t override_attr;
-  void *override_stack;
-  size_t override_stacksize;
-  unsigned i;
-
-  TRACE ("mf: pthread_create\n");
-
-  /* LOCKTH(); */
-  /* Garbage collect dead thread stacks.  */
-  for (i = 0; i < LIBMUDFLAPTH_THREADS_MAX; i++)
-    {
-      pi = & __mf_pthread_info [i];
-      if (pi->used_p && pi->dead_p 
-	  && !pthread_kill (pi->self, 0)) /* Really dead?  XXX: safe?  */ 
-	{
-	  if (pi->stack != NULL)
-	    CALL_REAL (free, pi->stack);
-
-	  pi->stack = NULL;
-	  pi->stack_size = 0;
-	  pi->used_p = 0;
-	}
-    }
-
-  /* Find a slot in __mf_pthread_info to track this thread.  */
-  for (i = 0; i < LIBMUDFLAPTH_THREADS_MAX; i++)
-    {
-      pi = & __mf_pthread_info [i];
-      if (! pi->used_p)
-	{
-	  pi->used_p = 1;
-	  break;
-	}
-    }
-  /* UNLOCKTH(); */
-
-  if (i == LIBMUDFLAPTH_THREADS_MAX) /* no slots free - simulated out-of-memory.  */
-    {
-      errno = EAGAIN;
-      pi->used_p = 0;
-      return -1;
-    }
-
-  /* Let's allocate a stack for this thread, if one is not already
-     supplied by the caller.  We don't want to let e.g. the
-     linuxthreads manager thread do this allocation.  */
-  if (attr != NULL)
-    override_attr = *attr;
-  else
-    pthread_attr_init (& override_attr);
-
-  /* Get supplied attributes, if any.  */
-  /* XXX: consider using POSIX2K attr_getstack() */
-  if (pthread_attr_getstackaddr (& override_attr, & override_stack) != 0 ||
-      pthread_attr_getstacksize (& override_attr, & override_stacksize) != 0)
-    {
-      override_stack = NULL;
-      override_stacksize = 0;
-    }
-
-  /* Do we need to allocate the new thread's stack?  */
-  if (override_stack == NULL)
-    {
-      uintptr_t alignment = 256; /* Must be a power of 2.  */
-
-      /* Use glibc x86 defaults */
-      if (override_stacksize < alignment)
-/* Should have been defined in <limits.h> */
-#ifndef PTHREAD_STACK_MIN
-#define PTHREAD_STACK_MIN 65536
-#endif
-	override_stacksize = max (PTHREAD_STACK_MIN, 2 * 1024 * 1024);
-
-      override_stack = CALL_REAL (malloc, override_stacksize);
-      if (override_stack == NULL)
-	{
-	  errno = EAGAIN;
-	  pi->used_p = 0;
-	  return -1;
-	}
-
-      pi->stack = override_stack;
-      pi->stack_size = override_stacksize;
-
-      /* The stackaddr pthreads attribute is a candidate stack pointer.
-	 It must point near the top or the bottom of this buffer, depending
-	 on whether stack grows downward or upward, and suitably aligned.
-	 On the x86, it grows down, so we set stackaddr near the top.  */
-      override_stack = (void *)
-	(((uintptr_t) override_stack + override_stacksize - alignment)
-	 & (~(uintptr_t)(alignment-1)));
-      
-      /* XXX: consider using POSIX2K attr_setstack() */
-      if (pthread_attr_setstackaddr (& override_attr, override_stack) != 0 ||
-	  pthread_attr_setstacksize (& override_attr, override_stacksize) != 0)
-	{
-	  /* This should not happen.  */
-	  CALL_REAL (free, pi->stack);
-	  pi->stack = NULL;
-	  errno = EAGAIN;
-	  pi->used_p = 0;
-	  return -1;
-	}
-
-  }
-
-  /* Fill in remaining fields.  */
-  pi->user_fn = start;
-  pi->user_arg = arg;
-  pi->dead_p = 0;
-
-  /* Actually create the thread.  */
-  result = CALL_REAL (pthread_create, thr, & override_attr,
-		      & __mf_pthread_spawner, (void *) pi);
-  
-  /* May need to clean up if we created a pthread_attr_t of our own.  */
-  if (attr == NULL)
-    pthread_attr_destroy (& override_attr); /* NB: this shouldn't deallocate stack */
-
-  return result;
-}
-
-
-#endif /* pthreadstuff */
 
 /* EL start */
 
@@ -1184,7 +505,7 @@ WRAPPER(int, pthread_create, pthread_t *thr, const pthread_attr_t *attr,
 #include <time.h>
 WRAPPER2(time_t, time, time_t *timep)
 {
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   if (NULL != timep)
     MF_VALIDATE_EXTENT (timep, sizeof (*timep), __MF_CHECK_WRITE,
       "time timep");
@@ -1197,7 +518,7 @@ WRAPPER2(char *, strerror, int errnum)
 {
   char *p;
   size_t n;
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   p = strerror (errnum);
   if (NULL != p) {
     n = strlen (p);
@@ -1216,7 +537,7 @@ WRAPPER2(FILE *, fopen, const char *path, const char *mode)
 {
   size_t n;
   FILE *p;
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
 
   n = strlen (path);
   MF_VALIDATE_EXTENT (path, CLAMPADD(n, 1), __MF_CHECK_READ, "fopen path");
@@ -1241,7 +562,7 @@ WRAPPER2(FILE *, fopen64, const char *path, const char *mode)
 {
   size_t n;
   FILE *p;
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
 
   n = strlen (path);
   MF_VALIDATE_EXTENT (path, CLAMPADD(n, 1), __MF_CHECK_READ, "fopen64 path");
@@ -1265,7 +586,7 @@ WRAPPER2(FILE *, fopen64, const char *path, const char *mode)
 WRAPPER2(int, fclose, FILE *stream)
 {
   int resp;
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT (stream, sizeof (*stream), __MF_CHECK_WRITE,
     "fclose stream");
   resp = fclose (stream);
@@ -1280,7 +601,7 @@ WRAPPER2(int, fclose, FILE *stream)
 #ifdef WRAP_fread
 WRAPPER2(size_t, fread, void *ptr, size_t size, size_t nmemb, FILE *stream)
 {
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT (stream, sizeof (*stream), __MF_CHECK_WRITE,
     "fread stream");
   MF_VALIDATE_EXTENT (ptr, size * nmemb, __MF_CHECK_WRITE, "fread buffer");
@@ -1292,7 +613,7 @@ WRAPPER2(size_t, fread, void *ptr, size_t size, size_t nmemb, FILE *stream)
 WRAPPER2(size_t, fwrite, const void *ptr, size_t size, size_t nmemb,
 	FILE *stream)
 {
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT (stream, sizeof (*stream), __MF_CHECK_WRITE,
     "fwrite stream");
   MF_VALIDATE_EXTENT (ptr, size * nmemb, __MF_CHECK_READ, "fwrite buffer");
@@ -1303,7 +624,7 @@ WRAPPER2(size_t, fwrite, const void *ptr, size_t size, size_t nmemb,
 #ifdef WRAP_fgetc
 WRAPPER2(int, fgetc, FILE *stream)
 {
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT (stream, sizeof (*stream), __MF_CHECK_WRITE,
     "fgetc stream");
   return fgetc (stream);
@@ -1313,7 +634,7 @@ WRAPPER2(int, fgetc, FILE *stream)
 #ifdef WRAP_fgets
 WRAPPER2(char *, fgets, char *s, int size, FILE *stream)
 {
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT (stream, sizeof (*stream), __MF_CHECK_WRITE,
     "fgets stream");
   MF_VALIDATE_EXTENT (s, size, __MF_CHECK_WRITE, "fgets buffer");
@@ -1324,7 +645,7 @@ WRAPPER2(char *, fgets, char *s, int size, FILE *stream)
 #ifdef WRAP_getc
 WRAPPER2(int, getc, FILE *stream)
 {
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT (stream, sizeof (*stream), __MF_CHECK_WRITE,
     "getc stream");
   return getc (stream);
@@ -1334,7 +655,7 @@ WRAPPER2(int, getc, FILE *stream)
 #ifdef WRAP_gets
 WRAPPER2(char *, gets, char *s)
 {
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT (s, 1, __MF_CHECK_WRITE, "gets buffer");
   s = gets (s);
   if (NULL != s) {	/* better late than never */
@@ -1348,7 +669,7 @@ WRAPPER2(char *, gets, char *s)
 #ifdef WRAP_ungetc
 WRAPPER2(int, ungetc, int c, FILE *stream)
 {
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT (stream, sizeof (*stream), __MF_CHECK_WRITE,
      "ungetc stream");
   return ungetc (c, stream);
@@ -1358,7 +679,7 @@ WRAPPER2(int, ungetc, int c, FILE *stream)
 #ifdef WRAP_fputc
 WRAPPER2(int, fputc, int c, FILE *stream)
 {
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT (stream, sizeof (*stream), __MF_CHECK_WRITE,
     "fputc stream");
   return fputc (c, stream);
@@ -1369,7 +690,7 @@ WRAPPER2(int, fputc, int c, FILE *stream)
 WRAPPER2(int, fputs, const char *s, FILE *stream)
 {
   size_t n;
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   n = strlen (s);
   MF_VALIDATE_EXTENT (s, CLAMPADD(n, 1), __MF_CHECK_READ, "fputs buffer");
   MF_VALIDATE_EXTENT (stream, sizeof (*stream), __MF_CHECK_WRITE,
@@ -1381,7 +702,7 @@ WRAPPER2(int, fputs, const char *s, FILE *stream)
 #ifdef WRAP_putc
 WRAPPER2(int, putc, int c, FILE *stream)
 {
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT (stream, sizeof (*stream), __MF_CHECK_WRITE,
     "putc stream");
   return putc (c, stream);
@@ -1392,7 +713,7 @@ WRAPPER2(int, putc, int c, FILE *stream)
 WRAPPER2(int, puts, const char *s)
 {
   size_t n;
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   n = strlen (s);
   MF_VALIDATE_EXTENT (s, CLAMPADD(n, 1), __MF_CHECK_READ, "puts buffer");
   return puts (s);
@@ -1402,7 +723,7 @@ WRAPPER2(int, puts, const char *s)
 #ifdef WRAP_clearerr
 WRAPPER2(void, clearerr, FILE *stream)
 {
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT (stream, sizeof (*stream), __MF_CHECK_WRITE,
     "clearerr stream");
   clearerr (stream);
@@ -1412,7 +733,7 @@ WRAPPER2(void, clearerr, FILE *stream)
 #ifdef WRAP_feof
 WRAPPER2(int, feof, FILE *stream)
 {
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT (stream, sizeof (*stream), __MF_CHECK_WRITE,
     "feof stream");
   return feof (stream);
@@ -1422,7 +743,7 @@ WRAPPER2(int, feof, FILE *stream)
 #ifdef WRAP_ferror
 WRAPPER2(int, ferror, FILE *stream)
 {
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT (stream, sizeof (*stream), __MF_CHECK_WRITE,
     "ferror stream");
   return ferror (stream);
@@ -1433,7 +754,7 @@ WRAPPER2(int, ferror, FILE *stream)
 #include <stdio.h>
 WRAPPER2(int, fileno, FILE *stream)
 {
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT (stream, sizeof (*stream), __MF_CHECK_WRITE,
     "fileno stream");
   return fileno (stream);
@@ -1448,7 +769,7 @@ WRAPPER2(int, printf, const char *format, ...)
   size_t n;
   va_list ap;
   int result;
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   n = strlen (format);
   MF_VALIDATE_EXTENT (format, CLAMPADD(n, 1), __MF_CHECK_READ,
     "printf format");
@@ -1467,7 +788,7 @@ WRAPPER2(int, fprintf, FILE *stream, const char *format, ...)
   size_t n;
   va_list ap;
   int result;
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT (stream, sizeof (*stream), __MF_CHECK_WRITE,
     "fprintf stream");
   n = strlen (format);
@@ -1488,7 +809,7 @@ WRAPPER2(int, sprintf, char *str, const char *format, ...)
   size_t n;
   va_list ap;
   int result;
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT (str, 1, __MF_CHECK_WRITE, "sprintf str");
   n = strlen (format);
   MF_VALIDATE_EXTENT (format, CLAMPADD(n, 1), __MF_CHECK_READ,
@@ -1510,7 +831,7 @@ WRAPPER2(int, snprintf, char *str, size_t size, const char *format, ...)
   size_t n;
   va_list ap;
   int result;
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT (str, size, __MF_CHECK_WRITE, "snprintf str");
   n = strlen (format);
   MF_VALIDATE_EXTENT (format, CLAMPADD(n, 1), __MF_CHECK_READ,
@@ -1528,7 +849,7 @@ WRAPPER2(int, snprintf, char *str, size_t size, const char *format, ...)
 WRAPPER2(int, vprintf,  const char *format, va_list ap)
 {
   size_t n;
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   n = strlen (format);
   MF_VALIDATE_EXTENT (format, CLAMPADD(n, 1), __MF_CHECK_READ,
     "vprintf format");
@@ -1542,7 +863,7 @@ WRAPPER2(int, vprintf,  const char *format, va_list ap)
 WRAPPER2(int, vfprintf, FILE *stream, const char *format, va_list ap)
 {
   size_t n;
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT (stream, sizeof (*stream), __MF_CHECK_WRITE,
     "vfprintf stream");
   n = strlen (format);
@@ -1559,7 +880,7 @@ WRAPPER2(int, vsprintf, char *str, const char *format, va_list ap)
 {
   size_t n;
   int result;
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT (str, 1, __MF_CHECK_WRITE, "vsprintf str");
   n = strlen (format);
   MF_VALIDATE_EXTENT (format, CLAMPADD(n, 1), __MF_CHECK_READ,
@@ -1578,7 +899,7 @@ WRAPPER2(int, vsnprintf, char *str, size_t size, const char *format,
 	va_list ap)
 {
   size_t n;
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT (str, size, __MF_CHECK_WRITE, "vsnprintf str");
   n = strlen (format);
   MF_VALIDATE_EXTENT (format, CLAMPADD(n, 1), __MF_CHECK_READ,
@@ -1591,7 +912,7 @@ WRAPPER2(int, vsnprintf, char *str, size_t size, const char *format,
 WRAPPER2(int , access, const char *path, int mode)
 {
   size_t n;
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   n = strlen (path);
   MF_VALIDATE_EXTENT (path, CLAMPADD(n, 1), __MF_CHECK_READ, "access path");
   return access (path, mode);
@@ -1602,7 +923,7 @@ WRAPPER2(int , access, const char *path, int mode)
 WRAPPER2(int , remove, const char *path)
 {
   size_t n;
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   n = strlen (path);
   MF_VALIDATE_EXTENT (path, CLAMPADD(n, 1), __MF_CHECK_READ, "remove path");
   return remove (path);
@@ -1612,7 +933,7 @@ WRAPPER2(int , remove, const char *path)
 #ifdef WRAP_fflush
 WRAPPER2(int, fflush, FILE *stream)
 {
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT (stream, sizeof (*stream), __MF_CHECK_WRITE,
     "fflush stream");
   return fflush (stream);
@@ -1622,7 +943,7 @@ WRAPPER2(int, fflush, FILE *stream)
 #ifdef WRAP_fseek
 WRAPPER2(int, fseek, FILE *stream, long offset, int whence)
 {
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT (stream, sizeof (*stream), __MF_CHECK_WRITE,
     "fseek stream");
   return fseek (stream, offset, whence);
@@ -1632,7 +953,7 @@ WRAPPER2(int, fseek, FILE *stream, long offset, int whence)
 #ifdef WRAP_fseeko64
 WRAPPER2(int, fseeko64, FILE *stream, off64_t offset, int whence)
 {
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT (stream, sizeof (*stream), __MF_CHECK_WRITE,
     "fseeko64 stream");
   return fseeko64 (stream, offset, whence);
@@ -1642,7 +963,7 @@ WRAPPER2(int, fseeko64, FILE *stream, off64_t offset, int whence)
 #ifdef WRAP_ftell
 WRAPPER2(long, ftell, FILE *stream)
 {
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT (stream, sizeof (*stream), __MF_CHECK_WRITE,
     "ftell stream");
   return ftell (stream);
@@ -1652,7 +973,7 @@ WRAPPER2(long, ftell, FILE *stream)
 #ifdef WRAP_ftello64
 WRAPPER2(off64_t, ftello64, FILE *stream)
 {
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT (stream, sizeof (*stream), __MF_CHECK_WRITE,
     "ftello64 stream");
   return ftello64 (stream);
@@ -1662,7 +983,7 @@ WRAPPER2(off64_t, ftello64, FILE *stream)
 #ifdef WRAP_rewind
 WRAPPER2(void, rewind, FILE *stream)
 {
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT (stream, sizeof (*stream), __MF_CHECK_WRITE,
     "rewind stream");
   rewind (stream);
@@ -1672,7 +993,7 @@ WRAPPER2(void, rewind, FILE *stream)
 #ifdef WRAP_fgetpos
 WRAPPER2(int, fgetpos, FILE *stream, fpos_t *pos)
 {
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT (stream, sizeof (*stream), __MF_CHECK_WRITE,
     "fgetpos stream");
   MF_VALIDATE_EXTENT (pos, sizeof (*pos), __MF_CHECK_WRITE, "fgetpos pos");
@@ -1683,7 +1004,7 @@ WRAPPER2(int, fgetpos, FILE *stream, fpos_t *pos)
 #ifdef WRAP_fsetpos
 WRAPPER2(int, fsetpos, FILE *stream, fpos_t *pos)
 {
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT (stream, sizeof (*stream), __MF_CHECK_WRITE,
     "fsetpos stream");
   MF_VALIDATE_EXTENT (pos, sizeof (*pos), __MF_CHECK_READ, "fsetpos pos");
@@ -1696,7 +1017,7 @@ WRAPPER2(int, fsetpos, FILE *stream, fpos_t *pos)
 WRAPPER2(int , stat, const char *path, struct stat *buf)
 {
   size_t n;
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   n = strlen (path);
   MF_VALIDATE_EXTENT (path, CLAMPADD(n, 1), __MF_CHECK_READ, "stat path");
   MF_VALIDATE_EXTENT (buf, sizeof (*buf), __MF_CHECK_READ, "stat buf");
@@ -1709,7 +1030,7 @@ WRAPPER2(int , stat, const char *path, struct stat *buf)
 WRAPPER2(int , stat64, const char *path, struct stat64 *buf)
 {
   size_t n;
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   n = strlen (path);
   MF_VALIDATE_EXTENT (path, CLAMPADD(n, 1), __MF_CHECK_READ, "stat64 path");
   MF_VALIDATE_EXTENT (buf, sizeof (*buf), __MF_CHECK_READ, "stat64 buf");
@@ -1721,7 +1042,7 @@ WRAPPER2(int , stat64, const char *path, struct stat64 *buf)
 #include <sys/stat.h>
 WRAPPER2(int , fstat, int filedes, struct stat *buf)
 {
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT (buf, sizeof (*buf), __MF_CHECK_READ, "fstat buf");
   return fstat (filedes, buf);
 }
@@ -1732,7 +1053,7 @@ WRAPPER2(int , fstat, int filedes, struct stat *buf)
 WRAPPER2(int , lstat, const char *path, struct stat *buf)
 {
   size_t n;
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   n = strlen (path);
   MF_VALIDATE_EXTENT (path, CLAMPADD(n, 1), __MF_CHECK_READ, "lstat path");
   MF_VALIDATE_EXTENT (buf, sizeof (*buf), __MF_CHECK_READ, "lstat buf");
@@ -1745,7 +1066,7 @@ WRAPPER2(int , lstat, const char *path, struct stat *buf)
 WRAPPER2(int , mkfifo, const char *path, mode_t mode)
 {
   size_t n;
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   n = strlen (path);
   MF_VALIDATE_EXTENT (path, CLAMPADD(n, 1), __MF_CHECK_READ, "mkfifo path");
   return mkfifo (path, mode);
@@ -1755,7 +1076,7 @@ WRAPPER2(int , mkfifo, const char *path, mode_t mode)
 #ifdef WRAP_setvbuf
 WRAPPER2(int, setvbuf, FILE *stream, char *buf, int mode , size_t size)
 {
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT (stream, sizeof (*stream), __MF_CHECK_WRITE,
     "setvbuf stream");
   if (NULL != buf)
@@ -1767,7 +1088,7 @@ WRAPPER2(int, setvbuf, FILE *stream, char *buf, int mode , size_t size)
 #ifdef WRAP_setbuf
 WRAPPER2(void, setbuf, FILE *stream, char *buf)
 {
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT (stream, sizeof (*stream), __MF_CHECK_WRITE,
     "setbuf stream");
   if (NULL != buf)
@@ -1782,7 +1103,7 @@ WRAPPER2(DIR *, opendir, const char *path)
 {
   DIR *p;
   size_t n;
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   n = strlen (path);
   MF_VALIDATE_EXTENT (path, CLAMPADD(n, 1), __MF_CHECK_READ, "opendir path");
 
@@ -1803,7 +1124,7 @@ WRAPPER2(DIR *, opendir, const char *path)
 #include <dirent.h>
 WRAPPER2(int, closedir, DIR *dir)
 {
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT (dir, 0, __MF_CHECK_WRITE, "closedir dir");
 #ifdef MF_REGISTER_opendir
   __mf_unregister (dir, MF_RESULT_SIZE_opendir);
@@ -1817,7 +1138,7 @@ WRAPPER2(int, closedir, DIR *dir)
 WRAPPER2(struct dirent *, readdir, DIR *dir)
 {
   struct dirent *p;
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT (dir, 0, __MF_CHECK_READ, "readdir dir");
   p = readdir (dir);
   if (NULL != p) {
@@ -1834,7 +1155,7 @@ WRAPPER2(struct dirent *, readdir, DIR *dir)
 #include <sys/socket.h>
 WRAPPER2(int, recv, int s, void *buf, size_t len, int flags)
 {
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT (buf, len, __MF_CHECK_WRITE, "recv buf");
   return recv (s, buf, len, flags);
 }
@@ -1845,7 +1166,7 @@ WRAPPER2(int, recv, int s, void *buf, size_t len, int flags)
 WRAPPER2(int, recvfrom, int s, void *buf, size_t len, int flags,
 		struct sockaddr *from, socklen_t *fromlen)
 {
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT (buf, len, __MF_CHECK_WRITE, "recvfrom buf");
   MF_VALIDATE_EXTENT (from, (size_t)*fromlen, __MF_CHECK_WRITE,
     "recvfrom from");
@@ -1857,7 +1178,7 @@ WRAPPER2(int, recvfrom, int s, void *buf, size_t len, int flags,
 #include <sys/socket.h>
 WRAPPER2(int, recvmsg, int s, struct msghdr *msg, int flags)
 {
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT (msg, sizeof (*msg), __MF_CHECK_WRITE, "recvmsg msg");
   return recvmsg (s, msg, flags);
 }
@@ -1867,7 +1188,7 @@ WRAPPER2(int, recvmsg, int s, struct msghdr *msg, int flags)
 #include <sys/socket.h>
 WRAPPER2(int, send, int s, const void *msg, size_t len, int flags)
 {
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT (msg, len, __MF_CHECK_READ, "send msg");
   return send (s, msg, len, flags);
 }
@@ -1878,7 +1199,7 @@ WRAPPER2(int, send, int s, const void *msg, size_t len, int flags)
 WRAPPER2(int, sendto, int s, const void *msg, size_t len, int flags,
 		const struct sockaddr *to, socklen_t tolen)
 {
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT (msg, len, __MF_CHECK_READ, "sendto msg");
   MF_VALIDATE_EXTENT (to, (size_t)tolen, __MF_CHECK_WRITE, "sendto to");
   return sendto (s, msg, len, flags, to, tolen);
@@ -1889,7 +1210,7 @@ WRAPPER2(int, sendto, int s, const void *msg, size_t len, int flags,
 #include <sys/socket.h>
 WRAPPER2(int, sendmsg, int s, const void *msg, int flags)
 {
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT (msg, sizeof (*msg), __MF_CHECK_READ, "sendmsg msg");
   return sendmsg (s, msg, flags);
 }
@@ -1900,7 +1221,7 @@ WRAPPER2(int, sendmsg, int s, const void *msg, int flags)
 WRAPPER2(int, setsockopt, int s, int level, int optname, const void *optval,
 	socklen_t optlen)
 {
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT (optval, (size_t)optlen, __MF_CHECK_READ,
     "setsockopt optval");
   return setsockopt (s, level, optname, optval, optlen);
@@ -1912,7 +1233,7 @@ WRAPPER2(int, setsockopt, int s, int level, int optname, const void *optval,
 WRAPPER2(int, getsockopt, int s, int level, int optname, void *optval,
 		socklen_t *optlen)
 {
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT (optval, (size_t)*optlen, __MF_CHECK_WRITE,
     "getsockopt optval");
   return getsockopt (s, level, optname, optval, optlen);
@@ -1923,7 +1244,7 @@ WRAPPER2(int, getsockopt, int s, int level, int optname, void *optval,
 #include <sys/socket.h>
 WRAPPER2(int, accept, int s, struct  sockaddr *addr, socklen_t *addrlen)
 {
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT (addr, (size_t)*addrlen, __MF_CHECK_WRITE, "accept addr");
   return accept (s, addr, addrlen);
 }
@@ -1933,7 +1254,7 @@ WRAPPER2(int, accept, int s, struct  sockaddr *addr, socklen_t *addrlen)
 #include <sys/socket.h>
 WRAPPER2(int, bind, int sockfd, struct  sockaddr *addr, socklen_t addrlen)
 {
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT (addr, (size_t)addrlen, __MF_CHECK_WRITE, "bind addr");
   return bind (sockfd, addr, addrlen);
 }
@@ -1944,7 +1265,7 @@ WRAPPER2(int, bind, int sockfd, struct  sockaddr *addr, socklen_t addrlen)
 WRAPPER2(int, connect, int sockfd, const struct sockaddr  *addr,
 	socklen_t addrlen)
 {
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT (addr, (size_t)addrlen, __MF_CHECK_READ,
     "connect addr");
   return connect (sockfd, addr, addrlen);
@@ -1954,7 +1275,7 @@ WRAPPER2(int, connect, int sockfd, const struct sockaddr  *addr,
 #ifdef WRAP_gethostname
 WRAPPER2(int, gethostname, char *name, size_t len)
 {
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT (name, len, __MF_CHECK_WRITE, "gethostname name");
   return gethostname (name, len);
 }
@@ -1963,7 +1284,7 @@ WRAPPER2(int, gethostname, char *name, size_t len)
 #ifdef WRAP_sethostname
 WRAPPER2(int, sethostname, const char *name, size_t len)
 {
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT (name, len, __MF_CHECK_READ, "sethostname name");
   return sethostname (name, len);
 }
@@ -1978,7 +1299,7 @@ WRAPPER2(struct hostent *, gethostbyname, const char *name)
   char *s;
   size_t n;
   int nreg;
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   n = strlen (name);
   MF_VALIDATE_EXTENT (name, CLAMPADD(n, 1), __MF_CHECK_READ,
     "gethostbyname name");
@@ -2053,7 +1374,7 @@ WRAPPER2(struct hostent *, gethostbyname, const char *name)
 #include <sys/wait.h>
 WRAPPER2(pid_t, wait, int *status)
 {
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   if (NULL != status)
     MF_VALIDATE_EXTENT (status, sizeof (*status), __MF_CHECK_WRITE,
       "wait status");
@@ -2065,7 +1386,7 @@ WRAPPER2(pid_t, wait, int *status)
 #include <sys/wait.h>
 WRAPPER2(pid_t, waitpid, pid_t pid, int *status, int options)
 {
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   if (NULL != status)
     MF_VALIDATE_EXTENT (status, sizeof (*status), __MF_CHECK_WRITE,
       "waitpid status");
@@ -2078,7 +1399,7 @@ WRAPPER2(FILE *, popen, const char *command, const char *mode)
 {
   size_t n;
   FILE *p;
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
 
   n = strlen (command);
   MF_VALIDATE_EXTENT (command, CLAMPADD(n, 1), __MF_CHECK_READ, "popen path");
@@ -2101,7 +1422,7 @@ WRAPPER2(FILE *, popen, const char *command, const char *mode)
 WRAPPER2(int, pclose, FILE *stream)
 {
   int resp;
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT (stream, sizeof (*stream), __MF_CHECK_WRITE,
     "pclose stream");
   resp = pclose (stream);
@@ -2119,7 +1440,7 @@ WRAPPER2(int, execve, const char *path, char *const argv [],
   size_t n;
   char *const *p;
   const char *s;
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
 
   n = strlen (path);
   MF_VALIDATE_EXTENT (path, CLAMPADD(n, 1), __MF_CHECK_READ, "execve path");
@@ -2151,7 +1472,7 @@ WRAPPER2(int, execv, const char *path, char *const argv [])
   size_t n;
   char *const *p;
   const char *s;
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
 
   n = strlen (path);
   MF_VALIDATE_EXTENT (path, CLAMPADD(n, 1), __MF_CHECK_READ, "execv path");
@@ -2174,7 +1495,7 @@ WRAPPER2(int, execvp, const char *path, char *const argv [])
   size_t n;
   char *const *p;
   const char *s;
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
 
   n = strlen (path);
   MF_VALIDATE_EXTENT (path, CLAMPADD(n, 1), __MF_CHECK_READ, "execvp path");
@@ -2195,7 +1516,7 @@ WRAPPER2(int, execvp, const char *path, char *const argv [])
 WRAPPER2(int, system, const char *string)
 {
   size_t n;
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   n = strlen (string);
   MF_VALIDATE_EXTENT (string, CLAMPADD(n, 1), __MF_CHECK_READ,
     "system string");
@@ -2208,7 +1529,7 @@ WRAPPER2(void *, dlopen, const char *path, int flags)
 {
   void *p;
   size_t n;
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   n = strlen (path);
   MF_VALIDATE_EXTENT (path, CLAMPADD(n, 1), __MF_CHECK_READ, "dlopen path");
   p = dlopen (path, flags);
@@ -2226,7 +1547,7 @@ WRAPPER2(void *, dlopen, const char *path, int flags)
 WRAPPER2(int, dlclose, void *handle)
 {
   int resp;
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT (handle, 0, __MF_CHECK_READ, "dlclose handle");
   resp = dlclose (handle);
 #ifdef MF_REGISTER_dlopen
@@ -2240,7 +1561,7 @@ WRAPPER2(int, dlclose, void *handle)
 WRAPPER2(char *, dlerror)
 {
   char *p;
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   p = dlerror ();
   if (NULL != p) {
     size_t n;
@@ -2260,7 +1581,7 @@ WRAPPER2(void *, dlsym, void *handle, char *symbol)
 {
   size_t n;
   void *p;
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT (handle, 0, __MF_CHECK_READ, "dlsym handle");
   n = strlen (symbol);
   MF_VALIDATE_EXTENT (symbol, CLAMPADD(n, 1), __MF_CHECK_READ, "dlsym symbol");
@@ -2280,7 +1601,7 @@ WRAPPER2(void *, dlsym, void *handle, char *symbol)
 #include <sys/sem.h>
 WRAPPER2(int, semop, int semid, struct sembuf *sops, unsigned nsops)
 {
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT (sops, sizeof (*sops) * nsops, __MF_CHECK_READ,
     "semop sops");
   return semop (semid, sops, nsops);
@@ -2300,7 +1621,7 @@ union semun {
 #endif
 WRAPPER2(int, semctl, int semid, int semnum, int cmd, union semun arg)
 {
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   switch (cmd) {
   case IPC_STAT:
     MF_VALIDATE_EXTENT (arg.buf, sizeof (*arg.buf), __MF_CHECK_WRITE,
@@ -2335,7 +1656,7 @@ WRAPPER2(int, semctl, int semid, int semnum, int cmd, union semun arg)
 #include <sys/shm.h>
 WRAPPER2(int, shmctl, int shmid, int cmd, struct shmid_ds *buf)
 {
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   switch (cmd) {
   case IPC_STAT:
     MF_VALIDATE_EXTENT (buf, sizeof (*buf), __MF_CHECK_WRITE,
@@ -2358,7 +1679,7 @@ WRAPPER2(int, shmctl, int shmid, int cmd, struct shmid_ds *buf)
 WRAPPER2(void *, shmat, int shmid, const void *shmaddr, int shmflg)
 {
   void *p;
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   p = shmat (shmid, shmaddr, shmflg);
 #ifdef MF_REGISTER_shmat
   if (NULL != p) {
@@ -2377,7 +1698,7 @@ WRAPPER2(void *, shmat, int shmid, const void *shmaddr, int shmflg)
 WRAPPER2(int, shmdt, const void *shmaddr)
 {
   int resp;
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
+  TRACE ("%s\n", __PRETTY_FUNCTION__);
   resp = shmdt (shmaddr);
 #ifdef MF_REGISTER_shmat
   __mf_unregister ((void *)shmaddr, 0);

@@ -1,3 +1,29 @@
+2003-07-04  Frank Ch. Eigler  <fche@redhat.com>
+
+	* mf-hooks1.c, 2.c, 3.c: New file, splits up content from old ...
+	* mf-hooks: Removed.
+	* mf-impl.h (MF_VALIDATE_EXTENT, BEGIN_PROTECT, END_PROTECT):
+	Move these macros from old mf-hooks.c here.
+	* Makefile.am: Adapt to split-up hook sources for faster builds.
+	* Makefile.in: Regenerated.
+
+	* mf-heuristics.c: Remove #if-0 block.
+
+	* mf-impl.h (__mf_state): Reorganize declaration and implementation.
+	(__mf_starting_p): New state only for use while dlsym bootstrapping.
+	(CALL_REAL, __mf_init): Corresponding changes.
+	(TRACE, VERBOSE_TRACE): Include thread id and "mf:" prefix.  Update
+	all callers to remove redundant "mf:" prefix.
+	* mf-runtime.h.in: #define a few reentrancy macros for libmudflapth.
+	* mf-hooks3.c: Rewrite chunks to support per-thread __mf_state value.
+	(__mf_pthread_info): Become a hash table.
+
+	* testsuite/lib/mfdg.exp: Support new "dg-timeout" and
+	"dg-repetitions" directives to control test case execution.
+	* testsuite/libmudflap.cth/pass37-frag.c: Add timeout and repeat
+	options.
+	* testsuite/libmudflap.cth/pass39-frag.c: Ditto for this new test.
+
 2003-06-25  Frank Ch. Eigler  <fche@redhat.com>
 
 	* mf-hooks.c (alloca): Separate into stub.

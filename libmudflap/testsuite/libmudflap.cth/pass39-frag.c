@@ -2,24 +2,24 @@
 #include <stdio.h>
 #include <pthread.h>
 #include <sched.h>
+#include <assert.h>
 
 static void *
 func (void *p)
 {
   int *counter = (int *) p;
   unsigned i;
-  
-  for (i=0; i<100; i++)
+  enum { numarrays = 100, numels = 17 };
+  char *arrays [numarrays];
+
+  for (i=0; i<numarrays; i++)
     {
       (*counter) ++;
-      {
-	int array[17];
-	unsigned x = i % (sizeof(array)/sizeof(array[0]));
-	/* VRP could prove that x is within [0,16], but until then, the
-	   following access will ensure that array[] is registered to
-	   libmudflap. */
-	array[x] = i;
-      }
+      unsigned x = i % numels;
+      arrays[i] = calloc (numels, sizeof(arrays[i][0]));
+      assert (arrays[i] != NULL);
+      arrays[i][x] = i;
+      free (arrays[i]);
       sched_yield (); /* sleep (1); */
     }
 
@@ -46,13 +46,12 @@ int main ()
   for (i=0; i<NT; i++)
     {
       rc = pthread_join (threads[i], NULL);
-      if (rc) abort();      
-      printf ("%d%s", counts[i], (i==NT-1) ? "\n" : " ");
+      if (rc) abort();       
+     printf ("%d%s", counts[i], (i==NT-1) ? "\n" : " ");
     }
 
   return 0;
 }
-
 /* { dg-output "100 100 100 100 100 100 100 100 100 100" } */
 /* { dg-repetitions 20 } */
 /* { dg-timeout 3 } */

@@ -23,11 +23,16 @@ libmudflap_la_SOURCES = \
 	mf-runtime.c \
 	mf-heuristics.c
 
-HOOKOBJS = \
+HOOK1OBJS = \
  malloc-hook.lo \
  free-hook.lo \
  calloc-hook.lo \
  realloc-hook.lo \
+ mmap-hook.lo \
+ munmap-hook.lo \
+ alloca-hook.lo
+
+HOOK2OBJS = \
  memcpy-hook.lo \
  memmove-hook.lo \
  memset-hook.lo \
@@ -55,9 +60,6 @@ HOOKOBJS = \
  bcmp-hook.lo \
  index-hook.lo \
  rindex-hook.lo \
- mmap-hook.lo \
- munmap-hook.lo \
- alloca-hook.lo \
  asctime-hook.lo \
  ctime-hook.lo \
  gmtime-hook.lo \
@@ -141,17 +143,29 @@ HOOKOBJS = \
  shmctl-hook.lo \
  shmat-hook.lo \
  shmdt-hook.lo
+HOOK3OBJS = 
 
-$(HOOKOBJS): mf-hooks.c mf-runtime.h mf-impl.h
+$(HOOK1OBJS): mf-hooks1.c mf-runtime.h mf-impl.h
 	hook=`basename $@ -hook.lo`; \
-	$(LTCOMPILE) -DWRAP_$$hook -c $(srcdir)/mf-hooks.c -o $@
+	$(LTCOMPILE) -DWRAP_$$hook -c $(srcdir)/mf-hooks1.c -o $@
+$(HOOK2OBJS): mf-hooks2.c mf-runtime.h mf-impl.h
+	hook=`basename $@ -hook.lo`; \
+	$(LTCOMPILE) -DWRAP_$$hook -c $(srcdir)/mf-hooks2.c -o $@
+$(HOOK3OBJS): mf-hooks3.c mf-runtime.h mf-impl.h
+	hook=`basename $@ -hook.lo`; \
+	$(LTCOMPILE) -DWRAP_$$hook -c $(srcdir)/mf-hooks3.c -o $@
 
 # Hook objects only for libmudflapth use 
-PTHHOOKOBJS= \
+PTHHOOK1OBJS= \
  pth/malloc-hook.lo \
  pth/free-hook.lo \
  pth/calloc-hook.lo \
  pth/realloc-hook.lo \
+ pth/mmap-hook.lo \
+ pth/munmap-hook.lo \
+ pth/alloca-hook.lo
+
+PTHHOOK2OBJS= \
  pth/memcpy-hook.lo \
  pth/memmove-hook.lo \
  pth/memset-hook.lo \
@@ -179,14 +193,10 @@ PTHHOOKOBJS= \
  pth/bcmp-hook.lo \
  pth/index-hook.lo \
  pth/rindex-hook.lo \
- pth/mmap-hook.lo \
- pth/munmap-hook.lo \
- pth/alloca-hook.lo \
  pth/asctime-hook.lo \
  pth/ctime-hook.lo \
  pth/gmtime-hook.lo \
  pth/localtime-hook.lo \
- pth/pthreadstuff-hook.lo \
  pth/time-hook.lo \
  pth/strerror-hook.lo \
  pth/fopen-hook.lo \
@@ -267,6 +277,10 @@ PTHHOOKOBJS= \
  pth/shmat-hook.lo \
  pth/shmdt-hook.lo
 
+PTHHOOK3OBJS= \
+ pth/pthreadstuff-hook.lo
+
+
 clean-local:
 	rm -f pth/*.o pth/*.lo
 
@@ -275,14 +289,21 @@ pth/mf-runtime.lo: mf-runtime.c mf-runtime.h mf-impl.h
 	$(LTCOMPILE) -DLIBMUDFLAPTH -c $(srcdir)/mf-runtime.c -o $@
 pth/mf-heuristics.lo: mf-heuristics.c mf-runtime.h mf-impl.h
 	$(LTCOMPILE) -DLIBMUDFLAPTH -c $(srcdir)/mf-heuristics.c -o $@
-$(PTHHOOKOBJS): mf-hooks.c mf-runtime.h mf-impl.h
+$(PTHHOOK1OBJS): mf-hooks1.c mf-runtime.h mf-impl.h
 	hook=`basename $@ -hook.lo`; \
-	$(LTCOMPILE) -DLIBMUDFLAPTH -DWRAP_$$hook -c $(srcdir)/mf-hooks.c -o $@
+	$(LTCOMPILE) -DLIBMUDFLAPTH -DWRAP_$$hook -c $(srcdir)/mf-hooks1.c -o $@
+$(PTHHOOK2OBJS): mf-hooks2.c mf-runtime.h mf-impl.h
+	hook=`basename $@ -hook.lo`; \
+	$(LTCOMPILE) -DLIBMUDFLAPTH -DWRAP_$$hook -c $(srcdir)/mf-hooks2.c -o $@
+$(PTHHOOK3OBJS): mf-hooks3.c mf-runtime.h mf-impl.h
+	hook=`basename $@ -hook.lo`; \
+	$(LTCOMPILE) -DLIBMUDFLAPTH -DWRAP_$$hook -c $(srcdir)/mf-hooks3.c -o $@
 
-libmudflap_la_LIBADD = $(HOOKOBJS)
+libmudflap_la_LIBADD = $(HOOK1OBJS) $(HOOK2OBJS) $(HOOK3OBJS)
 libmudflap_la_DEPENDENCIES = $(libmudflap_la_LIBADD)
 
-libmudflapth_la_LIBADD = pth/mf-runtime.lo pth/mf-heuristics.lo $(PTHHOOKOBJS)
+libmudflapth_la_LIBADD = pth/mf-runtime.lo pth/mf-heuristics.lo \
+	$(PTHHOOK1OBJS) $(PTHHOOK2OBJS) $(PTHHOOK3OBJS)
 libmudflapth_la_DEPENDENCIES = $(libmudflapth_la_LIBADD)
 
 
