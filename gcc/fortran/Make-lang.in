@@ -133,7 +133,8 @@ f95.start.encap: gfortran$(exeext)
 f95.rest.encap:
 
 f95.tags: force
-	cd $(srcdir)/fortran; etags *.c *.h
+	cd $(srcdir)/fortran; etags -o TAGS.sub *.c *.h; \
+	etags --include TAGS.sub --include ../TAGS.sub
 
 f95.info: $(srcdir)/fortran/gfortran.info
 f95.dvi: fortran/gfortran.dvi

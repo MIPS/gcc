@@ -1,3 +1,8 @@
+2003-11-26  Jason Merrill  <jason@redhat.com>
+
+	* Make-lang.in (f95.tags): Create TAGS.sub files in each
+	directory and TAGS files that include them for each front end.
+
 2003-11-24  Paul Brook  <paul@nowt.org>
 
 	PR fortran/13154
