@@ -68,10 +68,6 @@ struct dfa_stats_d
   unsigned long num_ephis;
   unsigned long num_euses;
   unsigned long num_ekills;
-  unsigned long num_may_alias;
-  unsigned long max_num_may_alias;
-  unsigned long num_alias_imm_rdefs;
-  unsigned long max_num_alias_imm_rdefs;
 };
 
 
@@ -97,8 +93,6 @@ static void count_ref_list_nodes	PARAMS ((struct dfa_stats_d *,
 static tree clobber_vars_r		PARAMS ((tree *, int *, void *));
 static void compute_may_aliases		PARAMS ((void));
 static void find_may_aliases_for	PARAMS ((tree));
-static void add_may_alias		PARAMS ((tree, tree));
-static inline bool may_alias_p		PARAMS ((tree, tree));
 static size_t tree_ref_size		PARAMS ((enum tree_ref_type));
 static tree replace_ref_r		PARAMS ((tree *, int *, void *));
 
@@ -120,14 +114,13 @@ unsigned long next_tree_ref_id;
 tree global_var;
 
 /* Tree reference modifier bitmasks.  Used when calling create_ref.  */
-const unsigned TRM_DEFAULT	= 1 << 0;
-const unsigned TRM_CLOBBER	= 1 << 1;
-const unsigned TRM_MAY		= 1 << 2;
-const unsigned TRM_PARTIAL	= 1 << 3;
-const unsigned TRM_INITIAL	= 1 << 4;
-const unsigned TRM_VOLATILE	= 1 << 5;
-const unsigned TRM_RELOCATE	= 1 << 6;
-const unsigned TRM_ADDRESSOF	= 1 << 7;
+const unsigned TRM_CLOBBER	= 1 << 0;
+const unsigned TRM_MAY		= 1 << 1;
+const unsigned TRM_PARTIAL	= 1 << 2;
+const unsigned TRM_INITIAL	= 1 << 3;
+const unsigned TRM_VOLATILE	= 1 << 4;
+const unsigned TRM_RELOCATE	= 1 << 5;
+const unsigned TRM_ADDRESSOF	= 1 << 6;
 
 
 /* Look for variable references in every block of the flowgraph.  */
@@ -780,8 +773,8 @@ tree_ref_size (ref_type)
       to the list of references for BB (i.e., bb_refs (BB)).  In that case,
       the reference is added at the end of the list.
       
-      This is a problem for certain types of references like V_PHI or
-      default defs that need to be added in specific places within the list
+      This is a problem for certain types of references like V_PHI
+      that need to be added in specific places within the list
       of references for the BB.  If ADD_TO_BB is 0, the caller is
       responsible for the placement of the newly created reference.  */
 
@@ -838,9 +831,6 @@ create_ref (var, ref_type, ref_mod, bb, parent_stmt_p, add_to_bb)
   /* Create containers according to the type of reference.  */
   if (ref_type == V_DEF || ref_type == V_PHI)
     {
-      if (ref_mod & TRM_DEFAULT)
-	ref->vdef.m_default = 1;
-
       if (ref_mod & TRM_CLOBBER)
 	ref->vdef.m_clobber = 1;
 
@@ -854,16 +844,7 @@ create_ref (var, ref_type, ref_mod, bb, parent_stmt_p, add_to_bb)
       ref->vdef.reached_uses = create_ref_list ();
 
       if (ref_type == V_PHI)
-	{
-	  unsigned num;
-	  edge in;
-
-	  /* Count the number of incoming edges.  */
-	  for (in = bb->pred, num = 0; in; in = in->pred_next)
-	    num++;
-
-	  VARRAY_GENERIC_PTR_INIT (ref->vphi.phi_args, num, "phi_args");
-	}
+	VARRAY_GENERIC_PTR_INIT (ref->vphi.phi_args, 2, "phi_args");
     }
   else if (ref_type == V_USE)
     {
@@ -1381,25 +1362,14 @@ dump_variable (file, var)
      FILE *file;
      tree var;
 {
-  size_t num;
-
   fprintf (file, "Variable: ");
   print_generic_expr (file, var, 0);
   
-  num = num_may_alias (var);
-  if (num > 0)
+  if (alias_leader (var))
     {
-      size_t i;
-
-      fprintf (file, ", may-aliases: {");
-
-      for (i = 0; i < num; i++)
-	{
-	  print_generic_expr (file, may_alias (var, i), 0);
-	  if (i < num - 1)
-	    fprintf (file, ", ");
-	}
-      fprintf (file, "}\n");
+      fprintf (file, ", alias leader: ");
+      print_generic_expr (file, alias_leader (var), 0);
+      fprintf (file, "\n");
     }
   else
     fprintf (file, "\n");
@@ -1505,16 +1475,6 @@ dump_dfa_stats (file)
   fprintf (file, fmt_str_1, "PHI arguments", dfa_stats.num_phi_args,
 	   SCALE (size), LABEL (size));
 
-  size = dfa_stats.num_may_alias * sizeof (tree); 
-  total += size;
-  fprintf (file, fmt_str_1, "may-aliases", dfa_stats.num_may_alias,
-	   SCALE (size), LABEL (size));
-
-  size = dfa_stats.num_alias_imm_rdefs * sizeof (tree_ref);
-  total += size;
-  fprintf (file, fmt_str_1, "SSA links for may-aliases",
-	   dfa_stats.num_alias_imm_rdefs, SCALE (size), LABEL (size));
-
   size = dfa_stats.size_tree_refs;
   total += size;
   fprintf (file, fmt_str_1, "Variable references", dfa_stats.num_tree_refs,
@@ -1558,17 +1518,6 @@ dump_dfa_stats (file)
 	     (float) dfa_stats.num_phi_args / (float) dfa_stats.num_phis,
 	     dfa_stats.max_num_phi_args);
 
-  if (dfa_stats.num_may_alias)
-    fprintf (file, "Average number of may-aliases per variable: %.1f (max: %lu)\n",
-	     (float) dfa_stats.num_may_alias / (float) num_referenced_vars,
-	     dfa_stats.max_num_may_alias);
-  
-  if (dfa_stats.num_alias_imm_rdefs)
-    fprintf (file, "Average number of SSA links for may-aliases per reference: %.1f (max: %lu)\n",
-	     (float) dfa_stats.num_alias_imm_rdefs
-	     / (float) dfa_stats.num_tree_refs,
-	     dfa_stats.max_num_alias_imm_rdefs);
-  
   fprintf (file, "\n");
 
   dump_if_different (file, "Discrepancy in variable references: %ld\n",
@@ -1576,14 +1525,6 @@ dump_dfa_stats (file)
 
   dump_if_different (file, "Discrepancy in PHI arguments: %ld\n",
 		     dfa_counts.num_phi_args, dfa_stats.num_phi_args);
-
-  dump_if_different (file, "Discrepancy in may-aliases: %ld\n",
-		     dfa_counts.num_may_alias, dfa_stats.num_may_alias);
-
-  dump_if_different (file,
-		     "Discrepancy in SSA links for may-aliases: %ld\n",
-		     dfa_counts.num_alias_imm_rdefs,
-		     dfa_stats.num_alias_imm_rdefs);
 
   fprintf (file, "\n");
 }
@@ -1621,20 +1562,25 @@ collect_dfa_stats (dfa_stats_p)
      struct dfa_stats_d *dfa_stats_p;
 {
   htab_t htab;
-  tree *first_stmt_p;
   basic_block bb;
   tree star_global_var;
+  gimple_stmt_iterator i;
 
   if (dfa_stats_p == NULL)
     abort ();
 
   memset ((void *)dfa_stats_p, 0, sizeof (struct dfa_stats_d));
 
-  /* Walk all the trees in the function counting references.  */
-  first_stmt_p = BASIC_BLOCK (0)->head_tree_p;
+  /* Walk all the trees in the function counting references.  Start at
+     basic block 0, but don't stop at block boundaries.  */
   htab = htab_create (30, htab_hash_pointer, htab_eq_pointer, NULL);
-  walk_tree (first_stmt_p, collect_dfa_stats_r, (void *) dfa_stats_p,
-             (void *) htab);
+  for (i = gsi_start_bb (BASIC_BLOCK (0)); !gsi_after_end (i); gsi_step (&i))
+    {
+      tree *stmt_p = gsi_stmt_ptr (i);
+      walk_tree (stmt_p, collect_dfa_stats_r, (void *) dfa_stats_p,
+	         (void *) htab);
+    }
+  htab_delete (htab);
 
   /* Also look into GLOBAL_VAR (which is not actually part of the program).  */
   walk_tree (&global_var, collect_dfa_stats_r, (void *) dfa_stats_p, NULL);
@@ -1666,13 +1612,6 @@ collect_dfa_stats_r (tp, walk_subtrees, data)
     {
       dfa_stats_p->num_tree_anns++;
       count_ref_list_nodes (dfa_stats_p, ann->refs);
-      if (ann->may_aliases)
-	{
-	  size_t num = VARRAY_ACTIVE_SIZE (ann->may_aliases);
-	  dfa_stats_p->num_may_alias += num;
-	  if (num > dfa_stats_p->max_num_may_alias)
-	    dfa_stats_p->max_num_may_alias = num;
-	}
     }
 
   return NULL;
@@ -1693,14 +1632,6 @@ count_tree_refs (dfa_stats_p, list)
       tree_ref ref = rli_ref (i);
       dfa_stats_p->num_tree_refs++;
       dfa_stats_p->size_tree_refs += tree_ref_size (ref_type (ref));
-
-      if (ref->vref.alias_imm_rdefs)
-	{
-	  size_t num = num_may_alias (ref_var (ref));
-	  dfa_stats_p->num_alias_imm_rdefs += num;
-	  if (num > dfa_stats_p->max_num_alias_imm_rdefs)
-	    dfa_stats_p->max_num_alias_imm_rdefs = num;
-	}
 
       if (ref_type (ref) == V_DEF)
 	{
@@ -1773,9 +1704,6 @@ ref_type_name (ref)
       || ref_type (ref) == E_PHI)
     return str;
   
-  if (is_default_def (ref))
-    strncat (str, "/default", max - strlen (str));
-
   if (is_may_ref (ref))
     strncat (str, "/may", max - strlen (str));
   
@@ -1799,6 +1727,7 @@ ref_type_name (ref)
 
   return str;
 }
+
 
 /* Callback for walk_tree.  Create a may-def/may-use reference for every _DECL
    and compound reference found under *TP.  */
@@ -1824,13 +1753,8 @@ clobber_vars_r (tp, walk_subtrees, data)
 }
 
 /* Compute may-alias information for every variable referenced in the
-   program.  FIXME this computes a bigger set than necessary.
-
-   This function also inserts default definitions for all the variables
-   referenced in the function. This allows the identification of variables
-   that have been used without a preceding definition.  It also allows for
-   default values to be assumed by transformations like constant
-   propagation.  */
+   program.  NOTE: in the absence of points-to analysis (-ftree-points-to),
+   this computes a bigger set than necessary.  */
 
 static void
 compute_may_aliases ()
@@ -1862,19 +1786,36 @@ compute_may_aliases ()
 }
 
 
-/* Return true if INDIRECT_PTR (an INDIRECT_REF node) may alias VAR (a
-   VAR_DECL or INDIRECT_REF node).  FIXME  This returns true more often
-   than it should.  */
+/* Return true if V1 and V2 may alias.  */
 
-static inline bool
-may_alias_p (indirect_ptr, var)
-     tree indirect_ptr;
-     tree var;
+bool
+may_alias_p (v1, v2)
+     tree v1;
+     tree v2;
 {
+  tree ptr, var, ptr_sym, var_sym;
   HOST_WIDE_INT ptr_alias_set, var_alias_set;
-  tree ptr_sym = get_base_symbol (indirect_ptr);
-  tree var_sym = get_base_symbol (var);
-  
+
+  /* One of the two variables needs to be an INDIRECT_REF or GLOBAL_VAR,
+     otherwise they can't possibly alias each other.  */
+  if (TREE_CODE (v1) == INDIRECT_REF
+      || v1 == global_var)
+    {
+      ptr = v1;
+      var = v2;
+    }
+  else if (TREE_CODE (v2) == INDIRECT_REF
+           || v2 == global_var)
+    {
+      ptr = v2;
+      var = v1;
+    }
+  else
+    return false;
+
+  ptr_sym = get_base_symbol (ptr);
+  var_sym = get_base_symbol (var);
+
   /* GLOBAL_VAR aliases every global variable, pointer dereference and
      locals that have had their address taken, unless points-to analysis is
      done.  This is because points-to is supposed to handle this case, and
@@ -1891,20 +1832,20 @@ may_alias_p (indirect_ptr, var)
   if (var_sym == ptr_sym
       || DECL_ARTIFICIAL (var_sym)
       /* Only check for addressability on non-pointers.  Even if VAR is 
-	 a non-addressable pointer, it may still alias with INDIRECT_PTR.  */
+	 a non-addressable pointer, it may still alias with ptr.  */
       || (DECL_P (var) && !TREE_ADDRESSABLE (var)))
     return false;
 
-  ptr_alias_set = get_alias_set (TREE_TYPE (indirect_ptr));
-  var_alias_set = get_alias_set (TREE_TYPE (var));
-  
+  ptr_alias_set = get_alias_set (ptr);
+  var_alias_set = get_alias_set (var);
   if (!alias_sets_conflict_p (ptr_alias_set, var_alias_set))
     return false;
 
   if (flag_tree_points_to)
     if (!ptr_may_alias_var (ptr_sym, var_sym))
-       return false;
-  
+      return false;
+
+
   return true;
 }
 
@@ -1922,18 +1863,47 @@ find_may_aliases_for (indirect_ptr)
     abort ();
 #endif
 
+  if (alias_leader (indirect_ptr) == NULL)
+    set_alias_leader (indirect_ptr, indirect_ptr);
+
   for (i = 0; i < num_referenced_vars; i++)
     {
       tree var = referenced_var (i);
 
-      /* If *PTR may alias VAR, add *PTR to the list of may-aliases of VAR,
-	 and VAR to the list of may-aliases of *PTR.  */
-      if (may_alias_p (indirect_ptr, var)
-	  /* Avoid adding duplicate aliases.  */
-	  && get_alias_index (indirect_ptr, var) == -1)
+      /* If INDIRECT_PTR may alias VAR, make INDIRECT_PTR the alias leader
+	 for VAR.  */
+      if (may_alias_p (indirect_ptr, var))
 	{
-	  add_may_alias (indirect_ptr, var);
-	  add_may_alias (var, indirect_ptr);
+	  /* Note that the alias leader of INDIRECT_PTR may not be
+	     INDIRECT_PTR if INDIRECT_PTR is in the alias set of some other
+	     pointer.  If the current alias leader for INDIRECT_PTR is not
+	     an alias for VAR, then INDIRECT_PTR must become its own alias
+	     leader.  This is to avoid the following problem:
+
+	     Assume that the following aliasing relations hold for
+	     variables V1, V2 and V3:
+
+	     	V1 may-alias V2
+		V2 may-alias V3
+		V1 may-not-alias V3
+
+	     When processing V1 and V2 for the first time, this pass made
+	     V1 the alias leader for V2.  In the next iteration, it
+	     determines that V2 may alias V3 and so it sets V3's alias
+	     leader to be V1 (which is V2's alias leader).
+	     
+	     However, V1 and V3 do not alias each other, so making V1 the
+	     alias leader for V3 makes no sense.  In this case, we make V2
+	     the alias leader for itself and V3.  */
+	  if (alias_leader (indirect_ptr) != indirect_ptr
+	      && alias_leader (indirect_ptr) != var
+	      && !may_alias_p (alias_leader (indirect_ptr), var))
+	    {
+	      set_alias_leader (alias_leader (indirect_ptr), indirect_ptr);
+	      set_alias_leader (indirect_ptr, indirect_ptr);
+	    }
+
+	  set_alias_leader (var, alias_leader (indirect_ptr));
 	}
     }
 }
@@ -1974,93 +1944,47 @@ ref_defines (ref, var)
 
   /* Otherwise, REF is a definition for VAR if either VAR and REF's
      variable are the same or if VAR is an alias for REF's variable.  */
-  return (rvar == var || get_alias_index (rvar, var) >= 0);
+  return (rvar == var || may_alias_p (rvar, var));
 }
 
 
-/* Return true if DEF is a killing definition for USE.  Note, this assumes
-   that DEF reaches USE.  */ 
+/* Return true if DEF is a killing definition for VAR.  Note, this assumes
+   that DEF reaches the use of VAR.  */ 
 
 bool
-is_killing_def (def, use)
+is_killing_def (def, var)
      tree_ref def;
-     tree_ref use;
+     tree var;
 {
-  tree def_var = ref_var (def);
-  tree use_var = ref_var (use);
+  tree def_var;
 
-  if ((ref_type (def) != V_DEF && ref_type (def) != V_PHI)
-      || (ref_type (use) != V_USE && ref_type (use) != V_PHI))
+  if (def == NULL)
     return false;
 
-  /* Partial, potential and volatile definitions are no killers.  */
+  def_var = ref_var (def);
+
+  if (ref_type (def) != V_DEF && ref_type (def) != V_PHI)
+    return false;
+
+  /* Partial and potential definitions are no killers.  */
   if (is_partial_ref (def)
-      || is_volatile_ref (def)
       || is_may_ref (def))
     return false;
 
   /* Common case.  Both references are for the same variable.  */
-  if (def_var == use_var)
+  if (def_var == var)
     return true;
 
-  /* If DEF_VAR may-alias USE, then DEF is not a killing definition for
-     USE.  */
-  if (get_alias_index (use_var, def_var) >= 0)
-    return false;
-
 #if 0
-  /* If DEF_VAR must-alias USE_VAR, then DEF is a killing definition for
-     USE.  */
-  if (are_must_aliased (def_var, use_var))
+  /* If DEF_VAR must-alias VAR, then DEF is a killing definition for
+     VAR.  */
+  if (are_must_aliased (def_var, var))
     return true;
 #endif
 
   return false;
 }
 
-
-/* Add ALIAS to the set of variables that may be aliasing VAR.  */
-
-static void
-add_may_alias (var, alias)
-     tree var;
-     tree alias;
-{
-  tree_ann ann;
-
-#if defined ENABLE_CHECKING
-  if (TREE_CODE (alias) != VAR_DECL
-      && TREE_CODE (alias) != PARM_DECL
-      && TREE_CODE (alias) != FUNCTION_DECL
-      && TREE_CODE (alias) != INDIRECT_REF)
-    abort ();
-#endif
-
-  ann = tree_annotation (var);
-  if (ann->may_aliases == NULL)
-    VARRAY_TREE_INIT (ann->may_aliases, 3, "may_aliases");
-  
-  VARRAY_PUSH_TREE (ann->may_aliases, alias);
-  dfa_counts.num_may_alias++;
-}
-
-
-/* Return the index into the set of VAR1's aliases where VAR2 is located.
-   Return -1 if VAR1 and VAR2 are not aliases.  */
-
-int
-get_alias_index (var1, var2)
-     tree var1;
-     tree var2;
-{
-  size_t i;
-
-  for (i = 0; i < num_may_alias (var1); i++)
-    if (may_alias (var1, i) == var2)
-      return i;
-
-  return -1;
-}
 
 /* Return which tree_ref structure is used by REF.  */
 

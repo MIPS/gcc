@@ -82,23 +82,15 @@ imm_reaching_def (use)
 }
 
 static inline void 
-set_imm_reaching_def (use, def)
-     tree_ref use;
+set_imm_reaching_def (ref, def)
+     tree_ref ref;
      tree_ref def;
 {
-  use->vref.imm_rdef = def;
-}
-
-static inline tree_ref
-alias_imm_reaching_def (ref, i)
-     tree_ref ref;
-     size_t i;
-{
 #if defined ENABLE_CHECKING
-  if (i > num_may_alias (ref_var (ref)))
+  if (ref == def)
     abort ();
 #endif
-  return ref->vref.alias_imm_rdefs[i];
+  ref->vref.imm_rdef = def;
 }
 
 static inline void
@@ -185,31 +177,6 @@ bb_for_stmt (t)
   return tree_annotation (t) ? tree_annotation (t)->bb : NULL;
 }
 
-static inline tree_ref
-currdef_for (decl)
-     tree decl;
-{
-  return tree_annotation (decl) ? tree_annotation (decl)->currdef : NULL;
-}
-
-static inline void
-set_currdef_for (v, def)
-     tree v;
-     tree_ref def;
-{
-  tree_ann ann;
-#if defined ENABLE_CHECKING
-  if (TREE_CODE_CLASS (TREE_CODE (v)) != 'd'
-      && TREE_CODE (v) != INDIRECT_REF)
-    abort ();
-
-  if (def && ref_type (def) != V_DEF && ref_type (def) != V_PHI)
-    abort ();
-#endif
-  ann = tree_annotation (v) ? tree_annotation (v) : create_tree_ann (v);
-  ann->currdef = def;
-}
-
 static inline ref_list
 tree_refs (t)
      tree t;
@@ -238,19 +205,27 @@ remove_tree_ref (t, ref)
 }
 
 static inline tree
-may_alias (var, i)
+alias_leader (var)
      tree var;
-     size_t i;
 {
-  return VARRAY_TREE (tree_annotation (var)->may_aliases, i);
+  return tree_annotation (var) ? tree_annotation (var)->alias_leader : NULL;
 }
 
-static inline size_t
-num_may_alias (var)
+static inline void
+set_alias_leader (var, alias)
+     tree var;
+     tree alias;
+{
+  tree_ann ann;
+  ann = tree_annotation (var) ? tree_annotation (var) : create_tree_ann (var);
+  ann->alias_leader = alias;
+}
+
+static inline bool
+is_aliased (var)
      tree var;
 {
-  tree_ann ann = tree_annotation (var);
-  return (ann->may_aliases) ? VARRAY_ACTIVE_SIZE (ann->may_aliases) : 0;
+  return alias_leader (var) != NULL;
 }
 
 static inline int
@@ -290,7 +265,7 @@ set_tree_flag (t, flag)
      tree t;
      enum tree_flags flag;
 {
-  tree_ann  ann;
+  tree_ann ann;
   ann = tree_annotation (t) ? tree_annotation (t) : create_tree_ann (t);
   ann->flags |= flag;
 }
@@ -791,13 +766,6 @@ is_volatile_use (ref)
 }
 
 static inline bool
-is_default_def (ref)
-     tree_ref ref;
-{
-  return ref_type (ref) == V_DEF && ref->vdef.m_default;
-}
-
-static inline bool
 is_clobbering_def (ref)
      tree_ref ref;
 {
@@ -841,7 +809,6 @@ is_pure_def (ref)
      tree_ref ref;
 {
   return ref_type (ref) == V_DEF
-	 && !ref->vdef.m_default
 	 && !ref->vdef.m_clobber
 	 && !ref->vdef.m_initial
 	 && !ref->vdef.m_relocate

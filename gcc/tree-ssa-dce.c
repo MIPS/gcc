@@ -273,14 +273,17 @@ find_useful_stmts ()
 		      else
 			/* Or If this aliases with something that needs to 
 			   be preserved, keep it.  */
-			for (x = 0;  x < num_may_alias (symbol); x++)
+			if (is_aliased (symbol))
 			  {
-			    if (need_to_preserve_store (may_alias (symbol, x)))
-			      {
-				need = 1;
-				break;
-			      }
+			    for (x = 0; x < num_referenced_vars; x++)
+			      if (alias_leader (referenced_var (x)) == alias_leader (symbol)
+				  && need_to_preserve_store (referenced_var (x)))
+				{
+				  need = 1;
+				  break;
+				}
 			  }
+
 		      if (need)
 			mark_necessary (t);
 		    }

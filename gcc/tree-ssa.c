@@ -67,7 +67,7 @@ Boston, MA 02111-1307, USA.  */
    (def-def link) between the current definition and the previous one.
 
    This is used to chain definitions to arrays and structures, so that all
-   possible reaching defs can be found later by compute_tree_rdefs.  For
+   possible reaching defs can be found later by compute_reaching_defs.  For
    instance,
 
 	      1  A[i] = 5;
@@ -82,52 +82,36 @@ Boston, MA 02111-1307, USA.  */
    Modeling may-alias information
    ------------------------------
 
-   May-aliases are discovered by compute_may_aliases.  Currently, the set
-   computed is conservatively large because it uses a type-based,
-   flow-insensitive method.  For each variable V, we compute all the
-   may-aliases for V and store them in tree_annotation(V)->may_aliases.
+   May-aliases are discovered by compute_may_aliases.  By default, the set
+   computed is too large because it is exclusively type-based.  However,
+   points-to analysis (PTA) is also available using the flag
+   -ftree-points-to={steen|andersen}.
 
-   When we build the SSA form for the program, a definition for V will be
-   considered a regular killing definition for V, but will be considered a
-   non-killing definition for V's aliases.  However, contrary to the case
-   with arrays, we don't keep a single def-def link between this definition
-   and the previous one.  We keep N def-def links at each definition site,
-   one for each alias of V.  For instance, assume that in the following
-   fragment *p may-alias a and b:
+   If a variable V may alias a set of variables, V becomes the "alias
+   leader" for that set.  When setting up use-def and def-use links in
+   set_ssa_links, we use the alias leader to represent all the variables in
+   the same set.  So, when we find a definition for one of the variables in
+   the set represented by V, we consider that definition to be a definition
+   to V.  Similarly, a use reference to any variable in the same alias set
+   will be considered a use of V.  To allow the discovery of reaching
+   definitions for all the members in the set, we keep def-def links.
 
-	    1	a = 2;  <-------------------------+
-	    2	                                  |
-	    3	b = 5;  <----------------------+  |
-	    4	                               |  |
-	    5	*p = 93;    ALIAS_IMM_RDEF = { +, + }
-	    6	 ^------+
-	    7	 |      |
-	    8	 +--+   |
-	    9	    |   |
-	    10	c = a * b;
+   For instance, suppose we have a pointer *p that aliases variables a and
+   b.  compute_may_aliases will set *p to be the alias leader for a and b.
 
-   At the definition site for *p, we keep an array of reaching definitions
-   for each alias of *p (ALIAS_IMM_RDEF).  We also make *p the current
-   reaching definition for a and b.  This way, we maintain the program in
-   SSA form and also keep track of all the definitions that may reach a and
-   b.
+	    1	 a = 4		=> sets CURRDEF(*p)
+	    2	 b = 3		=> sets CURRDEF(*p).  sets def-def link to #1
+	    3	*p = 5		=> sets CURRDEF(*p).  sets def-def link to #2
+	    4	 x = a
 
-   When computing reaching definitions, since *p is not a killing
-   definition for either a nor b, follow_chain will examine the
-   ALIAS_IMM_RDEF array at the definition for *p and find the other
-   definitions.  Giving the expected result that at line 10, a can be
-   reached by '*p = 93' and by 'a = 2'.
+   Definitions at lines 1, 2 and 3, will be considered definitions to *p
+   and set_ssa_links will also set a def-def link between the different
+   assignments.
 
-   Notice that this array of def-def links for aliases is kept at *every*
-   definition site.  If the may-alias information is too conservative,
-   these arrays may be very large, causing severe memory problems.
-
-   To address this problem, we have a heuristic aggregation mechanism that
-   after a certain number of may-aliases, will give up and create a single
-   virtual variable that represents all the variables in the may-alias set.
-   After this, every reference to any variable in the may-alias set will be
-   considered a reference to this one virtual variable.  This is,
-   effectively, the same mechanism used to deal with array references.
+   The immediate reaching definition for the use of a at line 4 will be the
+   assignment at line 5.  However, when computing reaching definitions, the
+   assignment to b at line 2 will be skipped because a and b are not
+   aliased to each other (see the call to ref_defines in follow_chain). 
 
    
    Modeling call-clobbered variables
@@ -141,8 +125,7 @@ Boston, MA 02111-1307, USA.  */
    affected variables.  */
 
 
-/* Nonzero to warn about variables used before they are initialized.  Used
-   by analyze_rdefs().  */
+/* Nonzero to warn about variables used before they are initialized.  */
 int tree_warn_uninitialized = 0;
 
 /* Array of saved definition chains.  Used by search_fud_chains to restore
@@ -173,11 +156,11 @@ static void search_fud_chains		PARAMS ((basic_block, dominance_info));
 static void follow_chain		PARAMS ((tree_ref, tree_ref));
 static void insert_phi_nodes_for	PARAMS ((tree, sbitmap *));
 static void add_phi_node 		PARAMS ((basic_block, tree));
-static void set_ssa_links		PARAMS ((tree_ref, tree, int));
-static void set_alias_imm_reaching_def	PARAMS ((tree_ref, size_t, tree_ref));
-static tree_ref create_default_def	PARAMS ((tree));
+static void set_ssa_links		PARAMS ((tree_ref, tree));
 static void init_tree_ssa		PARAMS ((void));
 static tree remove_annotations_r	PARAMS ((tree *, int *, void *));
+static inline tree_ref currdef_for	PARAMS ((tree));
+static inline void set_currdef_for	PARAMS ((tree, tree_ref));
 
 
 /* Main entry point to the SSA builder.  */
@@ -215,7 +198,7 @@ build_tree_ssa (fndecl)
   free_dominance_info (idom);
 
   /* Compute reaching definitions.  */
-  compute_tree_rdefs ();    
+  compute_reaching_defs ();    
 
   if (tree_ssa_dump_file)
     {
@@ -224,8 +207,8 @@ build_tree_ssa (fndecl)
       if (tree_ssa_dump_flags & (TDF_DETAILS))
 	{
 	  dump_referenced_vars (tree_ssa_dump_file);
-	  dump_tree_ssa (tree_ssa_dump_file);
 	  dump_reaching_defs (tree_ssa_dump_file);
+	  dump_tree_ssa (tree_ssa_dump_file);
 	}
 
       if (tree_ssa_dump_flags & TDF_STATS)
@@ -360,29 +343,9 @@ search_fud_chains (bb, idom)
 	  && ref_type (ref) != V_PHI)
 	continue;
 
-      /* For V_USE references and non-killing definitions, create a default
-	 definition if CURRDEF doesn't exist.  */
-      if (ref_type (ref) == V_USE || is_partial_def (ref))
-	{
-	  tree_ref currdef = currdef_for (var);
-	  if (currdef == NULL)
-	    currdef = create_default_def (var);
-	}
-
       /* Set up def-use, use-def and def-def links between REF and the
 	 current definition of VAR.  */
-      set_ssa_links (ref, var, -1);
-
-      /* Ditto for any variables that might be aliased by VAR.  Notice that
-	 we don't process aliases when looking at V_USE references.  Each
-	 alias sets its own def-use and use-def links.  We only need to
-	 process aliases when setting def-def links.  */
-      if (ref_type (ref) != V_USE)
-	{
-	  size_t i;
-	  for (i = 0; i < num_may_alias (var); i++)
-	    set_ssa_links (ref, may_alias (var, i), i);
-	}
+      set_ssa_links (ref, var);
     }
 
 
@@ -400,16 +363,16 @@ search_fud_chains (bb, idom)
 	  if (ref_type (phi) == V_PHI)
 	    {
 	      tree_ref currdef = currdef_for (ref_var (phi));
-	      if (currdef == NULL)
-		currdef = create_default_def (ref_var (phi));
 
 	      /* Besides storing the incoming definition CURRDEF, we also
-		store E, which is the edge that we are receiving CURRDEF
-		from.  */
+		 store E, which is the edge that we are receiving CURRDEF
+		 from.  */
 	      add_phi_arg (phi, currdef, e);
 
-	      /* Set a def-use edge between CURRDEF and this PHI node.  */
-	      add_ref_to_list_end (imm_uses (currdef), phi);
+	      /* If CURRDEF is not empty, set a def-use edge between CURRDEF
+		 and this PHI node.  */
+	      if (currdef)
+		add_ref_to_list_end (imm_uses (currdef), phi);
 	    }
 	}
     }
@@ -429,15 +392,9 @@ search_fud_chains (bb, idom)
 
       if (ref_type (ref) == V_DEF || ref_type (ref) == V_PHI)
 	{
-	  size_t i;
 	  unsigned long id = ref_id (ref);
 	  tree var = ref_var (ref);
-
 	  set_currdef_for (var, save_chain[id]);
-
-	  /* Also restore CURRDEF for every alias of REF's variable.  */
-	  for (i = 0; i < num_may_alias (var); i++)
-	    set_currdef_for (may_alias (var, i), save_chain[id]);
 	}
     }
 }
@@ -447,7 +404,7 @@ search_fud_chains (bb, idom)
    referenced in the current function.  */
 
 void
-compute_tree_rdefs ()
+compute_reaching_defs ()
 {
   size_t i;
 
@@ -491,75 +448,6 @@ compute_tree_rdefs ()
     }
 
   free (marked);
-
-  analyze_rdefs ();
-}
-
-
-/* Analyze reaching definition information and warn about uses of
-   potentially uninitialized variables if -Wuninitialized was given.  */
-
-void
-analyze_rdefs ()
-{
-  size_t i;
-
-#if 0
-  if (tree_warn_uninitialized == 0)
-    return;
-#else
-  /* FIXME Disable these warnings for now.  Too many false positives.  */
-  return;
-#endif
-
-  for (i = 0; i < num_referenced_vars; i++)
-    {
-      tree var = referenced_var (i);
-      ref_list_iterator j;
-
-      /* Uninitialized warning messages are only given for local variables
-	 with auto declarations.  */
-      if (TREE_CODE (var) != VAR_DECL
-	  || decl_function_context (var) == NULL
-	  || TREE_STATIC (var)
-	  || TREE_ADDRESSABLE (var))
-	continue;
-
-      /* For each use of VAR, if the use is reached by VAR's default
-	 definition, then the variable may have been used uninitialized in
-	 the function.  */
-      for (j = rli_start (tree_refs (var)); !rli_after_end (j); rli_step (&j))
-	{
-	  tree_ref use = rli_ref (j);
-	  int found_default;
-	  ref_list_iterator k;
-
-	  if (ref_type (use) != V_USE)
-	    continue;
-
-	  /* Check all the reaching definitions looking for the default
-	     definition.  */
-	  found_default = 0;
-	  k = rli_start (reaching_defs (use));
-	  for (; !rli_after_end (k); rli_step (&k))
-	    if (is_default_def (rli_ref (k)))
-	      found_default = 1;
-
-	  /* If we found a default definition for VAR, then the reference may
-	     be accessing an uninitialized variable.  If the default def is the
-	     only reaching definition, then the variable _is_ used
-	     uninitialized.  Otherwise it _may_ be used uninitialized.  */
-	  if (found_default)
-	    {
-	      if (reaching_defs (use)->last == reaching_defs (use)->first)
-		warning ("`%s' is used uninitialized at this point",
-		         get_name (var));
-	      else
-		warning ("`%s' may be used uninitialized at this point",
-		         get_name (var));
-	    }
-	}
-    }
 }
 
 
@@ -615,18 +503,8 @@ follow_chain (d, u)
     }
 
   /* If D is a non-killing definition for U, follow D's def-def link.  */
-  else if (is_partial_def (d))
+  else if (!is_killing_def (d, u_var))
     follow_chain (imm_reaching_def (d), u);
-
-  /* If D is a may-def for U (i.e., D does not define U_VAR, but U_VAR is
-     an alias of D_VAR), follow the def-def link in D's may_imm_rdefs that
-     corresponds to U's variable.  */
-  else
-    {
-      int i = get_alias_index (d_var, u_var);
-      if (i >= 0)
-	follow_chain (alias_imm_reaching_def (d, i), u);
-    }
 }
 
 
@@ -648,12 +526,10 @@ tree_ssa_remove_phi_alternative (phi_node, block)
 
   for (i = 0; i < num_elem; i++)
     {
-      tree_ref ref;
       basic_block src_bb;
       phi_node_arg arg;
 
       arg = phi_arg (phi_node, i);
-      ref = phi_arg_def (arg);
       src_bb = phi_arg_edge (arg)->src;
 
       if (src_bb == block)
@@ -823,33 +699,65 @@ add_phi_node (bb, var)
 
 
 /* Set up use-def, def-use and def-def links between reference REF and the
-   current reaching definition for VAR.
-   
-   If ALIAS_IX is nonnegative, then VAR is an alias of REF.  In which case,
-   ALIAS_IX is the index into the array of immediate reaching definitions
-   for aliases (i.e. alias_imm_reaching_def(REF, ALIAS_IX) is the immediate
-   reaching definition for VAR).  */
+   current reaching definition for VAR.  */
 
 static void
-set_ssa_links (ref, var, alias_ix)
+set_ssa_links (ref, var)
      tree_ref ref;
      tree var;
-     int alias_ix;
 {
-  tree_ref currdef;
+  tree_ref currdef = NULL;
 
-  /* Retrieve the current definition for the variable.  */
+  /* Retrieve the current definition for the variable.  Note that if the
+     variable is aliased, this will retrieve the current definition for its
+     alias leader (i.e., the variable representing all the variables in the
+     same alias set).  */
   currdef = currdef_for (var);
 
   if (ref_type (ref) == V_USE)
     {
-#if defined ENABLE_CHECKING
-      /* We should not set def-use/use-def edges for aliases, only def-def
-	 edges.  Each alias will naturally get a def-use/use-def edge to a
-	 most recent definition of either itself or an alias.  */
-      if (currdef == NULL || alias_ix != -1)
-	abort ();
-#endif
+      bool found;
+      tree_ref new_currdef;
+
+      /* Make sure that CURRDEF is an actual definition for the variable.
+	 In the presence of aliasing, all definitions to the variables in
+	 the same alias set make a definition to their alias leader,
+	 not to their variable.  This allows us to set def-def links
+	 between definitions to members of the same alias set.
+
+	 However, this does not mean that every definition to the alias
+	 leader will necessarily reach this use.  For instance, assume that
+	 '*p' is the alias leader for variables 'a' and 'b':
+
+	 	*p = 5;
+		 a = 3;
+		   = b;
+
+	 When processing the use of 'b' in the last line, CURRDEF is the
+	 definition 'a = 3' (because 'a' and 'b' are in the same alias
+	 set).   Since 'a' cannot alias 'b', we continue to the next
+	 definition in the def-def chain until we find a definition for 'b'
+	 or for a variable that can alias 'b'.  In this case, we find the
+	 definition '*p = 5', which is what we use as CURRDEF.  */
+      found = false;
+      new_currdef = currdef;
+      while (!found && new_currdef)
+	{
+	  if (ref_var (new_currdef) == var
+	      || ref_var (new_currdef) == alias_leader (var)
+	      || may_alias_p (ref_var (new_currdef), var))
+	    found = true;
+	  else
+	    new_currdef = imm_reaching_def (new_currdef);
+	}
+
+      /* If we didn't find a matching definition, it means that no
+	 definition in the def-def chain affects this use of VAR, so we can
+	 just return.  */
+      if (!found)
+	return;
+
+      currdef = new_currdef;
 
       /* Set up a def-use chain between CURRDEF (the immediately
 	reaching definition for REF) and REF.  Each definition may
@@ -870,100 +778,16 @@ set_ssa_links (ref, var, alias_ix)
 	 variables referenced in BB.  */
       save_chain[ref_id (ref)] = currdef;
 
-      /* Set a def-def link for partial definitions.  */
-      if (is_partial_ref (ref))
+      /* If VAR is aliased, set a def-def link to the current definition for
+	 the alias leader of the set.  */
+      if (alias_leader (var) && ref != currdef)
 	set_imm_reaching_def (ref, currdef);
 
-      /* Similarly, if VAR is one of the aliases for REF's variable then
-	 this definition is a non-killing definition for VAR.  Set up in
-	 position ALIAS_IX of the ALIAS_IMM_RDEFS array a def-def link
-         between this definition and VAR's current reaching definition.  */
-      if (alias_ix >= 0)
-	set_alias_imm_reaching_def (ref, alias_ix, currdef);
-
-      /* Finally, set REF to be the new CURRDEF for VAR.  */
+      /* Finally, set REF to be the new CURRDEF for VAR.  If VAR is
+	 aliased, then this becomes CURRDEF for the whole alias set of VAR.
+	 In which case this will set CURRDEF for the alias leader.  */
       set_currdef_for (var, ref);
     }
-}
-
-
-/* Set MAY_RDEF to be the immediate reaching definition for the Ith alias
-   of REF.  */
-
-static void
-set_alias_imm_reaching_def (ref, i, may_rdef)
-     tree_ref ref;
-     size_t i;
-     tree_ref may_rdef;
-{
-#if defined ENABLE_CHECKING
-  if (i > num_may_alias (ref_var (ref)))
-    abort ();
-#endif
-
-  /* Create the array the first time.  */
-  if (ref->vref.alias_imm_rdefs == NULL)
-    {
-      tree var = ref_var (ref);
-      size_t num = num_may_alias (var);
-      size_t size = sizeof (tree_ref *) * num;
-
-      ref->vref.alias_imm_rdefs = (tree_ref *) ggc_alloc (size);
-      memset ((void *) ref->vref.alias_imm_rdefs, 0, size);
-
-      dfa_counts.num_alias_imm_rdefs += num;
-
-      /* Adjust the may-alias array for the variable.  */
-      VARRAY_GROW (tree_annotation (var)->may_aliases, num);
-    }
-
-  ref->vref.alias_imm_rdefs[i] = may_rdef;
-}
-
-
-/* Create a default definition for VAR.  This is called when the SSA
-   builder needs to get the current reaching definition for a PHI node or a
-   V_USE reference and finds it to be NULL.  In the case of a V_USE
-   reference, this means that the variable may be used uninitialized.
-
-   If the variable is static and DECL_INITIAL is set, then an initializing
-   definition is created.  This makes a difference when doing constant
-   propagation.  If we are initializing a read-only static variable, then
-   we can assume that DECL_INITIAL will be the constant value for the
-   variable.  */
-
-static tree_ref
-create_default_def (var)
-     tree var;
-{
-  basic_block decl_bb;
-  tree_ref def;
-  size_t i;
-  unsigned mod;
-
-  decl_bb = ENTRY_BLOCK_PTR->succ->dest;
-
-  if (TREE_STATIC (var) && DECL_INITIAL (var))
-    mod = TRM_INITIAL;
-  else
-    mod = TRM_DEFAULT;
-
-  /* Create a default definition and set it to be CURRDEF(var).  */
-  def = create_ref (var, V_DEF, mod, decl_bb, NULL, 0);
-  add_ref_to_list_begin (bb_refs (decl_bb), def);
-  set_currdef_for (var, def);
-
-  /* Reallocate the SAVE_CHAIN array to accomodate the new reference.  */
-  save_chain = (tree_ref *) xrealloc (save_chain, 
-                                      next_tree_ref_id * sizeof (tree_ref));
-  save_chain[ref_id (def)] = NULL;
-
-  /* Set SSA links for the new definition.  */
-  set_ssa_links (def, var, -1);
-  for (i = 0; i < num_may_alias (var); i++)
-    set_ssa_links (def, may_alias (var, i), i);
-
-  return def;
 }
 
 
@@ -1034,4 +858,46 @@ remove_annotations_r (tp, walk_subtrees, data)
 {
   (*tp)->common.ann = NULL;
   return NULL_TREE;
+}
+
+
+/* Return the current definition for variable V.  If V is aliased, return
+   the current definition for V's alias leader (i.e., the variable that
+   represents the alias set to which V belongs).  */
+
+static inline tree_ref
+currdef_for (v)
+     tree v;
+{
+  if (alias_leader (v))
+    v = alias_leader (v);
+
+  return tree_annotation (v) ? tree_annotation (v)->currdef : NULL;
+}
+
+
+/* Set DEF to be the current definition for variable V.  If V is aliased,
+   set the current definition for V's alias leader (i.e., the variable that
+   represents the alias set to which V belongs).  */
+
+static inline void
+set_currdef_for (v, def)
+     tree v;
+     tree_ref def;
+{
+  tree_ann ann;
+#if defined ENABLE_CHECKING
+  if (TREE_CODE_CLASS (TREE_CODE (v)) != 'd'
+      && TREE_CODE (v) != INDIRECT_REF)
+    abort ();
+
+  if (def && ref_type (def) != V_DEF && ref_type (def) != V_PHI)
+    abort ();
+#endif
+
+  if (alias_leader (v))
+    v = alias_leader (v);
+
+  ann = tree_annotation (v) ? tree_annotation (v) : create_tree_ann (v);
+  ann->currdef = def;
 }

@@ -351,7 +351,8 @@ visit_phi_node (phi_node)
 	    
 	    rdef = phi_arg_def (arg);
 
-	    if (is_killing_def (rdef, phi_node))
+	    if (is_killing_def (rdef, ref_var (phi_node))
+		&& !is_volatile_ref (rdef))
 	      {
 		value rdef_val;
 
@@ -730,9 +731,7 @@ initialize ()
   /* Build an edge list from the CFG.  */
   edges = create_edge_list ();
 
-  /* Initialize the values array with everything as undefined, with the
-     exception of default definitions for incoming arguments.  Those must
-     be set to varying because we cannot assume anything about them.  */
+  /* Initialize the values array with everything as undefined.  */
   values = (value *) xmalloc (next_tree_ref_id * sizeof (value));
   for (i = 0; i < num_referenced_vars; i++)
     {
@@ -747,19 +746,12 @@ initialize ()
 	  values[id].lattice_val = UNDEFINED;
 	  values[id].const_value = NULL_TREE;
 
-	  /* Default definitions for incoming parameters and global
-	     variables should be considered varying.  */
-	  if ((TREE_CODE (var) == PARM_DECL
-	       || decl_function_context (get_base_symbol (var)) == NULL)
-	      && is_default_def (r))
-	    values[id].lattice_val = VARYING;
-
 	  /* If this reference is the declaration of a static variable, set
 	     its lattice value to VARYING.  Static initializers are only
 	     executed the first time the function is called.  We could
 	     assume them constant if there are no other definitions to the
 	     variable in the function, but that hardly seems worth it.  */
-	  else if (is_initializing_def (r))
+	  if (is_initializing_def (r))
 	    {
 	      values[id].lattice_val = VARYING;
 
@@ -914,7 +906,9 @@ replace_uses_in (stmt)
       /* We are only interested in killing definitions.  If we are reached
 	 by a definition of a may-alias of USE's var, we can't assume
 	 anything about it.  */
-      if (!is_killing_def (rdef, use))
+      if (rdef == NULL
+	  || !is_killing_def (rdef, ref_var (use))
+	  || is_volatile_def (rdef))
 	continue;
 
       rdef_id = ref_id (rdef);

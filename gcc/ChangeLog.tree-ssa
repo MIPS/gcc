@@ -1,3 +1,58 @@
+2002-11-27  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-dfa.c (add_may_alias): Remove.  Update all users.
+	(get_alias_index): Remove.  Update all users.
+	(dfa_stats_d): Remove fields num_may_alias, max_num_may_alias,
+	num_alias_imm_rdefs and max_num_alias_imm_rdefs.  Update all users.
+	(may_alias_p): Make extern.  Move declaration to tree-flow.h.
+	(TRM_DEFAULT): Remove.  Update all users.  Update values of the
+	other TRM_* constants.
+	(create_ref): Don't initialize the PHI argument array with the
+	number of incoming edges.
+	(collect_dfa_stats): Do not traverse the function body with
+	walk_tree.
+	Free temporary hash table before returning.
+	(compute_may_aliases): Update comment.
+	(may_alias_p): Switch arguments if the first argument is not an
+	INDIRECT_PTR or the artificial global_var.
+	(find_may_aliases_for): If a pointer aliases a variable, set the
+	pointer to be the alias leader for the variable.
+	(ref_defines): Call may_alias_p.
+	(is_killing_def): Return false if the reaching definition is NULL.
+	Don't check for volatile definitions.
+	Change second argument to be a tree.  Update all users.
+
+	* tree-flow-inline.h (alias_imm_reaching_def): Remove.  Update all
+	users.
+	(may_alias): Remove.  Update all users.
+	(set_imm_reaching_def): Check for circularity.
+	(alias_leader): New function.
+	(set_alias_leader): New function.
+	(is_aliased): New function.
+	(is_default_def): Remove.  Update all users.
+
+	* tree-flow.h (struct var_ref_d): Remove field alias_imm_rdefs.
+	Update all users.
+	(struct var_def_d): Remove field m_default.  Update all users.
+	(struct tree_ann_d): Remove field may_aliases.  Update all users.
+	Add field alias_leader.
+	(struct dfa_counts_d): Remove fields num_may_alias and
+	num_may_alias_imm_rdefs.  Update all users.
+
+	* tree-ssa.c: Update documentation on may-alias processing.
+	(set_ssa_links): Remove third argument.  Update all users.
+	(set_alias_imm_reaching_def): Remove.  Update all users.
+	(create_default_def): Likewise.
+	(analyze_rdefs): Likewise.
+	(currdef_for): Move from tree-flow-inline.h
+	(set_currdef_for): Likewise.
+	(compute_reaching_defs): Rename from compute_tree_rdefs.  Update
+	all users.
+	(follow_chain): Call is_killing_def instead of is_partial_def.
+	(tree_ssa_remove_phi_alternative): Remove unused variable ref.
+	(set_ssa_links): When processing V_USE references, make sure that
+	CURRDEF is a definition for the variable or one of its aliases.
+
 2002-11-26  Sebastian Pop  <s.pop@laposte.net>
 
 	* Makefile.in (OBJS): Add tree-browser.o.

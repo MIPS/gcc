@@ -69,7 +69,6 @@ enum tree_ref_type {
 };
 
 /* Tree reference modifier bitmasks.  Used when calling create_ref.  */
-extern const unsigned TRM_DEFAULT;
 extern const unsigned TRM_CLOBBER;
 extern const unsigned TRM_MAY;
 extern const unsigned TRM_PARTIAL;
@@ -120,8 +119,7 @@ struct tree_ref_common GTY(())
      node or an expression (in the case of E_* references).  */
   tree var;
 
-  /* Statement containing the reference.  Maybe NULL for special references
-     (e.g., default definitions inserted at the start of every function).  */
+  /* Statement containing the reference.  Maybe NULL.  */
   tree * GTY((skip (""))) stmt_p;
 
   /* Basic block containing the reference.  */
@@ -171,26 +169,12 @@ struct var_ref_d GTY(())
      to both variable definitions and uses because we are interested in
      building def-def chains (for non-killing definitions).  */
   union tree_ref_d *imm_rdef;
-
-  /* Immediate reaching definitions for all the may-aliases of this
-     reference.  This array is setup so that the Ith entry corresponds to
-     the Ith alias of the variable associated to this reference (i.e., this
-     is the Ith entry of the array MAY_ALIASES in struct tree_ann_d).  */
-  union tree_ref_d ** GTY((length ("VARRAY_SIZE (%h.common.var->common.ann->may_aliases)"))) alias_imm_rdefs;
 };
 
 /* Variable definitions.  */
 struct var_def_d GTY(())
 {
   struct var_ref_d common;
-
-  /* M_DEFAULT is used to modify V_DEF references to indicate a default
-     definition.  Default definitions are artificially created in the first
-     basic block of the program.  They provide a convenient way of checking
-     if a variable is used without being assigned a value first.  Their
-     presence is not required, but they save the code from having to
-     consider special cases like nil PHI node arguments.  */
-  unsigned m_default : 1;
 
   /* M_CLOBBER is used to modify V_DEF references to represent an unknown
      modification to the associated variable.  This is used for
@@ -388,7 +372,6 @@ static inline ref_list imm_uses			PARAMS ((tree_ref));
 static inline ref_list reached_uses		PARAMS ((tree_ref));
 static inline tree_ref imm_reaching_def		PARAMS ((tree_ref));
 static inline void set_imm_reaching_def		PARAMS ((tree_ref, tree_ref));
-static inline tree_ref alias_imm_reaching_def	PARAMS ((tree_ref, size_t));
 static inline ref_list reaching_defs		PARAMS ((tree_ref));
 static inline varray_type phi_args		PARAMS ((tree_ref));
 static inline unsigned int num_phi_args		PARAMS ((tree_ref));
@@ -406,7 +389,6 @@ static inline bool is_partial_use		PARAMS ((tree_ref));
 static inline bool is_volatile_ref		PARAMS ((tree_ref));
 static inline bool is_volatile_def		PARAMS ((tree_ref));
 static inline bool is_volatile_use		PARAMS ((tree_ref));
-static inline bool is_default_def		PARAMS ((tree_ref));
 static inline bool is_clobbering_def		PARAMS ((tree_ref));
 static inline bool is_initializing_def		PARAMS ((tree_ref));
 static inline bool is_relocating_def		PARAMS ((tree_ref));
@@ -495,8 +477,12 @@ struct tree_ann_d GTY(())
   /* Flags used to mark optimization-dependent state.  See TF_* below.  */
   HOST_WIDE_INT flags;
 
-  /* Set of variables that may be aliases of this variable.  */
-  varray_type may_aliases;
+  /* Alias leader.  This variable represents a set of aliases.  When any
+     variable in the set is defined, so is the alias leader.  This allows
+     the SSA builder to keep def-def links for an alias set so that
+     reaching definition computation can get to all the relevant
+     definitions.  */
+  tree alias_leader;
 };
 
 typedef struct tree_ann_d *tree_ann;
@@ -517,8 +503,6 @@ enum tree_flags
 static inline tree_ann tree_annotation	PARAMS ((tree));
 static inline basic_block bb_for_stmt	PARAMS ((tree));
 extern void set_bb_for_stmt      	PARAMS ((tree, basic_block));
-static inline tree_ref currdef_for	PARAMS ((tree));
-static inline void set_currdef_for	PARAMS ((tree, tree_ref));
 static inline ref_list tree_refs	PARAMS ((tree));
 static inline void add_tree_ref		PARAMS ((tree, tree_ref));
 static inline void remove_tree_ref	PARAMS ((tree, tree_ref));
@@ -529,8 +513,9 @@ static inline void reset_tree_flags	PARAMS ((tree));
 static inline tree indirect_var		PARAMS ((tree));
 static inline void set_indirect_var	PARAMS ((tree, tree));
 static inline tree create_indirect_ref	PARAMS ((tree));
-static inline tree may_alias		PARAMS ((tree, size_t));
-static inline size_t num_may_alias	PARAMS ((tree));
+static inline tree alias_leader		PARAMS ((tree));
+static inline void set_alias_leader	PARAMS ((tree, tree));
+static inline bool is_aliased		PARAMS ((tree));
 static inline int get_lineno		PARAMS ((tree));
 static inline const char *get_filename	PARAMS ((tree));
 static inline bool is_exec_stmt		PARAMS ((tree));
@@ -576,8 +561,6 @@ bb_empty_p (b)
 struct dfa_counts_d
 {
   unsigned long num_phi_args;
-  unsigned long num_may_alias;
-  unsigned long num_alias_imm_rdefs;
 };
 
 
@@ -704,19 +687,18 @@ static inline tree_ref get_first_ref	PARAMS ((ref_list));
 static inline bool ref_list_is_empty	PARAMS ((ref_list));
 extern const char *ref_type_name	PARAMS ((tree_ref));
 extern bool ref_defines			PARAMS ((tree_ref, tree));
-extern bool is_killing_def		PARAMS ((tree_ref, tree_ref));
-extern int get_alias_index		PARAMS ((tree, tree));
+extern bool is_killing_def		PARAMS ((tree_ref, tree));
 extern enum tree_ref_structure_enum tree_ref_structure PARAMS ((tree_ref));
 extern void remove_decl			PARAMS ((tree));
 extern tree * find_decl_location	PARAMS ((tree, tree));
 extern tree_ref output_ref		PARAMS ((tree));
+extern bool may_alias_p			PARAMS ((tree, tree));
 
 
 /* In tree-ssa.c  */
 extern void build_tree_ssa		PARAMS ((tree));
 extern void delete_tree_ssa		PARAMS ((tree));
-extern void compute_tree_rdefs		PARAMS ((void));
-extern void analyze_rdefs		PARAMS ((void));
+extern void compute_reaching_defs	PARAMS ((void));
 extern void tree_ssa_remove_phi_alternative PARAMS ((tree_ref, basic_block));
 extern void dump_reaching_defs		PARAMS ((FILE *));
 extern void debug_reaching_defs		PARAMS ((void));

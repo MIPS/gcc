@@ -320,8 +320,7 @@ okay_injuring_def (inj, var)
      tree_ref inj;
      tree var;
 {
-  if (is_default_def (inj) 
-      || ref_type (inj) == V_PHI
+  if (ref_type (inj) == V_PHI
       || ref_defines (inj, var)
       || !maybe_find_rhs_use_for_var (inj, var))
     return false;
@@ -2296,8 +2295,7 @@ repair_injury (ei, use, temp, orig_euse)
 
 	  /* If this isn't a def of *this* variable, ignore it, since it can't
 	   *possibly* injure it. */
-	  if (is_default_def (v) 
-	      || htab_find (ei->repaired, ref_stmt (v))
+	  if (htab_find (ei->repaired, ref_stmt (v))
 	      || !ref_defines (find_def_for_stmt (ref_stmt (v)), 
 			       TREE_OPERAND (ei->expr, i)))
 
@@ -3126,8 +3124,7 @@ process_left_occs_and_kills (bexprs, slot, ref, expr)
 	  if (ei == slot)
 	    continue;
 	  if (TREE_CODE (ei->expr) == INDIRECT_REF)
-	    if (get_alias_index (TREE_OPERAND (ei->expr, 0),
-				 TREE_OPERAND (expr, 0)) >= 0)
+	    if (may_alias_p (TREE_OPERAND (ei->expr, 0), (TREE_OPERAND (expr, 0))))
 	      {
 		VARRAY_PUSH_GENERIC_PTR (ei->lefts, ref->common.stmt_p);
 		VARRAY_PUSH_GENERIC_PTR (ei->kills, NULL);
