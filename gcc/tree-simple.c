@@ -279,14 +279,6 @@ is_gimple_addr_expr_arg (tree t)
 bool
 is_gimple_min_invariant (tree t)
 {
-  tree tmp = t;
-
-  /* FIXME lose the STRIP_NOPS once we are more clever about builtins.  */
-  STRIP_NOPS (tmp);
-  if (TREE_CODE (tmp) == ADDR_EXPR
-      && TREE_CODE (TREE_OPERAND (tmp, 0)) == STRING_CST)
-    return true;
-
   switch (TREE_CODE (t))
     {
     case ADDR_EXPR:

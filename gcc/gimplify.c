@@ -1277,33 +1277,88 @@ canonicalize_component_ref (tree *expr_p)
     }
 }
 
+/* If a NOP conversion is changing a pointer to array of foo to a pointer
+   to foo, embed that change in the ADDR_EXPR.  Lest we perturb the type
+   system too badly, we must take extra steps to ensure that the ADDR_EXPR
+   and the addressed object continue to agree on types.  */
+/* ??? We might could do better if we recognize
+	T array[N][M];
+	(T *)&array
+   ==>
+	&array[0][0];
+*/
+
+static void
+canonicalize_addr_expr (tree* expr_p)
+{
+  tree expr = *expr_p;
+  tree ctype = TREE_TYPE (expr);
+  tree addr_expr = TREE_OPERAND (expr, 0);
+  tree atype = TREE_TYPE (addr_expr);
+  tree dctype, datype, ddatype, otype, obj_expr;
+
+  /* Both cast and addr_expr types should be pointers.  */
+  if (!POINTER_TYPE_P (ctype) || !POINTER_TYPE_P (atype))
+    return;
+
+  /* The addr_expr type should be a pointer to an array.  */
+  datype = TREE_TYPE (atype);
+  if (TREE_CODE (datype) != ARRAY_TYPE)
+    return;
+
+  /* Both cast and addr_expr types should address the same object type.  */
+  dctype = TREE_TYPE (ctype);
+  ddatype = TREE_TYPE (datype);
+  if (TYPE_MAIN_VARIANT (ddatype) != TYPE_MAIN_VARIANT (dctype))
+    return;
+
+  /* The addr_expr and the object type should match.  */
+  obj_expr = TREE_OPERAND (addr_expr, 0);
+  otype = TREE_TYPE (obj_expr);
+  if (TYPE_MAIN_VARIANT (otype) != TYPE_MAIN_VARIANT (datype))
+    return;
+
+  /* All checks succeeded.  Build a new node to merge the cast.  */
+  *expr_p = build1 (ADDR_EXPR, ctype, obj_expr);
+}
+
 /* *EXPR_P is a NOP_EXPR or CONVERT_EXPR.  Remove it and/or other conversions
    underneath as appropriate.  */
 
 static enum gimplify_status
 gimplify_conversion (tree *expr_p)
 {  
-  /* If a NOP conversion is changing the type of a COMPONENT_REF
-     expression, then canonicalize its type now in order to expose more
-     redundant conversions.  */
-  if (TREE_CODE (TREE_OPERAND (*expr_p, 0)) == COMPONENT_REF)
-    canonicalize_component_ref (&TREE_OPERAND (*expr_p, 0));
-
   /* Strip away as many useless type conversions as possible
      at the toplevel.  */
   STRIP_USELESS_TYPE_CONVERSION (*expr_p);
 
   /* If we still have a conversion at the toplevel, then strip
      away all but the outermost conversion.  */
-  if (TREE_CODE (*expr_p) == NOP_EXPR
-      || TREE_CODE (*expr_p) == CONVERT_EXPR)
+  if (TREE_CODE (*expr_p) == NOP_EXPR || TREE_CODE (*expr_p) == CONVERT_EXPR)
     {
       STRIP_SIGN_NOPS (TREE_OPERAND (*expr_p, 0));
 
       /* And remove the outermost conversion if it's useless.  */
-      if (TYPE_MAIN_VARIANT (TREE_TYPE (*expr_p))
-	  == TYPE_MAIN_VARIANT (TREE_TYPE (TREE_OPERAND (*expr_p, 0))))
+      if (tree_ssa_useless_type_conversion (*expr_p))
 	*expr_p = TREE_OPERAND (*expr_p, 0);
+    }
+
+  /* If we still have a conversion at the toplevel,
+     then canonicalize some constructs.  */
+  if (TREE_CODE (*expr_p) == NOP_EXPR || TREE_CODE (*expr_p) == CONVERT_EXPR)
+    {
+      tree sub = TREE_OPERAND (*expr_p, 0);
+
+      /* If a NOP conversion is changing the type of a COMPONENT_REF
+	 expression, then canonicalize its type now in order to expose more
+	 redundant conversions.  */
+      if (TREE_CODE (sub) == COMPONENT_REF)
+	canonicalize_component_ref (&TREE_OPERAND (*expr_p, 0));
+
+      /* If a NOP conversion is changing a pointer to array of foo
+	 to a pointer to foo, embed that change in the ADDR_EXPR.  */
+      else if (TREE_CODE (sub) == ADDR_EXPR)
+	canonicalize_addr_expr (expr_p);
     }
 
   return GS_OK;

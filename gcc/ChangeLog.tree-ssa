@@ -1,3 +1,10 @@
+2003-11-24  Richard Henderson  <rth@redhat.com>
+
+	* gimplify.c (canonicalize_addr_expr): New.
+	(gimplify_conversion): Use it.  Canonicalize after nop cast removal.
+	* tree-simple.c (is_gimple_min_invariant): Remove STRING_CST cast
+	special case.
+
 2003-11-24  Jeff Law  <law@redhat.com>
 
 	* flow.c (count_or_remove_death_notes_bb): New.  Extracted from
