@@ -720,14 +720,6 @@ dump_c_node (buffer, node, spc)
       }
       break;
 
-    case FIX_TRUNC_EXPR:
-    case FIX_CEIL_EXPR:
-    case FIX_FLOOR_EXPR:
-    case FIX_ROUND_EXPR:
-    case FLOAT_EXPR:
-      dump_c_node (buffer, TREE_OPERAND (node, 0), spc);	  
-      break;
-
       /* Unary arithmetic and logic expressions.  */
     case NEGATE_EXPR:
     case BIT_NOT_EXPR:
@@ -819,16 +811,26 @@ dump_c_node (buffer, node, spc)
     case RANGE_EXPR:
       NIY;
 
+    case FIX_TRUNC_EXPR:
+    case FIX_CEIL_EXPR:
+    case FIX_FLOOR_EXPR:
+    case FIX_ROUND_EXPR:
+    case FLOAT_EXPR:
     case CONVERT_EXPR:
     case NOP_EXPR:
       type = TREE_TYPE (node);
-      if (type != TREE_TYPE (TREE_OPERAND (node, 0)))
+      op0 = TREE_OPERAND (node, 0);
+      if (type != TREE_TYPE (op0))
 	{
 	  output_add_character (buffer, '(');
 	  dump_c_node (buffer, type, spc);
 	  output_add_string (buffer, ")");
 	}
-      dump_c_node (buffer, TREE_OPERAND (node, 0), spc);
+      if (op_prio (op0) < op_prio (node))
+	output_add_character (buffer, '(');
+      dump_c_node (buffer, op0, spc);
+      if (op_prio (op0) < op_prio (node))
+	output_add_character (buffer, ')');
       break;
 
     case NON_LVALUE_EXPR:

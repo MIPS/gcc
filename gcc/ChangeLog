@@ -1,5 +1,16 @@
 2002-06-10  Jason Merrill  <jason@redhat.com>
 
+	* c-simplify.c (simplify_switch_stmt): Let simplify_expr handle
+	post-effects.  Reorder.
+	(simplify_if_stmt): Likewise.  Don't build redundant comparison.
+	(simplify_do_stmt, simplify_while_stmt): Likewise.
+	(simplify_for_stmt): Likewise.  Remove POST_P parm.
+	(simplify_stmt): Adjust.
+	(insert_before_first): #if 0, no longer used.
+
+	* c-pretty-print.c (dump_c_node): Print FIX_TRUNC_EXPR, FLOAT_EXPR
+	et al as casts.  Add parens as needed.
+
 	* tree-simple.c (is_union_based_ref): New fn.
 	(is_simple_min_lval): Use it.  Rename from is_simple_arraybase.
 	(is_simple_arrayref): Adjust.  Use loop instead of recursion.

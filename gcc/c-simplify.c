@@ -56,7 +56,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 /* {{{ Local declarations.  */
 
 static void simplify_stmt            PARAMS ((tree));
-static void simplify_for_stmt        PARAMS ((tree, tree *, tree *));
+static void simplify_for_stmt        PARAMS ((tree, tree *));
 static void simplify_while_stmt      PARAMS ((tree, tree *));
 static void simplify_do_stmt         PARAMS ((tree));
 static void simplify_if_stmt         PARAMS ((tree, tree *));
@@ -84,7 +84,6 @@ static void simplify_lvalue_expr     PARAMS ((tree *, tree *, tree *,
 static void make_type_writable       PARAMS ((tree));
 static tree add_tree                 PARAMS ((tree, tree *));
 static tree insert_before_continue   PARAMS ((tree, tree));
-static void insert_before_first      PARAMS ((tree, tree));
 static tree tree_last_decl           PARAMS ((tree));
 static tree convert_to_stmt_chain    PARAMS ((tree, tree));
 static int  stmt_has_effect          PARAMS ((tree));
@@ -218,7 +217,7 @@ simplify_stmt (stmt)
 	  continue;
 	  
 	case FOR_STMT:
-	  simplify_for_stmt (stmt, &pre, &post);
+	  simplify_for_stmt (stmt, &pre);
 	  break;
 	  
 	case WHILE_STMT:
@@ -361,14 +360,12 @@ simplify_stmt (stmt)
 	pre_cond_s;
 	for ( ; cond_s; )
 	  {
-	    post_cond_s;
 	    body;
 	    pre_expr_s;
 	    expr_s;
 	    post_expr_s;
 	    pre_cond_s;
 	  }
-	post_cond_s;
 
     where INIT_S, COND_S and EXPR_S are the simplified versions of INIT,
     COND and EXPR respectively.  PRE_*_S and POST_*_S are the side-effects
@@ -383,21 +380,16 @@ simplify_stmt (stmt)
 
     PRE_P points to the list where side effects that must happen before
 	STMT should be store.  These are all the expressions in
-	FOR_INIT_STMT and the pre side-effects of the loop conditional.
-
-    POST_P points to the list where side effects that must happen after
-	STMT should be stored.  These are the post side effects for the
-	loop conditional.  */
+	FOR_INIT_STMT and the pre side-effects of the loop conditional.  */
 
 static void
-simplify_for_stmt (stmt, pre_p, post_p)
+simplify_for_stmt (stmt, pre_p)
      tree stmt;
      tree *pre_p;
-     tree *post_p;
 {
   int init_is_simple, cond_is_simple, expr_is_simple;
   tree pre_init_s, init_s, post_init_s;
-  tree pre_cond_s, cond_s, post_cond_s;
+  tree pre_cond_s, cond_s;
   tree pre_expr_s, expr_s, post_expr_s;
 
   /* Make sure that the loop body has a scope.  */
@@ -427,7 +419,6 @@ simplify_for_stmt (stmt, pre_p, post_p)
   pre_init_s = NULL_TREE;
   post_init_s = NULL_TREE;
   pre_cond_s = NULL_TREE;
-  post_cond_s = NULL_TREE;
   pre_expr_s = NULL_TREE;
   post_expr_s = NULL_TREE;
 
@@ -440,20 +431,19 @@ simplify_for_stmt (stmt, pre_p, post_p)
 
 					pre_init_s;
 					init_s;
-					post_cond_s;
+					post_init_s;
 					pre_cond_s;
 	for (init; cond; ...)		for ( ; cond_s; ...)
 
      FIXME: Since FOR_INIT_STMT can be a COMPOUND_EXPR, it should be possible
-	    to emit PRE_INIT_S, INIT_S, POST_COND_S and PRE_COND_S into a
+	    to emit PRE_INIT_S, INIT_S, POST_INIT_S and PRE_COND_S into a
 	    COMPOUND_EXPR inside FOR_INIT_STMT.  However, this is not
 	    possible if any of these elements contains statement trees.  */
   simplify_expr (&init_s, &pre_init_s, &post_init_s, is_simple_expr, stmt);
 
   /* Simplify FOR_COND.  */
   if (!cond_is_simple)
-    simplify_expr (&cond_s, &pre_cond_s, &post_cond_s, is_simple_condexpr,
-	           stmt);
+    simplify_expr (&cond_s, &pre_cond_s, NULL, is_simple_condexpr, stmt);
 
   /* Simplify the body of the loop.  */
   simplify_stmt (FOR_BODY (stmt));
@@ -474,14 +464,12 @@ simplify_for_stmt (stmt, pre_p, post_p)
 	pre_cond_s;
 	for ( ; cond_s; )
 	  {
-	    post_cond_s;
 	    body;
 	    pre_expr_s;
 	    expr_s;
 	    post_expr_s;
 	    pre_cond_s;
 	  }
-	post_cond_s;
 
      The above is the more general case, which produces a for() loop that
      doesn't resemble the original.  To minimize shape changes, we try to
@@ -527,17 +515,7 @@ simplify_for_stmt (stmt, pre_p, post_p)
     }
 
   /* Build the new FOR_COND.  */
-  {
-    FOR_COND (stmt) = cond_s;
-
-    /* Insert one copy of POST_COND_S in the loop body and another copy in
-       POST_P.  */
-    insert_before_first (convert_to_stmt_chain (deep_copy_list (post_cond_s),
-					        stmt),
-			 FOR_BODY (stmt));
-    add_tree (post_cond_s, post_p);
-  }
-
+  FOR_COND (stmt) = cond_s;
 
   /* Link PRE_EXPR_S, EXPR_S, POST_EXPR_S and a copy of PRE_COND_S to emit
      before every wrap-around point inside the loop body.  If the last tree
@@ -596,22 +574,18 @@ simplify_for_stmt (stmt, pre_p, post_p)
     into
 
 	pre_cond_s;
-	T = cond_s;
-	post_cond_s;
-    	while (T)
+    	while (cond_s)
 	  {
 	    body;
 	    pre_cond_s;
-	    T = cond_s;
-	    post_cond_s;
 	  }
 
     where COND_S is the simplified version of the loop predicate.
-    PRE_COND_S and POST_COND_S are the pre and post side-effects produced
-    by the simplification of the conditional.
+    PRE_COND_S are the pre side-effects produced by the simplification of
+    the conditional.
     
-    Both PRE and POST side-effects will be replicated at every wrap-around
-    point inside the loop's body.
+    These side-effects will be replicated at every wrap-around point inside
+    the loop's body.
 
     The order in which the different pieces are simplified is also
     important.  Simplification should be done in the same order in which
@@ -627,9 +601,7 @@ simplify_while_stmt (stmt, pre_p)
      tree stmt;
      tree *pre_p;
 {
-  tree post, cond_s, stmt_chain;
-
-  post = NULL_TREE;
+  tree cond_s, stmt_chain;
 
   /* Make sure that the loop body has a scope.  */
   tree_build_scope (&WHILE_BODY (stmt));
@@ -642,15 +614,11 @@ simplify_while_stmt (stmt, pre_p)
       return;
     }
     
-  /* Simplify the loop conditional.  Note that we simplify the conditional
-     into a SIMPLE identifier so that the pre and post side-effects of the
-     conditional can be computed before the loop header.  */
+  /* Simplify the loop conditional.  */
   cond_s = WHILE_COND (stmt);
   walk_tree (&cond_s, mostly_copy_tree_r, NULL, NULL);
-  simplify_expr (&cond_s, pre_p, &post, is_simple_id, stmt);
-  WHILE_COND (stmt) = build (NE_EXPR, TREE_TYPE (WHILE_COND (stmt)),
-	                     cond_s, integer_zero_node);
-  add_tree (post, pre_p);
+  simplify_expr (&cond_s, pre_p, NULL, is_simple_condexpr, stmt);
+  WHILE_COND (stmt) = cond_s;
 
   /* Simplify the body of the loop.  */
   simplify_stmt (WHILE_BODY (stmt)); 
@@ -681,17 +649,15 @@ simplify_while_stmt (stmt, pre_p)
 	  {
 	    body;
 	    pre_cond_s;
-	    T = cond_s;
-	    post_cond_s;
 	  }
-    	while (T);
+    	while (cond_s);
 
     where COND_S is the simplified version of the loop predicate.
-    PRE_COND_S and POST_COND_S are the pre and post side-effects produced
-    by the simplification of the conditional.
+    PRE_COND_S are the pre side-effects produced by the simplification of
+    the conditional.
 
-    Both PRE and POST side-effects will be replicated at every wrap-around
-    point inside the loop's body.
+    These side-effects will be replicated at every wrap-around point inside
+    the loop's body.
 
     The order in which the different pieces are simplified is also
     important.  Simplification should be done in the same order in which
@@ -703,7 +669,7 @@ static void
 simplify_do_stmt (stmt)
      tree stmt;
 {
-  tree cond_s, pre_cond_s, post_cond_s, stmt_chain;
+  tree cond_s, pre_cond_s, stmt_chain;
 
   /* Make sure that the loop body has a scope.  */
   tree_build_scope (&DO_BODY (stmt));
@@ -715,21 +681,13 @@ simplify_do_stmt (stmt)
   if (is_simple_condexpr (DO_COND (stmt)))
     return;
 
-  /* Simplify the loop conditional.  Note that we simplify the conditional
-     into a SIMPLE identifier so that the pre and post side-effects of the
-     conditional can be computed before the loop header.  */
+  /* Simplify the loop conditional.  */
   pre_cond_s = NULL;
-  post_cond_s = NULL;
   cond_s = DO_COND (stmt);
   walk_tree (&cond_s, mostly_copy_tree_r, NULL, NULL);
-  simplify_expr (&cond_s, &pre_cond_s, &post_cond_s, is_simple_id, stmt);
-  DO_COND (stmt) = build (NE_EXPR, TREE_TYPE (DO_COND (stmt)), cond_s, 
-                          integer_zero_node);
+  simplify_expr (&cond_s, &pre_cond_s, NULL, is_simple_condexpr, stmt);
+  DO_COND (stmt) = cond_s;
 
-  /* Insert all the side-effects for the conditional before every
-     wrap-around point in the loop body (i.e., before every first-level
-     CONTINUE and before the end of the body).  */
-  add_tree (post_cond_s, &pre_cond_s);
   stmt_chain = convert_to_stmt_chain (deep_copy_list (pre_cond_s), stmt);
   insert_before_continue_end (stmt_chain, DO_BODY (stmt), STMT_LINENO (stmt));
 }
@@ -752,9 +710,7 @@ simplify_do_stmt (stmt)
     into
 
 	pre_cond_s;
-	T = cond_s;
-	post_cond_s;
-    	if (T)
+    	if (cond_s)
 	  {
 	    then_clause;
 	  }
@@ -763,9 +719,8 @@ simplify_do_stmt (stmt)
 	    else_clause;
 	  }
 
-    where COND_S is the simplified version of the predicate. PRE_COND_S and
-    POST_COND_S are the pre and post side-effects produced by the
-    simplification of the conditional.
+    where COND_S is the simplified version of the predicate. PRE_COND_S are
+    the pre side-effects produced by the simplification of the conditional.
 
     The order in which the different pieces are simplified is also
     important.  Simplification should be done in the same order in which
@@ -781,7 +736,7 @@ simplify_if_stmt (stmt, pre_p)
      tree stmt;
      tree *pre_p;
 {
-  tree cond_s, post_cond_s = NULL_TREE;
+  tree cond_s;
 
   /* Make sure each clause is contained inside a scope.  */
   if (THEN_CLAUSE (stmt))
@@ -790,31 +745,14 @@ simplify_if_stmt (stmt, pre_p)
   if (ELSE_CLAUSE (stmt))
     tree_build_scope (&ELSE_CLAUSE (stmt));
       		
-  /* Nothing to do if the condition is simple already.  */
-  if (is_simple_condexpr (IF_COND (stmt)))
+  if (! is_simple_condexpr (IF_COND (stmt)))
     {
-      if (THEN_CLAUSE (stmt))
-	simplify_stmt (THEN_CLAUSE (stmt));
-
-      if (ELSE_CLAUSE (stmt))
-	simplify_stmt (ELSE_CLAUSE (stmt));
-
-      return;
+      /* Simplify the conditional.  */
+      cond_s = IF_COND (stmt);
+      walk_tree (&cond_s, mostly_copy_tree_r, NULL, NULL);
+      simplify_expr (&cond_s, pre_p, NULL, is_simple_condexpr, stmt);
+      IF_COND (stmt) = cond_s;
     }
-
-  /* Simplify the conditional.  Force simplification to produce a SIMPLE
-     identifier so that all the pre and post side-effects for the
-     conditional can be evaluated before the if().  */
-  cond_s = IF_COND (stmt);
-  walk_tree (&cond_s, mostly_copy_tree_r, NULL, NULL);
-  simplify_expr (&cond_s, pre_p, &post_cond_s, is_simple_id, stmt);
-  IF_COND (stmt) = build (NE_EXPR, TREE_TYPE (cond_s), cond_s,
-			  integer_zero_node);
-
-  /* Chain pre and post side-effects together.  Since the simplification of
-     the conditional has produced an identifier, it is safe to emit the
-     side-effects before the if() statement.  */
-  add_tree (post_cond_s, pre_p);
 
   /* Simplify each of the clauses.  */
   if (THEN_CLAUSE (stmt))
@@ -838,16 +776,13 @@ simplify_if_stmt (stmt, pre_p)
     into
 
 	pre_cond_s;
-	T = cond_s;
-	post_cond_s;
-    	switch (T)
+    	switch (cond_s)
 	  {
 	    body;
 	  }
 
-    where COND_S is the simplified version of the predicate. PRE_COND_S and
-    POST_COND_S are the pre and post side-effects produced by the
-    simplification of the conditional.
+    where COND_S is the simplified version of the predicate. PRE_COND_S are
+    the pre side-effects produced by the simplification of the conditional.
     
     The order in which the different pieces are simplified is also
     important.  Simplification should be done in the same order in which
@@ -863,27 +798,12 @@ simplify_switch_stmt (stmt, pre_p)
      tree stmt;
      tree *pre_p;
 {
-  tree post_cond_s;
-
-
-  if (is_simple_val (SWITCH_COND (stmt)))
+  if (!is_simple_val (SWITCH_COND (stmt)))
     {
-      /* Nothing to do.  Simplify the body and return.  */
-      simplify_stmt (SWITCH_BODY (stmt));
-      return;
+      /* Simplify the conditional.  */
+      walk_tree (&SWITCH_COND (stmt), mostly_copy_tree_r, NULL, NULL);
+      simplify_expr (&SWITCH_COND (stmt), pre_p, NULL, is_simple_val, stmt);
     }
-
-  /* Simplify the conditional.  Force simplification to produce a SIMPLE
-     identifier so that all the pre and post side-effects for the
-     conditional can be evaluated before the switch().  */
-  post_cond_s = NULL_TREE;
-  walk_tree (&SWITCH_COND (stmt), mostly_copy_tree_r, NULL, NULL);
-  simplify_expr (&SWITCH_COND (stmt), pre_p, &post_cond_s, is_simple_id, stmt);
-
-  /* Chain pre and post side-effects together.  Since the simplification of
-     the conditional has produced an identifier, it is safe to emit the
-     side-effects before the switch() statement.  */
-  add_tree (post_cond_s, pre_p);
 
   simplify_stmt (SWITCH_BODY (stmt));
 }
@@ -2058,6 +1978,8 @@ insert_before_continue (node, reeval)
 
 /* }}} */
 
+#if 0
+/* unused */
 /** {{{ insert_before_first ()
 
     Insert statement T before the first statement of the compound statement
@@ -2082,7 +2004,7 @@ insert_before_first (t, body)
 }
 
 /* }}} */
-
+#endif
 
 /* Miscellaneous helpers.  */
 
