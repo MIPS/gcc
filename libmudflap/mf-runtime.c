@@ -93,6 +93,11 @@ enum __mf_state __mf_state = inactive;
 struct __mf_dynamic __mf_dynamic;
 #endif
 
+
+static void __mf_sigusr1_respond ();
+
+
+
 /* ------------------------------------------------------------------------ */
 /* Configuration engine */
 
@@ -500,7 +505,6 @@ static void __mf_adapt_cache ();
 static void __mf_unlink_object (__mf_object_tree_t *obj);
 static void __mf_describe_object (__mf_object_t *obj);
 static unsigned __mf_watch_or_not (void *ptr, size_t sz, char flag);
-static void __mf_sigusr1_respond ();
 
 
 /* ------------------------------------------------------------------------ */
@@ -581,10 +585,11 @@ void __mf_check (void *ptr, size_t sz, int type, const char *location)
   uintptr_t ptr_high = CLAMPSZ (ptr, sz);
   struct __mf_cache old_entry = *entry;
 
+  BEGIN_RECURSION_PROTECT;
+
   if (UNLIKELY (__mf_opts.sigusr1_report))
     __mf_sigusr1_respond ();
 
-  BEGIN_RECURSION_PROTECT;
   TRACE ("mf: check ptr=%08lx b=%u size=%lu %s location=`%s'\n",
 	 ptr, entry_idx, sz, (type == 0 ? "read" : "write"), location);
   
@@ -1071,10 +1076,11 @@ __mf_unregister (void *ptr, size_t sz)
 {
   DECLARE (void, free, void *ptr);
 
+  BEGIN_RECURSION_PROTECT;
+
   if (UNLIKELY (__mf_opts.sigusr1_report))
   __mf_sigusr1_respond ();
 
-  BEGIN_RECURSION_PROTECT;
   TRACE ("mf: unregister ptr=%08lx size=%lu\n", ptr, sz);
 
   switch (__mf_opts.mudflap_mode)

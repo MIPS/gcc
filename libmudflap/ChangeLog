@@ -1,5 +1,15 @@
 2003-04-15  Frank Ch. Eigler  <fche@redhat.com>
 
+	* Makefile.am (libmudflap_la_LIBADD): Remove -ldl.
+	* configure.in: Look for uintptr_t and -ldl on target.
+	* mf-runtime.h.in: Adjust uintptr_t declaration logic.
+	* Makefile.in, aclocal.m4, configure, config.h.in: Regenerated.
+	* testsuite/Makefile.in: Regenerated.
+	* mf-runtime.c (__mf_sigusr1_respond): Tweak declaration and calls
+	for better C compliance.
+
+2003-04-15  Frank Ch. Eigler  <fche@redhat.com>
+
 	* mf-hooks.c (MF_VALIDATE_EXTENT): Remove unnecessary reentrancy
 	prevention code.
 	* mf-runtime.c (__mf_set_default_options): Turn off

@@ -21,6 +21,9 @@
 /* Define if you have the <stdint.h> header file.  */
 #undef HAVE_STDINT_H
 
+/* Define if you have the dl library (-ldl).  */
+#undef HAVE_LIBDL
+
 /* Name of package */
 #undef PACKAGE
 

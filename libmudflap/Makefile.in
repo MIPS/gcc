@@ -77,6 +77,7 @@ LN_S = @LN_S@
 MAINT = @MAINT@
 MAKEINFO = @MAKEINFO@
 MF_HAVE_STDINT_H = @MF_HAVE_STDINT_H@
+MF_HAVE_UINTPTR_T = @MF_HAVE_UINTPTR_T@
 OBJDUMP = @OBJDUMP@
 OBJEXT = @OBJEXT@
 PACKAGE = @PACKAGE@
@@ -139,7 +140,7 @@ HOOKOBJS = \
 
 
 libmudflap_la_LDFLAGS = 
-libmudflap_la_LIBADD = $(HOOKOBJS) -ldl
+libmudflap_la_LIBADD = $(HOOKOBJS)
 libmudflap_la_DEPENDENCIES = $(libmudflap_la_LIBADD)
 
 # XXX hack alert
@@ -212,7 +213,7 @@ CCLD = $(CC)
 LINK = $(LIBTOOL) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(LDFLAGS) -o $@
 HEADERS =  $(include_HEADERS)
 
-DIST_COMMON =  ./stamp-h.in ChangeLog Makefile.am Makefile.in \
+DIST_COMMON =  ./stamp-h.in ChangeLog Makefile.am Makefile.in acconfig.h \
 acinclude.m4 aclocal.m4 config.h.in configure configure.in \
 mf-runtime.h.in
 
@@ -258,7 +259,7 @@ $(srcdir)/config.h.in: @MAINTAINER_MODE_TRUE@$(srcdir)/stamp-h.in
 		rm -f $(srcdir)/stamp-h.in; \
 		$(MAKE) $(srcdir)/stamp-h.in; \
 	else :; fi
-$(srcdir)/stamp-h.in: $(top_srcdir)/configure.in $(ACLOCAL_M4) 
+$(srcdir)/stamp-h.in: $(top_srcdir)/configure.in $(ACLOCAL_M4) acconfig.h
 	cd $(top_srcdir) && $(AUTOHEADER)
 	@echo timestamp > $(srcdir)/stamp-h.in 2> /dev/null
 

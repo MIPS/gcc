@@ -59,7 +59,7 @@ $(HOOKOBJS): mf-hooks.c mf-runtime.h mf-impl.h
 	$(LTCOMPILE) -DWRAP_$$hook -c $(srcdir)/mf-hooks.c -o $@
 
 libmudflap_la_LDFLAGS = 
-libmudflap_la_LIBADD = $(HOOKOBJS) -ldl
+libmudflap_la_LIBADD = $(HOOKOBJS)
 libmudflap_la_DEPENDENCIES = $(libmudflap_la_LIBADD)
 
 
