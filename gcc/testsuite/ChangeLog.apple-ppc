@@ -1,3 +1,8 @@
+2004-10-18  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3832999 (fix from mainline)
+	* objc.dg/method-14.m: New test.
+
 2004-10-18  Devang Patel  <dpatel@apple.com>
 
         Radar 3753408
