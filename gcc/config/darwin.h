@@ -810,6 +810,7 @@ SECTION_FUNCTION (objc_cat_inst_meth_section,	\
 SECTION_FUNCTION (objc_selector_refs_section,	\
 		  in_objc_selector_refs,	\
 		  ".objc_message_refs", 1)	\
+/* APPLE LOCAL mainline */			\
 SECTION_FUNCTION (objc_selector_fixup_section,	\
 		  in_objc_selector_fixup,	\
 		  ".section __OBJC, __sel_fixup, regular, no_dead_strip", 1)	\

@@ -219,8 +219,10 @@ extern varray_type varray_init (size_t, enum varray_data_enum, const char *);
 #define VARRAY_EDGE_INIT(va, num, name) \
   va = varray_init (num, VARRAY_DATA_EDGE, name)
 
+/* APPLE LOCAL begin lno */
 #define VARRAY_DG_INIT(va, num, name) \
   va = varray_init (num, VARRAY_DATA_DG, name)
+/* APPLE LOCAL end lno */
 
 #define VARRAY_TREE_PTR_INIT(va, num, name) \
   va = varray_init (num, VARRAY_DATA_TREE_PTR, name)
@@ -307,6 +309,7 @@ extern void varray_underflow (varray_type, const char *, int, const char *)
 #define VARRAY_BB(VA, N)		VARRAY_CHECK (VA, N, bb)
 #define VARRAY_ELT_LIST(VA, N)		VARRAY_CHECK (VA, N, te)
 #define VARRAY_EDGE(VA, N)		VARRAY_CHECK (VA, N, e)
+/* APPLE LOCAL lno */
 #define VARRAY_DG(VA, N)		VARRAY_CHECK (VA, N, dg)
 #define VARRAY_TREE_PTR(VA, N)		VARRAY_CHECK (VA, N, tp)
 
@@ -332,6 +335,7 @@ extern void varray_underflow (varray_type, const char *, int, const char *)
 #define VARRAY_PUSH_CONST_EQUIV(VA, X)	VARRAY_PUSH (VA, const_equiv, X)
 #define VARRAY_PUSH_BB(VA, X)		VARRAY_PUSH (VA, bb, X)
 #define VARRAY_PUSH_EDGE(VA, X)		VARRAY_PUSH (VA, e, X)
+/* APPLE LOCAL lno */
 #define VARRAY_PUSH_DG(VA, X)		VARRAY_PUSH (VA, dg, X)
 #define VARRAY_PUSH_TREE_PTR(VA, X)	VARRAY_PUSH (VA, tp, X)
 
@@ -361,7 +365,7 @@ extern void varray_underflow (varray_type, const char *, int, const char *)
 #define VARRAY_TOP_EDGE(VA)		VARRAY_TOP (VA, e)
 #define VARRAY_TOP_TREE_PTR(VA)		VARRAY_TOP (VA, tp)
 
-
+/* APPLE LOCAL begin lno */
 
 
 static inline int index_in_varray_tree (tree, varray_type);
@@ -417,5 +421,6 @@ int_is_in_varray_int_p (int t,
 {
   return index_in_varray_int (t, vt) != -1;
 }
+/* APPLE LOCAL end lno */
 
 #endif /* ! GCC_VARRAY_H */

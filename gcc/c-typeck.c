@@ -3619,6 +3619,7 @@ convert_for_assignment (tree type, tree rhs, const char *errtype,
 		       || target_cmp)
 		;
 	      /* If there is a mismatch, do warn.  */
+	      /* APPLE LOCAL mainline */
 	      else
 		warn_for_assignment ("pointer targets in %s differ in signedness",
 				     errtype, funname, parmnum);

@@ -2453,6 +2453,7 @@ extern bool expensive_function_p (int);
 /* In tracer.c */
 extern void tracer (void);
 
+/* APPLE LOCAL begin lno */
 /* In loop-unswitch.c  */
 extern rtx reversed_condition (rtx);
 extern rtx compare_and_jump_seq (rtx, rtx, enum rtx_code, rtx, int, rtx);
@@ -2460,6 +2461,7 @@ extern rtx compare_and_jump_seq (rtx, rtx, enum rtx_code, rtx, int, rtx);
 /* In loop-iv.c  */
 extern rtx canon_condition (rtx);
 extern void simplify_using_condition (rtx, rtx *, struct bitmap_head_def *);
+/* APPLE LOCAL end lno */
 
 /* In var-tracking.c */
 extern void variable_tracking_main (void);

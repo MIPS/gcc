@@ -479,10 +479,6 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       /* Silently ignore for now.  */
       break;
 
-    case OPT_Winvalid_offsetof:
-      warn_invalid_offsetof = value;
-      break;
-
     case OPT_Winvalid_pch:
       cpp_opts->warn_invalid_pch = value;
       break;

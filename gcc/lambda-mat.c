@@ -1,3 +1,4 @@
+/* APPLE LOCAL file lno */
 /* Integer matrix math routines
    Copyright (C) 2003, 2004 Free Software Foundation, Inc.
    Contributed by Daniel Berlin <dberlin@dberlin.org>.

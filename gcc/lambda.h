@@ -23,6 +23,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define LAMBDA_H
 
 typedef int *lambda_vector;
+/* APPLE LOCAL begin lno */
 typedef lambda_vector *lambda_matrix;
 
 /* A transformation matrix.  */
@@ -171,6 +172,7 @@ static inline void lambda_vector_clear (lambda_vector, int);
 static inline bool lambda_vector_equal (lambda_vector, lambda_vector, int);
 static inline int lambda_vector_min_nz (lambda_vector, int, int);
 static inline int lambda_vector_first_nz (lambda_vector, int, int);
+/* APPLE LOCAL end lno */
 
 /* Allocate a new vector of given SIZE.  */
 
@@ -180,6 +182,7 @@ lambda_vector_new (int size)
   return ggc_alloc_cleared (size * sizeof(int));
 }
 
+/* APPLE LOCAL begin lno */
 /* Negate vector VEC1 with length SIZE and store it in VEC2.  */
 
 static inline void 
@@ -252,6 +255,7 @@ lambda_vector_zerop (lambda_vector vec1, int size)
       return false;
   return true;
 }
+/* APPLE LOCAL end lno */
 
 /* Clear out vector VEC1 of length SIZE.  */
 
@@ -261,6 +265,7 @@ lambda_vector_clear (lambda_vector vec1, int size)
   memset (vec1, 0, size * sizeof (int));
 }
 
+/* APPLE LOCAL begin lno */
 /* Return true if two vectors are equal.  */
  
 static inline bool
@@ -319,6 +324,7 @@ lambda_vector_matrix_mult (lambda_vector vect, int m, lambda_matrix mat,
     for (j = 0; j < m; j++)
       dest[i] += mat[j][i] * vect[j];
 }
+/* APPLE LOCAL end lno */
 
 
 #endif /* LAMBDA_H  */

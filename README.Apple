@@ -117,7 +117,7 @@ For instance:
 
 	mkdir darwin
 	cd darwin
-	../gcc/configure --prefix=/tmp/testplace
+	../configure --prefix=/tmp/testplace
 	make bootstrap
 	make install
 

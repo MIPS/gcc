@@ -3337,6 +3337,7 @@ loop_invariant_p (const struct loop *loop, rtx x)
 
 	 We don't know the loop bounds here though, so just fail for all
 	 labels.  */
+      /* APPLE LOCAL lno */
       if (flag_unroll_loops)
 	return 0;
       else

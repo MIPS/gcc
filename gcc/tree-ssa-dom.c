@@ -35,6 +35,7 @@ Boston, MA 02111-1307, USA.  */
 #include "function.h"
 #include "diagnostic.h"
 #include "timevar.h"
+/* APPLE LOCAL lno */
 #include "cfgloop.h"
 #include "tree-dump.h"
 #include "tree-flow.h"
@@ -542,11 +543,14 @@ tree_ssa_dominator_optimize (void)
 {
   basic_block bb;
   struct dom_walk_data walk_data;
+  /* APPLE LOCAL lno */
   struct loops *loops;
   unsigned int i;
 
+  /* APPLE LOCAL begin lno */
   /* Compute the natural loops.  */
   loops = loop_optimizer_init (NULL);
+  /* APPLE LOCAL end lno */
 
   for (i = 0; i < num_referenced_vars; i++)
     var_ann (referenced_var (i))->current_def = NULL;
@@ -658,6 +662,7 @@ tree_ssa_dominator_optimize (void)
   /* Remove any unreachable blocks left behind and linearize the CFG.  */
   cleanup_tree_cfg ();
 
+  /* APPLE LOCAL lno */
   loop_optimizer_finalize (loops, NULL);
 
   /* Debugging dumps.  */
@@ -1904,8 +1909,10 @@ simplify_rhs_and_lookup_avail_expr (struct dom_walk_data *walk_data,
 
       /* See if the RHS_DEF_STMT has the same form as our statement.  */
       if (TREE_CODE (rhs_def_stmt) == MODIFY_EXPR
+	  /* APPLE LOCAL begin lno */
 	  && TREE_CODE (TREE_OPERAND (rhs_def_stmt, 1)) == rhs_code
 	  && loop_containing_stmt (rhs_def_stmt) == loop_containing_stmt (stmt))
+	  /* APPLE LOCAL end lno */
 	{
 	  tree rhs_def_operand;
 
@@ -1934,8 +1941,10 @@ simplify_rhs_and_lookup_avail_expr (struct dom_walk_data *walk_data,
 
       /* See if the RHS_DEF_STMT has the same form as our statement.  */
       if (TREE_CODE (rhs_def_stmt) == MODIFY_EXPR
+	  /* APPLE LOCAL begin lno */
 	  && TREE_CODE (TREE_OPERAND (rhs_def_stmt, 1)) == rhs_code
 	  && loop_containing_stmt (rhs_def_stmt) == loop_containing_stmt (stmt))
+	  /* APPLE LOCAL end lno */
 	{
 	  tree rhs_def_rhs = TREE_OPERAND (rhs_def_stmt, 1);
 	  enum tree_code rhs_def_code = TREE_CODE (rhs_def_rhs);

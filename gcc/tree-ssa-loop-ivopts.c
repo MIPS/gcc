@@ -1,3 +1,4 @@
+/* APPLE LOCAL file lno */
 /* Induction variable optimizations.
    Copyright (C) 2003 Free Software Foundation, Inc.
    

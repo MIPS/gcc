@@ -1,3 +1,4 @@
+/* APPLE LOCAL file lno */
 /* Array prefetching.
    Copyright (C) 2004 Free Software Foundation, Inc.
    

@@ -221,6 +221,8 @@ text_section (void)
     {
       in_section = in_text;
       fprintf (asm_out_file, "%s\n", TEXT_SECTION_ASM_OP);
+      /* APPLE LOCAL mainline */
+      /* ASM_OUTPUT_ALIGN (asm_out_file, 2); */
     }
 }
 
@@ -1144,6 +1146,7 @@ assemble_start_function (tree decl, const char *fnname)
 {
   int align;
 
+  /* APPLE LOCAL begin mainlnie */
   if (unlikely_text_section_name)
     free (unlikely_text_section_name);
 
@@ -1154,11 +1157,13 @@ assemble_start_function (tree decl, const char *fnname)
     free (unlikely_section_label);
   unlikely_section_label = xmalloc ((strlen (fnname) + 18) * sizeof (char));
   sprintf (unlikely_section_label, "%s_unlikely_section", fnname);
+  /* APPLE LOCAL end mainline */
 
   /* The following code does not need preprocessing in the assembler.  */
 
   app_disable ();
 
+  /* APPLE LOCAL begin mainline */
   /* Make sure the cold text (code) section is properly aligned.  This
      is necessary here in the case where the function has both hot and
      cold sections, because we don't want to re-set the alignment when the
@@ -1172,6 +1177,7 @@ assemble_start_function (tree decl, const char *fnname)
       unlikely_text_section ();
       assemble_align (FUNCTION_BOUNDARY);
     }
+  /* APPLE LOCAL end mainline */
 
   if (CONSTANT_POOL_BEFORE_FUNCTION)
     output_constant_pool (fnname, decl);
@@ -1232,12 +1238,14 @@ assemble_start_function (tree decl, const char *fnname)
   ASM_OUTPUT_LABEL (asm_out_file, fnname);
 #endif /* ASM_DECLARE_FUNCTION_NAME */
 
+  /* APPLE LOCAL begin mainline */
   if (in_unlikely_text_section ()
       && !unlikely_section_label_printed)
     {
       ASM_OUTPUT_LABEL (asm_out_file, unlikely_section_label);
       unlikely_section_label_printed = true;
     }
+  /* APPLE LOCAL end mainline */
 }
 
 /* Output assembler code associated with defining the size of the
@@ -2999,6 +3007,7 @@ force_const_mem (enum machine_mode mode, rtx x)
   desc->mem = def = gen_rtx_MEM (mode, symbol);
   set_mem_attributes (def, lang_hooks.types.type_for_mode (mode, 0), 1);
   RTX_UNCHANGING_P (def) = 1;
+  /* APPLE LOCAL lno */
   MEM_NOTRAP_P (def) = 1;
 
   /* If we're dropping a label to the constant pool, make sure we

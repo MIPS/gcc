@@ -116,10 +116,12 @@
    program.
 
    Do not define this macro if it does not need to do anything.  */
-			
+
+/* APPLE LOCAL begin mainline */
 #ifndef SUBTARGET_EXTRA_SPECS
 #define SUBTARGET_EXTRA_SPECS
 #endif
+/* APPLE LOCAL end mainline */
 
 #define EXTRA_SPECS							\
   { "cpp_default",		CPP_DEFAULT_SPEC },			\
@@ -1078,8 +1080,10 @@ extern const char *rs6000_warn_altivec_long_switch;
         ((TARGET_SPE && SPE_VECTOR_MODE (MODE))		\
 	 || (TARGET_ALTIVEC && ALTIVEC_VECTOR_MODE (MODE)))
 
+/* APPLE LOCAL begin lno */
 #define UNITS_PER_SIMD_WORD 	\
 	(TARGET_ALTIVEC ? 16 : (TARGET_SPE ? 8 : 0) )
+/* APPLE LOCAL end lno */
 
 /* Value is TRUE if hard register REGNO can hold a value of
    machine-mode MODE.  */

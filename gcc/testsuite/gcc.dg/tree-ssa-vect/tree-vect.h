@@ -1,3 +1,4 @@
+/* APPLE LOCAL file lno */
 /* Check if system supports SIMD */
 #include <signal.h>
 

@@ -644,9 +644,11 @@ You Lose!  You must define PREFERRED_DEBUGGING_TYPE!
 #define VECTOR_MODE_SUPPORTED_P(MODE) 0
 #endif
 
+/* APPLE LOCAL begin lno */
 #ifndef UNITS_PER_SIMD_WORD
 #define UNITS_PER_SIMD_WORD 0
 #endif
+/* APPLE LOCAL end lno */
 
 /* Determine whether __cxa_atexit, rather than atexit, is used to
    register C++ destructors for local statics and global objects.  */

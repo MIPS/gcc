@@ -1,3 +1,4 @@
+/* APPLE LOCAL file driver driver */
 /* Darwin driver program that handles -arch commands and invokes
    appropriate compiler driver. 
    Copyright (C) 2004 Free Software Foundation, Inc.

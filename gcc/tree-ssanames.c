@@ -121,8 +121,10 @@ make_ssa_name (tree var, tree stmt)
 #if defined ENABLE_CHECKING
   if ((!DECL_P (var)
        && TREE_CODE (var) != INDIRECT_REF)
+      /* APPLE LOCAL begin lno */
       || (stmt
 	  && !IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (stmt)))
+      /* APPLE LOCAL end lno */
 	  && TREE_CODE (stmt) != PHI_NODE))
     abort ();
 #endif
@@ -177,8 +179,10 @@ make_ssa_name (tree var, tree stmt)
 void
 release_ssa_name (tree var)
 {
+  /* APPLE LOCAL begin lno */
   if (!var)
     return;
+  /* APPLE LOCAL end lno */
 
   /* release_ssa_name can be called multiple times on a single SSA_NAME.
      However, it should only end up on our free list one time.   We

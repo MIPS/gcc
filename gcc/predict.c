@@ -618,8 +618,10 @@ predict_loops (struct loops *loops_info, bool simpleloops)
       free (bbs);
     }
       
+  /* APPLE LOCAL begin lno */
   if (simpleloops)
     iv_analysis_done ();
+  /* APPLE LOCAL end lno */
 }
 
 /* Statically estimate the probability that a branch will be taken and produce

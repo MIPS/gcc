@@ -229,6 +229,7 @@ DEFPARAM(PARAM_MAX_UNSWITCH_LEVEL,
 	"The maximum number of unswitchings in a single loop",
 	3)
 
+/* APPLE LOCAL begin lno */
 /* This parameter limits the size of loop for that we attempt to
    do doloop optimalization.  We set this quite high so that we do
    not punish unrolled loops.  */
@@ -236,6 +237,7 @@ DEFPARAM(PARAM_MAX_DOLOOP_INSNS,
 	 "max-doloop-insns",
 	 "The maximum number of instructions of loop processed by doloop optimization",
 	 1000)
+/* APPLE LOCAL end lno */
 
 /* The maximum number of iterations of a loop the brute force algorithm
    for analysis of # of iterations of the loop tries to evaluate.  */

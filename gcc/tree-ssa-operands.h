@@ -160,7 +160,7 @@ extern void fini_ssa_operands (void);
 extern void verify_start_operands (tree);
 extern void finalize_ssa_stmt_operands (tree);
 void add_vuse (tree, tree);
-/* APPLE LOCAL AV if-conversion -dpatel  */
+/* APPLE LOCAL AV if-conversion --dpatel  */
 extern void add_vdef (tree, tree);
 extern void get_stmt_operands (tree);
 extern void remove_vuses (tree);

@@ -38,6 +38,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-pass.h"
 #include "flags.h"
 
+/* APPLE LOCAL lno */
 /* A list of dependencies.  */
 
 struct depend
@@ -64,6 +65,7 @@ struct lim_aux_data
 				   the statement is executed if the loop
 				   is entered.  */
 
+  /* APPLE LOCAL begin lno */
   bool sm_done;			/* The store motion for a memory reference in
 				   the statement has already been decided.  */
 
@@ -71,10 +73,12 @@ struct lim_aux_data
 
   struct depend *depends;	/* List of statements that must be moved as
 				   well.  */
+  /* APPLE LOCAL end lno */
 };
 
 #define LIM_DATA(STMT) ((struct lim_aux_data *) (stmt_ann (STMT)->common.aux))
 
+/* APPLE LOCAL begin lno */
 /* Description of a use.  */
 
 struct use
@@ -83,6 +87,7 @@ struct use
   tree stmt;			/* The statement in that it occurs.  */
   struct use *next;		/* Next use in the chain.  */
 };
+/* APPLE LOCAL end lno */
 
 /* Minimum cost of an expensive expression.  */
 #define LIM_EXPENSIVE ((unsigned) PARAM_VALUE (PARAM_LIM_EXPENSIVE))
@@ -173,6 +178,7 @@ movement_possibility (tree stmt)
 
   if (TREE_CODE (lhs) != SSA_NAME
       || tree_could_trap_p (rhs)
+      /* APPLE LOCAL lno */
       || unsafe_memory_access_p (rhs))
     return MOVE_PRESERVE_EXECUTION;
 
@@ -189,6 +195,7 @@ outermost_invariant_loop (tree def, struct loop *loop)
   basic_block def_bb;
   struct loop *max_loop;
 
+  /* APPLE LOCAL lno */
   if (is_gimple_min_invariant (def))
     return superloop_at_depth (loop, 1);
 
@@ -208,6 +215,9 @@ outermost_invariant_loop (tree def, struct loop *loop)
 
   return max_loop;
 }
+
+/* APPLE LOCAL lno */
+/* Removed outermost_invariant_loop_expr */
 
 /* Adds a dependency on DEF to DATA on statement inside LOOP.  If ADD_COST is
    true, add the cost of the computation to the cost in DATA.  */
@@ -235,6 +245,8 @@ add_dependency (tree def, struct lim_aux_data *data, struct loop *loop,
     return true;
 
   if (add_cost
+      /* APPLE LOCAL lno */
+      /* [big comment from mainline removed: "Only add the cost if the statement defining DEF is inside LOOP..." */
       && def_bb->loop_father == loop)
     data->cost += LIM_DATA (def_stmt)->cost;
 
@@ -257,6 +269,7 @@ stmt_cost (tree stmt)
 
   /* Always try to create possibilities for unswitching.  */
   if (TREE_CODE (stmt) == COND_EXPR)
+    /* APPLE LOCAL lno */
     return 20;
 
   lhs = TREE_OPERAND (stmt, 0);
@@ -271,6 +284,7 @@ stmt_cost (tree stmt)
   switch (TREE_CODE (rhs))
     {
     case CALL_EXPR:
+      /* APPLE LOCAL lno */
       /* So should be hoisting calls.  */
 
       /* Unless the call is a builtin_constant_p; this always folds to a
@@ -384,6 +398,7 @@ set_profitable_level (tree stmt)
   set_level (stmt, bb_for_stmt (stmt)->loop_father, LIM_DATA (stmt)->max_loop);
 }
 
+/* APPLE LOCAL begin lno */
 /* Checks whether STMT is a nonpure call.  */
 
 static bool
@@ -395,6 +410,7 @@ nonpure_call_p (tree stmt)
   return (TREE_CODE (stmt) == CALL_EXPR
 	  && TREE_SIDE_EFFECTS (stmt));
 }
+/* APPLE LOCAL end lno */
 
 /* Releases the memory occupied by DATA.  */
 
@@ -575,6 +591,7 @@ move_computations (void)
 
   loop_commit_inserts ();
   rewrite_into_ssa (false);
+  /* APPLE LOCAL begin lno */
   if (bitmap_first_set_bit (vars_to_rename) >= 0)
     {
       /* The rewrite of ssa names may cause violation of loop closed ssa
@@ -582,9 +599,12 @@ move_computations (void)
 	 Information in virtual phi nodes is sufficient for it.  */
       rewrite_into_loop_closed_ssa ();
     }
+  /* APPLE LOCAL end lno */
+
   bitmap_clear (vars_to_rename);
 }
 
+/* APPLE LOCAL begin lno */
 /* Checks whether variable in *INDEX is movable out of the loop passed
    in DATA.  Callback for for_each_index.  */
 
@@ -607,6 +627,8 @@ may_move_till (tree base ATTRIBUTE_UNUSED, tree *index, void *data)
 
   return false;
 }
+
+/* Removed force_move_till_expr */
 
 /* Forces variable in *INDEX to be moved out of the loop passed
    in DATA.  Callback for for_each_index.  */
@@ -912,6 +934,7 @@ determine_lsm_reg (struct loop *loop, edge *exits, unsigned n_exits, tree reg)
 
 /* Checks whether LOOP with N_EXITS exits stored in EXITS is suitable for
    a store motion.  */
+/* APPLE LOCAL end lno */
 
 static bool
 loop_suitable_for_sm (struct loop *loop ATTRIBUTE_UNUSED, edge *exits, unsigned n_exits)

@@ -275,6 +275,7 @@ extern unsigned get_loop_level (const struct loop *);
 /* Loops & cfg manipulation.  */
 extern basic_block *get_loop_body (const struct loop *);
 extern basic_block *get_loop_body_in_dom_order (const struct loop *);
+/* APPLE LOCAL lno */
 extern basic_block *get_loop_body_in_bfs_order (const struct loop *);
 extern edge *get_loop_exit_edges (const struct loop *, unsigned *);
 extern unsigned num_loop_branches (const struct loop *);
@@ -307,8 +308,10 @@ extern unsigned expected_loop_iterations (const struct loop *);
 
 /* Loop manipulation.  */
 extern bool can_duplicate_loop_p (struct loop *loop);
+/* APPLE LOCAL begin lno */
 extern struct loop * duplicate_loop (struct loops *, 
 				     struct loop *, struct loop *);
+/* APPLE LOCAL end lno */
 
 #define DLTHE_FLAG_UPDATE_FREQ	1	/* Update frequencies in
 					   duplicate_loop_to_header_edge.  */
@@ -316,6 +319,7 @@ extern struct loop * duplicate_loop (struct loops *,
 extern int duplicate_loop_to_header_edge (struct loop *, edge, struct loops *,
 					  unsigned, sbitmap, edge, edge *,
 					  unsigned *, int);
+/* APPLE LOCAL lno */
 extern struct loop *loopify (struct loops *, edge, edge, basic_block, bool);
 extern void unloop (struct loops *, struct loop *);
 extern bool remove_path (struct loops *, edge);

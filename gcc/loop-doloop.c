@@ -160,10 +160,12 @@ doloop_valid_p (struct loop *loop, struct niter_desc *desc)
 	 If the absolute increment is not 1, the loop can be infinite
 	 even with LTU/GTU, e.g. for (i = 3; i > 0; i -= 2)
 
+	 APPLE LOCAL begin lno
 	 Note that with LE and GE, the loop behavior is undefined
 	 (C++ standard section 5 clause 5) if an overflow occurs, say
 	 between INT_MAX and INT_MAX + 1.  We thus don't have to worry
 	 about these two cases.
+	 APPLE LOCAL end lno
 
 	 ??? We could compute these conditions at run-time and have a
 	 additional jump around the loop to ensure an infinite loop.
@@ -247,9 +249,11 @@ add_test (rtx cond, basic_block bb, basic_block dest)
   JUMP_LABEL (jump) = label;
 
   /* The jump is supposed to handle an unlikely special case.  */
+  /* APPLE LOCAL begin lno */
   REG_NOTES (jump)
 	  = gen_rtx_EXPR_LIST (REG_BR_PROB,
 			       GEN_INT (0), REG_NOTES (jump));
+  /* APPLE LOCAL end lno */
 
   LABEL_NUSES (label)++;
 
@@ -453,6 +457,7 @@ doloop_optimize (struct loop *loop)
   if (dump_file)
     fprintf (dump_file, "Doloop: Processing loop %d.\n", loop->num);
 
+  /* APPLE LOCAL begin lno */
   /* Ignore large loops.  */
   if (loop->ninsns > (unsigned) PARAM_VALUE (PARAM_MAX_DOLOOP_INSNS))
     {
@@ -461,6 +466,7 @@ doloop_optimize (struct loop *loop)
 		 "Doloop: The loop is too large.\n");
       return false;
     }
+  /* APPLE LOCAL end lno */
 
   iv_analysis_loop_init (loop);
 

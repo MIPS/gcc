@@ -308,9 +308,11 @@ in the following sections.
 -fdump-tree-ssa@r{[}-@var{n}@r{]} -fdump-tree-pre@r{[}-@var{n}@r{]} @gol
 -fdump-tree-ccp@r{[}-@var{n}@r{]} -fdump-tree-dce@r{[}-@var{n}@r{]} @gol
 -fdump-tree-gimple@r{[}-raw@r{]} -fdump-tree-mudflap@r{[}-@var{n}@r{]} @gol
+@c APPLE LOCAL begin lno
 -fdump-tree-scev @r{[}-@var{n}@r{]} @gol
 -fdump-tree-ddall @r{[}-@var{n}@r{]}@gol
 -fdump-tree-elck @r{[}-@var{n}@r{]} @gol
+@c APPLE LOCAL end lno
 -fdump-tree-dom@r{[}-@var{n}@r{]} @gol
 -fdump-tree-dse@r{[}-@var{n}@r{]} @gol
 -fdump-tree-phiopt@r{[}-@var{n}@r{]} @gol
@@ -319,8 +321,10 @@ in the following sections.
 -fdump-tree-nrv @gol
 -fdump-tree-sra@r{[}-@var{n}@r{]} @gol
 -fdump-tree-fre@r{[}-@var{n}@r{]} @gol
+@c APPLE LOCAL begin lno
 -fdump-tree-loop@r{[}-@var{n}@r{]} @gol
 -fdump-tree-vect@r{[}-@var{n}@r{]} @gol
+@c APPLE LOCAL end lno
 -feliminate-dwarf2-dups -feliminate-unused-debug-types @gol
 -feliminate-unused-debug-symbols -fmem-report -fprofile-arcs -ftree-based-profiling @gol
 -frandom-seed=@var{string} -fsched-verbose=@var{n} @gol
@@ -330,7 +334,7 @@ in the following sections.
 -p  -pg  -print-file-name=@var{library}  -print-libgcc-file-name @gol
 -print-multi-directory  -print-multi-lib @gol
 -print-prog-name=@var{program}  -print-search-dirs  -Q @gol
--save-temps  -time }
+-save-temps  -time}
 
 @item Optimization Options
 @xref{Optimize Options,,Options that Control Optimization}.
@@ -3848,6 +3852,7 @@ appending @file{.dce} to the source file name.
 Dump each function after adding mudflap instrumentation.  The file name is
 made by appending @file{.mudflap} to the source file name.
 
+@c APPLE LOCAL begin lno
 @item scev
 @opindex fdump-tree-scev
 Dump the information gathered by the scalar evolution analyzer.
@@ -3863,6 +3868,7 @@ The file name is made by appending @file{.ddall} to the source file name.
 Dump each function after performing checks elimination based on scalar
 evolution informations.  The file name is made by appending
 @file{.elck} to the source file name.
+@c APPLE LOCAL end lno
 
 @item sra
 @opindex fdump-tree-sra
@@ -3900,6 +3906,7 @@ Dump each function after applying the named return value optimization on
 generic trees.  The file name is made by appending @file{.nrv} to the source
 file name.
 
+@c APPLE LOCAL begin lno
 @item loop
 @opindex fdump-tree-loop
 Dump each function after applying tree-level loop optimizations.  The file
@@ -3909,6 +3916,7 @@ name is made by appending @file{.loop} to the source file name.
 @opindex fdump-tree-vect
 Dump each function after applying tree-level loop vectorization.  The file
 name is made by appending @file{.vect} to the source file name.
+@c APPLE LOCAL end lno
 
 @item all
 @opindex fdump-tree-all
@@ -4766,6 +4774,7 @@ effectivity of code motion optimizations.  It also saves one jump.  This flag
 is enabled by default at -O and higher.  It is not enabled for -Os, since it
 usually increases code size.
 
+@c APPLE LOCAL begin lno
 @item -ftree-vectorize
 Perform loop vectorization on trees.  This flag is disabled by
 default.
@@ -4784,6 +4793,7 @@ it is not enabled by default.
 @item -ftree-elim-checks 
 Perform elimination of checks based on scalar evolution informations.
 This flag is disabled by default.  
+@c APPLE LOCAL end lno
 
 @item -ftree-loop-optimize
 Perform loop optimizations on trees.  This flag is enabled by default at -O
@@ -10358,6 +10368,7 @@ This switch enables or disables the generation of floating point
 operations on the general purpose registers for architectures that
 support it.  This option is currently only available on the MPC8540.
 
+@c APPLE LOCAL begin 64-bit
 @item -m32
 @itemx -m64
 @opindex m32
@@ -10368,6 +10379,7 @@ and pointer to 32 bits and generates code that runs on any PowerPC
 variant.  The 64-bit environment sets int to 32 bits and long and
 pointer to 64 bits, and generates code for PowerPC64, as for
 @option{-mpowerpc64}.
+@c APPLE LOCAL end 64-bit
 
 @item -mfull-toc
 @itemx -mno-fp-in-toc

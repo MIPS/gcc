@@ -230,9 +230,11 @@ find_exits (struct loop *loop, basic_block *body,
 	{
 	  FOR_BB_INSNS (body[i], insn)
 	    {
+	      /* APPLE LOCAL begin lno */
 	      if (GET_CODE (insn) == CALL_INSN
 		  && !CONST_OR_PURE_CALL_P (insn))
 		{
+	      /* APPLE LOCAL end lno */
 		  has_call = true;
 		  bitmap_set_bit (may_exit, i);
 		  break;
@@ -524,10 +526,12 @@ find_invariants_bb (basic_block bb, bool always_reached, bool always_executed,
 
       find_invariants_insn (insn, always_reached, always_executed, df);
 
+      /* APPLE LOCAL begin lno */
       if (always_reached
 	  && GET_CODE (insn) == CALL_INSN
 	  && !CONST_OR_PURE_CALL_P (insn))
 	always_reached = false;
+      /* APPLE LOCAL end lno */
     }
 }
 

@@ -1135,8 +1135,10 @@ compute_trg_info (int trg)
   int check_block, update_idx;
   int i, j, k, fst_edge, nxt_edge;
 
+  /* APPLE LOCAL begin lno */
   el.nr_members = 0;
   el.first_member = 0;
+  /* APPLE LOCAL end lno */
 
   /* Define some of the fields for the target bb as well.  */
   sp = candidate_table + trg;

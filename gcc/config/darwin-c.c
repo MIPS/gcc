@@ -534,6 +534,8 @@ static const char *framework_defaults [] =
   {
     "/System/Library/Frameworks",
     "/Library/Frameworks",
+    /* APPLE LOCAL mainline */
+    /* "/Local/Library/Frameworks" */
   };
 
 

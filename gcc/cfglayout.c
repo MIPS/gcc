@@ -1094,6 +1094,7 @@ duplicate_insn_chain (rtx from, rtx to)
    code.  */
 extern basic_block cfg_layout_duplicate_bb (basic_block);
 
+/* APPLE LOCAL lno */
 extern basic_block cfg_layout_duplicate_bb (basic_block);
 basic_block
 cfg_layout_duplicate_bb (basic_block bb)

@@ -46,6 +46,6 @@ int main (void)
   return 0;
 }
 
-/* APPLE LOCAL AV misaligned -haifa  */
+/* APPLE LOCAL AV misaligned --haifa  */
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" } } */
 

@@ -143,7 +143,7 @@ proc gcc_target_compile { source dest type options } {
     if [target_info exists gcc,no_trampolines] {
 	lappend options "additional_flags=-DNO_TRAMPOLINES"
     }
-    if { 1 } {
+    if [target_info exists gcc,no_label_values] {
 	lappend options "additional_flags=-DNO_LABEL_VALUES"
     }
     # TOOL_OPTIONS must come first, so that it doesn't override testcase

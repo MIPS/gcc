@@ -1,4 +1,5 @@
 /* { dg-do compile } */
+/* APPLE LOCAL lno */
 /* { dg-options "-O1 -fdump-tree-dom3 -ftree-loop-optimize" } */
    
 

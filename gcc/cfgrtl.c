@@ -2290,6 +2290,7 @@ purge_dead_edges (basic_block bb)
 
       if (e->flags & EDGE_EH)
 	{
+	  /* APPLE LOCAL begin lno */
 	  if (can_throw_internal (BB_END (bb)))
 	    {
 	      /* If the call was removed/moved somewhere else, cleanup the
@@ -2300,6 +2301,7 @@ purge_dead_edges (basic_block bb)
 
 	      continue;
 	    }
+	  /* APPLE LOCAL end lno */
 	}
       else if (e->flags & EDGE_ABNORMAL_CALL)
 	{

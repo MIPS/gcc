@@ -1,3 +1,4 @@
+/* APPLE LOCAL file lno */
 /* { dg-do compile { target powerpc*-*-* } } */
 /* { dg-do compile { target i?86-*-* x86_64-*-* } } */
 /* { dg-options "-S -O2 -ftree-vectorize -fdump-tree-vect-stats -maltivec" { target powerpc*-*-* } } */

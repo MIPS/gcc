@@ -669,6 +669,7 @@ mmap_gt_pch_use_address (void *base, size_t size, int fd, size_t offset)
 }
 #endif /* HAVE_MMAP_FILE */
 
+/* APPLE LOCAL begin mainline */
 /* Modify the bound based on rlimits.  */
 static double
 ggc_rlimit_bound (double limit)
@@ -701,6 +702,7 @@ ggc_rlimit_bound (double limit)
 
   return limit;
 }
+/* APPLE LOCAL end mainline */
 
 /* Heuristic to set a default for GGC_MIN_EXPAND.  */
 int
@@ -721,6 +723,7 @@ ggc_min_expand_heuristic (void)
   return min_expand;
 }
 
+/* APPLE LOCAL begin mainline */
 /* Heuristic to set a default for GGC_MIN_HEAPSIZE.  */
 int
 ggc_min_heapsize_heuristic (void)
@@ -759,6 +762,7 @@ ggc_min_heapsize_heuristic (void)
 
   return phys_kbytes;
 }
+/* APPLE LOCAL end mainline */
 
 void
 init_ggc_heuristics (void)

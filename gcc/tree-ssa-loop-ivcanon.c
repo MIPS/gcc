@@ -1,3 +1,4 @@
+/* APPLE LOCAL file lno */
 /* Induction variable canonicalization.
    Copyright (C) 2004 Free Software Foundation, Inc.
    

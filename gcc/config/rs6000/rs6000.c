@@ -901,10 +901,12 @@ static const char alt_reg_names[][8] =
 #define TARGET_ASM_UNALIGNED_HI_OP "\t.short\t"
 #undef TARGET_ASM_UNALIGNED_SI_OP
 #define TARGET_ASM_UNALIGNED_SI_OP "\t.long\t"
+/* APPLE LOCAL begin 64-bit */
 #undef TARGET_ASM_UNALIGNED_DI_OP
 #define TARGET_ASM_UNALIGNED_DI_OP "\t.quad\t"
 #undef TARGET_ASM_ALIGNED_DI_OP
 #define TARGET_ASM_ALIGNED_DI_OP "\t.quad\t"
+/* APPLE LOCAL end 64-bit */
 #endif
 #endif
 
@@ -1126,12 +1128,14 @@ rs6000_init_hard_regno_mode_ok (void)
 	rs6000_hard_regno_mode_ok_p[m][r] = true;
 }
 
+/* APPLE LOCAL begin mainline */
 /* If not otherwise specified by a target, make 'long double' equivalent to
    'double'.  */
 
 #ifndef RS6000_DEFAULT_LONG_DOUBLE_SIZE
 #define RS6000_DEFAULT_LONG_DOUBLE_SIZE 64
 #endif
+/* APPLE LOCAL end mainline */
 
 /* Override command line options.  Mostly we process the processor
    type and sometimes adjust other TARGET_ options.  */
@@ -1226,10 +1230,12 @@ rs6000_override_options (const char *default_cpu)
 
   const size_t ptt_size = ARRAY_SIZE (processor_target_table);
 
+  /* APPLE LOCAL begin -mmultiple/-mstring fixme */
   /* Save current -mmultiple/-mno-multiple status.  */
   int multiple = TARGET_MULTIPLE;
   /* Save current -mstring/-mno-string status.  */
   int string = TARGET_STRING;
+  /* APPLE LOCAL end -mmultiple/-mstring fixme */
 
   /* Some OSs don't support saving the high part of 64-bit registers on
      context switch.  Other OSs don't support saving Altivec registers.
@@ -1368,6 +1374,7 @@ rs6000_override_options (const char *default_cpu)
     target_flags |= MASK_STRING;
   /* APPLE LOCAL end Disable string insns with -Os on Darwin (radar 3509006) */
 
+  /* APPLE LOCAL begin -mmultiple/-mstring fixme */
   /* If -mmultiple or -mno-multiple was explicitly used, don't
      override with the processor default */
   if ((target_flags_explicit & MASK_MULTIPLE) != 0)
@@ -1377,6 +1384,7 @@ rs6000_override_options (const char *default_cpu)
      with the processor default.  */
   if ((target_flags_explicit & MASK_STRING) != 0)
     target_flags = (target_flags & ~MASK_STRING) | string;
+  /* APPLE LOCAL end -mmultiple/-mstring fixme */
 
   /* Don't allow -mmultiple or -mstring on little endian systems
      unless the cpu is a 750, because the hardware doesn't support the
@@ -1428,6 +1436,7 @@ rs6000_override_options (const char *default_cpu)
     }
 
   /* Set size of long double */
+  /* APPLE LOCAL mainline */
   rs6000_long_double_type_size = RS6000_DEFAULT_LONG_DOUBLE_SIZE;
   if (rs6000_long_double_size_string)
     {
@@ -1500,8 +1509,10 @@ rs6000_override_options (const char *default_cpu)
 	rs6000_float_gprs = 0;
       if (rs6000_isel_string == 0)
 	rs6000_isel = 0;
+      /* APPLE LOCAL begin mainline */
       if (rs6000_long_double_size_string == 0)
 	rs6000_long_double_type_size = RS6000_DEFAULT_LONG_DOUBLE_SIZE;
+      /* APPLE LOCAL end mainline */
     }
 
   rs6000_always_hint = (rs6000_cpu != PROCESSOR_POWER4
@@ -3423,6 +3434,7 @@ legitimate_lo_sum_address_p (enum machine_mode mode, rtx x, int strict)
 	return false;
       if (GET_MODE_NUNITS (mode) != 1)
 	return false;
+      /* APPLE LOCAL mainline */
       if (GET_MODE_BITSIZE (mode) > 64)
 	return false;
 
@@ -4609,6 +4621,7 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
 		  return;
 		}
 #endif
+	      /* APPLE LOCAL begin 64-bit */
 	      if (mode == DImode)
 		{
 		  emit_insn (gen_macho_high_di (target, operands[1]));
@@ -4619,6 +4632,7 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
 		  emit_insn (gen_macho_high (target, operands[1]));
 		  emit_insn (gen_macho_low (operands[0], target, operands[1]));
 		}
+	      /* APPLE LOCAL end 64-bit */
 	      return;
 	    }
 
@@ -4709,6 +4723,7 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
 			       create_TOC_reference (XEXP (operands[1], 0)));
 	      set_mem_alias_set (operands[1], get_TOC_alias_set ());
 	      RTX_UNCHANGING_P (operands[1]) = 1;
+	      /* APPLE LOCAL lno */
 	      MEM_NOTRAP_P (operands[1]) = 1;
 	    }
 	}
@@ -11895,6 +11910,7 @@ rs6000_split_multireg_move (rtx dst, rtx src)
 			 ? gen_addsi3 (breg, breg, delta_rtx)
 			 : gen_adddi3 (breg, breg, delta_rtx));
 	      src = gen_rtx_MEM (mode, breg);
+	  /* APPLE LOCAL begin mainline */
 	    }
 	  else if (! offsettable_memref_p (src))
 	    {
@@ -11904,6 +11920,7 @@ rs6000_split_multireg_move (rtx dst, rtx src)
 	      newsrc = gen_rtx_MEM (GET_MODE (src), basereg);
 	      MEM_COPY_ATTRIBUTES (newsrc, src);
 	      src = newsrc;
+	  /* APPLE LOCAL end mainline */
 	    }
 
 	  /* We have now address involving an base register only.
@@ -11951,9 +11968,11 @@ rs6000_split_multireg_move (rtx dst, rtx src)
 			   ? gen_addsi3 (breg, breg, delta_rtx)
 			   : gen_adddi3 (breg, breg, delta_rtx));
 	      dst = gen_rtx_MEM (mode, breg);
+	/* APPLE LOCAL begin mainline */
 	    }
 	  else if (! offsettable_memref_p (dst))
 	    abort ();
+	/* APPLE LOCAL end mainline */
 	}
 
       for (i = 0; i < nregs; i++)
@@ -17025,6 +17044,7 @@ symbolic_operand (rtx op)
 #if TARGET_MACHO
 
 static tree branch_island_list = 0;
+/* APPLE LOCAL weak import */
 static int local_label_unique_number = 0;
 
 /* Remember to generate a branch island for far calls to the given
@@ -17084,6 +17104,7 @@ macho_branch_islands (void)
 	fprintf (asm_out_file, "\t.stabd 68,0," HOST_WIDE_INT_PRINT_UNSIGNED "\n",
 		 BRANCH_ISLAND_LINE_NUMBER(branch_island));
 #endif /* DBX_DEBUGGING_INFO || XCOFF_DEBUGGING_INFO */
+      /* APPLE LOCAL begin weak import */
       /* If PIC and the callee has no stub, do an indirect call through a
 	 non-lazy-pointer.  'save_world' expects a parameter in R11;
 	 theh dyld_stub_binding_helper (part of the Mach-O stub
@@ -17137,12 +17158,15 @@ macho_branch_islands (void)
 	}
       else if (flag_pic)
 	{
+	/* APPLE LOCAL end weak import */
 	  strcat (tmp_buf, ":\n\tmflr r0\n\tbcl 20,31,");
 	  strcat (tmp_buf, label);
 	  strcat (tmp_buf, "_pic\n");
 	  strcat (tmp_buf, label);
+	  /* APPLE LOCAL indirect calls in R12 */
 	  strcat (tmp_buf, "_pic:\n\tmflr r12\n");
  
+	  /* APPLE LOCAL indirect calls in R12 */
 	  strcat (tmp_buf, "\taddis r12,r12,ha16(");
 	  strcat (tmp_buf, name_buf);
 	  strcat (tmp_buf, " - ");
@@ -17151,6 +17175,7 @@ macho_branch_islands (void)
  		   
 	  strcat (tmp_buf, "\tmtlr r0\n");
   
+	  /* APPLE LOCAL indirect calls in R12 */
 	  strcat (tmp_buf, "\taddi r12,r12,lo16(");
 	  strcat (tmp_buf, name_buf);
 	  strcat (tmp_buf, " - ");
@@ -17217,6 +17242,7 @@ char *
 output_call (rtx insn, rtx *operands, int dest_operand_number, int cookie_operand_number)
 {
   static char buf[256];
+  /* APPLE LOCAL begin long-branch */
   const char *far_call_instr_str=NULL, *near_call_instr_str=NULL;
   rtx pattern;
 
@@ -17239,13 +17265,15 @@ output_call (rtx insn, rtx *operands, int dest_operand_number, int cookie_operan
       abort();
       break;
     }
+    /* APPLE LOCAL end long-branch */
 
   if (GET_CODE (operands[dest_operand_number]) == SYMBOL_REF
       && (INTVAL (operands[cookie_operand_number]) & CALL_LONG))
     {
       tree labelname;
       tree funname = get_identifier (XSTR (operands[dest_operand_number], 0));
-      
+
+      /* APPLE LOCAL begin long-branch */
       /* This insn represents a prologue or epilogue.  */
       if ((pattern != NULL_RTX) && GET_CODE (pattern) == PARALLEL)
 	{
@@ -17265,6 +17293,7 @@ output_call (rtx insn, rtx *operands, int dest_operand_number, int cookie_operan
 	      break;
 	    }
 	}
+	/* APPLE LOCAL end long-branch */
 
       if (no_previous_def (funname))
 	{
@@ -17356,6 +17385,7 @@ machopic_output_stub (FILE *file, const char *symb, const char *stub)
   machopic_lazy_symbol_ptr_section ();
   fprintf (file, "%s:\n", lazy_ptr_name);
   fprintf (file, "\t.indirect_symbol %s\n", symbol_name);
+  /* APPLE LOCAL 64-bit */
   fprintf (file, "%sdyld_stub_binding_helper\n",
 	   (TARGET_64BIT ? DOUBLE_INT_ASM_OP : "\t.long\t"));
 }
@@ -17877,6 +17907,7 @@ rs6000_binds_local_p (tree decl)
    cost has been computed, and false if subexpressions should be
    scanned.  In either case, *TOTAL contains the cost result.  */
 
+/* APPLE LOCAL begin mainline */
 static bool
 rs6000_rtx_costs (rtx x, int code, int outer_code ATTRIBUTE_UNUSED, 
 		  int *total)
@@ -18180,6 +18211,7 @@ rs6000_rtx_costs (rtx x, int code, int outer_code ATTRIBUTE_UNUSED,
 
   return false;
 }
+/* APPLE LOCAL end mainline */
 
 /* A C expression returning the cost of moving data from a register of class
    CLASS1 to one of CLASS2.  */
@@ -18303,6 +18335,7 @@ rs6000_function_value (tree valtype, tree func ATTRIBUTE_UNUSED)
   else
     mode = TYPE_MODE (valtype);
 
+  /* APPLE LOCAL begin mainline (but see <rdar://problems/3761822>) */
   if (SCALAR_FLOAT_TYPE_P (valtype) && TARGET_HARD_FLOAT && TARGET_FPRS)
     regno = FP_ARG_RETURN;
   else if (TREE_CODE (valtype) == COMPLEX_TYPE
@@ -18314,6 +18347,7 @@ rs6000_function_value (tree valtype, tree func ATTRIBUTE_UNUSED)
     regno = ALTIVEC_ARG_RETURN;
   else
     regno = GP_ARG_RETURN;
+  /* APPLE LOCAL end mainline (but see <rdar://problems/3761822>) */
 
   return gen_rtx_REG (mode, regno);
 }

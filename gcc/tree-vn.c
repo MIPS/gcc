@@ -146,6 +146,7 @@ val_expr_pair_hash (const void *p)
    expression, false otherwise.
    P1 and P2 should point to the val_expr_pair_t's to be compared.  */
 
+/* APPLE LOCAL begin mainline */
 static int
 val_expr_pair_expr_eq (const void *p1, const void *p2)
 {
@@ -166,6 +167,7 @@ val_expr_pair_expr_eq (const void *p1, const void *p2)
   
   return true;
 }
+/* APPLE LOCAL end mainline */
 
 
 /* Set the value handle for expression E to value V */

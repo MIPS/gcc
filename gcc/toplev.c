@@ -230,6 +230,13 @@ tree current_function_decl;
    if none.  */
 tree current_function_func_begin_label;
 
+/* APPLE LOCAL begin mainline */
+/* A DECL for the current file-scope context.  When using IMA, this heads a
+   chain of FILE_DECLs; currently only C uses it.  */
+
+tree current_file_decl;
+/* APPLE LOCAL end mainline */
+
 /* Temporarily suppress certain warnings.
    This is set while reading code from a system header file.  */
 
@@ -1816,18 +1823,22 @@ process_options (void)
   if (flag_unroll_all_loops)
     flag_unroll_loops = 1;
 
-  if (flag_loop_optimize2)
+ /* APPLE LOCAL begin lno */ 
+ if (flag_loop_optimize2)
     flag_loop_optimize = 0;
+ /* APPLE LOCAL end lno */
 
   /* Old loop unrolling requires that strength_reduction be on also.  Silently
      turn on strength reduction here if it isn't already on.  Also, the loop
      unrolling code assumes that cse will be run after loop, so that must
      be turned on also.  */
+  /* APPLE LOCAL lno */
   if (flag_unroll_loops)
     {
       flag_strength_reduce = 1;
       flag_rerun_cse_after_loop = 1;
     }
+  /* APPLE LOCAL lno */
   if (flag_peel_loops)
     flag_rerun_cse_after_loop = 1;
 
@@ -2112,6 +2123,7 @@ lang_dependent_init (const char *name)
      provide a dummy function context for them.  */
   init_dummy_function_start ();
   init_expr_once ();
+  /* APPLE LOCAL lno */
   init_set_costs ();
   expand_dummy_function_end ();
 

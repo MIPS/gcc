@@ -29,6 +29,10 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "cfglayout.h"
 #include "output.h"
 
+/* APPLE LOCAL begin lno */
+/* static struct loop * duplicate_loop (struct loops *, struct loop *,
+			   struct loop *);*/
+/* APPLE LOCAL end lno */
 static void duplicate_subloops (struct loops *, struct loop *, struct loop *);
 static void copy_loops_to (struct loops *, struct loop **, int,
 			   struct loop *);
@@ -484,10 +488,12 @@ scale_loop_frequencies (struct loop *loop, int num, int den)
    BRANCH_EDGE (SWITCH_BB) to original destination of LATCH_EDGE.
    Returns newly created loop.  */
 
+/* APPLE LOCAL begin lno */
 struct loop *
 loopify (struct loops *loops, edge latch_edge, edge header_edge, 
 	 basic_block switch_bb, bool redirect_all_edges)
 {
+/* APPLE LOCAL end lno */
   basic_block succ_bb = latch_edge->dest;
   basic_block pred_bb = header_edge->src;
   basic_block *dom_bbs, *body;
@@ -513,10 +519,12 @@ loopify (struct loops *loops, edge latch_edge, edge header_edge,
   loop_redirect_edge (latch_edge, loop->header);
   loop_redirect_edge (BRANCH_EDGE (switch_bb), succ_bb);
 
+  /* APPLE LOCAL begin lno */
   /* During loop versioning, one of the switch_bb edge is already properly
      set. Do not redirect it again unless redirect_all_edges is true.  */
   if (redirect_all_edges)
     {
+  /* APPLE LOCAL end lno */
       loop_redirect_edge (header_edge, switch_bb);
       loop_redirect_edge (FALLTHRU_EDGE (switch_bb), loop->header); 
      
@@ -704,6 +712,7 @@ place_new_loop (struct loops *loops, struct loop *loop)
 
 /* Copies copy of LOOP as subloop of TARGET loop, placing newly
    created loop into LOOPS structure.  */
+/* APPLE LOCAL lno */
 struct loop *
 duplicate_loop (struct loops *loops, struct loop *loop, struct loop *target)
 {
@@ -982,8 +991,10 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e, struct loops *loops,
       /* Copy bbs.  */
       copy_bbs (bbs, n, new_bbs, spec_edges, 2, new_spec_edges, loop);
 
+      /* APPLE LOCAL begin lno */
       for (i = 0; i < n; i++)
 	new_bbs[i]->rbi->copy_number = j + 1;
+      /* APPLE LOCAL end lno */
 
       /* Note whether the blocks and edges belong to an irreducible loop.  */
       if (add_irreducible_flag)
@@ -1063,6 +1074,7 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e, struct loops *loops,
       int n_dom_bbs,j;
 
       bb = bbs[i];
+      /* APPLE LOCAL lno */
       bb->rbi->copy_number = 0;
 
       n_dom_bbs = get_dominated_by (CDI_DOMINATORS, bb, &dom_bbs);

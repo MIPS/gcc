@@ -491,6 +491,7 @@ java_init_decl_processing (void)
 
   /* Define these next since types below may used them.  */
   integer_type_node = java_type_for_size (INT_TYPE_SIZE, 0);
+  /* APPLE LOCAL lno */
   long_integer_type_node = java_type_for_size (LONG_TYPE_SIZE, 0);
   integer_zero_node = build_int_2 (0, 0);
   integer_one_node = build_int_2 (1, 0);

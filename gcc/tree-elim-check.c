@@ -1,3 +1,4 @@
+/* APPLE LOCAL file lno */
 /* Elimination of redundant checks.
    Copyright (C) 2004 Free Software Foundation, Inc.
    Contributed by Sebastian Pop <sebastian.pop@cri.ensmp.fr>

@@ -99,6 +99,9 @@ should_duplicate_loop_header_p (basic_block header, struct loop *loop,
   return true;
 }
 
+/* APPLE LOCAL lno */
+/* Removed mark_defs_for_rewrite */
+
 /* Checks whether LOOP is a do-while style loop.  */
 
 static bool
@@ -131,11 +134,13 @@ copy_loop_headers (void)
   unsigned i;
   struct loop *loop;
   basic_block header;
+  /* APPLE LOCAL begin lno */
   edge exit;
   basic_block *bbs;
   unsigned n_bbs;
 
   loops = tree_loop_optimizer_init (dump_file, true);
+  /* APPLE LOCAL end lno */
   if (!loops)
     return;
   
@@ -147,6 +152,7 @@ copy_loop_headers (void)
   verify_loop_structure (loops);
 #endif
 
+  /* APPLE LOCAL lno */
   bbs = xmalloc (sizeof (basic_block) * n_basic_blocks);
 
   for (i = 1; i < loops->num; i++)
@@ -155,6 +161,7 @@ copy_loop_headers (void)
       int limit = 20;
 
       loop = loops->parray[i];
+      /* APPLE LOCAL lno */
       header = loop->header;
 
       /* If the loop is already a do-while style one (either because it was
@@ -164,14 +171,15 @@ copy_loop_headers (void)
       if (do_while_loop_p (loop))
 	continue;
 
+      /* APPLE LOCAL begin lno */
       /* Iterate the header copying up to limit; this takes care of the cases
 	 like while (a && b) {...}, where we want to have both of the conditions
 	 copied.  TODO -- handle while (a || b) - like cases, by not requiring
 	 the header to have just a single successor and copying up to
 	 postdominator.  */
-
       exit = NULL;
       n_bbs = 0;
+
       while (should_duplicate_loop_header_p (header, loop, &limit))
 	{
 	  /* Find a successor of header that is inside a loop; i.e. the new
@@ -212,6 +220,7 @@ copy_loop_headers (void)
 
   free (bbs);
   loop_optimizer_finalize (loops, NULL);
+  /* APPLE LOCAL end lno */
 
   /* Run cleanup_tree_cfg here regardless of whether we have done anything, so
      that we cleanup the blocks created in order to get the loops into a

@@ -219,7 +219,7 @@ static void vect_finish_stmt_generation_in_preheader (tree, struct loop *);
 static tree get_vectype_for_scalar_type (tree);
 static tree vect_get_new_vect_var (tree, enum vect_var_kind, const char *);
 static tree vect_get_vec_def_for_operand (tree, tree);
-/* APPLE LOCAL AV if-conversion -dpatel  */
+/* APPLE LOCAL AV if-conversion --dpatel  */
 static tree vect_init_vector (tree, tree, tree);
 static tree vect_build_symbl_bound (tree n, int vf, struct loop * loop);
 static basic_block vect_gen_if_guard (edge, tree, basic_block, edge);
@@ -971,7 +971,7 @@ vect_create_destination_var (tree scalar_dest, tree vectype)
    Insert a new stmt (INIT_STMT) that initializes a new vector variable with
    the vector elements of VECTOR_VAR. Return the DEF of INIT_STMT. It will be
    used in the vectorization of STMT.  */
-/* APPLE LOCAL AV if-conversion -dpatel  */
+/* APPLE LOCAL AV if-conversion --dpatel  */
 /* Additional vectype parameter.  */
 static tree
 vect_init_vector (tree stmt, tree vector_var, tree vectype)
@@ -980,7 +980,7 @@ vect_init_vector (tree stmt, tree vector_var, tree vectype)
   struct loop *loop = STMT_VINFO_LOOP (stmt_vinfo);
   tree new_var;
   tree init_stmt;
-  /* APPLE LOCAL AV if-conversion -dpatel  */
+  /* APPLE LOCAL AV if-conversion --dpatel  */
   /* Remove local variable vectype.  */
   tree vec_oprnd;
   edge pe;
@@ -1059,7 +1059,7 @@ vect_get_vec_def_for_operand (tree op, tree stmt)
           t = tree_cons (NULL_TREE, op, t);
         }
       vec_cst = build_vector (vectype, t);
-      /* APPLE LOCAL AV if-conversion -dpatel  */
+      /* APPLE LOCAL AV if-conversion --dpatel  */
       return vect_init_vector (stmt, vec_cst, vectype);
     }
 
@@ -1158,7 +1158,7 @@ vect_get_vec_def_for_operand (tree op, tree stmt)
     }
 
   vec_inv = build_constructor (vectype, t);
-  /* APPLE LOCAL AV if-conversion -dpatel  */
+  /* APPLE LOCAL AV if-conversion --dpatel  */
   return vect_init_vector (stmt, vec_inv, vectype);
 }
 
@@ -2701,6 +2701,9 @@ vect_is_supportable_operation (tree operation, tree vectype, struct loop *loop)
       return false;
     }
 
+  /* APPLE LOCAL AV if-conversion */
+  /* STMT_VINFO_TYPE (stmt_info) = op_vec_info_type; */
+
   return true;
 }
 
@@ -3150,7 +3153,7 @@ exist_non_indexing_operands_for_use_p (tree use, tree stmt)
   if (TREE_CODE (operand) != SSA_NAME)
     return false;
 
-  /* APPLE LOCAL begin AV if-conversion -dpatel  */
+  /* APPLE LOCAL begin AV if-conversion --dpatel  */
   if (TREE_CODE (operand) == SSA_NAME && operand == use)
     return true;
 
@@ -3162,7 +3165,7 @@ exist_non_indexing_operands_for_use_p (tree use, tree stmt)
 	    && TREE_OPERAND (operand, i) == use)
 	  return true;
     }
-  /* APPLE LOCAL end AV if-conversion -dpatel  */
+  /* APPLE LOCAL end AV if-conversion --dpatel  */
   return false;
 }
 
@@ -4756,7 +4759,7 @@ vect_analyze_loop_with_symbolic_num_of_iters (tree *symb_num_of_iters,
 	return false;
   
       /* FORNOW: We do not transform initial conditions of IVs 
-	 which evolution functions are a polynomial of degree >= 2 */
+	 which evolution functions are a polynomial of degree >= 2.  */
 
       if (tree_is_chrec (evolution_part))
 	return false;  

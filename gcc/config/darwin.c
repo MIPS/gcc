@@ -295,7 +295,7 @@ static GTY(()) tree machopic_non_lazy_pointers;
    either by finding it in our list of pointer names, or by generating
    a new one.  */
 
-/* APPLE LOCAL weak import */
+/* APPLE LOCAL begin weak import */
 /* machopic_non_lazy_ptr_list_entry separated from machopic_non_lazy_ptr_name */
 static tree
 machopic_non_lazy_ptr_list_entry (const char *name, int create_p)
@@ -326,7 +326,7 @@ machopic_non_lazy_ptr_list_entry (const char *name, int create_p)
 	}
     }
 
-  if (create_p) {
+  {
     char *buffer;
     int namelen = strlen (name);
     int bufferlen = 0;
@@ -364,7 +364,6 @@ machopic_non_lazy_ptr_list_entry (const char *name, int create_p)
   return NULL;
 }
 
-/* APPLE LOCAL begin weak import */
 const char *
 machopic_non_lazy_ptr_name (const char *name)
 {
@@ -731,9 +730,11 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 	      rtx asym = XEXP (orig, 0);
 	      rtx mem;
 
+	      /* APPLE LOCAL begin 64-bit */
 	      emit_insn (mode == DImode
 			 ? gen_macho_high_di (temp_reg, asym)
 			 : gen_macho_high (temp_reg, asym));
+	      /* APPLE LOCAL end 64-bit */
 	      mem = gen_rtx_MEM (GET_MODE (orig),
 				 gen_rtx_LO_SUM (Pmode, temp_reg, asym));
 	      RTX_UNCHANGING_P (mem) = 1;
@@ -759,7 +760,8 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 	      rtx mem;
 	      rtx insn;
 	      rtx sum;
-	      
+
+	      /* APPLE LOCAL 64-bit */      
 	      sum = gen_rtx_HIGH (Pmode, offset);
 	      if (! MACHO_DYNAMIC_NO_PIC_P)
 		sum = gen_rtx_PLUS (Pmode, pic_offset_table_rtx, sum);
@@ -838,6 +840,7 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 		  if (reload_in_progress)
 		    abort ();
 		  else
+		    /* APPLE LOCAL 64-bit */
 		    reg = gen_reg_rtx (Pmode);
 		}
 

@@ -5942,6 +5942,7 @@ tree_swap_operands_p (tree arg0, tree arg1, bool reorder)
   return 0;
 }
 
+/* APPLE LOCAL begin lno */
 /* Fold comparison ARG0 CODE ARG1 (with result in TYPE), where
    ARG0 is extended to a wider type.  */
 
@@ -6062,6 +6063,7 @@ fold_sign_changed_comparison (enum tree_code code, tree type,
   TREE_OVERFLOW (arg1) = ovflw;
   return fold (build (code, type, arg0_inner, arg1));
 }
+/* APPLE LOCAL end lno */
 
 /* Perform constant folding and related simplification of EXPR.
    The related simplifications include x*1 => x, x*0 => 0, etc.,
@@ -8374,7 +8376,7 @@ fold (tree expr)
 	       && integer_zerop (arg1) && TREE_CODE (arg0) == MINUS_EXPR)
 	return fold (build2 (code, type,
 			     TREE_OPERAND (arg0, 0), TREE_OPERAND (arg0, 1)));
-
+      /* APPLE LOCAL begin lno */
       else if (TREE_CODE (TREE_TYPE (arg0)) == INTEGER_TYPE
 	       && TREE_CODE (arg0) == NOP_EXPR)
 	{
@@ -8390,6 +8392,7 @@ fold (tree expr)
 	  if (tem)
 	    return tem;
 	}
+      /* APPLE LOCAL end lno */
 
       /* If this is comparing a constant with a MIN_EXPR or a MAX_EXPR of a
 	 constant, we can simplify it.  */

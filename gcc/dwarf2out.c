@@ -2175,6 +2175,7 @@ output_call_frame_info (int for_eh)
     {
       bool any_eh_needed = !flag_exceptions || flag_asynchronous_unwind_tables;
 
+      /* APPLE LOCAL begin mainline */
       for (i = 0; i < fde_table_in_use; i++)
 	if (fde_table[i].uses_eh_lsda)
 	  any_eh_needed = any_lsda_needed = true;
@@ -2184,6 +2185,7 @@ output_call_frame_info (int for_eh)
 	else if (! fde_table[i].nothrow
 		 && ! fde_table[i].all_throwers_are_sibcalls)
 	  any_eh_needed = true;
+      /* APPLE LOCAL end mainline */
 
       if (! any_eh_needed)
 	return;
@@ -2232,6 +2234,7 @@ output_call_frame_info (int for_eh)
 	 P	Indicates the presence of an encoding + language
 		personality routine in the CIE augmentation.  */
 
+      /* APPLE LOCAL mainline */
       fde_encoding = ASM_PREFERRED_EH_DATA_FORMAT (/*code=*/1, /*global=*/0);
       per_encoding = ASM_PREFERRED_EH_DATA_FORMAT (/*code=*/2, /*global=*/1);
       lsda_encoding = ASM_PREFERRED_EH_DATA_FORMAT (/*code=*/0, /*global=*/0);
@@ -2347,6 +2350,15 @@ output_call_frame_info (int for_eh)
 
       if (for_eh)
 	{
+	  /* APPLE LOCAL begin mainline */
+	  /* if (TARGET_USES_WEAK_UNWIND_INFO
+	      && DECL_ONE_ONLY (fde->decl))
+	    dw2_asm_output_encoded_addr_rtx (fde_encoding,
+		     gen_rtx_SYMBOL_REF (Pmode, IDENTIFIER_POINTER
+					          (DECL_ASSEMBLER_NAME (fde->decl))),
+		     "FDE initial location");
+	  else */
+	  /* APPLE LOCAL end mainline */
 	  dw2_asm_output_encoded_addr_rtx (fde_encoding,
 		     gen_rtx_SYMBOL_REF (Pmode, fde->dw_fde_begin),
 					   "FDE initial location");

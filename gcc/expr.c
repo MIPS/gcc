@@ -6312,9 +6312,11 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	return temp;
       }
 
+    /* APPLE LOCAL begin lno */
     case SSA_NAME:
       return expand_expr_real_1 (SSA_NAME_VAR (exp), target, tmode, modifier,
 				 NULL);
+    /* APPLE LOCAL end lno */
 
     case PARM_DECL:
       if (!DECL_RTL_SET_P (exp))
@@ -6669,6 +6671,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
     case INDIRECT_REF:
       {
 	tree exp1 = TREE_OPERAND (exp, 0);
+	/* APPLE LOCAL lno */
 	tree orig;
 
 	if (modifier != EXPAND_WRITE)
@@ -6684,10 +6687,12 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	op0 = memory_address (mode, op0);
 	temp = gen_rtx_MEM (mode, op0);
 
+	/* APPLE LOCAL begin lno */
 	orig = REF_ORIGINAL (exp);
 	if (!orig)
 	  orig = exp;
 	set_mem_attributes (temp, orig, 0);
+	/* APPLE LOCAL end lno */
 
 	/* If we are writing to this object and its type is a record with
 	   readonly fields, we must mark it as readonly so it will

@@ -1,3 +1,4 @@
+/* APPLE LOCAL file lno */
 /* Test dependence graph.  */
 
 /* { dg-do compile } */

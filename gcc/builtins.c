@@ -6114,9 +6114,11 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 	return target;
       break;
 
+    /* APPLE LOCAL begin lno */
     case BUILT_IN_MAYBE_INFINITE_LOOP:
       /* This is just a fake statement that expands to nothing.  */
       return const0_rtx;
+    /* APPLE LOCAL end lno */
 
     default:	/* just do library call, if unknown builtin */
       break;

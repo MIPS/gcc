@@ -1,4 +1,4 @@
-
+;; APPLE LOCAL file lno
 ;; Function foo (foo)
 
 (Data Dep (A = 0, B = 2):

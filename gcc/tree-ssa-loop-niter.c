@@ -52,6 +52,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 */
 
+/* APPLE LOCAL lno */
+/* Removed zero_p */
+
 /* Computes inverse of X modulo 2^s, where MASK = 2^s-1.  */
 
 static tree
@@ -590,6 +593,7 @@ number_of_iterations_exit (struct loop *loop, edge exit,
   if (!dominated_by_p (CDI_DOMINATORS, loop->latch, exit->src))
     return false;
 
+  /* APPLE LOCAL lno */
   niter->assumptions = convert (boolean_type_node, integer_zero_node);
   stmt = last_stmt (exit->src);
   if (!stmt || TREE_CODE (stmt) != COND_EXPR)
@@ -659,6 +663,7 @@ number_of_iterations_exit (struct loop *loop, edge exit,
 
 /* Bound on the number of iterations we try to evaluate.  */
 
+/* APPLE LOCAL lno */
 #define MAX_ITERATIONS_TO_TRACK 1000
 
 /* Determines a loop phi node of LOOP such that X is derived from it
@@ -890,6 +895,7 @@ find_loop_niter_by_eval (struct loop *loop, edge *exit)
 
 */
 
+/* APPLE LOCAL begin lno */
 /* Bound on number of iterations of a loop.  */
 
 struct nb_iter_bound
@@ -901,6 +907,7 @@ struct nb_iter_bound
   struct nb_iter_bound *next;
 			/* The next bound in a list.  */
 };
+/* APPLE LOCAL end lno */
 
 /* Records that AT_STMT is executed at most BOUND times in LOOP.  The
    additional condition ADDITIONAL is recorded as well.  */
@@ -1260,6 +1267,7 @@ free_numbers_of_iterations_estimates (struct loops *loops)
 }
 
 
+/* APPLE LOCAL begin lno */
 /*
    
    Removal of loops in DCE.
@@ -1338,3 +1346,4 @@ mark_maybe_infinite_loops (struct loops *loops)
   if (inserted)
     loop_commit_inserts ();
 }
+/* APPLE LOCAL end lno */

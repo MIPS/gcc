@@ -1,3 +1,4 @@
+/* APPLE LOCAL file lno */
 /* Loop unswitching.
    Copyright (C) 2004 Free Software Foundation, Inc.
    

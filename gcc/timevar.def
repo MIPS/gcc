@@ -82,6 +82,7 @@ DEFTIMEVAR (TV_TREE_DCE		     , "tree conservative DCE")
 DEFTIMEVAR (TV_TREE_CD_DCE	     , "tree aggressive DCE")
 DEFTIMEVAR (TV_TREE_DSE		     , "tree DSE")
 DEFTIMEVAR (TV_TREE_LOOP	     , "tree loop optimization")
+/* APPLE LOCAL begin lno */
 DEFTIMEVAR (TV_TREE_LINEAR_TRANSFORM , "tree loop linear transforms")
 DEFTIMEVAR (TV_TREE_LOOP_IVOPTS	     , "tree iv optimization")
 DEFTIMEVAR (TV_MARK_MILOOPS	     , "mark maybe infinite loops")
@@ -90,9 +91,12 @@ DEFTIMEVAR (TV_TREE_LOOP_IVCANON     , "tree canonical iv creation")
 DEFTIMEVAR (TV_TREE_VECTORIZATION    , "tree loop vectorization")
 DEFTIMEVAR (TV_TREE_ELIM_CHECKS      , "chrec eliminate checks")
 DEFTIMEVAR (TV_DEP_GRAPH             , "data dependences graph")
+/* APPLE LOCAL end lno */
 DEFTIMEVAR (TV_LIM                   , "loop invariant motion")
+/* APPLE LOCAL begin lno */
 DEFTIMEVAR (TV_COMPLETE_UNROLL       , "complete unrolling")
 DEFTIMEVAR (TV_UNSWITCH              , "loop unswitching")
+/* APPLE LOCAL end lno */
 DEFTIMEVAR (TV_TREE_CH		     , "tree copy headers")
 DEFTIMEVAR (TV_TREE_SSA_TO_NORMAL    , "tree SSA to normal")
 DEFTIMEVAR (TV_TREE_NRV		     , "tree NRV optimization")

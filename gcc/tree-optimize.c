@@ -359,6 +359,7 @@ init_tree_optimization_passes (void)
   p = &pass_loop.sub;
   NEXT_PASS (pass_loop_init);
   NEXT_PASS (pass_lim);
+  /* APPLE LOCAL begin lno */
   NEXT_PASS (pass_unswitch);
   NEXT_PASS (pass_iv_canon);
   NEXT_PASS (pass_record_bounds);
@@ -370,6 +371,7 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_linear_transform);
   NEXT_PASS (pass_loop_prefetch);
   NEXT_PASS (pass_iv_optimize);
+  /* APPLE LOCAL end lno */
   NEXT_PASS (pass_loop_done);
   *p = NULL;
 
@@ -390,6 +392,7 @@ execute_todo (unsigned int flags)
   if (flags & TODO_rename_vars)
     {
       rewrite_into_ssa (false);
+    /* APPLE LOCAL begin lno */
       bitmap_clear (vars_to_rename);
     }
 
@@ -397,6 +400,7 @@ execute_todo (unsigned int flags)
     {
       rewrite_into_ssa (false);
       rewrite_into_loop_closed_ssa ();
+    /* APPLE LOCAL end lno */
       bitmap_clear (vars_to_rename);
     }
 

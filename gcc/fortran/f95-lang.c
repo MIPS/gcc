@@ -810,10 +810,12 @@ gfc_init_builtin_functions (void)
   gfc_define_builtin ("__builtin_stack_restore", ftype, BUILT_IN_STACK_RESTORE,
 		      "stack_restore", false);
 
+  /* APPLE LOCAL begin lno */
   ftype = build_function_type (void_type_node, void_list_node);
   gfc_define_builtin ("__builtin_maybe_infinite_loop", ftype,
 		      BUILT_IN_MAYBE_INFINITE_LOOP, "maybe_infinite_loop",
 		      false);
+  /* APPLE LOCAL end lno */
 }
 
 #undef DEFINE_MATH_BUILTIN

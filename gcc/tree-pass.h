@@ -83,11 +83,13 @@ struct tree_opt_pass
 /* To-do flags.  */
 #define TODO_dump_func		(1 << 0)	/* pass doesn't dump itself */
 #define TODO_rename_vars	(1 << 1)	 /* rewrite new vars to ssa */
+/* APPLE LOCAL begin lno */
 #define TODO_write_loop_closed	(1 << 2)	/* rewrite into loop-closed-ssa */
 #define TODO_ggc_collect	(1 << 3)	/* run the collector */
 #define TODO_verify_ssa		(1 << 4)
 #define TODO_verify_flow	(1 << 5)
 #define TODO_verify_stmts	(1 << 6)
+/* APPLE LOCAL end lno */
 
 #define TODO_verify_all \
   (TODO_verify_ssa | TODO_verify_flow | TODO_verify_stmts)
@@ -108,8 +110,10 @@ extern struct tree_opt_pass pass_tail_recursion;
 extern struct tree_opt_pass pass_tail_calls;
 extern struct tree_opt_pass pass_loop;
 extern struct tree_opt_pass pass_loop_init;
+/* APPLE LOCAL lno */
 extern struct tree_opt_pass pass_loop_test;
 extern struct tree_opt_pass pass_lim;
+/* APPLE LOCAL begin lno */
 extern struct tree_opt_pass pass_unswitch;
 extern struct tree_opt_pass pass_iv_canon;
 extern struct tree_opt_pass pass_record_bounds;
@@ -120,6 +124,7 @@ extern struct tree_opt_pass pass_complete_unroll;
 extern struct tree_opt_pass pass_linear_transform;
 extern struct tree_opt_pass pass_iv_optimize;
 extern struct tree_opt_pass pass_loop_prefetch;
+/* APPLE LOCAL end lno */
 extern struct tree_opt_pass pass_loop_done;
 extern struct tree_opt_pass pass_ch;
 extern struct tree_opt_pass pass_ccp;

@@ -454,7 +454,7 @@ tree_duplicate_loop_to_header_edge (struct loop *loop, edge e,
   verify_loop_closed_ssa ();
 #endif
 
-  /* APPLE LOCAL AV -dpatel  */
+  /* APPLE LOCAL AV --dpatel  */
   scev_reset ();
   return true;
 }

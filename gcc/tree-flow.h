@@ -424,6 +424,7 @@ static inline void bsi_next (block_stmt_iterator *);
 static inline void bsi_prev (block_stmt_iterator *);
 static inline tree bsi_stmt (block_stmt_iterator);
 static inline tree * bsi_stmt_ptr (block_stmt_iterator);
+/* APPLE LOCAL lno */
 extern block_stmt_iterator stmt_bsi (tree);
 
 extern void bsi_remove (block_stmt_iterator *);
@@ -471,8 +472,10 @@ extern void dump_tree_cfg (FILE *, int);
 extern void debug_tree_cfg (int);
 extern void dump_cfg_stats (FILE *);
 extern void debug_cfg_stats (void);
+/* APPLE LOCAL begin lno */
 extern void tree_debug_loop (struct loop *);
 extern void tree_debug_loops (void);
+/* APPLE LOCAL end lno */
 extern void print_loop_ir (FILE *);
 extern void cleanup_dead_labels (void);
 extern void group_case_labels (void);
@@ -489,6 +492,7 @@ extern void tree_optimize_tail_calls (bool, enum tree_dump_index);
 extern edge tree_block_forwards_to (basic_block bb);
 extern void bsi_insert_on_edge (edge, tree);
 extern void bsi_commit_edge_inserts (int *);
+/* APPLE LOCAL lno */
 extern basic_block bsi_insert_on_edge_immediate (edge, tree);
 extern void notice_special_calls (tree);
 extern void clear_special_calls (void);
@@ -496,8 +500,10 @@ extern void compute_dominance_frontiers (bitmap *);
 extern void verify_stmts (void);
 extern tree tree_block_label (basic_block bb);
 extern void extract_true_false_edges_from_block (basic_block, edge *, edge *);
+/* APPLE LOCAL begin lno */
 extern bool tree_duplicate_sese_region (edge, edge, basic_block *, unsigned,
 					basic_block *);
+/* APPLE LOCAL end lno */
 extern bool tree_purge_dead_eh_edges (basic_block);
 extern bool tree_purge_all_dead_eh_edges (bitmap);
 

@@ -1085,9 +1085,11 @@ do {									\
      : VALID_MMX_REG_MODE (MODE) && TARGET_MMX ? 1			\
      : VALID_MMX_REG_MODE_3DNOW (MODE) && TARGET_3DNOW ? 1 : 0)
 
+/* APPLE LOCAL begin lno */
 /* ??? Shouldn't be needed...  */
 #define UNITS_PER_SIMD_WORD \
     (TARGET_SSE ? 16 : TARGET_MMX || TARGET_3DNOW ? 8 : 0)
+/* APPLE LOCAL end lno */
 
 #define VALID_FP_MODE_P(MODE)						\
     ((MODE) == SFmode || (MODE) == DFmode || (MODE) == XFmode		\

@@ -2915,6 +2915,7 @@ init_alias_analysis (void)
 
   new_reg_base_value = xmalloc (maxreg * sizeof (rtx));
   reg_seen = xmalloc (maxreg);
+  /* APPLE LOCAL lno */
   if (! reload_completed && flag_unroll_loops)
     {
       alias_invariant = ggc_calloc (maxreg, sizeof (rtx));

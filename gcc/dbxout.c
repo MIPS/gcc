@@ -88,7 +88,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "function.h"
 #include "target.h"
 #include "langhooks.h"
-/* FIXME: dbxout.c should not need language-specific headers.  */
+/* APPLE LOCAL Constructors return THIS  20020315 --turly  */
 #include "c-common.h"
 
 #ifdef XCOFF_DEBUGGING_INFO

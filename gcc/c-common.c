@@ -45,6 +45,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-iterator.h"
 #include "hashtab.h"
 #include "tree-mudflap.h"
+/* APPLE LOCAL mainline */
 #include "opts.h"
 
 cpp_reader *parse_in;		/* Declared in c-pragma.h.  */
@@ -2716,6 +2717,7 @@ c_common_get_alias_set (tree t)
     return -1;
 
   /* Save time if there's only one input file.  */
+  /* APPLE LOCAL mainline */
   if (num_in_fnames == 1)
     return -1;
 
@@ -2755,6 +2757,7 @@ c_common_get_alias_set (tree t)
 	    (htab_eq) lang_hooks.types_compatible_p,
 	    NULL);
   slot = htab_find_slot (type_hash_table, t, INSERT);
+  /* APPLE LOCAL begin mainline */
   if (*slot != NULL)
     {
       TYPE_ALIAS_SET (t) = TYPE_ALIAS_SET ((tree)*slot);
@@ -2764,6 +2767,7 @@ c_common_get_alias_set (tree t)
     /* Our caller will assign and record (in t) a new alias set; all we need
        to do is remember t in the hash table.  */
     *slot = t;
+  /* APPLE LOCAL end mainline */
 
   return -1;
 }

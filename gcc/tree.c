@@ -5717,6 +5717,7 @@ needs_to_live_in_memory (tree t)
 	  || decl_function_context (t) != current_function_decl);
 }
 
+/* APPLE LOCAL begin lno */
 /* Checks that X is integer constant that can be expressed in (unsigned)
    HOST_WIDE_INT without loss of precision.  */
 
@@ -5759,6 +5760,7 @@ build_int_cst (tree type, unsigned HOST_WIDE_INT val)
 
   return convert (type, ival);
 }
+/* APPLE LOCAL end lno */
 
 /* There are situations in which a language considers record types
    compatible which have different field lists.  Decide if two fields

@@ -168,6 +168,7 @@ lang_specific_driver (int *in_argc, const char *const **in_argv,
 		}
 	      saw_speclang = 1;
 	    }
+	  /* APPLE LOCAL begin mainline */
 	  /* Arguments that go directly to the linker might be .o files,
 	     or something, and so might cause libstdc++ to be needed.  */
 	  else if (strcmp (argv[i], "-Xlinker") == 0)
@@ -182,6 +183,7 @@ lang_specific_driver (int *in_argc, const char *const **in_argv,
 		     && strchr ("bBVDUoeTuIYmLiA", argv[i][1]) != NULL)
 		    || strcmp (argv[i], "-Tdata") == 0))
 	    quote = argv[i];
+	  /* APPLE LOCAL end mainline */
 	  else if ((argv[i][2] == '\0'
 		    && strchr ("cSEM", argv[i][1]) != NULL)
 		   || strcmp (argv[i], "-MM") == 0

@@ -1295,6 +1295,7 @@ rest_of_handle_loop_optimize (void)
   /* CFG is no longer maintained up-to-date.  */
   free_bb_for_insn ();
 
+  /* APPLE LOCAL lno */
   do_unroll = flag_unroll_loops ? LOOP_UNROLL : LOOP_AUTO_UNROLL;
   do_prefetch = flag_prefetch_loop_arrays ? LOOP_PREFETCH : 0;
 

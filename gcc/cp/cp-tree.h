@@ -171,9 +171,9 @@ struct lang_identifier GTY(())
   cxx_binding *namespace_bindings;
   cxx_binding *bindings;
   tree class_template_info;
-  /* APPLE begin LOCAL objc speedup dpatel */
+  /* APPLE LOCAL begin objc speedup --dpatel */
   tree interface_value;
-  /* APPLE end LOCAL objc speedup dpatel */
+  /* APPLE LOCAL end objc speedup --dpatel */
   tree label_value;
 };
 

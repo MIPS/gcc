@@ -1,3 +1,4 @@
+/* APPLE LOCAL file 64-bit */
 /* Machine description patterns for PowerPC running Darwin (Mac OS X).
    Copyright (C) 2004 Free Software Foundation, Inc.
    Contributed by Apple Computer Inc.

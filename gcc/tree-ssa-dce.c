@@ -64,6 +64,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-pass.h"
 #include "timevar.h"
 #include "flags.h"
+/* APPLE LOCAL lno */
 #include "function.h"
 
 static struct stmt_stats
@@ -463,6 +464,7 @@ find_obviously_necessary_stmts (struct edge_list *el)
       bb->flags &= ~BB_VISITED;
     }
 
+  /* APPLE LOCAL begin lno */
   /* Prevent the possibly infinite loops from being removed.  Provided
      that mark_maybe_infinite_loops was run, this happens automatically,
      since fake builtin call statements were inserted on back edges
@@ -470,6 +472,7 @@ find_obviously_necessary_stmts (struct edge_list *el)
   if (el && !cfun->marked_maybe_inf_loops)
     {
       mark_dfs_back_edges ();
+  /* APPLE LOCAL end lno */
 
       FOR_EACH_BB (bb)
 	{
@@ -736,8 +739,10 @@ remove_dead_stmt (block_stmt_iterator *i, basic_block bb)
       redirect_edge_and_branch (bb->succ, post_dom_bb);
       PENDING_STMT (bb->succ) = NULL;
 
+      /* APPLE LOCAL begin lno */
       /* Dominators are wrong now.  */
       free_dominance_info (CDI_DOMINATORS);
+      /* APPLE LOCAL end lno */
 
       /* The edge is no longer associated with a conditional, so it does
 	 not have TRUE/FALSE flags.  */
@@ -840,6 +845,7 @@ tree_dce_done (bool aggressive)
    In aggressive mode, control dependences are taken into account, which
    results in more dead code elimination, but at the cost of some time.
 
+   APPLE LOCAL lno
    If NO_CFG_CHANGES is true, avoid changing cfg.
 
    FIXME: Aggressive mode before PRE doesn't work currently because
@@ -849,12 +855,15 @@ tree_dce_done (bool aggressive)
 	  start experimenting with pass ordering.  */
 
 static void
+/* APPLE LOCAL lno */
 perform_tree_ssa_dce (bool aggressive, bool no_cfg_changes)
 {
   struct edge_list *el = NULL;
 
+  /* APPLE LOCAL begin lno */
   if (no_cfg_changes && aggressive)
     abort ();
+  /* APPLE LOCAL end lno */
 
   tree_dce_init (aggressive);
 
@@ -866,6 +875,9 @@ perform_tree_ssa_dce (bool aggressive, bool no_cfg_changes)
       el = create_edge_list ();
       find_all_control_dependences (el);
       timevar_pop (TV_CONTROL_DEPENDENCES);
+
+      /* APPLE LOCAL lno */
+      /* mark_dfs_back_edges (); */
     }
 
   find_obviously_necessary_stmts (el);
@@ -877,6 +889,7 @@ perform_tree_ssa_dce (bool aggressive, bool no_cfg_changes)
   if (aggressive)
     free_dominance_info (CDI_POST_DOMINATORS);
 
+  /* APPLE LOCAL lno */
   if (!no_cfg_changes)
     cleanup_tree_cfg ();
 
@@ -892,6 +905,7 @@ perform_tree_ssa_dce (bool aggressive, bool no_cfg_changes)
   free_edge_list (el);
 }
 
+/* APPLE LOCAL begin lno */
 /* Cleanup the dead code, but avoid cfg changes.  */
 
 void
@@ -899,17 +913,20 @@ tree_ssa_dce_no_cfg_changes (void)
 {
   perform_tree_ssa_dce (false, true);
 }
+/* APPLE LOCAL end lno */
 
 /* Pass entry points.  */
 static void
 tree_ssa_dce (void)
 {
+  /* APPLE LOCAL lno */
   perform_tree_ssa_dce (/*aggressive=*/false, false);
 }
 
 static void
 tree_ssa_cd_dce (void)
 {
+  /* APPLE LOCAL lno */
   perform_tree_ssa_dce (/*aggressive=*/optimize >= 2, false);
 }
 

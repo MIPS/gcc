@@ -861,6 +861,7 @@ lex_string (const cpp_token *tok, tree *valp, bool objc_string)
 
       if (c_lex_string_translate == -1)
 	{
+	  /* APPLE LOCAL pascal strings */
 	  if (!cpp_interpret_string_notranslate (parse_in, strs, count,
 						 &istr, wide, false))
 	    /* Assume that, if we managed to translate the string

@@ -2555,13 +2555,13 @@ scev_finalize (void)
 {
   htab_delete (scalar_evolution_info);
   BITMAP_XFREE (already_instantiated);
-  /* APPLE LOCAL begin prevent wild load dbj */
+  /* APPLE LOCAL begin prevent wild load --dbj */
   /* Storage these point at can be reused by GGC.  Make sure
      scev_initialize works in the case that its build_int_2
      calls return storage that was pointed at from these in
      the previous loop. */
   chrec_dont_know = NULL;
   chrec_known = NULL;
-  /* APPLE LOCAL end prevent wild load dbj */
+  /* APPLE LOCAL end prevent wild load --dbj */
 }
 

@@ -297,6 +297,7 @@ typedef struct reorder_block_def
   /* Used by loop copying.  */
   basic_block copy;
   int duplicated;
+  /* APPLE LOCAL lno */
   int copy_number;
 
   /* These fields are used by bb-reorder pass.  */

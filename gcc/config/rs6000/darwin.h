@@ -35,9 +35,11 @@
 #define TARGET_TOC 0
 #define TARGET_NO_TOC 1
 
+/* APPLE LOCAL begin 64-bit */
 /* Override the default rs6000 definition.  */
 #undef  PTRDIFF_TYPE
 #define PTRDIFF_TYPE (TARGET_64BIT ? "long int" : "int")
+/* APPLE LOCAL end 64-bit */
 
 /* Darwin switches.  */
 /* Use dynamic-no-pic codegen (no picbase reg; not suitable for shlibs.)  */
@@ -64,6 +66,7 @@
 
 /*  */
 #undef	SUBTARGET_SWITCHES
+/* APPLE LOCAL begin 64-bit */
 #define SUBTARGET_SWITCHES						\
   { "64",     MASK_64BIT | MASK_POWERPC64, \
         N_("Generate 64-bit code") }, \
@@ -72,7 +75,7 @@
   {"dynamic-no-pic",	MASK_MACHO_DYNAMIC_NO_PIC,			\
       N_("Generate code suitable for executables (NOT shared libs)")},	\
   {"no-dynamic-no-pic",	-MASK_MACHO_DYNAMIC_NO_PIC, ""},
-
+/* APPLE LOCAL end 64-bit */
 
 /* The Darwin ABI always includes AltiVec, can't be (validly) turned
    off.  */
@@ -333,12 +336,14 @@ do {									\
 
 #define RS6000_MCOUNT "*mcount"
 
+/* APPLE LOCAL begin 64-bit */
 /* Default processor: G4, and G5 for 64-bit.  */
 
 #undef PROCESSOR_DEFAULT
 #define PROCESSOR_DEFAULT  PROCESSOR_PPC7400
 #undef PROCESSOR_DEFAULT64
 #define PROCESSOR_DEFAULT64  PROCESSOR_POWER4
+/* APPLE LOCAL end 64-bit */
 
 /* Default target flag settings.  Despite the fact that STMW/LMW
    serializes, it's still a big code size win to use them.  Use FSEL by

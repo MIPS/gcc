@@ -34,18 +34,22 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-pass.h"
 #include "timevar.h"
 #include "cfgloop.h"
+/* APPLE LOCAL lno */
 #include "tree-inline.h"
 #include "flags.h"
 #include "tree-inline.h"
+/* APPLE LOCAL begin lno */
 #include "tree-scalar-evolution.h"
 #include "tree-data-ref.h"
 #include "tree-vectorizer.h"
 #include "function.h"
+/* APPLE LOCAL end lno */
 
 /* The loop tree currently optimized.  */
 
 struct loops *current_loops;
 
+/* APPLE LOCAL begin lno */
 /* Initializes the loop structures.  DUMP is the file to that the details
    about the analysis should be dumped.  If CANONICALIZE_SSA is true, loop
    closed ssa form is enforced and redundant phi nodes created by creating
@@ -77,12 +81,14 @@ tree_loop_optimizer_init (FILE *dump, bool canonicalize_ssa)
 
   return loops;
 }
+/* APPLE LOCAL end lno */
 
 /* The loop superpass.  */
 
 static bool
 gate_loop (void)
 {
+  /* APPLE LOCAL lno */
   return true;
 }
 
@@ -107,10 +113,12 @@ struct tree_opt_pass pass_loop =
 static void
 tree_ssa_loop_init (void)
 {
+  /* APPLE LOCAL begin lno */
   current_loops = tree_loop_optimizer_init (dump_file, true);
   if (!current_loops)
     return;
   scev_initialize (current_loops);
+  /* APPLE LOCAL end lno */
 }
 
 struct tree_opt_pass pass_loop_init = 
@@ -162,6 +170,7 @@ struct tree_opt_pass pass_lim =
   TODO_dump_func                	/* todo_flags_finish */
 };
 
+/* APPLE LOCAL begin lno */
 /* Loop unswitching pass.  */
 
 static void
@@ -524,6 +533,7 @@ struct tree_opt_pass pass_iv_optimize =
   0,					/* todo_flags_start */
   TODO_dump_func                	/* todo_flags_finish */
 };
+/* APPLE LOCAL end lno */
 
 /* Loop optimizer finalization.  */
 
@@ -533,8 +543,10 @@ tree_ssa_loop_done (void)
   if (!current_loops)
     return;
 
+  /* APPLE LOCAL begin lno */
   free_numbers_of_iterations_estimates (current_loops);
   scev_finalize ();
+  /* APPLE LOCAL end lno */
   loop_optimizer_finalize (current_loops,
 			   (dump_flags & TDF_DETAILS ? dump_file : NULL));
   current_loops = NULL;

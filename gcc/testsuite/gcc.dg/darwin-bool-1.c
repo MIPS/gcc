@@ -1,3 +1,4 @@
+/* APPLE LOCAL file mainline */
 /* Check that sizeof(bool) is 4 if we don't use special options. */
 /* Matt Austern  <austern@apple.com> */
 /* { dg-do run { target powerpc*-*-darwin* } } */

@@ -1037,6 +1037,7 @@ decode_options (unsigned int argc, const char **argv)
 #endif
       flag_guess_branch_prob = 1;
       flag_cprop_registers = 1;
+      /* APPLE LOCAL lno */
       flag_loop_optimize2 = 1;
       flag_if_conversion = 1;
       flag_if_conversion2 = 1;
@@ -1044,12 +1045,15 @@ decode_options (unsigned int argc, const char **argv)
       flag_tree_dce = 1;
       flag_tree_dom = 1;
       flag_tree_dse = 1;
+      /* APPLE LOCAL begin lno */
       flag_tree_lim = 1;
       flag_ivcanon = 1;
       flag_ivopts = 1;
       flag_tree_vectorize = 0;
       flag_tree_loop_linear = 0;
+      /* APPLE LOCAL end lno */
       flag_tree_pre = 1;
+      /* APPLE LOCAL lno */
       flag_tree_elim_checks = 0;
       flag_tree_ter = 1;
       flag_tree_live_range_split = 1;

@@ -39,7 +39,7 @@
    ENTRY POINT - callers have to jump to "saveFP+60" to save f29..f31,
    for example.  For FP reg saves/restores, it takes one instruction
    (4 bytes) to do the operation; for Vector regs, 2 instructions are
-   required (8 bytes.) */
+   required (8 bytes.).   */
 
 .text
 	.align 2

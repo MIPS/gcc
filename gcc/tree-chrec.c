@@ -957,3 +957,5 @@ chrec_type (tree chrec)
   return TREE_TYPE (chrec);
 }
 
+/* APPLE LOCAL lno */
+/* Removed initialize_scalar_evolutions_analyzer */

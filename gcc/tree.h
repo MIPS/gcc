@@ -1053,8 +1053,10 @@ struct tree_vec GTY(())
 #define TREE_OPERAND(NODE, I) TREE_OPERAND_CHECK (NODE, I)
 #define TREE_COMPLEXITY(NODE) (EXPR_CHECK (NODE)->exp.complexity)
 
+/* APPLE LOCAL begin lno */
 /* In INDIRECT_REF.  */
 #define REF_ORIGINAL(NODE) TREE_CHAIN (TREE_CHECK (NODE, INDIRECT_REF))
+/* APPLE LOCAL end lno */
 
 /* In a LABELED_BLOCK_EXPR node.  */
 #define LABELED_BLOCK_LABEL(NODE) \
@@ -1296,6 +1298,7 @@ struct tree_phi_node GTY(())
 
   /* Nonzero if the PHI node was rewritten by a previous pass through the
      SSA renamer.  */
+  /* APPLE LOCAL lno */
   unsigned int rewritten:1;
   
   struct phi_arg_d GTY ((length ("((tree)&%h)->phi.capacity"))) a[1];
@@ -2793,6 +2796,7 @@ extern tree build_method_type_directly (tree, tree, tree);
 extern tree build_method_type (tree, tree);
 extern tree build_offset_type (tree, tree);
 extern tree build_complex_type (tree);
+/* APPLE LOCAL lno */
 extern tree build_vector_type (tree, int);
 extern tree array_type_nelts (tree);
 extern bool in_array_bounds_p (tree);
@@ -3188,9 +3192,11 @@ extern int integer_pow2p (tree);
 
 extern int integer_nonzerop (tree);
 
+/* APPLE LOCAL begin lno */
 /* Checks whether the argument is either NULL_TREE or constant zero.  */
 
 extern bool zero_p (tree);
+/* APPLE LOCAL end lno */
 
 /* staticp (tree x) is nonzero if X is a reference to data allocated
    at a fixed address in memory.  */
@@ -3377,6 +3383,14 @@ extern GTY(()) tree current_function_decl;
 
 /* Nonzero means a FUNC_BEGIN label was emitted.  */
 extern GTY(()) tree current_function_func_begin_label;
+
+/* APPLE LOCAL begin mainline */
+/* A DECL for the current file-scope context.  When using IMA, this heads a
+   chain of FILE_DECLs; currently only C uses it.  */
+
+/* extern GTY(()) tree current_file_decl; */
+/* APPLE LOCAL end mainline */
+
 
 /* In tree.c */
 extern unsigned crc32_string (unsigned, const char *);
@@ -3484,6 +3498,7 @@ extern tree nondestructive_fold_unary_to_constant (enum tree_code, tree, tree);
 extern tree nondestructive_fold_binary_to_constant (enum tree_code, tree, tree, tree);
 extern tree fold_read_from_constant_string (tree);
 extern tree int_const_binop (enum tree_code, tree, tree, int);
+/* APPLE LOCAL lno */
 extern enum tree_code swap_tree_comparison (enum tree_code);
 extern tree build_fold_addr_expr (tree);
 extern tree build_fold_addr_expr_with_type (tree, tree);
@@ -3549,8 +3564,10 @@ extern tree build_nonstandard_integer_type (unsigned HOST_WIDE_INT, int);
 extern tree build_range_type (tree, tree, tree);
 extern HOST_WIDE_INT int_cst_value (tree);
 extern tree tree_fold_gcd (tree, tree);
+/* APPLE LOCAL begin lno */
 extern bool cst_and_fits_in_hwi (tree);
 extern tree build_int_cst (tree, unsigned HOST_WIDE_INT);
+/* APPLE LOCAL end lno */
 
 extern bool fields_compatible_p (tree, tree);
 extern tree find_compatible_field (tree, tree);

@@ -580,14 +580,14 @@ append_v_may_def (tree var, tree stmt, voperands_t prev_vops)
 
 /* APPLE LOCAL begin MERGE FIXME remove if-conversion using old structures */
 #if (0)
-/* APPLE LOCAL begin AV if-conversion -dpatel  */
+/* APPLE LOCAL begin AV if-conversion --dpatel  */
 /* External entry point which by-passes the previous vops mechanism.  */
 void
 add_vdef (tree var, tree stmt)
 {
   append_vdef (var, stmt, NULL);
 }
-/* APPLE LOCAL end AV if-conversion -dpatel  */
+/* APPLE LOCAL end AV if-conversion --dpatel  */
 #endif
 /* APPLE LOCAL end MERGE FIXME remove if-conversion using old structures */
 /* Add VAR to the list of virtual uses for STMT.  If PREV_VOPS
@@ -852,6 +852,7 @@ get_stmt_operands (tree stmt)
 }
 
 
+/* APPLE LOCAL begin lno */
 /* Returns true if the function call EXPR does not access memory.  */
 
 static bool
@@ -875,6 +876,7 @@ function_ignores_memory_p (tree expr)
 	return false;
     }
 }
+/* APPLE LOCAL end lno */
 
 /* Recursively scan the expression pointed by EXPR_P in statement STMT.
    FLAGS is one of the OPF_* constants modifying how to interpret the
@@ -1209,6 +1211,7 @@ get_indirect_ref_operands (tree stmt, tree expr, int flags,
   tree *pptr = &TREE_OPERAND (expr, 0);
   tree ptr = *pptr;
 
+  /* APPLE LOCAL begin lno */
   if (REF_ORIGINAL (expr))
     {
       enum tree_code ocode = TREE_CODE (REF_ORIGINAL (expr));
@@ -1220,6 +1223,7 @@ get_indirect_ref_operands (tree stmt, tree expr, int flags,
 	  || ocode == IMAGPART_EXPR)
 	flags &= ~opf_kill_def;
     }
+  /* APPLE LOCAL end lno */
 
   if (SSA_VAR_P (ptr))
     {
@@ -1330,9 +1334,11 @@ get_call_expr_operands (tree stmt, tree expr, voperands_t prev_vops)
       /* A 'pure' or a 'const' functions never call clobber anything. 
 	 A 'noreturn' function might, but since we don't return anyway 
 	 there is no point in recording that.  */ 
+      /* APPLE LOCAL begin lno */
       if (function_ignores_memory_p (expr))
 	;
       else if (!(call_flags
+      /* APPLE LOCAL end lno */
 		 & (ECF_PURE | ECF_CONST | ECF_NORETURN)))
 	add_call_clobber_ops (stmt, prev_vops);
       else if (!(call_flags & (ECF_CONST | ECF_NORETURN)))
@@ -1360,8 +1366,10 @@ add_stmt_operand (tree *var_p, tree stmt, int flags, voperands_t prev_vops)
   var_ann_t v_ann;
 
   var = *var_p;
+  /* APPLE LOCAL begin lno */
   if (!var)
     return;
+  /* APPLE LOCAL end lno */
   STRIP_NOPS (var);
 
   s_ann = stmt_ann (stmt);

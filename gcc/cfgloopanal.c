@@ -475,3 +475,5 @@ get_loop_level (const struct loop *loop)
   return mx;
 }
 
+/* APPLE LOCAL lno */
+/* Removed functions seq_cost, init_set_costs, global_cost_for_size */

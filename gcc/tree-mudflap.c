@@ -676,6 +676,7 @@ mf_xform_derefs_1 (block_stmt_iterator *iter, tree *tp,
 	/* Omit checking if we can statically determine that the access is
 	   valid.  For non-addressable local arrays this is not optional,
 	   since we won't have called __mf_register for the object.  */
+	/* APPLE LOCAL begin lno */
 	tree tt, op0, op1;
 
 	tt = t;
@@ -696,6 +697,7 @@ mf_xform_derefs_1 (block_stmt_iterator *iter, tree *tp,
 	    op1 = TREE_OPERAND (tt, 1);
 	    op0 = TREE_OPERAND (tt, 0);
 	  }
+        /* APPLE LOCAL end lno */
       
         /* If we got here, we couldn't statically the check.  */
         ptr_type = build_pointer_type (type);

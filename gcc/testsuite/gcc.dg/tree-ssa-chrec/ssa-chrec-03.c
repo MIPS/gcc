@@ -1,3 +1,4 @@
+/* APPLE LOCAL file lno */
 /* { dg-do compile } */ 
 /* { dg-options "-O1 -floop-test -fdump-tree-lptest-stats" } */
 

@@ -450,8 +450,10 @@ struct function GTY(())
   /* Nonzero if code to initialize arg_pointer_save_area has been emitted.  */
   unsigned int arg_pointer_save_area_init : 1;
 
+  /* APPLE LOCAL begin lno */
   /* Nonzero if the loops that are possibly infinite are marked.  */
   unsigned int marked_maybe_inf_loops : 1;
+  /* APPLE LOCAL end lno */
 };
 
 /* The function currently being compiled.  */

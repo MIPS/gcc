@@ -43,6 +43,7 @@ Boston, MA 02111-1307, USA.  */
 #include "toplev.h"
 #include "except.h"
 #include "cfgloop.h"
+/* APPLE LOCAL lno */
 #include "cfglayout.h"
 
 /* This file contains functions for building the Control Flow Graph (CFG)
@@ -1979,8 +1980,10 @@ cleanup_control_expr_graph (basic_block bb, block_stmt_iterator bsi)
 	      retval = true;
 	    }
 
+	  /* APPLE LOCAL begin lno */
 	  if (taken_edge->probability > REG_BR_PROB_BASE)
 	    taken_edge->probability = REG_BR_PROB_BASE;
+	  /* APPLE LOCAL end lno */
 	}
       if (taken_edge->probability > REG_BR_PROB_BASE)
 	taken_edge->probability = REG_BR_PROB_BASE;
@@ -2812,6 +2815,7 @@ set_bb_for_stmt (tree t, basic_block bb)
     }
 }
 
+/* APPLE LOCAL begin lno */
 /* Finds iterator for STMT.  */
 
 extern block_stmt_iterator
@@ -2825,6 +2829,7 @@ stmt_bsi (tree stmt)
 
   abort ();
 }
+/* APPLE LOCAL end lno */
 
 /* Insert statement (or statement list) T before the statement
    pointed-to by iterator I.  M specifies how to update iterator I
@@ -2939,10 +2944,12 @@ bsi_replace (const block_stmt_iterator *bsi, tree stmt, bool preserve_eh_info)
    or false if it should be done before the location.  If new basic block
    has to be created, it is stored in *NEW_BB.  */
 
+/* APPLE LOCAL begin lno */
 static bool
 tree_find_edge_insert_loc (edge e, block_stmt_iterator *bsi,
 			   basic_block *new_bb)
 {
+/* APPLE LOCAL end lno */
   basic_block dest, src;
   tree tmp;
 
@@ -3018,8 +3025,10 @@ tree_find_edge_insert_loc (edge e, block_stmt_iterator *bsi,
 
   /* Otherwise, create a new basic block, and split this edge.  */
   dest = split_edge (e);
+  /* APPLE LOCAL begin lno */
   if (new_bb)
     *new_bb = dest;
+  /* APPLE LOCAL end lno */
   e = dest->pred;
   goto restart;
 }
@@ -3063,6 +3072,7 @@ bsi_commit_edge_inserts_1 (edge e)
 
       PENDING_STMT (e) = NULL_TREE;
 
+      /* APPLE LOCAL lno */
       if (tree_find_edge_insert_loc (e, &bsi, NULL))
 	bsi_insert_after (&bsi, stmt, BSI_NEW_STMT);
       else
@@ -3080,6 +3090,7 @@ bsi_insert_on_edge (edge e, tree stmt)
   append_to_statement_list (stmt, &PENDING_STMT (e));
 }
 
+/* APPLE LOCAL begin lno */
 /* Similar to bsi_insert_on_edge+bsi_commit_edge_inserts.  If new block has to
    be created, it is returned.  */
 
@@ -3099,6 +3110,7 @@ bsi_insert_on_edge_immediate (edge e, tree stmt)
 
   return new_bb;
 }
+/* APPLE LOCAL end lno */
 
 
 /*---------------------------------------------------------------------------
@@ -3947,9 +3959,11 @@ thread_jumps (void)
   edge e, next, last, old;
   basic_block bb, dest, tmp, old_dest, dom;
   tree phi;
+  /* APPLE LOCAL lno */
   int arg, old_forwardable;
   bool retval = false;
 
+  /* APPLE LOCAL begin lno */
   mark_dfs_back_edges ();
   FOR_EACH_BB (bb)
     {
@@ -3962,6 +3976,7 @@ thread_jumps (void)
 
       bb_ann (bb)->forwardable = (e == NULL);
     }
+  /* APPLE LOCAL end lno */
 
   FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR, next_bb)
     {
@@ -3976,6 +3991,7 @@ thread_jumps (void)
       /* This block is now part of a forwarding path, mark it as not
 	 forwardable so that we can detect loops.  This bit will be
 	 reset below.  */
+      /* APPLE LOCAL lno */
       old_forwardable = bb_ann (bb)->forwardable;
       bb_ann (bb)->forwardable = 0;
 
@@ -4106,6 +4122,7 @@ thread_jumps (void)
 
       /* Reset the forwardable bit on our block since it's no longer in
 	 a forwarding chain path.  */
+      /* APPLE LOCAL lno */
       bb_ann (bb)->forwardable = old_forwardable;
     }
 
@@ -4203,6 +4220,7 @@ tree_redirect_edge_and_branch (edge e, basic_block dest)
     return ret;
 
   if (e->dest == dest)
+  /* APPLE LOCAL lno */
     return e;
 
   label = tree_block_label (dest);
@@ -4315,14 +4333,18 @@ tree_split_block (basic_block bb, void *stmt)
   bsi_tgt = bsi_start (new_bb);
   while (!bsi_end_p (bsi))
     {
+      /* APPLE LOCAL lno */
       bool was_modified;
 
       act = bsi_stmt (bsi);
+      /* APPLE LOCAL lno */
       was_modified = stmt_modified_p (act);
       bsi_remove (&bsi);
       bsi_insert_after (&bsi_tgt, act, BSI_NEW_STMT);
+      /* APPLE LOCAL begin lno */
       if (!was_modified)
 	unmodify_stmt (act);
+      /* APPLE LOCAL end lno */
     }
 
   return new_bb;
@@ -4361,16 +4383,19 @@ tree_duplicate_bb (basic_block bb)
 {
   basic_block new_bb;
   block_stmt_iterator bsi, bsi_tgt;
+  /* APPLE LOCAL lno */
   tree phi;
 
   new_bb = create_empty_bb (EXIT_BLOCK_PTR->prev_bb);
 
+  /* APPLE LOCAL begin lno */
   /* First copy the phi nodes.  We do not copy phi node arguments here,
      since the edges are not ready yet.  Keep the chain of phi nodes in
      the same order, so that we can add them later.  */
   for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
     create_phi_node (PHI_RESULT (phi), new_bb);
   set_phi_nodes (new_bb, nreverse (phi_nodes (new_bb)));
+  /* APPLE LOCAL end lno */
 
   bsi_tgt = bsi_start (new_bb);
   for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
@@ -4393,6 +4418,7 @@ tree_duplicate_bb (basic_block bb)
   return new_bb;
 }
 
+/* APPLE LOCAL begin lno */
 /* Returns list of all ssa names defined in one of N_BBS basic blocks
    BBS.  */
 
@@ -4817,6 +4843,7 @@ tree_duplicate_sese_region (edge entry, edge exit,
 
   return true;
 }
+/* APPLE LOCAL end lno */
 
 /* Dump FUNCTION_DECL FN to file FILE using FLAGS (see TDF_* in tree.h)  */
 
@@ -4929,10 +4956,12 @@ print_pred_bbs (FILE *file, edge e)
     return;
   
   else if (e->pred_next == NULL)
+    /* APPLE LOCAL lno */
     fprintf (file, "%d", e->src->index);
   
   else
     {
+      /* APPLE LOCAL lno */
       fprintf (file, "%d ", e->src->index);
       print_pred_bbs (file, e->pred_next);
     }
@@ -4950,6 +4979,7 @@ print_succ_bbs (FILE *file, edge e)
     fprintf (file, "bb_%d", e->dest->index);
   else
     {
+      /* APPLE LOCAL lno */
       fprintf (file, "%d ", e->dest->index);
       print_succ_bbs (file, e->succ_next);
     }
@@ -4972,6 +5002,7 @@ print_loop (FILE *file, struct loop *loop, int indent)
   s_indent[indent] = '\0';
 
   /* Print the loop's header.  */
+  /* APPLE LOCAL begin lno */
   fprintf (file, "%s(loop (num %d)", s_indent, loop->num);
   if (loop->nb_iterations)
     {
@@ -4982,13 +5013,16 @@ print_loop (FILE *file, struct loop *loop, int indent)
   
   else
     fprintf (file, " (nb_iterations not_analyzed_yet)");
+  /* APPLE LOCAL end lno */
   
   /* Print the loop's body.  */
+  /* APPLE LOCAL lno */
   fprintf (file, " (body (\n");
   FOR_EACH_BB (bb)
     if (bb->loop_father == loop)
       {
 	/* Print the basic_block's header.  */
+	/* APPLE LOCAL begin lno */
 	fprintf (file, "%s  (bb (num %d) (preds ", s_indent, bb->index);
 	print_pred_bbs (file, bb->pred);
 	fprintf (file, ") (succs ");
@@ -4996,9 +5030,11 @@ print_loop (FILE *file, struct loop *loop, int indent)
 	fprintf (file, ") (stmts (\n");
 	tree_dump_bb (bb, file, indent + 4);
 	fprintf (file, "%s  )))\n", s_indent);
+	/* APPLE LOCAL end lno */
       }
   
   print_loop (file, loop->inner, indent + 2);
+  /* APPLE LOCAL lno */
   fprintf (file, "%s)))\n", s_indent);
   print_loop (file, loop->next, indent);
 }
@@ -5020,6 +5056,7 @@ print_loop_ir (FILE *file)
 
 /* Debugging loops structure at tree level.  */
 
+/* APPLE LOCAL begin lno */
 void 
 tree_debug_loops (void)
 {
@@ -5033,6 +5070,7 @@ tree_debug_loop (struct loop *loop)
 {
   print_loop (stderr, loop, 0);
 }
+/* APPLE LOCAL end lno */
 
 /* Return true if BB ends with a call, possibly followed by some
    instructions that must stay with the call.  Return false,
@@ -5042,8 +5080,10 @@ static bool
 tree_block_ends_with_call_p (basic_block bb)
 {
   block_stmt_iterator bsi = bsi_last (bb);
+  /* APPLE LOCAL begin mainline */
   if (!bsi_end_p (bsi))
     return get_call_expr_in (bsi_stmt (bsi)) != NULL;
+  /* APPLE LOCAL end mainline */
   return false;
 }
 
@@ -5054,6 +5094,7 @@ tree_block_ends_with_call_p (basic_block bb)
 static bool
 tree_block_ends_with_condjump_p (basic_block bb)
 {
+  /* APPLE LOCAL begin mainline */
   block_stmt_iterator bsi = bsi_last (bb);
   if (!bsi_end_p (bsi))
     {
@@ -5061,6 +5102,7 @@ tree_block_ends_with_condjump_p (basic_block bb)
       return (TREE_CODE (stmt) == COND_EXPR);
     }
   else return false;
+  /* APPLE LOCAL end mainline */
 }
 
 
