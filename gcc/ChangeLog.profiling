@@ -355,7 +355,7 @@
 	Ported from mainline:
 	2004-10-22  Kazu Hirata  <kazu@cs.umass.edu>
 	* sbitmap.h (EXECUTE_IF_SET_IN_SBITMAP): Don't access PTR
-        beyond its end.
+	beyond its end.
 
 2004-10-24  Kenneth Zadeck <zadeck@naturalbridge.com>
 
@@ -630,12 +630,12 @@
 
 2004-08-28  Razya Ladelsky  <razya@il.ibm.com>
 
-        * ipa_prop.c: New File: IPA constant propagation. 
-        * ipa_prop.h: New File: Same.
-        * Makefile.in (ipa_prop.c, ipa_prop.h): Add new files.
-        * common.opt (fipa-cp, fipa-no-cloning): New flags for IPA
+	* ipa_prop.c: New File: IPA constant propagation. 
+	* ipa_prop.h: New File: Same.
+	* Makefile.in (ipa_prop.c, ipa_prop.h): Add new files.
+	* common.opt (fipa-cp, fipa-no-cloning): New flags for IPA
 	constant propagation. 
-        * cgraphunit.c (cgraph_optimize, record_call_1): Support for IPA 
+	* cgraphunit.c (cgraph_optimize, record_call_1): Support for IPA 
 	constant propagation.
 
 2004-08-16  Jan Hubicka  <jh@suse.cz>
