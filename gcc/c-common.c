@@ -47,6 +47,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-mudflap.h"
 #include "opts.h"
 
+/* APPLE LOCAL 64bit shorten warning 3865314 */
+#include "options.h"
+
 cpp_reader *parse_in;		/* Declared in c-pragma.h.  */
 
 /* We let tm.h override the types used here, to handle trivial differences
@@ -1088,6 +1091,14 @@ tree
 convert_and_check (tree type, tree expr)
 {
   tree t = convert (type, expr);
+  /* APPLE LOCAL begin 64bit shorten warning 3865314 */
+  if (warn_shorten_64_to_32
+      && TYPE_PRECISION (TREE_TYPE (expr)) == 64
+      && TYPE_PRECISION (type) == 32)
+    {
+      warning ("implicit conversion shortens 64-bit value into a 32-bit value");
+    }
+  /* APPLE LOCAL end 64bit shorten warning 3865314 */
   if (TREE_CODE (t) == INTEGER_CST)
     {
       if (TREE_OVERFLOW (t))

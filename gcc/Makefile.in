@@ -1465,6 +1465,9 @@ c-pretty-print.o : c-pretty-print.c $(C_PRETTY_PRINT_H) \
 	$(C_COMMON_H) $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) real.h \
 	$(DIAGNOSTIC_H)
 
+# APPLE LOCAL begin 64bit shorten warning 3865314
+c-common.o : options.h
+
 c-opts.o : c-opts.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H)		\
         $(TREE_H) $(C_PRAGMA_H) $(FLAGS_H) toplev.h langhooks.h		\
         tree-inline.h $(DIAGNOSTIC_H) intl.h debug.h $(C_COMMON_H)	\

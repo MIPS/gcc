@@ -3187,6 +3187,12 @@ converted to an unsigned type.  For example, warn about the assignment
 @code{x = -1} if @code{x} is unsigned.  But do not warn about explicit
 casts like @code{(unsigned) -1}.
 
+/* APPLE LOCAL begin 64bit shorten warning 3865314 */
+@item -Wshorten-64-to-32
+@opindex Wshorten-64-to-32
+Warn if a value is implicitly converted from a 64 bit type to a 32 bit type.
+/* APPLE LOCAL end 64bit shorten warning 3865314 */
+
 @item -Wsign-compare
 @opindex Wsign-compare
 @cindex warning for comparison of signed and unsigned values

@@ -1,3 +1,8 @@
+2004-12-13  Mike Stump  <mrs@apple.com>
+
+	Radar 3865314
+	* gcc.apple/shorten.c: New.
+
 2004-12-10 Devang Patel  <dpatel@apple.com>
 
 	* gcc.dg/vect/vect-ifcvt-2.c: Update.

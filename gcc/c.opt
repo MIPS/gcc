@@ -193,6 +193,11 @@ Wconversion
 C ObjC C++ ObjC++ Var(warn_conversion)
 Warn about possibly confusing type conversions
 
+; APPLE LOCAL begin 64bit shorten warning 3865314
+Wshorten-64-to-32
+C ObjC C++ ObjC++ Var(warn_shorten_64_to_32)
+Warn if a value is implicitly converted from a 64 bit type to a 32 bit type
+
 Wctor-dtor-privacy
 C++ ObjC++ Var(warn_ctor_dtor_privacy)
 Warn when all constructors and destructors are private
