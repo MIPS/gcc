@@ -826,7 +826,7 @@ void
 mark_irreducible_loops (loops)
      struct loops *loops;
 {
-  int *dfs_in, *closed, *mr, *n_edges, *stack;
+  int *dfs_in, *closed, *mr, *mri, *n_edges, *stack;
   unsigned i;
   edge **edges, e;
   basic_block act;
@@ -839,6 +839,7 @@ mark_irreducible_loops (loops)
   dfs_in = xmalloc ((last_basic_block + loops->num) * sizeof (int));
   closed = xmalloc ((last_basic_block + loops->num) * sizeof (int));
   mr = xmalloc ((last_basic_block + loops->num) * sizeof (int));
+  mri = xmalloc ((last_basic_block + loops->num) * sizeof (int));
   n_edges = xmalloc ((last_basic_block + loops->num) * sizeof (int));
   edges = xmalloc ((last_basic_block + loops->num) * sizeof (edge *));
   stack = xmalloc ((n_basic_blocks + loops->num) * sizeof (int));
@@ -913,6 +914,7 @@ mark_irreducible_loops (loops)
       dfs_in[i] = -1;
       closed[i] = 0;
       mr[i] = last_basic_block + loops->num;
+      mri[i] = -1;
     }
 
   stack_top = 0;
@@ -936,8 +938,11 @@ mark_irreducible_loops (loops)
 	           : e->dest->index + 1;
           if (closed[sidx])
 	    {
-	      if (mr[sidx] < mr[idx] && !closed[mr[sidx]])
-		mr[idx] = mr[sidx];
+	      if (mr[sidx] < mr[idx] && !closed[mri[sidx]])
+		{
+		  mr[idx] = mr[sidx];
+		  mri[idx] = mri[sidx];
+		}
 	      continue;
 	    }
 	  if (dfs_in[sidx] < 0)
@@ -946,7 +951,10 @@ mark_irreducible_loops (loops)
 	      goto next;
 	    }
 	  if (dfs_in[sidx] < mr[idx])
-	    mr[idx] = dfs_in[sidx];
+	    {
+	      mr[idx] = dfs_in[sidx];
+	      mri[idx] = sidx;
+	    }
 	}
 
       /* Return back.  */
@@ -957,7 +965,10 @@ mark_irreducible_loops (loops)
 	  /* Propagate information back.  */
 	  sidx = stack[stack_top - 1];
 	  if (mr[sidx] > mr[idx])
-	    mr[sidx] = mr[idx];
+	    {
+	      mr[sidx] = mr[idx];
+	      mri[sidx] = mri[idx];
+	    }
 	}
       /* Mark the block if relevant.  */
       if (idx && idx <= last_basic_block && mr[idx] <= dfs_in[idx])
@@ -969,6 +980,7 @@ next:;
   free (dfs_in);
   free (closed);
   free (mr);
+  free (mri);
   for (i = 0; i < last_basic_block + loops->num; i++)
     free (edges[i]);
   free (edges);
