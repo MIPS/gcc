@@ -50,3 +50,10 @@ aot_class_factory::get_mangled_form (T *val)
   mangle_map[val] = mg.get ();
   return mg.get ();
 }
+
+
+
+// Instantiations.
+
+template std::string aot_class_factory::get_mangled_form (model_field *);
+template std::string aot_class_factory::get_mangled_form (model_method *);

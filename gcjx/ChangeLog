@@ -1,5 +1,7 @@
 2005-01-29  Tom Tromey  <tromey@redhat.com>
 
+	* aot/aotfactory.cc: Added instantiations.
+
 	* aot/aotclass.hh (aot_class::get): New method.
 
 	* aot/mangle.cc: New file.
