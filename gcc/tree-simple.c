@@ -469,15 +469,10 @@ is_simple_unary_expr (t)
   /* Addition to the original grammar.  Allow BIT_FIELD_REF nodes where
      operand 0 is a SIMPLE identifier and operands 1 and 2 are SIMPLE
      values.  */
-  /* FIXME: This breaks stage2.  I still haven't figured out why.  When
-	    fixing remember to undo a similar change in simplify_expr.  */
   if (TREE_CODE (t) == BIT_FIELD_REF)
-    return 1;
-#if 0
-    return (is_simple_id (TREE_OPERAND (t, 0))
+    return (is_simple_min_lval (TREE_OPERAND (t, 0))
 	    && is_simple_val (TREE_OPERAND (t, 1))
 	    && is_simple_val (TREE_OPERAND (t, 2)));
-#endif
 
   /* Addition to the original grammar.  Allow VA_ARG_EXPR nodes.  */
   if (TREE_CODE (t) == VA_ARG_EXPR)
@@ -843,81 +838,24 @@ is_simple_exprseq (t)
 }
 
 /* Return nonzero if FNDECL can be simplified.  This is needed for
-   builtins like __builtin_stdarg_start that expects its last parameter to
-   be one of the current function's arguments.
-
-   FIXME: This should disappear.  This is just papering over problems with
-	  builtins and it's making the SIMPLE optimizers do extra work.  */
+   target-defined builtins that may need specific tree nodes in their
+   argument list.  */
 
 int
 is_simplifiable_builtin (expr)
      tree expr;
 {
-  enum built_in_function fcode;
-  tree decl, t1, t2, t3;
+  tree decl;
 
   decl = get_callee_fndecl (expr);
 
-  if (decl == NULL_TREE || !DECL_BUILT_IN (decl))
-    return 1;
-
   /* Do not simplify target-defined builtin functions.
      FIXME: Maybe we should add a target hook for allowing this in the
-	    future.  */
-  if (DECL_BUILT_IN_CLASS (decl) == BUILT_IN_MD)
+	    future?  */
+  if (decl && DECL_BUILT_IN_CLASS (decl) == BUILT_IN_MD)
     return 0;
 
-  fcode = DECL_FUNCTION_CODE (decl);
-
-  switch (fcode)
-    {
-      /* Many of the string builtins fold certain string patterns into
-         constants.  Make sure we don't simplify something which will
-         be folded by the builtin later.  */
-
-      /* FIXME this is a horrible kludge.  The builtin expanders should use
-	 dfa info to handle simplified arguments.  */
-
-      /* foo (const char *, const char *, ...).  */
-    case BUILT_IN_STRCMP:
-    case BUILT_IN_STRNCMP:
-    case BUILT_IN_STRSPN:
-    case BUILT_IN_STRSTR:
-    case BUILT_IN_STRCSPN:
-    case BUILT_IN_STRPBRK:
-    case BUILT_IN_MEMCMP:
-      t1 = TREE_VALUE (TREE_OPERAND (expr, 1));
-      t2 = TREE_VALUE (TREE_CHAIN (TREE_OPERAND (expr, 1)));
-      return !(string_constant (t1, &t3) || string_constant (t2, &t3));
-
-      /* foo (const char *, ...).  */
-    case BUILT_IN_STRLEN:
-    case BUILT_IN_STRRCHR:
-    case BUILT_IN_STRCHR:
-    case BUILT_IN_INDEX:
-    case BUILT_IN_RINDEX:
-    case BUILT_IN_FPUTS:
-    case BUILT_IN_PRINTF:
-      t1 = TREE_VALUE (TREE_OPERAND (expr, 1));
-      return !string_constant (t1, &t3);
-
-      /* foo (..., const char *, ...).  */
-    case BUILT_IN_STRCPY:
-    case BUILT_IN_STRNCPY:
-    case BUILT_IN_STRCAT:
-    case BUILT_IN_STRNCAT:
-    case BUILT_IN_FPRINTF:
-      t2 = TREE_VALUE (TREE_CHAIN (TREE_OPERAND (expr, 1)));
-      return !string_constant (t2, &t3);
-
-    case BUILT_IN_STDARG_START:
-    case BUILT_IN_VA_START:
-    case BUILT_IN_VA_COPY:
-      return 0;
-
-    default:
-      return 1;
-    }
+  return 1;
 }
 
 /* Given an _EXPR TOP, reorganize all of the nested _EXPRs with the same

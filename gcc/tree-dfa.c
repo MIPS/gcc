@@ -242,7 +242,8 @@ find_refs_in_expr (expr_p, ref_type, ref_mod, bb, parent_stmt_p)
       || class == 'b'
       || code == RESULT_DECL
       || code == FUNCTION_DECL
-      || code == LABEL_DECL)
+      || code == LABEL_DECL
+      || code == VA_ARG_EXPR)
     return;
 
   /* If this reference is associated with a non SIMPLE expression, then we
@@ -437,7 +438,7 @@ find_refs_in_expr (expr_p, ref_type, ref_mod, bb, parent_stmt_p)
   /* Unary expressions.  */
   if (class == '1'
       || code == EXPR_WITH_FILE_LOCATION
-      || code == VA_ARG_EXPR)
+      || code == BIT_FIELD_REF)
     {
       find_refs_in_expr (&TREE_OPERAND (expr, 0), ref_type, ref_mod, bb,
 			 parent_stmt_p);

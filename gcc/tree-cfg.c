@@ -1650,17 +1650,13 @@ stmt_starts_bb_p (t)
 void
 delete_tree_cfg ()
 {
-  if (basic_block_info == NULL)
-    return;
-
   if (n_basic_blocks > 0)
-    {
-      free_aux_for_blocks ();
-      clear_edges ();
-    }
+    free_aux_for_blocks ();
 
-  VARRAY_FREE (basic_block_info);
-  VARRAY_FREE (parent_array);
+  free_basic_block_vars (0);
+
+  if (parent_array)
+    VARRAY_FREE (parent_array);
 }
 
 

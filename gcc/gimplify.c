@@ -295,15 +295,14 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
 	  simplify_addr_expr (expr_p, pre_p, post_p);
 	  break;
 
-	  /* va_arg expressions should also be left alone to avoid confusing the
-	     vararg code.  FIXME: Is this really necessary?  */
+	/* va_arg expressions are in GIMPLE form already.  */
 	case VA_ARG_EXPR:
-	  mark_not_simple (expr_p);
 	  break;
 
 	case CONVERT_EXPR:
 	  if (*expr_p == empty_stmt_node)
 	    break;
+
 	case NOP_EXPR:
 	  if (VOID_TYPE_P (TREE_TYPE (*expr_p)))
 	    {
@@ -311,6 +310,7 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
 	      *expr_p = TREE_OPERAND (*expr_p, 0);
 	      break;
 	    }
+
 	case FIX_TRUNC_EXPR:
 	case FIX_CEIL_EXPR:
 	case FIX_FLOOR_EXPR:
@@ -321,8 +321,8 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
 	  break;
 
 	case INDIRECT_REF:
-	  simplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p, is_simple_id,
-			 fb_rvalue);
+	  simplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
+			 is_simple_id, fb_rvalue);
 	  recalculate_side_effects (*expr_p);
 	  break;
 
@@ -388,22 +388,18 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
 	  simplify_expr_wfl (expr_p, pre_p, post_p, simple_test_f);
 	  break;
 
-	  /* FIXME: This breaks stage2.  I still haven't figured out why.  When
-	     fixing remember to undo a similar change in
-	     is_simple_unary_expr.  */
 	case BIT_FIELD_REF:
-#if 0
-	  simplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p, is_simple_id);
-	  simplify_expr (&TREE_OPERAND (*expr_p, 1), pre_p, post_p, is_simple_val);
-	  simplify_expr (&TREE_OPERAND (*expr_p, 2), pre_p, post_p, is_simple_val);
-#else
-	  mark_not_simple (expr_p);
-#endif
+	  simplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
+		         is_simple_min_lval, fb_either);
+	  simplify_expr (&TREE_OPERAND (*expr_p, 1), pre_p, post_p,
+			 is_simple_val, fb_rvalue);
+	  simplify_expr (&TREE_OPERAND (*expr_p, 2), pre_p, post_p,
+			 is_simple_val, fb_rvalue);
 	  break;
 
 	case NON_LVALUE_EXPR:
-	  simplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p, simple_test_f,
-			 fb_rvalue);
+	  simplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
+			 simple_test_f, fb_rvalue);
 	  recalculate_side_effects (*expr_p);
 	  break;
 
@@ -880,10 +876,7 @@ simplify_call_expr (expr_p, pre_p, post_p)
 #endif
 
   /* Some builtins cannot be simplified because they require specific
-     arguments (e.g., __builtin_stdarg_start).
-
-     FIXME: We should not need to do this!  Fix builtins so that they can
-	    be simplified.  The question mark are MD builtins.  */
+     arguments (e.g., MD builtins).  */
   if (!is_simplifiable_builtin (*expr_p))
     {
       /* Mark the whole expression not simplifiable.  */

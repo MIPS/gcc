@@ -1,3 +1,20 @@
+2002-11-12  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-cfg.c (delete_tree_cfg): Call free_aux_for_blocks.
+	Call free_basic_block_vars.
+
+	* gimplify.c (simplify_expr): VA_ARG_EXPR nodes are in GIMPLE form
+	already.
+	Gimplify BIT_FIELD_REF nodes.
+	(simplify_call_expr): Update comment.
+	* tree-dfa.c (find_refs_in_expr): VA_ARG_EXPR nodes make no
+	data references.
+	Handle BIT_FIELD_REF nodes.
+	* tree-pretty-print.c (op_prio): Don't write an error message if
+	the operand is not recognized.
+	* tree-simple.c (is_simple_unary_expr): Handle BIT_FIELD_REFs.
+	(is_simplifiable_builtin): Only return false for MD builtins.
+
 2002-11-08  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-cfg.c (cleanup_switch_expr_graph): Handle edges going to

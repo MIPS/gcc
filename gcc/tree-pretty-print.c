@@ -48,9 +48,7 @@ static void dump_block_info			PARAMS ((output_buffer *,
   int i; for (i = 0; i<SPACE; i++) output_add_space (buffer); } while (0)
 
 #define NIY do { \
-    output_add_string (buffer, "<<< Unknown tree: "); \
-    output_add_string (buffer, tree_code_name[(int) TREE_CODE (node)]); \
-    output_add_string (buffer, " >>>\n"); } while (0)
+  output_add_string (buffer, "<<< Unknown tree >>>\n"); } while (0)
 
 #define PRINT_FUNCTION_NAME(NODE)  output_printf             \
   (buffer, "%s", TREE_CODE (NODE) == NOP_EXPR ?              \
@@ -1434,23 +1432,9 @@ op_prio (op)
       return op_prio (EXPR_WFL_NODE (op));
 
     default:
-      /* If OP is any type of expression operator, abort because we
-	 should know what its relative precedence is.  Otherwise, return
-	 an arbitrarily high precedence to avoid surrounding single
+      /* Return an arbitrarily high precedence to avoid surrounding single
 	 VAR_DECLs in ()s.  */
-      if (TREE_CODE_CLASS (TREE_CODE (op)) == '<'
-	  || TREE_CODE_CLASS (TREE_CODE (op)) == '1'
-	  || TREE_CODE_CLASS (TREE_CODE (op)) == '2'
-	  || TREE_CODE_CLASS (TREE_CODE (op)) == 'e')
-	{
-	  fputs ("\n", stderr);
-	  fprintf (stderr, "unhandled expression in op_prio(): ");
-	  print_node_brief (stderr, "", op, 0);
-	  fputs ("\n", stderr);
-	  return -1;
-	}
-      else
-	return 9999;
+      return 9999;
     }
 }
 
