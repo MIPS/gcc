@@ -1660,7 +1660,7 @@ tree-vn.o : tree-vn.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(GGC_H) \
 tree-cfg.o : tree-cfg.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
    $(RTL_H) $(TREE_H) $(TM_P_H) $(EXPR_H) $(GGC_H) $(FLAGS_H) output.h \
    diagnostic.h errors.h function.h $(TIMEVAR_H) $(TM_H) coretypes.h \
-   $(TREE_DUMP_H) except.h langhooks.h $(CFGLOOP_H) gt-tree-cfg.h tree-pass.h
+   $(TREE_DUMP_H) except.h langhooks.h $(CFGLOOP_H) tree-pass.h
 tree-tailcall.o : tree-tailcall.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
    $(RTL_H) $(TREE_H) $(TM_P_H) function.h $(TM_H) coretypes.h \
    $(TREE_DUMP_H) diagnostic.h except.h tree-pass.h $(FLAGS_H) langhooks.h
@@ -1971,7 +1971,7 @@ cfghooks.o: cfghooks.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(TR
    $(BASIC_BLOCK_H) $(CFGLAYOUT_H) $(TREE_FLOW_H) $(TIMEVAR_H) toplev.h
 cfgexpand.o : cfgexpand.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
    $(RTL_H) $(TREE_H) $(TM_P_H) $(EXPR_H) function.h $(TIMEVAR_H) $(TM_H) coretypes.h \
-   $(TREE_DUMP_H) except.h langhooks.h cfgloop.h gt-tree-cfg.h tree-pass.h $(RTL_H)
+   $(TREE_DUMP_H) except.h langhooks.h cfgloop.h tree-pass.h $(RTL_H)
 cfgrtl.o : cfgrtl.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(FLAGS_H) \
    insn-config.h $(BASIC_BLOCK_H) $(REGS_H) hard-reg-set.h output.h toplev.h $(RECOG_H) \
    function.h except.h $(GGC_H) $(TM_P_H) insn-config.h $(EXPR_H)
@@ -2396,7 +2396,7 @@ gt-c-pragma.h gtype-c.h gt-input.h gt-cfglayout.h \
 gt-tree-alias-common.h gt-tree-mudflap.h \
 gt-tree-ssa-ccp.h gt-tree-eh.h \
 gt-tree-ssanames.h gt-tree-iterator.h gt-gimplify.h \
-gt-tree-phinodes.h gt-tree-cfg.h gt-tree-nested.h \
+gt-tree-phinodes.h gt-tree-nested.h \
 gt-stringpool.h : s-gtype ; @true
 
 gtyp-gen.h: s-gtyp-gen ; @true
