@@ -64,6 +64,11 @@ static void estimate_loops_at_level	 PARAMS ((struct loop *loop));
 static void propagate_freq		 PARAMS ((basic_block));
 static void estimate_bb_frequencies	 PARAMS ((struct loops *));
 static void counts_to_freqs		 PARAMS ((void));
+static void process_note_predictions	 PARAMS ((basic_block, int *, int *,
+                                                  sbitmap *));
+static void process_note_prediction	 PARAMS ((basic_block, int *, int *,
+                                                  sbitmap *, int, int));
+static int  is_last_basic_block          PARAMS ((basic_block));
 
 /* Information we hold about each branch predictor.
    Filled using information from predict.def.  */
@@ -317,7 +322,6 @@ estimate_probability (loops_info)
 {
   sbitmap *dominators, *post_dominators;
   int i;
-  int found_noreturn = 0;
 
   dominators = sbitmap_vector_alloc (n_basic_blocks, n_basic_blocks);
   post_dominators = sbitmap_vector_alloc (n_basic_blocks, n_basic_blocks);
@@ -371,24 +375,6 @@ estimate_probability (loops_info)
       /* If block has no successor, predict all possible paths to
          it as improbable, as the block contains a call to a noreturn
 	 function and thus can be executed only once.  */
-      if (bb->succ == NULL && !found_noreturn)
-	{
-	  int y;
-
-	  /* ??? Postdominator claims each noreturn block to be postdominated
-	     by each, so we need to run only once.  This needs to be changed
-	     once postdominace algorithm is updated to say something more sane.
-	     */
-	  found_noreturn = 1;
-	  for (y = 0; y < n_basic_blocks; y++)
-	    if (!TEST_BIT (post_dominators[y], i))
-	      {
-		for (e = BASIC_BLOCK (y)->succ; e; e = e->succ_next)
-		if (e->dest->index >= 0
-		    && TEST_BIT (post_dominators[e->dest->index], i))
-		  predict_edge_def (e, PRED_NORETURN, NOT_TAKEN);
-	      }
-	}
 
       if (GET_CODE (last_insn) != JUMP_INSN
 	  || ! any_condjump_p (last_insn))
@@ -594,6 +580,198 @@ expected_value_to_br_prob ()
       predict_insn_def (insn, PRED_BUILTIN_EXPECT,
 		        cond == const_true_rtx ? TAKEN : NOT_TAKEN);
     }
+}
+
+/* Checks whether the basic block is the last one in "normal" flow */
+static int
+is_last_basic_block (bb)
+     basic_block bb;
+{
+  rtx insn;
+  
+  for (insn = NEXT_INSN (bb->end); insn; insn = NEXT_INSN (insn))
+    {
+    if (GET_CODE (insn) == BARRIER)
+      continue;
+    if (GET_CODE (insn) == NOTE)
+      return (NOTE_LINE_NUMBER (insn) == NOTE_INSN_FUNCTION_END);
+    return 0;
+    }
+
+  return 0;
+}
+
+/* Sets branch probabilities according to PREDiction and FLAGS. HEADS[bb->index]
+   should be index of basic block in that we need to alter branch predictions
+   (i.e. the first of our dominators such that we do not post-dominate it)
+   (but we fill this information on demand, so -1 may be there in case this
+   was not needed yet). */
+
+static void
+process_note_prediction (bb, heads, dominators, post_dominators, pred, flags)
+     basic_block bb;
+     int *heads;
+     int *dominators;
+     sbitmap *post_dominators;
+     int pred;
+     int flags;
+{
+  edge e;
+  int y;
+  int taken, ignore_in_last;
+
+  taken = flags & IS_TAKEN;
+  ignore_in_last = flags & IGNORE_IN_LAST;
+
+  /* Prediction that should be ignored in last block?  */
+  if (ignore_in_last && is_last_basic_block (bb)) return;
+  
+  if (heads[bb->index] < 0)
+    {
+      /* This is first time we need this field in heads array; so
+         find first dominator that we do not post-dominate (we are
+         using already known members of heads array).  */
+      int ai = bb->index, next_ai = dominators[bb->index], head;
+      while (heads[next_ai] < 0)
+        {
+          if (!TEST_BIT (post_dominators[next_ai], bb->index))
+            break;
+          heads[next_ai] = ai;
+          ai = next_ai;
+          next_ai = dominators[next_ai];
+        }
+      if (!TEST_BIT (post_dominators[next_ai], bb->index))
+        head = next_ai;
+      else
+        head = heads[next_ai];
+      while (next_ai != bb->index)
+        {
+        next_ai = ai;
+        ai = heads[ai];
+        heads[next_ai] = head;
+        }
+    }
+  y = heads[bb->index];
+
+  /* Now find the edge that leads to our branch and aply the prediction.  */
+
+  if (y == n_basic_blocks) return;
+  for (e = BASIC_BLOCK (y)->succ; e; e = e->succ_next)
+    if (e->dest->index >= 0
+        && TEST_BIT (post_dominators[e->dest->index], bb->index))
+          predict_edge_def (e, pred, taken);
+}
+
+/* Gathers NOTE_INSN_PREDICTIONs in given basic block and turns them
+   into branch probabilities.  For description of heads array, see
+   process_note_prediction.  */
+
+static void
+process_note_predictions (bb, heads, dominators, post_dominators)
+     basic_block bb;
+     int *heads;
+     int *dominators;
+     sbitmap *post_dominators;
+{
+  rtx insn;
+  edge e;
+  
+  /* Additionaly, we check here for blocks with no successors.  */
+  int contained_return = 0;
+  int contained_noreturn_call = 0;
+  int was_bb_head = 0;
+  int noreturn_block = 1;
+
+  for (insn = bb->end; insn;
+       was_bb_head |= (insn == bb->head), insn = PREV_INSN (insn))
+    {
+      if (GET_CODE (insn) != NOTE)
+        {
+          if (was_bb_head)
+            break;
+          else
+            {
+              /* Noreturn calls cause program to exit, therefore they are
+                 always predicted as not taken.  */
+              if (GET_CODE (insn) == CALL_INSN
+	          && find_reg_note (insn, REG_NORETURN, NULL))
+                contained_noreturn_call = 1;
+              continue;
+            }
+        }
+      if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_PREDICTION)
+        {
+          int alg = (int) NOTE_PREDICTION_ALG (insn);
+          /* Process single prediction note.  */
+          process_note_prediction (bb,
+            heads,
+            dominators,
+            post_dominators,
+            alg,
+            (int) NOTE_PREDICTION_FLAGS (insn));
+          NOTE_LINE_NUMBER (insn) = NOTE_INSN_DELETED;
+        }
+      if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_RETURN)
+        {
+          /* Record that block is noreturn due to return.  */
+          contained_return = 1;
+          NOTE_LINE_NUMBER (insn) = NOTE_INSN_DELETED;
+        }
+    }
+  for (e = bb->succ; e; e = e->succ_next)
+    if (!(e->flags & EDGE_FAKE))
+      noreturn_block = 0;
+  if (noreturn_block && !contained_return)
+    {
+      /* This block ended from other reasons than because of return.
+         If it is because of noreturn call, this should certainly not
+         be taken.  Otherwise it is probably some error recovery.  */
+      process_note_prediction (bb,
+        heads,
+        dominators,
+        post_dominators,
+        contained_noreturn_call ? PRED_NORETURN : PRED_ERROR_RETURN,
+        NOT_TAKEN);
+    }
+}
+
+/* Gathers NOTE_INSN_PREDICTIONs and turns them into
+   branch probabilities.  */
+
+void
+note_prediction_to_br_prob ()
+{
+  int i;
+  sbitmap *post_dominators;
+  int *dominators, *heads;
+ 
+  /* To enable handling of noreturn blocks.  */
+  add_noreturn_fake_exit_edges ();
+  connect_infinite_loops_to_exit ();
+  
+  dominators = xmalloc (sizeof (int) * n_basic_blocks);
+  memset (dominators, -1, sizeof (int) * n_basic_blocks);
+  post_dominators = sbitmap_vector_alloc (n_basic_blocks, n_basic_blocks);
+  calculate_dominance_info (NULL, post_dominators, CDI_POST_DOMINATORS);
+  calculate_dominance_info (dominators, NULL, CDI_DOMINATORS);
+  
+  heads = xmalloc (sizeof (int) * n_basic_blocks);
+  memset (heads, -1, sizeof (int) * n_basic_blocks);
+  heads[0] = n_basic_blocks;
+
+  /* Process all prediction notes.  */
+
+  for (i = 0; i < n_basic_blocks; ++i)
+    {
+      basic_block bb = BASIC_BLOCK (i);
+      process_note_predictions (bb, heads, dominators, post_dominators);
+    }
+
+  sbitmap_vector_free (post_dominators);
+  free(dominators);
+  free (heads);
+
+  remove_fake_edges ();
 }
 
 /* This is used to carry information about basic blocks.  It is

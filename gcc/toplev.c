@@ -2552,6 +2552,18 @@ rest_of_compilation (decl)
   if ((rtl_dump_and_exit || flag_syntax_only) && !warn_return_type)
     goto exit_rest_of_compilation;
 
+  /* Build CFG -- for predictions based on source code.  */
+  insns = get_insns ();
+  rebuild_jump_labels (insns);
+  find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
+  
+  cleanup_cfg (CLEANUP_PRE_SIBCALL | CLEANUP_UNREACHABLE_ONLY);
+
+  /* Turn NOTE_INSN_PREDICTIONs into branch predictions.  */
+  note_prediction_to_br_prob ();
+  
+  free_bb_for_insn ();
+
   /* We may have potential sibling or tail recursion sites.  Select one
      (of possibly multiple) methods of performing the call.  */
   if (flag_optimize_sibling_calls)

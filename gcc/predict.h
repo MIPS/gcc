@@ -34,6 +34,10 @@ enum prediction
    TAKEN
 };
 
+/* FLAGS FOR NOTE_PREDICTION */
+#define IS_TAKEN 1
+#define IGNORE_IN_LAST 2
+
 extern void predict_insn_def	PARAMS ((rtx, enum br_predictor,
 					 enum prediction));
 extern void predict_insn	PARAMS ((rtx, enum br_predictor, int));

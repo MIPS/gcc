@@ -1517,8 +1517,12 @@ cleanup_cfg (mode)
 
   timevar_push (TV_CLEANUP_CFG);
   changed = delete_unreachable_blocks ();
-  if (try_optimize_cfg (mode))
-    delete_unreachable_blocks (), changed = true;
+
+  if (! (mode & CLEANUP_UNREACHABLE_ONLY))
+    {
+      if (try_optimize_cfg (mode))
+        delete_unreachable_blocks (), changed = true;
+    }
 
   /* Kill the data we won't maintain.  */
   free_EXPR_LIST_list (&label_value_list);

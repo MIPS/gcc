@@ -575,7 +575,11 @@ enum update_life_extent
 #define CLEANUP_PRE_LOOP	16	/* Take care to preserve syntactic loop
 					   notes.  */
 #define CLEANUP_UPDATE_LIFE	32	/* Keep life information up to date.  */
+
 #define CLEANUP_THREADING	64	/* Do jump threading.  */
+
+#define CLEANUP_UNREACHABLE_ONLY 128    /* Only delete unreachable bbs */
+
 /* Flags for loop discovery.  */
 
 #define LOOP_TREE		1	/* Build loop hierarchy tree.  */
@@ -619,6 +623,7 @@ extern rtx emit_block_insn_before	PARAMS ((rtx, rtx, basic_block));
 /* In predict.c */
 extern void estimate_probability        PARAMS ((struct loops *));
 extern void expected_value_to_br_prob	PARAMS ((void));
+extern void note_prediction_to_br_prob	PARAMS ((void));
 
 /* In flow.c */
 extern void init_flow                   PARAMS ((void));

@@ -90,7 +90,9 @@ can_delete_note_p (note)
      rtx note;
 {
   return (NOTE_LINE_NUMBER (note) == NOTE_INSN_DELETED
-	  || NOTE_LINE_NUMBER (note) == NOTE_INSN_BASIC_BLOCK);
+	  || NOTE_LINE_NUMBER (note) == NOTE_INSN_BASIC_BLOCK
+          || NOTE_LINE_NUMBER (note) == NOTE_INSN_PREDICTION
+          || NOTE_LINE_NUMBER (note) == NOTE_INSN_RETURN);
 }
 
 /* True if a given label can be deleted.  */
@@ -343,6 +345,18 @@ flow_delete_block (b)
      We need to remove the label from the exception_handler_label list
      and remove the associated NOTE_INSN_EH_REGION_BEG and
      NOTE_INSN_EH_REGION_END notes.  */
+
+  /* Get rid of all NOTE_INSN_PREDICTIONs and NOTE_INSN_RETURNs hanging
+     before the block.  This really is not very clean.  */
+  
+  for (insn = PREV_INSN (b->head); insn; insn = PREV_INSN (insn))
+    {
+      if (GET_CODE (insn) != NOTE)
+        break;
+      if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_PREDICTION ||
+          NOTE_LINE_NUMBER (insn) == NOTE_INSN_RETURN)
+        NOTE_LINE_NUMBER (insn) = NOTE_INSN_DELETED;
+    }
 
   insn = b->head;
 

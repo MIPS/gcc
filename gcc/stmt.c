@@ -48,6 +48,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "hard-reg-set.h"
 #include "obstack.h"
 #include "loop.h"
+#include "predict.h"
 #include "recog.h"
 #include "machmode.h"
 #include "toplev.h"
@@ -410,6 +411,7 @@ static tree resolve_operand_names	PARAMS ((tree, tree, tree,
 						 const char **));
 static char *resolve_operand_name_1	PARAMS ((char *, tree, tree));
 static void expand_null_return_1	PARAMS ((rtx));
+static int maybe_error_return           PARAMS ((rtx));
 static void expand_value_return		PARAMS ((rtx));
 static int tail_recursion_args		PARAMS ((tree, tree));
 static void expand_cleanups		PARAMS ((tree, tree, int, int));
@@ -786,7 +788,14 @@ expand_goto (label)
      tree label;
 {
   tree context;
+  rtx note;
 
+  /* Emit information for branch prediction.  */
+
+  note = emit_note (NULL, NOTE_INSN_PREDICTION);
+
+  NOTE_PREDICTION (note) = NOTE_PREDICT (PRED_GOTO, NOT_TAKEN);
+            
   /* Check for a nonlocal goto to a containing function.  */
   context = decl_function_context (label);
   if (context != 0 && context != current_function_decl)
@@ -863,6 +872,7 @@ expand_goto (label)
     }
   else
     expand_goto_internal (label, label_rtx (label), NULL_RTX);
+
 }
 
 /* Generate RTL code for a `goto' statement with target label BODY.
@@ -3033,7 +3043,18 @@ expand_exit_something ()
 void
 expand_null_return ()
 {
-  rtx last_insn = get_last_insn ();
+  rtx last_insn;
+
+  rtx note;
+
+  /* Emit information for branch prediction.  */
+
+  note = emit_note (NULL, NOTE_INSN_PREDICTION); 
+  NOTE_PREDICTION (note) = NOTE_PREDICT (PRED_NIL_RETURN, NOT_TAKEN | IGNORE_IN_LAST);
+  
+  emit_note (NULL, NOTE_INSN_RETURN);
+
+  last_insn = get_last_insn ();
 
   /* If this function was declared to return a value, but we
      didn't, clobber the return registers so that they are not
@@ -3043,14 +3064,46 @@ expand_null_return ()
   expand_null_return_1 (last_insn);
 }
 
+/* Try to guess whether the value of return means error code.  */
+static int
+maybe_error_return (val)
+     rtx val;
+{
+  /* Non-constant value is unlikely to be an error code.  */
+  if (!CONSTANT_P (val))
+    return 0;
+
+  /* Zero/one often mean booleans.  */
+  if (val == const0_rtx || val == const1_rtx)
+    return 0;
+  
+  /* Other constants.  We should probably handle pointers specially too?  */
+  return 1;
+}
+
 /* Generate RTL to return from the current function, with value VAL.  */
 
 static void
 expand_value_return (val)
      rtx val;
 {
-  rtx last_insn = get_last_insn ();
-  rtx return_reg = DECL_RTL (DECL_RESULT (current_function_decl));
+  rtx last_insn;
+  rtx return_reg;
+
+  if (maybe_error_return (val))
+    {
+      /* Emit information for branch prediction.  */
+      rtx note;
+
+      note = emit_note (NULL, NOTE_INSN_PREDICTION);
+
+      NOTE_PREDICTION (note) = NOTE_PREDICT (PRED_CONST_RETURN, NOT_TAKEN | IGNORE_IN_LAST);
+
+    }
+  emit_note (NULL, NOTE_INSN_RETURN);
+
+  last_insn = get_last_insn ();
+  return_reg = DECL_RTL (DECL_RESULT (current_function_decl));
 
   /* Copy the value to the return location
      unless it's already there.  */

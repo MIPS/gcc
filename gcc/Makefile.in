@@ -1400,7 +1400,7 @@ function.o : function.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h \
    insn-config.h $(RECOG_H) output.h toplev.h except.h hash.h $(GGC_H) $(TM_P_H)
 stmt.o : stmt.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h function.h  \
    insn-config.h hard-reg-set.h $(EXPR_H) libfuncs.h except.h \
-   $(LOOP_H) $(RECOG_H) toplev.h output.h varray.h $(GGC_H) $(TM_P_H)
+   $(LOOP_H) predict.h $(RECOG_H) toplev.h output.h varray.h $(GGC_H) $(TM_P_H)
 except.o : except.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h \
    except.h function.h $(EXPR_H) libfuncs.h integrate.h \
    insn-config.h hard-reg-set.h $(BASIC_BLOCK_H) output.h \
@@ -2974,6 +2974,7 @@ check-g++: $(TESTSUITEDIR)/site.exp
 check-gcc: $(TESTSUITEDIR)/site.exp
 	-(rootme=`pwd`; export rootme; \
 	srcdir=`cd ${srcdir}; pwd` ; export srcdir ; \
+	compiler="${srcdir}/xgcc -B ${srcdir}"; export compiler ; \
 	cd $(TESTSUITEDIR); \
 	EXPECT=${EXPECT} ; export EXPECT ; \
 	if [ -f $${rootme}/../expect/expect ] ; then  \
