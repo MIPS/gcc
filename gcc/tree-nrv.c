@@ -32,6 +32,7 @@ Boston, MA 02111-1307, USA.  */
 #include "timevar.h"
 #include "tree-dump.h"
 #include "tree-pass.h"
+#include "langhooks.h"
 
 /* This file implements return value optimizations for functions which
    return aggregate types.
@@ -156,8 +157,8 @@ tree_nrv (void)
 	      || TREE_STATIC (found)
 	      || TREE_ADDRESSABLE (found)
 	      || DECL_ALIGN (found) > DECL_ALIGN (result)
-	      || (TYPE_MAIN_VARIANT (TREE_TYPE (found))
-		  != TYPE_MAIN_VARIANT (result_type)))
+              || !lang_hooks.types_compatible_p (TREE_TYPE (found), 
+ 		 result_type))
 	    return;
 	}
     }

@@ -382,6 +382,11 @@ struct lang_hooks
      types in C++.  */
   const char *(*decl_printable_name) (tree decl, int verbosity);
 
+  /* This compares two types for equivalence ("compatible" in C-based languages).
+     This routine should only return 1 if it is sure.  It should not be used
+     in contexts where erroneously returning 0 causes problems.  */
+  int (*types_compatible_p) (tree x, tree y);
+
   /* Given a CALL_EXPR, return a function decl that is its target.  */
   tree (*lang_get_callee_fndecl) (tree);
 

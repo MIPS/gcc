@@ -1487,13 +1487,13 @@ canonicalize_addr_expr (tree* expr_p)
   /* Both cast and addr_expr types should address the same object type.  */
   dctype = TREE_TYPE (ctype);
   ddatype = TREE_TYPE (datype);
-  if (TYPE_MAIN_VARIANT (ddatype) != TYPE_MAIN_VARIANT (dctype))
+  if (!lang_hooks.types_compatible_p (ddatype, dctype))
     return;
 
   /* The addr_expr and the object type should match.  */
   obj_expr = TREE_OPERAND (addr_expr, 0);
   otype = TREE_TYPE (obj_expr);
-  if (TYPE_MAIN_VARIANT (otype) != TYPE_MAIN_VARIANT (datype))
+  if (!lang_hooks.types_compatible_p (otype, datype))
     return;
 
   /* All checks succeeded.  Build a new node to merge the cast.  */
@@ -3519,7 +3519,7 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 static bool
 cpt_same_type (tree a, tree b)
 {
-  if (TYPE_MAIN_VARIANT (a) == TYPE_MAIN_VARIANT (b))
+  if (lang_hooks.types_compatible_p (a, b))
     return true;
 
   /* ??? The C++ FE decomposes METHOD_TYPES to FUNCTION_TYPES and doesn't

@@ -39,6 +39,7 @@ static bool cxx_warn_unused_global_decl (tree);
 static tree cp_expr_size (tree);
 static size_t cp_tree_size (enum tree_code);
 static bool cp_var_mod_type_p (tree);
+static int cxx_types_compatible_p (tree, tree);
 static int cp_expand_decl (tree);
 static void cxx_initialize_diagnostics (diagnostic_context *);
 
@@ -181,6 +182,8 @@ static void cxx_initialize_diagnostics (diagnostic_context *);
 #define LANG_HOOKS_INCOMPLETE_TYPE_ERROR cxx_incomplete_type_error
 #undef LANG_HOOKS_TYPE_PROMOTES_TO
 #define LANG_HOOKS_TYPE_PROMOTES_TO cxx_type_promotes_to
+#undef LANG_HOOKS_TYPES_COMPATIBLE_P
+#define LANG_HOOKS_TYPES_COMPATIBLE_P cxx_types_compatible_p
 #undef LANG_HOOKS_REGISTER_BUILTIN_TYPE
 #define LANG_HOOKS_REGISTER_BUILTIN_TYPE c_register_builtin_type
 #undef LANG_HOOKS_GIMPLIFY_EXPR
@@ -355,6 +358,11 @@ cp_var_mod_type_p (tree type)
 
   /* All other types are not variably modified.  */
   return false;
+}
+
+static int cxx_types_compatible_p (tree x, tree y)
+{
+    return comptypes (TYPE_MAIN_VARIANT (x), TYPE_MAIN_VARIANT (y), 0);
 }
 
 /* Stub routine to tell people that this doesn't work yet.  */

@@ -37,6 +37,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-dump.h"
 #include "tree-flow.h"
 #include "tree-pass.h"
+#include "langhooks.h"
 
 /* This file provides a handful of interfaces for performing const/copy
    propagation and simple expression replacement which keep variable
@@ -219,8 +220,8 @@ cprop_into_stmt (tree stmt, varray_type const_and_copies)
 		 constant by converting the constant to the proper type.  Note
 		 that convert may return a non-gimple expression, in which case
 		 we ignore this propagation opportunity.  */
-	      if (TYPE_MAIN_VARIANT (op_type) != TYPE_MAIN_VARIANT (val_type)
-		  && TREE_CODE (val) != SSA_NAME)
+	     if (!lang_hooks.types_compatible_p (op_type, val_type)
+	           && TREE_CODE (val) != SSA_NAME)
 		{
 		  val = convert (TREE_TYPE (*op_p), val);
 		  if (!is_gimple_min_invariant (val)

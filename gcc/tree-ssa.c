@@ -3660,7 +3660,7 @@ tree_ssa_useless_type_conversion_1 (tree outer_type, tree inner_type)
      strip the type conversion and enter the equivalence into
      the table.  */
   if (inner_type == outer_type
-      || TYPE_MAIN_VARIANT (inner_type) == TYPE_MAIN_VARIANT (outer_type))
+     || (lang_hooks.types_compatible_p (inner_type, outer_type)))
     return true;
 
   /* If both types are pointers and the outer type is a (void *), then
@@ -3678,8 +3678,7 @@ tree_ssa_useless_type_conversion_1 (tree outer_type, tree inner_type)
      so strip conversions that just switch between them.  */
   else if (POINTER_TYPE_P (inner_type)
            && POINTER_TYPE_P (outer_type)
-	   && (TYPE_MAIN_VARIANT (TREE_TYPE (inner_type))
-	       == TYPE_MAIN_VARIANT (TREE_TYPE (outer_type))))
+           && lang_hooks.types_compatible_p (inner_type, outer_type))
     return true;
 
   /* If both the inner and outer types are integral types, then the

@@ -41,7 +41,7 @@ Boston, MA 02111-1307, USA.  */
 #include "real.h"
 #include "tree-pass.h"
 #include "flags.h"
-
+#include "langhooks.h"
 
 /* This file implements optimizations on the dominator tree.  */
 
@@ -3090,8 +3090,8 @@ avail_expr_eq (const void *p1, const void *p2)
      same VUSE operands.  */
   if (TREE_CODE (rhs1) == TREE_CODE (rhs2)
       && (TREE_TYPE (rhs1) == TREE_TYPE (rhs2)
-	  || (TYPE_MAIN_VARIANT (TREE_TYPE (rhs1))
-	      == TYPE_MAIN_VARIANT (TREE_TYPE (rhs2))))
+          || lang_hooks.types_compatible_p (TREE_TYPE (rhs1), 
+	        TREE_TYPE (rhs2)))
       && operand_equal_p (rhs1, rhs2, 0))
     {
       vuse_optype ops1 = STMT_VUSE_OPS (s1);

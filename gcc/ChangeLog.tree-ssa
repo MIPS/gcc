@@ -1,4 +1,48 @@
-2004-03-16  Dale Johannesen  <dale@apple.com>
+2004-03-16  Dale Johannesen  <dalej@apple.com>
+
+	* Makefile.in (tree-ssa-phiopt.o): add langhooks.h dependency.
+	(tree-nrv.o): Ditto.
+	(tree-ssa-copy.o): Ditto.
+	(tree-ssa-dom.o): Ditto.
+	(tree-ssa-ccp.o): Ditto.
+	* c-common.c: Add #include hashtab.h.
+	(c_type_hash): New.
+	(c_common_get_alias_set): Handle multiple type nodes referring
+	to "the same" type, currently for C90 only.
+	* c-decl.c (current_file_decl): Move to toplev.c.
+	* c-lang.c (LANG_HOOKS_TYPES_COMPATIBLE_P): Define to 
+	c_types_compatible_p.
+	(c_types_compatible_p): New.
+	* c-tree.h (c_types_compatible_p): New declaration.
+	* c-typeck.c (tagged_types_tu_compatible_p): Allow for 
+	compiler-generated TYPE_DECLs without a DECL_ORIGINAL_TYPE.
+	* gimplify.c (canonicalize_addr_expr): Use types_compatible_p langhook.
+	(cpt_same_type): Ditto.
+	* langhooks-def.h (lhd_types_compatible_p): New declaration.
+	LANG_HOOKS_TYPES_COMPATIBLE_P: New.
+	* langhooks.c (lhd_types_compatible_p): New.
+	* langhooks.h (struct lang_hooks): Add types_compatible_p.
+	* stmt.c (tail_recursion_args): Use types_compatible_p langhook.
+	* toplev.c (current_file_decl): New, moved from c-decl.c.
+	* tree-nrv.c: Include langhooks.h.
+	(tree_nrv): Use types_compatible_p langhook.
+	* tree-ssa-ccp.c: Include langhooks.h.
+	(maybe_fold_offset_to_array_ref): Use types_compatible_p langhook.
+	(maybe_fold_offset_to_component_ref): Ditto (2 places).
+	(fold_stmt_r): Make sure rhs of COMPONENT_REF is in lhs type.
+	* tree-ssa-copy.c: Include langhooks.h.
+	(cprop_into_stmt): Use types_compatible_p langhook.
+	* tree-ssa-dom.c: Include langhooks.h.
+	(avail_expr_p): Use types_compatible_p langhook.
+	* tree-ssa-phiopt.c: Include langhooks.h.
+	(conditional_replacement): Use types_compatible_p langhook.
+	* tree-ssa.c (tree_ssa_useless_type_conversion_1): Use 
+	types_compatible_p langhook.
+	* tree.h (current_file_decl): New declaration.
+	* cp/cp-lang.c (cxx_types_compatible_p): New.
+	LANG_HOOKS_TYPES_COMPATIBLE_P: New.
+
+2004-03-16  Dale Johannesen  <dalej@apple.com>
 
 	PR optimization/14498
 	* gimplify.c (copy_if_shared_r): Mark VA_ARGS_EXPRs as volatile.

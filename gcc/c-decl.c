@@ -143,10 +143,6 @@ static GTY(()) tree truly_local_externals;
 static GTY(()) tree first_builtin_decl;
 static GTY(()) tree last_builtin_decl;
 
-/* A DECL for the current file-scope context.  */
-
-static GTY(()) tree current_file_decl;
-
 /* Set to 0 at beginning of a function definition, set to 1 if
    a return statement that specifies a return value is seen.  */
 

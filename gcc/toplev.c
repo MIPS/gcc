@@ -212,6 +212,11 @@ tree current_function_decl;
    if none.  */
 tree current_function_func_begin_label;
 
+/* A DECL for the current file-scope context.  When using IMA, this heads a
+   chain of FILE_DECLs; currently only C uses it.  */
+
+tree current_file_decl;
+
 /* Nonzero if doing dwarf2 duplicate elimination.  */
 
 int flag_eliminate_dwarf2_dups = 0;
