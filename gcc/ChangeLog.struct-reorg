@@ -1,3 +1,7 @@
+2004-09-29  Mostafa Hagog  <mustafa@il.ibm.com>
+
+	* struct-reorg-cpg.c (update_cpg_for_bb): Bug fix.
+
 2004-09-28  Mostafa Hagog  <mustafa@il.ibm.com>
 
 	* cgraph.h (peel_structs): Declare.

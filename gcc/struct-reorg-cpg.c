@@ -64,7 +64,7 @@ static void
 update_cpg_for_bb (cpg_t *cpg, edge e, sbitmap visited, cpg_cell_t cp, 
 		   int f1_indx, struct function *f)
 {
-  edge pred;
+  edge succ;
   struct bb_field_access *first_acc;
 
   if ( e->dest == ENTRY_BLOCK_PTR_FOR_FUNCTION (f) 
@@ -84,8 +84,8 @@ update_cpg_for_bb (cpg_t *cpg, edge e, sbitmap visited, cpg_cell_t cp,
     }
 
   SET_BIT (visited, e->dest->index);
-  for (pred = e->dest->pred; pred; pred = pred->pred_next)
-     update_cpg_for_bb (cpg, pred, visited, cp, f1_indx, f);
+  for (succ = e->dest->succ; succ; succ = succ->succ_next)
+     update_cpg_for_bb (cpg, succ, visited, cp, f1_indx, f);
 }
 
 /* Create intra-block CP relations (edges).  */
