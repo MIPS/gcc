@@ -134,8 +134,12 @@ create_tmp_var_for (struct nesting_info *info, tree type, const char *prefix)
 
 #if defined ENABLE_CHECKING
   /* If the type is an array or a type which must be created by the
-     frontend, something is wrong.  */
+     frontend, something is wrong.  Note that we explicitly allow
+     incomplete types here, since we create them ourselves here.  */
   if (TREE_CODE (type) == ARRAY_TYPE || TREE_ADDRESSABLE (type))
+    abort ();
+  if (TYPE_SIZE_UNIT (type)
+      && TREE_CODE (TYPE_SIZE_UNIT (type)) != INTEGER_CST)
     abort ();
 #endif
 
@@ -786,6 +790,29 @@ convert_nonlocal_reference (tree *tp, int *walk_subtrees, void *data)
       }
       break;
 
+    case COMPONENT_REF:
+    case REALPART_EXPR:
+    case IMAGPART_EXPR:
+      wi->val_only = false;
+      walk_tree (&TREE_OPERAND (t, 0), convert_nonlocal_reference, wi, NULL);
+      wi->val_only = true;
+      break;
+
+    case ARRAY_REF:
+      wi->val_only = false;
+      walk_tree (&TREE_OPERAND (t, 0), convert_nonlocal_reference, wi, NULL);
+      wi->val_only = true;
+      walk_tree (&TREE_OPERAND (t, 1), convert_nonlocal_reference, wi, NULL);
+      break;
+
+    case BIT_FIELD_REF:
+      wi->val_only = false;
+      walk_tree (&TREE_OPERAND (t, 0), convert_nonlocal_reference, wi, NULL);
+      wi->val_only = true;
+      walk_tree (&TREE_OPERAND (t, 1), convert_nonlocal_reference, wi, NULL);
+      walk_tree (&TREE_OPERAND (t, 2), convert_nonlocal_reference, wi, NULL);
+      break;
+
     default:
       if (!DECL_P (t) && !TYPE_P (t))
 	{
@@ -893,6 +920,29 @@ convert_local_reference (tree *tp, int *walk_subtrees, void *data)
       x = build (MODIFY_EXPR, void_type_node, y, x);
       SET_EXPR_LOCUS (x, EXPR_LOCUS (tsi_stmt (wi->tsi)));
       tsi_link_after (&wi->tsi, x, TSI_SAME_STMT);
+      break;
+
+    case COMPONENT_REF:
+    case REALPART_EXPR:
+    case IMAGPART_EXPR:
+      wi->val_only = false;
+      walk_tree (&TREE_OPERAND (t, 0), convert_local_reference, wi, NULL);
+      wi->val_only = true;
+      break;
+
+    case ARRAY_REF:
+      wi->val_only = false;
+      walk_tree (&TREE_OPERAND (t, 0), convert_local_reference, wi, NULL);
+      wi->val_only = true;
+      walk_tree (&TREE_OPERAND (t, 1), convert_local_reference, wi, NULL);
+      break;
+
+    case BIT_FIELD_REF:
+      wi->val_only = false;
+      walk_tree (&TREE_OPERAND (t, 0), convert_local_reference, wi, NULL);
+      wi->val_only = true;
+      walk_tree (&TREE_OPERAND (t, 1), convert_local_reference, wi, NULL);
+      walk_tree (&TREE_OPERAND (t, 2), convert_local_reference, wi, NULL);
       break;
 
     default:
