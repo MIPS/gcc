@@ -1,3 +1,53 @@
+2002-12-05  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* error.c (dump_expr): Fix format specifier warning.
+
+2002-12-04  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	PR C++/8799
+	* error.c (dump_expr): Don't ever try to dump a non-existent
+        expression.
+
+2002-12-02  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/8615
+	* error.c (dump_expr): Handle character constants with
+	TREE_OVERFLOW set.
+
+2002-12-01  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/5919
+	* pt.c (unify): Use variably_modified_type_p to test validity of
+	template argument types.
+
+2002-12-01  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/8727
+	* cp-tree.h (lang_type_class): Add typeinfo_var.
+	(CLASSTYPE_TYPEINFO_VAR): New macro.
+	* rtti.c (get_tinfo_decl): Use it.
+
+	PR c++/8663
+	* init.c (expand_member_init): Always get the main variant of a
+	base class.
+
+2002-12-01  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/8332
+	PR c++/8493
+	* decl.c (cxx_init_decl_processing): Use size_type_node, not
+	c_size_type_node.
+	* decl2.c (coerce_new_type): Likewise.
+	* except.c (do_allocate_exception): Likewise.
+	* typeck.c (c_sizeof): Likewise.
+	(c_sizeof_nowarn): Likewise.
+
+2002-11-30  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/8214
+	* typeck.c (convert_for_assignment): Do not use
+	decl_constant_value on the operand.
+
 2002-11-19  Release Manager
 
 	* GCC 3.2.1 Released.

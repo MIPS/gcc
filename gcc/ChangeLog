@@ -1,3 +1,69 @@
+2002-12-05  Dale Johannesen  <dalej@apple.com>
+
+	* tree.c (unsafe_for_reeval):  Consider callee child of CALL_EXPR.
+
+2002-12-05  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* config/i386/cygwin.h (SUBTARGET_PROLOGUE): Replace with
+	PROFILE_HOOK.
+	* config/i386/mingw32.h (SUBTARGET_PROLOGUE): Don't undef.
+
+2002-12-05  Nick Clifton  <nickc@redhat.com>
+
+	* config/fr30/fr30.h (GO_IF_LEGITIMATE_ADDRESS): Check for frame
+	pointer and arg pointer by examining the register number.
+
+2002-12-05  Matthias Klose  <doko@debian.org>
+
+	* doc/invoke.texi: Remove last reference to -a.
+
+2002-12-04  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR c/7622
+	* c-semantics (genrtl_scope_stmt): Do not output inlined
+	nested functions that contain no code.
+
+2002-12-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* fold-const.c (associate_trees): Only optimize NEGATE_EXPR in one
+	of the operands into MINUS_EXPR if code is PLUS_EXPR.
+
+2002-12-02  Bob Wilson  <bob.wilson@acm.org>
+
+	* config/xtensa/xtensa.c (xtensa_emit_call): Use a static buffer.
+	* config/xtensa/xtensa.h (MAX_WCHAR_TYPE_SIZE): Delete.
+
+2002-12-01  Mark Mitchell  <mark@codesourcery.com>
+
+	* builtin-types.def (BT_SIZE): Use size_type_node.
+	* builtins.c (fold_builtin): Make the builtin strlen returns a
+	size_t, not a sizetype.
+	* c-common.c (c_alignof): Use size_type_node, not c_size_type_node.
+	(c_alignof_expr): Likewise.
+	(c_common_nodes_and_builtins): Likewise.
+	* c-common.h (CTI_C_SIZE_TYPE): Remove.
+	(c_size_type_node): Likewise.
+	* c-format.c (T_ST): Use size_type_node, not c_size_type_node.
+	* tree.h (TI_SIZE_TYPE): New enumeral.
+	(size_type_node): Likewise.
+	
+2002-11-26  Neil Booth  <neil@daikokuya.co.uk>
+
+	PR preprocessor/8524
+	* cpplib.c (run_directive): Remove previous kludge to _Pragma.
+	Add a new one in its place, which hopefully works.
+	(skip_rest_of_line): Change test for bottom-of-context-stack.
+
+2002-11-26  David Edelsohn  <edelsohn@gnu.org>
+
+        * config/rs6000/rs6000.c (rs6000_flag_pic): New variable.
+	(rs6000_override_options): Save original flag_pic value.
+	(rs6000_encode_section_info): More accurate test for "local" symbol.
+
+	PR 8362
+	* config/rs6000/rs6000.c (rs6000_outout_load_multiple): New function.
+	* config/rs6000/rs6000.md (ldmsi[3-8]): New patterns.
+
 2002-11-26  Jakub Jelinek  <jakub@redhat.com>
 
 	* config.gcc (x86_64-*-linux*) [tmake_file]: Remove i386/t-crtstuff.
@@ -10,12 +76,12 @@
 	* fold-const.c (extract_muldiv): Don't propagate division unless
 	both arguments are multiples of C.
 
-2002-11-24  Eric Botcazou  <ebotcazou@libertysurf.fr>
+2002-11-24  Eric Botcazou  <ebotcazou@libertysurf.fr>
 
 	PR optimization/8275
 
 	Merge from mainline:
-	2002-09-19  Dale Johannesen <dalej@apple.com>
+	2002-09-19  Dale Johannesen <dalej@apple.com>
 
 	* combine.c (make_extraction): Don't create
 	invalid subreg.
@@ -32,7 +98,7 @@
 	* optabs.c (expand_binop): Convert CONST_INTs in shift
 	operations too.
 
-2002-11-23  Eric Botcazou  <ebotcazou@libertysurf.fr>
+2002-11-23  Eric Botcazou  <ebotcazou@libertysurf.fr>
 
 	PR c/8518
 	* c-decl.c (duplicate_decls): Outline the second definition
@@ -50,16 +116,16 @@
 	decls for g77_integer_type_node and friends from here ...
 	* c-common.c (c_common_nodes_and_builtins): ... to here.
 
-2002-11-22  Eric Botcazou  <ebotcazou@libertysurf.fr>
+2002-11-22  Eric Botcazou  <ebotcazou@libertysurf.fr>
 
 	PR optimization/8599
 
 	Merge from mainline:
-	2002-11-04  Dale Johannesen  <dalej@apple.com>
+	2002-11-04  Dale Johannesen  <dalej@apple.com>
 
-	* doloop.c (doloop_modify_runtime):  Fix loop count computation
+	* doloop.c (doloop_modify_runtime):  Fix loop count computation
 	for unrolled loops.
-	* loop.c (loop_invariant_p):  Support calling from unroller.
+	* loop.c (loop_invariant_p):  Support calling from unroller.
 
 2002-11-22  Daniel Jacobowitz  <drow@mvista.com>
 
@@ -1289,11 +1355,6 @@ Sat Aug 10 19:56:31 CEST 2002  Jan Hubicka  <jh@suse.cz>
 
 	* tree-inline.c (remap_decl): Make sure DECL_TOO_LATE is clear for
 	remapped labels.
-
-2002-08-05  Jakub Jelinek  <jakub@redhat.com>
-
-	* fold-const.c (associate_trees): Only optimize NEGATE_EXPR in one
-	of the operands into MINUS_EXPR if code is PLUS_EXPR.
 
 2002-07-30  Jakub Jelinek  <jakub@redhat.com>
 
