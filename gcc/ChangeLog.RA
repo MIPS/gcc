@@ -1,3 +1,11 @@
+2001-08-30  Michael Matz  <matzmich@cs.tu-berlin.de>
+
+	ra.c (ok): Check target for validness of mode.
+
+	from Denis Chertykov  <denisc@overta.ru>:
+	* ra.c (get_free_reg): Don't check successive hardregs for valid
+	mode.
+
 2001-08-28  Michael Matz  <matzmich@cs.tu-berlin.de>
 
 	* ra.c (combine): Merge usable_regs of both webs.

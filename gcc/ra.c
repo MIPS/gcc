@@ -2861,6 +2861,16 @@ ok (target, source)
   if (TEST_HARD_REG_BIT (never_use_colors, source->color))
     return 0;
 
+  /* Normally one would think, the next test wouldn't be needed.
+     We try to coalesce S and T, and S has already a color, and we checked
+     when processing the insns, that both have the same mode.  So naively
+     we could conclude, that of course that mode was valid for this color.
+     Hah.  But there is sparc.  Before reload there are copy insns
+     (e.g. the ones copying arguments to locals) which happily refer to
+     colors in invalid modes.  We can't coalesce those things.  */
+  if (! HARD_REGNO_MODE_OK (source->color, GET_MODE (target->orig_x)))
+    return 0;
+
   /* We can't coalesce target with the precolored registers which isn't in
      usable_regs.  */
   for (i = target->add_hardregs; i >= 0; --i)
@@ -3231,7 +3241,6 @@ get_free_reg (dont_begin_colors, free_colors, mode)
  	    c += i;
  	    continue;
  	  }
- 	for (i = 1; i < size && HARD_REGNO_MODE_OK (c + i, mode); i++); 
 	if (i == size)
 	  {
 	    if (size < 2 || (c & 1) == 0)
