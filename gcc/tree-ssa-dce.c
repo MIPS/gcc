@@ -275,6 +275,9 @@ stmt_useful_p (tree stmt)
       || (TREE_CODE (stmt) == CALL_EXPR)
       || ((TREE_CODE (stmt) == MODIFY_EXPR)
 	  && (TREE_CODE (TREE_OPERAND (stmt, 1)) == CALL_EXPR))
+      || (TREE_CODE (stmt) == TRY_CATCH_EXPR)
+      || (TREE_CODE (stmt) == TRY_FINALLY_EXPR)
+      || (TREE_CODE (stmt) == EH_FILTER_EXPR)
       || (TREE_CODE (stmt) == CATCH_EXPR))
     return true;
 

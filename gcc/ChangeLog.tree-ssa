@@ -8,6 +8,18 @@
 	promoted to real copies if -fdump-tree-optimized-details is given.
 
 2003-06-23  Jeff Law  <law@redhat.com>
+ 
+	* tree-cfg.c (make_edges): Remove fake edges before building
+	extra edges for TRY_FINALLY_EXPRs.  Delete unnecessary edges
+	leaving the TRY block in a TRY_FINALLY_EXPR.
+	(find_contained_blocks): Don't consider statements in the CATCH
+	clause of a TRY_CATCH_EXPR when noting the last statement in
+	the block.
+	* tree-dfa.c (remove_phi_arg): If we removed the last PHI argument,
+	then remove the entire PHI node.
+	* tree-ssa-dce.c (stmt_useful_p): Consider the other EH related
+	nodes useful as well (TRY_FINALLY_EXPR, TRY_CATCH_EXPR, and
+	EH_FILTER_EXPR).
 
 	* tree-cfg.c (remove_useless_stmts_and_vars): If the body of a
 	TRY_CATCH_EXPR is empty, then the entire TRY_CATCH_EXPR can

@@ -831,7 +831,7 @@ static void
 make_edges (void)
 {
   basic_block bb;
-  unsigned int i;
+  int i;
 
   VARRAY_TREE_INIT (try_finallys, 10, "try finally block stack");
 
@@ -868,6 +868,10 @@ make_edges (void)
 	make_edge (bb, successor_block (bb), 0);
     }
 
+  /* We do not care about fake edges, so remove any that the CFG
+     builder inserted for completeness.  */
+  remove_fake_edges ();
+
   /* Now go back to each TRY_FINALLY_EXPR and add the required special
      edges.
 
@@ -885,7 +889,7 @@ make_edges (void)
      Also note this is overly conservative, many of the edges from the
      TRY to the FINALLY should be normal edges.  Similarly for the
      edges from the FINALLY to the TRY's original destination.  */
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (try_finallys); i++)
+  for (i = VARRAY_ACTIVE_SIZE (try_finallys) - 1; i >= 0; i--)
     {
       tree try_finally = VARRAY_TREE (try_finallys, i);
       tree *finally_p = &TREE_OPERAND (try_finally, 1);
@@ -934,6 +938,12 @@ make_edges (void)
 		       block.  */
 		    if (e->dest != finally_bb)
 		      make_edge (last_bb, e->dest, EDGE_ABNORMAL);
+
+		    /* If this is not one of the blocks we just
+		       created, then it can be removed it can never
+		       be executed.  */
+		    if (e->dest != finally_bb && e->src != last_bb)
+		      remove_edge (e);
 		  }
 	    });
 	}
@@ -942,10 +952,6 @@ make_edges (void)
     }
 
   try_finallys = NULL;
-
-  /* We do not care about fake edges, so remove any that the CFG
-     builder inserted for completeness.  */
-  remove_fake_edges ();
 
   /* Clean up the graph and warn for unreachable code.  */
   cleanup_tree_cfg ();
@@ -998,8 +1004,24 @@ find_contained_blocks (tree *stmt_p, bitmap my_blocks, tree **last_p)
 	{
 	  find_contained_blocks (&EH_FILTER_FAILURE (stmt), my_blocks, last_p);
 	}
-      else if (code == TRY_CATCH_EXPR
-	       || code == TRY_FINALLY_EXPR
+      else if (code == TRY_CATCH_EXPR)
+	{
+	  tree *save_last_p;
+	  find_contained_blocks (&TREE_OPERAND (stmt, 0), my_blocks, last_p);
+
+	  /* We do not want to include statements in the CATCH block
+	     when determining the last executed statement.  FIXME,
+	     what would probably work better would be a to include
+	     an empty block at the end of each FINALLY block and
+	     use it as the last statement.
+
+	     I worry that we do the wrong thing with ELSE clauses,
+	     and other control structures.  */
+	  save_last_p = *last_p;
+	  find_contained_blocks (&TREE_OPERAND (stmt, 1), my_blocks, last_p);
+	  *last_p = save_last_p;
+	}
+      else if (code == TRY_FINALLY_EXPR
 	       || code == COMPOUND_EXPR)
 	{
 	  find_contained_blocks (&TREE_OPERAND (stmt, 0), my_blocks, last_p);

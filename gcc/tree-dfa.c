@@ -821,6 +821,12 @@ remove_phi_arg (tree phi, basic_block block)
       if (src_bb == block)
 	{
 	  remove_phi_arg_num (phi, i);
+
+	  /* If we removed the last PHI argument, then go ahead and
+	     remove the PHI node.  */
+	  if (PHI_NUM_ARGS (phi) == 0)
+	    remove_phi_node (phi, NULL, bb_for_stmt (phi));
+
 	  return;
 	}
     }
