@@ -276,14 +276,7 @@ Boston, MA 02111-1307, USA.  */
 #define GLOBAL_ASM_OP "\tglobal\t"
 #endif /* USE_GAS */
 
-/* Store in OUTPUT a string (made with alloca) containing
-   an assembler-name for a local static variable named NAME.
-   LABELNO is an integer which is different for each call.  */
-
-#undef ASM_FORMAT_PRIVATE_NAME
-#define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO)	\
-( (OUTPUT) = (char *) alloca (strlen ((NAME)) + 12),	\
-  sprintf ((OUTPUT), "%s_%%%d", (NAME), (LABELNO)))
+#define ASM_PN_FORMAT "%s_%%%lu"
 
 #undef INT_OP_GROUP
 #ifdef USE_GAS

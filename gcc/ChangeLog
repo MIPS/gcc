@@ -1,3 +1,20 @@
+2002-09-16  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* alpha.h, alpha/vms.h, arc.h, arm/aof.h, arm/aout.h, avr.h,
+	c4x.h, cris.h, d30v.h, fr30.h, frv.h, h8300.h, i370.h, i386.h,
+	i960.h, ia64.h, ip2k.h, m32r.h, m68hc11.h, m68k/3b1.h,
+	m68k/hp320.h, m68k.h, m68k/mot3300.h, m68k/sgs.h, m68k/tower-as.h,
+	m88k.h, mcore.h, mips.h, mmix.h, mn10200.h, mn10300.h, ns32k.h,
+	pa.h, pdp11.h, romp.h, rs6000.h, s390/linux.h, sh.h, sparc.h,
+	stormy16.h, v850.h, vax.h, xtensa.h (ASM_FORMAT_PRIVATE_NAME):
+	Delete.
+	* alpha/vms.h, h8300.h, i370.h, ia64.h, m68k/3b1.h, m68k/hp320.h,
+	m68k/mot3300.h, m68k/sgs.h, m68k/tower-as.h, mmix.h, mn10200.h,
+	mn10300.h, pa.h, v850.h (ASM_PN_FORMAT): Define.
+
+	* defaults.h (ASM_PN_FORMAT, ASM_FORMAT_PRIVATE_NAME): Define.
+	* doc/tm.texi (ASM_FORMAT_PRIVATE_NAME): Update documentation.
+
 2002-09-15  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
 	* Makefile.in (vmsdbgout.o): Depend on $(TARGET_H)

@@ -151,11 +151,6 @@ Boston, MA 02111-1307, USA.  */
   sprintf (STRING, "*%s%s%u", LOCAL_LABEL_PREFIX, PREFIX, (unsigned int)(NUM))
 #endif
      
-/* Construct a private name.  */
-#define ASM_FORMAT_PRIVATE_NAME(OUTVAR, NAME, NUMBER)  \
-  ((OUTVAR) = (char *) alloca (strlen (NAME) + 10),  \
-   sprintf (OUTVAR, "%s.%d", NAME, NUMBER))
-
 /* Output an element of a dispatch table.  */
 #define ASM_OUTPUT_ADDR_VEC_ELT(STREAM, VALUE)  \
   asm_fprintf (STREAM, "\t.word\t%LL%d\n", VALUE)

@@ -1589,15 +1589,6 @@ call_ ## FUNC (void)						\
 #define ASM_GENERATE_INTERNAL_LABEL(LABEL, PREFIX, NUM)	\
   sprintf (LABEL, "*%s%s%ld", LOCAL_LABEL_PREFIX, PREFIX, (long) NUM)
 
-#define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO)		\
-  do								\
-    {								\
-      (OUTPUT) = (char *) alloca (strlen ((NAME)) + 10);	\
-      sprintf ((OUTPUT), "%s.%d", (NAME), (LABELNO));		\
-    }								\
-  while (0)
-
-
 /* Node: Initialization */
 /* (no definitions) */
 

@@ -1386,14 +1386,6 @@ struct rt_cargs {int gregs, fregs; };
   assemble_name ((FILE), (NAME)),			\
   fprintf ((FILE), ",%d\n", (SIZE)))
 
-/* Store in OUTPUT a string (made with alloca) containing
-   an assembler-name for a local static variable named NAME.
-   LABELNO is an integer which is different for each call.  */
-
-#define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO)	\
-( (OUTPUT) = (char *) alloca (strlen ((NAME)) + 10),	\
-  sprintf ((OUTPUT), "%s.%d", (NAME), (LABELNO)))
-
 /* Print operand X (an rtx) in assembler syntax to file FILE.
    CODE is a letter or dot (`z' in `%z0') or 0 if no letter was specified.
    For `%' followed by punctuation, CODE is the punctuation and X is null.  */

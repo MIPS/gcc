@@ -210,14 +210,7 @@ Boston, MA 02111-1307, USA.  */
   assemble_name ((FILE), (NAME)),		\
   fprintf ((FILE), ",%d\n", ((SIZE) == 0) ? (ROUNDED) : (SIZE)))
 
-/* Store in OUTPUT a string (made with alloca) containing
-   an assembler-name for a local static variable named NAME.
-   LABELNO is an integer which is different for each call.  */
-
-#undef ASM_FORMAT_PRIVATE_NAME
-#define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO)	\
-( (OUTPUT) = (char *) alloca (strlen ((NAME)) + 11),	\
-  sprintf ((OUTPUT), "%s%%%%%d", (NAME), (LABELNO)))
+#define ASM_PN_FORMAT "%s%%%%%lu"
  
 /* This is the command to make the user-level label named NAME
    defined for reference from other files.  */

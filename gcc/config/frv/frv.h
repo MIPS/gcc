@@ -2973,27 +2973,6 @@ do {									\
   sprintf (LABEL, "*.%s%ld", PREFIX, (long)NUM);			\
 } while (0)
 
-/* A C expression to assign to OUTVAR (which is a variable of type `char *') a
-   newly allocated string made from the string NAME and the number NUMBER, with
-   some suitable punctuation added.  Use `alloca' to get space for the string.
-
-   The string will be used as an argument to `ASM_OUTPUT_LABELREF' to produce
-   an assembler label for an internal static variable whose name is NAME.
-   Therefore, the string must be such as to result in valid assembler code.
-   The argument NUMBER is different each time this macro is executed; it
-   prevents conflicts between similarly-named internal static variables in
-   different scopes.
-
-   Ideally this string should not be a valid C identifier, to prevent any
-   conflict with the user's own symbols.  Most assemblers allow periods or
-   percent signs in assembler symbols; putting at least one of these between
-   the name and the number will suffice.  */
-#define ASM_FORMAT_PRIVATE_NAME(OUTVAR, NAME, NUMBER)			\
-do {									\
-  (OUTVAR) = (char *) alloca (strlen ((NAME)) + 12);			\
-  sprintf ((OUTVAR), "%s.%ld", (NAME), (long)(NUMBER));			\
-} while (0)
-
 
 /* Macros Controlling Initialization Routines.  */
 

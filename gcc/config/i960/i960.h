@@ -1404,13 +1404,6 @@ extern struct rtx_def *i960_compare_op0, *i960_compare_op1;
 
 #define	LABEL_ALIGN_AFTER_BARRIER(LABEL) (TARGET_CODE_ALIGN ? 3 : 0)
 
-/* Store in OUTPUT a string (made with alloca) containing
-   an assembler-name for a local static variable named NAME.
-   LABELNO is an integer which is different for each call.  */
-
-#define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO)	\
-	( (OUTPUT) = (char *) alloca (strlen ((NAME)) + 10),	\
-	  sprintf ((OUTPUT), "%s.%d", (NAME), (LABELNO)))
 
 /* Print operand X (an rtx) in assembler syntax to file FILE.
    CODE is a letter or dot (`z' in `%z0') or 0 if no letter was specified.

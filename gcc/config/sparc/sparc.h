@@ -2839,14 +2839,6 @@ do {									\
     ASM_OUTPUT_ALIGNED_LOCAL (FILE, NAME, SIZE, ALIGN);		\
   } while (0)
 
-/* Store in OUTPUT a string (made with alloca) containing
-   an assembler-name for a local static variable named NAME.
-   LABELNO is an integer which is different for each call.  */
-
-#define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO)	\
-( (OUTPUT) = (char *) alloca (strlen ((NAME)) + 10),	\
-  sprintf ((OUTPUT), "%s.%d", (NAME), (LABELNO)))
-
 #define IDENT_ASM_OP "\t.ident\t"
 
 /* Output #ident as a .ident.  */

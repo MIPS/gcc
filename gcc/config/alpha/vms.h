@@ -448,10 +448,7 @@ do {									\
 #undef PREFERRED_DEBUGGING_TYPE
 #define PREFERRED_DEBUGGING_TYPE VMS_AND_DWARF2_DEBUG
 
-#undef ASM_FORMAT_PRIVATE_NAME
-#define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO)	\
-( (OUTPUT) = (char *) alloca (strlen ((NAME)) + 12),	\
-  sprintf ((OUTPUT), "%s___%d", (NAME), (LABELNO)))
+#define ASM_PN_FORMAT "%s___%lu"
 
 /* ??? VMS uses different linkage.  */
 #undef ASM_OUTPUT_MI_THUNK

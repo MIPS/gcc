@@ -999,9 +999,7 @@ typedef struct { int regs; int lib; } CUMULATIVE_ARGS;
    ":" is seen in the object file; we don't really want that mmixal
    feature visible there.  We don't want the default, which uses a dot;
    that'd be incompatible with mmixal.  */
-#define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO)		\
- ((OUTPUT) = (char *) alloca (strlen ((NAME)) + 2 + 10),	\
-  sprintf ((OUTPUT), "%s::%d", (NAME), (LABELNO)))
+#define ASM_PN_FORMAT "%s::%lu"
 
 #define ASM_OUTPUT_DEF(STREAM, NAME, VALUE) \
  mmix_asm_output_def (STREAM, NAME, VALUE)

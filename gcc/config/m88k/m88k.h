@@ -1986,13 +1986,6 @@ do {									 \
   assemble_name ((FILE), (NAME)),			\
   fprintf ((FILE), ",%u,%d\n", (SIZE) ? (SIZE) : 1, (SIZE) <= 4 ? 4 : 8))
 
-/* Store in OUTPUT a string (made with alloca) containing
-   an assembler-name for a local static variable named NAME.
-   LABELNO is an integer which is different for each call.  */
-#define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO)	\
-( (OUTPUT) = (char *) alloca (strlen ((NAME)) + 10),	\
-  sprintf ((OUTPUT), "%s.%d", (NAME), (LABELNO)))
-
 /* This is how to output an insn to push a register on the stack.
    It need not be very fast code.  */
 #define ASM_OUTPUT_REG_PUSH(FILE,REGNO)  \

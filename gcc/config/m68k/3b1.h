@@ -96,7 +96,6 @@ output_file_directive ((FILE), main_input_filename)
 /* Override parts of m68k.h to fit the SGS-3b1 assembler.  */
 
 #undef TARGET_VERSION
-#undef ASM_FORMAT_PRIVATE_NAME
 #undef ASM_OUTPUT_ALIGN
 #undef ASM_OUTPUT_SOURCE_FILENAME
 #undef ASM_OUTPUT_SOURCE_LINE
@@ -112,13 +111,7 @@ output_file_directive ((FILE), main_input_filename)
 
 #define TARGET_VERSION fprintf (stderr, " (68k, SGS/AT&T unixpc syntax)");
 
-/* Store in OUTPUT a string (made with alloca) containing
-   an assembler-name for a local static variable named NAME.
-   LABELNO is an integer which is different for each call.  */
-
-#define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO)	\
-( (OUTPUT) = (char *) alloca (strlen ((NAME)) + 12),	\
-  sprintf ((OUTPUT), "%s_%%%d", (NAME), (LABELNO)))
+#define ASM_PN_FORMAT "%s_%%%lu"
 
 #define ASM_OUTPUT_ALIGN(FILE,LOG)	\
 do {					\

@@ -3014,11 +3014,6 @@ while (0)
 
 /* #define ASM_OUTPUT_CASE_END(STREAM,NUM,TABLE)	    */
 
-/* Construct a private name.  */
-#define ASM_FORMAT_PRIVATE_NAME(OUTVAR,NAME,NUMBER)	\
-  ((OUTVAR) = (char *) alloca (strlen (NAME) + 10),	\
-   sprintf ((OUTVAR), "%s.%d", (NAME), (NUMBER)))
-
 /* Output a relative address table.  */
 
 #define ASM_OUTPUT_ADDR_DIFF_ELT(STREAM,BODY,VALUE,REL)  		\

@@ -2972,14 +2972,6 @@ extern int const svr4_dbx_register_map[FIRST_PSEUDO_REGISTER];
     ? ((GLOBAL) ? DW_EH_PE_indirect : 0) | DW_EH_PE_pcrel | DW_EH_PE_sdata4\
    : DW_EH_PE_absptr)
 
-/* Store in OUTPUT a string (made with alloca) containing
-   an assembler-name for a local static variable named NAME.
-   LABELNO is an integer which is different for each call.  */
-
-#define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO)	\
-( (OUTPUT) = (char *) alloca (strlen ((NAME)) + 10),	\
-  sprintf ((OUTPUT), "%s.%d", (NAME), (LABELNO)))
-
 /* This is how to output an insn to push a register on the stack.
    It need not be very fast code.  */
 

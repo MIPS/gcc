@@ -1929,18 +1929,9 @@ do {									\
   sprintf (LABEL, "*.%s%d", PREFIX, NUM);				\
 } while (0)
 
-/* A C expression to assign to OUTVAR (which is a variable of type `char *') a
-   newly allocated string made from the string NAME and the number NUMBER, with
-   some suitable punctuation added.  */
-
 /* ??? Not sure if using a ? in the name for Intel as is safe.  */
 
-#define ASM_FORMAT_PRIVATE_NAME(OUTVAR, NAME, NUMBER)			\
-do {									\
-  (OUTVAR) = (char *) alloca (strlen (NAME) + 12);			\
-  sprintf (OUTVAR, "%s%c%ld", (NAME), (TARGET_GNU_AS ? '.' : '?'),	\
-	   (long)(NUMBER));						\
-} while (0)
+#define ASM_PN_FORMAT (TARGET_GNU_AS ? "%s.%lu" : "%s?%lu")
 
 /* A C statement to output to the stdio stream STREAM assembler code which
    defines (equates) the symbol NAME to have the value VALUE.  */

@@ -1809,14 +1809,6 @@ __transfer_from_trampoline ()					\
   assemble_name ((FILE), (NAME)),		\
   fprintf ((FILE), ",%u\n", (ROUNDED)))
 
-/* Store in OUTPUT a string (made with alloca) containing
-   an assembler-name for a local static variable named NAME.
-   LABELNO is an integer which is different for each call.  */
-
-#define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO)	\
-( (OUTPUT) = (char *) alloca (strlen ((NAME)) + 10),	\
-  sprintf ((OUTPUT), "%s.%d", (NAME), (LABELNO)))
-
 /* Output a float value (represented as a C double) as an immediate operand.
    This macro is a 68k-specific macro.  */
 

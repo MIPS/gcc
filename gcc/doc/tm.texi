@@ -6779,6 +6779,9 @@ conflict with the user's own symbols.  Most assemblers allow periods
 or percent signs in assembler symbols; putting at least one of these
 between the name and the number will suffice.
 
+If this macro is not defined, a default definition will be provided
+which is correct for most systems.
+
 @findex ASM_OUTPUT_DEF
 @item ASM_OUTPUT_DEF (@var{stream}, @var{name}, @var{value})
 A C statement to output to the stdio stream @var{stream} assembler code

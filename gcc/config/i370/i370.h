@@ -1244,15 +1244,7 @@ enum reg_class
   ASM_OUTPUT_SKIP (FILE,SIZE);						\
 }
 
-/* Store in OUTPUT a string (made with alloca) containing an
-   assembler-name for a local static variable named NAME.
-   LABELNO is an integer which is different for each call.  */
-
-#define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO)  		\
-{									\
-  (OUTPUT) = (char *) alloca (strlen ((NAME)) + 10);			\
-  sprintf ((OUTPUT), "%s%d", (NAME), (LABELNO));			\
-}
+#define ASM_PN_FORMAT "%s%lu"
 
 /* Print operand XV (an rtx) in assembler syntax to file FILE.
    CODE is a letter or dot (`z' in `%z0') or 0 if no letter was specified.
@@ -1859,11 +1851,7 @@ abort(); \
 #undef SHIFT_DOUBLE_OMITS_COUNT
 #define SHIFT_DOUBLE_OMITS_COUNT 0
 
-#define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO)  \
-( (OUTPUT) = (char *) alloca (strlen ((NAME)) + 10),    \
-  sprintf ((OUTPUT), "%s.%d", (NAME), (LABELNO)))
- 
- /* Implicit library calls should use memcpy, not bcopy, etc.  */
+/* Implicit library calls should use memcpy, not bcopy, etc.  */
 #define TARGET_MEM_FUNCTIONS
  
 /* Output before read-only data.  */
