@@ -1881,8 +1881,7 @@ fold_stmt (tree *stmt_p)
      may have been added by fold, and "useless" type conversions that might
      now be apparent due to propagation.  */
   STRIP_MAIN_TYPE_NOPS (result);
-  while (tree_ssa_useless_type_conversion (result))
-    result = TREE_OPERAND (result, 0);
+  STRIP_USELESS_TYPE_CONVERSION (result);
 
   if (result != rhs)
     {

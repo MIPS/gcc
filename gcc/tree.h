@@ -511,6 +511,12 @@ extern void tree_operand_check_failed (int, enum tree_code,
 	     == TREE_TYPE (TREE_OPERAND (EXP, 0))))		\
     (EXP) = TREE_OPERAND (EXP, 0)
 
+/* Remove unnecessary type conversions according to tree_ssa_useless_type_conversion.  */
+
+#define STRIP_USELESS_TYPE_CONVERSION(EXP)				\
+      while (tree_ssa_useless_type_conversion (EXP))			\
+	EXP = TREE_OPERAND (EXP, 0)
+
 /* Nonzero if TYPE represents an integral type.  Note that we do not
    include COMPLEX types here.  */
 
@@ -3560,11 +3566,13 @@ enum tree_dump_index
   TDI_tail,			/* dump after tail recursion elimination  */
   TDI_mustalias,
   TDI_ssa_3,
-  TDI_ccp,
+  TDI_sra,
   TDI_ssa_4,
+  TDI_ccp,
+  TDI_ssa_5,
   TDI_pre,
   TDI_dom_2,
-  TDI_ssa_5,
+  TDI_ssa_6,
   TDI_dce_2,
   TDI_optimized,
 

@@ -999,6 +999,9 @@ int flag_tree_dce = 0;
 /* Enable promotion of virtual to real operands in must-alias situations.  */
 int flag_tree_must_alias = 0;
 
+/* Enable scalar replacement of aggregates.  */
+int flag_tree_sra = 0;
+
 /* Enable SSA->normal pass memory location coalescing.  */
 int flag_tree_combine_temps = 0;
 

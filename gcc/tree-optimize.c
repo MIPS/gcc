@@ -134,6 +134,17 @@ optimize_function_tree (tree fndecl, tree *chain)
 	    rewrite_into_ssa (fndecl, vars_to_rename, TDI_ssa_3);
 	}
 
+      /* Scalarize some structure references.  */
+      if (flag_tree_sra)
+	{
+	  sbitmap_zero (vars_to_rename);
+	  tree_sra (fndecl, &vars_to_rename, TDI_sra);
+
+	  /* Run the SSA pass again if we need to rename new variables.  */
+	  if (sbitmap_first_set_bit (vars_to_rename) >= 0)
+	    rewrite_into_ssa (fndecl, vars_to_rename, TDI_ssa_4);
+	}
+
       /* Run SCCP (Sparse Conditional Constant Propagation).  */
       if (flag_tree_ccp)
 	{
@@ -142,7 +153,7 @@ optimize_function_tree (tree fndecl, tree *chain)
 
 	  /* Run the SSA pass again if we need to rename new variables.  */
 	  if (sbitmap_first_set_bit (vars_to_rename) >= 0)
-	    rewrite_into_ssa (fndecl, vars_to_rename, TDI_ssa_4);
+	    rewrite_into_ssa (fndecl, vars_to_rename, TDI_ssa_5);
 	}
 
       /* Run SSA-PRE (Partial Redundancy Elimination).  */
@@ -157,7 +168,7 @@ optimize_function_tree (tree fndecl, tree *chain)
 
 	  /* Run the SSA pass again if we need to rename new variables.  */
 	  if (sbitmap_first_set_bit (vars_to_rename) >= 0)
-	    rewrite_into_ssa (fndecl, vars_to_rename, TDI_ssa_5);
+	    rewrite_into_ssa (fndecl, vars_to_rename, TDI_ssa_6);
 	}
 
       /* Do a second DCE pass.  */

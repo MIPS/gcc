@@ -1291,8 +1291,7 @@ gimplify_conversion (tree *expr_p)
 
   /* Strip away as many useless type conversions as possible
      at the toplevel.  */
-  while (tree_ssa_useless_type_conversion (*expr_p))
-    *expr_p = TREE_OPERAND (*expr_p, 0);
+  STRIP_USELESS_TYPE_CONVERSION (*expr_p);
 
   /* If we still have a conversion at the toplevel, then strip
      away all but the outermost conversion.  */
@@ -2435,6 +2434,11 @@ gimplify_addr_expr (tree *expr_p, tree *pre_p, tree *post_p)
 	}
       break;
     }
+
+  /* If the operand is gimplified into a _DECL, mark the address expression
+     as TREE_INVARIANT.  */
+  if (DECL_P (TREE_OPERAND (expr, 0)))
+    TREE_INVARIANT (expr) = 1;
 
   return ret;
 }

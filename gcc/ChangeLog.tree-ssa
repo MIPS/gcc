@@ -1,3 +1,38 @@
+2003-11-20  Diego Novillo  <dnovillo@redhat.com>
+
+	Initial fix for PR optimization/12747
+
+	* Makefile.in (OBJS): Add tree-sra.o
+	* common.opt (ftree-sra): Add.
+	* flags.h (flag_tree_sra): Declare.
+	* gimplify.c (gimplify_addr_expr): Set TREE_INVARIANT
+	when producing and address expression for a DECL node.
+	* opts.c (decode_options): Enable SRA at -O1.
+	(common_handle_option): Handle -ftree-sra.
+	* timevar.def (TV_TREE_SRA): New timer.
+	* toplev.c (flag_tree_sra): Define.
+	* tree-cfg.c (stmt_ends_bb_p): Declare extern.
+	(bsi_replace): Add boolean argument to specify whether to
+	preserve EH region information.  Update all callers.
+	(bsi_commit_edge_inserts): Also check the edge from ENTRY_BLOCK_PTR
+	to basic block 0.
+	Move loop body ...
+	(bsi_commit_edge_inserts_1): ... here.
+	* tree-dump.c: Add dump for SRA pass.
+	* tree.h (enum tree_dump_index): Modify accordingly.
+	(STRIP_USELESS_TYPE_CONVERSION): Define.  Update all callers to
+	tree_ssa_useless_type_conversion.
+	* tree-eh.c (add_stmt_to_eh_region): New function.
+	* tree-flow.h (stmt_ends_bb_p): Declare.
+	(add_stmt_to_eh_region): Declare.
+	(tree_sra): Declare.
+	(enum bsi_iterator_update): Mirror entries in
+	enum tsi_iterator_update.
+	* tree-optimize.c (optimize_function_tree): Call SRA pass
+	after must-alias.
+	* tree-sra.c: New file.
+	* doc/invoke.texi: Document -ftree-sra and -fdump-tree-sra.
+
 2003-11-20  Andrew Macleod  <amacleod@redhat.com>
 
 	* tree-ssa.c (check_replaceable): Return false if the LHS is a

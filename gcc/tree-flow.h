@@ -389,9 +389,13 @@ extern void bsi_move_to_bb_end (block_stmt_iterator *, basic_block);
 
 enum bsi_iterator_update
 {
-  /* Note that these are intentionally in the same order as TSI_FOO.  */
+  /* Note that these are intentionally in the same order as TSI_FOO.  They
+     mean exactly the same as their TSI_* counterparts.  */
   BSI_NEW_STMT,
-  BSI_SAME_STMT
+  BSI_SAME_STMT,
+  BSI_CHAIN_START,
+  BSI_CHAIN_END,
+  BSI_CONTINUE_LINKING
 };
 
 extern void bsi_insert_before (block_stmt_iterator *, tree,
@@ -399,7 +403,7 @@ extern void bsi_insert_before (block_stmt_iterator *, tree,
 extern void bsi_insert_after (block_stmt_iterator *, tree,
 			      enum bsi_iterator_update);
 
-extern void bsi_replace (const block_stmt_iterator *, tree);
+extern void bsi_replace (const block_stmt_iterator *, tree, bool);
 
 /*---------------------------------------------------------------------------
 			      Function prototypes
@@ -407,6 +411,7 @@ extern void bsi_replace (const block_stmt_iterator *, tree);
 /* In tree-cfg.c  */
 extern void build_tree_cfg (tree *);
 extern void delete_tree_cfg (void);
+extern bool stmt_ends_bb_p (tree);
 extern bool is_ctrl_stmt (tree);
 extern bool is_ctrl_altering_stmt (tree);
 extern bool computed_goto_p (tree);
@@ -546,10 +551,14 @@ extern bool tree_could_trap_p (tree);
 extern bool tree_could_throw_p (tree);
 extern bool tree_can_throw_internal (tree);
 extern bool tree_can_throw_external (tree);
+extern void add_stmt_to_eh_region (tree, int);
 
 /* In gimple-low.c  */
 void lower_function_body (tree *);
 extern bool block_may_fallthru (tree block);
+
+/* In tree-sra.c  */
+void tree_sra (tree, sbitmap *, enum tree_dump_index);
 
 #include "tree-flow-inline.h"
 

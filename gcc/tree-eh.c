@@ -100,6 +100,25 @@ record_stmt_eh_region (struct eh_region *region, tree t)
   *slot = n;
 }
 
+void
+add_stmt_to_eh_region (tree t, int num)
+{
+  struct throw_stmt_node *n;
+  void **slot;
+
+  if (num < 0)
+    abort ();
+
+  n = xmalloc (sizeof (*n));
+  n->stmt = t;
+  n->region_nr = num;
+
+  slot = htab_find_slot (throw_stmt_table, n, INSERT);
+  if (*slot)
+    abort ();
+  *slot = n;
+}
+  
 int
 lookup_stmt_eh_region (tree t)
 {

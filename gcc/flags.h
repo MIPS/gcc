@@ -737,6 +737,9 @@ extern int flag_tree_dom;
 /* Enable promotion of virtual to real operands in must-alias situations.  */
 extern int flag_tree_must_alias;
 
+/* Enable scalar replacement of aggregates.  */
+extern int flag_tree_sra;
+
 /* Enable points-to analysis on trees.  */
 enum pta_type
   {

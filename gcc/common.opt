@@ -731,6 +731,10 @@ ftree-must-alias
 Common
 Detect must-alias relations to remove pointer de-references
 
+ftree-sra
+Common
+Perform scalar replacement of aggregates
+
 ftree-points-to=
 Common Joined RejectNegative
 

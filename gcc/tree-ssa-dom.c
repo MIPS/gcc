@@ -948,8 +948,7 @@ record_equivalences_from_incoming_edge (struct dom_walk_data *walk_data,
       tree switch_cond = SWITCH_COND (parent_block_last_stmt);
 
       /* Strip away any useless type conversions.  */
-      while (tree_ssa_useless_type_conversion (switch_cond))
-	switch_cond = TREE_OPERAND (switch_cond, 0);
+      STRIP_USELESS_TYPE_CONVERSION (switch_cond);
 
       /* If the switch's condition is an SSA variable, then we may
 	 know its value at each of the case labels.  */
@@ -2027,8 +2026,7 @@ record_equivalences_from_stmt (tree stmt,
       tree rhs = TREE_OPERAND (stmt, 1);
 
       /* Strip away any useless type conversions.  */
-      while (tree_ssa_useless_type_conversion (rhs))
-	rhs = TREE_OPERAND (rhs, 0);
+      STRIP_USELESS_TYPE_CONVERSION (rhs);
 
       /* If the RHS of the assignment is a constant or another variable that
 	 may be propagated, register it in the CONST_AND_COPIES table.  */

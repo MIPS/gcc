@@ -110,13 +110,13 @@ static edge tree_redirect_edge_and_branch (edge, basic_block);
 
 /* Various helpers.  */
 static inline bool stmt_starts_bb_p (tree, tree);
-static inline bool stmt_ends_bb_p (tree);
 static int tree_verify_flow_info (void);
 static basic_block tree_make_forwarder_block (basic_block, int, int, edge, int);
 static struct loops *tree_loop_optimizer_init (FILE *);
 static void tree_loop_optimizer_finalize (struct loops *, FILE *);
 static bool thread_jumps (void);
 static bool tree_forwarder_block_p (basic_block);
+static void bsi_commit_edge_inserts_1 (edge e);
 
 /* Flowgraph optimization and cleanup.  */
 
@@ -1694,9 +1694,9 @@ cleanup_cond_expr_graph (basic_block bb, block_stmt_iterator bsi)
     taken_edge = bb->succ;
 
   if (taken_edge->flags & EDGE_TRUE_VALUE)
-    bsi_replace (&bsi, COND_EXPR_THEN (cond_expr));
+    bsi_replace (&bsi, COND_EXPR_THEN (cond_expr), false);
   else if (taken_edge->flags & EDGE_FALSE_VALUE)
-    bsi_replace (&bsi, COND_EXPR_ELSE (cond_expr));
+    bsi_replace (&bsi, COND_EXPR_ELSE (cond_expr), false);
   else
     abort ();
 
@@ -1760,7 +1760,7 @@ cleanup_switch_expr_graph (basic_block bb, block_stmt_iterator bsi)
 
   /* Simplify the SWITCH_EXPR itself.  */
   taken_case = build (GOTO_EXPR, void_type_node, CASE_LABEL (taken_case));
-  bsi_replace (&bsi, taken_case);
+  bsi_replace (&bsi, taken_case, false);
 
   return retval;
 }
@@ -2283,7 +2283,7 @@ stmt_starts_bb_p (tree t, tree prev_t)
 
 /* Return true if T should end a basic block.  */
 
-static inline bool
+bool
 stmt_ends_bb_p (tree t)
 {
   return is_ctrl_stmt (t) || is_ctrl_altering_stmt (t);
@@ -2473,10 +2473,22 @@ bsi_move_to_bb_end (block_stmt_iterator *from, basic_block bb)
 /* Replace the contents of a stmt with another.  */
 
 void
-bsi_replace (const block_stmt_iterator *bsi, tree stmt)
+bsi_replace (const block_stmt_iterator *bsi, tree stmt, bool preserve_eh_info)
 {
-  SET_EXPR_LOCUS (stmt, EXPR_LOCUS (bsi_stmt (*bsi)));
+  int eh_region;
+  tree orig_stmt = bsi_stmt (*bsi);
+
+  SET_EXPR_LOCUS (stmt, EXPR_LOCUS (orig_stmt));
   set_bb_for_stmt (stmt, bsi->bb);
+
+  /* Preserve EH region information from the original statement, if
+     requested by the caller.  */
+  if (preserve_eh_info)
+    {
+      eh_region = lookup_stmt_eh_region (orig_stmt);
+      if (eh_region >= 0)
+	add_stmt_to_eh_region (stmt, eh_region);
+    }
 
   *bsi_stmt_ptr (*bsi) = stmt;
   modify_stmt (stmt);
@@ -2565,22 +2577,11 @@ bsi_commit_edge_inserts (bool update_annotations, int *new_blocks)
 
   blocks = n_basic_blocks;
 
+  bsi_commit_edge_inserts_1 (ENTRY_BLOCK_PTR->succ);
+
   FOR_EACH_BB (bb)
-    {
-      for (e = bb->succ; e; e = e->succ_next)
-        if (PENDING_STMT (e))
-	  {
-	    block_stmt_iterator bsi;
-	    tree stmt = PENDING_STMT (e);
-
-	    PENDING_STMT (e) = NULL_TREE;
-
-	    if (tree_find_edge_insert_loc (e, &bsi))
-	      bsi_insert_after (&bsi, stmt, BSI_NEW_STMT);
-	    else
-	      bsi_insert_before (&bsi, stmt, BSI_NEW_STMT);
-	  }
-    }
+    for (e = bb->succ; e; e = e->succ_next)
+      bsi_commit_edge_inserts_1 (e);
 
   if (new_blocks)
     *new_blocks = n_basic_blocks - blocks;
@@ -2592,6 +2593,27 @@ bsi_commit_edge_inserts (bool update_annotations, int *new_blocks)
       abort ();
     }
 }
+
+
+/* Commit insertions pending at edge E.  */
+
+static void
+bsi_commit_edge_inserts_1 (edge e)
+{
+  if (PENDING_STMT (e))
+    {
+      block_stmt_iterator bsi;
+      tree stmt = PENDING_STMT (e);
+
+      PENDING_STMT (e) = NULL_TREE;
+
+      if (tree_find_edge_insert_loc (e, &bsi))
+	bsi_insert_after (&bsi, stmt, BSI_NEW_STMT);
+      else
+	bsi_insert_before (&bsi, stmt, BSI_NEW_STMT);
+    }
+}
+
 
 /* This routine adds a stmt to the pending list on an edge. No actual
    insertion is made until a call to bsi_commit_edge_inserts () is made.  */
@@ -3393,7 +3415,7 @@ tree_try_redirect_by_replacing_jump (edge e, basic_block target)
 	{
 	  flags = 0;
           stmt = build1 (GOTO_EXPR, void_type_node, tree_block_label (target));
-          bsi_replace (&b, stmt);
+          bsi_replace (&b, stmt, false);
 	}
       e = ssa_redirect_edge (e, target);
       e->flags = flags;
