@@ -1,3 +1,9 @@
+2004-06-16  David Jee  <djee@redhat.com>
+
+	* java/awt/GridBagLayout.java
+	(GetLayoutInfo): Adjust cell sizes iff parent size not zero. Make sure
+	pos_x and pos_y are never negative.
+
 2004-04-16  Andrew Overholt  <overholt@redhat.com>
 
 	* Makefile.am: Add new file.
