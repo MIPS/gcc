@@ -97,6 +97,13 @@ lhd_set_yydebug (value)
     fprintf (stderr, "warning: no yacc/bison-generated output to debug!\n");
 }
 
+/* By default we always allow bit-field based optimizations.  */
+bool
+lhd_can_use_bit_fields_p ()
+{
+  return true;
+}
+
 /* Provide a default routine to clear the binding stack.  This is used
    by languages that don't need to do anything special.  */
 void

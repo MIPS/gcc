@@ -134,6 +134,10 @@ struct lang_hooks
   /* Hook called by staticp for language-specific tree codes.  */
   int (*staticp) PARAMS ((tree));
 
+  /* Return nonzero if fold-const is free to use bit-field
+     optimizations, for instance in fold_truthop().  */
+  bool (*can_use_bit_fields_p) PARAMS ((void));
+
   /* Nonzero if TYPE_READONLY and TREE_READONLY should always be honored.  */
   bool honor_readonly;
 

@@ -1007,12 +1007,7 @@ variable_declarator_id:
 		{yyerror ("Invalid declaration"); DRECOVER(vdi);}
 |	variable_declarator_id OSB_TK error
 		{ 
-		  tree node = java_lval.node;
-		  if (node && (TREE_CODE (node) == INTEGER_CST
-			       || TREE_CODE (node) == EXPR_WITH_FILE_LOCATION))
-		    yyerror ("Can't specify array dimension in a declaration");
-		  else
-		    yyerror ("']' expected");
+		  yyerror ("']' expected");
 		  DRECOVER(vdi);
 		}
 |	variable_declarator_id CSB_TK error
@@ -9491,6 +9486,8 @@ resolve_qualified_expression_name (wfl, found_decl, where_found, type_found)
 	    }
 	  *type_found = type = QUAL_DECL_TYPE (*where_found);
 
+	  *where_found = force_evaluation_order (*where_found);
+
 	  /* If we're creating an inner class instance, check for that
 	     an enclosing instance is in scope */
 	  if (TREE_CODE (qual_wfl) == NEW_CLASS_EXPR
@@ -10780,7 +10777,10 @@ patch_invoke (patch, method, args)
     {
       tree list;
       tree fndecl = current_function_decl;
-      tree save = save_expr (patch);
+      /* We have to call force_evaluation_order now because creating a
+	 COMPOUND_EXPR wraps the arg list in a way that makes it
+	 unrecognizable by force_evaluation_order later.  Yuk.  */
+      tree save = save_expr (force_evaluation_order (patch));
       tree type = TREE_TYPE (patch);
 
       patch = build (COMPOUND_EXPR, type, save, empty_stmt_node);
@@ -11514,22 +11514,9 @@ java_complete_tree (node)
       && DECL_INITIAL (node) != NULL_TREE
       && !flag_emit_xref)
     {
-      tree value = DECL_INITIAL (node);
-      DECL_INITIAL (node) = NULL_TREE;
-      value = fold_constant_for_init (value, node);
-      DECL_INITIAL (node) = value;
+      tree value = fold_constant_for_init (node, node);
       if (value != NULL_TREE)
-	{
-	  /* fold_constant_for_init sometimes widens the original type
-             of the constant (i.e. byte to int). It's not desirable,
-             especially if NODE is a function argument. */
-	  if ((TREE_CODE (value) == INTEGER_CST
-	       || TREE_CODE (value) == REAL_CST)
-	      && TREE_TYPE (node) != TREE_TYPE (value))
-	    return convert (TREE_TYPE (node), value);
-	  else
-	    return value;
-	}
+	return value;
     }
   return node;
 }
@@ -12831,11 +12818,14 @@ try_builtin_assignconv (wfl_op1, lhs_type, rhs)
     new_rhs = convert (lhs_type, rhs);
 
   /* Try a narrowing primitive conversion (5.1.3): 
-       - expression is a constant expression of type int AND
+       - expression is a constant expression of type byte, short, char,
+	 or int AND
        - variable is byte, short or char AND
        - The value of the expression is representable in the type of the 
          variable */
-  else if (rhs_type == int_type_node && TREE_CONSTANT (rhs)
+  else if ((rhs_type == byte_type_node || rhs_type == short_type_node
+	    || rhs_type == char_type_node || rhs_type == int_type_node)
+	   && TREE_CONSTANT (rhs)
 	   && (lhs_type == byte_type_node || lhs_type == char_type_node
 	       || lhs_type == short_type_node))
     {
@@ -13695,8 +13685,19 @@ merge_string_cste (op1, op2, after)
 	string = null_pointer;
       else if (TREE_TYPE (op2) == char_type_node)
 	{
-	  ch[0] = (char )TREE_INT_CST_LOW (op2);
-	  ch[1] = '\0';
+	  /* Convert the character into UTF-8.	*/
+	  unsigned char c = (unsigned char) TREE_INT_CST_LOW (op2);
+	  unsigned char *p = (unsigned char *) ch;
+	  if (0x01 <= c
+	      && c <= 0x7f)
+	    *p++ = c;
+	  else
+	    {
+	      *p++ = c >> 6 | 0xc0;
+	      *p++ = (c & 0x3f) | 0x80;
+	    }
+	  *p = '\0';
+ 
 	  string = ch;
 	}
       else
@@ -13950,7 +13951,8 @@ patch_incomplete_class_ref (node)
   if (!(ref_type = resolve_type_during_patch (type)))
     return error_mark_node;
 
-  if (!flag_emit_class_files || JPRIMITIVE_TYPE_P (ref_type))
+  if (!flag_emit_class_files || JPRIMITIVE_TYPE_P (ref_type)
+      || TREE_CODE (ref_type) == VOID_TYPE)
     {
       tree dot = build_class_ref (ref_type);
       /* A class referenced by `foo.class' is initialized.  */
@@ -15825,8 +15827,10 @@ fold_constant_for_init (node, context)
 
   switch (code)
     {
-    case STRING_CST:
     case INTEGER_CST:
+      if (node == null_pointer_node)
+	return NULL_TREE;
+    case STRING_CST:
     case REAL_CST:
       return node;
 
@@ -15899,6 +15903,8 @@ fold_constant_for_init (node, context)
       /* Guard against infinite recursion. */
       DECL_INITIAL (node) = NULL_TREE;
       val = fold_constant_for_init (val, node);
+      if (val != NULL_TREE && TREE_CODE (val) != STRING_CST)
+	val = try_builtin_assignconv (NULL_TREE, TREE_TYPE (node), val);
       DECL_INITIAL (node) = val;
       return val;
 

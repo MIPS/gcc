@@ -1,5 +1,5 @@
 /* Java(TM) language-specific utility routines.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002
    Free Software Foundation, Inc.
 
 This file is part of GNU CC.
@@ -61,6 +61,9 @@ static void lang_print_error PARAMS ((diagnostic_context *, const char *));
 static int process_option_with_no PARAMS ((const char *,
 					   const struct string_option *,
 					   int));
+static int java_unsafe_for_reeval PARAMS ((tree));
+static bool java_can_use_bit_fields_p PARAMS ((void));
+
 
 #ifndef TARGET_OBJECT_SUFFIX
 # define TARGET_OBJECT_SUFFIX ".o"
@@ -229,6 +232,8 @@ static int dependency_tracking = 0;
 #define LANG_HOOKS_POST_OPTIONS java_post_options
 #undef LANG_HOOKS_SET_YYDEBUG
 #define LANG_HOOKS_SET_YYDEBUG java_set_yydebug
+#undef LANG_HOOKS_CAN_USE_BIT_FIELDS_P
+#define LANG_HOOKS_CAN_USE_BIT_FIELDS_P java_can_use_bit_fields_p
 
 /* Each front end provides its own.  */
 const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
@@ -535,6 +540,7 @@ java_init (filename)
   decl_printable_name = lang_printable_name;
   print_error_function = lang_print_error;
   lang_expand_expr = java_lang_expand_expr;
+  lang_unsafe_for_reeval = java_unsafe_for_reeval;
 
   java_init_decl_processing ();
 
@@ -776,6 +782,14 @@ java_init_options ()
   flag_non_call_exceptions = 1;
 }
 
+static bool
+java_can_use_bit_fields_p ()
+{
+  /* The bit-field optimizations cause problems when generating class
+     files.  */
+  return flag_emit_class_files ? false : true;
+}
+
 /* Post-switch processing.  */
 static void
 java_post_options ()
@@ -786,4 +800,24 @@ java_post_options ()
       flag_no_inline = 1;
       flag_inline_functions = 0;
     }
+}
+
+/* Called from unsafe_for_reeval.  */
+static int
+java_unsafe_for_reeval (t)
+     tree t;
+{
+  switch (TREE_CODE (t))
+    {
+    case BLOCK:
+      /* Our expander tries to expand the variables twice.  Boom.  */
+      if (BLOCK_EXPR_DECLS (t) != NULL)
+	return 2;
+      return unsafe_for_reeval (BLOCK_EXPR_BODY (t));
+ 
+    default:
+      break;
+    }
+
+  return -1;
 }
