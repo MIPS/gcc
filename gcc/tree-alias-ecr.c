@@ -29,7 +29,6 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 static unsigned int ECR_num = 0;
 /*static  GTY((param_is (struct ECR_def)))*/ 
 static splay_tree ECR_mapping = NULL;
-#include "gt-tree-alias-ecr.h"
 	
 ECR
 ECR_new (void)
