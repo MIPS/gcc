@@ -149,9 +149,12 @@ public class GtkFramePeer extends GtkWindowPeer
   native void nativeSetIconImage (GdkPixbufDecoder decoder);
   public void setIconImage (Image image) 
   {
-      GtkImage img = (GtkImage) image;
-      if (img.isLoaded() && img.getSource() instanceof GdkPixbufDecoder)
-        nativeSetIconImage((GdkPixbufDecoder) img.getSource());
+      if (image != null)
+        {
+          GtkImage img = (GtkImage) image;
+          if (img.isLoaded() && img.getSource() instanceof GdkPixbufDecoder)
+            nativeSetIconImage((GdkPixbufDecoder) img.getSource());
+        }
   }
 
   public Graphics getGraphics ()

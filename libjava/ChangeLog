@@ -1,6 +1,11 @@
 2004-07-30  David Jee  <djee@redhat.com>
 
 	* gnu/java/awt/peer/gtk/GtkFramePeer.java
+	(setIconImage): Check if image is null.
+
+2004-07-30  David Jee  <djee@redhat.com>
+
+	* gnu/java/awt/peer/gtk/GtkFramePeer.java
 	(create): Set the icon image.
 	(nativeSetIconImage): New native method declaration.
 	(setIconImage): Implement.
