@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2000,2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003, 2004 Apple Computer, Inc.
+ * All rights reserved.
  *
  * We build on <machine/types.h> rather than <sys/types.h> in order to
  * minimize the global namespace pollution (i.e., we'd like to define
