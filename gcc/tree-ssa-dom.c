@@ -73,12 +73,9 @@ static varray_type const_and_copies;
    reaching SSA_NAME node.  */
 static varray_type currdefs;
 
-/* Table of constant values indexed by SSA_NAME.  If the stored value for a
-   particular SSA_NAME is integer_one_node, then that particular SSA_NAME
-   is known to have a nonzero value (even if we do not know its precise
-   value).  Any other value indicates nothing is known about the zero/nonzero
-   status of the given SSA_NAME.  */
-static varray_type nonzero_vars;
+/* Bitmap of SSA_NAMEs known to have a nonzero value, even if we do not
+   know their exact value.  */
+static bitmap nonzero_vars;
 
 /* Track whether or not we have changed the control flow graph.  */
 static bool cfg_altered;
@@ -555,7 +552,7 @@ tree_ssa_dominator_optimize (void)
   false_exprs = htab_create (1024, true_false_expr_hash,
 			     true_false_expr_eq, NULL);
   VARRAY_TREE_INIT (const_and_copies, highest_ssa_version, "const_and_copies");
-  VARRAY_TREE_INIT (nonzero_vars, highest_ssa_version, "nonzero_vars");
+  nonzero_vars = BITMAP_XMALLOC ();
   VARRAY_EDGE_INIT (redirection_edges, 20, "redirection_edges");
   VARRAY_GENERIC_PTR_INIT (vrp_data, highest_ssa_version, "vrp_data");
   VARRAY_TREE_INIT (currdefs, num_referenced_vars, "currdefs");
@@ -606,7 +603,7 @@ tree_ssa_dominator_optimize (void)
       htab_empty (false_exprs);
 
       VARRAY_CLEAR (const_and_copies);
-      VARRAY_CLEAR (nonzero_vars);
+      bitmap_clear (nonzero_vars);
 
       if (VARRAY_ACTIVE_SIZE (redirection_edges) > 0)
 	redirect_edges_and_update_ssa_graph (redirection_edges);
@@ -633,11 +630,10 @@ tree_ssa_dominator_optimize (void)
 	  bitmap_clear (vars_to_rename);
 	  VARRAY_GROW (const_and_copies, highest_ssa_version);
 	  VARRAY_GROW (vrp_data, highest_ssa_version);
-	  VARRAY_GROW (nonzero_vars, highest_ssa_version);
 	  VARRAY_GROW (currdefs, num_referenced_vars);
 	  VARRAY_CLEAR (const_and_copies);
 	  VARRAY_CLEAR (vrp_data);
-	  VARRAY_CLEAR (nonzero_vars);
+	  bitmap_clear (nonzero_vars);
 	  VARRAY_CLEAR (currdefs);
 	}
     }
@@ -656,6 +652,8 @@ tree_ssa_dominator_optimize (void)
 
   VARRAY_CLEAR (redirection_edges);
   VARRAY_CLEAR (currdefs);
+
+  BITMAP_XFREE (nonzero_vars);
 
   /* And finalize the dominator walker.  */
   fini_walk_dominator_tree (&walk_data);
@@ -1044,6 +1042,25 @@ remove_local_expressions_from_table (varray_type locals,
     }
 }
 
+/* Use the SSA_NAMES in LOCALS to restore TABLE to its original
+   state, stopping when there are LIMIT entires left in LOCALs.  */
+
+static void
+restore_nonzero_vars_to_original_value (varray_type locals,
+					unsigned limit,
+					bitmap table)
+{
+  if (!locals)
+    return;
+
+  while (VARRAY_ACTIVE_SIZE (locals) > limit)
+    {
+      tree name = VARRAY_TOP_TREE (locals);
+      VARRAY_POP (locals);
+      bitmap_clear_bit (table, SSA_NAME_VERSION (name));
+    }
+}
+
 /* Use the source/dest pairs in LOCALS to restore TABLE to its original
    state, stopping when there are LIMIT entires left in LOCALs.  */
 
@@ -1219,7 +1236,7 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data, basic_block bb)
   remove_local_expressions_from_table (bd->true_exprs, 0, true_exprs);
   remove_local_expressions_from_table (bd->false_exprs, 0, false_exprs);
   remove_local_expressions_from_table (bd->avail_exprs, 0, avail_exprs);
-  restore_vars_to_original_value (bd->nonzero_vars, 0, nonzero_vars);
+  restore_nonzero_vars_to_original_value (bd->nonzero_vars, 0, nonzero_vars);
   restore_vars_to_original_value (bd->const_and_copies, 0, const_and_copies);
   restore_currdefs_to_original_value (bd->block_defs, 0, currdefs);
 
@@ -1497,20 +1514,25 @@ htab_statistics (FILE *file, htab_t htab)
 }
 
 /* Record the fact that VAR has a nonzero value, though we may not know
-   its exact value.  */
+   its exact value.  Note that if VAR is already known to have a nonzero
+   value, then we do nothing.  */
+
 static void
 record_var_is_nonzero (tree var, varray_type *block_nonzero_vars_p)
 {
-  tree prev_value = get_value_for (var, nonzero_vars);
+  int indx = SSA_NAME_VERSION (var);
 
-  set_value_for (var, integer_one_node, nonzero_vars);
+  if (bitmap_bit_p (nonzero_vars, indx))
+    return;
 
-  /* Record the destination and its previous value so that we can
-     reset them as we leave this block.  */
+  /* Mark it in the global table.  */
+  bitmap_set_bit (nonzero_vars, indx);
+
+  /* Record this SSA_NAME so that we can reset the global table
+     when we leave this block.  */
   if (! *block_nonzero_vars_p)
     VARRAY_TREE_INIT (*block_nonzero_vars_p, 2, "block_nonzero_vars");
   VARRAY_PUSH_TREE (*block_nonzero_vars_p, var);
-  VARRAY_PUSH_TREE (*block_nonzero_vars_p, prev_value);
 }
 
 /* Enter a statement into the available expression hash table indicating
@@ -2710,9 +2732,9 @@ lookup_avail_expr (tree stmt, varray_type *block_avail_exprs_p, bool insert)
       && TREE_CODE (TREE_OPERAND (rhs, 0)) == SSA_NAME
       && integer_zerop (TREE_OPERAND (rhs, 1)))
     {
-      tree nonzero = get_value_for (TREE_OPERAND (rhs, 0), nonzero_vars);
+      int indx = SSA_NAME_VERSION (TREE_OPERAND (rhs, 0));
 
-      if (nonzero && integer_onep (nonzero))
+      if (bitmap_bit_p (nonzero_vars, indx))
 	{
 	  if (TREE_CODE (rhs) == EQ_EXPR)
 	    return boolean_false_node;

@@ -1,5 +1,15 @@
 2004-04-08  Jeff Law  <law@redhat.com>
 
+	* tree-ssa-dom.c (nonzero_vars): Turn it into a bitmap.
+	(tree_ssa_dominator_optimize): Update initialization, clearing and
+	freeing of nonzero_vars.
+	(restore_nonzero_vars_to_original_value): New function.
+	(dom_opt_finalize_block): Use it.
+	(record_var_is_nonzero): Only record the variable into the block
+	local nonzero vars array if it did not already have a nonzero property.
+	(lookup_avail_expr): Lookup the nonzero property of an SSA_NAME with
+	a bitmap test.
+
 	* fold-const.c (fold): Remove attempt to share code which
 	simplifies tests against the highest/lowest value of a
 	range between the main folder and the nondestructive folder.
