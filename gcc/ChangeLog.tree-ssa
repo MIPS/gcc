@@ -1,3 +1,8 @@
+2003-01-21  Jeff Law <law@redhat.com>
+
+	* c-simplify.c (is_last_stmt_of_scope): Wrap definition and
+	declaration inside and ENABLE_CHECKING block.
+
 2003-01-20  Frank Ch. Eigler  <fche@redhat.com>
 
 	* tree-mudflap.c (mx_xfn_indirect_ref): Use new TREE_LOCUS field

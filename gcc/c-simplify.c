@@ -81,7 +81,9 @@ static void simplify_return_stmt     PARAMS ((tree *));
 static void simplify_stmt_expr       PARAMS ((tree *));
 static void simplify_compound_literal_expr PARAMS ((tree *));
 static void make_type_writable       PARAMS ((tree));
+#if defined ENABLE_CHECKING
 static int is_last_stmt_of_scope     PARAMS ((tree));
+#endif
 static void simplify_block	     PARAMS ((tree *, tree *));
 static void simplify_cleanup	     PARAMS ((tree *, tree *));
 static tree simplify_c_loop	     PARAMS ((tree, tree, tree, int));
@@ -1132,6 +1134,7 @@ mostly_copy_tree_r (tp, walk_subtrees, data)
 }
 
 
+#if defined ENABLE_CHECKING
 /*  Return nonzero if STMT is the last statement of its scope.  */
 
 static int
@@ -1142,3 +1145,4 @@ is_last_stmt_of_scope (stmt)
 	  || (TREE_CODE (TREE_CHAIN (stmt)) == SCOPE_STMT
 	      && SCOPE_END_P (TREE_CHAIN (stmt))));
 }
+#endif
