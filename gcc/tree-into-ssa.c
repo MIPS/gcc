@@ -98,7 +98,7 @@ struct mark_def_sites_global_data
 
 struct rewrite_block_data
 {
-  varray_type block_defs;
+  VEC (vd_pair_t) *block_defs;
 };
 
 /* Information stored for ssa names.  */
@@ -656,7 +656,7 @@ rewrite_initialize_block_local_data (struct dom_walk_data *walk_data ATTRIBUTE_U
      not cleared, then we are re-using a previously allocated entry.  In
      that case, we can also re-use the underlying virtual arrays.  Just
      make sure we clear them before using them!  */
-  gcc_assert (!recycled || !bd->block_defs || !(VARRAY_ACTIVE_SIZE (bd->block_defs) > 0));
+  gcc_assert (!recycled || !bd->block_defs || !(VEC_length (vd_pair_t, bd->block_defs) > 0));
 }
 
 
@@ -682,42 +682,8 @@ rewrite_initialize_block (struct dom_walk_data *walk_data, basic_block bb)
     {
       tree result = PHI_RESULT (phi);
 
-      register_new_def (result, &bd->block_defs);
+      register_new_def (SSA_NAME_VAR (result), result, &bd->block_defs);
     }
-}
-
-/* Register DEF (an SSA_NAME) to be a new definition for the original
-   ssa name VAR and push VAR's current reaching definition
-   into the stack pointed by BLOCK_DEFS_P.  */
-
-static void
-ssa_register_new_def (tree var, tree def, varray_type *block_defs_p)
-{
-  tree currdef;
-   
-  /* If this variable is set in a single basic block and all uses are
-     dominated by the set(s) in that single basic block, then there is
-     nothing to do.  TODO we should not be called at all, and just
-     keep the original name.  */
-  if (get_phi_state (var) == NEED_PHI_STATE_NO)
-    {
-      set_current_def (var, def);
-      return;
-    }
-
-  currdef = get_current_def (var);
-  if (! *block_defs_p)
-    VARRAY_TREE_INIT (*block_defs_p, 20, "block_defs");
-
-  /* Push the current reaching definition into *BLOCK_DEFS_P.  This stack is
-     later used by the dominator tree callbacks to restore the reaching
-     definitions for all the variables defined in the block after a recursive
-     visit to all its immediately dominated blocks.  */
-  VARRAY_PUSH_TREE (*block_defs_p, var);
-  VARRAY_PUSH_TREE (*block_defs_p, currdef);
-
-  /* Set the current reaching definition for VAR to be DEF.  */
-  set_current_def (var, def);
 }
 
 /* Ditto, for rewriting ssa names.  */
@@ -758,7 +724,7 @@ ssa_rewrite_initialize_block (struct dom_walk_data *walk_data, basic_block bb)
       else
 	new_name = result;
 
-      ssa_register_new_def (result, new_name, &bd->block_defs);
+      register_new_def (result, new_name, &bd->block_defs);
     }
 }
 
@@ -837,49 +803,14 @@ rewrite_finalize_block (struct dom_walk_data *walk_data,
 
   /* Step 5.  Restore the current reaching definition for each variable
      referenced in the block (in reverse order).  */
-  while (bd->block_defs && VARRAY_ACTIVE_SIZE (bd->block_defs) > 0)
+  while (bd->block_defs && VEC_length (vd_pair_t, bd->block_defs) > 0)
     {
-      tree tmp = VARRAY_TOP_TREE (bd->block_defs);
-      tree saved_def, var;
-
-      VARRAY_POP (bd->block_defs);
-      if (TREE_CODE (tmp) == SSA_NAME)
-	{
-	  saved_def = tmp;
-	  var = SSA_NAME_VAR (saved_def);
-	}
-      else
-	{
-	  saved_def = NULL;
-	  var = tmp;
-	}
-
-      set_current_def (var, saved_def);
+      vd_pair_t *defpair = VEC_last (vd_pair_t, bd->block_defs);
+      VEC_pop (vd_pair_t, bd->block_defs);
+      set_current_def (defpair->var, defpair->def);
     }
-}
-
-/* Ditto, for rewriting ssa names.  */
-
-static void
-ssa_rewrite_finalize_block (struct dom_walk_data *walk_data,
-			    basic_block bb ATTRIBUTE_UNUSED)
-{
-  struct rewrite_block_data *bd
-    = (struct rewrite_block_data *)VARRAY_TOP_GENERIC_PTR (walk_data->block_data_stack);
-
-  /* Step 5.  Restore the current reaching definition for each variable
-     referenced in the block (in reverse order).  */
-  while (bd->block_defs && VARRAY_ACTIVE_SIZE (bd->block_defs) > 0)
-    {
-      tree var;
-      tree saved_def = VARRAY_TOP_TREE (bd->block_defs);
-      VARRAY_POP (bd->block_defs);
-      
-      var = VARRAY_TOP_TREE (bd->block_defs);
-      VARRAY_POP (bd->block_defs);
-
-      set_current_def (var, saved_def);
-    }
+  VEC_free (vd_pair_t, bd->block_defs);
+  bd->block_defs = NULL;
 }
 
 /* Dump SSA information to FILE.  */
@@ -1077,7 +1008,8 @@ rewrite_stmt (struct dom_walk_data *walk_data,
 
       /* FIXME: We shouldn't be registering new defs if the variable
 	 doesn't need to be renamed.  */
-      register_new_def (DEF_FROM_PTR (def_p), &bd->block_defs);
+      register_new_def (SSA_NAME_VAR (DEF_FROM_PTR (def_p)),
+			DEF_FROM_PTR (def_p), &bd->block_defs);
     }
 }
 
@@ -1128,7 +1060,7 @@ ssa_rewrite_stmt (struct dom_walk_data *walk_data,
 	continue;
 
       SET_DEF (def_p, duplicate_ssa_name (var, stmt));
-      ssa_register_new_def (var, DEF_FROM_PTR (def_p), &bd->block_defs);
+      register_new_def (var, DEF_FROM_PTR (def_p), &bd->block_defs);
     }
 }
 
@@ -1147,9 +1079,9 @@ rewrite_operand (use_operand_p op_p)
    into the stack pointed by BLOCK_DEFS_P.  */
 
 void
-register_new_def (tree def, varray_type *block_defs_p)
+register_new_def (tree var, tree def, VEC (vd_pair_t) **block_defs_p)
 {
-  tree var = SSA_NAME_VAR (def);
+  vd_pair_t defpair;
   tree currdef;
    
   /* If this variable is set in a single basic block and all uses are
@@ -1168,14 +1100,16 @@ register_new_def (tree def, varray_type *block_defs_p)
 
   currdef = get_current_def (var);
   if (! *block_defs_p)
-    VARRAY_TREE_INIT (*block_defs_p, 20, "block_defs");
+    *block_defs_p = VEC_alloc (vd_pair_t, 20);
 
   /* Push the current reaching definition into *BLOCK_DEFS_P.  This stack is
      later used by the dominator tree callbacks to restore the reaching
      definitions for all the variables defined in the block after a recursive
      visit to all its immediately dominated blocks.  If there is no current
      reaching definition, then just record the underlying _DECL node.  */
-  VARRAY_PUSH_TREE (*block_defs_p, currdef ? currdef : var);
+  defpair.var = var;
+  defpair.def = currdef;
+  VEC_safe_push (vd_pair_t, *block_defs_p, &defpair);
 
   /* Set the current reaching definition for VAR to be DEF.  */
   set_current_def (var, def);
@@ -1641,7 +1575,7 @@ rewrite_ssa_into_ssa (void)
   walk_data.before_dom_children_after_stmts = ssa_rewrite_phi_arguments;
   walk_data.after_dom_children_before_stmts = NULL;
   walk_data.after_dom_children_walk_stmts =  NULL;
-  walk_data.after_dom_children_after_stmts =  ssa_rewrite_finalize_block;
+  walk_data.after_dom_children_after_stmts =  rewrite_finalize_block;
   walk_data.global_data = snames_to_rename;
   walk_data.block_local_data_size = sizeof (struct rewrite_block_data);
 

@@ -197,7 +197,7 @@ struct dom_walk_block_data
   /* Array of tree pairs used to restore the global currdefs to its
      original state after completing optimization of a block and its
      dominator children.  */
-  varray_type block_defs;
+  VEC (vd_pair_t) *block_defs;
 };
 
 struct eq_expr_value
@@ -251,9 +251,9 @@ static void remove_local_expressions_from_table (varray_type locals,
 static void restore_vars_to_original_value (varray_type locals,
 					    unsigned limit, 
 					    varray_type table);
-static void restore_currdefs_to_original_value (varray_type locals,
+static void restore_currdefs_to_original_value (VEC (vd_pair_t) *,
 						unsigned limit);
-static void register_definitions_for_stmt (tree, varray_type *);
+static void register_definitions_for_stmt (tree, VEC (vd_pair_t) **);
 static edge single_incoming_edge_ignoring_loop_edges (basic_block);
 
 /* Local version of fold that doesn't introduce cruft.  */
@@ -455,7 +455,7 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
       tree src = PHI_ARG_DEF_FROM_EDGE (phi, e);
       tree dst = PHI_RESULT (phi);
       record_const_or_copy (dst, src, &bd->const_and_copies);
-      register_new_def (dst, &bd->block_defs);
+      register_new_def (SSA_NAME_VAR (dst), dst, &bd->block_defs);
     }
 
   for (bsi = bsi_start (e->dest); ! bsi_end_p (bsi); bsi_next (&bsi))
@@ -570,7 +570,7 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
 	 the result of this statement is used later we can copy propagate
 	 suitably.  */
       record_const_or_copy (lhs, cached_lhs, &bd->const_and_copies);
-      register_new_def (lhs, &bd->block_defs);
+      register_new_def (SSA_NAME_VAR (lhs), lhs, &bd->block_defs);
     }
 
   /* If we stopped at a COND_EXPR or SWITCH_EXPR, then see if we know which
@@ -735,7 +735,7 @@ dom_opt_initialize_block_local_data (struct dom_walk_data *walk_data ATTRIBUTE_U
       gcc_assert (!bd->vrp_variables
 		  || VARRAY_ACTIVE_SIZE (bd->vrp_variables) == 0);
       gcc_assert (!bd->block_defs
-		  || VARRAY_ACTIVE_SIZE (bd->block_defs) == 0);
+		  || VEC_length (vd_pair_t, bd->block_defs) == 0);
     }
 }
 
@@ -866,35 +866,17 @@ restore_vars_to_original_value (varray_type locals,
 /* Similar to restore_vars_to_original_value, except that it restores 
    CURRDEFS to its original value.  */
 static void
-restore_currdefs_to_original_value (varray_type locals, unsigned limit)
+restore_currdefs_to_original_value (VEC (vd_pair_t) *locals, unsigned limit)
 {
   if (!locals)
     return;
 
   /* Restore CURRDEFS to its original state.  */
-  while (VARRAY_ACTIVE_SIZE (locals) > limit)
+  while (VEC_length (vd_pair_t, locals) > limit)
     {
-      tree tmp = VARRAY_TOP_TREE (locals);
-      tree saved_def, var;
-
-      VARRAY_POP (locals);
-
-      /* If we recorded an SSA_NAME, then make the SSA_NAME the current
-	 definition of its underlying variable.  If we recorded anything
-	 else, it must have been an _DECL node and its current reaching
-	 definition must have been NULL.  */
-      if (TREE_CODE (tmp) == SSA_NAME)
-	{
-	  saved_def = tmp;
-	  var = SSA_NAME_VAR (saved_def);
-	}
-      else
-	{
-	  saved_def = NULL;
-	  var = tmp;
-	}
-                                                                                
-      var_ann (var)->current_def = saved_def;
+      vd_pair_t *defpair = VEC_last (vd_pair_t, locals);
+      VEC_pop (vd_pair_t, locals);
+      var_ann (defpair->var)->current_def = defpair->def;
     }
 }
 
@@ -959,7 +941,7 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data, basic_block bb)
 	    = bd->const_and_copies ? VARRAY_ACTIVE_SIZE (bd->const_and_copies)
 				   : 0;
 	  currdefs_limit
-	    = bd->block_defs ? VARRAY_ACTIVE_SIZE (bd->block_defs) : 0;
+	    = bd->block_defs ? VEC_length (vd_pair_t, bd->block_defs) : 0;
 
 	  /* Record any equivalences created by following this edge.  */
 	  if (TREE_CODE_CLASS (cond_code) == '<')
@@ -1013,6 +995,7 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data, basic_block bb)
   restore_nonzero_vars_to_original_value (bd->nonzero_vars, 0, nonzero_vars);
   restore_vars_to_original_value (bd->const_and_copies, 0, const_and_copies);
   restore_currdefs_to_original_value (bd->block_defs, 0);
+  VEC_free (vd_pair_t, bd->block_defs);
 
   /* Remove VRP records associated with this basic block.  They are no
      longer valid.
@@ -1129,7 +1112,7 @@ record_equivalences_from_phis (struct dom_walk_data *walk_data, basic_block bb)
       if (i == PHI_NUM_ARGS (phi))
 	bitmap_set_bit (nonzero_vars, SSA_NAME_VERSION (PHI_RESULT (phi)));
 
-      register_new_def (lhs, &bd->block_defs);
+      register_new_def (SSA_NAME_VAR (lhs), lhs, &bd->block_defs);
     }
 }
 
@@ -3339,7 +3322,7 @@ avail_expr_eq (const void *p1, const void *p2)
    and CURRDEFS.  */
 
 static void
-register_definitions_for_stmt (tree stmt, varray_type *block_defs_p)
+register_definitions_for_stmt (tree stmt, VEC (vd_pair_t) **block_defs_p)
 {
   tree def;
   ssa_op_iter iter;
@@ -3349,7 +3332,7 @@ register_definitions_for_stmt (tree stmt, varray_type *block_defs_p)
 
       /* FIXME: We shouldn't be registering new defs if the variable
 	 doesn't need to be renamed.  */
-      register_new_def (def, block_defs_p);
+      register_new_def (SSA_NAME_VAR (def), def, block_defs_p);
     }
 }
 

@@ -1,4 +1,30 @@
-2004-09-12  Daniel Berlin  <dberlin@site>
+2004-09-15  Daniel Berlin  <dberlin@dberlin.org>
+	
+	* Makefile.in (TREE_FLOW_H): Add vec.h.
+	* tree-flow.h: Include vec.h.
+	(var_def_pair): New struct.
+	(register_new_def): update prototype.
+	* tree-into-ssa.c (rewrite_block_data): Use a vector of vd_pair_t.
+	(rewrite_initialize_block_local_date): Use vector function for
+	block_defs.
+	(rewrite_initialize_block): Pass new parameter to register_new_def.
+	(rewrite_stmt): Ditto.
+	(ssa_register_new_def): Removed.
+	(ssa_rewrite_initialize_block): Use register_new_def.
+	(ssa_rewrite_stmt): Ditto.
+	(rewrite_finalize_block): Rewrite to use new block_defs vector.
+	(ssa_rewrite_finalize_block): Removed.
+	(register_new_def): Take new parameter, rewrite to use
+	block_defs vector.
+	* tree-ssa-dom.c (struct dom_block_walk_data): Use a vector
+	for block_defs.
+	(restore_currdefs_to_original_value): Update for vector use.
+	(register_definitions_for_stmt): Ditto.
+	(dom_opt_initialize_block_local_data): Ditto.
+	(dom_opt_finalize_block): Ditto.
+	(thread_across_edge): Pass new parameter to register_new_def.
+
+2004-09-12  Daniel Berlin  <dberlin@dberlin.org>
 
 	* Makefile.in (tree-ssa-structalias.o): New file.
 	(tree-ssa-structalias.o): New.

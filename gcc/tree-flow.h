@@ -28,6 +28,7 @@ Boston, MA 02111-1307, USA.  */
 #include "hashtab.h"
 #include "tree-gimple.h"
 #include "tree-ssa-operands.h"
+#include "vec.h"
 
 /* Forward declare structures for the garbage collector GTY markers.  */
 #ifndef GCC_BASIC_BLOCK_H
@@ -555,6 +556,13 @@ extern bool may_be_aliased (tree);
    definition, a function with this prototype is called.  */
 typedef bool (*walk_use_def_chains_fn) (tree, tree, void *);
 
+struct var_def_pair
+{
+  tree var;
+  tree def;
+};
+typedef struct var_def_pair vd_pair_t;
+DEF_VEC_MALLOC_O (vd_pair_t);
 /* In tree-ssa.c  */
 extern void init_tree_ssa (void);
 extern void dump_reaching_defs (FILE *);
@@ -570,7 +578,7 @@ extern bool tree_ssa_useless_type_conversion (tree);
 extern bool tree_ssa_useless_type_conversion_1 (tree, tree);
 extern void verify_ssa (void);
 extern void delete_tree_ssa (void);
-extern void register_new_def (tree, varray_type *);
+extern void register_new_def (tree, tree, VEC (vd_pair_t) **);
 extern void walk_use_def_chains (tree, walk_use_def_chains_fn, void *, bool);
 extern void kill_redundant_phi_nodes (void);
 
