@@ -143,6 +143,11 @@ ITYPE	{IWORD}({WS}{IWORD})*
   return typedef_p ? ENT_TYPEDEF_STRUCT : ENT_STRUCT;
 }
 
+[^[:alnum:]_](extern|static){WS}/"GTY" {
+  BEGIN(in_struct);
+  return ENT_EXTERNSTATIC;
+}
+
 <in_struct>{
 
 "/*"				{ BEGIN(in_struct_comment); }

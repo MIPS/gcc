@@ -35,6 +35,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 %token <t>ENT_TYPEDEF_STRUCT
 %token <t>ENT_STRUCT
+%token ENT_EXTERNSTATIC
 %token GTY_TOKEN "GTY"
 %token UNION "union"
 %token STRUCT "struct"
@@ -47,13 +48,14 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 %token <s>ARRAY
 
 %type <p> struct_fields
-%type <t> type
+%type <t> type lasttype
 %type <o> optionsopt options option optionseq optionseqopt
 
 %%
 
 start: /* empty */
        | typedef_struct start
+       | externstatic start
 
 typedef_struct: ENT_TYPEDEF_STRUCT options 
 		   { 
@@ -79,6 +81,28 @@ typedef_struct: ENT_TYPEDEF_STRUCT options
 		   }
 		 ';'
 
+externstatic: ENT_EXTERNSTATIC options lasttype ID ';'
+	         {
+	           note_variable ($4, $3, $2, &lexer_line);
+	         }
+	      | ENT_EXTERNSTATIC options lasttype ID ARRAY ';'
+	         {
+	           note_variable ($4, create_array ($3, $5),
+	      		    $2, &lexer_line);
+	         }
+	      | ENT_EXTERNSTATIC options lasttype ID ARRAY ARRAY ';'
+	         {
+	           note_variable ($4, create_array (create_array ($3, $6),
+	      				      $5),
+	      		    $2, &lexer_line);
+	         }
+
+lasttype: type
+	    { 
+	      lexer_toplevel_done = 1;
+	      $$ = $1;
+	    }
+
 struct_fields: { $$ = NULL; }
 	       | type optionsopt ID bitfieldopt ';' struct_fields
 	          {
@@ -103,7 +127,7 @@ struct_fields: { $$ = NULL; }
 	       | type optionsopt ID ARRAY ARRAY ';' struct_fields
 	          {
 	            pair_p p = xmalloc (sizeof (*p));
-		    p->type = create_array (create_array ($1, $4), $5);
+		    p->type = create_array (create_array ($1, $5), $4);
 		    p->opt = $2;
 		    p->name = $3;
 		    p->next = $7;

@@ -47,6 +47,7 @@ struct type string_type = {
 static pair_p typedefs;
 static type_p structures;
 static type_p varrays;
+static pair_p variables;
 
 void
 do_typedef (s, t, pos)
@@ -182,6 +183,23 @@ adjust_field_type (t, opt)
       return &string_type;
     }
   return t;
+}
+
+void
+note_variable (s, t, o, pos)
+     const char *s;
+     type_p t;
+     options_p o;
+     struct fileloc *pos;
+{
+  pair_p n;
+  n = xmalloc (sizeof (*n));
+  n->name = s;
+  n->type = t;
+  n->line = *pos;
+  n->opt = o;
+  n->next = variables;
+  variables = n;
 }
 
 /* File mapping routines.  For each input file, there is one output .c file
@@ -327,10 +345,24 @@ get_output_file (input_file)
       fputs ("#include \"insn-config.h\"\n", fm->output);
       fputs ("#include \"expr.h\"\n", fm->output);
       fputs ("#include \"optabs.h\"\n", fm->output);
+      fputs ("#include \"libfuncs.h\"\n", fm->output);
       fputs ("#include \"ggc.h\"\n", fm->output);
     }
 
   return fm->output;
+}
+
+const char *
+get_output_file_name (input_file)
+     const char *input_file;
+{
+  filemap_p fm;
+
+  for (fm = files; fm; fm = fm->next)
+    if (input_file == fm->input_name)
+      return fm->output_name;
+  (void) get_output_file (input_file);
+  return get_output_file_name (input_file);
 }
 
 static void
@@ -403,6 +435,9 @@ close_output_files PARAMS ((void))
 static void write_gc_structure_fields 
   PARAMS ((FILE *, type_p, const char *, const char *, options_p, 
 	   int, struct fileloc *));
+static void write_gc_types PARAMS ((type_p structures));
+static void put_mangled_filename PARAMS ((FILE *, const char *));
+static void write_gc_roots PARAMS ((pair_p));
 
 static int counter = 0;
 
@@ -417,11 +452,11 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line)
      struct fileloc *line;
 {
   pair_p f;
-  int tagcounter;
+  int tagcounter = -1;
 
   if (s->kind == TYPE_UNION)
     {
-      const char *tagexpr;
+      const char *tagexpr = NULL;
       const char *p;
       options_p oo;
       
@@ -711,7 +746,7 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line)
     }
 }
 
-void
+static void
 write_gc_types PARAMS ((type_p structures))
 {
   type_p s;
@@ -748,6 +783,270 @@ write_gc_types PARAMS ((type_p structures))
 	fputs ("}\n", f);
       }
 }
+
+static void
+put_mangled_filename (f, fn)
+     FILE *f;
+     const char *fn;
+{
+  const char *name = get_output_file_name (fn);
+  for (; *name != 0; name++)
+    if (isalnum (*name))
+      fputc (*name, f);
+    else
+      fputc ('_', f);
+}
+
+static void
+write_gc_roots (variables)
+     pair_p variables;
+{
+  pair_p v;
+  struct flist {
+    struct flist *next;
+    int started_p;
+    const char *name;
+    FILE *f;
+  } *flp = NULL;
+  struct flist *fli2;
+  FILE *topf;
+
+  for (v = variables; v; v = v->next)
+    {
+      FILE *f = get_output_file (v->line.file);
+      struct flist *fli;
+      const char *length = NULL;
+      int deletable_p = 0;
+      options_p o;
+
+      for (o = v->opt; o; o = o->next)
+	if (strcmp (o->name, "length") == 0)
+	  length = (const char *)o->info;
+	else if (strcmp (o->name, "deletable") == 0)
+	  deletable_p = 1;
+	else
+	  error_at_line (&v->line, 
+			 "global `%s' has unknown option `%s'",
+			 v->name, o->name);
+
+      for (fli = flp; fli; fli = fli->next)
+	if (fli->f == f)
+	  break;
+      if (fli == NULL)
+	{
+	  fli = xmalloc (sizeof (*fli));
+	  fli->f = f;
+	  fli->next = flp;
+	  fli->started_p = 0;
+	  fli->name = v->line.file;
+	  flp = fli;
+
+	  fputs ("\n/* GC roots.  */\n\n", f);
+	}
+
+      if (! deletable_p
+	  && length
+	  && v->type->kind == TYPE_POINTER
+	  && v->type->u.p->kind == TYPE_POINTER)
+	{
+	  type_p s = v->type->u.p->u.p;
+	  
+	  fprintf (f, "static void gt_ggc_ma_%s PARAMS((void *));\n",
+		   v->name);
+	  fprintf (f, "static void\ngt_ggc_ma_%s (x_p);\n      void *x_p;\n",
+		   v->name);
+	  fputs ("{\n", f);
+	  if (s->kind != TYPE_STRUCT && s->kind != TYPE_UNION)
+	    {
+	      error_at_line (&v->line, 
+			     "global `%s' has unsupported ** type",
+			     v->name);
+	      continue;
+	    }
+
+	  fprintf (f, "  %s %s * const x = (%s %s *)x_p;\n",
+		   s->kind == TYPE_UNION ? "union" : "struct", s->u.s.tag,
+		   s->kind == TYPE_UNION ? "union" : "struct", s->u.s.tag);
+	  fputs ("  size_t i;\n", f);
+	  fprintf (f, "  for (i = 0; i < (%s); i++)\n", length);
+	  fprintf (f, "    gt_ggc_m_%s (x[i])", s->u.s.tag);
+	  fputs ("}\n\n", f);
+	}
+    }
+
+  for (v = variables; v; v = v->next)
+    {
+      FILE *f = get_output_file (v->line.file);
+      struct flist *fli;
+      const char *length = NULL;
+      int deletable_p = 0;
+      options_p o;
+      type_p tp;
+      type_p ap;
+      
+      for (o = v->opt; o; o = o->next)
+	if (strcmp (o->name, "length") == 0)
+	  length = (const char *)o->info;
+	else if (strcmp (o->name, "deletable") == 0)
+	  deletable_p = 1;
+	else
+	  error_at_line (&v->line, 
+			 "global `%s' has unknown option `%s'",
+			 v->name, o->name);
+
+      if (deletable_p)
+	continue;
+
+      for (fli = flp; fli; fli = fli->next)
+	if (fli->f == f)
+	  break;
+      if (! fli->started_p)
+	{
+	  fli->started_p = 1;
+
+	  fputs ("const struct ggc_root_tab gt_ggc_r_", f);
+	  put_mangled_filename (f, v->line.file);
+	  fputs ("[] = {\n", f);
+	}
+
+
+      fputs ("  {\n", f);
+      fprintf (f, "    &%s,\n", v->name);
+      fputs ("    1", f);
+
+      for (ap = v->type; ap->kind == TYPE_ARRAY; ap = ap->u.a.p)
+	fprintf (f, " * (%s)", ap->u.a.len);
+      fputs (",\n", f);
+
+      if (ap->kind != TYPE_POINTER)
+	error_at_line (&v->line, 
+		       "global `%s' is unimplemented type",
+		       v->name);
+
+      tp = ap->u.p;
+      
+      
+      if (! length
+	  && (tp->kind == TYPE_UNION || tp->kind == TYPE_STRUCT))
+	{
+	  fprintf (f, "    sizeof (%s %s *),\n    &gt_ggc_m_%s",
+		   tp->kind == TYPE_UNION ? "union" : "struct", 
+		   tp->u.s.tag, tp->u.s.tag);
+	}
+      else if (tp->kind == TYPE_POINTER
+	       && length
+	       && (tp->u.p->kind == TYPE_UNION
+		   || tp->u.p->kind == TYPE_STRUCT))
+	{
+	  fprintf (f, "    sizeof (%s %s **),\n    &gt_ggc_mp_%s",
+		   tp->kind == TYPE_UNION ? "union" : "struct", 
+		   tp->u.s.tag, v->name);
+	}
+      else
+	{
+	  error_at_line (&v->line, 
+			 "global `%s' is pointer to unimplemented type",
+			 v->name);
+	}
+      fputs ("\n  },\n", f);
+    }
+
+  for (fli2 = flp; fli2; fli2 = fli2->next)
+    if (fli2->started_p)
+      {
+	fputs ("  LAST_GGC_ROOT_TAB\n", fli2->f);
+	fputs ("};\n\n", fli2->f);
+      }
+
+  topf = get_output_file ("ggc.h");
+  for (fli2 = flp; fli2; fli2 = fli2->next)
+    if (fli2->started_p)
+      {
+	fputs ("extern const struct ggc_root_tab gt_ggc_r_", topf);
+	put_mangled_filename (topf, fli2->name);
+	fputs ("[];\n", topf);
+      }
+
+  fputs ("const struct ggc_root_tab * const gt_ggc_rtab[] = {\n", topf);
+  for (fli2 = flp; fli2; fli2 = fli2->next)
+    if (fli2->started_p)
+      {
+	fli2->started_p = 0;
+	
+	fputs ("  gt_ggc_r_", topf);
+	put_mangled_filename (topf, fli2->name);
+	fputs (",\n", topf);
+      }
+  fputs ("  NULL\n", topf);
+  fputs ("};\n\n", topf);
+
+  for (v = variables; v; v = v->next)
+    {
+      FILE *f = get_output_file (v->line.file);
+      struct flist *fli;
+      const char *length = NULL;
+      int deletable_p = 0;
+      options_p o;
+
+      for (o = v->opt; o; o = o->next)
+	if (strcmp (o->name, "length") == 0)
+	  length = (const char *)o->info;
+	else if (strcmp (o->name, "deletable") == 0)
+	  deletable_p = 1;
+	else
+	  error_at_line (&v->line, 
+			 "global `%s' has unknown option `%s'",
+			 v->name, o->name);
+
+      if (! deletable_p)
+	continue;
+
+      for (fli = flp; fli; fli = fli->next)
+	if (fli->f == f)
+	  break;
+      if (! fli->started_p)
+	{
+	  fli->started_p = 1;
+
+	  fputs ("const struct ggc_root_tab gt_ggc_rd_", f);
+	  put_mangled_filename (f, v->line.file);
+	  fputs ("[] = {\n", f);
+	}
+      
+      fprintf (f, "  { &%s, 1, sizeof (%s), NULL },\n",
+	       v->name, v->name);
+    }
+  
+  for (fli2 = flp; fli2; fli2 = fli2->next)
+    if (fli2->started_p)
+      {
+	fputs ("  LAST_GGC_ROOT_TAB\n", fli2->f);
+	fputs ("};\n\n", fli2->f);
+      }
+
+  for (fli2 = flp; fli2; fli2 = fli2->next)
+    if (fli2->started_p)
+      {
+	fputs ("extern const struct ggc_root_tab gt_ggc_rd_", topf);
+	put_mangled_filename (topf, fli2->name);
+	fputs ("[];\n", topf);
+      }
+
+  fputs ("const struct ggc_root_tab * const gt_ggc_deletable_rtab[] = {\n", 
+	 topf);
+  for (fli2 = flp; fli2; fli2 = fli2->next)
+    if (fli2->started_p)
+      {
+	fli2->started_p = 0;
+	
+	fputs ("  gt_ggc_rd_", topf);
+	put_mangled_filename (topf, fli2->name);
+	fputs (",\n", topf);
+      }
+  fputs ("  NULL\n", topf);
+  fputs ("};\n\n", topf);
+}
+
 
 extern int main PARAMS ((int argc, char **argv));
 int 
@@ -775,6 +1074,7 @@ main(argc, argv)
 
   open_base_files ();
   write_gc_types (structures);
+  write_gc_roots (variables);
   close_output_files ();
 
   return (hit_error != 0);

@@ -105,7 +105,7 @@ static unsigned int sjlj_funcdef_number;
 static htab_t type_to_runtime_map;
 
 /* Describe the SjLj_Function_Context structure.  */
-static tree sjlj_fc_type_node;
+static GTY(()) tree sjlj_fc_type_node;
 static int sjlj_fc_call_site_ofs;
 static int sjlj_fc_data_ofs;
 static int sjlj_fc_personality_ofs;
@@ -385,7 +385,6 @@ init_eh ()
       tree f_jbuf, f_per, f_lsda, f_prev, f_cs, f_data, tmp;
 
       sjlj_fc_type_node = make_lang_type (RECORD_TYPE);
-      ggc_add_tree_root (&sjlj_fc_type_node, 1);
 
       f_prev = build_decl (FIELD_DECL, get_identifier ("__prev"),
 			   build_pointer_type (sjlj_fc_type_node));

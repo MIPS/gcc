@@ -4245,7 +4245,7 @@ emit (x)
 }
 
 /* Space for free sequence stack entries.  */
-struct sequence_stack *free_sequence_stack;
+static GTY ((deletable (""))) struct sequence_stack *free_sequence_stack;
 
 /* Begin emitting insns to a sequence which can be packaged in an
    RTL_EXPR.  If this sequence will contain something that might cause
@@ -4789,9 +4789,6 @@ init_emit_once (line_numbers)
     gen_raw_REG (Pmode, VIRTUAL_OUTGOING_ARGS_REGNUM);
   virtual_cfa_rtx = gen_raw_REG (Pmode, VIRTUAL_CFA_REGNUM);
 
-  /* These rtx must be roots if GC is enabled.  */
-  ggc_add_rtx_root (global_rtl, GR_MAX);
-
 #ifdef INIT_EXPANDERS
   /* This is to initialize {init|mark|free}_machine_status before the first
      call to push_function_context_to.  This is needed by the Chill front
@@ -4807,7 +4804,6 @@ init_emit_once (line_numbers)
   for (i = - MAX_SAVED_CONST_INT; i <= MAX_SAVED_CONST_INT; i++)
     const_int_rtx[i + MAX_SAVED_CONST_INT] =
       gen_rtx_raw_CONST_INT (VOIDmode, i);
-  ggc_add_rtx_root (const_int_rtx, 2 * MAX_SAVED_CONST_INT + 1);
 
   if (STORE_FLAG_VALUE >= - MAX_SAVED_CONST_INT
       && STORE_FLAG_VALUE <= MAX_SAVED_CONST_INT)
@@ -4865,12 +4861,6 @@ init_emit_once (line_numbers)
   if (STORE_FLAG_VALUE == 1)
     const_tiny_rtx[1][(int) BImode] = const1_rtx;
 
-  /* For bounded pointers, `&const_tiny_rtx[0][0]' is not the same as
-     `(rtx *) const_tiny_rtx'.  The former has bounds that only cover
-     `const_tiny_rtx[0]', whereas the latter has bounds that cover all.  */
-  ggc_add_rtx_root ((rtx *) const_tiny_rtx, sizeof const_tiny_rtx / sizeof (rtx));
-  ggc_add_rtx_root (&const_true_rtx, 1);
-
 #ifdef RETURN_ADDRESS_POINTER_REGNUM
   return_address_pointer_rtx
     = gen_raw_REG (Pmode, RETURN_ADDRESS_POINTER_REGNUM);
@@ -4917,15 +4907,6 @@ init_emit_once (line_numbers)
 
   if (PIC_OFFSET_TABLE_REGNUM != INVALID_REGNUM)
     pic_offset_table_rtx = gen_raw_REG (Pmode, PIC_OFFSET_TABLE_REGNUM);
-
-  ggc_add_rtx_root (&pic_offset_table_rtx, 1);
-  ggc_add_rtx_root (&struct_value_rtx, 1);
-  ggc_add_rtx_root (&struct_value_incoming_rtx, 1);
-  ggc_add_rtx_root (&static_chain_rtx, 1);
-  ggc_add_rtx_root (&static_chain_incoming_rtx, 1);
-  ggc_add_rtx_root (&return_address_pointer_rtx, 1);
-
-  ggc_add_deletable_root (&free_sequence_stack, sizeof (free_sequence_stack));
 }
 
 /* Query and clear/ restore no_line_numbers.  This is used by the
@@ -4949,3 +4930,5 @@ restore_line_number_status (old_value)
 {
   no_line_numbers = old_value;
 }
+
+#include "gt-emit-rtl.h"

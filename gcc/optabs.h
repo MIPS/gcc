@@ -153,7 +153,7 @@ enum optab_index
   OTI_MAX
 };
 
-extern optab optab_table[OTI_MAX];
+extern GTY(()) optab optab_table[OTI_MAX];
 
 #define add_optab (optab_table[OTI_add])
 #define sub_optab (optab_table[OTI_sub])

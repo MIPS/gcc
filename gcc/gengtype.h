@@ -96,6 +96,8 @@ extern type_p create_pointer PARAMS ((type_p t));
 extern type_p create_varray PARAMS ((type_p t));
 extern type_p create_array PARAMS ((type_p t, const char *len));
 extern type_p adjust_field_type PARAMS ((type_p, options_p));
+extern void note_variable PARAMS ((const char *s, type_p t, options_p o,
+				   struct fileloc *pos));
 
 /* Lexer and parser routines, most automatically generated.  */
 extern int yylex PARAMS((void));
@@ -105,7 +107,5 @@ extern void parse_file PARAMS ((char *name));
 
 /* Output file handling.  */
 FILE *get_output_file PARAMS ((const char *input_file));
+const char *get_output_file_name PARAMS ((const char *));
 extern FILE *header_file;
-
-/* Output GGC types.  */
-extern void write_gc_types PARAMS ((type_p structures));

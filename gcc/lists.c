@@ -30,10 +30,10 @@ static void free_list PARAMS ((rtx *, rtx *));
 /* Functions for maintaining cache-able lists of EXPR_LIST and INSN_LISTs.  */
 
 /* An INSN_LIST containing all INSN_LISTs allocated but currently unused.  */
-static rtx unused_insn_list;
+static GTY ((deletable (""))) rtx unused_insn_list;
 
 /* An EXPR_LIST containing all EXPR_LISTs allocated but currently unused.  */
-static rtx unused_expr_list;
+static GTY ((deletable (""))) rtx unused_expr_list;
 
 
 /* This function will free an entire list of either EXPR_LIST or INSN_LIST
@@ -107,13 +107,6 @@ alloc_EXPR_LIST (kind, val, next)
   return r;
 }
 
-void 
-init_EXPR_INSN_LIST_cache ()
-{
-  ggc_add_deletable_root (&unused_expr_list, sizeof (unused_expr_list));
-  ggc_add_deletable_root (&unused_insn_list, sizeof (unused_insn_list));
-}
-
 /* This function will free up an entire list of EXPR_LIST nodes.  */
 void 
 free_EXPR_LIST_list (listp)
@@ -151,3 +144,5 @@ free_INSN_LIST_node (ptr)
   XEXP (ptr, 1) = unused_insn_list;
   unused_insn_list = ptr;
 }
+
+#include "gt-lists.h"

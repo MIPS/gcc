@@ -29,15 +29,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    header to include all the headers in which they are declared, we
    just forward-declare them here.  */
 struct eh_status;
-struct emit_status;
-struct expr_status;
 struct hash_table;
 struct label_node;
-struct rtx_def;
-struct rtvec_def;
-struct stmt_status;
-union  tree_node;
-struct varasm_status;
 
 /* Constants for general use.  */
 extern const char empty_string[];	/* empty string */
@@ -60,6 +53,19 @@ extern void ggc_add_tree_varray_root	PARAMS ((struct varray_head_tag **,
 extern void ggc_add_tree_hash_table_root PARAMS ((struct hash_table **,
 						  int nelt));
 extern void ggc_del_root		PARAMS ((void *base));
+
+/* Structures for the easy way to mark roots.  
+   In an array, terminated by having base == NULL.*/
+struct ggc_root_tab {
+  void *base;
+  size_t nelt;
+  size_t stride;
+  void (*cb) PARAMS ((void *));
+};
+#define LAST_GGC_ROOT_TAB { NULL, 0, 0, NULL }
+/* Pointers to arrays of ggc_root_tab, terminated by NULL.  */
+extern const struct ggc_root_tab * const gt_ggc_rtab[];
+extern const struct ggc_root_tab * const gt_ggc_deletable_rtab[];
 
 /* Types used for mark test and marking functions, if specified, in call
    below.  */
@@ -86,6 +92,10 @@ extern void ggc_mark_roots		PARAMS ((void));
 extern void ggc_mark_rtx_children	PARAMS ((struct rtx_def *));
 extern void ggc_mark_rtvec_children	PARAMS ((struct rtvec_def *));
 
+extern void gt_ggc_m_rtx_def		PARAMS ((void *));
+extern void gt_ggc_m_tree_node		PARAMS ((void *));
+
+
 /* If EXPR is not NULL and previously unmarked, mark it and evaluate
    to true.  Otherwise evaluate to false.  */
 #define ggc_test_and_set_mark(EXPR) \
@@ -98,16 +108,12 @@ extern void ggc_mark_rtvec_children	PARAMS ((struct rtvec_def *));
       ggc_mark_rtx_children (r__);              \
   } while (0)
 
-#define gt_ggc_m_rtx_def(EXPR) ggc_mark_rtx (EXPR)
-
 #define ggc_mark_tree(EXPR)				\
   do {							\
     tree t__ = (EXPR);					\
     if (ggc_test_and_set_mark (t__))			\
       VARRAY_PUSH_TREE (ggc_pending_trees, t__);	\
   } while (0)
-
-#define gt_ggc_m_tree_node(EXPR) ggc_mark_tree (EXPR)
 
 #define ggc_mark_nonnull_tree(EXPR)			\
   do {							\
@@ -123,7 +129,7 @@ extern void ggc_mark_rtvec_children	PARAMS ((struct rtvec_def *));
       ggc_mark_rtvec_children (v__);            \
   } while (0)
 
-#define gt_ggc_m_rtvec_def(EXPR) ggc_mark_rtvec (EXPR)
+#define gt_ggc_m_rtvec_def ggc_mark_rtvec
 
 #define ggc_mark(EXPR)				\
   do {						\

@@ -2412,7 +2412,8 @@ struct constant_descriptor_tree GTY(())
 
 #define HASHBITS 30
 #define MAX_HASH_TABLE 1009
-static struct constant_descriptor_tree *const_hash_table[MAX_HASH_TABLE];
+static GTY(()) struct constant_descriptor_tree *
+  const_hash_table[MAX_HASH_TABLE];
 
 /* We maintain a hash table of STRING_CST values.  Unless we are asked to force
    out a string constant, we defer output of the constants until we know
@@ -4760,8 +4761,6 @@ init_varasm_once ()
   in_named_htab = htab_create (31, in_named_entry_hash,
 			       in_named_entry_eq, NULL);
 
-  ggc_add_root (const_hash_table, MAX_HASH_TABLE, sizeof const_hash_table[0],
-		mark_const_hash_entry);
   ggc_add_root (&const_str_htab, 1, sizeof const_str_htab,
 		mark_const_str_htab);
 

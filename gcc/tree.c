@@ -227,8 +227,6 @@ init_obstacks ()
 				 type_hash_eq, 0);
   ggc_add_deletable_htab (type_hash_table, type_hash_marked_p,
 			  gt_ggc_m_type_hash);
-  ggc_add_tree_root (global_trees, TI_MAX);
-  ggc_add_tree_root (integer_types, itk_none);
 
   /* Set lang_set_decl_set_assembler_name to a default value.  */
   lang_set_decl_assembler_name = set_decl_assembler_name;

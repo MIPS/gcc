@@ -1930,7 +1930,7 @@ enum tree_index
   TI_MAX
 };
 
-extern tree global_trees[TI_MAX];
+extern GTY(()) tree global_trees[TI_MAX];
 
 #define error_mark_node			global_trees[TI_ERROR_MARK]
  
@@ -2023,7 +2023,7 @@ typedef enum integer_type_kind integer_type_kind;
 
 /* The standard C integer types.  Use integer_type_kind to index into
    this array.  */
-extern tree integer_types[itk_none];
+extern GTY(()) tree integer_types[itk_none];
 
 #define char_type_node			integer_types[itk_char]
 #define signed_char_type_node		integer_types[itk_signed_char]
@@ -2410,7 +2410,7 @@ enum size_type_kind
   UBITSIZETYPE,	        /* Unsifgned representation of sizes in bits.  */
   TYPE_KIND_LAST};
 
-extern tree sizetype_tab[(int) TYPE_KIND_LAST];
+extern GTY(()) tree sizetype_tab[(int) TYPE_KIND_LAST];
 
 #define sizetype sizetype_tab[(int) SIZETYPE]
 #define bitsizetype sizetype_tab[(int) BITSIZETYPE]
@@ -2694,10 +2694,10 @@ extern int immediate_size_expand;
 
 /* Points to the FUNCTION_DECL of the function whose body we are reading.  */
 
-extern tree current_function_decl;
+extern GTY(()) tree current_function_decl;
 
 /* Nonzero means a FUNC_BEGIN label was emitted.  */
-extern tree current_function_func_begin_label;
+extern GTY(()) tree current_function_func_begin_label;
 
 /* Nonzero means all ..._TYPE nodes should be allocated permanently.  */
 

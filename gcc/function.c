@@ -6667,6 +6667,8 @@ use_return_register ()
   diddle_return_value (do_use_return_reg, NULL);
 }
 
+static GTY(()) rtx initial_trampoline;
+
 /* Generate RTL for the end of the current function.
    FILENAME and LINE are the current position in the source file.
 
@@ -6681,10 +6683,6 @@ expand_function_end (filename, line, end_bindings)
 {
   tree link;
   rtx clobber_after;
-
-#ifdef TRAMPOLINE_TEMPLATE
-  static rtx initial_trampoline;
-#endif
 
   finish_expr_for_function ();
 
@@ -6724,8 +6722,6 @@ expand_function_end (filename, line, end_bindings)
 	  initial_trampoline
 	    = gen_rtx_MEM (BLKmode, assemble_trampoline_template ());
 	  set_mem_align (initial_trampoline, TRAMPOLINE_ALIGNMENT);
-
-	  ggc_add_rtx_root (&initial_trampoline, 1);
 	}
 #endif
 

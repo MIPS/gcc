@@ -1,5 +1,53 @@
 2002-03-12  Geoffrey Keating  <geoffk@redhat.com>
 
+	* Makefile.in (gtype-desc.o): Add libfuncs.h dependency.
+	(GTFILES): Add tree.h, libfuncs.h, emit-rtl.c, explow.c,
+	stor-layout.c, regclass.c, and lists.c.
+	Add dependencies of gt-emit-rtl.h gt-explow.h gt-stor-layout.h
+	gt-regclass.h and gt-lists.h on s-gtype.
+	* emit-rtl.c: Use gengtype for roots.  Include gt-emit-rtl.h.
+	* except.c: Use gengtype for roots.
+	* explow.c: Use gengtype for roots.  Include gt-explow.h.
+	* expr.h (init_stor_layout_once): Delete prototype.
+	* function.c: Use gengtype for roots.
+	* gengtype-lex.l: Add ENT_EXTERNSTATIC lexing.
+	* gengtype-yacc.y (start): Can also be an externstatic.
+	(externstatic): New production.
+	(struct_fields): Correct array bounds inversion for 2-d arrays.
+	* gengtype.c (variables): New variable.
+	(note_variable): New function.
+	(get_output_file): Include libfuncs.h into gtype-desc.c.
+	(get_output_file_name): New function.
+	(write_gc_structure_fields): Suppress warnings.
+	(write_gc_types): Make static.
+	(put_mangled_filename): New function.
+	(write_gc_roots): New function.
+	(main): Call write_gc_roots.
+	* gengtype.h (note_variable): Prototype.
+	(get_output_file_name): Prototype.
+	(write_gc_types): Delete prototype.
+	* ggc.h: Clean up unnecessary structure predefinitions.
+	(struct ggc_root_tab): Define.
+	(gt_ggc_m_rtx_def): Make function, not macro.
+	(gt_ggc_m_tree_node): Likewise.
+	* libfuncs.h: Use gengtype for roots.
+	* lists.c: Use gengtype for roots.  Include gt-lists.h.
+	(init_EXPR_INSN_LIST_cache): Delete.
+	* optabs.c: Use gengtype for roots.
+	(gt_ggc_mp_optab): Delete.
+	* optabs.h: Use gengtype for roots.
+	* regclass.c: Use gengtype for roots.  Include gt-regclass.h.
+	* rtl.h: Use gengtype for roots.
+	(init_EXPR_INSN_LIST_cache): Delete prototype.
+	* stor-layout.c: Use gengtype for roots.
+	Include gt-stor-layout.h.
+	(init_stor_layout_once): Delete.
+	* toplev.c: Use gengtype for roots.  Delete calls to deleted
+	routines.
+	* tree.c: Use gengtype for roots.
+	* tree.h: Use gengtype for roots.
+	* varasm.c: Use gengtype for roots.
+	
 	* Makefile.in (GTFILES): Add @all_gtfiles@.
 	* configure: Regenerate.
 	* configure.in: Construct all_gtfiles from the gtfiles definitions

@@ -263,11 +263,23 @@ ggc_mark_roots ()
   struct ggc_deletable_root *d;
   struct ggc_root *x;
   struct d_htab_root *y;
+  const struct ggc_root_tab *const *rt;
+  const struct ggc_root_tab *rti;
+  size_t i;
   
   VARRAY_TREE_INIT (ggc_pending_trees, 4096, "ggc_pending_trees");
 
   for (d = deletables; d != NULL; d = d->next)
     memset (d->base, 0, d->size);
+
+  for (rt = gt_ggc_deletable_rtab; *rt; rt++)
+    for (rti = *rt; rti->base != NULL; rti++)
+      memset (rti->base, 0, rti->stride);
+
+  for (rt = gt_ggc_rtab; *rt; rt++)
+    for (rti = *rt; rti->base != NULL; rti++)
+      for (i = 0; i < rti->nelt; i++)
+	(*rti->cb)(*(void **)((char *)rti->base + rti->stride * i));
 
   for (x = roots; x != NULL; x = x->next)
     {
@@ -644,6 +656,21 @@ ggc_mark_tree_hash_table_ptr (elt)
      void *elt;
 {
   ggc_mark_tree_hash_table (*(struct hash_table **) elt);
+}
+
+/* Various adaptor functions.  */
+void
+gt_ggc_m_rtx_def (x)
+     void *x;
+{
+  ggc_mark_rtx((rtx)x);
+}
+
+void
+gt_ggc_m_tree_node (x)
+     void *x;
+{
+  ggc_mark_tree((tree)x);
 }
 
 /* Allocate a block of memory, then clear it.  */

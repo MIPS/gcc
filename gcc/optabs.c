@@ -4703,16 +4703,6 @@ init_one_libfunc (name)
   return XEXP (DECL_RTL (decl), 0);
 }
 
-/* Mark ARG (which is really an OPTAB *) for GC.  */
-
-static void gt_ggc_mp_optab PARAMS ((void *));
-static void
-gt_ggc_mp_optab (arg)
-     void *arg;
-{
-  gt_ggc_m_optab (*(optab *) arg);
-}
-
 /* Call this once to initialize the contents of the optabs
    appropriately for the current target machine.  */
 
@@ -5062,18 +5052,15 @@ init_optabs ()
   /* Allow the target to add more libcalls or rename some, etc.  */
   INIT_TARGET_OPTABS;
 #endif
-
-  /* Add these GC roots.  */
-  ggc_add_root (optab_table, OTI_MAX, sizeof(optab), gt_ggc_mp_optab);
-  ggc_add_rtx_root (libfunc_table, LTI_MAX);
 }
 
+static GTY(()) rtx trap_rtx;
+
 #ifdef HAVE_conditional_trap
 /* The insn generating function can not take an rtx_code argument.
    TRAP_RTX is used as an rtx argument.  Its code is replaced with
    the code to be used in the trap insn and all other fields are
    ignored.  */
-static rtx trap_rtx;
 
 static void
 init_traps ()
@@ -5081,7 +5068,6 @@ init_traps ()
   if (HAVE_conditional_trap)
     {
       trap_rtx = gen_rtx_fmt_ee (EQ, VOIDmode, NULL_RTX, NULL_RTX);
-      ggc_add_rtx_root (&trap_rtx, 1);
     }
 }
 #endif
