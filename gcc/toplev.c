@@ -252,6 +252,7 @@ enum dump_file_index
   DFI_bbro,
   DFI_mach,
   DFI_dbr,
+  DFI_costs,
   DFI_MAX
 };
 
@@ -261,7 +262,7 @@ enum dump_file_index
    Remaining -d letters:
 
 	"              o q         "
-	"       H JK   OPQ  TUV  YZ"
+	"       H JK   O Q   UV  YZ"
 */
 
 static struct dump_file_info dump_file[DFI_MAX] =
@@ -301,11 +302,13 @@ static struct dump_file_info dump_file[DFI_MAX] =
   { "bbro",	'B', 1, 0, 0 },
   { "mach",	'M', 1, 0, 0 },
   { "dbr",	'd', 0, 0, 0 },
+  { "costs",	'T', 0, 0, 0 },
 };
 
 static int open_dump_file PARAMS ((enum dump_file_index, tree));
 static void close_dump_file PARAMS ((enum dump_file_index,
 				     void (*) (FILE *, rtx), rtx));
+static void print_costs_bb PARAMS ((FILE *, rtx));
 
 /* Other flags saying which kinds of debugging dump have been requested.  */
 
@@ -883,6 +886,7 @@ int flag_ra_pre_reload = 1;
 /* If nonzero, use separate passs for calculation web deaths in new
    register allocator.  */
 int flag_ra_spanned_deaths_from_scratch = 0;
+int flag_ra_test = 0;
 
 /* Nonzero if we perform superblock formation.  */
 
@@ -1197,6 +1201,7 @@ static const lang_independent_options f_options[] =
    N_("Use pre-reload in graph coloring register allocation.") },
   { "new-ra-spanned-deaths-pass", &flag_ra_spanned_deaths_from_scratch, 1,
    N_("Use special pass for detect web deaths in graph coloring register allocation.") },
+  { "new-ra-test", &flag_ra_test, 1, "" },
 };
 
 /* Table of language-specific options.  */
@@ -1892,6 +1897,85 @@ close_dump_file (index, func, insns)
 
   rtl_dump_file = NULL;
   timevar_pop (TV_DUMP);
+}
+
+static void count_stack_refs PARAMS ((rtx *, void *));
+static void count_stack_writes PARAMS ((rtx, rtx, void *));
+
+static void
+count_stack_refs (dest, data)
+     rtx *dest;
+     void *data;
+{
+  rtx x = *dest;
+  int *count = (int *) data;
+  int regno;
+  if (GET_CODE (x) == SUBREG)
+    x = SUBREG_REG (x);
+  if (GET_CODE (x) != MEM)
+    return;
+  x = XEXP (x, 0);
+  if (GET_CODE (x) == PLUS)
+    {
+      if (GET_CODE (XEXP (x, 1)) != CONST_INT)
+	return;
+      x = XEXP (x, 0);
+    }
+  if (!REG_P (x))
+    return;
+  regno = REGNO (x);
+  if (!REGNO_PTR_FRAME_P (regno))
+    return;
+  (*count)++;
+}
+
+static void
+count_stack_writes (dest, setter, data)
+     rtx dest, setter ATTRIBUTE_UNUSED;
+     void *data;
+{
+  count_stack_refs (&dest, data);
+}
+
+/* Print the costs of various statements of the function.  */
+
+static void
+print_costs_bb (file, insn)
+     FILE *file;
+     rtx insn;
+{
+  basic_block bb;
+  double stack_load = 0.0;
+  double stack_store = 0.0;
+  int count_load = 0, count_store = 0;
+  if (!insn || !file)
+    return;
+  FOR_EACH_BB (bb)
+    {
+      double sl = 0.0, sw = 0.0;
+      int cl = 0, cw = 0, count = 0;
+      for (insn = bb->head; insn; insn = NEXT_INSN (insn))
+        {
+	  if (INSN_P (insn))
+	    {
+	      count++;
+	      note_stores (PATTERN (insn), count_stack_writes, &cw);
+	      note_uses (&PATTERN (insn), count_stack_refs, &cl);
+	    }
+	  if (insn == bb->end)
+	    break;
+	}
+      sl = cl * bb->frequency;
+      sw = cw * bb->frequency;
+      stack_load += sl;
+      stack_store += sw;
+      count_load += cl;
+      count_store += cw;
+      fprintf (file, "  BB %4d: freq %5d load %3d=%-6.0f stor %3d=%-6.0f\n",
+	       bb->index, bb->frequency, cl, sl, cw, sw);
+    }
+  fprintf (file, "  ALL    :            load %5d=%-.0f stor %5d=%-.0f\n",
+           count_load, stack_load, count_store, stack_store);
 }
 
 /* Do any final processing required for the declarations in VEC, of
@@ -3241,7 +3325,6 @@ rest_of_compilation (decl)
 
   if (flag_new_regalloc)
     {
-      delete_trivially_dead_insns (insns, max_reg_num ());
       reg_alloc ();
 
       timevar_pop (TV_LOCAL_ALLOC);
@@ -3257,7 +3340,6 @@ rest_of_compilation (decl)
       timevar_push (TV_GLOBAL_ALLOC);
       open_dump_file (DFI_greg, decl);
 
-      build_insn_chain (insns);
       failure = reload (insns, 0);
 
       timevar_pop (TV_GLOBAL_ALLOC);
@@ -3504,6 +3586,9 @@ rest_of_compilation (decl)
       timevar_pop (TV_REORDER_BLOCKS);
     }
   compute_alignments ();
+
+  open_dump_file (DFI_costs, decl);
+  close_dump_file (DFI_costs, print_costs_bb, insns);
 
   /* CFG is no longer maintained up-to-date.  */
   free_bb_for_insn ();

@@ -37,6 +37,9 @@
 #include "reload.h"
 #include "pre-reload.h"
 
+extern int flag_ra_test;
+extern struct df2ra df2ra;
+
 /* This file is part of the graph coloring register allocator, and
    contains the functions to change the insn stream.  I.e. it adds
    spill code, rewrites insns to use the new registers after
@@ -65,8 +68,6 @@ static unsigned int is_partly_live_1 PARAMS ((sbitmap, struct web *));
 static void update_spill_colors PARAMS ((HARD_REG_SET *, struct web *, int));
 static int spill_is_free PARAMS ((HARD_REG_SET *, struct web *));
 static void emit_loads PARAMS ((struct rewrite_info *, int, rtx));
-static void detect_bbs_for_rewrite PARAMS ((sbitmap));
-static void detect_deaths_in_bb PARAMS ((basic_block, sbitmap, bitmap));
 static void reloads_to_loads PARAMS ((struct rewrite_info *, struct ref **,
 				      unsigned int, struct web **));
 static void rewrite_program2 PARAMS ((bitmap));
@@ -533,26 +534,6 @@ rewrite_program (new_deaths)
 	      source = DF_REF_REG (web->defs[j]);
 	      dest = slot;
 	      if (GET_CODE (source) == SUBREG)
-#if 0
-		{
-		  dest = simplify_gen_subreg (GET_MODE (source), dest,
-					      GET_MODE (dest),
-					      SUBREG_BYTE (source));
-		  ra_emit_move_insn (dest, source);
-		}
-	      else
-		{
-		  /*if (! bitmap_bit_p (useless_defs, DF_REF_ID (web->defs[j]))
-		      || !validate_change (insn, DF_REF_LOC (web->defs[j]),
-					   slot, 0))*/
-		  /*rtx reg = gen_reg_rtx (GET_MODE (source));
-		  if (validate_change (insn, DF_REF_LOC (web->defs[j]),
-				       reg, 0))
-		    emit_insn (gen_move_insn (dest, reg));
-		  else*/
-		    ra_emit_move_insn (dest, source);
-		}
-#endif
 		dest = simplify_gen_subreg (GET_MODE (source), dest,
 					    GET_MODE (dest),
 					    SUBREG_BYTE (source));
@@ -619,7 +600,7 @@ remember_slot (list, x)
 }
 
 /* Given two rtx' S1 and S2, either being REGs or MEMs (or SUBREGs
-   thereof), return non-zero, if they overlap.  REGs and MEMs don't
+   thereof), return nonzero, if they overlap.  REGs and MEMs don't
    overlap, and if they are MEMs they must have an easy address
    (plus (basereg) (const_inst x)), otherwise they overlap.  */
 
@@ -771,6 +752,7 @@ insert_stores (new_deaths)
 	  struct ra_insn_info info;
 	  rtx following = NEXT_INSN (insn);
 	  basic_block bb = BLOCK_FOR_INSN (insn);
+
 	  info = insn_df[uid];
 	  for (n = 0; n < info.num_defs; n++)
 	    {
@@ -891,7 +873,7 @@ insert_stores (new_deaths)
 	  else
 	    {
 	      /* rtx d = SET_DEST (set); */
-	      note_uses (&set, delete_overlapping_uses, (void *)&slots);
+	      note_uses_partial (&set, delete_overlapping_uses, (void *)&slots);
 	      /*if (1 || GET_CODE (SET_SRC (set)) == MEM)
 		delete_overlapping_slots (&slots, SET_SRC (set));*/
 	      /*if (REG_P (d) || GET_CODE (d) == MEM
@@ -1043,6 +1025,7 @@ emit_loads (ri, nl_first_reload, last_block_insn)
      rtx last_block_insn;
 {
   int j;
+  ri->any_spilltemps_spilled = 0;
   for (j = ri->nl_size; j;)
     {
       struct web *web = ri->needed_loads[--j];
@@ -1156,24 +1139,6 @@ emit_loads (ri, nl_first_reload, last_block_insn)
     ri->nl_size = j;
 }
 
-static void
-detect_bbs_for_rewrite (changed_bbs)
-     sbitmap changed_bbs;
-{
-  int pass;
-  struct dlist *d;
-  for (pass = 0; pass < 2; pass++)
-    for (d = (pass == 0) ? WEBS(SPILLED) : WEBS(COALESCED); d; d = d->next)
-      {
-        struct web *web = DLIST_WEB (d);
-	unsigned int i;
-	if (pass == 1 && alias (web)->type != SPILLED)
-	  continue;
-	for (i = 0; i < web->num_uses; i++)
-	  SET_BIT (changed_bbs, 2 + DF_REF_BBNO (web->uses[i]));
-      }
-}
-
 /* Test LIVE for partial WEB live.  */
 int
 is_partly_dead (live, web)
@@ -1220,90 +1185,6 @@ reset_web_live (live, web)
       RESET_BIT (live, sweb->id);
   else
     RESET_BIT (live, web->id);
-}
-
-/* Fast version of rewrite_program2() for one basic block, where
-   no spill code is necessary.  We detect here only insns with deaths.  */
-static void
-detect_deaths_in_bb (bb, live, new_deaths)
-     basic_block bb;
-     sbitmap live;
-     bitmap new_deaths;
-{
-  rtx insn, head_prev;
-  int j;
-
-  insn = bb->end;
-  if (!INSN_P (insn))
-    insn = prev_real_insn (insn);
-  /* Empty block?  */
-  if (BLOCK_FOR_INSN (insn) != bb)
-    return;
-
-  head_prev = PREV_INSN (bb->head);
-  sbitmap_zero (live);
-  EXECUTE_IF_SET_IN_BITMAP (live_at_end[bb->index], 0, j,
-    {
-      struct web *web = use2web[j];
-      struct web *aweb = alias (find_web_for_subweb (web));
-      /* See below in rewrite_program2() for a comment which webs we
-	 consider live at end.  */
-      if (aweb->type != SPILLED /*|| aweb->color >= 0*/)
-	SET_BIT (live, web->id);
-    });
-
-  for (; insn != head_prev; insn = PREV_INSN (insn))
-    {
-      struct ra_insn_info info;
-      unsigned int n;
-
-      if (!INSN_P (insn))
-	continue;
-
-      info = insn_df[INSN_UID (insn)];
-      for (n = 0; n < info.num_defs; n++)
-	{
-	  unsigned int n2;
-	  struct ref *ref = info.defs[n];
-	  struct web *web = def2web[DF_REF_ID (ref)];
-	  struct web *supweb = find_web_for_subweb (web);
-	  int is_non_def = 0;
-
-	  /* Detect rmw webs.  */
-	  for (n2 = 0; n2 < info.num_uses; n2++)
-	    {
-	      struct web *web2 = use2web[DF_REF_ID (info.uses[n2])];
-	      if (supweb == find_web_for_subweb (web2))
-		{
-		  is_non_def = 1;
-		  break;
-		}
-	    }
-	  if (is_non_def)
-	    continue;
-
-	  if (!is_partly_live (live, supweb))
-	    bitmap_set_bit (useless_defs, DF_REF_ID (ref));
-
-	  reset_web_live (live, web);
-	}
-
-      for (n = 0; n < info.num_uses; n++)
-	{
-	  struct web *web = use2web[DF_REF_ID (info.uses[n])];
-	  if (is_partly_dead (live, web))
-	    {
-	      bitmap_set_bit (new_deaths, INSN_UID (insn));
-	      break;
-	    }
-	}
-
-      for (n = 0; n < info.num_uses; n++)
-	{
-	  struct web *web = use2web[DF_REF_ID (info.uses[n])];
-	  set_web_live (live, web);
-	}
-    }
 }
 
 /* Given a set of reloads in RI, an array of NUM_REFS references (either
@@ -1368,8 +1249,6 @@ reloads_to_loads (ri, refs, num_refs, ref2web)
   ri->num_reloads = num_reloads;
 }
 
-#define NEW_SPILL
-
 /* This adds loads for spilled webs to the program.  It uses a kind of
    interference region spilling.  If flag_ra_ir_spilling is zero it
    only uses improved chaitin spilling (adding loads only at insns
@@ -1380,7 +1259,6 @@ rewrite_program2 (new_deaths)
      bitmap new_deaths;
 {
   basic_block bb;
-  sbitmap changed_bbs = sbitmap_alloc (3 + last_basic_block);
   int nl_first_reload;
   struct rewrite_info ri;
   rtx insn;
@@ -1390,34 +1268,11 @@ rewrite_program2 (new_deaths)
   ri.live = sbitmap_alloc (num_webs);
   ri.nl_size = 0;
   ri.num_reloads = 0;
-  sbitmap_zero (changed_bbs);
-  detect_bbs_for_rewrite (changed_bbs);
-#ifndef NEW_SPILL
-  FOR_ALL_BB (BB)
-#else
   for (insn = get_last_insn (); insn; insn = PREV_INSN (insn))
-#endif
     {
       basic_block last_bb = NULL;
       rtx last_block_insn;
       int i, j;
-#ifndef NEW_SPILL
-      i = bb->index + 2;
-      if (!bb->end)
-	continue;
-      if (!TEST_BIT (changed_bbs, i))
-	{
-	  detect_deaths_in_bb (bb, ri.live, new_deaths);
-	  continue;
-	}
-
-      insn = bb->end;
-      if (!INSN_P (insn))
-        insn = prev_real_insn (insn);
-      /* Empty block?  */
-      if (BLOCK_FOR_INSN (insn) != bb)
-	continue;
-#else
       if (!INSN_P (insn))
 	insn = prev_real_insn (insn);
       while (insn && !(bb = BLOCK_FOR_INSN (insn)))
@@ -1425,7 +1280,6 @@ rewrite_program2 (new_deaths)
       if (!insn)
 	break;
       i = bb->index + 2;
-#endif
       last_block_insn = insn;
 
       sbitmap_zero (ri.live);
@@ -1481,8 +1335,8 @@ rewrite_program2 (new_deaths)
 	{
 	  struct ra_insn_info info;
 	  unsigned int n;
+	  HARD_REG_SET earlyclobber_colors;
 
-#ifdef NEW_SPILL
 	  if (INSN_P (insn) && BLOCK_FOR_INSN (insn) != last_bb)
 	    {
 	      int index = BLOCK_FOR_INSN (insn)->index + 2;
@@ -1520,8 +1374,8 @@ rewrite_program2 (new_deaths)
 	      if (!INSN_P (last_block_insn))
 	        last_block_insn = prev_real_insn (last_block_insn);
 	    }
-#endif
 
+	  CLEAR_HARD_REG_SET (earlyclobber_colors);
 	  ri.need_load = 0;
 	  if (INSN_P (insn))
 	    info = insn_df[INSN_UID (insn)];
@@ -1580,7 +1434,7 @@ rewrite_program2 (new_deaths)
 		else
 		  {
 		    struct web *sweb;
-		    /* If the whole web is defined here, no parts of it are
+		    /* The whole web is defined here, so no parts of it are
 		       live anymore and no reloads are needed for them.  */
 		    for (sweb = supweb->subreg_next; sweb;
 			 sweb = sweb->subreg_next)
@@ -1593,7 +1447,14 @@ rewrite_program2 (new_deaths)
 		      }
 		  }
 		if (alias (supweb)->type != SPILLED)
-		  update_spill_colors (&(ri.colors_in_use), web, 0);
+		  {
+		    /* Colors of early clobber operands don't become
+		       free yet.  */
+		    if (DF_REF_FLAGS (ref) & DF_REF_EARLYCLOBBER)
+		      update_spill_colors (&earlyclobber_colors, web, 1);
+		    else
+		      update_spill_colors (&(ri.colors_in_use), web, 0);
+		  }
 	      }
 
 	  nl_first_reload = ri.nl_size;
@@ -1649,10 +1510,17 @@ rewrite_program2 (new_deaths)
 		struct web *web = use2web[DF_REF_ID (info.uses[n])];
 		struct web *aweb = alias (find_web_for_subweb (web));
 		if (aweb->type != SPILLED)
-		  update_spill_colors (&(ri.colors_in_use), web, 1);
+		  {
+		    update_spill_colors (&(ri.colors_in_use), web, 1);
+		    /* Make sure we don't accidentially remove this color
+		       from the in_use set again.  */
+		    update_spill_colors (&earlyclobber_colors, web, 0);
+		  }
 	      }
 
-	  ri.any_spilltemps_spilled = 0;
+	  /* Temporarily mark the early clobber hard regs as in use.  */
+	  IOR_HARD_REG_SET (ri.colors_in_use, earlyclobber_colors);
+			    
 	  if (INSN_P (insn))
 	    for (n = 0; n < info.num_uses; n++)
 	      {
@@ -1688,11 +1556,10 @@ rewrite_program2 (new_deaths)
 		  web->one_load = 0;
 	      }
 
-#ifndef NEW_SPILL
-	  if (insn == bb->head)
-#else
+	  /* Now that the effect of this insn are all handled the colors
+	     of early clobber operand are free.  */
+	  AND_COMPL_HARD_REG_SET (ri.colors_in_use, earlyclobber_colors);
 	  if (GET_CODE (insn) == CODE_LABEL)
-#endif
 	    break;
 	}
 
@@ -1751,13 +1618,10 @@ rewrite_program2 (new_deaths)
       emit_loads (&ri, nl_first_reload, last_block_insn);
       if (ri.nl_size != 0 /*|| ri.num_reloads != 0*/)
 	abort ();
-#ifdef NEW_SPILL
       if (!insn)
 	break;
-#endif
     }
   free (ri.needed_loads);
-  sbitmap_free (changed_bbs);
   sbitmap_free (ri.live);
   BITMAP_XFREE (ri.scratch);
   BITMAP_XFREE (ri.need_reload);
@@ -1942,8 +1806,8 @@ detect_web_parts_to_rebuild ()
 	    bitmap_set_bit (uses_as_bitmap, DF_REF_ID (link->ref));
       }
 
-  /* The information in live_at_end[] will be rebuild for all uses
-     we recheck, so clear it here (the uses of spilled webs, might
+  /* The information in live_at_end[] will be rebuilt for all uses
+     we recheck, so clear it here (the uses of spilled webs might
      indeed not become member of it again).  */
   live_at_end -= 2;
   for (i = 0; i < (unsigned int) last_basic_block + 2; i++)
@@ -2892,20 +2756,18 @@ void
 dump_cost (level)
      unsigned int level;
 {
-#define LU HOST_WIDE_INT_PRINT_UNSIGNED
   ra_debug_msg (level, "Instructions for spilling\n added:\n");
-  ra_debug_msg (level, "  loads =%d cost=" LU "\n", emitted_spill_loads,
-	     spill_load_cost);
-  ra_debug_msg (level, "  stores=%d cost=" LU "\n", emitted_spill_stores,
-	     spill_store_cost);
-  ra_debug_msg (level, "  remat =%d cost=" LU "\n", emitted_remat,
-	     spill_remat_cost);
-  ra_debug_msg (level, " removed:\n");
-  ra_debug_msg (level, "  moves =%d cost=" LU "\n", deleted_move_insns,
-	     deleted_move_cost);
-  ra_debug_msg (level, "  others=%d cost=" LU "\n", deleted_def_insns,
-	     deleted_def_cost);
-#undef LU
+  ra_debug_msg (level, "  loads =%d cost=", emitted_spill_loads);
+  ra_debug_msg (level, HOST_WIDE_INT_PRINT_UNSIGNED, spill_load_cost);
+  ra_debug_msg (level, "\n  stores=%d cost=", emitted_spill_stores);
+  ra_debug_msg (level, HOST_WIDE_INT_PRINT_UNSIGNED, spill_store_cost);
+  ra_debug_msg (level, "\n  remat =%d cost=", emitted_remat);
+  ra_debug_msg (level, HOST_WIDE_INT_PRINT_UNSIGNED, spill_remat_cost);
+  ra_debug_msg (level, "\n removed:\n  moves =%d cost=", deleted_move_insns);
+  ra_debug_msg (level, HOST_WIDE_INT_PRINT_UNSIGNED, deleted_move_cost);
+  ra_debug_msg (level, "\n  others=%d cost=", deleted_def_insns);
+  ra_debug_msg (level, HOST_WIDE_INT_PRINT_UNSIGNED, deleted_def_cost);
+  ra_debug_msg (level, "\n");
 }
 
 /* Initialization of the rewrite phase.  */

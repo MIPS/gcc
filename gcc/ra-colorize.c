@@ -67,14 +67,15 @@ static void freeze PARAMS ((void));
 static void select_spill PARAMS ((void));
 static int color_usable_p PARAMS ((int, HARD_REG_SET, HARD_REG_SET,
 				   enum machine_mode));
-int get_free_reg PARAMS ((HARD_REG_SET, HARD_REG_SET, enum machine_mode));
+int get_free_reg PARAMS ((HARD_REG_SET, HARD_REG_SET, enum machine_mode, int));
 static int get_biased_reg PARAMS ((HARD_REG_SET, HARD_REG_SET, HARD_REG_SET,
-				   HARD_REG_SET, enum machine_mode));
+				   HARD_REG_SET, enum machine_mode, int));
 static char * hardregset_to_string PARAMS ((HARD_REG_SET));
 static void calculate_dont_begin PARAMS ((struct web *, HARD_REG_SET *));
 static int proper_hard_reg_subset_p PARAMS ((HARD_REG_SET, HARD_REG_SET));
 static void colorize_one_web PARAMS ((struct web *, int));
 static void assign_colors PARAMS ((void));
+
 static void try_recolor_web PARAMS ((struct web *));
 static void insert_coalesced_conflicts PARAMS ((void));
 static void recolor_spills PARAMS ((void));
@@ -88,9 +89,9 @@ static void init_web_pairs PARAMS ((void));
 static void add_web_pair_cost PARAMS ((struct web *, struct web *,
 			               unsigned HOST_WIDE_INT, unsigned int));
 static int comp_web_pairs PARAMS ((const void *, const void *));
+
 static void sort_and_combine_web_pairs PARAMS ((int));
 static void aggressive_coalesce PARAMS ((void));
-static void aggressive_coalesce_fast PARAMS ((void));
 static void extended_coalesce_2 PARAMS ((void));
 static void check_uncoalesced_moves PARAMS ((void));
 
@@ -243,22 +244,6 @@ reset_lists ()
     put_web (DLIST_WEB (d), FREE);
   while ((d = pop_list (&WEBS(COLORED))) != NULL)
     put_web (DLIST_WEB (d), INITIAL);
-
-#if 0
-    {
-      struct dlist *d_next;
-      for (d = WEBS(INITIAL); d; d = d_next)
-	{
-	  struct web *web = DLIST_WEB (d);
-	  d_next = d->next;
-	  if (web->type != PRECOLORED)
-	    {
-	      remove_list (d, &WEBS(INITIAL));
-	      put_web (DLIST_WEB (d), FREE);
-	    }
-	}
-    }
-#endif
 
   /* All free webs have no conflicts anymore.  */
   for (d = WEBS(FREE); d; d = d->next)
@@ -852,6 +837,8 @@ combine (u, v)
   if (!u->num_freedom)
     abort();
 
+  IOR_HARD_REG_SET (u->prefer_colors, v->prefer_colors);
+
   if (u->num_conflicts >= NUM_REGS (u)
       && (u->type == FREEZE || simplify_p (u->type)))
     {
@@ -1071,6 +1058,13 @@ color_usable_p (c, dont_begin_colors, free_colors, mode)
   return 0;
 }
 
+/* I don't want to clutter up the actual code with ifdef's.  */
+#ifdef REG_ALLOC_ORDER
+#define INV_REG_ALLOC_ORDER(c) inv_reg_alloc_order[c]
+#else
+#define INV_REG_ALLOC_ORDER(c) c
+#endif
+
 /* Searches in FREE_COLORS for a block of hardregs of the right length
    for MODE, which doesn't begin at a hardreg mentioned in DONT_BEGIN_COLORS.
    If it needs more than one hardreg it prefers blocks beginning
@@ -1078,9 +1072,10 @@ color_usable_p (c, dont_begin_colors, free_colors, mode)
    block could be found.  */
 
 int
-get_free_reg (dont_begin_colors, free_colors, mode)
+get_free_reg (dont_begin_colors, free_colors, mode, allow_unaligned)
      HARD_REG_SET dont_begin_colors, free_colors;
      enum machine_mode mode;
+     int allow_unaligned;
 {
   int c;
   int last_resort_reg = -1;
@@ -1105,16 +1100,17 @@ get_free_reg (dont_begin_colors, free_colors, mode)
 	  {
 	    if (size < 2 || (c & 1) == 0)
 	      {
-		if (inv_reg_alloc_order[c] < pref_reg_order)
+		if (INV_REG_ALLOC_ORDER (c) < pref_reg_order)
 		  {
 		    pref_reg = c;
-		    pref_reg_order = inv_reg_alloc_order[c];
+		    pref_reg_order = INV_REG_ALLOC_ORDER (c);
 		  }
 	      }
-	    else if (inv_reg_alloc_order[c] < last_resort_reg_order)
+	    else if (allow_unaligned
+		     && INV_REG_ALLOC_ORDER (c) < last_resort_reg_order)
 	      {
 		last_resort_reg = c;
-		last_resort_reg_order = inv_reg_alloc_order[c];
+		last_resort_reg_order = INV_REG_ALLOC_ORDER (c);
 	      }
 	  }
 	else
@@ -1129,9 +1125,11 @@ get_free_reg (dont_begin_colors, free_colors, mode)
    only do the last two steps.  */
 
 static int
-get_biased_reg (dont_begin_colors, bias, prefer_colors, free_colors, mode)
+get_biased_reg (dont_begin_colors, bias, prefer_colors, free_colors, mode,
+		allow_unaligned)
      HARD_REG_SET dont_begin_colors, bias, prefer_colors, free_colors;
      enum machine_mode mode;
+     int allow_unaligned;
 {
   int c = -1;
   HARD_REG_SET s;
@@ -1140,21 +1138,21 @@ get_biased_reg (dont_begin_colors, bias, prefer_colors, free_colors, mode)
       COPY_HARD_REG_SET (s, dont_begin_colors);
       IOR_COMPL_HARD_REG_SET (s, bias);
       IOR_COMPL_HARD_REG_SET (s, prefer_colors);
-      c = get_free_reg (s, free_colors, mode);
+      c = get_free_reg (s, free_colors, mode, allow_unaligned);
       if (c >= 0)
 	return c;
       COPY_HARD_REG_SET (s, dont_begin_colors);
       IOR_COMPL_HARD_REG_SET (s, bias);
-      c = get_free_reg (s, free_colors, mode);
+      c = get_free_reg (s, free_colors, mode, allow_unaligned);
       if (c >= 0)
 	return c;
     }
   COPY_HARD_REG_SET (s, dont_begin_colors);
   IOR_COMPL_HARD_REG_SET (s, prefer_colors);
-  c = get_free_reg (s, free_colors, mode);
+  c = get_free_reg (s, free_colors, mode, allow_unaligned);
   if (c >= 0)
-      return c;
-  c = get_free_reg (dont_begin_colors, free_colors, mode);
+    return c;
+  c = get_free_reg (dont_begin_colors, free_colors, mode, allow_unaligned);
   return c;
 }
 
@@ -1193,7 +1191,7 @@ hardregset_to_string (s)
 {
   static char string[/*FIRST_PSEUDO_REGISTER + 30*/1024];
 #if FIRST_PSEUDO_REGISTER <= HOST_BITS_PER_WIDE_INT
-  sprintf (string, "%x", s);
+  sprintf (string, HOST_WIDE_INT_PRINT_HEX, s);
 #else
   char *c = string;
   int i,j;
@@ -1443,10 +1441,10 @@ colorize_one_web (web, hard)
 	c = -1;
       if (c < 0)
 	c = get_biased_reg (dont_begin, bias, web->prefer_colors,
-			    call_clobbered, PSEUDO_REGNO_MODE (web->regno));
+			    call_clobbered, PSEUDO_REGNO_MODE (web->regno), 0);
       if (c < 0)
 	c = get_biased_reg (dont_begin, bias, web->prefer_colors,
-			  colors, PSEUDO_REGNO_MODE (web->regno));
+			  colors, PSEUDO_REGNO_MODE (web->regno), 1);
 
       if (/*!web->use_my_regs &&*/ c < 0 && !flag_ra_pre_reload)
 	{
@@ -1464,10 +1462,10 @@ colorize_one_web (web, hard)
 	  AND_HARD_REG_SET (call_clobbered, call_used_reg_set);
 
 	  c = get_biased_reg (dont_begin, bias, web->prefer_colors,
-			    call_clobbered, PSEUDO_REGNO_MODE (web->regno));
+			    call_clobbered, PSEUDO_REGNO_MODE (web->regno), 0);
 	  if (c < 0)
 	    c = get_biased_reg (dont_begin, bias, web->prefer_colors,
-			      colors, PSEUDO_REGNO_MODE (web->regno));
+			      colors, PSEUDO_REGNO_MODE (web->regno), 1);
 	}
       if (c < 0)
 	break;
@@ -1507,7 +1505,7 @@ colorize_one_web (web, hard)
 	break;
     }
   ra_debug_msg (DUMP_COLORIZE, " --> got %d", c < 0 ? bestc : c);
-  if (bestc >= 0 && c < 0 && !web->was_spilled)
+  if (bestc >= 0 && c < 0 && (!web->was_spilled || web->spill_temp))
     {
       /* This is a non-potential-spill web, which got a color, which did
 	 destroy a hardreg block for one of it's neighbors.  We color
@@ -1539,7 +1537,7 @@ colorize_one_web (web, hard)
 	{
 	  unsigned int loop;
 	  struct web *try = NULL;
-	  struct web *candidates[10];
+	  struct web *candidates[12];
 
 	  ra_debug_msg (DUMP_COLORIZE, "  *** %d spilled, although %s ***\n",
 		     web->id, web->spill_temp ? "spilltemp" : "non-spill");
@@ -1644,10 +1642,34 @@ colorize_one_web (web, hard)
 			  || proper_hard_reg_subset_p (web->usable_regs,
 						       aw->usable_regs)))
 		    set_cand (8, aw);
+		  /* Also, if we are a real spill temp (meaning we already
+		     were spilled), and the other web is just a short one
+		     (meaning it wasn't yet spilled, but was not live over
+		     deaths) try to spill that one.  It can happen, that
+		     we forgot to correctly mark a death insn, or in this
+                     situation:
+		       A <- f(X)    (1)
+		       B <- C
+		       B <- f(B, A) (2)
+		         <- C
+		     Suppose, that B already was spilled.  A is short.
+		     Now suppose that constraints are such, that A and B
+		     both must be placed into that same reg class (A due to
+		     (1) and B due to (2)), and it only has one register (e.g.
+		     AREG on x86).  In this case it is of no use to spill
+		     B again.  Instead spilling A is helpful, is it separates
+		     the use and def of A, possibly giving the A at (2) a
+		     wider class.  */
+		  if (web->spill_temp == 1 && aw->spill_temp == 3)
+		    set_cand (9, aw);
+		  if (web->spill_temp == 2 && aw->is_coalesced
+		      && flag_ra_optimistic_coalescing)
+		    set_cand (10, aw);
+		  /* This is from Denis.  What does it do?  */
 		  if (aw->spill_temp && aw->span_deaths /* && !aw->changed */
 		      && !web->span_deaths
 		      && !web->is_coalesced)
-		    set_cand (9, aw);
+		    set_cand (11, aw);
 		}
 	    }
 	  for (loop = 0;
@@ -1866,7 +1888,7 @@ try_recolor_web (web)
 	    if (wide_p)
 	      SET_HARD_REG_BIT (wide_seen, c1);
 	    if (get_free_reg (dont_begin, colors,
-			      GET_MODE (web2->orig_x)) < 0)
+			      GET_MODE (web2->orig_x), 1) < 0)
 	      {
 		if (web2->spill_temp)
 		  SET_HARD_REG_BIT (spill_temps, c1);
@@ -2014,6 +2036,11 @@ insert_coalesced_conflicts ()
 		   || !(wl->t->type == PRECOLORED
 		        || TEST_BIT (sup_igraph,
 				     wl->t->id * num_webs + tweb->id)))
+		  /* Under some circumstances it's possible, that a coalesced
+		     web conflicts with it's alias (see
+		     non_conflicting_for_combine).  In that case we come here
+		     with tweb and wl->t being equal.  */
+		  && tweb->id != wl->t->id
 		  && hard_regs_intersect_p (&tweb->usable_regs,
 					    &wl->t->usable_regs))
 		{
@@ -2319,47 +2346,51 @@ break_precolored_alias (web)
       struct web *aweb;
       struct conflict_link *wl;
       for (aweb = web2->alias; aweb; aweb = aweb->alias)
-	for (wl = web2->conflict_list; wl; wl = wl->next)
-	  {
-	    struct web *tweb = aweb;
-	    int i;
-	    int nregs = 1 + web2->add_hardregs;
-	    if (aweb->type == PRECOLORED)
-	      nregs = HARD_REGNO_NREGS (aweb->color, GET_MODE (web2->orig_x));
-	    for (i = 0; i < nregs; i++)
-	      {
-		if (aweb->type == PRECOLORED)
-		  tweb = hardreg2web[i + aweb->color];
-		/* There might be some conflict edges laying around
-		   where the usable_regs don't intersect.  This can happen
-		   when first some webs were coalesced and conflicts
-		   propagated, then some combining narrowed usable_regs and
-		   further coalescing ignored those conflicts.  Now there are
-		   some edges to COALESCED webs but not to it's alias.
-		   So abort only when they really should conflict.  */
-		if ((!(tweb->type == PRECOLORED
-		       || TEST_BIT (sup_igraph, tweb->id * num_webs + wl->t->id))
-		     || !(wl->t->type == PRECOLORED
-			  || TEST_BIT (sup_igraph,
-				       wl->t->id * num_webs + tweb->id)))
-		    && hard_regs_intersect_p (&tweb->usable_regs,
-					      &wl->t->usable_regs))
-		  {
-		    /*ra_debug_msg (DUMP_COLORIZE, "add conflict %d - %d\n",
-				  tweb->id, wl->t->id);*/
-		    if (wl->sub == NULL)
-		      record_conflict (tweb, wl->t);
-		    else
-		      {
-			struct sub_conflict *sl;
-			for (sl = wl->sub; sl; sl = sl->next)
-			  record_conflict (tweb, sl->t);
-		      }
-		  }
-		if (aweb->type != PRECOLORED)
-		  break;
-	      }
-	  }
+	{
+	  aweb->is_coalesced = 1;
+	  for (wl = web2->conflict_list; wl; wl = wl->next)
+	    {
+	      struct web *tweb = aweb;
+	      int i;
+	      int nregs = 1 + web2->add_hardregs;
+	      if (aweb->type == PRECOLORED)
+		nregs = HARD_REGNO_NREGS (aweb->color, GET_MODE (web2->orig_x));
+	      for (i = 0; i < nregs; i++)
+		{
+		  if (aweb->type == PRECOLORED)
+		    tweb = hardreg2web[i + aweb->color];
+		  /* There might be some conflict edges laying around
+		     where the usable_regs don't intersect.  This can happen
+		     when first some webs were coalesced and conflicts
+		     propagated, then some combining narrowed usable_regs and
+		     further coalescing ignored those conflicts.  Now there are
+		     some edges to COALESCED webs but not to it's alias.
+		     So abort only when they really should conflict.  */
+		  if ((!(tweb->type == PRECOLORED
+			 || TEST_BIT (sup_igraph, tweb->id * num_webs + wl->t->id))
+		       || !(wl->t->type == PRECOLORED
+			    || TEST_BIT (sup_igraph,
+					 wl->t->id * num_webs + tweb->id)))
+		      && tweb->id != wl->t->id
+		      && hard_regs_intersect_p (&tweb->usable_regs,
+						&wl->t->usable_regs))
+		    {
+		      /*ra_debug_msg (DUMP_COLORIZE, "add conflict %d - %d\n",
+			tweb->id, wl->t->id);*/
+		      if (wl->sub == NULL)
+			record_conflict (tweb, wl->t);
+		      else
+			{
+			  struct sub_conflict *sl;
+			  for (sl = wl->sub; sl; sl = sl->next)
+			    record_conflict (tweb, sl->t);
+			}
+		    }
+		  if (aweb->type != PRECOLORED)
+		    break;
+		}
+	    }
+	}
     }
 }
 
@@ -2432,12 +2463,11 @@ restore_conflicts_from_coalesce (web)
 		for (sub1 = web->subreg_next; sub1; sub1 = sub1->subreg_next)
 		  {
 		    RESET_BIT (igraph, igraph_index (other->id, sub1->id));
-		    for (sub2 = other->subreg_next; sub2; sub2 =
-			 sub2->subreg_next)
+		    for (sub2 = other->subreg_next; sub2;
+			 sub2 = sub2->subreg_next)
 		      RESET_BIT (igraph, igraph_index (sub1->id, sub2->id));
 		  }
-		for (sub2 = other->subreg_next; sub2; sub2 =
-		     sub2->subreg_next)
+		for (sub2 = other->subreg_next; sub2; sub2 = sub2->subreg_next)
 		  RESET_BIT (igraph, igraph_index (web->id, sub2->id));
 	      }
 /*	    for (sl = wl->sub; sl; sl = sl->next)
@@ -2462,6 +2492,10 @@ restore_conflicts_from_coalesce (web)
 
   /* We must restore usable_regs because record_conflict will use it.  */
   COPY_HARD_REG_SET (web->usable_regs, web->orig_usable_regs);
+  /* We might have deleted some conflicts above, which really are still
+     there (diamond pattern coalescing).  This is because we don't reference
+     count interference edges but some of them were the result of different
+     coalesces.  */
   for (wl = web->conflict_list; wl; wl = wl->next)
     if (wl->t->type == COALESCED)
       {
@@ -2874,7 +2908,7 @@ out:
 /* This is the difference between optimistic coalescing and
    optimistic coalescing+.  Extended coalesce tries to coalesce also
    non-conflicting nodes, not related by a move.  The criteria here is,
-   the one web must be a source, the other a destination of the same insn.
+   that one web must be a source, the other a destination of the same insn.
    This actually makes sense, as (because they are in the same insn) they
    share many of their neighbors, and if they are coalesced, reduce the
    number of conflicts of those neighbors by one.  For this we sort the

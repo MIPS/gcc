@@ -39,9 +39,6 @@
 #include "pre-reload.h"
 #include "ra.h"
 
-#define obstack_chunk_alloc xmalloc
-#define obstack_chunk_free free
-
 /* This is the toplevel file of a graph coloring register allocator.
    It is able to act like a George & Appel allocator, i.e. with iterative
    coalescing plus spill coalescing/propagation.
@@ -546,7 +543,7 @@ init_ra ()
   int i;
   HARD_REG_SET rs;
 #ifdef ELIMINABLE_REGS
-  static struct {int from, to; } eliminables[] = ELIMINABLE_REGS;
+  static const struct {const int from, to; } eliminables[] = ELIMINABLE_REGS;
   unsigned int j;
 #endif
   int need_fp
@@ -555,6 +552,11 @@ init_ra ()
        || (current_function_calls_alloca && EXIT_IGNORE_STACK)
 #endif
        || FRAME_POINTER_REQUIRED);
+
+#ifdef ORDER_REGS_FOR_LOCAL_ALLOC
+  if (1)
+    ORDER_REGS_FOR_LOCAL_ALLOC;
+#endif
 
   ra_colorize_init ();
 
@@ -842,7 +844,15 @@ reg_alloc ()
 {
   int changed;
   FILE *ra_dump_file = rtl_dump_file;
-  rtx last = get_last_insn ();
+  rtx last;
+  bitmap use_insns = BITMAP_XMALLOC ();
+
+  delete_trivially_dead_insns (get_insns (), max_reg_num ());
+  /* The above might have deleted some trapping insns making some basic
+     blocks unreachable.  So do a simple cleanup pass to remove them.  */
+  cleanup_cfg (0);
+  last = get_last_insn ();
+
   /*
   flag_ra_pre_reload = 0;
   flag_ra_spanned_deaths_from_scratch = 0;
@@ -864,11 +874,13 @@ reg_alloc ()
 	  last = bb->end;
 	  if (!INSN_P (last) || GET_CODE (PATTERN (last)) != USE)
 	    {
-	      rtx insns;
+	      rtx insn, insns;
 	      start_sequence ();
 	      use_return_register ();
 	      insns = get_insns ();
 	      end_sequence ();
+	      for (insn = insns; insn; insn = NEXT_INSN (insn))
+		bitmap_set_bit (use_insns, INSN_UID (insn));
 	      emit_insn_after (insns, last);
 	    }
 	}
@@ -1072,7 +1084,6 @@ reg_alloc ()
 	  if (!flag_ra_pre_reload)
 	    regclass (get_insns (), max_reg_num (), rtl_dump_file);
 	  rtl_dump_file = ra_dump_file;
-
 	  /* Remember the number of defs and uses, so we can distinguish
 	     new from old refs in the next pass.  */
 	  last_def_id = df->def_id;
@@ -1102,7 +1113,6 @@ reg_alloc ()
   /* We are done with allocation, free all memory and output some
      debug info.  */
   free_all_mem (df);
-  /*  free (depths); */
   df_finish (df);
   if ((debug_new_regalloc & DUMP_RESULTS) == 0)
     dump_cost (DUMP_COSTS);
@@ -1116,11 +1126,32 @@ reg_alloc ()
     rtl_dump_file = NULL;
   no_new_pseudos = 0;
   allocate_reg_info (max_reg_num (), FALSE, FALSE);
-  /*compute_bb_for_insn ();*/
-  /*store_motion ();*/
+  while_newra = 1;
   no_new_pseudos = 1;
   newra_in_progress = 0;
   rtl_dump_file = ra_dump_file;
+
+    {
+      edge e;
+      for (e = EXIT_BLOCK_PTR->pred; e; e = e->pred_next)
+	{
+	  basic_block bb = e->src;
+	  last = bb->end;
+	  for (last = bb->end; last; last = PREV_INSN (last))
+	    {
+	      if (last == bb->head)
+		break;
+	      if (bitmap_bit_p (use_insns, INSN_UID (last)))
+		delete_insn (last);
+	    }
+	}
+    }
+  BITMAP_XFREE (use_insns);
+  /* We might have deleted/moved dead stores, which could trap (mem accesses
+     with flag_non_call_exceptions).  This might have made some edges dead.
+     Get rid of them now.  No need to rebuild life info with that call,
+     we do it anyway some statements below.  */
+  purge_all_dead_edges (0);
 
   /* Some spill insns could've been inserted after trapping calls, i.e.
      at the end of a basic block, which really ends at that call.
@@ -1130,28 +1161,15 @@ reg_alloc ()
   /* Cleanup the flow graph.  */
   if ((debug_new_regalloc & DUMP_LAST_FLOW) == 0)
     rtl_dump_file = NULL;
-  /*free_bb_for_insn ();
-  find_basic_blocks (get_insns (), max_reg_num (), rtl_dump_file);*/
-  /*compute_bb_for_insn ();*/
-  /*clear_log_links (get_insns ());*/
   life_analysis (get_insns (), rtl_dump_file,
-		 PROP_DEATH_NOTES | PROP_LOG_LINKS | PROP_REG_INFO);
-/*  recompute_reg_usage (get_insns (), TRUE);
-  life_analysis (get_insns (), rtl_dump_file,
-		 PROP_SCAN_DEAD_CODE | PROP_KILL_DEAD_CODE); */
+		 PROP_DEATH_NOTES | PROP_LOG_LINKS  | PROP_REG_INFO);
   cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE);
   recompute_reg_usage (get_insns (), TRUE);
-/*  delete_trivially_dead_insns (get_insns (), max_reg_num ());*/
   if (rtl_dump_file)
     dump_flow_info (rtl_dump_file);
-
-  /* XXX: reg_scan screws up reg_renumber, and without reg_scan, we can't do
-     regclass. */
-  /*reg_scan (get_insns (), max_reg_num (), 1);
-    regclass (get_insns (), max_reg_num (), rtl_dump_file); */
   rtl_dump_file = ra_dump_file;
 
-  /* Also update_equiv_regs() can't be called after register allocation.
+  /* update_equiv_regs() can't be called after register allocation.
      It might delete some pseudos, and insert other insns setting
      up those pseudos in different places.  This of course screws up
      the allocation because that may destroy a hardreg for another
@@ -1167,6 +1185,11 @@ reg_alloc ()
   setup_renumber (1);
   sbitmap_free (insns_with_deaths);
 
+  /* Build the insn chain before deleting some of the REG_DEAD notes.
+     It initializes the chain->live_throughout bitmap, and when we delete
+     some REG_DEAD we leave some pseudo in those bitmaps for insns, where
+     they really are dead already.  This can confuse caller-save.  */
+  build_insn_chain (get_insns ());
   /* Remove REG_DEAD notes which are incorrectly set.  See the docu
      of that function.  */
   remove_suspicious_death_notes ();

@@ -1,4 +1,56 @@
 2003-06-30  Michael Matz  <matz@suse.de>
+	* ra-build.c: Include obstack.h.
+	(add_earlyclobber_conflicts): New.
+	(check_conflict_numbers): Comment out.
+	(conflicts_early_clobbered): Delete.
+	(undef_table[]): Make const.
+	(init_one_web_common): Initialize web->orig_usable_set.
+	(parts_to_webs_1): Silence warnings.
+	(detect_spill_temps): Ditto.  Webs crossing bbs are not really hard
+	to spill.
+	(detect_remat_webs): Don't try to remat throwing expressions.
+	(make_webs): Call add_earlyclobber_conflicts.
+	* ra-colorize.c (aggressive_coalesce_fast): Delete.
+	(reset_lists): Delete #if 0 code.
+	(combine): Union preferred colors.
+	(INV_REG_ALLOC_ORDER): Define.
+	(get_free_reg): Use it.  New argument allow_unaligned.
+	Adjust callers.
+	(get_biased_reg): New argument allow_unaligned.
+	(hardregset_to_string): Use HOST_WIDE_INT_PRINT_HEX.
+	(colorize_one_web): Adjust calls to get_biased_reg.  Try hard also
+	if web is a spill temp.  Add two more magic cases.
+	(try_recolor_web): Adjust call to get_free_reg.
+	(insert_coalesced_conflicts): Handle fake self-conflicts.
+	(break_precolored_alias): Set is_coalesced for all coalesced webs.
+	* ra-debug.c: Include tm_p.h.
+	(ra_debug_msg): Use VA_OPEN and friends.
+	(dump_igraph): Split long lines.
+	(dump_graph_cost): Ditto.
+	(dump_static_insn_cost): Use memset instead aggregate initializers.
+	* ra-rewrite.c (flag_ra_test, df2ra): Declare.
+	(detect_bbs_for_rewrite, detect_deaths_in_bb): Delete.
+	(rewrite_program): Delete #if 0 code.
+	(insert_stores): Call note_uses_partial instead note_uses.
+	(emit_loads): Reset any_spill_temps_spilled.
+	(NEW_SPILL): Don't define.  Delete all code which was
+	#ifndef NEW_SPILL.
+	(rewrite_program2): Delete changed_bbs (was only used by old spill
+	code).  Deal with early clobbers.  Don't clear any_spill_temps_spilled
+	here.
+	(dump_cost): Split long lines.
+	* ra.c (obstack_chunk_alloc, obstack_chunk_free): Don't define.
+	(eliminables): Make const.
+	(init_ra): Call ORDER_REGS_FOR_LOCAL_ALLOC.
+	(reg_alloc): Call cleanup_cfg.  Add fake uses of return value.
+	Set/reset while_newra.  Call purge_all_dead_edges. Delete commented
+	code.  Call build_insn_chain.
+	* toplev.c: New dump pass "costs".
+	(flag_ra_test): New flag, add it to relevant tables.
+	(count_stack_refs, count_stack_writes, print_costs_bb): New.
+	(rest_of_compilation): Call costs dump.
+	
+2003-06-30  Michael Matz  <matz@suse.de>
 	* ra-build.c (remember_move): Handle subreg moves.
 	(moves_to_webs): Ensure that we get the correct refs.
 

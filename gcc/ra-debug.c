@@ -29,6 +29,7 @@
 #include "df.h"
 #include "output.h"
 #include "ra.h"
+#include "tm_p.h"
 
 /* This file contains various dumping and debug functions for
    the graph coloring register allocator.  */
@@ -47,22 +48,12 @@ static const char *const reg_class_names[] = REG_CLASS_NAMES;
 void
 ra_debug_msg VPARAMS ((unsigned int level, const char *format, ...))
 {
-#ifndef ANSI_PROTOTYPES
-  int level;
-  const char *format;
-#endif
-  va_list ap;
+  VA_OPEN (ap, format);
+  VA_FIXEDARG (ap, unsigned int, level);
+  VA_FIXEDARG (ap, const char *, format);
   if ((debug_new_regalloc & level) != 0 && rtl_dump_file != NULL)
-    {
-      VA_START (ap, format);
-
-#ifndef ANSI_PROTOTYPES
-      format = va_arg (ap, const char *);
-#endif
-
-      vfprintf (rtl_dump_file, format, ap);
-      va_end (ap);
-    }
+    vfprintf (rtl_dump_file, format, ap);
+  VA_CLOSE (ap);
 }
 
 
@@ -387,11 +378,11 @@ ra_print_rtx (file, x, with_pn)
 	    fprintf (file, "(%s) ", LABEL_NAME (x));
 	  switch (LABEL_KIND (x))
 	    {
-	      case LABEL_NORMAL: break;
-	      case LABEL_STATIC_ENTRY: fputs (" (entry)", file); break;
-	      case LABEL_GLOBAL_ENTRY: fputs (" (global entry)", file); break;
-	      case LABEL_WEAK_ENTRY: fputs (" (weak entry)", file); break;
-	      default: abort(); 
+	    case LABEL_NORMAL: break;
+	    case LABEL_STATIC_ENTRY: fputs (" (entry)", file); break;
+	    case LABEL_GLOBAL_ENTRY: fputs (" (global entry)", file); break;
+	    case LABEL_WEAK_ENTRY: fputs (" (weak entry)", file); break;
+	    default: abort();
 	    }
 	  fprintf (file, " [%d uses] uid=(", LABEL_NUSES (x));
 	}
@@ -733,10 +724,10 @@ dump_igraph (df)
 	  ra_debug_msg (DUMP_WEBS, " sub %d", SUBREG_BYTE (web->orig_x));
 	  ra_debug_msg (DUMP_WEBS, " par %d", find_web_for_subweb (web)->id);
 	}
-      ra_debug_msg (DUMP_WEBS, " +%d (span %d, cost "
-		 HOST_WIDE_INT_PRINT_DEC ") (%s)",
-	         web->add_hardregs, web->span_deaths, web->spill_cost,
-	         reg_class_names[web->regclass]);
+      ra_debug_msg (DUMP_WEBS, " +%d (span %d, cost ",
+		    web->add_hardregs, web->span_deaths);
+      ra_debug_msg (DUMP_WEBS, HOST_WIDE_INT_PRINT_DEC, web->spill_cost);
+      ra_debug_msg (DUMP_WEBS, ") (%s)", reg_class_names[web->regclass]);
       if (web->spill_temp == 1)
 	ra_debug_msg (DUMP_WEBS, " (spilltemp)");
       else if (web->spill_temp == 2)
@@ -879,7 +870,6 @@ dump_graph_cost (level, msg)
 {
   unsigned int i;
   unsigned HOST_WIDE_INT cost;
-#define LU HOST_WIDE_INT_PRINT_UNSIGNED
   if (!rtl_dump_file || (debug_new_regalloc & level) == 0)
     return;
 
@@ -890,9 +880,9 @@ dump_graph_cost (level, msg)
       if (alias (web)->type == SPILLED)
 	cost += web->orig_spill_cost;
     }
-  ra_debug_msg (level, " spill cost of graph (%s) = " LU "\n",
-	     msg ? msg : "", cost);
-#undef LU
+  ra_debug_msg (level, " spill cost of graph (%s) = ", msg ? msg : "");
+  ra_debug_msg (level, HOST_WIDE_INT_PRINT_UNSIGNED, cost);
+  ra_debug_msg (level, "\n");
 }
 
 /* Dump the color assignment per web, the coalesced and spilled webs.  */
@@ -943,12 +933,13 @@ dump_static_insn_cost (file, message, prefix)
       unsigned HOST_WIDE_INT cost;
       unsigned int count;
     };
-  struct cost load = {0, 0};
-  struct cost store = {0, 0};
-  struct cost regcopy = {0, 0};
-  struct cost selfcopy = {0, 0};
-  struct cost overall = {0, 0}; 
   basic_block bb;
+  struct cost load, store, regcopy, selfcopy, overall;
+  memset (&load, 0, sizeof(load));
+  memset (&store, 0, sizeof(store));
+  memset (&regcopy, 0, sizeof(regcopy));
+  memset (&selfcopy, 0, sizeof(selfcopy));
+  memset (&overall, 0, sizeof(overall));
 
   if (!file)
     return;
@@ -1004,16 +995,21 @@ dump_static_insn_cost (file, message, prefix)
   if (!prefix)
     prefix = "";
   fprintf (file, "static insn cost %s\n", message ? message : "");
-  fprintf (file, "  %soverall:\tnum=%6d\tcost=%8d\n", prefix, overall.count,
-	   overall.cost);
-  fprintf (file, "  %sloads:\tnum=%6d\tcost=%8d\n", prefix, load.count,
-	   load.cost);
-  fprintf (file, "  %sstores:\tnum=%6d\tcost=%8d\n", prefix,
-	   store.count, store.cost);
-  fprintf (file, "  %sregcopy:\tnum=%6d\tcost=%8d\n", prefix, regcopy.count,
-	   regcopy.cost);
-  fprintf (file, "  %sselfcpy:\tnum=%6d\tcost=%8d\n", prefix, selfcopy.count,
-	   selfcopy.cost);
+  fprintf (file, "  %soverall:\tnum=%6d\tcost=", prefix, overall.count);
+  fprintf (file, HOST_WIDE_INT_PRINT_DEC_SPACE, 8, overall.cost);
+  fprintf (file, "\n");
+  fprintf (file, "  %sloads:\tnum=%6d\tcost=", prefix, load.count);
+  fprintf (file, HOST_WIDE_INT_PRINT_DEC_SPACE, 8, load.cost);
+  fprintf (file, "\n");
+  fprintf (file, "  %sstores:\tnum=%6d\tcost=", prefix, store.count);
+  fprintf (file, HOST_WIDE_INT_PRINT_DEC_SPACE, 8, store.cost);
+  fprintf (file, "\n");
+  fprintf (file, "  %sregcopy:\tnum=%6d\tcost=", prefix, regcopy.count);
+  fprintf (file, HOST_WIDE_INT_PRINT_DEC_SPACE, 8, regcopy.cost);
+  fprintf (file, "\n");
+  fprintf (file, "  %sselfcpy:\tnum=%6d\tcost=", prefix, selfcopy.count);
+  fprintf (file, HOST_WIDE_INT_PRINT_DEC_SPACE, 8, selfcopy.cost);
+  fprintf (file, "\n");
 }
 
 /* Returns nonzero, if WEB1 and WEB2 have some possible

@@ -26,6 +26,7 @@
 #include "recog.h"
 #include "function.h"
 #include "regs.h"
+#include "obstack.h"
 #include "hard-reg-set.h"
 #include "basic-block.h"
 #include "df.h"
@@ -102,8 +103,11 @@ static unsigned int parts_to_webs_1 PARAMS ((struct df *, struct web_link **,
 					     struct df_link *));
 static void parts_to_webs PARAMS ((struct df *));
 static void reset_conflicts PARAMS ((void));
+#if 0
 static void check_conflict_numbers PARAMS ((void));
+#endif
 static void conflicts_between_webs PARAMS ((struct df *));
+static void add_earlyclobber_conflicts PARAMS ((void));
 static void detect_spill_temps PARAMS ((void));
 static int contains_pseudo PARAMS ((rtx));
 static int want_to_remat PARAMS ((rtx x));
@@ -120,7 +124,6 @@ static void free_bb_info PARAMS ((void));
 static void build_web_parts_and_conflicts PARAMS ((struct df *));
 static void select_regclass PARAMS ((void));
 static void detect_spanned_deaths PARAMS ((unsigned int *spanned_deaths));
-static void conflicts_early_clobbered PARAMS ((void));
 static void web_class PARAMS ((struct web*));
 static int rematerializable_stack_arg_p PARAMS ((rtx, rtx));
 
@@ -291,7 +294,7 @@ copy_insn_p (insn, source, target)
   s_regno = (unsigned) REGNO (GET_CODE (s) == SUBREG ? SUBREG_REG (s) : s);
   d_regno = (unsigned) REGNO (GET_CODE (d) == SUBREG ? SUBREG_REG (d) : d);
 
-  /* Copies between hardregs are useless for us, as not coalesable anyway. */
+  /* Copies between hardregs are useless for us, as not coalesable anyway.  */
   if ((s_regno < FIRST_PSEUDO_REGISTER
        && d_regno < FIRST_PSEUDO_REGISTER))
     return 0;
@@ -363,7 +366,7 @@ static struct undef_table_s {
   unsigned int new_undef;
   /* size | (byte << 16)  */
   unsigned int size_word;
-} undef_table [] = {
+} const undef_table [] = {
   { 0, BL_TO_WORD (0, 0)}, /* 0 */
   { 0, BL_TO_WORD (0, 1)},
   { 0, BL_TO_WORD (1, 1)},
@@ -580,7 +583,7 @@ remember_move (insn)
       SET_BIT (move_handled, INSN_UID (insn));
       if (copy_insn_p (insn, &s, &d) == COPY_P_MOVE)
 	{
-	  /* Some sanity test for the copy insn. */
+	  /* Some sanity test for the copy insn.  */
 	  struct df_link *slink = DF_INSN_USES (df, insn);
 	  struct df_link *link = DF_INSN_DEFS (df, insn);
 	  if (!link || !link->ref || !slink || !slink->ref)
@@ -866,7 +869,7 @@ live_out_1 (df, use, insn)
       else
 	{
 	  /* If this insn doesn't completely define the USE, increment also
-	     it's spanned deaths count (if this insn contains a death). */
+	     it's spanned deaths count (if this insn contains a death).  */
 	  if (uid >= death_insns_max_uid)
 	    abort ();
 	  if (TEST_BIT (insns_with_deaths, uid))
@@ -898,7 +901,7 @@ live_out (df, use, insn)
       && (use->undefined & ~visit_trace[uid].undefined) == 0)
     {
       union_web_parts (visit_trace[uid].wp, use->wp);
-      /* Don't search any further, as we already were here with this regno. */
+      /* Don't search any further, as we already were here with this regno.  */
       return 0;
     }
   else
@@ -1293,6 +1296,7 @@ init_one_web_common (web, reg)
       web->add_hardregs = 0;
       CLEAR_HARD_REG_SET (web->usable_regs);
       SET_HARD_REG_BIT (web->usable_regs, web->regno);
+      COPY_HARD_REG_SET (web->orig_usable_regs, web->usable_regs);
       web->num_freedom = 1;
     }
   else
@@ -1821,7 +1825,7 @@ parts_to_webs_1 (df, copy_webs, all_refs)
   webnum = 0;
   for (i = 0; i < def_id + use_id; i++)
     {
-      struct web *web, *subweb;
+      struct web *subweb, *web = 0; /* Initialize web to silence warnings.  */
       struct web_part *wp = &web_parts[i];
       struct ref *ref = wp->ref;
       unsigned int ref_id;
@@ -1836,7 +1840,7 @@ parts_to_webs_1 (df, copy_webs, all_refs)
       if (! wp->uplink)
 	{
 	  /* If we have a web part root, create a new web.  */
-	  unsigned int newid = ~0U;
+	  unsigned int newid = ~(unsigned)0;
 	  unsigned int old_web = 0;
 
 	  /* In the first pass, there are no old webs, so unconditionally
@@ -1885,7 +1889,7 @@ parts_to_webs_1 (df, copy_webs, all_refs)
 		    }
 		}
 	      /* The id is zeroed in init_one_web().  */
-	      if (newid == ~0U)
+	      if (newid == ~(unsigned)0)
 		newid = web->id;
 	      if (old_web)
 		reinit_one_web (web, GET_CODE (reg) == SUBREG
@@ -2374,6 +2378,39 @@ conflicts_between_webs (df)
 #endif
 }
 
+static void
+add_earlyclobber_conflicts ()
+{
+  rtx insn;
+  for (insn = get_insns(); insn; insn = NEXT_INSN (insn))
+    if (INSN_P (insn) && INSN_UID (insn) < insn_df_max_uid)
+      {
+	int uid = INSN_UID (insn);
+	unsigned int n, num_defs = insn_df[uid].num_defs;
+	for (n = 0; n < num_defs; n++)
+	  {
+	    struct ref *def = insn_df[uid].defs[n];
+	    ra_ref *rdef = DF2RA (df2ra, def);
+	    if (rdef && RA_REF_CLOBBER_P (rdef))
+	      {
+		unsigned int u, num_uses = insn_df[uid].num_uses;
+		struct web *web1 = def2web[DF_REF_ID (def)];
+		DF_REF_FLAGS (def) |= DF_REF_EARLYCLOBBER;
+		for (u = 0; u < num_uses; u++)
+		  {
+		    struct web *web2 = use2web[DF_REF_ID
+			                       (insn_df[uid].uses[u])];
+		    if (find_web_for_subweb (web1)->regno
+			!= find_web_for_subweb (web2)->regno)
+		      record_conflict (web1, web2);
+		  }
+	      }
+	    else
+	      DF_REF_FLAGS (def) &= ~DF_REF_EARLYCLOBBER;
+	  }
+      }
+}
+
 /* Look at each web, if it is used as spill web.  Or better said,
    if it will be spillable in this pass.  */
 
@@ -2382,7 +2419,7 @@ detect_spill_temps ()
 {
   struct dlist *d;
   bitmap already = BITMAP_XMALLOC ();
-  unsigned int *spanned_deaths_from_scratch;
+  unsigned int *spanned_deaths_from_scratch = NULL;
 
   if (flag_ra_spanned_deaths_from_scratch)
     {
@@ -2412,7 +2449,7 @@ detect_spill_temps ()
          emitted (can happen with IR spilling ignoring sometimes
 	 all deaths).  */
       else if (web->changed)
-	web->spill_temp = 1;
+	web->spill_temp = web->crosses_bb ? 2 : 1 ;
       /* A spill temporary has one def, one or more uses, all uses
 	 are in one insn, and either the def or use insn was inserted
 	 by the allocator.  */
@@ -2476,7 +2513,8 @@ detect_spill_temps ()
 	      /* But mark them specially if they could possibly be spilled,
 		 either because they cross some deaths (without the above
 		 mentioned ones) or calls.  */
-	      if (web->crosses_call || num_deaths > 0)
+	      if (web->crosses_call || web->crosses_bb
+		  || web->live_over_abnormal || num_deaths > 0)
 		web->spill_temp = 1 * 2;
 	    }
 	  /* A web spanning no deaths can't be spilled either.  No loads
@@ -2487,7 +2525,8 @@ detect_spill_temps ()
 	  else if ((flag_ra_spanned_deaths_from_scratch
 		    ? spanned_deaths_from_scratch[web->id] == 0
 		    : web->span_deaths == 0)
-		   && !web->crosses_call && !web->crosses_bb)
+		   && !web->crosses_call && !web->crosses_bb
+		   && !web->live_over_abnormal)
 	    web->spill_temp = 3;
 	}
       web->orig_spill_temp = web->spill_temp;
@@ -2653,6 +2692,11 @@ detect_remat_webs ()
 	  /* When only subregs of the web are set it isn't easily
 	     rematerializable.  */
 	  if (!rtx_equal_p (SET_DEST (set), web->orig_x))
+	    break;
+	  /* If this insn throws, and we have a single set, then this must
+	     be the throwing one.  Don't try to rematerialize such things.
+	     Would change the CFG.  */
+	  if (can_throw_internal (insn))
 	    break;
 	  /* If we already have a pattern it must be equal to the current.  */
 	  if (pat && !rtx_equal_p (pat, src))
@@ -2936,7 +2980,7 @@ make_webs (df)
   /* And finally relate them to each other, meaning to record all possible
      conflicts between webs (see the comment there).  */
   conflicts_between_webs (df);
-  conflicts_early_clobbered ();
+  add_earlyclobber_conflicts ();
   
   if (WEBS (SPILLED))
     return;
@@ -2997,7 +3041,7 @@ moves_to_webs (df)
       if (m->source_web && m->target_web
 	  /* If the usable_regs don't intersect we can't coalesce the two
 	     webs anyway, as this is no simple copy insn (it might even
-	     need an intermediate stack temp to execute this "copy" insn). */
+	     need an intermediate stack temp to execute this "copy" insn).  */
 	  && hard_regs_combinable_p (m->target_web, m->source_web))
 	{
 	  if (!flag_ra_optimistic_coalescing)
@@ -3681,41 +3725,6 @@ detect_spanned_deaths (spanned_deaths)
   sbitmap_free (live);
   sbitmap_free (rmw_web);
   sbitmap_free (defs_per_insn);
-}
-
-static void
-conflicts_early_clobbered ()
-{
-  rtx insn;
-  struct ra_insn_info info;
-  
-  for (insn = get_insns(); insn; insn = NEXT_INSN (insn))
-    {
-      unsigned int n;
-      
-      if (!INSN_P (insn) || INSN_UID (insn) > insn_df_max_uid)
-	continue;
-      
-      info = insn_df[INSN_UID (insn)];
-
-      for (n = 0; n < info.num_defs; n++)
-	{
-	  ra_ref *rref;
-	  struct ref *dref = info.defs[n];
-	  rref = DF2RA (df2ra, dref);
-	  if (rref && RA_REF_CLOBBER_P (rref))
-	    {
-	      unsigned int i;
-	      struct web *web1 = def2web[DF_REF_ID (dref)];
-	      for (i = 0; i < info.num_uses; ++i)
-		{
-		  struct ref *uref = info.uses[i];
-		  struct web *web2 = use2web[DF_REF_ID (uref)];
-		  record_conflict (web1, web2);
-		}
-	    }
-	}
-    }
 }
 
 static int class_ok_for_mode PARAMS ((enum reg_class, enum machine_mode));
