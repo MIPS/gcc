@@ -3,5 +3,5 @@
 
 #define vector __attribute__((vector_size(16)))
 
-vector long long vbl;	/* { dg-error "use of AltiVec with 64-bit element size is not allowed; use 'int'" } */
+vector long long vbl;	/* { dg-error "use of 'long long' in AltiVec types is invalid" } */
 
