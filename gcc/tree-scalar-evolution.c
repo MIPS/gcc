@@ -2674,9 +2674,7 @@ number_of_iterations_in_loop (struct loop *loop)
   else if (integer_zerop (niter_desc.may_be_zero))
     res = niter_desc.niter;
   else
-    res = build (COND_EXPR, type, niter_desc.may_be_zero,
-		 convert (type, integer_zero_node),
-		 niter_desc.niter);
+    res = chrec_top;
 
 #if 0
   enum tree_code code;

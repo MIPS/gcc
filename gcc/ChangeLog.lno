@@ -1,5 +1,10 @@
 2004-05-25  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
+	* tree-scalar-evolution.c (number_of_iterations_in_loop):
+	Do not produce COND_EXPRs.
+
+2004-05-25  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
 	* tree-scalar-evolution.c (resolve_mixers): New function.
 	(already_instantiated): Type changed to bitmap.
 	(scev_initialize, scev_finalize): Reflect the change.
