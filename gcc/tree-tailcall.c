@@ -407,8 +407,13 @@ find_tail_calls (basic_block bb, struct tailcall **ret)
 	   param && args;
 	   param = TREE_CHAIN (param), args = TREE_CHAIN (args))
 	if (param != TREE_VALUE (args)
-	    /* Make sure there are no problems with copying.  */
-	    && !is_gimple_reg_type (TREE_TYPE (param)))
+	    /* Make sure there are no problems with copying.  Note we must
+	       have a copyable type and the two arguments must have reasonably
+	       equivalent types.  The latter requirement could be relaxed if
+	       we emitted a suitable type conversion statement.  */
+	    && (!is_gimple_reg_type (TREE_TYPE (param))
+		|| (TYPE_MAIN_VARIANT (TREE_TYPE (param)) 
+		    != TYPE_MAIN_VARIANT (TREE_TYPE (TREE_VALUE (args))))))
 	  break;
       if (!args && !param)
 	tail_recursion = true;
