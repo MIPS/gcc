@@ -1,5 +1,10 @@
 2004-11-06  Jerry Quinn  <jlquinn@optonline.net>
 
+	* java/awt/image/AffineTransformOp.java (filter):  Implement
+	bilinear interpolation for Rasters.
+
+2004-11-06  Jerry Quinn  <jlquinn@optonline.net>
+
 	* java/awt/image/IndexColorModel.java (IndexColorModel): Actually
 	use the provided colormap.  Throw documented exceptions.  Document
 	exceptions.
