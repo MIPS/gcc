@@ -3053,12 +3053,6 @@ rest_of_compilation (decl)
   purge_addressof (insns);
   reg_scan (insns, max_reg_num (), 1);
 
-  TIMEVAR (flow_time,
-	   {
-	     find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
-	     cleanup_cfg (insns);
-	   });
-
   close_dump_file (DFI_addressof, print_rtl, insns);
 
   if (ggc_p)
@@ -3120,12 +3114,6 @@ rest_of_compilation (decl)
 		     jump_optimize (insns, !JUMP_CROSS_JUMP,
 					   !JUMP_NOOP_MOVES,
 					   !JUMP_AFTER_REGSCAN);
-		   });
-
-	  TIMEVAR (flow_time,
-		   {
-		     find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
-		     cleanup_cfg (insns);
 		   });
         }
 
@@ -3266,6 +3254,8 @@ rest_of_compilation (decl)
   TIMEVAR
     (flow_time,
      {
+       find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
+       cleanup_cfg (insns);
        if (optimize)
 	 calculate_loop_depth (rtl_dump_file);
        life_analysis (insns, max_reg_num (), rtl_dump_file, 1);

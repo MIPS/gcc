@@ -1,3 +1,22 @@
+2000-04-15  Richard Henderson  <rth@cygnus.com>
+
+	* flow.c (struct propagate_block_info): Replace new_dead and
+	new_live with new_set.
+	(propagate_block): Initialize it.  Don't merge into reg_live.
+	(mark_set_1): Take code parameter; update all callers.  Don't
+	kill registers that don't die.
+	(mark_set_reg): Take code parameter; update callers.  Mark
+	new_set for regs not clobbered.  Update reg_live not new_dead.
+	(flush_reg_cond_reg): Unset reg_cond_dead for the regno we
+	just flushed.
+	(mark_used_reg): Update reg_live not new_live.  Rely on new_set
+	for determining if we don't need a death note.
+
+	* rtlanal.c (dead_or_set_regno_p): Use find_regno_note.
+
+	* toplev.c (rest_of_compilation): Fix merge errors in calling
+	of find_basic_blocks.
+
 2000-04-06  Richard Henderson  <rth@cygnus.com>
 
 	* condexec.c (cond_exec_process_insns): Don't split insns.
