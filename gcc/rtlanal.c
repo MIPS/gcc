@@ -36,6 +36,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 /* Forward declarations */
 static int global_reg_mentioned_p_1 PARAMS ((rtx *, void *));
+static int same_code_p		PARAMS ((rtx *, void *));
 static void set_of_1		PARAMS ((rtx, rtx, void *));
 static void insn_dependent_p_1	PARAMS ((rtx, rtx, void *));
 static int rtx_referenced_p_1	PARAMS ((rtx *, void *));
@@ -634,6 +635,26 @@ global_reg_mentioned_p_1 (loc, data)
     }
 
   return 0;
+}
+
+/* Called through for_each_rtx from expr_mentions_code_p.  */
+static int
+same_code_p (expr, data)
+     rtx *expr;
+     void *data;
+{
+  enum rtx_code *code = data;
+
+  return *code == GET_CODE (*expr);
+}
+
+/* Returns true if EXPR contains CODE.  */
+bool
+expr_mentions_code_p (expr, code)
+     rtx expr;
+     enum rtx_code code;
+{
+  return for_each_rtx (&expr, same_code_p, &code);
 }
 
 /* Returns nonzero if X mentions a global register.  */

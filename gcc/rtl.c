@@ -306,6 +306,9 @@ copy_rtx (orig)
     case SCRATCH:
       /* SCRATCH must be shared because they represent distinct values.  */
     case ADDRESSOF:
+    case INITIAL_VALUE:
+    case ITERATION:
+    case VALUE_AT:
       return orig;
 
     case CONST:

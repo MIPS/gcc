@@ -383,6 +383,7 @@ extern rtx first_insn_after_basic_block_note	PARAMS ((basic_block));
 /* Dominator information for basic blocks.  */
 
 typedef struct dominance_info *dominance_info;
+typedef int (*fast_dominance_info)[2];
 
 /* Structure to group all of the information to process IF-THEN and
    IF-THEN-ELSE blocks for the conditional execution support.  This
@@ -648,4 +649,10 @@ extern void redirect_immediate_dominators PARAMS ((dominance_info, basic_block,
 						 basic_block));
 void iterate_fix_dominators PARAMS ((dominance_info, basic_block *, int));
 extern void verify_dominators PARAMS ((dominance_info));
+
+#define fast_dominated_by_p(DOM, BB1, BB2) \
+  ((DOM)[(BB1)->index][0] >= (DOM)[(BB2)->index][0] \
+   && (DOM)[(BB1)->index][1] <= (DOM)[(BB2)->index][1])
+extern fast_dominance_info create_fq_dominators PARAMS ((dominance_info));
+extern void release_fq_dominators PARAMS ((fast_dominance_info));
 #endif /* GCC_BASIC_BLOCK_H */

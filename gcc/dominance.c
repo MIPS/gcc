@@ -812,3 +812,71 @@ debug_dominance_info (dom)
     if ((bb2 = get_immediate_dominator (dom, bb)))
       fprintf (stderr, "%i %i\n", bb->index, bb2->index);
 }
+
+/* Preprocess dominators so that domination queries are faster (but the
+   structure is static and other queries are not supported).  */
+fast_dominance_info
+create_fq_dominators (dom)
+     dominance_info dom;
+{
+  fast_dominance_info ret =
+	  xmalloc (sizeof (int [2]) * (last_basic_block + 1));
+  int *degrees = xmalloc (sizeof (int) * (last_basic_block + 1));
+  int *bases = xmalloc (sizeof (int) * (last_basic_block + 1));
+  int *sons = xmalloc (sizeof (int) * n_basic_blocks);
+  basic_block bb, d;
+  int i, n, act;
+  int *stack = xmalloc (sizeof (int) * n_edges);
+  int stack_top = 1;
+
+  ret++;
+  degrees++;
+  bases++;
+
+  memset (degrees - 1, 0, sizeof (int) * (last_basic_block + 1));
+  FOR_EACH_BB (bb)
+    {
+      d = get_immediate_dominator (dom, bb);
+      degrees[d->index]++;
+    }
+  memset (bases - 1, 0, sizeof (int) * (last_basic_block + 1));
+  for (i = 0; i < last_basic_block; i++)
+    bases[i] = bases[i - 1] + degrees[i - 1];
+  memset (degrees - 1, 0, sizeof (int) * (last_basic_block + 1));
+  FOR_EACH_BB (bb)
+    {
+      d = get_immediate_dominator (dom, bb);
+      sons[bases[d->index] + degrees[d->index]++] = bb->index;
+    }
+
+  n = 0;
+  stack[0] = -1;
+  while (stack_top)
+    {
+      act = stack[--stack_top];
+      if (act >= last_basic_block)
+	{
+	  ret[act - last_basic_block - 1][1] = n++;
+	  continue;
+	}
+      ret[act][0] = n++;
+      stack[stack_top++] = act + last_basic_block + 1;
+      for (i = 0; i < degrees[act]; i++)
+	stack[stack_top++] = sons[bases[act] + i];
+    }
+
+  free (stack);
+  free (degrees - 1);
+  free (bases - 1);
+  free (sons);
+
+  return ret;
+}
+
+/* Free the memory occupied by fast dominance info structure.  */
+void
+release_fq_dominators (fast_dom)
+     fast_dominance_info fast_dom;
+{
+  free (fast_dom - 1);
+}

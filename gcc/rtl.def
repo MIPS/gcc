@@ -1214,6 +1214,19 @@ DEF_RTL_EXPR(SS_TRUNCATE, "ss_truncate", "e", '1')
 /* Unsigned saturating truncate.  */
 DEF_RTL_EXPR(US_TRUNCATE, "us_truncate", "e", '1')
 
+/* Initial value of register inside loop; used in induction variable analysis
+   (never occurs inside insns).  */
+DEF_RTL_EXPR(INITIAL_VALUE, "initial_value", "e", '1')
+
+/* Value of register whose regno is given by first parameter immediately
+   before the insn whose number is given by the second parameter;  used
+   in induction variable analysis (never occurs inside insns).  */
+DEF_RTL_EXPR(VALUE_AT, "value_at", "ii", 'o')
+
+/* The number of loop iterations; used in induction variable analysis
+   (never occurs inside insns).  */
+DEF_RTL_EXPR(ITERATION, "iteration", "", 'o')
+
 /* The SSA phi operator. 
 
    The argument is a vector of 2N rtxes.  Element 2N+1 is a CONST_INT

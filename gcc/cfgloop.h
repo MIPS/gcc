@@ -51,6 +51,13 @@ struct loop_desc
   bool may_be_zero;     /* If we cannot determine that the first iteration will pass.  */
   enum rtx_code cond;	/* Exit condition.  */
   int neg;		/* Set to 1 if loop ends when condition is satisfied.  */
+
+  			/* All of the above is depredicated and will be removed
+			   soon.  */
+  rtx assumptions;	/* Condition under that the values below are correct.  */
+  rtx noloop_assumptions; /* Condition under that the loop does not roll at all.  */
+  rtx infinite;		/* Condition under that the loop is infinite.  */
+  rtx niter_expr;	/* The expression to count the number of iterations.  */
   edge out_edge;	/* The exit edge.  */
   edge in_edge;		/* And the other one.  */
   int n_branches;	/* Number of branches inside the loop.  */
@@ -266,6 +273,17 @@ struct loops
 #define LOOP_EDGES		(LOOP_ENTRY_EDGES | LOOP_EXIT_EDGES)
 #define LOOP_ALL	       15	/* All of the above  */
 
+/* An array that holds some temporary values of registers.  Used during
+   the iv analysis, then left for free use by anyone to save time with
+   allocating/freeing it.  */
+extern rtx *iv_register_values;
+
+/* The induction variables at loop entries.  */
+extern rtx **loop_entry_values;
+
+/* The values of registers at entries to the loops.  */
+extern rtx **initial_values;
+
 /* Loop recognition.  */
 extern int flow_loops_find		PARAMS ((struct loops *, int flags));
 extern int flow_loops_update		PARAMS ((struct loops *, int flags));
@@ -326,6 +344,7 @@ extern void free_histogram		PARAMS ((struct loop_histogram *));
 extern void verify_loop_structure	PARAMS ((struct loops *));
 
 /* Loop analysis.  */
+extern void compute_simple_loop_info	PARAMS ((struct loops *));
 extern bool simple_loop_p		PARAMS ((struct loops *, struct loop *,
 						struct loop_desc *));
 extern rtx count_loop_iterations	PARAMS ((struct loop_desc *, rtx, rtx));
@@ -350,6 +369,25 @@ extern void unloop			PARAMS ((struct loops *, struct loop *));
 extern bool remove_path			PARAMS ((struct loops *, edge));
 extern edge split_loop_bb		PARAMS ((struct loops *, basic_block,
 						rtx));
+
+/* Induction variables analysis.  */
+extern void initialize_iv_analysis	PARAMS ((struct loops *));
+extern void finalize_iv_analysis	PARAMS ((struct loops *));
+extern void analyse_induction_variables	PARAMS ((struct loops *));
+
+extern void iv_load_used_values		PARAMS ((rtx, rtx *));
+extern rtx get_def_value		PARAMS ((rtx, unsigned));
+extern rtx get_use_value		PARAMS ((rtx, unsigned));
+
+extern rtx substitute_into_expr		PARAMS ((rtx, rtx *, int));
+extern rtx simplify_iv_using_values	PARAMS ((rtx, rtx *));
+extern rtx iv_simplify_using_initial_values PARAMS ((enum rtx_code, rtx,
+						     struct loop *));
+
+extern void iv_split			PARAMS ((rtx, rtx *, rtx *));
+extern rtx iv_base			PARAMS ((rtx));
+extern rtx iv_step			PARAMS ((rtx));
+extern bool iv_simple_p			PARAMS ((rtx));
 
 /* Loop optimizer initialization.  */
 extern struct loops *loop_optimizer_init PARAMS ((FILE *));

@@ -37,7 +37,6 @@ static void unswitch_single_loop	PARAMS ((struct loops *, struct loop *,
 						rtx, int));
 static bool may_unswitch_on_p		PARAMS ((struct loops *, basic_block,
 						struct loop *, basic_block *));
-static rtx reversed_condition		PARAMS ((rtx));
 
 /* Unswitch LOOPS.  */
 void
@@ -106,21 +105,6 @@ may_unswitch_on_p (loops, bb, loop, body)
       return false;
 
   return true;
-}
-
-/* Reverses CONDition; returns NULL if we cannot.  */
-static rtx
-reversed_condition (cond)
-     rtx cond;
-{
-  enum rtx_code reversed;
-  reversed = reversed_comparison_code (cond, NULL);
-  if (reversed == UNKNOWN)
-    return NULL_RTX;
-  else
-    return gen_rtx_fmt_ee (reversed,
-	 		     GET_MODE (cond), XEXP (cond, 0),
-			     XEXP (cond, 1));
 }
 
 /* Unswitch single LOOP.  COND_CHECKED holds list of conditions we already

@@ -915,6 +915,21 @@ swap_condition (code)
     }
 }
 
+/* Reverses CONDition; returns NULL if we cannot.  */
+rtx
+reversed_condition (cond)
+     rtx cond;
+{
+  enum rtx_code reversed;
+  reversed = reversed_comparison_code (cond, NULL);
+  if (reversed == UNKNOWN)
+    return NULL_RTX;
+  else
+    return gen_rtx_fmt_ee (reversed,
+	 		     GET_MODE (cond), XEXP (cond, 0),
+			     XEXP (cond, 1));
+}
+
 /* Given a comparison CODE, return the corresponding unsigned comparison.
    If CODE is an equality comparison or already an unsigned comparison,
    CODE is returned.  */

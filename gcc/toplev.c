@@ -3243,7 +3243,7 @@ rest_of_compilation (decl)
 	  ))
     {
       struct loops *loops;
-      timevar_push (TV_LOOP);
+      timevar_push (TV_LOOP2);
       open_dump_file (DFI_loop2, decl);
       if (rtl_dump_file)
 	dump_flow_info (rtl_dump_file);
@@ -3255,6 +3255,14 @@ rest_of_compilation (decl)
 	  /* Here will go optimalizations.  */
 	  if (flag_unswitch_loops)
 	    unswitch_loops (loops);
+
+	  /* For now just a testing whether it works.  */
+	  timevar_push (TV_IV_ANAL);
+	  initialize_iv_analysis (loops);
+	  analyse_induction_variables (loops);
+	  compute_simple_loop_info (loops);
+	  finalize_iv_analysis (loops);
+	  timevar_pop (TV_IV_ANAL);
 
  	  if (flag_peel_loops || flag_unroll_loops)
  	    unroll_and_peel_loops (loops,
@@ -3277,7 +3285,7 @@ rest_of_compilation (decl)
       if (rtl_dump_file)
 	dump_flow_info (rtl_dump_file);
       close_dump_file (DFI_loop2, print_rtl_with_bb, get_insns ());
-      timevar_pop (TV_LOOP);
+      timevar_pop (TV_LOOP2);
       ggc_collect ();
     }
   if (flag_web)

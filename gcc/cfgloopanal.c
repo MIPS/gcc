@@ -44,12 +44,20 @@ static bool constant_iterations PARAMS ((struct loop_desc *,
 static bool simple_loop_exit_p PARAMS ((struct loops *, struct loop *,
 					edge, regset, rtx *,
 					struct loop_desc *));
+static bool iv_simple_condition_p PARAMS ((struct loop *,
+					   rtx, rtx *, struct loop_desc *));
+static bool iv_simple_loop_exit_p PARAMS ((struct loops *, struct loop *,
+					   edge, struct loop_desc *));
+static bool iv_simple_loop_p PARAMS ((struct loops *, struct loop *,
+				      struct loop_desc *));
 static rtx variable_initial_value PARAMS ((rtx, regset, rtx, rtx *));
 static rtx variable_initial_values PARAMS ((edge, rtx));
 static bool simple_condition_p PARAMS ((struct loop *, rtx,
 					regset, struct loop_desc *));
 static basic_block simple_increment PARAMS ((struct loops *, struct loop *,
 					     rtx *, struct loop_desc *));
+static unsigned HOST_WIDEST_INT inverse PARAMS ((unsigned HOST_WIDEST_INT,
+					       int));
 
 /* Checks whether BB is executed exactly once in each LOOP iteration.  */
 bool
@@ -819,6 +827,529 @@ simple_loop_p (loops, loop, desc)
   return any;
 }
 
+/* Computes inverse to X modulo (1 << MOD).  */
+static unsigned HOST_WIDEST_INT
+inverse (x, mod)
+     unsigned HOST_WIDEST_INT x;
+     int mod;
+{
+  unsigned HOST_WIDEST_INT mask = ((unsigned HOST_WIDEST_INT) 1 << mod) - 1;
+  unsigned HOST_WIDEST_INT rslt = 1;
+  int i;
+
+  for (i = 0; i < mod - 1; i++)
+    {
+      rslt = (rslt * x) & mask;
+      x = (x * x) & mask;
+    }
+
+  return rslt;
+}
+
+/* Tests whether the CONDITION enables us to determine the number of iterations
+   of the LOOP, using register values stored in VALUES.  If so, store the
+   information in DESC.  */
+static bool
+iv_simple_condition_p (loop, condition, values, desc)
+     struct loop *loop;
+     rtx condition;
+     rtx *values;
+     struct loop_desc *desc;
+{
+  rtx scond = substitute_into_expr (condition, values, true);
+  rtx op0, op1, tmp, delta, base0, step0, base1, step1, step, bound, may_xform;
+  rtx assumption;
+  enum rtx_code cond;
+  enum machine_mode mode = GET_MODE (XEXP (condition, 0));
+  rtx mmin, mmax;
+  unsigned HOST_WIDEST_INT s, size, d;
+  int was_sharp = false;
+
+  /* The meaning of these assumptions is this:
+     if !assumptions
+       then the rest of information does not have to be valid
+     if noloop_assumptions then the loop does not roll
+     if infinite then this exit is never used
+     */
+  desc->assumptions = NULL_RTX;
+  desc->noloop_assumptions = NULL_RTX;
+  desc->infinite = NULL_RTX;
+
+  desc->const_iter = false;
+  desc->niter_expr = NULL_RTX;
+
+  if (!scond)
+    return false;
+
+  /* The value of VALUE_AT may differ in each iteration, making most of
+     the checks below useless.  */
+  if (expr_mentions_code_p (scond, VALUE_AT))
+    return false;
+
+  /* We only handle integers or pointers.  */
+  if (GET_MODE_CLASS (mode) != MODE_INT
+      && GET_MODE_CLASS (mode) != MODE_PARTIAL_INT)
+    return false;
+
+  /* The simplification above could have proved that this condition is
+     always true or always false.  */
+  if (scond == const0_rtx)
+    {
+      desc->const_iter = true;
+      desc->niter = 0;
+      desc->niter_expr = const0_rtx;
+      desc->noloop_assumptions = alloc_EXPR_LIST (0, const_true_rtx, NULL_RTX);
+      return true;
+    }
+  /* This indicates that the exit is useless, so it would be fine to remove
+     it somewhere.  */
+  if (scond == const_true_rtx)
+    {
+      desc->infinite = alloc_EXPR_LIST (0, const_true_rtx, NULL_RTX); 
+      return true;
+    }
+  cond = GET_CODE (scond);
+  if (GET_RTX_CLASS (cond) != '<')
+    abort ();
+
+  op0 = XEXP (scond, 0);
+  op1 = XEXP (scond, 1);
+  op0 = simplify_iv_using_values (op0, initial_values [loop->num]);
+  op1 = simplify_iv_using_values (op1, initial_values [loop->num]);
+  if (!op0 || !op1)
+    return false;
+ 
+  /* Check condition and normalize it.  */
+  switch (cond)
+    {
+      case GE:
+      case GT:
+      case GEU:
+      case GTU:
+	tmp = op0; op0 = op1; op1 = tmp;
+	cond = swap_condition (cond);
+	break;
+      case NE:
+      case LE:
+      case LEU:
+      case LT:
+      case LTU:
+	break;
+      default:
+	return false;
+    }
+  size = GET_MODE_BITSIZE (mode);
+  if (cond == LE || cond == LT)
+    {
+      mmax = GEN_INT (((unsigned HOST_WIDEST_INT) 1 << (size - 1)) - 1);
+      mmin = GEN_INT (-((unsigned HOST_WIDEST_INT) 1 << (size - 1)));
+    }
+  else
+    {
+      mmax = GEN_INT (((unsigned HOST_WIDEST_INT) 1 << size) - 1);
+      mmin = const0_rtx;
+    }
+
+  iv_split (op0, &base0, &step0);
+  iv_split (op1, &base1, &step1);
+  if (!base0 || !base1)
+    abort ();
+  
+  /* We could try to handle this case, but it would require expensive runtime
+     checks and the gain is questionable.  */
+  if (GET_CODE (step0) != CONST_INT || GET_CODE (step1) != CONST_INT)
+    return false;
+
+  /* We can take care of the case of two induction variables chasing each other
+     if the test is NE. I have never seen a loop using it, but still it is
+     cool.  */
+  if (step0 != const0_rtx && step1 != const0_rtx)
+    {
+      if (cond != NE)
+	return false;
+
+      step0 = simplify_gen_binary (MINUS, mode, step0, step1);
+      step1 = const0_rtx;
+    }
+
+  /* This is either infinite loop or the one that ends immediately, depending
+     on initial values.  Unswitching should remove this kind of conditions.  */
+  if (step0 == const0_rtx && step1 == const0_rtx)
+    return false;
+
+  /* Ignore loops of while (i-- < 10) type.  */
+  if (cond != NE
+      && (INTVAL (step0) < 0 || INTVAL (step1) > 0))
+    return false;
+
+  /* Some more condition normalization.  We must record some assumptions
+     due to overflows.  */
+  switch (cond)
+    {
+      case LT:
+      case LTU:
+	/* We want to take care only of non-sharp relationals; this is easy,
+	   as in cases the overflow would make the transformation unsafe
+	   the loop does not roll.  Seemingly it would make more sense to want
+	   to take care of sharp relationals instead, as NE is more simmilar to
+	   them, but the problem is that here the transformation would be more
+	   difficult due to possibly infinite loops.  */
+	if (step0 == const0_rtx)
+	  {
+	    assumption = simplify_gen_relational (EQ, SImode, mode,
+						  base0, mmax);
+	    if (assumption == const_true_rtx)
+	      {
+		desc->const_iter = true;
+		desc->niter = 0;
+		desc->niter_expr = const0_rtx;
+		desc->noloop_assumptions =
+			alloc_EXPR_LIST (0, const_true_rtx, NULL_RTX);
+		return true;
+	      }
+	    base0 = simplify_gen_binary (PLUS, mode, base0, const1_rtx);
+	  }
+	else
+	  {
+	    assumption = simplify_gen_relational (EQ, SImode, mode,
+						  base1, mmin);
+	    if (assumption == const_true_rtx)
+	      {
+		desc->const_iter = true;
+		desc->niter = 0;
+		desc->niter_expr = const0_rtx;
+		desc->noloop_assumptions =
+			alloc_EXPR_LIST (0, const_true_rtx, NULL_RTX);
+		return true;
+	      }
+	    base1 = simplify_gen_binary (PLUS, mode, base1, constm1_rtx);
+	  }
+	desc->noloop_assumptions =
+		alloc_EXPR_LIST (0, assumption, desc->noloop_assumptions);
+	cond = (cond == LT) ? LE : LEU;
+
+	/* It will be useful to be able to tell the difference once more in
+	   LE -> NE reduction.  */
+	was_sharp = true;
+	break;
+      default: ;
+    }
+
+  /* Take care of trivially infinite loops.  */
+  if (cond != NE)
+    {
+      if (step0 == const0_rtx)
+	{
+	  if (base0 == mmin)
+	    {
+	      desc->infinite =
+		      alloc_EXPR_LIST (0, const_true_rtx, NULL_RTX);
+	      return true;
+	    }
+	}
+      else
+	{
+	  if (base1 == mmax)
+	    {
+	      desc->infinite =
+		      alloc_EXPR_LIST (0, const_true_rtx, NULL_RTX);
+	      return true;
+	    }
+	}
+    }
+
+  /* If we can we want to take care of NE conditions instead of size
+     comparisons, as they are much more friendly (most importantly
+     this takes care of special handling of loops with step 1).  We can
+     do it if we first check that upper bound is greater or equal to
+     lower bound, their difference is constant c modulo step and that
+     there is not an overflow.  */
+  if (cond != NE)
+    {
+      step = step0;
+      if (step == const0_rtx)
+	step = simplify_gen_unary (NEG, mode, step1, mode);
+      delta = simplify_gen_binary (MINUS, mode, base1, base0);
+      delta = simplify_gen_binary (UMOD, mode, delta, step);
+      may_xform = const0_rtx;
+
+      if (GET_CODE (delta) == CONST_INT)
+	{
+	  if (was_sharp && INTVAL (delta) == INTVAL (step) - 1)
+	    {
+	      /* A special case.  We have transformed condition of type
+		 for (i = 0; i < 4; i += 4)
+		 into
+		 for (i = 0; i <= 3; i += 4)
+		 obviously if the test for overflow during that transformation
+		 passed, we cannot overflow here.  Most importantly any
+		 loop with sharp end condition and step 1 falls into this
+		 cathegory, so handling this case specially is definitely
+		 worth the troubles.  */
+	      may_xform = const_true_rtx;
+	    }
+	  else if (step0 == const0_rtx)
+	    {
+	      bound = simplify_gen_binary (PLUS, mode, mmin, step);
+	      bound = simplify_gen_binary (MINUS, mode, bound, delta);
+	      may_xform = simplify_gen_relational (cond, SImode, mode,
+						   bound, base0);
+	    }
+	  else
+	    {
+	      bound = simplify_gen_binary (MINUS, mode, mmax, step);
+	      bound = simplify_gen_binary (PLUS, mode, bound, delta);
+	      may_xform = simplify_gen_relational (cond, SImode, mode,
+						   base1, bound);
+	    }
+	}
+      if (may_xform == const_true_rtx)
+	{
+	  assumption = simplify_gen_relational (reverse_condition (cond),
+						SImode, mode,
+						base0, base1),
+	  desc->noloop_assumptions =
+		  alloc_EXPR_LIST (0, assumption, desc->noloop_assumptions);
+	  cond = NE;
+
+	  if (step0 == const0_rtx)
+	    {
+	      base0 = simplify_gen_binary (PLUS, mode, base0, delta);
+	      base0 = simplify_gen_binary (MINUS, mode, base0, step);
+	    }
+	  else
+	    {
+	      base1 = simplify_gen_binary (MINUS, mode, base1, delta);
+	      base1 = simplify_gen_binary (PLUS, mode, base1, step);
+	    }
+	}
+    }
+
+  if (step0 == const0_rtx)
+    {
+      /* We would like to have number of iteration on left side of conditional.
+	 This is safe with NE, but unsafe with LE/LEU. If we want to transform
+	 a <= b - s * i into a + s * i <= b, we must know that
+	 a >= mmin + s and b <= mmax - s.  */
+      step0 = simplify_gen_unary (NEG, mode, step1, mode);
+      step1 = const0_rtx;
+      if (cond != NE)
+	{
+	  bound = simplify_gen_binary (PLUS, mode, mmin, step0);
+	  assumption = simplify_gen_relational (cond, SImode, mode,
+						bound, base0);
+	  desc->assumptions =
+		  alloc_EXPR_LIST (0, assumption, desc->assumptions);
+	  bound = simplify_gen_binary (MINUS, mode, mmax, step0);
+	  assumption = simplify_gen_relational (cond, SImode, mode,
+						base1, bound);
+	  desc->assumptions =
+		  alloc_EXPR_LIST (0, assumption, desc->assumptions);
+	}
+    }
+
+  /* Now the condition is in form a + s * i <cond> b.  Count the number of
+     iterations.  */
+  if (cond == NE)
+    {
+      /* Everything we do here is just arithmetics modulo size of mode.  This
+	 makes us able to do more involved computations of number of iterations
+	 than in other cases.  First transform the condition into shape
+	 s * i <> c, with s positive.  */
+      base1 = simplify_gen_binary (MINUS, mode, base1, base0);
+      base0 = const0_rtx;
+      if (INTVAL (step0) < 0)
+	{
+	  step0 = simplify_gen_unary (NEG, mode, step0, mode);
+	  base1 = simplify_gen_unary (NEG, mode, base1, mode);
+	}
+
+      /* Let nsd (s, size of mode) = d.  If d does not divide c, the loop
+	 is infinite.  Otherwise, the number of iterations is
+	 (inverse(s/d) * (c/d)) mod (size of mode/d).  */
+      s = INTVAL (step0); d = 1;
+      while (s % 2 != 1)
+	{
+	  s /= 2;
+	  d *= 2;
+	  size--;
+	}
+      bound = GEN_INT (((unsigned HOST_WIDEST_INT) 1 << size) - 1);
+      tmp = simplify_gen_binary (UMOD, mode, base1, GEN_INT (d));
+      desc->infinite = simplify_gen_relational (NE, SImode, mode,
+						tmp, const0_rtx);
+      tmp = simplify_gen_binary (UDIV, mode, base1, GEN_INT (d));
+      tmp = simplify_gen_binary (MULT, mode,
+				 tmp, GEN_INT (inverse (s, size)));
+      desc->niter_expr = simplify_gen_binary (AND, mode, tmp, bound);
+    }
+  else
+    {
+      /* We must know that b + s does not overflow and a <= b and then we
+         can compute number of iterations as (b - a) / s + 1.  */
+      bound = simplify_gen_binary (MINUS, mode, mmax, step0);
+      assumption = simplify_gen_relational (cond, SImode, mode, base1, bound);
+      desc->assumptions =
+	      alloc_EXPR_LIST (0, assumption, desc->assumptions);
+      assumption = simplify_gen_relational (reverse_condition (cond), SImode,
+					    mode, base0, base1);
+      desc->noloop_assumptions =
+	      alloc_EXPR_LIST (0, assumption, desc->noloop_assumptions);
+      delta = simplify_gen_binary (MINUS, mode, base1, base0);
+
+      delta = simplify_gen_binary (UDIV, mode, delta, step0);
+      desc->niter_expr = simplify_gen_binary (PLUS, mode, delta, const1_rtx);
+    }
+      
+  /* Attempt to make all the assumptions and other expressions simpler using
+     the possible knowledge of initial values of the registers.  */
+  if (desc->assumptions)
+    desc->assumptions =
+	    iv_simplify_using_initial_values (AND, desc->assumptions, loop);
+  if (desc->noloop_assumptions)
+    desc->noloop_assumptions =
+	    iv_simplify_using_initial_values (IOR, desc->noloop_assumptions, loop);
+  if (desc->infinite)
+    desc->infinite =
+	    iv_simplify_using_initial_values (IOR, desc->infinite, loop);
+  if (GET_CODE (desc->niter_expr) != CONST_INT)
+    desc->niter_expr =
+	    iv_simplify_using_initial_values (NIL, desc->niter_expr, loop);
+
+  if (GET_CODE (desc->niter_expr) == CONST_INT)
+    {
+      desc->const_iter = true;
+      desc->niter = INTVAL (desc->niter_expr);
+    }
+  return true;
+}
+
+/* Tests whether exit at EXIT_EDGE from LOOP is simple using the induction
+   variable info.  Returns simple loop description joined to it in in DESC.  */
+static bool
+iv_simple_loop_exit_p (loops, loop, exit_edge, desc)
+     struct loops *loops;
+     struct loop *loop;
+     edge exit_edge;
+     struct loop_desc *desc;
+{
+  basic_block exit_bb;
+  int fallthru_out;
+  rtx condition;
+  edge ei;
+  rtx insn, first_cond_insn;
+
+  exit_bb = exit_edge->src;
+
+  fallthru_out = (exit_edge->flags & EDGE_FALLTHRU);
+
+  /* It must belong directly to the loop.  */
+  if (exit_bb->loop_father != loop)
+    return false;
+  
+  /* It must be tested (at least) once during any iteration.  */
+  if (!dominated_by_p (loops->cfg.dom, loop->latch, exit_bb))
+    return false;
+
+  /* It must end in a simple conditional jump.  */
+  if (!any_condjump_p (exit_bb->end))
+    return false;
+
+  ei = exit_bb->succ;
+  if (ei == exit_edge)
+    ei = ei->succ_next;
+
+  desc->out_edge = exit_edge;
+  desc->in_edge = ei;
+
+  /* Test whether the condition is suitable.  */
+  if (!(condition = get_condition (exit_bb->end, &first_cond_insn)))
+    return false;
+
+  for (insn = exit_bb->end;
+       insn != PREV_INSN (first_cond_insn);
+       insn = PREV_INSN (insn))
+    iv_load_used_values (insn, iv_register_values);
+
+  if (!fallthru_out)
+    {
+      condition = reversed_condition (condition);
+      if (!condition)
+	return false;
+    }
+
+  /* Check that we are able to determine number of iterations and fill
+     in information about it.  */
+  if (!iv_simple_condition_p (loop, condition, iv_register_values, desc))
+    return false;
+
+  return true;
+}
+
+/* Tests whether LOOP is simple for loop using the induction variable info.
+   Returns simple loop description in DESC.  */
+static bool
+iv_simple_loop_p (loops, loop, desc)
+     struct loops *loops;
+     struct loop *loop;
+     struct loop_desc *desc;
+{
+  unsigned i;
+  basic_block *body;
+  edge e;
+  struct loop_desc act;
+  bool any = false;
+  int n_branches;
+  
+  body = get_loop_body (loop);
+
+  n_branches = 0;
+  for (i = 0; i < loop->num_nodes; i++)
+    {
+      for (e = body[i]->succ; e; e = e->succ_next)
+	if (!flow_bb_inside_loop_p (loop, e->dest)
+	    && iv_simple_loop_exit_p (loops, loop, e, &act))
+	  {
+	    /* Prefer constant iterations; the less the better.  */
+	    if (!any)
+	      any = true;
+	    else if (!act.const_iter
+		     || (desc->const_iter && act.niter >= desc->niter))
+	      continue;
+	    *desc = act;
+	  }
+
+      if (body[i]->succ && body[i]->succ->succ_next)
+	n_branches++;
+    }
+  desc->n_branches = n_branches;
+
+  if (rtl_dump_file && any)
+    {
+      fprintf (rtl_dump_file, "; Simple loop %i\n", loop->num);
+
+      fprintf (rtl_dump_file, ";  Number of iterations:\n");
+      print_rtl (rtl_dump_file, desc->niter_expr);
+      
+      fprintf (rtl_dump_file, "\n;  Valid if:\n");
+      print_rtl (rtl_dump_file, desc->assumptions);
+
+      fprintf (rtl_dump_file, "\n;  Does not roll if:\n");
+      print_rtl (rtl_dump_file, desc->noloop_assumptions);
+
+      fprintf (rtl_dump_file, "\n;  Infinite if:\n");
+      print_rtl (rtl_dump_file, desc->infinite);
+
+      fprintf (rtl_dump_file, "\n;  Number of branches: ");
+      fprintf (rtl_dump_file, "%d\n", desc->n_branches);
+
+      fputc ('\n', rtl_dump_file);
+    }
+
+  free (body);
+  return any;
+}
+
 /* Marks blocks and edges that are part of non-recognized loops; i.e. we
    throw away all latch edges and mark blocks inside any remaining cycle.
    Everything is a bit complicated due to fact we do not want to do this
@@ -955,7 +1486,7 @@ mark_irreducible_loops (loops)
 	           : e->dest->index + 1;
           if (closed[sidx])
 	    {
-	      if (!closed[mri[sidx]])
+	      if (mri[sidx] != -1 && !closed[mri[sidx]])
 		{
 		  if (mr[sidx] < mr[idx])
 		    {
@@ -1120,5 +1651,54 @@ expected_loop_iterations (loop)
 	return 0;
 
       return (freq_latch + freq_in - 1) / freq_in;
+    }
+}
+
+/* Computes simple loop info from induction variable info for LOOPS.  */
+void
+compute_simple_loop_info (loops)
+     struct loops *loops;
+{
+  unsigned i;
+  struct loop *loop;
+  struct loop_desc sli_iv;
+  struct loop_desc sli_old;
+  int simple_by_iv;
+  int simple_by_old;
+
+  for (i = 1; i < loops->num; i++)
+    {
+      loop = loops->parray[i];
+      if (!loop)
+	continue;
+      
+      simple_by_iv = iv_simple_loop_p (loops, loop, &sli_iv);
+
+      if (rtl_dump_file)
+	{
+	  simple_by_old = simple_loop_p (loops, loop, &sli_old);
+
+	  if (simple_by_iv && !simple_by_old)
+	    fprintf (rtl_dump_file,
+		     "An additional loop %d detected simple.\n", loop->num);
+	  if (!simple_by_iv && simple_by_old)
+	    fprintf (rtl_dump_file,
+		     "Loop %d not detected simple.\n", loop->num);
+	  if (simple_by_iv && simple_by_old)
+	    {
+	      if (sli_iv.const_iter && !sli_old.const_iter)
+		fprintf (rtl_dump_file,
+			 "An additional loop %d detected constant iterating.\n",
+			 loop->num);
+	      if (!sli_iv.const_iter && sli_old.const_iter)
+		fprintf (rtl_dump_file,
+		     "Loop %d not detected constant iterating.\n", loop->num);
+	      if (sli_iv.const_iter && sli_old.const_iter
+		  && sli_iv.niter != sli_old.niter)
+		fprintf (rtl_dump_file,
+			 "Wrongly determined number of iterations for loop %d.\n",
+			 loop->num);
+	    }
+	}
     }
 }

@@ -1530,6 +1530,7 @@ extern enum rtx_code unsigned_condition	PARAMS ((enum rtx_code));
 extern enum rtx_code signed_condition	PARAMS ((enum rtx_code));
 extern void mark_jump_label		PARAMS ((rtx, rtx, int));
 extern void cleanup_barriers		PARAMS ((void));
+extern rtx reversed_condition		PARAMS ((rtx));
 
 /* In jump.c */
 extern bool squeeze_notes		PARAMS ((rtx *, rtx *));
@@ -1627,6 +1628,7 @@ extern rtx get_related_value		PARAMS ((rtx));
 extern rtx get_jump_table_offset	PARAMS ((rtx, rtx *));
 extern int global_reg_mentioned_p	PARAMS ((rtx));
 extern int reg_mentioned_p		PARAMS ((rtx, rtx));
+extern bool expr_mentions_code_p	PARAMS ((rtx, enum rtx_code));
 extern int count_occurrences		PARAMS ((rtx, rtx, int));
 extern int reg_referenced_p		PARAMS ((rtx, rtx));
 extern int reg_used_between_p		PARAMS ((rtx, rtx, rtx));

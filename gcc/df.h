@@ -79,6 +79,7 @@ struct ref
   unsigned int id;		/* Ref index.  */
   enum df_ref_type type;	/* Type of ref.  */
   enum df_ref_flags flags;	/* Various flags.  */
+  void *aux;			/* Auxiliary data of users of this info.  */
 };
 
 

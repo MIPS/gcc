@@ -1,3 +1,32 @@
+2003-04-06  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* loop-iv.c: New.
+	* Makefile.in (loop-iv.o): New.
+	* basic-block.h (fast_dominance_info, fast_dominated_by_p,
+	fast_dominance_info, release_fq_dominators): Declare.
+	* cfgloop.h (struct loop_desc): New fields assumptions,
+	noloop_assumptions, infinite, niter_expr.
+	(iv_register_values, loop_entry_values, initial_values): Declare.
+	(compute_simple_loop_info, initialize_iv_analysis,
+	finalize_iv_analysis, analyse_induction_variables,
+	iv_load_used_values, get_def_value, get_use_value,
+	substitute_into_expr, simplify_iv_using_values,
+	iv_simplify_using_initial_values, iv_split, iv_base, iv_step,
+	iv_simple_p): Declare.
+	* cfgloopanal.c (iv_simple_condition_p, iv_simple_loop_exit_p,
+	iv_simple_loop_p, inverse, compute_simple_loop_info): New.
+	(mark_irreducible_loops): Fix.
+	* df.h (struct ref): Add aux field.
+	* dominance.c (create_fq_dominators, release_fq_dominators): New.
+	* jump.c (reversed_condition): Moved from ...
+	* loop-unswitch.c (reversed_condition): ... here.
+	* rtl.c (copy_rtx): Handle new rtl codes.
+	* rtl.def (INITIAL_VALUE, VALUE_AT, ITERATION): New rtl codes.
+	* rtl.h (reversed_condition, expr_mentions_code_p): Declare.
+	* rtlanal.c (expr_mentions_code_p, same_code_p): New.
+	* timevar.def (TV_LOOP2, TV_IV_ANAL): New.
+	* toplev.c (rest_of_compilation): Use them.  Call iv analysis.
+
 Tue Mar 18 21:51:28 CET 2003  Jan Hubicka  <jh@suse.cz>
 
 	* Mainline merge (rtlopt-merge-20030318)
