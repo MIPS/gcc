@@ -1,3 +1,32 @@
+1999-01-15  Manfred Hollstein  <manfred@s-direktnet.de>
+
+	* configure.in (fixinc_defs): Do not define for m[68]8k-motorola-sysv{,3};
+	it's working properly now.  Remove comment saying "see m68k-motorola-sysv
+	as an example".
+	* configure: Regenerate using autoconf.
+
+	* fixinc/fixincl.c (main): Do not ignore SIGCHLD.
+
+1999-01-13  Manfred Hollstein  <manfred@s-direktnet.de>
+
+	* fixinc/fixincl.c (create_file): Pass file creation mask as
+	third parameter to "open".  Use O_TRUNC flag to open instead of
+	explicitly unlink'ing the file.
+	(process): and forget about the "chmod" stuff.
+
+1999-01-12  Manfred Hollstein  <manfred@s-direktnet.de>
+
+	* configure: Regenerate using autoconf.
+
+	* fixinc/Makefile.in (INCLUDES): Add -I$(srcdir)/../../include.
+	* fixinc/fixincl.c (SIGCHLD): Use SIGCLD on (very) old systems.
+	(process): "fchmod" isn't available on all systems, use "chmod"
+	instead.
+	* fixinc/server.c: Add #include <sys/types.h>.
+	(STDIN_FILENO): Add default definition if no include file defines
+	it already.
+	(STDOUT_FILENO): Likewise.
+
 Thu Jan 7  9:25:58 PST 1999 Bruce Korb (korb@datadesign.com)
 
 	* fixinc/fixincl.c (*): more decapitalization of variables
