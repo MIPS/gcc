@@ -1,5 +1,12 @@
 2005-03-23  Tom Tromey  <tromey@redhat.com>
 
+	* tree.cc (visit_new_array): Handle array initializers properly.
+	(visit_array_initializer): Create new array here.
+	(build_new_object_array): Lay out array class.  Use
+	build_class_reference.
+
+2005-03-23  Tom Tromey  <tromey@redhat.com>
+
 	* tree.cc (visit_catch): Prepare catch type.
 
 2005-03-23  Tom Tromey  <tromey@redhat.com>

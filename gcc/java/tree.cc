@@ -913,11 +913,17 @@ tree_generator::visit_while (model_while *wstmt,
 
 
 void
-tree_generator::visit_array_initializer (model_array_initializer *,
+tree_generator::visit_array_initializer (model_array_initializer *initx,
 					 const ref_forwarding_type &elt_type,
 					 const std::list<ref_expression> &exprs)
 {
   // FIXME: constant array initialization optimization... ?
+
+  tree ind_tree = build_int_cst (type_jint, exprs.size ());
+  if (elt_type->type ()->primitive_p ())
+    current = build_new_array (elt_type->type (), ind_tree, initx);
+  else
+    current = build_new_object_array (elt_type->type (), ind_tree);
 
   // At this point, 'current' is the 'new' expression for the array.
   tree new_expr = save_expr (current);
@@ -947,8 +953,8 @@ tree_generator::visit_array_initializer (model_array_initializer *,
     }
 
   // Yield 'new_expr'.
-  tsi_link_after (&out, new_expr, TSI_CONTINUE_LINKING);
-  current = result;
+  current = build2 (COMPOUND_EXPR, TREE_TYPE (new_expr),
+		    result, new_expr);
 }
 
 void
@@ -1758,7 +1764,7 @@ tree_generator::visit_new_array (model_new_array *new_elt,
       else
 	current = build_new_object_array (elt_type->type (), ind_tree);
     }
-  else
+  else if (indices.size () != 0)
     {
       tree args = NULL_TREE;
       for (std::list<ref_expression>::const_iterator i = indices.begin ();
@@ -1774,9 +1780,11 @@ tree_generator::visit_new_array (model_new_array *new_elt,
 			builtin_Jv_NewMultiArray,
 			nreverse (args), NULL_TREE);
     }
-
-  if (init)
-    init->visit (this);
+  else
+    {
+      assert (init);
+      init->visit (this);
+    }
 }
 
 void
@@ -1921,10 +1929,12 @@ tree_generator::build_new_array (model_type *elt_type, tree size,
 tree
 tree_generator::build_new_object_array (model_type *elt_type, tree size)
 {
-  model_type *array_type = elt_type->array ();
+  model_class *array_type = assert_cast<model_class *> (elt_type->array ());
 
-  tree elt_type_tree = gcc_builtins->map_type (elt_type);
-  tree array_type_tree = gcc_builtins->map_type (array_type);
+  gcj_abi *abi = gcc_builtins->find_abi ();
+  tree elt_type_tree
+    = abi->build_class_reference (gcc_builtins, class_wrapper, elt_type);
+  tree array_type_tree = gcc_builtins->lay_out_class (array_type);
 
   tree args = tree_cons (NULL_TREE, size,
 			 tree_cons (NULL_TREE, elt_type_tree,
