@@ -1,8 +1,17 @@
+model_class apparently sorts methods by name
+this is wrong for vtable generation
+
+
 see verifier fix of 2005-02-18 on trunk
 should go in our verifier too
 
 the bug in PR 19810 makes for weird bytecode output from gcjx
-it seems to be incorrect due to stack size differences
+it is incorrect due to stack size differences
+- in bytecode_generator::visit_return, make a new temporary local when
+  there is a finally handler
+- store the result there
+- load the result when generating the 'return'
+- the return might be dead code...
 
 gcjx also fails on PR 19629, though differently
 it creates the anonymous constructor incorrectly

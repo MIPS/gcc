@@ -1,3 +1,7 @@
+2005-02-26  Tom Tromey  <tromey@redhat.com>
+
+	* aot/aotclass.cc (lay_out_vtable): Added debug code.
+
 2005-02-23  Tom Tromey  <tromey@redhat.com>
 
 	* aot/mangle.cc (emit_saved): Fixed test for '0'.

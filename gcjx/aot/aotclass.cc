@@ -98,6 +98,15 @@ aot_class::lay_out_vtable ()
 
       vtable.push_back ((*i).get ());
     }
+
+#ifdef DEBUG_VTABLE
+  std::cerr << "=== " << klass->get_fully_qualified_name () << std::endl;
+  int n = 0;
+  for (std::vector<model_method *>::const_iterator i = vtable.begin ();
+       i != vtable.end ();
+       ++i, ++n)
+    std::cerr << n << ": " << (*i)->get_pretty_name () << std::endl;
+#endif // DEBUG_VTABLE
 }
 
 int
