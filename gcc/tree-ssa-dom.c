@@ -1891,6 +1891,23 @@ record_equivalences_from_stmt (tree stmt,
 	  cond = build (NE_EXPR, boolean_type_node, lhs, null_pointer_node);
 	  record_cond_is_true (cond, block_avail_exprs_p);
 	}
+
+      /* IOR of any value with a nonzero value will result in a nonzero
+	 value.  Even if we do not know the exact result recording that
+	 the result is nonzero is worth the effort.  */
+      if (TREE_CODE (rhs) == BIT_IOR_EXPR
+	  && integer_nonzerop (TREE_OPERAND (rhs, 1)))
+	{
+	  tree cond;
+
+	  cond = build (EQ_EXPR, boolean_type_node, lhs,
+			convert (TREE_TYPE (lhs), integer_zero_node));
+	  record_cond_is_false (cond, block_avail_exprs_p);
+
+	  cond = build (NE_EXPR, boolean_type_node, lhs,
+			convert (TREE_TYPE (lhs), integer_zero_node));
+	  record_cond_is_true (cond, block_avail_exprs_p);
+	}
     }
 
   /* Look at both sides for pointer dereferences.  If we find one, then

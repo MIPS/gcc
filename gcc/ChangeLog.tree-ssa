@@ -1,5 +1,8 @@
 2003-10-31  Jeff Law  <law@redhat.com>
 
+	* tree-ssa-dom.c (record_equivalences_from_stmt): Restore lost code
+	to create equivalences from BIT_IOR_EXPR.
+                                                                                
 	* tree-ssa-dom.c (thread_jumps_walk_stmts): Go ahead and optimize
 	a COND_EXPR with a compile-time constant condition.
 
