@@ -1498,25 +1498,33 @@ remove_useless_stmts_and_vars_bind (tree *stmt_p, struct rusv_data *data)
 	   vars = TREE_CHAIN (vars))
 	{
 	  struct var_ann_d *ann;
+	  tree  var = vars;
 
 	  /* We could have function declarations and the like
-	     on this list.  Ignore them.  */
-	  if (TREE_CODE (vars) != VAR_DECL)
+	     on this list.  Ignore them.  Also we do not deal with
+	     static variables yet.   */
+	  if (TREE_CODE (var) != VAR_DECL)
 	    {
 	      prev_var = vars;
 	      continue;
 	    }
 
+	  /* Unlike for normal expressions, the tree-inline duplicates
+	     static variables for BIND_EXPR in order to get debug info right.
+	     We must work out the original expression.  */
+	  if (TREE_STATIC (var) && DECL_ABSTRACT_ORIGIN (var))
+	    var = DECL_ABSTRACT_ORIGIN (var);
+
 	  /* Remove all unused, unaliased temporaries.  Also remove
 	     unused, unaliased local variables during highly
 	     optimizing compilations.  */
-	  ann = var_ann (vars);
+	  ann = var_ann (var);
 	  if (ann
 	      && ! ann->may_aliases
 	      && ! ann->used
 	      && ! ann->has_hidden_use
-	      && ! TREE_ADDRESSABLE (vars)
-	      && (DECL_ARTIFICIAL (vars) || optimize >= 2))
+	      && ! TREE_ADDRESSABLE (var)
+	      && (DECL_ARTIFICIAL (var) || optimize >= 2))
 	    {
 	      /* Remove the variable from the BLOCK structures.  */
 	      if (block)
