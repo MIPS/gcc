@@ -2539,7 +2539,7 @@ enum path_prefix_priority
   PREFIX_PRIORITY_LAST
 };
 
-/* Add an entry for PREFIX in PLIST.  The PLIST is kept in assending
+/* Add an entry for PREFIX in PLIST.  The PLIST is kept in ascending
    order according to PRIORITY.  Within each PRIORITY, new entries are
    appended.
 
@@ -2735,7 +2735,7 @@ execute ()
     }
 
 #ifdef ENABLE_VALGRIND_CHECKING
-  /* Run the each command through valgrind.  To simplifiy prepending the
+  /* Run the each command through valgrind.  To simplify prepending the
      path to valgrind and the option "-q" (for quiet operation unless
      something triggers), we allocate a separate argv array.  */
 
@@ -6198,12 +6198,6 @@ main (argc, argv)
 
   process_command (argc, argv);
 
-  /* Process DRIVER_SELF_SPECS, adding any new options to the end
-     of the command line.  */
-
-  for (i = 0; i < ARRAY_SIZE (driver_self_specs); i++)
-    do_self_spec (driver_self_specs[i]);
-
   /* Initialize the vector of specs to just the default.
      This means one element containing 0s, as a terminator.  */
 
@@ -6236,6 +6230,12 @@ main (argc, argv)
   strcat (specs_file, "specs");
   if (access (specs_file, R_OK) == 0)
     read_specs (specs_file, TRUE);
+
+  /* Process DRIVER_SELF_SPECS, adding any new options to the end
+     of the command line.  */
+
+  for (i = 0; i < ARRAY_SIZE (driver_self_specs); i++)
+    do_self_spec (driver_self_specs[i]);
 
   /* If not cross-compiling, look for executables in the standard
      places.  */

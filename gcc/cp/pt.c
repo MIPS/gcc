@@ -1,6 +1,6 @@
 /* Handle parameterized types (templates) for GNU C++.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002  Free Software Foundation, Inc.
+   2001, 2002, 2003  Free Software Foundation, Inc.
    Written by Ken Raeburn (raeburn@cygnus.com) while at Watchmaker Computing.
    Rewritten by Jason Merrill (jason@cygnus.com).
 
@@ -171,6 +171,8 @@ static void copy_default_args_to_explicit_spec PARAMS ((tree));
 static int invalid_nontype_parm_type_p PARAMS ((tree, tsubst_flags_t));
 static int eq_local_specializations (const void *, const void *);
 static tree template_for_substitution (tree);
+static bool value_dependent_expression_p (tree);
+static bool dependent_template_id_p (tree, tree);
 
 /* Make the current scope suitable for access checking when we are
    processing T.  T can be FUNCTION_DECL for instantiated function
@@ -5152,63 +5154,26 @@ instantiate_class_template (type)
   /* Figure out which arguments are being used to do the
      instantiation.  */
   args = CLASSTYPE_TI_ARGS (type);
-  PARTIAL_INSTANTIATION_P (type) = uses_template_parms (args);
-
-  if (pedantic && PARTIAL_INSTANTIATION_P (type))
-    /* If this is a partial instantiation, then we can't instantiate
-       the type; there's no telling whether or not one of the
-       template parameters might eventually be instantiated to some
-       value that results in a specialization being used.  For
-       example, consider:
-
-         template <class T>
-         struct S {};
-
-         template <class U> 
-         void f(S<U>);
-	     
-         template <> 
-         struct S<int> {};
-
-       Now, the `S<U>' in `f<int>' is the specialization, not an
-       instantiation of the original template.  */
-    return type;
 
   /* Determine what specialization of the original template to
      instantiate.  */
-  if (PARTIAL_INSTANTIATION_P (type))
-    /* There's no telling which specialization is appropriate at this
-       point.  Since all peeking at the innards of this partial
-       instantiation are extensions (like the "implicit typename"
-       extension, which allows users to omit the keyword `typename' on
-       names that are declared as types in template base classes), we
-       are free to do what we please.
-
-       Trying to figure out which partial instantiation to use can
-       cause a crash.  (Some of the template arguments don't even have
-       types.)  So, we just use the most general version.  */
-    t = NULL_TREE;
-  else
+  t = most_specialized_class (template, args);
+  if (t == error_mark_node)
     {
-      t = most_specialized_class (template, args);
-
-      if (t == error_mark_node)
+      const char *str = "candidates are:";
+      error ("ambiguous class template instantiation for `%#T'", type);
+      for (t = DECL_TEMPLATE_SPECIALIZATIONS (template); t; 
+	   t = TREE_CHAIN (t))
 	{
-	  const char *str = "candidates are:";
-	  error ("ambiguous class template instantiation for `%#T'", type);
-	  for (t = DECL_TEMPLATE_SPECIALIZATIONS (template); t; 
-	       t = TREE_CHAIN (t))
+	  if (get_class_bindings (TREE_VALUE (t), TREE_PURPOSE (t),
+				  args))
 	    {
-	      if (get_class_bindings (TREE_VALUE (t), TREE_PURPOSE (t),
-				      args))
-		{
-		  cp_error_at ("%s %+#T", str, TREE_TYPE (t));
-		  str = "               ";
-		}
+	      cp_error_at ("%s %+#T", str, TREE_TYPE (t));
+	      str = "               ";
 	    }
-	  TYPE_BEING_DEFINED (type) = 1;
-	  return error_mark_node;
 	}
+      TYPE_BEING_DEFINED (type) = 1;
+      return error_mark_node;
     }
 
   if (t)
@@ -5220,26 +5185,6 @@ instantiate_class_template (type)
      there's nothing we can do.  */
   if (!COMPLETE_TYPE_P (pattern))
     return type;
-
-  /* If this is a partial instantiation, don't tsubst anything.  We will
-     only use this type for implicit typename, so the actual contents don't
-     matter.  All that matters is whether a particular name is a type.  */
-  if (PARTIAL_INSTANTIATION_P (type))
-    {
-      /* The fields set here must be kept in sync with those cleared
-	 in begin_class_definition.  */
-      TYPE_BINFO_BASETYPES (type) = TYPE_BINFO_BASETYPES (pattern);
-      TYPE_FIELDS (type) = TYPE_FIELDS (pattern);
-      TYPE_METHODS (type) = TYPE_METHODS (pattern);
-      CLASSTYPE_DECL_LIST (type) = CLASSTYPE_DECL_LIST (pattern);
-      CLASSTYPE_TAGS (type) = CLASSTYPE_TAGS (pattern);
-      CLASSTYPE_VBASECLASSES (type) = CLASSTYPE_VBASECLASSES (pattern);
-      
-      /* Pretend that the type is complete, so that we will look
-	 inside it during name lookup and such.  */
-      TYPE_SIZE (type) = bitsize_zero_node;
-      return type;
-    }
 
   /* If we've recursively instantiated too many templates, stop.  */
   if (! push_tinst_level (type))
@@ -7242,7 +7187,7 @@ tsubst_copy (t, args, complain, in_decl)
 	tree name;
 	tree qualifying_scope;
 	tree fns;
-	tree template_args;
+	tree template_args = 0;
 	bool template_id_p = false;
 
 	/* A baselink indicates a function from a base class.  The
@@ -7417,11 +7362,10 @@ tsubst_copy (t, args, complain, in_decl)
 	 NULL_TREE);
 
     case STMT_EXPR:
-      /* This processing should really occur in tsubst_expr, However,
+      /* This processing should really occur in tsubst_expr.  However,
 	 tsubst_expr does not recurse into expressions, since it
-	 assumes that there aren't any statements inside them.
-	 Instead, it simply calls build_expr_from_tree.  So, we need
-	 to expand the STMT_EXPR here.  */
+	 assumes that there aren't any statements inside them.  So, we
+	 need to expand the STMT_EXPR here.  */
       if (!processing_template_decl)
 	{
 	  tree stmt_expr = begin_stmt_expr ();
@@ -7558,7 +7502,8 @@ tsubst_copy (t, args, complain, in_decl)
     }
 }
 
-/* Like tsubst_copy, but also does semantic processing.  */
+/* Like tsubst_copy for expressions, etc. but also does semantic
+   processing.  */
 
 tree
 tsubst_expr (t, args, complain, in_decl)
@@ -7575,7 +7520,7 @@ tsubst_expr (t, args, complain, in_decl)
     return tsubst_copy (t, args, complain, in_decl);
 
   if (!statement_code_p (TREE_CODE (t)))
-    return build_expr_from_tree (tsubst_copy (t, args, complain, in_decl));
+    return tsubst_copy_and_build (t, args, complain, in_decl);
     
   switch (TREE_CODE (t))
     {
@@ -7882,6 +7827,508 @@ tsubst_expr (t, args, complain, in_decl)
     }
 
   return tsubst_expr (TREE_CHAIN (t), args, complain, in_decl);
+}
+
+/* Like tsubst but deals with expressions and performs semantic
+   analysis.  */
+
+tree
+tsubst_copy_and_build (t, args, complain, in_decl)
+     tree t, args;
+     tsubst_flags_t complain;
+     tree in_decl;
+{
+  if (t == NULL_TREE || t == error_mark_node)
+    return t;
+
+  switch (TREE_CODE (t))
+    {
+    case IDENTIFIER_NODE:
+      if (IDENTIFIER_TYPENAME_P (t))
+	{
+	  tree new_type = tsubst (TREE_TYPE (t), args, complain, in_decl);
+	  return do_identifier (mangle_conv_op_name_for_type (new_type),
+				NULL_TREE);
+	}
+      else
+	return do_identifier (t, NULL_TREE);
+
+    case LOOKUP_EXPR:
+      {
+	if (LOOKUP_EXPR_GLOBAL (t))
+	  {
+	    tree token
+	      = tsubst_copy (TREE_OPERAND (t, 0), args, complain, in_decl);
+	    return do_scoped_id (token, IDENTIFIER_GLOBAL_VALUE (token));
+	  }
+	else
+	  {
+	    t = do_identifier
+	      (tsubst_copy
+	       (TREE_OPERAND (t, 0), args, complain, in_decl),
+	       NULL_TREE);
+	    if (TREE_CODE (t) == ALIAS_DECL)
+	      t = DECL_INITIAL (t);
+	    return t;
+	  }
+      }
+
+    case TEMPLATE_ID_EXPR:
+      {
+	tree object;
+	tree template
+	  = tsubst_copy (TREE_OPERAND (t, 0), args, complain, in_decl);
+	
+	if (TREE_CODE (template) == COMPONENT_REF)
+	  {
+	    object = TREE_OPERAND (template, 0);
+	    template = TREE_OPERAND (template, 1);
+	  }
+	else
+	  object = NULL_TREE;
+
+	template = lookup_template_function
+	  (template,
+	   tsubst_copy (TREE_OPERAND (t, 1), args, complain, in_decl));
+	
+	if (object)
+	  return build (COMPONENT_REF, TREE_TYPE (template), 
+			object, template);
+	else
+	  return template;
+      }
+
+    case INDIRECT_REF:
+      return build_x_indirect_ref
+	(tsubst_copy_and_build (TREE_OPERAND (t, 0), args, complain, in_decl),
+	 "unary *");
+
+    case CAST_EXPR:
+      return build_functional_cast
+	(tsubst (TREE_TYPE (t), args, complain, in_decl),
+	 tsubst_copy_and_build (TREE_OPERAND (t, 0), args, complain, in_decl));
+
+    case REINTERPRET_CAST_EXPR:
+      return build_reinterpret_cast
+	(tsubst (TREE_TYPE (t), args, complain, in_decl),
+	 tsubst_copy_and_build (TREE_OPERAND (t, 0), args, complain, in_decl));
+
+    case CONST_CAST_EXPR:
+      return build_const_cast
+	(tsubst (TREE_TYPE (t), args, complain, in_decl),
+	 tsubst_copy_and_build (TREE_OPERAND (t, 0), args, complain, in_decl));
+
+    case DYNAMIC_CAST_EXPR:
+      return build_dynamic_cast
+	(tsubst (TREE_TYPE (t), args, complain, in_decl),
+	 tsubst_copy_and_build (TREE_OPERAND (t, 0), args, complain, in_decl));
+
+    case STATIC_CAST_EXPR:
+      return build_static_cast
+	(tsubst (TREE_TYPE (t), args, complain, in_decl),
+	 tsubst_copy_and_build (TREE_OPERAND (t, 0), args, complain, in_decl));
+
+    case PREDECREMENT_EXPR:
+    case PREINCREMENT_EXPR:
+    case POSTDECREMENT_EXPR:
+    case POSTINCREMENT_EXPR:
+      if (TREE_TYPE (t))
+	return tsubst_copy (t, args, complain, in_decl);
+      else
+	return build_x_unary_op
+	  (TREE_CODE (t),
+	   tsubst_copy_and_build (TREE_OPERAND (t, 0), args, complain,
+				  in_decl));
+
+    case NEGATE_EXPR:
+    case BIT_NOT_EXPR:
+      if (TREE_TYPE (t))
+	return tsubst_copy (t, args, complain, in_decl);
+      else
+	return build_x_unary_op
+	  (TREE_CODE (t),
+	   tsubst_copy_and_build (TREE_OPERAND (t, 0), args, complain,
+				  in_decl));
+
+    case ABS_EXPR:
+      if (TREE_TYPE (t))
+	return t;
+      return build_x_unary_op
+	(TREE_CODE (t),
+	 tsubst_copy_and_build (TREE_OPERAND (t, 0), args, complain, in_decl));
+
+    case TRUTH_NOT_EXPR:
+    case ADDR_EXPR:
+    case CONVERT_EXPR:  /* Unary + */
+    case REALPART_EXPR:
+    case IMAGPART_EXPR:
+      if (TREE_TYPE (t))
+	return tsubst_copy (t, args, complain, in_decl);
+      else
+	return build_x_unary_op
+	  (TREE_CODE (t),
+	   tsubst_copy_and_build (TREE_OPERAND (t, 0), args, complain,
+				  in_decl));
+
+    case PLUS_EXPR:
+    case MINUS_EXPR:
+    case MULT_EXPR:
+    case TRUNC_DIV_EXPR:
+    case CEIL_DIV_EXPR:
+    case FLOOR_DIV_EXPR:
+    case ROUND_DIV_EXPR:
+    case EXACT_DIV_EXPR:
+    case BIT_AND_EXPR:
+    case BIT_ANDTC_EXPR:
+    case BIT_IOR_EXPR:
+    case BIT_XOR_EXPR:
+    case TRUNC_MOD_EXPR:
+    case FLOOR_MOD_EXPR:
+    case TRUTH_ANDIF_EXPR:
+    case TRUTH_ORIF_EXPR:
+    case TRUTH_AND_EXPR:
+    case TRUTH_OR_EXPR:
+    case RSHIFT_EXPR:
+    case LSHIFT_EXPR:
+    case RROTATE_EXPR:
+    case LROTATE_EXPR:
+    case EQ_EXPR:
+    case NE_EXPR:
+    case MAX_EXPR:
+    case MIN_EXPR:
+    case LE_EXPR:
+    case GE_EXPR:
+    case LT_EXPR:
+    case GT_EXPR:
+    case MEMBER_REF:
+      return build_x_binary_op
+	(TREE_CODE (t), 
+	 tsubst_copy_and_build (TREE_OPERAND (t, 0), args, complain, in_decl),
+	 tsubst_copy_and_build (TREE_OPERAND (t, 1), args, complain, in_decl));
+
+    case DOTSTAR_EXPR:
+      return build_m_component_ref
+	(tsubst_copy_and_build (TREE_OPERAND (t, 0), args, complain, in_decl),
+	 tsubst_copy_and_build (TREE_OPERAND (t, 1), args, complain, in_decl));
+
+    case SCOPE_REF:
+      return build_offset_ref
+	(tsubst_copy (TREE_OPERAND (t, 0), args, complain, in_decl),
+	 tsubst_copy (TREE_OPERAND (t, 1), args, complain, in_decl));
+
+    case ARRAY_REF:
+      {
+	if (tsubst_copy (TREE_OPERAND (t, 0), args, complain, in_decl)
+	    == NULL_TREE)
+	  /* new-type-id */
+	  return build_nt
+	    (ARRAY_REF, NULL_TREE,
+	     tsubst_copy_and_build (TREE_OPERAND (t, 1), args, complain,
+				    in_decl));
+	
+	return grok_array_decl
+	  (tsubst_copy_and_build (TREE_OPERAND (t, 0), args, complain,
+				  in_decl),
+	   tsubst_copy_and_build (TREE_OPERAND (t, 1), args, complain,
+				  in_decl));
+      }
+
+    case SIZEOF_EXPR:
+    case ALIGNOF_EXPR:
+      {
+	tree r =
+	  tsubst_copy_and_build (TREE_OPERAND (t, 0), args, complain, in_decl);
+	if (!TYPE_P (r))
+	  return TREE_CODE (t) == SIZEOF_EXPR ?
+	    expr_sizeof (r) : c_alignof_expr (r);
+	else
+	  return cxx_sizeof_or_alignof_type (r, TREE_CODE (t), true);
+      }
+
+    case MODOP_EXPR:
+      return build_x_modify_expr
+	(tsubst_copy_and_build (TREE_OPERAND (t, 0), args, complain, in_decl),
+	 TREE_CODE (TREE_OPERAND (t, 1)),
+	 tsubst_copy_and_build (TREE_OPERAND (t, 2), args, complain, in_decl));
+
+    case ARROW_EXPR:
+      return build_x_arrow
+	(tsubst_copy_and_build (TREE_OPERAND (t, 0), args, complain, in_decl));
+
+    case NEW_EXPR:
+      return build_new
+	(tsubst_copy_and_build (TREE_OPERAND (t, 0), args, complain, in_decl),
+	 tsubst_copy_and_build (TREE_OPERAND (t, 1), args, complain, in_decl),
+	 tsubst_copy_and_build (TREE_OPERAND (t, 2), args, complain, in_decl),
+	 NEW_EXPR_USE_GLOBAL (t));
+
+    case DELETE_EXPR:
+     return delete_sanity
+       (tsubst_copy_and_build (TREE_OPERAND (t, 0), args, complain, in_decl),
+	tsubst_copy_and_build (TREE_OPERAND (t, 1), args, complain, in_decl),
+	DELETE_EXPR_USE_VEC (t),
+	DELETE_EXPR_USE_GLOBAL (t));
+
+    case COMPOUND_EXPR:
+      {
+	if (tsubst_copy (TREE_OPERAND (t, 1), args, complain, in_decl)
+	    == NULL_TREE)
+	  return build_x_compound_expr
+	    (tsubst_copy_and_build (TREE_OPERAND (t, 0), args, complain,
+				    in_decl));
+	else
+	  abort ();
+      }
+
+    case METHOD_CALL_EXPR:
+      {
+	tree method
+	  = tsubst_copy (TREE_OPERAND (t, 0), args, complain, in_decl);
+	
+	if (TREE_CODE (method) == SCOPE_REF)
+	  {
+	    tree name = TREE_OPERAND (method, 1);
+	  
+	    if (TREE_CODE (name) == TEMPLATE_ID_EXPR)
+	      name = build_nt (TEMPLATE_ID_EXPR,
+			       TREE_OPERAND (name, 0),
+			       TREE_OPERAND (name, 1));
+	    
+	    return build_scoped_method_call
+	      (tsubst_copy_and_build
+	       (TREE_OPERAND (t, 1), args, complain, in_decl),
+	       TREE_OPERAND (method, 0),
+	       name,
+	       tsubst_copy_and_build
+	       (TREE_OPERAND (t, 2), args, complain, in_decl));
+	  }
+	else 
+	  {
+	    /* We can get a TEMPLATE_ID_EXPR here on code like:
+
+	    x->f<2>();
+	      
+	    so we must resolve that.  However, we can also get things
+	    like a BIT_NOT_EXPR here, when referring to a destructor,
+	    and things like that are not correctly resolved by this
+	    function so just use it when we really need it.  */
+	    if (TREE_CODE (method) == TEMPLATE_ID_EXPR)
+	      method = lookup_template_function
+		(TREE_OPERAND (method, 0),
+		 TREE_OPERAND (method, 1));
+
+	    return build_method_call
+	      (tsubst_copy_and_build
+	       (TREE_OPERAND (t, 1), args, complain, in_decl),
+	       method,
+	       tsubst_copy_and_build
+	       (TREE_OPERAND (t, 2), args, complain, in_decl),
+	       NULL_TREE, LOOKUP_NORMAL);
+	  }
+      }
+
+    case CALL_EXPR:
+      {
+	tree function
+	  = tsubst_copy (TREE_OPERAND (t, 0), args, complain, in_decl);
+	if (TREE_CODE (function) == SCOPE_REF)
+	  {
+	    tree name = TREE_OPERAND (function, 1);
+	    if (TREE_CODE (name) == TEMPLATE_ID_EXPR)
+	      name = build_nt (TEMPLATE_ID_EXPR,
+			       TREE_OPERAND (name, 0),
+			       TREE_OPERAND (name, 1));
+
+	    return build_call_from_tree
+	      (resolve_scoped_fn_name (TREE_OPERAND (function, 0), name),
+	       tsubst_copy_and_build (TREE_OPERAND (t, 1), args, complain,
+				      in_decl),
+	       1);
+	  }
+	else
+	  {
+	    tree name = function;
+	    tree id;
+	    tree copy_args = tsubst_copy_and_build
+	      (TREE_OPERAND (t, 1), args, complain, in_decl);
+	    if (copy_args != NULL_TREE && TREE_CODE (name) == LOOKUP_EXPR
+		&& !LOOKUP_EXPR_GLOBAL (name)
+		&& (TREE_CODE ((id = TREE_OPERAND (name, 0)))
+		    == IDENTIFIER_NODE)
+		&& (!current_class_type
+		    || !lookup_member (current_class_type, id, 0, 0)))
+	      {
+		/* Do Koenig lookup if there are no class members.  */
+		name = do_identifier (id, copy_args);
+	      }
+	    else if (TREE_CODE (name) == TEMPLATE_ID_EXPR
+		     || ! really_overloaded_fn (name))
+	      name = build_expr_from_tree (name);
+
+	    if (TREE_CODE (name) == OFFSET_REF)
+	      return build_offset_ref_call_from_tree (name, copy_args);
+	    if (TREE_CODE (name) == COMPONENT_REF)
+	      return finish_object_call_expr (TREE_OPERAND (name, 1),
+					      TREE_OPERAND (name, 0),
+					      copy_args);
+	    name = convert_from_reference (name);
+	    return build_call_from_tree (name, copy_args, 
+					 /*disallow_virtual=*/false);
+	  }
+      }
+
+    case COND_EXPR:
+      return build_x_conditional_expr
+	(tsubst_copy_and_build (TREE_OPERAND (t, 0), args, complain, in_decl),
+	 tsubst_copy_and_build (TREE_OPERAND (t, 1), args, complain, in_decl),
+	 tsubst_copy_and_build (TREE_OPERAND (t, 2), args, complain, in_decl));
+
+    case PSEUDO_DTOR_EXPR:
+      return finish_pseudo_destructor_expr 
+	(tsubst_copy_and_build (TREE_OPERAND (t, 0), args, complain, in_decl),
+	 tsubst_copy_and_build (TREE_OPERAND (t, 1), args, complain, in_decl),
+	 tsubst_copy_and_build (TREE_OPERAND (t, 2), args, complain, in_decl));
+
+    case TREE_LIST:
+      {
+	tree purpose, value, chain;
+
+	if (t == void_list_node)
+	  return t;
+
+	purpose = TREE_PURPOSE (t);
+	if (purpose)
+	  purpose = tsubst_copy_and_build (purpose, args, complain, in_decl);
+	value = TREE_VALUE (t);
+	if (value)
+	  value = tsubst_copy_and_build (value, args, complain, in_decl);
+	chain = TREE_CHAIN (t);
+	if (chain && chain != void_type_node)
+	  chain = tsubst_copy_and_build (chain, args, complain, in_decl);
+	if (purpose == TREE_PURPOSE (t)
+	    && value == TREE_VALUE (t)
+	    && chain == TREE_CHAIN (t))
+	  return t;
+	return tree_cons (purpose, value, chain);
+      }
+
+    case COMPONENT_REF:
+      {
+	tree object =
+	  tsubst_copy_and_build (TREE_OPERAND (t, 0), args, complain, in_decl);
+	tree member =
+	  tsubst_copy (TREE_OPERAND (t, 1), args, complain, in_decl);
+
+	if (!CLASS_TYPE_P (TREE_TYPE (object)))
+	  {
+	    if (TREE_CODE (member) == BIT_NOT_EXPR)
+	      return finish_pseudo_destructor_expr (object, 
+						    NULL_TREE,
+						    TREE_TYPE (object));
+	    else if (TREE_CODE (member) == SCOPE_REF
+		     && (TREE_CODE (TREE_OPERAND (member, 1)) == BIT_NOT_EXPR))
+	      return finish_pseudo_destructor_expr (object, 
+						    object,
+						    TREE_TYPE (object));
+	  }
+	else if (TREE_CODE (member) == SCOPE_REF
+		 && TREE_CODE (TREE_OPERAND (member, 1)) == TEMPLATE_ID_EXPR)
+	  {
+	    tree tmpl;
+	    tree args;
+	
+	    /* Lookup the template functions now that we know what the
+	       scope is.  */
+	    tmpl = TREE_OPERAND (TREE_OPERAND (member, 1), 0);
+	    args = TREE_OPERAND (TREE_OPERAND (member, 1), 1);
+	    member = lookup_qualified_name (TREE_OPERAND (member, 0),
+					    tmpl, 
+					    /*is_type=*/0,
+					    /*flags=*/0);
+	    if (BASELINK_P (member))
+	      BASELINK_FUNCTIONS (member) 
+		= build_nt (TEMPLATE_ID_EXPR, BASELINK_FUNCTIONS (member),
+			    args);
+	    else
+	      {
+		error ("`%D' is not a member of `%T'",
+		       tmpl, TREE_TYPE (object));
+		return error_mark_node;
+	      }
+	  }
+
+	return finish_class_member_access_expr (object, member);
+      }
+
+    case THROW_EXPR:
+      return build_throw
+	(tsubst_copy_and_build (TREE_OPERAND (t, 0), args, complain, in_decl));
+
+    case CONSTRUCTOR:
+      {
+	tree r;
+	tree elts;
+	tree type = tsubst (TREE_TYPE (t), args, complain, in_decl);
+	bool purpose_p;
+
+	/* digest_init will do the wrong thing if we let it.  */
+	if (type && TYPE_PTRMEMFUNC_P (type))
+	  return t;
+
+	r = NULL_TREE;
+	/* We do not want to process the purpose of aggregate
+	   initializers as they are identifier nodes which will be
+	   looked up by digest_init.  */
+	purpose_p = !(type && IS_AGGR_TYPE (type));
+	for (elts = tsubst_copy (CONSTRUCTOR_ELTS (t), args, complain,
+				 in_decl);
+	     elts;
+	     elts = TREE_CHAIN (elts))
+	  {
+	    tree purpose = TREE_PURPOSE (elts);
+	    tree value = TREE_VALUE (elts);
+	    
+	    if (purpose && purpose_p)
+	      purpose
+		= tsubst_copy_and_build (purpose, args, complain, in_decl);
+	    value = tsubst_copy_and_build (value, args, complain, in_decl);
+	    r = tree_cons (purpose, value, r);
+	  }
+	
+	r = build_nt (CONSTRUCTOR, NULL_TREE, nreverse (r));
+	TREE_HAS_CONSTRUCTOR (r) = TREE_HAS_CONSTRUCTOR (t);
+
+	if (type)
+	  return digest_init (type, r, 0);
+	return r;
+      }
+
+    case TYPEID_EXPR:
+      {
+	tree operand_0
+	  = tsubst_copy_and_build (TREE_OPERAND (t, 0), args, complain,
+				   in_decl);
+	
+	if (TYPE_P (operand_0))
+	  return get_typeid (operand_0);
+	return build_typeid (operand_0);
+      }
+
+    case PARM_DECL:
+      return convert_from_reference (tsubst_copy (t, args, complain, in_decl));
+
+    case VAR_DECL:
+      return convert_from_reference (tsubst_copy (t, args, complain, in_decl));
+
+    case VA_ARG_EXPR:
+	return build_x_va_arg
+	  (tsubst_copy_and_build
+	   (TREE_OPERAND (t, 0), args, complain, in_decl),
+	   tsubst_copy (TREE_TYPE (t), args, complain, in_decl));
+
+    default:
+      return tsubst_copy (t, args, complain, in_decl);
+    }
 }
 
 /* Instantiate the indicated variable or function template TMPL with
@@ -9772,9 +10219,9 @@ do_decl_instantiation (tree decl, tree storage)
 	 should handle VAR_DECLs as it currently handles
 	 FUNCTION_DECLs.  */
       result = lookup_field (DECL_CONTEXT (decl), DECL_NAME (decl), 0, 0);
-      if (result && TREE_CODE (result) != VAR_DECL)
+      if (!result || TREE_CODE (result) != VAR_DECL)
 	{
-	  error ("no matching template for `%D' found", result);
+	  error ("no matching template for `%D' found", decl);
 	  return;
 	}
     }
@@ -10740,6 +11187,285 @@ invalid_nontype_parm_type_p (type, complain)
     error ("`%#T' is not a valid type for a template constant parameter",
               type);
   return 1;
+}
+
+/* Returns TRUE if TYPE is dependent, in the sense of
+   [temp.dep.type].  */
+
+bool
+dependent_type_p (type)
+     tree type;
+{
+  tree scope;
+
+  /* If there are no template parameters in scope, then there can't be
+     any dependent types.  */
+  if (!processing_template_decl)
+    return false;
+
+  /* If the type is NULL, we have not computed a type for the entity
+     in question; in that case, the type is dependent.  */
+  if (!type)
+    return true;
+
+  /* Erroneous types can be considered non-dependent.  */
+  if (type == error_mark_node)
+    return false;
+
+  /* [temp.dep.type]
+
+     A type is dependent if it is:
+
+     -- a template parameter.  */
+  if (TREE_CODE (type) == TEMPLATE_TYPE_PARM)
+    return true;
+  /* -- a qualified-id with a nested-name-specifier which contains a
+        class-name that names a dependent type or whose unqualified-id
+	names a dependent type.  */
+  if (TREE_CODE (type) == TYPENAME_TYPE)
+    return true;
+  /* -- a cv-qualified type where the cv-unqualified type is
+        dependent.  */
+  type = TYPE_MAIN_VARIANT (type);
+  /* -- a compound type constructed from any dependent type.  */
+  if (TYPE_PTRMEM_P (type) || TYPE_PTRMEMFUNC_P (type))
+    return (dependent_type_p (TYPE_PTRMEM_CLASS_TYPE (type))
+	    || dependent_type_p (TYPE_PTRMEM_POINTED_TO_TYPE 
+					   (type)));
+  else if (TREE_CODE (type) == POINTER_TYPE
+	   || TREE_CODE (type) == REFERENCE_TYPE)
+    return dependent_type_p (TREE_TYPE (type));
+  else if (TREE_CODE (type) == FUNCTION_TYPE
+	   || TREE_CODE (type) == METHOD_TYPE)
+    {
+      tree arg_type;
+
+      if (dependent_type_p (TREE_TYPE (type)))
+	return true;
+      for (arg_type = TYPE_ARG_TYPES (type); 
+	   arg_type; 
+	   arg_type = TREE_CHAIN (arg_type))
+	if (dependent_type_p (TREE_VALUE (arg_type)))
+	  return true;
+      return false;
+    }
+  /* -- an array type constructed from any dependent type or whose
+        size is specified by a constant expression that is
+	value-dependent.  */
+  if (TREE_CODE (type) == ARRAY_TYPE)
+    {
+      if (TYPE_DOMAIN (type)
+	  && ((value_dependent_expression_p 
+	       (TYPE_MAX_VALUE (TYPE_DOMAIN (type))))
+	      || (type_dependent_expression_p
+		  (TYPE_MAX_VALUE (TYPE_DOMAIN (type))))))
+	return true;
+      return dependent_type_p (TREE_TYPE (type));
+    }
+  /* -- a template-id in which either the template name is a template
+        parameter or any of the template arguments is a dependent type or
+	an expression that is type-dependent or value-dependent.  
+
+     This language seems somewhat confused; for example, it does not
+     discuss template template arguments.  Therefore, we use the
+     definition for dependent template arguments in [temp.dep.temp].  */
+  if (CLASS_TYPE_P (type) && CLASSTYPE_TEMPLATE_INFO (type)
+      && (dependent_template_id_p
+	  (CLASSTYPE_TI_TEMPLATE (type),
+	   CLASSTYPE_TI_ARGS (type))))
+    return true;
+  else if (TREE_CODE (type) == BOUND_TEMPLATE_TEMPLATE_PARM)
+    return true;
+  /* All TYPEOF_TYPEs are dependent; if the argument of the `typeof'
+     expression is not type-dependent, then it should already been
+     have resolved.  */
+  if (TREE_CODE (type) == TYPEOF_TYPE)
+    return true;
+  /* The standard does not specifically mention types that are local
+     to template functions or local classes, but they should be
+     considered dependent too.  For example:
+
+       template <int I> void f() { 
+         enum E { a = I }; 
+	 S<sizeof (E)> s;
+       }
+
+     The size of `E' cannot be known until the value of `I' has been
+     determined.  Therefore, `E' must be considered dependent.  */
+  scope = TYPE_CONTEXT (type);
+  if (scope && TYPE_P (scope))
+    return dependent_type_p (scope);
+  else if (scope && TREE_CODE (scope) == FUNCTION_DECL)
+    return type_dependent_expression_p (scope);
+
+  /* Other types are non-dependent.  */
+  return false;
+}
+
+/* Returns TRUE if the EXPRESSION is value-dependent.  */
+
+static bool
+value_dependent_expression_p (tree expression)
+{
+  if (!processing_template_decl)
+    return false;
+
+  /* A name declared with a dependent type.  */
+  if (DECL_P (expression)
+      && dependent_type_p (TREE_TYPE (expression)))
+    return true;
+  /* A non-type template parameter.  */
+  if ((TREE_CODE (expression) == CONST_DECL
+       && DECL_TEMPLATE_PARM_P (expression))
+      || TREE_CODE (expression) == TEMPLATE_PARM_INDEX)
+    return true;
+  /* A constant with integral or enumeration type and is initialized 
+     with an expression that is value-dependent.  */
+  if (TREE_CODE (expression) == VAR_DECL
+      && DECL_INITIAL (expression)
+      && (CP_INTEGRAL_TYPE_P (TREE_TYPE (expression))
+	  || TREE_CODE (TREE_TYPE (expression)) == ENUMERAL_TYPE)
+      && value_dependent_expression_p (DECL_INITIAL (expression)))
+    return true;
+  /* These expressions are value-dependent if the type to which the
+     cast occurs is dependent.  */
+  if ((TREE_CODE (expression) == DYNAMIC_CAST_EXPR
+       || TREE_CODE (expression) == STATIC_CAST_EXPR
+       || TREE_CODE (expression) == CONST_CAST_EXPR
+       || TREE_CODE (expression) == REINTERPRET_CAST_EXPR
+       || TREE_CODE (expression) == CAST_EXPR)
+      && dependent_type_p (TREE_TYPE (expression)))
+    return true;
+  /* A `sizeof' expression where the sizeof operand is a type is
+     value-dependent if the type is dependent.  If the type was not
+     dependent, we would no longer have a SIZEOF_EXPR, so any
+     SIZEOF_EXPR is dependent.  */
+  if (TREE_CODE (expression) == SIZEOF_EXPR)
+    return true;
+  /* A constant expression is value-dependent if any subexpression is
+     value-dependent.  */
+  if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (expression))))
+    {
+      switch (TREE_CODE_CLASS (TREE_CODE (expression)))
+	{
+	case '1':
+	  return (value_dependent_expression_p 
+		  (TREE_OPERAND (expression, 0)));
+	case '<':
+	case '2':
+	  return ((value_dependent_expression_p 
+		   (TREE_OPERAND (expression, 0)))
+		  || (value_dependent_expression_p 
+		      (TREE_OPERAND (expression, 1))));
+	case 'e':
+	  {
+	    int i;
+	    for (i = 0; 
+		 i < TREE_CODE_LENGTH (TREE_CODE (expression));
+		 ++i)
+	      if (value_dependent_expression_p
+		  (TREE_OPERAND (expression, i)))
+		return true;
+	    return false;
+	  }
+	}
+    }
+
+  /* The expression is not value-dependent.  */
+  return false;
+}
+
+/* Returns TRUE if the EXPRESSION is type-dependent, in the sense of
+   [temp.dep.expr].  */
+
+bool
+type_dependent_expression_p (expression)
+     tree expression;
+{
+  if (!processing_template_decl)
+    return false;
+
+  /* Some expression forms are never type-dependent.  */
+  if (TREE_CODE (expression) == PSEUDO_DTOR_EXPR
+      || TREE_CODE (expression) == SIZEOF_EXPR
+      || TREE_CODE (expression) == ALIGNOF_EXPR
+      || TREE_CODE (expression) == TYPEID_EXPR
+      || TREE_CODE (expression) == DELETE_EXPR
+      || TREE_CODE (expression) == VEC_DELETE_EXPR
+      || TREE_CODE (expression) == THROW_EXPR)
+    return false;
+
+  /* The types of these expressions depends only on the type to which
+     the cast occurs.  */
+  if (TREE_CODE (expression) == DYNAMIC_CAST_EXPR
+      || TREE_CODE (expression) == STATIC_CAST_EXPR
+      || TREE_CODE (expression) == CONST_CAST_EXPR
+      || TREE_CODE (expression) == REINTERPRET_CAST_EXPR
+      || TREE_CODE (expression) == CAST_EXPR)
+    return dependent_type_p (TREE_TYPE (expression));
+  /* The types of these expressions depends only on the type created
+     by the expression.  */
+  else if (TREE_CODE (expression) == NEW_EXPR
+	   || TREE_CODE (expression) == VEC_NEW_EXPR)
+    return dependent_type_p (TREE_OPERAND (expression, 1));
+
+  if (TREE_CODE (expression) == FUNCTION_DECL
+      && DECL_LANG_SPECIFIC (expression)
+      && DECL_TEMPLATE_INFO (expression)
+      && (dependent_template_id_p
+	  (DECL_TI_TEMPLATE (expression),
+	   INNERMOST_TEMPLATE_ARGS (DECL_TI_ARGS (expression)))))
+    return true;
+
+  return (dependent_type_p (TREE_TYPE (expression)));
+}
+
+/* Returns TRUE if the ARG (a template argument) is dependent.  */
+
+bool
+dependent_template_arg_p (tree arg)
+{
+  if (!processing_template_decl)
+    return false;
+
+  if (TREE_CODE (arg) == TEMPLATE_DECL
+      || TREE_CODE (arg) == TEMPLATE_TEMPLATE_PARM)
+    return dependent_template_p (arg);
+  else if (TYPE_P (arg))
+    return dependent_type_p (arg);
+  else
+    return (type_dependent_expression_p (arg)
+	    || value_dependent_expression_p (arg));
+}
+
+/* Returns TRUE if the specialization TMPL<ARGS> is dependent.  */
+
+static bool
+dependent_template_id_p (tree tmpl, tree args)
+{
+  int i;
+
+  if (dependent_template_p (tmpl))
+    return true;
+  for (i = 0; i < TREE_VEC_LENGTH (args); ++i)
+    if (dependent_template_arg_p (TREE_VEC_ELT (args, i)))
+      return true;
+  return false;
+}
+
+/* Returns TRUE if the template TMPL is dependent.  */
+
+bool
+dependent_template_p (tree tmpl)
+{
+  /* Template template parameters are dependent.  */
+  if (DECL_TEMPLATE_TEMPLATE_PARM_P (tmpl)
+      || TREE_CODE (tmpl) == TEMPLATE_TEMPLATE_PARM)
+    return true;
+  /* So are member templates of dependent classes.  */
+  if (TYPE_P (CP_DECL_CONTEXT (tmpl)))
+    return dependent_type_p (DECL_CONTEXT (tmpl));
+  return false;
 }
 
 #include "gt-cp-pt.h"

@@ -41,6 +41,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "ggc.h"
 #include "debug.h"
 #include "assert.h"
+#include "tm_p.h"
 
 #ifdef HAVE_LOCALE_H
 #include <locale.h>
@@ -70,7 +71,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 
 extern struct obstack temporary_obstack;
 
-/* Set to nonzero value in order to emit class initilization code
+/* Set to nonzero value in order to emit class initialization code
    before static field references.  */
 extern int always_initialize_class_p;
 
@@ -93,6 +94,8 @@ static struct ZipFile *localToFile;
 /* Declarations of some functions used here.  */
 static void handle_innerclass_attribute (int count, JCF *);
 static tree give_name_to_class (JCF *jcf, int index);
+static char *compute_class_name (struct ZipDirectory *zdir);
+static int classify_zip_file (struct ZipDirectory *zdir);
 static void parse_zip_file_entries (void);
 static void process_zip_dir (FILE *);
 static void parse_source_file_1 (tree, FILE *);
@@ -106,9 +109,7 @@ static void load_inner_classes (tree);
 /* Handle "SourceFile" attribute. */
 
 static void
-set_source_filename (jcf, index)
-     JCF *jcf;
-     int index;
+set_source_filename (JCF *jcf, int index)
 {
   tree sfname_id = get_name_constant (jcf, index);
   const char *sfname = IDENTIFIER_POINTER (sfname_id);
@@ -223,9 +224,7 @@ set_source_filename (jcf, index)
 #include "jcf-reader.c"
 
 tree
-parse_signature (jcf, sig_index)
-     JCF *jcf;
-     int sig_index;
+parse_signature (JCF *jcf, int sig_index)
 {
   if (sig_index <= 0 || sig_index >= JPOOL_SIZE (jcf)
       || JPOOL_TAG (jcf, sig_index) != CONSTANT_Utf8)
@@ -236,9 +235,7 @@ parse_signature (jcf, sig_index)
 }
 
 tree
-get_constant (jcf, index)
-  JCF *jcf;
-  int index;
+get_constant (JCF *jcf, int index)
 {
   tree value;
   int tag;
@@ -336,9 +333,7 @@ get_constant (jcf, index)
 }
 
 tree
-get_name_constant (jcf, index)
-  JCF *jcf;
-  int index;
+get_name_constant (JCF *jcf, int index)
 {
   tree name = get_constant (jcf, index);
 
@@ -353,9 +348,7 @@ get_name_constant (jcf, index)
    the outer context with the newly resolved innerclass.  */
 
 static void
-handle_innerclass_attribute (count, jcf)
-     int count;
-     JCF *jcf;
+handle_innerclass_attribute (int count, JCF *jcf)
 {
   int c = (count);
   while (c--)
@@ -366,7 +359,7 @@ handle_innerclass_attribute (count, jcf)
 	 entry isn't a member (like an inner class) the value is 0. */
       int ocii = JCF_readu2 (jcf);
       /* Read inner_name_index. If the class we're dealing with is
-	 an annonymous class, it must be 0. */
+	 an anonymous class, it must be 0. */
       int ini = JCF_readu2 (jcf);
       /* Read the access flag. */
       int acc = JCF_readu2 (jcf);
@@ -391,9 +384,7 @@ handle_innerclass_attribute (count, jcf)
 }
 
 static tree
-give_name_to_class (jcf, i)
-     JCF *jcf;
-     int i;
+give_name_to_class (JCF *jcf, int i)
 {
   if (i <= 0 || i >= JPOOL_SIZE (jcf)
       || JPOOL_TAG (jcf, i) != CONSTANT_Class)
@@ -420,7 +411,7 @@ give_name_to_class (jcf, i)
 /* Get the class of the CONSTANT_Class whose constant pool index is I. */
 
 tree
-get_class_constant (JCF *jcf , int i)
+get_class_constant (JCF *jcf, int i)
 {
   tree type;
   if (i <= 0 || i >= JPOOL_SIZE (jcf)
@@ -455,8 +446,7 @@ get_class_constant (JCF *jcf , int i)
    define the class it is supposed to.) */
 
 int
-read_class (name)
-     tree name;
+read_class (tree name)
 {
   JCF this_jcf, *jcf;
   tree icv, class = NULL_TREE;
@@ -548,9 +538,7 @@ read_class (name)
    - and then perhaps rename read_class to load_class.  FIXME */
 
 void
-load_class (class_or_name, verbose)
-     tree class_or_name;
-     int verbose;
+load_class (tree class_or_name, int verbose)
 {
   tree name, saved;
   int class_loaded;
@@ -596,8 +584,7 @@ load_class (class_or_name, verbose)
 /* Parse the .class file JCF. */
 
 void
-jcf_parse (jcf)
-     JCF* jcf;
+jcf_parse (JCF* jcf)
 {
   int i, code;
 
@@ -667,8 +654,7 @@ jcf_parse (jcf)
 
 /* If we came across inner classes, load them now. */
 static void
-load_inner_classes (cur_class)
-     tree cur_class;
+load_inner_classes (tree cur_class)
 {
   tree current;
   for (current = DECL_INNER_CLASS_LIST (TYPE_NAME (cur_class)); current;
@@ -683,13 +669,13 @@ load_inner_classes (cur_class)
 }
 
 void
-init_outgoing_cpool ()
+init_outgoing_cpool (void)
 {
   outgoing_cpool = ggc_alloc_cleared (sizeof (struct CPool));
 }
 
 static void
-parse_class_file ()
+parse_class_file (void)
 {
   tree method, field;
   const char *save_input_filename = input_filename;
@@ -799,9 +785,7 @@ parse_class_file ()
 /* Parse a source file, as pointed by the current value of INPUT_FILENAME. */
 
 static void
-parse_source_file_1 (file, finput)
-     tree file;
-     FILE *finput;
+parse_source_file_1 (tree file, FILE *finput)
 {
   int save_error_count = java_error_count;
   /* Mark the file as parsed */
@@ -833,7 +817,7 @@ parse_source_file_1 (file, finput)
 /* Process a parsed source file, resolving names etc. */
 
 static void
-parse_source_file_2 ()
+parse_source_file_2 (void)
 {
   int save_error_count = java_error_count;
   java_complete_class ();	    /* Parse unsatisfied class decl. */
@@ -841,7 +825,7 @@ parse_source_file_2 ()
 }
 
 static void
-parse_source_file_3 ()
+parse_source_file_3 (void)
 {
   int save_error_count = java_error_count;
   java_check_circular_reference (); /* Check on circular references */
@@ -852,15 +836,13 @@ parse_source_file_3 ()
 }
 
 void
-add_predefined_file (name)
-     tree name;
+add_predefined_file (tree name)
 {
   predef_filenames = tree_cons (NULL_TREE, name, predef_filenames);
 }
 
 int
-predefined_filename_p (node)
-     tree node;
+predefined_filename_p (tree node)
 {
   tree iter;
 
@@ -873,8 +855,7 @@ predefined_filename_p (node)
 }
 
 void
-java_parse_file (set_yydebug)
-     int set_yydebug ATTRIBUTE_UNUSED;
+java_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
 {
   int filename_count = 0;
   char *list, *next;
@@ -1033,7 +1014,7 @@ java_parse_file (set_yydebug)
       finput = fopen (IDENTIFIER_POINTER (name), "rb");
       if (finput == NULL)
 	fatal_io_error ("can't open %s", IDENTIFIER_POINTER (name));
-      
+
 #ifdef IO_BUFFER_SIZE
       setvbuf (finput, xmalloc (IO_BUFFER_SIZE),
 	       _IOFBF, IO_BUFFER_SIZE);
@@ -1068,7 +1049,7 @@ java_parse_file (set_yydebug)
 	  if (open_in_zip (main_jcf, input_filename, NULL, 0) <  0)
 	    fatal_error ("bad zip/jar file %s", IDENTIFIER_POINTER (name));
 	  localToFile = SeenZipFiles;
-	  /* Register all the class defined there.  */
+	  /* Register all the classes defined there.  */
 	  process_zip_dir (main_jcf->read_state);
 	  parse_zip_file_entries ();
 	  /*
@@ -1121,6 +1102,51 @@ java_parse_file (set_yydebug)
       if (flag_indirect_dispatch)
 	emit_offset_symbol_table ();
     }
+
+  write_resource_constructor ();
+}
+
+/* Return the name of the class corresponding to the name of the file
+   in this zip entry.  The result is newly allocated using ALLOC.  */
+static char *
+compute_class_name (struct ZipDirectory *zdir)
+{
+  char *class_name_in_zip_dir = ZIPDIR_FILENAME (zdir);
+  char *class_name;
+  int j;
+
+  class_name = ALLOC (zdir->filename_length + 1 - 6);
+  strncpy (class_name, class_name_in_zip_dir, zdir->filename_length - 6);
+  class_name [zdir->filename_length - 6] = '\0';
+  for (j = 0; class_name[j]; ++j)
+    class_name[j] = class_name[j] == '/' ? '.' : class_name[j];
+  return class_name;
+}
+
+/* Return 0 if we should skip this entry, 1 if it is a .class file, 2
+   if it is a property file of some sort.  */
+static int
+classify_zip_file (struct ZipDirectory *zdir)
+{
+  char *class_name_in_zip_dir = ZIPDIR_FILENAME (zdir);
+
+  if (zdir->filename_length > 6
+      && !strncmp (&class_name_in_zip_dir[zdir->filename_length - 6],
+		   ".class", 6))
+    return 1;
+
+  /* For now we drop the manifest and other information.  Maybe it
+     would make more sense to compile it in?  */
+  if (zdir->filename_length > 8
+      && !strncmp (class_name_in_zip_dir, "META-INF/", 9))
+    return 0;
+
+  /* Drop directory entries.  */
+  if (zdir->filename_length > 0
+      && class_name_in_zip_dir[zdir->filename_length - 1] == '/')
+    return 0;
+
+  return 2;
 }
 
 /* Process all class entries found in the zip file.  */
@@ -1134,35 +1160,80 @@ parse_zip_file_entries (void)
        i < localToFile->count; i++, zdir = ZIPDIR_NEXT (zdir))
     {
       tree class;
-      
-      /* We don't need to consider those files.  */
-      if (!zdir->size || !zdir->filename_offset)
-	continue;
 
-      class = lookup_class (get_identifier (ZIPDIR_FILENAME (zdir)));
-      current_jcf = TYPE_JCF (class);
-      current_class = class;
-
-      if ( !CLASS_LOADED_P (class))
+      switch (classify_zip_file (zdir))
 	{
-	  if (! CLASS_PARSED_P (class))
-	    {
-	      read_zip_member(current_jcf, zdir, localToFile);
-	      jcf_parse (current_jcf);
-	    }
-	  layout_class (current_class);
-	  load_inner_classes (current_class);
-	}
+	case 0:
+	  continue;
 
-      if (TYPE_SIZE (current_class) != error_mark_node)
-	{
-	  input_filename = current_jcf->filename;
-	  parse_class_file ();
-	  FREE (current_jcf->buffer); /* No longer necessary */
-	  /* Note: there is a way to free this buffer right after a
-	     class seen in a zip file has been parsed. The idea is the
-	     set its jcf in such a way that buffer will be reallocated
-	     the time the code for the class will be generated. FIXME. */
+	case 1:
+	  {
+	    char *class_name = compute_class_name (zdir);
+	    class = lookup_class (get_identifier (class_name));
+	    FREE (class_name);
+	    current_jcf = TYPE_JCF (class);
+	    current_class = class;
+
+	    if (! CLASS_LOADED_P (class))
+	      {
+		if (! CLASS_PARSED_P (class))
+		  {
+		    read_zip_member (current_jcf, zdir, localToFile);
+		    jcf_parse (current_jcf);
+		  }
+		layout_class (current_class);
+		load_inner_classes (current_class);
+	      }
+
+	    if (TYPE_SIZE (current_class) != error_mark_node)
+	      {
+		input_filename = current_jcf->filename;
+		parse_class_file ();
+		FREE (current_jcf->buffer); /* No longer necessary */
+		/* Note: there is a way to free this buffer right after a
+		   class seen in a zip file has been parsed. The idea is the
+		   set its jcf in such a way that buffer will be reallocated
+		   the time the code for the class will be generated. FIXME. */
+	      }
+	  }
+	  break;
+
+	case 2:
+	  {
+	    char *file_name, *class_name_in_zip_dir, *buffer;
+	    JCF *jcf;
+	    file_name = ALLOC (zdir->filename_length + 1);
+	    class_name_in_zip_dir = ZIPDIR_FILENAME (zdir);
+	    strncpy (file_name, class_name_in_zip_dir, zdir->filename_length);
+	    file_name[zdir->filename_length] = '\0';
+	    jcf = ALLOC (sizeof (JCF));
+	    JCF_ZERO (jcf);
+	    jcf->read_state  = finput;
+	    jcf->filbuf      = jcf_filbuf_from_stdio;
+	    jcf->java_source = 0;
+	    jcf->classname   = NULL;
+	    jcf->filename    = file_name;
+	    jcf->zipd        = zdir;
+
+	    if (read_zip_member (jcf, zdir, localToFile) < 0)
+	      fatal_error ("error while reading %s from zip file", file_name);
+
+	    buffer = ALLOC (zdir->filename_length + 1 +
+			    (jcf->buffer_end - jcf->buffer));
+	    strcpy (buffer, file_name);
+	    memcpy (buffer + zdir->filename_length + 1,
+		    jcf->buffer, jcf->buffer_end - jcf->buffer);
+
+	    compile_resource_data (file_name, buffer,
+				   jcf->buffer_end - jcf->buffer);
+	    JCF_FINISH (jcf);
+	    FREE (jcf);
+	    FREE (buffer);
+	  }
+	  break;
+
+	default:
+	  abort ();
 	}
     }
 }
@@ -1182,37 +1253,21 @@ process_zip_dir (FILE *finput)
       char *class_name, *file_name, *class_name_in_zip_dir;
       tree class;
       JCF  *jcf;
-      int   j;
 
       class_name_in_zip_dir = ZIPDIR_FILENAME (zdir);
 
-      /* We choose to not to process entries with a zero size or entries
-	 not bearing the .class extension.  */
-      if (!zdir->size || !zdir->filename_offset ||
-	  strncmp (&class_name_in_zip_dir[zdir->filename_length-6], 
-		   ".class", 6))
-	{
-	  /* So it will be skipped in parse_zip_file_entries  */
-	  zdir->size = 0;  
-	  continue;
-	}
+      /* Here we skip non-class files; we handle them later.  */
+      if (classify_zip_file (zdir) != 1)
+	continue;
 
-      class_name = ALLOC (zdir->filename_length+1-6);
+      class_name = compute_class_name (zdir);
       file_name  = ALLOC (zdir->filename_length+1);
       jcf = ggc_alloc (sizeof (JCF));
       JCF_ZERO (jcf);
 
-      strncpy (class_name, class_name_in_zip_dir, zdir->filename_length-6);
-      class_name [zdir->filename_length-6] = '\0';
       strncpy (file_name, class_name_in_zip_dir, zdir->filename_length);
       file_name [zdir->filename_length] = '\0';
 
-      for (j=0; class_name[j]; j++)
-        class_name [j] = (class_name [j] == '/' ? '.' : class_name [j]);
-
-      /* Yes, we write back the true class name into the zip directory.  */
-      strcpy (class_name_in_zip_dir, class_name);
-      zdir->filename_length = j;
       class = lookup_class (get_identifier (class_name));
 
       jcf->read_state  = finput;
@@ -1229,7 +1284,7 @@ process_zip_dir (FILE *finput)
 /* Initialization.  */
 
 void
-init_jcf_parse ()
+init_jcf_parse (void)
 {
   init_src_parse ();
 }

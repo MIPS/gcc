@@ -274,7 +274,7 @@ struct propagate_block_info
   /* Nonzero if the value of CC0 is live.  */
   int cc0_live;
 
-  /* Flags controling the set of information propagate_block collects.  */
+  /* Flags controlling the set of information propagate_block collects.  */
   int flags;
 };
 
@@ -416,8 +416,8 @@ life_analysis (f, file, flags)
      FILE *file;
      int flags;
 {
-  int i;
 #ifdef ELIMINABLE_REGS
+  int i;
   static const struct {const int from, to; } eliminables[] = ELIMINABLE_REGS;
 #endif
 
@@ -436,8 +436,11 @@ life_analysis (f, file, flags)
 
 #ifdef CANNOT_CHANGE_MODE_CLASS
   if (flags & PROP_REG_INFO)
-    for (i=0; i < NUM_MACHINE_MODES; ++i)
-      INIT_REG_SET (&subregs_of_mode[i]);
+    {
+      int j;
+      for (j=0; j < NUM_MACHINE_MODES; ++j)
+	INIT_REG_SET (&subregs_of_mode[j]);
+    }
 #endif
 
   if (! optimize)
@@ -1005,7 +1008,7 @@ mark_regs_live_at_end (set)
   /* Many architectures have a GP register even without flag_pic.
      Assume the pic register is not in use, or will be handled by
      other means, if it is not fixed.  */
-  if (PIC_OFFSET_TABLE_REGNUM != INVALID_REGNUM
+  if ((unsigned) PIC_OFFSET_TABLE_REGNUM != INVALID_REGNUM
       && fixed_regs[PIC_OFFSET_TABLE_REGNUM])
     SET_REGNO_REG_SET (set, PIC_OFFSET_TABLE_REGNUM);
 #endif
@@ -1234,7 +1237,7 @@ calculate_global_regs_live (blocks_in, blocks_out, flags)
 
 	  /* Any constant, or pseudo with constant equivalences, may
 	     require reloading from memory using the pic register.  */
-	  if (PIC_OFFSET_TABLE_REGNUM != INVALID_REGNUM
+	  if ((unsigned) PIC_OFFSET_TABLE_REGNUM != INVALID_REGNUM
 	      && fixed_regs[PIC_OFFSET_TABLE_REGNUM])
 	    SET_REGNO_REG_SET (new_live_at_end, PIC_OFFSET_TABLE_REGNUM);
 	}
@@ -1677,7 +1680,7 @@ propagate_one_insn (pbi, insn)
 	    }
 
 	  /* Similarly if INSN contains a LIBCALL note, remove the
-	     dnagling REG_RETVAL note.  */
+	     dangling REG_RETVAL note.  */
 	  note = find_reg_note (insn, REG_LIBCALL, NULL_RTX);
 	  if (note)
 	    {
@@ -3525,6 +3528,12 @@ find_auto_inc (pbi, x, insn)
 								  addr,
 								  inc_val)),
 			  insn, x, incr, addr);
+      else if (HAVE_PRE_MODIFY_DISP && offset == INTVAL (inc_val))
+	attempt_auto_inc (pbi, gen_rtx_PRE_MODIFY (Pmode, addr,
+						    gen_rtx_PLUS (Pmode,
+								  addr,
+								  inc_val)),
+			  insn, x, incr, addr);
     }
   else if (GET_CODE (inc_val) == REG
 	   && ! reg_set_between_p (inc_val, PREV_INSN (insn),
@@ -4222,7 +4231,7 @@ dump_regset (r, outf)
     });
 }
 
-/* Print a human-reaable representation of R on the standard error
+/* Print a human-readable representation of R on the standard error
    stream.  This function is designed to be used from within the
    debugger.  */
 

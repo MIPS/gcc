@@ -1,6 +1,6 @@
 /* Move registers around to reduce number of move instructions needed.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -647,7 +647,7 @@ optimize_reg_copy_2 (insn, dest, src)
 }
 /* INSN is a ZERO_EXTEND or SIGN_EXTEND of SRC to DEST.
    Look if SRC dies there, and if it is only set once, by loading
-   it from memory.  If so, try to encorporate the zero/sign extension
+   it from memory.  If so, try to incorporate the zero/sign extension
    into the memory read, change SRC to the mode of DEST, and alter
    the remaining accesses to use the appropriate SUBREG.  This allows
    SRC and DEST to be tied later.  */
@@ -1676,7 +1676,7 @@ fixup_match_1 (insn, set, src, src_subreg, dst, backward, operand_number,
   int success = 0;
   int num_calls = 0, s_num_calls = 0;
   enum rtx_code code = NOTE;
-  HOST_WIDE_INT insn_const = 0, newconst;
+  HOST_WIDE_INT insn_const = 0, newconst = 0;
   rtx overlap = 0; /* need to move insn ? */
   rtx src_note = find_reg_note (insn, REG_DEAD, src), dst_note = NULL_RTX;
   int length, s_length;

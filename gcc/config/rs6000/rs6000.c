@@ -1681,6 +1681,8 @@ mask64_operand (op, mode)
 
       /* Find the transition, and check that all bits above are 1's.  */
       lsb = c & -c;
+
+      /* Match if all the bits above are 1's (or c is zero).  */
       return c == -lsb;
     }
   return 0;
@@ -2857,6 +2859,16 @@ rs6000_emit_move (dest, source, mode)
 	operands[1]
 	  = replace_equiv_address (operands[1],
 				   copy_addr_to_reg (XEXP (operands[1], 0)));
+      if (TARGET_POWER)
+	{
+	  emit_insn (gen_rtx_PARALLEL (VOIDmode,
+		       gen_rtvec (2,
+				  gen_rtx_SET (VOIDmode,
+					       operands[0], operands[1]),
+				  gen_rtx_CLOBBER (VOIDmode,
+						   gen_rtx_SCRATCH (SImode)))));
+	  return;
+	}
       break;
 
     default:
@@ -12008,6 +12020,7 @@ rs6000_gen_section_name (buf, filename, section_desc)
         {
 	  strcpy (p, section_desc);
 	  p += strlen (section_desc);
+	  break;
         }
 
       else if (ISALNUM (*q))

@@ -1,6 +1,6 @@
 /* Search an insn for pseudo regs that must be in hard regs and are not.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -5176,7 +5176,7 @@ update_auto_inc_notes (insn, regno, reloadnum)
 
   for (link = REG_NOTES (insn); link; link = XEXP (link, 1))
     if (REG_NOTE_KIND (link) == REG_INC
-        && REGNO (XEXP (link, 0)) == regno)
+        && (int) REGNO (XEXP (link, 0)) == regno)
       push_replacement (&XEXP (link, 0), reloadnum, VOIDmode);
 #endif
 }

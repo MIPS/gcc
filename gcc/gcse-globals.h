@@ -435,7 +435,7 @@ extern int gcse_main			PARAMS ((rtx, FILE *));
 /* Passes.  */
 extern int one_classic_gcse_pass	PARAMS ((int));
 extern int one_code_hoisting_pass	PARAMS ((void));
-extern int one_cprop_pass		PARAMS ((int, int, int *));
+extern int one_cprop_pass		PARAMS ((int, int, int *, int));
 extern int one_pre_gcse_pass		PARAMS ((int));
 extern void store_motion		PARAMS ((void));
 extern int delete_null_pointer_checks	PARAMS ((rtx));

@@ -1106,24 +1106,30 @@ const_costs (r, c, outer_code)
   switch (c)
     {
     case CONST_INT:
-      switch (INTVAL (r))
-	{
-	case 0:
-	  return 0;
-	case 1:
-	case 2:
-	case -1:
-	case -2:
-	  return 0 + (outer_code == SET);
-	case 4:
-	case -4:
-	  if (TARGET_H8300H || TARGET_H8300S)
-	    return 0 + (outer_code == SET);
-	  else
-	    return 1;
-	default:
-	  return 1;
-	}
+      {
+	HOST_WIDE_INT n = INTVAL (r);
+
+	if (-4 <= n || n <= 4)
+	  {
+	    switch ((int) n)
+	      {
+	      case 0:
+		return 0;
+	      case 1:
+	      case 2:
+	      case -1:
+	      case -2:
+		return 0 + (outer_code == SET);
+	      case 4:
+	      case -4:
+		if (TARGET_H8300H || TARGET_H8300S)
+		  return 0 + (outer_code == SET);
+		else
+		  return 1;
+	      }
+	  }
+	return 1;
+      }
 
     case CONST:
     case LABEL_REF:
@@ -1710,6 +1716,8 @@ notice_update_cc (body, insn)
      rtx body;
      rtx insn;
 {
+  rtx set;
+
   switch (get_attr_cc (insn))
     {
     case CC_NONE:
@@ -1732,7 +1740,10 @@ notice_update_cc (body, insn)
 	 that's ok because alter_cond will change tests to use EQ/NE.  */
       CC_STATUS_INIT;
       cc_status.flags |= CC_OVERFLOW_UNUSABLE | CC_NO_CARRY;
-      cc_status.value1 = recog_data.operand[0];
+      set = single_set (insn);
+      cc_status.value1 = SET_SRC (set);
+      if (SET_DEST (set) != cc0_rtx)
+	cc_status.value2 = SET_DEST (set);
       break;
 
     case CC_SET_ZNV:
@@ -1741,9 +1752,10 @@ notice_update_cc (body, insn)
 	 alter_cond will change tests to use EQ/NE.  */
       CC_STATUS_INIT;
       cc_status.flags |= CC_NO_CARRY;
-      cc_status.value1 = recog_data.operand[0];
-      if (GET_CODE (body) == SET && REG_P (SET_SRC (body)))
-	cc_status.value2 = SET_SRC (body);
+      set = single_set (insn);
+      cc_status.value1 = SET_SRC (set);
+      if (SET_DEST (set) != cc0_rtx)
+	cc_status.value2 = SET_DEST (set);
       break;
 
     case CC_COMPARE:
@@ -1888,8 +1900,22 @@ output_plussi (operands)
 
   if (TARGET_H8300)
     {
-      /* Currently we do not support H8/300 here yet.  */
-      abort ();
+      if (GET_CODE (operands[2]) == REG)
+	return "add.w\t%f2,%f0\n\taddx\t%y2,%y0\n\taddx\t%z2,%z0";
+
+      if (GET_CODE (operands[2]) == CONST_INT)
+	{
+	  HOST_WIDE_INT n = INTVAL (operands[2]);
+
+	  if ((n & 0xffffff) == 0)
+	    return "add\t%z2,%z0";
+	  if ((n & 0xffff) == 0)
+	    return "add\t%y2,%y0\n\taddx\t%z2,%z0";
+	  if ((n & 0xff) == 0)
+	    return "add\t%x2,%x0\n\taddx\t%y2,%y0\n\taddx\t%z2,%z0";
+	}
+
+      return "add\t%w2,%w0\n\taddx\t%x2,%x0\n\taddx\t%y2,%y0\n\taddx\t%z2,%z0";
     }
   else
     {
@@ -1902,7 +1928,7 @@ output_plussi (operands)
 
 	  /* See if we can finish with 2 bytes.  */
 
-	  switch (intval & 0xffffffff)
+	  switch ((unsigned int) intval & 0xffffffff)
 	    {
 	    case 0x00000001:
 	    case 0x00000002:
@@ -1948,8 +1974,22 @@ compute_plussi_length (operands)
 
   if (TARGET_H8300)
     {
-      /* Currently we do not support H8/300 here yet.  */
-      abort ();
+      if (GET_CODE (operands[2]) == REG)
+	return 6;
+
+      if (GET_CODE (operands[2]) == CONST_INT)
+	{
+	  HOST_WIDE_INT n = INTVAL (operands[2]);
+
+	  if ((n & 0xffffff) == 0)
+	    return 2;
+	  if ((n & 0xffff) == 0)
+	    return 4;
+	  if ((n & 0xff) == 0)
+	    return 6;
+	}
+
+      return 8;
     }
   else
     {
@@ -1962,7 +2002,7 @@ compute_plussi_length (operands)
 
 	  /* See if we can finish with 2 bytes.  */
 
-	  switch (intval & 0xffffffff)
+	  switch ((unsigned int) intval & 0xffffffff)
 	    {
 	    case 0x00000001:
 	    case 0x00000002:
@@ -2003,8 +2043,7 @@ compute_plussi_cc (operands)
 
   if (TARGET_H8300)
     {
-      /* Currently we do not support H8/300 here yet.  */
-      abort ();
+      return CC_CLOBBER;
     }
   else
     {
@@ -2017,7 +2056,7 @@ compute_plussi_cc (operands)
 
 	  /* See if we can finish with 2 bytes.  */
 
-	  switch (intval & 0xffffffff)
+	  switch ((unsigned int) intval & 0xffffffff)
 	    {
 	    case 0x00000001:
 	    case 0x00000002:
@@ -2796,7 +2835,8 @@ get_shift_alg (shift_type, shift_mode, count, info)
 	      goto end;
 	    }
 	}
-      else if (8 <= count && count <= 13)
+      else if ((8 <= count && count <= 13)
+	       || (TARGET_H8300S & count == 14))
 	{
 	  info->remainder = count - 8;
 
@@ -2821,7 +2861,6 @@ get_shift_alg (shift_type, shift_mode, count, info)
 		{
 		  info->special = "mov.b\t%t0,%s0\n\tbld\t#7,%s0\n\tsubx\t%t0,%t0";
 		  info->shift1  = "shar.b\t%s0";
-		  info->shift2  = "shar.b\t#2,%s0";
 		}
 	      else
 		{
@@ -2848,7 +2887,7 @@ get_shift_alg (shift_type, shift_mode, count, info)
 	      else if (TARGET_H8300H)
 		info->special = "shll.b\t%t0\n\tsubx.b\t%s0,%s0\n\tshll.b\t%t0\n\trotxl.b\t%s0\n\texts.w\t%T0";
 	      else /* TARGET_H8300S */
-		info->special = "mov.b\t%t0,%s0\n\texts.w\t%T0\n\tshar.w\t#2,%T0\n\tshar.w\t#2,%T0\n\tshar.w\t#2,%T0";
+		abort ();
 	      goto end;
 	    }
 	}
@@ -2942,14 +2981,7 @@ get_shift_alg (shift_type, shift_mode, count, info)
 	    case SHIFT_ASHIFT:
 	      info->special = "mov.w\t%f0,%e0\n\tsub.w\t%f0,%f0";
 	      if (TARGET_H8300)
-		{
-		  info->shift1 = "add.w\t%e0,%e0";
-		}
-	      else
-		{
-		  info->shift1 = "shll.l\t%S0";
-		  info->shift2 = "shll.l\t#2,%S0";
-		}
+		info->shift1 = "add.w\t%e0,%e0";
 	      goto end;
 	    case SHIFT_LSHIFTRT:
 	      if (TARGET_H8300)
@@ -3004,18 +3036,12 @@ get_shift_alg (shift_type, shift_mode, count, info)
 	    {
 	    case SHIFT_ASHIFT:
 	      info->special = "mov.b\t%s0,%t0\n\tsub.b\t%s0,%s0\n\tmov.w\t%f0,%e0\n\tsub.w\t%f0,%f0";
-	      info->shift1  = "shll.l\t%S0";
-	      info->shift2  = "shll.l\t#2,%S0";
 	      goto end;
 	    case SHIFT_LSHIFTRT:
 	      info->special = "mov.w\t%e0,%f0\n\tmov.b\t%t0,%s0\n\textu.w\t%f0\n\textu.l\t%S0";
-	      info->shift1  = "shlr.l\t%S0";
-	      info->shift2  = "shlr.l\t#2,%S0";
 	      goto end;
 	    case SHIFT_ASHIFTRT:
 	      info->special = "mov.w\t%e0,%f0\n\tmov.b\t%t0,%s0\n\texts.w\t%f0\n\texts.l\t%S0";
-	      info->shift1  = "shar.l\t%S0";
-	      info->shift2  = "shar.l\t#2,%S0";
 	      goto end;
 	    }
 	}
@@ -3028,16 +3054,12 @@ get_shift_alg (shift_type, shift_mode, count, info)
 		info->special = "sub.w\t%e0,%e0\n\trotr.l\t%S0\n\trotr.l\t%S0\n\trotr.l\t%S0\n\trotr.l\t%S0\n\tsub.w\t%f0,%f0";
 	      else
 		info->special = "sub.w\t%e0,%e0\n\trotr.l\t#2,%S0\n\trotr.l\t#2,%S0\n\tsub.w\t%f0,%f0";
-	      info->shift1  = "";
-	      info->shift2  = "";
 	      goto end;
 	    case SHIFT_LSHIFTRT:
 	      if (TARGET_H8300H)
 		info->special = "sub.w\t%f0,%f0\n\trotl.l\t%S0\n\trotl.l\t%S0\n\trotl.l\t%S0\n\trotl.l\t%S0\n\textu.l\t%S0";
 	      else
 		info->special = "sub.w\t%f0,%f0\n\trotl.l\t#2,%S0\n\trotl.l\t#2,%S0\n\textu.l\t%S0";
-	      info->shift1  = "";
-	      info->shift2  = "";
 	      goto end;
 	    case SHIFT_ASHIFTRT:
 	      abort ();
@@ -3052,16 +3074,12 @@ get_shift_alg (shift_type, shift_mode, count, info)
 		info->special = "sub.w\t%e0,%e0\n\trotr.l\t%S0\n\trotr.l\t%S0\n\trotr.l\t%S0\n\tsub.w\t%f0,%f0";
 	      else
 		info->special = "sub.w\t%e0,%e0\n\trotr.l\t#2,%S0\n\trotr.l\t%S0\n\tsub.w\t%f0,%f0";
-	      info->shift1  = "";
-	      info->shift2  = "";
 	      goto end;
 	    case SHIFT_LSHIFTRT:
 	      if (TARGET_H8300H)
 		info->special = "sub.w\t%f0,%f0\n\trotl.l\t%S0\n\trotl.l\t%S0\n\trotl.l\t%S0\n\textu.l\t%S0";
 	      else
 		info->special = "sub.w\t%f0,%f0\n\trotl.l\t#2,%S0\n\trotl.l\t%S0\n\textu.l\t%S0";
-	      info->shift1  = "";
-	      info->shift2  = "";
 	      goto end;
 	    case SHIFT_ASHIFTRT:
 	      abort ();
@@ -3076,16 +3094,12 @@ get_shift_alg (shift_type, shift_mode, count, info)
 		info->special = "sub.w\t%e0,%e0\n\trotr.l\t%S0\n\trotr.l\t%S0\n\tsub.w\t%f0,%f0";
 	      else
 		info->special = "sub.w\t%e0,%e0\n\trotr.l\t#2,%S0\n\tsub.w\t%f0,%f0";
-	      info->shift1  = "";
-	      info->shift2  = "";
 	      goto end;
 	    case SHIFT_LSHIFTRT:
 	      if (TARGET_H8300H)
 		info->special = "sub.w\t%f0,%f0\n\trotl.l\t%S0\n\trotl.l\t%S0\n\textu.l\t%S0";
 	      else
 		info->special = "sub.w\t%f0,%f0\n\trotl.l\t#2,%S0\n\textu.l\t%S0";
-	      info->shift1  = "";
-	      info->shift2  = "";
 	      goto end;
 	    case SHIFT_ASHIFTRT:
 	      abort ();
@@ -3184,7 +3198,7 @@ h8300_shift_needs_scratch_p (count, mode)
 
   /* On H8/300H and H8S, count == 8 uses the scratch register.  */
   return (a == SHIFT_LOOP || lr == SHIFT_LOOP || ar == SHIFT_LOOP
-	  || (!TARGET_H8300 && mode == SImode && count == 8));
+	  || (TARGET_H8300H && mode == SImode && count == 8));
 }
 
 /* Emit the assembler code for doing shifts.  */

@@ -682,7 +682,7 @@ extern void tree_vec_elt_check_failed PARAMS ((int, int, const char *,
    bounded pointer.  It is insufficient to determine the boundedness
    of an expression EXP with BOUNDED_POINTER_TYPE_P (TREE_TYPE (EXP)),
    since we allow pointer to be temporarily cast to integer for
-   rounding up to an alignment boudary in a way that preserves the
+   rounding up to an alignment boundary in a way that preserves the
    pointer's bounds.
 
    In an IDENTIFIER_NODE, nonzero means that the name is prefixed with
@@ -2928,6 +2928,9 @@ extern tree invert_truthvalue	PARAMS ((tree));
 extern tree fold_builtin				PARAMS ((tree));
 extern enum built_in_function builtin_mathfn_code	PARAMS ((tree));
 extern tree build_function_call_expr			PARAMS ((tree, tree));
+
+/* In convert.c */
+extern tree strip_float_extensions			PARAMS ((tree));
 
 /* In alias.c */
 extern void record_component_aliases		PARAMS ((tree));

@@ -556,7 +556,8 @@ hash_scan_set (pat, insn, table, current_bb, reg_avail_info)
 		    && REGNO (src) >= FIRST_PSEUDO_REGISTER
 		    && can_copy_p [GET_MODE (dest)]
 		    && REGNO (src) != regno)
-		   || CONSTANT_P (src))
+		   || (CONSTANT_P (src)
+		       && GET_CODE (src) != CONSTANT_P_RTX))
 	       /* A copy is not available if its src or dest is subsequently
 		  modified.  Here we want to search from INSN+1 on, but
 		  oprs_available_p searches from INSN on.  */
@@ -858,7 +859,7 @@ hash_expr_1 (x, mode, do_not_record_p)
   const char *fmt;
 
   /* Used to turn recursion into iteration.  We can't rely on GCC's
-     tail-recursion eliminatio since we need to keep accumulating values
+     tail-recursion elimination since we need to keep accumulating values
      in HASH.  */
 
   if (x == 0)
@@ -1370,6 +1371,7 @@ want_to_gcse_p (x)
     case CONST_DOUBLE:
     case CONST_VECTOR:
     case CALL:
+    case CONSTANT_P_RTX:
       return 0;
 
     default:

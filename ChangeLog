@@ -1,3 +1,35 @@
+2003-01-22  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* MAINTAINERS: Move myself from GNATS-only-accounts to
+	write-after-approval.
+
+2003-01-19  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* configure.in: Add missing \.
+	* configure: Rebuilt.
+
+2003-01-17  Jakub Jelinek  <jakub@redhat.com>
+
+	* configure.in (baseargs): Avoid using \| in sed regular
+	expressions.
+	* configure: Rebuilt.
+
+2003-01-16  Jakub Jelinek  <jakub@redhat.com>
+
+	* configure.in (baseargs): Remove all supported forms of
+	--cache-file, --srcdir, --host, --build and --target options
+	from argument lists.
+	* configure: Rebuilt.
+
+2003-01-15  Josef Zlomek  <zlomekj@suse.cz>
+
+	* MAINTAINERS: Add myself to write-after-approval list.
+
+2003-01-15  Alexandre Oliva  <aoliva@redhat.com>
+
+	* configure.in (noconfigdirs): Don't skip gas on IRIX 6.
+	* configure: Rebuilt.
+
 2003-01-09  Nathanael Nerode  <neroden@gcc.gnu.org>
 
 	* configure.in: Substitute TOPLEVEL_CONFIGURE_ARGUMENTS.

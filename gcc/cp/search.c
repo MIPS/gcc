@@ -979,41 +979,6 @@ friend_accessible_p (scope, decl, binfo)
   return 0;
 }
 
-/* Perform access control on TYPE_DECL or TEMPLATE_DECL VAL, which was
-   looked up in TYPE.  This is fairly complex, so here's the design:
-
-   The lang_extdef nonterminal sets type_lookups to NULL_TREE before we
-     start to process a top-level declaration.
-   As we process the decl-specifier-seq for the declaration, any types we
-     see that might need access control are passed to type_access_control,
-     which defers checking by adding them to type_lookups.
-   When we are done with the decl-specifier-seq, we record the lookups we've
-     seen in the lookups field of the typed_declspecs nonterminal.
-   When we process the first declarator, either in parse_decl or
-     begin_function_definition, we call save_type_access_control,
-     which stores the lookups from the decl-specifier-seq in
-     current_type_lookups.
-   As we finish with each declarator, we process everything in type_lookups
-     via decl_type_access_control, which resets type_lookups to the value of
-     current_type_lookups for subsequent declarators.
-   When we enter a function, we set type_lookups to error_mark_node, so all
-     lookups are processed immediately.  */
-
-void
-type_access_control (type, val)
-     tree type, val;
-{
-  if (val == NULL_TREE
-      || (TREE_CODE (val) != TEMPLATE_DECL && TREE_CODE (val) != TYPE_DECL)
-      || ! DECL_CLASS_SCOPE_P (val))
-    return;
-
-  if (type_lookups == error_mark_node)
-    enforce_access (type, val);
-  else if (! accessible_p (type, val))
-    type_lookups = tree_cons (type, val, type_lookups);
-}
-
 /* DECL is a declaration from a base class of TYPE, which was the
    class used to name DECL.  Return nonzero if, in the current
    context, DECL is accessible.  If TYPE is actually a BINFO node,
@@ -1385,7 +1350,7 @@ lookup_field_r (binfo, data)
     }
   else
     {
-      if (from_dep_base_p && TREE_CODE (nval) != TYPE_DECL
+      if (from_dep_base_p && TREE_CODE (nval) == TYPE_DECL
 	  /* We need to return a member template class so we can
 	     define partial specializations.  Is there a better
 	     way?  */
@@ -1420,8 +1385,8 @@ build_baselink (tree binfo, tree access_binfo, tree functions, tree optype)
   my_friendly_assert (!optype || TYPE_P (optype), 20020730);
   my_friendly_assert (TREE_TYPE (functions), 20020805);
 
-  baselink = build (BASELINK, TREE_TYPE (functions), NULL_TREE,
-		    NULL_TREE, NULL_TREE);
+  baselink = make_node (BASELINK);
+  TREE_TYPE (baselink) = TREE_TYPE (functions);
   BASELINK_BINFO (baselink) = binfo;
   BASELINK_ACCESS_BINFO (baselink) = access_binfo;
   BASELINK_FUNCTIONS (baselink) = functions;
@@ -1535,9 +1500,7 @@ lookup_member (xbasetype, name, protect, want_type)
   /* If the thing we found was found via the implicit typename
      extension, build the typename type.  */
   if (rval && lfi.from_dep_base_p && !DECL_CLASS_TEMPLATE_P (rval))
-    rval = TYPE_STUB_DECL (build_typename_type (BINFO_TYPE (basetype_path),
-						name, name,
-						TREE_TYPE (rval)));
+    abort ();
 
   if (rval && is_overloaded_fn (rval)) 
     rval = build_baselink (rval_binfo, basetype_path, rval,
@@ -2222,6 +2185,7 @@ marked_pushdecls_p (binfo, data)
      void *data ATTRIBUTE_UNUSED;
 {
   return (CLASS_TYPE_P (BINFO_TYPE (binfo))
+	  && !dependent_base_p (binfo)
 	  && BINFO_PUSHDECLS_MARKED (binfo)) ? binfo : NULL_TREE; 
 }
 
@@ -2231,6 +2195,7 @@ unmarked_pushdecls_p (binfo, data)
      void *data ATTRIBUTE_UNUSED;
 { 
   return (CLASS_TYPE_P (BINFO_TYPE (binfo))
+	  && !dependent_base_p (binfo)
 	  && !BINFO_PUSHDECLS_MARKED (binfo)) ? binfo : NULL_TREE;
 }
 

@@ -800,14 +800,14 @@ static const struct option options[] =
 };
 
 static void
-usage ()
+usage (void)
 {
   fprintf (stderr, "Try `jcf-dump --help' for more information.\n");
   exit (1);
 }
 
 static void
-help ()
+help (void)
 {
   printf ("Usage: jcf-dump [OPTION]... CLASS...\n\n");
   printf ("Display contents of a class file in readable form.\n\n");
@@ -830,7 +830,7 @@ help ()
 }
 
 static void
-version ()
+version (void)
 {
   printf ("jcf-dump (GCC) %s\n\n", version_string);
   printf ("Copyright (C) 2002 Free Software Foundation, Inc.\n");
@@ -1079,7 +1079,7 @@ disassemble_method (JCF* jcf, const unsigned char *byte_ops, int len)
 /* This is the actual code emitted for each of opcodes in javaops.def.
    The actual opcode-specific stuff is handled by the OPKIND macro.
    I.e. for an opcode whose OPKIND is BINOP, the BINOP will be called.
-   Those macros are defiend below.  The OPKINDs that do not have any
+   Those macros are defined below.  The OPKINDs that do not have any
    inline parameters (such as BINOP) and therefore do mot need anything
    else to me printed out just use an empty body. */
 

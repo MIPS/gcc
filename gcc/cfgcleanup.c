@@ -266,7 +266,7 @@ mentions_nonequal_regs (x, data)
   return 0;
 }
 /* Attempt to prove that the basic block B will have no side effects and
-   allways continues in the same edge if reached via E.  Return the edge
+   always continues in the same edge if reached via E.  Return the edge
    if exist, NULL otherwise.  */
 
 static edge
@@ -326,7 +326,7 @@ thread_jump (mode, e, b)
     return NULL;
 
   /* Ensure that the comparison operators are equivalent.
-     ??? This is far too pesimistic.  We should allow swapped operands,
+     ??? This is far too pessimistic.  We should allow swapped operands,
      different CCmodes, or for example comparisons for interval, that
      dominate even when operands are not equivalent.  */
   if (!rtx_equal_p (XEXP (cond1, 0), XEXP (cond2, 0))
@@ -1170,7 +1170,7 @@ outgoing_edges_match (mode, bb1, bb2)
       /* Do not crossjump across loop boundaries.  This is a temporary
 	 workaround for the common scenario in which crossjumping results
 	 in killing the duplicated loop condition, making bb-reorder rotate
-	 the loop incorectly, leaving an extra unconditional jump inside
+	 the loop incorrectly, leaving an extra unconditional jump inside
 	 the loop.
 
 	 This check should go away once bb-reorder knows how to duplicate
@@ -1828,7 +1828,7 @@ cleanup_cfg (mode)
     {
       changed = true;
       /* We've possibly created trivially dead code.  Cleanup it right
-	 now to introduce more oppurtunities for try_optimize_cfg.  */
+	 now to introduce more opportunities for try_optimize_cfg.  */
       if (!(mode & (CLEANUP_NO_INSN_DEL
 		    | CLEANUP_UPDATE_LIFE | CLEANUP_PRE_SIBCALL))
 	  && !reload_completed)
@@ -1842,8 +1842,8 @@ cleanup_cfg (mode)
       delete_unreachable_blocks (), changed = true;
       if (mode & CLEANUP_UPDATE_LIFE)
 	{
-	  /* Cleaning up CFG introduces more oppurtunities for dead code
-	     removal that in turn may introduce more oppurtunities for
+	  /* Cleaning up CFG introduces more opportunities for dead code
+	     removal that in turn may introduce more opportunities for
 	     cleaning up the CFG.  */
 	  if (!update_life_info_in_dirty_blocks (UPDATE_LIFE_GLOBAL_RM_NOTES,
 						 PROP_DEATH_NOTES

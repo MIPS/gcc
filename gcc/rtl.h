@@ -1,6 +1,6 @@
 /* Register Transfer Language (RTL) definitions for GNU C-Compiler
    Copyright (C) 1987, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1383,6 +1383,7 @@ extern int ceil_log2			PARAMS ((unsigned HOST_WIDE_INT));
 
 /* In builtins.c */
 extern rtx expand_builtin_expect_jump	PARAMS ((tree, rtx, rtx));
+extern void purge_builtin_constant_p	PARAMS ((void));
 
 /* In explow.c */
 extern void set_stack_check_libfunc PARAMS ((rtx));
@@ -2128,6 +2129,12 @@ extern void expand_dec			PARAMS ((rtx, rtx));
 extern rtx expand_mult_highpart		PARAMS ((enum machine_mode, rtx,
 						unsigned HOST_WIDE_INT, rtx,
 						int, int));
+
+/* In gcse.c */
+#ifdef BUFSIZ
+extern int gcse_main			PARAMS ((rtx, FILE *));
+extern int bypass_jumps			PARAMS ((FILE *));
+#endif
 
 /* In global.c */
 extern void mark_elimination		PARAMS ((int, int));

@@ -1,6 +1,6 @@
 /* Reload pseudo regs into hard regs for insns that require hard regs.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -3843,7 +3843,7 @@ reload_as_needed (live_known)
 
   for (chain = reload_insn_chain; chain; chain = chain->next)
     {
-      rtx prev;
+      rtx prev = 0;
       rtx insn = chain->insn;
       rtx old_next = NEXT_INSN (insn);
 
@@ -3985,7 +3985,7 @@ reload_as_needed (live_known)
 					    REGNO (rld[i].reg_rtx))
 		      /* Make sure it is the inc/dec pseudo, and not
 			 some other (e.g. output operand) pseudo.  */
-		      && (reg_reloaded_contents[REGNO (rld[i].reg_rtx)]
+		      && ((unsigned) reg_reloaded_contents[REGNO (rld[i].reg_rtx)]
 			  == REGNO (XEXP (in_reg, 0))))
 
 		    {
@@ -4052,7 +4052,7 @@ reload_as_needed (live_known)
 						 REGNO (rld[i].reg_rtx))
 			   /* Make sure it is the inc/dec pseudo, and not
 			      some other (e.g. output operand) pseudo.  */
-			   && (reg_reloaded_contents[REGNO (rld[i].reg_rtx)]
+			   && ((unsigned) reg_reloaded_contents[REGNO (rld[i].reg_rtx)]
 			       == REGNO (XEXP (in_reg, 0))))
 		    {
 		      SET_HARD_REG_BIT (reg_is_output_reload,
@@ -6261,7 +6261,7 @@ emit_input_reload_insns (chain, rl, old, j)
 	 or memory.  */
 
       if (oldequiv != 0
-	  && ((REGNO_REG_CLASS (regno) != rl->class
+	  && (((enum reg_class) REGNO_REG_CLASS (regno) != rl->class
 	       && (REGISTER_MOVE_COST (mode, REGNO_REG_CLASS (regno),
 				       rl->class)
 		   >= MEMORY_MOVE_COST (mode, rl->class, 1)))

@@ -1202,12 +1202,15 @@ set_location_part (decl, offset, loc, insn, where)
   if (var->location_part[k].loc != loc)
     {
       emit_note_data emit_note_data;
+      void *slot;
 
       var->location_part[k].loc = loc;
       var->changed = true;
       emit_note_data.insn = insn;
       emit_note_data.where = where;
-      emit_note_if_var_changed ((void **) &var, &emit_note_data);
+      slot = var;
+      emit_note_if_var_changed ((void **) &slot, &emit_note_data);
+      var = slot;
     }
 }
 

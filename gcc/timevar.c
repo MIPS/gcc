@@ -21,17 +21,18 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "config.h"
 #include "system.h"
-#include "coretypes.h"
-#include "tm.h"
-#include "intl.h"
-#include "rtl.h"
-
 #ifdef HAVE_SYS_TIMES_H
 # include <sys/times.h>
 #endif
 #ifdef HAVE_SYS_RESOURCE_H
 #include <sys/resource.h>
 #endif
+#include "coretypes.h"
+#include "tm.h"
+#include "intl.h"
+#include "rtl.h"
+#include "toplev.h"
+
 
 #ifndef HAVE_CLOCK_T
 typedef int clock_t;
@@ -319,7 +320,11 @@ timevar_pop (timevar)
     return;
 
   if (&timevars[timevar] != stack->timevar)
-    abort ();
+    {
+      sorry ("cannot timevar_pop '%s' when top of timevars stack is '%s'",
+             timevars[timevar].name, stack->timevar->name);
+      abort ();
+    }
 
   /* What time is it?  */
   get_time (&now);

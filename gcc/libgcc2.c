@@ -234,7 +234,7 @@ __mulvdi3 (DWtype u, DWtype v)
 #endif
 
 
-/* Unless shift functions are defined whith full ANSI prototypes,
+/* Unless shift functions are defined with full ANSI prototypes,
    parameter b will be promoted to int if word_type is smaller than an int.  */
 #ifdef L_lshrdi3
 DWtype
@@ -1279,7 +1279,7 @@ gcov_version_mismatch (struct gcov_info *ptr, unsigned version)
    program's checksum to make sure we only accumulate whole program
    statistics to the correct summary. An object file might be embedded
    in two separate programs, and we must keep the two program
-   summaries separate. */
+   summaries separate.  */
 
 static void
 gcov_exit (void)
@@ -1368,7 +1368,7 @@ gcov_exit (void)
 
 #if defined (TARGET_HAS_F_SETLKW)
       /* After a fork, another process might try to read and/or write
-         the same file simultanously.  So if we can, lock the file to
+         the same file simultaneously.  So if we can, lock the file to
          avoid race conditions.  */
       while (fcntl (fileno (da_file), F_SETLKW, &s_flock)
 	     && errno == EINTR)
@@ -1530,7 +1530,7 @@ gcov_exit (void)
 	counters[ix] = ptr->counter_sections[ix].counters;
       for (ix = ptr->n_functions, fn_info = ptr->functions; ix--; fn_info++)
 	{
-	  /* Announce function. */
+	  /* Announce function.  */
 	  if (gcov_write_unsigned (da_file, GCOV_TAG_FUNCTION)
 	      || !(base = gcov_reserve_length (da_file))
 	      /* function name */
@@ -1577,7 +1577,7 @@ gcov_exit (void)
 	    }
 	}
 
-      /* Object file summary. */
+      /* Object file summary.  */
       if (gcov_write_summary (da_file, GCOV_TAG_OBJECT_SUMMARY, &object))
 	goto write_error;
 

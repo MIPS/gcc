@@ -257,7 +257,6 @@ typedef struct flagged_type_tree_s GTY(())
 {
   tree t;
   int new_type_flag;
-  tree lookups;
 } flagged_type_tree;
 
 typedef struct template_parm_index_s GTY(())
@@ -374,16 +373,16 @@ struct tree_overload GTY(())
   (TREE_CODE (NODE) == BASELINK)
 /* The BINFO indicating the base from which the BASELINK_FUNCTIONS came.  */
 #define BASELINK_BINFO(NODE) \
-  (TREE_OPERAND (BASELINK_CHECK (NODE), 0))
+  (((struct tree_baselink*) BASELINK_CHECK (NODE))->binfo)
 /* The functions referred to by the BASELINK; either a FUNCTION_DECL,
    a TEMPLATE_DECL, an OVERLOAD, or a TEMPLATE_ID_EXPR.  */
 #define BASELINK_FUNCTIONS(NODE) \
-  (TREE_OPERAND (BASELINK_CHECK (NODE), 1))
+  (((struct tree_baselink*) BASELINK_CHECK (NODE))->functions)
 /* The BINFO in which the search for the functions indicated by this baselink 
    began.  This base is used to determine the accessibility of functions 
    selected by overload resolution.  */
 #define BASELINK_ACCESS_BINFO(NODE) \
-  (TREE_OPERAND (BASELINK_CHECK (NODE), 2))
+  (((struct tree_baselink*) BASELINK_CHECK (NODE))->access_binfo)
 /* For a type-conversion operator, the BASELINK_OPTYPE indicates the type
    to which the conversion should occur.  This value is important if
    the BASELINK_FUNCTIONS include a template conversion operator --
@@ -391,6 +390,14 @@ struct tree_overload GTY(())
    requested.  */
 #define BASELINK_OPTYPE(NODE) \
   (TREE_CHAIN (BASELINK_CHECK (NODE)))
+
+struct tree_baselink GTY(())
+{
+  struct tree_common common;
+  tree binfo;
+  tree functions;
+  tree access_binfo;
+};
 
 #define WRAPPER_ZC(NODE) (((struct tree_wrapper*)WRAPPER_CHECK (NODE))->z_c)
 
@@ -521,6 +528,7 @@ enum cp_tree_node_structure_enum {
   TS_CP_PTRMEM,
   TS_CP_BINDING,
   TS_CP_OVERLOAD,
+  TS_CP_BASELINK,
   TS_CP_WRAPPER,
   TS_CP_SRCLOC,
   TS_CP_DEFAULT_ARG,
@@ -538,6 +546,7 @@ union lang_tree_node GTY((desc ("cp_tree_node_structure (&%h)"),
   struct ptrmem_cst GTY ((tag ("TS_CP_PTRMEM"))) ptrmem;
   struct tree_binding GTY ((tag ("TS_CP_BINDING"))) binding;
   struct tree_overload GTY ((tag ("TS_CP_OVERLOAD"))) overload;
+  struct tree_baselink GTY ((tag ("TS_CP_BASELINK"))) baselink;
   struct tree_wrapper GTY ((tag ("TS_CP_WRAPPER"))) wrapper;
   struct tree_srcloc GTY ((tag ("TS_CP_SRCLOC"))) srcloc;
   struct tree_default_arg GTY ((tag ("TS_CP_DEFAULT_ARG"))) default_arg;
@@ -784,7 +793,6 @@ struct saved_scope GTY(())
   tree x_previous_class_type;
   tree x_previous_class_values;
   tree x_saved_tree;
-  tree lookups;
   tree last_parms;
 
   HOST_WIDE_INT x_processing_template_decl;
@@ -850,8 +858,6 @@ struct saved_scope GTY(())
 #define previous_class_values scope_chain->x_previous_class_values
 
 /* A list of private types mentioned, for deferred access checking.  */
-
-#define type_lookups scope_chain->lookups
 
 extern GTY(()) struct saved_scope *scope_chain;
 
@@ -1137,6 +1143,7 @@ struct lang_type_class GTY(())
   unsigned has_arrow_overloaded : 1;
   unsigned interface_only : 1;
   unsigned interface_unknown : 1;
+  unsigned contains_empty_class_p : 1;
 
   unsigned marks: 6;
   unsigned vec_new_uses_cookie : 1;
@@ -1156,13 +1163,11 @@ struct lang_type_class GTY(())
   unsigned has_complex_assign_ref : 1;
   unsigned has_abstract_assign_ref : 1;
   unsigned non_aggregate : 1;
-  unsigned is_partial_instantiation : 1;
   unsigned java_interface : 1;
-
   unsigned anon_aggr : 1;
+
   unsigned non_zero_init : 1;
   unsigned empty_p : 1;
-  unsigned contains_empty_class_p : 1;
 
   /* When adding a flag here, consider whether or not it ought to
      apply to a template instance if it applies to the template.  If
@@ -1171,7 +1176,7 @@ struct lang_type_class GTY(())
   /* There are some bits left to fill out a 32-bit word.  Keep track
      of this by updating the size of this bitfield whenever you add or
      remove a flag.  */
-  unsigned dummy : 5;
+  unsigned dummy : 6;
 
   tree primary_base;
   tree vfields;
@@ -2416,17 +2421,6 @@ struct lang_decl GTY(())
    TEMPLATE_ID_EXPR if we had something like `typename X::Y<T>'.  */
 #define TYPENAME_TYPE_FULLNAME(NODE) (TYPE_FIELDS (NODE))
 
-/* Nonzero if NODE is an implicit typename.  */
-#define IMPLICIT_TYPENAME_P(NODE) \
-  (TREE_CODE (NODE) == TYPENAME_TYPE && TREE_TYPE (NODE))
-
-/* Nonzero if NODE is a TYPE_DECL that should not be visible because
-   it is from a dependent base class.  */
-#define IMPLICIT_TYPENAME_TYPE_DECL_P(NODE)	\
-  (TREE_CODE (NODE) == TYPE_DECL		\
-   && DECL_ARTIFICIAL (NODE)			\
-   && IMPLICIT_TYPENAME_P (TREE_TYPE (NODE)))
-
 /* Nonzero in INTEGER_CST means that this int is negative by dint of
    using a twos-complement negated operand.  */
 #define TREE_NEGATED_INT(NODE) TREE_LANG_FLAG_0 (INTEGER_CST_CHECK (NODE))
@@ -2912,12 +2906,6 @@ struct lang_decl GTY(())
 #define DECL_FRIEND_PSEUDO_TEMPLATE_INSTANTIATION(DECL) \
   (DECL_TEMPLATE_INFO (DECL) && !DECL_USE_TEMPLATE (DECL))
 
-/* Nonzero if TYPE is a partial instantiation of a template class,
-   i.e., an instantiation whose instantiation arguments involve
-   template types.  */
-#define PARTIAL_INSTANTIATION_P(TYPE) \
-  (LANG_TYPE_CLASS_CHECK (TYPE)->is_partial_instantiation)
-
 /* Nonzero iff we are currently processing a declaration for an
    entity with its own template parameter list, and which is not a
    full specialization.  */
@@ -3196,6 +3184,32 @@ extern GTY(()) tree anonymous_namespace_name;
    (Zero if we are at namespace scope, one inside the body of a
    function, two inside the body of a function in a local class, etc.)  */
 extern int function_depth;
+
+typedef struct deferred_access GTY(())
+{
+  /* A TREE_LIST representing name-lookups for which we have deferred
+     checking access controls.  We cannot check the accessibility of
+     names used in a decl-specifier-seq until we know what is being
+     declared because code like:
+
+       class A { 
+         class B {};
+         B* f();
+       }
+
+       A::B* A::f() { return 0; }
+
+     is valid, even though `A::B' is not generally accessible.  
+
+     The TREE_PURPOSE of each node is the scope used to qualify the
+     name being looked up; the TREE_VALUE is the DECL to which the
+     name was resolved.  */
+  tree deferred_access_checks;
+  /* TRUE iff we are deferring access checks.  */
+  bool deferring_access_checks_p;
+  /* The next deferred access data in stack or linked-list.  */
+  struct deferred_access *next;
+} deferred_access;
 
 /* in pt.c  */
 
@@ -3581,7 +3595,6 @@ extern GTY(()) operator_name_info_t assignment_operator_name_info
 
 /* in call.c */
 extern bool check_dtor_name (tree, tree);
-extern int get_arglist_len_in_bytes		(tree);
 
 extern tree build_vfield_ref			(tree, tree);
 extern tree build_scoped_method_call (tree, tree, tree, tree);
@@ -3744,7 +3757,6 @@ extern tree binding_for_name                    (tree, tree);
 extern tree namespace_binding                   (tree, tree);
 extern void set_namespace_binding               (tree, tree, tree);
 extern tree lookup_namespace_name		(tree, tree);
-extern tree build_typename_type                 (tree, tree, tree, tree);
 extern tree make_typename_type			(tree, tree, tsubst_flags_t);
 extern tree make_unbound_class_template		(tree, tree, tsubst_flags_t);
 extern tree lookup_name_nonclass		(tree);
@@ -3779,7 +3791,6 @@ extern int complete_array_type			(tree, tree, int);
 extern tree build_ptrmemfunc_type		(tree);
 extern tree build_ptrmem_type                   (tree, tree);
 /* the grokdeclarator prototype is in decl.h */
-extern int parmlist_is_exprlist			(tree);
 extern int copy_fn_p				(tree);
 extern tree get_scope_of_declarator             (tree);
 extern void grok_special_member_properties	(tree);
@@ -3956,7 +3967,7 @@ extern tree build_member_call			(tree, tree, tree);
 extern tree build_offset_ref			(tree, tree);
 extern tree resolve_offset_ref			(tree);
 extern tree build_new				(tree, tree, tree, int);
-extern tree build_vec_init			(tree, tree, int);
+extern tree build_vec_init			(tree, tree, tree, int);
 extern tree build_x_delete			(tree, int, tree);
 extern tree build_delete			(tree, tree, special_function_kind, int, int);
 extern void push_base_cleanups			(void);
@@ -4024,6 +4035,7 @@ extern tree get_innermost_template_args         (tree, int);
 extern tree tsubst				(tree, tree, tsubst_flags_t, tree);
 extern tree tsubst_expr				(tree, tree, tsubst_flags_t, tree);
 extern tree tsubst_copy				(tree, tree, tsubst_flags_t, tree);
+extern tree tsubst_copy_and_build		(tree, tree, tsubst_flags_t, tree);
 extern void maybe_begin_member_template_processing (tree);
 extern void maybe_end_member_template_processing (void);
 extern tree finish_member_template_decl         (tree);
@@ -4076,6 +4088,10 @@ extern void record_last_problematic_instantiation (void);
 extern tree current_instantiation               (void);
 extern tree maybe_get_template_decl_from_type_decl (tree);
 extern int processing_template_parmlist;
+extern bool dependent_type_p                    (tree);
+extern bool dependent_template_arg_p            (tree);
+extern bool dependent_template_p                (tree);
+extern bool type_dependent_expression_p         (tree);
 
 /* in repo.c */
 extern void repo_template_used (tree);
@@ -4098,7 +4114,6 @@ extern tree lookup_base (tree, tree, base_access, base_kind *);
 extern int types_overlap_p			(tree, tree);
 extern tree get_vbase				(tree, tree);
 extern tree get_dynamic_cast_base_type          (tree, tree);
-extern void type_access_control			(tree, tree);
 extern int accessible_p                         (tree, tree);
 extern tree lookup_field			(tree, tree, int, int);
 extern int lookup_fnfields_1                    (tree, tree);
@@ -4148,6 +4163,14 @@ extern tree build_baselink                      (tree, tree, tree, tree);
 extern tree adjust_result_of_qualified_name_lookup
                                                 (tree, tree, tree);
 /* in semantics.c */
+extern void push_deferring_access_checks	(bool defer_p);
+extern void resume_deferring_access_checks	(void);
+extern void stop_deferring_access_checks	(void);
+extern void pop_deferring_access_checks		(void);
+extern tree get_deferred_access_checks		(void);
+extern void pop_to_parent_deferring_access_checks	(void);
+extern void perform_deferred_access_checks	(void);
+extern void perform_or_defer_access_check	(tree, tree);
 extern void init_cp_semantics                   (void);
 extern tree finish_expr_stmt                    (tree);
 extern tree begin_if_stmt                       (void);
@@ -4208,9 +4231,6 @@ extern tree finish_pseudo_destructor_expr       (tree, tree, tree);
 extern tree finish_unary_op_expr                (enum tree_code, tree);
 extern tree finish_compound_literal             (tree, tree);
 extern tree finish_fname                        (tree);
-extern void save_type_access_control		(tree);
-extern void reset_type_access_control           (void);
-extern void decl_type_access_control		(tree);
 extern int begin_function_definition            (tree, tree, tree);
 extern tree begin_constructor_declarator        (tree, tree);
 extern tree finish_declarator                   (tree, tree, tree, tree, int);

@@ -647,8 +647,8 @@ noce_emit_store_flag (if_info, x, reversep, normalize)
       end_sequence ();
     }
 
-  /* Don't even try if the comparison operands are weird.  */
-  if (cond_complex)
+  /* Don't even try if the comparison operands or the mode of X are weird.  */
+  if (cond_complex || !SCALAR_INT_MODE_P (GET_MODE (x)))
     return NULL_RTX;
 
   return emit_store_flag (x, code, XEXP (cond, 0),
@@ -1809,7 +1809,8 @@ noce_process_if_block (ce_info)
 	  || reg_overlap_mentioned_p (x, cond)
 	  || reg_overlap_mentioned_p (x, a)
 	  || reg_overlap_mentioned_p (x, SET_SRC (set_b))
-	  || modified_between_p (x, if_info.cond_earliest, NEXT_INSN (jump)))
+	  || modified_between_p (SET_SRC (set_b),
+				 PREV_INSN (if_info.cond_earliest), jump))
 	insn_b = set_b = NULL_RTX;
     }
   b = (set_b ? SET_SRC (set_b) : x);
@@ -2282,7 +2283,7 @@ find_if_block (ce_info)
       int max_insns = MAX_CONDITIONAL_EXECUTE;
       int n_insns;
 
-      /* Determine if the preceeding block is an && or || block.  */
+      /* Determine if the preceding block is an && or || block.  */
       if ((n_insns = block_jumps_and_fallthru_p (bb, else_bb)) >= 0)
 	{
 	  ce_info->and_and_p = TRUE;
@@ -2877,7 +2878,7 @@ dead_or_predicable (test_bb, merge_bb, other_bb, new_dest, reversep)
   if (HAVE_conditional_execution)
     {
       /* In the conditional execution case, we have things easy.  We know
-	 the condition is reversable.  We don't have to check life info,
+	 the condition is reversible.  We don't have to check life info,
 	 becase we're going to conditionally execute the code anyway.
 	 All that's left is making sure the insns involved can actually
 	 be predicated.  */

@@ -1,6 +1,6 @@
 /* Convert tree expression to rtl instructions, for GNU compiler.
    Copyright (C) 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -6503,7 +6503,7 @@ expand_expr (exp, target, tmode, modifier)
 
 #ifdef MAX_INTEGER_COMPUTATION_MODE
   /* Only check stuff here if the mode we want is different from the mode
-     of the expression; if it's the same, check_max_integer_computiation_mode
+     of the expression; if it's the same, check_max_integer_computation_mode
      will handle it.  Do we really need to check this stuff at all?  */
 
   if (target
@@ -8216,7 +8216,7 @@ expand_expr (exp, target, tmode, modifier)
 				   build (RDIV_EXPR, type,
 					  build_real (type, dconst1),
 					  TREE_OPERAND (exp, 1))),
-			    target, tmode, unsignedp);
+			    target, tmode, modifier);
       this_optab = sdiv_optab;
       goto binop;
 

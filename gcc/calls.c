@@ -197,6 +197,7 @@ static int check_sibcall_argument_overlap	PARAMS ((rtx, struct arg_data *,
 
 static int combine_pending_stack_adjustment_and_call
                                                 PARAMS ((int, struct args_size *, int));
+static tree fix_unsafe_tree		PARAMS ((tree));
 
 #ifdef REG_PARM_STACK_SPACE
 static rtx save_fixed_argument_area	PARAMS ((int, rtx, int *, int *));
@@ -1770,7 +1771,7 @@ load_register_parameters (args, num_actuals, call_fusage, flags,
 
 	  /* When a parameter is a block, and perhaps in other cases, it is
 	     possible that it did a load from an argument slot that was
-	     already clobbered. */
+	     already clobbered.  */
 	  if (is_sibcall
 	      && check_sibcall_argument_overlap (before_arg, &args[i], 0))
 	    *sibcall_failure = 1;
@@ -2066,6 +2067,35 @@ check_sibcall_argument_overlap (insn, arg, mark_stored_args_map)
 	SET_BIT (stored_args_map, low);
     }
   return insn != NULL_RTX;
+}
+
+static tree
+fix_unsafe_tree (t)
+     tree t;
+{
+  switch (unsafe_for_reeval (t))
+    {
+    case 0: /* Safe.  */
+      break;
+
+    case 1: /* Mildly unsafe.  */
+      t = unsave_expr (t);
+      break;
+
+    case 2: /* Wildly unsafe.  */
+      {
+	tree var = build_decl (VAR_DECL, NULL_TREE,
+			       TREE_TYPE (t));
+	SET_DECL_RTL (var,
+		      expand_expr (t, NULL_RTX, VOIDmode, EXPAND_NORMAL));
+	t = var;
+      }
+      break;
+
+    default:
+      abort ();
+    }
+  return t;
 }
 
 /* Generate all the code for a function call
@@ -2516,35 +2546,16 @@ expand_call (exp, target, ignore)
 
       for (; i != end; i += inc)
 	{
-	  switch (unsafe_for_reeval (args[i].tree_value))
-	    {
-	    case 0: /* Safe.  */
-	      break;
-
-	    case 1: /* Mildly unsafe.  */
-	      args[i].tree_value = unsave_expr (args[i].tree_value);
-	      break;
-
-	    case 2: /* Wildly unsafe.  */
-	      {
-		tree var = build_decl (VAR_DECL, NULL_TREE,
-				       TREE_TYPE (args[i].tree_value));
-		SET_DECL_RTL (var,
-			      expand_expr (args[i].tree_value, NULL_RTX,
-					   VOIDmode, EXPAND_NORMAL));
-		args[i].tree_value = var;
-	      }
-	      break;
-
-	    default:
-	      abort ();
-	    }
+          args[i].tree_value = fix_unsafe_tree (args[i].tree_value);
 	  /* We need to build actparms for optimize_tail_recursion.  We can
 	     safely trash away TREE_PURPOSE, since it is unused by this
 	     function.  */
 	  if (try_tail_recursion)
 	    actparms = tree_cons (NULL_TREE, args[i].tree_value, actparms);
 	}
+      /* Do the same for the function address if it is an expression. */
+      if (!fndecl)
+        TREE_OPERAND (exp, 0) = fix_unsafe_tree (TREE_OPERAND (exp, 0));
       /* Expanding one of those dangerous arguments could have added
 	 cleanups, but otherwise give it a whirl.  */
       if (any_pending_cleanups (1))
@@ -4655,4 +4666,49 @@ store_one_arg (arg, argblock, flags, variable_size, reg_parm_stack_space)
   pop_temp_slots ();
 
   return sibcall_failure;
+}
+
+
+/* Nonzero if we do not know how to pass TYPE solely in registers.
+   We cannot do so in the following cases:
+
+   - if the type has variable size
+   - if the type is marked as addressable (it is required to be constructed
+     into the stack)
+   - if the padding and mode of the type is such that a copy into a register
+     would put it into the wrong part of the register.
+
+   Which padding can't be supported depends on the byte endianness.
+
+   A value in a register is implicitly padded at the most significant end.
+   On a big-endian machine, that is the lower end in memory.
+   So a value padded in memory at the upper end can't go in a register.
+   For a little-endian machine, the reverse is true.  */
+
+bool
+default_must_pass_in_stack (mode, type)
+     enum machine_mode mode;
+     tree type;
+{
+  if (!type)
+    return true;
+
+  /* If the type has variable size...  */
+  if (TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST)
+    return true;
+
+  /* If the type is marked as addressable (it is required
+     to be constructed into the stack)...  */
+  if (TREE_ADDRESSABLE (type))
+    return true;
+
+  /* If the padding and mode of the type is such that a copy into
+     a register would put it into the wrong part of the register.  */
+  if (mode == BLKmode
+      && int_size_in_bytes (type) % (PARM_BOUNDARY / BITS_PER_UNIT)
+      && (FUNCTION_ARG_PADDING (mode, type)
+	  == (BYTES_BIG_ENDIAN ? upward : downward)))
+    return true;
+
+  return false;
 }

@@ -109,7 +109,20 @@ VALGRIND_DRIVER_DEFINES = @valgrind_path_defines@
 
 # This is how we control whether or not the additional warnings are applied.
 .-warn = $(STRICT_WARN)
-GCC_WARN_CFLAGS = $(LOOSE_WARN) $($(@D)-warn) $(NOCOMMON_FLAG)
+GCC_WARN_CFLAGS = $(LOOSE_WARN) $($(@D)-warn) $(NOCOMMON_FLAG) $(WERROR) $($@-warn)
+
+# These files are to have -Werror bypassed in stage2:
+# These contain warnings from the PCH merge.
+gtype-desc.o-warn = -Wno-error
+c-decl.o-warn = -Wno-error
+# These are very hard to completely clean due to target complexities.
+varasm.o-warn = -Wno-error
+gcc.o-warn = -Wno-error
+insn-conditions.o-warn = -Wno-error
+@out_object_file@-warn = -Wno-error
+# Bison-1.75 output often yields (harmless) -Wtraditional warnings
+gengtype-yacc.o-warn = -Wno-error
+c-parse.o-warn = -Wno-error
 
 # All warnings have to be shut off in stage1 if the compiler used then
 # isn't gcc; configure determines that.  WARN_CFLAGS will be either
@@ -549,6 +562,13 @@ T =
 T_TARGET =
 T_TARGET : $(T_TARGET)
 
+# This should name the specs file that we're going to install.  Target
+# Makefiles may override it and name another file to be generated from
+# the built-in specs and installed as the default spec, as long as
+# they also introduce a rule to generate a file name specs, to be used
+# at build time.
+SPECS = specs
+
 # End of variables for you to override.
 
 # Definition of `all' is here so that new rules inserted by sed
@@ -791,7 +811,7 @@ STAGESTUFF = *$(objext) insn-flags.h insn-config.h insn-codes.h \
  xgcc$(exeext) cpp$(exeext) cc1$(exeext) $(EXTRA_PASSES) \
  $(EXTRA_PARTS) $(EXTRA_PROGRAMS) gcc-cross$(exeext) cc1obj$(exeext) \
  protoize$(exeext) unprotoize$(exeext) \
- specs collect2$(exeext) $(USE_COLLECT2) \
+ $(SPECS) collect2$(exeext) $(USE_COLLECT2) \
  gcov-iov$(build_exeext) gcov$(exeext) gcov-dump$(exeext) \
  *.[0-9][0-9].* *.[si] libcpp.a libbackend.a libgcc.mk \
  $(LANG_STAGESTUFF)
@@ -997,9 +1017,9 @@ cpp$(exeext): gcc.o cppspec.o version.o intl.o prefix.o \
 	  prefix.o version.o $(EXTRA_GCC_OBJS) $(LIBS)
 
 # Dump a specs file to make -B./ read these specs over installed ones.
-specs: xgcc$(exeext)
+$(SPECS): xgcc$(exeext)
 	$(GCC_FOR_TARGET) -dumpspecs > tmp-specs
-	mv tmp-specs specs
+	mv tmp-specs $(SPECS)
 
 # We do want to create an executable named `xgcc', so we can use it to
 # compile libgcc2.a.
@@ -1218,7 +1238,7 @@ c-objc-common.o : c-objc-common.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(
 c-aux-info.o : c-aux-info.c  $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
     $(C_TREE_H) flags.h toplev.h
 c-convert.o : c-convert.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
-    flags.h toplev.h $(C_COMMON_H)
+    flags.h toplev.h $(C_COMMON_H) real.h
 c-pragma.o: c-pragma.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(TREE_H) \
     function.h c-pragma.h toplev.h output.h $(GGC_H) $(TM_P_H) $(C_COMMON_H) gt-c-pragma.h
 mbchar.o: mbchar.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) mbchar.h
@@ -1557,10 +1577,10 @@ ssa.o : ssa.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(REGS_H) var
    $(BASIC_BLOCK_H) output.h ssa.h
 ssa-dce.o : ssa-dce.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) hard-reg-set.h \
    $(BASIC_BLOCK_H) ssa.h insn-config.h $(RECOG_H) output.h
-ssa-ccp.o : ssa-ccp.c $(CONFIG_H) system.h $(RTL_H) hard-reg-set.h \
+ssa-ccp.o : ssa-ccp.c $(CONFIG_H) system.h coretypes.h $(TM_H) $(RTL_H) hard-reg-set.h \
     $(BASIC_BLOCK_H) ssa.h insn-config.h $(RECOG_H) output.h \
     errors.h $(GGC_H) df.h function.h
-df.o : df.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) coretypes.h $(TM_H) $(RTL_H) \
+df.o : df.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    insn-config.h $(RECOG_H) function.h $(REGS_H) $(OBSTACK_H) hard-reg-set.h \
    $(BASIC_BLOCK_H) df.h $(FIBHEAP_H)
 var-tracking.o : var-tracking.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
@@ -1715,7 +1735,7 @@ cfglayout.o : cfglayout.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $
    insn-config.h $(BASIC_BLOCK_H) hard-reg-set.h output.h function.h \
    cfglayout.h cfgloop.h
 timevar.o : timevar.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TIMEVAR_H) flags.h \
-   intl.h
+   intl.h toplev.h
 regrename.o : regrename.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    insn-config.h $(BASIC_BLOCK_H) $(REGS_H) hard-reg-set.h output.h $(RECOG_H) function.h \
    resource.h $(OBSTACK_H) flags.h $(TM_P_H)
@@ -2166,20 +2186,23 @@ gengtype-yacc.o : $(parsedir)/gengtype-yacc.c gengtype.h $(BCONFIG_H) $(SYSTEM_H
 
 # The sed command works around a bug in flex-2.5.4.
 $(parsedir)/gengtype-lex.c : $(srcdir)/gengtype-lex.l
-	cd $(parsedir) && \
-	$(FLEX) $(FLEXFLAGS) -t -o$@ gengtype-lex.l | \
+	$(FLEX) $(FLEXFLAGS) -t -o- $(srcdir)/gengtype-lex.l | \
 	  sed 's/^\(char msg\[\];\)/yyconst \1/' > g-$$$$ ; \
 	if test $$? -eq 0 ; then \
-	  mv -f g-$$$$ gengtype-lex.c ; \
+	  mv -f g-$$$$ $(parsedir)/gengtype-lex.c ; \
 	else \
-	  rm -f g-$$$$.* ; \
+	  rm -f g-$$$$ ; \
 	  false ; \
 	fi
 
 $(parsedir)/gengtype-yacc.c: $(srcdir)/gengtype-yacc.y
-	(cd $(parsedir) && \
-	 $(BISON) $(BISONFLAGS) -d -o gengtype-yacc.c gengtype-yacc.y || \
-	 ( rm -f $@ && false ) )
+	if $(BISON) $(BISONFLAGS) -d -o g-yacc.$$$$.c $(srcdir)/gengtype-yacc.y; then \
+	  mv -f g-yacc.$$$$.h $(parsedir)/gengtype-yacc.h; \
+	  mv -f g-yacc.$$$$.c $(parsedir)/gengtype-yacc.c; \
+	else \
+	  rm -f g-yacc.$$$$.*; \
+	  false; \
+	fi
 
 genconditions$(build_exeext) : genconditions.o $(BUILD_EARLY_SUPPORT) \
   $(BUILD_RTL) $(BUILD_ERRORS) $(BUILD_LIBDEPS)
@@ -2720,7 +2743,7 @@ mostlyclean: $(INTL_MOSTLYCLEAN) lang.mostlyclean
 # Delete debugging dump files.
 	-rm -f *.[0-9][0-9].* */*.[0-9][0-9].*
 # Delete some files made during installation.
-	-rm -f specs SYSCALLS.c.X SYSCALLS.c
+	-rm -f specs $(SPECS) SYSCALLS.c.X SYSCALLS.c
 	-rm -f collect collect2 mips-tfile mips-tdump
 # Delete files generated for fixproto
 	-rm -rf fix-header$(build_exeext) xsys-protos.h deduced.h tmp-deduced.h \
@@ -2893,7 +2916,7 @@ install-common: native $(EXTRA_PARTS) lang.install-common
 # Don't mess with specs if it doesn't exist yet.
 	-if [ -f specs ] ; then \
 	  rm -f $(DESTDIR)$(libsubdir)/specs; \
-	  $(INSTALL_DATA) specs $(DESTDIR)$(libsubdir)/specs; \
+	  $(INSTALL_DATA) $(SPECS) $(DESTDIR)$(libsubdir)/specs; \
 	  chmod a-x $(DESTDIR)$(libsubdir)/specs; \
 	fi
 # Install protoize if it was compiled.
@@ -3394,6 +3417,7 @@ STAGE2_FLAGS_TO_PASS = \
 	CFLAGS="$(BOOT_CFLAGS)" \
 	LDFLAGS="$(BOOT_LDFLAGS)" \
 	WARN_CFLAGS="\$$(GCC_WARN_CFLAGS)" \
+	WERROR="@WERROR@" \
 	STRICT_WARN="$(STRICT2_WARN)" \
 	libdir=$(libdir) \
 	LANGUAGES="$(LANGUAGES)" \

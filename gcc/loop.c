@@ -83,7 +83,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define PREFETCH_BLOCKS_BEFORE_LOOP_MIN  2
 
 /* Parameterize some prefetch heuristics so they can be turned on and off
-   easily for performance testing on new architecures.  These can be
+   easily for performance testing on new architectures.  These can be
    defined in target-dependent files.  */
 
 /* Prefetch is worthwhile only when loads/stores are dense.  */
@@ -496,7 +496,7 @@ loop_optimize (f, dumpfile, flags)
 
   /* Allocate and initialize auxiliary loop information.  */
   loops_info = xcalloc (loops->num, sizeof (struct loop_info));
-  for (i = 0; i < loops->num; i++)
+  for (i = 0; i < (int) loops->num; i++)
     loops->array[i].aux = loops_info + i;
 
   /* Now find all register lifetimes.  This must be done after
@@ -794,7 +794,7 @@ scan_loop (loop, flags)
 		    }
 		}
 
-	      /* For parallels, add any possible uses to the depencies, as
+	      /* For parallels, add any possible uses to the dependencies, as
 		 we can't move the insn without resolving them first.  */
 	      if (GET_CODE (PATTERN (p)) == PARALLEL)
 		{
@@ -3268,9 +3268,9 @@ loop_invariant_p (loop, x)
 
       /* Out-of-range regs can occur when we are called from unrolling.
 	 These have always been created by the unroller and are set in
-	 the loop, hence are never invariant. */
+	 the loop, hence are never invariant.  */
 
-      if (REGNO (x) >= regs->num)
+      if (REGNO (x) >= (unsigned) regs->num)
 	return 0;
 
       if (regs->array[REGNO (x)].set_in_loop < 0)
@@ -3621,7 +3621,7 @@ check_store (x, pat, data)
 
 /* Like rtx_equal_p, but attempts to swap commutative operands.  This is
    important to get some addresses combined.  Later more sophisticated
-   transformations can be added when necesary.
+   transformations can be added when necessary.
 
    ??? Same trick with swapping operand is done at several other places.
    It can be nice to develop some common way to handle this.  */
@@ -5526,7 +5526,7 @@ valid_initial_value_p (x, insn, call_seen, loop_start)
    as a possible giv.  INSN is the insn whose pattern X comes from.
    NOT_EVERY_ITERATION is 1 if the insn might not be executed during
    every loop iteration.  MAYBE_MULTIPLE is 1 if the insn might be executed
-   more thanonce in each loop iteration.  */
+   more than once in each loop iteration.  */
 
 static void
 find_mem_givs (loop, x, insn, not_every_iteration, maybe_multiple)
@@ -5731,7 +5731,7 @@ record_giv (loop, v, insn, src_reg, dest_reg, mult_val, add_val, ext_val,
   rtx set = single_set (insn);
   rtx temp;
 
-  /* Attempt to prove constantness of the values.  Don't let simplity_rtx
+  /* Attempt to prove constantness of the values.  Don't let simplify_rtx
      undo the MULT canonicalization that we performed earlier.  */
   temp = simplify_rtx (add_val);
   if (temp
@@ -6675,7 +6675,7 @@ simplify_giv_expr (loop, x, ext_val, benefit)
 								    arg1)),
 					ext_val, benefit);
 	    }
-	  /* Porpagate the MULT expressions to the intermost nodes.  */
+	  /* Propagate the MULT expressions to the intermost nodes.  */
 	  else if (GET_CODE (arg0) == PLUS)
 	    {
 	      /* (invar_0 + invar_1) * invar_2.  Distribute.  */
@@ -7361,7 +7361,7 @@ check_ext_dependent_givs (bl, loop_info)
      constants in order to be certain of no overflow.  */
   /* ??? An unknown iteration count with an increment of +-1
      combined with friendly exit tests of against an invariant
-     value is also ameanable to optimization.  Not implemented.  */
+     value is also amenable to optimization.  Not implemented.  */
   if (loop_info->n_iterations > 0
       && bl->initial_value
       && GET_CODE (bl->initial_value) == CONST_INT
@@ -7383,7 +7383,7 @@ check_ext_dependent_givs (bl, loop_info)
 	neg_incr = 1, abs_incr = -abs_incr;
       total_incr = abs_incr * loop_info->n_iterations;
 
-      /* Check for host arithmatic overflow.  */
+      /* Check for host arithmetic overflow.  */
       if (total_incr / loop_info->n_iterations == abs_incr)
 	{
 	  unsigned HOST_WIDE_INT u_max;
@@ -7396,7 +7396,7 @@ check_ext_dependent_givs (bl, loop_info)
 
 	  /* Check zero extension of biv ok.  */
 	  if (start_val >= 0
-	      /* Check for host arithmatic overflow.  */
+	      /* Check for host arithmetic overflow.  */
 	      && (neg_incr
 		  ? u_end_val < u_start_val
 		  : u_end_val > u_start_val)
@@ -7414,7 +7414,7 @@ check_ext_dependent_givs (bl, loop_info)
 	     keep this fact in mind -- myself included on occasion.
 	     So leave alone with the signed overflow optimizations.  */
 	  if (start_val >= -s_max - 1
-	      /* Check for host arithmatic overflow.  */
+	      /* Check for host arithmetic overflow.  */
 	      && (neg_incr
 		  ? s_end_val < start_val
 		  : s_end_val > start_val)
@@ -10530,7 +10530,7 @@ loop_insn_sink (loop, pattern)
 }
 
 /* bl->final_value can be eighter general_operand or PLUS of general_operand
-   and constant.  Emit sequence of intructions to load it into REG  */
+   and constant.  Emit sequence of instructions to load it into REG.  */
 static rtx
 gen_load_of_final_value (reg, final_value)
      rtx reg, final_value;

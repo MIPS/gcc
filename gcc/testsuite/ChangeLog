@@ -1,8 +1,212 @@
+2003-01-22  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/9354
+	* g++.dg/parse/new1.C: New test.
+
+	PR c++/9216
+	* g++.dg/parse/template2.C: New test.
+
+	PR c++/9354
+	* g++.dg/parse/typedef2.C: New test.
+
+	PR c++/9328
+	* g++.dg/ext/typeof3.C: New test.
+
+2003-01-22  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/2738
+	* g++.dg/parse/ret-type1.C: New test.
+
+	PR c++/3792
+	* g++.dg/parse/tmpl-outside1.C: New test.
+
+	PR c++/4207
+	* g++.dg/parse/int-as-enum1.C: New test.
+
+	PR c++/4903
+	* g++.dg/parse/no-typename1.C: New test.
+
+	PR c++/5533
+	* g++.dg/parse/no-value1.C: New test.
+
+	PR c++/5921
+	* g++.dg/parse/wrong-inline1.C: New test.
+
+	PR c++/6402
+	* g++.dg/parse/ref1.C: New test.
+
+	PR c++/6992
+	* g++.dg/parse/attr-ctor1.C: New test.
+
+	PR c++/7229
+	* g++.dg/parse/namespace5.C: New test.
+
+	PR c++/7917
+	* g++.dg/parse/func-def1.C: New test.
+
+	PR c++/8143
+	* g++.dg/parse/undefined1.C: New test.
+
+	PR c++/5723, PR c++/8522
+	* g++.dg/parse/specialization1.C: New test.
+
+	PR c++/163, PR c++/8595
+	* g++.dg/parse/struct-as-enum1.C: New test.
+
+	PR c++/9173
+	* g++.dg/parse/undefined2.C: New test.
+
+2003-01-22  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/9298
+	* g++.dg/parse/template1.C: New test.
+
+	PR c++/9384
+	* g++.dg/parse/using1.C: New test.
+
+	PR c++/9285
+	PR c++/9294
+	* g++.dg/parse/expr2.C: New test.
+
+	PR c++/9388
+	* g++.dg/parse/lookup2.C: Likewise.
+
+Tue Jan 21 18:01:35 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* gcc.c-torture/execute/990208-1.c:  Add noinline attributes as needed.
+	* gcc.c-torture/execute/eeprof-1.c:  Likewise.
+	* gcc.c-torture/execute/stdio-opt-*.c: Likewise.
+	* gcc.c-torture/execute/string-opt-*.c: Likewise.
+
+2003-01-20  Nick Clifton  <nickc@redhat.com>
+
+	* gcc.c-torture/execute/20030117-1.c: New test case.  Exposes
+	problem with ARM sibcall code generation.
+
+2003-01-20  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* gcc.c-torture/execute/20030120-1.c: New.
+
+2003-01-19  Paolo Carlini  <pcarlini@unitus.it>
+
+	* g++.old-deja/g++.pt/typename13.C: Remove XFAIL.
+
+2003-01-17  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/9272
+	* g++.dg/parse/ctor1.C: New test.
+
+	PR c++/9294:
+	* g++.dg/parse/qualified1.C: New test.
+	
+	* g++.dg/parse/typename3.C: New test.
+
+2003-01-16  Richard Henderson  <rth@redhat.com>
+
+	* g++.dg/tls/init-2.C: Fix error matches for real this time.
+
+2003-01-16  Richard Henderson  <rth@redhat.com>
+
+	* g++.dg/pch/pch.exp: Copy test header to the working directory
+	before using it either for precompilation or direct use.
+	* g++.dg/pch/*.Hs: Rename from gcc.dg/pch/*.H.
+	* g++.dg/pch/*.C: Include foo.H, not foo.Hp.
+
+2003-01-16  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/pch/pch.exp: Copy test header to the working directory
+	before using it either for precompilation or direct use.
+	* gcc.dg/pch/*.hs: Rename from gcc.dg/pch/*.h.
+	* gcc.dg/pch/*.c: Include foo.h, not foo.hp.
+
+2003-01-16  Mark Mitchell  <mark@codesourcery.com>
+
+	* gcc/testsuite/g++.dg/ext/typename1.C: Add typename keyword.
+	* gcc/testsuite/g++.dg/template/crash1.C: Update error messages.
+	* gcc/testsuite/g++.dg/template/crash2.C: Remove error message.
+	* gcc/testsuite/g++.dg/parse/typename2.C: New test.
+	* gcc/testsuite/g++.dg/template/typename2.C: Change implicit
+	typename warning into error.
+	* gcc/testsuite/g++.old-deja/g++.benjamin/tem03.C: Issue more
+	error messages.
+	* gcc/testsuite/g++.old-deja/g++.benjamin/tem04.C: Fix typos.
+	* gcc/testsuite/g++.old-deja/g++.brendan/crash56.C: Add this->.
+	* gcc/testsuite/g++.old-deja/g++.law/visibility13.C: Remove error
+	messages.
+	* gcc/testsuite/g++.old-deja/g++.ns/template17.C: Reorder code to
+	make declaration visible in template.
+	* gcc/testsuite/g++.old-deja/g++.pt/crash3.C: Fix typos.
+	* gcc/testsuite/g++.old-deja/g++.pt/crash36.C: Issue more error
+	messages.
+	* gcc/testsuite/g++.old-deja/g++.pt/crash5.C: Improve error
+	message.
+	* gcc/testsuite/g++.old-deja/g++.pt/crash67.C: Remove warning.
+	* gcc/testsuite/g++.old-deja/g++.pt/inherit1.C: Add this->.
+	* gcc/testsuite/g++.old-deja/g++.pt/niklas01a.C: Add error message.
+	* gcc/testsuite/g++.old-deja/g++.pt/typename16.C: Replace implicit
+	typename warning with error message.
+	* gcc/testsuite/g++.old-deja/g++.pt/typename19.C: Remove warning.
+	* gcc/testsuite/g++.old-deja/g++.robertl/eb112.C: Fix typo.
+	* gcc/testsuite/g++.old-deja/g++.robertl/eb24.C: Use this->.
+	
+2003-01-16  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/parse/ambig2.C: New test.
+
+2003-01-15  Richard Henderson  <rth@redhat.com>
+
+	* g++.dg/tls/init-2.C: Update error message string.
+
+2003-01-15  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.c-torture/execute/builtin-constant.x: XFAIL the test.
+
+2003-01-15  Stephane Carrez  <stcarrez@nerim.fr>
+
+	* gcc.c-torture/compile/20000804-1.x: Don't execute this test at
+	all for HC11/HC12.
+	* gcc.c-torture/compile/20001205-1.x: Likewise.
+	* gcc.c-torture/compile/20001226-1.x: Likewise.
+	* gcc.c-torture/compile/920520-1.x: Likewise.
+	* gcc.c-torture/compile/961203-1.x: Likewise.
+	* gcc.c-torture/compile/20020604-1.x: Likewise.
+
+Wed Jan 15 12:20:52 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* gcc.c-torture/compile/20030115-1.c: New test.
+
+	* gcc.dg/i386-fpcvt-1.c: New test.
+	* gcc.dg/i386-fpcvt-2.c: New test.
+
+2003-01-14  Jeffrey D. Oldham  <oldham@codesourcery.com>
+
+	Further conform g++'s __vmi_class_type_info to the C++ ABI
+	specification.
+	* g++.old-deja/g++.abi/vmihint.C (main): Revise expected flags per
+	the specification.
+
+Tue Jan 14 00:45:03 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* gcc.dg/i386-fpcvt-1.c: New test.
+	* gcc.dg/i386-fpcvt-2.c: New test.
+
+2003-01-14  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/i386-mmx-3.c: New test.
+
+2003-01-12  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/9264
+	* g++.dg/parse/octal1.C: New file.
+
+	PR c++/9172
+	* g++.dg/parse/typename1.C: New file.
+
 2003-01-10  Danny Smith  <dannysmith@users.sourceforge.net>
 
 	* gcc.dg/bf-ms-layout.c: Enable for cygwin and mingw32 targets.
 	* gcc.dg/bf-no-ms-layout.c: Likewise.
- 	* gcc.dg/bf-ms-attrib.c: Likewise.
+	* gcc.dg/bf-ms-attrib.c: Likewise.
 
 2003-01-10  Mark Mitchell  <mark@codesourcery.com>
 
@@ -17,7 +221,7 @@
 
 	PR c++/9171
 	* g++.dg/templ/spec5.C: New file.
-	
+
 2003-01-10  Josef Zlomek  <zlomekj@suse.cz>
 
 	* gcc.c-torture/compile/20030110-1.c: New test.

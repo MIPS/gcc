@@ -2448,7 +2448,7 @@ create_profiler ()
   /* Build structure.  */
   assemble_variable (gcov_info, 0, 0, 0);
 
-  /* Build the constructor function to invoke __gcov_init. */
+  /* Build the constructor function to invoke __gcov_init.  */
   ctor_name = concat (IDENTIFIER_POINTER (get_file_function_name ('I')),
 		      "_GCOV", NULL);
   ctor = build_decl (FUNCTION_DECL, get_identifier (ctor_name),

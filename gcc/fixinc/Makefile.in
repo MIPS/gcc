@@ -94,6 +94,11 @@ test-stamp : $(TESTOBJ) $(LIBERTY)
 $(AF): $(FIXOBJ) $(LIBERTY)
 	$(CC) $(FIXINC_DEFS) $(LDFLAGS) -o $@ $(FIXOBJ) $(LIBERTY)
 
+# String length warnings
+fixincl.o-warn = -Wno-error
+# Signed/Unsigned warnings, but in code pulled from upstream.
+gnu-regex.o-warn = -Wno-error
+
 $(ALLOBJ)   : $(HDR)
 fixincl.o   : fixincl.c  $(srcdir)/fixincl.x
 fixtests.o  : fixtests.c

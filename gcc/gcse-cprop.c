@@ -203,7 +203,7 @@ try_replace_reg (from, to, insn)
 
   /* REG_EQUAL may get simplified into register.
      We don't allow that. Remove that note. This code ought
-     not to hapen, because previous code ought to syntetize
+     not to happen, because previous code ought to syntetize
      reg-reg move, but be on the safe side.  */
   if (note && REG_P (XEXP (note, 0)))
     remove_note (insn, note);
@@ -284,7 +284,7 @@ find_avail_set (regno, insn, cprop_data)
 
 /* Subroutine of cprop_insn that tries to propagate constants into
    JUMP_INSNS.  JUMP must be a conditional jump.  If SETCC is non-NULL
-   it is the instruction that immediately preceeds JUMP, and must be a
+   it is the instruction that immediately precedes JUMP, and must be a
    single SET of a register.  FROM is what we will try to replace,
    SRC is the constant we will try to substitute for it.  Returns nonzero
    if a change was made.  */
@@ -523,7 +523,8 @@ do_local_cprop (x, insn, alter_jumps, run_jump_opt_after_gcse, libcall_sp)
 	  rtx this_rtx = l->loc;
 	  rtx note;
 
-	  if (CONSTANT_P (this_rtx))
+	  if (CONSTANT_P (this_rtx)
+	      && GET_CODE (this_rtx) != CONSTANT_P_RTX)
 	    newcnst = this_rtx;
 	  if (REG_P (this_rtx) && REGNO (this_rtx) >= FIRST_PSEUDO_REGISTER
 	      /* Don't copy propagate if it has attached REG_EQUIV note.
@@ -538,7 +539,7 @@ do_local_cprop (x, insn, alter_jumps, run_jump_opt_after_gcse, libcall_sp)
       if (newcnst && constprop_register (insn, x, newcnst, alter_jumps, run_jump_opt_after_gcse))
 	{
 	  /* If we find a case where we can't fix the retval REG_EQUAL notes
-	     match the new register, we either have to abandom this replacement
+	     match the new register, we either have to abandon this replacement
 	     or fix delete_trivially_dead_insns to preserve the setting insn,
 	     or make it delete the REG_EUAQL note, and fix up all passes that
 	     require the REG_EQUAL note there.  */
@@ -623,6 +624,7 @@ local_cprop_pass (alter_jumps, run_jump_opt_after_gcse, cprop_data)
   rtx insn;
   struct reg_use *reg_used;
   rtx libcall_stack[MAX_NESTED_LIBCALLS + 1], *libcall_sp;
+  bool changed = false;
 
   cselib_init ();
   libcall_sp = &libcall_stack[MAX_NESTED_LIBCALLS];
@@ -654,12 +656,18 @@ local_cprop_pass (alter_jumps, run_jump_opt_after_gcse, cprop_data)
 		   reg_used++, cprop_data->reg_use_count--)
 		if (do_local_cprop (reg_used->reg_rtx, insn, alter_jumps,
 			run_jump_opt_after_gcse, libcall_sp))
-		  break;
+		  {
+		    changed = true;
+		    break;
+		  }
 	    }
 	  while (cprop_data->reg_use_count);
 	}
       cselib_process_insn (insn);
     }
+  /* Global analysis may get into infinite loops for unreachable blocks.  */
+  if (changed && alter_jumps)
+    delete_unreachable_blocks ();
   cselib_finish ();
 }
 
@@ -855,7 +863,7 @@ bypass_conditional_jumps (cprop_data)
     }
 
   /* If we bypassed any register setting insns, we inserted a
-     copy on the redirected edge.  These need to be commited.  */
+     copy on the redirected edge.  These need to be committed.  */
   if (changed)
     commit_edge_insertions();
 
@@ -912,14 +920,16 @@ cprop (alter_jumps, cprop_data, run_jump_opt_after_gcse)
 }
 
 /* Perform one copy/constant propagation pass.
-   F is the first insn in the function.
-   PASS is the pass count.  */
+   PASS is the pass count.  If CPROP_JUMPS is true, perform constant
+   propagation into conditional jumps.  If BYPASS_JUMPS is true,
+   perform conditional jump bypassing optimizations.  */
 
 int
-one_cprop_pass (pass, alter_jumps, run_jump_opt_after_gcse)
+one_cprop_pass (pass, alter_jumps, run_jump_opt_after_gcse, bypass_jumps)
      int pass;
      int alter_jumps;
      int *run_jump_opt_after_gcse;
+     int bypass_jumps;
 {
   int changed = 0;
   struct cprop_global cprop_data;
@@ -938,7 +948,7 @@ one_cprop_pass (pass, alter_jumps, run_jump_opt_after_gcse)
       alloc_cprop_mem (last_basic_block, &cprop_data);
       compute_cprop_data (&cprop_data);
       changed = cprop (alter_jumps, &cprop_data, run_jump_opt_after_gcse);
-      if (alter_jumps)
+      if (alter_jumps && bypass_jumps)
 	changed |= bypass_conditional_jumps (&cprop_data);
       free_cprop_mem (&cprop_data);
     }
@@ -953,5 +963,8 @@ one_cprop_pass (pass, alter_jumps, run_jump_opt_after_gcse)
 	       const_prop_count, copy_prop_count);
     }
 
+  /* Global analysis may get into infinite loops for unreachable blocks.  */
+  if (changed && cprop_jump)
+    delete_unreachable_blocks ();
   return changed;
 }

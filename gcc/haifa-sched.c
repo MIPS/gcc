@@ -1544,7 +1544,7 @@ rm_other_notes (head, tail)
 
 /* This function looks for a new register being defined.
    If the destination register is already used by the source,
-   a new register is not needed. */
+   a new register is not needed.  */
 
 static int
 find_set_reg_weight (x)
@@ -1770,6 +1770,25 @@ move_insn (insn, last)
 {
   rtx retval = NULL;
 
+  /* If INSN has SCHED_GROUP_P set, then issue it and any other
+     insns with SCHED_GROUP_P set first.  */
+  while (SCHED_GROUP_P (insn))
+    {
+      rtx prev = PREV_INSN (insn);
+      
+      /* Move a SCHED_GROUP_P insn.  */
+      move_insn1 (insn, last);
+      /* If this is the first call to reemit_notes, then record
+	 its return value.  */
+      if (retval == NULL_RTX)
+	retval = reemit_notes (insn, insn);
+      else
+	reemit_notes (insn, insn);
+      /* Consume SCHED_GROUP_P flag.  */
+      SCHED_GROUP_P (insn) = 0;
+      insn = prev;
+    }
+
   /* Now move the first non SCHED_GROUP_P insn.  */
   move_insn1 (insn, last);
 
@@ -1779,8 +1798,6 @@ move_insn (insn, last)
     retval = reemit_notes (insn, insn);
   else
     reemit_notes (insn, insn);
-
-  SCHED_GROUP_P (insn) = 0;
 
   return retval;
 }
@@ -2247,7 +2264,7 @@ schedule_block (b, rgn_n_insns)
 
 	  /* Sort the ready list based on priority.  This must be
 	     redone here, as schedule_insn may have readied additional
-	     insns that will not be sorted correctly. */
+	     insns that will not be sorted correctly.  */
 	  if (ready.n_ready > 0)
 	    ready_sort (&ready);
 
@@ -2377,7 +2394,8 @@ set_priorities (head, tail)
       if (GET_CODE (insn) == NOTE)
 	continue;
 
-      n_insn++;
+      if (! SCHED_GROUP_P (insn))
+	n_insn++;
       (void) priority (insn);
     }
 
