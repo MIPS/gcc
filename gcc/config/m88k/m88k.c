@@ -1025,6 +1025,7 @@ output_short_branch_defs (stream)
 /* Return truth value of the statement that this conditional branch is likely
    to fall through.  CONDITION, is the condition that JUMP_INSN is testing.  */
 
+/* ??? Could not this be handled by predict.c mechanism somehow?  */
 int
 mostly_false_jump (jump_insn, condition)
      rtx jump_insn, condition;
@@ -1083,6 +1084,7 @@ mostly_false_jump (jump_insn, condition)
   if ((insnt == 0) != (insnj == 0))
     return (insnt == 0);
 
+#if 0
   /* Predict loops to loop.  */
   for (insnt = PREV_INSN (target_label);
        insnt && GET_CODE (insnt) == NOTE;
@@ -1093,6 +1095,7 @@ mostly_false_jump (jump_insn, condition)
       return 0;
     else if (NOTE_LINE_NUMBER (insnt) == NOTE_INSN_LOOP_CONT)
       return 0;
+#endif
 
   /* Predict backward branches usually take.  */
   if (final_sequence)
