@@ -1,3 +1,8 @@
+2003-03-19  Dale Johannesen  <dalej@apple.com>
+
+	* tree-ssa-dse.c (dse_optimize_stmt):  Redirect uses feeding into
+	a deleted store correctly.
+
 2003-03-19  Jeff Law  <law@redhat.com>
 
 	* tree-dfa.c (find_hidden_use_vars): Also look inside the
