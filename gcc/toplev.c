@@ -2070,7 +2070,7 @@ process_options (void)
   if (flag_signaling_nans)
     flag_trapping_math = 1;
 
-  /* APPLE LOCAL begin 3837840 */
+  /* APPLE LOCAL begin Altivec 3837840 */
   /* Disable inlining when Altivec is used.
      Remove this when 3837835 is fixed.  */
   if (flag_altivec)
@@ -2088,7 +2088,7 @@ process_options (void)
 	  warn_inline = 0;
 	}
     }
-  /* APPLE LOCAL end 3837840 */
+  /* APPLE LOCAL end Altivec 3837840 */
 }
 
 /* Initialize the compiler back end.  */

@@ -1,6 +1,16 @@
 2004-10-19  Devang Patel  <dpatel@apple.com>
 
 	Radar 3837840
+	* c-opts.c (c_common_handle_option): Update APPLE LOCAL marker.
+	* c.opt (faltivec): Same.
+	* toplev.c (process_options): Same.
+	* config/rs6000/darwin.h (SUBTARGET_OPTION_TRANSLATE_TABLE):
+	Same.
+
+
+2004-10-19  Devang Patel  <dpatel@apple.com>
+
+	Radar 3837840
 	* c-opts.c (c_common_handle_option): Handle OPT_faltivec.
 	* c.opt (faltivec): New option.
 	* toplev.c (process_options): Disable inlining when -faltivec

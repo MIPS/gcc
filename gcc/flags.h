@@ -329,7 +329,7 @@ extern int predictive_compilation;
 
 extern int disable_typechecking_for_spec_flag;
 
-/* APPLE LOCAL begin 3837840 */
+/* APPLE LOCAL begin Altivec 3837840 */
 /* This is copied from tree-inline.h.  */
 /* 0 if we should not perform inlining.
    1 if we should expand functions calls inline at the tree level.
@@ -337,6 +337,6 @@ extern int disable_typechecking_for_spec_flag;
    candidates.  */
 
 extern int flag_inline_trees;
-/* APPLE LOCAL end 3837840 */
+/* APPLE LOCAL end Altivec 3837840 */
 
 #endif /* ! GCC_FLAGS_H */
