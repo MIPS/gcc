@@ -97,9 +97,8 @@ name_needs_quotes (const char *name)
 static int
 machopic_symbol_defined_p (rtx sym_ref)
 {
-  return ((SYMBOL_REF_FLAGS (sym_ref) & MACHO_SYMBOL_FLAG_DEFINED)
-	  /* Local symbols must always be defined.  */
-	  || SYMBOL_REF_LOCAL_P (sym_ref));
+  return (SYMBOL_REF_FLAGS (sym_ref) & MACHO_SYMBOL_FLAG_DEFINED)
+    || (SYMBOL_REF_LOCAL_P (sym_ref) && ! SYMBOL_REF_EXTERNAL_P (sym_ref));
 }
 
 /* This module assumes that (const (symbol_ref "foo")) is a legal pic
@@ -874,7 +873,8 @@ machopic_output_indirection (void **slot, void *data)
       machopic_output_stub (asm_out_file, sym, stub);    
     }
   else if (! indirect_data (symbol)
-	   && machopic_symbol_defined_p (symbol))
+	   && (machopic_symbol_defined_p (symbol)
+	       || SYMBOL_REF_LOCAL_P (symbol)))
     {
       data_section ();
       assemble_align (GET_MODE_ALIGNMENT (Pmode));
@@ -982,18 +982,27 @@ darwin_encode_section_info (tree decl, rtx rtl, int first ATTRIBUTE_UNUSED)
     SYMBOL_REF_FLAGS (sym_ref) |= MACHO_SYMBOL_STATIC;
 }
 
+static GTY(()) tree textcoal_section = 0;
+static GTY(()) tree datacoal_section = 0;
+
 void
 darwin_make_decl_one_only (tree decl)
 {
-  static const char *text_section = "__TEXT,__textcoal_nt,coalesced,no_toc";
-  static const char *data_section = "__DATA,__datacoal_nt,coalesced,no_toc";
+  tree sec = 0;
+  if (textcoal_section == 0)
+    {
+      static const char *ts = "__TEXT,__textcoal_nt,coalesced,no_toc";
+      static const char *ds = "__DATA,__datacoal_nt,coalesced,no_toc";
+      textcoal_section = build_string (strlen (ts), ts);
+      datacoal_section = build_string (strlen (ds), ds);
+    }
 
-  const char *sec = TREE_CODE (decl) == FUNCTION_DECL
-    ? text_section
-    : data_section;
+  sec = TREE_CODE (decl) == FUNCTION_DECL
+    ? textcoal_section
+    : datacoal_section;
   TREE_PUBLIC (decl) = 1;
   DECL_ONE_ONLY (decl) = 1;
-  DECL_SECTION_NAME (decl) = build_string (strlen (sec), sec);
+  DECL_SECTION_NAME (decl) = sec;
 }
 
 void

@@ -33,6 +33,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    seem to be sufficient on some systems.  */
 #include "system.h"
 #include "coretypes.h"
+#include "input.h"
 
 /* The following ifdefs are recommended by the autoconf documentation
    for any code using alloca.  */
@@ -286,6 +287,12 @@ enum gfc_generic_isym_id
   GFC_ISYM_ASSOCIATED,
   GFC_ISYM_ATAN,
   GFC_ISYM_ATAN2,
+  GFC_ISYM_J0,
+  GFC_ISYM_J1,
+  GFC_ISYM_JN,
+  GFC_ISYM_Y0,
+  GFC_ISYM_Y1,
+  GFC_ISYM_YN,
   GFC_ISYM_BTEST,
   GFC_ISYM_CEILING,
   GFC_ISYM_CHAR,
@@ -301,6 +308,8 @@ enum gfc_generic_isym_id
   GFC_ISYM_DOT_PRODUCT,
   GFC_ISYM_DPROD,
   GFC_ISYM_EOSHIFT,
+  GFC_ISYM_ERF,
+  GFC_ISYM_ERFC,
   GFC_ISYM_ETIME,
   GFC_ISYM_EXP,
   GFC_ISYM_EXPONENT,
@@ -451,7 +460,11 @@ typedef struct gfc_file
 
 typedef struct gfc_linebuf 
 {
+#ifdef USE_MAPPED_LOCATION
+  source_location location;
+#else
   int linenum;
+#endif
   struct gfc_file *file;
   struct gfc_linebuf *next;
 
@@ -781,6 +794,8 @@ typedef struct gfc_namespace
   gfc_access default_access, operator_access[GFC_INTRINSIC_OPS];
 
   gfc_st_label *st_labels;
+  /* This list holds information about all the data initializers in
+     this namespace.  */
   struct gfc_data *data;
 
   gfc_charlen *cl_list;
@@ -794,6 +809,9 @@ typedef struct gfc_namespace
 
   /* A list of all alternate entry points to this procedure (or NULL).  */
   gfc_entry_list *entries;
+
+  /* Set to 1 if namespace is a BLOCK DATA program unit.  */
+  int is_block_data;
 }
 gfc_namespace;
 
@@ -1077,12 +1095,18 @@ gfc_expr;
 
 typedef struct
 {
-  int kind, radix, digits, bit_size;
+  /* Values really representable by the target.  */
+  mpz_t huge, min_int, max_int;
 
-  int range;
-  mpz_t huge;
+  int kind, radix, digits, bit_size, range;
 
-  mpz_t min_int, max_int;	/* Values really representable by the target */
+  /* True if the C type of the given name maps to this precision.
+     Note that more than one bit can be set.  */
+  unsigned int c_char : 1;
+  unsigned int c_short : 1;
+  unsigned int c_int : 1;
+  unsigned int c_long : 1;
+  unsigned int c_long_long : 1;
 }
 gfc_integer_info;
 
@@ -1093,6 +1117,8 @@ typedef struct
 {
   int kind, bit_size;
 
+  /* True if the C++ type bool, C99 type _Bool, maps to this precision.  */
+  unsigned int c_bool : 1;
 }
 gfc_logical_info;
 
@@ -1101,10 +1127,18 @@ extern gfc_logical_info gfc_logical_kinds[];
 
 typedef struct
 {
-  int kind, radix, digits, min_exponent, max_exponent;
-
-  int range, precision;
   mpfr_t epsilon, huge, tiny;
+  int kind, radix, digits, min_exponent, max_exponent;
+  int range, precision;
+
+  /* The precision of the type as reported by GET_MODE_PRECISION.  */
+  int mode_precision;
+
+  /* True if the C type of the given name maps to this precision.
+     Note that more than one bit can be set.  */
+  unsigned int c_float : 1;
+  unsigned int c_double : 1;
+  unsigned int c_long_double : 1;
 }
 gfc_real_info;
 
@@ -1518,6 +1552,7 @@ extern int gfc_default_double_kind;
 extern int gfc_default_character_kind;
 extern int gfc_default_logical_kind;
 extern int gfc_default_complex_kind;
+extern int gfc_c_int_kind;
 
 /* symbol.c */
 void gfc_clear_new_implicit (void);
@@ -1679,6 +1714,8 @@ try gfc_check_pointer_assign (gfc_expr *, gfc_expr *);
 try gfc_check_assign_symbol (gfc_symbol *, gfc_expr *);
 
 gfc_expr *gfc_default_initializer (gfc_typespec *);
+gfc_expr *gfc_get_variable_expr (gfc_symtree *);
+
 
 /* st.c */
 extern gfc_code new_st;

@@ -425,7 +425,7 @@ mark_stmt_if_obviously_necessary (tree stmt, bool aggressive)
 	{
 	  /* If LHS is NULL, it means that we couldn't get the base
 	     address of the reference.  In which case, we should not
-	     remove this store. */
+	     remove this store.  */
 	  mark_stmt_necessary (stmt, true);
 	}
       else if (DECL_P (lhs))
@@ -941,7 +941,8 @@ struct tree_opt_pass pass_dce =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_ggc_collect | TODO_verify_ssa	/* todo_flags_finish */
+  TODO_ggc_collect | TODO_verify_ssa,	/* todo_flags_finish */
+  0					/* letter */
 };
 
 struct tree_opt_pass pass_cd_dce =
@@ -957,7 +958,8 @@ struct tree_opt_pass pass_cd_dce =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_ggc_collect | TODO_verify_ssa | TODO_verify_flow
+  TODO_ggc_collect | TODO_verify_ssa | TODO_verify_flow,
 					/* todo_flags_finish */
+  0					/* letter */
 };
 

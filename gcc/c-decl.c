@@ -104,6 +104,11 @@ static int enum_overflow;
 
 static location_t current_function_prototype_locus;
 
+/* The argument information structure for the function currently being
+   defined.  */
+
+static GTY(()) tree current_function_arg_info;
+
 /* The current statement tree.  */
 
 static GTY(()) struct stmt_tree_s c_stmt_tree;
@@ -472,7 +477,7 @@ bind (tree name, tree decl, struct c_scope *scope, bool invisible, bool nested)
     case ERROR_MARK:     here = &I_SYMBOL_BINDING (name);  break;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 
   /* Locate the appropriate place in the chain of shadowed decls
@@ -528,7 +533,7 @@ c_finish_incomplete_decl (tree decl)
 /* The Objective-C front-end often needs to determine the current scope.  */
 
 void *
-get_current_scope (void)
+objc_get_current_scope (void)
 {
   return current_scope;
 }
@@ -726,10 +731,7 @@ pop_scope (void)
 	  /* Labels go in BLOCK_VARS.  */
 	  TREE_CHAIN (p) = BLOCK_VARS (block);
 	  BLOCK_VARS (block) = p;
-
-#ifdef ENABLE_CHECKING
-	  if (I_LABEL_BINDING (b->id) != b) abort ();
-#endif
+	  gcc_assert (I_LABEL_BINDING (b->id) == b);
  	  I_LABEL_BINDING (b->id) = b->shadowed;
  	  break;
 
@@ -742,9 +744,7 @@ pop_scope (void)
 	     appears in the bindings list with b->id NULL.  */
 	  if (b->id)
 	    {
-#ifdef ENABLE_CHECKING
-	      if (I_TAG_BINDING (b->id) != b) abort ();
-#endif
+	      gcc_assert (I_TAG_BINDING (b->id) == b);
 	      I_TAG_BINDING (b->id) = b->shadowed;
 	    }
   	  break;
@@ -814,9 +814,7 @@ pop_scope (void)
 	     here with b->id NULL in this case.  */
 	  if (b->id)
 	    {
-#ifdef ENABLE_CHECKING
-	      if (I_SYMBOL_BINDING (b->id) != b) abort ();
-#endif
+	      gcc_assert (I_SYMBOL_BINDING (b->id) == b);
 	      I_SYMBOL_BINDING (b->id) = b->shadowed;
 	      if (b->shadowed && b->shadowed->type)
 		TREE_TYPE (b->shadowed->decl) = b->shadowed->type;
@@ -824,7 +822,7 @@ pop_scope (void)
 	  break;
 
 	default:
-	  abort ();
+	  gcc_unreachable ();
 	}
     }
 
@@ -1275,7 +1273,7 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
 	 not undefined behavior, and is the most convenient way to get
 	 some effects (see e.g.  what unwind-dw2-fde-glibc.c does to
 	 the definition of _Unwind_Find_FDE in unwind-dw2-fde.c), but
-	 we do diagnose it if -Wtraditional. */
+	 we do diagnose it if -Wtraditional.  */
       if (TREE_PUBLIC (olddecl) && !TREE_PUBLIC (newdecl))
 	{
 	  /* Two exceptions to the rule.  If olddecl is an extern
@@ -1478,7 +1476,7 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
 	 definition.  */
       && !(TREE_CODE (newdecl) == FUNCTION_DECL
 	   && DECL_INITIAL (newdecl) && !DECL_INITIAL (olddecl))
-      /* Don't warn about redundant redeclarations of builtins. */
+      /* Don't warn about redundant redeclarations of builtins.  */
       && !(TREE_CODE (newdecl) == FUNCTION_DECL
 	   && !DECL_BUILT_IN (newdecl)
 	   && DECL_BUILT_IN (olddecl)
@@ -1522,7 +1520,7 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
       for (here = &current_scope->bindings; *here; here = &(*here)->prev)
 	if ((*here)->decl == olddecl)
 	  goto found;
-      abort ();
+      gcc_unreachable ();
 
     found:
       b = *here;
@@ -2119,13 +2117,11 @@ pushdecl_top_level (tree x)
   tree name;
   bool nested = false;
 
-  if (TREE_CODE (x) != VAR_DECL)
-    abort ();
+  gcc_assert (TREE_CODE (x) == VAR_DECL);
 
   name = DECL_NAME (x);
 
-  if (I_SYMBOL_BINDING (name))
-    abort ();
+  gcc_assert (!I_SYMBOL_BINDING (name));
 
   if (TREE_PUBLIC (x))
     {
@@ -2147,7 +2143,7 @@ implicit_decl_warning (tree id, tree olddecl)
     case 0: return;
     case 1: diag = warning; break;
     case 2: diag = error;   break;
-    default: abort ();
+    default: gcc_unreachable ();
     }
 
   diag (N_("implicit declaration of function '%E'"), id);
@@ -2639,8 +2635,7 @@ builtin_function (const char *name, tree type, int function_code,
     SET_DECL_ASSEMBLER_NAME (decl, get_identifier (library_name));
 
   /* Should never be called on a symbol with a preexisting meaning.  */
-  if (I_SYMBOL_BINDING (id))
-    abort ();
+  gcc_assert (!I_SYMBOL_BINDING (id));
 
   bind (id, decl, external_scope, /*invisible=*/true, /*nested=*/false);
 
@@ -2792,6 +2787,85 @@ set_array_declarator_inner (tree decl, tree type, bool abstract_p)
   return decl;
 }
 
+/* Split SPECS_ATTRS, a list of declspecs and prefix attributes, into two
+   lists.  SPECS_ATTRS may also be just a typespec (eg: RECORD_TYPE).
+
+   The head of the declspec list is stored in DECLSPECS.
+   The head of the attribute list is stored in PREFIX_ATTRIBUTES.
+
+   Note that attributes in SPECS_ATTRS are stored in the TREE_PURPOSE of
+   the list elements.  We drop the containing TREE_LIST nodes and link the
+   resulting attributes together the way decl_attributes expects them.  */
+
+void
+split_specs_attrs (tree specs_attrs, tree *declspecs, tree *prefix_attributes)
+{
+  tree t, s, a, next, specs, attrs;
+
+  /* This can happen after an __extension__ in pedantic mode.  */
+  if (specs_attrs != NULL_TREE
+      && TREE_CODE (specs_attrs) == INTEGER_CST)
+    {
+      *declspecs = NULL_TREE;
+      *prefix_attributes = NULL_TREE;
+      return;
+    }
+
+  /* This can happen in c++ (eg: decl: typespec initdecls ';').  */
+  if (specs_attrs != NULL_TREE
+      && TREE_CODE (specs_attrs) != TREE_LIST)
+    {
+      *declspecs = specs_attrs;
+      *prefix_attributes = NULL_TREE;
+      return;
+    }
+
+  /* Remember to keep the lists in the same order, element-wise.  */
+
+  specs = s = NULL_TREE;
+  attrs = a = NULL_TREE;
+  for (t = specs_attrs; t; t = next)
+    {
+      next = TREE_CHAIN (t);
+      /* Declspecs have a non-NULL TREE_VALUE.  */
+      if (TREE_VALUE (t) != NULL_TREE)
+	{
+	  if (specs == NULL_TREE)
+	    specs = s = t;
+	  else
+	    {
+	      TREE_CHAIN (s) = t;
+	      s = t;
+	    }
+	}
+      /* The TREE_PURPOSE may also be empty in the case of
+	 __attribute__(()).  */
+      else if (TREE_PURPOSE (t) != NULL_TREE)
+	{
+	  if (attrs == NULL_TREE)
+	    attrs = a = TREE_PURPOSE (t);
+	  else
+	    {
+	      TREE_CHAIN (a) = TREE_PURPOSE (t);
+	      a = TREE_PURPOSE (t);
+	    }
+	  /* More attrs can be linked here, move A to the end.  */
+	  while (TREE_CHAIN (a) != NULL_TREE)
+	    a = TREE_CHAIN (a);
+	}
+    }
+
+  /* Terminate the lists.  */
+  if (s != NULL_TREE)
+    TREE_CHAIN (s) = NULL_TREE;
+  if (a != NULL_TREE)
+    TREE_CHAIN (a) = NULL_TREE;
+
+  /* All done.  */
+  *declspecs = specs;
+  *prefix_attributes = attrs;
+}
+
 /* Decode a "typename", such as "int **", returning a ..._TYPE node.  */
 
 tree
@@ -2811,18 +2885,6 @@ groktypename (tree type_name)
   decl_attributes (&type_name, attrs, 0);
 
   return type_name;
-}
-
-/* Return a PARM_DECL node for a given pair of specs and declarator.  */
-
-tree
-groktypename_in_parm_context (tree type_name)
-{
-  if (TREE_CODE (type_name) != TREE_LIST)
-    return type_name;
-  return grokdeclarator (TREE_VALUE (type_name),
-			 TREE_PURPOSE (type_name),
-			 PARM, false, NULL);
 }
 
 /* Decode a declarator in an ordinary declaration or data definition.
@@ -3355,8 +3417,8 @@ build_compound_literal (tree type, tree init)
   if (TREE_CODE (type) == ARRAY_TYPE && !COMPLETE_TYPE_P (type))
     {
       int failure = complete_array_type (type, DECL_INITIAL (decl), 1);
-      if (failure)
-	abort ();
+      
+      gcc_assert (!failure);
     }
 
   type = TREE_TYPE (decl);
@@ -3445,8 +3507,8 @@ complete_array_type (tree type, tree initial_value, int do_default)
   if (maxindex)
     {
       TYPE_DOMAIN (type) = build_index_type (maxindex);
-      if (!TREE_TYPE (maxindex))
-	abort ();
+      
+      gcc_assert (TREE_TYPE (maxindex));
     }
 
   /* Lay out the type now that we can get the real answer.  */
@@ -3653,7 +3715,7 @@ grokdeclarator (tree declarator, tree declspecs,
 	  break;
 
 	default:
-	  abort ();
+	  gcc_unreachable ();
 	}
     orig_name = name;
     if (name == 0)
@@ -4127,333 +4189,341 @@ grokdeclarator (tree declarator, tree declspecs,
 	  array_parm_static = 0;
 	}
 
-      if (TREE_CODE (declarator) == TREE_LIST)
+      switch (TREE_CODE (declarator))
 	{
-	  /* We encode a declarator with embedded attributes using
-	     a TREE_LIST.  */
-	  tree attrs = TREE_PURPOSE (declarator);
-	  tree inner_decl;
-	  int attr_flags = 0;
-	  declarator = TREE_VALUE (declarator);
-	  inner_decl = declarator;
-	  while (inner_decl != NULL_TREE
-		 && TREE_CODE (inner_decl) == TREE_LIST)
-	    inner_decl = TREE_VALUE (inner_decl);
-	  if (inner_decl == NULL_TREE
-	      || TREE_CODE (inner_decl) == IDENTIFIER_NODE)
-	    attr_flags |= (int) ATTR_FLAG_DECL_NEXT;
-	  else if (TREE_CODE (inner_decl) == CALL_EXPR)
-	    attr_flags |= (int) ATTR_FLAG_FUNCTION_NEXT;
-	  else if (TREE_CODE (inner_decl) == ARRAY_REF)
-	    attr_flags |= (int) ATTR_FLAG_ARRAY_NEXT;
-	  returned_attrs = decl_attributes (&type,
-					    chainon (returned_attrs, attrs),
-					    attr_flags);
-	}
-      else if (TREE_CODE (declarator) == ARRAY_REF)
-	{
-	  tree itype = NULL_TREE;
-	  tree size = TREE_OPERAND (declarator, 1);
-	  /* The index is a signed object `sizetype' bits wide.  */
-	  tree index_type = c_common_signed_type (sizetype);
-
-	  array_ptr_quals = TREE_TYPE (declarator);
-	  array_parm_static = TREE_STATIC (declarator);
-
-	  declarator = TREE_OPERAND (declarator, 0);
-
-	  /* Check for some types that there cannot be arrays of.  */
-
-	  if (VOID_TYPE_P (type))
-	    {
-	      error ("declaration of `%s' as array of voids", name);
-	      type = error_mark_node;
-	    }
-
-	  if (TREE_CODE (type) == FUNCTION_TYPE)
-	    {
-	      error ("declaration of `%s' as array of functions", name);
-	      type = error_mark_node;
-	    }
-
-	  if (pedantic && !in_system_header && flexible_array_type_p (type))
-	    pedwarn ("invalid use of structure with flexible array member");
-
-	  if (size == error_mark_node)
-	    type = error_mark_node;
-
-	  if (type == error_mark_node)
-	    continue;
-
-	  /* If size was specified, set ITYPE to a range-type for that size.
-	     Otherwise, ITYPE remains null.  finish_decl may figure it out
-	     from an initial value.  */
-
-	  if (size)
-	    {
-	      /* Strip NON_LVALUE_EXPRs since we aren't using as an lvalue.  */
-	      STRIP_TYPE_NOPS (size);
-
-	      if (! INTEGRAL_TYPE_P (TREE_TYPE (size)))
-		{
-		  error ("size of array `%s' has non-integer type", name);
-		  size = integer_one_node;
-		}
-
-	      if (pedantic && integer_zerop (size))
-		pedwarn ("ISO C forbids zero-size array `%s'", name);
-
-	      if (TREE_CODE (size) == INTEGER_CST)
-		{
-		  constant_expression_warning (size);
-		  if (tree_int_cst_sgn (size) < 0)
-		    {
-		      error ("size of array `%s' is negative", name);
-		      size = integer_one_node;
-		    }
-		}
-	      else
-		{
-		  /* Make sure the array size remains visibly nonconstant
-		     even if it is (eg) a const variable with known value.  */
-		  size_varies = 1;
-
-		  if (!flag_isoc99 && pedantic)
-		    {
-		      if (TREE_CONSTANT (size))
-			pedwarn ("ISO C90 forbids array `%s' whose size can't be evaluated",
-				 name);
-		      else
-			pedwarn ("ISO C90 forbids variable-size array `%s'",
-				 name);
-		    }
-		}
-
-	      if (integer_zerop (size))
-		{
-		  /* A zero-length array cannot be represented with an
-		     unsigned index type, which is what we'll get with
-		     build_index_type.  Create an open-ended range instead.  */
-		  itype = build_range_type (sizetype, size, NULL_TREE);
-		}
-	      else
-		{
-		  /* Compute the maximum valid index, that is, size - 1.
-		     Do the calculation in index_type, so that if it is
-		     a variable the computations will be done in the
-		     proper mode.  */
-	          itype = fold (build2 (MINUS_EXPR, index_type,
-					convert (index_type, size),
-					convert (index_type, size_one_node)));
-
-	          /* If that overflowed, the array is too big.
-		     ??? While a size of INT_MAX+1 technically shouldn't
-		     cause an overflow (because we subtract 1), the overflow
-		     is recorded during the conversion to index_type, before
-		     the subtraction.  Handling this case seems like an
-		     unnecessary complication.  */
-		  if (TREE_OVERFLOW (itype))
-		    {
-		      error ("size of array `%s' is too large", name);
-		      type = error_mark_node;
-		      continue;
-		    }
-
-		  if (size_varies)
-		    itype = variable_size (itype);
-		  itype = build_index_type (itype);
-		}
-	    }
-	  else if (decl_context == FIELD)
-	    {
-	      if (pedantic && !flag_isoc99 && !in_system_header)
-		pedwarn ("ISO C90 does not support flexible array members");
-
-	      /* ISO C99 Flexible array members are effectively identical
-		 to GCC's zero-length array extension.  */
-	      itype = build_range_type (sizetype, size_zero_node, NULL_TREE);
-	    }
-
-	  /* If pedantic, complain about arrays of incomplete types.  */
-
-	  if (pedantic && !COMPLETE_TYPE_P (type))
-	    pedwarn ("array type has incomplete element type");
-
-	  /* Build the array type itself, then merge any constancy or
-	     volatility into the target type.  We must do it in this order
-	     to ensure that the TYPE_MAIN_VARIANT field of the array type
-	     is set correctly.  */
-
-	  type = build_array_type (type, itype);
-	  if (type_quals)
-	    type = c_build_qualified_type (type, type_quals);
-
-	  if (size_varies)
-	    C_TYPE_VARIABLE_SIZE (type) = 1;
-
-	  /* The GCC extension for zero-length arrays differs from
-	     ISO flexible array members in that sizeof yields zero.  */
-	  if (size && integer_zerop (size))
-	    {
-	      layout_type (type);
-	      TYPE_SIZE (type) = bitsize_zero_node;
-	      TYPE_SIZE_UNIT (type) = size_zero_node;
-	    }
-	  else if (declarator && TREE_CODE (declarator) == INDIRECT_REF)
-	    /* We can never complete an array type which is the target of a
-	       pointer, so go ahead and lay it out.  */
-	    layout_type (type);
-
-	  if (decl_context != PARM
-	      && (array_ptr_quals != NULL_TREE || array_parm_static))
-	    {
-	      error ("static or type qualifiers in non-parameter array declarator");
-	      array_ptr_quals = NULL_TREE;
-	      array_parm_static = 0;
-	    }
-	}
-      else if (TREE_CODE (declarator) == CALL_EXPR)
-	{
-	  /* Say it's a definition only for the declarator closest to
-	     the identifier, apart possibly from some attributes.  */
-	  bool really_funcdef = false;
-	  tree arg_types;
-	  if (funcdef_flag)
-	    {
-	      tree t = TREE_OPERAND (declarator, 0);
-	      while (TREE_CODE (t) == TREE_LIST)
-		t = TREE_VALUE (t);
-	      really_funcdef = (TREE_CODE (t) == IDENTIFIER_NODE);
-	    }
-
-	  /* Declaring a function type.
-	     Make sure we have a valid type for the function to return.  */
-	  if (type == error_mark_node)
-	    continue;
-
-	  size_varies = 0;
-
-	  /* Warn about some types functions can't return.  */
-
-	  if (TREE_CODE (type) == FUNCTION_TYPE)
-	    {
-	      error ("`%s' declared as function returning a function", name);
-	      type = integer_type_node;
-	    }
-	  if (TREE_CODE (type) == ARRAY_TYPE)
-	    {
-	      error ("`%s' declared as function returning an array", name);
-	      type = integer_type_node;
-	    }
-
-	  /* Construct the function type and go to the next
-	     inner layer of declarator.  */
-	  arg_info = TREE_OPERAND (declarator, 1);
-	  arg_types = grokparms (arg_info, really_funcdef);
-
-	  /* Type qualifiers before the return type of the function
-	     qualify the return type, not the function type.  */
-	  if (type_quals)
-	    {
-	      /* Type qualifiers on a function return type are
-		 normally permitted by the standard but have no
-		 effect, so give a warning at -Wreturn-type.
-		 Qualifiers on a void return type are banned on
-		 function definitions in ISO C; GCC used to used them
-		 for noreturn functions.  */
-	      if (VOID_TYPE_P (type) && really_funcdef)
-		pedwarn ("function definition has qualified void return type");
-	      else if (warn_return_type)
-		warning ("type qualifiers ignored on function return type");
-
-	      type = c_build_qualified_type (type, type_quals);
-	    }
-	  type_quals = TYPE_UNQUALIFIED;
-
-	  type = build_function_type (type, arg_types);
-	  declarator = TREE_OPERAND (declarator, 0);
-
-	  /* Set the TYPE_CONTEXTs for each tagged type which is local to
-	     the formal parameter list of this FUNCTION_TYPE to point to
-	     the FUNCTION_TYPE node itself.  */
-
+	case TREE_LIST:
 	  {
-	    tree link;
-
-	    for (link = ARG_INFO_TAGS (arg_info);
-		 link;
-		 link = TREE_CHAIN (link))
-	      TYPE_CONTEXT (TREE_VALUE (link)) = type;
+	    /* We encode a declarator with embedded attributes using a
+	       TREE_LIST.  */
+	    tree attrs = TREE_PURPOSE (declarator);
+	    tree inner_decl;
+	    int attr_flags = 0;
+	    declarator = TREE_VALUE (declarator);
+	    inner_decl = declarator;
+	    while (inner_decl != NULL_TREE
+		   && TREE_CODE (inner_decl) == TREE_LIST)
+	      inner_decl = TREE_VALUE (inner_decl);
+	    if (inner_decl == NULL_TREE
+		|| TREE_CODE (inner_decl) == IDENTIFIER_NODE)
+	      attr_flags |= (int) ATTR_FLAG_DECL_NEXT;
+	    else if (TREE_CODE (inner_decl) == CALL_EXPR)
+	      attr_flags |= (int) ATTR_FLAG_FUNCTION_NEXT;
+	    else if (TREE_CODE (inner_decl) == ARRAY_REF)
+	      attr_flags |= (int) ATTR_FLAG_ARRAY_NEXT;
+	    returned_attrs = decl_attributes (&type,
+					      chainon (returned_attrs, attrs),
+					      attr_flags);
+	    break;
 	  }
-	}
-      else if (TREE_CODE (declarator) == INDIRECT_REF)
-	{
-	  /* Merge any constancy or volatility into the target type
-	     for the pointer.  */
+	case ARRAY_REF:
+	  {
+	    tree itype = NULL_TREE;
+	    tree size = TREE_OPERAND (declarator, 1);
+	    /* The index is a signed object `sizetype' bits wide.  */
+	    tree index_type = c_common_signed_type (sizetype);
 
-	  if (pedantic && TREE_CODE (type) == FUNCTION_TYPE
-	      && type_quals)
-	    pedwarn ("ISO C forbids qualified function types");
-	  if (type_quals)
-	    type = c_build_qualified_type (type, type_quals);
-	  type_quals = TYPE_UNQUALIFIED;
-	  size_varies = 0;
+	    array_ptr_quals = TREE_TYPE (declarator);
+	    array_parm_static = TREE_STATIC (declarator);
+	    
+	    declarator = TREE_OPERAND (declarator, 0);
 
-	  type = build_pointer_type (type);
+	    /* Check for some types that there cannot be arrays of.  */
+	    
+	    if (VOID_TYPE_P (type))
+	      {
+		error ("declaration of `%s' as array of voids", name);
+		type = error_mark_node;
+	      }
+	    
+	    if (TREE_CODE (type) == FUNCTION_TYPE)
+	      {
+		error ("declaration of `%s' as array of functions", name);
+		type = error_mark_node;
+	      }
+	    
+	    if (pedantic && !in_system_header && flexible_array_type_p (type))
+	      pedwarn ("invalid use of structure with flexible array member");
+	    
+	    if (size == error_mark_node)
+	      type = error_mark_node;
+	    
+	    if (type == error_mark_node)
+	      continue;
 
-	  /* Process a list of type modifier keywords
-	     (such as const or volatile) that were given inside the `*'.  */
+	    /* If size was specified, set ITYPE to a range-type for
+	       that size.  Otherwise, ITYPE remains null.  finish_decl
+	       may figure it out from an initial value.  */
 
-	  if (TREE_TYPE (declarator))
+	    if (size)
+	      {
+		/* Strip NON_LVALUE_EXPRs since we aren't using as an
+		   lvalue.  */
+		STRIP_TYPE_NOPS (size);
+		
+		if (! INTEGRAL_TYPE_P (TREE_TYPE (size)))
+		  {
+		    error ("size of array `%s' has non-integer type", name);
+		    size = integer_one_node;
+		  }
+		
+		if (pedantic && integer_zerop (size))
+		  pedwarn ("ISO C forbids zero-size array `%s'", name);
+		
+		if (TREE_CODE (size) == INTEGER_CST)
+		  {
+		    constant_expression_warning (size);
+		    if (tree_int_cst_sgn (size) < 0)
+		      {
+			error ("size of array `%s' is negative", name);
+			size = integer_one_node;
+		      }
+		  }
+		else
+		  {
+		    /* Make sure the array size remains visibly
+		       nonconstant even if it is (eg) a const variable
+		       with known value.  */
+		    size_varies = 1;
+		    
+		    if (!flag_isoc99 && pedantic)
+		      {
+			if (TREE_CONSTANT (size))
+			  pedwarn ("ISO C90 forbids array `%s' whose size can't be evaluated",
+				   name);
+			else
+			  pedwarn ("ISO C90 forbids variable-size array `%s'",
+				   name);
+		      }
+		  }
+
+		if (integer_zerop (size))
+		  {
+		    /* 	A zero-length array cannot be represented with
+		        an unsigned index type, which is what we'll
+		        get with build_index_type.  Create an
+		        open-ended range instead.  */
+		    itype = build_range_type (sizetype, size, NULL_TREE);
+		  }
+		else
+		  {
+		    /* Compute the maximum valid index, that is, size
+		       - 1.  Do the calculation in index_type, so that
+		       if it is a variable the computations will be
+		       done in the proper mode.  */
+		    itype = fold (build2 (MINUS_EXPR, index_type,
+					  convert (index_type, size),
+					  convert (index_type,
+						   size_one_node)));
+
+		    /* If that overflowed, the array is too big.  ??? 
+		       While a size of INT_MAX+1 technically shouldn't
+		       cause an overflow (because we subtract 1), the
+		       overflow is recorded during the conversion to
+		       index_type, before the subtraction.  Handling
+		       this case seems like an unnecessary
+		       complication.  */
+		    if (TREE_OVERFLOW (itype))
+		      {
+			error ("size of array `%s' is too large", name);
+			type = error_mark_node;
+			continue;
+		      }
+		    
+		    if (size_varies)
+		      itype = variable_size (itype);
+		    itype = build_index_type (itype);
+		  }
+	      }
+	    else if (decl_context == FIELD)
+	      {
+		if (pedantic && !flag_isoc99 && !in_system_header)
+		  pedwarn ("ISO C90 does not support flexible array members");
+
+		/* ISO C99 Flexible array members are effectively
+		   identical to GCC's zero-length array extension.  */
+		itype = build_range_type (sizetype, size_zero_node, NULL_TREE);
+	      }
+
+	    /* If pedantic, complain about arrays of incomplete types.  */
+	    if (pedantic && !COMPLETE_TYPE_P (type))
+	      pedwarn ("array type has incomplete element type");
+
+	    /* Build the array type itself, then merge any constancy
+	       or volatility into the target type.  We must do it in
+	       this order to ensure that the TYPE_MAIN_VARIANT field
+	       of the array type is set correctly.  */
+	    type = build_array_type (type, itype);
+	    if (type_quals)
+	      type = c_build_qualified_type (type, type_quals);
+
+	    if (size_varies)
+	      C_TYPE_VARIABLE_SIZE (type) = 1;
+
+	    /* The GCC extension for zero-length arrays differs from
+	       ISO flexible array members in that sizeof yields
+	       zero.  */
+	    if (size && integer_zerop (size))
+	      {
+		layout_type (type);
+		TYPE_SIZE (type) = bitsize_zero_node;
+		TYPE_SIZE_UNIT (type) = size_zero_node;
+	      }
+	    else if (declarator && TREE_CODE (declarator) == INDIRECT_REF)
+	      /* We can never complete an array type which is the
+	         target of a pointer, so go ahead and lay it out.  */
+	      layout_type (type);
+
+	    if (decl_context != PARM
+		&& (array_ptr_quals != NULL_TREE || array_parm_static))
+	      {
+		error ("static or type qualifiers in non-parameter array declarator");
+		array_ptr_quals = NULL_TREE;
+		array_parm_static = 0;
+	      }
+	    break;
+	  }
+	case CALL_EXPR:
+	  {
+	    /* Say it's a definition only for the declarator closest
+	       to the identifier, apart possibly from some
+	       attributes.  */
+	    bool really_funcdef = false;
+	    tree arg_types;
+	    if (funcdef_flag)
+	      {
+		tree t = TREE_OPERAND (declarator, 0);
+		while (TREE_CODE (t) == TREE_LIST)
+		  t = TREE_VALUE (t);
+		really_funcdef = (TREE_CODE (t) == IDENTIFIER_NODE);
+	      }
+
+	    /* Declaring a function type.  Make sure we have a valid
+	       type for the function to return.  */
+	    if (type == error_mark_node)
+	      continue;
+	    
+	    size_varies = 0;
+
+	    /* Warn about some types functions can't return.  */
+	    if (TREE_CODE (type) == FUNCTION_TYPE)
+	      {
+		error ("`%s' declared as function returning a function", name);
+		type = integer_type_node;
+	      }
+	    if (TREE_CODE (type) == ARRAY_TYPE)
+	      {
+		error ("`%s' declared as function returning an array", name);
+		type = integer_type_node;
+	      }
+
+	    /* Construct the function type and go to the next
+	       inner layer of declarator.  */
+	    arg_info = TREE_OPERAND (declarator, 1);
+	    arg_types = grokparms (arg_info, really_funcdef);
+
+	    /* Type qualifiers before the return type of the function
+	       qualify the return type, not the function type.  */
+	    if (type_quals)
+	      {
+	        /* Type qualifiers on a function return type are
+		   normally permitted by the standard but have no
+		   effect, so give a warning at -Wreturn-type.
+		   Qualifiers on a void return type are banned on
+		   function definitions in ISO C; GCC used to used
+		   them for noreturn functions.  */
+		if (VOID_TYPE_P (type) && really_funcdef)
+		  pedwarn ("function definition has qualified void return type");
+		else if (warn_return_type)
+		  warning ("type qualifiers ignored on function return type");
+		
+		type = c_build_qualified_type (type, type_quals);
+	      }
+	    type_quals = TYPE_UNQUALIFIED;
+	    
+	    type = build_function_type (type, arg_types);
+	    declarator = TREE_OPERAND (declarator, 0);
+	    
+	    /* Set the TYPE_CONTEXTs for each tagged type which is local to
+	       the formal parameter list of this FUNCTION_TYPE to point to
+	       the FUNCTION_TYPE node itself.  */
 	    {
-	      tree typemodlist;
-	      int erred = 0;
-
-	      constp = 0;
-	      volatilep = 0;
-	      restrictp = 0;
-	      for (typemodlist = TREE_TYPE (declarator); typemodlist;
-		   typemodlist = TREE_CHAIN (typemodlist))
-		{
-		  tree qualifier = TREE_VALUE (typemodlist);
-
-		  if (C_IS_RESERVED_WORD (qualifier))
-		    {
-		      if (C_RID_CODE (qualifier) == RID_CONST)
-			constp++;
-		      else if (C_RID_CODE (qualifier) == RID_VOLATILE)
-			volatilep++;
-		      else if (C_RID_CODE (qualifier) == RID_RESTRICT)
-			restrictp++;
-		      else
-			erred++;
-		    }
-		  else
-		    erred++;
-		}
-
-	      if (erred)
-		error ("invalid type modifier within pointer declarator");
-	      if (pedantic && !flag_isoc99)
-		{
-		  if (constp > 1)
-		    pedwarn ("duplicate `const'");
-		  if (volatilep > 1)
-		    pedwarn ("duplicate `volatile'");
-		  if (restrictp > 1)
-		    pedwarn ("duplicate `restrict'");
-		}
-
-	      type_quals = ((constp ? TYPE_QUAL_CONST : 0)
-			    | (restrictp ? TYPE_QUAL_RESTRICT : 0)
-			    | (volatilep ? TYPE_QUAL_VOLATILE : 0));
+	      tree link;
+	      
+	      for (link = ARG_INFO_TAGS (arg_info);
+		   link;
+		   link = TREE_CHAIN (link))
+		TYPE_CONTEXT (TREE_VALUE (link)) = type;
 	    }
+	    break;
+	  }
+	case INDIRECT_REF:
+	  {
+	    /* Merge any constancy or volatility into the target type
+	       for the pointer.  */
 
-	  declarator = TREE_OPERAND (declarator, 0);
+	    if (pedantic && TREE_CODE (type) == FUNCTION_TYPE
+		&& type_quals)
+	      pedwarn ("ISO C forbids qualified function types");
+	    if (type_quals)
+	      type = c_build_qualified_type (type, type_quals);
+	    type_quals = TYPE_UNQUALIFIED;
+	    size_varies = 0;
+	    
+	    type = build_pointer_type (type);
+	    
+	    /* Process a list of type modifier keywords (such as const
+	       or volatile) that were given inside the `*'.  */
+	    if (TREE_TYPE (declarator))
+	      {
+		tree typemodlist;
+		int erred = 0;
+		
+		constp = 0;
+		volatilep = 0;
+		restrictp = 0;
+		for (typemodlist = TREE_TYPE (declarator); typemodlist;
+		     typemodlist = TREE_CHAIN (typemodlist))
+		  {
+		    tree qualifier = TREE_VALUE (typemodlist);
+		    
+		    if (C_IS_RESERVED_WORD (qualifier))
+		      {
+			if (C_RID_CODE (qualifier) == RID_CONST)
+			  constp++;
+			else if (C_RID_CODE (qualifier) == RID_VOLATILE)
+			  volatilep++;
+			else if (C_RID_CODE (qualifier) == RID_RESTRICT)
+			  restrictp++;
+			else
+			  erred++;
+		      }
+		    else
+		      erred++;
+		  }
+		
+		if (erred)
+		  error ("invalid type modifier within pointer declarator");
+		if (pedantic && !flag_isoc99)
+		  {
+		    if (constp > 1)
+		      pedwarn ("duplicate `const'");
+		    if (volatilep > 1)
+		      pedwarn ("duplicate `volatile'");
+		    if (restrictp > 1)
+		      pedwarn ("duplicate `restrict'");
+		  }
+		
+		type_quals = ((constp ? TYPE_QUAL_CONST : 0)
+			      | (restrictp ? TYPE_QUAL_RESTRICT : 0)
+			      | (volatilep ? TYPE_QUAL_VOLATILE : 0));
+	      }
+	    
+	    declarator = TREE_OPERAND (declarator, 0);
+	    break;
+	  }
+	default:
+	  gcc_unreachable ();
 	}
-      else
-	abort ();
-
     }
 
   /* Now TYPE has the actual type.  */
@@ -4659,26 +4729,29 @@ grokdeclarator (tree declarator, tree declspecs,
       }
     else if (TREE_CODE (type) == FUNCTION_TYPE)
       {
-	if (specbits & (1 << (int) RID_AUTO)
-	    && (pedantic || current_scope == file_scope))
-	  pedwarn ("invalid storage class for function `%s'", name);
-	if (specbits & (1 << (int) RID_REGISTER))
+	if (specbits & (1 << (int) RID_REGISTER)
+	    || specbits & (1 << (int) RID_THREAD))
 	  error ("invalid storage class for function `%s'", name);
-	if (specbits & (1 << (int) RID_THREAD))
-	  error ("invalid storage class for function `%s'", name);
-	/* Function declaration not at file scope.
-	   Storage classes other than `extern' are not allowed
-	   and `extern' makes no difference.  */
-	if (current_scope != file_scope
-	    && (specbits & ((1 << (int) RID_STATIC) | (1 << (int) RID_INLINE)))
-	    && pedantic)
-	  pedwarn ("invalid storage class for function `%s'", name);
+	else if (current_scope != file_scope)
+	  {
+	    /* Function declaration not at file scope.  Storage
+	       classes other than `extern' are not allowed, C99
+	       6.7.1p5, and `extern' makes no difference.  However,
+	       GCC allows 'auto', perhaps with 'inline', to support
+	       nested functions.  */
+	    if (specbits & (1 << (int) RID_AUTO))
+	      {
+		if (pedantic)
+		  pedwarn ("invalid storage class for function `%s'", name);
+	      }
+	    if (specbits & (1 << (int) RID_STATIC))
+	      error ("invalid storage class for function `%s'", name);
+	  }
 
 	decl = build_decl (FUNCTION_DECL, declarator, type);
 	decl = build_decl_attribute_variant (decl, decl_attr);
 
-	DECL_LANG_SPECIFIC (decl)
-	  = GGC_CNEW (struct lang_decl);
+	DECL_LANG_SPECIFIC (decl) = GGC_CNEW (struct lang_decl);
 
 	if (pedantic && type_quals && ! DECL_IN_SYSTEM_HEADER (decl))
 	  pedwarn ("ISO C forbids qualified function types");
@@ -4704,10 +4777,9 @@ grokdeclarator (tree declarator, tree declspecs,
 	  = !(specbits & ((1 << (int) RID_STATIC) | (1 << (int) RID_AUTO)));
 
 	/* For a function definition, record the argument information
-	   block in DECL_ARGUMENTS where store_parm_decls will look
-	   for it.  */
+	   block where store_parm_decls will look for it.  */
 	if (funcdef_flag)
-	  DECL_ARGUMENTS (decl) = arg_info;
+	  current_function_arg_info = arg_info;
 
 	if (defaulted_int)
 	  C_FUNCTION_IMPLICIT_INT (decl) = 1;
@@ -4844,12 +4916,9 @@ grokdeclarator (tree declarator, tree declspecs,
 	C_DECL_REGISTER (decl) = was_reg;
       }
 
-#ifdef ENABLE_CHECKING
   /* This is the earliest point at which we might know the assembler
      name of a variable.  Thus, if it's known before this, die horribly.  */
-  if (DECL_ASSEMBLER_NAME_SET_P (decl))
-    abort ();
-#endif
+    gcc_assert (!DECL_ASSEMBLER_NAME_SET_P (decl));
 
     decl_attributes (&decl, returned_attrs, 0);
 
@@ -4973,10 +5042,7 @@ get_parm_info (bool ellipsis)
 
   /* This function is only called if there was *something* on the
      parameter list.  */
-#ifdef ENABLE_CHECKING
-  if (b == 0)
-    abort ();
-#endif
+  gcc_assert (b);
 
   /* A parameter list consisting solely of 'void' indicates that the
      function takes no arguments.  But if the 'void' is qualified
@@ -5017,9 +5083,7 @@ get_parm_info (bool ellipsis)
 	case PARM_DECL:
 	  if (b->id)
 	    {
-#ifdef ENABLE_CHECKING
-	      if (I_SYMBOL_BINDING (b->id) != b) abort ();
-#endif
+	      gcc_assert (I_SYMBOL_BINDING (b->id) == b);
 	      I_SYMBOL_BINDING (b->id) = b->shadowed;
 	    }
 
@@ -5057,9 +5121,7 @@ get_parm_info (bool ellipsis)
 	     appears in the bindings list with b->id NULL.  */
 	  if (b->id)
 	    {
-#ifdef ENABLE_CHECKING
-	      if (I_TAG_BINDING (b->id) != b) abort ();
-#endif
+	      gcc_assert (I_TAG_BINDING (b->id) == b);
 	      I_TAG_BINDING (b->id) = b->shadowed;
 	    }
 
@@ -5106,9 +5168,7 @@ get_parm_info (bool ellipsis)
 	     variable.  Just throw it away.  */
 	  if (b->id)
 	    {
-#ifdef ENABLE_CHECKING
-	      if (I_SYMBOL_BINDING (b->id) != b) abort ();
-#endif
+	      gcc_assert (I_SYMBOL_BINDING (b->id) == b);
 	      I_SYMBOL_BINDING (b->id) = b->shadowed;
 	    }
 	  break;
@@ -5118,7 +5178,7 @@ get_parm_info (bool ellipsis)
 	case FUNCTION_DECL:
 	case VAR_DECL:
 	default:
-	  abort ();
+	  gcc_unreachable ();
 	}
 
       b = free_binding_and_advance (b);
@@ -5674,6 +5734,7 @@ finish_enum (tree enumtype, tree values, tree attributes)
   unsign = (tree_int_cst_sgn (minnode) >= 0);
   precision = MAX (min_precision (minnode, unsign),
 		   min_precision (maxnode, unsign));
+
   if (TYPE_PACKED (enumtype) || precision > TYPE_PRECISION (integer_type_node))
     {
       tem = c_common_type_for_size (precision, unsign);
@@ -5688,9 +5749,19 @@ finish_enum (tree enumtype, tree values, tree attributes)
 
   TYPE_MIN_VALUE (enumtype) = TYPE_MIN_VALUE (tem);
   TYPE_MAX_VALUE (enumtype) = TYPE_MAX_VALUE (tem);
-  TYPE_PRECISION (enumtype) = TYPE_PRECISION (tem);
   TYPE_UNSIGNED (enumtype) = TYPE_UNSIGNED (tem);
   TYPE_SIZE (enumtype) = 0;
+
+  /* If the precision of the type was specific with an attribute and it
+     was too small, give an error.  Otherwise, use it.  */
+  if (TYPE_PRECISION (enumtype))
+    {
+      if (precision > TYPE_PRECISION (enumtype))
+	error ("specified mode too small for enumeral values");
+    }
+  else
+    TYPE_PRECISION (enumtype) = TYPE_PRECISION (tem);
+
   layout_type (enumtype);
 
   if (values != error_mark_node)
@@ -5957,12 +6028,9 @@ start_function (tree declspecs, tree declarator, tree attributes)
   if (current_function_decl != 0)
     TREE_PUBLIC (decl1) = 0;
 
-#ifdef ENABLE_CHECKING
   /* This is the earliest point at which we might know the assembler
      name of the function.  Thus, if it's set before this, die horribly.  */
-  if (DECL_ASSEMBLER_NAME_SET_P (decl1))
-    abort ();
-#endif
+  gcc_assert (!DECL_ASSEMBLER_NAME_SET_P (decl1));
 
   /* If #pragma weak was used, mark the decl weak now.  */
   if (current_scope == file_scope)
@@ -6132,8 +6200,7 @@ store_parm_decls_oldstyle (tree fndecl, tree arg_info)
      seen already, since it is not used on PARM_DECL.  */
 #ifdef ENABLE_CHECKING
   for (b = current_scope->bindings; b; b = b->prev)
-    if (TREE_CODE (b->decl) == PARM_DECL && DECL_WEAK (b->decl))
-      abort ();
+    gcc_assert (TREE_CODE (b->decl) != PARM_DECL || !DECL_WEAK (b->decl));
 #endif
 
   if (warn_old_style_definition && !in_system_header)
@@ -6341,6 +6408,16 @@ store_parm_decls_oldstyle (tree fndecl, tree arg_info)
     }
 }
 
+/* Store parameter declarations passed in ARG_INFO into the current
+   function declaration.  */
+
+void
+store_parm_decls_from (tree arg_info)
+{
+  current_function_arg_info = arg_info;
+  store_parm_decls ();
+}
+
 /* Store the parameter declarations into the current function declaration.
    This is called after parsing the parameter declarations, before
    digesting the body of the function.
@@ -6352,16 +6429,18 @@ void
 store_parm_decls (void)
 {
   tree fndecl = current_function_decl;
+  bool proto;
 
   /* The argument information block for FNDECL.  */
-  tree arg_info = DECL_ARGUMENTS (fndecl);
+  tree arg_info = current_function_arg_info;
+  current_function_arg_info = 0;
 
   /* True if this definition is written with a prototype.  Note:
      despite C99 6.7.5.3p14, we can *not* treat an empty argument
      list in a function definition as equivalent to (void) -- an
      empty argument list specifies the function has no parameters,
      but only (void) sets up a prototype for future calls.  */
-  bool proto = ARG_INFO_TYPES (arg_info) != 0;
+  proto = ARG_INFO_TYPES (arg_info) != 0;
 
   if (proto)
     store_parm_decls_newstyle (fndecl, arg_info);
@@ -6645,6 +6724,7 @@ c_push_function_context (struct function *f)
   p->x_break_label = c_break_label;
   p->x_cont_label = c_cont_label;
   p->x_switch_stack = c_switch_stack;
+  p->arg_info = current_function_arg_info;
   p->returns_value = current_function_returns_value;
   p->returns_null = current_function_returns_null;
   p->returns_abnormally = current_function_returns_abnormally;
@@ -6673,6 +6753,7 @@ c_pop_function_context (struct function *f)
   c_break_label = p->x_break_label;
   c_cont_label = p->x_cont_label;
   c_switch_stack = p->x_switch_stack;
+  current_function_arg_info = p->arg_info;
   current_function_returns_value = p->returns_value;
   current_function_returns_null = p->returns_null;
   current_function_returns_abnormally = p->returns_abnormally;
@@ -6880,8 +6961,7 @@ c_write_global_declarations (void)
   /* Close the external scope.  */
   ext_block = pop_scope ();
   external_scope = 0;
-  if (current_scope)
-    abort ();
+  gcc_assert (!current_scope);
 
   /* Process all file scopes in this compilation, and the external_scope,
      through wrapup_global_declarations and check_global_declarations.  */

@@ -1072,7 +1072,7 @@ get_array_ctor_strlen (gfc_constructor * c, tree * len)
 	{
 	case EXPR_CONSTANT:
 	  if (!(*len && INTEGER_CST_P (*len)))
-	    *len = build_int_cstu (gfc_strlen_type_node,
+	    *len = build_int_cstu (gfc_charlen_type_node,
 				   c->expr->value.character.length);
 	  break;
 
@@ -2784,9 +2784,9 @@ gfc_array_allocate (gfc_se * se, gfc_ref * ref, tree pstat)
   pointer = gfc_build_addr_expr (NULL, tmp);
   pointer = gfc_evaluate_now (pointer, &se->pre);
 
-  if (gfc_array_index_type == gfc_int4_type_node)
+  if (TYPE_PRECISION (gfc_array_index_type) == 32)
     allocate = gfor_fndecl_allocate;
-  else if (gfc_array_index_type == gfc_int8_type_node)
+  else if (TYPE_PRECISION (gfc_array_index_type) == 64)
     allocate = gfor_fndecl_allocate64;
   else
     abort ();

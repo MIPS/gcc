@@ -602,18 +602,20 @@ poplevel (int keep, int reverse, int functionbody)
 	}
       else
 	{
+	  tree name;
+	  
 	  /* Remove the binding.  */
 	  decl = link;
 
 	  if (TREE_CODE (decl) == TREE_LIST)
 	    decl = TREE_VALUE (decl);
+	  name = decl;
+	  
+	  if (TREE_CODE (name) == OVERLOAD)
+	    name = OVL_FUNCTION (name);
 
-	  if (DECL_P (decl))
-	    pop_binding (DECL_NAME (decl), decl);
-	  else if (TREE_CODE (decl) == OVERLOAD)
-	    pop_binding (DECL_NAME (OVL_FUNCTION (decl)), decl);
-	  else
-	    abort ();
+	  gcc_assert (DECL_P (name));
+	  pop_binding (DECL_NAME (name), decl);
 	}
     }
 
@@ -2702,8 +2704,7 @@ make_unbound_class_template (tree context, tree name, tsubst_flags_t complain)
     name = TYPE_IDENTIFIER (name);
   else if (DECL_P (name))
     name = DECL_NAME (name);
-  if (TREE_CODE (name) != IDENTIFIER_NODE)
-    abort ();
+  gcc_assert (TREE_CODE (name) == IDENTIFIER_NODE);
 
   if (!dependent_type_p (context)
       || currently_open_class (context))
@@ -4324,7 +4325,7 @@ reshape_init (tree type, tree *initp)
 	    }
 	}
       else
-	abort ();
+	gcc_unreachable ();
 
       /* The initializers were placed in reverse order in the
 	 CONSTRUCTOR.  */
@@ -4637,6 +4638,22 @@ initialize_local_var (tree decl, tree init)
   cleanup = cxx_maybe_build_cleanup (decl);
   if (DECL_SIZE (decl) && cleanup)
     finish_decl_cleanup (decl, cleanup);
+}
+
+/* DECL is a VAR_DECL for a compiler-generated variable with static
+   storage duration (like a virtual table) whose initializer is a
+   compile-time constant.  Initialize the variable and provide it to
+   the back end.  */
+
+void
+initialize_artificial_var (tree decl, tree init)
+{
+  DECL_INITIAL (decl) = build_constructor (NULL_TREE, init);
+  DECL_INITIALIZED_P (decl) = 1;
+  determine_visibility (decl);
+  layout_var_decl (decl);
+  maybe_commonize_var (decl);
+  make_rtl_for_nonlocal_decl (decl, init, /*asmspec=*/NULL);
 }
 
 /* Finish processing of a declaration;
@@ -6258,8 +6275,7 @@ check_special_function_return_type (special_function_kind sfk,
       break;
 
     default:
-      abort ();
-      break;
+      gcc_unreachable ();
     }
 
   return type;
@@ -6404,7 +6420,7 @@ grokdeclarator (const cp_declarator *declarator,
 	    if (TREE_CODE (decl) == SCOPE_REF)
 	      {
 		tree qualifying_scope = TREE_OPERAND (decl, 0);
-;
+
 		/* It is valid to write:
 
 		   class C { void f(); };
@@ -6493,7 +6509,7 @@ grokdeclarator (const cp_declarator *declarator,
 		break;
 
 	      default:
-		abort ();
+		gcc_unreachable ();
 	      }
 	    break;
 
@@ -6507,7 +6523,7 @@ grokdeclarator (const cp_declarator *declarator,
 	    break;
 
 	  default:
-	    abort ();
+	    gcc_unreachable ();
 	  }
 	}
       if (id_declarator->kind == cdk_id)
@@ -6982,7 +6998,7 @@ grokdeclarator (const cp_declarator *declarator,
 	  break;
 
 	default:
-	  abort ();
+	  gcc_unreachable ();
 	}
     }
 
@@ -7236,7 +7252,7 @@ grokdeclarator (const cp_declarator *declarator,
 	  break;
 
 	default:
-	  abort ();
+	  gcc_unreachable ();
 	}
     }
 
@@ -7619,10 +7635,8 @@ grokdeclarator (const cp_declarator *declarator,
 	error ("unnamed variable or field declared void");
       else if (TREE_CODE (unqualified_id) == IDENTIFIER_NODE)
 	{
-	  if (IDENTIFIER_OPNAME_P (unqualified_id))
-	    abort ();
-	  else
-	    error ("variable or field `%s' declared void", name);
+	  gcc_assert (!IDENTIFIER_OPNAME_P (unqualified_id));
+	  error ("variable or field `%s' declared void", name);
 	}
       else
 	error ("variable or field declared void");
@@ -8524,7 +8538,7 @@ grok_op_properties (tree decl, int friendp, bool complain)
 #include "operators.def"
 #undef DEF_OPERATOR
 
-	abort ();
+	gcc_unreachable ();
       }
     while (0);
   gcc_assert (operator_code != LAST_CPLUS_TREE_CODE);
@@ -8694,7 +8708,7 @@ grok_op_properties (tree decl, int friendp, bool complain)
 		  break;
 
 		default:
-		  abort ();
+		  gcc_unreachable ();
 		}
 
 	      SET_OVERLOADED_OPERATOR_CODE (decl, operator_code);
@@ -8825,7 +8839,7 @@ tag_name (enum tag_types code)
     case enum_type:
       return "enum";
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }
 
@@ -8946,7 +8960,7 @@ xref_tag (enum tag_types tag_code, tree name,
       code = ENUMERAL_TYPE;
       break;
     default:
-      abort ();
+      gcc_unreachable ();
     }
 
   if (! globalize)
@@ -9506,18 +9520,25 @@ build_enumerator (tree name, tree value, tree enumtype)
       /* Default based on previous value.  */
       if (value == NULL_TREE)
 	{
-	  tree prev_value;
-
 	  if (TYPE_VALUES (enumtype))
 	    {
-	      /* The next value is the previous value ...  */
-	      prev_value = DECL_INITIAL (TREE_VALUE (TYPE_VALUES (enumtype)));
-	      /* ... plus one.  */
-	      value = cp_build_binary_op (PLUS_EXPR,
-					  prev_value,
-					  integer_one_node);
+	      HOST_WIDE_INT hi;
+	      unsigned HOST_WIDE_INT lo;
+	      tree prev_value;
+	      bool overflowed;
 
-	      if (tree_int_cst_lt (value, prev_value))
+	      /* The next value is the previous value plus one.  We can
+	         safely assume that the previous value is an INTEGER_CST.
+		 add_double doesn't know the type of the target expression,
+		 so we must check with int_fits_type_p as well.  */
+	      prev_value = DECL_INITIAL (TREE_VALUE (TYPE_VALUES (enumtype)));
+	      overflowed = add_double (TREE_INT_CST_LOW (prev_value),
+				       TREE_INT_CST_HIGH (prev_value),
+				       1, 0, &lo, &hi);
+	      value = build_int_cst_wide (TREE_TYPE (prev_value), lo, hi);
+	      overflowed |= !int_fits_type_p (value, TREE_TYPE (prev_value));
+
+	      if (overflowed)
 		error ("overflow in enumeration values at `%D'", name);
 	    }
 	  else
@@ -9845,8 +9866,7 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
 	}
       if (DECL_HAS_VTT_PARM_P (decl1))
 	{
-	  if (DECL_NAME (t) != vtt_parm_identifier)
-	    abort ();
+	  gcc_assert (DECL_NAME (t) == vtt_parm_identifier);
 	  current_vtt_parm = t;
 	}
     }
@@ -10356,8 +10376,7 @@ finish_function (int flags)
   if (current_binding_level->kind != sk_function_parms)
     {
       /* Make sure we have already experienced errors.  */
-      if (errorcount == 0)
-	abort ();
+      gcc_assert (errorcount);
 
       /* Throw away the broken statement tree and extra binding
          levels.  */
@@ -10439,11 +10458,23 @@ finish_function (int flags)
   /* Genericize before inlining.  */
   if (!processing_template_decl)
     {
+      struct language_function *f = DECL_SAVED_FUNCTION_DATA (fndecl);
       cp_genericize (fndecl);
+      /* Clear out the bits we don't need.  */
+      f->x_current_class_ptr = NULL;
+      f->x_current_class_ref = NULL;
+      f->x_eh_spec_block = NULL;
+      f->x_in_charge_parm = NULL;
+      f->x_vtt_parm = NULL;
+      f->x_return_value = NULL;
+      f->bindings = NULL;
 
       /* Handle attribute((warn_unused_result)).  Relies on gimple input.  */
       c_warn_unused_result (&DECL_SAVED_TREE (fndecl));
     }
+  /* Clear out the bits we don't need.  */
+  local_names = NULL;
+  named_label_uses = NULL;
 
   /* We're leaving the context of this function, so zap cfun.  It's still in
      DECL_STRUCT_FUNCTION, and we'll restore it in tree_rest_of_compilation.  */
@@ -10822,4 +10853,3 @@ cp_missing_noreturn_ok_p (tree decl)
 }
 
 #include "gt-cp-decl.h"
-#include "gtype-cp.h"

@@ -47,16 +47,6 @@ struct depend
   struct depend *next;
 };
 
-/* The possibilities of statement movement.  */
-
-enum move_pos
-{
-  MOVE_IMPOSSIBLE,		/* No movement -- side effect expression.  */
-  MOVE_PRESERVE_EXECUTION,	/* Must not cause the non-executed statement
-				   become executed -- memory accesses, ... */
-  MOVE_POSSIBLE			/* Unlimited movement.  */
-};
-
 /* The auxiliary data kept for each statement.  */
 
 struct lim_aux_data
@@ -142,6 +132,8 @@ for_each_index (tree *addr_p, bool (*cbck) (tree, tree *, void *), void *data)
 	case COMPONENT_REF:
 	case VIEW_CONVERT_EXPR:
 	case ARRAY_RANGE_REF:
+	case REALPART_EXPR:
+	case IMAGPART_EXPR:
 	  nxt = &TREE_OPERAND (*addr_p, 0);
 	  break;
 
@@ -170,7 +162,7 @@ for_each_index (tree *addr_p, bool (*cbck) (tree, tree *, void *), void *data)
    because it may trap), return MOVE_PRESERVE_EXECUTION.
    Otherwise return MOVE_IMPOSSIBLE.  */
 
-static enum move_pos
+enum move_pos
 movement_possibility (tree stmt)
 {
   tree lhs, rhs;
@@ -214,7 +206,7 @@ movement_possibility (tree stmt)
 }
 
 /* Suppose that operand DEF is used inside the LOOP.  Returns the outermost
-   loop to that we could move the expresion using DEF if it did not have
+   loop to that we could move the expression using DEF if it did not have
    other operands, i.e. the outermost loop enclosing LOOP in that the value
    of DEF is invariant.  */
 
@@ -595,7 +587,7 @@ loop_commit_inserts (void)
 }
 
 /* Hoist the statements in basic block BB out of the loops prescribed by
-   data stored in LIM_DATA structres associated with each statement.  Callback
+   data stored in LIM_DATA structures associated with each statement.  Callback
    for walk_dominator_tree.  */
 
 static void
@@ -649,7 +641,7 @@ move_computations_stmt (struct dom_walk_data *dw_data ATTRIBUTE_UNUSED,
 }
 
 /* Hoist the statements out of the loops prescribed by data stored in
-   LIM_DATA structres associated with each statement.*/
+   LIM_DATA structures associated with each statement.*/
 
 static void
 move_computations (void)
@@ -706,7 +698,7 @@ may_move_till (tree ref, tree *index, void *data)
   return true;
 }
 
-/* Forces statements definining (invariant) SSA names in expression EXPR to be
+/* Forces statements defining (invariant) SSA names in expression EXPR to be
    moved out of the LOOP.  ORIG_LOOP is the loop in that EXPR is used.  */
 
 static void
@@ -1031,7 +1023,7 @@ rewrite_mem_refs (tree tmp_var, struct mem_ref *mem_refs)
 }
 
 /* Records request for store motion of memory reference REF from LOOP.
-   MEM_REFS is the list of occurences of the reference REF inside LOOP;
+   MEM_REFS is the list of occurrences of the reference REF inside LOOP;
    these references are rewritten by a new temporary variable.
    Exits from the LOOP are stored in EXITS, there are N_EXITS of them.
    The initialization of the temporary variable is put to the preheader

@@ -753,7 +753,7 @@ common_type (tree t1, tree t2)
     return composite_pointer_type (t1, t2, error_mark_node, error_mark_node,
 				   "conversion");
   else
-    abort ();
+    gcc_unreachable ();
 }
 
 /* Compare two exception specifier types for exactness or subsetness, if
@@ -2353,7 +2353,7 @@ get_member_function_from_ptrfunc (tree *instance_ptrptr, tree function)
 	  break;
 
 	default:
-	  abort ();
+	  gcc_unreachable ();
 	}
 
       /* Convert down to the right base before using the instance.  First
@@ -3081,11 +3081,16 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 	    return e;
 	  return cp_build_binary_op (EQ_EXPR, e, integer_zero_node);
 	}
-      else if ((TYPE_PTRMEMFUNC_P (type0)
-		&& same_type_p (TYPE_PTRMEMFUNC_FN_TYPE (type0), type1))
-	       || (TYPE_PTRMEMFUNC_P (type1)
-		   && same_type_p (TYPE_PTRMEMFUNC_FN_TYPE (type1), type0)))
-	abort ();
+      else
+	{
+	  gcc_assert (!TYPE_PTRMEMFUNC_P (type0)
+		      || !same_type_p (TYPE_PTRMEMFUNC_FN_TYPE (type0),
+				       type1));
+	  gcc_assert (!TYPE_PTRMEMFUNC_P (type1)
+		      || !same_type_p (TYPE_PTRMEMFUNC_FN_TYPE (type1),
+				       type0));
+	}
+      
       break;
 
     case MAX_EXPR:
@@ -3958,31 +3963,12 @@ build_unary_op (enum tree_code code, tree xarg, int noconvert)
 	  return arg;
 	}
 
-      /* For &x[y], return x+y.  But, in a template, ARG may be an
-	 ARRAY_REF representing a non-dependent expression.  In that
-	 case, there may be an overloaded "operator []" that will be
-	 chosen at instantiation time; we must not try to optimize
-	 here.  */
-      if (TREE_CODE (arg) == ARRAY_REF && !processing_template_decl)
-	{
-	  if (!cxx_mark_addressable (TREE_OPERAND (arg, 0)))
-	    return error_mark_node;
-	  return cp_build_binary_op (PLUS_EXPR, TREE_OPERAND (arg, 0),
-				     TREE_OPERAND (arg, 1));
-	}
-
       /* Uninstantiated types are all functions.  Taking the
 	 address of a function is a no-op, so just return the
 	 argument.  */
 
-      if (TREE_CODE (arg) == IDENTIFIER_NODE
-	  && IDENTIFIER_OPNAME_P (arg))
-	{
-	  abort ();
-	  /* We don't know the type yet, so just work around the problem.
-	     We know that this will resolve to an lvalue.  */
-	  return build1 (ADDR_EXPR, unknown_type_node, arg);
-	}
+      gcc_assert (TREE_CODE (arg) != IDENTIFIER_NODE
+		  || !IDENTIFIER_OPNAME_P (arg));
 
       if (TREE_CODE (arg) == COMPONENT_REF && type_unknown_p (arg)
 	  && !really_overloaded_fn (TREE_OPERAND (arg, 1)))
@@ -4100,9 +4086,6 @@ build_unary_op (enum tree_code code, tree xarg, int noconvert)
 	  }
 	else
 	  {
-	    /* Unfortunately we cannot just build an address
-	       expression here, because we would not handle
-	       address-constant-expressions or offsetof correctly.  */
 	    tree field = TREE_OPERAND (arg, 1);
 	    tree rval = build_unary_op (ADDR_EXPR, TREE_OPERAND (arg, 0), 0);
 	    tree binfo = lookup_base (TREE_TYPE (TREE_TYPE (rval)),
@@ -4110,10 +4093,9 @@ build_unary_op (enum tree_code code, tree xarg, int noconvert)
 				      ba_check, NULL);
 	    
 	    rval = build_base_path (PLUS_EXPR, rval, binfo, 1);
-	    rval = build_nop (argtype, rval);
-	    addr = fold (build2 (PLUS_EXPR, argtype, rval,
-				 cp_convert (argtype,
-					     byte_position (field))));
+
+	    TREE_OPERAND (arg, 0) = build_indirect_ref (rval, NULL);
+	    addr = build_address (arg);
 	  }
 
 	if (TREE_CODE (argtype) == POINTER_TYPE
@@ -5540,7 +5522,7 @@ expand_ptrmemfunc_cst (tree cst, tree *delta, tree *pfn)
 	  break;
 
 	default:
-	  abort ();
+	  gcc_unreachable ();
 	}
 
       *pfn = fold (build1 (NOP_EXPR, TYPE_PTRMEMFUNC_FN_TYPE (type),

@@ -519,8 +519,7 @@ try_forward_edges (int mode, basic_block b)
 		  if (t->dest == b)
 		    break;
 
-		  if (nthreaded_edges >= n_basic_blocks)
-		    abort ();
+		  gcc_assert (nthreaded_edges < n_basic_blocks);
 		  threaded_edges[nthreaded_edges++] = t;
 
 		  new_target = t->dest;
@@ -626,11 +625,10 @@ try_forward_edges (int mode, basic_block b)
 		{
 		  edge e;
 		  int prob;
-		  if (n >= nthreaded_edges)
-		    abort ();
+		  
+		  gcc_assert (n < nthreaded_edges);
 		  t = threaded_edges [n++];
-		  if (t->src != first)
-		    abort ();
+		  gcc_assert (t->src == first);
 		  if (first->frequency)
 		    prob = edge_frequency * REG_BR_PROB_BASE / first->frequency;
 		  else
@@ -694,6 +692,7 @@ static void
 merge_blocks_move_predecessor_nojumps (basic_block a, basic_block b)
 {
   rtx barrier;
+  bool only_notes;
 
   /* If we are partitioning hot/cold basic blocks, we don't want to
      mess up unconditional or indirect jumps that cross between hot
@@ -711,8 +710,7 @@ merge_blocks_move_predecessor_nojumps (basic_block a, basic_block b)
     return;
 
   barrier = next_nonnote_insn (BB_END (a));
-  if (!BARRIER_P (barrier))
-    abort ();
+  gcc_assert (BARRIER_P (barrier));
   delete_insn (barrier);
 
   /* Move block and loop notes out of the chain so that we do not
@@ -722,8 +720,8 @@ merge_blocks_move_predecessor_nojumps (basic_block a, basic_block b)
      and adjust the block trees appropriately.   Even better would be to have
      a tighter connection between block trees and rtl so that this is not
      necessary.  */
-  if (squeeze_notes (&BB_HEAD (a), &BB_END (a)))
-    abort ();
+  only_notes = squeeze_notes (&BB_HEAD (a), &BB_END (a));
+  gcc_assert (!only_notes);
 
   /* Scramble the insn chain.  */
   if (BB_END (a) != PREV_INSN (BB_HEAD (b)))
@@ -752,6 +750,7 @@ merge_blocks_move_successor_nojumps (basic_block a, basic_block b)
 {
   rtx barrier, real_b_end;
   rtx label, table;
+  bool only_notes;
 
   /* If we are partitioning hot/cold basic blocks, we don't want to
      mess up unconditional or indirect jumps that cross between hot
@@ -790,8 +789,9 @@ merge_blocks_move_successor_nojumps (basic_block a, basic_block b)
      and adjust the block trees appropriately.   Even better would be to have
      a tighter connection between block trees and rtl so that this is not
      necessary.  */
-  if (squeeze_notes (&BB_HEAD (b), &BB_END (b)))
-    abort ();
+  only_notes = squeeze_notes (&BB_HEAD (b), &BB_END (b));
+  gcc_assert (!only_notes);
+  
 
   /* Scramble the insn chain.  */
   reorder_insns_nobb (BB_HEAD (b), BB_END (b), BB_END (a));
@@ -981,7 +981,8 @@ merge_memattrs (rtx x, rtx y)
 	      set_mem_offset (y, 0);
 	    }
 	  
-	  set_mem_size (x, MAX (MEM_SIZE (x), MEM_SIZE (y)));
+	  set_mem_size (x, GEN_INT (MAX (INTVAL (MEM_SIZE (x)),
+					 INTVAL (MEM_SIZE (y)))));
 	  set_mem_size (y, MEM_SIZE (x));
 
 	  set_mem_align (x, MIN (MEM_ALIGN (x), MEM_ALIGN (y)));

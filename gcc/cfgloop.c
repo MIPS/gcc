@@ -110,8 +110,7 @@ flow_loop_nested_p (const struct loop *outer, const struct loop *loop)
 struct loop *
 superloop_at_depth (struct loop *loop, unsigned depth)
 {
-  if (depth > (unsigned) loop->depth)
-    abort ();
+  gcc_assert (depth <= (unsigned) loop->depth);
 
   if (depth == (unsigned) loop->depth)
     return loop;
@@ -216,8 +215,7 @@ flow_loops_free (struct loops *loops)
     {
       unsigned i;
 
-      if (! loops->num)
-	abort ();
+      gcc_assert (loops->num);
 
       /* Free the loop descriptors.  */
       for (i = 0; i < loops->num; i++)
@@ -257,8 +255,7 @@ flow_loop_entry_edges_find (struct loop *loop)
     }
   END_FOR_EACH_EDGE;
 
-  if (! num_entries)
-    abort ();
+  gcc_assert (num_entries);
 
   loop->entry_edges = xmalloc (num_entries * sizeof (edge *));
 
@@ -322,7 +319,10 @@ flow_loop_exit_edges_find (struct loop *loop)
 	  basic_block dest = e->dest;
 
 	  if (!flow_bb_inside_loop_p (loop, dest))
-	    loop->exit_edges[num_exits++] = e;
+	    {
+	      e->flags |= EDGE_LOOP_EXIT;
+	      loop->exit_edges[num_exits++] = e;
+	    }
 	}
       END_FOR_EACH_EDGE;
     }
@@ -813,8 +813,7 @@ flow_loops_find (struct loops *loops, int flags)
   /* This function cannot be repeatedly called with different
      flags to build up the loop information.  The loop tree
      must always be built if this function is called.  */
-  if (! (flags & LOOP_TREE))
-    abort ();
+  gcc_assert (flags & LOOP_TREE);
 
   memset (loops, 0, sizeof *loops);
 
@@ -860,8 +859,7 @@ flow_loops_find (struct loops *loops, int flags)
 	{
 	  basic_block latch = e->src;
 
-	  if (e->flags & EDGE_ABNORMAL)
-	    abort ();
+	  gcc_assert (!(e->flags & EDGE_ABNORMAL));
 
 	  /* Look for back edges where a predecessor is dominated
 	     by this block.  A natural loop has a single entry
@@ -872,8 +870,7 @@ flow_loops_find (struct loops *loops, int flags)
 	      && dominated_by_p (CDI_DOMINATORS, latch, header))
 	    {
 	      /* Shared headers should be eliminated by now.  */
-	      if (more_latches)
-		abort ();
+	      gcc_assert (!more_latches);
 	      more_latches = 1;
 	      SET_BIT (headers, header->index);
 	      num_loops++;
@@ -1009,8 +1006,7 @@ flow_bb_inside_loop_p (const struct loop *loop, const basic_block bb)
 bool
 flow_loop_outside_edge_p (const struct loop *loop, edge e)
 {
-  if (e->dest != loop->header)
-    abort ();
+  gcc_assert (e->dest == loop->header);
   return !flow_bb_inside_loop_p (loop, e->src);
 }
 
@@ -1030,8 +1026,7 @@ get_loop_body (const struct loop *loop)
   basic_block *tovisit, bb;
   unsigned tv = 0;
 
-  if (!loop->num_nodes)
-    abort ();
+  gcc_assert (loop->num_nodes);
 
   tovisit = xcalloc (loop->num_nodes, sizeof (basic_block));
   tovisit[tv++] = loop->header;
@@ -1039,8 +1034,7 @@ get_loop_body (const struct loop *loop)
   if (loop->latch == EXIT_BLOCK_PTR)
     {
       /* There may be blocks unreachable from EXIT_BLOCK.  */
-      if (loop->num_nodes != (unsigned) n_basic_blocks + 2)
-	abort ();
+      gcc_assert (loop->num_nodes == (unsigned) n_basic_blocks + 2);
       FOR_EACH_BB (bb)
 	tovisit[tv++] = bb;
       tovisit[tv++] = EXIT_BLOCK_PTR;
@@ -1052,8 +1046,7 @@ get_loop_body (const struct loop *loop)
 			       loop->header) + 1;
     }
 
-  if (tv != loop->num_nodes)
-    abort ();
+  gcc_assert (tv == loop->num_nodes);
   return tovisit;
 }
 
@@ -1096,21 +1089,69 @@ get_loop_body_in_dom_order (const struct loop *loop)
   basic_block *tovisit;
   int tv;
 
-  if (!loop->num_nodes)
-    abort ();
+  gcc_assert (loop->num_nodes);
 
   tovisit = xcalloc (loop->num_nodes, sizeof (basic_block));
 
-  if (loop->latch == EXIT_BLOCK_PTR)
-    abort ();
+  gcc_assert (loop->latch != EXIT_BLOCK_PTR);
 
   tv = 0;
   fill_sons_in_loop (loop, loop->header, tovisit, &tv);
 
-  if (tv != (int) loop->num_nodes)
-    abort ();
+  gcc_assert (tv == (int) loop->num_nodes);
 
   return tovisit;
+}
+
+/* Get body of a LOOP in breadth first sort order.  */
+
+basic_block *
+get_loop_body_in_bfs_order (const struct loop *loop)
+{
+  basic_block *blocks;
+  basic_block bb;
+  bitmap visited;
+  unsigned int i = 0;
+  unsigned int vc = 1;
+
+  gcc_assert (loop->num_nodes);
+  gcc_assert (loop->latch != EXIT_BLOCK_PTR);
+
+  blocks = xcalloc (loop->num_nodes, sizeof (basic_block));
+  visited = BITMAP_XMALLOC ();
+
+  bb = loop->header;
+  while (i < loop->num_nodes)
+    {
+      edge e;
+      
+      if (!bitmap_bit_p (visited, bb->index))
+        { 
+          /* This basic block is now visited */
+          bitmap_set_bit (visited, bb->index);
+          blocks[i++] = bb;
+        }
+      
+      FOR_EACH_EDGE (e, bb->succs)
+        { 
+          if (flow_bb_inside_loop_p (loop, e->dest))
+            { 
+              if (!bitmap_bit_p (visited, e->dest->index))
+                { 
+                  bitmap_set_bit (visited, e->dest->index);
+                  blocks[i++] = e->dest;
+                }
+            }
+        }
+      END_FOR_EACH_EDGE;
+      
+      gcc_assert (i >= vc);
+      
+      bb = blocks[vc++];
+    }
+  
+  BITMAP_XFREE (visited);
+  return blocks;
 }
 
 /* Gets exit edges of a LOOP, returning their number in N_EDGES.  */
@@ -1121,8 +1162,7 @@ get_loop_exit_edges (const struct loop *loop, unsigned int *n_edges)
   unsigned i, n;
   basic_block * body;
 
-  if (loop->latch == EXIT_BLOCK_PTR)
-    abort ();
+  gcc_assert (loop->latch != EXIT_BLOCK_PTR);
 
   body = get_loop_body (loop);
   n = 0;
@@ -1156,8 +1196,7 @@ num_loop_branches (const struct loop *loop)
   unsigned i, n;
   basic_block * body;
 
-  if (loop->latch == EXIT_BLOCK_PTR)
-    abort ();
+  gcc_assert (loop->latch != EXIT_BLOCK_PTR);
 
   body = get_loop_body (loop);
   n = 0;
@@ -1223,8 +1262,7 @@ cancel_loop (struct loops *loops, struct loop *loop)
   basic_block *bbs;
   unsigned i;
 
-  if (loop->inner)
-    abort ();
+  gcc_assert (!loop->inner);
 
   /* Move blocks up one level (they should be removed as soon as possible).  */
   bbs = get_loop_body (loop);
@@ -1472,8 +1510,7 @@ verify_loop_structure (struct loops *loops)
 	}
     }
 
-  if (err)
-    abort ();
+  gcc_assert (!err);
 
   free (sizes);
 }

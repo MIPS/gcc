@@ -138,7 +138,7 @@ typedef struct deferred_access GTY(())
   enum deferring_kind deferring_access_checks_kind;
   
 } deferred_access;
-DEF_VEC_O (deferred_access);
+DEF_VEC_GC_O (deferred_access);
 
 /* Data for deferred access checking.  */
 static GTY(()) VEC (deferred_access) *deferred_access_stack;
@@ -1563,7 +1563,7 @@ finish_stmt_expr (tree stmt_expr, bool has_no_scope)
 	      result_stmt_p = &TREE_OPERAND (t, 0);
 	      break;
 	    default:
-	      abort ();
+	      gcc_unreachable ();
 	    }
 	}
       type = TREE_TYPE (EXPR_STMT_EXPR (result_stmt));
@@ -1601,10 +1601,8 @@ finish_stmt_expr (tree stmt_expr, bool has_no_scope)
 	     returning a value directly, give it the appropriate type.  */
 	  if (VOID_TYPE_P (TREE_TYPE (result)))
 	    TREE_TYPE (result) = type;
-	  else if (same_type_p (TREE_TYPE (result), type))
-	    ;
 	  else
-	    abort ();
+	    gcc_assert (same_type_p (TREE_TYPE (result), type));
 	}
       else if (TREE_CODE (result) == STATEMENT_LIST)
 	/* We need to wrap a STATEMENT_LIST in a BIND_EXPR so it can have a
@@ -2771,12 +2769,11 @@ simplify_aggr_init_expr (tree *tp)
   else if (1)
     style = pcc;
 #endif
-  else if (TREE_ADDRESSABLE (type))
-    style = arg;
   else
-    /* We shouldn't build an AGGR_INIT_EXPR if we don't need any special
-       handling.  See build_cplus_new.  */
-    abort ();
+    {
+      gcc_assert (TREE_ADDRESSABLE (type));
+      style = arg;
+    }
 
   if (style == ctor || style == arg)
     {
@@ -2793,11 +2790,9 @@ simplify_aggr_init_expr (tree *tp)
 	{
 	  /* The return type might have different cv-quals from the slot.  */
 	  tree fntype = TREE_TYPE (TREE_TYPE (fn));
-#ifdef ENABLE_CHECKING
-	  if (TREE_CODE (fntype) != FUNCTION_TYPE
-	      && TREE_CODE (fntype) != METHOD_TYPE)
-	    abort ();
-#endif
+	  
+	  gcc_assert (TREE_CODE (fntype) == FUNCTION_TYPE
+		      || TREE_CODE (fntype) == METHOD_TYPE);
 	  addr = convert (build_pointer_type (TREE_TYPE (fntype)), addr);
 	}
 
@@ -2886,7 +2881,12 @@ expand_body (tree fn)
   /* Emit any thunks that should be emitted at the same time as FN.  */
   emit_associated_thunks (fn);
 
-  tree_rest_of_compilation (fn, function_depth > 1);
+  /* This function is only called from cgraph, or recursively from
+     emit_associated_thunks.  In neither case should we be currently
+     generating trees for a function.  */
+  gcc_assert (function_depth == 0);
+
+  tree_rest_of_compilation (fn, 0);
 
   current_function_decl = saved_function;
 

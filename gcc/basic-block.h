@@ -150,7 +150,7 @@ struct edge_def GTY(())
 };
 
 typedef struct edge_def *edge;
-DEF_VEC_P(edge);
+DEF_VEC_GC_P(edge);
 
 struct edge_stack
 {

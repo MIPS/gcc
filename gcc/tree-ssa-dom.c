@@ -432,7 +432,8 @@ struct tree_opt_pass pass_dominator =
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   TODO_dump_func | TODO_rename_vars
-    | TODO_verify_ssa			/* todo_flags_finish */
+    | TODO_verify_ssa,			/* todo_flags_finish */
+  0					/* letter */
 };
 
 
@@ -1836,7 +1837,7 @@ simplify_rhs_and_lookup_avail_expr (struct dom_walk_data *walk_data,
 	      TREE_SET_CODE (TREE_OPERAND (dummy_cond, 0), LE_EXPR);
 	      TREE_OPERAND (TREE_OPERAND (dummy_cond, 0), 0) = op;
 	      TREE_OPERAND (TREE_OPERAND (dummy_cond, 0), 1)
-		= fold_convert (type, integer_zero_node);
+		= build_int_cst (type, 0);
 	    }
 	  val = simplify_cond_and_lookup_avail_expr (dummy_cond,
 						     &bd->avail_exprs,
@@ -1847,7 +1848,7 @@ simplify_rhs_and_lookup_avail_expr (struct dom_walk_data *walk_data,
 	      TREE_SET_CODE (TREE_OPERAND (dummy_cond, 0), GE_EXPR);
 	      TREE_OPERAND (TREE_OPERAND (dummy_cond, 0), 0) = op;
 	      TREE_OPERAND (TREE_OPERAND (dummy_cond, 0), 1)
-		= fold_convert (type, integer_zero_node);
+		= build_int_cst (type, 0);
 
 	      val = simplify_cond_and_lookup_avail_expr (dummy_cond,
 							 &bd->avail_exprs,

@@ -281,7 +281,7 @@ struct gcc_target
     bool (* is_costly_dependence) (rtx, rtx, rtx, int, int);
   } sched;
 
-  /* Return machine mode for filter value. */
+  /* Return machine mode for filter value.  */
   enum machine_mode (* eh_return_filter_mode) (void);
 
   /* Given two decls, merge their attributes and return the result.  */
@@ -377,6 +377,10 @@ struct gcc_target
 
   /* Undo the effects of encode_section_info on the symbol string.  */
   const char * (* strip_name_encoding) (const char *);
+
+  /* If shift optabs for MODE are known to always truncate the shift count,
+     return the mask that they apply.  Return 0 otherwise.  */
+  unsigned HOST_WIDE_INT (* shift_truncation_mask) (enum machine_mode mode);
 
   /* True if MODE is valid for a pointer in __attribute__((mode("MODE"))).  */
   bool (* valid_pointer_mode) (enum machine_mode mode);
@@ -516,6 +520,15 @@ struct gcc_target
     int (*import_export_class) (tree, int);
     /* Returns true if constructors and destructors return "this".  */
     bool (*cdtor_returns_this) (void);
+    /* Returns true if the key method for a class can be an inline
+       function, so long as it is not declared inline in the class
+       itself.  Returning true is the behavior required by the Itanium
+       C++ ABI.  */
+    bool (*key_method_may_be_inline) (void);
+    /* Returns true if all class data (virtual tables, type info,
+       etc.) should be exported from the current DLL, even when the
+       associated class is not exported.  */
+    bool (*export_class_data) (void);
   } cxx;
 
   /* Leave the boolean fields at the end.  */

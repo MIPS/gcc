@@ -46,6 +46,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "target.h"
 #include "langhooks.h"
 #include "basic-block.h"
+#include "tree-mudflap.h"
 
 #define CALLED_AS_BUILT_IN(NODE) \
    (!strncmp (IDENTIFIER_POINTER (DECL_NAME (NODE)), "__builtin_", 10))
@@ -145,7 +146,6 @@ static bool integer_valued_real_p (tree);
 static tree fold_trunc_transparent_mathfn (tree);
 static bool readonly_data_expr (tree);
 static rtx expand_builtin_fabs (tree, rtx, rtx);
-static rtx expand_builtin_cabs (tree, rtx);
 static rtx expand_builtin_signbit (tree, rtx);
 static tree fold_builtin_cabs (tree, tree);
 static tree fold_builtin_trunc (tree);
@@ -376,8 +376,8 @@ c_readstr (const char *str, enum machine_mode mode)
   HOST_WIDE_INT ch;
   unsigned int i, j;
 
-  if (GET_MODE_CLASS (mode) != MODE_INT)
-    abort ();
+  gcc_assert (GET_MODE_CLASS (mode) == MODE_INT);
+
   c[0] = 0;
   c[1] = 0;
   ch = 1;
@@ -390,8 +390,8 @@ c_readstr (const char *str, enum machine_mode mode)
 	  && GET_MODE_SIZE (mode) > UNITS_PER_WORD)
 	j = j + UNITS_PER_WORD - 2 * (j % UNITS_PER_WORD) - 1;
       j *= BITS_PER_UNIT;
-      if (j > 2 * HOST_BITS_PER_WIDE_INT)
-	abort ();
+      gcc_assert (j <= 2 * HOST_BITS_PER_WIDE_INT);
+
       if (ch)
 	ch = (unsigned char) str[i];
       c[j / HOST_BITS_PER_WIDE_INT] |= ch << (j % HOST_BITS_PER_WIDE_INT);
@@ -700,8 +700,7 @@ expand_builtin_longjmp (rtx buf_addr, rtx value)
      a second argument of 1, because that is what builtin_setjmp will
      return.  This also makes EH slightly more efficient, since we are no
      longer copying around a value that we don't care about.  */
-  if (value != const1_rtx)
-    abort ();
+  gcc_assert (value == const1_rtx);
 
   current_function_calls_longjmp = 1;
 
@@ -758,8 +757,8 @@ expand_builtin_longjmp (rtx buf_addr, rtx value)
      internal exception handling use only.  */
   for (insn = get_last_insn (); insn; insn = PREV_INSN (insn))
     {
-      if (insn == last)
-	abort ();
+      gcc_assert (insn != last);
+
       if (JUMP_P (insn))
 	{
 	  REG_NOTES (insn) = alloc_EXPR_LIST (REG_NON_LOCAL_GOTO, const0_rtx,
@@ -1048,8 +1047,7 @@ apply_args_size (void)
 	  {
 	    mode = reg_raw_mode[regno];
 
-	    if (mode == VOIDmode)
-	      abort ();
+	    gcc_assert (mode != VOIDmode);
 
 	    align = GET_MODE_ALIGNMENT (mode) / BITS_PER_UNIT;
 	    if (size % align != 0)
@@ -1087,8 +1085,7 @@ apply_result_size (void)
 	  {
 	    mode = reg_raw_mode[regno];
 
-	    if (mode == VOIDmode)
-	      abort ();
+	    gcc_assert (mode != VOIDmode);
 
 	    align = GET_MODE_ALIGNMENT (mode) / BITS_PER_UNIT;
 	    if (size % align != 0)
@@ -1360,8 +1357,8 @@ expand_builtin_apply (rtx function, rtx arguments, rtx argsize)
       for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
 	if ((mode = apply_result_mode[regno]) != VOIDmode)
 	  {
-	    if (valreg)
-	      abort (); /* HAVE_untyped_call required.  */
+	    gcc_assert (!valreg); /* HAVE_untyped_call required.  */
+
 	    valreg = gen_rtx_REG (mode, regno);
 	  }
 
@@ -1373,7 +1370,7 @@ expand_builtin_apply (rtx function, rtx arguments, rtx argsize)
     }
   else
 #endif
-    abort ();
+    gcc_unreachable ();
 
   /* Find the CALL insn we just emitted, and attach the register usage
      information.  */
@@ -1741,8 +1738,12 @@ expand_builtin_mathfn (tree exp, rtx target, rtx subtarget)
     case BUILT_IN_NEARBYINTF:
     case BUILT_IN_NEARBYINTL:
       builtin_optab = nearbyint_optab; break;
+    case BUILT_IN_RINT:
+    case BUILT_IN_RINTF:
+    case BUILT_IN_RINTL:
+      builtin_optab = rint_optab; break;
     default:
-      abort ();
+      gcc_unreachable ();
     }
 
   /* Make a suitable register to place result in.  */
@@ -1882,7 +1883,7 @@ expand_builtin_mathfn_2 (tree exp, rtx target, rtx subtarget)
     case BUILT_IN_DREML:
       builtin_optab = drem_optab; break;
     default:
-      abort ();
+      gcc_unreachable ();
     }
 
   /* Make a suitable register to place result in.  */
@@ -1982,7 +1983,7 @@ expand_builtin_mathfn_3 (tree exp, rtx target, rtx subtarget)
     case BUILT_IN_COSL:
       builtin_optab = sincos_optab; break;
     default:
-      abort ();
+      gcc_unreachable ();
     }
 
   /* Make a suitable register to place result in.  */
@@ -2005,7 +2006,7 @@ expand_builtin_mathfn_3 (tree exp, rtx target, rtx subtarget)
       case BUILT_IN_COSL:
 	builtin_optab = cos_optab; break;
       default:
-	abort();
+	gcc_unreachable ();
       }
   }
 
@@ -2032,23 +2033,24 @@ expand_builtin_mathfn_3 (tree exp, rtx target, rtx subtarget)
 	 Set TARGET to wherever the result comes back.  */
       if (builtin_optab == sincos_optab)
 	{
+	  int result;
+
 	  switch (DECL_FUNCTION_CODE (fndecl))
 	    {
 	    case BUILT_IN_SIN:
 	    case BUILT_IN_SINF:
 	    case BUILT_IN_SINL:
-	      if (!expand_twoval_unop (builtin_optab, op0, 0, target, 0))
-		abort();
+	      result = expand_twoval_unop (builtin_optab, op0, 0, target, 0);
 	      break;
 	    case BUILT_IN_COS:
 	    case BUILT_IN_COSF:
 	    case BUILT_IN_COSL:
-	      if (!expand_twoval_unop (builtin_optab, op0, target, 0, 0))
-		abort();
+	      result = expand_twoval_unop (builtin_optab, op0, target, 0, 0);
 	      break;
 	    default:
-	      abort();
+	      gcc_unreachable ();
 	    }
+	  gcc_assert (result);
 	}
       else
 	{
@@ -2665,10 +2667,9 @@ builtin_memcpy_read_str (void *data, HOST_WIDE_INT offset,
 {
   const char *str = (const char *) data;
 
-  if (offset < 0
-      || ((unsigned HOST_WIDE_INT) offset + GET_MODE_SIZE (mode)
-	  > strlen (str) + 1))
-    abort ();  /* Attempt to read past the end of constant string.  */
+  gcc_assert (offset >= 0
+	      && ((unsigned HOST_WIDE_INT) offset + GET_MODE_SIZE (mode)
+		  <= strlen (str) + 1));
 
   return c_readstr (str + offset, mode);
 }
@@ -3015,8 +3016,7 @@ expand_movstr (tree dest, tree src, rtx target, int endp)
 
   insn = data->genfun (end, dest_mem, src_mem);
 
-  if (insn == 0)
-    abort ();
+  gcc_assert (insn);
 
   emit_insn (insn);
 
@@ -3138,8 +3138,7 @@ expand_builtin_stpcpy (tree arglist, rtx target, enum machine_mode mode)
 		  ret = emit_move_insn (target,
 					plus_constant (ret,
 						       INTVAL (len_rtx)));
-		  if (! ret)
-		    abort ();
+		  gcc_assert (ret);
 
 		  return target;
 		}
@@ -3532,7 +3531,7 @@ expand_builtin_memcmp (tree exp ATTRIBUTE_UNUSED, tree arglist, rtx target,
 			   GEN_INT (MIN (arg1_align, arg2_align)));
     else
 #endif
-      abort ();
+      gcc_unreachable ();
 
     if (insn)
       emit_insn (insn);
@@ -4125,8 +4124,7 @@ expand_builtin_args_info (tree arglist)
   int nwords = sizeof (CUMULATIVE_ARGS) / sizeof (int);
   int *word_ptr = (int *) &current_function_args_info;
 
-  if (sizeof (CUMULATIVE_ARGS) % sizeof (int) != 0)
-    abort ();
+  gcc_assert (sizeof (CUMULATIVE_ARGS) % sizeof (int) == 0);
 
   if (arglist != 0)
     {
@@ -4296,7 +4294,7 @@ std_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p, tree *post_p)
   /* All of the alignment and movement below is for args-grow-up machines.
      As of 2004, there are only 3 ARGS_GROW_DOWNWARD targets, and they all
      implement their own specialized gimplify_va_arg_expr routines.  */
-  abort ();
+  gcc_unreachable ();
 #endif
 
   indirect = pass_by_reference (NULL, TYPE_MODE (type), type, false);
@@ -4352,9 +4350,17 @@ std_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p, tree *post_p)
   addr = fold_convert (build_pointer_type (type), addr);
 
   if (indirect)
-    addr = build_fold_indirect_ref (addr);
+    {
+      addr = build_fold_indirect_ref (addr);
+      if (flag_mudflap) /* Don't instrument va_arg INDIRECT_REF.  */
+        mf_mark (addr);
+    }
 
-  return build_fold_indirect_ref (addr);
+  addr = build_fold_indirect_ref (addr);
+  if (flag_mudflap) /* Don't instrument va_arg INDIRECT_REF.  */
+    mf_mark (addr);
+
+  return addr;
 }
 
 /* Return a dummy expression of type TYPE in order to keep going after an
@@ -4625,8 +4631,7 @@ expand_builtin_unop (enum machine_mode target_mode, tree arglist, rtx target,
      Set TARGET to wherever the result comes back.  */
   target = expand_unop (TYPE_MODE (TREE_TYPE (TREE_VALUE (arglist))),
 			op_optab, op0, target, 1);
-  if (target == 0)
-    abort ();
+  gcc_assert (target);
 
   return convert_to_mode (target_mode, target, 0);
 }
@@ -4704,7 +4709,7 @@ expand_builtin_fputs (tree arglist, rtx target, bool unlocked)
 	break;
       }
     default:
-      abort ();
+      gcc_unreachable ();
     }
 
   return expand_expr (build_function_call_expr (fn, arglist),
@@ -4902,30 +4907,6 @@ expand_builtin_fabs (tree arglist, rtx target, rtx subtarget)
   mode = TYPE_MODE (TREE_TYPE (arg));
   op0 = expand_expr (arg, subtarget, VOIDmode, 0);
   return expand_abs (mode, op0, target, 0, safe_from_p (target, arg, 1));
-}
-
-/* Expand a call to cabs, cabsf or cabsl with arguments ARGLIST.
-   Return 0 if a normal call should be emitted rather than expanding
-   the function inline.  If convenient, the result should be placed
-   in target.  */
-
-static rtx
-expand_builtin_cabs (tree arglist, rtx target)
-{
-  enum machine_mode mode;
-  tree arg;
-  rtx op0;
-
-  if (arglist == 0 || TREE_CHAIN (arglist))
-    return 0;
-  arg = TREE_VALUE (arglist);
-  if (TREE_CODE (TREE_TYPE (arg)) != COMPLEX_TYPE
-      || TREE_CODE (TREE_TYPE (TREE_TYPE (arg))) != REAL_TYPE)
-    return 0;
-
-  mode = TYPE_MODE (TREE_TYPE (arg));
-  op0 = expand_expr (arg, NULL_RTX, VOIDmode, 0);
-  return expand_complex_abs (mode, op0, target, 0);
 }
 
 /* Create a new constant string literal and return a char* pointer to it.
@@ -5242,10 +5223,8 @@ expand_builtin_profile_func (bool exitp)
   rtx this, which;
 
   this = DECL_RTL (current_function_decl);
-  if (MEM_P (this))
-    this = XEXP (this, 0);
-  else
-    abort ();
+  gcc_assert (MEM_P (this));
+  this = XEXP (this, 0);
 
   if (exitp)
     which = profile_function_exit_libfunc;
@@ -5480,7 +5459,7 @@ expand_builtin_fork_or_exec (tree fn, tree arglist, rtx target, int ignore)
       break;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 
   decl = build_decl (FUNCTION_DECL, id, TREE_TYPE (fn));
@@ -5559,15 +5538,11 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
         return target;
       break;
 
+      /* Just do a normal library call if we were unable to fold
+	 the values.  */
     case BUILT_IN_CABS:
     case BUILT_IN_CABSF:
     case BUILT_IN_CABSL:
-      if (flag_unsafe_math_optimizations)
-	{
-	  target = expand_builtin_cabs (arglist, target);
-	  if (target)
-	    return target;
-	}
       break;
 
     case BUILT_IN_EXP:
@@ -5637,6 +5612,9 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_NEARBYINT:
     case BUILT_IN_NEARBYINTF:
     case BUILT_IN_NEARBYINTL:
+    case BUILT_IN_RINT:
+    case BUILT_IN_RINTF:
+    case BUILT_IN_RINTL:
       target = expand_builtin_mathfn (exp, target, subtarget);
       if (target)
 	return target;
@@ -6527,7 +6505,9 @@ fold_builtin_cabs (tree arglist, tree type)
       && real_zerop (TREE_OPERAND (arg, 1)))
     return fold (build1 (ABS_EXPR, type, TREE_OPERAND (arg, 0)));
 
-  if (flag_unsafe_math_optimizations)
+  /* Don't do this when optimizing for size.  */
+  if (flag_unsafe_math_optimizations
+      && optimize && !optimize_size)
     {
       tree sqrtfn = mathfn_built_in (type, BUILT_IN_SQRT);
 
@@ -6813,7 +6793,7 @@ fold_builtin_bitop (tree exp)
 	  break;
 
 	default:
-	  abort();
+	  gcc_unreachable ();
 	}
 
       return build_int_cst (TREE_TYPE (exp), result);
@@ -7239,12 +7219,11 @@ fold_builtin_strchr (tree exp, bool actually_strrchr)
 	  r = actually_strrchr ? strrchr (p1, c) : strchr (p1, c);
 
 	  if (r == NULL)
-	    return fold_convert (TREE_TYPE (s1), integer_zero_node);
+	    return build_int_cst (TREE_TYPE (s1), 0);
 
 	  /* Return an offset into the constant string argument.  */
 	  return fold (build2 (PLUS_EXPR, TREE_TYPE (s1),
-			       s1, fold_convert (TREE_TYPE (s1),
-						 ssize_int (r - p1))));
+			       s1, build_int_cst (TREE_TYPE (s1), r - p1)));
 	}
 
       if (actually_strrchr)
@@ -7740,7 +7719,7 @@ fold_builtin_classify (tree exp, int builtin_index)
       return fold (build2 (UNORDERED_EXPR, type, arg, arg));
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }
 
@@ -8674,12 +8653,11 @@ simplify_builtin_strstr (tree arglist)
 	  const char *r = strstr (p1, p2);
 
 	  if (r == NULL)
-	    return fold_convert (TREE_TYPE (s1), integer_zero_node);
+	    return build_int_cst (TREE_TYPE (s1), 0);
 
 	  /* Return an offset into the constant string argument.  */
 	  return fold (build2 (PLUS_EXPR, TREE_TYPE (s1),
-			       s1, fold_convert (TREE_TYPE (s1),
-						 ssize_int (r - p1))));
+			       s1, build_int_cst (TREE_TYPE (s1), r - p1)));
 	}
 
       if (p2[0] == '\0')
@@ -8743,12 +8721,11 @@ simplify_builtin_strchr (tree arglist)
 	  r = strchr (p1, c);
 
 	  if (r == NULL)
-	    return fold_convert (TREE_TYPE (s1), integer_zero_node);
+	    return build_int_cst (TREE_TYPE (s1), 0);
 
 	  /* Return an offset into the constant string argument.  */
 	  return fold (build2 (PLUS_EXPR, TREE_TYPE (s1),
-			       s1, fold_convert (TREE_TYPE (s1),
-						 ssize_int (r - p1))));
+			       s1, build_int_cst (TREE_TYPE (s1), r - p1)));
 	}
 
       /* FIXME: Should use here strchrM optab so that ports can optimize
@@ -8800,12 +8777,11 @@ simplify_builtin_strrchr (tree arglist)
 	  r = strrchr (p1, c);
 
 	  if (r == NULL)
-	    return fold_convert (TREE_TYPE (s1), integer_zero_node);
+	    return build_int_cst (TREE_TYPE (s1), 0);
 
 	  /* Return an offset into the constant string argument.  */
 	  return fold (build2 (PLUS_EXPR, TREE_TYPE (s1),
-			       s1, fold_convert (TREE_TYPE (s1),
-						 ssize_int (r - p1))));
+			       s1, build_int_cst (TREE_TYPE (s1), r - p1)));
 	}
 
       if (! integer_zerop (s2))
@@ -8858,12 +8834,11 @@ simplify_builtin_strpbrk (tree arglist)
 	  const char *r = strpbrk (p1, p2);
 
 	  if (r == NULL)
-	    return fold_convert (TREE_TYPE (s1), integer_zero_node);
+	    return build_int_cst (TREE_TYPE (s1), 0);
 
 	  /* Return an offset into the constant string argument.  */
 	  return fold (build2 (PLUS_EXPR, TREE_TYPE (s1),
-			       s1, fold_convert (TREE_TYPE (s1),
-						 ssize_int (r - p1))));
+			       s1, build_int_cst (TREE_TYPE (s1), r - p1)));
 	}
 
       if (p2[0] == '\0')
@@ -9158,7 +9133,7 @@ fold_builtin_fputs (tree arglist, bool ignore, bool unlocked, tree len)
 	break;
       }
     default:
-      abort ();
+      gcc_unreachable ();
     }
 
   /* These optimizations are only performed when the result is ignored,

@@ -746,12 +746,9 @@ mem_alloc_r_at (unix_stream * s, int *len, gfc_offset where)
   if (where < s->buffer_offset || where > s->buffer_offset + s->active)
     return NULL;
 
-  if (is_internal_unit() && where + *len > s->file_length)
-    return NULL;
-
   s->logical_offset = where + *len;
 
-  n = (where - s->buffer_offset) - s->active;
+  n = s->buffer_offset + s->active - where;
   if (*len > n)
     *len = n;
 

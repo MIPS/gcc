@@ -89,7 +89,8 @@ struct tree_opt_pass pass_loop =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   TODO_ggc_collect,			/* todo_flags_start */
-  TODO_dump_func | TODO_verify_ssa | TODO_ggc_collect	/* todo_flags_finish */
+  TODO_dump_func | TODO_verify_ssa | TODO_ggc_collect,	/* todo_flags_finish */
+  0					/* letter */
 };
 
 /* Loop optimizer initialization.  */
@@ -120,7 +121,8 @@ struct tree_opt_pass pass_loop_init =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func			/* todo_flags_finish */
+  TODO_dump_func,			/* todo_flags_finish */
+  0					/* letter */
 };
 
 /* Loop invariant motion pass.  */
@@ -137,7 +139,7 @@ tree_ssa_loop_im (void)
 static bool
 gate_tree_ssa_loop_im (void)
 {
-  return flag_tree_lim != 0;
+  return flag_tree_loop_im != 0;
 }
 
 struct tree_opt_pass pass_lim = 
@@ -153,7 +155,8 @@ struct tree_opt_pass pass_lim =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func                	/* todo_flags_finish */
+  TODO_dump_func,                	/* todo_flags_finish */
+  0					/* letter */
 };
 
 /* Loop autovectorization.  */
@@ -187,7 +190,8 @@ struct tree_opt_pass pass_vectorize =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_dump_func			/* todo_flags_finish */
+  TODO_dump_func,			/* todo_flags_finish */
+  0					/* letter */
 };
 
 /* Canonical induction variable creation pass.  */
@@ -204,7 +208,7 @@ tree_ssa_loop_ivcanon (void)
 static bool
 gate_tree_ssa_loop_ivcanon (void)
 {
-  return flag_ivcanon != 0;
+  return flag_tree_loop_ivcanon != 0;
 }
 
 struct tree_opt_pass pass_iv_canon =
@@ -220,7 +224,8 @@ struct tree_opt_pass pass_iv_canon =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func                	/* todo_flags_finish */
+  TODO_dump_func,                	/* todo_flags_finish */
+  0					/* letter */
 };
 
 /* Complete unrolling of loops.  */
@@ -253,7 +258,42 @@ struct tree_opt_pass pass_complete_unroll =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func                	/* todo_flags_finish */
+  TODO_dump_func,                	/* todo_flags_finish */
+  0					/* letter */
+};
+
+/* Induction variable optimizations.  */
+
+static void
+tree_ssa_loop_ivopts (void)
+{
+  if (!current_loops)
+    return;
+
+  tree_ssa_iv_optimize (current_loops);
+}
+
+static bool
+gate_tree_ssa_loop_ivopts (void)
+{
+  return flag_ivopts != 0;
+}
+
+struct tree_opt_pass pass_iv_optimize =
+{
+  "ivopts",				/* name */
+  gate_tree_ssa_loop_ivopts,		/* gate */
+  tree_ssa_loop_ivopts,		       	/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_TREE_LOOP_IVOPTS,	  		/* tv_id */
+  PROP_cfg | PROP_ssa,			/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func,                	/* todo_flags_finish */
+  0					/* letter */
 };
 
 /* Loop optimizer finalization.  */
@@ -289,6 +329,7 @@ struct tree_opt_pass pass_loop_done =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func			/* todo_flags_finish */
+  TODO_dump_func,			/* todo_flags_finish */
+  0					/* letter */
 };
 

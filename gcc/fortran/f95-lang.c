@@ -1,4 +1,4 @@
-/* G95 Backend interface
+/* gfortran backend interface
    Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation,
    Inc.
    Contributed by Paul Brook.
@@ -280,6 +280,11 @@ gfc_be_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
 static bool
 gfc_init (void)
 {
+#ifdef USE_MAPPED_LOCATION
+  linemap_add (&line_table, LC_ENTER, false, gfc_option.source, 1);
+  linemap_add (&line_table, LC_RENAME, false, "<built-in>", 0);
+#endif
+
   /* First initialize the backend.  */
   gfc_init_decl_processing ();
   gfc_static_ctors = NULL_TREE;
@@ -712,38 +717,64 @@ gfc_define_builtin (const char * name,
 }
 
 
-#define DEFINE_MATH_BUILTIN(code, name, nargs) \
-    gfc_define_builtin ("__builtin_" name, mfunc_double[nargs-1], \
+#define DO_DEFINE_MATH_BUILTIN(code, name, argtype, tbase) \
+    gfc_define_builtin ("__builtin_" name, tbase##double[argtype], \
 			BUILT_IN_ ## code, name, true); \
-    gfc_define_builtin ("__builtin_" name "f", mfunc_float[nargs-1], \
+    gfc_define_builtin ("__builtin_" name "f", tbase##float[argtype], \
 			BUILT_IN_ ## code ## F, name "f", true);
 
+#define DEFINE_MATH_BUILTIN(code, name, argtype) \
+    DO_DEFINE_MATH_BUILTIN (code, name, argtype, mfunc_)
+
+/* The middle-end is missing builtins for some complex math functions, so
+   we don't use them yet.  */
+#define DEFINE_MATH_BUILTIN_C(code, name, argtype) \
+    DO_DEFINE_MATH_BUILTIN (code, name, argtype, mfunc_)
+/*    DO_DEFINE_MATH_BUILTIN (C##code, "c" name, argtype, mfunc_c)*/
+
+
+/* Create function types for builtin functions.  */
+
+static void
+build_builtin_fntypes (tree * fntype, tree type)
+{
+  tree tmp;
+
+  /* type (*) (type) */
+  tmp = tree_cons (NULL_TREE, float_type_node, void_list_node);
+  fntype[0] = build_function_type (type, tmp);
+  /* type (*) (type, type) */
+  tmp = tree_cons (NULL_TREE, float_type_node, tmp);
+  fntype[1] = build_function_type (type, tmp);
+  /* type (*) (int, type) */
+  tmp = tree_cons (NULL_TREE, integer_type_node, void_list_node);
+  tmp = tree_cons (NULL_TREE, type, tmp);
+  fntype[2] = build_function_type (type, tmp);
+}
+
+
 /* Initialisation of builtin function nodes.  */
+
 static void
 gfc_init_builtin_functions (void)
 {
-  tree mfunc_float[2];
-  tree mfunc_double[2];
+  tree mfunc_float[3];
+  tree mfunc_double[3];
+  tree mfunc_cfloat[3];
+  tree mfunc_cdouble[3];
   tree func_cfloat_float;
   tree func_cdouble_double;
   tree ftype;
   tree tmp;
 
-  tmp = tree_cons (NULL_TREE, float_type_node, void_list_node);
-  mfunc_float[0] = build_function_type (float_type_node, tmp);
-  tmp = tree_cons (NULL_TREE, float_type_node, tmp);
-  mfunc_float[1] = build_function_type (float_type_node, tmp);
-  
+  build_builtin_fntypes (mfunc_float, float_type_node);
+  build_builtin_fntypes (mfunc_double, double_type_node);
+  build_builtin_fntypes (mfunc_cfloat, complex_float_type_node);
+  build_builtin_fntypes (mfunc_cdouble, complex_double_type_node);
+
   tmp = tree_cons (NULL_TREE, complex_float_type_node, void_list_node);
   func_cfloat_float = build_function_type (float_type_node, tmp);
-  
 
-  tmp = tree_cons (NULL_TREE, double_type_node, void_list_node);
-  mfunc_double[0] = build_function_type (double_type_node, tmp);
-  tmp = tree_cons (NULL_TREE, double_type_node, tmp);
-  mfunc_double[1] = build_function_type (double_type_node, tmp);
-  
-  
   tmp = tree_cons (NULL_TREE, complex_double_type_node, void_list_node);
   func_cdouble_double = build_function_type (double_type_node, tmp);
 
@@ -835,6 +866,7 @@ gfc_init_builtin_functions (void)
 		      "alloca", false);
 }
 
+#undef DEFINE_MATH_BUILTIN_C
 #undef DEFINE_MATH_BUILTIN
 
 #include "gt-fortran-f95-lang.h"

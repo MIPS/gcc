@@ -181,7 +181,6 @@ get_default_value (tree var)
   return val;
 }
 
-
 /* Get the constant value associated with variable VAR.  */
 
 static value *
@@ -328,7 +327,7 @@ likely_value (tree stmt)
         return UNKNOWN_VAL;
 	
 #ifdef ENABLE_CHECKING
-  /* There should be no VUSE operands that are UNDEFINED. */
+  /* There should be no VUSE operands that are UNDEFINED.  */
   if (val->lattice_val == UNDEFINED)
     abort ();
 #endif
@@ -773,7 +772,7 @@ ccp_visit_phi_node (tree phi)
       fprintf (dump_file, "\n\n");
     }
 
-  /* Check for an invalid change from UNKNOWN_VAL to UNDEFINED. */
+  /* Check for an invalid change from UNKNOWN_VAL to UNDEFINED.  */
   if (old_val->lattice_val == UNKNOWN_VAL
       && new_val.lattice_val == UNDEFINED)
     return SSA_PROP_NOT_INTERESTING;
@@ -1076,7 +1075,7 @@ visit_assignment (tree stmt, tree *output_p)
   }
 
   /* If LHS is not a gimple register, then it cannot take on an
-     UNDEFINED value. */
+     UNDEFINED value.  */
   if (!is_gimple_reg (SSA_NAME_VAR (lhs)) 
       && val.lattice_val == UNDEFINED)
     val.lattice_val = UNKNOWN_VAL;      
@@ -1168,10 +1167,8 @@ ccp_visit_stmt (tree stmt, edge *taken_edge_p, tree *output_p)
 
   /* Any other kind of statement is not interesting for constant
      propagation and, therefore, not worth simulating.  */
-#if 0
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "No interesting values produced.  Marked VARYING.\n");
-#endif
 
   /* Definitions made by statements other than assignments to
      SSA_NAMEs represent unknown modifications to their outputs.
@@ -1222,7 +1219,8 @@ struct tree_opt_pass pass_ccp =
   0,					/* todo_flags_start */
   TODO_dump_func | TODO_rename_vars
     | TODO_ggc_collect | TODO_verify_ssa
-    | TODO_verify_stmts			/* todo_flags_finish */
+    | TODO_verify_stmts,		/* todo_flags_finish */
+  0					/* letter */
 };
 
 
@@ -1380,7 +1378,7 @@ maybe_fold_offset_to_array_ref (tree base, tree offset, tree orig_type)
 
   return build (ARRAY_REF, orig_type, base, idx, min_idx,
 		size_int (tree_low_cst (elt_size, 1)
-			  / (TYPE_ALIGN (elt_type) / BITS_PER_UNIT)));
+			  / (TYPE_ALIGN_UNIT (elt_type))));
 }
 
 
@@ -2166,5 +2164,6 @@ struct tree_opt_pass pass_fold_builtins =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func | TODO_verify_ssa	/* todo_flags_finish */
+  TODO_dump_func | TODO_verify_ssa,	/* todo_flags_finish */
+  0					/* letter */
 };

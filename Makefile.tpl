@@ -248,6 +248,10 @@ CXX_FOR_BUILD = $(CXX)
 BUILD_PREFIX = @BUILD_PREFIX@
 BUILD_PREFIX_1 = @BUILD_PREFIX_1@
 
+# Flags to pass to stage2 and later makes.  They are defined
+# here so that they can be overridden by Makefile fragments.
+BOOT_CFLAGS= -g -O2
+
 CONFIGURED_BISON = @CONFIGURED_BISON@
 BISON = `if [ -f $$r/$(BUILD_SUBDIR)/bison/tests/bison ] ; then \
 	    echo $$r/$(BUILD_SUBDIR)/bison/tests/bison ; \
@@ -480,14 +484,6 @@ PICFLAG_FOR_TARGET =
 # ------------------------------------
 # Miscellaneous targets and flag lists
 # ------------------------------------
-
-@if gcc-bootstrap
-# Let's leave this as the first rule in the file until toplevel
-# bootstrap is fleshed out completely.
-sorry:
-	@echo Toplevel bootstrap temporarily out of commission.
-	@echo Please reconfigure without --enable-bootstrap
-@endif gcc-bootstrap
 
 # The first rule in the file had better be this one.  Don't put any above it.
 # This lives here to allow makefile fragments to contain dependencies.
@@ -1338,7 +1334,9 @@ stage:
 # (both in a combined tree, or separately).  This however requires some
 # change to the gcc driver, again in order to avoid comparison failures.
 
-# Bugs: This is almost certainly not parallel-make safe.
+# Bugs: This is crippled when doing parallel make, the `make all-host'
+# and `make all-target' phases can be parallelized.
+
 
 # 'touch' doesn't work right on some platforms.
 STAMP = echo timestamp > 
@@ -1356,7 +1354,6 @@ STAGE1_LANGUAGES=@stage1_languages@
 objext = .o
 
 # Flags to pass to stage2 and later makes.
-BOOT_CFLAGS= -g -O2
 POSTSTAGE1_FLAGS_TO_PASS = \
 	CC="$${CC}" CC_FOR_BUILD="$${CC_FOR_BUILD}" \
 	STAGE_PREFIX=$$r/stage[+prev+]-gcc/ \
@@ -1376,19 +1373,19 @@ POSTSTAGE1_FLAGS_TO_PASS = \
 .PHONY: stage[+id+]-start stage[+id+]-end
 
 stage[+id+]-start::
-	[ -f stage_current ] && $(MAKE) `cat stage_current`-end || :
+	@[ -f stage_current ] && $(MAKE) `cat stage_current`-end || : ; \
 	echo stage[+id+] > stage_current ; \
 	echo stage[+id+] > stage_last[+ FOR host_modules +][+ IF bootstrap +]
 @if [+ module +]
-	[ -d stage[+id+]-[+module+] ] || mkdir stage[+id+]-[+module+]; \
+	@[ -d stage[+id+]-[+module+] ] || mkdir stage[+id+]-[+module+]; \
 	set stage[+id+]-[+module+] [+module+] ; @CREATE_LINK_TO_DIR@ [+ IF prev +] ; \
 	set stage[+prev+]-[+module+] prev-[+module+] ; @CREATE_LINK_TO_DIR@ [+ ENDIF prev +]
 @endif [+ module +][+ ENDIF bootstrap +][+ ENDFOR host_modules +]
 
 stage[+id+]-end::
-	rm -f stage_current[+ FOR host_modules +][+ IF bootstrap +]
+	@rm -f stage_current[+ FOR host_modules +][+ IF bootstrap +]
 @if [+ module +]
-	set [+module+] stage[+id+]-[+module+] ; @UNDO_LINK_TO_DIR@ [+ IF prev +] ; \
+	@set [+module+] stage[+id+]-[+module+] ; @UNDO_LINK_TO_DIR@ [+ IF prev +] ; \
 	set prev-[+module+] stage[+prev+]-[+module+] ; @UNDO_LINK_TO_DIR@ [+ ENDIF prev +]
 @endif [+ module +][+ ENDIF bootstrap +][+ ENDFOR host_modules +]
 
@@ -1396,32 +1393,39 @@ stage[+id+]-end::
 # are remade, but not reconfigured.  The next stage (if any) will not
 # be reconfigured as well.
 .PHONY: stage[+id+]-bubble
-stage[+id+]-bubble:: [+ IF prev +]stage[+prev+]-bubble[+ ENDIF +]
-	@case `echo all-stage[+id+]-*` in \
-	  'all-stage[+id+]-*') ;; \
-	  *) echo Remaking stage [+id+] ; rm -f all-stage[+id+]-* ;; \
-	esac ; \
-	$(MAKE) $(RECURSE_FLAGS_TO_PASS) all-stage[+id+]
+stage[+id+]-bubble:: [+ IF prev +]stage[+prev+]-bubble[+ ENDIF +][+IF lean +]
+	@bootstrap_lean@-rm -rf stage[+lean+]-* ; $(STAMP) stage[+lean+]-lean[+ ENDIF lean +]
+	@if test -f stage[+id+]-lean [+
+	  IF prev +]|| test -f stage[+prev+]-lean [+ ENDIF prev +] ; then \
+	  echo Skipping rebuild of stage[+id+] ; \
+	else \
+	  $(MAKE) $(RECURSE_FLAGS_TO_PASS) NOTPARALLEL= all-stage[+id+]; \
+	fi
 
-.PHONY: all-stage[+id+]
+.PHONY: all-stage[+id+] clean-stage[+id+]
 all-stage[+id+]: [+ FOR host_modules +][+ IF bootstrap +]\
   maybe-all-stage[+id+]-[+module+][+
 ENDIF bootstrap+] [+ ENDFOR host_modules +]
 
+do-clean: clean-stage[+id+]
+clean-stage[+id+]: [+ FOR host_modules +][+ IF bootstrap +]\
+  maybe-clean-stage[+id+]-[+module+][+
+ENDIF bootstrap+] [+ ENDFOR host_modules +]
+
 [+ FOR host_modules +][+ IF bootstrap +]
+.PHONY: configure-stage[+id+]-[+module+] maybe-configure-stage[+id+]-[+module+]
+.PHONY: all-stage[+id+]-[+module+] maybe-all-stage[+id+]-[+module+]
+.PHONY: clean-stage[+id+]-[+module+] maybe-clean-stage[+id+]-[+module+]
+
 maybe-configure-stage[+id+]-[+module+]:
 maybe-all-stage[+id+]-[+module+]:
+maybe-clean-stage[+id+]-[+module+]:
 
 @if [+module+]-bootstrap
 maybe-configure-stage[+id+]-[+module+]: configure-stage[+id+]-[+module+]
-configure-stage[+id+]-[+module+]: [+ IF prev +] maybe-all-stage[+prev+]-[+module+] [+ ENDIF prev +]
-	$(MAKE) stage[+id+]-start
-	@if [ -f stage[+id+]-[+module+]/Makefile ] ; then \
-	  $(STAMP) configure-stage[+id+]-[+module+] ; \
-	  exit 0; \
-	else \
-	  true ; \
-	fi ; \
+configure-stage[+id+]-[+module+]:
+	@$(MAKE) stage[+id+]-start
+	@[ -f [+module+]/Makefile ] && exit 0 || : ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; [+ IF prev +] \
 	$(STAGE_HOST_EXPORTS) [+ ELSE prev +] \
@@ -1441,12 +1445,11 @@ configure-stage[+id+]-[+module+]: [+ IF prev +] maybe-all-stage[+prev+]-[+module
 	esac; \
 	$(SHELL) $${libsrcdir}/configure \
 	  $(HOST_CONFIGARGS) $${srcdiroption} \
-	  [+stage_configure_flags+] [+extra_configure_flags+] && \
-	  $(STAMP) ../configure-stage[+id+]-[+module+]
+	  [+stage_configure_flags+] [+extra_configure_flags+]
 
 maybe-all-stage[+id+]-[+module+]: all-stage[+id+]-[+module+]
 all-stage[+id+]-[+module+]: configure-stage[+id+]-[+module+]
-	$(MAKE) stage[+id+]-start
+	@$(MAKE) stage[+id+]-start
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; [+ IF prev +] \
 	$(STAGE_HOST_EXPORTS) [+ ELSE prev +] \
@@ -1454,17 +1457,31 @@ all-stage[+id+]-[+module+]: configure-stage[+id+]-[+module+]
 	cd [+module+] && \
 	$(MAKE) $(FLAGS_TO_PASS) [+ IF prev +] \
 		$(POSTSTAGE1_FLAGS_TO_PASS) [+ ENDIF prev +] \
-		[+stage_make_flags+] [+extra_make_flags+] && \
-	$(STAMP) ../all-stage[+id+]-[+module+]
+		[+stage_make_flags+] [+extra_make_flags+]
+
+maybe-clean-stage[+id+]-[+module+]: clean-stage[+id+]-[+module+]
+clean-stage[+id+]-[+module+]:
+	@[ -f [+module+]/Makefile ] || [ -f stage[+id+]-[+module+]/Makefile ] \
+	  || exit 0 ; \
+	[ -f [+module+]/Makefile ] || $(MAKE) stage[+id+]-start ; \
+	cd [+module+] && \
+	$(MAKE) $(FLAGS_TO_PASS) [+ IF prev +] \
+		$(POSTSTAGE1_FLAGS_TO_PASS) [+ ENDIF prev +] \
+		[+stage_make_flags+] [+extra_make_flags+] clean
 @endif [+module+]-bootstrap
+
 [+ ENDIF bootstrap +][+ ENDFOR host_modules +]
 
 # FIXME: Will not need to be conditional when toplevel bootstrap is the
 # only possibility, but now it conflicts with no-bootstrap rules
 @if gcc-bootstrap
 [+ IF compare-target +]
-[+compare-target+]: all-stage[+id+]-gcc
-	[ -f stage_current ] && $(MAKE) `cat stage_current`-end || :
+[+compare-target+]:
+	@if test -f stage[+prev+]-lean; then \
+	  echo Cannot compare object files as stage [+prev+] was deleted. ; \
+	  exit 0 ; \
+	fi; \
+	[ -f stage_current ] && $(MAKE) `cat stage_current`-end || : ; \
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	rm -f .bad_compare ; \
@@ -1483,53 +1500,26 @@ all-stage[+id+]-[+module+]: configure-stage[+id+]-[+module+]
 	else \
 	  true; \
 	fi ; \
-	$(STAMP) [+compare-target+]
+	$(STAMP) [+compare-target+][+ IF prev +]
+	@bootstrap_lean@-rm -rf stage[+prev+]-* ; $(STAMP) stage[+prev+]-lean[+ ENDIF prev +]
 [+ ENDIF compare-target +]
 
 [+ IF bootstrap-target +]
 .PHONY: [+bootstrap-target+]
-[+bootstrap-target+]: stage[+id+]-bubble [+
-	  IF compare-target +] [+compare-target+] [+
-	  ENDIF compare-target +] all
+[+bootstrap-target+]: stage[+id+]-bubble [+compare-target+] all
 [+ ENDIF bootstrap-target +]
 
-.PHONY: restage[+id+] touch-stage[+id+] distclean-stage[+id+]
-
-# Rules to wipe a stage and all the following ones, used for cleanstrap
+# Rules to wipe a stage and all the following ones, also used for cleanstrap
 [+ IF prev +]distclean-stage[+prev+]:: distclean-stage[+id+] [+ ENDIF prev +]
+.PHONY: distclean-stage[+id+]
 distclean-stage[+id+]::
 	[ -f stage_current ] && $(MAKE) `cat stage_current`-end || :
-	rm -rf configure-stage[+id+]-* all-stage[+id+]-* stage[+id+]-* [+
+	rm -rf stage[+id+]-* [+
 	  IF compare-target +][+compare-target+] [+ ENDIF compare-target +]
-
-# Rules to renew the timestamp on a stage and all the following ones
-[+ IF prev +]touch-stage[+prev+]:: touch-stage[+id+] [+ ENDIF prev +]
-touch-stage[+id+]::
-	@case `echo configure-stage[+id+]-*` in \
-	  'configure-stage[+id+]-*') ;; \
-	  *) \
-	    echo '$(STAMP)' configure-stage[+id+]-* && \
-	    $(STAMP) configure-stage[+id+]-* ;; \
-	esac ; \
-	case `echo all-stage[+id+]-*` in \
-	  'all-stage[+id+]-*') ;; \
-	  *) \
-	    echo '$(STAMP)' all-stage[+id+]-* && \
-	    $(STAMP) all-stage[+id+]-* ;; \
-	esac
-
-# After building a stage, touch the following ones
-[+ IF prev +]restage[+prev+]:: touch-stage[+id+] [+ ENDIF prev +]
-restage[+id+]::
-	rm -rf all-stage[+id+]-* [+
-	  IF compare-target +][+compare-target+] [+ ENDIF compare-target +]
-	$(MAKE) $(RECURSE_FLAGS_TO_PASS) [+
-	  IF compare-target +][+compare-target+] [+
-	  ELSE +] all-stage[+id+] [+ ENDIF compare-target +]
 
 [+ IF cleanstrap-target +]
 .PHONY: [+cleanstrap-target+]
-[+cleanstrap-target+]: distclean-stage1 [+bootstrap-target+]
+[+cleanstrap-target+]: distclean [+bootstrap-target+]
 [+ ENDIF cleanstrap-target +]
 @endif gcc-bootstrap
 
@@ -1563,6 +1553,12 @@ profiledbootstrap:
 	$(HOST_EXPORTS) \
 	echo "Building feedback based compiler"; \
 	$(MAKE) stagefeedback-bubble stagefeedback-end
+@endif gcc-bootstrap
+
+@if gcc-bootstrap
+NOTPARALLEL = .NOTPARALLEL
+$(NOTPARALLEL):
+do-distclean: distclean-stage1
 @endif gcc-bootstrap
 
 # --------------------------------------

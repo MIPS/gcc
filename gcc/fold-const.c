@@ -2391,10 +2391,21 @@ operand_equal_p (tree arg0, tree arg1, unsigned int flags)
     {
     case '1':
       /* Two conversions are equal only if signedness and modes match.  */
-      if ((TREE_CODE (arg0) == NOP_EXPR || TREE_CODE (arg0) == CONVERT_EXPR)
-	  && (TYPE_UNSIGNED (TREE_TYPE (arg0))
-	      != TYPE_UNSIGNED (TREE_TYPE (arg1))))
-	return 0;
+      switch (TREE_CODE (arg0))
+        {
+        case NOP_EXPR:
+        case CONVERT_EXPR:
+        case FIX_CEIL_EXPR:
+        case FIX_TRUNC_EXPR:
+        case FIX_FLOOR_EXPR:
+        case FIX_ROUND_EXPR:
+	  if (TYPE_UNSIGNED (TREE_TYPE (arg0))
+	      != TYPE_UNSIGNED (TREE_TYPE (arg1)))
+	    return 0;
+	  break;
+	default:
+	  break;
+	}
 
       return operand_equal_p (TREE_OPERAND (arg0, 0),
 			      TREE_OPERAND (arg1, 0), flags);
@@ -9582,11 +9593,22 @@ tree_expr_nonzero_p (tree t)
       break;
 
    case ADDR_EXPR:
-      /* Weak declarations may link to NULL.  */
-      if (DECL_P (TREE_OPERAND (t, 0)))
-	return !DECL_WEAK (TREE_OPERAND (t, 0));
-      /* Constants and all other cases are never weak.  */
-      return true;
+      {
+	tree base = get_base_address (TREE_OPERAND (t, 0));
+
+	if (!base)
+	  return false;
+
+	/* Weak declarations may link to NULL.  */
+	if (DECL_P (base))
+	  return !DECL_WEAK (base);
+
+	/* Constants are never weak.  */
+	if (TREE_CODE_CLASS (TREE_CODE (base)) == 'c')
+	  return true;
+
+	return false;
+      }
 
     case COND_EXPR:
       return (tree_expr_nonzero_p (TREE_OPERAND (t, 1))
@@ -10424,6 +10446,10 @@ fold_relational_const (enum tree_code code, tree type, tree op0, tree op1)
 tree
 build_fold_addr_expr_with_type (tree t, tree ptrtype)
 {
+  /* The size of the object is not relevant when talking about its address.  */
+  if (TREE_CODE (t) == WITH_SIZE_EXPR)
+    t = TREE_OPERAND (t, 0);
+
   if (TREE_CODE (t) == INDIRECT_REF)
     {
       t = TREE_OPERAND (t, 0);
@@ -10558,7 +10584,7 @@ round_up (tree value, int divisor)
   /* See if VALUE is already a multiple of DIVISOR.  If so, we don't
      have to do anything.  Only do this when we are not given a const,
      because in that case, this check is more expensive than just
-     doing it. */
+     doing it.  */
   if (TREE_CODE (value) != INTEGER_CST)
     {
       div = build_int_cst (TREE_TYPE (value), divisor);
@@ -10603,7 +10629,7 @@ round_down (tree value, int divisor)
   /* See if VALUE is already a multiple of DIVISOR.  If so, we don't
      have to do anything.  Only do this when we are not given a const,
      because in that case, this check is more expensive than just
-     doing it. */
+     doing it.  */
   if (TREE_CODE (value) != INTEGER_CST)
     {
       div = build_int_cst (TREE_TYPE (value), divisor);

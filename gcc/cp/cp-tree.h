@@ -74,6 +74,7 @@ struct diagnostic_context;
    5: C_IS_RESERVED_WORD (in IDENTIFIER_NODE)
       DECL_VTABLE_OR_VTT_P (in VAR_DECL)
    6: IDENTIFIER_REPO_CHOSEN (in IDENTIFIER_NODE)
+      DECL_CONSTRUCTION_VTABLE_P (in VAR_DECL)
 
    Usage of TYPE_LANG_FLAG_?:
    0: TYPE_DEPENDENT_P
@@ -954,7 +955,7 @@ typedef struct tree_pair_s GTY (())
   tree value;
 } tree_pair_s;
 typedef tree_pair_s *tree_pair_p;
-DEF_VEC_O (tree_pair_s);
+DEF_VEC_GC_O (tree_pair_s);
 
 /* This is a few header flags for 'struct lang_type'.  Actually,
    all but the first are used only for lang_type_class; they
@@ -1405,14 +1406,6 @@ struct lang_type GTY(())
 
 /* Additional macros for inheritance information.  */
 
-/* The BINFO_INHERITANCE_CHAIN is used opposite to the description in
-   gcc/tree.h.  In particular if D is non-virtually derived from B
-   then the BINFO for B (in D) will have a BINFO_INHERITANCE_CHAIN
-   pointing to D.  If D is virtually derived, its
-   BINFO_INHERITANCE_CHAIN will point to the most derived binfo. In
-   tree.h, this pointer is described as pointing in other
-   direction.  The binfos of virtual bases are shared.  */
-
 /* Nonzero means that this class is on a path leading to a new vtable.  */
 #define BINFO_VTABLE_PATH_MARKED(NODE) BINFO_FLAG_1 (NODE)
 
@@ -1425,14 +1418,8 @@ struct lang_type GTY(())
    derived class and never become non-primary.)  */
 #define SET_BINFO_NEW_VTABLE_MARKED(B)					 \
   (BINFO_NEW_VTABLE_MARKED (B) = 1,					 \
-   my_friendly_assert (!BINFO_PRIMARY_P (B)				 \
-		       || BINFO_VIRTUAL_P (B), 20000517),		 \
-   my_friendly_assert (TYPE_VFIELD (BINFO_TYPE (B)), 20000517))
-
-/* Nonzero if this BINFO is a primary base class.  */
-
-#define BINFO_PRIMARY_P(NODE) \
-  (BINFO_PRIMARY_BASE_OF (NODE) != NULL_TREE)
+   gcc_assert (!BINFO_PRIMARY_P (B) || BINFO_VIRTUAL_P (B)),		 \
+   gcc_assert (TYPE_VFIELD (BINFO_TYPE (B))))
 
 /* Nonzero if this binfo is for a dependent base - one that should not
    be searched.  */
@@ -1443,10 +1430,8 @@ struct lang_type GTY(())
    base in the complete hierarchy.  */
 #define BINFO_LOST_PRIMARY_P(NODE) BINFO_FLAG_4 (NODE)
 
-/* Nonzero if this binfo is an indirect primary base, i.e. a virtual
-   base that is a primary base of some of other class in the
-   hierarchy.  */
-#define BINFO_INDIRECT_PRIMARY_P(NODE) BINFO_FLAG_5 (NODE)
+/* Nonzero if this BINFO is a primary base class.  */
+#define BINFO_PRIMARY_P(NODE) BINFO_FLAG_5(NODE)
 
 /* Used by various search routines.  */
 #define IDENTIFIER_MARKED(NODE) TREE_LANG_FLAG_0 (NODE)
@@ -2007,6 +1992,12 @@ struct lang_decl GTY(())
 
 /* 1 iff VAR_DECL node NODE is virtual table or VTT.  */
 #define DECL_VTABLE_OR_VTT_P(NODE) TREE_LANG_FLAG_5 (VAR_DECL_CHECK (NODE))
+
+/* Returns 1 iff VAR_DECL is a construction virtual table.
+   DECL_VTABLE_OR_VTT_P will be true in this case and must be checked
+   before using this macro.  */
+#define DECL_CONSTRUCTION_VTABLE_P(NODE) \
+  TREE_LANG_FLAG_6 (VAR_DECL_CHECK (NODE))
 
 /* 1 iff NODE is function-local, but for types.  */
 #define LOCAL_CLASS_P(NODE)				\
@@ -3689,6 +3680,7 @@ extern void debug_class				(tree);
 extern void debug_thunks 			(tree);
 extern tree cp_fold_obj_type_ref		(tree, tree);
 extern void set_linkage_according_to_type       (tree, tree);
+extern void determine_key_method                (tree);
 
 /* in cvt.c */
 extern tree convert_to_reference (tree, tree, int, int, tree);
@@ -3811,6 +3803,7 @@ extern tree builtin_function (const char *name, tree type,
 extern tree check_elaborated_type_specifier     (enum tag_types, tree, bool);
 extern void warn_extern_redeclared_static (tree, tree);
 extern bool cp_missing_noreturn_ok_p		(tree);
+extern void initialize_artificial_var            (tree, tree);
 
 extern bool have_extern_spec;
 
@@ -3830,6 +3823,7 @@ extern tree groktypefield			(tree, tree);
 extern void cplus_decl_attributes (tree *, tree, int);
 extern void finish_anon_union (tree);
 extern tree finish_table (tree, tree, tree, int);
+extern void cp_finish_file (void);
 extern tree coerce_new_type (tree);
 extern tree coerce_delete_type (tree);
 extern void comdat_linkage (tree);

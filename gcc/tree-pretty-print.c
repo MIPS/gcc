@@ -627,12 +627,15 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       pp_string (buffer, str);
       dump_generic_node (buffer, TREE_OPERAND (node, 1), spc, flags, false);
 
-      op0 = component_ref_field_offset (node);
-      if (op0 && TREE_CODE (op0) != INTEGER_CST)
+      if (TREE_CODE (op0) != VALUE_HANDLE)
 	{
-	  pp_string (buffer, "{off: ");
-	  dump_generic_node (buffer, op0, spc, flags, false);
-	  pp_character (buffer, '}');
+	  op0 = component_ref_field_offset (node);
+	  if (op0 && TREE_CODE (op0) != INTEGER_CST)
+	    {
+	      pp_string (buffer, "{off: ");
+	      dump_generic_node (buffer, op0, spc, flags, false);
+	      pp_character (buffer, '}');
+	    }
 	}
       break;
 
@@ -1074,7 +1077,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	{
 	  pp_character (buffer, '(');
 	  dump_generic_node (buffer, type, spc, flags, false);
-	  pp_string (buffer, ")");
+	  pp_string (buffer, ") ");
 	}
       if (op_prio (op0) < op_prio (node))
 	pp_character (buffer, '(');
@@ -1828,18 +1831,32 @@ op_symbol (tree op)
       return "*";
 
     case TRUNC_DIV_EXPR:
-    case CEIL_DIV_EXPR:
-    case FLOOR_DIV_EXPR:
-    case ROUND_DIV_EXPR:
     case RDIV_EXPR:
-    case EXACT_DIV_EXPR:
       return "/";
 
+    case CEIL_DIV_EXPR:
+      return "/[cl]";
+
+    case FLOOR_DIV_EXPR:
+      return "/[fl]";
+
+    case ROUND_DIV_EXPR:
+      return "/[rd]";
+
+    case EXACT_DIV_EXPR:
+      return "/[ex]";
+
     case TRUNC_MOD_EXPR:
-    case CEIL_MOD_EXPR:
-    case FLOOR_MOD_EXPR:
-    case ROUND_MOD_EXPR:
       return "%";
+
+    case CEIL_MOD_EXPR:
+      return "%[cl]";
+
+    case FLOOR_MOD_EXPR:
+      return "%[fl]";
+
+    case ROUND_MOD_EXPR:
+      return "%[rd]";
 
     case PREDECREMENT_EXPR:
       return " --";

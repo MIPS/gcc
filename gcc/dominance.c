@@ -277,8 +277,7 @@ calc_dfs_tree_nonrec (struct dom_info *di, basic_block bb,
 	      ev_next = bn->succs;
 	    }
 
-	  if (bn == en_block)
-	    abort ();
+	  gcc_assert (bn != en_block);
 
 	  /* Fill the DFS tree info calculatable _before_ recursing.  */
 	  if (bb != en_block)
@@ -382,8 +381,7 @@ calc_dfs_tree (struct dom_info *di, enum cdi_direction reverse)
   di->nodes = di->dfsnum - 1;
 
   /* This aborts e.g. when there is _no_ path from ENTRY to EXIT at all.  */
-  if (di->nodes != (unsigned int) n_basic_blocks + 1)
-    abort ();
+  gcc_assert (di->nodes == (unsigned int) n_basic_blocks + 1);
 }
 
 /* Compress the path from V to the root of its set and update path_min at the
@@ -603,8 +601,7 @@ compute_dom_fast_query (enum cdi_direction dir)
   int num = 0;
   basic_block bb;
 
-  if (dom_computed[dir] < DOM_NO_FAST_QUERY)
-    abort ();
+  gcc_assert (dom_computed[dir] >= DOM_NO_FAST_QUERY);
 
   if (dom_computed[dir] == DOM_OK)
     return;
@@ -635,8 +632,7 @@ calculate_dominance_info (enum cdi_direction dir)
       if (dom_computed[dir] != DOM_NONE)
 	free_dominance_info (dir);
 
-      if (n_bbs_in_dom_tree[dir])
-	abort ();
+      gcc_assert (!n_bbs_in_dom_tree[dir]);
 
       FOR_ALL_BB (b)
 	{
@@ -678,8 +674,7 @@ free_dominance_info (enum cdi_direction dir)
     }
 
   /* If there are any nodes left, something is wrong.  */
-  if (n_bbs_in_dom_tree[dir])
-    abort ();
+  gcc_assert (!n_bbs_in_dom_tree[dir]);
 
   dom_computed[dir] = DOM_NONE;
 }
@@ -690,8 +685,7 @@ get_immediate_dominator (enum cdi_direction dir, basic_block bb)
 {
   struct et_node *node = bb->dom[dir];
 
-  if (!dom_computed[dir])
-    abort ();
+  gcc_assert (dom_computed[dir]);
 
   if (!node->father)
     return NULL;
@@ -707,8 +701,7 @@ set_immediate_dominator (enum cdi_direction dir, basic_block bb,
 {
   struct et_node *node = bb->dom[dir];
 
-  if (!dom_computed[dir])
-    abort ();
+  gcc_assert (dom_computed[dir]);
 
   if (node->father)
     {
@@ -732,8 +725,7 @@ get_dominated_by (enum cdi_direction dir, basic_block bb, basic_block **bbs)
   int n;
   struct et_node *node = bb->dom[dir], *son = node->son, *ason;
 
-  if (!dom_computed[dir])
-    abort ();
+  gcc_assert (dom_computed[dir]);
 
   if (!son)
     {
@@ -759,8 +751,7 @@ redirect_immediate_dominators (enum cdi_direction dir, basic_block bb,
 {
   struct et_node *bb_node = bb->dom[dir], *to_node = to->dom[dir], *son;
 
-  if (!dom_computed[dir])
-    abort ();
+  gcc_assert (dom_computed[dir]);
 
   if (!bb_node->son)
     return;
@@ -781,8 +772,7 @@ redirect_immediate_dominators (enum cdi_direction dir, basic_block bb,
 basic_block
 nearest_common_dominator (enum cdi_direction dir, basic_block bb1, basic_block bb2)
 {
-  if (!dom_computed[dir])
-    abort ();
+  gcc_assert (dom_computed[dir]);
 
   if (!bb1)
     return bb2;
@@ -798,8 +788,7 @@ dominated_by_p (enum cdi_direction dir, basic_block bb1, basic_block bb2)
 { 
   struct et_node *n1 = bb1->dom[dir], *n2 = bb2->dom[dir];
 
-  if (!dom_computed[dir])
-    abort ();
+  gcc_assert (dom_computed[dir]);
 
   if (dom_computed[dir] == DOM_OK)
     return (n1->dfs_num_in >= n2->dfs_num_in
@@ -815,8 +804,7 @@ verify_dominators (enum cdi_direction dir)
   int err = 0;
   basic_block bb;
 
-  if (!dom_computed[dir])
-    abort ();
+  gcc_assert (dom_computed[dir]);
 
   FOR_EACH_BB (bb)
     {
@@ -844,8 +832,7 @@ verify_dominators (enum cdi_direction dir)
 	}
     }
 
-  if (err)
-    abort ();
+  gcc_assert (!err);
 }
 
 /* Determine immediate dominator (or postdominator, according to DIR) of BB,
@@ -859,8 +846,7 @@ recount_dominator (enum cdi_direction dir, basic_block bb)
   basic_block dom_bb = NULL;
   edge e;
 
-  if (!dom_computed[dir])
-    abort ();
+  gcc_assert (dom_computed[dir]);
 
   if (dir == CDI_DOMINATORS)
     {
@@ -897,8 +883,7 @@ iterate_fix_dominators (enum cdi_direction dir, basic_block *bbs, int n)
   int i, changed = 1;
   basic_block old_dom, new_dom;
 
-  if (!dom_computed[dir])
-    abort ();
+  gcc_assert (dom_computed[dir]);
 
   for (i = 0; i < n; i++)
     set_immediate_dominator (dir, bbs[i], NULL);
@@ -919,18 +904,14 @@ iterate_fix_dominators (enum cdi_direction dir, basic_block *bbs, int n)
     }
 
   for (i = 0; i < n; i++)
-    if (!get_immediate_dominator (dir, bbs[i]))
-      abort ();
+    gcc_assert (get_immediate_dominator (dir, bbs[i]));
 }
 
 void
 add_to_dominance_info (enum cdi_direction dir, basic_block bb)
 {
-  if (!dom_computed[dir])
-    abort ();
-
-  if (bb->dom[dir])
-    abort ();
+  gcc_assert (dom_computed[dir]);
+  gcc_assert (!bb->dom[dir]);
 
   n_bbs_in_dom_tree[dir]++;
   
@@ -943,8 +924,7 @@ add_to_dominance_info (enum cdi_direction dir, basic_block bb)
 void
 delete_from_dominance_info (enum cdi_direction dir, basic_block bb)
 {
-  if (!dom_computed[dir])
-    abort ();
+  gcc_assert (dom_computed[dir]);
 
   et_free_tree (bb->dom[dir]);
   bb->dom[dir] = NULL;

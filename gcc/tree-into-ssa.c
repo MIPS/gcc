@@ -67,7 +67,7 @@ struct def_blocks_d
      Ith block contains a definition of VAR.  */
   bitmap def_blocks;
 
-  /* Blocks that contain a phi node for VAR. */
+  /* Blocks that contain a phi node for VAR.  */
   bitmap phi_blocks;
 
   /* Blocks where VAR is live-on-entry.  Similar semantics as
@@ -1721,5 +1721,6 @@ struct tree_opt_pass pass_build_ssa =
   PROP_ssa,				/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func | TODO_verify_ssa	/* todo_flags_finish */
+  TODO_dump_func | TODO_verify_ssa,			/* todo_flags_finish */
+  0					/* letter */
 };

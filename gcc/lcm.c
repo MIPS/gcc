@@ -299,10 +299,11 @@ compute_laterin (struct edge_list *edge_list, sbitmap *earliest,
       *qin++ = bb;
       bb->aux = bb;
     }
-  qin = worklist;
+
   /* Note that we do not use the last allocated element for our queue,
      as EXIT_BLOCK is never inserted into it. In fact the above allocation
      of n_basic_blocks + 1 elements is not necessary.  */
+  qin = worklist;
   qend = &worklist[n_basic_blocks];
   qlen = n_basic_blocks;
 
@@ -320,7 +321,8 @@ compute_laterin (struct edge_list *edge_list, sbitmap *earliest,
       sbitmap_ones (laterin[bb->index]);
       FOR_EACH_EDGE (e, bb->preds)
 	{
-	  sbitmap_a_and_b (laterin[bb->index], laterin[bb->index], later[(size_t)e->aux]);
+	  sbitmap_a_and_b (laterin[bb->index], laterin[bb->index],
+	  		   later[(size_t)e->aux]);
 	}
       END_FOR_EACH_EDGE;
 
@@ -372,7 +374,8 @@ compute_insert_delete (struct edge_list *edge_list, sbitmap *antloc,
   basic_block bb;
 
   FOR_EACH_BB (bb)
-    sbitmap_difference (delete[bb->index], antloc[bb->index], laterin[bb->index]);
+    sbitmap_difference (delete[bb->index], antloc[bb->index],
+			laterin[bb->index]);
 
   for (x = 0; x < NUM_EDGES (edge_list); x++)
     {
@@ -547,7 +550,8 @@ compute_available (sbitmap *avloc, sbitmap *kill, sbitmap *avout,
 	  sbitmap_intersection_of_preds (avin[bb->index], avout, bb->index);
 	}
 
-      if (sbitmap_union_of_diff_cg (avout[bb->index], avloc[bb->index], avin[bb->index], kill[bb->index]))
+      if (sbitmap_union_of_diff_cg (avout[bb->index], avloc[bb->index],
+				    avin[bb->index], kill[bb->index]))
 	/* If the out state of this block changed, then we need
 	   to add the successors of this block to the worklist
 	   if they are not already on the worklist.  */
@@ -719,7 +723,8 @@ compute_rev_insert_delete (struct edge_list *edge_list, sbitmap *st_avloc,
   basic_block bb;
 
   FOR_EACH_BB (bb)
-    sbitmap_difference (delete[bb->index], st_avloc[bb->index], nearerout[bb->index]);
+    sbitmap_difference (delete[bb->index], st_avloc[bb->index],
+			nearerout[bb->index]);
 
   for (x = 0; x < NUM_EDGES (edge_list); x++)
     {

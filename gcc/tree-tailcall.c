@@ -399,11 +399,12 @@ find_tail_calls (basic_block bb, struct tailcall **ret)
       if (TREE_CODE (call) == CALL_EXPR)
 	break;
 
-      /* If the statement has virtual operands, fail.  */
+      /* If the statement has virtual or volatile operands, fail.  */
       ann = stmt_ann (stmt);
       if (NUM_V_MAY_DEFS (V_MAY_DEF_OPS (ann))
           || NUM_V_MUST_DEFS (V_MUST_DEF_OPS (ann))
-	  || NUM_VUSES (VUSE_OPS (ann)))
+	  || NUM_VUSES (VUSE_OPS (ann))
+	  || ann->has_volatile_ops)
 	return;
     }
 
@@ -881,8 +882,7 @@ tree_optimize_tail_calls_1 (bool opt_tailcalls)
 	  add_referenced_tmp_var (tmp);
 
 	  phi = create_phi_node (tmp, first);
-	  add_phi_arg (&phi, fold_convert (ret_type, integer_zero_node),
-		       EDGE_PRED (first, 0));
+	  add_phi_arg (&phi, build_int_cst (ret_type, 0), EDGE_PRED (first, 0));
 	  a_acc = PHI_RESULT (phi);
 	}
 
@@ -894,8 +894,7 @@ tree_optimize_tail_calls_1 (bool opt_tailcalls)
 	  add_referenced_tmp_var (tmp);
 
 	  phi = create_phi_node (tmp, first);
-	  add_phi_arg (&phi, fold_convert (ret_type, integer_one_node),
-		       EDGE_PRED (first, 0));
+	  add_phi_arg (&phi, build_int_cst (ret_type, 1), EDGE_PRED (first, 0));
 	  m_acc = PHI_RESULT (phi);
 	}
     }
@@ -959,7 +958,8 @@ struct tree_opt_pass pass_tail_recursion =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func | TODO_verify_ssa	/* todo_flags_finish */
+  TODO_dump_func | TODO_verify_ssa,	/* todo_flags_finish */
+  0					/* letter */
 };
 
 struct tree_opt_pass pass_tail_calls = 
@@ -975,5 +975,6 @@ struct tree_opt_pass pass_tail_calls =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func | TODO_verify_ssa	/* todo_flags_finish */
+  TODO_dump_func | TODO_verify_ssa,	/* todo_flags_finish */
+  0					/* letter */
 };

@@ -359,7 +359,8 @@ struct tree_opt_pass pass_may_alias =
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   TODO_dump_func | TODO_rename_vars
-    | TODO_ggc_collect | TODO_verify_ssa  /* todo_flags_finish */
+    | TODO_ggc_collect | TODO_verify_ssa,  /* todo_flags_finish */
+  0					/* letter */
 };
 
 
@@ -929,6 +930,10 @@ compute_flow_insensitive_aliasing (struct alias_info *ai)
 	      num_tag_refs = VARRAY_UINT (ai->num_references, tag_ann->uid);
 	      num_var_refs = VARRAY_UINT (ai->num_references, v_ann->uid);
 
+	      /* If TAG is call clobbered, so is VAR.  */
+	      if (is_call_clobbered (tag))
+		mark_call_clobbered (var);
+
 	      /* Add VAR to TAG's may-aliases set.  */
 	      add_may_alias (tag, var);
 
@@ -1121,7 +1126,28 @@ group_aliases (struct alias_info *ai)
 	  sbitmap_a_and_b (res, tag1_aliases, tag2_aliases);
 	  if (sbitmap_first_set_bit (res) >= 0)
 	    {
+	      size_t k;
+
 	      tree tag2 = var_ann (ai->pointers[j]->var)->type_mem_tag;
+
+	      if (!is_call_clobbered (tag1) && is_call_clobbered (tag2))
+		{
+		  mark_call_clobbered (tag1);
+		  EXECUTE_IF_SET_IN_SBITMAP (tag1_aliases, 0, k,
+		    {
+		      tree var = referenced_var (k);
+		      mark_call_clobbered (var);
+		    });
+		}
+	      else if (is_call_clobbered (tag1) && !is_call_clobbered (tag2))
+		{
+		  mark_call_clobbered (tag2);
+		  EXECUTE_IF_SET_IN_SBITMAP (tag2_aliases, 0, k,
+		    {
+		      tree var = referenced_var (k);
+		      mark_call_clobbered (var);
+		    });
+		}
 
 	      sbitmap_a_or_b (tag1_aliases, tag1_aliases, tag2_aliases);
 
@@ -1639,16 +1665,6 @@ add_may_alias (tree var, tree alias)
     if (alias == VARRAY_TREE (v_ann->may_aliases, i))
       return;
 
-  /* If VAR is a call-clobbered variable, so is its new ALIAS.
-     FIXME, call-clobbering should only depend on whether an address
-     escapes.  It should be independent of aliasing.  */
-  if (is_call_clobbered (var))
-    mark_call_clobbered (alias);
-
-  /* Likewise.  If ALIAS is call-clobbered, so is VAR.  */
-  else if (is_call_clobbered (alias))
-    mark_call_clobbered (var);
-
   VARRAY_PUSH_TREE (v_ann->may_aliases, alias);
   a_ann->is_alias_tag = 1;
 }
@@ -1661,16 +1677,6 @@ replace_may_alias (tree var, size_t i, tree new_alias)
 {
   var_ann_t v_ann = var_ann (var);
   VARRAY_TREE (v_ann->may_aliases, i) = new_alias;
-
-  /* If VAR is a call-clobbered variable, so is NEW_ALIAS.
-     FIXME, call-clobbering should only depend on whether an address
-     escapes.  It should be independent of aliasing.  */
-  if (is_call_clobbered (var))
-    mark_call_clobbered (new_alias);
-
-  /* Likewise.  If NEW_ALIAS is call-clobbered, so is VAR.  */
-  else if (is_call_clobbered (new_alias))
-    mark_call_clobbered (var);
 }
 
 
@@ -1703,7 +1709,7 @@ set_pt_malloc (tree ptr)
   struct ptr_info_def *pi = SSA_NAME_PTR_INFO (ptr);
 
   /* If the pointer has already been found to point to arbitrary
-     memory locations, it is unsafe to mark it as pointing to malloc. */
+     memory locations, it is unsafe to mark it as pointing to malloc.  */
   if (pi->pt_anything)
     return;
 
@@ -1727,6 +1733,8 @@ merge_pointed_to_info (struct alias_info *ai, tree dest, tree orig)
 
   if (orig_pi)
     {
+      dest_pi->pt_global_mem |= orig_pi->pt_global_mem;
+
       /* Notice that we never merge PT_MALLOC.  This attribute is only
 	 true if the pointer is the result of a malloc() call.
 	 Otherwise, we can end up in this situation:
@@ -2467,14 +2475,16 @@ may_be_aliased (tree var)
   if (TREE_ADDRESSABLE (var))
     return true;
 
-  /* Automatic variables can't have their addresses escape any other way.  */
-  if (!TREE_STATIC (var))
-    return false;
-
   /* Globally visible variables can have their addresses taken by other
      translation units.  */
   if (DECL_EXTERNAL (var) || TREE_PUBLIC (var))
     return true;
+
+  /* Automatic variables can't have their addresses escape any other way.
+     This must be after the check for global variables, as extern declarations
+     do not have TREE_STATIC set.  */
+  if (!TREE_STATIC (var))
+    return false;
 
   /* If we're in unit-at-a-time mode, then we must have seen all occurrences
      of address-of operators, and so we can trust TREE_ADDRESSABLE.  Otherwise

@@ -799,14 +799,8 @@ flow_depth_first_order_compute (int *dfs_order, int *rc_order)
   free (stack);
   sbitmap_free (visited);
 
-  /* The number of nodes visited should not be greater than
-     n_basic_blocks.  */
-  if (dfsnum > n_basic_blocks)
-    abort ();
-
-  /* There are some nodes left in the CFG that are unreachable.  */
-  if (dfsnum < n_basic_blocks)
-    abort ();
+  /* The number of nodes visited should be the number of blocks.  */
+  gcc_assert (dfsnum == n_basic_blocks);
 
   return dfsnum;
 }
@@ -1063,8 +1057,7 @@ dfs_enumerate_from (basic_block bb, int reverse,
 	    {
 	      if (!(e->src->flags & BB_VISITED) && predicate (e->src, data))
 		{
-		  if (tv == rslt_max)
-		    abort ();
+	          gcc_assert (tv != rslt_max);
 		  rslt[tv++] = st[sp++] = e->src;
 		  e->src->flags |= BB_VISITED;
 		}
@@ -1077,8 +1070,7 @@ dfs_enumerate_from (basic_block bb, int reverse,
 	    {
 	      if (!(e->dest->flags & BB_VISITED) && predicate (e->dest, data))
 		{
-		  if (tv == rslt_max)
-		    abort ();
+	          gcc_assert (tv != rslt_max);
 		  rslt[tv++] = st[sp++] = e->dest;
 		  e->dest->flags |= BB_VISITED;
 		}

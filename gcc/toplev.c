@@ -423,6 +423,7 @@ FILE *asm_out_file;
 FILE *aux_info_file;
 FILE *dump_file = NULL;
 FILE *cgraph_dump_file = NULL;
+char *dump_file_name;
 
 /* The current working directory of a translation.  It's generally the
    directory from which compilation was initiated, but a preprocessed
@@ -1730,6 +1731,17 @@ process_options (void)
   if (flag_value_profile_transformations)
     flag_profile_values = 1;
 
+  /* Speculative prefetching implies the value profiling.  We also switch off
+     the prefetching in the loop optimizer, so that we do not emit double
+     prefetches.  TODO -- we should teach these two to cooperate; the loop
+     based prefetching may sometimes do a better job, especially in connection
+     with reuse analysis.  */
+  if (flag_speculative_prefetching)
+    {
+      flag_profile_values = 1;
+      flag_prefetch_loop_arrays = 0;
+    }
+
   /* Warn about options that are not supported on this machine.  */
 #ifndef INSN_SCHEDULING
   if (flag_schedule_insns || flag_schedule_insns_after_reload)
@@ -1806,8 +1818,9 @@ process_options (void)
     default_debug_hooks = &vmsdbg_debug_hooks;
 #endif
 
+  debug_hooks = &do_nothing_debug_hooks;
   if (write_symbols == NO_DEBUG)
-    debug_hooks = &do_nothing_debug_hooks;
+    ;
 #if defined(DBX_DEBUGGING_INFO)
   else if (write_symbols == DBX_DEBUG)
     debug_hooks = &dbx_debug_hooks;
@@ -1897,11 +1910,23 @@ process_options (void)
       warning ("-fprefetch-loop-arrays not supported for this target");
       flag_prefetch_loop_arrays = 0;
     }
+  if (flag_speculative_prefetching)
+    {
+      if (flag_speculative_prefetching_set)
+	warning ("-fspeculative-prefetching not supported for this target");
+      flag_speculative_prefetching = 0;
+    }
 #else
   if (flag_prefetch_loop_arrays && !HAVE_prefetch)
     {
       warning ("-fprefetch-loop-arrays not supported for this target (try -march switches)");
       flag_prefetch_loop_arrays = 0;
+    }
+  if (flag_speculative_prefetching && !HAVE_prefetch)
+    {
+      if (flag_speculative_prefetching_set)
+	warning ("-fspeculative-prefetching not supported for this target (try -march switches)");
+      flag_speculative_prefetching = 0;
     }
 #endif
 
@@ -1960,7 +1985,7 @@ lang_dependent_init (const char *name)
 {
   location_t save_loc = input_location;
   if (dump_base_name == 0)
-    dump_base_name = name ? name : "gccdump";
+    dump_base_name = name && name[0] ? name : "gccdump";
 
   /* Other front-end initialization.  */
 #ifdef USE_MAPPED_LOCATION
@@ -1979,7 +2004,6 @@ lang_dependent_init (const char *name)
      front end is initialized.  */
   init_eh ();
   init_optabs ();
-  init_optimization_passes ();
 
   /* The following initialization functions need to generate rtl, so
      provide a dummy function context for them.  */

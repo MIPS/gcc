@@ -398,7 +398,7 @@ sra_elt_hash (const void *x)
 
   /* Take into account everything back up the chain.  Given that chain
      lengths are rarely very long, this should be acceptable.  If we
-     truely identify this as a performance problem, it should work to
+     truly identify this as a performance problem, it should work to
      hash the pointer value "e->parent".  */
   for (p = e->parent; p ; p = p->parent)
     h = (h * 65521) ^ sra_hash_tree (p->element);
@@ -1537,7 +1537,7 @@ generate_element_zero (struct sra_elt *elt, tree *list_p)
       tree t;
 
       if (elt->is_scalar)
-	t = fold_convert (elt->type, integer_zero_node);
+	t = build_int_cst (elt->type, 0);
       else
 	/* We generated a replacement for a non-scalar?  */
 	abort ();
@@ -2108,5 +2108,6 @@ struct tree_opt_pass pass_sra =
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   TODO_dump_func | TODO_rename_vars
-    | TODO_ggc_collect | TODO_verify_ssa  /* todo_flags_finish */
+    | TODO_ggc_collect | TODO_verify_ssa,  /* todo_flags_finish */
+  0					/* letter */
 };

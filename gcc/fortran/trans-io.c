@@ -39,8 +39,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "trans-const.h"
 
 
-static GTY(()) tree gfc_pint4_type_node;
-
 /* Members of the ioparm structure.  */
 
 static GTY(()) tree ioparm_unit;
@@ -160,13 +158,16 @@ static enum { READ, WRITE, IOLENGTH } last_dt;
 void
 gfc_build_io_library_fndecls (void)
 {
+  tree gfc_int4_type_node;
+  tree gfc_pint4_type_node;
   tree ioparm_type;
 
+  gfc_int4_type_node = gfc_get_int_type (4);
   gfc_pint4_type_node = build_pointer_type (gfc_int4_type_node);
 
-/* Build the st_parameter structure.  Information associated with I/O
-   calls are transferred here.  This must match the one defined in the
-   library exactly. */
+  /* Build the st_parameter structure.  Information associated with I/O
+     calls are transferred here.  This must match the one defined in the
+     library exactly. */
 
   ioparm_type = make_node (RECORD_TYPE);
   TYPE_NAME (ioparm_type) = get_identifier ("_gfc_ioparm");
@@ -332,7 +333,7 @@ gfc_build_io_library_fndecls (void)
                                      void_type_node, 5,
                                      pvoid_type_node, pvoid_type_node,
                                      gfc_int4_type_node, gfc_int4_type_node, 
-                                     gfc_strlen_type_node);
+                                     gfc_charlen_type_node);
   iocall_set_nml_val_complex =
     gfc_build_library_function_decl (get_identifier (PREFIX("st_set_nml_var_complex")),
                                      void_type_node, 4,
@@ -523,7 +524,11 @@ set_error_locus (stmtblock_t * block, locus * where)
   tmp = gfc_build_addr_expr (pchar_type_node, tmp);
   gfc_add_modify_expr (block, locus_file, tmp);
 
+#ifdef USE_MAPPED_LOCATION
+  line = LOCATION_LINE (where->lb->location);
+#else
   line = where->lb->linenum;
+#endif
   gfc_add_modify_expr (block, locus_line, build_int_cst (NULL_TREE, line));
 }
 

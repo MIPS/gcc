@@ -646,13 +646,22 @@ delete_tree_ssa (void)
   /* Remove annotations from every tree in the function.  */
   FOR_EACH_BB (bb)
     for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
-      bsi_stmt (bsi)->common.ann = NULL;
+      {
+	tree stmt = bsi_stmt (bsi);
+        release_defs (stmt);
+	ggc_free (stmt->common.ann);
+	stmt->common.ann = NULL;
+      }
 
   /* Remove annotations from every referenced variable.  */
   if (referenced_vars)
     {
       for (i = 0; i < num_referenced_vars; i++)
-	referenced_var (i)->common.ann = NULL;
+	{
+	  tree var = referenced_var (i);
+	  ggc_free (var->common.ann);
+	  var->common.ann = NULL;
+	}
       referenced_vars = NULL;
     }
 
@@ -876,9 +885,9 @@ propagate_into_addr (tree stmt, tree var, tree *x, tree repl)
     return;
   addr_var = TREE_OPERAND (repl, 0);
 
-  while (TREE_CODE (*x) == ARRAY_REF
-	 || TREE_CODE (*x) == COMPONENT_REF
-	 || TREE_CODE (*x) == BIT_FIELD_REF)
+  while (handled_component_p (*x)
+	 || TREE_CODE (*x) == REALPART_EXPR
+	 || TREE_CODE (*x) == IMAGPART_EXPR)
     x = &TREE_OPERAND (*x, 0);
 
   if (TREE_CODE (*x) != INDIRECT_REF
@@ -1160,7 +1169,8 @@ struct tree_opt_pass pass_redundant_phi =
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   TODO_dump_func | TODO_rename_vars 
-    | TODO_ggc_collect | TODO_verify_ssa /* todo_flags_finish */
+    | TODO_ggc_collect | TODO_verify_ssa, /* todo_flags_finish */
+  0					/* letter */
 };
 
 /* Emit warnings for uninitialized variables.  This is done in two passes.
@@ -1300,7 +1310,8 @@ struct tree_opt_pass pass_early_warn_uninitialized =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  0					/* todo_flags_finish */
+  0,                                    /* todo_flags_finish */
+  0				        /* letter */
 };
 
 struct tree_opt_pass pass_late_warn_uninitialized =
@@ -1316,5 +1327,6 @@ struct tree_opt_pass pass_late_warn_uninitialized =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  0					/* todo_flags_finish */
+  0,                                    /* todo_flags_finish */
+  0				        /* letter */
 };

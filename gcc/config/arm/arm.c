@@ -172,8 +172,10 @@ static bool arm_cxx_guard_mask_bit (void);
 static tree arm_get_cookie_size (tree);
 static bool arm_cookie_has_size (void);
 static bool arm_cxx_cdtor_returns_this (void);
+static bool arm_cxx_key_method_may_be_inline (void);
+static bool arm_cxx_export_class_data (void);
 static void arm_init_libfuncs (void);
-
+static unsigned HOST_WIDE_INT arm_shift_truncation_mask (enum machine_mode);
 
 /* Initialize the GCC target structure.  */
 #if TARGET_DLLIMPORT_DECL_ATTRIBUTES
@@ -246,6 +248,8 @@ static void arm_init_libfuncs (void);
 #undef  TARGET_ADDRESS_COST
 #define TARGET_ADDRESS_COST arm_address_cost
 
+#undef TARGET_SHIFT_TRUNCATION_MASK
+#define TARGET_SHIFT_TRUNCATION_MASK arm_shift_truncation_mask
 #undef TARGET_VECTOR_MODE_SUPPORTED_P
 #define TARGET_VECTOR_MODE_SUPPORTED_P arm_vector_mode_supported_p
 
@@ -295,6 +299,12 @@ static void arm_init_libfuncs (void);
 
 #undef TARGET_CXX_CDTOR_RETURNS_THIS
 #define TARGET_CXX_CDTOR_RETURNS_THIS arm_cxx_cdtor_returns_this
+
+#undef TARGET_CXX_KEY_METHOD_MAY_BE_INLINE
+#define TARGET_CXX_KEY_METHOD_MAY_BE_INLINE arm_cxx_key_method_may_be_inline
+
+#undef TARGET_CXX_EXPORT_CLASS_DATA
+#define TARGET_CXX_EXPORT_CLASS_DATA arm_cxx_export_class_data
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -492,8 +502,8 @@ struct processors
 static const struct processors all_cores[] =
 {
   /* ARM Cores */
-#define ARM_CORE(NAME, ARCH, FLAGS, COSTS) \
-  {#NAME, arm_none, #ARCH, FLAGS | FL_FOR_ARCH##ARCH, arm_##COSTS##_rtx_costs},
+#define ARM_CORE(NAME, IDENT, ARCH, FLAGS, COSTS) \
+  {NAME, arm_none, #ARCH, FLAGS | FL_FOR_ARCH##ARCH, arm_##COSTS##_rtx_costs},
 #include "arm-cores.def"
 #undef ARM_CORE
   {NULL, arm_none, NULL, 0, NULL}
@@ -14204,6 +14214,25 @@ arm_cxx_cdtor_returns_this (void)
   return TARGET_AAPCS_BASED;
 }
 
+/* The EABI says that an inline function may never be the key
+   method.  */
+
+static bool
+arm_cxx_key_method_may_be_inline (void)
+{
+  return !TARGET_AAPCS_BASED;
+}
+
+/* The EABI says that the virtual table, etc., for a class must be
+   exported if it has a key method.  The EABI does not specific the
+   behavior if there is no key method, but there is no harm in
+   exporting the class data in that case too.  */
+
+static bool
+arm_cxx_export_class_data (void)
+{
+  return TARGET_AAPCS_BASED;
+}
 
 void
 arm_set_return_address (rtx source, rtx scratch)
@@ -14306,4 +14335,15 @@ arm_vector_mode_supported_p (enum machine_mode mode)
     return true;
 
   return false;
+}
+
+/* Implement TARGET_SHIFT_TRUNCATION_MASK.  SImode shifts use normal
+   ARM insns and therefore guarantee that the shift count is modulo 256.
+   DImode shifts (those implemented by lib1funcs.asm or by optabs.c)
+   guarantee no particular behavior for out-of-range counts.  */
+
+static unsigned HOST_WIDE_INT
+arm_shift_truncation_mask (enum machine_mode mode)
+{
+  return mode == SImode ? 255 : 0;
 }

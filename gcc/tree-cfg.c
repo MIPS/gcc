@@ -207,7 +207,8 @@ struct tree_opt_pass pass_build_cfg =
   PROP_cfg,				/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_verify_stmts			/* todo_flags_finish */
+  TODO_verify_stmts,			/* todo_flags_finish */
+  0					/* letter */
 };
 
 /* Search the CFG for any computed gotos.  If found, factor them to a 
@@ -1646,7 +1647,8 @@ struct tree_opt_pass pass_remove_useless_stmts =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func			/* todo_flags_finish */
+  TODO_dump_func,			/* todo_flags_finish */
+  0					/* letter */
 };
 
 
@@ -1736,10 +1738,14 @@ cfg_remove_useless_stmts_bb (basic_block bb)
 	  continue;
 	}
 
-      /* Invalidate the var if we encounter something that could modify it.  */
+      /* Invalidate the var if we encounter something that could modify it.
+	 Likewise for the value it was previously set to.  Note that we only
+	 consider values that are either a VAR_DECL or PARM_DECL so we
+	 can test for conflict very simply.  */
       if (TREE_CODE (stmt) == ASM_EXPR
 	  || (TREE_CODE (stmt) == MODIFY_EXPR
-	      && TREE_OPERAND (stmt, 0) == var))
+	      && (TREE_OPERAND (stmt, 0) == var
+		  || TREE_OPERAND (stmt, 0) == val)))
 	return;
   
       bsi_next (&bsi);
@@ -1996,7 +2002,7 @@ cleanup_control_expr_graph (basic_block bb, block_stmt_iterator bsi)
 
 /* Given a control block BB and a predicate VAL, return the edge that
    will be taken out of the block.  If VAL does not match a unique
-   edge, NULL is returned. */
+   edge, NULL is returned.  */
 
 edge
 find_taken_edge (basic_block bb, tree val)
@@ -2729,6 +2735,19 @@ set_bb_for_stmt (tree t, basic_block bb)
     }
 }
 
+/* Finds iterator for STMT.  */
+
+extern block_stmt_iterator
+stmt_for_bsi (tree stmt)
+{
+  block_stmt_iterator bsi;
+
+  for (bsi = bsi_start (bb_for_stmt (stmt)); !bsi_end_p (bsi); bsi_next (&bsi))
+    if (bsi_stmt (bsi) == stmt)
+      return bsi;
+
+  abort ();
+}
 
 /* Insert statement (or statement list) T before the statement
    pointed-to by iterator I.  M specifies how to update iterator I
@@ -4795,7 +4814,8 @@ struct tree_opt_pass pass_split_crit_edges =
   PROP_no_crit_edges,            /* properties_provided */
   0,                             /* properties_destroyed */
   0,                             /* todo_flags_start */
-  TODO_dump_func,                             /* todo_flags_finish */
+  TODO_dump_func,                /* todo_flags_finish */
+  0                              /* letter */
 };
 
 
@@ -4992,7 +5012,8 @@ struct tree_opt_pass pass_warn_function_return =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  0					/* todo_flags_finish */
+  0,					/* todo_flags_finish */
+  0					/* letter */
 };
 
 #include "gt-tree-cfg.h"

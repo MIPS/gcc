@@ -112,12 +112,15 @@ mf_varname_tree (tree decl)
     }
   pp_clear_output_area (buf);
 
-  /* Add FILENAME[:LINENUMBER].  */
+  /* Add FILENAME[:LINENUMBER[:COLUMNNUMBER]].  */
   {
     expanded_location xloc = expand_location (DECL_SOURCE_LOCATION (decl));
     const char *sourcefile;
     unsigned sourceline = xloc.line;
-
+    unsigned sourcecolumn = 0;
+#ifdef USE_MAPPED_LOCATION
+    sourcecolumn = xloc.column;
+#endif
     sourcefile = xloc.file;
     if (sourcefile == NULL && current_function_decl != NULL_TREE)
       sourcefile = DECL_SOURCE_FILE (current_function_decl);
@@ -130,12 +133,18 @@ mf_varname_tree (tree decl)
       {
         pp_string (buf, ":");
         pp_decimal_int (buf, sourceline);
+
+        if (sourcecolumn != 0)
+          {
+            pp_string (buf, ":");
+            pp_decimal_int (buf, sourcecolumn);
+          }
       }
   }
 
   if (current_function_decl != NULL_TREE)
     {
-      /* Add (FUNCTION): */
+      /* Add (FUNCTION) */
       pp_string (buf, " (");
       {
         const char *funcname = NULL;
@@ -189,11 +198,11 @@ mf_file_function_line_tree (location_t location)
 {
   expanded_location xloc = expand_location (location);
   const char *file = NULL, *colon, *line, *op, *name, *cp;
-  char linebuf[18];
+  char linecolbuf[30]; /* Enough for two decimal numbers plus a colon.  */
   char *string;
   tree result;
 
-  /* Add FILENAME[:LINENUMBER]. */
+  /* Add FILENAME[:LINENUMBER[:COLUMNNUMBER]].  */
   file = xloc.file;
   if (file == NULL && current_function_decl != NULL_TREE)
     file = DECL_SOURCE_FILE (current_function_decl);
@@ -202,9 +211,14 @@ mf_file_function_line_tree (location_t location)
 
   if (xloc.line > 0)
     {
-      sprintf (linebuf, "%d", xloc.line);
+#ifdef USE_MAPPED_LOCATION
+      if (xloc.column > 0)
+        sprintf (linecolbuf, "%d:%d", xloc.line, xloc.column);
+      else
+#endif
+        sprintf (linecolbuf, "%d", xloc.line);
       colon = ":";
-      line = linebuf;
+      line = linecolbuf;
     }
   else
     colon = line = "";
@@ -251,7 +265,7 @@ static GTY (()) tree mf_cache_shift_decl;
 /* extern uintptr_t __mf_lc_mask; */
 static GTY (()) tree mf_cache_mask_decl;
 
-/* Their function-scope local shadows, used in single-threaded mode only. */
+/* Their function-scope local shadows, used in single-threaded mode only.  */
 
 /* auto const unsigned char __mf_lc_shift_l; */
 static GTY (()) tree mf_cache_shift_decl_l;
@@ -413,7 +427,7 @@ execute_mudflap_function_ops (void)
 
 /* Create and initialize local shadow variables for the lookup cache
    globals.  Put their decls in the *_l globals for use by
-   mf_build_check_statement_for. */
+   mf_build_check_statement_for.  */
 
 static void
 mf_decl_cache_locals (void)
@@ -462,7 +476,7 @@ mf_decl_cache_locals (void)
 static void
 mf_decl_clear_locals (void)
 {
-  /* Unset local shadows. */
+  /* Unset local shadows.  */
   mf_cache_shift_decl_l = NULL_TREE;
   mf_cache_mask_decl_l = NULL_TREE;
 }
@@ -674,6 +688,10 @@ mf_xform_derefs_1 (block_stmt_iterator *iter, tree *tp,
 
   /* Don't instrument read operations.  */
   if (dirflag == integer_zero_node && flag_mudflap_ignore_reads)
+    return;
+
+  /* Don't instrument marked nodes.  */
+  if (mf_marked_p (*tp))
     return;
 
   t = *tp;
@@ -1253,7 +1271,8 @@ struct tree_opt_pass pass_mudflap_1 =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_dump_func                        /* todo_flags_finish */
+  TODO_dump_func,                       /* todo_flags_finish */
+  0					/* letter */
 };
 
 struct tree_opt_pass pass_mudflap_2 = 
@@ -1270,7 +1289,8 @@ struct tree_opt_pass pass_mudflap_2 =
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_verify_flow | TODO_verify_stmts
-  | TODO_dump_func                      /* todo_flags_finish */
+  | TODO_dump_func,                     /* todo_flags_finish */
+  0					/* letter */
 };
 
 #include "gt-tree-mudflap.h"

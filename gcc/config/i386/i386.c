@@ -527,7 +527,11 @@ const int x86_unroll_strlen = m_486 | m_PENT | m_PPRO | m_ATHLON_K8 | m_K6;
 const int x86_cmove = m_PPRO | m_ATHLON_K8 | m_PENT4 | m_NOCONA;
 const int x86_3dnow_a = m_ATHLON_K8;
 const int x86_deep_branch = m_PPRO | m_K6 | m_ATHLON_K8 | m_PENT4 | m_NOCONA;
-const int x86_branch_hints = m_PENT4 | m_NOCONA;
+/* Branch hints were put in P4 based on simulation result. But
+   after P4 was made, no performance benefit was observed with
+   branch hints. It also increases the code size. As the result,
+   icc never generates branch hints.  */
+const int x86_branch_hints = 0;
 const int x86_use_sahf = m_PPRO | m_K6 | m_PENT4 | m_NOCONA;
 const int x86_partial_reg_stall = m_PPRO;
 const int x86_use_loop = m_K6;
@@ -1875,7 +1879,8 @@ ix86_return_pops_args (tree fundecl, tree funtype, int size)
 
   /* Lose any fake structure return argument if it is passed on the stack.  */
   if (aggregate_value_p (TREE_TYPE (funtype), fundecl)
-      && !TARGET_64BIT)
+      && !TARGET_64BIT
+      && !KEEP_AGGREGATE_RETURN_POINTER)
     {
       int nregs = ix86_function_regparm (funtype, fundecl);
 
@@ -7103,22 +7108,79 @@ output_387_binary_op (rtx insn, rtx *operands)
   return buf;
 }
 
-/* Output code to initialize control word copies used by
-   trunc?f?i patterns.  NORMAL is set to current control word, while ROUND_DOWN
-   is set to control word rounding downwards.  */
+/* Output code to initialize control word copies used by trunc?f?i and
+   rounding patterns.  CURRENT_MODE is set to current control word,
+   while NEW_MODE is set to new control word.  */
+
 void
-emit_i387_cw_initialization (rtx normal, rtx round_down)
+emit_i387_cw_initialization (rtx current_mode, rtx new_mode, int mode)
 {
   rtx reg = gen_reg_rtx (HImode);
 
-  emit_insn (gen_x86_fnstcw_1 (normal));
-  emit_move_insn (reg, normal);
+  emit_insn (gen_x86_fnstcw_1 (current_mode));
+  emit_move_insn (reg, current_mode);
+
   if (!TARGET_PARTIAL_REG_STALL && !optimize_size
       && !TARGET_64BIT)
-    emit_insn (gen_movsi_insv_1 (reg, GEN_INT (0xc)));
+    {
+      switch (mode)
+	{
+	case I387_CW_FLOOR:
+	  /* round down toward -oo */
+	  emit_insn (gen_movsi_insv_1 (reg, GEN_INT (0x4)));
+	  break;
+
+	case I387_CW_CEIL:
+	  /* round up toward +oo */
+	  emit_insn (gen_movsi_insv_1 (reg, GEN_INT (0x8)));
+	  break;
+
+	case I387_CW_TRUNC:
+	  /* round toward zero (truncate) */
+	  emit_insn (gen_movsi_insv_1 (reg, GEN_INT (0xc)));
+	  break;
+ 
+	case I387_CW_MASK_PM:
+	  /* mask precision exception for nearbyint() */
+	  emit_insn (gen_iorhi3 (reg, reg, GEN_INT (0x0020)));
+	  break;
+
+	default:
+	  abort();
+	}
+    }
   else
-    emit_insn (gen_iorhi3 (reg, reg, GEN_INT (0xc00)));
-  emit_move_insn (round_down, reg);
+    {
+      switch (mode)
+	{
+	case I387_CW_FLOOR:
+	  /* round down toward -oo */
+	  emit_insn (gen_andhi3 (reg, reg, GEN_INT (~0x0c00)));
+	  emit_insn (gen_iorhi3 (reg, reg, GEN_INT (0x0400)));
+	  break;
+
+	case I387_CW_CEIL:
+	  /* round up toward +oo */
+	  emit_insn (gen_andhi3 (reg, reg, GEN_INT (~0x0c00)));
+	  emit_insn (gen_iorhi3 (reg, reg, GEN_INT (0x0800)));
+	  break;
+
+	case I387_CW_TRUNC:
+	  /* round toward zero (truncate) */
+	  emit_insn (gen_iorhi3 (reg, reg, GEN_INT (0x0c00)));
+	  break;
+
+	case I387_CW_MASK_PM:
+	  /* mask precision exception for nearbyint() */
+	  emit_insn (gen_iorhi3 (reg, reg, GEN_INT (0x0020)));
+	  break;
+
+	default:
+	  abort();
+	}
+    }
+
+  emit_move_insn (new_mode, reg);
 }
 
 /* Output code for INSN to convert a float to a signed int.  OPERANDS
@@ -7879,12 +7941,15 @@ ix86_prepare_fp_compare_args (enum rtx_code code, rtx *pop0, rtx *pop1)
   int is_sse = SSE_REG_P (op0) | SSE_REG_P (op1);
 
   /* All of the unordered compare instructions only work on registers.
-     The same is true of the XFmode compare instructions.  The same is
-     true of the fcomi compare instructions.  */
+     The same is true of the fcomi compare instructions.  The same is
+     true of the XFmode compare instructions if not comparing with
+     zero (ftst insn is used in this case).  */
 
   if (!is_sse
       && (fpcmp_mode == CCFPUmode
-	  || op_mode == XFmode
+	  || (op_mode == XFmode
+	      && ! (standard_80387_constant_p (op0) == 1
+		    || standard_80387_constant_p (op1) == 1))
 	  || ix86_use_fcomi_compare (code)))
     {
       op0 = force_reg (op_mode, op0);
@@ -7911,10 +7976,16 @@ ix86_prepare_fp_compare_args (enum rtx_code code, rtx *pop0, rtx *pop1)
 
       if (CONSTANT_P (op1))
 	{
-	  if (standard_80387_constant_p (op1))
-	    op1 = force_reg (op_mode, op1);
-	  else
+	  int tmp = standard_80387_constant_p (op1);
+	  if (tmp == 0)
 	    op1 = validize_mem (force_const_mem (op_mode, op1));
+	  else if (tmp == 1)
+	    {
+	      if (TARGET_CMOVE)
+		op1 = force_reg (op_mode, op1);
+	    }
+	  else
+	    op1 = force_reg (op_mode, op1);
 	}
     }
 

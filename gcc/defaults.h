@@ -243,7 +243,7 @@ do { fputs (integer_asm_op (POINTER_SIZE / BITS_PER_UNIT, TRUE), FILE); \
    archive's table of contents.  Defining this macro to be nonzero has
    the consequence that certain symbols will not be made weak that
    otherwise would be.  The C++ ABI requires this macro to be zero;
-   see the documentation. */
+   see the documentation.  */
 #ifndef TARGET_WEAK_NOT_IN_ARCHIVE_TOC
 #define TARGET_WEAK_NOT_IN_ARCHIVE_TOC 0
 #endif
@@ -476,6 +476,10 @@ do { fputs (integer_asm_op (POINTER_SIZE / BITS_PER_UNIT, TRUE), FILE); \
 #define PREFERRED_STACK_BOUNDARY STACK_BOUNDARY
 #endif
 
+#ifndef TARGET_DEFAULT_PACK_STRUCT
+#define TARGET_DEFAULT_PACK_STRUCT 0
+#endif
+
 /* By default, the C++ compiler will use function addresses in the
    vtable entries.  Setting this nonzero tells the compiler to use
    function descriptors instead.  The value of this macro says how
@@ -623,7 +627,7 @@ do { fputs (integer_asm_op (POINTER_SIZE / BITS_PER_UNIT, TRUE), FILE); \
 #define FLOAT_LIB_COMPARE_RETURNS_BOOL(MODE, COMPARISON) false
 #endif
 
-/* True if the targets integer-comparision fucntions return { 0, 1, 2
+/* True if the targets integer-comparision functions return { 0, 1, 2
    } to indicate { <, ==, > }.  False if { -1, 0, 1 } is used
    instead.  The libgcc routines are biased.  */
 #ifndef TARGET_LIB_INT_CMP_BIASED
