@@ -1125,7 +1125,7 @@ return_prediction (tree val)
       if (integer_zerop (val))
 	return PRED_NULL_RETURN;
     }
-  else
+  else if (INTEGRAL_TYPE_P (TREE_TYPE (val)))
     {
       /* Negative return values are often used to indicate
          errors.  */

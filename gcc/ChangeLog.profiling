@@ -1,3 +1,7 @@
+2004-08-14  Jan Hubicka  <jh@suse.cz>
+
+	* predict.c (return_prediction): Do not predict floats.
+
 2004-08-08  Jan Hubicka  <jh@suse.cz>
 
 	* predict.c (apply_return_prediction): New function.
