@@ -319,6 +319,12 @@ extern void		sbss_section PARAMS ((void));
 #define TARGET_CHECK_RANGE_DIV  (target_flags & MASK_CHECK_RANGE_DIV)
 
 #define TARGET_BRANCHLIKELY	(target_flags & MASK_BRANCHLIKELY)
+
+
+/* True if we should use NewABI-style relocation operators for
+   symbolic addresses.  This is never true for mips16 code,
+   which has its own conventions.  */
+
 #define TARGET_EXPLICIT_RELOCS	(target_flags & MASK_EXPLICIT_RELOCS)
 
 

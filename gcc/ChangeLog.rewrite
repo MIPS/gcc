@@ -1,5 +1,11 @@
 2003-03-22  Richard Sandiford  <rsandifo@redhat.com>
 
+	* config/mips/mips.h (TARGET_EXPLICIT_RELOCS): Add commentary.
+	* config/mips/mips.c (override_options): Disable -mexplicit-relocs
+	for mips16 code.
+
+2003-03-22  Richard Sandiford  <rsandifo@redhat.com>
+
 	* config/mips/mips.h (ADDRESS_COST): Define.
 
 2003-03-20  Richard Sandiford  <rsandifo@redhat.com>

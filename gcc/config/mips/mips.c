@@ -5808,6 +5808,12 @@ override_options ()
       /* Don't run the scheduler before reload, since it tends to
          increase register pressure.  */
       flag_schedule_insns = 0;
+
+      /* Silently disable -mexplicit-relocs since it doesn't apply
+	 to mips16 code.  Even so, it would overly pedantic to warn
+	 about "-mips16 -mexplicit-relocs", especially given that
+	 we use a %gprel() operator.  */
+      target_flags &= ~MASK_EXPLICIT_RELOCS;
     }
 
   /* We put -mentry in TARGET_OPTIONS rather than TARGET_SWITCHES only
