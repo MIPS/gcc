@@ -1,3 +1,10 @@
+Sat Dec  7 15:45:14 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	Hack to compile gcc:
+	* unroll.c (unroll_loop_runtime_iterations,
+	unroll_loop_constant_iterations, peel_loop_completely):Call
+	mark_irreducible_loops.
+
 Sat Dec  7 15:27:30 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* cfglayout.c (cfg_layout_split_block): New function.

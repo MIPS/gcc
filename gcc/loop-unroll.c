@@ -398,6 +398,7 @@ peel_loop_completely (loops, loop)
     abort ();
 
   remove_path (loops, e);
+  mark_irreducible_loops (loops);
 
   if (rtl_dump_file)
     fprintf (rtl_dump_file, ";; Peeled loop completely, %d times\n", (int) npeel);
@@ -582,6 +583,7 @@ unroll_loop_constant_iterations (loops, loop)
     remove_path (loops, remove_edges[i]);
   free (remove_edges);
 
+  mark_irreducible_loops (loops);
   if (rtl_dump_file)
     fprintf (rtl_dump_file, ";; Unrolled loop %d times, constant # of iterations %i insns\n",max_unroll, num_loop_insns (loop));
 }
@@ -843,6 +845,7 @@ unroll_loop_runtime_iterations (loops, loop)
     remove_path (loops, remove_edges[i]);
   free (remove_edges);
 
+  mark_irreducible_loops (loops);
   if (rtl_dump_file)
     fprintf (rtl_dump_file,
 	     ";; Unrolled loop %d times, counting # of iterations in runtime, %i insns\n",
@@ -950,6 +953,7 @@ peel_loop_simple (loops, loop)
   
   free (wont_exit);
 
+  mark_irreducible_loops (loops);
   if (rtl_dump_file)
     fprintf (rtl_dump_file, ";; Peeling loop %d times\n", npeel);
 }
