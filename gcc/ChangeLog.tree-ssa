@@ -6,6 +6,10 @@
 
 2004-04-21  Jeff Law  <law@redhat.com>
 
+ 	* tree-ssa-copy.c (cprop_operand): Break out of cprop_into_stmt.
+	(cprop_into_stmt): Use cprop_operand.  Rearrange slightly to avoid
+	switch statement inside a loop.
+
 	* tree-flow.h (var_ann_d): Add "current_def" field.
 	(register_new_def): Lose last argument (currdefs table).
 	* tree-into-ssa.c (currdefs): Remove.
