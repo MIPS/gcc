@@ -207,7 +207,8 @@ JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GdkGraphics_drawString
   gdk_threads_enter ();
 
   font_desc = pango_font_description_from_string (font_name);
-  pango_font_description_set_size (font_desc, size * PANGO_SCALE);
+
+  pango_font_description_set_size (font_desc, size * dpi_conversion_factor);
 
   if (style & AWT_STYLE_BOLD)
     pango_font_description_set_weight (font_desc, PANGO_WEIGHT_BOLD);
@@ -225,8 +226,10 @@ JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GdkGraphics_drawString
 
   baseline_y = pango_layout_iter_get_baseline (iter);
 
-  gdk_draw_layout (g->drawable, g->gc, 
-  		   x + g->x_offset, y + g->y_offset - (baseline_y / PANGO_SCALE), layout);
+  gdk_draw_layout (g->drawable, g->gc,
+                   x + g->x_offset,
+                   y + g->y_offset - (baseline_y / dpi_conversion_factor),
+                   layout);
 
   pango_font_description_free (font_desc);
   pango_layout_iter_free (iter);
@@ -259,6 +262,7 @@ JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GdkGraphics_fillRect
   g = (struct graphics *) NSA_GET_PTR (env, obj);
 
   gdk_threads_enter ();
+
   gdk_draw_rectangle (g->drawable, g->gc, TRUE, 
 		      x + g->x_offset, y + g->y_offset, width, height);
   gdk_threads_leave ();
@@ -370,6 +374,7 @@ JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GdkGraphics_setFGColor
   gdk_threads_enter ();
   gdk_color_alloc (g->cm, &color);
   gdk_gc_set_foreground (g->gc, &color);
+
   gdk_threads_leave ();
 }
 

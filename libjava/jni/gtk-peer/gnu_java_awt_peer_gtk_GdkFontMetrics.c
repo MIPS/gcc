@@ -64,7 +64,7 @@ JNIEXPORT jintArray JNICALL Java_gnu_java_awt_peer_gtk_GdkFontMetrics_initState
   gdk_threads_enter ();
 
   font_desc = pango_font_description_from_string (font_name);
-  pango_font_description_set_size (font_desc, size * PANGO_SCALE);
+  pango_font_description_set_size (font_desc, size * dpi_conversion_factor);
 
   context = gdk_pango_context_get();
   pango_context_set_font_description (context, font_desc);
@@ -109,7 +109,7 @@ JNIEXPORT jint JNICALL Java_gnu_java_awt_peer_gtk_GdkFontMetrics_stringWidth
   gdk_threads_enter ();
 
   font_desc = pango_font_description_from_string (font_name);
-  pango_font_description_set_size (font_desc, size * PANGO_SCALE);
+  pango_font_description_set_size (font_desc, size * dpi_conversion_factor);
 
   context = gdk_pango_context_get();
   pango_context_set_font_description (context, font_desc);

@@ -1030,7 +1030,7 @@ public abstract class Component
     if (parent != null)
       return parent.getFont ();
     else
-      return new Font ("Fixed", Font.PLAIN, 12);
+      return new Font ("Dialog", Font.PLAIN, 12);
   }
 
   /**

@@ -1,3 +1,37 @@
+2004-05-27  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* gnu/java/awt/peer/gtk/GtkTextAreaPeer.java (create): Set
+	"Dialog" as the default font.
+	* gnu/java/awt/peer/gtk/GtkTextFieldPeer.java (create):
+	Likewise.
+	* java/awt/Component.java (getFont): Return "Dialog" font by
+	default.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GdkClasspathFontPeer.c:
+	Multiply size argument to pango_font_description_set_size by the
+	DPI conversion factor rather than by PANGO_SCALE.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GdkFontMetrics.c: Likewise.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics.c: Likewise.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkButtonPeer.c: Likewise.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCheckboxPeer.c: Likewise.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkComponentPeer.c: Likewise.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkLabelPeer.c: Likewise.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkListPeer.c: Likewise.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkTextAreaPeer.c: Likewise.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkTextFieldPeer.c: Likewise.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics.c (drawString):
+	Divide baseline y coordinate by DPI conversion factor rather
+	than by PANGO_SCALE.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GdkPixbufDecoder.c
+	(area_prepared): Fix typo.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkLabelPeer.c
+	(gtkSetFont): Move gtk_bin_get_child inside GDK critical region.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMainThread.c
+	(dpi_conversion_factor): New global variable.
+	(init_dpi_conversion_factor): New function to calculate and
+	track DPI conversion factor.
+	(dpi_changed_cb): New callback.
+	* jni/gtk-peer/gtkpeer.h (dpi_conversion_factor): Declare.
+
 2004-05-27  David Jee  <djee@redhat.com>
 
 	* gnu/java/awt/peer/gtk/GtkComponentPeer.java
