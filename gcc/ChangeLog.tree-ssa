@@ -30,6 +30,15 @@
 
 2003-09-24  Jeff Law  <law@redhat.com>
 
+	* tree-ssa-dom.c (optimize_block): Create infrastructure for
+	tracking const_and_copies equivalences which disappear when
+	we leave the current block.  Use it for equivalences created
+	by EQ_EXPR_VALUE.  Follow use-def chains for EQ_EXPR_VALUE
+	equivalences and see if certain NOP_EXPRs can be ignored
+	to create a block-local equivalence for const_and_copies.
+	(optimize_stmt): Do not get confused by a cast of the return
+	value from alloca or the address of a non-weak decl.
+ 
 	* fold-const.c (fold_read_from_constant_string): New function.
 	* tree.h (fold_read_from_constant_string): Prototype.
 	* expr.c (expand_expr, case INDIRECT_REF):  Use it.

@@ -331,11 +331,11 @@ optimize_block (basic_block bb, tree parent_block_last_stmt, int edge_flags,
                 sbitmap vars_to_rename, bool *cfg_altered)
 {
   varray_type block_avail_exprs;
+  varray_type block_const_and_copies;
   varray_type stmts_to_rescan;
   bitmap children;
   unsigned long i;
   block_stmt_iterator si;
-  tree prev_value = NULL_TREE;
   tree eq_expr_value = NULL_TREE;
   edge e;
   tree phi;
@@ -349,6 +349,7 @@ optimize_block (basic_block bb, tree parent_block_last_stmt, int edge_flags,
      AVAIL_EXPRS table.  This stack is used to know which expressions
      to remove from the table.  */
   VARRAY_TREE_INIT (block_avail_exprs, 20, "block_avail_exprs");
+  VARRAY_TREE_INIT (block_const_and_copies, 2, "block_const_and_copies");
   VARRAY_TREE_INIT (stmts_to_rescan, 20, "stmts_to_rescan");
 
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -432,11 +433,56 @@ optimize_block (basic_block bb, tree parent_block_last_stmt, int edge_flags,
      VALUE while re-writing the THEN arm of a COND_EXPR.  */
   if (eq_expr_value)
     {
-      prev_value = get_value_for (TREE_OPERAND (eq_expr_value, 0),
-				  const_and_copies);
-      set_value_for (TREE_OPERAND (eq_expr_value, 0),
-		     TREE_OPERAND (eq_expr_value, 1),
-		     const_and_copies);
+      tree dest = TREE_OPERAND (eq_expr_value, 0);
+      tree src = TREE_OPERAND (eq_expr_value, 1);
+      tree prev_value = get_value_for (dest, const_and_copies);
+
+      set_value_for (dest, src, const_and_copies);
+
+      /* Record the destination and its previous value so that we can
+	 reset them as we leave this block.  */
+      VARRAY_PUSH_TREE (block_const_and_copies, dest);
+      VARRAY_PUSH_TREE (block_const_and_copies, prev_value);
+
+      /* If the new value is a constant, then look at DEST's defining
+	 statement.  If DEST was defined as the result of a typecast,
+	 we may be able to record additional equivalences.  */
+      if (TREE_CONSTANT (src))
+	{
+	  tree def_stmt = SSA_NAME_DEF_STMT (dest);
+
+	  /* DEST might have been a parameter, so first make sure it
+	     was defined by a MODIFY_EXPR.  */
+	  if (def_stmt && TREE_CODE (def_stmt) == MODIFY_EXPR)
+	    {
+	      tree def_rhs = TREE_OPERAND (def_stmt, 1);
+
+	      /* Now make sure the RHS of the MODIFY_EXPR is a typecast.  */
+	      if (TREE_CODE (def_rhs) == NOP_EXPR
+		  && TREE_CODE (TREE_OPERAND (def_rhs, 0)) == SSA_NAME)
+		{
+		  tree def_rhs_inner = TREE_OPERAND (def_rhs, 0);
+		  tree def_rhs_inner_type = TREE_TYPE (def_rhs_inner);
+		  tree new;
+
+		  /* What we want to prove is that if we convert SRC to
+		     the type of the object inside the NOP_EXPR that the
+		     result is still equivalent to SRC.  */
+		  new = fold (build1 (NOP_EXPR, def_rhs_inner_type, src));
+		  if (is_gimple_val (new)
+		      && integer_onep (fold (build (EQ_EXPR, boolean_type_node,
+						    new, src))))
+		    {
+		      prev_value = get_value_for (def_rhs_inner,
+						  const_and_copies);
+		      set_value_for (def_rhs_inner, new, const_and_copies);
+
+		      VARRAY_PUSH_TREE (block_const_and_copies, def_rhs_inner);
+		      VARRAY_PUSH_TREE (block_const_and_copies, prev_value);
+		    }
+		}
+	    }
+	}
     }
 
   /* PHI nodes can create equivalences too.
@@ -664,14 +710,21 @@ optimize_block (basic_block bb, tree parent_block_last_stmt, int edge_flags,
     }
 
   /* Also remove equivalences created by EQ_EXPR_VALUE.  */
-  if (eq_expr_value)
+  while (VARRAY_ACTIVE_SIZE (block_const_and_copies) > 0)
     {
+      tree prev_value, dest;
       struct var_value_d vm;
-      vm.var = TREE_OPERAND (eq_expr_value, 0);
+
+      prev_value = VARRAY_TOP_TREE (block_const_and_copies);
+      VARRAY_POP (block_const_and_copies);
+      dest = VARRAY_TOP_TREE (block_const_and_copies);
+      VARRAY_POP (block_const_and_copies);
+
+      vm.var = dest;
       if (prev_value)
-        set_value_for (vm.var, prev_value, const_and_copies);
+	set_value_for (vm.var, prev_value, const_and_copies);
       else
-        htab_remove_elt (const_and_copies, &vm);
+	htab_remove_elt (const_and_copies, &vm);
     }
 
   /* Re-scan operands in all statements that may have had new symbols
@@ -1331,10 +1384,15 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p,
 	 is never zero.  */
       if (TREE_CODE (TREE_OPERAND (stmt, 0)) == SSA_NAME)
 	{
+	  /* Strip away any NOP_EXPRs since they do not effect this
+	     equivalence.  */
+	  while (TREE_CODE (rhs) == NOP_EXPR)
+	    rhs = TREE_OPERAND (rhs, 0);
+
 	  if (alloca_call_p (rhs)
-	      || (TREE_CODE (TREE_OPERAND (stmt, 1)) == ADDR_EXPR
-		  && DECL_P (TREE_OPERAND (TREE_OPERAND (stmt, 1), 0))
-		  && ! DECL_WEAK (TREE_OPERAND (TREE_OPERAND (stmt, 1), 0))))
+	      || (TREE_CODE (rhs) == ADDR_EXPR
+		  && DECL_P (TREE_OPERAND (rhs, 0))
+		  && ! DECL_WEAK (TREE_OPERAND (rhs, 0))))
 	    {
 	      tree cond;
 
