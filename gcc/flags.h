@@ -659,14 +659,20 @@ extern int flag_mudflap;
 /* Disable tree simplification.  */
 extern int flag_disable_simple;
 
-/* Enable the SSA-PRE on trees.  */
+/* Enable SSA-PRE on trees.  */
 extern int flag_tree_pre;
+
+/* Enable SSA-CP on trees. */
+extern int flag_tree_cp;
 
 /* Enable SSA-CCP on trees.  */
 extern int flag_tree_ccp;
 
 /* Enable SSA-DCE on trees.  */
 extern int flag_tree_dce;
+
+/* Enable interprocedural analysis.  */
+extern int flag_ip;
 
 /* Nonzero means put zero initialized data in the bss section.  */
 extern int flag_zero_initialized_in_bss;

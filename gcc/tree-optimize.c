@@ -88,13 +88,14 @@ optimize_function_tree (fndecl)
       build_tree_ssa (fndecl);
       
       if (flag_tree_pre)
-	tree_perform_ssapre ();
+	tree_perform_ssapre (fndecl);
 
       if (flag_tree_ccp)
 	tree_ssa_ccp (fndecl);
       
       if (flag_tree_dce)
 	tree_ssa_eliminate_dead_code (fndecl);
+
     }
 
 #if 0

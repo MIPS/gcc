@@ -88,6 +88,7 @@ static alias_typevar create_alias_var PARAMS ((tree));
 static void intra_function_call PARAMS ((varray_type));
 static hashval_t annot_hash PARAMS ((const PTR));
 static int annot_eq PARAMS ((const PTR, const PTR));
+static void get_values_from_constructor PARAMS ((tree, varray_type *));
 
 /**
    @brief Alias annotation hash table entry.
@@ -136,7 +137,7 @@ annot_hash (pentry)
    
    Maps vars to alias_typevars.
 */
-htab_t GTY ((param_is (struct alias_annot_entry))) alias_annot;
+static GTY ((param_is (struct alias_annot_entry))) htab_t alias_annot;
 
 /**
    @brief Get the alias_type for a *_DECL.
@@ -294,14 +295,26 @@ intra_function_call (args)
   for (i = 0; i < l; i++)
     {
       alias_typevar argav = VARRAY_GENERIC_PTR (args, i);
-      
+       if (!POINTER_TYPE_P (TREE_TYPE (ALIAS_TVAR_DECL (argav))))
+         continue;
       /* Restricted pointers can't be aliased with other
 	 restricted pointers. */	      
       if (!TYPE_RESTRICT (TREE_TYPE (ALIAS_TVAR_DECL (argav))) 
 	  || !TYPE_RESTRICT (TREE_TYPE (ALIAS_TVAR_DECL (av))))
-	current_alias_ops->addr_assign (current_alias_ops, argav, av);
+	{
+	  alias_typevar tempvar;
+	  tempvar = current_alias_ops->add_var (current_alias_ops,
+						create_tmp_alias_var
+						(void_type_node,
+						 "aliastmp"));
+	  /* Arguments can alias globals, and whatever they point to
+	     can point to a global as well. */
+	  current_alias_ops->addr_assign (current_alias_ops, argav, av);
+	  current_alias_ops->addr_assign (current_alias_ops, tempvar, av);
+	  current_alias_ops->assign_ptr (current_alias_ops, argav, tempvar);
+
+	}
     }
-  
   /* We assume assignments among the actual parameters. */
   for (i = 0; i < l; i++) 
     {
@@ -323,6 +336,54 @@ intra_function_call (args)
     }
 }
 
+/** @brief Put all pointers in a constructor in an array.
+ */
+static void
+get_values_from_constructor (constructor, vals)
+  tree constructor;
+  varray_type *vals;
+{
+#if FIELD_BASED
+ #error "Don't know how to do this at the moment"
+#else
+  tree elt_list;
+  switch (TREE_CODE (constructor))
+    {
+    case CONSTRUCTOR:
+      {
+	for (elt_list = CONSTRUCTOR_ELTS (constructor); 
+	     elt_list; 
+	     elt_list = TREE_CHAIN (elt_list))
+	  {
+	    tree value = TREE_VALUE (elt_list);
+	    if (TREE_CODE (value) == TREE_LIST 
+		|| TREE_CODE (value) == CONSTRUCTOR)
+	      {
+		get_values_from_constructor (value, vals);
+	      }
+	    else
+	      {
+		alias_typevar aav;
+		aav = get_alias_var (value);
+		if (aav)
+		  VARRAY_PUSH_GENERIC_PTR (*vals, aav);
+	      }
+	  }
+      }
+      break;
+    case TREE_LIST:
+      for (elt_list = constructor; 
+	   elt_list; 
+	   elt_list = TREE_CHAIN (elt_list))
+	{
+	  get_values_from_constructor (TREE_VALUE (elt_list), vals);
+	}
+      break;
+    default:
+      abort();      
+    }
+#endif
+}
 /**
    @brief Tree walker that is the heart of the aliasing
    infrastructure.
@@ -351,14 +412,24 @@ find_func_aliases (tp, walk_subtrees, data)
       return NULL_TREE;
     }
 
-  if (is_simple_modify_expr (stp))
+  if (is_simple_modify_expr (stp) 
+      || (TREE_CODE (stp) == VAR_DECL 
+	  && DECL_INITIAL (stp) != NULL_TREE ))
     {
       tree op0, op1;
       alias_typevar lhsAV = NULL;
       alias_typevar rhsAV = NULL;
-
-      op0 = TREE_OPERAND (stp, 0);
-      op1 = TREE_OPERAND (stp, 1);
+      
+      if (TREE_CODE (stp) == VAR_DECL)
+	{
+	  op0 = stp;
+	  op1 = DECL_INITIAL (stp);
+	}
+      else
+	{
+	  op0 = TREE_OPERAND (stp, 0);
+	  op1 = TREE_OPERAND (stp, 1);
+	}
       STRIP_WFL (op0);
       STRIP_WFL (op1);
       /* lhsAV should always have an alias variable */
@@ -439,47 +510,59 @@ find_func_aliases (tp, walk_subtrees, data)
 		  if (TREE_CODE (callop0) == ADDR_EXPR)
 		    create_fun_alias_var (TREE_OPERAND (callop0, 0), 0);
 		    
-		  current_alias_ops->function_call (current_alias_ops, lhsAV, 
+		  if (current_alias_ops->function_call (current_alias_ops, lhsAV, 
 						    get_alias_var (callop0),
-						    args);		  
-		  if (!current_alias_ops->ip)
-		    intra_function_call (args);
-	      *walk_subtrees = 0;
+						    args))
+		    if (!current_alias_ops->ip 
+			&& ! (call_expr_flags (op1) & ECF_NORETURN))
+		      intra_function_call (args);
+		  *walk_subtrees = 0;
 		}
 
 	    }
 	  /* x = op (...) */
 	  else	  
 	    {
-	      switch (TREE_CODE_CLASS (TREE_CODE (op1)))
-		{
-		case 'e':  /* an expression */
-		case 's':  /* an expression with side effects */
-		case '<':  /* a comparison expression */
-		case '1':  /* a unary arithmetic expression */
-		case 'r':  /* a reference */ 
-		case '2':  /* a binary arithmetic expression */
-		  {
-		    tree op;
-		    varray_type ops;
-		    int i;
-		    VARRAY_GENERIC_PTR_INIT (ops, 1, "Operands");
-		    for (i=0; i < TREE_CODE_LENGTH (TREE_CODE (op1)); i++)
-		      {
-			alias_typevar aav;
-			op = TREE_OPERAND (op1, i);
-			aav = get_alias_var (op);
-			if (aav)
-			  VARRAY_PUSH_GENERIC_PTR (ops, aav);
-		      }
-		    current_alias_ops->op_assign (current_alias_ops, lhsAV, 
-						  ops);
-	      *walk_subtrees = 0;
-		  }
-		  break;
-		default:
-		  break;
+	      if (TREE_CODE (op1) == CONSTRUCTOR)
+	        {
+		  varray_type ops;
+		  int i;
+		  VARRAY_GENERIC_PTR_INIT (ops, 1, "Operands");
+		  get_values_from_constructor (op1, &ops);
+		  current_alias_ops->op_assign (current_alias_ops, lhsAV, 
+						ops);
+		  *walk_subtrees = 0;
 		}
+	      else
+		switch (TREE_CODE_CLASS (TREE_CODE (op1)))
+		  {
+		  case 'e':  /* an expression */
+		  case 's':  /* an expression with side effects */
+		  case '<':  /* a comparison expression */
+		  case '1':  /* a unary arithmetic expression */
+		  case 'r':  /* a reference */ 
+		  case '2':  /* a binary arithmetic expression */
+		    {
+		      tree op;
+		      varray_type ops;
+		      int i;
+		      VARRAY_GENERIC_PTR_INIT (ops, 1, "Operands");
+		      for (i=0; i < TREE_CODE_LENGTH (TREE_CODE (op1)); i++)
+			{
+			  alias_typevar aav;
+			  op = TREE_OPERAND (op1, i);
+			  aav = get_alias_var (op);
+			  if (aav)
+			    VARRAY_PUSH_GENERIC_PTR (ops, aav);
+			}
+		      current_alias_ops->op_assign (current_alias_ops, lhsAV, 
+						    ops);
+		      *walk_subtrees = 0;
+		    }
+		    break;
+		  default:
+		    break;
+		  }
 	    }
 	}
       /* *x = <something> */
@@ -553,7 +636,7 @@ find_func_aliases (tp, walk_subtrees, data)
 					     tempvar);
 	      *walk_subtrees = 0;
 	    }
-	  /* *x = <something else */
+	  /* *x = <something else> */
 	  else
 	    {
 	      if (rhsAV != NULL)
@@ -577,11 +660,13 @@ find_func_aliases (tp, walk_subtrees, data)
 	}
       if (TREE_CODE (TREE_OPERAND (stp, 0)) == ADDR_EXPR)
 	create_fun_alias_var (TREE_OPERAND (TREE_OPERAND (stp, 0), 0), 0);
-      current_alias_ops->function_call (current_alias_ops, NULL, 
+      
+      if (current_alias_ops->function_call (current_alias_ops, NULL, 
 				      get_alias_var (TREE_OPERAND (stp, 0)),
-				      args);
-      if (!current_alias_ops->ip)
-	intra_function_call (args);
+				      args))
+	if (!current_alias_ops->ip 
+	    && ! (call_expr_flags (stp) & ECF_NORETURN))
+	  intra_function_call (args);
       *walk_subtrees = 0;
   } 
   return NULL_TREE;
@@ -654,6 +739,18 @@ create_fun_alias_var (decl, force)
 	  *slot = newentry;
 	  
 	  VARRAY_PUSH_GENERIC_PTR (params, tvar);
+	  /* Incoming pointers can point to global_var, unless 
+	     either we are interprocedural, or we can do ip on all
+	     statics + this function has been defined + it's not an
+	     external function. */
+	  if (POINTER_TYPE_P (TREE_TYPE (arg)) 
+	      && !current_alias_ops->ip
+	      /* FIXME: Need to let analyzer decide in partial case. */
+	      && (!current_alias_ops->ip_partial
+		  || !TREE_STATIC (decl) 
+		  || TREE_PUBLIC (decl)))
+	    current_alias_ops->addr_assign (current_alias_ops, tvar,
+				  	    get_alias_var (global_var));
 	}
     }
   else if (TYPE_ARG_TYPES (TREE_TYPE (decl)) != NULL)
@@ -666,7 +763,20 @@ create_fun_alias_var (decl, force)
 	{
 	  tree fakedecl = create_tmp_alias_var (TREE_VALUE (arg), "normarg");
 	  alias_typevar tvar = create_alias_var (fakedecl);
-	  VARRAY_PUSH_GENERIC_PTR (params, tvar);
+	  VARRAY_PUSH_GENERIC_PTR (params, tvar);	  
+	  
+	  /* Incoming pointers can point to global_var, unless 
+	     either we are interprocedural, or we can do ip on all
+	     statics + this function has been defined + it's not an
+	     external function. */
+	  if (POINTER_TYPE_P (TREE_TYPE (fakedecl)) 
+	      && !current_alias_ops->ip
+	      /* FIXME: need to let analyzer decide in partial case. */
+	      && (!current_alias_ops->ip_partial
+		  || !TREE_STATIC (decl)
+		  || TREE_PUBLIC (decl)))
+	    current_alias_ops->addr_assign (current_alias_ops, tvar, 
+					    get_alias_var (global_var));
 	}
     }
   /* Functions declared like void f() are *not* equivalent to void
@@ -814,8 +924,7 @@ create_alias_var (decl)
   *slot = newentry;
   
   VARRAY_PUSH_GENERIC_PTR (alias_vars, avar);
-  
-  /* FIXME: Add the annotation to all extern definitions of this variable. */
+
   return avar;
 }
 
@@ -843,9 +952,14 @@ display_points_to_set_helper (tvar)
 
 /**
    @brief Create points-to sets for a function.
+   @param fndecl Function we are creating alias variables for.
+   
+   @note fndecl might not be current_function_decl, if we are in ip
+   mode or ip'ing all statics.
 */
 void
-create_alias_vars ()
+create_alias_vars (fndecl)
+	tree fndecl;
 {
 #if 0
   tree currdecl = getdecls ();
@@ -862,17 +976,23 @@ create_alias_vars ()
 #else
   current_alias_ops = steen_alias_ops;
 #endif
-  init_alias_vars ();
-  create_fun_alias_var (current_function_decl, 1);
+  
+  /* If fndecl is current_function_decl, we are at the top level. */
+  if (fndecl  == current_function_decl)
+    init_alias_vars ();
+
+  /* Don't force creation unless we are processing the top level
+     function decl. */
+  create_fun_alias_var (fndecl, fndecl == current_function_decl);
   /* For debugging, disable the on-the-fly variable creation, 
      and reenable this. */
-  /*  walk_tree_without_duplicates (&DECL_SAVED_TREE (current_function_decl),
+  /*  walk_tree_without_duplicates (&DECL_SAVED_TREE (fndecl),
       find_func_decls, NULL);*/
-  walk_tree_without_duplicates (&DECL_SAVED_TREE (current_function_decl),
+  walk_tree_without_duplicates (&DECL_SAVED_TREE (fndecl),
 				find_func_aliases, NULL);
 #if 0
   fprintf (stderr, "\nOriginal points to sets for function %s:\n",
-	   IDENTIFIER_POINTER (DECL_NAME (current_function_decl)));
+	   IDENTIFIER_POINTER (DECL_NAME (fndecl)));
   for (i = 0; i < VARRAY_ACTIVE_SIZE (alias_vars); i++)
      display_points_to_set_helper (VARRAY_GENERIC_PTR (alias_vars, i));
 #endif
@@ -915,9 +1035,9 @@ init_alias_vars ()
   current_alias_ops->init (current_alias_ops);
   VARRAY_GENERIC_PTR_INIT (local_alias_vars, 10, "Local alias vars");
   VARRAY_INT_INIT (local_alias_varnums, 10, "Local alias varnums");
-  if (!current_alias_ops->ip || alias_vars == NULL)
+  if ((!current_alias_ops->ip && !current_alias_ops->ip_partial) || alias_vars == NULL)
     VARRAY_GENERIC_PTR_INIT (alias_vars, 10, "Alias vars");
-  if (!current_alias_ops->ip || alias_annot == NULL)
+  if ((!current_alias_ops->ip && !current_alias_ops->ip_partial) || alias_annot == NULL)
     alias_annot = htab_create_ggc (7, annot_hash, annot_eq, NULL);
   
 }
@@ -946,39 +1066,46 @@ ptr_may_alias_var (ptr, var)
   if (TREE_CODE (var) == COMPONENT_REF)
     var = TREE_OPERAND (var, 1);
 #endif
+  if (ptr == var)
+    return true;
+
   entry.key = ptr;
   result = htab_find (alias_annot, &entry);
+
   if (!result 
-      && (TREE_PUBLIC (ptr) || TREE_STATIC (ptr))  
-      && TREE_CODE (ptr) != FUNCTION_DECL)
+      && decl_function_context (ptr) == NULL)
     {
       entry.key = global_var;
       result = htab_find (alias_annot, &entry);
     }
   
-  if (!result && !AGGREGATE_TYPE_P (TREE_TYPE (ptr)))
+  if (!result && !current_alias_ops->ip && ptr != global_var)
     abort ();
-  else if (!result)
-    return false;
-			    
-  ptrtv = result->value;  
-  entry.key = var;
-  result = htab_find (alias_annot, &entry);
-   
-  if (!result && (TREE_PUBLIC (var) || TREE_STATIC (var)) 
-      && TREE_CODE (var) != FUNCTION_DECL)
-    {
-      entry.key = global_var;
-      result = htab_find (alias_annot, &entry);
-    }
-  
-  if (!result && !AGGREGATE_TYPE_P (TREE_TYPE (var)))
-    abort ();
+
   else if (!result)
     return false;
 
+  ptrtv = result->value;  
+  entry.key = var;
+  result = htab_find (alias_annot, &entry);
+
+  if (!result 
+      && decl_function_context (var) == NULL)
+    {
+      entry.key = global_var;
+      result = htab_find (alias_annot, &entry);
+    }
+  
+  if (!result && !current_alias_ops->ip && var != global_var)
+    abort ();
+  else if (!result)
+    return false;
   
   vartv = result->value;
+
+  if (ptrtv == vartv)
+    return true;
+  
   return current_alias_ops->may_alias (current_alias_ops, ptrtv, vartv);
   
 }
@@ -987,7 +1114,8 @@ const char *
 alias_get_name (t)
      tree t;
 {
-
+  const char *name;
+  
 #if FIELD_BASED
   if (TREE_CODE (t) == FIELD_DECL)
     {
@@ -999,19 +1127,24 @@ alias_get_name (t)
       size_t neededlen = strlen (fieldname) + strlen (prefix) + 2;
       smashed = ggc_alloc (neededlen);
       sprintf (smashed, "%s.%s", prefix, fieldname);
-      return smashed;
+      name = smashed;
       
     }
   else if (TYPE_P (t))
     {
       if (TYPE_NAME (t) && IDENTIFIER_POINTER (TYPE_NAME (t)))
-	return IDENTIFIER_POINTER (TYPE_NAME (t));
+	name = IDENTIFIER_POINTER (TYPE_NAME (t));
       else
-	return "<unnamed type>";
+	name = "<unnamed type>";
     }
   else
 #endif
-    return get_name (t);
+    name = get_name (t);
+
+  if (!name)
+    return name;
+
+  return name;
 }
-      
+
 #include "gt-tree-alias-common.h"

@@ -2179,7 +2179,7 @@ compute_may_aliases ()
   if (flag_tree_points_to != PTA_NONE && num_referenced_vars)
     {
       timevar_push (TV_TREE_PTA);
-      create_alias_vars ();
+      create_alias_vars (current_function_decl);
       timevar_pop (TV_TREE_PTA);
     }
 

@@ -100,9 +100,11 @@ struct tree_alias_ops
 
   /**
      @brief Process a function call
+     @return Return 1 if we need to assume conservative side-effects.
+     
   */
-  void (*function_call) (struct tree_alias_ops *, alias_typevar,
-			 alias_typevar, varray_type);
+  int (*function_call) (struct tree_alias_ops *, alias_typevar,
+			alias_typevar, varray_type);
   
   /**
      @brief Determine if two typevars may alias
@@ -114,10 +116,13 @@ struct tree_alias_ops
   */
   void *data;
   int ip:1; /*Interprocedural */
+  int ip_partial:1; /* Can do conservative interprocedural
+		       analysis if we save the info.*/
+
 };
 
 extern struct tree_alias_ops *current_alias_ops;
-extern void create_alias_vars PARAMS ((void));
+extern void create_alias_vars PARAMS ((tree));
 extern void delete_alias_vars PARAMS ((void));
 extern void init_alias_vars PARAMS ((void));
 extern bool ptr_may_alias_var PARAMS ((tree, tree));

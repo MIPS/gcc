@@ -96,7 +96,7 @@ static void steen_assign_ptr PARAMS ((struct tree_alias_ops *,
 static void steen_function_def PARAMS ((struct tree_alias_ops *,
 					alias_typevar, varray_type,
 					alias_typevar));
-static void steen_function_call PARAMS ((struct tree_alias_ops *,
+static int steen_function_call PARAMS ((struct tree_alias_ops *,
 					 alias_typevar, alias_typevar,
 					 varray_type));
 static void steen_init PARAMS ((struct tree_alias_ops *));
@@ -121,7 +121,8 @@ static struct tree_alias_ops steen_ops = {
   steen_function_call,
   steen_may_alias,
   0, /* data */
-  0 /* Currently non-interprocedural */
+  0, /* Currently non-interprocedural */
+  0 /* Can't do IP on all statics without help. */
 };
 struct tree_alias_ops *steen_alias_ops = &steen_ops;
 
@@ -490,7 +491,7 @@ steen_function_def (ops, func, params, retval)
 }
 
 /* Inference for a function call assignment */
-static void
+static int
 steen_function_call (ops, lhs, func, args)
      struct tree_alias_ops *ops ATTRIBUTE_UNUSED;
      alias_typevar lhs;
@@ -568,6 +569,7 @@ steen_function_call (ops, lhs, func, args)
       if (!ECR_equiv (lambda1, lambda2))
 	ECR_cjoin (lambda1, lambda2);
     }
+  return 1;
 }
 
 static bool

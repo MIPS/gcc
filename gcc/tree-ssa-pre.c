@@ -1729,97 +1729,7 @@ finalize_1 (ei, temp)
 		     knowing what to do about it. */
 		  if (!endtree)
 		    abort ();
-#if 0
-		  if (!endtree)
-		    {
-		      gimple_stmt_iterator gsi;
-		      edge e;
-		      if (bb->parent_tree_p)
-		        {
-				*bb->parent_tree_p = stmt;
-				bb->end_tree_p = bb->parent_tree_p;
-				endtreep = bb->end_tree_p;
-				goto done;
-			}
-#if 1
-		      for (e = bb->pred; e; e = e->pred_next)
-			{
-			  for (gsi = gsi_start_bb (e->src); 
-			       !gsi_end_bb (gsi); 
-			       gsi_step (&gsi))
-			    {
-			      tree temp = gsi_stmt (gsi);
-			      STRIP_WFL (temp);
-			      STRIP_NOPS(temp);
-			      if (TREE_CODE (temp) == COND_EXPR)
-				{
-				  if (COND_EXPR_COND (temp) == endtree)
-				    {
-				      COND_EXPR_COND (temp) = stmt;
-				      bb->end_tree_p = &COND_EXPR_COND (temp);
-				    }
-				  else if (COND_EXPR_THEN (temp) == endtree)
-				    {
-				      COND_EXPR_THEN (temp) = stmt;
-				      bb->end_tree_p = &COND_EXPR_THEN (temp);
-				    }
-				  else if (COND_EXPR_ELSE (temp) == endtree)
-				    {
-				      COND_EXPR_ELSE (temp) = stmt;
-				      bb->end_tree_p = &COND_EXPR_ELSE (temp);
-				    }
-				  endtreep = bb->end_tree_p;
-				  goto done;
-				}
-			    }
-			} 
-#endif
-#if 1	      
-		      for (gsi = gsi_start_bb (parent_block (bb)); 
-			   !gsi_end_bb (gsi); 
-			   gsi_step (&gsi))
-			{
-			  tree temp = gsi_stmt (gsi);
-			  STRIP_WFL (temp);
-			  STRIP_NOPS (temp);
-			  if (TREE_CODE (temp) == LOOP_EXPR)
-			    {
-			      gsi = gsi_start (&TREE_OPERAND (LOOP_EXPR_BODY (temp), 0));
-			      temp = gsi_stmt (gsi);
-			      if (!temp)
-			        continue;
-			      STRIP_WFL (temp);
-			      STRIP_NOPS (temp);
-			      
-			    }
-			  
-			  if (TREE_CODE (temp) == COND_EXPR)
-			    {
-			      if (COND_EXPR_COND (temp) == endtree)
-				{
-				  COND_EXPR_COND (temp) = stmt;
-				  bb->end_tree_p = &COND_EXPR_COND (temp);
-				}
-			      else if (COND_EXPR_THEN (temp) == endtree)
-				{
-				  COND_EXPR_THEN (temp) = stmt;
-				  bb->end_tree_p = &COND_EXPR_THEN (temp);
-				}
-			      else if (COND_EXPR_ELSE (temp) == endtree)
-				{
-				  COND_EXPR_ELSE (temp) = stmt;
-				  bb->end_tree_p = &COND_EXPR_ELSE (temp);
-				}
-			      endtreep = bb->end_tree_p;
-			      goto done;
-			    }
-			}
-#endif
-done:
-		    }
-		    /* END TEMPORARY HACK */
 		  else
-#endif
 		    {
 		      *endtreep = stmt;
 		      update_old_new (ei, endtreep, otherexprplace);
@@ -2090,36 +2000,6 @@ reset_can_be_avail (ei, phi)
      struct expr_info *ei;   
      tree_ref phi;
 {
-#if 0
-  basic_block block;
-
-  set_exprphi_canbeavail (phi, false);
-  FOR_EACH_BB (block)
-    {
-      edge pred;
-      tree_ref other = phi_at_block (ei, block);
-      
-      if (other == NULL)
-        continue;
-      
-      for (pred = block->pred; pred; pred = pred->pred_next)
-        {
-          if (pred->src != ENTRY_BLOCK_PTR)
-            {
-              tree_ref operand = phi_operand_for_pred (other, pred);
-              if (expruse_def (operand) == phi)
-                {
-                  if (!expruse_has_real_use(operand))
-		    {
-		      if (!exprphi_downsafe (other) 
-			  && exprphi_canbeavail (other))
-			reset_can_be_avail (ei, other);
-		    }
-                }
-            }
-        }
-    }
-#else
   ref_list_iterator rli;
   
   set_exprphi_canbeavail (phi, false);
@@ -2136,7 +2016,6 @@ reset_can_be_avail (ei, phi)
 	    reset_can_be_avail (ei, f);
 	}
     }
-#endif
 }
 
 /*  Reset later flags.  */
@@ -2145,32 +2024,6 @@ reset_later (ei, phi)
      struct expr_info *ei;
      tree_ref phi;
 {
-#if 0
-  basic_block block;
-
-  set_exprphi_later (phi, false);
-  FOR_EACH_BB (block)
-    {
-      edge pred;
-      tree_ref other = phi_at_block (ei, block);
-      
-      if (other == NULL)
-        continue;
-      
-      for (pred = block->pred; pred; pred = pred->pred_next)
-        {
-          if (pred->src != ENTRY_BLOCK_PTR)
-            {
-              tree_ref operand = phi_operand_for_pred (other, pred);
-              if (expruse_def (operand) == phi)
-                {
-                  if (exprphi_later (other))                
-                    reset_later (ei, other);
-                }
-            }
-        }
-    }
-#else
   ref_list_iterator rli;
 
   set_exprphi_later (phi, false);  
@@ -2189,7 +2042,6 @@ reset_later (ei, phi)
 	    reset_later (ei, f);
 	}
     }  
-#endif
 }
 
 /*  Compute later flags.  */
@@ -3338,9 +3190,10 @@ process_left_occs_and_kills (bexprs, slot, ref, expr)
 }
 
 void 
-tree_perform_ssapre ()
+tree_perform_ssapre (fndecl)
+     tree fndecl;
 {
-  tree fn = DECL_SAVED_TREE (current_function_decl);
+  tree fn = DECL_SAVED_TREE (fndecl);
     /* First, we need to find our candidate expressions. */
   varray_type bexprs;
   htab_t seen = htab_create (37, htab_hash_pointer, htab_eq_pointer, NULL);

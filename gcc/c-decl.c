@@ -6556,7 +6556,7 @@ c_expand_body (fndecl, nested_p, can_defer_p)
   else
     expand_expr_stmt_value (DECL_SAVED_TREE (fndecl), 0, 0);
 
-  if (uninlinable)
+  if (uninlinable && !flag_ip)
     {
       /* Allow the body of the function to be garbage collected.  */
       DECL_SAVED_TREE (fndecl) = NULL_TREE;

@@ -57,8 +57,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
    Andersen's interprocedural points-to analysis.
    This is a flow-insensitive, context insensitive algorithm. 
    
-   @todo {Don't pass alias ops as first argument, just have a global 
-   "current_alias_ops".}
+   @todo Don't pass alias ops as first argument, just have a global 
+   "current_alias_ops".
 */
 
 static unsigned int id_num = 1;
@@ -80,7 +80,7 @@ static void andersen_assign_ptr PARAMS ((struct tree_alias_ops *,
 static void andersen_function_def PARAMS ((struct tree_alias_ops *,
 					   alias_typevar, varray_type,
 					   alias_typevar));
-static void andersen_function_call PARAMS ((struct tree_alias_ops *,
+static int andersen_function_call PARAMS ((struct tree_alias_ops *,
 					    alias_typevar, alias_typevar,
 					    varray_type));
 static void andersen_init PARAMS ((struct tree_alias_ops *));
@@ -90,7 +90,31 @@ static bool andersen_may_alias PARAMS ((struct tree_alias_ops *,
 					alias_typevar, alias_typevar));
 static alias_typevar andersen_add_var PARAMS ((struct tree_alias_ops *, tree));
 static alias_typevar andersen_add_var_same PARAMS ((struct tree_alias_ops *, tree, alias_typevar));
+static hashval_t ptset_map_hash PARAMS ((const PTR));
+static int ptset_map_eq PARAMS ((const PTR, const PTR));
+
 static splay_tree ptamap;
+static htab_t ptset_map;
+
+#define POINTER_HASH(x) (hashval_t)((long)x >> 3)
+struct ptset_map_data
+{
+  tree decl;
+  aterm_list ptset;
+};
+static hashval_t
+ptset_map_hash (p)
+     const PTR p;
+{
+  return POINTER_HASH (((struct ptset_map_data *)p)->decl);
+}
+static int
+ptset_map_eq (p1, p2)
+     const PTR p1;
+     const PTR p2;
+{
+  return ((struct ptset_map_data *)p1)->decl == p2;
+}
 
 static struct tree_alias_ops andersen_ops = {
   andersen_init,
@@ -106,8 +130,9 @@ static struct tree_alias_ops andersen_ops = {
   andersen_function_def,
   andersen_function_call,
   andersen_may_alias,
-  0,				/* data */
-  0				/* Currently non-interprocedural */
+  0, /* data */
+  0, /* Currently non-interprocedural */
+  1  /* Can do IP on all statics without help. */
 };
 struct tree_alias_ops *andersen_alias_ops = &andersen_ops;
 
@@ -387,18 +412,27 @@ pta_get_ptsize (t)
   return aterm_list_length (ptset);
 }
 
-/* Initialize Andersen alias analysis.  
-   Currently does nothing.  */
+/* Initialize Andersen alias analysis. */
+static int initted = 0;
+
 static void
 andersen_init (ops)
      struct tree_alias_ops *ops ATTRIBUTE_UNUSED;
 {
-  pta_init ();
-  flag_eliminate_cycles = 1;
-  flag_merge_projections = 1;
+  if (!initted || !flag_ip)
+    {
+      pta_init ();
+      andersen_rgn = newregion ();
+      initted = 1;
+    }
+  
   dump_file = dump_begin (TDI_pta, &dump_flags);
   ptamap = splay_tree_new (splay_tree_compare_pointers, NULL, NULL);
-  andersen_rgn = newregion ();
+  ptset_map = htab_create (7, ptset_map_hash, ptset_map_eq, free);
+  /* Don't claim we can do ip partial unless the user requests it. */
+  if (!flag_ip)
+    andersen_ops.ip_partial = 0;
+  
 }
 
 static int
@@ -442,9 +476,14 @@ andersen_cleanup (ops)
     }
   
   
-  pta_reset ();
-  splay_tree_delete (ptamap);
-  deleteregion (andersen_rgn);
+  if (!flag_ip)
+    {
+      pta_reset ();
+      splay_tree_delete (ptamap);
+      htab_delete (ptset_map);
+      deleteregion (andersen_rgn);
+    }
+  
 
 }
 
@@ -458,6 +497,7 @@ andersen_add_var (ops, decl)
      tree decl;
 {
   alias_typevar ret;
+  PTR *slot;
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "Adding variable %s\n", 
 	     alias_get_name (decl));
@@ -475,6 +515,13 @@ andersen_add_var (ops, decl)
     }
   splay_tree_insert (ptamap, (splay_tree_key) ALIAS_TVAR_ATERM (ret),
 		     (splay_tree_value) ret);
+  slot = htab_find_slot_with_hash (ptset_map, 
+				   decl,
+				   POINTER_HASH (decl),
+				   NO_INSERT);
+  if (slot)
+    htab_clear_slot (ptset_map, slot);
+
   return ret;
 }
 
@@ -488,6 +535,8 @@ andersen_add_var_same (ops, decl, tv)
      alias_typevar tv;
 {
   alias_typevar ret;
+  PTR *slot;
+  
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "Adding variable %s same as %s\n",
 	     alias_get_name (decl), alias_get_name (ALIAS_TVAR_DECL (tv)));
@@ -505,6 +554,20 @@ andersen_add_var_same (ops, decl, tv)
   pta_join (ALIAS_TVAR_ATERM (tv), ALIAS_TVAR_ATERM (ret));
   splay_tree_insert (ptamap, (splay_tree_key) ALIAS_TVAR_ATERM (ret),
 		     (splay_tree_value) ret);
+  slot = htab_find_slot_with_hash (ptset_map, 
+				   decl,
+				   POINTER_HASH (decl),
+				   NO_INSERT);
+  if (slot)
+    htab_clear_slot (ptset_map, slot);
+  
+  slot = htab_find_slot_with_hash (ptset_map,
+				   ALIAS_TVAR_DECL (tv),
+				   POINTER_HASH (ALIAS_TVAR_DECL (tv)),
+				   NO_INSERT);
+  if (slot)
+    htab_clear_slot (ptset_map, slot);
+  
   return ret;
 }
 
@@ -645,13 +708,13 @@ andersen_function_def (ops, func, params, retval)
       alias_typevar tv = VARRAY_GENERIC_PTR (params, i);
       aterm_list_cons (ALIAS_TVAR_ATERM (tv), args);
     }
-  fun_type = pta_make_fun (get_name (ALIAS_TVAR_DECL (func)),
+  fun_type = pta_make_fun (alias_get_name (ALIAS_TVAR_DECL (func)),
 			   ALIAS_TVAR_ATERM (retval), args);
   pta_assignment (ALIAS_TVAR_ATERM (func), fun_type);
 }
 
 /* Inference for a function call assignment */
-static void
+static int
 andersen_function_call (ops, lhs, func, args)
      struct tree_alias_ops *ops ATTRIBUTE_UNUSED;
      alias_typevar lhs;
@@ -662,6 +725,8 @@ andersen_function_call (ops, lhs, func, args)
   aterm ftype = ALIAS_TVAR_ATERM (func);
   aterm ret = NULL;
   aterm res;
+  tree decl = ALIAS_TVAR_DECL (func);
+  
   size_t i;
 
   if (lhs)
@@ -673,9 +738,22 @@ andersen_function_call (ops, lhs, func, args)
       aterm_list_cons (pta_rvalue (arg), actuals);
     }
   aterm_list_reverse (actuals);
+  
   res = pta_application (pta_rvalue (ftype), actuals);
   if (ret)
     pta_assignment (ret, pta_rvalue (res));
+  
+  /* We can handle functions we've got trees for. non-statics will
+     just have incoming parameters assigned to global_var if
+     necessary. */
+  if (TREE_CODE (decl) == FUNCTION_DECL 
+      && DECL_SAVED_TREE (decl) != NULL_TREE 
+      && flag_ip 
+      && (!TREE_PUBLIC (decl) && TREE_STATIC (decl)))
+    {
+      return 0;
+    } 
+  return 1;
 }
 
 
@@ -695,8 +773,26 @@ andersen_may_alias (ops, ptrtv, vartv)
      alias_typevar vartv;
 {
   aterm_list ptset;
-
-  ptset = aterm_tlb (pta_get_contents (ALIAS_TVAR_ATERM (ptrtv)));
+  struct ptset_map_data *data;
+  
+  data = htab_find_with_hash (ptset_map, ALIAS_TVAR_DECL (ptrtv),
+			      POINTER_HASH (ALIAS_TVAR_DECL (ptrtv)));
+  
+  if (!data)
+    {
+      ptset = aterm_tlb (pta_get_contents (ALIAS_TVAR_ATERM (ptrtv)));
+      data = xmalloc (sizeof (struct ptset_map_data));
+      data->decl = ALIAS_TVAR_DECL (ptrtv);
+      data->ptset = ptset;
+      *(htab_find_slot_with_hash (ptset_map,
+				  ALIAS_TVAR_DECL (ptrtv),
+				  POINTER_HASH (ALIAS_TVAR_DECL (ptrtv)),
+				  INSERT)) = data;
+    }
+  else
+    {
+      ptset = data->ptset;
+    }
 
   if (aterm_list_empty (ptset))
     return false;

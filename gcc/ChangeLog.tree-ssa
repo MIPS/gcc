@@ -1,3 +1,65 @@
+2002-12-29  Daniel Berlin  <dberlin@dberlin.org>
+
+	* toplev.c: Add flag_ip, enable by default at -O4+ (This is not
+	set in stone, and thus, not documented).
+	(decode_f_option): Add warning if andersen's PTA is selected but
+	not compiled in.
+	
+	* flags.h: Add flag_ip.
+
+	* tree-alias-ander.c: Fix todo.
+	(andersen_function_call): Return 1 if we don't need to process
+	the function.
+	(ptset_map): New map, cache points-to sets.
+	(andersen_op): We can do IP on all statics without help.
+	(andersen_init): Only init once if we are doing ip analysis.
+	(andersen_cleanup): Don't cleanup if we need the info for ip.
+	(andersen_add_var): Clear points-to set if it exists already.
+	(andersen_add_var_same): Ditto.
+	(andersen_function_call): We can do interprocedural analysis on
+	statics.
+	(andersen_may_alias): Cache points-to sets.
+
+	* c-decl.c (c_expand_body): Don't throw away tree if flag_ip is
+	on, even if they are uninlinable, they may be wanted for ip
+	optimizations.
+
+	* tree-alias-common.c (get_values_from_constructor): New
+	function to collect alias_typevars from constructors.
+	(alias_annot): Fix where the GTY is so gengtype picks it up.
+	(intra_function_call): Ignore non-pointers for global var
+	assignment. What arguments point to can now point to a global var
+	as well.
+	(find_func_aliases): We need to handle decl's with initials as
+	well.
+	Only call intra_function_call if we have to.
+	Handle constructors.
+	(create_fun_alias_var): Incoming pointer arguments could be
+	pointing to a global var, unless this is a static function and we
+	are doing interprocedural analysis.
+	(create_alias_vars): Take an fndecl argument, and use it.
+	(init_alias_vars): Handle ip_partial as well.
+	(ptr_may_alias_var): Simplify, fix.
+
+	* tree-alias-common.h (tree_alias_ops): function_call now returns
+	an int, and we have an extra member named ip_partial.
+
+	* tree-alias-steen.c (steen_ops): We can't do ip_partial.
+	(steen_function_call): Update definition and return 1.
+
+	* tree-dfa.c (compute_may_aliases): Call create_alias_vars with
+	current_function_decl. 
+
+	* tree-flow.h (create_alias_vars): Remove proto from here, it's
+	in tree-alias-common.h.
+	(tree_perform_ssapre): Take a tree, like the other optimizers.
+
+	* tree-optimize.c (optimize_function_tree): Call
+	tree_perform_ssapre with a tree.
+
+	* tree-ssa-pre.c: Remove dead, #if 0'd code.
+	(tree_perform_ssapre): Use passed in tree.
+	
 2002-12-23  Frank Ch. Eigler  <fche@redhat.com>
 
 	* tree-mudflap.c (mf_decl_cache_locals, mf_decl_clear_locals): New

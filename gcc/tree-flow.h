@@ -715,13 +715,11 @@ extern void debug_reaching_defs		PARAMS ((void));
 extern void dump_tree_ssa		PARAMS ((FILE *));
 extern void debug_tree_ssa		PARAMS ((void));
 
-
-/* In tree-alias-steen.c  */
-extern void create_alias_vars		PARAMS ((void));
-
+/* In tree-loop.c  */
+extern struct loops *tree_find_loops PARAMS ((tree));
 
 /* In tree-ssa-pre.c  */
-extern void tree_perform_ssapre PARAMS ((void));
+extern void tree_perform_ssapre PARAMS ((tree));
 
 
 /* In tree-ssa-ccp.c  */

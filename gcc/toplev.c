@@ -897,8 +897,14 @@ enum pta_type flag_tree_points_to = PTA_NONE;
 /* Enable SSA-CCP on trees.  */
 int flag_tree_ccp = 0;
 
+/* Enable SSA-CP on trees.  */
+int flag_tree_cp = 0;
+
 /* Enable SSA-DCE on trees.  */
 int flag_tree_dce = 0;
+
+/* Enable interprocedural analysis.  */
+int flag_ip = 0;
 
 /* Nonzero if we perform superblock formation.  */
 int flag_tracer = 0;
@@ -1216,8 +1222,12 @@ static const lang_independent_options f_options[] =
    N_("Enable SSA-PRE optimization on trees") },
   { "tree-ccp", &flag_tree_ccp, 1,
    N_("Enable SSA-CCP optimization on trees") },
+  { "tree-cp", &flag_tree_cp, 1,
+   N_("Enable SSA-CP optimization on trees") },
   { "tree-dce", &flag_tree_dce, 1,
    N_("Enable SSA dead code elimination optimization on trees") },
+  { "ip", &flag_ip, 1, 
+   N_("Enable interprocedural analysis") },
 };
 
 /* Table of language-specific options.  */
@@ -3034,6 +3044,7 @@ rest_of_compilation (decl)
 	estimate_probability (&loops);
 
       flow_loops_free (&loops);
+      
       close_dump_file (DFI_bp, print_rtl_with_bb, insns);
       timevar_pop (TV_BRANCH_PROB);
     }
@@ -3995,7 +4006,13 @@ decode_f_option (arg)
       if (strcmp (option_value, "steen") == 0)
         flag_tree_points_to = PTA_STEEN;
       else if (strcmp (option_value, "andersen") == 0)
+	{
+#ifdef HAVE_BANSHEE
         flag_tree_points_to = PTA_ANDERSEN;
+#else
+	warning ("Andersen's PTA not available - libbanshee not compiled.");
+#endif
+	}
       else
         warning ("`%s`: unknown points-to analysis algorithm", arg - 2);
     }
@@ -4753,7 +4770,6 @@ general_init (argv0)
   hex_init ();
 
   gcc_init_libintl ();
-
   /* Trap fatal signals, e.g. SIGSEGV, and convert them to ICE messages.  */
 #ifdef SIGSEGV
   signal (SIGSEGV, crash_signal);
@@ -4773,7 +4789,6 @@ general_init (argv0)
 #ifdef SIGFPE
   signal (SIGFPE, crash_signal);
 #endif
-
   /* Initialize the diagnostics reporting machinery, so option parsing
      can give warnings and errors.  */
   diagnostic_initialize (global_dc);
@@ -4898,6 +4913,11 @@ parse_options_and_default_flags (argc, argv)
     {
       flag_inline_functions = 1;
       flag_rename_registers = 1;
+    }
+  
+  if  (optimize >= 4)
+    {
+      flag_ip = 1;
     }
 
   if (optimize < 2 || optimize_size)
