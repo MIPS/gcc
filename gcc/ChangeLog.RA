@@ -1,3 +1,26 @@
+2001-02-06  Daniel Berlin  <dberlin@redhat.com>
+
+	* basic-block.h: Add flow_depth_first_order_compute prototype.
+
+	* flow.c (flow_depth_first_order_compute): De staticify, so we can
+	use it elsewhere.
+
+2001-02-03  Daniel Berlin  <dberlin@redhat.com>
+
+	* bitmap.h : Add dump_bitmap, bitmap_zero, bitmap_union_of_diffs,
+	bitmap_a_or_b, bitmap_a_and_b, bitmap_first_set_bit,
+	bitmap_last_set_bit. All for compatibility with sbitmap's.
+
+	* bitmap.c (bitmap_zero): New function.
+	(bitmap_union_of_diffs): New function.
+	(bitmap_first_set_bit): New function.
+	(bitmap_last_set_bit): New function.
+
+	* df.h: Change to use bitmaps, not sbitmaps, to save memory.
+
+	* df.c: Change to use bitmaps, not sbitmaps, to save memory.
+
+
 2001-02-02  Daniel Berlin  <dberlin@redhat.com>
 
 	* new-regalloc.c: Use debug_msg in rest of places.

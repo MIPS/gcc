@@ -91,20 +91,20 @@ struct reg_info
 struct bb_info
 {
   /* Reaching def bitmaps have def_id elements.  */
-  sbitmap rd_kill;
-  sbitmap rd_gen;
-  sbitmap rd_in;
-  sbitmap rd_out;
+  bitmap rd_kill;
+  bitmap rd_gen;
+  bitmap rd_in;
+  bitmap rd_out;
   /* Reaching use bitmaps have use_id elements.  */
-  sbitmap ru_kill;
-  sbitmap ru_gen;
-  sbitmap ru_in;
-  sbitmap ru_out;
+  bitmap ru_kill;
+  bitmap ru_gen;
+  bitmap ru_in;
+  bitmap ru_out;
   /* Live variable bitmaps have n_regs elements.  */
-  sbitmap lr_def;
-  sbitmap lr_use;
-  sbitmap lr_in;
-  sbitmap lr_out;
+  bitmap lr_def;
+  bitmap lr_use;
+  bitmap lr_in;
+  bitmap lr_out;
   int rd_valid;
   int ru_valid;
   int lr_valid;
@@ -132,12 +132,14 @@ struct df
   unsigned int n_regs;		/* Number of regs.  */
   unsigned int def_id_save;	/* Saved next def ID.  */
   unsigned int use_id_save;	/* Saved next use ID.  */
-  sbitmap insns_modified;	/* Insns that (may) have changed.  */
-  sbitmap bbs_modified;		/* Blocks that (may) have changed.  */
-  sbitmap all_blocks;		/* All blocks in CFG.  */
+  bitmap insns_modified;	/* Insns that (may) have changed.  */
+  bitmap bbs_modified;		/* Blocks that (may) have changed.  */
+  bitmap all_blocks;		/* All blocks in CFG.  */
   /* The bitmap vector of dominators or NULL if not computed. 
      Ideally, this should be a pointer to a CFG object.  */
-  sbitmap *dom;
+  bitmap *dom;
+  int * dfs_order;
+  int * rc_order;
 };
 
 
@@ -201,7 +203,7 @@ struct df_map
 
 extern struct df *df_init PARAMS ((void));
 
-extern int df_analyse PARAMS ((struct df *, sbitmap, int));
+extern int df_analyse PARAMS ((struct df *, bitmap, int));
 
 extern void df_finish PARAMS ((struct df *));
 
@@ -226,7 +228,7 @@ extern rtx df_pattern_emit_after PARAMS ((struct df *, rtx,
 extern rtx df_insn_move_before PARAMS ((struct df *, basic_block, rtx,
 					basic_block, rtx));
 
-extern int df_reg_replace PARAMS ((struct df *, sbitmap, rtx, rtx));
+extern int df_reg_replace PARAMS ((struct df *, bitmap, rtx, rtx));
 
 extern int df_ref_reg_replace PARAMS ((struct df *, struct ref *, rtx, rtx));
 
@@ -257,7 +259,7 @@ extern int df_insn_dominates_all_uses_p PARAMS ((struct df *,
 						 basic_block, rtx));
 
 extern int df_insn_dominates_uses_p PARAMS ((struct df *, basic_block,
-					     rtx, sbitmap));
+					     rtx, bitmap));
 
 extern int df_bb_reg_live_start_p PARAMS ((struct df *, basic_block, rtx));
 

@@ -52,6 +52,9 @@ typedef struct bitmap_head_def {
   bitmap_element *first;	/* First element in linked list. */
   bitmap_element *current;	/* Last element looked at. */
   unsigned int indx;		/* Index of last element looked at. */
+  unsigned int changed;
+  unsigned int *where;
+
 } bitmap_head, *bitmap;
 
 /* Enumeration giving the various operations we support.  */
@@ -59,7 +62,8 @@ enum bitmap_bits {
   BITMAP_AND,			/* TO = FROM1 & FROM2 */
   BITMAP_AND_COMPL,		/* TO = FROM1 & ~ FROM2 */
   BITMAP_IOR,			/* TO = FROM1 | FROM2 */
-  BITMAP_XOR			/* TO = FROM1 ^ FROM2 */
+  BITMAP_XOR,			/* TO = FROM1 ^ FROM2 */
+  BITMAP_IOR_COMPL			/* TO = FROM1 | ~FROM2 */
 };
 
 /* Global data */
@@ -105,6 +109,15 @@ extern bitmap bitmap_initialize PARAMS ((bitmap));
 extern void bitmap_release_memory PARAMS ((void));
 
 extern void debug_bitmap PARAMS ((bitmap));
+
+/* A few compatibility/functions macros for compatibility with sbitmaps */
+#define dump_bitmap(a, b) bitmap_print (a,b,"","\n")
+#define bitmap_zero(a) bitmap_clear (a)
+#define bitmap_a_or_b(a,b,c) bitmap_operation (a, b, c, BITMAP_IOR)
+#define bitmap_a_and_b(a,b,c) bitmap_operation (a, b, c, BITMAP_AND)
+extern int bitmap_union_of_diff PARAMS((bitmap, bitmap, bitmap, bitmap));
+extern int bitmap_first_set_bit PARAMS((bitmap));
+extern int bitmap_last_set_bit PARAMS((bitmap));
 
 /* Allocate a bitmap with oballoc.  */
 #define BITMAP_OBSTACK_ALLOC(OBSTACK)				\
