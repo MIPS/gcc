@@ -41,4 +41,9 @@
 namespace std
 {
   typedef int*			__c_locale;
+
+  template<typename _Tv>
+    int
+    __convert_from_v(char* __out, const int __size, const char* __fmt,
+		     _Tv __v, const __c_locale&, int __prec = -1);
 }

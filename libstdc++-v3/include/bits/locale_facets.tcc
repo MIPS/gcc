@@ -1979,7 +1979,7 @@ namespace std
   template<typename _Tv>
     int
     __convert_from_v(char* __out, const int __size, const char* __fmt,
-		     _Tv __v, const __c_locale&, int __prec = -1);
+		     _Tv __v, const __c_locale&, int __prec /* = -1 */);
 
   // Construct correctly padded string, as per 22.2.2.2.2
   // Assumes 
