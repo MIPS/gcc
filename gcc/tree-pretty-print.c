@@ -75,11 +75,14 @@ do_niy (buffer, node)
   output_add_string (buffer, "<<< Unknown tree: ");
   output_add_string (buffer, tree_code_name[(int) TREE_CODE (node)]);
 
-  len = first_rtl_op (TREE_CODE (node));
-  for (i = 0; i < len; ++i)
+  if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (node))))
     {
-      newline_and_indent (buffer, 2);
-      dump_generic_node (buffer, TREE_OPERAND (node, i), 2, 0);
+      len = first_rtl_op (TREE_CODE (node));
+      for (i = 0; i < len; ++i)
+	{
+	  newline_and_indent (buffer, 2);
+	  dump_generic_node (buffer, TREE_OPERAND (node, i), 2, 0);
+	}
     }
 
   output_add_string (buffer, " >>>\n");

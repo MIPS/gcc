@@ -1,3 +1,15 @@
+2003-03-05  Jason Merrill  <jason@redhat.com>
+
+	* c-pretty-print.c (do_niy): Only print operands of expressions.
+	* tree-pretty-print.c: Likewise.
+
+	* c-simplify.c (simplify_decl_stmt): Only simplify DECL_SIZE_UNIT.
+	* gimplify.c (simplify_array_ref_to_plus): New fn.
+	(simplify_array_ref): Use it.
+	(build_addr_expr_with_type): Split out from build_addr_expr.
+	(simplify_compound_lval): Break out an ARRAY_REF with non-constant
+	element size.
+
 2003-03-05  Frank Ch. Eigler  <fche@redhat.com>
 
 	* gcc.c (MFWRAP_SPEC): Remove most --wrap entries.

@@ -758,24 +758,18 @@ simplify_decl_stmt (stmt_p, next_p)
 	     its size, and so that any other local variables used in those
 	     expressions will have been initialized.  */
 
-	  /* FIXME break the allocation out into a separate statement.  */
+	  /* FIXME break the allocation out into a separate statement?  */
 
-	  tree size = DECL_SIZE (decl);
 	  tree usize = DECL_SIZE_UNIT (decl);
 	  tree bind;
 	  tree *p;
 
-	  size = get_initialized_tmp_var (size, &pre);
 	  usize = get_initialized_tmp_var (usize, &pre);
 
-	  /* Mark the size and unit size as being used in the 
-	     VLA's declaration so they will not be deleted by
-	     DCE.  */
-	  set_vla_decl (size);
+	  /* Mark the unit size as being used in the VLA's declaration so
+	     it will not be deleted by DCE.  */
 	  set_vla_decl (usize);
 
-	  /* FIXME also simplify field sizes.  */
-	  DECL_SIZE (decl) = TYPE_SIZE (TREE_TYPE (decl)) = size;
 	  DECL_SIZE_UNIT (decl) = TYPE_SIZE_UNIT (TREE_TYPE (decl)) = usize;
 
 	  /* Prune this decl and any others after it out of the enclosing

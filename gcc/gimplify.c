@@ -40,6 +40,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 static void simplify_constructor     PARAMS ((tree, tree *, tree *));
 static void simplify_array_ref       PARAMS ((tree *, tree *, tree *));
+static void simplify_array_ref_to_plus   PARAMS ((tree *, tree *, tree *));
 static void simplify_compound_lval   PARAMS ((tree *, tree *, tree *));
 static void simplify_component_ref   PARAMS ((tree *, tree *, tree *));
 static void simplify_call_expr       PARAMS ((tree *, tree *, tree *));
@@ -53,6 +54,7 @@ static void simplify_cond_expr       PARAMS ((tree *, tree *, tree));
 static void simplify_boolean_expr    PARAMS ((tree *, tree *));
 static void simplify_return_expr     PARAMS ((tree, tree *));
 static tree build_addr_expr	     PARAMS ((tree));
+static tree build_addr_expr_with_type   PARAMS ((tree, tree));
 static tree add_stmt_to_compound	PARAMS ((tree, tree));
 static void simplify_asm_expr		PARAMS ((tree, tree *));
 static void simplify_bind_expr		PARAMS ((tree *, tree *));
@@ -907,10 +909,10 @@ simplify_constructor (t, pre_p, post_p)
     avoid confusing the simplify process.  */
 
 static tree
-build_addr_expr (t)
+build_addr_expr_with_type (t, ptrtype)
      tree t;
+     tree ptrtype;
 {
-  tree ptrtype = build_pointer_type (TREE_TYPE (t));
   if (TREE_CODE (t) == INDIRECT_REF)
     {
       t = TREE_OPERAND (t, 0);
@@ -921,6 +923,13 @@ build_addr_expr (t)
     t = build1 (ADDR_EXPR, ptrtype, t);
 
   return t;
+}
+
+static tree
+build_addr_expr (t)
+     tree t;
+{
+  return build_addr_expr_with_type (t, build_pointer_type (TREE_TYPE (t)));
 }
 
   
@@ -943,9 +952,15 @@ simplify_array_ref (expr_p, pre_p, post_p)
      tree *post_p;
 {
 #if 1
-  /* Handle array and member refs together for now.  When alias analysis
-     improves, we may want to go back to handling them separately.  */
-  simplify_compound_lval (expr_p, pre_p, post_p);
+  tree elttype = TREE_TYPE (TREE_TYPE (TREE_OPERAND (*expr_p, 0)));
+  if (!TREE_CONSTANT (TYPE_SIZE_UNIT (elttype)))
+    /* If the size of the array elements is not constant,
+       computing the offset is non-trivial, so expose it.  */
+    simplify_array_ref_to_plus (expr_p, pre_p, post_p);
+  else
+    /* Handle array and member refs together for now.  When alias analysis
+       improves, we may want to go back to handling them separately.  */
+    simplify_compound_lval (expr_p, pre_p, post_p);
 #else
   tree *p;
   varray_type dim_stack;
@@ -977,6 +992,30 @@ simplify_array_ref (expr_p, pre_p, post_p)
       simplify_expr (dim_p, pre_p, post_p, is_simple_val, fb_rvalue);
     }
 #endif
+}
+
+/* Subroutine of simplify_compound_lval.  Converts an ARRAY_REF to the
+   equivalent *(&array + offset) form.  */
+
+static void
+simplify_array_ref_to_plus (expr_p, pre_p, post_p)
+     tree *expr_p;
+     tree *pre_p;
+     tree *post_p;
+{
+  tree array = TREE_OPERAND (*expr_p, 0);
+  tree idx = convert (sizetype, TREE_OPERAND (*expr_p, 1));
+  tree elttype = TREE_TYPE (TREE_TYPE (array));
+  tree size = size_in_bytes (elttype);
+  tree ptrtype = build_pointer_type (elttype);
+  tree offset = size_binop (MULT_EXPR, size, idx);
+  tree addr, result;
+
+  simplify_expr (&array, pre_p, post_p, is_simple_min_lval, fb_lvalue);
+
+  addr = build_addr_expr_with_type (array, ptrtype);
+  result = fold (build (PLUS_EXPR, ptrtype, addr, offset));
+  *expr_p = build1 (INDIRECT_REF, elttype, result);
 }
 
 /* Simplify the COMPONENT_REF or ARRAY_REF node pointed by EXPR_P.
@@ -1014,7 +1053,14 @@ simplify_compound_lval (expr_p, pre_p, post_p)
     {
       code = TREE_CODE (*p);
       if (code == ARRAY_REF)
-	VARRAY_PUSH_GENERIC_PTR (dim_stack, (PTR) &TREE_OPERAND (*p, 1));
+	{
+	  tree elttype = TREE_TYPE (TREE_TYPE (TREE_OPERAND (*p, 0)));
+	  if (!TREE_CONSTANT (TYPE_SIZE_UNIT (elttype)))
+	    /* If the size of the array elements is not constant,
+	       computing the offset is non-trivial, so expose it.  */
+	    break;
+	  VARRAY_PUSH_GENERIC_PTR (dim_stack, (PTR) &TREE_OPERAND (*p, 1));
+	}
     }
 
   /* Now 'p' points to the first bit that isn't an ARRAY_REF or
