@@ -238,6 +238,9 @@ optimize_block (basic_block bb, tree parent_block_last_stmt, int edge_flags)
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "\n\nOptimizing block #%d\n\n", bb->index);
 
+  /* If our parent block ended in a COND_EXPR, add any equivalences
+     created by the COND_EXPR to the hash table and initialize
+     EQ_EXPR_VALUE appropriately.  */
   if (parent_block_last_stmt
       && TREE_CODE (parent_block_last_stmt) == COND_EXPR
       && (edge_flags & (EDGE_TRUE_VALUE | EDGE_FALSE_VALUE)))
@@ -245,7 +248,55 @@ optimize_block (basic_block bb, tree parent_block_last_stmt, int edge_flags)
 				       (edge_flags & EDGE_TRUE_VALUE) != 0,
 				       &block_avail_exprs,
 				       const_and_copies);
+  /* Similarly when the parent block ended in a SWITCH_EXPR.  */
+  else if (parent_block_last_stmt
+	   && TREE_CODE (parent_block_last_stmt) == SWITCH_EXPR
+	   && bb->pred->pred_next == NULL)
+    {
+      int case_count = 0;
+      tree case_value = NULL_TREE;
+      tree switch_cond = SWITCH_COND (parent_block_last_stmt);
 
+      /* If the switch's condition is an SSA variable, then we may
+	 know its value at each of the case labels.  */
+      if (TREE_CODE (switch_cond) == SSA_NAME)
+	{
+	  /* Walk the statements at the start of this block.  */
+	  for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
+	    {
+	      tree stmt = bsi_stmt (si);
+
+	      /* If we hit anything other than a CASE_LABEL_EXPR, then
+		 stop our search.  */
+	      if (TREE_CODE (stmt) != CASE_LABEL_EXPR)
+		break;
+
+	      /* If we encountered more than one CASE_LABEL_EXPR, then
+		 there are multiple values for the switch's condition
+		 which reach this particular destination.  We can not
+		 optimize in that case.  */
+	      case_count++;
+	      if (case_count > 1)
+		break;
+
+	      /* If this is the default case or any other abnormal
+		 situation, then stop the loop and do not optimize.  */
+	      if (! CASE_LOW (stmt) || CASE_HIGH (stmt))
+		break;
+
+	      /* Record this case's value.  */
+	      case_value = CASE_LOW (stmt);
+	    }
+
+	  /* If we encountered precisely one CASE_LABEL_EXPR and it
+	     was not the default case, then we know the exact value
+	     of SWITCH_COND which caused us to get to this block.
+	     Record that equivalence in EQ_EXPR_VALUE.  */
+	  if (case_count == 1 && case_value)
+	    eq_expr_value = build (MODIFY_EXPR, TREE_TYPE (switch_cond),
+				   switch_cond, case_value);
+	}
+    }
 
   /* If EQ_EXPR_VALUE (VAR == VALUE) is given, register the VALUE as a
      new value for VAR, so that occurrences of VAR can be replaced with
@@ -624,8 +675,13 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p)
   may_optimize_p = (!ann->makes_aliased_stores
 		    && !ann->has_volatile_ops
 		    && vdefs == NULL
-		    && ((TREE_CODE (stmt) == MODIFY_EXPR
-			 && ! TREE_SIDE_EFFECTS (TREE_OPERAND (stmt, 1)))
+		    && ((TREE_CODE (stmt) == RETURN_EXPR
+			 && TREE_OPERAND (stmt, 0)
+			 && TREE_CODE (TREE_OPERAND (stmt, 0)) == MODIFY_EXPR
+			 && ! (TREE_SIDE_EFFECTS
+			       (TREE_OPERAND (TREE_OPERAND (stmt, 0), 1))))
+			|| (TREE_CODE (stmt) == MODIFY_EXPR
+			    && ! TREE_SIDE_EFFECTS (TREE_OPERAND (stmt, 1)))
 			|| TREE_CODE (stmt) == COND_EXPR));
 
   if (may_optimize_p)
@@ -651,6 +707,8 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p)
 	{
 	  if (TREE_CODE (stmt) == COND_EXPR)
 	    expr_p = &TREE_OPERAND (stmt, 0);
+	  else if (TREE_CODE (stmt) == RETURN_EXPR && TREE_OPERAND (stmt, 0))
+	    expr_p = &TREE_OPERAND (TREE_OPERAND (stmt, 0), 1);
 	  else
 	    expr_p = &TREE_OPERAND (stmt, 1);
 
@@ -797,7 +855,7 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p)
 			{
 			  tree op;
 
-			  op = (tree) VDEF_RESULT (VARRAY_TREE (vdefs, i));
+			  op = (tree) VDEF_RESULT (VARRAY_TREE (vdefs, j));
 			  add_vuse (op, new, NULL);
 			}
 
@@ -976,7 +1034,6 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p)
 	   }
 	}
     }
-
 }
 
 /* Hashing and equality functions for VAR_VALUE_D.  */
@@ -1072,6 +1129,14 @@ lookup_avail_expr (tree stmt,
     {
       rhs = TREE_OPERAND (stmt, 0);
       insert = 0;
+    }
+  /* For RETURN_EXPR, we want the RHS of the MODIFY_EXPR in operand 0
+     of the RETURN_EXPR.  */
+  else if (TREE_CODE (stmt) == RETURN_EXPR
+	   && TREE_OPERAND (stmt, 0))
+    {
+      rhs = TREE_OPERAND (TREE_OPERAND (stmt, 0), 1);
+      insert = 1;
     }
   else
     {
@@ -1222,6 +1287,10 @@ avail_expr_hash (const void *p)
      in operand position 0, not position 1.  */
   if (TREE_CODE (stmt) == COND_EXPR)
     rhs = TREE_OPERAND (stmt, 0);
+  /* If we're hasing a RETURN_EXPR, the expression we care about
+     is position 1 of the MODIFY_EXPR at position 0 in the RETURN_EXPR.  */
+  else if (TREE_CODE (stmt) == RETURN_EXPR && TREE_OPERAND (stmt, 0))
+    rhs = TREE_OPERAND (TREE_OPERAND (stmt, 0), 1);
   else
     rhs = TREE_OPERAND (stmt, 1);
  
@@ -1250,12 +1319,16 @@ avail_expr_eq (const void *p1, const void *p2)
   s1 = (tree) p1;
   if (TREE_CODE (s1) == COND_EXPR)
     rhs1 = TREE_OPERAND (s1, 0);
+  else if (TREE_CODE (s1) == RETURN_EXPR && TREE_OPERAND (s1, 0))
+    rhs1 = TREE_OPERAND (TREE_OPERAND (s1, 0), 1);
   else
     rhs1 = TREE_OPERAND (s1, 1);
 
   s2 = (tree) p2;
   if (TREE_CODE (s2) == COND_EXPR)
     rhs2 = TREE_OPERAND (s2, 0);
+  else if (TREE_CODE (s2) == RETURN_EXPR && TREE_OPERAND (s2, 0))
+    rhs2 = TREE_OPERAND (TREE_OPERAND (s2, 0), 1);
   else
     rhs2 = TREE_OPERAND (s2, 1);
 

@@ -1,5 +1,16 @@
 2003-08-14  Jeff Law  <law@redhat.com>
 
+	* tree-ssa-dom.c (optimize_block): Record equivalences created by
+	SWITCH_EXPRs.
+
+	* tree-ssa-dom.c (optimize_stmt): Allow optimizing the RHS of
+	a RETURN_EXPR which contains an optimizable MODIFY_EXPR.
+	(lookup_avail_expr): Corresponding changes.
+	(avail_expr_hash, avail_expr_eq): Likewise.
+
+	* tree-ssa-dom.c (optimize_stmt): Fix typo which prevented
+	stores with more than one VDEF from creating useful equivalences. 
+
 	* tree-dfa.c (get_expr_operands): Do not special case *0;
 
 	* fold-const.c (fold, case INDIRECT_REF): Revert last change.
