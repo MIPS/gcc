@@ -1,3 +1,8 @@
+2002-11-21  Douglas B Rupp  <rupp@gnat.com>
+
+	* alpha.md (movstrdi, clrstrdi): New VMS patterns.
+	(call_vms_1, call_value_vms_1): Cleanup syntax.
+
 Thu Nov 21 19:20:27 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* athlon.md (define_atuomaton): Add athlon_load.
