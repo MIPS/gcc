@@ -47,8 +47,6 @@ public class GtkMenuComponentPeer extends GtkGenericPeer
   {
     super (awtWidget);
   }
-
-  public void dispose ()
-  {
-  }
+  
+  public native void dispose();
 }

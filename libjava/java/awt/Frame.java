@@ -1,5 +1,5 @@
 /* Frame.java -- AWT toplevel window
-   Copyright (C) 1999, 2000, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2002, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -50,11 +50,6 @@ import java.util.Vector;
   */
 public class Frame extends Window implements MenuContainer
 {
-
-/*
- * Static Variables
- */
-
 /**
   * Constant for the default cursor.
   * @deprecated Replaced by <code>Cursor.DEFAULT_CURSOR</code> instead.
@@ -148,12 +143,6 @@ public static final int NORMAL = 0;
 // Serialization version constant
 private static final long serialVersionUID = 2673458971256075116L;
 
-/*************************************************************************/
-
-/*
- * Instance Variables
- */
-
 /**
   * @serial The version of the class data being serialized
   * // FIXME: what is this value?
@@ -208,11 +197,10 @@ private String title = "";
    */
   private boolean undecorated = false;
 
-/*************************************************************************/
-
-/*
- * Constructors
- */
+  /*
+   * The number used to generate the name returned by getName.
+   */
+  private static transient long next_frame_number = 0;
 
 /**
   * Initializes a new instance of <code>Frame</code> that is not visible
@@ -223,8 +211,6 @@ Frame()
 {
   this("");
 }
-
-/*************************************************************************/
 
 /**
   * Initializes a new instance of <code>Frame</code> that is not visible
@@ -256,12 +242,6 @@ Frame(String title, GraphicsConfiguration gc)
   visible = false;
 }
 
-/*************************************************************************/
-
-/*
- * Instance Methods
- */
-
 /**
   * Returns this frame's title string.
   *
@@ -272,8 +252,6 @@ getTitle()
 {
   return(title);
 }
-
-/*************************************************************************/
 
 /*
  * Sets this frame's title to the specified value.
@@ -288,8 +266,6 @@ setTitle(String title)
     ((FramePeer) peer).setTitle(title);
 }
 
-/*************************************************************************/
-
 /**
   * Returns this frame's icon.
   *
@@ -301,8 +277,6 @@ getIconImage()
 {
   return(icon);
 }
-
-/*************************************************************************/
 
 /**
   * Sets this frame's icon to the specified value.
@@ -317,8 +291,6 @@ setIconImage(Image icon)
     ((FramePeer) peer).setIconImage(icon);
 }
 
-/*************************************************************************/
-
 /**
   * Returns this frame's menu bar.
   *
@@ -331,8 +303,6 @@ getMenuBar()
   return(menuBar);
 }
 
-/*************************************************************************/
-
 /**
   * Sets this frame's menu bar.
   *
@@ -341,12 +311,16 @@ getMenuBar()
 public synchronized void
 setMenuBar(MenuBar menuBar)
 {
-  this.menuBar = menuBar;
   if (peer != null)
+  {
+    if (this.menuBar != null)
+      this.menuBar.removeNotify();  
+    if (menuBar != null)
+      menuBar.addNotify();
     ((FramePeer) peer).setMenuBar(menuBar);
+  }
+  this.menuBar = menuBar;
 }
-
-/*************************************************************************/
 
 /**
   * Tests whether or not this frame is resizable.  This will be 
@@ -360,8 +334,6 @@ isResizable()
 {
   return(resizable);
 }
-
-/*************************************************************************/
 
 /**
   * Sets the resizability of this frame to the specified value.
@@ -377,8 +349,6 @@ setResizable(boolean resizable)
     ((FramePeer) peer).setResizable(resizable);
 }
 
-/*************************************************************************/
-
 /**
   * Returns the cursor type of the cursor for this window.  This will
   * be one of the constants in this class.
@@ -392,8 +362,6 @@ getCursorType()
 {
   return(getCursor().getType());
 }
-
-/*************************************************************************/
 
 /**
   * Sets the cursor for this window to the specified type.  The specified
@@ -409,8 +377,6 @@ setCursor(int type)
   setCursor(new Cursor(type));
 }
 
-/*************************************************************************/
-
 /**
   * Removes the specified component from this frame's menu.
   *
@@ -422,31 +388,61 @@ remove(MenuComponent menu)
   menuBar.remove(menu);
 }
 
-/*************************************************************************/
-
 /**
   * Notifies this frame that it should create its native peer.
   */
 public void
 addNotify()
 {
+  if (menuBar != null)
+    menuBar.addNotify();
   if (peer == null)
     peer = getToolkit ().createFrame (this);
   super.addNotify();
 }
 
-/*************************************************************************/
-
-/**
-  * Returns a debugging string describing this window.
-  *
-  * @return A debugging string describing this window.
-  */
-protected String
-paramString()
+public void removeNotify()
 {
-  return(getClass().getName());
+  if (menuBar != null)
+    menuBar.removeNotify();
+  super.removeNotify();
 }
+
+  /**
+   * Returns a debugging string describing this window.
+   *
+   * @return A debugging string describing this window.
+   */
+  protected String paramString ()
+  {
+    String title = getTitle ();
+
+    String resizable = "";
+    if (isResizable ())
+      resizable = ",resizable";
+
+    String state = "";
+    switch (getState ())
+      {
+      case NORMAL:
+        state = ",normal";
+        break;
+      case ICONIFIED:
+        state = ",iconified";
+        break;
+      case MAXIMIZED_BOTH:
+        state = ",maximized-both";
+        break;
+      case MAXIMIZED_HORIZ:
+        state = ",maximized-horiz";
+        break;
+      case MAXIMIZED_VERT:
+        state = ",maximized-vert";
+        break;
+      }
+
+    return super.paramString () + ",title=" + title + resizable + state;
+  }
 
 public static Frame[]
 getFrames()
@@ -538,5 +534,19 @@ getFrames()
 
     this.undecorated = undecorated;
   }
-} // class Frame 
 
+  /**
+   * Generate a unique name for this frame.
+   *
+   * @return A unique name for this frame.
+   */
+  String generateName ()
+  {
+    return "frame" + getUniqueLong ();
+  }
+
+  private static synchronized long getUniqueLong ()
+  {
+    return next_frame_number++;
+  }
+}

@@ -157,6 +157,9 @@ ScrollPane(int scrollbarDisplayPolicy)
     }
 
   wheelScrollingEnabled = true;
+
+  // Default size.
+  setSize(100,100);
 }
 
 /*************************************************************************/
@@ -400,6 +403,15 @@ addNotify()
 
   setPeer((ComponentPeer)getToolkit().createScrollPane(this));
   super.addNotify();
+
+  Component[] list = getComponents();
+  if (list != null && list.length > 0 && ! (list[0] instanceof Panel))
+  {
+    Panel panel = new Panel();
+    panel.setLayout(new BorderLayout());
+    panel.add(list[0], BorderLayout.CENTER);
+    add(panel);
+  }
 }
 
 /*************************************************************************/
@@ -446,32 +458,7 @@ removeNotify()
 public void
 doLayout()
 {
-  Component[] list = getComponents();
-  if ((list != null) && (list.length > 0))
-    {
-      Dimension dim = list[0].getPreferredSize();
-      Dimension vp = getViewportSize ();
-
-      if (dim.width < vp.width)
-	dim.width = vp.width;
-
-      if (dim.height < vp.height)
-	dim.height = vp.height;
-
-      ScrollPanePeer peer = (ScrollPanePeer) getPeer ();
-      if (peer != null)
-	peer.childResized (dim.width, dim.height);
-
-      list[0].resize (dim);
-
-      Point p = getScrollPosition();
-      if (p.x > dim.width)
-        p.x = dim.width;
-      if (p.y > dim.height)
-        p.y = dim.height;
-
-      setScrollPosition(p);
-    }
+  layout ();
 }
 
 /*************************************************************************/
@@ -486,7 +473,32 @@ doLayout()
 public void
 layout()
 {
-  doLayout();
+  Component[] list = getComponents ();
+  if ((list != null) && (list.length > 0))
+    {
+      Dimension dim = list[0].getPreferredSize ();
+      Dimension vp = getViewportSize ();
+
+      if (dim.width < vp.width)
+	dim.width = vp.width;
+
+      if (dim.height < vp.height)
+	dim.height = vp.height;
+
+      ScrollPanePeer peer = (ScrollPanePeer) getPeer ();
+      if (peer != null)
+	peer.childResized (dim.width, dim.height);
+
+      list[0].setSize (dim);
+
+      Point p = getScrollPosition ();
+      if (p.x > dim.width)
+        p.x = dim.width;
+      if (p.y > dim.height)
+        p.y = dim.height;
+
+      setScrollPosition (p);
+    }
 }
 
 /*************************************************************************/
@@ -527,7 +539,19 @@ printComponents(Graphics graphics)
 public String
 paramString()
 {
-  return(getClass().getName());
+  Insets insets = getInsets();
+  return getName() + ","
+         + getX() + ","
+         + getY() + ","
+         + getWidth() + "x" + getHeight() + ","
+         + "ScrollPosition=(" + scrollPosition.getX() + "," 
+                              + scrollPosition.getY() + "),"
+         + "Insets=(" + insets.top + ","
+                      + insets.left + ","
+                      + insets.bottom + ","
+                      + insets.right + "),"
+         + "ScrollbarDisplayPolicy=" + getScrollbarDisplayPolicy() + ","
+         + "wheelScrollingEnabled=" + isWheelScrollingEnabled();
 }
 
   /**

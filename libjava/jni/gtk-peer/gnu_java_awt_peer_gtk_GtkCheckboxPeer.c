@@ -1,5 +1,5 @@
 /* gtkcheckboxpeer.c -- Native implementation of GtkCheckboxPeer
-   Copyright (C) 1998, 1999, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -42,47 +42,12 @@ exception statement from your version. */
 
 static void item_toggled (GtkToggleButton *item, jobject peer);
 
-JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkCheckboxGroupPeer_dispose
-  (JNIEnv *env, jobject obj)
-{
-  /* The actual underlying widget is owned by a different class.  So
-     we just clean up the hash table here.  */
-  NSA_DEL_PTR (env, obj);
-}
-
-JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkCheckboxGroupPeer_remove
-  (JNIEnv *env, jobject obj, jobject checkbox)
-{
-  GtkRadioButton *button;
-  void *ptr;
-  GSList *list;
-
-  ptr = NSA_GET_PTR (env, checkbox);
-  gdk_threads_enter ();
-  button = GTK_RADIO_BUTTON (ptr);
-
-  /* Update the group to point to some other widget in the group.  We
-     have to do this because Gtk doesn't have a separate object to
-     represent a radio button's group.  */
-  for (list = gtk_radio_button_group (button); list != NULL;
-       list = list->next)
-    {
-      if (list->data != button)
-	break;
-    }
-
-  gdk_threads_leave ();
-
-  NSA_SET_PTR (env, obj, list ? list->data : NULL);
-}
-
 JNIEXPORT void JNICALL
-Java_gnu_java_awt_peer_gtk_GtkCheckboxPeer_nativeCreate
-  (JNIEnv *env, jobject obj, jobject group, jboolean state)
+Java_gnu_java_awt_peer_gtk_GtkCheckboxPeer_create
+  (JNIEnv *env, jobject obj, jobject group)
 {
   GtkWidget *button;
 
-  /* Create global reference and save it for future use */
   NSA_SET_GLOBAL_REF (env, obj);
 
   gdk_threads_enter ();
@@ -100,7 +65,6 @@ Java_gnu_java_awt_peer_gtk_GtkCheckboxPeer_nativeCreate
 	  NSA_SET_PTR (env, group, button);
 	}
     }
-  gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (button), state);
 
   gdk_threads_leave ();
 
@@ -164,10 +128,86 @@ Java_gnu_java_awt_peer_gtk_GtkCheckboxPeer_nativeSetCheckboxGroup
     NSA_SET_PTR (env, group, native_group);
 }
 
+JNIEXPORT void JNICALL
+Java_gnu_java_awt_peer_gtk_GtkCheckboxPeer_gtkToggleButtonSetActive
+  (JNIEnv *env, jobject obj, jboolean is_active)
+{
+  void *ptr;
+
+  ptr = NSA_GET_PTR (env, obj);
+
+  gdk_threads_enter ();
+
+  gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (ptr), is_active);
+
+  gdk_threads_leave ();
+}
+
+JNIEXPORT void JNICALL
+Java_gnu_java_awt_peer_gtk_GtkCheckboxPeer_gtkSetFont
+  (JNIEnv *env, jobject obj, jstring name, jint style, jint size)
+{
+  const char *font_name;
+  void *ptr;
+  GtkWidget *button;
+  GtkWidget *label;
+  PangoFontDescription *font_desc;
+
+  ptr = NSA_GET_PTR (env, obj);
+
+  button = GTK_WIDGET (ptr);
+  label = gtk_bin_get_child (GTK_BIN(button));
+
+  if (!label)
+      return;
+
+  font_name = (*env)->GetStringUTFChars (env, name, NULL);
+
+  gdk_threads_enter();
+
+  font_desc = pango_font_description_from_string (font_name);
+  pango_font_description_set_size (font_desc, size * dpi_conversion_factor);
+
+  if (style & AWT_STYLE_BOLD)
+    pango_font_description_set_weight (font_desc, PANGO_WEIGHT_BOLD);
+
+  if (style & AWT_STYLE_ITALIC)
+    pango_font_description_set_style (font_desc, PANGO_STYLE_OBLIQUE);
+  
+  gtk_widget_modify_font (GTK_WIDGET(label), font_desc);
+  
+  pango_font_description_free (font_desc);
+  
+  gdk_threads_leave();
+  
+  (*env)->ReleaseStringUTFChars (env, name, font_name);
+}
+
+JNIEXPORT void JNICALL
+Java_gnu_java_awt_peer_gtk_GtkCheckboxPeer_gtkButtonSetLabel
+  (JNIEnv *env, jobject obj, jstring label)
+{
+  const char *c_label;
+  GtkWidget *label_widget;
+  void *ptr;
+
+  ptr = NSA_GET_PTR (env, obj);
+
+  c_label = (*env)->GetStringUTFChars (env, label, NULL);
+
+  gdk_threads_enter ();
+
+  label_widget = gtk_bin_get_child (GTK_BIN (ptr));
+  gtk_label_set_text (GTK_LABEL (label_widget), c_label);
+
+  gdk_threads_leave ();
+
+  (*env)->ReleaseStringUTFChars (env, label, c_label);
+}
+
 static void
 item_toggled (GtkToggleButton *item, jobject peer)
 {
-  //g_print ("toggled\n");
   (*gdk_env)->CallVoidMethod (gdk_env, peer,
 			      postItemEventID,
 			      peer,

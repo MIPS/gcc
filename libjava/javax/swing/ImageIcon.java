@@ -1,5 +1,5 @@
-/* ImageIcon.java -- 
-   Copyright (C) 2002 Free Software Foundation, Inc.
+/* ImageIcon.java --
+   Copyright (C) 2002, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -35,67 +35,107 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
-
 package javax.swing;
 
 import java.awt.Component;
 import java.awt.Graphics;
 import java.awt.Image;
-import java.awt.MediaTracker;
 import java.awt.Toolkit;
+import java.awt.image.ImageObserver;
 import java.io.Serializable;
 import java.net.URL;
-import javax.accessibility.Accessible;
-import javax.accessibility.AccessibleContext;
 
-public class ImageIcon implements Icon
+
+public class ImageIcon
+  implements Icon, Serializable
 {
-    Image image;
-    String file, descr;
-    Component observer;
+  private static final long serialVersionUID = 532615968316031794L;
+  Image image;
+  String description;
+  ImageObserver observer;
 
-  public ImageIcon(String s)
-    {
-	this(s, "");
-    }
+  public ImageIcon()
+  {
+  }
+  
+  public ImageIcon(String file)
+  {
+    this(file, file);
+  }
 
-  public ImageIcon(String file,
-	      String descr)
-    {
-        this.file = file;
-        this.descr = descr;
+  public ImageIcon(String file, String description)
+  {
+    this(Toolkit.getDefaultToolkit().getImage(file), description);
+  }
 
-        image = Toolkit.getDefaultToolkit().getImage(file);
-        if (image == null) {
-            return;
-        }
-        //loadImage(image);
-    }
+  public ImageIcon(byte[] imageData)
+  {
+    this(imageData, null);
+  }
+  
+  public ImageIcon(byte[] imageData, String description)
+  {
+    this(Toolkit.getDefaultToolkit().createImage(imageData), description);
+  }
 
-    // not in SUN's spec !!!
-    public void setParent(Component p)
-    {
-	observer = p;
-    }
+  public ImageIcon(URL url)
+  {
+    this(url, null);
+  }
 
-    public Image getImage() 
-    {  return image;    }
+  public ImageIcon(URL url, String description)
+  {
+    this(Toolkit.getDefaultToolkit().getImage(url), description);
+  }
 
-    public String getDescription() 
-    {  return descr;    }
-    public void setDescription(String description) 
-    {  this.descr = description;    }
+  public ImageIcon(Image image)
+  {
+    this(image, null);
+  }
 
-    public int getIconHeight()
-    {	return image.getHeight(observer);    }
-    public int getIconWidth()
-    {	return image.getWidth(observer);    }
+  public ImageIcon(Image image, String description)
+  {
+    this.image = Toolkit.getDefaultToolkit().createImage(image.getSource());
+    this.description = description;
+  }
+    
+  public ImageObserver getImageObserver()
+  {
+    return observer;
+  }
+  
+  public void setImageObserver(ImageObserver newObserver)
+  {
+    observer = newObserver;
+  }
 
-    public void paintIcon(Component c, 
-			  Graphics g,
-			  int x, 
-			  int y)
-    {
-	g.drawImage(image, x, y, observer);
-    }
+  public Image getImage()
+  {
+    return image;
+  }
+
+  public String getDescription()
+  {
+    return description;
+  }
+
+  public void setDescription(String description)
+  {
+    this.description = description;
+  }
+
+  public int getIconHeight()
+  {
+    return image.getHeight(observer);
+  }
+
+  public int getIconWidth()
+  {
+    return image.getWidth(observer);
+  }
+
+  public void paintIcon(Component c, Graphics g, int x, int y)
+  {
+    g.drawImage(image, x, y, observer != null ? observer : c);
+  }
 }

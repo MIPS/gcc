@@ -44,27 +44,41 @@ exception statement from your version. */
 #include <gdk/gdkx.h>
 #include <X11/Xatom.h>
 
+struct state_table *native_pixbufdecoder_state_table;
+
+/* FIXME: we're currently seeing the double-activation that occurs
+   with metacity and GTK.  See
+   http://bugzilla.gnome.org/show_bug.cgi?id=140977 for details. */
+
 static void window_get_frame_extents (GtkWidget *window,
                                       int *top, int *left,
                                       int *bottom, int *right);
 
 static void request_frame_extents (GtkWidget *window);
 
-static int property_notify_predicate (Display *xdisplay,
-                                      XEvent  *event,
-                                      XPointer window_id);
+static Bool property_notify_predicate (Display *display,
+                                       XEvent  *xevent,
+                                       XPointer arg);
+
+static GtkLayout *find_layout (GtkWindow *window);
 
 static void window_delete_cb (GtkWidget *widget, GdkEvent *event,
 			      jobject peer);
 static void window_destroy_cb (GtkWidget *widget, GdkEvent *event,
 			       jobject peer);
 static void window_show_cb (GtkWidget *widget, jobject peer);
+static void window_active_state_change_cb (GtkWidget *widget,
+                                           GParamSpec *pspec,
+                                           jobject peer);
+static void window_focus_state_change_cb (GtkWidget *widget,
+                                          GParamSpec *pspec,
+                                          jobject peer);
 static gboolean window_focus_in_cb (GtkWidget * widget,
-				    GdkEventFocus *event,
-				    jobject peer);
+                                    GdkEventFocus *event,
+                                    jobject peer);
 static gboolean window_focus_out_cb (GtkWidget * widget,
-				     GdkEventFocus *event,
-				     jobject peer);
+                                     GdkEventFocus *event,
+                                     jobject peer);
 static gboolean window_window_state_cb (GtkWidget *widget,
 					GdkEvent *event,
 					jobject peer);
@@ -72,10 +86,6 @@ static jint window_get_new_state (GtkWidget *widget);
 static gboolean window_property_changed_cb (GtkWidget *widget,
 					    GdkEventProperty *event,
 					    jobject peer);
-
-/*
- * Make a new window.
- */
 
 JNIEXPORT void JNICALL 
 Java_gnu_java_awt_peer_gtk_GtkWindowPeer_create 
@@ -96,7 +106,6 @@ Java_gnu_java_awt_peer_gtk_GtkWindowPeer_create
   insets = (*env)->GetIntArrayElements (env, jinsets, 0);
   insets[0] = insets[1] = insets[2] = insets[3] = 0;
 
-  /* Create global reference and save it for future use */
   NSA_SET_GLOBAL_REF (env, obj);
 
   gdk_threads_enter ();
@@ -155,6 +164,56 @@ Java_gnu_java_awt_peer_gtk_GtkWindowPeer_create
 }
 
 JNIEXPORT void JNICALL
+Java_gnu_java_awt_peer_gtk_GtkWindowPeer_gtkWindowSetTitle
+  (JNIEnv *env, jobject obj, jstring title)
+{
+  const char *c_title;
+  void *ptr;
+
+  ptr = NSA_GET_PTR (env, obj);
+
+  c_title = (*env)->GetStringUTFChars (env, title, NULL);
+
+  gdk_threads_enter ();
+
+  gtk_window_set_title (GTK_WINDOW (ptr), c_title);
+
+  gdk_threads_leave ();
+
+  (*env)->ReleaseStringUTFChars (env, title, c_title);
+}
+
+JNIEXPORT void JNICALL
+Java_gnu_java_awt_peer_gtk_GtkWindowPeer_gtkWindowSetResizable
+  (JNIEnv *env, jobject obj, jboolean resizable)
+{
+  void *ptr;
+
+  ptr = NSA_GET_PTR (env, obj);
+
+  gdk_threads_enter ();
+
+  gtk_window_set_policy (GTK_WINDOW (ptr), resizable, resizable, FALSE);
+
+  gdk_threads_leave ();
+}
+
+JNIEXPORT void JNICALL
+Java_gnu_java_awt_peer_gtk_GtkWindowPeer_gtkWindowSetModal
+  (JNIEnv *env, jobject obj, jboolean modal)
+{
+  void *ptr;
+
+  ptr = NSA_GET_PTR (env, obj);
+
+  gdk_threads_enter ();
+
+  gtk_window_set_modal (GTK_WINDOW (ptr), modal);
+
+  gdk_threads_leave ();
+}
+
+JNIEXPORT void JNICALL
 Java_gnu_java_awt_peer_gtk_GtkWindowPeer_nativeSetVisible
   (JNIEnv *env, jobject obj, jboolean visible)
 {
@@ -179,38 +238,21 @@ Java_gnu_java_awt_peer_gtk_GtkWindowPeer_connectJObject
   (JNIEnv *env, jobject obj)
 {
   void *ptr;
-  GtkWidget* vbox, *layout;
-  GList* children;
+  GtkLayout *layout;
 
   ptr = NSA_GET_PTR (env, obj);
 
   gdk_threads_enter ();
 
-  children = gtk_container_get_children(GTK_CONTAINER(ptr));
-  vbox = children->data;
+  layout = find_layout (GTK_WINDOW (ptr));
 
-  if(!GTK_IS_VBOX(vbox))
-    {
-      printf("*** this is not a vbox\n");
-    }
-  children = gtk_container_get_children(GTK_CONTAINER(vbox));
-  layout = children->data;
+  gtk_widget_realize (GTK_WIDGET (layout));
 
-  if(!GTK_IS_LAYOUT(layout))
-    {
-      printf("*** widget is not a layout ***");
-    }
-
-  gtk_widget_realize (layout);
-
-  connect_awt_hook (env, obj, 1, GTK_LAYOUT (layout)->bin_window);
+  connect_awt_hook (env, obj, 1, layout->bin_window);
 
   gtk_widget_realize (ptr);
 
   connect_awt_hook (env, obj, 1, GTK_WIDGET (ptr)->window);
-
-  g_signal_connect (G_OBJECT (ptr), "property-notify-event",
-		    G_CALLBACK (window_property_changed_cb), obj);
 
   gdk_threads_leave ();
 }
@@ -219,13 +261,23 @@ JNIEXPORT void JNICALL
 Java_gnu_java_awt_peer_gtk_GtkWindowPeer_connectSignals
   (JNIEnv *env, jobject obj)
 {
-  void *ptr = NSA_GET_PTR (env, obj);
-  jobject *gref = NSA_GET_GLOBAL_REF (env, obj);
-  g_assert (gref);
+  void *ptr;
+  jobject *gref;
+  GtkLayout *layout;
+
+  ptr = NSA_GET_PTR (env, obj);
+
+  gref = NSA_GET_GLOBAL_REF (env, obj);
 
   gdk_threads_enter ();
 
   gtk_widget_realize (ptr);
+
+  /* Receive events from the GtkLayout too */
+  layout = find_layout (GTK_WINDOW (ptr));
+
+  g_signal_connect (G_OBJECT (layout), "event",
+                    G_CALLBACK (pre_event_handler), *gref);
 
   /* Connect signals for window event support. */
   g_signal_connect (G_OBJECT (ptr), "delete-event",
@@ -237,41 +289,28 @@ Java_gnu_java_awt_peer_gtk_GtkWindowPeer_connectSignals
   g_signal_connect (G_OBJECT (ptr), "show",
 		    G_CALLBACK (window_show_cb), *gref);
 
+  g_signal_connect (G_OBJECT (ptr), "notify::is-active",
+  		    G_CALLBACK (window_active_state_change_cb), *gref);
+
+  g_signal_connect (G_OBJECT (ptr), "notify::has-toplevel-focus",
+  		    G_CALLBACK (window_focus_state_change_cb), *gref);
+
   g_signal_connect (G_OBJECT (ptr), "focus-in-event",
-		    G_CALLBACK (window_focus_in_cb), *gref);
+                    G_CALLBACK (window_focus_in_cb), *gref);
 
   g_signal_connect (G_OBJECT (ptr), "focus-out-event",
-		    G_CALLBACK (window_focus_out_cb), *gref);
+                    G_CALLBACK (window_focus_out_cb), *gref);
 
   g_signal_connect (G_OBJECT (ptr), "window-state-event",
 		    G_CALLBACK (window_window_state_cb), *gref);
+
+  g_signal_connect (G_OBJECT (ptr), "property-notify-event",
+		    G_CALLBACK (window_property_changed_cb), *gref);
 
   gdk_threads_leave ();
 
   /* Connect the superclass signals.  */
   Java_gnu_java_awt_peer_gtk_GtkComponentPeer_connectSignals (env, obj);
-}
-
-/*
- * Set a frame's title
- */
-
-JNIEXPORT void JNICALL 
-Java_gnu_java_awt_peer_gtk_GtkWindowPeer_setTitle
-  (JNIEnv *env, jobject obj, jstring title)
-{
-  void *ptr;
-  const char *str;
-
-  ptr = NSA_GET_PTR (env, obj);
-  
-  str = (*env)->GetStringUTFChars (env, title, NULL);
-  
-  gdk_threads_enter ();
-  gtk_window_set_title (GTK_WINDOW (ptr), str);
-  gdk_threads_leave ();
-  
-  (*env)->ReleaseStringUTFChars (env, title, str);
 }
 
 /*
@@ -348,6 +387,20 @@ Java_gnu_java_awt_peer_gtk_GtkWindowPeer_nativeSetBounds
 
   gdk_threads_enter ();
   gtk_window_move (GTK_WINDOW(ptr), x, y);
+  /* The call to gdk_window_move is needed in addition to the call to
+     gtk_window_move.  If gdk_window_move isn't called, then the
+     following set of operations doesn't give the expected results:
+
+     1. show a window
+     2. manually move it to another position on the screen
+     3. hide the window
+     4. reposition the window with Component.setLocation
+     5. show the window
+
+     Instead of being at the position set by setLocation, the window
+     is reshown at the position to which it was moved manually. */
+  gdk_window_move (GTK_WIDGET (ptr)->window, x, y);
+
   /* Need to change the widget's request size. */
   gtk_widget_set_size_request (GTK_WIDGET(ptr), width, height);
   /* Also need to call gtk_window_resize.  If the resize is requested
@@ -358,46 +411,196 @@ Java_gnu_java_awt_peer_gtk_GtkWindowPeer_nativeSetBounds
 }
 
 JNIEXPORT void JNICALL
+Java_gnu_java_awt_peer_gtk_GtkFramePeer_removeMenuBarPeer
+  (JNIEnv *env, jobject obj)
+{
+  void *wptr;
+  GtkWidget *box;
+  GtkWidget *mptr;
+  GList* children;
+
+  wptr = NSA_GET_PTR (env, obj);
+  
+  gdk_threads_enter ();
+
+  box = GTK_BIN (wptr)->child;
+  
+  children = gtk_container_get_children (GTK_CONTAINER (box));
+  
+  while (children != NULL && !GTK_IS_MENU_SHELL (children->data)) 
+  {
+    children = children->next;
+  }
+  
+  /* If there isn't a MenuBar in this Frame's list of children
+     then we can just return. */
+  if (!GTK_IS_MENU_SHELL (children->data))
+    return;
+  else
+    mptr = children->data;
+    
+  /* This will actually destroy the MenuBar. By removing it from
+     its parent, the reference count for the MenuBar widget will
+     decrement to 0. The widget will be automatically destroyed 
+     by Gtk. */
+  gtk_container_remove (GTK_CONTAINER (box), GTK_WIDGET (mptr));  
+  
+  gdk_threads_leave();
+}  
+  
+JNIEXPORT void JNICALL
 Java_gnu_java_awt_peer_gtk_GtkFramePeer_setMenuBarPeer
   (JNIEnv *env, jobject obj, jobject menubar)
 {
-  void *wptr, *mptr;
-  GtkBox *box;
-
-  if (!menubar) return;
+  void *wptr;
+  GtkWidget *mptr;
+  GtkWidget *box;
 
   wptr = NSA_GET_PTR (env, obj);
   mptr = NSA_GET_PTR (env, menubar);
-
-  if (!mptr) return; /* this case should remove a menu */
-
+  
   gdk_threads_enter ();
-  box = GTK_BOX (GTK_BIN (wptr)->child);
-  gtk_box_pack_start (box, GTK_WIDGET (mptr), 0, 0, 0);
+
+  box = GTK_BIN (wptr)->child;		    
+  gtk_box_pack_start (GTK_BOX (box), mptr, 0, 0, 0);
+ 
+  gtk_widget_show (mptr);
+
+ 
   gdk_threads_leave ();
 }
 
 JNIEXPORT jint JNICALL
 Java_gnu_java_awt_peer_gtk_GtkFramePeer_getMenuBarHeight
-  (JNIEnv *env, jobject obj)
+  (JNIEnv *env, jobject obj __attribute__((unused)), jobject menubar)
 {
-  void *ptr;
-  GList *children;
-  jint height = 0;
+  GtkWidget *ptr;
+  jint height;
+  GtkRequisition gtkreq;
+  
+  ptr = NSA_GET_PTR (env, menubar);
+
+  gdk_threads_enter ();
+  gtk_widget_size_request (ptr, &gtkreq);
+
+  height = gtkreq.height;
+  gdk_threads_leave ();
+  return height;
+}
+
+JNIEXPORT void JNICALL
+Java_gnu_java_awt_peer_gtk_GtkFramePeer_moveLayout
+  (JNIEnv *env, jobject obj, jint offset)
+{
+  void* ptr;
+  GList* children;
+  GtkLayout* layout;
+  GtkWidget* widget;
 
   ptr = NSA_GET_PTR (env, obj);
 
   gdk_threads_enter ();
-  children = gtk_container_children (GTK_CONTAINER (GTK_BIN (ptr)->child));
-  if (g_list_length (children) == 2)
-    {
-      GtkWidget *menubar = GTK_WIDGET (children->data);
-      height = menubar->allocation.height;
 
-    }
+  layout = find_layout (GTK_WINDOW (ptr));
+
+  children = gtk_container_get_children (GTK_CONTAINER (layout));
+  
+  while (children != NULL)
+  {
+    widget = children->data;
+    gtk_layout_move (layout, widget, widget->allocation.x,
+                     widget->allocation.y+offset);
+    children = children->next;
+  }
+  
+  gdk_threads_leave ();
+}
+  
+JNIEXPORT void JNICALL
+Java_gnu_java_awt_peer_gtk_GtkFramePeer_gtkLayoutSetVisible
+  (JNIEnv *env, jobject obj, jboolean visible)
+{
+  void *ptr;
+  GtkLayout *layout;
+
+  ptr = NSA_GET_PTR (env, obj);
+
+  gdk_threads_enter ();
+
+  layout = find_layout (GTK_WINDOW (ptr));
+
+  if (visible)
+    gtk_widget_show (GTK_WIDGET (layout));
+  else
+    gtk_widget_hide (GTK_WIDGET (layout));
+
+  gdk_threads_leave ();
+}
+
+JNIEXPORT void JNICALL
+Java_gnu_java_awt_peer_gtk_GtkFramePeer_nativeSetIconImageFromDecoder
+  (JNIEnv *env, jobject obj, jobject decoder)
+{
+  void *ptr;
+  GdkPixbufLoader *loader = NULL;
+  GdkPixbuf *pixbuf = NULL;
+
+  ptr = NSA_GET_PTR (env, obj);
+
+  loader = get_state (env, decoder, native_pixbufdecoder_state_table);
+  g_assert (loader != NULL);
+
+  gdk_threads_enter ();
+
+  pixbuf = gdk_pixbuf_loader_get_pixbuf (loader);
+  g_assert (pixbuf != NULL);
+
+  gtk_window_set_icon (GTK_WINDOW (ptr), pixbuf);
+
+  gdk_threads_leave ();
+}
+
+void free_pixbuf_data (guchar *pixels, gpointer data __attribute__((unused)))
+{
+  free(pixels);
+}
+
+JNIEXPORT void JNICALL
+Java_gnu_java_awt_peer_gtk_GtkFramePeer_nativeSetIconImageFromData
+  (JNIEnv *env, jobject obj, jintArray pixelArray, jint width, jint height)
+{
+  void *ptr;
+  GdkPixbuf *pixbuf;
+  jint *pixels;
+  int pixels_length, i;
+  guchar *data;
+
+  ptr = NSA_GET_PTR (env, obj);
+
+  pixels = (*env)->GetIntArrayElements (env, pixelArray, 0);
+  pixels_length = (*env)->GetArrayLength (env, pixelArray);
+
+  data = malloc (sizeof (guchar) * pixels_length);
+  for (i = 0; i < pixels_length; i++)
+    data[i] = (guchar) pixels[i];
+
+  gdk_threads_enter ();
+
+  pixbuf = gdk_pixbuf_new_from_data (data,
+                                     GDK_COLORSPACE_RGB,
+                                     TRUE,
+                                     8,
+                                     width,
+                                     height,
+                                     width*4,
+                                     free_pixbuf_data,
+                                     NULL);
+
+  gtk_window_set_icon (GTK_WINDOW (ptr), pixbuf);
+
   gdk_threads_leave ();
 
-  return height;
+  (*env)->ReleaseIntArrayElements(env, pixelArray, pixels, 0);
 }
 
 static void
@@ -491,7 +694,7 @@ request_frame_extents (GtkWidget *window)
     }
 }
 
-static int
+static Bool
 property_notify_predicate (Display *xdisplay __attribute__((unused)),
                            XEvent  *event,
                            XPointer window_id)
@@ -501,9 +704,9 @@ property_notify_predicate (Display *xdisplay __attribute__((unused)),
   if (event->xany.type == PropertyNotify
       && event->xany.window == *window
       && event->xproperty.atom == extents_atom)
-        return True;
-
-  return False;
+    return True;
+  else
+    return False;
 }
 
 static void
@@ -538,40 +741,65 @@ window_show_cb (GtkWidget *widget __attribute__((unused)),
 			      (jobject) NULL, (jint) 0);
 }
 
-static gboolean
-window_focus_in_cb (GtkWidget * widget __attribute__((unused)),
-		    GdkEventFocus *event __attribute__((unused)),
-		    jobject peer)
+static void
+window_active_state_change_cb (GtkWidget *widget,
+                               GParamSpec *pspec,
+                               jobject peer)
 {
-  /* FIXME: when hiding then showing, we get two sets of
-     (LOST_FOCUS/DEACTIVATED, ACTIVATED/GAINED_FOCUS) events. */
-  (*gdk_env)->CallVoidMethod (gdk_env, peer,
-			      postWindowEventID,
-			      (jint) AWT_WINDOW_ACTIVATED,
-			      (jobject) NULL, (jint) 0);
+  /* FIXME: not sure if this is needed or not. */
+#if 0
+  if (GTK_WINDOW (widget)->is_active)
+    (*gdk_env)->CallVoidMethod (gdk_env, peer,
+                                postWindowEventID,
+                                (jint) AWT_WINDOW_GAINED_FOCUS,
+                                (jobject) NULL, (jint) 0);
+  else
+    (*gdk_env)->CallVoidMethod (gdk_env, peer,
+                                postWindowEventID,
+                                (jint) AWT_WINDOW_DEACTIVATED,
+                                (jobject) NULL, (jint) 0);
+#endif
+}
 
-  (*gdk_env)->CallVoidMethod (gdk_env, peer,
-			      postWindowEventID,
-			      (jint) AWT_WINDOW_GAINED_FOCUS,
-			      (jobject) NULL, (jint) 0);
-  return TRUE;
+static void
+window_focus_state_change_cb (GtkWidget *widget,
+                              GParamSpec *pspec,
+                              jobject peer)
+{
+  if (GTK_WINDOW (widget)->has_toplevel_focus)
+    (*gdk_env)->CallVoidMethod (gdk_env, peer,
+                                postWindowEventID,
+                                (jint) AWT_WINDOW_ACTIVATED,
+                                (jobject) NULL, (jint) 0);
+  else
+    (*gdk_env)->CallVoidMethod (gdk_env, peer,
+                                postWindowEventID,
+                                (jint) AWT_WINDOW_DEACTIVATED,
+                                (jobject) NULL, (jint) 0);
 }
 
 static gboolean
-window_focus_out_cb (GtkWidget * widget __attribute__((unused)),
-		     GdkEventFocus *event __attribute__((unused)),
-		     jobject peer)
+window_focus_in_cb (GtkWidget * widget,
+                   GdkEventFocus *event,
+                   jobject peer)
 {
   (*gdk_env)->CallVoidMethod (gdk_env, peer,
-			      postWindowEventID,
-			      (jint) AWT_WINDOW_LOST_FOCUS,
-			      (jobject) NULL, (jint) 0);
+                              postWindowEventID,
+                              (jint) AWT_WINDOW_GAINED_FOCUS,
+                              (jobject) NULL, (jint) 0);
+  return FALSE;
+}
 
+static gboolean
+window_focus_out_cb (GtkWidget * widget,
+                    GdkEventFocus *event,
+                    jobject peer)
+{
   (*gdk_env)->CallVoidMethod (gdk_env, peer,
-			      postWindowEventID,
-			      (jint) AWT_WINDOW_DEACTIVATED,
-			      (jobject) NULL, (jint) 0);
-  return TRUE;
+                              postWindowEventID,
+                              (jint) AWT_WINDOW_LOST_FOCUS,
+                              (jobject) NULL, (jint) 0);
+  return FALSE;
 }
 
 static gboolean
@@ -675,6 +903,7 @@ window_property_changed_cb (GtkWidget *widget __attribute__((unused)),
 						      gtkwindowpeer,
 						      "postInsetsChangedEvent",
 						      "(IIII)V");
+      id_set = 1;
     }
 
   if (gdk_atom_intern ("_NET_FRAME_EXTENTS", FALSE) == event->atom
@@ -696,4 +925,27 @@ window_property_changed_cb (GtkWidget *widget __attribute__((unused)),
 				(jint) extents[1]); /* right */
 
   return FALSE;
+}
+
+static GtkLayout *
+find_layout (GtkWindow *window)
+{
+  GList* children;
+  GtkBox* vbox;
+  GtkLayout* layout;
+
+  children = gtk_container_get_children (GTK_CONTAINER (window));
+  vbox = children->data;
+  g_assert (GTK_IS_VBOX (vbox));
+
+  children = gtk_container_get_children (GTK_CONTAINER (vbox));
+  do
+  {
+    layout = children->data;
+    children = children->next;
+  }
+  while (!GTK_IS_LAYOUT (layout) && children != NULL);
+  g_assert (GTK_IS_LAYOUT (layout));
+
+  return layout;
 }

@@ -37,76 +37,74 @@ exception statement from your version. */
 
 package javax.swing.table;
 
-// Imports
 import javax.swing.event.TableModelListener;
+
 
 /**
  * TableModel public interface
  * @author Andrew Selkirk
  */
-public interface TableModel {
+public interface TableModel
+{
+  /**
+   * getRowCount
+   * @return row count
+   */
+  int getRowCount();
 
-	/**
-	 * getRowCount
-	 * @returns row count
-	 */
-	int getRowCount();
+  /**
+   * getColumnCount
+   * @return column count
+   */
+  int getColumnCount();
 
-	/**
-	 * getColumnCount
-	 * @returns column count
-	 */
-	int getColumnCount();
+  /**
+   * getColumnName
+   * @param columnIndex Column index
+   * @return Column name
+   */
+  String getColumnName(int columnIndex);
 
-	/**
-	 * getColumnName
-	 * @param columnIndex Column index
-	 * @returns Column name
-	 */
-	String getColumnName(int columnIndex);
+  /**
+   * getColumnClass
+   * @param columnIndex Column index
+   * @return Column class
+   */
+  Class getColumnClass(int columnIndex);
 
-	/**
-	 * getColumnClass
-	 * @param columnIndex Column index
-	 * @returns Column class
-	 */
-	Class getColumnClass(int columnIndex);
+  /**
+   * isCellEditable
+   * @param rowIndex Row index
+   * @param columnIndex Column index
+   * @return true if editable, false otherwise
+   */
+  boolean isCellEditable(int rowIndex, int columnIndex);
 
-	/**
-	 * isCellEditable
-	 * @param rowIndex Row index
-	 * @param columnIndex Column index
-	 * @returns true if editable, false otherwise
-	 */
-	boolean isCellEditable(int rowIndex, int columnIndex);
+  /**
+   * getValueAt
+   * @param rowIndex Row index
+   * @param columnIndex Column index
+   * @return Value at specified indices
+   */
+  Object getValueAt(int rowIndex, int columnIndex);
 
-	/**
-	 * getValueAt
-	 * @param rowIndex Row index
-	 * @param columnIndex Column index
-	 * @returns Value at specified indices
-	 */
-	Object getValueAt(int rowIndex, int columnIndex);
+  /**
+   * setValueAt
+   * @param aValue Value to set
+   * @param rowIndex Row index
+   * @param columnIndex Column index
+   */
+  void setValueAt(Object aValue, int rowIndex, int columnIndex);
 
-	/**
-	 * setValueAt
-	 * @param aValue Value to set
-	 * @param rowIndex Row index
-	 * @param columnIndex Column index
-	 */
-	void setValueAt(Object aValue, int rowIndex, int columnIndex);
+  /**
+   * addTableModelListener
+   * @param listener TableModelListener
+   */
+  void addTableModelListener(TableModelListener listener);
 
-	/**
-	 * addTableModelListener
-	 * @param listener TableModelListener
-	 */
-	void addTableModelListener(TableModelListener listener);
-
-	/**
-	 * removeTableModelListener
-	 * @param listener TableModelListener
-	 */
-	void removeTableModelListener(TableModelListener listener);
-
-
-} // TableModel
+  /**
+   * removeTableModelListener
+   * @param listener TableModelListener
+   */
+  void removeTableModelListener(TableModelListener listener);
+}

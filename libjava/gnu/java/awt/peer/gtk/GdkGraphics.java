@@ -46,6 +46,7 @@ import java.awt.Graphics;
 import java.awt.Image;
 import java.awt.Rectangle;
 import java.awt.Shape;
+import java.awt.SystemColor;
 import java.awt.image.ImageObserver;
 import java.text.AttributedCharacterIterator;
 
@@ -63,7 +64,7 @@ public class GdkGraphics extends Graphics
 
   static final int GDK_COPY = 0, GDK_XOR = 2;
 
-  native int[] initState (GtkComponentPeer component);
+  native void initState (GtkComponentPeer component);
   native void initState (int width, int height);
   native void copyState (GdkGraphics g);
 
@@ -83,15 +84,15 @@ public class GdkGraphics extends Graphics
     initState (width, height);
     color = Color.black;
     clip = new Rectangle (0, 0, width, height);
-    font = new Font ("Dialog", Font.PLAIN, 10);
+    font = new Font ("Dialog", Font.PLAIN, 12);
   }
 
   GdkGraphics (GtkComponentPeer component)
   {
     this.component = component;
-    int rgb[] = initState (component);
-    color = new Color (rgb[0], rgb[1], rgb[2]);
-    font = new Font ("Dialog", Font.PLAIN, 10);
+    initState (component);
+    color = component.awtComponent.getForeground ();
+    font = component.awtComponent.getFont ();
     Dimension d = component.awtComponent.getSize ();
     clip = new Rectangle (0, 0, d.width, d.height);
   }
@@ -149,7 +150,10 @@ public class GdkGraphics extends Graphics
 	return true;
       }
 
-    return drawImage (img, x, y, component.getBackground (), observer);
+    if (component != null)
+      return drawImage (img, x, y, component.getBackground (), observer);
+    else
+      return drawImage (img, x, y, SystemColor.window, observer);
   }
 
   public boolean drawImage (Image img, int x, int y, int width, int height, 
@@ -168,8 +172,12 @@ public class GdkGraphics extends Graphics
   public boolean drawImage (Image img, int x, int y, int width, int height, 
 			    ImageObserver observer)
   {
-    return drawImage (img, x, y, width, height, component.getBackground (),
-		      observer);
+    if (component != null)
+      return drawImage (img, x, y, width, height, component.getBackground (),
+                        observer);
+    else
+      return drawImage (img, x, y, width, height, SystemColor.window,
+                        observer);
   }
 
   public boolean drawImage (Image img, int dx1, int dy1, int dx2, int dy2, 
@@ -191,8 +199,12 @@ public class GdkGraphics extends Graphics
 			    int sx1, int sy1, int sx2, int sy2, 
 			    ImageObserver observer) 
   {
-    return drawImage (img, dx1, dy1, dx2, dy2, sx1, sy1, sx2, sy2,
-		      component.getBackground (), observer);
+    if (component != null)
+      return drawImage (img, dx1, dy1, dx2, dy2, sx1, sy1, sx2, sy2,
+                        component.getBackground (), observer);
+    else
+      return drawImage (img, dx1, dy1, dx2, dy2, sx1, sy1, sx2, sy2,
+                        SystemColor.window, observer);
   }
 
   native public void drawLine (int x1, int y1, int x2, int y2);
@@ -212,10 +224,10 @@ public class GdkGraphics extends Graphics
   native public void drawRect(int x, int y, int width, int height);
   native public void fillRect (int x, int y, int width, int height);
 
-  native void drawString (String str, int x, int y, String fname, int size);
+  native void drawString (String str, int x, int y, String fname, int style, int size);
   public void drawString (String str, int x, int y)
   {
-    drawString (str, x, y, font.getName(), font.getSize());
+    drawString (str, x, y, font.getName(), font.getStyle(), font.getSize());
   }
 
   public void drawString (AttributedCharacterIterator ci, int x, int y)
@@ -226,13 +238,48 @@ public class GdkGraphics extends Graphics
   public void drawRoundRect(int x, int y, int width, int height, 
 			    int arcWidth, int arcHeight)
   {
-    // System.out.println ("drawRoundRect called [UNIMPLEMENTED]");
+    if (arcWidth > width)
+      arcWidth = width;
+    if (arcHeight > height)
+      arcHeight = height;
+
+    int xx = x + width - arcWidth;
+    int yy = y + height - arcHeight;
+
+    drawArc (x, y, arcWidth, arcHeight, 90, 90);
+    drawArc (xx, y, arcWidth, arcHeight, 0, 90);
+    drawArc (xx, yy, arcWidth, arcHeight, 270, 90);
+    drawArc (x, yy, arcWidth, arcHeight, 180, 90);
+
+    int y1 = y + arcHeight / 2;
+    int y2 = y + height - arcHeight / 2;
+    drawLine (x, y1, x, y2);
+    drawLine (x + width, y1, x + width, y2);
+
+    int x1 = x + arcWidth / 2;
+    int x2 = x + width - arcWidth / 2;
+    drawLine (x1, y, x2, y);
+    drawLine (x1, y + height, x2, y + height);
   }
 
   public void fillRoundRect (int x, int y, int width, int height, 
 			     int arcWidth, int arcHeight)
   {
-    // System.out.println ("fillRoundRect called [UNIMPLEMENTED]");
+    if (arcWidth > width)
+      arcWidth = width;
+    if (arcHeight > height)
+      arcHeight = height;
+
+    int xx = x + width - arcWidth;
+    int yy = y + height - arcHeight;
+
+    fillArc (x, y, arcWidth, arcHeight, 90, 90);
+    fillArc (xx, y, arcWidth, arcHeight, 0, 90);
+    fillArc (xx, yy, arcWidth, arcHeight, 270, 90);
+    fillArc (x, yy, arcWidth, arcHeight, 180, 90);
+
+    fillRect (x, y + arcHeight / 2, width, height - arcHeight + 1);
+    fillRect (x + arcWidth / 2, y, width - arcWidth + 1, height);
   }
 
   public Shape getClip ()
@@ -287,7 +334,10 @@ public class GdkGraphics extends Graphics
 
   public void setColor (Color c)
   {
-    color = c;
+    if (c == null)
+      color = new Color (0, 0, 0);
+    else
+      color = c;
 
     if (xorColor == null) /* paint mode */
       setFGColor (color.getRed (), color.getGreen (), color.getBlue ());

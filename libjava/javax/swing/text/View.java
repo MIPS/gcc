@@ -37,6 +37,7 @@ exception statement from your version. */
 
 package javax.swing.text;
 
+import java.awt.Container;
 import java.awt.Graphics;
 import java.awt.Shape;
 import java.util.Vector;
@@ -44,97 +45,134 @@ import javax.swing.SwingConstants;
 
 public abstract class View implements SwingConstants
 {
-    static int BadBreakWeight;    
-    static int ExcellentBreakWeight;
-    static int ForcedBreakWeight;
-    static int GoodBreakWeight;
+  public static final int BadBreakWeight = 0;
+  public static final int ExcellentBreakWeight = 2000;
+  public static final int ForcedBreakWeight = 3000;
+  public static final int GoodBreakWeight = 1000;
 
-    public final static int X_AXIS = 0;
-    public final static int Y_AXIS = 1;
+  public static final int X_AXIS = 0;
+  public static final int Y_AXIS = 1;
     
-    float width, height;
-    Element elt;
-    View parent;
+  private float width, height;
+  private Element elt;
+  private View parent;
 
-    /** 
-     * this vector contains the views ordered at offsets...
-     */
-    Vector v = new Vector();
+  /**
+   * Creates a new <code>View</code> instance.
+   *
+   * @param elem an <code>Element</code> value
+   */
+  public View(Element elem)
+  {
+    elt = elem;
+  }
 
+  public abstract void paint(Graphics g, Shape s);
 
-    public View(Element elem)
-    {
-	elt = elem;
-    }
-
-    public int getViewCount() 
-    {
-	return v.size();
-    }
-
-    public View getView(int a)
-    {
-	return (View) v.get(a);
-    }
+  public void setParent(View a)
+  {
+    parent = a;
+  }
     
-    public void remove(int i)
-    {
-	v.removeElementAt(i);
-    }
+  public View getParent()
+  {
+    return parent;
+  }
     
-    public void insert(int off, View view)
-    {
-	v.insertElementAt(view, off);	
-    }	   
-    
-    public void append(View view)
-    {
-	v.addElement(view);
-    }
-	
-    public void paint(Graphics g, Shape allocation)
-    {
-	System.out.println("view.paint() !!!!");
-    }
+  public void setSize(int w, int h)
+  {
+    width = w;
+    height = h;
+  }
 
-    public void setParent(View a)
-    {
-	parent = a;
-    }
+  public Container getContainer()
+  {
+    return parent != null ? parent.getContainer() : null;
+  }
+  
+  public Document getDocument()
+  {
+    return getElement().getDocument();
+  }
     
-    public View getParent()
-    {
-	return parent;
-    }
-    
-    public void setSize(int w, int h)
-    {
-	width  = w;
-	height = h;
-    }
+  public Element getElement()
+  {
+    return elt;
+  }
 
-    public Document getDocument()
-    {
-	return getElement().getDocument();
-    }
-    
-    public Element getElement()
-    {
-        return elt;
-    }
+  public abstract float getPreferredSpan(int axis);
+  
+  public float getAlignment(int axis)
+  {
+    return 0.5f;
+  }
 
-    public float getPreferredSpan(int a)
-    {
-	switch (a)
-	    {
-	    case X_AXIS:  return width;
-	    case Y_AXIS:  return height;
-	    default:
-		{
-		    System.err.println("I sure wish Java had enums !!! ");
-		    return 0;
-		}
-	    }
-    }
+  public AttributeSet getAttributes()
+  {
+    return elt.getAttributes();
+  }
+  
+  public boolean isVisible()
+  {
+    return true;
+  }
+
+  public int getViewCount()
+  {
+    return 0;
+  }
+  
+  public View getView(int index)
+  {
+    return null;
+  }
+
+  public ViewFactory getViewFactory()
+  {
+    return parent != null ? parent.getViewFactory() : null;
+  }
+
+  public void replace(int offset, int length, View[] views)
+  {
+    // Default implementation does nothing.
+  }
+
+  public void insert(int offset, View view)
+  {
+    View[] array = { view };
+    replace(offset, 1, array);
+  }
+
+  public void append(View view)
+  {
+    View[] array = { view };
+    replace(getViewCount(), 1, array);
+  }
+
+  public void removeAll()
+  {
+    replace(0, getViewCount(), null); 
+  }
+
+  public void remove(int index)
+  {
+    replace(index, 1, null); 
+  }
+
+  public View createFragment(int p0, int p1)
+  {
+    // The default implementation doesn't support fragmentation.
+    return this;
+  }
+
+  public int getStartOffset()
+  {
+    return elt.getStartOffset();
+  }
+
+  public int getEndOffset()
+  {
+    return elt.getEndOffset();
+  }
 }
 

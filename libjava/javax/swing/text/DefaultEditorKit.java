@@ -1,4 +1,4 @@
-/* DefaultEditorKit.java -- 
+/* DefaultEditorKit.java --
    Copyright (C) 2002, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
@@ -37,15 +37,35 @@ exception statement from your version. */
 
 package javax.swing.text;
 
+import java.awt.Toolkit;
+import java.awt.event.ActionEvent;
 import java.io.InputStream;
+import java.io.IOException;
 import java.io.OutputStream;
 import java.io.Reader;
 import java.io.Writer;
 import javax.swing.Action;
 import javax.swing.JEditorPane;
 
+
 public class DefaultEditorKit extends EditorKit
 {
+  public static class BeepAction
+    extends TextAction
+  {
+    public BeepAction()
+    {
+      super(beepAction);
+    }
+
+    public void actionPerformed(ActionEvent event)
+    {
+      Toolkit.getDefaultToolkit().beep();
+    }
+  }
+
+  private static final long serialVersionUID = 9017245433028523428L;
+  
   public static final String backwardAction = "caret-backward";
   public static final String beepAction = "beep";
   public static final String beginAction = "caret-begin";
@@ -60,7 +80,7 @@ public class DefaultEditorKit extends EditorKit
   public static final String downAction = "caret-down";
   public static final String endAction = "caret-end";
   public static final String endLineAction = "caret-end-line";
-  public static final String endOfLineStringProperty = "__EndOfLine__";
+  public static final String EndOfLineStringProperty = "__EndOfLine__";
   public static final String endParagraphAction = "caret-end-paragraph";
   public static final String endWordAction = "caret-end-word";
   public static final String forwardAction = "caret-forward";
@@ -77,16 +97,19 @@ public class DefaultEditorKit extends EditorKit
   public static final String selectionBackwardAction = "selection-backward";
   public static final String selectionBeginAction = "selection-begin";
   public static final String selectionBeginLineAction = "selection-begin-line";
-  public static final String selectionBeginParagraphAction = "selection-begin-paragraph";
+  public static final String selectionBeginParagraphAction =
+    "selection-begin-paragraph";
   public static final String selectionBeginWordAction = "selection-begin-word";
   public static final String selectionDownAction = "selection-down";
   public static final String selectionEndAction = "selection-end";
   public static final String selectionEndLineAction = "selection-end-line";
-  public static final String selectionEndParagraphAction = "selection-end-paragraph";
+  public static final String selectionEndParagraphAction =
+    "selection-end-paragraph";
   public static final String selectionEndWordAction = "selection-end-word";
   public static final String selectionForwardAction = "selection-forward";
   public static final String selectionNextWordAction = "selection-next-word";
-  public static final String selectionPreviousWordAction = "selection-previous-word";
+  public static final String selectionPreviousWordAction =
+    "selection-previous-word";
   public static final String selectionUpAction = "selection-up";
   public static final String selectLineAction = "select-line";
   public static final String selectParagraphAction = "select-paragraph";
@@ -94,48 +117,63 @@ public class DefaultEditorKit extends EditorKit
   public static final String upAction = "caret-up";
   public static final String writableAction = "set-writable";
 
-    void deinstall(JEditorPane c)
-    {
-	//      Called when the kit is being removed from the JEditorPane. 
-    }
-    void install(JEditorPane c)
-    {
-    }
+  public DefaultEditorKit()
+  {
+  }
 
-    Caret createCaret()
-    {
-	return null;
-    }
-    Document createDefaultDocument()
-    {
-        return new PlainDocument();
-    }
+  /**
+   * Called when the kit is being removed from the JEditorPane.
+   */
+  public void deinstall(JEditorPane c)
+  {
+  }
 
-    Action[] getActions()
-    {
-	return null;
-    }
+  public void install(JEditorPane c)
+  {
+  }
 
-    String getContentType()
-    {
-	return "text/plain";
-    }
-    
-    ViewFactory getViewFactory()
-    {
-	return null;
-    }
-    void read(InputStream in, Document doc, int pos)
-    {
-    }
-    void read(Reader in, Document doc, int pos)
-    {
-    }
-    void write(OutputStream out, Document doc, int pos, int len)
-    {
-    }
-    void write(Writer out, Document doc, int pos, int len)
-    {
-    }
+  public Caret createCaret()
+  {
+    return null;
+  }
+
+  public Document createDefaultDocument()
+  {
+    return new PlainDocument();
+  }
+
+  public Action[] getActions()
+  {
+    return null;
+  }
+
+  public String getContentType()
+  {
+    return "text/plain";
+  }
+  
+  public ViewFactory getViewFactory()
+  {
+    return null;
+  }
+
+  public void read(InputStream in, Document doc, int pos)
+    throws BadLocationException, IOException
+  {
+  }
+
+  public void read(Reader in, Document doc, int pos)
+    throws BadLocationException, IOException
+  {
+  }
+
+  public void write(OutputStream out, Document doc, int pos, int len)
+    throws BadLocationException, IOException
+  {
+  }
+
+  public void write(Writer out, Document doc, int pos, int len)
+    throws BadLocationException, IOException
+  {
+  }
 }
-

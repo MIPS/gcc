@@ -1,5 +1,5 @@
-/* GtkArg.java
-   Copyright (C) 1999 Free Software Foundation, Inc.
+/* Native implementation of functions in GThreadNativeMethodRunner
+   Copyright (C) 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -36,26 +36,33 @@ obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
 
-package gnu.java.awt.peer.gtk;
+#include "gnu_java_awt_peer_gtk_GThreadNativeMethodRunner.h"
+#include "gthread-jni.h"
 
-public class GtkArg
+/*
+ * Class:     GThreadNativeMethodRunner
+ * Method:    nativeRun
+ * Signature: (J)V
+ *
+ * Purpose: Run the C function whose function pointer is
+ * 
+ */
+JNIEXPORT void JNICALL 
+Java_gnu_java_awt_peer_gtk_GThreadNativeMethodRunner_nativeRun(JNIEnv *gdk_env, jobject lcl_obj, 
+					 jlong funcAddr, jlong funcArg)
 {
-  String name;
-  Object value;
-
-  public GtkArg (String name, Object value)
-  {
-    this.name = name;
-    this.value = value;
-  }
-
-  public String getName ()
-  {
-    return name;
-  }
-
-  public Object getValue ()
-  {
-    return value;
-  }
+  /* Convert the function's address back into a pointer to a C function. */
+  void *(*funcPtr)(void *) = (void *(*)(void *)) funcAddr;
+  
+  /* We do not need to worry about the return value from funcPtr(); it's
+     just thrown away.  That is part of the g_threads spec, so no reason
+     to worry about returning it.  */
+  (void) funcPtr((void *) funcArg);
+  /* Fall off the end and terminate the thread of control. */
 }
+
+/* Local Variables: */
+/* c-file-style: "gnu" */
+/* End: */
+
+

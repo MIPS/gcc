@@ -42,20 +42,23 @@ exception statement from your version. */
 
 JNIEXPORT void JNICALL
 Java_gnu_java_awt_peer_gtk_GtkButtonPeer_create
-  (JNIEnv *env, jobject obj)
+  (JNIEnv *env, jobject obj, jstring label)
 {
+  const char *c_label;
   GtkWidget *button;
 
-  /* Create global reference and save it for future use */
   NSA_SET_GLOBAL_REF (env, obj);
 
+  c_label = (*env)->GetStringUTFChars (env, label, NULL);
+
   gdk_threads_enter ();
-  
-  button = gtk_button_new();
+
+  button = gtk_button_new_with_label (c_label);
   gtk_widget_show (button);
 
   gdk_threads_leave ();
 
+  (*env)->ReleaseStringUTFChars (env, label, c_label);
   NSA_SET_PTR (env, obj, button);
 }
 
@@ -88,29 +91,46 @@ Java_gnu_java_awt_peer_gtk_GtkButtonPeer_connectSignals
 }
 
 JNIEXPORT void JNICALL 
+Java_gnu_java_awt_peer_gtk_GtkButtonPeer_gtkSetLabel
+  (JNIEnv *env, jobject obj, jstring jtext)
+{
+  const char *text;
+  GtkWidget *label;
+  void *ptr;
+
+  ptr = NSA_GET_PTR (env, obj);
+
+  text = (*env)->GetStringUTFChars (env, jtext, NULL);
+
+  gdk_threads_enter ();
+
+  label = gtk_bin_get_child (GTK_BIN (ptr));
+  gtk_label_set_text (GTK_LABEL (label), text);
+
+  gdk_threads_leave ();
+
+  (*env)->ReleaseStringUTFChars (env, jtext, text);
+}
+
+JNIEXPORT void JNICALL 
 Java_gnu_java_awt_peer_gtk_GtkButtonPeer_gtkSetFont
   (JNIEnv *env, jobject obj, jstring name, jint style, jint size)
 {
   const char *font_name;
   void *ptr;
-  GtkWidget *button;
   GtkWidget *label;
   PangoFontDescription *font_desc;
 
   ptr = NSA_GET_PTR (env, obj);
 
-  button = GTK_WIDGET (ptr);
-  label = gtk_bin_get_child (GTK_BIN(button));
-  
-  if (!label)
-      return;
-
   font_name = (*env)->GetStringUTFChars (env, name, NULL);
 
   gdk_threads_enter();
 
+  label = gtk_bin_get_child (GTK_BIN (ptr));
+
   font_desc = pango_font_description_from_string (font_name);
-  pango_font_description_set_size (font_desc, size * PANGO_SCALE);
+  pango_font_description_set_size (font_desc, size * dpi_conversion_factor);
 
   if (style & AWT_STYLE_BOLD)
     pango_font_description_set_weight (font_desc, PANGO_WEIGHT_BOLD);
@@ -145,12 +165,24 @@ Java_gnu_java_awt_peer_gtk_GtkButtonPeer_gtkWidgetSetForeground
 
   label = gtk_bin_get_child (GTK_BIN(ptr));
 
-  if (!label)
-      return;
-
   gtk_widget_modify_fg (label, GTK_STATE_NORMAL, &color);
   gtk_widget_modify_fg (label, GTK_STATE_ACTIVE, &color);
   gtk_widget_modify_fg (label, GTK_STATE_PRELIGHT, &color);
+
+  gdk_threads_leave ();
+}
+
+JNIEXPORT void JNICALL
+Java_gnu_java_awt_peer_gtk_GtkButtonPeer_gtkActivate
+  (JNIEnv *env, jobject obj)
+{
+  void *ptr;
+
+  ptr = NSA_GET_PTR (env, obj);
+
+  gdk_threads_enter ();
+
+  gtk_widget_activate (GTK_WIDGET (ptr));
 
   gdk_threads_leave ();
 }

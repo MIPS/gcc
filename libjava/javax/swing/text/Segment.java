@@ -1,4 +1,4 @@
-/* Segment.java -- 
+/* Segment.java --
    Copyright (C) 2002, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
@@ -37,71 +37,109 @@ exception statement from your version. */
 
 package javax.swing.text;
 
-public class Segment implements Cloneable, CharacterIterator
+import java.text.CharacterIterator;
+
+
+public class Segment
+  implements Cloneable, CharacterIterator
 {
-    char[] array;
-    int count;
-    int offset;
-    
-    public Object clone()
-    {
-	try {
-	    return super.clone();
-	} catch (Exception e) {
-	    System.err.println("Huuuhhh, this class implements cloneable !!!!!!");
-	    System.err.println("I think there is a bug in this JVM somewhere");
-	}
+  private boolean partialReturn;
+  
+  public char[] array;
+  public int count;
+  public int offset;
+
+  public Segment()
+  {
+  }
+
+  public Segment(char[] array, int offset, int count)
+  {
+    this.array = array;
+    this.offset = offset;
+    this.count = count;
+  }
+  
+  public Object clone()
+  {
+    try
+      {
+	return super.clone();
+      }
+    catch (CloneNotSupportedException e)
+      {
 	return null;
-    }
-    
-    public char current()
-    {
-	return array[getIndex()];
-    }
+      }
+  }
 
-    public char first()
-    {
-	offset = getBeginIndex();
-	return array[offset];
-    }
-    
-    public int getBeginIndex()
-    {
-	return offset;
-    }
-    
-    public int getEndIndex()
-    {
-	return offset + count;
-    }
-    public int getIndex()
-    {
-	return offset;
-    }
-    public char last()
-    {
-	offset = getEndIndex() - 1;
-	return array[offset];
-    }
-    public char next()
-    {
-	offset++;
-	return array[offset];
-    }
-    public char previous()
-    {
-	offset--;
-	return array[offset];
-    }
-    public char setIndex(int position)
-    {
-	offset = position;
-	return array[offset];
-    }
+  public char current()
+  {
+    return array[getIndex()];
+  }
 
-    public String toString()
-    {
-	return new String(array, offset, count);
-    }
+  public char first()
+  {
+    offset = getBeginIndex();
+    return array[offset];
+  }
+
+  public int getBeginIndex()
+  {
+    return offset;
+  }
+
+  public int getEndIndex()
+  {
+    return offset + count;
+  }
+
+  public int getIndex()
+  {
+    return offset;
+  }
+
+  public char last()
+  {
+    offset = getEndIndex() - 1;
+    return array[offset];
+  }
+
+  public char next()
+  {
+    offset++;
+    return array[offset];
+  }
+
+  public char previous()
+  {
+    offset--;
+    return array[offset];
+  }
+
+  public char setIndex(int position)
+  {
+    offset = position;
+    return array[offset];
+  }
+
+  public String toString()
+  {
+    return new String(array, offset, count);
+  }
+
+  /**
+   * @since 1.4
+   */
+  public void setPartialReturn(boolean p)
+  {
+    partialReturn = p;
+  }
+  
+  /**
+   * @since 1.4
+   */
+  public boolean isPartialReturn()
+  {
+    return partialReturn;
+  }
 }
-

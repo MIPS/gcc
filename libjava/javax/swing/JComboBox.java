@@ -1,5 +1,5 @@
 /* JComboBox.java --
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -38,14 +38,26 @@ exception statement from your version. */
 
 package javax.swing;
 
-import java.awt.*;
-import java.awt.event.*;
-import java.beans.*;
-import java.io.*;
-import java.util.*;
-import javax.accessibility.*;
-import javax.swing.event.*;
-import javax.swing.plaf.*;
+import java.awt.ItemSelectable;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.ItemEvent;
+import java.awt.event.ItemListener;
+import java.awt.event.KeyEvent;
+import java.beans.PropertyChangeListener;
+import java.io.IOException;
+import java.io.ObjectOutputStream;
+import java.util.Vector;
+
+import javax.accessibility.Accessible;
+import javax.accessibility.AccessibleAction;
+import javax.accessibility.AccessibleContext;
+import javax.accessibility.AccessibleRole;
+import javax.accessibility.AccessibleSelection;
+import javax.swing.event.ListDataEvent;
+import javax.swing.event.ListDataListener;
+import javax.swing.event.PopupMenuListener;
+import javax.swing.plaf.ComboBoxUI;
 
 /**
  * JComboBox
@@ -57,39 +69,21 @@ public class JComboBox extends JComponent
 {
   private static final long serialVersionUID = 5654585963292734470L;
 
+  /**
+   * AccessibleJComboBox
+   */
+  protected class AccessibleJComboBox extends AccessibleJComponent 
+    implements AccessibleAction, AccessibleSelection
+  {
+    private static final long serialVersionUID = 8217828307256675666L;
 
-	//-------------------------------------------------------------
-	// Classes ----------------------------------------------------
-	//-------------------------------------------------------------
-
-	/**
-	 * AccessibleJComboBox
-	 */
-	protected class AccessibleJComboBox extends AccessibleJComponent 
-			implements AccessibleAction, AccessibleSelection {
-
-		//-------------------------------------------------------------
-		// Variables --------------------------------------------------
-		//-------------------------------------------------------------
-
-
-		//-------------------------------------------------------------
-		// Initialization ---------------------------------------------
-		//-------------------------------------------------------------
-
-		/**
-		 * Constructor AccessibleJComboBox
-		 * @param component TODO
-		 */
-		protected AccessibleJComboBox(JComboBox component) {
-			super(component);
-			// TODO
-		} // AccessibleJComboBox()
-
-
-		//-------------------------------------------------------------
-		// Methods ----------------------------------------------------
-		//-------------------------------------------------------------
+    /**
+     * Constructor AccessibleJComboBox
+     * @param component TODO
+     */
+    protected AccessibleJComboBox()
+    {
+    }
 
 		/**
 		 * getAccessibleChildrenCount
@@ -580,38 +574,6 @@ public class JComboBox extends JComponent
 	} // isPopupVisible()
 
 	/**
-	 * addItemListener
-	 * @param value0 TODO
-	 */
-	public void addItemListener(ItemListener value0) {
-		// TODO
-	} // addItemListener()
-
-	/**
-	 * removeItemListener
-	 * @param value0 TODO
-	 */
-	public void removeItemListener(ItemListener value0) {
-		// TODO
-	} // removeItemListener()
-
-	/**
-	 * addActionListener
-	 * @param value0 TODO
-	 */
-	public void addActionListener(ActionListener value0) {
-		// TODO
-	} // addActionListener()
-
-	/**
-	 * removeActionListener
-	 * @param value0 TODO
-	 */
-	public void removeActionListener(ActionListener value0) {
-		// TODO
-	} // removeActionListener()
-
-	/**
 	 * setActionCommand
 	 * @param value0 TODO
 	 */
@@ -824,16 +786,85 @@ public class JComboBox extends JComponent
 		return null; // TODO
 	} // paramString()
 
-	/**
-	 * getAccessibleContext
-	 * @returns AccessibleContext
-	 */
-	public AccessibleContext getAccessibleContext() {
-		if (accessibleContext == null) {
-			accessibleContext = new AccessibleJComboBox(this);
-		} // if
-		return accessibleContext;
-	} // getAccessibleContext()
+  /**
+   * getAccessibleContext
+   * @returns AccessibleContext
+   */
+  public AccessibleContext getAccessibleContext()
+  {
+    if (accessibleContext == null)
+      accessibleContext = new AccessibleJComboBox();
 
+    return accessibleContext;
+  }
+  
+  /**
+   * addActionListener
+   * @param listener TODO
+   */
+  public void addActionListener (ActionListener listener)
+  {
+    listenerList.add (ActionListener.class, listener);
+  }
 
-} // JComboBox
+  /**
+   * removeActionListener
+   * @param listener TODO
+   */
+  public void removeActionListener (ActionListener listener)
+  {
+    listenerList.remove (ActionListener.class, listener);
+  }
+
+  /**
+   * @since 1.4
+   */
+  public ActionListener[] getActionListeners()
+  {
+    return (ActionListener[]) getListeners (ActionListener.class);
+  }
+
+  /**
+   * addItemListener
+   * @param listener TODO
+   */
+  public void addItemListener(ItemListener listener)
+  {
+    listenerList.add (ItemListener.class, listener);
+  }
+
+  /**
+   * removeItemListener
+   * @param listener TODO
+   */
+  public void removeItemListener(ItemListener listener)
+  {
+    listenerList.remove (ItemListener.class, listener);
+  }
+
+  /**
+   * @since 1.4
+   */
+  public ItemListener[] getItemListeners()
+  {
+    return (ItemListener[]) getListeners (ItemListener.class);
+  }
+
+  public void addPopupMenuListener (PopupMenuListener listener)
+  {
+    listenerList.add (PopupMenuListener.class, listener);
+  }
+
+  public void removePopupMenuListener (PopupMenuListener listener)
+  {
+    listenerList.remove (PopupMenuListener.class, listener);
+  }
+
+  /**
+   * @since 1.4
+   */
+  public PopupMenuListener[] getPopupMenuListeners()
+  {
+    return (PopupMenuListener[]) getListeners (PopupMenuListener.class);
+  }
+}
