@@ -1,3 +1,8 @@
+2003-09-17  Lars Segerlund  <Lars.Segerlund@comsys.se>
+
+	* iresolve.c (gfc_resolve_random_number): Generate _r4 & _r8
+	instead of _4 and _8 as postfix for libgfortran calls.
+
 2003-09-16  Paul Brook  <paul@nowt.org>
 
 	* array.c (compare_bounds): New function.
