@@ -1639,6 +1639,35 @@ rs6000_file_start (void)
       if (*start == '\0')
 	putc ('\n', file);
     }
+#if TARGET_MACHO
+  if (DEFAULT_ABI == ABI_DARWIN)
+    {
+      /* Emit declarations for all code sections at the beginning of the file; this
+        keeps them from being separated by data sections, which can lead to
+        out-of-range branches.  Also align the unlikely text section properly; the
+        first real occurrence of this may be a label within a function, which does
+        not otherwise get aligned.  */
+      if (flag_pic || MACHO_DYNAMIC_NO_PIC_P || flag_reorder_blocks_and_partition)
+       {
+         fprintf (asm_out_file, "\t.section __TEXT,__text,regular,pure_instructions\n");
+         if (flag_reorder_blocks_and_partition)
+           {
+             fprintf (asm_out_file, "\t.section __TEXT,__unlikely,regular,pure_instructions\n");
+             fprintf (asm_out_file, "\t.align 2\n");
+           }
+         if (MACHO_DYNAMIC_NO_PIC_P )
+           {
+             fprintf (asm_out_file, "\t.section __TEXT,__symbol_stub1,");
+             fprintf (asm_out_file, "symbol_stubs,pure_instructions,16\n");
+           }
+         else
+           {
+             fprintf (asm_out_file, "\t.section __TEXT,__picsymbolstub1,");
+             fprintf (asm_out_file, "symbol_stubs,pure_instructions,32\n");
+           }
+       }
+    }
+#endif
 }
 
 /* Return nonzero if this function is known to have a null epilogue.  */

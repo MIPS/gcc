@@ -1772,6 +1772,7 @@ rtl_dump_bb (basic_block bb, FILE *outf, int indent)
   dump_regset (bb->global_live_at_start, outf);
   putc ('\n', outf);
 
+  if (BB_HEAD (bb))
   for (insn = BB_HEAD (bb), last = NEXT_INSN (BB_END (bb)); insn != last;
        insn = NEXT_INSN (insn))
     print_rtl_single (outf, insn);

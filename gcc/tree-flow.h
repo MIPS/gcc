@@ -457,6 +457,7 @@ extern void bsi_replace (const block_stmt_iterator *, tree, bool);
 /* Location to track pending stmt for edge insertion.  */
 #define PENDING_STMT(e)	((e)->insns.t)
 
+extern void build_tree_cfg (tree *);
 extern void delete_tree_cfg_annotations (void);
 extern void disband_implicit_edges (void);
 extern bool stmt_ends_bb_p (tree);
@@ -483,7 +484,8 @@ extern tree last_and_only_stmt (basic_block);
 extern edge find_taken_edge (basic_block, tree);
 extern void cfg_remove_useless_stmts (void);
 extern edge thread_edge (edge, basic_block);
-extern basic_block label_to_block (tree);
+extern basic_block label_to_block_fn (struct function *, tree);
+#define label_to_block(t) (label_to_block_fn (cfun, t))
 extern void tree_optimize_tail_calls (bool, enum tree_dump_index);
 extern edge tree_block_forwards_to (basic_block bb);
 extern void bsi_insert_on_edge (edge, tree);
@@ -685,6 +687,9 @@ void vn_delete (void);
 
 /* In tree-sra.c  */
 void insert_edge_copies (tree stmt, basic_block bb);
+
+/* In tree-profile.c */
+extern bool do_tree_profiling (void);
 
 #include "tree-flow-inline.h"
 
