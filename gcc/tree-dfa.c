@@ -905,7 +905,12 @@ add_call_clobber_ops (tree stmt, voperands_t prev_vops)
       for (i = 0; i < num_call_clobbered_vars; i++)
 	{
 	  tree var = call_clobbered_var (i);
-	  add_stmt_operand (&var, stmt, opf_force_vop|opf_is_def, prev_vops);
+
+	  /* If VAR is read-only, don't add a VDEF, just a VUSE operand.  */
+	  if (!TREE_READONLY (var))
+	    add_stmt_operand (&var, stmt, opf_force_vop|opf_is_def, prev_vops);
+	  else
+	    add_stmt_operand (&var, stmt, opf_force_vop, prev_vops);
 	}
     }
 }

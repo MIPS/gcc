@@ -1,3 +1,8 @@
+2003-10-09  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-dfa.c (add_call_clobber_ops): If a variable is read-only,
+	add a VUSE operand instead of VDEF.
+
 2003-10-08  Jason Merrill  <jason@redhat.com>
 
 	PR optimization/12525
