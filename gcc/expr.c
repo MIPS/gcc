@@ -6613,9 +6613,50 @@ expand_operands (tree exp0, tree exp1, rtx target, rtx *op0, rtx *op1,
    Intermediate values must go elsewhere.   Additionally, calls to
    emit_block_move will be flagged with BLOCK_OP_CALL_PARM.  */
 
+static rtx expand_expr_1 (tree, rtx, enum machine_mode, enum expand_modifier);
+
 rtx
 expand_expr (tree exp, rtx target, enum machine_mode tmode,
 	     enum expand_modifier modifier)
+{
+  /* Handle ERROR_MARK before anybody tries to access its type.  */
+  if (TREE_CODE (exp) == ERROR_MARK
+      || TREE_CODE (TREE_TYPE (exp)) == ERROR_MARK)
+    {
+      rtx ret = CONST0_RTX (tmode);
+      return ret ? ret : const0_rtx;
+    }
+
+  /* If this is an expression of some kind and it has an associated line
+     number, then emit the line number before expanding the expression. 
+
+     We need to save and restore the file and line information so that
+     errors discovered during expansion are emitted with the right
+     information.  It would be better of the diagnostic routines 
+     used the file/line information embedded in the tree nodes rather
+     than globals.  */
+  if (cfun && EXPR_LOCUS (exp))
+    {
+      location_t saved_location;
+      rtx ret;
+
+      saved_location = input_location;
+      input_location = *EXPR_LOCUS (exp);
+      emit_line_note (input_location);
+
+      ret = expand_expr_1 (exp, target, tmode, modifier);
+
+      input_location = saved_location;
+
+      return ret;
+    }
+
+  return expand_expr_1 (exp, target, tmode, modifier);
+}
+
+static rtx
+expand_expr_1 (tree exp, rtx target, enum machine_mode tmode,
+	       enum expand_modifier modifier)
 {
   rtx op0, op1, temp;
   tree type = TREE_TYPE (exp);
@@ -6626,15 +6667,6 @@ expand_expr (tree exp, rtx target, enum machine_mode tmode,
   rtx subtarget, original_target;
   int ignore;
   tree context;
-
-  /* Handle ERROR_MARK before anybody tries to access its type.  */
-  if (TREE_CODE (exp) == ERROR_MARK || TREE_CODE (type) == ERROR_MARK)
-    {
-      op0 = CONST0_RTX (tmode);
-      if (op0 != 0)
-	return op0;
-      return const0_rtx;
-    }
 
   mode = TYPE_MODE (type);
   /* Use subtarget as the target for operand 0 of a binary operation.  */
@@ -6754,45 +6786,6 @@ expand_expr (tree exp, rtx target, enum machine_mode tmode,
       && ! (code == CONSTRUCTOR && GET_MODE_SIZE (mode) > UNITS_PER_WORD)
       && ! (code == CALL_EXPR && aggregate_value_p (exp, exp)))
     target = 0;
-
-
-  /* If this is an expression of some kind and it has an associated line
-     number, then emit the line number before expanding the expression. 
-
-     We need to save and restore the file and line information so that
-     errors discovered during expansion are emitted with the right
-     information.  It would be better of the diagnostic routines 
-     used the file/line information embedded in the tree nodes rather
-     than globals.  */
-  if (cfun
-      && EXPR_LOCUS (exp))
-      {
-	const char *saved_input_filename = input_filename;
-	int saved_lineno = input_line;
-	location_t *saved_locus = EXPR_LOCUS (exp);
-	rtx to_return;
-
-	/* Update the global file line information and emit the note.  */
-	input_filename = EXPR_FILENAME (exp);
-	input_line = EXPR_LINENO (exp);
-	emit_line_note (input_location);
-
-	/* This is a gross hack.  Temporarily remove the locus information
-	   and re-call expand_expr.
-
-	   Long term this should be changed to have the exit paths from
-	   expand_expr restore the global file and line information so
-	   we can avoid this recursive call.  */
-	SET_EXPR_LOCUS (exp, NULL);
-	to_return = expand_expr (exp, (ignore ? const0_rtx : target),
-				 tmode, modifier);
-
-	/* Restore the locus and global file line information.  */
-	SET_EXPR_LOCUS (exp, saved_locus);
-	input_filename = saved_input_filename;
-	input_line = saved_lineno;
-	return to_return;
-      }
 
   switch (code)
     {

@@ -1,3 +1,8 @@
+2003-10-14  Richard Henderson  <rth@redhat.com>
+
+	* expr.c (expand_expr): Break out EXPR_LOCUS code from ...
+	(expand_expr_1): ... here, renamed from expand_expr.
+
 2003-10-13  Richard Henderson  <rth@redhat.com>
 
 	* c-simplify.c (c_gimplify_stmt): Upreate on location_t and not
