@@ -1455,11 +1455,13 @@ javax/swing/text/GapContent.java \
 javax/swing/text/Highlighter.java \
 javax/swing/text/JTextComponent.java \
 javax/swing/text/Keymap.java \
+javax/swing/text/LayeredHighlighter.java \
 javax/swing/text/PlainDocument.java \
 javax/swing/text/PlainEditorKit.java \
 javax/swing/text/Position.java \
 javax/swing/text/Segment.java \
 javax/swing/text/Style.java \
+javax/swing/text/TabExpander.java \
 javax/swing/text/View.java \
 javax/swing/text/ViewFactory.java \
 javax/swing/text/MutableAttributeSet.java \

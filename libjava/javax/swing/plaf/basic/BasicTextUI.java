@@ -41,6 +41,7 @@ package javax.swing.plaf.basic;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Graphics;
+import java.awt.Insets;
 import java.awt.Point;
 import java.awt.Rectangle;
 
@@ -54,6 +55,7 @@ import javax.swing.text.DefaultCaret;
 import javax.swing.text.DefaultEditorKit;
 import javax.swing.text.EditorKit;
 import javax.swing.text.Element;
+import javax.swing.text.Highlighter;
 import javax.swing.text.JTextComponent;
 import javax.swing.text.Position;
 import javax.swing.text.View;
@@ -95,7 +97,47 @@ public abstract class BasicTextUI extends TextUI
     super.installUI(c);
 
     textComponent = (JTextComponent) c;
+    
+    installDefaults();
+    installListeners();
+    installKeyboardActions();
   }
+
+  protected void installDefaults()
+  {
+  }
+
+  protected void installListeners()
+  {
+  }
+
+  protected void installKeyboardActions()
+  {
+  }
+  
+  public void uninstallUI(final JComponent c)
+  {
+    super.uninstallUI(c);
+    view = null;
+
+    uninstallDefaults();
+    uninstallListeners();
+    uninstallKeyboardActions();
+  }
+
+  protected void uninstallDefaults()
+  {
+  }
+
+  protected void uninstallListeners()
+  {
+  }
+
+  protected void uninstallKeyboardActions()
+  {
+  }
+  
+  protected abstract String getPropertyPrefix();
 
   public Dimension getPreferredSize(JComponent c)
   {
@@ -106,10 +148,33 @@ public abstract class BasicTextUI extends TextUI
 
     return new Dimension((int) w, (int) h);
   }
-
-  public void paint(Graphics g, JComponent c)
+  
+  public final void paint(Graphics g, JComponent c)
   {
-    //	view.paint(
+    paintSafely(g);
+  }
+
+  protected void paintSafely(Graphics g)
+  {
+    Caret caret = textComponent.getCaret();
+    Highlighter highlighter = textComponent.getHighlighter();
+    
+    if (textComponent.isOpaque())
+      paintBackground(g);
+    
+    view.paint(g, getVisibleEditorRect());
+
+    if (highlighter != null)
+      highlighter.paint(g);
+
+    if (caret != null)
+      caret.paint(g);
+  }
+
+  protected void paintBackground(Graphics g)
+  {
+    g.setColor(Color.WHITE); // FIXME: set background color
+    g.fillRect(0, 0, textComponent.getWidth(), textComponent.getHeight());
   }
 
   public void damageRange(JTextComponent t, int p0, int p1)
@@ -172,6 +237,20 @@ public abstract class BasicTextUI extends TextUI
   {
     // subclasses have to implement this to get this functionality
     return null;
+  }
+  
+  protected Rectangle getVisibleEditorRect()
+  {
+    int width = textComponent.getWidth();
+    int height = textComponent.getHeight();
+
+    if (width <= 0 || height <= 0)
+      return null;
+	
+    Insets insets = textComponent.getInsets();
+    return new Rectangle(insets.left, insets.top,
+			 width - insets.left + insets.right,
+			 height - insets.top + insets.bottom);
   }
 
   protected final void setView(View v)

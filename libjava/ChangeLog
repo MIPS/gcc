@@ -1,6 +1,28 @@
 2004-06-23  Michael Koch  <konqueror@gmx.de>
 
 	* javax/swing/plaf/basic/BasicTextUI.java
+	(installUI): Call specialized install methods.
+	(installDefaults): New method.
+	(installListeners): Likewise.
+	(installKeyboardActions): Likewise.
+	(uninstallUI): Likewise.
+	(uninstallDefaults): New method.
+	(uninstallListeners): Likewise.
+	(uninstallKeyboardActions): Likewise.
+	(getPropertyPrefix): New abstract method.
+	(paint): Made final, just call paintSafely().
+	(paintSavely): New method.
+	(paintBackground): Likewise.
+	(getVisibleEditorRect): Likewise.
+	* javax/swing/text/LayeredHighlighter.java,
+	javax/swing/text/TabExpander.java: New files.
+	* Makefile.am: Added javax/swing/text/LayeredHighlighter.java
+	and javax/swing/text/TabExpander.java.
+	* Makefile.in: Regenerated.
+
+2004-06-23  Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/plaf/basic/BasicTextUI.java
 	(BasicTextUI): Made abstract.
 	(BasicCaret): New inner class.
 	(view): Don't explicitely initialize with "null".
