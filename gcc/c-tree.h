@@ -43,7 +43,7 @@ struct lang_identifier
 
 /* Language-specific declaration information.  */
 
-struct lang_decl
+struct lang_decl GTY(())
 {
   struct c_lang_decl base;
   /* The return types and parameter types may have variable size.
@@ -107,10 +107,10 @@ struct lang_decl
   (DECL_LANG_SPECIFIC (NODE)->base.declared_inline)
 
 /* In a RECORD_TYPE, a sorted array of the fields of the type.  */
-struct lang_type
+struct lang_type GTY(())
 {
   int len;
-  tree elts[1];
+  tree GTY((length ("%.len"))) elts[1];
 };
 
 /* Record whether a type or decl was written with nonconstant size.

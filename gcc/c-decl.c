@@ -7113,14 +7113,10 @@ lang_mark_tree (t)
       ggc_mark_tree (i->error_locus);
       ggc_mark_tree (i->limbo_value);
     }
-  else if (TYPE_P (t) && TYPE_LANG_SPECIFIC (t))
-    ggc_mark (TYPE_LANG_SPECIFIC (t));
-  else if (DECL_P (t) && DECL_LANG_SPECIFIC (t))
-    {
-      ggc_mark (DECL_LANG_SPECIFIC (t));
-      c_mark_lang_decl (&DECL_LANG_SPECIFIC (t)->base);
-      ggc_mark_tree (DECL_LANG_SPECIFIC (t)->pending_sizes);
-    }
+  else if (TYPE_P (t))
+    gt_ggc_m_lang_type (TYPE_LANG_SPECIFIC (t));
+  else if (DECL_P (t))
+    gt_ggc_m_lang_decl (DECL_LANG_SPECIFIC (t));
 }
 
 /* The functions below are required for functionality of doing

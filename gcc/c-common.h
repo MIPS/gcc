@@ -281,7 +281,7 @@ typedef struct stmt_tree_s *stmt_tree;
 /* Global state pertinent to the current function.  Some C dialects
    extend this structure with additional fields.  */
 
-struct language_function {
+struct language_function GTY(()) {
   /* While we are parsing the function, this contains information
      about the statement-tree that we are building.  */
   struct stmt_tree_s x_stmt_tree;
@@ -353,7 +353,7 @@ extern void c_finish_while_stmt_cond		PARAMS ((tree, tree));
    structure for FUNCTION_DECLs; all other DECLs have a NULL
    DECL_LANG_SPECIFIC field.  */
 
-struct c_lang_decl {
+struct c_lang_decl GTY(()) {
   unsigned declared_inline : 1;
 };
 

@@ -1,3 +1,12 @@
+2002-04-27  Geoffrey Keating  <geoffk@redhat.com>
+
+	* c-common.h (struct language_function): Use gengtype.
+	(struct c_lang_decl): Likewise.
+	* c-tree.h (struct lang_decl): Likewise.
+	(struct lang_type): Likewise.
+	* c-decl.c (lang_mark_tree): Use generated marker routines to mark
+	tree language substructures.
+
 2002-04-25  Geoffrey Keating  <geoffk@redhat.com>
 
 	* stringpool.c (mark_ident): Replace ggc_mark_nonnull_tree with
