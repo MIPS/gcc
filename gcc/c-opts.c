@@ -560,6 +560,10 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 	disable_builtin_function (arg);
       break;
 
+    case OPT_fdisable_typechecking_for_spec:
+      disable_typechecking_for_spec_flag = value;
+      break;
+
     case OPT_fdollars_in_identifiers:
       cpp_opts->dollars_in_ident = value;
       break;

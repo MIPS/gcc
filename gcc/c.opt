@@ -480,6 +480,10 @@ fdefault-inline
 C++ ObjC++
 Inline member functions by default
 
+fdisable-typechecking-for-spec
+C C++
+Make crossfile type mismatches warnings not errors (for SPEC)
+
 fdollars-in-identifiers
 C ObjC C++ ObjC++
 Permit '$' as an identifier character

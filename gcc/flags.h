@@ -298,4 +298,6 @@ extern const char *flag_random_seed;
 #define HONOR_SIGN_DEPENDENT_ROUNDING(MODE) \
   (MODE_HAS_SIGN_DEPENDENT_ROUNDING (MODE) && flag_rounding_math)
 
+extern int disable_typechecking_for_spec_flag;
+
 #endif /* ! GCC_FLAGS_H */

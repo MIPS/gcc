@@ -1,4 +1,13 @@
-2004-10-04  Caroline Tice <ctice@apple.com>
+2004-10-05  Caroline Tice  <ctice@apple.com>
+
+	* c-common.c (disable_typechecking_for_spec_flag): New flag.
+	* c-decl.c (disable_typechecking_for_spec_flag): Remove macro definition.
+	* c-opts.c (c_common_handle_option): Handle new flag.
+	* c.opt (fdisable-typechecking-for-spec): New flag option.
+	* flags.h (disable_typechecking_for_spec_flag):  Extern declaration for
+	new flag.
+
+2004-10-04  Caroline Tice  <ctice@apple.com>
 
 	* struct-reorg.c (opts.h): New include statement.
 	(whole_program_p): New function.

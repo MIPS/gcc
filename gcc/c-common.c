@@ -330,6 +330,10 @@ int flag_hosted = 1;
 
 int warn_main;
 
+/* This makes type conflicts a warning, instead of an error,
+   to work around some problems with SPEC.  */
+
+int disable_typechecking_for_spec_flag;
 
 /* ObjC language option variables.  */
 

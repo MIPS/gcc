@@ -62,7 +62,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "langhooks-def.h"
 #include "tree-flow.h"
 
-#define disable_typechecking_for_spec_flag 1
 /* In grokdeclarator, distinguish syntactic contexts of declarators.  */
 enum decl_context
 { NORMAL,			/* Ordinary declaration */
