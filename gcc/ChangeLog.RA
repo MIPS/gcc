@@ -2,7 +2,8 @@
 
 	* new-regalloc.c: Use debug_msg in rest of places.
 	(adjacent): Fix same type of traversal through regset problem.
-	
+	(is_reg_candidate): Also a reg candidate if it has a use.
+
 2001-02-02  Geert Bosch  <bosch@gnat.com)
 
 	* new-regalloc.c: Add debug_msg to output based on debug_regalloc

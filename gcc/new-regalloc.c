@@ -556,7 +556,8 @@ static int
 is_reg_candidate (regno)
      unsigned int regno;
 {
-  return DF_REGNO_FIRST_DEF (df_analyzer, regno) != 0;
+  return DF_REGNO_FIRST_DEF (df_analyzer, regno) != 0 
+    || DF_REGNO_LAST_USE (df_analyzer, regno) != 0;
 }
 
 /* Determine if a given rtx is a candidate move.  */
