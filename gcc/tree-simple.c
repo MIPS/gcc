@@ -510,9 +510,6 @@ is_simple_condexpr (t)
 	      : simp_expr
 	      | '*' ID
 	      | '&' varname
-	      | '&' CONST		=> Needed for constant strings.
-					   Not present in the original
-					   grammar.
 	      | call_expr
 	      | unop val
 	      | '(' cast ')' varname
@@ -543,8 +540,7 @@ is_simple_unary_expr (t)
     return 1;
 
   if (TREE_CODE (t) == ADDR_EXPR
-      && (is_simple_varname (TREE_OPERAND (t, 0))
-	  || is_simple_const (TREE_OPERAND (t, 0))))
+      && is_simple_varname (TREE_OPERAND (t, 0)))
     return 1;
 
   if (is_simple_call_expr (t))
@@ -573,6 +569,16 @@ is_simple_unary_expr (t)
 
   /* Addition to the original grammar.  Allow VA_ARG_EXPR nodes.  */
   if (TREE_CODE (t) == VA_ARG_EXPR)
+    return 1;
+
+  /* Addition to the original grammar.  Allow compound literals.
+     FIXME: Should we deal with these differently?  */
+  if (TREE_CODE (t) == COMPOUND_LITERAL_EXPR)
+    return 1;
+
+  /* Addition to the original grammar.  Allow constructor expressions.
+     FIXME: Should we deal with these differently?  */
+  if (TREE_CODE (t) == CONSTRUCTOR)
     return 1;
 
   return 0;
@@ -665,6 +671,12 @@ int
 is_simple_const (t)
      tree t;
 {
+  STRIP_NOPS (t);
+
+  if (TREE_CODE (t) == ADDR_EXPR
+      && TREE_CODE (TREE_OPERAND (t, 0)) == STRING_CST)
+    return 1;
+
   return (TREE_CODE (t) == INTEGER_CST
 	  || TREE_CODE (t) == REAL_CST
 	  || TREE_CODE (t) == STRING_CST

@@ -3032,7 +3032,7 @@ enum tree_dump_index
   TDI_inlined,			/* dump each function after inlining
 				   within it.  */
   TDI_cfg,			/* dump the flowgraph for each function.  */
-  TDI_dot,			/* create a GraphViz graph file for each 
+  TDI_dot,			/* create a dot graph file for each 
 				   function's flowgraph.  */
   TDI_ssa,			/* dump SSA information for each function.  */
   TDI_simple,			/* dump each function before and after 

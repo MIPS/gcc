@@ -247,7 +247,7 @@ in the following sections.
 -fdump-class-hierarchy@r{[}-@var{n}@r{]} @gol
 -fdump-tree-original@r{[}-@var{n}@r{]} -fdump-tree-optimized@r{[}-@var{n}@r{]} @gol
 -fdump-tree-inlined@r{[}-@var{n}@r{]} @gol
--fdump-tree-cfg -fdump-tree-graphviz -fdump-tree-ssa@r{[}-@var{n}@r{]} @gol
+-fdump-tree-cfg -fdump-tree-dot -fdump-tree-ssa@r{[}-@var{n}@r{]} @gol
 -fdump-tree-simple@r{[}-unparse@r{]} @gol
 -fmem-report @gol
 -fprofile-arcs  -ftest-coverage  -ftime-report @gol
@@ -3079,11 +3079,10 @@ Dump after function inlining, to @file{@var{file}.inlined}.
 Dump the control flow graph of each function to a file.  The file name is
 made by appending @file{.cfg} to the source file name.
 
-@item graphviz
-@opindex fdump-tree-graphviz
-Dump a representation of the control flow graph, suitable for viewing with
-GraphViz, to a file.  The file name is made by appending @file{.dot} to the
-source file name.
+@item dot
+@opindex fdump-tree-dot
+Dump a dot language representation of the control flow graph to a file.  The
+file name is made by appending @file{.dot} to the source file name.
 
 @item ssa
 @opindex fdump-tree-ssa

@@ -122,7 +122,7 @@ tree_find_basic_blocks (t)
       /* Create the edges of the flowgraph.  */
       make_edges ();
 
-      /* Write the flowgraph to a GraphViz file.  */
+      /* Write the flowgraph to a dot file.  */
       dump_file = dump_begin (TDI_dot, &dump_flags);
       if (dump_file)
 	{
@@ -2562,8 +2562,7 @@ tree_dump_cfg (file)
 
 /* {{{ tree_cfg2dot()
 
-   Dump the flowgraph to a .dot FILE to be visualized with GraphViz.
-   See http://www.graphviz.org/  */
+   Dump the flowgraph to a .dot FILE.  */
 
 void
 tree_cfg2dot (file)

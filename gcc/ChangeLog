@@ -1,3 +1,35 @@
+2002-05-02  Diego Novillo  <dnovillo@redhat.com>
+
+	* c-simplify.c (simplify_expr): Constify first argument.
+	Always work on a copy of the input expression.
+	Do not simplify COMPOUND_LITERAL_EXPR nor CONSTRUCTOR nodes.
+	(simplify_array_ref): Constify first argument.  Always work on a
+	copy of the input expression.
+	(simplify_self_mod_expr): Ditto.
+	(simplify_component_ref): Ditto.
+	(simplify_call_expr): Ditto.
+	(simplify_tree_list): Ditto.
+	(simplify_cond_expr): Ditto.
+	When building the THEN_CLAUSE and ELSE_CLAUSE for the new IF_STMT,
+	create a scope for them and simplify the scope, not the expression.
+	(simplify_modify_expr): Constify first argument.  Always work on a
+	copy of the input expression.
+	(simplify_boolean_expr): Ditto.
+	(simplify_compound_expr): Ditto.
+	(simplify_save_expr): Ditto.
+	(simplify_expr_wfl): Ditto.
+	* tree-cfg.c (tree_find_basic_blocks): Update comments for
+	-fdump-tree-dot.
+	(tree_dump_cfg): Ditto.
+	* tree-dump.c (dump_files): Rename -fdump-tree-graphviz to
+	-fdump-tree-dot.
+	* tree-simple.c (is_simple_unary_expr): Do not handle &CONST
+	expressions.
+	Handle COMPOUND_LITERAL_EXPR and CONSTRUCTOR nodes.
+	(is_simple_const): Strip NOPS and handle &CONST expressions.
+	* tree.h (enum tree_dump_index): Remove references to GraphViz.
+	* doc/invoke.texi: Update documentation for -fdump-tree-dot.
+
 2002-05-02  Sebastian Pop  <s.pop@laposte.net>
 
 	* c-pretty-print.c (dump_c_node): Don't print declarations

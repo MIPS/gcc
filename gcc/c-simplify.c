@@ -60,20 +60,20 @@ static tree simplify_do_stmt         PARAMS ((tree));
 static tree simplify_switch_stmt     PARAMS ((tree, tree *));
 static tree simplify_decl_stmt       PARAMS ((tree, tree *));
 static tree simplify_if_stmt         PARAMS ((tree, tree *));
-static tree simplify_expr            PARAMS ((tree, tree *, tree *,
+static tree simplify_expr            PARAMS ((const tree, tree *, tree *,
                                               int (*) PARAMS ((tree)), int));
-static tree simplify_array_ref       PARAMS ((tree, tree *, tree *));
-static tree simplify_self_mod_expr   PARAMS ((tree, tree *, tree *));
-static tree simplify_component_ref   PARAMS ((tree, tree *, tree *));
-static tree simplify_call_expr       PARAMS ((tree, tree *, tree *));
-static tree simplify_tree_list       PARAMS ((tree, tree *, tree *));
-static tree simplify_cond_expr       PARAMS ((tree, tree *, tree *));
-static tree simplify_modify_expr     PARAMS ((tree, tree *, tree *));
-static tree simplify_boolean_expr    PARAMS ((tree, tree *, tree *));
-static tree simplify_compound_expr   PARAMS ((tree, tree *, tree *));
-static tree simplify_save_expr       PARAMS ((tree, tree *, tree *,
+static tree simplify_array_ref       PARAMS ((const tree, tree *, tree *));
+static tree simplify_self_mod_expr   PARAMS ((const tree, tree *, tree *));
+static tree simplify_component_ref   PARAMS ((const tree, tree *, tree *));
+static tree simplify_call_expr       PARAMS ((const tree, tree *, tree *));
+static tree simplify_tree_list       PARAMS ((const tree, tree *, tree *));
+static tree simplify_cond_expr       PARAMS ((const tree, tree *, tree *));
+static tree simplify_modify_expr     PARAMS ((const tree, tree *, tree *));
+static tree simplify_boolean_expr    PARAMS ((const tree, tree *, tree *));
+static tree simplify_compound_expr   PARAMS ((const tree, tree *, tree *));
+static tree simplify_save_expr       PARAMS ((const tree, tree *, tree *,
                                               int (*) PARAMS ((tree)), int));
-static tree simplify_expr_wfl        PARAMS ((tree, tree *, tree *,
+static tree simplify_expr_wfl        PARAMS ((const tree, tree *, tree *,
                                               int (*) PARAMS ((tree)), int));
 static void make_type_writable       PARAMS ((tree));
 static tree add_tree                 PARAMS ((tree, tree *));
@@ -894,8 +894,8 @@ simplify_decl_stmt (t, post_p)
 
 /** {{{ simplify_expr ()
 
-    Simplifies the expression tree rooted at EXPR.  Returns the simplified
-    version of EXPR.
+    Simplifies the expression tree rooted at EXPR.  Returns a simplified
+    copy of EXPR.
 
     PRE_P points to the list where side effects that must happen before
 	EXPR should be stored.
@@ -925,7 +925,7 @@ simplify_decl_stmt (t, post_p)
 
 static tree
 simplify_expr (expr, pre_p, post_p, simple_test_f, needs_lvalue)
-     tree expr;
+     const tree expr;
      tree *pre_p;
      tree *post_p;
      int (*simple_test_f) PARAMS ((tree));
@@ -999,14 +999,16 @@ simplify_expr (expr, pre_p, post_p, simple_test_f, needs_lvalue)
       break;
 
     /* Address expressions must not be simplified.  If they are, we may
-	end up taking the address of a temporary, instead of the address
-	of the original object.  */
+       end up taking the address of a temporary, instead of the address
+       of the original object.  */
     case ADDR_EXPR:
-      expr_s = expr;
+      expr_s = copy_node (expr);
       break;
 
+    /* va_arg expressions should also be left alone to avoid confusing the
+       vararg code.  FIXME: Is this really necessary?  */
     case VA_ARG_EXPR:
-      expr_s = expr;
+      expr_s = copy_node (expr);
       break;
 
     case NOP_EXPR:
@@ -1015,7 +1017,7 @@ simplify_expr (expr, pre_p, post_p, simple_test_f, needs_lvalue)
     case FIX_CEIL_EXPR:
     case FIX_FLOOR_EXPR:
     case FIX_ROUND_EXPR:
-      expr_s = expr;
+      expr_s = copy_node (expr);
       TREE_OPERAND (expr_s, 0) = simplify_expr (TREE_OPERAND (expr_s, 0),
 	                                        pre_p, post_p,
 						is_simple_varname,
@@ -1023,21 +1025,20 @@ simplify_expr (expr, pre_p, post_p, simple_test_f, needs_lvalue)
       break;
 
     case INDIRECT_REF:
-      expr_s = expr;
+      expr_s = copy_node (expr);
       TREE_OPERAND (expr_s, 0) = simplify_expr (TREE_OPERAND (expr_s, 0),
 	                                        pre_p, post_p, is_simple_id,
 						needs_lvalue);
       break;
 
     case NEGATE_EXPR:
-      expr_s = expr;
+      expr_s = copy_node (expr);
       TREE_OPERAND (expr_s, 0) = simplify_expr (TREE_OPERAND (expr_s, 0),
 	                                        pre_p, post_p, is_simple_val,
 						needs_lvalue);
       break;
 
-    /* Constants may not be allowed in certain contexts, we just pass them
-       on so that they get assigned to a new temporary.  */
+    /* Constants need not be simplified.  */
     case INTEGER_CST:
     case REAL_CST:
     case STRING_CST:
@@ -1045,11 +1046,21 @@ simplify_expr (expr, pre_p, post_p, simple_test_f, needs_lvalue)
       expr_s = expr;
       break;
 
+    /* Do not simplify compound literals.  FIXME: Maybe we should?  */
+    case COMPOUND_LITERAL_EXPR:
+      expr_s = expr;
+      break;
+
+    /* Do not simplify constructor expressions.  FIXME: Maybe we should?  */
+    case CONSTRUCTOR:
+      expr_s = expr;
+      break;
+
     /* The following are special cases that are not handled by the original
        SIMPLE grammar.  */
     case STMT_EXPR:
-      simplify_stmt (STMT_EXPR_STMT (expr));
       expr_s = expr;
+      simplify_stmt (STMT_EXPR_STMT (expr));
       break;
 
     case SAVE_EXPR:
@@ -1063,7 +1074,7 @@ simplify_expr (expr, pre_p, post_p, simple_test_f, needs_lvalue)
       break;
 
     case BIT_FIELD_REF:
-      expr_s = expr;
+      expr_s = copy_node (expr);
       TREE_OPERAND (expr_s, 0) = simplify_expr (TREE_OPERAND (expr_s, 0),
 	                                        pre_p, post_p, is_simple_id,
 						needs_lvalue);
@@ -1078,26 +1089,22 @@ simplify_expr (expr, pre_p, post_p, simple_test_f, needs_lvalue)
       break;
 
     case NON_LVALUE_EXPR:
-      expr_s = expr;
+      expr_s = copy_node (expr);
       TREE_OPERAND (expr_s, 0) = simplify_expr (TREE_OPERAND (expr_s, 0),
 	                                        pre_p, post_p, simple_test_f,
 						0);
       break;
 
-    /* If EXPR does not need to be special-cased, handle it according to
+    /* If EXPR_S does not need to be special-cased, handle it according to
        its class.  */
     default:
       {
-	expr_s = expr;
+	expr_s = copy_node (expr);
 
 	if (TREE_CODE_CLASS (TREE_CODE (expr_s)) == '1')
-	  {
-	    tree t;
-
-	    t = simplify_expr (TREE_OPERAND (expr_s, 0), pre_p, post_p,
-		               is_simple_val, 0);
-	    TREE_OPERAND (expr_s, 0) = t;
-	  }
+	  TREE_OPERAND (expr_s, 0) = simplify_expr (TREE_OPERAND (expr_s, 0),
+						    pre_p, post_p,
+						    is_simple_val, 0);
 	else if (TREE_CODE_CLASS (TREE_CODE (expr_s)) == '2'
 	         || TREE_CODE_CLASS (TREE_CODE (expr_s)) == '<'
 		 || TREE_CODE (expr_s) == TRUTH_AND_EXPR
@@ -1118,7 +1125,7 @@ simplify_expr (expr, pre_p, post_p, simple_test_f, needs_lvalue)
 	else
 	  {
 	    fprintf (stderr, "unhandled expression in simplify_expr ():\n");
-	    debug_tree (expr_s);
+	    debug_tree (expr);
 	    abort ();
 	  }
       }
@@ -1211,22 +1218,23 @@ simplify_expr (expr, pre_p, post_p, simple_test_f, needs_lvalue)
 
 static tree
 simplify_array_ref (expr, pre_p, post_p)
-     tree expr;
+     const tree expr;
      tree *pre_p;
      tree *post_p;
 {
-  tree base;
+  tree expr_s, base;
   varray_type dim_stack;
 
   if (TREE_CODE (expr) != ARRAY_REF)
     abort ();
 
+  expr_s = copy_node (expr);
   VARRAY_GENERIC_PTR_INIT (dim_stack, 10, "dim_stack");
 
   /* Create a stack with all the dimensions of the array so that they can
      be simplified from left to right.  */
-  base = expr;
-  VARRAY_PUSH_GENERIC_PTR (dim_stack, (PTR)&(TREE_OPERAND (expr, 1)));
+  base = expr_s;
+  VARRAY_PUSH_GENERIC_PTR (dim_stack, (PTR)&(TREE_OPERAND (expr_s, 1)));
   while (TREE_CODE (TREE_OPERAND (base, 0)) == ARRAY_REF)
     {
       base = TREE_OPERAND (base, 0);
@@ -1250,7 +1258,7 @@ simplify_array_ref (expr, pre_p, post_p)
   VARRAY_FREE (dim_stack);
 
   /* Return the simplified array expression.  */
-  return expr;
+  return expr_s;
 }
 
 /* }}} */
@@ -1267,7 +1275,7 @@ simplify_array_ref (expr, pre_p, post_p)
 
 static tree
 simplify_self_mod_expr (expr, pre_p, post_p)
-     tree expr;
+     const tree expr;
      tree *pre_p;
      tree *post_p;
 {
@@ -1335,11 +1343,11 @@ simplify_self_mod_expr (expr, pre_p, post_p)
 
 static tree
 simplify_component_ref (expr, pre_p, post_p)
-     tree expr;
+     const tree expr;
      tree *pre_p;
      tree *post_p;
 {
-  tree lhs, rhs;
+  tree expr_s, lhs, rhs;
 
   if (TREE_CODE (expr) != COMPONENT_REF)
     abort ();
@@ -1351,10 +1359,11 @@ simplify_component_ref (expr, pre_p, post_p)
 
   rhs = simplify_expr (TREE_OPERAND (expr, 1), pre_p, post_p, is_simple_id, 0);
 
-  TREE_OPERAND (expr, 0) = lhs;
-  TREE_OPERAND (expr, 1) = rhs;
+  expr_s = copy_node (expr);
+  TREE_OPERAND (expr_s, 0) = lhs;
+  TREE_OPERAND (expr_s, 1) = rhs;
 
-  return expr;
+  return expr_s;
 }
 
 /* }}} */
@@ -1378,11 +1387,11 @@ simplify_component_ref (expr, pre_p, post_p)
 
 static tree
 simplify_call_expr (expr, pre_p, post_p)
-     tree expr;
+     const tree expr;
      tree *pre_p;
      tree *post_p;
 {
-  tree id, arglist;
+  tree expr_s, id, arglist;
 
   if (TREE_CODE (expr) != CALL_EXPR)
     abort ();
@@ -1400,11 +1409,12 @@ simplify_call_expr (expr, pre_p, post_p)
     arglist = simplify_expr (TREE_OPERAND (expr, 1), pre_p, post_p,
   			     is_simple_arglist, 0);
   
-  TREE_OPERAND (expr, 0) = id;
-  if (TREE_OPERAND (expr, 1))
-    TREE_OPERAND (expr, 1) = arglist;
+  expr_s = copy_node (expr);
+  TREE_OPERAND (expr_s, 0) = id;
+  if (TREE_OPERAND (expr_s, 1))
+    TREE_OPERAND (expr_s, 1) = arglist;
 
-  return expr;
+  return expr_s;
 }
 
 /* }}} */
@@ -1425,16 +1435,17 @@ simplify_call_expr (expr, pre_p, post_p)
 
 static tree
 simplify_tree_list (expr, pre_p, post_p)
-     tree expr;
+     const tree expr;
      tree *pre_p;
      tree *post_p;
 {
-  tree op;
+  tree expr_s, op;
 
   if (TREE_CODE (expr) != TREE_LIST)
     abort ();
 
-  for (op = expr; op; op = TREE_CHAIN (op))
+  expr_s = copy_list (expr);
+  for (op = expr_s; op; op = TREE_CHAIN (op))
     {
       tree arg;
 
@@ -1442,7 +1453,7 @@ simplify_tree_list (expr, pre_p, post_p)
       TREE_VALUE (op) = arg;
     }
 
-  return expr;
+  return expr_s;
 }
 
 /* }}} */
@@ -1467,11 +1478,11 @@ simplify_tree_list (expr, pre_p, post_p)
 
 static tree
 simplify_cond_expr (expr, pre_p, post_p)
-     tree expr;
+     const tree expr;
      tree *pre_p;
      tree *post_p;
 {
-  tree t_then, t_else, tmp, pred, tval, fval, new_if, expr_type;
+  tree t_then, t_else, tmp, pr, tval, fval, new_if, expr_type;
 
   expr_type = TREE_TYPE (expr);
 
@@ -1480,29 +1491,28 @@ simplify_cond_expr (expr, pre_p, post_p)
   else
     tmp = void_zero_node;
 
-  pred = simplify_expr (TREE_OPERAND (expr, 0), pre_p, post_p, is_simple_expr,
-                        0);
+  pr = simplify_expr (TREE_OPERAND (expr, 0), pre_p, post_p, is_simple_expr, 0);
+  tval = TREE_OPERAND (expr, 1);
+  fval = TREE_OPERAND (expr, 2);
 
-  tval = simplify_expr (TREE_OPERAND (expr, 1), pre_p, post_p, is_simple_expr,
-                        0);
-
-  fval = simplify_expr (TREE_OPERAND (expr, 2), pre_p, post_p, is_simple_expr,
-                        0);
-
-  /* Build the THEN_CLAUSE 't1 = a;' or 'a;'.  */
+  /* Build and simplify the THEN_CLAUSE 't1 = a;' or 'a;'.  */
   if (!VOID_TYPE_P (expr_type))
     t_then = build_stmt (EXPR_STMT, build_modify_expr (tmp, NOP_EXPR, tval));
   else
     t_then = build_stmt (EXPR_STMT, tval);
+  tree_build_scope (&t_then);
+  simplify_stmt (t_then);
 
-  /* Build the ELSE_CLAUSE 't1 = b;' or 'b;'.  */
+  /* Build and simplify the ELSE_CLAUSE 't1 = b;' or 'b;'.  */
   if (!VOID_TYPE_P (expr_type))
     t_else = build_stmt (EXPR_STMT, build_modify_expr (tmp, NOP_EXPR, fval));
   else
     t_else = build_stmt (EXPR_STMT, fval);
+  tree_build_scope (&t_else);
+  simplify_stmt (t_else);
 
   /* Build a new IF_STMT, and insert it in the PRE_P chain.  */
-  new_if = build_stmt (IF_STMT, pred, t_then, t_else);
+  new_if = build_stmt (IF_STMT, pr, t_then, t_else);
   add_tree (new_if, pre_p);
 
   return tmp;
@@ -1527,11 +1537,11 @@ simplify_cond_expr (expr, pre_p, post_p)
 
 static tree
 simplify_modify_expr (expr, pre_p, post_p)
-     tree expr;
+     const tree expr;
      tree *pre_p;
      tree *post_p;
 {
-  tree lhs, rhs;
+  tree expr_s, lhs, rhs;
 
   if (TREE_CODE (expr) != MODIFY_EXPR
       && TREE_CODE (expr) != INIT_EXPR)
@@ -1539,18 +1549,20 @@ simplify_modify_expr (expr, pre_p, post_p)
 
   /* Break assignment chains (i.e., a = b = c = ...) into individual
      assignment expressions.  */
-  rhs = TREE_OPERAND (expr, 1);
+  expr_s = copy_node (expr);
+  rhs = TREE_OPERAND (expr_s, 1);
   if (TREE_CODE (rhs) == MODIFY_EXPR)
     {
       rhs = simplify_expr (rhs, pre_p, post_p, is_simple_expr, 0);
       add_tree (rhs, pre_p);
-      TREE_OPERAND (expr, 1) = TREE_OPERAND (rhs, 0);
+      TREE_OPERAND (expr_s, 1) = TREE_OPERAND (rhs, 0);
     }
 
-  lhs = simplify_expr (TREE_OPERAND (expr, 0), pre_p, post_p, 
+  lhs = simplify_expr (TREE_OPERAND (expr_s, 0), pre_p, post_p, 
                        is_simple_modify_expr_lhs, 1);
 
-  rhs = simplify_expr (TREE_OPERAND (expr, 1), pre_p, post_p, is_simple_rhs, 0);
+  rhs = simplify_expr (TREE_OPERAND (expr_s, 1), pre_p, post_p, is_simple_rhs,
+                       0);
 
   if (TREE_CODE (rhs) == MODIFY_EXPR)
     {
@@ -1558,10 +1570,10 @@ simplify_modify_expr (expr, pre_p, post_p)
       rhs = TREE_OPERAND (rhs, 0);
     }
 
-  TREE_OPERAND (expr, 0) = lhs;
-  TREE_OPERAND (expr, 1) = rhs;
+  TREE_OPERAND (expr_s, 0) = lhs;
+  TREE_OPERAND (expr_s, 1) = rhs;
 
-  return expr;
+  return expr_s;
 }
 
 /* }}} */
@@ -1594,7 +1606,7 @@ simplify_modify_expr (expr, pre_p, post_p)
 
 static tree
 simplify_boolean_expr (expr, pre_p, post_p)
-     tree expr;
+     const tree expr;
      tree *pre_p;
      tree *post_p;
 {
@@ -1653,7 +1665,7 @@ simplify_boolean_expr (expr, pre_p, post_p)
 
 static tree
 simplify_compound_expr (expr, pre_p, post_p)
-     tree expr;
+     const tree expr;
      tree *pre_p;
      tree *post_p;
 {
@@ -1752,7 +1764,7 @@ simplify_compound_expr (expr, pre_p, post_p)
 
 static tree
 simplify_save_expr (expr, pre_p, post_p, simple_test_f, needs_lvalue)
-     tree expr;
+     const tree expr;
      tree *pre_p;
      tree *post_p;
      int (*simple_test_f) PARAMS ((tree));
@@ -1809,7 +1821,7 @@ simplify_save_expr (expr, pre_p, post_p, simple_test_f, needs_lvalue)
 
 static tree
 simplify_expr_wfl (expr, pre_p, post_p, simple_test_f, needs_lvalue)
-     tree expr;
+     const tree expr;
      tree *pre_p;
      tree *post_p;
      int (*simple_test_f) PARAMS ((tree));
