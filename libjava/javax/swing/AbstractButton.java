@@ -1207,6 +1207,10 @@ public abstract class AbstractButton extends JComponent
    */
   public Icon getDisabledIcon()
   {
+    if (disabled_icon == null
+	&& default_icon instanceof ImageIcon)
+      disabled_icon = new ImageIcon(GrayFilter.createDisabledImage(((ImageIcon) default_icon).getImage()));
+      
     return disabled_icon;
   }
 
