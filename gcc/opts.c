@@ -538,6 +538,7 @@ decode_options (unsigned int argc, const char **argv)
       flag_tree_dom = 1;
       flag_tree_must_alias = 1;
       flag_tree_pre = 1;
+      flag_tree_ter = 1;
     }
 
   if (optimize >= 2)
@@ -1418,6 +1419,10 @@ common_handle_option (size_t scode, const char *arg,
 
     case OPT_ftree_combine_temps:
       flag_tree_combine_temps = value;
+      break;
+
+    case OPT_ftree_ter:
+      flag_tree_ter = value;
       break;
 
     case OPT_ftree_dominator_opts:

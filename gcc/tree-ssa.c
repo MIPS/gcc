@@ -219,7 +219,7 @@ static void elim_create (elim_graph, int);
 static void eliminate_phi (edge, int, elim_graph);
 static tree_live_info_p coalesce_ssa_name (var_map);
 static void assign_vars (var_map);
-static void replace_variable (var_map, tree *);
+static void replace_variable (var_map, tree *, tree *);
 static void eliminate_extraneous_phis (var_map);
 static void coalesce_abnormal_edges (var_map, conflict_graph, root_var_p);
 static void print_exprs (FILE *, const char *, tree, const char *, tree,
@@ -1603,10 +1603,24 @@ assign_vars (var_map map)
 /* Replace *p with whatever variable it has been rewritten to.  */
 
 static inline void
-replace_variable (var_map map, tree *p)
+replace_variable (var_map map, tree *p, tree *expr)
 {
   tree new_var;
   tree var = *p;
+
+  /* Check if we are replacing this variable with an expression.  */
+  if (expr)
+    {
+      int version = SSA_NAME_VERSION (*p);
+      if (expr[version])
+        {
+	  tree new_expr = TREE_OPERAND (expr[version], 1);
+	  *p = new_expr;
+	  /* Clear the stmt's RHS, or GC might bite us.  */
+	  TREE_OPERAND (expr[version], 1) = NULL_TREE;
+	  return;
+	}
+    }
 
   new_var = var_to_partition_to_var (map, var);
   if (new_var)
@@ -1743,6 +1757,562 @@ coalesce_vars (var_map map, tree_live_info_p liveinfo)
 }
 
 
+/* Temporary Expression Replacement (TER)
+
+   Replace SSA version variables during out-of-ssa with their defining
+   expression if there is only one use of the variable.
+
+   A pass is made through the function, one block at a time. No cross block
+   information is tracked.
+
+   Variables which only have one use, and whose defining stmt is considered
+   a replaceable expression (see check_replaceable) are entered into 
+   consideration by adding a list of dependent partitions to the version_info
+   vector for that ssa_name_version. This information comes from the partition
+   mapping for each USE. At the same time, the partition_dep_list vector for 
+   these partitions have this version number entered into their lists.
+
+   When the use of a replaceable ssa_variable is encountered, the dependence
+   list in version_info[] is moved to the "pending_dependence" list in case
+   the current expression is also replaceable. (To be deteremined later in 
+   processing this stmt.) version_info[] for the version is then updated to 
+   point to the defining stmt and the 'replaceable' bit is set.
+
+   Any partition which is defined by a statement 'kills' any expression which
+   is dependent on this partition. Every ssa version in the partitions' 
+   dependence list is removed from future consideration.
+
+   All virtual references are lumped together. Any expression which is
+   dependent on any virtual variable (via a VUSE) has a dependence added
+   to the special partition defined by VIRTUAL_PARTITION.
+
+   Whenever a VDEF is seen, all expressions dependent this VIRTUAL_PARTITION
+   are removed from consideration.
+
+   At the end of a basic block, all expression are removed from consideration
+   in preparation for the next block.  
+   
+   The end result is a vector over SSA_NAME_VERSION which is passed back to
+   rewrite_out_of_ssa.  As the SSA variables are being rewritten, instead of
+   replacing the SSA_NAME tree element with the partition it was assigned, 
+   it is replaced with the RHS of the defining expression.  */
+
+/* Dependancy list element.  This can contain either a partition index or a
+   version number, depending on which list it is in.  */
+typedef struct value_expr_d 
+{
+  int value;
+  struct value_expr_d *next;
+} *value_expr_p;
+
+/* Temporary Expression Replacement (TER) table information.  */
+typedef struct temp_expr_table_d 
+{
+  var_map map;
+  void **version_info;		
+  value_expr_p *partition_dep_list;
+  bitmap replaceable;
+  bool saw_replaceable;
+  int virtual_partition;
+  bitmap partition_in_use;
+  value_expr_p free_list;
+  value_expr_p pending_dependence;
+} *temp_expr_table_p;
+
+/* Used to indicate a dependancy on VDEFs.  */
+#define VIRTUAL_PARTITION(table)	(table->virtual_partition)
+
+static temp_expr_table_p new_temp_expr_table (var_map);
+static tree *free_temp_expr_table (temp_expr_table_p);
+static inline value_expr_p new_value_expr (temp_expr_table_p);
+static inline void free_value_expr (temp_expr_table_p, value_expr_p);
+static inline value_expr_p find_value_in_list (value_expr_p, int, 
+					       value_expr_p *);
+static inline void add_value_to_list (temp_expr_table_p, value_expr_p *, int);
+static inline void add_info_to_list (temp_expr_table_p, value_expr_p *, 
+				     value_expr_p);
+static value_expr_p remove_value_from_list (value_expr_p *, int);
+static void add_dependance (temp_expr_table_p, int, tree);
+static bool check_replaceable (temp_expr_table_p, tree);
+static void finish_expr (temp_expr_table_p, int, bool);
+static void mark_replaceable (temp_expr_table_p, tree);
+static inline void kill_expr (temp_expr_table_p, int, bool);
+static inline void kill_virtual_exprs (temp_expr_table_p, bool);
+static void find_replaceable_in_bb (temp_expr_table_p, basic_block);
+static tree *find_replaceable_exprs (var_map);
+static void dump_replaceable_exprs (FILE *, tree *);
+
+/* Create a new TER table.  */
+static temp_expr_table_p
+new_temp_expr_table (var_map map)
+{
+  temp_expr_table_p t;
+
+  t = (temp_expr_table_p) xmalloc (sizeof (struct temp_expr_table_d));
+  t->map = map;
+
+  t->version_info = xcalloc (next_ssa_version + 1, sizeof (void *));
+  t->partition_dep_list = xcalloc (num_var_partitions (map) + 1, 
+				   sizeof (value_expr_p));
+
+  t->replaceable = BITMAP_XMALLOC ();
+  t->partition_in_use = BITMAP_XMALLOC ();
+
+  t->saw_replaceable = false;
+  t->virtual_partition = num_var_partitions (map);
+  t->free_list = NULL;
+  t->pending_dependence = NULL;
+
+  return t;
+}
+
+
+/* Free a TER table.  If there are valid replacements, return the expression 
+   vector.  */
+static tree *
+free_temp_expr_table (temp_expr_table_p t)
+{
+  value_expr_p p;
+  tree *ret = NULL;
+
+#ifdef ENABLE_CHECKING
+  int x;
+  for (x = 0; x <= num_var_partitions (t->map); x++)
+    if (t->partition_dep_list[x] != NULL)
+      abort();
+#endif
+
+  while ((p = t->free_list))
+    {
+      t->free_list = p->next;
+      free (p);
+    }
+
+  BITMAP_XFREE (t->partition_in_use);
+  BITMAP_XFREE (t->replaceable);
+
+  free (t->partition_dep_list);
+  if (t->saw_replaceable)
+    ret = (tree *)t->version_info;
+  else
+    free (t->version_info);
+  
+  free (t);
+  return ret;
+}
+
+
+/* Allocate a new value list node. Take it from the free list if possible.  */
+static inline value_expr_p
+new_value_expr (temp_expr_table_p table)
+{
+  value_expr_p p;
+  if (table->free_list)
+    {
+      p = table->free_list;
+      table->free_list = p->next;
+    }
+  else
+    p = (value_expr_p) xmalloc (sizeof (struct value_expr_d));
+
+  return p;
+}
+
+
+/* Add a value list node to the free list.  */
+static inline void
+free_value_expr (temp_expr_table_p table, value_expr_p p)
+{
+  p->next = table->free_list;
+  table->free_list = p;
+}
+
+
+/* Find a specific value if its in a list.  Return a pointer to the list 
+   object if found.  Return NULL if it isn't.  If last_ptr is provided,
+   it will point to the previous item upon return, or NULL if this is the 
+   first item in the list.  */
+static inline value_expr_p
+find_value_in_list (value_expr_p list, int value, value_expr_p *last_ptr)
+{
+  value_expr_p curr;
+  value_expr_p last = NULL;
+
+  for (curr = list; curr; last = curr, curr = curr->next)
+    {
+      if (curr->value == value)
+        break;
+    }
+  if (last_ptr)
+    *last_ptr = last;
+  return curr;
+}
+
+
+/* Add a value to a list, if it isn't already present.  */
+static inline void
+add_value_to_list (temp_expr_table_p tab, value_expr_p *list, int value)
+{
+  value_expr_p info;
+
+  if (!find_value_in_list (*list, value, NULL))
+    {
+      info = new_value_expr (tab);
+      info->value = value;
+      info->next = *list;
+      *list = info;
+    }
+}
+
+
+/* Add a value node if it's value isn't already in the list.  Free this node if
+   it is already in the list.  */
+static inline void
+add_info_to_list (temp_expr_table_p tab, value_expr_p *list, value_expr_p info)
+{
+  if (find_value_in_list (*list, info->value, NULL))
+    free_value_expr (tab, info);
+  else
+    {
+      info->next = *list;
+      *list = info;
+    }
+}
+
+
+/* Look for a value in a list.  If found, remove it from the list and return 
+   it's pointer.  */
+static value_expr_p
+remove_value_from_list (value_expr_p *list, int value)
+{
+  value_expr_p info, last;
+
+  info = find_value_in_list (*list, value, &last);
+  if (!info)
+    return NULL;
+  if (!last)
+    *list = info->next;
+  else
+    last->next = info->next;
+ 
+  return info;
+}
+
+
+/* Add a dependancy between the def of an SSA version and the partitions each
+   use in the expression represent.  */
+static void
+add_dependance (temp_expr_table_p tab, int version, tree var)
+{
+  int i, x;
+  value_expr_p info;
+
+  i = SSA_NAME_VERSION (var);
+  if (bitmap_bit_p (tab->replaceable, i))
+    {
+      /* This variable is being substituted, so use whatever dependences
+         were queued up when we marked this as replaceable earlier.  */
+      while ((info = tab->pending_dependence))
+        {
+	  tab->pending_dependence = info->next;
+	  /* Get the partition this variable was dependent on. Reuse this
+	     object to represent the current  expression instead.  */
+	  x = info->value;
+	  info->value = version;
+	  add_info_to_list (tab, &(tab->partition_dep_list[x]), info);
+          add_value_to_list (tab, 
+			     (value_expr_p *)&(tab->version_info[version]), x);
+	  bitmap_set_bit (tab->partition_in_use, x);
+	}
+    }
+  else
+    {
+      i = var_to_partition (tab->map, var);
+#ifdef ENABLE_CHECKING
+      if (i== NO_PARTITION)
+	abort ();
+#endif
+      add_value_to_list (tab, &(tab->partition_dep_list[i]), version);
+      add_value_to_list (tab, (value_expr_p *)&(tab->version_info[version]), i);
+      bitmap_set_bit (tab->partition_in_use, i);
+    }
+}
+
+
+/* Check if an expression is suitable for replacement.  If so, create an 
+   expression entry.  Return true if this stmt is replaceable.  */
+static bool
+check_replaceable (temp_expr_table_p tab, tree stmt)
+{
+  stmt_ann_t ann;
+  varray_type ops, vuseops;
+  tree var, def;
+  int num_ops, version, i;
+  var_map map = tab->map;
+
+  if (TREE_CODE (stmt) != MODIFY_EXPR)
+    return false;
+  
+  ann = stmt_ann (stmt);
+  ops = def_ops (ann);
+
+  /* Punt if there is more than 1 def, or more than 1 use.  */
+  if (!ops || VARRAY_ACTIVE_SIZE (ops) != 1)
+    return false;
+  def = *VARRAY_TREE_PTR (ops, 0);
+  if (version_ref_count (map, def) != 1)
+    return false;
+
+  /* There must be no VDEFS.  */
+  if (vdef_ops (ann) && VARRAY_ACTIVE_SIZE (vdef_ops (ann)) != 0)
+    return false;
+
+  /* Float expressions must go through memory if float-store is on.  */
+  if (flag_float_store && FLOAT_TYPE_P (TREE_TYPE (TREE_OPERAND (stmt, 1))))
+    return false;
+
+  ops = use_ops (ann);
+  num_ops = ops ? VARRAY_ACTIVE_SIZE (ops) : 0;
+  vuseops = vuse_ops (ann);
+
+  /* Any expression which has no virtual operands and no real operands
+     should have been propagated if its possible to do anythig with them. 
+     If this happens here, it probably exists that way for a reason, so we 
+     won't touch it.   An example is:
+         b_4 = &tab
+     There are no virtual uses nor any real uses, so we just leave this 
+     alone to be safe.  */
+
+  if (num_ops == 0 && (!vuseops || VARRAY_ACTIVE_SIZE (vuseops) == 0))
+    return false;
+
+  version = SSA_NAME_VERSION (def);
+
+  /* Add this expression to the dependancy list for each use partition.  */
+  for (i = 0; i < num_ops; i++)
+    {
+      var = *VARRAY_TREE_PTR (ops, i);
+      add_dependance (tab, version, var);
+    }
+
+  /* If there are VUSES, add a dependence on virtual defs.  */
+  if (vuseops && VARRAY_ACTIVE_SIZE (vuseops) != 0)
+    {
+      add_value_to_list (tab, (value_expr_p *)&(tab->version_info[version]), 
+			 VIRTUAL_PARTITION (tab));
+      add_value_to_list (tab, 
+			 &(tab->partition_dep_list[VIRTUAL_PARTITION (tab)]), 
+			 version);
+      bitmap_set_bit (tab->partition_in_use, VIRTUAL_PARTITION (tab));
+    }
+
+  return true;
+}
+
+
+/* This function will remove an expression from replacement consideration.  If
+   'replace' is true, it is marked as replaceable, otherwise not.  */
+static void
+finish_expr (temp_expr_table_p tab, int version, bool replace)
+{
+  value_expr_p info, tmp;
+  int partition;
+
+  /* Remove this expression from its dependent lists.  The partition dependance
+     list is retained and transfered later to whomever uses this version.  */
+  for (info = (value_expr_p) tab->version_info[version]; info; info = tmp)
+    {
+      partition = info->value;
+#ifdef ENABLE_CHECKING
+      if (tab->partition_dep_list[partition] == NULL)
+        abort ();
+#endif
+      tmp = remove_value_from_list (&(tab->partition_dep_list[partition]), 
+				    version);
+#ifdef ENABLE_CHECKING
+      if (!tmp)
+        abort ();
+#endif
+      free_value_expr (tab, tmp);
+      /* Only clear the bit when the dependancy list is emptied via 
+         a replacement. Otherwise kill_expr will take care of it.  */
+      if (!(tab->partition_dep_list[partition]) && replace)
+        bitmap_clear_bit (tab->partition_in_use, partition);
+      tmp = info->next;
+      if (!replace)
+        free_value_expr (tab, info);
+    }
+
+  if (replace)
+    {
+      tab->saw_replaceable = true;
+      bitmap_set_bit (tab->replaceable, version);
+    }
+  else
+    {
+#ifdef ENABLE_CHECKING
+      if (bitmap_bit_p (tab->replaceable, version))
+	abort ();
+#endif
+      tab->version_info[version] = NULL;
+    }
+}
+
+
+/* Mark the expression associated with a variable as replaceable, and enter
+   the defining stmt into the version_info table.  */
+static void
+mark_replaceable (temp_expr_table_p tab, tree var)
+{
+  value_expr_p info;
+  int version = SSA_NAME_VERSION (var);
+  finish_expr (tab, version, true);
+
+  /* Move the dependence list to the pending list.  */
+  if (tab->version_info[version])
+    {
+      info = (value_expr_p) tab->version_info[version]; 
+      for ( ; info->next; info = info->next)
+	continue;
+      info->next = tab->pending_dependence;
+      tab->pending_dependence = (value_expr_p)tab->version_info[version];
+    }
+
+  tab->version_info[version] = SSA_NAME_DEF_STMT (var);
+}
+
+
+/* This function finishes any expression which is dependent on this paritition
+   as NOT replaceable.  clear_bit is used to determine whether partition_in_use
+   should have iuts bit cleared. Since this can be called within an
+   EXECUTE_IF_SET_IN_BITMAP, the bit can't always be cleared.  */
+static inline void
+kill_expr (temp_expr_table_p tab, int partition, bool clear_bit)
+{
+  value_expr_p ptr;
+
+  /* Mark every active expr dependant on this var as not replaceable.  */
+  while ((ptr = tab->partition_dep_list[partition]) != NULL)
+    finish_expr (tab, ptr->value, false);
+
+  if (clear_bit)
+    bitmap_clear_bit (tab->partition_in_use, partition);
+}
+
+
+/* This function kills all expressions which are dependant on virtual DEFs.  */
+static inline void
+kill_virtual_exprs (temp_expr_table_p tab, bool clear_bit)
+{
+  kill_expr (tab, VIRTUAL_PARTITION (tab), clear_bit);
+}
+
+
+/* This function processes a basic block, and looks for variables which can
+   be replaced by their expressions.  */
+static void
+find_replaceable_in_bb (temp_expr_table_p tab, basic_block bb)
+{
+  block_stmt_iterator bsi;
+  tree stmt, def;
+  stmt_ann_t ann;
+  int partition, num, i;
+  varray_type ops;
+  var_map map = tab->map;
+  value_expr_p p;
+
+  for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+    {
+      stmt = bsi_stmt (bsi);
+      ann = stmt_ann (stmt);
+
+      /* Determine if this stmt finishes an existing expression.  */
+      ops = use_ops (ann);
+      num = (ops ? VARRAY_ACTIVE_SIZE (ops) : 0);
+      for (i = 0; i < num; i++)
+	{
+	  def = *VARRAY_TREE_PTR (ops, i);
+	  if (tab->version_info[SSA_NAME_VERSION (def)])
+	    mark_replaceable (tab, def);
+	}
+      
+      /* Next, see if this stmt kills off an active expression.  */
+      ops = def_ops (ann);
+      num = (ops ? VARRAY_ACTIVE_SIZE (ops) : 0);
+      for (i = 0; i < num; i++)
+	{
+	  def = *VARRAY_TREE_PTR (ops, i);
+	  partition = var_to_partition (map, def);
+	  if (partition != NO_PARTITION && tab->partition_dep_list[partition])
+	    kill_expr (tab, partition, true);
+	}
+
+      /* Now see if we are creating a new expression or not.  */
+      check_replaceable (tab, stmt);
+
+      /* Free any unused dependancy lists.  */
+      while ((p = tab->pending_dependence))
+	{
+	  tab->pending_dependence = p->next;
+	  free_value_expr (tab, p);
+	}
+
+      /* A VDEF kills any expression using a virtual operand.  */
+      if (vdef_ops (ann) && VARRAY_ACTIVE_SIZE (vdef_ops (ann)) > 0)
+        kill_virtual_exprs (tab, true);
+    }
+}
+
+
+/* This function is the driver routine for replacement of temporary expressions
+   in the SSA->normal phase.  If there are replaceable expressions, a table is 
+   returned which maps SSA versions to the expressions they should be replaced 
+   with.  A NULL_TREE indicates no replacement should take place.  
+   If there are no replacements at all, NULL is returned by the function.  */
+static tree *
+find_replaceable_exprs (var_map map)
+{
+  basic_block bb;
+  int i;
+  temp_expr_table_p table;
+  tree *ret;
+
+  table = new_temp_expr_table (map);
+  FOR_EACH_BB (bb)
+    {
+      find_replaceable_in_bb (table, bb);
+      EXECUTE_IF_SET_IN_BITMAP ((table->partition_in_use), 0, i,
+        {
+	  kill_expr (table, i, false);
+	});
+    }
+
+  ret = free_temp_expr_table (table);
+  return ret;
+}
+
+
+/* Dump the TER expression table.  */
+static void
+dump_replaceable_exprs (FILE *f, tree *expr)
+{
+  tree stmt, var;
+  int x;
+  fprintf (f, "\nReplacing Expressions\n");
+  for (x = 0; x < (int)next_ssa_version + 1; x++)
+    if (expr[x])
+      {
+        stmt = expr[x];
+	var = *VARRAY_TREE_PTR (def_ops (stmt_ann (stmt)), 0);
+	print_generic_expr (f, var, TDF_SLIM);
+	fprintf (f, " replace with --> ");
+	print_generic_expr (f, TREE_OPERAND (stmt, 1), TDF_SLIM);
+	fprintf (f, "\n");
+      }
+  fprintf (f, "\n");
+}
+
+
 /* Take function FNDECL out of SSA form.
 
    PHASE indicates which dump file from the DUMP_FILES array to use when
@@ -1758,6 +2328,8 @@ rewrite_out_of_ssa (tree fndecl, enum tree_dump_index phase)
   tree phi, next;
   elim_graph g;
   tree_live_info_p liveinfo;
+  tree *values = NULL;
+  int var_flags = 0;
 
   timevar_push (TV_TREE_SSA_TO_NORMAL);
 
@@ -1766,7 +2338,9 @@ rewrite_out_of_ssa (tree fndecl, enum tree_dump_index phase)
   if (dump_file && (dump_flags & TDF_DETAILS))
     dump_tree_cfg (dump_file, dump_flags & ~TDF_DETAILS);
 
-  map = create_ssa_var_map ();
+  if (flag_tree_ter)
+    var_flags = SSA_VAR_MAP_REF_COUNT;
+  map = create_ssa_var_map (var_flags);
   eliminate_extraneous_phis (map);
 
   /* Shrink the map to include only referenced variables.  */
@@ -1796,6 +2370,13 @@ rewrite_out_of_ssa (tree fndecl, enum tree_dump_index phase)
     {
       fprintf (dump_file, "After Root variable replacement:\n");
       dump_var_map (dump_file, map);
+    }
+
+  if (flag_tree_ter)
+    {
+      values = find_replaceable_exprs (map);
+      if (values && dump_file && (dump_flags & TDF_DETAILS))
+	dump_replaceable_exprs (dump_file, values);
     }
 
   if (flag_tree_combine_temps && liveinfo)
@@ -1838,25 +2419,34 @@ rewrite_out_of_ssa (tree fndecl, enum tree_dump_index phase)
 	  for (i = 0; i < num_uses; i++)
 	    {
 	      use_p = VARRAY_TREE_PTR (ops, i);
-	      replace_variable (map, use_p);
+	      replace_variable (map, use_p, values);
 	    }
 
 	  ops = def_ops (ann);
 	  num_defs = ((ops) ? VARRAY_ACTIVE_SIZE (ops) : 0);
 
-	  for (i = 0; i < num_defs; i++)
+	  if (values && num_defs == 1)
 	    {
-	      tree *def_p = VARRAY_TREE_PTR (ops, i);
-	      *def_p = var_to_partition_to_var (map, *def_p);
-	      replace_variable (map, def_p);
-
-	      if (is_copy
-		  && num_uses == 1
-		  && use_p
-		  && def_p
-		  && (*def_p == *use_p))
+	      tree def = *VARRAY_TREE_PTR (ops, 0);
+	      tree val;
+	      val = values[SSA_NAME_VERSION (def)];
+	      if (val)
 		remove = 1;
 	    }
+	  if (!remove)
+	    for (i = 0; i < num_defs; i++)
+	      {
+		tree *def_p = VARRAY_TREE_PTR (ops, i);
+		*def_p = var_to_partition_to_var (map, *def_p);
+		replace_variable (map, def_p, NULL);
+
+		if (is_copy
+		    && num_uses == 1
+		    && use_p
+		    && def_p
+		    && (*def_p == *use_p))
+		  remove = 1;
+	      }
 
 	  /* Remove copies of the form 'var = var'.  */
 	  if (remove)
@@ -1879,6 +2469,9 @@ rewrite_out_of_ssa (tree fndecl, enum tree_dump_index phase)
     }
 
   delete_elim_graph (g);
+
+  if (values)
+    free (values);
 
   /* If any copies were inserted on edges, actually insert them now.  */
   bsi_commit_edge_inserts (0, NULL);

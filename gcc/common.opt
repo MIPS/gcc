@@ -723,6 +723,10 @@ ftree-combine-temps
 Common
 Coalesce memory temporaries in the SSA->normal pass
 
+ftree-ter
+Common
+Replace temporary expressions in the SSA->normal pass
+
 ftree-dominator-opts
 Common
 Enable dominator optimizations

@@ -1,3 +1,45 @@
+2003-11-14  Andrew MacLeod  <amacleod@redhat.com>
+
+	* common.opt (ftree-ter): Document new option.
+	* flags.h (flag_tree_ter): Add new flag.
+	* fold-const.c (invert_truthvalue): Don't ignore cast to BOOLEAN_TYPE.
+	* opts.c (decode_options): Option -ftree-ter defaults to on.
+	(common_handle_option): Add processing for flag_tree_ter.
+	* toplev.c (flag_tree_ter): Initialize to 0.
+	(lang_independent_options f_): Add -ftree-ter flag.
+	* tree-ssa-live.c (init_var_map): Initialize ref_count to 0.
+	(delete_var_map): Free ref count if allocated.
+	(register_ssa_partition): Add "is_use" parameter for reference counting.
+	(create_ssa_var_map): Add flag and code for calculating ref counts.
+	* tree-ssa-live.h (struct _var_map): Add ref_count field.
+	(SSA_VAR_MAP_REF_COUNT): Define flag.
+	(version_ref_count): Function to retreive ref_count.
+	* tree-ssa.c (replace_variable): If an expression vector is passed in,
+	use replacement expression instead of mapped variable when available.
+	(struct value_expr_d): New structure for value lists.
+	(struct temp_expr_table_d): Structure used to build an expression 
+	replacement table.
+	(new_temp_expr_table): New. Create a new TER (Temporary Expression 
+	Replacement) table.
+	(free_temp_expr_table): New. Free a TER table.
+	(new_value_expr): New. Allocate a value list element.
+	(free_value_expr): New. Free a value list element.
+	(find_value_in_list): New. Find a value in a list.
+	(add_value_to_list): New. Add a value to a list if not already present.
+	(remove_value_from_list): New. Remove a value from a list.
+	(add_dependance): New. Add a dependency to an expression.
+	(check_replaceable): New. Check if a stmt is a candidate for TER. Add
+	to active list and create dependancies if so.
+	(finish_expr): New. Remove an expression from TER consideration.
+	(mark_replaceable): New. Finish a TER expression as a valid replacement.
+	(kill_expr): New. Finish dependent TER expressions as not replaceable.
+	(kill_virtual_exprs): New. Finish any TER expressions dependent on a 
+	virtual operand as not replaceable.
+	(find_replaceable_in_bb): New. Process a basic block for TER expression.
+	(find_replaceable_exprs): New. Entry point for TER expression finder.
+	(dump_replaceable_exprs): New. output list of replaceable expressions.
+	(rewrite_out_of_ssa): Build TER table if requested, and use it.
+
 2003-11-14  Andreas Jaeger  <aj@suse.de>
 
 	* c-semantics.c (find_reachable_label): Use C90 function

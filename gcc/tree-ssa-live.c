@@ -44,7 +44,7 @@ static tree_live_info_p new_tree_live_info (var_map);
 static inline void set_if_valid (var_map, bitmap, tree);
 static inline void add_livein_if_notdef (tree_live_info_p, bitmap,
 					 tree, basic_block);
-static inline void register_ssa_partition (var_map, tree);
+static inline void register_ssa_partition (var_map, tree, bool);
 static inline void add_conflicts_if_valid (tpa_p, conflict_graph,
 					   var_map, bitmap, tree);
 static partition_pair_p find_partition_pair (coalesce_list_p, int, int, bool);
@@ -78,6 +78,7 @@ init_var_map (int size)
   map->compact_to_partition = NULL;
   map->num_partitions = size;
   map->partition_size = size;
+  map->ref_count = NULL;
   return map;
 }
 
@@ -92,6 +93,8 @@ delete_var_map (var_map map)
     free (map->partition_to_compact);
   if (map->compact_to_partition)
     free (map->compact_to_partition);
+  if (map->ref_count)
+    free (map->ref_count);
   free (map);
 }
 
@@ -99,7 +102,7 @@ delete_var_map (var_map map)
    manager. Any unregistered partitions may be compacted out later.  */
 
 static inline void
-register_ssa_partition (var_map map, tree ssa_var)
+register_ssa_partition (var_map map, tree ssa_var, bool is_use)
 {
   tree stmt, arg;
   int version, i;
@@ -110,6 +113,9 @@ register_ssa_partition (var_map map, tree ssa_var)
 #endif
 
   version = SSA_NAME_VERSION (ssa_var);
+  if (is_use && map->ref_count)
+    map->ref_count[version]++;
+
   if (map->partition_to_var[version] == NULL_TREE)
     {
       map->partition_to_var[SSA_NAME_VERSION (ssa_var)] = ssa_var;
@@ -121,7 +127,7 @@ register_ssa_partition (var_map map, tree ssa_var)
 	  {
 	    arg = PHI_ARG_DEF (stmt, i);
 	    if (phi_ssa_name_p (arg))
-	      register_ssa_partition (map, arg);
+	      register_ssa_partition (map, arg, true);
 	  }
     }
 }
@@ -313,7 +319,7 @@ change_partition_var (var_map map, tree var, int part)
    need to have entries in the partition table.  */
 
 var_map
-create_ssa_var_map (void)
+create_ssa_var_map (int flags)
 {
   block_stmt_iterator bsi;
   basic_block bb;
@@ -338,8 +344,27 @@ create_ssa_var_map (void)
   sbitmap_zero (used_in_virtual_ops);
 #endif
 
+  if (flags & SSA_VAR_MAP_REF_COUNT)
+    {
+      map->ref_count = (int *)xmalloc (((next_ssa_version + 1) * sizeof (int)));
+      memset (map->ref_count, 0, (next_ssa_version + 1) * sizeof (int));
+    }
+
   FOR_EACH_BB (bb)
     {
+      if (flags & SSA_VAR_MAP_REF_COUNT)
+	{
+	  tree phi, arg;
+	  int x;
+	  for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+	    for (x = 0; x < PHI_NUM_ARGS (phi); x++)
+	      {
+		arg = PHI_ARG_DEF (phi, x);
+		if (TREE_CODE (arg) == SSA_NAME)
+		  map->ref_count[SSA_NAME_VERSION (arg)]++;
+	      }
+	}
+
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
         {
 	  stmt = bsi_stmt (bsi);
@@ -351,7 +376,7 @@ create_ssa_var_map (void)
 	  for (x = 0; ops && x < VARRAY_ACTIVE_SIZE (ops); x++)
 	    {
 	      use = VARRAY_TREE_PTR (ops, x);
-	      register_ssa_partition (map, *use);
+	      register_ssa_partition (map, *use, true);
 #if defined ENABLE_CHECKING
 	      SET_BIT (used_in_real_ops, var_ann (SSA_NAME_VAR (*use))->uid);
 #endif
@@ -361,7 +386,7 @@ create_ssa_var_map (void)
 	  for (x = 0; ops && x < VARRAY_ACTIVE_SIZE (ops); x++)
 	    {
 	      dest = VARRAY_TREE_PTR (ops, x);
-	      register_ssa_partition (map, *dest);
+	      register_ssa_partition (map, *dest, false);
 #if defined ENABLE_CHECKING
 	      SET_BIT (used_in_real_ops, var_ann (SSA_NAME_VAR (*dest))->uid);
 #endif

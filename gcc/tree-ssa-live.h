@@ -41,6 +41,9 @@ typedef struct _var_map
 
   /* Original partition size.  */
   unsigned int partition_size;
+
+  /* Reference count, if required.  */
+  int *ref_count;
 } *var_map;
 
 #define VAR_ANN_PARTITION(ann) (ann->partition)
@@ -58,14 +61,16 @@ extern void delete_var_map (var_map);
 extern void dump_var_map (FILE *, var_map);
 extern int var_union (var_map, tree, tree);
 extern void change_partition_var (var_map, tree, int);
-extern var_map create_ssa_var_map (void);
 extern void compact_var_map (var_map, int);
 
 static inline int num_var_partitions (var_map);
 static inline tree var_to_partition_to_var (var_map, tree);
 static inline tree partition_to_var (var_map, int);
 static inline int var_to_partition (var_map, tree);
+static inline int version_ref_count (var_map, tree);
 
+#define SSA_VAR_MAP_REF_COUNT	 0x01
+extern var_map create_ssa_var_map (int);
 /* Number of partitions.  */
 
 static inline int 
@@ -74,6 +79,16 @@ num_var_partitions (var_map map)
   return map->num_partitions;
 }
 
+static inline int
+version_ref_count (var_map map, tree ssa_var)
+{
+  int version = SSA_NAME_VERSION (ssa_var);
+#ifdef ENABLE_CHECKING
+  if (!map->ref_count)
+    abort ();
+#endif
+  return map->ref_count[version];
+}
  
 /* Given a partition number, return the variable which represents that 
    partition.  */

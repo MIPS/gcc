@@ -731,6 +731,9 @@ extern int flag_tree_dce;
 /* Enable SSA->normal pass memory location coalescing.  */
 extern int flag_tree_combine_temps;
 
+/* Enable SSA->normal pass expression replacement.  */
+extern int flag_tree_ter;
+
 /* Enable dominator optimizations while re-writing into SSA form.  */
 extern int flag_tree_dom;
 

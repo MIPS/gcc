@@ -2527,6 +2527,9 @@ invert_truthvalue (tree arg)
       return invert_truthvalue (TREE_OPERAND (arg, 0));
 
     case NOP_EXPR:
+      if (TREE_CODE (TREE_TYPE (arg)) == BOOLEAN_TYPE)
+        break;
+
     case CONVERT_EXPR:
     case FLOAT_EXPR:
       return build1 (TREE_CODE (arg), type,
