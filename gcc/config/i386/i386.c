@@ -1182,6 +1182,8 @@ override_options ()
     if (! strcmp (ix86_cpu_string, processor_alias_table[i].name))
       {
 	ix86_cpu = processor_alias_table[i].processor;
+	if (TARGET_64BIT && !(processor_alias_table[i].flags & PTA_64BIT))
+	  error ("CPU you sellected does not support x86-64 instruction set");
 	break;
       }
   if (processor_alias_table[i].flags & PTA_PREFETCH_SSE)
