@@ -1194,7 +1194,9 @@ cgraph_optimize (void)
       dump_varpool (cgraph_dump_file);
     }
 
+  bitmap_obstack_initialize (NULL);
   ipa_passes ();
+  bitmap_obstack_release (NULL);
   /* FIXME: this should be unnecesary if inliner took care of removing dead
      functions.  */
   cgraph_remove_unreachable_nodes (false, dump_file);  

@@ -694,9 +694,12 @@ tree_lowering_passes (tree fn)
   current_function_decl = fn;
   push_cfun (DECL_STRUCT_FUNCTION (fn));
   tree_register_cfg_hooks ();
+  bitmap_obstack_initialize (NULL);
   execute_pass_list (all_lowering_passes, EXECUTE_HOOK, NULL, NULL);
-  current_function_decl = saved_current_function_decl;
+  free_dominance_info (CDI_POST_DOMINATORS);
   compact_blocks ();
+  current_function_decl = saved_current_function_decl;
+  bitmap_obstack_release (NULL);
   pop_cfun ();
 }
 
@@ -707,10 +710,14 @@ tree_early_local_passes (tree fn)
 
   current_function_decl = fn;
   push_cfun (DECL_STRUCT_FUNCTION (fn));
+  bitmap_obstack_initialize (NULL);
   tree_register_cfg_hooks ();
   execute_pass_list (all_early_local_passes, EXECUTE_HOOK, NULL, NULL);
-  current_function_decl = saved_current_function_decl;
+  free_dominance_info (CDI_DOMINATORS);
+  free_dominance_info (CDI_POST_DOMINATORS);
   compact_blocks ();
+  current_function_decl = saved_current_function_decl;
+  bitmap_obstack_release (NULL);
   pop_cfun ();
 }
 
