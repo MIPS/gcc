@@ -234,22 +234,23 @@ symbolic_parameter_expr_p (tree chrec)
   return false;
 }
 
-/* Determines whether the expression CHREC is a constant.  Be aware of
-   the fact that the expression is supposed to be part of an evolution
-   function, and not an expression from the AST of the program.  */
+/* Determines whether the expression CHREC is a constant.  */
 
 static inline bool 
 evolution_function_is_constant_p (tree chrec)
 {
   if (chrec == NULL_TREE)
     return false;
-  
-  if (TREE_CODE (chrec) == POLYNOMIAL_CHREC
-      || TREE_CODE (chrec) == EXPONENTIAL_CHREC
-      || TREE_CODE (chrec) == PEELED_CHREC)
-    return false;
-  
-  return true;
+
+  switch (TREE_CODE (chrec))
+    {
+    case INTEGER_CST:
+    case REAL_CST:
+      return true;
+      
+    default:
+      return false;
+    }
 }
 
 /* Determine whether the given tree is an affine evolution function or not.  */

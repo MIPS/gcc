@@ -1,5 +1,14 @@
 2004-04-20  Sebastian Pop  <sebastian.pop@ensmp.fr>
 
+	* tree-chrec.h (evolution_function_is_constant_p): Be careful.
+	* tree-data-ref.c (analyze_siv_subscript_affine_affine): Renamed
+	analyze_subscript_affine_affine.  Exchange the CHREC_VARIABLEs for
+	overlaps.
+	(analyze_miv_subscript): Use directly analyze_subscript_affine_affine, 
+	and avoid the call to evolution_function_is_constant_p.
+
+2004-04-20  Sebastian Pop  <sebastian.pop@ensmp.fr>
+
 	* tree-chrec.c (chrec_apply): Fail on chrec_top for symbolic chrecs.
 	(no_evolution_in_loop_p): Return false when non decidable, use
 	a parameter for returning the result.
