@@ -1,3 +1,12 @@
+2004-01-29  Alan Modra  <amodra@bigpond.net.au>
+
+	Backport from mainline.
+
+	2003-08-28  Alan Modra  <amodra@bigpond.net.au>
+
+	* configure.in: Test $with_cross_host against $build_alias, not $build.
+	* configure: Regenerate.
+
 2004-01-24  Alan Modra  <amodra@bigpond.net.au>
 
 	* configure.in: Set native_cross when ppc32->ppc64 and host can

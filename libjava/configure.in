@@ -507,7 +507,7 @@ if test "x${with_newlib}" = "xyes"; then
 
    # If Canadian cross, then don't pick up tools from the build
    # directory.
-   if test x"$build" != x"$with_cross_host" \
+   if test x"$build_alias" != x"$with_cross_host" \
         && test x"$build" != x"$target"; then
       CANADIAN=yes
       GCC_UNWIND_INCLUDE=

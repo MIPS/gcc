@@ -119,7 +119,8 @@ if test -n "$with_cross_host" && test $native_cross = no \
 
   # If Canadian cross, then don't pick up tools from the build directory.
   # Used in GLIBCPP_EXPORT_INCLUDES (and nowhere else?).
-  if test -n "$with_cross_host" && test x"$build" != x"$with_cross_host"; then
+  if test -n "$with_cross_host" &&
+     test x"$build_alias" != x"$with_cross_host"; then
     CANADIAN=yes
   else
     CANADIAN=no

@@ -1,3 +1,14 @@
+2004-01-29  Alan Modra  <amodra@bigpond.net.au>
+
+	Backport from mainline.
+
+	2003-08-06  Alan Modra  <amodra@bigpond.net.au>
+
+	* acinclude.m4 (LIBGCJ_CONFIGURE): Remove AC_CANONICAL_BUILD.
+	* configure.in: Compare with_cross_host to build_alias, not build.
+	* aclocal.m4: Regenerate.
+	* configure: Regenerate.
+
 2004-01-24  Alan Modra  <amodra@bigpond.net.au>
 
 	* configure.host: Correct powerpc64*-linux entry.
