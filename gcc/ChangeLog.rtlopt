@@ -1,3 +1,11 @@
+2002-11-01  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* loop-unroll.c (unroll_loop_runtime_iterations): New loop
+	preconditioning.
+	* params.def (PARAM_MAX_PEELED_INSNS,
+	PARAM_MAX_COMPLETELY_PEELED_INSNS): Increase default parameter values.
+	* toplev.c (dump_file): Sync with dump_file_index.
+
 Fri Nov  1 01:10:33 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* toplev.c (rest_of_compilations):  Remove dead code after unrolling.

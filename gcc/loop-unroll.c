@@ -266,16 +266,14 @@ unroll_loop_runtime_iterations (loops, loop, max_unroll, desc)
      int max_unroll;
      struct loop_desc *desc;
 {
-  rtx niter, init_code, branch_code;
-  rtx loop_beg_label;
+  rtx niter, init_code, branch_code, jump, label;
   int i, j;
-  basic_block fake, preheader, *body, dom, *dom_bbs;
+  basic_block preheader, *body, *dom_bbs, swtch, ezc_swtch;
   int n_dom_bbs;
-  edge e;
   sbitmap wont_exit;
   int may_exit_copy, n_peel, n_remove_edges;
   edge *remove_edges;
-  bool skip_first_test;
+  bool extra_zero_check, last_may_exit;
 
   /* Remember blocks whose dominators will have to be updated.  */
   dom_bbs = xcalloc (n_basic_blocks, sizeof (basic_block));
@@ -289,7 +287,8 @@ unroll_loop_runtime_iterations (loops, loop, max_unroll, desc)
 
       nldom = get_dominated_by (loops->cfg.dom, body[i], &ldom);
       for (j = 0; j < nldom; j++)
-	dom_bbs[n_dom_bbs++] = ldom[j];
+	if (!flow_bb_inside_loop_p (loop, ldom[j]))
+	  dom_bbs[n_dom_bbs++] = ldom[j];
 
       free (ldom);
     }
@@ -298,6 +297,23 @@ unroll_loop_runtime_iterations (loops, loop, max_unroll, desc)
   /* Force max_unroll + 1 to be power of 2.  */
   for (i = 1; 2 * i <= max_unroll + 1; i *= 2);
   max_unroll = i - 1;
+
+  if (desc->postincr)
+    {
+      /* Leave exit in first copy.  */
+      may_exit_copy = 0;
+      n_peel = max_unroll - 1;
+      extra_zero_check = true;
+      last_may_exit = false;
+    }
+  else
+    {
+      /* Leave exit in last copy.  */
+      may_exit_copy = max_unroll;
+      n_peel = max_unroll;
+      extra_zero_check = false;
+      last_may_exit = true;
+    }
 
   /* Normalization.  */
   start_sequence ();
@@ -312,130 +328,102 @@ unroll_loop_runtime_iterations (loops, loop, max_unroll, desc)
 			       GEN_INT (max_unroll),
 			       NULL_RTX, 0, OPTAB_LIB_WIDEN);
 
-  if (desc->postincr)
-    {
-      /* Leave exit in first copy.  */
-      may_exit_copy = 0;
-      n_peel = max_unroll;
-      skip_first_test = false;
-    }
-  else
-    {
-      /* Leave exit in last copy.  */
-      may_exit_copy = max_unroll;
-      n_peel = max_unroll + 1;
-      /* First check for zero is obviously unnecessary now; it might seem
-	 we could do better by increasing it before AND; but we must have
-	 guaranteed that exit condition will be checked in first iteration,
-	 so that we won't miscompile loop with negative number of
-	 iterations.  */
-      skip_first_test = true;
-    }
-
-  niter = expand_simple_binop (GET_MODE (desc->var), PLUS,
-			       niter,
-			       const1_rtx, NULL_RTX, 0, OPTAB_LIB_WIDEN);
-
   init_code = get_insns ();
   end_sequence ();
 
   /* Precondition the loop.  */
   loop_split_edge_with (loop_preheader_edge (loop), init_code, loops);
 
-  /* Fake block, to record edges we need to redirect.  */
-  fake = create_basic_block (NULL, NULL, EXIT_BLOCK_PTR->prev_bb);
-  add_to_dominance_info (loops->cfg.dom, fake);
-  loop_beg_label = block_label (fake);
-
-  remove_edges = xcalloc (max_unroll + n_peel, sizeof (edge));
+  remove_edges = xcalloc (max_unroll + n_peel + 1, sizeof (edge));
   n_remove_edges = 0;
 
   wont_exit = sbitmap_alloc (max_unroll + 2);
 
+  /* Peel the first copy of loop body (almost always we must leave exit test
+     here; the only exception is when we have extra_zero_check and the number
+     of iterations is reliable (i.e. comes out of NE condition).  Also record
+     the place of (possible) extra zero check.  */
+  sbitmap_zero (wont_exit);
+  if (extra_zero_check && desc->cond == NE)
+    SET_BIT (wont_exit, 1);
+  ezc_swtch = loop_preheader_edge (loop)->src;
+  if (!duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
+		loops, 1,
+		wont_exit, desc->out_edge, remove_edges, &n_remove_edges,
+		DLTHE_FLAG_ALL))
+    abort ();
+
+  /* Record the place where switch will be built for preconditioning.  */
+  swtch = loop_split_edge_with (loop_preheader_edge (loop),
+				    NULL_RTX, loops);
+
   for (i = 0; i < n_peel; i++)
     {
-      edge e;
-      start_sequence ();
-      niter = expand_simple_binop (GET_MODE (desc->var), MINUS,
-				   niter, const1_rtx,
-				   NULL_RTX, 0, OPTAB_LIB_WIDEN);
-      if (i || !skip_first_test)
+      /* Peel the copy.  */
+      sbitmap_zero (wont_exit);
+      if (i != n_peel - 1 || !last_may_exit)
+	SET_BIT (wont_exit, 1);
+      if (!duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
+		loops, 1,
+		wont_exit, desc->out_edge, remove_edges, &n_remove_edges,
+		DLTHE_FLAG_ALL))
+    	abort ();
+
+      if (i != n_peel)
 	{
-	  rtx jump;
-	  do_compare_rtx_and_jump (copy_rtx (niter), const0_rtx, EQ, 0,
-		GET_MODE (desc->var), NULL_RTX, NULL_RTX,
-		loop_beg_label);
+	  /* Create item for switch.  */
+	  j = n_peel - i - (extra_zero_check ? 0 : 1);
+	  preheader = loop_split_edge_with (loop_preheader_edge (loop),
+					    NULL_RTX, loops);
+	  label = block_label (preheader);
+	  start_sequence ();
+	  do_compare_rtx_and_jump (copy_rtx (niter), GEN_INT (j), EQ, 0,
+		    		   GET_MODE (desc->var), NULL_RTX, NULL_RTX,
+				   label);
 	  jump = get_last_insn ();
-	  JUMP_LABEL (jump) = loop_beg_label;
+	  JUMP_LABEL (jump) = label;
 	  REG_NOTES (jump)
-	    = gen_rtx_EXPR_LIST (REG_BR_PROB,
-				 GEN_INT (REG_BR_PROB_BASE / (n_peel - i + 1)), REG_NOTES (jump));
+		  = gen_rtx_EXPR_LIST (REG_BR_PROB,
+			    	       GEN_INT (REG_BR_PROB_BASE / (n_peel - i + 1)), REG_NOTES (jump));
 	
-	  LABEL_NUSES (loop_beg_label)++;
+	  LABEL_NUSES (label)++;
+	  branch_code = get_insns ();
+	  end_sequence ();
+
+	  swtch = loop_split_edge_with (swtch->pred, branch_code, loops);
+	  set_immediate_dominator (loops->cfg.dom, preheader, swtch);
+	  make_edge (swtch, preheader, 0);
 	}
+    }
+
+  if (extra_zero_check)
+    {
+      /* Add branch for zero iterations.  */
+      swtch = ezc_swtch;
+      preheader = loop_split_edge_with (loop_preheader_edge (loop),
+					NULL_RTX, loops);
+      label = block_label (preheader);
+      start_sequence ();
+      do_compare_rtx_and_jump (copy_rtx (niter), const0_rtx, EQ, 0,
+			       GET_MODE (desc->var), NULL_RTX, NULL_RTX,
+			       label);
+      jump = get_last_insn ();
+      JUMP_LABEL (jump) = label;
+      REG_NOTES (jump)
+	      = gen_rtx_EXPR_LIST (REG_BR_PROB,
+				   GEN_INT (REG_BR_PROB_BASE / (n_peel - i + 1)), REG_NOTES (jump));
+      
+      LABEL_NUSES (label)++;
       branch_code = get_insns ();
       end_sequence ();
 
-      preheader =
-	loop_split_edge_with (loop_preheader_edge (loop), branch_code, loops);
-
-      e = loop_preheader_edge (loop);
-      /* Now lower the probablity of the edge as the other edge will handle it.  */
-      e->probability = REG_BR_PROB_BASE - (REG_BR_PROB_BASE / (n_peel - i + 1));
-      e->count = e->count * e->probability / REG_BR_PROB_BASE;
-
-      if (i || !skip_first_test)
-	make_edge (preheader, fake, 0);
-
-      /* We must be a bit careful here, as we might have negative number of
-	 iterations.  In case of preincrement, we also must have the exit
-	 check in the first copy for case there were exactly zero iterations.
-      */
-      sbitmap_zero (wont_exit);
-      if (i || (desc->postincr && desc->cond == NE))
-	SET_BIT (wont_exit, 1);
-
-      if (!duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
-		loops, 1,
-		wont_exit, desc->out_edge, remove_edges, &n_remove_edges,
-		DLTHE_FLAG_ALL))
-	abort ();
+      swtch = loop_split_edge_with (swtch->succ, branch_code, loops);
+      set_immediate_dominator (loops->cfg.dom, preheader, swtch);
+      make_edge (swtch, preheader, 0);
     }
-
-  /* Now redirect the edges from fake.  */
-  preheader =
-    loop_split_edge_with (loop_preheader_edge (loop), NULL_RTX, loops);
-  loop_beg_label = block_label (preheader);
-
-  for (e = fake->pred; e; e = fake->pred)
-    {
-      if (!redirect_edge_and_branch (e, preheader))
-	abort ();
-    }
-
-  dom = recount_dominator (loops->cfg.dom, preheader);
-  set_immediate_dominator (loops->cfg.dom, preheader, dom);
 
   /* Recount dominators for outer blocks.  */
   iterate_fix_dominators (loops->cfg.dom, dom_bbs, n_dom_bbs);
-  free (dom_bbs);
-
-  /* Get rid of fake.  */
-  delete_from_dominance_info (loops->cfg.dom, fake);
-  flow_delete_block (fake);
-
-  /* When unrolling preincr loop, we must peel one more iteration to
-     get the numbers right; we must leave exit test in this iteration,
-     for case we are iterating less than max_unroll times.  */
-  if (!desc->postincr)
-    {
-      sbitmap_zero (wont_exit);
-      if (!duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
-		loops, 1,
-		wont_exit, desc->out_edge, remove_edges, &n_remove_edges,
-		DLTHE_FLAG_ALL))
-	abort ();
-    }
 
   /* And unroll loop.  */
 
