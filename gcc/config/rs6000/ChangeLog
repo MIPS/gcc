@@ -1,5 +1,25 @@
 2000-02-03  Geoff Keating  <geoffk@cygnus.com>
 
+	* rs6000.c (rs6000_sr_alias_set): New variable.
+	(rs6000_override_options): Initialise rs6000_sr_alias_set.
+	(rs6000_emit_stack_tie): New function.
+	(rs6000_emit_allocate_stack): Specify RTX_FRAME_RELATED_P
+	in a way that dwarf2out can understand.
+	(rs6000_frame_related): New function.
+	(rs6000_emit_prologue): Use rs6000_sr_alias_set.  Specify
+	RTX_FRAME_RELATED_P in a way that dwarf2out can understand.
+	Use rs6000_emit_stack_tie when needed.
+	(rs6000_emit_epilogue): Use rs6000_sr_alias_set.  Don't set
+	RTX_FRAME_RELATED_P.  Use rs6000_emit_stack_tie when needed.
+	* rs6000.md (stack_tie): New insn.
+	(return_internal_si): Allow return value to be in the count
+	register.
+	(return_internal_di): Likewise.
+
+	* rs6000.c (output_mi_thunk): Remove unused variable `sp'.
+
+2000-02-03  Geoff Keating  <geoffk@cygnus.com>
+
 	* sysv4.h (LOCAL_LABEL_PREFIX): Define, for the use of dbxelf.h.
 
 2000-01-31  Geoff Keating  <geoffk@cygnus.com>

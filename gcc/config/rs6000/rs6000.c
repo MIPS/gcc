@@ -113,9 +113,14 @@ int rs6000_debug_arg;		/* debug argument handling */
 /* Flag to say the TOC is initialized */
 int toc_initialized;
 
+/* Alias set for saves and restores from the rs6000 stack.  */
+static int rs6000_sr_alias_set;
+
 static void rs6000_add_gc_roots PARAMS ((void));
 static int num_insns_constant_wide PARAMS ((HOST_WIDE_INT));
 static rtx expand_block_move_mem PARAMS ((enum machine_mode, rtx, rtx));
+static void rs6000_emit_stack_tie PARAMS ((void));
+static void rs6000_frame_related PARAMS ((rtx, rtx, HOST_WIDE_INT, rtx, rtx));
 static void rs6000_emit_allocate_stack PARAMS ((HOST_WIDE_INT, int));
 static unsigned rs6000_hash_constant PARAMS ((rtx));
 static unsigned toc_hash_function PARAMS ((hash_table_entry_t));
@@ -381,6 +386,9 @@ rs6000_override_options (default_cpu)
 
   /* Register global variables with the garbage collector.  */
   rs6000_add_gc_roots ();
+
+  /* Allocate an alias set for register saves & restores from stack.  */
+  rs6000_sr_alias_set = new_alias_set ();
 }
 
 void
@@ -4287,6 +4295,18 @@ rs6000_emit_load_toc_table (fromprolog)
     }
 }
 
+/* This ties together stack memory 
+   (MEM with an alias set of rs6000_sr_alias_set)
+   and the change to the stack pointer.  */
+static void
+rs6000_emit_stack_tie ()
+{
+  rtx mem;
+  mem = gen_rtx_MEM (BLKmode, gen_rtx_REG (Pmode, STACK_POINTER_REGNUM));
+  MEM_ALIAS_SET (mem) = rs6000_sr_alias_set;
+  emit_insn (gen_stack_tie (mem));
+}
+
 /* Emit the correct code for allocating stack space, as insns.
    If COPY_R12, make sure a copy of the old frame is left in r12.
    The generated code may use hard register 0 as a temporary.  */
@@ -4307,18 +4327,16 @@ rs6000_emit_allocate_stack (size, copy_r12)
 	  && REGNO (stack_limit_rtx) > 1 
 	  && REGNO (stack_limit_rtx) <= 31)
 	{
-	  insn = emit_insn (Pmode == SImode
-			    ? gen_addsi3 (tmp_reg,
-					  stack_limit_rtx,
-					  GEN_INT (size))
-			    : gen_adddi3 (tmp_reg,
-					  stack_limit_rtx,
-					  GEN_INT (size)));
-	  RTX_FRAME_RELATED_P (insn) = 1;
-
-	  insn = emit_insn (gen_cond_trap (LTU, stack_reg, tmp_reg,
-					   const0_rtx));
-	  RTX_FRAME_RELATED_P (insn) = 1;
+	  emit_insn (Pmode == SImode
+		     ? gen_addsi3 (tmp_reg,
+				   stack_limit_rtx,
+				   GEN_INT (size))
+		     : gen_adddi3 (tmp_reg,
+				   stack_limit_rtx,
+				   GEN_INT (size)));
+	  
+	  emit_insn (gen_cond_trap (LTU, stack_reg, tmp_reg,
+				    const0_rtx));
 	}
       else if (GET_CODE (stack_limit_rtx) == SYMBOL_REF
 	       && TARGET_32BIT
@@ -4328,24 +4346,18 @@ rs6000_emit_allocate_stack (size, copy_r12)
 				      gen_rtx_PLUS (Pmode, 
 						    stack_limit_rtx, 
 						    GEN_INT (size)));
-
-	  insn = emit_insn (gen_elf_high (tmp_reg, toload));
-	  RTX_FRAME_RELATED_P (insn) = 1;
-	  insn = emit_insn (gen_elf_low (tmp_reg, tmp_reg, toload));
-	  RTX_FRAME_RELATED_P (insn) = 1;
-	  insn = emit_insn (gen_cond_trap (LTU, stack_reg, tmp_reg,
-					   const0_rtx));
-	  RTX_FRAME_RELATED_P (insn) = 1;
+	  
+	  emit_insn (gen_elf_high (tmp_reg, toload));
+	  emit_insn (gen_elf_low (tmp_reg, tmp_reg, toload));
+	  emit_insn (gen_cond_trap (LTU, stack_reg, tmp_reg,
+				    const0_rtx));
 	}
       else
 	warning ("stack limit expression is not supported");
     }
 
   if (copy_r12 || ! TARGET_UPDATE)
-    {
-      insn = emit_move_insn (gen_rtx_REG (Pmode, 12), stack_reg);
-      RTX_FRAME_RELATED_P (insn) = 1;
-    }
+    emit_move_insn (gen_rtx_REG (Pmode, 12), stack_reg);
 
   if (TARGET_UPDATE)
     {
@@ -4355,8 +4367,7 @@ rs6000_emit_allocate_stack (size, copy_r12)
 	  if (get_last_insn() == NULL_RTX)
 	    emit_note (0, NOTE_INSN_DELETED);
 	  insn = emit_move_insn (tmp_reg, todec);
-	  insn = try_split (PATTERN (insn), insn, 0);
-	  RTX_FRAME_RELATED_P (insn) = 1;
+	  try_split (PATTERN (insn), insn, 0);
 	  todec = tmp_reg;
 	}
       
@@ -4366,7 +4377,6 @@ rs6000_emit_allocate_stack (size, copy_r12)
       else
 	insn = emit_insn (gen_movdi_update (stack_reg, stack_reg, 
 					    todec, stack_reg));
-      RTX_FRAME_RELATED_P (insn) = 1;
     }
   else
     {
@@ -4374,11 +4384,96 @@ rs6000_emit_allocate_stack (size, copy_r12)
 	insn = emit_insn (gen_addsi3 (stack_reg, stack_reg, todec));
       else
 	insn = emit_insn (gen_adddi3 (stack_reg, stack_reg, todec));
-      RTX_FRAME_RELATED_P (insn) = 1;
-      insn = emit_move_insn (gen_rtx_MEM (Pmode, stack_reg),
-			     gen_rtx_REG (Pmode, 12));
-      RTX_FRAME_RELATED_P (insn) = 1;
+      emit_move_insn (gen_rtx_MEM (Pmode, stack_reg),
+		      gen_rtx_REG (Pmode, 12));
     }
+  
+  RTX_FRAME_RELATED_P (insn) = 1;
+  REG_NOTES (insn) = 
+    gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR,
+		       gen_rtx_SET (VOIDmode, stack_reg, 
+				    gen_rtx_PLUS (Pmode, stack_reg,
+						  GEN_INT (-size))),
+		       REG_NOTES (insn));
+}
+
+/* Add to 'insn' a note which is PATTERN (INSN) but with REG replaced with
+   (plus:P (reg 1) VAL), and with REG2 replaced with RREG if REG2 is not 
+   NULL.  
+   It would be nice if dwarf2out_frame_debug_expr could deduce these
+   equivalences by itself so it wasn't necessary to hold its hand so much.  */
+
+static void
+rs6000_frame_related (insn, reg, val, reg2, rreg)
+     rtx insn;
+     rtx reg;
+     HOST_WIDE_INT val;
+     rtx reg2;
+     rtx rreg;
+{
+  rtx real, temp;
+
+  real = copy_rtx (PATTERN (insn));
+
+  real = replace_rtx (real, reg, 
+		      gen_rtx_PLUS (Pmode, gen_rtx_REG (Pmode,
+							STACK_POINTER_REGNUM),
+				    GEN_INT (val)));
+  
+  /* We expect that 'real' is either a SET or a PARALLEL containing
+     SETs (and possibly other stuff).  In a PARALLEL, all the SETs
+     are important so they all have to be marked RTX_FRAME_RELATED_P.  */
+
+  if (GET_CODE (real) == SET)
+    {
+      rtx set = real;
+      
+      temp = simplify_rtx (SET_SRC (set));
+      if (temp)
+	SET_SRC (set) = temp;
+      temp = simplify_rtx (SET_DEST (set));
+      if (temp)
+	SET_DEST (set) = temp;
+      if (GET_CODE (SET_DEST (set)) == MEM)
+	{
+	  temp = simplify_rtx (XEXP (SET_DEST (set), 0));
+	  if (temp)
+	    XEXP (SET_DEST (set), 0) = temp;
+	}
+    }
+  else if (GET_CODE (real) == PARALLEL)
+    {
+      int i;
+      for (i = 0; i < XVECLEN (real, 0); i++)
+	if (GET_CODE (XVECEXP (real, 0, i)) == SET)
+	  {
+	    rtx set = XVECEXP (real, 0, i);
+	    
+	    temp = simplify_rtx (SET_SRC (set));
+	    if (temp)
+	      SET_SRC (set) = temp;
+	    temp = simplify_rtx (SET_DEST (set));
+	    if (temp)
+	      SET_DEST (set) = temp;
+	    if (GET_CODE (SET_DEST (set)) == MEM)
+	      {
+		temp = simplify_rtx (XEXP (SET_DEST (set), 0));
+		if (temp)
+		  XEXP (SET_DEST (set), 0) = temp;
+	      }
+	    RTX_FRAME_RELATED_P (set) = 1;
+	  }
+    }
+  else
+    abort();
+  
+  if (reg2 != NULL_RTX)
+    real = replace_rtx (real, reg2, rreg);
+  
+  RTX_FRAME_RELATED_P (insn) = 1;
+  REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR,
+					real,
+					REG_NOTES (insn));
 }
 
 /* Emit function prologue as insns.  */
@@ -4389,7 +4484,8 @@ rs6000_emit_prologue()
   rs6000_stack_t *info = rs6000_stack_info ();
   enum machine_mode reg_mode = TARGET_POWERPC64 ? DImode : SImode;
   int reg_size = TARGET_POWERPC64 ? 8 : 4;
-  rtx sp_reg_rtx = gen_rtx_REG (Pmode, 1);
+  rtx sp_reg_rtx = gen_rtx_REG (Pmode, STACK_POINTER_REGNUM);
+  rtx frame_ptr_rtx = gen_rtx_REG (Pmode, 12);
   rtx frame_reg_rtx = sp_reg_rtx;
   rtx cr_save_rtx = NULL;
   rtx insn;
@@ -4408,7 +4504,7 @@ rs6000_emit_prologue()
       if (info->total_size < 32767)
 	sp_offset = info->total_size;
       else
-	frame_reg_rtx = gen_rtx_REG (Pmode, 12);
+	frame_reg_rtx = frame_ptr_rtx;
       rs6000_emit_allocate_stack (info->total_size, 
 				  (frame_reg_rtx != sp_reg_rtx
 				   && (info->cr_save_p
@@ -4416,22 +4512,20 @@ rs6000_emit_prologue()
 				       || info->first_fp_reg_save < 64
 				       || info->first_gp_reg_save < 32
 				       )));
+      if (frame_reg_rtx != sp_reg_rtx)
+	rs6000_emit_stack_tie ();
     }
 
   /* If we use the link register, get it into r0.  */
   if (info->lr_save_p)
-    {
-      insn = emit_move_insn (gen_rtx_REG (Pmode, 0), 
-			     gen_rtx_REG (Pmode, LINK_REGISTER_REGNUM));
-      RTX_FRAME_RELATED_P (insn) = 1;
-    }
+    emit_move_insn (gen_rtx_REG (Pmode, 0), 
+		    gen_rtx_REG (Pmode, LINK_REGISTER_REGNUM));
 
   /* If we need to save CR, put it into r12.  */
-  if (info->cr_save_p && REGNO (frame_reg_rtx) != 12)
+  if (info->cr_save_p && frame_reg_rtx != frame_ptr_rtx)
     {
       cr_save_rtx = gen_rtx_REG (SImode, 12);
-      insn = emit_insn (gen_movesi_from_cr (cr_save_rtx));
-      RTX_FRAME_RELATED_P (insn) = 1;
+      emit_insn (gen_movesi_from_cr (cr_save_rtx));
     }
 
   /* Do any required saving of fpr's.  If only one or two to save, do it
@@ -4443,15 +4537,18 @@ rs6000_emit_prologue()
 	if ((regs_ever_live[info->first_fp_reg_save+i] 
 	     && ! call_used_regs[info->first_fp_reg_save+i]))
 	  {
-	    rtx addr;
+	    rtx addr, reg, mem;
+	    reg = gen_rtx_REG (DFmode, info->first_fp_reg_save + i);
 	    addr = gen_rtx_PLUS (Pmode, frame_reg_rtx,
 				 GEN_INT (info->fp_save_offset 
 					  + sp_offset 
 					  + 8*i));
-	    insn = emit_move_insn (gen_rtx_MEM (DFmode, addr),
-				   gen_rtx_REG (DFmode, 
-						info->first_fp_reg_save + i));
-	    RTX_FRAME_RELATED_P (insn) = 1;
+	    mem = gen_rtx_MEM (DFmode, addr);
+	    MEM_ALIAS_SET (mem) = rs6000_sr_alias_set;
+
+	    insn = emit_move_insn (mem, reg);
+	    rs6000_frame_related (insn, frame_ptr_rtx, info->total_size, 
+				  NULL_RTX, NULL_RTX);
 	  }
     }
   else if (info->first_fp_reg_save != 64)
@@ -4473,39 +4570,45 @@ rs6000_emit_prologue()
 							  alloc_rname));
       for (i = 0; i < 64 - info->first_fp_reg_save; i++)
 	{
-	  rtx addr;
+	  rtx addr, reg, mem;
+	  reg = gen_rtx_REG (DFmode, info->first_fp_reg_save + i);
 	  addr = gen_rtx_PLUS (Pmode, frame_reg_rtx,
 			       GEN_INT (info->fp_save_offset 
 					+ sp_offset + 8*i));
-	  RTVEC_ELT (p, i + 2) = 
-	    gen_rtx_SET (VOIDmode,
-			 gen_rtx_MEM (DFmode, addr),
-			 gen_rtx_REG (DFmode, info->first_fp_reg_save + i));
+	  mem = gen_rtx_MEM (DFmode, addr);
+	  MEM_ALIAS_SET (mem) = rs6000_sr_alias_set;
+
+	  RTVEC_ELT (p, i + 2) = gen_rtx_SET (VOIDmode, mem, reg);
 	}
       insn = emit_insn (gen_rtx_PARALLEL (VOIDmode, p));
-      RTX_FRAME_RELATED_P (insn) = 1;
+      rs6000_frame_related (insn, frame_ptr_rtx, info->total_size, 
+			    NULL_RTX, NULL_RTX);
     }
 
   /* Save GPRs.  This is done as a PARALLEL if we are using
      the store-multiple instructions.  */
   if (using_store_multiple)
     {
-      rtvec p;
+      rtvec p, dwarfp;
       int i;
       p = rtvec_alloc (32 - info->first_gp_reg_save);
+      dwarfp = rtvec_alloc (32 - info->first_gp_reg_save);
       for (i = 0; i < 32 - info->first_gp_reg_save; i++)
 	{
-	  rtx addr = gen_rtx_PLUS (Pmode, frame_reg_rtx, 
-				   GEN_INT (info->gp_save_offset 
-					    + sp_offset 
-					    + reg_size * i));
-	  RTVEC_ELT (p, i) = 
-	    gen_rtx_SET (VOIDmode,
-			 gen_rtx_MEM (reg_mode, addr),
-			 gen_rtx_REG (reg_mode, info->first_gp_reg_save + i));
+	  rtx addr, reg, mem;
+	  reg = gen_rtx_REG (reg_mode, info->first_gp_reg_save + i);
+	  addr = gen_rtx_PLUS (Pmode, frame_reg_rtx, 
+			       GEN_INT (info->gp_save_offset 
+					+ sp_offset 
+					+ reg_size * i));
+	  mem = gen_rtx_MEM (reg_mode, addr);
+	  MEM_ALIAS_SET (mem) = rs6000_sr_alias_set;
+
+	  RTVEC_ELT (p, i) = gen_rtx_SET (VOIDmode, mem, reg);
 	}
       insn = emit_insn (gen_rtx_PARALLEL (VOIDmode, p));
-      RTX_FRAME_RELATED_P (insn) = 1;
+      rs6000_frame_related (insn, frame_ptr_rtx, info->total_size, 
+			    NULL_RTX, NULL_RTX);
     }
   else
     {
@@ -4517,14 +4620,18 @@ rs6000_emit_prologue()
 		&& (DEFAULT_ABI == ABI_V4 || DEFAULT_ABI == ABI_SOLARIS)
 		&& flag_pic == 1))
 	  {
-	    rtx addr = gen_rtx_PLUS (Pmode, frame_reg_rtx, 
-				     GEN_INT (info->gp_save_offset 
-					      + sp_offset 
-					      + reg_size * i));
-	    insn = emit_move_insn (gen_rtx_MEM (reg_mode, addr),
-				   gen_rtx_REG (reg_mode, 
-						info->first_gp_reg_save + i));
-	    RTX_FRAME_RELATED_P (insn) = 1;
+	    rtx addr, reg, mem;
+	    reg = gen_rtx_REG (reg_mode, info->first_gp_reg_save + i);
+	    addr = gen_rtx_PLUS (Pmode, frame_reg_rtx, 
+				 GEN_INT (info->gp_save_offset 
+					  + sp_offset 
+					  + reg_size * i));
+	    mem = gen_rtx_MEM (reg_mode, addr);
+	    MEM_ALIAS_SET (mem) = rs6000_sr_alias_set;
+
+	    insn = emit_move_insn (mem, reg);
+	    rs6000_frame_related (insn, frame_ptr_rtx, info->total_size, 
+				  NULL_RTX, NULL_RTX);
 	  }
     }
 
@@ -4533,9 +4640,14 @@ rs6000_emit_prologue()
     {
       rtx addr = gen_rtx_PLUS (Pmode, frame_reg_rtx,
 			       GEN_INT (info->lr_save_offset + sp_offset));
-      insn = emit_move_insn (gen_rtx_MEM (Pmode, addr),
-			     gen_rtx_REG (Pmode, 0));
-      RTX_FRAME_RELATED_P (insn) = 1;
+      rtx reg = gen_rtx_REG (Pmode, 0);
+      rtx mem = gen_rtx_MEM (Pmode, addr);
+      /* This should not be of rs6000_sr_alias_set, because of
+	 __builtin_return_address.  */
+      
+      insn = emit_move_insn (mem, reg);
+      rs6000_frame_related (insn, frame_ptr_rtx, info->total_size, 
+			    reg, gen_rtx_REG (Pmode, LINK_REGISTER_REGNUM));
     }
 
   /* Save CR if we use any that must be preserved.  */
@@ -4543,16 +4655,25 @@ rs6000_emit_prologue()
     {
       rtx addr = gen_rtx_PLUS (Pmode, frame_reg_rtx,
 			       GEN_INT (info->cr_save_offset + sp_offset));
+      rtx mem = gen_rtx_MEM (SImode, addr);
+      MEM_ALIAS_SET (mem) = rs6000_sr_alias_set;
 
-      /* If r12 is used to hold the original sp, copy cr into it now.  */
+      /* If r12 was used to hold the original sp, copy cr into r0 now
+	 that it's free.  */
       if (REGNO (frame_reg_rtx) == 12)
 	{
 	  cr_save_rtx = gen_rtx_REG (SImode, 0);
-	  insn = emit_insn (gen_movesi_from_cr (cr_save_rtx));
-	  RTX_FRAME_RELATED_P (insn) = 1;
+	  emit_insn (gen_movesi_from_cr (cr_save_rtx));
 	}
-      insn = emit_move_insn (gen_rtx_MEM (SImode, addr), cr_save_rtx);
-      RTX_FRAME_RELATED_P (insn) = 1;
+      insn = emit_move_insn (mem, cr_save_rtx);
+
+      /* Now, there's no way that dwarf2out_frame_debug_expr is going
+	 to understand '(unspec:SI [(reg:CC 68) ...] 19)'.  But that's
+	 OK.  All we have to do is specify that _one_ condition code
+	 register is saved in this stack slot.  The thrower's epilogue
+	 will then restore all the call-saved registers.  */
+      rs6000_frame_related (insn, frame_ptr_rtx, info->total_size, 
+			    cr_save_rtx, gen_rtx_REG (SImode, 68));
     }
 
   /* Update stack and set back pointer unless this is V.4, 
@@ -4649,7 +4770,12 @@ output_prolog (file, size)
   rs6000_pic_labelno++;
 }
   
-/* Emit function epilogue as insns.  */
+/* Emit function epilogue as insns.
+
+   At present, dwarf2out_frame_debug_expr doesn't understand
+   register restores, so we don't bother setting RTX_FRAME_RELATED_P
+   anywhere in the epilogue.  Most of the insns below would in any case
+   need special notes to explain where r11 is in relation to the stack.  */
 
 void
 rs6000_emit_epilogue(sibcall)
@@ -4665,7 +4791,6 @@ rs6000_emit_epilogue(sibcall)
   rtx frame_reg_rtx = sp_reg_rtx;
   enum machine_mode reg_mode = TARGET_POWERPC64 ? DImode : SImode;
   int reg_size = TARGET_POWERPC64 ? 8 : 4;
-  rtx insn;
   int i;
 
   info = rs6000_stack_info ();
@@ -4692,10 +4817,9 @@ rs6000_emit_epilogue(sibcall)
       if (DEFAULT_ABI == ABI_V4 || DEFAULT_ABI == ABI_SOLARIS)
 	frame_reg_rtx = gen_rtx_REG (Pmode, 11);
 
-      insn = emit_move_insn (frame_reg_rtx,
-			     gen_rtx_MEM (Pmode, sp_reg_rtx));
-      RTX_FRAME_RELATED_P (insn) = 1;
-
+      emit_move_insn (frame_reg_rtx,
+		      gen_rtx_MEM (Pmode, sp_reg_rtx));
+      
     }
   else if (info->push_p)
     {
@@ -4703,13 +4827,11 @@ rs6000_emit_epilogue(sibcall)
 	sp_offset = info->total_size;
       else
 	{
-	  insn
-	    = emit_insn (TARGET_32BIT
-			 ? gen_addsi3 (sp_reg_rtx, sp_reg_rtx,
-				       GEN_INT (info->total_size))
-			 : gen_adddi3 (sp_reg_rtx, sp_reg_rtx,
-				       GEN_INT (info->total_size)));
-	  RTX_FRAME_RELATED_P (insn) = 1;
+	  emit_insn (TARGET_32BIT
+		     ? gen_addsi3 (sp_reg_rtx, sp_reg_rtx,
+				   GEN_INT (info->total_size))
+		     : gen_adddi3 (sp_reg_rtx, sp_reg_rtx,
+				   GEN_INT (info->total_size)));
 	}
     }
   
@@ -4718,9 +4840,10 @@ rs6000_emit_epilogue(sibcall)
     {
       rtx addr = gen_rtx_PLUS (Pmode, frame_reg_rtx,
 			       GEN_INT (info->lr_save_offset + sp_offset));
-      insn = emit_move_insn (gen_rtx_REG (Pmode, 0), 
-			     gen_rtx_MEM (Pmode, addr));
-      RTX_FRAME_RELATED_P (insn) = 1;
+      rtx mem = gen_rtx_MEM (Pmode, addr);
+      MEM_ALIAS_SET (mem) = rs6000_sr_alias_set;
+
+      emit_move_insn (gen_rtx_REG (Pmode, 0), mem);
     }
   
   /* Get the old cr if we saved it.  */
@@ -4728,16 +4851,17 @@ rs6000_emit_epilogue(sibcall)
     {
       rtx addr = gen_rtx_PLUS (Pmode, frame_reg_rtx,
 			       GEN_INT (info->cr_save_offset + sp_offset));
-      insn = emit_move_insn (gen_rtx_REG (SImode, 12), 
-			     gen_rtx_MEM (SImode, addr));
-      RTX_FRAME_RELATED_P (insn) = 1;
+      rtx mem = gen_rtx_MEM (SImode, addr);
+      MEM_ALIAS_SET (mem) = rs6000_sr_alias_set;
+
+      emit_move_insn (gen_rtx_REG (SImode, 12), mem);
     }
   
   /* Set LR here to try to overlap restores below.  */
   if (info->lr_save_p)
-    RTX_FRAME_RELATED_P (emit_move_insn (gen_rtx_REG (Pmode, 
-						      LINK_REGISTER_REGNUM),
-					 gen_rtx_REG (Pmode, 0))) = 1;
+    emit_move_insn (gen_rtx_REG (Pmode, LINK_REGISTER_REGNUM),
+		    gen_rtx_REG (Pmode, 0));
+  
   
   /* Restore GPRs.  This is done as a PARALLEL if we are using
      the load-multiple instructions.  */
@@ -4751,13 +4875,15 @@ rs6000_emit_epilogue(sibcall)
 				   GEN_INT (info->gp_save_offset 
 					    + sp_offset 
 					    + reg_size * i));
+	  rtx mem = gen_rtx_MEM (reg_mode, addr);
+	  MEM_ALIAS_SET (mem) = rs6000_sr_alias_set;
+
 	  RTVEC_ELT (p, i) = 
 	    gen_rtx_SET (VOIDmode,
 			 gen_rtx_REG (reg_mode, info->first_gp_reg_save + i),
-			 gen_rtx_MEM (reg_mode, addr));
+			 mem);
 	}
-      insn = emit_insn (gen_rtx_PARALLEL (VOIDmode, p));
-      RTX_FRAME_RELATED_P (insn) = 1;
+      emit_insn (gen_rtx_PARALLEL (VOIDmode, p));
     }
   else
     for (i = 0; i < 32 - info->first_gp_reg_save; i++)
@@ -4771,10 +4897,12 @@ rs6000_emit_epilogue(sibcall)
 				   GEN_INT (info->gp_save_offset 
 					    + sp_offset 
 					    + reg_size * i));
-	  insn = emit_move_insn (gen_rtx_REG (reg_mode, 
-					      info->first_gp_reg_save + i),
-				 gen_rtx_MEM (reg_mode, addr));
-	  RTX_FRAME_RELATED_P (insn) = 1;
+	  rtx mem = gen_rtx_MEM (reg_mode, addr);
+	  MEM_ALIAS_SET (mem) = rs6000_sr_alias_set;
+
+	  emit_move_insn (gen_rtx_REG (reg_mode, 
+				       info->first_gp_reg_save + i),
+			  mem);
 	}
 
   /* Restore fpr's if we need to do it without calling a function.  */
@@ -4783,15 +4911,17 @@ rs6000_emit_epilogue(sibcall)
       if ((regs_ever_live[info->first_fp_reg_save+i] 
 	   && ! call_used_regs[info->first_fp_reg_save+i]))
 	{
-	  rtx addr;
+	  rtx addr, mem;
 	  addr = gen_rtx_PLUS (Pmode, frame_reg_rtx,
 			       GEN_INT (info->fp_save_offset 
 					+ sp_offset 
 					+ 8*i));
-	  insn = emit_move_insn (gen_rtx_REG (DFmode, 
-					      info->first_fp_reg_save + i),
-				 gen_rtx_MEM (DFmode, addr));
-	  RTX_FRAME_RELATED_P (insn) = 1;
+	  mem = gen_rtx_MEM (DFmode, addr);
+	  MEM_ALIAS_SET (mem) = rs6000_sr_alias_set;
+
+	  emit_move_insn (gen_rtx_REG (DFmode, 
+				       info->first_fp_reg_save + i),
+			  mem);
 	}
 
   /* If we saved cr, restore it here.  Just those that were used.  */
@@ -4829,37 +4959,40 @@ rs6000_emit_epilogue(sibcall)
 			       gen_rtx_UNSPEC (CCmode, r, 20));
 		count++;
 	      }
-	  insn = emit_insn (gen_rtx_PARALLEL (VOIDmode, p));
-	  RTX_FRAME_RELATED_P (insn) = 1;
+	  emit_insn (gen_rtx_PARALLEL (VOIDmode, p));
 	}
       else
 	for (i = 0; i < 8; i++)
 	  if (regs_ever_live[68+i] && ! call_used_regs[68+i])
 	    {
-	      insn = emit_insn (gen_movsi_to_cr_one (gen_rtx_REG (CCmode, 
-								  68+i),
-						     r12_rtx));
-	      RTX_FRAME_RELATED_P (insn) = 1;
+	      emit_insn (gen_movsi_to_cr_one (gen_rtx_REG (CCmode, 
+							   68+i),
+					      r12_rtx));
 	    }
     }
 
   /* If this is V.4, unwind the stack pointer after all of the loads
-     have been done. */
+     have been done.  We need to emit a block here so that sched
+     doesn't decide to move the sp change before the register restores
+     (which may not have any obvious dependency on the stack).  This
+     doesn't hurt performance, because there is no scheduling that can
+     be done after this point.  */
   if (DEFAULT_ABI == ABI_V4 || DEFAULT_ABI == ABI_SOLARIS)
     {
+      if (frame_reg_rtx != sp_reg_rtx)
+	  rs6000_emit_stack_tie ();
+
       if (use_backchain_to_restore_sp)
 	{
-	  insn = emit_move_insn (sp_reg_rtx, frame_reg_rtx);
-	  RTX_FRAME_RELATED_P (insn) = 1;
+	  emit_move_insn (sp_reg_rtx, frame_reg_rtx);
 	}
       else if (sp_offset != 0)
 	{
-	  insn = emit_insn (Pmode == SImode
-			    ? gen_addsi3 (sp_reg_rtx, sp_reg_rtx,
-					  GEN_INT (sp_offset))
-			    : gen_adddi3 (sp_reg_rtx, sp_reg_rtx,
-					  GEN_INT (sp_offset)));
-	  RTX_FRAME_RELATED_P (insn) = 1;
+	  emit_insn (Pmode == SImode
+		     ? gen_addsi3 (sp_reg_rtx, sp_reg_rtx,
+				   GEN_INT (sp_offset))
+		     : gen_adddi3 (sp_reg_rtx, sp_reg_rtx,
+				   GEN_INT (sp_offset)));
 	}
     }
 
@@ -4893,18 +5026,20 @@ rs6000_emit_epilogue(sibcall)
 
 	  for (i = 0; i < 64 - info->first_fp_reg_save; i++)
 	    {
-	      rtx addr;
+	      rtx addr, mem;
 	      addr = gen_rtx_PLUS (Pmode, sp_reg_rtx,
 				   GEN_INT (info->fp_save_offset + 8*i));
+	      mem = gen_rtx_MEM (DFmode, addr);
+	      MEM_ALIAS_SET (mem) = rs6000_sr_alias_set;
+
 	      RTVEC_ELT (p, i+3) = 
 		gen_rtx_SET (VOIDmode,
 			     gen_rtx_REG (DFmode, info->first_fp_reg_save + i),
-			     gen_rtx_MEM (DFmode, addr));
+			     mem);
 	    }
 	}
       
-      insn = emit_jump_insn (gen_rtx_PARALLEL (VOIDmode, p));
-      RTX_FRAME_RELATED_P (insn) = 1;
+      emit_jump_insn (gen_rtx_PARALLEL (VOIDmode, p));
     }
 }
 
@@ -5186,9 +5321,6 @@ output_mi_thunk (file, thunk_fndecl, delta, function)
   const char *prefix;
   const char *fname;
   const char *r0	 = reg_names[0];
-#if TARGET_ELF
-  const char *sp	 = reg_names[1];
-#endif
   const char *toc	 = reg_names[2];
   const char *schain	 = reg_names[11];
   const char *r12	 = reg_names[12];
