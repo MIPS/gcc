@@ -196,6 +196,12 @@ const char *ix86_align_loops_string;
 /* Power of two alignment for non-loop jumps. */
 const char *ix86_align_jumps_string;
 
+/* Power of two alignment for stack boundary in bytes.  */
+const char *ix86_preferred_stack_boundary_string;
+
+/* Preferred alignment for stack boundary in bits.  */
+int ix86_preferred_stack_boundary;
+
 /* Values 1-5: see jump.c */
 int ix86_branch_cost;
 const char *ix86_branch_cost_string;
@@ -397,6 +403,17 @@ override_options ()
       if (ix86_align_funcs < 0 || ix86_align_funcs > MAX_CODE_ALIGN)
 	fatal ("-malign-functions=%d is not between 0 and %d",
 	       ix86_align_funcs, MAX_CODE_ALIGN);
+    }
+
+  /* Validate -mpreferred_stack_boundary= value, or provide default.
+     The default of 128 bits is for Pentium III's SSE __m128.  */
+  ix86_preferred_stack_boundary = 128;
+  if (ix86_preferred_stack_boundary_string)
+    {
+      int i = atoi (ix86_preferred_stack_boundary_string);
+      if (i < 2 || i > 31)
+	fatal ("-mpreferred_stack_boundary=%d is not between 2 and 31", i);
+      ix86_preferred_stack_boundary = (1 << i) * BITS_PER_UNIT;
     }
 
   /* Validate -mbranch-cost= value, or provide default. */
@@ -1434,7 +1451,7 @@ ix86_expand_prologue ()
   int limit;
   int pic_reg_used = flag_pic && (current_function_uses_pic_offset_table
 				  || current_function_uses_const_pool);
-  long tsize = get_frame_size ();
+  HOST_WIDE_INT tsize = ix86_compute_frame_size (get_frame_size (), (int *)0);
   rtx insn;
 
   /* Note: AT&T enter does NOT have reversed args.  Enter is probably
@@ -1509,32 +1526,25 @@ void
 ix86_expand_epilogue ()
 {
   register int regno;
-  register int nregs, limit;
-  int offset;
+  register int limit;
+  int nregs;
   int pic_reg_used = flag_pic && (current_function_uses_pic_offset_table
 				  || current_function_uses_const_pool);
   int sp_valid = !frame_pointer_needed || current_function_sp_is_unchanging;
-  long tsize = get_frame_size ();
-
-  /* Compute the number of registers to pop */
-
-  limit = (frame_pointer_needed ? FRAME_POINTER_REGNUM : STACK_POINTER_REGNUM);
-
-  nregs = 0;
-
-  for (regno = limit - 1; regno >= 0; regno--)
-    if ((regs_ever_live[regno] && ! call_used_regs[regno])
-	|| (regno == PIC_OFFSET_TABLE_REGNUM && pic_reg_used))
-      nregs++;
+  HOST_WIDE_INT offset;
+  HOST_WIDE_INT tsize = ix86_compute_frame_size (get_frame_size (), &nregs);
 
   /* SP is often unreliable so we may have to go off the frame pointer. */
 
-  offset = - tsize - (nregs * UNITS_PER_WORD);
+  offset = -(tsize + nregs * UNITS_PER_WORD);
 
   /* If we're only restoring one register and sp is not valid then
      using a move instruction to restore the register since it's
      less work than reloading sp and popping the register.  Otherwise,
      restore sp (if necessary) and pop the registers. */
+
+  limit = (frame_pointer_needed
+	   ? FRAME_POINTER_REGNUM : STACK_POINTER_REGNUM);
 
   if (nregs > 1 || sp_valid)
     {
@@ -2292,6 +2302,67 @@ legitimize_address (x, oldx, mode)
    and subtraction are the only arithmetic that may appear in these
    expressions.  FILE is the stdio stream to write to, X is the rtx, and
    CODE is the operand print code from the output string.  */
+
+/* Compute the size of local storage taking into consideration the
+   desired stack alignment which is to be maintained.  Also determine
+   the number of registers saved below the local storage.  */
+
+HOST_WIDE_INT
+ix86_compute_frame_size (size, nregs_on_stack)
+     HOST_WIDE_INT size;
+     int *nregs_on_stack;
+{
+  int limit;
+  int nregs;
+  int regno;
+  int padding;
+  int pic_reg_used = flag_pic && (current_function_uses_pic_offset_table
+				  || current_function_uses_const_pool);
+  HOST_WIDE_INT total_size;
+
+  limit = frame_pointer_needed
+	  ? FRAME_POINTER_REGNUM : STACK_POINTER_REGNUM;
+
+  nregs = 0;
+
+  for (regno = limit - 1; regno >= 0; regno--)
+    if ((regs_ever_live[regno] && ! call_used_regs[regno])
+	|| (regno == PIC_OFFSET_TABLE_REGNUM && pic_reg_used))
+      nregs++;
+
+  padding = 0;
+  total_size = size + (nregs * UNITS_PER_WORD);
+
+#ifdef PREFERRED_STACK_BOUNDARY
+  {
+    int offset;
+    int preferred_alignment = PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT;
+
+    offset = 4;
+    if (frame_pointer_needed)
+      offset += UNITS_PER_WORD;
+
+    total_size += offset;
+    
+    padding = ((total_size + preferred_alignment - 1)
+	       & -preferred_alignment) - total_size;
+
+    if (padding < (((offset + preferred_alignment - 1)
+		    & -preferred_alignment) - offset))
+      padding += preferred_alignment;
+
+    /* Don't bother aligning the stack of a leaf function
+       which doesn't allocate any stack slots.  */
+    if (size == 0 && current_function_is_leaf)
+      padding = 0;
+  }
+#endif
+
+  if (nregs_on_stack)
+    *nregs_on_stack = nregs;
+
+  return size + padding;
+}
 
 static void
 output_pic_addr_const (file, x, code)

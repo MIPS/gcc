@@ -265,8 +265,11 @@ extern int ix86_arch;
     "Jump targets are aligned to this power of 2" },		\
   { "align-functions=",	&ix86_align_funcs_string,		\
     "Function starts are aligned to this power of 2" },		\
+  { "preferred-stack-boundary=",				\
+    &ix86_preferred_stack_boundary_string,			\
+    "Attempt to keep stack aligned to this power of 2" },	\
   { "branch-cost=",	&ix86_branch_cost_string,		\
-    0 /* undocumented */ },					\
+    "Branches are this expensive (1-5, arbitrary units)" },	\
   SUBTARGET_OPTIONS						\
 }
 
@@ -408,6 +411,10 @@ extern int ix86_arch;
 
 /* Boundary (in *bits*) on which stack pointer should be aligned.  */
 #define STACK_BOUNDARY 32
+
+/* Boundary (in *bits*) on which the stack pointer preferrs to be
+   aligned; the compiler cannot rely on having this alignment.  */
+#define PREFERRED_STACK_BOUNDARY ix86_preferred_stack_boundary
 
 /* Allocation boundary for the code of a function. */
 #define FUNCTION_BOUNDARY \
@@ -1385,20 +1392,23 @@ do {								\
     (OFFSET) = 8;	/* Skip saved PC and previous frame pointer */	\
   else									\
     {									\
-      int regno;							\
-      int offset = 0;							\
+      int nregs;							\
+      int offset;							\
+      int preferred_alignment = PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT; \
+      HOST_WIDE_INT tsize = ix86_compute_frame_size (get_frame_size (),	\
+						     &nregs);		\
 									\
-      for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)		\
-	if ((regs_ever_live[regno] && ! call_used_regs[regno])		\
-	    || ((current_function_uses_pic_offset_table			\
-		 || current_function_uses_const_pool)			\
-		&& flag_pic && regno == PIC_OFFSET_TABLE_REGNUM))	\
-	  offset += 4;							\
+      (OFFSET) = (tsize + nregs * UNITS_PER_WORD);			\
 									\
-      (OFFSET) = offset + get_frame_size ();				\
+      offset = 4;							\
+      if (frame_pointer_needed)						\
+	offset += UNITS_PER_WORD;					\
 									\
-      if ((FROM) == ARG_POINTER_REGNUM && (TO) == STACK_POINTER_REGNUM)	\
-	(OFFSET) += 4;	/* Skip saved PC */				\
+      if ((FROM) == ARG_POINTER_REGNUM)					\
+	(OFFSET) += offset;						\
+      else								\
+	(OFFSET) -= ((offset + preferred_alignment - 1)			\
+		     & -preferred_alignment) - offset;			\
     }									\
 }
 
@@ -2513,11 +2523,13 @@ extern const char *ix86_regparm_string;		/* # registers to use to pass args */
 extern const char *ix86_align_loops_string;	/* power of two alignment for loops */
 extern const char *ix86_align_jumps_string;	/* power of two alignment for non-loop jumps */
 extern const char *ix86_align_funcs_string;	/* power of two alignment for functions */
+extern const char *ix86_preferred_stack_boundary_string;/* power of two alignment for stack boundary */
 extern const char *ix86_branch_cost_string;	/* values 1-5: see jump.c */
 extern int ix86_regparm;			/* ix86_regparm_string as a number */
 extern int ix86_align_loops;			/* power of two alignment for loops */
 extern int ix86_align_jumps;			/* power of two alignment for non-loop jumps */
 extern int ix86_align_funcs;			/* power of two alignment for functions */
+extern int ix86_preferred_stack_boundary;	/* preferred stack boundary alignment in bits */
 extern int ix86_branch_cost;			/* values 1-5: see jump.c */
 extern const char * const hi_reg_name[];	/* names for 16 bit regs */
 extern const char * const qi_reg_name[];	/* names for 8 bit regs (low) */

@@ -1,3 +1,20 @@
+1999-07-26  Bernd Schmidt  <bernds@cygnus.co.uk>
+
+	Merge stack alignment patches into the new_ia32 branch:
+	* i386.c (ix86_preferred_stack_boundary,
+	ix86_preferred_stack_boundary_string): New variables.
+	(override_options): Handle -mpreferred-stack-boundary.
+	(ix86_compute_frame_size): New function.
+	(ix86_expand_prologue): Use it.
+	(ix86_expand_epilogue): Likewise.
+	
+	* i386.h (ix86_preferred_stack_boundary,
+	ix86_preferred_stack_boundary_string): Declare new variables.
+	(TARGET_OPTIONS): New option -mpreferred-stack-boundary.
+	Add documentation for -mbranch-cost.
+	(PREFERRED_STACK_BOUNDARY): New macro.
+	(INITIAL_ELIMINATION_OFFSET): Use ix86_compute_frame_size.
+
 1999-07-19  Stan Cox  <scox@cygnus.com>
 
 	* loop.c (check_decr_loop): Put bl->initial_value in canonical form.
