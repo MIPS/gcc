@@ -14,7 +14,6 @@ AC_SUBST(libtool_VERSION)
 dnl AM_ENABLE_MULTILIB
 AM_MAINTAINER_MODE
 AC_EXEEXT
-AC_PROG_CXX
 
 target_alias=${target_alias-$target}
 AC_SUBST(target_alias)
@@ -38,7 +37,7 @@ else
 fi
 AC_SUBST(LIBMUDFLAP_PICFLAGS)
 
-AC_OUTPUT(Makefile, [
+AC_OUTPUT([testsuite/Makefile Makefile], [
 (
  echo '#ifndef __MF_RUNTIME_H'
  echo '#define __MF_RUNTIME_H'

@@ -1,3 +1,19 @@
+2003-02-26  Frank Ch. Eigler  <fche@redhat.com>
+
+	Switch to dejagnu.
+	* configure.in (AC_PROG_CXX): Don't look for C++ any more.
+	* Makefile.am (TESTS): Remove simple automake testing.
+	* configure, Makefile.in: Regenerated.
+	(SUBDIRS): Include new testsuite/ directory.
+	* tests/*: Removed all files; moved bulk under:
+	* testsuite/*: New subdirectory tree.
+	* testsuite/libmudflap.c/cfrags.exp: New file, C test driver.
+	* testsuite/libmudflap.c++/c++frags.exp: New file, C++ test driver.
+	* testsuite/lib/libmudflap.exp: New file, derived from libstdc++.
+	* testsuite/lib/mfdg.exp: New file, derived from dejagnu.
+	* testsuite/config/default.exp: New file.
+	* testsuite/Makefile.am, Makefile.in: New files.
+
 2003-01-29  Frank Ch. Eigler  <fche@redhat.com>
 
 	* Makefile.am (TESTS_ENVIRONMENT): Remove redundant "-mode-check".
