@@ -71,10 +71,10 @@ typedef struct
 } value;
 
 /* Hash table of constant values indexed by SSA name.   Each variable will
-    be assigned a value out of the constant lattice: UNDEFINED (top),
-    meaning that the variable has a constant of unknown value, CONSTANT,
-    meaning that the variable has a known constant value and VARYING
-    (bottom), meaning that the variable has a non-constant value.  */
+   be assigned a value out of the constant lattice: UNDEFINED (top),
+   meaning that the variable has a constant of unknown value, CONSTANT,
+   meaning that the variable has a known constant value and VARYING
+   (bottom), meaning that the variable has a non-constant value.  */
 static htab_t const_values;
 
 /* Structure to map a variable to its constant value.  */
@@ -91,9 +91,9 @@ static sbitmap executable_blocks;
 static varray_type cfg_edges;
 
 /* Worklist of SSA edges which will need reexamination as their definition
-    has changed.  SSA edges are def-use edges in the SSA web.  For each
-    edge, we store the definition statement or PHI node D.  The destination
-    nodes that need to be visited are accessed using immediate_uses (D).  */
+   has changed.  SSA edges are def-use edges in the SSA web.  For each
+   edge, we store the definition statement or PHI node D.  The destination
+   nodes that need to be visited are accessed using immediate_uses (D).  */
 static varray_type ssa_edges;
 
 static void initialize			PARAMS ((void));
@@ -132,7 +132,7 @@ static int dump_flags;
 
 
 /* Main entry point for SSA Conditional Constant Propagation.  FNDECL is
-    the declaration for the function to optimize.  */
+   the declaration for the function to optimize.  */
 
 void
 tree_ssa_ccp (fndecl)

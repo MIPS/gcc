@@ -1,4 +1,6 @@
 2002-02-13  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-ccp.c: Fix comment formatting glitches.
 	
 	* tree-ssa-ccp.c (may_fold_p): New function.  Returns nonzero if
 	the given statement may fold after replacement of operands with
