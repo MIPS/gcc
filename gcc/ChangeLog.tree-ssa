@@ -1,3 +1,9 @@
+2003-01-16  Daniel Berlin  <dan@dberlin.org>
+
+	* Remove dead PRE code.	
+	* tree-ssa-pre.c (tree_perform_ssapre): Collect left occurrences and
+	kills *after* finishing collecting all expressions.
+	
 2003-01-15  Jeff Law <law@redhat.com>
 
 	* Death to WFL nodes.
