@@ -57,6 +57,7 @@ public class GtkCheckboxPeer extends GtkComponentPeer
   public native void nativeSetCheckboxGroup (GtkCheckboxGroupPeer group);
   public native void connectSignals ();
   public native void gtkSetFont (String name, int style, int size);
+  public native void gtkSetLabel (String label);
 
   public GtkCheckboxPeer (Checkbox c)
   {
@@ -83,7 +84,7 @@ public class GtkCheckboxPeer extends GtkComponentPeer
 
   public void setLabel (String label)
   {
-    set ("label", label);
+    gtkSetLabel (label);
   }
 
   public void setFont (Font f)

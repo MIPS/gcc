@@ -1,3 +1,11 @@
+2004-03-11  David Jee  <djee@redhat.com>
+
+	* gnu/java/awt/peer/gtk/GtkCheckboxPeer.java
+	(gtkSetLabel): New native method declaration.
+	(setLabel): Use gtkSetLabel.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCheckboxPeer.c
+	(Java_gnu_java_awt_peer_gtk_GtkCheckboxPeer_gtkSetLabel): New method.
+
 2004-03-10  Thomas Fitzsimmons  <fitzsim@redhat.com>
 
 	* gnu/java/awt/peer/gtk/GdkGraphics.java (setColor): Default to

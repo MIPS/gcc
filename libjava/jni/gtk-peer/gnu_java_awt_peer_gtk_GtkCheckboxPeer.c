@@ -204,6 +204,29 @@ Java_gnu_java_awt_peer_gtk_GtkCheckboxPeer_gtkSetFont
   (*env)->ReleaseStringUTFChars (env, name, font_name);
 }
 
+JNIEXPORT void JNICALL
+Java_gnu_java_awt_peer_gtk_GtkCheckboxPeer_gtkSetLabel
+  (JNIEnv *env, jobject obj, jstring label)
+{
+  const char *str;
+  void *ptr;
+  GtkWidget *label_widget;
+
+  ptr = NSA_GET_PTR (env, obj);
+
+  label_widget = gtk_bin_get_child (GTK_BIN(ptr));
+
+  str = (*env)->GetStringUTFChars (env, label, 0);
+
+  gdk_threads_enter ();
+
+  gtk_label_set_label (GTK_LABEL (label_widget), str);
+
+  gdk_threads_leave ();
+
+  (*env)->ReleaseStringUTFChars (env, label, str);
+}
+
 static void
 item_toggled (GtkToggleButton *item, jobject peer)
 {
