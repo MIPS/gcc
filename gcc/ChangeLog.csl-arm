@@ -1,5 +1,10 @@
 2004-11-04  Mark Mitchell  <mark@codesourcery.com>
 
+	* config/arm/arm.c (arm_handle_notshared_attribute): New function.
+	* testsuite/g++.dg/ext/visibility/symbian1.C: New test.
+
+2004-11-04  Mark Mitchell  <mark@codesourcery.com>
+
 	* cp/decl2.c (determine_visibility): Honor
 	CLASSTYPE_VISIBILITY_SPECIFIED.
 
