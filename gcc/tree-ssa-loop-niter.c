@@ -54,7 +54,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 /* Returns true if ARG is either NULL_TREE or constant zero.  */
 
-static bool
+bool
 zero_p (tree arg)
 {
   if (!arg)
@@ -86,7 +86,7 @@ inverse (tree x, tree mask)
 
 /* Returns unsigned variant of TYPE.  */
 
-static tree
+tree
 unsigned_type_for (tree type)
 {
   return make_unsigned_type (TYPE_PRECISION (type));
@@ -190,7 +190,7 @@ number_of_iterations_cond (tree type, tree base0, tree step0,
       /* We want to take care only of <=; this is easy,
 	 as in cases the overflow would make the transformation unsafe the loop
 	 does not roll.  Seemingly it would make more sense to want to take
-	 care of <, as NE is more simmilar to it, but the problem is that here
+	 care of <, as NE is more similar to it, but the problem is that here
 	 the transformation would be more difficult due to possibly infinite
 	 loops.  */
       if (zero_p (step0))
@@ -266,7 +266,7 @@ number_of_iterations_cond (tree type, tree base0, tree step0,
 		 obviously if the test for overflow during that transformation
 		 passed, we cannot overflow here.  Most importantly any
 		 loop with sharp end condition and step 1 falls into this
-		 cathegory, so handling this case specially is definitely
+		 category, so handling this case specially is definitely
 		 worth the troubles.  */
 	      may_xform = boolean_true_node;
 	    }

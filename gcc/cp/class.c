@@ -483,6 +483,38 @@ convert_to_base_statically (tree expr, tree base)
 }
 
 
+tree
+build_vfield_ref (tree datum, tree type)
+{
+  tree vfield, vcontext;
+
+  if (datum == error_mark_node)
+    return error_mark_node;
+
+  if (TREE_CODE (TREE_TYPE (datum)) == REFERENCE_TYPE)
+    datum = convert_from_reference (datum);
+
+  /* First, convert to the requested type.  */
+  if (!same_type_ignoring_top_level_qualifiers_p (TREE_TYPE (datum), type))
+    datum = convert_to_base (datum, type, /*check_access=*/false);
+
+  /* Second, the requested type may not be the owner of its own vptr.
+     If not, convert to the base class that owns it.  We cannot use
+     convert_to_base here, because VCONTEXT may appear more than once
+     in the inheritence hierarchy of TYPE, and thus direct conversion
+     between the types may be ambiguous.  Following the path back up
+     one step at a time via primary bases avoids the problem.  */
+  vfield = TYPE_VFIELD (type);
+  vcontext = DECL_CONTEXT (vfield);
+  while (!same_type_ignoring_top_level_qualifiers_p (vcontext, type))
+    {
+      datum = build_simple_base_path (datum, CLASSTYPE_PRIMARY_BINFO (type));
+      type = TREE_TYPE (datum);
+    }
+
+  return build3 (COMPONENT_REF, TREE_TYPE (vfield), datum, vfield, NULL_TREE);
+}
+
 /* Given an object INSTANCE, return an expression which yields the
    vtable element corresponding to INDEX.  There are many special
    cases for INSTANCE which we take care of here, mainly to avoid
@@ -783,10 +815,7 @@ make_new_vtable (tree t, tree binfo)
     /* In this case, it is *type*'s vtable we are modifying.  We start
        with the approximation that its vtable is that of the
        immediate base class.  */
-    /* ??? This actually passes TYPE_BINFO (t), not the primary base binfo,
-       since we've updated DECL_CONTEXT (TYPE_VFIELD (t)) by now.  */
-    return build_primary_vtable (TYPE_BINFO (DECL_CONTEXT (TYPE_VFIELD (t))),
-				 t);
+    return build_primary_vtable (binfo, t);
   else
     /* This is our very own copy of `basetype' to play with.  Later,
        we will fill in all the virtual functions that override the
@@ -1247,7 +1276,7 @@ check_bases (tree t,
 /* Determine all the primary bases within T.  Sets BINFO_PRIMARY_BASE_P for
    those that are primaries.  Sets BINFO_LOST_PRIMARY_P for those
    that have had a nearly-empty virtual primary base stolen by some
-   other base in the heirarchy.  Determines CLASSTYPE_PRIMARY_BASE for
+   other base in the hierarchy.  Determines CLASSTYPE_PRIMARY_BASE for
    T.  */
 
 static void
@@ -1320,7 +1349,7 @@ determine_primary_bases (tree t)
   /* A "nearly-empty" virtual base class can be the primary base
      class, if no non-virtual polymorphic base can be found.  Look for
      a nearly-empty virtual dynamic base that is not already a primary
-     base of something in the heirarchy.  If there is no such base,
+     base of something in the hierarchy.  If there is no such base,
      just pick the first nearly-empty virtual base.  */
 
   for (base_binfo = TREE_CHAIN (type_binfo); base_binfo;
@@ -3072,7 +3101,7 @@ check_field_decls (tree t, tree *access_decls,
 	user at least implemented the cleanup correctly, and a destructor
 	is needed to free dynamic memory.
 	
-     This seems enough for pratical purposes.  */
+     This seems enough for practical purposes.  */
     if (warn_ecpp
 	&& has_pointers
 	&& TYPE_HAS_CONSTRUCTOR (t)
@@ -4927,7 +4956,6 @@ finish_struct_1 (tree t)
   /* A TREE_LIST.  The TREE_VALUE of each node is a FUNCTION_DECL.  */
   tree virtuals = NULL_TREE;
   int n_fields = 0;
-  tree vfield;
 
   if (COMPLETE_TYPE_P (t))
     {
@@ -4980,25 +5008,6 @@ finish_struct_1 (tree t)
     /* We use the base type for trivial assignments, and hence it
        needs a mode.  */
     compute_record_mode (CLASSTYPE_AS_BASE (t));
-
-  /* Make sure that we get our own copy of the vfield FIELD_DECL.  */
-  vfield = TYPE_VFIELD (t);
-  if (vfield && CLASSTYPE_HAS_PRIMARY_BASE_P (t))
-    {
-      tree primary = CLASSTYPE_PRIMARY_BINFO (t);
-
-      gcc_assert (same_type_p (DECL_FIELD_CONTEXT (vfield),
-			       BINFO_TYPE (primary)));
-      /* The vtable better be at the start.  */
-      gcc_assert (integer_zerop (DECL_FIELD_OFFSET (vfield)));
-      gcc_assert (integer_zerop (BINFO_OFFSET (primary)));
-      
-      vfield = copy_decl (vfield);
-      DECL_FIELD_CONTEXT (vfield) = t;
-      TYPE_VFIELD (t) = vfield;
-    }
-  else
-    gcc_assert (!vfield || DECL_FIELD_CONTEXT (vfield) == t);
 
   virtuals = modify_all_vtables (t, nreverse (virtuals));
 

@@ -1,3 +1,230 @@
+2004-09-11  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/17411
+	* g++.dg/opt/pr17411-1.C: New test case.
+
+2004-09-11  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* gcc.dg/declspec-4.c, gcc.dg/declspec-5.c, gcc.dg/declspec-6.c,
+	gcc.dg/tls/diag-2.c: Update expected messages.
+	* gcc.dg/991209-1.c: Specify compilation options.  Update expected
+	messages.
+	* gcc.dg/pr14289-2.c, gcc.dg/pr14289-3.c: Remove.
+	* gcc.dg/declspec-7.c, gcc.dg/declspec-8.c, gcc.dg/declspec-9.c,
+	gcc.dg/declspec-10.c, gcc.dg/declspec-11.c, gcc.dg/tls/diag-4.c,
+	gcc.dg/tls/diag-5.c: New tests.
+
+2004-09-11  Zack Weinberg  <zack@codesourcery.com>
+
+	* gcc.dg/20040910-1.c: Correct dg-error regexp.
+
+2004-09-11  Steven Bosscher  <stevenb@suse.de>
+
+	* g++.dg/parse/break-in-for.C: New test.
+
+2004-09-11  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/tree-ssa/20040911-1.c: New test.
+
+2004-09-11  Andreas Jaeger  <aj@suse.de>
+
+	* gcc.c-torture/execute/991118-1.x: Delete, PR 16437 is fixed.
+	* gcc.c-torture/execute/bf64-1.x: Remove XFAIL on x86-64.
+
+2004-09-11  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.target/frv: New directory of FR-V-specific tests.
+
+2004-09-10  James E Wilson  <wilson@specifixinc.com>
+
+	* gcc.dg/convert-vec-1.c: New test.
+
+2004-09-10  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/17024
+	* gcc.dg/pr17024-1.c: New test case.
+
+2004-09-10  Eric Christopher  <echristo@redhat.com>
+
+	* gcc.dg/20040910-1.c: New test.
+
+2004-09-11  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* gcc.dg/bitfld-9.c: New test.
+
+2004-09-10  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.c-torture/execute/ieee/acc1.c: New test.
+	* gcc.c-torture/execute/ieee/acc2.c: New test.
+	* gcc.c-torture/execute/ieee/mzero6.c: New test.
+
+2004-09-10  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* gcc.dg/deprecated-2.c: New test.
+
+2004-09-09  James E Wilson  <wilson@specifixinc.com>
+
+	* gcc.dg/init-vec-1.c: New test.
+
+2004-09-09  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/17055
+	* gcc.dg/pr17055-1.c: New test case.
+
+2004-09-09  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR target/17377
+	* gcc.c-torture/execute/pr17377.c: New test.
+
+2004-09-09  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	PR c/8420
+	* gcc.dg/anon-struct-4.c, gcc.dg/declspec-1.c,
+	gcc.dg/declspec-2.c, gcc.dg/declspec-3.c, gcc.dg/declspec-4.c,
+	gcc.dg/declspec-5.c, gcc.dg/declspec-6.c,
+	gcc.dg/long-long-typespec-1.c: New tests.
+	* gcc.dg/tls/diag-2.c: Update expected diagnostics
+
+2004-09-09  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* gcc.dg/c90-static-1.c, gcc.dg/c99-static-1.c,
+	gcc.dg/gnu99-static-1.c: New tests.
+
+2004-09-08  Devang Patel  <dpatel@apple.com>
+
+	* gcc.dg/darwin-ld-20040828-1.c: New test.
+	* gcc.dg/darwin-ld-20040828-2.c: New test.
+	* gcc.dg/darwin-ld-20040828-3.c: New test.
+
+2004-09-08  Ziemowit Laski  <zlaski@apple.com>
+
+	* objc.dg/bitfield-2.m: Make 'id' definition a typedef.
+	* obj.dg/bitfield-4.m: Allow 'unsigned' in addition to 'unsigned int'
+	in error message.
+	* objc.dg/id-1.m: Attempt to define 'id' in an incompatible fashion.
+	* objc.dg/method-6.m: Allow 'unsigned' in addition to 'unsigned int'
+	in error message.
+	* objc.dg/proto-qual-1.m: Protocol qualifiers now appear before the
+	types they qualify.
+	* objc.dg/type-size-2.m: Fix wording in comment.
+	* objc.dg/va-meth-1.m: New test case.
+
+2004-09-06  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR c/16633:
+	* lib/gcc-dg.exp: Set up LD_LIBRARY_PATH, SHLIB_PATH,
+	LD_LIBRARYN32_PATH, LD_LIBRARY64_PATH and DYLD_LIBRARY_PATH.
+
+2004-09-06  Devang Patel  <dpatel@apple.com>
+
+	* gcc.dg/tree-ssa/ifc-20040816-1.c: Use -ftree-vectorize.
+	* gcc.dg/tree-ssa/ifc-20040816-2.c: Use -ftree-vectorize.
+
+2004-09-06  Zack Weinberg  <zack@codesourcery.com>
+
+	* g++.old-deja/g++.other/enum2.C: Move dg-error markers to
+	reflect changed line numbering of diagnostics.
+
+2004-09-06  Paul Brook  <paul@codesourcery.com>
+
+	* gfortran.dg/edit_real_1.f90: Add new test.
+
+2004-09-05  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* gcc.dg/tree-ssa/loop-2.c: New test.
+	* gcc.dg/tree-ssa/loop-3.c: New test.
+	* gcc.dg/tree-ssa/loop-4.c: New test.
+	* gcc.dg/tree-ssa/loop-5.c: New test.
+
+2004-09-04  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/format/sentinel-1.c: Update for parameter option.
+
+2004-09-04  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/format/sentinel-1.c: New test.
+
+2004-09-04  Uros Bizjak  <uros@kss-loka.si>
+
+	* testsuite/gcc.dg/builtins-46.c: New.
+
+2004-09-03  Devang Patel  <dpatel@apple.com>
+
+	* gcc.dg/tree-ssa/ifc-20040816-1.c: New test.
+	* gcc.dg/tree-ssa/ifc-20040816-2.c: New test.
+
+2004-09-03  Jan Beulich  <jbeulich@novell.com>
+
+	* g++.dg/abi/bitfield5.C: Use -mno-ms-bitfields.
+	* g++.old-deja/g++.jason/thunk2.C: xfail for NetWare.
+	* g++.old-deja/g++.law/profile1.C: xfail for NetWare.
+	* g++.old-deja/g++.other/store-expr1.C: xfail for NetWare.
+	* gcc.c-torture/compile/20001109-1.c: xfail for NetWare.
+	* gcc.c-torture/compile/20001109-2.c: xfail for NetWare.
+	* gcc.c-torture/execute/multi-ix.c: Use __builtin_bzero rather than
+	the non-portable bzero.
+	* gcc.dg/20010912-1.c: xfail for NetWare.
+	* gcc.dg/20020426-2.c: xfail for NetWare.
+	* gcc.dg/20021014-1.c: xfail for NetWare.
+	* gcc.dg/20021018-1.c: xfail for NetWare.
+	* gcc.dg/20030213-1.c: xfail for NetWare.
+	* gcc.dg/20030225-1.c: xfail for NetWare.
+	* gcc.dg/20030708-1.c: xfail for NetWare.
+	* gcc.dg/builtins-config.h: Also exclude NetWare.
+	* gcc.dg/format/format.h: Define restrict only if not already defined.
+	* gcc.dg/nest.c: xfail for NetWare.
+	* gcc.dg/special/gcsec-1.c: Don't pass -static for NetWare.
+	* lib/target-supports.exp (check_visibility_available): Exclude
+	NetWare.
+
+2004-09-03  Jan Beulich  <jbeulich@novell.com>
+
+	* gcc.dg/pack-test-2.c: Adjust to permit and check #pragma pack(push).
+	* gcc.dg/c99-flex-array-4.c: Add -fpack-struct=8 to provide a
+	deterministic starting point for the alignment of structure fields.
+	* gcc.dg/Wpadded.c: Dito.
+	* g++.dg/abi/vbase10.C: Dito.
+
+2004-09-03  Devang Patel  <dpatel@apple.com>
+
+	* g++.dg/debug/pr15736.cc: New test.
+
+2004-09-02  Mark Mitchell  <mark@codesourcery.com>
+
+	* README.QMTEST: Fix out-of-date link.
+
+2004-09-03  David Billinghurst <David.Billinghurst@riotinto.com>
+
+	PR fortran/16579
+	* gfortran.fortran-torture/execute/intrinsic_i_char.f90:
+	Delete.  Duplicate of gfortran.dg/g77/20010610.f
+
+2004-09-02  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/abi/arm_rtti1.C: New test.
+
+2004-09-02  Geoffrey Keating  <geoffk@apple.com>
+
+	* gcc.dg/ppc-vector-memcpy.c: New.
+	* gcc.dg/ppc-vector-memset.c: New.
+
+2004-09-02  Chao-ying Fu  <fu@mips.com>
+
+	* gcc.target/mips/mips-3d-1.c: New test.
+	* gcc.target/mips/mips-3d-2.c: New test.
+	* gcc.target/mips/mips-3d-3.c: New test.
+	* gcc.target/mips/mips-3d-4.c: New test.
+	* gcc.target/mips/mips-3d-5.c: New test.
+	* gcc.target/mips/mips-3d-6.c: New test.
+	* gcc.target/mips/mips-3d-7.c: New test.
+	* gcc.target/mips/mips-3d-8.c: New test.
+	* gcc.target/mips/mips-3d-9.c: New test.
+	* gcc.target/mips/mips-ps-1.c: New test.
+	* gcc.target/mips/mips-ps-2.c: New test.
+	* gcc.target/mips/mips-ps-3.c: New test.
+	* gcc.target/mips/mips-ps-4.c: New test.
+	* gcc.target/mips/mips-ps-type.c: New test.
+
 2004-09-02  Paul Brook  <paul@codesourcery.com>
 
 	* gfortran.dg/edit_real_1.f90: Add new tests.
@@ -55,7 +282,7 @@
 
 	PR fortran/16579
 	* gfortran.fortran-torture/execute/intrinsic_i_char.f90: New test.
-	
+
 2004-08-31  Bud Davis  <bdavis9659@comcast.net>
 
 	PR libfortran/16805
@@ -353,7 +580,7 @@
 2004-08-19  Paul Brook  <paul@codesourcery.com>
 
 	PR fortran/14976
-	PR fortran/16228 
+	PR fortran/16228
 	* gfortran.dg/data_char_1.f90: New test.
 
 2004-08-19  Erik Schnetter  <schnetter@aei.mpg.de>
@@ -418,7 +645,7 @@
 
 	PR c++/16965
 	* g++.dg/parse/error17.C: New test.
-	
+
 2004-08-17  Dorit Naishlos  <dorit@il.ibm.com>
 
 	* gcc.dg/vect: New directory for vectorizer tests.
@@ -500,11 +727,11 @@
 2004-08-17  Paolo Bonzini  <bonzini@gnu.org>
 
 	* gcc.dg/pr17036-1.c: New test.
-	
+
 2004-08-16  Devang Patel  <dpatel@apple.com>
 
 	* gcc.dg/darwin-20040809-1.c: New test.
-	
+
 2004-08-16  Joseph S. Myers  <jsm@polyomino.org.uk>
 
 	* gcc.dg/funcdef-attr-1.c: New test.
@@ -551,7 +778,7 @@
 2004-08-12  Devang patel  <dpatel@apple.com>
 
 	* gcc.dg/darwin-20040809-2.c: New test.
-	
+
 2004-08-12  Janis Johnson  <janis1872us.ibm.com>
 
 	* g++.dg/ext/altivec-12.C: New test.
@@ -618,7 +845,7 @@
 
 	* gcc.dg/darwin-ld-20040809-1.c: New test.
 	* gcc.dg/darwin-ld-20040809-2.c: New test.
-	
+
 2004-08-11  Steven G. Kargl  <kargls@comcast.net>
 
 	PR fortran/16917

@@ -3094,7 +3094,12 @@ of bytes that the format occupies, @var{addr} is the @code{SYMBOL_REF}
 to be emitted.
 @end defmac
 
-@defmac MD_FALLBACK_FRAME_STATE_FOR (@var{context}, @var{fs}, @var{success})
+@defmac MD_UNWIND_SUPPORT
+A string specifying a file to be #include'd in unwind-dw2.c.  The file
+so included typically defines @code{MD_FALLBACK_FRAME_STATE_FOR}.
+@end defmac
+
+@defmac MD_FALLBACK_FRAME_STATE_FOR (@var{context}, @var{fs})
 This macro allows the target to add cpu and operating system specific
 code to the call-frame unwinder for use when there is no unwind data
 available.  The most common reason to implement this macro is to unwind
@@ -3105,9 +3110,9 @@ and @file{unwind-ia64.c}.  @var{context} is an @code{_Unwind_Context};
 @var{fs} is an @code{_Unwind_FrameState}.  Examine @code{context->ra}
 for the address of the code being executed and @code{context->cfa} for
 the stack pointer value.  If the frame can be decoded, the register save
-addresses should be updated in @var{fs} and the macro should branch to
-@var{success}.  If the frame cannot be decoded, the macro should do
-nothing.
+addresses should be updated in @var{fs} and the macro should evaluate to
+@code{_URC_NO_REASON}.  If the frame cannot be decoded, the macro should
+evaluate to @code{_URC_END_OF_STACK}.
 
 For proper signal handling in Java this macro is accompanied by
 @code{MAKE_THROW_FRAME}, defined in @file{libjava/include/*-signal.h} headers.
@@ -3728,16 +3733,18 @@ The pointer is passed in whatever way is appropriate for passing a pointer
 to that type.
 @end deftypefn
 
-@defmac FUNCTION_ARG_CALLEE_COPIES (@var{cum}, @var{mode}, @var{type}, @var{named})
-If defined, a C expression that indicates when it is the called function's
-responsibility to make a copy of arguments passed by invisible reference.
-Normally, the caller makes a copy and passes the address of the copy to the
-routine being called.  When @code{FUNCTION_ARG_CALLEE_COPIES} is defined and is
-nonzero, the caller does not make a copy.  Instead, it passes a pointer to the
-``live'' value.  The called function must not modify this value.  If it can be
-determined that the value won't be modified, it need not make a copy;
-otherwise a copy must be made.
-@end defmac
+@deftypefn {Target Hook} bool TARGET_CALLEE_COPIES (CUMULATIVE_ARGS *@var{cum}, enum machine_mode @var{mode}, tree @var{type}, bool @var{named})
+The function argument described by the parameters to this hook is
+known to be passed by reference.  The hook should return true if the
+function argument should be copied by the callee instead of copied
+by the caller.
+
+For any argument for which the hook returns true, if it can be 
+determined that the argument is not modified, then a copy need
+not be generated.
+
+The default version of this hook always returns false.
+@end deftypefn
 
 @defmac CUMULATIVE_ARGS
 A C type for declaring a variable that is used as the first argument of
@@ -4713,7 +4720,7 @@ the following macro.
 @defmac ENABLE_EXECUTE_STACK
 Define this macro if certain operations must be performed before executing
 code located on the stack.  The macro should expand to a series of C
-file-scope constructs (e.g. functions) and provide a unique entry point
+file-scope constructs (e.g.@: functions) and provide a unique entry point
 named @code{__enable_execute_stack}.  The target is responsible for
 emitting calls to the entry point in the code, for example from the
 @code{INITIALIZE_TRAMPOLINE} macro.
@@ -5652,7 +5659,7 @@ pointer, or a stdio stream to write any debug output to.  @var{verbose}
 is the verbose level provided by @option{-fsched-verbose-@var{n}}.
 @var{max_ready} is the maximum number of insns in the current scheduling
 region that can be live at the same time.  This can be used to allocate
-scratch space if it is needed, e.g. by @samp{TARGET_SCHED_REORDER}.
+scratch space if it is needed, e.g.@: by @samp{TARGET_SCHED_REORDER}.
 @end deftypefn
 
 @deftypefn {Target Hook} void TARGET_SCHED_FINISH (FILE *@var{file}, int @var{verbose})
@@ -8749,6 +8756,31 @@ the implied truncation of the shift instructions.
 You need not define this macro if it would always have the value of zero.
 @end defmac
 
+@anchor{TARGET_SHIFT_TRUNCATION_MASK}
+@deftypefn {Target Hook} int TARGET_SHIFT_TRUNCATION_MASK (enum machine_mode @var{mode})
+This function describes how the standard shift patterns for @var{mode}
+deal with shifts by negative amounts or by more than the width of the mode.
+@xref{shift patterns}.
+
+On many machines, the shift patterns will apply a mask @var{m} to the
+shift count, meaning that a fixed-width shift of @var{x} by @var{y} is
+equivalent to an arbitrary-width shift of @var{x} by @var{y & m}.  If
+this is true for mode @var{mode}, the function should return @var{m},
+otherwise it should return 0.  A return value of 0 indicates that no
+particular behavior is guaranteed.
+
+Note that, unlike @code{SHIFT_COUNT_TRUNCATED}, this function does
+@emph{not} apply to general shift rtxes; it applies only to instructions
+that are generated by the named shift patterns.
+
+The default implementation of this function returns
+@code{GET_MODE_BITSIZE (@var{mode}) - 1} if @code{SHIFT_COUNT_TRUNCATED}
+and 0 otherwise.  This definition is always safe, but if
+@code{SHIFT_COUNT_TRUNCATED} is false, and some shift patterns
+nevertheless truncate the shift count, you may get better code
+by overriding it.
+@end deftypefn
+
 @defmac TRULY_NOOP_TRUNCATION (@var{outprec}, @var{inprec})
 A C expression which is nonzero if on this machine it is safe to
 ``convert'' an integer of @var{inprec} bits to one of @var{outprec}
@@ -8994,7 +9026,7 @@ within a structure, in much the same way as the @samp{__aligned__} and
 the behavior to the default.
 
 A subtlety for Microsoft Visual C/C++ style bit-field packing
-(e.g. -mms-bitfields) for targets that support it:
+(e.g.@: -mms-bitfields) for targets that support it:
 When a bit-field is inserted into a packed record, the whole size
 of the underlying type is used by one or more same-size adjacent
 bit-fields (that is, if its long:3, 32 bits is used in the record,
@@ -9017,14 +9049,21 @@ of specifically named weak labels, optionally with a value.
 @findex pragma
 @defmac HANDLE_PRAGMA_PACK_PUSH_POP
 Define this macro (to a value of 1) if you want to support the Win32
-style pragmas @samp{#pragma pack(push,@var{n})} and @samp{#pragma
-pack(pop)}.  The @samp{pack(push,@var{n})} pragma specifies the maximum alignment
-(in bytes) of fields within a structure, in much the same way as the
-@samp{__aligned__} and @samp{__packed__} @code{__attribute__}s do.  A
+style pragmas @samp{#pragma pack(push[,@var{n}])} and @samp{#pragma
+pack(pop)}.  The @samp{pack(push,[@var{n}])} pragma specifies the maximum
+alignment (in bytes) of fields within a structure, in much the same way as
+the @samp{__aligned__} and @samp{__packed__} @code{__attribute__}s do.  A
 pack value of zero resets the behavior to the default.  Successive
 invocations of this pragma cause the previous values to be stacked, so
 that invocations of @samp{#pragma pack(pop)} will return to the previous
 value.
+@end defmac
+
+@defmac TARGET_DEFAULT_PACK_STRUCT
+If your target requires a structure packing default other than 0 (meaning
+the machine default), define this macro the the necessary value (in bytes).
+This must be a value that would also valid to be used with
+@samp{#pragma pack()} (that is, a small power of two).
 @end defmac
 
 @defmac DOLLARS_IN_IDENTIFIERS
@@ -9075,10 +9114,13 @@ You need not define this macro if it would always return zero.
 @end defmac
 
 @defmac MULTIPLE_SYMBOL_SPACES
-Define this macro if in some cases global symbols from one translation
-unit may not be bound to undefined symbols in another translation unit
-without user intervention.  For instance, under Microsoft Windows
-symbols must be explicitly imported from shared libraries (DLLs).
+Define this macro as a C expression that is nonzero if, in some cases,
+global symbols from one translation unit may not be bound to undefined
+symbols in another translation unit without user intervention.  For
+instance, under Microsoft Windows symbols must be explicitly imported
+from shared libraries (DLLs).
+
+You need not define this macro if it would always evaluate to zero.
 @end defmac
 
 @deftypefn {Target Hook} tree TARGET_MD_ASM_CLOBBERS (tree @var{clobbers})
@@ -9345,7 +9387,7 @@ that are different from @option{-I}.
 This target hook returns @code{true} if it is safe to use a local alias
 for a virtual function @var{fndecl} when constructing thunks,
 @code{false} otherwise. By default, the hook returns @code{true} for all
-functions, if a target supports aliases (ie. defines
+functions, if a target supports aliases (i.e.@: defines
 @code{ASM_OUTPUT_DEF}), @code{false} otherwise,
 @end deftypefn
 

@@ -155,6 +155,8 @@ init_ssanames (void)
 void
 fini_ssanames (void)
 {
+  ggc_free (ssa_names);
+  ssa_names = NULL;
   free_ssanames = NULL;
 }
 
@@ -179,14 +181,12 @@ make_ssa_name (tree var, tree stmt)
 {
   tree t;
 
-#if defined ENABLE_CHECKING
-  if ((!DECL_P (var)
-       && TREE_CODE (var) != INDIRECT_REF)
-      || (stmt
-	  && !IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (stmt)))
-	  && TREE_CODE (stmt) != PHI_NODE))
-    abort ();
-#endif
+  gcc_assert (DECL_P (var)
+	      || TREE_CODE (var) == INDIRECT_REF);
+
+  gcc_assert (!stmt
+	      || IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (stmt)))
+	      || TREE_CODE (stmt) == PHI_NODE);
 
   /* If our free list has an element, then use it.  Also reuse the
      SSA version number of the element on the free list which helps
@@ -239,6 +239,9 @@ make_ssa_name (tree var, tree stmt)
 void
 release_ssa_name (tree var)
 {
+  if (!var)
+    return;
+
   /* Never release the default definition for a symbol.  It's a
      special SSA name that should always exist once it's created.  */
   if (var == var_ann (SSA_NAME_VAR (var))->default_def)
@@ -300,7 +303,8 @@ release_defs (tree stmt)
   ssa_op_iter iter;
 
   FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter, SSA_OP_ALL_DEFS)
-    release_ssa_name (def);
+    if (TREE_CODE (def) == SSA_NAME)
+      release_ssa_name (def);
 }
 
 

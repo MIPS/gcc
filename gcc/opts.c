@@ -810,6 +810,16 @@ common_handle_option (size_t scode, const char *arg, int value)
       pp_set_line_maximum_length (global_dc->printer, value);
       break;
 
+    case OPT_fpack_struct_:
+      if (value <= 0 || (value & (value - 1)) || value > 16)
+	error("structure alignment must be a small power of two, not %d", value);
+      else
+	{
+	  initial_max_fld_align = value;
+	  maximum_field_alignment = value * BITS_PER_UNIT;
+	}
+      break;
+
     case OPT_fpeel_loops:
       flag_peel_loops_set = true;
       break;
@@ -942,22 +952,6 @@ common_handle_option (size_t scode, const char *arg, int value)
 
     case OPT_ftracer:
       flag_tracer_set = true;
-      break;
-
-    case OPT_ftree_points_to_:
-      if (!strcmp (arg, "andersen"))
-#ifdef HAVE_BANSHEE
-        flag_tree_points_to = PTA_ANDERSEN;
-#else
-        warning ("Andersen's PTA not available - libbanshee not compiled.");
-#endif
-      else if (!strcmp (arg, "none"))
-	flag_tree_points_to = PTA_NONE;
-      else
-	{
-	  warning ("`%s`: unknown points-to analysis algorithm", arg);
-	  return 0;
-	}
       break;
 
     case OPT_funroll_loops:

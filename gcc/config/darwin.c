@@ -40,6 +40,7 @@ Boston, MA 02111-1307, USA.  */
 #include "function.h"
 #include "ggc.h"
 #include "langhooks.h"
+#include "target.h"
 #include "tm_p.h"
 #include "errors.h"
 #include "hashtab.h"
@@ -62,7 +63,7 @@ Boston, MA 02111-1307, USA.  */
    are required by consumers of the generated code.  Currently, gdb
    uses this to patch in a jump to the overriding function, this
    allows all uses of the old name to forward to the replacement,
-   including existing function poiinters and virtual methods.  See
+   including existing function pointers and virtual methods.  See
    rs6000_emit_prologue for the code that handles the nop insertions.
  
    The added indirection allows gdb to redirect accesses to static
@@ -245,9 +246,8 @@ typedef struct machopic_indirection GTY (())
 {
   /* The SYMBOL_REF for the entity referenced.  */
   rtx symbol;
-  /* The IDENTIFIER_NODE giving the name of the stub or non-lazy
-     pointer.  */
-  tree ptr_name;
+  /* The name of the stub or non-lazy pointer.  */
+  const char * ptr_name;
   /* True iff this entry is for a stub (as opposed to a non-lazy
      pointer).  */
   bool stub_p;
@@ -267,7 +267,7 @@ static hashval_t
 machopic_indirection_hash (const void *slot)
 {
   const machopic_indirection *p = (const machopic_indirection *) slot;
-  return IDENTIFIER_HASH_VALUE (p->ptr_name);
+  return htab_hash_string (p->ptr_name);
 }
 
 /* Returns true if the KEY is the same as that associated with
@@ -276,7 +276,7 @@ machopic_indirection_hash (const void *slot)
 static int
 machopic_indirection_eq (const void *slot, const void *key)
 {
-  return ((const machopic_indirection *) slot)->ptr_name == (tree) key;
+  return strcmp (((const machopic_indirection *) slot)->ptr_name, key) == 0;
 }
 
 /* Return the name of the non-lazy pointer (if STUB_P is false) or
@@ -287,9 +287,9 @@ machopic_indirection_name (rtx sym_ref, bool stub_p)
 {
   char *buffer;
   const char *name = XSTR (sym_ref, 0);
-  int namelen = strlen (name);
-  tree ptr_name;
+  size_t namelen = strlen (name);
   machopic_indirection *p;
+  void ** slot;
   
   /* Construct the name of the non-lazy pointer or stub.  */
   if (stub_p)
@@ -328,32 +328,29 @@ machopic_indirection_name (rtx sym_ref, bool stub_p)
 		 user_label_prefix, name);
     }
 
-  /* See if we already have it.  */
-  ptr_name = maybe_get_identifier (buffer);
-  /* If not, create a mapping from the non-lazy pointer to the
-     SYMBOL_REF.  */
-  if (!ptr_name)
+  if (!machopic_indirections)
+    machopic_indirections = htab_create_ggc (37, 
+					     machopic_indirection_hash,
+					     machopic_indirection_eq,
+					     /*htab_del=*/NULL);
+  
+  slot = htab_find_slot_with_hash (machopic_indirections, buffer,
+				   htab_hash_string (buffer), INSERT);
+  if (*slot)
     {
-      void **slot;
-      ptr_name = get_identifier (buffer);
+      p = (machopic_indirection *) *slot;
+    }
+  else
+    {
       p = (machopic_indirection *) ggc_alloc (sizeof (machopic_indirection));
       p->symbol = sym_ref;
-      p->ptr_name = ptr_name;
+      p->ptr_name = xstrdup (buffer);
       p->stub_p = stub_p;
-      p->used = 0;
-      if (!machopic_indirections)
-	machopic_indirections 
-	  = htab_create_ggc (37, 
-			     machopic_indirection_hash,
-			     machopic_indirection_eq,
-			     /*htab_del=*/NULL);
-      slot = htab_find_slot_with_hash (machopic_indirections, ptr_name,
-				       IDENTIFIER_HASH_VALUE (ptr_name),
-				       INSERT);
-      *((machopic_indirection **) slot) = p;
+      p->used = false;
+      *slot = p;
     }
   
-  return IDENTIFIER_POINTER (ptr_name);
+  return p->ptr_name;
 }
 
 /* Return the name of the stub for the mcount function.  */
@@ -361,7 +358,8 @@ machopic_indirection_name (rtx sym_ref, bool stub_p)
 const char*
 machopic_mcount_stub_name (void)
 {
-  return "&L*mcount$stub";
+  rtx symbol = gen_rtx_SYMBOL_REF (Pmode, "*mcount");
+  return machopic_indirection_name (symbol, /*stub_p=*/true);
 }
 
 /* If NAME is the name of a stub or a non-lazy pointer , mark the stub
@@ -372,18 +370,27 @@ machopic_mcount_stub_name (void)
 void
 machopic_validate_stub_or_non_lazy_ptr (const char *name)
 {
-  tree ident = get_identifier (name);
-
   machopic_indirection *p;
   
   p = ((machopic_indirection *) 
-       (htab_find_with_hash (machopic_indirections, ident,
-			     IDENTIFIER_HASH_VALUE (ident))));
-  if (p)
+       (htab_find_with_hash (machopic_indirections, name,
+			     htab_hash_string (name))));
+  if (p && ! p->used)
     {
-      p->used = 1;
-      mark_referenced (ident);
-      mark_referenced (get_identifier (XSTR (p->symbol, 0)));
+      const char *real_name;
+      tree id;
+      
+      p->used = true;
+
+      /* Do what output_addr_const will do when we actually call it.  */
+      if (SYMBOL_REF_DECL (p->symbol))
+	mark_decl_referenced (SYMBOL_REF_DECL (p->symbol));
+
+      real_name = targetm.strip_name_encoding (XSTR (p->symbol, 0));
+      
+      id = maybe_get_identifier (real_name);
+      if (id)
+	mark_referenced (id);
     }
 }
 
@@ -849,7 +856,7 @@ machopic_output_indirection (void **slot, void *data)
 
   symbol = p->symbol;
   sym_name = XSTR (symbol, 0);
-  ptr_name = IDENTIFIER_POINTER (p->ptr_name);
+  ptr_name = p->ptr_name;
   
   if (p->stub_p)
     {
@@ -870,7 +877,7 @@ machopic_output_indirection (void **slot, void *data)
       else
 	sprintf (stub, "%s%s", user_label_prefix, ptr_name);
 
-      machopic_output_stub (asm_out_file, sym, stub);    
+      machopic_output_stub (asm_out_file, sym, stub);
     }
   else if (! indirect_data (symbol)
 	   && (machopic_symbol_defined_p (symbol)

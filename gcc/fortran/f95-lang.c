@@ -49,7 +49,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "trans-types.h"
 #include "trans-const.h"
 
-#include <assert.h>
 #include <stdio.h>
 
 /* Language-dependent contents of an identifier.  */
@@ -280,6 +279,11 @@ gfc_be_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
 static bool
 gfc_init (void)
 {
+#ifdef USE_MAPPED_LOCATION
+  linemap_add (&line_table, LC_ENTER, false, gfc_option.source, 1);
+  linemap_add (&line_table, LC_RENAME, false, "<built-in>", 0);
+#endif
+
   /* First initialize the backend.  */
   gfc_init_decl_processing ();
   gfc_static_ctors = NULL_TREE;

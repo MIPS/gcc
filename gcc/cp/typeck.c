@@ -41,6 +41,7 @@ Boston, MA 02111-1307, USA.  */
 #include "diagnostic.h"
 #include "target.h"
 #include "convert.h"
+#include "c-common.h"
 
 static tree convert_for_assignment (tree, tree, const char *, tree, int);
 static tree cp_pointer_int_sum (enum tree_code, tree, tree);
@@ -919,6 +920,8 @@ comp_array_types (tree t1, tree t2, bool allow_redeclaration)
 bool
 comptypes (tree t1, tree t2, int strict)
 {
+  int retval;
+
   if (t1 == t2)
     return true;
 
@@ -1014,6 +1017,12 @@ comptypes (tree t1, tree t2, int strict)
       else if ((strict & COMPARE_DERIVED) && DERIVED_FROM_P (t2, t1))
 	return true;
       
+      /* We may be dealing with Objective-C instances...  */
+      if (TREE_CODE (t1) == RECORD_TYPE
+	  && (retval = objc_comptypes (t1, t2, 0) >= 0))
+         return retval;
+      /* ...but fall through if we are not.  */
+
       return false;
 
     case OFFSET_TYPE:
@@ -1702,9 +1711,14 @@ build_class_member_access_expr (tree object, tree member,
 	 give the right answer.  Note that we complain whether or not they
 	 actually used the offsetof macro, since there's no way to know at this
 	 point.  So we just give a warning, instead of a pedwarn.  */
+      /* Do not produce this warning for base class field references, because
+	 we know for a fact that didn't come from offsetof.  This does occur
+	 in various testsuite cases where a null object is passed where a
+	 vtable access is required.  */
       if (null_object_p && warn_invalid_offsetof
 	  && CLASSTYPE_NON_POD_P (object_type)
-	  && ! skip_evaluation)
+	  && !DECL_FIELD_IS_BASE (member)
+	  && !skip_evaluation)
 	{
 	  warning ("invalid access to non-static data member `%D' of NULL object", 
 		   member);
@@ -4819,6 +4833,13 @@ build_c_cast (tree type, tree expr)
       TREE_SIDE_EFFECTS (t) = 1;
       return t;
     }
+
+  /* Casts to a (pointer to a) specific ObjC class (or 'id' or
+     'Class') should always be retained, because this information aids
+     in method lookup.  */
+  if (objc_is_object_ptr (type)
+      && objc_is_object_ptr (TREE_TYPE (expr)))
+    return build_nop (type, expr);
 
   /* build_c_cast puts on a NOP_EXPR to make the result not an lvalue.
      Strip such NOP_EXPRs if VALUE is being used in non-lvalue context.  */

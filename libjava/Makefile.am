@@ -89,11 +89,8 @@ target_noncanonical = @target_noncanonical@
 
 if XLIB_AWT
 cond_xlib_ltlibrary = lib-gnu-awt-xlib.la
-## We require libstdc++-v3 to be in the same build tree.
-xlib_includes = -I../libstdc++-v3/include -I../libstdc++-v3/include/$(target_noncanonical) -I$(srcdir)/../libstdc++-v3/libsupc++
 else
 cond_xlib_ltlibrary =
-xlib_includes =
 endif
 
 if GTK_AWT
@@ -137,7 +134,6 @@ ZIP = @ZIP@
 ## compiles.
 GCJ_WITH_FLAGS = $(GCJ) --encoding=UTF-8 -Wno-deprecated
 
-GCJCOMPILE = $(LIBTOOL) --tag=GCJ --mode=compile $(GCJ_WITH_FLAGS) -fclasspath= -fbootclasspath=$(here) $(JC1FLAGS) -MD -MT $@ -MF $(@:.lo=.d) -c
 GCJLINK = $(LIBTOOL) --tag=GCJ --mode=link $(GCJ) -L$(here) $(JC1FLAGS) $(LDFLAGS) -o $@
 LIBLINK = $(LIBTOOL) --tag=CXX --mode=link $(CXX) -L$(here) $(JC1FLAGS) $(LDFLAGS) -o $@
 
@@ -170,6 +166,7 @@ AM_CXXFLAGS = \
 
 AM_GCJFLAGS = \
 	@LIBGCJ_JAVAFLAGS@ \
+	-fclasspath= -fbootclasspath=$(here) \
 	--encoding=UTF-8 \
 	-Wno-deprecated
 
@@ -187,8 +184,8 @@ JC1FLAGS = @LIBGCJ_JAVAFLAGS@ $(GCJFLAGS)
 
 LIBFFIINCS = @LIBFFIINCS@
 
-INCLUDES = -I$(top_srcdir) -Iinclude -I$(top_srcdir)/include \
-	$(GCINCS) $(THREADINCS) $(INCLTDL) $(xlib_includes) \
+AM_CPPFLAGS = -I$(top_srcdir) -Iinclude -I$(top_srcdir)/include \
+	$(GCINCS) $(THREADINCS) $(INCLTDL) \
 	$(GCC_UNWIND_INCLUDE) $(ZINCS) $(LIBFFIINCS)
 
 ## ################################################################
@@ -428,6 +425,11 @@ lib_gnu_awt_xlib_la_SOURCES = \
 	$(xlib_nat_source_files)
 lib_gnu_awt_xlib_la_DEPENDENCIES = libgcj-@gcc_version@.jar libgcj.la libgcj.spec
 lib_gnu_awt_xlib_la_LIBADD = $(xlib_javao_files)
+## We require libstdc++-v3 to be in the same build tree.
+lib_gnu_awt_xlib_la_CPPFLAGS = \
+	-I../libstdc++-v3/include \
+	-I../libstdc++-v3/include/$(target_noncanonical) \
+	-I$(srcdir)/../libstdc++-v3/libsupc++
 ## The mysterious backslash in the grep pattern is consumed by make.
 lib_gnu_awt_xlib_la_LDFLAGS = ../libstdc++-v3/src/libstdc++.la \
 	@X_PRE_LIBS@ @X_LIBS@ -lX11 @X_EXTRA_LIBS@ \
@@ -453,7 +455,7 @@ gnu/regexp/MessagesBundle_fr.properties
 propertyo_files = $(property_files:.properties=.properties.lo) 
 
 %.properties.lo: %.properties
-	$(GCJCOMPILE) -o $@ -c $< -Wc,--resource,`echo $@ | sed "s/\.lo$$//"`
+	$(LTGCJCOMPILE) -o $@ -c $< -Wc,--resource,`echo $@ | sed "s/\.lo$$//"`
 
 if ONESTEP
 
@@ -519,16 +521,16 @@ SUFFIXES = .class .java .h .properties
 ## Note: we omit StackTrace here, since it has an explicit rule a bit
 ## later, and GNU make will warn in this case.
 $(filter-out gnu/gcj/runtime/StackTrace.lo, $(javao_files)) $(xlib_javao_files) $(lib_org_w3c_dom_la_OBJECTS) $(lib_org_xml_sax_la_OBJECTS): %.lo: %.java
-	$(GCJCOMPILE) -o $@ $<
+	$(LTGCJCOMPILE) -o $@ -c $<
 
 $(gtk_awt_peer_sources:.java=.lo): %.lo: %.java
-	$(GCJCOMPILE) -fjni -o $@ $<
+	$(LTGCJCOMPILE) -fjni -o $@ -c $<
 
 ## A special case.  The sibcall optimization can change the number of
 ## frames on the stack, and StackTrace makes assumptions about this
 ## number.
 gnu/gcj/runtime/StackTrace.lo: gnu/gcj/runtime/StackTrace.java
-	$(GCJCOMPILE) -fno-optimize-sibling-calls -o $@ $<
+	$(LTGCJCOMPILE) -fno-optimize-sibling-calls -o $@ -c $<
 
 lib-gnu-awt-xlib.la: $(lib_gnu_awt_xlib_la_OBJECTS) $(lib_gnu_awt_xlib_la_DEPENDENCIES)
 	@echo Creating list of files to link...
@@ -3139,8 +3141,6 @@ texinfo: TexinfoDoclet.class
 ##
 ## Dependency tracking madness.
 ##
-
--include deps.mk
 
 ## This is an evil hack to work around an automake limitation.  We
 ## need to ensure that all CNI headers are built, not just the ones used

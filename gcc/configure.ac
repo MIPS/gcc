@@ -392,52 +392,53 @@ AC_ARG_ENABLE(checking,
 [  --enable-checking[=LIST]
 			  enable expensive run-time checks.  With LIST,
 			  enable only specific categories of checks.
-			  Categories are: none,assert,fold,gc,gcac,misc,
-			  rtlflag,rtl,tree,valgrind;
-			  default is assert,gc,misc,rtlflag,tree],
-[ac_checking=
+			  Categories are: assert,fold,gc,gcac,misc,
+			  rtlflag,rtl,tree,valgrind,release,yes,all;],
+[ac_checking_flags="${enableval}"],[
+# Determine the default checks.
+if test x$is_release = x ; then
+  ac_checking_flags=yes
+else
+  ac_checking_flags=release
+fi])
+ac_assert_checking=1
+ac_checking=
 ac_tree_checking=
 ac_rtl_checking=
 ac_rtlflag_checking=
 ac_gc_checking=
 ac_gc_always_collect=
 ac_fold_checking=
-ac_assert_checking=
-case "${enableval}" in
-yes)	ac_checking=1 ; ac_tree_checking=1 ; ac_gc_checking=1 ;
-	ac_rtlflag_checking=1 ; ac_assert_checking=1 ;;
-no)	;;
-*)	IFS="${IFS= 	}"; ac_save_IFS="$IFS"; IFS="$IFS,"
-	set fnord $enableval; shift
-	IFS="$ac_save_IFS"
-	ac_assert_checking=1
-	for check
-	do
-		case $check in
-		assert) ac_assert_checking=1 ;;
-		fold)	ac_fold_checking=1 ;;
-		gc)	ac_gc_checking=1 ;;
-		gcac)	ac_gc_always_collect=1 ;;
-		misc)	ac_checking=1 ;;
-		rtlflag)	ac_rtlflag_checking=1 ;;
-		rtl)	ac_rtl_checking=1 ;;
-		tree)	ac_tree_checking=1 ;;
-		valgrind)	ac_checking_valgrind=1 ;;
-		*)	AC_MSG_ERROR(unknown check category $check) ;;
-		esac
-	done
-	;;
-esac
-], [
-# Determine the default checks.
-if test x$is_release = x ; then
-  # Enable some checks for development versions of GCC
-  ac_assert_checking=1;
-  ac_checking=1; ac_tree_checking=1; ac_gc_checking=1; ac_rtlflag_checking=1;
-else
-  # Disable all but assertions for release versions of GCC.
-  ac_assert_checking=1;
-fi])
+IFS="${IFS= 	}"; ac_save_IFS="$IFS"; IFS="$IFS,"
+for check in $ac_checking_flags
+do
+	case $check in
+	yes)		ac_assert_checking=1 ; ac_checking=1 ;
+			ac_tree_checking=1 ; ac_gc_checking=1 ;
+			ac_rtlflag_checking=1 ;;
+	no)		ac_assert_checking= ; ac_checking= ;
+			ac_tree_checking= ; ac_rtl_checking= ;
+			ac_rtlflag_checking= ; ac_gc_checking= ;
+			ac_gc_always_collect= ; ac_fold_checking= ;;
+	all)		ac_assert_checking=1 ; ac_checking=1 ;
+			ac_tree_checking=1 ; ac_rtl_checking=1 ;
+			ac_rtlflag_checking=1 ; ac_gc_checking=1 ;
+			ac_gc_always_collect=1 ; ac_fold_checking=1 ;;
+        release)	ac_assert_checking=1 ;;
+	assert) 	ac_assert_checking=1 ;;
+	fold)		ac_fold_checking=1 ;;
+	gc)		ac_gc_checking=1 ;;
+	gcac)		ac_gc_always_collect=1 ;;
+	misc)		ac_checking=1 ;;
+	rtlflag)	ac_rtlflag_checking=1 ;;
+	rtl)		ac_rtl_checking=1 ;;
+	tree)		ac_tree_checking=1 ;;
+	valgrind)	ac_checking_valgrind=1 ;;
+	*)	AC_MSG_ERROR(unknown check category $check) ;;
+	esac
+done
+IFS="$ac_save_IFS"
+
 nocommon_flag=""
 if test x$ac_checking != x ; then
   AC_DEFINE(ENABLE_CHECKING, 1,
@@ -1114,20 +1115,10 @@ AC_ARG_ENABLE(sjlj-exceptions,
 AC_DEFINE_UNQUOTED(CONFIG_SJLJ_EXCEPTIONS, $sjlj,
   [Define 0/1 to force the choice for exception handling model.])])
 
-if test x$host = x$target; then
-   AC_CHECK_LIB(unwind, main, use_libunwind_default=yes, use_libunwind_default=no)
-else
-   use_libunwind_default=no
-fi
-# Use libunwind based exception handling.
-AC_ARG_ENABLE(libunwind-exceptions,
-[  --enable-libunwind-exceptions  force use libunwind for exceptions],
-use_libunwind_exceptions=$enableval,
-use_libunwind_exceptions=$use_libunwind_default)
-if test x"$use_libunwind_exceptions" = xyes; then
-   AC_DEFINE(USE_LIBUNWIND_EXCEPTIONS, 1,
-	[Define if gcc should use -lunwind.])
-fi
+# For platforms with the unwind ABI which includes an unwind library,
+# libunwind, we can choose to use the system libunwind.
+AC_ARG_WITH(system-libunwind,
+[  --with-system-libunwind use installed libunwind])
 
 # --------------------------------------------------------
 # Build, host, and target specific configuration fragments
@@ -1874,7 +1865,8 @@ elif test -f $gcc_cv_ld_gld_srcdir/configure.in \
 	in_tree_ld=yes
 	in_tree_ld_is_elf=no
 	if (grep 'EMUL = .*elf' ../ld/Makefile \
-	    || grep 'EMUL = .*linux' ../ld/Makefile) > /dev/null; then
+	    || grep 'EMUL = .*linux' ../ld/Makefile \
+	    || grep 'EMUL = .*lynx' ../ld/Makefile) > /dev/null; then
 	  in_tree_ld_is_elf=yes
 	fi
 	for f in $gcc_cv_ld_bfd_srcdir/configure $gcc_cv_ld_gld_srcdir/configure $gcc_cv_ld_gld_srcdir/configure.in $gcc_cv_ld_gld_srcdir/Makefile.in
@@ -2981,28 +2973,6 @@ else
   MAINT='#'
 fi
 AC_SUBST(MAINT)dnl
-
-AC_MSG_CHECKING([whether to use libbanshee for points-to alias analysis])
-AC_ARG_WITH(libbanshee,
-[  --with-libbanshee	  enable libbanshee],
-libbanshee="$with_libbanshee",
-libbanshee=no)
-
-if test x"$libbanshee" = xyes; then
-	BANSHEELIB="../libbanshee/points-to/libandersen.a ../libbanshee/engine/libbansheeengine.a ../libbanshee/libcompat/libbansheecompat.a "
-	BANSHEEINC="-I\$(srcdir)/../libbanshee/libcompat -I\$(srcdir)/../libbanshee -I\$(srcdir)/../libbanshee/points-to"
-	ANDER="tree-alias-ander.o"
-	AC_DEFINE(HAVE_BANSHEE, 1, [Define if BANSHEE is available])
-else
-	BANSHEELIB=""
-	BANSHEEINC=""
-	ANDER=""
-fi
-AC_MSG_RESULT($with_libbanshee)
-
-AC_SUBST(ANDER)
-AC_SUBST(BANSHEEINC)
-AC_SUBST(BANSHEELIB)
 
 # --------------
 # Language hooks

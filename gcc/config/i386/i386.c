@@ -527,7 +527,11 @@ const int x86_unroll_strlen = m_486 | m_PENT | m_PPRO | m_ATHLON_K8 | m_K6;
 const int x86_cmove = m_PPRO | m_ATHLON_K8 | m_PENT4 | m_NOCONA;
 const int x86_3dnow_a = m_ATHLON_K8;
 const int x86_deep_branch = m_PPRO | m_K6 | m_ATHLON_K8 | m_PENT4 | m_NOCONA;
-const int x86_branch_hints = m_PENT4 | m_NOCONA;
+/* Branch hints were put in P4 based on simulation result. But
+   after P4 was made, no performance benefit was observed with
+   branch hints. It also increases the code size. As the result,
+   icc never generates branch hints.  */
+const int x86_branch_hints = 0;
 const int x86_use_sahf = m_PPRO | m_K6 | m_PENT4 | m_NOCONA;
 const int x86_partial_reg_stall = m_PPRO;
 const int x86_use_loop = m_K6;
@@ -1875,7 +1879,8 @@ ix86_return_pops_args (tree fundecl, tree funtype, int size)
 
   /* Lose any fake structure return argument if it is passed on the stack.  */
   if (aggregate_value_p (TREE_TYPE (funtype), fundecl)
-      && !TARGET_64BIT)
+      && !TARGET_64BIT
+      && !KEEP_AGGREGATE_RETURN_POINTER)
     {
       int nregs = ix86_function_regparm (funtype, fundecl);
 
@@ -3286,7 +3291,7 @@ ix86_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
   f_ovf = TREE_CHAIN (f_fpr);
   f_sav = TREE_CHAIN (f_ovf);
 
-  valist = build_fold_indirect_ref (valist);
+  valist = build_va_arg_indirect_ref (valist);
   gpr = build (COMPONENT_REF, TREE_TYPE (f_gpr), valist, f_gpr, NULL_TREE);
   fpr = build (COMPONENT_REF, TREE_TYPE (f_fpr), valist, f_fpr, NULL_TREE);
   ovf = build (COMPONENT_REF, TREE_TYPE (f_ovf), valist, f_ovf, NULL_TREE);
@@ -3435,12 +3440,12 @@ ix86_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
 	      src_addr = fold_convert (addr_type, src_addr);
 	      src_addr = fold (build2 (PLUS_EXPR, addr_type, src_addr,
 				       size_int (src_offset)));
-	      src = build_fold_indirect_ref (src_addr);
+	      src = build_va_arg_indirect_ref (src_addr);
 
 	      dest_addr = fold_convert (addr_type, addr);
 	      dest_addr = fold (build2 (PLUS_EXPR, addr_type, dest_addr,
 					size_int (INTVAL (XEXP (slot, 1)))));
-	      dest = build_fold_indirect_ref (dest_addr);
+	      dest = build_va_arg_indirect_ref (dest_addr);
 
 	      t = build2 (MODIFY_EXPR, void_type_node, dest, src);
 	      gimplify_and_add (t, pre_p);
@@ -3502,8 +3507,8 @@ ix86_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
   addr = fold_convert (ptrtype, addr);
 
   if (indirect_p)
-    addr = build_fold_indirect_ref (addr);
-  return build_fold_indirect_ref (addr);
+    addr = build_va_arg_indirect_ref (addr);
+  return build_va_arg_indirect_ref (addr);
 }
 
 /* Return nonzero if OPNUM's MEM should be matched
@@ -7103,22 +7108,79 @@ output_387_binary_op (rtx insn, rtx *operands)
   return buf;
 }
 
-/* Output code to initialize control word copies used by
-   trunc?f?i patterns.  NORMAL is set to current control word, while ROUND_DOWN
-   is set to control word rounding downwards.  */
+/* Output code to initialize control word copies used by trunc?f?i and
+   rounding patterns.  CURRENT_MODE is set to current control word,
+   while NEW_MODE is set to new control word.  */
+
 void
-emit_i387_cw_initialization (rtx normal, rtx round_down)
+emit_i387_cw_initialization (rtx current_mode, rtx new_mode, int mode)
 {
   rtx reg = gen_reg_rtx (HImode);
 
-  emit_insn (gen_x86_fnstcw_1 (normal));
-  emit_move_insn (reg, normal);
+  emit_insn (gen_x86_fnstcw_1 (current_mode));
+  emit_move_insn (reg, current_mode);
+
   if (!TARGET_PARTIAL_REG_STALL && !optimize_size
       && !TARGET_64BIT)
-    emit_insn (gen_movsi_insv_1 (reg, GEN_INT (0xc)));
+    {
+      switch (mode)
+	{
+	case I387_CW_FLOOR:
+	  /* round down toward -oo */
+	  emit_insn (gen_movsi_insv_1 (reg, GEN_INT (0x4)));
+	  break;
+
+	case I387_CW_CEIL:
+	  /* round up toward +oo */
+	  emit_insn (gen_movsi_insv_1 (reg, GEN_INT (0x8)));
+	  break;
+
+	case I387_CW_TRUNC:
+	  /* round toward zero (truncate) */
+	  emit_insn (gen_movsi_insv_1 (reg, GEN_INT (0xc)));
+	  break;
+ 
+	case I387_CW_MASK_PM:
+	  /* mask precision exception for nearbyint() */
+	  emit_insn (gen_iorhi3 (reg, reg, GEN_INT (0x0020)));
+	  break;
+
+	default:
+	  abort();
+	}
+    }
   else
-    emit_insn (gen_iorhi3 (reg, reg, GEN_INT (0xc00)));
-  emit_move_insn (round_down, reg);
+    {
+      switch (mode)
+	{
+	case I387_CW_FLOOR:
+	  /* round down toward -oo */
+	  emit_insn (gen_andhi3 (reg, reg, GEN_INT (~0x0c00)));
+	  emit_insn (gen_iorhi3 (reg, reg, GEN_INT (0x0400)));
+	  break;
+
+	case I387_CW_CEIL:
+	  /* round up toward +oo */
+	  emit_insn (gen_andhi3 (reg, reg, GEN_INT (~0x0c00)));
+	  emit_insn (gen_iorhi3 (reg, reg, GEN_INT (0x0800)));
+	  break;
+
+	case I387_CW_TRUNC:
+	  /* round toward zero (truncate) */
+	  emit_insn (gen_iorhi3 (reg, reg, GEN_INT (0x0c00)));
+	  break;
+
+	case I387_CW_MASK_PM:
+	  /* mask precision exception for nearbyint() */
+	  emit_insn (gen_iorhi3 (reg, reg, GEN_INT (0x0020)));
+	  break;
+
+	default:
+	  abort();
+	}
+    }
+
+  emit_move_insn (new_mode, reg);
 }
 
 /* Output code for INSN to convert a float to a signed int.  OPERANDS
@@ -7879,12 +7941,15 @@ ix86_prepare_fp_compare_args (enum rtx_code code, rtx *pop0, rtx *pop1)
   int is_sse = SSE_REG_P (op0) | SSE_REG_P (op1);
 
   /* All of the unordered compare instructions only work on registers.
-     The same is true of the XFmode compare instructions.  The same is
-     true of the fcomi compare instructions.  */
+     The same is true of the fcomi compare instructions.  The same is
+     true of the XFmode compare instructions if not comparing with
+     zero (ftst insn is used in this case).  */
 
   if (!is_sse
       && (fpcmp_mode == CCFPUmode
-	  || op_mode == XFmode
+	  || (op_mode == XFmode
+	      && ! (standard_80387_constant_p (op0) == 1
+		    || standard_80387_constant_p (op1) == 1))
 	  || ix86_use_fcomi_compare (code)))
     {
       op0 = force_reg (op_mode, op0);
@@ -7911,10 +7976,16 @@ ix86_prepare_fp_compare_args (enum rtx_code code, rtx *pop0, rtx *pop1)
 
       if (CONSTANT_P (op1))
 	{
-	  if (standard_80387_constant_p (op1))
-	    op1 = force_reg (op_mode, op1);
-	  else
+	  int tmp = standard_80387_constant_p (op1);
+	  if (tmp == 0)
 	    op1 = validize_mem (force_const_mem (op_mode, op1));
+	  else if (tmp == 1)
+	    {
+	      if (TARGET_CMOVE)
+		op1 = force_reg (op_mode, op1);
+	    }
+	  else
+	    op1 = force_reg (op_mode, op1);
 	}
     }
 
@@ -9867,12 +9938,59 @@ ix86_split_long_move (rtx operands[])
 	  operands[6] = part[1][1];
 	}
     }
+
+  /* If optimizing for size, attempt to locally unCSE non-zero constants.  */
+  if (optimize_size)
+    {
+      if (GET_CODE (operands[5]) == CONST_INT
+	  && operands[5] != const0_rtx
+	  && REG_P (operands[2]))
+	{
+	  if (GET_CODE (operands[6]) == CONST_INT
+	      && INTVAL (operands[6]) == INTVAL (operands[5]))
+	    operands[6] = operands[2];
+
+	  if (nparts == 3
+	      && GET_CODE (operands[7]) == CONST_INT
+	      && INTVAL (operands[7]) == INTVAL (operands[5]))
+	    operands[7] = operands[2];
+	}
+
+      if (nparts == 3
+	  && GET_CODE (operands[6]) == CONST_INT
+	  && operands[6] != const0_rtx
+	  && REG_P (operands[3])
+	  && GET_CODE (operands[7]) == CONST_INT
+	  && INTVAL (operands[7]) == INTVAL (operands[6]))
+	operands[7] = operands[3];
+    }
+
   emit_move_insn (operands[2], operands[5]);
   emit_move_insn (operands[3], operands[6]);
   if (nparts == 3)
     emit_move_insn (operands[4], operands[7]);
 
   return;
+}
+
+/* Helper function of ix86_split_ashldi used to generate an SImode
+   left shift by a constant, either using a single shift or
+   a sequence of add instructions.  */
+
+static void
+ix86_expand_ashlsi3_const (rtx operand, int count)
+{
+  if (count == 1)
+    emit_insn (gen_addsi3 (operand, operand, operand));
+  else if (!optimize_size
+	   && count * ix86_cost->add <= ix86_cost->shift_const)
+    {
+      int i;
+      for (i=0; i<count; i++)
+	emit_insn (gen_addsi3 (operand, operand, operand));
+    }
+  else
+    emit_insn (gen_ashlsi3 (operand, operand, GEN_INT (count)));
 }
 
 void
@@ -9892,14 +10010,14 @@ ix86_split_ashldi (rtx *operands, rtx scratch)
 	  emit_move_insn (low[0], const0_rtx);
 
 	  if (count > 32)
-	    emit_insn (gen_ashlsi3 (high[0], high[0], GEN_INT (count - 32)));
+	    ix86_expand_ashlsi3_const (high[0], count - 32);
 	}
       else
 	{
 	  if (!rtx_equal_p (operands[0], operands[1]))
 	    emit_move_insn (operands[0], operands[1]);
 	  emit_insn (gen_x86_shld_1 (high[0], low[0], GEN_INT (count)));
-	  emit_insn (gen_ashlsi3 (low[0], low[0], GEN_INT (count)));
+	  ix86_expand_ashlsi3_const (low[0], count);
 	}
     }
   else

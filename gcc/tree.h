@@ -76,8 +76,8 @@ extern const unsigned char tree_code_length[];
 
 extern const char *const tree_code_name[];
 
-/* A vector of trees.  */
-DEF_VEC_P(tree);
+/* A garbage collected vector of trees.  */
+DEF_VEC_GC_P(tree);
 
 
 /* Classify which part of the compiler has defined a given builtin function.
@@ -1069,6 +1069,9 @@ struct tree_vec GTY(())
 #define TREE_OPERAND(NODE, I) TREE_OPERAND_CHECK (NODE, I)
 #define TREE_COMPLEXITY(NODE) (EXPR_CHECK (NODE)->exp.complexity)
 
+/* In INDIRECT_REF.  */
+#define REF_ORIGINAL(NODE) TREE_CHAIN (TREE_CHECK (NODE, INDIRECT_REF))
+
 /* In a LABELED_BLOCK_EXPR node.  */
 #define LABELED_BLOCK_LABEL(NODE) \
   TREE_OPERAND_CHECK_CODE (NODE, LABELED_BLOCK_EXPR, 0)
@@ -1094,7 +1097,7 @@ struct tree_vec GTY(())
 #define SET_EXPR_LOCATION(NODE, FROM) \
   (EXPR_CHECK (NODE)->exp.locus = (FROM))
 #define EXPR_HAS_LOCATION(NODE) (EXPR_LOCATION (NODE) != UNKNOWN_LOCATION)
-/* EXPR_LOCUS and SET_EXPR_LOCUS are deprecated. */
+/* EXPR_LOCUS and SET_EXPR_LOCUS are deprecated.  */
 #define EXPR_LOCUS(NODE)					\
   (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (NODE)))	\
    ? &(NODE)->exp.locus						\
@@ -1290,6 +1293,8 @@ struct tree_ssa_name GTY(())
 #define PHI_ARG_ELT(NODE, I)		PHI_NODE_ELT_CHECK (NODE, I)
 #define PHI_ARG_EDGE(NODE, I)		PHI_NODE_ELT_CHECK (NODE, I).e
 #define PHI_ARG_NONZERO(NODE, I) 	PHI_NODE_ELT_CHECK (NODE, I).nonzero
+#define PHI_BB(NODE)			PHI_NODE_CHECK (NODE)->phi.bb
+#define PHI_DF(NODE)			PHI_NODE_CHECK (NODE)->phi.df
 
 struct edge_def;
 
@@ -1310,6 +1315,12 @@ struct tree_phi_node GTY(())
   /* Nonzero if the PHI node was rewritten by a previous pass through the
      SSA renamer.  */
   int rewritten;
+
+  /* Basic block to that the phi node belongs.  */
+  struct basic_block_def *bb;
+
+  /* Dataflow information.  */
+  struct dataflow_d *df;
 
   struct phi_arg_d GTY ((length ("((tree)&%h)->phi.capacity"))) a[1];
 };
@@ -1427,7 +1438,7 @@ struct tree_block GTY(())
 #define TYPE_DEBUG_REPRESENTATION_TYPE(NODE) (VECTOR_TYPE_CHECK (NODE)->type.values)
 
 /* For record and union types, information about this type, as a base type
-   for itself. */
+   for itself.  */
 #define TYPE_BINFO(NODE) (RECORD_OR_UNION_CHECK(NODE)->type.binfo)
 
 /* For non record and union types, used in a language-dependent way.  */
@@ -2366,7 +2377,7 @@ struct tree_value_handle GTY(())
 
   /* Unique ID for this value handle.  IDs are handed out in a
      conveniently dense form starting at 0, so that we can make
-     bitmaps of value handles. */
+     bitmaps of value handles.  */
   unsigned int id;
 };
 
@@ -2639,6 +2650,11 @@ extern tree decl_assembler_name (tree);
 
 extern size_t tree_size (tree);
 
+/* Compute the number of bytes occupied by a tree with code CODE.  This
+   function cannot be used for TREE_VEC or PHI_NODE codes, which are of
+   variable length.  */
+extern size_t tree_code_size (enum tree_code);
+
 /* Lowest level primitive for allocating a node.
    The TREE_CODE is the only argument.  Contents are initialized
    to zero except for a few of the common fields.  */
@@ -2747,6 +2763,7 @@ extern tree build4_stat (enum tree_code, tree, tree, tree, tree,
 #define build4(c,t1,t2,t3,t4,t5) build4_stat (c,t1,t2,t3,t4,t5 MEM_STAT_INFO)
 
 extern tree build_int_cst (tree, HOST_WIDE_INT);
+extern tree build_int_cst_type (tree, HOST_WIDE_INT);
 extern tree build_int_cstu (tree, unsigned HOST_WIDE_INT);
 extern tree build_int_cst_wide (tree, unsigned HOST_WIDE_INT, HOST_WIDE_INT);
 extern tree build_vector (tree, tree);
@@ -2769,6 +2786,7 @@ extern tree build_empty_stmt (void);
 
 extern tree make_signed_type (int);
 extern tree make_unsigned_type (int);
+extern tree unsigned_type_for (tree);
 extern void initialize_sizetypes (bool);
 extern void set_sizetype (tree);
 extern void fixup_unsigned_type (tree);
@@ -3102,8 +3120,10 @@ extern void put_pending_sizes (tree);
    + (BITS_PER_UNIT > 8) + (BITS_PER_UNIT > 16) + (BITS_PER_UNIT > 32) \
    + (BITS_PER_UNIT > 64) + (BITS_PER_UNIT > 128) + (BITS_PER_UNIT > 256))
 
-/* If nonzero, an upper limit on alignment of structure fields, in bits.  */
+/* If nonzero, an upper limit on alignment of structure fields, in bits,  */
 extern unsigned int maximum_field_alignment;
+/* and its original value in bytes, specified via -fpack-struct=<value>.  */
+extern unsigned int initial_max_fld_align;
 
 /* If nonzero, the alignment of a bitstring or (power-)set value, in bits.  */
 extern unsigned int set_alignment;
@@ -3171,6 +3191,9 @@ extern int integer_pow2p (tree);
    with a nonzero value.  */
 
 extern int integer_nonzerop (tree);
+
+extern bool zero_p (tree);
+extern bool cst_and_fits_in_hwi (tree);
 
 /* staticp (tree x) is nonzero if X is a reference to data allocated
    at a fixed address in memory.  Returns the outermost data.  */
@@ -3340,7 +3363,7 @@ extern int pedantic_lvalues;
 extern GTY(()) tree current_function_decl;
 
 /* Nonzero means a FUNC_BEGIN label was emitted.  */
-extern GTY(()) tree current_function_func_begin_label;
+extern GTY(()) const char * current_function_func_begin_label;
 
 /* In tree.c */
 extern unsigned crc32_string (unsigned, const char *);
@@ -3452,6 +3475,7 @@ extern tree strip_float_extensions (tree);
 extern tree simplify_builtin (tree, int);
 extern tree c_strlen (tree, int);
 extern tree std_gimplify_va_arg_expr (tree, tree, tree *, tree *);
+extern tree build_va_arg_indirect_ref (tree);
 
 /* In convert.c */
 extern tree strip_float_extensions (tree);
@@ -3496,6 +3520,7 @@ extern tree build_nonstandard_integer_type (unsigned HOST_WIDE_INT, int);
 extern tree build_range_type (tree, tree, tree);
 extern HOST_WIDE_INT int_cst_value (tree);
 extern tree tree_fold_gcd (tree, tree);
+extern tree build_addr (tree);
 
 extern bool fields_compatible_p (tree, tree);
 extern tree find_compatible_field (tree, tree);
@@ -3702,13 +3727,55 @@ enum tree_dump_index
 				   within it.  */
   TDI_vcg,			/* create a VCG graph file for each
 				   function's flowgraph.  */
-  TDI_xml,                      /* dump function call graph.  */
-  TDI_all,			/* enable all the dumps.  */
+  TDI_tree_all,                 /* enable all the GENERIC/GIMPLE dumps.  */
+  TDI_rtl_all,                  /* enable all the RTL dumps.  */
+  TDI_ipa_all,                  /* enable all the IPA dumps.  */
+
+  TDI_cgraph,                   /* dump function call graph.  */
+
+  DFI_MIN,                      /* For now, RTL dumps are placed here.  */
+  DFI_sibling = DFI_MIN,
+  DFI_eh,
+  DFI_jump,
+  DFI_cse,
+  DFI_gcse,
+  DFI_loop,
+  DFI_bypass,
+  DFI_cfg,
+  DFI_bp,
+  DFI_vpt,
+  DFI_ce1,
+  DFI_tracer,
+  DFI_loop2,
+  DFI_web,
+  DFI_cse2,
+  DFI_life,
+  DFI_combine,
+  DFI_ce2,
+  DFI_regmove,
+  DFI_sms,
+  DFI_sched,
+  DFI_lreg,
+  DFI_greg,
+  DFI_postreload,
+  DFI_gcse2,
+  DFI_flow2,
+  DFI_peephole2,
+  DFI_ce3,
+  DFI_rnreg,
+  DFI_bbro,
+  DFI_branch_target_load,
+  DFI_sched2,
+  DFI_stack,
+  DFI_vartrack,
+  DFI_mach,
+  DFI_dbr,
+
   TDI_end
 };
 
-/* Bit masks to control tree dumping. Not all values are applicable to
-   all tree dumps. Add new ones at the end. When you define new
+/* Bit masks to control dumping. Not all values are applicable to
+   all dumps. Add new ones at the end. When you define new
    values, extend the DUMP_OPTIONS array in tree-dump.c */
 #define TDF_ADDRESS	(1 << 0)	/* dump node addresses */
 #define TDF_SLIM	(1 << 1)	/* don't go wild following links */
@@ -3722,11 +3789,16 @@ enum tree_dump_index
 #define TDF_LINENO	(1 << 7)	/* display statement line numbers */
 #define TDF_UID		(1 << 8)	/* display decl UIDs */
 
+#define TDF_TREE	(1 << 9)	/* is a tree dump */
+#define TDF_RTL		(1 << 10)	/* is a RTL dump */
+#define TDF_IPA		(1 << 11)	/* is an IPA dump */
 
 typedef struct dump_info *dump_info_p;
 
+extern char *get_dump_file_name (enum tree_dump_index);
 extern int dump_flag (dump_info_p, int, tree);
 extern int dump_enabled_p (enum tree_dump_index);
+extern int dump_initialized_p (enum tree_dump_index);
 extern FILE *dump_begin (enum tree_dump_index, int *);
 extern void dump_end (enum tree_dump_index, FILE *);
 extern void dump_node (tree, int, FILE *);

@@ -42,7 +42,10 @@ extern int frv_sched_lookahead;			/* value -msched-lookahead= */
 typedef enum frv_cpu
 {
   FRV_CPU_GENERIC,
+  FRV_CPU_FR550,
   FRV_CPU_FR500,
+  FRV_CPU_FR450,
+  FRV_CPU_FR405,
   FRV_CPU_FR400,
   FRV_CPU_FR300,
   FRV_CPU_SIMPLE,
@@ -81,10 +84,6 @@ extern void frv_function_arg_advance		(CUMULATIVE_ARGS *,
 						 tree, int);
 
 extern int frv_function_arg_partial_nregs	(CUMULATIVE_ARGS *,
-						 enum machine_mode,
-						 tree, int);
-
-extern int frv_function_arg_callee_copies	(CUMULATIVE_ARGS *,
 						 enum machine_mode,
 						 tree, int);
 
@@ -141,6 +140,8 @@ extern int frv_legitimate_constant_p	(rtx);
 
 extern int direct_return_p		(void);
 extern int frv_register_move_cost	(enum reg_class, enum reg_class);
+extern int frv_issue_rate		(void);
+extern int frv_acc_group		(rtx);
 
 #ifdef TREE_CODE
 extern int frv_adjust_field_align	(tree, int);

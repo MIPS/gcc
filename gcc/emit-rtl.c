@@ -194,7 +194,7 @@ static hashval_t reg_attrs_htab_hash (const void *);
 static int reg_attrs_htab_eq (const void *, const void *);
 static reg_attrs *get_reg_attrs (tree, int);
 static tree component_ref_for_mem_expr (tree);
-static rtx gen_const_vector_0 (enum machine_mode);
+static rtx gen_const_vector (enum machine_mode, int);
 static rtx gen_complex_constant_part (enum machine_mode, rtx, int);
 static void copy_rtx_if_shared_1 (rtx *orig);
 
@@ -456,12 +456,12 @@ immed_double_const (HOST_WIDE_INT i0, HOST_WIDE_INT i1, enum machine_mode mode)
   if (mode != VOIDmode)
     {
       int width;
-      if (GET_MODE_CLASS (mode) != MODE_INT
-	  && GET_MODE_CLASS (mode) != MODE_PARTIAL_INT
-	  /* We can get a 0 for an error mark.  */
-	  && GET_MODE_CLASS (mode) != MODE_VECTOR_INT
-	  && GET_MODE_CLASS (mode) != MODE_VECTOR_FLOAT)
-	abort ();
+      
+      gcc_assert (GET_MODE_CLASS (mode) == MODE_INT
+		  || GET_MODE_CLASS (mode) == MODE_PARTIAL_INT
+		  /* We can get a 0 for an error mark.  */
+		  || GET_MODE_CLASS (mode) == MODE_VECTOR_INT
+		  || GET_MODE_CLASS (mode) == MODE_VECTOR_FLOAT);
 
       /* We clear out all bits that don't belong in MODE, unless they and
 	 our sign bit are all one.  So we get either a reasonable negative
@@ -474,9 +474,9 @@ immed_double_const (HOST_WIDE_INT i0, HOST_WIDE_INT i1, enum machine_mode mode)
       else if (width == HOST_BITS_PER_WIDE_INT
 	       && ! (i1 == ~0 && i0 < 0))
 	i1 = 0;
-      else if (width > 2 * HOST_BITS_PER_WIDE_INT)
-	/* We cannot represent this value as a constant.  */
-	abort ();
+      else
+	/* We should be able to represent this value as a constant.  */
+	gcc_assert (width <= 2 * HOST_BITS_PER_WIDE_INT);
 
       /* If this would be an entire word for the target, but is not for
 	 the host, then sign-extend on the host so that the number will
@@ -623,16 +623,14 @@ gen_rtx_SUBREG (enum machine_mode mode, rtx reg, int offset)
 {
   /* This is the most common failure type.
      Catch it early so we can see who does it.  */
-  if ((offset % GET_MODE_SIZE (mode)) != 0)
-    abort ();
+  gcc_assert (!(offset % GET_MODE_SIZE (mode)));
 
   /* This check isn't usable right now because combine will
      throw arbitrary crap like a CALL into a SUBREG in
      gen_lowpart_for_combine so we must just eat it.  */
 #if 0
   /* Check for this too.  */
-  if (offset >= GET_MODE_SIZE (GET_MODE (reg)))
-    abort ();
+  gcc_assert (offset < GET_MODE_SIZE (GET_MODE (reg)));
 #endif
   return gen_rtx_raw_SUBREG (mode, reg, offset);
 }
@@ -711,8 +709,7 @@ gen_reg_rtx (enum machine_mode mode)
 
   /* Don't let anything called after initial flow analysis create new
      registers.  */
-  if (no_new_pseudos)
-    abort ();
+  gcc_assert (!no_new_pseudos);
 
   if (generating_concat_p
       && (GET_MODE_CLASS (mode) == MODE_COMPLEX_FLOAT
@@ -972,10 +969,11 @@ mark_user_reg (rtx reg)
       REG_USERVAR_P (XEXP (reg, 0)) = 1;
       REG_USERVAR_P (XEXP (reg, 1)) = 1;
     }
-  else if (REG_P (reg))
-    REG_USERVAR_P (reg) = 1;
   else
-    abort ();
+    {
+      gcc_assert (REG_P (reg));
+      REG_USERVAR_P (reg) = 1;
+    }
 }
 
 /* Identify REG as a probable pointer register and show its alignment
@@ -1044,23 +1042,17 @@ subreg_hard_regno (rtx x, int check_mode)
 
   /* This is where we attempt to catch illegal subregs
      created by the compiler.  */
-  if (GET_CODE (x) != SUBREG
-      || !REG_P (reg))
-    abort ();
+  gcc_assert (GET_CODE (x) == SUBREG && REG_P (reg));
   base_regno = REGNO (reg);
-  if (base_regno >= FIRST_PSEUDO_REGISTER)
-    abort ();
-  if (check_mode && ! HARD_REGNO_MODE_OK (base_regno, GET_MODE (reg)))
-    abort ();
+  gcc_assert (base_regno < FIRST_PSEUDO_REGISTER);
+  gcc_assert (!check_mode || HARD_REGNO_MODE_OK (base_regno, GET_MODE (reg)));
 #ifdef ENABLE_CHECKING
-  if (!subreg_offset_representable_p (REGNO (reg), GET_MODE (reg),
-				      SUBREG_BYTE (x), mode))
-    abort ();
+  gcc_assert (subreg_offset_representable_p (REGNO (reg), GET_MODE (reg),
+					     SUBREG_BYTE (x), mode));
 #endif
   /* Catch non-congruent offsets too.  */
   byte_offset = SUBREG_BYTE (x);
-  if ((byte_offset % GET_MODE_SIZE (mode)) != 0)
-    abort ();
+  gcc_assert (!(byte_offset % GET_MODE_SIZE (mode)));
 
   final_regno = subreg_regno (x);
 
@@ -1096,8 +1088,7 @@ gen_lowpart_common (enum machine_mode mode, rtx x)
   
   xsize = GET_MODE_SIZE (innermode);
 
-  if (innermode == VOIDmode || innermode == BLKmode)
-    abort ();
+  gcc_assert (innermode != VOIDmode && innermode != BLKmode);
 
   if (innermode == mode)
     return x;
@@ -1224,21 +1215,22 @@ gen_highpart (enum machine_mode mode, rtx x)
 
   /* This case loses if X is a subreg.  To catch bugs early,
      complain if an invalid MODE is used even in other cases.  */
-  if (msize > UNITS_PER_WORD
-      && msize != (unsigned int) GET_MODE_UNIT_SIZE (GET_MODE (x)))
-    abort ();
+  gcc_assert (msize <= UNITS_PER_WORD
+	      || msize == (unsigned int) GET_MODE_UNIT_SIZE (GET_MODE (x)));
 
   result = simplify_gen_subreg (mode, x, GET_MODE (x),
 				subreg_highpart_offset (mode, GET_MODE (x)));
-
+  gcc_assert (result);
+  
   /* simplify_gen_subreg is not guaranteed to return a valid operand for
      the target if we have a MEM.  gen_highpart must return a valid operand,
      emitting code if necessary to do so.  */
-  if (result != NULL_RTX && MEM_P (result))
-    result = validize_mem (result);
-
-  if (!result)
-    abort ();
+  if (MEM_P (result))
+    {
+      result = validize_mem (result);
+      gcc_assert (result);
+    }
+  
   return result;
 }
 
@@ -1249,8 +1241,7 @@ gen_highpart_mode (enum machine_mode outermode, enum machine_mode innermode, rtx
 {
   if (GET_MODE (exp) != VOIDmode)
     {
-      if (GET_MODE (exp) != innermode)
-	abort ();
+      gcc_assert (GET_MODE (exp) == innermode);
       return gen_highpart (outermode, exp);
     }
   return simplify_gen_subreg (outermode, exp, innermode,
@@ -1285,8 +1276,7 @@ subreg_highpart_offset (enum machine_mode outermode, enum machine_mode innermode
   unsigned int offset = 0;
   int difference = (GET_MODE_SIZE (innermode) - GET_MODE_SIZE (outermode));
 
-  if (GET_MODE_SIZE (innermode) < GET_MODE_SIZE (outermode))
-    abort ();
+  gcc_assert (GET_MODE_SIZE (innermode) >= GET_MODE_SIZE (outermode));
 
   if (difference > 0)
     {
@@ -1346,8 +1336,7 @@ operand_subword (rtx op, unsigned int offset, int validate_address, enum machine
   if (mode == VOIDmode)
     mode = GET_MODE (op);
 
-  if (mode == VOIDmode)
-    abort ();
+  gcc_assert (mode != VOIDmode);
 
   /* If OP is narrower than a word, fail.  */
   if (mode != BLKmode
@@ -1405,8 +1394,7 @@ operand_subword_force (rtx op, unsigned int offset, enum machine_mode mode)
     }
 
   result = operand_subword (op, offset, 1, mode);
-  if (result == 0)
-    abort ();
+  gcc_assert (result);
 
   return result;
 }
@@ -1500,13 +1488,13 @@ mem_expr_equal_p (tree expr1, tree expr2)
   if (TREE_CODE (expr1) == INDIRECT_REF)
     return mem_expr_equal_p (TREE_OPERAND (expr1, 0),
 			     TREE_OPERAND (expr2, 0));
+
+  /* ARRAY_REFs, ARRAY_RANGE_REFs and BIT_FIELD_REFs should already
+	      have been resolved here.  */
+  gcc_assert (DECL_P (expr1));
   
   /* Decls with different pointers can't be equal.  */
-  if (DECL_P (expr1))
-    return 0;
-
-  abort(); /* ARRAY_REFs, ARRAY_RANGE_REFs and BIT_FIELD_REFs should already
-	      have been resolved here.  */
+  return 0;
 }
 
 /* Given REF, a MEM, and T, either the type of X or the expression
@@ -1540,8 +1528,7 @@ set_mem_attributes_minus_bitpos (rtx ref, tree t, int objectp,
      wrong answer, as it assumes that DECL_RTL already has the right alias
      info.  Callers should not set DECL_RTL until after the call to
      set_mem_attributes.  */
-  if (DECL_P (t) && ref == DECL_RTL_IF_SET (t))
-    abort ();
+  gcc_assert (!DECL_P (t) || ref != DECL_RTL_IF_SET (t));
 
   /* Get the alias set from the expression or type (perhaps using a
      front-end routine) and use it.  */
@@ -1754,8 +1741,7 @@ set_mem_alias_set (rtx mem, HOST_WIDE_INT set)
 {
 #ifdef ENABLE_CHECKING
   /* If the new and old alias sets don't conflict, something is wrong.  */
-  if (!alias_sets_conflict_p (set, MEM_ALIAS_SET (mem)))
-    abort ();
+  gcc_assert (alias_sets_conflict_p (set, MEM_ALIAS_SET (mem)));
 #endif
 
   MEM_ATTRS (mem) = get_mem_attrs (set, MEM_EXPR (mem), MEM_OFFSET (mem),
@@ -1814,8 +1800,7 @@ change_address_1 (rtx memref, enum machine_mode mode, rtx addr, int validate)
 {
   rtx new;
 
-  if (!MEM_P (memref))
-    abort ();
+  gcc_assert (MEM_P (memref));
   if (mode == VOIDmode)
     mode = GET_MODE (memref);
   if (addr == 0)
@@ -1827,10 +1812,7 @@ change_address_1 (rtx memref, enum machine_mode mode, rtx addr, int validate)
   if (validate)
     {
       if (reload_in_progress || reload_completed)
-	{
-	  if (! memory_address_p (mode, addr))
-	    abort ();
-	}
+	gcc_assert (memory_address_p (mode, addr));
       else
 	addr = memory_address (mode, addr);
     }
@@ -2278,15 +2260,18 @@ verify_rtx_sharing (rtx orig, rtx insn)
 
   /* This rtx may not be shared.  If it has already been seen,
      replace it with a copy of itself.  */
-
+#ifdef ENABLE_CHECKING
   if (RTX_FLAG (x, used))
     {
       error ("Invalid rtl sharing found in the insn");
       debug_rtx (insn);
       error ("Shared rtx");
       debug_rtx (x);
-      abort ();
+      internal_error ("Internal consistency failure");
     }
+#endif
+  gcc_assert (!RTX_FLAG (x, used));
+  
   RTX_FLAG (x, used) = 1;
 
   /* Now scan the subexpressions recursively.  */
@@ -2309,9 +2294,11 @@ verify_rtx_sharing (rtx orig, rtx insn)
 
 	      for (j = 0; j < len; j++)
 		{
-		  /* We allow sharing of ASM_OPERANDS inside single instruction.  */
+		  /* We allow sharing of ASM_OPERANDS inside single
+		     instruction.  */
 		  if (j && GET_CODE (XVECEXP (x, i, j)) == SET
-		      && GET_CODE (SET_SRC (XVECEXP (x, i, j))) == ASM_OPERANDS)
+		      && (GET_CODE (SET_SRC (XVECEXP (x, i, j)))
+			  == ASM_OPERANDS))
 		    verify_rtx_sharing (SET_DEST (XVECEXP (x, i, j)), insn);
 		  else
 		    verify_rtx_sharing (XVECEXP (x, i, j), insn);
@@ -2490,7 +2477,7 @@ copy_most_rtx (rtx orig, rtx may_share)
 	  break;
 
 	default:
-	  abort ();
+	  gcc_unreachable ();
 	}
     }
   return copy;
@@ -2822,8 +2809,7 @@ get_insns (void)
 void
 set_first_insn (rtx insn)
 {
-  if (PREV_INSN (insn) != 0)
-    abort ();
+  gcc_assert (!PREV_INSN (insn));
   first_insn = insn;
 }
 
@@ -2840,8 +2826,7 @@ get_last_insn (void)
 void
 set_last_insn (rtx insn)
 {
-  if (NEXT_INSN (insn) != 0)
-    abort ();
+  gcc_assert (!NEXT_INSN (insn));
   last_insn = insn;
 }
 
@@ -3191,8 +3176,7 @@ prev_cc0_setter (rtx insn)
     return XEXP (note, 0);
 
   insn = prev_nonnote_insn (insn);
-  if (! sets_cc0_p (PATTERN (insn)))
-    abort ();
+  gcc_assert (sets_cc0_p (PATTERN (insn)));
 
   return insn;
 }
@@ -3292,8 +3276,7 @@ try_split (rtx pat, rtx trial, int last)
 		 one jump is created, otherwise the machine description
 		 is responsible for this step using
 		 split_branch_probability variable.  */
-	      if (njumps != 1)
-		abort ();
+	      gcc_assert (njumps == 1);
 	      REG_NOTES (insn)
 		= gen_rtx_EXPR_LIST (REG_BR_PROB,
 				     GEN_INT (probability),
@@ -3327,7 +3310,7 @@ try_split (rtx pat, rtx trial, int last)
 	  while (insn != NULL_RTX)
 	    {
 	      if (CALL_P (insn)
-		  || (flag_non_call_exceptions
+		  || (flag_non_call_exceptions && INSN_P (insn)
 		      && may_trap_p (PATTERN (insn))))
 		REG_NOTES (insn)
 		  = gen_rtx_EXPR_LIST (REG_EH_REGION,
@@ -3510,8 +3493,7 @@ add_insn_after (rtx insn, rtx after)
   rtx next = NEXT_INSN (after);
   basic_block bb;
 
-  if (optimize && INSN_DELETED_P (after))
-    abort ();
+  gcc_assert (!optimize || !INSN_DELETED_P (after));
 
   NEXT_INSN (insn) = next;
   PREV_INSN (insn) = after;
@@ -3535,8 +3517,7 @@ add_insn_after (rtx insn, rtx after)
 	    break;
 	  }
 
-      if (stack == 0)
-	abort ();
+      gcc_assert (stack);
     }
 
   if (!BARRIER_P (after)
@@ -3575,8 +3556,7 @@ add_insn_before (rtx insn, rtx before)
   rtx prev = PREV_INSN (before);
   basic_block bb;
 
-  if (optimize && INSN_DELETED_P (before))
-    abort ();
+  gcc_assert (!optimize || !INSN_DELETED_P (before));
 
   PREV_INSN (insn) = prev;
   NEXT_INSN (insn) = before;
@@ -3603,8 +3583,7 @@ add_insn_before (rtx insn, rtx before)
 	    break;
 	  }
 
-      if (stack == 0)
-	abort ();
+      gcc_assert (stack);
     }
 
   if (!BARRIER_P (before)
@@ -3614,14 +3593,13 @@ add_insn_before (rtx insn, rtx before)
       set_block_for_insn (insn, bb);
       if (INSN_P (insn))
 	bb->flags |= BB_DIRTY;
-      /* Should not happen as first in the BB is always
-	 either NOTE or LABEl.  */
-      if (BB_HEAD (bb) == insn
-	  /* Avoid clobbering of structure when creating new BB.  */
-	  && !BARRIER_P (insn)
-	  && (!NOTE_P (insn)
-	      || NOTE_LINE_NUMBER (insn) != NOTE_INSN_BASIC_BLOCK))
-	abort ();
+      /* Should not happen as first in the BB is always either NOTE or
+	 LABEl.  */
+      gcc_assert (BB_HEAD (bb) != insn
+		  /* Avoid clobbering of structure when creating new BB.  */
+		  || BARRIER_P (insn)
+		  || (NOTE_P (insn)
+		      && NOTE_LINE_NUMBER (insn) == NOTE_INSN_BASIC_BLOCK));
     }
 
   PREV_INSN (before) = insn;
@@ -3660,8 +3638,7 @@ remove_insn (rtx insn)
 	    break;
 	  }
 
-      if (stack == 0)
-	abort ();
+      gcc_assert (stack);
     }
 
   if (next)
@@ -3683,8 +3660,7 @@ remove_insn (rtx insn)
 	    break;
 	  }
 
-      if (stack == 0)
-	abort ();
+      gcc_assert (stack);
     }
   if (!BARRIER_P (insn)
       && (bb = BLOCK_FOR_INSN (insn)))
@@ -3695,8 +3671,7 @@ remove_insn (rtx insn)
 	{
 	  /* Never ever delete the basic block note without deleting whole
 	     basic block.  */
-	  if (NOTE_P (insn))
-	    abort ();
+	  gcc_assert (!NOTE_P (insn));
 	  BB_HEAD (bb) = next;
 	}
       if (BB_END (bb) == insn)
@@ -3709,8 +3684,7 @@ remove_insn (rtx insn)
 void
 add_function_usage_to (rtx call_insn, rtx call_fusage)
 {
-  if (! call_insn || !CALL_P (call_insn))
-    abort ();
+  gcc_assert (call_insn && CALL_P (call_insn));
 
   /* Put the register usage information on the CALL.  If there is already
      some usage information, put ours at the end.  */
@@ -3857,11 +3831,10 @@ remove_unnecessary_notes (void)
 
 	case NOTE_INSN_EH_REGION_END:
 	  /* Too many end notes.  */
-	  if (eh_stack == NULL_RTX)
-	    abort ();
+	  gcc_assert (eh_stack);
 	  /* Mismatched nesting.  */
-	  if (NOTE_EH_HANDLER (XEXP (eh_stack, 0)) != NOTE_EH_HANDLER (insn))
-	    abort ();
+	  gcc_assert (NOTE_EH_HANDLER (XEXP (eh_stack, 0))
+		      == NOTE_EH_HANDLER (insn));
 	  tmp = eh_stack;
 	  eh_stack = XEXP (eh_stack, 1);
 	  free_INSN_LIST_node (tmp);
@@ -3870,18 +3843,15 @@ remove_unnecessary_notes (void)
 	case NOTE_INSN_BLOCK_BEG:
 	  /* By now, all notes indicating lexical blocks should have
 	     NOTE_BLOCK filled in.  */
-	  if (NOTE_BLOCK (insn) == NULL_TREE)
-	    abort ();
+	  gcc_assert (NOTE_BLOCK (insn));
 	  block_stack = alloc_INSN_LIST (insn, block_stack);
 	  break;
 
 	case NOTE_INSN_BLOCK_END:
 	  /* Too many end notes.  */
-	  if (block_stack == NULL_RTX)
-	    abort ();
+	  gcc_assert (block_stack);
 	  /* Mismatched nesting.  */
-	  if (NOTE_BLOCK (XEXP (block_stack, 0)) != NOTE_BLOCK (insn))
-	    abort ();
+	  gcc_assert (NOTE_BLOCK (XEXP (block_stack, 0)) == NOTE_BLOCK (insn));
 	  tmp = block_stack;
 	  block_stack = XEXP (block_stack, 1);
 	  free_INSN_LIST_node (tmp);
@@ -3930,8 +3900,7 @@ remove_unnecessary_notes (void)
     }
 
   /* Too many begin notes.  */
-  if (block_stack || eh_stack)
-    abort ();
+  gcc_assert (!block_stack && !eh_stack);
 }
 
 
@@ -3968,10 +3937,7 @@ emit_insn_before (rtx x, rtx before)
   rtx last = before;
   rtx insn;
 
-#ifdef ENABLE_RTL_CHECKING
-  if (before == NULL_RTX)
-    abort ();
-#endif
+  gcc_assert (before);
 
   if (x == NULL_RTX)
     return last;
@@ -3996,7 +3962,7 @@ emit_insn_before (rtx x, rtx before)
 
 #ifdef ENABLE_RTL_CHECKING
     case SEQUENCE:
-      abort ();
+      gcc_unreachable ();
       break;
 #endif
 
@@ -4017,10 +3983,7 @@ emit_jump_insn_before (rtx x, rtx before)
 {
   rtx insn, last = NULL_RTX;
 
-#ifdef ENABLE_RTL_CHECKING
-  if (before == NULL_RTX)
-    abort ();
-#endif
+  gcc_assert (before);
 
   switch (GET_CODE (x))
     {
@@ -4042,7 +4005,7 @@ emit_jump_insn_before (rtx x, rtx before)
 
 #ifdef ENABLE_RTL_CHECKING
     case SEQUENCE:
-      abort ();
+      gcc_unreachable ();
       break;
 #endif
 
@@ -4063,10 +4026,7 @@ emit_call_insn_before (rtx x, rtx before)
 {
   rtx last = NULL_RTX, insn;
 
-#ifdef ENABLE_RTL_CHECKING
-  if (before == NULL_RTX)
-    abort ();
-#endif
+  gcc_assert (before);
 
   switch (GET_CODE (x))
     {
@@ -4088,7 +4048,7 @@ emit_call_insn_before (rtx x, rtx before)
 
 #ifdef ENABLE_RTL_CHECKING
     case SEQUENCE:
-      abort ();
+      gcc_unreachable ();
       break;
 #endif
 
@@ -4196,10 +4156,7 @@ emit_insn_after (rtx x, rtx after)
 {
   rtx last = after;
 
-#ifdef ENABLE_RTL_CHECKING
-  if (after == NULL_RTX)
-    abort ();
-#endif
+  gcc_assert (after);
 
   if (x == NULL_RTX)
     return last;
@@ -4217,7 +4174,7 @@ emit_insn_after (rtx x, rtx after)
 
 #ifdef ENABLE_RTL_CHECKING
     case SEQUENCE:
-      abort ();
+      gcc_unreachable ();
       break;
 #endif
 
@@ -4255,10 +4212,7 @@ emit_jump_insn_after (rtx x, rtx after)
 {
   rtx last;
 
-#ifdef ENABLE_RTL_CHECKING
-  if (after == NULL_RTX)
-    abort ();
-#endif
+  gcc_assert (after);
 
   switch (GET_CODE (x))
     {
@@ -4273,7 +4227,7 @@ emit_jump_insn_after (rtx x, rtx after)
 
 #ifdef ENABLE_RTL_CHECKING
     case SEQUENCE:
-      abort ();
+      gcc_unreachable ();
       break;
 #endif
 
@@ -4294,10 +4248,7 @@ emit_call_insn_after (rtx x, rtx after)
 {
   rtx last;
 
-#ifdef ENABLE_RTL_CHECKING
-  if (after == NULL_RTX)
-    abort ();
-#endif
+  gcc_assert (after);
 
   switch (GET_CODE (x))
     {
@@ -4312,7 +4263,7 @@ emit_call_insn_after (rtx x, rtx after)
 
 #ifdef ENABLE_RTL_CHECKING
     case SEQUENCE:
-      abort ();
+      gcc_unreachable ();
       break;
 #endif
 
@@ -4513,7 +4464,7 @@ emit_insn (rtx x)
 
 #ifdef ENABLE_RTL_CHECKING
     case SEQUENCE:
-      abort ();
+      gcc_unreachable ();
       break;
 #endif
 
@@ -4554,7 +4505,7 @@ emit_jump_insn (rtx x)
 
 #ifdef ENABLE_RTL_CHECKING
     case SEQUENCE:
-      abort ();
+      gcc_unreachable ();
       break;
 #endif
 
@@ -4588,7 +4539,7 @@ emit_call_insn (rtx x)
 
 #ifdef ENABLE_RTL_CHECKING
     case SEQUENCE:
-      abort ();
+      gcc_unreachable ();
       break;
 #endif
 
@@ -4737,8 +4688,7 @@ set_unique_reg_note (rtx insn, enum reg_note kind, rtx datum)
 	 means the insn only has one * useful * set).  */
       if (GET_CODE (PATTERN (insn)) == PARALLEL && multiple_sets (insn))
 	{
-	  if (note)
-	    abort ();
+	  gcc_assert (!note);
 	  return NULL_RTX;
 	}
 
@@ -4807,21 +4757,24 @@ emit (rtx x)
 {
   enum rtx_code code = classify_insn (x);
 
-  if (code == CODE_LABEL)
-    return emit_label (x);
-  else if (code == INSN)
-    return emit_insn (x);
-  else if (code == JUMP_INSN)
+  switch (code)
     {
-      rtx insn = emit_jump_insn (x);
-      if (any_uncondjump_p (insn) || GET_CODE (x) == RETURN)
-	return emit_barrier ();
-      return insn;
+    case CODE_LABEL:
+      return emit_label (x);
+    case INSN:
+      return emit_insn (x);
+    case  JUMP_INSN:
+      {
+	rtx insn = emit_jump_insn (x);
+	if (any_uncondjump_p (insn) || GET_CODE (x) == RETURN)
+	  return emit_barrier ();
+	return insn;
+      }
+    case CALL_INSN:
+      return emit_call_insn (x);
+    default:
+      gcc_unreachable ();
     }
-  else if (code == CALL_INSN)
-    return emit_call_insn (x);
-  else
-    abort ();
 }
 
 /* Space for free sequence stack entries.  */
@@ -4883,8 +4836,7 @@ push_to_full_sequence (rtx first, rtx last)
   first_insn = first;
   last_insn = last;
   /* We really should have the end of the insn chain here.  */
-  if (last && NEXT_INSN (last))
-    abort ();
+  gcc_assert (!last || !NEXT_INSN (last));
 }
 
 /* Set up the outer-level insn chain
@@ -5104,15 +5056,14 @@ copy_insn_1 (rtx orig)
 	  break;
 
 	default:
-	  abort ();
+	  gcc_unreachable ();
 	}
     }
 
   if (code == SCRATCH)
     {
       i = copy_insn_n_scratches++;
-      if (i >= MAX_RECOG_OPERANDS)
-	abort ();
+      gcc_assert (i < MAX_RECOG_OPERANDS);
       copy_insn_scratch_in[i] = orig;
       copy_insn_scratch_out[i] = copy;
     }
@@ -5211,10 +5162,10 @@ init_emit (void)
 #endif
 }
 
-/* Generate the constant 0.  */
+/* Generate a vector constant for mode MODE and constant value CONSTANT.  */
 
 static rtx
-gen_const_vector_0 (enum machine_mode mode)
+gen_const_vector (enum machine_mode mode, int constant)
 {
   rtx tem;
   rtvec v;
@@ -5226,29 +5177,44 @@ gen_const_vector_0 (enum machine_mode mode)
 
   v = rtvec_alloc (units);
 
-  /* We need to call this function after we to set CONST0_RTX first.  */
-  if (!CONST0_RTX (inner))
-    abort ();
+  /* We need to call this function after we set the scalar const_tiny_rtx
+     entries.  */
+  gcc_assert (const_tiny_rtx[constant][(int) inner]);
 
   for (i = 0; i < units; ++i)
-    RTVEC_ELT (v, i) = CONST0_RTX (inner);
+    RTVEC_ELT (v, i) = const_tiny_rtx[constant][(int) inner];
 
   tem = gen_rtx_raw_CONST_VECTOR (mode, v);
   return tem;
 }
 
 /* Generate a vector like gen_rtx_raw_CONST_VEC, but use the zero vector when
-   all elements are zero.  */
+   all elements are zero, and the one vector when all elements are one.  */
 rtx
 gen_rtx_CONST_VECTOR (enum machine_mode mode, rtvec v)
 {
-  rtx inner_zero = CONST0_RTX (GET_MODE_INNER (mode));
+  enum machine_mode inner = GET_MODE_INNER (mode);
+  int nunits = GET_MODE_NUNITS (mode);
+  rtx x;
   int i;
 
-  for (i = GET_MODE_NUNITS (mode) - 1; i >= 0; i--)
-    if (RTVEC_ELT (v, i) != inner_zero)
-      return gen_rtx_raw_CONST_VECTOR (mode, v);
-  return CONST0_RTX (mode);
+  /* Check to see if all of the elements have the same value.  */
+  x = RTVEC_ELT (v, nunits - 1);
+  for (i = nunits - 2; i >= 0; i--)
+    if (RTVEC_ELT (v, i) != x)
+      break;
+
+  /* If the values are all the same, check to see if we can use one of the
+     standard constant vectors.  */
+  if (i == -1)
+    {
+      if (x == CONST0_RTX (inner))
+	return CONST0_RTX (mode);
+      else if (x == CONST1_RTX (inner))
+	return CONST1_RTX (mode);
+    }
+
+  return gen_rtx_raw_CONST_VECTOR (mode, v);
 }
 
 /* Create some permanent unique rtl objects shared between all functions.
@@ -5402,12 +5368,18 @@ init_emit_once (int line_numbers)
   for (mode = GET_CLASS_NARROWEST_MODE (MODE_VECTOR_INT);
        mode != VOIDmode;
        mode = GET_MODE_WIDER_MODE (mode))
-    const_tiny_rtx[0][(int) mode] = gen_const_vector_0 (mode);
+    {
+      const_tiny_rtx[0][(int) mode] = gen_const_vector (mode, 0);
+      const_tiny_rtx[1][(int) mode] = gen_const_vector (mode, 1);
+    }
 
   for (mode = GET_CLASS_NARROWEST_MODE (MODE_VECTOR_FLOAT);
        mode != VOIDmode;
        mode = GET_MODE_WIDER_MODE (mode))
-    const_tiny_rtx[0][(int) mode] = gen_const_vector_0 (mode);
+    {
+      const_tiny_rtx[0][(int) mode] = gen_const_vector (mode, 0);
+      const_tiny_rtx[1][(int) mode] = gen_const_vector (mode, 1);
+    }
 
   for (i = (int) CCmode; i < (int) MAX_MACHINE_MODE; ++i)
     if (GET_MODE_CLASS ((enum machine_mode) i) == MODE_CC)
@@ -5477,7 +5449,7 @@ emit_copy_of_insn_after (rtx insn, rtx after)
       break;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 
   /* Update LABEL_NUSES.  */

@@ -277,7 +277,7 @@
    (set_attr "mode" "SF")])
 
 ;----------------------------------------------------------------------------
-; Floating Point Comparisions for Scalars
+; Floating Point Comparisons for Scalars
 ;----------------------------------------------------------------------------
 
 (define_insn "mips_cabs_cond_<fmt>"
@@ -293,7 +293,7 @@
 
 
 ;----------------------------------------------------------------------------
-; Floating Point Comparisions for Four Singles
+; Floating Point Comparisons for Four Singles
 ;----------------------------------------------------------------------------
 
 (define_insn_and_split "mips_c_cond_4s"
@@ -356,7 +356,7 @@
 
 
 ;----------------------------------------------------------------------------
-; Floating Point Comparisions for Paired Singles
+; Floating Point Comparisons for Paired Singles
 ;----------------------------------------------------------------------------
 
 (define_insn "mips_c_cond_ps"
@@ -444,7 +444,7 @@
 		     UNSPEC_RSQRT1))]
   "TARGET_MIPS3D"
   "rsqrt1.<fmt>\t%0,%1"
-  [(set_attr "type" "frsqrt")
+  [(set_attr "type" "frsqrt1")
    (set_attr "mode" "<UNITMODE>")])
 
 (define_insn "mips_rsqrt2_<fmt>"
@@ -454,7 +454,7 @@
 		     UNSPEC_RSQRT2))]
   "TARGET_MIPS3D"
   "rsqrt2.<fmt>\t%0,%1,%2"
-  [(set_attr "type" "frsqrt")
+  [(set_attr "type" "frsqrt2")
    (set_attr "mode" "<UNITMODE>")])
 
 (define_insn "mips_recip1_<fmt>"
@@ -463,7 +463,7 @@
 		     UNSPEC_RECIP1))]
   "TARGET_MIPS3D"
   "recip1.<fmt>\t%0,%1"
-  [(set_attr "type" "frdiv")
+  [(set_attr "type" "frdiv1")
    (set_attr "mode" "<UNITMODE>")])
 
 (define_insn "mips_recip2_<fmt>"
@@ -473,5 +473,5 @@
 		     UNSPEC_RECIP2))]
   "TARGET_MIPS3D"
   "recip2.<fmt>\t%0,%1,%2"
-  [(set_attr "type" "frdiv")
+  [(set_attr "type" "frdiv2")
    (set_attr "mode" "<UNITMODE>")])

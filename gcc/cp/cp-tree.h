@@ -313,7 +313,7 @@ struct tree_baselink GTY(())
   tree access_binfo;
 };
 
-/* The different kinds of ids that we ecounter.  */
+/* The different kinds of ids that we encounter.  */
 
 typedef enum cp_id_kind
 {
@@ -738,8 +738,8 @@ struct language_function GTY(())
 #define cp_function_chain (cfun->language)
 
 /* In a constructor destructor, the point at which all derived class
-   destroying/contruction has been has been done. Ie. just before a
-   constuctor returns, or before any base class destroying will be done
+   destroying/construction has been has been done. Ie. just before a
+   constructor returns, or before any base class destroying will be done
    in a destructor.  */
 
 #define cdtor_label cp_function_chain->x_cdtor_label
@@ -813,13 +813,6 @@ struct language_function GTY(())
 #define error_operand_p(NODE)					\
   ((NODE) == error_mark_node 					\
    || ((NODE) && TREE_TYPE ((NODE)) == error_mark_node))
-
-/* INTERFACE_ONLY nonzero means that we are in an "interface"
-   section of the compiler.  INTERFACE_UNKNOWN nonzero means
-   we cannot trust the value of INTERFACE_ONLY.  If INTERFACE_UNKNOWN
-   is zero and INTERFACE_ONLY is zero, it means that we are responsible
-   for exporting definitions that others might need.  */
-extern int interface_only, interface_unknown;
 
 /* C++ language-specific tree codes.  */
 #define DEFTREECODE(SYM, NAME, TYPE, LENGTH) SYM,
@@ -955,7 +948,7 @@ typedef struct tree_pair_s GTY (())
   tree value;
 } tree_pair_s;
 typedef tree_pair_s *tree_pair_p;
-DEF_VEC_O (tree_pair_s);
+DEF_VEC_GC_O (tree_pair_s);
 
 /* This is a few header flags for 'struct lang_type'.  Actually,
    all but the first are used only for lang_type_class; they
@@ -4089,6 +4082,7 @@ extern void pop_to_parent_deferring_access_checks	(void);
 extern void perform_deferred_access_checks	(void);
 extern void perform_or_defer_access_check	(tree, tree);
 extern void init_cp_semantics                   (void);
+extern tree do_poplevel				(tree);
 extern void add_decl_expr			(tree);
 extern tree finish_expr_stmt                    (tree);
 extern tree begin_if_stmt                       (void);

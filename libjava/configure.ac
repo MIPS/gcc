@@ -255,9 +255,11 @@ AC_ARG_ENABLE(libgcj-debug,
 
 # Check for gc debugging.  This option is handled both here and in the GC.
 AC_ARG_ENABLE(gc-debug,
-[  --enable-gc-debug	include full support for pointer backtracing etc.],
+   AS_HELP_STRING([--enable-gc-debug],
+		  [include full support for pointer backtracing etc.]),
 [ if test "$enable_gc_debug" = "yes"; then
-    AC_DEFINE(LIBGCJ_GC_DEBUG)
+    AC_DEFINE(LIBGCJ_GC_DEBUG, 1, 
+	      [Define if we want to use debug calls into the garbage collector.])
   fi])
 
 # See if the user has the interpreter included.
@@ -1380,25 +1382,6 @@ case " $CONFIG_FILES " in
    ac_file=Makefile . ${libgcj_basedir}/../config-ml.in
    ;;
 esac
-
-# Make subdirectories and `.d' files.  Look in both srcdir and
-# builddir for the .java files.
-h=`${PWDCMD-pwd}`
-: > deps.mk
-( (cd $srcdir && find . \( -name '*.java' -o -name '*.cc' -o -name '*.c' \) -print) ;
-  find . \( -name '*.java' -o -name '*.cc' -o -name '*.c' \) -print) | \
-   fgrep -v testsuite | \
-   sed -e 's/\.java/.d/'\;'s/\.cc/.d/'\;'s/\.c/.d/' | \
-   while read f; do
-      echo "include $f" >> deps.mk
-      test -f $f || {
-	 d=`echo $f | sed -e 's,/[[^/]]*$,,'`
-	 if test ! -d $d; then
-	   $libgcj_basedir/../mkinstalldirs $d
-	 fi;
-	 echo > $f
-      }
-   done
 ],
 srcdir=${srcdir}
 host=${host}

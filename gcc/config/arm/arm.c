@@ -175,7 +175,7 @@ static bool arm_cxx_cdtor_returns_this (void);
 static bool arm_cxx_key_method_may_be_inline (void);
 static bool arm_cxx_export_class_data (void);
 static void arm_init_libfuncs (void);
-
+static unsigned HOST_WIDE_INT arm_shift_truncation_mask (enum machine_mode);
 
 /* Initialize the GCC target structure.  */
 #if TARGET_DLLIMPORT_DECL_ATTRIBUTES
@@ -248,6 +248,8 @@ static void arm_init_libfuncs (void);
 #undef  TARGET_ADDRESS_COST
 #define TARGET_ADDRESS_COST arm_address_cost
 
+#undef TARGET_SHIFT_TRUNCATION_MASK
+#define TARGET_SHIFT_TRUNCATION_MASK arm_shift_truncation_mask
 #undef TARGET_VECTOR_MODE_SUPPORTED_P
 #define TARGET_VECTOR_MODE_SUPPORTED_P arm_vector_mode_supported_p
 
@@ -632,7 +634,7 @@ bit_count (unsigned long value)
   return count;
 }
 
-/* Set up library functions uqniue to ARM.  */
+/* Set up library functions unique to ARM.  */
 
 static void
 arm_init_libfuncs (void)
@@ -652,7 +654,7 @@ arm_init_libfuncs (void)
   set_optab_libfunc (neg_optab, DFmode, "__aeabi_dneg");
   set_optab_libfunc (sub_optab, DFmode, "__aeabi_dsub");
 
-  /* Double-precision comparisions.  Table 3.  */
+  /* Double-precision comparisons.  Table 3.  */
   set_optab_libfunc (eq_optab, DFmode, "__aeabi_dcmpeq");
   set_optab_libfunc (ne_optab, DFmode, NULL);
   set_optab_libfunc (lt_optab, DFmode, "__aeabi_dcmplt");
@@ -668,7 +670,7 @@ arm_init_libfuncs (void)
   set_optab_libfunc (neg_optab, SFmode, "__aeabi_fneg");
   set_optab_libfunc (sub_optab, SFmode, "__aeabi_fsub");
 
-  /* Single-precision comparisions.  Table 5.  */
+  /* Single-precision comparisons.  Table 5.  */
   set_optab_libfunc (eq_optab, SFmode, "__aeabi_fcmpeq");
   set_optab_libfunc (ne_optab, SFmode, NULL);
   set_optab_libfunc (lt_optab, SFmode, "__aeabi_fcmplt");
@@ -691,7 +693,7 @@ arm_init_libfuncs (void)
   set_conv_libfunc (trunc_optab, SFmode, DFmode, "__aeabi_d2f");
   set_conv_libfunc (sext_optab, DFmode, SFmode, "__aeabi_f2d");
 
-  /* Integer to floating-point converisons.  Table 8.  */
+  /* Integer to floating-point conversions.  Table 8.  */
   set_conv_libfunc (sfloat_optab, DFmode, SImode, "__aeabi_i2d");
   set_conv_libfunc (ufloat_optab, DFmode, SImode, "__aeabi_ui2d");
   set_conv_libfunc (sfloat_optab, DFmode, DImode, "__aeabi_l2d");
@@ -2821,7 +2823,7 @@ arm_is_longcall_p (rtx sym_ref, int call_cookie, int call_symbol)
     {
       if (flag_function_sections
 	  || DECL_SECTION_NAME (current_function_decl))
-	/* c.3 is handled by the defintion of the
+	/* c.3 is handled by the definition of the
 	   ARM_DECLARE_FUNCTION_SIZE macro.  */
 	return 1;
     }
@@ -12898,7 +12900,7 @@ thumb_expand_prologue (void)
       return;
     }
 
-  /* Load the pic recister before setting the frame pointer, so we can use r7
+  /* Load the pic register before setting the frame pointer, so we can use r7
      as a temporary work register.  */
   if (flag_pic)
     arm_load_pic_register ();
@@ -14333,4 +14335,15 @@ arm_vector_mode_supported_p (enum machine_mode mode)
     return true;
 
   return false;
+}
+
+/* Implement TARGET_SHIFT_TRUNCATION_MASK.  SImode shifts use normal
+   ARM insns and therefore guarantee that the shift count is modulo 256.
+   DImode shifts (those implemented by lib1funcs.asm or by optabs.c)
+   guarantee no particular behavior for out-of-range counts.  */
+
+static unsigned HOST_WIDE_INT
+arm_shift_truncation_mask (enum machine_mode mode)
+{
+  return mode == SImode ? 255 : 0;
 }

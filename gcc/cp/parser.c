@@ -256,6 +256,7 @@ static void cp_lexer_rollback_tokens
   (cp_lexer *);
 static inline void cp_lexer_set_source_position_from_token
   (cp_lexer *, const cp_token *);
+#ifdef ENABLE_CHECKING
 static void cp_lexer_print_token
   (FILE *, cp_token *);
 static inline bool cp_lexer_debugging_p
@@ -264,6 +265,11 @@ static void cp_lexer_start_debugging
   (cp_lexer *) ATTRIBUTE_UNUSED;
 static void cp_lexer_stop_debugging
   (cp_lexer *) ATTRIBUTE_UNUSED;
+#else
+#define cp_lexer_debug_stream NULL
+#define cp_lexer_print_token(str, tok)
+#define cp_lexer_debugging_p(lexer) 0
+#endif /* ENABLE_CHECKING */
 
 /* Manifest constants.  */
 
@@ -292,8 +298,10 @@ static void cp_lexer_stop_debugging
 
 /* Variables.  */
 
+#ifdef ENABLE_CHECKING
 /* The stream to which debugging output should be written.  */
 static FILE *cp_lexer_debug_stream;
+#endif /* ENABLE_CHECKING */
 
 /* Create a new main C++ lexer, the lexer that gets tokens from the
    preprocessor.  */
@@ -332,8 +340,10 @@ cp_lexer_new_main (void)
   /* Create the STRINGS array.  */
   VARRAY_TREE_INIT (lexer->string_tokens, 32, "strings");
 
+#ifdef ENABLE_CHECKING  
   /* Assume we are not debugging.  */
   lexer->debugging_p = false;
+#endif /* ENABLE_CHECKING */
 
   return lexer;
 }
@@ -383,19 +393,25 @@ cp_lexer_new_from_tokens (cp_token_cache *tokens)
   /* Create the STRINGS array.  */
   VARRAY_TREE_INIT (lexer->string_tokens, 32, "strings");
 
+#ifdef ENABLE_CHECKING
   /* Assume we are not debugging.  */
   lexer->debugging_p = false;
+#endif /* ENABLE_CHECKING */
 
   return lexer;
 }
 
 /* Returns nonzero if debugging information should be output.  */
 
+#ifdef ENABLE_CHECKING
+
 static inline bool
 cp_lexer_debugging_p (cp_lexer *lexer)
 {
   return lexer->debugging_p;
 }
+
+#endif /* ENABLE_CHECKING */
 
 /* Set the current source position from the information stored in
    TOKEN.  */
@@ -910,6 +926,8 @@ cp_lexer_rollback_tokens (cp_lexer* lexer)
 
 /* Print a representation of the TOKEN on the STREAM.  */
 
+#ifdef ENABLE_CHECKING
+
 static void
 cp_lexer_print_token (FILE * stream, cp_token* token)
 {
@@ -993,6 +1011,8 @@ cp_lexer_stop_debugging (cp_lexer* lexer)
 {
   --lexer->debugging_p;
 }
+
+#endif /* ENABLE_CHECKING */
 
 
 /* Decl-specifiers.  */
@@ -4206,7 +4226,7 @@ cp_parser_postfix_open_square_expression (cp_parser *parser,
      If we are in an integral constant expression context, then we might
      could accept any constant expression; hard to say without analysis.
      Rather than open the barn door too wide right away, allow only integer
-     constant expresions here.  */
+     constant expressions here.  */
   if (for_offsetof)
     index = cp_parser_constant_expression (parser, false, NULL);
   else
@@ -7106,11 +7126,7 @@ cp_parser_simple_declaration (cp_parser* parser,
 
    Set *DECL_SPECS to a representation of the decl-specifier-seq.
 
-   If FRIEND_IS_NOT_CLASS_P is non-NULL, and the `friend' specifier
-   appears, and the entity that will be a friend is not going to be a
-   class, then *FRIEND_IS_NOT_CLASS_P will be set to TRUE.  Note that
-   even if *FRIEND_IS_NOT_CLASS_P is FALSE, the entity to which
-   friendship is granted might not be a class.
+   The parser flags FLAGS is used to control type-specifier parsing.
 
    *DECLARES_CLASS_OR_ENUM is set to the bitwise or of the following
    flags:
@@ -9207,9 +9223,10 @@ cp_parser_explicit_specialization (cp_parser* parser)
    class-specifier, enum-specifier, or elaborated-type-specifier, a
    TREE_TYPE is returned; otherwise, a TYPE_DECL is returned.
 
-   If IS_FRIEND is TRUE then this type-specifier is being declared a
-   `friend'.  If IS_DECLARATION is TRUE, then this type-specifier is
-   appearing in a decl-specifier-seq.
+   The parser flags FLAGS is used to control type-specifier parsing.
+
+   If IS_DECLARATION is TRUE, then this type-specifier is appearing
+   in a decl-specifier-seq.
 
    If DECLARES_CLASS_OR_ENUM is non-NULL, and the type-specifier is a
    class-specifier, enum-specifier, or elaborated-type-specifier, then
@@ -9248,21 +9265,36 @@ cp_parser_type_specifier (cp_parser* parser,
   keyword = token->keyword;
   switch (keyword)
     {
+    case RID_ENUM:
+      /* 'enum' [identifier] '{' introduces an enum-specifier;
+	 'enum' <anything else> introduces an elaborated-type-specifier.  */
+      if (cp_lexer_peek_nth_token (parser->lexer, 2)->type == CPP_OPEN_BRACE
+	  || (cp_lexer_peek_nth_token (parser->lexer, 2)->type == CPP_NAME
+	      && cp_lexer_peek_nth_token (parser->lexer, 3)->type
+	         == CPP_OPEN_BRACE))
+	{
+	  type_spec = cp_parser_enum_specifier (parser);
+	  if (declares_class_or_enum)
+	    *declares_class_or_enum = 2;
+	  if (decl_specs)
+	    cp_parser_set_decl_spec_type (decl_specs,
+					  type_spec,
+					  /*user_defined_p=*/true);
+	  return type_spec;
+	}
+      else
+	goto elaborated_type_specifier;
+
       /* Any of these indicate either a class-specifier, or an
 	 elaborated-type-specifier.  */
     case RID_CLASS:
     case RID_STRUCT:
     case RID_UNION:
-    case RID_ENUM:
       /* Parse tentatively so that we can back up if we don't find a
-	 class-specifier or enum-specifier.  */
+	 class-specifier.  */
       cp_parser_parse_tentatively (parser);
-      /* Look for the class-specifier or enum-specifier.  */
-      if (keyword == RID_ENUM)
-	type_spec = cp_parser_enum_specifier (parser);
-      else
-	type_spec = cp_parser_class_specifier (parser);
-
+      /* Look for the class-specifier.  */
+      type_spec = cp_parser_class_specifier (parser);
       /* If that worked, we're done.  */
       if (cp_parser_parse_definitely (parser))
 	{
@@ -9276,7 +9308,12 @@ cp_parser_type_specifier (cp_parser* parser,
 	}
 
       /* Fall through.  */
+    elaborated_type_specifier:
+      /* We're declaring (not defining) a class or enum.  */
+      if (declares_class_or_enum)
+	*declares_class_or_enum = 1;
 
+      /* Fall through.  */
     case RID_TYPENAME:
       /* Look for an elaborated-type-specifier.  */
       type_spec
@@ -9284,10 +9321,6 @@ cp_parser_type_specifier (cp_parser* parser,
 	   (parser,
 	    decl_specs && decl_specs->specs[(int) ds_friend],
 	    is_declaration));
-      /* We're declaring a class or enum -- unless we're using
-	 `typename'.  */
-      if (declares_class_or_enum && keyword != RID_TYPENAME)
-	*declares_class_or_enum = 1;
       if (decl_specs)
 	cp_parser_set_decl_spec_type (decl_specs,
 				      type_spec,
@@ -9889,40 +9922,33 @@ cp_parser_elaborated_type_specifier (cp_parser* parser,
 static tree
 cp_parser_enum_specifier (cp_parser* parser)
 {
-  cp_token *token;
-  tree identifier = NULL_TREE;
+  tree identifier;
   tree type;
 
-  /* Look for the `enum' keyword.  */
-  if (!cp_parser_require_keyword (parser, RID_ENUM, "`enum'"))
-    return error_mark_node;
-  /* Peek at the next token.  */
-  token = cp_lexer_peek_token (parser->lexer);
+  /* Caller guarantees that the current token is 'enum', an identifier
+     possibly follows, and the token after that is an opening brace.
+     If we don't have an identifier, fabricate an anonymous name for
+     the enumeration being defined.  */
+  cp_lexer_consume_token (parser->lexer);
 
-  /* See if it is an identifier.  */
-  if (token->type == CPP_NAME)
+  if (cp_lexer_next_token_is (parser->lexer, CPP_NAME))
     identifier = cp_parser_identifier (parser);
+  else
+    identifier = make_anon_name ();
 
-  /* Look for the `{'.  */
-  if (!cp_parser_require (parser, CPP_OPEN_BRACE, "`{'"))
-    return error_mark_node;
-
-  /* At this point, we're going ahead with the enum-specifier, even
-     if some other problem occurs.  */
-  cp_parser_commit_to_tentative_parse (parser);
+  cp_lexer_consume_token (parser->lexer);
 
   /* Issue an error message if type-definitions are forbidden here.  */
   cp_parser_check_type_definition (parser);
 
   /* Create the new type.  */
-  type = start_enum (identifier ? identifier : make_anon_name ());
+  type = start_enum (identifier);
 
-  /* Peek at the next token.  */
-  token = cp_lexer_peek_token (parser->lexer);
-  /* If it's not a `}', then there are some enumerators.  */
-  if (token->type != CPP_CLOSE_BRACE)
+  /* If the next token is not '}', then there are some enumerators.  */
+  if (cp_lexer_next_token_is_not (parser->lexer, CPP_CLOSE_BRACE))
     cp_parser_enumerator_list (parser, type);
-  /* Look for the `}'.  */
+
+  /* Consume the final '}'.  */
   cp_parser_require (parser, CPP_CLOSE_BRACE, "`}'");
 
   /* Finish up the enumeration.  */
@@ -9943,15 +9969,12 @@ cp_parser_enumerator_list (cp_parser* parser, tree type)
 {
   while (true)
     {
-      cp_token *token;
-
       /* Parse an enumerator-definition.  */
       cp_parser_enumerator_definition (parser, type);
-      /* Peek at the next token.  */
-      token = cp_lexer_peek_token (parser->lexer);
-      /* If it's not a `,', then we've reached the end of the
-	 list.  */
-      if (token->type != CPP_COMMA)
+
+      /* If the next token is not a ',', we've reached the end of
+	 the list.  */
+      if (cp_lexer_next_token_is_not (parser->lexer, CPP_COMMA))
 	break;
       /* Otherwise, consume the `,' and keep going.  */
       cp_lexer_consume_token (parser->lexer);
@@ -9978,7 +10001,6 @@ cp_parser_enumerator_list (cp_parser* parser, tree type)
 static void
 cp_parser_enumerator_definition (cp_parser* parser, tree type)
 {
-  cp_token *token;
   tree identifier;
   tree value;
 
@@ -9987,10 +10009,8 @@ cp_parser_enumerator_definition (cp_parser* parser, tree type)
   if (identifier == error_mark_node)
     return;
 
-  /* Peek at the next token.  */
-  token = cp_lexer_peek_token (parser->lexer);
-  /* If it's an `=', then there's an explicit value.  */
-  if (token->type == CPP_EQ)
+  /* If the next token is an '=', then there is an explicit value.  */
+  if (cp_lexer_next_token_is (parser->lexer, CPP_EQ))
     {
       /* Consume the `=' token.  */
       cp_lexer_consume_token (parser->lexer);

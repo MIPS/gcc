@@ -578,7 +578,7 @@ check_java_method (tree method)
 
 /* Sanity check: report error if this function FUNCTION is not
    really a member of the class (CTYPE) it is supposed to belong to.
-   TEMPLATE_PARMS is used to specifiy the template parameters of a member
+   TEMPLATE_PARMS is used to specify the template parameters of a member
    template passed as FUNCTION_DECL. If the member template is passed as a 
    TEMPLATE_DECL, it can be NULL since the parameters can be extracted
    from the declaration. If the function is not a function template, it
@@ -1438,7 +1438,7 @@ import_export_class (tree ctype)
   if (CLASSTYPE_INTERFACE_KNOWN (ctype))
     return;
 
-  /* If MULTIPLE_SYMBOL_SPACES is defined and we saw a #pragma interface,
+  /* If MULTIPLE_SYMBOL_SPACES is set and we saw a #pragma interface,
      we will have CLASSTYPE_INTERFACE_ONLY set but not
      CLASSTYPE_INTERFACE_KNOWN.  In that case, we don't want to use this
      heuristic because someone will supply a #pragma implementation
@@ -1472,10 +1472,10 @@ import_export_class (tree ctype)
 	import_export = (DECL_REALLY_EXTERN (method) ? -1 : 1);
     }
 
-#ifdef MULTIPLE_SYMBOL_SPACES
-  if (import_export == -1)
+  /* When MULTIPLE_SYMBOL_SPACES is set, we cannot count on seeing
+     a definition anywhere else.  */
+  if (MULTIPLE_SYMBOL_SPACES && import_export == -1)
     import_export = 0;
-#endif
 
   /* Allow backends the chance to overrule the decision.  */
   if (targetm.cxx.import_export_class)
@@ -1655,7 +1655,8 @@ determine_visibility (tree decl)
      the visibility of their containing class.  */
   if (class_type)
     {
-      if (targetm.cxx.export_class_data ()
+      if (TREE_CODE (decl) == VAR_DECL
+	  && targetm.cxx.export_class_data ()
 	  && (DECL_TINFO_P (decl)
 	      || (DECL_VTABLE_OR_VTT_P (decl)
 		  /* Construction virtual tables are not emitted
@@ -2749,9 +2750,6 @@ cp_finish_file (void)
   input_line -= 1;
 #endif
 
-  interface_unknown = 1;
-  interface_only = 0;
-
   /* We now have to write out all the stuff we put off writing out.
      These include:
 
@@ -2997,7 +2995,7 @@ cp_finish_file (void)
 	reconsider = true;
 
       /* Ask the back end to emit functions and variables that are
-	 enqued.  These emissions may result in marking more entities
+	 enqueued.  These emissions may result in marking more entities
 	 as needed.  */
       if (cgraph_assemble_pending_functions ())
 	reconsider = true;

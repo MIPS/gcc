@@ -349,6 +349,8 @@ static tree mips_build_builtin_va_list (void);
 static tree mips_gimplify_va_arg_expr (tree, tree, tree *, tree *);
 static bool mips_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode mode,
 				    tree, bool);
+static bool mips_callee_copies (CUMULATIVE_ARGS *, enum machine_mode mode,
+				tree, bool);
 static bool mips_vector_mode_supported_p (enum machine_mode);
 static rtx mips_prepare_builtin_arg (enum insn_code, unsigned int, tree *);
 static rtx mips_prepare_builtin_target (enum insn_code, unsigned int, rtx);
@@ -785,6 +787,8 @@ const struct mips_cpu_info mips_cpu_info_table[] = {
 #define TARGET_MUST_PASS_IN_STACK must_pass_in_stack_var_size
 #undef TARGET_PASS_BY_REFERENCE
 #define TARGET_PASS_BY_REFERENCE mips_pass_by_reference
+#undef TARGET_CALLEE_COPIES
+#define TARGET_CALLEE_COPIES mips_callee_copies
 
 #undef TARGET_VECTOR_MODE_SUPPORTED_P
 #define TARGET_VECTOR_MODE_SUPPORTED_P mips_vector_mode_supported_p
@@ -1375,7 +1379,13 @@ mips_idiv_insns (void)
 
   count = 1;
   if (TARGET_CHECK_ZERO_DIV)
-    count += 2;
+    {
+      if (GENERATE_DIVIDE_TRAPS)
+        count++;
+      else
+        count += 2;
+    }
+  
   if (TARGET_FIX_R4000 || TARGET_FIX_R4400)
     count++;
   return count;
@@ -1925,7 +1935,7 @@ mips_rtx_costs (rtx x, int code, int outer_code, int *total)
 
 	 Given the choice between "li R1,0...255" and "move R1,R2"
 	 (where R2 is a known constant), it is usually better to use "li",
-	 since we do not want to unnessarily extend the lifetime of R2.  */
+	 since we do not want to unnecessarily extend the lifetime of R2.  */
       if (outer_code == SET
 	  && INTVAL (x) >= 0
 	  && INTVAL (x) < 256)
@@ -6802,6 +6812,14 @@ mips_pass_by_reference (CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED,
     }
 }
 
+static bool
+mips_callee_copies (CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED,
+		    enum machine_mode mode ATTRIBUTE_UNUSED,
+		    tree type ATTRIBUTE_UNUSED, bool named)
+{
+  return mips_abi == ABI_EABI && named;
+}
+
 /* Return the class of registers for which a mode change from FROM to TO
    is invalid.
 
@@ -8805,6 +8823,11 @@ mips_output_division (const char *division, rtx *operands)
 	  output_asm_insn (s, operands);
 	  s = "bnez\t%2,1f\n\tbreak\t7\n1:";
 	}
+      else if (GENERATE_DIVIDE_TRAPS)
+        {
+	  output_asm_insn (s, operands);
+	  s = "teq\t%2,%.,7";
+        }
       else
 	{
 	  output_asm_insn ("%(bne\t%2,%.,1f", operands);
@@ -9581,7 +9604,7 @@ mips_expand_builtin_direct (enum insn_code icode, rtx target, tree arglist)
 /* Expand a __builtin_mips_movt_*_ps() or __builtin_mips_movf_*_ps()
    function (TYPE says which).  ARGLIST is the list of arguments to the
    function, ICODE is the instruction that should be used to compare
-   the first two arguments, and COND is the conditon it should test.
+   the first two arguments, and COND is the condition it should test.
    TARGET, if nonnull, suggests a good place to put the result.  */
 
 static rtx

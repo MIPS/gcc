@@ -301,6 +301,10 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_BINDS_LOCAL_P default_binds_local_p
 #endif
 
+#ifndef TARGET_SHIFT_TRUNCATION_MASK
+#define TARGET_SHIFT_TRUNCATION_MASK default_shift_truncation_mask
+#endif
+
 #ifndef TARGET_VALID_POINTER_MODE
 #define TARGET_VALID_POINTER_MODE default_valid_pointer_mode
 #endif
@@ -379,12 +383,10 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_SPLIT_COMPLEX_ARG NULL
 
 #define TARGET_GIMPLIFY_VA_ARG_EXPR std_gimplify_va_arg_expr
-
-#define TARGET_PASS_BY_REFERENCE hook_pass_by_reference_false
-
+#define TARGET_PASS_BY_REFERENCE hook_bool_CUMULATIVE_ARGS_mode_tree_bool_false
 #define TARGET_LATE_RTL_PROLOGUE_EPILOGUE false
-
 #define TARGET_MUST_PASS_IN_STACK must_pass_in_stack_var_size_or_pad
+#define TARGET_CALLEE_COPIES hook_bool_CUMULATIVE_ARGS_mode_tree_bool_false
 
 #define TARGET_CALLS {						\
    TARGET_PROMOTE_FUNCTION_ARGS,				\
@@ -399,7 +401,8 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
    TARGET_STRICT_ARGUMENT_NAMING,				\
    TARGET_PRETEND_OUTGOING_VARARGS_NAMED,			\
    TARGET_SPLIT_COMPLEX_ARG,					\
-   TARGET_MUST_PASS_IN_STACK					\
+   TARGET_MUST_PASS_IN_STACK,					\
+   TARGET_CALLEE_COPIES						\
    }
 
 
@@ -488,6 +491,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   TARGET_BINDS_LOCAL_P,				\
   TARGET_ENCODE_SECTION_INFO,			\
   TARGET_STRIP_NAME_ENCODING,			\
+  TARGET_SHIFT_TRUNCATION_MASK,			\
   TARGET_VALID_POINTER_MODE,                    \
   TARGET_SCALAR_MODE_SUPPORTED_P,		\
   TARGET_VECTOR_MODE_SUPPORTED_P,               \

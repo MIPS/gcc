@@ -970,6 +970,25 @@ i[34567]86-*-lynxos*)
 	gnu_ld=yes
 	gas=yes
 	;;
+i[3456x]86-*-netware*)
+	tm_file="${tm_file} i386/unix.h i386/att.h elfos.h svr4.h tm-dwarf2.h i386/netware.h"
+ 	tmake_file=i386/t-netware
+	extra_objs=netware.o
+	case /${with_ld} in
+	*/nwld)
+		extra_objs="$extra_objs nwld.o"
+		tm_file="${tm_file} i386/nwld.h"
+	 	tmake_file="${tmake_file} i386/t-nwld"
+		extra_parts="crt0.o libgcc.def libc.def libcpre.def posixpre.def"
+		;;
+	esac
+	case x${enable_threads} in
+	x | xyes | xposix) thread_file='posix';;
+	xnks) thread_file='nks';;
+	xno) ;;
+	*) echo 'Unknown thread configuration for NetWare' >&2; exit 1;;
+	esac
+	;;
 i[34567]86-*-nto-qnx*)
 	tm_file="${tm_file} i386/att.h dbxelf.h tm-dwarf2.h elfos.h svr4.h i386/unix.h i386/nto.h"
 	tmake_file=i386/t-nto
@@ -1129,12 +1148,12 @@ ia64*-*-freebsd*)
 	;;
 ia64*-*-linux*)
 	tm_file="${tm_file} dbxelf.h elfos.h svr4.h linux.h ia64/sysv4.h ia64/linux.h"
-	tmake_file="${tmake_file} ia64/t-ia64 ia64/t-glibc"
+	tmake_file="${tmake_file} ia64/t-ia64 t-libunwind ia64/t-glibc"
+	if test x$with_system_libunwind != xyes ; then
+		tmake_file="${tmake_file} t-libunwind-elf ia64/t-glibc-libunwind"
+	fi
 	target_cpu_default="MASK_GNU_AS|MASK_GNU_LD"
 	extra_parts="crtbegin.o crtend.o crtbeginS.o crtendS.o crtfastmath.o"
-	if test x"$use_libunwind_exceptions" = xyes; then
-	  tmake_file="$tmake_file t-libunwind"
-	fi
 	;;
 ia64*-*-hpux*)
 	tm_file="${tm_file} dbxelf.h elfos.h svr4.h ia64/sysv4.h ia64/hpux.h"
@@ -2406,7 +2425,7 @@ fi
 		;;
 
 	mips*-*-*)
-		supported_defaults="abi arch float tune"
+		supported_defaults="abi arch float tune divide"
 
 		case ${with_float} in
 		"" | soft | hard)
@@ -2426,6 +2445,15 @@ fi
 			echo "Unknown ABI used in --with-abi=$with_abi" 1>&2
 			exit 1
 			;;
+		esac
+
+		case ${with_divide} in
+		"" | breaks | traps)
+			# OK
+			;;
+		*)
+			echo "Unknown division check type use in --with-divide=$with_divide" 1>&2
+			exit 1
 		esac
 		;;
 
@@ -2668,7 +2696,7 @@ fi
 	esac
 
 	t=
-	all_defaults="abi cpu arch tune schedule float mode fpu"
+	all_defaults="abi cpu arch tune schedule float mode fpu divide"
 	for option in $all_defaults
 	do
 		eval "val=\$with_$option"

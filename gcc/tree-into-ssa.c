@@ -41,7 +41,6 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-inline.h"
 #include "varray.h"
 #include "timevar.h"
-#include "tree-alias-common.h"
 #include "hashtab.h"
 #include "tree-dump.h"
 #include "tree-pass.h"
@@ -67,7 +66,7 @@ struct def_blocks_d
      Ith block contains a definition of VAR.  */
   bitmap def_blocks;
 
-  /* Blocks that contain a phi node for VAR. */
+  /* Blocks that contain a phi node for VAR.  */
   bitmap phi_blocks;
 
   /* Blocks where VAR is live-on-entry.  Similar semantics as
@@ -650,7 +649,6 @@ rewrite_initialize_block_local_data (struct dom_walk_data *walk_data ATTRIBUTE_U
 				     basic_block bb ATTRIBUTE_UNUSED,
 				     bool recycled ATTRIBUTE_UNUSED)
 {
-#ifdef ENABLE_CHECKING
   struct rewrite_block_data *bd
     = (struct rewrite_block_data *)VARRAY_TOP_GENERIC_PTR (walk_data->block_data_stack);
                                                                                 
@@ -658,9 +656,7 @@ rewrite_initialize_block_local_data (struct dom_walk_data *walk_data ATTRIBUTE_U
      not cleared, then we are re-using a previously allocated entry.  In
      that case, we can also re-use the underlying virtual arrays.  Just
      make sure we clear them before using them!  */
-  if (recycled && bd->block_defs && VARRAY_ACTIVE_SIZE (bd->block_defs) > 0)
-    abort ();
-#endif
+  gcc_assert (!recycled || !bd->block_defs || !(VARRAY_ACTIVE_SIZE (bd->block_defs) > 0));
 }
 
 
@@ -1065,12 +1061,9 @@ rewrite_stmt (struct dom_walk_data *walk_data,
       fprintf (dump_file, "\n");
     }
 
-#if defined ENABLE_CHECKING
   /* We have just scanned the code for operands.  No statement should
      be modified.  */
-  if (ann->modified)
-    abort ();
-#endif
+  gcc_assert (!ann->modified);
 
   /* Step 1.  Rewrite USES and VUSES in the statement.  */
   FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_ALL_USES)
@@ -1115,12 +1108,9 @@ ssa_rewrite_stmt (struct dom_walk_data *walk_data,
       fprintf (dump_file, "\n");
     }
 
-#if defined ENABLE_CHECKING
   /* We have just scanned the code for operands.  No statement should
      be modified.  */
-  if (ann->modified)
-    abort ();
-#endif
+  gcc_assert (!ann->modified);
 
   /* Step 1.  Rewrite USES and VUSES in the statement.  */
   FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_ALL_USES)
@@ -1422,9 +1412,7 @@ rewrite_into_ssa (bool all)
   else
     {
       /* Initialize the array of variables to rename.  */
- 
-      if (vars_to_rename == NULL)
-	abort ();
+      gcc_assert (vars_to_rename);
 
       if (bitmap_first_set_bit (vars_to_rename) < 0)
 	{
@@ -1724,5 +1712,6 @@ struct tree_opt_pass pass_build_ssa =
   PROP_ssa,				/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func | TODO_verify_ssa	/* todo_flags_finish */
+  TODO_dump_func | TODO_verify_ssa,			/* todo_flags_finish */
+  0					/* letter */
 };
