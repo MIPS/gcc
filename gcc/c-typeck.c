@@ -6618,13 +6618,18 @@ process_init_element (value)
 			        bit_position (constructor_fields),
 			        DECL_SIZE (constructor_fields));
 
-	      constructor_unfilled_fields = TREE_CHAIN (constructor_fields);
-	      /* Skip any nameless bit fields.  */
-	      while (constructor_unfilled_fields != 0
-		     && DECL_C_BIT_FIELD (constructor_unfilled_fields)
-		     && DECL_NAME (constructor_unfilled_fields) == 0)
-		constructor_unfilled_fields =
-		  TREE_CHAIN (constructor_unfilled_fields);
+	      /* If the current field was the first one not yet written out,
+		 it isn't now, so update.  */
+	      if (constructor_unfilled_fields == constructor_fields)
+		{
+		  constructor_unfilled_fields = TREE_CHAIN (constructor_fields);
+		  /* Skip any nameless bit fields.  */
+		  while (constructor_unfilled_fields != 0
+			 && DECL_C_BIT_FIELD (constructor_unfilled_fields)
+			 && DECL_NAME (constructor_unfilled_fields) == 0)
+		    constructor_unfilled_fields =
+		      TREE_CHAIN (constructor_unfilled_fields);
+		}
 	    }
 
 	  constructor_fields = TREE_CHAIN (constructor_fields);
@@ -6857,9 +6862,9 @@ simple_asm_stmt (expr)
     {
       tree stmt;
 
-      stmt = add_stmt (build_stmt (ASM_STMT, NULL_TREE, expr,
-				   NULL_TREE, NULL_TREE,
-				   NULL_TREE));
+      /* Simple asm statements are treated as volatile.  */
+      stmt = add_stmt (build_stmt (ASM_STMT, ridpointers[(int) RID_VOLATILE],
+				   expr, NULL_TREE, NULL_TREE, NULL_TREE));
       ASM_INPUT_P (stmt) = 1;
       return stmt;
     }

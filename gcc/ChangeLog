@@ -1,3 +1,213 @@
+2003-01-12  Alan Modra  <amodra@bigpond.net.au>
+
+	* expr.c (expand_expr <RDIV_EXPR>): Correct recursive call args.
+
+Sat Jan 11 11:10:19 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	PR target/9068
+	* i386.c (output_fp_compare): Fix typo
+
+2003-01-10  Josef Zlomek  <zlomekj@suse.cz>
+
+	* jump.c (next_nonnote_insn_in_loop): New function.
+	(copy_loop_headers): Use next_nonnote_insn_in_loop instead of
+	next_nonnote_insn.
+	(duplicate_loop_exit_test). Likewise.
+
+Wed Jan  8 14:09:30 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	PR target/8213
+	* i386.c (ix86_expand_int_movcc): FIx RTL sharing problem.
+
+2003-01-09  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.md (*extzv_1_r_h8300): Correct the insn
+	length.
+	(*extzv_1_r_h8300hs): Likewise.
+	(*extzv_1_r_inv_h8300): Likewise.
+	(*extzv_1_r_inv_h8300hs): Likewise.
+
+2003-01-09  Josef Zlomek  <zlomj9am@artax.karlin.mff.cuni.cz>
+
+	* Makefile.in (optabs.o): Add dependency on basic-block.h.
+	* basic-block.h (control_flow_insn_p): Fuction was exported.
+	* cfgbuild.c (control_flow_insn_p): Fuction was made non-static.
+	* optabs.c (emit_libcall_block): Emit REG_LIBCALL and REG_RETVAL
+	notes only when the region is contained in a single basic block.
+
+2003-01-09  Josef Zlomek  <zlomj9am@artax.karlin.mff.cuni.cz>
+
+	* Makefile.in (PARTITION_H): New.
+	(BASIC_BLOCK_H): Added hard-reg-set.h and $(PARTITION_H).
+	* basic-block.h: Include hard-reg-set.h.
+
+2003-01-09  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR inline-asm/8832
+	* tree.h (expand_asm): New prototype.
+	* stmt.c (expand_asm): Set the MEM_VOLATILE_P flag if instructed
+	to do so.
+	* c-semantics (genrtl_asm_stmt): Pass the RID_VOLATILE qualifier
+	down to expand_asm.
+	* c-typeck.c (simple_asm_stmt): Set the RID_VOLATILE qualifier.
+	* rtlanal.c (volatile_insn_p) [ASM_INPUT]: Test the MEM_VOLATILE_P flag.
+	(volatile_refs_p) [ASM_INPUT]: Likewise.
+	(side_effects_p) [ASM_INPUT]: Likewise.
+
+2003-01-09  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR c/8032
+	* c-typeck.c (process_init_element) [RECORD_TYPE]: For
+	an empty element, do not advance the pointer to unfilled
+	fields if there are pending initializers.
+
+2003-01-09  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* config/sh/sh.h (CASE_VECTOR_MODE): Use SImode for a
+	non-optimizing compile.
+	(ASM_OUTPUT_ADDR_VEC_ELT): Use .long for a non-optimizing
+	compile.
+
+2003-01-09  Andreas Jaeger  <aj@suse.de>
+
+	* unwind-dw2-fde.h (last_fde): Revert last patch.
+
+2003-01-08  Danny Smith  <dannysmith@users.sourceforge.net>
+
+        PR optimization/8750
+        * config/i386/i386.c (ix86_expand_prologue): Don't allow
+        scheduling pass to move insns across __alloca call.
+
+2003-01-08  Jeff Sturm  <jsturm@one-point.com>
+
+	PR target/9210
+	* config/rs6000/rs6000.c (rs6000_elf_encode_section_info):
+	Set SYMBOL_REF_FLAG on local data sym_ref.
+
+Wed Jan  8 19:53:56 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	PR target/8322
+	* i386.c (ix86_init_mmx_sse_builtins): Constify arguments of loads.
+	* xmmintrin.h (_mm_load*_si128. _mm_store*_si128): Add casts.
+
+	PR target/7782
+	* reload1.c (delete_output_reload): Avoid repeated attempts
+	to delete insn.
+
+	* cselib.c (cselib_current_insn_in_libcall): New static variable.
+	(new_elt_loc_list, cselib_process_insn, cselib_init): Keep track on whether
+	we are inside libcall.
+	* cselib.h (elt_loc_list): Add in_libcall.
+	* gcse.c (do_local_cprop): Do not copy propagate using insns
+	in libcalls.
+
+2003-01-07  Janis Johnson  <janis187@us.ibm.com>
+
+	PR other/8947
+	* doc/invoke.texi (-malign-double): Explain that the option breaks
+	binary compatibility.
+
+2003-01-07  Richard Henderson  <rth@redhat.com>
+
+	* alias.c (find_base_value): Only use new_reg_base_value shortcut
+	if the register is set once.
+
+2003-01-07  Sylvain Pion <Sylvain.Pion@mpi-sb.mpg.de>
+  
+        * config/i386/i386.c (ix86_init_mmx_sse_builtins):
+        __builtin_ia32_ldmxcsr and __builtin_ia32_stmxcsr are SSE, not MXX.
+        * config/i386/i386.md (ldmxcsr, stmxcsr): SSE, not MMX.
+
+2003-01-07  Benjamin Kosnik  <bkoz@redhat.com>
+            Sunil Davasam  <sunil.k.davasam@intel.com>
+
+        PR libstdc++/9076 
+        * unwind-dw2.c (execute_cfa_program): DW_CFA_undefined,
+        DW_CFA_same_value, read next and ignore.
+
+2003-01-07  Richard Henderson  <rth@redhat.com>
+
+	* cfganal.c (flow_call_edges_add): Don't crash on noreturn call.
+
+2003-01-06  Aldy Hernandez  <aldyh@redhat.com>
+
+	Segher Boessenkool  <segher@koffie.nl>
+
+        * config/rs6000/rs6000.c (rs6000_reg_names): Add missing registers.
+        (alt_reg_names): Ditto, fix formatting.
+        * config/rs6000/rs6000.h (DEBUG_REGISTER_NAMES): Fix formatting.
+
+2003-01-06  Bruce Korb  <bkorb@gnu.org>
+
+	* fixinc/fixfixes.c(wrap_fix): the wrapper guard must be a function
+	of *both* the file name and the fix name.
+
+2003-01-06  Richard Henderson  <rth@redhat.com>
+
+	* config/alpha/alpha.c (alpha_encode_section_info): Adjust symbol_str
+	properly when changing "local-ness".
+	* config/alpha/alpha.md (movdi_er_high_g): Allow all symbols.
+
+2003-01-05  Andreas Jaeger  <aj@suse.de>
+
+	* unwind-dw2-fde.h (last_fde): Add unused attribute for obj.
+
+2003-01-05  John David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	* pa64-hpux.h (JCR_SECTION_NAME): Define.
+	(PA_INIT_FRAME_DUMMY_ASM_OP): Check EH_FRAME_SECTION_NAME instead of
+	USE_EH_FRAME_REGISTRY when defining.
+
+2003-01-04  John David Anglin  <dave.anglin@nrc.ca>
+
+	* config.gcc (hppa*64*-*-hpux11*): Define extra_parts.  Don't use
+	collect2.
+	* pa-hpux11.h (LDD_SUFFIX, PARSE_LDD_OUTPUT): Undefine.
+	(HAS_INIT_SECTION, LD_INIT_SWITCH, LD_FINI_SWITCH): Define.
+	* pa64-hpux.h (HP_INIT_ARRAY_SECTION_ASM_OP,
+	GNU_INIT_ARRAY_SECTION_ASM_OP, HP_FINI_ARRAY_SECTION_ASM_OP,
+	GNU_FINI_ARRAY_SECTION_ASM_OP): Define.
+	(CTORS_SECTION_ASM_OP, DTORS_SECTION_ASM_OP): Define when not using
+	elfos.h.
+	(EH_FRAME_IN_DATA_SECTION): Delete define.
+	(HAS_INIT_SECTION, LD_INIT_SWITCH, LD_FINI_SWITCH): Undefine.
+	(STARTFILE_SPEC): Use crtbegin.o.
+	(ENDFILE_SPEC): Use crtend.o.
+	(INIT_SECTION_ASM_OP, FINI_SECTION_ASM_OP, CRT_CALL_STATIC_FUNCTION,
+	SUPPORTS_INIT_PRIORITY, PA_CXA_FINALIZE_STUB, PA_INIT_FINI_HACK,
+	PA_INIT_FRAME_DUMMY_ASM_OP, PA_JV_REGISTERCLASSES_STUB,
+	DTOR_LIST_BEGIN): Define.
+	* pa.c (TARGET_ASM_CONSTRUCTOR): Define.
+	(pa_asm_out_constructor, pa_asm_out_destructor): New functions.
+	* som.h (SUPPORTS_INIT_PRIORITY): Delete define.
+
+2003-01-02  Eric Christopher  <echristo@redhat.com>
+
+	* config/mips/mips.md (movdf_internal2): Fix constraints.
+
+2003-01-03  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* doc/install.texi (Configuration): Fix markup for reference to
+	gcc/config.gcc.
+
+2003-01-02  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.c (stack_pointer_operand): New.
+	(const_int_gt_2_operand): Likewise.
+	(const_int_ge_8_operand): Likewise.
+	* config/h8300/h8300.md (a splitter): Likewise.
+	(a peephole2): Likewise.
+	* config/h8300/h8300-protos.h: Add prototypes for the new
+	functions above.
+
+2003-01-02  Neil Booth  <neil@daikokuya.co.uk>
+
+	* gccbug.in: Update for new categories.
+
+2002-12-31  Tom Tromey  <tromey@redhat.com>
+
+	* doc/install.texi (Testing): Fixed typo.
+
 2002-12-31  Jerry Quinn  <jlquinn@optonline.net>
 
 	* gcc/doc/invoke.texi (Optimization Options): Clean up -O flag
@@ -91,7 +301,7 @@
 	(CPP_SPEC): Define __STATIC__ and __DYNAMIC__ depending on -dynamic.
 	(LINK_SPEC): Pass -dynamic to linker.
 	* config/rs6000/darwin.h: Reject conflicting -static and -dynamic.
-	
+
 2002-12-19  Kazu Hirata  <kazu@cs.umass.edu>
 
 	* config/h8300/h8300.md (pushqi_h8300): Don't push the stack
@@ -353,7 +563,7 @@ Wed Dec 11 18:39:52 2002  J"orn Rennecke <joern.rennecke@superh.com>
 
 	* config/darwin.h(LINK_SPEC): Add darwin specific linker options.
 	* doc/invoke.texi: Add new "Darwin Options" section.
-	
+
 2002-12-10  Jim Wilson  <wilson@redhat.com>
 
 	* rs6000.h (RETURN_IN_MEMORY): If ABI_V4, then TFmode is returned in
@@ -430,7 +640,7 @@ Mon Dec  9 21:33:38 CET 2002  Jan Hubicka  <jh@suse.cz>
 	* stmt.c (expand_return): Ditto.
 	* expr.c (move_block_from_reg): Ditto.
 	(copy_blkmode_from_reg): Ditto.
-	* expmed.c (store_bit_field): Ditto. 
+	* expmed.c (store_bit_field): Ditto.
 
 2002-12-09  Svein E. Seldal  <Svein.Seldal@solidas.com>
 
@@ -691,7 +901,7 @@ Mon Dec  2 14:43:22 2002  J"orn Rennecke <joern.rennecke@superh.com>
 	* c-format.c (T_ST): Use size_type_node, not c_size_type_node.
 	* tree.h (TI_SIZE_TYPE): New enumeral.
 	(size_type_node): Likewise.
-	
+
 2002-11-30  John David Anglin  <dave@hiauly1.hia.nrc.ca>
 
 	* cfg.c (dump_flow_info): Use max_reg_num () to determine the largest
@@ -1268,7 +1478,7 @@ Thu Nov 21 23:52:04 CET 2002  Jan Hubicka  <jH@suse.cz>
 	(ggc_realloc): Update valgrind annotations.
 	* ggc-page.c [!ENABLE_VALGRIND_CHECKING] (VALGRIND_DISCARD):
 	Define as empty.
- 	(alloc_anon, free_page, ggc_alloc, poison_pages): Add machinery to
+	(alloc_anon, free_page, ggc_alloc, poison_pages): Add machinery to
 	valgrind-annotate memory.
 
 2002-11-20  Ulrich Weigand  <uweigand@de.ibm.com>

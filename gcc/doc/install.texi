@@ -717,7 +717,7 @@ compiler should generate code for by default.  This is currently
 only supported on some ports, specifically arm, powerpc, and
 SPARC@.  If configure does not recognize the model name (e.g.@: arm700,
 603e, or ultrasparc) you provide, please check the
-@command{gcc/config.gcc} script for a complete list of supported models.
+@file{gcc/config.gcc} script for a complete list of supported models.
 
 @item --enable-altivec
 Specify that the target supports AltiVec vector enhancements.  This
@@ -1275,7 +1275,7 @@ specifying the location of that tree when invoking @samp{make}, as in
 
 @uref{http://www-124.ibm.com/developerworks/oss/cvs/jikes/~checkout~/jacks/jacks.html,,Jacks}
 is a free test suite that tests Java compiler front ends.  This suite
-can be run as part of libgcj testing by placing the Jacks tree withing
+can be run as part of libgcj testing by placing the Jacks tree within
 the libjava testsuite at @file{libjava/testsuite/libjava.jacks/jacks}.
 
 @section How to interpret test results

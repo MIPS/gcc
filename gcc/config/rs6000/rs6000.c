@@ -284,7 +284,9 @@ char rs6000_reg_names[][8] =
       "8",  "9",  "10", "11", "12", "13", "14", "15",
       "16", "17", "18", "19", "20", "21", "22", "23",
       "24", "25", "26", "27", "28", "29", "30", "31",
-      "vrsave"
+      "vrsave", "vscr",
+      /* SPE registers.  */
+      "spe_acc", "spefscr"
 };
 
 #ifdef TARGET_REGNAMES
@@ -301,12 +303,14 @@ static const char alt_reg_names[][8] =
     "mq",    "lr",  "ctr",   "ap",
   "%cr0",  "%cr1", "%cr2", "%cr3", "%cr4", "%cr5", "%cr6", "%cr7",
    "xer",
-   /* AltiVec registers.  */
+  /* AltiVec registers.  */
    "%v0",  "%v1",  "%v2",  "%v3",  "%v4",  "%v5",  "%v6", "%v7",
-   "%v8",  "%v9",  "%v10", "%v11", "%v12", "%v13", "%v14", "%v15",
-   "%v16", "%v17", "%v18", "%v19", "%v20", "%v21", "%v22", "%v23",
-   "%v24", "%v25", "%v26", "%v27", "%v28", "%v29", "%v30", "%v31",
-   "vrsave"
+   "%v8",  "%v9", "%v10", "%v11", "%v12", "%v13", "%v14", "%v15",
+  "%v16", "%v17", "%v18", "%v19", "%v20", "%v21", "%v22", "%v23",
+  "%v24", "%v25", "%v26", "%v27", "%v28", "%v29", "%v30", "%v31",
+  "vrsave", "vscr",
+  /* SPE registers.  */
+  "spe_acc", "spefscr"
 };
 #endif
 
@@ -12617,10 +12621,14 @@ rs6000_elf_encode_section_info (decl, first)
 	   && DEFAULT_ABI == ABI_V4
 	   && TREE_CODE (decl) == VAR_DECL)
     {
+      rtx sym_ref = XEXP (DECL_RTL (decl), 0);
       int size = int_size_in_bytes (TREE_TYPE (decl));
       tree section_name = DECL_SECTION_NAME (decl);
       const char *name = (char *)0;
       int len = 0;
+
+      if ((*targetm.binds_local_p) (decl))
+	SYMBOL_REF_FLAG (sym_ref) = 1;
 
       if (section_name)
 	{
@@ -12648,7 +12656,6 @@ rs6000_elf_encode_section_info (decl, first)
 		  || (len == sizeof (".PPC.EMB.sbss0") - 1
 		      && strcmp (name, ".PPC.EMB.sbss0") == 0))))
 	{
-	  rtx sym_ref = XEXP (DECL_RTL (decl), 0);
 	  size_t len = strlen (XSTR (sym_ref, 0));
 	  char *str = alloca (len + 2);
 

@@ -1,3 +1,41 @@
+2003-01-10  Josef Zlomek  <zlomekj@suse.cz>
+
+	* gcc.c-torture/compile/20030110-1.c: New test.
+
+2003-01-09  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/old-style-asm-1.c: New test.
+
+2003-01-09  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.c-torture/execute/20030109-1.c: New test.
+
+2003-01-07  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/9030
+	* g++.dg/template/friend12.C: New test.
+	* g++.dg/template/friend13.C: Likewise.
+	* g++.old-deja/g++.eh/spec6.C: Add missing error message.
+	* g++.old-deja/g++.other/defarg1.C: Change expected error message.
+
+2003-01-06  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/9165
+	* g++.dg/warn/Wunused-3.C: New test.
+
+2003-01-03  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/template/ntp2.C: New test.
+
+2003-01-02  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* gcc.dg/h8300-stack-1.c: New.
+
+2002-12-31  Janis Johnson  <janis187@us.ibm.com>
+
+	* lib/profopt.exp: Change the name of a global variable to avoid
+	possible clashes with other test suites.
+
 2002-12-26  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* g++.dg/warn/inline1.C: New test.
