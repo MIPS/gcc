@@ -330,7 +330,7 @@ INPUT                  = .
 # *.c *.cc *.cxx *.cpp *.c++ *.java *.ii *.ixx *.ipp *.i++ *.inl *.h *.hh *.hxx *.hpp 
 # *.h++ *.idl *.odl
 
-FILE_PATTERNS          = tree* *mudflap* c-simplify.c gimplify.c
+FILE_PATTERNS          = tree* *mudflap* c-simplify.c gimpl* domwalk*
 
 # The RECURSIVE tag can be used to turn specify whether or not subdirectories 
 # should be searched for input files as well. Possible values are YES and NO. 
