@@ -181,7 +181,12 @@
 ; scheduling of writes.
 
 ; Classification of each insn
-; normal	any data instruction that doesn't hit memory or fp regs
+; alu		any alu  instruction that doesn't hit memory or fp
+;		regs or have a shifted source operand
+; alu_shift	any data instruction that doesn't hit memory or fp
+;		regs, but has a source operand shifted by a constant
+; alu_shift_reg	any data instruction that doesn't hit memory or fp
+;		regs, but has a source operand shifted by a register value
 ; mult		a multiply instruction
 ; block		blockage insn, this blocks all functional units
 ; float		a floating point arithmetic operation (subject to expansion)
@@ -296,11 +301,12 @@
 
 (define_attr "generic_sched" "yes,no"
         (if_then_else 
-         (eq_attr "tune" "arm1026ejs,arm1136js,arm1136jfs") 
+         (eq_attr "tune" "arm926ejs,arm1026ejs,arm1136js,arm1136jfs") 
          (const_string "no")
          (const_string "yes")))
 	
 (include "arm-generic.md")
+(include "arm926ejs.md")
 (include "arm1026ejs.md")
 (include "arm1136jfs.md")
 
