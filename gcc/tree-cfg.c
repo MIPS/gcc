@@ -1127,15 +1127,11 @@ make_exit_edges (bb)
       /* A CALL_EXPR node here means that the last statement of the block
 	 is a call to a non-returning function or a call that may throw.  */
     case CALL_EXPR:
-      /* Some calls are known not to return, so we just need to make
-	 an edge from them to the exit block.  */
-      if (call_expr_flags (last) & (ECF_NORETURN | ECF_LONGJMP))
-	make_edge (bb, EXIT_BLOCK_PTR, 0);
+      /* If this function receives a nonlocal goto, then we need to
+	 make edges from this call site to all the nonlocal goto
+	 handlers.  */
       if (FUNCTION_RECEIVES_NONLOCAL_GOTO (current_function_decl))
-	{
-	  make_goto_expr_edges (bb);
-          make_edge (bb, successor_block (bb), 0);
-	}
+	make_goto_expr_edges (bb);
       
       /* If this statement has reachable exception handlers, then
 	 create abnormal edges to them.  */
@@ -1147,6 +1143,15 @@ make_exit_edges (bb)
 	       t;
 	       t = TREE_CHAIN (t))
 	    make_edge (bb, first_exec_block (&TREE_VALUE (t)), EDGE_ABNORMAL);
+	}
+
+      /* Some calls are known not to return.  For such calls we need to
+	 add an edge to the exit block.  No fall thru edge is needed
+	 as these calls can not return in the normal sense.  */
+      if (call_expr_flags (last) & (ECF_NORETURN | ECF_LONGJMP))
+	{
+	  make_edge (bb, EXIT_BLOCK_PTR, 0);
+	  return;
 	}
 
       /* Don't forget the fall-thru edge.  */
