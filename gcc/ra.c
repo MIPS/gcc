@@ -38,7 +38,7 @@
 #include "ggc.h"
 #include "reload.h"
 
-/*#define NO_REMAT*/
+#define NO_REMAT
 
 /* The algorithm used is currently Iterated Register Coalescing by
    L.A.George, and Appel.
@@ -172,6 +172,8 @@ struct web
   int crosses_call:1;
   int move_related:1; /* Whether the web is move related (IE involved
                        in a move) */
+  unsigned int live_over_abnormal:1; /* 1 when this web (or parts thereof) are live
+			       over an abnormal edge.  */
   ENUM_BITFIELD(node_type) type:5; /* Current state of the node */
   ENUM_BITFIELD(reg_class) regclass:10; /* just used for debugging */
   int add_hardregs; /* Additional hard registers needed to be
@@ -372,6 +374,8 @@ void reg_alloc PARAMS ((void));
 #define igraph_index(i, j) ((i) < (j) ? ((j)*((j)-1)/2)+(i) : ((i)*((i)-1)/2)+(j))
 static bitmap unbrokengraph;
 static sbitmap igraph;
+static sbitmap live_over_abnormal;
+
 /* Uhhuuhu.  Don't the hell use two sbitmaps! XXX
    (for now I need the sup_igraph to note if there is any conflict between
    parts of webs at all.  I can't use igraph for this, as there only the real
@@ -787,6 +791,8 @@ struct curr_use {
   /* For easy access.  */
   unsigned int regno;
   rtx x;
+  /* If some bits of this USE are live over an abnormal edge.  */
+  unsigned int live_over_abnormal;
 };
 
 /* Returns nonzero iff rtx DEF and USE have bits in common (but see below).
@@ -1014,7 +1020,7 @@ live_out_1 (df, use, insn)
 		       (link->ref)]);*/
 
 		    /* TODO: somehow instead of noting the ID of the LINK
-		       use the an ID nearer to the root webpart of that LINK.
+		       use an ID nearer to the root webpart of that LINK.
 		       We can't use the root itself, because we later use the
 		       ID to look at the form (reg or subreg, and if yes,
 		       which subreg) of this conflict.  This means, that we
@@ -1097,10 +1103,27 @@ live_in (df, use, insn)
 	  /* All but the last predecessor are handled recursively.  */
 	  for (; e->pred_next; e = e->pred_next)
 	    {
+	      /* Call used hard regs die over an exception edge, ergo
+		 they don't reach the predecessor block, so ignore such
+		 uses.  And also don't set the live_over_abnormal flag
+		 for them.  */
+	      if ((e->flags & EDGE_EH) && use->regno < FIRST_PSEUDO_REGISTER
+		  && call_used_regs[use->regno])
+		continue;
 	      if (live_out (df, use, e->src->end))
 	        live_in (df, use, e->src->end);
+	      if (e->flags & EDGE_ABNORMAL)
+		use->live_over_abnormal = 1;
 	      use->undefined = undef;
 	    }
+	  /* See above for exception edges.  Here we simply want to return,
+	     as all predecessors are handled, and the last one is not
+	     reached by the current use (because it dies).  */
+	  if ((e->flags & EDGE_EH) && use->regno < FIRST_PSEUDO_REGISTER
+	      && call_used_regs[use->regno])
+	    return;
+	  if (e->flags & EDGE_ABNORMAL)
+	    use->live_over_abnormal = 1;
 	  p = e->src->end;
 	}
       if (live_out (df, use, p))
@@ -1184,12 +1207,15 @@ build_web_parts_and_conflicts (df)
 	  rtx insn = DF_REF_INSN (ref);
 	  use.wp = &web_parts[df->def_id + DF_REF_ID (ref)];
 	  use.x = DF_REF_REG (ref);
+	  use.live_over_abnormal = 0;
 	  set_undefined (&use);
 	  visited_pass++;
 	  in_no_conflict_block = 0;
 	  live_in (df, &use, insn);
 	  if (copy_insn_p (insn, NULL, NULL))
 	    remember_move (insn);
+	  if (use.live_over_abnormal)
+	    SET_BIT (live_over_abnormal, DF_REF_ID (ref));
 	}
 
   dump_number_seen ();
@@ -1425,10 +1451,11 @@ init_one_web (web, reg)
   web->spill_temp = 0;
   web->use_my_regs = 0;
   web->spill_cost = 0;
-  web->was_spilled = -1;
+  web->was_spilled = 0;
   web->is_coalesced = 0;
   web->has_sub_conflicts = 0;
   web->artificial = 0;
+  web->live_over_abnormal = 0;
   web->num_defs = 0;
   web->num_uses = 0;
   web->orig_x = reg;
@@ -1800,7 +1827,6 @@ record_conflict (web1, web2)
   SET_BIT (igraph, index);
   add_conflict_edge (web1, web2);
   add_conflict_edge (web2, web1);
-  
 }
 
 /* This builds full webs out of web parts, without relating them to each
@@ -1877,10 +1903,13 @@ parts_to_webs (df, part2web)
 	{
 	  web->num_uses++;
 	  use2web[i - df->def_id] = web;
+	  if (TEST_BIT (live_over_abnormal, i - df->def_id))
+	    web->live_over_abnormal = 1;
 	}
     }
   if (webnum != num_webs)
     abort ();
+  sbitmap_free (live_over_abnormal);
 
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     if (!hardreg2web[i])
@@ -2065,6 +2094,19 @@ conflicts_between_webs (df, part2web)
 	free (cl);
 	cl = cl_next;
       }
+
+#ifdef STACK_REGS
+  /* Pseudos can't go in stack regs if they are live at the beginning of
+     a block that is reached by an abnormal edge.  */
+  for (i = 0; i < num_webs; i++)
+    {
+      struct web *web = id2web[i];
+      int j;
+      if (web->live_over_abnormal)
+	for (j = FIRST_STACK_REG; j <= LAST_STACK_REG; j++)
+	  record_conflict (web, hardreg2web[j]);
+    }
+#endif
 }
 
 /* Remember that a web was spilled.  */
@@ -2435,6 +2477,8 @@ alloc_mem (df)
 					     sizeof all_uses_for_web[0]);
   all_defs_for_web = (struct ref **) xcalloc (df->def_id,
 					     sizeof all_defs_for_web[0]);
+  live_over_abnormal = sbitmap_alloc (df->use_id);
+  sbitmap_zero (live_over_abnormal);
 }
 
 /* Free the memory used by the register allocator.  */
@@ -3001,12 +3045,12 @@ combine (u, v)
 	      if (pweb->type != SELECT && pweb->type != COALESCED)
 		{
 		  if (wl->sub == NULL)
-		    record_conflict (pweb, web);
+		    record_conflict (web, pweb);
 		  else
 		    {
 		      struct sub_conflict *sl;
 		      for (sl = wl->sub; sl; sl = sl->next)
-			record_conflict (u, sl->t);
+			record_conflict (web, sl->t);
 		    }
 		}
 	    }
@@ -3206,7 +3250,7 @@ select_spill (void)
     abort ();
 
   remove_list (bestd, &spill_wl);
-  DLIST_WEB (bestd)->was_spilled = best; /* Note the potential spill.  */
+  DLIST_WEB (bestd)->was_spilled = 1; /* Note the potential spill.  */
   put_web (DLIST_WEB (bestd), SIMPLIFY);
   freeze_moves (DLIST_WEB (bestd));
   debug_msg (0, " potential spill web %3d, conflicts = %d\n",
@@ -3392,7 +3436,7 @@ colorize_one_web (web, hard)
 		    SET_HARD_REG_BIT (conflict_colors, c1);
 		}
 	    }
-	  else if (ptarget->was_spilled < 0
+	  else if (!ptarget->was_spilled
 		   && find_web_for_subweb (w)->type != COALESCED
 		   && w->add_hardregs >= neighbor_needs)
 	    {
@@ -3508,7 +3552,7 @@ colorize_one_web (web, hard)
 	break;
     }
   debug_msg (0, " --> got %d", c < 0 ? bestc : c);
-  if (bestc >= 0 && c < 0 && web->was_spilled < 0)
+  if (bestc >= 0 && c < 0 && !web->was_spilled)
     {
       /* This is a non-potential-spill web, which got a color, which did
 	 destroy a hardreg block for one of it's neighbors.  We color
@@ -3539,7 +3583,7 @@ colorize_one_web (web, hard)
 	 
 	 if (DLIST_WEB (d)->was_spilled < 0)
 	 abort (); */
-      if (hard && (web->was_spilled < 0 || web->spill_temp))
+      if (hard && (!web->was_spilled || web->spill_temp))
 	{
 	  unsigned int loop;
 	  struct web *try = NULL;
@@ -3549,19 +3593,27 @@ colorize_one_web (web, hard)
 	  /* We make two passes over our conflicts, first trying to
 	     spill those webs, which only got a color by chance, but
 	     were potential spill ones, and if that isn't enough, in a second
-	     pass also to spill normal colored webs.  */
-	  for (loop = 0; (try == NULL && loop < 2); loop++)
+	     pass also to spill normal colored webs.  If we still didn't find
+	     a candidate, but we are a spill-temp, we make a third pass
+	     and include also webs, which were targets for coalescing, and
+	     spill those.  */
+	  for (loop = 0; (try == NULL && loop < 3); loop++)
 	    for (wl = web->conflict_list; wl; wl = wl->next)
 	      {
-	        /* Normally we would have w=alias(wl->t), to get to all
-		   conflicts.  But we can't simply spill webs which are
-		   involved in coalescing anyway.  The premise for combining
-		   webs was, that the final one will get a color.  One reason
-		   is, that the code inserting the spill insns can't cope
-		   with aliased webs (yet, may be, we should extend that).  */
+	        /* We check that it's indeed a colored web (this rules
+		   out webs which are coalesced into others, but not targets
+		   for coalescing).  If we are a spill-temp, and haven't
+		   found a candidate in the first two passes, we also look
+		   at targets of coalescing to spill.  This later probably
+		   leads to more spill insertions than necessary (it would
+		   be better to split the coalesce again), but spill-temps
+		   _must_ get a color.  This is in difference to normal
+		   non-spill webs, which we can also spill, that's why we
+		   don't include coalesce targets also there.  */
 		struct web *w = wl->t;
-	        if (w->type == COLORED && !w->spill_temp && !w->is_coalesced
-		    && (w->was_spilled > 0 || loop > 0)
+	        if (w->type == COLORED && !w->spill_temp
+		    && (!w->is_coalesced || (loop > 1 && web->spill_temp))
+		    && (w->was_spilled || loop > 0)
 		    /*&& w->add_hardregs >= web->add_hardregs
 		    && w->span_insns > web->span_insns*/)
 		  {
@@ -3593,7 +3645,7 @@ colorize_one_web (web, hard)
 		{
 		  debug_msg (0, "  to spill %d was a good idea\n", try->id);
 		  remove_list (try->dlink, &spilled_nodes);
-		  if (try->was_spilled > 0)
+		  if (try->was_spilled)
 		    colorize_one_web (try, 0);
 		  else
 		    colorize_one_web (try, hard - 1);
@@ -3772,7 +3824,7 @@ rewrite_program (void)
 		  dest = gen_rtx_MEM (GET_MODE (source),
 				      plus_constant (XEXP (dest, 0),
 						     SUBREG_BYTE (source)));
-		  emit_insn (gen_move_insn (dest, source));
+		  emit_move_insn (dest, source);
 		}
 	      else
 		{
@@ -3781,7 +3833,7 @@ rewrite_program (void)
 				       reg, 0))
 		    emit_insn (gen_move_insn (dest, reg));
 		  else*/
-		    emit_insn (gen_move_insn (dest, source));
+		    emit_move_insn (dest, source);
 		}
 		
 	      insns = get_insns ();
@@ -3824,9 +3876,9 @@ rewrite_program (void)
 		  rtx reg = gen_reg_rtx (GET_MODE (SET_DEST (pat)));
 		  start_sequence ();
 		  if (validate_change (insn, DF_REF_LOC (web->uses[j]), reg, 0))
-		      emit_insn (gen_move_insn (reg, SET_SRC (pat)));
+		      emit_move_insn (reg, SET_SRC (pat));
 		  else
-		      emit_insn (gen_move_insn (SET_DEST (pat), SET_SRC (pat)));
+		      emit_move_insn (SET_DEST (pat), SET_SRC (pat));
 		  /*	      emit_insn (PATTERN (DF_REF_INSN
 			      (DF_REF_CHAIN (web->uses[j])->ref))); */
 		  insns = get_insns ();
@@ -3864,7 +3916,7 @@ rewrite_program (void)
 		  source = gen_rtx_MEM (GET_MODE (target),
 					plus_constant (XEXP (source, 0),
 						       SUBREG_BYTE (target)));
-		  emit_insn (gen_move_insn (target, source));
+		  emit_move_insn (target, source);
 		}
 	      else
 		{
@@ -3874,7 +3926,7 @@ rewrite_program (void)
 				       reg, 0))
 		    emit_insn (gen_move_insn (reg ,source));
 		  else*/
-		    emit_insn (gen_move_insn (target, source));
+		    emit_move_insn (target, source);
 		}
 
 	      insns = get_insns ();
@@ -4860,12 +4912,12 @@ reg_alloc (void)
   compute_bb_for_insn (get_max_uid ());
   store_motion ();
   no_new_pseudos = 1;
+  find_basic_blocks (get_insns (), max_reg_num (), rtl_dump_file);
   compute_bb_for_insn (get_max_uid ());
   clear_log_links (get_insns ());
-  cleanup_cfg (CLEANUP_EXPENSIVE);
-  find_basic_blocks (get_insns (), max_reg_num (), rtl_dump_file);
   life_analysis (get_insns (), rtl_dump_file, 
 		 PROP_DEATH_NOTES | PROP_LOG_LINKS  | PROP_REG_INFO); 
+  cleanup_cfg (CLEANUP_EXPENSIVE);
   recompute_reg_usage (get_insns (), TRUE);
   /* XXX: reg_scan screws up reg_renumber, and without reg_scan, we can't do
      regclass. */

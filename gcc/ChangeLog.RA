@@ -1,3 +1,23 @@
+2001-09-14  Michael Matz  <matzmich@cs.tu-berlin.de>
+
+	reload1.c (reload): don't delete dead throwing insns.
+
+	gcse.c (store_motion): run a cleanup_cfg(0) before anything.
+
+	ra.c (NO_REMAT): Define.
+	(live_over_abnormal, struct curr_use.live_over_abnormal): New.
+	(live_in): Update it.
+	(build_web_parts_and_conflicts): Initialize it.
+	(parts_to_web): Use it to initialize...
+	(struct web, live_over_abnormal): ... this, new.
+	(conflicts_between_webs): Use that to handle STACK_REGS.
+	(init_one_web, select_spill, colorize_one_web): Handle was_spilled
+	as bitmap, not int.
+	(combine): Conflict with all hardregs in a multi-word web.
+	(colorize_one_web): Make three passes to find non-spilled neighbors.
+	(rewrite_program): Use emit_move_insn() instead emit_insn().
+	(reg_alloc): Change order of find_basic_blocks() and cleanup_cfg().
+
 2001-08-30  Michael Matz  <matzmich@cs.tu-berlin.de>
 
 	ra.c (ok): Check target for validness of mode.

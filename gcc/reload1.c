@@ -1067,6 +1067,16 @@ reload (first, global)
 	      rtx equiv_insn = XEXP (list, 0);
 	      if (GET_CODE (equiv_insn) == NOTE)
 		continue;
+	      /* RA We can't delete an insn with EH_REGION notes.  Those
+		 are the source of EH edges, and their sudden absense
+		 would confuse fixup_abnormal_edges() below.
+	         XXX I believe this only works by chance.  If we don't
+	         delete the insn, a pseudo could remain without a hardreg.
+	         The only case where I saw this deleting of trapping
+	         insns was StreamTokenizer.java, and there this
+		 fix helped.  */
+	      if (can_throw_internal (equiv_insn))
+		continue;
 	      if (reg_set_p (regno_reg_rtx[i], PATTERN (equiv_insn)))
 		delete_dead_insn (equiv_insn);
 	      else

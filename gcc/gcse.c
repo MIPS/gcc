@@ -7076,6 +7076,13 @@ store_motion ()
   int i,n;
   rtx insn, f;
   int update_flow = 0;
+
+  /* We might got called by GCSE itself, which could have removed some basic
+     blocks (it certainly did in the case I saw), and we use later the df.*
+     analyzer, whose precondition includes the non-existence of unreachable
+     code, so do a very simple cleanup_cfg.  */
+  cleanup_cfg (0);
+
   if (rtl_dump_file)
     {
       fprintf (rtl_dump_file, "before store motion\n");
