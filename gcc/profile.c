@@ -786,10 +786,6 @@ branch_prob (void)
 	}
     }
 
-#ifdef ENABLE_CHECKING
-  verify_flow_info ();
-#endif
-
   /* Create spanning tree from basic block graph, mark each edge that is
      on the spanning tree.  We insert as many abnormal and critical edges
      as possible to minimize number of edge splits necessary.  */
@@ -885,43 +881,113 @@ branch_prob (void)
   /* Line numbers.  */
   /* FIXME:  make this work for trees.  (Line numbers are in location_t
      objects, but aren't always attached to the obvious tree...) */
-  if (coverage_begin_output () && !ir_type ())
+  if (coverage_begin_output ())
     {
-      char const *prev_file_name = NULL;
-      gcov_position_t offset;
-
-      FOR_EACH_BB (bb)
+      if (!ir_type ())
 	{
-	  rtx insn = BB_HEAD (bb);
-	  int ignore_next_note = 0;
+	  char const *prev_file_name = NULL;
+	  gcov_position_t offset;
 
-	  offset = 0;
-
-	  /* We are looking for line number notes.  Search backward
-	     before basic block to find correct ones.  */
-	  insn = prev_nonnote_insn (insn);
-	  if (!insn)
-	    insn = get_insns ();
-	  else
-	    insn = NEXT_INSN (insn);
-
-	  while (insn != BB_END (bb))
+	  FOR_EACH_BB (bb)
 	    {
-	      if (GET_CODE (insn) == NOTE)
+	      rtx insn = BB_HEAD (bb);
+	      int ignore_next_note = 0;
+
+	      offset = 0;
+
+	      /* We are looking for line number notes.  Search backward
+		 before basic block to find correct ones.  */
+	      insn = prev_nonnote_insn (insn);
+	      if (!insn)
+		insn = get_insns ();
+	      else
+		insn = NEXT_INSN (insn);
+
+	      while (insn != BB_END (bb))
 		{
-		  /* Must ignore the line number notes that
-		     immediately follow the end of an inline function
-		     to avoid counting it twice.  There is a note
-		     before the call, and one after the call.  */
-		  if (NOTE_LINE_NUMBER (insn)
-		      == NOTE_INSN_REPEATED_LINE_NUMBER)
-		    ignore_next_note = 1;
-		  else if (NOTE_LINE_NUMBER (insn) <= 0)
-		    /*NOP*/;
-		  else if (ignore_next_note)
-		    ignore_next_note = 0;
-		  else
+		  if (GET_CODE (insn) == NOTE)
 		    {
+		      /* Must ignore the line number notes that
+			 immediately follow the end of an inline function
+			 to avoid counting it twice.  There is a note
+			 before the call, and one after the call.  */
+		      if (NOTE_LINE_NUMBER (insn)
+			  == NOTE_INSN_REPEATED_LINE_NUMBER)
+			ignore_next_note = 1;
+		      else if (NOTE_LINE_NUMBER (insn) <= 0)
+			/*NOP*/;
+		      else if (ignore_next_note)
+			ignore_next_note = 0;
+		      else
+			{
+			  if (!offset)
+			    {
+			      offset = gcov_write_tag (GCOV_TAG_LINES);
+			      gcov_write_unsigned (BB_TO_GCOV_INDEX (bb));
+			    }
+
+			  /* If this is a new source file, then output the
+			     file's name to the .bb file.  */
+			  if (!prev_file_name
+			      || strcmp (NOTE_SOURCE_FILE (insn),
+					 prev_file_name))
+			    {
+			      prev_file_name = NOTE_SOURCE_FILE (insn);
+			      gcov_write_unsigned (0);
+			      gcov_write_string (prev_file_name);
+			    }
+			  gcov_write_unsigned (NOTE_LINE_NUMBER (insn));
+			}
+		    }
+		  insn = NEXT_INSN (insn);
+		}
+
+	      if (offset)
+		{
+		  /* A file of NULL indicates the end of run.  */
+		  gcov_write_unsigned (0);
+		  gcov_write_string (NULL);
+		  gcov_write_length (offset);
+		}
+	    }
+	}
+      else
+	{
+	  char const *prev_file_name = NULL;
+	  gcov_position_t offset;
+	  location_t *curr_location = NULL;
+
+	  FOR_EACH_BB (bb)
+	    {
+	      block_stmt_iterator bsi;
+
+	      offset = 0;
+
+	      if (bb == ENTRY_BLOCK_PTR->next_bb)
+		{
+		  curr_location = &DECL_SOURCE_LOCATION (current_function_decl);
+		  if (!offset)
+		    {
+		      offset = gcov_write_tag (GCOV_TAG_LINES);
+		      gcov_write_unsigned (BB_TO_GCOV_INDEX (bb));
+		    }
+
+		  /* If this is a new source file, then output the
+		     file's name to the .bb file.  */
+		  prev_file_name = curr_location->file;
+		  gcov_write_unsigned (0);
+		  gcov_write_string (prev_file_name);
+		  gcov_write_unsigned (curr_location->line);
+		}
+
+	      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+		{
+		  tree stmt = bsi_stmt (bsi);
+		  if (EXPR_LOCUS (stmt)
+		      && (EXPR_LOCUS (stmt)->line != curr_location->line
+		          || strcmp (EXPR_LOCUS (stmt)->file, curr_location->file)))
+		    {
+		      curr_location = EXPR_LOCUS (stmt);
 		      if (!offset)
 			{
 			  offset = gcov_write_tag (GCOV_TAG_LINES);
@@ -930,28 +996,25 @@ branch_prob (void)
 
 		      /* If this is a new source file, then output the
 			 file's name to the .bb file.  */
-		      if (!prev_file_name
-			  || strcmp (NOTE_SOURCE_FILE (insn),
-				     prev_file_name))
+		      if (strcmp (curr_location->file, prev_file_name))
 			{
-			  prev_file_name = NOTE_SOURCE_FILE (insn);
+			  prev_file_name = curr_location->file;
 			  gcov_write_unsigned (0);
 			  gcov_write_string (prev_file_name);
 			}
-		      gcov_write_unsigned (NOTE_LINE_NUMBER (insn));
+		      gcov_write_unsigned (curr_location->line);
 		    }
 		}
-	      insn = NEXT_INSN (insn);
-	    }
 
-	  if (offset)
-	    {
-	      /* A file of NULL indicates the end of run.  */
-	      gcov_write_unsigned (0);
-	      gcov_write_string (NULL);
-	      gcov_write_length (offset);
+	      if (offset)
+		{
+		  /* A file of NULL indicates the end of run.  */
+		  gcov_write_unsigned (0);
+		  gcov_write_string (NULL);
+		  gcov_write_length (offset);
+		}
 	    }
-	}
+	 }
     }
 
   ENTRY_BLOCK_PTR->index = ENTRY_BLOCK;

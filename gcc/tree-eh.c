@@ -99,6 +99,10 @@ record_stmt_eh_region (struct eh_region *region, tree t)
   if (*slot)
     abort ();
   *slot = n;
+
+  /* ??? Make calls.c and expr.c happy and find proper region number.  */
+  if (n->stmt == MODIFY_EXPR)
+    add_stmt_to_eh_region (TREE_OPERAND (t, 1), n->region_nr);
 }
 
 void
@@ -1656,7 +1660,7 @@ make_eh_edges (tree stmt)
   else
     {
       region_nr = lookup_stmt_eh_region (stmt);
-      if (region_nr < 0)
+      if (region_nr <= 0)
 	return;
       is_resx = false;
     }

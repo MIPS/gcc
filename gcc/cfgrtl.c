@@ -2158,7 +2158,9 @@ purge_dead_edges (basic_block bb)
       next = e->succ_next;
       if (e->flags & EDGE_EH)
 	{
-	  if (can_throw_internal (BB_END (bb)))
+	  if (can_throw_internal (BB_END (bb))
+	      || (GET_CODE (BB_END (bb)) == JUMP_INSN
+		  && GET_CODE (PATTERN (BB_END (bb))) == RESX))
 	    continue;
 	}
       else if (e->flags & EDGE_ABNORMAL_CALL)

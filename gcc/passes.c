@@ -1360,8 +1360,6 @@ rest_of_compilation (tree decl)
   else
     finalize_block_changes ();
 
-  init_flow ();
-
   /* Convert from NOTE_INSN_EH_REGION style notes, and do other
      sorts of eh initialization.  Delay this until after the
      initial rtl dump so that we can see the original nesting.  */
@@ -1418,11 +1416,21 @@ rest_of_compilation (tree decl)
   timevar_push (TV_JUMP);
   open_dump_file (DFI_sibling, decl);
   insns = get_insns ();
-  rebuild_jump_labels (insns);
-  find_exception_handler_labels ();
-  find_basic_blocks (insns, max_reg_num (), dump_file);
 
+  /* ??? We may get called either via tree_rest_of_compilation when the CFG
+     is already built or directly (for instance from coverage code).
+     The direct callers shall be updated.  */
+  if (!basic_block_info)
+    {
+      init_flow ();
+      rebuild_jump_labels (insns);
+      find_exception_handler_labels ();
+      find_basic_blocks (insns, max_reg_num (), dump_file);
+    }
   delete_unreachable_blocks ();
+#ifdef ENABLE_CHECKING
+  verify_flow_info();
+#endif
 
   /* Turn NOTE_INSN_PREDICTIONs into branch predictions.  */
   if (flag_guess_branch_prob)
@@ -1492,10 +1500,8 @@ rest_of_compilation (tree decl)
   if (flag_guess_branch_prob)
     expected_value_to_br_prob ();
 
-  reg_scan (insns, max_reg_num (), 0);
-  rebuild_jump_labels (insns);
-  find_basic_blocks (insns, max_reg_num (), dump_file);
   delete_trivially_dead_insns (insns, max_reg_num ());
+  reg_scan (insns, max_reg_num (), 0);
   if (dump_file)
     dump_flow_info (dump_file);
   cleanup_cfg ((optimize ? CLEANUP_EXPENSIVE : 0) | CLEANUP_PRE_LOOP

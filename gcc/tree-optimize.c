@@ -306,6 +306,7 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_lower_cf);
   NEXT_PASS (pass_lower_eh);
   NEXT_PASS (pass_build_cfg);
+  NEXT_PASS (pass_tree_profile);
   NEXT_PASS (pass_all_optimizations);
   NEXT_PASS (pass_del_cfg);
   NEXT_PASS (pass_mudflap_2);
@@ -313,7 +314,6 @@ init_tree_optimization_passes (void)
   *p = NULL;
 
   p = &pass_all_optimizations.sub;
-  NEXT_PASS (pass_tree_profile);
   NEXT_PASS (pass_referenced_vars);
   NEXT_PASS (pass_build_pta);
   NEXT_PASS (pass_build_ssa);
@@ -544,55 +544,48 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
       cfun->saved_tree = save_body (current_function_decl, &cfun->saved_args);
     }
 
-  /* Do not confuse backend by incorrect instruction chain.  */
-  if (!errorcount && !sorrycount)
-    {
-      /* Perform all tree transforms and optimizations.  */
-      execute_pass_list (all_passes);
+  /* Perform all tree transforms and optimizations.  */
+  execute_pass_list (all_passes);
 
-      /* If the function has a variably modified type, there may be
-	 SAVE_EXPRs in the parameter types.  Their context must be set to
-	 refer to this function; they cannot be expanded in the containing
-	 function.  */
-      if (decl_function_context (fndecl) == current_function_decl
-	  && variably_modified_type_p (TREE_TYPE (fndecl)))
-	walk_tree (&TREE_TYPE (fndecl), set_save_expr_context, fndecl,
-		   NULL);
+  /* If the function has a variably modified type, there may be
+     SAVE_EXPRs in the parameter types.  Their context must be set to
+     refer to this function; they cannot be expanded in the containing
+     function.  */
+  if (decl_function_context (fndecl) == current_function_decl
+      && variably_modified_type_p (TREE_TYPE (fndecl)))
+    walk_tree (&TREE_TYPE (fndecl), set_save_expr_context, fndecl,
+	       NULL);
 
-      /* Set up parameters and prepare for return, for the function.  */
-      expand_function_start (fndecl, 0);
+  /* Set up parameters and prepare for return, for the function.  */
+  expand_function_start (fndecl, 0);
 
-      /* Expand the variables recorded during gimple lowering.  */
-      expand_used_vars ();
+  /* Expand the variables recorded during gimple lowering.  */
+  expand_used_vars ();
 
-      /* Allow language dialects to perform special processing.  */
-      (*lang_hooks.rtl_expand.start) ();
+  /* Allow language dialects to perform special processing.  */
+  (*lang_hooks.rtl_expand.start) ();
 
-      /* If this function is `main', emit a call to `__main'
-	 to run global initializers, etc.  */
-      if (DECL_NAME (fndecl)
-	  && MAIN_NAME_P (DECL_NAME (fndecl))
-	  && DECL_FILE_SCOPE_P (fndecl))
-	expand_main_function ();
+  /* If this function is `main', emit a call to `__main'
+     to run global initializers, etc.  */
+  if (DECL_NAME (fndecl)
+      && MAIN_NAME_P (DECL_NAME (fndecl))
+      && DECL_FILE_SCOPE_P (fndecl))
+    expand_main_function ();
 
-      /* Generate the RTL for this function.  */
-      tree_expand_cfg ();
+  /* Generate the RTL for this function.  */
+  tree_expand_cfg ();
 
-      /* If this is a nested function, protect the local variables in the stack
-	 above us from being collected while we're compiling this function.  */
-      if (nested_p)
-	ggc_push_context ();
+  /* If this is a nested function, protect the local variables in the stack
+     above us from being collected while we're compiling this function.  */
+  if (nested_p)
+    ggc_push_context ();
 
-      /* There's no need to defer outputting this function any more; we
-	 know we want to output it.  */
-      DECL_DEFER_OUTPUT (fndecl) = 0;
+  /* There's no need to defer outputting this function any more; we
+     know we want to output it.  */
+  DECL_DEFER_OUTPUT (fndecl) = 0;
 
-      /* Run the optimizers and output the assembler code for this function.  */
-      rest_of_compilation (fndecl);
-    }
-  else
-    /* Pretend that we compiled the function.  */
-    TREE_ASM_WRITTEN (fndecl) = 1;
+  /* Run the optimizers and output the assembler code for this function.  */
+  rest_of_compilation (fndecl);
 
   /* Restore original body if still needed.  */
   if (cfun->saved_tree)

@@ -1,3 +1,18 @@
+2004-03-07  Jan Hubicka  <jh@suse.cz>
+
+	* except.c (emit_to_new_bb_before):  Break fallthru edges.
+
+	* except.c (can_throw_internal): Notice RESX instructions.
+
+	* cfgexpand.c (tree_expand_cfg): Do not destroy the CFG.
+	* passes.c (rest_of_compilation):  Do not call init_flow;
+	do not build CFG.
+	* tree-cfg.c (delete_tree_cfg_annotations): Clear RBI pointers.
+
+	* tree-cfg.c (label_to_block): Emit missing langes
+	* tree-optimize.c (tree_rest_of_compilation): Revert patch disabling
+	compilation with errorcount/sorrycount.
+
 2004-03-05  Steven Bosscher  <stevenb@suse.de>
 
 	* cfgexpand.c (expand_block, construct_init_block): Minor code

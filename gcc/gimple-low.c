@@ -290,10 +290,12 @@ lower_cond_expr (tree_stmt_iterator *tsi, struct lower_data *data)
   lower_stmt_body (else_branch, data);
 
   then_goto = expr_only (then_branch);
-  then_is_goto = then_goto && simple_goto_p (then_goto);
+  then_is_goto = (then_goto && simple_goto_p (then_goto)
+		  && !EXPR_LOCUS (then_goto));
 
   else_goto = expr_only (else_branch);
-  else_is_goto = else_goto && simple_goto_p (else_goto);
+  else_is_goto = (else_goto && simple_goto_p (else_goto)
+		  && !EXPR_LOCUS (else_goto));
 
   if (!then_is_goto || !else_is_goto)
     {

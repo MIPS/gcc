@@ -472,9 +472,6 @@ make_edges (void)
 
   /* To speed up statement iterator walks, we first purge dead labels.  */
   cleanup_dead_labels ();
-
-  /* Clean up the graph and warn for unreachable code.  */
-  cleanup_tree_cfg ();
 }
 
 /* Create edges for control statement at basic block BB.  */
@@ -635,7 +632,21 @@ make_switch_expr_edges (basic_block bb)
 basic_block
 label_to_block (tree dest)
 {
-  return VARRAY_BB (label_to_block_map, LABEL_DECL_UID (dest));
+  int uid = LABEL_DECL_UID (dest);
+
+  /* We would die hard when faced by undefined label.  Emit label to
+     very first basic block.  This will hopefully make even the dataflow
+     and undefined variable warnings quite right.  */
+  if ((errorcount || sorrycount) && uid < 0)
+    {
+      block_stmt_iterator bsi = bsi_start (ENTRY_BLOCK_PTR->succ->dest);
+      tree stmt;
+
+      stmt = build1 (LABEL_EXPR, void_type_node, dest);
+      bsi_insert_before (&bsi, stmt, BSI_NEW_STMT);
+      uid = LABEL_DECL_UID (dest);
+    }
+  return VARRAY_BB (label_to_block_map, uid);
 }
 
 /* Create edges for a goto statement at block BB.  */
@@ -667,6 +678,15 @@ make_goto_expr_edges (basic_block bb)
       if (simple_goto_p (goto_t))
 	{
 	  make_edge (bb, label_to_block (dest), EDGE_FALLTHRU);
+
+	  /* Preserve the line number information.  */
+	  if (EXPR_LOCUS (goto_t))
+	    {
+	      tree stmt = build_empty_stmt ();
+	      SET_EXPR_LOCUS (stmt, EXPR_LOCUS (goto_t));
+	      bsi_insert_before (&last, stmt, BSI_NEW_STMT);
+	      bsi_next (&last);
+	    }
 	  bsi_remove (&last);
 	  return;
 	}
@@ -2486,12 +2506,15 @@ disband_implicit_edges (void)
 void
 delete_tree_cfg_annotations (void)
 {
+  basic_block bb;
   if (n_basic_blocks > 0)
     free_blocks_annotations ();
   free_dominance_info (CDI_DOMINATORS);
 
   label_to_block_map = NULL;
   free_rbi_pool ();
+  FOR_EACH_BB (bb)
+    bb->rbi = NULL;
 }
 
 /* Remove all the blocks and edges that make up the flowgraph.  */
@@ -2766,6 +2789,22 @@ tree_find_edge_insert_loc (edge e, block_stmt_iterator *bsi)
       tmp = bsi_stmt (*bsi);
       if (!stmt_ends_bb_p (tmp))
 	return true;
+
+      /* Insert code just before returning the value.  We may need to decompose
+         the return in the case it contains non-trivial operand.  */
+      if (TREE_CODE (tmp) == RETURN_EXPR)
+        {
+	  tree op = TREE_OPERAND (tmp, 0);
+	  if (!is_gimple_val (op))
+	    {
+	      if (TREE_CODE (op) != MODIFY_EXPR)
+		abort ();
+	      bsi_insert_before (bsi, op, BSI_NEW_STMT);
+	      TREE_OPERAND (tmp, 0) = TREE_OPERAND (op, 0);
+	    }
+	  bsi_prev (bsi);
+	  return true;
+        }
     }
 
   /* Otherwise, create a new basic block, and split this edge.  */

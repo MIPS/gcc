@@ -475,6 +475,7 @@ dump_flow_info (FILE *file)
   basic_block bb;
   static const char * const reg_class_names[] = REG_CLASS_NAMES;
 
+#if 0
   if (reg_n_info)
     {
       int max_regno = max_reg_num ();
@@ -522,6 +523,7 @@ dump_flow_info (FILE *file)
 	    fprintf (file, ".\n");
 	  }
     }
+#endif
 
   fprintf (file, "\n%d basic blocks, %d edges.\n", n_basic_blocks, n_edges);
   FOR_EACH_BB (bb)

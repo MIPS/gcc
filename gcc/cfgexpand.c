@@ -83,7 +83,7 @@ expand_block (basic_block bb, FILE * dump_file)
       /* At the moment not all abnormal edges match the RTL representation.
          It is safe to remove them here as find_sub_basic_blocks will
          rediscover them.  In the future we should get this fixed properly.  */
-      if (e->flags & EDGE_ABNORMAL)
+      if (e->flags & (EDGE_ABNORMAL | EDGE_EH))
 	remove_edge (e);
     }
 
@@ -327,7 +327,6 @@ void
 tree_expand_cfg (void)
 {
   basic_block bb, init_block;
-  rtx insn;
   sbitmap blocks;
   int dump_flags;
   FILE *dump_file = dump_begin (TDI_expand, &dump_flags);
@@ -361,27 +360,15 @@ tree_expand_cfg (void)
   purge_all_dead_edges (0);
   sbitmap_free (blocks);
 
+  compact_blocks ();
   if (dump_file)
     {
+      dump_flow_info (dump_file);
       fprintf (dump_file, "\n\n\nExpanded body:\n\n\n");
       print_rtl_with_bb (dump_file, get_insns ());
     }
 #ifdef ENABLE_CHECKING
   verify_flow_info();
 #endif
-  if (optimize)
-    cleanup_cfg (CLEANUP_PRE_LOOP | CLEANUP_EXPENSIVE);
-#ifdef ENABLE_CHECKING
-  verify_flow_info();
-#endif
-
-  free_basic_block_vars (0);
-  free_bb_for_insn ();
-
-  /* ??? Avoid confusion while rebuilding CFG.  */
-  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
-    if (GET_CODE (insn) == NOTE
-	&& NOTE_LINE_NUMBER (insn) == NOTE_INSN_BASIC_BLOCK)
-      delete_insn (insn);
 }
 
