@@ -1,3 +1,8 @@
+2003-09-12  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* fortran/trans.c (gfc_finish_block): Call rationalize_compound_expr
+	for a correct expression.
+
 2003-09-10  Kejia Zhao  <kejia_zh@yahoo.com.cn>
 
 	* trans-intrinsic.c (real_compnt_info): New struct.
