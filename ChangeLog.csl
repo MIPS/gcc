@@ -1,5 +1,26 @@
 2004-10-12  Mark Mitchell <mark@codesourcery.com>
 
+	gcc/gcc.c (do_spec_1): Do not add a -L path for a directory in
+	the prefix list if we have already added a multilib directory
+	based on that path.
+	(main): Do not add MD_EXEC_PREFIX to the list of directories to
+	search with -L.
+
+	* gcc/config/i386/sol2-10.h (TARGET_SUB_OS_CPP_BUILTINS): Do not
+	define.
+	(MD_STARTFILE_PREFIX): Likewise.
+
+	* gcc/fixinc/inclhack.def (gnu_types): Do not use on Solaris 2.1x.
+	(limits_ifndefs): Remove.
+	(solaris_longlong): Likewise.
+	(stdio_va_list): Do not use on Solaris 2.1x.
+	(stdio_stdarg.h): Likewise.
+	(svr4__p): Remove.
+	(undefine_null): Remove.
+	* gcc/fixinc/fixincl.x: Regenerated.
+	
+2004-10-12  Mark Mitchell <mark@codesourcery.com>
+
 	Revert:
 	* gcc/config/i386/sol2-10.h (LIBGCC_SPEC): Add support for -nolibgcc.
 

@@ -1100,6 +1100,9 @@ fix = {
     bypass    = '_GCC_(PTRDIFF|SIZE|WCHAR)_T';
     select    = "^[ \t]*typedef[ \t]+.*[ \t](ptrdiff|size|wchar)_t;";
     c_fix     = gnu_type;
+    /* The Solaris 2.10 headers already define these types correctly.  */
+    mach   = '*-*-solaris2.1[0-9]*';
+    not_machine = true;
 
     test_text = "typedef long int ptrdiff_t; /* long int */\n"
                 "typedef uint_t size_t; /* uint_t */\n"
@@ -1828,33 +1831,14 @@ fix = {
 };
 
 
-/*
- *  In limits.h, put #ifndefs around things that are supposed to be defined
- *  in float.h to avoid redefinition errors if float.h is included first.
- *  On HP/UX this patch does not work, because on HP/UX limits.h uses
- *  multi line comments and the inserted #endif winds up inside the
- *  comment.  Fortunately, HP/UX already uses #ifndefs in limits.h; if
- *  we find a #ifndef FLT_MIN we assume that all the required #ifndefs
- *  are there, and we do not add them ourselves.
- *
- *  QNX Software Systems also guards the defines, but doesn't define
- *  FLT_MIN.  Therefore, bypass the fix for *either* guarded FLT_MIN
- *  or guarded FLT_MAX.
+/* 
+ * We used to put #ifndefs around things that are supposed to be
+ * defined in float.h to avoid redefinition errors if float.h is
+ * included first.  But, (a) the preprocessor does not complain if the
+ * definitions match, and (b) the preprocessor does not complain even
+ * if they do not match in system headers.  So, there is no need to
+ * make this change.
  */
-fix = {
-    hackname = limits_ifndefs;
-    files  = "sys/limits.h";
-    files  = "limits.h";
-    select = "^[ \t]*#[ \t]*define[ \t]+"
-             "((FLT|DBL)_(MIN|MAX|DIG))[ \t].*";
-    bypass = "ifndef[ \t]+FLT_(MIN|MAX)";
-
-    c_fix     = format;
-    c_fix_arg = "#ifndef %1\n%0\n#endif";
-    /* Second arg is select expression */
-    test_text = " #\tdefine\tDBL_DIG \t 0  /* somthin' */";
-};
-
 
 /*
  * Apparently some SVR4 systems typedef longlong_t to long ?
@@ -2485,25 +2469,6 @@ fix = {
 };
 
 /*
- * Sun Solaris 2.10 checks that _LONGLONG_TYPE is not defined in
- * strict ANSI mode, on the theory that a strict ANSI compiler will
- * not accept "long long".  However, GCC will always accept "long long"
- * in system headers, and some of the Solaris headers unconditionally
- * use "int64_t" which requires "long long".  So, we remove the 
- * #error message.
- */
-fix = {
-    hackname = solaris_longlong;
-    files    = sys/feature_tests.h;
-    mach      = '*-*-solaris2.1[0-9]';
-    mach      = '*-*-solaris2.1[0-9].*';
-    select    = "#error.*No long long.*";
-    c_fix     = format;
-    c_fix_arg = "#ifndef __GNUC__\n%0\n#endif";
-    test_text = "#error\tNo long long in strictly";
-};
-
-/*
  *  Sun Solaris 2.5.1, 2.6 defines PTHREAD_{MUTEX|COND}_INITIALIZER
  *  incorrectly, so we replace them with versions that correspond to
  *  the definition.  We also explicitly name this fix "1" and the next
@@ -2648,6 +2613,12 @@ fix = {
     hackname = stdio_stdarg_h;
     files    = stdio.h;
     bypass   = "include.*(stdarg\.h|machine/ansi\.h)";
+    /*
+     * On Solaris 2.10, this fix is unncessary; <stdio.h> includes
+     * <iso/stdio_iso.h>, which includes <sys/va_list.h>.
+     */
+    mach     = '*-*-solaris2.1[0-9]';
+    not_machine = true;
 
     c_fix     = wrap;
 
@@ -2655,7 +2626,6 @@ fix = {
 
     test_text = "";
 };
-
 
 /*
  *  Don't use or define the name va_list in stdio.h.
@@ -2666,7 +2636,7 @@ fix = {
  *  stdio.h is required to define va_list, and we shouldn't break that.
  *  On IRIX 6.5, internal/wchar_core.h used to get its definition of
  *  va_list from stdio.h.  Since this doesn't happen any longer, use
- *  __gnuc_va_list there, too.
+ *  __gnuc_va_list there, too.  
  */
 fix = {
     hackname = stdio_va_list;
@@ -2674,6 +2644,13 @@ fix = {
     files    = internal/stdio_core.h;
     files    = internal/wchar_core.h;
     bypass   = '__gnuc_va_list|_BSD_VA_LIST_|__DJ_va_list|_G_va_list';
+    /* 
+     * On Solaris 2.10, the definition in 
+     * <stdio.h> is guarded appropriately by the _XPG4 feature macro; 
+     * there is therefore no need for this fix there.
+     */
+    mach = '*-*-solaris2.1[0-9]';
+    not_machine = true;
 
     /*
      * Use __gnuc_va_list in arg types in place of va_list.
@@ -2701,7 +2678,6 @@ fix = {
           "s@_Va_LIST@_VA_LIST@";
     test_text = "extern void mumble( va_list);";
 };
-
 
 /*
  *  "!__STDC__" or "__STDC__==0" or "__STDC__!=1" or "__STDC__-0==0"
@@ -2967,17 +2943,8 @@ fix = {
  *  Solaris math.h and floatingpoint.h define __P without protection,
  *  which conflicts with the fixproto definition.  The fixproto
  *  definition and the Solaris definition are used the same way.
+ *  furthermore, we don't use fixproto on Solaris.
  */
-fix = {
-    hackname = svr4__p;
-    files    = math.h;
-    files    = floatingpoint.h;
-    select   = "^#define[ \t]+__P.*";
-    c_fix     = format;
-    c_fix_arg = "#ifndef __P\n%0\n#endif";
-
-    test_text = "#define __P(a) a";
-};
 
 
 /*
@@ -3831,25 +3798,10 @@ fix = {
     "\tfork(),\n";
 };
 
-
 /*
- *  Fix multiple defines for NULL.  Sometimes, we stumble into \r\n
- *  terminated lines, so accommodate these.  Test both ways.
- *  Don't bother to reproduce the \r\n termination, as GCC has to
- *  recognize \n termination anyway.
+ *  We used to fix multiple defines for NULL.  That's unncessary since
+ *  we permit redefinitions of macros in system headers anyhow.
  */
-fix = {
-    hackname  = undefine_null;
-    select    = "^#[ \t]*define[ \t]+NULL[ \t]";
-    bypass    = "#[ \t]*(ifn|un)def[ \t]+NULL($|[ \t\r])";
-
-    c_fix     = format;
-    c_fix_arg = "#ifndef NULL\n#define NULL%1\n#endif\n";
-    c_fix_arg = "^#[ \t]*define[ \t]+NULL([^\r\n]+)[\r]*\n";
-
-    test_text = "#define NULL 0UL\r\n"
-                "#define NULL\t((void*)0)\n";
-};
 
 /*
  * On Cray Unicos/Mk some standard headers use the C99 keyword "restrict"

@@ -4466,6 +4466,7 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 	      size_t bufsize = 100;
 	      char *buffer = xmalloc (bufsize);
 	      int idx;
+	      bool multilib_p = false;
 
 	      for (; pl; pl = pl->next)
 		{
@@ -4497,6 +4498,7 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 			  strcat (buffer, machine_suffix);
 			  if (is_directory (buffer, multilib_dir, 1))
 			    {
+			      multilib_p = true;
 			      do_spec_1 ("-L", 0, NULL);
 #ifdef SPACE_AFTER_L_OPTION
 			      do_spec_1 (" ", 0, NULL);
@@ -4511,6 +4513,7 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 			{
 			  if (is_directory (pl->prefix, multi_dir, 1))
 			    {
+			      multilib_p = true;
 			      do_spec_1 ("-L", 0, NULL);
 #ifdef SPACE_AFTER_L_OPTION
 			      do_spec_1 (" ", 0, NULL);
@@ -4522,7 +4525,10 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 			    }
 			}
 		    }
-		  if (machine_suffix)
+		  /* If we have already found a multilib subdirectory,
+		     do not look in other directories derived from
+		     this prefix.  */
+		  if (!multilib_p && machine_suffix)
 		    {
 		      if (is_directory (pl->prefix, machine_suffix, 1))
 			{
@@ -4544,7 +4550,7 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 			  do_spec_1 (" ", 0, NULL);
 			}
 		    }
-		  if (!pl->require_machine_suffix)
+		  if (!multilib_p && !pl->require_machine_suffix)
 		    {
 		      if (is_directory (pl->prefix, "", 1))
 			{
@@ -6112,10 +6118,6 @@ main (int argc, const char **argv)
      startfile_prefix_spec exclusively.  */
   else if (*cross_compile == '0' || target_system_root)
     {
-      if (*md_exec_prefix)
-	add_sysrooted_prefix (&startfile_prefixes, md_exec_prefix, "GCC",
-			      PREFIX_PRIORITY_LAST, 0, NULL, 1);
-
       if (*md_startfile_prefix)
 	add_sysrooted_prefix (&startfile_prefixes, md_startfile_prefix,
 			      "GCC", PREFIX_PRIORITY_LAST, 0, NULL, 1);
