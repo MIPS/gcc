@@ -92,21 +92,27 @@ fixincl.x: fixincl.tpl inclhack.def
 		autogen -T $(srcdir)/fixincl.tpl -b fixincl \
 			$(srcdir)/inclhack.def ; \
 	else echo You need to install autogen ; \
-		$(CP) $(srcdir)/$@ . ; fi
+		if [ `pwd` != `cd $(srcdir) ; pwd` ] ; then \
+			$(CP) $(srcdir)/$@ . ; \
+		else touch $@ ; fi ; fi
 
 inclhack.sh: inclhack.def inclhack.tpl hackshell.tpl
 	@if ( autogen --help > /dev/null 2>&1 ) ; then \
 		echo autogen inclhack.def ; \
-		autogen inclhack.def ; \
+		autogen -L$(srcdir) inclhack.def ; \
 	else echo You need to install autogen ; \
-		$(CP) $(srcdir)/$@ . ; fi
+		if [ `pwd` != `cd $(srcdir) ; pwd` ] ; then \
+			$(CP) $(srcdir)/$@ . ; \
+		else touch $@ ; fi ; fi
 
 fixincl.sh: inclhack.def inclhack.tpl
 	@if ( autogen --help > /dev/null 2>&1 ) ; then \
 		echo autogen -DPROGRAM=1 -b fixincl inclhack.def ; \
-		autogen -DPROGRAM=1 -b fixincl inclhack.def ; touch $@ ; \
+		autogen -DPROGRAM=1 -b fixincl -L$(srcdir) inclhack.def ; touch $@ ; \
 	else echo You need to install autogen ; \
-		$(CP) $(srcdir)/$@ . ; fi
+		if [ `pwd` != `cd $(srcdir) ; pwd` ] ; then \
+			$(CP) $(srcdir)/$@ . ; \
+		else touch $@ ; fi ; fi
 
 clean:
 	rm -f *.o $(TARGETS) fixincl.x

@@ -382,7 +382,7 @@ done
 
 cd $ORIGDIR
 rm -f include/assert.h
-cp ${EGCS_SRCDIR}/assert.h include/assert.h
+cp ${srcdir}/assert.h include/assert.h || exit 1
 chmod a+r include/assert.h
 [=
 

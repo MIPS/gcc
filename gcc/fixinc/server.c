@@ -54,6 +54,13 @@
 
 #include "server.h"
 
+/* If this particular system's header files define the macro `MAXPATHLEN',
+   we happily take advantage of it; otherwise we use a value which ought
+   to be large enough.  */
+#ifndef MAXPATHLEN
+# define MAXPATHLEN	4096
+#endif
+
 #ifdef DEBUG
 #define STATIC
 #else
@@ -69,7 +76,7 @@
 STATIC bool readPipeTimeout;
 
 STATIC tpChar defArgs[] =
-{(char *) NULL, "-p", (char *) NULL};
+{(char *) NULL, (char *) NULL};
 STATIC tpfPair serverPair =
 {(FILE *) NULL, (FILE *) NULL};
 STATIC pid_t serverId = NULLPROCESS;
