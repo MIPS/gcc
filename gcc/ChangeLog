@@ -1,3 +1,10 @@
+Wed Oct  9 21:18:43 CEST 2002 Jan Hubicka  <jh@suse.cz>
+
+	* i386.c (*_cost): Add branch costs.
+	(override_options): set ix86_branch_cost.
+	(ix86_expand_int_movcc): Use BRANCH_COST.
+	* i386.h (costs): Add branch_cost.
+
 2002-10-08  Roger Sayle  <roger@eyesopen.com>
 
 	* fold-const.c (fold) [LROTATE_EXPR, RROTATE_EXPR]: Optimize

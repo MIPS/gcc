@@ -75,6 +75,7 @@ struct processor_costs {
   const int prefetch_block;	/* bytes moved to cache for prefetch.  */
   const int simultaneous_prefetches; /* number of parallel prefetch
 				   operations.  */
+  const int branch_cost;	/* Default value for BRANCH_COST.  */
 };
 
 extern const struct processor_costs *ix86_cost;
