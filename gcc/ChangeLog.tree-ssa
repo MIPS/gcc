@@ -1,3 +1,14 @@
+2004-02-03  Steven Bosscher  <stevenb@suse.de>
+
+	* tree-ssa-dce.c: Partial rewrite.  The old DCE is now called
+	`conservative'.  The more aggressive algorithm uses control
+	dependence and is called `aggressive' or cd-dce.
+	* timevar.def (TV_TREE_DCE): Rename.
+	(TV_TREE_CD_DCE, TV_CONTROL_DEPENDENCES): New timevars.
+	* tree-pass.h: Declare extern pass_cd_dce.
+	* tree-optimize.c (init_tree_optimization_passes): Replace
+	the final DCE pass with a CD-DCE pass.
+
 2004-02-01  Jan Hubicka  <jh@suse.cz>
 
 	* cgraphunit.c (cgraph_mark_inline_edge): Fix insertion to

@@ -296,7 +296,7 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_split_crit_edges);
   NEXT_PASS (pass_pre);
   NEXT_PASS (DUP_PASS (pass_dominator));
-  NEXT_PASS (DUP_PASS (pass_dce));
+  NEXT_PASS (pass_cd_dce);
   NEXT_PASS (pass_tail_calls);
   NEXT_PASS (pass_del_ssa);
   NEXT_PASS (pass_del_cfg);
