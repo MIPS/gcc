@@ -89,31 +89,9 @@ static alias_typevar andersen_add_var PARAMS ((struct tree_alias_ops *, tree));
 static alias_typevar andersen_add_var_same PARAMS ((struct tree_alias_ops *, 
 						    tree, alias_typevar)); 
 static bool pointer_destroying_op PARAMS ((tree));
-static hashval_t ptset_map_hash PARAMS ((const PTR));
-static int ptset_map_eq PARAMS ((const PTR, const PTR));
 
 static splay_tree ptamap;
-static htab_t ptset_map;
 
-#define POINTER_HASH(x) (hashval_t)((long)x >> 3)
-struct ptset_map_data
-{
-  tree decl;
-  aterm_list ptset;
-};
-static hashval_t
-ptset_map_hash (p)
-     const PTR p;
-{
-  return POINTER_HASH (((struct ptset_map_data *)p)->decl);
-}
-static int
-ptset_map_eq (p1, p2)
-     const PTR p1;
-     const PTR p2;
-{
-  return ((struct ptset_map_data *)p1)->decl == p2;
-}
 
 static struct tree_alias_ops andersen_ops = {
   andersen_init,
@@ -431,7 +409,6 @@ andersen_init (ops)
   
   dump_file = dump_begin (TDI_pta, &dump_flags);
   ptamap = splay_tree_new (splay_tree_compare_pointers, NULL, NULL);
-  ptset_map = htab_create (7, ptset_map_hash, ptset_map_eq, free);
   /* Don't claim we can do ip partial unless the user requests it. */
   if (!flag_ip)
     andersen_ops.ip_partial = 0;
@@ -472,7 +449,6 @@ andersen_cleanup (ops)
     {
       pta_reset ();
       splay_tree_delete (ptamap);
-      htab_delete (ptset_map);
       deleteregion (andersen_rgn);
     }
   
@@ -489,7 +465,6 @@ andersen_add_var (ops, decl)
      tree decl;
 {
   alias_typevar ret;
-  PTR *slot;
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "Adding variable %s\n", 
 	     alias_get_name (decl));
@@ -507,12 +482,7 @@ andersen_add_var (ops, decl)
     }
   splay_tree_insert (ptamap, (splay_tree_key) ALIAS_TVAR_ATERM (ret),
 		     (splay_tree_value) ret);
-  slot = htab_find_slot_with_hash (ptset_map, 
-				   decl,
-				   POINTER_HASH (decl),
-				   NO_INSERT);
-  if (slot)
-    htab_clear_slot (ptset_map, slot);
+  ALIAS_TVAR_PTSET (ret) = NULL;
 
   return ret;
 }
@@ -527,7 +497,6 @@ andersen_add_var_same (ops, decl, tv)
      alias_typevar tv;
 {
   alias_typevar ret;
-  PTR *slot;
   
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "Adding variable %s same as %s\n",
@@ -546,19 +515,8 @@ andersen_add_var_same (ops, decl, tv)
   pta_join (ALIAS_TVAR_ATERM (tv), ALIAS_TVAR_ATERM (ret));
   splay_tree_insert (ptamap, (splay_tree_key) ALIAS_TVAR_ATERM (ret),
 		     (splay_tree_value) ret);
-  slot = htab_find_slot_with_hash (ptset_map, 
-				   decl,
-				   POINTER_HASH (decl),
-				   NO_INSERT);
-  if (slot)
-    htab_clear_slot (ptset_map, slot);
-  
-  slot = htab_find_slot_with_hash (ptset_map,
-				   ALIAS_TVAR_DECL (tv),
-				   POINTER_HASH (ALIAS_TVAR_DECL (tv)),
-				   NO_INSERT);
-  if (slot)
-    htab_clear_slot (ptset_map, slot);
+  ALIAS_TVAR_PTSET (tv) = NULL;
+  ALIAS_TVAR_PTSET (ret) = NULL; 
   
   return ret;
 }
@@ -800,25 +758,12 @@ andersen_may_alias (ops, ptrtv, vartv)
      alias_typevar vartv;
 {
   aterm_list ptset;
-  struct ptset_map_data *data;
+  ptset = ALIAS_TVAR_PTSET (ptrtv); 
   
-  data = htab_find_with_hash (ptset_map, ALIAS_TVAR_DECL (ptrtv),
-			      POINTER_HASH (ALIAS_TVAR_DECL (ptrtv)));
-  
-  if (!data)
+  if (!ptset)
     {
       ptset = aterm_tlb (pta_get_contents (ALIAS_TVAR_ATERM (ptrtv)));
-      data = xmalloc (sizeof (struct ptset_map_data));
-      data->decl = ALIAS_TVAR_DECL (ptrtv);
-      data->ptset = ptset;
-      *(htab_find_slot_with_hash (ptset_map,
-				  ALIAS_TVAR_DECL (ptrtv),
-				  POINTER_HASH (ALIAS_TVAR_DECL (ptrtv)),
-				  INSERT)) = data;
-    }
-  else
-    {
-      ptset = data->ptset;
+      ALIAS_TVAR_PTSET (ptrtv) = ptset;
     }
 
   if (aterm_list_empty (ptset))

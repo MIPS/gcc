@@ -1,3 +1,28 @@
+2002-02-20  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-alias-ander.c: Store cached ptsets in the typevar, not
+	a seperate hash table.
+	(ptset_map): Removed;
+	(ptset_map_eq): Ditto.
+	(ptset_map_hash): Ditto.
+	(andersen_init): Remove ptset_map.
+	(andersen_cleanup): Ditto.
+	(andersen_add_var): Ditto.
+	(andersen_add_var_asm): Ditto.
+	(andersen_may_alias): Ditto.
+	* tree-alias-common.c: Store typevars for DECL nodes in the tree_decl
+	structure.
+	(get_alias_var_decl): Use DECL_PTA_TYPEVAR for DECL's.
+	(create_alias_var): Ditto.
+	(find_func_aliases): CONST functions don't affect aliasing either.
+	(ptr_may_alias_var): Don't call get_base_symbol.
+	Remove decl_function_context, use DECL_CONTEXT instead.
+	For DECL's, use DECL_PTA_TYPEVAR.
+	* tree-alias-type.c (struct alias_typevar_aterm): Add ptset member.
+	(ALIAS_TVAR_PTSET): New macro.
+	* tree.h (DECL_PTA_TYPEVAR): New macro.
+	(struct tree_decl): Add typevar member.
+
 2003-02-20  Jeff Law  <law@redhat.com>
 
 	* c-simplify.c (simplify_decl_stmt): Call set_vla_decl on the

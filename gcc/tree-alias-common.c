@@ -154,11 +154,18 @@ get_alias_var_decl (decl)
   
   alias_typevar newvar;
   
-  lookup.key = decl;
-  entry = htab_find (alias_annot, &lookup);
-  if (entry != NULL && entry->value != 0)
-    return entry->value;
-  
+  if (SSA_DECL_P (decl))
+    {
+      if (DECL_PTA_TYPEVAR (decl))
+	return DECL_PTA_TYPEVAR (decl);
+    }
+  else
+    {
+      lookup.key = decl;
+      entry = htab_find (alias_annot, &lookup);
+      if (entry != NULL && entry->value != 0)
+	return entry->value;
+    } 
   /* For debugging, remove this whole if block, and re-enable the 
      find_func_decls call. */
   if (TREE_CODE (decl) == FUNCTION_DECL)
@@ -313,7 +320,6 @@ intra_function_call (args)
 	  current_alias_ops->addr_assign (current_alias_ops, argav, av);
 	  current_alias_ops->addr_assign (current_alias_ops, tempvar, av);
 	  current_alias_ops->assign_ptr (current_alias_ops, argav, tempvar);
-
 	}
     }
   /* We assume assignments among the actual parameters. */
@@ -508,8 +514,8 @@ find_func_aliases (tp, walk_subtrees, data)
 		  if (TREE_CODE (callop0) == ADDR_EXPR)
 		    create_fun_alias_var (TREE_OPERAND (callop0, 0), 0);
 		  
-		  /* NORETURN functions have no effect on aliasing. */
-		  if (!(call_expr_flags (op1) & ECF_NORETURN))
+		  /* NORETURN and CONST functions have no effect on aliasing. */
+		  if (!(call_expr_flags (op1) & (ECF_NORETURN | ECF_CONST)))
 		    if (current_alias_ops->function_call (current_alias_ops, lhsAV, 
 							  get_alias_var (callop0),
 							  args))
@@ -659,8 +665,8 @@ find_func_aliases (tp, walk_subtrees, data)
 	}
       if (TREE_CODE (TREE_OPERAND (stp, 0)) == ADDR_EXPR)
 	create_fun_alias_var (TREE_OPERAND (TREE_OPERAND (stp, 0), 0), 0);
-      /* NORETURN functions have no effect on aliasing.  */
-      if (!(call_expr_flags (stp) & ECF_NORETURN))
+      /* NORETURN and CONST functions have no effect on aliasing.  */
+      if (!(call_expr_flags (stp) & (ECF_NORETURN | ECF_CONST)))
 	if (current_alias_ops->function_call (current_alias_ops, NULL, 
 					      get_alias_var (TREE_OPERAND (stp, 0)),
 					      args))
@@ -899,7 +905,11 @@ create_alias_var (decl)
   struct alias_annot_entry entry, *result, *newentry, **slot;
   
   alias_typevar avar;
-  
+  if (SSA_DECL_P (decl))
+    {
+      if (DECL_PTA_TYPEVAR (decl))
+	return DECL_PTA_TYPEVAR (decl);
+    }
   entry.key = decl;
   result = htab_find (alias_annot, &entry);
   if (result != NULL && result->value != NULL)
@@ -913,14 +923,20 @@ create_alias_var (decl)
     }
   else
     avar = current_alias_ops->add_var (current_alias_ops, decl);
-
-  newentry = ggc_alloc (sizeof (struct alias_annot_entry));
-  newentry->key = decl;
-  newentry->value = avar;
-  slot = (struct alias_annot_entry **)htab_find_slot (alias_annot, newentry, 
-						      INSERT);
-  *slot = newentry;
-  
+  if (SSA_DECL_P (decl))
+    {
+      DECL_PTA_TYPEVAR (decl) = avar;
+    }
+  else
+    {
+      newentry = ggc_alloc (sizeof (struct alias_annot_entry));
+      newentry->key = decl;
+      newentry->value = avar;
+      slot = 
+	(struct alias_annot_entry **)htab_find_slot (alias_annot, newentry, 
+						     INSERT);
+      *slot = newentry;
+    } 
   VARRAY_PUSH_GENERIC_PTR (alias_vars, avar);
 
   return avar;
@@ -990,7 +1006,14 @@ delete_alias_vars ()
   for (i = 0; i < VARRAY_ACTIVE_SIZE (local_alias_vars); i++)
     {
       entry.key = VARRAY_GENERIC_PTR (local_alias_vars, i);
-      htab_remove_elt (alias_annot, &entry);
+      if (!SSA_DECL_P (entry.key))
+	{
+	  htab_remove_elt (alias_annot, &entry);
+	}
+      else
+	{
+	  DECL_PTA_TYPEVAR (entry.key) = NULL;
+	}
     }
   
   for (i = 0; i < VARRAY_ACTIVE_SIZE (local_alias_varnums); i ++)
@@ -1037,54 +1060,63 @@ ptr_may_alias_var (ptr, var)
   alias_typevar ptrtv, vartv;
 
 #if !FIELD_BASED
-  ptr = get_base_symbol (ptr);
-  var = get_base_symbol (var);
 #else
   if (TREE_CODE (ptr) == COMPONENT_REF)
     ptr = TREE_OPERAND (ptr, 1);
   if (TREE_CODE (var) == COMPONENT_REF)
     var = TREE_OPERAND (var, 1);
 #endif
-  if (ptr == var)
+  if (ptr == var || (DECL_CONTEXT (ptr) == NULL
+		     && DECL_CONTEXT (var) == NULL))
     return true;
-
-  entry.key = ptr;
-  result = htab_find (alias_annot, &entry);
-
-  if (!result 
-      && decl_function_context (ptr) == NULL)
+  if (SSA_DECL_P (ptr))
     {
-      entry.key = global_var;
-      result = htab_find (alias_annot, &entry);
+      ptrtv = DECL_PTA_TYPEVAR (ptr);
+      if (DECL_CONTEXT (ptr) == NULL)
+	ptrtv = DECL_PTA_TYPEVAR (global_var);
+      if (!ptrtv && !current_alias_ops->ip && ptr != global_var)
+	abort ();
+      else if (!ptrtv)
+	return false;
     }
-  
-  if (!result && !current_alias_ops->ip && ptr != global_var)
-    abort ();
-
-  else if (!result)
-    return false;
-
-  ptrtv = result->value;  
-  entry.key = var;
-  result = htab_find (alias_annot, &entry);
-
-  if (!result 
-      && decl_function_context (var) == NULL)
+  else
     {
-      entry.key = global_var;
+      if (DECL_CONTEXT (ptr) == NULL)
+	entry.key = global_var;
+      else
+	entry.key = ptr;
       result = htab_find (alias_annot, &entry);
+      if (!result && !current_alias_ops->ip && ptr != global_var)
+	abort ();
+      else if (!result)
+	return false;
+      ptrtv = result->value;  
     }
-  
-  if (!result && !current_alias_ops->ip && var != global_var)
-    abort ();
-  else if (!result)
-    return false;
-  
-  vartv = result->value;
+  if (SSA_DECL_P (var))
+    {
+      vartv = DECL_PTA_TYPEVAR (var);
+      if (DECL_CONTEXT (var) == NULL)
+	vartv = DECL_PTA_TYPEVAR (global_var);
+      if (!vartv && !current_alias_ops->ip && var != global_var)
+	abort ();
+      else if (!vartv)
+	return false;
+    }
+  else
+    {
+      if (DECL_CONTEXT (var) == NULL)
+	entry.key = global_var;
+      else
+	entry.key = var;
+      result = htab_find (alias_annot, &entry);
+      if (!result && !current_alias_ops->ip && var != global_var)
+	abort ();
+      else if (!result)
+	return false;
+      
+      vartv = result->value;
+    }
 
-  if (ptrtv == vartv)
-    return true;
-  
   return current_alias_ops->may_alias (current_alias_ops, ptrtv, vartv);
   
 }
