@@ -1,9 +1,4 @@
-static char junk[] = "\n@(#) LIBI77 VERSION pjw,dmg-mods 19980405\n";
-
-/*
-*/
-
-char __G77_LIBI77_VERSION__[] = "0.5.23";
+static char junk[] = "\n@(#) LIBI77 VERSION pjw,dmg-mods 19980617\n";
 
 /*
 2.01	$ format added
@@ -285,18 +280,11 @@ wrtfmt.c:
 		 where trial fopen calls are used. */
 /* 5 April 1998: wsfe.c: make $ format item work: this was lost in the
 		 changes of 17 March 1998. */
-
-
-
-/* Changes for GNU Fortran (g77) version of libf2c:  */
-
-/* 17 June 1997: detect recursive I/O and call f__fatal explaining it. */
-
-#include <stdio.h>
-
-void
-g77__ivers__ ()
-{
-  fprintf (stderr, "__G77_LIBI77_VERSION__: %s", __G77_LIBI77_VERSION__);
-  fputs (junk, stderr);
-}
+/* 28 May 1998:	 backspace.c dfe.c due.c iio.c lread.c rsfe.c sue.c wsfe.c:
+		 set f__curunit sooner so various error messages will
+		 correctly identify the I/O unit involved. */
+/* 17 June 1998: lread.c: unless compiled with
+		 ALLOW_FLOAT_IN_INTEGER_LIST_INPUT #defined, treat
+		 floating-point numbers (containing either a decimal point
+		 or an exponent field) as errors when they appear as list
+		 input for integer data. */

@@ -6,16 +6,16 @@
 extern char *F77_aloc();
 
  integer
-G77_system_0 (s, n) register char *s; ftnlen n;
+system_(s, n) register char *s; ftnlen n;
 #else
 #undef abs
 #undef min
 #undef max
-#include <stdlib.h>
+#include "stdlib.h"
 extern char *F77_aloc(ftnlen, char*);
 
  integer
-G77_system_0 (register char *s, ftnlen n)
+system_(register char *s, ftnlen n)
 #endif
 {
 	char buff0[256], *buff;

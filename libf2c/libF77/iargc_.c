@@ -1,11 +1,11 @@
 #include "f2c.h"
 
 #ifdef KR_headers
-ftnint G77_iargc_0 ()
+ftnint iargc_()
 #else
-ftnint G77_iargc_0 (void)
+ftnint iargc_(void)
 #endif
 {
-extern int f__xargc;
-return ( f__xargc - 1 );
+extern int xargc;
+return ( xargc - 1 );
 }

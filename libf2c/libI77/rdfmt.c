@@ -1,4 +1,3 @@
-#include <ctype.h>
 #include "f2c.h"
 #include "fio.h"
 
@@ -9,11 +8,12 @@ extern double atof();
 #undef abs
 #undef min
 #undef max
-#include <stdlib.h>
+#include "stdlib.h"
 #endif
 
 #include "fmt.h"
 #include "fp.h"
+#include "ctype.h"
 
  static int
 #ifdef KR_headers

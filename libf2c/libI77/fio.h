@@ -1,11 +1,8 @@
-#include <stdio.h>
-#include <errno.h>
+#include "stdio.h"
+#include "errno.h"
 #ifndef NULL
 /* ANSI C */
-#include <stddef.h>
-#endif
-#ifdef STDC_HEADERS
-#include <string.h>
+#include "stddef.h"
 #endif
 
 #ifndef SEEK_SET
@@ -14,7 +11,7 @@
 #define SEEK_END 2
 #endif
 
-#if defined (MSDOS) && !defined (GO32)
+#ifdef MSDOS
 #ifndef NON_UNIX_STDIO
 #define NON_UNIX_STDIO
 #endif
@@ -30,7 +27,7 @@ typedef long uiolen;
 typedef struct
 {	FILE *ufd;	/*0=unconnected*/
 	char *ufnm;
-#if !(defined (MSDOS) && !defined (GO32))
+#ifndef MSDOS
 	long uinode;
 	int udev;
 #endif
@@ -44,7 +41,7 @@ typedef struct
 	flag uscrtch;
 } unit;
 
-extern int f__init;
+extern flag f__init;
 extern cilist *f__elist;	/*active external io list*/
 extern flag f__reading,f__external,f__sequential,f__formatted;
 #undef Void
@@ -88,8 +85,8 @@ extern int (*f__doend)(Void);
 extern FILE *f__cf;	/*current file*/
 extern unit *f__curunit;	/*current unit*/
 extern unit f__units[];
-#define err(f,m,s) do {if(f) {f__init &= ~2; errno= m;} else f__fatal(m,s); return(m);} while(0)
-#define errfl(f,m,s) do {return err__fl((int)f,m,s);} while(0)
+#define err(f,m,s) {if(f) errno= m; else f__fatal(m,s); return(m);}
+#define errfl(f,m,s) return err__fl((int)f,m,s)
 
 /*Table sizes*/
 #define MXUNIT 100

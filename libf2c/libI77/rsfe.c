@@ -49,8 +49,7 @@ integer s_rsfe(a) cilist *a; /* start */
 integer s_rsfe(cilist *a) /* start */
 #endif
 {	int n;
-	if(f__init != 1) f_init();
-	f__init = 3;
+	if(!f__init) f_init();
 	f__reading=1;
 	f__sequential=1;
 	f__formatted=1;
@@ -60,7 +59,6 @@ integer s_rsfe(cilist *a) /* start */
 	f__cursor=f__recpos=0;
 	f__scale=0;
 	f__fmtbuf=a->cifmt;
-	f__curunit= &f__units[a->ciunit];
 	f__cf=f__curunit->ufd;
 	if(pars_f(f__fmtbuf)<0) err(a->cierr,100,"startio");
 	f__getn= x_getc;

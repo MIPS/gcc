@@ -1,4 +1,3 @@
-#include <sys/types.h>
 #include "f2c.h"
 #include "fio.h"
 #ifdef KR_headers
@@ -12,11 +11,9 @@ integer f_back(alist *a)
 	FILE *f;
 
 	f__curunit = b = &f__units[a->aunit];	/* curunit for error messages */
-	if (f__init & 2)
-		f__fatal (131, "I/O recursion");
 	if(a->aunit >= MXUNIT || a->aunit < 0)
-		err(a->aerr,101,"backspace");
-	if(b->useek==0) err(a->aerr,106,"backspace");
+		err(a->aerr,101,"backspace")
+	if(b->useek==0) err(a->aerr,106,"backspace")
 	if((f = b->ufd) == NULL) {
 		fk_open(1, 1, a->aunit);
 		return(0);
@@ -28,7 +25,7 @@ integer f_back(alist *a)
 	if(b->uwrt) {
 		(void) t_runc(a);
 		if (f__nowreading(b))
-			err(a->aerr,errno,"backspace");
+			err(a->aerr,errno,"backspace")
 		}
 	if(b->url>0)
 	{
@@ -64,7 +61,7 @@ integer f_back(alist *a)
 				}
 			z = v;
 			}
-		err(a->aerr,(EOF),"backspace");
+		err(a->aerr,(EOF),"backspace")
 		}
  break2:
 	fseek(f, z, SEEK_SET);

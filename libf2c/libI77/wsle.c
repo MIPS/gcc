@@ -26,9 +26,7 @@ integer s_wsle(cilist *a)
 
 integer e_wsle(Void)
 {
-	int n;
-	f__init = 1;
-	n = f__putbuf('\n');
+	int n = f__putbuf('\n');
 	f__recpos=0;
 #ifdef ALWAYS_FLUSH
 	if (!n && fflush(f__cf))

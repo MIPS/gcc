@@ -46,8 +46,6 @@ c_lir(icilist *a)
 #endif
 {
 	extern int l_eof;
-	if(f__init != 1) f_init();
-	f__init = 3;
 	f__reading = 1;
 	f__external = 0;
 	f__formatted = 1;
@@ -82,7 +80,7 @@ integer s_rsli(icilist *a)
 	}
 
 integer e_rsli(Void)
-{ f__init = 1; return 0; }
+{ return 0; }
 
 #ifdef KR_headers
 integer s_rsni(a) icilist *a;

@@ -1,14 +1,14 @@
-#include <stdio.h>
+#include "stdio.h"
 #include "f2c.h"
 
 #ifdef KR_headers
 extern VOID sig_die();
 
-int G77_abort_0 ()
+int abort_()
 #else
 extern void sig_die(char*,int);
 
-int G77_abort_0 (void)
+int abort_(void)
 #endif
 {
 sig_die("Fortran abort routine called", 1);

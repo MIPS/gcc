@@ -79,7 +79,6 @@ extern int wrt_L(Uint*, int, ftnlen);
 #endif
 extern flag f__cblank,f__cplus,f__workdone, f__nonl;
 extern char *f__fmtbuf;
-extern int f__fmtlen;
 extern int f__scale;
 #define GET(x) if((x=(*f__getn)())<0) return(x)
 #define VAL(x) (x!='\n'?x:' ')

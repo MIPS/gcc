@@ -1,11 +1,6 @@
 static char junk[] = "\n@(#)LIBF77 VERSION 19970919\n";
 
 /*
-*/
-
-char __G77_LIBF77_VERSION__[] = "0.5.23";
-
-/*
 2.00	11 June 1980.  File version.c added to library.
 2.01	31 May 1988.  s_paus() flushes stderr; names of hl_* fixed
 	[ d]erf[c ] added
@@ -56,12 +51,3 @@ char __G77_LIBF77_VERSION__[] = "0.5.23";
 	19 Sept. 1997: [de]time_.c (Unix systems only): change return
 			type to double.
 */
-
-#include <stdio.h>
-
-void
-g77__fvers__ ()
-{
-  fprintf (stderr, "__G77_LIBF77_VERSION__: %s", __G77_LIBF77_VERSION__);
-  fputs (junk, stderr);
-}

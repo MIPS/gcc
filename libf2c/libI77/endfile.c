@@ -8,8 +8,8 @@ extern FILE *tmpfile();
 #undef abs
 #undef min
 #undef max
-#include <stdlib.h>
-#include <string.h>
+#include "stdlib.h"
+#include "string.h"
 #endif
 
 extern char *f__r_mode[], *f__w_mode[];
@@ -23,8 +23,6 @@ integer f_end(alist *a)
 	unit *b;
 	FILE *tf;
 
-	if (f__init & 2)
-		f__fatal (131, "I/O recursion");
 	if(a->aunit>=MXUNIT || a->aunit<0) err(a->aerr,101,"endfile");
 	b = &f__units[a->aunit];
 	if(b->ufd==NULL) {

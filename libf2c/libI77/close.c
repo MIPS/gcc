@@ -6,13 +6,13 @@ integer f_clos(a) cllist *a;
 #undef abs
 #undef min
 #undef max
-#include <stdlib.h>
+#include "stdlib.h"
 #ifdef NON_UNIX_STDIO
 #ifndef unlink
 #define unlink remove
 #endif
 #else
-#if defined (MSDOS) && !defined (GO32)
+#ifdef MSDOS
 #include "io.h"
 #else
 #ifdef __cplusplus
@@ -27,8 +27,6 @@ integer f_clos(cllist *a)
 #endif
 {	unit *b;
 
-	if (f__init & 2)
-		f__fatal (131, "I/O recursion");
 	if(a->cunit >= MXUNIT) return(0);
 	b= &f__units[a->cunit];
 	if(b->ufd==NULL)
@@ -72,15 +70,6 @@ f_exit(void)
 #endif
 {	int i;
 	static cllist xx;
-	if (! (f__init & 1))
-		return;		/* Not initialized, so no open units. */
-	/* I/O no longer in progress.  If, during an I/O operation (such
-	   as waiting for the user to enter a line), there is an
-	   interrupt (such as ^C to stop the program on a UNIX system),
-	   f_exit() is called, but there is no longer any I/O in
-	   progress.  Without turning off this flag, f_clos() would
-	   think that there is an I/O recursion in this circumstance. */
-	f__init &= ~2;
 	if (!xx.cerr) {
 		xx.cerr=1;
 		xx.csta=NULL;
@@ -93,9 +82,9 @@ f_exit(void)
 }
  int
 #ifdef KR_headers
-G77_flush_0 ()
+flush_()
 #else
-G77_flush_0 (void)
+flush_(void)
 #endif
 {	int i;
 	for(i=0;i<MXUNIT;i++)

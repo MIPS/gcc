@@ -1,19 +1,19 @@
 #include "f2c.h"
 #include "fio.h"
-#ifndef VAX
-#include <ctype.h>
-#endif
 
 #ifndef KR_headers
 #undef abs
 #undef min
 #undef max
-#include <stdlib.h>
-#include <string.h>
+#include "stdlib.h"
+#include "string.h"
 #endif
 
 #include "fmt.h"
 #include "fp.h"
+#ifndef VAX
+#include "ctype.h"
+#endif
 
 #ifdef KR_headers
 wrt_E(p,w,d,e,len) ufloat *p; ftnlen len;

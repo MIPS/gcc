@@ -2,10 +2,10 @@
 
 #ifdef KR_headers
 double erfc();
-double G77_erfc_0 (x) real *x;
+double erfc_(x) real *x;
 #else
 extern double erfc(double);
-double G77_erfc_0 (real *x)
+double erfc_(real *x)
 #endif
 {
 return( erfc(*x) );

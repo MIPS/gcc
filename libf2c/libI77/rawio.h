@@ -1,5 +1,5 @@
 #ifndef KR_headers
-#if defined (MSDOS) && !defined (GO32)
+#ifdef MSDOS
 #include "io.h"
 #ifndef WATCOM
 #define close _close
@@ -12,14 +12,12 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-#if !(defined (MSDOS) && !defined (GO32))
+#ifndef MSDOS
 #ifdef OPEN_DECL
 extern int creat(const char*,int), open(const char*,int);
 #endif
 extern int close(int);
-#if !(defined(_WIN32) && !defined(__CYGWIN32__))
 extern int read(int,void*,size_t), write(int,void*,size_t);
-#endif
 extern int unlink(const char*);
 #ifndef _POSIX_SOURCE
 #ifndef NON_UNIX_STDIO
@@ -35,9 +33,7 @@ extern char *mktemp(char*);
 #endif
 #endif
 
-#ifndef NO_FCNTL
-#include <fcntl.h>
-#endif
+#include "fcntl.h"
 
 #ifndef O_WRONLY
 #define O_RDONLY 0

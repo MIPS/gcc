@@ -15,24 +15,24 @@ unit_chk(integer Unit, char *who)
 
  integer
 #ifdef KR_headers
-G77_ftell_0 (Unit) integer *Unit;
+ftell_(Unit) integer *Unit;
 #else
-G77_ftell_0 (integer *Unit)
+ftell_(integer *Unit)
 #endif
 {
 	FILE *f;
 	return (f = unit_chk(*Unit, "ftell")) ? ftell(f) : -1L;
 	}
 
- integer
+ int
 #ifdef KR_headers
-G77_fseek_0 (Unit, offset, xwhence) integer *Unit, *offset, *xwhence;
+fseek_(Unit, offset, whence) integer *Unit, *offset, *whence;
 #else
-G77_fseek_0 (integer *Unit, integer *offset, integer *xwhence)
+fseek_(integer *Unit, integer *offset, integer *whence)
 #endif
 {
 	FILE *f;
-	int w = (int)*xwhence;
+	int w = (int)*whence;
 #ifdef SEEK_SET
 	static int wohin[3] = { SEEK_SET, SEEK_CUR, SEEK_END };
 #endif

@@ -103,6 +103,7 @@ char *f_s(char *s, int curloc)
 	{
 		return(NULL);
 	}
+	skip(s);
 	return(s);
 }
 
@@ -364,39 +365,11 @@ pars_f(s) char *s;
 pars_f(char *s)
 #endif
 {
-	char *e;
-
 	f__parenlvl=f__revloc=f__pc=0;
-	if((e=f_s(s,0)) == NULL)
+	if(f_s(s,0) == NULL)
 	{
-		/* Try and delimit the format string.  Parens within
-		   hollerith and quoted strings have to match for this
-		   to work, but it's probably adequate for most needs.
-		   Note that this is needed because a valid CHARACTER
-		   variable passed for FMT= can contain '(I)garbage',
-		   where `garbage' is billions and billions of junk
-		   characters, and it's up to the run-time library to
-		   know where the format string ends by counting parens.
-		   Meanwhile, still treat NUL byte as "hard stop", since
-		   f2c still appends that at end of FORMAT-statement
-		   strings.  */
-
-		int level=0;
-
-		for (f__fmtlen=0;
-			((*s!=')') || (--level > 0))
-				&& (*s!='\0')
-				&& (f__fmtlen<80);
-			++s, ++f__fmtlen)
-		{
-			if (*s=='(')
-				++level;
-		}
-		if (*s==')')
-			++f__fmtlen;
 		return(-1);
 	}
-	f__fmtlen = e - s;
 	return(0);
 }
 #define STKSZ 10
@@ -448,8 +421,8 @@ integer do_fio(ftnint *number, char *ptr, ftnlen len)
 loop:	switch(type_f((p= &f__syl[f__pc])->op))
 	{
 	default:
-		fprintf(stderr,"unknown code in do_fio: %d\n%.*s\n",
-			p->op,f__fmtlen,f__fmtbuf);
+		fprintf(stderr,"unknown code in do_fio: %d\n%s\n",
+			p->op,f__fmtbuf);
 		err(f__elist->cierr,100,"do_fio");
 	case NED:
 		if((*f__doned)(p))

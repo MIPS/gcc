@@ -45,8 +45,7 @@ integer s_wsfe(a) cilist *a;	/*start*/
 integer s_wsfe(cilist *a)	/*start*/
 #endif
 {	int n;
-	if(f__init != 1) f_init();
-	f__init = 3;
+	if(!f__init) f_init();
 	f__reading=0;
 	f__sequential=1;
 	f__formatted=1;
@@ -57,7 +56,6 @@ integer s_wsfe(cilist *a)	/*start*/
 	f__nonl = 0;
 	f__scale=0;
 	f__fmtbuf=a->cifmt;
-	f__curunit = &f__units[a->ciunit];
 	f__cf=f__curunit->ufd;
 	if(pars_f(f__fmtbuf)<0) err(a->cierr,100,"startio");
 	f__putn= x_putc;

@@ -1,8 +1,8 @@
 #ifndef NON_UNIX_STDIO
 #define _INCLUDE_POSIX_SOURCE	/* for HP-UX */
 #define _INCLUDE_XOPEN_SOURCE	/* for HP-UX */
-#include <sys/types.h>
-#include <sys/stat.h>
+#include "sys/types.h"
+#include "sys/stat.h"
 #endif
 #include "f2c.h"
 #ifdef KR_headers
@@ -11,22 +11,19 @@ extern char *malloc();
 #undef abs
 #undef min
 #undef max
-#include <stdlib.h>
+#include "stdlib.h"
 #endif
 #include "fio.h"
 #include "fmt.h"	/* for struct syl */
 
 /*global definitions*/
 unit f__units[MXUNIT];	/*unit table*/
-int f__init;	/*bit 0: set after initializations;
-		  bit 1: set during I/O involving returns to
-		    caller of library (or calls to user code)*/
+flag f__init;	/*0 on entry, 1 after initializations*/
 cilist *f__elist;	/*active external io list*/
 icilist *f__svic;	/*active internal io list*/
 flag f__reading;	/*1 if reading, 0 if writing*/
 flag f__cplus,f__cblank;
 char *f__fmtbuf;
-int f__fmtlen;
 flag f__external;	/*1 if external io, 0 if internal */
 #ifdef KR_headers
 int (*f__doed)(),(*f__doned)();
@@ -80,9 +77,7 @@ char *F_err[] =
 	"can't write file",				/* 127 */
 	"'new' file exists",				/* 128 */
 	"can't append to file",				/* 129 */
-	"non-positive record number",			/* 130 */
-	"I/O started while already doing I/O",		/* 131 */
-	"Temporary file name (TMPDIR?) too long"        /* 132 */
+	"non-positive record number"			/* 130 */
 };
 #define MAXERR (sizeof(F_err)/sizeof(char *)+100)
 
@@ -147,8 +142,6 @@ f__fatal(n,s) char *s;
 f__fatal(int n, char *s)
 #endif
 {
-	static int dead = 0;
-
 	if(n<100 && n>=0) perror(s); /*SYSDEP*/
 	else if(n >= (int)MAXERR || n < -1)
 	{	fprintf(stderr,"%s: illegal error number %d\n",s,n);
@@ -156,26 +149,18 @@ f__fatal(int n, char *s)
 	else if(n == -1) fprintf(stderr,"%s: end of file\n",s);
 	else
 		fprintf(stderr,"%s: %s\n",s,F_err[n-100]);
-	if (dead) {
-		fprintf (stderr, "(libf2c f__fatal already called, aborting.)");
-		abort();
-	}
-	dead = 1;
-	if (f__init & 1) {
-		if (f__curunit) {
-			fprintf(stderr,"apparent state: unit %d ",f__curunit-f__units);
-			fprintf(stderr, f__curunit->ufnm ? "named %s\n" : "(unnamed)\n",
-				f__curunit->ufnm);
-			}
-		else
-			fprintf(stderr,"apparent state: internal I/O\n");
-		if (f__fmtbuf)
-			fprintf(stderr,"last format: %.*s\n",f__fmtlen,f__fmtbuf);
-		fprintf(stderr,"lately %s %s %s %s",f__reading?"reading":"writing",
-			f__sequential?"sequential":"direct",f__formatted?"formatted":"unformatted",
-			f__external?"external":"internal");
-	}
-	f__init &= ~2;	/* No longer doing I/O (no more user code to be called). */
+	if (f__curunit) {
+		fprintf(stderr,"apparent state: unit %d ",f__curunit-f__units);
+		fprintf(stderr, f__curunit->ufnm ? "named %s\n" : "(unnamed)\n",
+			f__curunit->ufnm);
+		}
+	else
+		fprintf(stderr,"apparent state: internal I/O\n");
+	if (f__fmtbuf)
+		fprintf(stderr,"last format: %s\n",f__fmtbuf);
+	fprintf(stderr,"lately %s %s %s %s",f__reading?"reading":"writing",
+		f__sequential?"sequential":"direct",f__formatted?"formatted":"unformatted",
+		f__external?"external":"internal");
 	sig_die(" IO", 1);
 }
 /*initialization routine*/
@@ -183,9 +168,7 @@ f__fatal(int n, char *s)
 f_init(Void)
 {	unit *p;
 
-	if (f__init & 2)
-		f__fatal (131, "I/O recursion");
-	f__init = 1;
+	f__init=1;
 	p= &f__units[0];
 	p->ufd=stderr;
 	p->useek=f__canseek(stderr);
@@ -283,6 +266,5 @@ err__fl(int f, int m, char *s)
 		f__fatal(m, s);
 	if (f__doend)
 		(*f__doend)();
-	f__init &= ~2;
 	return errno = m;
 	}

@@ -1,6 +1,6 @@
 #include "f2c.h"
 #include "fio.h"
-#include <string.h>
+#include "string.h"
 #ifndef NON_POSIX_STDIO
 #ifdef MSDOS
 #include "io.h"
@@ -19,7 +19,7 @@ extern integer f_clos();
 #undef abs
 #undef min
 #undef max
-#include <stdlib.h>
+#include "stdlib.h"
 extern int f__canseek(FILE*);
 extern integer f_clos(cllist*);
 #endif
@@ -104,8 +104,7 @@ x_putc(int c)
 	f__buf[f__recpos++] = c;
 	}
 
-#define opnerr(f,m,s) \
-  do {if(f) {f__init &= ~2; errno= m;} else opn_err(m,s,a); return(m);} while(0)
+#define opnerr(f,m,s) {if(f) errno= m; else opn_err(m,s,a); return(m);}
 
  static void
 #ifdef KR_headers
@@ -137,9 +136,10 @@ integer f_open(olist *a)
 #ifndef NON_UNIX_STDIO
 	int n;
 #endif
-	if(f__init != 1) f_init();
 	if(a->ounit>=MXUNIT || a->ounit<0)
-		err(a->oerr,101,"open");
+		err(a->oerr,101,"open")
+	if (!f__init)
+		f_init();
 	f__curunit = b = &f__units[a->ounit];
 	if(b->ufd) {
 		if(a->ofnm==0)
@@ -180,7 +180,7 @@ integer f_open(olist *a)
 	if (a->ofnm) {
 		g_char(a->ofnm,a->ofnmlen,buf);
 		if (!buf[0])
-			opnerr(a->oerr,107,"open");
+			opnerr(a->oerr,107,"open")
 		}
 	else
 		sprintf(buf, "fort.%ld", a->ounit);
@@ -195,35 +195,23 @@ integer f_open(olist *a)
 	case 'O':
 #ifdef NON_POSIX_STDIO
 		if (!(tf = fopen(buf,"r")))
-			opnerr(a->oerr,errno,"open");
+			opnerr(a->oerr,errno,"open")
 		fclose(tf);
 #else
 		if (access(buf,0))
-			opnerr(a->oerr,errno,"open");
+			opnerr(a->oerr,errno,"open")
 #endif
 		break;
 	 case 's':
 	 case 'S':
 		b->uscrtch=1;
 #ifdef NON_ANSI_STDIO
-#ifdef HAVE_TEMPNAM		/* Allow use of TMPDIR preferentially. */
-		s = tempnam (0, buf);
-		if (strlen (s) >= sizeof (buf))
-		  err (a->oerr, 132, "open");
-		(void) strcpy (buf, s);
-		free (s);
-#else /* ! defined (HAVE_TEMPNAM) */
-#ifdef _POSIX_SOURCE
-		tmpnam(buf);
-#else
 		(void) strcpy(buf,"tmp.FXXXXXX");
 		(void) mktemp(buf);
-#endif
-#endif /* ! defined (HAVE_TEMPNAM) */
 		goto replace;
 #else
 		if (!(b->ufd = tmpfile()))
-			opnerr(a->oerr,errno,"open");
+			opnerr(a->oerr,errno,"open")
 		b->ufnm = 0;
 #ifndef NON_UNIX_STDIO
 		b->uinode = b->udev = -1;
@@ -237,11 +225,11 @@ integer f_open(olist *a)
 #ifdef NON_POSIX_STDIO
 		if ((tf = fopen(buf,"r")) || (tf = fopen(buf,"a"))) {
 			fclose(tf);
-			opnerr(a->oerr,128,"open");
+			opnerr(a->oerr,128,"open")
 			}
 #else
 		if (!access(buf,0))
-			opnerr(a->oerr,128,"open");
+			opnerr(a->oerr,128,"open")
 #endif
 		/* no break */
 	case 'r':	/* Fortran 90 replace option */
@@ -271,7 +259,7 @@ integer f_open(olist *a)
 	b->useek = f__canseek(b->ufd = tf);
 #ifndef NON_UNIX_STDIO
 	if((b->uinode = f__inode(buf,&b->udev)) == -1)
-		opnerr(a->oerr,108,"open");
+		opnerr(a->oerr,108,"open")
 #endif
 	if(b->useek)
 		if (a->orl)
@@ -288,9 +276,6 @@ fk_open(int seq, int fmt, ftnint n)
 #endif
 {	char nbuf[10];
 	olist a;
-	int rtn;
-	int save_init;
-
 	(void) sprintf(nbuf,"fort.%ld",n);
 	a.oerr=1;
 	a.ounit=n;
@@ -301,9 +286,5 @@ fk_open(int seq, int fmt, ftnint n)
 	a.ofm = fmt==FMT?"f":"u";
 	a.orl = seq==DIR?1:0;
 	a.oblnk=NULL;
-	save_init = f__init;
-	f__init &= ~2;
-	rtn = f_open(&a);
-	f__init = save_init | 1;
-	return rtn;
+	return(f_open(&a));
 }

@@ -1,4 +1,4 @@
-#include <stdio.h>
+#include "stdio.h"
 #include "f2c.h"
 #define PAUSESIG 15
 
@@ -12,7 +12,7 @@
 #undef abs
 #undef min
 #undef max
-#include <stdlib.h>
+#include "stdlib.h"
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -60,7 +60,7 @@ s_paus(char *s, ftnlen n)
 	if( isatty(fileno(stdin)) )
 		s_1paus(stdin);
 	else {
-#if (defined (MSDOS) && !defined (GO32)) || defined (_WIN32)
+#ifdef MSDOS
 		FILE *fin;
 		fin = fopen("con", "r");
 		if (!fin) {

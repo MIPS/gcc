@@ -1,4 +1,3 @@
-#include <ctype.h>
 #include "f2c.h"
 #include "fio.h"
 
@@ -8,11 +7,9 @@
 
 
 extern char *f__fmtbuf;
-extern int f__fmtlen;
 
 #ifdef Allow_TYQUAD
 static longint f__llx;
-static int quad_read;
 #endif
 
 #ifdef KR_headers
@@ -23,13 +20,14 @@ int (*f__lioproc)(), (*l_getc)(), (*l_ungetc)();
 #undef abs
 #undef min
 #undef max
-#include <stdlib.h>
+#include "stdlib.h"
 int (*f__lioproc)(ftnint*, char*, ftnlen, ftnint), (*l_getc)(void),
 	(*l_ungetc)(int,FILE*);
 #endif
 
 #include "fmt.h"
 #include "lio.h"
+#include "ctype.h"
 #include "fp.h"
 
 int l_eof;
@@ -86,7 +84,6 @@ t_getc(Void)
 integer e_rsle(Void)
 {
 	int ch;
-	f__init = 1;
 	if(f__curunit->uend) return(0);
 	while((ch=t_getc())!='\n')
 		if (ch == EOF) {
@@ -101,7 +98,7 @@ flag f__lquit;
 int f__lcount,f__ltype,nml_read;
 char *f__lchar;
 double f__lx,f__ly;
-#define ERR(x) if(n=(x)) {f__init &= ~2; return(n);}
+#define ERR(x) if(n=(x)) return(n)
 #define GETC(x) (x=(*l_getc)())
 #define Ungetc(x,y) (*l_ungetc)(x,y)
 
@@ -531,11 +528,10 @@ c_le(a) cilist *a;
 c_le(cilist *a)
 #endif
 {
-	if(f__init != 1) f_init();
-	f__init = 3;
+	if(!f__init)
+		f_init();
 	f__fmtbuf="list io";
 	f__curunit = &f__units[a->ciunit];
-	f__fmtlen=7;
 	if(a->ciunit>=MXUNIT || a->ciunit<0)
 		err(a->cierr,101,"stler");
 	f__scale=f__recpos=0;
@@ -543,7 +539,7 @@ c_le(cilist *a)
 	if(f__curunit->ufd==NULL && fk_open(SEQ,FMT,a->ciunit))
 		err(a->cierr,102,"lio");
 	f__cf=f__curunit->ufd;
-	if(!f__curunit->ufmt) err(a->cierr,103,"lio");
+	if(!f__curunit->ufmt) err(a->cierr,103,"lio")
 	return(0);
 }
 #ifdef KR_headers
@@ -560,14 +556,14 @@ l_read(ftnint *number, char *ptr, ftnlen len, ftnint type)
 	{
 		if(f__lquit) return(0);
 		if(l_eof)
-			err(f__elist->ciend, EOF, "list in");
+			err(f__elist->ciend, EOF, "list in")
 		if(f__lcount == 0) {
 			f__ltype = 0;
 			for(;;)  {
 				GETC(ch);
 				switch(ch) {
 				case EOF:
-					err(f__elist->ciend,(EOF),"list in");
+					err(f__elist->ciend,(EOF),"list in")
 				case ' ':
 				case '\t':
 				case '\n':

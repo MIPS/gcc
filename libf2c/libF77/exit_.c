@@ -13,7 +13,7 @@
 #undef min
 #undef max
 #ifndef KR_headers
-#include <stdlib.h>
+#include "stdlib.h"
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -22,9 +22,9 @@ extern void f_exit(void);
 
  void
 #ifdef KR_headers
-G77_exit_0 (rc) integer *rc;
+exit_(rc) integer *rc;
 #else
-G77_exit_0 (integer *rc)
+exit_(integer *rc)
 #endif
 {
 #ifdef NO_ONEXIT

@@ -3,11 +3,11 @@
 #ifdef KR_headers
 extern double erfc();
 
-double G77_derfc_0 (x) doublereal *x;
+double derfc_(x) doublereal *x;
 #else
 extern double erfc(double);
 
-double G77_derfc_0 (doublereal *x)
+double derfc_(doublereal *x)
 #endif
 {
 return( erfc(*x) );

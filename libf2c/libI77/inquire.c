@@ -1,10 +1,10 @@
 #include "f2c.h"
 #include "fio.h"
-#include <string.h>
+#include "string.h"
 #ifdef KR_headers
 integer f_inqu(a) inlist *a;
 #else
-#if defined (MSDOS) && !defined (GO32)
+#ifdef MSDOS
 #undef abs
 #undef min
 #undef max
@@ -17,8 +17,6 @@ integer f_inqu(inlist *a)
 	unit *p;
 	char buf[256];
 	long x;
-	if (f__init & 2)
-		f__fatal (131, "I/O recursion");
 	if(a->infile!=NULL)
 	{	byfile=1;
 		g_char(a->infile,a->infilen,buf);

@@ -51,8 +51,6 @@ s_wsni(icilist *a)
 {
 	cilist ca;
 
-	if(f__init != 1) f_init();
-	f__init = 3;
 	c_liw(a);
 	ca.cifmt = a->icifmt;
 	x_wsne(&ca);
@@ -67,8 +65,6 @@ s_wsli(a) icilist *a;
 s_wsli(icilist *a)
 #endif
 {
-	if(f__init != 1) f_init();
-	f__init = 3;
 	f__lioproc = l_write;
 	c_liw(a);
 	return(0);
@@ -76,7 +72,6 @@ s_wsli(icilist *a)
 
 integer e_wsli(Void)
 {
-	f__init = 1;
 	z_wSL();
 	return(0);
 	}

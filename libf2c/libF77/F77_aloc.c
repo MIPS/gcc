@@ -2,19 +2,19 @@
 #undef abs
 #undef min
 #undef max
-#include <stdio.h>
+#include "stdio.h"
 
 static integer memfailure = 3;
 
 #ifdef KR_headers
 extern char *malloc();
-extern void G77_exit_0 ();
+extern void exit_();
 
  char *
 F77_aloc(Len, whence) integer Len; char *whence;
 #else
-#include <stdlib.h>
-extern void G77_exit_0 (integer*);
+#include "stdlib.h"
+extern void exit_(integer*);
 
  char *
 F77_aloc(integer Len, char *whence)
@@ -26,7 +26,7 @@ F77_aloc(integer Len, char *whence)
 	if (!(rv = (char*)malloc(uLen))) {
 		fprintf(stderr, "malloc(%u) failure in %s\n",
 			uLen, whence);
-		G77_exit_0 (&memfailure);
+		exit_(&memfailure);
 		}
 	return rv;
 	}

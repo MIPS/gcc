@@ -47,9 +47,6 @@ c_si(a) icilist *a;
 c_si(icilist *a)
 #endif
 {
-	if (f__init & 2)
-		f__fatal (131, "I/O recursion");
-	f__init |= 2;
 	f__elist = (cilist *)a;
 	f__fmtbuf=a->icifmt;
 	f__curunit = 0;
@@ -126,16 +123,13 @@ integer s_wsfi(icilist *a)
 	return(0);
 }
 integer e_rsfi(Void)
-{	int n;
-	f__init &= ~2;
-	n = en_fio();
+{	int n = en_fio();
 	f__fmtbuf = NULL;
 	return(n);
 }
 integer e_wsfi(Void)
 {
 	int n;
-	f__init &= ~2;
 	n = en_fio();
 	f__fmtbuf = NULL;
 	if(f__svic->icirnum != 1

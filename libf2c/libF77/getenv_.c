@@ -13,9 +13,9 @@
  */
 
 #ifdef KR_headers
-VOID G77_getenv_0 (fname, value, flen, vlen) char *value, *fname; ftnlen vlen, flen;
+VOID getenv_(fname, value, flen, vlen) char *value, *fname; ftnlen vlen, flen;
 #else
-void G77_getenv_0 (char *fname, char *value, ftnlen flen, ftnlen vlen)
+void getenv_(char *fname, char *value, ftnlen flen, ftnlen vlen)
 #endif
 {
 extern char **environ;

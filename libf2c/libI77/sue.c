@@ -18,8 +18,8 @@ c_sue(cilist *a)
 	if(f__curunit->ufd==NULL && fk_open(SEQ,UNF,a->ciunit))
 		err(a->cierr,114,"sue");
 	f__cf=f__curunit->ufd;
-	if(f__curunit->ufmt) err(a->cierr,103,"sue");
-	if(!f__curunit->useek) err(a->cierr,103,"sue");
+	if(f__curunit->ufmt) err(a->cierr,103,"sue")
+	if(!f__curunit->useek) err(a->cierr,103,"sue")
 	return(0);
 }
 #ifdef KR_headers
@@ -29,8 +29,7 @@ integer s_rsue(cilist *a)
 #endif
 {
 	int n;
-	if(f__init != 1) f_init();
-	f__init = 3;
+	if(!f__init) f_init();
 	f__reading=1;
 	if(n=c_sue(a)) return(n);
 	f__recpos=0;
@@ -54,8 +53,7 @@ integer s_wsue(cilist *a)
 #endif
 {
 	int n;
-	if(f__init != 1) f_init();
-	f__init = 3;
+	if(!f__init) f_init();
 	if(n=c_sue(a)) return(n);
 	f__reading=0;
 	f__reclen=0;
@@ -67,7 +65,6 @@ integer s_wsue(cilist *a)
 }
 integer e_wsue(Void)
 {	long loc;
-	f__init = 1;
 	fwrite((char *)&f__reclen,sizeof(uiolen),1,f__cf);
 #ifdef ALWAYS_FLUSH
 	if (fflush(f__cf))
@@ -81,7 +78,6 @@ integer e_wsue(Void)
 }
 integer e_rsue(Void)
 {
-	f__init = 1;
 	(void) fseek(f__cf,(long)(f__reclen-f__recpos+sizeof(uiolen)),SEEK_CUR);
 	return(0);
 }
