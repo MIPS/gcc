@@ -570,6 +570,22 @@ tree_builtins::get_otable_decl (model_class *klass)
   return otable_map[klass];
 }
 
+tree
+tree_builtins::get_itable_decl (model_class *klass)
+{
+  if (itable_map.find (klass) == itable_map.end ())
+    {
+      // Note: uses same type as atable.
+      tree decl = build_decl (VAR_DECL, get_symbol (), type_atable);
+      TREE_STATIC (decl) = 1;
+      DECL_ARTIFICIAL (decl) = 1;
+      DECL_IGNORED_P (decl) = 1;
+      itable_map[klass] = decl;
+      pushdecl (decl);
+    }
+  return itable_map[klass];
+}
+
 // FIXME: this whole method should probably migrate into the ABI or
 // into classobj.cc.  There's no need, I think, for it to be a generic
 // part of the builtins.

@@ -251,7 +251,8 @@ class_object_creator::create_method_array (model_class *real_class,
 void
 class_object_creator::create_index_table (const std::vector<model_element *> &table,
 					  tree &result_table,
-					  tree &result_syms)
+					  tree &result_syms,
+					  tree table_decl)
 {
   tree result_list = NULL_TREE;
 
@@ -262,9 +263,10 @@ class_object_creator::create_index_table (const std::vector<model_element *> &ta
       return;
     }
 
+  int index = 0;
   for (std::vector<model_element *>::const_iterator i = table.begin ();
        i != table.end ();
-       ++i)
+       ++i, ++index)
     {
       // We can be looking at a field or a method.
       // FIXME: it would be nice if we could use IMember; it would
@@ -295,22 +297,26 @@ class_object_creator::create_index_table (const std::vector<model_element *> &ta
       item.set_field ("signature", desc_tree);
       tree item_tree = item.finish_record ();
 
-      result_list = tree_cons (NULL_TREE, item_tree, result_list);
+      result_list = tree_cons (build_int_cst (type_jint, index), item_tree,
+			       result_list);
     }
+
+  result_list = nreverse (result_list);
 
   tree type
     = build_array_type (type_method_symbol,
 			build_index_type (build_int_cst (type_jint,
 							 table.size ())));
-  result_syms = make_decl (type, result);
+  result_syms = make_decl (type, build_constructor (type, result_list));
 
   tree symtype
     = build_array_type (ptr_type_node,
 			build_index_type (build_int_cst (type_jint,
 							 table.size ())));
-  // FIXME: we need a decl for this somewhere else so that the ABI can
-  // emit references to it...
-  result_table = make_decl (symtype, NULL_TREE);
+
+  TREE_TYPE (table_decl) = symtype;
+  rest_of_decl_compilation (table_decl, 1, 0);
+  result_table = build_address_of (table_decl);
 }
 
 void
@@ -331,8 +337,8 @@ class_object_creator::handle_interfaces (model_class *real_class,
 	   ++i)
 	{
 	  gcj_abi *abi = builtins->find_abi ();
-	  tree one_iface = abi->build_class_reference (builtins, klass,
-						       (*i)->type ());
+	  tree one_iface = abi->build_direct_class_reference (builtins, klass,
+							      (*i)->type ());
 	  result = tree_cons (build_int_cst (type_jint, len), one_iface,
 			      result);
 	  ++len;
@@ -492,7 +498,7 @@ class_object_creator::create_class_instance (tree class_tree)
   if (real_class->interface_p ())
     super = global->get_compiler ()->java_lang_Object ();
   if (super)
-    super_tree = abi->build_class_reference (builtins, klass, super);
+    super_tree = abi->build_direct_class_reference (builtins, klass, super);
   inst.set_field ("superclass", super_tree);
 
   inst.set_field ("constants", create_constants ());
@@ -521,15 +527,18 @@ class_object_creator::create_class_instance (tree class_tree)
   inst.set_field ("dtable", dtable);
 
   tree table, syms;
-  create_index_table (klass->get_otable (), table, syms);
+  create_index_table (klass->get_otable (), table, syms,
+		      builtins->get_otable_decl (real_class));
   inst.set_field ("otable", table);
   inst.set_field ("otable_syms", syms);
 
-  create_index_table (klass->get_atable (), table, syms);
+  create_index_table (klass->get_atable (), table, syms,
+		      builtins->get_atable_decl (real_class));
   inst.set_field ("atable", table);
   inst.set_field ("atable_syms", syms);
 
-  create_index_table (klass->get_itable (), table, syms);
+  create_index_table (klass->get_itable (), table, syms,
+		      builtins->get_itable_decl (real_class));
   inst.set_field ("itable", table);
   inst.set_field ("itable_syms", syms);
 

@@ -94,6 +94,14 @@ public:
 				      aot_class *current,
 				      model_type *other) = 0;
 
+  /// Return a tree representing a reference to another class which is
+  /// suitable for use in the Class object itself.  This is similar to
+  /// build_class_reference() but is only used in Class and must be
+  /// suitable for static emission in a CONSTRUCTOR node.
+  virtual tree build_direct_class_reference (tree_builtins *builtins,
+					     aot_class *current,
+					     model_type *other) = 0;
+
   /// Return an expression that is used to create a new object given
   /// its type, constructor, and arguments to the constructor.
   virtual tree build_new (tree_builtins *builtins,
@@ -142,6 +150,13 @@ public:
 			      aot_class *current,
 			      model_type *other);
 
+  tree build_direct_class_reference (tree_builtins *builtins,
+				     aot_class *current,
+				     model_type *other)
+  {
+    return build_class_reference (builtins, current, other);
+  }
+
   tree build_new (tree_builtins *, aot_class *, model_class *,
 		  model_method *, tree);
 
@@ -182,6 +197,10 @@ public:
   tree build_class_reference (tree_builtins *builtins,
 			      aot_class *current,
 			      model_type *other);
+
+  tree build_direct_class_reference (tree_builtins *builtins,
+				     aot_class *current,
+				     model_type *other);
 
   tree build_new (tree_builtins *, aot_class *, model_class *,
 		  model_method *, tree);

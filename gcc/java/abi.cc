@@ -295,8 +295,8 @@ bc_abi::build_method_call (tree_builtins *builtins, aot_class *current,
     {
       assert (obj != NULL_TREE);
 
-//       int slot = current->register_interface_call (meth);
-//       tree itable = builtins->get_itable_decl (current->get ());
+      int slot = current->register_interface_call (meth);
+      tree itable = builtins->get_itable_decl (current->get ());
       abort ();
     }
   // Note that, unlike the C++ ABI, we call final methods via the
@@ -336,9 +336,10 @@ bc_abi::build_method_call (tree_builtins *builtins, aot_class *current,
       int slot = current->register_indirect_call (meth);
 
       tree otable = builtins->get_otable_decl (current->get ());
-      tree index = build4 (ARRAY_REF, type_jint, otable,
-			   build_int_cst (type_jint, slot),
-			   NULL_TREE, NULL_TREE);
+      tree index = fold (convert (sizetype,
+				  build4 (ARRAY_REF, type_jint, otable,
+					  build_int_cst (type_jint, slot),
+					  NULL_TREE, NULL_TREE)));
 
       // FIXME: we could do this at link time and have the otable hold
       // a pure byte offset.
@@ -429,9 +430,10 @@ bc_abi::build_class_reference (tree_builtins *builtins, aot_class *current,
   // FIXME: handle primitive classes
   int index = current->add_class (classname);
   tree cpool = builtins->get_constant_pool_decl (current->get ());
-  return build4 (ARRAY_REF, type_class_ptr,
-		 cpool, build_int_cst (type_jint, index),
-		 NULL_TREE, NULL_TREE);
+  return convert (type_class_ptr, build4 (ARRAY_REF, ptr_type_node,
+					  cpool,
+					  build_int_cst (type_jint, index),
+					  NULL_TREE, NULL_TREE));
 }
 
 tree
@@ -441,9 +443,19 @@ bc_abi::build_class_reference (tree_builtins *builtins, aot_class *current,
   assert (! klass->primitive_p () && klass != primitive_void_type);
   int index = current->add (assert_cast<model_class *> (klass));
   tree cpool = builtins->get_constant_pool_decl (current->get ());
-  return build4 (ARRAY_REF, type_class_ptr,
-		 cpool, build_int_cst (type_jint, index),
-		 NULL_TREE, NULL_TREE);
+  return convert (type_class_ptr, build4 (ARRAY_REF, ptr_type_node,
+					  cpool,
+					  build_int_cst (type_jint, index),
+					  NULL_TREE, NULL_TREE));
+}
+
+tree
+bc_abi::build_direct_class_reference (tree_builtins *, aot_class *current,
+				      model_type *klass)
+{
+  assert (! klass->primitive_p () && klass != primitive_void_type);
+  int index = current->add (assert_cast<model_class *> (klass));
+  return build_int_cst (type_jint, index);
 }
 
 tree
@@ -453,6 +465,8 @@ bc_abi::build_new (tree_builtins *builtins, aot_class *current,
 {
   tree allocator = builtin_Jv_AllocObject;
   tree klass_tree = build_class_reference (builtins, current, klass);
+  tree klass_type = builtins->map_type (klass);
+
   // Allocate the object.
   tree n = build3 (CALL_EXPR, TREE_TYPE (TREE_TYPE (allocator)), allocator,
 		   build_tree_list (NULL_TREE,
@@ -461,7 +475,7 @@ bc_abi::build_new (tree_builtins *builtins, aot_class *current,
 		   NULL_TREE);
   TREE_SIDE_EFFECTS (n) = 1;
 
-  n = build1 (NOP_EXPR, klass_tree, n);
+  n = build1 (NOP_EXPR, klass_type, n);
   TREE_SIDE_EFFECTS (n) = 1;
 
   tree mem = save_expr (n);
@@ -472,7 +486,7 @@ bc_abi::build_new (tree_builtins *builtins, aot_class *current,
   TREE_SIDE_EFFECTS (n) = 1;
 
   // Yield the new object.
-  n = build2 (COMPOUND_EXPR, klass_tree, n, mem);
+  n = build2 (COMPOUND_EXPR, klass_type, n, mem);
   TREE_SIDE_EFFECTS (n) = 1;
 
   return n;

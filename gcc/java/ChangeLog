@@ -1,5 +1,24 @@
 2005-03-27  Tom Tromey  <tromey@redhat.com>
 
+	* abi.cc (build_direct_class_reference): New method.
+	(build_new): Fix type of result.
+	(build_class_reference): Fix type of array reference.
+	* abi.hh (gcj_abi::build_direct_class_reference): New method.
+	(cxx_abi::build_direct_class_reference): Likewise
+	(bc_abi::build_direct_class_reference): Declare.
+	* classobj.hh (class_object_creator::create_index_table):
+	Updated.
+	* classobj.cc (create_index_table): Added 'table_decl' argument.
+	Fixed computation of constructor contents.
+	(create_class_instance): Updated.  Use
+	build_direct_class_reference.
+	(handle_interfaces): Use build_direct_class_reference.
+	* builtins.cc (get_itable_decl): New method.
+	* builtins.hh (tree_builtins::get_itable_decl): Declare.
+	(tree_builtins::itable_map): New field.
+
+2005-03-27  Tom Tromey  <tromey@redhat.com>
+
 	* tree.cc (visit_assert): Updated for change to map_new.
 	(create_stringbuffer): Likewise.
 	(visit_new): Likewise.

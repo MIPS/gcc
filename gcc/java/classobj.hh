@@ -71,7 +71,7 @@ class class_object_creator
   tree create_method_array (model_class *, int &);
   void handle_interfaces (model_class *, tree &, tree &);
   void create_index_table (const std::vector<model_element *> &,
-			   tree &, tree &);
+			   tree &, tree &, tree);
   void create_class_instance (tree);
   tree create_constants ();
   void fill_in_vtable (tree);
