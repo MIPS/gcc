@@ -99,6 +99,100 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 static unsigned int data_ref_id = 0;
 
 
+/* This is the simplest data dependence test: determines whether the
+   data references A and B access the same array. If can't determine -
+   return false; Otherwise, return true, and DIFFER_P will record
+   the result.  */
+
+bool
+array_base_name_differ_p (struct data_reference *a,
+                          struct data_reference *b,
+                          bool *differ_p)
+{
+  tree base_a = DR_BASE_NAME (a);
+  tree base_b = DR_BASE_NAME (b);
+  tree ta = TREE_TYPE (base_a);
+  tree tb = TREE_TYPE (base_b);
+
+
+  /** Determine if same base  **/
+
+  if (base_a == base_b)
+    {
+      *differ_p = false;
+      return true;
+    }
+
+  if (TREE_CODE (base_a) == INDIRECT_REF && TREE_CODE (base_b) == INDIRECT_REF
+      && TREE_OPERAND (base_a, 0) == TREE_OPERAND (base_b, 0))
+    {
+      *differ_p = false;
+      return true;
+    }
+
+  if (TREE_CODE (base_a) == COMPONENT_REF && TREE_CODE (base_b) == COMPONENT_REF
+      && TREE_OPERAND (base_a, 0) == TREE_OPERAND (base_b, 0)
+      && TREE_OPERAND (base_a, 1) == TREE_OPERAND (base_b, 1))
+    {
+      *differ_p = false;
+      return true;
+    }
+
+
+  /** Determine if different bases  **/
+
+  if (TREE_CODE (base_a) == VAR_DECL && TREE_CODE (base_b) == VAR_DECL
+      && base_a != base_b)
+    {
+      *differ_p = true;
+      return true;
+    }
+
+  if (TREE_CODE (base_a) == COMPONENT_REF && TREE_CODE (base_b) == COMPONENT_REF
+      && ((TREE_CODE (TREE_OPERAND (base_a, 0)) == VAR_DECL
+	   && TREE_CODE (TREE_OPERAND (base_b, 0)) == VAR_DECL
+           && TREE_OPERAND (base_a, 0) != TREE_OPERAND (base_b, 0))
+          || (TREE_CODE (TREE_OPERAND (base_a, 1)) == FIELD_DECL
+	      && TREE_CODE (TREE_OPERAND (base_b, 1)) == FIELD_DECL
+              && TREE_OPERAND (base_a, 1) != TREE_OPERAND (base_b, 1))))
+    {
+      *differ_p = true;
+      return true;
+    }
+
+  if ((TREE_CODE (base_a) == VAR_DECL
+       && (TREE_CODE (base_b) == COMPONENT_REF
+           && TREE_CODE (TREE_OPERAND (base_b, 0)) == VAR_DECL))
+      || (TREE_CODE (base_b) == VAR_DECL
+       && (TREE_CODE (base_a) == COMPONENT_REF
+           && TREE_CODE (TREE_OPERAND (base_a, 0)) == VAR_DECL)))
+    {
+      *differ_p = true;
+      return true;
+    }
+
+  if (!alias_sets_conflict_p (get_alias_set (base_a), get_alias_set (base_b)))
+    {
+      *differ_p = true;
+      return true;
+    }
+
+  /* An insn writing through a restricted pointer is "independent" of any
+     insn reading or writing through a different pointer, in the same
+     block/scope.
+   */
+  if ((!DR_IS_READ(a)
+        && TREE_CODE (ta) == POINTER_TYPE && TYPE_RESTRICT (ta))
+      || (!DR_IS_READ(b)
+           && TREE_CODE (tb) == POINTER_TYPE && TYPE_RESTRICT (tb)))
+    {
+      *differ_p = true;
+      return true;
+    }
+
+  *differ_p = false; /* Don't know, but be conservative.  */
+  return false;
+}
 
 /* Returns true iff A divides B.  */
 
@@ -466,7 +560,8 @@ struct data_reference *
 init_data_ref (tree stmt, 
 	       tree ref,
 	       tree base,
-	       tree access_fn)
+	       tree access_fn,
+	       bool is_read)
 {
   struct data_reference *res;
 
@@ -486,6 +581,7 @@ init_data_ref (tree stmt,
   VARRAY_TREE_INIT (DR_ACCESS_FNS (res), 5, "access_fns");
   DR_BASE_NAME (res) = base;
   VARRAY_PUSH_TREE (DR_ACCESS_FNS (res), access_fn);
+  DR_IS_READ (res) = is_read;
   
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, ")\n");
@@ -532,6 +628,7 @@ initialize_data_dependence_relation (struct data_reference *a,
 				     struct data_reference *b)
 {
   struct data_dependence_relation *res;
+  bool differ_p;
   
   res = ggc_alloc (sizeof (struct data_dependence_relation));
   DDR_A (res) = a;
@@ -545,7 +642,7 @@ initialize_data_dependence_relation (struct data_reference *a,
   /* When the dimensions of A and B differ, we directly initialize
      the relation to "there is no dependence": chrec_known.  */
   else if (DR_NUM_DIMENSIONS (a) != DR_NUM_DIMENSIONS (b)
-	   || array_base_name_differ_p (a, b))
+	   || (array_base_name_differ_p (a, b, &differ_p) && differ_p))
     DDR_ARE_DEPENDENT (res) = chrec_known;
   
   else
@@ -1842,9 +1939,10 @@ analyze_all_data_dependences (struct loops *loops)
 	    {
 	      struct data_reference *a = DDR_A (ddr);
 	      struct data_reference *b = DDR_B (ddr);
+	      bool differ_p;	
 	      
 	      if (DR_NUM_DIMENSIONS (a) != DR_NUM_DIMENSIONS (b)
-		  || array_base_name_differ_p (a, b))
+		  || (array_base_name_differ_p (a, b, &differ_p) && differ_p))
 		nb_basename_differ++;
 	      else
 		nb_bot_relations++;

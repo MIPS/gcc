@@ -186,7 +186,7 @@ static bool vect_get_array_first_index (tree, int *);
 static bool vect_force_dr_alignment_p (struct data_reference *);
 static bool vect_analyze_loop_with_symbolic_num_of_iters 
 		(tree *, struct loop *);
-static struct data_reference * vect_analyze_pointer_ref_access (tree, tree);
+static struct data_reference * vect_analyze_pointer_ref_access (tree, tree, bool);
 
 /* Utility functions for the code transformation.  */
 static tree vect_create_destination_var (tree, tree);
@@ -802,7 +802,7 @@ vect_create_data_ref (tree stmt, block_stmt_iterator *bsi)
   if (new_bb)
     abort ();
 #endif
-  vec_stmt = build (MODIFY_EXPR, void_type_node, vect_ptr, new_temp);
+  vec_stmt = build2 (MODIFY_EXPR, void_type_node, vect_ptr, new_temp);
   new_temp = make_ssa_name (vect_ptr, vec_stmt);
   TREE_OPERAND (vec_stmt, 0) = new_temp;
   new_bb = bsi_insert_on_edge_immediate (pe, vec_stmt);
@@ -818,7 +818,7 @@ vect_create_data_ref (tree stmt, block_stmt_iterator *bsi)
   array_type = build_array_type (vectype, 0);
   TYPE_ALIGN (array_type) = TYPE_ALIGN (TREE_TYPE (addr_ref)); /* CHECKME */
   new_base = build1 (INDIRECT_REF, array_type, TREE_OPERAND (vec_stmt, 0)); 
-  data_ref = build (ARRAY_REF, vectype, new_base, idx, NULL_TREE, NULL_TREE);
+  data_ref = build4 (ARRAY_REF, vectype, new_base, idx, NULL_TREE, NULL_TREE);
 
   if (vect_debug_details (NULL))
     {
@@ -879,7 +879,7 @@ vect_init_vector (tree stmt, tree vector_var)
   new_var = vect_get_new_vect_var (vectype, vect_simple_var, "cst_");
   add_referenced_tmp_var (new_var); 
  
-  init_stmt = build (MODIFY_EXPR, vectype, new_var, vector_var);
+  init_stmt = build2 (MODIFY_EXPR, vectype, new_var, vector_var);
 
   pe = loop_preheader_edge (loop);
   new_bb = bsi_insert_on_edge_immediate (pe, init_stmt);
@@ -1108,7 +1108,7 @@ vect_transform_assignment (tree stmt, block_stmt_iterator *bsi)
     abort ();
 
   /** Arguments are ready. create the new vector stmt.  **/
-  vec_stmt = build (MODIFY_EXPR, vectype, vec_dest, vec_oprnd);
+  vec_stmt = build2 (MODIFY_EXPR, vectype, vec_dest, vec_oprnd);
   new_temp = make_ssa_name (vec_dest, vec_stmt);
   TREE_OPERAND (vec_stmt, 0) = new_temp;
   vect_finish_stmt_generation (stmt, vec_stmt, bsi);
@@ -1170,10 +1170,10 @@ vect_transform_op (tree stmt, block_stmt_iterator *bsi)
   /** Arguments are ready. create the new vector stmt.  **/
   code = TREE_CODE (operation);
   if (op_type == binary_op)
-    vec_stmt = build (MODIFY_EXPR, vectype, vec_dest,
-		build (code, vectype, vec_oprnd0, vec_oprnd1));
+    vec_stmt = build2 (MODIFY_EXPR, vectype, vec_dest,
+		build2 (code, vectype, vec_oprnd0, vec_oprnd1));
   else
-    vec_stmt = build (MODIFY_EXPR, vectype, vec_dest,
+    vec_stmt = build2 (MODIFY_EXPR, vectype, vec_dest,
 		build1 (code, vectype, vec_oprnd0));
   new_temp = make_ssa_name (vec_dest, vec_stmt);
   TREE_OPERAND (vec_stmt, 0) = new_temp;
@@ -1214,7 +1214,7 @@ vect_transform_store (tree stmt, block_stmt_iterator *bsi)
   vec_oprnd1 = vect_get_vec_def_for_operand (op, stmt);
 
   /** Arguments are ready. create the new vector stmt.  **/
-  vec_stmt = build (MODIFY_EXPR, vectype, data_ref, vec_oprnd1);
+  vec_stmt = build2 (MODIFY_EXPR, vectype, data_ref, vec_oprnd1);
   vect_finish_stmt_generation (stmt, vec_stmt, bsi);
   return vec_stmt;
 }
@@ -1257,7 +1257,7 @@ vect_transform_load (tree stmt, block_stmt_iterator *bsi)
   data_ref = vect_create_data_ref (stmt, bsi);
 
   /** Arguments are ready. create the new vector stmt.  **/
-  vec_stmt = build (MODIFY_EXPR, vectype, vec_dest, data_ref);
+  vec_stmt = build2 (MODIFY_EXPR, vectype, vec_dest, data_ref);
   new_temp = make_ssa_name (vec_dest, vec_stmt);
   TREE_OPERAND (vec_stmt, 0) = new_temp;
   vect_finish_stmt_generation (stmt, vec_stmt, bsi);
@@ -1362,8 +1362,8 @@ vect_generate_tmps_on_preheader (loop_vec_info loop_vinfo, tree *ni_name_p,
 
   ratio_mult_vf_name = make_ssa_name (ratio_mult_vf, NULL_TREE);
 
-  stmt = build (MODIFY_EXPR, void_type_node, ratio_mult_vf_name,
-		build (LSHIFT_EXPR, TREE_TYPE (ratio),
+  stmt = build2 (MODIFY_EXPR, void_type_node, ratio_mult_vf_name,
+		build2 (LSHIFT_EXPR, TREE_TYPE (ratio),
 		       ratio, build_int_2(i,0)));
 
   SSA_NAME_DEF_STMT (ratio_mult_vf_name) = stmt;
@@ -1428,7 +1428,7 @@ vect_gen_if_guard (edge ee, tree cond, basic_block exit_bb, edge e)
   then_clause = build1 (GOTO_EXPR, void_type_node, tree_block_label (exit_bb));
   else_clause = build1 (GOTO_EXPR, void_type_node, 
 			tree_block_label (header_of_loop)); 
-  cond_expr = build (COND_EXPR, void_type_node, cond, then_clause, else_clause);
+  cond_expr = build3 (COND_EXPR, void_type_node, cond, then_clause, else_clause);
 
   /* Insert condition as a last statement in new bb. */
   interm_bb_last_bsi = bsi_last (new_bb);
@@ -1529,8 +1529,8 @@ vect_build_symbl_bound (tree n, int vf, struct loop * loop)
       i++;
     }
 
-  stmt = build (MODIFY_EXPR, void_type_node, var_name,
-		build (RSHIFT_EXPR, TREE_TYPE (n),
+  stmt = build2 (MODIFY_EXPR, void_type_node, var_name,
+		build2 (RSHIFT_EXPR, TREE_TYPE (n),
 		       n, build_int_2(i,0)));
 
   SSA_NAME_DEF_STMT (var_name) = stmt;
@@ -1616,8 +1616,8 @@ vect_update_initial_conditions_of_duplicated_loop (loop_vec_info loop_vinfo,
       step_expr = evolution_part;
       init_expr = initial_condition (access_fn);
 
-      ni = build (PLUS_EXPR, TREE_TYPE (init_expr),
-		  build (MULT_EXPR, TREE_TYPE (niters),
+      ni = build2 (PLUS_EXPR, TREE_TYPE (init_expr),
+		  build2 (MULT_EXPR, TREE_TYPE (niters),
 		       niters, step_expr), init_expr);
 
       var = create_tmp_var (TREE_TYPE (init_expr), "tmp");
@@ -1784,11 +1784,11 @@ vect_transform_loop_bound (loop_vec_info loop_vinfo, tree niters)
     new_loop_bound = niters;
 
   if (exit_edge->flags & EDGE_TRUE_VALUE) /* 'then' edge exits the loop.  */
-    cond = build (GE_EXPR, boolean_type_node, indx_after_incr, new_loop_bound);
+    cond = build2 (GE_EXPR, boolean_type_node, indx_after_incr, new_loop_bound);
   else /* 'then' edge loops back.   */
-    cond = build (LT_EXPR, boolean_type_node, indx_after_incr, new_loop_bound);
+    cond = build2 (LT_EXPR, boolean_type_node, indx_after_incr, new_loop_bound);
 
-  cond_stmt = build (COND_EXPR, TREE_TYPE (orig_cond_expr), cond,
+  cond_stmt = build3 (COND_EXPR, TREE_TYPE (orig_cond_expr), cond,
 	TREE_OPERAND (orig_cond_expr, 1), TREE_OPERAND (orig_cond_expr, 2));
 
   bsi_insert_before (&loop_exit_bsi, cond_stmt, BSI_SAME_STMT);   
@@ -1866,7 +1866,7 @@ vect_transform_loop (loop_vec_info loop_vinfo, struct loops *loops)
       loop->pre_header_edges[0] = loop_preheader_edge (loop);
 
       /* Build conditional expr before epilog loop.  */
-      cond = build (EQ_EXPR, boolean_type_node, ratio_mult_vf_name, ni_name);
+      cond = build2 (EQ_EXPR, boolean_type_node, ratio_mult_vf_name, ni_name);
 
       /* Find exit edge of epilog loop.  */
       exit_ep = find_edge (new_loop_header, exit_bb);
@@ -1883,7 +1883,7 @@ vect_transform_loop (loop_vec_info loop_vinfo, struct loops *loops)
 
       /* Build conditional expr before loop to be vectorized.  */
       vf = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
-      cond = build (LT_EXPR, boolean_type_node, ni_name, build_int_2 (vf,0));
+      cond = build2 (LT_EXPR, boolean_type_node, ni_name, build_int_2 (vf,0));
 
       /* Find preheader edge of epilog loop.  */
       phead_epilog = find_edge (inter_bb, new_loop_header);
@@ -2673,89 +2673,40 @@ vect_analyze_data_ref_dependence (struct data_reference *dra,
 				  struct data_reference *drb, 
 				  struct loop *loop)
 {
-  tree refa = DR_REF (dra);
-  tree refb = DR_REF (drb);
-  tree ptra = TREE_OPERAND (refa, 0);
-  tree ptrb = TREE_OPERAND (refb, 0);
-  tree ta = TREE_TYPE (ptra);
-  tree tb = TREE_TYPE (ptrb);
+  bool differ_p;
+  struct data_dependence_relation *ddr;
 
-  /* Both refs are array decls:  */
-  if (TREE_CODE (refa) == ARRAY_REF 
-      && (TREE_CODE (ptra) == VAR_DECL 
-	  || (TREE_CODE (ptra) == COMPONENT_REF 
-	      && TREE_CODE (TREE_OPERAND (ptra, 0)) == VAR_DECL))
-      && TREE_CODE (refb) == ARRAY_REF
-      && (TREE_CODE (ptrb) == VAR_DECL 
-	  || (TREE_CODE (ptrb) == COMPONENT_REF 
-	      && TREE_CODE (TREE_OPERAND (ptrb, 0)) == VAR_DECL)))
+  if (!array_base_name_differ_p (dra, drb, &differ_p))
     {
-      if (array_base_name_differ_p (dra, drb))
-	return false;
-      else
-	{
-	  struct data_dependence_relation *ddr = 
-		initialize_data_dependence_relation (dra, drb);
-	  compute_affine_dependence (ddr);
+      if (vect_debug_stats (loop) || vect_debug_details (loop))
+        {
+          fprintf (dump_file, 
+		"not vectorized: can't determine dependence between: ");
+          print_generic_expr (dump_file, DR_REF (dra), TDF_SLIM);
+          fprintf (dump_file, " and ");
+          print_generic_expr (dump_file, DR_REF (drb), TDF_SLIM);
+        }
+      return true;
+    }
 
-	  if (DDR_ARE_DEPENDENT (ddr) == chrec_known)
-	    return false;
+  if (differ_p)
+    return false;
+
+  ddr = initialize_data_dependence_relation (dra, drb);
+  compute_affine_dependence (ddr);
+
+  if (DDR_ARE_DEPENDENT (ddr) == chrec_known)
+    return false;
   
-	  if (vect_debug_stats (loop) || vect_debug_details (loop))
-	    {
-	      fprintf (dump_file,
-		"not vectorized: dependence between refs to array <");
-	      print_generic_expr (dump_file, DR_BASE_NAME (dra), TDF_SLIM);
-	      fprintf (dump_file, ">");
-	    }
-
-          return true;
-	}
-    }
-
-  /* At least one of the refs is a pointer access:  */
-  if (TREE_CODE (ta) == POINTER_TYPE || TREE_CODE (tb) == POINTER_TYPE)
-    {
-      if (vect_debug_details (NULL))
-  	fprintf (dump_file, 
-	      "analyze_data_ref_dependence: alias sets (%d,%d)",
-	      (int)get_alias_set (TREE_OPERAND (refa, 0)), 
-	      (int)get_alias_set (TREE_OPERAND (refb, 0)));
-
-      if (alias_sets_conflict_p (get_alias_set (ptra), get_alias_set (ptrb)))
-	{
-          if ((TREE_CODE (ta) == POINTER_TYPE && !TYPE_RESTRICT (ta)) 
-	      || (TREE_CODE (tb) == POINTER_TYPE && !TYPE_RESTRICT (tb))) 	
-	    {
-	      if (vect_debug_stats (loop) || vect_debug_details (loop))
-		fprintf (dump_file,
-			"not vectorized: dependence between pointer-refs.");
-	      return true;
-            }
-	  else
-	    {
-	      /* ptra (ptrb) is either an array, or a restricted pointer.  */
-	      if (vect_debug_details (NULL))
-		fprintf (dump_file,"restricted pointers.");
-	      return false;
-	    }
-	}
-      else
-	{
-          if (dump_file && (dump_flags & TDF_DETAILS))
-	    fprintf (dump_file, "alias sets don't conflict\n");
-          return false;
-	}
-    }
-
-  /* Not handling other cases at the moment.  */
   if (vect_debug_stats (loop) || vect_debug_details (loop))
     {
-      fprintf (dump_file, "not vectorized: data-refs unsupported: ");
+      fprintf (dump_file,
+	"not vectorized: possible dependence between data-refs ");
       print_generic_expr (dump_file, DR_REF (dra), TDF_SLIM);
       fprintf (dump_file, " and ");
       print_generic_expr (dump_file, DR_REF (drb), TDF_SLIM);
     }
+
   return true;
 }
 
@@ -3243,7 +3194,7 @@ vect_analyze_data_ref_accesses (loop_vec_info loop_vinfo)
    that represents it (DR). Otherwise - return NULL.   */
 
 static struct data_reference *
-vect_analyze_pointer_ref_access (tree memref, tree stmt)
+vect_analyze_pointer_ref_access (tree memref, tree stmt, bool is_read)
 {
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
   struct loop *loop = STMT_VINFO_LOOP (stmt_info);
@@ -3321,7 +3272,7 @@ vect_analyze_pointer_ref_access (tree memref, tree stmt)
       fprintf (dump_file, "Access function of ptr indx: ");
       print_generic_expr (dump_file, indx_access_fn, TDF_SLIM);
     }
-  dr = init_data_ref (stmt, memref, init, indx_access_fn);
+  dr = init_data_ref (stmt, memref, init, indx_access_fn, is_read);
   return dr;
 }
 
@@ -3409,7 +3360,7 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo)
 
 	  if (TREE_CODE (memref) == INDIRECT_REF)
             {
-              dr = vect_analyze_pointer_ref_access (memref, stmt);
+              dr = vect_analyze_pointer_ref_access (memref, stmt, is_read);
               if (! dr)
                 return false; 
 	      symbl = DR_BASE_NAME (dr);	
@@ -3441,9 +3392,11 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo)
 		case VAR_DECL:
 		  symbl = base;
 		  break;
+		/* FORNOW: Disabled.  
 		case INDIRECT_REF:
 		  symbl = TREE_OPERAND (base, 0); 
 		  break;
+		*/
 		case COMPONENT_REF:
 		  oprnd0 = TREE_OPERAND (base, 0);
 		  if (TREE_CODE (oprnd0) == VAR_DECL)

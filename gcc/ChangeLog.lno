@@ -1,3 +1,20 @@
+2004-07-20  Dorit Naishlos  <dorit@il.ibm.com>
+
+        * tree-data-ref.h (init_data_ref): Additional argument is_read.
+        (array_base_name_differ_p): Moved to tree-data-ref.c.
+        * tree-data-ref.c (array_base_name_differ_p): New more conservative
+        implementation. Extra argument to return the result.
+        (initialize_data_dependence_relation): Call array_base_name_differ_p
+        with extra argument.
+        (analyze_all_data_dependences): Similarly.
+        (init_data_ref): Additional argument is_read.
+        * tree-vectorizer.c: Replace build with buildN.
+        (vect_analyze_pointer_ref_access): Additional argument is_read.
+        (vect_analyze_data_refs): Call vect_analyze_pointer_ref_access with
+        extra argument is_read.
+        (vect_analyze_data_ref_dependence): Use new implementation of
+        array_base_name_differ_p.
+
 2004-07-19  Olga Golovanevsky <olga@il.ibm.com>
 
 	* tree-ssa-loop-manip.c (tdlte_copy_phi_nodes): Do not create phi nodes.
