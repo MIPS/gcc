@@ -1,3 +1,10 @@
+2003-10-25  Denis Chertykov  <denisc@overta.ru>
+
+	* ra-rewrite.c (insert_stores): Skip clobbered REGs.
+	Remove slot for REG from slots hash list.
+	(coalesce_spill_slot): Coalesce webs only with combinable
+	usable_regs.
+
 2003-10-17  Michael Matz  <matz@suse.de>
 
 	* pre-reload.c (scan_alternative): Use CONSTRAINT_LEN,

@@ -685,7 +685,7 @@ delete_overlapping_uses (rtx *px, void *data)
   }
 }
 
-/* Returns nonzero, of X is member of LIST.  */
+/* Returns nonzero, if X is member of LIST.  */
 
 static int
 slot_member_p (struct rtx_list *list, rtx x)
@@ -744,7 +744,13 @@ insert_stores (bitmap new_deaths)
 	      rtx slot, source;
 	      struct web *web = def2web[DF_REF_ID (info.defs[n])];
 	      struct web *aweb = alias (find_web_for_subweb (web));
-	      
+
+	      /* Clobber is not a def.  */
+	      if (DF_REF_TYPE (info.defs[n]) == DF_REF_REG_CLOBBER)
+		{
+		  delete_overlapping_slots (&slots, DF_REF_REG (info.defs[n]));
+		  continue;
+		}
 	      if (aweb->type != SPILLED || !aweb->stack_slot)
 		continue;
 	      if (web->pattern || aweb->pattern)
@@ -2339,7 +2345,7 @@ coalesce_spill_slot (web, ref, place)
     }
   else
     return 0;
-  
+
   if (s == web)
     dweb = t;
   else if (t == web)
@@ -2352,7 +2358,8 @@ coalesce_spill_slot (web, ref, place)
     return 0;
 
   if (TEST_BIT (sup_igraph, s->id * num_webs + t->id)
-      || TEST_BIT (sup_igraph, t->id * num_webs + s->id))
+      || TEST_BIT (sup_igraph, t->id * num_webs + s->id)
+      || ! hard_regs_combinable_p (s, t))
     return 0;
 
   move_insn = insn;
