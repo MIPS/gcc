@@ -329,7 +329,8 @@ store_bit_field (str_rtx, bitsize, bitnum, fieldmode, value, align, total_size)
 	    }
 	  if (GET_CODE (op0) == REG)
 	    op0 = gen_rtx_SUBREG (fieldmode, op0,
-				  (offset * UNITS_PER_WORD));
+				  (bitnum % BITS_PER_WORD) / BITS_PER_UNIT
+				  + (offset * UNITS_PER_WORD));
 	  else
 	    op0 = change_address (op0, fieldmode,
 				  plus_constant (XEXP (op0, 0), offset));
@@ -374,7 +375,9 @@ store_bit_field (str_rtx, bitsize, bitnum, fieldmode, value, align, total_size)
 	}
 
       emit_insn (GEN_FCN (icode)
-		 (gen_rtx_SUBREG (fieldmode, op0, (offset * UNITS_PER_WORD)),
+		 (gen_rtx_SUBREG (fieldmode, op0,
+				  (bitnum % BITS_PER_WORD) / BITS_PER_UNIT
+				  + (offset * UNITS_PER_WORD)),
 				  value));
 
       return value;
@@ -1097,7 +1100,9 @@ extract_bit_field (str_rtx, bitsize, bitnum, unsignedp,
 		abort ();
 	    }
 	  if (GET_CODE (op0) == REG)
-	    op0 = gen_rtx_SUBREG (mode1, op0, (offset * UNITS_PER_WORD));
+	    op0 = gen_rtx_SUBREG (mode1, op0,
+				  (bitnum % BITS_PER_WORD) / BITS_PER_UNIT
+				  + (offset * UNITS_PER_WORD));
 	  else
 	    op0 = change_address (op0, mode1,
 				  plus_constant (XEXP (op0, 0), offset));
