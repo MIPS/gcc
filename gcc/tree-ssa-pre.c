@@ -2432,33 +2432,10 @@ do_proper_save (ei, use, firstexpr, secondexpr, before)
 {
   basic_block bb = bb_for_stmt (use);
   block_stmt_iterator bsi;
-#if 0
-  if (*bb->head_tree_p == use && *bb->end_tree_p == use)
-    {
-      tree stmt = build (COMPOUND_EXPR, void_type_node,
-			 firstexpr, secondexpr);
-      tree *oldplace;
-      tree *oldhead;
-      oldhead = bb->head_tree_p;
-      set_bb_for_stmt (stmt, bb);
-      if (use == firstexpr)
-	oldplace = &TREE_OPERAND (stmt, 1);
-      else if (use == secondexpr)
-	oldplace = &TREE_OPERAND (stmt, 0);
-      else
-	abort ();
-      
-      *bb->head_tree_p = stmt;
-      update_old_new (ei, bb->head_tree_p, oldplace);
-      bb->head_tree_p = oldhead;
-      bb->end_tree_p = &TREE_OPERAND (stmt, 1);
-      return &TREE_OPERAND (stmt, 1);
-    }
-#endif 
+
   bsi = bsi_start (bb);
   for (; !bsi_end_p (bsi); bsi_next (&bsi))
     {
-#if 1
       if (bsi_stmt (bsi) == use)
 	{
 	  tree *beforeptr = bsi_stmt_ptr (bsi);
@@ -2470,75 +2447,6 @@ do_proper_save (ei, use, firstexpr, secondexpr, before)
 	  return bsi_stmt_ptr (bsi);
 	  
 	}
-#endif
-#if 0
-      tree *containerp = bsi_container (bsi);
-      if (containerp && TREE_CODE (*containerp) == COMPOUND_EXPR)
-	{
-	  tree *co0p = &TREE_OPERAND (*containerp, 0);
-	  tree *co1p = &TREE_OPERAND (*containerp, 1);
-	  if (*co0p == use)
-	    {
-	      /* This is the fun corner case. */
-	      *co0p = firstexpr;
-	      *co1p = build (COMPOUND_EXPR, void_type_node,
-			     secondexpr, *co1p);
-
-	      if (use == secondexpr)
-		update_old_new (ei, co0p, &TREE_OPERAND (*co1p, 0));
-	      update_old_new (ei, co1p, &TREE_OPERAND (*co1p, 1));
-	      set_bb_for_stmt (*co1p, bb);
-	      /* Update basic block boundary, if necessary. */
-	      if (bb->end_tree_p == co1p)
-		bb->end_tree_p = &TREE_OPERAND (*co1p, 1);
-	      else if (bb->end_tree_p == containerp)
-		bb->end_tree_p = co1p;
-	      
-	      return &TREE_OPERAND (*co1p, 0);
-	    }
-	  else if (*co1p == use)
-	    {
-	      *co1p = build (COMPOUND_EXPR, void_type_node,
-			     firstexpr, secondexpr);
-	      if (firstexpr == use)
-		update_old_new (ei, co1p, &TREE_OPERAND (*co1p, 0));
-	      else
-		update_old_new (ei, co1p, &TREE_OPERAND (*co1p, 1));
-	      set_bb_for_stmt (*co1p, bb);
-	      if (bb->end_tree_p == co1p)
-		bb->end_tree_p = &TREE_OPERAND (*co1p, 1);
-	      else if (bb->end_tree_p == containerp)
-		bb->end_tree_p = &TREE_OPERAND (*co1p, 1);
-	      
-	      return &TREE_OPERAND (*co1p, 1);
-	    }
-	}
-      else if (containerp && *containerp == use)
-	{
-	  if (*containerp == use)
-	    {
-	      *containerp = build (COMPOUND_EXPR, void_type_node, 
-				   firstexpr, secondexpr);
-	      if (firstexpr == use)
-		{
-		  TREE_CHAIN (*containerp) = TREE_CHAIN (firstexpr);
-		  TREE_CHAIN (firstexpr) = NULL_TREE;
-		  update_old_new (ei, containerp, &TREE_OPERAND (*containerp, 0));
-		}
-	      else
-		{
-		  TREE_CHAIN (*containerp) = TREE_CHAIN (secondexpr);
-		  TREE_CHAIN (secondexpr) = NULL_TREE;
-		  update_old_new (ei, containerp, &TREE_OPERAND (*containerp, 1));
-		}
-	      set_bb_for_stmt (*containerp, bb);
-	      if (bb->end_tree_p == containerp)
-		bb->end_tree_p = &TREE_OPERAND (*containerp, 1);
-	      
-	      return &TREE_OPERAND (*containerp, 0);
-	    }
-	}
-#endif
     }
   abort ();
 }
@@ -3083,8 +2991,8 @@ pre_expression (slot, data)
     }
   expr_phi_insertion ((bitmap *)data, ei);
 
-    rename_1 (ei);
-/*  new_rename_1 (ei);*/
+  /*    rename_1 (ei);*/
+  new_rename_1 (ei);
 
   if (dump_file)
     {

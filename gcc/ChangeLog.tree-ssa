@@ -1,3 +1,10 @@
+2003-04-23  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-ssa-pre.c (do_proper_save): Remove old code, since the new
+	insertion code works okay.
+	(pre_expression): Use new_rename_1, it removes a *lot* of useless
+	saves.
+
 2003-04-23  Jeff Law  <law@redhat.com>
 
 	* tree-ssa.c (struct def_blocks_d): Add new field phi_insertion_points.
