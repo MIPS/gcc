@@ -144,6 +144,13 @@ rs6000_macro_to_expand (cpp_reader *pfile, const cpp_token *tok)
       else if (ident)
 	{
 	  enum rid rid_code = (enum rid)(ident->rid_code);
+	  if (ident->type == NT_MACRO)
+	    {
+	      (void)cpp_get_token (pfile);
+	      tok = _cpp_peek_token (pfile, 0);
+	      ident = altivec_categorize_keyword (tok);
+	      rid_code = (enum rid)(ident->rid_code);
+	    }
 
 	  if (rid_code == RID_UNSIGNED || rid_code == RID_LONG
 	      || rid_code == RID_SHORT || rid_code == RID_SIGNED
