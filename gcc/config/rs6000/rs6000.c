@@ -9935,6 +9935,7 @@ rs6000_return_addr (count, frame)
 			   RETURN_ADDRESS_OFFSET)));
     }
 
+  cfun->machine->ra_need_lr = 1;
   return get_hard_reg_initial_val (Pmode, LINK_REGISTER_REGNUM);
 }
 
@@ -10599,7 +10600,8 @@ rs6000_emit_prologue ()
 			  && info->first_gp_reg_save < 31);
   saving_FPRs_inline = (info->first_fp_reg_save == 64
 			|| TARGET_SAFE_STACK
-			|| FP_SAVE_INLINE (info->first_fp_reg_save));
+			|| FP_SAVE_INLINE (info->first_fp_reg_save)
+			|| cfun->machine->ra_need_lr);
 
   /* For V.4, update stack before we do any saving and set back pointer.  */
   if (info->push_p

@@ -1643,6 +1643,8 @@ typedef struct machine_function GTY(())
   int ra_needs_full_frame;
   /* Some local-dynamic symbol.  */
   const char *some_ld_name;
+  /* Flags if __builtin_return_address (0) was used.  */
+  int ra_need_lr;
 } machine_function;
 
 /* Define a data type for recording info about an argument list
