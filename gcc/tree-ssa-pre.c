@@ -211,6 +211,7 @@ static void do_ephi_df_search (struct expr_info *, struct ephi_df_search);
 
 static inline bool any_operand_injured (tree);
 static void code_motion (struct expr_info *);
+static tree pick_ssa_name (tree stmt);
 #if 0
 static tree calculate_increment (struct expr_info *, tree);
 #endif
@@ -2315,6 +2316,17 @@ get_temp (tree use)
   return newtemp;
 }
 
+/* Return the side of the statement that contains an SSA name.  */
+static tree
+pick_ssa_name (tree stmt)
+{
+  if (TREE_CODE (TREE_OPERAND (stmt, 0)) == SSA_NAME)
+    return TREE_OPERAND (stmt, 0);
+  else if (TREE_CODE (TREE_OPERAND (stmt, 1)) == SSA_NAME)
+    return TREE_OPERAND (stmt, 1);
+  else
+    abort ();
+}
 /* Code motion step of SSAPRE.  Take the save bits, and reload bits,
    and perform the saves and reloads.  Also insert new phis where
    necessary.  */
@@ -2465,7 +2477,7 @@ code_motion (struct expr_info *ei)
 		  && EPHI_ARG_HAS_REAL_USE (use, i) 
 		  && EREF_STMT (argdef)
 		  && !EPHI_ARG_INJURED (use, i))
-		rdef = TREE_OPERAND (EREF_STMT (argdef), 0);
+		rdef = pick_ssa_name (EREF_STMT (argdef));
 	      else if (TREE_CODE (argdef) == EUSE_NODE)
 		rdef = get_temp (argdef);
 	      else

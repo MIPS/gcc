@@ -1,3 +1,8 @@
+2003-09-17  Daniel Berlin  <dberlin@dberlin.org>
+
+        * tree-ssa-pre.c (pick_ssa_name): New function.
+        (code_motion): Use it.
+
 2003-09-17  Richard Henderson  <rth@redhat.com>
 
 	* tree-eh.c: New file.
