@@ -1,3 +1,9 @@
+2005-01-04  Devang Patel  <dpatel@apple.com>
+
+	Radar 3886137 Part 2.
+	* cppdefault.c (INCLUDE_DEFAULTS): Enable isysroot override by default 
+	for all include paths.
+
 2005-01-03  Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 3936917
