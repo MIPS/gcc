@@ -1,3 +1,12 @@
+2004-02-27  Dale Johannesen  <dalej@apple.com>
+	* tree-cfg.c (cleanup_control_expr_graph): Prevent edge
+	probability from overflowing due to roundoff errors.
+
+2004-02-27  Dale Johannesen  <dalej@apple.com>
+
+	* combine.c (distribute_notes): Do not place a REG_DEAD note
+	when value is both set and used.
+
 2004-02-27  Jeff Law  <law@redhat.com>
 
 	* fold-const.c (fold): Tighten test for optimizing an equality

@@ -1808,6 +1808,8 @@ cleanup_control_expr_graph (basic_block bb, block_stmt_iterator bsi)
 	      retval = true;
 	    }
 	}
+      if (taken_edge->probability > REG_BR_PROB_BASE)
+	taken_edge->probability = REG_BR_PROB_BASE;
     }
   else
     taken_edge = bb->succ;
