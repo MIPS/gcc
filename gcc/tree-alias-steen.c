@@ -148,12 +148,9 @@ steen_add_var (ops, decl)
      tree decl;
 {
 #if STEEN_DEBUG
-  fprintf (stderr, "Steen: Adding variable " );
-  print_generic_node (stderr, decl, 0);
-  fprintf (stderr, "\n");
+  fprintf (stderr, "Steen: Adding variable: %s\n", alias_get_name (decl) );
 #endif
   return alias_tvar_new (decl);
-
 }
 
 /* Add a variable to the analyzer that is equivalent (as far as
@@ -166,11 +163,8 @@ steen_add_var_same (ops, decl, tv)
      alias_typevar tv;
 {
 #if STEEN_DEBUG
-  fprintf (stderr, "Steen: Adding variable " );
-  print_generic_node (stderr, decl, 0);
-  fprintf (stderr, " same as ");
-  print_generic_node (stderr, ALIAS_TVAR_DECL (tv), 0);
-  fprintf (stderr, "\n");
+  fprintf (stderr, "Steen: Adding variable %s same as %s\n", 
+	   alias_get_name (decl), alias_get_name (ALIAS_TVAR_DECL (tv)) );
 #endif
   return alias_tvar_new_equiv_to (decl, tv);
 }
@@ -184,13 +178,15 @@ steen_simple_assign (ops, lhs, rhs)
 {
   alias_type type1, type2;
   ECR tau1, tau2, lambda1, lambda2;
-
+  if (TREE_CODE (TREE_TYPE (ALIAS_TVAR_DECL (rhs))) == FUNCTION_TYPE)
+    {
+      steen_addr_assign (ops, lhs, rhs);
+      return;
+    }
 #if STEEN_DEBUG
-  fprintf (stderr, "Steen: simple assignment ");
-  print_generic_node (stderr, ALIAS_TVAR_DECL (lhs), 0);
-  fprintf (stderr, " = ");
-  print_generic_node (stderr, ALIAS_TVAR_DECL (rhs), 0);
-  fprintf (stderr, "\n");
+  fprintf (stderr, "Steen: simple assignment %s = %s\n", 
+	   alias_get_name (ALIAS_TVAR_DECL (lhs)), 
+	   alias_get_name (ALIAS_TVAR_DECL (rhs)));
 #endif
 
   /* Get the non-standard types involved.  */
@@ -225,11 +221,9 @@ steen_addr_assign (ops, lhs, addr)
     return;
 
 #if STEEN_DEBUG
-  fprintf (stderr, "Steen: address assignment ");
-  print_generic_node (stderr, ALIAS_TVAR_DECL (lhs), 0);
-  fprintf (stderr, " = &");
-  print_generic_node (stderr, ALIAS_TVAR_DECL (addr), 0);
-  fprintf (stderr, "\n");
+  fprintf (stderr, "Steen: address assignment %s = &%s\n", 
+	   alias_get_name (ALIAS_TVAR_DECL (lhs)), 
+	   alias_get_name (ALIAS_TVAR_DECL (addr)));
 #endif
 
   /* Get the non-standard type for the lhs. */
@@ -258,11 +252,9 @@ steen_ptr_assign (ops, lhs, ptr)
   if (ptr == NULL)
     return;
 #if STEEN_DEBUG
-  fprintf (stderr, "Steen: pointer assignment ");
-  print_generic_node (stderr, ALIAS_TVAR_DECL (lhs), 0);
-  fprintf (stderr, " = *");
-  print_generic_node (stderr, ALIAS_TVAR_DECL (ptr), 0);
-  fprintf (stderr, "\n");
+  fprintf (stderr, "Steen: pointer assignment %s = *%s\n", 
+	   alias_get_name (ALIAS_TVAR_DECL (lhs)),
+	   alias_get_name (ALIAS_TVAR_DECL (ptr)));
 #endif
 
   /* Get the non-standard types for the lhs, and the ptr. */
@@ -315,10 +307,8 @@ steen_op_assign (ops, lhs, operands)
   alias_type type1;
 
 #if STEEN_DEBUG
-  fprintf (stderr, "Steen: op assignment ");
-  print_generic_node (stderr, ALIAS_TVAR_DECL (lhs), 0);
-  fprintf (stderr, " = op(...)");
-  fprintf (stderr, "\n");
+  fprintf (stderr, "Steen: op assignment %s = op(...)\n", 
+	   alias_get_name (ALIAS_TVAR_DECL (lhs)));
 #endif
 
   ecr = alias_tvar_get_ECR (lhs);
@@ -377,11 +367,9 @@ steen_assign_ptr (ops, ptr, rhs)
     return;
 
 #if STEEN_DEBUG
-  fprintf (stderr, "Steen: assignment to pointer  *");
-  print_generic_node (stderr, ALIAS_TVAR_DECL (ptr), 0);
-  fprintf (stderr, " = ");
-  print_generic_node (stderr, ALIAS_TVAR_DECL (rhs), 0);
-  fprintf (stderr, "\n");
+  fprintf (stderr, "Steen: assignment to pointer  *%s = %s\n", 
+	   alias_get_name (ALIAS_TVAR_DECL (ptr)),
+	   alias_get_name (ALIAS_TVAR_DECL (rhs)));
 #endif
   type1 = ECR_get_type (alias_tvar_get_ECR (ptr));
   type2 = ECR_get_type (alias_tvar_get_ECR (rhs));
@@ -467,7 +455,8 @@ steen_function_def (ops, func, params, retval)
 
       for (i = 0; i < lp; i++)
 	{
-	  type1 = ECR_get_type (alias_tvar_get_ECR ((alias_typevar) VARRAY_GENERIC_PTR (params, i)));
+	  alias_typevar par = (alias_typevar) VARRAY_GENERIC_PTR (params, i);
+	  type1 = ECR_get_type (alias_tvar_get_ECR (par));
 	  type2 = VARRAY_GENERIC_PTR (args, i);
 
 	  tau1 = alias_vtype_loc (type1);
@@ -576,55 +565,6 @@ steen_function_call (ops, lhs, func, args)
       if (!ECR_equiv (lambda1, lambda2))
 	ECR_cjoin (lambda1, lambda2);
     }
-}
-
-extern int next_color;
-static void test_assign PARAMS((void));
-
-/* Test Steensgaard points-to alias through a series of simple
-   assignments.  */
-static void
-test_assign ()
-{
-  alias_typevar a, b, c, d;
-  varray_type temp;
-  init_ggc ();
-  /* Simulate variable creation for variables a,b,c,d */
-  a = alias_tvar_new (NULL);
-  b = alias_tvar_new (NULL);
-  c = alias_tvar_new (NULL);
-  d = alias_tvar_new (NULL);
-
-  /* a = &b */
-  steen_addr_assign (0, a, b);
-  temp = alias_tvar_pointsto (a);
-  VARRAY_CLEAR (temp);
-
-  /* c = &b */
-  steen_addr_assign (0, c, b);
-  temp = alias_tvar_pointsto (c);
-  VARRAY_CLEAR (temp);
-
-  /* d = a */
-  steen_simple_assign (0, d, a);
-  temp = alias_tvar_pointsto (d);
-  VARRAY_CLEAR (temp);
-
-  /* Now get all the points to sets */
-  VARRAY_GENERIC_PTR_INIT (temp, 1, "all points to");
-  alias_tvar_allpointsto (d, &temp);
-  VARRAY_CLEAR (temp);
-  next_color++;
-  VARRAY_GENERIC_PTR_INIT (temp, 1, "all points to");
-  alias_tvar_allpointsto (c, &temp);
-  VARRAY_CLEAR (temp);
-  next_color++;
-  VARRAY_GENERIC_PTR_INIT (temp, 1, "all points to");
-  alias_tvar_allpointsto (b, &temp);
-  VARRAY_CLEAR (temp);
-  next_color++;
-  VARRAY_GENERIC_PTR_INIT (temp, 1, "all points to");
-  alias_tvar_allpointsto (a, &temp);
 }
 
 static bool

@@ -71,6 +71,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "target.h"
 #include "langhooks.h"
 #include "cfglayout.h"
+#include "tree-alias-common.h" 
 
 #if defined (DWARF2_UNWIND_INFO) || defined (DWARF2_DEBUGGING_INFO)
 #include "dwarf2out.h"
@@ -886,8 +887,8 @@ int flag_disable_simple = 0;
 /* Enable the SSA-PRE tree optimization.  */
 int flag_tree_pre = 0;
 
-/* Enable Steensgaard's points-to analysis on trees. */
-int flag_tree_points_to = 0;
+/* Enable points-to analysis on trees. */
+enum pta_type flag_tree_points_to = PTA_NONE;
 
 /* Enable SSA-CCP on trees.  */
 int flag_tree_ccp = 0;
@@ -1212,8 +1213,6 @@ static const lang_independent_options f_options[] =
    N_("Do not re-write trees into SIMPLE form") },
   { "tree-pre", &flag_tree_pre, 1,
    N_("Enable SSA-PRE optimization on trees") },
-  { "tree-points-to", &flag_tree_points_to, 1,
-   N_("Enable Steensgaard's points-to analysis on trees") },
   { "tree-ccp", &flag_tree_ccp, 1,
    N_("Enable SSA-CCP optimization on trees") },
   { "tree-dce", &flag_tree_dce, 1,
@@ -3687,7 +3686,7 @@ display_help ()
   printf (_("  -fmessage-length=<number> Limits diagnostics messages lengths to <number> characters per line.  0 suppresses line-wrapping\n"));
   printf (_("  -fdiagnostics-show-location=[once | every-line] Indicates how often source location information should be emitted, as prefix, at the beginning of diagnostics when line-wrapping\n"));
   printf (_("  -ftls-model=[global-dynamic | local-dynamic | initial-exec | local-exec] Indicates the default thread-local storage code generation model\n"));
-
+  printf (_("  -ftree-points-to=[steen | andersen] Turn on points-to analysis using the specified algorithm.\n"));
   for (i = ARRAY_SIZE (f_options); i--;)
     {
       const char *description = f_options[i].description;
@@ -3964,6 +3963,15 @@ decode_f_option (arg)
 	read_integral_parameter (option_value, arg - 2,
 				 MAX_INLINE_INSNS);
       set_param_value ("max-inline-insns", val);
+    }
+  else if ((option_value = skip_leading_substring (arg, "tree-points-to=")))
+    {
+      if (strcmp (option_value, "steen") == 0)
+        flag_tree_points_to = PTA_STEEN;
+      else if (strcmp (option_value, "andersen") == 0)
+        flag_tree_points_to = PTA_ANDERSEN;
+      else
+        warning ("`%s`: unknown points-to analysis algorithm", arg - 2);
     }
   else if ((option_value = skip_leading_substring (arg, "tls-model=")))
     {

@@ -29,5 +29,12 @@ extern void create_alias_vars PARAMS ((void));
 extern void delete_alias_vars PARAMS ((void));
 extern void init_alias_vars PARAMS ((void));
 extern bool ptr_may_alias_var PARAMS ((tree, tree));
-
+enum pta_type
+{
+	PTA_NONE,
+	PTA_STEEN,
+	PTA_ANDERSEN
+};
+extern enum pta_type flag_tree_points_to;
+extern const char *alias_get_name PARAMS ((tree));
 #endif

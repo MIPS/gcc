@@ -1,3 +1,35 @@
+2002-10-26  Daniel Berlin  <dberlin@dberlin.org>
+
+	* flags.h: Remove flag_tree_points_to from here.
+	* toplev.c: Include tree-alias-common.h.
+	  (flag_tree_points_to): Now of type enum pta_type, rather than
+	  int. 
+	(lang_independent_options): Remove flag_tree_points_to.
+	(display_help): Display help for tree-points-to here.
+	(decode_f_option): Allow selecting of points-to algorithm.
+	* tree-alias-common.c (varmap): Removed.
+	(alias_annot): Changed to a hash table.  Update all functions
+	approriately. 
+	(FIELD_BASED): New macro, switches between field-based analysis,
+	and field-independent analysis (field-based isn't quite done yet).
+	(alias_annot_entry): New, used in hash table.
+	(annot_eq): New function.
+	(annot_hash): New function.
+	(find_func_aliases): Handle casts, fix indendation.
+	(splaycount): Removed.
+	(splay_tree_count): Removed.
+	(display_points_to_set): Removed.
+	(splay_tree_size): Removed.
+	(alias_get_name): New function.
+	(ptr_may_alias_var): Globals are a bit funky to handle.
+	* tree-alias-steen.c: Use alias_get_name, rather than
+	print_generic_node. 
+	(steen_simple_assign): Handle assignment of PTF's.
+	(test_assign): Remove.
+	* tree-alias-common.h (enum pta_type): New.
+	(alias_get_name): New.
+	(flag_tree_points_to): New.
+
 2002-10-26  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-cfg.c (cleanup_tree_cfg): Uncomment call to
