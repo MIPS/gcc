@@ -363,9 +363,16 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
 
   if (flag_inline_trees)
     {
-      timevar_push (TV_INTEGRATION);
-      optimize_inline_calls (fndecl);
-      timevar_pop (TV_INTEGRATION);
+      struct cgraph_edge *e;
+      for (e = node->callees; e; e = e->next_callee)
+	if (e->inline_call || warn_inline)
+	  break;
+      if (e)
+	{
+	  timevar_push (TV_INTEGRATION);
+	  optimize_inline_calls (fndecl);
+	  timevar_pop (TV_INTEGRATION);
+	}
     }
 
   /* If the function has not already been gimplified, do so now.  */

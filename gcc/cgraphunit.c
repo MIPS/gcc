@@ -464,7 +464,8 @@ cgraph_analyze_function (struct cgraph_node *node)
   if (node->local.inlinable)
     node->local.disregard_inline_limits
       = (*lang_hooks.tree_inlining.disregard_inline_limits) (decl);
-
+  if (flag_really_no_inline && !node->local.disregard_inline_limits)
+    node->local.inlinable = 0;
   /* Inlining characteristics are maintained by the cgraph_mark_inline.  */
   node->global.insns = node->local.self_insns;
 
@@ -1280,59 +1281,62 @@ cgraph_decide_inlining (void)
 		   overall_insns - old_insns);
     }
 
-  cgraph_decide_inlining_of_small_functions ();
-
-  if (cgraph_dump_file)
-    fprintf (cgraph_dump_file, "\nDeciding on functions called once:\n");
-
-  /* And finally decide what functions are called once.  */
-
-  for (i = nnodes - 1; i >= 0; i--)
+  if (!flag_really_no_inline)
     {
-      node = order[i];
+      cgraph_decide_inlining_of_small_functions ();
 
-      if (node->callers && !node->callers->next_caller && !node->needed
-	  && node->local.inlinable && !node->callers->inline_call
-	  && !DECL_EXTERNAL (node->decl) && !DECL_COMDAT (node->decl))
+      if (cgraph_dump_file)
+	fprintf (cgraph_dump_file, "\nDeciding on functions called once:\n");
+
+      /* And finally decide what functions are called once.  */
+
+      for (i = nnodes - 1; i >= 0; i--)
 	{
-	  bool ok = true;
-	  struct cgraph_node *node1;
+	  node = order[i];
 
-	  /* Verify that we won't duplicate the caller.  */
-	  for (node1 = node->callers->caller;
-	       node1->callers && node1->callers->inline_call
-	       && ok; node1 = node1->callers->caller)
-	    if (node1->callers->next_caller || node1->needed)
-	      ok = false;
-	  if (ok)
+	  if (node->callers && !node->callers->next_caller && !node->needed
+	      && node->local.inlinable && !node->callers->inline_call
+	      && !DECL_EXTERNAL (node->decl) && !DECL_COMDAT (node->decl))
 	    {
-	      if (cgraph_dump_file)
-		fprintf (cgraph_dump_file,
-			 "\nConsidering %s %i insns.\n"
-			 " Called once from %s %i insns.\n",
-			 cgraph_node_name (node), node->global.insns,
-			 cgraph_node_name (node->callers->caller),
-			 node->callers->caller->global.insns);
+	      bool ok = true;
+	      struct cgraph_node *node1;
 
-	      old_insns = overall_insns;
-
-	      if (cgraph_check_inline_limits (node->callers->caller, node))
+	      /* Verify that we won't duplicate the caller.  */
+	      for (node1 = node->callers->caller;
+		   node1->callers && node1->callers->inline_call
+		   && ok; node1 = node1->callers->caller)
+		if (node1->callers->next_caller || node1->needed)
+		  ok = false;
+	      if (ok)
 		{
-		  cgraph_mark_inline (node->callers);
 		  if (cgraph_dump_file)
 		    fprintf (cgraph_dump_file,
-			     " Inlined into %s which now has %i insns"
-			     " for a net change of %+i insns.\n",
+			     "\nConsidering %s %i insns.\n"
+			     " Called once from %s %i insns.\n",
+			     cgraph_node_name (node), node->global.insns,
 			     cgraph_node_name (node->callers->caller),
-			     node->callers->caller->global.insns,
-			     overall_insns - old_insns);
+			     node->callers->caller->global.insns);
+
+		  old_insns = overall_insns;
+
+		  if (cgraph_check_inline_limits (node->callers->caller, node))
+		    {
+		      cgraph_mark_inline (node->callers);
+		      if (cgraph_dump_file)
+			fprintf (cgraph_dump_file,
+				 " Inlined into %s which now has %i insns"
+				 " for a net change of %+i insns.\n",
+				 cgraph_node_name (node->callers->caller),
+				 node->callers->caller->global.insns,
+				 overall_insns - old_insns);
+		    }
+		  else
+		    {
+		      if (cgraph_dump_file)
+			fprintf (cgraph_dump_file,
+				 " Inline limit reached, not inlined.\n");
+		    }
 		}
-	      else
-                {
-		  if (cgraph_dump_file)
-		    fprintf (cgraph_dump_file,
-	                     " Inline limit reached, not inlined.\n");
-	        }
 	    }
 	}
     }
@@ -1370,14 +1374,15 @@ cgraph_decide_inlining_incrementally (struct cgraph_node *node)
       cgraph_mark_inline (e);
 
   /* Now do the automatic inlining.  */
-  for (e = node->callees; e; e = e->next_callee)
-    if (e->callee->local.inlinable
-	&& !e->inline_call
-        && !cgraph_recursive_inlining_p (node, e->callee)
-        && cgraph_default_inline_p (e->callee)
-	&& cgraph_check_inline_limits (node, e->callee)
-	&& DECL_SAVED_TREE (e->callee->decl))
-      cgraph_mark_inline (e);
+  if (!flag_really_no_inline)
+    for (e = node->callees; e; e = e->next_callee)
+      if (e->callee->local.inlinable
+	  && !e->inline_call
+	  && !cgraph_recursive_inlining_p (node, e->callee)
+	  && cgraph_default_inline_p (e->callee)
+	  && cgraph_check_inline_limits (node, e->callee)
+	  && DECL_SAVED_TREE (e->callee->decl))
+	cgraph_mark_inline (e);
 }
 
 
