@@ -437,23 +437,21 @@ vect_get_new_vect_var (tree type, enum vect_var_kind var_kind, const char *name)
 static tree
 vect_create_index_for_array_ref (tree stmt, block_stmt_iterator *bsi)
 {
-  tree init_stmt;
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
   struct loop *loop = STMT_VINFO_LOOP (stmt_info);
   struct data_reference *dr = STMT_VINFO_DATA_REF (stmt_info);
   tree expr = DR_REF (dr);
   varray_type access_fns = DR_ACCESS_FNS (dr);
   tree access_fn;
-  tree new_indx, scalar_indx; 
+  tree scalar_indx; 
   int init_val, step_val;
   tree init, step;
-  block_stmt_iterator pre_header_bsi;
   loop_vec_info loop_info = loop->aux;
   int vectorization_factor = LOOP_VINFO_VECT_FACTOR (loop_info);
-  tree step_stmt;
   bool ok;
   int array_first_index;
   int vec_init_val;
+  tree indx_before_incr, indx_after_incr;
 
   if (TREE_CODE (expr) != ARRAY_REF)
     abort ();
@@ -483,12 +481,6 @@ vect_create_index_for_array_ref (tree stmt, block_stmt_iterator *bsi)
 
   scalar_indx =  TREE_OPERAND (expr, 1); 
 
-  /* Create a new variable and initialize it in the loop pre-header.  */
-
-  new_indx = vect_get_new_vect_var (size_type_node, vect_simple_var, "iv_");
-  add_referenced_tmp_var (new_indx); 	
-  bitmap_set_bit (vars_to_rename, var_ann (new_indx)->uid);
-
   /* The actual index depends on the (mis)alignment of the access.
      FORNOW: we verify that both the array base and the access are
      aligned, so the index in the vectorized access is simply
@@ -506,54 +498,15 @@ vect_create_index_for_array_ref (tree stmt, block_stmt_iterator *bsi)
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "vec_init_indx = %d\n", vec_init_val);
 
-  /* 
-     create and insert 'init_stmt' as follows:
+  init = build_int_2 (vec_init_val, 0);
+  step = integer_one_node;
 
-     loop_prolog:
-	init_stmt: new_index = vec_init_val;
-     loop:
-   */
+  /* CHECKME: assuming that bsi_insert is used with BSI_NEW_STMT */
 
-  init_stmt = build (MODIFY_EXPR, size_type_node, new_indx,
-		build_int_2 (vec_init_val, 0));
+  create_iv (init, step, NULL_TREE, loop, bsi, false, 
+	&indx_before_incr, &indx_after_incr); 
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    {
-      print_generic_expr (dump_file, init_stmt, TDF_SLIM);
-      fprintf (dump_file, "\n");
-    }
-
-  /* CHECKME: general utility for inserting a stmt at the end of a bb?  */
-  pre_header_bsi = bsi_last (loop->pre_header);
-  if (!bsi_end_p (pre_header_bsi)
-      && is_ctrl_stmt (bsi_stmt (pre_header_bsi)))
-    bsi_insert_before (&pre_header_bsi, init_stmt, BSI_NEW_STMT);	
-  else
-    bsi_insert_after (&pre_header_bsi, init_stmt, BSI_NEW_STMT);	
-
-  /* 
-     create and insert 'step_stmt' as follows:
-
-     loop_prolog:
-	init_stmt: new_index = vec_init_val;
-     loop:
-	step_stmt: new_indx = new_indx + 1;
-   */
-
-  step_stmt = build (MODIFY_EXPR, size_type_node, new_indx,
-			build (PLUS_EXPR, size_type_node,
-			TREE_OPERAND (init_stmt, 0), integer_one_node)); 
-
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    {
-      print_generic_expr (dump_file, step_stmt, TDF_SLIM);
-      fprintf (dump_file, "\n");
-    }
-
-  /* Have bsi point to new stmt.  */
-  bsi_insert_before (bsi, step_stmt, BSI_NEW_STMT);	
-
-  return new_indx;
+  return indx_before_incr;
 }
 
 
@@ -1333,10 +1286,10 @@ vect_transform_loop_bound (loop_vec_info loop_vinfo)
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   edge exit_edge = loop_exit_edge (loop, 0);
   block_stmt_iterator loop_exit_bsi = bsi_last (exit_edge->src);
-  block_stmt_iterator pre_header_bsi;
+  tree indx_before_incr, indx_after_incr;
   tree orig_cond_expr;
   int old_N, vf;
-  tree new_indx, init_stmt, step_stmt, cond_stmt;
+  tree cond_stmt;
   tree new_loop_bound;
 
   /* FORNOW: assuming the loop bound is known.  */
@@ -1357,35 +1310,22 @@ vect_transform_loop_bound (loop_vec_info loop_vinfo)
   if (orig_cond_expr != bsi_stmt (loop_exit_bsi))
     abort ();
 
-  /* create new induction var:  */
-  new_indx = vect_get_new_vect_var (size_type_node, vect_simple_var, "iv_");
-  add_referenced_tmp_var (new_indx);
-  bitmap_set_bit (vars_to_rename, var_ann (new_indx)->uid);
-  
+  create_iv (integer_zero_node, integer_one_node, NULL_TREE, loop, 
+	&loop_exit_bsi, false, &indx_before_incr, &indx_after_incr);
 
-  /* induction var initialization in loop prolog:  */
-  init_stmt = build (MODIFY_EXPR, size_type_node, new_indx, integer_zero_node);
-
-  pre_header_bsi = bsi_last (loop->pre_header);
-  if (!bsi_end_p (pre_header_bsi)
-      && is_ctrl_stmt (bsi_stmt (pre_header_bsi))) 
-    bsi_insert_before (&pre_header_bsi, init_stmt, BSI_NEW_STMT);
-  else
-    bsi_insert_after (&pre_header_bsi, init_stmt, BSI_NEW_STMT);
-
-  /* induction var update in loop:  */
-  step_stmt = build (MODIFY_EXPR, size_type_node, new_indx,
-                        build (PLUS_EXPR, size_type_node,
-			TREE_OPERAND (init_stmt, 0), integer_one_node));
-  bsi_insert_before (&loop_exit_bsi, step_stmt, BSI_SAME_STMT);   
-
+  /* CHECKME: bsi_insert is using BSI_NEW_STMT. We need to bump it back 
+     to point to the exit condition. */
+  bsi_next (&loop_exit_bsi);
+  if (bsi_stmt (loop_exit_bsi) != orig_cond_expr)
+    abort ();
 
   /* new loop exit test:  */
   new_loop_bound = build_int_2 (old_N/vf, 0);
-  cond_stmt = build (COND_EXPR, TREE_TYPE (orig_cond_expr),
-		build (LT_EXPR, boolean_type_node, new_indx, new_loop_bound),
-		TREE_OPERAND (orig_cond_expr, 1),
-		TREE_OPERAND (orig_cond_expr, 2));
+  cond_stmt = 
+	build (COND_EXPR, TREE_TYPE (orig_cond_expr),
+	build (LT_EXPR, boolean_type_node, indx_after_incr, new_loop_bound),
+	TREE_OPERAND (orig_cond_expr, 1), TREE_OPERAND (orig_cond_expr, 2));
+
   bsi_insert_before (&loop_exit_bsi, cond_stmt, BSI_SAME_STMT);   
 
   /* remove old loop exit test:  */

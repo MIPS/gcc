@@ -1,3 +1,9 @@
+2004-04-20  Dorit Naishlos <dorit@il.ibm.com>
+
+        * tree-vectorizer.c (vect_create_index_for_array_ref): Use create_iv
+        instead of creating iv's from scratch.
+        (vect_transform_loop_bound): Likewise.
+
 2004-04-20  Sebastian Pop  <sebastian.pop@ensmp.fr>
 
 	* tree-chrec.c (chrec_fold_multiply_ival_cst, 
