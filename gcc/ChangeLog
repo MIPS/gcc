@@ -1,5 +1,7 @@
 2002-02-18  Geoffrey Keating  <geoffk@redhat.com>
 
+	* varasm.c (compare_constant): Fix typo.
+
 	* varasm.c: Don't include obstack.h.
 	(struct varasm_status): x_const_rtx_hash_table is a hash of rtxes.
 	(struct rtx_const): Give substructures names, improve formatting.

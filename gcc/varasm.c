@@ -2711,7 +2711,7 @@ compare_constant (t1, t2)
 		return 0;
 	    }
 
-	  for (l1 = CONSTRUCTOR_ELTS (t1), l2 = CONSTRUCTOR_ELTS (l2);
+	  for (l1 = CONSTRUCTOR_ELTS (t1), l2 = CONSTRUCTOR_ELTS (t2);
 	       l1 && l2;
 	       l1 = TREE_CHAIN (l1), l2 = TREE_CHAIN (l2))
 	    {
