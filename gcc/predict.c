@@ -1226,7 +1226,7 @@ compute_function_frequency ()
 {
   int i;
   if (!profile_info.count_profiles_merged
-      && flag_branch_probabilities)
+      || !flag_branch_probabilities)
     return;
   cfun->function_frequency = FUNCTION_FREQUENCY_UNLIKELY_EXECUTED;
   for (i = 0; i < n_basic_blocks; i++)
