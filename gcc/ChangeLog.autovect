@@ -1,3 +1,8 @@
+2005-02-02  Keith Besaw  <kbesaw@us.ibm.com>
+
+	* tree-vectorizer.c (vectorizable_load): Remove call to
+	mark_call_clobbered_vars_to_rename.
+
 2005-02-02  Dorit Naishlos  <dorit@il.ibm.com>
 
 	* tree-vectorizer.c (slpeel_update_phi_nodes_for_guard): Removed.

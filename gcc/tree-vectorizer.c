@@ -290,10 +290,8 @@ static unsigned int loops_num;
  *************************************************************************/
 
 /* Utilities for dependence analysis.  */
-#if 0
 static unsigned int vect_build_dist_vector (struct loop *,
 					    struct data_dependence_relation *);
-#endif
 
 /* For each definition in DEFINITIONS this function allocates 
    new ssa name.  */
@@ -3305,9 +3303,12 @@ vectorizable_load (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
 	  gcc_assert (!new_bb);
 	  magic = TREE_OPERAND (new_stmt, 0);
 
-	  /* Since we have just created a CALL_EXPR, we may need to
-	     rename call-clobbered variables.  */
-	  mark_call_clobbered_vars_to_rename ();
+	  /* The result of the CALL_EXPR to this builtin is determined from
+	     the value of the parameter and no global variables are touched
+	     which makes the builtin a "const" function.  Requiring the
+	     builtin to have the "const" attribute makes it unnecessary
+	     to call mark_call_clobbered_vars_to_rename.  */
+	  gcc_assert (TREE_READONLY (builtin_decl));
 	}
       else
 	{
@@ -4791,7 +4792,6 @@ vect_analyze_scalar_cycles (loop_vec_info loop_vinfo)
   return true;
 }
 
-#if 0
 /* Function vect_build_dist_vector.
 
    Build classic dist vector for dependence relation DDR using LOOP's loop
@@ -4822,7 +4822,6 @@ vect_build_dist_vector (struct loop *loop,
 
   return loop_depth - 1;
 }
-#endif
 
 /* Function vect_analyze_data_ref_dependence.
 
@@ -4837,13 +4836,11 @@ vect_analyze_data_ref_dependence (struct data_reference *dra,
   bool differ_p; 
   struct data_dependence_relation *ddr;
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
-#if 0
   unsigned int loop_depth = 0;
   int vectorization_factor = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
   stmt_vec_info stmt_info_a = vinfo_for_stmt (DR_STMT (dra));
   stmt_vec_info stmt_info_b = vinfo_for_stmt (DR_STMT (drb));
   int dist;
-#endif
 
   if (!array_base_name_differ_p (dra, drb, &differ_p))
     {
@@ -4867,7 +4864,6 @@ vect_analyze_data_ref_dependence (struct data_reference *dra,
   if (DDR_ARE_DEPENDENT (ddr) == chrec_known)
     return false;
 
-#if 0
   if (DDR_ARE_DEPENDENT (ddr) == chrec_dont_know)
     return true;
 
@@ -4891,7 +4887,6 @@ vect_analyze_data_ref_dependence (struct data_reference *dra,
     /* Dependence distance does not create dependence, as far as vectorization
        is concerned, in this case.  */
     return false;
-#endif
   
   if (vect_debug_stats (loop) || vect_debug_details (loop))
     {
