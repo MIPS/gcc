@@ -1,3 +1,7 @@
+2004-12-13  Dale Johannesen  <dalej@apple.com>
+
+	* tree-inline.c (optimize_inline_calls):  Call counts_to_freqs.
+
 2004-12-09 Kenneth Zadeck  <Kenneth.Zadeck@NaturalBridge.com>
 	* tree-gimple.c (get_base_var): missing const_decl case.
 	* cgraphunit.c (cgraph_mark_nonexportable): remove.
