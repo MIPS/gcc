@@ -24,14 +24,14 @@
 # Do not generate prefetch instructions for the following options.
 
 set PREFETCH_NONE [list \
-	{ -mcpu=i386 } \
-	{ -mcpu=i486 } \
-	{ -mcpu=i586 } \
-	{ -mcpu=i686 } \
-	{ -mcpu=pentium2 } \
-	{ -mcpu=k6 } \
-	{ -mcpu=k6-2 } \
-	{ -mcpu=k6-3 } \
+	{ -march=i386 -mcpu=i386 } \
+	{ -march=i386 -mcpu=i486 } \
+	{ -march=i386 -mcpu=i586 } \
+	{ -march=i386 -mcpu=i686 } \
+	{ -march=i386 -mcpu=pentium2 } \
+	{ -march=i386 -mcpu=k6 } \
+	{ -march=i386 -mcpu=k6-2 } \
+	{ -march=i386 -mcpu=k6-3 } \
 	{ -march=i386 } \
 	{ -march=i486 } \
 	{ -march=i586 } \
@@ -44,12 +44,14 @@ set PREFETCH_NONE [list \
 # instructions as nops.
 
 set PREFETCH_SSE [list \
-	{ -mcpu=pentium3 } \
-	{ -mcpu=pentium4 } \
-	{ -mcpu=athlon } \
-	{ -mcpu=athlon-4 } \
+	{ -march=i686 -mcpu=pentium3 } \
+	{ -march=i686 -mcpu=pentium4 } \
+	{ -march=i686 -mcpu=prescott } \
+	{ -march=i686 -mcpu=athlon } \
+	{ -march=i686 -mcpu=athlon-4 } \
 	{ -march=pentium3 } \
-	{ -march=pentium4 } ]
+	{ -march=pentium4 } \
+	{ -march=prescott } ]
 
 # Generate 3DNow! prefetch instructions for the following.
 

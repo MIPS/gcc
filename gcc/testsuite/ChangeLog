@@ -1,3 +1,15 @@
+2004-07-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.mist-tests/i386-prefetch.exp (PREFETCH_SSE): Change all
+	-march=i386 into -march=i686.  Add -march=i686 -mcpu=prescott and
+	-march=prescott.
+
+2003-08-04  Janis Johnson  <janis187@us.ibm.com>
+
+	PR target/11739
+	* gcc.misc-tests/i386-prefetch.exp: Use -march=i386 when specifying
+	a value for -mcpu.
+
 2004-06-09  Jakub Jelinek  <jakub@redhat.com>
 
 	PR target/15569
