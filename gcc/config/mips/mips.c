@@ -209,6 +209,8 @@ static rtx mips_emit_high			PARAMS ((rtx, rtx));
 static bool mips_legitimize_symbol		PARAMS ((rtx, rtx *, int));
 static rtx mips_reloc				PARAMS ((rtx, int));
 static rtx mips_lui_reloc			PARAMS ((rtx, int));
+static void mips_legitimize_const_move		PARAMS ((enum machine_mode,
+							 rtx, rtx));
 static int m16_check_op				PARAMS ((rtx, int, int, int));
 static void block_move_loop			PARAMS ((rtx, rtx,
 							 unsigned int,
@@ -1903,6 +1905,61 @@ mips_legitimize_address (xloc, mode)
 }
 
 
+/* Subroutine of mips_legitimize_move.  Move constant SRC into register
+   DEST given that SRC satisfies immediate_operand but doesn't satisfy
+   move_operand.  */
+
+static void
+mips_legitimize_const_move (mode, dest, src)
+     enum machine_mode mode;
+     rtx dest, src;
+{
+  rtx temp;
+
+  temp = no_new_pseudos ? dest : 0;
+
+  /* If generating PIC, the high part of an address is loaded from the GOT.  */
+  if (GET_CODE (src) == HIGH)
+    {
+      mips_emit_high (dest, XEXP (src, 0));
+      return;
+    }
+
+  /* Fetch global symbols from the GOT.  */
+  if (TARGET_EXPLICIT_RELOCS
+      && GET_CODE (src) == SYMBOL_REF
+      && mips_classify_symbol (src) == SYMBOL_GOT_GLOBAL)
+    {
+      if (flag_pic == 1)
+	src = mips_load_got16 (src, RELOC_GOT_DISP);
+      else
+	src = mips_load_got32 (temp, src, RELOC_GOT_HI, RELOC_GOT_LO);
+      emit_insn (gen_rtx_SET (VOIDmode, dest, src));
+      return;
+    }
+
+  /* Try handling the source operand as a symbolic address.  */
+  if (mips_legitimize_symbol (temp, &src, false))
+    {
+      emit_insn (gen_rtx_SET (VOIDmode, dest, src));
+      return;
+    }
+
+  src = force_const_mem (mode, src);
+
+  /* When using explicit relocs, constant pool references are sometimes
+     not legitimate addresses.  mips_legitimize_symbol must be able to
+     deal with all such cases.  */
+  if (GET_CODE (src) == MEM && !memory_operand (src, VOIDmode))
+    {
+      src = copy_rtx (src);
+      if (!mips_legitimize_symbol (temp, &XEXP (src, 0), false))
+	abort ();
+    }
+  emit_move_insn (dest, src);
+}
+
+
 /* If (set DEST SRC) is not a valid instruction, emit an equivalent
    sequence that is valid.  */
 
@@ -1919,36 +1976,8 @@ mips_legitimize_move (mode, dest, src)
 
   if (CONSTANT_P (src) && !move_operand (src, mode))
     {
-      /* If generating PIC, the high part of an address is loaded from
-	 the GOT.  */
-      if (GET_CODE (src) == HIGH)
-	{
-	  mips_emit_high (dest, XEXP (src, 0));
-	  return true;
-	}
-
-      /* Fetch global symbols from the GOT.  */
-      if (TARGET_EXPLICIT_RELOCS
-	  && GET_CODE (src) == SYMBOL_REF
-	  && mips_classify_symbol (src) == SYMBOL_GOT_GLOBAL)
-	{
-	  if (flag_pic == 1)
-	    src = mips_load_got16 (src, RELOC_GOT_DISP);
-	  else
-	    src = mips_load_got32 (dest, src, RELOC_GOT_HI, RELOC_GOT_LO);
-	  emit_insn (gen_rtx_SET (VOIDmode, dest, src));
-	  return true;
-	}
-
-      /* Try handling the source operand as a symbolic address.  */
-      if (mips_legitimize_symbol (no_new_pseudos ? dest : 0, &src, false))
-	{
-	  emit_insn (gen_rtx_SET (VOIDmode, dest, src));
-	  return true;
-	}
-
-      src = force_const_mem (mode, src);
-      emit_move_insn (dest, src);
+      mips_legitimize_const_move (mode, dest, src);
+      set_unique_reg_note (get_last_insn (), REG_EQUAL, copy_rtx (src));
       return true;
     }
   return false;

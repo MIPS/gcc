@@ -1,3 +1,10 @@
+2003-02-12  Richard Sandiford  <rsandifo@redhat.com>
+
+	* config/mips/mips.c (mips_legitimize_const_move): New, extracted
+	from mips_legitimize_move.  Legitimize constant pool references.
+	(mips_legitimize_move): Call mips_legitimize_const_move.  Attach
+	a REG_EQUAL note to the last instruction.
+
 2003-02-11  Richard Sandiford  <rsandifo@redhat.com>
 
 	* config/mips/mips-protos.h (mips_simplify_dwarf_addr): Declare.
