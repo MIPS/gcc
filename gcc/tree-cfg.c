@@ -187,7 +187,7 @@ build_tree_cfg (fnbody)
 
 /** @brief Build a flowgraph for the statements starting at the
 	   statement pointed by FIRST_P.
-    @param firsp_p is a pointer to the first statement in the CFG.
+    @param first_p is a pointer to the first statement in the CFG.
     @param parent_block is the header block for the control structure
            immediately enclosing the new sub-graph.  */
 
@@ -1215,8 +1215,8 @@ cleanup_switch_expr_graph (switch_bb)
 
 
 /** @brief Clean up a 'switch' expression with a constant condition.
-    @param switch_bb is the basic block with the SWITCH_EXPR that
-           should be cleaned up.
+    @param bb is the basic block with the SWITCH_EXPR that should be
+           cleaned up.
 
     If the switch() statement starting at basic block BB has a constant
     condition, disconnect all the unreachable case labels.  */

@@ -1,3 +1,8 @@
+2002-12-12  Steven Bosscher <Steven.Bosscher@usafa.af.mil>
+
+	* tree-cfg.c: Update doxygen documentation.
+	* tree-dfa.c: Add doxygen documentation.
+
 2002-12-11  Steven Bosscher <Steven.Bosscher@usafa.af.mil>
 
 	* tree-cfg.c: Add doxygen markers in comments.

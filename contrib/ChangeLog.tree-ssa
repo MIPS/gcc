@@ -1,0 +1,8 @@
+2002-12-12  Daniel Berlin  <dberlin@dberlin.org>
+	    Steven Bosscher <Steven.Bosscher@usafa.af.mil>
+	    Diego Novillo <dnovillo@redhat.com>
+
+	* filter_gcc_for_doxygen: New file.
+	* filter_knr2ansi.pl: New file.
+	* filter_params.pl: New file.
+	* tree-ssa.doxy: New file.

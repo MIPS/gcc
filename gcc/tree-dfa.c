@@ -56,7 +56,7 @@ struct replace_data_d
   tree new;
 };
 
-/* DFA Statistics.  */
+/** @brief Gathers DFA Statistics.  */
 struct dfa_stats_d
 {
   unsigned long num_tree_refs;
@@ -133,7 +133,7 @@ const unsigned TRM_RELOCATE	= 1 << 5;
 const unsigned TRM_ADDRESSOF	= 1 << 6;
 
 
-/* Look for variable references in every block of the flowgraph.  */
+/** @brief Look for variable references in every block of the flowgraph.  */
 
 void
 find_tree_refs ()
@@ -153,8 +153,9 @@ find_tree_refs ()
 }
 
 
-/* Walk STMT looking for variable references.  BB is the basic block that
-   contains STMT.  */
+/** @brief Walk STMT looking for variable references.
+    @param stmt_p is a pointer to the statement STMT.
+    @param bb is the basic block that contains STMT.  */
 
 void
 find_refs_in_stmt (stmt_p, bb)
@@ -210,14 +211,13 @@ find_refs_in_stmt (stmt_p, bb)
 }
 
 
-/* Recursively scan the expression tree pointed by EXPR_P looking for
-   variable references.
-   
-   REF_TYPE indicates what type of reference should be created.
-
-   REF_MOD is the set of modifier flags for REF_TYPE.
-
-   BB and PARENT_STMT_P give the location of *EXPR_P in the program.  */
+/** @brief Recursively scan an expression tree looking for
+	   variable references.
+    @param expr_p points to the expression that should be scanned.
+    @param ref_type indicates what type of reference should be created.
+    @param ref_mod is the set of modifier flags for REF_TYPE.
+    @param bb is the basic block in which EXPR_P is located.
+    @param parent_stmt_p is the parent statement in BB for EXPR_P.
 
 static void
 find_refs_in_expr (expr_p, ref_type, ref_mod, bb, parent_stmt_p)
@@ -486,7 +486,7 @@ find_refs_in_expr (expr_p, ref_type, ref_mod, bb, parent_stmt_p)
 }
 
 
-/* Create and return an empty list of references.  */
+/** @brief Create and return an empty list of references.  */
 
 ref_list
 create_ref_list ()
@@ -497,8 +497,8 @@ create_ref_list ()
 }
 
 
-/* Free the nodes in LIST, but keep the empty list around.  
-   (i.e., empty the list).  */
+/** @brief Free the nodes in LIST, but keep the empty list around 
+	   (i.e., empty the list).  */
 
 void 
 empty_ref_list (list)
@@ -511,7 +511,7 @@ empty_ref_list (list)
 }
 
 
-/* Remove REF from LIST.  */
+/** @brief Remove REF from LIST.  */
 
 void 
 remove_ref_from_list (list, ref)
@@ -540,7 +540,7 @@ remove_ref_from_list (list, ref)
 }
 
 
-/* Add REF to the beginning of LIST.  */
+/** @brief Add REF to the beginning of LIST.  */
 
 void
 add_ref_to_list_begin (list, ref)
@@ -562,7 +562,7 @@ add_ref_to_list_begin (list, ref)
 }
 
 
-/* Add REF to the end of LIST.  */
+/** @brief Add REF to the end of LIST.  */
 
 void
 add_ref_to_list_end (list, ref)
@@ -585,8 +585,8 @@ add_ref_to_list_end (list, ref)
 }
 
 
-/* Add the contents of the list TOADD to the list LIST, at the beginning of
-   LIST.  */
+/** @brief Add the contents of the list TOADD to the list LIST,
+	   at the beginning of LIST.  */
 
 void 
 add_list_to_list_begin (list, toadd)
@@ -600,7 +600,8 @@ add_list_to_list_begin (list, toadd)
 }
 
 
-/* Add the contents of the list TOADD to the list LIST, at the end of LIST.  */
+/** @brief Add the contents of the list TOADD to the list LIST, at
+	   the end of LIST.  */
 
 void
 add_list_to_list_end (list, toadd)
@@ -614,7 +615,7 @@ add_list_to_list_end (list, toadd)
 }
 
 
-/* Find the list container for reference REF in LIST.  */
+/** @brief Find the list container for reference REF in LIST.  */
 
 struct ref_list_node *
 find_list_node (list, ref)
@@ -640,7 +641,7 @@ find_list_node (list, ref)
   return node;
 }
 
-/* Start a new forward iterator on the first element of LIST.  */
+/** @brief Start a new forward iterator on the first element of LIST.  */
 
 ref_list_iterator
 rli_start (list)
@@ -663,7 +664,7 @@ rli_start (list)
 }
 
 
-/* Start a new iterator on the last element of LIST.  */
+/** @brief Start a new iterator on the last element of LIST.  */
 
 ref_list_iterator
 rli_start_last (list)
@@ -686,7 +687,7 @@ rli_start_last (list)
 }
 
 
-/* Start a new iterator on a specific list node N.  */
+/** @brief Start a new iterator on a specific list node N.  */
 
 ref_list_iterator
 rli_start_at (n)
@@ -698,15 +699,15 @@ rli_start_at (n)
 }
 
 
-/* Delete the reference at the current position of iterator I.
+/** @brief Delete the reference at the current position of iterator I.
    
-   NOTE: This will not remove the first and last element of a list.  It
-   will merely nullify the reference that they are pointing to.  This will
-   be "corrected" the next time an iterator is started on the same list.
+    NOTE: This will not remove the first and last element of a list.  It
+    will merely nullify the reference that they are pointing to.  This will
+    be "corrected" the next time an iterator is started on the same list.
 
-   FIXME  This is a bit hackish, but otherwise we need to either keep
-          handles on ref_list nodes in the iterator or include the list in
-	  the structure.  */
+    @todo FIXME: This is a bit hackish, but otherwise we need to either
+    keep handles on ref_list nodes in the iterator or include the list in
+    the structure.  */
 
 void
 rli_delete (i)
@@ -724,7 +725,7 @@ rli_delete (i)
 }
 
 
-/* Add REF after NODE.  */
+/** @brief Add REF after NODE.  */
 
 void
 add_ref_to_list_after (list, node, ref)
@@ -747,7 +748,7 @@ add_ref_to_list_after (list, node, ref)
 }
 
 
-/* Return the size in bytes of a reference of type REF_TYPE.  */
+/** @brief Return the size in bytes of a reference of type REF_TYPE.  */
 
 static size_t
 tree_ref_size (ref_type)
@@ -777,26 +778,27 @@ tree_ref_size (ref_type)
 }
 
 
-/* Create a new variable reference for variable VAR.
+/** @brief Create a new variable reference
+    @param var is the variable for which the new reference must be created.
+    @param ref_type is the type of reference to create (V_DEF, V_USE, V_PHI, etc).
+    @param ref_mod is the set of modifier flags for REF_TYPE.
+    @param bb is the basic block in which the reference must be created.
+    @param parent_stmt_p is the statement in which the reference occurs.
+    @param add_to_bb should be 1 if the caller wants the reference to be added
+	   to the list of references for BB (i.e., bb_refs (BB)).
 
-   REF_TYPE is the type of reference to create (V_DEF, V_USE, V_PHI, etc).
-    
-   REF_MOD is the set of modifier flags for REF_TYPE.  The modifier is a
-      bitmask built from the TRM_* constants.  This bitmask is used to set
-      the corresponding bitfield in the various tree_ref structures.
+    The modifier REF_MOD is a bitmask built from the TRM_* constants.  This
+    bitmask is used to set the corresponding bitfield in the various tree_ref
+    structures.
 
-   BB and PARENT_STMT_P give the location of the reference.  PARENT_STMT_P
-      can be NULL in the case of artificial references (PHI nodes, default
-      definitions, etc).
+    PARENT_STMT_P can be NULL in the case of artificial references (PHI nodes,
+    default definitions, etc).
 
-   ADD_TO_BB should be 1 if the caller wants the reference to be added
-      to the list of references for BB (i.e., bb_refs (BB)).  In that case,
-      the reference is added at the end of the list.
-      
-      This is a problem for certain types of references like V_PHI
-      that need to be added in specific places within the list
-      of references for the BB.  If ADD_TO_BB is 0, the caller is
-      responsible for the placement of the newly created reference.  */
+    If ADD_TO_BB is 1, the reference is added at the end of the list. This is
+    a problem for certain types of references like V_PHI that need to be added
+    in specific places within the list of references for the BB. If ADD_TO_BB
+    is 0, the caller is responsible for the placement of the newly created
+    reference.  */
 
 tree_ref
 create_ref (var, ref_type, ref_mod, bb, parent_stmt_p, add_to_bb)
