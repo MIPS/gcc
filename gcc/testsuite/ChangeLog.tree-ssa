@@ -1,3 +1,7 @@
+2003-09-24  Jeff Law  <law@redhat.com>
+
+	* gcc.dg/tree-ssa/20030807-9.c: Add additional test.
+
 2003-09-22  Jeff Law  <law@redhat.com>
 
 	* gcc.dg/tree-ssa/20030922-1.c: New test.

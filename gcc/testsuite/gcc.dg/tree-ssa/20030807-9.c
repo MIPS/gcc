@@ -8,5 +8,12 @@ bar ()
   oof (label2);
 }
 
+void
+ooof ()
+{
+  if (""[0] == 0)
+    foo();
+}
+
 /* There should be no IF conditionals.  */
 /* { dg-final { scan-tree-dump-times "if " 0 "dom2"} } */
