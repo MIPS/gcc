@@ -1,3 +1,9 @@
+2004-06-21  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	PR rtl-optimization/16001
+	* loop-iv.c (iv_number_of_iterations): Prevent copy propagation in
+	niter_expr.
+
 2004-06-21  Sebastian Pop  <pop@cri.ensmp.fr>
 
 	* tree.def (PEELED_CHREC): Removed.
