@@ -851,7 +851,7 @@ public class SwingUtilities implements SwingConstants
   }
 
   /**
-   * Returns true if left mouse button was clicked.
+   * Checks if left mouse button was clicked.
    *
    * @param event the event to check
    *
@@ -864,7 +864,7 @@ public class SwingUtilities implements SwingConstants
   }
 
   /**
-   * Returns true if middle mouse button was clicked.
+   * Checks if middle mouse button was clicked.
    *
    * @param event the event to check
    *
@@ -877,7 +877,7 @@ public class SwingUtilities implements SwingConstants
   }
 
   /**
-   * Returns true if right mouse button was clicked.
+   * Checks if right mouse button was clicked.
    *
    * @param event the event to check
    *

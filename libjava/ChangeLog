@@ -1,5 +1,12 @@
 2004-06-11  Michael Koch  <konqueror@gmx.de>
 
+	* javax/swing/SwingUtilities.java
+	(isLeftMouseButton): Fixed javadoc.
+	(isMiddleMouseButton): Likewise.
+	(isRightMouseButton): Likewise.
+
+2004-06-11  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/JScrollPane.java
 	(serialVersionUID): New field.
 	(columnHeader): Made protected.
