@@ -27,13 +27,9 @@
 
 // 2004-03-11  Dhruv Matani  <dhruvbird@HotPOP.com>
 
-#include <list>
-#include <algorithm>
-#include <cstdlib>
 #include <typeinfo>
 #include <sstream>
 #include <ext/mt_allocator.h>
-#include <ext/new_allocator.h>
 #include <ext/malloc_allocator.h>
 #include <ext/bitmap_allocator.h>
 #include <ext/pool_allocator.h>
@@ -42,72 +38,73 @@
 
 using namespace std;
 using __gnu_cxx::malloc_allocator;
-using __gnu_cxx::new_allocator;
 using __gnu_cxx::__mt_alloc;
 using __gnu_cxx::bitmap_allocator;
 using __gnu_cxx::__pool_alloc;
 
-typedef int test_type;
+using namespace __gnu_cxx;
+
+#include <list>
+#include <algorithm>
+#include <cstdlib>
+using namespace std;
 
 template <typename Alloc>
-  int
-  Test_Allocator()
-  {
-    typedef list<int, Alloc> My_List;
-    My_List il1;
-    int const Iter = 150000;
+int Test_Allocator ()
+{
+  typedef list<int, Alloc> My_List;
+  My_List il1;
 
-    int ctr = 3;
-    while (ctr--)
-      {
-	for (int i = 0; i < Iter; ++i)
-	  il1.push_back(rand()%500001);
+  int const Iter = 150000;
 
-	//Search for random values that may or may not belong to the list.
-	for (int i = 0; i < 50; ++i)
-	  std::find(il1.begin(), il1.end(), rand() % 100001);
+  int ctr = 3;
+  while (ctr--)
+    {
+      for (int i = 0; i < Iter; ++i)
+	il1.push_back (rand()%500001);
+
+      //Search for random values that may or may not belong to the list.
+      for (int i = 0; i < 50; ++i)
+	std::find (il1.begin(), il1.end(), rand()%100001);
       
-	il1.sort();
+      il1.sort ();
       
-	//Search for random values that may or may not belong to the list.
-	for (int i = 0; i < 50; ++i)
-	  {
-	    typename My_List::iterator _liter = std::find(il1.begin(),
-							  il1.end(),
-							  rand() % 100001);
-	    if (_liter != il1.end())
-	      il1.erase(_liter);
-	  }
+      //Search for random values that may or may not belong to the list.
+      for (int i = 0; i < 50; ++i)
+	{
+	  typename My_List::iterator _liter = std::find (il1.begin(), il1.end(), rand()%100001);
+	  if (_liter != il1.end())
+	    il1.erase (_liter);
+	}
       
-	il1.clear();
-      }
-    return Iter;
-  }
+      il1.clear ();
+    }
+  return Iter;
+}
 
 template <typename Alloc>
-  void
-  do_test()
-  {
-    using namespace __gnu_test;
-    int status;
-    Alloc obj;
+void do_test ()
+{
+  using namespace __gnu_test;
+  int status;
+  Alloc obj;
 
-    time_counter time;
-    resource_counter resource;
-    clear_counters(time, resource);
-    start_counters(time, resource);
-    int test_iterations = Test_Allocator<Alloc>();
-    stop_counters(time, resource);
+  time_counter time;
+  resource_counter resource;
+  clear_counters(time, resource);
+  start_counters(time, resource);
+  int test_iterations = Test_Allocator<Alloc>();
+  stop_counters(time, resource);
  
-    std::ostringstream comment;
-    comment << "iterations: " << test_iterations << '\t';
-    comment << "type: " << abi::__cxa_demangle(typeid(obj).name(),
-					       0, 0, &status);
-    report_header(__FILE__, comment.str());
-    report_performance(__FILE__, string(), time, resource);
-  }
+  std::ostringstream comment;
+  comment << "iterations: " << test_iterations <<endl;
+  comment << "type: " << abi::__cxa_demangle(typeid(obj).name(),
+					     0, 0, &status);
+  report_header(__FILE__, comment.str());
+  report_performance(__FILE__, string(), time, resource);
+}
 
-int main()
+int main ()
 {
 #ifdef TEST_S0
   do_test<new_allocator<int> >();
@@ -116,12 +113,14 @@ int main()
   do_test<malloc_allocator<int> >();
 #endif
 #ifdef TEST_S2
-  do_test<__mt_alloc<int> >();
+  do_test<bitmap_allocator<int> >();
 #endif
 #ifdef TEST_S3
-  do_test<bitmap_allocator<int> >();
+  do_test<__mt_alloc<int> >();
 #endif
 #ifdef TEST_S4
   do_test<__pool_alloc<int> >();
 #endif
 }
+
+

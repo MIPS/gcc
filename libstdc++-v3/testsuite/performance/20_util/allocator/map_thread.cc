@@ -112,27 +112,27 @@ template<typename Container>
 int main(void)
 {
   typedef pair<const int, int> pair_type;
-
-#ifdef TEST_T0
-  test_container(map<int, int>());
-#endif
+  
 #ifdef TEST_T1
-  test_container(map<int, int, less<const int>,
-		 new_allocator<pair_type> >());
+  test_container(map<int, int>());
 #endif
 #ifdef TEST_T2
   test_container(map<int, int, less<const int>,
-		 malloc_allocator<pair_type> >());
+		 new_allocator<pair_type> >());
 #endif
 #ifdef TEST_T3
   test_container(map<int, int, less<const int>,
-		 __mt_alloc<pair_type> >());
+		 malloc_allocator<pair_type> >());
 #endif
 #ifdef TEST_T4
   test_container(map<int, int, less<const int>,
-		 bitmap_allocator<pair_type> >());
+		 __mt_alloc<pair_type> >());
 #endif
 #ifdef TEST_T5
+  test_container(map<int, int, less<const int>,
+		 bitmap_allocator<pair_type> >());
+#endif
+#ifdef TEST_T6
   test_container(map<int, int, less<const int>,
 		 __pool_alloc<pair_type> >());
 #endif
