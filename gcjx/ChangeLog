@@ -1,3 +1,11 @@
+2005-01-22  Tom Tromey  <tromey@redhat.com>
+
+	* model/annotype.cc (resolve_hook): Don't special case class
+	files.
+	* bytecode/classreader.cc (parse): Specially handle interfaces of
+	annotation types.
+	* model/fwdtype.hh (model_forwarding_full::get_name): New method.
+
 2005-01-21  Tom Tromey  <tromey@redhat.com>
 
 	* bytecode/classwriter.cc (write): Don't set ACC_SUPER for enum

@@ -1,6 +1,6 @@
 // Type forwarding.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -191,6 +191,11 @@ public:
   }
 
   void resolve (resolution_scope *);
+
+  std::string get_name () const
+  {
+    return name;
+  }
 };
 
 /// This is a forwarding type which finds its argument as a member of

@@ -1004,6 +1004,20 @@ class_reader::parse (const std::string &filename)
       result->set_modifiers (access_flags);
     }
 
+  if (result->annotation_p ())
+    {
+      // Internally we add interfaces to an annotation when resolving.
+      // So, here we just check to make sure the class file is
+      // correct, and then we let the model do its thing later.
+      if (interfaces.size () != 1)
+	throw error ("annotation type must implement just one interface, %<java.lang.annotation.Annotation%>");
+      ref_forwarding_type t = interfaces.front ();
+      if (dynamic_cast<model_forwarding_full *> (t.get ()) == NULL
+	  || (assert_cast<model_forwarding_full *> (t.get ())->get_name ()
+	      != "java/lang/annotation/Annotation"))
+	throw error ("annotation type must implement just one interface, %<java.lang.annotation.Annotation%>");
+      interfaces.clear ();
+    }
   result->set_implements (interfaces);
 
   ref_unit unit (new model_unit_class (where, inner_infos, pool));
