@@ -740,6 +740,11 @@ java_post_options (const char **pfilename)
       flag_inline_functions = 0;
     }
 
+  /* An absolute requirement: if we're not using indirect dispatch, we
+     must always verify everything.  */
+  if (! flag_indirect_dispatch)
+    flag_verify_invocations = true;
+
   /* Open input file.  */
 
   if (filename == 0 || !strcmp (filename, "-"))

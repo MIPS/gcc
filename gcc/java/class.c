@@ -1794,7 +1794,8 @@ make_class_data (tree type)
 	 ? build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (verify_method)),
 		   verify_method)
 	 : null_pointer_node);
-      PUSH_FIELD_VALUE (cons, "verify" , verify_method_ref);
+    PUSH_FIELD_VALUE (cons, "verify" , verify_method_ref);
+    TYPE_VERIFY_METHOD (type) = NULL;
   }
   PUSH_FIELD_VALUE (cons, "hack_signers", null_pointer_node);
   PUSH_FIELD_VALUE (cons, "chain", null_pointer_node);

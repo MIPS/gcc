@@ -124,14 +124,9 @@ subroutine_nesting (tree label)
 static tree
 defer_merging (tree type1, tree type2)
 {
-  if (TYPE_DUMMY (type1) || TYPE_DUMMY (type2))
-    {
-      if (! quiet_flag)
-	warning ("assert: cannot merge types %s and %s", 
-		 xstrdup (lang_printable_name (type1, 0)),
-		 xstrdup (lang_printable_name (type2, 0)));
-    }
-
+  // FIXME: This is just a placeholder until we replace the verifier
+  // altogether.  We really need to ouput a type assertion for all of
+  // the types, every time they are used.
   return object_ptr_type_node;
 
   if (TREE_CODE (type1) == POINTER_TYPE)

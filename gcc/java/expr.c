@@ -344,13 +344,13 @@ pop_type_0 (tree type, char **messagep)
 	return t;
       else if (t == ptr_type_node)  /* Special case for null reference. */
 	return type;
-      else if (can_widen_reference_to (t, type))
-	return t;
       /* This is a kludge, but matches what Sun's verifier does.
 	 It can be tricked, but is safe as long as type errors
 	 (i.e. interface method calls) are caught at run-time. */
       else if (CLASS_INTERFACE (TYPE_NAME (TREE_TYPE (type))))
 	return object_ptr_type_node;
+      else if (can_widen_reference_to (t, type))
+	return t;
     }
 
   if (! flag_verify_invocations && flag_indirect_dispatch
@@ -424,8 +424,6 @@ build_signature_for_libgcj (tree type)
 {
   tree sig, ref;
 
-  if (TYPE_ARRAY_P (type))
-    type = build_java_array_type (TYPE_ARRAY_ELEMENT (type), -1);
   sig = build_java_signature (type);
   ref = build_utf8_ref (unmangle_classname (IDENTIFIER_POINTER (sig),
 					    IDENTIFIER_LENGTH (sig)));
@@ -442,6 +440,22 @@ add_type_assertion (tree source_type, tree target_type)
   tree verify_method = TYPE_VERIFY_METHOD (output_class);
   tree itype = TREE_TYPE (TREE_TYPE (soft_instanceof_node));
   tree arg;
+
+  if (TYPE_ARRAY_P (source_type))
+    source_type = build_java_array_type (TYPE_ARRAY_ELEMENT (source_type), -1);
+  if (TYPE_ARRAY_P (target_type))
+    target_type = build_java_array_type (TYPE_ARRAY_ELEMENT (target_type), -1);
+
+  if (target_type == object_type_node)
+    return;
+
+  if (source_type == target_type)
+    return;
+
+  // FIXME: This is just a placeholder for merged types.  We need to
+  // do something more real than this.
+  if (source_type == object_type_node)
+    return;
 
   if (! verify_method)
     {
@@ -519,14 +533,19 @@ can_widen_reference_to (tree source_type, tree target_type)
      to support full Java class loader semantics, we need this.
      However, we could do something more optimal.  */
   if (! flag_verify_invocations)
-    add_type_assertion (source_type, target_type);
-
-  if (TYPE_DUMMY (source_type) || TYPE_DUMMY (target_type))
     {
+      add_type_assertion (source_type, target_type);
+
       if (!quiet_flag)
 	warning ("assert: %s is assign compatible with %s", 
 		 xstrdup (lang_printable_name (target_type, 0)),
 		 xstrdup (lang_printable_name (source_type, 0)));
+      /* Punt everything to runtime.  */
+      return 1;
+    }
+
+  if (TYPE_DUMMY (source_type) || TYPE_DUMMY (target_type))
+    {
       return 1;
     }
   else
@@ -3176,7 +3195,7 @@ process_jvm_instruction (int PC, const unsigned char* byte_ops,
      replace the top of the stack with the thrown object reference */
   if (instruction_bits [PC] & BCODE_EXCEPTION_TARGET)
     {
-      tree type = pop_type (ptr_type_node);
+      tree type = pop_type (promote_type (throwable_type_node));
       push_value (build_exception_object_ref (type));
     }
 

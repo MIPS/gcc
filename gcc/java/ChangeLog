@@ -1,3 +1,22 @@
+2004-09-03  Andrew Haley  <aph@redhat.com>
+
+	* class.c (finish_class): Nullify TYPE_VERIFY_METHOD.
+
+	* lang.c (java_post_options): Force flag_verify_invocations if
+	we're not using indirect dispatch.
+
+	* expr.c (pop_type_0): Move test for interfaces before call to
+	can_widen_reference_to().
+	(build_signature_for_libgcj): Remove generation of canonical array
+	type.
+	(add_type_assertion): Canonicalize both arrays.
+	Don't assert that type X can be assigned to Object.
+	Don't assert that type X an be assigned to type X.
+	Don't assert that Object can be assigned to type X.
+	(can_widen_reference_to): Warn whenever we generate an assertion.
+	(process_jvm_instruction): Use throwable_type_node for the type of
+	an exception class.
+
 2004-09-01  Andrew Haley  <aph@redhat.com>
 
 	* decl.c (java_init_decl_processing): Change
