@@ -178,10 +178,11 @@ public class GdkPixbufDecoder extends gnu.java.awt.image.ImageDecoder
     curr = null;
   }
 
-  public void finalize ()
+  public void finalize()
   {
-    finish();    
+    finish();
   }
+
 
   public static class ImageFormatSpec
   {

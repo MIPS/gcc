@@ -61,7 +61,7 @@ Java_gnu_java_awt_peer_gtk_GtkFileDialogPeer_create
   parentp = NSA_GET_PTR(env, parent);
 
   gdk_threads_enter ();
-
+  
   /* FIXME: we should be using the default gnome-vfs backend but it is
      not currently thread-safe.  See:
      http://bugzilla.gnome.org/show_bug.cgi?id=166852 */

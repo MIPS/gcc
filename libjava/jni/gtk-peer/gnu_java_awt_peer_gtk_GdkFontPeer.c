@@ -133,6 +133,9 @@ Java_gnu_java_awt_peer_gtk_GdkFontPeer_getGlyphVector
 
   if (attrs == NULL)
     attrs = pango_attr_list_new ();
+
+  if (len > 0 && str[len-1] == '\0')
+    len--;
   
   items = pango_itemize (pfont->ctx, str, 0, len, attrs, NULL);
 
@@ -158,7 +161,6 @@ Java_gnu_java_awt_peer_gtk_GdkFontPeer_getGlyphVector
       pango_shape (str + item->offset, item->length, 
 		   &(item->analysis), glyphs);
 
-/*       printf("GET GLYPHS: %d glyphs selected\n", glyphs->num_glyphs); */
       if (glyphs->num_glyphs > 0)
 	{
 	  int x = 0;
@@ -174,13 +176,6 @@ Java_gnu_java_awt_peer_gtk_GdkFontPeer_getGlyphVector
 	      PangoRectangle ink;
 	      PangoRectangle logical;
 	      PangoGlyphGeometry *geom = &glyphs->glyphs[j].geometry;
-
-	      /*
-	      printf("glyph geometry: (%d,%d,%d)\n", 
-		     geom->x_offset,
-		     geom->y_offset,
-		     geom->width);
-	      */
 
 	      pango_font_get_glyph_extents (pfont->font, 
 					    glyphs->glyphs[j].glyph,
@@ -202,12 +197,6 @@ Java_gnu_java_awt_peer_gtk_GdkFontPeer_getGlyphVector
 	      native_extents[ GLYPH_POS_Y(j)      ] = (  - geom->y_offset)  / scale;
 
 	      x += geom->width;
-	      /*
-	      printf("GLYPH %d: char %c -> code %d (%f, %f)\n",
-		     j, str[j], glyphs->glyphs[j].glyph, 
-		     native_extents[ GLYPH_POS_X(j)      ],
-		     native_extents[ GLYPH_POS_Y(j)      ]);
-	      */
 	    }
 	  (*env)->ReleaseDoubleArrayElements (env, java_extents, native_extents, 0);
 	  (*env)->ReleaseIntArrayElements (env, java_codes, native_codes, 0);

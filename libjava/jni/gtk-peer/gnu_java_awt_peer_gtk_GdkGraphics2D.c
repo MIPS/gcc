@@ -1,5 +1,5 @@
 /* gnu_java_awt_peer_gtk_GdkGraphics2d.c
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2005  Free Software Foundation, Inc.
 
    This file is part of GNU Classpath.
    

@@ -1,5 +1,5 @@
-/* GdkGraphics2D.java
-   Copyright (C) 2003, 2004  Free Software Foundation, Inc.
+/* GdkGraphics2D.java --
+   Copyright (C) 2003, 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
