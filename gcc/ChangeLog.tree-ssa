@@ -1,3 +1,8 @@
+2003-07-01  Jason Merrill  <jason@redhat.com>
+
+	* tree-cfg.c (prepend_stmt_to_bb): New fn.
+	(bsi_insert_after): Add to the beginning of an empty block.
+
 2003-07-01  Jeff Law  <law@redhat.com>
 
 	* expr.c (expand_expr, case COND_EXPR): Correctly (?) handle

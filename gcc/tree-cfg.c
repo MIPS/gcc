@@ -783,6 +783,23 @@ append_stmt_to_bb (tree *stmt_p, basic_block bb, tree parent)
 }
 
 
+/* Add statement pointed by STMT_P to basic block BB and update BB's
+   boundaries accordingly.  PARENT_STMT is the entry statement to the
+   control structure holding *STMT_P.  */
+
+static inline void
+prepend_stmt_to_bb (tree *stmt_p, basic_block bb, tree parent)
+{
+  add_stmt_to_bb (stmt_p, bb, parent);
+
+  /* Update the head and tail of the block.  */
+  bb->head_tree_p = stmt_p;
+
+  if (bb->end_tree_p == NULL)
+    bb->end_tree_p = stmt_p;
+}
+
+
 /* Create and return a new basic block.  */
 
 basic_block
@@ -3533,8 +3550,8 @@ bsi_insert_after (block_stmt_iterator *curr_bsi, tree t,
 	parent = parent_stmt (*(succ->dest->head_tree_p));
       
       inserted_tsi = tsi_start (curr_bb->head_tree_p);
-      tsi_link_after (&inserted_tsi, t, TSI_NEW_STMT);
-      append_stmt_to_bb (tsi_container (inserted_tsi), curr_bb, parent);
+      tsi_link_before (&inserted_tsi, t, TSI_NEW_STMT);
+      prepend_stmt_to_bb (tsi_container (inserted_tsi), curr_bb, parent);
 
       /* In this case, we will *always* return the new stmt since BSI_SAME_STMT
          doesn't really exist.  */
