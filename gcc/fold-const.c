@@ -2017,6 +2017,12 @@ operand_equal_p (arg0, arg1, only_const)
 	  return rtx_equal_p (RTL_EXPR_RTL (arg0), RTL_EXPR_RTL (arg1));
 
 	case CALL_EXPR:
+
+	  /* If either CALL_EXPR has a side effect, then they can not
+	     be equal.  */
+	  if (TREE_SIDE_EFFECTS (arg0) || TREE_SIDE_EFFECTS (arg1))
+	    return 0;
+
 	  /* If the CALL_EXPRs call different functions, then they
 	     clearly can not be equal.  */
 	  if (! operand_equal_p (TREE_OPERAND (arg0, 0),

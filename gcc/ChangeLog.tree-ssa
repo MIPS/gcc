@@ -1,3 +1,8 @@
+2003-06-12  Jeff Law  <law@redhat.com>
+
+	* fold-const.c (operand_equal_p): CALL_EXPRs with side effects
+	are never equal.
+
 2003-06-11  Frank Ch. Eigler  <fche@redhat.com>
 
 	* gcc.c (MFWRAP_SPEC): Always wrap main().
