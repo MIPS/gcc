@@ -2734,3 +2734,33 @@ avail_expr_eq (const void *p1, const void *p2)
 
   return false;
 }
+
+/* Replace the operand pointed to by OP_P with variable VAR.  If *OP_P is a
+   pointer, copy the memory tag used originally by *OP_P into VAR.  This is
+   needed in cases where VAR had never been dereferenced in the program.  */
+   
+void
+propagate_copy (tree *op_p, tree var)
+{
+#if defined ENABLE_CHECKING
+  if (!may_propagate_copy (*op_p, var))
+    abort ();
+#endif
+
+  /* If VAR doesn't have a memory tag, copy the one from the original
+     operand.  */
+  if (POINTER_TYPE_P (TREE_TYPE (*op_p)))
+    {
+      var_ann_t new_ann = var_ann (SSA_NAME_VAR (var));
+      var_ann_t orig_ann = var_ann (SSA_NAME_VAR (*op_p));
+
+      if (new_ann->mem_tag == NULL_TREE)
+	new_ann->mem_tag = orig_ann->mem_tag;
+      else if (orig_ann->mem_tag == NULL_TREE)
+	orig_ann->mem_tag = new_ann->mem_tag;
+      else if (new_ann->mem_tag != orig_ann->mem_tag)
+	abort ();
+    }
+
+  *op_p = var;
+}

@@ -1,5 +1,22 @@
 2003-11-20  Jeff Law  <law@redhat.com>
 
+	* Makefile.in (OBJS-common): Kill tree-ssa-copyprop.o.
+	(tree-ssa-copyprop.o): Kill dependencies clause.
+	* common.opt (tree-copyprop): Kill option.
+	* flags.h (flag_tree_copyprop): Kill.
+	* opts.c (decode_options): Don't set flag_tree_copyprop.
+	(common_handle_option): Kill handling of -ftree-copyprop.
+	* timevar.def (TV_TREE_COPYPROP): Kill.
+	* toplev.c (flag_tree_copyprop): Kill.
+	(lang_independent_options): Kill -ftree-copyprop.
+	* tree-dump.c (dump_files): Kill .copyprop dump.
+	* tree-flow.h (tree_ssa_copyprop): Kill prototype.
+	(propagate_copy): Move prototype.
+	* tree-optimize.c (optimize_function_tree): Kill -ftree-copyprop stuff.
+	* tree.h (tree_dump_index): Kill TDI_copyprop.
+	* tree-ssa-copyprop.c: Kill.
+	* tree-ssa-dom.c (propagate_copy): Moved here from tree-ssa-copyprop.c.
+
 	* tree-ssanames.c (free_ssanames): No longer a varray.
 	(init_ssanames, make_ssa_name, release_ssa_name): Corresponding changes.
 

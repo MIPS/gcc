@@ -3565,7 +3565,6 @@ enum tree_dump_index
   TDI_pre,
   TDI_dom_2,
   TDI_ssa_5,
-  TDI_copyprop,
   TDI_dce_2,
   TDI_optimized,
 

@@ -672,7 +672,6 @@ static struct dump_file_info dump_files[TDI_end] =
   {".pre", "tree-pre", 0, 0},
   {".dom2", "tree-dom2", 0, 0},
   {".ssa5", "tree-ssa5", 0, 0},
-  {".copyprop", "tree-copyprop", 0, 0},
   {".dce2", "tree-dce2", 0, 0},
   {".optimized", "tree-optimized", 0, 0},
   {".mudflap", "tree-mudflap", 0, 0},

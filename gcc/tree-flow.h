@@ -525,13 +525,11 @@ extern void tree_ssa_dominator_thread_jumps (tree, enum tree_dump_index);
 extern void tree_ssa_dominator_optimize (tree, sbitmap, enum tree_dump_index);
 extern void dump_dominator_optimization_stats (FILE *);
 extern void debug_dominator_optimization_stats (void);
+extern void propagate_copy (tree *, tree);
 
 /* In tree-ssa-dce.c  */
 void tree_ssa_dce (tree, enum tree_dump_index);
 
-/* In tree-ssa-copyprop.c  */
-void tree_ssa_copyprop (tree, enum tree_dump_index);
-void propagate_copy (tree *, tree);
 
 /* In tree-flow-inline.h  */
 static inline int phi_arg_from_edge (tree, edge);

@@ -711,10 +711,6 @@ ftree-ccp
 Common
 Enable SSA-CCP optimization on trees
 
-ftree-copyprop
-Common
-Enable SSA copy propagation optimization on trees
-
 ftree-dce
 Common
 Enable SSA dead code elimination optimization on trees

@@ -160,10 +160,6 @@ optimize_function_tree (tree fndecl, tree *chain)
 	    rewrite_into_ssa (fndecl, vars_to_rename, TDI_ssa_5);
 	}
 
-      /* Run copy propagation.  */
-      if (flag_tree_copyprop)
-	tree_ssa_copyprop (fndecl, TDI_copyprop);
-
       /* Do a second DCE pass.  */
       if (flag_tree_dce)
 	tree_ssa_dce (fndecl, TDI_dce_2);

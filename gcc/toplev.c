@@ -993,9 +993,6 @@ enum pta_type flag_tree_points_to = PTA_NONE;
 /* Enable SSA-CCP on trees.  */
 int flag_tree_ccp = 0;
 
-/* Enable SSA-Copy propagation on trees.  */
-int flag_tree_copyprop;
-
 /* Enable SSA-DCE on trees.  */
 int flag_tree_dce = 0;
 
@@ -1207,7 +1204,6 @@ static const lang_independent_options f_options[] =
   { "disable-tree-ssa", &flag_disable_tree_ssa, 1 },
   { "tree-pre", &flag_tree_pre, 1 },
   { "tree-ccp", &flag_tree_ccp, 1 },
-  { "tree-copyprop", &flag_tree_copyprop, 1 },
   { "tree-dce", &flag_tree_dce, 1 },
   { "tree-dominator-opts", &flag_tree_dom, 1 },
   { "tree-combine-temps", &flag_tree_combine_temps, 1 },
