@@ -34,6 +34,7 @@ extern int mf_marked_p (tree);
 extern tree mf_mark (tree);
 
 /* To be provided by a front-end interface module. */
+/* FIXME: These should be lang hooks.  */
 extern tree mflang_lookup_decl (const char *);
 extern void mflang_flush_calls (tree);
 

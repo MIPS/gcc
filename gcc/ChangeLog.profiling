@@ -1,3 +1,21 @@
+2004-05-21  Steven Bosscher  <stevenb@suse.de>
+
+	* tree-mudflap.c: Include headers to make basic_block available.
+	Move functions around such that related functions are near each
+	other.  Add prototypes for all static functions.  Add comments
+	briefly explaining what IR the mudflap1 and mudflap2 work on and
+	what they do.
+	(mudflap_function_decls): Rename to execute_mudflap_function_decls.
+	(mudflap_function_derefs): Rename to execute_mudflap_function_derefs.
+	(pass_mudflap_1, pass_mudflap_2): Update.
+	(mf_decl_cache_locals): Make it work on the CFG instead of the saved
+	function tree.
+	(mf_build_check_statement_for): Make it work on the CFG.
+	(mf_xform_derefs_1): Likewise.  Cleanup code style.
+	(mf_xform_derefs): Likewise.
+	* tree-optimize.c (init_tree_optimization_passes):
+	Move pass_mudflap_2 before pass_del_cfg.
+
 2004-05-18  Jan Hubicka  <jh@suse.cz>
 
 	* Merge from mainline (tree-profiling-merge-20040518)
