@@ -314,8 +314,7 @@ do {					\
     %{!Zdynamiclib:%{!A:%{!nostdlib:%{!nostartfiles:%S}}}} \
     %{L*} %(link_libgcc) %o %{fprofile-arcs|fprofile-generate|fcreate-profile:-lgcov} \
     %{!nostdlib:%{!nodefaultlibs:%G %L}} \
-    %{!A:%{!nostdlib:%{!nostartfiles:%E}}} %{T*} %{F*} \
-    %{!--help:%{!no-c++filt|c++filt:| c++filt3 }} }}}}}}}}}"
+    %{!A:%{!nostdlib:%{!nostartfiles:%E}}} %{T*} %{F*} }}}}}}}}}"
 
 /* Note that the linker
    output is always piped through c++filt (unless -no-c++filt is

@@ -2805,11 +2805,6 @@ execute (void)
 			      X_OK, 0);
 	if (string)
 	  commands[n_commands].argv[0] = string;
-	/* APPLE LOCAL begin radar 2466994 - pass linker output through c++filt  --ilr */
-	else if (strcmp (commands[n_commands].prog, "c++filt3") == 0
-		 && access ("/usr/bin/c++filt3", X_OK) != 0)
-	  continue;
-	/* APPLE LOCAL end radar 2466994 - pass linker output through c++filt  --ilr */
 	n_commands++;
       }
 
@@ -7000,12 +6995,8 @@ main (int argc, const char **argv)
       input_file_number = i;
       set_input (infiles[i].name);
 
-/* APPLE LOCAL begin IMI */
-
       if (infiles[i].compiled)
 	continue;
-
-/* APPLE LOCAL end IMI */
 
       /* Use the same thing in %o, unless cp->spec says otherwise.  */
 
