@@ -1,3 +1,8 @@
+2001-07-05  Michael Matz <matzmich@cs.tu-berlin.de>
+ 
+	* ra.c : (copy_insn_p): Bitfield extraction are no simple copy
+	insns.
+
 2001-07-03  Michael Matz  <matzmich@cs.tu-berlin.de>
  
         * ra.c : (live_out_1): Make conflicts of yet undefined parts to

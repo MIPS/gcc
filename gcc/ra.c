@@ -498,7 +498,13 @@ copy_insn_p (insn, source, target)
   while (GET_CODE (s) == STRICT_LOW_PART
 	 || GET_CODE (s) == ZERO_EXTRACT
 	 || GET_CODE (s) == SIGN_EXTRACT)
-    s = XEXP (s, 0);
+    {
+      /* For now don't allow bitfield extraction at all to be a copy
+	 insn.  XXX */
+      if (GET_CODE (s) == ZERO_EXTRACT || GET_CODE (s) == SIGN_EXTRACT)
+	return 0;
+      s = XEXP (s, 0);
+    }
   /* (set (reg:SI a) (subreg:SI (reg:DI b) 0)) will be a noop
      if a and b become the same register, so this move is a candidate
      for coalescing.
