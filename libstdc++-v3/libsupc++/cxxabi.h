@@ -500,8 +500,13 @@ void __cxa_vec_delete3 (void *__array_address,
 
 /* guard variables */
 
+#ifdef __ARM_EABI__
+/* The ARM EABI says this is a 32-bit type.  */
+typedef int __guard;
+#else
 /* The ABI requires a 64-bit type.  */
 __extension__ typedef int __guard __attribute__((mode (__DI__)));
+#endif
 
 extern "C"
 int __cxa_guard_acquire (__guard *);

@@ -37,3 +37,4 @@ extern bool default_pretend_outgoing_varargs_named (CUMULATIVE_ARGS *);
 
 extern bool hook_bool_CUMULATIVE_ARGS_true (CUMULATIVE_ARGS *);
 extern bool hook_bool_machine_mode_true (enum machine_mode);
+extern tree default_cxx_guard_type (void);

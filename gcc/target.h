@@ -436,6 +436,14 @@ struct gcc_target
     bool (* split_complex_arg) (tree type);
   } calls;
 
+  /* Functions specific to the C++ frontend.  */
+  struct cxx {
+    /* Return the integer type used for guard variables.  */
+    tree (*guard_type) (void);
+    /* Return true if only the low bit of the guard should be tested.  */
+    bool (*guard_mask_bit) (void);
+  } cxx;
+
   /* Leave the boolean fields at the end.  */
 
   /* True if arbitrary sections are supported.  */

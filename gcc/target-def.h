@@ -355,6 +355,22 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
    TARGET_SPLIT_COMPLEX_ARG,					\
    }
 
+
+/* C++ specific.  */
+#ifndef TARGET_CXX_GUARD_TYPE
+#define TARGET_CXX_GUARD_TYPE default_cxx_guard_type
+#endif
+
+#ifndef TARGET_CXX_GUARD_MASK_BIT
+#define TARGET_CXX_GUARD_MASK_BIT hook_bool_void_false
+#endif
+
+#define TARGET_CXX		\
+  {				\
+    TARGET_CXX_GUARD_TYPE,	\
+    TARGET_CXX_GUARD_MASK_BIT	\
+  }
+
 /* The whole shebang.  */
 #define TARGET_INITIALIZER			\
 {						\
@@ -396,6 +412,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   TARGET_GET_PCH_VALIDITY,			\
   TARGET_PCH_VALID_P,				\
   TARGET_CALLS,					\
+  TARGET_CXX,					\
   TARGET_HAVE_NAMED_SECTIONS,			\
   TARGET_HAVE_CTORS_DTORS,			\
   TARGET_HAVE_TLS,				\
