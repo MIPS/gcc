@@ -8843,7 +8843,7 @@ cp_parser_init_declarator (parser,
    example; they are created during parser and no longer needed after
    `grokdeclarator' has been called.)
 
-   For a ptr-operatorthat has the optional cv-qualifier-seq,
+   For a ptr-operator that has the optional cv-qualifier-seq,
    cv-qualifiers will be stored in the TREE_TYPE of the INDIRECT_REF
    node.
 

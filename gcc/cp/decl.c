@@ -73,6 +73,7 @@ static tree obscure_complex_init PARAMS ((tree, tree));
 static tree lookup_name_real PARAMS ((tree, int, int, int));
 static void push_local_name PARAMS ((tree));
 static void warn_extern_redeclared_static PARAMS ((tree, tree));
+static tree pushdecl_real PARAMS ((tree, int *));
 static tree grok_reference_init PARAMS ((tree, tree, tree));
 static tree grokfndecl PARAMS ((tree, tree, tree, tree, int,
 			      enum overload_flags, tree,
@@ -3693,17 +3694,30 @@ duplicate_decls (newdecl, olddecl)
   return 1;
 }
 
+/* Wrapper for pushdecl_real  */
+
+tree
+pushdecl (x)
+     tree x;
+{
+  return pushdecl_real (x, NULL);
+}
+
 /* Record a decl-node X as belonging to the current lexical scope.
    Check for errors (such as an incompatible declaration for the same
    name already seen in the same scope).
 
    Returns either X or an old decl for the same name.
    If an old decl is returned, it may have been smashed
-   to agree with what X says.  */
+   to agree with what X says.
 
-tree
-pushdecl (x)
+   If NEW_GLOBAL is non-NULL, it is set to non zero should a new
+   binding have been created for X at a namespace scope.  */
+
+static tree
+pushdecl_real (x, new_global)
      tree x;
+     int *new_global;
 {
   register tree t;
   register tree name;
@@ -4144,11 +4158,16 @@ pushdecl (x)
     }
 
   if (need_new_binding)
-    add_decl_to_level (x,
-		       DECL_NAMESPACE_SCOPE_P (x)
-		       ? NAMESPACE_LEVEL (CP_DECL_CONTEXT (x))
-		       : current_binding_level);
-
+    {
+      if (new_global && DECL_NAMESPACE_SCOPE_P (x))
+	*new_global = 1;
+      
+      add_decl_to_level (x,
+			 DECL_NAMESPACE_SCOPE_P (x)
+			 ? NAMESPACE_LEVEL (CP_DECL_CONTEXT (x))
+			 : current_binding_level);
+    }
+  
   return x;
 }
 
@@ -4300,7 +4319,17 @@ maybe_push_decl (decl)
 	  && DECL_TEMPLATE_SPECIALIZATION (decl)))
     return decl;
   else
-    return pushdecl (decl);
+    {
+      int new_global = 0;
+      
+      decl = pushdecl_real (decl, &new_global);
+      if (new_global && !DECL_ARTIFICIAL (decl)
+	  && current_namespace != CP_DECL_CONTEXT (decl))
+	cp_error ("`%D' should first be declared in scope `%D'",
+		  decl, CP_DECL_CONTEXT (decl));
+      
+      return decl;
+    }
 }
 
 /* Make the declaration(s) of X appear in CLASS scope
@@ -13055,7 +13084,6 @@ start_function (declspecs, declarator, attrs, flags)
   int doing_friend = 0;
   struct binding_level *bl;
   tree current_function_parms;
-  tree current_function_parm_tags;
 
   /* Sanity check.  */
   my_friendly_assert (TREE_CODE (TREE_VALUE (void_list_node)) == VOID_TYPE, 160);
@@ -13188,9 +13216,6 @@ start_function (declspecs, declarator, attrs, flags)
   if (processing_template_decl)
     decl1 = push_template_decl (decl1);
 
-  /* We are now in the scope of the function being defined.  */
-  current_function_decl = decl1;
-
   /* Save the parm names or decls from this function's declarator
      where store_parm_decls will find them.  */
   current_function_parms = last_function_parms;
@@ -13217,28 +13242,6 @@ start_function (declspecs, declarator, attrs, flags)
     /* Just use `void'.  Nobody will ever look at this anyhow.  */
     DECL_RESULT (decl1) = build_decl (RESULT_DECL, 0, void_type_node);
 
-  /* Initialize RTL machinery.  We cannot do this until
-     CURRENT_FUNCTION_DECL and DECL_RESULT are set up.  We do this
-     even when processing a template; this is how we get
-     CFUN set up, and our per-function variables initialized.
-     FIXME factor out the non-RTL stuff.  */
-  bl = current_binding_level;
-  init_function_start (decl1, input_filename, lineno);
-  current_binding_level = bl;
-
-  /* Even though we're inside a function body, we still don't want to
-     call expand_expr to calculate the size of a variable-sized array.
-     We haven't necessarily assigned RTL to all variables yet, so it's
-     not safe to try to expand expressions involving them.  */
-  immediate_size_expand = 0;
-  cfun->x_dont_save_pending_sizes_p = 1;
-
-  /* Start the statement-tree, start the tree now.  */
-  begin_stmt_tree (&DECL_SAVED_TREE (decl1));
-
-  /* Let the user know we're compiling this function.  */
-  announce_function (decl1);
-
   /* Record the decl so that the function name is defined.
      If we already have a decl for this name, and it is a FUNCTION_DECL,
      use the old decl.  */
@@ -13259,9 +13262,30 @@ start_function (declspecs, declarator, attrs, flags)
       fntype = TREE_TYPE (decl1);
     }
 
-  /* Reset these in case the call to pushdecl changed them.  */
+  /* We are now in the scope of the function being defined.  */
   current_function_decl = decl1;
-  cfun->decl = decl1;
+  
+  /* Let the user know we're compiling this function.  */
+  announce_function (decl1);
+
+  /* Initialize RTL machinery.  We cannot do this until
+     CURRENT_FUNCTION_DECL and DECL_RESULT are set up.  We do this
+     even when processing a template; this is how we get
+     CFUN set up, and our per-function variables initialized.
+     FIXME factor out the non-RTL stuff.  */
+  bl = current_binding_level;
+  init_function_start (decl1, input_filename, lineno);
+  current_binding_level = bl;
+
+  /* Even though we're inside a function body, we still don't want to
+     call expand_expr to calculate the size of a variable-sized array.
+     We haven't necessarily assigned RTL to all variables yet, so it's
+     not safe to try to expand expressions involving them.  */
+  immediate_size_expand = 0;
+  cfun->x_dont_save_pending_sizes_p = 1;
+
+  /* Start the statement-tree, start the tree now.  */
+  begin_stmt_tree (&DECL_SAVED_TREE (decl1));
 
   /* If we are (erroneously) defining a function that we have already
      defined before, wipe out what we knew before.  */
