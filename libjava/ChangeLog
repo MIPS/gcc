@@ -1,5 +1,10 @@
 2004-09-21  Jerry Quinn  <jlquinn@optonline.net>
 
+	* java/awt/image/Raster.java (createPackedRaster): Implement
+	MultiPixelPackedSampleModel codepath.
+
+2004-09-21  Jerry Quinn  <jlquinn@optonline.net>
+
 	* java/awt/image/MultiPixelPackedSampleModel.java: Implement.
 	* Makefile.am: Add MultiPixelPackedSampleModel.java.
 	* Makefile.in: Regenerate.

@@ -165,10 +165,7 @@ public class Raster
     SampleModel sm;
 
     if (bands == 1)
-      {
-	// FIXME: Implement;
-	throw new UnsupportedOperationException("not implemented yet");
-      }
+	sm = new MultiPixelPackedSampleModel(dataType, w, h, bitsPerBand);
     else
       {
 	int[] bandMasks = new int[bands];
