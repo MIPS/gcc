@@ -81,7 +81,13 @@ extern void emit_tfmode_cvt PARAMS ((enum rtx_code, rtx *));
 extern int gen_v9_scc PARAMS ((enum rtx_code, rtx *));
 extern void sparc_initialize_trampoline PARAMS ((rtx, rtx, rtx));
 extern void sparc64_initialize_trampoline PARAMS ((rtx, rtx, rtx));
+extern bool legitimate_constant_p PARAMS ((rtx));
+extern bool constant_address_p PARAMS ((rtx));
+extern bool legitimate_pic_operand_p PARAMS ((rtx));
+extern int legitimate_address_p PARAMS ((enum machine_mode, rtx, int));
 extern rtx legitimize_pic_address PARAMS ((rtx, enum machine_mode, rtx));
+extern rtx legitimize_tls_address PARAMS ((rtx));
+extern rtx legitimize_address PARAMS ((rtx, rtx, enum machine_mode));
 extern void sparc_defer_case_vector PARAMS ((rtx, rtx, int));
 extern void sparc_emit_set_const32 PARAMS ((rtx, rtx));
 extern void sparc_emit_set_const64 PARAMS ((rtx, rtx));
@@ -100,9 +106,11 @@ extern int arith_4096_operand PARAMS ((rtx, enum machine_mode));
 extern int zero_operand PARAMS ((rtx, enum machine_mode));
 extern int fp_zero_operand PARAMS ((rtx, enum machine_mode));
 extern int reg_or_0_operand PARAMS ((rtx, enum machine_mode));
+extern int tls_symbolic_operand PARAMS ((rtx));
 extern int empty_delay_slot PARAMS ((rtx));
 extern int eligible_for_epilogue_delay PARAMS ((rtx, int));
 extern int eligible_for_sibcall_delay PARAMS ((rtx));
+extern int tls_call_delay PARAMS ((rtx));
 extern int emit_move_sequence PARAMS ((rtx, enum machine_mode));
 extern int fp_sethi_p PARAMS ((rtx));
 extern int fp_mov_p PARAMS ((rtx));
@@ -121,6 +129,7 @@ extern int sparc_check_64 PARAMS ((rtx, rtx));
 extern rtx gen_df_reg PARAMS ((rtx, int));
 extern int sparc_extra_constraint_check PARAMS ((rtx, int, int));
 extern int sparc_rtx_costs PARAMS ((rtx, enum rtx_code, enum rtx_code));
+extern void sparc_output_dwarf_dtprel PARAMS ((FILE*, int, rtx));
 #endif /* RTX_CODE */
 
 #endif /* __SPARC_PROTOS_H__ */
