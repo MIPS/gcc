@@ -1,3 +1,13 @@
+2003-12-03  Jeff Law  <law@redhat.com>
+
+	* tree-phinodes.c: Include rtl.h for ceil_log2.
+	(ideal_phi_node_len): New function.
+	(resize_phi_node): Make static.
+	(make_phi_node): Use ideal_phi_node_len.
+	(add_phi_arg): Likewise.
+	* tree.h (resize_phi_node): Remove prototype.
+	* Makefile.in (tree-phinodes.o): Depend on $(RTL_H).
+
 2003-12-03  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-cfg.c: (make_edges): Eliminate fallthru to exit.

@@ -23,6 +23,7 @@ Boston, MA 02111-1307, USA.  */
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "rtl.h"
 #include "varray.h"
 #include "ggc.h"
 #include "basic-block.h"
@@ -79,6 +80,9 @@ Boston, MA 02111-1307, USA.  */
 static GTY ((deletable (""))) tree free_phinodes[NUM_BUCKETS - 2];
 static unsigned long free_phinode_count;
 
+static int ideal_phi_node_len (int);
+static void resize_phi_node (tree *, int);
+
 #ifdef GATHER_STATISTICS
 unsigned int phi_nodes_reused;
 unsigned int phi_nodes_created;
@@ -119,6 +123,39 @@ phinodes_print_statistics (void)
 }
 #endif
 
+/* Given LEN, the original number of requested PHI arguments, return
+   a new, "ideal" length for the PHI node.  The "ideal" length rounds
+   the total size of the PHI node up to the next power of two bytes.
+
+   Rounding up will not result in wasting any memory since the size request
+   will be rounded up by the GC system anyway.  [ Note this is not entirely
+   true since the original length might have fit on one of the special
+   GC pages. ]  By rounding up, we may avoid the need to reallocate the
+   PHI node later if we increase the number of arguments for the PHI.  */
+
+static int
+ideal_phi_node_len (int len)
+{
+  size_t size, new_size;
+  int log2, new_len;
+
+  /* We do not support allocations of less than two PHI argument slots.  */
+  if (len < 2)
+    len = 2;
+
+  /* Compute the number of bytes of the original request.  */
+  size = sizeof (struct tree_phi_node) + (len - 1) * sizeof (struct phi_arg_d);
+
+  /* Round it up to the next power of two.  */
+  log2 = ceil_log2 (size);
+  new_size = 1 << log2;
+  
+  /* Now compute and return the number of PHI argument slots given an 
+     ideal size allocation.  */
+  new_len = len + (new_size - size) / sizeof (struct phi_arg_d);
+  return new_len;
+}
+
 /* Return a PHI node for variable VAR defined in statement STMT.
    STMT may be an empty statement for artificial references (e.g., default
    definitions created when a variable is used without a preceding
@@ -131,11 +168,7 @@ make_phi_node (tree var, int len)
   int size;
   int bucket = NUM_BUCKETS - 2;
 
-  /* PRE can in some circumstances ask for PHI nodes with less than two
-     argument slots.  This code will fail miserably in that case, so we
-     force such requests to use a minimum of two argument slots.  */
-  if (len < 2)
-    len = 2;
+  len = ideal_phi_node_len (len);
 
   size = sizeof (struct tree_phi_node) + (len - 1) * sizeof (struct phi_arg_d);
 
@@ -195,7 +228,7 @@ release_phi_node (tree phi)
 /* Resize an existing PHI node.  The only way is up.  Return the
    possibly relocated phi.  */
                                                                                 
-void
+static void
 resize_phi_node (tree *phi, int len)
 {
   int size, old_size;
@@ -289,7 +322,7 @@ add_phi_arg (tree *phi, tree def, edge e)
       tree old_phi = *phi;
 
       /* Resize the phi.  Unfortunately, this may also relocate it.  */
-      resize_phi_node (phi, i + 4);
+      resize_phi_node (phi, ideal_phi_node_len (i + 4));
 
       /* The result of the phi is defined by this phi node.  */
       SSA_NAME_DEF_STMT (PHI_RESULT (*phi)) = *phi;
