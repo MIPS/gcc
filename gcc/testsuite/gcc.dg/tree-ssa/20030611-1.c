@@ -1,4 +1,4 @@
-/* { dg-do compile */
+/* { dg-do compile } */
 /* { dg-options "-O1 -fdump-tree-ssa" } */
  
 extern int square (int) __attribute__ ((__const__));

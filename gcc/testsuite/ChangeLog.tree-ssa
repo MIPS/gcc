@@ -1,5 +1,7 @@
 2003-08-12  Jeff Law  <law@redhat.com>
 
+	* gcc.dg/tree-ssa/*.c: Add missing close braces to various tests.
+
 	* gcc.dg/tree-ssa/20030807-6.c: New test.
 	* gcc.dg/tree-ssa/20030807-7.c: New test.
 	* gcc.dg/tree-ssa/20030807-9.c: New test.

@@ -1,4 +1,4 @@
-/* { dg-do compile */
+/* { dg-do compile } */
 /* { dg-options "-O1 -fdump-tree-ssa" } */
 
 typedef struct cpp_reader cpp_reader;
