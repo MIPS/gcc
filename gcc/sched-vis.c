@@ -31,6 +31,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "basic-block.h"
 #include "insn-attr.h"
 #include "sched-int.h"
+#include "target.h"
 
 #ifdef INSN_SCHEDULING
 /* target_units bitmask has 1 for each unit in the cpu.  It should be
@@ -38,7 +39,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    But currently it is computed by examining the insn list.  Since
    this is only needed for visualization, it seems an acceptable
    solution.  (For understanding the mapping of bits to units, see
-   definition of function_units[] in "insn-attrtab.c".)  */
+   definition of function_units[] in "insn-attrtab.c".)  The scheduler
+   using only DFA description should never use the following variable.  */
 
 static int target_units = 0;
 
@@ -47,7 +49,6 @@ static int get_visual_tbl_length PARAMS ((void));
 static void print_exp PARAMS ((char *, rtx, int));
 static void print_value PARAMS ((char *, rtx, int));
 static void print_pattern PARAMS ((char *, rtx, int));
-static void print_insn PARAMS ((char *, rtx, int));
 
 /* Print names of units on which insn can/should execute, for debugging.  */
 
@@ -121,6 +122,14 @@ get_visual_tbl_length ()
   int unit, i;
   int n, n1;
   char *s;
+
+  if (targetm.sched.use_dfa_pipeline_interface
+      && (*targetm.sched.use_dfa_pipeline_interface) ())
+    {
+      visual_tbl_line_length = 1;
+      return 1; /* Can't return 0 because that will cause problems
+                   with alloca.  */
+    }
 
   /* Compute length of one field in line.  */
   s = (char *) alloca (INSN_LEN + 6);
@@ -749,7 +758,7 @@ print_pattern (buf, x, verbose)
    (Probably the last "option" should be extended somehow, since it
    depends now on sched.c inner variables ...)  */
 
-static void
+void
 print_insn (buf, x, verbose)
      char *buf;
      rtx x;
@@ -815,7 +824,8 @@ print_insn (buf, x, verbose)
     }
 }				/* print_insn */
 
-/* Print visualization debugging info.  */
+/* Print visualization debugging info.  The scheduler using only DFA
+   description should never use the following function.  */
 
 void
 print_block_visualization (s)

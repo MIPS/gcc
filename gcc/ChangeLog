@@ -1,3 +1,136 @@
+2003-03-03  Vladimir Makarov  <vmakarov@redhat.com>
+
+        Backport of the dfa scheduler and itanium insn bundling:
+
+        * Makefile.in: Adding entries genautomata. Modifying entries for
+        sched-rgn.o, sched-vis.o, sched-ebb.o, genattrtab.o.
+
+        * genattr.c (main): Modify it.
+
+        * genattrtab.c: (attr_printf, check_attr_test,
+        write_function_unit_info, make_internal_attr, make_numeric_value,
+        main): Modify them.
+
+        * haifa-sched.c (NEXT_Q, NEXT_Q_AFTER, insn_cost,
+        rank_for_schedule, schedule_insn, queue_to_ready,
+        debug_ready_list, move_insn, schedule_block, set_priorities,
+        sched_init, sched_finish): Modify them.
+        (MAX_INSN_QUEUE_INDEX, max_insn_queue_index_macro_value,
+        curr_state, dfa_state_size, ready_try, ready_element,
+        ready_remove, advance_one_cycle, find_set_reg_weight, max_issue,
+        choose_ready, insert_schedule_bubbles_p): New functions, macros,
+        global variables.
+        (DONE_PRIORITY, MAX_PRIORITY, TAIL_PRIORITY, LAUNCH_PRIORITY,
+        DONE_PRIORITY_P, LOW_PRIORITY_P): Remove them.
+
+        * rtl.def (DEFINE_CPU_UNIT, DEFINE_QUERY_CPU_UNIT, EXCLUSION_SET,
+        PRESENCE_SET, FINAL_PRESENCE_SET, ABSENCE_SET, FINAL_ABSENCE_SET,
+        DEFINE_BYPASS, DEFINE_AUTOMATON, AUTOMATA_OPTION,
+        DEFINE_RESERVATION, DEFINE_INSN_RESERVATION): New declarations.
+
+        * rtl.h (LINK_COST_ZERO, LINK_COST_FREE): Remove them.
+
+        * sched-deps.c (add_dependence, add_dependence, set_sched_group_p,
+        sched_analyze_insn, sched_analyze, compute_forward_dependences,
+        free_deps): Modify them.
+        (remove_dependence, group_leader): Remove them.
+
+        * sched-ebb.c (init_ready_list, schedule_ebb): Modify them.
+
+        * sched-int.h (curr_state, print_insn): New definitions.
+
+        * sched-rgn.c (init_ready_list, can_schedule_ready_p, new_ready,
+        add_branch_dependences, debug_dependencies, schedule_region):
+        Modify them.
+        (ABS_VALUE, MIN_PROB_DIFF, MIN_DIFF_PRIORITY): Remove them.
+
+        * sched-vis.c (get_visual_tbl_length, print_insn): Modify them.
+
+        * target-def.h (TARGET_SCHED_DEPENDENCIES_EVALUATION_HOOK,
+        TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE,
+        TARGET_SCHED_INIT_DFA_PRE_CYCLE_INSN,
+        TARGET_SCHED_DFA_PRE_CYCLE_INSN,
+        TARGET_SCHED_INIT_DFA_POST_CYCLE_INSN,
+        TARGET_SCHED_DFA_POST_CYCLE_INSN,
+        TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD,
+        TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD_GUARD,
+        TARGET_SCHED_DFA_NEW_CYCLE, TARGET_SCHED_INIT_DFA_BUBBLES,
+        TARGET_SCHED_DFA_BUBBLE): New macros.
+        (TARGET_SCHED_CYCLE_DISPLAY): Remove it.
+
+        * target.h (cycle_display): Remove it.
+        (dependencies_evaluation_hook, use_dfa_pipeline_interface,
+        init_dfa_pre_cycle_insn, dfa_pre_cycle_insn,
+        init_dfa_post_cycle_insn, dfa_post_cycle_insn,
+        first_cycle_multipass_dfa_lookahead,
+        first_cycle_multipass_dfa_lookahead_guard, dfa_new_cycle,
+        init_dfa_bubbles, dfa_bubble): New members.
+
+        * config/ia64/ia64-protos.h (ia64_st_address_bypass_p,
+        ia64_ld_address_bypass_p, ia64_produce_address_p): New
+        definitions.
+
+        * config/ia64/ia64.c (ia64_tune, ia64_tune_string, bundling_p,
+        TARGET_SCHED_DEPENDENCIES_EVALUATION_HOOK,
+        TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE,
+        TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD,
+        TARGET_SCHED_INIT_DFA_PRE_CYCLE_INSN,
+        TARGET_SCHED_DFA_PRE_CYCLE_INSN,
+        TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD_GUARD,
+        TARGET_SCHED_DFA_NEW_CYCLE, ia64_reorg_p, bundle_name,
+        ia64_final_schedule, _0mii_, _0mmi_, _0mfi_, _0mmf_, _0bbb_,
+        _0mbb_, _0mib_, _0mmb_, _0mfb_, _0mlx_, _1mii_, _1mmi_, _1mfi_,
+        _1mmf_, _1bbb_, _1mbb_, _1mib_, _1mmb_, _1mfb_, _1mlx_,
+        dfa_stop_insn, last_scheduled_insn, dfa_state_size,
+        temp_dfa_state, prev_cycle_state, stops_p, stop_before_p,
+        clocks_length, clocks, add_cycles,
+        ia64_first_cycle_multipass_dfa_lookahead_guard,
+        dfa_pre_cycle_insn, ia64_dfa_new_cycle, bundle_state,
+        bundle_states_num, allocated_bundle_states_chain,
+        free_bundle_state_chain, get_free_bundle_state,
+        get_free_bundle_state, initiate_bundle_states,
+        finish_bundle_states, bundle_state_table, bundle_state_hash,
+        bundle_state_eq_p, insert_bundle_state,
+        initiate_bundle_state_table, finish_bundle_state_table, ia64_nop,
+        try_issue_nops, try_issue_insn, issue_nops_and_insn, get_max_pos,
+        get_template, get_next_important_insn, bundling,
+        final_emit_insn_group_barriers, ia64_use_dfa_pipeline_interface,
+        ia64_first_cycle_multipass_dfa_lookahead,
+        ia64_init_dfa_pre_cycle_insn, ia64_dfa_pre_cycle_insn,
+        ia64_st_address_bypass_p, ia64_ld_address_bypass_p,
+        ia64_produce_address_p): New macros, functions, variables.
+        (TARGET_SCHED_CYCLE_DISPLAY, ia64_safe_itanium_requires_unit0,
+        bundle, ia64_packet, ia64_packet packets, type_names,
+        itanium_split_issue, sched_data, sched_ready, sched_types,
+        insn_matches_slot, finish_last_head, cycle_end_fill_slots,
+        rotate_one_bundle, rotate_two_bundles, packet_matches_p,
+        get_split, find_best_insn, find_best_packet, itanium_reorder,
+        dump_current_packet, schedule_stop, maybe_rotate, prev_cycle,
+        prev_first, nop_cycles_until, cycle_display, gen_nop_type,
+        ia64_emit_nops): Remove them.
+        (ia64_override_options, group_barrier_needed_p, get_bundle_name,
+        ia64_adjust_cost, ia64_emit_insn_before, ia64_sched_init,
+        ia64_internal_sched_reorder, ia64_sched_reorder,
+        ia64_variable_issue, ia64_sched_finish, ia64_reorg): Modify them.
+
+        * config/ia64/ia64.h (MASK_EARLY_STOP_BITS,
+        TARGET_EARLY_STOP_BITS, processor_type, ia64_tune,
+        ia64_tune_string, CPU_UNITS_QUERY): New macros, type, variables.
+        (TARGET_OPTIONS): Modify them.
+
+        * config/ia64/ia64.md: Add dfa pipeline descriptions.  Remove old
+        description.
+        (cpu): New attribute.
+        (itanium_class): Add nop, pre_cycle.
+
+        * doc/md.texi: Describe dfa model and scheduler.
+
+        * doc/tm.texi: Describe the new target hooks.
+
+        * genattrtab.h: New file.
+
+        * genautomata.c: New file.
+
 2003-03-05  Jakub Jelinek  <jakub@redhat.com>
 
 	* config/s390/s390.c (s390_output_dwarf_dtprel): New.

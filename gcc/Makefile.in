@@ -618,6 +618,7 @@ HOST_RTL = $(HOST_PREFIX)rtl.o read-rtl.o $(HOST_PREFIX)bitmap.o \
 
 HOST_PRINT = $(HOST_PREFIX)print-rtl.o
 HOST_ERRORS = $(HOST_PREFIX)errors.o
+HOST_VARRAY = $(HOST_PREFIX)varray.o
 
 # Specify the directories to be searched for header files.
 # Both . and srcdir are used, in that order,
@@ -1556,12 +1557,13 @@ sched-deps.o : sched-deps.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) sched-int.h \
    $(INSN_ATTR_H) toplev.h $(RECOG_H) except.h cselib.h $(PARAMS_H) $(TM_P_H)
 sched-rgn.o : sched-rgn.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) sched-int.h \
    $(BASIC_BLOCK_H) $(REGS_H) hard-reg-set.h flags.h insn-config.h function.h \
-   $(INSN_ATTR_H) toplev.h $(RECOG_H) except.h $(TM_P_H)
+   $(INSN_ATTR_H) toplev.h $(RECOG_H) except.h $(TM_P_H) $(TARGET_H)
 sched-ebb.o : sched-ebb.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) sched-int.h \
    $(BASIC_BLOCK_H) $(REGS_H) hard-reg-set.h flags.h insn-config.h function.h \
-   $(INSN_ATTR_H) toplev.h $(RECOG_H) except.h $(TM_P_H)
+   $(INSN_ATTR_H) toplev.h $(RECOG_H) except.h $(TM_P_H) $(TARGET_H)
 sched-vis.o : sched-vis.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) sched-int.h \
-   hard-reg-set.h $(BASIC_BLOCK_H) $(INSN_ATTR_H) $(REGS_H) $(TM_P_H)
+   hard-reg-set.h $(BASIC_BLOCK_H) $(INSN_ATTR_H) $(REGS_H) $(TM_P_H) \
+   $(TARGET_H)
 final.o : final.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h intl.h \
    $(REGS_H) $(RECOG_H) conditions.h insn-config.h $(INSN_ATTR_H) function.h \
    real.h output.h hard-reg-set.h except.h debug.h xcoffout.h \
@@ -1866,13 +1868,20 @@ genattr$(build_exeext) : genattr.o $(HOST_RTL) $(HOST_PRINT) $(HOST_ERRORS) $(HO
 genattr.o : genattr.c $(RTL_H) $(HCONFIG_H) $(SYSTEM_H) errors.h gensupport.h
 	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) $(srcdir)/genattr.c $(OUTPUT_OPTION)
 
-genattrtab$(build_exeext) : genattrtab.o $(HOST_RTL) $(HOST_PRINT) $(HOST_ERRORS) $(HOST_LIBDEPS)
+genattrtab$(build_exeext) : genattrtab.o genautomata.o \
+	$(HOST_RTL) $(HOST_PRINT) $(HOST_ERRORS) $(HOST_VARRAY) $(HOST_LIBDEPS)
 	$(HOST_CC) $(HOST_CFLAGS) $(HOST_LDFLAGS) -o $@ \
-	 genattrtab.o $(HOST_RTL) $(HOST_PRINT) $(HOST_ERRORS) $(HOST_LIBS)
+	 genattrtab.o genautomata.o \
+	 $(HOST_RTL) $(HOST_PRINT) $(HOST_ERRORS) $(HOST_VARRAY) \
+	 $(HOST_LIBS) -lm
 
 genattrtab.o : genattrtab.c $(RTL_H) $(OBSTACK_H) $(HCONFIG_H) \
-  $(SYSTEM_H) errors.h $(GGC_H) gensupport.h
+  $(SYSTEM_H) errors.h $(GGC_H) gensupport.h genattrtab.h
 	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) $(srcdir)/genattrtab.c $(OUTPUT_OPTION)
+
+genautomata.o : genautomata.c $(RTL_H) $(OBSTACK_H) $(HCONFIG_H) \
+  $(SYSTEM_H) errors.h varray.h genattrtab.h $(HASHTAB_H)
+	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) $(srcdir)/genautomata.c $(OUTPUT_OPTION)
 
 genoutput$(build_exeext) : genoutput.o $(HOST_RTL) $(HOST_PRINT) $(HOST_ERRORS) $(HOST_LIBDEPS)
 	$(HOST_CC) $(HOST_CFLAGS) $(HOST_LDFLAGS) -o $@ \

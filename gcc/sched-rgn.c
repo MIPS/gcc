@@ -62,6 +62,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "recog.h"
 #include "cfglayout.h"
 #include "sched-int.h"
+#include "target.h"
 
 /* Define when we want to do count REG_DEAD notes before and after scheduling
    for sanity checking.  We can't do that when conditional execution is used,
@@ -269,16 +270,13 @@ static edgeset *ancestor_edges;
 
 static void compute_dom_prob_ps PARAMS ((int));
 
-#define ABS_VALUE(x) (((x)<0)?(-(x)):(x))
 #define INSN_PROBABILITY(INSN) (SRC_PROB (BLOCK_TO_BB (BLOCK_NUM (INSN))))
 #define IS_SPECULATIVE_INSN(INSN) (IS_SPECULATIVE (BLOCK_TO_BB (BLOCK_NUM (INSN))))
 #define INSN_BB(INSN) (BLOCK_TO_BB (BLOCK_NUM (INSN)))
 
 /* Parameters affecting the decision of rank_for_schedule().
-   ??? Nope.  But MIN_PROBABILITY is used in copmute_trg_info.  */
-#define MIN_DIFF_PRIORITY 2
+   ??? Nope.  But MIN_PROBABILITY is used in compute_trg_info.  */
 #define MIN_PROBABILITY 40
-#define MIN_PROB_DIFF 10
 
 /* Speculative scheduling functions.  */
 static int check_live_1 PARAMS ((int, rtx));
@@ -1789,17 +1787,9 @@ init_ready_list (ready)
      Count number of insns in the target block being scheduled.  */
   for (insn = NEXT_INSN (prev_head); insn != next_tail; insn = NEXT_INSN (insn))
     {
-      rtx next;
-
-      if (! INSN_P (insn))
-	continue;
-      next = NEXT_INSN (insn);
-
-      if (INSN_DEP_COUNT (insn) == 0
-	  && (SCHED_GROUP_P (next) == 0 || ! INSN_P (next)))
+      if (INSN_DEP_COUNT (insn) == 0)
 	ready_add (ready, insn);
-      if (!(SCHED_GROUP_P (insn)))
-	target_n_insns++;
+      target_n_insns++;
     }
 
   /* Add to ready list all 'ready' insns in valid source blocks.
@@ -1823,22 +1813,18 @@ init_ready_list (ready)
 
 	    if (!CANT_MOVE (insn)
 		&& (!IS_SPECULATIVE_INSN (insn)
-		    || (insn_issue_delay (insn) <= 3
+		    || ((((!targetm.sched.use_dfa_pipeline_interface
+			   || !(*targetm.sched.use_dfa_pipeline_interface) ())
+			  && insn_issue_delay (insn) <= 3)
+			 || (targetm.sched.use_dfa_pipeline_interface
+			     && (*targetm.sched.use_dfa_pipeline_interface) ()
+			     && (recog_memoized (insn) < 0
+			         || min_insn_conflict_delay (curr_state,
+							     insn, insn) <= 3)))
 			&& check_live (insn, bb_src)
 			&& is_exception_free (insn, bb_src, target_bb))))
-	      {
-		rtx next;
-
-		/* Note that we haven't squirreled away the notes for
-		   blocks other than the current.  So if this is a
-		   speculative insn, NEXT might otherwise be a note.  */
-		next = next_nonnote_insn (insn);
-		if (INSN_DEP_COUNT (insn) == 0
-		    && (! next
-			|| SCHED_GROUP_P (next) == 0
-			|| ! INSN_P (next)))
-		  ready_add (ready, insn);
-	      }
+	      if (INSN_DEP_COUNT (insn) == 0)
+		ready_add (ready, insn);
 	  }
       }
 }
@@ -1856,7 +1842,6 @@ can_schedule_ready_p (insn)
   /* An interblock motion?  */
   if (INSN_BB (insn) != target_bb)
     {
-      rtx temp;
       basic_block b1;
 
       if (IS_SPECULATIVE_INSN (insn))
@@ -1873,18 +1858,9 @@ can_schedule_ready_p (insn)
 	}
       nr_inter++;
 
-      /* Find the beginning of the scheduling group.  */
-      /* ??? Ought to update basic block here, but later bits of
-	 schedule_block assumes the original insn block is
-	 still intact.  */
-
-      temp = insn;
-      while (SCHED_GROUP_P (temp))
-	temp = PREV_INSN (temp);
-
       /* Update source block boundaries.  */
-      b1 = BLOCK_FOR_INSN (temp);
-      if (temp == b1->head && insn == b1->end)
+      b1 = BLOCK_FOR_INSN (insn);
+      if (insn == b1->head && insn == b1->end)
 	{
 	  /* We moved all the insns in the basic block.
 	     Emit a note after the last insn and update the
@@ -1898,9 +1874,9 @@ can_schedule_ready_p (insn)
 	  /* We took insns from the end of the basic block,
 	     so update the end of block boundary so that it
 	     points to the first insn we did not move.  */
-	  b1->end = PREV_INSN (temp);
+	  b1->end = PREV_INSN (insn);
 	}
-      else if (temp == b1->head)
+      else if (insn == b1->head)
 	{
 	  /* We took insns from the start of the basic block,
 	     so update the start of block boundary so that
@@ -1931,7 +1907,15 @@ new_ready (next)
       && (!IS_VALID (INSN_BB (next))
 	  || CANT_MOVE (next)
 	  || (IS_SPECULATIVE_INSN (next)
-	      && (insn_issue_delay (next) > 3
+	      && (0
+		  || (targetm.sched.use_dfa_pipeline_interface
+		      && (*targetm.sched.use_dfa_pipeline_interface) ()
+		      && recog_memoized (next) >= 0
+		      && min_insn_conflict_delay (curr_state, next,
+						  next) > 3)
+		  || ((!targetm.sched.use_dfa_pipeline_interface
+		       || !(*targetm.sched.use_dfa_pipeline_interface) ())
+		      && insn_issue_delay (next) > 3)
 		  || !check_live (next, INSN_BB (next))
 		  || !is_exception_free (next, INSN_BB (next), target_bb)))))
     return 0;
@@ -2112,17 +2096,6 @@ add_branch_dependences (head, tail)
 	  CANT_MOVE (insn) = 1;
 
 	  last = insn;
-	  /* Skip over insns that are part of a group.
-	     Make each insn explicitly depend on the previous insn.
-	     This ensures that only the group header will ever enter
-	     the ready queue (and, when scheduled, will automatically
-	     schedule the SCHED_GROUP_P block).  */
-	  while (SCHED_GROUP_P (insn))
-	    {
-	      rtx temp = prev_nonnote_insn (insn);
-	      add_dependence (insn, temp, REG_DEP_ANTI);
-	      insn = temp;
-	    }
 	}
 
       /* Don't overrun the bounds of the basic block.  */
@@ -2144,10 +2117,6 @@ add_branch_dependences (head, tail)
 
 	add_dependence (last, insn, REG_DEP_ANTI);
 	INSN_REF_COUNT (insn) = 1;
-
-	/* Skip over insns that are part of a group.  */
-	while (SCHED_GROUP_P (insn))
-	  insn = prev_nonnote_insn (insn);
       }
 }
 
@@ -2355,14 +2324,27 @@ debug_dependencies ()
 	  fprintf (sched_dump, "\n;;   --- Region Dependences --- b %d bb %d \n",
 		   BB_TO_BLOCK (bb), bb);
 
-	  fprintf (sched_dump, ";;   %7s%6s%6s%6s%6s%6s%11s%6s\n",
-	  "insn", "code", "bb", "dep", "prio", "cost", "blockage", "units");
-	  fprintf (sched_dump, ";;   %7s%6s%6s%6s%6s%6s%11s%6s\n",
-	  "----", "----", "--", "---", "----", "----", "--------", "-----");
+	  if (targetm.sched.use_dfa_pipeline_interface
+	      && (*targetm.sched.use_dfa_pipeline_interface) ())
+	    {
+	      fprintf (sched_dump, ";;   %7s%6s%6s%6s%6s%6s%14s\n",
+		       "insn", "code", "bb", "dep", "prio", "cost",
+		       "reservation");
+	      fprintf (sched_dump, ";;   %7s%6s%6s%6s%6s%6s%14s\n",
+		       "----", "----", "--", "---", "----", "----",
+		       "-----------");
+	    }
+	  else
+	    {
+	      fprintf (sched_dump, ";;   %7s%6s%6s%6s%6s%6s%11s%6s\n",
+	      "insn", "code", "bb", "dep", "prio", "cost", "blockage", "units");
+	      fprintf (sched_dump, ";;   %7s%6s%6s%6s%6s%6s%11s%6s\n",
+	      "----", "----", "--", "---", "----", "----", "--------", "-----");
+	    }
+
 	  for (insn = head; insn != next_tail; insn = NEXT_INSN (insn))
 	    {
 	      rtx link;
-	      int unit, range;
 
 	      if (! INSN_P (insn))
 		{
@@ -2382,22 +2364,46 @@ debug_dependencies ()
 		  continue;
 		}
 
-	      unit = insn_unit (insn);
-	      range = (unit < 0
-		 || function_units[unit].blockage_range_function == 0) ? 0 :
-		function_units[unit].blockage_range_function (insn);
-	      fprintf (sched_dump,
-		       ";;   %s%5d%6d%6d%6d%6d%6d  %3d -%3d   ",
-		       (SCHED_GROUP_P (insn) ? "+" : " "),
-		       INSN_UID (insn),
-		       INSN_CODE (insn),
-		       INSN_BB (insn),
-		       INSN_DEP_COUNT (insn),
-		       INSN_PRIORITY (insn),
-		       insn_cost (insn, 0, 0),
-		       (int) MIN_BLOCKAGE_COST (range),
-		       (int) MAX_BLOCKAGE_COST (range));
-	      insn_print_units (insn);
+	      if (targetm.sched.use_dfa_pipeline_interface
+		  && (*targetm.sched.use_dfa_pipeline_interface) ())
+		{
+		  fprintf (sched_dump,
+			   ";;   %s%5d%6d%6d%6d%6d%6d   ",
+			   (SCHED_GROUP_P (insn) ? "+" : " "),
+			   INSN_UID (insn),
+			   INSN_CODE (insn),
+			   INSN_BB (insn),
+			   INSN_DEP_COUNT (insn),
+			   INSN_PRIORITY (insn),
+			   insn_cost (insn, 0, 0));
+
+		  if (recog_memoized (insn) < 0)
+		    fprintf (sched_dump, "nothing");
+		  else
+		    print_reservation (sched_dump, insn);
+		}
+	      else
+		{
+		  int unit = insn_unit (insn);
+		  int range
+		    = (unit < 0
+		       || function_units[unit].blockage_range_function == 0
+		       ? 0
+		       : function_units[unit].blockage_range_function (insn));
+		  fprintf (sched_dump,
+			   ";;   %s%5d%6d%6d%6d%6d%6d  %3d -%3d   ",
+			   (SCHED_GROUP_P (insn) ? "+" : " "),
+			   INSN_UID (insn),
+			   INSN_CODE (insn),
+			   INSN_BB (insn),
+			   INSN_DEP_COUNT (insn),
+			   INSN_PRIORITY (insn),
+			   insn_cost (insn, 0, 0),
+			   (int) MIN_BLOCKAGE_COST (range),
+			   (int) MAX_BLOCKAGE_COST (range));
+		  insn_print_units (insn);
+		}
+
 	      fprintf (sched_dump, "\t: ");
 	      for (link = INSN_DEPEND (insn); link; link = XEXP (link, 1))
 		fprintf (sched_dump, "%d ", INSN_UID (XEXP (link, 0)));
@@ -2442,6 +2448,10 @@ schedule_region (rgn)
       get_block_head_tail (BB_TO_BLOCK (bb), &head, &tail);
 
       compute_forward_dependences (head, tail);
+
+      if (targetm.sched.dependencies_evaluation_hook)
+	targetm.sched.dependencies_evaluation_hook (head, tail);
+
     }
 
   /* Set priorities.  */

@@ -38,6 +38,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "recog.h"
 #include "cfglayout.h"
 #include "sched-int.h"
+#include "target.h"
 
 /* The number of insns to be scheduled in total.  */
 static int target_n_insns;
@@ -49,12 +50,13 @@ static void init_ready_list PARAMS ((struct ready_list *));
 static int can_schedule_ready_p PARAMS ((rtx));
 static int new_ready PARAMS ((rtx));
 static int schedule_more_p PARAMS ((void));
-static const char *print_insn PARAMS ((rtx, int));
+static const char *ebb_print_insn PARAMS ((rtx, int));
 static int rank PARAMS ((rtx, rtx));
 static int contributes_to_priority PARAMS ((rtx, rtx));
 static void compute_jump_reg_dependencies PARAMS ((rtx, regset));
 static basic_block earliest_block_with_similiar_load PARAMS ((basic_block,
 							      rtx));
+static void add_deps_for_risky_insns PARAMS ((rtx, rtx));
 static void schedule_ebb PARAMS ((rtx, rtx));
 
 /* Return nonzero if there are more insns that should be scheduled.  */
@@ -89,14 +91,7 @@ init_ready_list (ready)
      Count number of insns in the target block being scheduled.  */
   for (insn = NEXT_INSN (prev_head); insn != next_tail; insn = NEXT_INSN (insn))
     {
-      rtx next;
-
-      if (! INSN_P (insn))
-	continue;
-      next = NEXT_INSN (insn);
-
-      if (INSN_DEP_COUNT (insn) == 0
-	  && (SCHED_GROUP_P (next) == 0 || ! INSN_P (next)))
+      if (INSN_DEP_COUNT (insn) == 0)
 	ready_add (ready, insn);
       if (!(SCHED_GROUP_P (insn)))
 	target_n_insns++;
@@ -130,7 +125,7 @@ new_ready (next)
    to be formatted so that multiple output lines will line up nicely.  */
 
 static const char *
-print_insn (insn, aligned)
+ebb_print_insn (insn, aligned)
      rtx insn;
      int aligned ATTRIBUTE_UNUSED;
 {
@@ -190,7 +185,7 @@ static struct sched_info ebb_sched_info =
   schedule_more_p,
   new_ready,
   rank,
-  print_insn,
+  ebb_print_insn,
   contributes_to_priority,
   compute_jump_reg_dependencies,
 
@@ -356,6 +351,9 @@ schedule_ebb (head, tail)
   compute_forward_dependences (head, tail);
 
   add_deps_for_risky_insns (head, tail);
+
+  if (targetm.sched.dependencies_evaluation_hook)
+    targetm.sched.dependencies_evaluation_hook (head, tail);
 
   /* Set priorities.  */
   n_insns = set_priorities (head, tail);
