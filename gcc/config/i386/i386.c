@@ -862,6 +862,7 @@ static tree ix86_handle_cdecl_attribute PARAMS ((tree *, tree, tree, int, bool *
 static tree ix86_handle_regparm_attribute PARAMS ((tree *, tree, tree, int, bool *));
 static int ix86_value_regno PARAMS ((enum machine_mode));
 static bool ix86_ms_bitfield_layout_p PARAMS ((tree));
+static int extended_reg_mentioned_1 PARAMS ((rtx *, void *));
 
 #if defined (DO_GLOBAL_CTORS_BODY) && defined (HAS_INIT_SECTION)
 static void ix86_svr3_asm_out_constructor PARAMS ((rtx, int));
@@ -14590,6 +14591,44 @@ x86_machine_dependent_reorg (first)
     if (insert)
       emit_insn_before (gen_nop (), ret);
   }
+}
+
+/* Return nonzero when QImode register that must be represented via REX prefix
+   is used.  */
+bool
+x86_extended_QIreg_mentioned_p (insn)
+     rtx insn;
+{
+  int i;
+  extract_insn_cached (insn);
+  for (i = 0; i < recog_data.n_operands; i++)
+    if (REG_P (recog_data.operand[i])
+	&& REGNO (recog_data.operand[i]) >= 4)
+       return true;
+  return false;
+}
+
+/* Return nonzero when P points to register encoded via REX prefix.
+   Called via for_each_rtx.  */
+static int
+extended_reg_mentioned_1 (p, data)
+	rtx *p;
+	void *data ATTRIBUTE_UNUSED;
+{
+   unsigned int regno;
+   if (!REG_P (*p))
+     return 0;
+   regno = REGNO (*p);
+   return REX_INT_REGNO_P (regno) || REX_SSE_REGNO_P (regno);
+}
+
+/* Return true when INSN mentions register that must be encoded using REX
+   prefix.  */
+bool
+x86_extended_reg_mentioned_p (insn)
+     rtx insn;
+{
+  return for_each_rtx (&PATTERN (insn), extended_reg_mentioned_1, NULL);
 }
 
 #include "gt-i386.h"

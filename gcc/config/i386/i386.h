@@ -1356,6 +1356,9 @@ enum reg_class
   (((N) >= FIRST_SSE_REG && (N) <= LAST_SSE_REG) \
    || ((N) >= FIRST_REX_SSE_REG && (N) <= LAST_REX_SSE_REG))
 
+#define REX_SSE_REGNO_P(N) \
+   ((N) >= FIRST_REX_SSE_REG && (N) <= LAST_REX_SSE_REG)
+
 #define SSE_REGNO(N) \
   ((N) < 8 ? FIRST_SSE_REG + (N) : FIRST_REX_SSE_REG + (N) - 8)
 #define SSE_REG_P(N) (REG_P (N) && SSE_REGNO_P (REGNO (N)))

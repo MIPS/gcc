@@ -1,3 +1,18 @@
+Tue Nov 26 00:14:20 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386-protos.h (x86_extended_QIreg_mentioned_p,
+	x86_extended_reg_mentioned_p): Declare.
+	* i386.c (extended_reg_mentioned_1): New static function.
+	(x86_extended_QIreg_mentioned_p,
+	x86_extended_reg_mentioned_p): New global functions.
+	* i386.h (REX_SSE_REGNO_P): New macro.
+	* i386.md (prefix_rex): New attribute.
+	(length attribute): Add rex.
+
+Mon Nov 25 18:32:37 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.md (pushsf_rex64): Fix typo.
+
 Sun Nov 24 10:38:04 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* i386.c (x86_use_ffreep): New global variable.
