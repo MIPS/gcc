@@ -1,0 +1,57 @@
+2002-09-02  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* config/os/mingw32/bits/cpu_limits.h (_iec559_consts):
+	Add typename keyword when initializing union rep.
+
+2002-09-01  Danny Smith  <dannysmith@users.sourceforge.net
+
+	* config/os/mingw32/os_defines.h (__GTHREAD_HIDE_WIN32API):
+	Define by default.
+
+2002-08-27  Christopher Faylor  <cgf@redhat.com>
+
+	* configure.in: Add cygwin target support.
+	* configure: Regenerate.
+
+2002-08-16  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* config/os/mingw32/bits/cpu_limits.h: Pad long double constants
+	to 96 bits,
+
+2002-08-16  Adriano dos Santos Fernandes  <adrianosf@uol.com.br>
+
+	* libsupc++/unwind-cxx.h (__terminate_handler,
+	 __unexpected_handler):Support for w32 catch exceptions across
+	 EXE/DLLs boundaries.
+	* libsupc++/eh_terminate.cc (__terminate_handler,
+	__unexpected_handler): Same.
+
+2002-07-29  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* config/os/mingw32/bits/os_defines.h
+	(_GLIBCPP_NO_LONG_DOUBLE_IO): Define.
+	* include/bits/locale_facets.tcc (num_get::do_get):
+	Use it. Cast long double to double.
+	(num_put::do_put): Likewise.
+	(money_get::do_get): Likewise.
+	(money_put::do_put): Likewise.
+	* src/locale.cc (__num_base::_S_format_int):
+	Replace "ll" format prefix with "I64" for mingw32.
+
+2002-07-22  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* libsupc++/typeinfo (__GXX_MERGED_TYPEINFO_NAMES): Define to
+	0 for win32 targets to allow dynamic_cast to work across
+	dll boundaries.
+
+2002-06-22  Luke Dunstan  <coder_infidel@hotmail.com>
+
+	* config/os/mingw32/bits/cpu_limits.h: Fix typo in long double
+	numeric limits constants.
+
+2002-04-3  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* libstdc++-v3/configure.target (CPULIMITSH): Set to
+	config/os/mingw32 for i?86-*-mingw32*.
+	* libstdc++-v3/config/os/mingw32/bits/cpu_limits.h:
+	New file.

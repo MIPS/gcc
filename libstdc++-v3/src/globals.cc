@@ -26,6 +26,9 @@
 // the GNU General Public License.
 
 #include "bits/c++config.h"
+#ifdef __MINGW32__
+#undef __GTHREAD_HIDE_WIN32API
+#endif
 #include "bits/gthr.h"
 #include <fstream>
 #include <istream>

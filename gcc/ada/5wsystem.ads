@@ -7,9 +7,9 @@
 --                                 S p e c                                  --
 --                               (NT Version)                               --
 --                                                                          --
---                            $Revision: 1.1 $
+--                            $Revision: 1.1.16.1 $
 --                                                                          --
---          Copyright (C) 1992-2001 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2002 Free Software Foundation, Inc.          --
 --                                                                          --
 -- This specification is derived from the Ada Reference Manual for use with --
 -- GNAT. The copyright notice above, and the license provisions that follow --
@@ -197,5 +197,12 @@ private
       20 .. Priority'Last        => 2,
 
       Interrupt_Priority         => 15);
+
+   pragma Linker_Options ("-Wl,--stack=0x2000000");
+   --  This is used to change the default stack (32 MB) size for non tasking
+   --  programs. We change this value for GNAT on Windows here because the
+   --  binutils on this platform have switched to a too low value for Ada
+   --  programs. Note that we also set the stack size for tasking programs in
+   --  System.Task_Primitives.Operations.
 
 end System;

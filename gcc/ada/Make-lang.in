@@ -137,6 +137,12 @@ gnatlbr$(exeext): $(CONFIG_H) prefix.o force
 	$(MAKE) -C ada $(FLAGS_TO_PASS) $(ADA_FLAGS_TO_PASS) \
 		../gnatlbr$(exeext)
 
+# Gnatdll is extra tool only used on i386-pe targets
+
+gnatdll$(exeext): $(CONFIG_H) prefix.o force
+	$(MAKE) -C ada $(FLAGS_TO_PASS) $(ADA_FLAGS_TO_PASS) \
+		../gnatdll$(exeext)
+
 # use target-gcc
 gnattools: $(GCC_PARTS) force
 	$(MAKE) $(FLAGS_TO_PASS) $(ADA_FLAGS_TO_PASS) \

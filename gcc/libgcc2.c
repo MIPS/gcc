@@ -1610,7 +1610,7 @@ __clear_cache (char *beg __attribute__((__unused__)),
 
 /* Jump to a trampoline, loading the static chain address.  */
 
-#if defined(WINNT) && ! defined(__CYGWIN__) && ! defined (_UWIN)
+#if defined(_WIN32) && ! defined(__CYGWIN__) && ! defined (_UWIN)
 
 long
 getpagesize (void)
@@ -1650,7 +1650,7 @@ mprotect (char *addr, int len, int prot)
     return -1;
 }
 
-#endif /* WINNT && ! __CYGWIN__ && ! _UWIN */
+#endif /* _WIN32 && ! __CYGWIN__ && ! _UWIN */
 
 #ifdef TRANSFER_FROM_TRAMPOLINE
 TRANSFER_FROM_TRAMPOLINE
@@ -1849,9 +1849,8 @@ cacheflush (char *beg, int size, int flag)
 #endif /* sony_news */
 #endif /* L_trampoline */
 
-#ifndef __CYGWIN__
+#if !defined  __CYGWIN__ && !defined __MINGW32__
 #ifdef L__main
-
 #include "gbl-ctors.h"
 /* Some systems use __main in a way incompatible with its use in gcc, in these
    cases use the macros NAME__MAIN to give a quoted symbol and SYMBOL__MAIN to

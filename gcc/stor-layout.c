@@ -799,14 +799,20 @@ place_field (rli, field)
   if ((* targetm.ms_bitfield_layout_p) (rli->t)
       && type != error_mark_node
       && DECL_BIT_FIELD_TYPE (field)
-      && ! integer_zerop (TYPE_SIZE (type))
-      && integer_zerop (DECL_SIZE (field)))
+      && ! integer_zerop (TYPE_SIZE (type)))
     {
-      if (rli->prev_field
-	  && DECL_BIT_FIELD_TYPE (rli->prev_field)
-	  && ! integer_zerop (DECL_SIZE (rli->prev_field)))
+      /* Here, the alignment of the underlying type of a bitfield can
+	 affect the alignment of a record; even a zero-sized field
+	 can do this.  The alignment should be to the alignment of
+	 the type, except that for zero-size bitfields this only
+	 applies if there was an immediately prior, non-zero-size
+	 bitfield.  (That's the way it is, experimentally.) */
+      if (! integer_zerop (DECL_SIZE (field))
+	  || (rli->prev_field
+	      && DECL_BIT_FIELD_TYPE (rli->prev_field)
+	      && ! integer_zerop (DECL_SIZE (rli->prev_field))))
 	{
-	  rli->record_align = MAX (rli->record_align, desired_align);
+	  rli->record_align = MAX (rli->record_align, TYPE_ALIGN(type));
 	  rli->unpacked_align = MAX (rli->unpacked_align, TYPE_ALIGN (type));
 	}
       else

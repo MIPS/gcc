@@ -5,7 +5,7 @@
    posted to GCC-patches
    http://gcc.gnu.org/ml/gcc-patches/2000-08/msg00577.html */ 
 
-/* { dg-do run { target *-*-interix* } } */
+/* { dg-do run { target *-*-mingw* *-*-cygwin*  } } */
 /* { dg-options "-mms-bitfields -D_TEST_MS_LAYOUT" } */
 
 #include <stddef.h>
@@ -100,7 +100,7 @@ struct ten {   /* ms size 16 */
     abort();					\
   memcpy(&test_##_X, filler, sizeof(test_##_X));\
   if (val(test_##_X,c) != exp_##_X##_c) 	\
-     abort();					\
+    abort();					\
 }
 
 #define check_union(_X) \

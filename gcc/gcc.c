@@ -2714,6 +2714,25 @@ add_prefix (pprefix, prefix, component, priority, require_machine_suffix,
   pl->next = (*prev);
   (*prev) = pl;
 }
+
+#if defined (__MINGW32__)
+static char *
+canon_filename (char *fname)
+{
+  char* p = fname;
+
+  while (*p)
+    {
+      if (*p == '/')
+	    *p = '\\';
+      p++;
+    }
+  return fname;
+}
+#else
+#define canon_filename(f) f
+#endif
+
 
 /* Execute the command specified by the arguments on the current line of spec.
    When using pipes, this includes several piped-together commands
@@ -2753,7 +2772,7 @@ execute ()
   string = find_a_file (&exec_prefixes, commands[0].prog, X_OK, 0);
 
   if (string)
-    commands[0].argv[0] = string;
+    commands[0].argv[0] = canon_filename(string);
 
   for (n_commands = 1, i = 0; i < argbuf_index; i++)
     if (strcmp (argbuf[i], "|") == 0)
@@ -2767,7 +2786,7 @@ execute ()
 	string = find_a_file (&exec_prefixes, commands[n_commands].prog,
 			      X_OK, 0);
 	if (string)
-	  commands[n_commands].argv[0] = string;
+	  commands[n_commands].argv[0] = canon_filename(string);
 	n_commands++;
       }
 
@@ -4183,7 +4202,9 @@ static int basename_length;
 static int suffixed_basename_length;
 static const char *input_basename;
 static const char *input_suffix;
+#ifndef HOST_FILE_ID_CMP
 static struct stat input_stat;
+#endif
 static int input_stat_set;
 
 /* The compiler used to process the current input file.  */
@@ -4602,7 +4623,10 @@ do_spec_1 (spec, inswitch, soft_matched_part)
 		    *((char *) temp_filename + temp_filename_length) = '\0';
 		    if (strcmp (temp_filename, input_filename) != 0)
 		      {
-		      	struct stat st_temp;
+#if defined HOST_FILE_ID_CMP
+			if (HOST_FILE_ID_CMP(input_filename, temp_filename) !=0 )
+#else
+			struct stat st_temp;
 		      	
 		      	/* Note, set_input() resets input_stat_set to 0.  */
 		      	if (input_stat_set == 0)
@@ -4621,13 +4645,15 @@ do_spec_1 (spec, inswitch, soft_matched_part)
 			    || stat (temp_filename, &st_temp) < 0
 			    || input_stat.st_dev != st_temp.st_dev
 			    || input_stat.st_ino != st_temp.st_ino)
+#endif
  		      	  {
 			    temp_filename = save_string (temp_filename,
 							 temp_filename_length + 1);
 			    obstack_grow (&obstack, temp_filename,
 			    			    temp_filename_length);
 			    arg_going = 1;
-			    break;
+			    delete_this_arg = 0;
+ 			    break;
 			  }
 		      }
 		  }

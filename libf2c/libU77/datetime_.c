@@ -31,6 +31,11 @@ Boston, MA 02111-1307, USA.  */
 #  include <time.h>
 # endif
 #endif
+#if defined (_WIN32)
+#include <windows.h>
+#undef min
+#undef max
+#endif
 #include "f2c.h"
 
 #ifdef KR_headers
@@ -47,6 +52,8 @@ int G77_date_and_time_0 (char *date, char *fftime, char *zone,
   struct tm ltime = *localtime(&lt), gtime = *gmtime(&lt);
   char dat[9], zon[6], ftim[11];
   int i, vals[8];
+  vals[7] = 0;                  /* no STDC/POSIX way to get this */
+  /* GNUish way; maybe use `ftime' on other systems. */
 
   vals[0] = 1900 + ltime.tm_year;
   vals[1] = 1 + ltime.tm_mon;
@@ -58,8 +65,6 @@ int G77_date_and_time_0 (char *date, char *fftime, char *zone,
   vals[4] = ltime.tm_hour;
   vals[5] = ltime.tm_min;
   vals[6] = ltime.tm_sec;
-  vals[7] = 0;                  /* no STDC/POSIX way to get this */
-  /* GNUish way; maybe use `ftime' on other systems. */
 #if HAVE_GETTIMEOFDAY
   {
     struct timeval tp;
@@ -81,7 +86,11 @@ int G77_date_and_time_0 (char *date, char *fftime, char *zone,
 #  endif /* GETTIMEOFDAY_ONE_ARGUMENT */
       vals[7] = tp.tv_usec/1000;
   }
-#endif /* HAVE_GETTIMEOFDAY */
+#elif defined (_WIN32)
+    struct _SYSTEMTIME wdattim;
+    GetLocalTime(&wdattim);
+    vals[7] = wdattim.wMilliseconds;
+#endif /* HAVE_GETTIMEOFDAY || _WIN32 */
   if (values)			/* null pointer for missing optional */
     for (i=0; i<=7; i++)
       values[i] = vals[i];

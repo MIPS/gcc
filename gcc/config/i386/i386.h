@@ -524,12 +524,10 @@ extern int ix86_arch;
 #define CPP_CPU_DEFAULT_SPEC "-D__tune_i686__ -D__tune_pentiumpro__"
 #endif
 #if TARGET_CPU_DEFAULT == TARGET_CPU_DEFAULT_pentium2
-#define CPP_CPU_DEFAULT_SPEC "-D__tune_i686__ -D__tune_pentiumpro__\
--D__tune_pentium2__"
+#define CPP_CPU_DEFAULT_SPEC "-D__tune_i686__ -D__tune_pentiumpro__ -D__tune_pentium2__"
 #endif
 #if TARGET_CPU_DEFAULT == TARGET_CPU_DEFAULT_pentium3
-#define CPP_CPU_DEFAULT_SPEC "-D__tune_i686__ -D__tune_pentiumpro__\
--D__tune_pentium2__ -D__tune_pentium3__"
+#define CPP_CPU_DEFAULT_SPEC "-D__tune_i686__ -D__tune_pentiumpro__ -D__tune_pentium2__ -D__tune_pentium3__"
 #endif
 #if TARGET_CPU_DEFAULT == TARGET_CPU_DEFAULT_pentium4
 #define CPP_CPU_DEFAULT_SPEC "-D__tune_pentium4__"
@@ -587,9 +585,9 @@ extern int ix86_arch;
 %{march=pentiumpro|march=i686|march=pentium2|march=pentium3:-D__i686 -D__i686__ \
   -D__pentiumpro -D__pentiumpro__ \
   %{!mcpu*:-D__tune_i686__ -D__tune_pentiumpro__ }}\
-%{march=march=pentium2|march=pentium3: -D__pentium2 -D__pentium2__\
+%{march=march=pentium2|march=pentium3: -D__pentium2 -D__pentium2__ \
   %{!mcpu*:-D__tune_pentium2__ }}\
-%{march=pentium3: -D__pentium3 -D__pentium3__\
+%{march=pentium3: -D__pentium3 -D__pentium3__ \
   %{!mcpu*:-D__tune_pentium3__ }}\
 %{march=k6:-D__k6 -D__k6__ %{!mcpu*:-D__tune_k6__ }}\
 %{march=k6-2:-D__k6 -D__k6__ -D__k6_2__ \
@@ -1679,6 +1677,7 @@ typedef struct ix86_args {
   int words;			/* # words passed so far */
   int nregs;			/* # registers available for passing */
   int regno;			/* next available register number */
+  int fastcall;		/* fastcall calling convention is used */
   int sse_words;		/* # sse words passed so far */
   int sse_nregs;		/* # sse registers available for passing */
   int sse_regno;		/* next available sse register number */

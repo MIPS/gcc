@@ -1,0 +1,11 @@
+#
+# For HOST_FILE_ID_CMP for mingw32.  
+#
+EXTRA_GCC_OBJS = mingw32-1.o
+
+mingw32-1.o: $(srcdir)/config/i386/mingw32-1.c
+	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) $?
+#
+# Make local_include_dir relative to EXEC_PREFIX 
+#
+local_includedir=$(libsubdir)/$(unlibsubdir)/..`echo $(exec_prefix) | sed -e 's|^$(prefix)||' -e 's|/[^/]*|/..|g'`/include

@@ -6,7 +6,7 @@
  *                                                                          *
  *              Auxiliary C functions for Interfaces.C.Streams              *
  *                                                                          *
- *                              $Revision: 1.2 $
+ *                              $Revision: 1.2.12.1 $
  *                                                                          *
  *          Copyright (C) 1992-2001 Free Software Foundation, Inc.          *
  *                                                                          *
@@ -49,7 +49,7 @@
 
 #include "adaint.h"
 
-#ifdef __EMX__
+#if defined (__EMX__) || defined (_WIN32)
 int max_path_len = _MAX_PATH;
 #elif defined (VMS)
 #include <unixlib.h>
@@ -83,7 +83,8 @@ int max_path_len = PATH_MAX;
 int max_path_len = MAXPATHLEN;
 #endif
 
-/* The _IONBF value in CYGNUS or MINGW32 stdio.h is wrong.  */
+/* The _IONBF value in CYGNUS or MINGW32 stdio.h is wrong
+   in old distributions.  */
 #if defined (WINNT) || defined (_WINNT)
 #undef _IONBF
 #define _IONBF 0004
@@ -220,8 +221,6 @@ __gnat_full_name (nam, buffer)
       strcpy (buffer, __gnat_to_host_file_spec (buffer));
     }
 
-  return buffer;
-
 #else
   if (nam[0] != '/')
     {
@@ -229,7 +228,6 @@ __gnat_full_name (nam, buffer)
       if (p == 0)
 	{
 	  buffer[0] = '\0';
-	  return 0;
 	}
 
       /* If the name returned is an absolute path, it is safe to append '/'
@@ -242,6 +240,8 @@ __gnat_full_name (nam, buffer)
   else
     strcpy (buffer, nam);
 
-  return buffer;
 #endif
+
+  return buffer;
+
 }

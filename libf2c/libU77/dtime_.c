@@ -89,16 +89,24 @@ double G77_dtime_0 (real tarray[2])
 	    }
 	  else
 	    {
+#ifdef _GNU_H_WINDOWS32_STRUCTURES
 	      clock_freq = ((unsigned long long) freq.HighPart << 32)
                            + ((unsigned) freq.LowPart);
+#else
+	      clock_freq = freq.QuadPart;
+#endif
 	    }
 	}
 
       if (! QueryPerformanceCounter (&counter_val))
 	return -1.0;
 
+#ifdef _GNU_H_WINDOWS32_STRUCTURES
       count = ((unsigned long long) counter_val.HighPart << 32)
               + (unsigned) counter_val.LowPart;
+#else
+      count = counter_val.QuadPart;
+#endif
       delta = ((double) (count - old_count)) / clock_freq;
       tarray[0] = (float) delta;
       tarray[1] = 0.0;

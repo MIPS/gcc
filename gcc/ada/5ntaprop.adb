@@ -6,7 +6,7 @@
 --                                                                          --
 --                                  B o d y                                 --
 --                                                                          --
---                             $Revision: 1.33 $
+--                             $Revision: 1.1 $
 --                                                                          --
 --             Copyright (C) 1991-2001, Florida State University            --
 --                                                                          --
@@ -47,9 +47,6 @@ with System.Tasking;
 --  used for Ada_Task_Control_Block
 --           Task_ID
 
-with System.OS_Primitives;
---  used for Delay_Modes
-
 with System.Error_Reporting;
 --  used for Shutdown
 
@@ -57,7 +54,6 @@ package body System.Task_Primitives.Operations is
 
    use System.Tasking;
    use System.Parameters;
-   use System.OS_Primitives;
 
    -------------------
    --  Stack_Guard  --

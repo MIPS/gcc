@@ -4,7 +4,7 @@
  *                                                                          *
  *                               A D A I N T                                *
  *                                                                          *
- *                            $Revision: 1.5 $
+ *                            $Revision: 1.5.2.1 $
  *                                                                          *
  *                              C Header File                               *
  *                                                                          *
@@ -137,4 +137,8 @@ extern char   *__gnat_ttyname			   PARAMS ((int));
 #ifdef IN_RTS
 /* Portable definition of strdup, which is not available on all systems.  */
 #define xstrdup(S)  strcpy ((char *) malloc (strlen (S) + 1), S)
+#endif
+
+#ifdef _WIN32
+extern void 	__gnat_plist_init		  PARAMS ((void));
 #endif

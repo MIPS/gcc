@@ -6,7 +6,7 @@
 --                                                                          --
 --                                  B o d y                                 --
 --                                                                          --
---                             $Revision: 1.2 $
+--                             $Revision: 1.2.10.1 $
 --                                                                          --
 --         Copyright (C) 1992-2001, Free Software Foundation, Inc.          --
 --                                                                          --
@@ -90,7 +90,10 @@ package body System.Task_Primitives.Operations is
    use System.Parameters;
    use System.OS_Primitives;
 
-   pragma Linker_Options ("-Xlinker --stack=0x800000,0x1000");
+   pragma Link_With ("-Xlinker --stack=0x800000,0x1000");
+   --  Change the stack size (8 MB) for tasking programs on Windows. This
+   --  permit to have more than 30 tasks running at the same time. Note that
+   --  we set the stack size for non tasking programs on System unit.
 
    package SSL renames System.Soft_Links;
 
@@ -403,6 +406,7 @@ package body System.Task_Primitives.Operations is
 
       if Rel_Time <= 0.0 then
          Timed_Out := True;
+         Wait_Result := 0;
       else
          Int_Rel_Time := DWORD (Rel_Time);
          Time_Out := Int_Rel_Time * 1000 +

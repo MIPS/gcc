@@ -30,6 +30,7 @@ Boston, MA 02111-1307, USA.  */
 
 #ifndef _STDARG_H
 #ifndef _ANSI_STDARG_H_
+#ifndef RC_INVOKED
 #ifndef __need___va_list
 #define _STDARG_H
 #define _ANSI_STDARG_H_
@@ -134,5 +135,6 @@ typedef __gnuc_va_list va_list;
 
 #endif /* _STDARG_H */
 
+#endif /* not RC_INVOKED */
 #endif /* not _ANSI_STDARG_H_ */
 #endif /* not _STDARG_H */

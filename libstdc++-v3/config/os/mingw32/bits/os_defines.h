@@ -34,4 +34,11 @@
 // System-specific #define, typedefs, corrections, etc, go here.  This
 // file will come before all others.
 
+#define _GLIBCPP_NO_LONG_DOUBLE_IO 1
+
+#if !(defined __GTHREAD_SHOW_WIN32API || defined __GTHREAD_HIDE_WIN32API)
+# define __GTHREAD_HIDE_WIN32API 1
+#endif
+
+
 #endif

@@ -1496,6 +1496,21 @@ ifeq ($(strip $(filter-out cygwin32% mingw32% pe,$(osys))),)
 # ??? work around a gcc -O3 bug on x86
 a-numaux.o  : a-numaux.adb a-numaux.ads
 	$(ADAC) -c $(ALL_ADAFLAGS) -O2 $(ADA_INCLUDES) $<
+
+# krunched filenames
+
+gnatdll.o : gnatdll.adb
+	$(ADAC) -c $(ALL_ADAFLAGS) -gnatk8 $(ADA_INCLUDES) $<
+
+mdll.o : mdll.adb mdll.ads
+	$(ADAC) -c $(ALL_ADAFLAGS) -gnatk8 $(ADA_INCLUDES) $<
+
+mdllfile.o : mdllfile.adb mdllfile.ads
+	$(ADAC) -c $(ALL_ADAFLAGS) -gnatk8 $(ADA_INCLUDES) $<
+
+mdlltool.o : mdlltool.adb mdlltool.ads
+	$(ADAC) -c $(ALL_ADAFLAGS) -gnatk8 $(ADA_INCLUDES) $<
+
 endif
 
 # The runtime library for gnat comprises two directories.  One contains the
