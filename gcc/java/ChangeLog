@@ -1,5 +1,20 @@
 2005-03-28  Tom Tromey  <tromey@redhat.com>
 
+	* lower.cc (visit_bytecode_block) <op_swap>: Finish set-up of new
+	variable.
+	(visit_bytecode_block) <op_new>: Added casts.
+	(visit_bytecode_block): Use convert, not CONVERT_EXPR.
+	(handle_convert): Likewise.
+	(visit_bytecode_block): Use convert, not NOP_EXPR.
+	(handle_return): Likewise.
+	(slot_type): Removed.
+	(handle_convert): Rewrote how min and max are computed.
+	(visit_bytecode_block): Indentation fixes.
+	(push): Use type_object_ptr.
+	(cast): Use 'convert'.
+
+2005-03-28  Tom Tromey  <tromey@redhat.com>
+
 	* lower.cc (visit_bytecode_block): Use VERIFY_BRANCH_TARGET.
 
 2005-03-28  Tom Tromey  <tromey@redhat.com>

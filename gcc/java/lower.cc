@@ -26,18 +26,6 @@
 #include "bytecode/insns.hh"
 #include "verify.h"
 
-// This is used to determine which particular variable is used for a
-// given stack or local variable slot.
-typedef enum
-  {
-    TYPE_SECOND = -1,		// Invalid second half of 2-word value.
-    TYPE_INT = 0,
-    TYPE_LONG = 1,
-    TYPE_DOUBLE = 2,
-    TYPE_OBJECT = 3		// Everything else.
-  }
-slot_type;
-
 
 
 static inline jint
@@ -208,23 +196,19 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 	  break;
 
 	case op_iload:
-	  insn = push (load (get1u (bytes, pc),
-			     type_jint));
+	  insn = push (load (get1u (bytes, pc), type_jint));
 	  break;
 
 	case op_lload:
-	  insn = push (load (get1u (bytes, pc),
-			     type_jlong));
+	  insn = push (load (get1u (bytes, pc), type_jlong));
 	  break;
 
 	case op_fload:
-	  insn = push (load (get1u (bytes, pc),
-			     type_jfloat));
+	  insn = push (load (get1u (bytes, pc), type_jfloat));
 	  break;
 
 	case op_dload:
-	  insn = push (load (get1u (bytes, pc),
-			     type_jdouble));
+	  insn = push (load (get1u (bytes, pc), type_jdouble));
 	  break;
 
 	case op_aload:
@@ -235,32 +219,28 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 	case op_iload_1:
 	case op_iload_2:
 	case op_iload_3:
-	  insn = push (load (op - op_iload_0,
-			     type_jint));
+	  insn = push (load (op - op_iload_0, type_jint));
 	  break;
 
 	case op_lload_0:
 	case op_lload_1:
 	case op_lload_2:
 	case op_lload_3:
-	  insn = push (load (op - op_lload_0,
-			     type_jlong));
+	  insn = push (load (op - op_lload_0, type_jlong));
 	  break;
 
 	case op_fload_0:
 	case op_fload_1:
 	case op_fload_2:
 	case op_fload_3:
-	  insn = push (load (op - op_fload_0,
-			     type_jfloat));
+	  insn = push (load (op - op_fload_0, type_jfloat));
 	  break;
 
 	case op_dload_0:
 	case op_dload_1:
 	case op_dload_2:
 	case op_dload_3:
-	  insn = push (load (op - op_dload_0,
-			     type_jdouble));
+	  insn = push (load (op - op_dload_0, type_jdouble));
 	  break;
 
 	case op_aload_0:
@@ -605,7 +585,9 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 	    tree expr2 = find_slot (stack_top - 2, stack_types[stack_top - 2]);
 
 	    tree temp = build_decl (VAR_DECL, NULL_TREE, TREE_TYPE (expr1));
-	    // FIXME: other set-up for new variable.
+	    DECL_CONTEXT (temp) = current_block;
+	    TREE_CHAIN (temp) = BLOCK_VARS (current_block);
+	    BLOCK_VARS (current_block) = temp;
 
 	    tree decl1 = find_slot (stack_top - 2, TREE_TYPE (expr1));
 	    tree decl2 = find_slot (stack_top - 1, TREE_TYPE (expr2));
@@ -746,33 +728,28 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 	case op_ineg:
 	  {
 	    tree expr = pop (type_jint);
-	    insn = push (build1 (NEGATE_EXPR, type_jint,
-				 expr));
+	    insn = push (build1 (NEGATE_EXPR, type_jint, expr));
 	  }
 	  break;
 
 	case op_lneg:
 	  {
 	    tree expr = pop (type_jlong);
-	    insn = push (build1 (NEGATE_EXPR, type_jlong,
-				 expr));
+	    insn = push (build1 (NEGATE_EXPR, type_jlong, expr));
 	  }
 	  break;
 
 	case op_fneg:
 	  {
 	    tree expr = pop (type_jfloat);
-	    insn = push (build1 (NEGATE_EXPR, type_jfloat,
-				 expr));
+	    insn = push (build1 (NEGATE_EXPR, type_jfloat, expr));
 	  }
 	  break;
 
 	case op_dneg:
 	  {
 	    tree expr = pop (type_jdouble);
-	    insn = push (build1 (NEGATE_EXPR,
-				 type_jdouble,
-				 expr));
+	    insn = push (build1 (NEGATE_EXPR, type_jdouble, expr));
 	  }
 	  break;
 
@@ -780,8 +757,7 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 	  {
 	    tree shift = pop (type_jint);
 	    tree val = pop (type_jint);
-	    insn = push (build2 (LSHIFT_EXPR, type_jint,
-				 val,
+	    insn = push (build2 (LSHIFT_EXPR, type_jint, val,
 				 build2 (BIT_AND_EXPR,
 					 type_jint,
 					 shift, build_int (0x1f))));
@@ -792,8 +768,7 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 	  {
 	    tree shift = pop (type_jint);
 	    tree val = pop (type_jlong);
-	    insn = push (build2 (LSHIFT_EXPR, type_jlong,
-				 val,
+	    insn = push (build2 (LSHIFT_EXPR, type_jlong, val,
 				 build2 (BIT_AND_EXPR,
 					 type_jint,
 					 shift, build_int (0x3f))));
@@ -804,8 +779,7 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 	  {
 	    tree shift = pop (type_jint);
 	    tree val = pop (type_jint);
-	    insn = push (build2 (RSHIFT_EXPR, type_jint,
-				 val,
+	    insn = push (build2 (RSHIFT_EXPR, type_jint, val,
 				 build2 (BIT_AND_EXPR,
 					 type_jint,
 					 shift, build_int (0x1f))));
@@ -816,8 +790,7 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 	  {
 	    tree shift = pop (type_jint);
 	    tree val = pop (type_jlong);
-	    insn = push (build2 (RSHIFT_EXPR, type_jlong,
-				 val,
+	    insn = push (build2 (RSHIFT_EXPR, type_jlong, val,
 				 build2 (BIT_AND_EXPR,
 					 type_jint,
 					 shift, build_int (0x3f))));
@@ -830,14 +803,11 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 	    tree val = pop (type_jint);
 	    val = convert (type_juint, val);
 
-	    tree expr = build2 (RSHIFT_EXPR,
-				type_juint,
-				val,
+	    tree expr = build2 (RSHIFT_EXPR, type_juint, val,
 				build2 (BIT_AND_EXPR,
 					type_jint,
 					shift, build_int (0x1f)));
-	    insn = push (convert (type_jint,
-				  expr));
+	    insn = push (convert (type_jint, expr));
 	  }
 	  break;
 
@@ -847,14 +817,11 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 	    tree val = pop (type_jlong);
 	    val = convert (type_julong, val);
 
-	    tree expr = build2 (RSHIFT_EXPR,
-				type_julong,
-				val,
+	    tree expr = build2 (RSHIFT_EXPR, type_julong, val,
 				build2 (BIT_AND_EXPR,
 					type_jint,
 					shift, build_int (0x3f)));
-	    insn = push (convert (type_jlong,
-				  expr));
+	    insn = push (convert (type_jlong, expr));
 	  }
 	  break;
 
@@ -887,41 +854,34 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 	    int index = get1u (bytes, pc);
 	    int amount = get1s (bytes, pc);
 	    tree decl = find_generic_slot (index, type_jint, local_slots);
-	    insn = build2 (MODIFY_EXPR, type_jint,
-			   decl,
+	    insn = build2 (MODIFY_EXPR, type_jint, decl,
 			   build2 (PLUS_EXPR, type_jint,
 				   decl, build_int (amount)));
 	  }
 	  break;
 
 	case op_i2l:
-	  insn = cast (type_jint,
-		       type_jlong);
+	  insn = cast (type_jint, type_jlong);
 	  break;
 
 	case op_i2f:
-	  insn = cast (type_jint,
-		       type_jfloat);
+	  insn = cast (type_jint, type_jfloat);
 	  break;
 
 	case op_i2d:
-	  insn = cast (type_jint,
-		       type_jdouble);
+	  insn = cast (type_jint, type_jdouble);
 	  break;
 
 	case op_l2i:
-	  insn = cast (type_jlong,
-		       type_jint);
+	  insn = cast (type_jlong, type_jint);
 	  break;
 
 	case op_l2f:
-	  insn = cast (type_jlong,
-		       type_jfloat);
+	  insn = cast (type_jlong, type_jfloat);
 	  break;
 
 	case op_l2d:
-	  insn = cast (type_jlong,
-		       type_jdouble);
+	  insn = cast (type_jlong, type_jdouble);
 	  break;
 
 	case op_f2i:
@@ -939,8 +899,7 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 	  break;
 
 	case op_f2d:
-	  insn = cast (type_jfloat,
-		       type_jdouble);
+	  insn = cast (type_jfloat, type_jdouble);
 	  break;
 
 	case op_d2i:
@@ -958,32 +917,27 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 	  break;
 
 	case op_d2f:
-	  insn = cast (type_jdouble,
-		       type_jfloat);
+	  insn = cast (type_jdouble, type_jfloat);
 	  break;
 
 	case op_i2b:
 	  {
 	    tree value = pop (type_jint);
-	    insn = push (build1 (CONVERT_EXPR, type_jbyte,
-				 value));
+	    insn = push (convert (type_jbyte, value));
 	  }
 	  break;
 
 	case op_i2c:
 	  {
 	    tree value = pop (type_jint);
-	    insn = push (build1 (CONVERT_EXPR, type_jchar,
-				 value));
+	    insn = push (convert (type_jchar, value));
 	  }
 	  break;
 
 	case op_i2s:
 	  {
 	    tree value = pop (type_jint);
-	    insn = push (build1 (CONVERT_EXPR,
-				 type_jshort,
-				 value));
+	    insn = push (convert (type_jshort, value));
 	  }
 	  break;
 
@@ -1241,8 +1195,7 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 	  break;
 
 	case op_return:
-	  insn = build1 (RETURN_EXPR, void_type_node,
-			 NULL_TREE);
+	  insn = build1 (RETURN_EXPR, void_type_node, NULL_TREE);
 	  break;
 
 	case op_getstatic:
@@ -1322,11 +1275,20 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 	  {
 	    tree klass_ref
 	      = build_class_ref (cpool->get_class (get2u (bytes, pc)));
-	    insn = push (build3 (CALL_EXPR,
-				 NULL_TREE, // FIXME!
-				 builtin_Jv_AllocObject,
-				 build_tree_list (NULL_TREE, klass_ref),
-				 NULL_TREE));
+	    // Note that we just use "Object *" here as the result
+	    // type, even though this looks incorrect.  The verifier
+	    // ensures that everything is ok type-wise; and we
+	    // downcast this in any place that we need a specific
+	    // type.
+	    // FIXME: should be ABI call here, as we might want a
+	    // finalizer-free allocator or the like.
+	    tree basetype = TREE_TYPE (TREE_TYPE (builtin_Jv_AllocObject));
+	    insn = push (convert (type_object_ptr,
+				  build3 (CALL_EXPR, basetype,
+					  builtin_Jv_AllocObject,
+					  build_tree_list (NULL_TREE,
+							   klass_ref),
+					  NULL_TREE)));
 	  }
 	  break;
 
@@ -1396,8 +1358,8 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 	  {
 	    tree value = pop (type_object_ptr);
 	    tree klass = find_class (cpool->get_class (get2u (bytes, pc)));
-	    insn = push (build1 (NOP_EXPR, type_jint,
-				 handle_instanceof (value, klass)));
+	    insn = push (convert (type_jint,
+				  handle_instanceof (value, klass)));
 	  }
 	  break;
 
@@ -1511,10 +1473,8 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 	      case op_ret:
 		{
 		  jint index = get2u (bytes, pc);
-		  tree where
-		    = load (index, type_nativecode_ptr);
-		  insn = build1 (GOTO_EXPR, void_type_node,
-				 where);
+		  tree where = load (index, type_nativecode_ptr);
+		  insn = build1 (GOTO_EXPR, void_type_node, where);
 		}
 		break;
 
@@ -1522,8 +1482,7 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 		{
 		  int amount = get2s (bytes, pc);
 		  tree decl = find_generic_slot (wide, type_jint, local_slots);
-		  insn = build2 (MODIFY_EXPR, type_jint,
-				 decl,
+		  insn = build2 (MODIFY_EXPR, type_jint, decl,
 				 build2 (PLUS_EXPR,
 					 type_jint,
 					 decl, build_int (amount)));
@@ -1589,7 +1548,6 @@ tree_generator::binop (tree_code op, tree type)
 tree
 tree_generator::compare (tree type, tree_code gt_op)
 {
-  // FIXME: do we need save_expr here?
   tree value2 = save_expr (pop (type));
   tree value1 = save_expr (pop (type));
 
@@ -1603,7 +1561,6 @@ tree_generator::compare (tree type, tree_code gt_op)
 					type_jboolean,
 					value1, value2),
 				build_int_cst (type_jint, 0),
-				// FIXME: does this work?  I forget.
 				build_int_cst (type_jint, -1)));
 
   return push (result);
@@ -1614,7 +1571,7 @@ tree_generator::handle_return (tree type, tree override)
 {
   tree value = pop (type);
   if (override != NULL_TREE)
-    value = build1 (NOP_EXPR, override, value);
+    value = convert (override, value);
   else
     override = type;
 
@@ -1628,33 +1585,57 @@ tree
 tree_generator::cast (tree from, tree to)
 {
   tree val = pop (from);
-  return push (build1 (CONVERT_EXPR, to, val));
+  return push (convert (to, val));
 }
 
 tree
 tree_generator::handle_convert (model_type *dest_type, tree expr)
 {
-  // FIXME: really we should get this from the primitive type.  But we
-  // can't do that until they are declared properly.
-  long long min, max;
-  if (dest_type == primitive_int_type)
-    {
-      min = -0x80000000LL;
-      max = 0x7fffffffLL;
-    }
-  else
-    {
-      assert (dest_type == primitive_long_type);
-      min = -0x8000000000000000LL;
-      max = 0x7fffffffffffffffLL;
-    }
-
-  // FIXME: how?
-  // Note these must be cast to TREE_TYPE (EXPR).
-  tree min_tree; // = what?
-  tree max_tree; // = what?
-
+  tree min_tree, max_tree;
   tree dest_tree = gcc_builtins->map_type (dest_type);
+
+  {
+    // Crazy gyrations to avoid dependency on sizeof (HOST_WIDE_INT).
+    // Some bit-twiddling genius should rewrite this.
+    HOST_WIDE_INT minlo, minhi, maxlo, maxhi;
+    HOST_WIDE_INT *pmin = &minlo, *pmax = &maxlo;
+    int n = dest_type == primitive_int_type ? 4 : 8;
+    int i, bits;
+    for (i = 0, bits = 0; i < 2 * sizeof (HOST_WIDE_INT); ++i, bits += 8)
+      {
+	if (i == sizeof (HOST_WIDE_INT))
+	  {
+	    pmin = &minhi;
+	    pmax = &maxhi;
+	  }
+
+	HOST_WIDE_INT minbits, maxbits;
+	if (i > n)
+	  {
+	    minbits = 0xff;
+	    maxbits = 0x00;
+	  }
+	else if (i == n)
+	  {
+	    minbits = 0x80;
+	    maxbits = 0x7f;
+	  }
+	else
+	  {
+	    minbits = 0x00;
+	    maxbits = 0xff;
+	  }
+
+	*pmin |= minbits << bits;
+	*pmax |= maxbits << bits;
+      }
+
+    min_tree = convert (TREE_TYPE (expr),
+			build_int_cst_wide (dest_tree, minlo, minhi));
+    max_tree = convert (TREE_TYPE (expr),
+			build_int_cst_wide (dest_tree, maxlo, maxhi));
+  }
+
   expr = save_expr (expr);
 
   // We start at the end of the expression and work toward the
@@ -1663,25 +1644,21 @@ tree_generator::handle_convert (model_type *dest_type, tree expr)
   //     return 0;
   //   else
   //     return (TO) val;
-  tree ne = build2 (NE_EXPR, type_jboolean,
-		    expr, expr);
-  tree cond = build3 (COND_EXPR, dest_tree,
-		      ne,
+  tree ne = build2 (NE_EXPR, type_jboolean, expr, expr);
+  tree cond = build3 (COND_EXPR, dest_tree, ne,
 		      build_int_cst (dest_tree, 0),
-		      build1 (CONVERT_EXPR, dest_tree, expr));
+		      convert (dest_tree, expr));
 
   // Now build:
   //   if (val <= (FROM) min) return min; else [ the above ]
   cond = build3 (COND_EXPR, dest_tree,
-		 build2 (LE_EXPR, type_jboolean,
-			 expr, min_tree),
+		 build2 (LE_EXPR, type_jboolean, expr, min_tree),
 		 min_tree, cond);
 
   // Finally:
   //   if (val >= (FROM) max) return max; else [ the above ]
   return build3 (COND_EXPR, dest_tree,
-		 build2 (GE_EXPR, type_jboolean,
-			 expr, max_tree),
+		 build2 (GE_EXPR, type_jboolean, expr, max_tree),
 		 max_tree, cond);
 }
 
@@ -1704,8 +1681,7 @@ tree_generator::push (tree value)
 {
   tree type = TREE_TYPE (value);
   if (value == null_pointer_node)
-    type
-      = gcc_builtins->map_type (global->get_compiler ()->java_lang_Object ());
+    type = type_object_ptr;
 
   tree decl = find_slot (stack_top, type);
   stack_types[stack_top] = type;
