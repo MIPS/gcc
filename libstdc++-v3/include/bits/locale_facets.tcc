@@ -607,9 +607,7 @@ namespace std
       // Prepare for hex formatted input
       typedef ios_base::fmtflags        fmtflags;
       fmtflags __fmt = __io.flags();
-      fmtflags __fmtmask = ~(ios_base::showpos | ios_base::basefield
-                             | ios_base::uppercase | ios_base::internal);
-      __io.flags(__fmt & __fmtmask | (ios_base::hex | ios_base::showbase));
+      __io.flags(__fmt & ~ios_base::basefield | ios_base::hex);
 
       string __xtrc;
       int __base;
@@ -1515,18 +1513,13 @@ namespace std
 
       for (size_t __i = 0; __beg != __end && __i < __len && !__err; ++__i)
 	{
-	  char __c = __format[__i];
-	  if (__c == '%')
+	  if (__ctype.narrow(__format[__i], 0) == '%')
 	    {
 	      // Verify valid formatting code, attempt to extract.
-	      __c = __format[++__i];
-	      char __mod = 0;
-	      int __mem = 0; 
+	      char __c = __ctype.narrow(__format[++__i], 0);
+	      int __mem = 0;
 	      if (__c == 'E' || __c == 'O')
-		{
-		  __mod = __c;
-		  __c = __format[++__i];
-		}
+		__c = __ctype.narrow(__format[++__i], 0);
 	      switch (__c)
 		{
 		  const char* __cs;
@@ -1691,7 +1684,7 @@ namespace std
 	      else
 		{
 		  // Verify format and input match, extract and discard.
-		  if (__c == __ctype.narrow(*__beg, 0))
+		  if (__format[__i] == *__beg)
 		    ++__beg;
 		  else
 		    __err |= ios_base::failbit;

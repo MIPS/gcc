@@ -1,5 +1,12 @@
 2004-02-23  Paolo Carlini  <pcarlini@suse.de>
 
+	* include/bits/locale_facets.tcc (num_get::do_get(void*&)):
+	Set correctly just basefield, the only group that matters.
+
+	* include/bits/locale_facets.tcc (time_get::_M_extract_via_format):
+	Use narrow to get from __format[__i] a char __c representing a
+	formatting code, don't use it to compare *__beg to __format[__i].
+
 	* include/bits/basic_string.h (c_str()): Simplify, due to 21.3.4
 	the internal representation is always kept null-terminated.
 
