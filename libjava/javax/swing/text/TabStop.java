@@ -37,7 +37,9 @@ exception statement from your version. */
 
 package javax.swing.text;
 
-public class TabStop
+import java.io.Serializable;
+
+public class TabStop implements Serializable
 {
   public static final int ALIGN_LEFT = 0;
   public static final int ALIGN_RIGHT = 1;
@@ -56,12 +58,12 @@ public class TabStop
   int align;
   int leader;
 
-  TabStop(float pos) 
+  public TabStop(float pos) 
   {
     this(pos, ALIGN_LEFT, LEAD_NONE);
   }
   
-  TabStop(float pos, int align, int leader)
+  public TabStop(float pos, int align, int leader)
   {
     this.pos = pos;
     this.align = align;

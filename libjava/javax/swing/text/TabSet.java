@@ -37,7 +37,9 @@ exception statement from your version. */
 
 package javax.swing.text;
 
-public class TabSet
+import java.io.Serializable;
+
+public class TabSet implements Serializable
 {
   TabStop[] tabs;
 

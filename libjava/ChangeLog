@@ -1,5 +1,13 @@
 2004-08-11  Michael Koch  <konqueror@gmx.de>
 
+	* javax/swing/text/TabSet.java
+	(TabSet): Implements java.io.Serializable.
+	* javax/swing/text/TabStop.java
+	(TabStop): Implements java.io.Serializable.
+	(TabStop): Made public.
+
+2004-08-11  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/JComponent.java
 	(setUI): Fire PropertyChange.
 	* javax/swing/JLabel.java
