@@ -1364,7 +1364,10 @@ remove_element_from (varray_type array, size_t i)
 
   len = VARRAY_ACTIVE_SIZE (array);
   if (i < len - 1)
-    VARRAY_TREE (array, i) = VARRAY_TREE (array, len - 1);
+    {
+      VARRAY_TREE (array, i) = VARRAY_TREE (array, len - 1);
+      VARRAY_TREE (array, len - 1) = NULL;
+    }
   VARRAY_POP (array);
 }
 

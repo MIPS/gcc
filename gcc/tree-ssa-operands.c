@@ -346,7 +346,7 @@ finalize_ssa_vdefs (tree stmt)
   vdef_ops = allocate_vdef_optype (num / 2);
   for (x = 0; x < num; x++)
     vdef_ops->vdefs[x] = VARRAY_TREE (build_vdefs, x);
-  VARRAY_POP_ALL (build_vdefs);
+  VARRAY_CLEAR (build_vdefs);
 
   ann = stmt_ann (stmt);
   ann->vdef_ops = vdef_ops;
@@ -445,7 +445,7 @@ finalize_ssa_vuses (tree stmt)
   vuse_ops = allocate_vuse_optype (num);
   for (x = 0; x < num; x++)
     vuse_ops->vuses[x] = VARRAY_TREE (build_vuses, x);
-  VARRAY_POP_ALL (build_vuses);
+  VARRAY_CLEAR (build_vuses);
   ann->vuse_ops = vuse_ops;
 }
 

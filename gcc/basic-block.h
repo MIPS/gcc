@@ -301,7 +301,7 @@ extern int n_edges;
 
 /* Index by basic block number, get basic block struct info.  */
 
-extern varray_type basic_block_info;
+extern GTY(()) varray_type basic_block_info;
 
 #define BASIC_BLOCK(N)  (VARRAY_BB (basic_block_info, (N)))
 

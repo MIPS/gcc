@@ -54,7 +54,7 @@ static const int initial_cfg_capacity = 20;
 
 /* Mapping of labels to their associated blocks.  This can greatly speed up
    building of the CFG in code with lots of gotos.  */
-static varray_type label_to_block_map;
+static GTY(()) varray_type label_to_block_map;
 
 /* CFG statistics.  */
 struct cfg_stats_d
@@ -2346,6 +2346,7 @@ delete_tree_cfg (void)
     free_blocks_annotations ();
 
   free_basic_block_vars (0);
+  basic_block_info = NULL;
   label_to_block_map = NULL;
 }
 

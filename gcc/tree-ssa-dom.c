@@ -156,7 +156,7 @@ static struct opt_stats_d opt_stats;
    final target block itself we can correctly handle redirections
    when the target block had PHIs which required edge insertions/splitting
    to remove the PHIs.  */
-static varray_type redirection_edges;
+static GTY(()) varray_type redirection_edges;
 
 /* A virtual array holding value range records for the variable identified
    by the index, SSA_VERSION.  */
@@ -588,7 +588,7 @@ tree_ssa_dominator_optimize (void)
   htab_delete (true_exprs);
   htab_delete (false_exprs);
 
-  VARRAY_FREE (redirection_edges);
+  VARRAY_CLEAR (redirection_edges);
   VARRAY_CLEAR (currdefs);
 
   /* And finalize the dominator walker.  */

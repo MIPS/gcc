@@ -83,7 +83,7 @@ typedef struct
 static sbitmap executable_blocks;
 
 /* Array of control flow edges on the worklist.  */
-static varray_type cfg_blocks;
+static GTY(()) varray_type cfg_blocks = NULL;
 
 static unsigned int cfg_blocks_num = 0;
 static int cfg_blocks_tail;
@@ -1177,6 +1177,8 @@ initialize (void)
 static void
 finalize (void)
 {
+  ssa_edges = NULL;
+  cfg_blocks = NULL;
   free (value_vector);
   sbitmap_free (bb_in_list);
   sbitmap_free (executable_blocks);

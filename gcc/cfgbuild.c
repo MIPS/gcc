@@ -605,7 +605,7 @@ find_basic_blocks (rtx f, int nregs ATTRIBUTE_UNUSED,
       FOR_EACH_BB (bb)
 	bb->aux = NULL;
 
-      VARRAY_FREE (basic_block_info);
+      basic_block_info = NULL;
     }
 
   n_basic_blocks = count_basic_blocks (f);

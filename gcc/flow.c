@@ -791,7 +791,7 @@ free_basic_block_vars (int keep_head_end_p)
       if (basic_block_info)
 	{
 	  clear_edges ();
-	  VARRAY_FREE (basic_block_info);
+	  basic_block_info = NULL;
 	}
       n_basic_blocks = 0;
       last_basic_block = 0;
