@@ -7,6 +7,9 @@
 
 2003-04-23  Jeff Law  <law@redhat.com>
 
+	* gimplify.c (simplify_target_expr): Make sure to simplify
+	the cleanup too.
+
 	* tree-ssa.c (struct def_blocks_d): Add new field phi_insertion_points.
 	(compute_global_livein): Accept varray rather than bitmaps.  Callers
 	updated.  Rewrite to compute global life information for all the

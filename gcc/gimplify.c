@@ -2331,7 +2331,10 @@ simplify_target_expr (expr_p, pre_p, post_p)
 
   /* If needed, push the cleanup for the temp.  */
   if (TARGET_EXPR_CLEANUP (targ))
-    gimple_push_cleanup (TARGET_EXPR_CLEANUP (targ), pre_p);
+    {
+      simplify_stmt (&TARGET_EXPR_CLEANUP (targ));
+      gimple_push_cleanup (TARGET_EXPR_CLEANUP (targ), pre_p);
+    }
 
   *expr_p = temp;
 }
