@@ -358,10 +358,16 @@ dump_data_dependence_relation (FILE *outf,
 	  print_generic_stmt (outf, DR_ACCESS_FN (drb, i), 0);
 	  dump_subscript (outf, DDR_SUBSCRIPT (ddr, i));
 	}
-      fprintf (outf, "  distance_vect: ");
-      print_lambda_vector (outf, DDR_DIST_VECT (ddr), DDR_SIZE_VECT (ddr));
-      fprintf (outf, "  direction_vect: ");
-      print_lambda_vector (outf, DDR_DIR_VECT (ddr), DDR_SIZE_VECT (ddr));
+      if (DDR_DIST_VECT (ddr))
+	{
+	  fprintf (outf, "  distance_vect: ");
+	  print_lambda_vector (outf, DDR_DIST_VECT (ddr), DDR_SIZE_VECT (ddr));
+	}
+      if (DDR_DIR_VECT (ddr))
+	{
+	  fprintf (outf, "  direction_vect: ");
+	  print_lambda_vector (outf, DDR_DIR_VECT (ddr), DDR_SIZE_VECT (ddr));
+	}
     }
 
   fprintf (outf, ")\n");
@@ -737,6 +743,9 @@ initialize_data_dependence_relation (struct data_reference *a,
       DDR_AFFINE_P (res) = true;
       DDR_ARE_DEPENDENT (res) = NULL_TREE;
       DDR_SUBSCRIPTS_VECTOR_INIT (res, DR_NUM_DIMENSIONS (a));
+      DDR_SIZE_VECT (res) = 0;
+      DDR_DIST_VECT (res) = NULL;
+      DDR_DIR_VECT (res) = NULL;
       
       for (i = 0; i < DR_NUM_DIMENSIONS (a); i++)
 	{

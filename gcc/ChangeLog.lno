@@ -1,5 +1,12 @@
 2004-09-07  Sebastian Pop  <pop@cri.ensmp.fr>
 
+	* tree-data-ref.c (dump_data_dependence_relation): Don't dump distance 
+	or direction vectors if they don't exist.
+	(initialize_data_dependence_relation): Initialize to NULL directions and 
+	distance vectors, and their size is initialized to zero.
+
+2004-09-07  Sebastian Pop  <pop@cri.ensmp.fr>
+
 	* tree-data-ref.c (estimate_niter_from_size_of_data): Initialize 
 	nb_iter_bound->additional with boolean_true_node.
 
