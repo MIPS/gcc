@@ -1,3 +1,8 @@
+2004-08-27  Graydon Hoare  <graydon@redhat.com>
+
+	* javax/swing/DefaultButtonModel.java:
+	Skip group notification when no group is set.
+
 2004-08-26  Graydon Hoare  <graydon@redhat.com>
 
 	* javax/swing/JColorChooser.java: 
