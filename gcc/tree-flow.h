@@ -149,36 +149,31 @@ struct vardef
   /* Visited mark.  Used when computing reaching definitions.  */
   union varref_def *marked;
 
-  /* PHI arguments (not used with real definitions).  */
-  varray_type phi_chain;
-  
-  /* PHI argument's BB.  This field indicates the basic block that this
-     argument is reaching us from.  It does *not* indicate which block this
-     argument is *in*.  */
-  varray_type phi_chain_bb;
+  /* PHI arguments (not used with real definitions).  The number of
+     arguments to a PHI node is the number of incoming edges to the basic
+     block where that PHI node resides.  Each argument is of type phi_arg.  */
+  varray_type phi_args;
 };
 
 #define VARDEF_IMM_USES(r) (r)->def.imm_uses
 #define VARDEF_SAVE_CHAIN(r) (r)->def.save_chain
 #define VARDEF_RUSES(r) (r)->def.ruses
 #define VARDEF_MARKED(r) (r)->def.marked
-#define VARDEF_PHI_CHAIN(r) (r)->def.phi_chain
-#define VARDEF_PHI_CHAIN_BB(r) (r)->def.phi_chain_bb
-
+#define VARDEF_PHI_ARGS(r) (r)->def.phi_args
 
 /* Variable uses.  */
 struct varuse
 {
   struct exprref_common common;
 
-  /* Definition chain (immediate reaching definition).  */
-  union varref_def *chain;
+  /* Immediate reaching definition for this use.  */
+  union varref_def *imm_rdef;
 
   /* Definitions reaching this use.  */
   ref_list rdefs;
 };
 
-#define VARUSE_CHAIN(r) (r)->use.chain
+#define VARUSE_IMM_RDEF(r) (r)->use.imm_rdef
 #define VARUSE_RDEFS(r) (r)->use.rdefs
 
 
@@ -234,6 +229,23 @@ typedef union varref_def *varref;
 #define EXPRREF_SAVE(r) (r)->ecommon.save
 #define EXPRREF_RELOAD(r) (r)->ecommon.reload
 
+
+/* PHI node arguments.  */
+typedef struct
+{
+  /* Definition reaching this argument.  */
+  varref def;
+
+  /* Incoming edge where DEF is coming from.  */
+  edge e;
+} *phi_arg;
+
+static inline unsigned get_num_phi_args PARAMS ((varref));
+static inline phi_arg get_phi_arg PARAMS ((varref, unsigned int));
+static inline void set_phi_arg PARAMS ((varref, unsigned int, phi_arg));
+extern void add_phi_arg PARAMS ((varref, varref, edge));
+
+
 /* Return nonzero if R is a default definition.  Default definitions are
    artificially created in the first basic block of the program.  They
    provide a convenient way of checking if a variable is used without being
@@ -260,8 +272,9 @@ struct tree_ann_def
   basic_block bb;
 
   /* For _DECL trees, list of references made to this variable.  For _STMT
-     trees, list of references made in this statement.  For any other
-     SIMPLE expression, list of references made in this expression.  */
+     trees, list of references made in this statement.  For first-level
+     SIMPLE expressions (i.e., the topmost expression of a _STMT node),
+     list of references made in this expression.  */
   ref_list refs;
 
   /* For _DECL trees this is the most recent definition for this symbol.
@@ -443,9 +456,12 @@ extern void debug_varref PARAMS ((varref));
 extern void dump_varref PARAMS ((FILE *, const char *, varref, int, int));
 extern void debug_varref_list PARAMS ((ref_list));
 extern void debug_varref_array PARAMS ((varray_type));
+extern void debug_phi_args PARAMS ((varray_type));
 extern void dump_varref_list PARAMS ((FILE *, const char *, ref_list, int,
                                       int));
 extern void dump_varref_array PARAMS ((FILE *, const char *, varray_type, int,
+                                      int));
+extern void dump_phi_args PARAMS ((FILE *, const char *, varray_type, int,
                                       int));
 extern int function_may_recurse_p PARAMS ((void));
 extern void get_fcalls PARAMS ((varray_type *, unsigned));
@@ -463,5 +479,41 @@ extern void tree_ssa_remove_phi_alternative PARAMS ((varref, basic_block));
 
 /* Functions in tree-alias-steen.c  */
 extern void create_alias_vars PARAMS ((void));
+
+
+/* Inline functions.  */
+
+/* Return the number of arguments for PHI.  */
+
+static inline unsigned
+get_num_phi_args (phi)
+     varref phi;
+{
+  return VARRAY_ACTIVE_SIZE (VARDEF_PHI_ARGS (phi));
+}
+
+
+/* Return the Ith argument of PHI.  Each PHI argument contains a VARDEF and
+   an edge where that VARDEF is coming from.  */
+
+static inline phi_arg
+get_phi_arg (phi, i)
+     varref phi;
+     unsigned int i;
+{
+  return (phi_arg)(VARRAY_GENERIC_PTR (VARDEF_PHI_ARGS (phi), i));
+}
+
+
+/* Set the Ith argument of PHI to be ARG.  */
+
+static inline void
+set_phi_arg (phi, i, arg)
+     varref phi;
+     unsigned int i;
+     phi_arg arg;
+{
+  VARRAY_GENERIC_PTR (VARDEF_PHI_ARGS (phi), i) = (PTR)arg;
+}
 
 #endif /* _TREE_FLOW_H  */

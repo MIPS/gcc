@@ -38,6 +38,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-inline.h"
 #include "diagnostic.h"
 #include "langhooks.h"
+#include "langhooks-def.h"
 #include "flags.h"
 #include "rtl.h"
 #include "toplev.h"
@@ -127,6 +128,11 @@ simplify_function_tree (fndecl)
   if (errorcount || sorrycount)
     return 0;
   
+  /* FIXME.  Hack.  If this front end does not support simplification,
+     do nothing.  */
+  if (lang_hooks.simplify_expr == lhd_simplify_expr)
+    return 0;
+
   fntree = DECL_SAVED_TREE (fndecl);
   if (fntree == NULL_TREE || TREE_CODE (fntree) != COMPOUND_STMT)
     return 0;

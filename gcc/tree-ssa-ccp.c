@@ -106,10 +106,6 @@ static struct edge_list *edges;
    nodes that need to be visited are accessed using VARDEF_IMM_USES (D).  */
 ref_list ssa_edges;
 
-/* Simple macros to simplify code.  */
-#define PHI_PARMS(x) VARDEF_PHI_CHAIN (x)
-#define EIE(x,y) EDGE_INDEX (edges, x, y)
-
 static void initialize                 PARAMS ((void));
 static void finalize                   PARAMS ((void));
 static void visit_phi_node             PARAMS ((varref));
@@ -379,7 +375,7 @@ ssa_ccp_substitute_constants ()
 	  if (VARREF_TYPE (ref) != VARUSE)
 	    continue;
 
-	  rdef = VARUSE_CHAIN (ref);
+	  rdef = VARUSE_IMM_RDEF (ref);
 	  id = VARREF_ID (rdef);
 
 	  if (dump_file && (dump_flags & TDF_DETAILS))
@@ -468,8 +464,7 @@ visit_phi_node (phi_node)
 
   unsigned int phi_node_name = VARREF_ID (phi_node);
   latticevalue phi_node_lattice_val = UNDEFINED;
-  varray_type phi_vec = PHI_PARMS (phi_node);
-  unsigned int num_elem = VARRAY_ACTIVE_SIZE (phi_vec);
+  unsigned int num_elem = get_num_phi_args (phi_node);
   tree phi_node_expr = NULL;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -477,34 +472,28 @@ visit_phi_node (phi_node)
 
   for (i = 0; i < num_elem; i++)
     {
-      varref ref;
-      basic_block phiargbb, block;
-      edge e;
+      phi_arg arg;
 
-      ref = (varref) VARRAY_GENERIC_PTR (phi_vec, i);
-      phiargbb = VARRAY_BB (VARDEF_PHI_CHAIN_BB (phi_node), i);
-      block = VARREF_BB (phi_node);
-
-      e = find_edge (phiargbb, block);
+      arg = get_phi_arg (phi_node, i);
 
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
 	  fprintf (dump_file, "\n    Examining argument #%d: ", i);
-	  dump_varref (dump_file, "", ref, 0, 0);
+	  dump_varref (dump_file, "", arg->def, 0, 0);
 	  fprintf (dump_file, "    incoming via basic block %d\n",
-	           phiargbb->index);
+	           arg->e->src->index);
 	  fprintf (dump_file, "    Edge (%d -> %d) is %sexecutable\n",
-	           phiargbb->index, block->index,
-		   (e->flags & EDGE_EXECUTABLE)
+	           arg->e->src->index, arg->e->dest->index,
+		   (arg->e->flags & EDGE_EXECUTABLE)
 		   ? ""
 		   : "not ");
 	}
 
       /* Compute the meet operator for the current PHI argument.  */
-      if (e->flags & EDGE_EXECUTABLE)
+      if (arg->e->flags & EDGE_EXECUTABLE)
 	{
 	  latticevalue current_parm_lattice_val;
-	  unsigned int current_parm = VARREF_ID (ref);
+	  unsigned int current_parm = VARREF_ID (arg->def);
 	    
 	  current_parm_lattice_val = values[current_parm].lattice_val;
 
@@ -793,7 +782,7 @@ evaluate_expr (expr)
 
       /* The lattice value of a USE reference is the value of its
 	 immediately reaching definition.  */
-      rdef = VARUSE_CHAIN (r);
+      rdef = VARUSE_IMM_RDEF (r);
       id = VARREF_ID (rdef);
 
       if (values[id].lattice_val == VARYING)
@@ -973,7 +962,7 @@ initialize ()
   executable_blocks = sbitmap_alloc (last_basic_block);
   sbitmap_zero (executable_blocks);
 
-  for (i = 0; i < NUM_EDGES (edges); i++)
+  for (i = 0; i < (unsigned)(NUM_EDGES (edges)); i++)
     edges->index_to_edge[i]->flags &= ~EDGE_EXECUTABLE;
 
   VARRAY_GENERIC_PTR_INIT (edge_info, NUM_EDGES (edges) / 2, "edge_info");

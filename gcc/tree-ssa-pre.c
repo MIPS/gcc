@@ -257,15 +257,13 @@ set_var_phis (phi, i)
   if (!TEST_BIT (varphis[i], VARREF_BB (phi)->index))
     {
       varref phi_operand;
-      varray_type phi_chain;
       size_t curr_phi_operand;
       SET_BIT (varphis[i], VARREF_BB (phi)->index);
-      phi_chain = VARDEF_PHI_CHAIN (phi);
       for (curr_phi_operand = 0; 
-           curr_phi_operand < VARRAY_ACTIVE_SIZE (phi_chain); 
+           curr_phi_operand < get_num_phi_args (phi); 
            curr_phi_operand++)
         {
-          phi_operand = VARRAY_GENERIC_PTR (phi_chain, curr_phi_operand);
+          phi_operand = get_phi_arg (phi, curr_phi_operand)->def;
           if (VARREF_TYPE (phi_operand) == VARPHI)
             set_var_phis (phi_operand, i);
         }
@@ -325,7 +323,7 @@ find_varref_for_var (ei, real, var)
         continue;
       if (VARREF_SYM (ref) != var)
         continue;
-      if (!VARUSE_CHAIN (ref))
+      if (!VARUSE_IMM_RDEF (ref))
         continue;
       return ref;
     }
@@ -358,9 +356,9 @@ defs_y_dom_x ( y, x)
             continue;
           if (VARREF_SYM (ref) != TREE_OPERAND (EXPRREF_EXPR (y), i))
             continue;
-          if (!VARUSE_CHAIN (ref))
+          if (!VARUSE_IMM_RDEF (ref))
             return false;
-          if (!(a_dom_b (VARREF_BB (VARUSE_CHAIN (ref)), EXPRREF_BB (x))))
+          if (!(a_dom_b (VARREF_BB (VARUSE_IMM_RDEF (ref)), EXPRREF_BB (x))))
             return false;
 	  break;
         }
@@ -386,7 +384,7 @@ defs_match_p (ei, t1, t2)
                       (TREE_CODE (VARREF_EXPR (use1)) != TREE_CODE (t2)))
         continue;
       use2 = find_varref_for_var (ei, t2, VARREF_SYM (use1));
-      if (!use2 || (VARUSE_CHAIN (use2) != VARUSE_CHAIN (use1)))
+      if (!use2 || (VARUSE_IMM_RDEF (use2) != VARUSE_IMM_RDEF (use1)))
         return false;
     }
   return true;
@@ -544,10 +542,9 @@ opnum_of_phi (phi, j)
      when it sees a phi in the successor during it's traversal.  So the
      order is dependent on the traversal order, which i don't feel like
      duplicating. Thus the existence of VARDEF_PHI_CHAIN_BB. */
-  for (i = 0 ; i < VARRAY_ACTIVE_SIZE (VARDEF_PHI_CHAIN_BB (phi)); i++)
+  for (i = 0 ; i < get_num_phi_args (phi); i++)
     {
-      basic_block bb = VARRAY_BB (VARDEF_PHI_CHAIN_BB (phi), i);
-      if (bb->index == j)
+      if (get_phi_arg (phi, i)->e->src->index == j)
 	return i;
     }
   
@@ -578,14 +575,14 @@ phi_opnd_from_res (Z, j, b)
     {
       /* If v is defined by phi in b */
       if (VARREF_TYPE (v) == VARUSE
-          && VARREF_TYPE (VARUSE_CHAIN (v)) == VARPHI)
+          && VARREF_TYPE (VARUSE_IMM_RDEF (v)) == VARPHI)
         {
-          varref phi = VARUSE_CHAIN (v);
+          varref phi = VARUSE_IMM_RDEF (v);
           if (VARREF_BB (phi) == b)
 	    {
 	      /* replace v in Q by j'th operand of v's phi */
               int opnum = opnum_of_phi (phi, j);
-              varref op = VARRAY_GENERIC_PTR (VARDEF_PHI_CHAIN (phi), opnum);
+              varref op = get_phi_arg (phi, opnum)->def;
               VARRAY_GENERIC_PTR (Q, i) = op;
             }
           
@@ -684,11 +681,11 @@ rename_2 (ei, rename2_set)
                       if (VARREF_TYPE (op1) != VARUSE)
                         continue;
                       if (VARREF_TYPE (op1) == VARUSE)
-                        op1 = VARUSE_CHAIN (op1);
+                        op1 = VARUSE_IMM_RDEF (op1);
 		      op2 = VARRAY_GENERIC_PTR (Y, k);
 		      
                       if (op2 && VARREF_TYPE (op2) == VARUSE)
-                        op2 = VARUSE_CHAIN (op2);
+                        op2 = VARUSE_IMM_RDEF (op2);
                       
                       if (op1 != op2)
                         {
@@ -720,7 +717,7 @@ rename_2 (ei, rename2_set)
                       if (!ref)
                         continue;
                       if (VARREF_TYPE (ref) == VARUSE)
-                        ref = VARUSE_CHAIN (ref);
+                        ref = VARUSE_IMM_RDEF (ref);
                       
                       if (!a_dom_b (VARREF_BB (ref), EXPRREF_BB (X)))
                         {
@@ -1312,9 +1309,10 @@ expr_phi_insertion (dfs, ei)
                   && (TREE_OPERAND (real, 1) == NULL 
 		      || VARREF_SYM (ref) != TREE_OPERAND (real, 1)))
                 continue;
-              if (!VARUSE_CHAIN (ref) || VARREF_TYPE (VARUSE_CHAIN (ref)) != VARPHI)
+              if (!VARUSE_IMM_RDEF (ref)
+		  || VARREF_TYPE (VARUSE_IMM_RDEF (ref)) != VARPHI)
                 continue;
-              set_var_phis (VARUSE_CHAIN (ref), varcount++);
+              set_var_phis (VARUSE_IMM_RDEF (ref), varcount++);
             }
         }
     }

@@ -1,5 +1,49 @@
 2002-08-26  Diego Novillo  <dnovillo@redhat.com>
 
+	* Makefile.in (tree-ssa.o): Add dependency on ggc.h
+	(c-simplify.o): Add dependency on langhooks-def.h
+	* c-simplify.c: Include langhooks-def.h
+	(simplify_function_tree): Do nothing if the front end does not
+	support simplification.
+
+	* tree-flow.h (struct vardef): Remove fields 'phi_chain' and
+	'phi_chain_bb'.
+	Add field 'phi_args'.
+	(VARDEF_PHI_CHAIN): Remove.  Update all users.
+	(VARDEF_PHI_CHAIN_BB): Remove.  Update all users.
+	(VARDEF_PHI_ARGS): Define.
+	(struct varuse): Rename field 'chain' to 'imm_rdef'.  Update all
+	users.
+	(VARUSE_IMM_RDEF):  Rename from VARUSE_CHAIN.  Update all users.
+	(phi_arg): New structure.
+	(get_num_phi_args): New function.
+	(get_phi_arg): New function.
+	(set_phi_arg): New function.
+	(add_phi_arg): New function.
+	(debug_phi_args): Declare.
+	(dump_phi_args): Declare.
+	* tree-dfa.c (create_ref): Remove initialization of
+	VARDEF_PHI_CHAIN and VARDEF_PHI_CHAIN_BB.
+	Initialize array VARDEF_PHI_ARGS.
+	(dump_varref): Call dump_phi_args.
+	(dump_phi_args): New function.
+	(debug_phi_args): New function.
+	* tree-ssa-ccp.c (PHI_PARMS): Remove.
+	(EIE): Remove.
+	(visit_phi_node): Get the argument's edge directly from the
+	argument instead of calling find_edge.
+	(initialize): Cast call to NUM_EDGES to unsigned.
+	* tree-ssa-pre.c: Update uses of VARDEF_PHI_CHAIN,
+	VARDEF_PHI_CHAIN_BB and VARUSE_CHAIN everywhere.
+	* tree-ssa.c: Ditto.
+	Include ggc.h.
+	(search_fud_chains): Call add_phi_arg to add arguments to each PHI
+	node.
+	(tree_ssa_remove_phi_alternative): Call set_phi_arg to switch the
+	last element with the element being removed.
+
+2002-08-26  Diego Novillo  <dnovillo@redhat.com>
+
 	* c-simplify.c (mostly_copy_tree_r): Unshare STMT_EXPR
 	nodes.
 

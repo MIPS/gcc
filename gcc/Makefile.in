@@ -1393,7 +1393,7 @@ tree-alias-steen.o: tree-alias-steen.c tree-alias-steen.h $(SYSTEM_H) \
 	$(CONFIG_H) $(GGC_H) $(TREE_H) gt-tree-alias-steen.h tree-flow.h 
 tree-ssa.o : tree-ssa.c tree-optimize.h tree-flow.h $(CONFIG_H) $(SYSTEM_H) \
    $(RTL_H) $(TREE_H) $(TM_P_H) $(BASIC_BLOCK_H) $(EXPR_H) $(C_COMMON_H) \
-   $(GGC_H) output.h diagnostic.h ssa.h errors.h toplev.h
+   $(GGC_H) output.h diagnostic.h ssa.h errors.h toplev.h ggc.h
 tree-ssa-pre.o : tree-ssa-pre.c tree-optimize.h tree-flow.h $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(BASIC_BLOCK_H) $(EXPR_H) \
    $(C_COMMON_H) $(GGC_H) output.h diagnostic.h ssa.h errors.h toplev.h
@@ -1409,7 +1409,7 @@ tree-optimize.o : tree-optimize.c tree-optimize.h tree-flow.h $(CONFIG_H) \
    tree-dchain.h
 c-simplify.o : c-simplify.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) errors.h \
    $(C_TREE_H) $(C_COMMON_H) diagnostic.h tree-simple.h varray.h flags.h \
-   langhooks.h toplev.h rtl.h tree-flow.h $(BASIC_BLOCK_H)
+   langhooks.h toplev.h rtl.h tree-flow.h $(BASIC_BLOCK_H) langhooks-def.h
 simple-break-elim.o : simple-break-elim.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) \
    $(C_TREE_H) $(C_COMMON_H) diagnostic.h tree-dchain.h
 simple-goto-elim.o : simple-goto-elim.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) \

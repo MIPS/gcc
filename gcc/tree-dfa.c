@@ -673,10 +673,7 @@ create_ref (sym, ref_type, bb, parent_stmt, parent_expr, operand_p)
       VARDEF_IMM_USES (ref) = create_ref_list ();
       VARDEF_RUSES (ref) = create_ref_list ();
       if (ref_type == VARPHI)
-	{
-	  VARRAY_GENERIC_PTR_INIT (VARDEF_PHI_CHAIN (ref), 3, "phi_chain");
-	  VARRAY_BB_INIT (VARDEF_PHI_CHAIN_BB (ref), 3, "phi_chain_bb");
-	}
+	VARRAY_GENERIC_PTR_INIT (VARDEF_PHI_ARGS (ref), 3, "phi_args");
     }
   else if (ref_type == VARUSE)
     VARUSE_RDEFS (ref) = create_ref_list ();
@@ -969,11 +966,11 @@ dump_varref (outf, prefix, ref, indent, details)
     {
       if (VARREF_TYPE (ref) == VARPHI)
 	{
-	  if (VARDEF_PHI_CHAIN (ref))
+	  if (VARDEF_PHI_ARGS (ref))
 	    {
 	      fputs (" phi-args:\n", outf);
-	      dump_varref_array (outf, prefix, VARDEF_PHI_CHAIN (ref),
-		                 indent + 4, 0);
+	      dump_phi_args (outf, prefix, VARDEF_PHI_ARGS (ref), indent + 4,
+		             0);
 	    }
 
 	  if (VARDEF_IMM_USES (ref))
@@ -998,10 +995,10 @@ dump_varref (outf, prefix, ref, indent, details)
 	  dump_varref_list (outf, prefix, VARDEF_IMM_USES (ref), indent + 4,
 			    0);
 	}
-      else if (VARREF_TYPE (ref) == VARUSE && VARUSE_CHAIN (ref))
+      else if (VARREF_TYPE (ref) == VARUSE && VARUSE_IMM_RDEF (ref))
 	{
-	  fputs (" reaching def:\n", outf);
-	  dump_varref (outf, prefix, VARUSE_CHAIN (ref), indent + 4, 0);
+	  fputs (" immediate reaching def:\n", outf);
+	  dump_varref (outf, prefix, VARUSE_IMM_RDEF (ref), indent + 4, 0);
 	}	  
       else if (VARREF_TYPE (ref) == EXPRUSE && EXPRUSE_PHIOP (ref) == 1)
 	{
@@ -1082,6 +1079,30 @@ dump_varref_array (outf, prefix, reflist, indent, details)
 		   indent, details);
 }
 
+/*  Display a list of PHI arguments on stream OUTF. PREFIX is a
+    string that is prefixed to every line of output, and INDENT is the
+    amount of left margin to leave.  If DETAILS is nonzero, the output is
+    more verbose.  */
+
+void
+dump_phi_args (outf, prefix, reflist, indent, details)
+     FILE *outf;
+     const char *prefix;
+     varray_type reflist;
+     int indent;
+     int details;
+{
+  size_t i;
+
+  if (reflist == NULL)
+    return;
+
+  for (i = 0; i < VARRAY_SIZE (reflist); i++)
+    if (VARRAY_GENERIC_PTR (reflist, i))
+      dump_varref (outf, prefix,
+	           ((phi_arg)VARRAY_GENERIC_PTR (reflist, i))->def,
+		   indent, details);
+}
 
 /*  Dump REFLIST on stderr.  */
 
@@ -1100,4 +1121,14 @@ debug_varref_array (reflist)
     varray_type reflist;
 {
   dump_varref_array (stderr, "", reflist, 0, 1);
+}
+
+
+/* Dump ARGLIST on stderr.  */
+
+void
+debug_phi_args (arglist)
+    varray_type arglist;
+{
+  dump_phi_args (stderr, "", arglist, 0, 1);
 }

@@ -25,6 +25,7 @@ Boston, MA 02111-1307, USA.  */
 #include "flags.h"
 #include "rtl.h"
 #include "tm_p.h"
+#include "ggc.h"
 #include "hard-reg-set.h"
 #include "basic-block.h"
 #include "output.h"
@@ -272,12 +273,12 @@ search_fud_chains (bb, idom)
 	  /* Set up a def-use chain between CURRDEF (the immediately
 	     reaching definition for REF) and REF.  Each definition may
 	     have more than one immediate use.  */
-	  if (currdef && VARUSE_CHAIN (ref) != currdef)
+	  if (currdef && VARUSE_IMM_RDEF (ref) != currdef)
 	    add_ref_to_list_end (VARDEF_IMM_USES (currdef), ref);
 
 
 	  /* Set up a use-def chain between REF and CURRDEF.  */
-	  VARUSE_CHAIN (ref) = currdef;
+	  VARUSE_IMM_RDEF (ref) = currdef;
 	}
       else if (VARREF_TYPE (ref) == VARDEF || VARREF_TYPE (ref) == VARPHI)
 	{
@@ -318,12 +319,10 @@ search_fud_chains (bb, idom)
 	  currdef = TREE_CURRDEF (sym);
 
 	  /* Besides storing the incoming definition CURRDEF, we also store
-	     BB, which is the basic block that we are receiving
-	     CURRDEF from.   */
+	     E, which is the edge that we are receiving CURRDEF from.   */
 	  if (currdef)
 	    {
-	      VARRAY_PUSH_GENERIC_PTR (VARDEF_PHI_CHAIN (phi), currdef);
-	      VARRAY_PUSH_BB (VARDEF_PHI_CHAIN_BB (phi), bb);
+	      add_phi_arg (phi, currdef, e);
 
 	      /* Set a def-use edge between CURRDEF and this PHI node.  */
 	      add_ref_to_list_end (VARDEF_IMM_USES (currdef), phi);
@@ -423,7 +422,7 @@ tree_compute_rdefs ()
       FOR_EACH_REF (u, tmp, TREE_REFS (sym))
 	{
 	  if (VARREF_TYPE (u) == VARUSE)
-	    follow_chain (VARUSE_CHAIN (u), u);
+	    follow_chain (VARUSE_IMM_RDEF (u), u);
 	}
     }
 
@@ -569,10 +568,9 @@ follow_chain (d, u)
     if (VARREF_TYPE (d) == VARPHI)
       {
 	size_t i;
-	varray_type phi_chain = VARDEF_PHI_CHAIN (d);
 
-	for (i = 0; i < VARRAY_ACTIVE_SIZE (phi_chain); i++)
-	  follow_chain (VARRAY_GENERIC_PTR (phi_chain, i), u);
+	for (i = 0; i < get_num_phi_args (d); i++)
+	  follow_chain (get_phi_arg (d, i)->def, u);
       }
 }
 
@@ -630,27 +628,26 @@ tree_ssa_remove_phi_alternative (phi_node, block)
      varref phi_node;
      basic_block block;
 {
-  varray_type phi_vec = VARDEF_PHI_CHAIN (phi_node);
+  varray_type phi_vec = VARDEF_PHI_ARGS (phi_node);
   unsigned int num_elem = VARRAY_ACTIVE_SIZE (phi_vec);
   unsigned int i;
 
   for (i = 0; i < num_elem; i++)
     {
       varref ref;
+      basic_block src_bb;
+      phi_arg arg;
 
-      ref = (varref)VARRAY_GENERIC_PTR (phi_vec, i);
+      arg = get_phi_arg (phi_node, i);
+      ref = arg->def;
+      src_bb = arg->e->src;
 
-      if (VARRAY_BB (VARDEF_PHI_CHAIN_BB (phi_node), i) == block)
+      if (src_bb == block)
 	{
 	  /* If we are not at the last element, switch the last element
 	     with the element we want to delete.  */
 	  if (i != num_elem - 1)
-	    {
-	      VARRAY_GENERIC_PTR (phi_vec, i)
-		= VARRAY_GENERIC_PTR (phi_vec, num_elem - 1);
-	      VARRAY_BB (VARDEF_PHI_CHAIN_BB (phi_node), i)
-		= VARRAY_BB (VARDEF_PHI_CHAIN_BB (phi_node), num_elem - 1);
-	    }
+	    set_phi_arg (phi_node, i, get_phi_arg (phi_node, num_elem - 1));
 
 	  /* Shrink the vector.  */
 	  VARRAY_ACTIVE_SIZE (phi_vec) -= 1;
@@ -658,3 +655,19 @@ tree_ssa_remove_phi_alternative (phi_node, block)
     }
 }
 
+
+/* Add a new argument to PHI for definition DEF reaching in via edge E.  */
+
+void
+add_phi_arg (phi, def, e)
+     varref phi;
+     varref def;
+     edge e;
+{
+  phi_arg arg;
+
+  arg = (phi_arg) ggc_alloc (sizeof (*arg));
+  arg->def = def;
+  arg->e = e;
+  VARRAY_PUSH_GENERIC_PTR (VARDEF_PHI_ARGS (phi), arg);
+}
