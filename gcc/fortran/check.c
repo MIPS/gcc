@@ -401,6 +401,16 @@ gfc_check_abs (gfc_expr * a)
   return SUCCESS;
 }
 
+try
+gfc_check_achar (gfc_expr * a)
+{
+
+  if (type_check (a, 0, BT_INTEGER) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
+}
+
 
 try
 gfc_check_all_any (gfc_expr * mask, gfc_expr * dim)
@@ -936,9 +946,17 @@ gfc_check_index (gfc_expr * string, gfc_expr * substring, gfc_expr * back)
 try
 gfc_check_int (gfc_expr * x, gfc_expr * kind)
 {
-  if (numeric_check (x, 0) == FAILURE
-      || kind_check (kind, 1, BT_INTEGER) == FAILURE)
+  if (numeric_check (x, 0) == FAILURE)
     return FAILURE;
+
+  if (kind != NULL)
+    {
+      if (type_check (kind, 1, BT_INTEGER) == FAILURE)
+    return FAILURE;
+
+      if (scalar_check (kind, 1) == FAILURE)
+	return FAILURE;
+    }
 
   return SUCCESS;
 }
@@ -1529,6 +1547,20 @@ gfc_check_scan (gfc_expr * x, gfc_expr * y, gfc_expr * z)
     return FAILURE;
 
   if (same_type_check (x, 0, y, 1) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
+}
+
+
+try
+gfc_check_selected_int_kind (gfc_expr * r)
+{
+
+  if (type_check (r, 0, BT_INTEGER) == FAILURE)
+    return FAILURE;
+
+  if (scalar_check (r, 0) == FAILURE)
     return FAILURE;
 
   return SUCCESS;

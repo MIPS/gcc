@@ -355,7 +355,10 @@ vect_create_data_ref_ptr (tree stmt, block_stmt_iterator *bsi, tree offset,
   
   tag = STMT_VINFO_MEMTAG (stmt_info);
   gcc_assert (tag);
-  get_var_ann (vect_ptr)->type_mem_tag = tag;
+  if (var_ann (tag)->mem_tag_kind == NOT_A_TAG)
+    add_type_alias (vect_ptr, tag);
+  else
+    var_ann (vect_ptr)->type_mem_tag = tag;
   
   /* Mark for renaming all aliased variables
      (i.e, the may-aliases of the type-mem-tag).  */

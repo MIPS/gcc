@@ -167,7 +167,6 @@ extern struct tree_opt_pass pass_expand;
 extern struct tree_opt_pass pass_rest_of_compilation;
 extern struct tree_opt_pass pass_fre;
 extern struct tree_opt_pass pass_linear_transform;
-extern struct tree_opt_pass pass_maybe_create_global_var;
 extern struct tree_opt_pass pass_copy_prop;
 extern struct tree_opt_pass pass_store_ccp;
 extern struct tree_opt_pass pass_store_copy_prop;

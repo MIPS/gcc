@@ -299,7 +299,7 @@ grokclassfn (tree ctype, tree function, enum overload_flags flags,
       this_quals |= TYPE_QUAL_CONST;
       qual_type = cp_build_qualified_type (type, this_quals);
       parm = build_artificial_parm (this_identifier, qual_type);
-      c_apply_type_quals_to_decl (this_quals, parm);
+      cp_apply_type_quals_to_decl (this_quals, parm);
       TREE_CHAIN (parm) = DECL_ARGUMENTS (function);
       DECL_ARGUMENTS (function) = parm;
     }
@@ -878,7 +878,16 @@ grokfield (const cp_declarator *declarator,
 	value = push_template_decl (value);
 
       if (attrlist)
-	cplus_decl_attributes (&value, attrlist, 0);
+	{
+	  /* Avoid storing attributes in template parameters:
+	     tsubst is not ready to handle them.  */
+	  tree type = TREE_TYPE (value);
+	  if (TREE_CODE (type) == TEMPLATE_TYPE_PARM
+	      || TREE_CODE (type) == BOUND_TEMPLATE_TEMPLATE_PARM)
+	    sorry ("applying attributes to template parameters is not implemented");
+	  else
+	    cplus_decl_attributes (&value, attrlist, 0);
+	}
 
       return value;
     }

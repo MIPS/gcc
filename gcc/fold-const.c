@@ -2936,8 +2936,7 @@ invert_truthvalue (tree arg)
   switch (code)
     {
     case INTEGER_CST:
-      return fold_convert (type,
-			   build_int_cst (NULL_TREE, integer_zerop (arg)));
+      return constant_boolean_node (integer_zerop (arg), type);
 
     case TRUTH_AND_EXPR:
       return build2 (TRUTH_OR_EXPR, type,
@@ -5382,9 +5381,6 @@ constant_boolean_node (int value, tree type)
     return value ? integer_one_node : integer_zero_node;
   else if (type == boolean_type_node)
     return value ? boolean_true_node : boolean_false_node;
-  else if (TREE_CODE (type) == BOOLEAN_TYPE)
-    return lang_hooks.truthvalue_conversion (value ? integer_one_node
-						   : integer_zero_node);
   else
     return build_int_cst (type, value);
 }
@@ -6874,9 +6870,14 @@ fold (tree expr)
 #endif
 	    }
 	  if (change)
-	    return fold (build2 (BIT_AND_EXPR, type,
-				 fold_convert (type, and0),
-				 fold_convert (type, and1)));
+	    {
+	      tem = build_int_cst_wide (type, TREE_INT_CST_LOW (and1),
+					TREE_INT_CST_HIGH (and1));
+	      tem = force_fit_type (tem, 0, TREE_OVERFLOW (and1),
+				    TREE_CONSTANT_OVERFLOW (and1));
+	      return fold (build2 (BIT_AND_EXPR, type,
+				   fold_convert (type, and0), tem));
+	    }
 	}
 
       /* Convert (T1)((T2)X op Y) into (T1)X op Y, for pointer types T1 and
@@ -11269,15 +11270,26 @@ fold_indirect_ref_1 (tree t)
       /* *(foo *)&fooarray => fooarray[0] */
       else if (TREE_CODE (optype) == ARRAY_TYPE
 	       && lang_hooks.types_compatible_p (type, TREE_TYPE (optype)))
-	return build4 (ARRAY_REF, type, op, size_zero_node, NULL_TREE, NULL_TREE);
+	{
+	  tree type_domain = TYPE_DOMAIN (optype);
+	  tree min_val = size_zero_node;
+	  if (type_domain && TYPE_MIN_VALUE (type_domain))
+	    min_val = TYPE_MIN_VALUE (type_domain);
+	  return build4 (ARRAY_REF, type, op, min_val, NULL_TREE, NULL_TREE);
+	}
     }
 
   /* *(foo *)fooarrptr => (*fooarrptr)[0] */
   if (TREE_CODE (TREE_TYPE (subtype)) == ARRAY_TYPE
       && lang_hooks.types_compatible_p (type, TREE_TYPE (TREE_TYPE (subtype))))
     {
+      tree type_domain;
+      tree min_val = size_zero_node;
       sub = build_fold_indirect_ref (sub);
-      return build4 (ARRAY_REF, type, sub, size_zero_node, NULL_TREE, NULL_TREE);
+      type_domain = TYPE_DOMAIN (TREE_TYPE (sub));
+      if (type_domain && TYPE_MIN_VALUE (type_domain))
+	min_val = TYPE_MIN_VALUE (type_domain);
+      return build4 (ARRAY_REF, type, sub, min_val, NULL_TREE, NULL_TREE);
     }
 
   return NULL_TREE;

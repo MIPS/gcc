@@ -285,8 +285,7 @@ perform_deferred_access_checks (void)
 {
   tree deferred_check;
 
-  for (deferred_check = (VEC_last (deferred_access, deferred_access_stack)
-			 ->deferred_access_checks);
+  for (deferred_check = get_deferred_access_checks ();
        deferred_check;
        deferred_check = TREE_CHAIN (deferred_check))
     /* Check access.  */
@@ -2630,11 +2629,6 @@ finish_id_expression (tree id_expression,
 	     need.  */
 	  if (TREE_CODE (id_expression) == TEMPLATE_ID_EXPR)
 	    return id_expression;
-	  /* Since this name was dependent, the expression isn't
-	     constant -- yet.  No error is issued because it might be
-	     constant when things are instantiated.  */
-	  if (integral_constant_expression_p)
-	    *non_integral_constant_expression_p = true;
 	  *idk = CP_ID_KIND_UNQUALIFIED_DEPENDENT;
 	  /* If we found a variable, then name lookup during the
 	     instantiation will always resolve to the same VAR_DECL

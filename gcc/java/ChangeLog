@@ -1,3 +1,23 @@
+2005-02-22  Tom Tromey  <tromey@redhat.com>
+
+	PR java/20056:
+	* verify-impl.c (EITHER): New define.
+	(types_compatible): Handle it.
+	(check_field_constant): Use it.
+
+2005-02-18  Tom Tromey  <tromey@redhat.com>
+
+	PR java/20056:
+	* verify-impl.c (types_equal): Fixed test.
+
+	PR java/20056:
+	* verify-glue.c (vfy_class_has_field): New function.
+	* verify.h (vfy_class_has_field): Declare.
+	* verify-impl.c (check_field_constant): Added 'putfield'
+	argument.
+	(verify_instructions_0): Updated.
+	(types_equal): New function.
+
 2005-02-14  Tom Tromey  <tromey@redhat.com>
 
 	PR java/19921:

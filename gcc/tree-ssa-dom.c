@@ -411,8 +411,8 @@ tree_ssa_dominator_optimize (void)
   nonzero_vars_stack = VEC_alloc (tree_on_heap, 20);
   vrp_variables_stack = VEC_alloc (tree_on_heap, 20);
   stmts_to_rescan = VEC_alloc (tree_on_heap, 20);
-  nonzero_vars = BITMAP_XMALLOC ();
-  need_eh_cleanup = BITMAP_XMALLOC ();
+  nonzero_vars = BITMAP_ALLOC (NULL);
+  need_eh_cleanup = BITMAP_ALLOC (NULL);
 
   /* Setup callbacks for the generic dominator tree walker.  */
   walk_data.walk_stmts_backward = false;
@@ -536,8 +536,8 @@ tree_ssa_dominator_optimize (void)
   fini_walk_dominator_tree (&walk_data);
 
   /* Free nonzero_vars.  */
-  BITMAP_XFREE (nonzero_vars);
-  BITMAP_XFREE (need_eh_cleanup);
+  BITMAP_FREE (nonzero_vars);
+  BITMAP_FREE (need_eh_cleanup);
   
   VEC_free (tree_on_heap, block_defs_stack);
   VEC_free (tree_on_heap, avail_exprs_stack);
@@ -3243,15 +3243,18 @@ extract_range_from_cond (tree cond, tree *hi_p, tree *lo_p, int *inverted_p)
   tree op1 = TREE_OPERAND (cond, 1);
   tree high, low, type;
   int inverted;
-  
+
+  type = TREE_TYPE (op1);
+
   /* Experiments have shown that it's rarely, if ever useful to
      record ranges for enumerations.  Presumably this is due to
      the fact that they're rarely used directly.  They are typically
      cast into an integer type and used that way.  */
-  if (TREE_CODE (TREE_TYPE (op1)) != INTEGER_TYPE)
+  if (TREE_CODE (type) != INTEGER_TYPE
+      /* We don't know how to deal with types with variable bounds.  */
+      || TREE_CODE (TYPE_MIN_VALUE (type)) != INTEGER_CST
+      || TREE_CODE (TYPE_MAX_VALUE (type)) != INTEGER_CST)
     return 0;
-
-  type = TREE_TYPE (op1);
 
   switch (TREE_CODE (cond))
     {

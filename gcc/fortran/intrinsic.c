@@ -894,7 +894,7 @@ add_functions (void)
   make_generic ("abs", GFC_ISYM_ABS, GFC_STD_F77);
 
   add_sym_1 ("achar", 1, 1, BT_CHARACTER, dc, GFC_STD_F95,
-	     NULL, gfc_simplify_achar, NULL,
+	     gfc_check_achar, gfc_simplify_achar, NULL,
 	     i, BT_INTEGER, di, REQUIRED);
 
   make_generic ("achar", GFC_ISYM_ACHAR, GFC_STD_F95);
@@ -1781,7 +1781,7 @@ add_functions (void)
   make_generic ("second", GFC_ISYM_SECOND, GFC_STD_GNU);
 
   add_sym_1 ("selected_int_kind", 0, 1, BT_INTEGER, di,  GFC_STD_F95,
-	     NULL, gfc_simplify_selected_int_kind, NULL,
+	     gfc_check_selected_int_kind, gfc_simplify_selected_int_kind, NULL,
 	     r, BT_INTEGER, di, REQUIRED);
 
   make_generic ("selected_int_kind", GFC_ISYM_SI_KIND, GFC_STD_F95);

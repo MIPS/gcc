@@ -1,3 +1,10 @@
+2005-02-23  Diego Novillo  <dnovillo@redhat.com>
+
+	Merge from mainline (tree-cleanup-merge-20050223).
+
+	* tree-vect-trasform.c (vect_create_data_ref_ptr): Call
+	add_type_alias, if necessary.
+
 2005-02-22  Diego Novillo  <dnovillo@redhat.com>
 
 	* domwalk.c (walk_dominator_tree): If block BB is not in the

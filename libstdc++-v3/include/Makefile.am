@@ -229,10 +229,14 @@ tr1_builddir = ./tr1
 tr1_headers = \
 	${tr1_srcdir}/array \
 	${tr1_srcdir}/functional \
+	${tr1_srcdir}/memory \
 	${tr1_srcdir}/tuple \
 	${tr1_srcdir}/utility \
 	${tr1_srcdir}/type_traits \
-	${tr1_srcdir}/type_traits_fwd.h
+	${tr1_srcdir}/type_traits_fwd.h \
+	${tr1_srcdir}/hashtable \
+	${tr1_srcdir}/unordered_set \
+	${tr1_srcdir}/unordered_map
 
 
 # This is the common subset of files that all three "C" header models use.

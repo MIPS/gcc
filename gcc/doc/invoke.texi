@@ -501,7 +501,7 @@ Objective-C and Objective-C++ Dialects}.
 
 @emph{IA-64 Options}
 @gccoptlist{-mbig-endian  -mlittle-endian  -mgnu-as  -mgnu-ld  -mno-pic @gol
--mvolatile-asm-stop  -mb-step  -mregister-names  -mno-sdata @gol
+-mvolatile-asm-stop  -mregister-names  -mno-sdata @gol
 -mconstant-gp  -mauto-pic  -minline-float-divide-min-latency @gol
 -minline-float-divide-max-throughput @gol
 -minline-int-divide-min-latency @gol
@@ -6408,11 +6408,6 @@ Dump out a @option{-L} option for each directory that GCC believes might
 contain startup files.  If the target supports multilibs then the
 current multilib directory will be prepended to each of these paths.
 
-@item %M
-Output the multilib directory with directory separators replaced with
-@samp{_}.  If multilib directories are not set, or the multilib directory is
-@file{.} then this option emits nothing.
-
 @item %L
 Process the @code{lib} spec.  This is a spec string for deciding which
 libraries should be included on the command line to the linker.
@@ -8901,10 +8896,6 @@ is not position independent code, and violates the IA-64 ABI@.
 Generate (or don't) a stop bit immediately before and after volatile asm
 statements.
 
-@item -mb-step
-@opindex mb-step
-Generate code that works around Itanium B step errata.
-
 @item -mregister-names
 @itemx -mno-register-names
 @opindex mregister-names
@@ -10572,11 +10563,14 @@ option are incompatible.
 @itemx -malign-power
 @opindex malign-natural
 @opindex malign-power
-On AIX, Darwin, and 64-bit PowerPC GNU/Linux, the option
+On AIX, 32-bit Darwin, and 64-bit PowerPC GNU/Linux, the option
 @option{-malign-natural} overrides the ABI-defined alignment of larger
 types, such as floating-point doubles, on their natural size-based boundary.
 The option @option{-malign-power} instructs GCC to follow the ABI-specified
 alignment rules.  GCC defaults to the standard alignment defined in the ABI@.
+
+On 64-bit Darwin, natural alignment is the default, and @option{-malign-power}
+is not supported.
 
 @item -msoft-float
 @itemx -mhard-float

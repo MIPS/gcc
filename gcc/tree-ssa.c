@@ -346,7 +346,7 @@ verify_flow_insensitive_alias_info (void)
 {
   size_t i;
   tree var;
-  bitmap visited = BITMAP_XMALLOC ();
+  bitmap visited = BITMAP_ALLOC (NULL);
 
   for (i = 0; i < num_referenced_vars; i++)
     {
@@ -389,7 +389,7 @@ verify_flow_insensitive_alias_info (void)
 	}
     }
 
-  BITMAP_XFREE (visited);
+  BITMAP_FREE (visited);
   return;
 
 err:
@@ -485,7 +485,7 @@ verify_name_tags (void)
   bitmap first, second;  
   VEC (tree) *name_tag_reps = NULL;
   VEC (bitmap) *pt_vars_for_reps = NULL;
-  bitmap type_aliases = BITMAP_XMALLOC ();
+  bitmap type_aliases = BITMAP_ALLOC (NULL);
 
   /* First we compute the name tag representatives and their points-to sets.  */
   for (i = 0; i < num_ssa_names; i++)
@@ -609,7 +609,7 @@ verify_ssa (void)
   ssa_op_iter iter;
   tree op;
   enum dom_state orig_dom_state = dom_computed[CDI_DOMINATORS];
-  bitmap names_defined_in_bb = BITMAP_XMALLOC ();
+  bitmap names_defined_in_bb = BITMAP_ALLOC (NULL);
 
   verify_stmts ();
 
@@ -709,7 +709,7 @@ verify_ssa (void)
   else
     dom_computed[CDI_DOMINATORS] = orig_dom_state;
   
-  BITMAP_XFREE (names_defined_in_bb);
+  BITMAP_FREE (names_defined_in_bb);
   timevar_pop (TV_TREE_SSA_VERIFY);
   return;
 
@@ -724,12 +724,13 @@ void
 init_tree_ssa (void)
 {
   VARRAY_TREE_INIT (referenced_vars, 20, "referenced_vars");
-  call_clobbered_vars = BITMAP_XMALLOC ();
-  addressable_vars = BITMAP_XMALLOC ();
+  call_clobbered_vars = BITMAP_ALLOC (NULL);
+  addressable_vars = BITMAP_ALLOC (NULL);
   init_ssa_operands ();
   init_ssanames ();
   init_phinodes ();
   global_var = NULL_TREE;
+  aliases_computed_p = false;
 }
 
 
@@ -769,11 +770,12 @@ delete_tree_ssa (void)
   fini_ssa_operands ();
 
   global_var = NULL_TREE;
-  BITMAP_XFREE (call_clobbered_vars);
+  BITMAP_FREE (call_clobbered_vars);
   call_clobbered_vars = NULL;
-  BITMAP_XFREE (addressable_vars);
+  BITMAP_FREE (addressable_vars);
   addressable_vars = NULL;
   modified_noreturn_calls = NULL;
+  aliases_computed_p = false;
 }
 
 

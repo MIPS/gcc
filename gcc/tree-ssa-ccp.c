@@ -1698,9 +1698,8 @@ widen_bitfield (tree val, tree field, tree var)
       for (i = 0, mask = 0; i < field_size; i++)
 	mask |= ((HOST_WIDE_INT) 1) << i;
 
-      wide_val = build (BIT_AND_EXPR, TREE_TYPE (var), val, 
-			fold_convert (TREE_TYPE (var),
-				      build_int_cst (NULL_TREE, mask)));
+      wide_val = build2 (BIT_AND_EXPR, TREE_TYPE (var), val, 
+			 build_int_cst (TREE_TYPE (var), mask));
     }
   else
     {
@@ -1710,9 +1709,8 @@ widen_bitfield (tree val, tree field, tree var)
       for (i = 0, mask = 0; i < (var_size - field_size); i++)
 	mask |= ((HOST_WIDE_INT) 1) << (var_size - i - 1);
 
-      wide_val = build (BIT_IOR_EXPR, TREE_TYPE (var), val,
-			fold_convert (TREE_TYPE (var),
-				      build_int_cst (NULL_TREE, mask)));
+      wide_val = build2 (BIT_IOR_EXPR, TREE_TYPE (var), val,
+			 build_int_cst (TREE_TYPE (var), mask));
     }
 
   return fold (wide_val);
@@ -2374,7 +2372,7 @@ ccp_fold_builtin (tree stmt, tree fn)
     }
 
   /* Try to use the dataflow information gathered by the CCP process.  */
-  visited = BITMAP_XMALLOC ();
+  visited = BITMAP_ALLOC (NULL);
 
   memset (strlen_val, 0, sizeof (strlen_val));
   for (i = 0, a = arglist;
@@ -2387,7 +2385,7 @@ ccp_fold_builtin (tree stmt, tree fn)
 	  strlen_val[i] = NULL_TREE;
       }
 
-  BITMAP_XFREE (visited);
+  BITMAP_FREE (visited);
 
   result = NULL_TREE;
   switch (DECL_FUNCTION_CODE (callee))

@@ -1145,6 +1145,12 @@ When this option is specified more detailed information on memory
 allocation is gathered.  This information is printed when using
 @option{-fmem-report}.
 
+@item --with-gc
+@itemx --with-gc=@var{choice}
+With this option you can specify the garbage collector implementation
+used during the compilation process.  @var{choice} can be one of
+@samp{page} and @samp{zone}, where @samp{page} is the default.
+
 @item --enable-nls
 @itemx --disable-nls
 The @option{--enable-nls} option enables Native Language Support (NLS),
@@ -3362,7 +3368,7 @@ PowerPC running Darwin (Mac OS X kernel).
 Pre-installed versions of Mac OS X may not include any developer tools,
 meaning that you will not be able to build GCC from source.  Tool
 binaries are available at
-@uref{http://developer.apple.com/tools/compilers.html} (free
+@uref{http://developer.apple.com/darwin/projects/compiler/} (free
 registration required).
 
 This version of GCC requires at least cctools-528.
@@ -3595,6 +3601,14 @@ ld: warning: relocation error: R_SPARC_UA32: @dots{}
 
 To work around this problem, compile with @option{-gstabs+} instead of
 plain @option{-g}.
+
+When configuring the GNU Multiple Precision Library (GMP) on a Solaris 7
+or later system, the canonical target triplet must be specified as the
+@command{build} parameter on the configure line:
+
+@smallexample
+./configure --build=sparc-sun-solaris2.7 --prefix=xxx --enable-mpfr
+@end smallexample
 
 @html
 <hr />

@@ -3823,6 +3823,14 @@ start_decl_1 (tree decl)
      instantiation has occurred that TYPE_HAS_NONTRIVIAL_DESTRUCTOR
      will be set correctly.  */
   maybe_push_cleanup_level (type);
+
+  /* An object declared 'const' is only readonly after it is
+     initialized.  We don't have any way of expressing this currently,
+     so we need to be conservative and unset TREE_READONLY for types
+     with constructors.  Otherwise aliasing code will ignore stores in
+     an inline constructor.  */
+   if (type != error_mark_node && TYPE_NEEDS_CONSTRUCTING (type))
+     TREE_READONLY (decl) = 0;
 }
 
 /* Handle initialization of references.  DECL, TYPE, and INIT have the
@@ -6931,6 +6939,20 @@ grokdeclarator (const cp_declarator *declarator,
     error ("qualifiers are not allowed on declaration of %<operator %T%>",
            ctor_return_type);
 
+  if (TREE_CODE (type) == FUNCTION_TYPE 
+      && type_quals != TYPE_UNQUALIFIED)
+    {
+      /* This was an error in C++98 (cv-qualifiers cannot be added to
+         a function type), but DR 295 makes the code well-formed by
+         dropping the extra qualifiers. */
+      if (pedantic)
+        {
+          tree bad_type = build_qualified_type (type, type_quals);
+          pedwarn ("ignoring %qV qualifiers added to function type %qT",
+                   bad_type, type);
+        }
+      type_quals = TYPE_UNQUALIFIED;
+    }
   type_quals |= cp_type_quals (type);
   type = cp_build_qualified_type_real
     (type, type_quals, ((typedef_decl && !DECL_ARTIFICIAL (typedef_decl)
@@ -7292,6 +7314,7 @@ grokdeclarator (const cp_declarator *declarator,
 	      }
 
 	    type = build_function_type (type, arg_types);
+            type = cp_build_qualified_type (type, quals);
 	  }
 	  break;
 
@@ -7324,7 +7347,15 @@ grokdeclarator (const cp_declarator *declarator,
 	      && (TREE_CODE (type) == FUNCTION_TYPE
 		  || (quals && TREE_CODE (type) == METHOD_TYPE)))
 	    {
-	      tree dummy = build_decl (TYPE_DECL, NULL_TREE, type);
+	      tree dummy;
+	      
+              /* If the type is a FUNCTION_TYPE, pick up the
+                 qualifiers from that function type. No other
+                 qualifiers may be supplied. */
+              if (TREE_CODE (type) == FUNCTION_TYPE)
+                quals = cp_type_quals (type);
+
+	      dummy = build_decl (TYPE_DECL, NULL_TREE, type);
 	      grok_method_quals (declarator->u.pointer.class_type,
 				 dummy, quals);
 	      type = TREE_TYPE (dummy);
@@ -7621,11 +7652,12 @@ grokdeclarator (const cp_declarator *declarator,
 	{
 	  if (ctype == NULL_TREE)
 	    {
-	      if (TREE_CODE (type) != METHOD_TYPE)
-		error ("%Jinvalid type qualifier for non-member function type",
-		       decl);
-	      else
+              if (TREE_CODE (type) == METHOD_TYPE)
 		ctype = TYPE_METHOD_BASETYPE (type);
+              /* Any qualifiers on a function type typedef have
+                 already been dealt with. */
+              else if (TREE_CODE (type) == FUNCTION_TYPE)
+                quals = TYPE_UNQUALIFIED;
 	    }
 	  if (ctype != NULL_TREE)
 	    grok_method_quals (ctype, decl, quals);
@@ -7668,6 +7700,23 @@ grokdeclarator (const cp_declarator *declarator,
 	}
 
       parms = nreverse (decls);
+
+      if (decl_context != TYPENAME)
+        {
+          /* A cv-qualifier-seq shall only be part of the function type
+             for a non-static member function. [8.3.5/4 dcl.fct] */ 
+          if (cp_type_quals (type) != TYPE_UNQUALIFIED
+              && (current_class_type == NULL_TREE || staticp) )
+            {
+              error ("qualified function types cannot be used to declare %s functions",
+                     (staticp? "static member" : "free"));
+              type = TYPE_MAIN_VARIANT (type);
+            }
+          
+          /* The qualifiers on the function type become the qualifiers on
+             the non-static member function. */
+          quals |= cp_type_quals (type);
+        }
     }
 
   /* If this is a type name (such as, in a cast or sizeof),
@@ -8203,7 +8252,7 @@ grokdeclarator (const cp_declarator *declarator,
        when processing a template; we'll do this for the instantiated
        declaration based on the type of DECL.  */
     if (!processing_template_decl)
-      c_apply_type_quals_to_decl (type_quals, decl);
+      cp_apply_type_quals_to_decl (type_quals, decl);
 
     return decl;
   }
@@ -9987,7 +10036,7 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
       DECL_IGNORED_P (resdecl) = 1;
       DECL_RESULT (decl1) = resdecl;
 
-      c_apply_type_quals_to_decl (cp_type_quals (restype), resdecl);
+      cp_apply_type_quals_to_decl (cp_type_quals (restype), resdecl);
     }
 
   /* Initialize RTL machinery.  We cannot do this until
@@ -10913,6 +10962,13 @@ complete_vars (tree type)
 	  /* Complete the type of the variable.  The VAR_DECL itself
 	     will be laid out in expand_expr.  */
 	  complete_type (TREE_TYPE (var));
+	  /* An object declared 'const' is only readonly after it is
+	     initialized.  We don't have any way of expressing this currently,
+	     so we need to be conservative and unset TREE_READONLY for types
+	     with constructors.  Otherwise aliasing code will ignore stores in
+	     an inline constructor.  */
+	  if (TYPE_NEEDS_CONSTRUCTING (TREE_TYPE (var)))
+	    TREE_READONLY (var) = 0;
 	  /* Remove this entry from the list.  */
 	  *list = TREE_CHAIN (*list);
 	}
