@@ -1,5 +1,20 @@
 2004-06-10  Michael Koch  <konqueror@gmx.de>
 
+	* javax/swing/ButtonGroup.java
+	(serialVersionUID): Made private.
+	(buttons): Renamed from v, added javadoc.
+	(sel): Added javadoc.
+	(ButtonGroup): Likewise.
+	(add): Likewise.
+	(remove): Likewise.
+	(getElements): Likewise.
+	(getSelection): Likewise.
+	(setSelected): Likewise.
+	(isSelected): Likewise.
+	(getButtonCount): Likewise.
+
+2004-06-10  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/ButtonGroup.java,
 	javax/swing/ImageIcon.java,
 	javax/swing/JEditorPane.java,
