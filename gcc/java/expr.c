@@ -1885,7 +1885,8 @@ build_known_method_ref (tree method, tree method_type ATTRIBUTE_UNUSED,
 	    build_int_2 (get_symbol_table_index 
 			 (method, &TYPE_ATABLE_METHODS (output_class)), 0);
 	  func = 
-	    build (ARRAY_REF,  method_ptr_type_node, 
+	    build (ARRAY_REF, 
+		   TREE_TYPE (TREE_TYPE (TYPE_ATABLE_DECL (output_class))),
 		   TYPE_ATABLE_DECL (output_class), table_index);
 	}
       func = convert (method_ptr_type_node, func);

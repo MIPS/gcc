@@ -1102,7 +1102,7 @@ build_static_field_ref (tree fdecl)
   else  
     {
       /* Compile as:
-       * *(FTYPE*)build_class_ref(FCLASS)->fields[INDEX].info.addr */
+       *(FTYPE*)build_class_ref(FCLASS)->fields[INDEX].info.addr */
       tree ref = build_class_ref (fclass);
       tree fld;
       int field_index = 0;
@@ -1128,6 +1128,7 @@ build_static_field_ref (tree fdecl)
 		   ref, lookup_field (&field_type_node, info_ident));
       ref = build (COMPONENT_REF, ptr_type_node,
 		   ref, TREE_CHAIN (TYPE_FIELDS (field_info_union_node)));
+      ref = convert (build_pointer_type (TREE_TYPE (fdecl)), ref);
       return fold (build1 (INDIRECT_REF, TREE_TYPE(fdecl), ref));
     }
 }
