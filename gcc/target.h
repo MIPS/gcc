@@ -473,9 +473,6 @@ struct gcc_target
   bool file_start_file_directive;
 
   /* APPLE LOCAL begin AltiVec */
-  /* Return true if we should expand a disabled (conditional) macro.  */
-  bool (* expand_macro_p) (const struct cpp_token *);
-  
   /* True if it is permissible to use cast expressions as
      vector initializers, e.g.:
 

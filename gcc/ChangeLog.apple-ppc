@@ -1,3 +1,34 @@
+2004-05-21  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3621323
+	* c-lex.c: Do not include target.h.
+	(C_LEX_BUFCAPACITY, C_LEX_OFFS_BOUND, c_lex_buf_beg, c_lex_buf_end,
+	c_lex_buf, c_lex_peek, c_lex_prepend): Remove.
+	(get_nonpadding_token): Get rid of int argument; adjust call sites
+	accordingly.
+	* cpplex.c (_cpp_peek_token): New function.
+	(_cpp_temp_token): Account for existence of lookaheads when allocating
+	token.
+	* cpplib.h (cpp_callbacks): Add new 'expand_macro_p' hook.
+	(NODE_CONDITIONAL): New flag for macro nodes.
+	(_cpp_peek_token, _cpp_backup_tokens_direct): New prototypes.
+	* cppmacro.c (cpp_get_token): For macros marked NODE_CONDITIONAL,
+	call the 'expand_macro_p' predicate to see if they should be
+	expanded.
+	(_cpp_backup_tokens_direct): New function, broken off from
+	_cpp_backup_tokens().
+	(_cpp_backup_tokens): Call _cpp_backup_tokens_direct().
+	* config/rs6000/rs6000-c.c (rs6000_expand_macro_p): Add cpp_reader
+	parameter; call _cpp_peek_token() instead of c_lex_peek().
+	(rs6000_cpu_cpp_builtins): Attach rs6000_expand_macro_p() to a
+	cpplib callback instead of a target hook.
+	* config/rs6000/rs6000-protos.h (rs6000_expand_macro_p): Add cpp_reader
+	parameter to prototype.
+	* hooks.c (hook_bool_constcpp_tokenp_false): Remove.
+	* hooks.h (hook_bool_constcpp_tokenp_false): Remove prototype.
+	* target-def.h (TARGET_EXPAND_MACRO_P): Remove.
+	* target.h (gcc_target): Remove 'expand_macro_p' target hook.
+
 2004-05-20  Devang Patel  <dpatel@apple.com>
  
 	* config/darwin-driver.c (main): Prepand "-Wl," before

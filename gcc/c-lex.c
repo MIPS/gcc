@@ -41,10 +41,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tm_p.h"
 #include "splay-tree.h"
 #include "debug.h"
-/* APPLE LOCAL begin AltiVec */
-#include "target.h"
+/* APPLE LOCAL AltiVec */
 #include "cpphash.h"
-/* APPLE LOCAL end AltiVec */
 
 /* We may keep statistics about how long which files took to compile.  */
 static int header_time, body_time;
@@ -321,71 +319,18 @@ cb_undef (cpp_reader *pfile ATTRIBUTE_UNUSED, source_location loc,
 			 (const char *) NODE_NAME (node));
 }
 
-/* APPLE LOCAL begin AltiVec */
-/* We need a small circular buffer for lookaheads (and lookbacks).  */
-
-#define C_LEX_BUFCAPACITY 16
-#define C_LEX_OFFS_BOUND(OFFS)		\
-	((OFFS) >= 0 			\
-	 ? (OFFS) % C_LEX_BUFCAPACITY	\
-	 : (OFFS) + C_LEX_BUFCAPACITY)
-
-static int c_lex_buf_beg = 0, c_lex_buf_end = 0;
-static const cpp_token *c_lex_buf[C_LEX_BUFCAPACITY];
-
 static inline const cpp_token *
-get_nonpadding_token (int from_buffer)
+get_nonpadding_token (void)
 {
   const cpp_token *tok;
-
   timevar_push (TV_CPP);
-  if (from_buffer && c_lex_buf_beg != c_lex_buf_end)
-    {
-      tok = c_lex_buf[c_lex_buf_beg++];
-      c_lex_buf_beg = C_LEX_OFFS_BOUND (c_lex_buf_beg);
-    }
-  else
-    {
-      do
-	tok = cpp_get_token (parse_in);
-      while (tok->type == CPP_PADDING);
-      c_lex_buf[c_lex_buf_end++] = tok;
-      c_lex_buf_end = C_LEX_OFFS_BOUND (c_lex_buf_end);
-      if (from_buffer)
-	c_lex_buf_beg = c_lex_buf_end;
-    }
+  do
+    tok = cpp_get_token (parse_in);
+  while (tok->type == CPP_PADDING);
   timevar_pop (TV_CPP);
-  return tok;
-}  
-
-const cpp_token *
-c_lex_peek (int offset)
-{
-  const cpp_token *tok;
-
-  if (offset >= 0)
-    {
-      while (C_LEX_OFFS_BOUND (c_lex_buf_end - c_lex_buf_beg) < offset + 1)
-	get_nonpadding_token (0);
-      tok = c_lex_buf[C_LEX_OFFS_BOUND (c_lex_buf_beg + offset)];
-    }
-  else
-    tok = c_lex_buf[C_LEX_OFFS_BOUND (c_lex_buf_end + offset)];
 
   return tok;
 }
-
-void
-c_lex_prepend (const cpp_token *tok_array, int size)
-{
-  while (size--)
-    {
-      --c_lex_buf_beg;
-      c_lex_buf_beg = C_LEX_OFFS_BOUND (c_lex_buf_beg);
-      c_lex_buf[c_lex_buf_beg] = &tok_array[size];
-    }
-}
-/* APPLE LOCAL end AltiVec */
 
 int
 c_lex_with_flags (tree *value, unsigned char *cpp_flags)
@@ -395,24 +340,12 @@ c_lex_with_flags (tree *value, unsigned char *cpp_flags)
   static bool no_more_pch;
 
  retry:
-  tok = get_nonpadding_token (1);
+  tok = get_nonpadding_token ();
 
  retry_after_at:
   switch (tok->type)
     {
     case CPP_NAME:
-      /* APPLE LOCAL begin AltiVec */
-      /* Conditional macros are expanded whenever a call-back predicate
-	 says they should be.  */
-      if ((tok->val.node->flags & NODE_DISABLED)
-        && (*targetm.expand_macro_p) (tok))
-	{
-	  c_lex_prepend (tok->val.node->value.macro->exp.tokens,
-			 tok->val.node->value.macro->count);
-	  goto retry;
-	}
-      /* APPLE LOCAL end AltiVec */
-
       *value = HT_IDENT_TO_GCC_IDENT (HT_NODE (tok->val.node));
       break;
 
@@ -444,8 +377,7 @@ c_lex_with_flags (tree *value, unsigned char *cpp_flags)
     case CPP_ATSIGN:
       /* An @ may give the next token special significance in Objective-C.  */
       atloc = input_location;
-      /* APPLE LOCAL AltiVec */
-      tok = get_nonpadding_token (1);
+      tok = get_nonpadding_token ();
       if (c_dialect_objc ())
 	{
 	  tree val;
@@ -752,14 +684,13 @@ lex_string (const cpp_token *tok, tree *valp, bool objc_string)
   else if (CPP_OPTION (parse_in, pascal_strings)
 	   && str.text[1] == '\\' && str.text[2] == 'p')
     pascal_p = true;
-  /* APPLE LOCAL AltiVec */
+  /* APPLE LOCAL end pascal strings */
 
-  tok = get_nonpadding_token (1);
+  tok = get_nonpadding_token ();
   if (c_dialect_objc () && tok->type == CPP_ATSIGN)
     {
       objc_string = true;
-      /* APPLE LOCAL AltiVec */
-      tok = get_nonpadding_token (1);
+      tok = get_nonpadding_token ();
     }
   if (tok->type == CPP_STRING || tok->type == CPP_WSTRING)
     {
@@ -773,13 +704,11 @@ lex_string (const cpp_token *tok, tree *valp, bool objc_string)
 	    wide = true;
 	  obstack_grow (&str_ob, &tok->val.str, sizeof (cpp_string));
 
-	  /* APPLE LOCAL ALtiVec */	  
-	  tok = get_nonpadding_token (1);
+	  tok = get_nonpadding_token ();
 	  if (c_dialect_objc () && tok->type == CPP_ATSIGN)
 	    {
 	      objc_string = true;
-		 /* APPLE LOCAL AltiVec */
-	      tok = get_nonpadding_token (1);
+	      tok = get_nonpadding_token ();
 	    }
 	}
       while (tok->type == CPP_STRING || tok->type == CPP_WSTRING);

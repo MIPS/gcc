@@ -1098,6 +1098,13 @@ cpp_get_token (cpp_reader *pfile)
       if (!(node->flags & NODE_DISABLED))
 	{
 	  if (!pfile->state.prevent_expansion
+	      /* APPLE LOCAL begin AltiVec */
+	      /* Conditional macros require that a predicate be
+		 evaluated first.  */
+	      && (!(node->flags & NODE_CONDITIONAL)
+		  || (pfile->cb.expand_macro_p
+		      && pfile->cb.expand_macro_p (pfile, result)))
+	      /* APPLE LOCAL end AltiVec */
 	      && enter_macro_context (pfile, node))
 	    {
 	      if (pfile->state.in_directive)
@@ -1150,26 +1157,34 @@ cpp_scan_nooutput (cpp_reader *pfile)
       ;
 }
 
+/* APPLE LOCAL begin AltiVec */
+/* Step back one or more tokens obtained from the lexer.  */
+void
+_cpp_backup_tokens_direct (cpp_reader *pfile, unsigned int count)
+{
+  pfile->lookaheads += count;
+  while (count--)
+    {
+      pfile->cur_token--;
+      if (pfile->cur_token == pfile->cur_run->base
+	  /* Possible with -fpreprocessed and no leading #line.  */
+	  && pfile->cur_run->prev != NULL)
+	{
+	  pfile->cur_run = pfile->cur_run->prev;
+	  pfile->cur_token = pfile->cur_run->limit;
+	}
+    }
+}
+/* APPLE LOCAL end AltiVec */
+
 /* Step back one (or more) tokens.  Can only step mack more than 1 if
    they are from the lexer, and not from macro expansion.  */
 void
 _cpp_backup_tokens (cpp_reader *pfile, unsigned int count)
 {
   if (pfile->context->prev == NULL)
-    {
-      pfile->lookaheads += count;
-      while (count--)
-	{
-	  pfile->cur_token--;
-	  if (pfile->cur_token == pfile->cur_run->base
-	      /* Possible with -fpreprocessed and no leading #line.  */
-	      && pfile->cur_run->prev != NULL)
-	    {
-	      pfile->cur_run = pfile->cur_run->prev;
-	      pfile->cur_token = pfile->cur_run->limit;
-	    }
-	}
-    }
+    /* APPLE LOCAL AltiVec */
+    _cpp_backup_tokens_direct (pfile, count);
   else
     {
       if (count != 1)

@@ -329,10 +329,8 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_ENCODE_SECTION_INFO default_encode_section_info
 #endif
 
-/* APPLE LOCAL begin AltiVec */
-#define TARGET_EXPAND_MACRO_P hook_bool_constcpp_tokenp_false
+/* APPLE LOCAL AltiVec */
 #define TARGET_CAST_EXPR_AS_VECTOR_INIT false
-/* APPLE LOCAL end AltiVec */
 
 #define TARGET_FIXED_CONDITION_CODE_REGS hook_bool_uintp_uintp_false
 
@@ -437,10 +435,8 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   TARGET_TERMINATE_DW2_EH_FRAME_INFO,		\
   TARGET_ASM_FILE_START_APP_OFF,		\
   TARGET_ASM_FILE_START_FILE_DIRECTIVE,		\
-  /* APPLE LOCAL begin AltiVec */		\
-  TARGET_EXPAND_MACRO_P,				\
+  /* APPLE LOCAL AltiVec */			\
   TARGET_CAST_EXPR_AS_VECTOR_INIT,		\
-  /* APPLE LOCAL end AltiVec */			\
   TARGET_CALLS,					\
 }
 

@@ -473,6 +473,10 @@ struct cpp_callbacks
   /* APPLE LOCAL end Symbol Separation */
   /* APPLE LOCAL - PCH distcc debugging mrs  */
   void (*set_working_directory)(const char *);
+  /* APPLE LOCAL begin AltiVec */
+  /* Context-sensitive macro support.  */
+  bool (*expand_macro_p) (cpp_reader *, const cpp_token *);
+  /* APPLE LOCAL end AltiVec */
 };
 
 /* Chain of directories to look for include files in.  */
@@ -527,6 +531,8 @@ extern const char *progname;
 #define NODE_WARN	(1 << 4)	/* Warn if redefined or undefined.  */
 #define NODE_DISABLED	(1 << 5)	/* A disabled macro.  */
 #define NODE_MACRO_ARG	(1 << 6)	/* Used during #define processing.  */
+/* APPLE LOCAL AltiVec */
+#define NODE_CONDITIONAL	(1 << 7)	/* Conditional macro */
 
 /* Different flavors of hash node.  */
 enum node_type
@@ -670,6 +676,10 @@ extern int cpp_avoid_paste (cpp_reader *, const cpp_token *,
 extern const cpp_token *cpp_get_token (cpp_reader *);
 extern const unsigned char *cpp_macro_definition (cpp_reader *,
 						  const cpp_hashnode *);
+/* APPLE LOCAL begin AltiVec */
+extern const cpp_token *_cpp_peek_token (cpp_reader *, int);
+extern void _cpp_backup_tokens_direct (cpp_reader *, unsigned int);
+/* APPLE LOCAL end AltiVec */
 extern void _cpp_backup_tokens (cpp_reader *, unsigned int);
 
 /* Evaluate a CPP_CHAR or CPP_WCHAR token.  */

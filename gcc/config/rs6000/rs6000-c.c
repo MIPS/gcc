@@ -96,15 +96,16 @@ static GTY(()) cpp_hashnode *_Bool_keyword;
 /* Called to decide whether a conditional macro should be expanded.  */
 
 bool
-rs6000_expand_macro_p (const cpp_token *tok)
+rs6000_expand_macro_p (cpp_reader *pfile, const cpp_token *tok)
 {
-  static bool expand_bool_pixel = 0;
+  static bool expand_bool_pixel = 0;  /* Preserved across calls.  */
   bool expand_this = 0;
   const cpp_hashnode *ident = tok->val.node;
-  
+
   if (ident == vector_keyword)
     {
-      tok = c_lex_peek (0);
+      tok = _cpp_peek_token (pfile, 0);
+
       if (tok->type == CPP_NAME)
 	{
 	  ident = tok->val.node;
@@ -122,9 +123,10 @@ rs6000_expand_macro_p (const cpp_token *tok)
 		  || rid_code == RID_FLOAT)
 		{
 		  expand_this = 1;
-		  /* If the next keyword is bool or pixel, it 
+		  /* If the next keyword is bool or pixel, it
 		     will need to be expanded as well.  */
-		  tok = c_lex_peek (1);
+		  tok = _cpp_peek_token (pfile, 1);
+
 		  if (tok->type == CPP_NAME)
 		    {
 		      ident = tok->val.node;
@@ -159,8 +161,8 @@ cb_define_conditional_macro (cpp_reader *pfile ATTRIBUTE_UNUSED,
   char kwd = (underscore ? name[2] : name[0]);
   cpp_hashnode **kwd_node = 0;
 
-  if (!underscore)			 /* macros without two leading underscores */
-    node->flags |= NODE_DISABLED;	/* shall be conditional */
+  if (!underscore)			/* macros without two leading underscores */
+    node->flags |= NODE_CONDITIONAL;	/* shall be conditional */
 
   switch (kwd)
     {
@@ -219,7 +221,7 @@ rs6000_cpu_cpp_builtins (cpp_reader *pfile)
       cb->define = old_cb_define;
 
       /* Enable context-sensitive macros.  */
-      targetm.expand_macro_p = rs6000_expand_macro_p;
+      cb->expand_macro_p = rs6000_expand_macro_p;
       /* Enable '(vector signed int)(a, b, c, d)' vector literal notation.  */
       targetm.cast_expr_as_vector_init = true;
 
