@@ -1076,7 +1076,7 @@ unroll_or_peel_loop (loops, loop, flags)
   if (exact)
     {
       /* If estimate is good, use it to decide and bound number of peelings.  */
-      if (niter > npeel)
+      if (niter + 1 > npeel)
 	{
 	  if ((flags & UAP_PEEL) && rtl_dump_file)
 	    fprintf (rtl_dump_file,
@@ -1084,7 +1084,7 @@ unroll_or_peel_loop (loops, loop, flags)
 		     niter, npeel);
 	  flags &= ~UAP_PEEL;
 	}
-      npeel = niter;
+      npeel = niter + 1;
 
       /* And unrollings.  */
       if (niter < 2 * nunroll)

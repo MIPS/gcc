@@ -476,6 +476,7 @@ create_preheader (loop, dom, flags)
 
   dummy->frequency -= EDGE_FREQUENCY (e);
   dummy->count -= e->count;
+  fallthru->count -= e->count;
   if (flags & CP_INSIDE_CFGLAYOUT)
     cfg_layout_redirect_edge (e, loop->header);
   else
