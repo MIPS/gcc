@@ -1171,11 +1171,13 @@ javax/swing/JTree.java \
 javax/swing/JViewport.java \
 javax/swing/JWindow.java \
 javax/swing/KeyStroke.java \
+javax/swing/LayoutFocusTraversalPolicy.java \
 javax/swing/ListCellRenderer.java \
 javax/swing/ListModel.java \
 javax/swing/ListSelectionModel.java \
 javax/swing/LookAndFeel.java \
 javax/swing/Scrollable.java \
+javax/swing/SortingFocusTraversalPolicy.java \
 javax/swing/SpinnerListModel.java \
 javax/swing/SpinnerModel.java \
 javax/swing/SpinnerNumberModel.java \
@@ -3370,15 +3372,17 @@ javax/swing/JTabbedPane.lo javax/swing/JTextArea.lo \
 javax/swing/JTextField.lo javax/swing/JToggleButton.lo \
 javax/swing/JToolTip.lo javax/swing/JTree.lo javax/swing/JViewport.lo \
 javax/swing/JWindow.lo javax/swing/KeyStroke.lo \
+javax/swing/LayoutFocusTraversalPolicy.lo \
 javax/swing/ListCellRenderer.lo javax/swing/ListModel.lo \
 javax/swing/ListSelectionModel.lo javax/swing/LookAndFeel.lo \
-javax/swing/Scrollable.lo javax/swing/SpinnerListModel.lo \
-javax/swing/SpinnerModel.lo javax/swing/SpinnerNumberModel.lo \
-javax/swing/Spring.lo javax/swing/SpringLayout.lo \
-javax/swing/SwingConstants.lo javax/swing/SwingUtilities.lo \
-javax/swing/Timer.lo javax/swing/ToolTipManager.lo \
-javax/swing/TransferHandler.lo javax/swing/UIDefaults.lo \
-javax/swing/UIManager.lo javax/swing/UnsupportedLookAndFeelException.lo \
+javax/swing/Scrollable.lo javax/swing/SortingFocusTraversalPolicy.lo \
+javax/swing/SpinnerListModel.lo javax/swing/SpinnerModel.lo \
+javax/swing/SpinnerNumberModel.lo javax/swing/Spring.lo \
+javax/swing/SpringLayout.lo javax/swing/SwingConstants.lo \
+javax/swing/SwingUtilities.lo javax/swing/Timer.lo \
+javax/swing/ToolTipManager.lo javax/swing/TransferHandler.lo \
+javax/swing/UIDefaults.lo javax/swing/UIManager.lo \
+javax/swing/UnsupportedLookAndFeelException.lo \
 javax/swing/event/AncestorEvent.lo \
 javax/swing/event/AncestorListener.lo javax/swing/event/ChangeEvent.lo \
 javax/swing/event/ChangeListener.lo javax/swing/event/DocumentEvent.lo \
@@ -5453,6 +5457,7 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/javax/swing/JToolBar.P .deps/javax/swing/JToolTip.P \
 .deps/javax/swing/JTree.P .deps/javax/swing/JViewport.P \
 .deps/javax/swing/JWindow.P .deps/javax/swing/KeyStroke.P \
+.deps/javax/swing/LayoutFocusTraversalPolicy.P \
 .deps/javax/swing/ListCellRenderer.P .deps/javax/swing/ListModel.P \
 .deps/javax/swing/ListSelectionModel.P .deps/javax/swing/LookAndFeel.P \
 .deps/javax/swing/MenuElement.P \
@@ -5467,6 +5472,7 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/javax/swing/ScrollPaneLayout.P .deps/javax/swing/Scrollable.P \
 .deps/javax/swing/SingleSelectionModel.P \
 .deps/javax/swing/SizeRequirements.P .deps/javax/swing/SizeSequence.P \
+.deps/javax/swing/SortingFocusTraversalPolicy.P \
 .deps/javax/swing/SpinnerListModel.P .deps/javax/swing/SpinnerModel.P \
 .deps/javax/swing/SpinnerNumberModel.P .deps/javax/swing/Spring.P \
 .deps/javax/swing/SpringLayout.P .deps/javax/swing/SwingConstants.P \

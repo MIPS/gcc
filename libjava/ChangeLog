@@ -1,3 +1,13 @@
+2005-01-24  Graydon Hoare  <graydon@redhat.com>
+	    Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/LayoutFocusTraversalPolicy.java,
+	javax/swing/SortingFocusTraversalPolicy.java:
+	New classes.
+	* Makefile.am: Added new classes.
+	* Makefike.in: Regenerated.
+
+
 2005-01-21  Michael Koch  <konqueror@gmx.de>
 
 	* javax/swing/DebugGraphics.java: Mostly implemented.
