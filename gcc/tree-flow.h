@@ -421,47 +421,51 @@ static inline tree_ref phi_arg_def		PARAMS ((phi_node_arg));
 static inline void set_phi_arg_def		PARAMS ((phi_node_arg,
       							 tree_ref));
 
-/* For exprref. */
-static inline void set_exprref_class PARAMS ((tree_ref, unsigned int));
-static inline unsigned int exprref_class PARAMS ((tree_ref));
-static inline void set_exprref_inserted PARAMS ((tree_ref, unsigned int));
-static inline bool exprref_inserted PARAMS ((tree_ref));
-static inline void set_exprref_save PARAMS ((tree_ref, unsigned int));
-static inline bool exprref_save PARAMS ((tree_ref));
-static inline void set_exprref_reload PARAMS ((tree_ref, unsigned int));
-static inline bool exprref_reload PARAMS ((tree_ref));
-static inline void set_exprref_processed PARAMS ((tree_ref, unsigned int));
-static inline bool exprref_processed PARAMS ((tree_ref));
-static inline void set_exprref_processed2 PARAMS ((tree_ref, unsigned int));
-static inline bool exprref_processed2 PARAMS ((tree_ref));
-static inline ref_list exprref_uses PARAMS ((tree_ref));
-static inline void set_exprref_uses PARAMS ((tree_ref, ref_list));
+/* For exprref.  */
+static inline void set_exprref_class 		PARAMS ((tree_ref, unsigned));
+static inline unsigned int exprref_class	PARAMS ((tree_ref));
+static inline void set_exprref_inserted		PARAMS ((tree_ref, unsigned));
+static inline bool exprref_inserted		PARAMS ((tree_ref));
+static inline void set_exprref_save		PARAMS ((tree_ref, unsigned));
+static inline bool exprref_save			PARAMS ((tree_ref));
+static inline void set_exprref_reload		PARAMS ((tree_ref, unsigned));
+static inline bool exprref_reload		PARAMS ((tree_ref));
+static inline void set_exprref_processed	PARAMS ((tree_ref, unsigned));
+static inline bool exprref_processed		PARAMS ((tree_ref));
+static inline void set_exprref_processed2	PARAMS ((tree_ref, unsigned));
+static inline bool exprref_processed2		PARAMS ((tree_ref));
+static inline ref_list exprref_uses		PARAMS ((tree_ref));
+static inline void set_exprref_uses		PARAMS ((tree_ref, ref_list));
 
-/* For expruse. */
-static inline void set_expruse_def PARAMS ((tree_ref, tree_ref));
-static inline tree_ref expruse_def PARAMS ((tree_ref));
-static inline void set_expruse_phiop PARAMS ((tree_ref, unsigned int));
-static inline bool expruse_phiop PARAMS ((tree_ref));
-static inline void set_expruse_has_real_use PARAMS ((tree_ref, unsigned int));
-static inline bool expruse_has_real_use PARAMS ((tree_ref));
-static inline void set_expruse_phi PARAMS ((tree_ref, tree_ref));
-static inline tree_ref expruse_phi PARAMS ((tree_ref));
-/* For exprphi. */
-static inline void set_exprphi_phi_args PARAMS ((tree_ref, varray_type));
-static inline varray_type exprphi_phi_args PARAMS ((tree_ref));
-static inline void set_exprphi_downsafe PARAMS ((tree_ref, unsigned int));
-static inline bool exprphi_downsafe PARAMS ((tree_ref));
-static inline void set_exprphi_canbeavail PARAMS ((tree_ref, unsigned int));
-static inline bool exprphi_canbeavail PARAMS ((tree_ref));
-static inline void set_exprphi_later PARAMS ((tree_ref, unsigned int));
-static inline bool exprphi_later PARAMS ((tree_ref));
-static inline void set_exprphi_extraneous PARAMS ((tree_ref, unsigned int));
-static inline bool exprphi_extraneous PARAMS ((tree_ref));
-static inline bool exprphi_willbeavail PARAMS ((tree_ref));
-static inline phi_node_arg ephi_arg PARAMS ((tree_ref, unsigned));
-extern void add_ephi_arg  PARAMS ((tree_ref, tree_ref, edge));
-static inline void set_ephi_arg  PARAMS ((tree_ref, unsigned, phi_node_arg));
-static inline unsigned int num_ephi_args PARAMS ((tree_ref));
+/* For expruse.  */
+static inline void set_expruse_def		PARAMS ((tree_ref, tree_ref));
+static inline tree_ref expruse_def		PARAMS ((tree_ref));
+static inline void set_expruse_phiop		PARAMS ((tree_ref, unsigned));
+static inline bool expruse_phiop		PARAMS ((tree_ref));
+static inline void set_expruse_has_real_use	PARAMS ((tree_ref, unsigned));
+static inline bool expruse_has_real_use		PARAMS ((tree_ref));
+static inline void set_expruse_phi		PARAMS ((tree_ref, tree_ref));
+static inline tree_ref expruse_phi		PARAMS ((tree_ref));
+
+/* For exprphi.  */
+static inline void set_exprphi_phi_args		PARAMS ((tree_ref,
+      							 varray_type));
+static inline varray_type exprphi_phi_args	PARAMS ((tree_ref));
+static inline void set_exprphi_downsafe		PARAMS ((tree_ref, unsigned));
+static inline bool exprphi_downsafe		PARAMS ((tree_ref));
+static inline void set_exprphi_canbeavail	PARAMS ((tree_ref, unsigned));
+static inline bool exprphi_canbeavail		PARAMS ((tree_ref));
+static inline void set_exprphi_later		PARAMS ((tree_ref, unsigned));
+static inline bool exprphi_later		PARAMS ((tree_ref));
+static inline void set_exprphi_extraneous	PARAMS ((tree_ref, unsigned));
+static inline bool exprphi_extraneous		PARAMS ((tree_ref));
+static inline bool exprphi_willbeavail		PARAMS ((tree_ref));
+static inline phi_node_arg ephi_arg		PARAMS ((tree_ref, unsigned));
+extern void add_ephi_arg 			PARAMS ((tree_ref, tree_ref,
+      							 edge));
+static inline void set_ephi_arg			PARAMS ((tree_ref, unsigned,
+      							 phi_node_arg));
+static inline unsigned int num_ephi_args	PARAMS ((tree_ref));
 
 
 /*---------------------------------------------------------------------------
@@ -512,7 +516,7 @@ enum tree_flags
 
 static inline tree_ann tree_annotation	PARAMS ((tree));
 static inline basic_block bb_for_stmt	PARAMS ((tree));
-static inline void set_bb_for_stmt      PARAMS ((tree, basic_block));
+extern void set_bb_for_stmt      	PARAMS ((tree, basic_block));
 static inline tree_ref currdef_for	PARAMS ((tree));
 static inline void set_currdef_for	PARAMS ((tree, tree_ref));
 static inline ref_list tree_refs	PARAMS ((tree));
@@ -651,7 +655,7 @@ extern void insert_bb_before		PARAMS ((basic_block, basic_block));
 extern void cleanup_tree_cfg		PARAMS ((void));
 extern tree first_stmt			PARAMS ((basic_block));
 extern tree last_stmt			PARAMS ((basic_block));
-extern tree *last_stmt_ptr			PARAMS ((basic_block));
+extern tree *last_stmt_ptr		PARAMS ((basic_block));
 extern basic_block latch_block		PARAMS ((basic_block));
 extern bool is_latch_block		PARAMS ((basic_block));
 extern edge find_taken_edge		PARAMS ((basic_block, tree));

@@ -185,31 +185,6 @@ bb_for_stmt (t)
   return tree_annotation (t) ? tree_annotation (t)->bb : NULL;
 }
 
-
-static inline void
-set_bb_for_stmt (t, bb)
-     tree t;
-     basic_block bb;
-{
-  tree_ann ann;
-
-  if (t == empty_stmt_node)
-    return;
-
-  do
-    {
-      ann = tree_annotation (t) ? tree_annotation (t) : create_tree_ann (t);
-      ann->bb = bb;
-      if (TREE_CODE (t) == COMPOUND_EXPR)
-	t = TREE_OPERAND (t, 0);
-      else if (TREE_CODE (t) == EXPR_WITH_FILE_LOCATION)
-	t = EXPR_WFL_NODE (t);
-      else
-	t = NULL;
-    }
-  while (t);
-}
-
 static inline tree_ref
 currdef_for (decl)
      tree decl;
@@ -508,6 +483,7 @@ exprref_uses (ref)
 {
   return ref->ecommon.uses;
 }
+
 static inline void
 set_exprref_uses (ref, list)
      tree_ref ref;
@@ -531,6 +507,7 @@ set_expruse_def (ref, def)
             
       add_ref_to_list_end (exprref_uses (def), ref);
     }
+
   ref->euse.def = def;
 }
 

@@ -1,3 +1,12 @@
+2002-11-07  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-cfg.c: Fix some formatting in code and comments.
+	(set_bb_for_stmt): Move from tree-flow-inline.h
+	* tree-dfa.c: Fix some formatting in code and comments.
+	* tree-flow-inline.h: Likewise.
+	* tree-flow.h: Likewise.
+	* tree-ssa.c: Likewise.
+
 2002-11-06  Diego Novillo  <dnovillo@redhat.com>
 
 	* Makefile.in (tree-ssa-ccp.o): Add dependency on tree-inline.h
@@ -72,7 +81,7 @@
 	(tree_ref_size): Ditto.
 	(dump_ref): E_PHI's phi_args is now a varray of phi_arg structs.
 	(add_ephi_arg): New function.
-	(remove_ref_list): Fix crash when node not found.
+	(remove_ref_from_list): Fix crash when node not found.
 	(compute_may_aliases): Add timing for points-to analysis.
 
 	* timevar.def: Add TV_TREE_PTA.
@@ -84,7 +93,6 @@
 	loops to process all phi operands, etc).  Basic load PRE implemented.
 	Code may look ugly due to large pieces commented out waiting for DFA
 	updating of refs to redo.
-	
 
 2002-11-05  Diego Novillo  <dnovillo@redhat.com>
 

@@ -728,8 +728,6 @@ add_ref_to_list_after (list, node, ref)
 }
 
 
-/* Create references and associations to variables and basic blocks.  */
-
 /* Return the size in bytes of a reference of type REF_TYPE.  */
 
 static size_t
@@ -871,8 +869,7 @@ create_ref (var, ref_type, ref_mod, bb, parent_stmt_p, add_to_bb)
   else if (ref_type == E_PHI)
     {
       varray_type temp;
-      VARRAY_GENERIC_PTR_INIT (temp, 
-			       1, "ephi_chain");
+      VARRAY_GENERIC_PTR_INIT (temp, 1, "ephi_chain");
       set_exprphi_phi_args (ref, temp);
       set_exprphi_downsafe (ref, true);
       set_exprphi_canbeavail (ref, true);
@@ -947,6 +944,7 @@ add_ephi_arg (phi, def, e)
   VARRAY_PUSH_GENERIC_PTR (phi->ephi.phi_args, (PTR)arg);
 }
 
+
 /* Add a unique copy of variable VAR to the list of referenced variables.  */
 
 static void
@@ -967,7 +965,6 @@ add_referenced_var (var)
 /*---------------------------------------------------------------------------
 			     Code replacement
 ---------------------------------------------------------------------------*/
-
 /* Replace reference REF in statement STMT with a new variable or constant OP.
 
    FIXME: Need to properly update DFA information (create new references,
@@ -1130,7 +1127,9 @@ create_tree_ann (t)
 }
 
 
-/* Miscellaneous helpers.  */
+/*---------------------------------------------------------------------------
+			     Miscellaneous helpers
+---------------------------------------------------------------------------*/
 
 /* Return 1 if the function may call itself.
    
@@ -1159,7 +1158,9 @@ function_may_recurse_p ()
 
 
 
-/* Debugging functions.  */
+/*---------------------------------------------------------------------------
+			      Debugging functions
+---------------------------------------------------------------------------*/
 
 /* Display variable reference REF on stream OUTF.  PREFIX is a string that
    is prefixed to every line of output, and INDENT is the amount of left
@@ -1896,6 +1897,8 @@ may_alias_p (ptr, var_sym)
   
   return true;
 }
+
+
 /* Find variables that PTR may be aliasing.  */
 
 static void

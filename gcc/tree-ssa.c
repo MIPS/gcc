@@ -176,7 +176,7 @@ static void set_ssa_links		PARAMS ((tree_ref, tree, int));
 static void set_alias_imm_reaching_def	PARAMS ((tree_ref, size_t, tree_ref));
 static tree_ref create_default_def	PARAMS ((tree));
 static void init_tree_ssa		PARAMS ((void));
-static tree remove_annotations_r		PARAMS ((tree *, int *, void *));
+static tree remove_annotations_r	PARAMS ((tree *, int *, void *));
 
 
 /* Main entry point to the SSA builder.  */
@@ -440,8 +440,6 @@ search_fud_chains (bb, idom)
     }
 }
 
-
-/* Reaching definitions.  */
 
 /* Computes reaching definitions and reached uses for all the variables
    referenced in the current function.  */

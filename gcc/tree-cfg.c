@@ -1497,7 +1497,7 @@ tree_cfg2dot (file)
 
 
 /*---------------------------------------------------------------------------
-		 Miscellaneous helper functions and predicates
+			     Miscellaneous helpers
 ---------------------------------------------------------------------------*/
 
 /* Return the successor block for BB.  If the block has no successors we
@@ -1808,6 +1808,10 @@ last_stmt (bb)
   STRIP_NOPS (t);
   return t;
 }
+
+
+/* Return a pointer to the last statement in block BB.  */
+
 tree *
 last_stmt_ptr (bb)
      basic_block bb;
@@ -1819,4 +1823,31 @@ last_stmt_ptr (bb)
 
   i = gsi_start (bb->end_tree_p);
   return gsi_stmt_ptr (i);
+}
+
+
+/* Insert statement T into basic block BB.  */
+
+void
+set_bb_for_stmt (t, bb)
+     tree t;
+     basic_block bb;
+{
+  tree_ann ann;
+
+  if (t == empty_stmt_node)
+    return;
+
+  do
+    {
+      ann = tree_annotation (t) ? tree_annotation (t) : create_tree_ann (t);
+      ann->bb = bb;
+      if (TREE_CODE (t) == COMPOUND_EXPR)
+	t = TREE_OPERAND (t, 0);
+      else if (TREE_CODE (t) == EXPR_WITH_FILE_LOCATION)
+	t = EXPR_WFL_NODE (t);
+      else
+	t = NULL;
+    }
+  while (t);
 }
