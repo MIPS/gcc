@@ -2,11 +2,25 @@
 
   Scalar evolution functions: 
 
+j
+  ->  {0, +, 1}_2
+
+
+
+  Scalar evolution functions: 
+
 i
   ->  {0, +, 1}_1
 
-j
-  ->  {0, +, 1}_2
+
+
+  Scalar evolution functions: 
+
+T.1
+  ->  {{0, +, 1}_1, +, -1}_2
+
+T.2
+  ->  {{10, +, 1}_1, +, -1}_2
 
 
 

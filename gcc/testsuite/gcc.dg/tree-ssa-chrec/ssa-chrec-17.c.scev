@@ -3,7 +3,7 @@
   Scalar evolution functions: 
 
 a
-  ->  {[-oo, +oo], +, [-oo, +oo]}_1
+  ->  [-oo, +oo]
 
 b
   ->  {2, +, a_1}_1

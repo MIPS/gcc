@@ -1,0 +1,5 @@
+The result should be something like:
+
+i  ->  {0, +, j + 2}_1
+
+But for the moment the analyzer fails because it recognize it as a wrap-around evolution.

@@ -1,3 +1,19 @@
+2004-01-09  Sebastian Pop  <s.pop@laposte.net>
+
+	* tree-scalar-evolution.c: New version of the analyzer.
+	* tree-scalar-evolution.h: Same.                       
+	* tree-chrec.c: Same.           
+	* tree-data-ref.c: Same.
+	* tree-chrec.h: Same.
+	* tree-data-ref.h: Same.
+	* tree-fold-const.h: Same.
+
+	* tree-vectorizer.c (vect_transform_loop_bound,
+	vect_analyze_scalar_cycles, vect_analyze_data_ref_access,
+	vect_analyze_data_refs, vect_get_loop_niters): Use the new
+	interface of the analyzer.
+	* tree-optimize.c (optimize_function_tree): Same.
+
 2004-01-08  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* cfgloop.h (loop_is_included_in): Declaration removed.

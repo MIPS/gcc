@@ -26,8 +26,8 @@ struct data_reference {
   /* An identifier.  */
   unsigned int id;
   
-  /* A pointer to the expression that contains this DR.  */
-  tree expr;
+  /* A pointer to the statement that contains this DR.  */
+  tree stmt;
   
   /* A pointer to the ARRAY_REF node.  */
   tree ref;
@@ -40,12 +40,12 @@ struct data_reference {
 };
 
 #define DR_ID(DR) DR->id
-#define DR_EXPR(DR) DR->expr
+#define DR_STMT(DR) DR->stmt
 #define DR_REF(DR) DR->ref
 #define DR_BASE_NAME(DR) DR->base_name
 #define DR_ACCESS_FNS(DR) DR->access_fns
 #define DR_ACCESS_FN(DR, I) VARRAY_TREE (DR_ACCESS_FNS (DR), I)
-#define DR_NUM_DIMENSIONS(DR) VARRAY_ACTIVE_SIZE (DR_ACCESS_FNS (a))
+#define DR_NUM_DIMENSIONS(DR) VARRAY_ACTIVE_SIZE (DR_ACCESS_FNS (DR))
 
 enum data_dependence_direction {
   dir_positive, 
@@ -132,8 +132,8 @@ struct data_dependence_relation {
 
 
 
-extern void analyze_all_data_dependences (struct loop *);
-extern void find_data_references (struct loop *, varray_type);
+extern void analyze_all_data_dependences (void);
+extern void find_data_references (varray_type);
 
 extern void compute_distance_vector (struct data_dependence_relation *);
 extern void compute_direction_vector (struct data_dependence_relation *);
@@ -152,7 +152,7 @@ extern void dump_data_dependence_relations (FILE *, varray_type);
 extern void dump_data_dependence_direction (FILE *, 
 					    enum data_dependence_direction);
 
-extern struct data_reference *analyze_array (struct loop *, tree, tree);
+extern struct data_reference *analyze_array (tree, tree);
 
 
 

@@ -23,5 +23,12 @@ short foo (short image[][M], short block[][N]){
   return diff;
 }
 
+/* The following evolution functions have to be detected:
+   
+   i  ->  {0, +, 1}_1
+   j  ->  {0, +, 1}_2
+
+*/
+
 /* { dg-final { diff-tree-dumps "scev" } } */
 /* { dg-final { diff-tree-dumps "alldd" } } */

@@ -2,11 +2,11 @@
 
   Scalar evolution functions: 
 
-a
-  ->  {1, +, [-oo, +oo]}_1
-
 T.1
-  ->  [-oo, +oo]
+  ->  a_1 + 1;
+
+a
+  ->  {1, +, 1}_1
 
 
 

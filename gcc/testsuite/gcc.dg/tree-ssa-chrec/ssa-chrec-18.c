@@ -24,8 +24,8 @@ int foo (int x)
     }
 }
 
-/* a  ->  {-100, +, [-oo, +oo]}_1
-   b  ->  {2, +, a_1}_1
+/* a  ->  {-100, +, [min<t, 3>, max<t, 3>]}_1
+   b  ->  {2, +, {[min<t, 3>, max<t, 3>] - 100, +, [min<t, 3>, max<t, 3>]}_1}_1
 */
 
 /* { dg-final { diff-tree-dumps "scev" } } */

@@ -21,13 +21,15 @@ int main(void)
     }
 }
 
-/* For the moment the analyzer does not know how to analyse the mixers and 
-   exchangers.  We expect the analyser to output a rough approximation:
-   e  ->  [-oo, +oo]
-   d  ->  [-oo, +oo]
-   c  ->  [-oo, +oo]
-   b  ->  {2, +, c_3}_1
-   a  ->  {-100, +, b_2}_1
+/* This is what is commonly called a "mixer".  It whirls the data in a
+   strongly connected component.  We expect the following evolution
+   functions:
+
+   e  ->  {5, +, c_13}_1
+   d  ->  {4, +, {5, +, c_13}_1}_1
+   c  ->  {3, +, {4, +, {5, +, c_13}_1}_1}_1
+   b  ->  {2, +, {3, +, {4, +, {5, +, c_13}_1}_1}_1}_1
+   a  ->  {-100, +, {2, +, {3, +, {4, +, {5, +, c_13}_1}_1}_1}_1}_1
 */
 
 /* { dg-final { diff-tree-dumps "scev" } } */

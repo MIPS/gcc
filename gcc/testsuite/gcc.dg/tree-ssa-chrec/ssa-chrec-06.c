@@ -10,6 +10,7 @@ int main(void)
   
   for (a = 22; a < 50; a+=1)
     {
+      /* The inner loop runs exactly 6 times.  */
       for (b = 23; b < 50; b+=5)
 	{
 	  ++a;
@@ -22,14 +23,15 @@ int main(void)
 	 {{22, +, 6}_1, +, 1}_2.  */
       a = a + b;
       /* At this point, the variable A has the evolution function:
-	 {{22, +, 59}_1, +, 1}_2.  */
+	 {{22, +, {59, +, 5}_2}_1, +, 1}_2.  */
       /* And finally the a+=1 from the FOR_STMT produces the evolution function:
-	 {{22, +, 60}_1, +, 1}_2.  */
+	 {{22, +, {60, +, 5}_2}_1, +, 1}_2.  */
     }
+  /* Consequently, the outer loop runs exactly 1 times.  */
 }
 
 /* The analyzer has to detect the following evolution functions:
    b  ->  {23, +, 5}_2
-   a  ->  {{22, +, 60}_1, +, 1}_2
+   a  ->  {{22, +, {60, +, 5}_2}_1, +, 1}_2
 */
 /* { dg-final { diff-tree-dumps "scev" } } */

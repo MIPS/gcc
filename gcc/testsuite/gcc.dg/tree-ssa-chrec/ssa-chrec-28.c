@@ -27,7 +27,13 @@ int foo ()
    production compiler. )
 */
 
-/* Do not nothing for this testcase.  */
+/* Do nothing for this testcase.  
+   The following evolutions are detected:
+   
+   i  ->  {0, +, 1}_2
+   a  ->  {{2, *, [-oo, +oo]}_1, +, 4}_2
+   
+*/
 
 /* { dg-final { diff-tree-dumps "scev" } } */
 

@@ -977,7 +977,8 @@ vect_transform_loop_bound (loop_vec_info loop_vinfo)
 
   DBG_VECT2 (fprintf
 	     (stderr, "transform loop bound: call monev analyzer!\n"));
-  access_fn = iccp_determine_evolution_function (loop, op0);
+  access_fn = instantiate_parameters 
+    (loop_num (loop), analyze_scalar_evolution (loop_num (loop), op0), op0);
   if (!access_fn)
     {
       DBG_VECT (fprintf (stderr, "No Access function."));
@@ -1605,7 +1606,10 @@ vect_analyze_scalar_cycles (loop_vec_info loop_vinfo)
       /* 1. Verify that it is an IV with a simple enough access pattern.  */
 
       DBG_VECT2 (fprintf (stderr, "analyze cycles: call monev analyzer!\n"));
-      access_fn = iccp_determine_evolution_function (loop, PHI_RESULT (phi));
+      access_fn = instantiate_parameters 
+	(loop_num (loop), 
+	 analyze_scalar_evolution (loop_num (loop), PHI_RESULT (phi)), 
+	 PHI_RESULT (phi));
       if (!access_fn)
 	{
 	  if (dump_file && (dump_flags & TDF_DETAILS))
@@ -1754,7 +1758,7 @@ static bool
 vect_analyze_data_ref_access (struct data_reference *dr)
 {
   varray_type access_fns = DR_ACCESS_FNS (dr);
-  tree stmt = DR_EXPR (dr);
+  tree stmt = DR_STMT (dr);
   tree vectype;
   tree access_fn;
   tree init, step;
@@ -1965,7 +1969,7 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo)
 	      return false;
 	    }
 
-	  dr = analyze_array (loop, stmt, ref);
+	  dr = analyze_array (stmt, ref);
 
 	  /* FORNOW: make sure that the array is one dimensional.
 	     This restriction will be relaxed in the future.  */
@@ -2325,7 +2329,8 @@ vect_get_loop_niters (struct loop *loop, int *number_of_iterations)
     }
 
   DBG_VECT2 (fprintf (stderr, "get_loop_niters: call monev analyzer!\n"));
-  access_fn = iccp_determine_evolution_function (loop, op0);
+  access_fn = instantiate_parameters 
+    (loop_num (loop), analyze_scalar_evolution (loop_num (loop), op0), op0);
   if (!access_fn)
     {
       if (dump_file && (dump_flags & TDF_DETAILS))

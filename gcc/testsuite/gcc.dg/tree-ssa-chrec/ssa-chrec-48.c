@@ -21,6 +21,9 @@ foo (int *c)
   return j;
 }
 
-/* j  ->  {10, +, -1}_2  */
+/* 
+   j  ->  {10, +, -1}_2  
+   i  ->  {0, +, 1}_1
+*/
 
 /* { dg-final { diff-tree-dumps "scev" } } */

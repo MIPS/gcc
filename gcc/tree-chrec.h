@@ -49,13 +49,13 @@ extern tree chrec_symbolic_parameter;
 
 static inline bool automatically_generated_chrec_p (tree);
 
-/* After having added an automatically generated element, please include 
-   it in the following function.  */
+/* After having added an automatically generated element, please
+   include it in the following function.  */
 
 static inline bool
 automatically_generated_chrec_p (tree chrec)
 {
-  return (chrec == chrec_not_analyzed_yet
+  return (chrec == chrec_not_analyzed_yet 
 	  || chrec == chrec_top
 	  || chrec == chrec_bot
 	  || chrec == chrec_symbolic_parameter);
@@ -97,6 +97,7 @@ extern tree chrec_apply (unsigned, tree, tree);
 extern tree replace_initial_condition (tree, tree);
 extern tree update_initial_condition_to_origin (tree);
 extern tree initial_condition (tree);
+extern tree evolution_part_in_loop_num (tree, unsigned);
 extern tree evolution_function_in_loop_num (tree, unsigned);
 extern tree reset_evolution_in_loop (unsigned, tree, tree);
 extern tree chrec_eval_next_init_cond (tree);
@@ -105,6 +106,7 @@ extern tree build_polynomial_evolution_in_loop (unsigned, tree, tree);
 extern tree build_exponential_evolution_in_loop (unsigned, tree, tree);
 extern tree add_expr_to_loop_evolution (unsigned, tree, tree);
 extern tree multiply_by_expr_the_loop_evolution (unsigned, tree, tree);
+extern tree chrec_fold_automatically_generated_operands (tree, tree);
 
 /* Observers.  */
 extern bool is_multivariate_chrec (tree);
@@ -114,6 +116,7 @@ extern bool chrec_is_positive (tree);
 extern bool chrec_is_negative (tree);
 extern bool chrec_contains_symbols (tree);
 extern bool chrec_contains_undetermined (tree);
+extern bool chrec_contains_intervals (tree);
 extern bool tree_contains_chrecs (tree);
 extern bool evolution_function_is_affine_multivariate_p (tree);
 extern bool evolution_function_is_univariate_p (tree);
@@ -128,25 +131,32 @@ static inline bool evolution_function_is_affine_p (tree);
 static inline bool chrec_should_remain_symbolic (tree);
 
 /* Analyzers.  */
-extern tree how_far_from_positive (unsigned, tree);
-extern tree how_far_from_zero (unsigned, tree);
-extern tree how_far_from_non_zero (unsigned, tree);
+extern tree how_far_to_positive (unsigned, tree);
+extern tree how_far_to_zero (unsigned, tree);
+extern tree how_far_to_non_zero (unsigned, tree);
 extern void analyze_overlapping_iterations (tree, tree, tree*, tree*); 
-extern tree nb_iterations_in_loop_until_eq (unsigned, tree, tree);
 
 
 
 /* Constructors.  */
 
+/* Build an interval.  */
+
 static inline tree 
 build_interval_chrec (tree low, 
 		      tree up)
 {
+  if (automatically_generated_chrec_p (low)
+      || automatically_generated_chrec_p (up))
+    return chrec_fold_automatically_generated_operands (low, up);
+  
   if (integer_zerop (tree_fold_int_minus (up, low)))
     return low;
   else
     return build (INTERVAL_CHREC, NULL_TREE, low, up);
 }
+
+/* Build a polynomial chain of recurrence.  */
 
 static inline tree 
 build_polynomial_chrec (unsigned loop_num, 
@@ -156,6 +166,8 @@ build_polynomial_chrec (unsigned loop_num,
   return build (POLYNOMIAL_CHREC, build_int_2 (loop_num, 0), left, right);
 }
 
+/* Build an exponential chain of recurrence.  */
+
 static inline tree 
 build_exponential_chrec (unsigned loop_num, 
 			 tree left, 
@@ -163,6 +175,8 @@ build_exponential_chrec (unsigned loop_num,
 {
   return build (EXPONENTIAL_CHREC, build_int_2 (loop_num, 0), left, right);
 }
+
+/* Build a periodic chain of recurrence.  */
 
 static inline tree 
 build_periodic_chrec (unsigned loop_num, 
@@ -322,13 +336,14 @@ ival_is_equal_to (tree chrec1,
     return false;
 }
 
-/* Determines whether the expression CHREC is a symbolic parameter.  Be aware 
-   of the fact that the expression is supposed to be part of an evolution 
-   function, and not an expression from the AST of the program.
+/* Determines whether the expression CHREC is a symbolic parameter.
+   Be aware of the fact that the expression is supposed to be part of
+   an evolution function, and not an expression from the AST of the
+   program.
    
-   A symbolic parameter is matches the following pattern: 
-   "a variable that does not have a loop-phi node",
-   this variable is either a loop invariant, or a secondary induction variable.  
+   A symbolic parameter is matches the following pattern: "a variable
+   that does not have a loop-phi node", this variable is either a loop
+   invariant, or a secondary induction variable.
 */
 
 static inline bool 
@@ -346,9 +361,9 @@ symbolic_parameter_expr_p (tree chrec)
   return false;
 }
 
-/* Determines whether the expression CHREC is a constant.  Be aware of the fact
-   that the expression is supposed to be part of an evolution function, and not 
-   an expression from the AST of the program.  */
+/* Determines whether the expression CHREC is a constant.  Be aware of
+   the fact that the expression is supposed to be part of an evolution
+   function, and not an expression from the AST of the program.  */
 
 static inline bool 
 evolution_function_is_constant_p (tree chrec)
@@ -397,9 +412,6 @@ chrec_should_remain_symbolic (tree evfun)
 {
   if (evfun == NULL_TREE
       || evfun == chrec_top)
-    return true;
-  
-  if (chrec_contains_symbols (evfun))
     return true;
   
   return false;

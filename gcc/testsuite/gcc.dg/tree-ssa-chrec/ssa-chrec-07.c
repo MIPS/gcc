@@ -17,8 +17,8 @@ int main(void)
 }
 
 /* The analyzer has to detect the following evolution functions:
-   b  ->  {[2, 2], +, [3, 3]}_1
-   a  ->  {[-100, -100], +, {[2, 2], +, [3, 3]}_1}_1
+   b  ->  {2, +, 3}_1
+   a  ->  {-100, +, {2, +, 3}_1}_1
 */
 
 /* { dg-final { diff-tree-dumps "scev" } } */

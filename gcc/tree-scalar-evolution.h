@@ -27,16 +27,18 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define DBG_SDD_S(A) 
 #define DBG_SCHEDULE_S(A) 
 
-extern void initialize_scalar_evolutions_analyzer (void);
-extern void finalize_scalar_evolutions_analyzer (void);
-extern void analyze_scalar_evolutions (struct loops *, struct loop *,
-				       varray_type, varray_type);
-extern void select_loop_nests_for_scalar_evolutions_analyzer (struct loops *, 
-							      varray_type, 
-							      varray_type);
-extern tree iccp_determine_evolution_function (struct loop *, tree);
+extern tree number_of_iterations_in_loop (struct loop *);
+extern void number_of_iterations_for_all_loops (varray_type);
 
-/* For a given function with well formed loops, a vector of MONEV_INFOs
+extern void select_loops_exit_conditions (struct loops *, varray_type);
+extern tree analyze_scalar_evolution (unsigned, tree);
+extern tree instantiate_parameters (unsigned, tree, tree);
+extern void initialize_scalar_evolutions_analyzer (struct loops *, 
+						   varray_type);
+extern void finalize_scalar_evolutions_analyzer (void);
+
+
+/* For a given function with well formed loops, a vector of SCEV_INFOs
    is built.
    
    Example:
@@ -53,18 +55,20 @@ extern tree iccp_determine_evolution_function (struct loop *, tree);
    ___________________________________________________________________
    |var                |  a_0  |   a_1   |  a_2  |        a           |
    |loop_num           |   0   |    1    |   1   |        0           |
-   |inner_loops_chrec  | [0,0] |  [0,0]  | [1,1] |{[0,0], +, [1,1]}_1 |
-   |outer_loops_chrec  | [0,0] | [10,10] | [1,1] |{[0,0], +, [1,1]}_1 |
+   |inner_loops_chrec  |   0   |    0    |   1   |    {0, +, 1}_1     |
+   |outer_loops_chrec  |   0   |   10    |   1   |    {0, +, 1}_1     |
    -------------------------------------------------------------------
    
-   A loop phi node (a_1) has two visible values: (see "get_chrec")
-   - one exposed to the statements in the inner loops, 
-   - the other is seen by the statements after the loop.
+   A loop phi node (a_1) has two visible values: (see the comments in
+   the "get_chrec" function)
+   - a value exposed to the statements in the inner loops, 
+   - the other value is seen by the statements after the loop.
+   
    The loop_num is used only for versions of a variable.  For the main 
-   variable it is 0.  
+   variable it is always equal to 0.  
 */
 
-struct monev_info_str {
+struct scev_info_str {
   int loop_num;
   tree var;
   tree inner_loops_chrec;
@@ -89,31 +93,26 @@ struct monev_info_str {
 struct schedule_elt {
   /* The SCC to be analyzed: an array of SSA_NAMEs to be analyzed at once.  */
   varray_type strongly_connected_component;
-  
-  /* The loop nest where to analyze the SCC.  */
-  struct loop *loop_nest;
 };
 
 #define SCHED_SCC(S) S->strongly_connected_component
-#define SCHED_LOOP_NEST(S) S->loop_nest
-
 
 
 
 /* This section contains constructors for the objects used by the scalar 
    evolution analyzer.  */
 
-static inline struct monev_info_str *new_monev_info_str (tree);
+static inline struct scev_info_str *new_scev_info_str (tree);
 static inline struct schedule_elt *new_schedule_elt (void);
 
-/* Constructs a new MONEV_INFO_STR structure.  */
+/* Constructs a new SCEV_INFO_STR structure.  */
 
-static inline struct monev_info_str *
-new_monev_info_str (tree var)
+static inline struct scev_info_str *
+new_scev_info_str (tree var)
 {
-  struct monev_info_str *res;
+  struct scev_info_str *res;
   
-  res = ggc_alloc (sizeof (struct monev_info_str));
+  res = ggc_alloc (sizeof (struct scev_info_str));
   MI_VAR (res) = var;
   MI_LOOP_NUM (res) = 0;
   MI_INNER_LOOPS_CHREC (res) = chrec_not_analyzed_yet;
@@ -130,7 +129,6 @@ new_schedule_elt (void)
   struct schedule_elt *res;
   
   res = ggc_alloc (sizeof (struct schedule_elt));
-  SCHED_LOOP_NEST (res) = NULL;
   VARRAY_TREE_INIT (SCHED_SCC (res), 37, "sched_scc");
   
   return res;

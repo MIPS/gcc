@@ -19,8 +19,8 @@ along with GCC; see the file COPYING.  If not, write to the Free
 Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
-/* This pass walks a loop searching for array references.  The array
-   accesses are recorded in DATA_REFERENCE nodes.  Since the
+/* This pass walks the whole program searching for array references.
+   The array accesses are recorded in DATA_REFERENCE nodes.  Since the
    information in the DATA_REFERENCE nodes is too precise, the
    dependence testers abstract this information into classic
    representations: distance vectors, direction vectors, affine
@@ -34,17 +34,24 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    |             chrec1 (x) == chrec2 (y).
    
    The goals of this analysis are:
-   - to determine the independence: the relation between two independent 
-     accesses is qualified with the chrec_bot (this information allows a 
-     loop parallelization),
-   - when two data references access the same data, to qualify the 
-     dependence relation with classic dependence representations: 
+   
+   - to determine the independence: the relation between two
+     independent accesses is qualified with the chrec_bot (this
+     information allows a loop parallelization),
+     
+   - when two data references access the same data, to qualify the
+     dependence relation with classic dependence representations:
+     
        - distance vectors
        - direction vectors
        - loop carried level dependence
        - polyhedron dependence
      or with the chains of recurrences based representation,
-   - to define a knowledge base for the data dependeces information,
+     
+     
+   - to define a knowledge base for storing the data dependeces 
+     information,
+     
    - to define an interface to access this data.
    
    
@@ -59,7 +66,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    this analysis, I refer to the overlapping elements of a subscript
    as the vertical coupling, in opposition to the horizontal coupling
    that refers to the coupling between subscripts.
-   
    
    References:
    
@@ -89,7 +95,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-data-ref.h"
 #include "tree-scalar-evolution.h"
 
-static tree analyze_array_indexes (struct loop *, varray_type, tree);
+static tree analyze_array_indexes (unsigned, varray_type, tree);
 static bool access_functions_are_affine_or_constant_p (struct data_reference *);
 
 static struct data_dependence_relation *
@@ -169,21 +175,19 @@ dump_data_reference (FILE *outf,
 {
   unsigned int i;
   
-  fprintf (outf, "\n(Data Ref %d: \n  expr: ", dr->id);
-  print_generic_stmt (outf, dr->expr, 0);
+  fprintf (outf, "(Data Ref %d: \n  stmt: ", DR_ID (dr));
+  print_generic_stmt (outf, DR_STMT (dr), 0);
   fprintf (outf, "  ref: ");
-  print_generic_stmt (outf, dr->ref, 0);
+  print_generic_stmt (outf, DR_REF (dr), 0);
   fprintf (outf, "  base_name: ");
-  print_generic_stmt (outf, dr->base_name, 0);
+  print_generic_stmt (outf, DR_BASE_NAME (dr), 0);
   
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (dr->access_fns); i++)
+  for (i = 0; i < DR_NUM_DIMENSIONS (dr); i++)
     {
-      tree chrec = VARRAY_TREE (dr->access_fns, i);
-      
       fprintf (outf, "  Access function %d: ", i);
-      print_generic_stmt (outf, chrec, 0);
+      print_generic_stmt (outf, DR_ACCESS_FN (dr, i), 0);
     }
-  fprintf (outf, ")");
+  fprintf (outf, ")\n");
 }
 
 /* Dump function for a DATA_DEPENDENCE_RELATION structure.  */
@@ -201,14 +205,10 @@ dump_data_dependence_relation (FILE *outf,
   fprintf (outf, "\n(Data Dep (A = %d, B = %d):", DR_ID (dra), DR_ID (drb));
   
   if (DDR_ARE_DEPENDENT (ddr) == chrec_top)
-    {
-      fprintf (outf, "    (don't know)\n");
-    }
+    fprintf (outf, "    (don't know)\n");
   
   else if (DDR_ARE_DEPENDENT (ddr) == chrec_bot)
-    {
-      fprintf (outf, "    (no dependence)\n");
-    }
+    fprintf (outf, "    (no dependence)\n");
   
   else
     {
@@ -352,7 +352,7 @@ access_functions_are_affine_or_constant_p (struct data_reference *a)
    "A[i]".  The function returns the base name: "A".  */
 
 static tree
-analyze_array_indexes (struct loop *loop_nest,
+analyze_array_indexes (unsigned loop_nb, 
 		       varray_type access_fns, 
 		       tree ref)
 {
@@ -362,10 +362,12 @@ analyze_array_indexes (struct loop *loop_nest,
   opnd0 = TREE_OPERAND (ref, 0);
   opnd1 = TREE_OPERAND (ref, 1);
   
-  /* Detect the evolution function for this access, and push it in the
-     access_fns stack.  */
-  access_fn = iccp_determine_evolution_function (loop_nest, opnd1);
-  icond = initial_condition (access_fn);
+  /* The detection of the evolution function for this data access is
+     postponed until the dependence test.  This lazy strategy avoids
+     the computation of access functions that are of no interest for
+     the optimizers.  */
+  access_fn = instantiate_parameters 
+    (loop_nb, analyze_scalar_evolution (loop_nb, opnd1), opnd1);
   
   /* FIXME: Maybe this condition could be developed into an ARRAY_REF
      bounds checker.  */
@@ -382,29 +384,36 @@ analyze_array_indexes (struct loop *loop_nest,
   
   /* Recursively record other array access functions.  */
   if (TREE_CODE (opnd0) == ARRAY_REF)
-    return analyze_array_indexes (loop_nest, access_fns, opnd0);
+    return analyze_array_indexes (loop_nb, access_fns, opnd0);
+  
+  /* Return the base name of the data access.  */
   else
     return opnd0;
 }
 
-/* For a data reference REF contained in the expression EXPR,
-   initialize a DATA_REFERENCE structure, and push it in the DATAREFS
-   array.  */
+/* For a data reference REF contained in the statemet STMT, initialize
+   a DATA_REFERENCE structure, and return it.  */
 
 struct data_reference *
-analyze_array (struct loop *loop_nest, 
-	       tree expr, 
+analyze_array (tree stmt, 
 	       tree ref)
 {
   struct data_reference *res;
+
+  DBG_S (fprintf (stderr, "(analyze_array \n");
+	 fprintf (stderr, "  (ref = ");
+	 debug_generic_expr (ref);
+	 fprintf (stderr, "  )\n"));
   res = ggc_alloc (sizeof (struct data_reference));
   
   DR_ID (res) = data_ref_id++;
-  DR_EXPR (res) = expr;
+  DR_STMT (res) = stmt;
   DR_REF (res) = ref;
   VARRAY_TREE_INIT (DR_ACCESS_FNS (res), 5, "access_fns");
-  DR_BASE_NAME (res) = analyze_array_indexes (loop_nest, DR_ACCESS_FNS (res), ref);
-  
+  DR_BASE_NAME (res) = analyze_array_indexes 
+    (loop_num (loop_of_stmt (stmt)), DR_ACCESS_FNS (res), ref);
+
+  DBG_S (fprintf (stderr, ")\n"));  
   return res;
 }
 
@@ -424,7 +433,8 @@ initialize_data_dependence_relation (struct data_reference *a,
   
   /* When the dimensions of A and B differ, we directly initialize
      the relation to "there is no dependence": chrec_bot.  */
-  if (DR_NUM_DIMENSIONS (a) != DR_NUM_DIMENSIONS (b))
+  if (DR_NUM_DIMENSIONS (a) != DR_NUM_DIMENSIONS (b)
+      || array_base_name_differ_p (a, b))
     DDR_ARE_DEPENDENT (res) = chrec_bot;
   
   else
@@ -492,19 +502,22 @@ compute_direction_vector (struct data_dependence_relation *ddr)
       
       for (i = 0; i < DDR_NUM_SUBSCRIPTS (ddr); i++)
  	{
- 	  tree difference;
+ 	  tree distance;
  	  struct subscript *subscript;
  	  
  	  subscript = DDR_SUBSCRIPT (ddr, i);
- 	  difference = SUB_DISTANCE (subscript);
+ 	  distance = SUB_DISTANCE (subscript);
  	  
- 	  if (integer_zerop (difference))
+	  if (distance == chrec_top)
+	    SUB_DIRECTION (subscript) = dir_star;
+	  
+ 	  else if (chrec_zerop (distance))
  	    SUB_DIRECTION (subscript) = dir_equal;
  	  
- 	  else if (chrec_is_negative (difference))
+ 	  else if (chrec_is_negative (distance))
  	    SUB_DIRECTION (subscript) = dir_negative;
  	  
- 	  else if (chrec_is_positive (difference))
+ 	  else if (chrec_is_positive (distance))
  	    SUB_DIRECTION (subscript) = dir_positive;
  	  
  	  else
@@ -513,8 +526,7 @@ compute_direction_vector (struct data_dependence_relation *ddr)
     }
 }
 
-/* This section contains the functions that perform the dependence
-   tests.  */
+/* Compute all the data dependence relations.  */
 
 static void 
 compute_all_dependences (varray_type datarefs, 
@@ -543,7 +555,8 @@ compute_all_dependences (varray_type datarefs,
 
 /* This section contains the affine functions dependences detector.  */
 
-/* This is the subscript dependence tester (SubDT).  */
+/* This is the subscript dependence tester (SubDT).  It computes the
+   conflicting iterations.  */
 
 static void
 subscript_dependence_tester (struct data_dependence_relation *ddr)
@@ -553,12 +566,6 @@ subscript_dependence_tester (struct data_dependence_relation *ddr)
   struct data_reference *drb = DDR_B (ddr);
   
   DBG_S (fprintf (stderr, "(subscript_dependence_tester \n"));
-  
-#if defined ENABLE_CHECKING
-  if (dra == NULL 
-      || drb == NULL)
-    abort ();
-#endif
   
   for (i = 0; i < DDR_NUM_SUBSCRIPTS (ddr); i++)
     {
@@ -656,6 +663,13 @@ set_all_subscripts_to (struct data_dependence_relation *ddr,
 {
   unsigned int i;
   
+  if (chrec == chrec_top
+      || chrec == chrec_bot)
+    {
+      DDR_ARE_DEPENDENT (ddr) = chrec;
+      DDR_SUBSCRIPTS_VECTOR_FINALIZE (ddr);
+    }
+  
   for (i = 0; i < DDR_NUM_SUBSCRIPTS (ddr); i++)
     {
       struct subscript *subscript = DDR_SUBSCRIPT (ddr, i);
@@ -681,33 +695,30 @@ compute_affine_dependence (struct data_dependence_relation *ddr)
   
   DBG_S (fprintf (stderr, "(compute_affine_dependence (%d, %d)\n", 
 		  DR_ID (dra), DR_ID (drb));
-	 fprintf (stderr, "  expr_a = \n");
-	 debug_generic_expr (DR_EXPR (dra));
-	 fprintf (stderr, "  expr_b = \n");
-	 debug_generic_expr (DR_EXPR (drb)));
+	 fprintf (stderr, "  stmt_a = \n");
+	 debug_generic_expr (DR_STMT (dra));
+	 fprintf (stderr, "  stmt_b = \n");
+	 debug_generic_expr (DR_STMT (drb)));
   
-  /* When the base name differs, there is no dependence.  */
-  if (array_base_name_differ_p (dra, drb))
+  /* Analyze only when the dependence relation is not yet known.  */
+  if (DDR_ARE_DEPENDENT (ddr) == NULL_TREE)
     {
-      DBG_S (fprintf (stderr, "Base name differs.  \n"));
-      set_all_subscripts_to (ddr, chrec_bot);
-    }
-  
-  else if (access_functions_are_affine_or_constant_p (dra)
-	   && access_functions_are_affine_or_constant_p (drb))
-    {
-      subscript_dependence_tester (ddr);
-      subscript_coupling_tester (ddr);
-    }
-  
-  /* As a last case, if the dependence cannot be determined, or if
-     the dependence is considered too difficult to determine, answer
-     "don't know".  */
-  else
-    {
-      DBG_S (fprintf (stderr, "I'm not smart enough for this dependence test," 
-		      "please teach me what I should answer.  \n"));
-      set_all_subscripts_to (ddr, chrec_top);
+      if (access_functions_are_affine_or_constant_p (dra)
+	  && access_functions_are_affine_or_constant_p (drb))
+	{
+	  subscript_dependence_tester (ddr);
+	  subscript_coupling_tester (ddr);
+	}
+      
+      /* As a last case, if the dependence cannot be determined, or if
+	 the dependence is considered too difficult to determine, answer
+	 "don't know".  */
+      else
+	{
+	  DBG_S (fprintf (stderr, "I'm not smart enough for this dependence test," 
+			  "please teach me what I should answer.  \n"));
+	  set_all_subscripts_to (ddr, chrec_top);
+	}
     }
   
   DBG_S (fprintf (stderr, ")\n"));
@@ -720,22 +731,19 @@ compute_affine_dependence (struct data_dependence_relation *ddr)
 /* Entry point.  Search the data references in a loop nest.  Record
    the information into a list of DATA_REFERENCE structures.
    
-   FIXME: This is a dumb walker over all the trees in the loop body.
-   Try to use the SSA representation for speed it up.  */
+   FIXME: This is a "dumb" walker over all the trees in the loop body.
+   Find another technique that avoids this costly walk.  This is
+   acceptable for the moment, since this function is used only for
+   debugging purposes.  */
 
 void 
-find_data_references (struct loop *loop_nest, varray_type datarefs)
+find_data_references (varray_type datarefs)
 {
-  unsigned int j;
-  basic_block bb, *bbs;
+  basic_block bb;
   block_stmt_iterator bsi;
   
-  bbs = get_loop_body (loop_nest);
-  
-  for (j = loop_nest->num_nodes; j > 0; j--)
+  FOR_EACH_BB (bb)
     {
-      bb = bbs[j - 1];
-      
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
         {
           tree expr = bsi_stmt (bsi);
@@ -751,13 +759,11 @@ find_data_references (struct loop *loop_nest, varray_type datarefs)
 		   otherwise it does not contain other ARRAY_REFs.  */
 		if (TREE_CODE (TREE_OPERAND (expr, 0)) == ARRAY_REF)
 		  VARRAY_PUSH_GENERIC_PTR 
-		    (datarefs, analyze_array (loop_nest, expr, 
-					      TREE_OPERAND (expr, 0)));
+		    (datarefs, analyze_array (expr, TREE_OPERAND (expr, 0)));
 		
 		if (TREE_CODE (TREE_OPERAND (expr, 1)) == ARRAY_REF)
 		  VARRAY_PUSH_GENERIC_PTR 
-		    (datarefs, analyze_array (loop_nest, expr, 
-					      TREE_OPERAND (expr, 1)));
+		    (datarefs, analyze_array (expr, TREE_OPERAND (expr, 1)));
 		
 		break;
 		
@@ -765,6 +771,7 @@ find_data_references (struct loop *loop_nest, varray_type datarefs)
 	      case CALL_EXPR:
 	      case VA_ARG_EXPR:
 	      case ASM_EXPR:
+	      case RETURN_EXPR:
 		/* In the GIMPLE representation, these nodes do not
 		   contain ARRAY_REFs in their operands.  */
 		break;
@@ -777,22 +784,21 @@ find_data_references (struct loop *loop_nest, varray_type datarefs)
 	      }
 	}
     }
-  free (bbs);
 }
 
 /* Entry point.  Analyze all the data references and the dependence
-   relations in the given LOOP_NEST.
+   relations.
 
    The data references are computed first.  
    
    A relation on these nodes is represented by a complete graph.  Some
-   of the relations could be of no interest, thus the relations are
+   of the relations could be of no interest, thus the relations can be
    computed on demand.
    
    In the following function we compute all the relations.  This is
    just a first implementation that is here for:
    - for showing how to ask for the dependence relations, 
-   - for the debugging the whole dependence graphs,
+   - for the debugging the whole dependence graph,
    - for the dejagnu testcases and maintenance.
    
    It is possible to ask only for a part of the graph, avoiding to
@@ -803,7 +809,7 @@ find_data_references (struct loop *loop_nest, varray_type datarefs)
    more efficient implementation, or the KB could be disabled.  */
 
 void 
-analyze_all_data_dependences (struct loop *loop_nest)
+analyze_all_data_dependences (void)
 {
   varray_type datarefs;
   varray_type dependence_relations;
@@ -814,7 +820,7 @@ analyze_all_data_dependences (struct loop *loop_nest)
   VARRAY_GENERIC_PTR_INIT (dependence_relations, 10*10,
 			   "dependence_relations");
   
-  find_data_references (loop_nest, datarefs);
+  find_data_references (datarefs);
   compute_all_dependences (datarefs, dependence_relations);
   
   if (dump_file)

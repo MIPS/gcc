@@ -2,11 +2,15 @@
 
   Scalar evolution functions: 
 
-b
-  ->  {4, *, 5}_1
-
 c
   ->  {-10, +, 1}_2
+
+
+
+  Scalar evolution functions: 
+
+b
+  ->  {4, *, 5}_1
 
 a
   ->  {{2, *, {120, *, 5}_1}_1, *, {4, *, 5}_1}_2

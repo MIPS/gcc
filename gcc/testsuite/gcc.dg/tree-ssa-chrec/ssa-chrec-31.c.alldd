@@ -1,22 +1,28 @@
-
 (Data Ref 0: 
-  expr: T.1_12 = b[i_1];
+  stmt: T.1_12 = b[i_1];
   ref: b[i_1];
   base_name: b
   Access function 0: {0, +, 1}_1
 )
 (Data Ref 1: 
-  expr: T.2_13 = c[i_1];
+  stmt: T.2_13 = c[i_1];
   ref: c[i_1];
   base_name: c
   Access function 0: {0, +, 1}_1
 )
 (Data Ref 2: 
-  expr: a[i_1] = T.3_14;
+  stmt: a[i_1] = T.3_14;
   ref: a[i_1];
   base_name: a
   Access function 0: {0, +, 1}_1
 )
+(Data Ref 3: 
+  stmt: T.4_5 = a[2];
+  ref: a[2];
+  base_name: a
+  Access function 0: 2
+)
+
 (Data Dep (A = 0, B = 0):
  (subscript 0:
   base_name_A: b
@@ -37,64 +43,16 @@
  )
 
 )
-(Data Dep (A = 0, B = 1):
- (subscript 0:
-  base_name_A: b
-  base_name_B: c
-  access_fn_A: {0, +, 1}_1
-  access_fn_B: {0, +, 1}_1
-  iterations_that_access_an_element_twice_in_A: [+oo, -oo]
-    (no dependence)
-  iterations_that_access_an_element_twice_in_B: [+oo, -oo]
-    (no dependence)
- )
- (Distance Vector: 
-([+oo, -oo]
-)
- )
- (Direction Vector: 
-(*)
- )
+(Data Dep (A = 0, B = 1):    (no dependence)
 
 )
-(Data Dep (A = 0, B = 2):
- (subscript 0:
-  base_name_A: b
-  base_name_B: a
-  access_fn_A: {0, +, 1}_1
-  access_fn_B: {0, +, 1}_1
-  iterations_that_access_an_element_twice_in_A: [+oo, -oo]
-    (no dependence)
-  iterations_that_access_an_element_twice_in_B: [+oo, -oo]
-    (no dependence)
- )
- (Distance Vector: 
-([+oo, -oo]
-)
- )
- (Direction Vector: 
-(*)
- )
+(Data Dep (A = 0, B = 2):    (no dependence)
 
 )
-(Data Dep (A = 1, B = 0):
- (subscript 0:
-  base_name_A: c
-  base_name_B: b
-  access_fn_A: {0, +, 1}_1
-  access_fn_B: {0, +, 1}_1
-  iterations_that_access_an_element_twice_in_A: [+oo, -oo]
-    (no dependence)
-  iterations_that_access_an_element_twice_in_B: [+oo, -oo]
-    (no dependence)
- )
- (Distance Vector: 
-([+oo, -oo]
+(Data Dep (A = 0, B = 3):    (no dependence)
+
 )
- )
- (Direction Vector: 
-(*)
- )
+(Data Dep (A = 1, B = 0):    (no dependence)
 
 )
 (Data Dep (A = 1, B = 1):
@@ -117,64 +75,16 @@
  )
 
 )
-(Data Dep (A = 1, B = 2):
- (subscript 0:
-  base_name_A: c
-  base_name_B: a
-  access_fn_A: {0, +, 1}_1
-  access_fn_B: {0, +, 1}_1
-  iterations_that_access_an_element_twice_in_A: [+oo, -oo]
-    (no dependence)
-  iterations_that_access_an_element_twice_in_B: [+oo, -oo]
-    (no dependence)
- )
- (Distance Vector: 
-([+oo, -oo]
-)
- )
- (Direction Vector: 
-(*)
- )
+(Data Dep (A = 1, B = 2):    (no dependence)
 
 )
-(Data Dep (A = 2, B = 0):
- (subscript 0:
-  base_name_A: a
-  base_name_B: b
-  access_fn_A: {0, +, 1}_1
-  access_fn_B: {0, +, 1}_1
-  iterations_that_access_an_element_twice_in_A: [+oo, -oo]
-    (no dependence)
-  iterations_that_access_an_element_twice_in_B: [+oo, -oo]
-    (no dependence)
- )
- (Distance Vector: 
-([+oo, -oo]
-)
- )
- (Direction Vector: 
-(*)
- )
+(Data Dep (A = 1, B = 3):    (no dependence)
 
 )
-(Data Dep (A = 2, B = 1):
- (subscript 0:
-  base_name_A: a
-  base_name_B: c
-  access_fn_A: {0, +, 1}_1
-  access_fn_B: {0, +, 1}_1
-  iterations_that_access_an_element_twice_in_A: [+oo, -oo]
-    (no dependence)
-  iterations_that_access_an_element_twice_in_B: [+oo, -oo]
-    (no dependence)
- )
- (Distance Vector: 
-([+oo, -oo]
+(Data Dep (A = 2, B = 0):    (no dependence)
+
 )
- )
- (Direction Vector: 
-(*)
- )
+(Data Dep (A = 2, B = 1):    (no dependence)
 
 )
 (Data Dep (A = 2, B = 2):
@@ -186,6 +96,72 @@
   iterations_that_access_an_element_twice_in_A: {0, +, 1}_1
   last_iteration_that_access_an_element_twice_in_A: [-oo, +oo]
   iterations_that_access_an_element_twice_in_B: {0, +, 1}_1
+  last_iteration_that_access_an_element_twice_in_B: [-oo, +oo]
+ )
+ (Distance Vector: 
+(0
+)
+ )
+ (Direction Vector: 
+(=)
+ )
+
+)
+(Data Dep (A = 2, B = 3):
+ (subscript 0:
+  base_name_A: a
+  base_name_B: a
+  access_fn_A: {0, +, 1}_1
+  access_fn_B: 2
+  iterations_that_access_an_element_twice_in_A: 2
+  last_iteration_that_access_an_element_twice_in_A: [-oo, +oo]
+  iterations_that_access_an_element_twice_in_B: 0
+  last_iteration_that_access_an_element_twice_in_B: [-oo, +oo]
+ )
+ (Distance Vector: 
+(-2
+)
+ )
+ (Direction Vector: 
+(-)
+ )
+
+)
+(Data Dep (A = 3, B = 0):    (no dependence)
+
+)
+(Data Dep (A = 3, B = 1):    (no dependence)
+
+)
+(Data Dep (A = 3, B = 2):
+ (subscript 0:
+  base_name_A: a
+  base_name_B: a
+  access_fn_A: 2
+  access_fn_B: {0, +, 1}_1
+  iterations_that_access_an_element_twice_in_A: 0
+  last_iteration_that_access_an_element_twice_in_A: [-oo, +oo]
+  iterations_that_access_an_element_twice_in_B: 2
+  last_iteration_that_access_an_element_twice_in_B: [-oo, +oo]
+ )
+ (Distance Vector: 
+(2
+)
+ )
+ (Direction Vector: 
+(+)
+ )
+
+)
+(Data Dep (A = 3, B = 3):
+ (subscript 0:
+  base_name_A: a
+  base_name_B: a
+  access_fn_A: 2
+  access_fn_B: 2
+  iterations_that_access_an_element_twice_in_A: 0
+  last_iteration_that_access_an_element_twice_in_A: [-oo, +oo]
+  iterations_that_access_an_element_twice_in_B: 0
   last_iteration_that_access_an_element_twice_in_B: [-oo, +oo]
  )
  (Distance Vector: 

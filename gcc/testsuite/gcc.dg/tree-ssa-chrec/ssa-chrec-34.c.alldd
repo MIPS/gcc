@@ -1,25 +1,25 @@
-
 (Data Ref 0: 
-  expr: T.4_29 = (*T.3_27)[j_5];
+  stmt: T.4_29 = (*T.3_27)[j_5];
   ref: (*T.3_27)[j_5];
   base_name: *T.3_27;
-  Access function 0: 8
+  Access function 0: {0, +, 1}_2
 )
 (Data Ref 1: 
-  expr: T.8_35 = (*T.7_34)[j_5];
+  stmt: T.8_35 = (*T.7_34)[j_5];
   ref: (*T.7_34)[j_5];
   base_name: *T.7_34;
-  Access function 0: 8
+  Access function 0: {0, +, 1}_2
 )
+
 (Data Dep (A = 0, B = 0):
  (subscript 0:
   base_name_A: *T.3_27;
   base_name_B: *T.3_27;
-  access_fn_A: 8
-  access_fn_B: 8
-  iterations_that_access_an_element_twice_in_A: 0
+  access_fn_A: {0, +, 1}_2
+  access_fn_B: {0, +, 1}_2
+  iterations_that_access_an_element_twice_in_A: {0, +, 1}_2
   last_iteration_that_access_an_element_twice_in_A: [-oo, +oo]
-  iterations_that_access_an_element_twice_in_B: 0
+  iterations_that_access_an_element_twice_in_B: {0, +, 1}_2
   last_iteration_that_access_an_element_twice_in_B: [-oo, +oo]
  )
  (Distance Vector: 
@@ -31,55 +31,21 @@
  )
 
 )
-(Data Dep (A = 0, B = 1):
- (subscript 0:
-  base_name_A: *T.3_27;
-  base_name_B: *T.7_34;
-  access_fn_A: 8
-  access_fn_B: 8
-  iterations_that_access_an_element_twice_in_A: [+oo, -oo]
-    (no dependence)
-  iterations_that_access_an_element_twice_in_B: [+oo, -oo]
-    (no dependence)
- )
- (Distance Vector: 
-([+oo, -oo]
-)
- )
- (Direction Vector: 
-(*)
- )
+(Data Dep (A = 0, B = 1):    (no dependence)
 
 )
-(Data Dep (A = 1, B = 0):
- (subscript 0:
-  base_name_A: *T.7_34;
-  base_name_B: *T.3_27;
-  access_fn_A: 8
-  access_fn_B: 8
-  iterations_that_access_an_element_twice_in_A: [+oo, -oo]
-    (no dependence)
-  iterations_that_access_an_element_twice_in_B: [+oo, -oo]
-    (no dependence)
- )
- (Distance Vector: 
-([+oo, -oo]
-)
- )
- (Direction Vector: 
-(*)
- )
+(Data Dep (A = 1, B = 0):    (no dependence)
 
 )
 (Data Dep (A = 1, B = 1):
  (subscript 0:
   base_name_A: *T.7_34;
   base_name_B: *T.7_34;
-  access_fn_A: 8
-  access_fn_B: 8
-  iterations_that_access_an_element_twice_in_A: 0
+  access_fn_A: {0, +, 1}_2
+  access_fn_B: {0, +, 1}_2
+  iterations_that_access_an_element_twice_in_A: {0, +, 1}_2
   last_iteration_that_access_an_element_twice_in_A: [-oo, +oo]
-  iterations_that_access_an_element_twice_in_B: 0
+  iterations_that_access_an_element_twice_in_B: {0, +, 1}_2
   last_iteration_that_access_an_element_twice_in_B: [-oo, +oo]
  )
  (Distance Vector: 

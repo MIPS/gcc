@@ -19,46 +19,39 @@ along with GCC; see the file COPYING.  If not, write to the Free
 Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
-/* This pass analyses the evolution of induction variables in a loop.
-   The algorithm is based on the SSA representation, and on the loop
-   hierarchy tree.
+/* This pass analyses the evolution of scalar variables in loop
+   structures.  The algorithm is based on the SSA representation, and
+   on the loop hierarchy tree.
    
    A short sketch of the algorithm is:
    
-   - First step: gather the scalar variables that has to be analyzed.
-   This is called the imperative list.  The minimal imperative list
-   contains all the variables that are used in the exit conditions of
-   the loop nest.  Other variables such as those used in array
-   accesses are then enqueued on this list.
+   - First step: gather the scalar variables that has to be analyzed
+   in an imperative list.  The minimal imperative list contains the
+   variables that are used in the exit condition of the analyzed loop.
    
    - Second step: for each variable of the imperative list, analyze
    the dependences on other scalar variables in the loop nest.  The
-   result is a scalar dependence graph.
+   result is a Scalar Dependence Graph (SDG).
    
-   - Third step: establish a schedule for the IV analysis that
-   satisfies all the dependences of the scalar dependence graph.
+   - Third step: compute a schedule that satisfies all the dependences
+   of the scalar dependence graph.
    
    - Fourth step: for each variable in the schedule, determine its
    initial condition and then its evolution in the loop nest.
    
-   At the end of this analysis, an envelope chain of recurrence is
-   associated to each variable of the imperative list.  If a variable
-   has not been analyzed, the default answer of the analyzer is:
-   "don't know", that corresponds to the [-oo, +oo] element of the
+   At the end of this analysis, a chain of recurrence is associated to
+   each variable of the imperative list.  If a variable cannot be
+   statically analyzed, the answer of the analyzer is: "don't know",
+   that corresponds to the conservative [-oo, +oo] element of the
    lattice of intervals.
-   
-   FIXME: If on the first pass of the analyzer we have not scheduled
-   some variables, it could be possible to further refine the
-   knowledge base by calling again the analyzer with another
-   imperative list.
    
    You can find a more detailed description of the algorithm in:
    http://icps.u-strasbg.fr/~pop/DEA_03_Pop.pdf
    http://icps.u-strasbg.fr/~pop/DEA_03_Pop.ps.gz.  But note that this
    is a preliminary report and some of the details of the algorithm
    might have changed.  I'm working on a research report that updates
-   the description of the algorithm to reflect the design choices used
-   in this implementation.
+   the description of the algorithms to reflect the design choices
+   used in this implementation.
    
    FIXME: The following cases are not handled yet, and some of them
    produce rough approximations.  I suspect that these cases could be
@@ -96,25 +89,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    + exp" or "cst + exp".  This could be handled by a Taylor
    decomposition of the exponential function, but is still under
    construction (not implemented yet) for the moment.
-   
-   - FIXME zero-trip-problem: This problem consists in determining the
-   number of iterations in a loop.  Without such an information some
-   cases could not be analyzed correctly.  As an example, consider the
-   code:
-   
-   a = 0
-   loop 
-     a = a + 1
-     loop i = 1, N, 1
-       a = a + 2
-     endloop
-   endloop
-   
-   The evolution in the first loop is determined by the number of
-   iterations in the inner loop.  In this case the inner loop runs N
-   times, and the overall effect of the assignment "a = a + 2" from
-   the inner loop is "a = a + 2*N".  Thus the evolution is: "a -> {{0,
-   +, 2*N+1}_1, +, 2}_2".
    
    - FIXME floating-point: search for "case REAL_CST:".  This is just
    another extension that has to be implemented.  There are no
@@ -160,23 +134,23 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 
 /* Analyzers on the SSA representation.  */
-static void analyze_evolution          (tree, struct loop *);
-static void analyze_evolution_rec      (tree, struct loop *, struct loop *);
-static void analyze_evolution_scc      (varray_type, struct loop*);
-static void analyze_evolution_scc_rec  (tree, struct loop *);
-static void analyze_initial_condition_depth_zero (struct loop *, tree);
-static void analyze_initial_condition  (struct loop *, tree);
-static void analyze_evolution_in_loop  (tree, unsigned);
-static void monev_follow_ssa_edge      (tree, tree);
-static void determine_whether_ssa_name_is_symbolic_parameter (tree, 
-							      struct loop *);
+static void analyze_scalars_from_schedule (varray_type);
+static void analyze_initial_condition  (tree);
+static void analyze_evolution          (tree);
+static void analyze_evolution_scc      (varray_type);
+static void analyze_evolution_in_loop  (tree);
+static void scev_analyze_temporary_modify_expr (struct loop *, tree, tree);
+static void scev_analyze_modify_expr (unsigned, tree, tree, tree, tree *, tree *);
+static void scev_follow_ssa_edge       (tree, tree);
+static tree compute_value_on_exit_of_loop (tree);
+static void compute_overall_effect_of_inner_loop (tree, unsigned);
 static inline bool no_ssa_name_in_arguments_of_phi_node (tree);
 static tree get_loop_phi_node_for_variable (struct loop *, tree);
 
 /* Chrec functions.  */
-static struct monev_info_str *find_var_monev_info (tree);
+static struct scev_info_str *find_var_scev_info (tree);
 static void set_scev                   (unsigned, tree, tree);
-static void set_scev_inner_value       (unsigned, tree, tree);
+static void set_scev_inner_value       (tree, tree);
 static void set_scev_outer_value       (tree, tree);
 static tree get_scev                   (unsigned, tree);
 static tree merge_evolutions           (tree, varray_type);
@@ -187,68 +161,35 @@ static tree add_to_evolution           (unsigned, tree, tree);
 static tree multiply_evolution         (unsigned, tree, tree);
 static inline tree cannot_analyze_loop_nb_iterations_yet (void);
 static inline tree set_nb_iterations_in_loop (struct loop *, tree);
-static tree number_of_iterations_in_loop (struct loop *);
+static tree homogenize_integer_cst_types_for_nb_iter (tree);
+static tree nb_iterations_in_loop_until_eq (unsigned, tree, tree);
 
 /* Scalar Dependence Graph functions.  */
-static void schedule_exit_conditions   (struct loop *, varray_type, 
-					varray_type);
-static void construct_schedule         (varray_type, varray_type);
+static void construct_schedule (unsigned, tree, varray_type);
 
-static void record_dependences_for_ssa_name (struct loop *, tree, 
+static bool record_dependences_for_version (unsigned, tree, varray_type, 
+					    varray_type);
+static void record_dependences_for_opnd (unsigned, tree, tree, 
+					 varray_type, varray_type);
+static void record_dependences_for_phi_node (unsigned, tree, 
 					     varray_type, varray_type);
-static void record_dependences_for_var_rec (struct loop *, struct loop *, 
-					    tree, varray_type, varray_type);
-static inline void 
-record_dependences_for_opnd (struct loop *, tree, tree, varray_type, 
-			     varray_type);
-static inline void 
-record_dependences_for_opnd_rec (struct loop *, tree, tree, tree, 
-				 varray_type, varray_type);
-static void 
-record_dependences_for_modify_expr (struct loop *, tree, varray_type, 
-				    varray_type);
-static void 
-record_dependences_for_modify_expr_rec (struct loop *, tree, tree,
-					varray_type, varray_type);
-static void 
-follow_ssa_edge_and_record_dependences (struct loop *, tree, 
-					varray_type, varray_type);
-static void 
-follow_ssa_edge_and_record_dependences_rec (struct loop *, tree, tree, 
-					    varray_type, varray_type);
-static void 
-SDD_insert_deps_on_loop_exit_vars (struct loop *, tree, struct loop *, 
-				   varray_type, varray_type);
+static void record_dependences_for_modify_expr (unsigned, tree, 
+						varray_type, varray_type);
+static void record_dependences_for_definition (unsigned, tree, 
+					       varray_type, varray_type);
 static void SDD_insert (tree, tree, varray_type);
-static void 
-wolfe_topological_sort_SDD_with_SCCs (varray_type, varray_type, varray_type);
+static void wolfe_topological_sort_SDD_with_SCCs (varray_type, varray_type, 
+						  varray_type);
 static void wolfe_scc_recurse (unsigned int, varray_type, varray_type, 
 			       varray_type, varray_type, varray_type, 
 			       varray_type, varray_type, unsigned int *);
 
-static void analyze_scalars_from_schedule (varray_type);
-
 /* Selection functions.  */
-static bool get_exit_conditions_for_nest (struct loop *, varray_type);
-static bool get_exit_conditions_rec    (struct loop *, varray_type);
+static void get_exit_conditions_rec    (struct loop *, varray_type);
 static tree get_loop_exit_condition    (struct loop *);
 static bool analyzable_condition       (tree);
 
-/* ICCP.  */
-static tree iccp_follow_ssa_edge_and_compute_scev (int, tree, varray_type);
-static void iccp_what_scalars_have_to_be_analyzed_before (struct loop *, tree, 
-							  varray_type);
-static bool iccp_record_dependences_for_ssa_name (struct loop *, tree, 
-						  varray_type, varray_type);
-static void iccp_record_dependences_for_opnd (struct loop *, tree, tree,
-					      varray_type, varray_type);
-static void iccp_record_dependences_for_modify_expr (struct loop *, tree, 
-						     varray_type, varray_type);
-static void iccp_record_dependences (struct loop *, tree, varray_type,
-				     varray_type);
 /* Debugging functions.  */
-static void dump_evolution_functions (varray_type);
-
 extern void dump_schedule_scc (FILE *, varray_type);
 extern void dump_schedule_elt (FILE *, struct schedule_elt *);
 extern void debug_schedule (varray_type);
@@ -275,8 +216,8 @@ tree chrec_bot;
    - the function's parameters.  */
 tree chrec_symbolic_parameter;
 
-static struct loops *monev_loops;
-static varray_type monev_info;
+static struct loops *scev_loops;
+static varray_type scev_info;
 
 /* Debugging dumps.  */
 static FILE *dump_file;
@@ -293,7 +234,7 @@ static inline bool stmt_is_in_loop (tree, unsigned);
 static inline bool
 stmt_is_in_loop (tree stmt, unsigned loop_nb)
 {
-  return flow_bb_inside_loop_p (loop_from_num (monev_loops, loop_nb),
+  return flow_bb_inside_loop_p (loop_from_num (scev_loops, loop_nb),
 				bb_for_stmt (stmt));
 }
 
@@ -313,22 +254,29 @@ loop_is_included_in (unsigned a, unsigned b)
   if (a == b)
     return true;
   
-  return flow_loop_nested_p (loop_from_num (monev_loops, b),
-			     loop_from_num (monev_loops, a));
+  return flow_loop_nested_p (loop_from_num (scev_loops, b),
+			     loop_from_num (scev_loops, a));
 }
 
-
+/* Observers for the EDGE struct.  */
+
+static inline basic_block edge_src (edge);
+
+/* Returns the block at the beginning of the edge.  */
+
+static inline basic_block
+edge_src (edge e)
+{
+  return e->src;
+}
 
 /* Imperative list functions.  */
 
 static inline tree ssa_name_at_index_in_imperative_list (int, varray_type);
 static inline tree var_at_index_in_imperative_list (int, varray_type);
-static inline struct loop *loop_nest_at_index_in_imperative_list (int, 
-								  varray_type);
 static inline int index_of_variable_in_imperative_list (tree, varray_type);
 static inline bool variable_is_in_imperative_list_p (tree, varray_type);
-static inline void insert_ssa_name_in_imperative_list (tree, struct loop *, 
-						       varray_type);
+static inline void insert_ssa_name_in_imperative_list (tree, varray_type);
 
 /* Returns the SSA_NAME at INDEX from the imperative list.  */
 
@@ -350,19 +298,6 @@ var_at_index_in_imperative_list (int index,
 				 varray_type imperative_list)
 {
   return SSA_NAME_VAR (ssa_name_at_index_in_imperative_list (index, imperative_list));
-}
-
-/* Returns the loop nest at INDEX from the imperative list.  */
-
-static inline struct loop *
-loop_nest_at_index_in_imperative_list (int index, 
-				       varray_type imperative_list)
-{
-  struct schedule_elt *sched_elt;
-  
-  sched_elt = (struct schedule_elt *) VARRAY_GENERIC_PTR (imperative_list, 
-							  index);
-  return SCHED_LOOP_NEST (sched_elt);
 }
 
 /* Determines the index of VAR in the imperative list.  */
@@ -396,102 +331,109 @@ variable_is_in_imperative_list_p (tree var,
 
 static inline void
 insert_ssa_name_in_imperative_list (tree ssa_name,
-				    struct loop *loop_nest,
 				    varray_type imperative_list)
 {
   struct schedule_elt *sched_elt;
   
-  if (variable_is_in_imperative_list_p (SSA_NAME_VAR (ssa_name),
-					imperative_list))
-    return;
-  
   DBG_S (fprintf (stderr, "(insert_ssa_name_in_imperative_list \n");
-	 fprintf (stderr, "  loop = %d\n", loop_nest->num);
-	 fprintf (stderr, "  ssa_name = ");
+	 fprintf (stderr, "  (ssa_name = ");
 	 debug_generic_expr (ssa_name);
+	 fprintf (stderr, "  )\n");
 	 fprintf (stderr, ")\n"));
   
   sched_elt = new_schedule_elt ();
-  SCHED_LOOP_NEST (sched_elt) = loop_nest;
   VARRAY_PUSH_TREE (SCHED_SCC (sched_elt), ssa_name);
   VARRAY_PUSH_GENERIC_PTR (imperative_list, sched_elt);
 }
 
 
+/* This section contains the interface to the SSA IR.  */
 
-/* Analyze the evolution of a SSA_NAME in the LOOP_NEST.  */
+/* A quick hack for avoiding infinite recursion.  For example, in
+   gcc/gcc/calls.c:expand_call, we have the following phi nodes:
+   
+   "normal_call_insns_8 = PHI <0B(380), normal_call_insns_9(782)>;
+   normal_call_insns_9 = PHI <normal_call_insns_8(773), T.1529_2087(777), T.1529_2087(778)>;"
+   
+   This results in a loop in the PHI walking.  By the way, is this
+   normally allowed in the SSA representation?  */
 
-static void 
-analyze_evolution (tree ssa_name_to_analyze, 
-		   struct loop *loop_nest)
+static varray_type already_visited;
+static bool node_already_visited_by_ssa_path (tree node);
+
+static bool
+node_already_visited_by_ssa_path (tree node)
 {
-  tree var_to_analyze = SSA_NAME_VAR (ssa_name_to_analyze);
-  tree loop_phi_node;
-  
-  /* At depth zero, analyze only the initial condition.  */
-  if (loop_nest->depth == 0)
-    {
-      analyze_initial_condition_depth_zero 
-	(loop_nest, ssa_name_to_analyze);
-      return;
-    }
-  
-  loop_phi_node = get_loop_phi_node_for_variable 
-    (loop_nest, var_to_analyze);
-  
-  DBG_S (fprintf (stderr, "(analyze_evolution \n");
-	 fprintf (stderr, "  loop_num = %d\n", loop_nest->num);
-	 fprintf (stderr, "  ssa_name_to_analyze = ");
-	 debug_generic_expr (ssa_name_to_analyze));
-  
-  /* The variable has a phi node in this loop: the variable is thus
-     "updated" at every iteration of this loop.  */
-  if (loop_phi_node)
-    {
-      analyze_initial_condition (loop_nest, loop_phi_node);
-      analyze_evolution_in_loop (loop_phi_node, 0);
-    }
-  
-  /* The variable is not modified in this loop, analyze its evolution
-     in the inner loops.  */
-  else if (loop_nest->inner)
-    analyze_evolution_rec (ssa_name_to_analyze, loop_nest, 
-			   loop_nest->inner);
+  if (tree_is_in_varray_tree_p (node, already_visited))
+    return true;
   
   else
-    determine_whether_ssa_name_is_symbolic_parameter 
-      (ssa_name_to_analyze, loop_nest);
-  
-  DBG_S (fprintf (stderr, ")\n"));
+    {
+      VARRAY_PUSH_TREE (already_visited, node);
+      return false;
+    }
 }
 
-/* Recursive version of the analyzer.  This version is used when the
-   loop does not contain a loop phi-node for the analyzed variable.
-   In this case we have to search the phi nodes in the inner and
-   sibling loops.  */
+/* Analyze the evolution of a SSA_NAME.  */
 
 static void 
-analyze_evolution_rec (tree ssa_name_to_analyze, 
-		       struct loop *loop_nest,
-		       struct loop *loop)
+analyze_evolution (tree version_to_analyze)
 {
-  tree var_to_analyze = SSA_NAME_VAR (ssa_name_to_analyze);
-  tree loop_phi_node = get_loop_phi_node_for_variable 
-    (loop, var_to_analyze);
+  tree definition_to_analyze = SSA_NAME_DEF_STMT (version_to_analyze);
+  tree variable_to_analyze = SSA_NAME_VAR (version_to_analyze);
+  tree loop_phi_node;
   
-  if (loop_phi_node)
+  DBG_S (fprintf (stderr, "(analyze_evolution \n");
+	 fprintf (stderr, "  (version_to_analyze = ");
+	 debug_generic_expr (version_to_analyze);
+	 fprintf (stderr, "  )\n"));
+  
+  if (definition_to_analyze != NULL_TREE
+      && TREE_CODE (definition_to_analyze) != NOP_EXPR)
     {
-      analyze_initial_condition (loop_nest, loop_phi_node);
-      analyze_evolution_in_loop (loop_phi_node, 0);
+      loop_phi_node = get_loop_phi_node_for_variable 
+	(loop_of_stmt (definition_to_analyze), variable_to_analyze);
+      
+      /* When the variable has a phi-node in the loop, the variable is
+	 "updated" at every iteration of the loop.  */
+      if (loop_phi_node)
+	{
+	  VARRAY_TREE_INIT (already_visited, 5, "already_visited");
+	  analyze_initial_condition (loop_phi_node);
+	  analyze_evolution_in_loop (loop_phi_node);
+	  varray_clear (already_visited);
+	}
+
+      /* Otherwise, the variable is a temporary (such as those
+	 introduced by the gimplification).  All the operands of the
+	 definition are already analyzed.  The only thing that remains
+	 is to determine an approximation of the definition.  */
+      else
+	{
+	  /* Follow the edge to the definition.  */
+	  tree rdef = definition_to_analyze;
+	  
+	  switch (TREE_CODE (rdef))
+	    {
+	    case PHI_NODE:
+	      /* The only possible case is that this is a condition
+		 phi-node.  */
+	      merge_branches_of_condition_phi_node (rdef);
+	      break;
+	      
+	    case MODIFY_EXPR:
+	      scev_analyze_temporary_modify_expr (loop_of_stmt (rdef),
+						  TREE_OPERAND (rdef, 0), 
+						  TREE_OPERAND (rdef, 1));
+	      break;
+	      
+	    default:
+	      break;
+	    }
+	}
     }
-  else if (loop->inner)
-    analyze_evolution_rec (ssa_name_to_analyze, loop_nest, loop->inner);
-  else
-    determine_whether_ssa_name_is_symbolic_parameter (ssa_name_to_analyze, 
-						      loop_nest);
   
-  if (loop->next)
-    analyze_evolution_rec (ssa_name_to_analyze, loop_nest, loop->next);
+  DBG_S (fprintf (stderr, ")\n"));
 }
 
 /* Analyze the evolution of the variables in MIXER.  
@@ -506,14 +448,13 @@ analyze_evolution_rec (tree ssa_name_to_analyze,
    in the MIXER its initial condition, and an evolution of [-oo, +oo].  */
 
 static void 
-analyze_evolution_scc (varray_type mixer, 
-		       struct loop *loop_nest)
+analyze_evolution_scc (varray_type mixer ATTRIBUTE_UNUSED)
 {
-  unsigned k;
-  
   DBG_S (fprintf (stderr, "(analyze_evolution_scc \n");
-	 fprintf (stderr, "  loop_num = %d", loop_nest->num);
 	 dump_schedule_scc (stderr, mixer));
+
+#if 0  
+  unsigned k;
   
   for (k = 0; k < VARRAY_ACTIVE_SIZE (mixer); k++)
     {
@@ -537,111 +478,27 @@ analyze_evolution_scc (varray_type mixer,
 	     reset_evolution_in_loop (loop_nest->num, 
 	     get_scev (0, var_to_analyze),
 	     chrec_top));  */
-	  set_scev (loop_nest->num, var_to_analyze, chrec_top);
-	}
-      else
-	{
-	  /* The variable is a constant in this loop, analyze its
-	     evolution in the inner loops.  */
-	  if (loop_nest->inner)
-	    analyze_evolution_scc_rec 
-	      (var_to_analyze, loop_nest->inner);
+	  set_scev (loop_num (loop_nest), var_to_analyze, chrec_top);
 	}
     }
-}
-
-/* Helper function.  */
-
-static void
-analyze_evolution_scc_rec (tree var_to_analyze, 
-			   struct loop *loop_nest)
-{
-  tree loop_phi_node = get_loop_phi_node_for_variable 
-    (loop_nest, var_to_analyze);
-  
-  if (loop_phi_node)
-    {
-      /* FIXME analysis of mixers: For the moment, set the evolution
-	 in this loop to chrec_top.  There is no need to analyze the
-	 initial condition for the moment.
-	 
-	 analyze_initial_condition (loop_nest, loop_phi_node);
-	 set_scev (loop_nest->num, var_to_analyze, 
-	 reset_evolution_in_loop (loop_nest->num, 
-	 get_scev (0, var_to_analyze),
-	 chrec_top));
-      */
-      set_scev (loop_nest->num, var_to_analyze, chrec_top);
-    }
-  else if (loop_nest->inner)
-    analyze_evolution_scc_rec (var_to_analyze, loop_nest->inner);
-  
-  if (loop_nest->next)
-    analyze_evolution_scc_rec (var_to_analyze, loop_nest->next);
-}
-
-/* Given an SSA_NAME, follow the edge to its definition, and try to
-   determine the initial condition for the variable knowing that we
-   search this information in the outermost loop, at depth zero.  */
-
-static void 
-analyze_initial_condition_depth_zero (struct loop *loop_nest, 
-				      tree ssa_name_to_analyze)
-{
-  tree upper_chain, res;
-  
-#if defined ENABLE_CHECKING
-  if (ssa_name_to_analyze == NULL_TREE)
-    abort ();
 #endif
-  
-  DBG_S (fprintf (stderr, "(analyze_initial_condition_depth_zero \n");
-	 fprintf (stderr, "  loop_nest.depth = %d \n", loop_nest->depth);
-	 fprintf (stderr, "  ssa_name_to_analyze = ");
-	 debug_generic_expr (ssa_name_to_analyze));
-  
-  upper_chain = SSA_NAME_DEF_STMT (ssa_name_to_analyze);
-  
-  switch (TREE_CODE (upper_chain))
-    {
-    case ASM_EXPR:
-    case NOP_EXPR:
-      DBG_S (fprintf (stderr, ")\n"));
-      return;
-      
-    case PHI_NODE:
-      merge_branches_of_condition_phi_node (upper_chain);
-      DBG_S (fprintf (stderr, ")\n"));
-      return;
-      
-    default:
-      break;
-    }
-  
-  res = iccp_determine_evolution_function (loop_nest, upper_chain);
-  
-  set_scev_inner_value (0, ssa_name_to_analyze, 
-			initial_condition (res));
-  set_scev (0, SSA_NAME_VAR (ssa_name_to_analyze), res);
   
   DBG_S (fprintf (stderr, ")\n"));
 }
 
-
 /* Given a loop phi-node, this function determines the initial
-   conditions of the variable on entry of the loop.  This function is
-   just a wrapper around the ICCP, and is specific to the case of loop
-   phi-nodes, where we have to determine the edge going out of the
-   current loop.  */
+   conditions of the variable on entry of the loop.  When the CCP has
+   propagated constants into the loop-phi-node, the initial condition
+   is instantiated, otherwise the initial condition is kept symbolic.
+   This analyzer does not analyze the evolution outside the current
+   loop, and leaves this task to the on-demand tree reconstructor.  */
 
 static void 
-analyze_initial_condition (struct loop *loop_nest, 
-			   tree loop_phi_node)
+analyze_initial_condition (tree loop_phi_node)
 {
-  unsigned aphi_num, aphi_depth;
   int i;
   tree res = chrec_not_analyzed_yet;
-  tree original_chrec = chrec_not_analyzed_yet;
+  tree original_chrec;
   varray_type branch_chrecs;
   
 #if defined ENABLE_CHECKING
@@ -650,14 +507,12 @@ analyze_initial_condition (struct loop *loop_nest,
 #endif
   
   DBG_S (fprintf (stderr, "(analyze_initial_condition \n");
-	 fprintf (stderr, "  loop_phi_node = \n");
-	 debug_generic_expr (loop_phi_node));
-
+	 fprintf (stderr, "  (loop_phi_node = \n");
+	 debug_generic_expr (loop_phi_node);
+	 fprintf (stderr, "  )\n"));
+  
   VARRAY_TREE_INIT (branch_chrecs, 2, "branch_chrecs");
   original_chrec = get_scev (0, SSA_NAME_VAR (PHI_RESULT (loop_phi_node)));
-  
-  aphi_num = bb_for_stmt (loop_phi_node)->loop_father->num;
-  aphi_depth = bb_for_stmt (loop_phi_node)->loop_father->depth;
   
   for (i = 0; i < PHI_NUM_ARGS (loop_phi_node); i++)
     {
@@ -677,42 +532,39 @@ analyze_initial_condition (struct loop *loop_nest,
 	case SSA_NAME:
 	  upper_chain = SSA_NAME_DEF_STMT (branch);
 	  
-	  /* If the phi node has a NOP_EXPR or a NULL_TREE argument,
+	  /* When the phi node has a NOP_EXPR or a NULL_TREE argument,
 	     then this argument is the initial condition, and thus the
 	     initial condition is not known.  No precise information
 	     can be extracted from the program: the initial condition
-	     is set by default at [-oo, +oo].  */
+	     is set by default at [-oo, +oo].
+	     
+	     FIXME: I'm not sure whether this is a correct
+	     interpretation of the SSA representation, but setting the
+	     branch_effect to chrec_top is a safe answer.  */
 	  if (upper_chain == NULL_TREE 
 	      || TREE_CODE (upper_chain) == NOP_EXPR)
 	    branch_effect = chrec_top;
 	  
-	  else 
-	    {
-	      unsigned upper_chain_depth = bb_for_stmt 
-		(upper_chain)->loop_father->depth;
-	      
-	      /* UPPER_CHAIN is a definition outside the current loop
-		 nest: determine the initial conditions.  */
-	      if (upper_chain_depth < aphi_depth)
-		{
-		  /* KEEP_IT_SYMBOLIC.  When the definition contains
-		     VUSE_OPS, keep the branch's effect under a
-		     symbolic expression.  */
-		  if (VUSE_OPS (stmt_ann (upper_chain)))
-		    branch_effect = branch;
-		  
-		  else
-		    branch_effect = iccp_determine_evolution_function 
-		      (bb_for_stmt (upper_chain)->loop_father, upper_chain);
-		}
-	      
-	      else
-		continue;
-	    }
+	  /* When UPPER_CHAIN is a definition outside the current
+	     loop nest, KEEP_IT_SYMBOLIC.  */
+	  else if (loop_depth (loop_of_stmt (upper_chain))
+		   < loop_depth (loop_of_stmt (loop_phi_node)))
+	    branch_effect = evolution_at_version 
+	      (loop_num (loop_of_stmt (loop_phi_node)), branch);
+	  
+	  /* When the branch is oriented to the loop's body, we don't
+	     want to push the effect of this branch: it does not
+	     contribute to the initial condition.  */
+	  else
+	    continue;
+	  
 	  break;
 	  
 	default:
-	  branch_effect = get_scev (loop_nest->num, branch);
+	  /* In the default case fall all the scalars propagated in
+	     the loop phi node by the CCP.  */
+	  branch_effect = get_scev 
+	    (loop_num (loop_of_stmt (loop_phi_node)), branch);
 	  break;
 	}
       
@@ -721,11 +573,15 @@ analyze_initial_condition (struct loop *loop_nest,
   
   if (VARRAY_ACTIVE_SIZE (branch_chrecs) == 1)
     res = VARRAY_TREE (branch_chrecs, 0);
+  
+  /* When there are multiple branches that go outside the loop, then
+     the result is the merge of all these branches.  */
   else
     res = merge_evolutions (original_chrec, branch_chrecs);
+  
   varray_clear (branch_chrecs);
   
-  set_scev_inner_value (aphi_num, PHI_RESULT (loop_phi_node), 
+  set_scev_inner_value (PHI_RESULT (loop_phi_node), 
 			initial_condition (res));
   set_scev (0, SSA_NAME_VAR (PHI_RESULT (loop_phi_node)), res);
   
@@ -737,10 +593,8 @@ analyze_initial_condition (struct loop *loop_nest,
    evolution function for VAR in the current loop.  */
 
 static void
-analyze_evolution_in_loop (tree loop_phi_node, 
-			   unsigned halting_num)
+analyze_evolution_in_loop (tree loop_phi_node)
 {
-  unsigned aphi_depth;
   int i;
   
 #if defined ENABLE_CHECKING
@@ -749,170 +603,668 @@ analyze_evolution_in_loop (tree loop_phi_node,
 #endif
   
   DBG_S (fprintf (stderr, "(analyze_evolution_in_loop \n");
-	 fprintf (stderr, "  loop_phi_node = \n");
-	 debug_generic_expr (loop_phi_node));
-  
-  aphi_depth = bb_for_stmt (loop_phi_node)->loop_father->depth;
+	 fprintf (stderr, "  (loop_phi_node = \n");
+	 debug_generic_expr (loop_phi_node);
+	 fprintf (stderr, "  )\n"));
   
   for (i = 0; i < PHI_NUM_ARGS (loop_phi_node); i++)
     {
       tree arg = PHI_ARG_DEF (loop_phi_node, i);
       
+      /* The arguments that are not SSA_NAMEs don't come from the
+	 loop's body.  */
       if (TREE_CODE (arg) == SSA_NAME)
 	{
 	  tree inner_chain = SSA_NAME_DEF_STMT (arg);
 	  
-	  /* Select the edges that enters the loop body
-	     (inner_chain).  */
+	  /* Select the edges that enter the loop body.  */
 	  if (inner_chain != NULL_TREE 
 	      && TREE_CODE (inner_chain) != NOP_EXPR
-	      && (((unsigned) bb_for_stmt (inner_chain)->loop_father->depth) 
-		  >= aphi_depth))
+	      && (loop_depth (loop_of_stmt (inner_chain))
+		  >= loop_depth (loop_of_stmt (loop_phi_node))))
 	    {
-	      tree nb_iter;
-	      unsigned loop_phi_node_num;
-	      struct loop *loop_phi_node_father;
+	      if (SSA_NAME_VAR (arg) 
+		  == SSA_NAME_VAR (PHI_RESULT (loop_phi_node)))
+		scev_follow_ssa_edge (inner_chain, loop_phi_node);
 	      
-	      monev_follow_ssa_edge (inner_chain, loop_phi_node);
-	      
-	      loop_phi_node_father = bb_for_stmt (loop_phi_node)->loop_father;
-	      loop_phi_node_num = loop_phi_node_father->num;
-	      
-	      /* If we have determined that the branch has an undefinite evolution, 
-		 then reset the evolution of the main variable consequently.  */
-	      if (get_scev (loop_phi_node_num, arg) == chrec_top)
-		{
-		  tree ssnv = SSA_NAME_VAR (PHI_RESULT (loop_phi_node));
-		  set_scev (0, ssnv, 
-			    reset_evolution_in_loop (loop_phi_node_num, 
-						     get_scev (0, ssnv),
-						     chrec_top));
-		}
-	      
-	      nb_iter = number_of_iterations_in_loop (loop_phi_node_father);
-	      
-	      if (nb_iter == chrec_top)
-		{
-		  /* If the number of iterations is not known, set the
-		     evolution to chrec_top.  As an example, consider
-		     the following loop:
-		     
-		     | i = 5
-		     | loop 
-		     |   i = i + 1
-		     |   loop k = 1, Unknown_N
-		     |     i = i + 3
-		     |   endloop
-		     | endloop
-		     
-		     since it is impossible to know the number of
-		     iterations in the inner loop, the evolution of i
-		     in the outer loop becomes unknown.
-		     
-		     FIXME: It is possible to say that the evolution
-		     of i in the outer loop is:
-		     
-		     {5, +, [1, +oo]}_1 
-		     
-		     instead of the current rough approximation:
-		     
-		     {5, +, [-oo, +oo]}_1.
-		  */
-		  if (halting_num != 0)
-		    {
-		      tree ssnv = SSA_NAME_VAR (PHI_RESULT (loop_phi_node));
-		      set_scev (0, ssnv, 
-				reset_evolution_in_loop (halting_num, 
-							 get_scev (0, ssnv),
-							 chrec_top));
-		    }
-		}
 	      else
 		{
-		  tree overall_effect;
-		  tree new_evol, exit_value;
-		  tree evolution_fn;
+		  /* The phi node is under the form: 
+		     "a = phi (..., t, ...)", where t has already 
+		     been analyzed symbolically. 
+		     testsuite/.../ssa-chrec-36.c  */
+		  tree evolution_function, effect_after_execution;
+		  unsigned loop_nb = loop_num (loop_of_stmt (loop_phi_node));
 		  
-		  /* An example: given the evolution 
-
-		     "{{[22,22], +, [4,4]}_1, +, [1,3]}_2", 
-
-		     and the fact that the loop 2 runs exactly 6
-		     times, the overall effect is obtained by
-		     evaluating:
-		     
-		     "({{[22,22], +, [4,4]}_1, +, [1,3]}_2 - initial_conditions) (2, [6,6])"
-		     "({{[22,22], +, [4,4]}_1, +, [1,3]}_2 - [22,22]) (2, [6,6])"
-		     "{{[0,0], +, [4,4]}_1, +, [1,3]}_2 (2, [6,6])"
-		     "[6,18]".
-		     
-		     That means that the effect of the inner loop 2 in
-		     the outer loop 1 is that of adding an integer
-		     between 6 and 18 every time the loop 1 is
-		     executed.  The evolution function is thus:
-		     
-		     "{{[22,22], +, [10,22]}_1, +, [1,3]}_2".
-		  */
+		  scev_analyze_modify_expr 
+		    (loop_nb,
+		     PHI_RESULT (loop_phi_node),
+		     evolution_at_version (loop_nb, arg), 
+		     loop_phi_node, 
+		     &evolution_function, 
+		     &effect_after_execution);
 		  
-		  evolution_fn = get_scev 
-		    (0, SSA_NAME_VAR (PHI_RESULT (loop_phi_node)));
-		  
-		  overall_effect = chrec_apply
-		    (loop_phi_node_num,
-		     update_initial_condition_to_origin
-		     (evolution_function_in_loop_num (evolution_fn, 
-						      loop_phi_node_num)),
-		     nb_iter);
-		  
-		  /* On exit of the loop, the value of the variable is
-		     equal to the sum of its initial condition with
-		     the loop's overall effect.  */
-		  exit_value = chrec_fold_plus 
-		    (get_scev (loop_phi_node_num, PHI_RESULT (loop_phi_node)), 
-		     overall_effect);
-		  
-		  /* A loop phi node has two values: 
-		     
-		     - one exposed to the statements in the inner
-		     loop,
-		     
-		     - the other that is seen by the statements after
-		     the loop.
-		     
-		     This updates the exit value of the loop's phi node.  */
-		  set_scev_outer_value (PHI_RESULT (loop_phi_node), 
-					exit_value);
-		  
-		  /* We're not interested in the evolution in the
-		     outermost scope: loop 0 represents the analyzed
-		     function.  Maybe in an interprocedural analysis
-		     this information could be useful, but for
-		     interprocedural analysis we would need another
-		     type of loop indexing.  */
-		  if (halting_num != 0)
-		    {
-		      if (TREE_CODE (overall_effect) == EXPONENTIAL_CHREC)
-			/* testsuite/.../ssa-chrec-41.c.  */
-			new_evol = multiply_evolution
-			  (loop_phi_node_father->outer->num, 
-			   get_scev (loop_phi_node_num, 
-				     SSA_NAME_VAR 
-				     (PHI_RESULT (loop_phi_node))), 
-			   overall_effect);
-		      else 
-			new_evol = add_to_evolution 
-			  (loop_phi_node_father->outer->num, 
-			   get_scev (loop_phi_node_num, 
-				     SSA_NAME_VAR 
-				     (PHI_RESULT (loop_phi_node))), 
-			   overall_effect);
-		      
-		      set_scev (0, SSA_NAME_VAR (PHI_RESULT (loop_phi_node)),
-				new_evol);
-		    }
+		  /* Set the evolution_function, but don't update the
+		     effect_after_execution, because the loop-phi-node
+		     has the right initial condition already set, and
+		     its value on exit of the loop is computed after
+		     the computation of the number of iterations.  */
+		  set_scev (0, SSA_NAME_VAR (PHI_RESULT (loop_phi_node)), 
+			    evolution_function);
 		}
 	    }
 	}
+    }
+  
+  DBG_S (fprintf (stderr, ")\n"));
+}
+
+/* Analyzes a modify expression whose result is a temporary name.
+   This function is similar to the scev_follow_ssa_edge.  It does not
+   recognize evolution patterns such as "i = i + ...", but only the
+   expressions: "T = U op V", where all the operands have already
+   analyzed evolutions.  The modify expression is under the form:
+   "OPND0 = OPND1".  */
+
+static void
+scev_analyze_temporary_modify_expr (struct loop *loop,
+				    tree opnd0,
+				    tree opnd1)
+{
+  unsigned loop_nb = loop_num (loop);
+  
+  DBG_S (fprintf (stderr, "(scev_analyze_temporary_modify_expr \n");
+	 fprintf (stderr, "  (opnd0 = \n");
+	 debug_generic_expr (opnd0);
+	 fprintf (stderr, "  )\n");
+	 fprintf (stderr, "  (opnd1 = \n");
+	 debug_generic_expr (opnd1);
+	 fprintf (stderr, "  )\n"));
+  
+  /* The OPND1 is one of the following cases:
+     - an SSA_NAME, 
+     - an INTEGER_CST,
+     - a PLUS_EXPR, 
+     - a MINUS_EXPR,
+     - other cases are not yet handled. 
+  */
+  switch (TREE_CODE (opnd1))
+    {
+    case INTEGER_CST:
+      {
+	tree res;
+	
+	/* This assignment is under the form "a_1 = 7".  */
+	res = evolution_at_version (loop_nb, opnd1);
+	set_scev (loop_nb, opnd0, res);
+	set_scev (0, SSA_NAME_VAR (opnd0), res);
+	break;
+      }
+
+    case SSA_NAME:
+      if (SSA_NAME_VAR (opnd0) == SSA_NAME_VAR (opnd1))
+	{
+	  /* FIXME does this happen?
+	     This is a strange case: "a_1 = a_2".  */
+	  abort ();
+	}
+      else
+	{
+	  tree res;
+	  
+	  /* This assignment is under the form: "a_1 = b_2".  */
+	  res = evolution_at_version (loop_nb, opnd1);
+	  set_scev (loop_nb, opnd0, initial_condition (res));
+	  set_scev (0, SSA_NAME_VAR (opnd0), res);
+	}
+      break;
+      
+    case PLUS_EXPR:
+      {
+	/* This case is under the form "opnd0 = opnd10 + opnd11", or
+	   "T = x + y", where T is the temporary variable, and x, y
+	   two scalars.  */
+	tree opnd10, opnd11;
+	tree chrec10, chrec11, chrec_sum;
+	
+	opnd10 = TREE_OPERAND (opnd1, 0);
+	opnd11 = TREE_OPERAND (opnd1, 1);
+	chrec10 = evolution_at_version (loop_nb, opnd10);
+	chrec11 = evolution_at_version (loop_nb, opnd11);
+	
+	chrec_sum = chrec_fold_plus (chrec10, chrec11);
+	set_scev (loop_nb, opnd0, initial_condition (chrec_sum));
+
+	if (loop_depth (loop) == 0)
+	  {
+	    /* In the outermost loop strange things can happen...  */
+	    tree evolution_part = evolution_part_in_loop_num
+	      (chrec_sum, loop_nb);
+	    
+	    if (evolution_part != NULL_TREE)
+	      set_scev (0, SSA_NAME_VAR (opnd0), reset_evolution_in_loop 
+			(loop_nb, get_scev (0, SSA_NAME_VAR (opnd0)), 
+			 evolution_part));
+    	  }
+	
+	else
+	  set_scev (0, SSA_NAME_VAR (opnd0), chrec_sum);
+	
+	break;
+      }
+      
+    case MINUS_EXPR:
+      {
+	/* This case is under the form "opnd0 = opnd10 - opnd11", or
+	   "T = x - y", where T is the temporary variable, and x, y
+	   two scalars.  */
+	tree opnd10, opnd11;
+	tree chrec10, chrec11, chrec_diff;
+	
+	opnd10 = TREE_OPERAND (opnd1, 0);
+	opnd11 = TREE_OPERAND (opnd1, 1);
+	chrec10 = evolution_at_version (loop_nb, opnd10);
+	chrec11 = evolution_at_version (loop_nb, opnd11);
+	
+	chrec_diff = chrec_fold_minus (chrec10, chrec11);
+	set_scev (loop_nb, opnd0, initial_condition (chrec_diff));
+	
+	if (loop_depth (loop) == 0)
+	  {
+	    /* In the outermost loop strange things can happen...
+	       since we don't have the "okay, once we're at the bottom
+	       of the loop's body, we start over again from the
+	       beginning of the loop" thing.  see
+	       testsuite/.../ssa-chrec-46.c  */
+	    tree evolution_part = evolution_part_in_loop_num
+	      (chrec_diff, loop_nb);
+	    
+	    if (evolution_part != NULL_TREE)
+	      set_scev (0, SSA_NAME_VAR (opnd0), reset_evolution_in_loop 
+			(loop_nb, get_scev (0, SSA_NAME_VAR (opnd0)), 
+			 evolution_part));
+    	  }
+
+	else
+	  set_scev (0, SSA_NAME_VAR (opnd0), chrec_diff);
+	
+	break;
+      }
+      
+    case MULT_EXPR:
+      {
+	/* This case is under the form "opnd0 = opnd10 * opnd11", or
+	   "T = x * y", where T is the temporary variable, and x, y
+	   two scalars.  */
+	tree opnd10, opnd11;
+	tree chrec10, chrec11, chrec_prod;
+	
+	opnd10 = TREE_OPERAND (opnd1, 0);
+	opnd11 = TREE_OPERAND (opnd1, 1);
+	chrec10 = evolution_at_version (loop_nb, opnd10);
+	chrec11 = evolution_at_version (loop_nb, opnd11);
+	
+	chrec_prod = chrec_fold_multiply (chrec10, chrec11);
+	set_scev (loop_nb, opnd0, initial_condition (chrec_prod));
+	
+	if (loop_depth (loop) == 0)
+	  {
+	    /* In the outermost loop strange things can happen...  */
+	    tree evolution_part = evolution_part_in_loop_num
+	      (chrec_prod, loop_nb);
+	    
+	    if (evolution_part != NULL_TREE)
+	      set_scev (0, SSA_NAME_VAR (opnd0), reset_evolution_in_loop 
+			(loop_nb, get_scev (0, SSA_NAME_VAR (opnd0)), 
+			 evolution_part));
+	  }
+	
+	else
+	  set_scev (0, SSA_NAME_VAR (opnd0), chrec_prod);
+	
+	break;
+      }
+      
+    default:
+      set_scev (loop_nb, opnd0, chrec_top);
+      set_scev (0, SSA_NAME_VAR (opnd0), chrec_top);
+      break;
+    }
+  
+  DBG_S (fprintf (stderr, ")\n"));
+}
+
+/* Helper function for analyzing a modify expression "OPND0 = OPND1"
+   in the context of loop LOOP_NB.  The EVOLUTION_FUNCTION is the new
+   evolution function after having analyzed the statement, and the
+   EFFECT_AFTER_EXECUTION is the initial condition of OPND1.  */
+
+static void
+scev_analyze_modify_expr (unsigned loop_nb,
+			  tree opnd0, 
+			  tree opnd1, 
+			  tree halting_phi, 
+			  tree *evolution_function, 
+			  tree *effect_after_execution)
+{
+  tree var;
+  
+  DBG_S (fprintf (stderr, "(scev_analyze_modify_expr \n");
+	 fprintf (stderr, "  (opnd0 = \n");
+	 debug_generic_expr (opnd0);
+	 fprintf (stderr, "  )\n");
+	 fprintf (stderr, "  (opnd1 = \n");
+	 debug_generic_expr (opnd1);
+	 fprintf (stderr, "  )\n"));
+  
+  var = SSA_NAME_VAR (opnd0);
+	
+  /* The OPND1 is one of the following cases:
+     - an SSA_NAME, 
+     - an INTEGER_CST,
+     - a PLUS_EXPR, 
+     - a MINUS_EXPR,
+     - other cases are not yet handled. 
+  */
+  switch (TREE_CODE (opnd1))
+    {
+    case INTEGER_CST:
+      {
+	/* FIXME wrap_around:  
+	   This assignment is under the form "a_1 = 7".  */
+	*effect_after_execution = chrec_top;
+	*evolution_function = chrec_top;
+	break;
+      }
+	    
+    case SSA_NAME:
+      if (var == SSA_NAME_VAR (opnd1))
+	{
+	  /* FIXME does this happen?
+	     This is a strange case: "a_1 = a_2".  */
+	  abort ();
+	}
+      else
+	{
+	  /* FIXME wrap_around:
+	     This assignment is under the form: "a_1 = b_2".  */
+	  *effect_after_execution = chrec_top;
+	  *evolution_function = chrec_top;
+	}
+      break;
+	    
+    case PLUS_EXPR:
+      {
+	/* This case is under the form "opnd0 = opnd10 + opnd11".  */
+	tree opnd10, opnd11;
+	      
+	opnd10 = TREE_OPERAND (opnd1, 0);
+	opnd11 = TREE_OPERAND (opnd1, 1);
+	      	      
+	if (TREE_CODE (opnd10) == SSA_NAME)
+	  {
+
+	    /* Match an assignment under the form: 
+	       "a_1 = a_2 + ...".  */
+	    if (SSA_NAME_VAR (opnd10) == var)
+	      {
+		tree upper_chain = SSA_NAME_DEF_STMT (opnd10);
+		tree chrec10, chrec11, chrec_before;
+		tree to_be_added;
+		      
+		/* Recursively construct the SSA path.  */
+		scev_follow_ssa_edge (upper_chain, halting_phi);
+		      
+		/* Analyze the assignment on the return walk.  */
+
+		chrec_before = get_scev (0, var);
+		if (chrec_should_remain_symbolic (chrec_before))
+		  /* KEEP_IT_SYMBOLIC.  */
+		  chrec_before = opnd10;
+		      
+		chrec10 = evolution_at_version (loop_nb, opnd10);
+		chrec11 = evolution_at_version (loop_nb, opnd11);
+		      
+		if (chrec_should_remain_symbolic (chrec11))
+		  /* KEEP_IT_SYMBOLIC.  
+		     Don't propagate unknown values, but instead, 
+		     keep the evolution function under a symbolic 
+		     form.  Example: testsuite/.../ssa-chrec-17.c.  */
+		  to_be_added = opnd11;
+		      
+		else
+		  to_be_added = chrec11;
+		      
+		*effect_after_execution = chrec_fold_plus 
+		  (initial_condition (chrec10), 
+		   initial_condition (to_be_added));
+		      
+		*evolution_function = add_to_evolution 
+		  (loop_nb, chrec_before, to_be_added);
+	      }
+	    
+	    /* Otherwise the assignment is under the form: 
+	       "a_1 = b_2 + ...".  */
+	    else
+	      {
+
+		/* Match an assignment under the form: 
+		   "a_1 = b_2 + a_3".  */
+		if (TREE_CODE (opnd11) == SSA_NAME
+		    && SSA_NAME_VAR (opnd11) == var)
+		  {
+		    tree upper_chain = SSA_NAME_DEF_STMT (opnd11);
+		    tree chrec10, chrec11, chrec_before;
+		    tree to_be_added;
+			  
+		    /* Recursively construct the SSA path.  */
+		    scev_follow_ssa_edge (upper_chain, halting_phi);
+			  
+		    /* Analyze the assignment on the return walk.  */
+			  
+		    chrec_before = get_scev (0, var);
+		    if (chrec_should_remain_symbolic (chrec_before))
+		      /* KEEP_IT_SYMBOLIC.  */
+		      chrec_before = opnd11;
+			  
+		    chrec10 = evolution_at_version (loop_nb, opnd10);
+		    chrec11 = evolution_at_version (loop_nb, opnd11);
+		    if (chrec_should_remain_symbolic (chrec10))
+		      /* KEEP_IT_SYMBOLIC.  */
+		      to_be_added = opnd10;
+			  
+		    else
+		      to_be_added = chrec10;
+			  
+		    *effect_after_execution = chrec_fold_plus 
+		      (initial_condition (chrec11), 
+		       initial_condition (to_be_added));
+			  
+		    *evolution_function = add_to_evolution 
+		      (loop_nb, chrec_before, to_be_added);
+		  }
+		
+		/* Match an assignment under the form: 
+		   "a_1 = b_2 + c_3".  */
+		else
+		  {
+		    /* FIXME wrap_around.  */
+		    *effect_after_execution = chrec_top;
+		    *evolution_function = chrec_top;
+		  }
+	      }
+	  }
+	      
+	else if (TREE_CODE (opnd11) == SSA_NAME)
+	  {
+	    if (SSA_NAME_VAR (opnd11) == var)
+	      {
+		/* FIXME does this happen? 
+		   The assignment is under the form: 
+		   "a_1 = 5 + a_2".  
+		   From what I've seen, this case is turned into:
+		   "a_1 = a_2 + 5".  */
+		abort ();
+	      }
+		  
+	    else
+	      {
+		/* FIXME wrap_around:
+		   The assignment is under the form: "a_1 = 5 + b_2.  */
+		*effect_after_execution = chrec_top;
+		*evolution_function = chrec_top;
+	      }
+	  }
+	      
+	else
+	  {
+	    /* The arguments do not contain SSA_NAMEs.  For
+	       example, this could be the computation of a
+	       memory address as in:
+		     
+	       java/jcf-io.c: "buf_ptr_7 = &buf + 68B".  */
+	    *effect_after_execution = opnd1;
+	    *evolution_function = opnd1;
+	  }
+	      
+	break;
+      }
+	    
+    case MINUS_EXPR:
+      {
+	/* This case is under the form "opnd0 = opnd10 - opnd11".  */
+	tree opnd10, opnd11;
+	      
+	opnd10 = TREE_OPERAND (opnd1, 0);
+	opnd11 = TREE_OPERAND (opnd1, 1);
+	      
+	if (TREE_CODE (opnd10) == SSA_NAME)
+	  {
+
+	    /* Match an assignment under the form: 
+	       "a_1 = a_2 - ...".  */
+	    if (SSA_NAME_VAR (opnd10) == var)
+	      {
+		tree upper_chain = SSA_NAME_DEF_STMT (opnd10);
+		tree chrec10, chrec11, chrec_before;
+		tree to_be_added;
+		      
+		/* Recursively construct the SSA path.  */
+		scev_follow_ssa_edge (upper_chain, halting_phi);
+		      
+		/* Analyze the assignment on the return walk.  */
+		      
+		chrec_before = get_scev (0, var);
+		if (chrec_should_remain_symbolic (chrec_before))
+		  /* KEEP_IT_SYMBOLIC.  */
+		  chrec_before = opnd10;
+		      
+		chrec10 = evolution_at_version (loop_nb, opnd10);
+		chrec11 = evolution_at_version (loop_nb, opnd11);
+		if (chrec_should_remain_symbolic (chrec11))
+		  /* KEEP_IT_SYMBOLIC.  */
+		  to_be_added = chrec_fold_multiply (opnd11,
+						     integer_minus_one_node);
+		else
+		  to_be_added = chrec_fold_multiply (chrec11,
+						     integer_minus_one_node);
+		      
+		*effect_after_execution = chrec_fold_plus 
+		  (initial_condition (chrec10), 
+		   initial_condition (to_be_added));
+		      
+		*evolution_function = add_to_evolution 
+		  (loop_nb, chrec_before, to_be_added);
+	      }
+		  
+	    /* Otherwise the assignment is under the form: 
+	       "a_1 = b_2 - ...".  */
+	    else
+	      {
+		
+		/* Match an assignment under the form: 
+		   "a_1 = b_2 - a_3".  */
+		if (TREE_CODE (opnd11) == SSA_NAME
+		    && SSA_NAME_VAR (opnd11) == var)
+		  {
+		    /* FIXME arithmetic flip-flop.  */
+		    *effect_after_execution = chrec_top;
+		    *evolution_function = chrec_top;
+		  }
+		
+		/* Otherwise the assignment is under the form: 
+		   "a_1 = b_2 - c_3".  */
+		else
+		  {
+		    /* FIXME wrap_around.  */
+		    *effect_after_execution = chrec_top;
+		    *evolution_function = chrec_top;
+		  }
+	      }
+	  }
+	      
+	else if (TREE_CODE (opnd11) == SSA_NAME)
+	  {
+
+	    /* Match an assignment under the form: 
+	       "a_1 = 5 - a_2".  */
+	    if (SSA_NAME_VAR (opnd11) == var)
+	      {
+		/* FIXME arithmetic flip-flop.  */
+		*effect_after_execution = chrec_top;
+		*evolution_function = chrec_top;
+	      }
+	    
+	    /* Otherwise the assignment is under the form: 
+	       "a_1 = 5 - b_2.  */
+	    else
+	      {
+		/* FIXME wrap_around.  */
+		*effect_after_execution = chrec_top;
+		*evolution_function = chrec_top;
+	      }
+	  }
+	      
+	else
+	  {
+	    /* The arguments do not contain SSA_NAMEs.  */
+	    *effect_after_execution = opnd1;
+	    *evolution_function = opnd1;
+	  }
+	break;
+      }
+	    
+    case MULT_EXPR:
+      {
+	/* This case is under the form "opnd0 = opnd10 * opnd11".  */
+	tree opnd10, opnd11;
+	      
+	opnd10 = TREE_OPERAND (opnd1, 0);
+	opnd11 = TREE_OPERAND (opnd1, 1);
+	      	      
+	if (TREE_CODE (opnd10) == SSA_NAME)
+	  {
+	    
+	    /* Match an assignment under the form: 
+	       "a_1 = a_2 * ...".  */
+	    if (SSA_NAME_VAR (opnd10) == var)
+	      {
+		tree upper_chain = SSA_NAME_DEF_STMT (opnd10);
+		tree chrec10, chrec11, chrec_before;
+		tree to_be_multiplied;
+		      
+		/* Recursively construct the SSA path.  */
+		scev_follow_ssa_edge (upper_chain, halting_phi);
+		/* Then, analyze the assignment on the return walk.  */
+		      
+		chrec_before = get_scev (0, var);
+		if (chrec_should_remain_symbolic (chrec_before))
+		  /* KEEP_IT_SYMBOLIC.  */
+		  chrec_before = opnd10;
+		      
+		chrec10 = evolution_at_version (loop_nb, opnd10);
+		chrec11 = evolution_at_version (loop_nb, opnd11);
+		if (chrec_should_remain_symbolic (chrec11))
+		  /* KEEP_IT_SYMBOLIC.  */
+		  to_be_multiplied = opnd11;
+		else
+		  to_be_multiplied = chrec11;
+		      
+		*effect_after_execution = chrec_fold_multiply 
+		  (initial_condition (chrec10), 
+		   initial_condition (to_be_multiplied));
+		
+		*evolution_function = multiply_evolution 
+		  (loop_nb, chrec_before, to_be_multiplied);
+	      }
+	  
+	    /* Otherwise the assignment is under the form: 
+	       "a_1 = b_2 * ...".  */
+	    else
+	      {
+
+		/* Match an assignment under the form: 
+		   "a_1 = b_2 * a_3".  */
+		if (TREE_CODE (opnd11) == SSA_NAME
+		    && SSA_NAME_VAR (opnd11) == var)
+		  {
+		    tree upper_chain = SSA_NAME_DEF_STMT (opnd11);
+		    tree chrec10, chrec11, chrec_before;
+		    tree to_be_multiplied;
+			  
+		    /* Recursively construct the SSA path.  */
+		    scev_follow_ssa_edge (upper_chain, halting_phi);
+		    /* Then, analyze the assignment on the return walk.  */
+
+		    chrec_before = get_scev (0, var);
+		    if (chrec_should_remain_symbolic (chrec_before))
+		      /* KEEP_IT_SYMBOLIC.  */
+		      chrec_before = opnd11;
+			  
+		    chrec10 = evolution_at_version (loop_nb, opnd10);
+		    chrec11 = evolution_at_version (loop_nb, opnd11);
+		    if (chrec_should_remain_symbolic (chrec10))
+		      /* KEEP_IT_SYMBOLIC.  */
+		      to_be_multiplied = opnd10;
+		    else
+		      to_be_multiplied = chrec10;
+			  
+		    *effect_after_execution = chrec_fold_multiply 
+		      (initial_condition (chrec11), 
+		       initial_condition (to_be_multiplied));
+		    
+		    *evolution_function = multiply_evolution 
+		      (loop_nb, chrec_before, to_be_multiplied);
+		  }
+		
+		/* Otherwise the assignment is under the form: 
+		   "a_1 = b_2 * c_3".  */
+		else
+		  {
+		    /* FIXME wrap_around.  */
+		    *effect_after_execution = chrec_top;
+		    *evolution_function = chrec_top;
+		  }
+	      }
+	  }
+	      
+	else if (TREE_CODE (opnd11) == SSA_NAME)
+	  {
+
+	    /* Match an assignment under the form: 
+	       "a_1 = 5 * a_2".  */
+	    if (SSA_NAME_VAR (opnd11) == var)
+	      {
+		/* FIXME does this happen? 
+		   From what I've seen, this case is turned into:
+		   "a_1 = a_2 * 5".  */
+		abort ();
+	      }
+	    
+	    /* Otherwise the assignment is under the form: 
+	       "a_1 = 5 * b_2.  */
+	    else
+	      {
+		/* FIXME wrap_around.  */
+		*effect_after_execution = chrec_top;
+		*evolution_function = chrec_top;
+	      }
+	  }
+	
+	else
+	  {
+	    /* FIXME does this happen? 
+	       This is a strange case since the mult is not
+	       folded: "a_1 = cst * cst".  */
+	    abort ();
+	  }
+	break;
+      }
+	    
+    default:
+      *effect_after_execution = chrec_top;
+      *evolution_function = chrec_top;
+      break;
     }
   
   DBG_S (fprintf (stderr, ")\n"));
@@ -923,8 +1275,8 @@ analyze_evolution_in_loop (tree loop_phi_node,
    walk.  */
 
 static void
-monev_follow_ssa_edge (tree rdef, 
-		       tree halting_phi)
+scev_follow_ssa_edge (tree rdef, 
+		      tree halting_phi)
 {
   unsigned rdef_num, rdef_depth;
   unsigned halting_num, halting_depth;
@@ -932,48 +1284,32 @@ monev_follow_ssa_edge (tree rdef,
   if (rdef == NULL_TREE 
       || TREE_CODE (rdef) == NOP_EXPR
       /* End the recursion when the halting_phi node is reached.  */
-      || rdef == halting_phi)
+      || rdef == halting_phi
+      /* Avoid infinite recursion on bizarre cases.  */
+      || node_already_visited_by_ssa_path (rdef))
     return;
   
-  /* DBG_S (debug_generic_expr (rdef)); */
-  
-  rdef_num = bb_for_stmt (rdef)->loop_father->num;
-  rdef_depth = bb_for_stmt (rdef)->loop_father->depth;
-  halting_num = bb_for_stmt (halting_phi)->loop_father->num;
-  halting_depth = bb_for_stmt (halting_phi)->loop_father->depth;
+  rdef_num = loop_num (loop_of_stmt (rdef));
+  rdef_depth = loop_depth (loop_of_stmt (rdef));
+  halting_num = loop_num (loop_of_stmt (halting_phi));
+  halting_depth = loop_depth (loop_of_stmt (halting_phi));
   
   /* We have to deal with only three cases in an update expression: 
      - an inner loop PHI_NODE, 
      - a conditional PHI_NODE, 
-     - a MODIFY_EXPR.
-  */
+     - a MODIFY_EXPR.  */
   switch (TREE_CODE (rdef))
     {
     case PHI_NODE:
-
-      /* Avoid recursion when the phi-nodes contain SCCs.  For
-	 example, in gcc/gcc/calls.c:expand_call, we have the
-	 following phi nodes:
-    
-	 "normal_call_insns_8 = PHI <0B(380), normal_call_insns_9(782)>;
-	 normal_call_insns_9 = PHI <normal_call_insns_8(773), T.1529_2087(777), 
-	 T.1529_2087(778)>;"
-      */
-      if (PHI_MARKED (rdef) == 1)
-	return;
-      
-      else
-	PHI_MARKED (rdef) = 1;
-
       /* Determine whether the PHI_NODE is a loop phi or a conditional
 	 phi.  */
       if (rdef_depth > halting_depth)
 	{
-	  /* This is a LOOP-phi-node: the rdef is in an inner loop.
+	  /* This is a inner-loop-phi-node: the rdef is in an inner loop.
 	     
 	     First, follow the upper chain for determining the initial
 	     conditions from the analysis of the outer loop.  Then
-	     analyse the evolution in the inner loop.  */
+	     analyze the evolution in the inner loop.  */
 	  
 	  int i;
 	  
@@ -990,8 +1326,8 @@ monev_follow_ssa_edge (tree rdef,
 		}
 	      
 	      upper_branch = SSA_NAME_DEF_STMT (arg);
-	      upper_depth = bb_for_stmt (upper_branch)->loop_father->depth;
-	      upper_num = bb_for_stmt (upper_branch)->loop_father->num;
+	      upper_depth = loop_depth (loop_of_stmt (upper_branch));
+	      upper_num = loop_num (loop_of_stmt (upper_branch));
 	      
 	      if (upper_depth < rdef_depth)
 		{
@@ -1001,7 +1337,7 @@ monev_follow_ssa_edge (tree rdef,
 		  switch (TREE_CODE (upper_branch))
 		    {
 		    case MODIFY_EXPR:
-		      monev_follow_ssa_edge (upper_branch, halting_phi);
+		      scev_follow_ssa_edge (upper_branch, halting_phi);
 		      res = evolution_at_version 
 			(upper_num, TREE_OPERAND (upper_branch, 0));
 		      break;
@@ -1021,7 +1357,23 @@ monev_follow_ssa_edge (tree rdef,
 		}
 	    }
 	  
-	  analyze_evolution_in_loop (rdef, halting_num);
+	  analyze_evolution_in_loop (rdef);
+	  
+	  /* After having determined the evolution in the inner loop,
+	     the analyzer computes the overall effect of the inner
+	     loop on the analyzed variable.  
+	     
+	     Example:  
+	     
+	     | loop 10 times
+	     |   i = i + 2
+	     | endloop
+	     
+	     This loop has the same effect as:
+	     
+	     | i = i + 20
+	  */
+	  compute_overall_effect_of_inner_loop (rdef, halting_num);
 	}
       
       else
@@ -1038,424 +1390,24 @@ monev_follow_ssa_edge (tree rdef,
 	   the if-body.  */
 	merge_branches_of_condition_phi_node_in_loop (rdef, halting_phi);
       
-      /* Reset the marker after the analysis.  */
-      PHI_MARKED (rdef) = 0;
       break;
       
     case MODIFY_EXPR:
       {
-	/* RDEF is an assignment under the form: "OPND0 = OPND1".  */
-	tree opnd0, opnd1, var;
+	tree evolution_function, effect_after_execution;
+	tree opnd0, opnd1;
 	
 	opnd0 = TREE_OPERAND (rdef, 0);
 	opnd1 = TREE_OPERAND (rdef, 1);
-	
-	var = SSA_NAME_VAR (opnd0);
-	
-	/* The OPND1 is one of the following cases:
-	   - an SSA_NAME, 
-	   - an INTEGER_CST,
-	   - a PLUS_EXPR, 
-	   - a MINUS_EXPR,
-	   - other cases are not yet handled. 
-	*/
-	switch (TREE_CODE (opnd1))
-	  {
-	  case INTEGER_CST:
-	    {
-	      /* FIXME wrap_around:  
-		 This assignment is under the form "a_1 = 7".  */
-	      set_scev (rdef_num, opnd0, chrec_top);
-	      set_scev (0, var, chrec_top);
-	      break;
-	    }
-	    
-	  case SSA_NAME:
-	    if (var == SSA_NAME_VAR (opnd1))
-	      {
-		/* FIXME does this happen?
-		   This is a strange case: "a_1 = a_2".  */
-		abort ();
-	      }
-	    else
-	      {
-		/* FIXME wrap_around:
-		   This assignment is under the form: "a_1 = b_2".  */
-		set_scev (rdef_num, opnd0, chrec_top);
-		set_scev (0, var, chrec_top);
-	      }
-	    break;
-	    
-	  case PLUS_EXPR:
-	    {
-	      /* This case is under the form "opnd0 = opnd10 + opnd11".  */
-	      tree opnd10, opnd11;
-	      
-	      opnd10 = TREE_OPERAND (opnd1, 0);
-	      opnd11 = TREE_OPERAND (opnd1, 1);
-	      	      
-	      if (TREE_CODE (opnd10) == SSA_NAME)
-		{
-		  if (SSA_NAME_VAR (opnd10) == var)
-		    {
-		      /* The assignment is under the form: 
-			 "a_1 = a_2 + ...".  */
-		      tree upper_chain = SSA_NAME_DEF_STMT (opnd10);
-		      tree chrec10, chrec11, chrec_before;
-		      tree new_init_cond, new_evol;
-		      tree to_be_added;
-		      
-		      /* Recursively construct the SSA path.  */
-		      monev_follow_ssa_edge (upper_chain, halting_phi);
-		      
-		      /* Analyze the assignment on the return walk.  */
+	scev_analyze_modify_expr (rdef_num, 
+				  opnd0, 
+				  opnd1, 
+				  halting_phi, 
+				  &evolution_function, 
+				  &effect_after_execution);
 
-		      chrec_before = get_scev (0, var);
-		      if (chrec_should_remain_symbolic (chrec_before))
-			/* KEEP_IT_SYMBOLIC.  */
-			chrec_before = opnd10;
-		      
-		      chrec10 = evolution_at_version (rdef_num, opnd10);
-		      chrec11 = evolution_at_version (rdef_num, opnd11);
-		      if (chrec_should_remain_symbolic (chrec11))
-			/* KEEP_IT_SYMBOLIC.  
-			   Don't propagate unknown values, but instead, 
-			   keep the evolution function under a symbolic 
-			   form.  Example: testsuite/.../ssa-chrec-17.c.  */
-			to_be_added = opnd11;
-		      else
-			to_be_added = chrec11;
-		      
-		      /* Record the initial condition.  */
-		      new_init_cond = chrec_fold_plus 
-			(initial_condition (chrec10), 
-			 initial_condition (to_be_added));
-		      set_scev (rdef_num, opnd0, new_init_cond);
-		      
-		      /* Update the evolution of the main variable.  */
-		      new_evol = add_to_evolution (rdef_num, chrec_before, 
-						   to_be_added);
-		      set_scev (0, var, new_evol);
-		    }
-		  else
-		    {
-		      /* The assignment is under the form: 
-			 "a_1 = b_2 + ...".  */
-		      if (TREE_CODE (opnd11) == SSA_NAME
-			  && SSA_NAME_VAR (opnd11) == var)
-			{
-			  /* The assignment is under the form: 
-			     "a_1 = b_2 + a_3".  */
-			  tree upper_chain = SSA_NAME_DEF_STMT (opnd11);
-			  tree chrec10, chrec11, chrec_before;
-			  tree new_init_cond, new_evol;
-			  tree to_be_added;
-			  
-			  /* Recursively construct the SSA path.  */
-			  monev_follow_ssa_edge (upper_chain, halting_phi);
-			  
-			  /* Analyze the assignment on the return walk.  */
-			  
-			  chrec_before = get_scev (0, var);
-			  if (chrec_should_remain_symbolic (chrec_before))
-			    /* KEEP_IT_SYMBOLIC.  */
-			    chrec_before = opnd11;
-			  
-			  chrec10 = evolution_at_version (rdef_num, opnd10);
-			  chrec11 = evolution_at_version (rdef_num, opnd11);
-			  if (chrec_should_remain_symbolic (chrec10))
-			    /* KEEP_IT_SYMBOLIC.  */
-			    to_be_added = opnd10;
-			  else
-			    to_be_added = chrec10;
-			  
-			  /* Record the initial condition.  */
-			  new_init_cond = chrec_fold_plus 
-			    (initial_condition (chrec11), 
-			     initial_condition (to_be_added));
-			  set_scev (rdef_num, opnd0, new_init_cond);
-			  
-			  /* Update the evolution.  */
-			  new_evol = add_to_evolution (rdef_num, chrec_before, 
-						       to_be_added);
-			  set_scev (0, var, new_evol);
-			}
-		      else
-			{
-			  /* FIXME wrap_around:
-			     The assignment is under the form: 
-			     "a_1 = b_2 + 5".  */
-			  set_scev (rdef_num, opnd0, chrec_top);
-			  set_scev (0, var, chrec_top);
-			}
-		    }
-		}
-	      else if (TREE_CODE (opnd11) == SSA_NAME)
-		{
-		  if (SSA_NAME_VAR (opnd11) == var)
-		    {
-		      /* FIXME does this happen? 
-			 The assignment is under the form: 
-			 "a_1 = 5 + a_2".  
-			 From what I've seen, this case is turned into:
-			 "a_1 = a_2 + 5".  */
-		      abort ();
-		    }
-		  else
-		    {
-		      /* FIXME wrap_around:
-			 The assignment is under the form: "a_1 = 5 + b_2.  */
-		      set_scev (rdef_num, opnd0, chrec_top);
-		      set_scev (0, var, chrec_top);
-		    }
-		}
-	      else
-		{
-		  /* The arguments do not contain SSA_NAMEs.  For
-		     example, this could be the computation of a
-		     memory address as in:
-		     
-		     java/jcf-io.c: "buf_ptr_7 = &buf + 68B".  */
-		  set_scev (rdef_num, opnd0, opnd1);
-		  set_scev (0, var, opnd1);
-		}
-	      
-	      break;
-	    }
-	    
-	  case MINUS_EXPR:
-	    {
-	      /* This case is under the form "opnd0 = opnd10 - opnd11".  */
-	      tree opnd10, opnd11;
-	      
-	      opnd10 = TREE_OPERAND (opnd1, 0);
-	      opnd11 = TREE_OPERAND (opnd1, 1);
-	      
-	      if (TREE_CODE (opnd10) == SSA_NAME)
-		{
-		  if (SSA_NAME_VAR (opnd10) == var)
-		    {
-		      /* The assignment is under the form: 
-			 "a_1 = a_2 - ...".  */
-		      tree upper_chain = SSA_NAME_DEF_STMT (opnd10);
-		      tree chrec10, chrec11, chrec_before;
-		      tree new_init_cond, new_evol;
-		      tree to_be_added;
-		      
-		      /* Recursively construct the SSA path.  */
-		      monev_follow_ssa_edge (upper_chain, halting_phi);
-		      
-		      /* Analyze the assignment on the return walk.  */
-		      
-		      chrec_before = get_scev (0, var);
-		      if (chrec_should_remain_symbolic (chrec_before))
-			/* KEEP_IT_SYMBOLIC.  */
-			chrec_before = opnd10;
-		      
-		      chrec10 = evolution_at_version (rdef_num, opnd10);
-		      chrec11 = evolution_at_version (rdef_num, opnd11);
-		      if (chrec_should_remain_symbolic (chrec11))
-			/* KEEP_IT_SYMBOLIC.  */
-			to_be_added = chrec_fold_multiply (opnd11,
-							   integer_minus_one_node);
-		      else
-			to_be_added = chrec_fold_multiply (chrec11,
-							   integer_minus_one_node);
-		      
-		      /* Record the initial condition.  */
-		      new_init_cond = chrec_fold_plus 
-			(initial_condition (chrec10), 
-			 initial_condition (to_be_added));
-		      set_scev (rdef_num, opnd0, new_init_cond);
-		      
-		      /* Update the evolution.  */
-		      new_evol = add_to_evolution (rdef_num, chrec_before, 
-						   to_be_added);
-		      set_scev (0, var, new_evol);
-		    }
-		  else
-		    {
-		      /* The assignment is under the form: 
-			 "a_1 = b_2 - ...".  */
-		      if (TREE_CODE (opnd11) == SSA_NAME
-			  && SSA_NAME_VAR (opnd11) == var)
-			{
-			  /* The assignment is under the form: 
-			     "a_1 = b_2 - a_3".  
-			     FIXME arithmetic flip-flop.  */
-			  set_scev (rdef_num, opnd0, chrec_top);
-			  set_scev (0, var, chrec_top);
-			}
-		      else
-			{
-			  /* FIXME wrap_around:
-			     The assignment is under the form: 
-			     "a_1 = b_2 - 5".  */			     
-			  set_scev (rdef_num, opnd0, chrec_top);
-			  set_scev (0, var, chrec_top);
-			}
-		    }
-		}
-	      else if (TREE_CODE (opnd11) == SSA_NAME)
-		{
-		  if (SSA_NAME_VAR (opnd11) == var)
-		    {
-		      /* The assignment is under the form: 
-			 "a_1 = 5 - a_2".  
-			 FIXME arithmetic flip-flop.  */
-		      set_scev (rdef_num, opnd0, chrec_top);
-		      set_scev (0, var, chrec_top);
-		    }
-		  else
-		    {
-		      /* FIXME wrap_around:
-			 The assignment is under the form: "a_1 = 5 - b_2.  */
-		      set_scev (rdef_num, opnd0, chrec_top);
-		      set_scev (0, var, chrec_top);
-		    }
-		}
-	      else
-		{
-		  /* The arguments do not contain SSA_NAMEs.  */
-		  set_scev (rdef_num, opnd0, opnd1);
-		  set_scev (0, var, opnd1);
-		}
-	      break;
-	    }
-	    
-	  case MULT_EXPR:
-	    {
-	      /* This case is under the form "opnd0 = opnd10 * opnd11".  */
-	      tree opnd10, opnd11;
-	      
-	      opnd10 = TREE_OPERAND (opnd1, 0);
-	      opnd11 = TREE_OPERAND (opnd1, 1);
-	      	      
-	      if (TREE_CODE (opnd10) == SSA_NAME)
-		{
-		  if (SSA_NAME_VAR (opnd10) == var)
-		    {
-		      /* The assignment is under the form: 
-			 "a_1 = a_2 * ...".  */
-		      tree upper_chain = SSA_NAME_DEF_STMT (opnd10);
-		      tree chrec10, chrec11, chrec_before;
-		      tree new_init_cond, new_evol;
-		      tree to_be_multiplied;
-		      
-		      /* Recursively construct the SSA path.  */
-		      monev_follow_ssa_edge (upper_chain, halting_phi);
-		      /* Then, analyze the assignment on the return walk.  */
-		      
-		      chrec_before = get_scev (0, var);
-		      if (chrec_should_remain_symbolic (chrec_before))
-			/* KEEP_IT_SYMBOLIC.  */
-			chrec_before = opnd10;
-		      
-		      chrec10 = evolution_at_version (rdef_num, opnd10);
-		      chrec11 = evolution_at_version (rdef_num, opnd11);
-		      if (chrec_should_remain_symbolic (chrec11))
-			/* KEEP_IT_SYMBOLIC.  */
-			to_be_multiplied = opnd11;
-		      else
-			to_be_multiplied = chrec11;
-		      
-		      /* Record the initial condition.  */
-		      new_init_cond = chrec_fold_multiply 
-			(initial_condition (chrec10), 
-			 initial_condition (to_be_multiplied));
-		      set_scev (rdef_num, opnd0, new_init_cond);
-		      
-		      /* Update the evolution of the main variable.  */
-		      new_evol = multiply_evolution (rdef_num, chrec_before, 
-						     to_be_multiplied);
-		      set_scev (0, var, new_evol);
-		    }
-		  else
-		    {
-		      /* The assignment is under the form: 
-			 "a_1 = b_2 * ...".  */
-		      if (TREE_CODE (opnd11) == SSA_NAME
-			  && SSA_NAME_VAR (opnd11) == var)
-			{
-			  /* The assignment is under the form: 
-			     "a_1 = b_2 * a_3".  */
-			  tree upper_chain = SSA_NAME_DEF_STMT (opnd11);
-			  tree chrec10, chrec11, chrec_before;
-			  tree new_init_cond, new_evol;
-			  tree to_be_multiplied;
-			  
-			  /* Recursively construct the SSA path.  */
-			  monev_follow_ssa_edge (upper_chain, halting_phi);
-			  /* Then, analyze the assignment on the return walk.  */
-
-			  chrec_before = get_scev (0, var);
-			  if (chrec_should_remain_symbolic (chrec_before))
-			    /* KEEP_IT_SYMBOLIC.  */
-			    chrec_before = opnd11;
-			  
-			  chrec10 = evolution_at_version (rdef_num, opnd10);
-			  chrec11 = evolution_at_version (rdef_num, opnd11);
-			  if (chrec_should_remain_symbolic (chrec10))
-			    /* KEEP_IT_SYMBOLIC.  */
-			    to_be_multiplied = opnd10;
-			  else
-			    to_be_multiplied = chrec10;
-			  
-			  /* Record the initial condition.  */
-			  new_init_cond = chrec_fold_multiply 
-			    (initial_condition (chrec11), 
-			     initial_condition (to_be_multiplied));
-			  set_scev (rdef_num, opnd0, new_init_cond);
-			  
-			  /* Update the evolution.  */
-			  new_evol = multiply_evolution (rdef_num, chrec_before, 
-							 to_be_multiplied);
-			  set_scev (0, var, new_evol);
-			}
-		      else
-			{
-			  /* FIXME wrap_around:
-			     The assignment is under the form: 
-			     "a_1 = b_2 * 5".  */
-			  set_scev (rdef_num, opnd0, chrec_top);
-			  set_scev (0, var, chrec_top);
-			}
-		    }
-		}
-	      else if (TREE_CODE (opnd11) == SSA_NAME)
-		{
-		  if (SSA_NAME_VAR (opnd11) == var)
-		    {
-		      /* FIXME does this happen? 
-			 The assignment is under the form: 
-			 "a_1 = 5 * a_2".  
-			 From what I've seen, this case is turned into:
-			 "a_1 = a_2 * 5".  */
-		      abort ();
-		    }
-		  else
-		    {
-		      /* FIXME wrap_around:
-			 The assignment is under the form: "a_1 = 5 * b_2.  */
-		      set_scev (rdef_num, opnd0, chrec_top);
-		      set_scev (0, var, chrec_top);
-		    }
-		}
-	      else
-		{
-		  /* FIXME does this happen? 
-		     This is a strange case since the mult is not
-		     folded: "a_1 = cst * cst".  */
-		  abort ();
-		}
-	      break;
-	    }
-	    
-	  default:
-	    set_scev (rdef_num, opnd0, chrec_top);
-	    set_scev (0, var, chrec_top);
-	    break;
-	  }
+	set_scev (0, SSA_NAME_VAR (opnd0), evolution_function);
+	set_scev (rdef_num, opnd0, effect_after_execution);
 	break;
       }
       
@@ -1468,47 +1420,200 @@ monev_follow_ssa_edge (tree rdef,
     }
 }
 
-/* In the case where there is no inner loops, the variable can be a
-   symbolic parameter.  In this function we try to determine the
-   evolution function of the variable, and if it cannot be determined,
-   set its evolution to the peculiar symbol
-   CHREC_SYMBOLIC_PARAMETER.  */
+/* Compute the value of loop_phi_node on exit of the loop.  */
+
+static tree
+compute_value_on_exit_of_loop (tree loop_phi_node)
+{
+  tree exit_value, nb_iter;
+  
+  DBG_S (fprintf (stderr, "(compute_value_on_exit_of_loop \n"));
+  
+  nb_iter = number_of_iterations_in_loop (loop_of_stmt (loop_phi_node));
+  if (nb_iter == chrec_top)
+    exit_value = chrec_top;
+  
+  else
+    {
+      tree overall_effect;
+      tree evolution_fn;
+		  
+      /* An example: given the evolution 
+	 "{{22, +, 4}_1, +, [1,3]}_2", 
+	 
+	 and the fact that the loop 2 runs exactly 6 times, the
+	 overall effect is obtained by evaluating:
+	 
+	 "({{22, +, 4}_1, +, [1,3]}_2 - initial_conditions) (2, 6)"
+	 "({{22, +, 4}_1, +, [1,3]}_2 - 22) (2, 6)"
+	 "{{0, +, 4}_1, +, [1,3]}_2 (2, 6)"
+	 "[6,18]".
+      */
+      
+      evolution_fn = get_scev 
+	(0, SSA_NAME_VAR (PHI_RESULT (loop_phi_node)));
+      
+      overall_effect = chrec_apply
+	(loop_num (loop_of_stmt (loop_phi_node)), 
+	 update_initial_condition_to_origin
+	 (evolution_function_in_loop_num 
+	  (evolution_fn, loop_num (loop_of_stmt (loop_phi_node)))),
+	 nb_iter);
+      
+      /* On exit of the loop, the value of the variable is equal to
+	 the sum of its initial condition with the loop's overall
+	 effect.  */
+      exit_value = chrec_fold_plus 
+	(get_scev (loop_num (loop_of_stmt (loop_phi_node)), 
+		   PHI_RESULT (loop_phi_node)), 
+	 overall_effect);
+      
+      /* A loop phi node has two values: 
+	 
+         - one exposed to the statements in the inner loop,
+	 
+	 - the other that is seen by the statements after the loop.
+	 
+	 This updates the exit value of the loop's phi node.  */
+      set_scev_outer_value (PHI_RESULT (loop_phi_node), 
+			    exit_value);
+    }
+  
+  DBG_S (fprintf (stderr, ")\n"));
+  return exit_value;
+}
+
+/* Compute the overall effect of a loop on a variable. 
+   1. (TODO) compute the evolution if it is not yet analyzed in this loop, 
+   2. compute the number of iterations in the loop,
+   3. compute the value of the variable after crossing the loop.  */
 
 static void
-determine_whether_ssa_name_is_symbolic_parameter (tree ssa_name_to_analyze, 
-						  struct loop *loop_nest)
+compute_overall_effect_of_inner_loop (tree loop_phi_node, 
+				      unsigned halting_num)
 {
-  tree var_to_analyze = SSA_NAME_VAR (ssa_name_to_analyze);
-  tree def_stmt = SSA_NAME_DEF_STMT (ssa_name_to_analyze);
+  tree nb_iter;
   
-  switch (TREE_CODE (def_stmt))
+  DBG_S (fprintf (stderr, "(compute_overall_effect_of_inner_loop \n"));
+  
+  nb_iter = number_of_iterations_in_loop (loop_of_stmt (loop_phi_node));
+  if (nb_iter == chrec_top)
     {
-    case MODIFY_EXPR:
-      {
-	varray_type already_seen_variables;
-	tree res;
-	
-	VARRAY_TREE_INIT (already_seen_variables, 37, "already_seen_variables");
-	res = iccp_follow_ssa_edge_and_compute_scev 
-	  (loop_nest->num, ssa_name_to_analyze, already_seen_variables);
-	varray_clear (already_seen_variables);
-	
-	/* KEEP_IT_SYMBOLIC.  */
-	if (res == chrec_top)
-	  set_scev (loop_nest->num, ssa_name_to_analyze, 
-		    TREE_OPERAND (def_stmt, 0));
-	
-	else
-	  set_scev (loop_nest->num, ssa_name_to_analyze, res);
-	
-	break;
-      }
-      
-    case NOP_EXPR:
-    default:
-      set_scev (loop_nest->num, var_to_analyze, chrec_symbolic_parameter);
-      break;
+      /* If the number of iterations is not known, set the
+	 evolution to chrec_top.  As an example, consider
+	 the following loop:
+		     
+	 | i = 5
+	 | loop 
+	 |   i = i + 1
+	 |   loop chrec_top times
+	 |     i = i + 3
+	 |   endloop
+	 | endloop
+	 
+	 since it is impossible to know the number of
+	 iterations in the inner loop, the evolution of i
+	 in the outer loop becomes unknown.
+	 
+	 FIXME: It is possible to say that the evolution
+	 of i in the outer loop is:
+	 
+	 {5, +, [1, +oo]}_1 
+	 
+	 instead of the current rough approximation:
+	 
+	 {5, +, [-oo, +oo]}_1.
+      */
+      if (halting_num != 0)
+	{
+	  tree snv = SSA_NAME_VAR (PHI_RESULT (loop_phi_node));
+	  set_scev (0, snv, 
+		    reset_evolution_in_loop (halting_num, 
+					     get_scev (0, snv),
+					     chrec_top));
+	}
     }
+  
+  else
+    {
+      tree overall_effect;
+      tree new_evol, exit_value;
+      tree evolution_fn;
+		  
+      /* An example: given the evolution 
+	 "{{22, +, 4}_1, +, [1,3]}_2", 
+	 
+	 and the fact that the loop 2 runs exactly 6 times, the
+	 overall effect is obtained by evaluating:
+	 
+	 "({{22, +, 4}_1, +, [1,3]}_2 - initial_conditions) (2, 6)"
+	 "({{22, +, 4}_1, +, [1,3]}_2 - 22) (2, 6)"
+	 "{{0, +, 4}_1, +, [1,3]}_2 (2, 6)"
+	 "[6,18]".
+         
+         That means that the effect of the inner loop 2 in the outer
+	 loop 1 is that of adding an integer between 6 and 18 every
+	 time the loop 1 is executed.  Consequently, the evolution
+	 function is: "{{22, +, [10,22]}_1, +, [1,3]}_2".
+      */
+      
+      evolution_fn = get_scev 
+	(0, SSA_NAME_VAR (PHI_RESULT (loop_phi_node)));
+      
+      overall_effect = chrec_apply
+	(loop_num (loop_of_stmt (loop_phi_node)), 
+	 update_initial_condition_to_origin
+	 (evolution_function_in_loop_num 
+	  (evolution_fn, loop_num (loop_of_stmt (loop_phi_node)))),
+	 nb_iter);
+      
+      /* On exit of the loop, the value of the variable is equal to
+	 the sum of its initial condition with the loop's overall
+	 effect.  */
+      exit_value = chrec_fold_plus 
+	(get_scev (loop_num (loop_of_stmt (loop_phi_node)), 
+		   PHI_RESULT (loop_phi_node)), 
+	 overall_effect);
+      
+      /* A loop phi node has two values: 
+	 
+         - one exposed to the statements in the inner loop,
+	 
+	 - the other that is seen by the statements after the loop.
+	 
+	 This updates the exit value of the loop's phi node.  */
+      set_scev_outer_value (PHI_RESULT (loop_phi_node), 
+			    exit_value);
+      
+      /* We're not interested in the evolution in the outermost scope:
+	 loop 0 represents the analyzed function.  Maybe in an
+	 interprocedural analysis this information could be useful,
+	 but for interprocedural analysis we would need another type
+	 of loop indexing.  */
+      if (halting_num != 0)
+	{
+	  if (TREE_CODE (overall_effect) == EXPONENTIAL_CHREC)
+	    /* testsuite/.../ssa-chrec-41.c.  */
+	    new_evol = multiply_evolution
+	      (loop_num (outer_loop (loop_of_stmt (loop_phi_node))),
+	       get_scev (loop_num (loop_of_stmt (loop_phi_node)), 
+			 SSA_NAME_VAR 
+			 (PHI_RESULT (loop_phi_node))), 
+	       overall_effect);
+		      
+	  else 
+	    new_evol = add_to_evolution 
+	      (loop_num (outer_loop (loop_of_stmt (loop_phi_node))),
+	       get_scev (loop_num (loop_of_stmt (loop_phi_node)), 
+			 SSA_NAME_VAR
+			 (PHI_RESULT (loop_phi_node))), 
+	       overall_effect);
+	  
+	  set_scev (0, SSA_NAME_VAR (PHI_RESULT (loop_phi_node)),
+		    new_evol);
+	}
+    }
+  DBG_S (fprintf (stderr, ")\n"));
 }
 
 /* Determines whether the PHI_NODE has SSA_NAMEs in its arguments.  */
@@ -1532,12 +1637,12 @@ no_ssa_name_in_arguments_of_phi_node (tree phi_node)
 /* Retrieve the loop phi node for variable v.  */
 
 static tree 
-get_loop_phi_node_for_variable (struct loop *loop, tree v)
+get_loop_phi_node_for_variable (struct loop *loop, 
+				tree v)
 {
   tree phi;
-  basic_block bb = loop->header;
   
-  for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+  for (phi = phi_nodes (loop_header (loop)); phi; phi = TREE_CHAIN (phi))
     if (SSA_NAME_VAR (PHI_RESULT (phi)) == v)
       {
 	/* In testsuite/.../ssa-chrec-48.c the loop phi node of the
@@ -1565,22 +1670,22 @@ get_loop_phi_node_for_variable (struct loop *loop, tree v)
    it's the first time we ask for this VAR, then conservatively insert
    CHREC_TOP for this VAR and return its index.  */
 
-static struct monev_info_str *
-find_var_monev_info (tree var)
+static struct scev_info_str *
+find_var_scev_info (tree var)
 {
   unsigned int i;
-  struct monev_info_str *res;
+  struct scev_info_str *res;
   
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (monev_info); i++)
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (scev_info); i++)
     {
-      res = VARRAY_GENERIC_PTR (monev_info, i);
+      res = VARRAY_GENERIC_PTR (scev_info, i);
       if (MI_VAR (res) == var)
 	return res;
     }
   
   /* The variable is not in the table, create a new entry for it.  */
-  res = new_monev_info_str (var);
-  VARRAY_PUSH_GENERIC_PTR (monev_info, res);
+  res = new_scev_info_str (var);
+  VARRAY_PUSH_GENERIC_PTR (scev_info, res);
   
   return res;
 }
@@ -1618,77 +1723,90 @@ set_scev_keep_symbolic (tree var,
 /* Associate CHREC to VAR.  */
 
 static void
-set_scev (unsigned loop_num, 
+set_scev (unsigned loop_nb, 
 	  tree var, 
 	  tree chrec)
 {
-  struct monev_info_str *var_info;
+  struct scev_info_str *var_info;
   
-  var_info = find_var_monev_info (var);
+  var_info = find_var_scev_info (var);
   chrec = set_scev_keep_symbolic (var, chrec);
   
   DBG_S (fprintf (stderr, "(set_scev \n");
-	 fprintf (stderr, "  sc = ");
+	 fprintf (stderr, "  (loop_num = %d)\n", loop_nb);
+	 fprintf (stderr, "  (sc = ");
 	 debug_generic_expr (var);
-	 fprintf (stderr, "  scev = ");
+	 fprintf (stderr, "  )\n");
+	 fprintf (stderr, "  (scev = ");
 	 debug_generic_expr (chrec);
+	 fprintf (stderr, "  )\n");
 	 fprintf (stderr, ")\n"));
   
-  MI_LOOP_NUM (var_info) = loop_num;
+  MI_LOOP_NUM (var_info) = loop_nb;
   MI_INNER_LOOPS_CHREC (var_info) = chrec;
   MI_OUTER_LOOPS_CHREC (var_info) = chrec;
 }
 
-/* Associate CHREC to the inner loops for VAR.  */
+/* Associate the value CHREC exposed to the statements in the inner
+   loops to the VERSION.  */
 
 static void
-set_scev_inner_value (unsigned loop_num, 
-		      tree var, 
+set_scev_inner_value (tree version, 
 		      tree chrec)
 {
-  struct monev_info_str *var_info;
-  
-  var_info = find_var_monev_info (var);
-  chrec = set_scev_keep_symbolic (var, chrec);
+  struct scev_info_str *version_info;
+  unsigned loop_nb = loop_num (loop_of_stmt (SSA_NAME_DEF_STMT (version)));
+   
+  version_info = find_var_scev_info (version);
+  chrec = set_scev_keep_symbolic (version, chrec);
   
   DBG_S (fprintf (stderr, "(set_scev_inner_value \n");
-	 fprintf (stderr, "  sc = ");
-	 debug_generic_expr (var);
-	 fprintf (stderr, "  scev = ");
+	 fprintf (stderr, "  (loop_num = %d)\n", loop_nb);
+	 fprintf (stderr, "  (sc = ");
+	 debug_generic_expr (version);
+	 fprintf (stderr, "  )\n");
+	 fprintf (stderr, "  (scev = ");
 	 debug_generic_expr (chrec);
+	 fprintf (stderr, "  )\n");
 	 fprintf (stderr, ")\n"));
   
-  MI_LOOP_NUM (var_info) = loop_num;
-  MI_INNER_LOOPS_CHREC (var_info) = chrec;
+  MI_LOOP_NUM (version_info) = loop_nb;
+  MI_INNER_LOOPS_CHREC (version_info) = chrec;
 }
 
-/* Associate CHREC to the outer loops for VAR.  */
+/* Associate the value CHREC, that is exposed to the statements after
+   the loop, to the SSA_VERSION.  */
 
 static void
-set_scev_outer_value (tree var, 
+set_scev_outer_value (tree version, 
 		      tree chrec)
 {
-  struct monev_info_str *var_info;
+  struct scev_info_str *version_info;
   
-  var_info = find_var_monev_info (var);
-  chrec = set_scev_keep_symbolic (var, chrec);
+  version_info = find_var_scev_info (version);
+  chrec = set_scev_keep_symbolic (version, chrec);
   
   DBG_S (fprintf (stderr, "(set_scev_outer_value \n");
-	 fprintf (stderr, "  sc = ");
-	 debug_generic_expr (var);
-	 fprintf (stderr, "  scev = ");
+	 fprintf (stderr, "  (loop_num = %d)\n", 
+		  loop_num (loop_of_stmt (SSA_NAME_DEF_STMT (version))));
+	 fprintf (stderr, "  (sc = ");
+	 debug_generic_expr (version);
+	 fprintf (stderr, "  )\n");
+	 fprintf (stderr, "  (scev = ");
 	 debug_generic_expr (chrec);
+	 fprintf (stderr, "  )\n");
 	 fprintf (stderr, ")\n"));
   
-  MI_OUTER_LOOPS_CHREC (var_info) = chrec;
+  MI_OUTER_LOOPS_CHREC (version_info) = chrec;
 }
 
-/* Retrieve the chrec associated to EXPR.  */
+/* Retrieve the chrec associated to VAR in the loop LOOP_NB.  */
 
 static tree
-get_scev (unsigned loop_num, tree var)
+get_scev (unsigned loop_nb, 
+	  tree var)
 {
-  struct monev_info_str *var_info;
+  struct scev_info_str *var_info;
   tree res = NULL_TREE;
   
   DBG_S (fprintf (stderr, "(get_scev \n"));
@@ -1700,16 +1818,27 @@ get_scev (unsigned loop_num, tree var)
       res = var;
       break;
       
-    case SSA_NAME:
     case VAR_DECL:
     case PARM_DECL:
-      var_info = find_var_monev_info (var);
-      if (loop_is_included_in (loop_num, MI_LOOP_NUM (var_info)))
-	res = MI_INNER_LOOPS_CHREC (var_info);
-      else
-	res = MI_OUTER_LOOPS_CHREC (var_info);
+      var_info = find_var_scev_info (var);
+      res = MI_INNER_LOOPS_CHREC (var_info);
       break;
       
+    case SSA_NAME:
+      var_info = find_var_scev_info (var);
+      
+      if (loop_is_included_in (loop_nb, MI_LOOP_NUM (var_info)))
+	res = MI_INNER_LOOPS_CHREC (var_info);
+      
+      else
+	{
+	  res = MI_OUTER_LOOPS_CHREC (var_info);
+	  
+	  if (res == chrec_not_analyzed_yet)
+	    res = compute_value_on_exit_of_loop (SSA_NAME_DEF_STMT (var));
+	}
+      
+      break;
       
     case FLOAT_EXPR:
     case NEGATE_EXPR:
@@ -1768,18 +1897,12 @@ get_scev (unsigned loop_num, tree var)
       break;
     }
   
-  DBG_S (fprintf (stderr, "  sc = ");
+  DBG_S (fprintf (stderr, "  (sc = ");
 	 debug_generic_expr (var);
-	 fprintf (stderr, "  scev = ");
+	 fprintf (stderr, "  )\n");
+	 fprintf (stderr, "  (scev = ");
 	 debug_generic_expr (res);
-
-	 /*  
-	     if (res == chrec_top) {
-	     fprintf (stderr, "TTT: \n");
-	     debug_tree (var);
-	     }
-	 */
-
+	 fprintf (stderr, "  )\n");
 	 fprintf (stderr, ")\n"));
   return res;
 }
@@ -1788,7 +1911,8 @@ get_scev (unsigned loop_num, tree var)
    ORIGINAL_CHREC.  */
 
 static tree 
-merge_evolutions (tree original_chrec, varray_type branch_chrecs)
+merge_evolutions (tree original_chrec, 
+		  varray_type branch_chrecs)
 {
   unsigned int i;
   tree res;
@@ -1807,8 +1931,9 @@ merge_evolutions (tree original_chrec, varray_type branch_chrecs)
       tree branch_chrec = VARRAY_TREE (branch_chrecs, i);
       
       diff_chrec = chrec_fold_minus (branch_chrec, original_chrec);
-      DBG_S (fprintf (stderr, "  branch = ");
-	     debug_generic_expr (diff_chrec));
+      DBG_S (fprintf (stderr, "  (branch = ");
+	     debug_generic_expr (diff_chrec);
+	     fprintf (stderr, "  )\n"));
       VARRAY_PUSH_TREE (diff_chrecs, diff_chrec);
     }
   
@@ -1819,8 +1944,9 @@ merge_evolutions (tree original_chrec, varray_type branch_chrecs)
   for (i = 1; i < VARRAY_ACTIVE_SIZE (diff_chrecs); i++)
     res = chrec_merge (res, VARRAY_TREE (diff_chrecs, i));
   
-  DBG_S (fprintf (stderr, "  merged_branches = ");
+  DBG_S (fprintf (stderr, "  (merged_branches = ");
 	 debug_generic_expr (res);
+	 fprintf (stderr, "  )\n");
 	 fprintf (stderr, ")\n"));
   
   varray_clear (diff_chrecs);
@@ -1861,8 +1987,8 @@ merge_branches_of_condition_phi_node_in_loop (tree condition_phi,
 	  goto register_res;
 	  
 	case SSA_NAME:
-	  monev_follow_ssa_edge (SSA_NAME_DEF_STMT (branch), 
-				 halting_phi);
+	  scev_follow_ssa_edge (SSA_NAME_DEF_STMT (branch), 
+				halting_phi);
 	  VARRAY_PUSH_TREE (branch_chrecs, get_scev 
 			    (0, SSA_NAME_VAR (PHI_RESULT (condition_phi))));
 	  set_scev (0, SSA_NAME_VAR (PHI_RESULT (condition_phi)), 
@@ -1879,53 +2005,38 @@ merge_branches_of_condition_phi_node_in_loop (tree condition_phi,
   
  register_res:;
   set_scev (0, SSA_NAME_VAR (PHI_RESULT (condition_phi)), res);
-  set_scev (bb_for_stmt (condition_phi)->loop_father->num, 
+  set_scev (loop_num (loop_of_stmt (condition_phi)),
 	    PHI_RESULT (condition_phi), 
 	    chrec_eval_next_init_cond (res));
   
   varray_clear (branch_chrecs);
 }
 
-/* This function merges the branches of a condition phi node.  The phi
-   node is not in a loop: we're analyzing the initial conditions.  */
+/* This function merges the branches of a condition phi node whose
+   arguments are already analyzed.  */
 
 static void
 merge_branches_of_condition_phi_node (tree condition_phi)
 {
   int i;
-  tree original_chrec, res;
+  tree res;
   varray_type branch_chrecs;
+  int loop_nb = loop_num (loop_of_stmt (condition_phi));
   
   VARRAY_TREE_INIT (branch_chrecs, 2, "branch_chrecs");
-  original_chrec = get_scev (0, SSA_NAME_VAR (PHI_RESULT (condition_phi)));
   
-  for (i = 0; i < PHI_NUM_ARGS (condition_phi); i++)
-    {
-      tree branch = PHI_ARG_DEF (condition_phi, i);
-      
-      switch (TREE_CODE (branch))
-	{
-	case INTEGER_CST:
-	  res = get_scev (0, branch);
-	  break;
-	  
-	case SSA_NAME:
-	  res = iccp_determine_evolution_function 
-	    (bb_for_stmt (condition_phi)->loop_father, branch);
-	  break;
-	  
-	default:
-	  res = chrec_top;
-	  break;
-	}
-      
-      VARRAY_PUSH_TREE (branch_chrecs, res);
-    }
+  for (i = 1; i < PHI_NUM_ARGS (condition_phi); i++)
+    VARRAY_PUSH_TREE 
+      (branch_chrecs, evolution_at_version 
+       (loop_nb, PHI_ARG_DEF (condition_phi, i)));
   
-  res = merge_evolutions (original_chrec, branch_chrecs);
+  res = merge_evolutions 
+    (evolution_at_version (loop_nb, PHI_ARG_DEF (condition_phi, 0)), 
+     branch_chrecs);
   
   set_scev (0, SSA_NAME_VAR (PHI_RESULT (condition_phi)), res);
-  set_scev (0, PHI_RESULT (condition_phi), initial_condition (res));
+  set_scev (loop_nb, PHI_RESULT (condition_phi), 
+	    chrec_eval_next_init_cond (res));
   
   varray_clear (branch_chrecs);
 }
@@ -1939,10 +2050,10 @@ merge_branches_of_condition_phi_node (tree condition_phi)
    returns the version itself.  */
 
 static tree 
-evolution_at_version (unsigned loop_num, 
+evolution_at_version (unsigned loop_nb, 
 		      tree version)
 {
-  struct monev_info_str *var_info;
+  struct scev_info_str *var_info;
   tree init_cond, evolution, res;
   
   DBG_S (fprintf (stderr, "(evolution_at_version \n"));
@@ -1961,54 +2072,46 @@ evolution_at_version (unsigned loop_num,
       break;
       
     case SSA_NAME:
-      var_info = find_var_monev_info (version);
-      if (loop_is_included_in (loop_num, MI_LOOP_NUM (var_info)))
+      var_info = find_var_scev_info (version);
+      if (1 || loop_is_included_in (loop_nb, MI_LOOP_NUM (var_info)))
 	{
 	  /* Retrieve the initial condition from the version.  */
-	  init_cond = get_scev (loop_num, version);
+	  init_cond = get_scev (loop_nb, version);
+	  
+	  /* Instead of propagating chrec_top elements incognito, it
+	     is more precise to keep a pointer to the version (from
+	     which it is still possible to get_scev and say that it is
+	     chrec_top).  */
 	  if (init_cond == chrec_top
 	      || init_cond == chrec_not_analyzed_yet)
-	    /* Instead of propagating chrec_top elements incognito, it
-	    is more precise to keep a pointer to the version (from
-	    which it is still possible to get_scev and say that it is
-	    chrec_top).  */
 	    init_cond = version;
 	  
 	  /* The evolution in a loop is stored as an attribute of the
 	     main variable.  */
 	  evolution = get_scev (0, SSA_NAME_VAR (version));
 	  
+	  /* When the main variable has an unknown evolution, and the
+	     current version has not been analyzed, the result is
+	     unknown.  */
 	  if (evolution == chrec_top 
 	      && init_cond == version)
-	    /* The main variable has an unknown evolution, but the
-	       current version has not been yet analyzed.  The result
-	       is unknown.  */
 	    res = chrec_top;
+	  
+	  /* The evolution function for a version is equal to the
+	     evolution function in the loop instantiated with the
+	     initial condition of the version.  */
 	  else
-	    {
-	      /* The evolution function for a version is equal to the
-		 evolution function in the loop instantiated with the
-		 initial condition of the version.  */
-	      res = replace_initial_condition (evolution, init_cond);
-	      
-	      if (symbolic_parameter_expr_p (res))
-		/* KEEP_IT_SYMBOLIC.  */
-		res = version;
-	      else if ((TREE_CODE (res) == POLYNOMIAL_CHREC
-			|| TREE_CODE (res) == EXPONENTIAL_CHREC)
-		       && CHREC_LEFT (res) == chrec_top
-		       && CHREC_RIGHT (res) == chrec_top)
-		res = chrec_top;
-	    }
+	    res = replace_initial_condition (evolution, init_cond);
 	}
+      
+      /* Get the overall effect of the loop on the variable.  At this
+	 point get_scev returns a NULL_TREE if the condition after the
+	 crossing of a loop has not been determined yet.  If the
+	 outside visible value is chrec_top, then that means that the
+	 analyzer has failed to compute the number of iterations in
+	 the loop.  */
       else 
-	/* Get the overall effect of the loop on the variable.  At
-	   this point get_scev returns a NULL_TREE if the condition
-	   after the crossing of a loop has not been determined yet.
-	   If the outside visible value is chrec_top, then that means
-	   that the analyzer has failed to compute the number of
-	   iterations in the loop.  */
-	res = get_scev (loop_num, version);
+	res = get_scev (loop_nb, version);
       
       break;
       
@@ -2017,28 +2120,22 @@ evolution_at_version (unsigned loop_num,
       break;
     }
   
-  DBG_S (fprintf (stderr, "  version = ");
+  DBG_S (fprintf (stderr, "  (version = ");
 	 debug_generic_expr (version);
-	 fprintf (stderr, "  loop_num = %d\n", loop_num);
-	 fprintf (stderr, "  scev = ");
+	 fprintf (stderr, "  )\n");
+	 fprintf (stderr, "  (loop_nb = %d)\n", loop_nb);
+	 fprintf (stderr, "  (scev = ");
 	 debug_generic_expr (res);
-	 
-	 /*
-	   if (res == chrec_top) {
-	   fprintf (stderr, "YYY: \n");
-	   debug_tree (version);
-	   }
-	 */
-	 
+	 fprintf (stderr, "  )\n");
 	 fprintf (stderr, ")\n"));
   return res;
 }
 
 /* Add TO_ADD to the evolution part of CHREC_BEFORE in the dimension
-   of LOOP_NUM.  */
+   of LOOP_NB.  */
 
 static tree 
-add_to_evolution (unsigned loop_num, 
+add_to_evolution (unsigned loop_nb, 
 		  tree chrec_before,
 		  tree to_add)
 {
@@ -2052,25 +2149,28 @@ add_to_evolution (unsigned loop_num,
     abort ();
 #endif
   
-  DBG_S (fprintf (stderr, "(add_to_evolution \n"));
+  DBG_S (fprintf (stderr, "(add_to_evolution \n");
+	 if (TREE_CODE (chrec_before) == POLYNOMIAL_CHREC
+	     && CHREC_VARIABLE (chrec_before) == loop_nb)
+	 fprintf (stderr, "  constructing a polynomial of degree > 1 \n"));
   
   switch (TREE_CODE (to_add))
     {
     case POLYNOMIAL_CHREC:
-      if (no_evolution_in_loop_p (chrec_before, loop_num))
+      if (no_evolution_in_loop_p (chrec_before, loop_nb))
 	/* testsuite/.../ssa-chrec-38.c.  */
-	res = build_polynomial_evolution_in_loop (loop_num, 
+	res = build_polynomial_evolution_in_loop (loop_nb, 
 						  chrec_before, 
 						  to_add);
       else
 	/* testsuite/.../ssa-chrec-37.c.  */
-	res = add_expr_to_loop_evolution (loop_num, chrec_before, to_add);
+	res = add_expr_to_loop_evolution (loop_nb, chrec_before, to_add);
       break;
       
     case EXPONENTIAL_CHREC:
-      if (no_evolution_in_loop_p (chrec_before, loop_num))
+      if (no_evolution_in_loop_p (chrec_before, loop_nb))
 	/* testsuite/.../ssa-chrec-40.c  */
-	res = build_polynomial_evolution_in_loop (loop_num, 
+	res = build_polynomial_evolution_in_loop (loop_nb, 
 						  chrec_before, 
 						  to_add);
       else
@@ -2086,32 +2186,35 @@ add_to_evolution (unsigned loop_num,
     case PARM_DECL:
     case INTERVAL_CHREC:
     default:
-      if (no_evolution_in_loop_p (chrec_before, loop_num))
+      if (no_evolution_in_loop_p (chrec_before, loop_nb))
 	/* testsuite/.../ssa-chrec-39.c.  */
-	res = build_polynomial_evolution_in_loop (loop_num, chrec_before, 
+	res = build_polynomial_evolution_in_loop (loop_nb, chrec_before, 
 						  to_add);
       else
 	/* testsuite/.../ssa-chrec-20.c.  */
-	res = add_expr_to_loop_evolution (loop_num, chrec_before, to_add);
+	res = add_expr_to_loop_evolution (loop_nb, chrec_before, to_add);
       break;
     }
   
-  DBG_S (fprintf (stderr, "  loop_num = %d\n", loop_num);
-	 fprintf (stderr, "  chrec_before = ");
+  DBG_S (fprintf (stderr, "  (loop_nb = %d)\n", loop_nb);
+	 fprintf (stderr, "  (chrec_before = ");
 	 debug_generic_expr (chrec_before);
-	 fprintf (stderr, "  to_add = ");
+	 fprintf (stderr, "  )\n");
+	 fprintf (stderr, "  (to_add = ");
 	 debug_generic_expr (to_add);
-	 fprintf (stderr, "  res = ");
+	 fprintf (stderr, "  )\n");
+	 fprintf (stderr, "  (res = ");
 	 debug_generic_expr (res);
+	 fprintf (stderr, "  )\n");
 	 fprintf (stderr, ")\n"));
   return res;
 }
 
 /* Add TO_MULT to the evolution part of CHREC_BEFORE in the dimension
-   of LOOP_NUM.  */
+   of LOOP_NB.  */
 
 static tree 
-multiply_evolution (unsigned loop_num, 
+multiply_evolution (unsigned loop_nb, 
 		    tree chrec_before,
 		    tree to_mult)
 {
@@ -2130,22 +2233,22 @@ multiply_evolution (unsigned loop_num,
   switch (TREE_CODE (to_mult))
     {
     case EXPONENTIAL_CHREC:
-      if (no_evolution_in_loop_p (chrec_before, loop_num))
+      if (no_evolution_in_loop_p (chrec_before, loop_nb))
 	/* testsuite/.../ssa-chrec-41.c.  */
-	res = build_exponential_evolution_in_loop (loop_num, 
+	res = build_exponential_evolution_in_loop (loop_nb, 
 						   chrec_before, 
 						   to_mult);
       else
 	/* testsuite/.../ssa-chrec-22.c.  */
-	res = multiply_by_expr_the_loop_evolution (loop_num, 
+	res = multiply_by_expr_the_loop_evolution (loop_nb, 
 						   chrec_before, 
 						   to_mult);
       break;
       
     case POLYNOMIAL_CHREC:
-      if (no_evolution_in_loop_p (chrec_before, loop_num))
+      if (no_evolution_in_loop_p (chrec_before, loop_nb))
 	/* testsuite/.../ssa-chrec-23.c.  */
-	res = build_exponential_evolution_in_loop (loop_num, 
+	res = build_exponential_evolution_in_loop (loop_nb, 
 						   chrec_before, 
 						   to_mult);
       else
@@ -2161,31 +2264,34 @@ multiply_evolution (unsigned loop_num,
     case PARM_DECL:
     case INTERVAL_CHREC:
     default:
-      if (no_evolution_in_loop_p (chrec_before, loop_num))
+      if (no_evolution_in_loop_p (chrec_before, loop_nb))
 	/* testsuite/.../ssa-chrec-22.c.  */
-	res = build_exponential_evolution_in_loop (loop_num, 
+	res = build_exponential_evolution_in_loop (loop_nb, 
 						   chrec_before, 
 						   to_mult);
       else
 	/* Example: 
-	   LOOP_NUM = 1
+	   LOOP_NB = 1
 	   TO_ADD = "3*N"
 	   CHREC_BEFORE = "{{0, +, 1}_1, +, 5}_1"
 	   --
 	   RES = "{{0, +, 3*N + 1}_1, +, 5}_1".  */
-	res = multiply_by_expr_the_loop_evolution (loop_num, 
+	res = multiply_by_expr_the_loop_evolution (loop_nb, 
 						   chrec_before, 
 						   to_mult);
       break;
     }
   
-  DBG_S (fprintf (stderr, "  loop_num = %d\n", loop_num);
-	 fprintf (stderr, "  chrec_before = ");
+  DBG_S (fprintf (stderr, "  (loop_nb = %d)\n", loop_nb);
+	 fprintf (stderr, "  (chrec_before = ");
 	 debug_generic_expr (chrec_before);
-	 fprintf (stderr, "  to_mult = ");
+	 fprintf (stderr, "  )\n");
+	 fprintf (stderr, "  (to_mult = ");
 	 debug_generic_expr (to_mult);
-	 fprintf (stderr, "  res = ");
+	 fprintf (stderr, "  )\n");
+	 fprintf (stderr, "  (res = ");
 	 debug_generic_expr (res);
+	 fprintf (stderr, "  )\n");
 	 fprintf (stderr, ")\n"));
   return res;
 }
@@ -2201,7 +2307,7 @@ static inline tree
 cannot_analyze_loop_nb_iterations_yet (void)
 {
   /* Do not update the loop->nb_iterations.  */
-  DBG_S (fprintf (stderr, "  nb_iterations cannot be determined\n");
+  DBG_S (fprintf (stderr, "  (nb_iterations cannot be determined)\n");
 	 fprintf (stderr, ")\n"));
   return chrec_top;
 }
@@ -2212,601 +2318,162 @@ static inline tree
 set_nb_iterations_in_loop (struct loop *loop, 
 			   tree res)
 {
-  DBG_S (fprintf (stderr, "  set_nb_iterations_in_loop = ");
+  DBG_S (fprintf (stderr, "  (set_nb_iterations_in_loop = ");
 	 debug_generic_expr (res);
+	 fprintf (stderr, "  )\n");
 	 fprintf (stderr, ")\n"));
   
   loop->nb_iterations = res;
   return res;
 }
 
-/* This function tries to safely approximate the number of iterations
-   the loop will run.  When this property is not decidable at compile
-   time, the result is [-oo, +oo].  Otherwise the result is an
-   interval.
-   
-   Example: Suppose that the loop has an exit condition:
-   
-   "if (b > 49) goto end_loop;"
-   
-   and that in a previous analysis we have determined that the
-   variable 'b' has an evolution function:
-   
-   "EF = {[23,23], +, [5,5]}_2".  
-   
-   When we evaluate the function at the point 5, i.e. the value of the
-   variable 'b' after 5 iterations in the loop, we have EF (5) = 48,
-   and EF (6) = 53.  In this case the value of 'b' on exit is '53' and
-   the loop body has been executed 6 times.
-   
-   FIXME zero-trip-problem:
-   Try to determine an approximation of the number of iterations the
-   loop LOOP will run.  The result of the function is an interval.  */
+/* In order to determine the number of iterations in a loop, we have
+   to perform some computations on integers.  If the evolution
+   functions on which we work contain INTEGER_CSTs with different
+   types, ie. size_t, unsigned, ..., then the computation of the
+   number of iterations may fail.  Example:  
 
-static tree 
-number_of_iterations_in_loop (struct loop *loop)
+   fold_minus 
+   op 0 = {0, +, 1}_1
+   op 1 = 168
+   res = {0, +, 1}_1
+   
+   The result is erroneous due to the fact that the folder performs
+   unsigned arithmetic.  */
+
+static tree
+homogenize_integer_cst_types_for_nb_iter (tree chrec)
 {
-  int loop_num = loop->num;
   tree res;
-  tree test, opnd0, opnd1;
-  tree chrec0, chrec1, chrec_cond;
+
+  if (automatically_generated_chrec_p (chrec))
+    res = chrec;
   
-  res = loop->nb_iterations;
-  if (res)
-    /* This information has already been computed.  */
-    return res;
+  else if (TREE_CODE (chrec) == INTEGER_CST
+	   && TREE_TYPE (chrec) != integer_type_node)
+    {
+      res = copy_node (chrec);
+      TREE_TYPE (res) = integer_type_node;
+    }
   
-  DBG_S (fprintf (stderr, "(number_of_iterations_in_loop \n"));
-  test = get_loop_exit_condition (loop);
-  
-  if (test == NULL_TREE)
-    return set_nb_iterations_in_loop (loop, chrec_top);
   else
-    switch (TREE_CODE (test))
+    switch (TREE_CODE_LENGTH (TREE_CODE (chrec)))
       {
-      case SSA_NAME:
-	/* "while (opnd0)", or in other terms, 
-	   "exit when (chrec0 == 0)".  */
-	opnd0 = test;
-	chrec0 = evolution_at_version (loop_num, opnd0);
-	
-	if (chrec0 == chrec_top
-	    || chrec0 == chrec_not_analyzed_yet
-	    || chrec0 == chrec_symbolic_parameter)
-	  /* KEEP_IT_SYMBOLIC.  */
-	  chrec0 = opnd0;
-	
-	DBG_S (fprintf (stderr, "  loop_num = %d\n", loop_num);
-	       fprintf (stderr, "  loop_while_expr_is_true: ");
-	       debug_generic_expr (test);
-	       fprintf (stderr, "  chrec0 = ");
-	       debug_generic_expr (chrec0));
-	
-	if (chrec_contains_undetermined (chrec0))
-	  return cannot_analyze_loop_nb_iterations_yet ();
-	else
-	  return set_nb_iterations_in_loop 
-	    (loop, how_far_from_zero (loop_num, chrec0));
-	
-      case LT_EXPR:
-      case LE_EXPR:
-      case GT_EXPR:
-      case GE_EXPR:
-      case EQ_EXPR:
-      case NE_EXPR:
-	opnd0 = TREE_OPERAND (test, 0);
-	opnd1 = TREE_OPERAND (test, 1);
-	chrec0 = evolution_at_version (loop_num, opnd0);
-	chrec1 = evolution_at_version (loop_num, opnd1);
-	
-	if (chrec0 == chrec_top
-	    || chrec0 == chrec_not_analyzed_yet
-	    || chrec0 == chrec_symbolic_parameter)
-	  /* KEEP_IT_SYMBOLIC.  */
-	  chrec0 = opnd0;
-	
-	if (chrec1 == chrec_top
-	    || chrec1 == chrec_not_analyzed_yet
-	    || chrec1 == chrec_symbolic_parameter)
-	  /* KEEP_IT_SYMBOLIC.  */
-	  chrec1 = opnd1;
-		
-	DBG_S (fprintf (stderr, "  loop_num = %d\n", loop_num);
-	       fprintf (stderr, "  loop_while_expr_is_true: ");
-	       debug_generic_expr (test);
-	       fprintf (stderr, "  chrec0 = ");
-	       debug_generic_expr (chrec0);
-	       fprintf (stderr, "  chrec1 = ");
-	       debug_generic_expr (chrec1));
-	
-	if (chrec_contains_undetermined (chrec0)
-	    || chrec_contains_undetermined (chrec1))
-	  return cannot_analyze_loop_nb_iterations_yet ();
-	
-	switch (TREE_CODE (test))
-	  {
-	  case LT_EXPR:
-	    /* "while (opnd0 < opnd1)", or in other terms, 
-	       "exit when (chrec0 - chrec1 + 1 > 0)".  */
-	    chrec_cond = chrec_fold_plus 
-	      (chrec_fold_minus (chrec0, chrec1), integer_one_node);
-	    return set_nb_iterations_in_loop 
-	      (loop, how_far_from_positive (loop_num, chrec_cond));
-	    
-	  case LE_EXPR:
-	    /* "while (opnd0 <= opnd1)", or, 
-	       "exit when (chrec0 - chrec1 > 0)".  */
-	    chrec_cond = chrec_fold_minus (chrec0, chrec1);
-	    return set_nb_iterations_in_loop 
-	      (loop, how_far_from_positive (loop_num, chrec_cond));
-	    
-	  case GT_EXPR:
-	    /* "while (opnd0 > opnd1)", or, 
-	       "exit when (chrec1 - chrec0 + 1 > 0)".  */
-	    chrec_cond = chrec_fold_plus 
-	      (chrec_fold_minus (chrec1, chrec0), integer_one_node);
-	    return set_nb_iterations_in_loop 
-	      (loop, how_far_from_positive (loop_num, chrec_cond));
-	    
-	  case GE_EXPR:
-	    /* "while (opnd0 >= opnd1)", or, 
-	       "exit when (chrec1 - chrec0 > 0)".  */
-	    chrec_cond = chrec_fold_minus (chrec1, chrec0);
-	    return set_nb_iterations_in_loop 
-	      (loop, how_far_from_positive (loop_num, chrec_cond));
-	    
-	  case EQ_EXPR:
-	    /* "while (opnd0 == opnd1)", or,
-	       "exit when (chrec0 - chrec1) != 0.  */
-	    chrec_cond = chrec_fold_minus (chrec0, chrec1);
-	    return set_nb_iterations_in_loop 
-	      (loop, how_far_from_non_zero (loop_num, chrec_cond));
-	    
-	  case NE_EXPR:
-	    /* "while (opnd0 != opnd1)", or, 
-	       "exit when (chrec0 == chrec1)".  */
-	    return set_nb_iterations_in_loop 
-	      (loop, nb_iterations_in_loop_until_eq (loop_num, 
-						     chrec0, chrec1));
-	    
-	  default:
-	    return set_nb_iterations_in_loop (loop, chrec_top);
-	  }
+      case 2:
+	res = build 
+	  (TREE_CODE (chrec), 
+	   TREE_TYPE (chrec),
+	   homogenize_integer_cst_types_for_nb_iter (TREE_OPERAND (chrec, 0)),
+	   homogenize_integer_cst_types_for_nb_iter (TREE_OPERAND (chrec, 1)));
+	break;
 	
       default:
-	return set_nb_iterations_in_loop (loop, chrec_top);
+	res = chrec;
+	break;
       }
+  
+  return res;
+}
+
+/* Determines the number of iterations RES in the loop LOOP_NUM that
+   verify the equality CHREC_A (RES) == CHREC_B (RES).  */
+
+static tree 
+nb_iterations_in_loop_until_eq (unsigned loop_num ATTRIBUTE_UNUSED, 
+				tree chrec_a, 
+				tree chrec_b)
+{
+  tree overlap_iterations_a, overlap_iterations_b;
+  /* FIXME: for the moment, this ugly function is disabled.  */
+  return chrec_top;
+
+  if (chrec_contains_undetermined (chrec_a)
+      || chrec_contains_undetermined (chrec_b))
+    return chrec_top;
+  
+  if (chrec_eq (initial_condition (chrec_a),
+		initial_condition (chrec_b)))
+    return integer_zero_node;
+  
+  analyze_overlapping_iterations (chrec_a, chrec_b, 
+				  &overlap_iterations_a, 
+				  &overlap_iterations_b);
+  
+  if (chrec_eq (initial_condition (overlap_iterations_a),
+		initial_condition (overlap_iterations_b)))
+    return initial_condition (overlap_iterations_a);
+  
+  return chrec_top;
 }
 
 
+/* The following section contains Scalar Dependence Graph (SDG)
+   related functions.  The SDG is used for directing the analysis of
+   the induction variables.  */
 
-/* The following section contains Scalar Dependence Graph related
-   functions.  The SDG is used for directing the analysis of the
-   induction variables.  */
+/* Helper function for the pattern "LHS op OPND".  */
 
-/* For each exit condition in EXIT_CONDITIONS, get its operands, and
-   determine a list of variables that we have to imperatively
-   analyze.  */
-
-static void
-schedule_exit_conditions (struct loop *loop_nest, 
-			  varray_type exit_conditions, 
-			  varray_type ln_imperative_vars)
-{
-  unsigned int i;
-  
-  DBG_S (fprintf (stderr, "(schedule_exit_conditions \n"));
-  
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (exit_conditions); i++)
-    {
-      tree test, opnd0, opnd1;
-      
-      test = VARRAY_TREE (exit_conditions, i);
-      
-      switch (TREE_CODE (test))
-	{
-	case LT_EXPR:
-	case LE_EXPR:
-	case GT_EXPR:
-	case GE_EXPR:
-	case EQ_EXPR:
-	case NE_EXPR:
-	  opnd0 = TREE_OPERAND (test, 0);
-	  opnd1 = TREE_OPERAND (test, 1);
-	  
-	  if (TREE_CODE (opnd0) == SSA_NAME)
-	    if (!variable_is_in_imperative_list_p (SSA_NAME_VAR (opnd0), 
-						   ln_imperative_vars))
-	      insert_ssa_name_in_imperative_list (opnd0, 
-						  loop_nest,
-						  ln_imperative_vars);
-	  
-	  if (TREE_CODE (opnd1) == SSA_NAME)
-	    if (!variable_is_in_imperative_list_p (SSA_NAME_VAR (opnd1), 
-						   ln_imperative_vars))
-	      insert_ssa_name_in_imperative_list (opnd1, 
-						  loop_nest,
-						  ln_imperative_vars);
-	  break;
-	  
-	case SSA_NAME:
-	  if (!variable_is_in_imperative_list_p (SSA_NAME_VAR (test), 
-					       ln_imperative_vars))
-	    insert_ssa_name_in_imperative_list (test, 
-						loop_nest,
-						ln_imperative_vars);
-	  break;
-	  
-	default:
-	  abort ();
-	  break;
-	}
-    }
-  
-  DBG_S (fprintf (stderr, ")\n"));
-}
-
-/* Construct the schedule of the analysis.  The schedule keeps track of:
-   
-   - the dependences coming from assignments:
-     "a = a + b" adds a dependence "a->b", and the evolution of "a"
-     will be analyzed after the evolution of "b",
-     
-   - the dependences coming from loop nestings:
-     "while (b < 100) a++;" adds the dependence "a->b" since the
-     evolution of "a" depends on the number of iterations of the loop
-     on "b".  */
-
-static void
-construct_schedule (varray_type imperative_vars, 
-		    varray_type schedule)
-{
-  varray_type sdd_graph, complete_imperative_list;
-  unsigned int i;
-  
-  DBG_S (fprintf (stderr, "(construct_schedule \n"));
-  
-  VARRAY_TREE_INIT (sdd_graph, 100, "sdd_graph");
-  VARRAY_GENERIC_PTR_INIT (complete_imperative_list, 100, 
-			   "complete_imperative_list");
-  
-  /* Construct the SDG = SDD = Scalar Data Dependence Graph.  */
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (imperative_vars); i++)
-    {
-      struct schedule_elt *sched_elt;
-      
-      sched_elt = (struct schedule_elt *) 
-	VARRAY_GENERIC_PTR (imperative_vars, i);
-      DBG_SCHEDULE_S (dump_schedule_elt (stderr, sched_elt));
-      
-      record_dependences_for_ssa_name (SCHED_LOOP_NEST (sched_elt),
-				       VARRAY_TREE (SCHED_SCC (sched_elt), 0),
-				       sdd_graph, 
-				       complete_imperative_list);
-    }
-  
-  DBG_SCHEDULE_S (debug_schedule (complete_imperative_list));
-  
-  /* Then establish a schedule for this analysis.  */
-  wolfe_topological_sort_SDD_with_SCCs (complete_imperative_list, 
-					schedule, sdd_graph);
-  DBG_SCHEDULE_S (debug_schedule (schedule));
-  
-  varray_clear (sdd_graph);
-  varray_clear (complete_imperative_list);
-  DBG_S (fprintf (stderr, ")\n"));
-}
-
-/* Compute the scalar dependences for variable VAR in LOOP_NEST, and
-   record these dependence relations into the SDD_GRAPH.  Construct
-   the COMPLETE_IMPERATIVE_LIST that contains all the nodes of the
-   SDD_GRAPH.  */
-
-static void
-record_dependences_for_ssa_name (struct loop *loop_nest,
-				 tree ssa_name, 
-				 varray_type sdd_graph, 
-				 varray_type complete_imperative_list)
-{
-  tree var = SSA_NAME_VAR (ssa_name);
-  
-  /* Avoid cycles in the scalar dependence graph.  */
-  if (variable_is_in_imperative_list_p (var, complete_imperative_list))
-    return;
-  
-  insert_ssa_name_in_imperative_list (ssa_name, loop_nest, 
-				      complete_imperative_list);
-  
-  follow_ssa_edge_and_record_dependences (loop_nest, 
-					  SSA_NAME_DEF_STMT (ssa_name), 
-					  sdd_graph, 
-					  complete_imperative_list);
-  
-  if (loop_nest->inner)
-    record_dependences_for_var_rec (loop_nest, loop_nest->inner, 
-				    var, sdd_graph, 
-				    complete_imperative_list);
-}
-
-/* Helper function.  */
-
-static bool
-iccp_record_dependences_for_ssa_name (struct loop *loop_nest,
-				      tree ssa_name, 
-				      varray_type sdd_graph, 
-				      varray_type imperative_list)
-{
-  tree chrec, def_stmt;
-
-  if (variable_is_in_imperative_list_p (SSA_NAME_VAR (ssa_name),
-					imperative_list))
-    return false;
-  
-  def_stmt = SSA_NAME_DEF_STMT (ssa_name);
-  if (TREE_CODE (def_stmt) == NOP_EXPR)
-    /* testsuite/.../ssa-chrec-46.c.  */
-    chrec = chrec_symbolic_parameter;
-  
-  /* Keep symbolic the variables defined in function of VUSEs.  */
-  else if (VUSE_OPS (stmt_ann (def_stmt)))
-    {
-      chrec = chrec_symbolic_parameter;
-      set_scev (loop_nest->num, TREE_OPERAND (def_stmt, 0), chrec);
-    }
-  
-  else
-    chrec = evolution_at_version 
-      (bb_for_stmt (def_stmt)->loop_father->num, ssa_name);
-  
-  /* When the evolution of the variable is not yet analyzed, enqueue
-     it in the IMPERATIVE_LIST, and follow the ssa link.  */
-  if (chrec == chrec_not_analyzed_yet)
-    {
-      insert_ssa_name_in_imperative_list (ssa_name, loop_nest, 
-					  imperative_list);
-      iccp_record_dependences (loop_nest, def_stmt, sdd_graph, 
-			       imperative_list);
-      
-      /* Yes, we have inserted the SSA_NAME in the
-	 imperative_list.  */
-      return true;
-    }
-  return false;
-}
-
-/* Helper function.  */
-
-static void
-record_dependences_for_var_rec (struct loop *loop_nest, 
-				struct loop *loop, 
-				tree var, 
-				varray_type sdd_graph, 
-				varray_type complete_imperative_list)
-{
-  tree halting_phi = get_loop_phi_node_for_variable (loop, var);
-  unsigned halting_depth;
-  
-  if (halting_phi)
-    {
-      int i;
-      
-      halting_depth = bb_for_stmt (halting_phi)->loop_father->depth;
-      
-      for (i = 0; i < PHI_NUM_ARGS (halting_phi); i++)
-	{
-	  tree arg = PHI_ARG_DEF (halting_phi, i);
-	  
-	  if (TREE_CODE (arg) == SSA_NAME)
-	    {
-	      tree rdef = SSA_NAME_DEF_STMT (arg);
-	      
-	      if (rdef != NULL_TREE 
-		  && TREE_CODE (rdef) != NOP_EXPR)
-		{
-		  if (((unsigned) bb_for_stmt (rdef)->loop_father->depth)
-		      >= halting_depth)
-		    follow_ssa_edge_and_record_dependences_rec 
-		      (loop_nest, rdef, halting_phi, sdd_graph, 
-		       complete_imperative_list);
-		  else if (TREE_CODE (arg) == SSA_NAME)
-		    {
-		      /* This corresponds to an outer loop branch of
-			 the PHI node that refers to another variable.
-			 
-			 Example: in testsuite/.../ssa-chrec-01.c the
-			 variable "c" depends on the evolution of the
-			 variable "a".  "c_5 = PHI <a_13(2),
-			 c_16(3)>;"
-		      */
-		      SDD_insert (PHI_RESULT (halting_phi), arg, sdd_graph);
-		      
-		      record_dependences_for_ssa_name 
-			(loop_nest, arg, sdd_graph, complete_imperative_list);
-		    }
-		}
-	    }
-	}
-    }
-  else if (loop->inner)
-    record_dependences_for_var_rec 
-      (loop_nest, loop->inner, var, sdd_graph, complete_imperative_list);
-  
-  if (loop->next)
-    record_dependences_for_var_rec 
-      (loop_nest, loop->next, var, sdd_graph, complete_imperative_list);
-  
-}
-
-/* Helper function.  */
-
-static inline void 
-record_dependences_for_opnd (struct loop *loop_nest, 
+static void 
+record_dependences_for_opnd (unsigned loop_nb, 
 			     tree lhs,
 			     tree opnd, 
 			     varray_type sdd_graph, 
 			     varray_type complete_imperative_list)
 {
-  if (opnd == NULL_TREE)
-    return;
-  
-  if (TREE_CODE (opnd) == SSA_NAME)
+  if (opnd != NULL_TREE
+      && TREE_CODE (opnd) == SSA_NAME
+      
+      /* Verify that the operand is not a function parameter.  */
+      && SSA_NAME_DEF_STMT (opnd) != NULL_TREE
+      && TREE_CODE (SSA_NAME_DEF_STMT (opnd)) != NOP_EXPR
+      
+      /* Don't follow the edges to the outer loops.  */
+      && stmt_is_in_loop (SSA_NAME_DEF_STMT (opnd), loop_nb))
     {
-      if (SSA_NAME_VAR (lhs) != SSA_NAME_VAR (opnd))
+      /* If this variable has already been visited by the SDG
+	 algorithm, don't analyze it again.  */
+      if (!node_already_visited_by_ssa_path (opnd))
 	{
-	  SDD_insert (lhs, opnd, sdd_graph);
-	  record_dependences_for_ssa_name 
-	    (loop_nest, opnd, sdd_graph, complete_imperative_list);
+	  if (record_dependences_for_version (loop_nb, opnd, sdd_graph, 
+					      complete_imperative_list))
+	    SDD_insert (lhs, opnd, sdd_graph);
+	  
+	  else
+	    record_dependences_for_definition 
+	      (loop_nb, SSA_NAME_DEF_STMT (opnd), sdd_graph, 
+	       complete_imperative_list);
 	}
-      else
-	follow_ssa_edge_and_record_dependences
-	  (loop_nest, SSA_NAME_DEF_STMT (opnd), 
-	   sdd_graph, complete_imperative_list);
     }
 }
 
-/* Helper function for the recursive version.  */
+/* Helper function for phi nodes.  */
 
-static inline void 
-record_dependences_for_opnd_rec (struct loop *loop_nest, 
-				 tree lhs,
-				 tree opnd, 
-				 tree halting_phi,
+static void
+record_dependences_for_phi_node (unsigned loop_nb, 
+				 tree phi_node, 
 				 varray_type sdd_graph, 
 				 varray_type complete_imperative_list)
 {
-  if (opnd == NULL_TREE)
+  int i;
+  
+  if (PHI_MARKED (phi_node) == 1)
     return;
   
-  if (TREE_CODE (opnd) == SSA_NAME)
-    {
-      if (SSA_NAME_VAR (lhs) != SSA_NAME_VAR (opnd))
-	{
-	  SDD_insert (lhs, opnd, sdd_graph);
-	  record_dependences_for_ssa_name 
-	    (loop_nest, opnd, sdd_graph, complete_imperative_list);
-	}
-      else
-	follow_ssa_edge_and_record_dependences_rec
-	  (loop_nest, SSA_NAME_DEF_STMT (opnd), halting_phi,
-	   sdd_graph, complete_imperative_list);
-    }
+  PHI_MARKED (phi_node) = 1;
+  for (i = 0; i < PHI_NUM_ARGS (phi_node); i++)
+    record_dependences_for_opnd 
+      (loop_nb, PHI_RESULT (phi_node), PHI_ARG_DEF (phi_node, i), 
+       sdd_graph, complete_imperative_list);
+  PHI_MARKED (phi_node) = 0;
 }
 
-/* Helper function.  */
-
-static inline void
-iccp_record_dependences_for_opnd (struct loop *loop_nest, 
-				  tree lhs,
-				  tree opnd,
-				  varray_type sdd_graph,
-				  varray_type imperative_list)
-{
-  if (opnd == NULL_TREE)
-    return;
-
-  if (TREE_CODE (opnd) == SSA_NAME
-      && SSA_NAME_VAR (lhs) != SSA_NAME_VAR (opnd))
-    {
-      if (iccp_record_dependences_for_ssa_name (loop_nest, opnd, sdd_graph, 
-						imperative_list))
-	{
-	  /* If we have inserted OPND in the imperative_list, then we
-	     have to complete the list with the LHS and insert an edge
-	     in the SDD (for Wolfe's algorithm).  */
-	  insert_ssa_name_in_imperative_list (lhs, loop_nest, imperative_list);
-	  SDD_insert (lhs, opnd, sdd_graph);
-	}
-    }
-}
-
-/* Helper function.  */
+/* Helper function for modify_exprs.  */
 
 static void
-record_dependences_for_modify_expr (struct loop *loop_nest, 
+record_dependences_for_modify_expr (unsigned loop_nb, 
 				    tree modify_expr, 
 				    varray_type sdd_graph, 
 				    varray_type complete_imperative_list)
-{
-  tree lhs, rhs, opnd0, opnd1;
-  
-  lhs = TREE_OPERAND (modify_expr, 0);
-  rhs = TREE_OPERAND (modify_expr, 1);
-  
-  if (TREE_CODE_LENGTH (TREE_CODE (rhs)) == 2)
-    {
-      opnd0 = TREE_OPERAND (rhs, 0);
-      record_dependences_for_opnd (loop_nest, lhs, opnd0, 
-				   sdd_graph, complete_imperative_list);
-      
-      opnd1 = TREE_OPERAND (rhs, 1);
-      record_dependences_for_opnd (loop_nest, lhs, opnd1, 
-				   sdd_graph, complete_imperative_list);
-    }
-  else if (TREE_CODE (rhs) == SSA_NAME)
-    {
-      if (SSA_NAME_VAR (lhs) != SSA_NAME_VAR (rhs))
-	{
-	  SDD_insert (lhs, rhs, sdd_graph);
-	  record_dependences_for_ssa_name 
-	    (loop_nest, rhs, sdd_graph, complete_imperative_list);
-	}
-    }
-  else if (TREE_CODE_LENGTH (TREE_CODE (rhs)) == 1)
-    {
-      opnd0 = TREE_OPERAND (rhs, 0);
-      record_dependences_for_opnd (loop_nest, lhs, opnd0, 
-				   sdd_graph, complete_imperative_list);
-    }
-}
-
-/* Helper function for the recursive version.  */
-
-static void
-record_dependences_for_modify_expr_rec (struct loop *loop_nest, 
-					tree modify_expr, 
-					tree halting_phi,
-					varray_type sdd_graph, 
-					varray_type complete_imperative_list)
-{
-  tree lhs, rhs, opnd0, opnd1;
-  
-  lhs = TREE_OPERAND (modify_expr, 0);
-  rhs = TREE_OPERAND (modify_expr, 1);
-  
-  if (TREE_CODE_LENGTH (TREE_CODE (rhs)) == 2)
-    {
-      opnd0 = TREE_OPERAND (rhs, 0);
-      record_dependences_for_opnd_rec (loop_nest, lhs, opnd0, halting_phi,
-				       sdd_graph, complete_imperative_list);
-      
-      opnd1 = TREE_OPERAND (rhs, 1);
-      record_dependences_for_opnd_rec (loop_nest, lhs, opnd1, halting_phi,
-				       sdd_graph, complete_imperative_list);
-    }
-  else if (TREE_CODE (rhs) == SSA_NAME)
-    {
-      if (SSA_NAME_VAR (lhs) != SSA_NAME_VAR (rhs))
-	{
-	  SDD_insert (lhs, rhs, sdd_graph);
-	  record_dependences_for_ssa_name 
-	    (loop_nest, rhs, sdd_graph, complete_imperative_list);
-	}
-    }
-  else if (TREE_CODE_LENGTH (TREE_CODE (rhs)) == 1)
-    {
-      opnd0 = TREE_OPERAND (rhs, 0);
-      record_dependences_for_opnd_rec (loop_nest, lhs, opnd0, halting_phi,
-				       sdd_graph, complete_imperative_list);
-    }
-}
-
-/* Helper function.  */
-
-static void 
-iccp_record_dependences_for_modify_expr (struct loop *loop_nest,
-					 tree modify_expr,
-					 varray_type sdd_graph,
-					 varray_type imperative_list)
 {
   tree lhs, rhs;
   
@@ -2823,12 +2490,14 @@ iccp_record_dependences_for_modify_expr (struct loop *loop_nest,
   switch (TREE_CODE_LENGTH (TREE_CODE (rhs)))
     {
     case 2:
-      iccp_record_dependences_for_opnd
-	(loop_nest, lhs, TREE_OPERAND (rhs, 1), sdd_graph, imperative_list);
+      record_dependences_for_opnd
+	(loop_nb, lhs, TREE_OPERAND (rhs, 1), sdd_graph, 
+	 complete_imperative_list);
       
     case 1:
-      iccp_record_dependences_for_opnd
-	(loop_nest, lhs, TREE_OPERAND (rhs, 0), sdd_graph, imperative_list);
+      record_dependences_for_opnd
+	(loop_nb, lhs, TREE_OPERAND (rhs, 0), sdd_graph, 
+	 complete_imperative_list);
       
     case 0:
       return;
@@ -2838,62 +2507,31 @@ iccp_record_dependences_for_modify_expr (struct loop *loop_nest,
     }
 }
 
-/* Follow the SSA edges and record all the dependences due to scalar
-   assignments.  */
+/* Records the dependences for the definition RDEF.  */
 
 static void
-follow_ssa_edge_and_record_dependences (struct loop *loop_nest,
-					tree def_stmt, 
-					varray_type sdd_graph, 
-					varray_type complete_imperative_list)
+record_dependences_for_definition (unsigned loop_nb, 
+				   tree rdef, 
+				   varray_type sdd_graph,
+				   varray_type complete_imperative_list)
 {
-  DBG_SCHEDULE_S (fprintf (stderr, "(follow_ssa_edge_and_record_dependences: \n");
-		  debug_generic_expr (def_stmt));
+  if (rdef == NULL_TREE)
+    return;
   
-  switch (TREE_CODE (def_stmt))
+  switch (TREE_CODE (rdef))
     {
     case PHI_NODE:
-      {
-	int i;
-	unsigned halting_depth;
-	tree halting_phi;
-	
-	halting_phi = def_stmt;
-	halting_depth = bb_for_stmt (halting_phi)->loop_father->depth;
-	
-	for (i = 0; i < PHI_NUM_ARGS (halting_phi); i++)
-	  {
-	    tree arg = PHI_ARG_DEF (halting_phi, i);
-	    
-	    if (TREE_CODE (arg) == SSA_NAME)
-	      {
-		tree rdef = SSA_NAME_DEF_STMT (arg);
-		
-		if (rdef != NULL_TREE 
-		    && TREE_CODE (rdef) != NOP_EXPR
-		    && (((unsigned) bb_for_stmt (rdef)->loop_father->depth)
-			>= halting_depth))
-		  {
-		    if (SSA_NAME_VAR (arg) 
-			!= SSA_NAME_VAR (PHI_RESULT (halting_phi)))
-		      /* This is the case when we have a loop phi node with 
-			 another variable name: see testsuite/.../ssa_chrec-36.c
-			 "  #   a_1 = PHI <1(0), T.1_11(1)>;".  */
-		      record_dependences_for_ssa_name 
-			(loop_nest, arg, sdd_graph, complete_imperative_list);
-		    else
-		      follow_ssa_edge_and_record_dependences_rec 
-			(loop_nest, rdef, halting_phi, sdd_graph, 
-			 complete_imperative_list);
-		  }
-	      }
-	  }
-	break;
-      }
+      /* Analyze only the definitions in the current loop.  */
+      if (stmt_is_in_loop (rdef, loop_nb))
+	record_dependences_for_phi_node
+	  (loop_nb, rdef, sdd_graph, complete_imperative_list);
+      break;
       
     case MODIFY_EXPR:
-      record_dependences_for_modify_expr (loop_nest, def_stmt, sdd_graph, 
-					  complete_imperative_list);
+      /* Analyze only the definitions in the current loop.  */
+      if (stmt_is_in_loop (rdef, loop_nb))
+	record_dependences_for_modify_expr 
+	  (loop_nb, rdef, sdd_graph, complete_imperative_list);
       break;
       
     case ASM_EXPR:
@@ -2904,180 +2542,80 @@ follow_ssa_edge_and_record_dependences (struct loop *loop_nest,
       abort ();
       break;
     }
-  
-  DBG_SCHEDULE_S (fprintf (stderr, ")\n"));
 }
 
-/* Recursively follow the SSA edges and record all the dependences due
-   to scalar assignments, and to loop conditions.  */
+/* Entry point in the record_dependences_* module.  Compute the scalar
+   dependences for the ssa_name VERSION, and record these dependence
+   relations into the SDD_GRAPH.  Construct the
+   COMPLETE_IMPERATIVE_LIST that contains all the nodes of the
+   SDD_GRAPH.  */
+
+static bool
+record_dependences_for_version (unsigned loop_nb, 
+				tree version, 
+				varray_type sdd_graph, 
+				varray_type complete_imperative_list)
+{
+  tree scev;
+  
+  /* Avoid multiple insertions of a same variable in the imperative
+     list.  */
+  if (variable_is_in_imperative_list_p (SSA_NAME_VAR (version),
+					complete_imperative_list))
+    return false;
+
+  /* When the evolution function of the version is already known,
+     there is no need to reanalyze it.  */
+  scev = get_scev (loop_nb, version);
+  if (scev != chrec_not_analyzed_yet)
+    return false;
+
+  insert_ssa_name_in_imperative_list (version, complete_imperative_list);
+  record_dependences_for_definition 
+    (loop_nb, SSA_NAME_DEF_STMT (version), sdd_graph, 
+     complete_imperative_list);
+  return true;
+}
+
+/* Construct the schedule of the analysis.  The schedule keeps track
+   of the dependences coming from assignments: "a = b + c" adds the
+   dependences "a->b" and "a->c", such that the evolution of "a" will
+   be analyzed after the evolution of "b" and "c".  */
 
 static void
-follow_ssa_edge_and_record_dependences_rec (struct loop *loop_nest,
-					    tree rdef, 
-					    tree halting_phi, 
-					    varray_type sdd_graph,
-					    varray_type complete_imperative_list)
+construct_schedule (unsigned loop_nb, 
+		    tree version, 
+		    varray_type schedule)
 {
-  unsigned rdef_depth, halting_depth;
-  if (rdef == NULL_TREE 
-      || halting_phi == NULL_TREE
-      || TREE_CODE (rdef) == NOP_EXPR
-      /* End the recursion when the halting_phi node is reached.  */
-      || rdef == halting_phi)
+  varray_type sdd_graph, complete_imperative_list;
+  
+  if (TREE_CODE (version) != SSA_NAME)
     return;
   
-  DBG_SDD_S (debug_generic_expr (rdef));
+  DBG_S (fprintf (stderr, "(construct_schedule \n"));
   
-  rdef_depth = bb_for_stmt (rdef)->loop_father->depth;
-  halting_depth = bb_for_stmt (halting_phi)->loop_father->depth;
+  VARRAY_TREE_INIT (sdd_graph, 100, "sdd_graph");
+  VARRAY_GENERIC_PTR_INIT (complete_imperative_list, 100, 
+			   "complete_imperative_list");
   
-  switch (TREE_CODE (rdef))
-    {
-    case PHI_NODE:
-      
-      /* Avoid recursion when the phi-nodes contain SCCs.  */
-      if (PHI_MARKED (rdef) == 1)
-	return;
-      
-      else
-	PHI_MARKED (rdef) = 1;
-      
-      if (rdef_depth > halting_depth)
-	{
-	  /* This is an inner loop phi.  */
-	  int i;
-	  
-	  for (i = 0; i < PHI_NUM_ARGS (rdef); i++)
-	    {
-	      tree arg = PHI_ARG_DEF (rdef, i);
-	      
-	      if (TREE_CODE (arg) == SSA_NAME)
-		{
-		  tree rdef_edge = SSA_NAME_DEF_STMT (arg);
-		  
-		  if (rdef_edge != NULL_TREE 
-		      && TREE_CODE (rdef_edge) != NOP_EXPR)
-		    {
-		      if (bb_for_stmt (rdef_edge)->loop_father->depth >=
-			  (int) rdef_depth)
-			/* This is an edge to the inner loop.  */
-			follow_ssa_edge_and_record_dependences_rec 
-			  (loop_nest, rdef_edge, rdef, sdd_graph, 
-			   complete_imperative_list);
-		      else
-			/* This is an edge to the outer loop.  */
-			follow_ssa_edge_and_record_dependences_rec 
-			  (loop_nest, rdef_edge, halting_phi, sdd_graph,
-			   complete_imperative_list);
-		    }
-		}
-	    }
-	  SDD_insert_deps_on_loop_exit_vars 
-	    (loop_nest, PHI_RESULT (rdef), bb_for_stmt (rdef)->loop_father,
-	     sdd_graph, complete_imperative_list);
-	}
-      else
-	{
-	  /* This is a phi after a multi-branch expression.  */
-	  int i;
-	  
-	  for (i = 0; i < PHI_NUM_ARGS (rdef); i++)
-	    {
-	      tree arg = PHI_ARG_DEF (rdef, i);
-	      
-	      if (TREE_CODE (arg) == SSA_NAME)
-		{
-		  tree rdef_edge = SSA_NAME_DEF_STMT (arg);
-		  
-		  if (rdef_edge != NULL_TREE 
-		      && TREE_CODE (rdef_edge) != NOP_EXPR)
-		    follow_ssa_edge_and_record_dependences_rec 
-		      (loop_nest, rdef_edge, halting_phi, sdd_graph, 
-		       complete_imperative_list);
-		}
-	    }
-	}
-      
-      /* Reset the marker after the analysis.  */
-      PHI_MARKED (rdef) = 0;
-      break;
-      
-    case MODIFY_EXPR:
-      record_dependences_for_modify_expr_rec 
-	(loop_nest, rdef, halting_phi, sdd_graph, complete_imperative_list);
-      break;
-      
-    case ASM_EXPR:
-    case NOP_EXPR:
-      break;
-      
-    default:
-      abort ();
-      break;
-    }
+  /* Construct the SDG = SDD = Scalar Data Dependence Graph.  */
+  VARRAY_TREE_INIT (already_visited, 37, "already_visited");
+  record_dependences_for_version 
+    (loop_nb, version, sdd_graph, complete_imperative_list);
+  varray_clear (already_visited);
+  DBG_SCHEDULE_S (debug_schedule (complete_imperative_list));
+  
+  /* Then establish a schedule for this analysis.  */
+  wolfe_topological_sort_SDD_with_SCCs (complete_imperative_list, 
+					schedule, sdd_graph);
+  DBG_SCHEDULE_S (debug_schedule (schedule));
+  
+  varray_clear (sdd_graph);
+  varray_clear (complete_imperative_list);
+  DBG_S (fprintf (stderr, ")\n"));
 }
 
-
-
-/* Inserts dependences on loop exit: we have to compute the number of
-   iterations of the inner loop before analysing the evolution of a
-   variable in that loop.  */
-
-static void
-SDD_insert_deps_on_loop_exit_vars (struct loop *loop_nest,
-				   tree var, 
-				   struct loop *loop,
-				   varray_type sdd_graph, 
-				   varray_type complete_imperative_list)
-{
-  tree test = get_loop_exit_condition (loop);
-  tree opnd0, opnd1;
-  
-  if (test == NULL_TREE)
-    return;
-  
-  switch (TREE_CODE (test))
-    {
-    case LT_EXPR:
-    case LE_EXPR:
-    case GT_EXPR:
-    case GE_EXPR:
-    case EQ_EXPR:
-    case NE_EXPR:
-      opnd0 = TREE_OPERAND (test, 0);
-      opnd1 = TREE_OPERAND (test, 1);
-      
-      if (TREE_CODE (opnd0) == SSA_NAME)
-	{
-	  /*  (VAR -> OPND0).  */
-	  SDD_insert (var, opnd0, sdd_graph);
-	  record_dependences_for_ssa_name 
-	    (loop_nest, opnd0, sdd_graph, complete_imperative_list);
-	}
-      
-      if (TREE_CODE (opnd1) == SSA_NAME)
-	{
-	  /*  (VAR -> OPND1).  */
-	  SDD_insert (var, opnd1, sdd_graph);
-	  record_dependences_for_ssa_name 
-	    (loop_nest, opnd1, sdd_graph, complete_imperative_list);
-	}
-      break;
-      
-    case SSA_NAME:
-      /*  (VAR -> TEST).  */
-      SDD_insert (var, test, sdd_graph);
-      record_dependences_for_ssa_name 
-	(loop_nest, test, sdd_graph, complete_imperative_list);
-      break;
-      
-    default:
-      abort ();
-      break;
-    }
-}
-
-/* Insert a tuple (a, b), ie. "a depends on b", in the SDD.  */
+/* Insert a tuple (A, B), ie. "A depends on B", in the SDD_GRAPH.  */
 
 static void
 SDD_insert (tree a, 
@@ -3087,19 +2625,19 @@ SDD_insert (tree a,
   if (TREE_CODE (a) == SSA_NAME 
       && TREE_CODE (b) == SSA_NAME
       && TREE_CODE (SSA_NAME_VAR (a)) != INDIRECT_REF
-      && TREE_CODE (SSA_NAME_VAR (b)) != INDIRECT_REF)
+      && TREE_CODE (SSA_NAME_VAR (b)) != INDIRECT_REF
+      && SSA_NAME_VAR (a) != SSA_NAME_VAR (b))
     {
       tree name_a, name_b;
       
       name_a = SSA_NAME_VAR (a);
       name_b = SSA_NAME_VAR (b);
       
-      /* Insert the tuple (a, b).  */
-      
       DBG_SDD_S (fprintf (stderr, "SDD_insert \n");
 		 debug_generic_expr (name_a);
 		 debug_generic_expr (name_b));
       
+      /* Insert the tuple (a, b).  */
       VARRAY_PUSH_TREE (sdd_graph, name_a);
       VARRAY_PUSH_TREE (sdd_graph, name_b);
     }
@@ -3235,8 +2773,6 @@ wolfe_scc_recurse (unsigned int x,
       struct schedule_elt *sched_elt;
       
       sched_elt = new_schedule_elt ();
-      SCHED_LOOP_NEST (sched_elt) = loop_nest_at_index_in_imperative_list 
-	(VARRAY_TOP_UINT (wolfe_stack), complete_imperative_list);
       
       DBG_SCHEDULE_S (fprintf (stderr, "(Wolfe_SCC \n"));
       for (;;)
@@ -3252,22 +2788,6 @@ wolfe_scc_recurse (unsigned int x,
 	    ssa_name_at_index_in_imperative_list (w, complete_imperative_list);
 	  DBG_SCHEDULE_S (debug_generic_expr (w_tree));
 	  
-#if defined ENABLE_CHECKING
-	  {
-	    struct loop *loop_nest;
-	    
-	    loop_nest = loop_nest_at_index_in_imperative_list 
-	      (w, complete_imperative_list);
-	    
-	    if (SCHED_LOOP_NEST (sched_elt) != loop_nest
-		&& !loop_is_included_in (SCHED_LOOP_NEST (sched_elt)->num, 
-					 loop_nest->num))
-	      /* This means that the SCC spans over multiple loop nests: 
-		 the Wolfe's analyzer should not detect this as a SCC.  */
-	      abort ();
-	  }
-#endif
-	  
 	  /* Enqueue W_TREE into the SCC.  */
 	  VARRAY_PUSH_TREE (SCHED_SCC (sched_elt), w_tree);
 	  
@@ -3279,8 +2799,6 @@ wolfe_scc_recurse (unsigned int x,
       VARRAY_PUSH_GENERIC_PTR (analysis_schedule, sched_elt);
     }
 }
-
-
 
 /* Given a schedule that contains SCCs of induction variables to be
    analyzed, this calls the appropriate analyzer (either the single IV
@@ -3302,11 +2820,10 @@ analyze_scalars_from_schedule (varray_type schedule)
       
       if (VARRAY_ACTIVE_SIZE (SCHED_SCC (sched_elt)) == 1)
 	/* The simple case where the SCC contains a single variable.  */
-	analyze_evolution (VARRAY_TREE (SCHED_SCC (sched_elt), 0), 
-			   SCHED_LOOP_NEST (sched_elt));
+	analyze_evolution (VARRAY_TREE (SCHED_SCC (sched_elt), 0));
+      
       else
-	analyze_evolution_scc (SCHED_SCC (sched_elt), 
-			       SCHED_LOOP_NEST (sched_elt));
+	analyze_evolution_scc (SCHED_SCC (sched_elt));
     }
   
   DBG_S (fprintf (stderr, ")\n"));
@@ -3322,96 +2839,58 @@ analyze_scalars_from_schedule (varray_type schedule)
    loop nests we could analyze.  */
 
 /* Select the candidate loop nests for the analysis.  This function
-   initializes the loop_nests and exit_conditions arrays.  */
+   initializes the EXIT_CONDITIONS array.  The vector EXIT_CONDITIONS is
+   initialized in a loop-depth-first order, ie. the inner loops
+   conditions appear before the outer.  This property of the
+   EXIT_CONDITIONS list is exploited by the evolution analyzer.  */
 
 void
-select_loop_nests_for_scalar_evolutions_analyzer (struct loops *loops, 
-						  varray_type loop_nests, 
-						  varray_type exit_conditions)
+select_loops_exit_conditions (struct loops *loops, 
+			      varray_type exit_conditions)
 {
-  unsigned int i;
+  struct loop *function_body = loops->parray[0];
   
-  for (i = 1; i < loops->num; i++)
+  get_exit_conditions_rec (inner_loop (function_body), exit_conditions);
+  
+  /* This is an extension for an interprocedural analysis: the
+     function_body is a loop, and the outer loop is the context of the
+     caller.  The interprocedural analysis is one more reason to
+     compute the chrecs symbolically: the functions parameters are
+     considered as symbols defined in the outer context.  */
+  if (0)
     {
-      struct loop *loop = loops->parray[i];
-      
-      /* Loop selection condition.  
-	 FIXME: use another condition...  */
-      if (loop->depth == 1)
+      flow_loop_scan (function_body, LOOP_EXIT_EDGES);
+      if (loop_num_exits (function_body) == 1)
 	{
-	  varray_type ec;
-	  
-	  VARRAY_TREE_INIT (ec, 5, "ec");
-	  if (get_exit_conditions_for_nest (loop, ec))
-	    {
-	      VARRAY_PUSH_GENERIC_PTR (exit_conditions, ec);
-	      VARRAY_PUSH_GENERIC_PTR (loop_nests, loop);
-	    }
-	  else
-	    {
-	      /* Don't bother analyze the loop nest if the exit
-		 conditions are too difficult to analyze.
+	  tree loop_condition = get_loop_exit_condition (function_body);
 
-		 FIXME: It is possible though to analyze an inner
-		 nest...  Don't discard the whole nest if the outer
-		 loop is ill formed.
-	      */
-	      varray_clear (ec);
-	    }
+	  if (loop_condition)
+	    VARRAY_PUSH_TREE (exit_conditions, loop_condition);
 	}
     }
 }
 
-/* Retrieve all the exit conditions for a loop nest, without entering
-   in the sibling loops.  If one of the conditions is too difficult to
-   analyze, then return false.  */
-
-static bool 
-get_exit_conditions_for_nest (struct loop *loop_nest, 
-			      varray_type exit_conditions)
-{
-  tree loop_condition;
-  
-  DBG_S (fprintf (stderr, "Analyzing loop_nest: %d\n", loop_nest->num));
-  
-  flow_loop_scan (loop_nest, LOOP_EXIT_EDGES);
-  if (loop_nest->num_exits != 1)
-    return false;
-  
-  loop_condition = get_loop_exit_condition (loop_nest);
-  if (loop_condition)
-    {
-      VARRAY_PUSH_TREE (exit_conditions, loop_condition);
-      return get_exit_conditions_rec (loop_nest->inner, exit_conditions);
-    }
-  else
-    return false;
-}
-
 /* Recursively determine and enqueue the exit conditions for a loop.  */
 
-static bool 
+static void 
 get_exit_conditions_rec (struct loop *loop, 
 			 varray_type exit_conditions)
 {
-  tree loop_condition;
-  
   if (!loop)
-    return true;
-
+    return;
+  
+  /* Recurse on the inner loops, then on the next (sibling) loops.  */
+  get_exit_conditions_rec (inner_loop (loop), exit_conditions);
+  get_exit_conditions_rec (next_loop (loop), exit_conditions);
+  
   flow_loop_scan (loop, LOOP_EXIT_EDGES);
-  if (loop->num_exits != 1)
-    return false;
-  
-  loop_condition = get_loop_exit_condition (loop);
-  if (loop_condition)
-    VARRAY_PUSH_TREE (exit_conditions, loop_condition);
-  else
-    return false;
-  
-  /* Recurse on the next (sibling) loop, then on the inner loops.  */
-  return (get_exit_conditions_rec (loop->next, exit_conditions)
-	  && get_exit_conditions_rec (loop->inner, exit_conditions));
+  if (loop_num_exits (loop) == 1)
+    {
+      tree loop_condition = get_loop_exit_condition (loop);
+      
+      if (loop_condition)
+	VARRAY_PUSH_TREE (exit_conditions, loop_condition);
+    }
 }
 
 /* For a loop with a single exit edge, determine the COND_EXPR that
@@ -3425,18 +2904,16 @@ get_loop_exit_condition (struct loop *loop)
   
   DBG_S (fprintf (stderr, "(get_loop_exit_condition \n  "));
   
-  if (loop->exit_edges)
+  if (loop_exit_edges (loop))
     {
-      edge exit;
-      basic_block exit_bb;
+      edge exit_edge;
       tree expr;
       
-      exit = loop->exit_edges[0];
-      exit_bb = exit->src;
-      expr = last_stmt (exit_bb);
+      exit_edge = loop_exit_edge (loop, 0);
+      expr = last_stmt (edge_src (exit_edge));
       
       if (analyzable_condition (expr))
-	res = TREE_OPERAND (expr, 0);
+	res = expr;
     }
   
   DBG_S (debug_generic_expr (res);
@@ -3497,344 +2974,42 @@ analyzable_condition (tree expr)
 
 
 
-/* ICCP section. 
-   ICCP = Interval Copy Constant Propagation.  */
-
-/* Recursive helper.  */
-
-static void
-iccp_record_dependences (struct loop *loop_nest,
-			 tree expr,
-			 varray_type sdd_graph,
-			 varray_type imperative_list)
-{
-  int i;
-  
-  switch (TREE_CODE (expr))
-    {
-    case SSA_NAME:
-      iccp_record_dependences_for_ssa_name 
-	(loop_nest, expr, sdd_graph, imperative_list);
-      return;
-      
-    case PHI_NODE:
-      for (i = 0; i < PHI_NUM_ARGS (expr); i++)
-	{
-	  struct loop *loopf = bb_for_stmt (expr)->loop_father;
-	  tree arg_i = PHI_ARG_DEF (expr, i);
-	  iccp_record_dependences 
-	    (loopf, arg_i, sdd_graph, imperative_list);
-	  
-	  /* If we have decided that this branch cannot be analyzed,
-	     don't analyze the other branches.  */
-	  if (get_scev (loopf->num, arg_i) == chrec_symbolic_parameter)
-	    break;
-	}
-      return;
-      
-    case MODIFY_EXPR:
-      iccp_record_dependences_for_modify_expr 
-	(bb_for_stmt (expr)->loop_father, expr, sdd_graph, imperative_list);
-      return;
-      
-    default:
-      break;
-    }
-  
-  switch (TREE_CODE_LENGTH (TREE_CODE (expr)))
-    {
-    case 2:
-      iccp_record_dependences 
-	(loop_nest, TREE_OPERAND (expr, 1), sdd_graph, imperative_list);
-      
-    case 1:
-      iccp_record_dependences
-	(loop_nest, TREE_OPERAND (expr, 0), sdd_graph, imperative_list);
-      
-    case 0:
-      return;
-      
-    default:
-      abort ();
-    }
-}
-
-/* Determines a SCHEDULE of scalar variables that have to be analyzed
-   before beeing able to analyze the expression EXPR.  */
-
-static void 
-iccp_what_scalars_have_to_be_analyzed_before (struct loop *loop_nest, 
-					      tree expr, 
-					      varray_type schedule)
-{
-  varray_type sdd_graph, imperative_list;
-  
-  DBG_S (fprintf (stderr, "(iccp_what_scalars_have_to_be_analyzed_before: ");
-	 debug_generic_expr (expr));
-  
-  VARRAY_TREE_INIT (sdd_graph, 100, "sdd_graph");
-  VARRAY_GENERIC_PTR_INIT (imperative_list, 100, 
-			   "imperative_list");
-  
-  iccp_record_dependences 
-    (loop_nest, expr, sdd_graph, imperative_list);
-  
-  /* When the scalar evolution cannot be determined directly because
-     of other not yet analyzed scalar evolutions, establish a schedule
-     for the analysis.  */
-  if (VARRAY_ACTIVE_SIZE (imperative_list) > 0)
-    {
-      DBG_SCHEDULE_S (debug_schedule (imperative_list));
-      wolfe_topological_sort_SDD_with_SCCs (imperative_list, 
-					    schedule, sdd_graph);
-      DBG_SCHEDULE_S (debug_schedule (schedule));
-    }
-  
-  varray_clear (sdd_graph);
-  varray_clear (imperative_list);
-  DBG_S (fprintf (stderr, ")\n"));
-}
-
-/* A recursive helper function.  */
-
-static tree 
-iccp_follow_ssa_edge_and_compute_scev (int loop_num, 
-				       tree expr,
-				       varray_type already_seen_variables)
-{
-  tree res;
-  
-#if defined ENABLE_CHECKING
-  if (expr == NULL_TREE)
-    abort ();
-#endif
-  
-  switch (TREE_CODE (expr))
-    {
-    case SSA_NAME:
-      if (tree_is_in_varray_tree_p (expr, already_seen_variables))
-	/* Stop an infinite recursion caused by a SCC in the SSA.  */
-	res = expr;
-      
-      else
-	{
-	  /* LOOP_NUM is used here for determining in which loop the
-	     EXPR lives.  */
-	  res = evolution_at_version (loop_num, expr);
-	  
-	  /* When the version has not been analyzed yet, follow the
-	     SSA edge, and compute its scalar evolution.  */
-	  if (res == expr
-	      || res == chrec_not_analyzed_yet
-	      || res == chrec_symbolic_parameter)
-	    {
-	      VARRAY_PUSH_TREE (already_seen_variables, expr);
-	      res = iccp_follow_ssa_edge_and_compute_scev 
-		(loop_num, SSA_NAME_DEF_STMT (expr), already_seen_variables);
-	    }
-	}
-      break;
-      
-    case PHI_NODE:
-      /* FIXME: There are two kinds of phi nodes: the if-phi-nodes,
-	 and the loop-phi-nodes.  The following code solves only the
-	 case of the if-phi-nodes.  When seeing a loop-phi-node, the
-	 analyzer has to either push the variable into the imperative
-	 list and call the IV detector, or to answer "don't know" if
-	 the variable has no chrec associated with it on the current
-	 loop-phi-node.  */
-      res = evolution_at_version 
-	(bb_for_stmt (expr)->loop_father->num, PHI_RESULT (expr));
-      
-      if (res == PHI_RESULT (expr))
-	{
-	  int i;
-	  res = iccp_follow_ssa_edge_and_compute_scev 
-	    (loop_num, PHI_ARG_DEF (expr, 0), already_seen_variables);
-	  
-	  for (i = 1; i < PHI_NUM_ARGS (expr); i++)
-	    res = chrec_merge 
-	      (res, iccp_follow_ssa_edge_and_compute_scev 
-	       (loop_num, PHI_ARG_DEF (expr, i), already_seen_variables));
-	}
-      break;
-      
-    case MODIFY_EXPR:
-      res = iccp_follow_ssa_edge_and_compute_scev 
-	(bb_for_stmt (expr)->loop_father->num,
-	 TREE_OPERAND (expr, 1), already_seen_variables);
-      break;
-      
-    case PLUS_EXPR:
-      res = chrec_fold_plus 
-	(iccp_follow_ssa_edge_and_compute_scev 
-	 (loop_num, TREE_OPERAND (expr, 0), already_seen_variables),
-	 iccp_follow_ssa_edge_and_compute_scev 
-	 (loop_num, TREE_OPERAND (expr, 1), already_seen_variables));
-      break;
-      
-    case MINUS_EXPR:
-      res = chrec_fold_minus
-	(iccp_follow_ssa_edge_and_compute_scev 
-	 (loop_num, TREE_OPERAND (expr, 0), already_seen_variables),
-	 iccp_follow_ssa_edge_and_compute_scev 
-	 (loop_num, TREE_OPERAND (expr, 1), already_seen_variables));
-      break;
-      
-    case MULT_EXPR:
-      res = chrec_fold_multiply
-	(iccp_follow_ssa_edge_and_compute_scev 
-	 (loop_num, TREE_OPERAND (expr, 0), already_seen_variables),
-	 iccp_follow_ssa_edge_and_compute_scev 
-	 (loop_num, TREE_OPERAND (expr, 1), already_seen_variables));
-      break;
-      
-    case INTEGER_CST:
-    case REAL_CST:
-      res = expr;
-      break;
-      
-    case NOP_EXPR:
-      res = get_scev (loop_num, expr);
-      break;
-      
-    case VAR_DECL:
-    case PARM_DECL:
-    default:
-      res = get_scev (loop_num, expr);
-      
-      if (res == chrec_top)
-	/* KEEP_IT_SYMBOLIC.  */
-	res = expr;
-      
-      break;
-    } 
-  
-  return res;
-}
-
-/* Given an expression EXPR, this function finds an approximation of
-   the evolution function.  When the expression is not in a loop, the
-   result is equivalent to a classic CCP with interval values for
-   approximating conditional expressions.
-   
-   How it works?  
-   
-   It follows the ssa links bottom-up until obtaining a close form
-   expression.  CHREC_TOP is used as usual in the cases where the
-   value cannot be determined statically.  Note that the IV analyzer
-   is called */
-
-tree 
-iccp_determine_evolution_function (struct loop *loop_nest, 
-				   tree expr)
-{
-  tree res;
-  
-  DBG_S (fprintf (stderr, "(iccp_determine_evolution_function: ");
-	 debug_generic_expr (expr));
-  
-  switch (TREE_CODE (expr))
-    {
-    case INTEGER_CST:
-    case REAL_CST:
-    case VAR_DECL:
-    case PARM_DECL:
-      res = get_scev (loop_nest->num, expr);
-      break;
-      
-    case PHI_NODE:
-    case MODIFY_EXPR:
-      loop_nest = bb_for_stmt (expr)->loop_father;
-
-      /* Fall-thru.  */
-    case SSA_NAME:
-      {
-	varray_type schedule;
-	varray_type already_seen_variables;
-	
-	res = evolution_at_version (loop_nest->num, expr);
-	
-	/* When the evolution is already in the knowledge base, just
-	   return it, else compute it.  */
-	if (res == expr
-	    || res == chrec_top)
-	  {
-	    
-	    /* No need to compute the evolutions in a loop of depth 0.
-	       At depth 0, the evolution is constant, and the ICCP is
-	       the classic range propagation.  */
-	    if (loop_nest->depth > 0)
-	      {
-		VARRAY_GENERIC_PTR_INIT (schedule, 37, "schedule");
-		iccp_what_scalars_have_to_be_analyzed_before (loop_nest, expr, 
-							      schedule);
-		
-		if (VARRAY_ACTIVE_SIZE (schedule) > 0)
-		  analyze_scalars_from_schedule (schedule);
-		
-		varray_clear (schedule);
-	      }
-	    
-	    VARRAY_TREE_INIT (already_seen_variables, 37, 
-			      "already_seen_variables");
-	    res = iccp_follow_ssa_edge_and_compute_scev
-	      (loop_nest->num, expr, already_seen_variables);
-	    varray_clear (already_seen_variables);
-	  }
-	
-	break;
-      }
-      
-    default:
-      res = chrec_top;
-      break;
-    }
-  
-  DBG_S (fprintf (stderr, ")\n"));
-  return res;
-}
-
-
-
 /* Debugging functions section.  */
 
-/* Dump into DUMP_FILE all the evolution functions contained in
+/* Dump all the evolution functions of the variables contained in
    SCHEDULE.  */
 
 static void 
-dump_evolution_functions (varray_type schedule)
+dump_evolution_functions (FILE *file, 
+			  varray_type schedule)
 {
-  if (dump_file)
+  unsigned int j;
+
+  /* print_generic_stmt (file, 
+     DECL_SAVED_TREE (current_function_decl), 0);  */
+  fprintf (file, "\n\n  Scalar evolution functions: \n\n");
+  
+  /* For each SCC in the schedule.  */
+  for (j = 0; j < VARRAY_ACTIVE_SIZE (schedule); j++)
     {
-      unsigned int j;
+      unsigned k;
+      struct schedule_elt *sched_elt;
+
+      sched_elt = (struct schedule_elt *) 
+	VARRAY_GENERIC_PTR (schedule, j);
       
-      /* print_generic_stmt (dump_file, 
-	 DECL_SAVED_TREE (current_function_decl), 0);  */
-      fprintf (dump_file, "\n\n  Scalar evolution functions: \n\n");
-      
-      /* For each SCC in the schedule.  */
-      for (j = 0; j < VARRAY_ACTIVE_SIZE (schedule); j++)
+      /* For each variable in the SCC.  */
+      for (k = 0; k < VARRAY_ACTIVE_SIZE (SCHED_SCC (sched_elt)); k++)
 	{
-	  unsigned k;
-	  struct schedule_elt *sched_elt;
+	  tree var, chrec;
 	  
-	  sched_elt = (struct schedule_elt *) 
-	    VARRAY_GENERIC_PTR (schedule, j);
+	  var = SSA_NAME_VAR (VARRAY_TREE (SCHED_SCC (sched_elt), k));
+	  chrec = get_scev (0, var);
 	  
-	  /* For each variable in the SCC.  */
-	  for (k = 0; k < VARRAY_ACTIVE_SIZE (SCHED_SCC (sched_elt)); k++)
-	    {
-	      tree var, chrec;
-	      
-	      var = SSA_NAME_VAR (VARRAY_TREE (SCHED_SCC (sched_elt), k));
-	      chrec = get_scev (0, var);
-	      
-	      print_generic_stmt (dump_file, var, 0);
-	      fprintf (dump_file, "  ->  ");
-	      print_generic_stmt (dump_file, chrec, 0);
-	      fprintf (dump_file, "\n");
-	    }
+	  print_generic_stmt (file, var, 0);
+	  fprintf (file, "  ->  ");
+	  print_generic_stmt (file, chrec, 0);
+	  fprintf (file, "\n");
 	}
     }
 }
@@ -3863,7 +3038,6 @@ dump_schedule_elt (FILE *file,
 		   struct schedule_elt *sched_elt)
 {
   fprintf (file, "(schedule_elt \n");
-  fprintf (file, "  loop_num = %d", SCHED_LOOP_NEST (sched_elt)->num);
   dump_schedule_scc (file, SCHED_SCC (sched_elt));
   fprintf (file, ")\n");
 }
@@ -3881,7 +3055,8 @@ debug_schedule (varray_type schedule)
 
 /* Draw using DOTTY the scalar dependence graph.  */
 
-void draw_SDD (varray_type sdd_graph)
+void 
+draw_SDD (varray_type sdd_graph)
 {
   FILE *df;
   df = fopen ("tree_sdd.dot", "w");
@@ -3933,8 +3108,12 @@ sdd2dot (FILE *file,
 /* Initializer.  */
 
 void
-initialize_scalar_evolutions_analyzer (void)
+initialize_scalar_evolutions_analyzer (struct loops *loops, 
+				       varray_type ev_info)
 {
+  scev_loops = loops;
+  scev_info = ev_info;
+  
   /* Initialize debugging dumps.  */
   dump_file = dump_begin (TDI_scev, &dump_flags);
     
@@ -3946,13 +3125,13 @@ initialize_scalar_evolutions_analyzer (void)
   /* The elements below are unique.  The values contained in these
      intervals are not used.  */
   chrec_not_analyzed_yet = build_interval_chrec (build_int_2 (1111, 0), 
-						 build_int_2 (1111, -1));
+						 build_int_2 (2111, 0));
   chrec_top = build_interval_chrec (build_int_2 (2222, 0), 
-				    build_int_2 (2222, -1));
-  chrec_bot = build_interval_chrec (build_int_2 (3333, -1), 
-				    build_int_2 (3333, 0));
-  chrec_symbolic_parameter = build_interval_chrec (build_int_2 (4444, -1),
-						   build_int_2 (4444, 0));
+				    build_int_2 (3222, 0));
+  chrec_bot = build_interval_chrec (build_int_2 (3333, 0), 
+				    build_int_2 (4333, 0));
+  chrec_symbolic_parameter = build_interval_chrec (build_int_2 (4444, 0),
+						   build_int_2 (5444, 0));
 }
 
 /* Finalize.  */
@@ -3968,50 +3147,350 @@ finalize_scalar_evolutions_analyzer (void)
     }
 }
 
+/* Helper function.  */
 
-/* Entry point for this analysis pass.  */
-
-void 
-analyze_scalar_evolutions (struct loops *loops, 
-			   struct loop *loop_nest,
-			   varray_type ev_info, 
-			   varray_type exit_conditions)
+static tree
+analyze_scalar_evolution_1 (unsigned loop_nb,
+			    tree version)
 {
   /* ANALYSIS_SCHEDULE is a list of strongly connected components
-     (SCC).  The list contains the order in which the SCCs have to be
-     analyzed.  An element of the ANALYSIS_SCHEDULE contains a list of
-     variables that constitute an SCC.  */
+     (SCC).  The list contains the order in which the SCCs have to
+     be analyzed.  An element of the ANALYSIS_SCHEDULE contains a
+     list of variables that constitute an SCC.  */
   varray_type analysis_schedule;
+
+  VARRAY_GENERIC_PTR_INIT (analysis_schedule, 37, "analysis_schedule");
+  construct_schedule (loop_nb, version, analysis_schedule);
+  analyze_scalars_from_schedule (analysis_schedule);
   
-  /* In the "light-weight" algorithm, we're interested only in a
-     subset of the integer variables of a loop.  This constitutes the
-     imperative schedule list, from which the analysis schedule list
-     is built by partially sorting the SDG.  */
-  varray_type imperative_vars;
+  if (dump_file)
+    dump_evolution_functions (dump_file, analysis_schedule);
+  
+  varray_clear (analysis_schedule);
+
+  return evolution_at_version (loop_nb, version);
+}
+
+
+
+/* This section contains all the entry points: 
+   - number_of_iterations_in_loop,
+   - number_of_iterations_for_all_loops,
+   - analyze_scalar_evolution,
+   - instantiate_parameters.
+*/
+
+/* Entry point for the scalar evolution analyzer.
+   
+   Analyzes and returns the scalar evolution of the ssa_name VERSION.
+   LOOP_NB is the number of the loop that has to be analyzed: the
+   definitions in the outer loops are considered as constants, and
+   left under a symbolical form.  
+   
+   Example of use: having a pointer VERSION to a SSA_NAME node, in
+                   order to determine the evolution function of
+                   VERSION, use the following calls:
+   
+   unsigned loop_nb = loop_num (loop_of_stmt (SSA_NAME_DEF_STMT (version)));
+   tree chrec_with_symbols = analyze_scalar_evolution (loop_nb, version);
+   tree chrec_instantiated = instantiate_parameters 
+     (loop_nb, chrec_with_symbols, version);
+*/
+
+tree 
+analyze_scalar_evolution (unsigned loop_nb, 
+			  tree version)
+{
+  tree res;
+  DBG_S (fprintf (stderr, "(analyze_scalar_evolution \n");
+	 fprintf (stderr, "  (loop_nb = %d)\n", loop_nb);
+	 fprintf (stderr, "  (version = ");
+	 debug_generic_expr (version);
+	 fprintf (stderr, "  )\n"));
+  
+  res = evolution_at_version (loop_nb, version);
+  
+  /* When the evolution is not in the knowledge base, analyze it.  */
+  if (TREE_CODE (version) == SSA_NAME 
+      && initial_condition (res) == version)
+    res = analyze_scalar_evolution_1 (loop_nb, version);
+  
+  DBG_S (fprintf (stderr, ")\n"));
+  return res;
+}
+
+/* Analyze all the parameters of the chrec that were left under a
+   symbolic form, except for version.  */
+
+tree
+instantiate_parameters (unsigned loop_nb,
+			tree chrec, 
+			tree version)
+{
+  tree res;
+  
+  if (chrec == NULL_TREE
+      || automatically_generated_chrec_p (chrec))
+    res = chrec;
+  
+  else if (TREE_CODE (chrec) == SSA_NAME
+	   || TREE_CODE (chrec) == VAR_DECL
+	   || TREE_CODE (chrec) == PARM_DECL)
+    {
+      /* Don't instantiate VERSION.  This is used for avoiding the
+	 instantiation of recursively defined functions, such as:
+	 a_2  ->  {0, +, 1, +, a_2}_1  
+	 
+	 FIXME: Maybe we'll need to pass in a vector of versions that
+	 we don't want to instantiate.  */
+      if (chrec == version)
+	res = chrec;
+      
+      else
+	res = analyze_scalar_evolution (loop_nb, chrec);
+    }
+  
+  else
+    switch (TREE_CODE (chrec))
+      {
+      case PLUS_EXPR:
+	res = chrec_fold_plus 
+	  (instantiate_parameters (loop_nb, CHREC_LEFT (chrec), version),
+	   instantiate_parameters (loop_nb, CHREC_RIGHT (chrec), version));
+	break;
+	
+      case MINUS_EXPR:
+	res = chrec_fold_minus 
+	  (instantiate_parameters (loop_nb, CHREC_LEFT (chrec), version),
+	   instantiate_parameters (loop_nb, CHREC_RIGHT (chrec), version));
+	break;
+	
+      case MULT_EXPR:
+	res = chrec_fold_multiply 
+	  (instantiate_parameters (loop_nb, CHREC_LEFT (chrec), version),
+	   instantiate_parameters (loop_nb, CHREC_RIGHT (chrec), version));
+	break;
+	
+      case ABS_EXPR:
+	/* In general these nodes come from the symbolic computation
+	   of the number of iterations.  These nodes are too difficult
+	   to instantiate for the moment.  */
+	res = chrec;
+	break;
+	
+      default:
+	switch (TREE_CODE_LENGTH (TREE_CODE (chrec)))
+	  {
+	  case 2:
+	    res = build 
+	      (TREE_CODE (chrec), 
+	       TREE_TYPE (chrec),
+	       instantiate_parameters (loop_nb, TREE_OPERAND (chrec, 0), version),
+	       instantiate_parameters (loop_nb, TREE_OPERAND (chrec, 1), version));
+	    break;
+	    
+	  case 1:
+	    res = instantiate_parameters (loop_nb, TREE_OPERAND (chrec, 0), version);
+	    if (!automatically_generated_chrec_p (res))
+	      res = build1 (TREE_CODE (chrec), TREE_TYPE (chrec), res);
+	    break;
+	    
+	  default:
+	    res = chrec;
+	    break;
+	  }
+	break;
+      }
+  
+  return res;
+}
+
+/* Entry point for the analysis of the number of iterations pass.  
+   
+   This function tries to safely approximate the number of iterations
+   the loop will run.  When this property is not decidable at compile
+   time, the result is chrec_top: [-oo, +oo].  Otherwise the result is
+   a scalar, an interval, or a symbolic parameter.
+   
+   Example of analysis: suppose that the loop has an exit condition:
+   
+   "if (b > 49) goto end_loop;"
+   
+   and that in a previous analysis we have determined that the
+   variable 'b' has an evolution function:
+   
+   "EF = {23, +, 5}_2".  
+   
+   When we evaluate the function at the point 5, i.e. the value of the
+   variable 'b' after 5 iterations in the loop, we have EF (5) = 48,
+   and EF (6) = 53.  In this case the value of 'b' on exit is '53' and
+   the loop body has been executed 6 times.  */
+
+tree 
+number_of_iterations_in_loop (struct loop *loop)
+{
+  int loop_nb = loop_num (loop);
+  tree res;
+  tree cond, test, opnd0, opnd1;
+  tree chrec0, chrec1, chrec_cond;
+  
+  /* Determine whether the number_of_iterations_in_loop has already
+     been computed.  */
+  res = loop_nb_iterations (loop);
+  if (res)
+    return res;
+  
+  DBG_S (fprintf (stderr, "(number_of_iterations_in_loop \n"));
+  
+  cond = get_loop_exit_condition (loop);
+  if (cond == NULL_TREE)
+    return set_nb_iterations_in_loop (loop, chrec_top);
+  
+  test = TREE_OPERAND (cond, 0);
+  switch (TREE_CODE (test))
+    {
+    case SSA_NAME:
+      /* "while (opnd0 != 0)", or in other terms, 
+	 "exit when (chrec0 == 0)".  */
+      opnd0 = test;
+      chrec0 = analyze_scalar_evolution (loop_nb, opnd0);
+      
+      if (chrec0 == chrec_top
+	  || chrec0 == chrec_symbolic_parameter)
+	/* KEEP_IT_SYMBOLIC.  */
+	chrec0 = opnd0;
+      
+      DBG_S (fprintf (stderr, "  (loop_nb = %d)\n", loop_nb);
+	     fprintf (stderr, "  (loop_while_expr_is_true: ");
+	     debug_generic_expr (test);
+	     fprintf (stderr, "  )\n");
+	     fprintf (stderr, "  (chrec0 = ");
+	     debug_generic_expr (chrec0);
+	     fprintf (stderr, "  )\n"));
+      
+      if (chrec_contains_undetermined (chrec0))
+	return cannot_analyze_loop_nb_iterations_yet ();
+      
+      else
+	return set_nb_iterations_in_loop 
+	  (loop, how_far_to_zero (loop_nb, chrec0));
+
+    case LT_EXPR:
+    case LE_EXPR:
+    case GT_EXPR:
+    case GE_EXPR:
+    case EQ_EXPR:
+    case NE_EXPR:
+      opnd0 = TREE_OPERAND (test, 0);
+      opnd1 = TREE_OPERAND (test, 1);
+      chrec0 = analyze_scalar_evolution (loop_nb, opnd0);
+      chrec1 = analyze_scalar_evolution (loop_nb, opnd1);
+      
+      chrec0 = instantiate_parameters (loop_nb, chrec0, opnd0);
+      chrec1 = instantiate_parameters (loop_nb, chrec1, opnd1);
+      
+      chrec0 = homogenize_integer_cst_types_for_nb_iter (chrec0);
+      chrec1 = homogenize_integer_cst_types_for_nb_iter (chrec1);
+      
+      if (chrec0 == chrec_top
+	  || chrec0 == chrec_symbolic_parameter)
+	/* KEEP_IT_SYMBOLIC.  */
+	chrec0 = opnd0;
+      
+      if (chrec1 == chrec_top
+	  || chrec1 == chrec_symbolic_parameter)
+	/* KEEP_IT_SYMBOLIC.  */
+	chrec1 = opnd1;
+      
+      DBG_S (fprintf (stderr, "  (loop_nb = %d)\n", loop_nb);
+	     fprintf (stderr, "  (loop_while_expr_is_true: ");
+	     debug_generic_expr (test);
+	     fprintf (stderr, "  )\n");
+	     fprintf (stderr, "  (chrec0 = ");
+	     debug_generic_expr (chrec0);
+	     fprintf (stderr, "  )\n");
+	     fprintf (stderr, "  (chrec1 = ");
+	     debug_generic_expr (chrec1);
+	     fprintf (stderr, "  )\n"));
+	
+      if (chrec_contains_undetermined (chrec0)
+	  || chrec_contains_undetermined (chrec1))
+	return cannot_analyze_loop_nb_iterations_yet ();
+	
+      switch (TREE_CODE (test))
+	{
+	case LT_EXPR:
+	  /* "while (opnd0 < opnd1)", or in other terms, 
+	     "exit when (chrec0 - chrec1 + 1 > 0)".  */
+	  chrec_cond = chrec_fold_plus 
+	    (chrec_fold_minus (chrec0, chrec1), integer_one_node);
+	  return set_nb_iterations_in_loop 
+	    (loop, how_far_to_positive (loop_nb, chrec_cond));
+	  
+	case LE_EXPR:
+	  /* "while (opnd0 <= opnd1)", or, 
+	     "exit when (chrec0 - chrec1 > 0)".  */
+	  chrec_cond = chrec_fold_minus (chrec0, chrec1);
+	  return set_nb_iterations_in_loop 
+	    (loop, how_far_to_positive (loop_nb, chrec_cond));
+	  
+	case GT_EXPR:
+	  /* "while (opnd0 > opnd1)", or, 
+	     "exit when (chrec1 - chrec0 + 1 > 0)".  */
+	  chrec_cond = chrec_fold_plus 
+	    (chrec_fold_minus (chrec1, chrec0), integer_one_node);
+	  return set_nb_iterations_in_loop 
+	    (loop, how_far_to_positive (loop_nb, chrec_cond));
+	  
+	case GE_EXPR:
+	  /* "while (opnd0 >= opnd1)", or, 
+	     "exit when (chrec1 - chrec0 > 0)".  */
+	  chrec_cond = chrec_fold_minus (chrec1, chrec0);
+	  return set_nb_iterations_in_loop 
+	    (loop, how_far_to_positive (loop_nb, chrec_cond));
+	    
+	case EQ_EXPR:
+	  /* "while (opnd0 == opnd1)", or,
+	     "exit when (chrec0 - chrec1) != 0.  */
+	  chrec_cond = chrec_fold_minus (chrec0, chrec1);
+	  return set_nb_iterations_in_loop 
+	    (loop, how_far_to_non_zero (loop_nb, chrec_cond));
+	    
+	case NE_EXPR:
+	  /* "while (opnd0 != opnd1)", or, 
+	     "exit when (chrec0 == chrec1)".  */
+	  return set_nb_iterations_in_loop 
+	    (loop, nb_iterations_in_loop_until_eq (loop_nb, 
+						   chrec0, chrec1));
+	  
+	default:
+	  return set_nb_iterations_in_loop (loop, chrec_top);
+	}
+      
+    default:
+      return set_nb_iterations_in_loop (loop, chrec_top);
+    }
+}
+
+/* Entry point for the analysis of the number of iterations pass.
+   
+   This function computes the number of iterations for all the loops
+   from the EXIT_CONDITIONS array.  */
+
+void 
+number_of_iterations_for_all_loops (varray_type exit_conditions)
+{
+  unsigned int i;
   
   timevar_push (TV_SCALAR_EVOLUTIONS);
   
-  monev_loops = loops;
-  monev_info = ev_info;
-  
-  VARRAY_GENERIC_PTR_INIT (analysis_schedule, 37, 
-			   "analysis_schedule");
-  VARRAY_GENERIC_PTR_INIT (imperative_vars, 37, 
-			   "imperative_vars");
-  
-  /* Construct a minimal list of analyzed variables.  It is 
-     possible to push_back other integer variables to the 
-     imperative schedule list: IMPERATIVE_VARS.  */
-  schedule_exit_conditions (loop_nest,
-			    exit_conditions, 
-			    imperative_vars);
-  
-  construct_schedule (imperative_vars, analysis_schedule);
-  analyze_scalars_from_schedule (analysis_schedule);
-  dump_evolution_functions (analysis_schedule);
-  
-  varray_clear (imperative_vars);
-  varray_clear (analysis_schedule);
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (exit_conditions); i++)
+    {
+      tree exit_condition, nb_iter;
+      
+      exit_condition = VARRAY_TREE (exit_conditions, i);
+      nb_iter = number_of_iterations_in_loop (loop_of_stmt (exit_condition));
+    }
   
   timevar_pop (TV_SCALAR_EVOLUTIONS);
 }

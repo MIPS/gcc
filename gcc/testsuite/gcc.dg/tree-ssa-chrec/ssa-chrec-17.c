@@ -28,7 +28,7 @@ void foo ()
    both for the initial condition and for the evolution part.  This is done 
    in the merge condition branches information.  
    
-   a  ->  {[-oo, +oo], +, [-oo, +oo]}_1
+   a  ->  [-oo, +oo]
    b  ->  {2, +, a_1}_1
 */
 

@@ -3,13 +3,13 @@
   Scalar evolution functions: 
 
 T.1
-  ->  not_analyzed_yet
+  ->  [-oo, +oo]
 
 a
-  ->  {-100, +, [-oo, +oo]}_1
+  ->  {-100, +, [MIN_EXPR <T.1_8, 3>, MAX_EXPR <T.1_8, 3>]}_1
 
 b
-  ->  {2, +, a_1}_1
+  ->  {2, +, {[MIN_EXPR <T.1_8, 3> + -100, MAX_EXPR <T.1_8, 3> + -100], +, [MIN_EXPR <T.1_8, 3>, MAX_EXPR <T.1_8, 3>]}_1}_1
 
 
 

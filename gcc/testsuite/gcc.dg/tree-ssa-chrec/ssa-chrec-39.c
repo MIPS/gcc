@@ -6,7 +6,6 @@ int foo (int ParmN)
 {
   int a = 3;
   int b = 2;
-  int c = 11;
   int d = -5;
   
   while (a)
@@ -34,13 +33,11 @@ int foo (int ParmN)
 	  */
 	  a += ParmN;
 	}
-      c += 12;
     }
 }
 
 /* 
-   b  ->  {2, +, 5}_1
-   c  ->  {11, +, 12}_1
+   b  ->  {2, +, 25}_1
    d  ->  {-5, +, 1}_2
    a  ->  {{3, +, {ParmN * 5 + 27, +, 25}_1}_1, +, ParmN}_2
 */

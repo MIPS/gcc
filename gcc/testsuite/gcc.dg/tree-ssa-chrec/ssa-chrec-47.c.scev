@@ -3,7 +3,21 @@
   Scalar evolution functions: 
 
 p
-  ->  {p_1, +, [-oo, +oo]}_1
+  ->  {[MIN_EXPR <p_5, p_7>, MAX_EXPR <p_5, p_7>], +, -1}_1
+
+
+
+  Scalar evolution functions: 
+
+p
+  ->  {[MIN_EXPR <p_5, p_7>, MAX_EXPR <p_5, p_7>], +, -1}_1
+
+
+
+  Scalar evolution functions: 
+
+p
+  ->  {[MIN_EXPR <p_5, p_7>, MAX_EXPR <p_5, p_7>], +, -1}_1
 
 
 

@@ -1,0 +1,23 @@
+2004-01-09  Sebastian Pop  <s.pop@laposte.net>
+
+	* gcc.dg/tree-ssa-chrec/ssa-chrec-{01, 04, 06, 07, 09, 10, 17, 
+	18, 27, 28, 32, 33, 34, 35, 39, 41, 45, 47, 48}.c: Update comments.
+	* gcc.dg/tree-ssa-chrec/ssa-chrec-{01, 02, 03, 04, 05, 06, 09, 
+	10, 11, 17, 18, 27, 28,	30, 32, 33, 34, 35, 36, 37, 38, 39, 41, 
+	42, 43, 44, 45, 46, 47, 48, 49, 50}.c.scev: Adjusted.
+	* gcc.dg/tree-ssa-chrec/ssa-chrec-{10, 30, 31, 32, 33, 34, 35, 
+	36}.c.alldd: Adjusted.
+	* gcc.dg/tree-ssa-chrec/ssa-chrec-{51, 52}.c: New files.
+	* gcc.dg/tree-ssa-chrec/ssa-chrec-{51, 52}.c.scev: New.
+	* gcc.dg/tree-ssa-chrec/ssa-chrec-52.alldd: New.
+	* ChangeLog.lno: New file.
+
+2003-12-27  Sebastian Pop  <s.pop@laposte.net>
+
+	* gcc.dg/tree-ssa-chrec/ssa-chrec-[01..50].c : New testcases.
+	* gcc.dg/tree-ssa-chrec/ssa-chrec-[01..50].c.scev: Expected
+	outputs for the scalar evolution analyzer.
+	* gcc.dg/tree-ssa-chrec/ssa-chrec-{10, 30, 31, 32, 33, 34,
+	35, 36}.c.alldd: Expected outputs for the data dependence analyzer.
+	* gcc.dg/tree-ssa-chrec/tree-ssa-scev.exp: New file.
+	* lib/scantree.exp (diff-tree-dumps): New procedure.

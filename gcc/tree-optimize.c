@@ -253,40 +253,29 @@ optimize_function_tree (tree fndecl, tree *chain)
       
       if (flag_scalar_evolutions || flag_tree_vectorize)
 	{
-	  unsigned int i;
-	  struct loops *loops;
-	  varray_type ev_info;
-	  varray_type loop_nests;
-	  varray_type exit_conditions;
-	  
-	  VARRAY_GENERIC_PTR_INIT (ev_info, 37, "ev_info");
-	  VARRAY_GENERIC_PTR_INIT (loop_nests, 37, "loop_nests");
-	  VARRAY_GENERIC_PTR_INIT (exit_conditions, 37, "exit_conditions");
-	  
-	  loops = loop_optimizer_init (NULL);
+	  struct loops *loops = loop_optimizer_init (NULL);
 	  
 	  if (loops != NULL)
 	    {
-	      initialize_scalar_evolutions_analyzer ();
-	      select_loop_nests_for_scalar_evolutions_analyzer 
-		(loops, loop_nests, exit_conditions);
+	      varray_type ev_info;
 	      
-	      for (i = 0; i < VARRAY_ACTIVE_SIZE (loop_nests); i++)
+	      VARRAY_GENERIC_PTR_INIT (ev_info, 37, "ev_info");
+	      initialize_scalar_evolutions_analyzer (loops, ev_info);
+	      
+	      if (flag_scalar_evolutions)
 		{
-		  struct loop *loop_nest;
+		  varray_type exit_conditions;
 		  
-		  loop_nest = VARRAY_GENERIC_PTR (loop_nests, i);
-		  if (!loop_nest)
-		    continue;
-		  
-		  analyze_scalar_evolutions 
-		    (loops, loop_nest, ev_info, 
-		     VARRAY_GENERIC_PTR (exit_conditions, i));
-		  
-		  if (flag_all_data_deps)
-		    analyze_all_data_dependences (loop_nest);
+		  VARRAY_GENERIC_PTR_INIT (exit_conditions, 37, 
+					   "exit_conditions");
+		  select_loops_exit_conditions (loops, exit_conditions);
+		  number_of_iterations_for_all_loops (exit_conditions);
+		  varray_clear (exit_conditions);
 		}
-
+	      
+	      if (flag_all_data_deps)
+		analyze_all_data_dependences ();
+	      
 	      if (flag_tree_vectorize)
 		{
 		  bitmap_clear (vars_to_rename);
@@ -305,9 +294,6 @@ optimize_function_tree (tree fndecl, tree *chain)
 		}
 	      
 	      varray_clear (ev_info);
-	      varray_clear (loop_nests);
-	      varray_clear (exit_conditions);
-	      
 	      finalize_scalar_evolutions_analyzer ();
 	      loop_optimizer_finalize (loops, NULL);
 	    }

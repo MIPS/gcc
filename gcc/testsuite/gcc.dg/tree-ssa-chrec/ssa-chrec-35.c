@@ -19,5 +19,17 @@ int foo (float A[][M][N])
   return bar (A[10][11][12]);
 }
 
+/* The following evolution functions have to be detected:
+   
+   i  ->  {0, +, 1}_1
+   j  ->  {0, +, 1}_2
+   k  ->  {0, +, 1}_3
+   
+   For the subscript [j] vs. [k], "{0, +, 1}_2"  vs.  "{0, +, 1}_3"
+   the overlapping elements are respectively located at iterations:
+   {0, +, 1}_3 and {0, +, 1}_2.
+   
+*/
+
 /* { dg-final { diff-tree-dumps "scev" } } */
 /* { dg-final { diff-tree-dumps "alldd" } } */

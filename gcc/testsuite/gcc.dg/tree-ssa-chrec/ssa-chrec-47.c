@@ -23,6 +23,13 @@ foo (int unknown_parm, int a, int b)
   
 }
 
-/* p  ->  {p_1, +, -1}_1  */
+/* 
+   p  ->  {p_1, +, -1}_1  
+   
+   or, when the Value Range Propagation does its work:
+   
+   p  ->  {[MIN_EXPR <p_4, p_6>, MAX_EXPR <p_4, p_6>], +, -1}_1
+   
+*/
 
 /* { dg-final { diff-tree-dumps "scev" } } */
