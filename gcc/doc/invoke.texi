@@ -10897,6 +10897,16 @@ Generate code that does not use (uses) the floating-point register set.
 Software floating point emulation is provided if you use the
 @option{-msoft-float} option, and pass the option to GCC when linking.
 
+@c APPLE LOCAL begin describe actual behavior 3888787
+(APPLE ONLY) While the -msoft-float option is supported, the libraries that
+do the floating point emulation are not shipped on Apple PowerPCs, with the
+effect that the emulation does not work.  However, the option
+may be useful for a different reason.  Normally the compiler can use floating
+point registers in contexts where you might not expect it, for example, to
+copy data from one memory location to another.  The -msoft-float option will
+prevent it from doing this.
+@c APPLE LOCAL end describe actual behavior 3888787
+
 @item -mmultiple
 @itemx -mno-multiple
 @opindex mmultiple
