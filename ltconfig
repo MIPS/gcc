@@ -2433,6 +2433,9 @@ deplibs_check_method=$deplibs_check_method
 # Command to use when deplibs_check_method == file_magic.
 file_magic_cmd=$file_magic_cmd
 
+# Whether we are using GNU ld or not.
+with_gnu_ld=$with_gnu_ld
+
 # Flag that allows shared libraries with undefined symbols to be built.
 allow_undefined_flag=$allow_undefined_flag
 

@@ -1,0 +1,8 @@
+2004-01-24  Alan Modra  <amodra@bigpond.net.au>
+
+	* ltconfig: Set with_gnu_ld.
+	* ltmain.sh: Use ld script in preference to piecewise linking.
+
+	Backport from mainline.
+	2003-04-18  Jakub Jelinek  <jakub@redhat.com>
+	* configure.in (powerpc64*-*-linux*): Remove.
