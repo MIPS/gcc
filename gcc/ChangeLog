@@ -1,3 +1,10 @@
+2002-02-28  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* genautomata.c (output_insn_code_cases,
+	output_automata_list_min_issue_delay_code,
+	output_automata_list_transition_code,
+	output_automata_list_state_alts_code): Comment the functions.
+
 2002-02-22  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* genautomata.c (automata_list_el_t): New typedef.

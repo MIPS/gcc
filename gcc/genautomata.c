@@ -7413,7 +7413,8 @@ output_max_insn_queue_index_def ()
 }
 
 
-/* ??? */
+/* The function outputs switch cases for insn reseravtions using
+   function *output_automata_list_code.  */
 static void
 output_insn_code_cases (output_automata_list_code)
      void (*output_automata_list_code) (automata_list_el_t);
@@ -7452,7 +7453,8 @@ output_insn_code_cases (output_automata_list_code)
 }
 
 
-/* ??? */
+/* The function outputs a code for evaluation of a minimal delay of
+   issue of insns which have reservations in given AUTOMATA_LIST.  */
 static void
 output_automata_list_min_issue_delay_code (automata_list)
      automata_list_el_t automata_list;
@@ -7526,7 +7528,8 @@ output_internal_min_issue_delay_func ()
   fprintf (output_file, "}\n\n");
 }
 
-/* ??? */
+/* The function outputs a code changing state after issue of insns
+   which have reservations in given AUTOMATA_LIST.  */
 static void
 output_automata_list_transition_code (automata_list)
      automata_list_el_t automata_list;
@@ -7717,7 +7720,8 @@ output_trans_func ()
 	   INTERNAL_TRANSITION_FUNC_NAME, INTERNAL_INSN_CODE_NAME, STATE_NAME);
 }
 
-/* ??? */
+/* The function outputs a code for evaluation of alternative states
+   number for insns which have reservations in given AUTOMATA_LIST.  */
 static void
 output_automata_list_state_alts_code (automata_list)
      automata_list_el_t automata_list;
