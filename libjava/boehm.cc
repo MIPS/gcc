@@ -689,7 +689,11 @@ _Jv_GCInitializeFinalizers (void (*notifier) (void))
 void
 _Jv_GCRegisterDisappearingLink (jobject *objp)
 {
-  GC_general_register_disappearing_link ((GC_PTR *) objp, (GC_PTR) *objp);
+  // This test helps to ensure that we meet a precondition of
+  // GC_general_register_disappearing_link, viz. "Obj must be a
+  // pointer to the first word of an object we allocated."
+  if (GC_base(*objp))
+    GC_general_register_disappearing_link ((GC_PTR *) objp, (GC_PTR) *objp);
 }
 
 jboolean
