@@ -1,3 +1,21 @@
+2004-09-11  Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/SpinnerNumberModel.java
+	(SpinnerNumberModel): Implements java.io.Serializable.
+	(serialVersionUID): New field.
+	(SpinnerNumberModel): Added missing @throws tags to javadocs.
+	* javax/swing/UIManager.java
+	(get): New method.
+	(getBoolean): Likewise.
+	(getBorder): Likewise.
+	(getColor): Likewise.
+	(getDimension): Likewise.
+	(getFont): Likewise.
+	(getIcon): Likewise.
+	(getInsets): Likewise.
+	(getInt): Likewise.
+	(getString): Likewise.
+
 2004-09-10  Michael Koch  <konqueror@gmx.de>
 
 	* javax/swing/JPasswordField.java:

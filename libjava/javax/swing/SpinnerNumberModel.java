@@ -37,6 +37,8 @@ exception statement from your version. */
 
 package javax.swing;
 
+import java.io.Serializable;
+
 /**
  * SpinnerNumberModel
  *
@@ -44,7 +46,10 @@ package javax.swing;
  * @version 1.0
  */
 public class SpinnerNumberModel extends AbstractSpinnerModel
+  implements Serializable
 {
+  private static final long serialVersionUID = 7279176385485777821L;
+
   /** DOCUMENT ME! */
   private Number value;
 
@@ -73,6 +78,8 @@ public class SpinnerNumberModel extends AbstractSpinnerModel
    * @param minimum the minimum value
    * @param maximum the maximum value
    * @param stepSize the step size
+   * @throws IllegalArgumentException if minimum &lt;= value &lt;= maximum does not
+   *                                  hold
    */
   public SpinnerNumberModel(double value, double minimum, double maximum,
                             double stepSize)
@@ -88,6 +95,8 @@ public class SpinnerNumberModel extends AbstractSpinnerModel
    * @param minimum the minimum value
    * @param maximum the maximum value
    * @param stepSize the step size
+   * @throws IllegalArgumentException if minimum &lt;= value &lt;= maximum does not
+   *                                  hold
    */
   public SpinnerNumberModel(int value, int minimum, int maximum, int stepSize)
   {
