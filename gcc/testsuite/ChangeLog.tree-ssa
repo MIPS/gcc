@@ -1,5 +1,7 @@
 2003-04-16  Jeff Law  <law@redhat.com>
 
+	* gcc.c-torture/compile/20030416-1.c: New test from Diego.
+
 	* gcc.c-torture/execute/20030120-3.c: Updates suggested by Kaveh.
 
 2003-04-05  Diego Novillo  <dnovillo@redhat.com>
