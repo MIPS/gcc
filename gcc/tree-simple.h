@@ -61,6 +61,7 @@ int is_simple_constructor              PARAMS ((tree));
 int is_simple_constructor_elt          PARAMS ((tree));
 int is_simple_initializer              PARAMS ((tree));
 int is_simplifiable_builtin            PARAMS ((tree));
+int is_simple_decl_stmt                PARAMS ((tree));
 
 /* FIXME this needs a better name.  */
 tree add_tree			       PARAMS ((tree, tree *));

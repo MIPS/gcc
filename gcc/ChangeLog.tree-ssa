@@ -1,3 +1,7 @@
+2002-08-14  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-simple.h (is_simple_decl_stmt): Declare.
+
 2002-08-13  Frank Ch. Eigler  <fche@redhat.com>
 
 	* gcc.c (MFWRAP_SPEC, MFLIB_SPEC): New macros, splitting MFLIB_SPEC.
