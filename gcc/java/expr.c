@@ -969,14 +969,14 @@ build_java_arraystore_check (tree array, tree object)
   if (!flag_store_check)
     return build1 (NOP_EXPR, array_type_p, array);
 
-  /* No check is needed if the element type is final or is itself an array.  
-     Also check that element_type matches object_type, since in the bytecode 
-     compilation case element_type may be the actual element type of the array
-     rather than its declared type.  However, if we're doing indirect
-     dispatch, we can't do the `final' optimization.  */
+  /* No check is needed if the element type is final.  Also check that
+     element_type matches object_type, since in the bytecode
+     compilation case element_type may be the actual element type of
+     the array rather than its declared type.  However, if we're doing
+     indirect dispatch, we can't do the `final' optimization.  */
   if (element_type == object_type
-      && (TYPE_ARRAY_P (TREE_TYPE (element_type))
-	  || (! flag_indirect_dispatch && CLASS_FINAL (element_type))))
+      && ! flag_indirect_dispatch
+      && CLASS_FINAL (element_type))
     return build1 (NOP_EXPR, array_type_p, array);
   
   /* OBJECT might be wrapped by a SAVE_EXPR. */
