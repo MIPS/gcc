@@ -1,3 +1,23 @@
+2003-10-15  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* cfghooks.c (dump_bb): Take extra `int indent' argument.
+	* cfg.c (dump_bb): Take extra argument to match cfg hook.
+	Write out all information about bb that is shared between the tree
+	and rtl representations.
+	* basic-block.c (dump_bb): Adjust prototype.
+	* cfgrtl.c (rtl_dump_bb): Update prototype to match cfg hook.
+	Use indent.
+	* flow.c (verify_wide_reg, verify_local_live_at_start):
+	Fixup dump_bb calls.
+	* tree-cfg.c (dump_tree_bb): Rename to tree_dump_bb.  Remove unused
+	 `prefix' argument.  Put in tree_cfg_hooks as cfg hook for dump_bb.
+	(remove_bb, debug_tree_bb, dump_tree_cfg): Call dump_bb.
+	* tree-ssa (dump_tree_ssa): Likewise.
+	* tree-flow.h (dump_tree_bb): Replace with new tree_dump_bb
+	prototype.
+	* tree-pretty-print (dump_block_info): Match case of BLOCK, SUCC,
+	PRED with dump_bb.
+
 2003-10-14  Daniel Berlin  <dberlin@dberlin.org>
 	
 	* tree-alias-ander.c (throwaway_global): Delete.

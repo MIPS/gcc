@@ -197,7 +197,7 @@ static tree_stmt_iterator find_insert_location
    implies an ABI change in some functions.  */
 struct cfg_hooks tree_cfg_hooks = {
   tree_verify_flow_info,
-  NULL,				/* dump_bb  */
+  tree_dump_bb,			/* dump_bb  */
   NULL,				/* create_basic_block  */
   NULL,				/* redirect_edge_and_branch  */
   NULL,				/* redirect_edge_and_branch_force  */
@@ -1704,7 +1704,7 @@ remove_bb (basic_block bb, int remove_stmt_flags)
   if (dump_file)
     {
       fprintf (dump_file, "Removing basic block %d\n", bb->index);
-      dump_tree_bb (dump_file, "", bb, 0);
+      dump_bb (bb, dump_file, 0);
       fprintf (dump_file, "\n");
       dump_end (TDI_cfg, dump_file);
       dump_file = NULL;
@@ -2485,12 +2485,11 @@ insert_bb_before (basic_block new_bb, basic_block bb)
 			      Debugging functions
 ---------------------------------------------------------------------------*/
 
-/* Dump a basic block to a file.  */
+/* Dump tree-specific information of BB to file OUTF.  */
 
 void
-dump_tree_bb (FILE *outf, const char *prefix, basic_block bb, int indent)
+tree_dump_bb (basic_block bb, FILE *outf, int indent)
 {
-  edge e;
   char *s_indent;
   block_stmt_iterator si;
   tree phi;
@@ -2499,48 +2498,22 @@ dump_tree_bb (FILE *outf, const char *prefix, basic_block bb, int indent)
   memset ((void *) s_indent, ' ', (size_t) indent);
   s_indent[indent] = '\0';
 
-  fprintf (outf, "%s%sBLOCK       %d\n", s_indent, prefix, bb->index);
-
-  fprintf (outf, "%s%sPRED:      ", s_indent, prefix);
-  for (e = bb->pred; e; e = e->pred_next)
-    dump_edge_info (outf, e, 0);
-  putc ('\n', outf);
-
-  fprintf (outf, "%s%sSUCC:      ", s_indent, prefix);
-  for (e = bb->succ; e; e = e->succ_next)
-    dump_edge_info (outf, e, 1);
-  putc ('\n', outf);
-
-  fprintf (outf, "%s%sPARENT:     ", s_indent, prefix);
+  fprintf (outf, ";;%s parent:     ", s_indent);
   if (bb->tree_annotations && parent_block (bb))
     fprintf (outf, "%d\n", parent_block (bb)->index);
   else
     fputs ("nil\n", outf);
 
-  fprintf (outf, "%s%sLOOP DEPTH: %d\n", s_indent, prefix, bb->loop_depth);
-
-  fprintf (outf, "%s%sNEXT BLOCK: ", s_indent, prefix);
-  if (bb->next_bb)
-    fprintf (outf, "%d\n", bb->next_bb->index);
-  else
-    fprintf (outf, "nil\n");
-
-  fprintf (outf, "%s%sPREV BLOCK: ", s_indent, prefix);
-  if (bb->prev_bb)
-    fprintf (outf, "%d\n", bb->prev_bb->index);
-  else
-    fprintf (outf, "nil\n");
-
   if (bb->tree_annotations)
     for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
       {
-	fprintf (outf, "%s%s# ", s_indent, prefix);
+	fprintf (outf, "%s# ", s_indent);
 	print_generic_stmt (outf, phi, 0);
       }
 
   for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
     {
-      fprintf (outf, "%s%s%d  ", s_indent, prefix, get_lineno (bsi_stmt (si)));
+      fprintf (outf, "%s%d  ", s_indent, get_lineno (bsi_stmt (si)));
       print_generic_stmt (outf, bsi_stmt (si), TDF_SLIM);
     }
 }
@@ -2551,7 +2524,7 @@ dump_tree_bb (FILE *outf, const char *prefix, basic_block bb, int indent)
 void
 debug_tree_bb (basic_block bb)
 {
-  dump_tree_bb (stderr, "", bb, 0);
+  dump_bb (bb, stderr, 0);
 }
 
 /* Dump a basic block N on stderr.  */
@@ -2597,7 +2570,7 @@ dump_tree_cfg (FILE *file, int flags)
 
       FOR_EACH_BB (bb)
 	{
-	  dump_tree_bb (file, "", bb, 0);
+	  dump_bb (bb, file, 0);
 	  fputc ('\n', file);
 	}
     }

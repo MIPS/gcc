@@ -1783,7 +1783,7 @@ dump_tree_ssa (FILE *file)
 
   FOR_EACH_BB (bb)
     {
-      dump_tree_bb (file, "", bb, 0);
+      dump_bb (bb, file, 0);
       fputs ("    ", file);
       print_generic_stmt (file, phi_nodes (bb), 0);
       fputs ("\n\n", file);

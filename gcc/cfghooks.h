@@ -27,7 +27,7 @@ struct cfg_hooks
   /* Debugging.  Do not use macros to hook these so they can be called from
      debugger!  */
   int (*cfgh_verify_flow_info) (void);
-  void (*dump_bb) (basic_block, FILE *);
+  void (*dump_bb) (basic_block, FILE *, int);
 
   /* Basic CFG manipulation.  */
 

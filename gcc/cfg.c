@@ -956,36 +956,61 @@ verify_flow_info (void)
     internal_error ("verify_flow_info failed");
 }
 
-/* Print out one basic block with live information at start and end.  */
+/* Print out one basic block.  This function takes care of the purely
+   graph related information.  The cfg hook for the active representation
+   should dump representation-specific information.  */
 
 void
-dump_bb (basic_block bb, FILE *outf)
+dump_bb (basic_block bb, FILE *outf, int indent)
 {
   edge e;
+  char *s_indent;
+ 
+  s_indent = (char *) alloca ((size_t) indent + 1);
+  memset ((void *) s_indent, ' ', (size_t) indent);
+  s_indent[indent] = '\0';
 
-  fprintf (outf, ";; Basic block %d, loop depth %d, count ",
-	   bb->index, bb->loop_depth);
+  fprintf (outf, ";;%s basic block %d, loop depth %d, count ",
+	   s_indent, bb->index, bb->loop_depth);
   fprintf (outf, HOST_WIDEST_INT_PRINT_DEC, (HOST_WIDEST_INT) bb->count);
   putc ('\n', outf);
 
-  cfg_hooks->dump_bb (bb, outf);
+  fprintf (outf, ";;%s prev block ", s_indent);
+  if (bb->prev_bb)
+    fprintf (outf, "%d, ", bb->prev_bb->index);
+  else
+    fprintf (outf, "(nil), ");
+  fprintf (outf, "next block ");
+  if (bb->next_bb)
+    fprintf (outf, "%d", bb->next_bb->index);
+  else
+    fprintf (outf, "(nil)");
+  putc ('\n', outf);
 
-  fputs (";; Successors: ", outf);
+  fprintf (outf, ";;%s pred:      ", s_indent);
+  for (e = bb->pred; e; e = e->pred_next)
+    dump_edge_info (outf, e, 0);
+  putc ('\n', outf);
+
+  fprintf (outf, ";;%s succ:      ", s_indent);
   for (e = bb->succ; e; e = e->succ_next)
     dump_edge_info (outf, e, 1);
   putc ('\n', outf);
+
+  if (cfg_hooks->dump_bb)
+    cfg_hooks->dump_bb (bb, outf, indent);
 }
 
 void
 debug_bb (basic_block bb)
 {
-  dump_bb (bb, stderr);
+  dump_bb (bb, stderr, 0);
 }
 
 basic_block
 debug_bb_n (int n)
 {
   basic_block bb = BASIC_BLOCK (n);
-  dump_bb (bb, stderr);
+  dump_bb (bb, stderr, 0);
   return bb;
 }

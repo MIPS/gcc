@@ -548,7 +548,7 @@ extern bool probably_never_executed_bb_p (basic_block);
 
 /* In flow.c */
 extern void init_flow (void);
-extern void dump_bb (basic_block, FILE *);
+extern void dump_bb (basic_block, FILE *, int);
 extern void debug_bb (basic_block);
 extern basic_block debug_bb_n (int);
 extern void dump_regset (regset, FILE *);

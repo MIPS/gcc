@@ -1952,7 +1952,7 @@ dump_block_info (pretty_printer *buffer, basic_block bb, int spc)
       int lineno;
 
       newline_and_indent (buffer, spc);
-      pp_scalar (buffer, "# BLOCK %d", bb->index);
+      pp_scalar (buffer, "# block %d", bb->index);
 
       if (stmt_p
 	  && is_exec_stmt (*stmt_p)
@@ -1964,7 +1964,7 @@ dump_block_info (pretty_printer *buffer, basic_block bb, int spc)
 	  pp_string (buffer, ")");
 	}
 
-      pp_string (buffer, ".  PRED:");
+      pp_string (buffer, ".  pred:");
       for (e = bb->pred; e; e = e->pred_next)
 	if (e->src)
 	  {
@@ -1973,7 +1973,7 @@ dump_block_info (pretty_printer *buffer, basic_block bb, int spc)
 	      pp_string (buffer, "(ab)");
 	  }
 
-      pp_string (buffer, ".  SUCC:");
+      pp_string (buffer, ".  succ:");
       for (e = bb->succ; e; e = e->succ_next)
 	if (e->dest)
 	  {

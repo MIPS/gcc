@@ -85,7 +85,7 @@ static void rtl_delete_block (basic_block);
 static basic_block rtl_redirect_edge_and_branch_force (edge, basic_block);
 static bool rtl_redirect_edge_and_branch (edge, basic_block);
 static edge rtl_split_block (basic_block, void *);
-static void rtl_dump_bb (basic_block, FILE *);
+static void rtl_dump_bb (basic_block, FILE *, int);
 static int rtl_verify_flow_info_1 (void);
 static void mark_killed_regs (rtx, rtx, void *);
 static basic_block rtl_make_forwarder_block (basic_block, int, int, edge, int);
@@ -1686,15 +1686,21 @@ commit_edge_insertions_watch_calls (void)
   sbitmap_free (blocks);
 }
 
-/* Print out one basic block with live information at start and end.  */
+/* Print out RTL-specific basic block information (live information
+   at start and end).  */
 
 static void
-rtl_dump_bb (basic_block bb, FILE *outf)
+rtl_dump_bb (basic_block bb, FILE *outf, int indent)
 {
   rtx insn;
   rtx last;
+  char *s_indent;
 
-  fputs (";; Registers live at start:", outf);
+  s_indent = (char *) alloca ((size_t) indent + 1);
+  memset ((void *) s_indent, ' ', (size_t) indent);
+  s_indent[indent] = '\0';
+
+  fprintf (outf, ";;%s Registers live at start: ", s_indent);
   dump_regset (bb->global_live_at_start, outf);
   putc ('\n', outf);
 
@@ -1702,7 +1708,7 @@ rtl_dump_bb (basic_block bb, FILE *outf)
        insn = NEXT_INSN (insn))
     print_rtl_single (outf, insn);
 
-  fputs (";; Registers live at end:", outf);
+  fprintf (outf, ";;%s Registers live at end: ", s_indent);
   dump_regset (bb->global_live_at_end, outf);
   putc ('\n', outf);
 }

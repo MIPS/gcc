@@ -411,7 +411,7 @@ extern bool is_ctrl_structure (tree);
 extern bool is_ctrl_stmt (tree);
 extern bool is_ctrl_altering_stmt (tree);
 extern bool is_computed_goto (tree);
-extern void dump_tree_bb (FILE *, const char *, basic_block, int);
+extern void tree_dump_bb (basic_block, FILE *, int);
 extern void debug_tree_bb (basic_block);
 extern basic_block debug_tree_bb_n (int);
 extern void dump_tree_cfg (FILE *, int);
