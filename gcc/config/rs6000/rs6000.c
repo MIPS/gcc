@@ -433,8 +433,8 @@ static void setup_incoming_varargs (CUMULATIVE_ARGS *,
 #if TARGET_MACHO
 static void macho_branch_islands (void);
 static void add_compiler_branch_island (tree, tree, int);
-static int no_previous_def (tree function_name);
-static tree get_prev_label (tree function_name);
+static int no_previous_def (tree);
+static tree get_prev_label (tree);
 #endif
 
 static tree rs6000_build_builtin_va_list (void);
@@ -824,6 +824,7 @@ rs6000_override_options (const char *default_cpu)
       align_loops = 16; 
       align_jumps = 16;
       set_fast_math_flags (1);
+      flag_reorder_blocks = 1;
       if (flag_branch_probabilities)
 	flag_reorder_blocks_and_partition = 1;
       if (!flag_pic)
@@ -15976,10 +15977,7 @@ toc_section (void)
    the alignment of the first field.  */
 
 unsigned
-round_type_align (the_struct, computed, specified)
-     tree the_struct;
-     unsigned computed;
-     unsigned specified;
+round_type_align (tree the_struct, unsigned computed, unsigned specified)
 {
   if (TARGET_ALTIVEC && TREE_CODE (the_struct) == VECTOR_TYPE)
     {

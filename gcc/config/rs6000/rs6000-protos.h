@@ -211,8 +211,6 @@ extern void rs6000_cpu_cpp_builtins (struct cpp_reader *);
 #if TARGET_MACHO
 void add_compiler_stub PARAMS ((tree, tree, int));
 void output_compiler_stub PARAMS ((void));
-int no_previous_def PARAMS ((tree));
-tree get_prev_label PARAMS ((tree));
 extern char* output_call PARAMS ((rtx, rtx *, int, int));
 #endif
 

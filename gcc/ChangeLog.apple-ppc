@@ -1,3 +1,19 @@
+2004-04-06  Dale Johannesen <dalej@apple.com>
+
+	Roll in Zdenek Dvorak's rewrite of doloop optimization.
+	* Makefile.in: add loop-doloop.*, remove doloop.*
+	* loop-doloop.c: New.
+	* doloop.c: Remove.
+	* cfgloop.h: Add new function declarations.
+	* cfgloopanal.c: Add get_loop_level.
+	* loop-iv.c: Recognize unexecuted loops.
+	* loop.c: Remove call to old doloop optimization.
+	* loop.h: Remove LOOP_BCT.
+	* passes.c: Ditto. Call new doloop optimization.
+	* config/rs6000/rs6000-protos.h: Remove duplicate declarations.
+	* config/rs6000/rs6000.c: Cosmetic cleanups.  Add -freorder-blocks
+	to -fast.
+
 2004-04-02  Ziemowit Laski  <zlaski@apple.com>
 
 	Remove APPLE LOCAL AltiVec code whenever possible; merge in
