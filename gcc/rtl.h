@@ -219,9 +219,9 @@ struct rtx_def
    for a variable number of things.  The principle use is inside
    PARALLEL expressions.  */
 
-struct rtvec_def {
+struct rtvec_def GTY(()) {
   int num_elem;		/* number of elements */
-  rtx elem[1];
+  rtx GTY ((length ("%.num_elem"))) elem[1];
 };
 
 #define NULL_RTVEC (rtvec) 0

@@ -82,7 +82,6 @@ extern void ggc_mark_tree_hash_table	PARAMS ((struct hash_table *));
 extern void ggc_mark_roots		PARAMS ((void));
 
 extern void ggc_mark_rtx_children	PARAMS ((struct rtx_def *));
-extern void ggc_mark_rtvec_children	PARAMS ((struct rtvec_def *));
 
 extern void gt_ggc_m_rtx_def		PARAMS ((void *));
 extern void gt_ggc_m_tree_node		PARAMS ((void *));
@@ -106,22 +105,6 @@ extern void gt_ggc_m_tree_node		PARAMS ((void *));
     if (ggc_test_and_set_mark (t__))			\
       VARRAY_PUSH_TREE (ggc_pending_trees, t__);	\
   } while (0)
-
-#define ggc_mark_nonnull_tree(EXPR)			\
-  do {							\
-    tree t__ = (EXPR);					\
-    if (! ggc_set_mark (t__))				\
-      VARRAY_PUSH_TREE (ggc_pending_trees, t__);	\
-  } while (0)
-
-#define ggc_mark_rtvec(EXPR)                    \
-  do {                                          \
-    rtvec v__ = (EXPR);                         \
-    if (ggc_test_and_set_mark (v__))            \
-      ggc_mark_rtvec_children (v__);            \
-  } while (0)
-
-#define gt_ggc_m_rtvec_def ggc_mark_rtvec
 
 #define ggc_mark(EXPR)				\
   do {						\
@@ -193,12 +176,6 @@ extern int ggc_marked_p			PARAMS ((const void *));
 /* This is the language's opportunity to mark nodes held through
    the lang_specific hooks in the tree.  */
 extern void lang_mark_tree		PARAMS ((union tree_node *));
-
-/* The FALSE_LABEL_STACK, declared in except.h, has language-dependent
-   semantics.  If a front-end needs to mark the false label stack, it
-   should set this pointer to a non-NULL value.  Otherwise, no marking
-   will be done.  */
-extern void (*lang_mark_false_label_stack) PARAMS ((struct label_node *));
 
 /* Statistics.  */
 

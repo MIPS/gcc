@@ -1,3 +1,15 @@
+2002-04-28  Geoffrey Keating  <geoffk@redhat.com>
+
+	* ggc-common.c (ggc_mark_rtvec_children): Delete.
+	(ggc_mark_rtx_children): Use generic name for ggc_mark_rtvec.
+	(lang_mark_false_label_stack): Delete.
+	* rtl.h (struct rtvec_def): Use gengtype to mark.
+	* ggc.h (ggc_mark_rtvec): Delete.
+	(gt_ggc_m_rtvec_def): Delete.
+	(ggc_mark_nonnull_tree): Delete.
+	(ggc_mark_rtvec_children): Delete prototype.
+	(lang_mark_false_label_stack): Delete declaration.
+
 2002-04-27  Geoffrey Keating  <geoffk@redhat.com>
 
 	* gengtype.h (note_yacc_type): Add prototype.
