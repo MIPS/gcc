@@ -10601,7 +10601,8 @@ rs6000_emit_prologue ()
   saving_FPRs_inline = (info->first_fp_reg_save == 64
 			|| TARGET_SAFE_STACK
 			|| FP_SAVE_INLINE (info->first_fp_reg_save)
-			|| cfun->machine->ra_need_lr);
+			|| cfun->machine->ra_need_lr
+			|| current_function_calls_eh_return);
 
   /* For V.4, update stack before we do any saving and set back pointer.  */
   if (info->push_p

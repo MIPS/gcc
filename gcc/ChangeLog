@@ -1,3 +1,8 @@
+2003-07-24  Alan Modra  <amodra@bigpond.net.au>
+
+	* config/rs6000/rs6000.c (rs6000_emit_prologue): Save fp regs inline
+	if current_function_calls_eh_return.
+
 2003-07-21  Jakub Jelinek  <jakub@redhat.com>
 
 	* config/rs6000/rs6000.h (machine_function): Add ra_need_lr.
