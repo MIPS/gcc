@@ -1,3 +1,7 @@
+2004-02-24  Richard Henderson  <rth@redhat.com>
+
+	* trans-array.c (gfc_trans_dummy_array_bias): Fix typo.
+
 2004-02-19  Loren J. Rittle  <ljrittle@acm.org>
 
 	* Make-lang.in ($(srcdir)/fortran/gfortran.info): Move...

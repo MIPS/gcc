@@ -179,7 +179,7 @@ java_gimplify_new_array_init (tree exp)
   tree values = CONSTRUCTOR_ELTS (init);
 
   tree array_ptr_type = build_pointer_type (array_type);
-  tree block = build (BLOCK, array_ptr_type, NULL_TREE);
+  tree block = build (BLOCK, array_ptr_type);
   tree tmp = build_decl (VAR_DECL, get_identifier ("<tmp>"), array_ptr_type);
   tree array = build_decl (VAR_DECL, get_identifier ("<array>"), array_ptr_type);
   tree body = build (MODIFY_EXPR, array_ptr_type, tmp,

@@ -1,3 +1,7 @@
+2004-02-19  Richard Henderson  <rth@redhat.com>
+
+        * parse.y (switch_label): Use make_node for DEFAULT_EXPR.
+
 2004-02-10  Joseph S. Myers  <jsm@polyomino.org.uk>
 
 	* gjavah.c: Include "intl.h".

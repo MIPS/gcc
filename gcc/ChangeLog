@@ -1,4 +1,15 @@
+2004-02-19  Richard Henderson  <rth@redhat.com>
+
+        * Makefile.in (STRICT2_WARN): Add -Wno-variadic-macros.
+        * tree.c (build0, build1, build2, build3, build4): Split out from...
+        (build): ... here.  Call them.
+        * tree.h (build, _buildN1, _buildN2, _buildC1, _buildC2): New.
+
+        * convert.c (convert_to_integer): Remove extra build argument.
+        * tree-inline.c (expand_call_inline): Likewise.
+
 2004-02-23  Fariborz Jahanian <fjahanian@apple.com>
+
         * config/rs6000/rs6000.c (function_arg): call to
         rs6000_mixed_function_arg for DFmode moved to allow
         normal DFmode incoming register assignment.
