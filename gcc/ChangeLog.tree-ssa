@@ -1,3 +1,8 @@
+2004-04-19  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* tree-ssa-phiopt.c (conditional_replacement):
+	Catch some more non-gimple.
+
 2004-04-19  Jan Hubicka  <jh@suse.cz>
 
 	* predict.c (combine_predictions_for_bb): Fix pasto.
