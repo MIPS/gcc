@@ -1,3 +1,24 @@
+2004-12-12  Richard Henderson  <rth@redhat.com>
+
+        PR target/18932
+        * config/i386/i386.md (all splits and peepholes): Use flags_reg_operand
+        and compare_operator to propagate the input CC mode to the output.
+	* config/i386/i386.c (compare_operator): New.
+	* config/i386/i386.h (PREDICATE_CODES): Add it.
+        * config/i386/i386-protos.h: Update.
+
+2004-12-09  Richard Henderson  <rth@redhat.com>
+
+	PR c/18282
+	* attribs.c (decl_attributes): Clear DECL_ALIGN when relaying out decl.
+	* c-common.c (handle_mode_attribute): Handle enumeral types.
+
+2004-12-09  Richard Henderson  <rth@redhat.com>
+
+	PR target/17025
+	* config/i386/i386.md (testqi_1_maybe_si, andqi_2_maybe_si): New.
+	(test_qi_1, andqi_2): Do not promote to simode.
+
 2004-12-07  David Mosberger  <davidm@hpl.hp.com>
 
 	PR target/18443
