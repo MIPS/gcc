@@ -2161,27 +2161,63 @@ gimplify_addr_expr (tree *expr_p, tree *pre_p, tree *post_p)
 static void
 gimplify_asm_expr (tree expr, tree *pre_p, tree *post_p)
 {
+  int i;
   tree link;
 
   ASM_STRING (expr)
     = resolve_asm_operand_names (ASM_STRING (expr), ASM_OUTPUTS (expr),
 				 ASM_INPUTS (expr));
 
-  for (link = ASM_OUTPUTS (expr); link; link = TREE_CHAIN (link))
-    gimplify_expr (&TREE_VALUE (link), pre_p, post_p,
-		   is_gimple_lvalue, fb_lvalue);
+  for (i = 0, link = ASM_OUTPUTS (expr); link; ++i, link = TREE_CHAIN (link))
+    {
+      bool allows_reg, allows_mem, is_inout;
+      const char *constraint
+	= TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (link)));
+
+      parse_output_constraint (&constraint, i, 0, 0,
+			       &allows_mem, &allows_reg, &is_inout);
+
+      if (!allows_reg)
+	(*lang_hooks.mark_addressable) (TREE_VALUE (link));
+
+      gimplify_expr (&TREE_VALUE (link), pre_p, post_p,
+		     is_gimple_lvalue, fb_lvalue);
+
+      if (is_inout && allows_reg)
+	{
+	  /* An input/output operand that allows a register.  To give the
+	     optimizers more flexibility, split it into separate input and
+	     output operands.  */
+	  tree input;
+	  char buf[10];
+
+	  /* Turn the in/out constraint into an output constraint.  */
+	  char *p = xstrdup (constraint);
+	  p[0] = '=';
+	  TREE_VALUE (TREE_PURPOSE (link)) = build_string (strlen (p), p);
+
+	  /* And add a matching input constraint.  */
+	  sprintf (buf, "%d", i);
+	  input = build_string (strlen (buf), buf);
+	  input = build_tree_list (build_tree_list (NULL_TREE, input),
+				   unshare_expr (TREE_VALUE (link)));
+	  ASM_INPUTS (expr) = chainon (input, ASM_INPUTS (expr));
+	}
+    }
 
   for (link = ASM_INPUTS (expr); link; link = TREE_CHAIN (link))
     {
       /* If the operand is a memory input, it should be an lvalue.  */
       if (asm_op_is_mem_input (link, expr))
-	gimplify_expr (&TREE_VALUE (link), pre_p, post_p,
-		       is_gimple_lvalue, fb_lvalue);
+	{
+	  (*lang_hooks.mark_addressable) (TREE_VALUE (link));
+	  gimplify_expr (&TREE_VALUE (link), pre_p, post_p,
+			 is_gimple_lvalue, fb_lvalue);
+	}
       else
 	gimplify_expr (&TREE_VALUE (link), pre_p, post_p,
 		       is_gimple_val, fb_rvalue);
     }
-
 }
 
 /* If EXPR is a boolean expression, make sure it has BOOLEAN_TYPE.  */

@@ -1,3 +1,10 @@
+2003-10-07  Jason Merrill  <jason@redhat.com>
+
+	PR optimization/12525
+	* gimplify.c (gimplify_asm_expr): If the constraint doesn't allow
+	a register, call mark_addressable.  Split an in/out operand that
+	does allow a register into separate input and output operands.
+
 2003-10-06  Richard Henderson  <rth@redhat.com>
 
 	* fold-const.c (fold): Fold (T1)((T2)X op Y) into (T1)X op Y,
