@@ -1,3 +1,14 @@
+2004-10-21  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphicsEnvironment.c:
+	New File.
+	(nativeGetNumFontsFamilies) New function.
+	(nativeGetFontFamilies) Likewise.
+	* gnu/java/awt/peer/gtk/GdkGraphicsEnvironment.java
+	(getAvailableFontFamilyNames): Implement.
+	* Makefile.am (gtk_c_source_files): Add GdkGraphicsEnvironment.c.
+	* Makefile.in: Regenerate.
+
 2004-10-20  Thomas Fitzsimmons  <fitzsim@redhat.com>
 
 	* gnu/java/awt/peer/ClasspathFontPeer.java

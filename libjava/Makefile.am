@@ -191,6 +191,7 @@ jni/gtk-peer/gnu_java_awt_peer_gtk_GdkFontMetrics.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GdkFontPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGlyphVector.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics.c \
+jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphicsEnvironment.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GdkPixbufDecoder.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkButtonPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCanvasPeer.c \
