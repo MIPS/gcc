@@ -1,3 +1,8 @@
+2003-11-28  Richard Henderson  <rth@redhat.com>
+
+	* gimple-low.c (lower_function_body): Call lower_bind_expr
+	to handle the outermost BIND_EXPR.
+
 2003-11-28  Jan Hubicka  <jh@suse.cz>
 
 	* tree-ssa.c (remove_annotations_r): Kill.

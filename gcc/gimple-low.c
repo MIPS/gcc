@@ -55,11 +55,13 @@ static bool expand_var_p (tree);
 
 /* Lowers the BODY.  */
 void
-lower_function_body (tree *body)
+lower_function_body (tree *body_p)
 {
   struct lower_data data;
+  tree bind = *body_p;
+  tree_stmt_iterator i;
 
-  if (TREE_CODE (*body) != BIND_EXPR)
+  if (TREE_CODE (bind) != BIND_EXPR)
     abort ();
 
   data.block = DECL_INITIAL (current_function_decl);
@@ -67,9 +69,10 @@ lower_function_body (tree *body)
   BLOCK_CHAIN (data.block) = NULL_TREE;
   TREE_ASM_WRITTEN (data.block) = 1;
 
-  record_vars (BIND_EXPR_VARS (*body));
-  *body = BIND_EXPR_BODY (*body);
-  lower_stmt_body (*body, &data);
+  *body_p = alloc_stmt_list ();
+  i = tsi_start (*body_p);
+  tsi_link_after (&i, bind, TSI_NEW_STMT);
+  lower_bind_expr (&i, &data);
 
   if (data.block != DECL_INITIAL (current_function_decl))
     abort ();
