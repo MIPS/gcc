@@ -79,7 +79,11 @@ public abstract class RGBImageFilter extends ImageFilter
 
 	if( ( model instanceof IndexColorModel) && canFilterIndexColorModel  ) {
 		newmodel = filterIndexColorModel( (IndexColorModel) model );
+		consumer.setColorModel(newmodel);
 	    }
+	else {
+		consumer.setColorModel(ColorModel.getRGBdefault());
+	}
     }
     
     /**
@@ -179,7 +183,7 @@ public abstract class RGBImageFilter extends ImageFilter
                           ColorModel model, byte[] pixels,
                           int offset, int scansize)
     {
-	if(model == origmodel && (model instanceof IndexColorModel) && canFilterIndexColorModel)
+	if(model.equals(origmodel) && (model instanceof IndexColorModel) && canFilterIndexColorModel)
 	{
 	    consumer.setPixels(x, y, w, h, newmodel, pixels, offset, scansize);
 	}
@@ -210,7 +214,7 @@ public abstract class RGBImageFilter extends ImageFilter
                           ColorModel model, int[] pixels,
                           int offset, int scansize)
     {
-	if(model == origmodel && (model instanceof IndexColorModel) && canFilterIndexColorModel)
+	if(model.equals(origmodel) && (model instanceof IndexColorModel) && canFilterIndexColorModel)
 	{
 	    consumer.setPixels(x, y, w, h, newmodel, pixels, offset, scansize);
 	}

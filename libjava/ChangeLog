@@ -1,3 +1,20 @@
+2004-06-18  David Jee  <djee@redhat.com>
+
+	* gnu/java/awt/image/ImageDecoder.java
+	(startProduction): Only add consumer if it's not added yet.
+	* gnu/java/awt/peer/gtk/GdkPixbufDecoder.java
+	(GdkPixbufDecoder): Don't call initState() here.
+	(produce): Call initState() here, to ensure area_prepared and
+	area_updated signals are properly connected.
+	* gnu/java/awt/peer/gtk/GtkImage.java
+	(setColorModel): Use equals() to compare ColorModel objects.
+	(setPixels): Likewise.
+	* java/awt/image/ColorModel.java
+	(equals): Fix typo. Use Arrays.equals() to compare int arrays.
+	* java/awt/image/RGBImageFilter.java
+	(setColorModel): Set consumer's color model.
+	(setPixels): Use equals() to compare ColorModel objects.
+
 2004-06-18  Michael Koch  <konqueror@gmx.de>
 
 	* javax/swing/ToolTipManager.java

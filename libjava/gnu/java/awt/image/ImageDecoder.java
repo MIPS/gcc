@@ -97,7 +97,9 @@ public abstract class ImageDecoder implements ImageProducer
 
   public void startProduction (ImageConsumer ic)
   {
-    addConsumer (ic);
+    if (!isConsumer(ic))
+      addConsumer(ic);
+
     Vector list = (Vector) consumers.clone ();
     try 
       {
