@@ -1,3 +1,16 @@
+# Copyright (c) 1999-2001 by Red Hat, Inc. All rights reserved.
+# 
+# THIS MATERIAL IS PROVIDED AS IS, WITH ABSOLUTELY NO WARRANTY EXPRESSED
+# OR IMPLIED.  ANY USE IS AT YOUR OWN RISK.
+# 
+# Permission is hereby granted to use or copy this program
+# for any purpose,  provided the above notices are retained on all copies.
+# Permission to modify the code and to distribute modified code is granted,
+# provided the above notices are retained, and a notice that the code was
+# modified is included with the above copyright notice.
+#
+# Original author: Tom Tromey
+
 dnl Process this file with autoconf to produce configure.
 
 AC_INIT(gc_mark.h)
@@ -9,11 +22,16 @@ AC_CANONICAL_SYSTEM
 
 BOEHM_CONFIGURE(.)
 
+AM_PROG_LIBTOOL
+
 dnl We use these options to decide which functions to include.
+
+
 AC_ARG_WITH(target-subdir,
-[  --with-target-subdir=SUBDIR      Configuring with a cross compiler])
+[  --with-target-subdir=SUBDIR
+                          configuring with a cross compiler])
 AC_ARG_WITH(cross-host,
-[  --with-cross-host=HOST           Configuring with a cross compiler])
+[  --with-cross-host=HOST  configuring with a cross compiler])
 
 AM_MAINTAINER_MODE
 # automake wants to see AC_EXEEXT.  But we don't need it.  And having
@@ -24,7 +42,7 @@ if test "x" = "y"; then
 fi
 
 AC_MSG_CHECKING([for threads package to use])
-AC_ARG_ENABLE(threads, [  --enable-threads=TYPE    choose threading package],
+AC_ARG_ENABLE(threads, [  --enable-threads=TYPE   choose threading package],
   THREADS=$enableval,
   dnl FIXME: figure out native threads to use here.
   THREADS=no)
@@ -41,8 +59,14 @@ if test "$THREADS" = yes; then
     *-*-win*)
        THREADS=win32
        ;;
+    *-*-irix[[1-5]].*)
+       # No built-in threads library on IRIX 5.* and older.
+       THREADS=none
+       ;;
     *-*-irix*)
-       THREADS=irix
+       # FIXME: for now, choose POSIX, because we implement that.
+       # Later, choose irix threads.
+       THREADS=posix
        ;;
     *-*-solaris*)
        # FIXME: for now, choose POSIX, because we implement that.
@@ -57,6 +81,7 @@ if test "$THREADS" = yes; then
 fi
 
 INCLUDES=
+THREADLIBS=
 case "$THREADS" in
  no | none | single)
     THREADS=none
@@ -72,11 +97,11 @@ case "$THREADS" in
 	AC_DEFINE(SOLARIS_THREADS)
 	AC_DEFINE(_SOLARIS_PTHREADS)
 	;;
+     *-*-irix*)
+	AC_DEFINE(IRIX_THREADS)
+	;;
     esac
-    ;;
- qt)
-    AC_DEFINE(QUICK_THREADS)
-    INCLUDES="-I${boehm_gc_basedir}/../qthreads"
+    THREADLIBS=-lpthread
     ;;
  decosf1 | irix | mach | os2 | solaris | win32 | dce | vxworks)
     AC_MSG_ERROR(thread package $THREADS not yet supported)
@@ -86,16 +111,20 @@ case "$THREADS" in
     ;;
 esac
 AC_MSG_RESULT($THREADS)
+AC_SUBST(THREADLIBS)
+
+AC_CHECK_LIB(dl, dlopen, EXTRA_TEST_LIBS="$EXTRA_TEST_LIBS -ldl")
+AC_SUBST(EXTRA_TEST_LIBS)
 
 AC_ARG_ENABLE(java-gc,
 changequote(<<,>>)dnl
-<<  --enable-java-gc=TYPE    choose garbage collector [boehm]>>,
+<<  --enable-java-gc=TYPE   choose garbage collector [boehm]>>,
 changequote([,])
   GC=$enableval,
   GC=boehm)
 target_all=
 if test "$GC" = "boehm"; then
-   target_all=libgcjgc.a
+   target_all=libgcjgc.la
 fi
 AC_SUBST(target_all)
 
@@ -105,7 +134,7 @@ dnl FIXME: this should not be a local option but a global target
 dnl system; at present there is no eCos target.
 TARGET_ECOS="no"
 AC_ARG_WITH(ecos,
-[  --with-ecos      Enable runtime eCos target support.],
+[  --with-ecos             enable runtime eCos target support],
 TARGET_ECOS="$with_ecos"
 )
 
@@ -117,7 +146,7 @@ case "$TARGET_ECOS" in
    *)
       AC_DEFINE(ECOS)
       CXXINCLUDES="-I${TARGET_ECOS}/include"
-      addobjs="$addobjs ecos.o"
+      addobjs="$addobjs ecos.lo"
       ;;
 esac
 AC_SUBST(CXX)
@@ -127,17 +156,29 @@ AC_SUBST(CXXINCLUDES)
 
 machdep=
 case "$host" in
+# alpha_mach_dep.s assumes that pointers are not saved in fp registers.
+# Gcc on a 21264 can spill pointers to fp registers.  Oops.
+# alpha*-*-*)
+#    machdep="alpha_mach_dep.lo"
+#    ;;
  mipstx39-*-elf*)
-    machdep="mips_ultrix_mach_dep.o"
+    machdep="mips_ultrix_mach_dep.lo"
     AC_DEFINE(STACKBASE, __stackbase)
     AC_DEFINE(DATASTART_IS_ETEXT)
+    ;;
+ mips-dec-ultrix*)
+    machdep="mips_ultrix_mach-dep.lo"
+    ;;
+ mips-*-*)
+    machdep="mips_sgi_mach_dep.lo"
+    AC_DEFINE(NO_EXECUTE_PERMISSION)
     ;;
  sparc-sun-solaris2.3*)
     AC_DEFINE(SUNOS53_SHARED_LIB)
     ;;
 esac
 if test x"$machdep" = x; then
-   machdep="mach_dep.o"
+   machdep="mach_dep.lo"
 fi
 addobjs="$addobjs $machdep"
 AC_SUBST(addobjs)
@@ -170,14 +211,8 @@ dnl Define a few things to retarget the library towards
 dnl embedded Java.
 AC_DEFINE(SILENT)
 AC_DEFINE(NO_SIGNALS)
-AC_DEFINE(NO_DEBUGGING)
 AC_DEFINE(JAVA_FINALIZATION)
-
-dnl Create boehm-config.h so that libjava can find it.
-dnl It is required to use gc_priv.h, which is required to write
-dnl a new marking function.  So config.h in this package is
-dnl poorly named.
-AC_LINK_FILES(config.h, boehm-config.h)
+AC_DEFINE(GC_GCJ_SUPPORT)
 
 dnl This is something of a hack.  When cross-compiling we turn off
 dnl some functionality.  We also enable the "small" configuration.
@@ -186,7 +221,10 @@ if test -n "${with_cross_host}"; then
    AC_DEFINE(NO_SIGSET)
    AC_DEFINE(NO_CLOCK)
    AC_DEFINE(SMALL_CONFIG)
+   AC_DEFINE(NO_DEBUGGING)
 fi
+
+AM_CONDITIONAL(USE_LIBDIR, test -z "$with_cross_host")
 
 if test "${multilib}" = "yes"; then
   multilib_arg="--enable-multilib"
