@@ -1,3 +1,8 @@
+2003-08-08  Daniel Berlin  <dberlin@dberlin.org>
+    
+	* tree-cfg.c (bsi_insert_on_edge_immediate): If there's only
+	one statement in the block, and it's an empty statement, replace it.
+
 2003-08-08  Jason Merrill  <jason@redhat.com>
 
 	* c-decl.c (c_expand_body_1): Restore support for

@@ -4262,11 +4262,22 @@ bsi_insert_on_edge_immediate (edge e, tree stmt, block_stmt_iterator *old_bsi,
 
       if (!is_ctrl_stmt (last) && !is_ctrl_altering_stmt (last))
 	{
-	  bsi_insert_after (&bsi, stmt, BSI_SAME_STMT);
-	  if (old_bsi)
-	    *old_bsi = bsi;
-	  bsi_next (&bsi);
-	  return bsi;
+	  if (src->head_tree_p == src->end_tree_p 
+	      && IS_EMPTY_STMT (*src->head_tree_p))
+	    {
+	      bsi_replace (bsi, stmt);
+	      if (old_bsi)
+		*old_bsi = bsi;
+	      return bsi;
+	    }
+	  else
+	    {
+	      bsi_insert_after (&bsi, stmt, BSI_SAME_STMT);
+	      if (old_bsi)
+		*old_bsi = bsi;
+	      bsi_next (&bsi);
+	      return bsi;
+	    }
 	}
 
       /* If the last stmt is a GOTO, the we can simply insert before it.  */
