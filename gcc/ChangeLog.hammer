@@ -1,3 +1,9 @@
+2004-03-09  Alan Modra  <amodra@bigpond.net.au>
+
+	PR target/14478
+	* config/rs6000/rs6000.md: Give all reg_or_neg_short_operand
+	constraints a zero alternative.
+
 2004-03-09  Michael Matz  <matz@suse.de>
 
 	* gcc.c (retry_ice): Add "-frandom-seed=0" to parameters.
