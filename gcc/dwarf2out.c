@@ -12591,8 +12591,9 @@ dwarf2out_var_location (loc_note)
     }
   else
     {
-      ASM_GENERATE_INTERNAL_LABEL (loclabel, "LVL", loclabel_num++);
-      ASM_OUTPUT_LABEL (asm_out_file, loclabel);
+      ASM_GENERATE_INTERNAL_LABEL (loclabel, "LVL", loclabel_num);
+      ASM_OUTPUT_DEBUG_LABEL (asm_out_file, "LVL", loclabel_num);
+      loclabel_num++;
       newloc->label = ggc_strdup (loclabel);
     }
   newloc->var_loc_note = loc_note;

@@ -1,3 +1,8 @@
+2003-11-06  Josef Zlomek  <zlomekj@suse.cz>
+
+	Andreas Schwab <schwab@suse.de>
+	* dwarf2out.c (dwarf2out_var_location): Use ASM_OUTPUT_DEBUG_LABEL.
+
 2003-11-04  Josef Zlomek  <zlomekj@suse.cz>
 
 	* var-tracking.c (set_frame_base_location): New function.
