@@ -1,3 +1,13 @@
+2003-10-21  Jason Merrill  <jason@redhat.com>
+
+	* gimplify.c (gimplify_modify_expr): Require a regvar on either
+	the lhs or rhs if we're dealing with a renameable type.
+	(canonicalize_component_ref): New fn.
+	(gimplify_compound_lval): Use it.
+	(gimplify_conversion): Use it.
+	(gimplify_expr): Lose redundant STRIP_MAIN_TYPE_NOPS.
+	Discard conversions in void context.
+
 2003-10-21  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-ssa-pre.c (pre_expression): Free and allocate the

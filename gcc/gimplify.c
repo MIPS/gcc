@@ -88,6 +88,7 @@ static void gimplify_conversion (tree *);
 static int gimplify_init_constructor (tree *, tree *, int);
 static void gimplify_minimax_expr (tree *, tree *, tree *);
 static void build_stack_save_restore (tree *, tree *);
+static void canonicalize_component_ref (tree *);
 
 static struct gimplify_ctx
 {
@@ -338,9 +339,6 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
   if (*expr_p == NULL_TREE)
     return true;
 
-  /* Go ahead and strip type nops before we test our predicate.  */
-  STRIP_MAIN_TYPE_NOPS (*expr_p);
-
   /* We used to check the predicate here and return immediately if it
      succeeds.  This is wrong; the design is for gimplification to be
      idempotent, and for the predicates to only test for valid forms, not
@@ -447,9 +445,11 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	  if (IS_EMPTY_STMT (*expr_p))
 	    break;
 
-	  if (VOID_TYPE_P (TREE_TYPE (*expr_p)))
+	  if (VOID_TYPE_P (TREE_TYPE (*expr_p))
+	      || fallback == fb_none)
 	    {
-	      /* Just strip a conversion to void and try again.  */
+	      /* Just strip a conversion to void (or in void context) and
+		 try again.  */
 	      *expr_p = TREE_OPERAND (*expr_p, 0);
 	      break;
 	    }
@@ -1231,17 +1231,10 @@ static void
 gimplify_conversion (tree *expr_p)
 {  
   /* If a NOP conversion is changing the type of a COMPONENT_REF
-     expression, then it is safe to force the type of the
-     COMPONENT_REF to be the same as the type of the field the
-     COMPONENT_REF is accessing.
-
-     This is a profitable thing to do as canonicalization of
-     types on COMPONENT_REFs exposes more redundant COMPONENT_REFs.  */
+     expression, then canonicalize its type now in order to expose more
+     redundant conversions.  */
   if (TREE_CODE (TREE_OPERAND (*expr_p, 0)) == COMPONENT_REF)
-    {
-      TREE_TYPE (TREE_OPERAND (*expr_p, 0))
-	= TREE_TYPE (TREE_OPERAND (TREE_OPERAND (*expr_p, 0), 1));
-    }
+    canonicalize_component_ref (&TREE_OPERAND (*expr_p, 0));
 
   /* Strip away as many useless type conversions as possible
      at the toplevel.  */
@@ -1388,6 +1381,45 @@ gimplify_array_ref_to_plus (tree *expr_p, tree *pre_p, tree *post_p)
   *expr_p = build1 (INDIRECT_REF, elttype, result);
 }
 
+/* *EXPR_P is a COMPONENT_REF being used as an rvalue.  If its type is
+   different from its canonical type, wrap the whole thing inside a
+   NOP_EXPR and force the type of the COMPONENT_REF to be the canonical
+   type.
+
+   The canonical type of a COMPONENT_REF is the type of the field being
+   referenced--unless the field is a bit-field which can be read directly
+   in a smaller mode, in which case the canonical type is the
+   sign-appropriate type corresponding to that mode.  */
+
+static void
+canonicalize_component_ref (tree *expr_p)
+{
+  tree expr = *expr_p;
+  tree type;
+
+  if (TREE_CODE (expr) != COMPONENT_REF)
+    abort ();
+
+  if (INTEGRAL_TYPE_P (TREE_TYPE (expr)))
+    type = TREE_TYPE (get_unwidened (expr, NULL_TREE));
+  else
+    type = TREE_TYPE (TREE_OPERAND (expr, 1));
+
+  if (TREE_TYPE (expr) != type)
+    {
+      tree old_type = TREE_TYPE (expr);
+
+      /* Set the type of the COMPONENT_REF to the underlying type.  */
+      TREE_TYPE (expr) = type;
+
+      /* And wrap the whole thing inside a NOP_EXPR.  */
+      expr = build1 (NOP_EXPR, old_type, expr);
+      recalculate_side_effects (expr);
+
+      *expr_p = expr;
+    }
+}
+
 /* Gimplify the COMPONENT_REF, ARRAY_REF, REALPART_EXPR or IMAGPART_EXPR
    node pointed by EXPR_P.
 
@@ -1468,25 +1500,11 @@ gimplify_compound_lval (tree *expr_p, tree *pre_p,
       recalculate_side_effects (t);
     }
 
-  /* Now look at the toplevel expression.  If it is a COMPONENT_REF and
-     the type of the COMPONENT_REF is different than the field being
-     referenced, then wrap the whole thing inside a NOP_EXPR and force
-     the type of the COMPONENT_REF to be the same as the field being
-     referenced.  */
+  /* If the outermost expression is a COMPONENT_REF, canonicalize its
+     type.  */
   if (! want_lvalue
-      && TREE_CODE (*expr_p) == COMPONENT_REF
-      && TREE_TYPE (*expr_p) != TREE_TYPE (TREE_OPERAND (*expr_p, 1)))
-    {
-      tree type_for_nop_expr = TREE_TYPE (*expr_p);
-
-      /* Set the type of the COMPONENT_REF to the type of the field
-	 being referenced.  */
-      TREE_TYPE (*expr_p) = TREE_TYPE (TREE_OPERAND (*expr_p, 1));
-
-      /* And wrap the whole thing inside a NOP_EXPR.  */
-      *expr_p = build1 (NOP_EXPR, type_for_nop_expr, *expr_p);
-      recalculate_side_effects (*expr_p);
-    }
+      && TREE_CODE (*expr_p) == COMPONENT_REF)
+    canonicalize_component_ref (expr_p);
 }
 
 /*  Gimplify the self modifying expression pointed by EXPR_P (++, --, +=, -=).
@@ -2060,7 +2078,11 @@ gimplify_modify_expr (tree *expr_p, tree *pre_p, tree *post_p, int want_value)
      FIXME this should be handled by the is_gimple_rhs predicate.  */
   if (! is_gimple_tmp_var (*to_p)
       && (TREE_CODE (*from_p) == CALL_EXPR
-	  || (flag_non_call_exceptions && tree_could_trap_p (*from_p))))
+	  || (flag_non_call_exceptions && tree_could_trap_p (*from_p))
+	  /* If we're dealing with a renamable type, either source or dest
+	     must be a renamed variable.  */
+	  || (is_gimple_reg_type (TREE_TYPE (*from_p))
+	      && !is_gimple_reg (*to_p))))
     gimplify_expr (from_p, pre_p, post_p, is_gimple_val, fb_rvalue);
 
   if (want_value)
@@ -2308,7 +2330,7 @@ gimplify_asm_expr (tree *expr_p, tree *pre_p, tree *post_p)
     *expr_p = build_empty_stmt ();
 }
 
-/* If EXPR is a boolean expression, make sure it has BOOLEAN_TYPE.  */
+/* EXPR is used in a boolean context; make sure it has BOOLEAN_TYPE.  */
 
 static tree
 gimple_boolify (tree expr)

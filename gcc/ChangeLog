@@ -1,3 +1,8 @@
+2003-10-21  Jason Merrill  <jason@redhat.com>
+
+	* tree.c (get_unwidened): Check TREE_UNSIGNED on the field's type.
+	(get_narrower): Likewise.
+
 2003-10-20  Zack Weinberg  <zack@codesourcery.com>
                                                                                 
 	* config/i386/i386.c (print_reg): Abort if REGNO (x) is a
