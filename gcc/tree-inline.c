@@ -40,6 +40,7 @@ Boston, MA 02111-1307, USA.  */
 #include "cgraph.h"
 #include "intl.h"
 #include "tree-mudflap.h"
+#include "function.h"
 
 
 /* I'm not real happy about this, but we need to handle gimple and
@@ -679,8 +680,13 @@ static tree
 copy_body (inline_data *id)
 {
   tree body;
+  tree fndecl = VARRAY_TOP_TREE (id->fns);
 
-  body = DECL_SAVED_TREE (VARRAY_TOP_TREE (id->fns));
+  if (fndecl == current_function_decl
+      && cfun->saved_tree)
+    body = cfun->saved_tree;
+  else
+    body = DECL_SAVED_TREE (fndecl);
   walk_tree (&body, copy_body_r, id, NULL);
 
   return body;
@@ -701,8 +707,9 @@ initialize_inlined_parameters (inline_data *id, tree args, tree fn, tree bind_ex
   int argnum = 0;
 
   /* Figure out what the parameters are.  */
-  parms = 
-DECL_ARGUMENTS (fn);
+  parms = DECL_ARGUMENTS (fn);
+  if (fn == current_function_decl)
+    parms = cfun->saved_args;
 
   /* Start with no initializations whatsoever.  */
   init_stmts = NULL_TREE;
@@ -1473,7 +1480,8 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
     }
 
 #ifdef ENABLE_CHECKING
-  verify_cgraph_node (edge->callee);
+  if (edge->callee->decl != id->node->decl)
+    verify_cgraph_node (edge->callee);
 #endif
 
   if (! (*lang_hooks.tree_inlining.start_inlining) (fn))
@@ -1546,6 +1554,7 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
   id->ret_label = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
   DECL_ARTIFICIAL (id->ret_label) = 1;
   DECL_CONTEXT (id->ret_label) = VARRAY_TREE (id->fns, 0);
+  insert_decl_map (id, id->ret_label, id->ret_label);
 
   if (! DECL_INITIAL (fn)
       || TREE_CODE (DECL_INITIAL (fn)) != BLOCK)

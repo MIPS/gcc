@@ -625,6 +625,9 @@ cgraph_expand_function (struct cgraph_node *node)
     abort ();
 
   current_function_decl = NULL;
+  if (DECL_SAVED_TREE (node->decl)
+      && !cgraph_preserve_function_body_p (node->decl))
+    DECL_SAVED_TREE (node->decl) = NULL;
 }
 
 /* Fill array order with all nodes with output flag set in the reverse
@@ -913,6 +916,110 @@ update_callee_keys (fibheap_t heap, struct fibnode **heap_node,
       update_callee_keys (heap, heap_node, e->callee);
 }
 
+/* Enqueue all recursive calls from NODE into queue linked via aux pointers
+   in between FIRST and LAST.  WHERE is used for bookkeeping while looking
+   int calls inlined within NODE.  */
+static void
+lookup_recursive_calls (struct cgraph_node *node, struct cgraph_node *where,
+			struct cgraph_edge **first, struct cgraph_edge **last)
+{
+  struct cgraph_edge *e;
+  for (e = where->callees; e; e = e->next_callee)
+    if (e->callee == node)
+      {
+	if (!*first)
+	  *first = e;
+	else
+	  (*last)->aux = e;
+	*last = e;
+      }
+  for (e = where->callees; e; e = e->next_callee)
+    if (e->inline_call)
+      lookup_recursive_calls (node, e->callee, first, last);
+}
+
+/* Decide on recursive inlining: in the case function has recursive calls,
+   inline until body size reaches given argument.  */
+static void
+cgraph_decide_recursive_inlining (struct cgraph_node *node)
+{
+  int limit = PARAM_VALUE (PARAM_MAX_INLINE_INSNS_RECURSIVE_AUTO);
+  int max_depth = PARAM_VALUE (PARAM_MAX_INLINE_RECURSIVE_DEPTH_AUTO);
+  struct cgraph_edge *first_call = NULL, *last_call = NULL;
+  struct cgraph_edge *last_in_current_depth;
+  struct cgraph_edge *e;
+  struct cgraph_node *master_clone;
+  int depth = 0;
+  int n = 0;
+
+  if (DECL_DECLARED_INLINE_P (node->decl))
+    {
+      limit = PARAM_VALUE (PARAM_MAX_INLINE_INSNS_RECURSIVE);
+      max_depth = PARAM_VALUE (PARAM_MAX_INLINE_RECURSIVE_DEPTH);
+    }
+
+  /* Make sure that function is small enought to be considered for inlining.  */
+  if (!max_depth
+      || cgraph_estimate_size_after_inlining (1, node, node)  >= limit)
+    return;
+  lookup_recursive_calls (node, node, &first_call, &last_call);
+  if (!first_call)
+    return;
+
+  if (cgraph_dump_file)
+    fprintf (cgraph_dump_file, 
+	     "\nPerforming recursive inlining on %s\n",
+	     cgraph_node_name (node));
+
+  /* We need original clone to copy around.  */
+  master_clone = cgraph_clone_node (node);
+  master_clone->needed = true;
+  for (e = master_clone->callees; e; e = e->next_callee)
+    if (e->inline_call)
+      cgraph_clone_inlined_nodes (e, true);
+
+  /* Do the inlining and update list of recursive call during process.  */
+  last_in_current_depth = last_call;
+  while (first_call
+	 && cgraph_estimate_size_after_inlining (1, node, master_clone) <= limit)
+    {
+      struct cgraph_edge *curr = first_call;
+
+      first_call = first_call->aux;
+      curr->aux = NULL;
+
+      cgraph_redirect_edge_callee (curr, master_clone);
+      cgraph_mark_inline_edge (curr);
+      lookup_recursive_calls (node, curr->callee, &first_call, &last_call);
+
+      if (last_in_current_depth
+	  && ++depth >= max_depth)
+	break;
+      n++;
+    }
+
+  /* Cleanup queue pointers.  */
+  while (first_call)
+    {
+      struct cgraph_edge *next = first_call->aux;
+      first_call->aux = NULL;
+      first_call = next;
+    }
+  if (cgraph_dump_file)
+    fprintf (cgraph_dump_file, 
+	     "\n   Inlined %i times, body grown from %i to %i insns\n", n,
+	     master_clone->global.insns, node->global.insns);
+
+  /* Remove master clone we used for inlining.  We rely that clones inlined
+     into master clone gets queued just before master clone so we don't
+     need recursion.  */
+  for (node = cgraph_nodes; node != master_clone;
+       node = node->next)
+    if (node->global.inlined_to == master_clone)
+      cgraph_remove_node (node);
+  cgraph_remove_node (master_clone);
+}
+
 /* We use greedy algorithm for inlining of small functions:
    All inline candidates are put into prioritized heap based on estimated
    growth of the overall number of instructions and then update the estimates.
@@ -1002,6 +1109,8 @@ cgraph_decide_inlining_of_small_functions (void)
 	      next = node->callers;
 	    }
 	}
+
+      cgraph_decide_recursive_inlining (node);
 
       /* Similarly all functions called by the function we just inlined
          are now called more times; update keys.  */

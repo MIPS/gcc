@@ -1,5 +1,25 @@
 2003-12-14  Jan Hubicka  <jh@suse.cz>
 
+	* cgraphunit.c (cgraph_expand_function):  Release function body when no
+	longer needed.
+	(lookup_recursive_calls): New function.
+	(cgraph_decide_recursive_inlining): Likewise.
+	(cgraph_decide_inlining_of_small_functions): Do recursive inlining.
+	* tree-inline.c: Include function.h
+	(copy_body): Choose saved body for recursive inlining.
+	(initialize_inlined_parameters): Likewise.
+	(expand_call_inline): Do not verify nodes when recursivly inlining,
+	insert ret_label into decl map.
+	* params.def (PARAM_MAX_INLINE_INSNS_RECURSIVE,
+	PARAM_MAX_INLINE_INSNS_RECURSIVE_AUTO,
+	PARAM_MAX_INLINE_RECURSIVE_DEPTH,
+	PARAM_MAX_INLINE_RECURSIVE_DEPTH_AUTO): New argument.
+	* invoke.texi (max-inline-insns-recursive, max-inline-recursive-depth):
+	Document.
+	* Makefile.in (tree-inline.o): Include function.h.
+
+2003-12-14  Jan Hubicka  <jh@suse.cz>
+
 	* cgraphunit.c (record_call_1): Do not call analyze_expr hook
 	* langhooks-def.h (LANG_HOOKS_CALLGRAPH_ANALYZE_EXPR): Kill.
 	(LANG_HOOKS_CALLGRAPH_INITIALIZER): Update.
