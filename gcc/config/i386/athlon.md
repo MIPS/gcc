@@ -180,21 +180,31 @@
 			      (and (eq_attr "type" "imul")
 				   (eq_attr "memory" "load,both")))
 			 "athlon-vector,athlon-load,athlon-ieu,athlon-mult,athlon-ieu")
-(define_insn_reservation "athlon_idiv" 42
+
+;; Idiv can not execute in parallel with other instructions.  Dealing with it
+;; as with short latency vector instruction is good approximation avoiding
+;; scheduler from trying too hard to can hide it's latency by overlap with
+;; other instructions.
+;; Experiments show that the idiv can overlap with roughly 6 cycles
+;; of the other code
+
+(define_insn_reservation "athlon_idiv" 6
 			 (and (eq_attr "cpu" "athlon,k8")
 			      (and (eq_attr "type" "idiv")
 				   (eq_attr "memory" "none,unknown")))
-			 "athlon-vector,athlon-ieu*42")
-(define_insn_reservation "athlon_idiv_mem" 45
+			 "athlon-vector,athlon-ieu*6")
+(define_insn_reservation "athlon_idiv_mem" 9
 			 (and (eq_attr "cpu" "athlon,k8")
 			      (and (eq_attr "type" "idiv")
 				   (eq_attr "memory" "load,both")))
-			 "athlon-vector,athlon-load,athlon-ieu*42")
-(define_insn_reservation "athlon_str" 15
+			 "athlon-vector,athlon-load,athlon-ieu*6")
+;; The paralelism of string instructions is not documented.  Model it same way
+;; as idiv to create smaller automata.  This probably does not matter much.
+(define_insn_reservation "athlon_str" 6
 			 (and (eq_attr "cpu" "athlon,k8")
 			      (and (eq_attr "type" "str")
 				   (eq_attr "memory" "load,both,store")))
-			 "athlon-vector,athlon-load,athlon-ieu*10")
+			 "athlon-vector,athlon-load,athlon-ieu*6")
 
 (define_insn_reservation "athlon_idirect" 1
 			 (and (eq_attr "cpu" "athlon,k8")

@@ -1,3 +1,7 @@
+Mon Dec 23 14:52:17 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* athlon.md (athlon_idiv, athlon_idiv_mem, athlon_str):  Revisit.
+
 Sun Dec 22 18:29:20 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* basic-block.h (inside_basic_block_p, control_flow_insn_p): Declare.
