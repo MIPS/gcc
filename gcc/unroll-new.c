@@ -48,6 +48,7 @@ static basic_block simple_increment PARAMS ((struct loops *, struct loop *,
 					     basic_block *,
 					     struct loop_desc *));
 static rtx variable_initial_value PARAMS ((rtx, basic_block, rtx, rtx *));
+static rtx variable_initial_values PARAMS ((edge, rtx));
 static bool simple_loop_p PARAMS ((struct loops *, struct loop *,
 				   struct loop_desc *));
 static bool simple_loop_exit_p PARAMS ((struct loops *, struct loop *,
@@ -56,7 +57,7 @@ static bool simple_loop_exit_p PARAMS ((struct loops *, struct loop *,
 static bool constant_iterations PARAMS ((struct loop_desc *,
 					 unsigned HOST_WIDE_INT *,
 					 bool *));
-static rtx count_loop_iterations PARAMS ((struct loop_desc *, int));
+static rtx count_loop_iterations PARAMS ((struct loop_desc *, rtx, rtx));
 static void unroll_or_peel_loop PARAMS ((struct loops *, struct loop *, int));
 static bool peel_loop_simple PARAMS ((struct loops *, struct loop *, int));
 static bool peel_loop_completely PARAMS ((struct loops *, struct loop *,
@@ -130,7 +131,7 @@ simple_condition_p (loop, body, condition, desc)
      rtx condition;
      struct loop_desc *desc;
 {
-  rtx op0, op1, set_insn;
+  rtx op0, op1;
   edge e = loop_preheader_edge (loop);
 
   /* Check condition.  */
@@ -169,10 +170,7 @@ simple_condition_p (loop, body, condition, desc)
       desc->var = op1;
       desc->lim = op0;
 
-      set_insn = e->src->end;
-      while (REG_P (op0)
-	     && (op0 = variable_initial_value (set_insn, e->src, op0, &set_insn)))
-	desc->lim = op0;
+      desc->lim_alts = variable_initial_values (e, op0);
 
       desc->cond = swap_condition (GET_CODE (condition));
       if (desc->cond == UNKNOWN)
@@ -189,10 +187,7 @@ simple_condition_p (loop, body, condition, desc)
   desc->var = op0;
   desc->lim = op1;
 
-  set_insn = e->src->end;
-  while (REG_P (op1)
-	 && (op1 = variable_initial_value (set_insn, e->src, op1, &set_insn)))
-    desc->lim = op1;
+  desc->lim_alts = variable_initial_values (e, op1);
 
   desc->cond = GET_CODE (condition);
 
@@ -322,6 +317,27 @@ variable_initial_value (insn, end_bb, var, set_insn)
   return NULL;
 }
 
+/* Returns list of definitions of initial value of VAR at Edge.  */
+static rtx
+variable_initial_values (e, var)
+     edge e;
+     rtx var;
+{
+  rtx set_insn, list;
+
+  list = alloc_EXPR_LIST (0, copy_rtx (var), NULL);
+
+  if (e->src == ENTRY_BLOCK_PTR)
+    return list;
+
+  set_insn = e->src->end;
+  while (REG_P (var)
+	 && (var = variable_initial_value (set_insn, e->src, var, &set_insn)))
+    list = alloc_EXPR_LIST (0, copy_rtx (var), list);
+
+  return list;
+}
+
 /* Tests whether LOOP is simple for loop.  Returns simple loop description
    in DESC.  */
 static bool
@@ -367,6 +383,7 @@ constant_iterations (desc, niter, may_be_zero)
      bool *may_be_zero;
 {
   rtx test, expr;
+  rtx ainit, alim;
 
   test = test_for_iteration (desc, 0);
   if (test == const0_rtx)
@@ -378,23 +395,17 @@ constant_iterations (desc, niter, may_be_zero)
 
   *may_be_zero = (test != const_true_rtx);
 
-  if (!(expr = count_loop_iterations (desc, true)))
-    abort ();
-
-  if (GET_CODE (expr) == CONST_INT)
-    {
-      *niter = INTVAL (expr);
-      return true;
-    }
-
-  if (!(expr = count_loop_iterations (desc, false)))
-    abort ();
-
-  if (GET_CODE (expr) == CONST_INT)
-    {
-      *niter = INTVAL (expr);
-      return true;
-    }
+  for (ainit = desc->var_alts; ainit; ainit = XEXP (ainit, 1))
+    for (alim = desc->lim_alts; alim; alim = XEXP (alim, 1))
+      {
+	if (!(expr = count_loop_iterations (desc, XEXP (ainit, 0), XEXP (alim, 0))))
+	  abort ();
+	if (GET_CODE (expr) == CONST_INT)
+	  {
+	    *niter = INTVAL (expr);
+	    return true;
+	  }
+      }
 
   return false;
 }
@@ -455,10 +466,10 @@ simple_loop_exit_p (loops, loop, exit_edge, body, desc)
 
   /* Find initial value of var.  */
   e = loop_preheader_edge (loop);
-  desc->init = variable_initial_value (e->src->end, e->src, desc->var, NULL);
+  desc->var_alts = variable_initial_values (e, desc->var);
 
   /* Number of iterations. */
-  if (!count_loop_iterations (desc, false))
+  if (!count_loop_iterations (desc, NULL, NULL))
     return false;
   desc->const_iter = constant_iterations (desc, &desc->niter, &desc->may_be_zero);
 
@@ -468,35 +479,32 @@ simple_loop_exit_p (loops, loop, exit_edge, body, desc)
       if (desc->postincr)
 	fprintf (rtl_dump_file,
 		 ";  does postincrement after loop exit condition\n");
-      if (desc->var)
-	{
-	  fprintf (rtl_dump_file, ";  Induction variable:");
-	  print_simple_rtl (rtl_dump_file, desc->var);
-	  fputc ('\n', rtl_dump_file);
-	}
+
+      fprintf (rtl_dump_file, ";  Induction variable:");
+      print_simple_rtl (rtl_dump_file, desc->var);
+      fputc ('\n', rtl_dump_file);
+
+      fprintf (rtl_dump_file, ";  Initial values:");
+      print_simple_rtl (rtl_dump_file, desc->var_alts);
+      fputc ('\n', rtl_dump_file);
+
       fprintf (rtl_dump_file, ";  Stride:");
       print_simple_rtl (rtl_dump_file, desc->stride);
       fputc ('\n', rtl_dump_file);
-      if (desc->init)
-	{
-	  fprintf (rtl_dump_file, ";  Initial value:");
-	  print_simple_rtl (rtl_dump_file, desc->init);
-	  fputc ('\n', rtl_dump_file);
-	}
-      if (desc->lim)
-	{
-	  fprintf (rtl_dump_file, ";  Compared with:");
-	  print_simple_rtl (rtl_dump_file, desc->lim);
-	  fputc ('\n', rtl_dump_file);
-	}
-      if (desc->cond)
-	{
-	  fprintf (rtl_dump_file, ";  Exit condtion:");
-	  if (desc->neg)
-	    fprintf (rtl_dump_file, "(negated)");
-	  fprintf (rtl_dump_file, "%s\n", GET_RTX_NAME (desc->cond));
-	  fputc ('\n', rtl_dump_file);
-	}
+
+      fprintf (rtl_dump_file, ";  Compared with:");
+      print_simple_rtl (rtl_dump_file, desc->lim);
+      fputc ('\n', rtl_dump_file);
+
+      fprintf (rtl_dump_file, ";  Alternative values:");
+      print_simple_rtl (rtl_dump_file, desc->lim_alts);
+      fputc ('\n', rtl_dump_file);
+
+      fprintf (rtl_dump_file, ";  Exit condition:");
+      if (desc->neg)
+	fprintf (rtl_dump_file, "(negated)");
+      fprintf (rtl_dump_file, "%s\n", GET_RTX_NAME (desc->cond));
+      fputc ('\n', rtl_dump_file);
     }
   return true;
 }
@@ -512,18 +520,19 @@ simple_loop_exit_p (loops, loop, exit_edge, body, desc)
    These cases needs to be eighter cared by copying the loop test in the front
    of loop or keeping the test in first iteration of loop.
    
-   When INITIAL is set, the initial values of reigsters are used instead
-   of registers themselves, that may lead to expression to be simplified
-   and computed at compile time.  */
+   When INIT/LIM are set, they are used instead of var/lim of DESC. */
 static rtx
-count_loop_iterations (desc, initial)
+count_loop_iterations (desc, init, lim)
      struct loop_desc *desc;
-     int initial;
+     rtx init;
+     rtx lim;
 {
   enum rtx_code cond = desc->cond;
-  rtx exp = initial && desc->init ? copy_rtx (desc->init) : desc->var;
   rtx stride = desc->stride;
-  rtx mod;
+  rtx mod, exp;
+
+  init = init ? copy_rtx (init) : copy_rtx (desc->var);
+  lim = lim ? copy_rtx (lim) : copy_rtx (desc->lim);
 
   /* Give up on floating point modes and friends.  It can be possible to do
      the job for constant loop bounds, but it is probably not worthwhile.  */
@@ -542,7 +551,7 @@ count_loop_iterations (desc, initial)
 	  || cond == GTU)
 	return NULL;
       exp = simplify_gen_binary (MINUS, GET_MODE (desc->var),
-				 copy_rtx (desc->lim), exp);
+				 lim, init);
     }
   else
     {
@@ -551,7 +560,7 @@ count_loop_iterations (desc, initial)
 	  || cond == LTU)
 	return NULL;
       exp = simplify_gen_binary (MINUS, GET_MODE (desc->var),
-				  exp, copy_rtx (desc->lim));
+				 init, lim);
       stride = simplify_gen_unary (NEG, GET_MODE (desc->var),
 				   stride, GET_MODE (desc->var));
     }
@@ -640,7 +649,7 @@ test_for_iteration (desc, iter)
      unsigned HOST_WIDE_INT iter;
 {
   enum rtx_code cond = desc->cond;
-  rtx exp = desc->init ? copy_rtx (desc->init) : desc->var;
+  rtx exp = XEXP (desc->var_alts, 0);
   rtx addval;
 
   /* Give up on floating point modes and friends.  It can be possible to do
@@ -899,7 +908,7 @@ unroll_loop_runtime_iterations (loops, loop, max_unroll, desc)
 
   /* Normalization.  */
   start_sequence ();
-  niter = count_loop_iterations (desc, false);
+  niter = count_loop_iterations (desc, NULL, NULL);
   if (!niter)
     abort ();
   niter = force_operand (niter, NULL);

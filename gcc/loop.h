@@ -439,10 +439,11 @@ void unswitch_loops PARAMS ((struct loops *));
 struct loop_desc
 {
   int postincr;		/* 1 if increment/decrement is done after loop exit condition.  */
-  rtx var;		/* Loop control variable.  */
   rtx stride;		/* Value added to VAR in each iteration.  */
+  rtx var;		/* Loop control variable.  */
+  rtx var_alts;		/* List of definitions of its initial value.  */
   rtx lim;		/* Expression var is compared with.  */
-  rtx init;		/* Initial value of var.  */
+  rtx lim_alts;		/* List of definitions of its initial value.  */
   bool const_iter;      /* True if it iterates constant number of times.  */
   unsigned HOST_WIDE_INT niter;
 			/* Number of iterations if it is constant.  */
