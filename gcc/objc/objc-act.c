@@ -276,8 +276,10 @@ static void really_start_method (tree, tree);
 static void really_start_method (tree, struct c_arg_info *);
 #endif
 static int objc_types_are_equivalent (tree, tree);
-/* APPLE LOCAL Objective-C */
+/* APPLE LOCAL begin Objective-C */
+static int objc_types_share_size_and_alignment (tree, tree);
 static int comp_proto_with_proto (tree, tree, int);
+/* APPLE LOCAL end Objective-C */
 static tree get_arg_type_list (tree, int, int);
 static void objc_push_parm (tree);
 #ifdef OBJCPLUS
@@ -5606,8 +5608,8 @@ check_duplicates (hash hsh, int methods, int is_class)
 	  /* APPLE LOCAL begin Objective-C */
 	  /* But just how different are those types?  If
 	     -Wno-strict-selector-match is specified, we shall not complain
-	     if the differences are solely among ObjC pointer types
-	     (including 'id' and 'Class').  */
+	     if the differences are solely among types with identical
+	     size and alignment.  */
 	  if (!warn_strict_selector_match)
 	    {
 	      for (loop = hsh->list; loop; loop = loop->next)
@@ -7922,10 +7924,20 @@ objc_types_are_equivalent (tree type1, tree type2)
 }
 
 /* APPLE LOCAL begin Objective-C */
+/* Return 1 if TYPE1 has the same size and alignment as TYPE2.  */
+
+static int
+objc_types_share_size_and_alignment (tree type1, tree type2)
+{
+  return (simple_cst_equal (TYPE_SIZE (type1), TYPE_SIZE (type2))
+	  && TYPE_ALIGN (type1) == TYPE_ALIGN (type2));
+}
+
 /* Return 1 if PROTO1 is equivalent to PROTO2
    for purposes of method overloading.  Ordinarily, the type signatures
    should match up exactly, unless STRICT is zero, in which case we
-   shall allow "harmless" (ABI-wise) differences in ObjC pointer types.  */
+   shall allow differences in which the size and alignment of a type
+   is the same.  */
 
 static int
 comp_proto_with_proto (tree proto1, tree proto2, int strict)
@@ -7944,9 +7956,7 @@ comp_proto_with_proto (tree proto1, tree proto2, int strict)
 
   /* APPLE LOCAL begin Objective-C */
   if (!objc_types_are_equivalent (type1, type2)
-      && (strict
-	  || !objc_is_object_ptr (type1)
-	  || !objc_is_object_ptr (type2)))
+      && (strict || !objc_types_share_size_and_alignment (type1, type2)))
   /* APPLE LOCAL end Objective-C */
     return 0;
 
@@ -7959,8 +7969,8 @@ comp_proto_with_proto (tree proto1, tree proto2, int strict)
       /* APPLE LOCAL begin Objective-C */
       if (!objc_types_are_equivalent (TREE_VALUE (type1), TREE_VALUE (type2))
 	  && (strict
-	      || !objc_is_object_ptr (TREE_VALUE (type1))
-	      || !objc_is_object_ptr (TREE_VALUE (type2))))
+	      || !objc_types_share_size_and_alignment (TREE_VALUE (type1),
+						       TREE_VALUE (type2))))
       /* APPLE LOCAL end Objective-C */
 	return 0;
     }

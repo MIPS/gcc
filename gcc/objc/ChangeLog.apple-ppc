@@ -1,5 +1,15 @@
 2005-02-11  Ziemowit Laski  <zlaski@apple.com>
 
+	Radar 3962013 (Part 2)
+	* objc-act.c (objc_types_share_size_and_alignment): New
+	function.
+	(check_duplicates): Update comment.
+	(comp_proto_with_proto): If types do not match, call
+	objc_types_share_size_and_alignment() as a fallback in
+	non-strict mode.
+
+2005-02-11  Ziemowit Laski  <zlaski@apple.com>
+
 	Radar 3978619
 	* objc-act.c (should_call_super_dealloc): New variable.
 	(objc_finish_message_expr): If calling [super dealloc],

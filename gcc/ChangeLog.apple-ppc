@@ -1,3 +1,8 @@
+2005-02-11  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3962013 (Part 2)
+	* doc/invoke.texi: Document '-Wstrict-selector-match'.
+
 2005-02-11  Devang Patel  <dpatel@apple.com>
 
 	Radar 3996800

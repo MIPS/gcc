@@ -1,5 +1,13 @@
 2005-02-11  Ziemowit Laski  <zlaski@apple.com>
 
+	Radar 3962013 (Part 2)
+	* obj-c++.dg/method-5.mm: New.
+	* objc.dg/method-18.m: New.
+	* objc.dg/method-6.m: Add '-Wstrict-selector-match' flag.
+	* objc.dg/method-9.m: Likewise.
+
+2005-02-11  Ziemowit Laski  <zlaski@apple.com>
+
 	Radar 3978619
 	* obj-c++.dg/super-dealloc-1.mm: New.
 	* obj-c++.dg/super-dealloc-2.mm: New.

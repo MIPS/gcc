@@ -41,3 +41,7 @@
     return result;
 }
 @end
+
+/* APPLE LOCAL Objective-C */
+/* { dg-options "-Wstrict-selector-match" } */
+

@@ -249,7 +249,11 @@ Objective-C and Objective-C++ Dialects}.
 -freplace-objc-classes @gol
 -fzero-link @gol
 -gen-decls @gol
--Wno-protocol  -Wselector -Wundeclared-selector}
+@c APPLE LOCAL begin Objective-C
+-Wno-protocol  -Wselector @gol
+-Wstrict-selector-match @gol
+@c APPLE LOCAL end Objective-C
+-Wundeclared-selector}
 
 @item Language Independent Options
 @xref{Language Independent Options,,Options to Control Diagnostic Messages Formatting}.
@@ -2242,6 +2246,17 @@ the end of compilation, these warnings are not produced if the final
 stage of compilation is not reached, for example because an error is
 found during compilation, or because the @option{-fsyntax-only} option is
 being used.
+
+@c APPLE LOCAL begin Objective-C
+@item -Wstrict-selector-match
+@opindex Wstrict-selector-match
+Warn if multiple methods with differing argument and/or return types are
+found for a given selector when attempting to send a message using this
+selector to a receiver of type @code{id} or @code{Class}.  When this flag
+is off (which is the default behavior), the compiler will omit such warnings
+if any differences found are confined to types which share the same size
+and alignment.
+@c APPLE LOCAL end Objective-C
 
 @item -Wundeclared-selector
 @opindex Wundeclared-selector
