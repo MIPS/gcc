@@ -1,3 +1,10 @@
+2002-09-13  Roger Sayle  <roger@eyesopen.com>
+
+	* stmt.c (struct nexting): Remove unused alt_end_label field.
+	(expand_start_loop): Delete initialization of alt_end_label.
+	(expand_start_null_loop): Likewise.
+	(expand_exit_loop_if_false): Delete updating of alt_end_label.
+
 2002-09-11  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
 
 	* genattrtab.c (simplify_cond): Remove unused variable(s).
