@@ -9234,6 +9234,9 @@ tree
 get_scope_of_declarator (declarator)
      tree declarator;
 {
+  if (!declarator)
+    return NULL_TREE;
+  
   switch (TREE_CODE (declarator))
     {
     case CALL_EXPR:
@@ -9254,6 +9257,10 @@ get_scope_of_declarator (declarator)
 	 which the declaration occurs is the first operand.  */
       return TREE_OPERAND (declarator, 0);
 
+    case TREE_LIST:
+      /* Attributes to be applied. The declarator is TREE_VALUE.  */
+      return get_scope_of_declarator (TREE_VALUE (declarator));
+      
     default:
       /* Otherwise, we have a declarator-id which is not a qualified
 	 name; the entity will be declared in the current scope.  */
@@ -10535,6 +10542,7 @@ grokdeclarator (declarator, declspecs, decl_context,
 	    type = build_function_type (type, arg_types);
 
 	    {
+	      /* FIXME: What is this?  */
 	      tree t;
 	      for (t = arg_types; t; t = TREE_CHAIN (t))
 		if (TREE_PURPOSE (t)

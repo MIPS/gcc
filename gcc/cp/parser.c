@@ -8945,13 +8945,11 @@ cp_parser_direct_declarator (parser, abstract_p, ctor_dtor_or_conv_p)
 	 enter the scope of S below.  We need some information about
 	 whether this is a top-level declarator, or part of the
 	 parameter-declaration-clause.  */
-      /* Any names that appear after the declarator-id for a member
-	 are looked up in the containing scope.  */
+      
       if (TREE_CODE (declarator) == SCOPE_REF)
 	{
-	  /* Remember what scope we entered so that we can leave it
-	     when we are done with the declarator.  */
 	  scope = TREE_OPERAND (declarator, 0);
+	  
 	  /* In the declaration of a member of a template class
 	     outside of the class itself, the SCOPE will sometimes be
 	     a TYPENAME_TYPE.  For example, given:
@@ -8980,15 +8978,14 @@ cp_parser_direct_declarator (parser, abstract_p, ctor_dtor_or_conv_p)
 		return error_mark_node;
 	      /* Build a new DECLARATOR.  */
 	      declarator = build_nt (SCOPE_REF, 
-				     scope, 
+				     scope,
 				     TREE_OPERAND (declarator, 1));
 	    }
-	  /* Enter the SCOPE.  Unqualified names in the
-	     parameter-declaration-clause, for example, should be
-	     looked up in SCOPE.  */
+          /* Any names that appear after the declarator-id for a member
+             are looked up in the containing scope.  */
 	  push_scope (scope);
 	}
-
+      
       /* Check to see whether the declarator-id names a constructor, 
 	 destructor, or conversion.  */
       if (ctor_dtor_or_conv_p && at_class_scope_p ())
@@ -9015,6 +9012,15 @@ cp_parser_direct_declarator (parser, abstract_p, ctor_dtor_or_conv_p)
   else
     declarator = NULL_TREE;
 
+  if (!scope)
+    {
+      scope = get_scope_of_declarator (declarator);
+      if (scope)
+        /* Any names that appear after the declarator-id for a member
+           are looked up in the containing scope.  */
+	push_scope (scope);
+    }
+  
   /* Now, parse function-declarators and array-declarators until there
      are no more.  */
   while (true)
