@@ -6157,11 +6157,8 @@ finish_function (int nested, int can_defer_p)
   if (!flag_disable_gimple)
     c_genericize (fndecl);
 
-  /* Clear out memory we no longer need.  */
-  free_after_parsing (cfun);
-  /* Since we never call rest_of_compilation, we never clear
-     CFUN.  Do so explicitly.  */
-  free_after_compilation (cfun);
+  /* We're leaving the context of this function, so zap cfun.  It's still in
+     DECL_SAVED_INSNS, and we'll restore it in tree_rest_of_compilation.  */
   cfun = NULL;
 
   if (flag_unit_at_a_time && can_defer_p)
