@@ -9,45 +9,45 @@
 /* from ISO/IEC 988:1999 spec */
 
 /* 7.18.1.1 Exact-width integer types */
-#ifndef _INT8_T_DECLARED
-#define _INT8_T_DECLARED
+#ifndef _INT8_T
+#define _INT8_T
 typedef signed char           int8_t;
-#endif /*_INT8_T_DECLARED */
+#endif /*_INT8_T */
 
-#ifndef _INT16_T_DECLARED
-#define _INT16_T_DECLARED
+#ifndef _INT16_T
+#define _INT16_T
 typedef short                int16_t;
-#endif /* _INT16_T_DECLARED */
+#endif /* _INT16_T */
 
-#ifndef _INT32_T_DECLARED
-#define _INT32_T_DECLARED
+#ifndef _INT32_T
+#define _INT32_T
 typedef int                  int32_t;
-#endif /* _INT32_T_DECLARED */
+#endif /* _INT32_T */
 
-#ifndef _INT64_T_DECLARED
-#define _INT64_T_DECLARED
+#ifndef _INT64_T
+#define _INT64_T
 typedef long long            int64_t;
-#endif /* _INT64_T_DECLARED */
+#endif /* _INT64_T */
 
-#ifndef _UINT8_T_DECLARED
-#define _UINT8_T_DECLARED
+#ifndef _UINT8_T
+#define _UINT8_T
 typedef unsigned char         uint8_t;
-#endif /*_UINT8_T_DECLARED */
+#endif /*_UINT8_T */
 
-#ifndef _UINT16_T_DECLARED
-#define _UINT16_T_DECLARED
+#ifndef _UINT16_T
+#define _UINT16_T
 typedef unsigned short       uint16_t;
-#endif /* _UINT16_T_DECLARED */
+#endif /* _UINT16_T */
 
-#ifndef _UINT32_T_DECLARED
-#define _UINT32_T_DECLARED
+#ifndef _UINT32_T
+#define _UINT32_T
 typedef unsigned int         uint32_t;
-#endif /* _UINT32_T_DECLARED */
+#endif /* _UINT32_T */
 
-#ifndef _UINT64_T_DECLARED
-#define _UINT64_T_DECLARED
+#ifndef _UINT64_T
+#define _UINT64_T
 typedef unsigned long long   uint64_t;
-#endif /* _UINT64_T_DECLARED */
+#endif /* _UINT64_T */
 
 /* 7.18.1.2 Minimum-width integer types */
 typedef int8_t           int_least8_t;
@@ -73,27 +73,27 @@ typedef uint64_t        uint_fast64_t;
 
 /* 7.18.1.4 Integer types capable of holding object pointers */
 
-#ifndef _INTPTR_T_DECLARED
-#define _INTPTR_T_DECLARED
+#ifndef _INTPTR_T
+#define _INTPTR_T
 typedef long   intptr_t;
-#endif /* _INTPTR_T_DECLARED */
+#endif /* _INTPTR_T */
 
-#ifndef _UINTPTR_T_DECLARED
-#define _UINTPTR_T_DECLARED
+#ifndef _UINTPTR_T
+#define _UINTPTR_T
 typedef unsigned long   uintptr_t;
-#endif /* _UINTPTR_T_DECLARED */
+#endif /* _UINTPTR_T */
 
 
 /* 7.18.1.5 Greatest-width integer types */
-#ifndef _INTMAX_T_DECLARED
-#define _INTMAX_T_DECLARED
+#ifndef _INTMAX_T
+#define _INTMAX_T
 typedef long long                intmax_t;
-#endif /* _INTMAX_T_DECLARED */
+#endif /* _INTMAX_T */
 
-#ifndef _UINTMAX_T_DECLARED
-#define _UINTMAX_T_DECLARED
+#ifndef _UINTMAX_T
+#define _UINTMAX_T
 typedef unsigned long long      uintmax_t;
-#endif /* _UINTMAX_T_DECLARED */
+#endif /* _UINTMAX_T */
 
 /* "C++ implementations should define these macros only when
  *  __STDC_LIMIT_MACROS is defined before <stdint.h> is included."

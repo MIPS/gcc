@@ -372,11 +372,11 @@ done
 # they should be part of FSF GCC and installed from there; sometimes,
 # they should be installed by some completely different package; sometimes,
 # they only exist for codewarrior compatibility and codewarrior should provide
-# its own.  We put in a special hack for assert.h, becasue we want to install
-# it for Panther but not for Tiger.
+# its own.  We take care not to install the headers if Libc is already
+# providing them.
 cd $SRC_DIR/more-hdrs
 for h in `echo [^C]*` ; do
-  if [ $h != assert.h -o ! -f /usr/include/assert.h -o -L /usr/include/assert.h ] ; then
+  if [ ! -f /usr/include/$h -o -L /usr/include/$h ] ; then
     cp -R $h $DEST_DIR$HEADERPATH/$h || exit 1
     for t in $TARGETS ; do
       THEADERPATH=$DEST_DIR$DEST_ROOT/lib/gcc/${t}-apple-darwin$DARWIN_VERS/$VERS/include

@@ -1043,9 +1043,9 @@ fix = {
   mach      = "*-*-darwin*";
   files     = ppc/types.h;
   files     = i386/types.h;
-  bypass    = "_INT32_T_DECLARED";
+  bypass    = "_INT32_T[ \n]";
   c_fix     = format;
-  c_fix_arg = "#ifndef _INT%2_T_DECLARED\n#define _INT%2_T_DECLARED\n%0\n#endif";
+  c_fix_arg = "#ifndef _INT%2_T\n#define _INT%2_T\n%0\n#endif";
   c_fix_arg = "typedef[ \t]([_a-z ]*\t+)int([0-9]+)_t;";
   test_text = "typedef\t__signed char\t\tint8_t;\n";
 };
@@ -1056,9 +1056,9 @@ fix = {
   mach      = "*-*-darwin*";
   files     = ppc/types.h;
   files     = i386/types.h;
-  bypass    = "_INTPTR_T_DECLARED";
+  bypass    = "_INTPTR_T[ \n]";
   c_fix     = format;
-  c_fix_arg = "#ifndef _INTPTR_T_DECLARED\n#define _INTPTR_T_DECLARED\n%0\n#endif";
+  c_fix_arg = "#ifndef _INTPTR_T\n#define _INTPTR_T\n%0\n#endif";
   c_fix_arg = "typedef[ \t]([_a-z \t]+)[ \t]+intptr_t;";
   test_text = "typedef long int\t\tintptr_t;\n";
 };
@@ -1069,9 +1069,9 @@ fix = {
   mach      = "*-*-darwin*";
   files     = ppc/types.h;
   files     = i386/types.h;
-  bypass    = "_UINTPTR_T_DECLARED";
+  bypass    = "_UINTPTR_T[ \n]";
   c_fix     = format;
-  c_fix_arg = "#ifndef _UINTPTR_T_DECLARED\n#define _UINTPTR_T_DECLARED\n%0\n#endif";
+  c_fix_arg = "#ifndef _UINTPTR_T\n#define _UINTPTR_T\n%0\n#endif";
   c_fix_arg = "typedef[ \t]([_a-z \t]+)[ \t]+uintptr_t;";
   test_text = "typedef unsigned long int\tuintptr_t;\n";
 };
