@@ -286,29 +286,83 @@ known_alignment_for_access_p (struct data_reference *data_ref_info)
 /* Perform signed modulo, always returning a non-negative value.  */
 #define VECT_SMODULO(x,y) ((x) % (y) < 0 ? ((x) % (y) + (y)) : (x) % (y))
 
+/* vect_dump will be set to stderr or dump_file if exist.  */
+extern FILE *vect_dump;
+extern enum verbosity_levels vect_verbosity_level;
+extern unsigned int loops_num;
 
 /*-----------------------------------------------------------------*/
 /* Function prototypes.                                            */
 /*-----------------------------------------------------------------*/
 
-/* Main driver.  */
-extern void vectorize_loops (struct loops *);
+/*************************************************************************
+  Simple Loop Peeling Utilities - in tree-vectorizer.c
+ *************************************************************************/
+/* Entry point for peeling of simple loops.
+   Peel the first/last iterations of a loop.
+   It can be used outside of the vectorizer for loops that are simple enough
+   (see function documentation).  In the vectorizer it is used to peel the
+   last few iterations when the loop bound is unknown or does not evenly
+   divide by the vectorization factor, and to peel the first few iterations
+   to force the alignment of data references in the loop.  */
+extern struct loop *slpeel_tree_peel_loop_to_edge 
+  (struct loop *, struct loops *, edge, tree, tree, bool);
+extern void slpeel_make_loop_iterate_ntimes (struct loop *, tree);
+extern bool slpeel_can_duplicate_loop_p (struct loop *, edge);
+#ifdef ENABLE_CHECKING
+extern void slpeel_verify_cfg_after_peeling (struct loop *, struct loop *);
+#endif
+
+
+/*************************************************************************
+  General Vectorization Utilities
+ *************************************************************************/
+/** In tree-vectorizer.c **/
+extern tree vect_strip_conversion (tree);
+extern tree get_vectype_for_scalar_type (tree);
+extern bool vect_is_simple_use (tree, loop_vec_info, tree *, tree *, 
+				enum vect_def_type *);
+extern bool vect_is_simple_iv_evolution (unsigned, tree, tree *, tree *);
+extern tree vect_is_simple_reduction (struct loop *, tree, bool *);
+extern bool vect_can_force_dr_alignment_p (tree, unsigned int);
+extern enum dr_alignment_support vect_supportable_dr_alignment
+  (struct data_reference *);
+extern bool reduction_code_for_scalar_code (enum tree_code, enum tree_code *, 
+					    bool);
 
 /* Creation and deletion of loop and stmt info structs.  */
 extern loop_vec_info new_loop_vec_info (struct loop *loop);
 extern void destroy_loop_vec_info (loop_vec_info);
 extern stmt_vec_info new_stmt_vec_info (tree stmt, loop_vec_info);
+/* Main driver.  */
+extern void vectorize_loops (struct loops *);
 
+/** In tree-vect-analyze.c  **/
+/* Driver for analysis stage.  */
+extern loop_vec_info vect_analyze_loop (struct loop *);
 /* Pattern recognition functions.  */
 tree vect_recog_unsigned_subsat_pattern (tree, varray_type *);
-
 typedef tree (* _recog_func_ptr) (tree, varray_type *);
-
 /* Additional pattern recognition functions can (and will) be added
    in the future.  */
 #define NUM_PATTERNS 1
-_recog_func_ptr vect_pattern_recog_func[NUM_PATTERNS] = {
-	vect_recog_unsigned_subsat_pattern};
+extern _recog_func_ptr vect_pattern_recog_func[NUM_PATTERNS];
 
+/** In tree-vect-transform.c  **/
+extern bool vectorizable_load (tree, block_stmt_iterator *, tree *);
+extern bool vectorizable_store (tree, block_stmt_iterator *, tree *);
+extern bool vectorizable_operation (tree, block_stmt_iterator *, tree *);
+extern bool vectorizable_assignment (tree, block_stmt_iterator *, tree *);
+extern bool vectorizable_reduction (tree, block_stmt_iterator *, tree *);
+extern bool vectorizable_select (tree, block_stmt_iterator *, tree *);
+/* Driver for transformation stage.  */
+extern void vect_transform_loop (loop_vec_info, struct loops *);
+
+/*************************************************************************
+  Vectorization Debug Information - in tree-vectorizer.c
+ *************************************************************************/
+extern bool vect_print_dump_info (enum verbosity_levels, LOC);
+extern void vect_set_verbosity_level (const char *);
+extern LOC find_loop_location (struct loop *);
 
 #endif  /* GCC_TREE_VECTORIZER_H  */
