@@ -2674,6 +2674,7 @@ build4_stat (enum tree_code code, tree tt, tree arg0, tree arg1,
   return t;
 }
 
+
 /* Backup definition for non-gcc build compilers.  */
 
 tree

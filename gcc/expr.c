@@ -5346,7 +5346,6 @@ get_inner_reference (tree exp, HOST_WIDE_INT *pbitsize,
 	    /* ??? Right now we don't do anything with DECL_OFFSET_ALIGN.  */
 	  }
 	  break;
-
 	case ARRAY_REF:
 	case ARRAY_RANGE_REF:
 	  {
@@ -6783,7 +6782,8 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 
 	return temp;
       }
-
+    case MEM_REF:
+      gcc_unreachable ();
     case ARRAY_REF:
 
       {

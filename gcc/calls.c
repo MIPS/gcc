@@ -578,6 +578,10 @@ flags_from_decl_or_type (tree exp)
       if (DECL_IS_MALLOC (exp))
 	flags |= ECF_MALLOC;
 
+      /* The function exp may have the `free' attribute.  */
+      if (DECL_IS_FREE (exp))
+	flags |= ECF_FREE;
+
       /* The function exp may have the `pure' attribute.  */
       if (DECL_IS_PURE (exp))
 	flags |= ECF_PURE | ECF_LIBCALL_BLOCK;

@@ -160,8 +160,8 @@ is_gimple_condexpr (tree t)
 bool
 is_gimple_addressable (tree t)
 {
-  return (is_gimple_id (t) || handled_component_p (t)
-	  || INDIRECT_REF_P (t));
+  return (is_gimple_id (t) || handled_component_p (t) 
+	  || TREE_CODE (t) == MEM_REF || INDIRECT_REF_P (t));
 }
 
 /* Return true if T is function invariant.  Or rather a restricted
@@ -379,7 +379,8 @@ bool
 is_gimple_min_lval (tree t)
 {
   return (is_gimple_id (t)
-	  || TREE_CODE (t) == INDIRECT_REF);
+	  || TREE_CODE (t) == INDIRECT_REF
+	  || TREE_CODE (t) == MEM_REF);
 }
 
 /* Return true if T is a typecast operation.  */
@@ -419,27 +420,6 @@ get_call_expr_in (tree t)
   return NULL_TREE;
 }
 
-/* Given a memory reference T, will return the variable at the bottom
-   of the access.  Unlike get_base_address below, this will recurse
-   thru INDIRECT_REFS.  */
-
-tree
-get_base_var (tree t)
-{
-  if ((TREE_CODE (t) == EXC_PTR_EXPR) || (TREE_CODE (t) == FILTER_EXPR))
-    return t;
-
-  while (!SSA_VAR_P (t) 
-	 && (!CONSTANT_CLASS_P (t))
-	 && TREE_CODE (t) != LABEL_DECL
-	 && TREE_CODE (t) != FUNCTION_DECL
-	 && TREE_CODE (t) != CONST_DECL)
-    {
-      t = TREE_OPERAND (t, 0);
-    }
-  return t;
-} 
-
 /* Given a memory reference expression T, return its base address.
    The base address of a memory reference expression is the main
    object being referenced.  For instance, the base address for
@@ -458,7 +438,8 @@ get_base_address (tree t)
   if (SSA_VAR_P (t)
       || TREE_CODE (t) == STRING_CST
       || TREE_CODE (t) == CONSTRUCTOR
-      || INDIRECT_REF_P (t))
+      || INDIRECT_REF_P (t)
+      || TREE_CODE (t) == MEM_REF)
     return t;
   else
     return NULL_TREE;

@@ -1,6 +1,6 @@
 /* Build expressions with type checking for C compiler.
-   Copyright (C) 1987, 1988, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 1987, 1988, 1991, 1992, 1993, 1994, 1995, 1996, 1997,
+   1998, 1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1769,9 +1769,11 @@ build_array_ref (tree array, tree index)
 	  else if (!flag_isoc99 && !lvalue_p (foo))
 	    pedwarn ("ISO C90 forbids subscripting non-lvalue array");
 	}
-
+      
       type = TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (array)));
       rval = build4 (ARRAY_REF, type, array, index, NULL_TREE, NULL_TREE);
+
+
       /* Array ref is const/volatile if the array elements are
          or if the array is.  */
       TREE_READONLY (rval)
@@ -1792,15 +1794,33 @@ build_array_ref (tree array, tree index)
   else
     {
       tree ar = default_conversion (array);
-
+      tree type;
+      tree res;
       if (ar == error_mark_node)
 	return ar;
 
       gcc_assert (TREE_CODE (TREE_TYPE (ar)) == POINTER_TYPE);
       gcc_assert (TREE_CODE (TREE_TYPE (TREE_TYPE (ar))) != FUNCTION_TYPE);
+      type = TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (ar)));
 
-      return build_indirect_ref (build_binary_op (PLUS_EXPR, ar, index, 0),
-				 "array indexing");
+      /* If this type has no size, either we're screwed or we've issued an
+	 error, so it doesn't matter if we build a MEM_REF here or not.  */
+      if (TYPE_SIZE_UNIT (type) 
+	  && TREE_CODE (TYPE_SIZE_UNIT (type)) == INTEGER_CST)
+        {
+	  res = build2 (MEM_REF, type, ar, index);
+	  TREE_READONLY (res) = TYPE_READONLY (TREE_TYPE (TREE_TYPE (ar)));
+	  TREE_SIDE_EFFECTS (res)
+	    |= (TYPE_VOLATILE (TREE_TYPE (TREE_TYPE (ar)))
+		| TREE_SIDE_EFFECTS (ar));
+	  TREE_THIS_VOLATILE (res)
+	    |= (TYPE_VOLATILE (TREE_TYPE (TREE_TYPE (ar)))
+		| TREE_THIS_VOLATILE (ar));
+	  return res;
+	 }
+      else
+	return build_indirect_ref (build_binary_op (PLUS_EXPR, ar, index, 0),
+				   "array indexing"); 
     }
 }
 
@@ -2715,7 +2735,16 @@ build_unary_op (enum tree_code code, tree xarg, int flag)
 	  return build_binary_op (PLUS_EXPR, TREE_OPERAND (arg, 0),
 				  TREE_OPERAND (arg, 1), 1);
 	}
-
+      /* Same for the equivalent MEM_REF */
+      if (TREE_CODE (arg) == MEM_REF)
+	{
+	  if (!c_mark_addressable (MEM_REF_SYMBOL (arg)))
+	    return error_mark_node;
+	  return build_binary_op (PLUS_EXPR, 
+				  MEM_REF_SYMBOL (arg),
+				  MEM_REF_INDEX (arg), 1);
+	}
+							      
       /* Anything not already handled and not a true memory reference
 	 or a non-lvalue array is an error.  */
       else if (typecode != FUNCTION_TYPE && !flag
@@ -2792,6 +2821,7 @@ lvalue_p (tree ref)
     case VAR_DECL:
     case PARM_DECL:
     case RESULT_DECL:
+    case MEM_REF:
     case ERROR_MARK:
       return (TREE_CODE (TREE_TYPE (ref)) != FUNCTION_TYPE
 	      && TREE_CODE (TREE_TYPE (ref)) != METHOD_TYPE);

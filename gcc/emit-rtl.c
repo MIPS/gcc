@@ -1509,6 +1509,7 @@ set_mem_attributes_minus_bitpos (rtx ref, tree t, int objectp,
      this is an INDIRECT_REF, or if TYPE_ALIGN_OK.  */
   if (objectp || TREE_CODE (t) == INDIRECT_REF 
       || TREE_CODE (t) == ALIGN_INDIRECT_REF 
+      || TREE_CODE (t) == MEM_REF
       || TYPE_ALIGN_OK (type))
     align = MAX (align, TYPE_ALIGN (type));
   else 

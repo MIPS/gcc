@@ -402,6 +402,7 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_init_datastructures);
   NEXT_PASS (pass_all_optimizations);
   NEXT_PASS (pass_warn_function_return);
+  NEXT_PASS (pass_lower_memref);
   NEXT_PASS (pass_mudflap_2);
   NEXT_PASS (pass_free_datastructures);
   NEXT_PASS (pass_expand);
@@ -411,10 +412,12 @@ init_tree_optimization_passes (void)
   p = &pass_all_optimizations.sub;
   NEXT_PASS (pass_referenced_vars);
   NEXT_PASS (pass_maybe_create_global_var);
+  NEXT_PASS (pass_lower_memref);
   NEXT_PASS (pass_build_ssa);
   NEXT_PASS (pass_may_alias);
   NEXT_PASS (pass_rename_ssa_copies);
   NEXT_PASS (pass_early_warn_uninitialized);
+  NEXT_PASS (pass_eliminate_useless_stores);
   NEXT_PASS (pass_dce);
   NEXT_PASS (pass_dominator);
   NEXT_PASS (pass_redundant_phi);

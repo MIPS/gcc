@@ -42,7 +42,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-pass.h"
 #include "convert.h"
 #include "params.h"
-
+#include "ipa-static.h"
 
 /* Structure to map a variable to its alias set and keep track of the
    virtual operands that will be needed to represent it.  */
@@ -124,6 +124,8 @@ struct alias_stats_d
   unsigned int simple_resolved;
   unsigned int tbaa_queries;
   unsigned int tbaa_resolved;
+  unsigned int structnoaddress_queries;
+  unsigned int structnoaddress_resolved;
 };
 
 
@@ -574,6 +576,9 @@ find_ptr_dereference (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED, void *data)
 
   if (INDIRECT_REF_P (*tp)
       && TREE_OPERAND (*tp, 0) == ptr)
+    return *tp;
+  else if (TREE_CODE (*tp) == MEM_REF
+	   && MEM_REF_SYMBOL (*tp) == ptr)
     return *tp;
 
   return NULL_TREE;
@@ -1638,6 +1643,63 @@ may_alias_p (tree ptr, HOST_WIDE_INT mem_alias_set,
       return false;
     }
 
+  /* If var is a record or union type, ptr cannot point into var
+     unless there is some operation explicit address operation in the
+     program that can reference a field of the ptr's dereferenced
+     type.  This also assumes that the types of both var and ptr are
+     contained within the compilation unit, and that there is no fancy
+     addressing arithmetic associated with any of the types
+     involved.  */
+
+  {
+    tree ptr_type = TREE_TYPE (ptr);
+
+    /* The star counts are -1 if the type at the end of the pointer_to
+       chain is not a record or union type. */
+    if (ipa_static_star_count_of_interesting_type (var) >= 0)
+      {
+	int ptr_star_count = 0;
+	/* ipa_static_star_count_of_interesting_type is a little too
+	   restrictive for the pointer type, need to allow pointers to
+	   primitive types as long as those types cannot be pointers
+	   to everything.  */
+	/* Strip the *'s off.  */
+	while (POINTER_TYPE_P (ptr_type))
+	  {
+	    ptr_type = TREE_TYPE (ptr_type);
+	    ptr_star_count++;
+	  }
+
+	/* There does not appear to be a better test to see if the
+	   pointer type was one of the pointer to everything
+	   types.  */
+	if (TREE_CODE (ptr_type) == CHAR_TYPE
+	    && TREE_CODE (ptr_type) == VOID_TYPE)
+	  ptr_star_count = -1;
+
+	if (ptr_star_count > 0)
+	  {
+	    alias_stats.structnoaddress_queries++;
+	    if (ipa_static_address_not_taken_of_field (TREE_TYPE (var), 
+						TREE_TYPE (ptr_type)))
+	      {
+		alias_stats.structnoaddress_resolved++;
+		alias_stats.alias_noalias++;
+		return false;
+	      }
+	  }
+	else if (ptr_star_count == 0)
+	  {
+	    /* If ptr_type was not really a pointer to type, it cannot
+	       alias.  */
+	    alias_stats.structnoaddress_queries++;
+	    alias_stats.structnoaddress_resolved++;
+	    alias_stats.alias_noalias++;
+	    return false;
+	  }
+      }
+  }
+
   alias_stats.alias_mayalias++;
   return true;
 }
@@ -2236,6 +2298,10 @@ dump_alias_stats (FILE *file)
 	   alias_stats.tbaa_queries);
   fprintf (file, "Total TBAA resolved:\t%u\n",
 	   alias_stats.tbaa_resolved);
+  fprintf (file, "Total non-addressable structure type queries:\t%u\n",
+	   alias_stats.structnoaddress_queries);
+  fprintf (file, "Total non-addressable structure type resolved:\t%u\n",
+	   alias_stats.structnoaddress_resolved);
 }
   
 

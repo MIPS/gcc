@@ -1723,6 +1723,7 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case BLOCK:
     case COMPONENT_REF:
     case BIT_FIELD_REF:
+    case MEM_REF:
     case INDIRECT_REF:
     case ARRAY_REF:
     case ARRAY_RANGE_REF:

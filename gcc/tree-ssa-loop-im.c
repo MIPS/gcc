@@ -174,6 +174,18 @@ for_each_index (tree *addr_p, bool (*cbck) (tree, tree *, void *), void *data)
 	case RESULT_DECL:
 	  return true;
 
+	case MEM_REF:
+	  idx = &MEM_REF_SYMBOL (*addr_p);
+	  if (*idx
+	      && !cbck (*addr_p, idx, data))
+	    return false;
+	  return true;
+	  idx = &MEM_REF_INDEX (*addr_p);
+	  if (*idx
+	      && !cbck (*addr_p, idx, data))
+	    return false;
+	  return true;
+
 	default:
     	  gcc_unreachable ();
 	}

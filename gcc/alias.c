@@ -45,6 +45,52 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "cgraph.h"
 #include "varray.h"
 
+/* The aliasing api provided here solves related but different problems:
+
+   Say there exists (in c) 
+
+   struct X {
+     struct Y y1;
+     struct Z z2;
+   } x1, *px1,  *px2;
+
+   struct Y y2, *py;
+   struct Z z2, *pz;
+
+
+   py = &px1.y1;
+
+   Consider the four questions:
+
+   can a store to x1 interfere with px2->y2?
+   can a store to x1 interfere with px2->z2?
+   can a store to x1 change the value pointed to by with py?
+   can a store to x1 change the value pointed to by with pz?
+
+   the answer to these questions can be yes, yes, yes, no
+
+   The first two questions can be answered with a simple examination
+   of the type system.  If structure X contains a field of type Y then
+   a store thru a pointer to an X can overwrite any field that is
+   contained (recursively) in an X (unless we know that px1 != px2).
+
+   The last two of the questions can be solved in the same way as the
+   first two questions but this is too conservative.  The observation
+   is that if the address of a field is not explicitly taken and the
+   type is completely local to the compilation unit, then it is
+   impossible that a pointer to an instance of the field type overlaps
+   with an enclosing structure.
+
+   Historically in GCC, these two problems were combined and a single
+   data structure was used to represent the solution to these
+   problems.  We now have two similar but different data structures,
+   The data structure to solve the last two question is similar to the
+   first, but does not contain have the fields in it whose address are
+   never taken.  For types that do escape the compilation unit, the
+   data structures will have identical information.
+
+*/
+
 /* The alias sets assigned to MEMs assist the back-end in determining
    which MEMs can alias which other MEMs.  In general, two MEMs in
    different alias sets cannot alias each other, with one important
