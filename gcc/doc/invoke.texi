@@ -293,7 +293,7 @@ in the following sections.
 -funroll-all-loops  -funroll-loops  -fpeel-loops @gol
 -funswitch-loops  -fold-unroll-loops  -fold-unroll-all-loops @gol
 -fdisable-gimple  -ftree-pre  -ftree-ccp  -ftree-dce  -ftree-copyprop  @gol
--fdisable-tree-ssa @gol
+-fdisable-tree-ssa -ftree-dominator-opts @gol
 --param @var{name}=@var{value}
 -O  -O0  -O1  -O2  -O3  -Os}
 
@@ -4077,17 +4077,20 @@ Perform Partial Redundancy Elimination (PRE) on trees.  @emph{Note:} This
 feature is under development and should not be used in this version of GCC.
 
 @item -ftree-copyprop
-Perform copy propagation on trees.  @emph{Note:} This feature is under
-development and should not be used in this version of GCC.
+Perform copy propagation on trees.  This flag is enabled by default at -O
+and higher.
 
 @item -ftree-ccp
-Perform sparse conditional constant propagation (CCP) on trees.
-@emph{Note:} This feature is under development and should not be used in
-this version of GCC.
+Perform sparse conditional constant propagation (CCP) on trees.  This flag
+is enabled by default at -O and higher.
 
 @item -ftree-dce
-Perform dead code elimination (DCE) on trees.  @emph{Note:} This feature is
-under development and should not be used in this version of GCC.
+Perform dead code elimination (DCE) on trees.  This flag is enabled by
+default at -O and higher.
+
+@item -ftree-dominator-opts
+Perform dead code elimination (DCE) on trees.  This flag is enabled by
+default at -O and higher.
 
 @item -ftracer
 @opindex ftracer

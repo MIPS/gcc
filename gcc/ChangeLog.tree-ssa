@@ -1,3 +1,8 @@
+2003-06-19  Diego Novillo  <dnovillo@redhat.com>
+
+	* doc/invoke.texi: Add documentation for -ftree-dominator-opts
+	that was missing from an earlier patch.
+
 2003-06-19  Jeff Sturm  <jsturm@one-point.com>
 
 	* gimplify.c (gimplify_expr): Handle LABELED_BLOCK_EXPR
