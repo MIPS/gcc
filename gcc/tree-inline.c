@@ -1934,6 +1934,7 @@ walk_tree (tree *tp, walk_tree_fn func, void *data, void *htab_)
 	case ENUMERAL_TYPE:
 	case BLOCK:
 	case RECORD_TYPE:
+	case PLACEHOLDER_EXPR:
 	case SSA_NAME:
 	  /* None of thse have subtrees other than those already walked
 	     above.  */

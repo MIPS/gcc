@@ -1,3 +1,7 @@
+2003-11-13  Steven Bosscher  <steven@suse.de>
+
+	* tree-inline.c (walk_tree): Handle PLACEHOLDER_EXPR.
+
 2003-11-13  Richard Henderson  <rth@redhat.com>
 
 	* tree-cfg.c (cfg_remove_useless_stmts_bb): Initialize stmt.
