@@ -1,5 +1,10 @@
 2003-02-26  Josef Zlomek  <zlomekj@suse.cz>
 
+	* var-tracking.c (insert_function_parameters): Do not track
+	complicated parameters.
+
+2003-02-26  Josef Zlomek  <zlomekj@suse.cz>
+
 	* var-tracking.c (LT_CALL_INSN): New element of enum location_type.
 	(compute_bb_dataflow): Delete registers destroyed by called function.
 	(process_bb): Likewise.

@@ -1642,6 +1642,12 @@ insert_function_parameters ()
 	if (!get_decl_and_offset (decl_rtl, &decl, &offset))
 	  continue;
 
+      if (!decl)
+	continue;
+
+      if (GET_MODE (decl_rtl) == BLKmode || GET_MODE (incoming) == BLKmode)
+	continue;
+
       if (parm != decl)
 	abort ();
 
