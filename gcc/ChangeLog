@@ -1,4 +1,16 @@
+2003-09-12  Ziemowit Laski  <zlaski@apple.com>
+
+	* pretty-print.c (pp_construct): Use xcalloc instead of xmalloc
+	when allocating pp->buffer.
+
 2003-09-12  Per Bothner  <pbothner@apple.com>
+
+	* c-decl.c (restore_fragment_bindings):  List of tags needs tree_cons.
+
+	* c-decl.c (start_function): Increment currently_nested.
+	(finish_function):  Decrement currently_nested.
+
+	* c-common.c (c-common.c):  Try to make clearer, and add two comments.
 
 	* cpplib.c (_cpp_pop_buffer):  Do generate a call-back for
 	leaving main file.
