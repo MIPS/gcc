@@ -3137,12 +3137,9 @@ typedef enum unification_kind_t {
   DEDUCE_ORDER
 } unification_kind_t;
 
-/* Macros for operating on a template instantiation level node, represented
-   by an EXPR_WITH_FILE_LOCATION.  */
+/* Macros for operating on a template instantiation level node.  */
 
-#define TINST_DECL(NODE) EXPR_WFL_NODE (NODE)
-#define TINST_LINE(NODE) EXPR_WFL_LINENO (NODE)
-#define TINST_FILE(NODE) EXPR_WFL_FILENAME (NODE)
+#define TINST_DECL(NODE) TREE_OPERAND (NODE, 0)
 
 /* in class.c */
 
@@ -3709,6 +3706,7 @@ extern tmpl_spec_kind current_tmpl_spec_kind    (int);
 extern tree cp_fname_init			(const char *, tree *);
 extern tree check_elaborated_type_specifier     (enum tag_types, tree, bool);
 extern void warn_extern_redeclared_static (tree, tree);
+extern bool cp_missing_noreturn_ok_p		(tree);
 
 extern bool have_extern_spec;
 
@@ -3854,7 +3852,6 @@ extern tree implicitly_declare_fn (special_function_kind, tree, bool);
 extern tree skip_artificial_parms_for (tree, tree);
 
 /* In optimize.c */
-extern bool calls_setjmp_p (tree);
 extern bool maybe_clone_body (tree);
 
 /* in pt.c */
@@ -4048,7 +4045,7 @@ extern void finish_handler                      (tree);
 extern void finish_cleanup                      (tree, tree);
 extern tree begin_compound_stmt                 (bool);
 extern tree finish_compound_stmt                (tree);
-extern tree finish_asm_stmt                     (tree, tree, tree, tree, tree);
+extern tree finish_asm_stmt                     (int, tree, tree, tree, tree);
 extern tree finish_label_stmt                   (tree);
 extern void finish_label_decl                   (tree);
 extern void finish_subobject                    (tree);
@@ -4088,7 +4085,6 @@ extern void finish_decl_cleanup                 (tree, tree);
 extern void finish_eh_cleanup                   (tree);
 extern void expand_body                         (tree);
 extern void cxx_expand_function_start		(void);
-extern tree nullify_returns_r		      (tree *, int *, void *);
 extern void do_pushlevel                        (scope_kind);
 extern tree do_poplevel                         (void);
 extern void finish_mem_initializers             (tree);
@@ -4099,11 +4095,14 @@ extern void expand_or_defer_fn			(tree);
 extern void check_accessibility_of_qualified_id (tree, tree, tree);
 extern tree finish_qualified_id_expr            (tree, tree, bool, bool);
 extern void simplify_aggr_init_expr		(tree *);
+extern void finalize_nrv			(tree *, tree, tree);
 
 /* in tree.c */
 extern void lang_check_failed			(const char *, int,
 							 const char *);
 extern tree stabilize_expr			(tree, tree *);
+extern void stabilize_call			(tree, tree *);
+extern bool stabilize_init			(tree, tree *);
 extern tree cxx_unsave_expr_now			(tree);
 extern tree cxx_maybe_build_cleanup		(tree);
 extern void init_tree			        (void);
@@ -4167,6 +4166,7 @@ extern tree find_tree                           (tree, tree);
 extern linkage_kind decl_linkage                (tree);
 extern tree cp_walk_subtrees (tree*, int*, walk_tree_fn,
 				      void*, void*);
+extern int cp_tree_chain_matters_p		(tree);
 extern int cp_cannot_inline_tree_fn (tree*);
 extern tree cp_add_pending_fn_decls (void*,tree);
 extern int cp_is_overload_p (tree);
@@ -4244,6 +4244,7 @@ extern tree build_ptrmemfunc_access_expr       (tree, tree);
 extern tree build_address                       (tree);
 extern tree build_nop                           (tree, tree);
 extern tree non_reference                       (tree);
+extern tree lookup_anon_field                   (tree, tree);
 
 /* in typeck2.c */
 extern void require_complete_eh_spec_types	(tree, tree);
@@ -4283,6 +4284,10 @@ extern tree mangle_ref_init_variable            (tree);
 
 /* in dump.c */
 extern bool cp_dump_tree                         (void *, tree);
+
+/* in cp-simplify.c */
+extern int cp_gimplify_expr		        (tree *, tree *, tree *);
+extern int cp_gimplify_stmt		        (tree *, tree *);
 
 /* -- end of C++ */
 

@@ -289,6 +289,10 @@ Wmissing-format-attribute
 C ObjC C++ ObjC++
 Warn about functions which might be candidates for format attributes
 
+Wmissing-include-dirs
+C ObjC C++ ObjC++
+Warn about user-specified include directories that do not exist
+
 Wmissing-prototypes
 C ObjC
 Warn about global functions without prototypes
@@ -468,10 +472,6 @@ Inline member functions by default
 fdollars-in-identifiers
 C ObjC C++ ObjC++
 Permit '$' as an identifier character
-
-fdump-
-C ObjC C++ ObjC++ Joined RejectNegative
--fdump-<type>	Dump various compiler internals to a file
 
 felide-constructors
 C++ ObjC++

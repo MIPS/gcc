@@ -30,6 +30,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "ggc.h"
 #include "langhooks.h"
 #include "langhooks-def.h"
+#include "tree-inline.h"
 #include "diagnostic.h"
 #include "c-pretty-print.h"
 #include "c-objc-common.h"
@@ -45,6 +46,8 @@ enum c_language_kind c_language = clk_c;
 #define LANG_HOOKS_IDENTIFIER_SIZE C_SIZEOF_STRUCT_LANG_IDENTIFIER
 #undef LANG_HOOKS_INIT
 #define LANG_HOOKS_INIT c_objc_common_init
+#undef LANG_HOOKS_TYPES_COMPATIBLE_P
+#define LANG_HOOKS_TYPES_COMPATIBLE_P c_types_compatible_p
 
 /* Each front end provides its own lang hook initializer.  */
 const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
@@ -84,8 +87,14 @@ const char *const tree_code_name[] = {
 };
 #undef DEFTREECODE
 
-/* Lang hook routines common to C++ and ObjC++ appear in cp/cp-objcp-common.c;
-   there should be very few (if any) routines below.  */
+/* Lang hook routines common to C and ObjC appear in c-objc-common.c;
+   there should be very few routines below.  */
+
+int
+c_types_compatible_p (tree x, tree y)
+{
+    return comptypes (TYPE_MAIN_VARIANT (x), TYPE_MAIN_VARIANT (y), 0);
+}
 
 void
 finish_file (void)

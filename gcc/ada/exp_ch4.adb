@@ -6221,10 +6221,17 @@ package body Exp_Ch4 is
 
                --  Reset overflow flag, since the range check will include
                --  dealing with possible overflow, and generate the check
+               --  If Address is either source or target type, suppress
+               --  range check to avoid typing anomalies when it is a visible
+               --  integer type.
 
                Set_Do_Overflow_Check (N, False);
-               Generate_Range_Check
-                 (Expr, Target_Type, CE_Range_Check_Failed);
+               if not Is_Descendent_Of_Address (Etype (Expr))
+                 and then not Is_Descendent_Of_Address (Target_Type)
+               then
+                  Generate_Range_Check
+                    (Expr, Target_Type, CE_Range_Check_Failed);
+               end if;
             end if;
          end;
       end if;
@@ -6288,7 +6295,17 @@ package body Exp_Ch4 is
                Val <= Expr_Value (Type_High_Bound (Target_Type))
             then
                Rewrite (N, Make_Integer_Literal (Sloc (N), Val));
-               Analyze_And_Resolve (N, Target_Type);
+
+               --  If Address is the target type, just set the type
+               --  to avoid a spurious type error on the literal when
+               --  Address is a visible integer type.
+
+               if Is_Descendent_Of_Address (Target_Type) then
+                  Set_Etype (N, Target_Type);
+               else
+                  Analyze_And_Resolve (N, Target_Type);
+               end if;
+
                return;
             end if;
          end;
@@ -6529,7 +6546,7 @@ package body Exp_Ch4 is
       Loc  : constant Source_Ptr := Sloc (N);
       Typ  : constant Entity_Id  := Etype (N);
       Pool : constant Entity_Id  := Associated_Storage_Pool (Typ);
-      Pnod : constant Node_Id    := Parent (N);
+      Pnod : Node_Id             := Parent (N);
 
       function Is_Checked_Storage_Pool (P : Entity_Id) return Boolean;
       --  Return true if type of P is derived from Checked_Pool;
@@ -6577,6 +6594,25 @@ package body Exp_Ch4 is
       elsif not Is_Checked_Storage_Pool (Pool) then
          return;
       end if;
+
+      --  Do not generate a dereference check for the object passed
+      --  to an init proc: such a check is not desired (we know for
+      --  sure that a valid dereference is passed to init procs,
+      --  and the calls to 'Size and 'Alignment containent in the
+      --  dereference check would be erroneous anyway if the init proc
+      --  has not been executed yet.)
+
+      while Present (Pnod) loop
+         if Nkind (Pnod) = N_Procedure_Call_Statement
+           and then Is_Entity_Name (Name (Pnod))
+           and then Is_Init_Proc (Name (Pnod))
+         then
+            return;
+         end if;
+
+         Pnod := Parent (Pnod);
+         exit when Nkind (Pnod) not in N_Subexpr;
+      end loop;
 
       Insert_Action (N,
         Make_Procedure_Call_Statement (Loc,

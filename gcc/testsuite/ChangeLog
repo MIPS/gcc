@@ -1,12 +1,313 @@
 2004-05-28  Ziemowit Laski  <zlaski@apple.com>
 
-	* obj-c++.dg/selector-1.mm: Allow for mangled ObjC method labels
-	(required on, e.g., i686-pc-linux-gnu).
+	* g++.dg/ext/altivec-10.C: New test.
 
-2004-05-24  Ziemowit Laski  <zlaski@apple.com>
+2004-05-29  Paul Brook  <paul@codesourcery.com>
 
-	* obj-c++.dg/method-1.mm: New test case.
-	* obj-c++.dg/selector-1.mm: New test case.
+	* gfortran.fortran-torture/execute/equiv_1.f90: New test.
+
+2004-05-28  Ziemowit Laski  <zlaski@apple.com>
+
+	* gcc.dg/altivec-16.c: New test.
+
+2004-05-28  Janis Johnson  <janis187@us.ibm.com>
+
+	* lib/target-supports.exp (check_vmx_hw_available): New.
+	* gcc.dg/vmx/vmx.exp: Use it to determine default action.
+
+	* lib/target-supports.exp (check_alias_available,
+	check_iconv_available, check_named_sections_available): Use
+	unique names for temporary files.
+
+2004-05-28  Ziemowit Laski  <zlaski@apple.com>
+
+	* gcc.dg/altivec-15.c: New test.
+
+2004-05-28  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/15083
+	* g++.dg/warn/noeffect6.C: New test.
+
+	PR c++/15471
+	* g++.dg/expr/ptrmem4.C: New test.
+
+	PR c++/15640
+	* g++.dg/template/operator3.C: New test.
+
+2004-05-28  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/14668
+	* g++.dg/lookup/redecl1.C: New test.
+	* g++.old-deja/g++.benjamin/tem04.C: Add error marker.
+
+2004-05-28  Paolo Bonzini  <bonzini@gnu.org>
+
+	* gcc.c-torture/compare-fp-1.c, gcc.c-torture/compare-fp-2.c,
+	gcc.c-torture/compare-fp-3.c, gcc.c-torture/compare-fp-4.c,
+	gcc.c-torture/compare-fp-3.x, gcc.c-torture/compare-fp-4.x,
+	gcc.c-torture/pr15649-1.c: New.
+
+2004-05-27  Adam Nemet  <anemet@lnxw.com>
+
+	PR c++/12883
+	* g++.dg/init/array14.C: New test.
+
+2004-05-25  Janis Johnson  <janis187@us.ibm.com>
+
+	* lib/compat.exp (compat-get-options-main): New.
+	(compat-get-options): Remove unneeded code, warn for ignored
+	command.
+	(compat-execute): Check flag set by dg-require-* commands.
+
+	* lib/compat.exp (compat-execute): Break up long lines.
+
+2004-05-24  Janis Johnson  <janis187@us.ibm.com>
+
+	* gcc.dg/altivec-7.c: Don't use 'vector long'.
+	* gcc.dg/altivec-14.c: New test.
+	* g++.dg/ext/altivec-7.C: Don't use 'vector long'.
+
+	* gcc.dg/altivec-6.c: Use -maltivec, don't limit to darwin.
+	* gcc.dg/altivec-12.c: Ditto.
+
+	* gcc.dg/altivec-3.c: Move call to altivec_check.
+
+2004-05-23  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/15044
+	* g++.dg/template/error12.C: New test.
+
+	PR c++/15317
+	* g++.dg/ext/attrib15.C: New test.
+
+	PR c++/15329
+	* g++.dg/template/ptrmem9.C: New test.
+
+2004-05-25  Paul Brook  <paul@codesourcery.com>
+
+	* gfortran.fortran-torture/compile/inquiry_1.f90: New test.
+
+2004-05-23  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/15165
+	* g++.dg/template/crash19.C: New test.
+
+2004-05-23  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/15025
+	* g++.dg/template/redecl1.C: New test.
+
+2004-05-23  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/14821
+	* g++.dg/other/ns1.C: New test.
+
+	PR c++/14883
+	* g++.dg/template/invalid1.C: New test.
+
+2004-05-23  Paul Brook  <paul@codesourcery.com>
+	Victor Leikehman  <lei@haifasphere.co.il>
+
+	* gfortran.fortran-torture/execute/common_init_1.f90: New test.
+	* gfortran.fortran-torture/execute/equiv_init.f90: New test.
+
+2004-05-22  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/15285
+	PR c++/15299
+	* g++.dg/template/non-dependent5.C: New test.
+	* g++.dg/template/non-dependent6.C: New test.
+
+2004-05-22  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/15507
+	* g++.dg/inherit/union1.C: New test.
+
+	PR c++/15542
+	* g++.dg/template/addr1.C: New test.
+
+	PR c++/15427
+	* g++.dg/template/array5.C: New test.
+
+	PR c++/15287
+	* g++.dg/template/array6.C: New test.
+
+2004-05-22  Wolfgang Bangerth  <bangerth@dealii.org>
+	    Roger Sayle  <roger@eyesopen.com>
+
+	* g++.dg/lookup/forscope2.C: New test case.
+
+2004-05-22  Ben Elliston  <bje@au.ibm.com>
+
+	* gcc.dg/cpp/Wmissingdirs.c: New.
+
+2004-05-20  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/15301
+	* gcc.dg/compat/union-m128-1.h: New file.
+	* gcc.dg/compat/union-m128-1_main.c: Likewise.
+	* gcc.dg/compat/union-m128-1_x.c: Likewise.
+	* gcc.dg/compat/union-m128-1_y.c: Likewise.
+
+2004-05-20  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/15302
+	* gcc.dg/compat/struct-complex-1.h: New file.
+	* gcc.dg/compat/struct-complex-1_main.c: Likewise.
+	* gcc.dg/compat/struct-complex-1_x.c: Likewise.
+	* gcc.dg/compat/struct-complex-1_y.c: Likewise.
+
+2004-05-20  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/3074
+	* gcc.dg/pr3074-1.c: New test case.
+	* gcc.dg/sequence-pt-1.c: Remove an XFAIL.
+
+2004-05-20  Falk Hueffner  <falk@debian.org>
+
+	PR other/15526
+	* gcc.dg/ftrapv-1.c: New test case.
+
+2004-05-18  Feng Wang  <fengwang@nudt.edu.cn>
+
+	* gfortran.fortran-torture/execute/power.f90: Test constant integers.
+
+2004-05-18  Andrew Pinski  <pinskia@physics.uc.edu>
+            Jeff Law  <law@redhat.com>
+
+	* gcc.dg/tree-ssa/20040514-2.c: Update expected output.
+	* gcc.dg/tree-ssa/20040518-2.c: New test.
+
+	* gcc.dg/tree-ssa/20040518-1.c: New test.
+
+2004-05-18  Zack Weinberg  <zack@codesourcery.com>
+
+	* gcc.c-torture/execute/991216-3.c: Delete, duplicate of 991216-2.c.
+
+2004-05-18  Paul Brook  <paul@codesourcery.com>
+
+	PR fortran/13930
+	* gfortran.fortran-torture/execute/der_init_4.f90: New test.
+
+2004-05-18  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* gfortran.fortran-torture/execute/cmplx.f90: Add test for bug in
+	constant folding.
+
+2004-05-17  Steven Bosscher  <stevenb@suse.de>
+
+	* gcc.dg/tree-ssa/20040517-1.c: New test.
+
+2004-05-17  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* gcc.dg/loop-4.c: New test.
+
+2004-05-15  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* gcc.dg/tree-ssa/20040514-1.c: Add '}' that was forgotten.
+
+2004-05-15  Bud Davis  <bdavis9659@comcast.net>
+
+	PR fortran/15311
+	* gfortran.fortran-torture/execute/write_a_1.f90: New test.
+
+2004-05-15  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/13826
+	PR fortran/13940
+	* gfortran.fortran-torture/compile/data_1.f90: New test.
+
+2004-05-15  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* gcc.dg/const-elim-1.c: Remove XFAIL for s390*-*-*.
+	* gcc.dg/uninit-H.c: Define ASM for __s390__.
+
+2004-05-15  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* gcc.c-torture/execute/20000603-1.c: Update WG14 URL.
+
+2004-05-15  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	PR c/15444
+	* gcc.dg/format/xopen-1.c: Adjust expected message.
+	* gcc.dg/format/xopen-3.c: New test.
+
+2004-05-14  Victor Leikehman  <lei@haifasphere.co.il>
+
+	* gfortran.fortran-torture/execute/def_init_3.f90: New test.
+
+2004-05-14  Jeff Law  <law@redhat.com>
+
+	* gcc.dg/tree-ssa/20040514-2.c: New test.
+
+2004-05-14  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* gfortran.fortran-torture/compile/noncontinuation_1.f90: Rename
+	this ...
+	* gfortran.fortran-torture/compile/noncontinuation_1.f: ... to
+	this.
+
+2004-05-14  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* gcc.dg/tree-ssa/20040514-1.c: New test.
+
+2004-05-14  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* gfortran.fortran-torture/compile/noncontinuation_1.f90: New
+	test.
+
+2004-05-14  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/14066
+	* gfortran.fortran-torture/compile/do_1.f90: New test.
+
+2004-05-14  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/15051
+	* gfortran.fortran-torture/compile/empty_interface_1.f90: New
+	test.
+
+2004-05-14  Bud Davis  <bdavis9659@comcast.net>
+
+	PR fortran/15149
+	* gfortran.fortran-torture/execute/random_init.f90: New test.
+
+2004-05-13  Paul Brook  <paul@codesourcery.com>
+
+	PR fortran/15314
+	* gfortran.fortran-torture/execute/der_init_s.f90: New test.
+
+2004-05-13  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* gcc.dg/uninit-H.c: Test for __PPC__ and __ppc__
+	for the powerpc case.
+
+2004-05-13  Jeff Law  <law@redhat.com>
+
+	* gcc.dg/tree-ssa/20040513-1.c: New test.
+	* gcc.dg/tree-ssa/20040513-2.c: New test.
+
+2004-05-13  Paul Brook  <paul@codesourcery.com>
+
+	* gcc.dg/tree-ssa/20030808-1.c: Force enum size.
+	* gcc.dg/tree-ssa/20030714-1.c: Ditto.
+	* gcc.dg/tree-ssa/20030708-1.c: Ditto.
+
+2004-05-13  Andreas Schwab  <schwab@suse.de>
+
+	PR other/10819
+	* lib/gfortran.exp (gfortran_version): Do not match NL/CR
+	characters.
+
+2004-05-13  Bud Davis  <bdavis9659@comcast.net>
+
+	PR fortran/15294
+	* gfortran.fortran-torture/execute/adjustr.f90: New file.
+
+2004-05-13  Diego Novillo  <dnovillo@redhat.com>
+
+	Merge from tree-ssa-20020619-branch.  See
+	ChangeLog.tree-ssa for details.
 
 2004-05-11  Ziemowit Laski  <zlaski@apple.com>
 
@@ -143,7 +444,7 @@
 	* gcc.dg/unused-6.c: New test.
 
 2004-04-24  Laurent GUERBY  <laurent@guerby.net>
-            Ulrich Weigand  <uweigand@de.ibm.com>
+	    Ulrich Weigand  <uweigand@de.ibm.com>
 
 	* ada/acats/run_all.sh: Define $target variable.
 
@@ -985,17 +1286,6 @@
 2004-03-05  Andreas Krebbel  <krebbel1@de.ibm.com>
 
 	* gcc.dg/20040305-1.c: New test.
-
-2004-03-08  Ziemowit Laski  <zlaski@apple.com>
-
-	Sync up with HEAD:2004-03-06T01:00.
-
-2004-03-04  Ziemowit Laski  <zlaski@apple.com>
-
-	* lib/obj-c++-dg.exp: New file.
-	* lib/obj-c++.exp: New file.
-	* obj-c++.dg/basic.mm: New test case.
-	* obj-c++.dg/dg.exp: New file.
 
 2004-03-05  Hans-Peter Nilsson  <hp@axis.com>
 
@@ -5062,10 +5352,6 @@
 
 	PR c++/9559
 	* g++.dg/init/static1.C: New test.
-
-2003-06-30  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
-
-	* Changelog: Remove ">>>>>>>" from previous change.
 
 2003-06-30  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
 

@@ -1,3 +1,599 @@
+2004-05-27  Vincent Celier  <celier@gnat.com>
+
+	* vms_data.ads: Add new GNAT PRETTY qualifiers /NO_BACKUP and
+	COMMENTS_LAYOUT=UNTOUCHED
+
+	* symbols-vms.adb, symbols-vms-alpha.adb: Renamed symbols-vms.adb to
+	symbols-vms-alpha.adb
+
+2004-05-27  Thomas Quinot  <quinot@act-europe.fr>
+
+	* sem.ads: Clarify documentation on checks suppression.
+
+	* einfo.ads (Is_Known_Non_Null): Minor comment typo fix and rephrasing.
+
+2004-05-27  Ed Schonberg  <schonberg@gnat.com>
+
+	* sem_util.adb (Is_Descendent_Of): Examine properly all ancestors in
+	the case of multiple derivations.
+	(Is_Object_Reference): For a selected component, verify that the prefix
+	is itself an object and not a value.
+
+	* sem_ch12.adb (Same_Instantiated_Constant): New name for
+	Same_Instantiated_Entity.
+	(Same_Instantiated_Variable): Subsidiary to
+	Check_Formal_Package_Instance, to recognize actuals for in-out generic
+	formals that are obtained from a previous formal package.
+	(Instantiate_Subprogram_Body): Emit proper error when
+	generating code and the proper body of a stub is missing.
+
+	* sem_ch4.adb (Remove_Address_Interpretations): If the operation still
+	has a universal interpretation, do the disambiguation here.
+
+	* exp_ch4.adb (Expand_N_Type_Conversion,
+	Expand_N_Unchecked_Type_Conversion): Special handling when target type
+	is Address, to avoid typing anomalies when Address is a visible integer
+	type.
+
+	* exp_ch6.adb (Expand_N_Subprogram_Body): Use Is_Descendent_Of_Address
+	to determine whether a subprogram should not be marked Pure, even when
+	declared in a pure package.
+
+2004-05-27  Jose Ruiz  <ruiz@act-europe.fr>
+
+	* gnat_ugn.texi: Replace pragma Ravenscar by pragma Profile.
+
+	* gnat_rm.texi: Replace Max_Entry_Queue_Depth by Max_Entry_Queue_Length
+	Document No_Dynamic_Attachment, that supersedes No_Dynamic_Interrupts.
+	Update the documentation about the Ravenscar profile, following the
+	definition found in AI-249.
+
+	* sem_prag.adb: Use FIFO_Within_Priorities and Ceiling_Locking when
+	setting the Profile (Ravenscar). This must be done in addition to
+	setting the required restrictions.
+
+	* rtsfind.ads: Add the set of operations defined in package
+	Ada.Interrupts.
+
+	* exp_ch6.adb: Check whether we are violating the No_Dynamic_Attachment
+	restriction.
+
+2004-05-27  Eric Botcazou  <ebotcazou@act-europe.fr>
+
+	lang-specs.h: Always require -c or -S and always redirect to /dev/null
+	if -gnatc or -gnats is passed.
+
+2004-05-27  Hristian Kirtchev  <kirtchev@gnat.com>
+
+	* sem_prag.adb (Sig_Flags): A Pragma_Unchecked_Union does not count as
+	a significant reference. Warnings are now properly emitted when a
+	discriminated type is not referenced.
+
+	* lib-xref.adb (Generate_Reference): A deferred constant completion,
+	record representation clause or record type discriminant does not
+	produce a reference to its corresponding entity. Warnings are now
+	properly emitted when deferred constants and record types are not
+	referenced.
+
+2004-05-27  Geert Bosch  <bosch@gnat.com>
+
+	* Makefile.in: Use long version of libm routines on ia64 gnu/linux.
+	Fixes ACATS Annex G tests.
+
+2004-05-27  Robert Dewar  <dewar@gnat.com>
+
+	* rtsfind.adb (RTU_Loaded): Temporary kludge to get past bug of not
+	handling WITH
+
+2004-05-27  Arnaud Charlet  <charlet@act-europe.fr>
+
+	* s-interr.adb (Server_Task): Take into account case of early return
+	from sigwait under e.g. linux.
+
+2004-05-27  Sergey Rybin  <rybin@act-europe.fr>
+
+	* gnat_ugn.texi: Add description for the new gnatpp options:
+	 -rnb - replace the original source without creating its backup copy
+	 -c0 - do not format comments
+
+2004-05-24  Geert Bosch  <bosch@gnat.com>
+
+	* a-numaux-x86.adb (Reduce): Reimplement using an approximation of Pi
+	with 192 bits of precision, sufficient to reduce a double-extended
+	arguments X with a maximum relative error of T'Machine_Epsilon, for X
+	in -2.0**32 .. 2.0**32.
+	(Cos, Sin):  Always reduce arguments of 1/4 Pi or larger, to prevent
+	reduction by the processor, which only uses a 68-bit approximation of
+	Pi.
+	(Tan): Always reduce arguments and compute function either using
+	the processor's fptan instruction, or by dividing sin and cos as needed.
+
+2004-05-24  Doug Rupp  <rupp@gnat.com>
+
+	* adaint.c (__gnat_readdir): Cast CRTL function retun value to avoid
+	gcc error on 32/64 bit VMS.
+
+2004-05-24  Olivier Hainque  <hainque@act-europe.fr>
+
+	* init.c (__gnat_error_handler): Handle EEXIST as EACCES for SIGSEGVs,
+	since this is what we get for stack overflows although not documented
+	as such.
+	Document the issues which may require adjustments to our signal
+	handlers.
+
+2004-05-24  Ed Schonberg  <schonberg@gnat.com>
+
+	* inline.adb (Add_Scope_To_Clean): Do not add cleanup actions to the
+	enclosing dynamic scope if the instantiation is within a generic unit.
+
+2004-05-24  Arnaud Charlet  <charlet@act-europe.fr>
+
+	* exp_dbug.ads: Fix typo.
+
+	* Makefile.in: s-osinte-linux-ia64.ads was misnamed.
+	Rename it to its proper name: system-linux-ia64.ads
+	(stamp-gnatlib1): Remove extra target specific run time files when
+	setting up the rts directory.
+
+2004-05-24  Javier Miranda  <miranda@gnat.com>
+
+	* einfo.ads, einfo.adb (Limited_Views): Removed.
+	(Limited_View): New attribute that replaces the previous one. It is
+	now a bona fide package with the limited-view list through the
+	first_entity and first_private attributes.
+
+	* sem_ch10.adb (Install_Private_With_Clauses): Give support to
+	limited-private-with clause.
+	(Install_Limited_Withed_Unit): Install the private declarations of a
+	limited-private-withed package. Update the installation of the shadow
+	entities according to the new structure (see Build_Limited_Views)
+	(Build_Limited_Views): Replace the previous implementation of the
+	limited view by a package entity that references the first shadow
+	entity plus the first shadow private entity (required for limited-
+	private-with clause)
+	(New_Internal_Shadow_Entity): Code cleanup.
+	(Remove_Limited_With_Clause): Update the implementation to undo the
+	new work carried out by Build_Limited_Views.
+	(Build_Chain): Complete documentation.
+	Replace Ada0Y by Ada 0Y in comments
+	Minor reformating
+
+	* sem_ch3.adb (Array_Type_Declaration): In case of anonymous access
+	types the level of accessibility depends on the enclosing type
+	declaration.
+
+	* sem_ch8.adb (Find_Expanded_Name): Fix condition to detect shadow
+	entities. Complete documentation of previous change.
+
+2004-05-24  Robert Dewar  <dewar@gnat.com>
+
+	* namet.adb: Minor reformatting
+	Avoid use of name I (replace by J)
+	Minor code restructuring
+
+	* sem_ch6.adb: Minor reformatting
+
+	* lib-writ.adb: Do not set restriction as active if this is a
+	Restriction_Warning case.
+
+	* sem_prag.adb: Reset restriction warning flag if real pragma
+	restriction encountered.
+
+	* s-htable.adb: Minor reformatting
+	Change rotate count to 3 in Hash (improves hash for small strings)
+
+	* 5qsystem.ads: Add comments for type Address (no literals allowed).
+
+	* gnat_ugn.texi: Add new section of documentation "Code Generation
+	Control", which describes the use of -m switches.
+
+2004-05-24  Eric Botcazou  <ebotcazou@act-europe.fr>
+
+	trans.c (tree_transform) <N_Identifier>: Do the dereference directly
+	through the DECL_INITIAL for renamed variables.
+
+2004-05-24  Arnaud Charlet  <charlet@act-europe.fr>
+
+	* s-osinte-linux-ia64.ads: Renamed system-linux-ia64.ads
+
+2004-05-19  Joel Brobecker  <brobecker@gnat.com>
+
+	* exp_dbug.ads: Correct comments concerning handling of overloading,
+	since we no longer use $ anymore.
+
+2004-05-19  Sergey Rybin  <rybin@act-europe.fr>
+
+	* sem_ch10.adb (Optional_Subunit): When loading a subunit, do not
+	ignore errors if ASIS_Mode is set. This prevents creating ASIS trees
+	with illegal subunits.
+
+2004-05-19  Ed Schonberg  <schonberg@gnat.com>
+
+	* sem_ch6.adb (Check_Following_Pragma): When compiling a subprogram
+	body with front-end inlining enabled, check whether an inline pragma
+	appears immediately after the body and applies to it.
+
+	* sem_prag.adb (Cannot_Inline): Emit warning if front-end inlining is
+	enabled and the pragma appears after the body of the subprogram.
+
+2004-05-17  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	Part of function-at-a-time conversion
+
+	* misc.c (adjust_decl_rtl): Deleted.
+	(LANG_HOOKS_PUSHLEVEL, LANG_HOOKS_POPLEVEL, LANG_HOOKS_SET_BLOCK):
+	Define.
+
+	* gigi.h: (adjust_decl_rtl, kept_level_p, set_block): Deleted.
+	(add_decl_stmt, add_stmt, block_has_vars): New functions.
+	(gnat_pushlevel, gnat_poplevel): Renamed from pushlevel and poplevel.
+
+	* decl.c (elaborate_expression, maybe_pad_type): Call add_decl_stmt
+	when making a decl.
+	(gnat_to_gnu_entity): Likewise.
+	Use add_stmt to update setjmp buffer.
+	Set TREE_ADDRESSABLE instead of calling put_var_into_stack and
+	flush_addressof.
+	No longer call adjust_decl_rtl.
+	(DECL_INIT_BY_ASSIGN_P): New macro.
+	(DECL_STMT_VAR): Likewise.
+
+	* trans.c (gigi): Call start_block_stmt to make the outermost
+	BLOCK_STMT.
+	(gnat_to_code, gnu_to_gnu, tree_transform, process_decls, process_type):
+	Call start_block_stmt and end_block_stmt temporarily.
+	Use gnat_expand_stmt instead of expand_expr_stmt.
+	(add_decl_stmt): New function.
+	(tree_transform): Call it.
+	(add_stmt): Also emit initializing assignment for DECL_STMT if needed.
+	(end_block_stmt): Set type and NULL_STMT.
+	(gnat_expand_stmt): Make recursize call instead of calling
+	expand_expr_stmt.
+	(gnat_expand_stmt, case DECL_STMT): New case.
+	(set_lineno_from_sloc): Do nothing if global.
+	(gnu_block_stmt_node, gnu_block_stmt_free_list): New variables.
+	(start_block_stmt, add_stmt, end_block_stmt): New functions.
+	(build_block_stmt): Call them.
+	(gnat_to_code): Don't expand NULL_STMT.
+	(build_unit_elab): Rename pushlevel and poplevel to gnat_* and change
+	args.
+	(tree_transform): Likewise.
+	(tree_transform, case N_Null_Statement): Return NULL_STMT.
+	(gnat_expand_stmt, case NULL_STMT): New case.
+	(gnat_expand_stmt, case IF_STMT): Allow nested IF_STMT to have no
+	IF_STMT_TRUE.
+
+	* utils2.c (gnat_mark_addressable, case VAR_DECL): Do not set
+	TREE_ADDRESSABLE.
+
+	* utils.c (create_var_decl): Do not call expand_decl or
+	expand_decl_init.
+	Set TREE_ADDRESSABLE instead of calling gnat_mark_addressable.
+	Set DECL_INIT_BY_ASSIGN_P when needed and do not generate MODIFY_EXPR
+	here.
+	(struct e_stack): Add chain_next to GTY.
+	(struct binding_level): Deleted.
+	(struct ada_binding_level): New struct.
+	(free_block_chain): New.
+	(global_binding_level, clear_binding_level): Deleted.
+	(global_bindings_p): Rework to see if no chain.
+	(kept_level_p, set_block): Deleted.
+	(gnat_pushlevel): Renamed from pushlevel and extensive reworked to use
+	new data structure and work directly on BLOCK node.
+	(gnat_poplevel): Similarly.
+	(get_decls): Look at BLOCK_VARS.
+	(insert_block): Work directly on BLOCK node.
+	(block_has_var): New function.
+	(pushdecl): Rework for new binding structures.
+	(gnat_init_decl_processing): Rename and rework calls to pushlevel and
+	poplevel.
+	(build_subprog_body): Likewise.
+	(end_subprog_body): Likewise; also set up BLOCK in DECL_INITIAL.
+
+	* ada-tree.def (DECL_STMT, NULL_STMT): New codes.
+
+	* ada-tree.h: (DECL_INIT_BY_ASSIGN_P): New macro.
+	(DECL_STMT_VAR): Likewise.
+
+2004-05-17  Robert Dewar  <dewar@gnat.com>
+
+	* restrict.ads, restrict.adb (Process_Restriction_Synonym): New
+	procedure
+
+	* sem_prag.adb (Analyze_Pragma, case Restrictions): Cleanup handling
+	of restriction synonyums by using
+	Restrict.Process_Restriction_Synonyms.
+
+	* snames.ads, snames.adb: Add entries for Process_Restriction_Synonym
+
+	* s-restri.ads (Tasking_Allowed): Correct missing comment
+
+	* s-rident.ads: Add entries for restriction synonyms
+
+	* ali.adb: Fix some problems with badly formatted ALI files that can
+	result in infinite loops.
+
+	* s-taprop-lynxos.adb, s-tpopsp-lynxos.adb, s-taprop-tru64.adb,
+	s-tpopsp-posix-foreign.adb, s-taprop-irix.adb, s-interr-sigaction.adb,
+	s-taprop-irix-athread.adb, s-taprop-hpux-dce.adb, s-taprop-linux.adb,
+	s-taprop-dummy.adb, s-interr-dummy.adb, s-taprop-os2.adb,
+	s-taprop-solaris.adb, s-tpopsp-solaris.adb, s-asthan-vms.adb,
+	s-inmaop-vms.adb, s-interr-vms.adb, s-taprop-vms.adb,
+	s-tpopde-vms.adb, s-taprop-mingw.adb, s-interr-vxworks.adb,
+	s-taprop-vxworks.adb, s-tpopsp-vxworks.adb, s-taprop-posix.adb,
+	s-tpopsp-posix.adb, s-tratas-default.adb, a-dynpri.adb,
+	a-tasatt.adb, a-taside.adb, a-taside.ads, exp_attr.adb,
+	exp_ch9.adb, g-thread.adb, rtsfind.ads, sem_attr.adb,
+	s-interr.adb, s-interr.ads, s-soflin.ads, s-taasde.adb,
+	s-taasde.ads, s-taenca.adb, s-taenca.ads, s-taprop.ads,
+	s-tarest.adb, s-tarest.ads, s-tasdeb.adb, s-tasdeb.ads,
+	s-tasini.adb, s-tasini.ads, s-taskin.adb, s-taskin.ads,
+	s-tasque.adb, s-tasque.ads, s-tasren.adb, s-tasren.ads,
+	s-tassta.adb, s-tassta.ads, s-tasuti.adb, s-tasuti.ads,
+	s-tataat.adb, s-tataat.ads, s-tpinop.adb, s-tpinop.ads,
+	s-tpoben.adb, s-tpobop.adb, s-tpobop.ads, s-tporft.adb,
+	s-tposen.adb, s-tposen.ads, s-tratas.adb, s-tratas.ads: Change Task_ID
+	to Task_Id (minor cleanup).
+
+2004-05-17  Vincent Celier  <celier@gnat.com>
+
+	* g-os_lib.adb (Normalize_Pathname.Final_Value): Remove trailing
+	directory separator.
+
+	* prj-proc.adb (Recursive_Process): Inherit attribute Languages from
+	project being extended, if Languages is not declared in extending
+	project.
+
+2004-05-17  Javier Miranda  <miranda@gnat.com>
+
+	* sem_ch10.adb (Install_Limited_Withed_Unit): Do not install the
+	limited view of a visible sibling.
+
+2004-05-14  Robert Dewar  <dewar@gnat.com>
+
+	* gnat_ugn.texi: Minor change to -gnatS documentation
+
+	* sprint.adb: Remove some instances of Assert (False) and for this
+	purpose replace them by output of a ??? string.
+
+	* checks.adb, exp_aggr.adb, sem_elim.adb: Remove useless pragma
+	Assert (False).
+
+	* lib-writ.adb, lib-load.adb, lib.ads, lib.adb: Remove Dependent_Unit
+	flag processing. This was suppressing required dependencies in
+	No_Run_Time mode and is not needed since the binder does not generate
+	references for things in libgnat anyway.
+
+	* sem_ch3.adb (Access_Type_Declaration): Reorganize code to avoid GCC
+	warning.
+
+2004-05-14  Thomas Quinot  <quinot@act-europe.fr>
+
+	* gnat_ugn.texi: Document AIX-specific issue with initialization of
+	resolver library.
+
+	* exp_ch4.adb (Insert_Dereference_Action): Do not generate dereference
+	action for the case of an actual parameter in an init proc call.
+
+2004-05-14  Ed Schonberg  <schonberg@gnat.com>
+
+	* sem_ch4.adb (Analyze_Selected_Component): If prefix is a protected
+	subtype, check visible entities in base type.
+
+	* exp_ch7.adb (Clean_Simple_Protected_Objects): Do not generate cleanup
+	actions if the object is a renaming.
+
+	* sem_ch12.adb (Same_Instantiated_Entity): Predicate for
+	Check_Formal_Package_Instance, to determine more precisely when the
+	formal and the actual denote the same entity.
+
+2004-05-14  Javier Miranda  <miranda@gnat.com>
+
+	* par-ch10.adb (P_Context_Clause): Complete documentation on AI-262
+
+	* sem_ch10.adb (Analyze_With_Clause): After analyzed, the entity
+	corresponding to a private_with must be removed from visibility; it
+	will be made visible later, just before we analyze the private part of
+	the package.
+	(Check_Private_Child_Unit): Allow private_with clauses in public
+	siblings.
+	(Install_Siblings): Make visible the private entities of private-withed
+	siblings.
+	(Install_Withed_Unit): Do not install the private withed unit if we
+	are compiling a package declaration and the Private_With_OK flag was
+	not set by the caller. These declarations will be installed later,
+	just before we analyze the private part of the package.
+
+	* sem_ch3.adb (Analyze_Object_Declaration): In case of errors detected
+	during the evaluation of the expression that initializes the object,
+	decorate it with the expected type to avoid cascade errors.
+	Code cleanup.
+
+	* sem_ch6.adb (Analyze_Subprogram_Body): If we are compiling a library
+	subprogram we have to install the private_with clauses after its
+	specification has been analyzed (as documented in AI-262.TXT).
+
+	* sem_ch8.adb (Has_Private_With): New function. Determines if the
+	current compilation unit has a private with on a given entity.
+	(Find_Direct_Name): Detect the Beaujolais problem described in
+	AI-262.TXT
+
+	* sem_utils.ads, sem_util.adb (Is_Ancestor_Package): New function. It
+	provides the functionality of the function Is_Ancestor that was
+	previously available in sem_ch10. It has been renamed to avoid
+	overloading.
+
+	* sprint.adb (Sprint_Node_Actual): Print limited_with clauses
+
+2004-05-14  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* utils.c (build_vms_descriptor): Use SImode pointers.
+
+2004-05-14  Vasiliy Fofanov  <fofanov@act-europe.fr>
+
+	* gnat_ugn.texi: Revised chapter "GNAT and Libraries".
+
+2004-05-14  GNAT Script  <nobody@gnat.com>
+
+	* Make-lang.in: Makefile automatically updated
+
+2004-05-14  Arnaud Charlet  <charlet@act-europe.fr>
+
+	Renaming of target specific files for clarity
+
+        * Makefile.in: Rename GNAT target specific files.
+
+	* 31soccon.ads, 31soliop.ads 35soccon.ads, 3asoccon.ads,
+	3bsoccon.ads, 3gsoccon.ads, 3hsoccon.ads, 3psoccon.ads,
+	3ssoccon.ads, 3ssoliop.ads, 3veacodu.adb, 3vexpect.adb,
+	3vsoccon.ads, 3vsocthi.adb, 3vsocthi.ads, 3vtrasym.adb,
+	3wsoccon.ads, 3wsocthi.adb, 3wsocthi.ads, 3wsoliop.ads,
+	3zsoccon.ads, 3zsocthi.adb, 3zsocthi.ads, 41intnam.ads,
+	42intnam.ads, 45intnam.ads, 4aintnam.ads, 4cintnam.ads,
+	4gintnam.ads, 4hexcpol.adb, 4hintnam.ads, 4lintnam.ads,
+	4nintnam.ads, 4ointnam.ads, 4onumaux.ads, 4pintnam.ads,
+	4sintnam.ads, 4vcaldel.adb, 4vcalend.adb, 4vcalend.ads,
+	4vintnam.ads, 4wcalend.adb, 4wexcpol.adb, 4wintnam.ads,
+	4zintnam.ads, 4znumaux.ads, 4zsytaco.adb, 4zsytaco.ads,
+	51osinte.adb, 51osinte.ads, 51system.ads,
+	52osinte.adb, 52osinte.ads, 53osinte.ads, 54osinte.ads,
+	55osinte.adb, 55osinte.ads, 55system.ads, 56osinte.adb,
+	56osinte.ads, 56system.ads, 56taprop.adb, 56taspri.ads,
+	56tpopsp.adb, 57system.ads, 58system.ads,
+	5amastop.adb, 5aml-tgt.adb, 5aosinte.adb, 5aosinte.ads,
+	5asystem.ads, 5ataprop.adb, 5atasinf.ads, 5ataspri.ads,
+	5atpopsp.adb, 5avxwork.ads, 5bml-tgt.adb, 5bosinte.adb,
+	5bosinte.ads, 5bsystem.ads, 5cosinte.ads, 5csystem.ads,
+	5dsystem.ads, 5esystem.ads, 5fintman.adb, 5fosinte.adb,
+	5fosinte.ads, 5fsystem.ads, 5ftaprop.adb, 5ftasinf.ads,
+	5ginterr.adb, 5gintman.adb, 5gmastop.adb, 5gml-tgt.adb,
+	5gosinte.ads, 5gproinf.adb, 5gproinf.ads, 5gsystem.ads,
+	5gtaprop.adb, 5gtasinf.adb, 5gtasinf.ads, 5gtpgetc.adb,
+	5hml-tgt.adb, 5hosinte.adb, 5hosinte.ads, 5hparame.ads,
+	5hsystem.ads, 5htaprop.adb, 5htaspri.ads, 5htraceb.adb,
+	5iosinte.adb, 5iosinte.ads, 5itaprop.adb, 5itaspri.ads,
+	5ksystem.ads, 5kvxwork.ads, 5lml-tgt.adb, 5losinte.ads,
+	5lparame.adb, 5lsystem.ads, 5msystem.ads, 5mvxwork.ads,
+	5ninmaop.adb, 5nintman.adb, 5nosinte.ads, 5nsystem.ads,
+	5ntaprop.adb, 5ntaspri.ads, 5ointerr.adb, 5omastop.adb,
+	5oosinte.adb, 5oosinte.ads, 5oosprim.adb, 5oparame.adb,
+	5osystem.ads, 5otaprop.adb, 5otaspri.ads, 5posinte.ads,
+	5posprim.adb, 5psystem.ads, 5pvxwork.ads, 5sintman.adb,
+	5sml-tgt.adb, 5sosinte.adb, 5sosinte.ads, 5sosprim.adb,
+	5sparame.adb, 5ssystem.ads, 5staprop.adb, 5stasinf.adb,
+	5stasinf.ads, 5staspri.ads, 5stpopsp.adb, 5svxwork.ads,
+	5tosinte.ads, 5usystem.ads, 5vasthan.adb, 5vdirval.adb,
+	5vinmaop.adb, 5vinterr.adb, 5vintman.adb, 5vintman.ads,
+	5vmastop.adb, 5vml-tgt.adb, 5vosinte.adb, 5vosinte.ads,
+	5vosprim.adb, 5vosprim.ads, 5vparame.ads, 5vsymbol.adb,
+	5vsystem.ads, 5vtaprop.adb, 5vtaspri.ads, 5vtpopde.adb,
+	5vtpopde.ads, 5vtraent.adb, 5vtraent.ads, 5vvaflop.adb,
+	5wdirval.adb, 5wgloloc.adb, 5wintman.adb, 5wmemory.adb,
+	5wml-tgt.adb, 5wosinte.ads, 5wosprim.adb, 5wsystem.ads,
+	5wtaprop.adb, 5wtaspri.ads, 5xparame.ads, 5xsystem.ads,
+	5xvxwork.ads, 5yparame.ads, 5ysystem.ads, 5zinterr.adb,
+	5zintman.adb, 5zintman.ads, 5zml-tgt.adb, 5zosinte.adb,
+	5zosinte.ads, 5zosprim.adb, 5zparame.ads, 5zstchop.adb,
+	5zsystem.ads, 5ztaprop.adb, 5ztaspri.ads, 5ztfsetr.adb,
+	5ztpopsp.adb, 6vcpp.adb, 6vcstrea.adb, 6vinterf.ads,
+	7sinmaop.adb, 7sintman.adb, 7sosinte.adb, 7sosprim.adb,
+	7staprop.adb, 7staspri.ads, 7stfsetr.adb, 7stpopsp.adb,
+	7straceb.adb, 7straces.adb, 7strafor.adb, 7strafor.ads,
+	7stratas.adb, 86numaux.adb, 86numaux.ads: Replaced by files below.
+
+	* a-caldel-vms.adb, a-calend-mingw.adb, a-calend-vms.adb,
+	a-calend-vms.ads, a-dirval-mingw.adb, a-dirval-vms.adb,
+	a-excpol-abort.adb, a-excpol-interix.adb, a-intnam-aix.ads,
+	a-intnam-dummy.ads, a-intnam-freebsd.ads, a-intnam-hpux.ads,
+	a-intnam-interix.ads, a-intnam-irix.ads, a-intnam-linux.ads,
+	a-intnam-lynxos.ads, a-intnam-mingw.ads, a-intnam-os2.ads,
+	a-intnam-solaris.ads, a-intnam-tru64.ads, a-intnam-unixware.ads,
+	a-intnam-vms.ads, a-intnam-vxworks.ads, a-numaux-libc-x86.ads,
+	a-numaux-vxworks.ads, a-numaux-x86.adb, a-numaux-x86.ads,
+	a-sytaco-vxworks.adb, a-sytaco-vxworks.ads, g-eacodu-vms.adb,
+	g-expect-vms.adb, g-soccon-aix.ads, g-soccon-freebsd.ads,
+	g-soccon-hpux.ads, g-soccon-interix.ads, g-soccon-irix.ads,
+	g-soccon-mingw.ads, g-soccon-solaris.ads, g-soccon-tru64.ads,
+	g-soccon-unixware.ads, g-soccon-vms.adb, g-soccon-vxworks.ads,
+	g-socthi-mingw.adb, g-socthi-mingw.ads, g-socthi-vms.adb,
+	g-socthi-vms.ads, g-socthi-vxworks.adb, g-socthi-vxworks.ads,
+	g-soliop-mingw.ads, g-soliop-solaris.ads, g-soliop-unixware.ads,
+	g-trasym-vms.adb, i-cpp-vms.adb, i-cstrea-vms.adb,
+	interfac-vms.ads, mlib-tgt-aix.adb, mlib-tgt-hpux.adb,
+	mlib-tgt-irix.adb, mlib-tgt-linux.adb, mlib-tgt-mingw.adb,
+	mlib-tgt-solaris.adb, mlib-tgt-tru64.adb, mlib-tgt-vms.adb,
+	mlib-tgt-vxworks.adb, s-asthan-vms.adb, s-gloloc-mingw.adb,
+	s-inmaop-dummy.adb, s-inmaop-posix.adb, s-inmaop-vms.adb,
+	s-interr-dummy.adb, s-interr-sigaction.adb, s-interr-vms.adb,
+	s-interr-vxworks.adb, s-intman-dummy.adb, s-intman-irix.adb,
+	s-intman-irix-athread.adb, s-intman-mingw.adb, s-intman-posix.adb,
+	s-intman-solaris.adb, s-intman-vms.adb, s-intman-vms.ads,
+	s-intman-vxworks.adb, s-intman-vxworks.ads, s-mastop-irix.adb,
+	s-mastop-tru64.adb, s-mastop-vms.adb, s-mastop-x86.adb,
+	s-memory-mingw.adb, s-osinte-aix.adb, s-osinte-aix.ads,
+	s-osinte-aix-fsu.ads, s-osinte-dummy.ads, s-osinte-freebsd.adb,
+	s-osinte-freebsd.ads, s-osinte-fsu.adb, s-osinte-hpux.ads,
+	s-osinte-hpux-dce.adb, s-osinte-hpux-dce.ads, s-osinte-interix.ads,
+	s-osinte-irix.adb, s-osinte-irix.ads, s-osinte-irix-athread.ads,
+	s-osinte-linux.ads, s-osinte-linux-fsu.ads, s-osinte-linux-ia64.ads,
+	s-osinte-lynxos-3.adb, s-osinte-lynxos-3.ads, s-osinte-lynxos.adb,
+	s-osinte-lynxos.ads, s-osinte-mingw.ads, s-osinte-os2.adb,
+	s-osinte-os2.ads, s-osinte-posix.adb, s-osinte-solaris.adb,
+	s-osinte-solaris.ads, s-osinte-solaris-fsu.ads,
+	s-osinte-solaris-posix.ads, s-osinte-tru64.adb, s-osinte-tru64.ads,
+	s-osinte-unixware.adb, s-osinte-unixware.ads, s-osinte-vms.adb,
+	s-osinte-vms.ads, s-osinte-vxworks.adb,
+	s-osinte-vxworks.ads, s-osprim-mingw.adb,
+	s-osprim-os2.adb, s-osprim-posix.adb, s-osprim-solaris.adb,
+	s-osprim-unix.adb, s-osprim-vms.adb, s-osprim-vms.ads,
+	s-osprim-vxworks.adb, s-parame-ae653.ads, s-parame-hpux.ads,
+	s-parame-linux.adb, s-parame-os2.adb, s-parame-solaris.adb,
+	s-parame-vms.ads, s-parame-vms-restrict.ads, s-parame-vxworks.ads,
+	s-proinf-irix-athread.adb, s-proinf-irix-athread.ads,
+	s-stchop-vxworks.adb, s-taprop-dummy.adb,
+	s-taprop-hpux-dce.adb, s-taprop-irix.adb,
+	s-taprop-irix-athread.adb, s-taprop-linux.adb, s-taprop-lynxos.adb,
+	s-taprop-mingw.adb, s-taprop-os2.adb, s-taprop-posix.adb,
+	s-taprop-solaris.adb, s-taprop-tru64.adb, s-taprop-vms.adb,
+	s-taprop-vxworks.adb, s-tasinf-irix.ads, s-tasinf-irix-athread.adb,
+	s-tasinf-irix-athread.ads, s-tasinf-solaris.adb, s-tasinf-solaris.ads,
+	s-tasinf-tru64.ads, s-taspri-dummy.ads, s-taspri-hpux-dce.ads,
+	s-taspri-linux.ads, s-taspri-lynxos.ads, s-taspri-mingw.ads,
+	s-taspri-os2.ads, s-taspri-posix.ads, s-taspri-solaris.ads,
+	s-taspri-tru64.ads, s-taspri-vms.ads, s-taspri-vxworks.ads,
+	s-tfsetr-default.adb, s-tfsetr-vxworks.adb, s-tpopde-vms.adb,
+	s-tpopde-vms.ads, s-tpopsp-lynxos.adb, s-tpopsp-posix.adb,
+	s-tpopsp-posix-foreign.adb, s-tpopsp-solaris.adb, s-tpopsp-vxworks.adb,
+	s-traceb-hpux.adb, s-traceb-mastop.adb, s-traces-default.adb,
+	s-traent-vms.adb, s-traent-vms.ads, s-trafor-default.adb,
+	s-trafor-default.ads, s-tratas-default.adb, s-vaflop-vms.adb,
+	s-vxwork-alpha.ads, s-vxwork-m68k.ads, s-vxwork-mips.ads,
+	s-vxwork-ppc.ads, s-vxwork-sparcv9.ads, s-vxwork-xscale.ads,
+	symbols-vms.adb, system-aix.ads, system-freebsd-x86.ads,
+	system-hpux.ads, system-interix.ads, system-irix-n32.ads,
+	system-irix-o32.ads, system-linux-x86_64.ads,
+	system-linux-x86.ads, system-lynxos-ppc.ads, system-lynxos-x86.ads,
+	system-mingw.ads, system-os2.ads, system-solaris-sparc.ads,
+	system-solaris-sparcv9.ads, system-solaris-x86.ads, system-tru64.ads,
+	system-unixware.ads, system-vms.ads, system-vms-zcx.ads,
+	system-vxworks-alpha.ads, system-vxworks-m68k.ads,
+	system-vxworks-mips.ads, system-vxworks-ppc.ads,
+	system-vxworks-sparcv9.ads, system-vxworks-xscale.ads: Replace files
+	above.
+
+2004-05-13  Zack Weinberg  <zack@codesourcery.com>
+
+	* trans.c (gnat_stabilize_reference_1): Remove case 'b'.
+
+2004-05-13  Diego Novillo  <dnovillo@redhat.com>
+
+	Merge from tree-ssa-20020619-branch.
+
+	* config-lang.in (boot_language, build_by_default): Set
+	to no.
+	* utils.c (unchecked_convert): Use OEP_ONLY_CONST.
+	(max_size): Add static chain op for call_expr.
+
 2004-05-12  Richard Sandiford  <rsandifo@redhat.com>
 
 	PR target/15331
@@ -283,7 +879,7 @@
 
 	* cstand.adb (Create_Standard): Initialize Stand.Boolean_Literals.
 
-	* exp_attr.adb, exp_ch5.adb, exp_ch9.adb, exp_disp.adb, 
+	* exp_attr.adb, exp_ch5.adb, exp_ch9.adb, exp_disp.adb,
 	exp_fixd.adb, sem_attr.adb, sem_dist.adb, sem_util.adb: Use
 	Stand.Boolean_Literals to produce references to entities
 	Standard_False and Standard_True from compile-time computed boolean
@@ -575,9 +1171,9 @@
 
 2004-04-23  Laurent GUERBY <laurent@guerby.net>
 
-	* Makefile.in: Remove RANLIB_TEST, use -$(RANLIB) including after 
+	* Makefile.in: Remove RANLIB_TEST, use -$(RANLIB) including after
 	install.
-	
+
 2004-04-23  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
 
 	* Make-lang.in (GNATBIND_OBJS): Add s-addope.o.
@@ -634,8 +1230,8 @@
 	* Make-lang.in: Add entry for s-addope.o to GNAT1 objects
 	* s-addope.ads, s-addope.adb: New files.
 
-	* s-carsi8.adb, s-carun8.adb, s-casi16.adb, s-casi32.adb, 
-	s-casi64.adb, s-caun16.adb, s-caun32.adb, s-caun64.adb, 
+	* s-carsi8.adb, s-carun8.adb, s-casi16.adb, s-casi32.adb,
+	s-casi64.adb, s-caun16.adb, s-caun32.adb, s-caun64.adb,
 	s-finimp.adb, s-geveop.adb, s-stoele.adb: Modifications to allow
 	System.Address to be non-private and signed.
 
@@ -646,7 +1242,7 @@
 2004-04-23  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 
 	* trans.c (tree_transform, build_unit_elab): Don't call getdecls.
-        (tree_transform, case N_If_Statement): Remove non-determinism.
+	(tree_transform, case N_If_Statement): Remove non-determinism.
 
 	* utils.c (begin_subprog_body): Just set DECL_CONTEXT in PARM_DECL.
 
@@ -982,7 +1578,7 @@
 
 	* sem_util.ads, sem_util.adb: (Has_Declarations): New subprogram
 
-	* sinfo.ads, sinfo.adb: 
+	* sinfo.ads, sinfo.adb:
 	New field Access_To_Subprogram_Definition in Access_Definition nodes
 
 	* sem_ch6.adb (Process_Formals): Move here the code that creates and
@@ -1138,7 +1734,7 @@
 
 	PR ada/14988 (partial)
 	* impunit.adb: Fix typo.
-	
+
 2004-04-14  Nathanael Nerode  <neroden@gcc.gnu.org>
 
 	* Make-lang.in: Remove obsolete rts-none, rts-cert, install-rts-none,
@@ -1217,7 +1813,7 @@
 	duplication between normal entities and those declared as renamings.
 	No functional change.
 
-	* s-fileio.ads (Form): Remove pragma Inline, as we cannot currently	
+	* s-fileio.ads (Form): Remove pragma Inline, as we cannot currently
 	inline functions returning an unconstrained result.
 
 2004-04-08  Eric Botcazou  <ebotcazou@act-europe.fr>
@@ -1830,9 +2426,9 @@
 
 2004-03-19  Laurent Guerby <laurent@guerby.net>
 
-	* sem_prag.adb (Suppress_Unsuppress_Echeck): use loop instead of 
+	* sem_prag.adb (Suppress_Unsuppress_Echeck): use loop instead of
 	aggregate, allows bootstrap from 3.3 on powerpc-darwin.
-	
+
 2004-03-18  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 
 	* ada-tree.h (TYPE_LEFT_JUSTIFIED_MODULAR_P): Add checking.
@@ -2141,7 +2737,7 @@
 
 	* a-tags.adb, a-tags.ads, s-finimp.adb, s-finroo.ads,
 	i-cpoint.ads, i-cpoint.adb, i-cstrin.adb, i-cstrin.ads,
-	5iosinte.ads, 5sosinte.ads, 5staspri.ads, 5itaprop.adb, 
+	5iosinte.ads, 5sosinte.ads, 5staspri.ads, 5itaprop.adb,
 	5staprop.adb, 5wtaprop.adb, s-tataat.ads, s-tataat.adb: Move
 	unchecked conversion to spec to avoid warnings.
 
@@ -2659,7 +3255,7 @@
 
 	PR ada/6637, PR ada/5911
 	Merge with libada-branch:
-        * config-lang.in: Build libada only when ada is built.
+	* config-lang.in: Build libada only when ada is built.
 
 2004-02-09  Ed Schonberg  <schonberg@gnat.com>
 
@@ -2810,7 +3406,7 @@
 
 2004-02-04  Ed Schonberg  <schonberg@gnat.com>
 
-	* sem_prag.adb: 
+	* sem_prag.adb:
 	(Analyze_Pragma, case Warnings): In an inlined body, as in an instance
 	 body, an identifier may be wrapped in an unchecked conversion.
 
@@ -3011,7 +3607,7 @@
 
 2004-01-30  Kelley Cook  <kcook@gcc.gnu.org>
 
-	* Make-lang.in (doc/gnat_ug_unx.dvi): Use $(abs_docdir). 
+	* Make-lang.in (doc/gnat_ug_unx.dvi): Use $(abs_docdir).
 	(doc/gnat_ug_vms.dvi, doc/gnat_ug_unx.dvi): Likewise.
 	(doc/gnat_ug_unx.dvi, doc/gnat-style.dvi): Likewise.
 
@@ -3030,7 +3626,7 @@
 	(Wakeup): Likewise.
 	(Exit_Task): Use Result.
 	(Check_No_Locks): Mark Self_ID unreferenced.
-	
+
 	* 5gtasinf.adb (New_Sproc): Make Attr constant.
 	(Bound_Thread_Attributes): Make Sproc constant.
 	(New_Bound_Thread_Attributes): Likewise.

@@ -49,7 +49,7 @@ extern void _fatal_insn (const char *, rtx, const char *, int, const char *)
 /* None of these functions are suitable for ATTRIBUTE_PRINTF, because
    each language front end can extend them with its own set of format
    specifiers.  We must use custom format checks.  */
-#if GCC_VERSION >= 3004
+#if GCC_VERSION >= 3005
 #define ATTRIBUTE_GCC_DIAG(m, n) __attribute__ ((__format__ (GCC_DIAG_STYLE, m, n))) ATTRIBUTE_NONNULL(m)
 #else
 #define ATTRIBUTE_GCC_DIAG(m, n) ATTRIBUTE_NONNULL(m)
@@ -68,6 +68,7 @@ extern void rest_of_decl_compilation (tree, const char *, int, int);
 extern void rest_of_type_compilation (tree, int);
 extern void rest_of_compilation (tree);
 extern void tree_rest_of_compilation (tree, bool);
+extern void init_tree_optimization_passes (void);
 extern void init_optimization_passes (void);
 extern void finish_optimization_passes (void);
 extern bool enable_rtl_dump_file (int);
@@ -112,7 +113,6 @@ extern int flag_loop_optimize;
 extern int flag_crossjumping;
 extern int flag_if_conversion;
 extern int flag_if_conversion2;
-extern int flag_delete_null_pointer_checks;
 extern int flag_keep_static_consts;
 extern int flag_peel_loops;
 extern int flag_rerun_cse_after_loop;
@@ -124,6 +124,7 @@ extern int flag_unswitch_loops;
 extern int flag_cprop_registers;
 extern int time_report;
 extern int flag_new_regalloc;
+extern int flag_tree_based_profiling;
 
 /* Things to do with target switches.  */
 extern void display_target_options (void);

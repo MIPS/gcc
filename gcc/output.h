@@ -150,12 +150,7 @@ extern int add_weak (tree, const char *, const char *);
 
 /* Functions in flow.c */
 extern void allocate_for_life_analysis (void);
-extern int regno_uninitialized (unsigned int);
 extern int regno_clobbered_at_setjmp (int);
-extern void find_basic_blocks (rtx, int, FILE *);
-extern bool cleanup_cfg (int);
-extern bool delete_unreachable_blocks (void);
-extern void check_function_return_warnings (void);
 
 /* Functions in varasm.c.  */
 
@@ -520,7 +515,7 @@ extern const char *default_strip_name_encoding (const char *);
 extern bool default_binds_local_p (tree);
 extern bool default_binds_local_p_1 (tree, int);
 extern void default_globalize_label (FILE *, const char *);
-extern void default_emit_unwind_label (FILE *, tree, int);
+extern void default_emit_unwind_label (FILE *, tree, int, int);
 extern void default_internal_label (FILE *, const char *, unsigned long);
 extern void default_file_start (void);
 extern void file_end_indicate_exec_stack (void);

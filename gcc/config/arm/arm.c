@@ -159,6 +159,8 @@ static rtx arm_struct_value_rtx (tree, int);
 static void arm_setup_incoming_varargs (CUMULATIVE_ARGS *, enum machine_mode,
 					tree, int *, int);
 static bool arm_promote_prototypes (tree);
+static bool arm_default_short_enums (void);
+static bool arm_align_anon_bitfield (void);
 
 
 /* Initialize the GCC target structure.  */
@@ -256,6 +258,12 @@ static bool arm_promote_prototypes (tree);
 #undef  TARGET_SETUP_INCOMING_VARARGS
 #define TARGET_SETUP_INCOMING_VARARGS arm_setup_incoming_varargs
 
+#undef TARGET_DEFAULT_SHORT_ENUMS
+#define TARGET_DEFAULT_SHORT_ENUMS arm_default_short_enums
+
+#undef TARGET_ALIGN_ANON_BITFIELD
+#define TARGET_ALIGN_ANON_BITFIELD arm_align_anon_bitfield
+
 struct gcc_target targetm = TARGET_INITIALIZER;
 
 /* Obstack for minipool constant handling.  */
@@ -292,9 +300,6 @@ enum float_abi_type arm_float_abi;
 
 /* Which ABI to use.  */
 enum arm_abi_type arm_abi;
-
-/* What program mode is the cpu running in? 26-bit mode or 32-bit mode.  */
-enum prog_mode_type arm_prgmode;
 
 /* Set by the -mfpu=... option.  */
 const char * target_fpu_name = NULL;
@@ -664,17 +669,12 @@ arm_override_options (void)
 	{
 	  sought |= (FL_THUMB | FL_MODE32);
 	  
-	  /* Force apcs-32 to be used for interworking.  */
-	  target_flags |= ARM_FLAG_APCS_32;
-
 	  /* There are no ARM processors that support both APCS-26 and
 	     interworking.  Therefore we force FL_MODE26 to be removed
 	     from insn_flags here (if it was set), so that the search
 	     below will always be able to find a compatible processor.  */
 	  insn_flags &= ~FL_MODE26;
 	}
-      else if (!TARGET_APCS_32)
-	sought |= FL_MODE26;
       
       if (sought != 0 && ((sought & insn_flags) != sought))
 	{
@@ -697,12 +697,10 @@ arm_override_options (void)
 		 ought to use the -mcpu=<name> command line option to
 		 override the default CPU type.
 
-		 Unfortunately this does not work with multilibing.  We
-		 need to be able to support multilibs for -mapcs-26 and for
-		 -mthumb-interwork and there is no CPU that can support both
-		 options.  Instead if we cannot find a cpu that has both the
-		 characteristics of the default cpu and the given command line
-		 options we scan the array again looking for a best match.  */
+		 If we cannot find a cpu that has both the
+		 characteristics of the default cpu and the given
+		 command line options we scan the array again looking
+		 for a best match.  */
 	      for (sel = all_cores; sel->name != NULL; sel++)
 		if ((sel->flags & sought) == sought)
 		  {
@@ -740,21 +738,6 @@ arm_override_options (void)
 
   /* Make sure that the processor choice does not conflict with any of the
      other command line choices.  */
-  if (TARGET_APCS_32 && !(insn_flags & FL_MODE32))
-    {
-      /* If APCS-32 was not the default then it must have been set by the
-	 user, so issue a warning message.  If the user has specified
-	 "-mapcs-32 -mcpu=arm2" then we loose here.  */
-      if ((TARGET_DEFAULT & ARM_FLAG_APCS_32) == 0)
-	warning ("target CPU does not support APCS-32" );
-      target_flags &= ~ARM_FLAG_APCS_32;
-    }
-  else if (!TARGET_APCS_32 && !(insn_flags & FL_MODE26))
-    {
-      warning ("target CPU does not support APCS-26" );
-      target_flags |= ARM_FLAG_APCS_32;
-    }
-  
   if (TARGET_INTERWORK && !(insn_flags & FL_THUMB))
     {
       warning ("target CPU does not support interworking" );
@@ -785,14 +768,6 @@ arm_override_options (void)
   if (TARGET_ARM && TARGET_CALLER_INTERWORKING)
     warning ("enabling caller interworking support is only meaningful when compiling for the Thumb");
 
-  /* If interworking is enabled then APCS-32 must be selected as well.  */
-  if (TARGET_INTERWORK)
-    {
-      if (!TARGET_APCS_32)
-	warning ("interworking forces APCS-32 to be used" );
-      target_flags |= ARM_FLAG_APCS_32;
-    }
-  
   if (TARGET_APCS_STACK && !TARGET_APCS_FRAME)
     {
       warning ("-mapcs-stack-check incompatible with -mno-apcs-frame");
@@ -955,8 +930,6 @@ arm_override_options (void)
       && (tune_flags & FL_MODE32) == 0)
     flag_schedule_insns = flag_schedule_insns_after_reload = 0;
   
-  arm_prgmode = TARGET_APCS_32 ? PROG_MODE_PROG32 : PROG_MODE_PROG26;
-  
   /* Override the default structure alignment for AAPCS ABI.  */
   if (arm_abi == ARM_ABI_AAPCS)
     arm_structure_size_boundary = 8;
@@ -1116,7 +1089,7 @@ arm_compute_func_type (void)
       && TREE_THIS_VOLATILE (current_function_decl))
     type |= ARM_FT_VOLATILE;
   
-  if (current_function_needs_context)
+  if (cfun->static_chain_decl != NULL)
     type |= ARM_FT_NESTED;
 
   attr = DECL_ATTRIBUTES (current_function_decl);
@@ -6128,8 +6101,7 @@ arm_gen_rotated_half_load (rtx memref)
     }
 
   /* If we aren't allowed to generate unaligned addresses, then fail.  */
-  if (TARGET_MMU_TRAPS
-      && ((BYTES_BIG_ENDIAN ? 1 : 0) ^ ((offset & 2) == 0)))
+  if ((BYTES_BIG_ENDIAN ? 1 : 0) ^ ((offset & 2) == 0))
     return NULL;
 
   base = gen_rtx_MEM (SImode, plus_constant (base, offset & ~2));
@@ -7884,20 +7856,7 @@ print_multi_reg (FILE *stream, const char *instr, int reg, int mask)
 	not_first = TRUE;
       }
 
-  fprintf (stream, "}");
-
-  /* Add a ^ character for the 26-bit ABI, but only if we were loading
-     the PC.  Otherwise we would generate an UNPREDICTABLE instruction.
-     Strictly speaking the instruction would be unpredictable only if
-     we were writing back the base register as well, but since we never
-     want to generate an LDM type 2 instruction (register bank switching)
-     which is what you get if the PC is not being loaded, we do not need
-     to check for writeback.  */
-  if (! TARGET_APCS_32
-      && ((mask & (1 << PC_REGNUM)) != 0))
-    fprintf (stream, "^");
-  
-  fprintf (stream, "\n");
+  fprintf (stream, "}\n");
 }
 
 
@@ -9202,7 +9161,7 @@ output_return_instruction (rtx operand, int really_return, int reverse)
       if (reg <= LAST_ARM_REGNUM
 	  && (reg != LR_REGNUM
 	      || ! really_return 
-	      || (TARGET_APCS_32 && ! IS_INTERRUPT (func_type))))
+	      || ! IS_INTERRUPT (func_type)))
 	{
 	  sprintf (instr, "ldr%s\t%%|%s, [%%|sp], #4", conditional, 
 		   (reg == LR_REGNUM) ? return_reg : reg_names[reg]);
@@ -9262,20 +9221,8 @@ output_return_instruction (rtx operand, int really_return, int reverse)
 	  if (live_regs_mask & (1 << LR_REGNUM))
 	    {
 	      sprintf (p, "%s%%|%s}", first ? "" : ", ", return_reg);
-	      /* Decide if we need to add the ^ symbol to the end of the
-		 register list.	 This causes the saved condition codes
-		 register to be copied into the current condition codes
-		 register.  We do the copy if we are conforming to the 32-bit
-		 ABI and this is an interrupt function, or if we are
-		 conforming to the 26-bit ABI.  There is a special case for
-		 the 26-bit ABI however, which is if we are writing back the
-		 stack pointer but not loading the PC.  In this case adding
-		 the ^ symbol would create a type 2 LDM instruction, where
-		 writeback is UNPREDICTABLE.  We are safe in leaving the ^
-		 character off in this case however, since the actual return
-		 instruction will be a MOVS which will restore the CPSR.  */
-	      if ((TARGET_APCS_32 && IS_INTERRUPT (func_type))
-		  || (! TARGET_APCS_32 && really_return))
+	      /* If returning from an interrupt, restore the CPSR.  */
+	      if (IS_INTERRUPT (func_type))
 		strcat (p, "^");
 	    }
 	  else
@@ -9315,12 +9262,11 @@ output_return_instruction (rtx operand, int really_return, int reverse)
 
 	default:
 	  /* ARMv5 implementations always provide BX, so interworking
-	     is the default unless APCS-26 is in use.  */
-	  if ((insn_flags & FL_ARCH5) != 0 && TARGET_APCS_32)
+	     is the default.  */
+	  if ((insn_flags & FL_ARCH5) != 0)
 	    sprintf (instr, "bx%s\t%%|lr", conditional);	    
 	  else
-	    sprintf (instr, "mov%s%s\t%%|pc, %%|lr",
-		     conditional, TARGET_APCS_32 ? "" : "s");
+	    sprintf (instr, "mov%s\t%%|pc, %%|lr", conditional);
 	  break;
 	}
 
@@ -9758,6 +9704,7 @@ arm_output_epilogue (rtx sibling)
 	}
     }
 
+  /* We may have already restored PC directly from the stack.  */
   if (! really_return
     || (ARM_FUNC_TYPE (func_type) == ARM_FT_NORMAL
 	&& current_function_pretend_args_size == 0
@@ -9768,8 +9715,6 @@ arm_output_epilogue (rtx sibling)
   switch ((int) ARM_FUNC_TYPE (func_type))
     {
     case ARM_FT_EXCEPTION_HANDLER:
-      /* Even in 26-bit mode we do a mov (rather than a movs)
-	 because we don't have the PSR bits set in the address.  */
       asm_fprintf (f, "\tmov\t%r, %r\n", PC_REGNUM, EXCEPTION_LR_REGNUM);
       break;
 
@@ -9787,21 +9732,7 @@ arm_output_epilogue (rtx sibling)
       break;
 
     default:
-      if (frame_pointer_needed)
-	/* If we used the frame pointer then the return address
-	   will have been loaded off the stack directly into the
-	   PC, so there is no need to issue a MOV instruction
-	   here.  */
-	;
-      else if (current_function_pretend_args_size == 0
-	       && (saved_regs_mask & (1 << LR_REGNUM)))
-	/* Similarly we may have been able to load LR into the PC
-	   even if we did not create a stack frame.  */
-	;
-      else if (TARGET_APCS_32)
-	asm_fprintf (f, "\tmov\t%r, %r\n", PC_REGNUM, LR_REGNUM);
-      else
-	asm_fprintf (f, "\tmovs\t%r, %r\n", PC_REGNUM, LR_REGNUM);
+      asm_fprintf (f, "\tmov\t%r, %r\n", PC_REGNUM, LR_REGNUM);
       break;
     }
 
@@ -10016,6 +9947,18 @@ emit_sfm (int base_reg, int count)
 }
 
 
+/* Return true if the current function needs to save/restore LR.  */
+
+static bool
+thumb_force_lr_save (void)
+{
+  return !cfun->machine->lr_save_eliminated
+	 && (!leaf_function_p ()
+	     || thumb_far_jump_used_p ()
+	     || regs_ever_live [LR_REGNUM]);
+}
+
+
 /* Compute the distance from register FROM to register TO.
    These can be the arg pointer (26), the soft frame pointer (25),
    the stack pointer (13) or the hard frame pointer (11).
@@ -10151,8 +10094,7 @@ arm_get_frame_offsets (void)
       for (reg = 0; reg <= LAST_LO_REGNUM; reg ++)
 	if (THUMB_REG_PUSHED_P (reg))
 	  count_regs ++;
-      if (count_regs || ! leaf_function_p ()
-	  || thumb_far_jump_used_p ())
+      if (count_regs || thumb_force_lr_save ())
 	saved += 4 * (count_regs + 1);
       if (TARGET_BACKTRACE)
 	{
@@ -10227,10 +10169,10 @@ arm_compute_initial_elimination_offset (unsigned int from, unsigned int to)
 	     frame pointer and the arg pointer coincide.  */
 	  if (offsets->frame == offsets->saved_regs)
 	    return 0;
-          /* FIXME:  Not sure about this.  Maybe we should always return 0 ?  */
-          return (frame_pointer_needed
-                  && current_function_needs_context
-                  && ! cfun->machine->uses_anonymous_args) ? 4 : 0;
+	  /* FIXME:  Not sure about this.  Maybe we should always return 0 ?  */
+	  return (frame_pointer_needed
+		  && cfun->static_chain_decl != NULL
+		  && ! cfun->machine->uses_anonymous_args) ? 4 : 0;
 
 	case STACK_POINTER_REGNUM:
 	  /* If nothing has been pushed on the stack at all
@@ -11295,32 +11237,27 @@ arm_final_prescan_insn (rtx insn)
 	      break;
 
 	    case CALL_INSN:
-	      /* If using 32-bit addresses the cc is not preserved over
-		 calls.  */
-	      if (TARGET_APCS_32)
-		{
-		  /* Succeed if the following insn is the target label,
-		     or if the following two insns are a barrier and
-		     the target label.  */
-		  this_insn = next_nonnote_insn (this_insn);
-		  if (this_insn && GET_CODE (this_insn) == BARRIER)
-		    this_insn = next_nonnote_insn (this_insn);
+	      /* Succeed if the following insn is the target label, or
+		 if the following two insns are a barrier and the
+		 target label.  */
+	      this_insn = next_nonnote_insn (this_insn);
+	      if (this_insn && GET_CODE (this_insn) == BARRIER)
+		this_insn = next_nonnote_insn (this_insn);
 
-		  if (this_insn && this_insn == label
-		      && insns_skipped < max_insns_skipped)
+	      if (this_insn && this_insn == label
+		  && insns_skipped < max_insns_skipped)
+		{
+		  if (jump_clobbers)
 		    {
-		      if (jump_clobbers)
-			{
-			  arm_ccfsm_state = 2;
-			  this_insn = next_nonnote_insn (this_insn);
-			}
-		      else
-			arm_ccfsm_state = 1;
-		      succeed = TRUE;
+		      arm_ccfsm_state = 2;
+		      this_insn = next_nonnote_insn (this_insn);
 		    }
 		  else
-		    fail = TRUE;
+		    arm_ccfsm_state = 1;
+		  succeed = TRUE;
 		}
+	      else
+		fail = TRUE;
 	      break;
 
 	    case JUMP_INSN:
@@ -12552,7 +12489,6 @@ thumb_exit (FILE *f, int reg_containing_return_addr, rtx eh_ofs)
     size = 12;
   else
     {
-#ifdef RTX_CODE
       /* If we can deduce the registers used from the function's
 	 return value.  This is more reliable that examining
 	 regs_ever_live[] because that will be set if the register is
@@ -12562,7 +12498,6 @@ thumb_exit (FILE *f, int reg_containing_return_addr, rtx eh_ofs)
       if (current_function_return_rtx != 0)
 	mode = GET_MODE (current_function_return_rtx);
       else
-#endif
 	mode = DECL_MODE (DECL_RESULT (current_function_decl));
 
       size = GET_MODE_SIZE (mode);
@@ -12979,7 +12914,6 @@ thumb_unexpanded_epilogue (void)
   int regno;
   int live_regs_mask = 0;
   int high_regs_pushed = 0;
-  int leaf_function = leaf_function_p ();
   int had_to_push_lr;
   rtx eh_ofs = cfun->machine->eh_epilogue_sp_ofs;
 
@@ -13014,7 +12948,6 @@ thumb_unexpanded_epilogue (void)
       int size;
       int mode;
        
-#ifdef RTX_CODE
       /* If we can deduce the registers used from the function's return value.
 	 This is more reliable that examining regs_ever_live[] because that
 	 will be set if the register is ever used in the function, not just if
@@ -13023,7 +12956,6 @@ thumb_unexpanded_epilogue (void)
       if (current_function_return_rtx != 0)
 	mode = GET_MODE (current_function_return_rtx);
       else
-#endif
 	mode = DECL_MODE (DECL_RESULT (current_function_decl));
 
       size = GET_MODE_SIZE (mode);
@@ -13076,8 +13008,7 @@ thumb_unexpanded_epilogue (void)
 	}
     }
 
-  had_to_push_lr = (live_regs_mask || !leaf_function
-		    || thumb_far_jump_used_p ());
+  had_to_push_lr = (live_regs_mask || thumb_force_lr_save ());
   
   if (TARGET_BACKTRACE
       && ((live_regs_mask & 0xFF) == 0)
@@ -13165,14 +13096,7 @@ arm_return_addr (int count, rtx frame ATTRIBUTE_UNUSED)
   if (count != 0)
     return NULL_RTX;
 
-  if (TARGET_APCS_32)
-    return get_hard_reg_initial_val (Pmode, LR_REGNUM);
-  else
-    {
-      rtx lr = gen_rtx_AND (Pmode, gen_rtx_REG (Pmode, LR_REGNUM),
-			    GEN_INT (RETURN_ADDR_MASK26));
-      return get_func_hard_reg_initial_val (cfun, lr);
-    }
+  return get_hard_reg_initial_val (Pmode, LR_REGNUM);
 }
 
 /* Do anything needed before RTL is emitted for each function.  */
@@ -13244,6 +13168,7 @@ thumb_expand_prologue (void)
   HOST_WIDE_INT amount;
   arm_stack_offsets *offsets;
   unsigned long func_type;
+  int regno;
 
   func_type = arm_current_func_type ();
   
@@ -13277,7 +13202,6 @@ thumb_expand_prologue (void)
 	}
       else
 	{
-	  int regno;
 	  rtx reg;
 
 	  /* The stack decrement is too big for an immediate value in a single
@@ -13362,6 +13286,21 @@ thumb_expand_prologue (void)
   
   if (current_function_profile || TARGET_NO_SCHED_PRO)
     emit_insn (gen_blockage ());
+
+  cfun->machine->lr_save_eliminated = !thumb_force_lr_save ();
+  for (regno = 0; regno <= LAST_LO_REGNUM; regno++)
+    {
+      if (THUMB_REG_PUSHED_P (regno))
+        {
+          cfun->machine->lr_save_eliminated = 0;
+          break;
+        }
+    }
+
+  /* If the link register is being kept alive, with the return address in it,
+     then make sure that it does not get reused by the ce2 pass.  */
+  if (cfun->machine->lr_save_eliminated)
+    emit_insn (gen_prologue_use (gen_rtx_REG (SImode, LR_REGNUM)));
 }
 
 void
@@ -13496,7 +13435,7 @@ thumb_output_function_prologue (FILE *f, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
     if (THUMB_REG_PUSHED_P (regno))
       live_regs_mask |= 1 << regno;
 
-  if (live_regs_mask || !leaf_function_p () || thumb_far_jump_used_p ())
+  if (live_regs_mask || thumb_force_lr_save ())
     live_regs_mask |= 1 << LR_REGNUM;
 
   if (TARGET_BACKTRACE)
@@ -14553,3 +14492,20 @@ arm_promote_prototypes (tree t ATTRIBUTE_UNUSED)
     return !TARGET_AAPCS_BASED;
 }
 
+
+/* AAPCS based ABIs use short enums by default.  */
+
+static bool
+arm_default_short_enums (void)
+{
+  return TARGET_AAPCS_BASED;
+}
+
+
+/* AAPCS requires that anonymous bitfields affect structure alignment.  */
+
+static bool
+arm_align_anon_bitfield (void)
+{
+  return TARGET_AAPCS_BASED;
+}

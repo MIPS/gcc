@@ -1277,9 +1277,6 @@ mips_const_insns (rtx x)
 
   switch (GET_CODE (x))
     {
-    case CONSTANT_P_RTX:
-      return 1;
-
     case HIGH:
       if (TARGET_MIPS16
 	  || !mips_symbolic_constant_p (XEXP (x, 0), &symbol_type)
@@ -5875,6 +5872,13 @@ mips_file_start (void)
 	 do not want this section to take up any space in the running
 	 executable.  */
       fprintf (asm_out_file, "\t.section .mdebug.%s\n", abi_string);
+
+      /* There is no ELF header flag to distinguish long32 forms of the
+	 EABI from long64 forms.  Emit a special section to help tools
+	 such as GDB.  */
+      if (mips_abi == ABI_EABI)
+	fprintf (asm_out_file, "\t.section .gcc_compiled_long%d\n",
+		 TARGET_LONG64 ? 64 : 32);
 
       /* Restore the default section.  */
       fprintf (asm_out_file, "\t.previous\n");

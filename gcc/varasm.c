@@ -48,16 +48,13 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tm_p.h"
 #include "debug.h"
 #include "target.h"
+#include "tree-mudflap.h"
 #include "cgraph.h"
 #include "cfglayout.h"
 
 #ifdef XCOFF_DEBUGGING_INFO
 #include "xcoffout.h"		/* Needed for external data
 				   declarations for e.g. AIX 4.x.  */
-#endif
-
-#ifndef TRAMPOLINE_ALIGNMENT
-#define TRAMPOLINE_ALIGNMENT FUNCTION_BOUNDARY
 #endif
 
 #ifndef ASM_STABS_OP
@@ -782,6 +779,11 @@ make_decl_rtl (tree decl, const char *asmspec)
 	 This is necessary, for example, when one machine specific
 	 decl attribute overrides another.  */
       targetm.encode_section_info (decl, DECL_RTL (decl), false);
+
+      /* Make this function static known to the mudflap runtime.  */
+      if (flag_mudflap && TREE_CODE (decl) == VAR_DECL)
+	mudflap_enqueue_decl (decl);
+
       return;
     }
 
@@ -882,6 +884,10 @@ make_decl_rtl (tree decl, const char *asmspec)
      If the name is changed, the macro ASM_OUTPUT_LABELREF
      will have to know how to strip this information.  */
   targetm.encode_section_info (decl, DECL_RTL (decl), true);
+
+  /* Make this function static known to the mudflap runtime.  */
+  if (flag_mudflap && TREE_CODE (decl) == VAR_DECL)
+    mudflap_enqueue_decl (decl);
 }
 
 /* Make the rtl for variable VAR be volatile.
@@ -1679,27 +1685,23 @@ assemble_label (const char *name)
   ASM_OUTPUT_LABEL (asm_out_file, name);
 }
 
-/* Set the symbol_referenced flag for ID and notify callgraph code.  */
+/* Set the symbol_referenced flag for ID.  */
 void
 mark_referenced (tree id)
 {
-  if (!TREE_SYMBOL_REFERENCED (id))
-    {
-      struct cgraph_node *node;
-      struct cgraph_varpool_node *vnode;
-
-      if (!cgraph_global_info_ready)
-	{
-	  node = cgraph_node_for_identifier (id);
-	  if (node)
-	    cgraph_mark_needed_node (node);
-	}
-
-      vnode = cgraph_varpool_node_for_identifier (id);
-      if (vnode)
-	cgraph_varpool_mark_needed_node (vnode);
-    }
   TREE_SYMBOL_REFERENCED (id) = 1;
+}
+
+/* Set the symbol_referenced flag for DECL and notify callgraph.  */
+void
+mark_decl_referenced (tree decl)
+{
+  if (TREE_CODE (decl) == FUNCTION_DECL)
+    cgraph_mark_needed_node (cgraph_node (decl));
+  else if (TREE_CODE (decl) == VAR_DECL)
+    cgraph_varpool_mark_needed_node (cgraph_varpool_node (decl));
+  /* else do nothing - we can get various sorts of CST nodes here,
+     which do not need to be marked.  */
 }
 
 /* Output to FILE a reference to the assembler name of a C-level name NAME.
@@ -1774,6 +1776,8 @@ assemble_static_space (unsigned HOST_WIDE_INT size)
    This is done at most once per compilation.
    Returns an RTX for the address of the template.  */
 
+static GTY(()) rtx initial_trampoline;
+
 #ifdef TRAMPOLINE_TEMPLATE
 rtx
 assemble_trampoline_template (void)
@@ -1782,6 +1786,9 @@ assemble_trampoline_template (void)
   const char *name;
   int align;
   rtx symbol;
+
+  if (initial_trampoline)
+    return initial_trampoline;
 
   /* By default, put trampoline templates in read-only data section.  */
 
@@ -1807,7 +1814,10 @@ assemble_trampoline_template (void)
   symbol = gen_rtx_SYMBOL_REF (Pmode, name);
   SYMBOL_REF_FLAGS (symbol) = SYMBOL_FLAG_LOCAL;
 
-  return symbol;
+  initial_trampoline = gen_rtx_MEM (BLKmode, symbol);
+  set_mem_align (initial_trampoline, TRAMPOLINE_ALIGNMENT);
+
+  return initial_trampoline;
 }
 #endif
 
@@ -2408,6 +2418,10 @@ build_constant_desc (tree exp)
   desc = ggc_alloc (sizeof (*desc));
   desc->value = copy_constant (exp);
 
+  /* Propagate marked-ness to copied constant. */
+  if (flag_mudflap && mf_marked_p (exp))
+    mf_mark (desc->value);
+
   /* Create a string containing the label name, in LABEL.  */
   labelno = const_labelno++;
   ASM_GENERATE_INTERNAL_LABEL (label, "LC", labelno);
@@ -2553,15 +2567,8 @@ output_constant_def_contents (rtx symbol)
 
   /* Output the value of EXP.  */
   output_constant (exp, size, align);
-}
-
-/* A constant which was deferred in its original location has been
-   inserted by the RTL inliner into a different function.  The
-   current function's deferred constant count must be incremented.  */
-void
-notice_rtl_inlining_of_deferred_constant (void)
-{
-  n_deferred_constants++;
+  if (flag_mudflap)
+    mudflap_enqueue_constant (exp);
 }
 
 /* Look up EXP in the table of constant descriptors.  Return the rtl
@@ -3557,7 +3564,7 @@ output_constant (tree exp, unsigned HOST_WIDE_INT size, unsigned int align)
     }
 
   /* Now output the underlying data.  If we've handling the padding, return.
-     Otherwise, break and ensure THISSIZE is the size written.  */
+     Otherwise, break and ensure SIZE is the size written.  */
   switch (code)
     {
     case CHAR_TYPE:
@@ -3569,7 +3576,7 @@ output_constant (tree exp, unsigned HOST_WIDE_INT size, unsigned int align)
     case OFFSET_TYPE:
       if (! assemble_integer (expand_expr (exp, NULL_RTX, VOIDmode,
 					   EXPAND_INITIALIZER),
-			      size, align, 0))
+			      MIN (size, thissize), align, 0))
 	error ("initializer for integer value is too complicated");
       break;
 
@@ -4595,7 +4602,12 @@ categorize_decl_for_section (tree decl, int reloc, int shlib)
   if (TREE_CODE (decl) == FUNCTION_DECL)
     return SECCAT_TEXT;
   else if (TREE_CODE (decl) == STRING_CST)
-    return SECCAT_RODATA_MERGE_STR;
+    {
+      if (flag_mudflap) /* or !flag_merge_constants */
+        return SECCAT_RODATA;
+      else
+	return SECCAT_RODATA_MERGE_STR;
+    }
   else if (TREE_CODE (decl) == VAR_DECL)
     {
       if (DECL_INITIAL (decl) == NULL
@@ -4988,6 +5000,7 @@ default_globalize_label (FILE * stream, const char *name)
 void
 default_emit_unwind_label (FILE * stream ATTRIBUTE_UNUSED,
 			   tree decl ATTRIBUTE_UNUSED,
+			   int for_eh ATTRIBUTE_UNUSED,
 			   int empty ATTRIBUTE_UNUSED)
 { 
 }
@@ -5020,6 +5033,9 @@ default_file_start (void)
    which emits a special section directive used to indicate whether or
    not this object file needs an executable stack.  This is primarily
    a GNU extension to ELF but could be used on other targets.  */
+
+int trampolines_created;
+
 void
 file_end_indicate_exec_stack (void)
 {

@@ -598,7 +598,6 @@ do {									\
 #define SLOW_BYTE_ACCESS 0
 
 #define NO_FUNCTION_CSE
-#define NO_RECURSIVE_FUNCTION_CSE
 
 #define TEXT_SECTION_ASM_OP ".text"
 #define DATA_SECTION_ASM_OP ".data"
@@ -766,9 +765,6 @@ do {							\
 #define Pmode HImode
 
 #define FUNCTION_MODE HImode
-
-#define INTEGRATE_THRESHOLD(DECL) \
-  (1 + (3 * list_length (DECL_ARGUMENTS (DECL)) / 2))
 
 #define DOLLARS_IN_IDENTIFIERS 0
 

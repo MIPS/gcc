@@ -296,7 +296,7 @@ public class BasicMenuUI extends BasicMenuItemUI
     public void mouseEntered(MouseEvent e)
     {
       MenuSelectionManager manager = MenuSelectionManager.defaultManager();
-      manager.setSelectedPath(getPath());
+      manager.setSelectedPath(manager.getPath((Component) e.getSource()));
       manager.processMouseEvent(e);
 
       JMenu subMenu = (JMenu) menuItem;

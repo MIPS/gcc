@@ -28,6 +28,8 @@ extern void c_initialize_diagnostics (diagnostic_context *);
 /* Lang hooks that are shared between C and ObjC are defined here.  Hooks
    specific to C or ObjC go in c-lang.c and objc/objc-lang.c, respectively.  */
 
+#undef LANG_HOOKS_IDENTIFIER_SIZE
+#define LANG_HOOKS_IDENTIFIER_SIZE C_SIZEOF_STRUCT_LANG_IDENTIFIER
 #undef LANG_HOOKS_FINISH
 #define LANG_HOOKS_FINISH c_common_finish
 #undef LANG_HOOKS_INIT_OPTIONS
@@ -46,6 +48,8 @@ extern void c_initialize_diagnostics (diagnostic_context *);
 #define LANG_HOOKS_SAFE_FROM_P c_safe_from_p
 #undef LANG_HOOKS_EXPAND_EXPR
 #define LANG_HOOKS_EXPAND_EXPR c_expand_expr
+#undef LANG_HOOKS_EXPAND_DECL
+#define LANG_HOOKS_EXPAND_DECL c_expand_decl
 #undef LANG_HOOKS_MARK_ADDRESSABLE
 #define LANG_HOOKS_MARK_ADDRESSABLE c_mark_addressable
 #undef LANG_HOOKS_PARSE_FILE
@@ -72,13 +76,10 @@ extern void c_initialize_diagnostics (diagnostic_context *);
 #define LANG_HOOKS_FUNCTION_ENTER_NESTED c_push_function_context
 #undef LANG_HOOKS_FUNCTION_LEAVE_NESTED
 #define LANG_HOOKS_FUNCTION_LEAVE_NESTED c_pop_function_context
+#undef LANG_HOOKS_FUNCTION_MISSING_NORETURN_OK_P
+#define LANG_HOOKS_FUNCTION_MISSING_NORETURN_OK_P c_missing_noreturn_ok_p
 #undef LANG_HOOKS_DUP_LANG_SPECIFIC_DECL
 #define LANG_HOOKS_DUP_LANG_SPECIFIC_DECL c_dup_lang_specific_decl
-#undef LANG_HOOKS_DECL_UNINIT
-#define LANG_HOOKS_DECL_UNINIT c_decl_uninit
-
-#undef LANG_HOOKS_RTL_EXPAND_STMT
-#define LANG_HOOKS_RTL_EXPAND_STMT expand_stmt
 
 /* Attribute hooks.  */
 #undef LANG_HOOKS_COMMON_ATTRIBUTE_TABLE
@@ -86,20 +87,24 @@ extern void c_initialize_diagnostics (diagnostic_context *);
 #undef LANG_HOOKS_FORMAT_ATTRIBUTE_TABLE
 #define LANG_HOOKS_FORMAT_ATTRIBUTE_TABLE c_common_format_attribute_table
 
+#undef LANG_HOOKS_TREE_INLINING_WALK_SUBTREES
+#define LANG_HOOKS_TREE_INLINING_WALK_SUBTREES \
+  c_walk_subtrees
 #undef LANG_HOOKS_TREE_INLINING_CANNOT_INLINE_TREE_FN
 #define LANG_HOOKS_TREE_INLINING_CANNOT_INLINE_TREE_FN \
   c_cannot_inline_tree_fn
 #undef LANG_HOOKS_TREE_INLINING_DISREGARD_INLINE_LIMITS
 #define LANG_HOOKS_TREE_INLINING_DISREGARD_INLINE_LIMITS \
   c_disregard_inline_limits
+#undef LANG_HOOKS_TREE_INLINING_TREE_CHAIN_MATTERS_P
+#define LANG_HOOKS_TREE_INLINING_TREE_CHAIN_MATTERS_P \
+  c_tree_chain_matters_p
 #undef LANG_HOOKS_TREE_INLINING_ANON_AGGR_TYPE_P
 #define LANG_HOOKS_TREE_INLINING_ANON_AGGR_TYPE_P \
   anon_aggr_type_p
 #undef LANG_HOOKS_TREE_INLINING_CONVERT_PARM_FOR_INLINING
 #define LANG_HOOKS_TREE_INLINING_CONVERT_PARM_FOR_INLINING \
   c_convert_parm_for_inlining
-#undef LANG_HOOKS_TREE_INLINING_ESTIMATE_NUM_INSNS
-#define LANG_HOOKS_TREE_INLINING_ESTIMATE_NUM_INSNS c_estimate_num_insns
 #undef LANG_HOOKS_TREE_DUMP_DUMP_TREE_FN
 #define LANG_HOOKS_TREE_DUMP_DUMP_TREE_FN c_dump_tree
 
@@ -138,5 +143,9 @@ extern void c_initialize_diagnostics (diagnostic_context *);
 #define LANG_HOOKS_GETDECLS lhd_return_null_tree_v
 #undef LANG_HOOKS_WRITE_GLOBALS
 #define LANG_HOOKS_WRITE_GLOBALS c_write_global_declarations
+
+/* Hooks for tree gimplification.  */
+#undef LANG_HOOKS_GIMPLIFY_EXPR
+#define LANG_HOOKS_GIMPLIFY_EXPR c_gimplify_expr
 
 #endif /* GCC_C_OBJC_COMMON */

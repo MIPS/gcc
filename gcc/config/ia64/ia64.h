@@ -1478,6 +1478,7 @@ do {									\
         fputs ("\tdata8.ua @iplt(", FILE);				\
       else								\
         fputs ("\tdata16.ua @iplt(", FILE);				\
+      mark_decl_referenced (DECL);					\
       assemble_name (FILE, XSTR (XEXP (DECL_RTL (DECL), 0), 0));	\
       fputs (")\n", FILE);						\
       if (TARGET_ILP32)							\
@@ -2178,7 +2179,7 @@ do {									\
 { "destination_operand", {SUBREG, REG, MEM}},				\
 { "not_postinc_memory_operand", {MEM}},					\
 { "move_operand", {SUBREG, REG, MEM, CONST_INT, CONST_DOUBLE,		\
-		     CONSTANT_P_RTX, SYMBOL_REF, CONST, LABEL_REF}},	\
+		     SYMBOL_REF, CONST, LABEL_REF}},			\
 { "gr_register_operand", {SUBREG, REG}},				\
 { "fr_register_operand", {SUBREG, REG}},				\
 { "grfr_register_operand", {SUBREG, REG}},				\
@@ -2186,19 +2187,16 @@ do {									\
 { "fr_nonimmediate_operand", {SUBREG, REG, MEM}},			\
 { "grfr_nonimmediate_operand", {SUBREG, REG, MEM}},			\
 { "gr_reg_or_0_operand", {SUBREG, REG, CONST_INT}},			\
-{ "gr_reg_or_5bit_operand", {SUBREG, REG, CONST_INT, CONSTANT_P_RTX}},	\
-{ "gr_reg_or_6bit_operand", {SUBREG, REG, CONST_INT, CONSTANT_P_RTX}},	\
-{ "gr_reg_or_8bit_operand", {SUBREG, REG, CONST_INT, CONSTANT_P_RTX}},	\
-{ "grfr_reg_or_8bit_operand", {SUBREG, REG, CONST_INT, CONSTANT_P_RTX}}, \
-{ "gr_reg_or_8bit_adjusted_operand", {SUBREG, REG, CONST_INT,		\
-				     CONSTANT_P_RTX}},			\
-{ "gr_reg_or_8bit_and_adjusted_operand", {SUBREG, REG, CONST_INT,	\
-					 CONSTANT_P_RTX}},		\
-{ "gr_reg_or_14bit_operand", {SUBREG, REG, CONST_INT, CONSTANT_P_RTX}}, \
-{ "gr_reg_or_22bit_operand", {SUBREG, REG, CONST_INT, CONSTANT_P_RTX}}, \
-{ "shift_count_operand", {SUBREG, REG, CONST_INT, CONSTANT_P_RTX}},	\
-{ "shift_32bit_count_operand", {SUBREG, REG, CONST_INT,			\
-				  CONSTANT_P_RTX}},			\
+{ "gr_reg_or_5bit_operand", {SUBREG, REG, CONST_INT}},			\
+{ "gr_reg_or_6bit_operand", {SUBREG, REG, CONST_INT}},			\
+{ "gr_reg_or_8bit_operand", {SUBREG, REG, CONST_INT}},			\
+{ "grfr_reg_or_8bit_operand", {SUBREG, REG, CONST_INT}}, 		\
+{ "gr_reg_or_8bit_adjusted_operand", {SUBREG, REG, CONST_INT}},		\
+{ "gr_reg_or_8bit_and_adjusted_operand", {SUBREG, REG, CONST_INT}},	\
+{ "gr_reg_or_14bit_operand", {SUBREG, REG, CONST_INT}}, 		\
+{ "gr_reg_or_22bit_operand", {SUBREG, REG, CONST_INT}}, 		\
+{ "shift_count_operand", {SUBREG, REG, CONST_INT}},			\
+{ "shift_32bit_count_operand", {SUBREG, REG, CONST_INT}},		\
 { "shladd_operand", {CONST_INT}},					\
 { "fetchadd_operand", {CONST_INT}},					\
 { "fr_reg_or_fp01_operand", {SUBREG, REG, CONST_DOUBLE}},		\

@@ -1844,9 +1844,11 @@ simplify_binary_operation (enum rtx_code code, enum machine_mode mode,
 	case AND:
 	  if (trueop1 == const0_rtx && ! side_effects_p (op0))
 	    return const0_rtx;
+	  /* If we are turning off bits already known off in OP0, we need
+	     not do an AND.  */
 	  if (GET_CODE (trueop1) == CONST_INT
-	      && ((INTVAL (trueop1) & GET_MODE_MASK (mode))
-		  == GET_MODE_MASK (mode)))
+	      && GET_MODE_BITSIZE (mode) <= HOST_BITS_PER_WIDE_INT
+	      && (nonzero_bits (trueop0, mode) & ~INTVAL (trueop1)) == 0)
 	    return op0;
 	  if (trueop0 == trueop1 && ! side_effects_p (op0)
 	      && GET_MODE_CLASS (mode) != MODE_CC)
@@ -2892,6 +2894,63 @@ simplify_const_relational_operation (enum rtx_code code,
   /* Otherwise, there are some code-specific tests we can make.  */
   else
     {
+      /* Optimize comparisons with upper and lower bounds.  */
+      if (INTEGRAL_MODE_P (mode)
+	  && GET_MODE_BITSIZE (mode) <= HOST_BITS_PER_WIDE_INT)
+	{
+	  rtx mmin, mmax;
+	  int sign;
+
+	  if (code == GEU
+	      || code == LEU
+	      || code == GTU
+	      || code == LTU)
+	    sign = 0;
+	  else
+	    sign = 1;
+
+	  get_mode_bounds (mode, sign, mode, &mmin, &mmax);
+
+	  tem = NULL_RTX;
+	  switch (code)
+	    {
+	    case GEU:
+	    case GE:
+	      /* x >= min is always true.  */
+	      if (rtx_equal_p (trueop1, mmin))
+		tem = const_true_rtx;
+	      else 
+	      break;
+
+	    case LEU:
+	    case LE:
+	      /* x <= max is always true.  */
+	      if (rtx_equal_p (trueop1, mmax))
+		tem = const_true_rtx;
+	      break;
+
+	    case GTU:
+	    case GT:
+	      /* x > max is always false.  */
+	      if (rtx_equal_p (trueop1, mmax))
+		tem = const0_rtx;
+	      break;
+
+	    case LTU:
+	    case LT:
+	      /* x < min is always false.  */
+	      if (rtx_equal_p (trueop1, mmin))
+		tem = const0_rtx;
+	      break;
+
+	    default:
+	      break;
+	    }
+	  if (tem == const0_rtx
+	      || tem == const_true_rtx)
+	    return tem;
+	}
+
       switch (code)
 	{
 	case EQ:
@@ -2902,33 +2961,6 @@ simplify_const_relational_operation (enum rtx_code code,
 	case NE:
 	  if (trueop1 == const0_rtx && nonzero_address_p (op0))
 	    return const_true_rtx;
-	  break;
-
-	case GEU:
-	  /* Unsigned values are never negative.  */
-	  if (trueop1 == const0_rtx)
-	    return const_true_rtx;
-	  break;
-
-	case LTU:
-	  if (trueop1 == const0_rtx)
-	    return const0_rtx;
-	  break;
-
-	case LEU:
-	  /* Unsigned values are never greater than the largest
-	     unsigned value.  */
-	  if (GET_CODE (trueop1) == CONST_INT
-	      && (unsigned HOST_WIDE_INT) INTVAL (trueop1) == GET_MODE_MASK (mode)
-	    && INTEGRAL_MODE_P (mode))
-	  return const_true_rtx;
-	  break;
-
-	case GTU:
-	  if (GET_CODE (trueop1) == CONST_INT
-	      && (unsigned HOST_WIDE_INT) INTVAL (trueop1) == GET_MODE_MASK (mode)
-	      && INTEGRAL_MODE_P (mode))
-	    return const0_rtx;
 	  break;
 
 	case LT:
@@ -3784,11 +3816,6 @@ simplify_rtx (rtx x)
 	return simplify_gen_subreg (mode, SUBREG_REG (x),
 				    GET_MODE (SUBREG_REG (x)),
 				    SUBREG_BYTE (x));
-      if (code == CONSTANT_P_RTX)
-	{
-	  if (CONSTANT_P (XEXP (x, 0)))
-	    return const1_rtx;
-	}
       break;
 
     case RTX_OBJ:

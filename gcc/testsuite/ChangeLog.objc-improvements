@@ -1,0 +1,17 @@
+2004-05-28  Ziemowit Laski  <zlaski@apple.com>
+
+	* obj-c++.dg/selector-1.mm: Allow for mangled ObjC method labels
+	(required on, e.g., i686-pc-linux-gnu).
+
+2004-05-24  Ziemowit Laski  <zlaski@apple.com>
+
+	* obj-c++.dg/method-1.mm: New test case.
+	* obj-c++.dg/selector-1.mm: New test case.
+
+2004-03-04  Ziemowit Laski  <zlaski@apple.com>
+
+	* lib/obj-c++-dg.exp: New file.
+	* lib/obj-c++.exp: New file.
+	* obj-c++.dg/basic.mm: New test case.
+	* obj-c++.dg/dg.exp: New file.
+

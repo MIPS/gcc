@@ -1,3 +1,309 @@
+2004-05-27  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/15675
+	* docs/html/documentation.html: Update doxygen links for 3.4.0.
+
+2004-05-27  Jan Beulich  <jbeulich@novell.com>
+
+	* scripts/create_testsuite_files: Tweak.
+
+2004-05-25  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/15489
+	* scripts/create_testsuite_files: Revert xtype change, add non-GNU
+	bits to do the same thing.
+
+2004-05-24  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/istream.tcc (ignore): Correctly deal with
+	n == numeric_limits<streamsize>::max().
+	* testsuite/27_io/basic_istream/ignore/char/2.cc: New.
+
+	* include/bits/istream.tcc (basic_istream<>::getline): Prefer
+	'_M_gcount + 1 < __n' to '--__n; _M_gcount < __n', just in case
+	__n == numeric_limits<>::min().
+
+	* include/bits/istream.tcc: Minor tweaks.
+
+	* testsuite/21_strings/basic_string/inserters_extractors/char/10.cc:
+	Tighten.
+	* testsuite/21_strings/basic_string/inserters_extractors/char/11.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string/inserters_extractors/wchar_t/10.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string/inserters_extractors/wchar_t/11.cc:
+	Likewise.
+	* testsuite/27_io/basic_istream/getline/char/5.cc: Likewise.
+
+2004-05-22  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/12854
+	Fixups for -Weffc++.	
+	* include/bits/basic_string.h (basic_string::operator=): Return
+	pointer to this instead of result of assign. Although redundant,
+	this doesn't impact resultant codegen.
+	
+	* include/bits/locale_facets.h (__numpunct_cache): Declare
+	assignment opxserator and copy constructor private.
+	(__timepunct_cache): Same.
+	(__moneypunct_cache): Same.
+	(collate): Use member initialization list for _M_c_locale_collate.
+	* config/locale/gnu/messages_members.h: Same.
+	* config/locale/gnu/time_members.h (__timepunct): Same.	
+	* src/codecvt.cc: Use member initialization list to initialize
+	_M_c_locale_codecvt.	
+	* src/ctype.cc: Same, with _M_c_locale_ctype and _M_narrow_ok.
+	* config/os/gnu-linux/ctype_noninline.h: Same.
+	* src/locale.cc (_Impl): Same.
+	* src/locale_init.cc: Same.
+	* src/localename.cc: Same.	
+
+	* include/bits/basic_ios.h (basic_ios): Complete member
+	initialization list.
+	* include/bits/istream.tcc (basic_istream::sentry): Same.
+	* include/bits/ostream.tcc (basic_ostream::sentry): Same.
+	* include/bits/fstream.tcc (basic_filebuf): Add _M_lock and
+	_M_pback to member initialization list.
+	* include/std/std_streambuf.h: Same.
+	* include/std/std_sstream.h: Same, for _M_mode.
+	* src/ios.cc (ios_base): Same.
+	
+	* include/ext/rope: Make derived classes match exception
+
+	 specifications. Add copy constructors and assignment operators.
+
+	* include/debug/safe_base.h (_Safe_sequence_base): Declare copy
+	constructor and assignment operator protected.
+	(_Safe_iterator_base): Same.
+	* include/debug/formatter.h (_Error_formatter): Define copy
+	constructor and assignment operator.
+
+	* include/backward/strstream: Declare assignment operator and copy
+	constructor private.
+
+2004-05-22  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/testsuite_hooks.h (func_callback): Declare copy
+	constructor and assignment operator private.	
+	* testsuite/23_containers/deque/cons/clear_allocator.cc: Match
+	exception specifications of base class.
+	* testsuite/23_containers/list/cons/clear_allocator.cc: Same.
+	* testsuite/23_containers/vector/cons/clear_allocator.cc: Same.
+	* testsuite/23_containers/vector/bool/clear_allocator.cc: New.
+		
+2004-05-22  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* libsupc++/cxxabi.h: Remove duplicated and useless public and
+        private keywords in class declarations. Format. Use
+        stddef.h. Expose declarations to "C" compilation.
+        * libsupc++/tinfo.cc (__upcast_result): Add copy constructor and
+        assignment operator.
+        (__dyncast_result): Same.
+        * libsupc++/vec.cc (uncatch_exception): Same, use member
+        initialization list.
+                 
+2004-05-22  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/abi_check.cc: Add unistd.h.
+
+2004-05-22  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/15565
+	* include/bits/locale_facets.tcc (__int_to_char(unsigned long),
+	__int_to_char(unsigned long long)): Showpos is not relevant
+	for unsigned types.
+	* testsuite/22_locale/num_put/put/char/15565.cc: New.
+	* testsuite/22_locale/num_put/put/wchar_t/15565.cc: New.
+
+	* testsuite/22_locale/num_put/put/wchar_t/1.cc: Use L for the fill
+	char.
+	* testsuite/22_locale/num_put/put/wchar_t/2.cc: Likewise.
+	* testsuite/22_locale/num_put/put/wchar_t/3.cc: Likewise.
+	* testsuite/22_locale/num_put/put/wchar_t/4.cc: Likewise.
+	* testsuite/22_locale/num_put/put/wchar_t/5.cc: Likewise.
+	* testsuite/22_locale/num_put/put/wchar_t/6.cc: Likewise.
+	* testsuite/22_locale/num_put/put/wchar_t/8.cc: Likewise.
+
+2004-05-21  Matthias Klose  <doko@debian.org>
+ 
+	* docs/doxygen/run_doxygen:  Bump required version.
+
+2004-05-21  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* docs/html/abi.html (libgcc_s): Additions suggested by Matthias Klose.
+	* docs/doxygen/Intro.3: Subtractions suggested by Phil Edwards.
+
+2004-05-21  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/istream.tcc (ignore): Remove redundant line.
+	(readsome): Tidy, closely following 27.6.1.3, p30.
+
+2004-05-20  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/istream.tcc (operator>>(basic_istream<>&,
+	basic_string<>&)): Use a temporary buffer, thus avoiding
+	reallocation for common case.
+	* testsuite/21_strings/basic_string/inserters_extractors/char/11.cc:
+	New.
+	* testsuite/21_strings/basic_string/inserters_extractors/wchar_t/11.cc:
+	Likewise.
+
+	* include/bits/istream.tcc: Const-ification of a few variables.
+
+	* include/bits/ostream.tcc: Trivial formatting fixes and
+	const-ification of some variables.
+
+2004-05-20  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/15123
+	PR libstdc++/13928
+	* docs/doxygen/Intro.3: Remove Allocators.3.
+	Add new extension headers, extension namespace list.
+	* docs/doxygen/run_doxygen (problematic): Remove Allocators.3
+	Rename GLIBCXXSTD names to std::. Rename __gnu_debug to
+	__gnu_debug::. Remove __policy_ renames.
+	* docs/doxygen/guide.html: Add dot note.
+	* docs/doxygen/stdheader.cc: Edit, add files.
+	* docs/doxygen/user.cfg.in: Regenerate with Doxygen 1.3.7.
+	
+2004-05-18  Jonathan Wakely  <redi@gcc.gnu.org>
+
+	* include/ext/stdio_filebuf.h: Update comments to reflect PR 11691.
+
+2004-05-18  Jan Beulich  <jbeulich@novell.com>
+ 
+        PR libstdc++/15489
+        * scripts/create_testsuite_files: Also find source files through
+          symbolic links.
+
+2004-05-18  Jan Beulich  <jbeulich@novell.com>
+
+	PR libstdc++/15488
+	* testsuite/lib/libstdc++.exp: Make test files writable.
+
+2004-05-18  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/mt_allocator.h:(__mt_alloc::allocate): Minor
+	tweaks.
+
+2004-05-18  Dhruv Matani  <dhruvbird@gmx.net>
+
+	* include/ext/mt_allocator.h:(__mt_alloc::allocate): Re-write
+	allocation loop which removes blocks from the global free list
+	from O(N) to O(1) when the required blocks are <= the number
+	available.
+
+2004-05-18  Jonathan Wakely  <redi@gcc.gnu.org>
+
+	* include/ext/enc_filebuf.h: Move concept-check macro to class scope.
+
+2004-05-17  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/testsuite_hooks.h (__gnu_test::conversion): New class.
+	* testsuite/23_containers/deque/14340.cc: New.
+	* testsuite/23_containers/list/14340.cc: New.
+	* testsuite/23_containers/map/14340.cc: New.
+	* testsuite/23_containers/multimap/14340.cc: New.
+	* testsuite/23_containers/multiset/14340.cc: New.
+	* testsuite/23_containers/set/14340.cc: New.
+	* testsuite/23_containers/vector/14340.cc: New.
+
+2004-05-17  Douglas Gregor   <gregod@cs.rpi.edu>
+
+	PR libstdc++/14340 
+	* include/debug/safe_iterator.h (_Safe_iterator converting 
+	constructor): Only allow declaration to instantiate when the 
+	incoming _Safe_iterator has exactly the right iterator type.
+
+2004-05-17  Jonathan Wakely  <redi@gcc.gnu.org>
+
+	* include/bits/boost_concept_check.h: Fix old attribute syntax.
+	* testsuite/23_containers/map/modifiers/swap.cc: Define operator<
+	to pass concept-checks.
+	* testsuite/23_containers/multimap/modifiers/swap.cc: Same.
+	* testsuite/23_containers/set/modifiers/swap.cc: Same.
+	* testsuite/23_containers/multiset/modifiers/swap.cc: Same.
+
+2004-05-16  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/std/std_bitset.h: Minor formatting fixes.
+
+2004-05-16  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/mt_allocator.h (__mt_alloc<>::deallocate):
+	Consistently update __bin._M_free[0].
+	(__mt_alloc<>::allocate): When __bin._M_first[0] != NULL use
+	__bin._M_free[0] to simplify the while loop (i.e., the number
+	of iterations becomes known at the outset).
+
+2004-05-15  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/std/std_bitset.h: Trivial formatting fixes.
+
+2004-05-14  Paolo Carlini  <pcarlini@suse.de>
+	    Ivan Godard  <igodard@pacbell.net>
+
+	PR libstdc++/15361
+	* include/std/std_bitset.h (_Base_bitset<_Nw>::_M_do_find_next): Fix.
+	* testsuite/23_containers/bitset/ext/15361.cc: New.
+
+2004-05-13  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/15046
+	* crossconfig.m4: Add C99 math bits for linux crosses.
+	* configure: Regenerate.
+	
+2004-05-13  Simon Marshall <simon.marshall@misys.com>
+	    Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/15090
+	* include/bits/locale_facets.h: Fix for -fno-for-scope.
+	* include/debug/safe_sequence.h: Same.
+	* include/debug/safe_iterator.tcc: Same.
+	* src/debug.cc: Same.
+	* src/locale.cc: Same.
+	* src/locale_init.cc: Same.
+	* src/localename.cc: Same.
+	* config/locale/gnu/ctype_members.cc: Same.
+	* config/locale/gnu/numeric_members.cc: Same.
+	* testsuite/testsuite_abi.cc: Same.
+	* testsuite/testsuite_hooks.cc: Same.
+	
+2004-05-13  Jonathan Wakely  <redi@gcc.gnu.org>
+	
+	* docs/html/abi.html: Document effect of -fabi-version on value
+	of __GXX_ABI_VERSION, and that it's defined in c-cppbuiltin.c.
+	Fix markup.
+
+2004-05-13  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/15074	
+	* docs/html/faq/index.html: Update docs for libsupc++ usage.
+
+2004-05-13  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/15412
+	* include/bits/stl_threads.h (_GLIBCXX_mutex): Move to namespace
+	__gnu_internal.
+	(_GLIBCXX_mutex_address): Same.
+	(_GLIBCXX_once): Same.	
+	(_GLIBCXX_mutex_init): Same.
+	(_GLIBCXX_mutex_address_init): Same.
+	
+2004-05-13  Benjamin Kosnik  <bkoz@redhat.com>
+	
+	* docs/html/abi.html: New.
+	* docs/html/abi.txt: Remove.
+	* docs/html/documentation.html: Add link.
+	* testsuite/Makefile.am: Add files.
+	* testsuite/Makefile.in: Regenerated.
+	* testsuite/abi_check.cc: Move and modify code into...
+	* testsuite/testsuite_abi.cc: Add.
+	* testsuite/testsuite_abi.h: Add.
+
+	* docs/html/17_intro/TODO: Update.
+	* include/bits/stl_pair.h: Format.
+	
 2004-05-06  Matthias Klose  <doko@debian.org>
 
 	* include/backward/iterator.h: 	Add GPL copyright info,

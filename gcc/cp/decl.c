@@ -51,6 +51,7 @@ Boston, MA 02111-1307, USA.  */
 #include "diagnostic.h"
 #include "debug.h"
 #include "timevar.h"
+#include "tree-flow.h"
 
 static tree grokparms (tree, tree *);
 static const char *redeclaration_error_message (tree, tree);
@@ -114,7 +115,6 @@ static tree check_special_function_return_type
 static tree push_cp_library_fn (enum tree_code, tree);
 static tree build_cp_library_fn (tree, enum tree_code, tree);
 static void store_parm_decls (tree);
-static int cp_missing_noreturn_ok_p (tree);
 static void initialize_local_var (tree, tree);
 static void expand_static_init (tree, tree);
 static tree next_initializable_field (tree);
@@ -526,28 +526,6 @@ poplevel (int keep, int reverse, int functionbody)
       = decls = nreverse (current_binding_level->names);
   else
     decls = current_binding_level->names;
-
-  /* Output any nested inline functions within this block
-     if they weren't already output.  */
-  for (decl = decls; decl; decl = TREE_CHAIN (decl))
-    if (TREE_CODE (decl) == FUNCTION_DECL
-	&& ! TREE_ASM_WRITTEN (decl)
-	&& DECL_INITIAL (decl) != NULL_TREE
-	&& TREE_ADDRESSABLE (decl)
-	&& decl_function_context (decl) == current_function_decl)
-      {
-	/* If this decl was copied from a file-scope decl
-	   on account of a block-scope extern decl,
-	   propagate TREE_ADDRESSABLE to the file-scope decl.  */
-	if (DECL_ABSTRACT_ORIGIN (decl) != NULL_TREE)
-	  TREE_ADDRESSABLE (DECL_ABSTRACT_ORIGIN (decl)) = 1;
-	else
-	  {
-	    push_function_context ();
-	    output_inline_function (decl);
-	    pop_function_context ();
-	  }
-      }
 
   /* When not in function-at-a-time mode, expand_end_bindings will
      warn about unused variables.  But, in function-at-a-time mode
@@ -2116,8 +2094,7 @@ lookup_label (tree id)
   /* You can't use labels at global scope.  */
   if (current_function_decl == NULL_TREE)
     {
-      error ("label `%s' referenced outside of any function",
-	     IDENTIFIER_POINTER (id));
+      error ("label `%E' referenced outside of any function", id);
       POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, NULL_TREE);
     }
 
@@ -2434,9 +2411,11 @@ push_switch (tree switch_stmt)
 void
 pop_switch (void)
 {
-  struct cp_switch *cs;
+  struct cp_switch *cs = switch_stack;
 
-  cs = switch_stack;
+  /* Emit warnings as needed.  */
+  c_do_switch_warnings (cs->cases, cs->switch_stmt);
+
   splay_tree_delete (cs->cases);
   switch_stack = switch_stack->next;
   free (cs);
@@ -2906,9 +2885,6 @@ cxx_init_decl_processing (void)
   /* Create all the identifiers we need.  */
   initialize_predefined_identifiers ();
 
-  /* Fill in back-end hooks.  */
-  lang_missing_noreturn_ok_p = &cp_missing_noreturn_ok_p;
-
   /* Create the global variables.  */
   push_to_top_level ();
 
@@ -3088,7 +3064,8 @@ cxx_init_decl_processing (void)
   start_fname_decls ();
 
   /* Show we use EH for cleanups.  */
-  using_eh_for_cleanups ();
+  if (flag_exceptions)
+    using_eh_for_cleanups ();
 }
 
 /* Generate an initializer for a function naming variable from
@@ -3137,6 +3114,9 @@ cp_make_fname_decl (tree id, int type_dep)
   tree type;
   tree init = cp_fname_init (name, &type);
   tree decl = build_decl (VAR_DECL, id, type);
+
+  if (name)
+    free ((char *) name);
 
   /* As we're using pushdecl_with_scope, we must set the context.  */
   DECL_CONTEXT (decl) = current_function_decl;
@@ -4572,7 +4552,7 @@ make_rtl_for_nonlocal_decl (tree decl, tree init, const char* asmspec)
 	 asm-specification, indicates that the variable should be
 	 placed in a particular register.  */
       if (DECL_REGISTER (decl))
-	DECL_C_HARD_REGISTER (decl) = 1;
+	DECL_HARD_REGISTER (decl) = 1;
     }
 
   /* We don't create any RTL for local variables.  */
@@ -4962,7 +4942,7 @@ cp_finish_decl (tree decl, tree init, tree asmspec_tree, int flags)
 
   /* If this was marked 'used', be sure it will be output.  */
   if (lookup_attribute ("used", DECL_ATTRIBUTES (decl)))
-    mark_referenced (DECL_ASSEMBLER_NAME (decl));
+    mark_decl_referenced (decl);
 }
 
 /* This is here for a midend callback from c-common.c.  */
@@ -5388,6 +5368,7 @@ complete_array_type (tree type, tree initial_value, int do_default)
     {
       tree itype;
       tree domain;
+      tree elt_type;
 
       domain = build_index_type (maxindex);
       TYPE_DOMAIN (type) = domain;
@@ -5405,6 +5386,12 @@ complete_array_type (tree type, tree initial_value, int do_default)
 	 size of the array.  */
       if (! TYPE_DOMAIN (TYPE_MAIN_VARIANT (type)))
 	TYPE_DOMAIN (TYPE_MAIN_VARIANT (type)) = domain;
+
+      elt_type = TREE_TYPE (type);
+      TYPE_NEEDS_CONSTRUCTING (type)
+	= TYPE_NEEDS_CONSTRUCTING (TYPE_MAIN_VARIANT (elt_type));
+      TYPE_HAS_NONTRIVIAL_DESTRUCTOR (type)
+	= TYPE_HAS_NONTRIVIAL_DESTRUCTOR (TYPE_MAIN_VARIANT (elt_type));      
     }
 
   /* Lay out the type now that we can get the real answer.  */
@@ -6796,7 +6783,7 @@ grokdeclarator (tree declarator,
 			longlong = 1;
 		    }
 		  else if (RIDBIT_SETP (i, specbits))
-		    pedwarn ("duplicate `%s'", IDENTIFIER_POINTER (id));
+		    pedwarn ("duplicate `%E'", id);
 
 		  /* Diagnose "__thread extern" or "__thread static".  */
 		  if (RIDBIT_SETP (RID_THREAD, specbits))
@@ -6836,8 +6823,7 @@ grokdeclarator (tree declarator,
 	{
 	  tree t = lookup_name (id, 1);
 	  if (!t || TREE_CODE (t) != TYPE_DECL)
-	    error ("`%s' fails to be a typedef or built in type",
-		   IDENTIFIER_POINTER (id));
+	    error ("`%E' fails to be a typedef or built in type", id);
 	  else
 	    {
 	      type = TREE_TYPE (t);
@@ -7311,6 +7297,13 @@ grokdeclarator (tree declarator,
 
 	    type = create_array_type_for_decl (dname, type, size);
 
+	    if (declarator
+		&& (TREE_CODE (declarator) == INDIRECT_REF
+		    || TREE_CODE (declarator) == ADDR_EXPR))
+	      /* We can never complete an array type which is the target of a
+		 pointer, so go ahead and lay it out.  */
+	      layout_type (type);
+
 	    ctype = NULL_TREE;
 	  }
 	  break;
@@ -7386,8 +7379,8 @@ grokdeclarator (tree declarator,
 		      error ("destructor cannot be static member function");
 		    if (quals)
 		      {
-			error ("destructors may not be `%s'",
-				  IDENTIFIER_POINTER (TREE_VALUE (quals)));
+			error ("destructors may not be `%E'",
+				  TREE_VALUE (quals));
 			quals = NULL_TREE;
 		      }
 		    if (decl_context == FIELD)
@@ -7415,8 +7408,8 @@ grokdeclarator (tree declarator,
 		      }
 		    if (quals)
 		      {
-			error ("constructors may not be `%s'",
-				  IDENTIFIER_POINTER (TREE_VALUE (quals)));
+			error ("constructors may not be `%E'",
+                               TREE_VALUE (quals));
 			quals = NULL_TREE;
 		      }
 		    {
@@ -7796,6 +7789,7 @@ grokdeclarator (tree declarator,
     }
 
   if (declarator == NULL_TREE
+      || TREE_CODE (declarator) == ERROR_MARK
       || TREE_CODE (declarator) == IDENTIFIER_NODE
       || (TREE_CODE (declarator) == TEMPLATE_ID_EXPR
 	  && (TREE_CODE (type) == FUNCTION_TYPE
@@ -8221,8 +8215,8 @@ grokdeclarator (tree declarator,
 	  {
 	    if (friendp)
 	      {
-		error ("`%s' is neither function nor member function; cannot be declared friend",
-		       IDENTIFIER_POINTER (declarator));
+		error ("`%E' is neither function nor member function; "
+                       "cannot be declared friend", declarator);
 		friendp = 0;
 	      }
 	    decl = NULL_TREE;
@@ -9451,6 +9445,13 @@ xref_tag (enum tag_types tag_code, tree name,
     {
       if (!globalize && processing_template_decl && IS_AGGR_TYPE (t))
 	redeclare_class_template (t, current_template_parms);
+      else if (!processing_template_decl 
+	       && CLASS_TYPE_P (t)
+	       && CLASSTYPE_IS_TEMPLATE (t))
+	{
+	  error ("redeclaration of `%T' as a non-template", t);
+	  t = error_mark_node;
+	}
     }
 
   POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, t);
@@ -9963,7 +9964,9 @@ build_enumerator (tree name, tree value, tree enumtype)
     decl = build_decl (CONST_DECL, name, type);
 
   DECL_CONTEXT (decl) = FROB_CONTEXT (context);
-  TREE_CONSTANT (decl) = TREE_READONLY (decl) = 1;
+  TREE_CONSTANT (decl) = 1;
+  TREE_INVARIANT (decl) = 1;
+  TREE_READONLY (decl) = 1;
   DECL_INITIAL (decl) = value;
 
   if (context && context == current_class_type)
@@ -10758,10 +10761,8 @@ finish_function (int flags)
      of curly braces for a function.  */
   my_friendly_assert (stmts_are_full_exprs_p (), 19990831);
 
-  /* Set up the named return value optimization, if we can.  Here, we
-     eliminate the copy from the nrv into the RESULT_DECL and any cleanup
-     for the nrv.  genrtl_start_function and declare_return_variable
-     handle making the nrv and RESULT_DECL share space.  */
+  /* Set up the named return value optimization, if we can.  Candidate
+     variables are selected in check_return_value.  */
   if (current_function_return_value)
     {
       tree r = current_function_return_value;
@@ -10778,16 +10779,9 @@ finish_function (int flags)
 	  /* Skip the artificial function body block.  */
 	  && (outer = BLOCK_SUBBLOCKS (BLOCK_SUBBLOCKS (DECL_INITIAL (fndecl))),
 	      chain_member (r, BLOCK_VARS (outer))))
-	{
-	  
-	  DECL_ALIGN (r) = DECL_ALIGN (DECL_RESULT (fndecl));
-	  walk_tree_without_duplicates (&DECL_SAVED_TREE (fndecl),
-					nullify_returns_r, r);
-	}
-      else
-	/* Clear it so genrtl_start_function and declare_return_variable
-	   know we're not optimizing.  */
-	current_function_return_value = NULL_TREE;
+	finalize_nrv (&DECL_SAVED_TREE (fndecl), r, DECL_RESULT (fndecl));
+
+      current_function_return_value = NULL_TREE;
     }
 
   /* Remember that we were in class scope.  */
@@ -10805,18 +10799,6 @@ finish_function (int flags)
   if (!processing_template_decl)
     save_function_data (fndecl);
 
-  /* If this function calls `setjmp' it cannot be inlined.  When
-     `longjmp' is called it is not guaranteed to restore the value of
-     local variables that have been modified since the call to
-     `setjmp'.  So, if were to inline this function into some caller
-     `c', then when we `longjmp', we might not restore all variables
-     in `c'.  (It might seem, at first blush, that there's no way for
-     this function to modify local variables in `c', but their
-     addresses may have been stored somewhere accessible to this
-     function.)  */
-  if (!processing_template_decl && calls_setjmp_p (fndecl))
-    DECL_UNINLINABLE (fndecl) = 1;
-
   /* Complain if there's just no return statement.  */
   if (warn_return_type
       && TREE_CODE (TREE_TYPE (fntype)) != VOID_TYPE
@@ -10830,9 +10812,21 @@ finish_function (int flags)
       && (DECL_INLINE (fndecl) || processing_template_decl))
     warning ("no return statement in function returning non-void");
 
-  /* We're leaving the context of this function, so zap cfun.
-     It's still in DECL_STRUCT_FUNCTION, and we'll restore it in
-     tree_rest_of_compilation.  */
+  /* Store the end of the function, so that we get good line number
+     info for the epilogue.  */
+  cfun->function_end_locus = input_location;
+
+  /* Genericize before inlining.  */
+  if (!processing_template_decl)
+    {
+      c_genericize (fndecl);
+
+      /* Handle attribute((warn_unused_result)).  Relies on gimple input.  */
+      c_warn_unused_result (&DECL_SAVED_TREE (fndecl));
+    }
+
+  /* We're leaving the context of this function, so zap cfun.  It's still in
+     DECL_STRUCT_FUNCTION, and we'll restore it in tree_rest_of_compilation.  */
   cfun = NULL;
   current_function_decl = NULL;
 
@@ -11206,7 +11200,7 @@ build_void_list_node (void)
   return t;
 }
 
-static int
+bool
 cp_missing_noreturn_ok_p (tree decl)
 {
   /* A missing noreturn is ok for the `main' function.  */

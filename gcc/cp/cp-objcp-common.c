@@ -34,60 +34,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "cxx-pretty-print.h"
 #include "cp-objcp-common.h"
 
-/* Check if a C++ type is safe for aliasing.
-   Return TRUE if T safe for aliasing FALSE otherwise.  */
-
-bool
-ok_to_generate_alias_set_for_type (tree t)
-{
-  if (TYPE_PTRMEMFUNC_P (t))
-    return true;
-  if (AGGREGATE_TYPE_P (t))
-    {
-      if ((TREE_CODE (t) == RECORD_TYPE) || (TREE_CODE (t) == UNION_TYPE))
-	{
-	  tree fields;
-	  /* Backend-created structs are safe.  */
-	  if (! CLASS_TYPE_P (t))
-	    return true;
-	  /* PODs are safe.  */
-	  if (! CLASSTYPE_NON_POD_P(t))
-	    return true;
-	  /* Classes with virtual baseclasses are not.  */
-	  if (TYPE_USES_VIRTUAL_BASECLASSES (t))
-	    return false;
-	  /* Recursively check the base classes.  */
-	  if (TYPE_BINFO (t) != NULL && TYPE_BINFO_BASETYPES (t) != NULL)
-	    {
-	      int i;
-	      for (i = 0; i < TREE_VEC_LENGTH (TYPE_BINFO_BASETYPES (t)); i++)
-		{
-		  tree binfo = TREE_VEC_ELT (TYPE_BINFO_BASETYPES (t), i);
-		  if (!ok_to_generate_alias_set_for_type (BINFO_TYPE (binfo)))
-		    return false;
-		}
-	    }
-	  /* Check all the fields.  */
-	  for (fields = TYPE_FIELDS (t); fields; fields = TREE_CHAIN (fields))
-	    {
-	      if (TREE_CODE (fields) != FIELD_DECL)
-		continue;
-	      if (! ok_to_generate_alias_set_for_type (TREE_TYPE (fields)))
-		return false;
-	    }
-	  return true;
-	}
-      else if (TREE_CODE (t) == ARRAY_TYPE)
-	return ok_to_generate_alias_set_for_type (TREE_TYPE (t));
-      else
-	/* This should never happen, we dealt with all the aggregate
-	   types that can appear in C++ above.  */
-	abort ();
-    }
-  else
-    return true;
-}
-
 /* Special routine to get the alias set for C++.  */
 
 HOST_WIDE_INT
@@ -98,13 +44,8 @@ cxx_get_alias_set (tree t)
        complete type.  */
     return get_alias_set (TYPE_CONTEXT (t));
   
-  if (/* It's not yet safe to use alias sets for some classes in C++.  */
-      !ok_to_generate_alias_set_for_type (t)
-      /* Nor is it safe to use alias sets for pointers-to-member
-	 functions, due to the fact that there may be more than one
-	 RECORD_TYPE type corresponding to the same pointer-to-member
-	 type.  */
-      || TYPE_PTRMEMFUNC_P (t))
+  /* Punt on PMFs until we canonicalize functions properly.  */
+  if (TYPE_PTRMEMFUNC_P (t))
     return 0;
 
   return c_common_get_alias_set (t);
@@ -153,6 +94,35 @@ cp_expr_size (tree exp)
   else
     /* Use the default code.  */
     return lhd_expr_size (exp);
+}
+
+/* Expand DECL if it declares an entity not handled by the
+   common code.  */
+
+int
+cp_expand_decl (tree decl)
+{
+  if (TREE_CODE (decl) == VAR_DECL && !TREE_STATIC (decl))
+    {
+      /* Let the back-end know about this variable.  */
+      if (!anon_aggr_type_p (TREE_TYPE (decl)))
+	emit_local_var (decl);
+      else
+	expand_anon_union_decl (decl, NULL_TREE, 
+				DECL_ANON_UNION_ELEMS (decl));
+    }
+  else if (TREE_CODE (decl) == VAR_DECL && TREE_STATIC (decl))
+    make_rtl_for_local_static (decl);
+  else
+    return 0;
+
+  return 1;
+}
+
+int
+cp_tree_chain_matters_p (tree t)
+{
+  return cp_is_overload_p (t) || c_tree_chain_matters_p (t);
 }
 
 /* Langhook for tree_size: determine size of our 'x' and 'c' nodes.  */

@@ -1968,7 +1968,7 @@ cp_parser_check_for_invalid_template_id (cp_parser* parser,
       if (TYPE_P (type))
 	error ("`%T' is not a template", type);
       else if (TREE_CODE (type) == IDENTIFIER_NODE)
-	error ("`%s' is not a template", IDENTIFIER_POINTER (type));
+	error ("`%E' is not a template", type);
       else
 	error ("invalid template-id");
       /* Remember the location of the invalid "<".  */
@@ -3930,7 +3930,8 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p)
 			|| any_type_dependent_arguments_p (args)))
 		  {
 		    postfix_expression
-		      = build_min_nt (CALL_EXPR, postfix_expression, args);
+		      = build_min_nt (CALL_EXPR, postfix_expression,
+				      args, NULL_TREE);
 		    break;
 		  }
 
@@ -5561,14 +5562,14 @@ cp_parser_statement (cp_parser* parser, bool in_statement_expr_p)
 {
   tree statement;
   cp_token *token;
-  int statement_line_number;
+  location_t statement_locus;
 
   /* There is no statement yet.  */
   statement = NULL_TREE;
   /* Peek at the next token.  */
   token = cp_lexer_peek_token (parser->lexer);
-  /* Remember the line number of the first token in the statement.  */
-  statement_line_number = token->location.line;
+  /* Remember the location of the first token in the statement.  */
+  statement_locus = token->location;
   /* If this is a keyword, then that will often determine what kind of
      statement we have.  */
   if (token->type == CPP_KEYWORD)
@@ -5644,7 +5645,10 @@ cp_parser_statement (cp_parser* parser, bool in_statement_expr_p)
 
   /* Set the line number for the statement.  */
   if (statement && STATEMENT_CODE_P (TREE_CODE (statement)))
-    STMT_LINENO (statement) = statement_line_number;
+    {
+      SET_EXPR_LOCUS (statement, NULL);
+      annotate_with_locus (statement, statement_locus);
+    }
 }
 
 /* Parse a labeled-statement.
@@ -6746,8 +6750,8 @@ cp_parser_simple_declaration (cp_parser* parser,
 
    GNU Extension:
 
-   decl-specifier-seq:
-     decl-specifier-seq [opt] attributes
+   decl-specifier:
+     attributes
 
    Returns a TREE_LIST, giving the decl-specifiers in the order they
    appear in the source code.  The TREE_VALUE of each node is the
@@ -8504,12 +8508,16 @@ cp_parser_template_argument (cp_parser* parser)
     cp_parser_error (parser, "expected template-argument");
   if (!cp_parser_error_occurred (parser))
     {
-      /* Figure out what is being referred to.  */
-      argument = cp_parser_lookup_name (parser, argument,
-					/*is_type=*/false,
-					/*is_template=*/template_p,
-					/*is_namespace=*/false,
-					/*check_dependency=*/true);
+      /* Figure out what is being referred to.  If the id-expression
+	 was for a class template specialization, then we will have a
+	 TYPE_DECL at this point.  There is no need to do name lookup
+	 at this point in that case.  */
+      if (TREE_CODE (argument) != TYPE_DECL)
+	argument = cp_parser_lookup_name (parser, argument,
+					  /*is_type=*/false,
+					  /*is_template=*/template_p,
+					  /*is_namespace=*/false,
+					  /*check_dependency=*/true);
       if (TREE_CODE (argument) != TEMPLATE_DECL
 	  && TREE_CODE (argument) != UNBOUND_CLASS_TEMPLATE)
 	cp_parser_error (parser, "expected template-name");
@@ -9027,6 +9035,8 @@ cp_parser_simple_type_specifier (cp_parser* parser, cp_parser_flags flags,
   /* The type-specifier must be a user-defined type.  */
   if (!(flags & CP_PARSER_FLAGS_NO_USER_DEFINED_TYPES))
     {
+      bool qualified_p;
+
       /* Don't gobble tokens or issue error messages if this is an
 	 optional type-specifier.  */
       if (flags & CP_PARSER_FLAGS_OPTIONAL)
@@ -9036,11 +9046,12 @@ cp_parser_simple_type_specifier (cp_parser* parser, cp_parser_flags flags,
       cp_parser_global_scope_opt (parser,
 				  /*current_scope_valid_p=*/false);
       /* Look for the nested-name specifier.  */
-      cp_parser_nested_name_specifier_opt (parser,
-					   /*typename_keyword_p=*/false,
-					   /*check_dependency_p=*/true,
-					   /*type_p=*/false,
-					   /*is_declaration=*/false);
+      qualified_p
+	= (cp_parser_nested_name_specifier_opt (parser,
+						/*typename_keyword_p=*/false,
+						/*check_dependency_p=*/true,
+						/*type_p=*/false,
+						/*is_declaration=*/false));
       /* If we have seen a nested-name-specifier, and the next token
 	 is `template', then we are using the template-id production.  */
       if (parser->scope
@@ -9062,6 +9073,12 @@ cp_parser_simple_type_specifier (cp_parser* parser, cp_parser_flags flags,
       /* Otherwise, look for a type-name.  */
       else
 	type = cp_parser_type_name (parser);
+      /* Keep track of all name-lookups performed in class scopes.  */
+      if (type  
+	  && !qualified_p
+	  && TREE_CODE (type) == TYPE_DECL 
+	  && TREE_CODE (DECL_NAME (type)) == IDENTIFIER_NODE)
+	maybe_note_name_used_in_class (DECL_NAME (type), type);
       /* If it didn't work out, we don't have a TYPE.  */
       if ((flags & CP_PARSER_FLAGS_OPTIONAL)
 	  && !cp_parser_parse_definitely (parser))
@@ -9958,10 +9975,8 @@ cp_parser_asm_definition (cp_parser* parser)
   /* Create the ASM_STMT.  */
   if (at_function_scope_p ())
     {
-      asm_stmt =
-	finish_asm_stmt (volatile_p
-			 ? ridpointers[(int) RID_VOLATILE] : NULL_TREE,
-			 string, outputs, inputs, clobbers);
+      asm_stmt = finish_asm_stmt (volatile_p, string, outputs,
+				  inputs, clobbers);
       /* If the extended syntax was not used, mark the ASM_STMT.  */
       if (!extended_p)
 	ASM_INPUT_P (asm_stmt) = 1;
@@ -11880,7 +11895,7 @@ cp_parser_class_specifier (cp_parser* parser)
 {
   cp_token *token;
   tree type;
-  tree attributes;
+  tree attributes = NULL_TREE;
   int has_trailing_semicolon;
   bool nested_name_specifier_p;
   unsigned saved_num_template_parameter_lists;
@@ -12188,7 +12203,8 @@ cp_parser_class_head (cp_parser* parser,
 
   pop_deferring_access_checks ();
 
-  cp_parser_check_for_invalid_template_id (parser, id);
+  if (id)
+    cp_parser_check_for_invalid_template_id (parser, id);
 
   /* If it's not a `:' or a `{' then we can't really be looking at a
      class-head, since a class-head only appears as part of a
@@ -14241,6 +14257,10 @@ cp_parser_constructor_declarator_p (cp_parser *parser, bool friend_p)
     {
       if (cp_lexer_next_token_is_not (parser->lexer, CPP_CLOSE_PAREN)
 	  && cp_lexer_next_token_is_not (parser->lexer, CPP_ELLIPSIS)
+	  /* A parameter declaration begins with a decl-specifier,
+	     which is either the "attribute" keyword, a storage class
+	     specifier, or (usually) a type-specifier.  */
+	  && !cp_lexer_next_token_is_keyword (parser->lexer, RID_ATTRIBUTE)
 	  && !cp_parser_storage_class_specifier_opt (parser))
 	{
 	  tree type;

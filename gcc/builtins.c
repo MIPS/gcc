@@ -27,6 +27,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "real.h"
 #include "rtl.h"
 #include "tree.h"
+#include "tree-gimple.h"
 #include "flags.h"
 #include "regs.h"
 #include "hard-reg-set.h"
@@ -68,11 +69,10 @@ const char *const built_in_names[(int) END_BUILTINS] =
 tree built_in_decls[(int) END_BUILTINS];
 /* Declarations used when constructing the builtin implicitly in the compiler.
    It may be NULL_TREE when this is invalid (for instance runtime is not
-   required to implement the function call in all cases.  */
+   required to implement the function call in all cases).  */
 tree implicit_built_in_decls[(int) END_BUILTINS];
 
 static int get_pointer_alignment (tree, unsigned int);
-static tree c_strlen (tree, int);
 static const char *c_getstr (tree);
 static rtx c_readstr (const char *, enum machine_mode);
 static int target_char_cast (tree, char *);
@@ -96,7 +96,6 @@ static void expand_errno_check (tree, rtx);
 static rtx expand_builtin_mathfn (tree, rtx, rtx);
 static rtx expand_builtin_mathfn_2 (tree, rtx, rtx);
 static rtx expand_builtin_mathfn_3 (tree, rtx, rtx);
-static rtx expand_builtin_constant_p (tree, enum machine_mode);
 static rtx expand_builtin_args_info (tree);
 static rtx expand_builtin_next_arg (tree);
 static rtx expand_builtin_va_start (tree);
@@ -162,6 +161,22 @@ static tree fold_builtin_memcmp (tree);
 static tree fold_builtin_strcmp (tree);
 static tree fold_builtin_strncmp (tree);
 static tree fold_builtin_signbit (tree);
+
+static tree simplify_builtin_memcmp (tree);
+static tree simplify_builtin_strcmp (tree);
+static tree simplify_builtin_strncmp (tree);
+static tree simplify_builtin_strpbrk (tree);
+static tree simplify_builtin_strstr (tree);
+static tree simplify_builtin_strchr (tree);
+static tree simplify_builtin_strrchr (tree);
+static tree simplify_builtin_strcat (tree);
+static tree simplify_builtin_strncat (tree);
+static tree simplify_builtin_strspn (tree);
+static tree simplify_builtin_strcspn (tree);
+static void simplify_builtin_next_arg (tree);
+static void simplify_builtin_va_start (tree);
+static tree simplify_builtin_sprintf (tree, int);
+
 
 /* Return the alignment in bits of EXP, a pointer valued expression.
    But don't return more than MAX_ALIGN no matter what.
@@ -247,7 +262,7 @@ get_pointer_alignment (tree exp, unsigned int max_align)
    Unfortunately, string_constant can't access the values of const char
    arrays with initializers, so neither can we do so here.  */
 
-static tree
+tree
 c_strlen (tree src, int only_value)
 {
   tree offset_node;
@@ -405,6 +420,21 @@ target_char_cast (tree cst, char *p)
 
   *p = hostval;
   return 0;
+}
+
+/* Similar to save_expr, but assumes that arbitrary code is not executed
+   in between the multiple evaluations.  In particular, we assume that a
+   non-addressable local variable will not be modified.  */
+
+static tree
+builtin_save_expr (tree exp)
+{
+  if (TREE_ADDRESSABLE (exp) == 0
+      && (TREE_CODE (exp) == PARM_DECL
+	  || (TREE_CODE (exp) == VAR_DECL && !TREE_STATIC (exp))))
+    return exp;
+
+  return save_expr (exp);
 }
 
 /* Given TEM, a pointer to a stack frame, follow the dynamic chain COUNT
@@ -737,6 +767,79 @@ expand_builtin_longjmp (rtx buf_addr, rtx value)
       else if (GET_CODE (insn) == CALL_INSN)
 	break;
     }
+}
+
+/* Expand a call to __builtin_nonlocal_goto.  We're passed the target label
+   and the address of the save area.  */
+
+static rtx
+expand_builtin_nonlocal_goto (tree arglist)
+{
+  tree t_label, t_save_area;
+  rtx r_label, r_save_area, r_fp, r_sp, insn;
+
+  if (!validate_arglist (arglist, POINTER_TYPE, POINTER_TYPE, VOID_TYPE))
+    return NULL_RTX;
+
+  t_label = TREE_VALUE (arglist);
+  arglist = TREE_CHAIN (arglist);
+  t_save_area = TREE_VALUE (arglist);
+
+  r_label = expand_expr (t_label, NULL_RTX, VOIDmode, 0);
+  r_save_area = expand_expr (t_save_area, NULL_RTX, VOIDmode, 0);
+  r_fp = gen_rtx_MEM (Pmode, r_save_area);
+  r_sp = gen_rtx_MEM (STACK_SAVEAREA_MODE (SAVE_NONLOCAL),
+		      plus_constant (r_save_area, GET_MODE_SIZE (Pmode)));
+
+  current_function_has_nonlocal_goto = 1;
+
+#if HAVE_nonlocal_goto
+  /* ??? We no longer need to pass the static chain value, afaik.  */
+  if (HAVE_nonlocal_goto)
+    emit_insn (gen_nonlocal_goto (const0_rtx, r_label, r_sp, r_fp));
+  else
+#endif
+    {
+      r_label = copy_to_reg (r_label);
+
+      emit_insn (gen_rtx_CLOBBER (VOIDmode,
+				  gen_rtx_MEM (BLKmode,
+					       gen_rtx_SCRATCH (VOIDmode))));
+
+      emit_insn (gen_rtx_CLOBBER (VOIDmode,
+				  gen_rtx_MEM (BLKmode,
+					       hard_frame_pointer_rtx)));
+ 
+      /* Restore frame pointer for containing function.
+	 This sets the actual hard register used for the frame pointer
+	 to the location of the function's incoming static chain info.
+	 The non-local goto handler will then adjust it to contain the
+	 proper value and reload the argument pointer, if needed.  */
+      emit_move_insn (hard_frame_pointer_rtx, r_fp);
+      emit_stack_restore (SAVE_NONLOCAL, r_sp, NULL_RTX);
+ 
+      /* USE of hard_frame_pointer_rtx added for consistency;
+	 not clear if really needed.  */
+      emit_insn (gen_rtx_USE (VOIDmode, hard_frame_pointer_rtx));
+      emit_insn (gen_rtx_USE (VOIDmode, stack_pointer_rtx));
+      emit_indirect_jump (r_label);
+    }
+ 
+  /* Search backwards to the jump insn and mark it as a
+     non-local goto.  */
+  for (insn = get_last_insn (); insn; insn = PREV_INSN (insn))
+    {
+      if (GET_CODE (insn) == JUMP_INSN)
+	{
+	  REG_NOTES (insn) = alloc_EXPR_LIST (REG_NON_LOCAL_GOTO,
+					      const0_rtx, REG_NOTES (insn));
+	  break;
+	}
+      else if (GET_CODE (insn) == CALL_INSN)
+	break;
+    }
+
+  return const0_rtx;
 }
 
 /* __builtin_update_setjmp_buf is passed a pointer to an array of five words
@@ -1230,7 +1333,7 @@ expand_builtin_apply (rtx function, rtx arguments, rtx argsize)
     }
 
   /* All arguments and registers used for the call are set up by now!  */
-  function = prepare_call_address (function, NULL_TREE, &call_fusage, 0, 0);
+  function = prepare_call_address (function, NULL, &call_fusage, 0, 0);
 
   /* Ensure address is valid.  SYMBOL_REF is already valid, so no need,
      and we don't want to load it into a register as an optimization,
@@ -1382,32 +1485,6 @@ expand_builtin_classify_type (tree arglist)
   if (arglist != 0)
     return GEN_INT (type_to_class (TREE_TYPE (TREE_VALUE (arglist))));
   return GEN_INT (no_type_class);
-}
-
-/* Expand expression EXP, which is a call to __builtin_constant_p.  */
-
-static rtx
-expand_builtin_constant_p (tree arglist, enum machine_mode target_mode)
-{
-  rtx tmp;
-
-  if (arglist == 0)
-    return const0_rtx;
-  arglist = TREE_VALUE (arglist);
-
-  /* We have taken care of the easy cases during constant folding.  This
-     case is not obvious, so emit (constant_p_rtx (ARGLIST)) and let CSE
-     get a chance to see if it can deduce whether ARGLIST is constant.
-     If CSE isn't going to run, of course, don't bother waiting.  */
-
-  if (cse_not_expected)
-    return const0_rtx;
-
-  current_function_calls_constant_p = 1;
-
-  tmp = expand_expr (arglist, NULL_RTX, VOIDmode, 0);
-  tmp = gen_rtx_CONSTANT_P_RTX (target_mode, tmp);
-  return tmp;
 }
 
 /* This helper macro, meant to be used in mathfn_built_in below,
@@ -1682,7 +1759,7 @@ expand_builtin_mathfn (tree exp, rtx target, rtx subtarget)
       /* Wrap the computation of the argument in a SAVE_EXPR, as we may
 	 need to expand the argument again.  This way, we will not perform
 	 side-effects more the once.  */
-      narg = save_expr (arg);
+      narg = builtin_save_expr (arg);
       if (narg != arg)
 	{
 	  arglist = build_tree_list (NULL_TREE, arg);
@@ -1821,8 +1898,8 @@ expand_builtin_mathfn_2 (tree exp, rtx target, rtx subtarget)
   if (! flag_errno_math || ! HONOR_NANS (mode))
     errno_set = false;
 
-  /* Alway stabilize the argument list.  */
-  narg = save_expr (arg1);
+  /* Always stabilize the argument list.  */
+  narg = builtin_save_expr (arg1);
   if (narg != arg1)
     {
       temp = build_tree_list (NULL_TREE, narg);
@@ -1831,7 +1908,7 @@ expand_builtin_mathfn_2 (tree exp, rtx target, rtx subtarget)
   else
     temp = TREE_CHAIN (arglist);
 
-  narg = save_expr (arg0);
+  narg = builtin_save_expr (arg0);
   if (narg != arg0)
     {
       arglist = tree_cons (NULL_TREE, narg, temp);
@@ -2382,7 +2459,7 @@ expand_builtin_strstr (tree arglist, rtx target, enum machine_mode mode)
   else
     {
       tree s1 = TREE_VALUE (arglist), s2 = TREE_VALUE (TREE_CHAIN (arglist));
-      tree fn;
+      tree fn, tmp;
       const char *p1, *p2;
 
       p2 = c_getstr (s2);
@@ -2398,10 +2475,10 @@ expand_builtin_strstr (tree arglist, rtx target, enum machine_mode mode)
 	    return const0_rtx;
 
 	  /* Return an offset into the constant string argument.  */
-	  return expand_expr (fold (build (PLUS_EXPR, TREE_TYPE (s1), s1,
-					   fold_convert (TREE_TYPE (s1),
-							 ssize_int (r - p1)))),
-			      target, mode, EXPAND_NORMAL);
+	  tmp = fold (build2 (PLUS_EXPR, TREE_TYPE (s1), s1,
+			      fold_convert (TREE_TYPE (s1),
+					    ssize_int (r - p1))));
+	  return expand_expr (tmp, target, mode, EXPAND_NORMAL);
 	}
 
       if (p2[0] == '\0')
@@ -2446,6 +2523,7 @@ expand_builtin_strchr (tree arglist, rtx target, enum machine_mode mode)
 	{
 	  char c;
 	  const char *r;
+	  tree tmp;
 
 	  if (target_char_cast (s2, &c))
 	    return 0;
@@ -2456,10 +2534,10 @@ expand_builtin_strchr (tree arglist, rtx target, enum machine_mode mode)
 	    return const0_rtx;
 
 	  /* Return an offset into the constant string argument.  */
-	  return expand_expr (fold (build (PLUS_EXPR, TREE_TYPE (s1), s1,
-					   fold_convert (TREE_TYPE (s1),
-							 ssize_int (r - p1)))),
-			      target, mode, EXPAND_NORMAL);
+	  tmp = fold (build2 (PLUS_EXPR, TREE_TYPE (s1), s1,
+			      fold_convert (TREE_TYPE (s1),
+					    ssize_int (r - p1))));
+	  return expand_expr (tmp, target, mode, EXPAND_NORMAL);
 	}
 
       /* FIXME: Should use here strchrM optab so that ports can optimize
@@ -2480,7 +2558,7 @@ expand_builtin_strrchr (tree arglist, rtx target, enum machine_mode mode)
   else
     {
       tree s1 = TREE_VALUE (arglist), s2 = TREE_VALUE (TREE_CHAIN (arglist));
-      tree fn;
+      tree fn, tmp;
       const char *p1;
 
       if (TREE_CODE (s2) != INTEGER_CST)
@@ -2501,10 +2579,10 @@ expand_builtin_strrchr (tree arglist, rtx target, enum machine_mode mode)
 	    return const0_rtx;
 
 	  /* Return an offset into the constant string argument.  */
-	  return expand_expr (fold (build (PLUS_EXPR, TREE_TYPE (s1), s1,
-					   fold_convert (TREE_TYPE (s1),
-							 ssize_int (r - p1)))),
-			      target, mode, EXPAND_NORMAL);
+	  tmp = fold (build2 (PLUS_EXPR, TREE_TYPE (s1), s1,
+			      fold_convert (TREE_TYPE (s1),
+					    ssize_int (r - p1))));
+	  return expand_expr (tmp, target, mode, EXPAND_NORMAL);
 	}
 
       if (! integer_zerop (s2))
@@ -2532,7 +2610,7 @@ expand_builtin_strpbrk (tree arglist, rtx target, enum machine_mode mode)
   else
     {
       tree s1 = TREE_VALUE (arglist), s2 = TREE_VALUE (TREE_CHAIN (arglist));
-      tree fn;
+      tree fn, tmp;
       const char *p1, *p2;
 
       p2 = c_getstr (s2);
@@ -2548,10 +2626,10 @@ expand_builtin_strpbrk (tree arglist, rtx target, enum machine_mode mode)
 	    return const0_rtx;
 
 	  /* Return an offset into the constant string argument.  */
-	  return expand_expr (fold (build (PLUS_EXPR, TREE_TYPE (s1), s1,
-					   fold_convert (TREE_TYPE (s1),
-							 ssize_int (r - p1)))),
-			      target, mode, EXPAND_NORMAL);
+	  tmp = fold (build2 (PLUS_EXPR, TREE_TYPE (s1), s1,
+			      fold_convert (TREE_TYPE (s1),
+					    ssize_int (r - p1))));
+	  return expand_expr (tmp, target, mode, EXPAND_NORMAL);
 	}
 
       if (p2[0] == '\0')
@@ -2736,10 +2814,10 @@ expand_builtin_mempcpy (tree arglist, rtx target, enum machine_mode mode,
 	    }
 
 	  if (endp == 2)
-	    len = fold (build (MINUS_EXPR, TREE_TYPE (len), dest,
-			       integer_one_node));
+	    len = fold (build2 (MINUS_EXPR, TREE_TYPE (len), len,
+				integer_one_node));
 	  len = fold_convert (TREE_TYPE (dest), len);
-	  expr = fold (build (PLUS_EXPR, TREE_TYPE (dest), dest, len));
+	  expr = fold (build2 (PLUS_EXPR, TREE_TYPE (dest), dest, len));
 	  return expand_expr (expr, target, mode, EXPAND_NORMAL);
 	}
 
@@ -3293,7 +3371,7 @@ expand_builtin_memcmp (tree exp ATTRIBUTE_UNUSED, tree arglist, rtx target,
       fold (build1 (CONVERT_EXPR, integer_type_node,
 		    build1 (INDIRECT_REF, cst_uchar_node,
 			    fold_convert (cst_uchar_ptr_node, arg2))));
-      tree result = fold (build (MINUS_EXPR, integer_type_node, ind1, ind2));
+      tree result = fold (build2 (MINUS_EXPR, integer_type_node, ind1, ind2));
       return expand_expr (result, target, mode, EXPAND_NORMAL);
     }
 
@@ -3421,7 +3499,7 @@ expand_builtin_strcmp (tree exp, rtx target, enum machine_mode mode)
 	fold (build1 (CONVERT_EXPR, integer_type_node,
 		      build1 (INDIRECT_REF, cst_uchar_node,
 			      fold_convert (cst_uchar_ptr_node, arg2))));
-      tree result = fold (build (MINUS_EXPR, integer_type_node, ind1, ind2));
+      tree result = fold (build2 (MINUS_EXPR, integer_type_node, ind1, ind2));
       return expand_expr (result, target, mode, EXPAND_NORMAL);
     }
 
@@ -3488,8 +3566,8 @@ expand_builtin_strcmp (tree exp, rtx target, enum machine_mode mode)
       result = gen_reg_rtx (insn_mode);
 
     /* Stabilize the arguments in case gen_cmpstrsi fails.  */
-    arg1 = save_expr (arg1);
-    arg2 = save_expr (arg2);
+    arg1 = builtin_save_expr (arg1);
+    arg2 = builtin_save_expr (arg2);
 
     arg1_rtx = get_memory_rtx (arg1);
     arg2_rtx = get_memory_rtx (arg2);
@@ -3586,7 +3664,7 @@ expand_builtin_strncmp (tree exp, rtx target, enum machine_mode mode)
 	fold (build1 (CONVERT_EXPR, integer_type_node,
 		      build1 (INDIRECT_REF, cst_uchar_node,
 			      fold_convert (cst_uchar_ptr_node, arg2))));
-      tree result = fold (build (MINUS_EXPR, integer_type_node, ind1, ind2));
+      tree result = fold (build2 (MINUS_EXPR, integer_type_node, ind1, ind2));
       return expand_expr (result, target, mode, EXPAND_NORMAL);
     }
 
@@ -3645,7 +3723,7 @@ expand_builtin_strncmp (tree exp, rtx target, enum machine_mode mode)
       return 0;
 
     /* The actual new length parameter is MIN(len,arg3).  */
-    len = fold (build (MIN_EXPR, TREE_TYPE (len), len, arg3));
+    len = fold (build2 (MIN_EXPR, TREE_TYPE (len), len, arg3));
 
     /* If we don't have POINTER_TYPE, call the function.  */
     if (arg1_align == 0 || arg2_align == 0)
@@ -3659,9 +3737,9 @@ expand_builtin_strncmp (tree exp, rtx target, enum machine_mode mode)
       result = gen_reg_rtx (insn_mode);
 
     /* Stabilize the arguments in case gen_cmpstrsi fails.  */
-    arg1 = save_expr (arg1);
-    arg2 = save_expr (arg2);
-    len = save_expr (len);
+    arg1 = builtin_save_expr (arg1);
+    arg2 = builtin_save_expr (arg2);
+    len = builtin_save_expr (len);
 
     arg1_rtx = get_memory_rtx (arg1);
     arg2_rtx = get_memory_rtx (arg2);
@@ -3731,7 +3809,7 @@ expand_builtin_strcat (tree arglist, rtx target, enum machine_mode mode)
 	      arglist = tree_cons (NULL_TREE, src, arglist);
 
 	      /* We're going to use dst more than once.  */
-	      dst = save_expr (dst);
+	      dst = builtin_save_expr (dst);
 
 	      /* Create strlen (dst).  */
 	      newdst =
@@ -3739,7 +3817,7 @@ expand_builtin_strcat (tree arglist, rtx target, enum machine_mode mode)
 						build_tree_list (NULL_TREE,
 								 dst)));
 	      /* Create (dst + strlen (dst)).  */
-	      newdst = fold (build (PLUS_EXPR, TREE_TYPE (dst), dst, newdst));
+	      newdst = fold (build2 (PLUS_EXPR, TREE_TYPE (dst), dst, newdst));
 
 	      /* Prepend the new dst argument.  */
 	      arglist = tree_cons (NULL_TREE, newdst, arglist);
@@ -4068,8 +4146,8 @@ std_expand_builtin_va_start (tree valist, rtx nextarg)
 {
   tree t;
 
-  t = build (MODIFY_EXPR, TREE_TYPE (valist), valist,
-	     make_tree (ptr_type_node, nextarg));
+  t = build2 (MODIFY_EXPR, TREE_TYPE (valist), valist,
+	      make_tree (ptr_type_node, nextarg));
   TREE_SIDE_EFFECTS (t) = 1;
 
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
@@ -4124,15 +4202,15 @@ std_expand_builtin_va_arg (tree valist, tree type)
     {
       if (!PAD_VARARGS_DOWN)
 	{
-	  t = build (MODIFY_EXPR, TREE_TYPE (valist), valist,
-		     build (PLUS_EXPR, TREE_TYPE (valist), valist,
-			    build_int_2 (boundary / BITS_PER_UNIT - 1, 0)));
+	  t = build2 (MODIFY_EXPR, TREE_TYPE (valist), valist,
+		      build2 (PLUS_EXPR, TREE_TYPE (valist), valist,
+			      build_int_2 (boundary / BITS_PER_UNIT - 1, 0)));
 	  TREE_SIDE_EFFECTS (t) = 1;
 	  expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 	}
-      t = build (MODIFY_EXPR, TREE_TYPE (valist), valist,
-		 build (BIT_AND_EXPR, TREE_TYPE (valist), valist,
-			build_int_2 (~(boundary / BITS_PER_UNIT - 1), -1)));
+      t = build2 (MODIFY_EXPR, TREE_TYPE (valist), valist,
+		  build2 (BIT_AND_EXPR, TREE_TYPE (valist), valist,
+			  build_int_2 (~(boundary / BITS_PER_UNIT - 1), -1)));
       TREE_SIDE_EFFECTS (t) = 1;
       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
     }
@@ -4141,27 +4219,29 @@ std_expand_builtin_va_arg (tree valist, tree type)
       || TREE_OVERFLOW (type_size))
     rounded_size = size_zero_node;
   else
-    rounded_size = fold (build (MULT_EXPR, sizetype,
-				fold (build (TRUNC_DIV_EXPR, sizetype,
-					     fold (build (PLUS_EXPR, sizetype,
-							  type_size, alignm1)),
-					     align)),
-				align));
+    {
+      rounded_size = fold (build2 (PLUS_EXPR, sizetype, type_size, alignm1));
+      rounded_size = fold (build2 (TRUNC_DIV_EXPR, sizetype,
+				   rounded_size, align));
+      rounded_size = fold (build2 (MULT_EXPR, sizetype,
+				   rounded_size, align));
+    }
 
   /* Get AP.  */
   addr_tree = valist;
   if (PAD_VARARGS_DOWN && ! integer_zerop (rounded_size))
     {
       /* Small args are padded downward.  */
-      addr_tree = fold (build (PLUS_EXPR, TREE_TYPE (addr_tree), addr_tree,
-			       fold (build (COND_EXPR, sizetype,
-					    fold (build (GT_EXPR, sizetype,
-							 rounded_size,
-							 align)),
-					    size_zero_node,
-					    fold (build (MINUS_EXPR, sizetype,
-							 rounded_size,
-							 type_size))))));
+      addr_tree = fold (build2 (PLUS_EXPR, TREE_TYPE (addr_tree), addr_tree,
+				fold (build3 (COND_EXPR, sizetype,
+					      fold (build2 (GT_EXPR, sizetype,
+							    rounded_size,
+							    align)),
+					      size_zero_node,
+					      fold (build2 (MINUS_EXPR,
+							    sizetype,
+							    rounded_size,
+							    type_size))))));
     }
 
   addr = expand_expr (addr_tree, NULL_RTX, Pmode, EXPAND_NORMAL);
@@ -4170,9 +4250,9 @@ std_expand_builtin_va_arg (tree valist, tree type)
   /* Compute new value for AP.  */
   if (! integer_zerop (rounded_size))
     {
-      t = build (MODIFY_EXPR, TREE_TYPE (valist), valist,
-		 build (PLUS_EXPR, TREE_TYPE (valist), valist,
-			rounded_size));
+      t = build2 (MODIFY_EXPR, TREE_TYPE (valist), valist,
+		  build2 (PLUS_EXPR, TREE_TYPE (valist), valist,
+			  rounded_size));
       TREE_SIDE_EFFECTS (t) = 1;
       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
     }
@@ -4311,7 +4391,7 @@ expand_builtin_va_copy (tree arglist)
 
   if (TREE_CODE (va_list_type_node) != ARRAY_TYPE)
     {
-      t = build (MODIFY_EXPR, va_list_type_node, dst, src);
+      t = build2 (MODIFY_EXPR, va_list_type_node, dst, src);
       TREE_SIDE_EFFECTS (t) = 1;
       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
     }
@@ -4400,6 +4480,12 @@ expand_builtin_alloca (tree arglist, rtx target)
 {
   rtx op0;
   rtx result;
+
+  /* In -fmudflap-instrumented code, alloca() and __builtin_alloca()
+     should always expand to function calls.  These can be intercepted
+     in libmudflap.  */
+  if (flag_mudflap)
+    return 0;
 
   if (!validate_arglist (arglist, INTEGER_TYPE, VOID_TYPE))
     return 0;
@@ -4748,6 +4834,7 @@ build_string_literal (int len, const char *str)
   type = build_array_type (elem, index);
   TREE_TYPE (t) = type;
   TREE_CONSTANT (t) = 1;
+  TREE_INVARIANT (t) = 1;
   TREE_READONLY (t) = 1;
   TREE_STATIC (t) = 1;
 
@@ -5041,6 +5128,111 @@ expand_builtin_sprintf (tree arglist, rtx target, enum machine_mode mode)
   return 0;
 }
 
+/* Expand a call to either the entry or exit function profiler.  */
+
+static rtx
+expand_builtin_profile_func (bool exitp)
+{
+  rtx this, which;
+
+  this = DECL_RTL (current_function_decl);
+  if (GET_CODE (this) == MEM)
+    this = XEXP (this, 0);
+  else
+    abort ();
+
+  if (exitp)
+    which = profile_function_exit_libfunc;
+  else
+    which = profile_function_entry_libfunc;
+
+  emit_library_call (which, LCT_NORMAL, VOIDmode, 2, this, Pmode,
+		     expand_builtin_return_addr (BUILT_IN_RETURN_ADDRESS,
+						 0, hard_frame_pointer_rtx),
+		     Pmode);
+
+  return const0_rtx;
+}
+
+/* Given a trampoline address, make sure it satisfies TRAMPOLINE_ALIGNMENT.  */
+
+static rtx
+round_trampoline_addr (rtx tramp)
+{
+  rtx temp, addend, mask;
+
+  /* If we don't need too much alignment, we'll have been guaranteed
+     proper alignment by get_trampoline_type.  */
+  if (TRAMPOLINE_ALIGNMENT <= STACK_BOUNDARY)
+    return tramp;
+
+  /* Round address up to desired boundary.  */
+  temp = gen_reg_rtx (Pmode);
+  addend = GEN_INT (TRAMPOLINE_ALIGNMENT / BITS_PER_UNIT - 1);
+  mask = GEN_INT (-TRAMPOLINE_ALIGNMENT / BITS_PER_UNIT);
+
+  temp  = expand_simple_binop (Pmode, PLUS, tramp, addend,
+			       temp, 0, OPTAB_LIB_WIDEN);
+  tramp = expand_simple_binop (Pmode, AND, temp, mask,
+			       temp, 0, OPTAB_LIB_WIDEN);
+
+  return tramp;
+}
+
+static rtx
+expand_builtin_init_trampoline (tree arglist)
+{
+  tree t_tramp, t_func, t_chain;
+  rtx r_tramp, r_func, r_chain;
+#ifdef TRAMPOLINE_TEMPLATE
+  rtx blktramp;
+#endif
+
+  if (!validate_arglist (arglist, POINTER_TYPE, POINTER_TYPE,
+			 POINTER_TYPE, VOID_TYPE))
+    return NULL_RTX;
+
+  t_tramp = TREE_VALUE (arglist);
+  arglist = TREE_CHAIN (arglist);
+  t_func = TREE_VALUE (arglist);
+  arglist = TREE_CHAIN (arglist);
+  t_chain = TREE_VALUE (arglist);
+
+  r_tramp = expand_expr (t_tramp, NULL_RTX, VOIDmode, 0);
+  r_func = expand_expr (t_func, NULL_RTX, VOIDmode, 0);
+  r_chain = expand_expr (t_chain, NULL_RTX, VOIDmode, 0);
+
+  /* Generate insns to initialize the trampoline.  */
+  r_tramp = round_trampoline_addr (r_tramp);
+#ifdef TRAMPOLINE_TEMPLATE
+  blktramp = gen_rtx_MEM (BLKmode, r_tramp);
+  set_mem_align (blktramp, TRAMPOLINE_ALIGNMENT);
+  emit_block_move (blktramp, assemble_trampoline_template (),
+		   GEN_INT (TRAMPOLINE_SIZE), BLOCK_OP_NORMAL);
+#endif
+  trampolines_created = 1;
+  INITIALIZE_TRAMPOLINE (r_tramp, r_func, r_chain);
+
+  return const0_rtx;
+}
+
+static rtx
+expand_builtin_adjust_trampoline (tree arglist)
+{
+  rtx tramp;
+
+  if (!validate_arglist (arglist, POINTER_TYPE, VOID_TYPE))
+    return NULL_RTX;
+
+  tramp = expand_expr (TREE_VALUE (arglist), NULL_RTX, VOIDmode, 0);
+  tramp = round_trampoline_addr (tramp);
+#ifdef TRAMPOLINE_ADJUST_ADDRESS
+  TRAMPOLINE_ADJUST_ADDRESS (tramp);
+#endif
+
+  return tramp;
+}
+
 /* Expand a call to the built-in signbit, signbitf or signbitl function.
    Return NULL_RTX if a normal call should be emitted rather than expanding
    the function in-line.  EXP is the expression that is a call to the builtin
@@ -5073,8 +5265,8 @@ expand_builtin_signbit (tree exp, rtx target)
     if (fmt->has_signed_zero && HONOR_SIGNED_ZEROS (fmode))
       return 0;
 
-    arg = fold (build (LT_EXPR, TREE_TYPE (exp), arg,
-		build_real (TREE_TYPE (arg), dconst0)));
+    arg = fold (build2 (LT_EXPR, TREE_TYPE (exp), arg,
+			build_real (TREE_TYPE (arg), dconst0)));
     return expand_expr (arg, target, VOIDmode, EXPAND_NORMAL);
   }
 
@@ -5453,13 +5645,14 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 
       /* Return the address of the first anonymous stack arg.  */
     case BUILT_IN_NEXT_ARG:
+      simplify_builtin_next_arg (arglist);
       return expand_builtin_next_arg (arglist);
 
     case BUILT_IN_CLASSIFY_TYPE:
       return expand_builtin_classify_type (arglist);
 
     case BUILT_IN_CONSTANT_P:
-      return expand_builtin_constant_p (arglist, target_mode);
+      return const0_rtx;
 
     case BUILT_IN_FRAME_ADDRESS:
     case BUILT_IN_RETURN_ADDRESS:
@@ -5480,6 +5673,18 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       if (target)
 	return target;
       break;
+
+    case BUILT_IN_STACK_ALLOC:
+      expand_stack_alloc (TREE_VALUE (arglist),
+			  TREE_VALUE (TREE_CHAIN (arglist)));
+      return const0_rtx;
+
+    case BUILT_IN_STACK_SAVE:
+      return expand_stack_save ();
+
+    case BUILT_IN_STACK_RESTORE:
+      expand_stack_restore (TREE_VALUE (arglist));
+      return const0_rtx;
 
     case BUILT_IN_FFS:
     case BUILT_IN_FFSL:
@@ -5684,6 +5889,12 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 	  return const0_rtx;
 	}
 
+    case BUILT_IN_NONLOCAL_GOTO:
+      target = expand_builtin_nonlocal_goto (arglist);
+      if (target)
+	return target;
+      break;
+
       /* This updates the setjmp buffer that is its argument with the value
 	 of the current stack pointer.  */
     case BUILT_IN_UPDATE_SETJMP_BUF:
@@ -5718,7 +5929,6 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       if (target)
 	return target;
       break;
-
     case BUILT_IN_FPUTS_UNLOCKED:
       target = expand_builtin_fputs (arglist, target, true);
       if (target)
@@ -5791,6 +6001,16 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_PREFETCH:
       expand_builtin_prefetch (arglist);
       return const0_rtx;
+
+    case BUILT_IN_PROFILE_FUNC_ENTER:
+      return expand_builtin_profile_func (false);
+    case BUILT_IN_PROFILE_FUNC_EXIT:
+      return expand_builtin_profile_func (true);
+
+    case BUILT_IN_INIT_TRAMPOLINE:
+      return expand_builtin_init_trampoline (arglist);
+    case BUILT_IN_ADJUST_TRAMPOLINE:
+      return expand_builtin_adjust_trampoline (arglist);
 
     case BUILT_IN_FORK:
     case BUILT_IN_EXECL:
@@ -5925,6 +6145,44 @@ fold_builtin_constant_p (tree arglist)
     return integer_zero_node;
 
   return 0;
+}
+
+/* Fold a call to __builtin_expect, if we expect that a comparison against
+   the argument will fold to a constant.  In practice, this means a true
+   constant or the address of a non-weak symbol.  ARGLIST is the argument
+   list of the call.  */
+
+static tree
+fold_builtin_expect (tree arglist)
+{
+  tree arg, inner;
+
+  if (arglist == 0)
+    return 0;
+
+  arg = TREE_VALUE (arglist);
+
+  /* If the argument isn't invariant, then there's nothing we can do.  */
+  if (!TREE_INVARIANT (arg))
+    return 0;
+
+  /* If we're looking at an address of a weak decl, then do not fold.  */
+  inner = arg;
+  STRIP_NOPS (inner);
+  if (TREE_CODE (inner) == ADDR_EXPR)
+    {
+      do
+	{
+	  inner = TREE_OPERAND (inner, 0);
+	}
+      while (TREE_CODE (inner) == COMPONENT_REF
+	     || TREE_CODE (inner) == ARRAY_REF);
+      if (DECL_P (inner) && DECL_WEAK (inner))
+	return 0;
+    }
+
+  /* Otherwise, ARG already has the proper type for the return value.  */
+  return arg;
 }
 
 /* Fold a call to __builtin_classify_type.  */
@@ -6196,19 +6454,19 @@ fold_builtin_cabs (tree arglist, tree type)
 	{
 	  tree rpart, ipart, result, arglist;
 
-	  arg = save_expr (arg);
+	  arg = builtin_save_expr (arg);
 
 	  rpart = fold (build1 (REALPART_EXPR, type, arg));
 	  ipart = fold (build1 (IMAGPART_EXPR, type, arg));
 
-	  rpart = save_expr (rpart);
-	  ipart = save_expr (ipart);
+	  rpart = builtin_save_expr (rpart);
+	  ipart = builtin_save_expr (ipart);
 
-	  result = fold (build (PLUS_EXPR, type,
-				fold (build (MULT_EXPR, type,
-					     rpart, rpart)),
-				fold (build (MULT_EXPR, type,
-					     ipart, ipart))));
+	  result = fold (build2 (PLUS_EXPR, type,
+				 fold (build2 (MULT_EXPR, type,
+					       rpart, rpart)),
+				 fold (build2 (MULT_EXPR, type,
+					       ipart, ipart))));
 
 	  arglist = build_tree_list (NULL_TREE, result);
 	  return build_function_call_expr (sqrtfn, arglist);
@@ -6610,7 +6868,7 @@ fold_builtin_logarithm (tree exp, const REAL_VALUE_TYPE *value)
 	      tree logfn;
 	      arglist = build_tree_list (NULL_TREE, x);
 	      logfn = build_function_call_expr (fndecl, arglist);
-	      return fold (build (MULT_EXPR, type, exponent, logfn));
+	      return fold (build2 (MULT_EXPR, type, exponent, logfn));
 	    }
 	}
     }
@@ -6745,7 +7003,7 @@ fold_builtin_mempcpy (tree exp)
   if (operand_equal_p (src, dest, 0))
     {
       tree temp = fold_convert (TREE_TYPE (dest), len);
-      temp = fold (build (PLUS_EXPR, TREE_TYPE (dest), dest, temp));
+      temp = fold (build2 (PLUS_EXPR, TREE_TYPE (dest), dest, temp));
       return fold_convert (TREE_TYPE (exp), temp);
     }
 
@@ -6977,8 +7235,8 @@ fold_builtin_signbit (tree exp)
 
   /* If ARG's format doesn't have signed zeros, return "arg < 0.0".  */
   if (!HONOR_SIGNED_ZEROS (TYPE_MODE (TREE_TYPE (arg))))
-    return fold (build (LT_EXPR, TREE_TYPE (exp), arg,
-			build_real (TREE_TYPE (arg), dconst0)));
+    return fold (build2 (LT_EXPR, TREE_TYPE (exp), arg,
+			 build_real (TREE_TYPE (arg), dconst0)));
 
   return NULL_TREE;
 }
@@ -6995,11 +7253,16 @@ fold_builtin_isascii (tree arglist)
       /* Transform isascii(c) -> ((c & ~0x7f) == 0).  */
       tree arg = TREE_VALUE (arglist);
       
-      return fold (build (EQ_EXPR, integer_type_node,
-			  build (BIT_AND_EXPR, integer_type_node, arg,
-				 build_int_2 (~ (unsigned HOST_WIDE_INT) 0x7f,
-					      ~ (HOST_WIDE_INT) 0)),
+      arg = fold (build2 (EQ_EXPR, integer_type_node,
+			  build2 (BIT_AND_EXPR, integer_type_node, arg,
+				  build_int_2 (~ (unsigned HOST_WIDE_INT) 0x7f,
+					       ~ (HOST_WIDE_INT) 0)),
 			  integer_zero_node));
+      
+      if (in_gimple_form && !TREE_CONSTANT (arg))
+        return NULL_TREE;
+      else
+        return arg;
     }
 }
 
@@ -7015,8 +7278,8 @@ fold_builtin_toascii (tree arglist)
       /* Transform toascii(c) -> (c & 0x7f).  */
       tree arg = TREE_VALUE (arglist);
       
-      return fold (build (BIT_AND_EXPR, integer_type_node, arg,
-			  build_int_2 (0x7f, 0)));
+      return fold (build2 (BIT_AND_EXPR, integer_type_node, arg,
+			   build_int_2 (0x7f, 0)));
     }
 }
 
@@ -7033,20 +7296,24 @@ fold_builtin_isdigit (tree arglist)
       /* According to the C standard, isdigit is unaffected by locale.  */
       tree arg = TREE_VALUE (arglist);
       arg = fold_convert (unsigned_type_node, arg);
-      arg = build (MINUS_EXPR, unsigned_type_node, arg,
-		   fold_convert (unsigned_type_node,
-				 build_int_2 (TARGET_DIGIT0, 0)));
-      arg = build (LE_EXPR, integer_type_node, arg,
-		   fold_convert (unsigned_type_node, build_int_2 (9, 0)));
-      return fold (arg);
+      arg = build2 (MINUS_EXPR, unsigned_type_node, arg,
+		    fold_convert (unsigned_type_node,
+				  build_int_2 (TARGET_DIGIT0, 0)));
+      arg = build2 (LE_EXPR, integer_type_node, arg,
+		    fold_convert (unsigned_type_node, build_int_2 (9, 0)));
+      arg = fold (arg);
+      if (in_gimple_form && !TREE_CONSTANT (arg))
+        return NULL_TREE;
+      else
+        return arg;
     }
 }
 
 /* Used by constant folding to eliminate some builtin calls early.  EXP is
    the CALL_EXPR of a call to a builtin function.  */
 
-tree
-fold_builtin (tree exp)
+static tree
+fold_builtin_1 (tree exp)
 {
   tree fndecl = get_callee_fndecl (exp);
   tree arglist = TREE_OPERAND (exp, 1);
@@ -7059,6 +7326,9 @@ fold_builtin (tree exp)
     {
     case BUILT_IN_CONSTANT_P:
       return fold_builtin_constant_p (arglist);
+
+    case BUILT_IN_EXPECT:
+      return fold_builtin_expect (arglist);
 
     case BUILT_IN_CLASSIFY_TYPE:
       return fold_builtin_classify_type (arglist);
@@ -7114,9 +7384,9 @@ fold_builtin (tree exp)
 	  if (flag_unsafe_math_optimizations && BUILTIN_EXPONENT_P (fcode))
 	    {
 	      tree expfn = TREE_OPERAND (TREE_OPERAND (arg, 0), 0);
-	      arg = fold (build (MULT_EXPR, type,
-				 TREE_VALUE (TREE_OPERAND (arg, 1)),
-				 build_real (type, dconsthalf)));
+	      arg = fold (build2 (MULT_EXPR, type,
+				  TREE_VALUE (TREE_OPERAND (arg, 1)),
+				  build_real (type, dconsthalf)));
 	      arglist = build_tree_list (NULL_TREE, arg);
 	      return build_function_call_expr (expfn, arglist);
 	    }
@@ -7153,8 +7423,8 @@ fold_builtin (tree exp)
 	      tree powfn = TREE_OPERAND (TREE_OPERAND (arg, 0), 0);
 	      tree arg0 = TREE_VALUE (TREE_OPERAND (arg, 1));
 	      tree arg1 = TREE_VALUE (TREE_CHAIN (TREE_OPERAND (arg, 1)));
-	      tree narg1 = fold (build (MULT_EXPR, type, arg1,
-					build_real (type, dconsthalf)));
+	      tree narg1 = fold (build2 (MULT_EXPR, type, arg1,
+					 build_real (type, dconsthalf)));
 	      arglist = tree_cons (NULL_TREE, arg0,
 				   build_tree_list (NULL_TREE, narg1));
 	      return build_function_call_expr (powfn, arglist);
@@ -7180,9 +7450,9 @@ fold_builtin (tree exp)
 	      tree expfn = TREE_OPERAND (TREE_OPERAND (arg, 0), 0);
 	      const REAL_VALUE_TYPE third_trunc =
 		real_value_truncate (TYPE_MODE (type), dconstthird);
-	      arg = fold (build (MULT_EXPR, type,
-				 TREE_VALUE (TREE_OPERAND (arg, 1)),
-				 build_real (type, third_trunc)));
+	      arg = fold (build2 (MULT_EXPR, type,
+				  TREE_VALUE (TREE_OPERAND (arg, 1)),
+				  build_real (type, third_trunc)));
 	      arglist = build_tree_list (NULL_TREE, arg);
 	      return build_function_call_expr (expfn, arglist);
 	    }
@@ -7352,9 +7622,8 @@ fold_builtin (tree exp)
 
 	      /* Optimize pow(x,-1.0) = 1.0/x.  */
 	      if (REAL_VALUES_EQUAL (c, dconstm1))
-		return fold (build (RDIV_EXPR, type,
-				    build_real (type, dconst1),
-				    arg0));
+		return fold (build2 (RDIV_EXPR, type,
+				     build_real (type, dconst1), arg0));
 
 	      /* Optimize pow(x,0.5) = sqrt(x).  */
 	      if (flag_unsafe_math_optimizations
@@ -7398,7 +7667,7 @@ fold_builtin (tree exp)
 	    {
 	      tree expfn = TREE_OPERAND (TREE_OPERAND (arg0, 0), 0);
 	      tree arg = TREE_VALUE (TREE_OPERAND (arg0, 1));
-	      arg = fold (build (MULT_EXPR, type, arg, arg1));
+	      arg = fold (build2 (MULT_EXPR, type, arg, arg1));
 	      arglist = build_tree_list (NULL_TREE, arg);
 	      return build_function_call_expr (expfn, arglist);
 	    }
@@ -7407,8 +7676,8 @@ fold_builtin (tree exp)
 	  if (flag_unsafe_math_optimizations && BUILTIN_SQRT_P (fcode))
 	    {
 	      tree narg0 = TREE_VALUE (TREE_OPERAND (arg0, 1));
-	      tree narg1 = fold (build (MULT_EXPR, type, arg1,
-					build_real (type, dconsthalf)));
+	      tree narg1 = fold (build2 (MULT_EXPR, type, arg1,
+					 build_real (type, dconsthalf)));
 
 	      arglist = tree_cons (NULL_TREE, narg0,
 				   build_tree_list (NULL_TREE, narg1));
@@ -7423,7 +7692,7 @@ fold_builtin (tree exp)
 	    {
 	      tree arg00 = TREE_VALUE (TREE_OPERAND (arg0, 1));
 	      tree arg01 = TREE_VALUE (TREE_CHAIN (TREE_OPERAND (arg0, 1)));
-	      tree narg1 = fold (build (MULT_EXPR, type, arg01, arg1));
+	      tree narg1 = fold (build2 (MULT_EXPR, type, arg01, arg1));
 	      arglist = tree_cons (NULL_TREE, arg00,
 				   build_tree_list (NULL_TREE, narg1));
 	      return build_function_call_expr (fndecl, arglist);
@@ -7557,6 +7826,24 @@ fold_builtin (tree exp)
   return 0;
 }
 
+/* A wrapper function for builtin folding that prevents warnings for
+   "statement without effect" and the like, caused by removing the 
+   call node earlier than the warning is generated.  */
+
+tree
+fold_builtin (tree exp)
+{
+  exp = fold_builtin_1 (exp);
+  if (exp)
+    {
+      /* ??? Don't clobber shared nodes such as integer_zero_node.  */
+      if (TREE_CODE_CLASS (TREE_CODE (exp)) == 'c')
+	exp = build1 (NOP_EXPR, TREE_TYPE (exp), exp);
+      TREE_NO_WARNING (exp) = 1;
+    }
+  return exp;
+}
+
 /* Conveniently construct a function call expression.  */
 
 tree
@@ -7565,8 +7852,8 @@ build_function_call_expr (tree fn, tree arglist)
   tree call_expr;
 
   call_expr = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (fn)), fn);
-  call_expr = build (CALL_EXPR, TREE_TYPE (TREE_TYPE (fn)),
-		     call_expr, arglist);
+  call_expr = build3 (CALL_EXPR, TREE_TYPE (TREE_TYPE (fn)),
+		      call_expr, arglist, NULL_TREE);
   return fold (call_expr);
 }
 
@@ -7631,31 +7918,6 @@ default_expand_builtin (tree exp ATTRIBUTE_UNUSED,
   return NULL_RTX;
 }
 
-/* Instantiate all remaining CONSTANT_P_RTX nodes.  */
-
-void
-purge_builtin_constant_p (void)
-{
-  rtx insn, set, arg, new, note;
-
-  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
-    if (INSN_P (insn)
-	&& (set = single_set (insn)) != NULL_RTX
-	&& (GET_CODE (arg = SET_SRC (set)) == CONSTANT_P_RTX
-	    || (GET_CODE (arg) == SUBREG
-		&& (GET_CODE (arg = SUBREG_REG (arg))
-		    == CONSTANT_P_RTX))))
-      {
-	arg = XEXP (arg, 0);
-	new = CONSTANT_P (arg) ? const1_rtx : const0_rtx;
-	validate_change (insn, &SET_SRC (set), new, 0);
-
-	/* Remove the REG_EQUAL note from the insn.  */
-	if ((note = find_reg_note (insn, REG_EQUAL, NULL_RTX)) != 0)
-	  remove_note (insn, note);
-      }
-}
-
 /* Returns true is EXP represents data that would potentially reside
    in a readonly section.  */
 
@@ -7664,8 +7926,1116 @@ readonly_data_expr (tree exp)
 {
   STRIP_NOPS (exp);
 
-  if (TREE_CODE (exp) == ADDR_EXPR)
-    return decl_readonly_section (TREE_OPERAND (exp, 0), 0);
+  if (TREE_CODE (exp) != ADDR_EXPR)
+    return false;
+
+  exp = get_base_address (TREE_OPERAND (exp, 0));
+  if (!exp)
+    return false;
+
+  /* Make sure we call decl_readonly_section only for trees it
+     can handle (since it returns true for everything it doesn't
+     understand).  */
+  if (TREE_CODE (exp) == STRING_CST 
+      || TREE_CODE (exp) == CONSTRUCTOR
+      || (TREE_CODE (exp) == VAR_DECL && TREE_STATIC (exp)))
+    return decl_readonly_section (exp, 0);
   else
     return false;
+}
+
+/* Front-end to the simplify_builtin_XXX routines.
+
+   EXP is a call to a builtin function.  If possible try to simplify
+   that into a constant, expression or call to a more efficient
+   builtin function.
+
+   If IGNORE is nonzero, then the result of this builtin function
+   call is ignored.
+
+   If simplification is possible, return the simplified tree, otherwise
+   return NULL_TREE.  */
+
+tree
+simplify_builtin (tree exp, int ignore)
+{
+  tree fndecl = TREE_OPERAND (TREE_OPERAND (exp, 0), 0);
+  tree arglist = TREE_OPERAND (exp, 1);
+  enum built_in_function fcode = DECL_FUNCTION_CODE (fndecl);
+  tree val;
+
+  switch (fcode)
+    {
+    case BUILT_IN_FPUTS:
+      val = simplify_builtin_fputs (arglist, ignore, 0, NULL_TREE);
+      break;
+    case BUILT_IN_FPUTS_UNLOCKED:
+      val = simplify_builtin_fputs (arglist, ignore, 1, NULL_TREE);
+      break;
+    case BUILT_IN_STRSTR:
+      val = simplify_builtin_strstr (arglist);
+      break;
+    case BUILT_IN_STRCAT:
+      val = simplify_builtin_strcat (arglist);
+      break;
+    case BUILT_IN_STRNCAT:
+      val = simplify_builtin_strncat (arglist);
+      break;
+    case BUILT_IN_STRSPN:
+      val = simplify_builtin_strspn (arglist);
+      break;
+    case BUILT_IN_STRCSPN:
+      val = simplify_builtin_strcspn (arglist);
+      break;
+    case BUILT_IN_STRCHR:
+    case BUILT_IN_INDEX:
+      val = simplify_builtin_strchr (arglist);
+      break;
+    case BUILT_IN_STRRCHR:
+    case BUILT_IN_RINDEX:
+      val = simplify_builtin_strrchr (arglist);
+      break;
+    case BUILT_IN_STRCPY:
+      val = simplify_builtin_strcpy (arglist, NULL_TREE);
+      break;
+    case BUILT_IN_STRNCPY:
+      val = simplify_builtin_strncpy (arglist, NULL_TREE);
+      break;
+    case BUILT_IN_STRCMP:
+      val = simplify_builtin_strcmp (arglist);
+      break;
+    case BUILT_IN_STRNCMP:
+      val = simplify_builtin_strncmp (arglist);
+      break;
+    case BUILT_IN_STRPBRK:
+      val = simplify_builtin_strpbrk (arglist);
+      break;
+    case BUILT_IN_BCMP:
+    case BUILT_IN_MEMCMP:
+      val = simplify_builtin_memcmp (arglist);
+      break;
+    case BUILT_IN_VA_START:
+      simplify_builtin_va_start (arglist);
+      val = NULL_TREE;
+      break;
+    case BUILT_IN_SPRINTF:
+      val = simplify_builtin_sprintf (arglist, ignore);
+      break;
+    case BUILT_IN_CONSTANT_P:
+      val = fold_builtin_constant_p (arglist);
+      /* Gimplification will pull the CALL_EXPR for the builtin out of
+	 an if condition.  When not optimizing, we'll not CSE it back.
+	 To avoid link error types of regressions, return false now.  */
+      if (!val && !optimize)
+	val = integer_zero_node;
+      break;
+    default:
+      val = NULL_TREE;
+      break;
+    }
+
+  if (val)
+    val = fold_convert (TREE_TYPE (exp), val);
+  return val;
+}
+
+/* Simplify a call to the strstr builtin.
+
+   Return 0 if no simplification was possible, otherwise return the
+   simplified form of the call as a tree.
+
+   The simplified form may be a constant or other expression which
+   computes the same value, but in a more efficient manner (including
+   calls to other builtin functions).
+
+   The call may contain arguments which need to be evaluated, but
+   which are not useful to determine the result of the call.  In
+   this case we return a chain of COMPOUND_EXPRs.  The LHS of each
+   COMPOUND_EXPR will be an argument which must be evaluated.
+   COMPOUND_EXPRs are chained through their RHS.  The RHS of the last
+   COMPOUND_EXPR in the chain will contain the tree for the simplified
+   form of the builtin function call.  */
+
+static tree
+simplify_builtin_strstr (tree arglist)
+{
+  if (!validate_arglist (arglist, POINTER_TYPE, POINTER_TYPE, VOID_TYPE))
+    return 0;
+  else
+    {
+      tree s1 = TREE_VALUE (arglist), s2 = TREE_VALUE (TREE_CHAIN (arglist));
+      tree fn;
+      const char *p1, *p2;
+
+      p2 = c_getstr (s2);
+      if (p2 == NULL)
+	return 0;
+
+      p1 = c_getstr (s1);
+      if (p1 != NULL)
+	{
+	  const char *r = strstr (p1, p2);
+
+	  if (r == NULL)
+	    return fold_convert (TREE_TYPE (s1), integer_zero_node);
+
+	  /* Return an offset into the constant string argument.  */
+	  return fold (build2 (PLUS_EXPR, TREE_TYPE (s1),
+			       s1, fold_convert (TREE_TYPE (s1),
+						 ssize_int (r - p1))));
+	}
+
+      if (p2[0] == '\0')
+	return s1;
+
+      if (p2[1] != '\0')
+	return 0;
+
+      fn = implicit_built_in_decls[BUILT_IN_STRCHR];
+      if (!fn)
+	return 0;
+
+      /* New argument list transforming strstr(s1, s2) to
+	 strchr(s1, s2[0]).  */
+      arglist = build_tree_list (NULL_TREE, build_int_2 (p2[0], 0));
+      arglist = tree_cons (NULL_TREE, s1, arglist);
+      return build_function_call_expr (fn, arglist);
+    }
+}
+
+/* Simplify a call to the strstr builtin.
+
+   Return 0 if no simplification was possible, otherwise return the
+   simplified form of the call as a tree.
+
+   The simplified form may be a constant or other expression which
+   computes the same value, but in a more efficient manner (including
+   calls to other builtin functions).
+
+   The call may contain arguments which need to be evaluated, but
+   which are not useful to determine the result of the call.  In
+   this case we return a chain of COMPOUND_EXPRs.  The LHS of each
+   COMPOUND_EXPR will be an argument which must be evaluated.
+   COMPOUND_EXPRs are chained through their RHS.  The RHS of the last
+   COMPOUND_EXPR in the chain will contain the tree for the simplified
+   form of the builtin function call.  */
+
+static tree
+simplify_builtin_strchr (tree arglist)
+{
+  if (!validate_arglist (arglist, POINTER_TYPE, INTEGER_TYPE, VOID_TYPE))
+    return 0;
+  else
+    {
+      tree s1 = TREE_VALUE (arglist), s2 = TREE_VALUE (TREE_CHAIN (arglist));
+      const char *p1;
+
+      if (TREE_CODE (s2) != INTEGER_CST)
+	return 0;
+
+      p1 = c_getstr (s1);
+      if (p1 != NULL)
+	{
+	  char c;
+	  const char *r;
+
+	  if (target_char_cast (s2, &c))
+	    return 0;
+
+	  r = strchr (p1, c);
+
+	  if (r == NULL)
+	    return fold_convert (TREE_TYPE (s1), integer_zero_node);
+
+	  /* Return an offset into the constant string argument.  */
+	  return fold (build2 (PLUS_EXPR, TREE_TYPE (s1),
+			       s1, fold_convert (TREE_TYPE (s1),
+						 ssize_int (r - p1))));
+	}
+
+      /* FIXME: Should use here strchrM optab so that ports can optimize
+	 this.  */
+      return 0;
+    }
+}
+
+/* Simplify a call to the strrchr builtin.
+
+   Return 0 if no simplification was possible, otherwise return the
+   simplified form of the call as a tree.
+
+   The simplified form may be a constant or other expression which
+   computes the same value, but in a more efficient manner (including
+   calls to other builtin functions).
+
+   The call may contain arguments which need to be evaluated, but
+   which are not useful to determine the result of the call.  In
+   this case we return a chain of COMPOUND_EXPRs.  The LHS of each
+   COMPOUND_EXPR will be an argument which must be evaluated.
+   COMPOUND_EXPRs are chained through their RHS.  The RHS of the last
+   COMPOUND_EXPR in the chain will contain the tree for the simplified
+   form of the builtin function call.  */
+
+static tree
+simplify_builtin_strrchr (tree arglist)
+{
+  if (!validate_arglist (arglist, POINTER_TYPE, INTEGER_TYPE, VOID_TYPE))
+    return 0;
+  else
+    {
+      tree s1 = TREE_VALUE (arglist), s2 = TREE_VALUE (TREE_CHAIN (arglist));
+      tree fn;
+      const char *p1;
+
+      if (TREE_CODE (s2) != INTEGER_CST)
+	return 0;
+
+      p1 = c_getstr (s1);
+      if (p1 != NULL)
+	{
+	  char c;
+	  const char *r;
+
+	  if (target_char_cast (s2, &c))
+	    return 0;
+
+	  r = strrchr (p1, c);
+
+	  if (r == NULL)
+	    return fold_convert (TREE_TYPE (s1), integer_zero_node);
+
+	  /* Return an offset into the constant string argument.  */
+	  return fold (build2 (PLUS_EXPR, TREE_TYPE (s1),
+			       s1, fold_convert (TREE_TYPE (s1),
+						 ssize_int (r - p1))));
+	}
+
+      if (! integer_zerop (s2))
+	return 0;
+
+      fn = implicit_built_in_decls[BUILT_IN_STRCHR];
+      if (!fn)
+	return 0;
+
+      /* Transform strrchr(s1, '\0') to strchr(s1, '\0').  */
+      return build_function_call_expr (fn, arglist);
+    }
+}
+
+/* Simplify a call to the strpbrk builtin.
+
+   Return 0 if no simplification was possible, otherwise return the
+   simplified form of the call as a tree.
+
+   The simplified form may be a constant or other expression which
+   computes the same value, but in a more efficient manner (including
+   calls to other builtin functions).
+
+   The call may contain arguments which need to be evaluated, but
+   which are not useful to determine the result of the call.  In
+   this case we return a chain of COMPOUND_EXPRs.  The LHS of each
+   COMPOUND_EXPR will be an argument which must be evaluated.
+   COMPOUND_EXPRs are chained through their RHS.  The RHS of the last
+   COMPOUND_EXPR in the chain will contain the tree for the simplified
+   form of the builtin function call.  */
+
+static tree
+simplify_builtin_strpbrk (tree arglist)
+{
+  if (!validate_arglist (arglist, POINTER_TYPE, POINTER_TYPE, VOID_TYPE))
+    return 0;
+  else
+    {
+      tree s1 = TREE_VALUE (arglist), s2 = TREE_VALUE (TREE_CHAIN (arglist));
+      tree fn;
+      const char *p1, *p2;
+
+      p2 = c_getstr (s2);
+      if (p2 == NULL)
+	return 0;
+
+      p1 = c_getstr (s1);
+      if (p1 != NULL)
+	{
+	  const char *r = strpbrk (p1, p2);
+
+	  if (r == NULL)
+	    return fold_convert (TREE_TYPE (s1), integer_zero_node);
+
+	  /* Return an offset into the constant string argument.  */
+	  return fold (build2 (PLUS_EXPR, TREE_TYPE (s1),
+			       s1, fold_convert (TREE_TYPE (s1),
+						 ssize_int (r - p1))));
+	}
+
+      if (p2[0] == '\0')
+	/* strpbrk(x, "") == NULL.
+	   Evaluate and ignore s1 in case it had side-effects.  */
+	return omit_one_operand (TREE_TYPE (s1), integer_zero_node, s1);
+
+      if (p2[1] != '\0')
+	return 0;  /* Really call strpbrk.  */
+
+      fn = implicit_built_in_decls[BUILT_IN_STRCHR];
+      if (!fn)
+	return 0;
+
+      /* New argument list transforming strpbrk(s1, s2) to
+	 strchr(s1, s2[0]).  */
+      arglist =
+	build_tree_list (NULL_TREE, build_int_2 (p2[0], 0));
+      arglist = tree_cons (NULL_TREE, s1, arglist);
+      return build_function_call_expr (fn, arglist);
+    }
+}
+
+/* Simplify a call to the strcpy builtin.
+
+   Return 0 if no simplification was possible, otherwise return the
+   simplified form of the call as a tree.
+
+   The simplified form may be a constant or other expression which
+   computes the same value, but in a more efficient manner (including
+   calls to other builtin functions).
+
+   The call may contain arguments which need to be evaluated, but
+   which are not useful to determine the result of the call.  In
+   this case we return a chain of COMPOUND_EXPRs.  The LHS of each
+   COMPOUND_EXPR will be an argument which must be evaluated.
+   COMPOUND_EXPRs are chained through their RHS.  The RHS of the last
+   COMPOUND_EXPR in the chain will contain the tree for the simplified
+   form of the builtin function call.  */
+
+tree
+simplify_builtin_strcpy (tree arglist, tree len)
+{
+  tree fn, src, dst;
+
+  if (!validate_arglist (arglist, POINTER_TYPE, POINTER_TYPE, VOID_TYPE))
+    return 0;
+
+  fn = implicit_built_in_decls[BUILT_IN_MEMCPY];
+  if (!fn)
+    return 0;
+
+  src = TREE_VALUE (TREE_CHAIN (arglist));
+  dst = TREE_VALUE (arglist);
+
+  if (!len)
+    {
+      len = c_strlen (src, 1);
+      if (!len || TREE_SIDE_EFFECTS (len))
+	return 0;
+    }
+
+  len = size_binop (PLUS_EXPR, len, ssize_int (1));
+  arglist = build_tree_list (NULL_TREE, len);
+  arglist = tree_cons (NULL_TREE, src, arglist);
+  arglist = tree_cons (NULL_TREE, dst, arglist);
+  return build_function_call_expr (fn, arglist);
+}
+
+/* Simplify a call to the strncpy builtin.
+
+   Return 0 if no simplification was possible, otherwise return the
+   simplified form of the call as a tree.
+
+   The simplified form may be a constant or other expression which
+   computes the same value, but in a more efficient manner (including
+   calls to other builtin functions).
+
+   The call may contain arguments which need to be evaluated, but
+   which are not useful to determine the result of the call.  In
+   this case we return a chain of COMPOUND_EXPRs.  The LHS of each
+   COMPOUND_EXPR will be an argument which must be evaluated.
+   COMPOUND_EXPRs are chained through their RHS.  The RHS of the last
+   COMPOUND_EXPR in the chain will contain the tree for the simplified
+   form of the builtin function call.  */
+
+tree
+simplify_builtin_strncpy (tree arglist, tree slen)
+{
+  if (!validate_arglist (arglist,
+			 POINTER_TYPE, POINTER_TYPE, INTEGER_TYPE, VOID_TYPE))
+    return 0;
+  else
+    {
+      tree len = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
+      tree fn;
+
+      /* We must be passed a constant len parameter.  */
+      if (TREE_CODE (len) != INTEGER_CST)
+	return 0;
+
+      /* If the len parameter is zero, return the dst parameter.  */
+      if (integer_zerop (len))
+	/* Evaluate and ignore the src argument in case it has
+	   side-effects and return the dst parameter.  */
+	return omit_one_operand (TREE_TYPE (TREE_VALUE (arglist)),
+				 TREE_VALUE (arglist),
+				 TREE_VALUE (TREE_CHAIN (arglist)));
+
+      if (!slen)
+        slen = c_strlen (TREE_VALUE (TREE_CHAIN (arglist)), 0);
+
+      /* Now, we must be passed a constant src ptr parameter.  */
+      if (slen == 0 || TREE_CODE (slen) != INTEGER_CST)
+	return 0;
+
+      slen = size_binop (PLUS_EXPR, slen, ssize_int (1));
+
+      /* We do not support simplification of this case, though we do
+         support it when expanding trees into RTL.  */
+      /* FIXME: generate a call to __builtin_memset.  */
+      if (tree_int_cst_lt (slen, len))
+	return 0;
+
+      /* OK transform into builtin memcpy.  */
+      fn = implicit_built_in_decls[BUILT_IN_MEMCPY];
+      if (!fn)
+	return 0;
+      return build_function_call_expr (fn, arglist);
+    }
+}
+
+/* Simplify a call to the memcmp builtin.
+
+   Return 0 if no simplification was possible, otherwise return the
+   simplified form of the call as a tree.
+
+   The simplified form may be a constant or other expression which
+   computes the same value, but in a more efficient manner (including
+   calls to other builtin functions).
+
+   The call may contain arguments which need to be evaluated, but
+   which are not useful to determine the result of the call.  In
+   this case we return a chain of COMPOUND_EXPRs.  The LHS of each
+   COMPOUND_EXPR will be an argument which must be evaluated.
+   COMPOUND_EXPRs are chained through their RHS.  The RHS of the last
+   COMPOUND_EXPR in the chain will contain the tree for the simplified
+   form of the builtin function call.  */
+
+static tree
+simplify_builtin_memcmp (tree arglist)
+{
+  tree arg1, arg2, len;
+  const char *p1, *p2;
+
+  if (!validate_arglist (arglist,
+			 POINTER_TYPE, POINTER_TYPE, INTEGER_TYPE, VOID_TYPE))
+    return 0;
+
+  arg1 = TREE_VALUE (arglist);
+  arg2 = TREE_VALUE (TREE_CHAIN (arglist));
+  len = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
+
+  /* If the len parameter is zero, return zero.  */
+  if (host_integerp (len, 1) && tree_low_cst (len, 1) == 0)
+    {
+      /* Evaluate and ignore arg1 and arg2 in case they have
+         side-effects.  */
+      return build2 (COMPOUND_EXPR, integer_type_node, arg1,
+		     build2 (COMPOUND_EXPR, integer_type_node,
+			     arg2, integer_zero_node));
+    }
+
+  p1 = c_getstr (arg1);
+  p2 = c_getstr (arg2);
+
+  /* If all arguments are constant, and the value of len is not greater
+     than the lengths of arg1 and arg2, evaluate at compile-time.  */
+  if (host_integerp (len, 1) && p1 && p2
+      && compare_tree_int (len, strlen (p1) + 1) <= 0
+      && compare_tree_int (len, strlen (p2) + 1) <= 0)
+    {
+      const int r = memcmp (p1, p2, tree_low_cst (len, 1));
+
+      return (r < 0
+	      ? integer_minus_one_node
+	      : (r > 0 ? integer_one_node : integer_zero_node));
+    }
+
+  /* If len parameter is one, return an expression corresponding to
+     (*(const unsigned char*)arg1 - (const unsigned char*)arg2).  */
+  if (host_integerp (len, 1) && tree_low_cst (len, 1) == 1)
+    {
+      tree cst_uchar_node = build_type_variant (unsigned_char_type_node, 1, 0);
+      tree cst_uchar_ptr_node = build_pointer_type (cst_uchar_node);
+      tree ind1 =
+      fold (build1 (CONVERT_EXPR, integer_type_node,
+		    build1 (INDIRECT_REF, cst_uchar_node,
+			    build1 (NOP_EXPR, cst_uchar_ptr_node, arg1))));
+      tree ind2 =
+      fold (build1 (CONVERT_EXPR, integer_type_node,
+		    build1 (INDIRECT_REF, cst_uchar_node,
+			    build1 (NOP_EXPR, cst_uchar_ptr_node, arg2))));
+      return fold (build2 (MINUS_EXPR, integer_type_node, ind1, ind2));
+    }
+
+  return 0;
+}
+
+/* Simplify a call to the strcmp builtin.
+
+   Return 0 if no simplification was possible, otherwise return the
+   simplified form of the call as a tree.
+
+   The simplified form may be a constant or other expression which
+   computes the same value, but in a more efficient manner (including
+   calls to other builtin functions).
+
+   The call may contain arguments which need to be evaluated, but
+   which are not useful to determine the result of the call.  In
+   this case we return a chain of COMPOUND_EXPRs.  The LHS of each
+   COMPOUND_EXPR will be an argument which must be evaluated.
+   COMPOUND_EXPRs are chained through their RHS.  The RHS of the last
+   COMPOUND_EXPR in the chain will contain the tree for the simplified
+   form of the builtin function call.  */
+
+static tree
+simplify_builtin_strcmp (tree arglist)
+{
+  tree arg1, arg2;
+  const char *p1, *p2;
+
+  if (!validate_arglist (arglist, POINTER_TYPE, POINTER_TYPE, VOID_TYPE))
+    return 0;
+
+  arg1 = TREE_VALUE (arglist);
+  arg2 = TREE_VALUE (TREE_CHAIN (arglist));
+
+  /* If both arguments are equal (and not volatile), return zero.  */
+  if (operand_equal_p (arg1, arg2, 0))
+    return integer_zero_node;
+
+  p1 = c_getstr (arg1);
+  p2 = c_getstr (arg2);
+
+  if (p1 && p2)
+    {
+      const int i = strcmp (p1, p2);
+      return (i < 0
+	      ? integer_minus_one_node
+	      : (i > 0 ? integer_one_node : integer_zero_node));
+    }
+
+  /* If either arg is "", return an expression corresponding to
+     (*(const unsigned char*)arg1 - (const unsigned char*)arg2).  */
+  if ((p1 && *p1 == '\0') || (p2 && *p2 == '\0'))
+    {
+      tree cst_uchar_node = build_type_variant (unsigned_char_type_node, 1, 0);
+      tree cst_uchar_ptr_node = build_pointer_type (cst_uchar_node);
+      tree ind1 =
+	fold (build1 (CONVERT_EXPR, integer_type_node,
+		      build1 (INDIRECT_REF, cst_uchar_node,
+			      build1 (NOP_EXPR, cst_uchar_ptr_node, arg1))));
+      tree ind2 =
+	fold (build1 (CONVERT_EXPR, integer_type_node,
+		      build1 (INDIRECT_REF, cst_uchar_node,
+			      build1 (NOP_EXPR, cst_uchar_ptr_node, arg2))));
+      return fold (build2 (MINUS_EXPR, integer_type_node, ind1, ind2));
+    }
+
+  return 0;
+}
+
+/* Simplify a call to the strncmp builtin.
+
+   Return 0 if no simplification was possible, otherwise return the
+   simplified form of the call as a tree.
+
+   The simplified form may be a constant or other expression which
+   computes the same value, but in a more efficient manner (including
+   calls to other builtin functions).
+
+   The call may contain arguments which need to be evaluated, but
+   which are not useful to determine the result of the call.  In
+   this case we return a chain of COMPOUND_EXPRs.  The LHS of each
+   COMPOUND_EXPR will be an argument which must be evaluated.
+   COMPOUND_EXPRs are chained through their RHS.  The RHS of the last
+   COMPOUND_EXPR in the chain will contain the tree for the simplified
+   form of the builtin function call.  */
+
+static tree
+simplify_builtin_strncmp (tree arglist)
+{
+  tree arg1, arg2, arg3;
+  const char *p1, *p2;
+
+  if (!validate_arglist (arglist,
+			 POINTER_TYPE, POINTER_TYPE, INTEGER_TYPE, VOID_TYPE))
+    return 0;
+
+  arg1 = TREE_VALUE (arglist);
+  arg2 = TREE_VALUE (TREE_CHAIN (arglist));
+  arg3 = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
+
+  /* If the len parameter is zero, return zero.  */
+  if (integer_zerop (arg3))
+    {
+      /* Evaluate and ignore arg1 and arg2 in case they have
+	 side-effects.  */
+      return build2 (COMPOUND_EXPR, integer_type_node, arg1,
+		     build2 (COMPOUND_EXPR, integer_type_node,
+			     arg2, integer_zero_node));
+    }
+
+  /* If arg1 and arg2 are equal (and not volatile), return zero.  */
+  if (operand_equal_p (arg1, arg2, 0))
+    /* Evaluate and ignore arg3 in case it has side-effects.  */
+    return omit_one_operand (integer_type_node, integer_zero_node, arg3);
+
+  p1 = c_getstr (arg1);
+  p2 = c_getstr (arg2);
+
+  /* If all arguments are constant, evaluate at compile-time.  */
+  if (host_integerp (arg3, 1) && p1 && p2)
+    {
+      const int r = strncmp (p1, p2, tree_low_cst (arg3, 1));
+      return (r < 0
+	      ? integer_minus_one_node
+	      : (r > 0 ? integer_one_node : integer_zero_node));
+    }
+
+  /* If len == 1 or (either string parameter is "" and (len >= 1)),
+      return (*(const u_char*)arg1 - *(const u_char*)arg2).  */
+  if (host_integerp (arg3, 1)
+      && (tree_low_cst (arg3, 1) == 1
+	  || (tree_low_cst (arg3, 1) > 1
+	      && ((p1 && *p1 == '\0') || (p2 && *p2 == '\0')))))
+    {
+      tree cst_uchar_node = build_type_variant (unsigned_char_type_node, 1, 0);
+      tree cst_uchar_ptr_node = build_pointer_type (cst_uchar_node);
+      tree ind1 =
+	fold (build1 (CONVERT_EXPR, integer_type_node,
+		      build1 (INDIRECT_REF, cst_uchar_node,
+			      build1 (NOP_EXPR, cst_uchar_ptr_node, arg1))));
+      tree ind2 =
+	fold (build1 (CONVERT_EXPR, integer_type_node,
+		      build1 (INDIRECT_REF, cst_uchar_node,
+			      build1 (NOP_EXPR, cst_uchar_ptr_node, arg2))));
+      return fold (build2 (MINUS_EXPR, integer_type_node, ind1, ind2));
+    }
+
+  return 0;
+}
+
+/* Simplify a call to the strcat builtin.
+
+   Return 0 if no simplification was possible, otherwise return the
+   simplified form of the call as a tree.
+
+   The simplified form may be a constant or other expression which
+   computes the same value, but in a more efficient manner (including
+   calls to other builtin functions).
+
+   The call may contain arguments which need to be evaluated, but
+   which are not useful to determine the result of the call.  In
+   this case we return a chain of COMPOUND_EXPRs.  The LHS of each
+   COMPOUND_EXPR will be an argument which must be evaluated.
+   COMPOUND_EXPRs are chained through their RHS.  The RHS of the last
+   COMPOUND_EXPR in the chain will contain the tree for the simplified
+   form of the builtin function call.  */
+
+static tree
+simplify_builtin_strcat (tree arglist)
+{
+  if (!validate_arglist (arglist, POINTER_TYPE, POINTER_TYPE, VOID_TYPE))
+    return 0;
+  else
+    {
+      tree dst = TREE_VALUE (arglist),
+	src = TREE_VALUE (TREE_CHAIN (arglist));
+      const char *p = c_getstr (src);
+
+      /* If the string length is zero, return the dst parameter.  */
+      if (p && *p == '\0')
+	return dst;
+
+      return 0;
+    }
+}
+
+/* Simplify a call to the strncat builtin.
+
+   Return 0 if no simplification was possible, otherwise return the
+   simplified form of the call as a tree.
+
+   The simplified form may be a constant or other expression which
+   computes the same value, but in a more efficient manner (including
+   calls to other builtin functions).
+
+   The call may contain arguments which need to be evaluated, but
+   which are not useful to determine the result of the call.  In
+   this case we return a chain of COMPOUND_EXPRs.  The LHS of each
+   COMPOUND_EXPR will be an argument which must be evaluated.
+   COMPOUND_EXPRs are chained through their RHS.  The RHS of the last
+   COMPOUND_EXPR in the chain will contain the tree for the simplified
+   form of the builtin function call.  */
+
+static tree
+simplify_builtin_strncat (tree arglist)
+{
+  if (!validate_arglist (arglist,
+			 POINTER_TYPE, POINTER_TYPE, INTEGER_TYPE, VOID_TYPE))
+    return 0;
+  else
+    {
+      tree dst = TREE_VALUE (arglist);
+      tree src = TREE_VALUE (TREE_CHAIN (arglist));
+      tree len = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
+      const char *p = c_getstr (src);
+
+      /* If the requested length is zero, or the src parameter string
+          length is zero, return the dst parameter.  */
+      if (integer_zerop (len) || (p && *p == '\0'))
+	return build2 (COMPOUND_EXPR, TREE_TYPE (dst), src,
+		       build2 (COMPOUND_EXPR, integer_type_node, len, dst));
+
+      /* If the requested len is greater than or equal to the string
+         length, call strcat.  */
+      if (TREE_CODE (len) == INTEGER_CST && p
+	  && compare_tree_int (len, strlen (p)) >= 0)
+	{
+	  tree newarglist
+	    = tree_cons (NULL_TREE, dst, build_tree_list (NULL_TREE, src));
+	  tree fn = implicit_built_in_decls[BUILT_IN_STRCAT];
+
+	  /* If the replacement _DECL isn't initialized, don't do the
+	     transformation.  */
+	  if (!fn)
+	    return 0;
+
+	  return build_function_call_expr (fn, newarglist);
+	}
+      return 0;
+    }
+}
+
+/* Simplify a call to the strspn builtin.
+
+   Return 0 if no simplification was possible, otherwise return the
+   simplified form of the call as a tree.
+
+   The simplified form may be a constant or other expression which
+   computes the same value, but in a more efficient manner (including
+   calls to other builtin functions).
+
+   The call may contain arguments which need to be evaluated, but
+   which are not useful to determine the result of the call.  In
+   this case we return a chain of COMPOUND_EXPRs.  The LHS of each
+   COMPOUND_EXPR will be an argument which must be evaluated.
+   COMPOUND_EXPRs are chained through their RHS.  The RHS of the last
+   COMPOUND_EXPR in the chain will contain the tree for the simplified
+   form of the builtin function call.  */
+
+static tree
+simplify_builtin_strspn (tree arglist)
+{
+  if (!validate_arglist (arglist, POINTER_TYPE, POINTER_TYPE, VOID_TYPE))
+    return 0;
+  else
+    {
+      tree s1 = TREE_VALUE (arglist), s2 = TREE_VALUE (TREE_CHAIN (arglist));
+      const char *p1 = c_getstr (s1), *p2 = c_getstr (s2);
+
+      /* If both arguments are constants, evaluate at compile-time.  */
+      if (p1 && p2)
+	{
+	  const size_t r = strspn (p1, p2);
+	  return size_int (r);
+	}
+
+      /* If either argument is "", return 0.  */
+      if ((p1 && *p1 == '\0') || (p2 && *p2 == '\0'))
+	{
+	  /* Evaluate and ignore both arguments in case either one has
+	     side-effects.  */
+	  return build2 (COMPOUND_EXPR, integer_type_node, s1,
+			 build2 (COMPOUND_EXPR, integer_type_node,
+				 s2, integer_zero_node));
+	}
+      return 0;
+    }
+}
+
+/* Simplify a call to the strcspn builtin.
+
+   Return 0 if no simplification was possible, otherwise return the
+   simplified form of the call as a tree.
+
+   The simplified form may be a constant or other expression which
+   computes the same value, but in a more efficient manner (including
+   calls to other builtin functions).
+
+   The call may contain arguments which need to be evaluated, but
+   which are not useful to determine the result of the call.  In
+   this case we return a chain of COMPOUND_EXPRs.  The LHS of each
+   COMPOUND_EXPR will be an argument which must be evaluated.
+   COMPOUND_EXPRs are chained through their RHS.  The RHS of the last
+   COMPOUND_EXPR in the chain will contain the tree for the simplified
+   form of the builtin function call.  */
+
+static tree
+simplify_builtin_strcspn (tree arglist)
+{
+  if (!validate_arglist (arglist, POINTER_TYPE, POINTER_TYPE, VOID_TYPE))
+    return 0;
+  else
+    {
+      tree s1 = TREE_VALUE (arglist), s2 = TREE_VALUE (TREE_CHAIN (arglist));
+      const char *p1 = c_getstr (s1), *p2 = c_getstr (s2);
+
+      /* If both arguments are constants, evaluate at compile-time.  */
+      if (p1 && p2)
+	{
+	  const size_t r = strcspn (p1, p2);
+	  return size_int (r);
+	}
+
+      /* If the first argument is "", return 0.  */
+      if (p1 && *p1 == '\0')
+	{
+	  /* Evaluate and ignore argument s2 in case it has
+	     side-effects.  */
+	  return omit_one_operand (integer_type_node,
+				   integer_zero_node, s2);
+	}
+
+      /* If the second argument is "", return __builtin_strlen(s1).  */
+      if (p2 && *p2 == '\0')
+	{
+	  tree newarglist = build_tree_list (NULL_TREE, s1),
+	    fn = implicit_built_in_decls[BUILT_IN_STRLEN];
+
+	  /* If the replacement _DECL isn't initialized, don't do the
+	     transformation.  */
+	  if (!fn)
+	    return 0;
+
+	  return build_function_call_expr (fn, newarglist);
+	}
+      return 0;
+    }
+}
+
+/* Simplify a call to the fputs builtin.
+
+   Return 0 if no simplification was possible, otherwise return the
+   simplified form of the call as a tree.
+
+   The simplified form may be a constant or other expression which
+   computes the same value, but in a more efficient manner (including
+   calls to other builtin functions).
+
+   The call may contain arguments which need to be evaluated, but
+   which are not useful to determine the result of the call.  In
+   this case we return a chain of COMPOUND_EXPRs.  The LHS of each
+   COMPOUND_EXPR will be an argument which must be evaluated.
+   COMPOUND_EXPRs are chained through their RHS.  The RHS of the last
+   COMPOUND_EXPR in the chain will contain the tree for the simplified
+   form of the builtin function call.
+
+   If KNOWN_LEN is non-NULL, it represents the known length of the string.
+   This is determined by SSA-CCP in cases where the string itself is not
+   known to be constant but its length is always the same constant.  */
+
+tree
+simplify_builtin_fputs (tree arglist, int ignore, int unlocked, tree known_len)
+{
+  tree len, fn;
+  tree fn_fputc = unlocked ? implicit_built_in_decls[BUILT_IN_FPUTC_UNLOCKED]
+    : implicit_built_in_decls[BUILT_IN_FPUTC];
+  tree fn_fwrite = unlocked ? implicit_built_in_decls[BUILT_IN_FWRITE_UNLOCKED]
+    : implicit_built_in_decls[BUILT_IN_FWRITE];
+
+  /* If the return value is used, or the replacement _DECL isn't
+     initialized, don't do the transformation.  */
+  if (!ignore || !fn_fputc || !fn_fwrite)
+    return 0;
+
+  /* Verify the arguments in the original call.  */
+  if (!validate_arglist (arglist, POINTER_TYPE, POINTER_TYPE, VOID_TYPE))
+    return 0;
+
+  len = (known_len) ? known_len : c_strlen (TREE_VALUE (arglist), 0);
+
+  /* Get the length of the string passed to fputs.  If the length
+     can't be determined, punt.  */
+  if (!len
+      || TREE_CODE (len) != INTEGER_CST)
+    return 0;
+
+  switch (compare_tree_int (len, 1))
+    {
+    case -1: /* length is 0, delete the call entirely .  */
+      return omit_one_operand (integer_type_node, integer_zero_node,
+			       TREE_VALUE (TREE_CHAIN (arglist)));
+
+    case 0: /* length is 1, call fputc.  */
+      {
+	const char *p = c_getstr (TREE_VALUE (arglist));
+
+	if (p != NULL)
+	  {
+	    /* New argument list transforming fputs(string, stream) to
+	       fputc(string[0], stream).  */
+	    arglist =
+	      build_tree_list (NULL_TREE, TREE_VALUE (TREE_CHAIN (arglist)));
+	    arglist =
+	      tree_cons (NULL_TREE, build_int_2 (p[0], 0), arglist);
+	    fn = fn_fputc;
+	    break;
+	  }
+      }
+      /* FALLTHROUGH */
+    case 1: /* length is greater than 1, call fwrite.  */
+      {
+	tree string_arg;
+
+	/* If optimizing for size keep fputs. */
+	if (optimize_size)
+	  return 0;
+	string_arg = TREE_VALUE (arglist);
+	/* New argument list transforming fputs(string, stream) to
+	   fwrite(string, 1, len, stream).  */
+	arglist = build_tree_list (NULL_TREE, TREE_VALUE (TREE_CHAIN (arglist)));
+	arglist = tree_cons (NULL_TREE, len, arglist);
+	arglist = tree_cons (NULL_TREE, size_one_node, arglist);
+	arglist = tree_cons (NULL_TREE, string_arg, arglist);
+	fn = fn_fwrite;
+	break;
+      }
+    default:
+      abort ();
+    }
+
+  return build_function_call_expr (fn, arglist);
+}
+
+static void
+simplify_builtin_va_start (tree arglist)
+{
+  tree chain = TREE_CHAIN (arglist);
+
+  if (TREE_CHAIN (chain))
+    error ("too many arguments to function `va_start'");
+
+  simplify_builtin_next_arg (chain);
+}
+
+static void
+simplify_builtin_next_arg (tree arglist)
+{
+  tree fntype = TREE_TYPE (current_function_decl);
+
+  if (TYPE_ARG_TYPES (fntype) == 0
+      || (TREE_VALUE (tree_last (TYPE_ARG_TYPES (fntype)))
+	  == void_type_node))
+    error ("`va_start' used in function with fixed args");
+  else if (arglist)
+    {
+      tree last_parm = tree_last (DECL_ARGUMENTS (current_function_decl));
+      tree arg = TREE_VALUE (arglist);
+
+      /* Strip off all nops for the sake of the comparison.  This
+	 is not quite the same as STRIP_NOPS.  It does more.
+	 We must also strip off INDIRECT_EXPR for C++ reference
+	 parameters.  */
+      while (TREE_CODE (arg) == NOP_EXPR
+	     || TREE_CODE (arg) == CONVERT_EXPR
+	     || TREE_CODE (arg) == NON_LVALUE_EXPR
+	     || TREE_CODE (arg) == INDIRECT_REF)
+	arg = TREE_OPERAND (arg, 0);
+      if (arg != last_parm)
+	warning ("second parameter of `va_start' not last named argument");
+      TREE_VALUE (arglist) = arg;
+    }
+  else
+    /* Evidently an out of date version of <stdarg.h>; can't validate
+       va_start's second argument, but can still work as intended.  */
+    warning ("`__builtin_next_arg' called without an argument");
+}
+
+
+/* Simplify a call to the sprintf builtin.
+
+   Return 0 if no simplification was possible, otherwise return the
+   simplified form of the call as a tree.  If IGNORED is true, it means that
+   the caller does not use the returned value of the function.  */
+
+static tree
+simplify_builtin_sprintf (tree arglist, int ignored)
+{
+  tree call, retval, dest, fmt;
+  const char *fmt_str = NULL;
+
+  /* Verify the required arguments in the original call.  We deal with two
+     types of sprintf() calls: 'sprintf (str, fmt)' and
+     'sprintf (dest, "%s", orig)'.  */
+  if (!validate_arglist (arglist, POINTER_TYPE, POINTER_TYPE, VOID_TYPE)
+      && !validate_arglist (arglist, POINTER_TYPE, POINTER_TYPE, POINTER_TYPE,
+	                    VOID_TYPE))
+    return NULL_TREE;
+
+  /* Get the destination string and the format specifier.  */
+  dest = TREE_VALUE (arglist);
+  fmt = TREE_VALUE (TREE_CHAIN (arglist));
+
+  /* Check whether the format is a literal string constant.  */
+  fmt_str = c_getstr (fmt);
+  if (fmt_str == NULL)
+    return NULL_TREE;
+
+  call = NULL_TREE;
+  retval = NULL_TREE;
+
+  /* If the format doesn't contain % args or %%, use strcpy.  */
+  if (strchr (fmt_str, '%') == NULL)
+    {
+      tree fn = implicit_built_in_decls[BUILT_IN_STRCPY];
+
+      if (!fn)
+	return NULL_TREE;
+
+      /* Convert sprintf (str, fmt) into strcpy (str, fmt) when
+	 'format' is known to contain no % formats.  */
+      arglist = build_tree_list (NULL_TREE, fmt);
+      arglist = tree_cons (NULL_TREE, dest, arglist);
+      call = build_function_call_expr (fn, arglist);
+      if (!ignored)
+	retval = build_int_2 (strlen (fmt_str), 0);
+    }
+
+  /* If the format is "%s", use strcpy if the result isn't used.  */
+  else if (fmt_str && strcmp (fmt_str, "%s") == 0)
+    {
+      tree fn, orig;
+      fn = implicit_built_in_decls[BUILT_IN_STRCPY];
+
+      if (!fn)
+	return NULL_TREE;
+
+      /* Convert sprintf (str1, "%s", str2) into strcpy (str1, str2).  */
+      orig = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
+      arglist = build_tree_list (NULL_TREE, orig);
+      arglist = tree_cons (NULL_TREE, dest, arglist);
+      if (!ignored)
+	{
+	  retval = c_strlen (orig, 1);
+	  if (!retval || TREE_CODE (retval) != INTEGER_CST)
+	    return NULL_TREE;
+	}
+      call = build_function_call_expr (fn, arglist);
+    }
+
+  if (call && retval)
+    {
+      retval = convert
+	(TREE_TYPE (TREE_TYPE (implicit_built_in_decls[BUILT_IN_SPRINTF])),
+	 retval);
+      return build2 (COMPOUND_EXPR, TREE_TYPE (retval), call, retval);
+    }
+  else
+    return call;
 }

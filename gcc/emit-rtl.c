@@ -97,8 +97,6 @@ rtx global_rtl[GR_MAX];
    at the beginning of each function.  */
 static GTY(()) rtx static_regno_reg_rtx[FIRST_PSEUDO_REGISTER];
 
-rtx (*gen_lowpart) (enum machine_mode mode, rtx x) = gen_lowpart_general;
-
 /* We record floating-point CONST_DOUBLEs in each floating-point mode for
    the values of 0, 1, and 2.  For the integer entries and VOIDmode, we
    record a copy of const[012]_rtx.  */
@@ -748,13 +746,96 @@ gen_reg_rtx (enum machine_mode mode)
   return val;
 }
 
-/* Generate a register with same attributes as REG,
-   but offsetted by OFFSET.  */
+/* Generate a register with same attributes as REG, but offsetted by OFFSET.
+   Do the big endian correction if needed.  */
 
 rtx
 gen_rtx_REG_offset (rtx reg, enum machine_mode mode, unsigned int regno, int offset)
 {
   rtx new = gen_rtx_REG (mode, regno);
+  tree decl;
+  HOST_WIDE_INT var_size;
+
+  /* PR middle-end/14084
+     The problem appears when a variable is stored in a larger register
+     and later it is used in the original mode or some mode in between
+     or some part of variable is accessed.
+
+     On little endian machines there is no problem because
+     the REG_OFFSET of the start of the variable is the same when
+     accessed in any mode (it is 0).
+
+     However, this is not true on big endian machines.
+     The offset of the start of the variable is different when accessed
+     in different modes.
+     When we are taking a part of the REG we have to change the OFFSET
+     from offset WRT size of mode of REG to offset WRT size of variable.
+
+     If we would not do the big endian correction the resulting REG_OFFSET
+     would be larger than the size of the DECL.
+
+     Examples of correction, for BYTES_BIG_ENDIAN WORDS_BIG_ENDIAN machine:
+
+     REG.mode  MODE  DECL size  old offset  new offset  description
+     DI        SI    4          4           0           int32 in SImode
+     DI        SI    1          4           0           char in SImode
+     DI        QI    1          7           0           char in QImode
+     DI        QI    4          5           1           1st element in QImode
+                                                        of char[4]
+     DI        HI    4          6           2           1st element in HImode
+                                                        of int16[2]
+
+     If the size of DECL is equal or greater than the size of REG
+     we can't do this correction because the register holds the
+     whole variable or a part of the variable and thus the REG_OFFSET
+     is already correct.  */
+
+  decl = REG_EXPR (reg);
+  if ((BYTES_BIG_ENDIAN || WORDS_BIG_ENDIAN)
+      && decl != NULL
+      && offset > 0
+      && GET_MODE_SIZE (GET_MODE (reg)) > GET_MODE_SIZE (mode)
+      && ((var_size = int_size_in_bytes (TREE_TYPE (decl))) > 0
+	  && var_size < GET_MODE_SIZE (GET_MODE (reg))))
+    {
+      int offset_le;
+
+      /* Convert machine endian to little endian WRT size of mode of REG.  */
+      if (WORDS_BIG_ENDIAN)
+	offset_le = ((GET_MODE_SIZE (GET_MODE (reg)) - 1 - offset)
+		     / UNITS_PER_WORD) * UNITS_PER_WORD;
+      else
+	offset_le = (offset / UNITS_PER_WORD) * UNITS_PER_WORD;
+
+      if (BYTES_BIG_ENDIAN)
+	offset_le += ((GET_MODE_SIZE (GET_MODE (reg)) - 1 - offset)
+		      % UNITS_PER_WORD);
+      else
+	offset_le += offset % UNITS_PER_WORD;
+
+      if (offset_le >= var_size)
+	{
+	  /* MODE is wider than the variable so the new reg will cover
+	     the whole variable so the resulting OFFSET should be 0.  */
+	  offset = 0;
+	}
+      else
+	{
+	  /* Convert little endian to machine endian WRT size of variable.  */
+	  if (WORDS_BIG_ENDIAN)
+	    offset = ((var_size - 1 - offset_le)
+		      / UNITS_PER_WORD) * UNITS_PER_WORD;
+	  else
+	    offset = (offset_le / UNITS_PER_WORD) * UNITS_PER_WORD;
+
+	  if (BYTES_BIG_ENDIAN)
+	    offset += ((var_size - 1 - offset_le)
+		       % UNITS_PER_WORD);
+	  else
+	    offset += offset_le % UNITS_PER_WORD;
+	}
+    }
+
   REG_ATTRS (new) = get_reg_attrs (REG_EXPR (reg),
 				   REG_OFFSET (reg) + offset);
   return new;
@@ -928,6 +1009,17 @@ int
 get_first_label_num (void)
 {
   return first_label_num;
+}
+
+/* If the rtx for label was created during the expansion of a nested
+   function, then first_label_num won't include this label number.
+   Fix this now so that array indicies work later.  */
+
+void
+maybe_set_first_label_num (rtx x)
+{
+  if (CODE_LABEL_NUMBER (x) < first_label_num)
+    first_label_num = CODE_LABEL_NUMBER (x);
 }
 
 /* Return the final regno of X, which is a SUBREG of a hard
@@ -1113,62 +1205,6 @@ gen_imagpart (enum machine_mode mode, rtx x)
     return gen_highpart (mode, x);
 }
 
-/* Assuming that X is an rtx (e.g., MEM, REG or SUBREG) for a value,
-   return an rtx (MEM, SUBREG, or CONST_INT) that refers to the
-   least-significant part of X.
-   MODE specifies how big a part of X to return;
-   it usually should not be larger than a word.
-   If X is a MEM whose address is a QUEUED, the value may be so also.  */
-
-rtx
-gen_lowpart_general (enum machine_mode mode, rtx x)
-{
-  rtx result = gen_lowpart_common (mode, x);
-
-  if (result)
-    return result;
-  else if (GET_CODE (x) == REG)
-    {
-      /* Must be a hard reg that's not valid in MODE.  */
-      result = gen_lowpart_common (mode, copy_to_reg (x));
-      if (result == 0)
-	abort ();
-      return result;
-    }
-  else if (GET_CODE (x) == MEM)
-    {
-      /* The only additional case we can do is MEM.  */
-      int offset = 0;
-
-      /* The following exposes the use of "x" to CSE.  */
-      if (GET_MODE_SIZE (GET_MODE (x)) <= UNITS_PER_WORD
-	  && SCALAR_INT_MODE_P (GET_MODE (x))
-	  && TRULY_NOOP_TRUNCATION (GET_MODE_BITSIZE (mode),
-				    GET_MODE_BITSIZE (GET_MODE (x)))
-	  && ! no_new_pseudos)
-	return gen_lowpart (mode, force_reg (GET_MODE (x), x));
-
-      if (WORDS_BIG_ENDIAN)
-	offset = (MAX (GET_MODE_SIZE (GET_MODE (x)), UNITS_PER_WORD)
-		  - MAX (GET_MODE_SIZE (mode), UNITS_PER_WORD));
-
-      if (BYTES_BIG_ENDIAN)
-	/* Adjust the address so that the address-after-the-data
-	   is unchanged.  */
-	offset -= (MIN (UNITS_PER_WORD, GET_MODE_SIZE (mode))
-		   - MIN (UNITS_PER_WORD, GET_MODE_SIZE (GET_MODE (x))));
-
-      return adjust_address (x, mode, offset);
-    }
-  else if (GET_CODE (x) == ADDRESSOF)
-    return gen_lowpart (mode, force_reg (GET_MODE (x), x));
-  else
-    abort ();
-}
-
-/* Like `gen_lowpart', but refer to the most significant part.
-   This is used to access the imaginary part of a complex number.  */
-
 rtx
 gen_highpart (enum machine_mode mode, rtx x)
 {
@@ -2387,8 +2423,8 @@ copy_most_rtx (rtx orig, rtx may_share)
   RTX_FLAG (copy, in_struct) = RTX_FLAG (orig, in_struct);
   RTX_FLAG (copy, volatil) = RTX_FLAG (orig, volatil);
   RTX_FLAG (copy, unchanging) = RTX_FLAG (orig, unchanging);
-  RTX_FLAG (copy, integrated) = RTX_FLAG (orig, integrated);
   RTX_FLAG (copy, frame_related) = RTX_FLAG (orig, frame_related);
+  RTX_FLAG (copy, return_val) = RTX_FLAG (orig, return_val);
 
   format_ptr = GET_RTX_FORMAT (GET_CODE (copy));
 
@@ -3072,6 +3108,21 @@ prev_label (rtx insn)
     }
 
   return insn;
+}
+
+/* Return the last label to mark the same position as LABEL.  Return null
+   if LABEL itself is null.  */
+
+rtx
+skip_consecutive_labels (rtx label)
+{
+  rtx insn;
+
+  for (insn = label; insn != 0 && !INSN_P (insn); insn = NEXT_INSN (insn))
+    if (LABEL_P (insn))
+      label = insn;
+
+  return label;
 }
 
 #ifdef HAVE_cc0

@@ -32,14 +32,23 @@ Boston, MA 02111-1307, USA.  */
 #include "diagnostic.h"
 #include "debug.h"
 
+/* The bindings for a particular name in a particular scope.  */
+
+struct scope_binding {
+  tree value;
+  tree type;
+};
+#define EMPTY_SCOPE_BINDING { NULL_TREE, NULL_TREE }
+
 static cxx_scope *innermost_nonclass_level (void);
-static tree select_decl (cxx_binding *, int);
+static tree select_decl (const struct scope_binding *, int);
 static cxx_binding *binding_for_name (cxx_scope *, tree);
 static tree lookup_name_current_level (tree);
 static tree push_overloaded_decl (tree, int);
-static bool lookup_using_namespace (tree, cxx_binding *, tree,
+static bool lookup_using_namespace (tree, struct scope_binding *, tree,
                                     tree, int);
-static bool qualified_lookup_using_namespace (tree, tree, cxx_binding *, int);
+static bool qualified_lookup_using_namespace (tree, tree,
+					      struct scope_binding *, int);
 static tree lookup_type_current_level (tree);
 static tree push_using_directive (tree);
 static void cp_emit_debug_info_for_using (tree, tree);
@@ -319,9 +328,6 @@ binding_table_foreach (binding_table table, bt_foreach_proc proc, void *data)
 
 static GTY((deletable)) cxx_binding *free_bindings;
 
-/* Zero out a cxx_binding pointed to by B.  */
-#define cxx_binding_clear(B) memset ((B), 0, sizeof (cxx_binding))
-
 /* (GC)-allocate a binding object with VALUE and TYPE member initialized.  */
 
 static cxx_binding *
@@ -497,11 +503,22 @@ supplement_binding (cxx_binding *binding, tree decl)
       duplicate_decls (decl, binding->value);
       ok = false;
     }
+  else if (TREE_CODE (decl) == NAMESPACE_DECL
+	   && TREE_CODE (bval) == NAMESPACE_DECL
+	   && DECL_NAMESPACE_ALIAS (decl)
+	   && DECL_NAMESPACE_ALIAS (bval)
+	   && ORIGINAL_NAMESPACE (bval) == ORIGINAL_NAMESPACE (decl))
+    /* [namespace.alias]
+       
+      In a declarative region, a namespace-alias-definition can be
+      used to redefine a namespace-alias declared in that declarative
+      region to refer only to the namespace to which it already
+      refers.  */
+    ok = false;
   else
     {
       error ("declaration of `%#D'", decl);
-      cp_error_at ("conflicts with previous declaration `%#D'",
-		   binding->value);
+      cp_error_at ("conflicts with previous declaration `%#D'", bval);
       ok = false;
     }
 
@@ -1145,6 +1162,10 @@ check_for_out_of_scope_variable (tree decl)
     return decl;
 
   DECL_ERROR_REPORTED (decl) = 1;
+
+  if (TREE_TYPE (decl) == error_mark_node)
+    return decl;
+
   if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (TREE_TYPE (decl)))
     {
       error ("name lookup of `%D' changed for new ISO `for' scoping",
@@ -2116,10 +2137,9 @@ static void
 do_nonmember_using_decl (tree scope, tree name, tree oldval, tree oldtype,
                          tree *newval, tree *newtype)
 {
-  cxx_binding decls;
+  struct scope_binding decls = EMPTY_SCOPE_BINDING;
 
   *newval = *newtype = NULL_TREE;
-  cxx_binding_clear (&decls);
   if (!qualified_lookup_using_namespace (name, scope, &decls, 0))
     /* Lookup error */
     return;
@@ -2362,23 +2382,24 @@ lookup_tag (enum tree_code form, tree name,
 	  {
             cxx_binding *binding =
               cxx_scope_find_binding_for_name (NAMESPACE_LEVEL (tail), name);
-	    tree old;
 
-	    /* If we just skipped past a template parameter level,
-	       even though THISLEVEL_ONLY, and we find a template
-	       class declaration, then we use the _TYPE node for the
-	       template.  See the example below.  */
-	    if (thislevel_only && !allow_template_parms_p
-		&& binding && binding->value
-		&& DECL_CLASS_TEMPLATE_P (binding->value))
-	      old = binding->value;
-	    else if (binding)
-	      old = select_decl (binding, LOOKUP_PREFER_TYPES);
-            else
-              old = NULL_TREE;
-
-	    if (old)
+	    if (binding && (binding->type
+			    || (binding->value 
+				&& DECL_DECLARES_TYPE_P (binding->value))))
 	      {
+		tree old;
+		
+		/* If we just skipped past a template parameter level,
+		   even though THISLEVEL_ONLY, and we find a template
+		   class declaration, then we use the _TYPE node for the
+		   template.  See the example below.  */
+		if (thislevel_only && !allow_template_parms_p
+		    && binding->value
+		    && DECL_CLASS_TEMPLATE_P (binding->value))
+		  old = binding->value;
+		else
+		  old = binding->type ? binding->type : binding->value;
+
 		/* We've found something at this binding level.  If it is
 		   a typedef, extract the tag it refers to.  Lookup fails
 		   if the typedef doesn't refer to a taggable type.  */
@@ -3493,8 +3514,9 @@ merge_functions (tree s1, tree s2)
    XXX In what way should I treat extern declarations?
    XXX I don't want to repeat the entire duplicate_decls here */
 
-static cxx_binding *
-ambiguous_decl (tree name, cxx_binding *old, cxx_binding *new, int flags)
+static void
+ambiguous_decl (tree name, struct scope_binding *old, cxx_binding *new,
+		int flags)
 {
   tree val, type;
   my_friendly_assert (old != NULL, 393);
@@ -3568,7 +3590,6 @@ ambiguous_decl (tree name, cxx_binding *old, cxx_binding *new, int flags)
           error ("%J  other type here", TYPE_MAIN_DECL (type));
         }
     }
-  return old;
 }
 
 /* Return the declarations that are members of the namespace NS.  */
@@ -3618,7 +3639,7 @@ lookup_namespace_name (tree namespace, tree name)
 {
   tree val;
   tree template_id = NULL_TREE;
-  cxx_binding binding;
+  struct scope_binding binding = EMPTY_SCOPE_BINDING;
 
   timevar_push (TV_NAME_LOOKUP);
   my_friendly_assert (TREE_CODE (namespace) == NAMESPACE_DECL, 370);
@@ -3648,7 +3669,6 @@ lookup_namespace_name (tree namespace, tree name)
 
   my_friendly_assert (TREE_CODE (name) == IDENTIFIER_NODE, 373);
 
-  cxx_binding_clear (&binding);
   if (!qualified_lookup_using_namespace (name, namespace, &binding, 0))
     POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, error_mark_node);
 
@@ -3695,7 +3715,7 @@ lookup_namespace_name (tree namespace, tree name)
 /* Select the right _DECL from multiple choices.  */
 
 static tree
-select_decl (cxx_binding *binding, int flags)
+select_decl (const struct scope_binding *binding, int flags)
 {
   tree val;
   val = binding->value;
@@ -3714,9 +3734,8 @@ select_decl (cxx_binding *binding, int flags)
   if (binding->type && (!val || (flags & LOOKUP_PREFER_TYPES)))
     val = binding->type;
   /* Don't return non-types if we really prefer types.  */
-  else if (val && LOOKUP_TYPES_ONLY (flags)  && TREE_CODE (val) != TYPE_DECL
-	   && (TREE_CODE (val) != TEMPLATE_DECL
-	       || !DECL_CLASS_TEMPLATE_P (val)))
+  else if (val && LOOKUP_TYPES_ONLY (flags) 
+	   && ! DECL_DECLARES_TYPE_P (val))
     val = NULL_TREE;
 
   POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, val);
@@ -3733,10 +3752,9 @@ unqualified_namespace_lookup (tree name, int flags)
   tree siter;
   struct cp_binding_level *level;
   tree val = NULL_TREE;
-  cxx_binding binding;
+  struct scope_binding binding = EMPTY_SCOPE_BINDING;
 
   timevar_push (TV_NAME_LOOKUP);
-  cxx_binding_clear (&binding);
 
   for (; !val; scope = CP_DECL_CONTEXT (scope))
     {
@@ -3800,9 +3818,8 @@ lookup_qualified_name (tree scope, tree name, bool is_type_p, bool complain)
 
   if (TREE_CODE (scope) == NAMESPACE_DECL)
     {
-      cxx_binding binding;
+      struct scope_binding binding = EMPTY_SCOPE_BINDING;
 
-      cxx_binding_clear (&binding);
       flags |= LOOKUP_COMPLAIN;
       if (is_type_p)
 	flags |= LOOKUP_PREFER_TYPES;
@@ -3828,8 +3845,8 @@ lookup_qualified_name (tree scope, tree name, bool is_type_p, bool complain)
    Returns false on errors.  */
 
 static bool
-lookup_using_namespace (tree name, cxx_binding *val, tree usings, tree scope,
-                        int flags)
+lookup_using_namespace (tree name, struct scope_binding *val,
+			tree usings, tree scope, int flags)
 {
   tree iter;
   timevar_push (TV_NAME_LOOKUP);
@@ -3843,7 +3860,7 @@ lookup_using_namespace (tree name, cxx_binding *val, tree usings, tree scope,
           cxx_scope_find_binding_for_name (NAMESPACE_LEVEL (used), name);
         /* Resolve ambiguities.  */
         if (val1)
-          val = ambiguous_decl (name, val, val1, flags);
+          ambiguous_decl (name, val, val1, flags);
       }
   POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, val->value != error_mark_node);
 }
@@ -3854,8 +3871,8 @@ lookup_using_namespace (tree name, cxx_binding *val, tree usings, tree scope,
    or false on error.  */
 
 static bool
-qualified_lookup_using_namespace (tree name, tree scope, cxx_binding *result,
-                                  int flags)
+qualified_lookup_using_namespace (tree name, tree scope,
+				  struct scope_binding *result, int flags)
 {
   /* Maintain a list of namespaces visited...  */
   tree seen = NULL_TREE;
@@ -3872,7 +3889,7 @@ qualified_lookup_using_namespace (tree name, tree scope, cxx_binding *result,
 	cxx_scope_find_binding_for_name (NAMESPACE_LEVEL (scope), name);
       seen = tree_cons (scope, NULL_TREE, seen);
       if (binding)
-        result = ambiguous_decl (name, result, binding, flags);
+        ambiguous_decl (name, result, binding, flags);
 
       /* Consider strong using directives always, and non-strong ones
 	 if we haven't found a binding yet.  ??? Shouldn't we consider
@@ -4447,10 +4464,8 @@ arg_assoc (struct arg_lookup *k, tree n)
 	if (arg_assoc_template_arg (k, TREE_VEC_ELT (args, ix)) == 1)
 	  return true;
     }
-  else
+  else if (TREE_CODE (n) == OVERLOAD)
     {
-      my_friendly_assert (TREE_CODE (n) == OVERLOAD, 980715);
-      
       for (; n; n = OVL_CHAIN (n))
 	if (arg_assoc_type (k, TREE_TYPE (OVL_FUNCTION (n))))
 	  return true;

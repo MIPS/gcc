@@ -3636,6 +3636,21 @@ package body Sem_Ch12 is
       --  Common error routine for mismatch between the parameters of
       --  the actual instance and those of the formal package.
 
+      function Same_Instantiated_Constant (E1, E2 : Entity_Id) return Boolean;
+      --  The formal may come from a nested formal package, and the actual
+      --  may have been constant-folded. To determine whether the two denote
+      --  the same entity we may have to traverse several definitions to
+      --  recover the ultimate entity that they refer to.
+
+      function Same_Instantiated_Variable (E1, E2 : Entity_Id) return Boolean;
+      --  Similarly, if the formal comes from a nested formal package, the
+      --  actual may designate the formal through multiple renamings, which
+      --  have to be followed to determine the original variable in question.
+
+      --------------------
+      -- Check_Mismatch --
+      --------------------
+
       procedure Check_Mismatch (B : Boolean) is
       begin
          if B then
@@ -3644,6 +3659,79 @@ package body Sem_Ch12 is
                Parent (Actual_Pack), E1);
          end if;
       end Check_Mismatch;
+
+      --------------------------------
+      -- Same_Instantiated_Constant --
+      --------------------------------
+
+      function Same_Instantiated_Constant
+        (E1, E2 : Entity_Id) return Boolean
+      is
+         Ent : Entity_Id;
+      begin
+         Ent := E2;
+         while Present (Ent) loop
+            if E1 = Ent then
+               return True;
+
+            elsif Ekind (Ent) /= E_Constant then
+               return False;
+
+            elsif Is_Entity_Name (Constant_Value (Ent)) then
+               if  Entity (Constant_Value (Ent)) = E1 then
+                  return True;
+               else
+                  Ent := Entity (Constant_Value (Ent));
+               end if;
+
+            --  The actual may be a constant that has been folded. Recover
+            --  original name.
+
+            elsif Is_Entity_Name (Original_Node (Constant_Value (Ent))) then
+                  Ent := Entity (Original_Node (Constant_Value (Ent)));
+            else
+               return False;
+            end if;
+         end loop;
+
+         return False;
+      end Same_Instantiated_Constant;
+
+      --------------------------------
+      -- Same_Instantiated_Variable --
+      --------------------------------
+
+      function Same_Instantiated_Variable
+        (E1, E2 : Entity_Id) return Boolean
+      is
+         function Original_Entity (E : Entity_Id) return Entity_Id;
+         --  Follow chain of renamings to the ultimate ancestor.
+
+         ---------------------
+         -- Original_Entity --
+         ---------------------
+
+         function Original_Entity (E : Entity_Id) return Entity_Id is
+            Orig : Entity_Id;
+
+         begin
+            Orig := E;
+            while Nkind (Parent (Orig)) = N_Object_Renaming_Declaration
+              and then Present (Renamed_Object (Orig))
+              and then Is_Entity_Name (Renamed_Object (Orig))
+            loop
+               Orig := Entity (Renamed_Object (Orig));
+            end loop;
+
+            return Orig;
+         end Original_Entity;
+
+      --  Start of processing for Same_Instantiated_Variable
+
+      begin
+         return Ekind (E1) = Ekind (E2)
+           and then Original_Entity (E1) = Original_Entity (E2);
+      end Same_Instantiated_Variable;
 
    --  Start of processing for Check_Formal_Package_Instance
 
@@ -3722,19 +3810,22 @@ package body Sem_Ch12 is
                if Is_Entity_Name (Expr2) then
                   if Entity (Expr1) = Entity (Expr2) then
                      null;
-
-                  elsif Ekind (Entity (Expr2)) = E_Constant
-                     and then Is_Entity_Name (Constant_Value (Entity (Expr2)))
-                     and then
-                      Entity (Constant_Value (Entity (Expr2))) = Entity (Expr1)
-                  then
-                     null;
                   else
-                     Check_Mismatch (True);
+                     Check_Mismatch
+                       (not Same_Instantiated_Constant
+                         (Entity (Expr1), Entity (Expr2)));
                   end if;
                else
                   Check_Mismatch (True);
                end if;
+
+            elsif Is_Entity_Name (Original_Node (Expr1))
+              and then Is_Entity_Name (Expr2)
+            and then
+              Same_Instantiated_Constant
+                (Entity (Original_Node (Expr1)), Entity (Expr2))
+            then
+               null;
 
             elsif Nkind (Expr1) = N_Null then
                Check_Mismatch (Nkind (Expr1) /= N_Null);
@@ -3743,9 +3834,10 @@ package body Sem_Ch12 is
                Check_Mismatch (True);
             end if;
 
-         elsif Ekind (E1) = E_Variable
-           or else Ekind (E1) = E_Package
-         then
+         elsif Ekind (E1) = E_Variable then
+            Check_Mismatch (not Same_Instantiated_Variable (E1, E2));
+
+         elsif Ekind (E1) = E_Package then
             Check_Mismatch
               (Ekind (E1) /= Ekind (E2)
                 or else Renamed_Object (E1) /= Renamed_Object (E2));
@@ -6160,8 +6252,7 @@ package body Sem_Ch12 is
                end loop;
 
             when others =>
-               null;
-               pragma Assert (False);
+               raise Program_Error;
          end case;
       end Find_Matching_Actual;
 
@@ -7299,7 +7390,15 @@ package body Sem_Ch12 is
          if Nkind (Gen_Body) = N_Subprogram_Body_Stub then
 
             --  Either body is not present, or context is non-expanding, as
-            --  when compiling a subunit. Mark the instance as completed.
+            --  when compiling a subunit. Mark the instance as completed, and
+            --  diagnose a missing body when needed.
+
+            if Expander_Active
+              and then Operating_Mode = Generate_Code
+            then
+               Error_Msg_N
+                 ("missing proper body for instantiation", Gen_Body);
+            end if;
 
             Set_Has_Completion (Anon_Id);
             return;
@@ -8649,6 +8748,10 @@ package body Sem_Ch12 is
 
                   Set_In_Private_Part (P);
                end if;
+
+            --  This looks incomplete: what about compilation units that
+            --  were made visible by Install_Parent but should not remain
+            --  visible??? Standard is on the scope stack.
 
             elsif not In_Open_Scopes (Scope (P)) then
                Set_Is_Immediately_Visible (P, False);

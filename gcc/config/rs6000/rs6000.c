@@ -387,6 +387,7 @@ static void enable_mask_for_builtins (struct builtin_description *, int,
 static tree build_opaque_vector_type (tree, int);
 static void spe_init_builtins (void);
 static rtx spe_expand_builtin (tree, rtx, bool *);
+static rtx spe_expand_stv_builtin (enum insn_code, tree);
 static rtx spe_expand_predicate_builtin (enum insn_code, tree, rtx);
 static rtx spe_expand_evsel_builtin (enum insn_code, tree, rtx);
 static int rs6000_emit_int_cmove (rtx, rtx, rtx, rtx);
@@ -1406,13 +1407,16 @@ reg_or_short_operand (rtx op, enum machine_mode mode)
 }
 
 /* Similar, except check if the negation of the constant would be
-   valid for a D-field.  */
+   valid for a D-field.  Don't allow a constant zero, since all the
+   patterns that call this predicate use "addic r1,r2,-constant" on
+   a constant value to set a carry when r2 is greater or equal to
+   "constant".  That doesn't work for zero.  */
 
 int
 reg_or_neg_short_operand (rtx op, enum machine_mode mode)
 {
   if (GET_CODE (op) == CONST_INT)
-    return CONST_OK_FOR_LETTER_P (INTVAL (op), 'P');
+    return CONST_OK_FOR_LETTER_P (INTVAL (op), 'P') && INTVAL (op) != 0;
 
   return gpc_reg_operand (op, mode);
 }
@@ -2417,10 +2421,6 @@ input_operand (rtx op, enum machine_mode mode)
 {
   /* Memory is always valid.  */
   if (memory_operand (op, mode))
-    return 1;
-
-  /* Only a tiny bit of handling for CONSTANT_P_RTX is necessary.  */
-  if (GET_CODE (op) == CONSTANT_P_RTX)
     return 1;
 
   /* For floating-point, easy constants are valid.  */
@@ -3751,10 +3751,6 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
   if (reload_in_progress && mode == Pmode
       && (! general_operand (operands[1], mode)
 	  || ! nonimmediate_operand (operands[0], mode)))
-    goto emit_set;
-
-  /* Handle the case of CONSTANT_P_RTX.  */
-  if (GET_CODE (operands[1]) == CONSTANT_P_RTX)
     goto emit_set;
 
   /* 128-bit constant floating-point values on Darwin should really be
@@ -5152,7 +5148,7 @@ rs6000_va_arg (tree valist, tree type)
   sav = build (COMPONENT_REF, TREE_TYPE (f_sav), valist, f_sav);
 
   size = int_size_in_bytes (type);
-  rsize = (size + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
+  rsize = (size + 3) / 4;
   align = 1;
 
   if (AGGREGATE_TYPE_P (type)
@@ -5166,7 +5162,7 @@ rs6000_va_arg (tree valist, tree type)
       n_reg = 1;
       sav_ofs = 0;
       sav_scale = 4;
-      size = UNITS_PER_WORD;
+      size = 4;
       rsize = 1;
     }
   else if (TARGET_HARD_FLOAT && TARGET_FPRS
@@ -5248,6 +5244,14 @@ rs6000_va_arg (tree valist, tree type)
       emit_barrier ();
 
       emit_label (lab_false);
+      if (n_reg > 2)
+	{
+	  /* Ensure that we don't find any more args in regs.
+	     Alignment has taken care of the n_reg == 2 case.  */
+	  t = build (MODIFY_EXPR, TREE_TYPE (reg), reg, build_int_2 (8, 0));
+	  TREE_SIDE_EFFECTS (t) = 1;
+	  expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
+	}
     }
 
   /* ... otherwise out of the overflow area.  */
@@ -6008,6 +6012,39 @@ altivec_expand_lv_builtin (enum insn_code icode, tree arglist, rtx target)
 }
 
 static rtx
+spe_expand_stv_builtin (enum insn_code icode, tree arglist)
+{
+  tree arg0 = TREE_VALUE (arglist);
+  tree arg1 = TREE_VALUE (TREE_CHAIN (arglist));
+  tree arg2 = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
+  rtx op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
+  rtx op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
+  rtx op2 = expand_expr (arg2, NULL_RTX, VOIDmode, 0);
+  rtx pat;
+  enum machine_mode mode0 = insn_data[icode].operand[0].mode;
+  enum machine_mode mode1 = insn_data[icode].operand[1].mode;
+  enum machine_mode mode2 = insn_data[icode].operand[2].mode;
+
+  /* Invalid arguments.  Bail before doing anything stoopid!  */
+  if (arg0 == error_mark_node
+      || arg1 == error_mark_node
+      || arg2 == error_mark_node)
+    return const0_rtx;
+
+  if (! (*insn_data[icode].operand[2].predicate) (op0, mode2))
+    op0 = copy_to_mode_reg (mode2, op0);
+  if (! (*insn_data[icode].operand[0].predicate) (op1, mode0))
+    op1 = copy_to_mode_reg (mode0, op1);
+  if (! (*insn_data[icode].operand[1].predicate) (op2, mode1))
+    op2 = copy_to_mode_reg (mode1, op2);
+
+  pat = GEN_FCN (icode) (op1, op2, op0);
+  if (pat)
+    emit_insn (pat);
+  return NULL_RTX;
+}
+
+static rtx
 altivec_expand_stv_builtin (enum insn_code icode, tree arglist)
 {
   tree arg0 = TREE_VALUE (arglist);
@@ -6534,33 +6571,33 @@ spe_expand_builtin (tree exp, rtx target, bool *expandedp)
   switch (fcode)
     {
     case SPE_BUILTIN_EVSTDDX:
-      return altivec_expand_stv_builtin (CODE_FOR_spe_evstddx, arglist);
+      return spe_expand_stv_builtin (CODE_FOR_spe_evstddx, arglist);
     case SPE_BUILTIN_EVSTDHX:
-      return altivec_expand_stv_builtin (CODE_FOR_spe_evstdhx, arglist);
+      return spe_expand_stv_builtin (CODE_FOR_spe_evstdhx, arglist);
     case SPE_BUILTIN_EVSTDWX:
-      return altivec_expand_stv_builtin (CODE_FOR_spe_evstdwx, arglist);
+      return spe_expand_stv_builtin (CODE_FOR_spe_evstdwx, arglist);
     case SPE_BUILTIN_EVSTWHEX:
-      return altivec_expand_stv_builtin (CODE_FOR_spe_evstwhex, arglist);
+      return spe_expand_stv_builtin (CODE_FOR_spe_evstwhex, arglist);
     case SPE_BUILTIN_EVSTWHOX:
-      return altivec_expand_stv_builtin (CODE_FOR_spe_evstwhox, arglist);
+      return spe_expand_stv_builtin (CODE_FOR_spe_evstwhox, arglist);
     case SPE_BUILTIN_EVSTWWEX:
-      return altivec_expand_stv_builtin (CODE_FOR_spe_evstwwex, arglist);
+      return spe_expand_stv_builtin (CODE_FOR_spe_evstwwex, arglist);
     case SPE_BUILTIN_EVSTWWOX:
-      return altivec_expand_stv_builtin (CODE_FOR_spe_evstwwox, arglist);
+      return spe_expand_stv_builtin (CODE_FOR_spe_evstwwox, arglist);
     case SPE_BUILTIN_EVSTDD:
-      return altivec_expand_stv_builtin (CODE_FOR_spe_evstdd, arglist);
+      return spe_expand_stv_builtin (CODE_FOR_spe_evstdd, arglist);
     case SPE_BUILTIN_EVSTDH:
-      return altivec_expand_stv_builtin (CODE_FOR_spe_evstdh, arglist);
+      return spe_expand_stv_builtin (CODE_FOR_spe_evstdh, arglist);
     case SPE_BUILTIN_EVSTDW:
-      return altivec_expand_stv_builtin (CODE_FOR_spe_evstdw, arglist);
+      return spe_expand_stv_builtin (CODE_FOR_spe_evstdw, arglist);
     case SPE_BUILTIN_EVSTWHE:
-      return altivec_expand_stv_builtin (CODE_FOR_spe_evstwhe, arglist);
+      return spe_expand_stv_builtin (CODE_FOR_spe_evstwhe, arglist);
     case SPE_BUILTIN_EVSTWHO:
-      return altivec_expand_stv_builtin (CODE_FOR_spe_evstwho, arglist);
+      return spe_expand_stv_builtin (CODE_FOR_spe_evstwho, arglist);
     case SPE_BUILTIN_EVSTWWE:
-      return altivec_expand_stv_builtin (CODE_FOR_spe_evstwwe, arglist);
+      return spe_expand_stv_builtin (CODE_FOR_spe_evstwwe, arglist);
     case SPE_BUILTIN_EVSTWWO:
-      return altivec_expand_stv_builtin (CODE_FOR_spe_evstwwo, arglist);
+      return spe_expand_stv_builtin (CODE_FOR_spe_evstwwo, arglist);
     case SPE_BUILTIN_MFSPEFSCR:
       icode = CODE_FOR_spe_mfspefscr;
       tmode = insn_data[icode].operand[0].mode;
@@ -9681,6 +9718,10 @@ print_operand (FILE *file, rtx x, int code)
 	 TOCs and the like.  */
       if (GET_CODE (x) != SYMBOL_REF)
 	abort ();
+
+      /* Mark the decl as referenced so that cgraph will output the function.  */
+      if (SYMBOL_REF_DECL (x))
+        mark_decl_referenced (SYMBOL_REF_DECL (x));
 
       if (XSTR (x, 0)[0] != '.')
 	{
@@ -13125,7 +13166,8 @@ rs6000_output_function_epilogue (FILE *file,
 	 Java is 13.  Objective-C is 14.  */
       if (! strcmp (language_string, "GNU C"))
 	i = 0;
-      else if (! strcmp (language_string, "GNU F77"))
+      else if (! strcmp (language_string, "GNU F77")
+	       || ! strcmp (language_string, "GNU F95"))
 	i = 1;
       else if (! strcmp (language_string, "GNU Pascal"))
 	i = 2;
@@ -14120,7 +14162,7 @@ output_function_profiler (FILE *file, int labelno)
 	  asm_fprintf (file, "\tmflr %s\n", reg_names[0]);
 	  asm_fprintf (file, "\tstd %s,16(%s)\n", reg_names[0], reg_names[1]);
 
-	  if (current_function_needs_context)
+	  if (cfun->static_chain_decl != NULL)
 	    {
 	      asm_fprintf (file, "\tstd %s,24(%s)\n",
 			   reg_names[STATIC_CHAIN_REGNUM], reg_names[1]);

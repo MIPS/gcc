@@ -23,12 +23,12 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define GCC_CP_OBJCP_COMMON
 
 /* In cp-objcp-common.c.  */
-extern bool ok_to_generate_alias_set_for_type (tree);
 extern HOST_WIDE_INT cxx_get_alias_set (tree);
 extern bool cxx_warn_unused_global_decl (tree);
 extern tree cp_expr_size (tree);
 extern size_t cp_tree_size (enum tree_code);
 extern bool cp_var_mod_type_p (tree);
+extern int cp_expand_decl (tree);
 extern void cxx_initialize_diagnostics (diagnostic_context *);
 
 /* Lang hooks that are shared between C++ and ObjC++ are defined here.  Hooks
@@ -59,14 +59,14 @@ extern void cxx_initialize_diagnostics (diagnostic_context *);
 #define LANG_HOOKS_EXPAND_CONSTANT cplus_expand_constant
 #undef LANG_HOOKS_EXPAND_EXPR
 #define LANG_HOOKS_EXPAND_EXPR cxx_expand_expr
+#undef LANG_HOOKS_EXPAND_DECL
+#define LANG_HOOKS_EXPAND_DECL cp_expand_decl
 #undef LANG_HOOKS_SAFE_FROM_P
 #define LANG_HOOKS_SAFE_FROM_P c_safe_from_p
 #undef LANG_HOOKS_PARSE_FILE
 #define LANG_HOOKS_PARSE_FILE c_common_parse_file
 #undef LANG_HOOKS_DUP_LANG_SPECIFIC_DECL
 #define LANG_HOOKS_DUP_LANG_SPECIFIC_DECL cxx_dup_lang_specific_decl
-#undef LANG_HOOKS_UNSAVE_EXPR_NOW
-#define LANG_HOOKS_UNSAVE_EXPR_NOW cxx_unsave_expr_now
 #undef LANG_HOOKS_MAYBE_BUILD_CLEANUP
 #define LANG_HOOKS_MAYBE_BUILD_CLEANUP cxx_maybe_build_cleanup
 #undef LANG_HOOKS_TRUTHVALUE_CONVERSION
@@ -87,8 +87,6 @@ extern void cxx_initialize_diagnostics (diagnostic_context *);
 #define LANG_HOOKS_PRINT_TYPE cxx_print_type
 #undef LANG_HOOKS_PRINT_IDENTIFIER
 #define LANG_HOOKS_PRINT_IDENTIFIER cxx_print_identifier
-#undef LANG_HOOKS_DECL_PRINTABLE_NAME
-#define LANG_HOOKS_DECL_PRINTABLE_NAME	cxx_printable_name
 #undef LANG_HOOKS_PRINT_ERROR_FUNCTION
 #define LANG_HOOKS_PRINT_ERROR_FUNCTION	cxx_print_error_function
 #undef LANG_HOOKS_PUSHLEVEL
@@ -99,8 +97,6 @@ extern void cxx_initialize_diagnostics (diagnostic_context *);
 #define LANG_HOOKS_WARN_UNUSED_GLOBAL_DECL cxx_warn_unused_global_decl
 #undef LANG_HOOKS_WRITE_GLOBALS
 #define LANG_HOOKS_WRITE_GLOBALS lhd_do_nothing
-#undef LANG_HOOKS_DECL_UNINIT
-#define LANG_HOOKS_DECL_UNINIT c_decl_uninit
 #undef LANG_HOOKS_UPDATE_DECL_AFTER_SAVING
 #define LANG_HOOKS_UPDATE_DECL_AFTER_SAVING cp_update_decl_after_saving
 
@@ -109,11 +105,8 @@ extern void cxx_initialize_diagnostics (diagnostic_context *);
 #define LANG_HOOKS_FUNCTION_INIT cxx_push_function_context
 #undef LANG_HOOKS_FUNCTION_FINAL
 #define LANG_HOOKS_FUNCTION_FINAL cxx_pop_function_context
-
-#undef LANG_HOOKS_RTL_EXPAND_START
-#define LANG_HOOKS_RTL_EXPAND_START cxx_expand_function_start
-#undef LANG_HOOKS_RTL_EXPAND_STMT
-#define LANG_HOOKS_RTL_EXPAND_STMT expand_stmt
+#undef LANG_HOOKS_FUNCTION_MISSING_NORETURN_OK_P
+#define LANG_HOOKS_FUNCTION_MISSING_NORETURN_OK_P cp_missing_noreturn_ok_p
 
 /* Attribute hooks.  */
 #undef LANG_HOOKS_COMMON_ATTRIBUTE_TABLE
@@ -134,7 +127,7 @@ extern void cxx_initialize_diagnostics (diagnostic_context *);
   cp_add_pending_fn_decls
 #undef LANG_HOOKS_TREE_INLINING_TREE_CHAIN_MATTERS_P
 #define LANG_HOOKS_TREE_INLINING_TREE_CHAIN_MATTERS_P \
-  cp_is_overload_p
+  cp_tree_chain_matters_p
 #undef LANG_HOOKS_TREE_INLINING_AUTO_VAR_IN_FN_P
 #define LANG_HOOKS_TREE_INLINING_AUTO_VAR_IN_FN_P \
   cp_auto_var_in_fn_p
@@ -145,8 +138,6 @@ extern void cxx_initialize_diagnostics (diagnostic_context *);
 #define LANG_HOOKS_TREE_INLINING_ANON_AGGR_TYPE_P anon_aggr_type_p
 #undef LANG_HOOKS_TREE_INLINING_VAR_MOD_TYPE_P
 #define LANG_HOOKS_TREE_INLINING_VAR_MOD_TYPE_P cp_var_mod_type_p
-#undef LANG_HOOKS_TREE_INLINING_ESTIMATE_NUM_INSNS
-#define LANG_HOOKS_TREE_INLINING_ESTIMATE_NUM_INSNS c_estimate_num_insns
 #undef LANG_HOOKS_TREE_DUMP_DUMP_TREE_FN
 #define LANG_HOOKS_TREE_DUMP_DUMP_TREE_FN cp_dump_tree
 #undef LANG_HOOKS_TREE_DUMP_TYPE_QUALS_FN
@@ -177,5 +168,7 @@ extern void cxx_initialize_diagnostics (diagnostic_context *);
 #define LANG_HOOKS_TYPE_PROMOTES_TO cxx_type_promotes_to
 #undef LANG_HOOKS_REGISTER_BUILTIN_TYPE
 #define LANG_HOOKS_REGISTER_BUILTIN_TYPE c_register_builtin_type
+#undef LANG_HOOKS_GIMPLIFY_EXPR
+#define LANG_HOOKS_GIMPLIFY_EXPR cp_gimplify_expr
 
 #endif /* GCC_CP_OBJCP_COMMON */

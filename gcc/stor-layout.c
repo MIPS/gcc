@@ -67,8 +67,6 @@ static int excess_unit_span (HOST_WIDE_INT, HOST_WIDE_INT, HOST_WIDE_INT,
 			     HOST_WIDE_INT, tree);
 #endif
 static void force_type_save_exprs_1 (tree);
-static unsigned int update_alignment_for_field (record_layout_info, tree,
-						unsigned int);
 extern void debug_rli (record_layout_info);
 
 /* SAVE_EXPRs for sizes of types and decls, waiting to be expanded.  */
@@ -161,6 +159,11 @@ variable_size (tree size)
   if (TREE_CODE (save) == SAVE_EXPR)
     SAVE_EXPR_PERSISTENT_P (save) = 1;
 
+  if (!immediate_size_expand && cfun && cfun->x_dont_save_pending_sizes_p)
+    /* The front-end doesn't want us to keep a list of the expressions
+       that determine sizes for variable size objects.  Trust it.  */
+    return size;
+
   if (lang_hooks.decls.global_bindings_p ())
     {
       if (TREE_CONSTANT (size))
@@ -173,10 +176,6 @@ variable_size (tree size)
 
   if (immediate_size_expand)
     expand_expr (save, const0_rtx, VOIDmode, 0);
-  else if (cfun != 0 && cfun->x_dont_save_pending_sizes_p)
-    /* The front-end doesn't want us to keep a list of the expressions
-       that determine sizes for variable size objects.  */
-    ;
   else
     put_pending_size (save);
 
@@ -722,7 +721,7 @@ rli_size_so_far (record_layout_info rli)
    variable alignment fields in RLI, and return the alignment to give
    the FIELD.  */
 
-static unsigned int
+unsigned int
 update_alignment_for_field (record_layout_info rli, tree field,
 			    unsigned int known_align)
 {
@@ -772,8 +771,10 @@ update_alignment_for_field (record_layout_info rli, tree field,
   else if (is_bitfield && PCC_BITFIELD_TYPE_MATTERS)
     {
       /* Named bit-fields cause the entire structure to have the
-	 alignment implied by their type.  */
-      if (DECL_NAME (field) != 0)
+	 alignment implied by their type.  Some targets also apply the same
+	 rules to unnamed bitfields.  */
+      if (DECL_NAME (field) != 0
+	  || targetm.align_anon_bitfield ())
 	{
 	  unsigned int type_align = TYPE_ALIGN (type);
 
@@ -1126,7 +1127,6 @@ place_field (record_layout_info rli, tree field)
 		rli->prev_field = NULL;
 	    }
 
-	  rli->offset_align = tree_low_cst (TYPE_SIZE (type), 0);
 	  normalize_rli (rli);
         }
 
@@ -1558,6 +1558,9 @@ layout_type (tree type)
 {
   if (type == 0)
     abort ();
+
+  if (type == error_mark_node)
+    return;
 
   /* Do nothing if type has been laid out before.  */
   if (TYPE_SIZE (type))
@@ -2156,26 +2159,32 @@ get_best_mode (int bitsize, int bitpos, unsigned int align,
 }
 
 /* Gets minimal and maximal values for MODE (signed or unsigned depending on
-   SIGN).  */
+   SIGN).  The returned constants are made to be usable in TARGET_MODE.  */
 
 void
-get_mode_bounds (enum machine_mode mode, int sign, rtx *mmin, rtx *mmax)
+get_mode_bounds (enum machine_mode mode, int sign,
+		 enum machine_mode target_mode,
+		 rtx *mmin, rtx *mmax)
 {
-  int size = GET_MODE_BITSIZE (mode);
+  unsigned size = GET_MODE_BITSIZE (mode);
+  unsigned HOST_WIDE_INT min_val, max_val;
 
   if (size > HOST_BITS_PER_WIDE_INT)
     abort ();
 
   if (sign)
     {
-      *mmin = GEN_INT (-((unsigned HOST_WIDE_INT) 1 << (size - 1)));
-      *mmax = GEN_INT (((unsigned HOST_WIDE_INT) 1 << (size - 1)) - 1);
+      min_val = -((unsigned HOST_WIDE_INT) 1 << (size - 1));
+      max_val = ((unsigned HOST_WIDE_INT) 1 << (size - 1)) - 1;
     }
   else
     {
-      *mmin = const0_rtx;
-      *mmax = GEN_INT (((unsigned HOST_WIDE_INT) 1 << (size - 1) << 1) - 1);
+      min_val = 0;
+      max_val = ((unsigned HOST_WIDE_INT) 1 << (size - 1) << 1) - 1;
     }
+
+  *mmin = GEN_INT (trunc_int_for_mode (min_val, target_mode));
+  *mmax = GEN_INT (trunc_int_for_mode (max_val, target_mode));
 }
 
 #include "gt-stor-layout.h"

@@ -265,6 +265,8 @@ static void ia64_init_libfuncs (void)
      ATTRIBUTE_UNUSED;
 static void ia64_hpux_init_libfuncs (void)
      ATTRIBUTE_UNUSED;
+static void ia64_sysv4_init_libfuncs (void)
+     ATTRIBUTE_UNUSED;
 static void ia64_vms_init_libfuncs (void)
      ATTRIBUTE_UNUSED;
 
@@ -715,7 +717,6 @@ int
 gr_reg_or_5bit_operand (rtx op, enum machine_mode mode)
 {
   return ((GET_CODE (op) == CONST_INT && INTVAL (op) >= 0 && INTVAL (op) < 32)
-	  || GET_CODE (op) == CONSTANT_P_RTX
 	  || gr_register_operand (op, mode));
 }
 
@@ -725,7 +726,6 @@ int
 gr_reg_or_6bit_operand (rtx op, enum machine_mode mode)
 {
   return ((GET_CODE (op) == CONST_INT && CONST_OK_FOR_M (INTVAL (op)))
-	  || GET_CODE (op) == CONSTANT_P_RTX
 	  || gr_register_operand (op, mode));
 }
 
@@ -735,7 +735,6 @@ int
 gr_reg_or_8bit_operand (rtx op, enum machine_mode mode)
 {
   return ((GET_CODE (op) == CONST_INT && CONST_OK_FOR_K (INTVAL (op)))
-	  || GET_CODE (op) == CONSTANT_P_RTX
 	  || gr_register_operand (op, mode));
 }
 
@@ -745,7 +744,6 @@ int
 grfr_reg_or_8bit_operand (rtx op, enum machine_mode mode)
 {
   return ((GET_CODE (op) == CONST_INT && CONST_OK_FOR_K (INTVAL (op)))
-	  || GET_CODE (op) == CONSTANT_P_RTX
 	  || grfr_register_operand (op, mode));
 }
 
@@ -756,7 +754,6 @@ int
 gr_reg_or_8bit_adjusted_operand (rtx op, enum machine_mode mode)
 {
   return ((GET_CODE (op) == CONST_INT && CONST_OK_FOR_L (INTVAL (op)))
-	  || GET_CODE (op) == CONSTANT_P_RTX
 	  || gr_register_operand (op, mode));
 }
 
@@ -770,7 +767,6 @@ gr_reg_or_8bit_and_adjusted_operand (rtx op, enum machine_mode mode)
 {
   return ((GET_CODE (op) == CONST_INT && CONST_OK_FOR_K (INTVAL (op))
 	   && CONST_OK_FOR_L (INTVAL (op)))
-	  || GET_CODE (op) == CONSTANT_P_RTX
 	  || gr_register_operand (op, mode));
 }
 
@@ -780,7 +776,6 @@ int
 gr_reg_or_14bit_operand (rtx op, enum machine_mode mode)
 {
   return ((GET_CODE (op) == CONST_INT && CONST_OK_FOR_I (INTVAL (op)))
-	  || GET_CODE (op) == CONSTANT_P_RTX
 	  || gr_register_operand (op, mode));
 }
 
@@ -790,7 +785,6 @@ int
 gr_reg_or_22bit_operand (rtx op, enum machine_mode mode)
 {
   return ((GET_CODE (op) == CONST_INT && CONST_OK_FOR_J (INTVAL (op)))
-	  || GET_CODE (op) == CONSTANT_P_RTX
 	  || gr_register_operand (op, mode));
 }
 
@@ -799,8 +793,7 @@ gr_reg_or_22bit_operand (rtx op, enum machine_mode mode)
 int
 shift_count_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 {
-  return ((GET_CODE (op) == CONST_INT && CONST_OK_FOR_M (INTVAL (op)))
-	  || GET_CODE (op) == CONSTANT_P_RTX);
+  return (GET_CODE (op) == CONST_INT && CONST_OK_FOR_M (INTVAL (op)));
 }
 
 /* Return 1 if OP is a 5 bit immediate operand.  */
@@ -808,9 +801,8 @@ shift_count_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 int
 shift_32bit_count_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 {
-  return ((GET_CODE (op) == CONST_INT
-	   && (INTVAL (op) >= 0 && INTVAL (op) < 32))
-	  || GET_CODE (op) == CONSTANT_P_RTX);
+  return (GET_CODE (op) == CONST_INT
+	   && (INTVAL (op) >= 0 && INTVAL (op) < 32));
 }
 
 /* Return 1 if OP is a 2, 4, 8, or 16 immediate operand.  */
@@ -1681,7 +1673,7 @@ ia64_expand_compare (enum rtx_code code, enum machine_mode mode)
   /* HPUX TFmode compare requires a library call to _U_Qfcmp, which takes a
      magic number as its third argument, that indicates what to do.
      The return value is an integer to be compared against zero.  */
-  else if (TARGET_HPUX && GET_MODE (op0) == TFmode)
+  else if (GET_MODE (op0) == TFmode)
     {
       enum qfcmp_magic {
 	QCMP_INV = 1,	/* Raise FP_INVALID on SNaN as a side effect.  */
@@ -1692,7 +1684,7 @@ ia64_expand_compare (enum rtx_code code, enum machine_mode mode)
       } magic;
       enum rtx_code ncode;
       rtx ret, insns;
-      if (GET_MODE (op1) != TFmode)
+      if (!cmptf_libfunc || GET_MODE (op1) != TFmode)
 	abort ();
       switch (code)
 	{
@@ -8753,7 +8745,9 @@ ia64_hpux_file_end (void)
 }
 
 /* Set SImode div/mod functions, init_integral_libfuncs only initializes
-   modes of word_mode and larger.  */
+   modes of word_mode and larger.  Rename the TFmode libfuncs using the
+   HPUX conventions. __divtf3 is used for XFmode. We need to keep it for
+   backward compatibility. */
 
 static void
 ia64_init_libfuncs (void)
@@ -8762,6 +8756,27 @@ ia64_init_libfuncs (void)
   set_optab_libfunc (udiv_optab, SImode, "__udivsi3");
   set_optab_libfunc (smod_optab, SImode, "__modsi3");
   set_optab_libfunc (umod_optab, SImode, "__umodsi3");
+
+  set_optab_libfunc (add_optab, TFmode, "_U_Qfadd");
+  set_optab_libfunc (sub_optab, TFmode, "_U_Qfsub");
+  set_optab_libfunc (smul_optab, TFmode, "_U_Qfmpy");
+  set_optab_libfunc (sdiv_optab, TFmode, "_U_Qfdiv");
+  set_optab_libfunc (neg_optab, TFmode, "_U_Qfneg");
+
+  set_conv_libfunc (sext_optab, TFmode, SFmode, "_U_Qfcnvff_sgl_to_quad");
+  set_conv_libfunc (sext_optab, TFmode, DFmode, "_U_Qfcnvff_dbl_to_quad");
+  set_conv_libfunc (sext_optab, TFmode, XFmode, "_U_Qfcnvff_f80_to_quad");
+  set_conv_libfunc (trunc_optab, SFmode, TFmode, "_U_Qfcnvff_quad_to_sgl");
+  set_conv_libfunc (trunc_optab, DFmode, TFmode, "_U_Qfcnvff_quad_to_dbl");
+  set_conv_libfunc (trunc_optab, XFmode, TFmode, "_U_Qfcnvff_quad_to_f80");
+
+  set_conv_libfunc (sfix_optab, SImode, TFmode, "_U_Qfcnvfxt_quad_to_sgl");
+  set_conv_libfunc (sfix_optab, DImode, TFmode, "_U_Qfcnvfxt_quad_to_dbl");
+  set_conv_libfunc (ufix_optab, SImode, TFmode, "_U_Qfcnvfxut_quad_to_sgl");
+  set_conv_libfunc (ufix_optab, DImode, TFmode, "_U_Qfcnvfxut_quad_to_dbl");
+
+  set_conv_libfunc (sfloat_optab, TFmode, SImode, "_U_Qfcnvxf_sgl_to_quad");
+  set_conv_libfunc (sfloat_optab, TFmode, DImode, "_U_Qfcnvxf_dbl_to_quad");
 }
 
 /* Rename all the TFmode libfuncs using the HPUX conventions.  */
@@ -8771,14 +8786,9 @@ ia64_hpux_init_libfuncs (void)
 {
   ia64_init_libfuncs ();
 
-  set_optab_libfunc (add_optab, TFmode, "_U_Qfadd");
-  set_optab_libfunc (sub_optab, TFmode, "_U_Qfsub");
-  set_optab_libfunc (smul_optab, TFmode, "_U_Qfmpy");
-  set_optab_libfunc (sdiv_optab, TFmode, "_U_Qfdiv");
   set_optab_libfunc (smin_optab, TFmode, "_U_Qfmin");
   set_optab_libfunc (smax_optab, TFmode, "_U_Qfmax");
   set_optab_libfunc (abs_optab, TFmode, "_U_Qfabs");
-  set_optab_libfunc (neg_optab, TFmode, "_U_Qfneg");
 
   /* ia64_expand_compare uses this.  */
   cmptf_libfunc = init_one_libfunc ("_U_Qfcmp");
@@ -8790,21 +8800,6 @@ ia64_hpux_init_libfuncs (void)
   set_optab_libfunc (ge_optab, TFmode, 0);
   set_optab_libfunc (lt_optab, TFmode, 0);
   set_optab_libfunc (le_optab, TFmode, 0);
-
-  set_conv_libfunc (sext_optab,   TFmode, SFmode, "_U_Qfcnvff_sgl_to_quad");
-  set_conv_libfunc (sext_optab,   TFmode, DFmode, "_U_Qfcnvff_dbl_to_quad");
-  set_conv_libfunc (sext_optab,   TFmode, XFmode, "_U_Qfcnvff_f80_to_quad");
-  set_conv_libfunc (trunc_optab,  SFmode, TFmode, "_U_Qfcnvff_quad_to_sgl");
-  set_conv_libfunc (trunc_optab,  DFmode, TFmode, "_U_Qfcnvff_quad_to_dbl");
-  set_conv_libfunc (trunc_optab,  XFmode, TFmode, "_U_Qfcnvff_quad_to_f80");
-
-  set_conv_libfunc (sfix_optab,   SImode, TFmode, "_U_Qfcnvfxt_quad_to_sgl");
-  set_conv_libfunc (sfix_optab,   DImode, TFmode, "_U_Qfcnvfxt_quad_to_dbl");
-  set_conv_libfunc (ufix_optab,   SImode, TFmode, "_U_Qfcnvfxut_quad_to_sgl");
-  set_conv_libfunc (ufix_optab,   DImode, TFmode, "_U_Qfcnvfxut_quad_to_dbl");
-
-  set_conv_libfunc (sfloat_optab, TFmode, SImode, "_U_Qfcnvxf_sgl_to_quad");
-  set_conv_libfunc (sfloat_optab, TFmode, DImode, "_U_Qfcnvxf_dbl_to_quad");
 }
 
 /* Rename the division and modulus functions in VMS.  */
@@ -8820,6 +8815,28 @@ ia64_vms_init_libfuncs (void)
   set_optab_libfunc (smod_optab, DImode, "OTS$REM_L");
   set_optab_libfunc (umod_optab, SImode, "OTS$REM_UI");
   set_optab_libfunc (umod_optab, DImode, "OTS$REM_UL");
+}
+
+/* Rename the TFmode libfuncs available from soft-fp in glibc using
+   the HPUX conventions.  */
+
+static void
+ia64_sysv4_init_libfuncs (void)
+{
+  ia64_init_libfuncs ();
+
+  /* These functions are not part of the HPUX TFmode interface.  We
+     use them instead of _U_Qfcmp, which doesn't work the way we
+     expect.  */
+  set_optab_libfunc (eq_optab, TFmode, "_U_Qfeq");
+  set_optab_libfunc (ne_optab, TFmode, "_U_Qfne");
+  set_optab_libfunc (gt_optab, TFmode, "_U_Qfgt");
+  set_optab_libfunc (ge_optab, TFmode, "_U_Qfge");
+  set_optab_libfunc (lt_optab, TFmode, "_U_Qflt");
+  set_optab_libfunc (le_optab, TFmode, "_U_Qfle");
+
+  /* We leave out _U_Qfmin, _U_Qfmax and _U_Qfabs since soft-fp in
+     glibc doesn't have them.  */
 }
 
 /* Switch to the section to which we should output X.  The only thing

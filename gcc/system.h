@@ -421,16 +421,6 @@ extern int snprintf (char *, size_t, const char *, ...);
 # endif
 #endif
 
-/* Approximate O_NONBLOCK.  */
-#ifndef O_NONBLOCK
-#define O_NONBLOCK O_NDELAY
-#endif
-
-/* Approximate O_NOCTTY.  */
-#ifndef O_NOCTTY
-#define O_NOCTTY 0
-#endif
-
 /* Define well known filenos if the system does not define them.  */
 #ifndef STDIN_FILENO
 # define STDIN_FILENO   0
@@ -638,10 +628,12 @@ typedef char _Bool;
 	LINKER_DOES_NOT_WORK_WITH_DWARF2 FUNCTION_ARG_KEEP_AS_REFERENCE	   \
 	GIV_SORT_CRITERION MAX_LONG_TYPE_SIZE MAX_LONG_DOUBLE_TYPE_SIZE	   \
 	MAX_WCHAR_TYPE_SIZE GCOV_TYPE_SIZE SHARED_SECTION_ASM_OP	   \
+	INTEGRATE_THRESHOLD                                                \
 	FINAL_REG_PARM_STACK_SPACE MAYBE_REG_PARM_STACK_SPACE		   \
 	TRADITIONAL_PIPELINE_INTERFACE DFA_PIPELINE_INTERFACE		   \
 	DBX_OUTPUT_STANDARD_TYPES BUILTIN_SETJMP_FRAME_VALUE		   \
-	SUNOS4_SHARED_LIBRARIES PROMOTE_FOR_CALL_ONLY
+	SUNOS4_SHARED_LIBRARIES PROMOTE_FOR_CALL_ONLY			   \
+	SPACE_AFTER_L_OPTION NO_RECURSIVE_FUNCTION_CSE
 
 /* Hooks that are no longer used.  */
  #pragma GCC poison LANG_HOOKS_FUNCTION_MARK LANG_HOOKS_FUNCTION_FREE	\

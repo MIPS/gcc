@@ -1970,12 +1970,12 @@ package Einfo is
 --       Present in all entities. Relevant (and can be set True) only for
 --       objects of an access type. It is set if the object is currently
 --       known to have a non-null value (meaning that no access checks
---       are needed). The indication can for example3 come from assignment
+--       are needed). The indication can for example come from assignment
 --       of an access parameter or an allocator.
 --
 --       Note: this flag is set according to the sequential flow of the
 --       program, watching the current value of the variable. However,
---       this processing can cases of changing the value of an aliased
+--       this processing can miss cases of changing the value of an aliased
 --       or constant object, so even if this flag is set, it should not
 --       be believed if the variable is aliased or volatile. It would
 --       be a little neater to avoid the flag being set in the first
@@ -2391,11 +2391,12 @@ package Einfo is
 --       Points to a the last entry in the list of associated entities chained
 --       through the Next_Entity field. Empty if no entities are chained.
 
---    Limited_Views (Elist23)
---       Present in non-generic package entities that are not instances.
---       The elements of this list are the shadow entities created for the
---       types and local packages that are declared in a package that appears
---       in a limited_with clause (Ada0Y: AI-50217)
+--    Limited_View (Node23)
+--       Present in non-generic package entities that are not instances. Bona
+--       fide package with the limited-view list through the first_entity and
+--       first_private attributes. The elements of this list are the shadow
+--       entities created for the types and local packages that are declared
+--       in a package that appears in a limited_with clause (Ada0Y: AI-50217)
 
 --    Lit_Indexes (Node15)
 --       Present in enumeration types and subtypes. Non-empty only for the
@@ -4454,7 +4455,7 @@ package Einfo is
    --    Scope_Depth_Value             (Uint22)
    --    Generic_Renamings             (Elist23)  (for an instance)
    --    Inner_Instances               (Elist23)  (generic case only)
-   --    Limited_Views                 (Elist23)  (non-generic, not instance)
+   --    Limited_View                  (Node23)   (non-generic, not instance)
    --    Delay_Subprogram_Descriptors  (Flag50)
    --    Body_Needed_For_SAL           (Flag40)
    --    Discard_Names                 (Flag88)
@@ -5187,7 +5188,7 @@ package Einfo is
    function Kill_Range_Checks                  (Id : E) return B;
    function Kill_Tag_Checks                    (Id : E) return B;
    function Last_Entity                        (Id : E) return E;
-   function Limited_Views                      (Id : E) return L;
+   function Limited_View                       (Id : E) return E;
    function Lit_Indexes                        (Id : E) return E;
    function Lit_Strings                        (Id : E) return E;
    function Machine_Radix_10                   (Id : E) return B;
@@ -5661,7 +5662,7 @@ package Einfo is
    procedure Set_Kill_Range_Checks             (Id : E; V : B := True);
    procedure Set_Kill_Tag_Checks               (Id : E; V : B := True);
    procedure Set_Last_Entity                   (Id : E; V : E);
-   procedure Set_Limited_Views                 (Id : E; V : L);
+   procedure Set_Limited_View                  (Id : E; V : E);
    procedure Set_Lit_Indexes                   (Id : E; V : E);
    procedure Set_Lit_Strings                   (Id : E; V : E);
    procedure Set_Machine_Radix_10              (Id : E; V : B := True);
@@ -6187,7 +6188,7 @@ package Einfo is
    pragma Inline (Kill_Range_Checks);
    pragma Inline (Kill_Tag_Checks);
    pragma Inline (Last_Entity);
-   pragma Inline (Limited_Views);
+   pragma Inline (Limited_View);
    pragma Inline (Lit_Indexes);
    pragma Inline (Lit_Strings);
    pragma Inline (Machine_Radix_10);
@@ -6496,7 +6497,7 @@ package Einfo is
    pragma Inline (Set_Kill_Range_Checks);
    pragma Inline (Set_Kill_Tag_Checks);
    pragma Inline (Set_Last_Entity);
-   pragma Inline (Set_Limited_Views);
+   pragma Inline (Set_Limited_View);
    pragma Inline (Set_Lit_Indexes);
    pragma Inline (Set_Lit_Strings);
    pragma Inline (Set_Machine_Radix_10);

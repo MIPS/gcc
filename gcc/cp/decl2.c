@@ -46,8 +46,10 @@ Boston, MA 02111-1307, USA.  */
 #include "cpplib.h"
 #include "target.h"
 #include "c-common.h"
+#include "tree-mudflap.h"
 #include "cgraph.h"
 #include "tree-inline.h"
+
 extern cpp_reader *parse_in;
 
 /* This structure contains information about the initializations
@@ -449,6 +451,7 @@ delete_sanity (tree exp, tree size, bool doing_vec, int use_global_delete)
       t = build_min (DELETE_EXPR, void_type_node, exp, size);
       DELETE_EXPR_USE_GLOBAL (t) = use_global_delete;
       DELETE_EXPR_USE_VEC (t) = doing_vec;
+      TREE_SIDE_EFFECTS (t) = 1;
       return t;
     }
 
@@ -1448,7 +1451,7 @@ maybe_make_one_only (tree decl)
 	{
 	  DECL_COMDAT (decl) = 1;
 	  /* Mark it needed so we don't forget to emit it.  */
-	  mark_referenced (DECL_ASSEMBLER_NAME (decl));
+	  mark_decl_referenced (decl);
 	}
     }
 }
@@ -2587,7 +2590,7 @@ cp_finish_file (void)
   timevar_push (TV_VARCONST);
 
   emit_support_tinfos ();
-  
+
   do 
     {
       tree t;
@@ -2747,9 +2750,14 @@ cp_finish_file (void)
 	     calling import_export_decl will make an inline template
 	     instantiation "static", which will result in errors about
 	     the use of undefined functions if there is no body for
-	     the function.  */
+	     the function.  In fact, all the functions in this list
+	     *should* have a body.  */
 	  if (!DECL_SAVED_TREE (decl))
-	    continue;
+	    {
+	      if (! DECL_DECLARED_INLINE_P (decl) || ! TREE_USED (decl))
+		abort ();
+	      continue;
+	    }
 
 	  import_export_decl (decl);
 
@@ -2774,7 +2782,6 @@ cp_finish_file (void)
 	     gotten around to synthesizing yet.)  */
 	  if (!DECL_EXTERNAL (decl)
 	      && DECL_NEEDED_P (decl)
-	      && DECL_SAVED_TREE (decl)
 	      && !TREE_ASM_WRITTEN (decl)
 	      && (!flag_unit_at_a_time 
 		  || !cgraph_node (decl)->local.finalized))
@@ -2872,6 +2879,11 @@ cp_finish_file (void)
       cgraph_optimize ();
     }
 
+  /* Emit mudflap static registration function.  This must be done
+     after all the user functions have been expanded.  */
+  if (flag_mudflap)
+    mudflap_finish_file ();
+
   /* Now, issue warnings about static, but not defined, functions,
      etc., and emit debugging information.  */
   walk_namespaces (wrapup_globals_for_namespace, /*data=*/&reconsider);
@@ -2885,12 +2897,12 @@ cp_finish_file (void)
      to a file.  */
   {
     int flags;
-    FILE *stream = dump_begin (TDI_all, &flags);
+    FILE *stream = dump_begin (TDI_tu, &flags);
 
     if (stream)
       {
 	dump_node (global_namespace, flags & ~TDF_SLIM, stream);
-	dump_end (TDI_all, stream);
+	dump_end (TDI_tu, stream);
       }
   }
   
@@ -2932,7 +2944,7 @@ build_offset_ref_call_from_tree (tree fn, tree args)
 			  20030708);
       if (type_dependent_expression_p (fn)
 	  || any_type_dependent_arguments_p (args))
-	return build_min_nt (CALL_EXPR, fn, args);
+	return build_min_nt (CALL_EXPR, fn, args, NULL_TREE);
 
       /* Transform the arguments and add the implicit "this"
 	 parameter.  That must be done before the FN is transformed
@@ -2962,7 +2974,7 @@ build_offset_ref_call_from_tree (tree fn, tree args)
 
   expr = build_function_call (fn, args);
   if (processing_template_decl && expr != error_mark_node)
-    return build_min_non_dep (CALL_EXPR, expr, orig_fn, orig_args);
+    return build_min_non_dep (CALL_EXPR, expr, orig_fn, orig_args, NULL_TREE);
   return expr;
 }
   

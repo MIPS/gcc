@@ -570,6 +570,7 @@ delete_from_delay_slot (rtx insn)
   rtx trial, seq_insn, seq, prev;
   rtx delay_list = 0;
   int i;
+  int had_barrier = 0;
 
   /* We first must find the insn containing the SEQUENCE with INSN in its
      delay slot.  Do this by finding an insn, TRIAL, where
@@ -582,6 +583,9 @@ delete_from_delay_slot (rtx insn)
 
   seq_insn = PREV_INSN (NEXT_INSN (trial));
   seq = PATTERN (seq_insn);
+
+  if (NEXT_INSN (seq_insn) && GET_CODE (NEXT_INSN (seq_insn)) == BARRIER)
+    had_barrier = 1;
 
   /* Create a delay list consisting of all the insns other than the one
      we are deleting (unless we were the only one).  */
@@ -597,8 +601,8 @@ delete_from_delay_slot (rtx insn)
   delete_related_insns (seq_insn);
   add_insn_after (trial, prev);
 
-  if (GET_CODE (trial) == JUMP_INSN
-      && (simplejump_p (trial) || GET_CODE (PATTERN (trial)) == RETURN))
+  /* If there was a barrier after the old SEQUENCE, remit it.  */
+  if (had_barrier)
     emit_barrier_after (trial);
 
   /* If there are any delay insns, remit them.  Otherwise clear the
@@ -3075,11 +3079,7 @@ relax_delay_slots (rtx first)
 	  && (condjump_p (insn) || condjump_in_parallel_p (insn))
 	  && (target_label = JUMP_LABEL (insn)) != 0)
 	{
-	  target_label = follow_jumps (target_label);
-	  /* See comment further down why we must use next_real_insn here,
-	     instead of next_active_insn.  */
-	  target_label = prev_label (next_real_insn (target_label));
-
+	  target_label = skip_consecutive_labels (follow_jumps (target_label));
 	  if (target_label == 0)
 	    target_label = find_end_label ();
 
@@ -3227,14 +3227,8 @@ relax_delay_slots (rtx first)
 	{
 	  /* If this jump goes to another unconditional jump, thread it, but
 	     don't convert a jump into a RETURN here.  */
-	  trial = follow_jumps (target_label);
-	  /* We use next_real_insn instead of next_active_insn, so that
-	     the special USE insns emitted by reorg won't be ignored.
-	     If they are ignored, then they will get deleted if target_label
-	     is now unreachable, and that would cause mark_target_live_regs
-	     to fail.  */
-	  trial = prev_label (next_real_insn (trial));
-	  if (trial == 0 && target_label != 0)
+	  trial = skip_consecutive_labels (follow_jumps (target_label));
+	  if (trial == 0)
 	    trial = find_end_label ();
 
 	  if (trial != target_label
@@ -3617,7 +3611,7 @@ dbr_schedule (rtx first, FILE *file)
       if (GET_CODE (insn) == JUMP_INSN
 	  && (condjump_p (insn) || condjump_in_parallel_p (insn))
 	  && JUMP_LABEL (insn) != 0
-	  && ((target = prev_label (next_active_insn (JUMP_LABEL (insn))))
+	  && ((target = skip_consecutive_labels (JUMP_LABEL (insn)))
 	      != JUMP_LABEL (insn)))
 	redirect_jump (insn, target, 1);
     }

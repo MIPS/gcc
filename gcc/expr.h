@@ -366,6 +366,9 @@ extern void record_base_value (unsigned int, rtx, int);
 extern void record_alias_subset (HOST_WIDE_INT, HOST_WIDE_INT);
 extern HOST_WIDE_INT new_alias_set (void);
 extern int can_address_p (tree);
+extern tree simplify_builtin_fputs (tree, int, int, tree);
+extern tree simplify_builtin_strcpy (tree, tree);
+extern tree simplify_builtin_strncpy (tree, tree);
 
 /* Functions from expr.c:  */
 
@@ -505,13 +508,21 @@ extern rtx store_expr (tree, rtx, int);
    Useful after calling expand_expr with 1 as sum_ok.  */
 extern rtx force_operand (rtx, rtx);
 
+/* Work horse for expand_expr.  */
+extern rtx expand_expr_real (tree, rtx, enum machine_mode, 
+			     enum expand_modifier, rtx *);
+
 /* Generate code for computing expression EXP.
    An rtx for the computed value is returned.  The value is never null.
    In the case of a void EXP, const0_rtx is returned.  */
-#define expand_expr(EXP, TARGET, MODE, MODIFIER) \
-  expand_expr_real((EXP), (TARGET), (MODE), (MODIFIER), NULL)
-extern rtx expand_expr_real (tree, rtx, enum machine_mode, 
-			     enum expand_modifier, rtx *);
+static inline rtx
+expand_expr (tree exp, rtx target, enum machine_mode mode,
+	     enum expand_modifier modifier)
+{
+  return expand_expr_real(exp, target, mode, modifier, NULL);
+}
+
+extern void expand_var (tree);
 
 /* At the start of a function, record that we have no previously-pushed
    arguments waiting to be popped.  */
@@ -561,8 +572,6 @@ extern rtx expr_size (tree);
    if the size can vary or is larger than an integer.  */
 extern HOST_WIDE_INT int_expr_size (tree);
 
-extern rtx lookup_static_chain (tree);
-
 /* Convert a stack slot address ADDR valid in function FNDECL
    into an address valid in this function (using a static chain).  */
 extern rtx fix_lexical_addr (rtx, tree);
@@ -574,9 +583,11 @@ extern rtx trampoline_address (tree);
    in its original home.  This becomes invalid if any more code is emitted.  */
 extern rtx hard_function_value (tree, tree, int);
 
-extern rtx prepare_call_address (rtx, tree, rtx *, int, int);
+extern rtx prepare_call_address (rtx, rtx, rtx *, int, int);
 
 extern rtx expand_call (tree, rtx, int);
+
+extern void fixup_tail_calls (void);
 
 #ifdef TREE_CODE
 extern rtx expand_shift (enum tree_code, enum machine_mode, rtx, tree, rtx,
@@ -588,7 +599,6 @@ extern rtx expand_divmod (int, enum tree_code, enum machine_mode, rtx, rtx,
 extern void locate_and_pad_parm (enum machine_mode, tree, int, int, tree,
 				 struct args_size *,
 				 struct locate_and_pad_arg_data *);
-extern rtx expand_inline_function (tree, tree, rtx, int, tree, rtx);
 
 /* Return the CODE_LABEL rtx for a LABEL_DECL, creating it if necessary.  */
 extern rtx label_rtx (tree);
@@ -742,6 +752,9 @@ extern void emit_stack_save (enum save_level, rtx *, rtx);
 /* Restore the stack pointer from a save area of the specified level.  */
 extern void emit_stack_restore (enum save_level, rtx, rtx);
 
+/* Invoke emit_stack_save for the nonlocal_goto_save_area.  */
+extern void update_nonlocal_goto_save_area (void);
+
 /* Allocate some space on the stack dynamically and return its address.  An rtx
    says how many bytes.  */
 extern rtx allocate_dynamic_stack_space (rtx, rtx, int);
@@ -795,7 +808,5 @@ extern rtx init_one_libfunc (const char *);
 extern void do_jump_by_parts_equality_rtx (rtx, rtx, rtx);
 extern void do_jump_by_parts_greater_rtx (enum machine_mode, int, rtx, rtx,
 					  rtx, rtx);
-
-extern void mark_seen_cases (tree, unsigned char *, HOST_WIDE_INT, int);
 
 extern int vector_mode_valid_p (enum machine_mode);

@@ -278,7 +278,6 @@ AC_PROG_CPP
 AC_C_INLINE
 
 gcc_AC_C_LONG_LONG
-gcc_AC_C__BOOL
 
 # sizeof(char) is 1 by definition.
 AC_COMPILE_CHECK_SIZEOF(void *)
@@ -426,8 +425,12 @@ if test x$ac_tree_checking != x ; then
   AC_DEFINE(ENABLE_TREE_CHECKING, 1,
 [Define if you want all operations on trees (the basic data
    structure of the front ends) to be checked for dynamic type safety
-   at runtime.  This is moderately expensive.])
+   at runtime.  This is moderately expensive.  The tree browser debugging
+   routines will also be enabled by this option.
+   ])
+  TREEBROWSER=tree-browser.o
 fi
+AC_SUBST(TREEBROWSER)
 if test x$ac_rtl_checking != x ; then
   AC_DEFINE(ENABLE_RTL_CHECKING, 1,
 [Define if you want all operations on RTL (the basic data structure
@@ -798,8 +801,8 @@ AC_PROG_CPP_WERROR
 
 AC_HEADER_STDC
 AC_HEADER_TIME
-gcc_AC_HEADER_STDBOOL
-gcc_AC_HEADER_STRING
+ACX_HEADER_STDBOOL
+ACX_HEADER_STRING
 AC_HEADER_SYS_WAIT
 AC_CHECK_HEADERS(limits.h stddef.h string.h strings.h stdlib.h time.h \
 		 fcntl.h unistd.h sys/file.h sys/time.h sys/mman.h \
@@ -1029,19 +1032,6 @@ AC_TRY_COMPILE([
 if test $gcc_cv_type_clock_t = yes; then
   AC_DEFINE(HAVE_CLOCK_T, 1,
   [Define if <time.h> defines clock_t.])
-fi
-
-AC_CACHE_CHECK(for uchar, gcc_cv_type_uchar,
-[AC_TRY_COMPILE([
-#include "ansidecl.h"
-#include "system.h"
-], 
-[if ((uchar *)0) return 0;
- if (sizeof(uchar)) return 0;],
-ac_cv_type_uchar=yes, ac_cv_type_uchar=no)])
-if test $ac_cv_type_uchar = yes; then
-  AC_DEFINE(HAVE_UCHAR, 1,
-  [Define if <sys/types.h> defines \`uchar'.])
 fi
 
 # Restore CFLAGS from before the gcc_AC_NEED_DECLARATIONS tests.
@@ -1695,14 +1685,15 @@ gcc_cv_gas_minor_version=
 gcc_cv_as_gas_srcdir=`echo $srcdir | sed -e 's,/gcc$,,'`/gas
 if test -x "$DEFAULT_ASSEMBLER"; then
 	gcc_cv_as="$DEFAULT_ASSEMBLER"
-elif test -x "$AS"; then
-	gcc_cv_as="$AS"
 elif test -x as$host_exeext; then
 	# Build using assembler in the current directory.
 	gcc_cv_as=./as$host_exeext
 elif test -f $gcc_cv_as_gas_srcdir/configure.in \
-     && test -f ../gas/Makefile; then
-  # Single tree build which includes gas.
+     && test -f ../gas/Makefile \
+     && test x$build = x$host; then
+  # Single tree build which includes gas.  We want to prefer it
+  # over whatever linker top-level may have detected, since
+  # we'll use what we're building after installation anyway.
   in_tree_gas=yes
   _gcc_COMPUTE_GAS_VERSION
   rm -f as$host_exeext
@@ -1714,6 +1705,11 @@ elif test -f $gcc_cv_as_gas_srcdir/configure.in \
   then
     in_tree_gas_is_elf=yes
   fi
+m4_pattern_allow([AS_FOR_TARGET])dnl
+elif test -x "$AS_FOR_TARGET"; then
+        gcc_cv_as="$AS_FOR_TARGET"
+elif test -x "$AS" && test x$host = x$target; then
+	gcc_cv_as="$AS"
 fi
 
 if test "x$gcc_cv_as" = x; then
@@ -1800,16 +1796,15 @@ gcc_cv_ld_gld_srcdir=`echo $srcdir | sed -e 's,/gcc$,,'`/ld
 gcc_cv_ld_bfd_srcdir=`echo $srcdir | sed -e 's,/gcc$,,'`/bfd
 if test -x "$DEFAULT_LINKER"; then
 	gcc_cv_ld="$DEFAULT_LINKER"
-elif test -x "$LD_FOR_TARGET"; then
-        gcc_cv_ld="$LD_FOR_TARGET"
-elif test -x "$LD" && test x$host = x$target; then
-	gcc_cv_ld="$LD"
 elif test -x collect-ld$host_exeext; then
 	# Build using linker in the current directory.
 	gcc_cv_ld=./collect-ld$host_exeext
 elif test -f $gcc_cv_ld_gld_srcdir/configure.in \
-     && test -f ../ld/Makefile; then
-	# Single tree build which includes ld.
+     && test -f ../ld/Makefile \
+     && test x$build = x$host; then
+	# Single tree build which includes ld.  We want to prefer it
+	# over whatever linker top-level may have detected, since
+	# we'll use what we're building after installation anyway.
 	in_tree_ld=yes
 	in_tree_ld_is_elf=no
 	if (grep 'EMUL = .*elf' ../ld/Makefile \
@@ -1832,6 +1827,10 @@ changequote([,])dnl
 	rm -f collect-ld$host_exeext
 	$symbolic_link ../ld/ld-new$host_exeext collect-ld$host_exeext \
 		2>/dev/null
+elif test -x "$LD_FOR_TARGET"; then
+        gcc_cv_ld="$LD_FOR_TARGET"
+elif test -x "$LD" && test x$host = x$target; then
+	gcc_cv_ld="$LD"
 fi
 
 if test "x$gcc_cv_ld" = x; then
@@ -2847,6 +2846,28 @@ else
 fi
 AC_SUBST(MAINT)dnl
 
+AC_MSG_CHECKING([whether to use libbanshee for points-to alias analysis])
+AC_ARG_WITH(libbanshee,
+[  --with-libbanshee	  enable libbanshee],
+libbanshee="$with_libbanshee",
+libbanshee=no)
+
+if test x"$libbanshee" = xyes; then
+	BANSHEELIB="../libbanshee/points-to/libandersen.a ../libbanshee/engine/libbansheeengine.a ../libbanshee/libcompat/libbansheecompat.a "
+	BANSHEEINC="-I\$(srcdir)/../libbanshee/libcompat -I\$(srcdir)/../libbanshee -I\$(srcdir)/../libbanshee/points-to"
+	ANDER="tree-alias-ander.o"
+	AC_DEFINE(HAVE_BANSHEE, 1, [Define if BANSHEE is available])
+else
+	BANSHEELIB=""
+	BANSHEEINC=""
+	ANDER=""
+fi
+AC_MSG_RESULT($with_libbanshee)
+
+AC_SUBST(ANDER)
+AC_SUBST(BANSHEEINC)
+AC_SUBST(BANSHEELIB)
+
 # --------------
 # Language hooks
 # --------------
@@ -3142,6 +3163,9 @@ else
     echo " from ${host} to ${target}." 1>&2
   fi
 fi
+
+AC_ARG_VAR(GMPLIBS,[How to link GMP])
+AC_ARG_VAR(GMPINC,[How to find GMP include files])
 
 # Configure the subdirectories
 # AC_CONFIG_SUBDIRS($subdirs)

@@ -64,10 +64,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "langhooks.h"
 #include "target.h"
 
-#ifndef TRAMPOLINE_ALIGNMENT
-#define TRAMPOLINE_ALIGNMENT FUNCTION_BOUNDARY
-#endif
-
 #ifndef LOCAL_ALIGNMENT
 #define LOCAL_ALIGNMENT(TYPE, ALIGNMENT) ALIGNMENT
 #endif
@@ -132,18 +128,12 @@ int current_function_uses_only_leaf_regs;
    post-instantiation libcalls.  */
 int virtuals_instantiated;
 
-/* Nonzero if at least one trampoline has been created.  */
-int trampolines_created;
-
 /* Assign unique numbers to labels generated for profiling, debugging, etc.  */
 static GTY(()) int funcdef_no;
 
 /* These variables hold pointers to functions to create and destroy
    target specific, per-function data structures.  */
 struct machine_function * (*init_machine_status) (void);
-
-/* The FUNCTION_DECL for an inline function currently being expanded.  */
-tree inline_function_decl;
 
 /* The currently compiled function.  */
 struct function *cfun = 0;
@@ -178,6 +168,9 @@ struct temp_slot GTY(())
 {
   /* Points to next temporary slot.  */
   struct temp_slot *next;
+  /* Points to previous temporary slot.  */
+  struct temp_slot *prev;
+
   /* The rtx to used to reference the slot.  */
   rtx slot;
   /* The rtx used to represent the address if not the address of the
@@ -256,16 +249,11 @@ static void instantiate_decls_1 (tree, int);
 static void instantiate_decl (rtx, HOST_WIDE_INT, int);
 static rtx instantiate_new_reg (rtx, HOST_WIDE_INT *);
 static int instantiate_virtual_regs_1 (rtx *, rtx, int);
-static void delete_handlers (void);
 static void pad_to_arg_alignment (struct args_size *, int, struct args_size *);
 static void pad_below (struct args_size *, enum machine_mode, tree);
-static rtx round_trampoline_addr (rtx);
-static rtx adjust_trampoline_addr (rtx);
 static tree *identify_blocks_1 (rtx, tree *, tree *, tree *);
-static void reorder_blocks_0 (tree);
 static void reorder_blocks_1 (rtx, tree, varray_type *);
 static void reorder_fix_fragments (tree);
-static tree blocks_nreverse (tree);
 static int all_blocks (tree, tree *);
 static tree *get_block_vector (tree, int *);
 extern tree debug_find_var_in_block_tree (tree, tree);
@@ -442,14 +430,12 @@ free_after_compilation (struct function *f)
   f->varasm = NULL;
   f->machine = NULL;
 
-  f->x_temp_slots = NULL;
+  f->x_avail_temp_slots = NULL;
+  f->x_used_temp_slots = NULL;
   f->arg_offset_rtx = NULL;
   f->return_rtx = NULL;
   f->internal_arg_pointer = NULL;
-  f->x_nonlocal_labels = NULL;
-  f->x_nonlocal_goto_handler_slots = NULL;
   f->x_nonlocal_goto_handler_labels = NULL;
-  f->x_nonlocal_goto_stack_level = NULL;
   f->x_cleanup_label = NULL;
   f->x_return_label = NULL;
   f->x_naked_return_label = NULL;
@@ -461,9 +447,6 @@ free_after_compilation (struct function *f)
   f->x_tail_recursion_label = NULL;
   f->x_tail_recursion_reentry = NULL;
   f->x_arg_pointer_save_area = NULL;
-  f->x_clobber_return_insn = NULL;
-  f->x_context_display = NULL;
-  f->x_trampoline_list = NULL;
   f->x_parm_birth_insn = NULL;
   f->x_last_parm_insn = NULL;
   f->x_parm_reg_stack_loc = NULL;
@@ -626,6 +609,82 @@ assign_stack_local (enum machine_mode mode, HOST_WIDE_INT size, int align)
 {
   return assign_stack_local_1 (mode, size, align, cfun);
 }
+
+
+/* Removes temporary slot TEMP from LIST.  */
+
+static void
+cut_slot_from_list (struct temp_slot *temp, struct temp_slot **list)
+{
+  if (temp->next)
+    temp->next->prev = temp->prev;
+  if (temp->prev)
+    temp->prev->next = temp->next;
+  else
+    *list = temp->next;
+
+  temp->prev = temp->next = NULL;
+}
+
+/* Inserts temporary slot TEMP to LIST.  */
+
+static void
+insert_slot_to_list (struct temp_slot *temp, struct temp_slot **list)
+{
+  temp->next = *list;
+  if (*list)
+    (*list)->prev = temp;
+  temp->prev = NULL;
+  *list = temp;
+}
+
+/* Returns the list of used temp slots at LEVEL.  */
+
+static struct temp_slot **
+temp_slots_at_level (int level)
+{
+  level++;
+
+  if (!used_temp_slots)
+    VARRAY_GENERIC_PTR_INIT (used_temp_slots, 3, "used_temp_slots");
+
+  while (level >= (int) VARRAY_ACTIVE_SIZE (used_temp_slots))
+    VARRAY_PUSH_GENERIC_PTR (used_temp_slots, NULL);
+
+  return (struct temp_slot **) &VARRAY_GENERIC_PTR (used_temp_slots, level);
+}
+
+/* Returns the maximal temporary slot level.  */
+
+static int
+max_slot_level (void)
+{
+  if (!used_temp_slots)
+    return -1;
+
+  return VARRAY_ACTIVE_SIZE (used_temp_slots) - 1;
+}
+
+/* Moves temporary slot TEMP to LEVEL.  */
+
+static void
+move_slot_to_level (struct temp_slot *temp, int level)
+{
+  cut_slot_from_list (temp, temp_slots_at_level (temp->level));
+  insert_slot_to_list (temp, temp_slots_at_level (level));
+  temp->level = level;
+}
+
+/* Make temporary slot TEMP available.  */
+
+static void
+make_slot_available (struct temp_slot *temp)
+{
+  cut_slot_from_list (temp, temp_slots_at_level (temp->level));
+  insert_slot_to_list (temp, &avail_temp_slots);
+  temp->in_use = 0;
+  temp->level = -1;
+}
 
 /* Allocate a temporary stack slot and record it for possible later
    reuse.
@@ -649,7 +708,7 @@ assign_stack_temp_for_type (enum machine_mode mode, HOST_WIDE_INT size, int keep
 			    tree type)
 {
   unsigned int align;
-  struct temp_slot *p, *best_p = 0;
+  struct temp_slot *p, *best_p = 0, *selected = NULL, **pp;
   rtx slot;
 
   /* If SIZE is -1 it means that somebody tried to allocate a temporary
@@ -671,24 +730,30 @@ assign_stack_temp_for_type (enum machine_mode mode, HOST_WIDE_INT size, int keep
   /* Try to find an available, already-allocated temporary of the proper
      mode which meets the size and alignment requirements.  Choose the
      smallest one with the closest alignment.  */
-  for (p = temp_slots; p; p = p->next)
-    if (p->align >= align && p->size >= size && GET_MODE (p->slot) == mode
-	&& ! p->in_use
-	&& objects_must_conflict_p (p->type, type)
-	&& (best_p == 0 || best_p->size > p->size
-	    || (best_p->size == p->size && best_p->align > p->align)))
-      {
-	if (p->align == align && p->size == size)
-	  {
-	    best_p = 0;
-	    break;
-	  }
-	best_p = p;
-      }
+  for (p = avail_temp_slots; p; p = p->next)
+    {
+      if (p->align >= align && p->size >= size && GET_MODE (p->slot) == mode
+	  && objects_must_conflict_p (p->type, type)
+	  && (best_p == 0 || best_p->size > p->size
+	      || (best_p->size == p->size && best_p->align > p->align)))
+	{
+	  if (p->align == align && p->size == size)
+	    {
+	      selected = p;
+	      cut_slot_from_list (selected, &avail_temp_slots);
+	      best_p = 0;
+	      break;
+	    }
+	  best_p = p;
+	}
+    }
 
   /* Make our best, if any, the one to use.  */
   if (best_p)
     {
+      selected = best_p;
+      cut_slot_from_list (selected, &avail_temp_slots);
+
       /* If there are enough aligned bytes left over, make them into a new
 	 temp_slot so that the extra bytes don't get wasted.  Do this only
 	 for BLKmode slots, so that we can be sure of the alignment.  */
@@ -711,8 +776,7 @@ assign_stack_temp_for_type (enum machine_mode mode, HOST_WIDE_INT size, int keep
 	      p->address = 0;
 	      p->rtl_expr = 0;
 	      p->type = best_p->type;
-	      p->next = temp_slots;
-	      temp_slots = p;
+	      insert_slot_to_list (p, &avail_temp_slots);
 
 	      stack_slot_list = gen_rtx_EXPR_LIST (VOIDmode, p->slot,
 						   stack_slot_list);
@@ -721,12 +785,10 @@ assign_stack_temp_for_type (enum machine_mode mode, HOST_WIDE_INT size, int keep
 	      best_p->full_size = rounded_size;
 	    }
 	}
-
-      p = best_p;
     }
 
   /* If we still didn't find one, make a new temporary.  */
-  if (p == 0)
+  if (selected == 0)
     {
       HOST_WIDE_INT frame_offset_old = frame_offset;
 
@@ -771,10 +833,11 @@ assign_stack_temp_for_type (enum machine_mode mode, HOST_WIDE_INT size, int keep
       p->full_size = frame_offset - frame_offset_old;
 #endif
       p->address = 0;
-      p->next = temp_slots;
-      temp_slots = p;
+
+      selected = p;
     }
 
+  p = selected;
   p->in_use = 1;
   p->addr_taken = 0;
   p->rtl_expr = seq_rtl_expr;
@@ -796,6 +859,8 @@ assign_stack_temp_for_type (enum machine_mode mode, HOST_WIDE_INT size, int keep
       p->keep = keep;
     }
 
+  pp = temp_slots_at_level (p->level);
+  insert_slot_to_list (p, pp);
 
   /* Create a new MEM rtx to avoid clobbering MEM flags of old slots.  */
   slot = gen_rtx_MEM (mode, XEXP (p->slot, 0));
@@ -909,8 +974,7 @@ assign_temp (tree type_or_decl, int keep, int memory_required,
 void
 combine_temp_slots (void)
 {
-  struct temp_slot *p, *q;
-  struct temp_slot *prev_p, *prev_q;
+  struct temp_slot *p, *q, *next, *next_q;
   int num_slots;
 
   /* We can't combine slots, because the information about which slot
@@ -921,52 +985,50 @@ combine_temp_slots (void)
   /* If there are a lot of temp slots, don't do anything unless
      high levels of optimization.  */
   if (! flag_expensive_optimizations)
-    for (p = temp_slots, num_slots = 0; p; p = p->next, num_slots++)
+    for (p = avail_temp_slots, num_slots = 0; p; p = p->next, num_slots++)
       if (num_slots > 100 || (num_slots > 10 && optimize == 0))
 	return;
 
-  for (p = temp_slots, prev_p = 0; p; p = prev_p ? prev_p->next : temp_slots)
+  for (p = avail_temp_slots; p; p = next)
     {
       int delete_p = 0;
 
-      if (! p->in_use && GET_MODE (p->slot) == BLKmode)
-	for (q = p->next, prev_q = p; q; q = prev_q->next)
-	  {
-	    int delete_q = 0;
-	    if (! q->in_use && GET_MODE (q->slot) == BLKmode)
-	      {
-		if (p->base_offset + p->full_size == q->base_offset)
-		  {
-		    /* Q comes after P; combine Q into P.  */
-		    p->size += q->size;
-		    p->full_size += q->full_size;
-		    delete_q = 1;
-		  }
-		else if (q->base_offset + q->full_size == p->base_offset)
-		  {
-		    /* P comes after Q; combine P into Q.  */
-		    q->size += p->size;
-		    q->full_size += p->full_size;
-		    delete_p = 1;
-		    break;
-		  }
-	      }
-	    /* Either delete Q or advance past it.  */
-	    if (delete_q)
-	      prev_q->next = q->next;
-	    else
-	      prev_q = q;
-	  }
+      next = p->next;
+
+      if (GET_MODE (p->slot) != BLKmode)
+	continue;
+
+      for (q = p->next; q; q = next_q)
+	{
+       	  int delete_q = 0;
+
+	  next_q = q->next;
+
+	  if (GET_MODE (q->slot) != BLKmode)
+	    continue;
+
+	  if (p->base_offset + p->full_size == q->base_offset)
+	    {
+	      /* Q comes after P; combine Q into P.  */
+	      p->size += q->size;
+	      p->full_size += q->full_size;
+	      delete_q = 1;
+	    }
+	  else if (q->base_offset + q->full_size == p->base_offset)
+	    {
+	      /* P comes after Q; combine P into Q.  */
+	      q->size += p->size;
+	      q->full_size += p->full_size;
+	      delete_p = 1;
+	      break;
+	    }
+	  if (delete_q)
+	    cut_slot_from_list (q, &avail_temp_slots);
+	}
+
       /* Either delete P or advance past it.  */
       if (delete_p)
-	{
-	  if (prev_p)
-	    prev_p->next = p->next;
-	  else
-	    temp_slots = p->next;
-	}
-      else
-	prev_p = p;
+	cut_slot_from_list (p, &avail_temp_slots);
     }
 }
 
@@ -977,26 +1039,25 @@ find_temp_slot_from_address (rtx x)
 {
   struct temp_slot *p;
   rtx next;
+  int i;
 
-  for (p = temp_slots; p; p = p->next)
-    {
-      if (! p->in_use)
-	continue;
+  for (i = max_slot_level (); i >= 0; i--)
+    for (p = *temp_slots_at_level (i); p; p = p->next)
+      {
+	if (XEXP (p->slot, 0) == x
+	    || p->address == x
+	    || (GET_CODE (x) == PLUS
+		&& XEXP (x, 0) == virtual_stack_vars_rtx
+		&& GET_CODE (XEXP (x, 1)) == CONST_INT
+		&& INTVAL (XEXP (x, 1)) >= p->base_offset
+		&& INTVAL (XEXP (x, 1)) < p->base_offset + p->full_size))
+	  return p;
 
-      else if (XEXP (p->slot, 0) == x
-	       || p->address == x
-	       || (GET_CODE (x) == PLUS
-		   && XEXP (x, 0) == virtual_stack_vars_rtx
-		   && GET_CODE (XEXP (x, 1)) == CONST_INT
-		   && INTVAL (XEXP (x, 1)) >= p->base_offset
-		   && INTVAL (XEXP (x, 1)) < p->base_offset + p->full_size))
-	return p;
-
-      else if (p->address != 0 && GET_CODE (p->address) == EXPR_LIST)
-	for (next = p->address; next; next = XEXP (next, 1))
-	  if (XEXP (next, 0) == x)
-	    return p;
-    }
+	else if (p->address != 0 && GET_CODE (p->address) == EXPR_LIST)
+	  for (next = p->address; next; next = XEXP (next, 1))
+	    if (XEXP (next, 0) == x)
+	      return p;
+      }
 
   /* If we have a sum involving a register, see if it points to a temp
      slot.  */
@@ -1099,15 +1160,19 @@ mark_temp_addr_taken (rtx x)
 void
 preserve_temp_slots (rtx x)
 {
-  struct temp_slot *p = 0;
+  struct temp_slot *p = 0, *next;
 
   /* If there is no result, we still might have some objects whose address
      were taken, so we need to make sure they stay around.  */
   if (x == 0)
     {
-      for (p = temp_slots; p; p = p->next)
-	if (p->in_use && p->level == temp_slot_level && p->addr_taken)
-	  p->level--;
+      for (p = *temp_slots_at_level (temp_slot_level); p; p = next)
+	{
+	  next = p->next;
+
+	  if (p->addr_taken)
+	    move_slot_to_level (p, temp_slot_level - 1);
+	}
 
       return;
     }
@@ -1124,9 +1189,13 @@ preserve_temp_slots (rtx x)
      taken.  */
   if (p == 0 && (GET_CODE (x) != MEM || CONSTANT_P (XEXP (x, 0))))
     {
-      for (p = temp_slots; p; p = p->next)
-	if (p->in_use && p->level == temp_slot_level && p->addr_taken)
-	  p->level--;
+      for (p = *temp_slots_at_level (temp_slot_level); p; p = next)
+	{
+	  next = p->next;
+
+	  if (p->addr_taken)
+	    move_slot_to_level (p, temp_slot_level - 1);
+	}
 
       return;
     }
@@ -1143,20 +1212,28 @@ preserve_temp_slots (rtx x)
 
       if (p->level == temp_slot_level)
 	{
-	  for (q = temp_slots; q; q = q->next)
-	    if (q != p && q->addr_taken && q->level == p->level)
-	      q->level--;
+	  for (q = *temp_slots_at_level (temp_slot_level); q; q = next)
+	    {
+	      next = q->next;
 
-	  p->level--;
+	      if (p != q && q->addr_taken)
+		move_slot_to_level (q, temp_slot_level - 1);
+	    }
+
+	  move_slot_to_level (p, temp_slot_level - 1);
 	  p->addr_taken = 0;
 	}
       return;
     }
 
   /* Otherwise, preserve all non-kept slots at this level.  */
-  for (p = temp_slots; p; p = p->next)
-    if (p->in_use && p->level == temp_slot_level && ! p->keep)
-      p->level--;
+  for (p = *temp_slots_at_level (temp_slot_level); p; p = next)
+    {
+      next = p->next;
+
+      if (!p->keep)
+	move_slot_to_level (p, temp_slot_level - 1);
+    }
 }
 
 /* X is the result of an RTL_EXPR.  If it is a temporary slot associated
@@ -1179,7 +1256,7 @@ preserve_rtl_expr_result (rtx x)
   p = find_temp_slot_from_address (XEXP (x, 0));
   if (p != 0)
     {
-      p->level = MIN (p->level, temp_slot_level);
+      move_slot_to_level (p, MIN (p->level, temp_slot_level));
       p->rtl_expr = 0;
     }
 
@@ -1196,12 +1273,15 @@ preserve_rtl_expr_result (rtx x)
 void
 free_temp_slots (void)
 {
-  struct temp_slot *p;
+  struct temp_slot *p, *next;
 
-  for (p = temp_slots; p; p = p->next)
-    if (p->in_use && p->level == temp_slot_level && ! p->keep
-	&& p->rtl_expr == 0)
-      p->in_use = 0;
+  for (p = *temp_slots_at_level (temp_slot_level); p; p = next)
+    {
+      next = p->next;
+
+      if (!p->keep && p->rtl_expr == 0)
+	make_slot_available (p);
+    }
 
   combine_temp_slots ();
 }
@@ -1211,37 +1291,26 @@ free_temp_slots (void)
 void
 free_temps_for_rtl_expr (tree t)
 {
-  struct temp_slot *p;
+  struct temp_slot *p, *next;
 
-  for (p = temp_slots; p; p = p->next)
-    if (p->rtl_expr == t)
-      {
-	/* If this slot is below the current TEMP_SLOT_LEVEL, then it
-	   needs to be preserved.  This can happen if a temporary in
-	   the RTL_EXPR was addressed; preserve_temp_slots will move
-	   the temporary into a higher level.  */
-	if (temp_slot_level <= p->level)
-	  p->in_use = 0;
-	else
-	  p->rtl_expr = NULL_TREE;
-      }
+  for (p = *temp_slots_at_level (temp_slot_level); p; p = next)
+    {
+      next = p->next;
+
+      if (p->rtl_expr == t)
+	{
+	  /* If this slot is below the current TEMP_SLOT_LEVEL, then it
+	     needs to be preserved.  This can happen if a temporary in
+	     the RTL_EXPR was addressed; preserve_temp_slots will move
+	     the temporary into a higher level.  */
+	  if (temp_slot_level <= p->level)
+	    make_slot_available (p);
+	  else
+	    p->rtl_expr = NULL_TREE;
+	}
+    }
 
   combine_temp_slots ();
-}
-
-/* Mark all temporaries ever allocated in this function as not suitable
-   for reuse until the current level is exited.  */
-
-void
-mark_all_temps_used (void)
-{
-  struct temp_slot *p;
-
-  for (p = temp_slots; p; p = p->next)
-    {
-      p->in_use = p->keep = 1;
-      p->level = MIN (p->level, temp_slot_level);
-    }
 }
 
 /* Push deeper into the nesting level for stack temporaries.  */
@@ -1258,11 +1327,15 @@ push_temp_slots (void)
 void
 pop_temp_slots (void)
 {
-  struct temp_slot *p;
+  struct temp_slot *p, *next;
 
-  for (p = temp_slots; p; p = p->next)
-    if (p->in_use && p->level == temp_slot_level && p->rtl_expr == 0)
-      p->in_use = 0;
+  for (p = *temp_slots_at_level (temp_slot_level); p; p = next)
+    {
+      next = p->next;
+
+      if (p->rtl_expr == 0)
+	make_slot_available (p);
+    }
 
   combine_temp_slots ();
 
@@ -1275,7 +1348,8 @@ void
 init_temp_slots (void)
 {
   /* We have not allocated any temporaries yet.  */
-  temp_slots = 0;
+  avail_temp_slots = 0;
+  used_temp_slots = 0;
   temp_slot_level = 0;
   var_temp_slot_level = 0;
   target_temp_slot_level = 0;
@@ -1323,7 +1397,7 @@ put_var_into_stack (tree decl, int rescan)
      because it might not be in any active function.
      FIXME: Is that really supposed to happen?
      It does in ObjC at least.  */
-  if (context != current_function_decl && context != inline_function_decl)
+  if (context != current_function_decl)
     for (function = outer_function_chain; function; function = function->outer)
       if (function->decl == context)
 	break;
@@ -4168,59 +4242,6 @@ instantiate_virtual_regs_1 (rtx *loc, rtx object, int extra_insns)
   return 1;
 }
 
-/* Optimization: assuming this function does not receive nonlocal gotos,
-   delete the handlers for such, as well as the insns to establish
-   and disestablish them.  */
-
-static void
-delete_handlers (void)
-{
-  rtx insn;
-  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
-    {
-      /* Delete the handler by turning off the flag that would
-	 prevent jump_optimize from deleting it.
-	 Also permit deletion of the nonlocal labels themselves
-	 if nothing local refers to them.  */
-      if (GET_CODE (insn) == CODE_LABEL)
-	{
-	  tree t, last_t;
-
-	  LABEL_PRESERVE_P (insn) = 0;
-
-	  /* Remove it from the nonlocal_label list, to avoid confusing
-	     flow.  */
-	  for (t = nonlocal_labels, last_t = 0; t;
-	       last_t = t, t = TREE_CHAIN (t))
-	    if (DECL_RTL (TREE_VALUE (t)) == insn)
-	      break;
-	  if (t)
-	    {
-	      if (! last_t)
-		nonlocal_labels = TREE_CHAIN (nonlocal_labels);
-	      else
-		TREE_CHAIN (last_t) = TREE_CHAIN (t);
-	    }
-	}
-      if (GET_CODE (insn) == INSN)
-	{
-	  int can_delete = 0;
-	  rtx t;
-	  for (t = nonlocal_goto_handler_slots; t != 0; t = XEXP (t, 1))
-	    if (reg_mentioned_p (t, PATTERN (insn)))
-	      {
-		can_delete = 1;
-		break;
-	      }
-	  if (can_delete
-	      || (nonlocal_goto_stack_level != 0
-		  && reg_mentioned_p (nonlocal_goto_stack_level,
-				      PATTERN (insn))))
-	    delete_related_insns (insn);
-	}
-    }
-}
-
 /* Return the first insn following those generated by `assign_parms'.  */
 
 rtx
@@ -4319,12 +4340,7 @@ assign_parms (tree fndecl)
   /* Nonzero if function takes extra anonymous args.
      This means the last named arg must be on the stack
      right before the anonymous ones.  */
-  int stdarg
-    = (TYPE_ARG_TYPES (fntype) != 0
-       && (TREE_VALUE (tree_last (TYPE_ARG_TYPES (fntype)))
-	   != void_type_node));
-
-  current_function_stdarg = stdarg;
+  int stdarg = current_function_stdarg;
 
   /* If the reg that the virtual arg pointer will be translated into is
      not a fixed reg or is the stack pointer, make a copy of the virtual
@@ -5714,49 +5730,30 @@ pad_below (struct args_size *offset_ptr, enum machine_mode passed_mode, tree siz
 }
 
 /* Walk the tree of blocks describing the binding levels within a function
-   and warn about uninitialized variables.
+   and warn about variables the might be killed by setjmp or vfork.
    This is done after calling flow_analysis and before global_alloc
    clobbers the pseudo-regs to hard regs.  */
 
 void
-uninitialized_vars_warning (tree block)
+setjmp_vars_warning (tree block)
 {
   tree decl, sub;
+
   for (decl = BLOCK_VARS (block); decl; decl = TREE_CHAIN (decl))
     {
-      if (warn_uninitialized
-	  && TREE_CODE (decl) == VAR_DECL
-	  /* These warnings are unreliable for and aggregates
-	     because assigning the fields one by one can fail to convince
-	     flow.c that the entire aggregate was initialized.
-	     Unions are troublesome because members may be shorter.  */
-	  && ! AGGREGATE_TYPE_P (TREE_TYPE (decl))
-	  && DECL_RTL_SET_P (decl)
-	  && GET_CODE (DECL_RTL (decl)) == REG
-	  /* Global optimizations can make it difficult to determine if a
-	     particular variable has been initialized.  However, a VAR_DECL
-	     with a nonzero DECL_INITIAL had an initializer, so do not
-	     claim it is potentially uninitialized.
-
-	     When the DECL_INITIAL is NULL call the language hook to tell us
-	     if we want to warn.  */
-	  && (DECL_INITIAL (decl) == NULL_TREE || lang_hooks.decl_uninit (decl))
-	  && regno_uninitialized (REGNO (DECL_RTL (decl))))
-	warning ("%J'%D' might be used uninitialized in this function",
-		 decl, decl);
-      if (extra_warnings
-	  && TREE_CODE (decl) == VAR_DECL
+      if (TREE_CODE (decl) == VAR_DECL
 	  && DECL_RTL_SET_P (decl)
 	  && GET_CODE (DECL_RTL (decl)) == REG
 	  && regno_clobbered_at_setjmp (REGNO (DECL_RTL (decl))))
 	warning ("%Jvariable '%D' might be clobbered by `longjmp' or `vfork'",
 		 decl, decl);
     }
+
   for (sub = BLOCK_SUBBLOCKS (block); sub; sub = TREE_CHAIN (sub))
-    uninitialized_vars_warning (sub);
+    setjmp_vars_warning (sub);
 }
 
-/* Do the appropriate part of uninitialized_vars_warning
+/* Do the appropriate part of setjmp_vars_warning
    but for arguments instead of local variables.  */
 
 void
@@ -5830,33 +5827,6 @@ setjmp_protect_args (void)
       put_var_into_stack (decl, /*rescan=*/true);
 }
 
-/* Return the context-pointer register corresponding to DECL,
-   or 0 if it does not need one.  */
-
-rtx
-lookup_static_chain (tree decl)
-{
-  tree context = decl_function_context (decl);
-  tree link;
-
-  if (context == 0
-      || (TREE_CODE (decl) == FUNCTION_DECL && DECL_NO_STATIC_CHAIN (decl)))
-    return 0;
-
-  /* We treat inline_function_decl as an alias for the current function
-     because that is the inline function whose vars, types, etc.
-     are being merged into the current function.
-     See expand_inline_function.  */
-  if (context == current_function_decl || context == inline_function_decl)
-    return virtual_stack_vars_rtx;
-
-  for (link = context_display; link; link = TREE_CHAIN (link))
-    if (TREE_PURPOSE (link) == context)
-      return RTL_EXPR_RTL (TREE_VALUE (link));
-
-  abort ();
-}
-
 /* Convert a stack slot address ADDR for variable VAR
    (from a containing function)
    into an address valid in this function (using a static chain).  */
@@ -5871,7 +5841,7 @@ fix_lexical_addr (rtx addr, tree var)
   rtx base = 0;
 
   /* If this is the present function, we need not do anything.  */
-  if (context == current_function_decl || context == inline_function_decl)
+  if (context == current_function_decl)
     return addr;
 
   fp = find_function_data (context);
@@ -5887,155 +5857,12 @@ fix_lexical_addr (rtx addr, tree var)
   else
     abort ();
 
-  /* We accept vars reached via the containing function's
-     incoming arg pointer and via its stack variables pointer.  */
-  if (basereg == fp->internal_arg_pointer)
-    {
-      /* If reached via arg pointer, get the arg pointer value
-	 out of that function's stack frame.
-
-	 There are two cases:  If a separate ap is needed, allocate a
-	 slot in the outer function for it and dereference it that way.
-	 This is correct even if the real ap is actually a pseudo.
-	 Otherwise, just adjust the offset from the frame pointer to
-	 compensate.  */
-
-#ifdef NEED_SEPARATE_AP
-      rtx addr;
-
-      addr = get_arg_pointer_save_area (fp);
-      addr = fix_lexical_addr (XEXP (addr, 0), var);
-      addr = memory_address (Pmode, addr);
-
-      base = gen_rtx_MEM (Pmode, addr);
-      set_mem_alias_set (base, get_frame_alias_set ());
-      base = copy_to_reg (base);
-#else
-      displacement += (FIRST_PARM_OFFSET (context) - STARTING_FRAME_OFFSET);
-      base = lookup_static_chain (var);
-#endif
-    }
-
-  else if (basereg == virtual_stack_vars_rtx)
-    {
-      /* This is the same code as lookup_static_chain, duplicated here to
-	 avoid an extra call to decl_function_context.  */
-      tree link;
-
-      for (link = context_display; link; link = TREE_CHAIN (link))
-	if (TREE_PURPOSE (link) == context)
-	  {
-	    base = RTL_EXPR_RTL (TREE_VALUE (link));
-	    break;
-	  }
-    }
-
   if (base == 0)
     abort ();
 
   /* Use same offset, relative to appropriate static chain or argument
      pointer.  */
   return plus_constant (base, displacement);
-}
-
-/* Return the address of the trampoline for entering nested fn FUNCTION.
-   If necessary, allocate a trampoline (in the stack frame)
-   and emit rtl to initialize its contents (at entry to this function).  */
-
-rtx
-trampoline_address (tree function)
-{
-  tree link;
-  tree rtlexp;
-  rtx tramp;
-  struct function *fp;
-  tree fn_context;
-
-  /* Find an existing trampoline and return it.  */
-  for (link = trampoline_list; link; link = TREE_CHAIN (link))
-    if (TREE_PURPOSE (link) == function)
-      return
-	adjust_trampoline_addr (XEXP (RTL_EXPR_RTL (TREE_VALUE (link)), 0));
-
-  for (fp = outer_function_chain; fp; fp = fp->outer)
-    for (link = fp->x_trampoline_list; link; link = TREE_CHAIN (link))
-      if (TREE_PURPOSE (link) == function)
-	{
-	  tramp = fix_lexical_addr (XEXP (RTL_EXPR_RTL (TREE_VALUE (link)), 0),
-				    function);
-	  return adjust_trampoline_addr (tramp);
-	}
-
-  /* None exists; we must make one.  */
-
-  /* Find the `struct function' for the function containing FUNCTION.  */
-  fp = 0;
-  fn_context = decl_function_context (function);
-  if (fn_context != current_function_decl
-      && fn_context != inline_function_decl)
-    fp = find_function_data (fn_context);
-
-  /* Allocate run-time space for this trampoline.  */
-  /* If rounding needed, allocate extra space
-     to ensure we have TRAMPOLINE_SIZE bytes left after rounding up.  */
-#define TRAMPOLINE_REAL_SIZE \
-  (TRAMPOLINE_SIZE + (TRAMPOLINE_ALIGNMENT / BITS_PER_UNIT) - 1)
-  tramp = assign_stack_local_1 (BLKmode, TRAMPOLINE_REAL_SIZE, 0,
-				fp ? fp : cfun);
-  /* Record the trampoline for reuse and note it for later initialization
-     by expand_function_end.  */
-  if (fp != 0)
-    {
-      rtlexp = make_node (RTL_EXPR);
-      RTL_EXPR_RTL (rtlexp) = tramp;
-      fp->x_trampoline_list = tree_cons (function, rtlexp,
-					 fp->x_trampoline_list);
-    }
-  else
-    {
-      /* Make the RTL_EXPR node temporary, not momentary, so that the
-	 trampoline_list doesn't become garbage.  */
-      rtlexp = make_node (RTL_EXPR);
-
-      RTL_EXPR_RTL (rtlexp) = tramp;
-      trampoline_list = tree_cons (function, rtlexp, trampoline_list);
-    }
-
-  tramp = fix_lexical_addr (XEXP (tramp, 0), function);
-  return adjust_trampoline_addr (tramp);
-}
-
-/* Given a trampoline address,
-   round it to multiple of TRAMPOLINE_ALIGNMENT.  */
-
-static rtx
-round_trampoline_addr (rtx tramp)
-{
-  /* Round address up to desired boundary.  */
-  rtx temp = gen_reg_rtx (Pmode);
-  rtx addend = GEN_INT (TRAMPOLINE_ALIGNMENT / BITS_PER_UNIT - 1);
-  rtx mask = GEN_INT (-TRAMPOLINE_ALIGNMENT / BITS_PER_UNIT);
-
-  temp  = expand_simple_binop (Pmode, PLUS, tramp, addend,
-			       temp, 0, OPTAB_LIB_WIDEN);
-  tramp = expand_simple_binop (Pmode, AND, temp, mask,
-			       temp, 0, OPTAB_LIB_WIDEN);
-
-  return tramp;
-}
-
-/* Given a trampoline address, round it then apply any
-   platform-specific adjustments so that the result can be used for a
-   function call .  */
-
-static rtx
-adjust_trampoline_addr (rtx tramp)
-{
-  tramp = round_trampoline_addr (tramp);
-#ifdef TRAMPOLINE_ADJUST_ADDRESS
-  TRAMPOLINE_ADJUST_ADDRESS (tramp);
-#endif
-  return tramp;
 }
 
 /* Put all this function's BLOCK nodes including those that are chained
@@ -6157,7 +5984,7 @@ reorder_blocks (void)
   VARRAY_TREE_INIT (block_stack, 10, "block_stack");
 
   /* Reset the TREE_ASM_WRITTEN bit for all blocks.  */
-  reorder_blocks_0 (block);
+  clear_block_marks (block);
 
   /* Prune the old trees away, so that they don't get in the way.  */
   BLOCK_SUBBLOCKS (block) = NULL_TREE;
@@ -6173,13 +6000,13 @@ reorder_blocks (void)
 
 /* Helper function for reorder_blocks.  Reset TREE_ASM_WRITTEN.  */
 
-static void
-reorder_blocks_0 (tree block)
+void
+clear_block_marks (tree block)
 {
   while (block)
     {
       TREE_ASM_WRITTEN (block) = 0;
-      reorder_blocks_0 (BLOCK_SUBBLOCKS (block));
+      clear_block_marks (BLOCK_SUBBLOCKS (block));
       block = BLOCK_CHAIN (block);
     }
 }
@@ -6310,7 +6137,7 @@ reorder_fix_fragments (tree block)
 /* Reverse the order of elements in the chain T of blocks,
    and return the new head of the chain (old last element).  */
 
-static tree
+tree
 blocks_nreverse (tree t)
 {
   tree prev = 0, decl, next;
@@ -6428,6 +6255,7 @@ void
 allocate_struct_function (tree fndecl)
 {
   tree result;
+  tree fntype = fndecl ? TREE_TYPE (fndecl) : NULL_TREE;
 
   cfun = ggc_alloc_cleared (sizeof (struct function));
 
@@ -6464,9 +6292,11 @@ allocate_struct_function (tree fndecl)
 
   current_function_returns_pointer = POINTER_TYPE_P (TREE_TYPE (result));
 
-  current_function_needs_context
-    = (decl_function_context (current_function_decl) != 0
-       && ! DECL_NO_STATIC_CHAIN (current_function_decl));
+  current_function_stdarg
+    = (fntype
+       && TYPE_ARG_TYPES (fntype) != 0
+       && (TREE_VALUE (tree_last (TYPE_ARG_TYPES (fntype)))
+	   != void_type_node));
 }
 
 /* Reset cfun, and other non-struct-function variables to defaults as
@@ -6639,16 +6469,9 @@ expand_pending_sizes (tree pending_sizes)
 void
 expand_function_start (tree subr, int parms_have_cleanups)
 {
-  tree tem;
-  rtx last_ptr = NULL_RTX;
-
   /* Make sure volatile mem refs aren't considered
      valid operands of arithmetic insns.  */
   init_recog_no_volatile ();
-
-  current_function_instrument_entry_exit
-    = (flag_instrument_function_entry_exit
-       && ! DECL_NO_INSTRUMENT_FUNCTION_ENTRY_EXIT (subr));
 
   current_function_profile
     = (profile_flag
@@ -6656,19 +6479,6 @@ expand_function_start (tree subr, int parms_have_cleanups)
 
   current_function_limit_stack
     = (stack_limit_rtx != NULL_RTX && ! DECL_NO_LIMIT_STACK (subr));
-
-  /* If function gets a static chain arg, store it in the stack frame.
-     Do this first, so it gets the first stack slot offset.  */
-  if (current_function_needs_context)
-    {
-      last_ptr = assign_stack_local (Pmode, GET_MODE_SIZE (Pmode), 0);
-
-      /* Delay copying static chain if it is not a register to avoid
-	 conflicts with regs used for parameters.  */
-      if (! SMALL_REGISTER_CLASSES
-	  || GET_CODE (static_chain_incoming_rtx) == REG)
-	emit_move_insn (last_ptr, static_chain_incoming_rtx);
-    }
 
   /* If the parameters of this function need cleaning up, get a label
      for the beginning of the code which executes those cleanups.  This must
@@ -6750,15 +6560,40 @@ expand_function_start (tree subr, int parms_have_cleanups)
 
   /* Initialize rtx for parameters and local variables.
      In some cases this requires emitting insns.  */
-
   assign_parms (subr);
 
-  /* Copy the static chain now if it wasn't a register.  The delay is to
-     avoid conflicts with the parameter passing registers.  */
+  /* If function gets a static chain arg, store it.  */
+  if (cfun->static_chain_decl)
+    {
+      tree parm = cfun->static_chain_decl;
+      rtx local = gen_reg_rtx (Pmode);
 
-  if (SMALL_REGISTER_CLASSES && current_function_needs_context)
-    if (GET_CODE (static_chain_incoming_rtx) != REG)
-      emit_move_insn (last_ptr, static_chain_incoming_rtx);
+      set_decl_incoming_rtl (parm, static_chain_incoming_rtx);
+      SET_DECL_RTL (parm, local);
+      maybe_set_unchanging (local, parm);
+      mark_reg_pointer (local, TYPE_ALIGN (TREE_TYPE (TREE_TYPE (parm))));
+
+      emit_move_insn (local, static_chain_incoming_rtx);
+    }
+
+  /* If the function receives a non-local goto, then store the
+     bits we need to restore the frame pointer.  */
+  if (cfun->nonlocal_goto_save_area)
+    {
+      tree t_save;
+      rtx r_save;
+
+      /* ??? We need to do this save early.  Unfortunately here is
+	 before the frame variable gets declared.  Help out...  */
+      expand_var (TREE_OPERAND (cfun->nonlocal_goto_save_area, 0));
+
+      t_save = build (ARRAY_REF, ptr_type_node, cfun->nonlocal_goto_save_area,
+		      integer_zero_node);
+      r_save = expand_expr (t_save, NULL_RTX, VOIDmode, EXPAND_WRITE);
+
+      emit_move_insn (r_save, virtual_stack_vars_rtx);
+      update_nonlocal_goto_save_area ();
+    }
 
   /* The following was moved from init_function_start.
      The move is supposed to make sdb output more accurate.  */
@@ -6769,67 +6604,6 @@ expand_function_start (tree subr, int parms_have_cleanups)
   if (GET_CODE (get_last_insn ()) != NOTE)
     emit_note (NOTE_INSN_DELETED);
   parm_birth_insn = get_last_insn ();
-
-  context_display = 0;
-  if (current_function_needs_context)
-    {
-      /* Fetch static chain values for containing functions.  */
-      tem = decl_function_context (current_function_decl);
-      /* Copy the static chain pointer into a pseudo.  If we have
-	 small register classes, copy the value from memory if
-	 static_chain_incoming_rtx is a REG.  */
-      if (tem)
-	{
-	  /* If the static chain originally came in a register, put it back
-	     there, then move it out in the next insn.  The reason for
-	     this peculiar code is to satisfy function integration.  */
-	  if (SMALL_REGISTER_CLASSES
-	      && GET_CODE (static_chain_incoming_rtx) == REG)
-	    emit_move_insn (static_chain_incoming_rtx, last_ptr);
-	  last_ptr = copy_to_reg (static_chain_incoming_rtx);
-	}
-
-      while (tem)
-	{
-	  tree rtlexp = make_node (RTL_EXPR);
-
-	  RTL_EXPR_RTL (rtlexp) = last_ptr;
-	  context_display = tree_cons (tem, rtlexp, context_display);
-	  tem = decl_function_context (tem);
-	  if (tem == 0)
-	    break;
-	  /* Chain through stack frames, assuming pointer to next lexical frame
-	     is found at the place we always store it.  */
-#ifdef FRAME_GROWS_DOWNWARD
-	  last_ptr = plus_constant (last_ptr,
-				    -(HOST_WIDE_INT) GET_MODE_SIZE (Pmode));
-#endif
-	  last_ptr = gen_rtx_MEM (Pmode, memory_address (Pmode, last_ptr));
-	  set_mem_alias_set (last_ptr, get_frame_alias_set ());
-	  last_ptr = copy_to_reg (last_ptr);
-
-	  /* If we are not optimizing, ensure that we know that this
-	     piece of context is live over the entire function.  */
-	  if (! optimize)
-	    save_expr_regs = gen_rtx_EXPR_LIST (VOIDmode, last_ptr,
-						save_expr_regs);
-	}
-    }
-
-  if (current_function_instrument_entry_exit)
-    {
-      rtx fun = DECL_RTL (current_function_decl);
-      if (GET_CODE (fun) == MEM)
-	fun = XEXP (fun, 0);
-      else
-	abort ();
-      emit_library_call (profile_function_entry_libfunc, LCT_NORMAL, VOIDmode,
-			 2, fun, Pmode,
-			 expand_builtin_return_addr (BUILT_IN_RETURN_ADDRESS,
-						     0,
-						     hard_frame_pointer_rtx),
-			 Pmode);
-    }
 
   if (current_function_profile)
     {
@@ -6948,7 +6722,6 @@ static GTY(()) rtx initial_trampoline;
 void
 expand_function_end (void)
 {
-  tree link;
   rtx clobber_after;
 
   finish_expr_for_function ();
@@ -6969,45 +6742,6 @@ expand_function_end (void)
       setjmp_protect_args ();
     }
 #endif
-
-  /* Initialize any trampolines required by this function.  */
-  for (link = trampoline_list; link; link = TREE_CHAIN (link))
-    {
-      tree function = TREE_PURPOSE (link);
-      rtx context ATTRIBUTE_UNUSED = lookup_static_chain (function);
-      rtx tramp = RTL_EXPR_RTL (TREE_VALUE (link));
-#ifdef TRAMPOLINE_TEMPLATE
-      rtx blktramp;
-#endif
-      rtx seq;
-
-#ifdef TRAMPOLINE_TEMPLATE
-      /* First make sure this compilation has a template for
-	 initializing trampolines.  */
-      if (initial_trampoline == 0)
-	{
-	  initial_trampoline
-	    = gen_rtx_MEM (BLKmode, assemble_trampoline_template ());
-	  set_mem_align (initial_trampoline, TRAMPOLINE_ALIGNMENT);
-	}
-#endif
-
-      /* Generate insns to initialize the trampoline.  */
-      start_sequence ();
-      tramp = round_trampoline_addr (XEXP (tramp, 0));
-#ifdef TRAMPOLINE_TEMPLATE
-      blktramp = replace_equiv_address (initial_trampoline, tramp);
-      emit_block_move (blktramp, initial_trampoline,
-		       GEN_INT (TRAMPOLINE_SIZE), BLOCK_OP_NORMAL);
-#endif
-      trampolines_created = 1;
-      INITIALIZE_TRAMPOLINE (tramp, XEXP (DECL_RTL (function), 0), context);
-      seq = get_insns ();
-      end_sequence ();
-
-      /* Put those insns at entry to the containing function (this one).  */
-      emit_insn_before (seq, tail_recursion_reentry);
-    }
 
   /* If we are doing stack checking and this function makes calls,
      do a stack probe at the start of the function to ensure we have enough
@@ -7035,11 +6769,6 @@ expand_function_end (void)
   if (warn_unused_parameter
       && !lang_hooks.callgraph.expand_function)
     do_warn_unused_parameter (current_function_decl);
-
-  /* Delete handlers for nonlocal gotos if nothing uses them.  */
-  if (nonlocal_goto_handler_slots != 0
-      && ! current_function_has_nonlocal_label)
-    delete_handlers ();
 
   /* End any sequences that failed to be closed due to syntax errors.  */
   while (in_sequence_p ())
@@ -7095,21 +6824,6 @@ expand_function_end (void)
      structure returning.  */
   if (return_label)
     emit_label (return_label);
-
-  if (current_function_instrument_entry_exit)
-    {
-      rtx fun = DECL_RTL (current_function_decl);
-      if (GET_CODE (fun) == MEM)
-	fun = XEXP (fun, 0);
-      else
-	abort ();
-      emit_library_call (profile_function_exit_libfunc, LCT_NORMAL, VOIDmode,
-			 2, fun, Pmode,
-			 expand_builtin_return_addr (BUILT_IN_RETURN_ADDRESS,
-						     0,
-						     hard_frame_pointer_rtx),
-			 Pmode);
-    }
 
   /* Let except.c know where it should emit the call to unregister
      the function context for sjlj exceptions.  */
@@ -7233,9 +6947,6 @@ expand_function_end (void)
     end_sequence ();
 
     after = emit_insn_after (seq, clobber_after);
-
-    if (clobber_after != after)
-      cfun->x_clobber_return_insn = after;
   }
 
   /* Output the label for the naked return from the function, if one is
@@ -8159,6 +7870,59 @@ init_function_once (void)
   VARRAY_INT_INIT (prologue, 0, "prologue");
   VARRAY_INT_INIT (epilogue, 0, "epilogue");
   VARRAY_INT_INIT (sibcall_epilogue, 0, "sibcall_epilogue");
+}
+
+/* Resets insn_block_boundaries array.  */
+
+void
+reset_block_changes (void)
+{
+  VARRAY_TREE_INIT (cfun->ib_boundaries_block, 100, "ib_boundaries_block");
+  VARRAY_PUSH_TREE (cfun->ib_boundaries_block, NULL_TREE);
+}
+
+/* Record the boundary for BLOCK.  */
+void
+record_block_change (tree block)
+{
+  int i, n;
+  tree last_block;
+
+  if (!block)
+    return;
+
+  last_block = VARRAY_TOP_TREE (cfun->ib_boundaries_block);
+  VARRAY_POP (cfun->ib_boundaries_block);
+  n = get_max_uid ();
+  for (i = VARRAY_ACTIVE_SIZE (cfun->ib_boundaries_block); i < n; i++)
+    VARRAY_PUSH_TREE (cfun->ib_boundaries_block, last_block);
+
+  VARRAY_PUSH_TREE (cfun->ib_boundaries_block, block);
+}
+
+/* Finishes record of boundaries.  */
+void finalize_block_changes (void)
+{
+  record_block_change (DECL_INITIAL (current_function_decl));
+}
+
+/* For INSN return the BLOCK it belongs to.  */ 
+void
+check_block_change (rtx insn, tree *block)
+{
+  unsigned uid = INSN_UID (insn);
+
+  if (uid >= VARRAY_ACTIVE_SIZE (cfun->ib_boundaries_block))
+    return;
+
+  *block = VARRAY_TREE (cfun->ib_boundaries_block, uid);
+}
+
+/* Releases the ib_boundaries_block records.  */
+void
+free_block_changes (void)
+{
+  cfun->ib_boundaries_block = NULL;
 }
 
 /* Returns the name of the current function.  */

@@ -48,6 +48,7 @@ with Sem_Ch3;  use Sem_Ch3;
 with Sem_Ch4;  use Sem_Ch4;
 with Sem_Ch5;  use Sem_Ch5;
 with Sem_Ch8;  use Sem_Ch8;
+with Sem_Ch10; use Sem_Ch10;
 with Sem_Ch12; use Sem_Ch12;
 with Sem_Disp; use Sem_Disp;
 with Sem_Dist; use Sem_Dist;
@@ -789,6 +790,36 @@ package body Sem_Ch6 is
       Missing_Ret  : Boolean;
       P_Ent        : Entity_Id;
 
+      procedure Check_Following_Pragma;
+      --  If front-end inlining is enabled, look ahead to recognize a pragma
+      --  that may appear after the body.
+
+      procedure Check_Following_Pragma is
+         Prag : Node_Id;
+
+      begin
+         if Front_End_Inlining
+           and then Is_List_Member (N)
+           and then Present (Spec_Decl)
+           and then List_Containing (N) = List_Containing (Spec_Decl)
+         then
+            Prag := Next (N);
+
+            if Present (Prag)
+              and then Nkind (Prag) = N_Pragma
+              and then Get_Pragma_Id (Chars (Prag)) = Pragma_Inline
+              and then
+              Chars
+                (Expression (First (Pragma_Argument_Associations (Prag))))
+                   = Chars (Body_Id)
+            then
+               Analyze (Prag);
+            end if;
+         end if;
+      end Check_Following_Pragma;
+
+   --  Start of processing for Analyze_Subprogram_Body
+
    begin
       if Debug_Flag_C then
          Write_Str ("====  Compiling subprogram body ");
@@ -1140,13 +1171,24 @@ package body Sem_Ch6 is
 
       elsif  Present (Spec_Id)
         and then Expander_Active
-        and then (Is_Always_Inlined (Spec_Id)
-                    or else (Has_Pragma_Inline (Spec_Id)
-                              and then
-                                (Front_End_Inlining
-                                  or else Configurable_Run_Time_Mode)))
       then
-         Build_Body_To_Inline (N, Spec_Id);
+         Check_Following_Pragma;
+
+         if Is_Always_Inlined (Spec_Id)
+           or else (Has_Pragma_Inline (Spec_Id)
+             and then (Front_End_Inlining or else Configurable_Run_Time_Mode))
+         then
+            Build_Body_To_Inline (N, Spec_Id);
+         end if;
+      end if;
+
+      --  Ada 0Y (AI-262): In library subprogram bodies, after the analysis
+      --  if its specification we have to install the private withed units.
+
+      if Is_Compilation_Unit (Body_Id)
+        and then Scope (Body_Id) = Standard_Standard
+      then
+         Install_Private_With_Clauses (Body_Id);
       end if;
 
       --  Now we can go on to analyze the body
@@ -1159,6 +1201,7 @@ package body Sem_Ch6 is
       Process_End_Label (HSS, 't', Current_Scope);
       End_Scope;
       Check_Subprogram_Order (N);
+      Set_Analyzed (Body_Id);
 
       --  If we have a separate spec, then the analysis of the declarations
       --  caused the entities in the body to be chained to the spec id, but

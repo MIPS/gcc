@@ -2536,10 +2536,6 @@ __asm__("\n"								\
    address than to call an address kept in a register.  */
 #define NO_FUNCTION_CSE
 
-/* Define this macro if it is as good or better for a function to call itself
-   with an explicit address than to call an address kept in a register.  */
-#define NO_RECURSIVE_FUNCTION_CSE
-
 
 /* Dividing the output into sections.  */
 
@@ -2639,8 +2635,7 @@ fixup_section (void)							\
   (   GET_CODE (X) == CONST_INT						\
    || GET_CODE (X) == CONST_DOUBLE					\
    || (GET_CODE (X) == HIGH && GET_CODE (XEXP (X, 0)) == CONST_INT)	\
-   || got12_operand (X, VOIDmode)					\
-   || GET_CODE (X) == CONSTANT_P_RTX)
+   || got12_operand (X, VOIDmode))					\
 
 
 /* The Overall Framework of an Assembler File.  */

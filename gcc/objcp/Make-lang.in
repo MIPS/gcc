@@ -39,10 +39,9 @@
 #
 # Define the names for selecting Objective-C++ in LANGUAGES.
 OBJ-C++ obj-c++: cc1objplus$(exeext)
-OBJECTIVE-C++ objective-c++: cc1objplus$(exeext)
 
 # Tell GNU make to ignore these if they exist.
-.PHONY: objective-c++ obj-c++ Obj-C++
+.PHONY: Obj-c++ obj-C++
 
 # Use maximal warnings for this front end.  Also, make ObjC and C++
 # headers accessible.
@@ -52,9 +51,9 @@ objcp-warn = $(STRICT_WARN) -DOBJCPLUS -I$(srcdir)/objc -I$(srcdir)/cp
 OBJCXX_OBJS = objcp/objcp-act.o objcp/objcp-lang.o objcp/objcp-decl.o \
    $(CXX_AND_OBJCXX_OBJS)
 
-cc1objplus$(exeext): $(OBJCXX_OBJS) $(BACKEND) libcpp.a $(LIBDEPS)
+cc1objplus$(exeext): $(OBJCXX_OBJS) $(BACKEND) $(LIBDEPS)
 	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ \
-		$(OBJCXX_OBJS) $(BACKEND) libcpp.a $(LIBS)
+		$(OBJCXX_OBJS) $(BACKEND) $(LIBS)
 
 # Objective C++ language specific files.
 

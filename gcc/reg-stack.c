@@ -232,7 +232,7 @@ static rtx
   (FP_mode_reg[(regno)-FIRST_STACK_REG][(int) (mode)])
 
 /* Used to initialize uninitialized registers.  */
-static rtx nan;
+static rtx not_a_num;
 
 /* Forward declarations */
 
@@ -399,8 +399,7 @@ pop_stack (stack regstack, int regno)
 }
 
 /* Convert register usage from "flat" register file usage to a "stack
-   register file.  FIRST is the first insn in the function, FILE is the
-   dump file, if used.
+   register file.  FILE is the dump file, if used.
 
    Construct a CFG and run life analysis.  Then convert each insn one
    by one.  Run a last cleanup_cfg pass, if optimizing, to eliminate
@@ -408,7 +407,7 @@ pop_stack (stack regstack, int regno)
    the edges.  */
 
 bool
-reg_to_stack (rtx first, FILE *file)
+reg_to_stack (FILE *file)
 {
   basic_block bb;
   int i;
@@ -434,7 +433,7 @@ reg_to_stack (rtx first, FILE *file)
 	  && flag_schedule_insns_after_reload))
     {
       count_or_remove_death_notes (NULL, 1);
-      life_analysis (first, file, PROP_DEATH_NOTES);
+      life_analysis (file, PROP_DEATH_NOTES);
     }
   mark_dfs_back_edges ();
 
@@ -473,11 +472,11 @@ reg_to_stack (rtx first, FILE *file)
      on zero, which we can get from `ldz'.  */
 
   if (flag_pic)
-    nan = CONST0_RTX (SFmode);
+    not_a_num = CONST0_RTX (SFmode);
   else
     {
-      nan = gen_lowpart (SFmode, GEN_INT (0x7fc00000));
-      nan = force_const_mem (SFmode, nan);
+      not_a_num = gen_lowpart (SFmode, GEN_INT (0x7fc00000));
+      not_a_num = force_const_mem (SFmode, not_a_num);
     }
 
   /* Allocate a cache for stack_regs_mentioned.  */
@@ -1500,7 +1499,7 @@ subst_stack_regs_pat (rtx insn, stack regstack, rtx pat)
 		  {
 		    pat = gen_rtx_SET (VOIDmode,
 				       FP_MODE_REG (REGNO (*dest), SFmode),
-				       nan);
+				       not_a_num);
 		    PATTERN (insn) = pat;
 		    control_flow_insn_deleted |= move_for_stack_reg (insn, regstack, pat);
 		  }
@@ -1509,7 +1508,7 @@ subst_stack_regs_pat (rtx insn, stack regstack, rtx pat)
 		  {
 		    pat = gen_rtx_SET (VOIDmode,
 				       FP_MODE_REG (REGNO (*dest) + 1, SFmode),
-				       nan);
+				       not_a_num);
 		    PATTERN (insn) = pat;
 		    control_flow_insn_deleted |= move_for_stack_reg (insn, regstack, pat);
 		  }
@@ -2598,7 +2597,7 @@ convert_regs_entry (void)
 
 	    init = gen_rtx_SET (VOIDmode,
 				FP_MODE_REG (FIRST_STACK_REG, SFmode),
-				nan);
+				not_a_num);
 	    insert_insn_on_edge (init, e);
 	    inserted = 1;
 	  }
@@ -2916,7 +2915,7 @@ convert_regs_1 (FILE *file, basic_block block)
 	    }
 
 	  set = gen_rtx_SET (VOIDmode, FP_MODE_REG (reg, SFmode),
-			     nan);
+			     not_a_num);
 	  insn = emit_insn_after (set, insn);
 	  control_flow_insn_deleted |= subst_stack_regs (insn, &regstack);
 	}

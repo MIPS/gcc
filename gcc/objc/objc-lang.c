@@ -41,8 +41,6 @@ enum c_language_kind c_language = clk_objc;
 
 #undef LANG_HOOKS_NAME
 #define LANG_HOOKS_NAME "GNU Objective-C"
-#undef LANG_HOOKS_IDENTIFIER_SIZE
-#define LANG_HOOKS_IDENTIFIER_SIZE C_SIZEOF_STRUCT_LANG_IDENTIFIER
 #undef LANG_HOOKS_INIT
 #define LANG_HOOKS_INIT objc_init
 #undef LANG_HOOKS_DECL_PRINTABLE_NAME
@@ -93,7 +91,7 @@ const char * const tree_code_name[] = {
 };
 #undef DEFTREECODE
 
-/* Lang hook routines common to C++ and ObjC++ appear in cp/cp-objcp-common.c;
+/* Lang hook routines common to C and ObjC appear in c-objc-common.c;
    there should be very few (if any) routines below.  */
 
 void

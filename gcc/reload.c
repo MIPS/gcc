@@ -27,6 +27,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    ought to be used instead.
 
    Before processing the first insn of the function, call `init_reload'.
+   init_reload actually has to be called earlier anyway.
 
    To scan an insn, call `find_reloads'.  This does two things:
    1. sets up tables describing which values must be reloaded
@@ -2265,9 +2266,8 @@ decompose (rtx x)
   struct decomposition val;
   int all_const = 0;
 
-  val.reg_flag = 0;
-  val.safe = 0;
-  val.base = 0;
+  memset (&val, 0, sizeof (val));
+
   if (GET_CODE (x) == MEM)
     {
       rtx base = NULL_RTX, offset = 0;

@@ -39,10 +39,16 @@ enum c_language_kind c_language = clk_cxx;
 /* Lang hooks common to C++ and ObjC++ are declared in cp/cp-objcp-common.h;
    consequently, there should be very few hooks below.  */
 
+static int cxx_types_compatible_p (tree, tree);
+
 #undef LANG_HOOKS_NAME
 #define LANG_HOOKS_NAME "GNU C++"
 #undef LANG_HOOKS_INIT
 #define LANG_HOOKS_INIT cxx_init
+#undef LANG_HOOKS_DECL_PRINTABLE_NAME
+#define LANG_HOOKS_DECL_PRINTABLE_NAME	cxx_printable_name
+#undef LANG_HOOKS_TYPES_COMPATIBLE_P
+#define LANG_HOOKS_TYPES_COMPATIBLE_P cxx_types_compatible_p
 
 /* Each front end provides its own lang hook initializer.  */
 const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
@@ -89,7 +95,12 @@ const char *const tree_code_name[] = {
 #undef DEFTREECODE
 
 /* Lang hook routines common to C++ and ObjC++ appear in cp/cp-objcp-common.c;
-   there should be very few (if any) routines below.  */
+   there should be very few routines below.  */
+
+static int cxx_types_compatible_p (tree x, tree y)
+{
+  return same_type_ignoring_top_level_qualifiers_p (x, y);
+}
 
 void
 finish_file (void)

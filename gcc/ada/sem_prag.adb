@@ -561,6 +561,12 @@ package body Sem_Prag is
       --  argument has the right form then the Mechanism field of Ent is
       --  set appropriately.
 
+      procedure Set_Ravenscar_Profile (N : Node_Id);
+      --  Activate the set of configuration pragmas and restrictions that
+      --  make up the Ravenscar Profile. N is the corresponding pragma
+      --  node, which is used for error messages on any constructs
+      --  that violate the profile.
+
       --------------------------
       -- Check_Ada_83_Warning --
       --------------------------
@@ -2856,15 +2862,17 @@ package body Sem_Prag is
          procedure Set_Inline_Flags (Subp : Entity_Id);
          --  Sets Is_Inlined and Has_Pragma_Inline flags for Subp
 
-         function Back_End_Cannot_Inline (Subp : Entity_Id) return Boolean;
+         function Cannot_Inline (Subp : Entity_Id) return Boolean;
          --  Do not set the inline flag if body is available and contains
          --  exception handlers, to prevent undefined symbols at link time.
+         --  Emit warning if front-end inlining is enabled and the pragma
+         --  appears too late.
 
-         ----------------------------
-         -- Back_End_Cannot_Inline --
-         ----------------------------
+         -------------------
+         -- Cannot_Inline --
+         -------------------
 
-         function Back_End_Cannot_Inline (Subp : Entity_Id) return Boolean is
+         function Cannot_Inline (Subp : Entity_Id) return Boolean is
             Decl : constant Node_Id := Unit_Declaration_Node (Subp);
 
          begin
@@ -2876,12 +2884,19 @@ package body Sem_Prag is
             elsif Nkind (Decl) = N_Subprogram_Declaration
               and then Present (Corresponding_Body (Decl))
             then
+               if Front_End_Inlining
+                 and then Analyzed (Corresponding_Body (Decl))
+               then
+                  Error_Msg_N ("pragma appears too late, ignored?", N);
+                  return True;
+
                --  If the subprogram is a renaming as body, the body is
                --  just a call to the renamed subprogram, and inlining is
                --  trivially possible.
 
-               if Nkind (Unit_Declaration_Node (Corresponding_Body (Decl))) =
-                                            N_Subprogram_Renaming_Declaration
+               elsif
+                 Nkind (Unit_Declaration_Node (Corresponding_Body (Decl)))
+                   = N_Subprogram_Renaming_Declaration
                then
                   return False;
 
@@ -2897,7 +2912,7 @@ package body Sem_Prag is
 
                return False;
             end if;
-         end Back_End_Cannot_Inline;
+         end Cannot_Inline;
 
          -----------------
          -- Make_Inline --
@@ -2911,7 +2926,7 @@ package body Sem_Prag is
             if Etype (Subp) = Any_Type then
                return;
 
-            elsif Back_End_Cannot_Inline (Subp) then
+            elsif Cannot_Inline (Subp) then
                Applies := True;    --  Do not treat as an error.
                return;
 
@@ -3250,6 +3265,10 @@ package body Sem_Prag is
          procedure Set_Warning (R : All_Restrictions);
          --  If this is a Restriction_Warnings pragma, set warning flag
 
+         -----------------
+         -- Set_Warning --
+         -----------------
+
          procedure Set_Warning (R : All_Restrictions) is
          begin
             if Prag_Id = Pragma_Restriction_Warnings then
@@ -3269,119 +3288,45 @@ package body Sem_Prag is
             Id := Chars (Arg);
             Expr := Expression (Arg);
 
-            --  Case of no restriction identifier
+            --  Case of no restriction identifier present
 
             if Id = No_Name then
                if Nkind (Expr) /= N_Identifier then
                   Error_Pragma_Arg
                     ("invalid form for restriction", Arg);
-
-               --  Deal with synonyms. This should be done more cleanly ???
-
-               else
-                  --  Boolean_Entry_Barriers is a synonym of Simple_Barriers
-
-                  if Chars (Expr) = Name_Boolean_Entry_Barriers then
-                     Check_Restriction
-                       (No_Implementation_Restrictions, Arg);
-                     Set_Restriction (Simple_Barriers, N);
-                     Set_Warning (Simple_Barriers);
-
-                  --  Max_Entry_Queue_Depth is a synonym of
-                  --  Max_Entry_Queue_Length
-
-                  elsif Chars (Expr) = Name_Max_Entry_Queue_Depth then
-                     Analyze_And_Resolve (Expr, Any_Integer);
-
-                     if not Is_OK_Static_Expression (Expr) then
-                        Flag_Non_Static_Expr
-                          ("value must be static expression!", Expr);
-                        raise Pragma_Exit;
-
-                     elsif not Is_Integer_Type (Etype (Expr))
-                       or else Expr_Value (Expr) < 0
-                     then
-                        Error_Pragma_Arg
-                          ("value must be non-negative integer", Arg);
-
-                     --  Restriction pragma is active
-
-                     else
-                        Val := Expr_Value (Expr);
-
-                        if not UI_Is_In_Int_Range (Val) then
-                           Error_Pragma_Arg
-                             ("pragma ignored, value too large?", Arg);
-                        else
-                           Set_Restriction (Max_Entry_Queue_Length, N,
-                                            Integer (UI_To_Int (Val)));
-                           Set_Warning (Max_Entry_Queue_Length);
-                        end if;
-                     end if;
-
-                  --  No_Dynamic_Interrupts is a synonym for
-                  --  No_Dynamic_Attachment
-
-                  elsif Chars (Expr) = Name_No_Dynamic_Interrupts then
-                     Check_Restriction
-                       (No_Implementation_Restrictions, Arg);
-                     Set_Restriction (No_Dynamic_Attachment, N);
-                     Set_Warning (No_Dynamic_Attachment);
-
-                  --  No_Requeue is a synonym for No_Requeue_Statements
-
-                  elsif Chars (Expr) = Name_No_Requeue then
-                     Check_Restriction
-                       (No_Implementation_Restrictions, Arg);
-                     Set_Restriction (No_Requeue_Statements, N);
-                     Set_Warning (No_Requeue_Statements);
-
-                  --  No_Task_Attributes is a synonym for
-                  --  No_Task_Attributes_Package
-
-                  elsif Chars (Expr) = Name_No_Task_Attributes then
-                     Check_Restriction
-                       (No_Implementation_Restrictions, Arg);
-                     Set_Restriction (No_Task_Attributes_Package, N);
-                     Set_Warning (No_Task_Attributes_Package);
-
-                  --  Normal processing for all other cases
-
-                  else
-                     R_Id := Get_Restriction_Id (Chars (Expr));
-
-                     if R_Id not in All_Boolean_Restrictions then
-                        Error_Pragma_Arg
-                          ("invalid restriction identifier", Arg);
-
-                     --  Restriction is active
-
-                     else
-                        if Implementation_Restriction (R_Id) then
-                           Check_Restriction
-                             (No_Implementation_Restrictions, Arg);
-                        end if;
-
-                        Set_Restriction (R_Id, N);
-                        Set_Warning (R_Id);
-
-                        --  A very special case that must be processed here:
-                        --  pragma Restrictions (No_Exceptions) turns off
-                        --  all run-time checking. This is a bit dubious in
-                        --  terms of the formal language definition, but it
-                        --  is what is intended by RM H.4(12).
-
-                        if R_Id = No_Exceptions then
-                           Scope_Suppress := (others => True);
-                        end if;
-                     end if;
-                  end if;
                end if;
 
-               --  Case of restriction identifier present
+               R_Id :=
+                 Get_Restriction_Id
+                   (Process_Restriction_Synonyms (Chars (Expr)));
+
+               if R_Id not in All_Boolean_Restrictions then
+                  Error_Pragma_Arg
+                    ("invalid restriction identifier", Arg);
+               end if;
+
+               if Implementation_Restriction (R_Id) then
+                  Check_Restriction
+                    (No_Implementation_Restrictions, Arg);
+               end if;
+
+               Set_Restriction (R_Id, N);
+               Set_Warning (R_Id);
+
+               --  A very special case that must be processed here:
+               --  pragma Restrictions (No_Exceptions) turns off
+               --  all run-time checking. This is a bit dubious in
+               --  terms of the formal language definition, but it
+               --  is what is intended by RM H.4(12).
+
+               if R_Id = No_Exceptions then
+                  Scope_Suppress := (others => True);
+               end if;
+
+            --  Case of restriction identifier present
 
             else
-               R_Id := Get_Restriction_Id (Id);
+               R_Id := Get_Restriction_Id (Process_Restriction_Synonyms (Id));
                Analyze_And_Resolve (Expr, Any_Integer);
 
                if R_Id not in All_Parameter_Restrictions then
@@ -3881,6 +3826,70 @@ package body Sem_Prag is
          end if;
 
       end Set_Mechanism_Value;
+
+      ---------------------------
+      -- Set_Ravenscar_Profile --
+      ---------------------------
+
+      --  The tasks to be done here are
+
+      --    Set required policies
+
+      --      pragma Task_Dispatching_Policy (FIFO_Within_Priorities)
+      --      pragma Locking_Policy (Ceiling_Locking)
+
+      --    Set Detect_Blocking mode ???
+
+      --    Set required restrictions (see Restrict.Set_Ravenscar for details)
+
+      procedure Set_Ravenscar_Profile (N : Node_Id) is
+      begin
+         --  pragma Task_Dispatching_Policy (FIFO_Within_Priorities)
+
+         if Task_Dispatching_Policy /= ' '
+           and then Task_Dispatching_Policy /= 'F'
+         then
+            Error_Msg_Sloc := Task_Dispatching_Policy_Sloc;
+            Error_Pragma ("Profile (Ravenscar) incompatible with policy#");
+
+         --  Set the FIFO_Within_Priorities policy, but always
+         --  preserve System_Location since we like the error
+         --  message with the run time name.
+
+         else
+            Task_Dispatching_Policy := 'F';
+
+            if Task_Dispatching_Policy_Sloc /= System_Location then
+               Task_Dispatching_Policy_Sloc := Loc;
+            end if;
+         end if;
+
+         --  pragma Locking_Policy (Ceiling_Locking)
+
+         if Locking_Policy /= ' '
+           and then Locking_Policy /= 'C'
+         then
+            Error_Msg_Sloc := Locking_Policy_Sloc;
+            Error_Pragma ("Profile (Ravenscar) incompatible with policy#");
+
+         --  Set the Ceiling_Locking policy, but always preserve
+         --  System_Location since we like the error message with the
+         --  run time name.
+
+         else
+            Locking_Policy := 'C';
+
+            if Locking_Policy_Sloc /= System_Location then
+               Locking_Policy_Sloc := Loc;
+            end if;
+         end if;
+
+         --  ??? Detect_Blocking
+
+         --  Set the corresponding restrictions
+
+         Set_Ravenscar (N);
+      end Set_Ravenscar_Profile;
 
    --  Start of processing for Analyze_Pragma
 
@@ -8066,13 +8075,12 @@ package body Sem_Prag is
             Check_Arg_Count (1);
             Check_Valid_Configuration_Pragma;
             Check_No_Identifiers;
-            Set_Ravenscar (N);
 
             declare
                Argx : constant Node_Id := Get_Pragma_Arg (Arg1);
             begin
                if Chars (Argx) = Name_Ravenscar then
-                  Set_Ravenscar (N);
+                  Set_Ravenscar_Profile (N);
                else
                   Error_Pragma_Arg ("& is not a valid profile", Argx);
                end if;
@@ -8542,7 +8550,7 @@ package body Sem_Prag is
             GNAT_Pragma;
             Check_Arg_Count (0);
             Check_Valid_Configuration_Pragma;
-            Set_Ravenscar (N);
+            Set_Ravenscar_Profile (N);
 
          -------------------------
          -- Restricted_Run_Time --
@@ -10011,6 +10019,7 @@ package body Sem_Prag is
    --  Start of prorcessing for Is_Config_Static_String
 
    begin
+
       Name_Len := 0;
       return Add_Config_Static_String (Arg);
    end Is_Config_Static_String;
@@ -10026,6 +10035,7 @@ package body Sem_Prag is
    --  indicates that appearence in that parameter position is significant.
 
    Sig_Flags : constant array (Pragma_Id) of Int :=
+
      (Pragma_AST_Entry                    => -1,
       Pragma_Abort_Defer                  => -1,
       Pragma_Ada_83                       => -1,
@@ -10156,7 +10166,7 @@ package body Sem_Prag is
       Pragma_Thread_Body                  => +2,
       Pragma_Time_Slice                   => -1,
       Pragma_Title                        => -1,
-      Pragma_Unchecked_Union              => -1,
+      Pragma_Unchecked_Union              =>  0,
       Pragma_Unimplemented_Unit           => -1,
       Pragma_Universal_Data               => -1,
       Pragma_Unreferenced                 => -1,

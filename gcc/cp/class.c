@@ -255,6 +255,7 @@ build_base_path (enum tree_code code,
   int fixed_type_p;
   int want_pointer = TREE_CODE (TREE_TYPE (expr)) == POINTER_TYPE;
   bool has_empty = false;
+  bool virtual_access;
 
   if (expr == error_mark_node || binfo == error_mark_node || !binfo)
     return error_mark_node;
@@ -296,21 +297,24 @@ build_base_path (enum tree_code code,
   offset = BINFO_OFFSET (binfo);
   fixed_type_p = resolves_to_fixed_type_p (expr, &nonnull);
 
-  if (want_pointer && !nonnull
-      && (!integer_zerop (offset) || (v_binfo && fixed_type_p <= 0)))
+  /* Do we need to look in the vtable for the real offset?  */
+  virtual_access = (v_binfo && fixed_type_p <= 0);
+
+  /* Do we need to check for a null pointer?  */
+  if (want_pointer && !nonnull && (virtual_access || !integer_zerop (offset)))
     null_test = error_mark_node;
 
-  if (TREE_SIDE_EFFECTS (expr)
-      && (null_test || (v_binfo && fixed_type_p <= 0)))
+  /* Protect against multiple evaluation if necessary.  */
+  if (TREE_SIDE_EFFECTS (expr) && (null_test || virtual_access))
     expr = save_expr (expr);
 
+  /* Now that we've saved expr, build the real null test.  */
   if (null_test)
     null_test = fold (build2 (NE_EXPR, boolean_type_node,
 			      expr, integer_zero_node));
 
   /* If this is a simple base reference, express it as a COMPONENT_REF.  */
-  if (code == PLUS_EXPR
-      && (v_binfo == NULL_TREE || fixed_type_p > 0)
+  if (code == PLUS_EXPR && !virtual_access
       /* We don't build base fields for empty bases, and they aren't very
 	 interesting to the optimizers anyway.  */
       && !has_empty)
@@ -323,7 +327,7 @@ build_base_path (enum tree_code code,
       goto out;
     }
 
-  if (v_binfo && fixed_type_p <= 0)
+  if (virtual_access)
     {
       /* Going via virtual base V_BINFO.  We need the static offset
          from V_BINFO to BINFO, and the dynamic offset from D_BINFO to
@@ -335,14 +339,14 @@ build_base_path (enum tree_code code,
 	  /* In a base member initializer, we cannot rely on
 	     the vtable being set up. We have to use the vtt_parm.  */
 	  tree derived = BINFO_INHERITANCE_CHAIN (v_binfo);
-	  
-	  v_offset = build (PLUS_EXPR, TREE_TYPE (current_vtt_parm),
-			    current_vtt_parm, BINFO_VPTR_INDEX (derived));
-	  
-	  v_offset = build1 (INDIRECT_REF,
-			     TREE_TYPE (TYPE_VFIELD (BINFO_TYPE (derived))),
-			     v_offset);
-	  
+	  tree t;
+
+	  t = TREE_TYPE (TYPE_VFIELD (BINFO_TYPE (derived)));
+	  t = build_pointer_type (t);
+	  v_offset = convert (t, current_vtt_parm);
+	  v_offset = build (PLUS_EXPR, t, v_offset,
+			    BINFO_VPTR_INDEX (derived));
+	  v_offset = build_indirect_ref (v_offset, NULL);
 	}
       else
 	v_offset = build_vfield_ref (build_indirect_ref (expr, NULL),
@@ -354,6 +358,8 @@ build_base_path (enum tree_code code,
 			 build_pointer_type (ptrdiff_type_node),
 			 v_offset);
       v_offset = build_indirect_ref (v_offset, NULL);
+      TREE_CONSTANT (v_offset) = 1;
+      TREE_INVARIANT (v_offset) = 1;
 
       offset = convert_to_integer (ptrdiff_type_node,
 				   size_diffop (offset, 
@@ -513,7 +519,7 @@ build_vtbl_ref_1 (tree instance, tree idx)
       tree binfo = lookup_base (fixed_type, basetype,
 				ba_ignore|ba_quiet, NULL);
       if (binfo)
-	vtbl = BINFO_VTABLE (binfo);
+	vtbl = unshare_expr (BINFO_VTABLE (binfo));
     }
 
   if (!vtbl)
@@ -522,6 +528,8 @@ build_vtbl_ref_1 (tree instance, tree idx)
   assemble_external (vtbl);
 
   aref = build_array_ref (vtbl, idx);
+  TREE_CONSTANT (aref) |= TREE_CONSTANT (vtbl) && TREE_CONSTANT (idx);
+  TREE_INVARIANT (aref) = TREE_CONSTANT (aref);
 
   return aref;
 }
@@ -1047,8 +1055,8 @@ alter_access (tree t, tree fdecl, tree access)
 	  if (TREE_CODE (TREE_TYPE (fdecl)) == FUNCTION_DECL)
 	    cp_error_at ("conflicting access specifications for method `%D', ignored", TREE_TYPE (fdecl));
 	  else
-	    error ("conflicting access specifications for field `%s', ignored",
-		   IDENTIFIER_POINTER (DECL_NAME (fdecl)));
+	    error ("conflicting access specifications for field `%E', ignored",
+		   DECL_NAME (fdecl));
 	}
       else
 	{
@@ -3494,14 +3502,14 @@ layout_nonempty_base_or_field (record_layout_info rli,
       /* Place this field.  */
       place_field (rli, decl);
       offset = byte_position (decl);
- 
+
       /* We have to check to see whether or not there is already
 	 something of the same type at the offset we're about to use.
-	 For example:
+	 For example, consider:
 	 
-	 struct S {};
-	 struct T : public S { int i; };
-	 struct U : public S, public T {};
+	   struct S {};
+	   struct T : public S { int i; };
+	   struct U : public S, public T {};
 	 
 	 Here, we put S at offset zero in U.  Then, we can't put T at
 	 offset zero -- its S component would be at the same address
@@ -3510,6 +3518,10 @@ layout_nonempty_base_or_field (record_layout_info rli,
 	 empty class, have nonzero size, any overlap can happen only
 	 with a direct or indirect base-class -- it can't happen with
 	 a data member.  */
+      /* In a union, overlap is permitted; all members are placed at
+	 offset zero.  */
+      if (TREE_CODE (rli->t) == UNION_TYPE)
+	break;
       /* G++ 3.2 did not check for overlaps when placing a non-empty
 	 virtual base.  */
       if (!abi_version_at_least (2) && binfo && TREE_VIA_VIRTUAL (binfo))
@@ -5173,7 +5185,16 @@ finish_struct_1 (tree t)
 
   if (warn_nonvdtor && TYPE_POLYMORPHIC_P (t) && TYPE_HAS_DESTRUCTOR (t)
       && DECL_VINDEX (TREE_VEC_ELT (CLASSTYPE_METHOD_VEC (t), 1)) == NULL_TREE)
-    warning ("`%#T' has virtual functions but non-virtual destructor", t);
+
+    {
+      tree dtor = TREE_VEC_ELT (CLASSTYPE_METHOD_VEC (t), 1);
+
+      /* Warn only if the dtor is non-private or the class has friends */
+      if (!TREE_PRIVATE (dtor) ||
+	  (CLASSTYPE_FRIEND_CLASSES (t) ||
+	   DECL_FRIENDLIST (TYPE_MAIN_DECL (t))))
+	warning ("%#T' has virtual functions but non-virtual destructor", t);
+    }
 
   complete_vars (t);
 
@@ -5694,7 +5715,7 @@ push_lang_context (tree name)
       current_lang_name = name;
     }
   else
-    error ("language string `\"%s\"' not recognized", IDENTIFIER_POINTER (name));
+    error ("language string `\"%E\"' not recognized", name);
 }
   
 /* Get out of the current language scope.  */
@@ -7277,10 +7298,7 @@ dfs_accumulate_vtbl_inits (tree binfo,
 
       /* Figure out the position to which the VPTR should point.  */
       vtbl = TREE_PURPOSE (l);
-      vtbl = build1 (ADDR_EXPR, 
-		     vtbl_ptr_type_node,
-		     vtbl);
-      TREE_CONSTANT (vtbl) = 1;
+      vtbl = build1 (ADDR_EXPR, vtbl_ptr_type_node, vtbl);
       index = size_binop (PLUS_EXPR,
 			  size_int (non_fn_entries),
 			  size_int (list_length (TREE_VALUE (l))));
@@ -7288,7 +7306,6 @@ dfs_accumulate_vtbl_inits (tree binfo,
 			  TYPE_SIZE_UNIT (vtable_entry_type),
 			  index);
       vtbl = build (PLUS_EXPR, TREE_TYPE (vtbl), vtbl, index);
-      TREE_CONSTANT (vtbl) = 1;
     }
 
   if (ctor_vtbl_p)
@@ -7462,8 +7479,6 @@ build_vtbl_initializer (tree binfo,
 	  /* Take the address of the function, considering it to be of an
 	     appropriate generic type.  */
 	  init = build1 (ADDR_EXPR, vfunc_ptr_type_node, fn);
-	  /* The address of a function can't change.  */
-	  TREE_CONSTANT (init) = 1;
 	}
 
       /* And add it to the chain of initializers.  */
@@ -7480,6 +7495,7 @@ build_vtbl_initializer (tree binfo,
 				    TREE_OPERAND (init, 0),
 				    build_int_2 (i, 0));
 		TREE_CONSTANT (fdesc) = 1;
+		TREE_INVARIANT (fdesc) = 1;
 
 		vfun_inits = tree_cons (NULL_TREE, fdesc, vfun_inits);
 	      }
