@@ -539,6 +539,7 @@ for_each_index (tree *addr_p, bool (*cbck) (tree, tree *, void *), void *data)
 	case VAR_DECL:
 	case PARM_DECL:
 	case STRING_CST:
+	case RESULT_DECL:
 	  return true;
 
 	default:
@@ -2324,6 +2325,7 @@ prepare_decl_rtl (tree *expr_p, int *ws, void *data)
 
     case VAR_DECL:
     case PARM_DECL:
+    case RESULT_DECL:
       *ws = 0;
       obj = *expr_p;
 
@@ -2770,6 +2772,7 @@ peel_address (tree addr, unsigned HOST_WIDE_INT *diff)
     case BIT_FIELD_REF:
     case VAR_DECL:
     case PARM_DECL:
+    case RESULT_DECL:
     case STRING_CST:
       return NULL_TREE;
 

@@ -1,5 +1,10 @@
 2004-02-10  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
+	* tree-ssa-loop-ivopts.c (for_each_index, prepare_decl_rtl,
+	peel_address): Handle RESULT_DECL.
+
+2004-02-10  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
 	* loop-doloop.c (doloop_optimize): Use get_simple_loop_desc.
 	* loop-init.c (loop_optimizer_finalize): Free the simple loop
 	descriptions.
