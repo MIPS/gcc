@@ -115,6 +115,10 @@ extern void _Unwind_DeleteException (struct _Unwind_Exception *);
    e.g. executing cleanup code, and not to implement rethrowing.  */
 extern void _Unwind_Resume (struct _Unwind_Exception *);
 
+/* @@@ Resume propagation of an FORCE_UNWIND exception, or to rethrow
+   a normal exception that was handled.  */
+extern _Unwind_Reason_Code _Unwind_Resume_or_Rethrow (struct _Unwind_Exception *);
+
 /* These functions are used for communicating information about the unwind
    context (i.e. the unwind descriptors and the user register state) between
    the unwind library and the personality routine and landing pad.  Only
@@ -125,6 +129,9 @@ extern void _Unwind_SetGR (struct _Unwind_Context *, int, _Unwind_Word);
 
 extern _Unwind_Ptr _Unwind_GetIP (struct _Unwind_Context *);
 extern void _Unwind_SetIP (struct _Unwind_Context *, _Unwind_Ptr);
+
+/* @@@ Retrieve the CFA of the given context.  */
+extern _Unwind_Word _Unwind_GetCFA (struct _Unwind_Context *);
 
 extern void *_Unwind_GetLanguageSpecificData (struct _Unwind_Context *);
 
@@ -161,6 +168,7 @@ extern _Unwind_Reason_Code _Unwind_SjLj_RaiseException
 extern _Unwind_Reason_Code _Unwind_SjLj_ForcedUnwind
      (struct _Unwind_Exception *, _Unwind_Stop_Fn, void *);
 extern void _Unwind_SjLj_Resume (struct _Unwind_Exception *);
+extern _Unwind_Reason_Code _Unwind_SjLj_Resume_or_Rethrow (struct _Unwind_Exception *);
 
 /* @@@ The following provide access to the base addresses for text
    and data-relative addressing in the LDSA.  In order to stay link

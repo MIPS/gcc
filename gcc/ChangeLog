@@ -1,3 +1,67 @@
+2003-06-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c (default_compilers): Pass -D__EXCEPTIONS if -fexceptions
+	was given for .c compilations.
+
+2003-06-04  Richard Henderson  <rth@redhat.com>
+
+	* c-common.c (handle_cleanup_attribute): New.
+	(c_common_attributes): Add it.
+	* c-decl.c (finish_decl): Honor the cleanup attribute.
+	* doc/extend.texi (Variable Attributes): Document it.
+
+	* unwind-c.c: New file.
+	* Makefile.in (LIB2ADDEH): Add it.
+	* config/t-darwin, config/t-linux, config/t-linux-gnulibc1,
+	config/ia64/t-ia64: Likewise.
+
+2003-05-11  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* except.c (EH_RETURN_STACKADJ_RTX): Do not define.
+	(EH_RETURN_HANDLER_RTX): Likewise.
+	(expand_builtin_eh_return): Do not copy stack adjustment
+	if EH_RETURN_STACKADJ_RTX is not defined.
+	(expand_eh_return): Likewise.  Also, do not pass stack
+	adjustment as argument to the eh_return pattern.
+	* except.h (MUST_USE_SJLJ_EXCEPTIONS): Do not define just
+	because EH_RETURN_STACKADJ_RTX is not defined.
+	* unwind-dw.c (uw_update_context_1): If EH_RETURN_STACKADJ_RTX
+	is not defined, treat stack pointer like a regular register.
+	(uw_init_context_1): Set up fake initial stack pointer register.
+	(uw_install_context_1): Do not compute stack adjustment if
+	EH_RETURN_STACKADJ_RTX is not defined.
+
+	* config/i386/i386.md ("eh_return"): Remove first argument.
+	* config/mips/mips.md ("eh_return"): Likewise.
+	* config/rs6000/rs6000.md ("eh_return"): Likewise.
+
+	* config/s390/s390.h (EH_RETURN_STACKADJ_RTX): Remove.
+
+2003-05-07  Richard Henderson  <rth@redhat.com>
+
+	PR c++/10570
+	* unwind-dw2.c (_Unwind_GetCFA): Fix ptr->int conversion warning.
+	* unwind.inc (_Unwind_DeleteException): Check for null
+	exception_cleanup.
+
+	* unwind-sjlj.c (_Unwind_SjLj_Resume_or_Rethrow): New.
+	* unwind.inc (_Unwind_Resume_or_Rethrow): New.
+	* unwind.h: Declare them.
+	* libgcc-std.ver (GCC_3.3): Export them.
+
+2003-05-07  Richard Henderson  <rth@redhat.com>
+
+	* unwind-dw2.c (_Unwind_GetCFA): Cast pointer to _Unwind_Ptr,
+	not _Unwind_Word.
+
+2003-04-02  Richard Henderson  <rth@redhat.com>
+
+	* libgcc-std.ver (_Unwind_GetCFA): New.
+	* unwind-dw2.c (_Unwind_GetCFA): New.
+	* unwind-libunwind.c (_Unwind_GetCFA): New.
+	* unwind-sjlj.c (_Unwind_GetCFA): New.
+	* unwind.h: Declare it.
+
 2003-06-09  Jakub Jelinek  <jakub@redhat.com>
 
 	* calls.c (save_fixed_argument_area, restore_fixed_argument_area):

@@ -39,4 +39,5 @@ crtendS.o: $(srcdir)/config/ia64/crtend.asm $(GCC_PASSES)
 crtfastmath.o: $(srcdir)/config/ia64/crtfastmath.c $(GCC_PASSES)
 	$(GCC_FOR_TARGET) $(LIBGCC2_CFLAGS) -c -o crtfastmath.o $(srcdir)/config/ia64/crtfastmath.c
 
-LIB2ADDEH = $(srcdir)/config/ia64/unwind-ia64.c $(srcdir)/unwind-sjlj.c
+LIB2ADDEH = $(srcdir)/config/ia64/unwind-ia64.c $(srcdir)/unwind-sjlj.c \
+	    $(srcdir)/unwind-c.c

@@ -848,17 +848,17 @@ static const struct compiler default_compilers[] =
   {"@c",
    /* cc1 has an integrated ISO C preprocessor.  We should invoke the
       external preprocessor if -save-temps or -traditional is given.  */
-     "%{E|M|MM:%(trad_capable_cpp) -lang-c %{ansi:-std=c89} %(cpp_options)}\
+     "%{E|M|MM:%(trad_capable_cpp) -lang-c %{ansi:-std=c89} %{fexceptions:-D__EXCEPTIONS} %(cpp_options)}\
       %{!E:%{!M:%{!MM:\
 	  %{save-temps|no-integrated-cpp:%(trad_capable_cpp) -lang-c %{ansi:-std=c89}\
-		%(cpp_options) %{save-temps:%b.i} %{!save-temps:%g.i} \n\
+		%{fexceptions:-D__EXCEPTIONS} %(cpp_options) %{save-temps:%b.i} %{!save-temps:%g.i} \n\
 		    cc1 -fpreprocessed %{save-temps:%b.i} %{!save-temps:%g.i} %(cc1_options)}\
 	  %{!save-temps:%{!no-integrated-cpp:\
 	    %{traditional|ftraditional|traditional-cpp:\
-		tradcpp0 -lang-c %{ansi:-std=c89} %(cpp_options) %{!pipe:%g.i} |\n\
+		tradcpp0 -lang-c %{ansi:-std=c89} %{fexceptions:-D__EXCEPTIONS} %(cpp_options) %{!pipe:%g.i} |\n\
 		    cc1 -fpreprocessed %{!pipe:%g.i} %(cc1_options)}\
 	    %{!traditional:%{!ftraditional:%{!traditional-cpp:\
-		cc1 -lang-c %{ansi:-std=c89} %(cpp_unique_options) %(cc1_options)}}}}}\
+		cc1 -lang-c %{ansi:-std=c89} %{fexceptions:-D__EXCEPTIONS} %(cpp_unique_options) %(cc1_options)}}}}}\
         %{!fsyntax-only:%(invoke_as)}}}}", 0},
   {"-",
    "%{!E:%e-E required when input is from standard input}\

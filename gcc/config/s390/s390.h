@@ -657,7 +657,6 @@ extern enum reg_class regclass_map[FIRST_PSEUDO_REGISTER]; /* smalled class cont
 
 /* Describe how we implement __builtin_eh_return.  */
 #define EH_RETURN_DATA_REGNO(N) ((N) < 4 ? (N) + 6 : INVALID_REGNUM)
-#define EH_RETURN_STACKADJ_RTX  gen_rtx_REG (Pmode, 10)
 #define EH_RETURN_HANDLER_RTX \
   gen_rtx_MEM (Pmode, plus_constant (arg_pointer_rtx, \
                                      TARGET_64BIT? -48 : -40))
