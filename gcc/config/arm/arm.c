@@ -404,7 +404,7 @@ const char * structure_size_string = NULL;
 int    arm_structure_size_boundary = DEFAULT_STRUCTURE_SIZE_BOUNDARY;
 
 /* Used for Thumb call_via trampolines.  */
-rtx thumb_call_via_label[13];
+rtx thumb_call_via_label[14];
 static int thumb_call_reg_needed;
 
 /* Bit values used to identify processor capabilities.  */
@@ -10374,7 +10374,7 @@ arm_output_function_epilogue (FILE *file ATTRIBUTE_UNUSED,
 
       /* Emit any call-via-reg trampolines that are needed for v4t support
 	 of call_reg and call_value_reg type insns.  */
-      for (regno = 0; regno < SP_REGNUM; regno++)
+      for (regno = 0; regno < LR_REGNUM; regno++)
 	{
 	  rtx label = cfun->machine->call_via[regno];
 
@@ -14436,7 +14436,7 @@ thumb_call_via_reg (rtx reg)
   int regno = REGNO (reg);
   rtx *labelp;
 
-  if (regno >= SP_REGNUM)
+  if (regno >= LR_REGNUM)
     abort ();
 
   /* If we are in the normal text section we can use a single instance
@@ -14619,7 +14619,7 @@ arm_file_end (void)
   asm_fprintf (asm_out_file, "\t.code 16\n");
   ASM_OUTPUT_ALIGN (asm_out_file, 1);
 
-  for (regno = 0; regno < SP_REGNUM; regno++)
+  for (regno = 0; regno < LR_REGNUM; regno++)
     {
       rtx label = thumb_call_via_label[regno];
 
