@@ -397,9 +397,11 @@ expand_end_java_handler (struct eh_range *range)
       else
 	{
 	  tree *stmts = get_stmts ();
+	  tree outer;
+	  tree try_expr;
 	  compound = range->stmt;
-	  tree outer = TREE_OPERAND (compound, 0);
-	  tree try_expr = TREE_OPERAND (compound, 1);
+	  outer = TREE_OPERAND (compound, 0);
+	  try_expr = TREE_OPERAND (compound, 1);
 	  /* On the left of COMPOUND is the expresion to be evaluated
 	     before the try handler is entered; on the right is a
 	     TRY_FINALLY_EXPR with no operands as yet.  In the current
