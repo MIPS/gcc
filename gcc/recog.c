@@ -3370,7 +3370,11 @@ generic_src_operand (op, mode)
 	   Later we will want to tweak this.  */
       case CONST:
 	return (LEGITIMATE_CONSTANT_P (op)
+#ifdef LEGITIMATE_PIC_OPERAND_P
 	        && (! flag_pic || LEGITIMATE_PIC_OPERAND_P (op)));
+#else
+		);
+#endif
 	/* Accept memory.  */
       case MEM:
 	return generic_address (XEXP (op, 0));
