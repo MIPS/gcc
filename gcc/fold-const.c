@@ -7190,13 +7190,13 @@ fold (tree expr)
 	  && ! DECL_WEAK (TREE_OPERAND (arg0, 0))
 	  && ! lookup_attribute ("alias",
 				 DECL_ATTRIBUTES (TREE_OPERAND (arg0, 0)))
-	  && DECL_EXTERNAL (TREE_OPERAND (arg0, 0))
+	  && ! DECL_EXTERNAL (TREE_OPERAND (arg0, 0))
 	  && TREE_CODE (arg1) == ADDR_EXPR
 	  && DECL_P (TREE_OPERAND (arg1, 0))
 	  && ! DECL_WEAK (TREE_OPERAND (arg1, 0))
 	  && ! lookup_attribute ("alias",
 				 DECL_ATTRIBUTES (TREE_OPERAND (arg1, 0)))
-	  && DECL_EXTERNAL (TREE_OPERAND (arg1, 0)))
+	  && ! DECL_EXTERNAL (TREE_OPERAND (arg1, 0)))
 	{
 	  if (code == EQ_EXPR)
 	    return (operand_equal_p (arg0, arg1, 0)
