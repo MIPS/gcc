@@ -449,6 +449,16 @@
 	* integrate.c (expand_inline_function): Adjust.
 
 *** End of pch-branch ChangeLog  ***
+2002-03-24  Richard Henderson  <rth@redhat.com>
+
+	* unroll.c (unroll_loop): Zero label_map.
+
+2002-03-14  Geoffrey Keating  <geoffk@redhat.com>
+
+	* configure.in: Don't pass -Wno-long-long to a ADA compiler
+	that doesn't support it.
+	* configure: Regenerate.
+
 2002-03-13  Jason Merrill  <jason@redhat.com>
 
 	* gthr-posix.h (__gthread_active_p): Move __gthread_active_ptr
