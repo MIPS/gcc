@@ -1,6 +1,6 @@
-// 2002-07-25 Benjamin Kosnik <bkoz@redhat.com>
+// Low-level functions for atomic operations: x86, x >= 3 version  -*- C++ -*-
 
-// Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+// Copyright (C) 2003 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -27,37 +27,49 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
-// 27.5.2 - Template class basic_streambuf
-// NB: This file is for testing basic_streambuf with NO OTHER INCLUDES.
+#ifndef _BITS_ATOMICITY_H
+#define _BITS_ATOMICITY_H	1
 
-#include <streambuf>
-#include <testsuite_hooks.h>
+typedef int _Atomic_word;
 
-// { dg-do compile }
-
-// libstdc++/7216
-void test01()
+template <int __inst>
+struct __Atomicity_lock
 {
-  // Check for required typedefs
-  typedef std::streambuf test_type;
-  typedef test_type::char_type char_type;
-  typedef test_type::traits_type traits_type;
-  typedef test_type::int_type int_type;
-  typedef test_type::pos_type pos_type;
-  typedef test_type::off_type off_type;
+  static volatile _Atomic_word _S_atomicity_lock;
+};
+
+template <int __inst>
+volatile _Atomic_word __Atomicity_lock<__inst>::_S_atomicity_lock = 0;
+
+template volatile _Atomic_word __Atomicity_lock<0>::_S_atomicity_lock;
+
+static inline _Atomic_word 
+__attribute__ ((__unused__))
+__exchange_and_add (volatile _Atomic_word *__mem, int __val)
+{
+  register _Atomic_word __result, __tmp = 1;
+
+  /* obtain the atomic exchange/add spin lock */
+  do {
+    __asm__ __volatile__ ("xchgl %0,%1"
+			  : "+m" (__Atomicity_lock<0>::_S_atomicity_lock),
+			    "+r" (__tmp));
+  } while (__tmp);
+
+  __result = *__mem;
+  *__mem += __val;
+
+  /* release spin lock */
+  __Atomicity_lock<0>::_S_atomicity_lock = 0;
+
+  return __result;
 }
 
-namespace test 
+static inline void
+__attribute__ ((__unused__))
+__atomic_add (volatile _Atomic_word* __mem, int __val)
 {
-  using namespace std;
-  using __gnu_cxx_test::pod_char;
-  typedef short type_t;
-  template class basic_streambuf<type_t, char_traits<type_t> >;
-  template class basic_streambuf<pod_char, char_traits<pod_char> >;
-} // test
-
-int main() 
-{
-  test01();
-  return 0;
+  __exchange_and_add (__mem, __val);
 }
+
+#endif /* atomicity.h */

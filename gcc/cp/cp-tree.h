@@ -95,7 +95,7 @@ struct diagnostic_context;
       DECL_IMPLICIT_TYPEDEF_P (in a TYPE_DECL)
    3: DECL_IN_AGGR_P.
    4: DECL_C_BIT_FIELD (in a FIELD_DECL)
-      DECL_MAYBE_TEMPLATE (in a FUNCTION_DECL)
+      DECL_VAR_MARKED_P (in a VAR_DECL)
    5: DECL_INTERFACE_KNOWN.
    6: DECL_THIS_STATIC (in VAR_DECL or FUNCTION_DECL).
    7: DECL_DEAD_FOR_LOCAL (in VAR_DECL).
@@ -224,7 +224,9 @@ struct lang_identifier GTY(())
   cxx_binding *bindings;
   tree class_value;
   tree class_template_info;
-  struct lang_id2 *x;
+  tree label_value;
+  tree implicit_decl;
+  tree error_locus;
 };
 
 /* In an IDENTIFIER_NODE, nonzero if this identifier is actually a
@@ -235,13 +237,6 @@ struct lang_identifier GTY(())
 
 #define LANG_IDENTIFIER_CAST(NODE) \
 	((struct lang_identifier*)IDENTIFIER_NODE_CHECK (NODE))
-
-struct lang_id2 GTY(())
-{
-  tree label_value;
-  tree implicit_decl;
-  tree error_locus;
-};
 
 typedef struct template_parm_index_s GTY(())
 {
@@ -353,17 +348,6 @@ struct tree_wrapper GTY(())
   struct z_candidate *z_c;
 };
 
-#define SOURCE_LOCUS(NODE) \
-   (((struct tree_srcloc*)SRCLOC_CHECK (NODE))->locus)
-#define SRCLOC_FILE(NODE) SOURCE_LOCUS (NODE).file
-#define SRCLOC_LINE(NODE) SOURCE_LOCUS (NODE).line
-
-struct tree_srcloc GTY(())
-{
-  struct tree_common common;
-  location_t locus;
-};
-
 /* Macros for access to language-specific slots in an identifier.  */
 
 #define IDENTIFIER_NAMESPACE_BINDINGS(NODE)	\
@@ -403,30 +387,20 @@ struct tree_srcloc GTY(())
 #define SET_IDENTIFIER_TYPE_VALUE(NODE,TYPE) (TREE_TYPE (NODE) = (TYPE))
 #define IDENTIFIER_HAS_TYPE_VALUE(NODE) (IDENTIFIER_TYPE_VALUE (NODE) ? 1 : 0)
 
-#define LANG_ID_FIELD(NAME, NODE)			\
-  (LANG_IDENTIFIER_CAST (NODE)->x			\
-   ? LANG_IDENTIFIER_CAST (NODE)->x->NAME : 0)
-
-#define SET_LANG_ID(NODE, VALUE, NAME)					     \
-  (LANG_IDENTIFIER_CAST (NODE)->x == 0					     \
-   ? LANG_IDENTIFIER_CAST (NODE)->x					     \
-      = (struct lang_id2 *)ggc_alloc_cleared (sizeof (struct lang_id2)) : 0, \
-   LANG_IDENTIFIER_CAST (NODE)->x->NAME = (VALUE))
-
 #define IDENTIFIER_LABEL_VALUE(NODE) \
-  LANG_ID_FIELD (label_value, NODE)
+  (LANG_IDENTIFIER_CAST (NODE)->label_value)
 #define SET_IDENTIFIER_LABEL_VALUE(NODE, VALUE)   \
-  SET_LANG_ID (NODE, VALUE, label_value)
+  IDENTIFIER_LABEL_VALUE (NODE) = (VALUE)
 
 #define IDENTIFIER_IMPLICIT_DECL(NODE) \
-  LANG_ID_FIELD (implicit_decl, NODE)
+  (LANG_IDENTIFIER_CAST (NODE)->implicit_decl)
 #define SET_IDENTIFIER_IMPLICIT_DECL(NODE, VALUE) \
-  SET_LANG_ID (NODE, VALUE, implicit_decl)
+  IDENTIFIER_IMPLICIT_DECL (NODE) = (VALUE)
 
 #define IDENTIFIER_ERROR_LOCUS(NODE) \
-  LANG_ID_FIELD (error_locus, NODE)
+  (LANG_IDENTIFIER_CAST (NODE)->error_locus)
 #define SET_IDENTIFIER_ERROR_LOCUS(NODE, VALUE)	\
-  SET_LANG_ID (NODE, VALUE, error_locus)
+  IDENTIFIER_ERROR_LOCUS (NODE) = (VALUE)
 
 /* Nonzero if this identifier is used as a virtual function name somewhere
    (optimizes searches).  */
@@ -466,7 +440,6 @@ struct tree_default_arg GTY (())
 };
 
 enum cp_tree_node_structure_enum {
-  TS_CP_COMMON,
   TS_CP_GENERIC,
   TS_CP_IDENTIFIER,
   TS_CP_TPI,
@@ -475,7 +448,6 @@ enum cp_tree_node_structure_enum {
   TS_CP_OVERLOAD,
   TS_CP_BASELINK,
   TS_CP_WRAPPER,
-  TS_CP_SRCLOC,
   TS_CP_DEFAULT_ARG,
   LAST_TS_CP_ENUM
 };
@@ -484,7 +456,6 @@ enum cp_tree_node_structure_enum {
 union lang_tree_node GTY((desc ("cp_tree_node_structure (&%h)"),
        chain_next ("(union lang_tree_node *)TREE_CHAIN (&%h.generic)")))
 {
-  struct tree_common GTY ((tag ("TS_CP_COMMON"))) common;
   union tree_node GTY ((tag ("TS_CP_GENERIC"),
 			desc ("tree_node_structure (&%h)"))) generic;
   struct template_parm_index_s GTY ((tag ("TS_CP_TPI"))) tpi;
@@ -492,7 +463,6 @@ union lang_tree_node GTY((desc ("cp_tree_node_structure (&%h)"),
   struct tree_overload GTY ((tag ("TS_CP_OVERLOAD"))) overload;
   struct tree_baselink GTY ((tag ("TS_CP_BASELINK"))) baselink;
   struct tree_wrapper GTY ((tag ("TS_CP_WRAPPER"))) wrapper;
-  struct tree_srcloc GTY ((tag ("TS_CP_SRCLOC"))) srcloc;
   struct tree_default_arg GTY ((tag ("TS_CP_DEFAULT_ARG"))) default_arg;
   struct lang_identifier GTY ((tag ("TS_CP_IDENTIFIER"))) identifier;
 };
@@ -809,6 +779,9 @@ struct language_function GTY(())
   int in_base_initializer;
   int x_expanding_p;
 
+  /* True if this function can throw an exception.  */
+  bool can_throw : 1;
+
   struct named_label_use_list *x_named_label_uses;
   struct named_label_list *x_named_labels;
   struct cp_binding_level *bindings;
@@ -916,6 +889,10 @@ enum cplus_tree_code {
   LAST_CPLUS_TREE_CODE
 };
 #undef DEFTREECODE
+
+#define cp_stmt_codes					\
+   CTOR_INITIALIZER,	TRY_BLOCK,	HANDLER,	\
+   EH_SPEC_BLOCK,	USING_STMT,	TAG_DEFN
 
 enum languages { lang_c, lang_cplusplus, lang_java };
 
@@ -2139,6 +2116,12 @@ struct lang_decl GTY(())
   (DECL_LANG_SPECIFIC (VAR_TEMPL_TYPE_OR_FUNCTION_DECL_CHECK (NODE)) \
    ->decl_flags.u.template_info)
 
+/* For a VAR_DECL, indicates that the variable has been processed.
+   This flag is set and unset throughout the code; it is always
+   used for a temporary purpose.  */
+#define DECL_VAR_MARKED_P(NODE) \
+  (DECL_LANG_FLAG_4 (VAR_DECL_CHECK (NODE)))
+
 /* Template information for a RECORD_TYPE or UNION_TYPE.  */
 #define CLASSTYPE_TEMPLATE_INFO(NODE) \
   (LANG_TYPE_CLASS_CHECK (RECORD_OR_UNION_TYPE_CHECK (NODE))->template_info)
@@ -2814,9 +2797,6 @@ struct lang_decl GTY(())
    full specialization.  */
 #define PROCESSING_REAL_TEMPLATE_DECL_P() \
   (processing_template_decl > template_class_depth (current_class_type))
-
-/* This function may be a guiding decl for a template.  */
-#define DECL_MAYBE_TEMPLATE(NODE) DECL_LANG_FLAG_4 (NODE)
 
 /* Nonzero if this VAR_DECL or FUNCTION_DECL has already been
    instantiated, i.e. its definition has been generated from the
@@ -3530,6 +3510,7 @@ extern tree make_temporary_var_for_ref_to_temp (tree, tree);
 extern tree strip_top_quals (tree);
 extern tree perform_implicit_conversion (tree, tree);
 extern tree in_charge_arg_for_name (tree);
+extern tree build_cxx_call (tree, tree, tree);
 
 /* in class.c */
 extern tree build_base_path			(enum tree_code, tree, tree, int);
@@ -3544,7 +3525,6 @@ extern void resort_type_method_vec
 extern void add_method				(tree, tree, int);
 extern int currently_open_class			(tree);
 extern tree currently_open_derived_class	(tree);
-extern void duplicate_tag_error			(tree);
 extern tree finish_struct			(tree, tree);
 extern void finish_struct_1			(tree);
 extern int resolves_to_fixed_type_p		(tree, int *);
@@ -4016,6 +3996,7 @@ extern int types_overlap_p			(tree, tree);
 extern tree get_vbase				(tree, tree);
 extern tree get_dynamic_cast_base_type          (tree, tree);
 extern int accessible_p                         (tree, tree);
+extern tree lookup_field_1                      (tree, tree, bool);
 extern tree lookup_field			(tree, tree, int, bool);
 extern int lookup_fnfields_1                    (tree, tree);
 extern tree lookup_fnfields			(tree, tree, int);
@@ -4209,7 +4190,6 @@ extern tree decl_namespace_context		(tree);
 extern tree lvalue_type				(tree);
 extern tree error_type				(tree);
 extern tree build_zc_wrapper			(struct z_candidate *);
-extern tree build_srcloc_here			(void);
 extern int varargs_function_p			(tree);
 extern int really_overloaded_fn			(tree);
 extern int cp_tree_equal			(tree, tree);

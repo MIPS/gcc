@@ -43,14 +43,12 @@ static hashval_t list_hash_pieces PARAMS ((tree, tree, tree));
 static hashval_t list_hash PARAMS ((const void *));
 static cp_lvalue_kind lvalue_p_1 PARAMS ((tree, int, int));
 static tree no_linkage_helper PARAMS ((tree *, int *, void *));
-static tree build_srcloc PARAMS ((const char *, int));
 static tree mark_local_for_remap_r PARAMS ((tree *, int *, void *));
 static tree cp_unsave_r PARAMS ((tree *, int *, void *));
 static tree build_target_expr PARAMS ((tree, tree));
 static tree count_trees_r PARAMS ((tree *, int *, void *));
 static tree verify_stmt_tree_r PARAMS ((tree *, int *, void *));
 static tree find_tree_r PARAMS ((tree *, int *, void *));
-extern int cp_statement_code_p PARAMS ((enum tree_code));
 
 static tree handle_java_interface_attribute PARAMS ((tree *, tree, tree, int, bool *));
 static tree handle_com_interface_attribute PARAMS ((tree *, tree, tree, int, bool *));
@@ -518,7 +516,7 @@ build_cplus_array_type_1 (elt_type, index_type)
        && index_type && TYPE_MAX_VALUE (index_type)
        && TREE_CODE (TYPE_MAX_VALUE (index_type)) != INTEGER_CST)
       || uses_template_parms (elt_type) 
-      || uses_template_parms (index_type))
+      || (index_type && uses_template_parms (index_type)))
     {
       t = make_node (ARRAY_TYPE);
       TREE_TYPE (t) = elt_type;
@@ -1120,27 +1118,6 @@ is_aggr_type_2 (t1, t2)
     return 0;
   return IS_AGGR_TYPE (t1) && IS_AGGR_TYPE (t2);
 }
-
-/* Returns nonzero if CODE is the code for a statement.  */
-
-int
-cp_statement_code_p (code)
-     enum tree_code code;
-{
-  switch (code)
-    {
-    case CTOR_INITIALIZER:
-    case TRY_BLOCK:
-    case HANDLER:
-    case EH_SPEC_BLOCK:
-    case USING_STMT:
-    case TAG_DEFN:
-      return 1;
-
-    default:
-      return 0;
-    }
-}
 
 #define PRINT_RING_SIZE 4
 
@@ -1276,7 +1253,7 @@ verify_stmt_tree_r (tp, walk_subtrees, data)
   htab_t *statements = (htab_t *) data;
   void **slot;
 
-  if (!statement_code_p (TREE_CODE (t)))
+  if (!STATEMENT_CODE_P (TREE_CODE (t)))
     return NULL_TREE;
 
   /* If this statement is already present in the hash table, then
@@ -1535,7 +1512,7 @@ build_min_nt VPARAMS ((enum tree_code code, ...))
 
   t = make_node (code);
   length = TREE_CODE_LENGTH (code);
-  TREE_COMPLEXITY (t) = lineno;
+  TREE_COMPLEXITY (t) = input_line;
 
   for (i = 0; i < length; i++)
     {
@@ -1564,7 +1541,7 @@ build_min VPARAMS ((enum tree_code code, tree tt, ...))
   t = make_node (code);
   length = TREE_CODE_LENGTH (code);
   TREE_TYPE (t) = tt;
-  TREE_COMPLEXITY (t) = lineno;
+  TREE_COMPLEXITY (t) = input_line;
 
   for (i = 0; i < length; i++)
     {
@@ -1822,26 +1799,6 @@ build_zc_wrapper (ptr)
   tree t = make_node (WRAPPER);
   WRAPPER_ZC (t) = ptr;
   return t;
-}
-
-static tree
-build_srcloc (file, line)
-     const char *file;
-     int line;
-{
-  tree t;
-
-  t = make_node (SRCLOC);
-  SRCLOC_FILE (t) = file;
-  SRCLOC_LINE (t) = line;
-
-  return t;
-}
-
-tree
-build_srcloc_here ()
-{
-  return build_srcloc (input_filename, lineno);
 }
 
 /* The type of ARG when used as an lvalue.  */
@@ -2192,10 +2149,10 @@ cp_walk_subtrees (tp, walk_subtrees_p, func, data, htab)
     }							\
   while (0)
 
-  /* Set lineno here so we get the right instantiation context
+  /* Set input_line here so we get the right instantiation context
      if we call instantiate_decl from inlinable_function_p.  */
-  if (statement_code_p (code) && !STMT_LINENO_FOR_FN_P (*tp))
-    lineno = STMT_LINENO (*tp);
+  if (STATEMENT_CODE_P (code) && !STMT_LINENO_FOR_FN_P (*tp))
+    input_line = STMT_LINENO (*tp);
 
   /* Not one of the easy cases.  We must explicitly go through the
      children.  */
@@ -2434,7 +2391,6 @@ cp_end_inlining (fn)
 void
 init_tree ()
 {
-  lang_statement_code_p = cp_statement_code_p;
   lang_simplify_stmt = cp_simplify_stmt;
   list_hash_table = htab_create_ggc (31, list_hash, list_hash_eq, NULL);
 }

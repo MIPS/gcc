@@ -238,11 +238,11 @@ extern const char *ia64_tune_string;
 #define TARGET_OPTIONS \
 {									\
   { "fixed-range=", 	&ia64_fixed_range_string,			\
-      N_("Specify range of registers to make fixed")},			\
+      N_("Specify range of registers to make fixed"), 0},		\
   { "tls-size=",	&ia64_tls_size_string,				\
-      N_("Specify bit size of immediate TLS offsets")},			\
+      N_("Specify bit size of immediate TLS offsets"), 0},		\
   { "tune=",		&ia64_tune_string,				\
-      N_("Schedule code for given CPU")},				\
+      N_("Schedule code for given CPU"), 0},				\
 }
 
 /* Sometimes certain combinations of command options do not make sense on a
@@ -1724,8 +1724,6 @@ do {									\
    operation to identify the following data as uninitialized global data.  */
 
 #define BSS_SECTION_ASM_OP "\t.bss"
-
-#define ENCODE_SECTION_INFO_CHAR '@'
 
 #define IA64_DEFAULT_GVALUE 8
 

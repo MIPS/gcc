@@ -1,5 +1,5 @@
 /* Implementation of Fortran lexer
-   Copyright (C) 1995, 1996, 1997, 1998, 2001, 2002
+   Copyright (C) 1995, 1996, 1997, 1998, 2001, 2002, 2003
    Free Software Foundation, Inc.
    Contributed by James Craig Burley.
 
@@ -788,7 +788,7 @@ ffelex_cfelex_ (ffelexToken *xtoken, FILE *finput, int c)
 }
 
 static void
-ffelex_file_pop_ (const char *input_filename)
+ffelex_file_pop_ (const char *filename)
 {
   if (input_file_stack->next)
     {
@@ -796,7 +796,7 @@ ffelex_file_pop_ (const char *input_filename)
       input_file_stack = p->next;
       free (p);
       input_file_stack_tick++;
-      (*debug_hooks->end_source_file) (input_file_stack->line);
+      (*debug_hooks->end_source_file) (input_file_stack->location.line);
     }
   else
     error ("#-lines for entering and leaving files don't match");
@@ -804,27 +804,27 @@ ffelex_file_pop_ (const char *input_filename)
   /* Now that we've pushed or popped the input stack,
      update the name in the top element.  */
   if (input_file_stack)
-    input_file_stack->name = input_filename;
+    input_file_stack->location.file = filename;
 }
 
 static void
-ffelex_file_push_ (int old_lineno, const char *input_filename)
+ffelex_file_push_ (int old_lineno, const char *filename)
 {
   struct file_stack *p
     = (struct file_stack *) xmalloc (sizeof (struct file_stack));
 
-  input_file_stack->line = old_lineno;
+  input_file_stack->location.line = old_lineno;
   p->next = input_file_stack;
-  p->name = input_filename;
+  p->location.file = filename;
   input_file_stack = p;
   input_file_stack_tick++;
 
-  (*debug_hooks->start_source_file) (0, input_filename);
+  (*debug_hooks->start_source_file) (0, filename);
 
   /* Now that we've pushed or popped the input stack,
      update the name in the top element.  */
   if (input_file_stack)
-    input_file_stack->name = input_filename;
+    input_file_stack->location.file = filename;
 }
 
 /* Prepare to finish a statement-in-progress by sending the current
@@ -1096,7 +1096,7 @@ ffelex_hash_ (FILE *finput)
 	      c = ffelex_get_directive_line_ (&text, finput);
 
 	      if (debug_info_level == DINFO_LEVEL_VERBOSE)
-		(*debug_hooks->define) (lineno, text);
+		(*debug_hooks->define) (input_line, text);
 
 	      goto skipline;
 	    }
@@ -1115,7 +1115,7 @@ ffelex_hash_ (FILE *finput)
 	      c = ffelex_get_directive_line_ (&text, finput);
 
 	      if (debug_info_level == DINFO_LEVEL_VERBOSE)
-		(*debug_hooks->undef) (lineno, text);
+		(*debug_hooks->undef) (input_line, text);
 
 	      goto skipline;
 	    }
@@ -1193,8 +1193,7 @@ ffelex_hash_ (FILE *finput)
   if ((token != NULL)
       && (ffelex_token_type (token) == FFELEX_typeNUMBER))
     {
-      int old_lineno = lineno;
-      const char *old_input_filename = input_filename;
+      location_t old_loc = input_location;
       ffewhereFile wf;
 
       /* subtract one, because it is the following line that
@@ -1207,7 +1206,7 @@ ffelex_hash_ (FILE *finput)
       if (c == '\n' || c == EOF)
 	{
 	  /* No more: store the line number and check following line.  */
-	  lineno = l;
+	  input_line = l;
 	  if (!ffelex_kludge_flag_)
 	    {
 	      ffewhere_file_set (NULL, TRUE, (ffewhereLineNumber) l);
@@ -1230,7 +1229,7 @@ ffelex_hash_ (FILE *finput)
 	  goto skipline;
 	}
 
-      lineno = l;
+      input_line = l;
 
       if (ffelex_kludge_flag_)
 	input_filename = ggc_strdup (ffelex_token_text (token));
@@ -1260,7 +1259,7 @@ ffelex_hash_ (FILE *finput)
 	    {
 	      /* Update the name in the top element of input_file_stack.  */
 	      if (input_file_stack)
-		input_file_stack->name = input_filename;
+		input_file_stack->location.file = input_filename;
 
 	      if (token != NULL)
 		ffelex_token_kill (token);
@@ -1280,15 +1279,15 @@ ffelex_hash_ (FILE *finput)
 
 	  if (ffelex_kludge_flag_)
 	    {
-	      lineno = 1;
-	      input_filename = old_input_filename;
+	      input_line = 1;
+	      input_filename = old_loc.file;
 	      error ("use `#line ...' instead of `# ...' in first line");
 	    }
 
 	  if (num == 1)
 	    {
 	      /* Pushing to a new file.  */
-	      ffelex_file_push_ (old_lineno, input_filename);
+	      ffelex_file_push_ (old_loc.line, input_filename);
 	    }
 	  else if (num == 2)
 	    {
@@ -1324,8 +1323,8 @@ ffelex_hash_ (FILE *finput)
 	   || (c != '\n' && c != EOF))
 	  && ffelex_kludge_flag_)
 	{
-	  lineno = 1;
-	  input_filename = old_input_filename;
+	  input_line = 1;
+	  input_filename = old_loc.file;
 	  error ("use `#line ...' instead of `# ...' in first line");
 	}
       if (c == '\n' || c == EOF)
@@ -1470,8 +1469,7 @@ ffelex_include_ ()
   ffewhereLineNumber linecount_current = ffelex_linecount_current_;
   ffewhereLineNumber linecount_offset
     = ffewhere_line_filelinenum (current_wl);
-  int old_lineno = lineno;
-  const char *old_input_filename = input_filename;
+  location_t old_loc = input_location;
 
   if (card_length != 0)
     {
@@ -1489,7 +1487,7 @@ ffelex_include_ ()
 
   ffewhere_file_set (include_wherefile, TRUE, 0);
 
-  ffelex_file_push_ (old_lineno, ffewhere_file_name (include_wherefile));
+  ffelex_file_push_ (old_loc.line, ffewhere_file_name (include_wherefile));
 
   if (ffelex_include_free_form_)
     ffelex_file_free (include_wherefile, include_file);
@@ -1512,8 +1510,7 @@ ffelex_include_ ()
     }
   ffelex_card_image_[card_length] = '\0';
 
-  input_filename = old_input_filename;
-  lineno = old_lineno;
+  input_location = old_loc;
   ffelex_linecount_current_ = linecount_current;
   ffelex_current_wf_ = current_wf;
   ffelex_final_nontab_column_ = final_nontab_column;
@@ -1571,7 +1568,7 @@ ffelex_next_line_ ()
 {
   ffelex_linecount_current_ = ffelex_linecount_next_;
   ++ffelex_linecount_next_;
-  ++lineno;
+  ++input_line;
 }
 
 static void
@@ -1787,7 +1784,7 @@ ffelex_file_fixed (ffewhereFile wf, FILE *f)
 
   assert (ffelex_handler_ != NULL);
 
-  lineno = 0;
+  input_line = 0;
   input_filename = ffewhere_file_name (wf);
   ffelex_current_wf_ = wf;
   disallow_continuation_line = TRUE;
@@ -2977,7 +2974,7 @@ ffelex_file_free (ffewhereFile wf, FILE *f)
 
   assert (ffelex_handler_ != NULL);
 
-  lineno = 0;
+  input_line = 0;
   input_filename = ffewhere_file_name (wf);
   ffelex_current_wf_ = wf;
   continuation_line = FALSE;

@@ -45,7 +45,7 @@ typedef unsigned char uchar;
 
 #define CPP_OPTION(PFILE, OPTION) ((PFILE)->opts.OPTION)
 #define CPP_BUFFER(PFILE) ((PFILE)->buffer)
-#define CPP_BUF_COLUMN(BUF, CUR) ((CUR) - (BUF)->line_base + (BUF)->col_adjust)
+#define CPP_BUF_COLUMN(BUF, CUR) ((CUR) - (BUF)->line_base)
 #define CPP_BUF_COL(BUF) CPP_BUF_COLUMN(BUF, (BUF)->cur)
 
 /* Maximum nesting of cpp_buffers.  We use a static limit, partly for
@@ -212,9 +212,6 @@ struct lexer_state
      all directives apart from #define.  */
   unsigned char save_comments;
 
-  /* Nonzero if we're mid-comment.  */
-  unsigned char lexing_comment;
-
   /* Nonzero if lexing __VA_ARGS__ is valid.  */
   unsigned char va_args_ok;
 
@@ -240,17 +237,34 @@ struct spec_nodes
   cpp_hashnode *n__VA_ARGS__;		/* C99 vararg macros */
 };
 
+typedef struct _cpp_line_note _cpp_line_note;
+struct _cpp_line_note
+{
+  /* Location in the clean line the note refers to.  */
+  const uchar *pos;
+
+  /* Type of note.  The 9 'from' trigraph characters represent those
+     trigraphs, '\\' an escaped newline, ' ' an escaped newline with
+     intervening space, and anything else is invalid.  */
+  unsigned int type;
+};
+
 /* Represents the contents of a file cpplib has read in.  */
 struct cpp_buffer
 {
-  const unsigned char *cur;	 /* current position */
-  const unsigned char *backup_to; /* if peeked character is not wanted */
-  const unsigned char *rlimit; /* end of valid data */
-  const unsigned char *line_base; /* start of current line */
+  const uchar *cur;		/* Current location.  */
+  const uchar *line_base;	/* Start of current physical line.  */
+  const uchar *next_line;	/* Start of to-be-cleaned logical line.  */
+  
+  const uchar *buf;		/* Entire character buffer.  */
+  const uchar *rlimit;		/* Writable byte at end of file.  */
+
+  _cpp_line_note *notes;	/* Array of notes.  */
+  unsigned int cur_note;	/* Next note to process.  */
+  unsigned int notes_used;	/* Number of notes.  */
+  unsigned int notes_cap;	/* Size of allocated array.  */
 
   struct cpp_buffer *prev;
-
-  const unsigned char *buf;	 /* Entire character buffer.  */
 
   /* Pointer into the include table; non-NULL if this is a file
      buffer.  Used for include_next and to record control macros.  */
@@ -260,15 +274,8 @@ struct cpp_buffer
      Used to prohibit unmatched #endif (etc) in an include file.  */
   struct if_stack *if_stack;
 
-  /* Token column position adjustment owing to tabs in whitespace.  */
-  unsigned int col_adjust;
-
-  /* Contains PREV_WHITE and/or AVOID_LPASTE.  */
-  unsigned char saved_flags;
-
-  /* Because of the way the lexer works, -Wtrigraphs can sometimes
-     warn twice for the same trigraph.  This helps prevent that.  */
-  const unsigned char *last_Wtrigraphs;
+  /* True if we need to get the next clean line.  */
+  bool need_line;
 
   /* True if we have already warned about C++ comments in this file.
      The warning happens only for C89 extended mode with -pedantic on,
@@ -370,6 +377,10 @@ struct cpp_reader
   /* EOF token, and a token forcing paste avoidance.  */
   cpp_token avoid_paste;
   cpp_token eof;
+
+  /* True if we have already warned about dollars in identifiers or
+     numbers for this buffer.  */
+  bool warned_dollar;
 
   /* Opaque handle to the dependencies of mkdeps.c.  */
   struct deps *deps;
@@ -487,11 +498,10 @@ extern void _cpp_destroy_hashtable	PARAMS ((cpp_reader *));
 extern void _cpp_fake_include		PARAMS ((cpp_reader *, const char *));
 extern void _cpp_never_reread		PARAMS ((struct include_file *));
 extern bool _cpp_read_file		PARAMS ((cpp_reader *, const char *));
-extern bool _cpp_execute_include	PARAMS ((cpp_reader *,
-						 const cpp_token *,
-						 enum include_type));
-extern int _cpp_compare_file_date       PARAMS ((cpp_reader *,
-						 const cpp_token *));
+extern bool _cpp_execute_include	PARAMS ((cpp_reader *, const char *,
+						 int, enum include_type));
+extern int _cpp_compare_file_date       PARAMS ((cpp_reader *, const char *,
+						 int));
 extern void _cpp_report_missing_guards	PARAMS ((cpp_reader *));
 extern void _cpp_init_includes		PARAMS ((cpp_reader *));
 extern void _cpp_cleanup_includes	PARAMS ((cpp_reader *));
@@ -503,13 +513,16 @@ extern bool _cpp_parse_expr		PARAMS ((cpp_reader *));
 extern struct op *_cpp_expand_op_stack	PARAMS ((cpp_reader *));
 
 /* In cpplex.c */
+extern void _cpp_process_line_notes	PARAMS ((cpp_reader *, int));
+extern void _cpp_clean_line		PARAMS ((cpp_reader *));
+extern bool _cpp_get_fresh_line		PARAMS ((cpp_reader *));
+extern bool _cpp_skip_block_comment	PARAMS ((cpp_reader *));
 extern cpp_token *_cpp_temp_token	PARAMS ((cpp_reader *));
 extern const cpp_token *_cpp_lex_token	PARAMS ((cpp_reader *));
 extern cpp_token *_cpp_lex_direct	PARAMS ((cpp_reader *));
 extern int _cpp_equiv_tokens		PARAMS ((const cpp_token *,
 						 const cpp_token *));
 extern void _cpp_init_tokenrun		PARAMS ((tokenrun *, unsigned int));
-extern void _cpp_init_mbchar		PARAMS ((void));
 
 /* In cppinit.c.  */
 extern void _cpp_maybe_push_include_file PARAMS ((cpp_reader *));
@@ -529,6 +542,7 @@ extern void _cpp_do_file_change PARAMS ((cpp_reader *, enum lc_reason,
 extern void _cpp_pop_buffer PARAMS ((cpp_reader *));
 
 /* In cpptrad.c.  */
+extern bool scan_out_logical_line PARAMS ((cpp_reader *, cpp_macro *));
 extern bool _cpp_read_logical_line_trad PARAMS ((cpp_reader *));
 extern void _cpp_overlay_buffer PARAMS ((cpp_reader *pfile, const uchar *,
 					 size_t));
@@ -538,6 +552,10 @@ extern bool _cpp_expansions_different_trad PARAMS ((const cpp_macro *,
 						    const cpp_macro *));
 extern uchar *_cpp_copy_replacement_text PARAMS ((const cpp_macro *, uchar *));
 extern size_t _cpp_replacement_text_len PARAMS ((const cpp_macro *));
+
+/* In cppcharset.c.  */
+cppchar_t _cpp_valid_ucn PARAMS ((cpp_reader *, const uchar **,
+				  int identifer_p));
 
 /* Utility routines and macros.  */
 #define DSC(str) (const uchar *)str, sizeof str - 1

@@ -46,7 +46,7 @@
 /* Determine the machine type: */
 # if defined(__arm__) || defined(__thumb__)
 #    define ARM32
-#    if !defined(LINUX)
+#    if !defined(LINUX) && !defined(NETBSD)
 #      define NOSYS
 #      define mach_type_known
 #    endif
@@ -77,7 +77,7 @@
 #    define POWERPC
 #    define mach_type_known
 # endif
-# if defined(NETBSD) && defined(__arm32__)
+# if defined(NETBSD) && defined(__arm__)
 #    define ARM32
 #    define mach_type_known
 # endif
@@ -669,10 +669,8 @@
 #     define ALIGNMENT 4	/* Guess.  Can someone verify?	*/
 				/* This was 2, but that didn't sound right. */
 #     define OS_TYPE "LINUX"
-#     define HEURISTIC1
 #     define DYNAMIC_LOADING
-#     undef STACK_GRAN
-#     define STACK_GRAN 0x10000000
+#     define LINUX_STACKBOTTOM
 	/* Stack usually starts at 0x80000000 */
 #     define LINUX_DATA_START
       extern int _end[];
@@ -1564,8 +1562,13 @@
 #   ifdef NETBSD
 #       define OS_TYPE "NETBSD"
 #       define HEURISTIC2
-        extern char etext[];
-#       define DATASTART ((ptr_t)(etext))
+#	ifdef __ELF__
+#	    define DATASTART GC_data_start
+#	    define DYNAMIC_LOADING
+#	else
+            extern char etext[];
+#           define DATASTART ((ptr_t)(etext))
+#	endif
 #       define USE_GENERIC_PUSH_REGS
 #   endif
 #   ifdef LINUX

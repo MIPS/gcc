@@ -3963,6 +3963,15 @@ try_replace_reg (from, to, insn)
   if (num_changes_pending () && apply_change_group ())
     success = 1;
 
+  /* Try to simplify SET_SRC if we have substituted a constant.  */
+  if (success && set && CONSTANT_P (to))
+    {
+      src = simplify_rtx (SET_SRC (set));
+
+      if (src)
+	validate_change (insn, &SET_SRC (set), src, 0);
+    }
+
   if (!success && set && reg_mentioned_p (from, SET_SRC (set)))
     {
       /* If above failed and this is a single set, try to simplify the source of
@@ -6771,11 +6780,13 @@ invalidate_any_buried_refs (x)
     }
 }
 
-/* Find all the 'simple' MEMs which are used in LOADs and STORES. Simple
-   being defined as MEM loads and stores to symbols, with no
-   side effects and no registers in the expression. If there are any
-   uses/defs which don't match this criteria, it is invalidated and
-   trimmed out later.  */
+/* Find all the 'simple' MEMs which are used in LOADs and STORES.  Simple
+   being defined as MEM loads and stores to symbols, with no side effects
+   and no registers in the expression.  For a MEM destination, we also
+   check that the insn is still valid if we replace the destination with a
+   REG, as is done in update_ld_motion_stores.  If there are any uses/defs
+   which don't match this criteria, they are invalidated and trimmed out
+   later.  */
 
 static void
 compute_ld_motion_mems ()
@@ -6823,7 +6834,10 @@ compute_ld_motion_mems ()
 		      ptr = ldst_entry (dest);
 
 		      if (GET_CODE (src) != MEM
-			  && GET_CODE (src) != ASM_OPERANDS)
+			  && GET_CODE (src) != ASM_OPERANDS
+			  /* Check for REG manually since want_to_gcse_p
+			     returns 0 for all REGs.  */
+			  && (REG_P (src) || want_to_gcse_p (src)))
 			ptr->stores = alloc_INSN_LIST (insn, ptr->stores);
 		      else
 			ptr->invalid = 1;
@@ -6918,10 +6932,10 @@ update_ld_motion_stores (expr)
 	 matter to set the reaching reg everywhere...  some might be
 	 dead and should be eliminated later.  */
 
-      /* We replace  SET mem = expr   with
-	   SET reg = expr
-	   SET mem = reg , where reg is the
-	   reaching reg used in the load.  */
+      /* We replace (set mem expr) with (set reg expr) (set mem reg)
+	 where reg is the reaching reg used in the load.  We checked in
+	 compute_ld_motion_mems that we can replace (set mem expr) with
+	 (set reg expr) in that insn.  */
       rtx list = mem_ptr->stores;
 
       for ( ; list != NULL_RTX; list = XEXP (list, 1))
@@ -7696,7 +7710,7 @@ replace_store_insn (reg, del, bb)
 {
   rtx insn;
 
-  insn = gen_move_insn (reg, SET_SRC (PATTERN (del)));
+  insn = gen_move_insn (reg, SET_SRC (single_set (del)));
   insn = emit_insn_after (insn, del);
 
   if (gcse_file)

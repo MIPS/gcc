@@ -240,64 +240,6 @@ private:
     return get_type_val_for_signature ((jchar) k->method_count);
   }
 
-  // This is like _Jv_IsAssignableFrom, but it works even if SOURCE or
-  // TARGET haven't been prepared.
-  static bool is_assignable_from_slow (jclass target, jclass source)
-  {
-    // This will terminate when SOURCE==Object.
-    while (true)
-      {
-	if (source == target)
-	  return true;
-
-	if (target->isPrimitive () || source->isPrimitive ())
-	  return false;
-
-	if (target->isArray ())
-	  {
-	    if (! source->isArray ())
-	      return false;
-	    target = target->getComponentType ();
-	    source = source->getComponentType ();
-	  }
-	else if (target->isInterface ())
-	  {
-	    for (int i = 0; i < source->interface_count; ++i)
-	      {
-		// We use a recursive call because we also need to
-		// check superinterfaces.
-		if (is_assignable_from_slow (target, source->interfaces[i]))
-		    return true;
-	      }
-	    source = source->getSuperclass ();
-	    if (source == NULL)
-	      return false;
-	  }
-	// We must do this check before we check to see if SOURCE is
-	// an interface.  This way we know that any interface is
-	// assignable to an Object.
-	else if (target == &java::lang::Object::class$)
-	  return true;
-	else if (source->isInterface ())
-	  {
-	    for (int i = 0; i < target->interface_count; ++i)
-	      {
-		// We use a recursive call because we also need to
-		// check superinterfaces.
-		if (is_assignable_from_slow (target->interfaces[i], source))
-		  return true;
-	      }
-	    target = target->getSuperclass ();
-	    if (target == NULL)
-	      return false;
-	  }
-	else if (source == &java::lang::Object::class$)
-	  return false;
-	else
-	  source = source->getSuperclass ();
-      }
-  }
-
   // This is used to keep track of which `jsr's correspond to a given
   // jsr target.
   struct subr_info
@@ -520,7 +462,7 @@ private:
       // We must resolve both types and check assignability.
       resolve (verifier);
       k.resolve (verifier);
-      return is_assignable_from_slow (data.klass, k.data.klass);
+      return _Jv_IsAssignableFrom (data.klass, k.data.klass);
     }
 
     bool isvoid () const
@@ -707,7 +649,7 @@ private:
 		  // Ordinarily this terminates when we hit Object...
 		  while (k != NULL)
 		    {
-		      if (is_assignable_from_slow (k, oldk))
+		      if (_Jv_IsAssignableFrom (k, oldk))
 			break;
 		      k = k->getSuperclass ();
 		      changed = true;
@@ -1199,14 +1141,6 @@ private:
     type r = pop_raw ();
     if (r.iswide ())
       verify_fail ("narrow pop of wide type");
-    return r;
-  }
-
-  type pop64 ()
-  {
-    type r = pop_raw ();
-    if (! r.iswide ())
-      verify_fail ("wide pop of narrow type");
     return r;
   }
 
@@ -2160,20 +2094,30 @@ private:
   bool initialize_stack ()
   {
     int var = 0;
-    bool is_init = false;
+    bool is_init = _Jv_equalUtf8Consts (current_method->self->name,
+					gcj::init_name);
+    bool is_clinit = _Jv_equalUtf8Consts (current_method->self->name,
+					  gcj::clinit_name);
 
     using namespace java::lang::reflect;
     if (! Modifier::isStatic (current_method->self->accflags))
       {
 	type kurr (current_class);
-	if (_Jv_equalUtf8Consts (current_method->self->name, gcj::init_name))
+	if (is_init)
 	  {
 	    kurr.set_uninitialized (type::SELF, this);
 	    is_init = true;
 	  }
+	else if (is_clinit)
+	  verify_fail ("<clinit> method must be static");
 	set_variable (0, kurr);
 	current_state->set_this_type (kurr);
 	++var;
+      }
+    else
+      {
+	if (is_init)
+	  verify_fail ("<init> method must be non-static");
       }
 
     // We have to handle wide arguments specially here.
@@ -2525,7 +2469,11 @@ private:
 	    pop32 ();
 	    break;
 	  case op_pop2:
-	    pop64 ();
+	    {
+	      type t = pop_raw ();
+	      if (! t.iswide ())
+		pop32 ();
+	    }
 	    break;
 	  case op_dup:
 	    {

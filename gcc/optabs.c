@@ -1299,7 +1299,8 @@ expand_binop (mode, binoptab, op0, op1, target, unsignedp, methods)
 
       if (i == GET_MODE_BITSIZE (mode) / (unsigned) BITS_PER_WORD)
 	{
-	  if (mov_optab->handlers[(int) mode].insn_code != CODE_FOR_nothing)
+	  if (mov_optab->handlers[(int) mode].insn_code != CODE_FOR_nothing
+	      || ! rtx_equal_p (target, xtarget))
 	    {
 	      rtx temp = emit_move_insn (target, xtarget);
 
@@ -4512,8 +4513,9 @@ emit_conditional_add (target, code, op0, op1, cmode, op2, op3, mode,
   return target;
 }
 
-/* These functions generate an insn body and return it
-   rather than emitting the insn.
+/* These functions attempt to generate an insn body, rather than
+   emitting the insn, but if the gen function already emits them, we
+   make no attempt to turn them back into naked patterns.
 
    They do not protect from queued increments,
    because they may be used 1) in protect_from_queue itself
@@ -5328,8 +5330,7 @@ init_libfuncs (optable, first_mode, last_mode, opname, suffix)
       *p = '\0';
 
       optable->handlers[(int) mode].libfunc
-	= gen_rtx_SYMBOL_REF (Pmode, ggc_alloc_string (libfunc_name,
-						       p - libfunc_name));
+	= init_one_libfunc (ggc_alloc_string (libfunc_name, p - libfunc_name));
     }
 }
 
@@ -5381,6 +5382,8 @@ rtx
 init_one_libfunc (name)
      const char *name;
 {
+  rtx symbol;
+
   /* Create a FUNCTION_DECL that can be passed to
      targetm.encode_section_info.  */
   /* ??? We don't have any type information except for this is
@@ -5391,8 +5394,13 @@ init_one_libfunc (name)
   DECL_EXTERNAL (decl) = 1;
   TREE_PUBLIC (decl) = 1;
 
-  /* Return the symbol_ref from the mem rtx.  */
-  return XEXP (DECL_RTL (decl), 0);
+  symbol = XEXP (DECL_RTL (decl), 0);
+
+  /* Zap the nonsensical SYMBOL_REF_DECL for this.  What we're left with
+     are the flags assigned by targetm.encode_section_info.  */
+  SYMBOL_REF_DECL (symbol) = 0;
+
+  return symbol;
 }
 
 /* Call this once to initialize the contents of the optabs
@@ -5646,6 +5654,7 @@ init_optabs ()
   bcmp_libfunc = init_one_libfunc ("__gcc_bcmp");
   memset_libfunc = init_one_libfunc ("memset");
   bzero_libfunc = init_one_libfunc ("bzero");
+  setbits_libfunc = init_one_libfunc ("__setbits");
 
   unwind_resume_libfunc = init_one_libfunc (USING_SJLJ_EXCEPTIONS
 					    ? "_Unwind_SjLj_Resume"
@@ -5754,6 +5763,9 @@ init_optabs ()
     = init_one_libfunc ("__cyg_profile_func_enter");
   profile_function_exit_libfunc
     = init_one_libfunc ("__cyg_profile_func_exit");
+
+  gcov_flush_libfunc = init_one_libfunc ("__gcov_flush");
+  gcov_init_libfunc = init_one_libfunc ("__gcov_init");
 
 #ifdef HAVE_conditional_trap
   init_traps ();

@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler.
-   Copyright (C) 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
    Contributed by James E. Wilson <wilson@cygnus.com> and
    		  David Mosberger <davidm@hpl.hp.com>.
 
@@ -48,6 +48,7 @@ Boston, MA 02111-1307, USA.  */
 #include "target-def.h"
 #include "tm_p.h"
 #include "hashtab.h"
+#include "langhooks.h"
 
 /* This is used for communication between ASM_OUTPUT_LABEL and
    ASM_OUTPUT_LABELREF.  */
@@ -165,6 +166,7 @@ static int ia64_first_cycle_multipass_dfa_lookahead_guard PARAMS ((rtx));
 static int ia64_dfa_new_cycle PARAMS ((FILE *, int, rtx, int, int, int *));
 static rtx gen_tls_get_addr PARAMS ((void));
 static rtx gen_thread_pointer PARAMS ((void));
+static rtx ia64_expand_tls_address PARAMS ((enum tls_model, rtx, rtx));
 static int find_gr_spill PARAMS ((int));
 static int next_scratch_gr_reg PARAMS ((void));
 static void mark_reg_gr_used_mask PARAMS ((rtx, void *));
@@ -188,8 +190,6 @@ static void emit_all_insn_group_barriers PARAMS ((FILE *, rtx));
 static void final_emit_insn_group_barriers PARAMS ((FILE *));
 static void emit_predicate_relation_info PARAMS ((void));
 static bool ia64_in_small_data_p PARAMS ((tree));
-static void ia64_encode_section_info PARAMS ((tree, int));
-static const char *ia64_strip_name_encoding PARAMS ((const char *));
 static void process_epilogue PARAMS ((void));
 static int process_set PARAMS ((FILE *, rtx));
 
@@ -197,8 +197,9 @@ static rtx ia64_expand_fetch_and_op PARAMS ((optab, enum machine_mode,
 					     tree, rtx));
 static rtx ia64_expand_op_and_fetch PARAMS ((optab, enum machine_mode,
 					     tree, rtx));
-static rtx ia64_expand_compare_and_swap PARAMS ((enum machine_mode, int,
-						 tree, rtx));
+static rtx ia64_expand_compare_and_swap PARAMS ((enum machine_mode,
+						 enum machine_mode,
+						 int, tree, rtx));
 static rtx ia64_expand_lock_test_and_set PARAMS ((enum machine_mode,
 						  tree, rtx));
 static rtx ia64_expand_lock_release PARAMS ((enum machine_mode, tree, rtx));
@@ -229,7 +230,7 @@ static void finish_bundle_state_table PARAMS ((void));
 static int try_issue_nops PARAMS ((struct bundle_state *, int));
 static int try_issue_insn PARAMS ((struct bundle_state *, rtx));
 static void issue_nops_and_insn PARAMS ((struct bundle_state *, int,
-					 rtx, int));
+					 rtx, int, int));
 static int get_max_pos PARAMS ((state_t));
 static int get_template PARAMS ((state_t, int));
 
@@ -300,10 +301,6 @@ static const struct attribute_spec ia64_attribute_table[] =
 
 #undef TARGET_IN_SMALL_DATA_P
 #define TARGET_IN_SMALL_DATA_P  ia64_in_small_data_p
-#undef TARGET_ENCODE_SECTION_INFO
-#define TARGET_ENCODE_SECTION_INFO ia64_encode_section_info
-#undef TARGET_STRIP_NAME_ENCODING
-#define TARGET_STRIP_NAME_ENCODING ia64_strip_name_encoding
 
 #undef TARGET_SCHED_ADJUST_COST
 #define TARGET_SCHED_ADJUST_COST ia64_adjust_cost
@@ -395,10 +392,7 @@ sdata_symbolic_operand (op, mode)
       if (CONSTANT_POOL_ADDRESS_P (op))
 	return GET_MODE_SIZE (get_pool_mode (op)) <= ia64_section_threshold;
       else
-	{
-	  const char *str = XSTR (op, 0);
-          return (str[0] == ENCODE_SECTION_INFO_CHAR && str[1] == 's');
-	}
+	return SYMBOL_REF_LOCAL_P (op) && SYMBOL_REF_SMALL_P (op);
 
     default:
       break;
@@ -479,25 +473,9 @@ tls_symbolic_operand (op, mode)
      rtx op;
      enum machine_mode mode ATTRIBUTE_UNUSED;
 {
-  const char *str;
-
   if (GET_CODE (op) != SYMBOL_REF)
     return 0;
-  str = XSTR (op, 0);
-  if (str[0] != ENCODE_SECTION_INFO_CHAR)
-    return 0;
-  switch (str[1])
-    {
-    case 'G':
-      return TLS_MODEL_GLOBAL_DYNAMIC;
-    case 'L':
-      return TLS_MODEL_LOCAL_DYNAMIC;
-    case 'i':
-      return TLS_MODEL_INITIAL_EXEC;
-    case 'l':
-      return TLS_MODEL_LOCAL_EXEC;
-    }
-  return 0;
+  return SYMBOL_REF_TLS_MODEL (op);
 }
 
 
@@ -508,7 +486,7 @@ function_operand (op, mode)
      rtx op;
      enum machine_mode mode ATTRIBUTE_UNUSED;
 {
-  if (GET_CODE (op) == SYMBOL_REF && SYMBOL_REF_FLAG (op))
+  if (GET_CODE (op) == SYMBOL_REF && SYMBOL_REF_FUNCTION_P (op))
     return 1;
   else
     return 0;
@@ -564,21 +542,14 @@ setjmp_operand (op, mode)
   return retval;
 }
 
-/* Return 1 if OP is a general operand, but when pic exclude symbolic
-   operands.  */
-
-/* ??? If we drop no-pic support, can delete SYMBOL_REF, CONST, and LABEL_REF
-   from PREDICATE_CODES.  */
+/* Return 1 if OP is a general operand, excluding tls symbolic operands.  */
 
 int
 move_operand (op, mode)
      rtx op;
      enum machine_mode mode;
 {
-  if (! TARGET_NO_PIC && symbolic_operand (op, mode))
-    return 0;
-
-  return general_operand (op, mode);
+  return general_operand (op, mode) && !tls_symbolic_operand (op, mode);
 }
 
 /* Return 1 if OP is a register operand that is (or could be) a GR reg.  */
@@ -1081,6 +1052,21 @@ ia64_move_ok (dst, src)
     return GET_CODE (src) == CONST_DOUBLE && CONST_DOUBLE_OK_FOR_G (src);
 }
 
+/* Return 0 if we are doing C++ code.  This optimization fails with
+   C++ because of GNAT c++/6685.  */
+
+int
+addp4_optimize_ok (op1, op2)
+     rtx op1, op2;
+{
+
+  if (!strcmp (lang_hooks.name, "GNU C++"))
+    return 0;
+
+  return (basereg_operand (op1, GET_MODE(op1)) !=
+	  basereg_operand (op2, GET_MODE(op2)));
+}
+
 /* Check if OP is a mask suitable for use with SHIFT in a dep.z instruction.
    Return the length of the field, or <= 0 on failure.  */
 
@@ -1099,40 +1085,37 @@ ia64_depz_field_mask (rop, rshift)
 }
 
 /* Expand a symbolic constant load.  */
-/* ??? Should generalize this, so that we can also support 32 bit pointers.  */
 
 void
-ia64_expand_load_address (dest, src, scratch)
-      rtx dest, src, scratch;
+ia64_expand_load_address (dest, src)
+      rtx dest, src;
 {
-  rtx temp;
-
-  /* The destination could be a MEM during initial rtl generation,
-     which isn't a valid destination for the PIC load address patterns.  */
-  if (! register_operand (dest, DImode))
-    if (! scratch || ! register_operand (scratch, DImode))
-      temp = gen_reg_rtx (DImode);
-    else
-      temp = scratch;
-  else
-    temp = dest;
-
-  if (tls_symbolic_operand (src, Pmode))
+  if (tls_symbolic_operand (src, VOIDmode))
+    abort ();
+  if (GET_CODE (dest) != REG)
     abort ();
 
   if (TARGET_AUTO_PIC)
-    emit_insn (gen_load_gprel64 (temp, src));
-  else if (GET_CODE (src) == SYMBOL_REF && SYMBOL_REF_FLAG (src))
-    emit_insn (gen_load_fptr (temp, src));
-  else if ((GET_MODE (src) == Pmode || GET_MODE (src) == ptr_mode)
-           && sdata_symbolic_operand (src, VOIDmode))
-    emit_insn (gen_load_gprel (temp, src));
-  else if (GET_CODE (src) == CONST
-	   && GET_CODE (XEXP (src, 0)) == PLUS
-	   && GET_CODE (XEXP (XEXP (src, 0), 1)) == CONST_INT
-	   && (INTVAL (XEXP (XEXP (src, 0), 1)) & 0x1fff) != 0)
     {
-      rtx subtarget = no_new_pseudos ? temp : gen_reg_rtx (DImode);
+      emit_insn (gen_load_gprel64 (dest, src));
+      return;
+    }
+  else if (GET_CODE (src) == SYMBOL_REF && SYMBOL_REF_FUNCTION_P (src))
+    {
+      emit_insn (gen_load_fptr (dest, src));
+      return;
+    }
+  else if (sdata_symbolic_operand (src, VOIDmode))
+    {
+      emit_insn (gen_load_gprel (dest, src));
+      return;
+    }
+
+  if (GET_CODE (src) == CONST
+      && GET_CODE (XEXP (src, 0)) == PLUS
+      && GET_CODE (XEXP (XEXP (src, 0), 1)) == CONST_INT
+      && (INTVAL (XEXP (XEXP (src, 0), 1)) & 0x1fff) != 0)
+    {
       rtx sym = XEXP (XEXP (src, 0), 0);
       HOST_WIDE_INT ofs, hi, lo;
 
@@ -1142,33 +1125,11 @@ ia64_expand_load_address (dest, src, scratch)
       lo = ((ofs & 0x3fff) ^ 0x2000) - 0x2000;
       hi = ofs - lo;
 
-      if (! scratch)
-	scratch = no_new_pseudos ? subtarget : gen_reg_rtx (DImode);
-
-      emit_insn (gen_load_symptr (subtarget, plus_constant (sym, hi),
-				  scratch));
-      emit_insn (gen_adddi3 (temp, subtarget, GEN_INT (lo)));
+      emit_insn (gen_load_symptr (dest, plus_constant (sym, hi), dest));
+      emit_insn (gen_adddi3 (dest, dest, GEN_INT (lo)));
     }
   else
-    {
-      rtx insn;
-      if (! scratch)
-	scratch = no_new_pseudos ? temp : gen_reg_rtx (DImode);
-
-      insn = emit_insn (gen_load_symptr (temp, src, scratch));
-#ifdef POINTERS_EXTEND_UNSIGNED
-      if (GET_MODE (temp) != GET_MODE (src))
-	src = convert_memory_address (GET_MODE (temp), src);
-#endif
-      REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_EQUAL, src, REG_NOTES (insn));
-    }
-
-  if (temp != dest)
-    {
-      if (GET_MODE (dest) != GET_MODE (temp))
-	temp = convert_to_mode (GET_MODE (dest), temp, 0);
-      emit_move_insn (dest, temp);
-    }
+    emit_insn (gen_load_symptr (dest, src, dest));
 }
 
 static GTY(()) rtx gen_tls_tga;
@@ -1176,9 +1137,7 @@ static rtx
 gen_tls_get_addr ()
 {
   if (!gen_tls_tga)
-    {
-      gen_tls_tga = init_one_libfunc ("__tls_get_addr");
-     }
+    gen_tls_tga = init_one_libfunc ("__tls_get_addr");
   return gen_tls_tga;
 }
 
@@ -1194,6 +1153,113 @@ gen_thread_pointer ()
   return thread_pointer_rtx;
 }
 
+static rtx
+ia64_expand_tls_address (tls_kind, op0, op1)
+     enum tls_model tls_kind;
+     rtx op0, op1;
+{
+  rtx tga_op1, tga_op2, tga_ret, tga_eqv, tmp, insns;
+
+  switch (tls_kind)
+    {
+    case TLS_MODEL_GLOBAL_DYNAMIC:
+      start_sequence ();
+
+      tga_op1 = gen_reg_rtx (Pmode);
+      emit_insn (gen_load_ltoff_dtpmod (tga_op1, op1));
+      tga_op1 = gen_rtx_MEM (Pmode, tga_op1);
+      RTX_UNCHANGING_P (tga_op1) = 1;
+
+      tga_op2 = gen_reg_rtx (Pmode);
+      emit_insn (gen_load_ltoff_dtprel (tga_op2, op1));
+      tga_op2 = gen_rtx_MEM (Pmode, tga_op2);
+      RTX_UNCHANGING_P (tga_op2) = 1;
+	      
+      tga_ret = emit_library_call_value (gen_tls_get_addr (), NULL_RTX,
+					 LCT_CONST, Pmode, 2, tga_op1,
+					 Pmode, tga_op2, Pmode);
+
+      insns = get_insns ();
+      end_sequence ();
+
+      emit_libcall_block (insns, op0, tga_ret, op1);
+      return NULL_RTX;
+
+    case TLS_MODEL_LOCAL_DYNAMIC:
+      /* ??? This isn't the completely proper way to do local-dynamic
+	 If the call to __tls_get_addr is used only by a single symbol,
+	 then we should (somehow) move the dtprel to the second arg
+	 to avoid the extra add.  */
+      start_sequence ();
+
+      tga_op1 = gen_reg_rtx (Pmode);
+      emit_insn (gen_load_ltoff_dtpmod (tga_op1, op1));
+      tga_op1 = gen_rtx_MEM (Pmode, tga_op1);
+      RTX_UNCHANGING_P (tga_op1) = 1;
+
+      tga_op2 = const0_rtx;
+
+      tga_ret = emit_library_call_value (gen_tls_get_addr (), NULL_RTX,
+					 LCT_CONST, Pmode, 2, tga_op1,
+					 Pmode, tga_op2, Pmode);
+
+      insns = get_insns ();
+      end_sequence ();
+
+      tga_eqv = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, const0_rtx),
+				UNSPEC_LD_BASE);
+      tmp = gen_reg_rtx (Pmode);
+      emit_libcall_block (insns, tmp, tga_ret, tga_eqv);
+
+      if (register_operand (op0, Pmode))
+	tga_ret = op0;
+      else
+	tga_ret = gen_reg_rtx (Pmode);
+      if (TARGET_TLS64)
+	{
+	  emit_insn (gen_load_dtprel (tga_ret, op1));
+	  emit_insn (gen_adddi3 (tga_ret, tmp, tga_ret));
+	}
+      else
+	emit_insn (gen_add_dtprel (tga_ret, tmp, op1));
+
+      return (tga_ret == op0 ? NULL_RTX : tga_ret);
+
+    case TLS_MODEL_INITIAL_EXEC:
+      tmp = gen_reg_rtx (Pmode);
+      emit_insn (gen_load_ltoff_tprel (tmp, op1));
+      tmp = gen_rtx_MEM (Pmode, tmp);
+      RTX_UNCHANGING_P (tmp) = 1;
+      tmp = force_reg (Pmode, tmp);
+
+      if (register_operand (op0, Pmode))
+	op1 = op0;
+      else
+	op1 = gen_reg_rtx (Pmode);
+      emit_insn (gen_adddi3 (op1, tmp, gen_thread_pointer ()));
+
+      return (op1 == op0 ? NULL_RTX : op1);
+
+    case TLS_MODEL_LOCAL_EXEC:
+      if (register_operand (op0, Pmode))
+	tmp = op0;
+      else
+	tmp = gen_reg_rtx (Pmode);
+      if (TARGET_TLS64)
+	{
+	  emit_insn (gen_load_tprel (tmp, op1));
+	  emit_insn (gen_adddi3 (tmp, gen_thread_pointer (), tmp));
+	}
+      else
+	emit_insn (gen_add_tprel (tmp, gen_thread_pointer (), op1));
+
+      return (tmp == op0 ? NULL_RTX : tmp);
+
+    default:
+      abort ();
+    }
+}
+
 rtx
 ia64_expand_move (op0, op1)
      rtx op0, op1;
@@ -1203,154 +1269,36 @@ ia64_expand_move (op0, op1)
   if (!reload_in_progress && !reload_completed && !ia64_move_ok (op0, op1))
     op1 = force_reg (mode, op1);
 
-  if (mode == Pmode || mode == ptr_mode)
+  if ((mode == Pmode || mode == ptr_mode) && symbolic_operand (op1, VOIDmode))
     {
       enum tls_model tls_kind;
-      if ((tls_kind = tls_symbolic_operand (op1, Pmode)))
+      if ((tls_kind = tls_symbolic_operand (op1, VOIDmode)))
+	return ia64_expand_tls_address (tls_kind, op0, op1);
+
+      if (!TARGET_NO_PIC && reload_completed)
 	{
-	  rtx tga_op1, tga_op2, tga_ret, tga_eqv, tmp, insns;
-
-	  switch (tls_kind)
-	    {
-	    case TLS_MODEL_GLOBAL_DYNAMIC:
-	      start_sequence ();
-
-	      tga_op1 = gen_reg_rtx (Pmode);
-	      emit_insn (gen_load_ltoff_dtpmod (tga_op1, op1));
-	      tga_op1 = gen_rtx_MEM (Pmode, tga_op1);
-	      RTX_UNCHANGING_P (tga_op1) = 1;
-
-	      tga_op2 = gen_reg_rtx (Pmode);
-	      emit_insn (gen_load_ltoff_dtprel (tga_op2, op1));
-	      tga_op2 = gen_rtx_MEM (Pmode, tga_op2);
-	      RTX_UNCHANGING_P (tga_op2) = 1;
-	      
-	      tga_ret = emit_library_call_value (gen_tls_get_addr (), NULL_RTX,
-						 LCT_CONST, Pmode, 2, tga_op1,
-						 Pmode, tga_op2, Pmode);
-
-	      insns = get_insns ();
-	      end_sequence ();
-
-	      emit_libcall_block (insns, op0, tga_ret, op1);
-	      return NULL_RTX;
-
-	    case TLS_MODEL_LOCAL_DYNAMIC:
-	      /* ??? This isn't the completely proper way to do local-dynamic
-		 If the call to __tls_get_addr is used only by a single symbol,
-		 then we should (somehow) move the dtprel to the second arg
-		 to avoid the extra add.  */
-	      start_sequence ();
-
-	      tga_op1 = gen_reg_rtx (Pmode);
-	      emit_insn (gen_load_ltoff_dtpmod (tga_op1, op1));
-	      tga_op1 = gen_rtx_MEM (Pmode, tga_op1);
-	      RTX_UNCHANGING_P (tga_op1) = 1;
-
-	      tga_op2 = const0_rtx;
-
-	      tga_ret = emit_library_call_value (gen_tls_get_addr (), NULL_RTX,
-						 LCT_CONST, Pmode, 2, tga_op1,
-						 Pmode, tga_op2, Pmode);
-
-	      insns = get_insns ();
-	      end_sequence ();
-
-	      tga_eqv = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, const0_rtx),
-					UNSPEC_LD_BASE);
-	      tmp = gen_reg_rtx (Pmode);
-	      emit_libcall_block (insns, tmp, tga_ret, tga_eqv);
-
-	      if (register_operand (op0, Pmode))
-		tga_ret = op0;
-	      else
-		tga_ret = gen_reg_rtx (Pmode);
-	      if (TARGET_TLS64)
-		{
-		  emit_insn (gen_load_dtprel (tga_ret, op1));
-		  emit_insn (gen_adddi3 (tga_ret, tmp, tga_ret));
-		}
-	      else
-		emit_insn (gen_add_dtprel (tga_ret, tmp, op1));
-	      if (tga_ret == op0)
-		return NULL_RTX;
-	      op1 = tga_ret;
-	      break;
-
-	    case TLS_MODEL_INITIAL_EXEC:
-	      tmp = gen_reg_rtx (Pmode);
-	      emit_insn (gen_load_ltoff_tprel (tmp, op1));
-	      tmp = gen_rtx_MEM (Pmode, tmp);
-	      RTX_UNCHANGING_P (tmp) = 1;
-	      tmp = force_reg (Pmode, tmp);
-
-	      if (register_operand (op0, Pmode))
-		op1 = op0;
-	      else
-		op1 = gen_reg_rtx (Pmode);
-	      emit_insn (gen_adddi3 (op1, tmp, gen_thread_pointer ()));
-	      if (op1 == op0)
-		return NULL_RTX;
-	      break;
-
-	    case TLS_MODEL_LOCAL_EXEC:
-	      if (register_operand (op0, Pmode))
-		tmp = op0;
-	      else
-		tmp = gen_reg_rtx (Pmode);
-	      if (TARGET_TLS64)
-		{
-		  emit_insn (gen_load_tprel (tmp, op1));
-		  emit_insn (gen_adddi3 (tmp, gen_thread_pointer (), tmp));
-		}
-	      else
-		emit_insn (gen_add_tprel (tmp, gen_thread_pointer (), op1));
-	      if (tmp == op0)
-		return NULL_RTX;
-	      op1 = tmp;
-	      break;
-
-	    default:
-	      abort ();
-	    }
-	}
-      else if (!TARGET_NO_PIC &&
-	       (symbolic_operand (op1, Pmode) ||
-		symbolic_operand (op1, ptr_mode)))
-	{
-	  /* Before optimization starts, delay committing to any particular
-	     type of PIC address load.  If this function gets deferred, we
-	     may acquire information that changes the value of the
-	     sdata_symbolic_operand predicate.
-
-	     But don't delay for function pointers.  Loading a function address
-	     actually loads the address of the descriptor not the function.
-	     If we represent these as SYMBOL_REFs, then they get cse'd with
-	     calls, and we end up with calls to the descriptor address instead
-	     of calls to the function address.  Functions are not candidates
-	     for sdata anyways.
-
-	     Don't delay for LABEL_REF because the splitter loses REG_LABEL
-	     notes.  Don't delay for pool addresses on general principals;
-	     they'll never become non-local behind our back.  */
-
-	  if (rtx_equal_function_value_matters
-	      && GET_CODE (op1) != LABEL_REF
-	      && ! (GET_CODE (op1) == SYMBOL_REF
-		    && (SYMBOL_REF_FLAG (op1)
-			|| CONSTANT_POOL_ADDRESS_P (op1)
-			|| STRING_POOL_ADDRESS_P (op1))))
-	    if (GET_MODE (op1) == DImode)
-	      emit_insn (gen_movdi_symbolic (op0, op1));
-	    else
-	      emit_insn (gen_movsi_symbolic (op0, op1));
-	  else
-	    ia64_expand_load_address (op0, op1, NULL_RTX);
+	  ia64_expand_load_address (op0, op1);
 	  return NULL_RTX;
 	}
     }
 
   return op1;
+}
+
+/* Split a move from OP1 to OP0 conditional on COND.  */
+
+void
+ia64_emit_cond_move (op0, op1, cond)
+     rtx op0, op1, cond;
+{
+  rtx insn, first = get_last_insn ();
+
+  emit_move_insn (op0, op1);
+
+  for (insn = get_last_insn (); insn != first; insn = PREV_INSN (insn))
+    if (INSN_P (insn))
+      PATTERN (insn) = gen_rtx_COND_EXEC (VOIDmode, copy_rtx (cond),
+					  PATTERN (insn));
 }
 
 /* Split a post-reload TImode reference into two DImode components.  */
@@ -1931,6 +1879,17 @@ ia64_compute_frame_size (size)
 	  spill_size += 8;
 	  n_spilled += 1;
 	}
+
+      if (regs_ever_live[AR_PFS_REGNUM])
+	{
+	  SET_HARD_REG_BIT (mask, AR_PFS_REGNUM);
+	  current_frame_info.reg_save_ar_pfs = find_gr_spill (1);
+	  if (current_frame_info.reg_save_ar_pfs == 0)
+	    {
+	      extra_spill_size += 8;
+	      n_spilled += 1;
+	    }
+	}
     }
 
   /* Unwind descriptor hackery: things are most efficient if we allocate
@@ -1969,8 +1928,10 @@ ia64_compute_frame_size (size)
     }
 
   /* If we're forced to use st8.spill, we're forced to save and restore
-     ar.unat as well.  */
-  if (spilled_gr_p || cfun->machine->n_varargs)
+     ar.unat as well.  The check for existing liveness allows inline asm
+     to touch ar.unat.  */
+  if (spilled_gr_p || cfun->machine->n_varargs
+      || regs_ever_live[AR_UNAT_REGNUM])
     {
       regs_ever_live[AR_UNAT_REGNUM] = 1;
       SET_HARD_REG_BIT (mask, AR_UNAT_REGNUM);
@@ -2431,7 +2392,8 @@ ia64_expand_prologue ()
   /* We don't need an alloc instruction if we've used no outputs or locals.  */
   if (current_frame_info.n_local_regs == 0
       && current_frame_info.n_output_regs == 0
-      && current_frame_info.n_input_regs <= current_function_args_info.int_regs)
+      && current_frame_info.n_input_regs <= current_function_args_info.int_regs
+      && !TEST_HARD_REG_BIT (current_frame_info.mask, AR_PFS_REGNUM))
     {
       /* If there is no alloc, but there are input registers used, then we
 	 need a .regstk directive.  */
@@ -2593,8 +2555,8 @@ ia64_expand_prologue ()
   /* The alloc insn already copied ar.pfs into a general register.  The
      only thing we have to do now is copy that register to a stack slot
      if we'd not allocated a local register for the job.  */
-  if (current_frame_info.reg_save_ar_pfs == 0
-      && ! current_function_is_leaf)
+  if (TEST_HARD_REG_BIT (current_frame_info.mask, AR_PFS_REGNUM)
+      && current_frame_info.reg_save_ar_pfs == 0)
     {
       reg = gen_rtx_REG (DImode, AR_PFS_REGNUM);
       do_spill (gen_movdi_x, ar_pfs_save_reg, cfa_off, reg);
@@ -3029,7 +2991,7 @@ ia64_assemble_integer (x, size, aligned_p)
       && aligned_p
       && !(TARGET_NO_PIC || TARGET_AUTO_PIC)
       && GET_CODE (x) == SYMBOL_REF
-      && SYMBOL_REF_FLAG (x))
+      && SYMBOL_REF_FUNCTION_P (x))
     {
       if (TARGET_ILP32)
 	fputs ("\tdata4\t@fptr(", asm_out_file);
@@ -6360,17 +6322,18 @@ try_issue_insn (curr_state, insn)
 
 /* The following function tries to issue BEFORE_NOPS_NUM nops and INSN
    starting with ORIGINATOR without advancing processor cycle.  If
-   TRY_BUNDLE_END_P is TRUE, the function also tries to issue nops to
-   fill all bundle. If it was successful, the function creates new
-   bundle state and insert into the hash table and into
-   `index_to_bundle_states'.  */
+   TRY_BUNDLE_END_P is TRUE, the function also/only (if
+   ONLY_BUNDLE_END_P is TRUE) tries to issue nops to fill all bundle.
+   If it was successful, the function creates new bundle state and
+   insert into the hash table and into `index_to_bundle_states'.  */
 
 static void
-issue_nops_and_insn (originator, before_nops_num, insn, try_bundle_end_p)
+issue_nops_and_insn (originator, before_nops_num, insn, try_bundle_end_p,
+		     only_bundle_end_p)
      struct bundle_state *originator;
      int before_nops_num;
      rtx insn;
-     int try_bundle_end_p;
+     int try_bundle_end_p, only_bundle_end_p;
 {
   struct bundle_state *curr_state;
 
@@ -6409,9 +6372,10 @@ issue_nops_and_insn (originator, before_nops_num, insn, try_bundle_end_p)
 	return;
       if (!try_issue_insn (curr_state, insn))
 	return;
-      if (GET_CODE (PATTERN (insn)) != ASM_INPUT
-	  && asm_noperands (PATTERN (insn)) < 0)
-	curr_state->accumulated_insns_num++;
+      curr_state->accumulated_insns_num++;
+      if (GET_CODE (PATTERN (insn)) == ASM_INPUT
+	  || asm_noperands (PATTERN (insn)) >= 0)
+	abort ();
       if (ia64_safe_type (insn) == TYPE_L)
 	curr_state->accumulated_insns_num++;
     }
@@ -6424,10 +6388,17 @@ issue_nops_and_insn (originator, before_nops_num, insn, try_bundle_end_p)
 	return;
       if (!try_issue_insn (curr_state, insn))
 	return;
-      if (GET_CODE (PATTERN (insn)) != ASM_INPUT
-	  && asm_noperands (PATTERN (insn)) < 0)
-	curr_state->accumulated_insns_num++;
-      if (ia64_safe_type (insn) == TYPE_L)
+      curr_state->accumulated_insns_num++;
+      if (GET_CODE (PATTERN (insn)) == ASM_INPUT
+	  || asm_noperands (PATTERN (insn)) >= 0)
+	{
+	  /* Finish bundle containing asm insn.  */
+	  curr_state->after_nops_num
+	    = 3 - curr_state->accumulated_insns_num % 3;
+	  curr_state->accumulated_insns_num
+	    += 3 - curr_state->accumulated_insns_num % 3;
+	}
+      else if (ia64_safe_type (insn) == TYPE_L)
 	curr_state->accumulated_insns_num++;
     }
   if (ia64_safe_type (insn) == TYPE_B)
@@ -6435,7 +6406,7 @@ issue_nops_and_insn (originator, before_nops_num, insn, try_bundle_end_p)
       += 2 - (curr_state->accumulated_insns_num - 1) % 3;
   if (try_bundle_end_p && curr_state->accumulated_insns_num % 3 != 0)
     {
-      if (insert_bundle_state (curr_state))
+      if (!only_bundle_end_p && insert_bundle_state (curr_state))
 	{
 	  state_t dfa_state;
 	  struct bundle_state *curr_state1;
@@ -6582,7 +6553,7 @@ bundling (dump, verbose, prev_head_insn, tail)
   struct bundle_state *curr_state, *next_state, *best_state;
   rtx insn, next_insn;
   int insn_num;
-  int i, bundle_end_p;
+  int i, bundle_end_p, only_bundle_end_p, asm_p;
   int pos, max_pos, template0, template1;
   rtx b;
   rtx nop;
@@ -6646,6 +6617,7 @@ bundling (dump, verbose, prev_head_insn, tail)
 	  || GET_CODE (PATTERN (insn)) == USE
 	  || GET_CODE (PATTERN (insn)) == CLOBBER)
 	abort ();
+      type = ia64_safe_type (insn);
       next_insn = get_next_important_insn (NEXT_INSN (insn), tail);
       insn_num++;
       index_to_bundle_states [insn_num] = NULL;
@@ -6654,10 +6626,15 @@ bundling (dump, verbose, prev_head_insn, tail)
 	   curr_state = next_state)
 	{
 	  pos = curr_state->accumulated_insns_num % 3;
-	  type = ia64_safe_type (insn);
 	  next_state = curr_state->next;
+	  /* Finish the current bundle in order to start a subsequent
+	     asm insn in a new bundle.  */
+	  only_bundle_end_p
+	    = (next_insn != NULL_RTX
+	       && INSN_CODE (insn) == CODE_FOR_insn_group_barrier
+	       && ia64_safe_type (next_insn) == TYPE_UNKNOWN);
 	  bundle_end_p
-	    = (next_insn == NULL_RTX
+	    = (only_bundle_end_p || next_insn == NULL_RTX
 	       || (GET_MODE (next_insn) == TImode
 		   && INSN_CODE (insn) != CODE_FOR_insn_group_barrier));
 	  if (type == TYPE_F || type == TYPE_B || type == TYPE_L
@@ -6665,9 +6642,12 @@ bundling (dump, verbose, prev_head_insn, tail)
 	      /* We need to insert 2 Nops for cases like M_MII.  */
 	      || (type == TYPE_M && ia64_tune == PROCESSOR_ITANIUM
 		  && !bundle_end_p && pos == 1))
-	    issue_nops_and_insn (curr_state, 2, insn, bundle_end_p);
-	  issue_nops_and_insn (curr_state, 1, insn, bundle_end_p);
-	  issue_nops_and_insn (curr_state, 0, insn, bundle_end_p);
+	    issue_nops_and_insn (curr_state, 2, insn, bundle_end_p,
+				 only_bundle_end_p);
+	  issue_nops_and_insn (curr_state, 1, insn, bundle_end_p,
+			       only_bundle_end_p);
+	  issue_nops_and_insn (curr_state, 0, insn, bundle_end_p,
+			       only_bundle_end_p);
 	}
       if (index_to_bundle_states [insn_num] == NULL)
 	abort ();
@@ -6724,6 +6704,8 @@ bundling (dump, verbose, prev_head_insn, tail)
        curr_state = curr_state->originator)
     {
       insn = curr_state->insn;
+      asm_p = (GET_CODE (PATTERN (insn)) == ASM_INPUT
+	       || asm_noperands (PATTERN (insn)) >= 0);
       insn_num++;
       if (verbose >= 2 && dump)
 	{
@@ -6768,23 +6750,24 @@ bundling (dump, verbose, prev_head_insn, tail)
 	  template1 = get_template (curr_state->dfa_state, 3);
 	  pos += 3;
 	}
-      for (i = 0; i < curr_state->after_nops_num; i++)
-	{
-	  nop = gen_nop ();
-	  emit_insn_after (nop, insn);
-	  pos--;
-	  if (pos < 0)
-	    abort ();
-	  if (pos % 3 == 0)
-	    {
-	      if (template0 < 0)
-		abort ();
-	      b = gen_bundle_selector (GEN_INT (template0));
-	      ia64_emit_insn_before (b, nop);
-	      template0 = template1;
-	      template1 = -1;
-	    }
-	}
+      if (!asm_p)
+	for (i = 0; i < curr_state->after_nops_num; i++)
+	  {
+	    nop = gen_nop ();
+	    emit_insn_after (nop, insn);
+	    pos--;
+	    if (pos < 0)
+	      abort ();
+	    if (pos % 3 == 0)
+	      {
+		if (template0 < 0)
+		  abort ();
+		b = gen_bundle_selector (GEN_INT (template0));
+		ia64_emit_insn_before (b, nop);
+		template0 = template1;
+		template1 = -1;
+	      }
+	  }
       if (INSN_CODE (insn) != CODE_FOR_insn_group_barrier
 	  && GET_CODE (PATTERN (insn)) != ASM_INPUT
 	  && asm_noperands (PATTERN (insn)) < 0)
@@ -7407,18 +7390,7 @@ ia64_eh_uses (regno)
   return 0;
 }
 
-/* For ia64, SYMBOL_REF_FLAG set means that it is a function.
-
-   We add @ to the name if this goes in small data/bss.  We can only put
-   a variable in small data/bss if it is defined in this module or a module
-   that we are statically linked with.  We can't check the second condition,
-   but TREE_STATIC gives us the first one.  */
-
-/* ??? If we had IPA, we could check the second condition.  We could support
-   programmer added section attributes if the variable is not defined in this
-   module.  */
-
-/* ??? See the v850 port for a cleaner way to do this.  */
+/* Return true if this goes in small data/bss.  */
 
 /* ??? We could also support own long data here.  Generating movl/add/ld8
    instead of addl,ld8/ld8.  This makes the code bigger, but should make the
@@ -7430,6 +7402,10 @@ ia64_in_small_data_p (exp)
      tree exp;
 {
   if (TARGET_NO_SDATA)
+    return false;
+
+  /* We want to merge strings, so we never consider them small data.  */
+  if (TREE_CODE (exp) == STRING_CST)
     return false;
 
   if (TREE_CODE (exp) == VAR_DECL && DECL_SECTION_NAME (exp))
@@ -7450,81 +7426,6 @@ ia64_in_small_data_p (exp)
     }
 
   return false;
-}
-
-static void
-ia64_encode_section_info (decl, first)
-     tree decl;
-     int first ATTRIBUTE_UNUSED;
-{
-  const char *symbol_str;
-  bool is_local;
-  rtx symbol;
-  char encoding = 0;
-
-  if (TREE_CODE (decl) == FUNCTION_DECL)
-    {
-      SYMBOL_REF_FLAG (XEXP (DECL_RTL (decl), 0)) = 1;
-      return;
-    }
-
-  /* Careful not to prod global register variables.  */
-  if (TREE_CODE (decl) != VAR_DECL
-      || GET_CODE (DECL_RTL (decl)) != MEM
-      || GET_CODE (XEXP (DECL_RTL (decl), 0)) != SYMBOL_REF)
-    return;
-
-  symbol = XEXP (DECL_RTL (decl), 0);
-  symbol_str = XSTR (symbol, 0);
-
-  is_local = (*targetm.binds_local_p) (decl);
-
-  if (TREE_CODE (decl) == VAR_DECL && DECL_THREAD_LOCAL (decl))
-    encoding = " GLil"[decl_tls_model (decl)];
-  /* Determine if DECL will wind up in .sdata/.sbss.  */
-  else if (is_local && ia64_in_small_data_p (decl))
-    encoding = 's';
-
-  /* Finally, encode this into the symbol string.  */
-  if (encoding)
-    {
-      char *newstr;
-      size_t len;
-
-      if (symbol_str[0] == ENCODE_SECTION_INFO_CHAR)
-	{
-	  if (encoding == symbol_str[1])
-	    return;
-	  /* ??? Sdata became thread or thread becaome not thread.  Lose.  */
-	  abort ();
-	}
-
-      len = strlen (symbol_str);
-      newstr = alloca (len + 3);
-      newstr[0] = ENCODE_SECTION_INFO_CHAR;
-      newstr[1] = encoding;
-      memcpy (newstr + 2, symbol_str, len + 1);
-
-      XSTR (symbol, 0) = ggc_alloc_string (newstr, len + 2);
-    }
-
-  /* This decl is marked as being in small data/bss but it shouldn't be;
-     one likely explanation for this is that the decl has been moved into
-     a different section from the one it was in when encode_section_info
-     was first called.  Remove the encoding.  */
-  else if (symbol_str[0] == ENCODE_SECTION_INFO_CHAR)
-    XSTR (symbol, 0) = ggc_strdup (symbol_str + 2);
-}
-
-static const char *
-ia64_strip_name_encoding (str)
-     const char *str;
-{
-  if (str[0] == ENCODE_SECTION_INFO_CHAR)
-    str += 2;
-  if (str[0] == '*')
-    str++;
-  return str;
 }
 
 /* Output assembly directives for prologue regions.  */
@@ -7844,9 +7745,14 @@ ia64_init_builtins ()
 				psi_type_node, integer_type_node,
 				integer_type_node, NULL_TREE);
 
-  /* __sync_val_compare_and_swap_di, __sync_bool_compare_and_swap_di */
+  /* __sync_val_compare_and_swap_di */
   tree di_ftype_pdi_di_di
     = build_function_type_list (long_integer_type_node,
+				pdi_type_node, long_integer_type_node,
+				long_integer_type_node, NULL_TREE);
+  /* __sync_bool_compare_and_swap_di */
+  tree si_ftype_pdi_di_di
+    = build_function_type_list (integer_type_node,
 				pdi_type_node, long_integer_type_node,
 				long_integer_type_node, NULL_TREE);
   /* __sync_synchronize */
@@ -7881,7 +7787,7 @@ ia64_init_builtins ()
 	       IA64_BUILTIN_VAL_COMPARE_AND_SWAP_DI);
   def_builtin ("__sync_bool_compare_and_swap_si", si_ftype_psi_si_si,
 	       IA64_BUILTIN_BOOL_COMPARE_AND_SWAP_SI);
-  def_builtin ("__sync_bool_compare_and_swap_di", di_ftype_pdi_di_di,
+  def_builtin ("__sync_bool_compare_and_swap_di", si_ftype_pdi_di_di,
 	       IA64_BUILTIN_BOOL_COMPARE_AND_SWAP_DI);
 
   def_builtin ("__sync_synchronize", void_ftype_void,
@@ -8121,7 +8027,8 @@ ia64_expand_op_and_fetch (binoptab, mode, arglist, target)
 */
 
 static rtx
-ia64_expand_compare_and_swap (mode, boolp, arglist, target)
+ia64_expand_compare_and_swap (rmode, mode, boolp, arglist, target)
+     enum machine_mode rmode;
      enum machine_mode mode;
      int boolp;
      tree arglist;
@@ -8169,7 +8076,7 @@ ia64_expand_compare_and_swap (mode, boolp, arglist, target)
   if (boolp)
     {
       if (! target)
-	target = gen_reg_rtx (mode);
+	target = gen_reg_rtx (rmode);
       return emit_store_flag_force (target, EQ, tmp, old, mode, 1, 1);
     }
   else
@@ -8244,11 +8151,16 @@ ia64_expand_builtin (exp, target, subtarget, mode, ignore)
   tree fndecl = TREE_OPERAND (TREE_OPERAND (exp, 0), 0);
   unsigned int fcode = DECL_FUNCTION_CODE (fndecl);
   tree arglist = TREE_OPERAND (exp, 1);
+  enum machine_mode rmode;
 
   switch (fcode)
     {
     case IA64_BUILTIN_BOOL_COMPARE_AND_SWAP_SI:
     case IA64_BUILTIN_VAL_COMPARE_AND_SWAP_SI:
+      mode = SImode;
+      rmode = SImode;
+      break;
+
     case IA64_BUILTIN_LOCK_TEST_AND_SET_SI:
     case IA64_BUILTIN_LOCK_RELEASE_SI:
     case IA64_BUILTIN_FETCH_AND_ADD_SI:
@@ -8267,7 +8179,15 @@ ia64_expand_builtin (exp, target, subtarget, mode, ignore)
       break;
 
     case IA64_BUILTIN_BOOL_COMPARE_AND_SWAP_DI:
+      mode = DImode;
+      rmode = SImode;
+      break;
+
     case IA64_BUILTIN_VAL_COMPARE_AND_SWAP_DI:
+      mode = DImode;
+      rmode = DImode;
+      break;
+
     case IA64_BUILTIN_LOCK_TEST_AND_SET_DI:
     case IA64_BUILTIN_LOCK_RELEASE_DI:
     case IA64_BUILTIN_FETCH_AND_ADD_DI:
@@ -8293,11 +8213,13 @@ ia64_expand_builtin (exp, target, subtarget, mode, ignore)
     {
     case IA64_BUILTIN_BOOL_COMPARE_AND_SWAP_SI:
     case IA64_BUILTIN_BOOL_COMPARE_AND_SWAP_DI:
-      return ia64_expand_compare_and_swap (mode, 1, arglist, target);
+      return ia64_expand_compare_and_swap (rmode, mode, 1, arglist,
+					   target);
 
     case IA64_BUILTIN_VAL_COMPARE_AND_SWAP_SI:
     case IA64_BUILTIN_VAL_COMPARE_AND_SWAP_DI:
-      return ia64_expand_compare_and_swap (mode, 0, arglist, target);
+      return ia64_expand_compare_and_swap (rmode, mode, 0, arglist,
+					   target);
 
     case IA64_BUILTIN_SYNCHRONIZE:
       emit_insn (gen_mf ());

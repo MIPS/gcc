@@ -138,7 +138,7 @@ extern int target_flags;
   {"relax-immediates",      RELAX_IMM_BIT,				\
      "" },								\
   {"no-relax-immediates", - RELAX_IMM_BIT,				\
-     N_("Do not arbitary sized immediates in bit operations") },	\
+     N_("Do not arbitrary sized immediates in bit operations") },	\
   {"wide-bitfields",        W_FIELD_BIT,				\
      N_("Always treat bit-field as int-sized") },			\
   {"no-wide-bitfields",   - W_FIELD_BIT,				\
@@ -176,7 +176,7 @@ extern const char * mcore_stack_increment_string;
 #define	TARGET_OPTIONS							\
 {									\
   {"stack-increment=", & mcore_stack_increment_string,			\
-     N_("Maximum amount for a single stack increment operation")}	\
+     N_("Maximum amount for a single stack increment operation"), 0}	\
 }
 
 #ifndef CC1_SPEC

@@ -172,7 +172,8 @@ namespace std
     if (!__cloc)
       {
 	// This named locale is not supported by the underlying OS.
-	__throw_runtime_error("attempt to create locale from unknown name");
+	__throw_runtime_error("locale::facet::_S_create_c_locale "
+			      "name not valid");
       }
   }
   
@@ -186,9 +187,11 @@ namespace std
   __c_locale
   locale::facet::_S_clone_c_locale(__c_locale& __cloc)
   { return __duplocale(__cloc); }
+} // namespace std
 
-  const char* locale::_S_categories[_S_categories_size 
-				    + _S_extra_categories_size] =
+namespace __gnu_cxx
+{
+  const char* category_names[6 + _GLIBCPP_NUM_CATEGORIES] =
     {
       "LC_CTYPE", 
       "LC_NUMERIC",
@@ -203,4 +206,9 @@ namespace std
       "LC_MEASUREMENT", 
       "LC_IDENTIFICATION" 
     };
+}
+
+namespace std
+{
+  const char** locale::_S_categories = __gnu_cxx::category_names;
 }  // namespace std

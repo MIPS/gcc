@@ -181,9 +181,9 @@ extern short *reg_renumber;	/* def in local_alloc.c */
     N_("Auto pre/post decrement increment allowed")},		\
   { "noauto-incdec", - MASK_AUTO_INC_DEC,			\
     N_("Auto pre/post decrement increment not allowed")},	\
-  { "inmax", MASK_MIN_MAX,                                     \
+  { "inmax", MASK_MIN_MAX,                                      \
     N_("Min/max instructions allowed")},                        \
-  { "nominmax", MASK_MIN_MAX,                                   \
+  { "nominmax", - MASK_MIN_MAX,                                 \
     N_("Min/max instructions not allowed")},                    \
   { "long-calls", MASK_LONG_CALLS,				\
     N_("Use call and rtc for function calls and returns")},	\
@@ -191,6 +191,8 @@ extern short *reg_renumber;	/* def in local_alloc.c */
     N_("Use jsr and rts for function calls and returns")},	\
   { "relax", MASK_NO_DIRECT_MODE,                               \
     N_("Do not use direct addressing mode for soft registers")},\
+  { "norelax", -MASK_NO_DIRECT_MODE,                            \
+    N_("Use direct addressing mode for soft registers")},       \
   { "68hc11", MASK_M6811,					\
     N_("Compile for a 68HC11")},				\
   { "68hc12", MASK_M6812,					\
@@ -216,9 +218,9 @@ extern short *reg_renumber;	/* def in local_alloc.c */
    by appending `-m' to the specified name.  */
 #define TARGET_OPTIONS							\
 { { "reg-alloc=",	&m68hc11_reg_alloc_order,                       \
-    N_("Specify the register allocation order")},			\
+    N_("Specify the register allocation order"), 0},			\
   { "soft-reg-count=",	&m68hc11_soft_reg_count,                        \
-    N_("Indicate the number of soft registers available") },		\
+    N_("Indicate the number of soft registers available"), 0},		\
   SUBTARGET_OPTIONS							\
 }
 
@@ -576,6 +578,7 @@ enum reg_class
   D_OR_S_REGS,			/* 16-bit soft register or D register */
   X_OR_S_REGS,			/* 16-bit soft register or X register */
   Y_OR_S_REGS,			/* 16-bit soft register or Y register */
+  Z_OR_S_REGS,			/* 16-bit soft register or Z register */
   SP_OR_S_REGS,			/* 16-bit soft register or SP register */
   D_OR_X_OR_S_REGS,		/* 16-bit soft register or D or X register */
   D_OR_Y_OR_S_REGS,		/* 16-bit soft register or D or Y register */
@@ -622,6 +625,7 @@ enum reg_class
       "D_OR_S_REGS",                            \
       "X_OR_S_REGS",                            \
       "Y_OR_S_REGS",                            \
+      "Z_OR_S_REGS",                            \
       "SP_OR_S_REGS",                           \
       "D_OR_X_OR_S_REGS",                       \
       "D_OR_Y_OR_S_REGS",                       \
@@ -690,6 +694,7 @@ enum reg_class
 /* D_OR_S_REGS */	 { 0xFFFFDE02, 0x00007FFF }, /* D _.D */        \
 /* X_OR_S_REGS */	 { 0xFFFFDE01, 0x00007FFF }, /* X _.D */        \
 /* Y_OR_S_REGS */	 { 0xFFFFDE04, 0x00007FFF }, /* Y _.D */        \
+/* Z_OR_S_REGS */	 { 0xFFFFDF00, 0x00007FFF }, /* Z _.D */        \
 /* SP_OR_S_REGS */	 { 0xFFFFDE08, 0x00007FFF }, /* SP _.D */	\
 /* D_OR_X_OR_S_REGS */	 { 0xFFFFDE03, 0x00007FFF }, /* D X _.D */      \
 /* D_OR_Y_OR_S_REGS */	 { 0xFFFFDE06, 0x00007FFF }, /* D Y _.D */      \
@@ -1660,6 +1665,7 @@ do {                                                                    \
 {"m68hc11_non_shift_operator", {AND, IOR, XOR, PLUS, MINUS}},		\
 {"m68hc11_unary_operator",   {NEG, NOT, SIGN_EXTEND, ZERO_EXTEND}},	\
 {"m68hc11_shift_operator",   {ASHIFT, ASHIFTRT, LSHIFTRT, ROTATE, ROTATERT}},\
+{"m68hc11_eq_compare_operator", {EQ, NE}},                              \
 {"non_push_operand",         {SUBREG, REG, MEM}},			\
 {"reg_or_some_mem_operand",  {SUBREG, REG, MEM}},			\
 {"tst_operand",              {SUBREG, REG, MEM}},			\

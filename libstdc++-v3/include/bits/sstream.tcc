@@ -1,6 +1,6 @@
 // String based streams -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2001, 2002
+// Copyright (C) 1997, 1998, 1999, 2001, 2002, 2003
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -47,29 +47,26 @@ namespace std
     pbackfail(int_type __c)
     {
       int_type __ret = traits_type::eof();
-      bool __testeof = traits_type::eq_int_type(__c, traits_type::eof());
-      bool __testpos = this->_M_in_cur && this->_M_in_beg < this->_M_in_cur; 
+      const bool __testeof = traits_type::eq_int_type(__c,
+						      traits_type::eof());
+      const bool __testpos = this->_M_in_beg < this->_M_in_cur; 
       
       // Try to put back __c into input sequence in one of three ways.
       // Order these tests done in is unspecified by the standard.
       if (__testpos)
 	{
-	  if (traits_type::eq(traits_type::to_char_type(__c), this->gptr()[-1])
-	      && !__testeof)
+	  const bool __testeq = traits_type::eq(traits_type::to_char_type(__c),
+						this->_M_in_cur[-1]);
+	  
+	  --this->_M_in_cur;
+	  if (!__testeof && __testeq)
+	    __ret = __c;
+	  else if (__testeof)
+	    __ret = traits_type::not_eof(__c);
+	  else
 	    {
-	      --this->_M_in_cur;
-	      __ret = __c;
-	    }
-	  else if (!__testeof)
-	    {
-	      --this->_M_in_cur;
 	      *this->_M_in_cur = traits_type::to_char_type(__c);
 	      __ret = __c;
-	    }
-	  else if (__testeof)
-	    {
-	      --this->_M_in_cur;
-	      __ret = traits_type::not_eof(__c);
 	    }
 	}
       return __ret;
@@ -80,32 +77,41 @@ namespace std
     basic_stringbuf<_CharT, _Traits, _Alloc>::
     overflow(int_type __c)
     {
-      bool __testout = this->_M_mode & ios_base::out;
+      const bool __testout = this->_M_mode & ios_base::out;
       if (__builtin_expect(!__testout, false))
 	return traits_type::eof();
-      bool __testeof = traits_type::eq_int_type(__c, traits_type::eof());
+
+      const bool __testeof = traits_type::eq_int_type(__c,
+						      traits_type::eof());
       if (__builtin_expect(__testeof, false))
 	return traits_type::not_eof(__c);
 
-      // In virtue of DR 169 (TC) we are allowed to grow more than
-      // one char the first time and also...
-      __size_type __len =
-	std::max(_M_string.capacity() + 1, this->_M_buf_size_opt);
-
-      bool __testwrite = this->_M_out_cur < this->_M_out_end;
-      if (__builtin_expect(!__testwrite && __len > _M_string.max_size(), false))
+      // NB: Start ostringstream buffers at 512 chars. This is an
+      // experimental value (pronounced "arbitrary" in some of the
+      // hipper english-speaking countries), and can be changed to
+      // suit particular needs.
+      __size_type __len = std::max(__size_type(_M_string.capacity() + 1),
+				   __size_type(512));
+      const bool __testput = this->_M_out_cur < this->_M_out_end;
+      if (__builtin_expect(!__testput && __len > _M_string.max_size(), false))
 	return traits_type::eof();
 
       // Try to append __c into output sequence in one of two ways.
       // Order these tests done in is unspecified by the standard.
-      if (!__testwrite)
+      if (!__testput)
 	{
-	  // Force-allocate, re-sync.
-	  _M_string = this->str();
-	  // ... the next times. That's easy to implement thanks to the
-	  // exponential growth policy builtin into basic_string.
+	  // In virtue of DR 169 (TC) we are allowed to grow more than
+	  // one char. That's easy to implement thanks to the exponential
+	  // growth policy builtin into basic_string.
+	  __string_type __tmp;
+	  __tmp.reserve(__len);
+	  __tmp.assign(_M_string.data(),
+		       this->_M_out_end - this->_M_out_beg);
+	  _M_string.swap(__tmp);
+	  // Just to be sure...
 	  _M_string.reserve(__len);
-	  _M_really_sync(this->_M_in_cur - this->_M_in_beg, 
+	  _M_really_sync(const_cast<char_type*>(_M_string.data()),
+			 this->_M_in_cur - this->_M_in_beg, 
 			 this->_M_out_cur - this->_M_out_beg);
 	}
       return this->sputc(traits_type::to_char_type(__c));
@@ -119,13 +125,13 @@ namespace std
       pos_type __ret =  pos_type(off_type(-1)); 
       bool __testin = (ios_base::in & this->_M_mode & __mode) != 0;
       bool __testout = (ios_base::out & this->_M_mode & __mode) != 0;
-      bool __testboth = __testin && __testout && __way != ios_base::cur;
+      const bool __testboth = __testin && __testout && __way != ios_base::cur;
       __testin &= !(__mode & ios_base::out);
       __testout &= !(__mode & ios_base::in);
 
       if (_M_string.capacity() && (__testin || __testout || __testboth))
 	{
-	  char_type* __beg = this->_M_buf;
+	  char_type* __beg = __testin ? this->_M_in_beg : this->_M_out_beg;
 	  char_type* __curi = NULL;
 	  char_type* __curo = NULL;
 	  char_type* __endi = NULL;
@@ -133,14 +139,14 @@ namespace std
 
 	  if (__testin || __testboth)
 	    {
-	      __curi = this->gptr();
-	      __endi = this->egptr();
+	      __curi = this->_M_in_cur;
+	      __endi = this->_M_in_end;
 	    }
 	  if (__testout || __testboth)
 	    {
-	      __curo = this->pptr();
+	      __curo = this->_M_out_cur;
 	      // Due to the resolution of DR169, ios_base::end
-	      // is this->_M_out_lim, not epptr().
+	      // is this->_M_out_lim, not _M_out_end.
 	      __endo = this->_M_out_lim;
 	    }
 
@@ -166,7 +172,7 @@ namespace std
 	  if ((__testout || __testboth)
 	      && __newoffo + __off >= 0 && __endo - __beg >= __newoffo + __off)
 	    {
-	      _M_out_cur_move(__newoffo + __off - (this->_M_out_cur - __beg));
+	      _M_move_out_cur(__newoffo + __off - (this->_M_out_cur - __beg));
 	      __ret = pos_type(__newoffo);
 	    }
 	}
@@ -185,26 +191,23 @@ namespace std
 	  off_type __pos = __sp; // Use streamoff operator to do conversion.
 	  char_type* __beg = NULL;
 	  char_type* __end = NULL;
-	  bool __testin = (ios_base::in & this->_M_mode & __mode) != 0;
-	  bool __testout = (ios_base::out & this->_M_mode & __mode) != 0;
-	  bool __testboth = __testin && __testout;
-	  __testin &= !(__mode & ios_base::out);
-	  __testout &= !(__mode & ios_base::in);
+	  const bool __testin = (ios_base::in & this->_M_mode & __mode) != 0;
+	  const bool __testout = (ios_base::out & this->_M_mode & __mode) != 0;
 	  
 	  // NB: Ordered.
 	  bool __testposi = false;
 	  bool __testposo = false;
-	  if (__testin || __testboth)
+	  if (__testin)
 	    {
-	      __beg = this->eback();
-	      __end = this->egptr();
+	      __beg = this->_M_in_beg;
+	      __end = this->_M_in_end;
 	      if (0 <= __pos && __pos <= __end - __beg)
 		__testposi = true;
 	    }
-	  if (__testout || __testboth)
+	  if (__testout)
 	    {
-	      __beg = this->pbase();
-	      __end = this->epptr();
+	      __beg = this->_M_out_beg;
+	      __end = this->_M_out_end;
 	      if (0 <= __pos && __pos <= __end - __beg)
 		__testposo = true;
 	    }
@@ -213,7 +216,7 @@ namespace std
 	      if (__testposi)
 		this->_M_in_cur = this->_M_in_beg + __pos;
 	      if (__testposo)
-		_M_out_cur_move((__pos) - (this->_M_out_cur - __beg));
+		_M_move_out_cur((__pos) - (this->_M_out_cur - __beg));
 	      __ret = pos_type(off_type(__pos));
 	    }
 	}

@@ -100,7 +100,7 @@ extern int target_flags;
   { "soft-float",   -1, N_("Don't use hardware fp")},                  \
   { "backchain",     2, N_("Set backchain")},                          \
   { "no-backchain", -2, N_("Don't set backchain (faster, but debug harder")}, \
-  { "small-exec",    4, N_("Use bras for execucable < 64k")},          \
+  { "small-exec",    4, N_("Use bras for executable < 64k")},          \
   { "no-small-exec",-4, N_("Don't use bras")},                         \
   { "debug",         8, N_("Additional debug prints")},                \
   { "no-debug",     -8, N_("Don't print additional debug prints")},    \
@@ -114,9 +114,9 @@ extern int target_flags;
 
 #define TARGET_OPTIONS                                          \
 { { "tune=",            &s390_tune_string,                      \
-    N_("Schedule code for given CPU")},                         \
+    N_("Schedule code for given CPU"), 0},                      \
   { "arch=",            &s390_arch_string,                      \
-    N_("Generate code for given CPU")},                         \
+    N_("Generate code for given CPU"), 0},                      \
 }
 
 /* Target version string.  Overridden by the OS header.  */
@@ -916,10 +916,6 @@ extern int flag_pic;
 /* Advance the location counter by SIZE bytes.  */
 #define ASM_OUTPUT_SKIP(FILE, SIZE) \
   fprintf ((FILE), "\t.set\t.,.+%u\n", (SIZE))
-
-/* Output a reference to a user-level label named NAME.  */
-#define ASM_OUTPUT_LABELREF(FILE, NAME) \
-  asm_fprintf ((FILE), "%U%s", (*targetm.strip_name_encoding) (NAME))
 
 /* The LOCAL_LABEL_PREFIX variable is used by dbxelf.h.  */
 #define LOCAL_LABEL_PREFIX "."

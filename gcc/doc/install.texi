@@ -281,7 +281,7 @@ file system, the shell's built-in @command{pwd} command will return
 temporary pathnames.  Using these can lead to various sorts of build
 problems.  To avoid this issue, set the @env{PWDCMD} environment
 variable to an automounter-aware @command{pwd} command, e.g.,
-@command{pawd} or @command{amq -w}, during the configuration and build
+@command{pawd} or @samp{amq -w}, during the configuration and build
 phases.
 
 First, we @strong{highly} recommend that GCC be built into a
@@ -346,7 +346,7 @@ implies that the host defaults to @var{target}.
 @heading Options specification
 
 Use @var{options} to override several configure time options for
-GCC@.  A list of supported @var{options} follows; @command{configure
+GCC@.  A list of supported @var{options} follows; @samp{configure
 --help} may list other options, but those not listed below may not
 work and should not normally be used.
 
@@ -690,6 +690,12 @@ like C++ and Java.  The possibilities for @var{lib} are:
 AIX thread support.
 @item dce
 DCE thread support.
+@item gnat
+Ada tasking support.  For non-Ada programs, this setting is equivalent
+to @samp{single}. When used in conjunction with the Ada run time, it
+causes GCC to use the same thread primitives as Ada uses.  This option
+is necessary when using both Ada and the back end exception handling,
+which is the default for most Ada targets.
 @item mach
 Generic MACH thread support, known to work on NeXTSTEP@.  (Please note
 that the file needed to support this configuration, @file{gthr-mach.h}, is
@@ -976,7 +982,7 @@ Other broken versions may recompile parts of the compiler when
 installing the compiler.)
 
 Some commands executed when making the compiler may fail (return a
-nonzero status) and be ignored by @code{make}.  These failures, which
+nonzero status) and be ignored by @command{make}.  These failures, which
 are often due to files that were not found, are expected, and can safely
 be ignored.
 
@@ -1546,6 +1552,10 @@ HP-UX:
 @end itemize
 
 @item
+Motorola 68HC11/68HC12---@uref{http://www.gnu-m68hc11.org,,GNU
+Development Tools for the Motorola 68HC11/68HC12}.
+
+@item
 @uref{http://www.sco.com/skunkware/devtools/index.html#gcc,,SCO
 OpenServer/Unixware}.
 
@@ -1568,10 +1578,14 @@ The @uref{http://www.mingw.org/,,MinGW} project.
 @end itemize
 
 @item
-@uref{ftp://ftp.thewrittenword.com/packages/free/by-name/,,The
-Written Word} offers binaries for Solaris 2.5.1, 2.6, 2.7/SPARC, 2.7/Intel,
-IRIX 6.2, 6.5, Digital UNIX 4.0D, HP-UX 10.20, and HP-UX 11.00.
-
+@uref{ftp://ftp.thewrittenword.com/packages/by-name/,,The
+Written Word} offers binaries for
+AIX 4.3.2.
+IRIX 6.5,
+Digital UNIX 4.0D and 5.1,
+GNU/Linux (i386),
+HP-UX 10.20, 11.00, and 11.11, and
+Solaris/SPARC 2.5.1, 2.6, 2.7, 8, and 9,
 @end itemize
 
 In addition to those specific offerings, you can get a binary
@@ -1839,7 +1853,7 @@ target in an integral value on the host cannot be performed.  Building
 cross-compilers on the Alpha for 32-bit machines has only been tested in
 a few cases and may not work properly.
 
-@code{make compare} may fail on old versions of DEC Unix unless you add
+@samp{make compare} may fail on old versions of DEC Unix unless you add
 @option{-save-temps} to @code{CFLAGS}.  On these systems, the name of the
 assembler input file is stored in the object file, and that makes
 comparison fail if it differs between the @code{stage1} and
@@ -1905,6 +1919,8 @@ This configuration is intended for embedded systems.
 <hr />
 @end html
 @heading @anchor{arm-*-aout}arm-*-aout
+This configuration is obsoleted in GCC 3.3.
+
 Advanced RISC Machines ARM-family processors.  These are often used in
 embedded applications.  There are no standard Unix configurations.
 This configuration corresponds to the basic instruction sequences and will
@@ -1918,13 +1934,19 @@ configuration.
 @end html
 @heading @anchor{arm-*-elf}arm-*-elf
 This configuration is intended for embedded systems.
+We require GNU binutils 2.13 or newer.
 
 @html
 <hr />
 @end html
 @heading @anchor{arm*-*-linux-gnu}arm*-*-linux-gnu
+We require GNU binutils 2.13 or newer.
 
-We require GNU binutils 2.10 or newer.
+@html
+<hr />
+@end html
+@heading @anchor{xscale-*-elf}xscale-*-elf
+We require GNU binutils 2.13 or newer.
 
 @html
 <hr />
@@ -2113,6 +2135,7 @@ longer a multiple of 2 bytes.
 <hr />
 @end html
 @heading @anchor{hppa*-hp-hpux*}hppa*-hp-hpux*
+Support for HP-UX versions 7, 8, and 9 is obsoleted in GCC 3.3.
 
 We @emph{highly} recommend using gas/binutils 2.8 or newer on all hppa
 platforms; you may encounter a variety of problems when using the HP
@@ -2147,6 +2170,7 @@ More specific information to @samp{hppa*-hp-hpux*} targets follows.
 <hr />
 @end html
 @heading @anchor{hppa*-hp-hpux9}hppa*-hp-hpux9
+Support for this system is obsoleted in GCC 3.3.
 
 The HP assembler has major problems on this platform.  We've tried to work
 around the worst of the problems.  However, those workarounds may be causing
@@ -2171,15 +2195,15 @@ charge:
 @itemize @bullet
 @item
 @html
-<a href="http://us-support.external.hp.com">US, Canada, Asia-Pacific, and
+<a href="http://us.itrc.hp.com/service/home/home.do">US, Canada, Asia-Pacific, and
 Latin-America</a>
 @end html
 @ifnothtml
-@uref{http://us-support.external.hp.com,,}US, Canada, Asia-Pacific, and
-Latin-America
+@uref{http://us.itrc.hp.com/service/home/home.do,,} US, Canada, Asia-Pacific,
+and Latin-America.
 @end ifnothtml
 @item
-@uref{http://europe-support.external.hp.com,,Europe}
+@uref{http://europe.itrc.hp.com/service/home/home.do,,} Europe.
 @end itemize
 
 The HP assembler on these systems is much better than the hpux9 assembler,
@@ -2204,6 +2228,13 @@ type based on the type compiler detected during configuration.  You must
 set your @env{PATH} or define @env{CC} so that configure finds an appropriate
 compiler for the initial bootstrap.  Different prefixes must be used if
 both ports are to be installed on the same system.
+
+It is best to explicitly configure the @samp{hppa64-hp-hpux11*} target
+with the @option{--with-ld=@dots{}} option.  We support both the HP
+and GNU linkers for this target.  The two linkers require different
+link commands.  Thus, it's not possible to switch linkers during a
+GCC build.  This has been been reported to occur in a unified build
+of binutils and GCC.
 
 GCC 2.95.x is not supported under HP-UX 11 and cannot be used to
 compile GCC 3.0 and up.  Refer to @uref{binaries.html,,binaries} for
@@ -2238,10 +2269,29 @@ by the HP linker.  So, again a recent linker patch is recommended.
 The HP assembler has many limitations and is not recommended for either
 the 32 or 64-bit ports.  For example, it does not support weak symbols
 or alias definitions.  As a result, explicit template instantiations
-are required when using C++.  You also can't generate debugging information
-when using the HP assembler.  Either the HP or GNU linker can be used
-with the 64-bit port but it may be necessary to use the GNU linker
-when dwarf2 exception support is implemented.
+are required when using C++.  This will make it difficult if not
+impossible to build many C++ applications.  You also can't generate
+debugging information when using the HP assembler with GCC.
+
+There are a number of issues to consider in selecting which linker to
+use with the 64-bit port.  The  GNU 64-bit linker can only create dynamic
+binaries.  The @option{-static} option causes linking with archive
+libraries but doesn't produce a truly static binary.  Dynamic binaries
+still require final binding by the dynamic loader to resolve a set of
+dynamic-loader-defined symbols.  The default behavior of the HP linker
+is the same as the GNU linker.  However, it can generate true 64-bit
+static binaries using the @option{+compat} option.
+
+The HP 64-bit linker doesn't support linkonce semantics.  As a
+result, C++ programs have many more sections than they should.
+
+The GNU 64-bit linker has some issues with shared library support
+and exceptions.  As a result, we only support libgcc in archive
+format.  For similar reasons, dwarf2 unwind and exception support
+are disabled.  The GNU linker also has problems creating binaries
+with @option{-static}.  It doesn't provide stubs for internal
+calls to global functions in shared libraries, so these calls
+can't be overloaded.
 
 There are several possible approaches to building the distribution.
 Binutils can be built first using the HP tools.  Then, the GCC
@@ -2335,65 +2385,34 @@ maintain.  GCC now emits only DWARF 2 for this target.  This means you
 may use either the UDK debugger or GDB to debug programs built by this
 version of GCC@.
 
-Use of the @option{-march=pentiumpro} flag can result in
-unrecognized opcodes when using the native assembler on OS versions before
-5.0.6.  (Support for P6 opcodes was added to the native ELF assembler in
-that version.)  While it's rather rare to see these emitted by GCC yet,
-errors of the basic form:
+GCC is now only supported on releases 5.0.4 and later, and requires that
+you install Support Level Supplement OSS646B or later, and Support Level
+Supplement OSS631C or later.  If you are using release 5.0.7 of
+OpenServer, you must have at least the first maintenance pack installed
+(this includes the relevant portions of OSS646).  OSS646, also known as
+the "Execution Environment Update", provides updated link editors and
+assemblers, as well as updated standard C and math libraries.  The C
+startup modules are also updated to support the System V gABI draft, and
+GCC relies on that behaviour.  OSS631 provides a collection of commonly
+used open source libraries, some of which GCC depends on (such as GNU
+gettext and zlib).  SCO OpenServer Release 5.0.7 has all of this built
+in by default, but OSS631C and later also apply to that release.  Please
+visit
+@uref{ftp://ftp.sco.com/pub/openserver5,,ftp://ftp.sco.com/pub/openserver5}
+for the latest versions of these (and other potentially useful)
+supplements.
 
-@example
-  /usr/tmp/ccaNlqBc.s:22:unknown instruction: fcomip
-  /usr/tmp/ccaNlqBc.s:50:unknown instruction: fucomip
-@end example
-
-are symptoms of this problem.  You may work around this by not
-building affected files with that flag, by using the GNU assembler, or
-by using the assembler provided with the current version of the OS@.
-Users of GNU assembler should see the note below for hazards on doing
-so.
-
-The native SCO assembler that is provided with the OS at no
-charge is normally required.  If, however, you must be able to use
-the GNU assembler (perhaps you're compiling code with asms that
-require GAS syntax) you may configure this package using the flags
-@uref{./configure.html#with-gnu-as,,@option{--with-gnu-as}}.  You must
-use a recent version of GNU binutils; versions past 2.9.1 seem to work
-well.
-
-In general, the @option{--with-gnu-as} option isn't as well tested
-as the native assembler.
-
-Look in @file{gcc/config/i386/sco5.h} (search for ``messy'') for
-additional OpenServer-specific flags.
-
-Systems based on OpenServer before 5.0.4 (@samp{uname -X}
-will tell you what you're running) require TLS597 from
-@uref{ftp://stage.caldera.com/TLS/,,ftp://stage.caldera.com/TLS/}
-for C++ constructors and destructors to work right.
-
-The system linker in (at least) 5.0.4 and 5.0.5 will sometimes
-do the wrong thing for a construct that GCC will emit for PIC
-code.  This can be seen as execution testsuite failures when using
-@option{-fPIC} on @file{921215-1.c}, @file{931002-1.c}, @file{nestfunc-1.c}, and @file{gcov-1.c}.
-For 5.0.5, an updated linker that will cure this problem is
-available.  You must install both
-@uref{ftp://ftp.sco.com/pub/openserver5/rs505a,,ftp://ftp.sco.com/pub/openserver5/rs505a}
-and @uref{ftp://ftp.sco.com/pub/openserver5,,OSS499A}.
-
-The dynamic linker in OpenServer 5.0.5 (earlier versions may show
-the same problem) aborts on certain G77-compiled programs.  It's particularly
-likely to be triggered by building Fortran code with the @option{-fPIC} flag.
-Although it's conceivable that the error could be triggered by other
-code, only G77-compiled code has been observed to cause this abort.
-If you are getting core dumps immediately upon execution of your
-G77 program---and especially if it's compiled with @option{-fPIC}---try applying
-@uref{sco_osr5_g77.patch,,@file{sco_osr5_g77.patch}} to your @samp{libf2c} and
-rebuilding GCC@.
-Affected faults, when analyzed in a debugger, will show a stack
-backtrace with a fault occurring in @code{rtld()} and the program
-running as @file{/usr/lib/ld.so.1}.  This problem has been reported to SCO
-engineering and will hopefully be addressed in later releases.
-
+Although there is support for using the native assembler, it is
+recommended that you configure GCC to use the GNU assembler.  You do
+this by using the flags
+@uref{./configure.html#with-gnu-as,,@option{--with-gnu-as}}.  You should
+use a modern version of GNU binutils.  Version 2.13.2.1 was used for all
+testing.  In general, only the @option{--with-gnu-as} option is tested.
+A modern bintuils (as well as a plethora of other development related
+GNU utilities) can be found in Support Level Supplement OSS658A, the
+"GNU Development Tools" package.  See the SCO web and ftp sites for details.
+That package also contains the currently "officially supported" version of
+GCC, version 2.95.3.  It is useful for bootstrapping this version.  
 
 @html
 <hr />
@@ -2459,6 +2478,8 @@ ABI changes are expected.
 <hr />
 @end html
 @heading @anchor{*-lynx-lynxos}*-lynx-lynxos
+Support for SPARC LynxOS is obsoleted in GCC 3.3.
+
 LynxOS 2.2 and earlier comes with GCC 1.x already installed as
 @file{/bin/gcc}.  You should compile with this instead of @file{/bin/cc}.
 You can tell GCC to use the GNU assembler and linker, by specifying
@@ -2471,6 +2492,7 @@ installed tools, which produce @file{a.out} format executables.
 <!-- rs6000-ibm-aix*, powerpc-ibm-aix* -->
 @end html
 @heading @anchor{*-ibm-aix*}*-ibm-aix*
+Support for AIX versions 1, 2, and 3 is obsoleted in GCC 3.3.
 
 AIX Make frequently has problems with GCC makefiles.  GNU Make 3.76 or
 newer is recommended to build on this platform.
@@ -2596,6 +2618,8 @@ This configuration is intended for embedded systems.
 <hr />
 @end html
 @heading @anchor{m68000-hp-bsd}m68000-hp-bsd
+Support for this system is obsoleted in GCC 3.3.
+
 HP 9000 series 200 running BSD@.  Note that the C compiler that comes
 with this system cannot compile GCC; contact @email{law@@cygnus.com}
 to get binaries of GCC for bootstrapping.
@@ -2618,6 +2642,8 @@ applications.  There are no standard Unix configurations.
 <hr />
 @end html
 @heading @anchor{m68k-att-sysv}m68k-att-sysv
+Support for this system is obsoleted in GCC 3.3.
+
 AT&T 3b1, a.k.a.@: 7300 PC@.  This version of GCC cannot
 be compiled with the system C compiler, which is too buggy.
 You will need to get a previous version of GCC and use it to
@@ -2628,9 +2654,11 @@ bootstrap.  Binaries are available from the OSU-CIS archive, at
 <hr />
 @end html
 @heading @anchor{m68k-crds-unos}m68k-crds-unos
+Support for this system is obsoleted in GCC 3.3.
+
 Use @samp{configure unos} for building on Unos.
 
-The Unos assembler is named @code{casm} instead of @code{as}.  For some
+The Unos assembler is named @command{casm} instead of @command{as}.  For some
 strange reason linking @file{/bin/as} to @file{/bin/casm} changes the
 behavior, and does not work.  So, when installing GCC, you should
 install the following script as @file{as} in the subdirectory where
@@ -2704,9 +2732,9 @@ kept up to date.  gdb does not understand that native HP-UX format, so
 you must use gas if you wish to use gdb.
 
 On HP-UX version 8.05, but not on 8.07 or more recent versions, the
-@code{fixproto} shell script triggers a bug in the system shell.  If you
+@command{fixproto} shell script triggers a bug in the system shell.  If you
 encounter this problem, upgrade your operating system or use BASH (the
-GNU shell) to run @code{fixproto}.  This bug will cause the fixproto
+GNU shell) to run @command{fixproto}.  This bug will cause the fixproto
 program to report an error of the form:
 
 @example
@@ -2725,6 +2753,8 @@ to look like:
 <hr />
 @end html
 @heading @anchor{m68k-ncr-*}m68k-ncr-*
+Support for this system is obsoleted in GCC 3.3.
+
 On the Tower models 4@var{n}0 and 6@var{n}0, by default a process is not
 allowed to have more than one megabyte of memory.  GCC cannot compile
 itself (or many other programs) with @option{-O} in that much memory.
@@ -2741,6 +2771,8 @@ MAXUMEM = 4096
 <hr />
 @end html
 @heading @anchor{m68k-sun}m68k-sun
+Support for this system is obsoleted in GCC 3.3.
+
 Sun 3.  We do not provide a configuration file to use the Sun FPA by
 default, because programs that establish signal handlers for floating
 point traps inherently cannot work with the FPA@.
@@ -2749,6 +2781,8 @@ point traps inherently cannot work with the FPA@.
 <hr />
 @end html
 @heading @anchor{m68k-sun-sunos4.1.1}m68k-sun-sunos4.1.1
+Support for this system is obsoleted in GCC 3.3.
+
 
 It is reported that you may need the GNU assembler on this platform.
 
@@ -2776,7 +2810,7 @@ subsystem must be installed from the IDO CD-ROM supplied by Silicon
 Graphics.  It is also available for download from
 @uref{http://www.sgi.com/developers/devtools/apis/ido.html,,http://www.sgi.com/developers/devtools/apis/ido.html}.
 
-@code{make compare} may fail on version 5 of IRIX unless you add
+@samp{make compare} may fail on version 5 of IRIX unless you add
 @option{-save-temps} to @code{CFLAGS}.  On these systems, the name of the
 assembler input file is stored in the object file, and that makes
 comparison fail if it differs between the @code{stage1} and
@@ -2965,13 +2999,6 @@ Texinfo version 3.12).
 @html
 <hr />
 @end html
-@heading @anchor{powerpc-*-eabiaix}powerpc-*-eabiaix
-Embedded PowerPC system in big endian mode with @option{-mcall-aix} selected as
-the default.
-
-@html
-<hr />
-@end html
 @heading @anchor{powerpc-*-eabisim}powerpc-*-eabisim
 Embedded PowerPC system in big endian mode for use in running under the
 PSIM simulator.
@@ -3153,6 +3180,7 @@ the Solaris 7 Recommended Patch Cluster.
 <hr />
 @end html
 @heading @anchor{sparc-sun-sunos4*}sparc-sun-sunos4*
+Support for this system is obsoleted in GCC 3.3.
 
 A bug in the SunOS 4 linker will cause it to crash when linking
 @option{-fPIC} compiled objects (and will therefore not allow you to build
@@ -3172,6 +3200,7 @@ be due to a bug in @command{sh}.  You can probably get around it by running
 <hr />
 @end html
 @heading @anchor{sparc-unknown-linux-gnulibc1}sparc-unknown-linux-gnulibc1
+Support for this system is obsoleted in GCC 3.3.
 
 It has been reported that you might need
 @uref{ftp://ftp.yggdrasil.com/private/hjl,,binutils 2.8.1.0.23}
@@ -3245,14 +3274,14 @@ On System V, if you get an error like this,
 that too indicates a problem with disk space, ulimit, or @code{MAXUMEM}.
 
 On a System V release 4 system, make sure @file{/usr/bin} precedes
-@file{/usr/ucb} in @code{PATH}.  The @code{cc} command in
+@file{/usr/ucb} in @code{PATH}.  The @command{cc} command in
 @file{/usr/ucb} uses libraries which have bugs.
 
 @html
 <hr />
 @end html
 @heading @anchor{vax-dec-ultrix}vax-dec-ultrix
-Don't try compiling with VAX C (@code{vcc}).  It produces incorrect code
+Don't try compiling with VAX C (@command{vcc}).  It produces incorrect code
 in some cases (for example, when @code{alloca} is used).
 
 @html

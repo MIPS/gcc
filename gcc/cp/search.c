@@ -81,7 +81,6 @@ struct vbase_info
   tree inits;
 };
 
-static tree lookup_field_1 (tree, tree, bool);
 static tree dfs_check_overlap (tree, void *);
 static tree dfs_no_overlap_yet (tree, int, void *);
 static base_kind lookup_base_r (tree, tree, base_access,
@@ -430,7 +429,7 @@ get_dynamic_cast_base_type (tree subtype, tree target)
    figure out whether it can access this field.  (Since it is only one
    level, this is reasonable.)  */
 
-static tree
+tree
 lookup_field_1 (tree type, tree name, bool want_type)
 {
   register tree field;
@@ -472,19 +471,23 @@ lookup_field_1 (tree type, tree name, bool want_type)
 
 	      /* We might have a nested class and a field with the
 		 same name; we sorted them appropriately via
-		 field_decl_cmp, so just look for the last field with
-		 this name.  */
-	      while (true)
+		 field_decl_cmp, so just look for the first or last
+		 field with this name.  */
+	      if (want_type)
 		{
-		  if (!want_type 
-		      || TREE_CODE (fields[i]) == TYPE_DECL
-		      || DECL_CLASS_TEMPLATE_P (fields[i]))
-		    field = fields[i];
-		  if (i + 1 == hi || DECL_NAME (fields[i+1]) != name)
-		    break;
-		  i++;
+		  do
+		    field = fields[i--];
+		  while (i >= lo && DECL_NAME (fields[i]) == name);
+		  if (TREE_CODE (field) != TYPE_DECL
+		      && !DECL_CLASS_TEMPLATE_P (field))
+		    field = NULL_TREE;
 		}
-
+	      else
+		{
+		  do
+		    field = fields[i++];
+		  while (i < hi && DECL_NAME (fields[i]) == name);
+		}
 	      return field;
 	    }
 	}
@@ -1396,9 +1399,14 @@ lookup_fnfields_1 (tree type, tree name)
 		  n_outer_fields_searched++;
 #endif /* GATHER_STATISTICS */
 
-		  tmp = DECL_NAME (OVL_CURRENT (methods[i]));
-
-		  if (tmp > name)
+		  tmp = methods[i];
+		  /* This slot may be empty; we allocate more slots
+		     than we need.  In that case, the entry we're
+		     looking for is closer to the beginning of the
+		     list. */
+		  if (tmp)
+		    tmp = DECL_NAME (OVL_CURRENT (tmp));
+		  if (!tmp || tmp > name)
 		    hi = i;
 		  else if (tmp < name)
 		    lo = i + 1;

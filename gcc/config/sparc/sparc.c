@@ -177,7 +177,6 @@ static void emit_soft_tfmode_unop PARAMS ((enum rtx_code, rtx *));
 static void emit_soft_tfmode_cvt PARAMS ((enum rtx_code, rtx *));
 static void emit_hard_tfmode_operation PARAMS ((enum rtx_code, rtx *));
 
-static void sparc_encode_section_info PARAMS ((tree, int));
 static bool sparc_function_ok_for_sibcall PARAMS ((tree, tree));
 static void sparc_output_mi_thunk PARAMS ((FILE *, tree, HOST_WIDE_INT,
 					   HOST_WIDE_INT, tree));
@@ -241,9 +240,6 @@ enum processor_type sparc_cpu;
 #define TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE sparc_use_dfa_pipeline_interface
 #undef TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD
 #define TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD sparc_use_sched_lookahead
-
-#undef TARGET_ENCODE_SECTION_INFO
-#define TARGET_ENCODE_SECTION_INFO sparc_encode_section_info
 
 #undef TARGET_FUNCTION_OK_FOR_SIBCALL
 #define TARGET_FUNCTION_OK_FOR_SIBCALL sparc_function_ok_for_sibcall
@@ -820,7 +816,7 @@ data_segment_operand (op, mode)
   switch (GET_CODE (op))
     {
     case SYMBOL_REF :
-      return ! SYMBOL_REF_FLAG (op);
+      return ! SYMBOL_REF_FUNCTION_P (op);
     case PLUS :
       /* Assume canonical format of symbol + constant.
 	 Fall through.  */
@@ -844,7 +840,7 @@ text_segment_operand (op, mode)
     case LABEL_REF :
       return 1;
     case SYMBOL_REF :
-      return SYMBOL_REF_FLAG (op);
+      return SYMBOL_REF_FUNCTION_P (op);
     case PLUS :
       /* Assume canonical format of symbol + constant.
 	 Fall through.  */
@@ -6476,6 +6472,21 @@ print_operand (file, x, code)
       output_address (XEXP (x, 0));
       return;
 
+    case 's':
+      {
+	/* Print a sign-extended 32-bit value.  */
+	HOST_WIDE_INT i;
+	if (GET_CODE(x) == CONST_INT)
+	  i = INTVAL (x);
+	else if (GET_CODE(x) == CONST_DOUBLE)
+	  i = CONST_DOUBLE_LOW (x);
+	else
+	  output_operand_lossage ("invalid %%s operand");
+	i = trunc_int_for_mode (i, SImode);
+	fprintf (file, HOST_WIDE_INT_PRINT_DEC, i);
+	return;
+      }
+
     case 0:
       /* Do nothing special.  */
       break;
@@ -8527,19 +8538,6 @@ sparc_rtx_costs (x, code, outer_code, total)
     default:
       return false;
     }
-}
-
-/* If we are referencing a function make the SYMBOL_REF special.  In
-   the Embedded Medium/Anywhere code model, %g4 points to the data
-   segment so we must not add it to function addresses.  */
-
-static void
-sparc_encode_section_info (decl, first)
-     tree decl;
-     int first ATTRIBUTE_UNUSED;
-{
-  if (TARGET_CM_EMBMEDANY && TREE_CODE (decl) == FUNCTION_DECL)
-    SYMBOL_REF_FLAG (XEXP (DECL_RTL (decl), 0)) = 1;
 }
 
 /* Output code to add DELTA to the first argument, and then jump to FUNCTION.

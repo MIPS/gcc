@@ -2660,7 +2660,6 @@ build_function_call (function, params)
      tree function, params;
 {
   register tree fntype, fndecl;
-  register tree value_type;
   register tree coerced_params;
   tree result;
   tree name = NULL_TREE, assembler_name = NULL_TREE;
@@ -2755,17 +2754,7 @@ build_function_call (function, params)
 	return result;
     }
 
-  /* Some built-in function calls will be evaluated at
-     compile-time in fold ().  */
-  result = fold (build_call (function, coerced_params));
-  value_type = TREE_TYPE (result);
-
-  if (TREE_CODE (value_type) == VOID_TYPE)
-    return result;
-  result = require_complete_type (result);
-  if (IS_AGGR_TYPE (value_type))
-    result = build_cplus_new (value_type, result);
-  return convert_from_reference (result);
+  return build_cxx_call (function, params, coerced_params);
 }
 
 /* Convert the actual parameter expressions in the list VALUES
@@ -4504,19 +4493,19 @@ build_unary_op (code, xarg, noconvert)
 	    && TREE_CODE (TREE_OPERAND (arg, 1)) == BASELINK)
 	  arg = BASELINK_FUNCTIONS (TREE_OPERAND (arg, 1));
 
-	if (TREE_CODE (arg) == COMPONENT_REF
-	    && DECL_C_BIT_FIELD (TREE_OPERAND (arg, 1)))
+	if (TREE_CODE (arg) != COMPONENT_REF)
+	  addr = build_address (arg);
+	else if (DECL_C_BIT_FIELD (TREE_OPERAND (arg, 1)))
 	  {
 	    error ("attempt to take address of bit-field structure member `%D'",
 		   TREE_OPERAND (arg, 1));
 	    return error_mark_node;
 	  }
-	else if (TREE_CODE (arg) == COMPONENT_REF
-		 && TREE_CODE (TREE_OPERAND (arg, 0)) == INDIRECT_REF
-		 && (TREE_CODE (TREE_OPERAND (TREE_OPERAND (arg, 0), 0))
-		     == INTEGER_CST))
+	else
 	  {
-	    /* offsetof idiom, fold it.  */
+	    /* Unfortunately we cannot just build an address
+	       expression here, because we would not handle
+	       address-constant-expressions or offsetof correctly.  */
 	    tree field = TREE_OPERAND (arg, 1);
 	    tree rval = build_unary_op (ADDR_EXPR, TREE_OPERAND (arg, 0), 0);
 	    tree binfo = lookup_base (TREE_TYPE (TREE_TYPE (rval)),
@@ -4529,8 +4518,6 @@ build_unary_op (code, xarg, noconvert)
 	    addr = fold (build (PLUS_EXPR, argtype, rval,
 				cp_convert (argtype, byte_position (field))));
 	  }
-	else
-	  addr = build_address (arg);
 
 	if (TREE_CODE (argtype) == POINTER_TYPE
 	    && TREE_CODE (TREE_TYPE (argtype)) == METHOD_TYPE)
@@ -4806,7 +4793,7 @@ build_x_compound_expr (list)
       /* the left-hand operand of a comma expression is like an expression
          statement: we should warn if it doesn't have any side-effects,
          unless it was explicitly cast to (void).  */
-      if ((extra_warnings || warn_unused_value)
+      if (warn_unused_value
            && !(TREE_CODE (TREE_VALUE(list)) == CONVERT_EXPR
                 && VOID_TYPE_P (TREE_TYPE (TREE_VALUE(list)))))
         warning("left-hand operand of comma expression has no effect");
@@ -5781,7 +5768,7 @@ build_ptrmemfunc1 (type, delta, pfn)
   /* Finish creating the initializer.  */
   u = tree_cons (pfn_field, pfn,
 		 build_tree_list (delta_field, delta));
-  u = build (CONSTRUCTOR, type, NULL_TREE, u);
+  u = build_constructor (type, u);
   TREE_CONSTANT (u) = TREE_CONSTANT (pfn) && TREE_CONSTANT (delta);
   TREE_STATIC (u) = (TREE_CONSTANT (u)
 		     && (initializer_constant_valid_p (pfn, TREE_TYPE (pfn))
@@ -6578,15 +6565,14 @@ comp_ptr_ttypes_real (to, from, constp)
 	}
 
       if (TREE_CODE (to) != POINTER_TYPE)
-	return 
-	  same_type_ignoring_top_level_qualifiers_p (to, from)
-	  && (constp >= 0 || to_more_cv_qualified);
+	return ((constp >= 0 || to_more_cv_qualified)
+		&& same_type_ignoring_top_level_qualifiers_p (to, from));
     }
 }
 
-/* When comparing, say, char ** to char const **, this function takes the
-   'char *' and 'char const *'.  Do not pass non-pointer types to this
-   function.  */
+/* When comparing, say, char ** to char const **, this function takes
+   the 'char *' and 'char const *'.  Do not pass non-pointer/reference
+   types to this function.  */
 
 int
 comp_ptr_ttypes (to, from)

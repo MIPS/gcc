@@ -1,7 +1,7 @@
 /* Call-backs for C++ error reporting.
    This code is non-reentrant.
-   Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2002
-   Free Software Foundation, Inc.
+   Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2002,
+   2003 Free Software Foundation, Inc.
    This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
@@ -1603,6 +1603,7 @@ dump_expr (tree t, int flags)
     case NEW_EXPR:
       {
 	tree type = TREE_OPERAND (t, 1);
+	tree init = TREE_OPERAND (t, 2);
 	if (NEW_EXPR_USE_GLOBAL (t))
 	  print_scope_operator (scratch_buffer);
 	output_add_string (scratch_buffer, "new ");
@@ -1619,10 +1620,17 @@ dump_expr (tree t, int flags)
 					    TREE_OPERAND (type, 1),
 					    integer_one_node))));
 	dump_type (type, flags);
-	if (TREE_OPERAND (t, 2))
+	if (init)
 	  {
 	    print_left_paren (scratch_buffer);
-	    dump_expr_list (TREE_OPERAND (t, 2), flags);
+	    if (TREE_CODE (init) == TREE_LIST)
+	      dump_expr_list (init, flags);
+	    else if (init == void_zero_node)
+	      /* This representation indicates an empty initializer,
+		 e.g.: "new int()".  */
+	      ;
+	    else
+	      dump_expr (init, flags);
 	    print_right_paren (scratch_buffer);
 	  }
       }
@@ -2147,7 +2155,7 @@ cp_line_of (tree t)
     line = TREE_LINENO (t);
 
   if (line == 0)
-    return lineno;
+    return input_line;
 
   return line;
 }
@@ -2394,9 +2402,8 @@ static void
 print_instantiation_full_context (diagnostic_context *context)
 {
   tree p = current_instantiation ();
-  int line = lineno;
-  const char *file = input_filename;
-
+  location_t location = input_location;
+  
   if (p)
     {
       if (current_function_decl != TINST_DECL (p)
@@ -2411,17 +2418,18 @@ print_instantiation_full_context (diagnostic_context *context)
 	    /* Avoid redundancy with the the "In function" line.  */;
 	  else
 	    output_verbatim (&context->buffer,
-                             "%s: In instantiation of `%s':\n", file,
+                             "%s: In instantiation of `%s':\n", location.file,
                              decl_as_string (TINST_DECL (p),
                                              TFF_DECL_SPECIFIERS | TFF_RETURN_TYPE));
 
-	  line = TREE_LINENO (p);
-	  file = TREE_FILENAME (p);
+	  location.line = TREE_LINENO (p);
+	  location.file = TREE_FILENAME (p);
 	  p = TREE_CHAIN (p);
 	}
     }
 
-  print_instantiation_partial_context (context, p, file, line);
+  print_instantiation_partial_context (context, p,
+				       location.file, location.line);
 }
 
 /* Same as above but less verbose.  */
@@ -2456,7 +2464,7 @@ void
 print_instantiation_context (void)
 {
   print_instantiation_partial_context
-    (global_dc, current_instantiation (), input_filename, lineno);
+    (global_dc, current_instantiation (), input_filename, input_line);
   diagnostic_flush_buffer (global_dc);
 }
 

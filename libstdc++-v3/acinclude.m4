@@ -1263,7 +1263,7 @@ AC_DEFUN(GLIBCPP_ENABLE_CLOCALE, [
       CLOCALE_INTERNAL_H=config/locale/gnu/c++locale_internal.h
       ;;
     xieee_1003.1-2001)
-      AC_MSG_RESULT(generic)
+      AC_MSG_RESULT(IEEE 1003.1)
 
       CLOCALE_H=config/locale/ieee_1003.1-2001/c_locale.h
       CLOCALE_CC=config/locale/ieee_1003.1-2001/c_locale.cc
@@ -1289,6 +1289,15 @@ AC_DEFUN(GLIBCPP_ENABLE_CLOCALE, [
   # -DLOCALEDIR define during testsuite compilation.
   glibcpp_localedir=${glibcpp_builddir}/po/share/locale
   AC_SUBST(glibcpp_localedir)
+
+  # A standalone libintl (e.g., GNU libintl) may be in use.
+  if test $USE_NLS = yes; then
+    AC_CHECK_HEADERS([libintl.h], [], USE_NLS=no)
+    AC_SEARCH_LIBS(gettext, intl, [], USE_NLS=no)
+  fi
+  if test $USE_NLS = yes; then
+    AC_DEFINE(_GLIBCPP_USE_NLS)
+  fi
 
   AC_SUBST(USE_NLS)
   AC_SUBST(CLOCALE_H)
@@ -1423,6 +1432,36 @@ AC_DEFUN(GLIBCPP_ENABLE_CSTDIO, [
   AC_SUBST(libio_la)
 ])
 
+
+dnl
+dnl Check to see if building and using a C++ precompiled header can be done.
+dnl
+dnl GLIBCPP_CHECK_PCH
+dnl
+dnl If it looks like it may work, flip bits on in include/Makefile.am
+dnl
+AC_DEFUN(GLIBCPP_CHECK_PCH, [
+  ac_test_CXXFLAGS="${CXXFLAGS+set}"
+  ac_save_CXXFLAGS="$CXXFLAGS"
+  CXXFLAGS='-Werror -Winvalid-pch -Wno-deprecated -x c++-header'
+
+  AC_MSG_CHECKING([for compiler that seems to compile .gch files])
+  if test x${glibcpp_pch_comp+set} != xset; then
+    AC_CACHE_VAL(glibcpp_pch_comp, [
+      AC_LANG_SAVE
+      AC_LANG_CPLUSPLUS
+      AC_TRY_COMPILE([#include <math.h>
+		     ],
+                     [ $1(0);],
+                     [glibcpp_pch_comp=yes], [glibcpp_pch_comp=no])
+      AC_LANG_RESTORE
+    ])
+  fi
+  AC_MSG_RESULT([$glibcpp_pch_comp])
+
+  CXXFLAGS="$ac_save_CXXFLAGS"
+  AM_CONDITIONAL(GLIBCPP_BUILD_PCH, test "$glibcpp_pch_comp" = yes)
+])
 
 dnl
 dnl Setup to use the gcc gthr.h thread-specific memory and mutex model.
@@ -1839,7 +1878,7 @@ AC_DEFUN(GLIBCPP_EXPORT_FLAGS, [
   OPTIMIZE_CXXFLAGS=
   AC_SUBST(OPTIMIZE_CXXFLAGS)
 
-  WARN_FLAGS='-Wall -Wno-format -W -Wwrite-strings -Winline'
+  WARN_FLAGS='-Wall -Wno-format -W -Wwrite-strings'
   AC_SUBST(WARN_FLAGS)
 ])
 

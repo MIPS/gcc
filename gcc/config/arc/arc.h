@@ -138,11 +138,11 @@ extern const char *arc_cpu_string;
 extern const char *arc_text_string,*arc_data_string,*arc_rodata_string;
 
 #define TARGET_OPTIONS \
-{						\
-  { "cpu=",	&arc_cpu_string		},	\
-  { "text=",	&arc_text_string	},	\
-  { "data=",	&arc_data_string	},	\
-  { "rodata=",	&arc_rodata_string	},	\
+{					\
+  { "cpu=",	&arc_cpu_string, 0},	\
+  { "text=",	&arc_text_string, 0},	\
+  { "data=",	&arc_data_string, 0},	\
+  { "rodata=",	&arc_rodata_string, 0},	\
 }
 
 /* Which cpu we're compiling for.  */
@@ -520,7 +520,7 @@ extern enum reg_class arc_regno_reg_class[FIRST_PSEUDO_REGISTER];
 /* ??? This currently isn't used.  Waiting for PIC.  */
 #if 0
 #define EXTRA_CONSTRAINT(VALUE, C) \
-((C) == 'R' ? (SYMBOL_REF_FLAG (VALUE) || GET_CODE (VALUE) == LABEL_REF) \
+((C) == 'R' ? (SYMBOL_REF_FUNCTION_P (VALUE) || GET_CODE (VALUE) == LABEL_REF) \
  : 0)
 #endif
 

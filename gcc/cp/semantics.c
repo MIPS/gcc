@@ -746,7 +746,7 @@ genrtl_try_block (t)
   else
     {
       if (!FN_TRY_BLOCK_P (t)) 
-	emit_line_note (input_filename, lineno);
+	emit_line_note (input_filename, input_line);
 
       expand_eh_region_start ();
       expand_stmt (TRY_STMTS (t));
@@ -1099,7 +1099,7 @@ tree
 finish_label_stmt (name)
      tree name;
 {
-  tree decl = define_label (input_filename, lineno, name);
+  tree decl = define_label (input_filename, input_line, name);
   return add_stmt (build_stmt (LABEL_STMT, decl));
 }
 
@@ -1594,8 +1594,7 @@ finish_compound_literal (type, initializer_list)
   tree compound_literal;
 
   /* Build a CONSTRUCTOR for the INITIALIZER_LIST.  */
-  compound_literal = build_nt (CONSTRUCTOR, NULL_TREE,
-			       initializer_list);
+  compound_literal = build_constructor (NULL_TREE, initializer_list);
   /* Mark it as a compound-literal.  */
   TREE_HAS_CONSTRUCTOR (compound_literal) = 1;
   if (processing_template_decl)
@@ -1792,10 +1791,14 @@ begin_class_definition (t)
   /* If this type was already complete, and we see another definition,
      that's an error.  */
   if (COMPLETE_TYPE_P (t))
-    duplicate_tag_error (t);
+    {
+      error ("redefinition of `%#T'", t);
+      cp_error_at ("previous definition of `%#T'", t);
+      return error_mark_node;
+    }
 
   /* Update the location of the decl.  */
-  annotate_with_file_line (TYPE_NAME (t), input_filename, lineno);
+  annotate_with_file_line (TYPE_NAME (t), input_filename, input_line);
   
   if (TYPE_BEING_DEFINED (t))
     {
@@ -2221,8 +2224,7 @@ void
 expand_body (fn)
      tree fn;
 {
-  int saved_lineno;
-  const char *saved_input_filename;
+  location_t saved_loc;
   tree saved_function;
 
   /* When the parser calls us after finishing the body of a template
@@ -2309,13 +2311,11 @@ expand_body (fn)
     }
 
   /* Save the current file name and line number.  When we expand the
-     body of the function, we'll set LINENO and INPUT_FILENAME so that
+     body of the function, we'll set INPUT_LOCATION so that
      error-mesages come out in the right places.  */
-  saved_lineno = lineno;
-  saved_input_filename = input_filename;
+  saved_loc = input_location;
   saved_function = current_function_decl;
-  lineno = TREE_LINENO (fn);
-  input_filename = TREE_FILENAME (fn);
+  input_location = *(TREE_LOCUS (fn));
   current_function_decl = fn;
 
   timevar_push (TV_INTEGRATION);
@@ -2330,18 +2330,23 @@ expand_body (fn)
   current_function_is_thunk = DECL_THUNK_P (fn);
 
   /* Expand the body.  */
-  if (statement_code_p (TREE_CODE (DECL_SAVED_TREE (fn))))
-    abort ();
-
-  expand_expr_stmt_value (DECL_SAVED_TREE (fn), 0, 0);
-
-  /* And restore the current source position.  */
-  lineno = saved_lineno;
-  input_filename = saved_input_filename;
+  if (STATEMENT_CODE_P (TREE_CODE (DECL_SAVED_TREE (fn))))
+    {
+      if (flag_disable_simple)
+	expand_stmt (DECL_SAVED_TREE (fn));
+      else
+	abort ();
+    }
+  else
+    expand_expr_stmt_value (DECL_SAVED_TREE (fn), 0, 0);
 
   /* Statements should always be full-expressions at the outermost set
      of curly braces for a function.  */
   my_friendly_assert (stmts_are_full_exprs_p (), 19990831);
+
+  /* The outermost statement for a function contains the line number
+     recorded when we finished processing the function.  */
+  input_line = saved_loc.line;
 
   /* Generate code for the function.  */
   genrtl_finish_function (fn);
@@ -2359,7 +2364,9 @@ expand_body (fn)
     /* We don't need the body; blow it away.  */
     DECL_SAVED_TREE (fn) = NULL_TREE;
 
+  /* And restore the current source position.  */
   current_function_decl = saved_function;
+  input_location = saved_loc;
   extract_interface_info ();
 
   timevar_pop (TV_EXPAND);
@@ -2502,7 +2509,7 @@ genrtl_finish_function (fn)
   immediate_size_expand = 1;
 
   /* Generate rtl for function exit.  */
-  expand_function_end (input_filename, lineno, 0);
+  expand_function_end (input_filename, input_line, 0);
 
   /* If this is a nested function (like a template instantiation that
      we're compiling in the midst of compiling something else), push a

@@ -104,8 +104,8 @@ static void directive_diagnostics
 	PARAMS ((cpp_reader *, const directive *, int));
 static void run_directive	PARAMS ((cpp_reader *, int,
 					 const char *, size_t));
-static const cpp_token *glue_header_name PARAMS ((cpp_reader *));
-static const cpp_token *parse_include PARAMS ((cpp_reader *));
+static char *glue_header_name	PARAMS ((cpp_reader *));
+static const char *parse_include PARAMS ((cpp_reader *, int *));
 static void push_conditional	PARAMS ((cpp_reader *, int, int,
 					 const cpp_hashnode *));
 static unsigned int read_flag	PARAMS ((cpp_reader *, unsigned int));
@@ -295,7 +295,7 @@ prepare_directive_trad (pfile)
 				    || pfile->directive == &dtable[T_ELIF]);
       if (no_expand)
 	pfile->state.prevent_expansion++;
-      _cpp_read_logical_line_trad (pfile);
+      scan_out_logical_line (pfile, NULL);
       if (no_expand)
 	pfile->state.prevent_expansion--;
       pfile->state.skipping = was_skipping;
@@ -451,13 +451,12 @@ _cpp_handle_directive (pfile, indented)
       /* Restore state when within macro args.  */
       pfile->state.parsing_args = 2;
       pfile->state.prevent_expansion = 1;
-      pfile->buffer->saved_flags |= PREV_WHITE;
     }
   return skip;
 }
 
 /* Directive handler wrapper used by the command line option
-   processor.  */
+   processor.  BUF is \n terminated.  */
 static void
 run_directive (pfile, dir_no, buf, count)
      cpp_reader *pfile;
@@ -471,8 +470,11 @@ run_directive (pfile, dir_no, buf, count)
   if (dir_no == T_PRAGMA)
     pfile->buffer->inc = pfile->buffer->prev->inc;
   start_directive (pfile);
-  /* We don't want a leading # to be interpreted as a directive.  */
-  pfile->buffer->saved_flags = 0;
+
+  /* This is a short-term fix to prevent a leading '#' being
+     interpreted as a directive.  */
+  _cpp_clean_line (pfile);
+
   pfile->directive = &dtable[dir_no];
   if (CPP_OPTION (pfile, traditional))
     prepare_directive_trad (pfile);
@@ -568,96 +570,89 @@ do_undef (pfile)
 
 /* Helper routine used by parse_include.  Reinterpret the current line
    as an h-char-sequence (< ... >); we are looking at the first token
-   after the <.  Returns the header as a token, or NULL on failure.  */
-static const cpp_token *
+   after the <.  Returns a malloced filename.  */
+static char *
 glue_header_name (pfile)
      cpp_reader *pfile;
 {
-  cpp_token *header = NULL;
   const cpp_token *token;
-  unsigned char *buffer;
+  char *buffer;
   size_t len, total_len = 0, capacity = 1024;
 
   /* To avoid lexed tokens overwriting our glued name, we can only
      allocate from the string pool once we've lexed everything.  */
-  buffer = (unsigned char *) xmalloc (capacity);
+  buffer = xmalloc (capacity);
   for (;;)
     {
       token = get_token_no_padding (pfile);
 
-      if (token->type == CPP_GREATER || token->type == CPP_EOF)
+      if (token->type == CPP_GREATER)
 	break;
+      if (token->type == CPP_EOF)
+	{
+	  cpp_error (pfile, DL_ERROR, "missing terminating > character");
+	  break;
+	}
 
-      len = cpp_token_len (token);
+      len = cpp_token_len (token) + 2; /* Leading space, terminating \0.  */
       if (total_len + len > capacity)
 	{
 	  capacity = (capacity + len) * 2;
-	  buffer = (unsigned char *) xrealloc (buffer, capacity);
+	  buffer = xrealloc (buffer, capacity);
 	}
 
       if (token->flags & PREV_WHITE)
 	buffer[total_len++] = ' ';
 
-      total_len = cpp_spell_token (pfile, token, &buffer[total_len]) - buffer;
+      total_len = (cpp_spell_token (pfile, token, (uchar *) &buffer[total_len])
+		   - (uchar *) buffer);
     }
 
-  if (token->type == CPP_EOF)
-    cpp_error (pfile, DL_ERROR, "missing terminating > character");
-  else
-    {
-      unsigned char *token_mem = _cpp_unaligned_alloc (pfile, total_len + 1);
-      memcpy (token_mem, buffer, total_len);
-      token_mem[total_len] = '\0';
-
-      header = _cpp_temp_token (pfile);
-      header->type = CPP_HEADER_NAME;
-      header->flags = 0;
-      header->val.str.len = total_len;
-      header->val.str.text = token_mem;
-    }
-
-  free ((PTR) buffer);
-  return header;
+  buffer[total_len] = '\0';
+  return buffer;
 }
 
-/* Returns the header string of #include, #include_next, #import and
-   #pragma dependency.  Returns NULL on error.  */
-static const cpp_token *
-parse_include (pfile)
+/* Returns the file name of #include, #include_next, #import and
+   #pragma dependency.  The string is malloced and the caller should
+   free it.  Returns NULL on error.  */
+static const char *
+parse_include (pfile, pangle_brackets)
      cpp_reader *pfile;
+     int *pangle_brackets;
 {
-  const unsigned char *dir;
+  char *fname;
   const cpp_token *header;
-
-  if (pfile->directive == &dtable[T_PRAGMA])
-    dir = U"pragma dependency";
-  else
-    dir = pfile->directive->name;
 
   /* Allow macro expansion.  */
   header = get_token_no_padding (pfile);
-  if (header->type != CPP_STRING && header->type != CPP_HEADER_NAME)
+  if (header->type == CPP_STRING || header->type == CPP_HEADER_NAME)
     {
-      if (header->type != CPP_LESS)
-	{
-	  cpp_error (pfile, DL_ERROR,
-		     "#%s expects \"FILENAME\" or <FILENAME>", dir);
-	  return NULL;
-	}
-
-      header = glue_header_name (pfile);
-      if (header == NULL)
-	return header;
+      fname = xmalloc (header->val.str.len - 1);
+      memcpy (fname, header->val.str.text + 1, header->val.str.len - 2);
+      fname[header->val.str.len - 2] = '\0';
+      *pangle_brackets = header->type == CPP_HEADER_NAME;
     }
-
-  if (header->val.str.len == 0)
+  else if (header->type == CPP_LESS)
     {
-      cpp_error (pfile, DL_ERROR, "empty file name in #%s", dir);
+      fname = glue_header_name (pfile);
+      *pangle_brackets = 1;
+    }
+  else
+    {
+      const unsigned char *dir;
+
+      if (pfile->directive == &dtable[T_PRAGMA])
+	dir = U"pragma dependency";
+      else
+	dir = pfile->directive->name;
+      cpp_error (pfile, DL_ERROR, "#%s expects \"FILENAME\" or <FILENAME>",
+		 dir);
+
       return NULL;
     }
 
   check_eol (pfile);
-  return header;
+  return fname;
 }
 
 /* Handle #include, #include_next and #import.  */
@@ -666,25 +661,29 @@ do_include_common (pfile, type)
      cpp_reader *pfile;
      enum include_type type;
 {
-  const cpp_token *header = parse_include (pfile);
-  if (!header)
+  const char *fname;
+  int angle_brackets;
+
+  fname = parse_include (pfile, &angle_brackets);
+  if (!fname)
     return;
 
   /* Prevent #include recursion.  */
   if (pfile->line_maps.depth >= CPP_STACK_MAX)
+    cpp_error (pfile, DL_ERROR, "#include nested too deeply");
+  else
     {
-      cpp_error (pfile, DL_ERROR, "#include nested too deeply");
-      return;
+      /* Get out of macro context, if we are.  */
+      skip_rest_of_line (pfile);
+
+      if (pfile->cb.include)
+	(*pfile->cb.include) (pfile, pfile->directive_line,
+			      pfile->directive->name, fname, angle_brackets);
+
+      _cpp_execute_include (pfile, fname, angle_brackets, type);
     }
 
-  /* Get out of macro context, if we are.  */
-  skip_rest_of_line (pfile);
-
-  if (pfile->cb.include)
-    (*pfile->cb.include) (pfile, pfile->directive_line,
-			  pfile->directive->name, header);
-
-  _cpp_execute_include (pfile, header, type);
+  free ((PTR) fname);
 }
 
 static void
@@ -833,8 +832,8 @@ do_line (pfile)
   token = cpp_get_token (pfile);
   if (token->type == CPP_STRING)
     {
-      new_file = (const char *) dequote_string (pfile, token->val.str.text,
-						token->val.str.len);
+      new_file = (const char *) dequote_string (pfile, token->val.str.text + 1,
+						token->val.str.len - 2);
       check_eol (pfile);
     }
   else if (token->type != CPP_EOF)
@@ -882,8 +881,8 @@ do_linemarker (pfile)
   token = cpp_get_token (pfile);
   if (token->type == CPP_STRING)
     {
-      new_file = (const char *) dequote_string (pfile, token->val.str.text,
-						token->val.str.len);
+      new_file = (const char *) dequote_string (pfile, token->val.str.text + 1,
+						token->val.str.len - 2);
       new_sysp = 0;
       flag = read_flag (pfile, 0);
       if (flag == 1)
@@ -1303,27 +1302,27 @@ static void
 do_pragma_dependency (pfile)
      cpp_reader *pfile;
 {
-  const cpp_token *header;
-  int ordering;
+  const char *fname;
+  int angle_brackets, ordering;
 
-  header = parse_include (pfile);
-  if (!header)
+  fname = parse_include (pfile, &angle_brackets);
+  if (!fname)
     return;
 
-  ordering = _cpp_compare_file_date (pfile, header);
+  ordering = _cpp_compare_file_date (pfile, fname, angle_brackets);
   if (ordering < 0)
-    cpp_error (pfile, DL_WARNING, "cannot find source %s",
-	       cpp_token_as_text (pfile, header));
+    cpp_error (pfile, DL_WARNING, "cannot find source file %s", fname);
   else if (ordering > 0)
     {
-      cpp_error (pfile, DL_WARNING, "current file is older than %s",
-		 cpp_token_as_text (pfile, header));
+      cpp_error (pfile, DL_WARNING, "current file is older than %s", fname);
       if (cpp_get_token (pfile)->type != CPP_EOF)
 	{
 	  _cpp_backup_tokens (pfile, 1);
 	  do_diagnostic (pfile, DL_WARNING, 0);
 	}
     }
+
+  free ((PTR) fname);
 }
 
 /* Get a token but skip padding.  */
@@ -1370,15 +1369,17 @@ destringize_and_run (pfile, in)
   const unsigned char *src, *limit;
   char *dest, *result;
 
-  dest = result = alloca (in->len + 1);
-  for (src = in->text, limit = src + in->len; src < limit;)
+  dest = result = alloca (in->len - 1);
+  src = in->text + 1 + (in->text[0] == 'L');
+  limit = in->text + in->len - 1;
+  while (src < limit)
     {
       /* We know there is a character following the backslash.  */
       if (*src == '\\' && (src[1] == '\\' || src[1] == '"'))
 	src++;
       *dest++ = *src++;
     }
-  *dest = '\0';
+  *dest = '\n';
 
   /* Ugh; an awful kludge.  We are really not set up to be lexing
      tokens when in the middle of a macro expansion.  Use a new
@@ -1904,7 +1905,7 @@ cpp_define (pfile, str)
       buf[count++] = ' ';
       buf[count++] = '1';
     }
-  buf[count] = '\0';
+  buf[count] = '\n';
 
   run_directive (pfile, T_DEFINE, buf, count);
 }
@@ -1915,7 +1916,11 @@ _cpp_define_builtin (pfile, str)
      cpp_reader *pfile;
      const char *str;
 {
-  run_directive (pfile, T_DEFINE, str, strlen (str));
+  size_t len = strlen (str);
+  char *buf = alloca (len + 1);
+  memcpy (buf, str, len);
+  buf[len] = '\n';
+  run_directive (pfile, T_DEFINE, buf, len);
 }
 
 /* Process MACRO as if it appeared as the body of an #undef.  */
@@ -1924,7 +1929,11 @@ cpp_undef (pfile, macro)
      cpp_reader *pfile;
      const char *macro;
 {
-  run_directive (pfile, T_UNDEF, macro, strlen (macro));
+  size_t len = strlen (macro);
+  char *buf = alloca (len + 1);
+  memcpy (buf, macro, len);
+  buf[len] = '\n';
+  run_directive (pfile, T_UNDEF, buf, len);
 }
 
 /* Process the string STR as if it appeared as the body of a #assert.  */
@@ -1955,18 +1964,18 @@ handle_assertion (pfile, str, type)
   size_t count = strlen (str);
   const char *p = strchr (str, '=');
 
+  /* Copy the entire option so we can modify it.  Change the first
+     "=" in the string to a '(', and tack a ')' on the end.  */
+  char *buf = (char *) alloca (count + 2);
+
+  memcpy (buf, str, count);
   if (p)
     {
-      /* Copy the entire option so we can modify it.  Change the first
-	 "=" in the string to a '(', and tack a ')' on the end.  */
-      char *buf = (char *) alloca (count + 2);
-
-      memcpy (buf, str, count);
       buf[p - str] = '(';
       buf[count++] = ')';
-      buf[count] = '\0';
-      str = buf;
     }
+  buf[count] = '\n';
+  str = buf;
 
   run_directive (pfile, type, str, count);
 }
@@ -2028,15 +2037,14 @@ cpp_push_buffer (pfile, buffer, len, from_stage3, return_at_eof)
   /* Clears, amongst other things, if_stack and mi_cmacro.  */
   memset (new, 0, sizeof (cpp_buffer));
 
-  new->line_base = new->buf = new->cur = buffer;
+  new->next_line = new->buf = buffer;
   new->rlimit = buffer + len;
-  new->from_stage3 = from_stage3 || CPP_OPTION (pfile, traditional);
+  new->from_stage3 = from_stage3;
   new->prev = pfile->buffer;
   new->return_at_eof = return_at_eof;
-  new->saved_flags = BOL;
+  new->need_line = true;
 
   pfile->buffer = new;
-
   return new;
 }
 
@@ -2061,6 +2069,8 @@ _cpp_pop_buffer (pfile)
 
   /* _cpp_do_file_change expects pfile->buffer to be the new one.  */
   pfile->buffer = buffer->prev;
+
+  free (buffer->notes);
 
   /* Free the buffer object now; we may want to push a new buffer
      in _cpp_push_next_include_file.  */

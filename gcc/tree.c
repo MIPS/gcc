@@ -1,6 +1,6 @@
 /* Language-independent node constructors for parse phase of GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -97,9 +97,9 @@ static const char * const tree_node_kind_names[] = {
 #endif /* GATHER_STATISTICS */
 
 /* Unique id for next decl created.  */
-int next_decl_uid;
+static GTY(()) int next_decl_uid;
 /* Unique id for next type created.  */
-static int next_type_uid = 1;
+static GTY(()) int next_type_uid = 1;
 
 /* Since we cannot rehash a type after it is in the table, we have to
    keep the hash code.  */
@@ -187,40 +187,47 @@ tree_size (node)
 	      + TREE_CODE_LENGTH (code) * sizeof (char *) - sizeof (char *));
 
     case 'c':  /* a constant */
-      /* We can't use TREE_CODE_LENGTH for INTEGER_CST, since the number of
-	 words is machine-dependent due to varying length of HOST_WIDE_INT,
-	 which might be wider than a pointer (e.g., long long).  Similarly
-	 for REAL_CST, since the number of words is machine-dependent due
-	 to varying size and alignment of `double'.  */
-      if (code == INTEGER_CST)
-	return sizeof (struct tree_int_cst);
-      else if (code == REAL_CST)
-	return sizeof (struct tree_real_cst);
-      else
-	return (sizeof (struct tree_common)
-		+ TREE_CODE_LENGTH (code) * sizeof (char *));
+      switch (code)
+	{
+	case INTEGER_CST:	return sizeof (struct tree_int_cst);
+	case REAL_CST:		return sizeof (struct tree_real_cst);
+	case COMPLEX_CST:	return sizeof (struct tree_complex);
+	case VECTOR_CST:	return sizeof (struct tree_vector);
+	case STRING_CST:	return sizeof (struct tree_string);
+	default:
+	  return (*lang_hooks.tree_size) (code);
+	}
 
     case 'x':  /* something random, like an identifier.  */
-      {
-	size_t length;
-	length = (sizeof (struct tree_common)
-		  + TREE_CODE_LENGTH (code) * sizeof (char *));
-	if (code == TREE_VEC)
-	  length += TREE_VEC_LENGTH (node) * sizeof (char *) - sizeof (char *);
-	else if (code == PHI_NODE)
-	  length = sizeof (struct tree_phi_node)
-		   + (PHI_ARG_CAPACITY (node) - 1) * sizeof (struct phi_arg_d);
-	else if (code == EPHI_NODE)
-	  length = sizeof (struct tree_ephi_node)
-		   + (EPHI_ARG_CAPACITY (node) - 1) * sizeof (struct phi_arg_d);
-	else if (code == SSA_NAME)
-	  length = sizeof (struct tree_ssa_name);
-	else if (code == EUSE_NODE)
-	  length = sizeof (struct tree_euse_node);
-	else if (code == ELEFT_NODE || code == EKILL_NODE || code == EEXIT_NODE)
-	  length = sizeof (struct tree_eref_common);
-	return length;
-      }
+      switch (code)
+	{
+	case IDENTIFIER_NODE:	return lang_hooks.identifier_size;
+	case TREE_LIST:		return sizeof (struct tree_list);
+	case TREE_VEC:		return (sizeof (struct tree_vec)
+					+ TREE_VEC_LENGTH(node) * sizeof(char *)
+					- sizeof (char *));
+
+	case ERROR_MARK:
+	case PLACEHOLDER_EXPR:	return sizeof (struct tree_common);
+
+	case PHI_NODE:		return (sizeof (struct tree_phi_node)
+					+ (PHI_ARG_CAPACITY (node) - 1) *
+					sizeof (struct phi_arg_d));
+
+	case EPHI_NODE:		return (sizeof (struct tree_ephi_node)
+					+ (EPHI_ARG_CAPACITY (node) - 1) *
+					sizeof (struct phi_arg_d));
+
+	case SSA_NAME:		return sizeof (struct tree_ssa_name);
+	case EUSE_NODE:		return sizeof (struct tree_euse_node);
+
+	case ELEFT_NODE:
+	case EKILL_NODE:
+	case EEXIT_NODE: 	return sizeof (struct tree_eref_common);
+
+	default:
+	  return (*lang_hooks.tree_size) (code);
+	}
 
     default:
       abort ();
@@ -329,7 +336,7 @@ make_node (code)
 			       (input_filename
 				? input_filename
 				: "<built-in"),
-			       lineno);
+			       input_line);
       DECL_UID (t) = next_decl_uid++;
 
       /* We have not yet computed the alias set for this declaration.  */
@@ -487,6 +494,29 @@ build_vector (type, vals)
   TREE_CONSTANT_OVERFLOW (v) = over2;
 
   return v;
+}
+
+/* Return a new CONSTRUCTOR node whose type is TYPE and whose values
+   are in a list pointed to by VALS.  */
+tree
+build_constructor (type, vals)
+     tree type, vals;
+{
+  tree c = make_node (CONSTRUCTOR);
+  TREE_TYPE (c) = type;
+  CONSTRUCTOR_ELTS (c) = vals;
+
+  /* ??? May not be necessary.  Mirrors what build does.  */
+  if (vals)
+    {
+      TREE_SIDE_EFFECTS (c) = TREE_SIDE_EFFECTS (vals);
+      TREE_READONLY (c) = TREE_READONLY (vals);
+      TREE_CONSTANT (c) = TREE_CONSTANT (vals);
+    }
+  else
+    TREE_CONSTANT (c) = 0;  /* safe side */
+
+  return c;
 }
 
 /* Return a new REAL_CST node whose type is TYPE and value is D.  */
@@ -1375,19 +1405,68 @@ tree
 save_expr (expr)
      tree expr;
 {
-  tree t = fold (expr);
+  tree t = expr;
   tree inner;
 
+  /* Don't fold a COMPONENT_EXPR: if the operand was a CONSTRUCTOR (the
+     only time it will fold), it can cause problems with PLACEHOLDER_EXPRs
+     in Ada.  Moreover, it isn't at all clear why we fold here at all.  */
+  if (TREE_CODE (t) != COMPONENT_REF)
+    t = fold (t);
+
+  /* If the tree evaluates to a constant, then we don't want to hide that
+     fact (i.e. this allows further folding, and direct checks for constants).
+     However, a read-only object that has side effects cannot be bypassed.
+     Since it is no problem to reevaluate literals, we just return the
+     literal node.  */
+  inner = skip_simple_arithmetic (t);
+  if (TREE_CONSTANT (inner)
+      || (TREE_READONLY (inner) && ! TREE_SIDE_EFFECTS (inner))
+      || TREE_CODE (inner) == SAVE_EXPR
+      || TREE_CODE (inner) == ERROR_MARK)
+    return t;
+
+  /* If INNER contains a PLACEHOLDER_EXPR, we must evaluate it each time, since
+     it means that the size or offset of some field of an object depends on
+     the value within another field.
+
+     Note that it must not be the case that T contains both a PLACEHOLDER_EXPR
+     and some variable since it would then need to be both evaluated once and
+     evaluated more than once.  Front-ends must assure this case cannot
+     happen by surrounding any such subexpressions in their own SAVE_EXPR
+     and forcing evaluation at the proper time.  */
+  if (contains_placeholder_p (inner))
+    return t;
+
+  t = build (SAVE_EXPR, TREE_TYPE (expr), t, current_function_decl, NULL_TREE);
+
+  /* This expression might be placed ahead of a jump to ensure that the
+     value was computed on both sides of the jump.  So make sure it isn't
+     eliminated as dead.  */
+  TREE_SIDE_EFFECTS (t) = 1;
+  TREE_READONLY (t) = 1;
+  return t;
+}
+
+/* Look inside EXPR and into any simple arithmetic operations.  Return
+   the innermost non-arithmetic node.  */
+
+tree
+skip_simple_arithmetic (expr)
+     tree expr;
+{
+  tree inner;
+  
   /* We don't care about whether this can be used as an lvalue in this
      context.  */
-  while (TREE_CODE (t) == NON_LVALUE_EXPR)
-    t = TREE_OPERAND (t, 0);
+  while (TREE_CODE (expr) == NON_LVALUE_EXPR)
+    expr = TREE_OPERAND (expr, 0);
 
   /* If we have simple operations applied to a SAVE_EXPR or to a SAVE_EXPR and
      a constant, it will be more efficient to not make another SAVE_EXPR since
      it will allow better simplification and GCSE will be able to merge the
      computations if they actually occur.  */
-  inner = t;
+  inner = expr;
   while (1)
     {
       if (TREE_CODE_CLASS (TREE_CODE (inner)) == '1')
@@ -1405,37 +1484,17 @@ save_expr (expr)
 	break;
     }
 
-  /* If the tree evaluates to a constant, then we don't want to hide that
-     fact (i.e. this allows further folding, and direct checks for constants).
-     However, a read-only object that has side effects cannot be bypassed.
-     Since it is no problem to reevaluate literals, we just return the
-     literal node.  */
-  if (TREE_CONSTANT (inner)
-      || (TREE_READONLY (inner) && ! TREE_SIDE_EFFECTS (inner))
-      || TREE_CODE (inner) == SAVE_EXPR
-      || TREE_CODE (inner) == ERROR_MARK)
-    return t;
+  return inner;
+}
 
-  /* If T contains a PLACEHOLDER_EXPR, we must evaluate it each time, since
-     it means that the size or offset of some field of an object depends on
-     the value within another field.
+/* Return TRUE if EXPR is a SAVE_EXPR or wraps simple arithmetic around a
+   SAVE_EXPR.  Return FALSE otherwise.  */
 
-     Note that it must not be the case that T contains both a PLACEHOLDER_EXPR
-     and some variable since it would then need to be both evaluated once and
-     evaluated more than once.  Front-ends must assure this case cannot
-     happen by surrounding any such subexpressions in their own SAVE_EXPR
-     and forcing evaluation at the proper time.  */
-  if (contains_placeholder_p (t))
-    return t;
-
-  t = build (SAVE_EXPR, TREE_TYPE (expr), t, current_function_decl, NULL_TREE);
-
-  /* This expression might be placed ahead of a jump to ensure that the
-     value was computed on both sides of the jump.  So make sure it isn't
-     eliminated as dead.  */
-  TREE_SIDE_EFFECTS (t) = 1;
-  TREE_READONLY (t) = 1;
-  return t;
+bool
+saved_expr_p (expr)
+     tree expr;
+{
+  return TREE_CODE (skip_simple_arithmetic (expr)) == SAVE_EXPR;
 }
 
 /* Arrange for an expression to be expanded multiple independent
@@ -3210,6 +3269,24 @@ tree_low_cst (t, pos)
     abort ();
 }
 
+/* Return the most significant bit of the integer constant T.  */
+
+int
+tree_int_cst_msb (t)
+     tree t;
+{
+  int prec;
+  HOST_WIDE_INT h;
+  unsigned HOST_WIDE_INT l;
+
+  /* Note that using TYPE_PRECISION here is wrong.  We care about the
+     actual bits, not the (arbitrary) range of the type.  */
+  prec = GET_MODE_BITSIZE (TYPE_MODE (TREE_TYPE (t))) - 1;
+  rshift_double (TREE_INT_CST_LOW (t), TREE_INT_CST_HIGH (t), prec,
+		 2 * HOST_BITS_PER_WIDE_INT, &l, &h, 0);
+  return (l & 1) == 1;
+}
+
 /* Return an indication of the sign of the integer constant T.
    The return value is -1 if T < 0, 0 if T == 0, and 1 if T > 0.
    Note that -1 will never be returned it T's type is unsigned.  */
@@ -4032,29 +4109,58 @@ int
 int_fits_type_p (c, type)
      tree c, type;
 {
-  /* If the bounds of the type are integers, we can check ourselves.
-     If not, but this type is a subtype, try checking against that.
-     Otherwise, use force_fit_type, which checks against the precision.  */
-  if (TYPE_MAX_VALUE (type) != NULL_TREE
-      && TYPE_MIN_VALUE (type) != NULL_TREE
-      && TREE_CODE (TYPE_MAX_VALUE (type)) == INTEGER_CST
-      && TREE_CODE (TYPE_MIN_VALUE (type)) == INTEGER_CST)
+  tree type_low_bound = TYPE_MIN_VALUE (type);
+  tree type_high_bound = TYPE_MAX_VALUE (type);
+  int ok_for_low_bound, ok_for_high_bound;
+    
+  /* Perform some generic filtering first, which may allow making a decision
+     even if the bounds are not constant.  First, negative integers never fit
+     in unsigned types, */
+  if ((TREE_UNSIGNED (type) && tree_int_cst_sgn (c) < 0)
+      /* Also, unsigned integers with top bit set never fit signed types.  */
+      || (! TREE_UNSIGNED (type) 
+	  && TREE_UNSIGNED (TREE_TYPE (c)) && tree_int_cst_msb (c)))
+    return 0;
+
+  /* If at least one bound of the type is a constant integer, we can check
+     ourselves and maybe make a decision. If no such decision is possible, but
+     this type is a subtype, try checking against that.  Otherwise, use
+     force_fit_type, which checks against the precision.
+
+     Compute the status for each possibly constant bound, and return if we see
+     one does not match. Use ok_for_xxx_bound for this purpose, assigning -1
+     for "unknown if constant fits", 0 for "constant known *not* to fit" and 1
+     for "constant known to fit".  */
+
+  ok_for_low_bound = -1;
+  ok_for_high_bound = -1;
+    
+  /* Check if C >= type_low_bound.  */
+  if (type_low_bound && TREE_CODE (type_low_bound) == INTEGER_CST)
     {
-      if (TREE_UNSIGNED (type))
-	return (! INT_CST_LT_UNSIGNED (TYPE_MAX_VALUE (type), c)
-		&& ! INT_CST_LT_UNSIGNED (c, TYPE_MIN_VALUE (type))
-		/* Negative ints never fit unsigned types.  */
-		&& ! (TREE_INT_CST_HIGH (c) < 0
-		      && ! TREE_UNSIGNED (TREE_TYPE (c))));
-      else
-	return (! INT_CST_LT (TYPE_MAX_VALUE (type), c)
-		&& ! INT_CST_LT (c, TYPE_MIN_VALUE (type))
-		/* Unsigned ints with top bit set never fit signed types.  */
-		&& ! (TREE_INT_CST_HIGH (c) < 0
-		      && TREE_UNSIGNED (TREE_TYPE (c))));
+      ok_for_low_bound = ! tree_int_cst_lt (c, type_low_bound);
+      if (! ok_for_low_bound)
+	return 0;
     }
+
+  /* Check if c <= type_high_bound.  */
+  if (type_high_bound && TREE_CODE (type_high_bound) == INTEGER_CST)
+    {
+      ok_for_high_bound = ! tree_int_cst_lt (type_high_bound, c);
+      if (! ok_for_high_bound)
+	return 0;
+    }
+
+  /* If the constant fits both bounds, the result is known.  */
+  if (ok_for_low_bound == 1 && ok_for_high_bound == 1)
+    return 1;
+
+  /* If we haven't been able to decide at this point, there nothing more we
+     can check ourselves here. Look at the base type if we have one.  */
   else if (TREE_CODE (type) == INTEGER_TYPE && TREE_TYPE (type) != 0)
     return int_fits_type_p (c, TREE_TYPE (type));
+  
+  /* Or to force_fit_type, if nothing else.  */
   else
     {
       c = copy_node (c);
@@ -4245,29 +4351,6 @@ get_callee_fndecl (call)
   return NULL_TREE;
 }
 
-/* Print debugging information about the obstack O, named STR.  */
-
-void
-print_obstack_statistics (str, o)
-     const char *str;
-     struct obstack *o;
-{
-  struct _obstack_chunk *chunk = o->chunk;
-  int n_chunks = 1;
-  int n_alloc = 0;
-
-  n_alloc += o->next_free - chunk->contents;
-  chunk = chunk->prev;
-  while (chunk)
-    {
-      n_chunks += 1;
-      n_alloc += chunk->limit - &chunk->contents[0];
-      chunk = chunk->prev;
-    }
-  fprintf (stderr, "obstack %s: %u bytes, %d chunks\n",
-	   str, n_alloc, n_chunks);
-}
-
 /* Print debugging information about tree nodes generated during the compile,
    and any language-specific information.  */
 
@@ -4303,6 +4386,38 @@ dump_tree_statistics ()
 
 #define FILE_FUNCTION_FORMAT "_GLOBAL__%s_%s"
 
+const char *flag_random_seed;
+
+/* Set up a default flag_random_seed value, if there wasn't one already.  */
+
+void
+default_flag_random_seed (void)
+{
+  unsigned HOST_WIDE_INT value;
+  char *new_random_seed;
+  
+  if (flag_random_seed != NULL)
+    return;
+
+  /* Get some more or less random data.  */
+#ifdef HAVE_GETTIMEOFDAY
+ {
+   struct timeval tv;
+   
+   gettimeofday (&tv, NULL);
+   value = (((unsigned HOST_WIDE_INT) tv.tv_usec << 16) 
+	    ^ tv.tv_sec ^ getpid ());
+ }
+#else
+  value = getpid ();
+#endif
+
+  /* This slightly overestimates the space required.  */
+  new_random_seed = xmalloc (HOST_BITS_PER_WIDE_INT / 3 + 2);
+  sprintf (new_random_seed, HOST_WIDE_INT_PRINT_UNSIGNED, value);
+  flag_random_seed = new_random_seed;
+}
+
 /* Appends 6 random characters to TEMPLATE to (hopefully) avoid name
    clashes in cases where we can't reliably choose a unique name.
 
@@ -4314,39 +4429,19 @@ append_random_chars (template)
 {
   static const char letters[]
     = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-  static unsigned HOST_WIDE_INT value;
   unsigned HOST_WIDE_INT v;
+  size_t i;
 
-  if (! value)
-    {
-      struct stat st;
+  default_flag_random_seed ();
 
-      /* VALUE should be unique for each file and must not change between
-	 compiles since this can cause bootstrap comparison errors.  */
-
-      if (stat (main_input_filename, &st) < 0)
-	{
-	  /* This can happen when preprocessed text is shipped between
-	     machines, e.g. with bug reports.  Assume that uniqueness
-	     isn't actually an issue.  */
-	  value = 1;
-	}
-      else
-	{
-	  /* In VMS, ino is an array, so we have to use both values.  We
-	     conditionalize that.  */
-#ifdef VMS
-#define INO_TO_INT(INO) ((int) (INO)[1] << 16 ^ (int) (INO)[2])
-#else
-#define INO_TO_INT(INO) INO
-#endif
-	  value = st.st_dev ^ INO_TO_INT (st.st_ino) ^ st.st_mtime;
-	}
-    }
+  /* This isn't a very good hash, but it does guarantee no collisions 
+     when the random string is generated by the code above and the time
+     delta is small.  */
+  v = 0;
+  for (i = 0; i < strlen (flag_random_seed); i++)
+    v = (v << 4) ^ (v >> (HOST_BITS_PER_WIDE_INT - 4)) ^ flag_random_seed[i];
 
   template += strlen (template);
-
-  v = value;
 
   /* Fill in the random bits.  */
   template[0] = letters[v % 62];
@@ -4628,6 +4723,22 @@ phi_node_elt_check_failed (idx, len, file, line, function)
      idx + 1, len, function, trim_filename (file), line);
 }
 
+/* Similar to above, except that the check is for the bounds of the operand
+   vector of an expression node.  */
+
+void
+tree_operand_check_failed (idx, code, file, line, function)
+     int idx;
+     enum tree_code code;
+     const char *file;
+     int line;
+     const char *function;
+{
+  internal_error
+    ("tree check: accessed operand %d of %s with %d operands in %s, at %s:%d",
+     idx + 1, tree_code_name[code], TREE_CODE_LENGTH (code),
+     function, trim_filename (file), line);
+}
 #endif /* ENABLE_TREE_CHECKING */
 
 /* For a new vector type node T, build the information necessary for
@@ -4862,7 +4973,7 @@ initializer_zerop (init)
       {
 	if (AGGREGATE_TYPE_P (TREE_TYPE (init)))
 	  {
-	    tree aggr_init = TREE_OPERAND (init, 1);
+	    tree aggr_init = CONSTRUCTOR_ELTS (init);
 
 	    while (aggr_init)
 	      {

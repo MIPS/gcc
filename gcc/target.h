@@ -102,10 +102,9 @@ struct gcc_target
     void (* eh_frame_section) PARAMS ((void));
 
     /* Select and switch to a section for EXP.  It may be a DECL or a
-       constant for which TREE_CST_RTL is valid.  RELOC is nonzero if
-       runtime relocations must be applied; bit 1 will be set if the
-       runtime relocations require non-local name resolution.  ALIGN is
-       the required alignment of the data.  */
+       constant.  RELOC is nonzero if runtime relocations must be applied;
+       bit 1 will be set if the runtime relocations require non-local
+       name resolution.  ALIGN is the required alignment of the data.  */
     void (* select_section) PARAMS ((tree, int, unsigned HOST_WIDE_INT));
 
     /* Select and switch to a section for X with MODE.  ALIGN is
@@ -312,7 +311,7 @@ struct gcc_target
 
   /* Do something target-specific to record properties of the DECL into
      the associated SYMBOL_REF.  */
-  void (* encode_section_info) PARAMS ((tree, int));
+  void (* encode_section_info) PARAMS ((tree, rtx, int));
 
   /* Undo the effects of encode_section_info on the symbol string.  */
   const char * (* strip_name_encoding) PARAMS ((const char *));

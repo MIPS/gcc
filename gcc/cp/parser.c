@@ -74,10 +74,8 @@ typedef struct cp_token GTY (())
   /* If this token is a keyword, this value indicates which keyword.
      Otherwise, this value is RID_MAX.  */
   enum rid keyword;
-  /* The file in which this token was found.  */
-  const char *file_name;
-  /* The line at which this token was found.  */
-  int line_number;
+  /* The location at which this token was found.  */
+  location_t location;
 } cp_token;
 
 /* The number of tokens in a single token block.  */
@@ -406,10 +404,7 @@ cp_lexer_set_source_position_from_token (cp_lexer *lexer ATTRIBUTE_UNUSED ,
 
   /* Update the line number.  */
   if (token->type != CPP_EOF)
-    {
-      lineno = token->line_number;
-      input_filename = token->file_name;
-    }
+    input_location = token->location;
 }
 
 /* TOKEN points into the circular token buffer.  Return a pointer to
@@ -621,8 +616,8 @@ cp_lexer_get_preprocessor_token (cp_lexer *lexer ATTRIBUTE_UNUSED ,
   if (lexer != NULL && !lexer->main_lexer_p)
     {
       token->type = CPP_EOF;
-      token->line_number = 0;
-      token->file_name = NULL;
+      token->location.line = 0;
+      token->location.file = NULL;
       token->value = NULL_TREE;
       token->keyword = RID_MAX;
 
@@ -644,10 +639,6 @@ cp_lexer_get_preprocessor_token (cp_lexer *lexer ATTRIBUTE_UNUSED ,
 	  error ("invalid token");
 	  break;
 
-	case CPP_OTHER:
-	  /* These tokens are already warned about by c_lex.  */
-	  break;
-
 	default:
 	  /* This is a good token, so we exit the loop.  */
 	  done = true;
@@ -655,8 +646,7 @@ cp_lexer_get_preprocessor_token (cp_lexer *lexer ATTRIBUTE_UNUSED ,
 	}
     }
   /* Now we've got our token.  */
-  token->line_number = lineno;
-  token->file_name = input_filename;
+  token->location = input_location;
 
   /* Check to see if this token is a keyword.  */
   if (token->type == CPP_NAME 
@@ -2558,43 +2548,52 @@ cp_parser_primary_expression (cp_parser *parser,
 		  }
 	      }
 
-	    if (!parser->scope 
-		&& decl == error_mark_node
-		&& processing_template_decl)
+	    if (decl == error_mark_node)
 	      {
-		/* Unqualified name lookup failed while processing a
-		   template.  */
-		*idk = CP_PARSER_ID_KIND_UNQUALIFIED;
-		/* If the next token is a parenthesis, assume that
-		   Koenig lookup will succeed when instantiating the
-		   template.  */
-		if (cp_lexer_next_token_is (parser->lexer, CPP_OPEN_PAREN))
-		  return build_min_nt (LOOKUP_EXPR, id_expression);
-		/* If we're not doing Koenig lookup, issue an error.  */
-		error ("`%D' has not been declared", id_expression);
-		return error_mark_node;
-	      }
-	    else if (decl == error_mark_node
-		     && !processing_template_decl)
-	      {
-		if (!parser->scope)
+		/* Name lookup failed.  */
+		if (!parser->scope 
+		    && processing_template_decl)
+		  {
+		    /* Unqualified name lookup failed while processing a
+		       template.  */
+		    *idk = CP_PARSER_ID_KIND_UNQUALIFIED;
+		    /* If the next token is a parenthesis, assume that
+		       Koenig lookup will succeed when instantiating the
+		       template.  */
+		    if (cp_lexer_next_token_is (parser->lexer, CPP_OPEN_PAREN))
+		      return build_min_nt (LOOKUP_EXPR, id_expression);
+		    /* If we're not doing Koenig lookup, issue an error.  */
+		    error ("`%D' has not been declared", id_expression);
+		    return error_mark_node;
+		  }
+		else if (parser->scope
+			 && (!TYPE_P (parser->scope)
+			     || !dependent_type_p (parser->scope)))
+		  {
+		    /* Qualified name lookup failed, and the
+		       qualifying name was not a dependent type.  That
+		       is always an error.  */
+		    if (TYPE_P (parser->scope)
+			&& !COMPLETE_TYPE_P (parser->scope))
+		      error ("incomplete type `%T' used in nested name "
+			     "specifier",
+			     parser->scope);
+		    else if (parser->scope != global_namespace)
+		      error ("`%D' is not a member of `%D'",
+			     id_expression, parser->scope);
+		    else
+		      error ("`::%D' has not been declared", id_expression);
+		    return error_mark_node;
+		  }
+		else if (!parser->scope && !processing_template_decl)
 		  {
 		    /* It may be resolvable as a koenig lookup function
 		       call.  */
 		    *idk = CP_PARSER_ID_KIND_UNQUALIFIED;
 		    return id_expression;
 		  }
-		else if (TYPE_P (parser->scope)
-			 && !COMPLETE_TYPE_P (parser->scope))
-		  error ("incomplete type `%T' used in nested name specifier",
-			 parser->scope);
-		else if (parser->scope != global_namespace)
-		  error ("`%D' is not a member of `%D'",
-			 id_expression, parser->scope);
-		else
-		  error ("`::%D' has not been declared", id_expression);
 	      }
-	    /* If DECL is a variable would be out of scope under
+	    /* If DECL is a variable that would be out of scope under
 	       ANSI/ISO rules, but in scope in the ARM, name lookup
 	       will succeed.  Issue a diagnostic here.  */
 	    else
@@ -5586,7 +5585,7 @@ cp_parser_statement (cp_parser* parser)
   /* Peek at the next token.  */
   token = cp_lexer_peek_token (parser->lexer);
   /* Remember the line number of the first token in the statement.  */
-  statement_line_number = token->line_number;
+  statement_line_number = token->location.line;
   /* If this is a keyword, then that will often determine what kind of
      statement we have.  */
   if (token->type == CPP_KEYWORD)
@@ -5660,7 +5659,7 @@ cp_parser_statement (cp_parser* parser)
     }
 
   /* Set the line number for the statement.  */
-  if (statement && statement_code_p (TREE_CODE (statement)))
+  if (statement && STATEMENT_CODE_P (TREE_CODE (statement)))
     STMT_LINENO (statement) = statement_line_number;
 }
 

@@ -191,7 +191,7 @@ mflang_flush_calls (enqueued_call_stmt_chain)
   make_decl_rtl (fndecl, NULL);
 
   /* store_parm_decls */
-  init_function_start (fndecl, input_filename, lineno);
+  init_function_start (fndecl, input_filename, input_line);
   cfun->x_whole_function_mode_p = 1;
 
   /* finish_function */
@@ -203,7 +203,7 @@ mflang_flush_calls (enqueued_call_stmt_chain)
   expand_stmt (DECL_SAVED_TREE (fndecl));
   if (lang_expand_function_end)
     (*lang_expand_function_end) ();
-  expand_function_end (input_filename, lineno, 0);
+  expand_function_end (input_filename, input_line, 0);
   rest_of_compilation (fndecl);
   if (! quiet_flag) 
     fflush (asm_out_file);

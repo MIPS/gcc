@@ -39,6 +39,7 @@
 
 #ifdef ENABLE_NLS
 extern void gcc_init_libintl PARAMS ((void));
+extern size_t gcc_gettext_width PARAMS ((const char *));
 #else
 /* Stubs.  */
 # undef textdomain
@@ -48,6 +49,7 @@ extern void gcc_init_libintl PARAMS ((void));
 # undef gettext
 # define gettext(msgid) (msgid)
 # define gcc_init_libintl()	/* nothing */
+# define gcc_gettext_width(s) strlen(s)
 #endif
 
 #ifndef _

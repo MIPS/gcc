@@ -23,6 +23,7 @@ form uses nested parentheses to indicate the pointers in the internal form.
 * RTL Objects::       Expressions vs vectors vs strings vs integers.
 * RTL Classes::       Categories of RTL expression objects, and their structure.
 * Accessors::         Macros to access expression operands or vector elts.
+* Special Accessors:: Macros to access specific annotations on RTL.
 * Flags::             Other flags in an RTL expression.
 * Machine Modes::     Describing the size and format of a datum.
 * Constants::         Expressions with constant values.
@@ -368,6 +369,125 @@ All the macros defined in this section expand into lvalues and therefore
 can be used to assign the operands, lengths and vector elements as well as
 to access them.
 
+@node Special Accessors
+@section Access to Special Operands
+@cindex access to special operands
+
+Some RTL nodes have special annotations associated with them.
+
+@table @code
+@item MEM
+@table @code
+@findex MEM_ALIAS_SET
+@item MEM_ALIAS_SET (@var{x})
+If 0, @var{x} is not in any alias set, and may alias anything.  Otherwise,
+@var{x} can only alias @code{MEM}s in a conflicting alias set.  This value
+is set in a language-dependent manner in the front-end, and should not be
+altered in the back-end.  In some front-ends, these numbers may correspond
+in some way to types, or other language-level entities, but they need not,
+and the back-end makes no such assumptions.
+These set numbers are tested with @code{alias_sets_conflict_p}.
+
+@findex MEM_EXPR
+@item MEM_EXPR (@var{x})
+If this register is known to hold the value of some user-level
+declaration, this is that tree node.  It may also be a
+@code{COMPONENT_REF}, in which case this is some field reference,
+and @code{TREE_OPERAND (@var{x}, 0)} contains the declaration,
+or another @code{COMPONENT_REF}, or null if there is no compile-time
+object associated with the reference.
+
+@findex MEM_OFFSET
+@item MEM_OFFSET (@var{x})
+The offset from the start of @code{MEM_EXPR} as a @code{CONST_INT} rtx.
+
+@findex MEM_SIZE
+@item MEM_SIZE (@var{x})
+The size in bytes of the memory reference as a @code{CONST_INT} rtx.
+This is mostly relevant for @code{BLKmode} references as otherwise
+the size is implied by the mode.
+
+@findex MEM_ALIGN
+@item MEM_ALIGN (@var{x})
+The known alignment in bits of the memory reference.
+@end table
+
+@item REG
+@table @code
+@findex ORIGINAL_REGNO
+@item ORIGINAL_REGNO (@var{x})
+This field holds the number the register ``originally'' had; for a
+pseudo register turned into a hard reg this will hold the old pseudo
+register number.
+
+@findex REG_EXPR
+@item REG_EXPR (@var{x})
+If this register is known to hold the value of some user-level
+declaration, this is that tree node.
+
+@findex REG_OFFSET
+@item REG_OFFSET (@var{x})
+If this register is known to hold the value of some user-level
+declaration, this is the offset into that logical storage.
+@end table
+
+@item SYMBOL_REF
+@table @code
+@findex SYMBOL_REF_DECL
+@item SYMBOL_REF_DECL (@var{x})
+If the @code{symbol_ref} @var{x} was created for a @code{VAR_DECL} or
+a @code{FUNCTION_DECL}, that tree is recorded here.  If this value is
+null, then @var{x} was created by back end code generation routines,
+and there is no associated front end symbol table entry.
+
+@code{SYMBOL_REF_DECL} may also point to a tree of class @code{'c'},
+that is, some sort of constant.  In this case, the @code{symbol_ref}
+is an entry in the per-file constant pool; again, there is no associated
+front end symbol table entry.
+
+@findex SYMBOL_REF_FLAGS
+@item SYMBOL_REF_FLAGS (@var{x})
+In a @code{symbol_ref}, this is used to communicate various predicates
+about the symbol.  Some of these are common enough to be computed by
+common code, some are specific to the target.  The common bits are:
+
+@table @code
+@findex SYMBOL_REF_FUNCTION_P
+@findex SYMBOL_FLAG_FUNCTION
+@item SYMBOL_FLAG_FUNCTION
+Set if the symbol refers to a function.
+
+@findex SYMBOL_REF_LOCAL_P
+@findex SYMBOL_FLAG_LOCAL
+@item SYMBOL_FLAG_LOCAL
+Set if the symbol is local to this ``module''.
+See @code{TARGET_BINDS_LOCAL_P}.
+
+@findex SYMBOL_REF_EXTERNAL_P
+@findex SYMBOL_FLAG_EXTERNAL
+@item SYMBOL_FLAG_EXTERNAL
+Set if this symbol is not defined in this translation unit.
+Note that this is not the inverse of @code{SYMBOL_FLAG_LOCAL}.
+
+@findex SYMBOL_REF_SMALL_P
+@findex SYMBOL_FLAG_SMALL
+@item SYMBOL_FLAG_SMALL
+Set if the symbol is located in the small data section.
+See @code{TARGET_IN_SMALL_DATA_P}.
+
+@findex SYMBOL_FLAG_TLS_SHIFT
+@findex SYMBOL_REF_TLS_MODEL
+@item SYMBOL_REF_TLS_MODEL (@var{x})
+This is a multi-bit field accessor that returns the @code{tls_model}
+to be used for a thread-local storage symbol.  It returns zero for
+non-thread-local symbols.
+@end table
+
+Bits beginning with @code{SYMBOL_FLAG_MACH_DEP} are available for
+the target's use.
+@end table
+@end table
+
 @node Flags
 @section Flags in an RTL Expression
 @cindex flags in RTL expression
@@ -515,6 +635,13 @@ In @code{mem}, @code{asm_operands}, and @code{asm_input} expressions,
 nonzero for volatile memory references.
 Stored in the @code{volatil} field and printed as @samp{/v}.
 
+@findex MEM_NOTRAP_P
+@cindex @code{mem} and @samp{/c}
+@cindex @code{call}, in @code{mem}
+@item MEM_NOTRAP_P (@var{x})
+In @code{mem}, nonzero for memory references that will not trap.
+Stored in the @code{call} field and printed as @samp{/c}.
+
 @findex REG_FUNCTION_VALUE_P
 @cindex @code{reg} and @samp{/i}
 @cindex @code{integrated}, in @code{reg}
@@ -608,9 +735,22 @@ Stored in the @code{integrated} field and printed as @samp{/i}.
 @cindex @code{concat} and @samp{/u}
 @cindex @code{unchanging}, in @code{reg} and @code{mem}
 @item RTX_UNCHANGING_P (@var{x})
-Nonzero in a @code{reg}, @code{mem}, or @code{concat} if the memory
-is set at most once,
-anywhere.  This does not mean that it is function invariant.
+Nonzero in a @code{reg}, @code{mem}, or @code{concat} if the register or
+memory is set at most once, anywhere.  This does not mean that it is
+function invariant.
+
+GCC uses this flag to determine whether two references conflict.  As
+implemented by @code{true_dependence} in @file{alias.c} for memory
+references, unchanging memory can't conflict with non-unchanging memory;
+a non-unchanging read can conflict with a non-unchanging write; an
+unchanging read can conflict with an unchanging write (since there may
+be a single store to this address to initialize it); and an unchanging
+store can conflict with a non-unchanging read.  This means we must make
+conservative assumptions when chosing the value of this flag for a
+memory reference to an object containing both unchanging and
+non-unchanging fields: we must set the flag when writing to the object
+and clear it when reading from the object.
+
 Stored in the @code{unchanging} field and printed as @samp{/u}.
 
 @findex SCHED_GROUP_P
@@ -687,13 +827,6 @@ Promoted variables are always either sign- or zero-extended to the wider
 mode on every assignment.  Stored in the @code{in_struct} field and
 printed as @samp{/s}.
 
-@findex SYMBOL_REF_FLAG
-@cindex @code{symbol_ref} and @samp{/v}
-@cindex @code{volatil}, in @code{symbol_ref}
-@item SYMBOL_REF_FLAG (@var{x})
-In a @code{symbol_ref}, this is used as a flag for machine-specific purposes.
-Stored in the @code{volatil} field and printed as @samp{/v}.
-
 @findex SYMBOL_REF_USED
 @cindex @code{used}, in @code{symbol_ref}
 @item SYMBOL_REF_USED (@var{x})
@@ -707,6 +840,17 @@ once.  Stored in the @code{used} field.
 @item SYMBOL_REF_WEAK (@var{x})
 In a @code{symbol_ref}, indicates that @var{x} has been declared weak.
 Stored in the @code{integrated} field and printed as @samp{/i}.
+
+@findex SYMBOL_REF_FLAG
+@cindex @code{symbol_ref} and @samp{/v}
+@cindex @code{volatil}, in @code{symbol_ref}
+@item SYMBOL_REF_FLAG (@var{x})
+In a @code{symbol_ref}, this is used as a flag for machine-specific purposes.
+Stored in the @code{volatil} field and printed as @samp{/v}.
+
+Most uses of @code{SYMBOL_REF_FLAG} are historic and may be subsumed
+by @code{SYMBOL_REF_FLAGS}.  Certainly use of @code{SYMBOL_REF_FLAGS}
+is mandatory if the target requires more than one bit of storage.
 @end table
 
 These are the fields to which the above macros refer:
@@ -715,7 +859,7 @@ These are the fields to which the above macros refer:
 @findex call
 @cindex @samp{/c} in RTL dump
 @item call
-This flag is currently unused.
+In a @code{mem}, 1 means that the memory reference will not trap.
 
 In an RTL dump, this flag is represented as @samp{/c}.
 
@@ -1883,14 +2027,14 @@ mode.
 Comparison operators test a relation on two operands and are considered
 to represent a machine-dependent nonzero value described by, but not
 necessarily equal to, @code{STORE_FLAG_VALUE} (@pxref{Misc})
-if the relation holds, or zero if it does not.  The mode of the
-comparison operation is independent of the mode of the data being
-compared.  If the comparison operation is being tested (e.g., the first
-operand of an @code{if_then_else}), the mode must be @code{VOIDmode}.
-If the comparison operation is producing data to be stored in some
-variable, the mode must be in class @code{MODE_INT}.  All comparison
-operations producing data must use the same mode, which is
-machine-specific.
+if the relation holds, or zero if it does not, for comparison operators
+whose results have a `MODE_INT' mode, and
+@code{FLOAT_STORE_FLAG_VALUE} (@pxref{Misc}) if the relation holds, or
+zero if it does not, for comparison operators that return floating-point
+values.  The mode of the comparison operation is independent of the mode
+of the data being compared.  If the comparison operation is being tested
+(e.g., the first operand of an @code{if_then_else}), the mode must be
+@code{VOIDmode}.
 
 @cindex condition codes
 There are two ways that comparison operations may be used.  The

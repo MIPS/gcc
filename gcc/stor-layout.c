@@ -128,10 +128,7 @@ put_pending_size (expr)
 {
   /* Strip any simple arithmetic from EXPR to see if it has an underlying
      SAVE_EXPR.  */
-  while (TREE_CODE_CLASS (TREE_CODE (expr)) == '1'
-	 || (TREE_CODE_CLASS (TREE_CODE (expr)) == '2'
-	    && TREE_CONSTANT (TREE_OPERAND (expr, 1))))
-    expr = TREE_OPERAND (expr, 0);
+  expr = skip_simple_arithmetic (expr);
 
   if (TREE_CODE (expr) == SAVE_EXPR)
     pending_sizes = tree_cons (NULL_TREE, expr, pending_sizes);
@@ -247,13 +244,14 @@ mode_for_size_tree (size, class, limit)
      int limit;
 {
   if (TREE_CODE (size) != INTEGER_CST
+      || TREE_OVERFLOW (size)
       /* What we really want to say here is that the size can fit in a
 	 host integer, but we know there's no way we'd find a mode for
 	 this many bits, so there's no point in doing the precise test.  */
       || compare_tree_int (size, 1000) > 0)
     return BLKmode;
   else
-    return mode_for_size (TREE_INT_CST_LOW (size), class, limit);
+    return mode_for_size (tree_low_cst (size, 1), class, limit);
 }
 
 /* Similar, but never return BLKmode; return the narrowest mode that
@@ -391,12 +389,15 @@ layout_decl (decl, known_align)
 {
   tree type = TREE_TYPE (decl);
   enum tree_code code = TREE_CODE (decl);
+  rtx rtl = NULL_RTX;
 
   if (code == CONST_DECL)
     return;
   else if (code != VAR_DECL && code != PARM_DECL && code != RESULT_DECL
 	   && code != TYPE_DECL && code != FIELD_DECL)
     abort ();
+
+  rtl = DECL_RTL_IF_SET (decl);
 
   if (type == error_mark_node)
     type = void_type_node;
@@ -420,7 +421,7 @@ layout_decl (decl, known_align)
       DECL_SIZE (decl) = TYPE_SIZE (type);
       DECL_SIZE_UNIT (decl) = TYPE_SIZE_UNIT (type);
     }
-  else
+  else if (DECL_SIZE_UNIT (decl) == 0)
     DECL_SIZE_UNIT (decl)
       = convert (sizetype, size_binop (CEIL_DIV_EXPR, DECL_SIZE (decl),
 				       bitsize_unit_node));
@@ -534,7 +535,7 @@ layout_decl (decl, known_align)
       if (size != 0 && TREE_CODE (size) == INTEGER_CST
 	  && compare_tree_int (size, larger_than_size) > 0)
 	{
-	  unsigned int size_as_int = TREE_INT_CST_LOW (size);
+	  int size_as_int = TREE_INT_CST_LOW (size);
 
 	  if (compare_tree_int (size, size_as_int) == 0)
 	    warning_with_decl (decl, "size of `%s' is %d bytes", size_as_int);
@@ -542,6 +543,15 @@ layout_decl (decl, known_align)
 	    warning_with_decl (decl, "size of `%s' is larger than %d bytes",
 			       larger_than_size);
 	}
+    }
+
+  /* If the RTL was already set, update its mode and mem attributes.  */
+  if (rtl)
+    {
+      PUT_MODE (rtl, DECL_MODE (decl));
+      SET_DECL_RTL (decl, 0);
+      set_mem_attributes (rtl, decl, 1);
+      SET_DECL_RTL (decl, rtl);
     }
 }
 
@@ -1066,25 +1076,28 @@ place_field (rli, field)
 	  if (DECL_BIT_FIELD_TYPE (field)
 	      && !integer_zerop (DECL_SIZE (field))
 	      && !integer_zerop (DECL_SIZE (rli->prev_field))
+	      && host_integerp (DECL_SIZE (rli->prev_field), 0)
+	      && host_integerp (TYPE_SIZE (type), 0)
 	      && simple_cst_equal (TYPE_SIZE (type),
-		   TYPE_SIZE (TREE_TYPE (rli->prev_field))) )
+				   TYPE_SIZE (TREE_TYPE (rli->prev_field))))
 	    {
 	      /* We're in the middle of a run of equal type size fields; make
 		 sure we realign if we run out of bits.  (Not decl size,
 		 type size!) */
-	      int bitsize = TREE_INT_CST_LOW (DECL_SIZE (field));
-	      tree type_size = TYPE_SIZE(TREE_TYPE(rli->prev_field));
+	      HOST_WIDE_INT bitsize = tree_low_cst (DECL_SIZE (field), 0);
 
 	      if (rli->remaining_in_alignment < bitsize)
 		{
 		  /* out of bits; bump up to next 'word'.  */
 		  rli->offset = DECL_FIELD_OFFSET (rli->prev_field);
-		  rli->bitpos = size_binop (PLUS_EXPR,
-				      type_size,
-				      DECL_FIELD_BIT_OFFSET(rli->prev_field));
+		  rli->bitpos
+		    = size_binop (PLUS_EXPR, TYPE_SIZE (type),
+				  DECL_FIELD_BIT_OFFSET (rli->prev_field));
 		  rli->prev_field = field;
-		  rli->remaining_in_alignment = TREE_INT_CST_LOW (type_size);
+		  rli->remaining_in_alignment
+		    = tree_low_cst (TYPE_SIZE (type), 0);
 		}
+
 	      rli->remaining_in_alignment -= bitsize;
 	    }
 	  else
@@ -1100,26 +1113,24 @@ place_field (rli, field)
 
 	      if (!integer_zerop (DECL_SIZE (rli->prev_field)))
 		{
-		  tree type_size = TYPE_SIZE(TREE_TYPE(rli->prev_field));
-		  rli->bitpos = size_binop (PLUS_EXPR,
-				      type_size,
-				      DECL_FIELD_BIT_OFFSET(rli->prev_field));
+		  tree type_size = TYPE_SIZE (TREE_TYPE (rli->prev_field));
+
+		  rli->bitpos
+		    = size_binop (PLUS_EXPR, type_size,
+				  DECL_FIELD_BIT_OFFSET (rli->prev_field));
 		}
 	      else
-		{
-		  /* We "use up" size zero fields; the code below should behave
-		     as if the prior field was not a bitfield.  */
-		  prev_saved = NULL;
-		}
+		/* We "use up" size zero fields; the code below should behave
+		   as if the prior field was not a bitfield.  */
+		prev_saved = NULL;
 
 	      /* Cause a new bitfield to be captured, either this time (if
 		 currently a bitfield) or next time we see one.  */
 	      if (!DECL_BIT_FIELD_TYPE(field)
 		 || integer_zerop (DECL_SIZE (field)))
-		{
-		  rli->prev_field = NULL;
-		}
+		rli->prev_field = NULL;
 	    }
+
 	  normalize_rli (rli);
         }
 
@@ -1138,24 +1149,26 @@ place_field (rli, field)
       if (!DECL_BIT_FIELD_TYPE (field)
 	  || ( prev_saved != NULL
 	       ? !simple_cst_equal (TYPE_SIZE (type),
-	              TYPE_SIZE (TREE_TYPE (prev_saved)))
-	       : !integer_zerop (DECL_SIZE (field)) ))
+				    TYPE_SIZE (TREE_TYPE (prev_saved)))
+	      : !integer_zerop (DECL_SIZE (field)) ))
 	{
-	  unsigned int type_align = 8;  /* Never below 8 for compatibility */
+	  /* Never smaller than a byte for compatibility.  */
+	  unsigned int type_align = BITS_PER_UNIT;
 
 	  /* (When not a bitfield), we could be seeing a flex array (with
 	     no DECL_SIZE).  Since we won't be using remaining_in_alignment
 	     until we see a bitfield (and come by here again) we just skip
 	     calculating it.  */
-
-	  if (DECL_SIZE (field) != NULL)
-	      rli->remaining_in_alignment
-		  = TREE_INT_CST_LOW (TYPE_SIZE(TREE_TYPE(field)))
-		    - TREE_INT_CST_LOW (DECL_SIZE (field));
+	  if (DECL_SIZE (field) != NULL
+	      && host_integerp (TYPE_SIZE (TREE_TYPE (field)), 0)
+	      && host_integerp (DECL_SIZE (field), 0))
+	    rli->remaining_in_alignment
+	      = tree_low_cst (TYPE_SIZE (TREE_TYPE(field)), 0)
+		- tree_low_cst (DECL_SIZE (field), 0);
 
 	  /* Now align (conventionally) for the new type.  */
 	  if (!DECL_PACKED(field))
-	      type_align = MAX(TYPE_ALIGN (type), type_align);
+	    type_align = MAX(TYPE_ALIGN (type), type_align);
 
 	  if (prev_saved
 	      && DECL_BIT_FIELD_TYPE (prev_saved)
@@ -1170,6 +1183,7 @@ place_field (rli, field)
 	    type_align = MIN (type_align, maximum_field_alignment);
 
 	  rli->bitpos = round_up (rli->bitpos, type_align);
+
           /* If we really aligned, don't allow subsequent bitfields
 	     to undo that.  */
 	  rli->prev_field = NULL;
@@ -1224,7 +1238,7 @@ place_field (rli, field)
       rli->offset
 	= size_binop (PLUS_EXPR, rli->offset, DECL_SIZE_UNIT (field));
       rli->bitpos = bitsize_zero_node;
-      rli->offset_align = MIN (rli->offset_align, DECL_ALIGN (field));
+      rli->offset_align = MIN (rli->offset_align, desired_align);
     }
   else
     {
@@ -1729,6 +1743,15 @@ layout_type (type)
 		  element_size = integer_one_node;
 	      }
 
+	    /* If neither bound is a constant and sizetype is signed, make
+	       sure the size is never negative.  We should really do this
+	       if *either* bound is non-constant, but this is the best
+	       compromise between C and Ada.  */
+	    if (! TREE_UNSIGNED (sizetype)
+		&& TREE_CODE (TYPE_MIN_VALUE (index)) != INTEGER_CST
+		&& TREE_CODE (TYPE_MAX_VALUE (index)) != INTEGER_CST)
+	      length = size_binop (MAX_EXPR, length, size_zero_node);
+
 	    TYPE_SIZE (type) = size_binop (MULT_EXPR, element_size,
 					   convert (bitsizetype, length));
 
@@ -1843,10 +1866,10 @@ layout_type (type)
 #endif
 	  unsigned int alignment
 	    = set_alignment ? set_alignment : SET_WORD_SIZE;
-	  int size_in_bits
-	    = (TREE_INT_CST_LOW (TYPE_MAX_VALUE (TYPE_DOMAIN (type)))
-	       - TREE_INT_CST_LOW (TYPE_MIN_VALUE (TYPE_DOMAIN (type))) + 1);
-	  int rounded_size
+	  HOST_WIDE_INT size_in_bits
+	    = (tree_low_cst (TYPE_MAX_VALUE (TYPE_DOMAIN (type)), 0)
+	       - tree_low_cst (TYPE_MIN_VALUE (TYPE_DOMAIN (type)), 0) + 1);
+	  HOST_WIDE_INT rounded_size
 	    = ((size_in_bits + alignment - 1) / alignment) * alignment;
 
 	  if (rounded_size > (int) alignment)

@@ -63,6 +63,8 @@ enum expand_modifier {EXPAND_NORMAL = 0, EXPAND_STACK_PARM = 2, EXPAND_SUM,
    more information.  */
 #define OK_DEFER_POP (inhibit_defer_pop -= 1)
 
+enum direction {none, upward, downward};
+
 #ifdef TREE_CODE /* Don't lose if tree.h not included.  */
 /* Structure to record the size of a sequence of arguments
    as the sum of a tree-expression and a constant.  This structure is
@@ -73,6 +75,24 @@ struct args_size
 {
   HOST_WIDE_INT constant;
   tree var;
+};
+
+/* Package up various arg related fields of struct args for
+   locate_and_pad_parm.  */
+struct locate_and_pad_arg_data
+{
+  /* Size of this argument on the stack, rounded up for any padding it
+     gets.  If REG_PARM_STACK_SPACE is defined, then register parms are
+     counted here, otherwise they aren't.  */
+  struct args_size size;
+  /* Offset of this argument from beginning of stack-args.  */
+  struct args_size offset;
+  /* Offset to the start of the stack slot.  Different from OFFSET
+     if this arg pads downward.  */
+  struct args_size slot_offset;
+  /* The amount that the stack pointer needs to be adjusted to
+     force alignment for the next argument.  */
+  struct args_size alignment_pad;
 };
 #endif
 
@@ -118,8 +138,6 @@ do {							\
 /* Supply a default definition for FUNCTION_ARG_PADDING:
    usually pad upward, but pad short args downward on
    big-endian machines.  */
-
-enum direction {none, upward, downward};  /* Value has this type.  */
 
 #ifndef FUNCTION_ARG_PADDING
 #define FUNCTION_ARG_PADDING(MODE, TYPE)				\
@@ -385,6 +403,9 @@ enum block_op_methods
   BLOCK_OP_CALL_PARM
 };
 
+extern void init_block_move_fn PARAMS ((const char *));
+extern void init_block_clear_fn PARAMS ((const char *));
+
 extern rtx emit_block_move PARAMS ((rtx, rtx, rtx, enum block_op_methods));
 
 /* Copy all or part of a value X into registers starting at REGNO.
@@ -567,11 +588,9 @@ extern rtx expand_shift PARAMS ((enum tree_code, enum machine_mode, rtx, tree,
 				 rtx, int));
 extern rtx expand_divmod PARAMS ((int, enum tree_code, enum machine_mode, rtx,
 				  rtx, rtx, int));
-extern void locate_and_pad_parm PARAMS ((enum machine_mode, tree, int, tree,
-					 struct args_size *,
-					 struct args_size *,
-					 struct args_size *,
-					 struct args_size *));
+extern void locate_and_pad_parm PARAMS ((enum machine_mode, tree, int, int,
+					 tree, struct args_size *,
+					 struct locate_and_pad_arg_data *));
 extern rtx expand_inline_function PARAMS ((tree, tree, rtx, int, tree, rtx));
 
 /* Return the CODE_LABEL rtx for a LABEL_DECL, creating it if necessary.  */
@@ -642,7 +661,7 @@ extern rtx adjust_automodify_address_1 PARAMS ((rtx, enum machine_mode,
 /* Return a memory reference like MEMREF, but whose address is changed by
    adding OFFSET, an RTX, to it.  POW2 is the highest power of two factor
    known to be in OFFSET (possibly 1).  */
-extern rtx offset_address PARAMS ((rtx, rtx, HOST_WIDE_INT));
+extern rtx offset_address PARAMS ((rtx, rtx, unsigned HOST_WIDE_INT));
 
 /* Return a memory reference like MEMREF, but with its address changed to
    ADDR.  The caller is asserting that the actual piece of memory pointed

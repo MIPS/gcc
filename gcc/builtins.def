@@ -286,13 +286,20 @@ DEF_C99_BUILTIN(BUILT_IN_CIMAGL,
 		BT_FN_LONG_DOUBLE_COMPLEX_LONG_DOUBLE,
 		ATTR_CONST_NOTHROW_LIST)
 
-/* The system prototypes for `bzero' and `bcmp' functions have many
-   variations, so don't specify parameters to avoid conflicts.  The
-   expand_* functions check the argument types anyway.  */
+/* The system prototypes for `bzero', 'bcopy' and `bcmp' functions
+   have many variations, so don't specify parameters to avoid conflicts.
+   The expand_* functions check the argument types anyway.  */
 DEF_BUILTIN (BUILT_IN_BZERO,
 	     "__builtin_bzero",
 	     BUILT_IN_NORMAL,
 	     BT_FN_VOID_PTR_SIZE, 
+	     BT_FN_VOID_VAR,
+	     true, true, true,
+	     ATTR_NOTHROW_LIST, false)
+DEF_BUILTIN (BUILT_IN_BCOPY,
+	     "__builtin_bcopy",
+	     BUILT_IN_NORMAL,
+	     BT_FN_VOID_CONST_PTR_PTR_SIZE, 
 	     BT_FN_VOID_VAR,
 	     true, true, true,
 	     ATTR_NOTHROW_LIST, false)
@@ -380,6 +387,10 @@ DEF_LIB_BUILTIN(BUILT_IN_MEMCPY,
 		"__builtin_memcpy",
 		BT_FN_PTR_PTR_CONST_PTR_SIZE,
 		ATTR_NOTHROW_LIST)
+DEF_LIB_BUILTIN(BUILT_IN_MEMMOVE,
+		"__builtin_memmove",
+		BT_FN_PTR_PTR_CONST_PTR_SIZE,
+		ATTR_NOTHROW_LIST)
 DEF_LIB_BUILTIN(BUILT_IN_MEMCMP,
 		"__builtin_memcmp",
 		BT_FN_INT_CONST_PTR_CONST_PTR_SIZE,
@@ -387,6 +398,10 @@ DEF_LIB_BUILTIN(BUILT_IN_MEMCMP,
 DEF_LIB_BUILTIN(BUILT_IN_MEMSET,
 		"__builtin_memset",
 		BT_FN_PTR_PTR_INT_SIZE,
+		ATTR_NOTHROW_LIST)
+DEF_EXT_LIB_BUILTIN(BUILT_IN_MEMPCPY,
+		"__builtin_mempcpy",
+		BT_FN_PTR_PTR_CONST_PTR_SIZE,
 		ATTR_NOTHROW_LIST)
 
 DEF_LIB_BUILTIN(BUILT_IN_STRCAT,
@@ -396,6 +411,10 @@ DEF_LIB_BUILTIN(BUILT_IN_STRCAT,
 DEF_LIB_BUILTIN(BUILT_IN_STRNCAT,
 		"__builtin_strncat",
 		BT_FN_STRING_STRING_CONST_STRING_SIZE,
+		ATTR_NOTHROW_LIST)
+DEF_EXT_LIB_BUILTIN(BUILT_IN_STPCPY,
+		"__builtin_stpcpy",
+		BT_FN_STRING_STRING_CONST_STRING,
 		ATTR_NOTHROW_LIST)
 DEF_LIB_BUILTIN(BUILT_IN_STRCPY,
 		"__builtin_strcpy",
@@ -862,8 +881,8 @@ DEF_GCC_BUILTIN(BUILT_IN_DWARF_CFA,
 		"__builtin_dwarf_cfa",
 		BT_FN_PTR,
 		ATTR_NULL)
-DEF_GCC_BUILTIN(BUILT_IN_DWARF_FP_REGNUM,
-		"__builtin_dwarf_fp_regnum",
+DEF_GCC_BUILTIN(BUILT_IN_DWARF_SP_COLUMN,
+		"__builtin_dwarf_sp_column",
 		BT_FN_UNSIGNED,
 		ATTR_NULL)
 DEF_GCC_BUILTIN(BUILT_IN_INIT_DWARF_REG_SIZES,
@@ -927,4 +946,20 @@ DEF_C99_BUILTIN(BUILT_IN__EXIT2,
 		"__builtin__Exit",
 		BT_FN_VOID_INT,
 		ATTR_NORETURN_NOTHROW_LIST)
+
+/* Declare malloc, calloc and strdup.  */
+DEF_LIB_BUILTIN(BUILT_IN_MALLOC,
+		"__builtin_malloc",
+		BT_FN_PTR_SIZE,
+		ATTR_MALLOC_NOTHROW_LIST)
+
+DEF_LIB_BUILTIN(BUILT_IN_CALLOC,
+		"__builtin_calloc",
+		BT_FN_PTR_SIZE_SIZE,
+		ATTR_MALLOC_NOTHROW_LIST)
+
+DEF_EXT_LIB_BUILTIN(BUILT_IN_STRDUP,
+		    "__builtin_strdup",
+		    BT_FN_STRING_CONST_STRING,
+		    ATTR_MALLOC_NOTHROW_LIST)
 

@@ -516,7 +516,8 @@ get_expr_operands (stmt, expr_p, flags, prev_vops)
 
   /* Unary expressions.  */
   if (class == '1'
-      || code == BIT_FIELD_REF)
+      || code == BIT_FIELD_REF
+      || code == CONSTRUCTOR)
     {
       get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags, prev_vops);
       return;
@@ -528,8 +529,7 @@ get_expr_operands (stmt, expr_p, flags, prev_vops)
       || code == TRUTH_AND_EXPR
       || code == TRUTH_OR_EXPR
       || code == TRUTH_XOR_EXPR
-      || code == COMPOUND_EXPR
-      || code == CONSTRUCTOR)
+      || code == COMPOUND_EXPR)
     {
       get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags, prev_vops);
       get_expr_operands (stmt, &TREE_OPERAND (expr, 1), flags, prev_vops);

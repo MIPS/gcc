@@ -1,3 +1,99 @@
+2003-05-04  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* Make-lang.in (java/parse.o, java/parse-scan.o): Depend on input.h.
+	* lex.h: #include input.h.
+	* jv-scan.c (input_filename): Remove.
+
+2003-05-02  Tom Tromey  <tromey@redhat.com>
+
+	PR java/10491:
+	* gjavah.c (HANDLE_INNERCLASSES_ATTRIBUTE): New macro.
+	(handle_inner_classes): New function.
+
+2003-05-01  Tom Tromey  <tromey@redhat.com>
+
+	PR java/10459:
+	* parse.y (finish_for_loop): Do nothing if update expression is a
+	EXPR_WFL_NODE wrapping nothing.
+	(java_complete_lhs) <COMPOUND_EXPR>: Likewise.
+
+2003-05-02  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* lex.h (input_lineno): Remove declaration.
+	* parse-scan.y: #include input.h.
+	(input_filename): Remove declaration.
+	(input_location): Add definition.
+	(input_line): Remove definition.
+
+2003-05-01  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* lex.h (lineno): Rename to ...
+	(input_line): ... here
+	* parse-scan.y (lineno): Rename to ...
+	(input_line): ... here.
+	(reset_report): Rename lineno to input_line.
+	* check-init.c (check_init): Likewise.
+	* class.c (push_class): Likewise.
+	* decl.c (complete_start_java_method, end_java_method): Likewise.
+	* expr.c (expand_byte_code): Likewise.
+	* jcf-parse.c (give_name_to_class, parse_class_file): Likewise.
+	* jcf-write.c (generate_bytecode_insns): Likewise.
+	* lex.c (java_init_lex, java_allocate_new_line,
+	do_java_lex): Likewise.
+	* parse.h (YYNOT_TWICE): Likewise.
+	* parse.y (empty_statement, expression_statement,
+	java_pop_parser_context, java_parser_context_save_global,
+	yyerror, register_fields, method_header, safe_layout_class,
+	find_in_imports_on_demand, create_artificial_method,
+	source_end_java_method, start_complete_expand_method,
+	build_thisn_assign, java_complete_lhs,
+	maybe_absorb_scoping_block): Likewise.
+
+2003-04-20  Mohan Embar  <gnustuff@thisiscool.com>
+
+	* jcf-io.c (find_class): use DIR_SEPARATOR instead of
+	'/' when computing java source filename
+
+2003-04-13  Tom Tromey  <tromey@redhat.com>
+
+	* gjavah.c (print_c_decl): Indentation fix.
+
+2003-04-12  Zack Weinberg  <zack@codesourcery.com>
+
+	* class.c (make_field_value, make_method_value, get_dispatch_table)
+	(make_class_data, emit_offset_symbol_table)
+	* constants.c (build_constants_constructor)
+	* java-tree.h (START_RECORD_CONSTRUCTOR)
+	* parse.y (maybe_build_array_element_wfl):
+	Use build_constructor.
+
+2003-04-10  Eric Blake  <ebb9@email.byu.edu>
+
+	PR java/10253:
+	* parse.y (string_convert_int_cst): Always use at least one digit
+	in string conversion. Remove ASCII dependence.
+	(merge_string_cste): Fix merging of 3-byte UTF-8 characters.
+
+2003-03-16  Mohan Embar  <gnustuff@thisiscool.com>
+
+	* Make-lang.in: added win32-host.c
+	* jcf.h: defined macro JCF_OPEN_EXACT_CASE which
+	resolves to open() on non-Win32 platforms and
+	Win32-specific jcf_open_exact_case() on Win32
+	* jcf-io.c (find_class): use JCF_OPEN_EXACT_CASE
+	when trying .java and .class files
+	* win32-host.c: added to repository. Defines
+	Win32-specific jcf_open_exact_case()
+
+2003-04-10  Andrew Haley  <aph@redhat.com>
+
+	* jcf-write.c (struct jcf_partial): num_jsrs: new field.
+	(maybe_free_localvar): Renamed from localvar_free.
+	Add new arg, really.
+	(generate_bytecode_insns): Set new variable, jsrs.
+	Only free local vars if no jsr insns have been emittted.
+	Call maybe_free_localvar, not localvar_free.
+
 2003-03-30  Joseph S. Myers  <jsm@polyomino.org.uk>
 
 	* gcj.texi: Remove @ at start of file.

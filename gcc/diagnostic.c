@@ -1,5 +1,5 @@
 /* Language-independent diagnostic subroutines for the GNU Compiler Collection
-   Copyright (C) 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
    Contributed by Gabriel Dos Reis <gdr@codesourcery.com>
 
 This file is part of GCC.
@@ -307,60 +307,52 @@ output_decimal (buffer, i)
   output_formatted_scalar (buffer, "%d", i);
 }
 
-static void
-output_long_decimal (buffer, i)
-     output_buffer *buffer;
-     long int i;
+static inline void
+output_long_decimal (output_buffer *buffer, long int i)
 {
   output_formatted_scalar (buffer, "%ld", i);
 }
 
-static void
-output_unsigned_decimal (buffer, i)
-     output_buffer *buffer;
-     unsigned int i;
+static inline void
+output_unsigned_decimal (output_buffer *buffer, unsigned int i)
 {
   output_formatted_scalar (buffer, "%u", i);
 }
 
-static void
-output_long_unsigned_decimal (buffer, i)
-     output_buffer *buffer;
-     long unsigned int i;
+static inline void
+output_long_unsigned_decimal (output_buffer *buffer, long unsigned int i)
 {
   output_formatted_scalar (buffer, "%lu", i);
 }
 
-static void
-output_octal (buffer, i)
-     output_buffer *buffer;
-     unsigned int i;
+static inline void
+output_octal (output_buffer *buffer, unsigned int i)
 {
   output_formatted_scalar (buffer, "%o", i);
 }
 
-static void
-output_long_octal (buffer, i)
-     output_buffer *buffer;
-     unsigned long int i;
+static inline void
+output_long_octal (output_buffer *buffer, long unsigned int i)
 {
   output_formatted_scalar (buffer, "%lo", i);
 }
 
-static void
-output_hexadecimal (buffer, i)
-     output_buffer *buffer;
-     unsigned int i;
+static inline void
+output_hexadecimal (output_buffer *buffer, unsigned int i)
 {
   output_formatted_scalar (buffer, "%x", i);
 }
 
-static void
-output_long_hexadecimal (buffer, i)
-     output_buffer *buffer;
-     unsigned long int i;
+static inline void
+output_long_hexadecimal (output_buffer *buffer, long unsigned int i)
 {
   output_formatted_scalar (buffer, "%lx", i);
+}
+
+static inline void
+output_pointer (output_buffer *buffer, void *p)
+{
+  output_formatted_scalar (buffer, HOST_PTR_PRINTF, p);
 }
 
 /* Append to BUFFER a string specified by its STARTING character
@@ -497,6 +489,7 @@ output_buffer_to_stream (buffer)
    %ld, %li, %lo, %lu, %lx: long versions of the above.
    %c: character.
    %s: string.
+   %p: pointer.
    %%: `%'.
    %*.s: a substring the length of which is specified by an integer.
    %H: location_t.  */
@@ -530,7 +523,7 @@ output_format (buffer, text)
 	}
 
       /* Handle %c, %d, %i, %ld, %li, %lo, %lu, %lx, %o, %s, %u,
-         %x, %.*s; %%.  And nothing else.  Front-ends should install
+         %x, %p, %.*s; %%.  And nothing else.  Front-ends should install
          printers to grok language specific format specifiers.  */
       switch (*text->format_spec)
 	{
@@ -558,6 +551,10 @@ output_format (buffer, text)
 	  output_add_string (buffer, va_arg (*text->args_ptr, const char *));
 	  break;
 
+        case 'p':
+          output_pointer (buffer, va_arg (*text->args_ptr, void *));
+          break;
+
 	case 'u':
 	  if (long_integer)
 	    output_long_unsigned_decimal
@@ -574,11 +571,6 @@ output_format (buffer, text)
 	  else
 	    output_hexadecimal
               (buffer, va_arg (*text->args_ptr, unsigned int));
-	  break;
-
-	case 'p':
-	  output_long_hexadecimal
-	    (buffer, (unsigned long) va_arg (*text->args_ptr, void *));
 	  break;
 
 	case '%':
@@ -615,7 +607,9 @@ output_format (buffer, text)
               || !(*buffer->format_decoder) (buffer, text))
 	    {
 	      /* Hmmm.  The front-end failed to install a format translator
-                 but called us with an unrecognized format.  Sorry.  */
+                 but called us with an unrecognized format.  Or, maybe, the
+                 translated string just contains an invalid format, or
+                 has formats in the wrong order.  Sorry.  */
 	      abort ();
 	    }
 	}
@@ -969,7 +963,7 @@ pedwarn VPARAMS ((const char *msgid, ...))
   VA_OPEN (ap, msgid);
   VA_FIXEDARG (ap, const char *, msgid);
 
-  diagnostic_set_info (&diagnostic, _(msgid), &ap, input_filename, lineno,
+  diagnostic_set_info (&diagnostic, _(msgid), &ap, input_filename, input_line,
                        pedantic_error_kind ());
   report_diagnostic (&diagnostic);
   VA_CLOSE (ap);
@@ -1027,7 +1021,7 @@ sorry VPARAMS ((const char *msgid, ...))
 
   ++sorrycount;
   diagnostic_set_info (&diagnostic, _(msgid), &ap,
-                       input_filename, lineno, DK_SORRY);
+                       input_filename, input_line, DK_SORRY);
 
   output_set_prefix
     (&global_dc->buffer, diagnostic_build_prefix (&diagnostic));
@@ -1144,7 +1138,7 @@ error VPARAMS ((const char *msgid, ...))
   VA_OPEN (ap, msgid);
   VA_FIXEDARG (ap, const char *, msgid);
 
-  diagnostic_set_info (&diagnostic, msgid, &ap, input_filename, lineno,
+  diagnostic_set_info (&diagnostic, msgid, &ap, input_filename, input_line,
                        DK_ERROR);
   report_diagnostic (&diagnostic);
   VA_CLOSE (ap);
@@ -1161,7 +1155,7 @@ fatal_error VPARAMS ((const char *msgid, ...))
   VA_OPEN (ap, msgid);
   VA_FIXEDARG (ap, const char *, msgid);
 
-  diagnostic_set_info (&diagnostic, msgid, &ap, input_filename, lineno,
+  diagnostic_set_info (&diagnostic, msgid, &ap, input_filename, input_line,
                        DK_FATAL);
   report_diagnostic (&diagnostic);
   VA_CLOSE (ap);
@@ -1185,7 +1179,7 @@ internal_error VPARAMS ((const char *msgid, ...))
   if (errorcount > 0 || sorrycount > 0)
     {
       fnotice (stderr, "%s:%d: confused by earlier errors, bailing out\n",
-	       input_filename, lineno);
+	       input_filename, input_line);
       exit (FATAL_EXIT_CODE);
     }
 #endif
@@ -1193,7 +1187,7 @@ internal_error VPARAMS ((const char *msgid, ...))
   if (global_dc->internal_error != 0)
     (*global_dc->internal_error) (_(msgid), &ap);
 
-  diagnostic_set_info (&diagnostic, msgid, &ap, input_filename, lineno,
+  diagnostic_set_info (&diagnostic, msgid, &ap, input_filename, input_line,
                        DK_ICE);
   report_diagnostic (&diagnostic);
   VA_CLOSE (ap);
@@ -1244,7 +1238,7 @@ warning VPARAMS ((const char *msgid, ...))
   VA_OPEN (ap, msgid);
   VA_FIXEDARG (ap, const char *, msgid);
 
-  diagnostic_set_info (&diagnostic, msgid, &ap, input_filename, lineno,
+  diagnostic_set_info (&diagnostic, msgid, &ap, input_filename, input_line,
                        DK_WARNING);
   report_diagnostic (&diagnostic);
   VA_CLOSE (ap);
@@ -1390,10 +1384,12 @@ diagnostic_report_current_module (context)
       for (p = input_file_stack->next; p; p = p->next)
 	if (p == input_file_stack->next)
 	  output_verbatim (&context->buffer,
-                           "In file included from %s:%d", p->name, p->line);
+                           "In file included from %s:%d",
+			   p->location.file, p->location.line);
 	else
 	  output_verbatim (&context->buffer,
-                           ",\n                 from %s:%d", p->name, p->line);
+                           ",\n                 from %s:%d",
+			   p->location.file, p->location.line);
       output_verbatim (&context->buffer, ":\n");
       diagnostic_set_last_module (context);
     }
@@ -1424,7 +1420,7 @@ inform VPARAMS ((const char *msgid, ...))
   VA_OPEN (ap, msgid);
   VA_FIXEDARG (ap, const char *, msgid);
 
-  diagnostic_set_info (&diagnostic, msgid, &ap, input_filename, lineno,
+  diagnostic_set_info (&diagnostic, msgid, &ap, input_filename, input_line,
                        DK_NOTE);
   report_diagnostic (&diagnostic);
   VA_CLOSE (ap);

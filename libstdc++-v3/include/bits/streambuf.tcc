@@ -40,19 +40,15 @@
 namespace std 
 {
   template<typename _CharT, typename _Traits>
-    const size_t
-    basic_streambuf<_CharT, _Traits>::_S_pback_size;
-
-  template<typename _CharT, typename _Traits>
     typename basic_streambuf<_CharT, _Traits>::int_type
     basic_streambuf<_CharT, _Traits>::
     sbumpc()
     {
       int_type __ret;
-      if (_M_in_cur && _M_in_cur < _M_in_end)
+      if (_M_in_cur < _M_in_end)
 	{
-	  char_type __c = *(this->gptr());
-	  _M_in_cur_move(1);
+	  char_type __c = *this->_M_in_cur;
+	  _M_move_in_cur(1);
 	  __ret = traits_type::to_int_type(__c);
 	}
       else 
@@ -66,13 +62,13 @@ namespace std
     sputbackc(char_type __c) 
     {
       int_type __ret;
-      bool __testpos = _M_in_cur && _M_in_beg < _M_in_cur;
-      if (!__testpos || !traits_type::eq(__c, this->gptr()[-1]))
+      const bool __testpos = _M_in_beg < _M_in_cur;
+      if (!__testpos || !traits_type::eq(__c, this->_M_in_cur[-1]))
 	__ret = this->pbackfail(traits_type::to_int_type(__c));
       else 
 	{
-	  _M_in_cur_move(-1);
-	  __ret = traits_type::to_int_type(*this->gptr());
+	  _M_move_in_cur(-1);
+	  __ret = traits_type::to_int_type(*this->_M_in_cur);
 	}
       return __ret;
     }
@@ -83,9 +79,9 @@ namespace std
     sungetc()
     {
       int_type __ret;
-      if (_M_in_cur && _M_in_beg < _M_in_cur)
+      if (_M_in_beg < _M_in_cur)
 	{
-	  _M_in_cur_move(-1);
+	  _M_move_in_cur(-1);
 	  __ret = traits_type::to_int_type(*_M_in_cur);
 	}
       else 
@@ -99,10 +95,10 @@ namespace std
     sputc(char_type __c)
     {
       int_type __ret;
-      if (_M_out_cur && _M_out_cur < _M_out_end)
+      if (_M_out_cur < _M_out_end)
 	{
 	  *_M_out_cur = __c;
-	  _M_out_cur_move(1);
+	  _M_move_out_cur(1);
 	  __ret = traits_type::to_int_type(__c);
 	}
       else
@@ -118,20 +114,20 @@ namespace std
       streamsize __ret = 0;
       while (__ret < __n)
 	{
-	  size_t __buf_len = _M_in_end - _M_in_cur;
+	  const size_t __buf_len = _M_in_end - _M_in_cur;
 	  if (__buf_len > 0)
 	    {
-	      size_t __remaining = __n - __ret;
-	      size_t __len = std::min(__buf_len, __remaining);
+	      const size_t __remaining = __n - __ret;
+	      const size_t __len = std::min(__buf_len, __remaining);
 	      traits_type::copy(__s, _M_in_cur, __len);
 	      __ret += __len;
 	      __s += __len;
-	      _M_in_cur_move(__len);
+	      _M_move_in_cur(__len);
 	    }
 	  
 	  if (__ret < __n)
 	    {
-	      int_type __c = this->uflow();  
+	      const int_type __c = this->uflow();  
 	      if (!traits_type::eq_int_type(__c, traits_type::eof()))
 		{
 		  traits_type::assign(*__s++, traits_type::to_char_type(__c));
@@ -152,20 +148,20 @@ namespace std
       streamsize __ret = 0;
       while (__ret < __n)
 	{
-	  off_type __buf_len = _M_out_end - _M_out_cur;
+	  const size_t __buf_len = _M_out_end - _M_out_cur;
 	  if (__buf_len > 0)
 	    {
-	      off_type __remaining = __n - __ret;
-	      off_type __len = std::min(__buf_len, __remaining);
+	      const size_t __remaining = __n - __ret;
+	      const size_t __len = std::min(__buf_len, __remaining);
 	      traits_type::copy(_M_out_cur, __s, __len);
 	      __ret += __len;
 	      __s += __len;
-	      _M_out_cur_move(__len);
+	      _M_move_out_cur(__len);
 	    }
 
 	  if (__ret < __n)
 	    {
-	      int_type __c = this->overflow(traits_type::to_int_type(*__s));
+	      const int_type __c = this->overflow(traits_type::to_int_type(*__s));
 	      if (!traits_type::eq_int_type(__c, traits_type::eof()))
 		{
 		  ++__ret;
@@ -187,67 +183,33 @@ namespace std
     __copy_streambufs(basic_ios<_CharT, _Traits>& __ios,
 		      basic_streambuf<_CharT, _Traits>* __sbin,
 		      basic_streambuf<_CharT, _Traits>* __sbout) 
-  {
-      typedef typename _Traits::int_type	int_type;
-      typedef typename _Traits::off_type	off_type;
-
+    {
       streamsize __ret = 0;
-      streamsize __bufsize = __sbin->in_avail();
-      streamsize __xtrct;
-      const off_type __size_opt =
-	__sbin->_M_buf_size_opt > 0 ? __sbin->_M_buf_size_opt : 1;
-
       try 
 	{
-	  while (__bufsize != -1)
-  	    {
- 	      if (__bufsize != 0 && __sbin->gptr() != NULL
-		  && __sbin->gptr() + __bufsize <= __sbin->egptr()) 
+	  typename _Traits::int_type __c = __sbin->sgetc();
+	  while (!_Traits::eq_int_type(__c, _Traits::eof()))
+	    {
+	      const size_t __n = __sbin->_M_in_end - __sbin->_M_in_cur;
+	      if (__n > 1)
 		{
-		  __xtrct = __sbout->sputn(__sbin->gptr(), __bufsize);
-		  __ret += __xtrct;
-		  __sbin->_M_in_cur_move(__xtrct);
-		  if (__xtrct != __bufsize)
+		  const size_t __wrote = __sbout->sputn(__sbin->_M_in_cur,
+							__n);
+		  __sbin->_M_move_in_cur(__wrote);
+		  __ret += __wrote;
+		  if (__wrote < __n)
 		    break;
+		  __c = __sbin->underflow();
 		}
- 	      else 
+	      else 
 		{
-		  streamsize __charsread;
-		  const streamsize __size =
-		    std::min(__size_opt, off_type(__sbout->_M_out_end -
-						  __sbout->_M_out_cur));
-		  if (__size > 1)
-		    {
-		      _CharT* __buf =
-			static_cast<_CharT*>(__builtin_alloca(sizeof(_CharT)
-							      * __size));
-		      // Since the next sputn cannot fail sgetn can be
-		      // safely used.
-		      __charsread = __sbin->sgetn(__buf, __size);
-		      __xtrct = __sbout->sputn(__buf, __charsread);
-		    }
-		  else
-		    {
-		      __xtrct = __charsread = 0;
-		      int_type __c = __sbin->sgetc();
-		      while (!_Traits::eq_int_type(__c, _Traits::eof()))
-			{
-			  ++__charsread;
-			  if (_Traits::eq_int_type(__sbout->sputc(_Traits::to_char_type(__c)),
-						   _Traits::eof()))
-			    break;
-			  ++__xtrct;
-			  __c = __sbin->snextc();
-			}
-		    }		      
-		  __ret += __xtrct;
-		  if (__xtrct != __charsread)
+		  __c = __sbout->sputc(_Traits::to_char_type(__c));
+		  if (_Traits::eq_int_type(__c, _Traits::eof()))
 		    break;
+		  ++__ret;
+		  __c = __sbin->snextc();
 		}
- 	      if (_Traits::eq_int_type(__sbin->sgetc(), _Traits::eof()))
-  		break;
- 	      __bufsize = __sbin->in_avail();
-  	    }
+	    }
 	}
       catch(exception& __fail) 
 	{

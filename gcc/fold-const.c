@@ -3420,6 +3420,10 @@ merge_ranges (pin_p, plow, phigh, in0_p, low0, high0, in1_p, low1, high1)
   return 1;
 }
 
+#ifndef RANGE_TEST_NON_SHORT_CIRCUIT
+#define RANGE_TEST_NON_SHORT_CIRCUIT (BRANCH_COST >= 2)
+#endif
+
 /* EXP is some logical combination of boolean tests.  See if we can
    merge it into some range test.  Return the new tree if so.  */
 
@@ -3456,7 +3460,7 @@ fold_range_test (exp)
   /* On machines where the branch cost is expensive, if this is a
      short-circuited branch and the underlying object on both sides
      is the same, make a non-short-circuit operation.  */
-  else if (BRANCH_COST >= 2
+  else if (RANGE_TEST_NON_SHORT_CIRCUIT
 	   && lhs != 0 && rhs != 0
 	   && (TREE_CODE (exp) == TRUTH_ANDIF_EXPR
 	       || TREE_CODE (exp) == TRUTH_ORIF_EXPR)
@@ -4188,8 +4192,12 @@ extract_muldiv_1 (t, c, code, wide_type)
       /* Pass the constant down and see if we can make a simplification.  If
 	 we can, replace this expression with the inner simplification for
 	 possible later conversion to our or some other type.  */
-      if (0 != (t1 = extract_muldiv (op0, convert (TREE_TYPE (op0), c), code,
-				     code == MULT_EXPR ? ctype : NULL_TREE)))
+      if ((t2 = convert (TREE_TYPE (op0), c)) != 0
+	  && TREE_CODE (t2) == INTEGER_CST
+	  && ! TREE_CONSTANT_OVERFLOW (t2)
+	  && (0 != (t1 = extract_muldiv (op0, t2, code,
+					 code == MULT_EXPR
+					 ? ctype : NULL_TREE))))
 	return t1;
       break;
 
@@ -4574,21 +4582,19 @@ fold_binary_op_with_conditional_arg (code, type, cond, arg, cond_first_p)
       false_value = convert (testtype, integer_zero_node);
     }
 
-  /* If ARG is complex we want to make sure we only evaluate
-     it once.  Though this is only required if it is volatile, it
-     might be more efficient even if it is not.  However, if we
-     succeed in folding one part to a constant, we do not need
-     to make this SAVE_EXPR.  Since we do this optimization
-     primarily to see if we do end up with constant and this
-     SAVE_EXPR interferes with later optimizations, suppressing
-     it when we can is important.
+  /* If ARG is complex we want to make sure we only evaluate it once.  Though
+     this is only required if it is volatile, it might be more efficient even
+     if it is not.  However, if we succeed in folding one part to a constant,
+     we do not need to make this SAVE_EXPR.  Since we do this optimization
+     primarily to see if we do end up with constant and this SAVE_EXPR
+     interferes with later optimizations, suppressing it when we can is
+     important.
 
-     If we are not in a function, we can't make a SAVE_EXPR, so don't
-     try to do so.  Don't try to see if the result is a constant
-     if an arm is a COND_EXPR since we get exponential behavior
-     in that case.  */
+     If we are not in a function, we can't make a SAVE_EXPR, so don't try to
+     do so.  Don't try to see if the result is a constant if an arm is a
+     COND_EXPR since we get exponential behavior in that case.  */
 
-  if (TREE_CODE (arg) == SAVE_EXPR)
+  if (saved_expr_p (arg))
     save = 1;
   else if (lhs == 0 && rhs == 0
 	   && !TREE_CONSTANT (arg)
@@ -5795,6 +5801,14 @@ fold (expr)
 			    fold (build1 (code, type, integer_one_node)),
 			    fold (build1 (code, type, integer_zero_node))));
    }
+  else if (TREE_CODE_CLASS (code) == '<'
+	   && TREE_CODE (arg0) == COMPOUND_EXPR)
+    return build (COMPOUND_EXPR, type, TREE_OPERAND (arg0, 0),
+		  fold (build (code, type, TREE_OPERAND (arg0, 1), arg1)));
+  else if (TREE_CODE_CLASS (code) == '<'
+	   && TREE_CODE (arg1) == COMPOUND_EXPR)
+    return build (COMPOUND_EXPR, type, TREE_OPERAND (arg1, 0),
+		  fold (build (code, type, arg0, TREE_OPERAND (arg1, 1))));
   else if (TREE_CODE_CLASS (code) == '2'
 	   || TREE_CODE_CLASS (code) == '<')
     {
@@ -5830,14 +5844,6 @@ fold (expr)
 	  fold_binary_op_with_conditional_arg (code, type, arg0, arg1,
 					       /*cond_first_p=*/1);
     }
-  else if (TREE_CODE_CLASS (code) == '<'
-	   && TREE_CODE (arg0) == COMPOUND_EXPR)
-    return build (COMPOUND_EXPR, type, TREE_OPERAND (arg0, 0),
-		  fold (build (code, type, TREE_OPERAND (arg0, 1), arg1)));
-  else if (TREE_CODE_CLASS (code) == '<'
-	   && TREE_CODE (arg1) == COMPOUND_EXPR)
-    return build (COMPOUND_EXPR, type, TREE_OPERAND (arg1, 0),
-		  fold (build (code, type, arg0, TREE_OPERAND (arg1, 1))));
 
   switch (code)
     {
@@ -6163,13 +6169,17 @@ fold (expr)
 	      if (TREE_CODE (parg0) == MULT_EXPR
 		  && TREE_CODE (parg1) != MULT_EXPR)
 		return fold (build (PLUS_EXPR, type,
-				    fold (build (PLUS_EXPR, type, parg0, marg)),
-				    parg1));
+				    fold (build (PLUS_EXPR, type, 
+						 convert (type, parg0), 
+						 convert (type, marg))),
+				    convert (type, parg1)));
 	      if (TREE_CODE (parg0) != MULT_EXPR
 		  && TREE_CODE (parg1) == MULT_EXPR)
 		return fold (build (PLUS_EXPR, type,
-				    fold (build (PLUS_EXPR, type, parg1, marg)),
-				    parg0));
+				    fold (build (PLUS_EXPR, type, 
+						 convert (type, parg1), 
+						 convert (type, marg))),
+				    convert (type, parg0)));
 	    }
 
 	  if (TREE_CODE (arg0) == MULT_EXPR && TREE_CODE (arg1) == MULT_EXPR)
@@ -6501,7 +6511,8 @@ fold (expr)
 				TREE_OPERAND (arg0, 1)));
 
 	  if (TREE_CODE (arg1) == INTEGER_CST
-	      && 0 != (tem = extract_muldiv (TREE_OPERAND (t, 0), arg1,
+	      && 0 != (tem = extract_muldiv (TREE_OPERAND (t, 0),
+					     convert (type, arg1),
 					     code, NULL_TREE)))
 	    return convert (type, tem);
 
@@ -6532,7 +6543,7 @@ fold (expr)
 	      && ! contains_placeholder_p (arg0))
 	    {
 	      tree arg = save_expr (arg0);
-	      return build (PLUS_EXPR, type, arg, arg);
+	      return fold (build (PLUS_EXPR, type, arg, arg));
 	    }
 
 	  if (flag_unsafe_math_optimizations)
@@ -6540,17 +6551,25 @@ fold (expr)
 	      enum built_in_function fcode0 = builtin_mathfn_code (arg0);
 	      enum built_in_function fcode1 = builtin_mathfn_code (arg1);
 
-	      /* Optimize sqrt(x)*sqrt(y) as sqrt(x*y).  */
+	      /* Optimizations of sqrt(...)*sqrt(...).  */
 	      if ((fcode0 == BUILT_IN_SQRT && fcode1 == BUILT_IN_SQRT)
 		  || (fcode0 == BUILT_IN_SQRTF && fcode1 == BUILT_IN_SQRTF)
 		  || (fcode0 == BUILT_IN_SQRTL && fcode1 == BUILT_IN_SQRTL))
 		{
-		  tree sqrtfn = TREE_OPERAND (TREE_OPERAND (arg0, 0), 0);
-		  tree arg = build (MULT_EXPR, type,
-				    TREE_VALUE (TREE_OPERAND (arg0, 1)),
-				    TREE_VALUE (TREE_OPERAND (arg1, 1)));
-		  tree arglist = build_tree_list (NULL_TREE, arg);
-		  return fold (build_function_call_expr (sqrtfn, arglist));
+		  tree sqrtfn, arg, arglist;
+		  tree arg00 = TREE_VALUE (TREE_OPERAND (arg0, 1));
+		  tree arg10 = TREE_VALUE (TREE_OPERAND (arg1, 1));
+
+		  /* Optimize sqrt(x)*sqrt(x) as x.  */
+		  if (operand_equal_p (arg00, arg10, 0)
+		      && ! HONOR_SNANS (TYPE_MODE (type)))
+		    return arg00;
+
+	          /* Optimize sqrt(x)*sqrt(y) as sqrt(x*y).  */
+		  sqrtfn = TREE_OPERAND (TREE_OPERAND (arg0, 0), 0);
+		  arg = fold (build (MULT_EXPR, type, arg00, arg10));
+		  arglist = build_tree_list (NULL_TREE, arg);
+		  return build_function_call_expr (sqrtfn, arglist);
 		}
 
 	      /* Optimize exp(x)*exp(y) as exp(x+y).  */
@@ -6562,8 +6581,43 @@ fold (expr)
 		  tree arg = build (PLUS_EXPR, type,
 				    TREE_VALUE (TREE_OPERAND (arg0, 1)),
 				    TREE_VALUE (TREE_OPERAND (arg1, 1)));
-		  tree arglist = build_tree_list (NULL_TREE, arg);
-		  return fold (build_function_call_expr (expfn, arglist));
+		  tree arglist = build_tree_list (NULL_TREE, fold (arg));
+		  return build_function_call_expr (expfn, arglist);
+		}
+
+	      /* Optimizations of pow(...)*pow(...).  */
+	      if ((fcode0 == BUILT_IN_POW && fcode1 == BUILT_IN_POW)
+		  || (fcode0 == BUILT_IN_POWF && fcode1 == BUILT_IN_POWF)
+		  || (fcode0 == BUILT_IN_POWL && fcode1 == BUILT_IN_POWL))
+		{
+		  tree arg00 = TREE_VALUE (TREE_OPERAND (arg0, 1));
+		  tree arg01 = TREE_VALUE (TREE_CHAIN (TREE_OPERAND (arg0,
+								     1)));
+		  tree arg10 = TREE_VALUE (TREE_OPERAND (arg1, 1));
+		  tree arg11 = TREE_VALUE (TREE_CHAIN (TREE_OPERAND (arg1,
+								     1)));
+
+		  /* Optimize pow(x,y)*pow(z,y) as pow(x*z,y).  */
+		  if (operand_equal_p (arg01, arg11, 0))
+		    {
+		      tree powfn = TREE_OPERAND (TREE_OPERAND (arg0, 0), 0);
+		      tree arg = build (MULT_EXPR, type, arg00, arg10);
+		      tree arglist = tree_cons (NULL_TREE, fold (arg),
+						build_tree_list (NULL_TREE,
+								 arg01));
+		      return build_function_call_expr (powfn, arglist);
+		    }
+
+		  /* Optimize pow(x,y)*pow(x,z) as pow(x,y+z).  */
+		  if (operand_equal_p (arg00, arg10, 0))
+		    {
+		      tree powfn = TREE_OPERAND (TREE_OPERAND (arg0, 0), 0);
+		      tree arg = fold (build (PLUS_EXPR, type, arg01, arg11));
+		      tree arglist = tree_cons (NULL_TREE, arg00,
+						build_tree_list (NULL_TREE,
+								 arg));
+		      return build_function_call_expr (powfn, arglist);
+		    }
 		}
 	    }
 	}
@@ -6735,10 +6789,10 @@ fold (expr)
 	 		      TREE_OPERAND (arg1, 1)));
 	}
 
-      /* Optimize x/exp(y) into x*exp(-y).  */
       if (flag_unsafe_math_optimizations)
 	{
 	  enum built_in_function fcode = builtin_mathfn_code (arg1);
+	  /* Optimize x/exp(y) into x*exp(-y).  */
 	  if (fcode == BUILT_IN_EXP
 	      || fcode == BUILT_IN_EXPF
 	      || fcode == BUILT_IN_EXPL)
@@ -6746,8 +6800,23 @@ fold (expr)
 	      tree expfn = TREE_OPERAND (TREE_OPERAND (arg1, 0), 0);
 	      tree arg = build1 (NEGATE_EXPR, type,
 				 TREE_VALUE (TREE_OPERAND (arg1, 1)));
-	      tree arglist = build_tree_list (NULL_TREE, arg);
+	      tree arglist = build_tree_list (NULL_TREE, fold (arg));
 	      arg1 = build_function_call_expr (expfn, arglist);
+	      return fold (build (MULT_EXPR, type, arg0, arg1));
+	    }
+
+	  /* Optimize x/pow(y,z) into x*pow(y,-z).  */
+	  if (fcode == BUILT_IN_POW
+	      || fcode == BUILT_IN_POWF
+	      || fcode == BUILT_IN_POWL)
+	    {
+	      tree powfn = TREE_OPERAND (TREE_OPERAND (arg1, 0), 0);
+	      tree arg10 = TREE_VALUE (TREE_OPERAND (arg1, 1));
+	      tree arg11 = TREE_VALUE (TREE_CHAIN (TREE_OPERAND (arg1, 1)));
+	      tree neg11 = fold (build1 (NEGATE_EXPR, type, arg11));
+	      tree arglist = tree_cons(NULL_TREE, arg10,
+				       build_tree_list (NULL_TREE, neg11));
+	      arg1 = build_function_call_expr (powfn, arglist);
 	      return fold (build (MULT_EXPR, type, arg0, arg1));
 	    }
 	}
@@ -7108,6 +7177,19 @@ fold (expr)
 					  arg1, TREE_OPERAND (arg0, 1), 0))
 	      && ! TREE_CONSTANT_OVERFLOW (tem))
 	    return fold (build (code, type, TREE_OPERAND (arg0, 0), tem));
+
+	  /* Likewise, we can simplify a comparison of a real constant with
+	     a MINUS_EXPR whose first operand is also a real constant, i.e.
+	     (c1 - x) < c2 becomes x > c1-c2.  */
+	  if (flag_unsafe_math_optimizations
+	      && TREE_CODE (arg1) == REAL_CST
+	      && TREE_CODE (arg0) == MINUS_EXPR
+	      && TREE_CODE (TREE_OPERAND (arg0, 0)) == REAL_CST
+	      && 0 != (tem = const_binop (MINUS_EXPR, TREE_OPERAND (arg0, 0),
+					  arg1, 0))
+	      && ! TREE_CONSTANT_OVERFLOW (tem))
+	    return fold (build (swap_tree_comparison (code), type,
+				TREE_OPERAND (arg0, 1), tem));
 
 	  /* Fold comparisons against built-in math functions.  */
 	  if (TREE_CODE (arg1) == REAL_CST

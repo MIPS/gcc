@@ -144,7 +144,8 @@ static unsigned int const_hash		PARAMS ((tree));
 static unsigned int const_hash_1	PARAMS ((tree));
 static int compare_constant		PARAMS ((tree, tree));
 static tree copy_constant		PARAMS ((tree));
-static void output_constant_def_contents  PARAMS ((tree, int, int));
+static void maybe_output_constant_def_contents PARAMS ((tree, rtx, int));
+static void output_constant_def_contents  PARAMS ((tree, const char *));
 static void decode_rtx_const		PARAMS ((enum machine_mode, rtx,
 					       struct rtx_const *));
 static unsigned int const_hash_rtx	PARAMS ((enum machine_mode, rtx));
@@ -157,7 +158,6 @@ static void mark_constant_pool		PARAMS ((void));
 static void mark_constants		PARAMS ((rtx));
 static int mark_constant		PARAMS ((rtx *current_rtx, void *data));
 static int output_addressed_constants	PARAMS ((tree));
-static void output_after_function_constants PARAMS ((void));
 static unsigned HOST_WIDE_INT array_size_for_constructor PARAMS ((tree));
 static unsigned min_align		PARAMS ((unsigned, unsigned));
 static void output_constructor		PARAMS ((tree, HOST_WIDE_INT,
@@ -175,8 +175,6 @@ static void asm_output_aligned_bss
   PARAMS ((FILE *, tree, const char *, int, int)) ATTRIBUTE_UNUSED;
 #endif
 #endif /* BSS_SECTION_ASM_OP */
-static hashval_t const_str_htab_hash	PARAMS ((const void *x));
-static int const_str_htab_eq		PARAMS ((const void *x, const void *y));
 static bool asm_emit_uninitialised	PARAMS ((tree, const char*, int, int));
 static void resolve_unique_section	PARAMS ((tree, int, int));
 static void mark_weak                   PARAMS ((tree));
@@ -812,12 +810,12 @@ make_decl_rtl (decl, asmspec)
       /* Let the target reassign the RTL if it wants.
 	 This is necessary, for example, when one machine specific
 	 decl attribute overrides another.  */
-      (* targetm.encode_section_info) (decl, false);
+      (* targetm.encode_section_info) (decl, DECL_RTL (decl), false);
 
       /* Make this function static known to the mudflap runtime.  */
       if (flag_mudflap && TREE_CODE (decl) == VAR_DECL)
 	mudflap_enqueue_decl (decl, name);
-      
+
       return;
     }
 
@@ -927,8 +925,11 @@ make_decl_rtl (decl, asmspec)
       name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
     }
 
-  x = gen_rtx_MEM (DECL_MODE (decl), gen_rtx_SYMBOL_REF (Pmode, name));
-  SYMBOL_REF_WEAK (XEXP (x, 0)) = DECL_WEAK (decl);
+  x = gen_rtx_SYMBOL_REF (Pmode, name);
+  SYMBOL_REF_WEAK (x) = DECL_WEAK (decl);
+  SYMBOL_REF_DECL (x) = decl;
+  
+  x = gen_rtx_MEM (DECL_MODE (decl), x);
   if (TREE_CODE (decl) != FUNCTION_DECL)
     set_mem_attributes (x, decl, 1);
   SET_DECL_RTL (decl, x);
@@ -937,7 +938,7 @@ make_decl_rtl (decl, asmspec)
      such as that it is a function name.
      If the name is changed, the macro ASM_OUTPUT_LABELREF
      will have to know how to strip this information.  */
-  (* targetm.encode_section_info) (decl, true);
+  (* targetm.encode_section_info) (decl, DECL_RTL (decl), true);
 
   /* Make this function static known to the mudflap runtime.  */
   if (flag_mudflap && TREE_CODE (decl) == VAR_DECL)
@@ -1207,9 +1208,6 @@ assemble_end_function (decl, fnname)
       output_constant_pool (fnname, decl);
       function_section (decl);	/* need to switch back */
     }
-
-  /* Output any constants which should appear after the function.  */
-  output_after_function_constants ();
 }
 
 /* Assemble code to leave SIZE bytes of zeros.  */
@@ -1776,6 +1774,7 @@ assemble_static_space (size)
   namestring = ggc_strdup (name);
 
   x = gen_rtx_SYMBOL_REF (Pmode, namestring);
+  SYMBOL_REF_FLAGS (x) = SYMBOL_FLAG_LOCAL;
 
 #ifdef ASM_OUTPUT_ALIGNED_DECL_LOCAL
   ASM_OUTPUT_ALIGNED_DECL_LOCAL (asm_out_file, NULL_TREE, name, size,
@@ -1810,6 +1809,7 @@ assemble_trampoline_template ()
   char label[256];
   const char *name;
   int align;
+  rtx symbol;
 
   /* By default, put trampoline templates in read-only data section.  */
 
@@ -1832,7 +1832,10 @@ assemble_trampoline_template ()
   /* Record the rtl to refer to it.  */
   ASM_GENERATE_INTERNAL_LABEL (label, "LTRAMP", 0);
   name = ggc_strdup (label);
-  return gen_rtx_SYMBOL_REF (Pmode, name);
+  symbol = gen_rtx_SYMBOL_REF (Pmode, name);
+  SYMBOL_REF_FLAGS (symbol) = SYMBOL_FLAG_LOCAL;
+
+  return symbol;
 }
 #endif
 
@@ -2101,8 +2104,6 @@ decode_addr_const (exp, value)
     case COMPLEX_CST:
     case CONSTRUCTOR:
     case INTEGER_CST:
-      /* This constant should have been output already, but we can't simply
-	 use TREE_CST_RTL since INTEGER_CST doesn't have one.  */
       x = output_constant_def (target, 1);
       break;
 
@@ -2171,43 +2172,8 @@ struct constant_descriptor_tree GTY(())
 static GTY(()) struct constant_descriptor_tree *
   const_hash_table[MAX_HASH_TABLE];
 
-/* We maintain a hash table of STRING_CST values.  Unless we are asked to force
-   out a string constant, we defer output of the constants until we know
-   they are actually used.  This will be if something takes its address or if
-   there is a usage of the string in the RTL of a function.  */
-
-#define STRHASH(x) htab_hash_pointer (x)
-
-struct deferred_string GTY(())
-{
-  const char *label;
-  tree exp;
-  int labelno;
-};
-
-static GTY ((param_is (struct deferred_string))) htab_t const_str_htab;
-
-/* Returns a hash code for X (which is a really a
-   struct deferred_string *).  */
-
-static hashval_t
-const_str_htab_hash (x)
-     const void *x;
-{
-  return STRHASH (((const struct deferred_string *) x)->label);
-}
-
-/* Returns nonzero if the value represented by X (which is really a
-   struct deferred_string *) is the same as that given by Y
-   (which is really a char *).  */
-
-static int
-const_str_htab_eq (x, y)
-     const void *x;
-     const void *y;
-{
-  return (((const struct deferred_string *) x)->label == (const char *) y);
-}
+static struct constant_descriptor_tree * build_constant_desc PARAMS ((tree));
+static unsigned int n_deferred_strings = 0;
 
 /* Compute a hash code for a constant expression.  */
 
@@ -2472,75 +2438,6 @@ compare_constant (t1, t2)
   abort ();
 }
 
-/* Record a list of constant expressions that were passed to
-   output_constant_def but that could not be output right away.  */
-
-struct deferred_constant
-{
-  struct deferred_constant *next;
-  tree exp;
-  int reloc;
-  int labelno;
-};
-
-static struct deferred_constant *deferred_constants;
-
-/* Another list of constants which should be output after the
-   function.  */
-static struct deferred_constant *after_function_constants;
-
-/* Nonzero means defer output of addressed subconstants
-   (i.e., those for which output_constant_def is called.)  */
-static int defer_addressed_constants_flag;
-
-/* Start deferring output of subconstants.  */
-
-void
-defer_addressed_constants ()
-{
-  defer_addressed_constants_flag++;
-}
-
-/* Stop deferring output of subconstants,
-   and output now all those that have been deferred.  */
-
-void
-output_deferred_addressed_constants ()
-{
-  struct deferred_constant *p, *next;
-
-  defer_addressed_constants_flag--;
-
-  if (defer_addressed_constants_flag > 0)
-    return;
-
-  for (p = deferred_constants; p; p = next)
-    {
-      output_constant_def_contents (p->exp, p->reloc, p->labelno);
-      next = p->next;
-      free (p);
-    }
-
-  deferred_constants = 0;
-}
-
-/* Output any constants which should appear after a function.  */
-
-static void
-output_after_function_constants ()
-{
-  struct deferred_constant *p, *next;
-
-  for (p = after_function_constants; p; p = next)
-    {
-      output_constant_def_contents (p->exp, p->reloc, p->labelno);
-      next = p->next;
-      free (p);
-    }
-
-  after_function_constants = 0;
-}
-
 /* Make a copy of the whole tree structure for a constant.  This
    handles the same types of nodes that compare_constant handles.  */
 
@@ -2609,18 +2506,63 @@ copy_constant (exp)
     }
 }
 
+/* Subroutine of output_constant_def:
+   No constant equal to EXP is known to have been output.
+   Make a constant descriptor to enter EXP in the hash table.
+   Assign the label number and construct RTL to refer to the
+   constant's location in memory.
+   Caller is responsible for updating the hash table.  */
+
+static struct constant_descriptor_tree *
+build_constant_desc (exp)
+     tree exp;
+{
+  rtx symbol;
+  rtx rtl;
+  char label[256];
+  int labelno;
+  struct constant_descriptor_tree *desc;
+
+  desc = ggc_alloc (sizeof (*desc));
+  desc->value = copy_constant (exp);
+
+  /* Create a string containing the label name, in LABEL.  */
+  labelno = const_labelno++;
+  ASM_GENERATE_INTERNAL_LABEL (label, "LC", labelno);
+
+  /* We have a symbol name; construct the SYMBOL_REF and the MEM.  */
+  symbol = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (label));
+  SYMBOL_REF_FLAGS (symbol) = SYMBOL_FLAG_LOCAL;
+  SYMBOL_REF_DECL (symbol) = exp;
+
+  rtl = gen_rtx_MEM (TYPE_MODE (TREE_TYPE (exp)), symbol);
+  set_mem_attributes (rtl, exp, 1);
+  set_mem_alias_set (rtl, 0);
+  set_mem_alias_set (rtl, const_alias_set);
+
+  /* Set flags or add text to the name to record information, such as
+     that it is a local symbol.  If the name is changed, the macro
+     ASM_OUTPUT_LABELREF will have to know how to strip this
+     information.  */
+  (*targetm.encode_section_info) (exp, rtl, true);
+
+  desc->rtl = rtl;
+  desc->label = XSTR (XEXP (desc->rtl, 0), 0);
+
+  return desc;
+}
+
 /* Return an rtx representing a reference to constant data in memory
    for the constant expression EXP.
 
    If assembler code for such a constant has already been output,
    return an rtx to refer to it.
-   Otherwise, output such a constant in memory (or defer it for later)
+   Otherwise, output such a constant in memory
    and generate an rtx for it.
 
    If DEFER is nonzero, the output of string constants can be deferred
    and output only if referenced in the function after all optimizations.
 
-   The TREE_CST_RTL of EXP is set up to point to that rtx.
    The const_hash_table records which constants already have label strings.  */
 
 rtx
@@ -2630,180 +2572,74 @@ output_constant_def (exp, defer)
 {
   int hash;
   struct constant_descriptor_tree *desc;
-  struct deferred_string **defstr;
-  char label[256];
-  int reloc;
-  int found = 1;
-  int after_function = 0;
-  int labelno = -1;
-  rtx rtl;
-
-  /* We can't just use the saved RTL if this is a deferred string constant
-     and we are not to defer anymore.  */
-  if (TREE_CODE (exp) != INTEGER_CST && TREE_CST_RTL (exp)
-      && (defer || !STRING_POOL_ADDRESS_P (XEXP (TREE_CST_RTL (exp), 0))))
-    return TREE_CST_RTL (exp);
-
-  /* Make sure any other constants whose addresses appear in EXP
-     are assigned label numbers.  */
-
-  reloc = output_addressed_constants (exp);
 
   /* Compute hash code of EXP.  Search the descriptors for that hash code
      to see if any of them describes EXP.  If yes, the descriptor records
      the label number already assigned.  */
 
   hash = const_hash (exp);
-
   for (desc = const_hash_table[hash]; desc; desc = desc->next)
     if (compare_constant (exp, desc->value))
       break;
 
   if (desc == 0)
     {
-      /* No constant equal to EXP is known to have been output.
-	 Make a constant descriptor to enter EXP in the hash table.
-	 Assign the label number and record it in the descriptor for
-	 future calls to this function to find.  */
-
-      /* Create a string containing the label name, in LABEL.  */
-      labelno = const_labelno++;
-      ASM_GENERATE_INTERNAL_LABEL (label, "LC", labelno);
-
-      desc = ggc_alloc (sizeof (*desc));
+      desc = build_constant_desc (exp);
       desc->next = const_hash_table[hash];
-      desc->label = ggc_strdup (label);
-      desc->value = copy_constant (exp);
       const_hash_table[hash] = desc;
 
-      /* We have a symbol name; construct the SYMBOL_REF and the MEM.  */
-      rtl = desc->rtl
-	= gen_rtx_MEM (TYPE_MODE (TREE_TYPE (exp)),
-		       gen_rtx_SYMBOL_REF (Pmode, desc->label));
-
-      set_mem_attributes (rtl, exp, 1);
-      set_mem_alias_set (rtl, 0);
-      set_mem_alias_set (rtl, const_alias_set);
-
-      found = 0;
+      maybe_output_constant_def_contents (exp, desc->rtl, defer);
     }
-  else
-    rtl = desc->rtl;
-
-  if (TREE_CODE (exp) != INTEGER_CST)
-    TREE_CST_RTL (exp) = rtl;
-
-  /* Optionally set flags or add text to the name to record information
-     such as that it is a function name.  If the name is changed, the macro
-     ASM_OUTPUT_LABELREF will have to know how to strip this information.  */
-  /* A previously-processed constant would already have section info
-     encoded in it.  */
-  if (! found)
+  else if (!defer && STRING_POOL_ADDRESS_P (XEXP (desc->rtl, 0)))
     {
-      /* Take care not to invoke targetm.encode_section_info for
-	 constants which don't have a TREE_CST_RTL.  */
-      if (TREE_CODE (exp) != INTEGER_CST)
-	(*targetm.encode_section_info) (exp, true);
-
-      desc->rtl = rtl;
-      desc->label = XSTR (XEXP (desc->rtl, 0), 0);
+      /* This string is currently deferred but we need to output it
+	 now; mark it no longer deferred.  */
+      STRING_POOL_ADDRESS_P (XEXP (desc->rtl, 0)) = 0;
+      n_deferred_strings--;
+      maybe_output_constant_def_contents (exp, desc->rtl, 0);
     }
 
-#ifdef CONSTANT_AFTER_FUNCTION_P
-  if (current_function_decl != 0
-      && CONSTANT_AFTER_FUNCTION_P (exp))
-    after_function = 1;
-#endif
+  return desc->rtl;
+}
 
-  if (found
-      && STRING_POOL_ADDRESS_P (XEXP (rtl, 0))
-      && (!defer || defer_addressed_constants_flag || after_function))
+/* Subroutine of output_constant_def:
+   Decide whether or not to defer the output of EXP, which can be
+   accesed through rtl RTL, and either do the output or record EXP in
+   the table of deferred strings.  */
+static void
+maybe_output_constant_def_contents (exp, rtl, defer)
+     tree exp;
+     rtx rtl;
+     int defer;
+{
+  if (flag_syntax_only)
+    return;
+
+  /* Is this a string constant that can be deferred?  */
+  if (defer && TREE_CODE (exp) == STRING_CST && !flag_writable_strings)
     {
-      defstr = (struct deferred_string **)
-	htab_find_slot_with_hash (const_str_htab, desc->label,
-				  STRHASH (desc->label), NO_INSERT);
-      if (defstr)
-	{
-	  /* If the string is currently deferred but we need to output it now,
-	     remove it from deferred string hash table.  */
-	  found = 0;
-	  labelno = (*defstr)->labelno;
-	  STRING_POOL_ADDRESS_P (XEXP (rtl, 0)) = 0;
-	  htab_clear_slot (const_str_htab, (void **) defstr);
-	}
+      STRING_POOL_ADDRESS_P (XEXP (rtl, 0)) = 1;
+      n_deferred_strings++;
+      return;
     }
 
-  /* If this is the first time we've seen this particular constant,
-     output it (or defer its output for later).  */
-  if (! found)
-    {
-      if (defer_addressed_constants_flag || after_function)
-	{
-	  struct deferred_constant *p
-	    = (struct deferred_constant *)
-	      xmalloc (sizeof (struct deferred_constant));
-
-	  p->exp = desc->value;
-	  p->reloc = reloc;
-	  p->labelno = labelno;
-	  if (after_function)
-	    {
-	      p->next = after_function_constants;
-	      after_function_constants = p;
-	    }
-	  else
-	    {
-	      p->next = deferred_constants;
-	      deferred_constants = p;
-	    }
-	}
-      else
-	{
-	  /* Do no output if -fsyntax-only.  */
-	  if (! flag_syntax_only)
-	    {
-	      if (TREE_CODE (exp) != STRING_CST
-		  || !defer
-		  || flag_writable_strings
-		  || (defstr = (struct deferred_string **)
-			       htab_find_slot_with_hash (const_str_htab,
-							 desc->label,
-							 STRHASH (desc->label),
-							 INSERT)) == NULL)
-		output_constant_def_contents (exp, reloc, labelno);
-	      else
-		{
-		  struct deferred_string *p;
-
-		  p = (struct deferred_string *)
-		      ggc_alloc (sizeof (struct deferred_string));
-
-		  p->exp = desc->value;
-		  p->label = desc->label;
-		  p->labelno = labelno;
-		  *defstr = p;
-		  STRING_POOL_ADDRESS_P (XEXP (rtl, 0)) = 1;
-		}
-	    }
-	}
-    }
-
-  return rtl;
+  output_constant_def_contents (exp, XSTR (XEXP (rtl, 0), 0));
 }
 
 /* Now output assembler code to define the label for EXP,
    and follow it with the data of EXP.  */
 
 static void
-output_constant_def_contents (exp, reloc, labelno)
+output_constant_def_contents (exp, label)
      tree exp;
-     int reloc;
-     int labelno;
+     const char *label;
 {
-  int align;
+  /* Make sure any other constants whose addresses appear in EXP
+     are assigned label numbers.  */
+  int reloc = output_addressed_constants (exp);
 
   /* Align the location counter as required by EXP's data type.  */
-  align = TYPE_ALIGN (TREE_TYPE (exp));
+  int align = TYPE_ALIGN (TREE_TYPE (exp));
 #ifdef CONSTANT_ALIGNMENT
   align = CONSTANT_ALIGNMENT (exp, align);
 #endif
@@ -2819,7 +2655,7 @@ output_constant_def_contents (exp, reloc, labelno)
     }
 
   /* Output the label itself.  */
-  (*targetm.asm_out.internal_label) (asm_out_file, "LC", labelno);
+  ASM_OUTPUT_LABEL (asm_out_file, label);
 
   /* Output the value of EXP.  */
   output_constant (exp,
@@ -2830,15 +2666,7 @@ output_constant_def_contents (exp, reloc, labelno)
 		   align);
 
   if (flag_mudflap)
-    {
-      char label[200];
-
-      /* It's a waste to regenerate this string here.  The callers
-	 almost always have a copy of the same string someplace.  */
-      ASM_GENERATE_INTERNAL_LABEL (label, "LC", labelno);
-
-      mudflap_enqueue_constant (exp, ggc_strdup (label));
-    }
+    mudflap_enqueue_constant (exp, ggc_strdup (label));
 }
 
 /* Used in the hash tables to avoid outputting the same constant
@@ -3194,7 +3022,7 @@ force_const_mem (mode, x)
   int hash;
   struct constant_descriptor_rtx *desc;
   char label[256];
-  rtx def;
+  rtx def, symbol;
   struct pool_constant *pool;
   unsigned int align;
 
@@ -3255,19 +3083,21 @@ force_const_mem (mode, x)
 
   /* Construct the SYMBOL_REF and the MEM.  */
 
-  pool->desc->rtl = def
-    = gen_rtx_MEM (mode, gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (label)));
-  set_mem_alias_set (def, const_alias_set);
+  symbol = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (label));
+  SYMBOL_REF_FLAGS (symbol) = SYMBOL_FLAG_LOCAL;
+
+  pool->desc->rtl = def = gen_rtx_MEM (mode, symbol);
   set_mem_attributes (def, (*lang_hooks.types.type_for_mode) (mode, 0), 1);
   RTX_UNCHANGING_P (def) = 1;
 
   /* Add label to symbol hash table.  */
-  hash = SYMHASH (XSTR (XEXP (def, 0), 0));
+  hash = SYMHASH (XSTR (symbol, 0));
   pool->next_sym = const_rtx_sym_hash_table[hash];
   const_rtx_sym_hash_table[hash] = pool;
 
   /* Mark the symbol_ref as belonging to this constants pool.  */
-  CONSTANT_POOL_ADDRESS_P (XEXP (def, 0)) = 1;
+  CONSTANT_POOL_ADDRESS_P (symbol) = 1;
+  SYMBOL_REF_FLAGS (symbol) = SYMBOL_FLAG_LOCAL;
   current_function_uses_const_pool = 1;
 
   return def;
@@ -3523,7 +3353,7 @@ mark_constant_pool ()
   rtx link;
   struct pool_constant *pool;
 
-  if (first_pool == 0 && htab_elements (const_str_htab) == 0)
+  if (first_pool == 0 && n_deferred_strings == 0)
     return;
 
   for (pool = first_pool; pool; pool = pool->next)
@@ -3639,19 +3469,9 @@ mark_constant (current_rtx, data)
 	}
       else if (STRING_POOL_ADDRESS_P (x))
 	{
-	  struct deferred_string **defstr;
-
-	  defstr = (struct deferred_string **)
-	    htab_find_slot_with_hash (const_str_htab, XSTR (x, 0),
-				      STRHASH (XSTR (x, 0)), NO_INSERT);
-	  if (defstr)
-	    {
-	      struct deferred_string *p = *defstr;
-
-	      STRING_POOL_ADDRESS_P (x) = 0;
-	      output_constant_def_contents (p->exp, 0, p->labelno);
-	      htab_clear_slot (const_str_htab, (void **) defstr);
-	    }
+	  STRING_POOL_ADDRESS_P (x) = 0;
+	  n_deferred_strings--;
+	  output_constant_def_contents (SYMBOL_REF_DECL (x), XSTR (x, 0));
 	}
     }
   return 0;
@@ -4668,12 +4488,13 @@ default_assemble_visibility (decl, vis)
 
   const char *name, *type;
 
-  name = (* targetm.strip_name_encoding)
-	 (IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)));
+  name = (IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)));
   type = visibility_types[vis];
 
 #ifdef HAVE_GAS_HIDDEN
-  fprintf (asm_out_file, "\t.%s\t%s\n", type, name);
+  fprintf (asm_out_file, "\t.%s\t", type);
+  assemble_name (asm_out_file, name);
+  fprintf (asm_out_file, "\n");
 #else
   warning ("visibility attribute not supported in this configuration; ignored");
 #endif
@@ -4735,8 +4556,6 @@ make_decl_one_only (decl)
 void
 init_varasm_once ()
 {
-  const_str_htab = htab_create_ggc (128, const_str_htab_hash,
-				    const_str_htab_eq, NULL);
   in_named_htab = htab_create_ggc (31, in_named_entry_hash,
 				   in_named_entry_eq, NULL);
 
@@ -5391,6 +5210,42 @@ default_elf_select_rtx_section (mode, x, align)
       }
 
   mergeable_constant_section (mode, align, 0);
+}
+
+/* Set the generally applicable flags on the SYMBOL_REF for EXP.  */
+
+void
+default_encode_section_info (decl, rtl, first)
+     tree decl;
+     rtx rtl;
+     int first ATTRIBUTE_UNUSED;
+{
+  rtx symbol;
+  int flags;
+
+  /* Careful not to prod global register variables.  */
+  if (GET_CODE (rtl) != MEM)
+    return;
+  symbol = XEXP (rtl, 0);
+  if (GET_CODE (symbol) != SYMBOL_REF)
+    return;
+
+  flags = 0;
+  if (TREE_CODE (decl) == FUNCTION_DECL)
+    flags |= SYMBOL_FLAG_FUNCTION;
+  if ((*targetm.binds_local_p) (decl))
+    flags |= SYMBOL_FLAG_LOCAL;
+  if ((*targetm.in_small_data_p) (decl))
+    flags |= SYMBOL_FLAG_SMALL;
+  if (TREE_CODE (decl) == VAR_DECL && DECL_THREAD_LOCAL (decl))
+    flags |= decl_tls_model (decl) << SYMBOL_FLAG_TLS_SHIFT;
+  /* ??? Why is DECL_EXTERNAL ever set for non-PUBLIC names?  Without
+     being PUBLIC, the thing *must* be defined in this translation unit.
+     Prevent this buglet from being propagated into rtl code as well.  */
+  if (DECL_P (decl) && DECL_EXTERNAL (decl) && TREE_PUBLIC (decl))
+    flags |= SYMBOL_FLAG_EXTERNAL;
+
+  SYMBOL_REF_FLAGS (symbol) = flags;
 }
 
 /* By default, we do nothing for encode_section_info, so we need not

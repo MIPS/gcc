@@ -27,9 +27,10 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #ifndef GCC_JAVA_LEX_H
 #define GCC_JAVA_LEX_H
 
+#include "input.h"
+
 /* Extern global variables declarations  */
 extern FILE *finput;
-extern int   lineno;
 
 /* A Unicode character, as read from the input file  */
 typedef unsigned short unicode_t;

@@ -1924,78 +1924,6 @@ finish_struct_methods (tree t)
 	   method_name_cmp);
 }
 
-/* Emit error when a duplicate definition of a type is seen.  Patch up.  */
-
-void
-duplicate_tag_error (tree t)
-{
-  error ("redefinition of `%#T'", t);
-  cp_error_at ("previous definition of `%#T'", t);
-
-  /* Pretend we haven't defined this type.  */
-
-  /* All of the component_decl's were TREE_CHAINed together in the parser.
-     finish_struct_methods walks these chains and assembles all methods with
-     the same base name into DECL_CHAINs. Now we don't need the parser chains
-     anymore, so we unravel them.  */
-
-  /* This used to be in finish_struct, but it turns out that the
-     TREE_CHAIN is used by dbxout_type_methods and perhaps some other
-     things...  */
-  if (CLASSTYPE_METHOD_VEC (t)) 
-    {
-      tree method_vec = CLASSTYPE_METHOD_VEC (t);
-      int i, len  = TREE_VEC_LENGTH (method_vec);
-      for (i = 0; i < len; i++)
-	{
-	  tree unchain = TREE_VEC_ELT (method_vec, i);
-	  while (unchain != NULL_TREE) 
-	    {
-	      TREE_CHAIN (OVL_CURRENT (unchain)) = NULL_TREE;
-	      unchain = OVL_NEXT (unchain);
-	    }
-	}
-    }
-
-  if (TYPE_LANG_SPECIFIC (t))
-    {
-      tree binfo = TYPE_BINFO (t);
-      int interface_only = CLASSTYPE_INTERFACE_ONLY (t);
-      int interface_unknown = CLASSTYPE_INTERFACE_UNKNOWN (t);
-      tree template_info = CLASSTYPE_TEMPLATE_INFO (t);
-      int use_template = CLASSTYPE_USE_TEMPLATE (t);
-
-      memset ((char *) TYPE_LANG_SPECIFIC (t), 0, sizeof (struct lang_type));
-      BINFO_BASETYPES(binfo) = NULL_TREE;
-
-      TYPE_LANG_SPECIFIC (t)->u.h.is_lang_type_class = 1;
-      TYPE_BINFO (t) = binfo;
-      CLASSTYPE_INTERFACE_ONLY (t) = interface_only;
-      SET_CLASSTYPE_INTERFACE_UNKNOWN_X (t, interface_unknown);
-      TYPE_REDEFINED (t) = 1;
-      CLASSTYPE_TEMPLATE_INFO (t) = template_info;
-      CLASSTYPE_USE_TEMPLATE (t) = use_template;
-      CLASSTYPE_DECL_LIST (t) = NULL_TREE;
-    }
-  TYPE_SIZE (t) = NULL_TREE;
-  TYPE_MODE (t) = VOIDmode;
-  TYPE_FIELDS (t) = NULL_TREE;
-  TYPE_METHODS (t) = NULL_TREE;
-  TYPE_VFIELD (t) = NULL_TREE;
-  TYPE_CONTEXT (t) = NULL_TREE;
-  
-  /* Clear TYPE_LANG_FLAGS -- those in TYPE_LANG_SPECIFIC are cleared above.  */
-  TYPE_LANG_FLAG_0 (t) = 0;
-  TYPE_LANG_FLAG_1 (t) = 0;
-  TYPE_LANG_FLAG_2 (t) = 0;
-  TYPE_LANG_FLAG_3 (t) = 0;
-  TYPE_LANG_FLAG_4 (t) = 0;
-  TYPE_LANG_FLAG_5 (t) = 0;
-  TYPE_LANG_FLAG_6 (t) = 0;
-  /* But not this one.  */
-  SET_IS_AGGR_TYPE (t, 1);
-}
-
 /* Make BINFO's vtable have N entries, including RTTI entries,
    vbase and vcall offsets, etc.  Set its type and call the backend
    to lay it out.  */
@@ -4796,7 +4724,6 @@ layout_class_type (tree t, tree *virtuals_p)
     {
       tree type;
       tree padding;
-      bool was_unnamed_p = false;
 
       /* We still pass things that aren't non-static data members to
 	 the back-end, in case it wants to do something with them.  */
@@ -4819,6 +4746,8 @@ layout_class_type (tree t, tree *virtuals_p)
 	}
 
       type = TREE_TYPE (field);
+      
+      padding = NULL_TREE;
 
       /* If this field is a bit-field whose width is greater than its
 	 type, then there are some special rules for allocating
@@ -4828,6 +4757,7 @@ layout_class_type (tree t, tree *virtuals_p)
 	{
 	  integer_type_kind itk;
 	  tree integer_type;
+	  bool was_unnamed_p = false;
 	  /* We must allocate the bits as if suitably aligned for the
 	     longest integer type that fits in this many bits.  type
 	     of the field.  Then, we are supposed to use the left over
@@ -4842,19 +4772,26 @@ layout_class_type (tree t, tree *virtuals_p)
 	     type that fits.  */
 	  integer_type = integer_types[itk - 1];
 
-	  if (abi_version_at_least (2) && TREE_CODE (t) == UNION_TYPE)
-	    /* In a union, the padding field must have the full width
-	       of the bit-field; all fields start at offset zero.  */
-	    padding = DECL_SIZE (field);
-	  else
+	  /* Figure out how much additional padding is required.  GCC
+	     3.2 always created a padding field, even if it had zero
+	     width.  */
+	  if (!abi_version_at_least (2)
+	      || INT_CST_LT (TYPE_SIZE (integer_type), DECL_SIZE (field)))
 	    {
-	      if (warn_abi && TREE_CODE (t) == UNION_TYPE)
-		warning ("size assigned to `%T' may not be "
-			 "ABI-compliant and may change in a future "
-			 "version of GCC", 
-			 t);
-	      padding = size_binop (MINUS_EXPR, DECL_SIZE (field),
-				    TYPE_SIZE (integer_type));
+	      if (abi_version_at_least (2) && TREE_CODE (t) == UNION_TYPE)
+		/* In a union, the padding field must have the full width
+		   of the bit-field; all fields start at offset zero.  */
+		padding = DECL_SIZE (field);
+	      else
+		{
+		  if (warn_abi && TREE_CODE (t) == UNION_TYPE)
+		    warning ("size assigned to `%T' may not be "
+			     "ABI-compliant and may change in a future "
+			     "version of GCC", 
+			     t);
+		  padding = size_binop (MINUS_EXPR, DECL_SIZE (field),
+					TYPE_SIZE (integer_type));
+		}
 	    }
 #ifdef PCC_BITFIELD_TYPE_MATTERS
 	  /* An unnamed bitfield does not normally affect the
@@ -4872,16 +4809,18 @@ layout_class_type (tree t, tree *virtuals_p)
 	  DECL_SIZE (field) = TYPE_SIZE (integer_type);
 	  DECL_ALIGN (field) = TYPE_ALIGN (integer_type);
 	  DECL_USER_ALIGN (field) = TYPE_USER_ALIGN (integer_type);
+	  layout_nonempty_base_or_field (rli, field, NULL_TREE,
+					 empty_base_offsets);
+	  if (was_unnamed_p)
+	    DECL_NAME (field) = NULL_TREE;
+	  /* Now that layout has been performed, set the size of the
+	     field to the size of its declared type; the rest of the
+	     field is effectively invisible.  */
+	  DECL_SIZE (field) = TYPE_SIZE (type);
 	}
       else
-	padding = NULL_TREE;
-
-      layout_nonempty_base_or_field (rli, field, NULL_TREE,
-				     empty_base_offsets);
-      /* If the bit-field had no name originally, remove the name
-	 now.  */
-      if (was_unnamed_p)
-	DECL_NAME (field) = NULL_TREE;
+	layout_nonempty_base_or_field (rli, field, NULL_TREE,
+				       empty_base_offsets);
 
       /* Remember the location of any empty classes in FIELD.  */
       if (abi_version_at_least (2))
@@ -4924,6 +4863,7 @@ layout_class_type (tree t, tree *virtuals_p)
 				      char_type_node); 
 	  DECL_BIT_FIELD (padding_field) = 1;
 	  DECL_SIZE (padding_field) = padding;
+	  DECL_CONTEXT (padding_field) = t;
 	  layout_nonempty_base_or_field (rli, padding_field,
 					 NULL_TREE, 
 					 empty_base_offsets);
@@ -5311,8 +5251,7 @@ unreverse_member_declarations (tree t)
 tree
 finish_struct (tree t, tree attributes)
 {
-  const char *saved_filename = input_filename;
-  int saved_lineno = lineno;
+  location_t saved_loc = input_location;
 
   /* Now that we've got all the field declarations, reverse everything
      as necessary.  */
@@ -5323,7 +5262,7 @@ finish_struct (tree t, tree attributes)
   /* Nadger the current location so that diagnostics point to the start of
      the struct, not the end.  */
   input_filename = TREE_FILENAME (TYPE_NAME (t));
-  lineno = TREE_LINENO (TYPE_NAME (t));
+  input_line = TREE_LINENO (TYPE_NAME (t));
 
   if (processing_template_decl)
     {
@@ -5333,8 +5272,7 @@ finish_struct (tree t, tree attributes)
   else
     finish_struct_1 (t);
 
-  input_filename = saved_filename;
-  lineno = saved_lineno;
+  input_location = saved_loc;
 
   TYPE_BEING_DEFINED (t) = 0;
 
@@ -5452,11 +5390,21 @@ fixed_type_or_null (tree instance, int* nonnull, int* cdtorp)
           /* Reference variables should be references to objects.  */
           if (nonnull)
 	    *nonnull = 1;
-
-	  if (TREE_CODE (instance) == VAR_DECL
-	      && DECL_INITIAL (instance))
-	    return fixed_type_or_null (DECL_INITIAL (instance),
-				       nonnull, cdtorp);
+	  
+	  /* DECL_VAR_MARKED_P is used to prevent recursion; a
+	     variable's initializer may refer to the variable
+	     itself.  */
+	  if (TREE_CODE (instance) == VAR_DECL 
+	      && DECL_INITIAL (instance)
+	      && !DECL_VAR_MARKED_P (instance))
+	    {
+	      tree type;
+	      DECL_VAR_MARKED_P (instance) = 1;
+	      type = fixed_type_or_null (DECL_INITIAL (instance),
+					 nonnull, cdtorp);
+	      DECL_VAR_MARKED_P (instance) = 0;
+	      return type;
+	    }
 	}
       return NULL_TREE;
 
@@ -6835,7 +6783,7 @@ initialize_array (tree decl, tree inits)
 
   context = DECL_CONTEXT (decl);
   DECL_CONTEXT (decl) = NULL_TREE;
-  DECL_INITIAL (decl) = build_nt (CONSTRUCTOR, NULL_TREE, inits);
+  DECL_INITIAL (decl) = build_constructor (NULL_TREE, inits);
   TREE_HAS_CONSTRUCTOR (DECL_INITIAL (decl)) = 1;
   cp_finish_decl (decl, DECL_INITIAL (decl), NULL_TREE, 0);
   DECL_CONTEXT (decl) = context;

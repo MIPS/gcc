@@ -1,4 +1,4 @@
-// Build don't link:
+// { dg-do assemble  }
 // 
 // Copyright (C) 2001 Free Software Foundation, Inc.
 // Contributed by Nathan Sidwell 5 May 2001 <nathan@codesourcery.com>
@@ -40,6 +40,6 @@ yyparse()
 {
 
   iterator_template<IdlDeclarator_bar,IdlDeclarator_bar&,foo*,foo*> declIter;
-  const IdlDeclarator& declarator = *declIter; // WARNING - choosing
+  const IdlDeclarator& declarator = *declIter;
   return 1;
 }

@@ -281,8 +281,7 @@ static int contains		PARAMS ((rtx, varray_type));
 static void emit_return_into_block PARAMS ((basic_block, rtx));
 #endif
 static void put_addressof_into_stack PARAMS ((rtx, htab_t));
-static bool purge_addressof_1 PARAMS ((rtx *, rtx, int, int,
-					  htab_t));
+static bool purge_addressof_1 PARAMS ((rtx *, rtx, int, int, int, htab_t));
 static void purge_single_hard_subreg_set PARAMS ((rtx));
 #if defined(HAVE_epilogue) && defined(INCOMING_RETURN_ADDR_RTX)
 static rtx keep_stack_depressed PARAMS ((rtx));
@@ -299,6 +298,9 @@ static void instantiate_virtual_regs_lossage PARAMS ((rtx));
 
 /* Pointer to chain of `struct function' for containing functions.  */
 static GTY(()) struct function *outer_function_chain;
+
+/* List of insns that were postponed by purge_addressof_1.  */
+static rtx postponed_insns;
 
 /* Given a function decl for a containing function,
    return the `struct function' for it.  */
@@ -2999,13 +3001,14 @@ static rtx purge_addressof_replacements;
 /* Helper function for purge_addressof.  See if the rtx expression at *LOC
    in INSN needs to be changed.  If FORCE, always put any ADDRESSOFs into
    the stack.  If the function returns FALSE then the replacement could not
-   be made.  */
+   be made.  If MAY_POSTPONE is true and we would not put the addressof
+   to stack, postpone processing of the insn.  */
 
 static bool
-purge_addressof_1 (loc, insn, force, store, ht)
+purge_addressof_1 (loc, insn, force, store, may_postpone, ht)
      rtx *loc;
      rtx insn;
-     int force, store;
+     int force, store, may_postpone;
      htab_t ht;
 {
   rtx x;
@@ -3028,8 +3031,10 @@ purge_addressof_1 (loc, insn, force, store, ht)
      memory.  */
   if (code == SET)
     {
-      result = purge_addressof_1 (&SET_DEST (x), insn, force, 1, ht);
-      result &= purge_addressof_1 (&SET_SRC (x), insn, force, 0, ht);
+      result = purge_addressof_1 (&SET_DEST (x), insn, force, 1,
+				  may_postpone, ht);
+      result &= purge_addressof_1 (&SET_SRC (x), insn, force, 0,
+				   may_postpone, ht);
       return result;
     }
   else if (code == ADDRESSOF)
@@ -3047,7 +3052,15 @@ purge_addressof_1 (loc, insn, force, store, ht)
 	return true;
 
       start_sequence ();
-      sub = force_operand (sub, NULL_RTX);
+
+      /* If SUB is a hard or virtual register, try it as a pseudo-register. 
+	 Otherwise, perhaps SUB is an expression, so generate code to compute
+	 it.  */
+      if (GET_CODE (sub) == REG && REGNO (sub) <= LAST_VIRTUAL_REGISTER)
+	sub = copy_to_reg (sub);
+      else
+	sub = force_operand (sub, NULL_RTX);
+
       if (! validate_change (insn, loc, sub, 0)
 	  && ! validate_replace_rtx (x, sub, insn))
 	abort ();
@@ -3070,6 +3083,15 @@ purge_addressof_1 (loc, insn, force, store, ht)
       else if (GET_CODE (sub) == REG && GET_MODE (x) != GET_MODE (sub))
 	{
 	  int size_x, size_sub;
+
+	  if (may_postpone)
+	    {
+	      /* Postpone for now, so that we do not emit bitfield arithmetics
+		 unless there is some benefit from it.  */
+	      if (!postponed_insns || XEXP (postponed_insns, 0) != insn)
+		postponed_insns = alloc_INSN_LIST (insn, postponed_insns);
+	      return true;
+	    }
 
 	  if (!insn)
 	    {
@@ -3127,6 +3149,36 @@ purge_addressof_1 (loc, insn, force, store, ht)
 		    return true;
 		  }
 
+	      /* When we are processing the REG_NOTES of the last instruction
+		 of a libcall, there will be typically no replacements
+		 for that insn; the replacements happened before, piecemeal
+		 fashion.  OTOH we are not interested in the details of
+		 this for the REG_EQUAL note, we want to know the big picture,
+		 which can be succinctly described with a simple SUBREG.
+		 Note that removing the REG_EQUAL note is not an option
+		 on the last insn of a libcall, so we must do a replacement.  */
+	      if (! purge_addressof_replacements
+		  && ! purge_bitfield_addressof_replacements)
+		{
+		  /* In compile/990107-1.c:7 compiled at -O1 -m1 for sh-elf,
+		     we got
+		     (mem:DI (addressof:SI (reg/v:DF 160) 159 0x401c8510)
+		      [0 S8 A32]), which can be expressed with a simple
+		     same-size subreg  */
+		  if ((GET_MODE_SIZE (GET_MODE (x))
+		       == GET_MODE_SIZE (GET_MODE (sub)))
+		      /* Again, invalid pointer casts (as in
+			 compile/990203-1.c) can require paradoxical
+			 subregs.  */
+		      || (GET_MODE_SIZE (GET_MODE (x)) > UNITS_PER_WORD
+			  && (GET_MODE_SIZE (GET_MODE (x))
+			      > GET_MODE_SIZE (GET_MODE (sub)))))
+		    {
+		      *loc = gen_rtx_SUBREG (GET_MODE (x), sub, 0);
+		      return true;
+		    }
+		  /* ??? Are there other cases we should handle?  */
+		}
 	      /* Sometimes we may not be able to find the replacement.  For
 		 example when the original insn was a MEM in a wider mode,
 		 and the note is part of a sign extension of a narrowed
@@ -3140,10 +3192,16 @@ purge_addressof_1 (loc, insn, force, store, ht)
 	  size_x = GET_MODE_BITSIZE (GET_MODE (x));
 	  size_sub = GET_MODE_BITSIZE (GET_MODE (sub));
 
+	  /* Do not frob unchanging MEMs.  If a later reference forces the
+	     pseudo to the stack, we can wind up with multiple writes to
+	     an unchanging memory, which is invalid.  */
+	  if (RTX_UNCHANGING_P (x) && size_x != size_sub)
+	    ;
+
 	  /* Don't even consider working with paradoxical subregs,
 	     or the moral equivalent seen here.  */
-	  if (size_x <= size_sub
-	      && int_mode_for_mode (GET_MODE (sub)) != BLKmode)
+	  else if (size_x <= size_sub
+	           && int_mode_for_mode (GET_MODE (sub)) != BLKmode)
 	    {
 	      /* Do a bitfield insertion to mirror what would happen
 		 in memory.  */
@@ -3254,10 +3312,12 @@ purge_addressof_1 (loc, insn, force, store, ht)
   for (i = 0; i < GET_RTX_LENGTH (code); i++, fmt++)
     {
       if (*fmt == 'e')
-	result &= purge_addressof_1 (&XEXP (x, i), insn, force, 0, ht);
+	result &= purge_addressof_1 (&XEXP (x, i), insn, force, 0,
+				     may_postpone, ht);
       else if (*fmt == 'E')
 	for (j = 0; j < XVECLEN (x, i); j++)
-	  result &= purge_addressof_1 (&XVECEXP (x, i, j), insn, force, 0, ht);
+	  result &= purge_addressof_1 (&XVECEXP (x, i, j), insn, force, 0,
+				       may_postpone, ht);
     }
 
   return result;
@@ -3385,7 +3445,7 @@ void
 purge_addressof (insns)
      rtx insns;
 {
-  rtx insn;
+  rtx insn, tmp;
   htab_t ht;
 
   /* When we actually purge ADDRESSOFs, we turn REGs into MEMs.  That
@@ -3398,16 +3458,18 @@ purge_addressof (insns)
   ht = htab_create_ggc (1000, insns_for_mem_hash, insns_for_mem_comp, NULL);
   compute_insns_for_mem (insns, NULL_RTX, ht);
 
+  postponed_insns = NULL;
+
   for (insn = insns; insn; insn = NEXT_INSN (insn))
     if (INSN_P (insn))
       {
 	if (! purge_addressof_1 (&PATTERN (insn), insn,
-				 asm_noperands (PATTERN (insn)) > 0, 0, ht))
+				 asm_noperands (PATTERN (insn)) > 0, 0, 1, ht))
 	  /* If we could not replace the ADDRESSOFs in the insn,
 	     something is wrong.  */
 	  abort ();
 
-	if (! purge_addressof_1 (&REG_NOTES (insn), NULL_RTX, 0, 0, ht))
+	if (! purge_addressof_1 (&REG_NOTES (insn), NULL_RTX, 0, 0, 0, ht))
 	  {
 	    /* If we could not replace the ADDRESSOFs in the insn's notes,
 	       we can just remove the offending notes instead.  */
@@ -3426,6 +3488,19 @@ purge_addressof (insns)
 	      }
 	  }
       }
+
+  /* Process the postponed insns.  */
+  while (postponed_insns)
+    {
+      insn = XEXP (postponed_insns, 0);
+      tmp = postponed_insns;
+      postponed_insns = XEXP (postponed_insns, 1);
+      free_INSN_LIST_node (tmp);
+
+      if (! purge_addressof_1 (&PATTERN (insn), insn,
+			       asm_noperands (PATTERN (insn)) > 0, 0, 0, ht))
+	abort ();
+    }
 
   /* Clean up.  */
   purge_bitfield_addressof_replacements = 0;
@@ -3557,6 +3632,12 @@ instantiate_virtual_regs (fndecl, insns)
 	if (GET_CODE (insn) == CALL_INSN)
 	  instantiate_virtual_regs_1 (&CALL_INSN_FUNCTION_USAGE (insn),
 				      NULL_RTX, 0);
+
+	/* Past this point all ASM statements should match.  Verify that
+	   to avoid failures later in the compilation process.  */
+        if (asm_noperands (PATTERN (insn)) >= 0
+	    && ! check_asm_operands (PATTERN (insn)))
+          instantiate_virtual_regs_lossage (insn);
       }
 
   /* Instantiate the stack slots for the parm registers, for later use in
@@ -4259,12 +4340,7 @@ assign_parms (fndecl)
      tree fndecl;
 {
   tree parm;
-  rtx entry_parm = 0;
-  rtx stack_parm = 0;
   CUMULATIVE_ARGS args_so_far;
-  enum machine_mode promoted_mode, passed_mode;
-  enum machine_mode nominal_mode, promoted_nominal_mode;
-  int unsignedp;
   /* Total space needed so far for args on the stack,
      given as a constant and a tree-expression.  */
   struct args_size stack_args_size;
@@ -4278,8 +4354,8 @@ assign_parms (fndecl)
 #ifdef SETUP_INCOMING_VARARGS
   int varargs_setup = 0;
 #endif
+  int reg_parm_stack_space = 0;
   rtx conversion_insns = 0;
-  struct args_size alignment_pad;
 
   /* Nonzero if function takes extra anonymous args.
      This means the last named arg must be on the stack
@@ -4326,6 +4402,14 @@ assign_parms (fndecl)
   max_parm_reg = LAST_VIRTUAL_REGISTER + 1;
   parm_reg_stack_loc = (rtx *) ggc_alloc_cleared (max_parm_reg * sizeof (rtx));
 
+#ifdef REG_PARM_STACK_SPACE
+#ifdef MAYBE_REG_PARM_STACK_SPACE
+  reg_parm_stack_space = MAYBE_REG_PARM_STACK_SPACE;
+#else
+  reg_parm_stack_space = REG_PARM_STACK_SPACE (fndecl);
+#endif
+#endif
+
 #ifdef INIT_CUMULATIVE_INCOMING_ARGS
   INIT_CUMULATIVE_INCOMING_ARGS (args_so_far, fntype, NULL_RTX);
 #else
@@ -4338,14 +4422,19 @@ assign_parms (fndecl)
 
   for (parm = fnargs; parm; parm = TREE_CHAIN (parm))
     {
-      struct args_size stack_offset;
-      struct args_size arg_size;
+      rtx entry_parm;
+      rtx stack_parm;
+      enum machine_mode promoted_mode, passed_mode;
+      enum machine_mode nominal_mode, promoted_nominal_mode;
+      int unsignedp;
+      struct locate_and_pad_arg_data locate;
       int passed_pointer = 0;
       int did_conversion = 0;
       tree passed_type = DECL_ARG_TYPE (parm);
       tree nominal_type = TREE_TYPE (parm);
-      int pretend_named;
       int last_named = 0, named_arg;
+      int in_regs;
+      int partial = 0;
 
       /* Set LAST_NAMED if this is last named arg before last
 	 anonymous args.  */
@@ -4409,7 +4498,7 @@ assign_parms (fndecl)
 	  || TREE_ADDRESSABLE (passed_type)
 #ifdef FUNCTION_ARG_PASS_BY_REFERENCE
 	  || FUNCTION_ARG_PASS_BY_REFERENCE (args_so_far, passed_mode,
-					      passed_type, named_arg)
+					     passed_type, named_arg)
 #endif
 	  )
 	{
@@ -4479,27 +4568,52 @@ assign_parms (fndecl)
 	 it came in a register so that REG_PARM_STACK_SPACE isn't skipped.
 	 In this case, we call FUNCTION_ARG with NAMED set to 1 instead of
 	 0 as it was the previous time.  */
-
-      pretend_named = named_arg || PRETEND_OUTGOING_VARARGS_NAMED;
-      locate_and_pad_parm (promoted_mode, passed_type,
+      in_regs = entry_parm != 0;
 #ifdef STACK_PARMS_IN_REG_PARM_AREA
-			   1,
-#else
+      in_regs = 1;
+#endif
+      if (!in_regs && !named_arg)
+	{
+	  int pretend_named = PRETEND_OUTGOING_VARARGS_NAMED;
+	  if (pretend_named)
+	    {
 #ifdef FUNCTION_INCOMING_ARG
-			   FUNCTION_INCOMING_ARG (args_so_far, promoted_mode,
-						  passed_type,
-						  pretend_named) != 0,
+	      in_regs = FUNCTION_INCOMING_ARG (args_so_far, promoted_mode,
+					       passed_type,
+					       pretend_named) != 0;
 #else
-			   FUNCTION_ARG (args_so_far, promoted_mode,
-					 passed_type,
-					 pretend_named) != 0,
+	      in_regs = FUNCTION_ARG (args_so_far, promoted_mode,
+				      passed_type,
+				      pretend_named) != 0;
 #endif
+	    }
+	}
+
+      /* If this parameter was passed both in registers and in the stack,
+	 use the copy on the stack.  */
+      if (MUST_PASS_IN_STACK (promoted_mode, passed_type))
+	entry_parm = 0;
+
+#ifdef FUNCTION_ARG_PARTIAL_NREGS
+      if (entry_parm)
+	partial = FUNCTION_ARG_PARTIAL_NREGS (args_so_far, promoted_mode,
+					      passed_type, named_arg);
 #endif
-			   fndecl, &stack_args_size, &stack_offset, &arg_size,
-			   &alignment_pad);
+
+      memset (&locate, 0, sizeof (locate));
+      locate_and_pad_parm (promoted_mode, passed_type, in_regs,
+			   entry_parm ? partial : 0, fndecl,
+			   &stack_args_size, &locate);
 
       {
-	rtx offset_rtx = ARGS_SIZE_RTX (stack_offset);
+	rtx offset_rtx;
+
+	/* If we're passing this arg using a reg, make its stack home
+	   the aligned stack slot.  */
+	if (entry_parm)
+	  offset_rtx = ARGS_SIZE_RTX (locate.slot_offset);
+	else
+	  offset_rtx = ARGS_SIZE_RTX (locate.offset);
 
 	if (offset_rtx == const0_rtx)
 	  stack_parm = gen_rtx_MEM (promoted_mode, internal_arg_pointer);
@@ -4516,12 +4630,6 @@ assign_parms (fndecl)
 	  set_reg_attrs_for_parm (entry_parm, stack_parm);
       }
 
-      /* If this parameter was passed both in registers and in the stack,
-	 use the copy on the stack.  */
-      if (MUST_PASS_IN_STACK (promoted_mode, passed_type))
-	entry_parm = 0;
-
-#ifdef FUNCTION_ARG_PARTIAL_NREGS
       /* If this parm was passed part in regs and part in memory,
 	 pretend it arrived entirely in memory
 	 by pushing the register-part onto the stack.
@@ -4530,39 +4638,31 @@ assign_parms (fndecl)
 	 we could put it together in a pseudoreg directly,
 	 but for now that's not worth bothering with.  */
 
-      if (entry_parm)
+      if (partial)
 	{
-	  int nregs = FUNCTION_ARG_PARTIAL_NREGS (args_so_far, promoted_mode,
-						  passed_type, named_arg);
-
-	  if (nregs > 0)
-	    {
-#if defined (REG_PARM_STACK_SPACE) && !defined (MAYBE_REG_PARM_STACK_SPACE)
-	      /* When REG_PARM_STACK_SPACE is nonzero, stack space for
-		 split parameters was allocated by our caller, so we
-		 won't be pushing it in the prolog.  */
-	      if (REG_PARM_STACK_SPACE (fndecl) == 0)
+#ifndef MAYBE_REG_PARM_STACK_SPACE
+	  /* When REG_PARM_STACK_SPACE is nonzero, stack space for
+	     split parameters was allocated by our caller, so we
+	     won't be pushing it in the prolog.  */
+	  if (reg_parm_stack_space)
 #endif
-	      current_function_pretend_args_size
-		= (((nregs * UNITS_PER_WORD) + (PARM_BOUNDARY / BITS_PER_UNIT) - 1)
-		   / (PARM_BOUNDARY / BITS_PER_UNIT)
-		   * (PARM_BOUNDARY / BITS_PER_UNIT));
+	  current_function_pretend_args_size
+	    = (((partial * UNITS_PER_WORD) + (PARM_BOUNDARY / BITS_PER_UNIT) - 1)
+	       / (PARM_BOUNDARY / BITS_PER_UNIT)
+	       * (PARM_BOUNDARY / BITS_PER_UNIT));
 
-	      /* Handle calls that pass values in multiple non-contiguous
-		 locations.  The Irix 6 ABI has examples of this.  */
-	      if (GET_CODE (entry_parm) == PARALLEL)
-		emit_group_store (validize_mem (stack_parm), entry_parm,
-				  int_size_in_bytes (TREE_TYPE (parm)));
+	  /* Handle calls that pass values in multiple non-contiguous
+	     locations.  The Irix 6 ABI has examples of this.  */
+	  if (GET_CODE (entry_parm) == PARALLEL)
+	    emit_group_store (validize_mem (stack_parm), entry_parm,
+			      int_size_in_bytes (TREE_TYPE (parm)));
 
-	      else
-		move_block_from_reg (REGNO (entry_parm),
-				     validize_mem (stack_parm), nregs,
-				     int_size_in_bytes (TREE_TYPE (parm)));
+	  else
+	    move_block_from_reg (REGNO (entry_parm), validize_mem (stack_parm),
+				 partial, int_size_in_bytes (TREE_TYPE (parm)));
 
-	      entry_parm = stack_parm;
-	    }
+	  entry_parm = stack_parm;
 	}
-#endif
 
       /* If we didn't decide this parm came in a register,
 	 by default it came on the stack.  */
@@ -4593,9 +4693,9 @@ assign_parms (fndecl)
 #endif
 	  )
 	{
-	  stack_args_size.constant += arg_size.constant;
-	  if (arg_size.var)
-	    ADD_PARM_SIZE (stack_args_size, arg_size.var);
+	  stack_args_size.constant += locate.size.constant;
+	  if (locate.size.var)
+	    ADD_PARM_SIZE (stack_args_size, locate.size.var);
 	}
       else
 	/* No stack slot was pushed for this parm.  */
@@ -4619,7 +4719,7 @@ assign_parms (fndecl)
 
       /* If parm was passed in memory, and we need to convert it on entry,
 	 don't store it back in that same slot.  */
-      if (entry_parm != 0
+      if (entry_parm == stack_parm
 	  && nominal_mode != BLKmode && nominal_mode != passed_mode)
 	stack_parm = 0;
 
@@ -4942,7 +5042,7 @@ assign_parms (fndecl)
 	      && ! did_conversion
 	      && stack_parm != 0
 	      && GET_CODE (stack_parm) == MEM
-	      && stack_offset.var == 0
+	      && locate.offset.var == 0
 	      && reg_mentioned_p (virtual_incoming_args_rtx,
 				  XEXP (stack_parm, 0)))
 	    {
@@ -5028,7 +5128,8 @@ assign_parms (fndecl)
 		{
 		  stack_parm
 		    = assign_stack_local (GET_MODE (entry_parm),
-					  GET_MODE_SIZE (GET_MODE (entry_parm)), 0);
+					  GET_MODE_SIZE (GET_MODE (entry_parm)),
+					  0);
 		  set_mem_attributes (stack_parm, parm, 1);
 		}
 
@@ -5199,8 +5300,11 @@ promoted_input_arg (regno, pmode, punsignedp)
    INITIAL_OFFSET_PTR points to the current offset into the stacked
    arguments.
 
-   The starting offset and size for this parm are returned in *OFFSET_PTR
-   and *ARG_SIZE_PTR, respectively.
+   The starting offset and size for this parm are returned in
+   LOCATE->OFFSET and LOCATE->SIZE, respectively.  When IN_REGS is
+   nonzero, the offset is that of stack slot, which is returned in
+   LOCATE->SLOT_OFFSET.  LOCATE->ALIGNMENT_PAD is the amount of
+   padding required from the initial offset ptr to the stack slot.
 
    IN_REGS is nonzero if the argument will be passed in registers.  It will
    never be set if REG_PARM_STACK_SPACE is not defined.
@@ -5217,45 +5321,39 @@ promoted_input_arg (regno, pmode, punsignedp)
    initial offset is not affected by this rounding, while the size always
    is and the starting offset may be.  */
 
-/*  offset_ptr will be negative for ARGS_GROW_DOWNWARD case;
-    initial_offset_ptr is positive because locate_and_pad_parm's
+/*  LOCATE->OFFSET will be negative for ARGS_GROW_DOWNWARD case;
+    INITIAL_OFFSET_PTR is positive because locate_and_pad_parm's
     callers pass in the total size of args so far as
-    initial_offset_ptr. arg_size_ptr is always positive.  */
+    INITIAL_OFFSET_PTR.  LOCATE->SIZE is always positive.  */
 
 void
-locate_and_pad_parm (passed_mode, type, in_regs, fndecl,
-		     initial_offset_ptr, offset_ptr, arg_size_ptr,
-		     alignment_pad)
+locate_and_pad_parm (passed_mode, type, in_regs, partial, fndecl,
+		     initial_offset_ptr, locate)
      enum machine_mode passed_mode;
      tree type;
-     int in_regs ATTRIBUTE_UNUSED;
+     int in_regs;
+     int partial;
      tree fndecl ATTRIBUTE_UNUSED;
      struct args_size *initial_offset_ptr;
-     struct args_size *offset_ptr;
-     struct args_size *arg_size_ptr;
-     struct args_size *alignment_pad;
-
+     struct locate_and_pad_arg_data *locate;
 {
-  tree sizetree
-    = type ? size_in_bytes (type) : size_int (GET_MODE_SIZE (passed_mode));
-  enum direction where_pad = FUNCTION_ARG_PADDING (passed_mode, type);
-  int boundary = FUNCTION_ARG_BOUNDARY (passed_mode, type);
-#ifdef ARGS_GROW_DOWNWARD
-  tree s2 = sizetree;
-#endif
+  tree sizetree;
+  enum direction where_pad;
+  int boundary;
+  int reg_parm_stack_space = 0;
+  int part_size_in_regs;
 
 #ifdef REG_PARM_STACK_SPACE
+#ifdef MAYBE_REG_PARM_STACK_SPACE
+  reg_parm_stack_space = MAYBE_REG_PARM_STACK_SPACE;
+#else
+  reg_parm_stack_space = REG_PARM_STACK_SPACE (fndecl);
+#endif
+
   /* If we have found a stack parm before we reach the end of the
      area reserved for registers, skip that area.  */
   if (! in_regs)
     {
-      int reg_parm_stack_space = 0;
-
-#ifdef MAYBE_REG_PARM_STACK_SPACE
-      reg_parm_stack_space = MAYBE_REG_PARM_STACK_SPACE;
-#else
-      reg_parm_stack_space = REG_PARM_STACK_SPACE (fndecl);
-#endif
       if (reg_parm_stack_space > 0)
 	{
 	  if (initial_offset_ptr->var)
@@ -5271,54 +5369,56 @@ locate_and_pad_parm (passed_mode, type, in_regs, fndecl,
     }
 #endif /* REG_PARM_STACK_SPACE */
 
-  arg_size_ptr->var = 0;
-  arg_size_ptr->constant = 0;
-  alignment_pad->var = 0;
-  alignment_pad->constant = 0;
+  part_size_in_regs = 0;
+  if (reg_parm_stack_space == 0)
+    part_size_in_regs = ((partial * UNITS_PER_WORD)
+			 / (PARM_BOUNDARY / BITS_PER_UNIT)
+			 * (PARM_BOUNDARY / BITS_PER_UNIT));
+
+  sizetree
+    = type ? size_in_bytes (type) : size_int (GET_MODE_SIZE (passed_mode));
+  where_pad = FUNCTION_ARG_PADDING (passed_mode, type);
+  boundary = FUNCTION_ARG_BOUNDARY (passed_mode, type);
 
 #ifdef ARGS_GROW_DOWNWARD
+  locate->slot_offset.constant = -initial_offset_ptr->constant;
   if (initial_offset_ptr->var)
-    {
-      offset_ptr->constant = 0;
-      offset_ptr->var = size_binop (MINUS_EXPR, ssize_int (0),
-				    initial_offset_ptr->var);
-    }
-  else
-    {
-      offset_ptr->constant = -initial_offset_ptr->constant;
-      offset_ptr->var = 0;
-    }
+    locate->slot_offset.var = size_binop (MINUS_EXPR, ssize_int (0),
+					  initial_offset_ptr->var);
 
-  if (where_pad != none
-      && (!host_integerp (sizetree, 1)
-	  || (tree_low_cst (sizetree, 1) * BITS_PER_UNIT) % PARM_BOUNDARY))
-    s2 = round_up (s2, PARM_BOUNDARY / BITS_PER_UNIT);
-  SUB_PARM_SIZE (*offset_ptr, s2);
+  {
+    tree s2 = sizetree;
+    if (where_pad != none
+	&& (!host_integerp (sizetree, 1)
+	    || (tree_low_cst (sizetree, 1) * BITS_PER_UNIT) % PARM_BOUNDARY))
+      s2 = round_up (s2, PARM_BOUNDARY / BITS_PER_UNIT);
+    SUB_PARM_SIZE (locate->slot_offset, s2);
+  }
+
+  locate->slot_offset.constant += part_size_in_regs;
 
   if (!in_regs
 #ifdef REG_PARM_STACK_SPACE
       || REG_PARM_STACK_SPACE (fndecl) > 0
 #endif
      )
-    pad_to_arg_alignment (offset_ptr, boundary, alignment_pad);
+    pad_to_arg_alignment (&locate->slot_offset, boundary,
+			  &locate->alignment_pad);
 
+  locate->size.constant = (-initial_offset_ptr->constant
+			   - locate->slot_offset.constant);
   if (initial_offset_ptr->var)
-    arg_size_ptr->var = size_binop (MINUS_EXPR,
-				    size_binop (MINUS_EXPR,
-						ssize_int (0),
-						initial_offset_ptr->var),
-				    offset_ptr->var);
+    locate->size.var = size_binop (MINUS_EXPR,
+				   size_binop (MINUS_EXPR,
+					       ssize_int (0),
+					       initial_offset_ptr->var),
+				   locate->slot_offset.var);
 
-  else
-    arg_size_ptr->constant = (-initial_offset_ptr->constant
-			      - offset_ptr->constant);
-
-  /* Pad_below needs the pre-rounded size to know how much to pad below.
-     We only pad parameters which are not in registers as they have their
-     padding done elsewhere.  */
-  if (where_pad == downward
-      && !in_regs)
-    pad_below (offset_ptr, passed_mode, sizetree);
+  /* Pad_below needs the pre-rounded size to know how much to pad
+     below.  */
+  locate->offset = locate->slot_offset;
+  if (where_pad == downward)
+    pad_below (&locate->offset, passed_mode, sizetree);
 
 #else /* !ARGS_GROW_DOWNWARD */
   if (!in_regs
@@ -5326,8 +5426,9 @@ locate_and_pad_parm (passed_mode, type, in_regs, fndecl,
       || REG_PARM_STACK_SPACE (fndecl) > 0
 #endif
       )
-    pad_to_arg_alignment (initial_offset_ptr, boundary, alignment_pad);
-  *offset_ptr = *initial_offset_ptr;
+    pad_to_arg_alignment (initial_offset_ptr, boundary,
+			  &locate->alignment_pad);
+  locate->slot_offset = *initial_offset_ptr;
 
 #ifdef PUSH_ROUNDING
   if (passed_mode != BLKmode)
@@ -5336,18 +5437,18 @@ locate_and_pad_parm (passed_mode, type, in_regs, fndecl,
 
   /* Pad_below needs the pre-rounded size to know how much to pad below
      so this must be done before rounding up.  */
-  if (where_pad == downward
-    /* However, BLKmode args passed in regs have their padding done elsewhere.
-       The stack slot must be able to hold the entire register.  */
-      && !(in_regs && passed_mode == BLKmode))
-    pad_below (offset_ptr, passed_mode, sizetree);
+  locate->offset = locate->slot_offset;
+  if (where_pad == downward)
+    pad_below (&locate->offset, passed_mode, sizetree);
 
   if (where_pad != none
       && (!host_integerp (sizetree, 1)
 	  || (tree_low_cst (sizetree, 1) * BITS_PER_UNIT) % PARM_BOUNDARY))
     sizetree = round_up (sizetree, PARM_BOUNDARY / BITS_PER_UNIT);
 
-  ADD_PARM_SIZE (*arg_size_ptr, sizetree);
+  ADD_PARM_SIZE (locate->size, sizetree);
+
+  locate->size.constant -= part_size_in_regs;
 #endif /* ARGS_GROW_DOWNWARD */
 }
 
@@ -5386,7 +5487,8 @@ pad_to_arg_alignment (offset_ptr, boundary, alignment_pad)
 #endif
 	      (ARGS_SIZE_TREE (*offset_ptr),
 	       boundary / BITS_PER_UNIT);
-	  offset_ptr->constant = 0; /*?*/
+	  /* ARGS_SIZE_TREE includes constant term.  */
+	  offset_ptr->constant = 0;
 	  if (boundary > PARM_BOUNDARY && boundary > STACK_BOUNDARY)
 	    alignment_pad->var = size_binop (MINUS_EXPR, offset_ptr->var,
 					     save_var);
@@ -5959,10 +6061,16 @@ reorder_blocks_1 (insns, current_block, p_block_stack)
 
 	      BLOCK_SUBBLOCKS (block) = 0;
 	      TREE_ASM_WRITTEN (block) = 1;
-	      BLOCK_SUPERCONTEXT (block) = current_block;
-	      BLOCK_CHAIN (block) = BLOCK_SUBBLOCKS (current_block);
-	      BLOCK_SUBBLOCKS (current_block) = block;
-	      current_block = block;
+	      /* When there's only one block for the entire function,
+		 current_block == block and we mustn't do this, it
+		 will cause infinite recursion.  */
+	      if (block != current_block)
+		{
+		  BLOCK_SUPERCONTEXT (block) = current_block;
+		  BLOCK_CHAIN (block) = BLOCK_SUBBLOCKS (current_block);
+		  BLOCK_SUBBLOCKS (current_block) = block;
+		  current_block = block;
+		}
 	      VARRAY_PUSH_TREE (*p_block_stack, block);
 	    }
 	  else if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_BLOCK_END)
@@ -6423,8 +6531,7 @@ expand_main_function ()
 #endif
 
 #ifndef HAS_INIT_SECTION
-  emit_library_call (gen_rtx_SYMBOL_REF (Pmode, NAME__MAIN), LCT_NORMAL,
-		     VOIDmode, 0);
+  emit_library_call (init_one_libfunc (NAME__MAIN), LCT_NORMAL, VOIDmode, 0);
 #endif
 }
 
@@ -6849,13 +6956,8 @@ expand_function_end (filename, line, end_bindings)
 	  }
     }
 
-  /* Warn about unused parms if extra warnings were specified.  */
-  /* Either ``-Wextra -Wunused'' or ``-Wunused-parameter'' enables this
-     warning.  WARN_UNUSED_PARAMETER is negative when set by
-     -Wunused.  Note that -Wall implies -Wunused, so ``-Wall -Wextra'' will
-     also give these warnings.  */
-  if (warn_unused_parameter > 0
-      || (warn_unused_parameter < 0 && extra_warnings))
+  /* Possibly warn about unused parameters.  */
+  if (warn_unused_parameter)
     {
       tree decl;
 

@@ -791,7 +791,7 @@ ffecom_subscript_check_ (tree array, tree element, int dim, int total_dims,
 		     arg3);
 
     arg4 = convert (ffecom_f2c_ftnint_type_node,
-		    build_int_2 (lineno, 0));
+		    build_int_2 (input_line, 0));
 
     arg1 = build_tree_list (NULL_TREE, arg1);
     arg2 = build_tree_list (NULL_TREE, arg2);
@@ -1287,7 +1287,7 @@ ffecom_build_complex_constant_ (tree type, tree realpart, tree imagpart)
     {
       bothparts = build_tree_list (TYPE_FIELDS (type), realpart);
       TREE_CHAIN (bothparts) = build_tree_list (TREE_CHAIN (TYPE_FIELDS (type)), imagpart);
-      bothparts = build (CONSTRUCTOR, type, NULL_TREE, bothparts);
+      bothparts = build_constructor (type, bothparts);
     }
   else
     {
@@ -2582,12 +2582,12 @@ ffecom_do_entry_ (ffesymbol fn, int entrynum)
 				   CHARACTER. */
   bool cmplxfunc;		/* Use f2c way of returning COMPLEX. */
   bool multi;			/* Master fn has multiple return types. */
-  bool altreturning = FALSE;	/* This entry point has alternate returns. */
-  int old_lineno = lineno;
-  const char *old_input_filename = input_filename;
+  bool altreturning = FALSE;	/* This entry point has alternate
+				   returns. */
+  location_t old_loc = input_location;
 
   input_filename = ffesymbol_where_filename (fn);
-  lineno = ffesymbol_where_filelinenum (fn);
+  input_line = ffesymbol_where_filelinenum (fn);
 
   ffecom_doing_entry_ = TRUE;	/* Don't bother with array dimensions. */
 
@@ -2917,9 +2917,8 @@ ffecom_do_entry_ (ffesymbol fn, int entrynum)
 
   finish_function (0);
 
-  lineno = old_lineno;
-  input_filename = old_input_filename;
-
+  input_location = old_loc;
+  
   ffecom_doing_entry_ = FALSE;
 }
 
@@ -3027,7 +3026,7 @@ ffecom_expr_ (ffebld expr, tree dest_tree, ffebld dest,
 	   build_range_type (ffecom_integer_type_node,
 			     ffecom_integer_zero_node,
 			     item));
-      list = build (CONSTRUCTOR, item, NULL_TREE, list);
+      list = build_constructor (item, list);
       TREE_CONSTANT (list) = 1;
       TREE_STATIC (list) = 1;
       return list;
@@ -3075,7 +3074,7 @@ ffecom_expr_ (ffebld expr, tree dest_tree, ffebld dest,
 	   build_range_type (ffecom_integer_type_node,
 			     ffecom_integer_zero_node,
 			     item));
-      list = build (CONSTRUCTOR, item, NULL_TREE, list);
+      list = build_constructor (item, list);
       TREE_CONSTANT (list) = 1;
       TREE_STATIC (list) = 1;
       return list;
@@ -6110,8 +6109,7 @@ ffecom_gen_sfuncdef_ (ffesymbol s, ffeinfoBasictype bt, ffeinfoKindtype kt)
   tree result;
   bool charfunc = (bt == FFEINFO_basictypeCHARACTER);
   static bool recurse = FALSE;
-  int old_lineno = lineno;
-  const char *old_input_filename = input_filename;
+  location_t old_loc = input_location;
 
   ffecom_nested_entry_ = s;
 
@@ -6124,7 +6122,7 @@ ffecom_gen_sfuncdef_ (ffesymbol s, ffeinfoBasictype bt, ffeinfoKindtype kt)
      see how it works at this point.  */
 
   input_filename = ffesymbol_where_filename (s);
-  lineno = ffesymbol_where_filelinenum (s);
+  input_line = ffesymbol_where_filelinenum (s);
 
   /* Pretransform the expression so any newly discovered things belong to the
      outer program unit, not to the statement function. */
@@ -6221,8 +6219,7 @@ ffecom_gen_sfuncdef_ (ffesymbol s, ffeinfoBasictype bt, ffeinfoKindtype kt)
 
   recurse = FALSE;
 
-  lineno = old_lineno;
-  input_filename = old_input_filename;
+  input_location = old_loc;
 
   ffecom_nested_entry_ = NULL;
 
@@ -6302,7 +6299,7 @@ ffecom_init_zero_ (tree decl)
     init = convert (type, integer_zero_node);
   else if (!incremental)
     {
-      init = build (CONSTRUCTOR, type, NULL_TREE, NULL_TREE);
+      init = build_constructor (type, NULL_TREE);
       TREE_CONSTANT (init) = 1;
       TREE_STATIC (init) = 1;
     }
@@ -7080,14 +7077,13 @@ ffecom_start_progunit_ ()
   && (ffecom_primary_entry_kind_ == FFEINFO_kindFUNCTION)
   && (ffecom_master_bt_ == FFEINFO_basictypeNONE);
   bool main_program = FALSE;
-  int old_lineno = lineno;
-  const char *old_input_filename = input_filename;
+  location_t old_loc = input_location;
 
   assert (fn != NULL);
   assert (ffesymbol_hook (fn).decl_tree == NULL_TREE);
 
   input_filename = ffesymbol_where_filename (fn);
-  lineno = ffesymbol_where_filelinenum (fn);
+  input_line = ffesymbol_where_filelinenum (fn);
 
   switch (ffecom_primary_entry_kind_)
     {
@@ -7269,8 +7265,7 @@ ffecom_start_progunit_ ()
   /* Disallow temp vars at this level.  */
   current_binding_level->prep_state = 2;
 
-  lineno = old_lineno;
-  input_filename = old_input_filename;
+  input_location = old_loc;
 
   /* This handles any symbols still untransformed, in case -g specified.
      This used to be done in ffecom_finish_progunit, but it turns out to
@@ -7298,9 +7293,8 @@ ffecom_sym_transform_ (ffesymbol s)
   ffeinfoBasictype bt;
   ffeinfoKindtype kt;
   ffeglobal g;
-  int old_lineno = lineno;
-  const char *old_input_filename = input_filename;
-
+  location_t old_loc = input_location;
+  
   /* Must ensure special ASSIGN variables are declared at top of outermost
      block, else they'll end up in the innermost block when their first
      ASSIGN is seen, which leaves them out of scope when they're the
@@ -7318,14 +7312,14 @@ ffecom_sym_transform_ (ffesymbol s)
   if (ffesymbol_sfdummyparent (s) == NULL)
     {
       input_filename = ffesymbol_where_filename (s);
-      lineno = ffesymbol_where_filelinenum (s);
+      input_line = ffesymbol_where_filelinenum (s);
     }
   else
     {
       ffesymbol sf = ffesymbol_sfdummyparent (s);
 
       input_filename = ffesymbol_where_filename (sf);
-      lineno = ffesymbol_where_filelinenum (sf);
+      input_line = ffesymbol_where_filelinenum (sf);
     }
 
   bt = ffeinfo_basictype (ffebld_info (s));
@@ -8294,8 +8288,7 @@ ffecom_sym_transform_ (ffesymbol s)
   ffesymbol_hook (s).length_tree = tlen;
   ffesymbol_hook (s).addr = addr;
 
-  lineno = old_lineno;
-  input_filename = old_input_filename;
+  input_location = old_loc;
 
   return s;
 }
@@ -8312,20 +8305,19 @@ static ffesymbol
 ffecom_sym_transform_assign_ (ffesymbol s)
 {
   tree t;			/* Transformed thingy. */
-  int old_lineno = lineno;
-  const char *old_input_filename = input_filename;
+  location_t old_loc = input_location;
 
   if (ffesymbol_sfdummyparent (s) == NULL)
     {
       input_filename = ffesymbol_where_filename (s);
-      lineno = ffesymbol_where_filelinenum (s);
+      input_line = ffesymbol_where_filelinenum (s);
     }
   else
     {
       ffesymbol sf = ffesymbol_sfdummyparent (s);
 
       input_filename = ffesymbol_where_filename (sf);
-      lineno = ffesymbol_where_filelinenum (sf);
+      input_line = ffesymbol_where_filelinenum (sf);
     }
 
   assert (!ffecom_transform_only_dummies_);
@@ -8375,8 +8367,7 @@ ffecom_sym_transform_assign_ (ffesymbol s)
 
   ffesymbol_hook (s).assign_tree = t;
 
-  lineno = old_lineno;
-  input_filename = old_input_filename;
+  input_location = old_loc;
 
   return s;
 }
@@ -8761,7 +8752,7 @@ ffecom_transform_namelist_ (ffesymbol s)
   TREE_CHAIN (TREE_CHAIN (nmlinits))
     = build_tree_list ((field = TREE_CHAIN (field)), nvarsinit);
 
-  nmlinits = build (CONSTRUCTOR, nmltype, NULL_TREE, nmlinits);
+  nmlinits = build_constructor (nmltype, nmlinits);
   TREE_CONSTANT (nmlinits) = 1;
   TREE_STATIC (nmlinits) = 1;
 
@@ -9296,7 +9287,7 @@ ffecom_vardesc_ (ffebld expr)
       TREE_CHAIN (TREE_CHAIN (TREE_CHAIN (varinits)))
 	= build_tree_list ((field = TREE_CHAIN (field)), typeinit);
 
-      varinits = build (CONSTRUCTOR, vardesctype, NULL_TREE, varinits);
+      varinits = build_constructor (vardesctype, varinits);
       TREE_CONSTANT (varinits) = 1;
       TREE_STATIC (varinits) = 1;
 
@@ -9341,7 +9332,7 @@ ffecom_vardesc_array_ (ffesymbol s)
 			   build_range_type (integer_type_node,
 					     integer_one_node,
 					     build_int_2 (i, 0)));
-  list = build (CONSTRUCTOR, item, NULL_TREE, list);
+  list = build_constructor (item, list);
   TREE_CONSTANT (list) = 1;
   TREE_STATIC (list) = 1;
 
@@ -9447,7 +9438,7 @@ ffecom_vardesc_dims_ (ffesymbol s)
 					       build_int_2
 					       ((int) ffesymbol_rank (s)
 						+ 2, 0)));
-    list = build (CONSTRUCTOR, item, NULL_TREE, numdim);
+    list = build_constructor (item, numdim);
     TREE_CONSTANT (list) = 1;
     TREE_STATIC (list) = 1;
 
@@ -9582,7 +9573,7 @@ ffecom_2 (enum tree_code code, tree type, tree node1,
     case COMPLEX_EXPR:
       item = build_tree_list (TYPE_FIELDS (type), node1);
       TREE_CHAIN (item) = build_tree_list (TREE_CHAIN (TYPE_FIELDS (type)), node2);
-      item = build (CONSTRUCTOR, type, NULL_TREE, item);
+      item = build_constructor (type, item);
       break;
 
     case PLUS_EXPR:
@@ -13115,7 +13106,7 @@ ffecom_which_entrypoint_decl ()
 static void
 bison_rule_pushlevel_ ()
 {
-  emit_line_note (input_filename, lineno);
+  emit_line_note (input_filename, input_line);
   pushlevel (0);
   clear_last_expr ();
   expand_start_bindings (0);
@@ -13131,7 +13122,7 @@ bison_rule_compstmt_ ()
   if (! keep)
     current_binding_level->names = NULL_TREE;
 
-  emit_line_note (input_filename, lineno);
+  emit_line_note (input_filename, input_line);
   expand_end_bindings (getdecls (), keep, 0);
   t = poplevel (keep, 1, 0);
 
@@ -13334,6 +13325,10 @@ duplicate_decls (tree newdecl, tree olddecl)
 	{
 	  DECL_STATIC_CONSTRUCTOR(newdecl) |= DECL_STATIC_CONSTRUCTOR(olddecl);
 	  DECL_STATIC_DESTRUCTOR (newdecl) |= DECL_STATIC_DESTRUCTOR (olddecl);
+	  TREE_THIS_VOLATILE (newdecl) |= TREE_THIS_VOLATILE (olddecl);
+	  TREE_READONLY (newdecl) |= TREE_READONLY (olddecl);
+	  DECL_IS_MALLOC (newdecl) |= DECL_IS_MALLOC (olddecl);
+	  DECL_IS_PURE (newdecl) |= DECL_IS_PURE (olddecl);
 	}
     }
   /* If cannot merge, then use the new type and qualifiers,
@@ -13581,7 +13576,7 @@ finish_function (int nested)
 
       /* Obey `register' declarations if `setjmp' is called in this fn.  */
       /* Generate rtl for function exit.  */
-      expand_function_end (input_filename, lineno, 0);
+      expand_function_end (input_filename, input_line, 0);
 
       /* If this is a nested function, protect the local variables in the stack
 	 above us from being collected while we're compiling this function.  */
@@ -13862,7 +13857,7 @@ store_parm_decls (int is_main_program UNUSED)
 
   /* Initialize the RTL code for the function.  */
 
-  init_function_start (fndecl, input_filename, lineno);
+  init_function_start (fndecl, input_filename, input_line);
 
   /* Set up parameters and prepare for return, for the function.  */
 

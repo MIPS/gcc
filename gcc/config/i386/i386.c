@@ -668,10 +668,6 @@ int const svr4_dbx_register_map[FIRST_PSEUDO_REGISTER] =
 rtx ix86_compare_op0 = NULL_RTX;
 rtx ix86_compare_op1 = NULL_RTX;
 
-/* The encoding characters for the four TLS models present in ELF.  */
-
-static char const tls_model_chars[] = " GLil";
-
 #define MAX_386_STACK_LOCALS 3
 /* Size of the register save area.  */
 #define X86_64_VARARGS_SIZE (REGPARM_MAX * UNITS_PER_WORD + SSE_REGPARM_MAX * 16)
@@ -844,10 +840,6 @@ static int ix86_decompose_address PARAMS ((rtx, struct ix86_address *));
 static int ix86_address_cost PARAMS ((rtx));
 static bool ix86_cannot_force_const_mem PARAMS ((rtx));
 static rtx ix86_delegitimize_address PARAMS ((rtx));
-
-static void ix86_encode_section_info PARAMS ((tree, int)) ATTRIBUTE_UNUSED;
-static const char *ix86_strip_name_encoding PARAMS ((const char *))
-     ATTRIBUTE_UNUSED;
 
 struct builtin_description;
 static rtx ix86_expand_sse_comi PARAMS ((const struct builtin_description *,
@@ -3497,9 +3489,7 @@ local_symbolic_operand (op, mode)
   if (GET_CODE (op) != SYMBOL_REF)
     return 0;
 
-  /* These we've been told are local by varasm and encode_section_info
-     respectively.  */
-  if (CONSTANT_POOL_ADDRESS_P (op) || SYMBOL_REF_FLAG (op))
+  if (SYMBOL_REF_LOCAL_P (op))
     return 1;
 
   /* There is, however, a not insubstantial body of code in the rest of
@@ -3514,36 +3504,26 @@ local_symbolic_operand (op, mode)
   return 0;
 }
 
-/* Test for various thread-local symbols.  See ix86_encode_section_info. */
+/* Test for various thread-local symbols.  */
 
 int
 tls_symbolic_operand (op, mode)
      register rtx op;
      enum machine_mode mode ATTRIBUTE_UNUSED;
 {
-  const char *symbol_str;
-
   if (GET_CODE (op) != SYMBOL_REF)
     return 0;
-  symbol_str = XSTR (op, 0);
-
-  if (symbol_str[0] != '%')
-    return 0;
-  return strchr (tls_model_chars, symbol_str[1]) - tls_model_chars;
+  return SYMBOL_REF_TLS_MODEL (op);
 }
 
-static int
+static inline int
 tls_symbolic_operand_1 (op, kind)
      rtx op;
      enum tls_model kind;
 {
-  const char *symbol_str;
-
   if (GET_CODE (op) != SYMBOL_REF)
     return 0;
-  symbol_str = XSTR (op, 0);
-
-  return symbol_str[0] == '%' && symbol_str[1] == tls_model_chars[kind];
+  return SYMBOL_REF_TLS_MODEL (op) == kind;
 }
 
 int
@@ -5674,6 +5654,13 @@ legitimate_constant_p (x)
 	  && tls_symbolic_operand (XEXP (inner, 0), Pmode))
 	return false;
 
+      if (GET_CODE (inner) == PLUS)
+	{
+	  if (GET_CODE (XEXP (inner, 1)) != CONST_INT)
+	    return false;
+	  inner = XEXP (inner, 0);
+	}
+
       /* Only some unspecs are valid as "constants".  */
       if (GET_CODE (inner) == UNSPEC)
 	switch (XINT (inner, 1))
@@ -5766,8 +5753,7 @@ legitimate_pic_address_disp_p (disp)
 	return 0;
       if (GET_CODE (disp) == SYMBOL_REF
 	  && ix86_cmodel == CM_SMALL_PIC
-	  && (CONSTANT_POOL_ADDRESS_P (disp)
-	      || SYMBOL_REF_FLAG (disp)))
+	  && SYMBOL_REF_LOCAL_P (disp))
 	return 1;
       if (GET_CODE (disp) == LABEL_REF)
 	return 1;
@@ -5775,8 +5761,7 @@ legitimate_pic_address_disp_p (disp)
 	  && GET_CODE (XEXP (disp, 0)) == PLUS
 	  && ((GET_CODE (XEXP (XEXP (disp, 0), 0)) == SYMBOL_REF
 	       && ix86_cmodel == CM_SMALL_PIC
-	       && (CONSTANT_POOL_ADDRESS_P (XEXP (XEXP (disp, 0), 0))
-		   || SYMBOL_REF_FLAG (XEXP (XEXP (disp, 0), 0))))
+	       && SYMBOL_REF_LOCAL_P (XEXP (XEXP (disp, 0), 0)))
 	      || GET_CODE (XEXP (XEXP (disp, 0), 0)) == LABEL_REF)
 	  && GET_CODE (XEXP (XEXP (disp, 0), 1)) == CONST_INT
 	  && INTVAL (XEXP (XEXP (disp, 0), 1)) < 16*1024*1024
@@ -5833,7 +5818,10 @@ legitimate_pic_address_disp_p (disp)
 	return false;
       return GET_CODE (XVECEXP (disp, 0, 0)) == SYMBOL_REF;
     case UNSPEC_GOTOFF:
-      return local_symbolic_operand (XVECEXP (disp, 0, 0), Pmode);
+      if (GET_CODE (XVECEXP (disp, 0, 0)) == SYMBOL_REF
+	  || GET_CODE (XVECEXP (disp, 0, 0)) == LABEL_REF)
+        return local_symbolic_operand (XVECEXP (disp, 0, 0), Pmode);
+      return false;
     case UNSPEC_GOTTPOFF:
     case UNSPEC_GOTNTPOFF:
     case UNSPEC_INDNTPOFF:
@@ -6114,7 +6102,7 @@ ix86_GOT_alias_set ()
 
    2. Static data references, constant pool addresses, and code labels
       compute the address as an offset from the GOT, whose base is in
-      the PIC reg.  Static data objects have SYMBOL_REF_FLAG set to
+      the PIC reg.  Static data objects have SYMBOL_FLAG_LOCAL set to
       differentiate them from global data objects.  The returned
       address is the PIC reg + an unspec constant.
 
@@ -6146,7 +6134,15 @@ legitimize_pic_address (orig, reg)
 
       if (reload_in_progress)
 	regs_ever_live[PIC_OFFSET_TABLE_REGNUM] = 1;
-      new = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, addr), UNSPEC_GOTOFF);
+      if (GET_CODE (addr) == CONST)
+	addr = XEXP (addr, 0);
+      if (GET_CODE (addr) == PLUS)
+	  {
+            new = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, XEXP (addr, 0)), UNSPEC_GOTOFF);
+	    new = gen_rtx_PLUS (Pmode, new, XEXP (addr, 1));
+	  }
+	else
+          new = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, addr), UNSPEC_GOTOFF);
       new = gen_rtx_CONST (Pmode, new);
       new = gen_rtx_PLUS (Pmode, pic_offset_table_rtx, new);
 
@@ -6263,85 +6259,6 @@ legitimize_pic_address (orig, reg)
 	}
     }
   return new;
-}
-
-static void
-ix86_encode_section_info (decl, first)
-     tree decl;
-     int first ATTRIBUTE_UNUSED;
-{
-  bool local_p = (*targetm.binds_local_p) (decl);
-  rtx rtl, symbol;
-
-  rtl = DECL_P (decl) ? DECL_RTL (decl) : TREE_CST_RTL (decl);
-  if (GET_CODE (rtl) != MEM)
-    return;
-  symbol = XEXP (rtl, 0);
-  if (GET_CODE (symbol) != SYMBOL_REF)
-    return;
-
-  /* For basic x86, if using PIC, mark a SYMBOL_REF for a non-global
-     symbol so that we may access it directly in the GOT.  */
-
-  if (flag_pic)
-    SYMBOL_REF_FLAG (symbol) = local_p;
-
-  /* For ELF, encode thread-local data with %[GLil] for "global dynamic",
-     "local dynamic", "initial exec" or "local exec" TLS models
-     respectively.  */
-
-  if (TREE_CODE (decl) == VAR_DECL && DECL_THREAD_LOCAL (decl))
-    {
-      const char *symbol_str;
-      char *newstr;
-      size_t len;
-      enum tls_model kind = decl_tls_model (decl);
-
-      if (TARGET_64BIT && ! flag_pic)
-	{
-	  /* x86-64 doesn't allow non-pic code for shared libraries,
-	     so don't generate GD/LD TLS models for non-pic code.  */
-	  switch (kind)
-	    {
-	    case TLS_MODEL_GLOBAL_DYNAMIC:
-	      kind = TLS_MODEL_INITIAL_EXEC; break;
-	    case TLS_MODEL_LOCAL_DYNAMIC:
-	      kind = TLS_MODEL_LOCAL_EXEC; break;
-	    default:
-	      break;
-	    }
-	}
-
-      symbol_str = XSTR (symbol, 0);
-
-      if (symbol_str[0] == '%')
-	{
-	  if (symbol_str[1] == tls_model_chars[kind])
-	    return;
-	  symbol_str += 2;
-	}
-      len = strlen (symbol_str) + 1;
-      newstr = alloca (len + 2);
-
-      newstr[0] = '%';
-      newstr[1] = tls_model_chars[kind];
-      memcpy (newstr + 2, symbol_str, len);
-
-      XSTR (symbol, 0) = ggc_alloc_string (newstr, len + 2 - 1);
-    }
-}
-
-/* Undo the above when printing symbol names.  */
-
-static const char *
-ix86_strip_name_encoding (str)
-     const char *str;
-{
-  if (str[0] == '%')
-    str += 2;
-  if (str [0] == '*')
-    str += 1;
-  return str;
 }
 
 /* Load the thread pointer into a register.  */
@@ -6686,7 +6603,7 @@ output_pic_addr_const (file, x, code)
 
     case SYMBOL_REF:
       assemble_name (file, XSTR (x, 0));
-      if (!TARGET_MACHO && code == 'P' && ! SYMBOL_REF_FLAG (x))
+      if (!TARGET_MACHO && code == 'P' && ! SYMBOL_REF_LOCAL_P (x))
 	fputs ("@PLT", file);
       break;
 
@@ -11726,7 +11643,7 @@ ix86_expand_call (retval, fnaddr, callarg1, callarg2, pop, sibcall)
   /* Static functions and indirect calls don't need the pic register.  */
   if (! TARGET_64BIT && flag_pic
       && GET_CODE (XEXP (fnaddr, 0)) == SYMBOL_REF
-      && ! SYMBOL_REF_FLAG (XEXP (fnaddr, 0)))
+      && ! SYMBOL_REF_LOCAL_P (XEXP (fnaddr, 0)))
     use_reg (&use, pic_offset_table_rtx);
 
   if (TARGET_64BIT && INTVAL (callarg2) >= 0)
@@ -12208,13 +12125,21 @@ ix86_adjust_cost (insn, link, dep_insn, cost)
       if ((memory == MEMORY_LOAD || memory == MEMORY_BOTH)
 	  && !ix86_agi_dependant (insn, dep_insn, insn_type))
  	{
-	  /* Claim moves to take one cycle, as core can issue one load
-	     at time and the next load can start cycle later.  */
-	  if (dep_insn_type == TYPE_IMOV
-	      || dep_insn_type == TYPE_FMOV)
-	    cost = 0;
-	  else if (cost >= 3)
-	    cost -= 3;
+	  enum attr_unit unit = get_attr_unit (insn);
+	  int loadcost = 3;
+
+	  /* Because of the difference between the length of integer and
+	     floating unit pipeline preparation stages, the memory operands
+	     for floating point are cheaper. 
+
+	     ??? For Athlon it the difference is most propbably 2.  */
+	  if (unit == UNIT_INTEGER || unit == UNIT_UNKNOWN)
+	    loadcost = 3;
+	  else
+	    loadcost = TARGET_ATHLON ? 2 : 0;
+
+	  if (cost >= loadcost)
+	    cost -= loadcost;
 	  else
 	    cost = 0;
 	}
@@ -14929,7 +14854,7 @@ ix86_rtx_costs (x, code, outer_code, total)
 	       && (!TARGET_64BIT
 		   || (!GET_CODE (x) != LABEL_REF
 		       && (GET_CODE (x) != SYMBOL_REF
-		           || !SYMBOL_REF_FLAG (x)))))
+		           || !SYMBOL_REF_LOCAL_P (x)))))
 	*total = 1;
       else
 	*total = 0;
@@ -15329,7 +15254,7 @@ ix86_ms_bitfield_layout_p (record_type)
      tree record_type;
 {
   return (TARGET_USE_MS_BITFIELD_LAYOUT &&
-      !lookup_attribute ("gcc_struct", TYPE_ATTRIBUTES (record_type)))
+	  !lookup_attribute ("gcc_struct", TYPE_ATTRIBUTES (record_type)))
     || lookup_attribute ("ms_struct", TYPE_ATTRIBUTES (record_type));
 }
 

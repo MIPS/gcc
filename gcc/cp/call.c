@@ -36,6 +36,7 @@ Boston, MA 02111-1307, USA.  */
 #include "toplev.h"
 #include "expr.h"
 #include "diagnostic.h"
+#include "intl.h"
 
 extern int inhibit_warnings;
 
@@ -56,8 +57,7 @@ static void op_error (enum tree_code, enum tree_code, tree, tree,
 static tree build_object_call (tree, tree);
 static tree resolve_args (tree);
 static struct z_candidate *build_user_type_conversion_1 (tree, tree, int);
-static void print_z_candidate (const char *msgid, struct z_candidate *,
-			       void (*)(const char *, ...));
+static void print_z_candidate (const char *, struct z_candidate *);
 static void print_z_candidates (struct z_candidate *);
 static tree build_this (tree);
 static struct z_candidate *splice_viable (struct z_candidate *, bool, bool *);
@@ -2437,34 +2437,39 @@ equal_functions (tree fn1, tree fn2)
   return fn1 == fn2;
 }
 
-/* Print information about one overload candidate CANDIDATE.  STR is the
-   text to print before the candidate itself and ERRFN is the routine
-   (i.e. error, warning or pedwarn) used to do the printing.  */
+/* Print information about one overload candidate CANDIDATE.  MSGSTR
+   is the text to print before the candidate itself.
+
+   NOTE: Unlike most diagnostic functions in GCC, MSGSTR is expected
+   to have been run through gettext by the caller.  This wart makes
+   life simpler in print_z_candidates and for the translators.  */
 
 static void
-print_z_candidate (const char *msgid, struct z_candidate *candidate,
-		   void (*errfn)(const char *, ...))
+print_z_candidate (const char *msgstr, struct z_candidate *candidate)
 {
   if (TREE_CODE (candidate->fn) == IDENTIFIER_NODE)
     {
       if (TREE_VEC_LENGTH (candidate->convs) == 3)
-	errfn ("%s %D(%T, %T, %T) <built-in>", msgid, candidate->fn,
-	       TREE_TYPE (TREE_VEC_ELT (candidate->convs, 0)),
-	       TREE_TYPE (TREE_VEC_ELT (candidate->convs, 1)),
-	       TREE_TYPE (TREE_VEC_ELT (candidate->convs, 2)));
+	inform ("%s %D(%T, %T, %T) <built-in>", msgstr, candidate->fn,
+		TREE_TYPE (TREE_VEC_ELT (candidate->convs, 0)),
+		TREE_TYPE (TREE_VEC_ELT (candidate->convs, 1)),
+		TREE_TYPE (TREE_VEC_ELT (candidate->convs, 2)));
       else if (TREE_VEC_LENGTH (candidate->convs) == 2)
-	errfn ("%s %D(%T, %T) <built-in>", msgid, candidate->fn,
-	       TREE_TYPE (TREE_VEC_ELT (candidate->convs, 0)),
-	       TREE_TYPE (TREE_VEC_ELT (candidate->convs, 1)));
+	inform ("%s %D(%T, %T) <built-in>", msgstr, candidate->fn,
+		TREE_TYPE (TREE_VEC_ELT (candidate->convs, 0)),
+		TREE_TYPE (TREE_VEC_ELT (candidate->convs, 1)));
       else
-	errfn ("%s %D(%T) <built-in>", msgid, candidate->fn,
-	       TREE_TYPE (TREE_VEC_ELT (candidate->convs, 0)));
+	inform ("%s %D(%T) <built-in>", msgstr, candidate->fn,
+		TREE_TYPE (TREE_VEC_ELT (candidate->convs, 0)));
     }
   else if (TYPE_P (candidate->fn))
-    errfn ("%s %T <conversion>", msgid, candidate->fn);
+    inform ("%s %T <conversion>", msgstr, candidate->fn);
+  else if (candidate->viable == -1)
+    inform ("%H%s %+#D <near match>",
+	    TREE_LOCUS (candidate->fn), msgstr, candidate->fn);
   else
-    errfn ("%H%s %+#D%s", TREE_LOCUS (candidate->fn), msgid,
-	   candidate->fn, candidate->viable == -1 ? " <near match>" : "");
+    inform ("%H%s %+#D",
+	    TREE_LOCUS (candidate->fn), msgstr, candidate->fn);
 }
 
 static void
@@ -2496,11 +2501,27 @@ print_z_candidates (struct z_candidate *candidates)
 	}
     }
 
-  str = "candidates are:";
-  for (; candidates; candidates = candidates->next)
+  if (!candidates)
+    return;
+
+  str = _("candidates are:");
+  print_z_candidate (str, candidates);
+  if (candidates->next)
     {
-      print_z_candidate (str, candidates, error);
-      str = "               "; 
+      /* Indent successive candidates by the width of the translation
+	 of the above string.  */
+      size_t len = gcc_gettext_width (str) + 1;
+      char *spaces = alloca (len);
+      memset (spaces, ' ', len-1);
+      spaces[len - 1] = '\0';
+
+      candidates = candidates->next;
+      do
+	{
+	  print_z_candidate (spaces, candidates);
+	  candidates = candidates->next;
+	}
+      while (candidates);
     }
 }
 
@@ -2938,7 +2959,7 @@ build_operator_new_call (tree fnname, tree args, tree *size, tree *cookie_size)
 	error ("no matching function for call to `%D(%A)'",
 	       DECL_NAME (OVL_CURRENT (fns)), args);
       else
-	error ("call of overlopaded `%D(%A)' is ambiguous",
+	error ("call of overloaded `%D(%A)' is ambiguous",
 	       DECL_NAME (OVL_CURRENT (fns)), args);
       if (candidates)
 	print_z_candidates (candidates);
@@ -4685,10 +4706,22 @@ build_over_call (struct z_candidate *cand, int flags)
   else
     fn = build_addr_func (fn);
 
+  return build_cxx_call (fn, args, converted_args);
+}
+
+/* Build and return a call to FN, using the the CONVERTED_ARGS.  ARGS
+   gives the original form of the arguments.  This function performs
+   no overload resolution, conversion, or other high-level
+   operations.  */
+
+tree
+build_cxx_call(tree fn, tree args, tree converted_args)
+{
+  tree fndecl;
+
   /* Recognize certain built-in functions so we can make tree-codes
      other than CALL_EXPR.  We do this when it enables fold-const.c
      to do something useful.  */
-
   if (TREE_CODE (fn) == ADDR_EXPR
       && TREE_CODE (TREE_OPERAND (fn, 0)) == FUNCTION_DECL
       && DECL_BUILT_IN (TREE_OPERAND (fn, 0)))
@@ -4699,14 +4732,26 @@ build_over_call (struct z_candidate *cand, int flags)
 	return exp;
     }
 
-  /* Some built-in function calls will be evaluated at
-     compile-time in fold ().  */
-  fn = fold (build_call (fn, converted_args));
+  fn = build_call (fn, converted_args);
+
+  /* If this call might throw an exception, note that fact.  */
+  fndecl = get_callee_fndecl (fn);
+  if ((!fndecl || !TREE_NOTHROW (fndecl)) 
+      && at_function_scope_p ()
+      && cfun)
+    cp_function_chain->can_throw = 1;
+
+  /* Some built-in function calls will be evaluated at compile-time in
+     fold ().  */
+  fn = fold (fn);
+
   if (VOID_TYPE_P (TREE_TYPE (fn)))
     return fn;
+
   fn = require_complete_type (fn);
   if (fn == error_mark_node)
     return error_mark_node;
+
   if (IS_AGGR_TYPE (TREE_TYPE (fn)))
     fn = build_cplus_new (TREE_TYPE (fn), fn);
   return convert_from_reference (fn);
@@ -5711,44 +5756,51 @@ joust (struct z_candidate *cand1, struct z_candidate *cand2, bool warn)
      either between a constructor and a conversion op, or between two
      conversion ops.  */
   if (winner && cand1->second_conv
-      && ((DECL_CONSTRUCTOR_P (cand1->fn)
-	   != DECL_CONSTRUCTOR_P (cand2->fn))
-	  /* Don't warn if the two conv ops convert to the same type...  */
-	  || (! DECL_CONSTRUCTOR_P (cand1->fn)
-	      && ! same_type_p (TREE_TYPE (TREE_TYPE (cand1->fn)),
-				TREE_TYPE (TREE_TYPE (cand2->fn))))))
+      && (!DECL_CONSTRUCTOR_P (cand1->fn) || !DECL_CONSTRUCTOR_P (cand2->fn))
+      && winner != compare_ics (cand1->second_conv, cand2->second_conv))
     {
-      int comp = compare_ics (cand1->second_conv, cand2->second_conv);
-      if (comp != winner)
+      struct z_candidate *w, *l;
+      bool give_warning = false;
+      
+      if (winner == 1)
+	w = cand1, l = cand2;
+      else
+	w = cand2, l = cand1;
+      
+      /* We don't want to complain about `X::operator T1 ()'
+	 beating `X::operator T2 () const', when T2 is a no less
+	 cv-qualified version of T1. */
+      if (DECL_CONTEXT (w->fn) == DECL_CONTEXT (l->fn)
+	  && !DECL_CONSTRUCTOR_P (w->fn) && !DECL_CONSTRUCTOR_P (l->fn))
 	{
-	  struct z_candidate *w, *l;
-	  tree convn;
-	  if (winner == 1)
-	    w = cand1, l = cand2;
-	  else
-	    w = cand2, l = cand1;
-	  if (DECL_CONTEXT (cand1->fn) == DECL_CONTEXT (cand2->fn)
-	      && ! DECL_CONSTRUCTOR_P (cand1->fn)
-	      && ! DECL_CONSTRUCTOR_P (cand2->fn)
-	      && (convn = standard_conversion
-		  (TREE_TYPE (TREE_TYPE (l->fn)),
-		   TREE_TYPE (TREE_TYPE (w->fn)), NULL_TREE))
-	      && TREE_CODE (convn) == QUAL_CONV)
-	    /* Don't complain about `operator char *()' beating
-	       `operator const char *() const'.  */;
-	  else if (warn)
+	  tree t = TREE_TYPE (TREE_TYPE (l->fn));
+	  tree f = TREE_TYPE (TREE_TYPE (w->fn));
+	  
+	  if (TREE_CODE (t) == TREE_CODE (f) && POINTER_TYPE_P (t))
 	    {
-	      tree source = source_type (TREE_VEC_ELT (w->convs, 0));
-	      if (! DECL_CONSTRUCTOR_P (w->fn))
-		source = TREE_TYPE (source);
-	      warning ("choosing `%D' over `%D'", w->fn, l->fn);
-	      warning ("  for conversion from `%T' to `%T'",
-			  source, TREE_TYPE (w->second_conv));
-	      warning ("  because conversion sequence for the argument is better");
+	      t = TREE_TYPE (t);
+	      f = TREE_TYPE (f);
 	    }
-	  else
-	    add_warning (w, l);
+	  if (!comp_ptr_ttypes (t, f))
+	    give_warning = true;
 	}
+      else
+	give_warning = true;
+      
+      if (!give_warning)
+	/*NOP*/;
+      else if (warn)
+	{
+	  tree source = source_type (TREE_VEC_ELT (w->convs, 0));
+	  if (! DECL_CONSTRUCTOR_P (w->fn))
+	    source = TREE_TYPE (source);
+	  warning ("choosing `%D' over `%D'", w->fn, l->fn);
+	  warning ("  for conversion from `%T' to `%T'",
+		   source, TREE_TYPE (w->second_conv));
+	  warning ("  because conversion sequence for the argument is better");
+	}
+      else
+	add_warning (w, l);
     }
 
   if (winner)
@@ -5865,12 +5917,12 @@ tweak:
         {
 	  if (warn)
 	    {
-	      print_z_candidate ("ISO C++ says that ", w, pedwarn);
-	      /* Translators note: This message is a continuation of the
-	         previous one, aligned on the right.  */
-	      print_z_candidate ("              and ", l, pedwarn);
-	      pedwarn ("are ambiguous even though the worst conversion \
-for the former is better than the worst conversion for the latter");
+	      pedwarn ("\
+ISO C++ says that these are ambiguous, even \
+though the worst conversion for the first is better than \
+the worst conversion for the second:");
+	      print_z_candidate (_("candidate 1:"), w);
+	      print_z_candidate (_("candidate 2:"), l);
 	    }
 	  else
 	    add_warning (w, l);

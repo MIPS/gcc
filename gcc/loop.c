@@ -833,11 +833,17 @@ scan_loop (loop, flags)
 		   That behavior is incorrect and was removed.  */
 		insert_temp = 1;
 
+	      /* Don't try to optimize a MODE_CC set with a constant
+		 source.  It probably will be combined with a conditional
+		 jump.  */
+	      if (GET_MODE_CLASS (GET_MODE (SET_DEST (set))) == MODE_CC
+		  && CONSTANT_P (src))
+		;
 	      /* Don't try to optimize a register that was made
 		 by loop-optimization for an inner loop.
 		 We don't know its life-span, so we can't compute
 		 the benefit.  */
-	      if (REGNO (SET_DEST (set)) >= max_reg_before_loop)
+	      else if (REGNO (SET_DEST (set)) >= max_reg_before_loop)
 		;
 	      /* Don't move the source and add a reg-to-reg copy:
 		 - with -Os (this certainly increases size),
@@ -2569,6 +2575,30 @@ prescan_loop (loop)
 	  loop_info->has_call = 1;
 	  if (can_throw_internal (insn))
 	    loop_info->has_multiple_exit_targets = 1;
+
+	  /* Calls initializing constant objects have CLOBBER of MEM /u in the
+	     attached FUNCTION_USAGE expression list, not accounted for by the
+	     code above. We should note these to avoid missing dependencies in
+	     later references.  */
+	  {
+	    rtx fusage_entry;
+	    
+	    for (fusage_entry = CALL_INSN_FUNCTION_USAGE (insn); 
+		 fusage_entry; fusage_entry = XEXP (fusage_entry, 1))
+	      {
+		rtx fusage = XEXP (fusage_entry, 0);
+
+		if (GET_CODE (fusage) == CLOBBER
+		    && GET_CODE (XEXP (fusage, 0)) == MEM
+		    && RTX_UNCHANGING_P (XEXP (fusage, 0)))
+		  {
+		    note_stores (fusage, note_addr_stored, loop_info);
+		    if (! loop_info->first_loop_store_insn
+			&& loop_info->store_mems)
+		      loop_info->first_loop_store_insn = insn;
+		  }
+	      }
+	  }
 	  break;
 
 	case JUMP_INSN:

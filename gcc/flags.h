@@ -41,6 +41,9 @@ enum debug_info_type
 /* Specify which kind of debugging info to generate.  */
 extern enum debug_info_type write_symbols;
 
+/* Names of debug_info_type, for error messages.  */
+extern const char *const debug_type_names[];
+
 enum debug_info_level
 {
   DINFO_LEVEL_NONE,	/* Write no debugging info.  */
@@ -68,10 +71,6 @@ extern int optimize_size;
    times taken by the various passes.  -quiet.  */
 
 extern int quiet_flag;
-
-/* Print times taken by the various passes.  -ftime-report.  */
-
-extern int time_report;
 
 /* Print memory still in use at end of compilation (which may have little
    to do with peak memory consumption).  -fmem-report.  */
@@ -691,6 +690,11 @@ extern int flag_zero_initialized_in_bss;
 extern int flag_signaling_nans;
 
 extern int flag_unit_at_a_time;
+
+/* A string that's used when a random name is required.  NULL means
+   to make it really random.  */
+
+extern const char *flag_random_seed;
 
 /* True if the given mode has a NaN representation and the treatment of
    NaN operands is important.  Certain optimizations, such as folding

@@ -1,6 +1,6 @@
 /* The tracer pass for the GNU compiler.
    Contributed by Jan Hubicka, SuSE Labs.
-   Copyright (C) 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -46,7 +46,7 @@
 #include "fibheap.h"
 #include "flags.h"
 #include "params.h"
-#include "profile.h"
+#include "coverage.h"
 
 static int count_insns		PARAMS ((basic_block));
 static bool ignore_bb_p		PARAMS ((basic_block));
@@ -211,7 +211,7 @@ tail_duplicate ()
   int max_dup_insns;
   basic_block bb;
 
-  if (profile_info.count_profiles_merged && flag_branch_probabilities)
+  if (profile_info && flag_branch_probabilities)
     probability_cutoff = PARAM_VALUE (TRACER_MIN_BRANCH_PROBABILITY_FEEDBACK);
   else
     probability_cutoff = PARAM_VALUE (TRACER_MIN_BRANCH_PROBABILITY);
@@ -232,7 +232,7 @@ tail_duplicate ()
       weighted_insns += n * bb->frequency;
     }
 
-  if (profile_info.count_profiles_merged && flag_branch_probabilities)
+  if (profile_info && flag_branch_probabilities)
     cover_insns = PARAM_VALUE (TRACER_DYNAMIC_COVERAGE_FEEDBACK);
   else
     cover_insns = PARAM_VALUE (TRACER_DYNAMIC_COVERAGE);

@@ -736,6 +736,14 @@ expand_inline_function (fndecl, parms, target, ignore, type,
 	return (rtx) (size_t) -1;
     }
 
+  /* If there is a TARGET which is a readonly BLKmode MEM and DECL_RESULT
+     is also a mem, we are going to lose the readonly on the stores, so don't
+     inline.  */
+  if (target != 0 && GET_CODE (target) == MEM && GET_MODE (target) == BLKmode
+      && RTX_UNCHANGING_P (target) && DECL_RTL_SET_P (DECL_RESULT (fndecl))
+      && GET_CODE (DECL_RTL (DECL_RESULT (fndecl))) == MEM)
+    return (rtx) (size_t) -1;
+
   /* Extra arguments are valid, but will be ignored below, so we must
      evaluate them here for side-effects.  */
   for (; actual; actual = TREE_CHAIN (actual))
@@ -801,6 +809,14 @@ expand_inline_function (fndecl, parms, target, ignore, type,
 	}
       else
 	arg_vals[i] = 0;
+
+      /* If the formal type was const but the actual was not, we might
+	 end up here with an rtx wrongly tagged unchanging in the caller's
+	 context.  Fix that.  */
+      if (arg_vals[i] != 0 
+	  && (GET_CODE (arg_vals[i]) == REG || GET_CODE (arg_vals[i]) == MEM)
+	  && ! TREE_READONLY (TREE_VALUE (actual)))
+	RTX_UNCHANGING_P (arg_vals[i]) = 0;      
 
       if (arg_vals[i] != 0
 	  && (! TREE_READONLY (formal)
@@ -1291,7 +1307,7 @@ expand_inline_function (fndecl, parms, target, ignore, type,
   if (flag_test_coverage)
     emit_note (0, NOTE_INSN_REPEATED_LINE_NUMBER);
 
-  emit_line_note (input_filename, lineno);
+  emit_line_note (input_filename, input_line);
 
   /* If the function returns a BLKmode object in a register, copy it
      out of the temp register into a BLKmode memory object.  */
@@ -2447,6 +2463,14 @@ try_constants (insn, map)
   apply_change_group ();
   subst_constants (&PATTERN (insn), insn, map, 0);
   apply_change_group ();
+  
+  /* Enforce consistency between the addresses in the regular insn flow
+     and the ones in CALL_INSN_FUNCTION_USAGE lists, if any.  */
+  if (GET_CODE (insn) == CALL_INSN && CALL_INSN_FUNCTION_USAGE (insn))
+    {
+      subst_constants (&CALL_INSN_FUNCTION_USAGE (insn), insn, map, 1);
+      apply_change_group ();
+    }
 
   /* Show we don't know the value of anything stored or clobbered.  */
   note_stores (PATTERN (insn), mark_stores, NULL);
@@ -3025,7 +3049,7 @@ output_inline_function (fndecl)
   /* Make sure warnings emitted by the optimizers (e.g. control reaches
      end of non-void function) is not wildly incorrect.  */
   input_filename = TREE_FILENAME (fndecl);
-  lineno = TREE_LINENO (fndecl);
+  input_line = TREE_LINENO (fndecl);
 
   /* Compile this function all the way down to assembly code.  As a
      side effect this destroys the saved RTL representation, but

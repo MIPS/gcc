@@ -45,6 +45,7 @@
 #include <istream>
 #include <ostream>
 #include <locale>	// For codecvt
+#include <cstdio>       // For SEEK_SET, SEEK_CUR, SEEK_END, BUFSIZ     
 #include <bits/basic_file.h>
 #include <bits/gthr.h>
 
@@ -81,7 +82,6 @@ namespace std
       typedef __basic_file<char>		        __file_type;
       typedef typename traits_type::state_type          __state_type;
       typedef codecvt<char_type, char, __state_type>    __codecvt_type;
-      typedef typename __codecvt_type::result 	        __res_type;
       typedef ctype<char_type>                          __ctype_type;
       //@}
 
@@ -114,6 +114,20 @@ namespace std
       __state_type		_M_state_cur;
       __state_type 		_M_state_beg;
 
+      /**
+       *  @if maint
+       *  Pointer to the beginning of internally-allocated space.
+       *  @endif
+      */
+      char_type*		_M_buf; 	
+
+      /**
+       *  @if maint
+       *  Actual size of internal buffer.
+       *  @endif
+      */
+      size_t			_M_buf_size;
+
       // Set iff _M_buf is allocated memory from _M_allocate_internal_buffer.
       /**
        *  @if maint
@@ -134,6 +148,65 @@ namespace std
       */
       char_type*		_M_filepos;
 
+      //@{
+      /**
+       *  @if maint
+       *  Necessary bits for putback buffer management.
+       *
+       *  @note pbacks of over one character are not currently supported.
+       *  @endif
+      */
+      static const size_t   	_S_pback_size = 1; 
+      char_type			_M_pback[_S_pback_size]; 
+      char_type*		_M_pback_cur_save;
+      char_type*		_M_pback_end_save;
+      bool			_M_pback_init; 
+      //@}
+
+      // Initializes pback buffers, and moves normal buffers to safety.
+      // Assumptions:
+      // _M_in_cur has already been moved back
+      void
+      _M_create_pback()
+      {
+	if (!_M_pback_init)
+	  {
+	    size_t __dist = this->_M_in_end - this->_M_in_cur;
+	    size_t __len = std::min(_S_pback_size, __dist);
+	    traits_type::copy(_M_pback, this->_M_in_cur, __len);
+	    _M_pback_cur_save = this->_M_in_cur;
+	    _M_pback_end_save = this->_M_in_end;
+	    this->setg(_M_pback, _M_pback, _M_pback + __len);
+	    _M_pback_init = true;
+	  }
+      }
+
+      // Deactivates pback buffer contents, and restores normal buffer.
+      // Assumptions:
+      // The pback buffer has only moved forward.
+      void
+      _M_destroy_pback() throw()
+      {
+	if (_M_pback_init)
+	  {
+	    // Length _M_in_cur moved in the pback buffer.
+	    size_t __off_cur = this->_M_in_cur - _M_pback;
+	    
+	    // For in | out buffers, the end can be pushed back...
+	    size_t __off_end = 0;
+	    size_t __pback_len = this->_M_in_end - _M_pback;
+	    size_t __save_len = _M_pback_end_save - this->_M_buf;
+	    if (__pback_len > __save_len)
+	      __off_end = __pback_len - __save_len;
+
+	    this->setg(this->_M_buf, _M_pback_cur_save + __off_cur, 
+		       _M_pback_end_save + __off_end);
+	    _M_pback_cur_save = NULL;
+	    _M_pback_end_save = NULL;
+	    _M_pback_init = false;
+	  }
+      }
+
     public:
       // Constructors/destructor:
       /**
@@ -151,6 +224,7 @@ namespace std
       ~basic_filebuf()
       {
 	this->close();
+	_M_buf_size = 0;
 	_M_last_overflowed = false;
       }
 
@@ -159,7 +233,7 @@ namespace std
        *  @brief  Returns true if the external file is open.
       */
       bool
-      is_open() const { return _M_file.is_open(); }
+      is_open() const throw() { return _M_file.is_open(); }
 
       /**
        *  @brief  Opens an external file.
@@ -189,7 +263,7 @@ namespace std
        *  If any operations fail, this function also fails.
       */
       __filebuf_type*
-      close();
+      close() throw();
 
     protected:
       /**
@@ -206,7 +280,7 @@ namespace std
        *  @endif
       */
       void
-      _M_destroy_internal_buffer();
+      _M_destroy_internal_buffer() throw();
 
       // [27.8.1.4] overridden virtual functions
       // [documentation is inherited]
@@ -230,7 +304,7 @@ namespace std
        *  @endif
       */
       int_type
-      _M_underflow_common(bool __bump);
+      _M_underflow(bool __bump);
 
       // [documentation is inherited]
       virtual int_type
@@ -245,7 +319,7 @@ namespace std
       pbackfail(int_type __c = _Traits::eof());
 
       // NB: For what the standard expects of the overflow function,
-      // see _M_really_overflow(), below. Because basic_streambuf's
+      // see _M_overflow(), below. Because basic_streambuf's
       // sputc/sputn call overflow directly, and the complications of
       // this implementation's setting of the initial pointers all
       // equal to _M_buf when initializing, it seems essential to have
@@ -270,7 +344,7 @@ namespace std
        *  @endif
       */
       int_type
-      _M_really_overflow(int_type __c = _Traits::eof());
+      _M_overflow(int_type __c = _Traits::eof());
 
       // Convert internal byte sequence to external, char-based
       // sequence via codecvt.
@@ -312,10 +386,9 @@ namespace std
       sync()
       {
 	int __ret = 0;
-	bool __testput = this->_M_out_cur
-	  && this->_M_out_beg < this->_M_out_lim;
+	const bool __testput = this->_M_out_beg < this->_M_out_lim;
 	// Sync with stdio.
-	bool __sync = this->_M_buf_size <= 1;
+	const bool __sync = this->_M_buf_size <= 1;
 
 	// Make sure that the internal buffer resyncs its idea of
 	// the file position with the external file.
@@ -325,8 +398,7 @@ namespace std
 	    off_type __off = this->_M_out_cur - this->_M_out_lim;
 
 	    // _M_file.sync() will be called within
-	    if (traits_type::eq_int_type(_M_really_overflow(),
-					 traits_type::eof()))
+	    if (traits_type::eq_int_type(_M_overflow(), traits_type::eof()))
 	      __ret = -1;
 	    else if (__off)
 	      _M_file.seekoff(__off, ios_base::cur, __sync);
@@ -357,7 +429,7 @@ namespace std
 		++__s;
 		++this->_M_in_cur;
 	      }
-	    _M_pback_destroy();
+	    _M_destroy_pback();
 	  }
 	if (__ret < __n)
 	  __ret += __streambuf_type::xsgetn(__s, __n - __ret);
@@ -368,7 +440,7 @@ namespace std
       virtual streamsize
       xsputn(const char_type* __s, streamsize __n)
       {
-	_M_pback_destroy();
+	_M_destroy_pback();
 	return __streambuf_type::xsputn(__s, __n);
       }
 
@@ -394,9 +466,7 @@ namespace std
       */
       void
       _M_set_indeterminate(void)
-      {
-	_M_set_determinate(off_type(0));
-      }
+      { _M_set_determinate(off_type(0)); }
 
       /**
        *  @if maint
@@ -406,8 +476,8 @@ namespace std
       void
       _M_set_determinate(off_type __off)
       {
-	bool __testin = this->_M_mode & ios_base::in;
-	bool __testout = this->_M_mode & ios_base::out;
+	const bool __testin = this->_M_mode & ios_base::in;
+	const bool __testout = this->_M_mode & ios_base::out;
 	if (__testin)
 	  this->setg(this->_M_buf, this->_M_buf, this->_M_buf + __off);
 	if (__testout)
@@ -426,8 +496,8 @@ namespace std
       bool
       _M_is_indeterminate(void)
       { 
-	bool __testin = this->_M_mode & ios_base::in;
-	bool __testout = this->_M_mode & ios_base::out;
+	const bool __testin = this->_M_mode & ios_base::in;
+	const bool __testout = this->_M_mode & ios_base::out;
 	bool __ret = false;
 	// Don't return true if unbuffered.
 	if (this->_M_buf)
@@ -446,7 +516,7 @@ namespace std
   // Explicit specialization declarations, defined in src/fstream.cc.
   template<> 
     basic_filebuf<char>::int_type 
-    basic_filebuf<char>::_M_underflow_common(bool __bump);
+    basic_filebuf<char>::_M_underflow(bool __bump);
 
   template<>
     basic_filebuf<char>::int_type
@@ -459,7 +529,7 @@ namespace std
  #ifdef _GLIBCPP_USE_WCHAR_T
   template<> 
     basic_filebuf<wchar_t>::int_type 
-    basic_filebuf<wchar_t>::_M_underflow_common(bool __bump);
+    basic_filebuf<wchar_t>::_M_underflow(bool __bump);
 
   template<>
     basic_filebuf<wchar_t>::int_type

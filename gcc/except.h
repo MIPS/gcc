@@ -81,6 +81,10 @@ extern void expand_eh_region_end_fixup		PARAMS ((tree));
 /* End some sort of EH region, depending on the argument.  */
 extern void expand_eh_handler			PARAMS ((tree));
 
+/* Note that the current EH region (if any) may contain a throw, or a
+   call to a function which itself may contain a throw.  */
+extern void note_eh_region_may_contain_throw    PARAMS ((void));
+
 /* Invokes CALLBACK for every exception handler label.  Only used by old
    loop hackery; should not be used by new code.  */
 extern void for_each_eh_label			PARAMS ((void (*) (rtx)));
@@ -113,7 +117,7 @@ extern rtx expand_builtin_eh_return_data_regno	PARAMS ((tree));
 extern rtx expand_builtin_extract_return_addr	PARAMS ((tree));
 extern void expand_builtin_init_dwarf_reg_sizes PARAMS ((tree));
 extern rtx expand_builtin_frob_return_addr	PARAMS ((tree));
-extern rtx expand_builtin_dwarf_fp_regnum	PARAMS ((void));
+extern rtx expand_builtin_dwarf_sp_column	PARAMS ((void));
 extern void expand_builtin_eh_return		PARAMS ((tree, tree));
 extern void expand_eh_return			PARAMS ((void));
 extern rtx get_exception_pointer		PARAMS ((struct function *));

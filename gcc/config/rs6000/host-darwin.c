@@ -1,23 +1,22 @@
 /* Darwin/powerpc host-specific hook definitions.
    Copyright (C) 2003 Free Software Foundation, Inc.
 
-This file is part of GCC.
+   This file is part of GCC.
 
-GCC is free software; you can redistribute it and/or modify it under
-the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
-version.
+   GCC is free software; you can redistribute it and/or modify it
+   under the terms of the GNU General Public License as published
+   by the Free Software Foundation; either version 2, or (at your
+   option) any later version.
 
-GCC is distributed in the hope that it will be useful, but WITHOUT ANY
-WARRANTY; without even the implied warranty of MERCHANTABILITY or
-FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-for more details.
+   GCC is distributed in the hope that it will be useful, but WITHOUT
+   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+   or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+   License for more details.
 
-You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
-
+   You should have received a copy of the GNU General Public License
+   along with GCC; see the file COPYING.  If not, write to the
+   Free Software Foundation, 59 Temple Place - Suite 330, Boston,
+   MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -27,6 +26,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "hosthooks.h"
 #include "hosthooks-def.h"
 #include "toplev.h"
+#include "diagnostic.h"
 
 static void segv_crash_handler PARAMS ((int));
 static void segv_handler PARAMS ((int, siginfo_t *, void *));
@@ -106,6 +106,9 @@ segv_handler (sig, sip, scp)
 	      }
 	}
       
+      if (global_dc->abort_on_error)
+	abort ();
+
       exit (FATAL_EXIT_CODE);
     }
 

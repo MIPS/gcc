@@ -203,7 +203,7 @@ simplify_function_tree (fndecl)
   tree oldfn;
   tree tmp;
   const char *saved_input_filename = input_filename;
-  int saved_lineno = lineno;
+  int saved_lineno = input_line;
 
   /* Don't bother doing anything if the program has errors.  */
   if (errorcount || sorrycount)
@@ -240,12 +240,12 @@ simplify_function_tree (fndecl)
     {
       fnbody = build (BIND_EXPR, void_type_node, NULL_TREE, fnbody, NULL_TREE);
       TREE_SIDE_EFFECTS (fnbody) = 1;
-      lineno = get_lineno (fndecl);
+      input_line = get_lineno (fndecl);
       input_filename = get_filename (fndecl);
     }
   else
     {
-      lineno = saved_lineno;
+      input_line = saved_lineno;
       input_filename = saved_input_filename;
     }
 
@@ -343,10 +343,10 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
           || class == 's'))
     {
       saved_input_filename = input_filename;
-      saved_lineno = lineno;
+      saved_lineno = input_line;
 
       input_filename = TREE_FILENAME (*expr_p);
-      lineno = TREE_LINENO (*expr_p);
+      input_line = TREE_LINENO (*expr_p);
 
     }
 
@@ -645,10 +645,10 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
   if (is_statement)
     {
       add_tree (*expr_p, pre_p);
-      annotate_all_with_file_line (&internal_post, input_filename, lineno);
+      annotate_all_with_file_line (&internal_post, input_filename, input_line);
       add_tree (internal_post, pre_p);
       tmp = rationalize_compound_expr (internal_pre);
-      annotate_all_with_file_line (&tmp, input_filename, lineno);
+      annotate_all_with_file_line (&tmp, input_filename, input_line);
       *expr_p = tmp;
 
       if (locus
@@ -657,7 +657,7 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
               || class == 's'))
 	{
 	  input_filename = saved_input_filename;
-	  lineno = saved_lineno;
+	  input_line = saved_lineno;
 	}
       return 1;
     }
@@ -676,7 +676,7 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
               || class == 's'))
         {
           input_filename = saved_input_filename;
-          lineno = saved_lineno;
+          input_line = saved_lineno;
         }
       return 1;
     }
@@ -724,7 +724,7 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
 
   if (internal_post)
     {
-      annotate_all_with_file_line (&internal_post, input_filename, lineno);
+      annotate_all_with_file_line (&internal_post, input_filename, input_line);
       add_tree (internal_post, pre_p);
     }
 
@@ -734,7 +734,7 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
           || class == 's'))
     {
       input_filename = saved_input_filename;
-      lineno = saved_lineno;
+      input_line = saved_lineno;
     }
 
   return 1;
@@ -1238,7 +1238,7 @@ simplify_self_mod_expr (expr_p, pre_p, post_p)
   if (TREE_LOCUS (*expr_p))
     TREE_LOCUS (t1) = TREE_LOCUS (*expr_p);
   else
-    annotate_with_file_line (t1, input_filename, lineno);
+    annotate_with_file_line (t1, input_filename, input_line);
 
   /* Determine whether the new assignment should go before or after
      the simplified expression.  */
@@ -2021,7 +2021,7 @@ get_initialized_tmp_var (val, pre_p)
   if (TREE_LOCUS (val))
     TREE_LOCUS (mod) = TREE_LOCUS (val);
   else
-    annotate_with_file_line (mod, input_filename, lineno);
+    annotate_with_file_line (mod, input_filename, input_line);
   add_tree (mod, pre_p);
 
   return t;

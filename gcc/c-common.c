@@ -187,6 +187,11 @@ enum c_language_kind c_language;
 
 tree c_global_trees[CTI_MAX];
 
+/* TRUE if a code represents a statement.  The front end init
+   langhook should take care of initialization of this array.  */
+
+bool statement_code_p[MAX_TREE_CODES];
+
 /* Nonzero if we can read a PCH file now.  */
 
 int allow_pch = 1;
@@ -299,9 +304,10 @@ int warn_parentheses;
 int warn_missing_braces;
 
 /* Warn about comparison of signed and unsigned values.
-   If -1, neither -Wsign-compare nor -Wno-sign-compare has been specified.  */
+   If -1, neither -Wsign-compare nor -Wno-sign-compare has been specified
+   (in which case -Wextra gets to decide).  */
 
-int warn_sign_compare;
+int warn_sign_compare = -1;
 
 /* Nonzero means warn about usage of long long when `-pedantic'.  */
 
@@ -730,8 +736,7 @@ static int constant_fits_type_p		PARAMS ((tree, tree));
 typedef struct
 {
   int compstmt_count;
-  int line;
-  const char *file;
+  location_t locus;
   int needs_warning;
   tree if_stmt;
 } if_elt;
@@ -923,8 +928,7 @@ c_expand_start_cond (cond, compstmt_count, if_stmt)
 
   /* Record this if statement.  */
   if_stack[if_stack_pointer].compstmt_count = compstmt_count;
-  if_stack[if_stack_pointer].file = input_filename;
-  if_stack[if_stack_pointer].line = lineno;
+  if_stack[if_stack_pointer].locus = input_location;
   if_stack[if_stack_pointer].needs_warning = 0;
   if_stack[if_stack_pointer].if_stmt = if_stmt;
   if_stack_pointer++;
@@ -947,9 +951,8 @@ c_expand_end_cond ()
 {
   if_stack_pointer--;
   if (if_stack[if_stack_pointer].needs_warning)
-    warning_with_file_and_line (if_stack[if_stack_pointer].file,
-				if_stack[if_stack_pointer].line,
-				"suggest explicit braces to avoid ambiguous `else'");
+    warning ("%Hsuggest explicit braces to avoid ambiguous `else'",
+             &if_stack[if_stack_pointer].locus);
   last_expr_type = NULL_TREE;
 }
 
@@ -1159,13 +1162,13 @@ fname_decl (rid, id)
   if (!decl)
     {
       tree saved_last_tree = last_tree;
-      /* If a tree is built here, it would normally have the lineno of
+      /* If a tree is built here, it would normally have the input_line of
 	 the current statement.  Later this tree will be moved to the
 	 beginning of the function and this line number will be wrong.
-	 To avoid this problem set the lineno to 0 here; that prevents
+	 To avoid this problem set the input_line to 0 here; that prevents
 	 it from appearing in the RTL.  */
-      int saved_lineno = lineno;
-      lineno = 0;
+      int saved_lineno = input_line;
+      input_line = 0;
       
       decl = (*make_fname_decl) (id, fname_vars[ix].pretty);
       if (last_tree != saved_last_tree)
@@ -1181,7 +1184,7 @@ fname_decl (rid, id)
 						 saved_function_name_decls);
 	}
       *fname_vars[ix].decl = decl;
-      lineno = saved_lineno;
+      input_line = saved_lineno;
     }
   if (!ix && !current_function_decl)
     pedwarn_with_decl (decl, "`%s' is not defined outside of function scope");
@@ -3695,20 +3698,15 @@ builtin_function_2 (builtin_name, name, builtin_type, type, function_code,
 {
   tree bdecl = NULL_TREE;
   tree decl = NULL_TREE;
+
   if (builtin_name != 0)
-    {
-      bdecl = builtin_function (builtin_name, builtin_type, function_code,
-				class, library_name_p ? name : NULL,
-				attrs);
-    }
+    bdecl = builtin_function (builtin_name, builtin_type, function_code,
+			      class, library_name_p ? name : NULL, attrs);
+
   if (name != 0 && !flag_no_builtin && !builtin_function_disabled_p (name)
       && !(nonansi_p && flag_no_nonansi_builtin))
-    {
-      decl = builtin_function (name, type, function_code, class, NULL,
-			       attrs);
-      if (nonansi_p)
-	DECL_BUILT_IN_NONANSI (decl) = 1;
-    }
+    decl = builtin_function (name, type, function_code, class, NULL, attrs);
+
   return (bdecl != 0 ? bdecl : decl);
 }
 
@@ -3932,41 +3930,6 @@ expand_tree_builtin (function, params, coerced_params)
   return NULL_TREE;
 }
 
-/* Returns nonzero if CODE is the code for a statement.  */
-
-int
-statement_code_p (code)
-     enum tree_code code;
-{
-  switch (code)
-    {
-    case CLEANUP_STMT:
-    case EXPR_STMT:
-    case COMPOUND_STMT:
-    case DECL_STMT:
-    case IF_STMT:
-    case FOR_STMT:
-    case WHILE_STMT:
-    case DO_STMT:
-    case RETURN_STMT:
-    case BREAK_STMT:
-    case CONTINUE_STMT:
-    case SCOPE_STMT:
-    case SWITCH_STMT:
-    case GOTO_STMT:
-    case LABEL_STMT:
-    case ASM_STMT:
-    case FILE_STMT:
-    case CASE_LABEL:
-      return 1;
-
-    default:
-      if (lang_statement_code_p)
-	return (*lang_statement_code_p) (code);
-      return 0;
-    }
-}
-
 /* Walk the statement tree, rooted at *tp.  Apply FUNC to all the
    sub-trees of *TP in a pre-order traversal.  FUNC is called with the
    DATA and the address of each sub-tree.  If FUNC returns a non-NULL
@@ -4002,7 +3965,7 @@ walk_stmt_tree (tp, func, data)
     return NULL_TREE;
 
   /* Skip subtrees below non-statement nodes.  */
-  if (!statement_code_p (TREE_CODE (*tp)))
+  if (!STATEMENT_CODE_P (TREE_CODE (*tp)))
     return NULL_TREE;
 
   /* Call the function.  */
@@ -4016,7 +3979,7 @@ walk_stmt_tree (tp, func, data)
   /* FUNC may have modified the tree, recheck that we're looking at a
      statement node.  */
   code = TREE_CODE (*tp);
-  if (!statement_code_p (code))
+  if (!STATEMENT_CODE_P (code))
     return NULL_TREE;
 
   /* Visit the subtrees unless FUNC decided that there was nothing
@@ -4391,7 +4354,7 @@ c_safe_from_p (target, exp)
     }
 
   /* For any statement, we must follow the statement-chain.  */
-  if (statement_code_p (TREE_CODE (exp)) && TREE_CHAIN (exp))
+  if (STATEMENT_CODE_P (TREE_CODE (exp)) && TREE_CHAIN (exp))
     return safe_from_p (target, TREE_CHAIN (exp), /*top_p=*/0);
 
   /* Assume everything else is safe.  */
@@ -4817,12 +4780,10 @@ c_common_insert_default_attributes (decl)
 }
 
 /* Output a -Wshadow warning MSGCODE about NAME, and give the location
-   of the previous declaration DECL.  MANDATORY says whether this is a
-   mandatory warning (i.e. use pedwarn).  */
+   of the previous declaration DECL.  */
 void
-shadow_warning (msgcode, mandatory, name, decl)
+shadow_warning (msgcode, name, decl)
      enum sw_kind msgcode;
-     int mandatory;  /* really bool */
      const char *name;
      tree decl;
 {
@@ -4832,10 +4793,8 @@ shadow_warning (msgcode, mandatory, name, decl)
     /* SW_GLOBAL */ N_("declaration of \"%s\" shadows a global declaration")
   };
 
-  (mandatory ? pedwarn : warning) (msgs[msgcode], name);
-  warning_with_file_and_line (TREE_FILENAME (decl),
-			      TREE_LINENO (decl),
-			      "shadowed declaration is here");
+  warning (msgs[msgcode], name);
+  warning ("%Hshadowed declaration is here", TREE_LOCUS (decl));
 }
 
 /* Attribute handlers common to C front ends.  */
@@ -6273,10 +6232,10 @@ c_walk_subtrees (tp, walk_subtrees_p, func, data, htab)
     }							\
   while (0)
 
-  /* Set lineno here so we get the right instantiation context
+  /* Set input_line here so we get the right instantiation context
      if we call instantiate_decl from inlinable_function_p.  */
-  if (statement_code_p (code) && !STMT_LINENO_FOR_FN_P (*tp))
-    lineno = STMT_LINENO (*tp);
+  if (STATEMENT_CODE_P (code) && !STMT_LINENO_FOR_FN_P (*tp))
+    input_line = STMT_LINENO (*tp);
 
   if (code == DECL_STMT)
     {
@@ -6306,7 +6265,7 @@ c_tree_chain_matters_p (t)
 {
   /* For statements, we also walk the chain so that we cover the
      entire statement tree.  */
-  return statement_code_p (TREE_CODE (t));
+  return STATEMENT_CODE_P (TREE_CODE (t));
 }
 
 #include "gt-c-common.h"

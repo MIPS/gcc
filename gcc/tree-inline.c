@@ -1,5 +1,5 @@
 /* Control and data flow functions for trees.
-   Copyright 2001, 2002 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2003 Free Software Foundation, Inc.
    Contributed by Alexandre Oliva <aoliva@redhat.com>
 
 This file is part of GCC.
@@ -715,11 +715,9 @@ static tree
 find_alloca_call (exp)
      tree exp;
 {
-  int line = lineno;
-  const char *file = input_filename;
+  location_t saved_loc = input_location;
   tree ret = walk_tree (&exp, find_alloca_call_1, NULL, NULL);
-  lineno = line;
-  input_filename = file;
+  input_location = saved_loc;
   return ret;
 }
 
@@ -746,11 +744,9 @@ static tree
 find_builtin_longjmp_call (exp)
      tree exp;
 {
-  int line = lineno;
-  const char *file = input_filename;
+  location_t saved_loc = input_location;
   tree ret = walk_tree (&exp, find_builtin_longjmp_call_1, NULL, NULL);
-  lineno = line;
-  input_filename = file;
+  input_location = saved_loc;
   return ret;
 }
 
@@ -977,7 +973,14 @@ expand_call_inline (tp, walk_subtrees, data)
   if ((!flag_unit_at_a_time || !DECL_SAVED_TREE (fn)
        || !cgraph_global_info (fn)->inline_once)
       && !inlinable_function_p (fn, id, 0))
-    return NULL_TREE;
+    {
+      if (warn_inline && DECL_INLINE (fn))
+	{
+	  warning_with_decl (fn, "inlining failed in call to `%s'");
+	  warning ("called from here");
+	}
+      return NULL_TREE;
+    }
 
   if (! (*lang_hooks.tree_inlining.start_inlining) (fn))
     return NULL_TREE;
@@ -1448,10 +1451,10 @@ walk_tree (tp, func, data, htab_)
     {
       int i, len;
 
-      /* Set lineno here so we get the right instantiation context
+      /* Set input_line here so we get the right instantiation context
          if we call instantiate_decl from inlinable_function_p.  */
       if (TREE_LOCUS (*tp))
-        lineno = TREE_LINENO (*tp);
+        input_line = TREE_LINENO (*tp);
 
       /* Walk over all the sub-trees of this operand.  */
       len = first_rtl_op (code);

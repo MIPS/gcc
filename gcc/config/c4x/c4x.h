@@ -29,6 +29,8 @@
 #define TARGET_CPU_CPP_BUILTINS()		\
   do						\
     {						\
+      /* ??? HACK.  We shouldn't have flag_inline_trees at all.  */ \
+      extern int flag_inline_trees;		\
       if (!TARGET_SMALL)			\
 	builtin_define ("_BIGMODEL");		\
       if (!TARGET_MEMPARM)			\
@@ -235,7 +237,7 @@
   { "no-force", -FORCE_FLAG,						\
     N_("Allow RTL generation to emit invalid 3 operand insns") },	\
   { "loop-unsigned", LOOP_UNSIGNED_FLAG,				\
-    N_("Allow unsigned interation counts for RPTB/DB") },		\
+    N_("Allow unsigned iteration counts for RPTB/DB") },		\
   { "no-loop-unsigned", -LOOP_UNSIGNED_FLAG,				\
     N_("Disallow unsigned iteration counts for RPTB/DB") },		\
   { "preserve-float", PRESERVE_FLOAT_FLAG,				\
@@ -326,9 +328,9 @@ extern const char *c4x_rpts_cycles_string, *c4x_cpu_version_string;
 
 #define TARGET_OPTIONS						\
 { {"rpts=", &c4x_rpts_cycles_string,				\
-   N_("Specify maximum number of iterations for RPTS") },	\
+   N_("Specify maximum number of iterations for RPTS"), 0},	\
   {"cpu=", &c4x_cpu_version_string,				\
-   N_("Select CPU to generate code for") } }
+   N_("Select CPU to generate code for"), 0} }
 
 /* Sometimes certain combinations of command options do not make sense
    on a particular target machine.  You can define a macro

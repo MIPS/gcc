@@ -265,6 +265,8 @@ builtin_macro (pfile, node)
      cpp_hashnode *node;
 {
   const uchar *buf;
+  size_t len;
+  char *nbuf;
 
   if (node->value.builtin == BT_PRAGMA)
     {
@@ -278,14 +280,13 @@ builtin_macro (pfile, node)
     }
 
   buf = _cpp_builtin_macro_text (pfile, node);
+  len = ustrlen (buf);
+  nbuf = alloca (len + 1);
+  memcpy (nbuf, buf, len);
+  nbuf[len]='\n';
 
-  cpp_push_buffer (pfile, buf, ustrlen (buf), /* from_stage3 */ true, 1);
-
-  /* Tweak the column number the lexer will report.  */
-  pfile->buffer->col_adjust = pfile->cur_token[-1].col - 1;
-
-  /* We don't want a leading # to be interpreted as a directive.  */
-  pfile->buffer->saved_flags = 0;
+  cpp_push_buffer (pfile, (uchar *) nbuf, len, /* from_stage3 */ true, 1);
+  _cpp_clean_line (pfile);
 
   /* Set pfile->cur_token as required by _cpp_lex_direct.  */
   pfile->cur_token = _cpp_temp_token (pfile);
@@ -339,10 +340,15 @@ stringify_arg (pfile, arg)
      cpp_reader *pfile;
      macro_arg *arg;
 {
-  unsigned char *dest = BUFF_FRONT (pfile->u_buff);
+  unsigned char *dest;
   unsigned int i, escape_it, backslash_count = 0;
   const cpp_token *source = NULL;
   size_t len;
+
+  if (BUFF_ROOM (pfile->u_buff) < 3)
+    _cpp_extend_buff (pfile, &pfile->u_buff, 3);
+  dest = BUFF_FRONT (pfile->u_buff);
+  *dest++ = '"';
 
   /* Loop, reading in the argument's tokens.  */
   for (i = 0; i < arg->count; i++)
@@ -360,11 +366,11 @@ stringify_arg (pfile, arg)
 		   || token->type == CPP_CHAR || token->type == CPP_WCHAR);
 
       /* Room for each char being written in octal, initial space and
-	 final NUL.  */
+	 final quote and NUL.  */
       len = cpp_token_len (token);
       if (escape_it)
 	len *= 4;
-      len += 2;
+      len += 3;
 
       if ((size_t) (BUFF_LIMIT (pfile->u_buff) - dest) < len)
 	{
@@ -374,7 +380,7 @@ stringify_arg (pfile, arg)
 	}
 
       /* Leading white space?  */
-      if (dest != BUFF_FRONT (pfile->u_buff))
+      if (dest - 1 != BUFF_FRONT (pfile->u_buff))
 	{
 	  if (source == NULL)
 	    source = token;
@@ -394,7 +400,7 @@ stringify_arg (pfile, arg)
       else
 	dest = cpp_spell_token (pfile, token, dest);
 
-      if (token->type == CPP_OTHER && token->val.c == '\\')
+      if (token->type == CPP_OTHER && token->val.str.text[0] == '\\')
 	backslash_count++;
       else
 	backslash_count = 0;
@@ -409,12 +415,7 @@ stringify_arg (pfile, arg)
     }
 
   /* Commit the memory, including NUL, and return the token.  */
-  if ((size_t) (BUFF_LIMIT (pfile->u_buff) - dest) < 1)
-    {
-      size_t len_so_far = dest - BUFF_FRONT (pfile->u_buff);
-      _cpp_extend_buff (pfile, &pfile->u_buff, 1);
-      dest = BUFF_FRONT (pfile->u_buff) + len_so_far;
-    }
+  *dest++ = '"';
   len = dest - BUFF_FRONT (pfile->u_buff);
   BUFF_FRONT (pfile->u_buff) = dest + 1;
   return new_string_token (pfile, dest - len, len);
@@ -445,15 +446,10 @@ paste_tokens (pfile, plhs, rhs)
   if (lhs->type == CPP_DIV && rhs->type != CPP_EQ)
     *end++ = ' ';
   end = cpp_spell_token (pfile, rhs, end);
-  *end = '\0';
+  *end = '\n';
 
   cpp_push_buffer (pfile, buf, end - buf, /* from_stage3 */ true, 1);
-
-  /* Tweak the column number the lexer will report.  */
-  pfile->buffer->col_adjust = pfile->cur_token[-1].col - 1;
-
-  /* We don't want a leading # to be interpreted as a directive.  */
-  pfile->buffer->saved_flags = 0;
+  _cpp_clean_line (pfile);
 
   /* Set pfile->cur_token as required by _cpp_lex_direct.  */
   pfile->cur_token = _cpp_temp_token (pfile);
@@ -1642,10 +1638,11 @@ check_trad_stringification (pfile, macro, string)
      const cpp_string *string;
 {
   unsigned int i, len;
-  const uchar *p, *q, *limit = string->text + string->len;
+  const uchar *p, *q, *limit;
 
   /* Loop over the string.  */
-  for (p = string->text; p < limit; p = q)
+  limit = string->text + string->len - 1;
+  for (p = string->text + 1; p < limit; p = q)
     {
       /* Find the start of an identifier.  */
       while (p < limit && !is_idstart (*p))
@@ -1718,7 +1715,7 @@ cpp_macro_definition (pfile, node)
 	  if (token->type == CPP_MACRO_ARG)
 	    len += NODE_LEN (macro->params[token->val.arg_no - 1]);
 	  else
-	    len += cpp_token_len (token); /* Includes room for ' '.  */
+	    len += cpp_token_len (token) + 1; /* Includes room for ' '.  */
 	  if (token->flags & STRINGIFY_ARG)
 	    len++;			/* "#" */
 	  if (token->flags & PASTE_LEFT)

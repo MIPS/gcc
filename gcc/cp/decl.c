@@ -113,7 +113,7 @@ static void add_decl_to_level (tree, struct cp_binding_level *);
 static tree make_label_decl (tree, int);
 static void use_label (tree);
 static void check_previous_goto_1 (tree, struct cp_binding_level *, tree,
-				   const char *, int);
+				   const location_t *);
 static void check_previous_goto (struct named_label_use_list *);
 static void check_switch_goto (struct cp_binding_level *);
 static void check_previous_gotos (tree);
@@ -216,8 +216,7 @@ struct named_label_use_list GTY(())
   struct cp_binding_level *binding_level;
   tree names_in_scope;
   tree label_decl;
-  const char *filename_o_goto;
-  int lineno_o_goto;
+  location_t o_goto_locus;
   struct named_label_use_list *next;
 };
 
@@ -497,7 +496,7 @@ push_binding_level (struct cp_binding_level *newlevel,
   newlevel->binding_depth = binding_depth;
   indent ();
   fprintf (stderr, "push %s level 0x%08x line %d\n",
-	   (is_class_level) ? "class" : "block", newlevel, lineno);
+	   (is_class_level) ? "class" : "block", newlevel, input_line);
   is_class_level = 0;
   binding_depth++;
 #endif /* defined(DEBUG_BINDING_LEVELS) */
@@ -534,7 +533,7 @@ pop_binding_level (void)
   indent ();
   fprintf (stderr, "pop  %s level 0x%08x line %d\n",
 	  (is_class_level) ? "class" : "block",
-	  current_binding_level, lineno);
+	  current_binding_level, input_line);
   if (is_class_level != (current_binding_level == class_binding_level))
     {
       indent ();
@@ -573,7 +572,7 @@ suspend_binding_level (void)
   indent ();
   fprintf (stderr, "suspend  %s level 0x%08x line %d\n",
 	  (is_class_level) ? "class" : "block",
-	  current_binding_level, lineno);
+	  current_binding_level, input_line);
   if (is_class_level != (current_binding_level == class_binding_level))
     {
       indent ();
@@ -598,7 +597,7 @@ resume_binding_level (struct cp_binding_level* b)
   b->binding_depth = binding_depth;
   indent ();
   fprintf (stderr, "resume %s level 0x%08x line %d\n",
-	   (is_class_level) ? "class" : "block", b, lineno);
+	   (is_class_level) ? "class" : "block", b, input_line);
   is_class_level = 0;
   binding_depth++;
 #endif /* defined(DEBUG_BINDING_LEVELS) */
@@ -3359,8 +3358,12 @@ duplicate_decls (tree newdecl, tree olddecl)
 	{
 	  DECL_NO_INSTRUMENT_FUNCTION_ENTRY_EXIT (newdecl)
 	    |= DECL_NO_INSTRUMENT_FUNCTION_ENTRY_EXIT (olddecl);
-	  DECL_NO_LIMIT_STACK (newdecl)
-	    |= DECL_NO_LIMIT_STACK (olddecl);
+	  DECL_NO_LIMIT_STACK (newdecl) |= DECL_NO_LIMIT_STACK (olddecl);
+	  TREE_THIS_VOLATILE (newdecl) |= TREE_THIS_VOLATILE (olddecl);
+	  TREE_READONLY (newdecl) |= TREE_READONLY (olddecl);
+	  TREE_NOTHROW (newdecl) |= TREE_NOTHROW (olddecl);
+	  DECL_IS_MALLOC (newdecl) |= DECL_IS_MALLOC (olddecl);
+	  DECL_IS_PURE (newdecl) |= DECL_IS_PURE (olddecl);
 	  /* Keep the old RTL.  */
 	  COPY_DECL_RTL (olddecl, newdecl);
 	}
@@ -4003,7 +4006,7 @@ pushdecl (tree x)
 		}
 
 	      if (warn_shadow && !err)
-		shadow_warning (SW_PARAM, false,
+		shadow_warning (SW_PARAM,
 				IDENTIFIER_POINTER (name), oldlocal);
 	    }
 
@@ -4021,12 +4024,12 @@ pushdecl (tree x)
 			    IDENTIFIER_POINTER (name));
 	      else if (oldlocal != NULL_TREE
 		       && TREE_CODE (oldlocal) == VAR_DECL)
-		shadow_warning (SW_LOCAL, false,
+		shadow_warning (SW_LOCAL,
 				IDENTIFIER_POINTER (name), oldlocal);
 	      else if (oldglobal != NULL_TREE
 		       && TREE_CODE (oldglobal) == VAR_DECL)
 		/* XXX shadow warnings in outer-more namespaces */
-		shadow_warning (SW_GLOBAL, false,
+		shadow_warning (SW_GLOBAL,
 				IDENTIFIER_POINTER (name), oldglobal);
 	    }
 	}
@@ -4598,7 +4601,7 @@ make_label_decl (tree id, int local_p)
 
   /* Say where one reference is to the label, for the sake of the
      error if it is not defined.  */
-  annotate_with_file_line (decl, input_filename, lineno);
+  annotate_with_file_line (decl, input_filename, input_line);
 
   /* Record the fact that this identifier is bound to this label.  */
   SET_IDENTIFIER_LABEL_VALUE (id, decl);
@@ -4624,8 +4627,7 @@ use_label (tree decl)
       new_ent->label_decl = decl;
       new_ent->names_in_scope = current_binding_level->names;
       new_ent->binding_level = current_binding_level;
-      new_ent->lineno_o_goto = lineno;
-      new_ent->filename_o_goto = input_filename;
+      new_ent->o_goto_locus = input_location;
       new_ent->next = named_label_uses;
       named_label_uses = new_ent;
     }
@@ -4724,9 +4726,7 @@ decl_jump_unsafe (tree decl)
 static void
 check_previous_goto_1 (tree decl,
                        struct cp_binding_level* level,
-                       tree names,
-                       const char* file,
-                       int line)
+                       tree names, const location_t *locus)
 {
   int identified = 0;
   int saw_eh = 0;
@@ -4749,8 +4749,8 @@ check_previous_goto_1 (tree decl,
 	      else
 		pedwarn ("jump to case label");
 
-	      if (file)
-		pedwarn_with_file_and_line (file, line, "  from here");
+	      if (locus)
+		pedwarn ("%H  from here", locus);
 	      identified = 1;
 	    }
 
@@ -4773,8 +4773,8 @@ check_previous_goto_1 (tree decl,
 	      else
 		pedwarn ("jump to case label");
 
-	      if (file)
-		pedwarn_with_file_and_line (file, line, "  from here");
+	      if (locus)
+		pedwarn ("%H  from here", locus);
 	      identified = 1;
 	    }
 	  if (b->is_try_scope)
@@ -4790,14 +4790,13 @@ static void
 check_previous_goto (struct named_label_use_list* use)
 {
   check_previous_goto_1 (use->label_decl, use->binding_level,
-			 use->names_in_scope, use->filename_o_goto,
-			 use->lineno_o_goto);
+			 use->names_in_scope, &use->o_goto_locus);
 }
 
 static void
 check_switch_goto (struct cp_binding_level* level)
 {
-  check_previous_goto_1 (NULL_TREE, level, level->names, NULL, 0);
+  check_previous_goto_1 (NULL_TREE, level, level->names, NULL);
 }
 
 /* Check that any previously seen jumps to a newly defined label DECL
@@ -5420,6 +5419,11 @@ tree
 make_typename_type (tree context, tree name, tsubst_flags_t complain)
 {
   tree fullname;
+
+  if (name == error_mark_node
+      || context == NULL_TREE
+      || context == error_mark_node)
+    return error_mark_node;
 
   if (TYPE_P (name))
     {
@@ -7334,40 +7338,43 @@ maybe_commonize_var (tree decl)
   if (TREE_STATIC (decl)
       /* Don't mess with __FUNCTION__.  */
       && ! DECL_ARTIFICIAL (decl)
-      && current_function_decl
-      && DECL_CONTEXT (decl) == current_function_decl
-      && (DECL_DECLARED_INLINE_P (current_function_decl)
-	  || DECL_TEMPLATE_INSTANTIATION (current_function_decl))
-      && TREE_PUBLIC (current_function_decl))
+      && DECL_FUNCTION_SCOPE_P (decl)
+      /* Unfortunately, import_export_decl has not always been called
+	 before the function is processed, so we cannot simply check
+	 DECL_COMDAT.  */ 
+      && (DECL_COMDAT (DECL_CONTEXT (decl))
+	  || ((DECL_DECLARED_INLINE_P (DECL_CONTEXT (decl))
+	       || DECL_TEMPLATE_INSTANTIATION (DECL_CONTEXT (decl)))
+	      && TREE_PUBLIC (DECL_CONTEXT (decl)))))
     {
-      /* If flag_weak, we don't need to mess with this, as we can just
-	 make the function weak, and let it refer to its unique local
-	 copy.  This works because we don't allow the function to be
-	 inlined.  */
-      if (! flag_weak)
+      if (flag_weak)
 	{
-	  if (DECL_INTERFACE_KNOWN (current_function_decl))
+	  /* With weak symbols, we simply make the variable COMDAT;
+	     that will cause copies in multiple translations units to
+	     be merged.  */
+	  comdat_linkage (decl);
+	}
+      else
+	{
+	  if (DECL_INITIAL (decl) == NULL_TREE
+	      || DECL_INITIAL (decl) == error_mark_node)
 	    {
-	      TREE_PUBLIC (decl) = 1;
-	      DECL_EXTERNAL (decl) = DECL_EXTERNAL (current_function_decl);
-	    }
-	  else if (DECL_INITIAL (decl) == NULL_TREE
-		   || DECL_INITIAL (decl) == error_mark_node)
-	    {
+	      /* Without weak symbols, we can use COMMON to merge
+		 uninitialized variables.  */
 	      TREE_PUBLIC (decl) = 1;
 	      DECL_COMMON (decl) = 1;
 	    }
-	  /* else we lose. We can only do this if we can use common,
-	     which we can't if it has been initialized.  */
-
-	  if (!TREE_PUBLIC (decl))
+	  else
 	    {
+	      /* While for initialized variables, we must use internal
+		 linkage -- which means that multiple copies will not
+		 be merged.  */
+	      TREE_PUBLIC (decl) = 0;
+	      DECL_COMMON (decl) = 0;
 	      cp_warning_at ("sorry: semantics of inline function static data `%#D' are wrong (you'll wind up with multiple copies)", decl);
 	      cp_warning_at ("  you can work around this by removing the initializer", decl);
 	    }
 	}
-      else
-	comdat_linkage (decl);
     }
   else if (DECL_LANG_SPECIFIC (decl) && DECL_COMDAT (decl))
     /* Set it up again; we might have set DECL_INITIAL since the last
@@ -7521,7 +7528,7 @@ reshape_init (tree type, tree *initp)
   else
     {
       /* Build a CONSTRUCTOR to hold the contents of the aggregate.  */  
-      new_init = build (CONSTRUCTOR, type, NULL_TREE, NULL_TREE);
+      new_init = build_constructor (type, NULL_TREE);
       TREE_HAS_CONSTRUCTOR (new_init) = 1;
 
       if (CLASS_TYPE_P (type))
@@ -7545,10 +7552,23 @@ reshape_init (tree type, tree *initp)
 	    {
 	      /* Loop through the initializable fields, gathering
 		 initializers.  */
-              /* FIXME support non-trivial labeled initializers.  */
-	      while (*initp && field)
+	      while (*initp)
 		{
 		  tree field_init;
+
+		  /* Handle designated initializers, as an extension.  */
+		  if (TREE_PURPOSE (*initp))
+		    {
+		      if (pedantic)
+			pedwarn ("ISO C++ does not allow designated initializers");
+		      field = lookup_field_1 (type, TREE_PURPOSE (*initp),
+					      /*want_type=*/false);
+		      if (!field || TREE_CODE (field) != FIELD_DECL)
+			error ("`%T' has no non-static data member named `%D'",
+			       type, TREE_PURPOSE (*initp));
+		    }
+		  if (!field)
+		    break;
 
 		  field_init = reshape_init (TREE_TYPE (field), initp);
 		  TREE_CHAIN (field_init) = CONSTRUCTOR_ELTS (new_init);
@@ -10522,6 +10542,9 @@ grokdeclarator (tree declarator,
 	 array or function or pointer, and DECLARATOR has had its
 	 outermost layer removed.  */
 
+      if (declarator == error_mark_node)
+	break;
+
       if (type == error_mark_node)
 	{
 	  if (TREE_CODE (declarator) == SCOPE_REF)
@@ -11041,7 +11064,7 @@ grokdeclarator (tree declarator,
 
   if (RIDBIT_SETP (RID_MUTABLE, specbits))
     {
-      if (current_class_name == NULL_TREE || decl_context == PARM || friendp)
+      if (decl_context != FIELD || friendp)
         {
 	  error ("non-member `%s' cannot be declared `mutable'", name);
           RIDBIT_RESET (RID_MUTABLE, specbits);
@@ -12522,6 +12545,38 @@ tag_name (enum tag_types code)
     }
 }
 
+/* Name lookup in an elaborated-type-specifier (after the keyword
+   indicated by TAG_CODE) has found TYPE.  If the
+   elaborated-type-specifier is invalid, issue a diagnostic and return
+   error_mark_node; otherwise, return TYPE itself.  */
+
+static tree
+check_elaborated_type_specifier (enum tag_types tag_code,
+				 tree type)
+{
+  tree t;
+
+  t = follow_tag_typedef (type);
+
+  /* [dcl.type.elab] If the identifier resolves to a typedef-name or a
+     template type-parameter, the elaborated-type-specifier is
+     ill-formed.  */
+  if (!t)
+    {
+      error ("using typedef-name `%D' after `%s'",
+	     TYPE_NAME (type), tag_name (tag_code));
+      t = error_mark_node;
+    }
+  else if (TREE_CODE (type) == TEMPLATE_TYPE_PARM)
+    {
+      error ("using template type parameter `%T' after `%s'",
+	     type, tag_name (tag_code));
+      t = error_mark_node;
+    }
+
+  return t;
+}
+
 /* Get the struct, enum or union (CODE says which) with tag NAME.
    Define the tag as a forward-reference if it is not defined.
 
@@ -12608,20 +12663,9 @@ xref_tag (enum tag_types tag_code, tree name, tree attributes,
     {
       if (t)
 	{
-	  ref = follow_tag_typedef (t);
-
-	  /* [dcl.type.elab] If the identifier resolves to a
-	     typedef-name or a template type-parameter, the
-	     elaborated-type-specifier is ill-formed.  */
-	  if (!ref)
-	    {
-	      pedwarn ("using typedef-name `%D' after `%s'",
-		       TYPE_NAME (t), tag_name (tag_code));
-	      ref = t;
-	    }
-	  else if (TREE_CODE (t) == TEMPLATE_TYPE_PARM)
-	    error ("using template type parameter `%T' after `%s'",
-		   t, tag_name (tag_code));
+	  ref = check_elaborated_type_specifier (tag_code, t);
+	  if (ref == error_mark_node)
+	    POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, error_mark_node);
 	}
       else
 	ref = lookup_tag (code, name, b, 0);
@@ -12640,9 +12684,15 @@ xref_tag (enum tag_types tag_code, tree name, tree attributes,
 	       template, so we want this type.  */
 	    ref = DECL_TEMPLATE_RESULT (ref);
 
-	  if (ref && TREE_CODE (ref) == TYPE_DECL
-	      && TREE_CODE (TREE_TYPE (ref)) == code)
-	    ref = TREE_TYPE (ref);
+	  if (ref && TREE_CODE (ref) == TYPE_DECL)
+	    {
+	      ref = check_elaborated_type_specifier (tag_code, 
+						     TREE_TYPE (ref));
+	      if (ref == error_mark_node)
+		POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, error_mark_node);
+	      if (ref && TREE_CODE (ref) != code)
+		ref = NULL_TREE;
+	    }
 	  else
 	    ref = NULL_TREE;
 	}
@@ -13444,7 +13494,7 @@ start_function (tree declspecs, tree declarator, tree attrs, int flags)
      CFUN set up, and our per-function variables initialized.
      FIXME factor out the non-RTL stuff.  */
   bl = current_binding_level;
-  init_function_start (decl1, input_filename, lineno);
+  init_function_start (decl1, input_filename, input_line);
   current_binding_level = bl;
 
   /* Even though we're inside a function body, we still don't want to
@@ -13960,6 +14010,12 @@ finish_function (int flags)
   /* If we're saving up tree structure, tie off the function now.  */
   finish_stmt_tree (&DECL_SAVED_TREE (fndecl));
 
+  /* If this function can't throw any exceptions, remember that.  */
+  if (!processing_template_decl
+      && !cp_function_chain->can_throw
+      && !flag_non_call_exceptions)
+    TREE_NOTHROW (fndecl) = 1;
+
   /* This must come after expand_function_end because cleanups might
      have declarations (from inline functions) that need to go into
      this function's blocks.  */
@@ -14063,7 +14119,7 @@ finish_function (int flags)
   /* Genericizing can change the current line number and filename.
      We need to save/restore so that we can emit the proper line
      note for the end of the function later.  */
-  saved_lineno = lineno;
+  saved_lineno = input_line;
   saved_filename = input_filename;
 
   /* Genericize before inlining.  */
@@ -14078,7 +14134,7 @@ finish_function (int flags)
   cfun = NULL;
 
   /* Restore file and line information.  */
-  lineno = saved_lineno;
+  input_line = saved_lineno;
   input_filename = saved_filename;
 
   /* If this is an in-class inline definition, we may have to pop the
@@ -14424,7 +14480,6 @@ cp_tree_node_structure (union lang_tree_node * t)
     case PTRMEM_CST:		return TS_CP_PTRMEM;
     case BASELINK:              return TS_CP_BASELINK;
     case WRAPPER:		return TS_CP_WRAPPER;
-    case SRCLOC:		return TS_CP_SRCLOC;
     default:			return TS_CP_GENERIC;
     }
 }

@@ -289,7 +289,7 @@ dw_fde_node;
 static GTY((length ("fde_table_allocated"))) dw_fde_ref fde_table;
 
 /* Number of elements currently allocated for fde_table.  */
-static unsigned fde_table_allocated;
+static GTY(()) unsigned fde_table_allocated;
 
 /* Number of elements in fde_table currently in use.  */
 static GTY(()) unsigned fde_table_in_use;
@@ -414,9 +414,9 @@ static void def_cfa_1		 	PARAMS ((const char *,
 /* Hook used by __throw.  */
 
 rtx
-expand_builtin_dwarf_fp_regnum ()
+expand_builtin_dwarf_sp_column ()
 {
-  return GEN_INT (DWARF_FRAME_REGNUM (HARD_FRAME_POINTER_REGNUM));
+  return GEN_INT (DWARF_FRAME_REGNUM (STACK_POINTER_REGNUM));
 }
 
 /* Return a pointer to a copy of the section string name S with all
@@ -1940,7 +1940,8 @@ output_call_frame_info (for_eh)
       for (i = 0; i < fde_table_in_use; i++)
 	if (fde_table[i].uses_eh_lsda)
 	  any_eh_needed = any_lsda_needed = true;
-	else if (! fde_table[i].nothrow)
+	else if (! fde_table[i].nothrow
+		 && ! fde_table[i].all_throwers_are_sibcalls)
 	  any_eh_needed = true;
 
       if (! any_eh_needed)
@@ -3420,14 +3421,16 @@ limbo_die_node;
 
 /* Fixed size portion of the address range info.  */
 #define DWARF_ARANGES_HEADER_SIZE					\
-  (DWARF_ROUND (2 * DWARF_OFFSET_SIZE + 4, DWARF2_ADDR_SIZE * 2)	\
-   - DWARF_OFFSET_SIZE)
+  (DWARF_ROUND (DWARF_INITIAL_LENGTH_SIZE + DWARF_OFFSET_SIZE + 4,	\
+                DWARF2_ADDR_SIZE * 2)					\
+   - DWARF_INITIAL_LENGTH_SIZE)
 
 /* Size of padding portion in the address range info.  It must be
    aligned to twice the pointer size.  */
 #define DWARF_ARANGES_PAD_SIZE \
-  (DWARF_ROUND (2 * DWARF_OFFSET_SIZE + 4, DWARF2_ADDR_SIZE * 2) \
-   - (2 * DWARF_OFFSET_SIZE + 4))
+  (DWARF_ROUND (DWARF_INITIAL_LENGTH_SIZE + DWARF_OFFSET_SIZE + 4, \
+                DWARF2_ADDR_SIZE * 2) \
+   - (DWARF_INITIAL_LENGTH_SIZE + DWARF_OFFSET_SIZE + 4))
 
 /* Use assembler line directives if available.  */
 #ifndef DWARF2_ASM_LINE_DEBUG_INFO
@@ -3483,12 +3486,10 @@ static GTY(()) size_t file_table_last_lookup_index;
 static GTY((length ("decl_die_table_allocated"))) dw_die_ref *decl_die_table;
 
 /* Number of elements currently allocated for the decl_die_table.  */
-static unsigned decl_die_table_allocated;
+static GTY(()) unsigned decl_die_table_allocated;
 
-#ifdef DWARF2_DEBUGGING_INFO
 /* Number of elements in decl_die_table currently in use.  */
-static unsigned decl_die_table_in_use;
-#endif
+static GTY(()) unsigned decl_die_table_in_use;
 
 /* Size (in elements) of increments by which we may expand the
    decl_die_table.  */
@@ -3501,12 +3502,10 @@ static GTY((length ("abbrev_die_table_allocated")))
   dw_die_ref *abbrev_die_table;
 
 /* Number of elements currently allocated for abbrev_die_table.  */
-static unsigned abbrev_die_table_allocated;
+static GTY(()) unsigned abbrev_die_table_allocated;
 
-#ifdef DWARF2_DEBUGGING_INFO
 /* Number of elements in type_die_table currently in use.  */
-static unsigned abbrev_die_table_in_use;
-#endif
+static GTY(()) unsigned abbrev_die_table_in_use;
 
 /* Size (in elements) of increments by which we may expand the
    abbrev_die_table.  */
@@ -3518,12 +3517,10 @@ static GTY((length ("line_info_table_allocated")))
      dw_line_info_ref line_info_table;
 
 /* Number of elements currently allocated for line_info_table.  */
-static unsigned line_info_table_allocated;
+static GTY(()) unsigned line_info_table_allocated;
 
-#ifdef DWARF2_DEBUGGING_INFO
 /* Number of elements in line_info_table currently in use.  */
-static unsigned line_info_table_in_use;
-#endif
+static GTY(()) unsigned line_info_table_in_use;
 
 /* A pointer to the base of a table that contains line information
    for each source code line outside of .text in the compilation unit.  */
@@ -3531,12 +3528,10 @@ static GTY ((length ("separate_line_info_table_allocated")))
      dw_separate_line_info_ref separate_line_info_table;
 
 /* Number of elements currently allocated for separate_line_info_table.  */
-static unsigned separate_line_info_table_allocated;
+static GTY(()) unsigned separate_line_info_table_allocated;
 
-#ifdef DWARF2_DEBUGGING_INFO
 /* Number of elements in separate_line_info_table currently in use.  */
-static unsigned separate_line_info_table_in_use;
-#endif
+static GTY(()) unsigned separate_line_info_table_in_use;
 
 /* Size (in elements) of increments by which we may expand the
    line_info_table.  */
@@ -3547,12 +3542,10 @@ static unsigned separate_line_info_table_in_use;
 static GTY ((length ("pubname_table_allocated"))) pubname_ref pubname_table;
 
 /* Number of elements currently allocated for pubname_table.  */
-static unsigned pubname_table_allocated;
+static GTY(()) unsigned pubname_table_allocated;
 
-#ifdef DWARF2_DEBUGGING_INFO
 /* Number of elements in pubname_table currently in use.  */
-static unsigned pubname_table_in_use;
-#endif
+static GTY(()) unsigned pubname_table_in_use;
 
 /* Size (in elements) of increments by which we may expand the
    pubname_table.  */
@@ -3562,12 +3555,10 @@ static unsigned pubname_table_in_use;
 static GTY((length ("arange_table_allocated"))) dw_die_ref *arange_table;
 
 /* Number of elements currently allocated for arange_table.  */
-static unsigned arange_table_allocated;
+static GTY(()) unsigned arange_table_allocated;
 
-#ifdef DWARF2_DEBUGGING_INFO
 /* Number of elements in arange_table currently in use.  */
-static unsigned arange_table_in_use;
-#endif
+static GTY(()) unsigned arange_table_in_use;
 
 /* Size (in elements) of increments by which we may expand the
    arange_table.  */
@@ -3577,25 +3568,31 @@ static unsigned arange_table_in_use;
 static GTY ((length ("ranges_table_allocated"))) dw_ranges_ref ranges_table;
 
 /* Number of elements currently allocated for ranges_table.  */
-static unsigned ranges_table_allocated;
+static GTY(()) unsigned ranges_table_allocated;
 
-#ifdef DWARF2_DEBUGGING_INFO
 /* Number of elements in ranges_table currently in use.  */
-static unsigned ranges_table_in_use;
+static GTY(()) unsigned ranges_table_in_use;
 
 /* Size (in elements) of increments by which we may expand the
    ranges_table.  */
 #define RANGES_TABLE_INCREMENT 64
 
 /* Whether we have location lists that need outputting */
-static unsigned have_location_lists;
+static GTY(()) unsigned have_location_lists;
 
+#ifdef DWARF2_DEBUGGING_INFO
 /* Record whether the function being analyzed contains inlined functions.  */
 static int current_function_has_inlines;
 #endif
 #if 0 && defined (MIPS_DEBUGGING_INFO)
 static int comp_unit_has_inlines;
 #endif
+
+/* Number of file tables emited in maybe_emit_file(). */
+static GTY(()) int emitcount = 0;
+
+/* Number of internal labels generated by gen_internal_sym(). */
+static GTY(()) int label_num;
 
 #ifdef DWARF2_DEBUGGING_INFO
 
@@ -3686,10 +3683,11 @@ static unsigned get_AT_unsigned		PARAMS ((dw_die_ref,
 						 enum dwarf_attribute));
 static inline dw_die_ref get_AT_ref 	PARAMS ((dw_die_ref,
 						 enum dwarf_attribute));
-static int is_c_family			PARAMS ((void));
-static int is_cxx			PARAMS ((void));
-static int is_java			PARAMS ((void));
-static int is_fortran			PARAMS ((void));
+static bool is_c_family			PARAMS ((void));
+static bool is_cxx			PARAMS ((void));
+static bool is_java			PARAMS ((void));
+static bool is_fortran			PARAMS ((void));
+static bool is_ada			PARAMS ((void));
 static void remove_AT			PARAMS ((dw_die_ref,
 						 enum dwarf_attribute));
 static inline void free_die		PARAMS ((dw_die_ref));
@@ -3764,6 +3762,8 @@ static void output_file_names           PARAMS ((void));
 static dw_die_ref base_type_die		PARAMS ((tree));
 static tree root_type			PARAMS ((tree));
 static int is_base_type			PARAMS ((tree));
+static bool is_ada_subrange_type        PARAMS ((tree));
+static dw_die_ref subrange_type_die     PARAMS ((tree));
 static dw_die_ref modified_type_die	PARAMS ((tree, int, int, dw_die_ref));
 static int type_is_enum			PARAMS ((tree));
 static unsigned int reg_number		PARAMS ((rtx));
@@ -5088,38 +5088,56 @@ get_AT_ref (die, attr_kind)
   return a ? AT_ref (a) : NULL;
 }
 
-static inline int
+/* Return TRUE if the language is C or C++.  */
+
+static inline bool
 is_c_family ()
 {
-  unsigned lang = get_AT_unsigned (comp_unit_die, DW_AT_language);
+  unsigned int lang = get_AT_unsigned (comp_unit_die, DW_AT_language);
 
   return (lang == DW_LANG_C || lang == DW_LANG_C89
 	  || lang == DW_LANG_C_plus_plus);
 }
 
-static inline int
+/* Return TRUE if the language is C++.  */
+
+static inline bool
 is_cxx ()
 {
   return (get_AT_unsigned (comp_unit_die, DW_AT_language)
 	  == DW_LANG_C_plus_plus);
 }
 
-static inline int
+/* Return TRUE if the language is Fortran.  */
+
+static inline bool
 is_fortran ()
 {
-  unsigned lang = get_AT_unsigned (comp_unit_die, DW_AT_language);
+  unsigned int lang = get_AT_unsigned (comp_unit_die, DW_AT_language);
 
   return (lang == DW_LANG_Fortran77
 	  || lang == DW_LANG_Fortran90
 	  || lang == DW_LANG_Fortran95);
 }
 
-static inline int
+/* Return TRUE if the language is Java.  */
+
+static inline bool
 is_java ()
 {
-  unsigned lang = get_AT_unsigned (comp_unit_die, DW_AT_language);
+  unsigned int lang = get_AT_unsigned (comp_unit_die, DW_AT_language);
 
-  return (lang == DW_LANG_Java);
+  return lang == DW_LANG_Java;
+}
+
+/* Return TRUE if the language is Ada.  */
+
+static inline bool
+is_ada ()
+{
+  unsigned int lang = get_AT_unsigned (comp_unit_die, DW_AT_language);
+  
+  return lang == DW_LANG_Ada95 || lang == DW_LANG_Ada83;
 }
 
 /* Free up the memory used by A.  */
@@ -5979,7 +5997,6 @@ gen_internal_sym (prefix)
      const char *prefix;
 {
   char buf[256];
-  static int label_num;
 
   ASM_GENERATE_INTERNAL_LABEL (buf, prefix, label_num++);
   return xstrdup (buf);
@@ -8028,6 +8045,50 @@ simple_type_size_in_bits (type)
     return TYPE_ALIGN (type);
 }
 
+/* Return true if the debug information for the given type should be
+   emitted as a subrange type.  */
+
+static inline bool
+is_ada_subrange_type (type)
+    tree type;
+{
+  /* We do this for INTEGER_TYPEs that have names, parent types, and when
+     we are compiling Ada code.  */
+  return (TREE_CODE (type) == INTEGER_TYPE
+	  && TYPE_NAME (type) != 0 && TREE_TYPE (type) != 0
+	  && TREE_CODE (TREE_TYPE (type)) == INTEGER_TYPE
+	  && TREE_UNSIGNED (TREE_TYPE (type)) && is_ada ());
+}
+
+/*  Given a pointer to a tree node for a subrange type, return a pointer
+    to a DIE that describes the given type.  */
+
+static dw_die_ref
+subrange_type_die (type)
+    tree type;
+{
+  dw_die_ref subtype_die;
+  dw_die_ref subrange_die;
+  tree name = TYPE_NAME (type);
+  
+  subtype_die = base_type_die (TREE_TYPE (type));
+
+  if (TREE_CODE (name) == TYPE_DECL)
+    name = DECL_NAME (name);
+
+  subrange_die = new_die (DW_TAG_subrange_type, comp_unit_die, type);
+  add_name_attribute (subrange_die, IDENTIFIER_POINTER (name));
+  if (TYPE_MIN_VALUE (type) != NULL)
+    add_bound_info (subrange_die, DW_AT_lower_bound,
+                    TYPE_MIN_VALUE (type));
+  if (TYPE_MAX_VALUE (type) != NULL)
+    add_bound_info (subrange_die, DW_AT_upper_bound,
+                    TYPE_MAX_VALUE (type));
+  add_AT_die_ref (subrange_die, DW_AT_type, subtype_die);
+
+  return subrange_die;
+}
+
 /* Given a pointer to an arbitrary ..._TYPE tree node, return a debugging
    entry that chains various modifiers in front of the given type.  */
 
@@ -8122,6 +8183,8 @@ modified_type_die (type, is_const_type, is_volatile_type, context_die)
 #endif
 	  item_type = TREE_TYPE (type);
 	}
+      else if (is_ada_subrange_type (type))
+        mod_type_die = subrange_type_die (type);
       else if (is_base_type (type))
 	mod_type_die = base_type_die (type);
       else
@@ -8815,6 +8878,9 @@ loc_descriptor_from_tree (loc, addressp)
       op = DW_OP_or;
       goto do_binop;
 
+    case FLOOR_DIV_EXPR:
+    case CEIL_DIV_EXPR:
+    case ROUND_DIV_EXPR:
     case TRUNC_DIV_EXPR:
       op = DW_OP_div;
       goto do_binop;
@@ -8823,6 +8889,9 @@ loc_descriptor_from_tree (loc, addressp)
       op = DW_OP_minus;
       goto do_binop;
 
+    case FLOOR_MOD_EXPR:
+    case CEIL_MOD_EXPR:
+    case ROUND_MOD_EXPR:
     case TRUNC_MOD_EXPR:
       op = DW_OP_mod;
       goto do_binop;
@@ -11447,7 +11516,7 @@ gen_compile_unit_die (filename)
   if (strcmp (language_string, "GNU C++") == 0)
     language = DW_LANG_C_plus_plus;
   else if (strcmp (language_string, "GNU Ada") == 0)
-    language = DW_LANG_Ada83;
+    language = DW_LANG_Ada95;
   else if (strcmp (language_string, "GNU F77") == 0)
     language = DW_LANG_Fortran77;
   else if (strcmp (language_string, "GNU F95") == 0)
@@ -12501,7 +12570,6 @@ static int
 maybe_emit_file (fileno)
      int fileno;
 {
-  static int emitcount = 0;  
   if (DWARF2_ASM_LINE_DEBUG_INFO && fileno > 0)
     {
       if (!VARRAY_UINT (file_table_emitted, fileno))
@@ -12710,8 +12778,8 @@ dwarf2out_undef (lineno, buffer)
 /* Set up for Dwarf output at the start of compilation.  */
 
 static void
-dwarf2out_init (input_filename)
-     const char *input_filename ATTRIBUTE_UNUSED;
+dwarf2out_init (filename)
+     const char *filename ATTRIBUTE_UNUSED;
 {
   init_file_table ();
 
@@ -13017,16 +13085,16 @@ prune_unused_types ()
    and generate the DWARF-2 debugging info.  */
 
 static void
-dwarf2out_finish (input_filename)
-     const char *input_filename;
+dwarf2out_finish (filename)
+     const char *filename;
 {
   limbo_die_node *node, *next_node;
   dw_die_ref die = 0;
 
   /* Add the name for the main input file now.  We delayed this from
      dwarf2out_init to avoid complications with PCH.  */
-  add_name_attribute (comp_unit_die, input_filename);
-  if (input_filename[0] != DIR_SEPARATOR)
+  add_name_attribute (comp_unit_die, filename);
+  if (filename[0] != DIR_SEPARATOR)
     add_comp_dir_attribute (comp_unit_die);
   else if (get_AT (comp_unit_die, DW_AT_comp_dir) == NULL)
     {

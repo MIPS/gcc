@@ -24,7 +24,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "machmode.h"
 #include "version.h"
-#include "location.h"
+#include "input.h"
 
 /* Codes of tree nodes */
 
@@ -252,8 +252,6 @@ struct tree_common GTY(())
 
        TREE_UNSIGNED in
            INTEGER_TYPE, ENUMERAL_TYPE, FIELD_DECL
-       DECL_BUILT_IN_NONANSI in
-           FUNCTION_DECL
        SAVE_EXPR_NOPLACEHOLDER in
 	   SAVE_EXPR
 
@@ -317,13 +315,6 @@ struct tree_common GTY(())
     __t; })
 
 /* These checks have to be special cased.  */
-#define CST_OR_CONSTRUCTOR_CHECK(t) __extension__			\
-({  const tree __t = (t);						\
-    enum tree_code const __c = TREE_CODE(__t);				\
-    if (__c != CONSTRUCTOR && TREE_CODE_CLASS(__c) != 'c')		\
-      tree_check_failed (__t, CONSTRUCTOR, __FILE__, __LINE__,		\
-			 __FUNCTION__);					\
-    __t; })
 #define EXPR_CHECK(t) __extension__					\
 ({  const tree __t = (t);						\
     char const __c = TREE_CODE_CLASS(TREE_CODE(__t));			\
@@ -376,6 +367,40 @@ struct tree_common GTY(())
 				 __FILE__, __LINE__, __FUNCTION__);	\
     &__t->phi.a[__i]; }))
 
+/* Special checks for TREE_OPERANDs.  */
+#define TREE_OPERAND_CHECK(t, i) __extension__				\
+(*({const tree __t = EXPR_CHECK(t);					\
+    const int __i = (i);						\
+    if (__i < 0 || __i >= TREE_CODE_LENGTH (TREE_CODE (__t)))		\
+      tree_operand_check_failed (__i, TREE_CODE (__t),			\
+				 __FILE__, __LINE__, __FUNCTION__);	\
+    &__t->exp.operands[__i]; }))
+
+#define TREE_OPERAND_CHECK_CODE(t, code, i) __extension__		\
+(*({const tree __t = t;							\
+    const int __i = (i);						\
+    const enum tree_code __code = code;					\
+    if (TREE_CODE (__t) != __code)					\
+      tree_check_failed (__t, __code,					\
+			 __FILE__, __LINE__, __FUNCTION__);		\
+    if (__i < 0 || __i >= TREE_CODE_LENGTH (__code))			\
+      tree_operand_check_failed (__i, __code,				\
+				 __FILE__, __LINE__, __FUNCTION__);	\
+    &__t->exp.operands[__i]; }))
+
+#define TREE_RTL_OPERAND_CHECK(t, code, i) __extension__		\
+(*(rtx *)								\
+ ({const tree __t = t;							\
+    const int __i = (i);						\
+    const enum tree_code __code = code;					\
+    if (TREE_CODE (__t) != __code)					\
+      tree_check_failed (__t, __code,					\
+			 __FILE__, __LINE__, __FUNCTION__);		\
+    if (__i < 0 || __i >= TREE_CODE_LENGTH (__code))			\
+      tree_operand_check_failed (__i, __code,				\
+				 __FILE__, __LINE__, __FUNCTION__);	\
+    &__t->exp.operands[__i]; }))
+
 extern void tree_check_failed PARAMS ((const tree, enum tree_code,
 				       const char *, int, const char *))
     ATTRIBUTE_NORETURN;
@@ -392,16 +417,23 @@ extern void ephi_node_elt_check_failed PARAMS ((int, int, const char *,
 					       int, const char *))
     ATTRIBUTE_NORETURN;
 
+extern void tree_operand_check_failed PARAMS ((int, enum tree_code,
+					       const char *, int, const char *))
+    ATTRIBUTE_NORETURN;
+    
 #else /* not ENABLE_TREE_CHECKING, or not gcc */
 
 #define TREE_CHECK(t, code)		(t)
 #define TREE_CLASS_CHECK(t, code)	(t)
-#define CST_OR_CONSTRUCTOR_CHECK(t)	(t)
 #define EXPR_CHECK(t)			(t)
 #define EREF_NODE_CHECK(t)		(t)
 #define TREE_VEC_ELT_CHECK(t, i)	((t)->vec.a[i])
 #define PHI_NODE_ELT_CHECK(t, i)	((t)->phi.a[i])
 #define EPHI_NODE_ELT_CHECK(t, i)	((t)->ephi.a[i])
+#define TREE_OPERAND_CHECK(t, i)	((t)->exp.operands[i])
+#define TREE_OPERAND_CHECK_CODE(t, code, i) ((t)->exp.operands[i])
+#define TREE_RTL_OPERAND_CHECK(t, code, i)  (*(rtx *) &((t)->exp.operands[i]))
+
 #endif
 
 #include "tree-check.h"
@@ -665,8 +697,7 @@ extern void ephi_node_elt_check_failed PARAMS ((int, int, const char *,
 #define TREE_CONSTANT(NODE) ((NODE)->common.constant_flag)
 
 /* In INTEGER_TYPE or ENUMERAL_TYPE nodes, means an unsigned type.
-   In FIELD_DECL nodes, means an unsigned bit field.
-   The same bit is used in functions as DECL_BUILT_IN_NONANSI.  */
+   In FIELD_DECL nodes, means an unsigned bit field.  */
 #define TREE_UNSIGNED(NODE) ((NODE)->common.unsigned_flag)
 
 #define TYPE_TRAP_SIGNED(NODE) \
@@ -784,8 +815,6 @@ extern void ephi_node_elt_check_failed PARAMS ((int, int, const char *,
 struct tree_int_cst GTY(())
 {
   struct tree_common common;
-  rtx rtl;	/* acts as link to register transfer language
-			   (rtl) info */
   /* A sub-struct is necessary here because the function `const_hash'
      wants to scan both words as a unit and taking the address of the
      sub-struct yields the properly inclusive bounded pointer.  */
@@ -794,12 +823,6 @@ struct tree_int_cst GTY(())
     HOST_WIDE_INT high;
   } int_cst;
 };
-
-/* In REAL_CST, STRING_CST, COMPLEX_CST, VECTOR_CST nodes, and
-   CONSTRUCTOR nodes, and generally in all kinds of constants that
-   could be given labels (rather than being immediate).  */
-
-#define TREE_CST_RTL(NODE) (CST_OR_CONSTRUCTOR_CHECK (NODE)->real_cst.rtl)
 
 /* In a REAL_CST node.  struct real_value is an opaque entity, with
    manipulators defined in real.h.  We don't want tree.h depending on
@@ -812,7 +835,6 @@ struct real_value;
 struct tree_real_cst GTY(())
 {
   struct tree_common common;
-  rtx rtl;	/* acts as link to register transfer language (rtl) info */
   struct real_value * real_cst_ptr;
 };
 
@@ -823,7 +845,6 @@ struct tree_real_cst GTY(())
 struct tree_string GTY(())
 {
   struct tree_common common;
-  rtx rtl;	/* acts as link to register transfer language (rtl) info */
   int length;
   const char *pointer;
 };
@@ -835,7 +856,6 @@ struct tree_string GTY(())
 struct tree_complex GTY(())
 {
   struct tree_common common;
-  rtx rtl;	/* acts as link to register transfer language (rtl) info */
   tree real;
   tree imag;
 };
@@ -846,7 +866,6 @@ struct tree_complex GTY(())
 struct tree_vector GTY(())
 {
   struct tree_common common;
-  rtx rtl;
   tree elements;
 };
 
@@ -905,8 +924,9 @@ struct tree_vec GTY(())
 				 && TREE_OPERAND (NODE, 0) == size_zero_node)
 
 /* In a SAVE_EXPR node.  */
-#define SAVE_EXPR_CONTEXT(NODE) TREE_OPERAND (SAVE_EXPR_CHECK (NODE), 1)
-#define SAVE_EXPR_RTL(NODE) (*(rtx *) &SAVE_EXPR_CHECK (NODE)->exp.operands[2])
+#define SAVE_EXPR_CONTEXT(NODE) TREE_OPERAND_CHECK_CODE (NODE, SAVE_EXPR, 1)
+#define SAVE_EXPR_RTL(NODE) TREE_RTL_OPERAND_CHECK (NODE, SAVE_EXPR, 2)
+
 #define SAVE_EXPR_NOPLACEHOLDER(NODE) TREE_UNSIGNED (SAVE_EXPR_CHECK (NODE))
 /* Nonzero if the SAVE_EXPRs value should be kept, even if it occurs
    both in normal code and in a handler.  (Normally, in a handler, all
@@ -915,36 +935,34 @@ struct tree_vec GTY(())
 #define SAVE_EXPR_PERSISTENT_P(NODE) TREE_ASM_WRITTEN (SAVE_EXPR_CHECK (NODE))
 
 /* In a RTL_EXPR node.  */
-#define RTL_EXPR_SEQUENCE(NODE) \
-  (*(rtx *) &RTL_EXPR_CHECK (NODE)->exp.operands[0])
-#define RTL_EXPR_RTL(NODE) (*(rtx *) &RTL_EXPR_CHECK (NODE)->exp.operands[1])
+#define RTL_EXPR_SEQUENCE(NODE) TREE_RTL_OPERAND_CHECK (NODE, RTL_EXPR, 0)
+#define RTL_EXPR_RTL(NODE) TREE_RTL_OPERAND_CHECK (NODE, RTL_EXPR, 1)
 
 /* In a WITH_CLEANUP_EXPR node.  */
 #define WITH_CLEANUP_EXPR_RTL(NODE) \
-  (*(rtx *) &WITH_CLEANUP_EXPR_CHECK (NODE)->exp.operands[2])
+  TREE_RTL_OPERAND_CHECK (NODE, WITH_CLEANUP_EXPR, 2)
 
 /* In a CONSTRUCTOR node.  */
-#define CONSTRUCTOR_ELTS(NODE) TREE_OPERAND (CONSTRUCTOR_CHECK (NODE), 1)
+#define CONSTRUCTOR_ELTS(NODE) TREE_OPERAND_CHECK_CODE (NODE, CONSTRUCTOR, 0)
 
 /* In ordinary expression nodes.  */
-#define TREE_OPERAND(NODE, I) (EXPR_CHECK (NODE)->exp.operands[I])
+#define TREE_OPERAND(NODE, I) TREE_OPERAND_CHECK (NODE, I)
 #define TREE_COMPLEXITY(NODE) (EXPR_CHECK (NODE)->exp.complexity)
 
 /* In a LABELED_BLOCK_EXPR node.  */
 #define LABELED_BLOCK_LABEL(NODE) \
-  TREE_OPERAND (LABELED_BLOCK_EXPR_CHECK (NODE), 0)
+  TREE_OPERAND_CHECK_CODE (NODE, LABELED_BLOCK_EXPR, 0)
 #define LABELED_BLOCK_BODY(NODE) \
-  TREE_OPERAND (LABELED_BLOCK_EXPR_CHECK (NODE), 1)
+  TREE_OPERAND_CHECK_CODE (NODE, LABELED_BLOCK_EXPR, 1)
 
 /* In an EXIT_BLOCK_EXPR node.  */
 #define EXIT_BLOCK_LABELED_BLOCK(NODE) \
-  TREE_OPERAND (EXIT_BLOCK_EXPR_CHECK (NODE), 0)
-#define EXIT_BLOCK_RETURN(NODE) TREE_OPERAND (EXIT_BLOCK_EXPR_CHECK (NODE), 1)
+  TREE_OPERAND_CHECK_CODE (NODE, EXIT_BLOCK_EXPR, 0)
+#define EXIT_BLOCK_RETURN(NODE) TREE_OPERAND_CHECK_CODE (NODE, EXIT_BLOCK_EXPR, 1)
 
 /* In a LOOP_EXPR node.  */
-#define LOOP_EXPR_BODY(NODE) TREE_OPERAND (LOOP_EXPR_CHECK (NODE), 0)
+#define LOOP_EXPR_BODY(NODE) TREE_OPERAND_CHECK_CODE (NODE, LOOP_EXPR, 0)
 
-/* In an EXPR_WITH_FILE_LOCATION node.  */
 #define TREE_LOCUS(NODE) \
   ((NODE)->common.locus)
 #define TREE_FILENAME(NODE) \
@@ -952,10 +970,26 @@ struct tree_vec GTY(())
 #define TREE_LINENO(NODE) \
   ((NODE)->common.locus->line)
 
+/* In an EXPR_WITH_FILE_LOCATION node.  */
+#define EXPR_WFL_EMIT_LINE_NOTE(NODE) \
+  (EXPR_WITH_FILE_LOCATION_CHECK (NODE)->common.public_flag)
+#define EXPR_WFL_NODE(NODE) \
+  TREE_OPERAND_CHECK_CODE (NODE, EXPR_WITH_FILE_LOCATION, 0)
+#define EXPR_WFL_FILENAME_NODE(NODE) \
+  TREE_OPERAND_CHECK_CODE (NODE, EXPR_WITH_FILE_LOCATION, 1)
+#define EXPR_WFL_FILENAME(NODE) \
+  IDENTIFIER_POINTER (EXPR_WFL_FILENAME_NODE (NODE))
+/* ??? Java uses this in all expressions.  */
+#define EXPR_WFL_LINECOL(NODE) (EXPR_CHECK (NODE)->exp.complexity)
+#define EXPR_WFL_LINENO(NODE) (EXPR_WFL_LINECOL (NODE) >> 12)
+#define EXPR_WFL_COLNO(NODE) (EXPR_WFL_LINECOL (NODE) & 0xfff)
+#define EXPR_WFL_SET_LINECOL(NODE, LINE, COL) \
+  (EXPR_WFL_LINECOL(NODE) = ((LINE) << 12) | ((COL) & 0xfff))
+
 /* In a TARGET_EXPR node.  */
-#define TARGET_EXPR_SLOT(NODE) TREE_OPERAND (TARGET_EXPR_CHECK (NODE), 0)
-#define TARGET_EXPR_INITIAL(NODE) TREE_OPERAND (TARGET_EXPR_CHECK (NODE), 1)
-#define TARGET_EXPR_CLEANUP(NODE) TREE_OPERAND (TARGET_EXPR_CHECK (NODE), 2)
+#define TARGET_EXPR_SLOT(NODE) TREE_OPERAND_CHECK_CODE (NODE, TARGET_EXPR, 0)
+#define TARGET_EXPR_INITIAL(NODE) TREE_OPERAND_CHECK_CODE (NODE, TARGET_EXPR, 1)
+#define TARGET_EXPR_CLEANUP(NODE) TREE_OPERAND_CHECK_CODE (NODE, TARGET_EXPR, 2)
 
 #define EXIT_EXPR_COND(NODE)	     TREE_OPERAND (EXIT_EXPR_CHECK (NODE), 0)
 
@@ -1944,12 +1978,6 @@ struct tree_type GTY(())
 /* List of FUNCTION_DECLs inlined into this function's body.  */
 #define DECL_INLINED_FNS(NODE) (FUNCTION_DECL_CHECK (NODE)->decl.inlined_fns)
 
-/* Nonzero in a FUNCTION_DECL means this is a built-in function
-   that is not specified by ansi C and that users are supposed to be allowed
-   to redefine for any purpose whatever.  */
-#define DECL_BUILT_IN_NONANSI(NODE) \
-  (FUNCTION_DECL_CHECK (NODE)->common.unsigned_flag)
-
 /* Nonzero in a FUNCTION_DECL means this function should be treated
    as if it were a malloc, meaning it returns a pointer that is
    not an alias.  */
@@ -2072,16 +2100,6 @@ struct tree_type GTY(())
 #define DECL_POINTER_ALIAS_SET_KNOWN_P(NODE) \
   (DECL_POINTER_ALIAS_SET (NODE) != - 1)
 
-/* The pointer_depth field comprises two bits for values in the range
-   0..3.  The value is normally equal to TYPE_POINTER_DEPTH of decl's
-   type node, but for functions it migth be greater.  For example,
-   this can happen when the function is declared to accept a parameter
-   of type void* (depth=1), but is actually called with an argument of
-   type foo** (depth=2).  The function type will get the formal
-   parameter's depth, but the function decl will get the actual
-   argument's depth.  */
-#define DECL_POINTER_DEPTH(DECL) (DECL_CHECK (DECL)->decl.pointer_depth)
-
 struct function;
 union alias_typevar_def;
 struct tree_decl GTY(())
@@ -2117,13 +2135,13 @@ struct tree_decl GTY(())
   ENUM_BITFIELD(built_in_class) built_in_class : 2;
   unsigned pure_flag : 1;
 
-  unsigned pointer_depth : 2;
   unsigned non_addressable : 1;
   unsigned user_align : 1;
   unsigned uninlinable : 1;
   unsigned thread_local_flag : 1;
   unsigned inlined_function_flag : 1;
-  /* One unused bit.  */
+  unsigned unused : 3;
+  /* three unused bits.  */
 
   unsigned lang_flag_0 : 1;
   unsigned lang_flag_1 : 1;
@@ -2548,6 +2566,7 @@ extern tree build_nt			PARAMS ((enum tree_code, ...));
 
 extern tree build_int_2_wide		PARAMS ((unsigned HOST_WIDE_INT, HOST_WIDE_INT));
 extern tree build_vector                PARAMS ((tree, tree));
+extern tree build_constructor		PARAMS ((tree, tree));
 extern tree build_real_from_int_cst 	PARAMS ((tree, tree));
 extern tree build_complex		PARAMS ((tree, tree, tree));
 extern tree build_string		PARAMS ((int, const char *));
@@ -2591,6 +2610,7 @@ extern int tree_int_cst_lt		PARAMS ((tree, tree));
 extern int tree_int_cst_compare         PARAMS ((tree, tree));
 extern int host_integerp		PARAMS ((tree, int));
 extern HOST_WIDE_INT tree_low_cst	PARAMS ((tree, int));
+extern int tree_int_cst_msb		PARAMS ((tree));
 extern int tree_int_cst_sgn		PARAMS ((tree));
 extern int tree_expr_nonnegative_p	PARAMS ((tree));
 extern int rtl_expr_nonnegative_p	PARAMS ((rtx));
@@ -2975,6 +2995,16 @@ extern int lvalue_or_else		PARAMS ((tree, const char *));
 
 extern tree save_expr			PARAMS ((tree));
 
+/* Look inside EXPR and into any simple arithmetic operations.  Return
+   the innermost non-arithmetic node.  */
+
+extern tree skip_simple_arithmetic	PARAMS ((tree));
+
+/* Return TRUE if EXPR is a SAVE_EXPR or wraps simple arithmetic around a
+   SAVE_EXPR.  Return FALSE otherwise.  */
+
+extern bool saved_expr_p                PARAMS ((tree));
+
 /* Returns the index of the first non-tree operand for CODE, or the number
    of operands if all are trees.  */
 
@@ -3091,13 +3121,6 @@ extern const char *function_cannot_inline_p 	PARAMS ((tree));
 extern int real_zerop PARAMS ((tree));
 
 /* Declare commonly used variables for tree structure.  */
-
-/* Points to the name of the input file from which the current input
-   being parsed originally came (before it went into cpp).  */
-extern const char *input_filename;
-
-/* Current line number in input file.  */
-extern int lineno;
 
 /* Nonzero means lvalues are limited to those valid in pedantic ANSI C.
    Zero means allow extended lvalues.  */
@@ -3274,10 +3297,7 @@ extern int alias_sets_conflict_p		PARAMS ((HOST_WIDE_INT,
 extern int readonly_fields_p			PARAMS ((tree));
 extern int objects_must_conflict_p		PARAMS ((tree, tree));
 
-struct obstack;
-
 /* In tree.c */
-extern int next_decl_uid;
 extern int really_constant_p		PARAMS ((tree));
 extern int int_fits_type_p		PARAMS ((tree, tree));
 extern bool variably_modified_type_p    PARAMS ((tree));
@@ -3293,12 +3313,6 @@ extern void type_hash_add		PARAMS ((unsigned int, tree));
 extern unsigned int type_hash_list	PARAMS ((tree));
 extern int simple_cst_list_equal	PARAMS ((tree, tree));
 extern void dump_tree_statistics	PARAMS ((void));
-extern void print_obstack_statistics	PARAMS ((const char *,
-						struct obstack *));
-#ifdef BUFSIZ
-extern void print_obstack_name		PARAMS ((char *, FILE *,
-						 const char *));
-#endif
 extern void expand_function_end		PARAMS ((const char *, int, int));
 extern void expand_function_start	PARAMS ((tree, int));
 extern void expand_pending_sizes        PARAMS ((tree));
@@ -3306,7 +3320,6 @@ extern void expand_pending_sizes        PARAMS ((tree));
 extern int real_onep			PARAMS ((tree));
 extern int real_twop			PARAMS ((tree));
 extern int real_minus_onep		PARAMS ((tree));
-extern void gcc_obstack_init		PARAMS ((struct obstack *));
 extern void init_ttree			PARAMS ((void));
 extern void build_common_tree_nodes	PARAMS ((int));
 extern void build_common_tree_nodes_2	PARAMS ((int));
@@ -3439,6 +3452,7 @@ extern void expand_start_case_dummy	PARAMS ((void));
 extern HOST_WIDE_INT all_cases_count	PARAMS ((tree, int *));
 extern void check_for_full_enumeration_handling PARAMS ((tree));
 extern void declare_nonlocal_label	PARAMS ((tree));
+extern void default_flag_random_seed	PARAMS ((void));
 
 /* In tree-optimize.c.  */
 void optimize_function_tree		PARAMS ((tree));

@@ -46,6 +46,7 @@ Boston, MA 02111-1307, USA.  */
 #include "real.h"
 #include "langhooks.h"
 #include "basic-block.h"
+#include "ra.h"
 
 int code_for_indirect_jump_scratch = CODE_FOR_indirect_jump_scratch;
 
@@ -189,8 +190,8 @@ static void output_stack_adjust PARAMS ((int, rtx, int, rtx (*) (rtx)));
 static rtx frame_insn PARAMS ((rtx));
 static rtx push PARAMS ((int));
 static void pop PARAMS ((int));
-static void push_regs PARAMS ((HOST_WIDE_INT *));
-static void calc_live_regs PARAMS ((int *, HOST_WIDE_INT *));
+static void push_regs PARAMS ((HARD_REG_SET *, int));
+static int calc_live_regs PARAMS ((HARD_REG_SET *));
 static void mark_use PARAMS ((rtx, rtx *));
 static HOST_WIDE_INT rounded_frame_size PARAMS ((int));
 static rtx mark_constant_pool_use PARAMS ((rtx));
@@ -208,8 +209,6 @@ static bool sh_function_ok_for_sibcall PARAMS ((tree, tree));
 static bool sh_cannot_modify_jumps_p PARAMS ((void));
 static bool sh_ms_bitfield_layout_p PARAMS ((tree));
 
-static void sh_encode_section_info PARAMS ((tree, int));
-static const char *sh_strip_name_encoding PARAMS ((const char *));
 static void sh_init_builtins PARAMS ((void));
 static void sh_media_init_builtins PARAMS ((void));
 static rtx sh_expand_builtin PARAMS ((tree, rtx, rtx, enum machine_mode, int));
@@ -268,11 +267,6 @@ static int sh_address_cost PARAMS ((rtx));
 
 #undef TARGET_MS_BITFIELD_LAYOUT_P
 #define TARGET_MS_BITFIELD_LAYOUT_P sh_ms_bitfield_layout_p
-
-#undef TARGET_ENCODE_SECTION_INFO
-#define TARGET_ENCODE_SECTION_INFO sh_encode_section_info
-#undef TARGET_STRIP_NAME_ENCODING
-#define TARGET_STRIP_NAME_ENCODING sh_strip_name_encoding
 
 #undef TARGET_INIT_BUILTINS
 #define TARGET_INIT_BUILTINS sh_init_builtins
@@ -2478,8 +2472,6 @@ gen_datalabel_ref (sym)
   if (GET_CODE (sym) != SYMBOL_REF)
     abort ();
 
-  XSTR (sym, 0) = concat (SH_DATALABEL_ENCODING, XSTR (sym, 0), NULL);
-
   return sym;
 }
 
@@ -3685,7 +3677,8 @@ barrier_align (barrier_or_label)
 	      || (x = (NEXT_INSN (NEXT_INSN (PREV_INSN (prev)))),	    
 		  (INSN_P (x) 
 		   && (INSN_CODE (x) == CODE_FOR_block_branch_redirect
-		       || INSN_CODE (x) == CODE_FOR_indirect_jump_scratch))))
+		       || INSN_CODE (x) == CODE_FOR_indirect_jump_scratch
+		       || INSN_CODE (x) == CODE_FOR_stuff_delay_slot))))
 	    {
 	      rtx pat = PATTERN (prev);
 	      if (GET_CODE (pat) == PARALLEL)
@@ -4658,32 +4651,50 @@ pop (rn)
 /* Generate code to push the regs specified in the mask.  */
 
 static void
-push_regs (mask)
-     HOST_WIDE_INT *mask;
+push_regs (mask, interrupt_handler)
+     HARD_REG_SET *mask;
+     int interrupt_handler;
 {
   int i;
+  int skip_fpscr = 0;
 
   /* Push PR last; this gives better latencies after the prologue, and
      candidates for the return delay slot when there are no general
      registers pushed.  */
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-    if (i != PR_REG && mask[i / 32] & (1 << (i % 32)))
-      push (i);
-  if (mask[PR_REG / 32] & (1 << (PR_REG % 32)))
+    {
+      /* If this is an interrupt handler, and the SZ bit varies,
+	 and we have to push any floating point register, we need
+	 to switch to the correct precision first.  */
+      if (i == FIRST_FP_REG && interrupt_handler && TARGET_FMOVD
+	  && hard_regs_intersect_p (mask, &reg_class_contents[DF_REGS]))
+	{
+	  HARD_REG_SET unsaved;
+
+	  push (FPSCR_REG);
+	  COMPL_HARD_REG_SET(unsaved, *mask);
+	  fpscr_set_from_mem (NORMAL_MODE (FP_MODE), unsaved);
+	  skip_fpscr = 1;
+	}
+      if (i != PR_REG
+	  && (i != FPSCR_REG || ! skip_fpscr)
+	  && TEST_HARD_REG_BIT (*mask, i))
+	push (i);
+    }
+  if (TEST_HARD_REG_BIT (*mask, PR_REG))
     push (PR_REG);
 }
 
 /* Work out the registers which need to be saved, both as a mask and a
-   count of saved words.
+   count of saved words.  Return the count.
 
    If doing a pragma interrupt function, then push all regs used by the
    function, and if we call another function (we can tell by looking at PR),
    make sure that all the regs it clobbers are safe too.  */
 
-static void
-calc_live_regs (count_ptr, live_regs_mask)
-     int *count_ptr;
-     HOST_WIDE_INT *live_regs_mask;
+static int
+calc_live_regs (live_regs_mask)
+     HARD_REG_SET *live_regs_mask;
 {
   int reg;
   int count;
@@ -4693,9 +4704,12 @@ calc_live_regs (count_ptr, live_regs_mask)
   interrupt_handler = sh_cfun_interrupt_handler_p ();
 
   for (count = 0; 32 * count < FIRST_PSEUDO_REGISTER; count++)
-    live_regs_mask[count] = 0;
+    CLEAR_HARD_REG_SET (*live_regs_mask);
+  if (TARGET_SH4 && TARGET_FMOVD && interrupt_handler
+      && regs_ever_live[FPSCR_REG])
+    target_flags &= ~FPU_SINGLE_BIT;
   /* If we can save a lot of saves by switching to double mode, do that.  */
-  if (TARGET_SH4 && TARGET_FMOVD && TARGET_FPU_SINGLE)
+  else if (TARGET_SH4 && TARGET_FMOVD && TARGET_FPU_SINGLE)
     for (count = 0, reg = FIRST_FP_REG; reg <= LAST_FP_REG; reg += 2)
       if (regs_ever_live[reg] && regs_ever_live[reg+1]
 	  && (! call_used_regs[reg] || (interrupt_handler && ! pragma_trapa))
@@ -4752,7 +4766,7 @@ calc_live_regs (count_ptr, live_regs_mask)
 		     || reg == EH_RETURN_DATA_REGNO (2)
 		     || reg == EH_RETURN_DATA_REGNO (3)))))
 	{
-	  live_regs_mask[reg / 32] |= 1 << (reg % 32);
+	  SET_HARD_REG_BIT (*live_regs_mask, reg);
 	  count += GET_MODE_SIZE (REGISTER_NATURAL_MODE (reg));
 
 	  if ((TARGET_SH4 || TARGET_SH5) && TARGET_FMOVD
@@ -4762,7 +4776,7 @@ calc_live_regs (count_ptr, live_regs_mask)
 		{
 		  if (! TARGET_FPU_SINGLE && ! regs_ever_live[reg ^ 1])
 		    {
-		      live_regs_mask[(reg ^ 1) / 32] |= 1 << ((reg ^ 1) % 32);
+		      SET_HARD_REG_BIT (*live_regs_mask, (reg ^ 1));
 		      count += GET_MODE_SIZE (REGISTER_NATURAL_MODE (reg ^ 1));
 		    }
 		}
@@ -4775,7 +4789,7 @@ calc_live_regs (count_ptr, live_regs_mask)
 	}
     }
 
-  *count_ptr = count;
+  return count;
 }
 
 /* Code to generate prologue and epilogue sequences */
@@ -4817,7 +4831,7 @@ sh_media_register_for_return ()
 void
 sh_expand_prologue ()
 {
-  HOST_WIDE_INT live_regs_mask[(FIRST_PSEUDO_REGISTER + 31) / 32];
+  HARD_REG_SET live_regs_mask;
   int d, i;
   int d_rounding = 0;
   int save_flags = target_flags;
@@ -4909,10 +4923,10 @@ sh_expand_prologue ()
   if (sp_switch)
     emit_insn (gen_sp_switch_1 ());
 
-  calc_live_regs (&d, live_regs_mask);
+  d = calc_live_regs (&live_regs_mask);
   /* ??? Maybe we could save some switching if we can move a mode switch
      that already happens to be at the function start into the prologue.  */
-  if (target_flags != save_flags)
+  if (target_flags != save_flags && ! current_function_interrupt)
     emit_insn (gen_toggle_sz ());
     
   if (TARGET_SH5)
@@ -4940,7 +4954,7 @@ sh_expand_prologue ()
 	 sh_expand_epilogue, but also sh_set_return_address.  */
       for (align = 1; align >= 0; align--)
 	for (i = FIRST_PSEUDO_REGISTER - 1; i >= 0; i--)
-	  if (live_regs_mask[i/32] & (1 << (i % 32)))
+	  if (TEST_HARD_REG_BIT (live_regs_mask, i))
 	    {
 	      enum machine_mode mode = REGISTER_NATURAL_MODE (i);
 	      int reg = i;
@@ -4948,7 +4962,7 @@ sh_expand_prologue ()
 
 	      if (mode == SFmode && (i % 2) == 1
 		  && ! TARGET_FPU_SINGLE && FP_REGISTER_P (i)
-		  && (live_regs_mask[(i ^ 1) / 32] & (1 << ((i ^ 1) % 32))))
+		  && (TEST_HARD_REG_BIT (live_regs_mask, (i ^ 1))))
 		{
 		  mode = DFmode;
 		  i--;
@@ -5069,7 +5083,7 @@ sh_expand_prologue ()
 	abort ();
     }
   else
-    push_regs (live_regs_mask);
+    push_regs (&live_regs_mask, current_function_interrupt);
 
   if (flag_pic && regs_ever_live[PIC_OFFSET_TABLE_REGNUM])
     {
@@ -5103,7 +5117,7 @@ sh_expand_prologue ()
 		 (GEN_INT (-SHMEDIA_REGS_STACK_ADJUST ())));
     }
 
-  if (target_flags != save_flags)
+  if (target_flags != save_flags && ! current_function_interrupt)
     {
       rtx insn = emit_insn (gen_toggle_sz ());
 
@@ -5138,14 +5152,15 @@ sh_expand_prologue ()
 void
 sh_expand_epilogue ()
 {
-  HOST_WIDE_INT live_regs_mask[(FIRST_PSEUDO_REGISTER + 31) / 32];
+  HARD_REG_SET live_regs_mask;
   int d, i;
   int d_rounding = 0;
 
   int save_flags = target_flags;
   int frame_size;
+  int fpscr_deferred = 0;
 
-  calc_live_regs (&d, live_regs_mask);
+  d = calc_live_regs (&live_regs_mask);
 
   if (TARGET_SH5 && d % (STACK_BOUNDARY / BITS_PER_UNIT))
     d_rounding = ((STACK_BOUNDARY / BITS_PER_UNIT)
@@ -5189,7 +5204,7 @@ sh_expand_epilogue ()
 
   /* Pop all the registers.  */
 
-  if (target_flags != save_flags)
+  if (target_flags != save_flags && ! current_function_interrupt)
     emit_insn (gen_toggle_sz ());
   if (TARGET_SH5)
     {
@@ -5206,7 +5221,7 @@ sh_expand_epilogue ()
 	 alignment.  */
       for (align = 0; align <= 1; align++)
 	for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-	  if (live_regs_mask[i/32] & (1 << (i % 32)))
+	  if (TEST_HARD_REG_BIT (live_regs_mask, i))
 	    {
 	      enum machine_mode mode = REGISTER_NATURAL_MODE (i);
 	      int reg = i;
@@ -5214,7 +5229,7 @@ sh_expand_epilogue ()
 
 	      if (mode == SFmode && (i % 2) == 0
 		  && ! TARGET_FPU_SINGLE && FP_REGISTER_P (i)
-		  && (live_regs_mask[(i ^ 1) / 32] & (1 << ((i ^ 1) % 32))))
+		  && (TEST_HARD_REG_BIT (live_regs_mask, (i ^ 1))))
 		{
 		  mode = DFmode;
 		  i++;
@@ -5336,17 +5351,23 @@ sh_expand_epilogue ()
     }
   else
     d = 0;
-  if (live_regs_mask[PR_REG / 32] & (1 << (PR_REG % 32)))
+  if (TEST_HARD_REG_BIT (live_regs_mask, PR_REG))
     pop (PR_REG);
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     {
       int j = (FIRST_PSEUDO_REGISTER - 1) - i;
 
-      if (j != PR_REG && live_regs_mask[j / 32] & (1 << (j % 32)))
+      if (j == FPSCR_REG && current_function_interrupt && TARGET_FMOVD
+	  && hard_regs_intersect_p (&live_regs_mask,
+				    &reg_class_contents[DF_REGS]))
+	fpscr_deferred = 1;
+      else if (j != PR_REG && TEST_HARD_REG_BIT (live_regs_mask, j))
 	pop (j);
+      if (j == FIRST_FP_REG && fpscr_deferred)
+	pop (FPSCR_REG);
     }
  finish:
-  if (target_flags != save_flags)
+  if (target_flags != save_flags && ! current_function_interrupt)
     emit_insn (gen_toggle_sz ());
   target_flags = save_flags;
 
@@ -5367,7 +5388,7 @@ sh_expand_epilogue ()
   /* PR_REG will never be live in SHmedia mode, and we don't need to
      USE PR_MEDIA_REG, since it will be explicitly copied to TR0_REG
      by the return pattern.  */
-  if (live_regs_mask[PR_REG / 32] & (1 << (PR_REG % 32)))
+  if (TEST_HARD_REG_BIT (live_regs_mask, PR_REG))
     emit_insn (gen_rtx_USE (VOIDmode, gen_rtx_REG (SImode, PR_REG)));
 }
 
@@ -5396,17 +5417,17 @@ void
 sh_set_return_address (ra, tmp)
      rtx ra, tmp;
 {
-  HOST_WIDE_INT live_regs_mask[(FIRST_PSEUDO_REGISTER + 31) / 32];
+  HARD_REG_SET live_regs_mask;
   int d;
   int d_rounding = 0;
   int pr_reg = TARGET_SHMEDIA ? PR_MEDIA_REG : PR_REG;
   int pr_offset;
 
-  calc_live_regs (&d, live_regs_mask);
+  d = calc_live_regs (&live_regs_mask);
 
   /* If pr_reg isn't life, we can set it (or the register given in
      sh_media_register_for_return) directly.  */
-  if ((live_regs_mask[pr_reg / 32] & (1 << (pr_reg % 32))) == 0)
+  if (! TEST_HARD_REG_BIT (live_regs_mask, pr_reg))
     {
       rtx rr;
 
@@ -5446,13 +5467,13 @@ sh_set_return_address (ra, tmp)
 	 alignment.  */
       for (align = 0; align <= 1; align++)
 	for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-	  if (live_regs_mask[i/32] & (1 << (i % 32)))
+	  if (TEST_HARD_REG_BIT (live_regs_mask, i))
 	    {
 	      enum machine_mode mode = REGISTER_NATURAL_MODE (i);
 
 	      if (mode == SFmode && (i % 2) == 0
 		  && ! TARGET_FPU_SINGLE && FP_REGISTER_P (i)
-		  && (live_regs_mask[(i ^ 1) / 32] & (1 << ((i ^ 1) % 32))))
+		  && (TEST_HARD_REG_BIT (live_regs_mask, (i ^ 1))))
 		{
 		  mode = DFmode;
 		  i++;
@@ -5931,8 +5952,8 @@ initial_elimination_offset (from, to)
   int save_flags = target_flags;
   int copy_flags;
 
-  HOST_WIDE_INT live_regs_mask[(FIRST_PSEUDO_REGISTER + 31) / 32];
-  calc_live_regs (&regs_saved, live_regs_mask);
+  HARD_REG_SET live_regs_mask;
+  regs_saved = calc_live_regs (&live_regs_mask);
   regs_saved += SHMEDIA_REGS_STACK_ADJUST ();
   if (TARGET_SH5 && regs_saved % (STACK_BOUNDARY / BITS_PER_UNIT))
     regs_saved_rounding = ((STACK_BOUNDARY / BITS_PER_UNIT)
@@ -5968,7 +5989,7 @@ initial_elimination_offset (from, to)
 	  n += total_auto_space;
 
 	  /* If it wasn't saved, there's not much we can do.  */
-	  if ((live_regs_mask[pr_reg / 32] & (1 << (pr_reg % 32))) == 0)
+	  if (! TEST_HARD_REG_BIT (live_regs_mask, pr_reg))
 	    return n;
 
 	  target_flags = copy_flags;
@@ -5979,14 +6000,13 @@ initial_elimination_offset (from, to)
 	     need 8-byte alignment.  */
 	  for (align = 1; align >= 0; align--)
 	    for (i = FIRST_PSEUDO_REGISTER - 1; i >= 0; i--)
-	      if (live_regs_mask[i/32] & (1 << (i % 32)))
+	      if (TEST_HARD_REG_BIT (live_regs_mask, i))
 		{
 		  enum machine_mode mode = REGISTER_NATURAL_MODE (i);
 
 		  if (mode == SFmode && (i % 2) == 1
 		      && ! TARGET_FPU_SINGLE && FP_REGISTER_P (i)
-		      && (live_regs_mask[(i ^ 1) / 32]
-			  & (1 << ((i ^ 1) % 32))))
+		      && TEST_HARD_REG_BIT (live_regs_mask, (i ^ 1)))
 		    {
 		      mode = DFmode;
 		      i--;
@@ -6527,28 +6547,9 @@ tls_symbolic_operand (op, mode)
      rtx op;
      enum machine_mode mode ATTRIBUTE_UNUSED;
 {
-  const char *str;
-
   if (GET_CODE (op) != SYMBOL_REF)
     return 0;
-
-  str = XSTR (op, 0);
-  STRIP_DATALABEL_ENCODING(str, str);  
-  if (! TLS_SYMNAME_P (str))
-    return 0;
-
-  switch (str[1])
-    {
-    case 'G':
-      return TLS_MODEL_GLOBAL_DYNAMIC;
-    case 'L':
-      return TLS_MODEL_LOCAL_DYNAMIC;
-    case 'i':
-      return TLS_MODEL_INITIAL_EXEC;
-    case 'l':
-      return TLS_MODEL_LOCAL_EXEC;
-    }
-  return 0;
+  return SYMBOL_REF_TLS_MODEL (op);
 }
 
 int
@@ -7331,10 +7332,7 @@ legitimize_pic_address (orig, mode, reg)
     return orig;
 
   if (GET_CODE (orig) == LABEL_REF
-      || (GET_CODE (orig) == SYMBOL_REF
-	  && (CONSTANT_POOL_ADDRESS_P (orig)
-	      /* SYMBOL_REF_FLAG is set on static symbols.  */
-	      || SYMBOL_REF_FLAG (orig))))
+      || (GET_CODE (orig) == SYMBOL_REF && SYMBOL_REF_LOCAL_P (orig)))
     {
       if (reg == 0)
 	reg = gen_reg_rtx (Pmode);
@@ -7658,100 +7656,6 @@ sh_ms_bitfield_layout_p (record_type)
 {
   return TARGET_SH5;
 }
-
-/* If using PIC, mark a SYMBOL_REF for a non-global symbol so that we
-   may access it using GOTOFF instead of GOT.  */
-
-static void
-sh_encode_section_info (decl, first)
-     tree decl;
-     int first;
-{
-  rtx rtl, symbol;
-
-  if (DECL_P (decl))
-    rtl = DECL_RTL (decl);
-  else
-    rtl = TREE_CST_RTL (decl);
-  if (GET_CODE (rtl) != MEM)
-    return;
-  symbol = XEXP (rtl, 0);
-  if (GET_CODE (symbol) != SYMBOL_REF)
-    return;
-
-  if (flag_pic)
-    SYMBOL_REF_FLAG (symbol) = (*targetm.binds_local_p) (decl);
-
-  if (TREE_CODE (decl) == VAR_DECL && DECL_THREAD_LOCAL (decl))
-    {
-      const char *symbol_str, *orig_str;
-      bool is_local;
-      enum tls_model kind;
-      char encoding;
-      char *newstr;
-      size_t len, dlen;
-
-      orig_str = XSTR (symbol, 0);
-      is_local = (*targetm.binds_local_p) (decl);
-
-      if (! flag_pic)
-	{
-	  if (is_local)
-	    kind = TLS_MODEL_LOCAL_EXEC;
-	  else
-	    kind = TLS_MODEL_INITIAL_EXEC;
-	}
-      else if (is_local)
-	kind = TLS_MODEL_LOCAL_DYNAMIC;
-      else
-	kind = TLS_MODEL_GLOBAL_DYNAMIC;
-      if (kind < flag_tls_default)
-	kind = flag_tls_default;
-
-      STRIP_DATALABEL_ENCODING (symbol_str, orig_str);
-      dlen = symbol_str - orig_str;
-
-      encoding = " GLil"[kind];
-      if (TLS_SYMNAME_P (symbol_str))
-	{
-	  if (encoding == symbol_str[1])
-	    return;
-	  /* Handle the changes from initial-exec to local-exec and
-	     from global-dynamic to local-dynamic.  */
-	  if ((encoding == 'l' && symbol_str[1] == 'i')
-	      || (encoding == 'L' && symbol_str[1] == 'G'))
-	    symbol_str += 2;
-	  else
-	    abort ();
-	}
-
-      len = strlen (symbol_str);
-      newstr = alloca (dlen + len + 3);
-      if (dlen)
-	memcpy (newstr, orig_str, dlen);
-      newstr[dlen + 0] = SH_TLS_ENCODING[0];
-      newstr[dlen + 1] = encoding;
-      memcpy (newstr + dlen + 2, symbol_str, len + 1);
-
-      XSTR (symbol, 0) = ggc_alloc_string (newstr, dlen + len + 2);
-    }
-
-  if (TARGET_SH5 && first && TREE_CODE (decl) != FUNCTION_DECL)
-    XEXP (rtl, 0) = gen_datalabel_ref (symbol);
-}
-
-/* Undo the effects of the above.  */
-
-static const char *
-sh_strip_name_encoding (str)
-     const char *str;
-{
-  STRIP_DATALABEL_ENCODING (str, str);
-  STRIP_TLS_ENCODING (str, str);
-  str += *str == '*';
-  return str;
-}
-
 
 /* 
    On the SH1..SH4, the trampoline looks like

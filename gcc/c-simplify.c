@@ -199,7 +199,7 @@ c_simplify_stmt (stmt_p)
       saved_stmts_are_full_exprs_p = stmts_are_full_exprs_p ();
       prep_stmt (stmt);
       stmt_filename = input_filename;
-      stmt_lineno = lineno;
+      stmt_lineno = input_line;
 
       pre = NULL_TREE;
       post = NULL_TREE;
@@ -415,7 +415,7 @@ simplify_block (stmt_p, next_p)
 
   bind = c_build_bind_expr (block, TREE_CHAIN (*stmt_p));
   *stmt_p = bind;
-  lineno = stmt_lineno;
+  input_line = stmt_lineno;
 }
 
 /* Genericize a CLEANUP_STMT.  Just wrap everything from here to the end of
@@ -491,7 +491,7 @@ simplify_expr_stmt (stmt_p)
 	{
 	  /* Kludge for 20020220-2.c.  warn_if_unused_value shouldn't use
 	     the stmt file location info.  */
-	  set_file_and_line_for_stmt (input_filename, lineno);
+	  set_file_and_line_for_stmt (input_filename, input_line);
 	  warn_if_unused_value (stmt);
 	}
     }
@@ -615,7 +615,7 @@ simplify_c_loop (cond, body, incr, cond_is_first)
   tree stuff;
 
   stmt_filename = input_filename;
-  stmt_lineno = lineno;
+  stmt_lineno = input_line;
 
   break_block = begin_bc_block (bc_break);
 
@@ -718,6 +718,15 @@ simplify_if_stmt (stmt_p)
          we can just emit the THEN arm (skipping the conditional).  */
       if (! find_reachable_label (else_))
         {
+	  if (warn_notreached)
+	    {
+	      int line = (TREE_CODE (then_) == COMPOUND_STMT)
+			 ? STMT_LINENO (COMPOUND_BODY (else_))
+			 : STMT_LINENO (else_);
+	      warning_with_file_and_line (input_filename,
+					  line, 
+					  "will never be executed");
+	    }
 	  c_simplify_stmt (&then_);
 	  *stmt_p = then_;
 	  return;
@@ -729,6 +738,15 @@ simplify_if_stmt (stmt_p)
          we can just emit the ELSE arm (skipping the conditional).  */
       if (! find_reachable_label (then_))
         {
+	  if (warn_notreached)
+	    {
+	      int line = (TREE_CODE (then_) == COMPOUND_STMT)
+			 ? STMT_LINENO (COMPOUND_BODY (then_))
+			 : STMT_LINENO (then_);
+	      warning_with_file_and_line (input_filename,
+					  line, 
+					  "will never be executed");
+	    }
 	  c_simplify_stmt (&else_);
 	  *stmt_p = else_;
 	  return;
@@ -760,7 +778,7 @@ simplify_switch_stmt (stmt_p)
   c_simplify_stmt (&body);
 
   switch_ = build (SWITCH_EXPR, SWITCH_TYPE (stmt), cond, body, NULL_TREE);
-  annotate_with_file_line (switch_, input_filename, lineno);
+  annotate_with_file_line (switch_, input_filename, input_line);
 
   switch_ = finish_bc_block (break_block, switch_);
 
@@ -913,7 +931,7 @@ c_simplify_expr (expr_p, pre_p, post_p)
 {
   enum tree_code code = TREE_CODE (*expr_p);
   
-  if (statement_code_p (code))
+  if (STATEMENT_CODE_P (code))
     {
       c_simplify_stmt (expr_p);
       return 1;
@@ -1170,7 +1188,7 @@ deep_copy_node (node)
     }
   
   /* Set the line number.  */
-  if (statement_code_p (TREE_CODE (node)))
+  if (STATEMENT_CODE_P (TREE_CODE (node)))
     STMT_LINENO (res) = STMT_LINENO (node);
   
   return res;

@@ -334,13 +334,6 @@ extern void assemble_real		PARAMS ((REAL_VALUE_TYPE,
 						 unsigned));
 #endif
 
-/* Start deferring output of subconstants.  */
-extern void defer_addressed_constants	PARAMS ((void));
-
-/* Stop deferring output of subconstants,
-   and output now all those that have been deferred.  */
-extern void output_deferred_addressed_constants PARAMS ((void));
-
 /* Return the size of the constant pool.  */
 extern int get_pool_size		PARAMS ((void));
 
@@ -519,6 +512,7 @@ extern void default_select_rtx_section PARAMS ((enum machine_mode, rtx,
 						unsigned HOST_WIDE_INT));
 extern void default_elf_select_rtx_section PARAMS ((enum machine_mode, rtx,
 						    unsigned HOST_WIDE_INT));
+extern void default_encode_section_info PARAMS ((tree, rtx, int));
 extern const char *default_strip_name_encoding PARAMS ((const char *));
 extern bool default_binds_local_p PARAMS ((tree));
 extern bool default_binds_local_p_1 PARAMS ((tree, int));

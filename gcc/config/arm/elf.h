@@ -46,7 +46,7 @@
 
 #ifndef SUBTARGET_ASM_FLOAT_SPEC
 #define SUBTARGET_ASM_FLOAT_SPEC "\
-%{mapcs-float:-mfloat} %{msoft-float:-mno-fpu}"
+%{mapcs-float:-mfloat} %{msoft-float:-mfpu=softfpa}"
 #endif
 
 #ifndef ASM_SPEC
@@ -132,15 +132,6 @@
 #undef  TARGET_ASM_NAMED_SECTION
 #define TARGET_ASM_NAMED_SECTION  arm_elf_asm_named_section
 
-#undef  ASM_OUTPUT_ALIGNED_COMMON
-#define ASM_OUTPUT_ALIGNED_COMMON(STREAM, NAME, SIZE, ALIGN)	\
-  do								\
-    {								\
-      fprintf (STREAM, "\t.comm\t");				\
-      assemble_name (STREAM, NAME);				\
-      fprintf (STREAM, ", %d, %d\n", SIZE, ALIGN);		\
-    }								\
-  while (0)
 
 /* For PIC code we need to explicitly specify (PLT) and (GOT) relocs.  */
 #define NEED_PLT_RELOC	flag_pic

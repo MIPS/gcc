@@ -240,7 +240,7 @@ const_double_htab_hash (x)
     h = CONST_DOUBLE_LOW (value) ^ CONST_DOUBLE_HIGH (value);
   else
     {
-      h = real_hash (CONST_DOUBLE_REAL_VALUE (value));	
+      h = real_hash (CONST_DOUBLE_REAL_VALUE (value));
       /* MODE is used in the comparison, so it should be in the hash.  */
       h ^= GET_MODE (value);
     }
@@ -755,7 +755,8 @@ gen_rtx VPARAMS ((enum rtx_code code, enum machine_mode mode, ...))
 	{
 	  switch (*fmt++)
 	    {
-	    case '0':		/* Unused field.  */
+	    case '0':		/* Field with unknown use.  Zero it.  */
+	      X0EXP (rt_val, i) = NULL_RTX;
 	      break;
 
 	    case 'i':		/* An integer?  */
@@ -1080,7 +1081,11 @@ subreg_hard_regno (x, check_mode)
     abort ();
   if (check_mode && ! HARD_REGNO_MODE_OK (base_regno, GET_MODE (reg)))
     abort ();
-
+#ifdef ENABLE_CHECKING
+  if (!subreg_offset_representable_p (REGNO (reg), GET_MODE (reg),
+			  	      SUBREG_BYTE (x), mode))
+    abort ();
+#endif
   /* Catch non-congruent offsets too.  */
   byte_offset = SUBREG_BYTE (x);
   if ((byte_offset % GET_MODE_SIZE (mode)) != 0)
@@ -2046,7 +2051,7 @@ set_mem_attributes_minus_bitpos (ref, t, objectp, bitpos)
 	}
     }
 
-  /* If we modified OFFSET based on T, then subtract the outstanding 
+  /* If we modified OFFSET based on T, then subtract the outstanding
      bit position offset.  Similarly, increase the size of the accessed
      object to contain the negative offset.  */
   if (apply_bitpos)
@@ -2313,7 +2318,7 @@ rtx
 offset_address (memref, offset, pow2)
      rtx memref;
      rtx offset;
-     HOST_WIDE_INT pow2;
+     unsigned HOST_WIDE_INT pow2;
 {
   rtx new, addr = XEXP (memref, 0);
 
@@ -2341,8 +2346,7 @@ offset_address (memref, offset, pow2)
      we don't know.  */
   MEM_ATTRS (new)
     = get_mem_attrs (MEM_ALIAS_SET (memref), MEM_EXPR (memref), 0, 0,
-		     MIN (MEM_ALIGN (memref),
-			  (unsigned HOST_WIDE_INT) pow2 * BITS_PER_UNIT),
+		     MIN (MEM_ALIGN (memref), pow2 * BITS_PER_UNIT),
 		     GET_MODE (new));
   return new;
 }
@@ -3187,6 +3191,22 @@ prev_real_insn (insn)
   return insn;
 }
 
+/* Return the last CALL_INSN in the current list, or 0 if there is none.
+   This routine does not look inside SEQUENCEs.  */
+
+rtx
+last_call_insn ()
+{
+  rtx insn;
+
+  for (insn = get_last_insn ();
+       insn && GET_CODE (insn) != CALL_INSN;
+       insn = PREV_INSN (insn))
+    ;
+
+  return insn;
+}
+
 /* Find the next insn after INSN that really does something.  This routine
    does not look inside SEQUENCEs.  Until reload has completed, this is the
    same as next_real_insn.  */
@@ -3844,6 +3864,31 @@ remove_insn (insn)
       if (bb->end == insn)
 	bb->end = prev;
     }
+}
+
+/* Append CALL_FUSAGE to the CALL_INSN_FUNCTION_USAGE for CALL_INSN.  */
+
+void
+add_function_usage_to (call_insn, call_fusage)
+     rtx call_insn, call_fusage;
+{
+  if (! call_insn || GET_CODE (call_insn) != CALL_INSN)
+    abort ();
+
+  /* Put the register usage information on the CALL.  If there is already
+     some usage information, put ours at the end.  */
+  if (CALL_INSN_FUNCTION_USAGE (call_insn))
+    {
+      rtx link;
+
+      for (link = CALL_INSN_FUNCTION_USAGE (call_insn); XEXP (link, 1) != 0;
+	   link = XEXP (link, 1))
+	;
+
+      XEXP (link, 1) = call_fusage;
+    }
+  else
+    CALL_INSN_FUNCTION_USAGE (call_insn) = call_fusage;
 }
 
 /* Delete all insns made since FROM.

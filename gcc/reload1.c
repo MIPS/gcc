@@ -369,9 +369,7 @@ static int (*offsets_at)[NUM_ELIMINABLE_REGS];
 
 static int num_labels;
 
-static void replace_pseudos_in_call_usage	PARAMS ((rtx *,
-							 enum machine_mode,
-							 rtx));
+static void replace_pseudos_in	PARAMS ((rtx *, enum machine_mode, rtx));
 static void maybe_fix_stack_asms	PARAMS ((void));
 static void copy_reloads		PARAMS ((struct insn_chain *));
 static void calculate_needs_all_insns	PARAMS ((int));
@@ -583,7 +581,7 @@ compute_use_by_pseudos (to, from)
    equivalences.  */
 
 static void
-replace_pseudos_in_call_usage (loc, mem_mode, usage)
+replace_pseudos_in (loc, mem_mode, usage)
      rtx *loc;
      enum machine_mode mem_mode;
      rtx usage;
@@ -608,7 +606,7 @@ replace_pseudos_in_call_usage (loc, mem_mode, usage)
       if (x != *loc)
 	{
 	  *loc = x;
-	  replace_pseudos_in_call_usage (loc, mem_mode, usage);
+	  replace_pseudos_in (loc, mem_mode, usage);
 	  return;
 	}
 
@@ -628,7 +626,7 @@ replace_pseudos_in_call_usage (loc, mem_mode, usage)
     }
   else if (code == MEM)
     {
-      replace_pseudos_in_call_usage (& XEXP (x, 0), GET_MODE (x), usage);
+      replace_pseudos_in (& XEXP (x, 0), GET_MODE (x), usage);
       return;
     }
 
@@ -636,10 +634,10 @@ replace_pseudos_in_call_usage (loc, mem_mode, usage)
   fmt = GET_RTX_FORMAT (code);
   for (i = 0; i < GET_RTX_LENGTH (code); i++, fmt++)
     if (*fmt == 'e')
-      replace_pseudos_in_call_usage (&XEXP (x, i), mem_mode, usage);
+      replace_pseudos_in (&XEXP (x, i), mem_mode, usage);
     else if (*fmt == 'E')
       for (j = 0; j < XVECLEN (x, i); j++)
-	replace_pseudos_in_call_usage (& XVECEXP (x, i, j), mem_mode, usage);
+	replace_pseudos_in (& XVECEXP (x, i, j), mem_mode, usage);
 }
 
 
@@ -1192,9 +1190,8 @@ reload (first, global)
 	rtx *pnote;
 
 	if (GET_CODE (insn) == CALL_INSN)
-	  replace_pseudos_in_call_usage (& CALL_INSN_FUNCTION_USAGE (insn),
-					 VOIDmode,
-					 CALL_INSN_FUNCTION_USAGE (insn));
+	  replace_pseudos_in (& CALL_INSN_FUNCTION_USAGE (insn),
+			      VOIDmode, CALL_INSN_FUNCTION_USAGE (insn));
 
 	if ((GET_CODE (PATTERN (insn)) == USE
 	     /* We mark with QImode USEs introduced by reload itself.  */
@@ -1212,6 +1209,13 @@ reload (first, global)
 	    delete_insn (insn);
 	    continue;
 	  }
+
+	/* Some CLOBBERs may survive until here and still reference unassigned
+	   pseudos with const equivalent, which may in turn cause ICE in later
+	   passes if the reference remains in place.  */
+	if (GET_CODE (PATTERN (insn)) == CLOBBER)
+	  replace_pseudos_in (& XEXP (PATTERN (insn), 0),
+			      VOIDmode, PATTERN (insn));
 
 	pnote = &REG_NOTES (insn);
 	while (*pnote != 0)
@@ -8025,6 +8029,9 @@ static int
 reload_cse_noop_set_p (set)
      rtx set;
 {
+  if (cselib_reg_set_mode (SET_DEST (set)) != GET_MODE (SET_DEST (set)))
+    return 0;
+
   return rtx_equal_for_cselib_p (SET_DEST (set), SET_SRC (set));
 }
 
@@ -9062,7 +9069,7 @@ reload_combine_note_use (xp, insn)
    use move2add_last_label_luid to note where the label is and then
    later disable any optimization that would cross it.
    reg_offset[n] / reg_base_reg[n] / reg_mode[n] are only valid if
-   reg_set_luid[n] is greater than last_label_luid[n] .  */
+   reg_set_luid[n] is greater than move2add_last_label_luid.  */
 static int reg_set_luid[FIRST_PSEUDO_REGISTER];
 
 /* If reg_base_reg[n] is negative, register n has been set to
@@ -9162,8 +9169,16 @@ reload_cse_move2add (first)
 		    validate_change (insn, &SET_SRC (pat), reg, 0);
 		  else if (rtx_cost (new_src, PLUS) < rtx_cost (src, SET)
 			   && have_add2_insn (reg, new_src))
-		    validate_change (insn, &PATTERN (insn),
-				     gen_add2_insn (reg, new_src), 0);
+		    {
+		      rtx newpat = gen_add2_insn (reg, new_src);
+		      if (INSN_P (newpat) && NEXT_INSN (newpat) == NULL_RTX)
+			newpat = PATTERN (newpat);
+		      /* If it was the first insn of a sequence or
+			 some other emitted insn, validate_change will
+			 reject it.  */
+		      validate_change (insn, &PATTERN (insn),
+				       newpat, 0);
+		    }
 		  else
 		    {
 		      enum machine_mode narrow_mode;
@@ -9243,9 +9258,15 @@ reload_cse_move2add (first)
 		      else if ((rtx_cost (new_src, PLUS)
 				< COSTS_N_INSNS (1) + rtx_cost (src3, SET))
 			       && have_add2_insn (reg, new_src))
-			success
-			  = validate_change (next, &PATTERN (next),
-					     gen_add2_insn (reg, new_src), 0);
+			{
+			  rtx newpat = gen_add2_insn (reg, new_src);
+			  if (INSN_P (newpat)
+			      && NEXT_INSN (newpat) == NULL_RTX)
+			    newpat = PATTERN (newpat);
+			  success
+			    = validate_change (next, &PATTERN (next),
+					       newpat, 0);
+			}
 		      if (success)
 			delete_insn (insn);
 		      insn = next;

@@ -1,3 +1,522 @@
+2003-05-02  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/URI.java
+	(create): Doesnt throws any exceptions.
+	* java/net/URLConnection.java
+	(URLConnection): Commend added.
+	(getExpiration): The header field is called "expires" not
+	"expiration".
+	(getHeaderField): Merged documentation with classpath.
+	(getHeaderFieldInt): Likewise.
+	(getHeaderFieldDate): Likewise.
+	(getHeaderFieldKey): Likewise.
+	(getPermission): Likewise.
+	(setDefaultUseCaches): Likewise.
+	(setRequestProperty): Likewise.
+	(addRequestProperty): Likewise.
+	(getRequestProperty): Likewise.
+	(getRequestProperties): Likewise.
+	(setDefaultRequestProperty): Likewise.
+	(getDefaultRequestProperty): Likewise.
+	(guessContentTypeFromStream): Likewise.
+	(getFileNameMap): Likewise.
+	(setFileNameMap): Likewise.
+	(setDoInput): Merged implementation and documentation with classpath.
+	(setDoOutput): Likewise.
+	(setAllowUserInteraction): Likewise.
+	(setDefaultAllowUserInteraction): Likewise.
+	(setContentHandlerFactory): Made it synchronized, merged documentation
+	with classpath.
+	(guessContentTypeFromName): Renamed argument fname to filename to
+	match classpath, merged documentation with classpath.
+
+2003-05-02  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/JarURLConnection.java
+	(JarURLConnection): Class documentation merged with classpath.
+	(getJarFileURL): Moved and documentation merged with classpath.
+	(getEntryName): Likewise.
+	(JarURLConnection): Documentation merged with classpath.
+	(getJarEntry): Likewise.
+	(getJarFile): Likewise.
+	* java/net/PlainDatagramSocketImpl.java:
+	Class documentation moved.
+	* java/net/URLConnection.java
+	(fileNameMap): Moved and documentation merged with classpath.
+	(factory): Likewise.
+	(defaultAllowUserInteraction): Likewis.
+	(defaultUseCaches): Likewise.
+	(allowUserInteraction): Likewise.
+	(connected): Likewise.
+	(url): Likewise.
+	(connect): Documentation merged with classpath.
+	(getURL): Likewise.
+	(getContentLength): Likewise.
+	(getContentType): Likewise.
+	(getContentEncoding): Likewise.
+	(getExpiration): Likewise.
+	(getDate): Likewise.
+	(getLastModified): Likewise.
+	(getHeaderField): Likewise.
+	(getContent): Likewise.
+	(getPermission): Likewise.
+	(getInputStream): Likewise.
+	(getOutputStream): Likewise.
+	(toString): Likewise.
+	(getDoInput): Likewise.
+	(getDoOutput): Likewise.
+	(setAllowUserInteraction): Likewise.
+	(getAllowUserInteraction): Likewise.
+	(setDefaultAllowUserInteraction): Likewise.
+	(getDefaultAllowUserInteraction): Likewise.
+	(setUseCaches): Likewise.
+	(getUseCaches): Likewise.
+	(setIfModifiedSince): Likewise.
+	(getIfModifiedSince): Likewise.
+	(setDefaultRequestProperty): Likewise.
+	(getDefaultRequestProperty): Likewise.
+	(setContentHandlerFactory): Likewise.
+	(setFileNameMap): Likewise.
+
+2003-05-02  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/InetAddress.java:
+	Merged class documentation with classpath.
+	* java/net/JarURLConnection.java:
+	Explicitely import all used classes.
+	* java/net/URL.java:
+	Reformatting.
+	* java/net/ServerSocket.java,
+	java/net/Socket.java:
+	New versions from classpath.
+
+2003-05-02  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/nio/FileChannelImpl.java
+	(read): New implementation.
+	(implRead): New methods.
+	(write): New implementation, call other write insteal of read method.
+	(implWrite): New methods.
+	(map): Added comment.
+	(transferFrom): Implemented.
+	(transferTo): Implemented.
+	(lock): Added checks to throw exceptions.
+	(truncate): Added check to throw exception.
+	* gnu/java/nio/natFileChannelImpl.cc
+	(implRead): New method.
+	(implWrite): New method.
+	* java/nio/ByteBuffer.java
+	(hashCode): Fixed comment.
+	(get): Fixed exception documentation.
+	(put): Fixed exception documentation.
+	* java/nio/CharBuffer.java:
+	Added comment for later optimizations.
+
+2003-04-30  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/10582:
+	* verify.cc (_Jv_BytecodeVerifier::is_assignable_from_slow):
+	Removed.
+	(type::compatible): Use _Jv_IsAssignableFrom.
+	* java/lang/natClass.cc (iindex_mutex_initialized): Now static.
+	(_Jv_IsAssignableFrom): Work even when source or target class is
+	not prepared.
+
+2003-04-30  Michael Koch  <konqueror@gmx.de>
+
+	* java/text/BreakIterator.java
+	(clone): New method.
+
+2003-04-30  Michael Koch  <konqueror@gmx.de>
+
+	* java/text/CollationElementIterator.java,
+	java/text/CollationKey.java,
+	java/text/RuleBasedCollator.java:
+	Merged copyright and documentation from classpath and
+	rearranged some code. No code changes done.
+
+2003-04-30  Michael Koch  <konqueror@gmx.de>
+
+	* java/util/regex/Matcher.java
+	(pattern): New member variable.
+	(appendReplacement): New method.
+	(appendTail): New method.
+	(end): New method.
+	(find): New method.
+	(group): New method.
+	(replaceFirst): Added documentation.
+	(replaceAll): Added documentation.
+	(groupCount): New method.
+	(lookingAt): New method.
+	(matches): New method.
+	(reset): New method.
+	(start): New method.
+	* java/util/regex/Pattern.java
+	(serialVersionUID): New constant.
+	(CANON_EQ): New constant.
+	(CASE_INSENSITIVE): New constant.
+	(COMMENTS): New constant.
+	(DOTALL): New constant.
+	(MULTILINE): New constant.
+	(UNICODE_CASE): New constant.
+	(UNIX_LINES): New constant.
+	(regex): New member variable.
+	(flags): New member variable.
+	(Pattern): New method.
+	(compile): Documentation added.
+	(flags): New method.
+	(matches): Documentation added.
+	(matcher): Documentation added.
+	(split): Documentation added.
+	(pattern): New method.
+
+2003-04-30  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/security/Engine.java,
+	gnu/java/security/OID.java,
+	gnu/java/security/der/BitString.java,
+	gnu/java/security/der/DER.java,
+	gnu/java/security/der/DERReader.java,
+	gnu/java/security/der/DERValue.java,
+	gnu/java/security/der/DERWriter.java,
+	gnu/java/security/provider/DSAKeyFactory.java,
+	gnu/java/security/provider/X509CertificateFactory.java,
+	gnu/java/security/x509/X500DistinguishedName.java,
+	gnu/java/security/x509/X509CRL.java,
+	gnu/java/security/x509/X509CRLEntry.java,
+	gnu/java/security/x509/X509Certificate.java,
+	java/security/cert/CRLSelector.java,
+	java/security/cert/CertPathBuilder.java,
+	java/security/cert/CertPathBuilderResult.java,
+	java/security/cert/CertPathBuilderSpi.java,
+	java/security/cert/CertPathParameters.java,
+	java/security/cert/CertPathValidator.java,
+	java/security/cert/CertPathValidatorResult.java,
+	java/security/cert/CertPathValidatorSpi.java,
+	java/security/cert/CertSelector.java,
+	java/security/cert/CertStore.java,
+	java/security/cert/CertStoreParameters.java,
+	java/security/cert/CertStoreSpi.java,
+	java/security/cert/CollectionCertStoreParameters.java,
+	java/security/cert/LDAPCertStoreParameters.java,
+	java/security/cert/PKIXBuilderParameters.java,
+	java/security/cert/PKIXCertPathBuilderResult.java,
+	java/security/cert/PKIXCertPathChecker.java,
+	java/security/cert/PKIXCertPathValidatorResult.java,
+	java/security/cert/PKIXParameters.java,
+	java/security/cert/PolicyNode.java,
+	java/security/cert/PolicyQualifierInfo.java,
+	java/security/cert/TrustAnchor.java,
+	javax/security/auth/x500/X500Principal.java:
+	New files from classpath.
+	* gnu/java/io/ASN1ParsingException.java,
+	gnu/java/io/Base64InputStream.java,
+	gnu/java/security/der/DEREncodingException.java,
+	gnu/java/security/provider/DSAParameters.java,
+	gnu/java/security/provider/DSASignature.java,
+	gnu/java/security/provider/Gnu.java,
+	gnu/java/security/provider/GnuDSAPrivateKey.java,
+	gnu/java/security/provider/GnuDSAPublicKey.java,
+	java/security/AlgorithmParameterGenerator.java,
+	java/security/AlgorithmParameters.java,
+	java/security/KeyFactory.java,
+	java/security/KeyPairGenerator.java,
+	java/security/KeyStore.java,
+	java/security/MessageDigest.java,
+	java/security/SecureClassLoader.java,
+	java/security/SecureRandom.java,
+	java/security/Security.java,
+	java/security/Signature.java,
+	java/security/cert/Certificate.java,
+	java/security/cert/CertificateFactory.java,
+	java/security/cert/CertificateFactorySpi.java,
+	java/security/cert/X509CRL.java,
+	java/security/cert/X509Certificate.java,
+	java/security/spec/DSAPublicKeySpec.java:
+	New versions from classpath.
+	* gnu/java/security/provider/DERReader.java,
+	gnu/java/security/provider/DERWriter.java,
+	java/security/Engine.java: Removed.
+	* Makefile.am
+	(java_source_files, javax_source_files): Added new files.
+	* Makefile.in: Regenerated.
+
+2003-04-29  Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/JTable.java
+	(AUTO_RESIZE_ALL_COLUMNS): New constant.
+	(AUTO_RESIZE_LAST_COLUMN): New constant.
+	(AUTO_RESIZE_NEXT_COLUMN): New constant.
+	(AUTO_RESIZE_OFF): New constant.
+	(AUTO_RESIZE_SUBSEQUENT_COLUMNS): New constant.
+	(JTable): New method.
+	(columnAdded): New method.
+	(columnMarginChanged): New method.
+	(columnMoved): New method.
+	(columnRemoved): New method.
+	(columnSelectionChanged): New method.
+	(editingCanceled): New method.
+	(editingStopped): New method.
+	(getColumnModel): New method.
+	(getPreferredScrollableViewportSize): New method.
+	(getScrollableBlockIncrement): New method.
+	(getScrollableTracksViewportHeight): New method.
+	(getScrollableTracksViewportWidth): New method.
+	(getScrollableUnitIncrement): New method.
+	(getSelectedRow): New method.
+	(getSelectionModel): New method.
+	(tableChanged): New method.
+	(setModel): New method.
+	(setSelectionMode): New method.
+	(setSelectionModel): New method.
+	(setShowGrid): New method.
+	(valueChanged): New method.
+	* javax/swing/text/DefaultEditorKit.java
+	(backwardAction): New constant.
+	(beepAction): New constant.
+	(beginAction): New constant.
+	(beginLineAction): New constant.
+	(beginParagraphAction): New constant.
+	(beginWordAction): New constant.
+	(copyAction): New constant.
+	(cutAction): New constant.
+	(defaultKeyTypedAction): New constant.
+	(deleteNextCharAction): New constant.
+	(deletePrevCharAction): New constant.
+	(downAction): New constant.
+	(endAction): New constant.
+	(endLineAction): New constant.
+	(endOfLineStringProperty): New constant.
+	(endParagraphAction): New constant.
+	(endWordAction): New constant.
+	(forwardAction): New constant.
+	(insertBreakAction): New constant.
+	(insertContentAction): New constant.
+	(insertTabAction): New constant.
+	(nextWordAction): New constant.
+	(pageDownAction): New constant.
+	(pageUpAction): New constant.
+	(pasteAction): New constant.
+	(previousWordAction): New constant.
+	(readOnlyAction): New constant.
+	(selectAllAction): New constant.
+	(selectionBackwardAction): New constant.
+	(selectionBeginAction): New constant.
+	(selectionBeginLineAction): New constant.
+	(selectionBeginParagraphAction): New constant.
+	(selectionBeginWordAction): New constant.
+	(selectionDownAction): New constant.
+	(selectionEndAction): New constant.
+	(selectionEndLineAction): New constant.
+	(selectionEndParagraphAction): New constant.
+	(selectionEndWordAction): New constant.
+	(selectionForwardAction): New constant.
+	(selectionNextWordAction): New constant.
+	(selectionPreviousWordAction): New constant.
+	(selectionUpAction): New constant.
+	(selectLineAction): New constant.
+	(selectParagraphAction): New constant.
+	(selectWordAction): New constant.
+	(upAction): New constant.
+	(writableAction): New constant.
+
+2003-04-29  Michael Koch  <konqueror@gmx.de>
+
+	* java/util/PropertyPermission.java:
+	New version from classpath
+	* java/util/ResourceBundle.java:
+	Partly merged from classpath
+	(getObject): Reformated.
+	(tryBundle): Set foundBundle = null if no bundle found.
+
+2003-04-29  Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/AbstractListModel.java,
+	javax/swing/DefaultBoundedRangeModel.java,
+	javax/swing/DefaultSingleSelectionModel.java:
+	New Versions from classpath.
+
+2003-04-29  Michael Koch  <konqueror@gmx.de>
+
+	* java/awt/Window.java
+	(show): Call super.show() instead of setVisible() to avoid endless
+	loop.
+	(hide): Call super.hide() instead of setVisible() to avoid endless
+	loop.
+
+2003-04-29  Michael Koch  <konqueror@gmx.de>
+
+	* java/util/zip/Deflater.java,
+	java/util/zip/DeflaterOutputStream.java:
+	Partly merged with classpath.
+
+2003-04-27  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/natString.cc (_Jv_AllocString): Initialize
+	cachedHashCode.
+	(init): Likewise.
+	(_Jv_NewStringUtf8Const): Likewise.
+
+2003-03-29  Mohan Embar  <gnustuff@thisiscool.com>
+
+	* include/jvm.h: (_Jv_GetNbArgs) added
+	(_Jv_GetSafeArg) added
+	(_Jv_SetArgs) added
+	* prims.cc: (_Jv_GetNbArgs) implemented
+	(_Jv_GetSafeArg) implemented
+	(_Jv_SetArgs) implemented
+	(_Jv_RunMain) use _Jv_SetArgs() instead of explicitly
+	setting _Jv_argc and _Jv_argv
+	* posix.cc: (_Jv_ThisExecutable) use _Jv_GetSafeArg()
+	instead of _Jv_argv
+	* java/lang/natRuntime.cc: (insertSystemProperties) use
+	_Jv_GetSafeArg() instead of _Jv_argv
+
+2003-04-23  Tom Tromey  <tromey@redhat.com>
+
+	* resolve.cc (_Jv_PrepareClass): Round size up to alignment
+	required by this object.  Search superclasses to find required
+	alignment.
+	(get_alignment_from_class): Use alignment of type as it appears
+	in a struct.
+	(ALIGNOF): New macro.
+	(struct aligner): New helper structure.
+
+2003-04-20  Scott Gilbertson  <scottg@mantatest.com>
+
+	* java/awt/Container.java (addImpl): Enable paint events if adding
+	a lightweight to a heavyweight.
+	(addNotify): Ensure that peer is created before
+	addNotifyContainerChildren.
+	(addNotifyContainerChildren): Enable paint events if a heavyweight
+	container contains a lightweight.
+
+2003-04-20  Tom Tromey  <tromey@redhat.com>
+
+	* java/io/BufferedReader.java, java/io/BufferedWriter.java,
+	java/io/DataInput.java, java/io/DataOutput.java: Imports from
+	Classpath.
+
+2003-04-19  Tom Tromey  <tromey@redhat.com>
+
+	* java/sql/Date.java, java/sql/DriverManager.java,
+	java/sql/Time.java, java/sql/Timestamp.java: New versions from
+	Classpath.
+
+	* Makefile.in: Rebuilt.
+	* Makefile.am (ordinary_java_source_files): Added new files.
+	* java/security/AlgorithmParameterGenerator.java,
+	java/security/AlgorithmParameters.java, java/security/Engine.java,
+	java/security/Identity.java, java/security/IdentityScope.java,
+	java/security/KeyFactory.java,
+	java/security/KeyPairGenerator.java, java/security/KeyStore.java,
+	java/security/MessageDigest.java, java/security/Policy.java,
+	java/security/ProtectionDomain.java,
+	java/security/SecureRandom.java, java/security/Security.java,
+	java/security/Signature.java, java/security/SignatureSpi.java,
+	java/security/SignedObject.java, java/security/Signer.java,
+	java/security/interfaces/RSAMultiPrimePrivateCrtKey.java,
+	java/security/spec/PSSParameterSpec.java,
+	java/security/spec/RSAMultiPrimePrivateCrtKeySpec.java,
+	java/security/spec/RSAOtherPrimeInfo.java: New versions from
+	Classpath.
+
+2003-04-19  Scott Gilbertson  <scottg@mantatest.com>
+
+	* gnu/awt/xlib/XGraphics.java (XGraphics): Use new GC.create.
+	(dispose): Null metrics.
+	* gnu/awt/xlib/XToolkit.java (sync): Implement.
+	* gnu/gcj/xlib/Clip.java (dispose): Change name of native from
+	finalize.
+	(finalize): Call dispose.
+	* gnu/gcj/xlib/Drawable.java (gcCache): New field.
+	(gcCachedCount): New field.
+	(finalize): New method.
+	(putGCInCache): New method.
+	(getGCFromCache): New method.
+	* gnu/gcj/xlib/GC.java (GC): Make protected.
+	(clone): Get new GC from cache if possible.
+	(create): New static method.
+	(dispose): Save old GC in cache.
+	* gnu/gcj/xlib/natClip.cc (dispose): Check for null before
+	deleting.
+	* gnu/gcj/xlib/natGC.cc (initStructure): Call XCreateGC only if gc
+	is null.
+	* gnu/gcj/xlib/Pixmap.java (Pixmap): Use new GC.create.
+	* java/awt/Container.java (visitChild): Dispose gfx2 when
+	finished.
+
+2003-04-19  Jerry Quinn  <jlquinn@optonline.net>
+
+	* java/math/BigInteger.java (probablePrime): New.
+	* java/math/BigDecimal.java (unscaledValue): New.
+
+2003-04-19  Ranjit Mathew  <rmathew@hotmail.com>
+
+	* java/io/File.java (getAbsolutePath): On Windows, take care
+	of paths like "C:", "G:foo\bar", etc.
+	(getName): Make it work correctly on Windows.
+	(getParent): Make it work correctly on Windows. For UNIX,
+	fix bug that causes "/" to be returned as the parent of "/",
+	instead of null as returned by Sun's JRE.
+
+	* java/io/natFileWin32.cc: Change copyright owner to FSF.
+
+2003-04-19  Scott Gilbertson  <scottg@mantatest.com>
+
+	* gnu/awt/xlib/XGraphicsConfiguration.java (FontMetricsCache): New
+	inner class.
+	(CACHE_SIZE_PER_DISPLAY): New field
+	(fontMetricsCache): New field
+	(getXFontMetrics): Use fontMetricsCache to cache fonts. Prefer
+	loading ISO10646-1 fonts.
+
+2003-04-19  Scott Gilbertson  <scottg@mantatest.com>
+
+	* libjava/gnu/gcj/xlib/natFont.cc (getStringWidth): Support 16-bit
+	characters.
+	* libjava/gnu/gcj/xlib/natGC.cc (drawString): Support 16-bit
+	characters.
+
+2003-04-16  Richard Earnshaw  <rearnsha@arm.com>
+
+	* java/lang/ieeefp.h: Handle ARM platforms that have pure-endian
+	floating point.
+
+2003-04-15  Jakub Jelinek  <jakub@redhat.com>
+
+	* configure.host (*-linux*): Don't set slow_pthread_self if primary
+	installed libpthread is either linuxthreads with floating stacks or
+	NPTL.
+
+2003-04-14  Tom Tromey  <tromey@redhat.com>
+
+	* resolve.cc (_Jv_PrepareClass): Round up class size to multiple
+	of alignment.
+
+2003-04-10  Tom Tromey  <tromey@redhat.com>
+
+	* verify.cc (pop64): Removed.
+	(verify_instructions_0) <op_pop2>: Inline code.  Don't throw
+	exception if top-of-stack is narrow.
+	(initialize_stack): Check to ensure that <init> is not static and
+	<clinit> is.
+
+2003-04-07  Aaron M. Renn (arenn@urbanophile.com)
+
+	* java/io/ObjectStreamException
+	* java/io/FileFilter
+	* java/io/FilenameFilter
+	* java/io/ObjectInput
+	* java/io/ObjectOutput
+	* java/io/ObjectStreamConstants
+	Minor doc fixes, format fixes, spelling corrections, etc.
+	* java/io/DataInput
+	Corrected code samples in Javadocs to match reality
+	* java/io/DataOutput
+	* java/io/ObjectInputValidation
+	Major documentation fixes - all Javadocs re-written or updated
+
 2003-04-06  Michael Koch  <konqueror@gmx.de>
 
 	* java/net/URLConnection.java:

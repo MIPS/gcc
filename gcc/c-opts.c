@@ -595,8 +595,6 @@ c_common_init_options (lang)
 
   flag_const_strings = (lang == clk_cplusplus);
   warn_pointer_arith = (lang == clk_cplusplus);
-  if (lang == clk_c)
-    warn_sign_compare = -1;
 }
 
 /* Handle one command-line option in (argc, argv).
@@ -805,7 +803,8 @@ c_common_decode_option (argc, argv)
       warn_parentheses = on;
       warn_return_type = on;
       warn_sequence_point = on;	/* Was C only.  */
-      warn_sign_compare = on;	/* Was C++ only.  */
+      if (c_language == clk_cplusplus)
+	warn_sign_compare = on;
       warn_switch = on;
       warn_strict_aliasing = on;
       
@@ -1526,6 +1525,11 @@ c_common_post_options (pfilename)
 	}
     }
 
+  /* -Wextra implies -Wsign-compare, but not if explicitly
+      overridden.  */
+  if (warn_sign_compare == -1)
+    warn_sign_compare = extra_warnings;
+
   /* Special format checking options don't work without -Wformat; warn if
      they are used.  */
   if (warn_format_y2k && !warn_format)
@@ -1564,7 +1568,7 @@ c_common_post_options (pfilename)
       init_c_lex ();
 
       /* Yuk.  WTF is this?  I do know ObjC relies on it somewhere.  */
-      lineno = 0;
+      input_line = 0;
     }
 
   cpp_get_callbacks (parse_in)->file_change = cb_file_change;
@@ -1572,8 +1576,8 @@ c_common_post_options (pfilename)
   /* NOTE: we use in_fname here, not the one supplied.  */
   *pfilename = cpp_read_main_file (parse_in, in_fname);
 
-  saved_lineno = lineno;
-  lineno = 0;
+  saved_lineno = input_line;
+  input_line = 0;
 
   /* If an error has occurred in cpplib, note it so we fail
      immediately.  */
@@ -1586,7 +1590,7 @@ c_common_post_options (pfilename)
 bool
 c_common_init ()
 {
-  lineno = saved_lineno;
+  input_line = saved_lineno;
 
   /* Set up preprocessor arithmetic.  Must be done after call to
      c_common_nodes_and_builtins for type nodes to be good.  */
@@ -1624,7 +1628,7 @@ c_common_parse_file (set_yydebug)
   warning ("YYDEBUG not defined");
 #endif
 
-  (*debug_hooks->start_source_file) (lineno, input_filename);
+  (*debug_hooks->start_source_file) (input_line, input_filename);
   finish_options();
   pch_init();
   yyparse ();

@@ -518,7 +518,7 @@ case x${enable_threads_flag} in
 		target_thread_file=''
 		;;
 	xdecosf1 | xirix | xmach | xos2 | xposix | xpthreads | xsingle | \
-	xsolaris | xwin32 | xdce | xrtems| xvxworks | xaix)
+	xsolaris | xwin32 | xdce | xrtems| xvxworks | xaix | xgnat)
 		target_thread_file=$enable_threads_flag
 		;;
 	*)
@@ -645,6 +645,26 @@ else
   GENERATED_MANPAGES=
 fi
 
+# 'make compare' can be significantly faster, if cmp itself can
+# skip bytes instead of using tail.  The test being performed is
+# "if cmp --ignore-initial=2 t1 t2 && ! cmp --ignore-initial=1 t1 t2"
+# but we need to sink errors and handle broken shells.
+AC_MSG_CHECKING([for cmp's capabilities])
+echo abfoo >t1
+echo cdfoo >t2
+if cmp --ignore-initial=2 t1 t2 > /dev/null 2>&1; then
+  if cmp --ignore-initial=1 t1 t2 > /dev/null 2>&1; then
+    make_compare_target=slowcompare
+  else
+    make_compare_target=gnucompare
+  fi
+else
+  make_compare_target=slowcompare
+fi
+rm t1 t2
+AC_SUBST(make_compare_target)
+AC_MSG_RESULT($make_compare_target)
+
 # How about lex?
 dnl Don't use AC_PROG_LEX; we insist on flex.
 dnl LEXLIB is not useful in gcc.
@@ -688,7 +708,7 @@ AC_HEADER_SYS_WAIT
 AC_CHECK_HEADERS(limits.h stddef.h string.h strings.h stdlib.h time.h \
 		 fcntl.h unistd.h sys/file.h sys/time.h \
 		 sys/resource.h sys/param.h sys/times.h sys/stat.h \
-		 direct.h malloc.h langinfo.h ldfcn.h)
+		 direct.h malloc.h langinfo.h ldfcn.h wchar.h)
 
 # Check for thread headers.
 AC_CHECK_HEADER(thread.h, [have_thread_h=yes], [have_thread_h=])
@@ -787,7 +807,25 @@ dnl gcc_AC_C_ENUM_BF_UNSIGNED
 AC_CHECK_FUNCS(times clock dup2 kill getrlimit setrlimit atoll atoq \
 	sysconf strsignal putc_unlocked fputc_unlocked fputs_unlocked \
 	fwrite_unlocked fprintf_unlocked getrusage nl_langinfo lstat \
-        scandir alphasort)
+        scandir alphasort gettimeofday mbstowcs wcswidth)
+
+if test x$ac_cv_func_mbstowcs = xyes; then
+  AC_CACHE_CHECK(whether mbstowcs works, gcc_cv_func_mbstowcs_works,
+[    AC_TRY_RUN([#include <stdlib.h>
+int main()
+{
+  mbstowcs(0, "", 0);
+  return 0;
+}],
+    gcc_cv_func_mbstowcs_works=yes,
+    gcc_cv_func_mbstowcs_works=no,
+    gcc_cv_func_mbstowcs_works=yes)])
+  if test x$gcc_cv_func_mbstowcs_works = xyes; then
+    AC_DEFINE(HAVE_WORKING_MBSTOWCS, 1,
+  [Define this macro if mbstowcs does not crash when its
+   first argument is NULL.])
+  fi
+fi
 
 AC_CHECK_TYPE(ssize_t, int)
 
@@ -1368,6 +1406,9 @@ then
 	    | powerpc*-*-*,powerpc64*-*-*)
 		CROSS="$CROSS -DNATIVE_CROSS" ;;
 	esac
+elif test "x$TARGET_SYSTEM_ROOT" != x; then
+        # This is just $(TARGET_SYSTEM_ROOT)$(NATIVE_SYSTEM_HEADER_DIR)
+        SYSTEM_HEADER_DIR='$(CROSS_SYSTEM_HEADER_DIR)'
 fi
 
 # If this is a cross-compiler that does not
@@ -1405,8 +1446,10 @@ then
     BUILD_CC='$(CC_FOR_BUILD)'
     BUILD_CFLAGS='$(INTERNAL_CFLAGS) $(T_CFLAGS) $(CFLAGS_FOR_BUILD) $(XCFLAGS)'
 
-    STMP_FIXINC=
-    STMP_FIXPROTO=
+    if test "x$TARGET_SYSTEM_ROOT" = x; then
+	STMP_FIXINC=
+	STMP_FIXPROTO=
+    fi
 fi
 
 # Expand extra_headers to include complete path.
@@ -1431,22 +1474,6 @@ case $use_collect2 in
     xm_defines="${xm_defines} USE_COLLECT2"
     ;;
 esac
-
-# If we have gas in the build tree, make a link to it.
-if test -f ../gas/Makefile; then
-	rm -f as; $symbolic_link ../gas/as-new$host_exeext as$host_exeext 2>/dev/null
-fi
-
-# If we have nm and objdump in the build tree, make a link to them.
-if test -f ../binutils/Makefile; then
-	rm -f nm; $symbolic_link ../binutils/nm-new$host_exeext nm$host_exeext 2>/dev/null
-	rm -f objdump; $symbolic_link ../binutils/objdump$host_exeext objdump$host_exeext 2>/dev/null
-fi
-
-# If we have ld in the build tree, make a link to it.
-if test -f ../ld/Makefile; then
-	rm -f collect-ld; $symbolic_link ../ld/ld-new$host_exeext collect-ld$host_exeext 2>/dev/null
-fi
 
 # Identify the assembler which will work hand-in-glove with the newly
 # built GCC, so that we can examine its features.  This is the assembler
@@ -1473,6 +1500,8 @@ elif test -f $gcc_cv_as_gas_srcdir/configure.in \
   # Single tree build which includes gas.
   in_tree_gas=yes
   _gcc_COMPUTE_GAS_VERSION
+  rm -f as$host_exeext
+  $symbolic_link ../gas/as-new$host_exeext as$host_exeext 2>/dev/null
 fi
 
 if test "x$gcc_cv_as" = x; then
@@ -1561,9 +1590,9 @@ if test -x "$DEFAULT_LINKER"; then
 	gcc_cv_ld="$DEFAULT_LINKER"
 elif test -x "$LD"; then
 	gcc_cv_ld="$LD"
-elif test -x ld$host_exeext; then
+elif test -x collect-ld$host_exeext; then
 	# Build using linker in the current directory.
-	gcc_cv_ld=./ld$host_exeext
+	gcc_cv_ld=./collect-ld$host_exeext
 elif test -f $gcc_cv_ld_gld_srcdir/configure.in \
      && test -f ../ld/Makefile; then
 	# Single tree build which includes ld.
@@ -1581,6 +1610,9 @@ changequote(,)dnl
 	gcc_cv_gld_major_version=`expr "$gcc_cv_gld_version" : "VERSION=\([0-9]*\)"`
 	gcc_cv_gld_minor_version=`expr "$gcc_cv_gld_version" : "VERSION=[0-9]*\.\([0-9]*\)"`
 changequote([,])dnl
+	rm -f collect-ld$host_exeext
+	$symbolic_link ../ld/ld-new$host_exeext collect-ld$host_exeext \
+		2>/dev/null
 fi
 
 if test "x$gcc_cv_ld" = x; then
@@ -1652,26 +1684,51 @@ case $in_tree_ld in
 esac
 
 # Figure out what nm we will be using.
+gcc_cv_binutils_srcdir=`echo $srcdir | sed -e 's,/gcc$,,'`/binutils
 AC_MSG_CHECKING(what nm to use)
+in_tree_nm=no
 if test -x nm$host_exeext; then
 	gcc_cv_nm=./nm$host_exeext
+elif test -f $gcc_cv_binutils_srcdir/configure.in \
+     && test -f ../binutils/Makefile; then
+	# Single tree build which includes binutils.
+	in_tree_nm=yes
+	gcc_cv_nm=./nm$host_exeext
+	rm -f nm$host_exeext
+	$symbolic_link ../binutils/nm-new$host_exeext nm$host_exeext 2>/dev/null
 elif test "x$program_prefix" != xNONE; then
 	gcc_cv_nm=${program_prefix}nm$host_exeext
 else
 	gcc_cv_nm=`echo nm | sed ${program_transform_name}`$host_exeext
 fi
-AC_MSG_RESULT($gcc_cv_nm)
+case $in_tree_nm in
+  yes) AC_MSG_RESULT("newly built nm") ;;
+  no)  AC_MSG_RESULT($gcc_cv_nm) ;;
+esac
 
 # Figure out what objdump we will be using.
 AC_MSG_CHECKING(what objdump to use)
+in_tree_objdump=no
 if test -x objdump$host_exeext; then
 	gcc_cv_objdump=./objdump$host_exeext
+elif test -f $gcc_cv_binutils_srcdir/configure.in \
+     && test -f ../binutils/Makefile; then
+	# Single tree build which includes binutils.
+	in_tree_objdump=yes
+	gcc_cv_objdump=./objdump$host_exeext
+	rm -f objdump$host_exeext
+	$symbolic_link ../binutils/objdump$host_exeext \
+		objdump$host_exeext 2>/dev/null
 elif test "x$program_prefix" != xNONE; then
 	gcc_cv_objdump=${program_prefix}objdump$host_exeext
 else
-	gcc_cv_objdump=`echo objdump | sed ${program_transform_name}`$host_exeext
+	gcc_cv_objdump=`echo objdump | \
+		sed ${program_transform_name}`$host_exeext
 fi
-AC_MSG_RESULT($gcc_cv_objdump)
+case $in_tree_objdump in
+  yes) AC_MSG_RESULT("newly built objdump") ;;
+  no)  AC_MSG_RESULT($gcc_cv_objdump) ;;
+esac
 
 # Figure out what assembler alignment features are present.
 AC_MSG_CHECKING(assembler alignment features)
@@ -2370,7 +2427,7 @@ gcc_cv_as_dwarf2_debug_line=no
 # version to the per-target configury.
 case "$target" in
   i?86*-*-* | mips*-*-* | alpha*-*-* | powerpc*-*-* | sparc*-*-* | m68*-*-* \
-  | x86_64*-*-* | hppa*-*-* | arm*-*-* | strongarm*-*-* | xscale*-*-*)
+  | x86_64*-*-* | hppa*-*-* | arm*-*-* | strongarm*-*-* | xscale*-*-* | xstormy16*-*-*)
     insn="nop"
     ;;
   ia64*-*-*)
@@ -2543,6 +2600,23 @@ case "$target" in
         [Define if your MIPS libgloss linker scripts consistently include STARTUP directives.])
     fi
     AC_MSG_RESULT($gcc_cv_mips_libgloss_startup)
+
+    AC_MSG_CHECKING(whether the assembler has explicit relocation support)
+    if test x$gcc_cv_mips_explicit_relocs = x; then
+      gcc_cv_mips_explicit_relocs=no
+      if test x$gcc_cv_as != x; then
+	echo '  lw $4,%gp_rel(foo)($4)' > conftest.s
+	if $gcc_cv_as conftest.s -o conftest.o > /dev/null 2>&1; then
+	  gcc_cv_mips_explicit_relocs=yes
+	fi
+	rm -f conftest.s conftest.o
+      fi
+    fi
+    if test $gcc_cv_mips_explicit_relocs = yes; then
+      test x$target_cpu_default != x || target_cpu_default=0
+      target_cpu_default="(${target_cpu_default}|MASK_EXPLICIT_RELOCS)"
+    fi
+    AC_MSG_RESULT($gcc_cv_mips_explicit_relocs)
     ;;
 esac
 

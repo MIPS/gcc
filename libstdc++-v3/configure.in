@@ -50,8 +50,9 @@ AC_SUBST(enable_shared)
 AC_SUBST(enable_static)
 
 # Check for c++ or library specific bits that don't require linking.
-#GLIBCPP_CHECK_COMPILER_VERSION
 GLIBCPP_CHECK_GNU_MAKE
+#GLIBCPP_CHECK_COMPILER_VERSION
+GLIBCPP_CHECK_PCH
 
 # Enable all the variable C++ stuff.  C_MBCHAR must come early.
 GLIBCPP_ENABLE_CSTDIO
@@ -68,12 +69,9 @@ GLIBCPP_ENABLE_CXX_FLAGS
 GLIBCPP_ENABLE_DEBUG([no])
 GLIBCPP_ENABLE_DEBUG_FLAGS([none])
 
-# Check for headers necessary for libsupc++ using dyn-string.c/cxa_demangle.c
-AC_CHECK_HEADERS(string.h stdlib.h)
-
 # No surprises, no surprises...
 if test $ATOMICITYH = cpu/generic ; then
-  AC_MSG_WARN([No native atomic operations are provided yet for this platform.])
+  AC_MSG_WARN([No native atomic operations are provided for this platform.])
   if test $target_thread_file = single; then
     AC_MSG_WARN([They cannot be faked when thread support is disabled.])
     AC_MSG_WARN([Thread-safety of certain classes is not guaranteed.])
@@ -402,12 +400,13 @@ else
 
   # Check for available headers.
   AC_CHECK_HEADERS([nan.h ieeefp.h endian.h sys/isa_defs.h machine/endian.h \
-  machine/param.h sys/machine.h fp.h locale.h float.h inttypes.h gconv.h sys/types.h])
+  machine/param.h sys/machine.h fp.h locale.h float.h inttypes.h gconv.h \
+  sys/types.h])
 
   GLIBCPP_CHECK_COMPILER_FEATURES
   GLIBCPP_CHECK_LINKER_FEATURES
-  GLIBCPP_CHECK_BUILTIN_MATH_SUPPORT
   GLIBCPP_CHECK_MATH_SUPPORT
+  GLIBCPP_CHECK_BUILTIN_MATH_SUPPORT
   GLIBCPP_CHECK_COMPLEX_MATH_SUPPORT
   GLIBCPP_CHECK_WCHAR_T_SUPPORT
   GLIBCPP_CHECK_STDLIB_SUPPORT

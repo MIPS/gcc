@@ -178,16 +178,12 @@ static int tls_symbolic_operand_1
   PARAMS ((rtx, enum machine_mode, int, int));
 static enum tls_model tls_symbolic_operand_type
   PARAMS ((rtx));
-static bool decl_in_text_section
-  PARAMS ((tree));
 static bool decl_has_samegp
   PARAMS ((tree));
 static bool alpha_in_small_data_p
   PARAMS ((tree));
-static void alpha_encode_section_info
-  PARAMS ((tree, int));
-static const char *alpha_strip_name_encoding
-  PARAMS ((const char *));
+static rtx get_tls_get_addr
+  PARAMS ((void));
 static int some_small_symbolic_operand_1
   PARAMS ((rtx *, void *));
 static int split_small_symbolic_operand_1
@@ -297,10 +293,6 @@ static void vms_asm_out_destructor PARAMS ((rtx, int));
 
 #undef TARGET_IN_SMALL_DATA_P
 #define TARGET_IN_SMALL_DATA_P alpha_in_small_data_p
-#undef TARGET_ENCODE_SECTION_INFO
-#define TARGET_ENCODE_SECTION_INFO alpha_encode_section_info
-#undef TARGET_STRIP_NAME_ENCODING
-#define TARGET_STRIP_NAME_ENCODING alpha_strip_name_encoding
 
 #if TARGET_ABI_UNICOSMK
 static void unicosmk_asm_named_section PARAMS ((const char *, unsigned int));
@@ -1043,15 +1035,27 @@ samegp_function_operand (op, mode)
      enum machine_mode mode ATTRIBUTE_UNUSED;
 {
   if (GET_CODE (op) != SYMBOL_REF)
-    return 0;
+    return false;
 
   /* Easy test for recursion.  */
   if (op == XEXP (DECL_RTL (current_function_decl), 0))
-    return 1;
+    return true;
 
-  /* Otherwise, encode_section_info recorded whether we are to treat
-     this symbol as having the same GP.  */
-  return SYMBOL_REF_FLAG (op);
+  /* Functions that are not local can be overridden, and thus may
+     not share the same gp.  */
+  if (! SYMBOL_REF_LOCAL_P (op))
+    return false;
+
+  /* If -msmall-data is in effect, assume that there is only one GP
+     for the module, and so any local symbol has this property.  We
+     need explicit relocations to be able to enforce this for symbols
+     not defined in this unit of translation, however.  */
+  if (TARGET_EXPLICIT_RELOCS && TARGET_SMALL_DATA)
+    return true;
+
+  /* Functions that are not external are defined in this UoT,
+     and thus must share the same gp.  */
+  return ! SYMBOL_REF_EXTERNAL_P (op);
 }
 
 /* Return 1 if OP is a SYMBOL_REF for which we can make a call via bsr.  */
@@ -1061,9 +1065,11 @@ direct_call_operand (op, mode)
      rtx op;
      enum machine_mode mode;
 {
+  tree op_decl, cfun_sec, op_sec;
+
   /* Must share the same GP.  */
   if (!samegp_function_operand (op, mode))
-    return 0;
+    return false;
 
   /* If profiling is implemented via linker tricks, we can't jump
      to the nogp alternate entry point.  Note that current_function_profile
@@ -1073,16 +1079,36 @@ direct_call_operand (op, mode)
      but is approximately correct for the OSF ABIs.  Don't know
      what to do for VMS, NT, or UMK.  */
   if (!TARGET_PROFILING_NEEDS_GP && profile_flag)
-    return 0;
+    return false;
 
+  /* Must be a function.  In some cases folks create thunks in static
+     data structures and then make calls to them.  If we allow the
+     direct call, we'll get an error from the linker about !samegp reloc
+     against a symbol without a .prologue directive.  */
+  if (!SYMBOL_REF_FUNCTION_P (op))
+    return false;
+  
   /* Must be "near" so that the branch is assumed to reach.  With
-     -msmall-text, this is true of all local symbols.  */
+     -msmall-text, this is assumed true of all local symbols.  Since
+     we've already checked samegp, locality is already assured.  */
   if (TARGET_SMALL_TEXT)
-    return op->jump;
+    return true;
 
-  /* Otherwise, a decl is "near" if it is defined in the same section.
-     See alpha_encode_section_info for commentary.  */
-  return op->jump && decl_in_text_section (cfun->decl);
+  /* Otherwise, a decl is "near" if it is defined in the same section.  */
+  if (flag_function_sections)
+    return false;
+
+  op_decl = SYMBOL_REF_DECL (op);
+  if (DECL_ONE_ONLY (current_function_decl)
+      || (op_decl && DECL_ONE_ONLY (op_decl)))
+    return false;
+
+  cfun_sec = DECL_SECTION_NAME (current_function_decl);
+  op_sec = op_decl ? DECL_SECTION_NAME (op_decl) : NULL;
+  return ((!cfun_sec && !op_sec)
+	  || (cfun_sec && op_sec
+	      && strcmp (TREE_STRING_POINTER (cfun_sec),
+		         TREE_STRING_POINTER (op_sec)) == 0));
 }
 
 /* Return true if OP is a LABEL_REF, or SYMBOL_REF or CONST referencing
@@ -1093,8 +1119,6 @@ local_symbolic_operand (op, mode)
      rtx op;
      enum machine_mode mode;
 {
-  const char *str;
-
   if (mode != VOIDmode && GET_MODE (op) != VOIDmode && mode != GET_MODE (op))
     return 0;
 
@@ -1109,26 +1133,7 @@ local_symbolic_operand (op, mode)
   if (GET_CODE (op) != SYMBOL_REF)
     return 0;
 
-  /* Easy pickings.  */
-  if (CONSTANT_POOL_ADDRESS_P (op) || STRING_POOL_ADDRESS_P (op))
-    return 1;
-
-  /* ??? SYMBOL_REF_FLAG is set for local function symbols, but we
-     run into problems with the rtl inliner in that the symbol was
-     once external, but is local after inlining, which results in
-     unrecognizable insns.  */
-
-  str = XSTR (op, 0);
-
-  /* If @[LS], then alpha_encode_section_info sez it's local.  */
-  if (str[0] == '@' && (str[1] == 'L' || str[1] == 'S'))
-    return 1;
-
-  /* If *$, then ASM_GENERATE_INTERNAL_LABEL sez it's local.  */
-  if (str[0] == '*' && str[1] == '$')
-    return 1;
-
-  return 0;
+  return SYMBOL_REF_LOCAL_P (op) && !SYMBOL_REF_TLS_MODEL (op);
 }
 
 /* Return true if OP is a SYMBOL_REF or CONST referencing a variable
@@ -1139,8 +1144,6 @@ small_symbolic_operand (op, mode)
      rtx op;
      enum machine_mode mode ATTRIBUTE_UNUSED;
 {
-  const char *str;
-
   if (! TARGET_SMALL_DATA)
     return 0;
 
@@ -1155,13 +1158,14 @@ small_symbolic_operand (op, mode)
   if (GET_CODE (op) != SYMBOL_REF)
     return 0;
 
+  /* ??? There's no encode_section_info equivalent for the rtl
+     constant pool, so SYMBOL_FLAG_SMALL never gets set.  */
   if (CONSTANT_POOL_ADDRESS_P (op))
     return GET_MODE_SIZE (get_pool_mode (op)) <= (unsigned) g_switch_value;
-  else
-    {
-      str = XSTR (op, 0);
-      return str[0] == '@' && str[1] == 'S';
-    }
+
+  return (SYMBOL_REF_LOCAL_P (op)
+	  && SYMBOL_REF_SMALL_P (op)
+	  && SYMBOL_REF_TLS_MODEL (op) == 0);
 }
 
 /* Return true if OP is a SYMBOL_REF or CONST referencing a variable
@@ -1172,8 +1176,6 @@ global_symbolic_operand (op, mode)
      rtx op;
      enum machine_mode mode;
 {
-  const char *str;
-
   if (mode != VOIDmode && GET_MODE (op) != VOIDmode && mode != GET_MODE (op))
     return 0;
 
@@ -1185,12 +1187,7 @@ global_symbolic_operand (op, mode)
   if (GET_CODE (op) != SYMBOL_REF)
     return 0;
 
-  if (local_symbolic_operand (op, mode))
-    return 0;
-
-  /* Also verify that it's not a TLS symbol.  */
-  str = XSTR (op, 0);
-  return str[0] != '%' && str[0] != '@';
+  return !SYMBOL_REF_LOCAL_P (op) && !SYMBOL_REF_TLS_MODEL (op);
 }
 
 /* Return 1 if OP is a valid operand for the MEM of a CALL insn.  */
@@ -1251,8 +1248,6 @@ tls_symbolic_operand_1 (op, mode, size, unspec)
      enum machine_mode mode;
      int size, unspec;
 {
-  const char *str;
-
   if (mode != VOIDmode && GET_MODE (op) != VOIDmode && mode != GET_MODE (op))
     return 0;
 
@@ -1266,29 +1261,26 @@ tls_symbolic_operand_1 (op, mode, size, unspec)
 
   if (GET_CODE (op) != SYMBOL_REF)
     return 0;
-  str = XSTR (op, 0);
 
-  if (str[0] == '%')
-    {
-      if (size != 64)
-	return 0;
-    }
-  else if (str[0] == '@')
+  if (SYMBOL_REF_LOCAL_P (op))
     {
       if (alpha_tls_size > size)
 	return 0;
     }
   else
-    return 0;
-
-  switch (str[1])
     {
-    case 'D':
+      if (size != 64)
+	return 0;
+    }
+
+  switch (SYMBOL_REF_TLS_MODEL (op))
+    {
+    case TLS_MODEL_LOCAL_DYNAMIC:
       return unspec == UNSPEC_DTPREL;
-    case 'T':
+    case TLS_MODEL_INITIAL_EXEC:
       return unspec == UNSPEC_TPREL && size == 64;
-    case 't':
-      return unspec == UNSPEC_TPREL && size < 64;
+    case TLS_MODEL_LOCAL_EXEC:
+      return unspec == UNSPEC_TPREL;
     default:
       abort ();
     }
@@ -1833,59 +1825,19 @@ static enum tls_model
 tls_symbolic_operand_type (symbol)
      rtx symbol;
 {
-  const char *str;
+  enum tls_model model;
 
   if (GET_CODE (symbol) != SYMBOL_REF)
     return 0;
-  str = XSTR (symbol, 0);
+  model = SYMBOL_REF_TLS_MODEL (symbol);
 
-  if (str[0] == '%')
-    {
-      /* ??? Be prepared for -ftls-model=local-dynamic.  Perhaps we shouldn't
-	 have separately encoded local-ness.  On well, maybe the user will use
-	 attribute visibility next time.  At least we don't crash...  */
-      if (str[1] == 'G' || str[1] == 'D')
-	return TLS_MODEL_GLOBAL_DYNAMIC;
-      if (str[1] == 'T')
-	return TLS_MODEL_INITIAL_EXEC;
-    }
-  else if (str[0] == '@')
-    {
-      if (str[1] == 'D')
-	{
-	  /* Local dynamic is a waste if we're not going to combine
-	     the __tls_get_addr calls.  So avoid it if not optimizing.  */
-	  if (optimize)
-	    return TLS_MODEL_LOCAL_DYNAMIC;
-	  else
-	    return TLS_MODEL_GLOBAL_DYNAMIC;
-	}
-      if (str[1] == 'T')
-	return TLS_MODEL_INITIAL_EXEC;
-      if (str[1] == 't')
-	return TLS_MODEL_LOCAL_EXEC;
-    }
+  /* Local-exec with a 64-bit size is the same code as initial-exec.  */
+  if (model == TLS_MODEL_LOCAL_EXEC && alpha_tls_size == 64)
+    model = TLS_MODEL_INITIAL_EXEC;
 
-  return 0;
+  return model;
 }
-
 
-/* Return true if the function DECL will be placed in the default text
-   section.  */
-/* ??? Ideally we'd be able to always move from a SYMBOL_REF back to the
-   decl, as that would allow us to determine if two functions are in the
-   same section, which is what we really want to know.  */
-
-static bool
-decl_in_text_section (decl)
-     tree decl;
-{
-  return (DECL_SECTION_NAME (decl) == NULL_TREE
-	  && ! (flag_function_sections
-	        || (targetm.have_named_sections
-		    && DECL_ONE_ONLY (decl))));
-}
-
 /* Return true if the function DECL will share the same GP as any
    function in the current unit of translation.  */
 
@@ -1939,142 +1891,6 @@ alpha_in_small_data_p (exp)
     }
 
   return false;
-}
-
-/* If we are referencing a function that is static, make the SYMBOL_REF
-   special.  We use this to see indicate we can branch to this function
-   without setting PV or restoring GP. 
-
-   If this is a variable that is known to be defined locally, add "@v"
-   to the name.  If in addition the variable is to go in .sdata/.sbss,
-   then add "@s" instead.  */
-
-static void
-alpha_encode_section_info (decl, first)
-     tree decl;
-     int first ATTRIBUTE_UNUSED;
-{
-  const char *symbol_str;
-  bool is_local;
-  char encoding = 0;
-  rtx rtl, symbol;
-
-  rtl = DECL_P (decl) ? DECL_RTL (decl) : TREE_CST_RTL (decl);
-
-  /* Careful not to prod global register variables.  */
-  if (GET_CODE (rtl) != MEM)
-    return;
-  symbol = XEXP (rtl, 0);
-  if (GET_CODE (symbol) != SYMBOL_REF)
-    return;
-
-  /* A variable is considered "local" if it is defined in this module.  */
-  is_local = (*targetm.binds_local_p) (decl);
-    
-  if (TREE_CODE (decl) == FUNCTION_DECL)
-    {
-      /* Mark whether the decl is "near" in distance.  If -msmall-text is
-	 in effect, this is trivially true of all local symbols.  */
-      if (TARGET_SMALL_TEXT)
-	{
-	  if (is_local)
-	    symbol->jump = 1;
-	}
-      else
-	{
-	  /* Otherwise, a decl is "near" if it is defined in this same
-	     section.  What we really need is to be able to access the
-	     target decl of a call from the call_insn pattern, so that
-	     we can determine if the call is from the same section.  We
-	     can't do that at present, so handle the common case and
-	     match up .text with .text.
-
-	     Delay marking public functions until they are emitted; otherwise
-	     we don't know that they exist in this unit of translation.  */
-	  if (!TREE_PUBLIC (decl) && decl_in_text_section (decl))
-            symbol->jump = 1;
-	}
-
-      /* Indicate whether the target function shares the same GP as any
-	 function emitted in this unit of translation.  */
-      if (decl_has_samegp (decl))
-	SYMBOL_REF_FLAG (symbol) = 1;
-      return;
-    }
-
-  /* Early out if we're not going to do anything with this data.  */
-  if (! TARGET_EXPLICIT_RELOCS)
-    return;
-
-  symbol_str = XSTR (symbol, 0);
-
-  /* Care for TLS variables.  */
-  if (TREE_CODE (decl) == VAR_DECL && DECL_THREAD_LOCAL (decl))
-    {
-      switch (decl_tls_model (decl))
-	{
-	case TLS_MODEL_GLOBAL_DYNAMIC:
-	  encoding = 'G';
-	  break;
-	case TLS_MODEL_LOCAL_DYNAMIC:
-	  encoding = 'D';
-	  break;
-	case TLS_MODEL_INITIAL_EXEC:
-	  encoding = 'T';
-	  break;
-	case TLS_MODEL_LOCAL_EXEC:
-	  encoding = (alpha_tls_size == 64 ? 'T' : 't');
-	  break;
-	}
-    }
-  else if (is_local)
-    {
-      /* Determine if DECL will wind up in .sdata/.sbss.  */
-      if (alpha_in_small_data_p (decl))
-	encoding = 'S';
-      else
-	encoding = 'L';
-    }
-
-  /* Finally, encode this into the symbol string.  */
-  if (encoding)
-    {
-      char *newstr;
-      size_t len;
-      char want_prefix = (is_local ? '@' : '%');
-      char other_prefix = (is_local ? '%' : '@');
-
-      if (symbol_str[0] == want_prefix)
-	{
-	  if (symbol_str[1] == encoding)
-	    return;
-	  symbol_str += 2;
-	}
-      else if (symbol_str[0] == other_prefix)
-	symbol_str += 2;
-
-      len = strlen (symbol_str) + 1;
-      newstr = alloca (len + 2);
-
-      newstr[0] = want_prefix;
-      newstr[1] = encoding;
-      memcpy (newstr + 2, symbol_str, len);
-	  
-      XSTR (symbol, 0) = ggc_alloc_string (newstr, len + 2 - 1);
-    }
-}
-
-/* Undo the effects of the above.  */
-
-static const char *
-alpha_strip_name_encoding (str)
-     const char *str;
-{
-  if (str[0] == '@' || str[0] == '%')
-    str += 2;
-  if (str[0] == '*')
-    str++;
-  return str;
 }
 
 #if TARGET_ABI_OPEN_VMS
@@ -2208,6 +2024,18 @@ alpha_legitimate_address_p (mode, x, strict)
   return false;
 }
 
+/* Build the SYMBOL_REF for __tls_get_addr.  */
+
+static GTY(()) rtx tls_get_addr_libfunc;
+
+static rtx
+get_tls_get_addr ()
+{
+  if (!tls_get_addr_libfunc)
+    tls_get_addr_libfunc = init_one_libfunc ("__tls_get_addr");
+  return tls_get_addr_libfunc;
+}
+
 /* Try machine-dependent ways of modifying an illegitimate address
    to be legitimate.  If we find one, return the new, valid address.  */
 
@@ -2275,7 +2103,7 @@ alpha_legitimize_address (x, scratch, mode)
 
 	  r0 = gen_rtx_REG (Pmode, 0);
 	  r16 = gen_rtx_REG (Pmode, 16);
-	  tga = gen_rtx_SYMBOL_REF (Pmode, "__tls_get_addr");
+	  tga = get_tls_get_addr ();
 	  dest = gen_reg_rtx (Pmode);
 	  seq = GEN_INT (alpha_next_sequence_number++);
 	  
@@ -2296,7 +2124,7 @@ alpha_legitimize_address (x, scratch, mode)
 
 	  r0 = gen_rtx_REG (Pmode, 0);
 	  r16 = gen_rtx_REG (Pmode, 16);
-	  tga = gen_rtx_SYMBOL_REF (Pmode, "__tls_get_addr");
+	  tga = get_tls_get_addr ();
 	  scratch = gen_reg_rtx (Pmode);
 	  seq = GEN_INT (alpha_next_sequence_number++);
 
@@ -4233,7 +4061,7 @@ alpha_emit_xfloating_libcall (func, target, operands, noperands, equiv)
       abort ();
     }
 
-  tmp = gen_rtx_MEM (QImode, gen_rtx_SYMBOL_REF (Pmode, (char *) func));
+  tmp = gen_rtx_MEM (QImode, init_one_libfunc (func));
   tmp = emit_call_insn (GEN_CALL_VALUE (reg, tmp, const0_rtx,
 					const0_rtx, const0_rtx));
   CALL_INSN_FUNCTION_USAGE (tmp) = usage;
@@ -5861,14 +5689,11 @@ get_some_local_dynamic_name_1 (px, data)
 {
   rtx x = *px;
 
-  if (GET_CODE (x) == SYMBOL_REF)
+  if (GET_CODE (x) == SYMBOL_REF
+      && SYMBOL_REF_TLS_MODEL (x) == TLS_MODEL_LOCAL_DYNAMIC)
     {
-      const char *str = XSTR (x, 0);
-      if (str[0] == '@' && str[1] == 'D')
-	{
-          cfun->machine->some_ld_name = str;
-          return 1;
-	}
+      cfun->machine->some_ld_name = XSTR (x, 0);
+      return 1;
     }
 
   return 0;
@@ -6389,7 +6214,7 @@ alpha_initialize_trampoline (tramp, fnaddr, cxt, fnofs, cxtofs, jmpofs)
     }
 
 #ifdef TRANSFER_FROM_TRAMPOLINE
-  emit_library_call (gen_rtx_SYMBOL_REF (Pmode, "__enable_execute_stack"),
+  emit_library_call (init_one_libfunc ("__enable_execute_stack"),
 		     0, VOIDmode, 1, tramp, Pmode);
 #endif
 
@@ -6576,8 +6401,8 @@ alpha_build_va_list ()
 void   
 alpha_setup_incoming_varargs(cum, mode, type, pretend_size, no_rtl)
      CUMULATIVE_ARGS cum;
-     enum machine_mode mode;
-     tree type;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+     tree type ATTRIBUTE_UNUSED;
      int *pretend_size;
      int no_rtl;
 {
@@ -7113,7 +6938,7 @@ alpha_sa_mask (imaskP, fmaskP)
     }
 
   if (TARGET_ABI_OPEN_VMS && alpha_procedure_type == PT_STACK)
-    imask |= (1L << HARD_FRAME_POINTER_REGNUM);
+    imask |= (1UL << HARD_FRAME_POINTER_REGNUM);
 
   /* One for every register we have to save.  */
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
@@ -7122,9 +6947,9 @@ alpha_sa_mask (imaskP, fmaskP)
 	&& (!TARGET_ABI_UNICOSMK || i != HARD_FRAME_POINTER_REGNUM))
       {
 	if (i < 32)
-	  imask |= (1L << i);
+	  imask |= (1UL << i);
 	else
-	  fmask |= (1L << (i - 32));
+	  fmask |= (1UL << (i - 32));
       }
 
   /* We need to restore these for the handler.  */
@@ -7134,14 +6959,14 @@ alpha_sa_mask (imaskP, fmaskP)
 	unsigned regno = EH_RETURN_DATA_REGNO (i);
 	if (regno == INVALID_REGNUM)
 	  break;
-	imask |= 1L << regno;
+	imask |= 1UL << regno;
       }
      
   /* If any register spilled, then spill the return address also.  */
   /* ??? This is required by the Digital stack unwind specification
      and isn't needed if we're doing Dwarf2 unwinding.  */
   if (imask || fmask || alpha_ra_ever_killed ())
-    imask |= (1L << REG_RA);
+    imask |= (1UL << REG_RA);
 
   *imaskP = imask;
   *fmaskP = fmask;
@@ -7254,8 +7079,8 @@ alpha_sa_size ()
    and the other its replacement, at the start of a routine.  */
 
 HOST_WIDE_INT
-alpha_initial_elimination_offset(from, to)
-     unsigned int from, to;
+alpha_initial_elimination_offset (from, to)
+     unsigned int from, to ATTRIBUTE_UNUSED;
 {
   HOST_WIDE_INT ret;
 
@@ -7605,18 +7430,18 @@ alpha_expand_prologue ()
 	}
 
       /* Save register RA next.  */
-      if (imask & (1L << REG_RA))
+      if (imask & (1UL << REG_RA))
 	{
 	  mem = gen_rtx_MEM (DImode, plus_constant (sa_reg, reg_offset));
 	  set_mem_alias_set (mem, alpha_sr_alias_set);
 	  FRP (emit_move_insn (mem, gen_rtx_REG (DImode, REG_RA)));
-	  imask &= ~(1L << REG_RA);
+	  imask &= ~(1UL << REG_RA);
 	  reg_offset += 8;
 	}
 
       /* Now save any other registers required to be saved.  */
       for (i = 0; i < 32; i++)
-	if (imask & (1L << i))
+	if (imask & (1UL << i))
 	  {
 	    mem = gen_rtx_MEM (DImode, plus_constant (sa_reg, reg_offset));
 	    set_mem_alias_set (mem, alpha_sr_alias_set);
@@ -7625,7 +7450,7 @@ alpha_expand_prologue ()
 	  }
 
       for (i = 0; i < 32; i++)
-	if (fmask & (1L << i))
+	if (fmask & (1UL << i))
 	  {
 	    mem = gen_rtx_MEM (DFmode, plus_constant (sa_reg, reg_offset));
 	    set_mem_alias_set (mem, alpha_sr_alias_set);
@@ -7641,7 +7466,7 @@ alpha_expand_prologue ()
 
       reg_offset = -56;
       for (i = 9; i < 15; i++)
-	if (imask & (1L << i))
+	if (imask & (1UL << i))
 	  {
 	    mem = gen_rtx_MEM (DImode, plus_constant(hard_frame_pointer_rtx,
 						     reg_offset));
@@ -7650,7 +7475,7 @@ alpha_expand_prologue ()
 	    reg_offset -= 8;
 	  }
       for (i = 2; i < 10; i++)
-	if (fmask & (1L << i))
+	if (fmask & (1UL << i))
 	  {
 	    mem = gen_rtx_MEM (DFmode, plus_constant (hard_frame_pointer_rtx,
 						      reg_offset));
@@ -7678,11 +7503,31 @@ alpha_expand_prologue ()
 
       /* If we have to allocate space for outgoing args, do it now.  */
       if (current_function_outgoing_args_size != 0)
-	FRP (emit_move_insn
-	     (stack_pointer_rtx, 
-	      plus_constant (hard_frame_pointer_rtx,
-			     - (ALPHA_ROUND
-				(current_function_outgoing_args_size)))));
+	{
+	  rtx seq
+	    = emit_move_insn (stack_pointer_rtx, 
+			      plus_constant
+			      (hard_frame_pointer_rtx,
+			       - (ALPHA_ROUND
+				  (current_function_outgoing_args_size))));
+	  
+	  /* Only set FRAME_RELATED_P on the stack adjustment we just emitted
+	     if ! frame_pointer_needed. Setting the bit will change the CFA
+	     computation rule to use sp again, which would be wrong if we had
+	     frame_pointer_needed, as this means sp might move unpredictably
+	     later on.
+
+	     Also, note that
+	       frame_pointer_needed
+	       => vms_unwind_regno == HARD_FRAME_POINTER_REGNUM
+	     and
+	       current_function_outgoing_args_size != 0
+	       => alpha_procedure_type != PT_NULL,
+
+	     so when we are not setting the bit here, we are guaranteed to
+	     have emited an FRP frame pointer update just before.  */
+	  RTX_FRAME_RELATED_P (seq) = ! frame_pointer_needed;
+	}
     }
   else if (!TARGET_ABI_UNICOSMK)
     {
@@ -7845,7 +7690,7 @@ alpha_start_function (file, fnname, decl)
     {
       fprintf (file, "\t.frame $%d,", vms_unwind_regno);
       fprintf (file, HOST_WIDE_INT_PRINT_DEC,
-	       frame_size >= ((HOST_WIDE_INT) 1 << 31) ? 0 : frame_size);
+	       frame_size >= (1UL << 31) ? 0 : frame_size);
       fputs (",$26,", file);
       fprintf (file, HOST_WIDE_INT_PRINT_DEC, reg_offset);
       fputs ("\n", file);
@@ -7856,7 +7701,7 @@ alpha_start_function (file, fnname, decl)
 	       (frame_pointer_needed
 		? HARD_FRAME_POINTER_REGNUM : STACK_POINTER_REGNUM));
       fprintf (file, HOST_WIDE_INT_PRINT_DEC,
-	       frame_size >= (1l << 31) ? 0 : frame_size);
+	       frame_size >= (1UL << 31) ? 0 : frame_size);
       fprintf (file, ",$26,%d\n", current_function_pretend_args_size);
     }
 
@@ -7868,7 +7713,7 @@ alpha_start_function (file, fnname, decl)
       if (imask)
         /* ??? Does VMS care if mask contains ra?  The old code didn't
            set it, so I don't here.  */
-	fprintf (file, "\t.mask 0x%lx,0\n", imask & ~(1L << REG_RA));
+	fprintf (file, "\t.mask 0x%lx,0\n", imask & ~(1UL << REG_RA));
       if (fmask)
 	fprintf (file, "\t.fmask 0x%lx,0\n", fmask);
       if (alpha_procedure_type == PT_REGISTER)
@@ -7880,11 +7725,11 @@ alpha_start_function (file, fnname, decl)
 	{
 	  fprintf (file, "\t.mask 0x%lx,", imask);
 	  fprintf (file, HOST_WIDE_INT_PRINT_DEC,
-		   frame_size >= (1l << 31) ? 0 : reg_offset - frame_size);
+		   frame_size >= (1UL << 31) ? 0 : reg_offset - frame_size);
 	  putc ('\n', file);
 
 	  for (i = 0; i < 32; ++i)
-	    if (imask & (1L << i))
+	    if (imask & (1UL << i))
 	      reg_offset += 8;
 	}
 
@@ -7892,7 +7737,7 @@ alpha_start_function (file, fnname, decl)
 	{
 	  fprintf (file, "\t.fmask 0x%lx,", fmask);
 	  fprintf (file, HOST_WIDE_INT_PRINT_DEC,
-		   frame_size >= (1l << 31) ? 0 : reg_offset - frame_size);
+		   frame_size >= (1UL << 31) ? 0 : reg_offset - frame_size);
 	  putc ('\n', file);
 	}
     }
@@ -8028,10 +7873,10 @@ alpha_expand_epilogue ()
       FRP (emit_move_insn (gen_rtx_REG (DImode, REG_RA), mem));
 
       reg_offset += 8;
-      imask &= ~(1L << REG_RA);
+      imask &= ~(1UL << REG_RA);
 
       for (i = 0; i < 32; ++i)
-	if (imask & (1L << i))
+	if (imask & (1UL << i))
 	  {
 	    if (i == HARD_FRAME_POINTER_REGNUM && fp_is_frame_pointer)
 	      fp_offset = reg_offset;
@@ -8045,7 +7890,7 @@ alpha_expand_epilogue ()
 	  }
 
       for (i = 0; i < 32; ++i)
-	if (fmask & (1L << i))
+	if (fmask & (1UL << i))
 	  {
 	    mem = gen_rtx_MEM (DFmode, plus_constant(sa_reg, reg_offset));
 	    set_mem_alias_set (mem, alpha_sr_alias_set);
@@ -8060,7 +7905,7 @@ alpha_expand_epilogue ()
       reg_offset = -56;
 
       for (i = 9; i < 15; i++)
-	if (imask & (1L << i))
+	if (imask & (1UL << i))
 	  {
 	    mem = gen_rtx_MEM (DImode, plus_constant(hard_frame_pointer_rtx,
 						     reg_offset));
@@ -8070,7 +7915,7 @@ alpha_expand_epilogue ()
 	  }
 
       for (i = 2; i < 10; i++)
-	if (fmask & (1L << i))
+	if (fmask & (1UL << i))
 	  {
 	    mem = gen_rtx_MEM (DFmode, plus_constant(hard_frame_pointer_rtx,
 						     reg_offset));
@@ -8197,7 +8042,7 @@ void
 alpha_end_function (file, fnname, decl)
      FILE *file;
      const char *fnname;
-     tree decl;
+     tree decl ATTRIBUTE_UNUSED;
 {
   /* End the function.  */
   if (!TARGET_ABI_UNICOSMK && !flag_inhibit_size_directive)
@@ -8211,23 +8056,6 @@ alpha_end_function (file, fnname, decl)
 #if TARGET_ABI_OPEN_VMS
   alpha_write_linkage (file, fnname, decl);
 #endif
-
-  /* Show that we know this function if it is called again.
-     This is only meaningful for symbols that bind locally.  */
-  if ((*targetm.binds_local_p) (decl))
-    {
-      rtx symbol = XEXP (DECL_RTL (decl), 0);
-
-      /* Mark whether the decl is "near".  See the commentary in 
-	 alpha_encode_section_info wrt the .text section.  */
-      if (decl_in_text_section (decl))
-	symbol->jump = 1;
-
-      /* Mark whether the decl shares a GP with other functions
-	 in this unit of translation.  This is trivially true of
-	 local symbols.  */
-      SYMBOL_REF_FLAG (symbol) = 1;
-    }
 
   /* Output jump tables and the static subroutine information block.  */
   if (TARGET_ABI_UNICOSMK)
@@ -9940,7 +9768,7 @@ unicosmk_unique_section (decl, reloc)
     abort ();
 
   name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
-  name = alpha_strip_name_encoding (name);
+  name = default_strip_name_encoding (name);
   len = strlen (name);
 
   if (TREE_CODE (decl) == FUNCTION_DECL)
@@ -10103,14 +9931,14 @@ unicosmk_gen_dsib (imaskP)
       mem = gen_rtx_MEM (DImode, plus_constant (stack_pointer_rtx, 56));
       set_mem_alias_set (mem, alpha_sr_alias_set);
       FRP (emit_move_insn (mem, gen_rtx_REG (DImode, REG_RA)));
-      (*imaskP) &= ~(1L << REG_RA);
+      (*imaskP) &= ~(1UL << REG_RA);
 
       /* Save the old frame pointer.  */
 
       mem = gen_rtx_MEM (DImode, plus_constant (stack_pointer_rtx, 48));
       set_mem_alias_set (mem, alpha_sr_alias_set);
       FRP (emit_move_insn (mem, hard_frame_pointer_rtx));
-      (*imaskP) &= ~(1L << HARD_FRAME_POINTER_REGNUM);
+      (*imaskP) &= ~(1UL << HARD_FRAME_POINTER_REGNUM);
 
       emit_insn (gen_blockage ());
 
@@ -10171,7 +9999,7 @@ unicosmk_ssib_name ()
   x = XEXP (x, 0);
   if (GET_CODE (x) != SYMBOL_REF)
     abort ();
-  fnname = alpha_strip_name_encoding (XSTR (x, 0));
+  fnname = default_name_encoding (XSTR (x, 0));
 
   len = strlen (fnname);
   if (len + SSIB_PREFIX_LEN > 255)
@@ -10347,7 +10175,7 @@ unicosmk_output_externs (file)
       /* We have to strip the encoding and possibly remove user_label_prefix 
 	 from the identifier in order to handle -fleading-underscore and
 	 explicit asm names correctly (cf. gcc.dg/asm-names-1.c).  */
-      real_name = alpha_strip_name_encoding (p->name);
+      real_name = default_strip_name_encoding (p->name);
       if (len && p->name[0] == '*'
 	  && !memcmp (real_name, user_label_prefix, len))
 	real_name += len;

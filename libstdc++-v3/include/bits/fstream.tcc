@@ -40,14 +40,16 @@
 namespace std
 {
   template<typename _CharT, typename _Traits>
+    const size_t
+    basic_filebuf<_CharT, _Traits>::_S_pback_size;
+
+  template<typename _CharT, typename _Traits>
     void
     basic_filebuf<_CharT, _Traits>::
     _M_allocate_internal_buffer()
     {
-      if (!this->_M_buf && this->_M_buf_size_opt)
+      if (!this->_M_buf && this->_M_buf_size)
 	{
-	  this->_M_buf_size = this->_M_buf_size_opt;
-
 	  // Allocate internal buffer.
 	  this->_M_buf = new char_type[this->_M_buf_size];
 	  _M_buf_allocated = true;
@@ -58,7 +60,7 @@ namespace std
   template<typename _CharT, typename _Traits>
     void
     basic_filebuf<_CharT, _Traits>::
-    _M_destroy_internal_buffer()
+    _M_destroy_internal_buffer() throw()
     {
       if (_M_buf_allocated)
 	{
@@ -74,7 +76,9 @@ namespace std
     basic_filebuf<_CharT, _Traits>::
     basic_filebuf() : __streambuf_type(), _M_file(&_M_lock), 
     _M_state_cur(__state_type()), _M_state_beg(__state_type()), 
-    _M_buf_allocated(false), _M_last_overflowed(false)
+    _M_buf(NULL), _M_buf_size(BUFSIZ), _M_buf_allocated(false),
+    _M_last_overflowed(false), _M_pback_cur_save(0),
+    _M_pback_end_save(0), _M_pback_init(false)
     { this->_M_buf_unified = true; }
 
   template<typename _CharT, typename _Traits>
@@ -96,13 +100,10 @@ namespace std
 
 	      if ((__mode & ios_base::ate)
 		  && this->seekoff(0, ios_base::end, __mode) < 0)
-		{
-		  // 27.8.1.3,4
-		  this->close();
-		  return __ret;
-		}
-
-	      __ret = this;
+		// 27.8.1.3,4
+		this->close();
+	      else
+		__ret = this;
 	    }
 	}
       return __ret;
@@ -111,40 +112,47 @@ namespace std
   template<typename _CharT, typename _Traits>
     typename basic_filebuf<_CharT, _Traits>::__filebuf_type* 
     basic_filebuf<_CharT, _Traits>::
-    close()
+    close() throw()
     {
       __filebuf_type* __ret = NULL;
       if (this->is_open())
 	{
 	  bool __testfail = false;
-	  const int_type __eof = traits_type::eof();
-	  bool __testput = this->_M_out_cur
-	                   && this->_M_out_beg < this->_M_out_lim;
-	  if (__testput 
-	      && traits_type::eq_int_type(_M_really_overflow(__eof), __eof))
-	    __testfail = true;
+	  try
+	    {
+	      const int_type __eof = traits_type::eof();
+	      const bool __testput = this->_M_out_beg < this->_M_out_lim;
+
+	      if (__testput 
+		  && traits_type::eq_int_type(_M_overflow(__eof), __eof))
+		__testfail = true;
 
 #if 0
-	  // XXX not done
-	  if (_M_last_overflowed)
-	    {
-	      _M_output_unshift();
-	      _M_really_overflow(__eof);
-	    }
+	      // XXX not done
+	      if (_M_last_overflowed)
+		{
+		  _M_output_unshift();
+		  _M_overflow(__eof);
+		}
 #endif
-
+	    }
+	  catch(...)
+	    {
+	      __testfail = true;
+	    }
+	      
 	  // NB: Do this here so that re-opened filebufs will be cool...
 	  this->_M_mode = ios_base::openmode(0);
 	  _M_destroy_internal_buffer();
-	  _M_pback_destroy();
-
+	  _M_destroy_pback();
+	  
 	  if (!_M_file.close())
 	    __testfail = true;
 
 	  if (!__testfail)
 	    __ret = this;
 	}
-      _M_last_overflowed = false;	
+      _M_last_overflowed = false;
       return __ret;
     }
 
@@ -154,11 +162,10 @@ namespace std
     showmanyc()
     {
       streamsize __ret = -1;
-      bool __testin = this->_M_mode & ios_base::in;
+      const bool __testin = this->_M_mode & ios_base::in;
       const locale __loc = this->getloc();
       const __codecvt_type& __cvt = use_facet<__codecvt_type>(__loc);
-      // Sync with stdio.
-      bool __sync = this->_M_buf_size <= 1;
+      const bool __testsync = this->_M_buf_size <= 1;
 
       if (__testin && this->is_open())
 	{
@@ -167,7 +174,7 @@ namespace std
 	  // For a stateful encoding (-1) the pending sequence might be just
 	  // shift and unshift prefixes with no actual character.
 	  if (__cvt.encoding() >= 0)
-	    __ret += _M_file.showmanyc_helper(__sync) / __cvt.max_length();
+	    __ret += _M_file.showmanyc_helper(__testsync) / __cvt.max_length();
 	}
 
       _M_last_overflowed = false;	
@@ -180,41 +187,31 @@ namespace std
     pbackfail(int_type __i)
     {
       int_type __ret = traits_type::eof();
-      bool __testin = this->_M_mode & ios_base::in;
+      const bool __testin = this->_M_mode & ios_base::in;
 
       if (__testin)
 	{
-	  bool __testpb = this->_M_in_beg < this->_M_in_cur;
+	  const bool __testpb = this->_M_in_beg < this->_M_in_cur;
 	  char_type __c = traits_type::to_char_type(__i);
-	  bool __testeof = traits_type::eq_int_type(__i, __ret);
+	  const bool __testeof = traits_type::eq_int_type(__i, __ret);
 
 	  if (__testpb)
 	    {
-	      bool __testout = this->_M_mode & ios_base::out;
-	      bool __testeq = traits_type::eq(__c, this->gptr()[-1]);
+	      const bool __testout = this->_M_mode & ios_base::out;
+	      const bool __testeq = traits_type::eq(__c, this->_M_in_cur[-1]);
 
+	      --this->_M_in_cur;
+	      if (__testout)
+		--this->_M_out_cur;
 	      // Try to put back __c into input sequence in one of three ways.
 	      // Order these tests done in is unspecified by the standard.
 	      if (!__testeof && __testeq)
-		{
-		  --this->_M_in_cur;
-		  if (__testout)
-		    --this->_M_out_cur;
-		  __ret = __i;
-		}
+		__ret = __i;
 	      else if (__testeof)
+		__ret = traits_type::not_eof(__i);
+	      else
 		{
-		  --this->_M_in_cur;
-		  if (__testout)
-		    --this->_M_out_cur;
-		  __ret = traits_type::not_eof(__i);
-		}
-	      else if (!__testeof)
-		{
-		  --this->_M_in_cur;
-		  if (__testout)
-		    --this->_M_out_cur;
-		  _M_pback_create();
+		  _M_create_pback();
 		  *this->_M_in_cur = __c; 
 		  __ret = __i;
 		}
@@ -233,7 +230,7 @@ namespace std
 		    {
 		      if (!traits_type::eq(__c, *this->_M_in_cur))
 			{
-			  _M_pback_create();
+			  _M_create_pback();
 			  *this->_M_in_cur = __c;
 			}
 		      __ret = __i;
@@ -253,9 +250,8 @@ namespace std
     overflow(int_type __c)
     {
       int_type __ret = traits_type::eof();
-      bool __testput =
-	this->_M_out_cur && this->_M_out_cur < this->_M_out_end;
-      bool __testout = this->_M_mode & ios_base::out;
+      const bool __testput = this->_M_out_cur < this->_M_out_end;
+      const bool __testout = this->_M_mode & ios_base::out;
       
       if (__testout)
 	{
@@ -264,14 +260,14 @@ namespace std
 	  else if (__testput)
 	    {
 	      *this->_M_out_cur = traits_type::to_char_type(__c);
-	      _M_out_cur_move(1);
+	      _M_move_out_cur(1);
 	      __ret = traits_type::not_eof(__c);
 	    }
 	  else 
-	    __ret = this->_M_really_overflow(__c);
+	    __ret = this->_M_overflow(__c);
 	}
 
-      _M_last_overflowed = false;    // Set in _M_really_overflow, below.
+      _M_last_overflowed = false;    // Set in _M_overflow, below.
       return __ret;
     }
   
@@ -281,15 +277,14 @@ namespace std
     _M_convert_to_external(_CharT* __ibuf, streamsize __ilen,
 			   streamsize& __elen, streamsize& __plen)
     {
+      const bool __testsync = this->_M_buf_size <= 1;
       const locale __loc = this->getloc();
       const __codecvt_type& __cvt = use_facet<__codecvt_type>(__loc);
-      // Sync with stdio.
-      bool __sync = this->_M_buf_size <= 1;
 
       if (__cvt.always_noconv() && __ilen)
 	{
-	  __elen +=
-	    _M_file.xsputn(reinterpret_cast<char*>(__ibuf), __ilen, __sync);
+	  __elen += _M_file.xsputn(reinterpret_cast<char*>(__ibuf), 
+				   __ilen, __testsync);
 	  __plen += __ilen;
 	}
       else
@@ -302,27 +297,30 @@ namespace std
 	  char* __buf = static_cast<char*>(__builtin_alloca(__blen));
 	  char* __bend;
 	  const char_type* __iend;
-	  __res_type __r = __cvt.out(_M_state_cur, __ibuf, __ibuf + __ilen, 
-		 		     __iend, __buf, __buf + __blen, __bend);
-
+	  codecvt_base::result __r;
+	  __r = __cvt.out(_M_state_cur, __ibuf, __ibuf + __ilen,
+			  __iend, __buf, __buf + __blen, __bend);
+	  
 	  if (__r == codecvt_base::ok || __r == codecvt_base::partial)
 	    __blen = __bend - __buf;
-	  // Similarly to the always_noconv case above.
 	  else if (__r == codecvt_base::noconv)
 	    {
+	      // Same as the always_noconv case above.
 	      __buf = reinterpret_cast<char*>(__ibuf);
 	      __blen = __ilen;
 	    }
-	  // Result == error
-	  else 
-	    __blen = 0;
+	  else
+	    {
+	      // Result == error 
+	      __blen = 0;
+	    }
 	  
 	  if (__blen)
 	    {
-	      __elen += _M_file.xsputn(__buf, __blen, __sync);
+	      __elen += _M_file.xsputn(__buf, __blen, __testsync);
 	      __plen += __blen;
 	    }
-
+	  
 	  // Try once more for partial conversions.
 	  if (__r == codecvt_base::partial)
 	    {
@@ -331,17 +329,9 @@ namespace std
 	      __r = __cvt.out(_M_state_cur, __iresume, __iresume + __rlen, 
 			      __iend, __buf, __buf + __blen, __bend);
 	      if (__r != codecvt_base::error)
-		__rlen = __bend - __buf;
-	      else
 		{
-		  __rlen = 0;
-		  // Signal to the caller (_M_really_overflow) that
-		  // codecvt::out eventually failed.
-		  __elen = 0;		  
-		}
-	      if (__rlen)
-		{
-		  __elen += _M_file.xsputn(__buf, __rlen, __sync);
+		  __rlen = __bend - __buf;
+		  __elen += _M_file.xsputn(__buf, __rlen, __testsync);
 		  __plen += __rlen;
 		}
 	    }
@@ -351,13 +341,12 @@ namespace std
   template<typename _CharT, typename _Traits>
     typename basic_filebuf<_CharT, _Traits>::int_type 
     basic_filebuf<_CharT, _Traits>::
-    _M_really_overflow(int_type __c)
+    _M_overflow(int_type __c)
     {
       int_type __ret = traits_type::eof();
-      bool __testput = this->_M_out_cur && this->_M_out_beg < this->_M_out_lim;
-      bool __testunbuffered = _M_file.is_open() && !this->_M_buf_size_opt;
-      // Sync with stdio.
-      bool __sync = this->_M_buf_size <= 1;
+      const bool __testput = this->_M_out_beg < this->_M_out_lim;
+      const bool __testunbuffered = _M_file.is_open() && !this->_M_buf_size;
+      const bool __testsync = this->_M_buf_size <= 1;
 
       if (__testput || __testunbuffered)
 	{
@@ -371,7 +360,7 @@ namespace std
 	  if (_M_filepos && _M_filepos != this->_M_out_beg)
 	    {
 	      off_type __off = this->_M_out_beg - _M_filepos;
-	      _M_file.seekoff(__off, ios_base::cur, __sync);
+	      _M_file.seekoff(__off, ios_base::cur, __testsync);
 	    }
 
 	  // Convert internal buffer to external representation, output.
@@ -392,7 +381,8 @@ namespace std
 		  char_type __pending = traits_type::to_char_type(__c);
 		  _M_convert_to_external(&__pending, 1, __elen, __plen);
 
-		  // User code must flush when switching modes (thus don't sync).
+		  // User code must flush when switching modes (thus
+		  // don't sync).
 		  if (__elen == __plen && __elen)
 		    {
 		      _M_set_indeterminate();
@@ -416,7 +406,7 @@ namespace std
     setbuf(char_type* __s, streamsize __n)
     {
       if (!this->is_open() && __s == 0 && __n == 0)
-	this->_M_buf_size_opt = 0;
+	this->_M_buf_size = 0;
       else if (__s && __n)
 	{
 	  // This is implementation-defined behavior, and assumes
@@ -429,9 +419,7 @@ namespace std
 	  
 	  // Step 2: Use the external array.
 	  this->_M_buf = __s;
-	  this->_M_buf_size_opt = this->_M_buf_size = __n;
-	  // Consistently set the end of buffer pointer.
-	  this->_M_out_end = this->_M_buf + this->_M_buf_size;
+	  this->_M_buf_size = __n;
 	  _M_set_indeterminate();
 	}
       _M_last_overflowed = false;	
@@ -444,30 +432,28 @@ namespace std
     seekoff(off_type __off, ios_base::seekdir __way, ios_base::openmode __mode)
     {
       pos_type __ret =  pos_type(off_type(-1)); 
-      bool __testin = (ios_base::in & this->_M_mode & __mode) != 0;
-      bool __testout = (ios_base::out & this->_M_mode & __mode) != 0;
-      // Sync with stdio.
-      bool __sync = this->_M_buf_size <= 1;
+      const bool __testin = (ios_base::in & this->_M_mode & __mode) != 0;
+      const bool __testout = (ios_base::out & this->_M_mode & __mode) != 0;
+      const bool __testsync = this->_M_buf_size <= 1;
       
-      // Should probably do has_facet checks here.
-      int __width = use_facet<__codecvt_type>(this->_M_buf_locale).encoding();
+      int __width = 0;
+      if (has_facet<__codecvt_type>(this->_M_buf_locale))
+	  __width = use_facet<__codecvt_type>(this->_M_buf_locale).encoding();
       if (__width < 0)
 	__width = 0;
-      bool __testfail = __off != 0 && __width <= 0;
-      
+
+      const bool __testfail = __off != 0 && __width <= 0;      
       if (this->is_open() && !__testfail && (__testin || __testout)) 
 	{
 	  // Ditch any pback buffers to avoid confusion.
-	  _M_pback_destroy();
+	  _M_destroy_pback();
 
 	  if (__way != ios_base::cur || __off != 0)
 	    { 
 	      off_type __computed_off = __width * __off;
 	      
-	      bool __testget = this->_M_in_cur
-		&& this->_M_in_beg < this->_M_in_end;
-	      bool __testput = this->_M_out_cur
-		&& this->_M_out_beg < this->_M_out_lim;
+	      const bool __testget = this->_M_in_beg < this->_M_in_end;
+	      const bool __testput = this->_M_out_beg < this->_M_out_lim;
 	      // Sync the internal and external streams.
 	      // out
 	      if (__testput || _M_last_overflowed)
@@ -482,22 +468,22 @@ namespace std
 		__computed_off += this->_M_in_cur - _M_filepos;
 
 	      // Return pos_type(off_type(-1)) in case of failure.
-	      __ret = _M_file.seekoff(__computed_off, __way, __sync, __mode);
+	      __ret = _M_file.seekoff(__computed_off, __way, __testsync, 
+				      __mode);
 	      _M_set_indeterminate();
 	    }
 	  // NB: Need to do this in case _M_file in indeterminate
 	  // state, ie _M_file._offset == -1
 	  else
 	    {
-	      pos_type __tmp =
-		_M_file.seekoff(__off, ios_base::cur,
-				__sync, __mode);
+	      pos_type __tmp = _M_file.seekoff(__off, ios_base::cur, 
+					       __testsync, __mode);
 	      if (__tmp >= 0)
 		{
 		  // Seek successful.
 		  __ret = __tmp;
-		  __ret +=
-		    std::max(this->_M_out_cur, this->_M_in_cur) - _M_filepos;
+		  __ret += std::max(this->_M_out_cur, this->_M_in_cur) 
+		           - _M_filepos;
 		}
 	    }
 	}
@@ -527,7 +513,8 @@ namespace std
     basic_filebuf<_CharT, _Traits>::
     imbue(const locale& __loc)
     {
-      bool __testbeg = gptr() == eback() && pptr() == pbase();
+      const bool __testbeg = this->_M_in_cur == this->_M_in_beg
+	                     && this->_M_out_cur == this->_M_out_beg;
 
       if (__testbeg && this->_M_buf_locale != __loc)
 	this->_M_buf_locale = __loc;

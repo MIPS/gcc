@@ -779,7 +779,7 @@ mx_xfn_indirect_ref (t, continue_p, data)
   *continue_p = 1;
 
   /* Track file-name/line-numbers.  */
-  if (statement_code_p (TREE_CODE (*t)))
+  if (STATEMENT_CODE_P (TREE_CODE (*t)))
     last_lineno = (STMT_LINENO (*t) > 0 ? STMT_LINENO (*t) : last_lineno);
   if (TREE_CODE (*t) == FILE_STMT)
     last_filename = FILE_STMT_FILENAME (*t);

@@ -75,14 +75,14 @@ static tree merge_functions (tree, tree);
 static tree decl_namespace (tree);
 static tree validate_nonmember_using_decl (tree, tree *, tree *);
 static void do_nonmember_using_decl (tree, tree, tree, tree, tree *, tree *);
-static tree start_static_storage_duration_function (void);
+static tree start_static_storage_duration_function (unsigned);
 static void finish_static_storage_duration_function (tree);
 static priority_info get_priority_info (int);
 static void do_static_initialization (tree, tree);
 static void do_static_destruction (tree);
 static tree start_static_initialization_or_destruction (tree, int);
 static void finish_static_initialization_or_destruction (tree);
-static void generate_ctor_or_dtor_function (bool, int);
+static void generate_ctor_or_dtor_function (bool, int, location_t *);
 static int generate_ctor_and_dtor_functions_for_priority (splay_tree_node,
                                                           void *);
 static tree prune_vars_needing_no_initialization (tree *);
@@ -180,18 +180,16 @@ warn_if_unknown_interface (tree decl)
   if (flag_alt_external_templates)
     {
       tree til = tinst_for_decl ();
-      int sl = lineno;
-      const char *sf = input_filename;
+      location_t saved_loc = input_location;
 
       if (til)
 	{
-	  lineno = TREE_LINENO (til);
+	  input_line = TREE_LINENO (til);
 	  input_filename = TREE_FILENAME (til);
 	}
       warning ("template `%#D' instantiated in file without #pragma interface",
 		  decl);
-      lineno = sl;
-      input_filename = sf;
+      input_location = saved_loc;
     }
   else
     cp_warning_at ("template `%#D' defined in file without #pragma interface",
@@ -1456,7 +1454,7 @@ comdat_linkage (tree decl)
 	  DECL_COMMON (decl) = 1;
 	  DECL_INITIAL (decl) = error_mark_node;
 	}
-      else
+      else if (!DECL_EXPLICIT_INSTANTIATION (decl))
 	{
 	  /* We can't do anything useful; leave vars for explicit
 	     instantiation.  */
@@ -2078,10 +2076,8 @@ static splay_tree priority_info_map;
    translation unit.  */
 
 static tree
-start_static_storage_duration_function (void)
+start_static_storage_duration_function (unsigned count)
 {
-  static unsigned ssdf_number;
-
   tree parm_types;
   tree type;
   tree body;
@@ -2089,14 +2085,7 @@ start_static_storage_duration_function (void)
 
   /* Create the identifier for this function.  It will be of the form
      SSDF_IDENTIFIER_<number>.  */
-  sprintf (id, "%s_%u", SSDF_IDENTIFIER, ssdf_number++);
-  if (ssdf_number == 0)
-    {
-      /* Overflow occurred.  That means there are at least 4 billion
-	 initialization functions.  */
-      sorry ("too many initialization functions required");
-      abort ();
-    }
+  sprintf (id, "%s_%u", SSDF_IDENTIFIER, count);
 
   /* Create the parameters.  */
   parm_types = void_list_node;
@@ -2245,7 +2234,7 @@ start_static_initialization_or_destruction (tree decl, int initp)
      that the debugger will show somewhat sensible file and line
      information.  */
   input_filename = TREE_FILENAME (decl);
-  lineno = TREE_LINENO (decl);
+  input_line = TREE_LINENO (decl);
 
   /* Because of:
 
@@ -2477,13 +2466,17 @@ write_out_vars (tree vars)
    storage duration having the indicated PRIORITY.  */
 
 static void
-generate_ctor_or_dtor_function (bool constructor_p, int priority)
+generate_ctor_or_dtor_function (bool constructor_p, int priority,
+				location_t *locus)
 {
   char function_key;
   tree arguments;
   tree body;
   size_t i;
 
+  input_location = *locus;
+  locus->line++;
+  
   /* We use `I' to indicate initialization and `D' to indicate
      destruction.  */
   if (constructor_p)
@@ -2528,9 +2521,9 @@ generate_ctor_or_dtor_function (bool constructor_p, int priority)
    indicated by N.  */
 
 static int
-generate_ctor_and_dtor_functions_for_priority (splay_tree_node n,
-                                               void * data ATTRIBUTE_UNUSED)
+generate_ctor_and_dtor_functions_for_priority (splay_tree_node n, void * data)
 {
+  location_t *locus = data;
   int priority = (int) n->key;
   priority_info pi = (priority_info) n->value;
 
@@ -2538,10 +2531,10 @@ generate_ctor_and_dtor_functions_for_priority (splay_tree_node n,
      needed.  */
   if (pi->initializations_p
       || (priority == DEFAULT_INIT_PRIORITY && static_ctors))
-    generate_ctor_or_dtor_function (/*constructor_p=*/true, priority);
+    generate_ctor_or_dtor_function (/*constructor_p=*/true, priority, locus);
   if (pi->destructions_p
       || (priority == DEFAULT_INIT_PRIORITY && static_dtors))
-    generate_ctor_or_dtor_function (/*constructor_p=*/false, priority);
+    generate_ctor_or_dtor_function (/*constructor_p=*/false, priority, locus);
 
   /* Keep iterating.  */
   return 0;
@@ -2558,7 +2551,10 @@ finish_file ()
   tree vars;
   bool reconsider;
   size_t i;
+  location_t locus;
+  unsigned ssdf_count = 0;
 
+  locus = input_location;
   at_eof = 1;
 
   /* Bad parse errors.  Just forget about it.  */
@@ -2569,8 +2565,8 @@ finish_file ()
     c_common_write_pch ();
 
   /* Otherwise, GDB can get confused, because in only knows
-     about source for LINENO-1 lines.  */
-  lineno -= 1;
+     about source for INPUT_LINE-1 lines.  */
+  input_line -= 1;
 
   interface_unknown = 1;
   interface_only = 0;
@@ -2685,7 +2681,12 @@ finish_file ()
 	     out.  That's a deficiency in the back-end.  When this is
 	     fixed, these initialization functions could all become
 	     inline, with resulting performance improvements.  */
-	  tree ssdf_body = start_static_storage_duration_function ();
+	  tree ssdf_body;
+
+	  /* Set the line and file, so that it is obviously not from
+	     the source file.  */
+	  input_location = locus;
+	  ssdf_body = start_static_storage_duration_function (ssdf_count);
 
 	  /* Make sure the back end knows about all the variables.  */
 	  write_out_vars (vars);
@@ -2712,20 +2713,21 @@ finish_file ()
 
 	  /* Finish up the static storage duration function for this
 	     round.  */
+	  input_location = locus;
 	  finish_static_storage_duration_function (ssdf_body);
 
 	  /* All those initializations and finalizations might cause
 	     us to need more inline functions, more template
 	     instantiations, etc.  */
 	  reconsider = true;
+	  ssdf_count++;
+	  locus.line++;
 	}
       
       for (i = 0; i < deferred_fns_used; ++i)
 	{
 	  tree decl = VARRAY_TREE (deferred_fns, i);
-	  
-	  import_export_decl (decl);
-	  
+
 	  /* Does it need synthesizing?  */
 	  if (DECL_ARTIFICIAL (decl) && ! DECL_INITIAL (decl)
 	      && TREE_USED (decl)
@@ -2741,6 +2743,17 @@ finish_file ()
 	      pop_from_top_level ();
 	      reconsider = true;
 	    }
+
+	  /* If the function has no body, avoid calling
+	     import_export_decl.  On a system without weak symbols,
+	     calling import_export_decl will make an inline template
+	     instantiation "static", which will result in errors about
+	     the use of undefined functions if there is no body for
+	     the function.  */
+	  if (!DECL_SAVED_TREE (decl))
+	    continue;
+
+	  import_export_decl (decl);
 
 	  /* We lie to the back-end, pretending that some functions
 	     are not defined when they really are.  This keeps these
@@ -2844,15 +2857,16 @@ finish_file ()
   if (priority_info_map)
     splay_tree_foreach (priority_info_map, 
 			generate_ctor_and_dtor_functions_for_priority,
-			/*data=*/0);
+			/*data=*/&locus);
   else
     {
+      
       if (static_ctors)
 	generate_ctor_or_dtor_function (/*constructor_p=*/true,
-					DEFAULT_INIT_PRIORITY);
+					DEFAULT_INIT_PRIORITY, &locus);
       if (static_dtors)
 	generate_ctor_or_dtor_function (/*constructor_p=*/false,
-					DEFAULT_INIT_PRIORITY);
+					DEFAULT_INIT_PRIORITY, &locus);
     }
 
   /* We're done with the splay-tree now.  */
@@ -2892,6 +2906,7 @@ finish_file ()
       dump_tree_statistics ();
       dump_time_statistics ();
     }
+  input_location = locus;
 }
 
 /* T is the parse tree for an expression.  Return the expression after
@@ -3278,7 +3293,7 @@ build_expr_from_tree (t)
 	    r = tree_cons (purpose, value, r);
 	  }
 	
-	r = build_nt (CONSTRUCTOR, NULL_TREE, nreverse (r));
+	r = build_constructor (NULL_TREE, nreverse (r));
 	TREE_HAS_CONSTRUCTOR (r) = TREE_HAS_CONSTRUCTOR (t);
 
 	if (type)
@@ -4221,6 +4236,14 @@ validate_nonmember_using_decl (tree decl, tree *scope, tree *name)
       return NULL_TREE;
     }
 
+  if (TREE_CODE (decl) == SCOPE_REF)
+    {
+      /* It's a nested name with template parameter dependent scope.
+	 This can only be using-declaration for class member.  */
+      error ("`%T' is not a namespace", TREE_OPERAND (decl, 0));
+      return NULL_TREE;
+    }
+
   if (is_overloaded_fn (decl))
     decl = get_first_fn (decl);
 
@@ -4436,6 +4459,7 @@ do_class_using_decl (tree decl)
   tree name, value;
 
   if (TREE_CODE (decl) != SCOPE_REF
+      || !TREE_OPERAND (decl, 0)
       || !TYPE_P (TREE_OPERAND (decl, 0)))
     {
       error ("using-declaration for non-member at class scope");
@@ -4543,16 +4567,15 @@ void
 mark_used (tree decl)
 {
   TREE_USED (decl) = 1;
-  if (processing_template_decl)
+  if (processing_template_decl || skip_evaluation)
     return;
 
   if (TREE_CODE (decl) == FUNCTION_DECL && DECL_DECLARED_INLINE_P (decl)
       && !TREE_ASM_WRITTEN (decl))
     /* Remember it, so we can check it was defined.  */
     defer_fn (decl);
-  
-  if (!skip_evaluation)
-    assemble_external (decl);
+
+  assemble_external (decl);
 
   /* Is it a synthesized method that needs to be synthesized?  */
   if (TREE_CODE (decl) == FUNCTION_DECL
@@ -4577,7 +4600,33 @@ mark_used (tree decl)
       && DECL_LANG_SPECIFIC (decl) && DECL_TEMPLATE_INFO (decl)
       && (!DECL_EXPLICIT_INSTANTIATION (decl)
 	  || (TREE_CODE (decl) == FUNCTION_DECL && DECL_INLINE (decl))))
-    instantiate_decl (decl, /*defer_ok=*/1);
+    {
+      bool defer;
+
+      /* Normally, we put off instantiating functions in order to
+	 improve compile times.  Maintaining a stack of active
+	 functions is expensive, and the inliner knows to
+	 instantiate any functions it might need.
+
+	 However, if instantiating this function might help us mark
+	 the current function TREE_NOTHROW, we go ahead and
+	 instantiate it now.  */
+      defer = (!flag_exceptions
+	       || TREE_CODE (decl) != FUNCTION_DECL
+	       /* If the called function can't throw, we don't need to
+		  generate its body to find that out.  */
+	       || TREE_NOTHROW (decl)
+	       || !cfun
+	       /* If we already know the current function can't throw,
+		  then we don't need to work hard to prove it.  */
+	       || TREE_NOTHROW (current_function_decl)
+	       /* If we already know that the current function *can*
+		  throw, there's no point in gathering more
+		  information.  */
+	       || cp_function_chain->can_throw);
+
+      instantiate_decl (decl, defer);
+    }
 }
 
 /* Called when a class-head is encountered.  TAG_KIND is the class-key
@@ -4638,7 +4687,10 @@ handle_class_head (enum tag_types tag_kind, tree scope, tree id,
   
   if (!decl)
     {
-      decl = TYPE_MAIN_DECL (xref_tag (tag_kind, id, attributes, false));
+      decl = xref_tag (tag_kind, id, attributes, false);
+      if (decl == error_mark_node)
+	return error_mark_node;
+      decl = TYPE_MAIN_DECL (decl);
       xrefd_p = true;
     }
 

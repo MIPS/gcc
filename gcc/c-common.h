@@ -305,7 +305,6 @@ struct c_language_function GTY(()) {
 
 /* Language-specific hooks.  */
 
-extern int (*lang_statement_code_p)             PARAMS ((enum tree_code));
 extern void (*lang_expand_stmt)                 PARAMS ((tree));
 extern int (*lang_simplify_stmt)                PARAMS ((tree *, tree *));
 extern void (*lang_expand_decl_stmt)            PARAMS ((tree));
@@ -327,7 +326,6 @@ extern void add_decl_stmt                       PARAMS ((tree));
 extern tree add_scope_stmt                      PARAMS ((int, int));
 extern void finish_stmt_tree                    PARAMS ((tree *));
 
-extern int statement_code_p                     PARAMS ((enum tree_code));
 extern tree walk_stmt_tree			PARAMS ((tree *,
 							 walk_tree_fn,
 							 void *));
@@ -338,7 +336,7 @@ extern tree c_begin_while_stmt			PARAMS ((void));
 extern void c_finish_while_stmt_cond		PARAMS ((tree, tree));
 
 enum sw_kind { SW_PARAM = 0, SW_LOCAL, SW_GLOBAL };
-extern void shadow_warning			PARAMS ((enum sw_kind, int,
+extern void shadow_warning			PARAMS ((enum sw_kind,
 							 const char *, tree));
 
 /* Extra information associated with a DECL.  Other C dialects extend
@@ -1115,6 +1113,28 @@ enum c_tree_code {
 
 #undef DEFTREECODE
 
+#define c_common_stmt_codes				\
+   CLEANUP_STMT,	EXPR_STMT,	COMPOUND_STMT,	\
+   DECL_STMT,		IF_STMT,	FOR_STMT,	\
+   WHILE_STMT,		DO_STMT,	RETURN_STMT,	\
+   BREAK_STMT,		CONTINUE_STMT,	SCOPE_STMT,	\
+   SWITCH_STMT,		GOTO_STMT,	LABEL_STMT,	\
+   ASM_STMT,		FILE_STMT,	CASE_LABEL
+
+/* TRUE if a code represents a statement.  The front end init
+   langhook should take care of initialization of this array.  */
+extern bool statement_code_p[MAX_TREE_CODES];
+
+#define STATEMENT_CODE_P(CODE) statement_code_p[(int) (CODE)]
+
+#define INIT_STATEMENT_CODES(STMT_CODES)			\
+  do {								\
+    unsigned int i;						\
+    memset (&statement_code_p, 0, sizeof (statement_code_p));	\
+    for (i = 0; i < ARRAY_SIZE (STMT_CODES); i++)		\
+      statement_code_p[STMT_CODES[i]] = true;			\
+  } while (0)
+
 extern void genrtl_do_pushlevel                 PARAMS ((void));
 extern void genrtl_goto_stmt                    PARAMS ((tree));
 extern void genrtl_expr_stmt                    PARAMS ((tree));
@@ -1134,7 +1154,7 @@ extern void genrtl_compound_stmt                PARAMS ((tree));
 extern void genrtl_asm_stmt                     PARAMS ((int, tree,
 							 tree, tree,
 							 tree, int));
-extern void genrtl_decl_cleanup                 PARAMS ((tree));
+extern void genrtl_cleanup_stmt                 PARAMS ((tree));
 extern int stmts_are_full_exprs_p               PARAMS ((void));
 extern int anon_aggr_type_p                     PARAMS ((tree));
 

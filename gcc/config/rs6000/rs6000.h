@@ -3,23 +3,22 @@
    2000, 2001, 2002, 2003 Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
-This file is part of GNU CC.
+   This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+   GCC is free software; you can redistribute it and/or modify it
+   under the terms of the GNU General Public License as published
+   by the Free Software Foundation; either version 2, or (at your
+   option) any later version.
 
-GNU CC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+   GCC is distributed in the hope that it will be useful, but WITHOUT
+   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+   or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+   License for more details.
 
-You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
-
+   You should have received a copy of the GNU General Public License
+   along with GCC; see the file COPYING.  If not, write to the
+   Free Software Foundation, 59 Temple Place - Suite 330, Boston,
+   MA 02111-1307, USA.  */
 
 /* Note that some other tm.h files include this one and then override
    many of the definitions.  */
@@ -100,7 +99,7 @@ Boston, MA 02111-1307, USA.  */
    is an initializer with a subgrouping for each command option.
 
    Each subgrouping contains a string constant, that defines the
-   specification name, and a string constant that used by the GNU CC driver
+   specification name, and a string constant that used by the GCC driver
    program.
 
    Do not define this macro if it does not need to do anything.  */
@@ -377,22 +376,26 @@ extern enum processor_type rs6000_cpu;
 #define TARGET_OPTIONS							\
 {									\
    {"cpu=",  &rs6000_select[1].string,					\
-    N_("Use features of and schedule code for given CPU") },		\
+    N_("Use features of and schedule code for given CPU"), 0},		\
    {"tune=", &rs6000_select[2].string,					\
-    N_("Schedule code for given CPU") },				\
-   {"debug=", &rs6000_debug_name, N_("Enable debug output") },		\
+    N_("Schedule code for given CPU"), 0},				\
+   {"debug=", &rs6000_debug_name, N_("Enable debug output"), 0},	\
    {"traceback=", &rs6000_traceback_name,				\
-    N_("Select full, part, or no traceback table") },			\
-   {"abi=", &rs6000_abi_string, N_("Specify ABI to use") },		\
+    N_("Select full, part, or no traceback table"), 0},			\
+   {"abi=", &rs6000_abi_string, N_("Specify ABI to use"), 0},		\
    {"long-double-", &rs6000_long_double_size_string,			\
-    N_("Specify size of long double (64 or 128 bits)") },		\
+    N_("Specify size of long double (64 or 128 bits)"), 0},		\
    {"isel=", &rs6000_isel_string,                                       \
-    N_("Specify yes/no if isel instructions should be generated") },    \
-   {"vrsave=", &rs6000_altivec_vrsave_string,                         \
-    N_("Specify yes/no if VRSAVE instructions should be generated for AltiVec") }, \
+    N_("Specify yes/no if isel instructions should be generated"), 0},  \
+   {"spe=", &rs6000_spe_string,                                         \
+    N_("Specify yes/no if SPE SIMD instructions should be generated"), 0},\
+   {"float-gprs=", &rs6000_float_gprs_string,                           \
+    N_("Specify yes/no if using floating point in the GPRs"), 0},       \
+   {"vrsave=", &rs6000_altivec_vrsave_string,                           \
+    N_("Specify yes/no if VRSAVE instructions should be generated for AltiVec"), 0}, \
    {"longcall", &rs6000_longcall_switch,				\
-    N_("Avoid all range limits on call instructions") },		\
-   {"no-longcall", &rs6000_longcall_switch, "" },			\
+    N_("Avoid all range limits on call instructions"), 0},		\
+   {"no-longcall", &rs6000_longcall_switch, "", 0},			\
    SUBTARGET_OPTIONS							\
 }
 
@@ -425,8 +428,11 @@ extern int rs6000_long_double_type_size;
 extern int rs6000_altivec_abi;
 extern int rs6000_spe_abi;
 extern int rs6000_isel;
-extern int rs6000_fprs;
+extern int rs6000_spe;
+extern int rs6000_float_gprs;
+extern const char *rs6000_float_gprs_string;
 extern const char *rs6000_isel_string;
+extern const char *rs6000_spe_string;
 extern const char *rs6000_altivec_vrsave_string;
 extern int rs6000_altivec_vrsave;
 extern const char *rs6000_longcall_switch;
@@ -438,6 +444,7 @@ extern int rs6000_default_long_calls;
 
 #define TARGET_SPE_ABI 0
 #define TARGET_SPE 0
+#define TARGET_E500 0
 #define TARGET_ISEL 0
 #define TARGET_FPRS 1
 
@@ -985,6 +992,10 @@ extern int rs6000_default_long_calls;
 
 #define BRANCH_COST 3
 
+/* Override BRANCH_COST heuristic which empirically produces worse
+   performance for fold_range_test().  */
+
+#define RANGE_TEST_NON_SHORT_CIRCUIT 0
 
 /* A fixed register used at prologue and epilogue generation to fix
    addressing modes.  The SPE needs heavy addressing fixes at the last
@@ -1297,7 +1308,7 @@ enum reg_class
 
 #define EXTRA_CONSTRAINT(OP, C)						\
   ((C) == 'Q' ? GET_CODE (OP) == MEM && GET_CODE (XEXP (OP, 0)) == REG	\
-   : (C) == 'R' ? LEGITIMATE_CONSTANT_POOL_ADDRESS_P (OP)		\
+   : (C) == 'R' ? legitimate_constant_pool_address_p (OP)		\
    : (C) == 'S' ? mask64_operand (OP, DImode)				\
    : (C) == 'T' ? mask_operand (OP, SImode)				\
    : (C) == 'U' ? (DEFAULT_ABI == ABI_V4				\
@@ -1378,8 +1389,6 @@ enum reg_class
 enum rs6000_abi {
   ABI_NONE,
   ABI_AIX,			/* IBM's AIX */
-  ABI_AIX_NODESC,		/* AIX calling sequence minus
-				   function descriptors */
   ABI_V4,			/* System V.4/eabi */
   ABI_DARWIN			/* Apple's Darwin (OS X kernel) */
 };
@@ -1444,14 +1453,13 @@ typedef struct rs6000_stack {
 
 /* Size of the outgoing register save area */
 #define RS6000_REG_SAVE ((DEFAULT_ABI == ABI_AIX			\
-			  || DEFAULT_ABI == ABI_AIX_NODESC		\
 			  || DEFAULT_ABI == ABI_DARWIN)			\
 			 ? (TARGET_64BIT ? 64 : 32)			\
 			 : 0)
 
 /* Size of the fixed area on the stack */
 #define RS6000_SAVE_AREA \
-  (((DEFAULT_ABI == ABI_AIX || DEFAULT_ABI == ABI_AIX_NODESC || DEFAULT_ABI == ABI_DARWIN) ? 24 : 8)	\
+  (((DEFAULT_ABI == ABI_AIX || DEFAULT_ABI == ABI_DARWIN) ? 24 : 8)	\
    << (TARGET_64BIT ? 1 : 0))
 
 /* MEM representing address to save the TOC register */
@@ -1617,7 +1625,6 @@ typedef struct rs6000_stack {
 #define	FP_ARG_AIX_MAX_REG 45
 #define	FP_ARG_V4_MAX_REG  40
 #define	FP_ARG_MAX_REG ((DEFAULT_ABI == ABI_AIX				\
-			 || DEFAULT_ABI == ABI_AIX_NODESC		\
 			 || DEFAULT_ABI == ABI_DARWIN)			\
 			? FP_ARG_AIX_MAX_REG : FP_ARG_V4_MAX_REG)
 #define FP_ARG_NUM_REG (FP_ARG_MAX_REG - FP_ARG_MIN_REG + 1)
@@ -1861,7 +1868,7 @@ typedef struct rs6000_args
    || (TARGET_ALTIVEC && (REGNO) == VRSAVE_REGNO)		\
    || (current_function_calls_eh_return				\
        && TARGET_AIX						\
-       && (REGNO) == TOC_REGISTER))
+       && (REGNO) == 2))
 
 
 /* TRAMPOLINE_TEMPLATE deleted */
@@ -1892,8 +1899,7 @@ typedef struct rs6000_args
    abi's store the return address.  */
 #define RETURN_ADDRESS_OFFSET						\
  ((DEFAULT_ABI == ABI_AIX						\
-   || DEFAULT_ABI == ABI_DARWIN						\
-   || DEFAULT_ABI == ABI_AIX_NODESC)	? (TARGET_32BIT ? 8 : 16) :	\
+   || DEFAULT_ABI == ABI_DARWIN)	? (TARGET_32BIT ? 8 : 16) :	\
   (DEFAULT_ABI == ABI_V4)		? 4 :				\
   (internal_error ("RETURN_ADDRESS_OFFSET not supported"), 0))
 
@@ -2062,74 +2068,6 @@ typedef struct rs6000_args
    adjacent memory cells are accessed by adding word-sized offsets
    during assembly output.  */
 
-#define CONSTANT_POOL_EXPR_P(X) (constant_pool_expr_p (X))
-
-#define TOC_RELATIVE_EXPR_P(X) (toc_relative_expr_p (X))
-
-/* SPE offset addressing is limited to 5-bits worth of double words.  */
-#define SPE_CONST_OFFSET_OK(x) (((x) & ~0xf8) == 0)
-
-#define LEGITIMATE_CONSTANT_POOL_ADDRESS_P(X)				\
-  (TARGET_TOC								\
-  && GET_CODE (X) == PLUS						\
-  && GET_CODE (XEXP (X, 0)) == REG					\
-  && (TARGET_MINIMAL_TOC || REGNO (XEXP (X, 0)) == TOC_REGISTER)	\
-  && CONSTANT_POOL_EXPR_P (XEXP (X, 1)))
-
-#define LEGITIMATE_SMALL_DATA_P(MODE, X)				\
-  (DEFAULT_ABI == ABI_V4						\
-   && !flag_pic && !TARGET_TOC						\
-   && (GET_CODE (X) == SYMBOL_REF || GET_CODE (X) == CONST)		\
-   && small_data_operand (X, MODE))
-
-#define LEGITIMATE_ADDRESS_INTEGER_P(X, OFFSET)				\
- (GET_CODE (X) == CONST_INT						\
-  && (unsigned HOST_WIDE_INT) (INTVAL (X) + (OFFSET) + 0x8000) < 0x10000)
-
-#define LEGITIMATE_OFFSET_ADDRESS_P(MODE, X, STRICT)		\
- (GET_CODE (X) == PLUS						\
-  && GET_CODE (XEXP (X, 0)) == REG				\
-  && INT_REG_OK_FOR_BASE_P (XEXP (X, 0), (STRICT))		\
-  && LEGITIMATE_ADDRESS_INTEGER_P (XEXP (X, 1), 0)		\
-  && (! ALTIVEC_VECTOR_MODE (MODE)                            \
-      || (GET_CODE (XEXP (X,1)) == CONST_INT && INTVAL (XEXP (X,1)) == 0)) \
-  && (! SPE_VECTOR_MODE (MODE)					\
-      || (GET_CODE (XEXP (X, 1)) == CONST_INT			\
-	  && SPE_CONST_OFFSET_OK (INTVAL (XEXP (X, 1)))))	\
-  && (((MODE) != DFmode && (MODE) != DImode)			\
-      || (TARGET_32BIT						\
-	  ? LEGITIMATE_ADDRESS_INTEGER_P (XEXP (X, 1), 4) 	\
-	  : ! (INTVAL (XEXP (X, 1)) & 3)))			\
-  && (((MODE) != TFmode && (MODE) != TImode)			\
-      || (TARGET_32BIT						\
-	  ? LEGITIMATE_ADDRESS_INTEGER_P (XEXP (X, 1), 12) 	\
-	  : (LEGITIMATE_ADDRESS_INTEGER_P (XEXP (X, 1), 8) 	\
-	     && ! (INTVAL (XEXP (X, 1)) & 3)))))
-
-#define LEGITIMATE_INDEXED_ADDRESS_P(X, STRICT)			\
- (GET_CODE (X) == PLUS						\
-  && GET_CODE (XEXP (X, 0)) == REG				\
-  && GET_CODE (XEXP (X, 1)) == REG				\
-  && ((INT_REG_OK_FOR_BASE_P (XEXP (X, 0), (STRICT))		\
-       && INT_REG_OK_FOR_INDEX_P (XEXP (X, 1), (STRICT)))	\
-      || (INT_REG_OK_FOR_BASE_P (XEXP (X, 1), (STRICT))		\
-	  && INT_REG_OK_FOR_INDEX_P (XEXP (X, 0), (STRICT)))))
-
-#define LEGITIMATE_INDIRECT_ADDRESS_P(X, STRICT)		\
-  (GET_CODE (X) == REG && INT_REG_OK_FOR_BASE_P (X, (STRICT)))
-
-#define LEGITIMATE_LO_SUM_ADDRESS_P(MODE, X, STRICT)	\
-  (TARGET_ELF						\
-   && (DEFAULT_ABI == ABI_AIX || ! flag_pic)		\
-   && ! TARGET_TOC					\
-   && GET_MODE_NUNITS (MODE) == 1			\
-   && (GET_MODE_BITSIZE (MODE) <= 32 			\
-       || (TARGET_HARD_FLOAT && TARGET_FPRS && (MODE) == DFmode))	\
-   && GET_CODE (X) == LO_SUM				\
-   && GET_CODE (XEXP (X, 0)) == REG			\
-   && INT_REG_OK_FOR_BASE_P (XEXP (X, 0), (STRICT))	\
-   && CONSTANT_P (XEXP (X, 1)))
-
 #define GO_IF_LEGITIMATE_ADDRESS(MODE, X, ADDR)			\
 { if (rs6000_legitimate_address (MODE, X, REG_OK_STRICT_FLAG))	\
     goto ADDR;							\
@@ -2184,27 +2122,13 @@ do {									     \
 } while (0)
 
 /* Go to LABEL if ADDR (a legitimate address expression)
-   has an effect that depends on the machine mode it is used for.
-
-   On the RS/6000 this is true if the address is valid with a zero offset
-   but not with an offset of four (this means it cannot be used as an
-   address for DImode or DFmode) or is a pre-increment or decrement.  Since
-   we know it is valid, we just check for an address that is not valid with
-   an offset of four.  */
+   has an effect that depends on the machine mode it is used for.  */
 
 #define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR,LABEL)		\
-{ if (GET_CODE (ADDR) == PLUS					\
-      && LEGITIMATE_ADDRESS_INTEGER_P (XEXP (ADDR, 1), 0)	\
-      && ! LEGITIMATE_ADDRESS_INTEGER_P (XEXP (ADDR, 1),	\
-					 (TARGET_32BIT ? 4 : 8))) \
+do {								\
+  if (rs6000_mode_dependent_address (ADDR))			\
     goto LABEL;							\
-  if (TARGET_UPDATE && GET_CODE (ADDR) == PRE_INC)		\
-    goto LABEL;							\
-  if (TARGET_UPDATE && GET_CODE (ADDR) == PRE_DEC)		\
-    goto LABEL;							\
-  if (GET_CODE (ADDR) == LO_SUM)				\
-    goto LABEL;							\
-}
+} while (0)
 
 /* The register number of the register used to address a table of
    static data addresses in memory.  In some cases this register is
@@ -2360,9 +2284,16 @@ do {									     \
    : (((OP) == EQ || (OP) == NE) && GET_RTX_CLASS (GET_CODE (X)) == '<'   \
       ? CCEQmode : CCmode))
 
+/* Can the condition code MODE be safely reversed?  This is safe in
+   all cases on this port, because at present it doesn't use the
+   trapping FP comparisons (fcmpo).  */
+#define REVERSIBLE_CC_MODE(MODE) 1
+
+/* Given a condition code and a mode, return the inverse condition.  */
+#define REVERSE_CONDITION(CODE, MODE) rs6000_reverse_condition (MODE, CODE)
+
 /* Define the information needed to generate branch and scc insns.  This is
-   stored from the compare operation.  Note that we can't use "rtx" here
-   since it hasn't been defined!  */
+   stored from the compare operation.  */
 
 extern GTY(()) rtx rs6000_compare_op0;
 extern GTY(()) rtx rs6000_compare_op1;

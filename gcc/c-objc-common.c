@@ -219,7 +219,7 @@ c_cannot_inline_tree_fn (fnp)
     }
 
   /* We can't inline this function if genericization failed.  */
-  if (statement_code_p (TREE_CODE (DECL_SAVED_TREE (fn))))
+  if (STATEMENT_CODE_P (TREE_CODE (DECL_SAVED_TREE (fn))))
     {
       DECL_UNINLINABLE (fn) = 1;
       return 1;
@@ -253,6 +253,12 @@ c_warn_unused_global_decl (decl)
 bool
 c_objc_common_init ()
 {
+  static const enum tree_code stmt_codes[] = {
+    c_common_stmt_codes
+  };
+
+  INIT_STATEMENT_CODES (stmt_codes);
+
   c_init_decl_processing ();
 
   if (c_common_init () == false)

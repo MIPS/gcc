@@ -1,23 +1,23 @@
 /* Definitions of target machine for GNU compiler, for IBM RS/6000.
-   Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
-This file is part of GNU CC.
+   This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+   GCC is free software; you can redistribute it and/or modify it
+   under the terms of the GNU General Public License as published
+   by the Free Software Foundation; either version 2, or (at your
+   option) any later version.
 
-GNU CC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+   GCC is distributed in the hope that it will be useful, but WITHOUT
+   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+   or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+   License for more details.
 
-You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+   You should have received a copy of the GNU General Public License
+   along with GCC; see the file COPYING.  If not, write to the
+   Free Software Foundation, 59 Temple Place - Suite 330, Boston,
+   MA 02111-1307, USA.  */
 
 #ifndef GCC_RS6000_PROTOS_H
 #define GCC_RS6000_PROTOS_H
@@ -82,8 +82,7 @@ extern int current_file_function_operand PARAMS ((rtx, enum machine_mode));
 extern int input_operand PARAMS ((rtx, enum machine_mode));
 extern int small_data_operand PARAMS ((rtx, enum machine_mode));
 extern int s8bit_cint_operand PARAMS ((rtx, enum machine_mode));
-extern int constant_pool_expr_p PARAMS ((rtx));
-extern int toc_relative_expr_p PARAMS ((rtx));
+extern bool legitimate_constant_pool_address_p PARAMS ((rtx));
 extern int expand_block_move PARAMS ((rtx[]));
 extern int load_multiple_operation PARAMS ((rtx, enum machine_mode));
 extern const char * rs6000_output_load_multiple PARAMS ((rtx[]));
@@ -131,6 +130,7 @@ extern rtx rs6000_legitimize_address PARAMS ((rtx, rtx, enum machine_mode));
 extern rtx rs6000_legitimize_reload_address PARAMS ((rtx, enum machine_mode,
 			    int, int, int, int *));
 extern int rs6000_legitimate_address PARAMS ((enum machine_mode, rtx, int));
+extern bool rs6000_mode_dependent_address PARAMS ((rtx));
 extern rtx rs6000_return_addr PARAMS ((int, rtx));
 extern void rs6000_output_symbol_ref PARAMS ((FILE*, rtx));
 

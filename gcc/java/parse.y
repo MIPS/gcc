@@ -1452,7 +1452,7 @@ empty_statement:
 			   (DECL_CONTEXT (current_function_decl)))))
 
 		    {
-		      EXPR_WFL_SET_LINECOL (wfl_operator, lineno, -1);
+		      EXPR_WFL_SET_LINECOL (wfl_operator, input_line, -1);
 		      parse_warning_context (wfl_operator, "An empty declaration is a deprecated feature that should not be used");
 		    }
 		  $$ = build_java_empty_stmt ();
@@ -1489,7 +1489,7 @@ expression_statement:
 		{
 		  /* We have a statement. Generate a WFL around it so
 		     we can debug it */
-		  $$ = build_expr_wfl ($1, input_filename, lineno, 0);
+		  $$ = build_expr_wfl ($1, input_filename, input_line, 0);
 		  /* We know we have a statement, so set the debug
                      info to be eventually generate here. */
 		  $$ = JAVA_MAYBE_GENERATE_DEBUG_INFO ($$);
@@ -2692,7 +2692,7 @@ java_pop_parser_context (int generate)
   next = ctxp->next;
   if (next)
     {
-      lineno = ctxp->lineno;
+      input_line = ctxp->lineno;
       current_class = ctxp->class_type;
     }
 
@@ -2737,7 +2737,7 @@ java_parser_context_save_global (void)
   else if (ctxp->saved_data)
     create_new_parser_context (1);
 
-  ctxp->lineno = lineno;
+  ctxp->lineno = input_line;
   ctxp->class_type = current_class;
   ctxp->filename = input_filename;
   ctxp->function_decl = current_function_decl;
@@ -2750,7 +2750,7 @@ java_parser_context_save_global (void)
 void
 java_parser_context_restore_global (void)
 {
-  lineno = ctxp->lineno;
+  input_line = ctxp->lineno;
   current_class = ctxp->class_type;
   input_filename = ctxp->filename;
   if (wfl_operator)
@@ -2989,7 +2989,7 @@ yyerror (const char *msg)
   int save_lineno;
   char *remainder, *code_from_source;
 
-  if (!force_error && prev_lineno == lineno)
+  if (!force_error && prev_lineno == input_line)
     return;
 
   /* Save current error location but report latter, when the context is
@@ -3022,8 +3022,8 @@ yyerror (const char *msg)
       elc.line = ctxp->p_line->lineno;
     }
 
-  save_lineno = lineno;
-  prev_lineno = lineno = elc.line;
+  save_lineno = input_line;
+  prev_lineno = input_line = elc.line;
   prev_msg = msg;
 
   code_from_source = java_get_line_col (ctxp->filename, elc.line, elc.col);
@@ -3040,7 +3040,7 @@ yyerror (const char *msg)
      the same line. This occurs when we report an error but don't have
      a synchronization point other than ';', which
      expression_statement is the only one to take care of.  */
-  ctxp->prevent_ese = lineno = save_lineno;
+  ctxp->prevent_ese = input_line = save_lineno;
 }
 
 static void
@@ -4228,7 +4228,7 @@ register_fields (int flags, tree type, tree variable_list)
 {
   tree current, saved_type;
   tree class_type = NULL_TREE;
-  int saved_lineno = lineno;
+  int saved_lineno = input_line;
   int must_chain = 0;
   tree wfl = NULL_TREE;
 
@@ -4295,12 +4295,12 @@ register_fields (int flags, tree type, tree variable_list)
       if (duplicate_declaration_error_p (current_name, real_type, cl))
 	continue;
 
-      /* Set lineno to the line the field was found and create a
+      /* Set input_line to the line the field was found and create a
          declaration for it. Eventually sets the @deprecated tag flag. */
       if (flag_emit_xref)
-	lineno = EXPR_WFL_LINECOL (cl);
+	input_line = EXPR_WFL_LINECOL (cl);
       else
-	lineno = EXPR_WFL_LINENO (cl);
+	input_line = EXPR_WFL_LINENO (cl);
       field_decl = add_field (class_type, current_name, real_type, flags);
       CHECK_DEPRECATED_NO_RESET (field_decl);
 
@@ -4362,7 +4362,7 @@ register_fields (int flags, tree type, tree variable_list)
     }
 
   CLEAR_DEPRECATED;
-  lineno = saved_lineno;
+  input_line = saved_lineno;
 }
 
 /* Generate finit$, using the list of initialized fields to populate
@@ -4614,11 +4614,11 @@ method_header (int flags, tree type, tree mdecl, tree throws)
   else
     TREE_TYPE (meth) = type;
 
-  saved_lineno = lineno;
+  saved_lineno = input_line;
   /* When defining an abstract or interface method, the curly
      bracket at level 1 doesn't exist because there is no function
      body */
-  lineno = (ctxp->first_ccb_indent1 ? ctxp->first_ccb_indent1 :
+  input_line = (ctxp->first_ccb_indent1 ? ctxp->first_ccb_indent1 :
 	    EXPR_WFL_LINENO (id));
 
   /* Remember the original argument list */
@@ -4652,7 +4652,7 @@ method_header (int flags, tree type, tree mdecl, tree throws)
   /* Register the parameter number and re-install the current line
      number */
   DECL_MAX_LOCALS (meth) = ctxp->formal_parameter_number+1;
-  lineno = saved_lineno;
+  input_line = saved_lineno;
 
   /* Register exception specified by the `throws' keyword for
      resolution and set the method decl appropriate field to the list.
@@ -5448,7 +5448,7 @@ java_fix_constructors (void)
 }
 
 /* safe_layout_class just makes sure that we can load a class without
-   disrupting the current_class, input_file, lineno, etc, information
+   disrupting the current_class, input_file, input_line, etc, information
    about the class processed currently.  */
 
 void
@@ -5456,13 +5456,13 @@ safe_layout_class (tree class)
 {
   tree save_current_class = current_class;
   const char *save_input_filename = input_filename;
-  int save_lineno = lineno;
+  int save_lineno = input_line;
 
   layout_class (class);
 
   current_class = save_current_class;
   input_filename = save_input_filename;
-  lineno = save_lineno;
+  input_line = save_lineno;
 }
 
 static tree
@@ -6872,7 +6872,7 @@ find_in_imports_on_demand (tree enclosing_type, tree class_type)
 
   for (; import; import = TREE_CHAIN (import))
     {
-      int saved_lineno = lineno;
+      int saved_lineno = input_line;
       int access_check;
       const char *id_name;
       tree decl, type_name_copy;
@@ -6889,9 +6889,9 @@ find_in_imports_on_demand (tree enclosing_type, tree class_type)
       if (! (node = maybe_get_identifier (id_name)))
 	continue;
 
-      /* Setup lineno so that it refers to the line of the import (in
+      /* Setup input_line so that it refers to the line of the import (in
 	 case we parse a class file and encounter errors */
-      lineno = EXPR_WFL_LINENO (TREE_PURPOSE (import));
+      input_line = EXPR_WFL_LINENO (TREE_PURPOSE (import));
 
       type_name_copy = TYPE_NAME (class_type);
       TYPE_NAME (class_type) = node;
@@ -6913,7 +6913,7 @@ find_in_imports_on_demand (tree enclosing_type, tree class_type)
 	/* 6.6.1: Inner classes are subject to member access rules. */
 	access_check = 0;
 
-      lineno = saved_lineno;
+      input_line = saved_lineno;
 
       /* If the loaded class is not accessible or couldn't be loaded,
 	 we restore the original TYPE_NAME and process the next
@@ -7304,7 +7304,7 @@ create_artificial_method (tree class, int flags, tree type,
   tree mdecl;
 
   java_parser_context_save_global ();
-  lineno = 0;
+  input_line = 0;
   mdecl = make_node (FUNCTION_TYPE);
   TREE_TYPE (mdecl) = type;
   TYPE_ARG_TYPES (mdecl) = args;
@@ -7364,7 +7364,7 @@ source_end_java_method (void)
     return;
 
   java_parser_context_save_global ();
-  lineno = ctxp->last_ccb_indent1;
+  input_line = ctxp->last_ccb_indent1;
 
   /* Turn function bodies with only a NOP expr null, so they don't get
      generated at all and we won't get warnings when using the -W
@@ -7392,8 +7392,8 @@ source_end_java_method (void)
   /* Generate rtl for function exit.  */
   if (! flag_emit_class_files && ! flag_emit_xref)
     {
-      lineno = TREE_SOURCE_LINE_LAST (fndecl);
-      expand_function_end (input_filename, lineno, 0);
+      input_line = TREE_SOURCE_LINE_LAST (fndecl);
+      expand_function_end (input_filename, input_line, 0);
 
       annotate_with_file_line (fndecl,
 			       TREE_FILENAME (fndecl),
@@ -7903,7 +7903,7 @@ start_complete_expand_method (tree mdecl)
       TREE_CHAIN (tem) = next;
     }
   pushdecl_force_head (DECL_ARGUMENTS (mdecl));
-  lineno = TREE_SOURCE_LINE_FIRST (mdecl);
+  input_line = TREE_SOURCE_LINE_FIRST (mdecl);
   build_result_decl (mdecl);
 }
 
@@ -8581,7 +8581,7 @@ build_thisn_assign (void)
       tree lhs = make_qualified_primary (build_wfl_node (this_identifier_node),
 					 build_wfl_node (thisn), 0);
       tree rhs = build_wfl_node (thisn);
-      EXPR_WFL_SET_LINECOL (lhs, lineno, 0);
+      EXPR_WFL_SET_LINECOL (lhs, input_line, 0);
       return build_assignment (ASSIGN_TK, EXPR_WFL_LINECOL (lhs), lhs, rhs);
     }
   return NULL_TREE;
@@ -11780,7 +11780,9 @@ java_complete_lhs (tree node)
 	      nn = wfl_op2;
 	      if (TREE_CODE (nn) == EXPR_WITH_FILE_LOCATION)
 		nn = EXPR_WFL_NODE (nn);
-	      if (TREE_CODE (nn) != EXIT_EXPR)
+	      /* NN can be NULL_TREE exactly when UPDATE is, in
+		 finish_for_loop.  */
+	      if (nn != NULL_TREE && TREE_CODE (nn) != EXIT_EXPR)
 		{
 		  SET_WFL_OPERATOR (wfl_operator, node, wfl_op2);
 		  if (SUPPRESS_UNREACHABLE_ERROR (nn))
@@ -11833,10 +11835,10 @@ java_complete_lhs (tree node)
       else
 	{
 	  tree body;
-	  int save_lineno = lineno;
-	  lineno = EXPR_WFL_LINENO (node);
+	  int save_lineno = input_line;
+	  input_line = EXPR_WFL_LINENO (node);
 	  body = java_complete_tree (EXPR_WFL_NODE (node));
-	  lineno = save_lineno;
+	  input_line = save_lineno;
 	  EXPR_WFL_NODE (node) = body;
 	  TREE_SIDE_EFFECTS (node) = TREE_SIDE_EFFECTS (body);
 	  CAN_COMPLETE_NORMALLY (node) = CAN_COMPLETE_NORMALLY (body);
@@ -12384,7 +12386,7 @@ maybe_absorb_scoping_blocks (void)
     {
       tree b = exit_block ();
       java_method_add_stmt (current_function_decl, b);
-      SOURCE_FRONTEND_DEBUG (("Absorbing scoping block at line %d", lineno));
+      SOURCE_FRONTEND_DEBUG (("Absorbing scoping block at line %d", input_line));
     }
 }
 
@@ -12498,17 +12500,18 @@ build_assignment (int op, int op_location, tree lhs, tree rhs)
 static char *
 string_convert_int_cst (tree node)
 {
-  static char buffer[80];
+  /* Long.MIN_VALUE is -9223372036854775808, 20 characters.  */
+  static char buffer[21];
 
   unsigned HOST_WIDE_INT lo = TREE_INT_CST_LOW (node);
   unsigned HOST_WIDE_INT hi = TREE_INT_CST_HIGH (node);
-  char *p = buffer + sizeof (buffer) - 1;
+  char *p = buffer + sizeof (buffer);
   int neg = 0;
 
   unsigned HOST_WIDE_INT hibit = (((unsigned HOST_WIDE_INT) 1)
 				  << (HOST_BITS_PER_WIDE_INT - 1));
 
-  *p-- = '\0';
+  *--p = '\0';
 
   /* If negative, note the fact and negate the value.  */
   if ((hi & hibit))
@@ -12521,7 +12524,7 @@ string_convert_int_cst (tree node)
     }
 
   /* Divide by 10 until there are no bits left.  */
-  while (hi || lo)
+  do
     {
       unsigned HOST_WIDE_INT acc = 0;
       unsigned HOST_WIDE_INT outhi = 0, outlo = 0;
@@ -12553,17 +12556,18 @@ string_convert_int_cst (tree node)
 	    }
 	}
 
-      /* FIXME: ASCII assumption.  */
-      *p-- = '0' + acc;
+      /* '0' == 060 in Java, but might not be here (think EBCDIC).  */
+      *--p = '\060' + acc;
 
       hi = outhi;
       lo = outlo;
     }
+  while (hi || lo);
 
   if (neg)
-    *p-- = '-';
+    *--p = '\055'; /* '-' == 055 in Java, but might not be here.  */
 
-  return p + 1;
+  return p;
 }
 
 /* Print an INTEGER_CST node in a static buffer, and return the
@@ -13687,23 +13691,23 @@ do_merge_string_cste (tree cste, const char *string, int string_len, int after)
 }
 
 /* Tries to merge OP1 (a STRING_CST) and OP2 (if suitable). Return a
-   new STRING_CST on success, NULL_TREE on failure */
+   new STRING_CST on success, NULL_TREE on failure.  */
 
 static tree
 merge_string_cste (tree op1, tree op2, int after)
 {
-  /* Handle two string constants right away */
+  /* Handle two string constants right away.  */
   if (TREE_CODE (op2) == STRING_CST)
     return do_merge_string_cste (op1, TREE_STRING_POINTER (op2),
 				 TREE_STRING_LENGTH (op2), after);
 
-  /* Reasonable integer constant can be treated right away */
+  /* Reasonable integer constant can be treated right away.  */
   if (TREE_CODE (op2) == INTEGER_CST && !TREE_CONSTANT_OVERFLOW (op2))
     {
       static const char *const boolean_true = "true";
       static const char *const boolean_false = "false";
       static const char *const null_pointer = "null";
-      char ch[3];
+      char ch[4];
       const char *string;
 
       if (op2 == boolean_true_node)
@@ -13711,22 +13715,30 @@ merge_string_cste (tree op1, tree op2, int after)
       else if (op2 == boolean_false_node)
 	string = boolean_false;
       else if (op2 == null_pointer_node)
+	/* FIXME: null is not a compile-time constant, so it is only safe to
+	   merge if the overall expression is non-constant. However, this
+	   code always merges without checking the overall expression.  */
 	string = null_pointer;
       else if (TREE_TYPE (op2) == char_type_node)
 	{
 	  /* Convert the character into UTF-8.	*/
-	  unsigned char c = (unsigned char) TREE_INT_CST_LOW (op2);
+	  unsigned int c = (unsigned int) TREE_INT_CST_LOW (op2);
 	  unsigned char *p = (unsigned char *) ch;
-	  if (0x01 <= c
-	      && c <= 0x7f)
-	    *p++ = c;
+	  if (0x01 <= c && c <= 0x7f)
+	    *p++ = (unsigned char) c;
+	  else if (c < 0x7ff)
+	    {
+	      *p++ = (unsigned char) (c >> 6 | 0xc0);
+	      *p++ = (unsigned char) ((c & 0x3f) | 0x80);
+	    }
 	  else
 	    {
-	      *p++ = c >> 6 | 0xc0;
-	      *p++ = (c & 0x3f) | 0x80;
+	      *p++ = (unsigned char) (c >> 12 | 0xe0);
+	      *p++ = (unsigned char) (((c >> 6) & 0x3f) | 0x80);
+	      *p++ = (unsigned char) ((c & 0x3f) | 0x80);
 	    }
 	  *p = '\0';
- 
+
 	  string = ch;
 	}
       else
@@ -14498,7 +14510,7 @@ maybe_build_array_element_wfl (tree node)
 static tree
 build_new_array_init (int location, tree values)
 {
-  tree constructor = build (CONSTRUCTOR, NULL_TREE, NULL_TREE, values);
+  tree constructor = build_constructor (NULL_TREE, values);
   tree to_return = build1 (NEW_ARRAY_INIT, NULL_TREE, constructor);
   EXPR_WFL_LINECOL (to_return) = location;
   return to_return;
@@ -14929,12 +14941,17 @@ finish_for_loop (int location, tree condition, tree update, tree body)
       tree up2 = update;
       if (TREE_CODE (up2) == EXPR_WITH_FILE_LOCATION)
 	up2 = EXPR_WFL_NODE (up2);
-      /* Try to detect constraint violations.  These would be
-	 programming errors somewhere.  */
-      if (! IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (up2)))
-	  || TREE_CODE (up2) == LOOP_EXPR)
-	abort ();
-      SUPPRESS_UNREACHABLE_ERROR (up2) = 1;
+      /* It is possible for the update expression to be an
+	 EXPR_WFL_NODE wrapping nothing.  */
+      if (up2 != NULL_TREE && !IS_EMPTY_STMT (up2))
+	{
+	  /* Try to detect constraint violations.  These would be
+	     programming errors somewhere.  */
+	  if (! IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (up2)))
+	      || TREE_CODE (up2) == LOOP_EXPR)
+	    abort ();
+	  SUPPRESS_UNREACHABLE_ERROR (up2) = 1;
+	}
     }
   LOOP_EXPR_BODY_UPDATE_BLOCK (LOOP_EXPR_BODY (loop)) = update;
   return loop;

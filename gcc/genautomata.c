@@ -7670,7 +7670,7 @@ output_translate_vect (automaton)
 
   VLA_HWINT_CREATE (translate_vect, 250, "translate vector");
   VLA_HWINT_EXPAND (translate_vect, description->insns_num);
-  for (insn_value = 0; insn_value <= description->insns_num; insn_value++)
+  for (insn_value = 0; insn_value < description->insns_num; insn_value++)
     /* Undefined value */
     VLA_HWINT (translate_vect, insn_value) = automaton->insn_equiv_classes_num;
   for (ainsn = automaton->ainsn_list; ainsn != NULL; ainsn = ainsn->next_ainsn)
@@ -7885,6 +7885,10 @@ add_vect (tab, vect_num, vect, vect_length)
           tab->min_comb_vect_el_value = vect [vect_index];
         check_vect_start [comb_vect_index + vect_index] = vect_num;
       }
+  if (tab->max_comb_vect_el_value < undefined_vect_el_value)
+    tab->max_comb_vect_el_value = undefined_vect_el_value;
+  if (tab->min_comb_vect_el_value > undefined_vect_el_value)
+    tab->min_comb_vect_el_value = undefined_vect_el_value;
   if (tab->max_base_vect_el_value < comb_vect_index)
     tab->max_base_vect_el_value = comb_vect_index;
   if (tab->min_base_vect_el_value > comb_vect_index)

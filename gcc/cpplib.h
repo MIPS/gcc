@@ -124,18 +124,18 @@ struct file_name_map_list;
   OP(CPP_ATSIGN,	"@")  /* used in Objective-C */ \
 \
   TK(CPP_NAME,		SPELL_IDENT)	/* word */			\
-  TK(CPP_NUMBER,	SPELL_NUMBER)	/* 34_be+ta  */			\
+  TK(CPP_NUMBER,	SPELL_LITERAL)	/* 34_be+ta  */			\
 \
-  TK(CPP_CHAR,		SPELL_STRING)	/* 'char' */			\
-  TK(CPP_WCHAR,		SPELL_STRING)	/* L'char' */			\
-  TK(CPP_OTHER,		SPELL_CHAR)	/* stray punctuation */		\
+  TK(CPP_CHAR,		SPELL_LITERAL)	/* 'char' */			\
+  TK(CPP_WCHAR,		SPELL_LITERAL)	/* L'char' */			\
+  TK(CPP_OTHER,		SPELL_LITERAL)	/* stray punctuation */		\
 \
-  TK(CPP_STRING,	SPELL_STRING)	/* "string" */			\
-  TK(CPP_WSTRING,	SPELL_STRING)	/* L"string" */			\
-  TK(CPP_HEADER_NAME,	SPELL_STRING)	/* <stdio.h> in #include */	\
+  TK(CPP_STRING,	SPELL_LITERAL)	/* "string" */			\
+  TK(CPP_WSTRING,	SPELL_LITERAL)	/* L"string" */			\
+  TK(CPP_HEADER_NAME,	SPELL_LITERAL)	/* <stdio.h> in #include */	\
 \
-  TK(CPP_COMMENT,	SPELL_NUMBER)	/* Only if output comments.  */ \
-                                        /* SPELL_NUMBER happens to DTRT.  */ \
+  TK(CPP_COMMENT,	SPELL_LITERAL)	/* Only if output comments.  */ \
+                                        /* SPELL_LITERAL happens to DTRT.  */ \
   TK(CPP_MACRO_ARG,	SPELL_NONE)	/* Macro argument.  */		\
   TK(CPP_PADDING,	SPELL_NONE)	/* Whitespace for cpp0.  */
 
@@ -184,7 +184,6 @@ struct cpp_token
     const cpp_token *source;	/* Inherit padding from this token.  */
     struct cpp_string str;	/* A string, or number.  */
     unsigned int arg_no;	/* Argument no. for a CPP_MACRO_ARG.  */
-    unsigned char c;		/* Character represented by CPP_OTHER.  */
   } val;
 };
 
@@ -375,7 +374,7 @@ struct cpp_callbacks
   void (*line_change) PARAMS ((cpp_reader *, const cpp_token *, int));
   void (*file_change) PARAMS ((cpp_reader *, const struct line_map *));
   void (*include) PARAMS ((cpp_reader *, unsigned int,
-			   const unsigned char *, const cpp_token *));
+			   const unsigned char *, const char *, int));
   void (*define) PARAMS ((cpp_reader *, unsigned int, cpp_hashnode *));
   void (*undef) PARAMS ((cpp_reader *, unsigned int, cpp_hashnode *));
   void (*ident) PARAMS ((cpp_reader *, unsigned int, const cpp_string *));

@@ -1435,10 +1435,10 @@ cant_combine_insn_p (insn)
   if (! INSN_P (insn))
     return 1;
 
-  /* Never combine loads and stores involving hard regs.  The register
-     allocator can usually handle such reg-reg moves by tying.  If we allow
-     the combiner to make substitutions of hard regs, we risk aborting in
-     reload on machines that have SMALL_REGISTER_CLASSES.
+  /* Never combine loads and stores involving hard regs that are likely
+     to be spilled.  The register allocator can usually handle such
+     reg-reg moves by tying.  If we allow the combiner to make
+     substitutions of likely-spilled regs, we may abort in reload.
      As an exception, we allow combinations involving fixed regs; these are
      not available to the register allocator so there's no risk involved.  */
 
@@ -1453,9 +1453,11 @@ cant_combine_insn_p (insn)
     dest = SUBREG_REG (dest);
   if (REG_P (src) && REG_P (dest)
       && ((REGNO (src) < FIRST_PSEUDO_REGISTER
-	   && ! fixed_regs[REGNO (src)])
+	   && ! fixed_regs[REGNO (src)]
+	   && CLASS_LIKELY_SPILLED_P (REGNO_REG_CLASS (REGNO (src))))
 	  || (REGNO (dest) < FIRST_PSEUDO_REGISTER
-	      && ! fixed_regs[REGNO (dest)])))
+	      && ! fixed_regs[REGNO (dest)]
+	      && CLASS_LIKELY_SPILLED_P (REGNO_REG_CLASS (REGNO (dest))))))
     return 1;
 
   return 0;
@@ -10157,6 +10159,14 @@ gen_lowpart_for_combine (mode, x)
   if (GET_MODE (x) == mode)
     return x;
 
+  /* Return identity if this is a CONST or symbolic
+     reference.  */
+  if (mode == Pmode
+      && (GET_CODE (x) == CONST
+	  || GET_CODE (x) == SYMBOL_REF
+	  || GET_CODE (x) == LABEL_REF))
+    return x;
+
   /* We can only support MODE being wider than a word if X is a
      constant integer or has a mode the same size.  */
 
@@ -10240,6 +10250,8 @@ gen_lowpart_for_combine (mode, x)
 	{
 	  sub_mode = int_mode_for_mode (mode);
 	  x = gen_lowpart_common (sub_mode, x);
+	  if (x == 0)
+	    return gen_rtx_CLOBBER (VOIDmode, const0_rtx);
 	}
       res = simplify_gen_subreg (mode, x, sub_mode, offset);
       if (res)

@@ -514,7 +514,8 @@ find_class (const char *classname, int classname_length, JCF *jcf,
 	  strcpy (java_buffer, path_name);
 	  l = strlen (java_buffer);
 	  for (m = 0; m < classname_length; ++m)
-	    java_buffer[m + l] = (classname[m] == '.' ? '/' : classname[m]);
+	    java_buffer[m + l] = (classname[m] == '.'
+				  ? DIR_SEPARATOR : classname[m]);
 	  strcpy (java_buffer + m + l, ".java");
 	  java = caching_stat (java_buffer, &java_buf);
 	  if (java == 0)
@@ -544,7 +545,7 @@ find_class (const char *classname, int classname_length, JCF *jcf,
 			      classname+classname_length-
 			      (classname_length <= 30 ? 
 			       classname_length : 30)));
-      fd = open (buffer, O_RDONLY | O_BINARY);
+      fd = JCF_OPEN_EXACT_CASE (buffer, O_RDONLY | O_BINARY);
       if (fd >= 0)
 	goto found;
     }
@@ -556,7 +557,7 @@ find_class (const char *classname, int classname_length, JCF *jcf,
 			      classname+classname_length-
 			      (classname_length <= 30 ? 
 			       classname_length : 30)));
-      fd = open (buffer, O_RDONLY);
+      fd = JCF_OPEN_EXACT_CASE (buffer, O_RDONLY);
       if (fd >= 0)
 	{
 	  jcf->java_source = 1;

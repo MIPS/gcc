@@ -3,23 +3,22 @@
    Free Software Foundation, Inc.
    Contributed by Cygnus Support.
 
-This file is part of GNU CC.
+   This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+   GCC is free software; you can redistribute it and/or modify it
+   under the terms of the GNU General Public License as published
+   by the Free Software Foundation; either version 2, or (at your
+   option) any later version.
 
-GNU CC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+   GCC is distributed in the hope that it will be useful, but WITHOUT
+   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+   or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+   License for more details.
 
-You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
-
+   You should have received a copy of the GNU General Public License
+   along with GCC; see the file COPYING.  If not, write to the
+   Free Software Foundation, 59 Temple Place - Suite 330, Boston,
+   MA 02111-1307, USA.  */
 
 /* Header files should be C++ aware in general.  */
 #define NO_IMPLICIT_EXTERN_C
@@ -83,9 +82,9 @@ extern const char *rs6000_sdata_name;
 
 /* Override rs6000.h definition.  */
 #undef	SUBTARGET_OPTIONS
-#define	SUBTARGET_OPTIONS						\
-  { "call-",  &rs6000_abi_name, N_("Select ABI calling convention") },	\
-  { "sdata=", &rs6000_sdata_name, N_("Select method for sdata handling") }
+#define	SUBTARGET_OPTIONS							\
+  { "call-",  &rs6000_abi_name, N_("Select ABI calling convention"), 0},	\
+  { "sdata=", &rs6000_sdata_name, N_("Select method for sdata handling"), 0}
 
 /* Max # of bytes for variables to automatically be put into the .sdata
    or .sdata2 sections.  */
@@ -183,11 +182,6 @@ do {									\
 	   || !strcmp (rs6000_abi_name, "eabi"))			\
     {									\
       rs6000_current_abi = ABI_V4;					\
-      target_flags |= MASK_EABI;					\
-    }									\
-  else if (!strcmp (rs6000_abi_name, "aix"))				\
-    {									\
-      rs6000_current_abi = ABI_AIX_NODESC;				\
       target_flags |= MASK_EABI;					\
     }									\
   else if (!strcmp (rs6000_abi_name, "aixdesc"))			\
@@ -772,7 +766,6 @@ extern int fixuplabelno;
 #define DBX_DEBUGGING_INFO 1
 
 #define TARGET_ENCODE_SECTION_INFO  rs6000_elf_encode_section_info
-#define TARGET_STRIP_NAME_ENCODING  rs6000_elf_strip_name_encoding
 #define TARGET_IN_SMALL_DATA_P  rs6000_elf_in_small_data_p
 #define TARGET_SECTION_TYPE_FLAGS  rs6000_elf_section_type_flags
 
@@ -781,25 +774,8 @@ extern int fixuplabelno;
 #define	RS6000_OUTPUT_BASENAME(FILE, NAME)	\
     assemble_name (FILE, NAME)
 
-/* This is how to output a reference to a user-level label named NAME.
-   `assemble_name' uses this.  */
-
-/* Override elfos.h definition.  */
-#undef	ASM_OUTPUT_LABELREF
-#define	ASM_OUTPUT_LABELREF(FILE,NAME)		\
-do {						\
-  const char *_name = NAME;			\
-  if (*_name == '@')				\
-    _name++;					\
- 						\
-  if (*_name == '*')				\
-    fprintf (FILE, "%s", _name + 1);		\
-  else						\
-    asm_fprintf (FILE, "%U%s", _name);		\
-} while (0)
-
-/* But, to make this work, we have to output the stabs for the function
-   name *first*...  */
+/* We have to output the stabs for the function name *first*, before
+   outputting its label.  */
 
 #define	DBX_FUNCTION_FIRST
 

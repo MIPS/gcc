@@ -1,6 +1,6 @@
 /* Build expressions with type checking for C compiler.
    Copyright (C) 1987, 1988, 1991, 1992, 1993, 1994, 1995, 1996, 1997,
-   1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   1998, 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -59,6 +59,7 @@ static int type_lists_compatible_p	PARAMS ((tree, tree));
 static tree decl_constant_value_for_broken_optimization PARAMS ((tree));
 static tree default_function_array_conversion	PARAMS ((tree));
 static tree lookup_field		PARAMS ((tree, tree));
+static void undeclared_variable		PARAMS ((tree));
 static tree convert_arguments		PARAMS ((tree, tree, tree, tree));
 static tree pointer_diff		PARAMS ((tree, tree));
 static tree unary_complex_lvalue	PARAMS ((enum tree_code, tree, int));
@@ -629,9 +630,23 @@ function_types_compatible_p (f1, f2)
   /* 1 if no need for warning yet, 2 if warning cause has been seen.  */
   int val = 1;
   int val1;
+  tree ret1, ret2;
 
-  if (!(TREE_TYPE (f1) == TREE_TYPE (f2)
-	|| (val = comptypes (TREE_TYPE (f1), TREE_TYPE (f2)))))
+  ret1 = TREE_TYPE (f1);
+  ret2 = TREE_TYPE (f2);
+
+  /* 'volatile' qualifiers on a function's return type mean the function
+     is noreturn.  */
+  if (pedantic && TYPE_VOLATILE (ret1) != TYPE_VOLATILE (ret2))
+    pedwarn ("function return types not compatible due to `volatile'");
+  if (TYPE_VOLATILE (ret1))
+    ret1 = build_qualified_type (TYPE_MAIN_VARIANT (ret1),
+				 TYPE_QUALS (ret1) & ~TYPE_QUAL_VOLATILE);
+  if (TYPE_VOLATILE (ret2))
+    ret2 = build_qualified_type (TYPE_MAIN_VARIANT (ret2),
+				 TYPE_QUALS (ret2) & ~TYPE_QUAL_VOLATILE);
+  val = comptypes (ret1, ret2);
+  if (val == 0)
     return 0;
 
   args1 = TYPE_ARG_TYPES (f1);
@@ -1376,6 +1391,38 @@ build_array_ref (array, index)
   }
 }
 
+/* Issue an error message for a reference to an undeclared variable ID,
+   including a reference to a builtin outside of function-call context.
+   Arrange to suppress further errors for the same identifier.  */
+static void
+undeclared_variable (id)
+     tree id;
+{
+  if (current_function_decl == 0)
+    {
+      error ("`%s' undeclared here (not in a function)",
+	     IDENTIFIER_POINTER (id));
+      IDENTIFIER_SYMBOL_VALUE (id) = error_mark_node;
+    }
+  else
+    {
+      error ("`%s' undeclared (first use in this function)",
+	     IDENTIFIER_POINTER (id));
+
+      if (! undeclared_variable_notice)
+	{
+	  error ("(Each undeclared identifier is reported only once");
+	  error ("for each function it appears in.)");
+	  undeclared_variable_notice = 1;
+	}
+
+      /* Set IDENTIFIER_SYMBOL_VALUE (id) to error_mark_node
+	 at function scope.  This suppresses further warnings
+	 about this undeclared identifier in this function.  */
+      pushdecl_function_level (error_mark_node, id);
+    }
+}
+
 /* Build an external reference to identifier ID.  FUN indicates
    whether this will be used for a function call.  */
 tree
@@ -1387,70 +1434,12 @@ build_external_ref (id, fun)
   tree decl = lookup_name (id);
   tree objc_ivar = lookup_objc_ivar (id);
 
-  if (decl && TREE_DEPRECATED (decl))
-    warn_deprecated_use (decl);
-
-  if (!decl || decl == error_mark_node || C_DECL_ANTICIPATED (decl))
-    {
-      if (objc_ivar)
-	ref = objc_ivar;
-      else if (fun)
-	{
-	  if (!decl || decl == error_mark_node)
-	    /* Ordinary implicit function declaration.  */
-	    ref = implicitly_declare (id);
-	  else
-	    {
-	      /* Implicit declaration of built-in function.  Don't
-		 change the built-in declaration, but don't let this
-		 go by silently, either.  */
-	      implicit_decl_warning (id);
-
-	      /* only issue this warning once */
-	      C_DECL_ANTICIPATED (decl) = 0;
-	      ref = decl;
-	    }
-	}
-      else
-	{
-	  /* Don't complain about something that's already been
-	     complained about.  */
-	  if (decl == error_mark_node)
-	    return error_mark_node;
-
-	  /* Reference to undeclared variable, including reference to
-	     builtin outside of function-call context.  */
-	  if (current_function_decl == 0)
-	    error ("`%s' undeclared here (not in a function)",
-		   IDENTIFIER_POINTER (id));
-	  else
-	    {
-	      error ("`%s' undeclared (first use in this function)",
-		     IDENTIFIER_POINTER (id));
-
-	      if (! undeclared_variable_notice)
-		{
-		  error ("(Each undeclared identifier is reported only once");
-		  error ("for each function it appears in.)");
-		  undeclared_variable_notice = 1;
-		}
-
-	      /* Set IDENTIFIER_LOCAL_VALUE (id) to error_mark_node and
-		 add a function-scope shadow entry which will undo that.
-		 This suppresses further warnings about this undeclared
-		 identifier in this function.  */
-	      record_function_scope_shadow (id);
-	      IDENTIFIER_LOCAL_VALUE (id) = error_mark_node;
-	    }
-	  return error_mark_node;
-	}
-    }
-  else
+  if (decl && decl != error_mark_node)
     {
       /* Properly declared variable or function reference.  */
       if (!objc_ivar)
 	ref = decl;
-      else if (decl != objc_ivar && IDENTIFIER_LOCAL_VALUE (id))
+      else if (decl != objc_ivar && DECL_CONTEXT (decl) != 0)
 	{
 	  warning ("local declaration of `%s' hides instance variable",
 		   IDENTIFIER_POINTER (id));
@@ -1459,9 +1448,26 @@ build_external_ref (id, fun)
       else
 	ref = objc_ivar;
     }
+  else if (objc_ivar)
+    ref = objc_ivar;
+  else if (fun)
+    /* Implicit function declaration.  */
+    ref = implicitly_declare (id);
+  else if (decl == error_mark_node)
+    /* Don't complain about something that's already been
+       complained about.  */
+    return error_mark_node;
+  else
+    {
+      undeclared_variable (id);
+      return error_mark_node;
+    }
 
   if (TREE_TYPE (ref) == error_mark_node)
     return error_mark_node;
+
+  if (TREE_DEPRECATED (ref))
+    warn_deprecated_use (ref);
 
   if (!skip_evaluation)
     assemble_external (ref);
@@ -1471,6 +1477,17 @@ build_external_ref (id, fun)
     {
       ref = DECL_INITIAL (ref);
       TREE_CONSTANT (ref) = 1;
+    }
+  else if (current_function_decl != 0
+	   && DECL_CONTEXT (current_function_decl) != 0
+	   && (TREE_CODE (ref) == VAR_DECL
+	       || TREE_CODE (ref) == PARM_DECL
+	       || TREE_CODE (ref) == FUNCTION_DECL))
+    {
+      tree context = decl_function_context (ref);
+    
+      if (context != 0 && context != current_function_decl)
+	DECL_NONLOCAL (ref) = 1;
     }
 
   return ref;
@@ -2442,8 +2459,7 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
 	  converted = 1;
 	  resultcode = xresultcode;
 
-	  if ((warn_sign_compare < 0 ? extra_warnings : warn_sign_compare != 0)
-	      && skip_evaluation == 0)
+	  if (warn_sign_compare && skip_evaluation == 0)
 	    {
 	      int op0_signed = ! TREE_UNSIGNED (TREE_TYPE (orig_op0));
 	      int op1_signed = ! TREE_UNSIGNED (TREE_TYPE (orig_op1));
@@ -3432,8 +3448,7 @@ build_conditional_expr (ifexp, op1, op2)
 	 and later code won't know it used to be different.
 	 Do this check on the original types, so that explicit casts
 	 will be considered, but default promotions won't.  */
-      if ((warn_sign_compare < 0 ? extra_warnings : warn_sign_compare)
-	  && !skip_evaluation)
+      if (warn_sign_compare && !skip_evaluation)
 	{
 	  int unsigned_op1 = TREE_UNSIGNED (TREE_TYPE (orig_op1));
 	  int unsigned_op2 = TREE_UNSIGNED (TREE_TYPE (orig_op2));
@@ -3587,7 +3602,7 @@ internal_build_compound_expr (list, first_p)
       /* The left-hand operand of a comma expression is like an expression
          statement: with -Wextra or -Wunused, we should warn if it doesn't have
 	 any side-effects, unless it was explicitly cast to (void).  */
-      if ((extra_warnings || warn_unused_value)
+      if (warn_unused_value
            && ! (TREE_CODE (TREE_VALUE (list)) == CONVERT_EXPR
                 && VOID_TYPE_P (TREE_TYPE (TREE_VALUE (list)))))
         warning ("left-hand operand of comma expression has no effect");
@@ -3669,8 +3684,10 @@ build_c_cast (type, expr)
 
 	  if (pedantic)
 	    pedwarn ("ISO C forbids casts to union type");
-	  t = digest_init (type, build (CONSTRUCTOR, type, NULL_TREE,
-					build_tree_list (field, value)), 0);
+	  t = digest_init (type,
+			   build_constructor (type,
+					      build_tree_list (field, value)),
+			   0);
 	  TREE_CONSTANT (t) = TREE_CONSTANT (value);
 	  return t;
 	}
@@ -4766,7 +4783,7 @@ digest_init (type, init, require_constant)
   if (code == VECTOR_TYPE
       && comptypes (TREE_TYPE (inside_init), type)
       && TREE_CONSTANT (inside_init))
-    return build_vector (type, TREE_OPERAND (inside_init, 1));
+    return build_vector (type, CONSTRUCTOR_ELTS (inside_init));
 
   /* Any type can be initialized
      from an expression of the same type, optionally with braces.  */
@@ -4927,9 +4944,6 @@ static int constructor_simple;
 /* 1 if this constructor is erroneous so far.  */
 static int constructor_erroneous;
 
-/* 1 if have called defer_addressed_constants.  */
-static int constructor_subconstants_deferred;
-
 /* Structure for managing pending initializer elements, organized as an
    AVL tree.  */
 
@@ -5047,7 +5061,6 @@ struct initializer_stack
   char top_level;
   char require_constant_value;
   char require_constant_elements;
-  char deferred;
 };
 
 struct initializer_stack *initializer_stack;
@@ -5078,14 +5091,12 @@ start_init (decl, asmspec_tree, top_level)
   p->spelling = spelling;
   p->spelling_base = spelling_base;
   p->spelling_size = spelling_size;
-  p->deferred = constructor_subconstants_deferred;
   p->top_level = constructor_top_level;
   p->next = initializer_stack;
   initializer_stack = p;
 
   constructor_decl = decl;
   constructor_asmspec = asmspec;
-  constructor_subconstants_deferred = 0;
   constructor_designated = 0;
   constructor_top_level = top_level;
 
@@ -5127,12 +5138,6 @@ finish_init ()
 {
   struct initializer_stack *p = initializer_stack;
 
-  /* Output subconstants (string constants, usually)
-     that were referenced within this initializer and saved up.
-     Must do this if and only if we called defer_addressed_constants.  */
-  if (constructor_subconstants_deferred)
-    output_deferred_addressed_constants ();
-
   /* Free the whole constructor stack of this initializer.  */
   while (constructor_stack)
     {
@@ -5155,7 +5160,6 @@ finish_init ()
   spelling = p->spelling;
   spelling_base = p->spelling_base;
   spelling_size = p->spelling_size;
-  constructor_subconstants_deferred = p->deferred;
   constructor_top_level = p->top_level;
   initializer_stack = p->next;
   free (p);
@@ -5384,7 +5388,7 @@ push_init_level (implicit)
     {
       constructor_constant = TREE_CONSTANT (value);
       constructor_simple = TREE_STATIC (value);
-      constructor_elements = TREE_OPERAND (value, 1);
+      constructor_elements = CONSTRUCTOR_ELTS (value);
       if (constructor_elements
 	  && (TREE_CODE (constructor_type) == RECORD_TYPE
 	      || TREE_CODE (constructor_type) == ARRAY_TYPE))
@@ -5578,8 +5582,8 @@ pop_init_level (implicit)
 	constructor = error_mark_node;
       else
 	{
-	  constructor = build (CONSTRUCTOR, constructor_type, NULL_TREE,
-			       nreverse (constructor_elements));
+	  constructor = build_constructor (constructor_type,
+					   nreverse (constructor_elements));
 	  if (constructor_constant)
 	    TREE_CONSTANT (constructor) = 1;
 	  if (constructor_constant && constructor_simple)
@@ -6228,6 +6232,11 @@ output_init_element (value, type, field, pending)
      tree value, type, field;
      int pending;
 {
+  if (type == error_mark_node)
+    {
+      constructor_erroneous = 1;
+      return;
+    }
   if (TREE_CODE (TREE_TYPE (value)) == FUNCTION_TYPE
       || (TREE_CODE (TREE_TYPE (value)) == ARRAY_TYPE
 	  && !(TREE_CODE (value) == STRING_CST

@@ -1,21 +1,21 @@
 /* Control and data flow functions for trees.
-   Copyright 2001, 2002 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2003 Free Software Foundation, Inc.
    Contributed by Alexandre Oliva <aoliva@redhat.com>
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -37,6 +37,7 @@ Boston, MA 02111-1307, USA.  */
 #include "hashtab.h"
 #include "splay-tree.h"
 #include "langhooks.h"
+#include "cgraph.h"
 
 /* This should be eventually be generalized to other languages, but
    this would require a shared function-as-trees infrastructure.  */
@@ -103,6 +104,8 @@ typedef struct inline_data
   /* Hash table used to prevent walk_tree from visiting the same node
      umpteen million times.  */
   htab_t tree_pruner;
+  /* Decl of function we are inlining into.  */
+  tree decl;
 } inline_data;
 
 /* Prototypes.  */
@@ -112,7 +115,7 @@ static tree copy_body_r PARAMS ((tree *, int *, void *));
 static tree copy_body PARAMS ((inline_data *));
 static tree expand_call_inline PARAMS ((tree *, int *, void *));
 static void expand_calls_inline PARAMS ((tree *, inline_data *));
-static int inlinable_function_p PARAMS ((tree, inline_data *));
+static int inlinable_function_p PARAMS ((tree, inline_data *, int));
 static tree remap_decl PARAMS ((tree, inline_data *));
 #ifndef INLINER_FOR_JAVA
 static tree initialize_inlined_parameters PARAMS ((inline_data *, tree, tree));
@@ -125,6 +128,8 @@ static tree add_stmt_to_compound PARAMS ((tree, tree, tree));
 #endif /* INLINER_FOR_JAVA */
 static tree find_alloca_call_1 PARAMS ((tree *, int *, void *));
 static tree find_alloca_call PARAMS ((tree));
+static tree find_builtin_longjmp_call_1 PARAMS ((tree *, int *, void *));
+static tree find_builtin_longjmp_call PARAMS ((tree));
 
 /* The approximate number of instructions per statement.  This number
    need not be particularly accurate; it is used only to make
@@ -661,6 +666,10 @@ initialize_inlined_parameters (id, args, fn, block)
 	      if (DECL_P (value))
 		value = build1 (NOP_EXPR, TREE_TYPE (value), value);
 
+	      /* If this is a constant, make sure it has the right type.  */
+	      else if (TREE_TYPE (value) != TREE_TYPE (p))
+		value = fold (build1 (NOP_EXPR, TREE_TYPE (p), value));
+
 	      splay_tree_insert (id->decl_map,
 				 (splay_tree_key) p,
 				 (splay_tree_value) value);
@@ -867,13 +876,14 @@ declare_return_variable (id, return_slot_addr, var)
 /* Returns nonzero if a function can be inlined as a tree.  */
 
 int
-tree_inlinable_function_p (fn)
+tree_inlinable_function_p (fn, nolimit)
      tree fn;
+     int nolimit;
 {
-  return inlinable_function_p (fn, NULL);
+  return inlinable_function_p (fn, NULL, nolimit);
 }
 
-/* if *TP is possibly call to alloca, return nonzero.  */
+/* If *TP is possibly call to alloca, return nonzero.  */
 static tree
 find_alloca_call_1 (tp, walk_subtrees, data)
      tree *tp;
@@ -885,13 +895,44 @@ find_alloca_call_1 (tp, walk_subtrees, data)
   return NULL;
 }
 
-/* Return subexpression representing possible alloca call,
-   if any.  */
+/* Return subexpression representing possible alloca call, if any.  */
 static tree
 find_alloca_call (exp)
      tree exp;
 {
-  return walk_tree (&exp, find_alloca_call_1, NULL, NULL);
+  location_t saved_loc = input_location;
+  tree ret = walk_tree (&exp, find_alloca_call_1, NULL, NULL);
+  input_location = saved_loc;
+  return ret;
+}
+
+static tree
+find_builtin_longjmp_call_1 (tp, walk_subtrees, data)
+     tree *tp;
+     int *walk_subtrees ATTRIBUTE_UNUSED;
+     void *data ATTRIBUTE_UNUSED;
+{
+  tree exp = *tp, decl;
+
+  if (TREE_CODE (exp) == CALL_EXPR
+      && TREE_CODE (TREE_OPERAND (exp, 0)) == ADDR_EXPR
+      && (decl = TREE_OPERAND (TREE_OPERAND (exp, 0), 0),
+	  TREE_CODE (decl) == FUNCTION_DECL)
+      && DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL
+      && DECL_FUNCTION_CODE (decl) == BUILT_IN_LONGJMP)
+    return decl;
+
+  return NULL;
+}
+
+static tree
+find_builtin_longjmp_call (exp)
+     tree exp;
+{
+  location_t saved_loc = input_location;
+  tree ret = walk_tree (&exp, find_builtin_longjmp_call_1, NULL, NULL);
+  input_location = saved_loc;
+  return ret;
 }
 
 /* Returns nonzero if FN is a function that can be inlined into the
@@ -899,12 +940,14 @@ find_alloca_call (exp)
    can be inlined at all.  */
 
 static int
-inlinable_function_p (fn, id)
+inlinable_function_p (fn, id, nolimit)
      tree fn;
      inline_data *id;
+     int nolimit;
 {
   int inlinable;
   int currfn_insns;
+  int max_inline_insns_single = MAX_INLINE_INSNS_SINGLE;
 
   /* If we've already decided this function shouldn't be inlined,
      there's no need to check again.  */
@@ -913,7 +956,13 @@ inlinable_function_p (fn, id)
 
   /* Assume it is not inlinable.  */
   inlinable = 0;
-
+       
+  /* We may be here either because fn is declared inline or because
+     we use -finline-functions.  For the second case, we are more
+     restrictive.  */
+  if (DID_INLINE_FUNC (fn))
+    max_inline_insns_single = MAX_INLINE_INSNS_AUTO;
+	
   /* The number of instructions (estimated) of current function.  */
   currfn_insns = DECL_NUM_STMTS (fn) * INSNS_PER_STMT;
 
@@ -926,13 +975,27 @@ inlinable_function_p (fn, id)
      front-end that must set DECL_INLINE in this case, because
      dwarf2out loses if a function is inlined that doesn't have
      DECL_INLINE set.  */
-  else if (! DECL_INLINE (fn))
+  else if (! DECL_INLINE (fn) && !nolimit)
     ;
+#ifdef INLINER_FOR_JAVA
+  /* Synchronized methods can't be inlined.  This is a bug.  */
+  else if (METHOD_SYNCHRONIZED (fn))
+    ;
+#endif /* INLINER_FOR_JAVA */
   /* We can't inline functions that are too big.  Only allow a single
      function to be of MAX_INLINE_INSNS_SINGLE size.  Make special
      allowance for extern inline functions, though.  */
-  else if (! (*lang_hooks.tree_inlining.disregard_inline_limits) (fn)
-	   && currfn_insns > MAX_INLINE_INSNS_SINGLE)
+  else if (!nolimit
+	   && ! (*lang_hooks.tree_inlining.disregard_inline_limits) (fn)
+	   && currfn_insns > max_inline_insns_single)
+    ;
+  /* We can't inline functions that call __builtin_longjmp at all.
+     The non-local goto machenery really requires the destination
+     be in a different function.  If we allow the function calling
+     __builtin_longjmp to be inlined into the function calling
+     __builtin_setjmp, Things will Go Awry.  */
+  /* ??? Need front end help to identify "regular" non-local goto.  */
+  else if (find_builtin_longjmp_call (DECL_SAVED_TREE (fn)))
     ;
   /* Refuse to inline alloca call unless user explicitly forced so as this may
      change program's memory overhead drastically when the function using alloca
@@ -954,7 +1017,7 @@ inlinable_function_p (fn, id)
   /* In case we don't disregard the inlining limits and we basically
      can inline this function, investigate further.  */
   if (! (*lang_hooks.tree_inlining.disregard_inline_limits) (fn)
-      && inlinable)
+      && inlinable && !nolimit)
     {
       int sum_insns = (id ? id->inlined_stmts : 0) * INSNS_PER_STMT
 		     + currfn_insns;
@@ -1072,6 +1135,19 @@ expand_call_inline (tp, walk_subtrees, data)
       abort ();
 #endif /* INLINER_FOR_JAVA */
     }
+  else if (TREE_CODE (t) == EXPR_WITH_FILE_LOCATION)
+    {
+      /* We're walking the subtree directly.  */
+      *walk_subtrees = 0;
+      /* Update the source position.  */
+      push_srcloc (EXPR_WFL_FILENAME (t), EXPR_WFL_LINENO (t));
+      walk_tree (&EXPR_WFL_NODE (t), expand_call_inline, data, 
+		 id->tree_pruner);
+      /* Restore the original source position.  */
+      pop_srcloc ();
+
+      return NULL_TREE;
+    }
 
   if (TYPE_P (t))
     /* Because types were not copied in copy_body, CALL_EXPRs beneath
@@ -1103,8 +1179,17 @@ expand_call_inline (tp, walk_subtrees, data)
 
   /* Don't try to inline functions that are not well-suited to
      inlining.  */
-  if (!inlinable_function_p (fn, id))
-    return NULL_TREE;
+  if ((!flag_unit_at_a_time || !DECL_SAVED_TREE (fn)
+       || !cgraph_global_info (fn)->inline_once)
+      && !inlinable_function_p (fn, id, 0))
+    {
+      if (warn_inline && DECL_INLINE (fn))
+	{
+	  warning_with_decl (fn, "inlining failed in call to `%s'");
+	  warning ("called from here");
+	}
+      return NULL_TREE;
+    }
 
   if (! (*lang_hooks.tree_inlining.start_inlining) (fn))
     return NULL_TREE;
@@ -1114,7 +1199,7 @@ expand_call_inline (tp, walk_subtrees, data)
      line numbers corresponding to the function we are calling.  We
      wrap the whole inlined body in an EXPR_WITH_FILE_AND_LINE as well
      because individual statements don't record the filename.  */
-  push_srcloc (TREE_FILENAME (fn), TREE_LINENO (fn));
+  push_srcloc (DECL_SOURCE_FILE (fn), DECL_SOURCE_LINE (fn));
 
 #ifndef INLINER_FOR_JAVA
   /* Build a statement-expression containing code to initialize the
@@ -1257,7 +1342,7 @@ expand_call_inline (tp, walk_subtrees, data)
 #endif /* INLINER_FOR_JAVA */
 
   /* After the body of the function comes the RET_LABEL.  This must come
-     before we evaluate the returned value below, because that evalulation
+     before we evaluate the returned value below, because that evaluation
      may cause RTL to be generated.  */
 #ifndef INLINER_FOR_JAVA
   COMPOUND_BODY (stmt)
@@ -1309,11 +1394,17 @@ expand_call_inline (tp, walk_subtrees, data)
      EXPR_WITH_FILE_LOCATION so that we'll get debugging line notes
      pointing to the right place.  */
 #ifndef INLINER_FOR_JAVA
-  annotate_with_file_line (expr, TREE_FILENAME (fn), TREE_LINENO (fn));
+  chain = TREE_CHAIN (*tp);
+  *tp = build_expr_wfl (expr, DECL_SOURCE_FILE (fn), DECL_SOURCE_LINE (fn),
+			/*col=*/0);
 #else /* INLINER_FOR_JAVA */
-  annotate_with_file_line (expr, TREE_FILENAME (fn), TREE_SOURCE_LINE_FIRST(fn));
+  *tp = build_expr_wfl (expr, DECL_SOURCE_FILE (fn),
+			DECL_SOURCE_LINE_FIRST(fn),
+			/*col=*/0);
 #endif /* INLINER_FOR_JAVA */
+  EXPR_WFL_EMIT_LINE_NOTE (*tp) = 1;
 #ifndef INLINER_FOR_JAVA
+  TREE_CHAIN (*tp) = chain;
 #endif /* not INLINER_FOR_JAVA */
   pop_srcloc ();
 
@@ -1326,6 +1417,13 @@ expand_call_inline (tp, walk_subtrees, data)
   DECL_NUM_STMTS (VARRAY_TREE (id->fns, 0)) += DECL_NUM_STMTS (fn);
   /* For accounting, subtract one for the saved call/ret.  */
   id->inlined_stmts += DECL_NUM_STMTS (fn) - 1;
+
+  /* Update callgraph if needed.  */
+  if (id->decl && flag_unit_at_a_time)
+    {
+      cgraph_remove_call (id->decl, fn);
+      cgraph_create_edges (id->decl, *inlined_body);
+    }
 
   /* Recurse into the body of the just inlined function.  */
   expand_calls_inline (inlined_body, id);
@@ -1373,6 +1471,7 @@ optimize_inline_calls (fn)
   /* Clear out ID.  */
   memset (&id, 0, sizeof (id));
 
+  id.decl = fn;
   /* Don't allow recursion into FN.  */
   VARRAY_TREE_INIT (id.fns, 32, "fns");
   VARRAY_PUSH_TREE (id.fns, fn);
@@ -1489,10 +1588,9 @@ walk_tree (tp, func, data, htab_)
 
       /* Don't walk the same tree twice, if the user has requested
          that we avoid doing so.  */
-      if (htab_find (htab, *tp))
-	return NULL_TREE;
-      /* If we haven't already seen this node, add it to the table.  */
       slot = htab_find_slot (htab, *tp, INSERT);
+      if (*slot)
+	return NULL_TREE;
       *slot = *tp;
     }
 
@@ -1511,7 +1609,7 @@ walk_tree (tp, func, data, htab_)
      interesting below this point in the tree.  */
   if (!walk_subtrees)
     {
-      if (statement_code_p (code) || code == TREE_LIST
+      if (STATEMENT_CODE_P (code) || code == TREE_LIST
 	  || (*lang_hooks.tree_inlining.tree_chain_matters_p) (*tp))
 	/* But we still need to check our siblings.  */
 	WALK_SUBTREE_TAIL (TREE_CHAIN (*tp));
@@ -1536,8 +1634,8 @@ walk_tree (tp, func, data, htab_)
 #ifndef INLINER_FOR_JAVA
       /* Set lineno here so we get the right instantiation context
 	 if we call instantiate_decl from inlinable_function_p.  */
-      if (statement_code_p (code) && !STMT_LINENO_FOR_FN_P (*tp))
-	lineno = STMT_LINENO (*tp);
+      if (STATEMENT_CODE_P (code) && !STMT_LINENO_FOR_FN_P (*tp))
+	input_line = STMT_LINENO (*tp);
 #endif /* not INLINER_FOR_JAVA */
 
       /* Walk over all the sub-trees of this operand.  */
@@ -1555,7 +1653,7 @@ walk_tree (tp, func, data, htab_)
 #ifndef INLINER_FOR_JAVA
       /* For statements, we also walk the chain so that we cover the
 	 entire statement tree.  */
-      if (statement_code_p (code))
+      if (STATEMENT_CODE_P (code))
 	{
 	  if (code == DECL_STMT
 	      && DECL_STMT_DECL (*tp)
@@ -1614,7 +1712,7 @@ walk_tree (tp, func, data, htab_)
     case ENUMERAL_TYPE:
     case BLOCK:
     case RECORD_TYPE:
-    case SSA_NAME:
+    case CHAR_TYPE:
       /* None of thse have subtrees other than those already walked
          above.  */
       break;
@@ -1746,7 +1844,7 @@ copy_tree_r (tp, walk_subtrees, data)
       if (code == PARM_DECL || code == TREE_LIST
 #ifndef INLINER_FOR_JAVA
 	  || (*lang_hooks.tree_inlining.tree_chain_matters_p) (*tp)
-	  || statement_code_p (code))
+	  || STATEMENT_CODE_P (code))
 	TREE_CHAIN (*tp) = chain;
 
       /* For now, we don't update BLOCKs when we make copies.  So, we

@@ -119,7 +119,7 @@ static int pa_adjust_priority PARAMS ((rtx, int));
 static int pa_issue_rate PARAMS ((void));
 static void pa_select_section PARAMS ((tree, int, unsigned HOST_WIDE_INT))
      ATTRIBUTE_UNUSED;
-static void pa_encode_section_info PARAMS ((tree, int));
+static void pa_encode_section_info PARAMS ((tree, rtx, int));
 static const char *pa_strip_name_encoding PARAMS ((const char *));
 static bool pa_function_ok_for_sibcall PARAMS ((tree, tree));
 static void pa_globalize_label PARAMS ((FILE *, const char *))
@@ -7114,21 +7114,16 @@ hppa_encode_label (sym)
 }
 
 static void
-pa_encode_section_info (decl, first)
+pa_encode_section_info (decl, rtl, first)
      tree decl;
+     rtx rtl;
      int first;
 {
   if (first && TEXT_SPACE_P (decl))
     {
-      rtx rtl;
-      if (TREE_CODE (decl) == FUNCTION_DECL
-	  || TREE_CODE (decl) == VAR_DECL)
-	rtl = DECL_RTL (decl);
-      else
-	rtl = TREE_CST_RTL (decl);
       SYMBOL_REF_FLAG (XEXP (rtl, 0)) = 1;
       if (TREE_CODE (decl) == FUNCTION_DECL)
-	hppa_encode_label (XEXP (DECL_RTL (decl), 0));
+	hppa_encode_label (XEXP (rtl, 0));
     }
 }
 
@@ -8246,12 +8241,11 @@ function_value (valtype, func)
    ??? We might want to restructure this so that it looks more like other
    ports.  */
 rtx
-function_arg (cum, mode, type, named, incoming)
+function_arg (cum, mode, type, named)
      CUMULATIVE_ARGS *cum;
      enum machine_mode mode;
      tree type;
      int named ATTRIBUTE_UNUSED;
-     int incoming;
 {
   int max_arg_words = (TARGET_64BIT ? 8 : 4);
   int alignment = 0;
@@ -8393,7 +8387,7 @@ function_arg (cum, mode, type, named, incoming)
   if (((TARGET_PORTABLE_RUNTIME || TARGET_64BIT || TARGET_ELF32)
        /* If we are doing soft-float with portable runtime, then there
 	  is no need to worry about FP regs.  */
-       && ! TARGET_SOFT_FLOAT
+       && !TARGET_SOFT_FLOAT
        /* The parameter must be some kind of float, else we can just
 	  pass it in integer registers.  */
        && FLOAT_MODE_P (mode)
@@ -8402,14 +8396,15 @@ function_arg (cum, mode, type, named, incoming)
        /* libcalls do not need to pass items in both FP and general
 	  registers.  */
        && type != NULL_TREE
-       /* All this hair applies to outgoing args only.  */
-       && ! incoming)
+       /* All this hair applies to "outgoing" args only.  This includes
+	  sibcall arguments setup with FUNCTION_INCOMING_ARG.  */
+       && !cum->incoming)
       /* Also pass outgoing floating arguments in both registers in indirect
 	 calls with the 32 bit ABI and the HP assembler since there is no
 	 way to the specify argument locations in static functions.  */
-      || (! TARGET_64BIT
-	  && ! TARGET_GAS
-	  && ! incoming
+      || (!TARGET_64BIT
+	  && !TARGET_GAS
+	  && !cum->incoming
 	  && cum->indirect
 	  && FLOAT_MODE_P (mode)))
     {

@@ -1,5 +1,5 @@
-@c Copyright (C) 1988,1989,1992,1993,1994,1996,1998,1999,2000,2001,2002,
-@c 2003 Free Software Foundation, Inc.
+@c Copyright (C) 1988,1989,1992,1993,1994,1996,1998,1999,2000,2001,2002, 2003
+@c Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
@@ -436,6 +436,7 @@ extensions, accepted by GCC in C89 mode and in C++.
 * Hex Floats::          Hexadecimal floating-point constants.
 * Zero Length::         Zero-length arrays.
 * Variable Length::     Arrays whose length is computed at run time.
+* Empty Structures::    Structures with no members.
 * Variadic Macros::	Macros with a variable number of arguments.
 * Escaped Newlines::    Slightly looser rules for escaped newlines.
 * Multi-line Strings::  String literals with embedded newlines.
@@ -486,7 +487,6 @@ extensions, accepted by GCC in C89 mode and in C++.
 
 @c the above section title wrapped and causes an underfull hbox.. i
 @c changed it from "within" to "in". --mew 4feb93
-
 A compound statement enclosed in parentheses may appear as an expression
 in GNU C@.  This allows you to use loops, switches, and local variables
 within an expression.
@@ -1033,6 +1033,7 @@ This will work with all versions of GCC@.
 @cindex lvalues, generalized
 @cindex extensions, @code{?:}
 @cindex @code{?:} extensions
+
 Compound expressions, conditional expressions and casts are allowed as
 lvalues provided their operands are lvalues.  This means that you can take
 their addresses or store values into them.
@@ -1357,6 +1358,22 @@ struct bar b = @{ @{ 1, @{ 2, 3, 4 @} @} @};    // @r{Invalid.}
 struct bar c = @{ @{ 1, @{ @} @} @};            // @r{Valid.}
 struct foo d[1] = @{ @{ 1 @{ 2, 3, 4 @} @} @};  // @r{Invalid.}
 @end example
+
+@node Empty Structures
+@section Structures With No Members
+@cindex empty structures
+@cindex zero-size structures
+
+GCC permits a C structure to have no members:
+
+@example
+struct empty @{
+@};
+@end example
+
+The structure will have size zero.  In C++, empty structures are part
+of the language.  G++ treats empty structures as if they had a single
+member of type @code{char}.
 
 @node Variable Length
 @section Arrays of Variable Length
@@ -2519,6 +2536,30 @@ Large model objects may live anywhere in the 32-bit address space (the
 compiler will generate @code{seth/add3} instructions to load their addresses),
 and may not be reachable with the @code{bl} instruction (the compiler will
 generate the much slower @code{seth/add3/jl} instruction sequence).
+
+@item far
+@cindex functions which handle memory bank switching
+On 68HC11 and 68HC12 the @code{far} attribute causes the compiler to
+use a calling convention that takes care of switching memory banks when
+entering and leaving a function.  This calling convention is also the
+default when using the @option{-mlong-calls} option.
+
+On 68HC12 the compiler will use the @code{call} and @code{rtc} instructions
+to call and return from a function.
+
+On 68HC11 the compiler will generate a sequence of instructions
+to invoke a board-specific routine to switch the memory bank and call the
+real function. The board-specific routine simulates a @code{call}.
+At the end of a function, it will jump to a board-specific routine
+instead of using @code{rts}. The board-specific return routine simulates
+the @code{rtc}.
+
+@item near
+@cindex functions which do not handle memory bank switching on 68HC11/68HC12
+On 68HC11 and 68HC12 the @code{near} attribute causes the compiler to
+use the normal calling convention based on @code{jsr} and @code{rts}.
+This attribute can be used to cancel the effect of the @option{-mlong-calls}
+option.
 
 @end table
 
@@ -4538,6 +4579,7 @@ v4si f (v4si a, v4si b, v4si c)
 @findex atan2l
 @findex bcmp
 @findex bzero
+@findex calloc
 @findex ceil
 @findex ceilf
 @findex ceill
@@ -4580,8 +4622,10 @@ v4si f (v4si a, v4si b, v4si c)
 @findex log
 @findex logf
 @findex logl
+@findex malloc
 @findex memcmp
 @findex memcpy
+@findex mempcpy
 @findex memset
 @findex nearbyint
 @findex nearbyintf
@@ -4607,11 +4651,13 @@ v4si f (v4si a, v4si b, v4si c)
 @findex sqrtf
 @findex sqrtl
 @findex sscanf
+@findex stpcpy
 @findex strcat
 @findex strchr
 @findex strcmp
 @findex strcpy
 @findex strcspn
+@findex strdup
 @findex strlen
 @findex strncat
 @findex strncmp
@@ -4651,8 +4697,9 @@ be emitted.
 Outside strict ISO C mode (@option{-ansi}, @option{-std=c89} or
 @option{-std=c99}), the functions @code{alloca}, @code{bcmp},
 @code{bzero}, @code{_exit}, @code{ffs}, @code{fprintf_unlocked},
-@code{fputs_unlocked}, @code{index}, @code{printf_unlocked},
-and @code{rindex} may be handled as built-in functions.
+@code{fputs_unlocked}, @code{index}, @code{mempcpy}, @code{printf_unlocked},
+@code{rindex}, @code{stpcpy} and @code{strdup} 
+may be handled as built-in functions.
 All these functions have corresponding versions
 prefixed with @code{__builtin_}, which may be used even in strict C89
 mode.
@@ -4677,10 +4724,10 @@ that are recognized in any mode since ISO C90 reserves these names for
 the purpose to which ISO C99 puts them.  All these functions have
 corresponding versions prefixed with @code{__builtin_}.
 
-The ISO C90 functions @code{abort}, @code{abs}, @code{atan2}, @code{ceil},
-@code{cos}, @code{exit},
+The ISO C90 functions @code{abort}, @code{abs}, @code{atan2},
+@code{calloc}, @code{ceil}, @code{cos}, @code{exit},
 @code{exp}, @code{fabs}, @code{floor}, @code{fmod},
-@code{fprintf}, @code{fputs}, @code{labs}, @code{log},
+@code{fprintf}, @code{fputs}, @code{labs}, @code{log}, @code{malloc},
 @code{memcmp}, @code{memcpy}, @code{memset}, @code{pow}, @code{printf},
 @code{putchar}, @code{puts}, @code{scanf}, @code{sin}, @code{snprintf},
 @code{sprintf}, @code{sqrt}, @code{sscanf},
@@ -4929,7 +4976,7 @@ ISO C macro @code{HUGE_VAL}.
 Similar to @code{__builtin_huge_val}, except the return type is @code{float}.
 @end deftypefn
 
-@deftypefn {Built-in Function} long double __builtin_huge_vall (void)
+@deftypefn {Built-in Function} {long double} __builtin_huge_vall (void)
 Similar to @code{__builtin_huge_val}, except the return
 type is @code{long double}.
 @end deftypefn
@@ -4944,7 +4991,7 @@ This function is suitable for implementing the ISO C99 macro @code{INFINITY}.
 Similar to @code{__builtin_inf}, except the return type is @code{float}.
 @end deftypefn
 
-@deftypefn {Built-in Function} long double __builtin_infl (void)
+@deftypefn {Built-in Function} {long double} __builtin_infl (void)
 Similar to @code{__builtin_inf}, except the return
 type is @code{long double}.
 @end deftypefn
@@ -4969,7 +5016,7 @@ that it is considered a compile-time constant.
 Similar to @code{__builtin_nan}, except the return type is @code{float}.
 @end deftypefn
 
-@deftypefn {Built-in Function} long double __builtin_nanl (const char *str)
+@deftypefn {Built-in Function} {long double} __builtin_nanl (const char *str)
 Similar to @code{__builtin_nan}, except the return type is @code{long double}.
 @end deftypefn
 
@@ -4983,7 +5030,7 @@ to be a signaling NaN.  The @code{nans} function is proposed by
 Similar to @code{__builtin_nans}, except the return type is @code{float}.
 @end deftypefn
 
-@deftypefn {Built-in Function} long double __builtin_nansl (const char *str)
+@deftypefn {Built-in Function} {long double} __builtin_nansl (const char *str)
 Similar to @code{__builtin_nans}, except the return type is @code{long double}.
 @end deftypefn
 
@@ -6543,7 +6590,7 @@ declarations.
 
 The following pragmas are available for all architectures running the
 Darwin operating system.  These are useful for compatibility with other
-MacOS compilers.
+Mac OS compilers.
 
 @table @code
 @item mark @var{tokens}@dots{}
@@ -7309,7 +7356,6 @@ If any calls were not inlined, you will get linker errors.
 
 @node Template Instantiation
 @section Where's the Template?
-
 @cindex template instantiation
 
 C++ templates are the first language feature to require more
@@ -7428,8 +7474,8 @@ compile it without @option{-fno-implicit-templates} so you get all of the
 instances required by your explicit instantiations (but not by any
 other files) without having to specify them as well.
 
-g++ has extended the template instantiation syntax outlined in the
-Working Paper to allow forward declaration of explicit instantiations
+g++ has extended the template instantiation syntax given in the ISO
+standard to allow forward declaration of explicit instantiations
 (with @code{extern}), instantiation of the compiler support data for a
 template class (i.e.@: the vtable) without instantiating any of its
 members (with @code{inline}), and instantiation of only the static data
@@ -7455,7 +7501,6 @@ more discussion of these pragmas.
 
 @node Bound member functions
 @section Extracting the function pointer from a bound pointer to member function
-
 @cindex pmf
 @cindex pointer to member function
 @cindex bound pointer to member function

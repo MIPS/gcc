@@ -146,10 +146,10 @@ extern int target_flags;
 #define TARGET_OPTIONS							\
 {									\
   {"branch-cost=",  &d30v_branch_cost_string,				\
-     N_("Change the branch costs within the compiler") },		\
+     N_("Change the branch costs within the compiler"), 0},		\
 									\
   {"cond-exec=",    &d30v_cond_exec_string,				\
-     N_("Change the threshold for conversion to conditional execution") }, \
+     N_("Change the threshold for conversion to conditional execution"), 0}, \
 }
 
 #define TARGET_VERSION fprintf (stderr, " d30v")
@@ -2737,12 +2737,6 @@ extern const char *d30v_branch_cost_string;
 
    You need not define this macro if it would do nothing.  */
 /* #define ASM_OUTPUT_SPECIAL_POOL_ENTRY(FILE, X, MODE, ALIGN, LABELNO, JUMPTO) */
-
-/* Define this macro as a C expression which is nonzero if the constant EXP, of
-   type `tree', should be output after the code for a function.  The compiler
-   will normally output all constants before the function; you need not define
-   this macro if this is OK.  */
-/* #define CONSTANT_AFTER_FUNCTION_P(EXP) */
 
 /* A C statement to output assembler commands to at the end of the constant
    pool for a function.  FUNNAME is a string giving the name of the function.

@@ -73,7 +73,6 @@
 
 #include "treelang.h"
 #include "treetree.h"
-#include "parse.h"
 
 extern int option_main;
 extern char **file_names;
@@ -908,7 +907,7 @@ prep_stmt (t)
      tree t;
 {
   if (!STMT_LINENO_FOR_FN_P (t))
-    lineno = STMT_LINENO (t);
+    input_line = STMT_LINENO (t);
   current_stmt_tree ()->stmts_are_full_exprs_p = STMT_IS_FULL_EXPR_P (t);
 }
 

@@ -1,3 +1,77 @@
+2003-05-03  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* com.c (ffecom_do_entry_): Use location_t and input_location
+	directly.
+	(ffecom_gen_sfuncdef_): Likewise.
+	(ffecom_start_progunit_): Likewise.
+	(ffecom_sym_transform_): Likewise.
+	(ffecom_sym_transform_assign_): Likewise.
+	* lex.c (ffelex_hash_): Likewise.
+	(ffelex_include_): Likewise.
+	* std.c (ffestd_exec_begin): Likewise.
+	(ffestd_exec_end): Likewise.
+	* ste.c (struct gbe_block): Likewise.
+	(ffeste_start_block_): Likewise.
+	(ffeste_start_stmt_): Likewise.
+
+2003-05-03  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* ansify.c (die_unless): Revert lineno change here.
+
+2003-05-02  Nathan Sidwell  <nathan@codesourcery.com>
+
+ 	* lex.c (ffelex_file_pop_): Adjust file_stack member use.
+	(ffelex_file_push_): Likewise.
+	(ffelex_hash_): Likewise.
+
+2003-05-01  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* ansify.c (die_unless): Rename lineno to input_line.
+	* com.c (ffecom_subscript_check_, ffecom_do_entry_,
+	ffecom_gen_sfuncdef_, ffecom_start_progunit_,
+	ffecom_sym_transform_, ffecom_sym_transform_assign_,
+	bison_rule_pushlevel_, bison_rule_compstmt_, finish_function,
+	store_parm_decls): Likewise.
+	* intrin.c (ffeintrin_fulfill_generic): Likewise.
+	* lex.c (ffelex_hash_, ffelex_include_, ffelex_next_line_,
+	ffelex_file_fixed, ffelex_file_free): Likewise.
+	* std.c (ffestd_exec_end): Likewise.
+	* ste.c (ffeste_emit_line_note_, ffeste_start_block_,
+	ffeste_start_stmt_): Likewise.
+	* ste.h (ffeste_filelinenum, ffeste_set_line): Likewise.
+
+	* lex.c (ffelex_file_pop_): Rename parameter from input_filename.
+	(ffelex_file_push_): Likewise.
+	
+	* ste.c (struct gbe_block): Rename field from input_filename.
+	(ffeste_start_block_, ffeste_start_stmt_): Likewise.
+
+2003-04-17  Roger Sayle  <roger@eyesopen.com>
+
+	PR c/10375
+	* com.c (duplicate_decls): Preserve "const" and "noreturn"
+	function attributes.
+
+2003-04-13  Roger Sayle  <roger@eyesopen.com>
+
+	* com.c (duplicate_decls): Preserve pure and malloc attributes.
+
+2003-04-12  Zack Weinberg  <zack@codesourcery.com>
+
+	* com.c (ffecom_build_complex_constant_, ffecom_expr_)
+	(ffecom_init_zero_, ffecom_transform_namelist_, ffecom_vardesc_)
+	(ffecom_vardesc_array_, ffecom_vardesc_dims_, ffecom_2)
+	* ste.c (ffeste_io_ialist_, ffeste_io_cilist_, ffeste_io_cllist_)
+	(ffeste_io_icilist_, ffeste_io_inlist_, ffeste_io_olist_):
+	Use build_constructor.
+
+2003-04-11  Bud Davis <bdavis9659@comcast.net>
+
+	PR Fortran/9263
+	* gcc/f/data.c (ffedata_advance_): Check initial, final and
+	increment values for INTEGER typeness.
+	* gcc/f/news.texi: Document these fixes.
+
 2003-03-27  Steven Bosscher  <steven@gcc.gnu.org>
 
 	* ffe.texi: Don't mention dead file proj.c.

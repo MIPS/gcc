@@ -3042,7 +3042,7 @@ display_help ()
   fputs (_("  -o <file>                Place the output into <file>\n"), stdout);
   fputs (_("\
   -x <language>            Specify the language of the following input files\n\
-                           Permissable languages include: c c++ assembler none\n\
+                           Permissible languages include: c c++ assembler none\n\
                            'none' means revert to the default behavior of\n\
                            guessing the language based on the file's extension\n\
 "), stdout);
@@ -4170,7 +4170,7 @@ set_collect_gcc_options ()
    sans all directory names, and basename_length is the number
    of characters starting there excluding the suffix .c or whatever.  */
 
-const char *input_filename;
+static const char *input_filename;
 static int input_file_number;
 size_t input_filename_length;
 static int basename_length;

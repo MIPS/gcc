@@ -139,7 +139,7 @@ static void	  mcore_asm_named_section      PARAMS ((const char *,
 							unsigned int));
 #endif
 static void       mcore_unique_section	       PARAMS ((tree, int));
-static void mcore_encode_section_info		PARAMS ((tree, int));
+static void mcore_encode_section_info		PARAMS ((tree, rtx, int));
 static const char *mcore_strip_name_encoding	PARAMS ((const char *));
 static int        mcore_const_costs            	PARAMS ((rtx, RTX_CODE));
 static int        mcore_and_cost               	PARAMS ((rtx));
@@ -3464,20 +3464,11 @@ mcore_dllimport_p (decl)
    install some info in the .drective (PE) or .exports (ELF) sections.   */
 
 static void
-mcore_encode_section_info (decl, first)
+mcore_encode_section_info (decl, rtl, first)
      tree decl;
+     rtx rtl ATTRIBUTE_UNUSED;
      int first ATTRIBUTE_UNUSED;
 {
-  /* This bit is copied from arm.h.  */
-  if (optimize > 0
-      && TREE_CONSTANT (decl)
-      && (!flag_writable_strings || TREE_CODE (decl) != STRING_CST))
-    {
-      rtx rtl = (TREE_CODE_CLASS (TREE_CODE (decl)) != 'd'
-                 ? TREE_CST_RTL (decl) : DECL_RTL (decl));
-      SYMBOL_REF_FLAG (XEXP (rtl, 0)) = 1;
-    }
-
   /* Mark the decl so we can tell from the rtl whether the object is
      dllexport'd or dllimport'd.  */
   if (mcore_dllexport_p (decl))

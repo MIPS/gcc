@@ -42,11 +42,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "splay-tree.h"
 #include "debug.h"
 
-#ifdef MULTIBYTE_CHARS
-#include "mbchar.h"
-#include <locale.h>
-#endif /* MULTIBYTE_CHARS */
-
 /* The current line map.  */
 static const struct line_map *map;
 
@@ -78,8 +73,7 @@ static enum integer_type_kind
   narrowest_unsigned_type	PARAMS ((tree, unsigned int));
 static enum integer_type_kind
   narrowest_signed_type		PARAMS ((tree, unsigned int));
-static tree lex_string		PARAMS ((const unsigned char *, unsigned int,
-					 int));
+static tree lex_string		PARAMS ((const cpp_string *));
 static tree lex_charconst	PARAMS ((const cpp_token *));
 static void update_header_times	PARAMS ((const char *));
 static int dump_one_header	PARAMS ((splay_tree_node, void *));
@@ -201,7 +195,7 @@ cb_ident (pfile, line, str)
   if (! flag_no_ident)
     {
       /* Convert escapes in the string.  */
-      tree value ATTRIBUTE_UNUSED = lex_string (str->text, str->len, 0);
+      tree value ATTRIBUTE_UNUSED = lex_string (str);
       ASM_OUTPUT_IDENT (asm_out_file, TREE_STRING_POINTER (value));
     }
 #endif
@@ -234,7 +228,7 @@ fe_file_change (new_map)
 	{
           int included_at = SOURCE_LINE (new_map - 1, new_map->from_line - 1);
 
-	  lineno = included_at;
+	  input_line = included_at;
 	  push_srcloc (new_map->to_file, 1);
 	  (*debug_hooks->start_source_file) (included_at, new_map->to_file);
 #ifndef NO_IMPLICIT_EXTERN_C
@@ -266,7 +260,7 @@ fe_file_change (new_map)
   update_header_times (new_map->to_file);
   in_system_header = new_map->sysp != 0;
   input_filename = new_map->to_file;
-  lineno = to_line;
+  input_line = to_line;
   map = new_map;
 
   /* Hook for C++.  */
@@ -296,7 +290,7 @@ cb_def_pragma (pfile, line)
 	    name = cpp_token_as_text (pfile, s);
 	}
 
-      lineno = SOURCE_LINE (map, line);
+      input_line = SOURCE_LINE (map, line);
       warning ("ignoring #pragma %s %s", space, name);
     }
 }
@@ -322,315 +316,6 @@ cb_undef (pfile, line, node)
   (*debug_hooks->undef) (SOURCE_LINE (map, line),
 			 (const char *) NODE_NAME (node));
 }
-
-#if 0 /* not yet */
-/* Returns nonzero if C is a universal-character-name.  Give an error if it
-   is not one which may appear in an identifier, as per [extendid].
-
-   Note that extended character support in identifiers has not yet been
-   implemented.  It is my personal opinion that this is not a desirable
-   feature.  Portable code cannot count on support for more than the basic
-   identifier character set.  */
-
-static inline int
-is_extended_char (c)
-     int c;
-{
-#ifdef TARGET_EBCDIC
-  return 0;
-#else
-  /* ASCII.  */
-  if (c < 0x7f)
-    return 0;
-
-  /* None of the valid chars are outside the Basic Multilingual Plane (the
-     low 16 bits).  */
-  if (c > 0xffff)
-    {
-      error ("universal-character-name '\\U%08x' not valid in identifier", c);
-      return 1;
-    }
-  
-  /* Latin */
-  if ((c >= 0x00c0 && c <= 0x00d6)
-      || (c >= 0x00d8 && c <= 0x00f6)
-      || (c >= 0x00f8 && c <= 0x01f5)
-      || (c >= 0x01fa && c <= 0x0217)
-      || (c >= 0x0250 && c <= 0x02a8)
-      || (c >= 0x1e00 && c <= 0x1e9a)
-      || (c >= 0x1ea0 && c <= 0x1ef9))
-    return 1;
-
-  /* Greek */
-  if ((c == 0x0384)
-      || (c >= 0x0388 && c <= 0x038a)
-      || (c == 0x038c)
-      || (c >= 0x038e && c <= 0x03a1)
-      || (c >= 0x03a3 && c <= 0x03ce)
-      || (c >= 0x03d0 && c <= 0x03d6)
-      || (c == 0x03da)
-      || (c == 0x03dc)
-      || (c == 0x03de)
-      || (c == 0x03e0)
-      || (c >= 0x03e2 && c <= 0x03f3)
-      || (c >= 0x1f00 && c <= 0x1f15)
-      || (c >= 0x1f18 && c <= 0x1f1d)
-      || (c >= 0x1f20 && c <= 0x1f45)
-      || (c >= 0x1f48 && c <= 0x1f4d)
-      || (c >= 0x1f50 && c <= 0x1f57)
-      || (c == 0x1f59)
-      || (c == 0x1f5b)
-      || (c == 0x1f5d)
-      || (c >= 0x1f5f && c <= 0x1f7d)
-      || (c >= 0x1f80 && c <= 0x1fb4)
-      || (c >= 0x1fb6 && c <= 0x1fbc)
-      || (c >= 0x1fc2 && c <= 0x1fc4)
-      || (c >= 0x1fc6 && c <= 0x1fcc)
-      || (c >= 0x1fd0 && c <= 0x1fd3)
-      || (c >= 0x1fd6 && c <= 0x1fdb)
-      || (c >= 0x1fe0 && c <= 0x1fec)
-      || (c >= 0x1ff2 && c <= 0x1ff4)
-      || (c >= 0x1ff6 && c <= 0x1ffc))
-    return 1;
-
-  /* Cyrillic */
-  if ((c >= 0x0401 && c <= 0x040d)
-      || (c >= 0x040f && c <= 0x044f)
-      || (c >= 0x0451 && c <= 0x045c)
-      || (c >= 0x045e && c <= 0x0481)
-      || (c >= 0x0490 && c <= 0x04c4)
-      || (c >= 0x04c7 && c <= 0x04c8)
-      || (c >= 0x04cb && c <= 0x04cc)
-      || (c >= 0x04d0 && c <= 0x04eb)
-      || (c >= 0x04ee && c <= 0x04f5)
-      || (c >= 0x04f8 && c <= 0x04f9))
-    return 1;
-
-  /* Armenian */
-  if ((c >= 0x0531 && c <= 0x0556)
-      || (c >= 0x0561 && c <= 0x0587))
-    return 1;
-
-  /* Hebrew */
-  if ((c >= 0x05d0 && c <= 0x05ea)
-      || (c >= 0x05f0 && c <= 0x05f4))
-    return 1;
-
-  /* Arabic */
-  if ((c >= 0x0621 && c <= 0x063a)
-      || (c >= 0x0640 && c <= 0x0652)
-      || (c >= 0x0670 && c <= 0x06b7)
-      || (c >= 0x06ba && c <= 0x06be)
-      || (c >= 0x06c0 && c <= 0x06ce)
-      || (c >= 0x06e5 && c <= 0x06e7))
-    return 1;
-
-  /* Devanagari */
-  if ((c >= 0x0905 && c <= 0x0939)
-      || (c >= 0x0958 && c <= 0x0962))
-    return 1;
-
-  /* Bengali */
-  if ((c >= 0x0985 && c <= 0x098c)
-      || (c >= 0x098f && c <= 0x0990)
-      || (c >= 0x0993 && c <= 0x09a8)
-      || (c >= 0x09aa && c <= 0x09b0)
-      || (c == 0x09b2)
-      || (c >= 0x09b6 && c <= 0x09b9)
-      || (c >= 0x09dc && c <= 0x09dd)
-      || (c >= 0x09df && c <= 0x09e1)
-      || (c >= 0x09f0 && c <= 0x09f1))
-    return 1;
-
-  /* Gurmukhi */
-  if ((c >= 0x0a05 && c <= 0x0a0a)
-      || (c >= 0x0a0f && c <= 0x0a10)
-      || (c >= 0x0a13 && c <= 0x0a28)
-      || (c >= 0x0a2a && c <= 0x0a30)
-      || (c >= 0x0a32 && c <= 0x0a33)
-      || (c >= 0x0a35 && c <= 0x0a36)
-      || (c >= 0x0a38 && c <= 0x0a39)
-      || (c >= 0x0a59 && c <= 0x0a5c)
-      || (c == 0x0a5e))
-    return 1;
-
-  /* Gujarati */
-  if ((c >= 0x0a85 && c <= 0x0a8b)
-      || (c == 0x0a8d)
-      || (c >= 0x0a8f && c <= 0x0a91)
-      || (c >= 0x0a93 && c <= 0x0aa8)
-      || (c >= 0x0aaa && c <= 0x0ab0)
-      || (c >= 0x0ab2 && c <= 0x0ab3)
-      || (c >= 0x0ab5 && c <= 0x0ab9)
-      || (c == 0x0ae0))
-    return 1;
-
-  /* Oriya */
-  if ((c >= 0x0b05 && c <= 0x0b0c)
-      || (c >= 0x0b0f && c <= 0x0b10)
-      || (c >= 0x0b13 && c <= 0x0b28)
-      || (c >= 0x0b2a && c <= 0x0b30)
-      || (c >= 0x0b32 && c <= 0x0b33)
-      || (c >= 0x0b36 && c <= 0x0b39)
-      || (c >= 0x0b5c && c <= 0x0b5d)
-      || (c >= 0x0b5f && c <= 0x0b61))
-    return 1;
-
-  /* Tamil */
-  if ((c >= 0x0b85 && c <= 0x0b8a)
-      || (c >= 0x0b8e && c <= 0x0b90)
-      || (c >= 0x0b92 && c <= 0x0b95)
-      || (c >= 0x0b99 && c <= 0x0b9a)
-      || (c == 0x0b9c)
-      || (c >= 0x0b9e && c <= 0x0b9f)
-      || (c >= 0x0ba3 && c <= 0x0ba4)
-      || (c >= 0x0ba8 && c <= 0x0baa)
-      || (c >= 0x0bae && c <= 0x0bb5)
-      || (c >= 0x0bb7 && c <= 0x0bb9))
-    return 1;
-
-  /* Telugu */
-  if ((c >= 0x0c05 && c <= 0x0c0c)
-      || (c >= 0x0c0e && c <= 0x0c10)
-      || (c >= 0x0c12 && c <= 0x0c28)
-      || (c >= 0x0c2a && c <= 0x0c33)
-      || (c >= 0x0c35 && c <= 0x0c39)
-      || (c >= 0x0c60 && c <= 0x0c61))
-    return 1;
-
-  /* Kannada */
-  if ((c >= 0x0c85 && c <= 0x0c8c)
-      || (c >= 0x0c8e && c <= 0x0c90)
-      || (c >= 0x0c92 && c <= 0x0ca8)
-      || (c >= 0x0caa && c <= 0x0cb3)
-      || (c >= 0x0cb5 && c <= 0x0cb9)
-      || (c >= 0x0ce0 && c <= 0x0ce1))
-    return 1;
-
-  /* Malayalam */
-  if ((c >= 0x0d05 && c <= 0x0d0c)
-      || (c >= 0x0d0e && c <= 0x0d10)
-      || (c >= 0x0d12 && c <= 0x0d28)
-      || (c >= 0x0d2a && c <= 0x0d39)
-      || (c >= 0x0d60 && c <= 0x0d61))
-    return 1;
-
-  /* Thai */
-  if ((c >= 0x0e01 && c <= 0x0e30)
-      || (c >= 0x0e32 && c <= 0x0e33)
-      || (c >= 0x0e40 && c <= 0x0e46)
-      || (c >= 0x0e4f && c <= 0x0e5b))
-    return 1;
-
-  /* Lao */
-  if ((c >= 0x0e81 && c <= 0x0e82)
-      || (c == 0x0e84)
-      || (c == 0x0e87)
-      || (c == 0x0e88)
-      || (c == 0x0e8a)
-      || (c == 0x0e0d)
-      || (c >= 0x0e94 && c <= 0x0e97)
-      || (c >= 0x0e99 && c <= 0x0e9f)
-      || (c >= 0x0ea1 && c <= 0x0ea3)
-      || (c == 0x0ea5)
-      || (c == 0x0ea7)
-      || (c == 0x0eaa)
-      || (c == 0x0eab)
-      || (c >= 0x0ead && c <= 0x0eb0)
-      || (c == 0x0eb2)
-      || (c == 0x0eb3)
-      || (c == 0x0ebd)
-      || (c >= 0x0ec0 && c <= 0x0ec4)
-      || (c == 0x0ec6))
-    return 1;
-
-  /* Georgian */
-  if ((c >= 0x10a0 && c <= 0x10c5)
-      || (c >= 0x10d0 && c <= 0x10f6))
-    return 1;
-
-  /* Hiragana */
-  if ((c >= 0x3041 && c <= 0x3094)
-      || (c >= 0x309b && c <= 0x309e))
-    return 1;
-
-  /* Katakana */
-  if ((c >= 0x30a1 && c <= 0x30fe))
-    return 1;
-
-  /* Bopmofo */
-  if ((c >= 0x3105 && c <= 0x312c))
-    return 1;
-
-  /* Hangul */
-  if ((c >= 0x1100 && c <= 0x1159)
-      || (c >= 0x1161 && c <= 0x11a2)
-      || (c >= 0x11a8 && c <= 0x11f9))
-    return 1;
-
-  /* CJK Unified Ideographs */
-  if ((c >= 0xf900 && c <= 0xfa2d)
-      || (c >= 0xfb1f && c <= 0xfb36)
-      || (c >= 0xfb38 && c <= 0xfb3c)
-      || (c == 0xfb3e)
-      || (c >= 0xfb40 && c <= 0xfb41)
-      || (c >= 0xfb42 && c <= 0xfb44)
-      || (c >= 0xfb46 && c <= 0xfbb1)
-      || (c >= 0xfbd3 && c <= 0xfd3f)
-      || (c >= 0xfd50 && c <= 0xfd8f)
-      || (c >= 0xfd92 && c <= 0xfdc7)
-      || (c >= 0xfdf0 && c <= 0xfdfb)
-      || (c >= 0xfe70 && c <= 0xfe72)
-      || (c == 0xfe74)
-      || (c >= 0xfe76 && c <= 0xfefc)
-      || (c >= 0xff21 && c <= 0xff3a)
-      || (c >= 0xff41 && c <= 0xff5a)
-      || (c >= 0xff66 && c <= 0xffbe)
-      || (c >= 0xffc2 && c <= 0xffc7)
-      || (c >= 0xffca && c <= 0xffcf)
-      || (c >= 0xffd2 && c <= 0xffd7)
-      || (c >= 0xffda && c <= 0xffdc)
-      || (c >= 0x4e00 && c <= 0x9fa5))
-    return 1;
-
-  error ("universal-character-name '\\u%04x' not valid in identifier", c);
-  return 1;
-#endif
-}
-
-/* Add the UTF-8 representation of C to the token_buffer.  */
-
-static void
-utf8_extend_token (c)
-     int c;
-{
-  int shift, mask;
-
-  if      (c <= 0x0000007f)
-    {
-      extend_token (c);
-      return;
-    }
-  else if (c <= 0x000007ff)
-    shift = 6, mask = 0xc0;
-  else if (c <= 0x0000ffff)
-    shift = 12, mask = 0xe0;
-  else if (c <= 0x001fffff)
-    shift = 18, mask = 0xf0;
-  else if (c <= 0x03ffffff)
-    shift = 24, mask = 0xf8;
-  else
-    shift = 30, mask = 0xfc;
-
-  extend_token (mask | (c >> shift));
-  do
-    {
-      shift -= 6;
-      extend_token ((unsigned char) (0x80 | (c >> shift)));
-    }
-  while (shift);
-}
-#endif
 
 int
 c_lex (value)
@@ -638,7 +323,7 @@ c_lex (value)
 {
   const cpp_token *tok;
 
-  retry:
+ retry:
   timevar_push (TV_CPP);
   do
     tok = cpp_get_token (parse_in);
@@ -648,19 +333,11 @@ c_lex (value)
   /* The C++ front end does horrible things with the current line
      number.  To ensure an accurate line number, we must reset it
      every time we return a token.  */
-  lineno = src_lineno;
+  input_line = src_lineno;
 
   *value = NULL_TREE;
   switch (tok->type)
     {
-    /* Issue this error here, where we can get at tok->val.c.  */
-    case CPP_OTHER:
-      if (ISGRAPH (tok->val.c))
-	error ("stray '%c' in program", tok->val.c);
-      else
-	error ("stray '\\%o' in program", tok->val.c);
-      goto retry;
-      
     case CPP_NAME:
       *value = HT_IDENT_TO_GCC_IDENT (HT_NODE (tok->val.node));
       break;
@@ -690,6 +367,19 @@ c_lex (value)
       }
       break;
 
+    case CPP_OTHER:
+      {
+	cppchar_t c = tok->val.str.text[0];
+
+	if (c == '"' || c == '\'')
+	  error ("missing terminating %c character", (int) c);
+	else if (ISGRAPH (c))
+	  error ("stray '%c' in program", (int) c);
+	else
+	  error ("stray '\\%o' in program", (int) c);
+      }
+      goto retry;
+
     case CPP_CHAR:
     case CPP_WCHAR:
       *value = lex_charconst (tok);
@@ -697,8 +387,7 @@ c_lex (value)
 
     case CPP_STRING:
     case CPP_WSTRING:
-      *value = lex_string (tok->val.str.text, tok->val.str.len,
-			   tok->type == CPP_WSTRING);
+      *value = lex_string (&tok->val.str);
       break;
 
       /* These tokens should not be visible outside cpplib.  */
@@ -913,43 +602,23 @@ interpret_float (token, flags)
 }
 
 static tree
-lex_string (str, len, wide)
-     const unsigned char *str;
-     unsigned int len;
-     int wide;
+lex_string (str)
+     const cpp_string *str;
 {
+  bool wide;
   tree value;
-  char *buf = alloca ((len + 1) * (wide ? WCHAR_BYTES : 1));
-  char *q = buf;
-  const unsigned char *p = str, *limit = str + len;
+  char *buf, *q;
   cppchar_t c;
-
-#ifdef MULTIBYTE_CHARS
-  /* Reset multibyte conversion state.  */
-  (void) local_mbtowc (NULL, NULL, 0);
-#endif
+  const unsigned char *p, *limit;
+  
+  wide = str->text[0] == 'L';
+  p = str->text + 1 + wide;
+  limit = str->text + str->len - 1;
+  q = buf = alloca ((str->len + 1) * (wide ? WCHAR_BYTES : 1));
 
   while (p < limit)
     {
-#ifdef MULTIBYTE_CHARS
-      wchar_t wc;
-      int char_len;
-
-      char_len = local_mbtowc (&wc, (const char *) p, limit - p);
-      if (char_len == -1)
-	{
-	  warning ("ignoring invalid multibyte character");
-	  char_len = 1;
-	  c = *p++;
-	}
-      else
-	{
-	  p += char_len;
-	  c = wc;
-	}
-#else
       c = *p++;
-#endif
 
       if (c == '\\' && !ignore_escape_flag)
 	c = cpp_parse_escape (parse_in, &p, limit, wide);
@@ -976,16 +645,6 @@ lex_string (str, len, wide)
 	    }
 	  q += WCHAR_BYTES;
 	}
-#ifdef MULTIBYTE_CHARS
-      else if (char_len > 1)
-	{
-	  /* We're dealing with a multibyte character.  */
-	  for ( ; char_len >0; --char_len)
-	    {
-	      *q++ = *(p - char_len);
-	    }
-	}
-#endif
       else
 	{
 	  *q++ = c;

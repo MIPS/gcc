@@ -7,7 +7,7 @@
  *                          C Implementation File                           *
  *                                                                          *
  *                                                                          *
- *          Copyright (C) 1992-2002, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2003, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -479,7 +479,7 @@ pushdecl (decl)
 void
 gnat_init_decl_processing ()
 {
-  lineno = 0;
+  input_line = 0;
 
   /* Make the binding_level structure for global names.  */
   current_function_decl = 0;
@@ -1780,7 +1780,7 @@ begin_subprog_body (subprog_decl)
   /* Store back the PARM_DECL nodes. They appear in the right order. */
   DECL_ARGUMENTS (subprog_decl) = getdecls ();
 
-  init_function_start (subprog_decl, input_filename, lineno);
+  init_function_start (subprog_decl, input_filename, input_line);
   expand_function_start (subprog_decl, 0);
 
   /* If this function is `main', emit a call to `__main'
@@ -1807,7 +1807,7 @@ end_subprog_body ()
   /* Mark the RESULT_DECL as being in this subprogram. */
   DECL_CONTEXT (DECL_RESULT (current_function_decl)) = current_function_decl;
 
-  expand_function_end (input_filename, lineno, 0);
+  expand_function_end (input_filename, input_line, 0);
 
   /* If this is a nested function, push a new GC context.  That will keep
      local variables on the stack from being collected while we're doing
@@ -2205,7 +2205,7 @@ build_template (template_type, array_type, expr)
 				 tree_cons (field, min, template_elts));
     }
 
-  return build_constructor (template_type, nreverse (template_elts));
+  return gnat_build_constructor (template_type, nreverse (template_elts));
 }
 
 /* Build a VMS descriptor from a Mechanism_Type, which must specify
@@ -2680,7 +2680,7 @@ convert_to_fat_pointer (type, expr)
      pointer to the template and array.  */
   if (integer_zerop (expr))
     return
-      build_constructor
+      gnat_build_constructor
 	(type,
 	 tree_cons (TYPE_FIELDS (type),
 		    convert (TREE_TYPE (TYPE_FIELDS (type)), expr),
@@ -2714,7 +2714,7 @@ convert_to_fat_pointer (type, expr)
 
   /* The result is a CONSTRUCTOR for the fat pointer.  */
   return
-    build_constructor (type,
+    gnat_build_constructor (type,
 		       tree_cons (TYPE_FIELDS (type), expr,
 				  tree_cons (TREE_CHAIN (TYPE_FIELDS (type)),
 					     template_addr, NULL_TREE)));
@@ -2817,7 +2817,7 @@ convert (type, expr)
 
       else
 	return
-	  build_constructor (type,
+	  gnat_build_constructor (type,
 			     tree_cons (TYPE_FIELDS (type),
 					convert (TREE_TYPE
 						 (TYPE_FIELDS (type)),
@@ -2848,7 +2848,7 @@ convert (type, expr)
       tree obj_type = TREE_TYPE (TREE_CHAIN (TYPE_FIELDS (type)));
 
       return
-	build_constructor
+	gnat_build_constructor
 	  (type,
 	   tree_cons (TYPE_FIELDS (type),
 		      build_template (TREE_TYPE (TYPE_FIELDS (type)),
@@ -2876,18 +2876,13 @@ convert (type, expr)
     case CONSTRUCTOR:
       /* If we are converting a STRING_CST to another constrained array type,
 	 just make a new one in the proper type.  Likewise for a
-	 CONSTRUCTOR.  But if the mode of the type is different, we must
-	 ensure a new RTL is made for the constant.  */
+	 CONSTRUCTOR.  */
       if (code == ecode && AGGREGATE_TYPE_P (etype)
 	  && ! (TREE_CODE (TYPE_SIZE (etype)) == INTEGER_CST
 		&& TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST))
 	{
 	  expr = copy_node (expr);
 	  TREE_TYPE (expr) = type;
-
-	  if (TYPE_MODE (type) != TYPE_MODE (etype))
-	    TREE_CST_RTL (expr) = 0;
-
 	  return expr;
 	}
       break;
@@ -3016,7 +3011,7 @@ convert (type, expr)
     case RECORD_TYPE:
       if (TYPE_LEFT_JUSTIFIED_MODULAR_P (type) && ! AGGREGATE_TYPE_P (etype))
 	return
-	  build_constructor
+	  gnat_build_constructor
 	    (type, tree_cons (TYPE_FIELDS (type),
 			      convert (TREE_TYPE (TYPE_FIELDS (type)), expr),
 			      NULL_TREE));
@@ -3262,7 +3257,7 @@ unchecked_convert (type, expr)
       TYPE_FIELDS (rec_type) = field;
       layout_type (rec_type);
 
-      expr = build_constructor (rec_type, build_tree_list (field, expr));
+      expr = gnat_build_constructor (rec_type, build_tree_list (field, expr));
       expr = unchecked_convert (type, expr);
     }
 

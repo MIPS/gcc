@@ -125,6 +125,7 @@ static int decode_f_option PARAMS ((const char *));
 static int decode_W_option PARAMS ((const char *));
 static int decode_g_option PARAMS ((const char *));
 static unsigned int independent_decode_option PARAMS ((int, char **));
+static void set_Wextra PARAMS ((int));
 
 static void print_version PARAMS ((FILE *, const char *));
 static int print_single_switch PARAMS ((FILE *, int, int, const char *,
@@ -150,20 +151,15 @@ const char *progname;
 int save_argc;
 char **save_argv;
 
-/* Name of current original source file (what was input to cpp).
-   This comes from each #-command in the actual input.  */
-
-const char *input_filename;
-
 /* Name of top-level original source file (what was input to cpp).
    This comes from the #-command at the beginning of the actual input.
    If there isn't any there, then this is the cc1 input file name.  */
 
 const char *main_input_filename;
 
-/* Current line number in real source file.  */
+/* Current position in real source file.  */
 
-int lineno;
+location_t input_location;
 
 /* Nonzero if it is unsafe to create any new pseudo registers.  */
 int no_new_pseudos;
@@ -432,7 +428,7 @@ int quiet_flag = 0;
 
 /* Print times taken by the various passes.  -ftime-report.  */
 
-int time_report = 0;
+static int time_report = 0;
 
 /* Print memory still in use at end of compilation (which may have little
    to do with peak memory consumption).  -fmem-report.  */
@@ -1143,9 +1139,9 @@ static const lang_independent_options f_options[] =
   {"sched-spec-load-dangerous",&flag_schedule_speculative_load_dangerous, 1,
    N_("Allow speculative motion of more loads") },
   {"sched2-use-superblocks", &flag_sched2_use_superblocks, 1,
-   N_("If scheduling post reload, do superblock sheduling") },
+   N_("If scheduling post reload, do superblock scheduling") },
   {"sched2-use-traces", &flag_sched2_use_traces, 1,
-   N_("If scheduling post reload, do trace sheduling") },
+   N_("If scheduling post reload, do trace scheduling") },
   {"branch-count-reg",&flag_branch_on_count_reg, 1,
    N_("Replace add,compare,branch with branch on count reg") },
   {"pic", &flag_pic, 1,
@@ -1186,7 +1182,7 @@ static const lang_independent_options f_options[] =
   {"data-sections", &flag_data_sections, 1,
    N_("place data items into their own section") },
   {"verbose-asm", &flag_verbose_asm, 1,
-   N_("Add extra commentry to assembler output") },
+   N_("Add extra commentary to assembler output") },
   {"gnu-linker", &flag_gnu_linker, 1,
    N_("Output GNU ld formatted global initializers") },
   {"regmove", &flag_regmove, 1,
@@ -1214,7 +1210,7 @@ static const lang_independent_options f_options[] =
   {"align-functions", &align_functions, 0,
    N_("Align the start of functions") },
   {"merge-constants", &flag_merge_constants, 1,
-   N_("Attempt to merge identical constants accross compilation units") },
+   N_("Attempt to merge identical constants across compilation units") },
   {"merge-all-constants", &flag_merge_constants, 2,
    N_("Attempt to merge identical constants and constant variables") },
   {"dump-unnumbered", &flag_dump_unnumbered, 1,
@@ -1478,6 +1474,7 @@ static const struct
   const char *const prefix;
   const char **const variable;
   const char *const description;
+  const char *const value;
 }
 target_options[] = TARGET_OPTIONS;
 #endif
@@ -1507,6 +1504,9 @@ int warn_unused_label;
 int warn_unused_parameter;
 int warn_unused_variable;
 int warn_unused_value;
+
+/* Used for cooperation between set_Wunused and set_Wextra.  */
+static int maybe_warn_unused_parameter;
 
 /* Nonzero to warn about code which is never reached.  */
 
@@ -1631,8 +1631,6 @@ static const lang_independent_options W_options[] =
    N_("Warn when an optimization pass is disabled") },
   {"deprecated-declarations", &warn_deprecated_decl, 1,
    N_("Warn about uses of __attribute__((deprecated)) declarations") },
-  {"extra", &extra_warnings, 1,
-   N_("Print extra (possibly unwanted) warnings") },
   {"missing-noreturn", &warn_missing_noreturn, 1,
    N_("Warn about functions which might be candidates for attribute noreturn") },
   {"strict-aliasing", &warn_strict_aliasing, 1,
@@ -1645,15 +1643,32 @@ set_Wunused (setting)
 {
   warn_unused_function = setting;
   warn_unused_label = setting;
-  /* Unused function parameter warnings are reported when either ``-W
-     -Wunused'' or ``-Wunused-parameter'' is specified.  Differentiate
-     -Wunused by setting WARN_UNUSED_PARAMETER to -1.  */
-  if (!setting)
-    warn_unused_parameter = 0;
-  else if (!warn_unused_parameter)
-    warn_unused_parameter = -1;
+  /* Unused function parameter warnings are reported when either
+     ``-Wextra -Wunused'' or ``-Wunused-parameter'' is specified.
+     Thus, if -Wextra has already been seen, set warn_unused_parameter;
+     otherwise set maybe_warn_extra_parameter, which will be picked up
+     by set_Wextra.  */
+  maybe_warn_unused_parameter = setting;
+  warn_unused_parameter = (setting && extra_warnings);
   warn_unused_variable = setting;
   warn_unused_value = setting;
+}
+
+static void
+set_Wextra (setting)
+     int setting;
+{
+  extra_warnings = setting;
+  warn_unused_value = setting;
+  warn_unused_parameter = (setting && maybe_warn_unused_parameter);
+
+  /* We save the value of warn_uninitialized, since if they put
+     -Wuninitialized on the command line, we need to generate a
+     warning about not using it without also specifying -O.  */
+  if (setting == 0)
+    warn_uninitialized = 0;
+  else if (warn_uninitialized != 1)
+    warn_uninitialized = 2;
 }
 
 /* The following routines are useful in setting all the flags that
@@ -1713,7 +1728,7 @@ read_integral_parameter (p, pname, defval)
   if (*endp != 0)
     {
       if (pname != 0)
-	error ("invalid option `%s'", pname);
+	error ("invalid option argument `%s'", pname);
       return defval;
     }
 
@@ -2175,9 +2190,9 @@ check_global_declarations (vec, len)
     }
 }
 
-/* Save the current INPUT_FILENAME and LINENO on the top entry in the
+/* Save the current INPUT_LOCATION on the top entry in the
    INPUT_FILE_STACK.  Push a new entry for FILE and LINE, and set the
-   INPUT_FILENAME and LINENO accordingly.  */
+   INPUT_LOCATION accordingly.  */
 
 void
 push_srcloc (file, line)
@@ -2187,22 +2202,20 @@ push_srcloc (file, line)
   struct file_stack *fs;
 
   if (input_file_stack)
-    {
-      input_file_stack->name = input_filename;
-      input_file_stack->line = lineno;
-    }
+    input_file_stack->location = input_location;
 
   fs = (struct file_stack *) xmalloc (sizeof (struct file_stack));
-  fs->name = input_filename = file;
-  fs->line = lineno = line;
+  input_filename = file;
+  input_line = line;
+  fs->location = input_location;
   fs->next = input_file_stack;
   input_file_stack = fs;
   input_file_stack_tick++;
 }
 
 /* Pop the top entry off the stack of presently open source files.
-   Restore the INPUT_FILENAME and LINENO from the new topmost entry on
-   the stack.  */
+   Restore the INPUT_LOCATION from the new topmost entry on the
+   stack.  */
 
 void
 pop_srcloc ()
@@ -2215,14 +2228,11 @@ pop_srcloc ()
   input_file_stack_tick++;
 
   if (input_file_stack)
-    {
-      input_filename = input_file_stack->name;
-      lineno = input_file_stack->line;
-    }
+    input_location = input_file_stack->location;
   else
     {
       input_filename = NULL;
-      lineno = 0;
+      input_line = 0;
     }
 }
 
@@ -2235,7 +2245,7 @@ compile_file ()
   /* Initialize yet another pass.  */
 
   init_final (main_input_filename);
-  init_branch_prob (aux_base_name);
+  coverage_init (aux_base_name);
 
   timevar_push (TV_PARSE);
 
@@ -2256,11 +2266,10 @@ compile_file ()
 
   (*lang_hooks.decls.final_write_globals)();
 
-    if (profile_arc_flag)
-      /* This must occur after the loop to output deferred functions.
-         Else the profiler initializer would not be emitted if all the
-         functions in this compilation unit were deferred.  */
-      create_profiler ();
+  /* This must occur after the loop to output deferred functions.
+     Else the coverage initializer would not be emitted if all the
+     functions in this compilation unit were deferred.  */
+  coverage_finish ();
 
   /* Write out any pending weak symbol declarations.  */
 
@@ -3261,9 +3270,7 @@ rest_of_compilation (decl)
 		 | (flag_thread_jumps ? CLEANUP_THREADING : 0));
   timevar_pop (TV_FLOW);
 
-  no_new_pseudos = 1;
-
-  if (warn_uninitialized || extra_warnings)
+  if (warn_uninitialized)
     {
       uninitialized_vars_warning (DECL_INITIAL (decl));
       if (extra_warnings)
@@ -3272,16 +3279,18 @@ rest_of_compilation (decl)
 
   if (optimize)
     {
-      clear_bb_flags ();
       if (!flag_new_regalloc && initialize_uninitialized_subregs ())
 	{
-	  /* Insns were inserted, so things might look a bit different.  */
+	  /* Insns were inserted, and possibly pseudos created, so
+	     things might look a bit different.  */
 	  insns = get_insns ();
-	  update_life_info_in_dirty_blocks (UPDATE_LIFE_GLOBAL_RM_NOTES,
-					    PROP_LOG_LINKS | PROP_REG_INFO
-					    | PROP_DEATH_NOTES);
+	  allocate_reg_life_data ();
+	  update_life_info (NULL, UPDATE_LIFE_GLOBAL_RM_NOTES,
+			    PROP_LOG_LINKS | PROP_REG_INFO | PROP_DEATH_NOTES);
 	}
     }
+
+  no_new_pseudos = 1;
 
   close_dump_file (DFI_life, print_rtl_with_bb, insns);
 
@@ -3809,6 +3818,8 @@ rest_of_compilation (decl)
 
  exit_rest_of_compilation:
 
+  coverage_end_function ();
+  
   /* In case the function was not output,
      don't leave any temporary anonymous types
      queued up for sdb output.  */
@@ -3888,6 +3899,11 @@ display_help ()
   printf (_("  -fdiagnostics-show-location=[once | every-line] Indicates how often source location information should be emitted, as prefix, at the beginning of diagnostics when line-wrapping\n"));
   printf (_("  -ftls-model=[global-dynamic | local-dynamic | initial-exec | local-exec] Indicates the default thread-local storage code generation model\n"));
   printf (_("  -ftree-points-to=[andersen] Turn on points-to analysis using the specified algorithm.\n"));
+  printf (_("  -fstack-limit-register=<register>  Trap if the stack goes past <register>\n"));
+  printf (_("  -fstack-limit-symbol=<name>  Trap if the stack goes past symbol <name>\n"));
+  printf (_("  -frandom-seed=<string>  Make compile reproducible using <string>\n"));
+  
+
   for (i = ARRAY_SIZE (f_options); i--;)
     {
       const char *description = f_options[i].description;
@@ -3923,6 +3939,7 @@ display_help ()
 		W_options[i].string, _(description));
     }
 
+  printf (_("  -Wextra                 Print extra (possibly unwanted) warnings\n"));
   printf (_("  -Wunused                Enable unused warnings\n"));
   printf (_("  -Wlarger-than-<number>  Warn if an object is larger than <number> bytes\n"));
   printf (_("  -p                      Enable function profiling\n"));
@@ -4257,6 +4274,10 @@ decode_f_option (arg)
     }
   else if (!strcmp (arg, "no-stack-limit"))
     stack_limit_rtx = NULL_RTX;
+  else if ((option_value = skip_leading_substring (arg, "random-seed=")))
+    flag_random_seed = option_value;
+  else if (!strcmp (arg, "no-random-seed"))
+    flag_random_seed = NULL;
   else if (!strcmp (arg, "preprocessed"))
     /* Recognize this switch but do nothing.  This prevents warnings
        about an unrecognized switch if cpplib has not been linked in.  */
@@ -4314,17 +4335,23 @@ decode_W_option (arg)
     }
   else if (!strcmp (arg, "extra"))
     {
-      /* We save the value of warn_uninitialized, since if they put
-	 -Wuninitialized on the command line, we need to generate a
-	 warning about not using it without also specifying -O.  */
-      if (warn_uninitialized != 1)
-	warn_uninitialized = 2;
+      set_Wextra (1);
+    }
+  else if (!strcmp (arg, "no-extra"))
+    {
+      set_Wextra (0);
     }
   else
     return 0;
 
   return 1;
 }
+
+/* Indexed by enum debug_info_type.  */
+const char *const debug_type_names[] =
+{
+  "none", "stabs", "coff", "dwarf-1", "dwarf-2", "xcoff", "vms"
+};
 
 /* Parse a -g... command line switch.  ARG is the value after the -g.
    It is safe to access 'ARG - 2' to generate the full switch name.
@@ -4345,11 +4372,6 @@ decode_g_option (arg)
      -g and -ggdb don't explicitly set the debugging format so
      -gdwarf -g3 is equivalent to -gdwarf3.  */
   static int type_explicitly_set_p = 0;
-  /* Indexed by enum debug_info_type.  */
-  static const char *const debug_type_names[] =
-  {
-    "none", "stabs", "coff", "dwarf-1", "dwarf-2", "xcoff", "vms"
-  };
 
   /* The maximum admissible debug level value.  */
   static const unsigned max_debug_level = 3;
@@ -4596,15 +4618,9 @@ independent_decode_option (argc, argv)
       break;
 
     case 'W':
+      /* For backward compatibility, -W is the same as -Wextra.  */
       if (arg[1] == 0)
-	{
-	  extra_warnings = 1;
-	  /* We save the value of warn_uninitialized, since if they put
-	     -Wuninitialized on the command line, we need to generate a
-	     warning about not using it without also specifying -O.  */
-	  if (warn_uninitialized != 1)
-	    warn_uninitialized = 2;
-	}
+	set_Wextra (1);
       else
 	return decode_W_option (arg + 1);
       break;
@@ -4734,10 +4750,21 @@ set_target_switch (name)
     for (j = 0; j < ARRAY_SIZE (target_options); j++)
       {
 	int len = strlen (target_options[j].prefix);
-	if (!strncmp (target_options[j].prefix, name, len))
+	if (target_options[j].value)
 	  {
-	    *target_options[j].variable = name + len;
-	    valid_target_option = 1;
+	    if (!strcmp (target_options[j].prefix, name))
+	      {
+		*target_options[j].variable = target_options[j].value;
+		valid_target_option = 1;
+	      }
+	  }
+	else
+	  {
+	    if (!strncmp (target_options[j].prefix, name, len))
+	      {
+		*target_options[j].variable = name + len;
+		valid_target_option = 1;
+	      }
 	  }
       }
 #endif
@@ -4815,6 +4842,12 @@ print_switch_values (file, pos, max, indent, sep, term)
 {
   size_t j;
   char **p;
+
+  /* Fill in the -frandom-seed option, if the user didn't pass it, so
+     that it can be printed below.  This helps reproducibility.  Of
+     course, the string may never be used, but we can't tell that at
+     this point in the compile.  */
+  default_flag_random_seed ();
 
   /* Print the options as passed.  */
 
@@ -5357,9 +5390,6 @@ process_options ()
 	print_switch_values (stderr, 0, MAX_LINE, "", " ", "\n");
     }
 
-  if (! quiet_flag  || flag_detailed_statistics)
-    time_report = 1;
-
   if (flag_syntax_only)
     {
       write_symbols = NO_DEBUG;
@@ -5600,20 +5630,27 @@ finalize ()
 static void
 do_compile ()
 {
-  /* We cannot start timing until after options are processed since that
-     says if we run timers or not.  */
-  init_timevar ();
+  /* Initialize timing first.  The C front ends read the main file in
+     the post_options hook, and C++ does file timings.  */
+  if (time_report || !quiet_flag  || flag_detailed_statistics)
+    timevar_init ();
   timevar_start (TV_TOTAL);
 
-  /* Set up the back-end if requested.  */
-  if (!no_backend)
-    backend_init ();
+  process_options ();
 
-  /* Language-dependent initialization.  Returns true on success.  */
-  if (lang_dependent_init (filename))
-    compile_file ();
+  /* Don't do any more if an error has already occurred.  */
+  if (!errorcount)
+    {
+      /* Set up the back-end if requested.  */
+      if (!no_backend)
+	backend_init ();
 
-  finalize ();
+      /* Language-dependent initialization.  Returns true on success.  */
+      if (lang_dependent_init (filename))
+	compile_file ();
+
+      finalize ();
+    }
 
   /* Stop timing and print the times.  */
   timevar_stop (TV_TOTAL);
@@ -5641,13 +5678,7 @@ toplev_main (argc, argv)
 
   /* Exit early if we can (e.g. -help).  */
   if (!exit_after_options)
-    {
-      process_options ();
-
-      /* Don't do any more if an error has already occurred.  */
-      if (!errorcount)
-	do_compile ();
-    }
+    do_compile ();
 
   if (errorcount || sorrycount)
     return (FATAL_EXIT_CODE);

@@ -44,7 +44,6 @@
 
 #include <bits/c++config.h>
 #include <iosfwd>
-#include <cstdio> 	// For SEEK_SET, SEEK_CUR, SEEK_END
 #include <bits/localefwd.h>
 #include <bits/ios_base.h>
 
@@ -162,31 +161,6 @@ namespace std
     protected:
       /**
        *  @if maint
-       *  Pointer to the beginning of internally-allocated space.  Filebuf
-       *  manually allocates/deallocates this, whereas stringstreams attempt
-       *  to use the built-in intelligence of the string class.  If you are
-       *  managing memory, set this.  If not, leave it NULL.
-       *  @endif
-      */
-      char_type*		_M_buf; 	
-
-      /**
-       *  @if maint
-       *  Actual size of allocated internal buffer, in bytes. Unused
-       *  for sstreams, which have readily available _M_string.capacity().
-       *  @endif
-      */
-      size_t			_M_buf_size;
-
-      /**
-       *  @if maint
-       *  Optimal or preferred size of internal buffer, in bytes.
-       *  @endif
-      */
-      size_t			_M_buf_size_opt;
-
-      /**
-       *  @if maint
        *  True iff _M_in_* and _M_out_* buffers should always point to
        *  the same place.  True for fstreams, false for sstreams.
        *  @endif
@@ -210,7 +184,15 @@ namespace std
       char_type* 		_M_out_cur;    // Current put area. 
       char_type* 		_M_out_end;    // End of put area.
 
-      char_type*                _M_out_lim;    // Right limit of used put area.
+      //@{
+      /**
+       *  @if maint
+       *  _M_set_indeterminate and setp set it equal to _M_out_beg, then
+       *  at each put operation it may be moved forward (toward _M_out_end)
+       *  by _M_out_cur_move.
+       *  @endif
+      */      
+      char_type*                _M_out_lim;    // End limit of used put area.
 
       //@}
 
@@ -228,24 +210,6 @@ namespace std
       */
       locale 			_M_buf_locale;	
 
-      //@{
-      /**
-       *  @if maint
-       *  Necessary bits for putback buffer management. Only used in
-       *  the basic_filebuf class, as necessary for the standard
-       *  requirements. The only basic_streambuf member function that
-       *  needs access to these data members is in_avail...
-       *  
-       *  @note pbacks of over one character are not currently supported.
-       *  @endif
-      */
-      static const size_t   	_S_pback_size = 1; 
-      char_type			_M_pback[_S_pback_size]; 
-      char_type*		_M_pback_cur_save;
-      char_type*		_M_pback_end_save;
-      bool			_M_pback_init; 
-      //@}
-
       /**
        *  @if maint
        *  Yet unused.
@@ -253,56 +217,12 @@ namespace std
       */
       fpos<__state_type>	_M_pos;
 
-      // Initializes pback buffers, and moves normal buffers to safety.
-      // Assumptions:
-      // _M_in_cur has already been moved back
-      void
-      _M_pback_create()
-      {
-	if (!_M_pback_init)
-	  {
-	    size_t __dist = _M_in_end - _M_in_cur;
-	    size_t __len = std::min(_S_pback_size, __dist);
-	    traits_type::copy(_M_pback, _M_in_cur, __len);
-	    _M_pback_cur_save = _M_in_cur;
-	    _M_pback_end_save = _M_in_end;
-	    this->setg(_M_pback, _M_pback, _M_pback + __len);
-	    _M_pback_init = true;
-	  }
-      }
-
-      // Deactivates pback buffer contents, and restores normal buffer.
-      // Assumptions:
-      // The pback buffer has only moved forward.
-      void
-      _M_pback_destroy()
-      {
-	if (_M_pback_init)
-	  {
-	    // Length _M_in_cur moved in the pback buffer.
-	    size_t __off_cur = _M_in_cur - _M_pback;
-	    
-	    // For in | out buffers, the end can be pushed back...
-	    size_t __off_end = 0;
-	    size_t __pback_len = _M_in_end - _M_pback;
-	    size_t __save_len = _M_pback_end_save - _M_buf;
-	    if (__pback_len > __save_len)
-	      __off_end = __pback_len - __save_len;
-
-	    this->setg(_M_buf, _M_pback_cur_save + __off_cur, 
-		       _M_pback_end_save + __off_end);
-	    _M_pback_cur_save = NULL;
-	    _M_pback_end_save = NULL;
-	    _M_pback_init = false;
-	  }
-      }
-
       // Correctly sets the _M_in_cur pointer, and bumps the
       // _M_out_cur pointer as well if necessary.
       void 
-      _M_in_cur_move(off_type __n) // argument needs to be +-
+      _M_move_in_cur(off_type __n) // argument needs to be +-
       {
-	bool __testout = _M_out_cur;
+	const bool __testout = _M_out_cur;
 	_M_in_cur += __n;
 	if (__testout && _M_buf_unified)
 	  _M_out_cur += __n;
@@ -315,11 +235,11 @@ namespace std
       // __n + _M_out_[cur, lim] <= _M_out_end
       // Assuming all _M_out_[beg, cur, lim] pointers are operating on
       // the same range:
-      // _M_buf <= _M_*_ <= _M_out_end
+      // _M_out_beg <= _M_*_ <= _M_out_end
       void 
-      _M_out_cur_move(off_type __n) // argument needs to be +-
+      _M_move_out_cur(off_type __n) // argument needs to be +-
       {
-	bool __testin = _M_in_cur;
+	const bool __testin = _M_in_cur;
 
 	_M_out_cur += __n;
 	if (__testin && _M_buf_unified)
@@ -339,8 +259,6 @@ namespace std
       ~basic_streambuf() 
       {
 	_M_buf_unified = false;
-	_M_buf_size = 0;
-	_M_buf_size_opt = 0;
 	_M_mode = ios_base::openmode(0);
       }
 
@@ -411,21 +329,8 @@ namespace std
       streamsize 
       in_avail() 
       { 
-	streamsize __ret;
-	if (_M_in_cur && _M_in_cur < _M_in_end)
-	  {
-	    if (_M_pback_init)
-	      {
-		size_t __save_len =  _M_pback_end_save - _M_pback_cur_save;
-		size_t __pback_len = _M_in_cur - _M_pback;
-		__ret = __save_len - __pback_len;
-	      }
-	    else
-	      __ret = this->egptr() - this->gptr();
-	  }
-	else
-	  __ret = this->showmanyc();
-	return __ret;
+	streamsize __ret = _M_in_end - _M_in_cur;
+	return __ret ? __ret : this->showmanyc();
       }
 
       /**
@@ -466,8 +371,8 @@ namespace std
       sgetc()
       {
 	int_type __ret;
-	if (_M_in_cur && _M_in_cur < _M_in_end)
-	  __ret = traits_type::to_int_type(*(this->gptr()));
+	if (_M_in_cur < _M_in_end)
+	  __ret = traits_type::to_int_type(*this->_M_in_cur);
 	else 
 	  __ret = this->underflow();
 	return __ret;
@@ -552,12 +457,10 @@ namespace std
        *  - this is not an error
       */
       basic_streambuf()
-      : _M_buf(NULL), _M_buf_size(0), _M_buf_size_opt(BUFSIZ), 
-      _M_buf_unified(false), _M_in_beg(0), _M_in_cur(0), _M_in_end(0),
-      _M_out_beg(0), _M_out_cur(0), _M_out_end(0), _M_out_lim(0),
-      _M_mode(ios_base::openmode(0)), _M_buf_locale(locale()), 
-      _M_pback_cur_save(0), _M_pback_end_save(0), 
-      _M_pback_init(false)
+      : _M_buf_unified(false), _M_in_beg(0), _M_in_cur(0),
+      _M_in_end(0), _M_out_beg(0), _M_out_cur(0), _M_out_end(0),
+      _M_out_lim(0), _M_mode(ios_base::openmode(0)),
+      _M_buf_locale(locale()) 
       { }
 
       // [27.5.2.3.1] get area access
@@ -650,7 +553,7 @@ namespace std
       void 
       setp(char_type* __pbeg, char_type* __pend)
       { 
-	_M_out_beg = _M_out_cur = __pbeg; 
+	_M_out_beg = _M_out_cur = _M_out_lim = __pbeg; 
 	_M_out_end = __pend;
 	if (!(_M_mode & ios_base::out) && __pbeg && __pend)
 	  _M_mode = _M_mode | ios_base::out;
@@ -800,14 +703,12 @@ namespace std
       uflow() 
       {
 	int_type __ret = traits_type::eof();
-	bool __testeof = traits_type::eq_int_type(this->underflow(), __ret);
-	bool __testpending = _M_in_cur && _M_in_cur < _M_in_end;
-	if (!__testeof && __testpending)
+	const bool __testeof =
+	  traits_type::eq_int_type(this->underflow(), __ret);
+	if (!__testeof && _M_in_cur < _M_in_end)
 	  {
 	    __ret = traits_type::to_int_type(*_M_in_cur);
 	    ++_M_in_cur;
-	    if (_M_buf_unified && _M_mode & ios_base::out)
-	      ++_M_out_cur;
 	  }
 	return __ret;    
       }

@@ -49,11 +49,10 @@ typedef int (*tree_fn_t) PARAMS ((tree, void*));
 
 /* The PENDING_TEMPLATES is a TREE_LIST of templates whose
    instantiations have been deferred, either because their definitions
-   were not yet available, or because we were putting off doing the
-   work.  The TREE_PURPOSE of each entry is a SRCLOC indicating where
-   the instantiate request occurred; the TREE_VALUE is either a DECL
-   (for a function or static data member), or a TYPE (for a class)
-   indicating what we are hoping to instantiate.  */
+   were not yet available, or because we were putting off doing the work.
+   The TREE_PURPOSE of each entry is either a DECL (for a function or
+   static data member), or a TYPE (for a class) indicating what we are
+   hoping to instantiate.  The TREE_VALUE is not used.  */
 static GTY(()) tree pending_templates;
 static GTY(()) tree last_pending_template;
 
@@ -3580,6 +3579,8 @@ convert_template_argument (parm, arg, args, complain, i, in_decl)
 		error ("  expected a constant of type `%T', got `%T'",
 			  TREE_TYPE (parm),
 			  (is_tmpl_type ? DECL_NAME (arg) : arg));
+	      else if (requires_tmpl_type)
+		error ("  expected a class template, got `%E'", arg);
 	      else
 		error ("  expected a type, got `%E'", arg);
 	    }
@@ -4785,7 +4786,7 @@ push_tinst_level (d)
     }
 
   new = make_node (TINST_LEVEL);
-  annotate_with_file_line (new, input_filename, lineno);
+  annotate_with_file_line (new, input_filename, input_line);
   TINST_DECL (new) = d;
   TREE_CHAIN (new) = current_tinst_level;
   current_tinst_level = new;
@@ -4810,7 +4811,7 @@ pop_tinst_level ()
 
   /* Restore the filename and line number stashed away when we started
      this instantiation.  */
-  lineno = TREE_LINENO (old);
+  input_line = TREE_LINENO (old);
   input_filename = TREE_FILENAME (old);
   extract_interface_info ();
   
@@ -4862,11 +4863,9 @@ tsubst_friend_function (decl, args)
      tree args;
 {
   tree new_friend;
-  int line = lineno;
-  const char *file = input_filename;
+  location_t saved_loc = input_location;
 
-  lineno = TREE_LINENO (decl);
-  input_filename = TREE_FILENAME (decl);
+  input_location = *(TREE_LOCUS (decl));
 
   if (TREE_CODE (decl) == FUNCTION_DECL 
       && DECL_TEMPLATE_INSTANTIATION (decl)
@@ -5073,8 +5072,7 @@ tsubst_friend_function (decl, args)
     }
 
  done:
-  lineno = line;
-  input_filename = file;
+  input_location = saved_loc;
   return new_friend;
 }
 
@@ -5433,11 +5431,11 @@ instantiate_class_template (type)
 		{
 		  tree r;
 
-		  /* The the file and line for this declaration, to assist
-		     in error message reporting.  Since we called 
-		     push_tinst_level above, we don't need to restore these.  */
-		  lineno = TREE_LINENO (t);
-		  input_filename = TREE_FILENAME (t);
+		  /* The the file and line for this declaration, to
+		     assist in error message reporting.  Since we
+		     called push_tinst_level above, we don't need to
+		     restore these.  */
+		  input_location = *(TREE_LOCUS (t));
 
 		  r = tsubst (t, args, tf_error | tf_warning, NULL_TREE);
 		  if (TREE_CODE (r) == VAR_DECL)
@@ -5539,8 +5537,7 @@ instantiate_class_template (type)
      implicit functions at a predictable point, and the same point
      that would be used for non-template classes.  */
   typedecl = TYPE_MAIN_DECL (type);
-  lineno = TREE_LINENO (typedecl);
-  input_filename = TREE_FILENAME (typedecl);
+  input_location = *(TREE_LOCUS (typedecl));
 
   unreverse_member_declarations (type);
   finish_struct_1 (type);
@@ -5878,16 +5875,13 @@ tsubst_decl (t, args, type, complain)
      tree type;
      tsubst_flags_t complain;
 {
-  int saved_lineno;
-  const char *saved_filename;
+  location_t saved_loc;
   tree r = NULL_TREE;
   tree in_decl = t;
 
   /* Set the filename and linenumber to improve error-reporting.  */
-  saved_lineno = lineno;
-  saved_filename = input_filename;
-  lineno = TREE_LINENO (t);
-  input_filename = TREE_FILENAME (t);
+  saved_loc = input_location;
+  input_location = *(TREE_LOCUS (t));
 
   switch (TREE_CODE (t))
     {
@@ -6353,8 +6347,7 @@ tsubst_decl (t, args, type, complain)
     } 
 
   /* Restore the file and line information.  */
-  lineno = saved_lineno;
-  input_filename = saved_filename;
+  input_location = saved_loc;
 
   return r;
 }
@@ -6869,14 +6862,14 @@ tsubst (t, args, complain, in_decl)
 	if (TREE_CODE (type) == REFERENCE_TYPE
 	    || (code == REFERENCE_TYPE && TREE_CODE (type) == VOID_TYPE))
 	  {
-	    static int   last_line = 0;
-	    static const char* last_file = 0;
+	    static location_t last_loc;
 
 	    /* We keep track of the last time we issued this error
 	       message to avoid spewing a ton of messages during a
 	       single bad template instantiation.  */
 	    if (complain & tf_error
-		&& (last_line != lineno || last_file != input_filename))
+		&& (last_loc.line != input_line
+		    || last_loc.file != input_filename))
 	      {
 		if (TREE_CODE (type) == VOID_TYPE)
 		  error ("forming reference to void");
@@ -6884,8 +6877,7 @@ tsubst (t, args, complain, in_decl)
 		  error ("forming %s to reference type `%T'",
 			    (code == POINTER_TYPE) ? "pointer" : "reference",
 			    type);
-		last_line = lineno;
-		last_file = input_filename;
+		last_loc = input_location;
 	      }
 
 	    return error_mark_node;
@@ -7537,10 +7529,9 @@ tsubst_copy (t, args, complain, in_decl)
 
     case CONSTRUCTOR:
       {
-	r = build
-	  (CONSTRUCTOR, tsubst (TREE_TYPE (t), args, complain, in_decl), 
-	   NULL_TREE, tsubst_copy (CONSTRUCTOR_ELTS (t), args,
-				   complain, in_decl));
+	r = build_constructor
+	  (tsubst (TREE_TYPE (t), args, complain, in_decl), 
+	   tsubst_copy (CONSTRUCTOR_ELTS (t), args, complain, in_decl));
 	TREE_HAS_CONSTRUCTOR (r) = TREE_HAS_CONSTRUCTOR (t);
 	return r;
       }
@@ -7572,7 +7563,7 @@ tsubst_expr (t, args, complain, in_decl)
   if (processing_template_decl)
     return tsubst_copy (t, args, complain, in_decl);
 
-  if (!statement_code_p (TREE_CODE (t)))
+  if (!STATEMENT_CODE_P (TREE_CODE (t)))
     return tsubst_copy_and_build (t, args, complain, in_decl);
     
   switch (TREE_CODE (t))
@@ -7781,7 +7772,7 @@ tsubst_expr (t, args, complain, in_decl)
       break;
 
     case LABEL_STMT:
-      lineno = STMT_LINENO (t);
+      input_line = STMT_LINENO (t);
       finish_label_stmt (DECL_NAME (LABEL_STMT_LABEL (t)));
       break;
 
@@ -8351,7 +8342,7 @@ tsubst_copy_and_build (t, args, complain, in_decl)
 	    r = tree_cons (purpose, value, r);
 	  }
 	
-	r = build_nt (CONSTRUCTOR, NULL_TREE, nreverse (r));
+	r = build_constructor (NULL_TREE, nreverse (r));
 	TREE_HAS_CONSTRUCTOR (r) = TREE_HAS_CONSTRUCTOR (t);
 
 	if (type)
@@ -9919,11 +9910,6 @@ mark_decl_instantiated (result, extern_p)
      tree result;
      int extern_p;
 {
-  if (TREE_CODE (result) != FUNCTION_DECL)
-    /* The TREE_PUBLIC flag for function declarations will have been
-       set correctly by tsubst.  */
-    TREE_PUBLIC (result) = 1;
-
   /* We used to set this unconditionally; we moved that to
      do_decl_instantiation so it wouldn't get set on members of
      explicit class template instantiations.  But we still need to set
@@ -9931,6 +9917,16 @@ mark_decl_instantiated (result, extern_p)
      implicit instantiations.  */
   if (extern_p)
     SET_DECL_EXPLICIT_INSTANTIATION (result);
+
+  /* If this entity has already been written out, it's too late to
+     make any modifications.  */
+  if (TREE_ASM_WRITTEN (result))
+    return;
+
+  if (TREE_CODE (result) != FUNCTION_DECL)
+    /* The TREE_PUBLIC flag for function declarations will have been
+       set correctly by tsubst.  */
+    TREE_PUBLIC (result) = 1;
 
   if (! extern_p)
     {
@@ -9945,7 +9941,8 @@ mark_decl_instantiated (result, extern_p)
       else if (TREE_PUBLIC (result))
 	maybe_make_one_only (result);
     }
-  else if (TREE_CODE (result) == FUNCTION_DECL)
+
+  if (TREE_CODE (result) == FUNCTION_DECL)
     defer_fn (result);
 }
 
@@ -10754,10 +10751,9 @@ instantiate_decl (d, defer_ok)
   tree spec;
   tree gen_tmpl;
   int pattern_defined;
-  int line = lineno;
   int need_push;
-  const char *file = input_filename;
-
+  location_t saved_loc = input_location;
+  
   /* This function should only be used to instantiate templates for
      functions and static member variables.  */
   my_friendly_assert (TREE_CODE (d) == FUNCTION_DECL
@@ -10820,8 +10816,7 @@ instantiate_decl (d, defer_ok)
   else
     pattern_defined = ! DECL_IN_AGGR_P (code_pattern);
 
-  lineno = TREE_LINENO (d);
-  input_filename = TREE_FILENAME (d);
+  input_location = *(TREE_LOCUS (d));
 
   if (pattern_defined)
     {
@@ -10908,8 +10903,7 @@ instantiate_decl (d, defer_ok)
      because it's used by add_pending_template.  */
   else if (! pattern_defined || defer_ok)
     {
-      lineno = line;
-      input_filename = file;
+      input_location = saved_loc;
 
       if (at_eof && !pattern_defined 
 	  && DECL_EXPLICIT_INSTANTIATION (d))
@@ -10931,19 +10925,13 @@ instantiate_decl (d, defer_ok)
   if (need_push)
     push_to_top_level ();
 
-  /* We're now committed to instantiating this template.  Mark it as
-     instantiated so that recursive calls to instantiate_decl do not
-     try to instantiate it again.  */
-  DECL_TEMPLATE_INSTANTIATED (d) = 1;
-
   /* Regenerate the declaration in case the template has been modified
      by a subsequent redeclaration.  */
   regenerate_decl_from_template (d, td);
   
   /* We already set the file and line above.  Reset them now in case
      they changed as a result of calling regenerate_decl_from_template.  */
-  lineno = TREE_LINENO (d);
-  input_filename = TREE_FILENAME (d);
+  input_location = *(TREE_LOCUS (d));
 
   if (TREE_CODE (d) == VAR_DECL)
     {
@@ -10952,17 +10940,38 @@ instantiate_decl (d, defer_ok)
       SET_DECL_RTL (d, NULL_RTX);
 
       DECL_IN_AGGR_P (d) = 0;
-      if (DECL_INTERFACE_KNOWN (d))
-	DECL_EXTERNAL (d) = ! DECL_NOT_REALLY_EXTERN (d);
+      import_export_decl (d);
+      DECL_EXTERNAL (d) = ! DECL_NOT_REALLY_EXTERN (d);
+
+      if (DECL_EXTERNAL (d))
+	{
+	  /* The fact that this code is executing indicates that:
+	     
+	     (1) D is a template static data member, for which a
+	         definition is available.
+
+	     (2) An implicit or explicit instantiation has occured.
+
+	     (3) We are not going to emit a definition of the static
+	         data member at this time.
+
+	     This situation is peculiar, but it occurs on platforms
+	     without weak symbols when performing an implicit
+	     instantiation.  There, we cannot implicitly instantiate a
+	     defined static data member in more than one translation
+	     unit, so import_export_decl marks the declaration as
+	     external; we must rely on explicit instantiation.  */
+	}
       else
 	{
-	  DECL_EXTERNAL (d) = 1;
-	  DECL_NOT_REALLY_EXTERN (d) = 1;
+	  /* Mark D as instantiated so that recursive calls to
+	     instantiate_decl do not try to instantiate it again.  */
+	  DECL_TEMPLATE_INSTANTIATED (d) = 1;
+	  cp_finish_decl (d, 
+			  (!DECL_INITIALIZED_IN_CLASS_P (d) 
+			   ? DECL_INITIAL (d) : NULL_TREE),
+			  NULL_TREE, 0);
 	}
-      cp_finish_decl (d, 
-		      (!DECL_INITIALIZED_IN_CLASS_P (d) 
-		       ? DECL_INITIAL (d) : NULL_TREE),
-		      NULL_TREE, 0);
     }
   else if (TREE_CODE (d) == FUNCTION_DECL)
     {
@@ -10970,6 +10979,10 @@ instantiate_decl (d, defer_ok)
       tree subst_decl;
       tree tmpl_parm;
       tree spec_parm;
+
+      /* Mark D as instantiated so that recursive calls to
+	 instantiate_decl do not try to instantiate it again.  */
+      DECL_TEMPLATE_INSTANTIATED (d) = 1;
 
       /* Save away the current list, in case we are instantiating one
 	 template from within the body of another.  */
@@ -10982,6 +10995,7 @@ instantiate_decl (d, defer_ok)
 					   NULL);
 
       /* Set up context.  */
+      import_export_decl (d);
       start_function (NULL_TREE, d, NULL_TREE, SF_PRE_PARSED);
 
       /* Create substitution entries for the parameters.  */
@@ -11011,7 +11025,8 @@ instantiate_decl (d, defer_ok)
       local_specializations = saved_local_specializations;
 
       /* Finish the function.  */
-      expand_body (finish_function (0));
+      d = finish_function (0);
+      expand_body (d);
     }
 
   /* We're not deferring instantiation any more.  */
@@ -11021,9 +11036,7 @@ instantiate_decl (d, defer_ok)
     pop_from_top_level ();
 
 out:
-  lineno = line;
-  input_filename = file;
-
+  input_location = saved_loc;
   pop_tinst_level ();
 
   timevar_pop (TV_PARSE);
@@ -11566,7 +11579,20 @@ type_dependent_expression_p (expression)
      by the expression.  */
   else if (TREE_CODE (expression) == NEW_EXPR
 	   || TREE_CODE (expression) == VEC_NEW_EXPR)
-    return dependent_type_p (TREE_OPERAND (expression, 1));
+    {
+      /* For NEW_EXPR tree nodes created inside a template, either
+	 the object type itself or a TREE_LIST may appear as the
+	 operand 1.  */
+      tree type = TREE_OPERAND (expression, 1);
+      if (TREE_CODE (type) == TREE_LIST)
+	/* This is an array type.  We need to check array dimensions
+	   as well.  */
+	return dependent_type_p (TREE_VALUE (TREE_PURPOSE (type)))
+	       || value_dependent_expression_p
+		    (TREE_OPERAND (TREE_VALUE (type), 1));
+      else
+	return dependent_type_p (type);
+    }
 
   if (TREE_CODE (expression) == FUNCTION_DECL
       && DECL_LANG_SPECIFIC (expression)

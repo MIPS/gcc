@@ -1179,10 +1179,6 @@ dump_c_node (buffer, node, spc, brief_dump)
 
       /* Nodes from 'c-common.def'.  */
 
-    case SRCLOC:
-      NIY;
-      break;
-
     case SIZEOF_EXPR:
       NIY;
       break;

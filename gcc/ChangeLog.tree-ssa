@@ -1,3 +1,23 @@
+2003-05-06  Diego Novillo  <dnovillo@redhat.com>
+
+	* c-simplify.c (simplify_if_stmt): Warn if
+	-Wunreachable-code is given and the conditional is always
+	true or always false.
+
+	* expr.c (expand_expr): Don't try to expand FUNCTION_DECL
+	nodes when processing BIND_EXPR_VARS.
+
+	* varasm.c (output_constant_def_contents): Re-use the
+	label when emitting a label for mudflap.
+
+	Disable the following patch:
+
+	2003-04-30  Steven Bosscher  <steven@gcc.gnu.org>
+
+		* ggc-page.c (TREE_EXP_SIZE): Define.
+		(extra_order_size_table): New entry for expr trees with
+		two operands.
+
 2003-05-06  Jeff Law  <law@redhat.com>
 
 	* tree-cfg.c (make_exit_edges): Fix handling of blocks which

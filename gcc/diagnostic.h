@@ -23,7 +23,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define GCC_DIAGNOSTIC_H
 
 #include "obstack.h"
-#include "location.h"
+#include "input.h"
 
 /* The type of a text to be formatted according a format specification
    along with a list of things.  */
@@ -160,10 +160,10 @@ struct output_buffer
 /* True if BUFFER is in line-wrapping mode.  */
 #define output_is_line_wrapping(BUFFER) (output_line_cutoff (BUFFER) > 0)
 
-#define output_formatted_scalar(BUFFER, FORMAT, INTEGER)	\
+#define output_formatted_scalar(BUFFER, FORMAT, SCALAR)	\
   do								\
     {								\
-      sprintf ((BUFFER)->digit_buffer, FORMAT, INTEGER);	\
+      sprintf ((BUFFER)->digit_buffer, FORMAT, SCALAR);	\
       output_add_string (BUFFER, (BUFFER)->digit_buffer);	\
     }								\
   while (0)

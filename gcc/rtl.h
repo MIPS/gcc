@@ -150,7 +150,8 @@ struct rtx_def GTY((chain_next ("RTX_NEXT (&%h)"),
      1 in a SET that is for a return.
      In a CODE_LABEL, part of the two-bit alternate entry field.  */
   unsigned int jump : 1;
-  /* In a CODE_LABEL, part of the two-bit alternate entry field.  */
+  /* In a CODE_LABEL, part of the two-bit alternate entry field.
+     1 in a MEM if it cannot trap.  */
   unsigned int call : 1;
   /* 1 in a REG, MEM, or CONCAT if the value is set at most once, anywhere.
      1 in a SUBREG if it references an unsigned object whose mode has been
@@ -1038,6 +1039,10 @@ extern unsigned int subreg_regno_offset 	PARAMS ((unsigned int,
 							 enum machine_mode, 
 							 unsigned int, 
 							 enum machine_mode));
+extern bool subreg_offset_representable_p 	PARAMS ((unsigned int, 
+							 enum machine_mode, 
+							 unsigned int, 
+							 enum machine_mode));
 extern unsigned int subreg_regno 	PARAMS ((rtx));
 
 /* 1 if RTX is a subreg containing a reg that is already known to be
@@ -1105,6 +1110,10 @@ do {									\
 #define MEM_SCALAR_P(RTX)						\
   (RTL_FLAG_CHECK1("MEM_SCALAR_P", (RTX), MEM)->frame_related)
 
+/* 1 if RTX is a mem that cannot trap.  */
+#define MEM_NOTRAP_P(RTX) \
+  (RTL_FLAG_CHECK1("MEM_NOTRAP_P", (RTX), MEM)->call)
+
 /* If VAL is nonzero, set MEM_IN_STRUCT_P and clear MEM_SCALAR_P in
    RTX.  Otherwise, vice versa.  Use this macro only when you are
    *sure* that you know that the MEM is in a structure, or is a
@@ -1133,13 +1142,10 @@ do {						\
 
 /* For a MEM rtx, the alias set.  If 0, this MEM is not in any alias
    set, and may alias anything.  Otherwise, the MEM can only alias
-   MEMs in the same alias set.  This value is set in a
+   MEMs in a conflicting alias set.  This value is set in a
    language-dependent manner in the front-end, and should not be
-   altered in the back-end.  These set numbers are tested for zero,
-   and compared for equality; they have no other significance.  In
-   some front-ends, these numbers may correspond in some way to types,
-   or other language-level entities, but they need not, and the
-   back-end makes no such assumptions.  */
+   altered in the back-end.  These set numbers are tested with
+   alias_sets_conflict_p.  */
 #define MEM_ALIAS_SET(RTX) (MEM_ATTRS (RTX) == 0 ? 0 : MEM_ATTRS (RTX)->alias)
 
 /* For a MEM rtx, the decl it is known to refer to, if it is known to
@@ -1177,6 +1183,7 @@ do {						\
   (MEM_VOLATILE_P (LHS) = MEM_VOLATILE_P (RHS),			\
    MEM_IN_STRUCT_P (LHS) = MEM_IN_STRUCT_P (RHS),		\
    MEM_SCALAR_P (LHS) = MEM_SCALAR_P (RHS),			\
+   MEM_NOTRAP_P (LHS) = MEM_NOTRAP_P (RHS),			\
    RTX_UNCHANGING_P (LHS) = RTX_UNCHANGING_P (RHS),		\
    MEM_KEEP_ALIAS_SET_P (LHS) = MEM_KEEP_ALIAS_SET_P (RHS),	\
    MEM_ATTRS (LHS) = MEM_ATTRS (RHS))
@@ -1244,6 +1251,47 @@ do {						\
 /* 1 if RTX is a symbol_ref for a weak symbol.  */
 #define SYMBOL_REF_WEAK(RTX)						\
   (RTL_FLAG_CHECK1("SYMBOL_REF_WEAK", (RTX), SYMBOL_REF)->integrated)
+
+/* The tree (decl or constant) associated with the symbol, or null.  */
+#define SYMBOL_REF_DECL(RTX)	X0TREE ((RTX), 2)
+
+/* A set of flags on a symbol_ref that are, in some respects, redundant with
+   information derivable from the tree decl associated with this symbol.
+   Except that we build a *lot* of SYMBOL_REFs that aren't associated with a
+   decl.  In some cases this is a bug.  But beyond that, it's nice to cache
+   this information to avoid recomputing it.  Finally, this allows space for
+   the target to store more than one bit of information, as with
+   SYMBOL_REF_FLAG.  */
+#define SYMBOL_REF_FLAGS(RTX)	X0INT ((RTX), 1)
+
+/* These flags are common enough to be defined for all targets.  They
+   are computed by the default version of targetm.encode_section_info.  */
+
+/* Set if this symbol is a function.  */
+#define SYMBOL_FLAG_FUNCTION	(1 << 0)
+#define SYMBOL_REF_FUNCTION_P(RTX) \
+  ((SYMBOL_REF_FLAGS (RTX) & SYMBOL_FLAG_FUNCTION) != 0)
+/* Set if targetm.binds_local_p is true.  */
+#define SYMBOL_FLAG_LOCAL	(1 << 1)
+#define SYMBOL_REF_LOCAL_P(RTX) \
+  ((SYMBOL_REF_FLAGS (RTX) & SYMBOL_FLAG_LOCAL) != 0)
+/* Set if targetm.in_small_data_p is true.  */
+#define SYMBOL_FLAG_SMALL	(1 << 2)
+#define SYMBOL_REF_SMALL_P(RTX) \
+  ((SYMBOL_REF_FLAGS (RTX) & SYMBOL_FLAG_SMALL) != 0)
+/* The three-bit field at [5:3] is true for TLS variables; use
+   SYMBOL_REF_TLS_MODEL to extract the field as an enum tls_model.  */
+#define SYMBOL_FLAG_TLS_SHIFT	3
+#define SYMBOL_REF_TLS_MODEL(RTX) \
+  ((enum tls_model) ((SYMBOL_REF_FLAGS (RTX) >> SYMBOL_FLAG_TLS_SHIFT) & 7))
+/* Set if this symbol is not defined in this translation unit.  */
+#define SYMBOL_FLAG_EXTERNAL	(1 << 6)
+#define SYMBOL_REF_EXTERNAL_P(RTX) \
+  ((SYMBOL_REF_FLAGS (RTX) & SYMBOL_FLAG_EXTERNAL) != 0)
+
+/* Subsequent bits are available for the target to use.  */
+#define SYMBOL_FLAG_MACH_DEP_SHIFT	7
+#define SYMBOL_FLAG_MACH_DEP		(1 << SYMBOL_FLAG_MACH_DEP_SHIFT)
 
 /* Define a macro to look for REG_INC notes,
    but save time on machines where they never exist.  */
@@ -1490,6 +1538,8 @@ extern rtx emit_line_note		PARAMS ((const char *, int));
 extern rtx emit_note			PARAMS ((const char *, int));
 extern rtx emit_line_note_force		PARAMS ((const char *, int));
 extern rtx make_insn_raw		PARAMS ((rtx));
+extern void add_function_usage_to       PARAMS ((rtx, rtx));
+extern rtx last_call_insn               PARAMS ((void));
 extern rtx previous_insn		PARAMS ((rtx));
 extern rtx next_insn			PARAMS ((rtx));
 extern rtx prev_nonnote_insn		PARAMS ((rtx));
@@ -1932,10 +1982,6 @@ extern int no_new_pseudos;
 
 extern int rtx_to_tree_code	PARAMS ((enum rtx_code));
 
-/* In tree.c */
-struct obstack;
-extern void gcc_obstack_init		PARAMS ((struct obstack *));
-
 /* In cse.c */
 struct cse_basic_block_data;
 
@@ -2172,11 +2218,15 @@ extern void dump_local_alloc		PARAMS ((FILE *));
 extern int local_alloc			PARAMS ((void));
 extern int function_invariant_p		PARAMS ((rtx));
 
+/* In coverage.c */
+extern void coverage_init (const char *);
+extern void coverage_finish (void);
+extern void coverage_end_function (void);
+
 /* In profile.c */
-extern void init_branch_prob		PARAMS ((const char *));
+extern void init_branch_prob		PARAMS ((void));
 extern void branch_prob			PARAMS ((void));
 extern void end_branch_prob		PARAMS ((void));
-extern void create_profiler		PARAMS ((void));
 
 /* In reg-stack.c */
 #ifdef BUFSIZ
