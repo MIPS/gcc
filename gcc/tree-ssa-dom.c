@@ -107,25 +107,68 @@ static void htab_statistics (FILE *, htab_t);
 bool
 tree_ssa_dominator_optimize (tree fndecl)
 {
+  int found_unreachable;
+  bitmap unreachable_bitmap = BITMAP_XMALLOC ();
+
   timevar_push (TV_TREE_SSA_DOMINATOR_OPTS);
 
   /* Set up debugging dump files.  */
   dump_file = dump_begin (TDI_dom, &dump_flags);
 
-  /* Create our hash tables.  */
-  const_and_copies = htab_create (1024, var_value_hash, var_value_eq, free);
-  avail_exprs = htab_create (1024, avail_expr_hash, avail_expr_eq, NULL);
-
   /* Indicate that we have not propagated any ADDR_EXPRs.  */
   addr_expr_propagated_p = false;
 
-  /* Now optimize the dominator tree.  */
-  optimize_block (ENTRY_BLOCK_PTR, NULL, 0);
+  /* If we prove certain blocks are unreachable, then we want to
+     repeat the dominator optimization process as PHI nodes may
+     have turned into copies which allows better propagation of
+     values.  So we repeat until we do not identify any new unreachable
+     blocks.  */
+  do
+    {
+      int i;
 
-  htab_delete (const_and_copies);
-  htab_delete (avail_exprs);
-  const_and_copies = NULL;
-  avail_exprs = NULL;
+      /* Create our hash tables.  */
+      const_and_copies = htab_create (1024, var_value_hash, var_value_eq, free);
+      avail_exprs = htab_create (1024, avail_expr_hash, avail_expr_eq, NULL);
+
+      /* Now optimize the dominator tree.  */
+      optimize_block (ENTRY_BLOCK_PTR, NULL, 0);
+
+      /* Wipe the hash tables.  */
+      htab_delete (const_and_copies);
+      htab_delete (avail_exprs);
+
+      /* We may have made some basic blocks unreachable.  We do not
+	 want to call tree_cleanup_cfg here as it renumbers the blocks
+	 which makes dom_children invalid.
+
+	 Instead we simplify identify the unreachable blocks and
+	 remove their edges and PHI nodes.  After rewriting we will
+	 complete removal of the unreachable blocks.  */
+      find_unreachable_blocks ();
+
+      found_unreachable = 0;
+
+      for (i = 0; i < n_basic_blocks; i++)
+	{
+	  basic_block bb = BASIC_BLOCK (i);
+
+	  if (! (bb->flags & BB_REACHABLE))
+	    {
+	      /* If a previous iteration determined this block was
+		 unreachable, then just ignore the block.  */
+	      if (bitmap_bit_p (unreachable_bitmap, bb->index))
+		continue;
+
+	      found_unreachable = 1;
+	      bitmap_set_bit (unreachable_bitmap, bb->index);
+	      remove_phi_nodes_and_edges_for_unreachable_block (bb);
+	    }
+	}
+    }
+  while (found_unreachable);
+
+  BITMAP_XFREE (unreachable_bitmap);
 
   /* Debugging dumps.  */
   if (dump_file)
@@ -198,7 +241,7 @@ optimize_block (basic_block bb, tree parent_block_last_stmt, int edge_flags)
 				       (edge_flags & EDGE_TRUE_VALUE) != 0,
 				       &block_avail_exprs,
 				       const_and_copies);
-                                                                                
+
 
   /* If EQ_EXPR_VALUE (VAR == VALUE) is given, register the VALUE as a
      new value for VAR, so that occurrences of VAR can be replaced with
@@ -212,12 +255,20 @@ optimize_block (basic_block bb, tree parent_block_last_stmt, int edge_flags)
 		     const_and_copies);
     }
 
+  /* A PHI node with a single argument is effectively a copy which
+     creates an equivalence we can record into the const_and_copies table.  */
+  for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+    if (PHI_NUM_ARGS (phi) == 1
+	&& TREE_CODE (PHI_ARG_DEF (phi, 0)) == SSA_NAME
+	&& ! SSA_NAME_OCCURS_IN_ABNORMAL_PHI (PHI_ARG_DEF (phi, 0))
+	&& ! SSA_NAME_OCCURS_IN_ABNORMAL_PHI (PHI_RESULT (phi)))
+      set_value_for (PHI_RESULT (phi), PHI_ARG_DEF (phi, 0), const_and_copies);
+
   /* Optimize each statement within the basic block.  */
   for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
     optimize_stmt (si, &block_avail_exprs);
 
-  /* Propagate known constants/copies into PHI node alternatives for
-     successors of this block.  */
+  /* Propagate known constants/copies into PHI nodes.  */
   for (e = bb->succ; e; e = e->succ_next)
     {
       for (phi = phi_nodes (e->dest); phi; phi = TREE_CHAIN (phi))
@@ -231,6 +282,9 @@ optimize_block (basic_block bb, tree parent_block_last_stmt, int edge_flags)
 		{
 		  tree *orig_p = &PHI_ARG_DEF (phi, i);
 
+		  if (! SSA_VAR_P (*orig_p))
+		    break;
+
 		  /* FIXME.  We should be able to propagate constants into
 		     PHI nodes in the not too distant future.  */
 		  new = get_value_for (*orig_p, const_and_copies);
@@ -239,6 +293,7 @@ optimize_block (basic_block bb, tree parent_block_last_stmt, int edge_flags)
 		      && !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (new)
 		      && !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (*orig_p))
 		    *orig_p = new;
+		  break;
 		}
 	    }
 	}
@@ -412,6 +467,9 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p)
     {
       tree val;
       tree *op_p = (tree *) VARRAY_GENERIC_PTR (uses, i);
+
+      if (! SSA_VAR_P (*op_p))
+	continue;
 
       /* If the operand has a known constant value or it is known to be a
 	 copy of some other variable, use the value or copy stored in

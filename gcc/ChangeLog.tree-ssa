@@ -1,3 +1,14 @@
+2003-07-21  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-dom.c (tree_ssa_dominator_optimize): If we made any
+	blocks unreachable, repeat the dominator optimizations.
+	(optimize_block): Enter PHIs with a single source argument into
+	the const_and_copies table.  When propagating into a PHI node,
+	break the loop over the PHI arguments when a propagation is performed.
+	If the PHI agument is not an SSA_VAR, then no propagation is possible.
+	(optimize_stmt): If an operand is not an SSA_VAR, then no propagation
+	is possible/needed.
+
 2003-07-21  Diego Novillo  <dnovillo@redhat.com>
 
 	* Makefile.in (tree-ssa-dom.o): Add dependency on $(TREE_DUMP_H).
