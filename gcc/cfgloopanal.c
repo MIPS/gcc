@@ -732,7 +732,7 @@ simple_loop_p (loops, loop, desc)
      struct loop *loop;
      struct loop_desc *desc;
 {
-  int i;
+  unsigned i;
   basic_block *body;
   edge e;
   struct loop_desc act;
@@ -816,7 +816,8 @@ void
 mark_irreducible_loops (loops)
      struct loops *loops;
 {
-  int *dfs_in, *closed, *mr, *n_edges, *stack, i;
+  int *dfs_in, *closed, *mr, *n_edges, *stack;
+  unsigned i;
   edge **edges, e;
   basic_block act;
   int stack_top, tick, depth;
@@ -967,7 +968,7 @@ num_loop_insns (loop)
      struct loop *loop;
 {
   basic_block *bbs, bb;
-  int i, ninsns = 0;
+  unsigned i, ninsns = 0;
   rtx insn;
 
   bbs = get_loop_body (loop);
@@ -986,7 +987,7 @@ num_loop_insns (loop)
 /* Returns expected number of LOOP iterations.
    Comput upper bound on number of iterations in case they do not fit integer
    to help loop peeling heuristics.  Use exact counts if at all possible.  */
-int
+unsigned
 expected_loop_iterations (loop)
      const struct loop *loop;
 {

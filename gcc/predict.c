@@ -424,7 +424,7 @@ estimate_probability (loops_info)
 {
   dominance_info dominators, post_dominators;
   basic_block bb;
-  int i;
+  unsigned i;
 
   connect_infinite_loops_to_exit ();
   dominators = calculate_dominance_info (CDI_DOMINATORS);
@@ -435,7 +435,7 @@ estimate_probability (loops_info)
   for (i = 1; i < loops_info->num; i++)
     {
       basic_block bb, *bbs;
-      int j;
+      unsigned j;
       int exits;
       struct loop *loop = loops_info->parray[i];
       struct loop_desc desc;
@@ -1069,7 +1069,7 @@ estimate_loops_at_level (first_loop)
     {
       edge e;
       basic_block *bbs;
-      int i;
+      unsigned i;
 
       estimate_loops_at_level (loop->inner);
       

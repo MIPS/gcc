@@ -54,7 +54,7 @@ static void place_new_loop		PARAMS ((struct loops *, struct loop *));
 static void scale_loop_frequencies	PARAMS ((struct loop *, int, int));
 static void scale_bbs_frequencies	PARAMS ((basic_block *, int, int, int));
 static void record_exit_edges		PARAMS ((edge, basic_block *, int,
-						edge *, int *, int));
+						edge *, unsigned *, int));
 static basic_block create_preheader	PARAMS ((struct loop *, dominance_info,
 						int));
 
@@ -462,7 +462,7 @@ loopify (loops, latch_edge, header_edge, switch_bb)
   basic_block succ_bb = latch_edge->dest;
   basic_block pred_bb = header_edge->src;
   basic_block *dom_bbs, *body;
-  int n_dom_bbs, i, j;
+  unsigned n_dom_bbs, i, j;
   sbitmap seen;
   struct loop *loop = xcalloc (1, sizeof (struct loop));
   struct loop *outer = succ_bb->loop_father->outer;
@@ -519,7 +519,7 @@ loopify (loops, latch_edge, header_edge, switch_bb)
 
   for (i = 0; i < loop->num_nodes; i++)
     {
-      int nldom;
+      unsigned nldom;
       basic_block *ldom;
 
       nldom = get_dominated_by (loops->cfg.dom, body[i], &ldom);
@@ -548,7 +548,7 @@ fix_loop_placement (loop)
      struct loop *loop;
 {
   basic_block *body;
-  int i;
+  unsigned i;
   edge e;
   struct loop *father = loop->pred[0], *act;
 
@@ -835,7 +835,7 @@ can_duplicate_loop_p (loop)
      struct loop *loop;
 {
   basic_block *bbs;
-  int i;
+  unsigned i;
 
   bbs = get_loop_body (loop);
 
@@ -873,7 +873,7 @@ record_exit_edges (orig, bbs, nbbs, to_remove, n_to_remove, is_orig)
      basic_block *bbs;
      int nbbs;
      edge *to_remove;
-     int *n_to_remove;
+     unsigned *n_to_remove;
      int is_orig;
 {
   sbitmap my_blocks;
@@ -928,23 +928,24 @@ duplicate_loop_to_header_edge (loop, e, loops, ndupl, wont_exit, orig,
      struct loop *loop;
      edge e;
      struct loops *loops;
-     int ndupl;
+     unsigned ndupl;
      sbitmap wont_exit;
      edge orig;
      edge *to_remove;
-     int *n_to_remove;
+     unsigned *n_to_remove;
      int flags;
 {
   struct loop *target, *aloop;
   struct loop **orig_loops;
-  int n_orig_loops;
+  unsigned n_orig_loops;
   basic_block header = loop->header, latch = loop->latch;
   basic_block *new_bbs, *bbs, *first_active;
   basic_block new_bb, bb, first_active_latch = NULL;
   edge ae, latch_edge, he;
-  int i, j, n;
+  unsigned i, j, n;
   int is_latch = (latch == e->src);
-  int scale_act, *scale_step, scale_main, p, freq_in, freq_le, freq_out_orig, hsteps;
+  int scale_act, *scale_step, scale_main, p, freq_in, freq_le, freq_out_orig;
+  unsigned hsteps;
   int prob_pass_thru, prob_pass_wont_exit, prob_pass_main;
   int add_irreducible_flag;
   gcov_type all_counters, iterations;
@@ -1316,7 +1317,7 @@ create_preheaders (loops, flags)
      struct loops *loops;
      int flags;
 {
-  int i;
+  unsigned i;
   for (i = 1; i < loops->num; i++)
     create_preheader (loops->parray[i], loops->cfg.dom, flags);
   loops->state |= LOOPS_HAVE_PREHEADERS;
@@ -1327,7 +1328,7 @@ void
 force_single_succ_latches (loops)
      struct loops *loops;
 {
-  int i;
+  unsigned i;
   struct loop *loop;
   edge e;
 

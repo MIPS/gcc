@@ -76,7 +76,7 @@ may_unswitch_on_p (loops, bb, loop, body)
      basic_block *body;
 {
   rtx test;
-  int i;
+  unsigned i;
 
   /* It must be a simple conditional jump.  */
   if (!bb->succ || !bb->succ->succ_next || bb->succ->succ_next->succ_next)
@@ -134,7 +134,8 @@ unswitch_single_loop (loops, loop, cond_checked, num)
 {
   basic_block *bbs, bb;
   struct loop *nloop;
-  int i, true_first;
+  unsigned i;
+  int true_first;
   rtx cond, rcond, conds, rconds, acond, split_before;
   int always_true;
   int always_false;

@@ -1,3 +1,31 @@
+2002-11-09  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* cfgloop.c (flow_loop_dump, flow_loops_free, flow_loop_exit_edges_find,
+	get_loop_body, cancel_loop, verify_loop_structure, add_histogram):
+	Use unsigned variables where appropriate.
+	* cfgloopanal.c (simple_loop_p, mark_irreducible_loops,
+	num_loop_insns, expected_loop_iterations): Ditto.
+	* cfgloopmanip.c (record_exit_edges, duplicate_loop_to_header_edge,
+	loopify, fix_loop_placement, can_duplicate_loop_p, create_preheaders,
+	force_single_succ_latches): Ditto.
+	* loop-unswitch.c (may_unswitch_on_p, unswitch_single_loop): Ditto.
+	* predict.c (estimate_probability, estimate_loops_at_level): Ditto.
+	* profile.c (instrument_loops, compute_loop_histograms): Ditto.
+	* loop-unroll.c (unroll_or_peel_loop): Removed.
+	(peel_loop_simple, peel_loop_completely, unroll_loop_stupid,
+	unroll_loop_constant_iterations, unroll_loop_runtime_iterations,
+	unroll_and_peel_loops): Modified.
+	(peel_loops_completely, decide_unrolling_and_peeling,
+	decide_peel_simple, decide_peel_once_rolling, decide_peel_completely,
+	decide_unroll_stupid, decide_unroll_constant_iterations,
+	decide_unroll_runtime_iterations): New.
+	* cfgloop.h (enum lpt_dec, struct lpt_decision): New.
+	(struct loop): Add lpt_decision, simple, desc, has_desc and ninsns
+	fields.
+	(expected_loop_iterations, duplicate_loop_to_header_edge): Declaration
+	changed.
+	(UAP_PEEL_COMPLETELY, UAP_PEEL_ONCE_ROLLING): Removed.
+
 2002-11-08  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* Makefile.in (profile.o): Add hashtab.h, cfgloop.h and params.h

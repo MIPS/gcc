@@ -115,7 +115,7 @@ flow_loop_dump (loop, file, loop_dump_aux, verbose)
 {
   basic_block *bbs;
   edge e;
-  int i;
+  unsigned i;
   struct loop_histogram *histogram = NULL;
 
   if (! loop || ! loop->header)
@@ -234,7 +234,7 @@ flow_loops_free (loops)
 {
   if (loops->parray)
     {
-      int i;
+      unsigned i;
 
       if (! loops->num)
 	abort ();
@@ -303,7 +303,7 @@ flow_loop_exit_edges_find (loop)
 {
   edge e;
   basic_block node, *bbs;
-  int num_exits, i;
+  unsigned num_exits, i;
 
   loop->exit_edges = NULL;
   loop->num_exits = 0;
@@ -1047,7 +1047,7 @@ get_loop_body (loop)
      const struct loop *loop;
 {
   basic_block *tovisit, bb;
-  int tv = 0;
+  unsigned tv = 0;
 
   if (!loop->num_nodes)
     abort ();
@@ -1058,7 +1058,7 @@ get_loop_body (loop)
   if (loop->latch == EXIT_BLOCK_PTR)
     {
       /* There may be blocks unreachable from EXIT_BLOCK.  */
-      if (loop->num_nodes != n_basic_blocks + 2)
+      if (loop->num_nodes != (unsigned) n_basic_blocks + 2)
 	abort ();
       FOR_EACH_BB (bb)
 	tovisit[tv++] = bb;
@@ -1135,7 +1135,7 @@ cancel_loop (loops, loop)
      struct loop *loop;
 {
   basic_block *bbs;
-  int i;
+  unsigned i;
 
   if (loop->inner)
     abort ();
@@ -1178,7 +1178,7 @@ void
 verify_loop_structure (loops)
      struct loops *loops;
 {
-  int *sizes, i, j;
+  unsigned *sizes, i, j;
   sbitmap irreds;
   basic_block *bbs, bb;
   struct loop *loop;
@@ -1324,7 +1324,7 @@ void
 move_histograms_to_loops (loops)
      struct loops *loops;
 {
-  int i;
+  unsigned i;
 
   for (i = 1; i < loops->num; i++)
     {
@@ -1368,7 +1368,7 @@ add_histogram (target, histogram, prob)
      struct loop_histogram *histogram;
      int prob;
 {
-  int i;
+  unsigned i;
 
   if (target->steps > histogram->steps)
     {

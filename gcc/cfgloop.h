@@ -19,6 +19,42 @@ along with GCC; see the file COPYING.  If not, write to the Free
 Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
+/* Structure to hold decision about unrolling/peeling.  */
+enum lpt_dec
+{
+  LPT_NONE,
+  LPT_PEEL_COMPLETELY,
+  LPT_PEEL_SIMPLE,
+  LPT_UNROLL_CONSTANT,
+  LPT_UNROLL_RUNTIME,
+  LPT_UNROLL_STUPID
+};
+
+struct lpt_decision
+{
+  enum lpt_dec decision;
+  unsigned times;
+};
+
+/* Description of loop for simple loop unrolling.  */
+struct loop_desc
+{
+  int postincr;		/* 1 if increment/decrement is done after loop exit condition.  */
+  rtx stride;		/* Value added to VAR in each iteration.  */
+  rtx var;		/* Loop control variable.  */
+  rtx var_alts;		/* List of definitions of its initial value.  */
+  rtx lim;		/* Expression var is compared with.  */
+  rtx lim_alts;		/* List of definitions of its initial value.  */
+  bool const_iter;      /* True if it iterates constant number of times.  */
+  unsigned HOST_WIDE_INT niter;
+			/* Number of iterations if it is constant.  */
+  bool may_be_zero;     /* If we cannot determine that the first iteration will pass.  */
+  enum rtx_code cond;	/* Exit condition.  */
+  int neg;		/* Set to 1 if loop ends when condition is satisfied.  */
+  edge out_edge;	/* The exit edge.  */
+  edge in_edge;		/* And the other one.  */
+};
+
 /* Structure to hold information for each natural loop.  */
 struct loop
 {
@@ -36,6 +72,17 @@ struct loop
 
   /* Histogram for a loop.  */
   struct loop_histogram *histogram;
+
+  /* For loop unrolling/peeling decision.  */
+  struct lpt_decision lpt_decision;
+
+  /* Simple loop description.  */
+  int simple;
+  struct loop_desc desc;
+  int has_desc;
+
+  /* Number of loop insns.  */
+  unsigned ninsns;
 
   /* Array of edges along the pre-header extended basic block trace.
      The source of the first edge is the root node of pre-header
@@ -57,7 +104,7 @@ struct loop
   sbitmap nodes;
 
   /* Number of blocks contained within the loop.  */
-  int num_nodes;
+  unsigned num_nodes;
 
   /* Array of edges that enter the loop.  */
   edge *entry_edges;
@@ -150,7 +197,7 @@ struct loop
 /* Histogram of a loop.  */
 struct loop_histogram
 {
-  int steps;
+  unsigned steps;
   gcov_type *counts;
   gcov_type more;
 };
@@ -168,10 +215,10 @@ enum
 struct loops
 {
   /* Number of natural loops in the function.  */
-  int num;
+  unsigned num;
 
-  /* Maxium nested loop level in the function.  */
-  int levels;
+  /* Maximum nested loop level in the function.  */
+  unsigned levels;
 
   /* Array of natural loop descriptors (scanning this array in reverse order
      will find the inner loops before their enclosing outer loops).  */
@@ -205,26 +252,6 @@ struct loops
   /* State of loops.  */
   int state;
 };
-
-/* Description of loop for simple loop unrolling.  */
-struct loop_desc
-{
-  int postincr;		/* 1 if increment/decrement is done after loop exit condition.  */
-  rtx stride;		/* Value added to VAR in each iteration.  */
-  rtx var;		/* Loop control variable.  */
-  rtx var_alts;		/* List of definitions of its initial value.  */
-  rtx lim;		/* Expression var is compared with.  */
-  rtx lim_alts;		/* List of definitions of its initial value.  */
-  bool const_iter;      /* True if it iterates constant number of times.  */
-  unsigned HOST_WIDE_INT niter;
-			/* Number of iterations if it is constant.  */
-  bool may_be_zero;     /* If we cannot determine that the first iteration will pass.  */
-  enum rtx_code cond;	/* Exit condition.  */
-  int neg;		/* Set to 1 if loop ends when condition is satisfied.  */
-  edge out_edge;	/* The exit edge.  */
-  edge in_edge;		/* And the other one.  */
-};
-
 
 /* Flags for loop discovery.  */
 
@@ -297,7 +324,7 @@ extern bool simple_loop_p		PARAMS ((struct loops *, struct loop *,
 extern rtx count_loop_iterations	PARAMS ((struct loop_desc *, rtx, rtx));
 extern bool just_once_each_iteration_p	PARAMS ((struct loops *,struct loop *,
 						 basic_block));
-extern int expected_loop_iterations	PARAMS ((const struct loop *));
+extern unsigned expected_loop_iterations PARAMS ((const struct loop *));
 
 /* Loop manipulation.  */
 extern bool can_duplicate_loop_p	PARAMS ((struct loop *loop));
@@ -307,9 +334,9 @@ extern bool can_duplicate_loop_p	PARAMS ((struct loop *loop));
 #define DLTHE_USE_HISTOGRAM_PROB	0
 #define DLTHE_USE_WONT_EXIT		2
 extern int duplicate_loop_to_header_edge PARAMS ((struct loop *, edge,
-						struct loops *, int,
+						struct loops *, unsigned,
 						sbitmap, edge, edge *,
-						int *, int));
+						unsigned *, int));
 extern struct loop *loopify		PARAMS ((struct loops *, edge,
 						edge, basic_block));
 extern bool remove_path			PARAMS ((struct loops *, edge));
@@ -327,9 +354,7 @@ enum
 {
   UAP_PEEL = 1,
   UAP_UNROLL = 2,
-  UAP_UNROLL_ALL = 4,
-  UAP_PEEL_COMPLETELY = 8,
-  UAP_PEEL_ONCE_ROLLING = 16
+  UAP_UNROLL_ALL = 4
 };
 
 extern void unroll_and_peel_loops	PARAMS ((struct loops *, int));

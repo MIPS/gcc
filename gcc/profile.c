@@ -219,13 +219,13 @@ instrument_loops (loops)
   enum machine_mode mode = mode_for_size (GCOV_TYPE_SIZE, MODE_INT, 0);
   rtx *loop_counters;
   rtx sequence;
-  int i, histogram_steps;
+  unsigned i, histogram_steps;
   basic_block bb;
   edge e;
   int n_histogram_counters;
   
   histogram_steps = PARAM_VALUE (PARAM_MAX_PEEL_TIMES);
-  if (histogram_steps < PARAM_VALUE (PARAM_MAX_UNROLL_TIMES))
+  if (histogram_steps < (unsigned) PARAM_VALUE (PARAM_MAX_UNROLL_TIMES))
     histogram_steps = PARAM_VALUE (PARAM_MAX_UNROLL_TIMES);
 
   loop_counters = xmalloc (sizeof (rtx) * loops->num);
@@ -715,12 +715,12 @@ static void
 compute_loop_histograms (loops)
      struct loops *loops;
 {
-  int histogram_steps;
-  int i;
+  unsigned histogram_steps;
+  unsigned i;
   gcov_type *histogram_counts, *act_count;
   
   histogram_steps = PARAM_VALUE (PARAM_MAX_PEEL_TIMES);
-  if (histogram_steps < PARAM_VALUE (PARAM_MAX_UNROLL_TIMES))
+  if (histogram_steps < (unsigned) PARAM_VALUE (PARAM_MAX_UNROLL_TIMES))
     histogram_steps = PARAM_VALUE (PARAM_MAX_UNROLL_TIMES);
 
   histogram_counts = get_histogram_counts (loops->num - 1, histogram_steps);
