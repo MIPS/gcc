@@ -1,3 +1,13 @@
+2002-03-12  Geoffrey Keating  <geoffk@redhat.com>
+
+	* Makefile.in (GTFILES): Add @all_gtfiles@.
+	* configure: Regenerate.
+	* configure.in: Construct all_gtfiles from the gtfiles definitions
+	in config-lang.in.
+	* gengtype-yacc.y (type): Warn about duplicate structure names.
+	* gengtype.c (get_output_file): Handle .c files in language
+	subdirectories.
+
 2002-03-11  Geoffrey Keating  <geoffk@redhat.com>
 
 	* Makefile.in (GTFILES): Run gengtype on all the config files

@@ -1,3 +1,17 @@
+2002-03-12  Geoffrey Keating  <geoffk@redhat.com>
+
+	* Make-lang.in (cp/gt-decl.h): Generate using gengtype.
+	(cp/decl.o): Add cp/gt-decl.h dependency.
+	* config-lang.in (gtfiles): New.
+	* tree.h: Rename struct binding_level to struct cp_binding_level.
+	* decl.c: Rename struct binding_level to struct cp_binding_level.
+	Include cp/gt-decl.h.
+	(struct cp_binding_level): Use gengtype.
+	(make_binding_level): Use GGC on struct cp_binding_level.
+	(mark_binding_level): Use gt_ggc_m_cp_binding_level.
+	(cxx_init_decl_processing): Mark free_binding_level as
+	deletable.
+
 2002-03-11  Geoffrey Keating  <geoffk@redhat.com>
 
 	* decl.c (mark_cp_function_context): Update calling sequence.

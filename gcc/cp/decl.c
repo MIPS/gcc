@@ -58,12 +58,12 @@ extern const struct attribute_spec *lang_attribute_table;
 static tree grokparms				PARAMS ((tree));
 static const char *redeclaration_error_message	PARAMS ((tree, tree));
 
-static void push_binding_level PARAMS ((struct binding_level *, int,
+static void push_binding_level PARAMS ((struct cp_binding_level *, int,
 				      int));
 static void pop_binding_level PARAMS ((void));
 static void suspend_binding_level PARAMS ((void));
-static void resume_binding_level PARAMS ((struct binding_level *));
-static struct binding_level *make_binding_level PARAMS ((void));
+static void resume_binding_level PARAMS ((struct cp_binding_level *));
+static struct cp_binding_level *make_binding_level PARAMS ((void));
 static void declare_namespace_level PARAMS ((void));
 static int decl_jump_unsafe PARAMS ((tree));
 static void storedecls PARAMS ((tree));
@@ -82,19 +82,19 @@ static tree grokfndecl PARAMS ((tree, tree, tree, tree, int,
 			      tree, int, int, int, int, int, int, tree));
 static tree grokvardecl PARAMS ((tree, tree, RID_BIT_TYPE *, int, int, tree));
 static tree lookup_tag PARAMS ((enum tree_code, tree,
-			      struct binding_level *, int));
+			      struct cp_binding_level *, int));
 static void set_identifier_type_value_with_scope
-	PARAMS ((tree, tree, struct binding_level *));
+	PARAMS ((tree, tree, struct cp_binding_level *));
 static void record_unknown_type PARAMS ((tree, const char *));
 static tree build_library_fn_1 PARAMS ((tree, enum tree_code, tree));
 static int member_function_or_else PARAMS ((tree, tree, enum overload_flags));
 static void bad_specifiers PARAMS ((tree, const char *, int, int, int, int,
 				  int));
-static tree maybe_process_template_type_declaration PARAMS ((tree, int, struct binding_level*));
+static tree maybe_process_template_type_declaration PARAMS ((tree, int, struct cp_binding_level*));
 static void check_for_uninitialized_const_var PARAMS ((tree));
 static unsigned long typename_hash PARAMS ((hash_table_key));
 static bool typename_compare PARAMS ((hash_table_key, hash_table_key));
-static void push_binding PARAMS ((tree, tree, struct binding_level*));
+static void push_binding PARAMS ((tree, tree, struct cp_binding_level*));
 static int add_binding PARAMS ((tree, tree));
 static void pop_binding PARAMS ((tree, tree));
 static tree local_variable_p_walkfn PARAMS ((tree *, int *, void *));
@@ -105,17 +105,17 @@ static tree qualify_lookup PARAMS ((tree, int));
 static tree record_builtin_java_type PARAMS ((const char *, int));
 static const char *tag_name PARAMS ((enum tag_types code));
 static void find_class_binding_level PARAMS ((void));
-static struct binding_level *innermost_nonclass_level PARAMS ((void));
+static struct cp_binding_level *innermost_nonclass_level PARAMS ((void));
 static void warn_about_implicit_typename_lookup PARAMS ((tree, tree));
 static int walk_namespaces_r PARAMS ((tree, walk_namespaces_fn, void *));
 static int walk_globals_r PARAMS ((tree, void *));
-static void add_decl_to_level PARAMS ((tree, struct binding_level *));
+static void add_decl_to_level PARAMS ((tree, struct cp_binding_level *));
 static tree make_label_decl PARAMS ((tree, int));
 static void use_label PARAMS ((tree));
-static void check_previous_goto_1 PARAMS ((tree, struct binding_level *, tree,
+static void check_previous_goto_1 PARAMS ((tree, struct cp_binding_level *, tree,
 					   const char *, int));
 static void check_previous_goto PARAMS ((struct named_label_use_list *));
-static void check_switch_goto PARAMS ((struct binding_level *));
+static void check_switch_goto PARAMS ((struct cp_binding_level *));
 static void check_previous_gotos PARAMS ((tree));
 static void pop_label PARAMS ((tree, tree));
 static void pop_labels PARAMS ((tree));
@@ -219,7 +219,7 @@ static int only_namespace_names;
 
 struct named_label_use_list
 {
-  struct binding_level *binding_level;
+  struct cp_binding_level *binding_level;
   tree names_in_scope;
   tree label_decl;
   const char *filename_o_goto;
@@ -252,7 +252,7 @@ tree last_function_parms;
 
 struct named_label_list
 {
-  struct binding_level *binding_level;
+  struct cp_binding_level *binding_level;
   tree names_in_scope;
   tree old_value;
   tree label_decl;
@@ -343,7 +343,7 @@ int adding_implicit_members = 0;
 /* Note that the information in the `names' component of the global contour
    is duplicated in the IDENTIFIER_GLOBAL_VALUEs of all identifiers.  */
 
-struct binding_level
+struct cp_binding_level GTY(())
   {
     /* A chain of _DECL nodes for all variables, constants, functions,
        and typedef types.  These are in the reverse of the order
@@ -393,7 +393,7 @@ struct binding_level
     tree this_class;
 
     /* The binding level which this one is contained in (inherits from).  */
-    struct binding_level *level_chain;
+    struct cp_binding_level *level_chain;
 
     /* List of decls in `names' that have incomplete
        structure or union types.  */
@@ -448,13 +448,11 @@ struct binding_level
 
     /* Three bits left for this word.  */
 
-#if defined(DEBUG_CP_BINDING_LEVELS)
     /* Binding depth at which this level began.  */
     unsigned binding_depth;
-#endif /* defined(DEBUG_CP_BINDING_LEVELS) */
   };
 
-#define NULL_BINDING_LEVEL ((struct binding_level *) NULL)
+#define NULL_BINDING_LEVEL ((struct cp_binding_level *) NULL)
 
 /* The binding level currently in effect.  */
 
@@ -469,13 +467,13 @@ struct binding_level
 
 /* A chain of binding_level structures awaiting reuse.  */
 
-static struct binding_level *free_binding_level;
+static struct cp_binding_level *free_binding_level;
 
 /* The outermost binding level, for names of file scope.
    This is created when the compiler is started and exists
    through the entire run.  */
 
-static struct binding_level *global_binding_level;
+static struct cp_binding_level *global_binding_level;
 
 /* Nonzero means unconditionally make a BLOCK for the next level pushed.  */
 
@@ -495,16 +493,16 @@ indent ()
 }
 #endif /* defined(DEBUG_CP_BINDING_LEVELS) */
 
-static tree pushdecl_with_scope	PARAMS ((tree, struct binding_level *));
+static tree pushdecl_with_scope	PARAMS ((tree, struct cp_binding_level *));
 
 static void
 push_binding_level (newlevel, tag_transparent, keep)
-     struct binding_level *newlevel;
+     struct cp_binding_level *newlevel;
      int tag_transparent, keep;
 {
   /* Add this level to the front of the chain (stack) of levels that
      are active.  */
-  memset ((char*) newlevel, 0, sizeof (struct binding_level));
+  memset ((char*) newlevel, 0, sizeof (struct cp_binding_level));
   newlevel->level_chain = current_binding_level;
   current_binding_level = newlevel;
   newlevel->tag_transparent = tag_transparent;
@@ -527,7 +525,7 @@ push_binding_level (newlevel, tag_transparent, keep)
 static void
 find_class_binding_level ()
 {
-  struct binding_level *level = current_binding_level;
+  struct cp_binding_level *level = current_binding_level;
 
   while (level && level->parm_flag != 2)
     level = level->level_chain;
@@ -561,7 +559,7 @@ pop_binding_level ()
   is_class_level = 0;
 #endif /* defined(DEBUG_CP_BINDING_LEVELS) */
   {
-    register struct binding_level *level = current_binding_level;
+    register struct cp_binding_level *level = current_binding_level;
     current_binding_level = current_binding_level->level_chain;
     level->level_chain = free_binding_level;
 #if 0 /* defined(DEBUG_CP_BINDING_LEVELS) */
@@ -605,7 +603,7 @@ suspend_binding_level ()
 
 static void
 resume_binding_level (b)
-     struct binding_level *b;
+     struct cp_binding_level *b;
 {
   /* Resuming binding levels is meant only for namespaces,
      and those cannot nest into classes. */
@@ -623,14 +621,14 @@ resume_binding_level (b)
 #endif /* defined(DEBUG_CP_BINDING_LEVELS) */
 }
 
-/* Create a new `struct binding_level'.  */
+/* Create a new `struct cp_binding_level'.  */
 
 static
-struct binding_level *
+struct cp_binding_level *
 make_binding_level ()
 {
   /* NOSTRICT */
-  return (struct binding_level *) xmalloc (sizeof (struct binding_level));
+  return (struct cp_binding_level *) ggc_alloc (sizeof (struct cp_binding_level));
 }
 
 /* Nonzero if we are currently in the global binding level.  */
@@ -643,10 +641,10 @@ global_bindings_p ()
 
 /* Return the innermost binding level that is not for a class scope.  */
 
-static struct binding_level *
+static struct cp_binding_level *
 innermost_nonclass_level ()
 {
-  struct binding_level *b;
+  struct cp_binding_level *b;
 
   b = current_binding_level;
   while (b->parm_flag == 2)
@@ -664,7 +662,7 @@ innermost_nonclass_level ()
 int
 toplevel_bindings_p ()
 {
-  struct binding_level *b = innermost_nonclass_level ();
+  struct cp_binding_level *b = innermost_nonclass_level ();
 
   return b->namespace_p || b->template_parms_p;
 }
@@ -676,7 +674,7 @@ toplevel_bindings_p ()
 int
 namespace_bindings_p ()
 {
-  struct binding_level *b = innermost_nonclass_level ();
+  struct cp_binding_level *b = innermost_nonclass_level ();
 
   return b->namespace_p;
 }
@@ -730,7 +728,7 @@ current_tmpl_spec_kind (n_class_scopes)
   int n_template_parm_scopes = 0;
   int seen_specialization_p = 0;
   int innermost_specialization_p = 0;
-  struct binding_level *b;
+  struct cp_binding_level *b;
 
   /* Scan through the template parameter scopes.  */
   for (b = current_binding_level; b->template_parms_p; b = b->level_chain)
@@ -823,7 +821,7 @@ void
 pushlevel (tag_transparent)
      int tag_transparent;
 {
-  struct binding_level *newlevel;
+  struct cp_binding_level *newlevel;
 
   if (cfun && !doing_semantic_analysis_p ())
     return;
@@ -918,7 +916,7 @@ note_level_for_catch ()
 }
 
 /* For a binding between a name and an entity at a block scope,
-   this is the `struct binding_level' for the block.  */
+   this is the `struct cp_binding_level' for the block.  */
 #define BINDING_LEVEL(NODE) \
   (((struct tree_binding*)(NODE))->scope.level)
 
@@ -934,7 +932,7 @@ static void
 push_binding (id, decl, level)
      tree id;
      tree decl;
-     struct binding_level* level;
+     struct cp_binding_level* level;
 {
   tree binding;
 
@@ -1037,7 +1035,7 @@ add_binding (id, decl)
 static void
 add_decl_to_level (decl, b)
      tree decl;
-     struct binding_level *b;
+     struct cp_binding_level *b;
 {
   /* We build up the list in reverse order, and reverse it later if
      necessary.  */
@@ -1056,7 +1054,7 @@ push_local_binding (id, decl, flags)
      tree decl;
      int flags;
 {
-  struct binding_level *b;
+  struct cp_binding_level *b;
 
   /* Skip over any local classes.  This makes sense if we call
      push_local_binding with a friend decl of a local class.  */
@@ -1307,7 +1305,7 @@ poplevel (keep, reverse, functionbody)
      under constraints of next binding contour.  */
   if (cfun && !functionbody)
     {
-      struct binding_level *level_chain;
+      struct cp_binding_level *level_chain;
       level_chain = current_binding_level->level_chain;
       if (level_chain)
 	{
@@ -1630,7 +1628,7 @@ set_block (block)
 void
 pushlevel_class ()
 {
-  register struct binding_level *newlevel;
+  register struct cp_binding_level *newlevel;
 
   /* Reuse or create a struct for this binding level.  */
 #if defined(DEBUG_CP_BINDING_LEVELS)
@@ -1661,7 +1659,7 @@ pushlevel_class ()
 void
 poplevel_class ()
 {
-  register struct binding_level *level = class_binding_level;
+  register struct cp_binding_level *level = class_binding_level;
   tree shadowed;
 
   my_friendly_assert (level != 0, 354);
@@ -1673,7 +1671,7 @@ poplevel_class ()
      next time we're entering a class scope, it is the same class.  */
   if (current_class_depth != 1)
     {
-      struct binding_level* b;
+      struct cp_binding_level* b;
 
       /* Clear out our IDENTIFIER_CLASS_VALUEs.  */
       for (shadowed = level->class_shadowed;
@@ -1935,28 +1933,13 @@ wrapup_globals_for_namespace (namespace, data)
 }
 
 
-/* Mark ARG (which is really a struct binding_level **) for GC.  */
+/* Mark ARG (which is really a struct cp_binding_level **) for GC.  */
 
 static void
 mark_binding_level (arg)
      void *arg;
 {
-  struct binding_level *lvl = *(struct binding_level **)arg;
-
-  for (; lvl; lvl = lvl->level_chain)
-    {
-      ggc_mark_tree (lvl->names);
-      ggc_mark_tree (lvl->tags);
-      ggc_mark_tree (lvl->usings);
-      ggc_mark_tree (lvl->using_directives);
-      ggc_mark_tree (lvl->class_shadowed);
-      ggc_mark_tree (lvl->type_shadowed);
-      ggc_mark_tree (lvl->shadowed_labels);
-      ggc_mark_tree (lvl->blocks);
-      ggc_mark_tree (lvl->this_class);
-      ggc_mark_tree (lvl->incomplete);
-      ggc_mark_tree (lvl->dead_vars_from_for);
-    }
+  gt_ggc_m_cp_binding_level (*(struct cp_binding_level **)arg);
 }
 
 static void
@@ -1986,7 +1969,7 @@ static int no_print_builtins = 0;
 
 void
 print_binding_level (lvl)
-     struct binding_level *lvl;
+     struct cp_binding_level *lvl;
 {
   tree t;
   int i = 0, len;
@@ -2089,9 +2072,9 @@ print_binding_level (lvl)
 
 void
 print_other_binding_stack (stack)
-     struct binding_level *stack;
+     struct cp_binding_level *stack;
 {
-  struct binding_level *level;
+  struct cp_binding_level *level;
   for (level = stack; level != global_binding_level; level = level->level_chain)
     {
       fprintf (stderr, "binding level ");
@@ -2104,7 +2087,7 @@ print_other_binding_stack (stack)
 void
 print_binding_stack ()
 {
-  struct binding_level *b;
+  struct cp_binding_level *b;
   fprintf (stderr, "current_binding_level=");
   fprintf (stderr, HOST_PTR_PRINTF, current_binding_level);
   fprintf (stderr, "\nclass_binding_level=");
@@ -2451,7 +2434,7 @@ maybe_push_to_top_level (pseudo)
      int pseudo;
 {
   struct saved_scope *s;
-  struct binding_level *b;
+  struct cp_binding_level *b;
   tree old_bindings;
   int need_pop;
 
@@ -2562,7 +2545,7 @@ static void
 set_identifier_type_value_with_scope (id, type, b)
      tree id;
      tree type;
-     struct binding_level *b;
+     struct cp_binding_level *b;
 {
   if (!b->namespace_p)
     {
@@ -2647,7 +2630,7 @@ static tree
 maybe_process_template_type_declaration (type, globalize, b)
      tree type;
      int globalize;
-     struct binding_level* b;
+     struct cp_binding_level* b;
 {
   tree decl = TYPE_NAME (type);
 
@@ -2768,7 +2751,7 @@ pushtag (name, type, globalize)
      tree name, type;
      int globalize;
 {
-  register struct binding_level *b;
+  register struct cp_binding_level *b;
 
   b = current_binding_level;
   while (b->tag_transparent
@@ -2899,7 +2882,7 @@ make_anon_name ()
 void
 clear_anon_tags ()
 {
-  register struct binding_level *b;
+  register struct cp_binding_level *b;
   register tree tags;
   static int last_cnt = 0;
 
@@ -4191,7 +4174,7 @@ pushdecl (x)
 		{
 		  /* Go to where the parms should be and see if we find
 		     them there.  */
-		  struct binding_level *b = current_binding_level->level_chain;
+		  struct cp_binding_level *b = current_binding_level->level_chain;
 
 		  /* ARM $8.3 */
 		  if (b->parm_flag == 1)
@@ -4264,9 +4247,9 @@ pushdecl (x)
 static tree
 pushdecl_with_scope (x, level)
      tree x;
-     struct binding_level *level;
+     struct cp_binding_level *level;
 {
-  register struct binding_level *b;
+  register struct cp_binding_level *b;
   tree function_decl = current_function_decl;
 
   current_function_decl = NULL_TREE;
@@ -4295,7 +4278,7 @@ tree
 pushdecl_namespace_level (x)
      tree x;
 {
-  register struct binding_level *b = current_binding_level;
+  register struct cp_binding_level *b = current_binding_level;
   register tree t;
 
   t = pushdecl_with_scope (x, NAMESPACE_LEVEL (current_namespace));
@@ -4938,14 +4921,14 @@ decl_jump_unsafe (decl)
 static void
 check_previous_goto_1 (decl, level, names, file, line)
      tree decl;
-     struct binding_level *level;
+     struct cp_binding_level *level;
      tree names;
      const char *file;
      int line;
 {
   int identified = 0;
   int saw_eh = 0;
-  struct binding_level *b = current_binding_level;
+  struct cp_binding_level *b = current_binding_level;
   for (; b; b = b->level_chain)
     {
       tree new_decls = b->names;
@@ -5012,7 +4995,7 @@ check_previous_goto (use)
 
 static void
 check_switch_goto (level)
-     struct binding_level *level;
+     struct cp_binding_level *level;
 {
   check_previous_goto_1 (NULL_TREE, level, level->names, NULL, 0);
 }
@@ -5114,7 +5097,7 @@ define_label (filename, line, name)
 {
   tree decl = lookup_label (name);
   struct named_label_list *ent;
-  register struct binding_level *p;
+  register struct cp_binding_level *p;
 
   for (ent = named_labels; ent; ent = ent->next)
     if (ent->label_decl == decl)
@@ -5152,7 +5135,7 @@ define_label (filename, line, name)
 
 struct cp_switch
 {
-  struct binding_level *level;
+  struct cp_binding_level *level;
   struct cp_switch *next;
   /* The SWITCH_STMT being built.  */
   tree switch_stmt;
@@ -5208,7 +5191,7 @@ finish_case_label (low_value, high_value)
      tree high_value;
 {
   tree cond, r;
-  register struct binding_level *p;
+  register struct cp_binding_level *p;
 
   if (! switch_stack)
     {
@@ -5305,10 +5288,10 @@ static tree
 lookup_tag (form, name, binding_level, thislevel_only)
      enum tree_code form;
      tree name;
-     struct binding_level *binding_level;
+     struct cp_binding_level *binding_level;
      int thislevel_only;
 {
-  register struct binding_level *level;
+  register struct cp_binding_level *level;
   /* Non-zero if, we should look past a template parameter level, even
      if THISLEVEL_ONLY.  */
   int allow_template_parms_p = 1;
@@ -5421,7 +5404,7 @@ lookup_tag_reverse (type, name)
      tree type;
      tree name;
 {
-  register struct binding_level *level;
+  register struct cp_binding_level *level;
 
   for (level = current_binding_level; level; level = level->level_chain)
     {
@@ -5822,7 +5805,7 @@ unqualified_namespace_lookup (name, flags, spacesp)
   tree initial = current_decl_namespace ();
   tree scope = initial;
   tree siter;
-  struct binding_level *level;
+  struct cp_binding_level *level;
   tree val = NULL_TREE;
 
   if (spacesp)
@@ -6158,7 +6141,7 @@ tree
 lookup_name_current_level (name)
      tree name;
 {
-  struct binding_level *b;
+  struct cp_binding_level *b;
   tree t = NULL_TREE;
 
   b = current_binding_level;
@@ -6204,7 +6187,7 @@ lookup_type_current_level (name)
   if (REAL_IDENTIFIER_TYPE_VALUE (name) != NULL_TREE
       && REAL_IDENTIFIER_TYPE_VALUE (name) != global_type_node)
     {
-      struct binding_level *b = current_binding_level;
+      struct cp_binding_level *b = current_binding_level;
       while (1)
 	{
 	  if (purpose_member (name, b->type_shadowed))
@@ -6611,6 +6594,7 @@ cxx_init_decl_processing ()
   ggc_add_tree_root (&size_zero_node, 1);
   ggc_add_root (&global_binding_level, 1, sizeof global_binding_level,
 		mark_binding_level);
+  ggc_add_deletable_root (&free_binding_level, sizeof (free_binding_level));
   ggc_add_root (&scope_chain, 1, sizeof scope_chain, &mark_saved_scope);
   ggc_add_tree_root (&static_ctors, 1);
   ggc_add_tree_root (&static_dtors, 1);
@@ -7894,7 +7878,7 @@ maybe_inject_for_scope_var (decl)
 
   if (current_binding_level->is_for_scope)
     {
-      struct binding_level *outer
+      struct cp_binding_level *outer
 	= current_binding_level->level_chain;
 
       /* Check to see if the same name is already bound at the outer
@@ -9964,7 +9948,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 
   if (decl_context == NORMAL && !toplevel_bindings_p ())
     {
-      struct binding_level *b = current_binding_level;
+      struct cp_binding_level *b = current_binding_level;
       current_binding_level = b->level_chain;
       if (current_binding_level != 0 && toplevel_bindings_p ())
 	decl_context = PARM;
@@ -12646,7 +12630,7 @@ xref_tag (code_type_node, name, globalize)
   enum tag_types tag_code;
   enum tree_code code;
   register tree ref, t;
-  struct binding_level *b = current_binding_level;
+  struct cp_binding_level *b = current_binding_level;
   int got_type = 0;
   tree attributes = NULL_TREE;
   tree context = NULL_TREE;
@@ -12842,14 +12826,14 @@ xref_tag (code_type_node, name, globalize)
 	}
       else
 	{
-	  struct binding_level *old_b = class_binding_level;
+	  struct cp_binding_level *old_b = class_binding_level;
 
 	  ref = make_aggr_type (code);
 	  TYPE_CONTEXT (ref) = context;
 
 #ifdef NONNESTED_CLASSES
 	  /* Class types don't nest the way enums do.  */
-	  class_binding_level = (struct binding_level *)0;
+	  class_binding_level = (struct cp_binding_level *)0;
 #endif
 	  pushtag (name, ref, globalize);
 	  class_binding_level = old_b;
@@ -13094,7 +13078,7 @@ start_enum (name)
      tree name;
 {
   register tree enumtype = NULL_TREE;
-  struct binding_level *b = current_binding_level;
+  struct cp_binding_level *b = current_binding_level;
 
   /* If this is the real definition for a previous forward reference,
      fill in the contents in the same object that used to be the
@@ -13444,7 +13428,7 @@ start_function (declspecs, declarator, attrs, flags)
   extern int have_extern_spec;
   extern int used_extern_spec;
   int doing_friend = 0;
-  struct binding_level *bl;
+  struct cp_binding_level *bl;
   tree current_function_parms;
 
   /* Sanity check.  */
@@ -14415,7 +14399,7 @@ hack_incomplete_structures (type)
      tree type;
 {
   tree *list;
-  struct binding_level *level;
+  struct cp_binding_level *level;
 
   if (!type) /* Don't do this for class templates.  */
     return;
@@ -14740,3 +14724,5 @@ cp_missing_noreturn_ok_p (decl)
   /* A missing noreturn is ok for the `main' function.  */
   return DECL_MAIN_P (decl);
 }
+
+#include "cp/gt-decl.h"

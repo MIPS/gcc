@@ -366,7 +366,7 @@ static void finish_decl (tree decl, tree init, bool is_top_level);
 static void finish_function (int nested);
 static const char *lang_printable_name (tree decl, int v);
 static tree lookup_name_current_level (tree name);
-static struct binding_level *make_binding_level (void);
+static struct f_binding_level *make_binding_level (void);
 static void pop_f_function_context (void);
 static void push_f_function_context (void);
 static void push_parm_decl (tree parm);
@@ -521,7 +521,7 @@ static const char *const ffecom_gfrt_argstring_[FFECOM_gfrt]
 /* Note that the information in the `names' component of the global contour
    is duplicated in the IDENTIFIER_GLOBAL_VALUEs of all identifiers.  */
 
-struct binding_level
+struct f_binding_level GTY(())
   {
     /* A chain of _DECL nodes for all variables, constants, functions,
        and typedef types.  These are in the reverse of the order supplied.
@@ -538,7 +538,7 @@ struct binding_level
     tree this_block;
 
     /* The binding level which this one is contained in (inherits from).  */
-    struct binding_level *level_chain;
+    struct f_binding_level *level_chain;
 
     /* 0: no ffecom_prepare_* functions called at this level yet;
        1: ffecom_prepare* functions called, except not ffecom_prepare_end;
@@ -546,25 +546,25 @@ struct binding_level
     int prep_state;
   };
 
-#define NULL_BINDING_LEVEL (struct binding_level *) NULL
+#define NULL_BINDING_LEVEL (struct f_binding_level *) NULL
 
 /* The binding level currently in effect.  */
 
-static struct binding_level *current_binding_level;
+static struct f_binding_level *current_binding_level;
 
 /* A chain of binding_level structures awaiting reuse.  */
 
-static struct binding_level *free_binding_level;
+static struct f_binding_level *free_binding_level;
 
 /* The outermost binding level, for names of file scope.
    This is created when the compiler is started and exists
    through the entire run.  */
 
-static struct binding_level *global_binding_level;
+static struct f_binding_level *global_binding_level;
 
 /* Binding level structures are initialized by copying this one.  */
 
-static const struct binding_level clear_binding_level
+static const struct f_binding_level clear_binding_level
 =
 {NULL, NULL, NULL, NULL_BINDING_LEVEL, 0};
 
@@ -6262,26 +6262,17 @@ ffecom_gfrt_tree_ (ffecomGfrt ix)
 /* A somewhat evil way to prevent the garbage collector
    from collecting 'tree' structures.  */
 #define NUM_TRACKED_CHUNK 63
-static struct tree_ggc_tracker
+struct tree_ggc_tracker GTY(())
 {
   struct tree_ggc_tracker *next;
   tree trees[NUM_TRACKED_CHUNK];
-} *tracker_head = NULL;
+};
+static struct tree_ggc_tracker *tracker_head = NULL;
 
 static void
 mark_tracker_head (void *arg)
 {
-  struct tree_ggc_tracker *head;
-  int i;
-
-  for (head = * (struct tree_ggc_tracker **) arg;
-       head != NULL;
-       head = head->next)
-  {
-    ggc_mark (head);
-    for (i = 0; i < NUM_TRACKED_CHUNK; i++)
-      ggc_mark_tree (head->trees[i]);
-  }
+  gt_ggc_m_tree_ggc_tracker (* (struct tree_ggc_tracker **) arg);
 }
 
 void
@@ -13722,13 +13713,13 @@ lookup_name_current_level (tree name)
   return t;
 }
 
-/* Create a new `struct binding_level'.  */
+/* Create a new `struct f_binding_level'.  */
 
-static struct binding_level *
+static struct f_binding_level *
 make_binding_level ()
 {
   /* NOSTRICT */
-  return (struct binding_level *) xmalloc (sizeof (struct binding_level));
+  return ggc_alloc (sizeof (struct f_binding_level));
 }
 
 /* Save and restore the variables in this file and elsewhere
@@ -13740,7 +13731,7 @@ struct f_function
   struct f_function *next;
   tree named_labels;
   tree shadowed_labels;
-  struct binding_level *binding_level;
+  struct f_binding_level *binding_level;
 };
 
 struct f_function *f_function_chain;
@@ -13828,7 +13819,7 @@ pushdecl_top_level (x)
      tree x;
 {
   register tree t;
-  register struct binding_level *b = current_binding_level;
+  register struct f_binding_level *b = current_binding_level;
   register tree f = current_function_decl;
 
   current_binding_level = global_binding_level;
@@ -14096,15 +14087,7 @@ incomplete_type_error (value, type)
 static void
 mark_binding_level (void *arg)
 {
-  struct binding_level *level = *(struct binding_level **) arg;
-
-  while (level)
-    {
-      ggc_mark_tree (level->names);
-      ggc_mark_tree (level->blocks);
-      ggc_mark_tree (level->this_block);
-      level = level->level_chain;
-    }
+  gt_ggc_m_f_binding_level (*(struct f_binding_level **) arg);
 }
 
 static void
@@ -14168,8 +14151,7 @@ ffecom_init_decl_processing ()
   ggc_add_tree_root (ffecom_gfrt_, FFECOM_gfrt);
   ggc_add_root (&current_binding_level, 1, sizeof current_binding_level,
                 mark_binding_level);
-  ggc_add_root (&free_binding_level, 1, sizeof current_binding_level,
-                mark_binding_level);
+  ggc_add_deletable_root (&free_binding_level, sizeof free_binding_level);
   ggc_add_root (&tracker_head, 1, sizeof tracker_head, mark_tracker_head);
 
   ffe_init_0 ();
@@ -14489,7 +14471,7 @@ poplevel (keep, reverse, functionbody)
   /* Pop the current level, and free the structure for reuse.  */
 
   {
-    register struct binding_level *level = current_binding_level;
+    register struct f_binding_level *level = current_binding_level;
     current_binding_level = current_binding_level->level_chain;
 
     level->level_chain = free_binding_level;
@@ -14544,7 +14526,7 @@ pushdecl (x)
 {
   register tree t;
   register tree name = DECL_NAME (x);
-  register struct binding_level *b = current_binding_level;
+  register struct f_binding_level *b = current_binding_level;
 
   if ((TREE_CODE (x) == FUNCTION_DECL)
       && (DECL_INITIAL (x) == 0)
@@ -14676,7 +14658,7 @@ void
 pushlevel (tag_transparent)
      int tag_transparent;
 {
-  register struct binding_level *newlevel = NULL_BINDING_LEVEL;
+  register struct f_binding_level *newlevel = NULL_BINDING_LEVEL;
 
   assert (! tag_transparent);
 
@@ -16628,3 +16610,5 @@ typedef doublereal E_f; // real function with -R not specified //
 -------- (end output file from f2c)
 
 */
+
+#include "f/gt-com.h"

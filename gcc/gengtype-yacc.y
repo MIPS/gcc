@@ -136,6 +136,11 @@ type: SCALAR
          {
 	   type_p t = find_structure ($2, 0);
 	   t->u.s.fields = $4;
+	   if (t->u.s.line.file)
+	     {
+	       error_at_line (&lexer_line, "duplicate structure definition");
+	       error_at_line (&t->u.s.line, "previous definition here");
+	     }
 	   t->u.s.line = lexer_line;
 	   $$ = t;
 	 }
@@ -145,6 +150,11 @@ type: SCALAR
          {
 	   type_p t = find_structure ($2, 1);
 	   t->u.s.fields = $4;
+	   if (t->u.s.line.file)
+	     {
+	       error_at_line (&lexer_line, "duplicate structure definition");
+	       error_at_line (&t->u.s.line, "previous definition here");
+	     }
 	   t->u.s.line = lexer_line;
 	   $$ = t;
 	 }

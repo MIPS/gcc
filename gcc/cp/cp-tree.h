@@ -348,7 +348,7 @@ struct tree_binding
   struct tree_common common;
   union {
     tree scope;
-    struct binding_level *level;
+    struct cp_binding_level *level;
   } scope;
   tree value;
 };
@@ -737,8 +737,8 @@ struct saved_scope
 
   struct stmt_tree_s x_stmt_tree;
 
-  struct binding_level *class_bindings;
-  struct binding_level *bindings;
+  struct cp_binding_level *class_bindings;
+  struct cp_binding_level *bindings;
 
   struct saved_scope *prev;
 };
@@ -827,7 +827,7 @@ struct cp_language_function
 
   struct named_label_use_list *x_named_label_uses;
   struct named_label_list *x_named_labels;
-  struct binding_level *bindings;
+  struct cp_binding_level *bindings;
   varray_type x_local_names;
 
   const char *cannot_inline;
@@ -1767,7 +1767,7 @@ struct lang_decl_flags
     tree template_info;
 
     /* In a NAMESPACE_DECL, this is NAMESPACE_LEVEL.  */
-    struct binding_level *level;
+    struct cp_binding_level *level;
   } u;
 
   union {
@@ -3653,13 +3653,13 @@ extern void finish_scope                        PARAMS ((void));
 extern void note_level_for_for			PARAMS ((void));
 extern void note_level_for_try			PARAMS ((void));
 extern void note_level_for_catch		PARAMS ((void));
-extern void resume_level			PARAMS ((struct binding_level *));
+extern void resume_level			PARAMS ((struct cp_binding_level *));
 extern void delete_block			PARAMS ((tree));
 extern void add_block_current_level		PARAMS ((tree));
 extern void pushlevel_class			PARAMS ((void));
 extern void poplevel_class                      PARAMS ((void));
 extern void print_binding_stack			PARAMS ((void));
-extern void print_binding_level			PARAMS ((struct binding_level *));
+extern void print_binding_level			PARAMS ((struct cp_binding_level *));
 extern void push_namespace			PARAMS ((tree));
 extern void pop_namespace			PARAMS ((void));
 extern void push_nested_namespace		PARAMS ((tree));
@@ -3747,7 +3747,7 @@ extern tree start_method			PARAMS ((tree, tree, tree));
 extern tree finish_method			PARAMS ((tree));
 extern void hack_incomplete_structures		PARAMS ((tree));
 extern void finish_stmt				PARAMS ((void));
-extern void print_other_binding_stack		PARAMS ((struct binding_level *));
+extern void print_other_binding_stack		PARAMS ((struct cp_binding_level *));
 extern void revert_static_member_fn             PARAMS ((tree));
 extern void fixup_anonymous_aggr                PARAMS ((tree));
 extern int check_static_variable_definition     PARAMS ((tree, tree));

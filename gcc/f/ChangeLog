@@ -1,3 +1,19 @@
+2002-03-12  Geoffrey Keating  <geoffk@redhat.com>
+
+	* Make-lang.in (f/gt-com.h): Build using gengtype.
+	(com.o): Depend on f/gt-com.h.
+	* com.c: Rename struct binding_level to f_binding_level.
+	(struct f_binding_level): Use gengtype.
+	(struct tree_ggc_tracker): Use gengtype.
+	(mark_tracker_head): Use gt_ggc_m_tree_ggc_tracker.
+	(make_binding_level): Use GGC.
+	(mark_binding_level): Use gt_ggc_m_f_binding_level.
+	(ffecom_init_decl_processing): Change free_binding_level
+	to a deletable root.
+	* config-lang.in (gtfiles): Define.
+	* where.c: Strings need no longer be allocated in GCable memory;
+	remove my change of 30 Dec 1999.
+
 2002-02-09  Toon Moene  <toon@moene.indiv.nluug.nl>
 
 	* data.c (ffedata_eval_offset_): Convert non-default integer

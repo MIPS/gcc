@@ -255,7 +255,7 @@ get_output_file (input_file)
 {
   filemap_p fm, fmo;
   size_t len;
-  const char *basename;
+  const char *basename, *langname;
 
   /* Do we already know the file?  */
   for (fm = files; fm; fm = fm->next)
@@ -275,6 +275,15 @@ get_output_file (input_file)
     basename = input_file;
   else
     basename++;
+  langname = basename;
+  if (basename - input_file >= 2 && memcmp (basename-2, "f/", 2) == 0)
+    basename -= 2;
+  else if (basename - input_file >= 3 && memcmp (basename-3, "cp/", 3) == 0)
+    basename -= 3;
+  else if (basename - input_file >= 4 && memcmp (basename-4, "ada/", 4) == 0)
+    basename -= 4;
+  else if (basename - input_file >= 5 && memcmp (basename-5, "java/", 5) == 0)
+    basename -= 5;
 
   if (len > 2 && input_file[len-1] == 'c' && input_file[len-2] == '.')
     {
@@ -284,9 +293,11 @@ get_output_file (input_file)
       for (l = len-3; l >= 0; l--)
 	if (! isalnum (input_file[l]) && input_file[l] != '-')
 	  break;
-      fm->output_name = s = xmalloc (sizeof ("gt-") + len - l);
-      sprintf (s, "gt-%.*s.h", len - l - 3,
-	       input_file + l + 1);
+      fm->output_name = s = xmalloc (sizeof ("gt-") + len - l 
+				     + (langname - basename));
+      sprintf (s, "%.*sgt-%.*s.h", 
+	       langname - basename, basename,
+	       len - l - 3, input_file + l + 1);
       fm->output = create_file (input_file);
       return fm->output;
     }

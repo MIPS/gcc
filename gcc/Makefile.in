@@ -1775,8 +1775,9 @@ GTFILES = $(GCONFIG_H) \
   $(srcdir)/function.h  $(srcdir)/rtl.h $(srcdir)/optabs.h \
   $(srcdir)/except.c $(srcdir)/function.c $(srcdir)/integrate.c \
   $(srcdir)/stmt.c $(srcdir)/tree.c $(srcdir)/varasm.c \
+  $(out_file) \
   $(srcdir)/c-decl.c $(srcdir)/c-pragma.c \
-  $(out_file)
+  @all_gtfiles@
 
 gtype-desc.h gtype-desc.c gtype-c.h gt-except.h gt-function.h : s-gtype; @true
 gt-integrate.h gt-stmt.h gt-tree.h gt-varasm.h : s-gtype; @true
