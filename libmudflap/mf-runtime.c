@@ -188,10 +188,10 @@ options [] =
      read_integer_option, 0, &__mf_opts.crumple_zone},
     {"lc-mask", 
      "set lookup cache size mask to N (2**M - 1)",
-     read_integer_option, 0, &__mf_lc_mask},
+     read_integer_option, 0, (int *)(&__mf_lc_mask)},
     {"lc-shift", 
      "set lookup cache pointer shift",
-     read_integer_option, 0, &__mf_lc_shift},
+     read_integer_option, 0, (int *)(&__mf_lc_shift)},
     {"backtrace", 
      "keep an N-level stack trace of each call context",
      read_integer_option, 0, &__mf_opts.backtrace},
@@ -323,8 +323,9 @@ __mf_process_opts (char *optstr)
       }
     }
 
-  /* Special post-processing: bound __mf_lc_mask for security. */
+  /* Special post-processing: bound __mf_lc_mask and free_queue_length for security. */
   __mf_lc_mask &= (LOOKUP_CACHE_SIZE_MAX - 1);
+  __mf_opts.free_queue_length &= (__MF_FREEQ_MAX - 1);
 
   return 1;
 }
@@ -356,6 +357,7 @@ void __mf_init ()
     }
 
   __mf_init_heuristics ();
+
   __mf_state = active;
 
   TRACE_OUT;
@@ -456,21 +458,41 @@ void __mf_check (uintptr_t ptr, uintptr_t sz, const char *location)
 
     case mode_check:
       {
-	__mf_object_tree_t *node = __mf_find_object (ptr, ptr_high);
-	__mf_object_t *obj = (node != NULL ? (& node->data) : NULL);
-	
-	if (LIKELY (obj && ptr >= obj->low && ptr_high <= obj->high))
+
+	int attempts = 2;
+
+	while (attempts--)
 	  {
-	    entry->low = obj->low;
-	    entry->high = obj->high;
-	    obj->check_count ++;  /* XXX: what about overflow?  */
-	  }
-	else
-	  {
-	    if (! __mf_heuristic_check (ptr, ptr_high))
-	      {	      
-		/* XXX:  */
-		violation_p = 1;
+	    __mf_object_tree_t *node = __mf_find_object (ptr, ptr_high);
+	    __mf_object_t *obj = (node != NULL ? (& node->data) : NULL);
+	    
+	    if (LIKELY (obj && ptr >= obj->low && ptr_high <= obj->high))
+	      {
+		entry->low = obj->low;
+		entry->high = obj->high;
+		obj->check_count ++;  /* XXX: what about overflow?  */
+		attempts = 0;
+	      }
+	    else
+	      {
+		if (__mf_heuristic_check (ptr, ptr_high))
+		  {
+		    attempts = 0;
+		  }
+		else
+		  {	      
+		    /* Possible violation. */
+		    if (attempts)
+		      {
+			/* Try re-initializing heuristics. */
+			__mf_init_heuristics (); 
+		      }
+		    else
+		      {
+			/* Second time around: out of luck. */
+			violation_p = 1;
+		      }
+		  }
 	      }
 	  }
       }    
@@ -611,15 +633,48 @@ __mf_register (uintptr_t ptr, uintptr_t sz, int type, const char *name)
 	      }
 	    else if (type == __MF_TYPE_GUESS)
 	      {
-		/* do nothing, someone has beat us here. */
-		TRACE ("mf: existing guessed reg %p\n", (void *)low);
+		int i;
+		int all_guesses = 1;
+
+		for (i = 0; i < num_overlapping_objs; ++i)
+		  {
+		    if (ovr_obj[i]->data.type != __MF_TYPE_GUESS)
+		      {
+			all_guesses = 0;
+			break;
+		      }
+		  }
+
+		if (all_guesses)
+		  {
+		    TRACE ("mf: replacing %d existing guess%s at %p with %p - %p\n", 
+			   num_overlapping_objs,
+			   (num_overlapping_objs > 1 ? "es" : ""),
+			   (void *)low,
+			   (void *)low, (void *)high);
+
+		    for (i = 0; i < num_overlapping_objs; ++i)
+		      {
+			extern void  __real_free (void *);
+			__mf_remove_old_object (ovr_obj[i]);
+			__real_free (ovr_obj[i]->data.alloc_backtrace);
+			__real_free (ovr_obj[i]);			
+		      }
+
+		    __mf_insert_new_object (low, high, __MF_TYPE_GUESS, 
+					    name, pc);
+		  } 
+		else 
+		  {
+		    TRACE ("mf: preserving %d regions at %p\n", 
+			   num_overlapping_objs, (void *)low);
+		  }		
 		END_RECURSION_PROTECT;
 		return;
 	      }
 	    else
 	      {
 		int i;
-		int all_guesses = 1;
 		for (i = 0; i < num_overlapping_objs; ++i)
 		  {
 		    if (ovr_obj[i]->data.type == __MF_TYPE_GUESS)

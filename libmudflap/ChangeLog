@@ -1,3 +1,18 @@
+2002-08-22  Graydon Hoare  <graydon@redhat.com>
+
+	* mf-runtime.c (__mf_process_opts): Sanity-check free_queue_length.
+	(__mf_check): Re-inialize and check heuristics before violation.
+	(__mf_register): Permit updating pure-guess regions.
+	* mf-hooks.c (__wrap_free): Correct some free queue logic.
+	(__wrap_dlopen): New wrapper function.
+	(__wrap_mmap): New wrapper function.
+	(__wrap_munmap): New wrapper function.
+	* mf-heuristics.c (__mf_register_ro_sections): Register *all* regions
+	which are not stack addresses.
+	(is_stack_address): New function.
+	(__mf_init_heuristics): Save and restore state, always initialize with
+	"starting" state.
+
 2002-08-21  Frank Ch. Eigler  <fche@redhat.com>
 
 	* mf-hooks.c (MF_VALIDATE_EXTENT): Rewrite to correct off-by-one

@@ -18,6 +18,18 @@
 
 extern char _end;
 
+static const uintptr_t stack_segment_base = 0xC0000000;
+static const uintptr_t stack_segment_top  = 0xBF800000;
+
+static int
+is_stack_address (uintptr_t addr)
+{
+  return 
+    (addr <= stack_segment_base) &&
+    (addr >= stack_segment_top);
+}
+
+
 static void
 __mf_register_ro_sections ()
 {
@@ -50,8 +62,8 @@ __mf_register_ro_sections ()
 	{
 	  if (sscanf (buf, "%p-%p %4c", &low, &high, flags) == 3)
 	    {
-	      if (flags[0] == 'r' &&
-		  flags[1] == '-')
+	      if (! (is_stack_address ((uintptr_t)low) || 
+		     is_stack_address ((uintptr_t)high)))
 		{
 		  if (__mf_opts.trace_mf_calls)
 		    {
@@ -60,23 +72,8 @@ __mf_register_ro_sections ()
 		    }
 		  __mf_register ((uintptr_t) low, (uintptr_t) (high-low),
 				 __MF_TYPE_GUESS, 
-				 "(heuristic) static read-only segment");
+				 "(heuristic) static segment");
 		} 
-	      
-	      /* This clause will register the stack as a guess. Splitting regions in the
-		 stack is much more delicate than in the heap. We will not do it yet. */
-	      /*
-	    else if (flags[2] == 'x')
-	    {
-	      if (__mf_opts.trace_mf_calls)
-		{
-		  fprintf (stderr, "mf: (heuristics) registering executable region %p-%p\n",
-			  low, high);
-		}
-	      __mf_register (low, (high-low), __MF_TYPE_GUESS, 
-			     "(heuristic) static executable segment");
-	    }
-	  */
 	      else
 		{
 		  if (__mf_opts.trace_mf_calls)
@@ -100,18 +97,15 @@ __mf_heuristic_check (uintptr_t ptr, uintptr_t ptr_high)
 
   if (__mf_opts.stack_bound)
     {
+      uintptr_t stack_top_guess = (uintptr_t)__builtin_frame_address(0);
+
       TRACE ("mf: stack bound check on %p - %p\n", 
 	     ptr, ptr_high);
-      
-      uintptr_t stack_top_guess = (uintptr_t)__builtin_frame_address(0);
-      const uintptr_t stack_segment_base = 0xC0000000;
-      const uintptr_t stack_segment_top  = 0xBFFFC000;
-      
+            
       TRACE ("mf: stack estimated as %p - %p\n", 
 	     stack_top_guess, stack_segment_base);
       
-      if (LIKELY(ptr >= stack_segment_top && 
-		 ptr <= stack_segment_base))
+      if (LIKELY(is_stack_address (ptr)))
 	{
 	  if (UNLIKELY(ptr_high > stack_segment_base))
 	    {
@@ -128,6 +122,7 @@ __mf_heuristic_check (uintptr_t ptr, uintptr_t ptr_high)
 	  return (ptr_high >= ptr);
 	}            
     }
+
   TRACE ("mf: no heuristics validate extent %p - %p\n", 
 	 ptr, ptr_high);
     return 0;
@@ -136,7 +131,11 @@ __mf_heuristic_check (uintptr_t ptr, uintptr_t ptr_high)
 void
 __mf_init_heuristics ()
 {
+  mf_state old_state;
+  old_state = __mf_state;
+  __mf_state = starting;
   TRACE_IN;
   __mf_register_ro_sections ();
   TRACE_OUT;
+  __mf_state = old_state;
 }

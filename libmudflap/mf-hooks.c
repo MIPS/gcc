@@ -159,14 +159,23 @@ __wrap_free (void *buf)
 {
   /* Use a circular queue to delay some number (__mf_opts.free_queue_length) of free()s.  */
   static void *free_queue [__MF_FREEQ_MAX];
-  static unsigned free_ptr;
+  static unsigned free_ptr = 0;
+  static int freeq_initialized = 0;
   mf_state old_state;
-  extern void * __real_free (void *);
+  extern void * __real_free (void *);  
+  extern void *__real_memset (void *s, int c, size_t n);
 
   if (UNLIKELY (__mf_state != active))
     {
       __real_free (buf);
       return;
+    }
+
+  if (UNLIKELY(!freeq_initialized))
+    {
+      __real_memset (free_queue, 0, 
+		     __MF_FREEQ_MAX * sizeof (void *));
+      freeq_initialized = 1;
     }
 
   if (UNLIKELY(buf == NULL))
@@ -212,6 +221,58 @@ __wrap_free (void *buf)
   
   __mf_state = old_state;
   TRACE_OUT;
+}
+
+void *
+__wrap_dlopen (const char *filename, int flag)
+{
+  extern void * __real_dlopen(const char *filename, int flag);
+  BEGIN_PROTECT(void *, dlopen, filename, flag);
+  result = __real_dlopen (filename, flag);
+  __mf_state = old_state;
+  __mf_init_heuristics ();
+  TRACE_OUT;
+  return result;
+}
+
+
+void  *  
+__wrap_mmap(void  *start,  size_t length, int prot , 
+	    int flags, int fd, off_t offset)
+{
+
+  extern void *__real_mmap (void *, size_t, int, 
+			    int, int, off_t);
+  BEGIN_PROTECT(void *, mmap, start, length, 
+		prot, flags, fd, offset);
+
+  result = __real_mmap (start, length, prot, 
+			flags, fd, offset);
+
+  __mf_state = old_state;
+
+  if ((uintptr_t)result != -1)
+    {
+      __mf_register ((uintptr_t) result, 
+		     (uintptr_t) result + length - 1,
+		     __MF_TYPE_GUESS, 
+		     "(heuristic) mmap region");
+    }
+
+  TRACE_OUT;
+  return result;
+}
+
+int 
+__wrap_munmap(void *start, size_t length)
+{
+  extern void *__real_munmmap (void *, size_t);
+  BEGIN_PROTECT(int, munmap, start, length);
+  
+  result = __real_munmap (start, length);
+
+  __mf_state = old_state;
+  __mf_unregister ((uintptr_t)start, length);
 }
 
 /* }}} */
