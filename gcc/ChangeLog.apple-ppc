@@ -1,5 +1,9 @@
 2004-11-11  Stuart Hastings <stuart@apple.com>
 
+	* i386.md (*movqi_1) Short-term fix for 3838108.
+
+2004-11-11  Stuart Hastings <stuart@apple.com>
+
 	* tree.c (build_vector): Proper initialization for 'list'
 
 2004-11-10  Fariborz Jahanian <fjahanian@apple.com>
