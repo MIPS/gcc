@@ -4160,6 +4160,7 @@ compute_reachable_eh (tree stmt)
   tree reachable_handlers = NULL_TREE;
   tree types_caught = NULL_TREE;
   int skip_cleanups = 0;
+  tree_stmt_iterator si;
 
   /* EH_STACK contains all the exception handlers which enclose
      this statement.
@@ -4173,45 +4174,53 @@ compute_reachable_eh (tree stmt)
       tree handler = VARRAY_TREE (eh_stack, i);
       tree tp_node;
 
-      if (TREE_CODE (handler) == CATCH_EXPR)
+      if (TREE_CODE (handler) == CATCH_EXPR
+	  || (TREE_CODE (handler) == COMPOUND_EXPR
+	      && TREE_CODE (TREE_OPERAND (handler, 0)) == CATCH_EXPR))
 	{
-	  tree types = CATCH_TYPES (handler);
-
-	  /* This is a try/catch construct.  If it has no
-	     CATCH_TYPES, then it catches all types and we
-	     can stop our search early.  */
-	  if (types == NULL_TREE)
+	  for (si = tsi_start (&handler); !tsi_end_p (si); tsi_next (&si))
 	    {
-	      reachable_handlers = tree_cons (void_type_node,
-					      VARRAY_TREE (eh_stack, i),
-					      reachable_handlers);
-	      break;
-	    }
+	      tree types;
 
-	  /* If TYPES is not a list, make it a list to
-	     simplify handling below.  */
-	  if (TREE_CODE (types) != TREE_LIST)
-	    types = tree_cons (NULL_TREE, types, NULL_TREE);
+	      handler = tsi_stmt (si);
+	      types = CATCH_TYPES (handler);
 
-	  /* See if the CATCH_TYPES specifies any types that have
-	     not already been handled.  If so, add those types to
-	     the types we handle and add this handler to the list
-	     of reachable handlers.  */
-	  for (tp_node = types; tp_node; tp_node = TREE_CHAIN (tp_node))
-	    {
-	      tree type = TREE_VALUE (tp_node);
-
-	      if (!check_handled (types_caught, type))
+	      /* This is a try/catch construct.  If it has no
+		 CATCH_TYPES, then it catches all types and we
+		 can stop our search early.  */
+	      if (types == NULL_TREE)
 		{
-		  types_caught = tree_cons (NULL, type, types_caught);
-		  reachable_handlers
-		    = tree_cons (void_type_node,
-				 VARRAY_TREE (eh_stack, i),
-				 reachable_handlers);
+		  reachable_handlers = tree_cons (void_type_node,
+						  handler,
+						  reachable_handlers);
+		  goto out;
 		}
-	    }
 
-	  skip_cleanups = 0;
+	      /* If TYPES is not a list, make it a list to
+		 simplify handling below.  */
+	      if (TREE_CODE (types) != TREE_LIST)
+		types = tree_cons (NULL_TREE, types, NULL_TREE);
+
+	      /* See if the CATCH_TYPES specifies any types that have
+		 not already been handled.  If so, add those types to
+		 the types we handle and add this handler to the list
+		 of reachable handlers.  */
+	      for (tp_node = types; tp_node; tp_node = TREE_CHAIN (tp_node))
+		{
+		  tree type = TREE_VALUE (tp_node);
+
+		  if (!check_handled (types_caught, type))
+		    {
+		      types_caught = tree_cons (NULL, type, types_caught);
+		      reachable_handlers
+			= tree_cons (void_type_node,
+				     handler,
+				     reachable_handlers);
+		    }
+		}
+
+	      skip_cleanups = 0;
+	    }
 	}
       else if (TREE_CODE (handler) == EH_FILTER_EXPR)
 	{
@@ -4220,7 +4229,7 @@ compute_reachable_eh (tree stmt)
 	  if (EH_FILTER_TYPES (handler) == NULL_TREE)
 	    {
 	      reachable_handlers = tree_cons (void_type_node,
-					      VARRAY_TREE (eh_stack, i),
+					      handler,
 					      reachable_handlers);
 	      break;
 	    }
@@ -4229,7 +4238,7 @@ compute_reachable_eh (tree stmt)
 	     stop our search.  We should probably track the
 	     types it can throw.  */
 	  reachable_handlers = tree_cons (void_type_node,
-					  VARRAY_TREE (eh_stack, i),
+					  handler,
 					  reachable_handlers);
 
 	  skip_cleanups = 0;
@@ -4240,12 +4249,13 @@ compute_reachable_eh (tree stmt)
 	     stop our search; however, we can skip other
 	     cleanups until we run into something else.  */
 	  reachable_handlers = tree_cons (void_type_node,
-					  VARRAY_TREE (eh_stack, i),
+					  handler,
 					  reachable_handlers);
 	  skip_cleanups = 1;
 	}
     }
 
+ out:
   /* REACHABLE_HANDLERS now contains a list of all the reachable
      handlers.  */
   stmt_ann (stmt)->reachable_exception_handlers = reachable_handlers;

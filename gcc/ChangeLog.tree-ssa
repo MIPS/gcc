@@ -1,5 +1,7 @@
 2003-05-21  Jason Merrill  <jason@redhat.com>
 
+	* tree-cfg.c (compute_reachable_eh): Handle multiple CATCH_EXPRs.
+
 	* builtins.c (simplify_builtin_next_arg): Split out from...
 	(expand_builtin_next_arg): ...here.
 	(simplify_builtin_va_start): Split out from...
