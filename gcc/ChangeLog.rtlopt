@@ -1,3 +1,7 @@
+Wed Jan  8 14:19:50 CET 2003  Josef Zlomek <zlomj9am@artax.karlin.mff.cuni.cz>
+
+	* basic-block.h: Include hard-reg-set.h.
+
 Wed Jan  8 10:57:13 CET 2003  Josef Zlomek <zlomj9am@artax.karlin.mff.cuni.cz>
 
 	* Makefile.in (PARTITION_H): New.
