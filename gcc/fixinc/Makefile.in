@@ -22,6 +22,7 @@
 # Its purpose is to build the any-platforms fixinc.sh script.
 
 CFLAGS = -g
+FIXINC_DEFS = @fixinc_defs@
 
 CC = @CC@
 SHELL = /bin/sh
@@ -43,7 +44,7 @@ INCLUDES = -I. -I.. -I$(srcdir) -I$(srcdir)/.. -I$(srcdir)/../config
 
 # Always use -I$(srcdir)/config when compiling.
 .c.o:
-	$(CC) -c $(CFLAGS) $(CPPFLAGS) $(INCLUDES) $<
+	$(CC) -c $(CFLAGS) $(FIXINC_DEFS) $(CPPFLAGS) $(INCLUDES) $<
 
 # The only suffixes we want for implicit rules are .c and .o.
 .SUFFIXES:
@@ -82,7 +83,7 @@ fixincl: $(OBJ)
 	chmod 777 $@ ; fi
 
 regex.o: regex.c
-	-$(CC) $(CFLAGS) -DSTDC_HEADERS=1 -c $(srcdir)/regex.c
+	-$(CC) $(CFLAGS) $(FIXINC_DEFS) -DSTDC_HEADERS=1 -c $(srcdir)/regex.c
 
 fixincl.o : fixincl.x fixincl.c
 server.o : server.c server.h

@@ -402,6 +402,11 @@ host_xmake_file=
 host_truncate_target=
 host_exeext=
 
+# Each system that is known to be uncapable of running the fixincl program
+# properly should initialize fixinc_defs='-DFIXINC_BROKEN' in the case
+# block below; see m68k-motorola-sysv as an example.
+fixinc_defs=
+
 # Decode the host machine, then the target machine.
 # For the host machine, we save the xm_file variable as host_xm_file;
 # then we decode the target machine and forget everything else
@@ -1678,6 +1683,7 @@ changequote([,])dnl
 		extra_parts="crt0.o mcrt0.o"
 		extra_headers=math-68881.h
 		float_format=m68k
+		fixinc_defs='-DFIXINC_BROKEN'
 		;;
 	m68k-ncr-sysv*)			# NCR Tower 32 SVR3
 		tm_file=m68k/tower-as.h
@@ -2024,6 +2030,7 @@ changequote([,])dnl
 		then
 			tmake_file=m88k/t-m88k-gas
 		fi
+		fixinc_defs='-DFIXINC_BROKEN'
 		;;
 	m88k-*-sysv4*)
 		tm_file=m88k/sysv4.h
@@ -4021,6 +4028,7 @@ AC_SUBST(cc_set_by_configure)
 AC_SUBST(stage_prefix_set_by_configure)
 AC_SUBST(install)
 AC_SUBST(symbolic_link)
+AC_SUBST(fixinc_defs)
 
 AC_SUBST_FILE(target_overrides)
 AC_SUBST_FILE(host_overrides)

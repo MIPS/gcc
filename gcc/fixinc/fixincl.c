@@ -25,9 +25,18 @@
  *             Boston,  MA  02111-1307, USA.
  */
 
+#ifdef FIXINC_BROKEN
+/* The fixincl program is known to not run properly on this particular
+ * system.  Instead of producing a probably broken executable, we
+ * force a compilation error and let the mkfixinc.sh script use
+ * the fixincl.sh shell script instead.
+ */
+# include "The fixincl program does not work properly on this system!"
+#endif
+
+#include <sys/types.h>
 #include <sys/param.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 #include <sys/wait.h>
 #include <signal.h>
 #include <stdio.h>

@@ -1,5 +1,21 @@
 I'm intentionally leaving the ChangeLogs conflicted during the merge.  robertl
 
+1998-12-10  Manfred Hollstein  <manfred@s-direktnet.de>
+
+	* configure.in: Add new configure var. "fixinc_defs"; set it to
+	force usage of the fixincl.sh shell script on m68k-motorola-sysv
+	and m88k-motorola-sysv3.
+	* configure: Regenerate.
+	* fixinc/Makefile.in (FIXINC_DEFS): Add new macro to be defined
+	by gcc's configure script.
+	(.c.o): Add $(FIXINC_DEFS) for compilation.
+	(regex.o): Likewise.
+
+	* fixinc/fixincl.c: #include <sys/types.h> before any other file
+	from sys/.
+	(FIXINC_BROKEN): Add code to force a compile error triggered by
+	the new FIXINC_DEFS/fixinc_defs macros.
+
 Tue Dec  1 12:40:00 1998  Bruce Korb <korb@datadesign.com>
 
 	* fixinc/fixincl.c (main): added retry count limit (10).
