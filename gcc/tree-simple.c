@@ -199,8 +199,6 @@ Boston, MA 02111-1307, USA.  */
 
      ----------------------------------------------------------------------  */
 
-static bool is_union_based_ref		PARAMS ((tree));
-
 /* Validation of SIMPLE statements.  */
 
 /** Return nonzero if T is a statement that complies with the SIMPLE
@@ -661,9 +659,52 @@ is_simple_varname (t)
   if (t == NULL_TREE)
     return 1;
 
-  return (is_simple_id (t) || is_simple_arrayref (t) || is_simple_compref (t));
+  return (is_simple_id (t)
+#if 0
+	  || is_simple_arrayref (t) || is_simple_compref (t)
+#else
+	  || is_simple_compound_lval (t)
+#endif
+	  );
 }
 
+/* Returns nonzero if T is an array or member reference of the form:
+
+      compound_lval
+      	      : min_lval '[' val ']'
+	      | min_lval '.' ID
+	      | compound_lval '[' val ']'
+	      | compound_lval '.' ID
+
+   This is not part of the original SIMPLE definition, which separates
+   array and member references, but it seems reasonable to handle them
+   together.  Also, this way we don't run into problems with union
+   aliasing; gcc requires that for accesses through a union to alias, the
+   union reference must be explicit, which was not always the case when we
+   were splitting up array and member refs.  */
+
+int
+is_simple_compound_lval (t)
+     tree t;
+{
+  /* Allow arrays of complex types.  */
+  if (TREE_CODE (t) == REALPART_EXPR
+      || TREE_CODE (t) == IMAGPART_EXPR)
+    t = TREE_OPERAND (t, 0);
+
+  if (TREE_CODE (t) != ARRAY_REF && TREE_CODE (t) != COMPONENT_REF)
+    return 0;
+
+  for (; TREE_CODE (t) == COMPONENT_REF || TREE_CODE (t) == ARRAY_REF;
+       t = TREE_OPERAND (t, 0))
+    {
+      if (TREE_CODE (t) == ARRAY_REF
+	  && !is_simple_val (TREE_OPERAND (t, 1)))
+	return 0;
+    }
+
+  return is_simple_min_lval (t);
+}
 
 /** Return nonzero if T is a constant.  */
 
@@ -753,32 +794,10 @@ is_simple_min_lval (t)
 
   return (is_simple_id (t)
 	  || (TREE_CODE (t) == INDIRECT_REF
-	      && is_simple_id (TREE_OPERAND (t, 0)))
-	  || is_union_based_ref (t));
+	      && is_simple_id (TREE_OPERAND (t, 0))));
 }
 
-
-/** Returns true iff T is a compound lvalue expression involving a union.
-    We currently don't simplify such expressions because it confuses alias
-    analysis.  FIXME alias analysis should be smarter, and this should go
-    away.  gcc.c-torture/execute/990413-2.c breaks without this.  */
-
-static bool
-is_union_based_ref (t)
-     tree t;
-{
-  for (; TREE_CODE (t) == COMPONENT_REF || TREE_CODE (t) == ARRAY_REF;
-       t = TREE_OPERAND (t, 0))
-    {
-      if (TREE_CODE (t) == COMPONENT_REF
-	  && TREE_CODE (TREE_TYPE (TREE_OPERAND (t, 0))) == UNION_TYPE)
-	return 1;
-    }
-
-  return 0;
-}
-
-
+#if 0
 /** Return nonzero if T is an array reference of the form:
 
       arrayref
@@ -839,7 +858,7 @@ is_simple_compref (t)
 
   return is_simple_min_lval (t);
 }
-
+#endif
 
 /** Return nonzero if T is a typecast operation of the form
     '(' cast ')' varname.  */

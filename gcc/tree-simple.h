@@ -53,6 +53,7 @@ int is_simple_id                       PARAMS ((tree));
 int is_simple_varname                  PARAMS ((tree));
 int is_simple_val                      PARAMS ((tree));
 int is_simple_min_lval                 PARAMS ((tree));
+int is_simple_compound_lval            PARAMS ((tree));
 int is_simple_arrayref                 PARAMS ((tree));
 int is_simple_compref                  PARAMS ((tree));
 int is_simple_cast                     PARAMS ((tree));

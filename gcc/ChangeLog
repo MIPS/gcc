@@ -1,3 +1,14 @@
+2002-06-12  Jason Merrill  <jason@redhat.com>
+
+	* tree-simple.c (is_simple_compound_lval): New fn.
+	(is_simple_varname): Call it instead of is_simple_arrayref and
+	is_simple_compref.
+	(is_simple_arrayref, is_simple_compref): Comment out.
+	* tree-simple.h: Declare it.
+	* c-simplify.c (simplify_expr_either): Comment out.
+	(simplify_compound_lval): New fn.
+	(simplify_array_ref, simplify_component_ref): Just call it.
+
 2002-06-11  Diego Novillo  <dnovillo@redhat.com>
 
 	* c-simplify.c: Remove folding markers.

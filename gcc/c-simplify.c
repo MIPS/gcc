@@ -66,9 +66,8 @@ static void simplify_expr_common     PARAMS ((tree *, tree *, tree *,
                                               int (*) PARAMS ((tree)), tree, int));
 static void simplify_expr            PARAMS ((tree *, tree *, tree *,
                                               int (*) PARAMS ((tree)), tree));
-static void simplify_expr_either     PARAMS ((tree *, tree *, tree *,
-                                              int (*) PARAMS ((tree)), tree));
 static void simplify_array_ref       PARAMS ((tree *, tree *, tree *, tree));
+static void simplify_compound_lval   PARAMS ((tree *, tree *, tree *, tree));
 static void simplify_self_mod_expr   PARAMS ((tree *, tree *, tree *, tree));
 static void simplify_component_ref   PARAMS ((tree *, tree *, tree *, tree));
 static void simplify_call_expr       PARAMS ((tree *, tree *, tree *, tree));
@@ -1113,6 +1112,9 @@ simplify_lvalue_expr (expr_p, pre_p, post_p, simple_test_f, stmt)
   simplify_expr_common (expr_p, pre_p, post_p, simple_test_f, stmt, 2);
 }
 
+#if 0
+static void simplify_expr_either     PARAMS ((tree *, tree *, tree *,
+                                              int (*) PARAMS ((tree)), tree));
 static void
 simplify_expr_either (expr_p, pre_p, post_p, simple_test_f, stmt)
      tree *expr_p;
@@ -1123,6 +1125,7 @@ simplify_expr_either (expr_p, pre_p, post_p, simple_test_f, stmt)
 {
   simplify_expr_common (expr_p, pre_p, post_p, simple_test_f, stmt, 1|2);
 }
+#endif
 
 
 /** Build an expression for the address of T.  Folds away INDIRECT_REF to
@@ -1169,6 +1172,11 @@ simplify_array_ref (expr_p, pre_p, post_p, stmt)
      tree *post_p;
      tree stmt;
 {
+#if 1
+  /* Handle array and member refs together for now.  When alias analysis
+     improves, we may want to go back to handling them separately.  */
+  simplify_compound_lval (expr_p, pre_p, post_p, stmt);
+#else
   tree *p;
   varray_type dim_stack;
 
@@ -1196,8 +1204,66 @@ simplify_array_ref (expr_p, pre_p, post_p, stmt)
       tree *dim_p = (tree *)VARRAY_TOP_GENERIC_PTR (dim_stack);
       simplify_expr (dim_p, pre_p, post_p, is_simple_val, stmt);
     }
+
+  VARRAY_FREE (dim_stack);
+#endif
 }
 
+/* Simplify the COMPONENT_REF or ARRAY_REF node pointed by EXPR_P.
+
+   PRE_P points to the list where side effects that must happen before
+     *EXPR_P should be stored.
+
+   POST_P points to the list where side effects that must happen after
+     *EXPR_P should be stored.
+
+   STMT is the statement tree that contains EXPR.  It's used in cases
+     where simplifying an expression requires creating new statement
+     trees.  */
+
+static void
+simplify_compound_lval (expr_p, pre_p, post_p, stmt)
+     tree *expr_p;
+     tree *pre_p;
+     tree *post_p;
+     tree stmt;
+{
+  tree *p;
+  enum tree_code code;
+  varray_type dim_stack;
+
+  if (TREE_CODE (*expr_p) != ARRAY_REF && TREE_CODE (*expr_p) != COMPONENT_REF)
+    abort ();
+
+  /* Create a stack with all the array dimensions so that they can be
+     simplified from left to right (to match user expectations).  */
+  VARRAY_GENERIC_PTR_INIT (dim_stack, 10, "dim_stack");
+
+  for (p = expr_p;
+       TREE_CODE (*p) == ARRAY_REF || TREE_CODE (*p) == COMPONENT_REF;
+       p = &TREE_OPERAND (*p, 0))
+    {
+      code = TREE_CODE (*p);
+      if (code == ARRAY_REF)
+	VARRAY_PUSH_GENERIC_PTR (dim_stack, (PTR) &TREE_OPERAND (*p, 1));
+    }
+
+  /* Now 'p' points to the first bit that isn't an ARRAY_REF or
+     COMPONENT_REF, 'code' is the TREE_CODE of the last bit that was, and
+     'dim_stack' is a stack of pointers to all the dimensions in left to
+     right order (the leftmost dimension is at the top of the stack).
+
+     Simplify the base, and then each of the dimensions from left to
+     right.  */
+  simplify_expr_common (p, pre_p, post_p, is_simple_min_lval, stmt,
+			code == COMPONENT_REF ? 3 : 2);
+
+  for (; VARRAY_ACTIVE_SIZE (dim_stack) > 0; VARRAY_POP (dim_stack))
+    {
+      tree *dim_p = (tree *)VARRAY_TOP_GENERIC_PTR (dim_stack);
+      simplify_expr (dim_p, pre_p, post_p, is_simple_val, stmt);
+    }
+}
 
 /** Simplify the self modifying expression pointed by EXPR_P (++, --, +=, -=).
 
@@ -1281,6 +1347,11 @@ simplify_component_ref (expr_p, pre_p, post_p, stmt)
      tree *post_p;
      tree stmt;
 {
+#if 1
+  /* Handle array and member refs together for now.  When alias analysis
+     improves, we may want to go back to handling them separately.  */
+  simplify_compound_lval (expr_p, pre_p, post_p, stmt);
+#else
   tree *p;
 
   if (TREE_CODE (*expr_p) != COMPONENT_REF)
@@ -1293,6 +1364,7 @@ simplify_component_ref (expr_p, pre_p, post_p, stmt)
 
   /* Now we're down to the first bit that isn't a COMPONENT_REF.  */
   simplify_expr_either (p, pre_p, post_p, is_simple_min_lval, stmt);
+#endif
 }
 
 
