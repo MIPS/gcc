@@ -1159,20 +1159,13 @@ lower_try_finally_switch (struct leh_state *state, struct leh_tf_state *tf)
    the estimate of the size of the switch machinery we'd have to add.  */
 
 static bool
-decide_copy_try_finally (int ndests, tree finally ATTRIBUTE_UNUSED)
+decide_copy_try_finally (int ndests ATTRIBUTE_UNUSED,
+			 tree finally ATTRIBUTE_UNUSED)
 {
   if (!optimize)
     return false;
 
   /* ??? Should actually estimate the size of the finally block here.  */
-
-  /* ??? During a build of demangle.cc I see 881 exits.  This can't be
-     healthy.  It's causing my laptop to swap to death, so cap for now.  */
-  if (ndests > 30)
-    {
-      warning ("%d exits from a try-finally", ndests);
-      return false;
-    }
 
   /* ??? Arbitrarily say -O1 does switch and -O2 does copy, so that both
      code paths get executed.  */
