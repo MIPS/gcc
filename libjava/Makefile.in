@@ -1706,6 +1706,9 @@ javax/imageio/metadata/IIOMetadataFormat.java \
 javax/imageio/metadata/IIOInvalidTreeException.java \
 javax/imageio/metadata/IIOMetadataFormatImpl.java \
 javax/imageio/metadata/IIOMetadataNode.java \
+javax/imageio/metadata/IIOAttr.java \
+javax/imageio/metadata/IIONamedNodeMap.java \
+javax/imageio/metadata/IIONodeList.java \
 javax/print/AttributeException.java \
 javax/print/CancelablePrintJob.java \
 javax/print/Doc.java \
@@ -5119,6 +5122,9 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/javax/imageio/metadata/IIOMetadataFormat.P \
 .deps/javax/imageio/metadata/IIOMetadataFormatImpl.P \
 .deps/javax/imageio/metadata/IIOMetadataNode.P \
+.deps/javax/imageio/metadata/IIOAttr.P \
+.deps/javax/imageio/metadata/IIONamedNodeMap.P \
+.deps/javax/imageio/metadata/IIONodeList.P \
 .deps/javax/imageio/spi/IIORegistry.P \
 .deps/javax/imageio/spi/IIOServiceProvider.P \
 .deps/javax/imageio/spi/ImageInputStreamSpi.P \

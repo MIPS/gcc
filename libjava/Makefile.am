@@ -2105,6 +2105,9 @@ javax/imageio/metadata/IIOMetadataFormat.java \
 javax/imageio/metadata/IIOInvalidTreeException.java \
 javax/imageio/metadata/IIOMetadataFormatImpl.java \
 javax/imageio/metadata/IIOMetadataNode.java \
+javax/imageio/metadata/IIOAttr.java \
+javax/imageio/metadata/IIONamedNodeMap.java \
+javax/imageio/metadata/IIONodeList.java \
 javax/print/AttributeException.java \
 javax/print/CancelablePrintJob.java \
 javax/print/Doc.java \

@@ -1,3 +1,12 @@
+2004-12-28  Jerry Quinn  <jlquinn@optonline.net>
+
+	* javax/imageio/metadata/IIOMetadataNode.java: Implement.
+	* javax/imageio/metadata/IIOAttr.java: New class.
+	* javax/imageio/metadata/IIONamedNodeMap.java: New class.
+	* javax/imageio/metadata/IIONodeList.java: New class.
+	* Makefile.am: Added new files.
+	* Makefile.in: Regenerated.
+
 2004-12-27  Michael Koch  <konqueror@gmx.de>
 
 	* javax/swing/AbstractAction.java,
