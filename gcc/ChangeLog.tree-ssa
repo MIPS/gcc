@@ -1,5 +1,10 @@
 2004-02-11  Andrew MacLeod  <amacleod@redhat.com>
 
+	* tree-ssa.c (rewrite_out_of_ssa): Don't use coalesce list until new
+	bug resolved.
+
+2004-02-11  Andrew MacLeod  <amacleod@redhat.com>
+
 	* tree-ssa-live.c (compare_pairs): New.  Coalesce list cost function.
 	(sort_coalesce_list): Use qsort() to sort list by cost.
 	(coalesce_tpa_members): Use correct partition representatives.  Add more
