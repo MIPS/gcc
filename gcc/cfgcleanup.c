@@ -1198,7 +1198,7 @@ outgoing_edges_match (int mode, basic_block bb1, basic_block bb2)
 
   /* Match conditional jumps - this may get tricky when fallthru and branch
      edges are crossed.  */
-  if (EDGE_COUNT (bb1->succ) <= 2
+  if (EDGE_COUNT (bb1->succ) == 2
       && any_condjump_p (BB_END (bb1))
       && onlyjump_p (BB_END (bb1)))
     {

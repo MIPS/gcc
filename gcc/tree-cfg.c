@@ -1972,6 +1972,7 @@ cleanup_control_expr_graph (basic_block bb, block_stmt_iterator bsi)
 	      taken_edge->probability += e->probability;
 	      taken_edge->count += e->count;
 	      ssa_remove_edge (e);
+	      ix--;
 	      retval = true;
 	    }
 	}
@@ -4710,6 +4711,7 @@ tree_purge_dead_eh_edges (basic_block bb)
       if (e->flags & EDGE_EH)
 	{
 	  ssa_remove_edge (e);
+	  ix--;
 	  changed = true;
 	}
     }
