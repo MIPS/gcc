@@ -437,6 +437,7 @@ get_base_address (tree t)
   
   if (SSA_VAR_P (t)
       || TREE_CODE (t) == STRING_CST
+      || TREE_CODE (t) == VECTOR_CST
       || TREE_CODE (t) == CONSTRUCTOR
       || INDIRECT_REF_P (t)
       || TREE_CODE (t) == MEM_REF)

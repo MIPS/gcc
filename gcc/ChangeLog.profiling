@@ -1,3 +1,8 @@
+2005-03-10  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-gimple.c (get_base_address): We need to deal with VECTOR_CST
+	here too, since we end up with them in various types of _REF's.
+
 2005-03-06  Kenneth Zadeck <zadeck@naturalbridge.com>
 	* tree-promote-statics.c (try-replace): Fixed missing CONST_DECL case.
 
