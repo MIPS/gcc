@@ -5852,23 +5852,6 @@ when the relevant string is @code{NULL}.
 @end deftypefn
 
 @table @code
-@findex ASM_OUTPUT_LONG_DOUBLE
-@findex ASM_OUTPUT_DOUBLE
-@findex ASM_OUTPUT_FLOAT
-@item ASM_OUTPUT_LONG_DOUBLE (@var{stream}, @var{value})
-@itemx ASM_OUTPUT_DOUBLE (@var{stream}, @var{value})
-@itemx ASM_OUTPUT_FLOAT (@var{stream}, @var{value})
-@itemx ASM_OUTPUT_THREE_QUARTER_FLOAT (@var{stream}, @var{value})
-@itemx ASM_OUTPUT_SHORT_FLOAT (@var{stream}, @var{value})
-@itemx ASM_OUTPUT_BYTE_FLOAT (@var{stream}, @var{value})
-A C statement to output to the stdio stream @var{stream} an assembler
-instruction to assemble a floating-point constant of @code{TFmode},
-@code{DFmode}, @code{SFmode}, @code{TQFmode}, @code{HFmode}, or
-@code{QFmode}, respectively, whose value is @var{value}.  @var{value}
-will be a C expression of type @code{REAL_VALUE_TYPE}.  Macros such as
-@code{REAL_VALUE_TO_TARGET_DOUBLE} are useful for writing these
-definitions.
-
 @findex OUTPUT_ADDR_CONST_EXTRA
 @item OUTPUT_ADDR_CONST_EXTRA (@var{stream}, @var{x}, @var{fail})
 A C statement to recognize @var{rtx} patterns that
@@ -6781,9 +6764,9 @@ that includes @samp{%}-sequences to substitute operands, you must take
 care of the substitution yourself.  Just be sure to increment
 @var{ptr} over whatever text should not be output normally.
 
-@findex recog_operand
+@findex recog_data.operand
 If you need to look at the operand values, they can be found as the
-elements of @code{recog_operand}.
+elements of @code{recog_data.operand}.
 
 If the macro definition does nothing, the instruction is output
 in the usual way.

@@ -37,7 +37,7 @@ Boston, MA 02111-1307, USA.  */
 
 /* This should be eventually be generalized to other languages, but
    this would require a shared function-as-trees infrastructure.  */
-/*#include "c-common.h"*/
+#include "c-common.h"
 
 /* Nonzero to warn about variables used before they are initialized.  Used
    by analyze_rdefs().  */

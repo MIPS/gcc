@@ -309,11 +309,11 @@ extern int target_flags;
 %{!mpa-risc-1-0:%{!mpa-risc-1-1:%{!mpa-risc-2-0:%{!msnake:%(cpp_cpu_default)}}}} \
 %{m64bit:%(cpp_64bit)} \
 %{!m64bit:%(cpp_64bit_default)} \
-%{!ansi: -D_HPUX_SOURCE -D_HIUX_SOURCE -D__STDC_EXT__} \
+%{!ansi: -D_HPUX_SOURCE -D_HIUX_SOURCE -D__STDC_EXT__ -D_INCLUDE_LONGLONG} \
 %{threads: -D_REENTRANT -D_DCE_THREADS}"
 
 #define CPLUSPLUS_CPP_SPEC "\
--D_HPUX_SOURCE -D_HIUX_SOURCE -D__STDC_EXT__ \
+-D_HPUX_SOURCE -D_HIUX_SOURCE -D__STDC_EXT__ -D_INCLUDE_LONGLONG \
 %{mpa-risc-1-0:%(cpp_pa10)} \
 %{mpa-risc-1-1:%(cpp_pa11)} \
 %{msnake:%(cpp_pa11)} \
@@ -1734,22 +1734,6 @@ while (0)
 
 #define ASM_GENERATE_INTERNAL_LABEL(LABEL,PREFIX,NUM)	\
   sprintf (LABEL, "*%c$%s%04ld", (PREFIX)[0], (PREFIX) + 1, (long)(NUM))
-
-/* This is how to output an assembler line defining a `double' constant.  */
-
-#define ASM_OUTPUT_DOUBLE(FILE,VALUE)  \
-  do { long l[2];							\
-       REAL_VALUE_TO_TARGET_DOUBLE (VALUE, l);				\
-       fprintf (FILE, "\t.word 0x%lx\n\t.word 0x%lx\n", l[0], l[1]);	\
-     } while (0)
-
-/* This is how to output an assembler line defining a `float' constant.  */
-
-#define ASM_OUTPUT_FLOAT(FILE,VALUE)  \
-  do { long l;								\
-       REAL_VALUE_TO_TARGET_SINGLE (VALUE, l);				\
-       fprintf (FILE, "\t.word 0x%lx\n", l);				\
-     } while (0)
 
 #define ASM_GLOBALIZE_LABEL(FILE, NAME)					\
   do {									\

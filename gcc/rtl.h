@@ -51,16 +51,16 @@ enum rtx_code  {
 #define NUM_RTX_CODE ((int)LAST_AND_UNUSED_RTX_CODE)
 				/* The cast here, saves many elsewhere.  */
 
-extern const int rtx_length[];
+extern const unsigned char rtx_length[NUM_RTX_CODE];
 #define GET_RTX_LENGTH(CODE)		(rtx_length[(int) (CODE)])
 
-extern const char * const rtx_name[];
+extern const char * const rtx_name[NUM_RTX_CODE];
 #define GET_RTX_NAME(CODE)		(rtx_name[(int) (CODE)])
 
-extern const char * const rtx_format[];
+extern const char * const rtx_format[NUM_RTX_CODE];
 #define GET_RTX_FORMAT(CODE)		(rtx_format[(int) (CODE)])
 
-extern const char rtx_class[];
+extern const char rtx_class[NUM_RTX_CODE];
 #define GET_RTX_CLASS(CODE)		(rtx_class[(int) (CODE)])
 
 /* The flags and bitfields of an ADDR_DIFF_VEC.  BASE is the base label
@@ -818,6 +818,7 @@ extern const char * const note_insn_name[NOTE_INSN_MAX - NOTE_INSN_BIAS];
 #define SUBREG_BYTE(RTX) XCUINT(RTX, 1, SUBREG)
 
 /* in rtlanal.c */
+extern unsigned int subreg_lsb		PARAMS ((rtx));
 extern unsigned int subreg_regno_offset 	PARAMS ((unsigned int, 
 							 enum machine_mode, 
 							 unsigned int, 
@@ -1482,6 +1483,7 @@ typedef int (*rtx_function)             PARAMS ((rtx *, void *));
 extern int for_each_rtx                 PARAMS ((rtx *, rtx_function, void *));
 extern rtx regno_use_in			PARAMS ((unsigned int, rtx));
 extern int auto_inc_p			PARAMS ((rtx));
+extern int in_expr_list_p		PARAMS ((rtx, rtx));
 extern void remove_node_from_expr_list	PARAMS ((rtx, rtx *));
 extern int insns_safe_to_move_p         PARAMS ((rtx, rtx, rtx *));
 extern int loc_mentioned_in_p		PARAMS ((rtx *, rtx));

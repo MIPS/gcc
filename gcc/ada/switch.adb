@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.4 $
+--                            $Revision: 1.6 $
 --                                                                          --
 --          Copyright (C) 1992-2001, Free Software Foundation, Inc.         --
 --                                                                          --
@@ -606,10 +606,13 @@ package body Switch is
 
                case Switch_Chars (Ptr) is
 
+                  --  Configuration pragmas
+
                   when 'c' =>
                      Ptr := Ptr + 1;
+
                      if Ptr > Max then
-                        Osint.Fail ("Invalid switch: ", "ec");
+                        raise Bad_Switch;
                      end if;
 
                      Config_File_Name :=
@@ -617,9 +620,21 @@ package body Switch is
 
                      return;
 
+                  --  Mapping file
+
+                  when 'm' =>
+                     Ptr := Ptr + 1;
+
+                     if Ptr > Max then
+                        raise Bad_Switch;
+                     end if;
+
+                     Mapping_File_Name :=
+                       new String'(Switch_Chars (Ptr .. Max));
+                     return;
+
                   when others =>
-                     Osint.Fail ("Invalid switch: ",
-                                   (1 => 'e', 2 => Switch_Chars (Ptr)));
+                     raise Bad_Switch;
                end case;
 
             --  Processing for E switch

@@ -1503,7 +1503,7 @@ enum reg_class
    REGNO.  In general there is more than one such class; choose a class which
    is "minimal", meaning that no smaller class also contains the register.  */
 
-extern enum reg_class regno_reg_class[];
+extern enum reg_class regno_reg_class[FIRST_PSEUDO_REGISTER];
 #define REGNO_REG_CLASS(REGNO) regno_reg_class[ (REGNO) ]
 
 /* A macro whose definition is the name of the class to which a valid base
@@ -1533,7 +1533,7 @@ extern enum reg_class regno_reg_class[];
 	'V', 'X'
 	'g', 'i', 'm', 'n', 'o', 'p', 'r', 's' */
 
-extern enum reg_class reg_class_from_letter[];
+extern enum reg_class reg_class_from_letter[256];
 #define REG_CLASS_FROM_LETTER(CHAR) reg_class_from_letter[(unsigned char)(CHAR)]
 
 /* A C expression which is nonzero if register number NUM is suitable for use
@@ -3728,55 +3728,6 @@ extern const char *d30v_branch_cost_string;
 
 
 /* Output of Data.  */
-
-/* A C statement to output to the stdio stream STREAM an assembler instruction
-   to assemble a floating-point constant of `TFmode', `DFmode', `SFmode',
-   `TQFmode', `HFmode', or `QFmode', respectively, whose value is VALUE.  VALUE
-   will be a C expression of type `REAL_VALUE_TYPE'.  Macros such as
-   `REAL_VALUE_TO_TARGET_DOUBLE' are useful for writing these definitions.  */
-
-/* #define ASM_OUTPUT_LONG_DOUBLE(STREAM, VALUE) */
-
-#define ASM_OUTPUT_DOUBLE(FILE, VALUE)					\
-  {									\
-    if (REAL_VALUE_ISINF (VALUE)					\
-        || REAL_VALUE_ISNAN (VALUE)					\
-	|| REAL_VALUE_MINUS_ZERO (VALUE))				\
-      {									\
-	long t[2];							\
-	REAL_VALUE_TO_TARGET_DOUBLE ((VALUE), t);			\
-	fprintf (FILE, "\t.long 0x%lx\n\t.long 0x%lx\n",		\
-		t[0] & 0xffffffff, t[1] & 0xffffffff);			\
-      }									\
-    else								\
-      {									\
-	char str[30];							\
-	REAL_VALUE_TO_DECIMAL (VALUE, "%.20e", str);			\
-	fprintf (FILE, "\t.double 0d%s\n", str);			\
-      }									\
-  }
-
-#define ASM_OUTPUT_FLOAT(FILE, VALUE)					\
-  {									\
-    if (REAL_VALUE_ISINF (VALUE)					\
-        || REAL_VALUE_ISNAN (VALUE)					\
-	|| REAL_VALUE_MINUS_ZERO (VALUE))				\
-      {									\
-	long t;								\
-	REAL_VALUE_TO_TARGET_SINGLE ((VALUE), t);			\
-	fprintf (FILE, "\t.long 0x%lx\n", t & 0xffffffff);		\
-      }									\
-    else								\
-      {									\
-	char str[30];							\
-	REAL_VALUE_TO_DECIMAL ((VALUE), "%.20e", str);			\
-	fprintf (FILE, "\t.float 0d%s\n", str);				\
-      }									\
-  }
-
-/* #define ASM_OUTPUT_THREE_QUARTER_FLOAT(STREAM, VALUE) */
-/* #define ASM_OUTPUT_SHORT_FLOAT(STREAM, VALUE) */
-/* #define ASM_OUTPUT_BYTE_FLOAT(STREAM, VALUE) */
 
 /* A C statement to output to the stdio stream STREAM an assembler instruction
    to assemble a string constant containing the LEN bytes at PTR.  PTR will be

@@ -478,26 +478,12 @@ namespace std
       basic_string& 
       assign(const basic_string& __str, size_type __pos, size_type __n)
       {
-	if (__pos > __str.size())
+	const size_type __strsize = __str.size();
+	if (__pos > __strsize)
 	  __throw_out_of_range("basic_string::assign");
-	if (_M_rep()->_M_is_shared() || _M_rep() != __str._M_rep())
-	  return _M_replace_safe(_M_ibegin(), _M_iend(), 
-				 __str._M_check(__pos),
-				 __str._M_fold(__pos, __n));
-	else
-	  {
-	    // Work in-place.
-	    bool __testn = __n < __str.size() - __pos;
-	    const size_type __newsize = __testn ? __n : __str.size() - __pos;
-	    // Avoid move, if possible.
-	    if (__pos >= __newsize)
-	      traits_type::copy(_M_data(), __str._M_data() + __pos, __newsize);
-	    else if (__pos)	      
-	      traits_type::move(_M_data(), __str._M_data() + __pos, __newsize);
-	    // else nothing (avoid calling move unnecessarily)
-	    _M_rep()->_M_length = __newsize;
-	    return *this;
-	  }
+	const bool __testn = __n < __strsize - __pos;
+	const size_type __newsize = __testn ? __n : __strsize - __pos;
+	return this->assign(__str._M_data() + __pos, __newsize);
       }
 
       basic_string& 
@@ -517,6 +503,7 @@ namespace std
 	    else if (__pos)
 	      traits_type::move(_M_data(), __s, __n);
 	    _M_rep()->_M_length = __n;
+	    _M_data()[__n] = _Rep::_S_terminal;
 	    return *this;
 	  }
       }
@@ -544,29 +531,53 @@ namespace std
 
       basic_string& 
       insert(size_type __pos1, const basic_string& __str)
-      { 
-	iterator __p = _M_check(__pos1);
-	this->replace(__p, __p, __str._M_ibegin(), __str._M_iend());
-        return *this; 
-      }
+      { return this->insert(__pos1, __str, 0, __str.size()); }
 
       basic_string& 
       insert(size_type __pos1, const basic_string& __str,
 	     size_type __pos2, size_type __n)
-      { 
-	iterator __p = _M_check(__pos1);
-	this->replace(__p, __p, __str._M_check(__pos2), 
-		      __str._M_fold(__pos2, __n));
-        return *this; 
+      {
+	const size_type __strsize = __str.size();
+ 	if (__pos2 > __strsize)
+	  __throw_out_of_range("basic_string::insert");
+	const bool __testn = __n < __strsize - __pos2;
+	const size_type __newsize = __testn ? __n : __strsize - __pos2;
+	return this->insert(__pos1, __str._M_data() + __pos2, __newsize); 
       }
 
       basic_string& 
       insert(size_type __pos, const _CharT* __s, size_type __n)
-      { 
-	iterator __p = _M_check(__pos);
-	this->replace(__p, __p, __s, __s + __n);
-        return *this; 
-      }
+      {
+	const size_type __size = this->size();
+ 	if (__pos > __size)
+	  __throw_out_of_range("basic_string::insert");
+	if (__n + __size > this->max_size())
+	  __throw_length_error("basic_string::insert");
+	if (_M_rep()->_M_is_shared() || less<const _CharT*>()(__s, _M_data())
+	    || less<const _CharT*>()(_M_data() + __size, __s))
+	  return _M_replace_safe(_M_ibegin() + __pos, _M_ibegin() + __pos,
+				 __s, __s + __n);
+	else
+	  {
+	    // Work in-place. If _M_mutate reallocates the string, __s
+	    // does not point anymore to valid data, therefore we save its
+	    // offset, then we restore it.
+	    const size_type __off = __s - _M_data();
+	    _M_mutate(__pos, 0, __n);
+	    __s = _M_data() + __off;
+	    _CharT* __p = _M_data() + __pos;
+	    if (__s  + __n <= __p)
+	      traits_type::copy(__p, __s, __n);
+	    else if (__s >= __p)
+	      traits_type::copy(__p, __s + __n, __n);
+	    else
+	      {
+		traits_type::copy(__p, __s, __p - __s);
+		traits_type::copy(__p + (__p - __s), __p + __n, __n - (__p - __s));
+	      }
+	    return *this;
+	  }
+       }
 
       basic_string&  
       insert(size_type __pos, const _CharT* __s)

@@ -878,7 +878,7 @@ finish_asm_stmt (cv_qualifier, string, output_operands,
   if (cv_qualifier != NULL_TREE
       && cv_qualifier != ridpointers[(int) RID_VOLATILE])
     {
-      cp_warning ("%s qualifier ignored on asm",
+      warning ("%s qualifier ignored on asm",
 		  IDENTIFIER_POINTER (cv_qualifier));
       cv_qualifier = NULL_TREE;
     }
@@ -900,7 +900,7 @@ finish_asm_stmt (cv_qualifier, string, output_operands,
 	     resolve the overloading.  */
 	  if (TREE_TYPE (converted_operand) == unknown_type_node)
 	    {
-	      cp_error ("type of asm operand `%E' could not be determined", 
+	      error ("type of asm operand `%E' could not be determined", 
 			TREE_VALUE (t));
 	      converted_operand = error_mark_node;
 	    }
@@ -1051,7 +1051,7 @@ finish_named_return_value (return_id, init)
 	DECL_NAME (decl) = return_id;
       else
 	{
-	  cp_error ("return identifier `%D' already in place", return_id);
+	  error ("return identifier `%D' already in place", return_id);
 	  return;
 	}
     }
@@ -1126,7 +1126,7 @@ finish_mem_initializers (init_list)
 		   base != last_base_warned_about; 
 		   base = TREE_CHAIN (base))
 		{
-		  cp_warning ("base initializer for `%T'",
+		  warning ("base initializer for `%T'",
 			      TREE_PURPOSE (base));
 		  warning ("   will be re-ordered to precede member initializations");
 		}
@@ -1157,10 +1157,7 @@ setup_vtbl_ptr (member_init_list, base_init_list)
      tree base_init_list;
 {
   my_friendly_assert (doing_semantic_analysis_p (), 19990919);
-
-  /* If we've already done this, break.  */
-  if (vtbls_set_up_p)
-    abort ();
+  my_friendly_assert (!vtbls_set_up_p, 20011220);
 
   if (processing_template_decl)
     add_stmt (build_min_nt (CTOR_INITIALIZER,
@@ -1444,7 +1441,7 @@ finish_object_call_expr (fn, object, args)
 	fn = DECL_NAME (fn);
       else
 	{
-	  cp_error ("calling type `%T' like a method", fn);
+	  error ("calling type `%T' like a method", fn);
 	  return error_mark_node;
 	}
     }
@@ -1480,13 +1477,13 @@ finish_pseudo_destructor_call_expr (object, scope, destructor)
     return build_min_nt (PSEUDO_DTOR_EXPR, object, scope, destructor);
 
   if (scope && scope != destructor)
-    cp_error ("destructor specifier `%T::~%T()' must have matching names", 
+    error ("destructor specifier `%T::~%T()' must have matching names", 
 	      scope, destructor);
 
   if ((scope == NULL_TREE || IDENTIFIER_GLOBAL_VALUE (destructor))
       && (TREE_CODE (TREE_TYPE (object)) !=
 	  TREE_CODE (TREE_TYPE (IDENTIFIER_GLOBAL_VALUE (destructor)))))
-    cp_error ("`%E' is not of type `%T'", object, destructor);
+    error ("`%E' is not of type `%T'", object, destructor);
 
   return cp_convert (void_type_node, object);
 }
@@ -1757,7 +1754,7 @@ begin_class_definition (t)
   
   if (processing_template_parmlist)
     {
-      cp_error ("definition of `%#T' inside template parameter list", t);
+      error ("definition of `%#T' inside template parameter list", t);
       return error_mark_node;
     }
 
@@ -1773,7 +1770,7 @@ begin_class_definition (t)
      This is erroneous.  */
   else if (TREE_CODE (t) == TYPENAME_TYPE)
     {
-      cp_error ("invalid definition of qualified type `%T'", t);
+      error ("invalid definition of qualified type `%T'", t);
       t = error_mark_node;
     }
 
@@ -2125,7 +2122,7 @@ finish_base_specifier (access_specifier, base_class)
     {
       if (cp_type_quals (base_class) != 0)
         {
-          cp_error ("base class `%T' has cv qualifiers", base_class);
+          error ("base class `%T' has cv qualifiers", base_class);
           base_class = TYPE_MAIN_VARIANT (base_class);
         }
       result = build_tree_list (access_specifier, base_class);
@@ -2158,7 +2155,7 @@ check_multiple_declarators ()
   if (PROCESSING_REAL_TEMPLATE_DECL_P () 
       || processing_explicit_instantiation
       || processing_specialization)
-    cp_error ("multiple declarators in template declaration");
+    error ("multiple declarators in template declaration");
 }
 
 /* Implement the __typeof keyword: Return the type of EXPR, suitable for
@@ -2610,7 +2607,6 @@ genrtl_start_function (fn)
   ++function_depth;
 
   /* Create a binding level for the parameters.  */
-  expand_start_bindings (2);
   expand_function_start (fn, /*parms_have_cleanups=*/0);
   /* If this function is `main'.  */
   if (DECL_MAIN_P (fn))
@@ -2667,7 +2663,7 @@ genrtl_finish_function (fn)
   immediate_size_expand = 1;
 
   /* Generate rtl for function exit.  */
-  expand_function_end (input_filename, lineno, 1);
+  expand_function_end (input_filename, lineno, 0);
 
   /* If this is a nested function (like a template instantiation that
      we're compiling in the midst of compiling something else), push a

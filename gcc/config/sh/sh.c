@@ -80,7 +80,7 @@ int pragma_nosave_low_regs;
    sh_expand_prologue.  */
 int current_function_anonymous_args;
 
-/* Global variables for machine-dependent things. */
+/* Global variables for machine-dependent things.  */
 
 /* Which cpu are we scheduling for.  */
 enum processor_type sh_cpu;
@@ -122,7 +122,7 @@ char fp_reg_names[][5] =
 /* Provide reg_class from a letter such as appears in the machine
    description.  */
 
-enum reg_class reg_class_from_letter[] =
+const enum reg_class reg_class_from_letter[] =
 {
   /* a */ ALL_REGS, /* b */ NO_REGS, /* c */ FPSCR_REGS, /* d */ DF_REGS,
   /* e */ NO_REGS, /* f */ FP_REGS, /* g */ NO_REGS, /* h */ NO_REGS,
@@ -957,11 +957,11 @@ output_file_start (file)
 }
 
 /* Actual number of instructions used to make a shift by N.  */
-static char ashiftrt_insns[] =
+static const char ashiftrt_insns[] =
   { 0,1,2,3,4,5,8,8,8,8,8,8,8,8,8,8,2,3,4,5,8,8,8,8,8,8,8,8,8,8,8,2};
 
 /* Left shift and logical right shift are the same.  */
-static char shift_insns[]    =
+static const char shift_insns[]    =
   { 0,1,1,2,2,3,3,4,1,2,2,3,3,4,3,3,1,2,2,3,3,4,3,3,2,3,3,4,4,4,3,3};
 
 /* Individual shift amounts needed to get the above length sequences.
@@ -982,10 +982,10 @@ static short shift_amounts[32][5] = {
    might be clobbered.  This is typically used when combined with some
    kind of sign or zero extension.  */
    
-static char ext_shift_insns[]    =
+static const char ext_shift_insns[]    =
   { 0,1,1,2,2,3,2,2,1,2,2,3,3,3,2,2,1,2,2,3,3,4,3,3,2,3,3,4,4,4,3,3};
 
-static short ext_shift_amounts[32][4] = {
+static const short ext_shift_amounts[32][4] = {
   {0}, {1}, {2}, {2, 1},
   {2, 2}, {2, 1, 2}, {8, -2}, {8, -1},
   {8}, {8, 1}, {8, 2}, {8, 1, 2},
@@ -1455,7 +1455,7 @@ shl_and_kind (left_rtx, mask_rtx, attrp)
 	      continue;
 	    }
 	  /* ??? Could try to put zero extend into initial right shift,
-	     or even shift a bit left before the right shift. */
+	     or even shift a bit left before the right shift.  */
 	  /* Determine value of first part of left shift, to get to the
 	     zero extend cut-off point.  */
 	  first = width - exact_log2 (lsb2) + right;
@@ -3236,7 +3236,7 @@ machine_dependent_reorg (first)
 		 entirely reliable around libcalls;
 		 newlib/libm/math/e_pow.c is a test case.  Sometimes
 		 an insn will appear in LOG_LINKS even though it is
-		 not the most recent insn which sets the register. */
+		 not the most recent insn which sets the register.  */
 
 	      if (foundinsn
 		  && (scanset
@@ -3846,7 +3846,7 @@ output_stack_adjust (size, reg, temp)
 	emit_insn (gen_addsi3 (reg, reg, GEN_INT (size)));
       /* Try to do it with two partial adjustments; however, we must make
 	 sure that the stack is properly aligned at all times, in case
-	 an interrupt occurs between the two partial adjustments. */
+	 an interrupt occurs between the two partial adjustments.  */
       else if (CONST_OK_FOR_I (size / 2 & -4)
 	       && CONST_OK_FOR_I (size - (size / 2 & -4)))
 	{
@@ -4082,7 +4082,7 @@ sh_expand_prologue ()
   extra_push = 0;
 
   /* This is set by SETUP_VARARGS to indicate that this is a varargs
-     routine.  Clear it here so that the next function isn't affected. */
+     routine.  Clear it here so that the next function isn't affected.  */
   if (current_function_anonymous_args)
     {
       current_function_anonymous_args = 0;
@@ -4268,7 +4268,7 @@ sh_builtin_saveregs ()
   int bufsize, regno;
   HOST_WIDE_INT alias_set;
 
-  /* Allocate block of memory for the regs. */
+  /* Allocate block of memory for the regs.  */
   /* ??? If n_intregs + n_floatregs == 0, should we allocate at least 1 byte?
      Or can assign_stack_local accept a 0 SIZE argument?  */
   bufsize = (n_intregs * UNITS_PER_WORD) + (n_floatregs * UNITS_PER_WORD);
@@ -5509,7 +5509,7 @@ nonpic_symbol_mentioned_p (x)
 }
 
 /* Convert a non-PIC address in `orig' to a PIC address using @GOT or
-   @GOTOFF in `reg'. */
+   @GOTOFF in `reg'.  */
 rtx
 legitimize_pic_address (orig, mode, reg)
      rtx orig;

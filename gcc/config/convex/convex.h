@@ -1257,16 +1257,6 @@ enum reg_class {
 #define ASM_GENERATE_INTERNAL_LABEL(LABEL,PREFIX,NUM)	\
   sprintf (LABEL, "*%s%d", PREFIX, NUM)
 
-/* This is how to output an assembler line defining a `double' constant.  */
-
-#define ASM_OUTPUT_DOUBLE(FILE,VALUE) \
-  outfloat (FILE, VALUE, "%.17e", "\tds.d ", "\n")
-
-/* This is how to output an assembler line defining a `float' constant.  */
-
-#define ASM_OUTPUT_FLOAT(FILE,VALUE) \
-  outfloat (FILE, VALUE, "%.9e", "\tds.s ", "\n")
-
 /* This is how to output a string */
 
 #define ASM_OUTPUT_ASCII(FILE,STR,SIZE) do {				\
@@ -1375,8 +1365,8 @@ enum reg_class {
 
 extern int target_cpu;
 extern int current_section_is_text;
-extern enum reg_class regno_reg_class[];
-extern enum reg_class reg_class_from_letter[];
+extern enum reg_class regno_reg_class[FIRST_PSEUDO_REGISTER];
+extern enum reg_class reg_class_from_letter[256];
 extern char regno_ok_for_index_p_base[];
 #define regno_ok_for_index_p (regno_ok_for_index_p_base + 1)
 

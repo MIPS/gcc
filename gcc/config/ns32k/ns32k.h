@@ -1283,18 +1283,6 @@ while (0)
 
 /* Output of Data */
 
-/* This is how to output an assembler line defining a `double' constant.  */
-
-#define ASM_OUTPUT_DOUBLE(FILE,VALUE)  \
-  fprintf (FILE, "\t.double 0d%.20e\n", (VALUE))
-
-/* This is how to output an assembler line defining a `float' constant.  */
-
-#define ASM_OUTPUT_FLOAT(FILE,VALUE)  \
-  fprintf (FILE, "\t.float 0f%.20e\n", (VALUE))
-
-/* This is how to output an assembler line defining an `int' constant.  */
-
 /* This is how to output an assembler line defining an external/static
    address which is not in tree format (for collect.c).  */
 
@@ -1419,7 +1407,7 @@ do {									\
 #define PRINT_OPERAND_ADDRESS(FILE, ADDR) print_operand_address(FILE, ADDR)
 
 extern unsigned int ns32k_reg_class_contents[N_REG_CLASSES][1];
-extern enum reg_class regclass_map[];		/* smallest class containing REGNO */
+extern enum reg_class regclass_map[FIRST_PSEUDO_REGISTER]; /* smallest class containing REGNO */
 
 /*
 Local variables:

@@ -651,7 +651,7 @@ extern enum m32r_sdata m32r_sdata;
 ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
 
 /* Value is 1 if hard register REGNO can hold a value of machine-mode MODE.  */
-extern unsigned int m32r_hard_regno_mode_ok[];
+extern unsigned int m32r_hard_regno_mode_ok[FIRST_PSEUDO_REGISTER];
 extern unsigned int m32r_mode_class[];
 #define HARD_REGNO_MODE_OK(REGNO, MODE) \
 ((m32r_hard_regno_mode_ok[REGNO] & m32r_mode_class[MODE]) != 0)
@@ -1719,32 +1719,6 @@ do {							\
    no longer contain unusual constructs.  */
 #define ASM_APP_OFF ""
 
-/* This is how to output an assembler line defining a `float' constant.  */
-#define ASM_OUTPUT_FLOAT(FILE, VALUE)			\
-  do							\
-    {							\
-      long t;						\
-      char str[30];					\
-      REAL_VALUE_TO_TARGET_SINGLE ((VALUE), t);		\
-      REAL_VALUE_TO_DECIMAL ((VALUE), "%.20e", str);	\
-      fprintf (FILE, "\t.word\t0x%lx %s %s\n",		\
-	       t, ASM_COMMENT_START, str);		\
-    }							\
-  while (0)
-
-/* This is how to output an assembler line defining a `double' constant.  */
-#define ASM_OUTPUT_DOUBLE(FILE, VALUE)				\
-  do								\
-    {								\
-      long t[2];						\
-      char str[30];						\
-      REAL_VALUE_TO_TARGET_DOUBLE ((VALUE), t);			\
-      REAL_VALUE_TO_DECIMAL ((VALUE), "%.20e", str);		\
-      fprintf (FILE, "\t.word\t0x%lx %s %s\n\t.word\t0x%lx\n",	\
-	       t[0], ASM_COMMENT_START, str, t[1]);		\
-    }								\
-  while (0)
-
 /* This is how to output the definition of a user-level label named NAME,
    such as the label on a static function or variable NAME.  */
 /* On the M32R we need to ensure the next instruction starts on a 32 bit
@@ -1849,7 +1823,7 @@ do {							\
 
 /* A C expression which evaluates to true if CODE is a valid
    punctuation character for use in the `PRINT_OPERAND' macro.  */
-extern char m32r_punct_chars[];
+extern char m32r_punct_chars[256];
 #define PRINT_OPERAND_PUNCT_VALID_P(CHAR) \
   m32r_punct_chars[(unsigned char) (CHAR)]
 

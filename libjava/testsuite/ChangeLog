@@ -1,3 +1,33 @@
+2001-12-20  Tom Tromey  <tromey@redhat.com>
+
+	For PR java/4766:
+	* libjava.compile/PR4766.java: New file.
+
+2001-12-20  Andrew Haley  <aph@redhat.com>
+
+	* libjava.lang/FileHandleGcTest.out:  New file.
+	* libjava.lang/FileHandleGcTest.java: New file.
+	* libjava.lang/Array_3.out: New file.
+	* libjava.lang/Array_3.java: New file.
+
+2001-12-18  Tom Tromey  <tromey@redhat.com>
+
+	For PR java/3417:
+	* libjava.compile/PR3417.xfail: New file.
+	* libjava.compile/PR3417.java: New file.
+
+2001-12-17  Tom Tromey  <tromey@redhat.com>
+
+	* libjava.lang/PR3731.xfail: Removed.
+
+	Inspired by PR java/5057:
+	* libjava.lang/PR5057_2.java: New file.
+	* libjava.lang/PR5057_2.out: New file.
+
+	For PR java/5057:
+	* libjava.lang/PR5057.out: New file.
+	* libjava.lang/PR5057.java: New file.
+
 2001-12-13  Tom Tromey  <tromey@redhat.com>
 
 	For PR libgcj/5103:

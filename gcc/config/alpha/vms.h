@@ -240,6 +240,10 @@ typedef struct {int num_args; enum avms_arg_type atypes[6];} avms_arg_info;
     }							\
 }
 
+/* ABI has stack checking, but it's broken.  */
+#undef STACK_CHECK_BUILTIN
+#define STACK_CHECK_BUILTIN 0
+
 #undef ASM_FILE_START
 #define ASM_FILE_START(FILE)					\
 {								\
@@ -248,25 +252,6 @@ typedef struct {int num_args; enum avms_arg_type atypes[6];} avms_arg_info;
   fprintf (FILE, "\t.set volatile\n");				\
   ASM_OUTPUT_SOURCE_FILENAME (FILE, main_input_filename);	\
 }
-
-#undef ASM_OUTPUT_FLOAT
-#define ASM_OUTPUT_FLOAT(FILE,VALUE)					\
-  {									\
-    if (REAL_VALUE_ISINF (VALUE)					\
-        || REAL_VALUE_ISNAN (VALUE)					\
-	|| REAL_VALUE_MINUS_ZERO (VALUE))				\
-      {									\
-	long t;								\
-	REAL_VALUE_TO_TARGET_SINGLE ((VALUE), t);			\
-	fprintf (FILE, "\t.long 0x%lx\n", t & 0xffffffff);		\
-      }									\
-    else								\
-      {									\
-	char str[30];							\
-	REAL_VALUE_TO_DECIMAL ((VALUE), "%.20e", str);			\
-	fprintf (FILE, "\t.%c_floating %s\n", (TARGET_FLOAT_VAX)?'f':'s', str);	\
-      }									\
-  }
 
 #define LINK_SECTION_ASM_OP "\t.link"
 #define READONLY_SECTION_ASM_OP "\t.rdata"

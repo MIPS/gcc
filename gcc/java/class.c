@@ -923,8 +923,11 @@ compile_resource_file (name, filename)
     current_function_decl = init_decl;
     DECL_RESULT (init_decl) = build_decl (RESULT_DECL, 
 					  NULL_TREE, void_type_node);
-    /*  DECL_EXTERNAL (init_decl) = 1;*/
-    TREE_PUBLIC (init_decl) = 1;
+
+    /* It can be a static function as long as collect2 does not have
+       to scan the object file to find its ctor/dtor routine.  */
+    TREE_PUBLIC (init_decl) = ! targetm.have_ctors_dtors;
+
     pushlevel (0);
     make_decl_rtl (init_decl, NULL);
     init_function_start (init_decl, input_filename, 0);
@@ -1089,6 +1092,7 @@ build_class_ref (type)
 	      decl = build_decl (VAR_DECL, decl_name, class_type_node);
 	      TREE_STATIC (decl) = 1;
 	      TREE_PUBLIC (decl) = 1;
+	      DECL_EXTERNAL (decl) = 1;
 	      make_decl_rtl (decl, NULL);
 	      pushdecl_top_level (decl);
 	      if (is_compiled == 1)

@@ -181,7 +181,7 @@ extern int target_flags;
 /* Target machine storage layout */
 
 /* Define to use software floating point emulator for REAL_ARITHMETIC and
-   decimal <-> binary conversion. */
+   decimal <-> binary conversion.  */
 #define REAL_ARITHMETIC
 
 /* Define this if most significant bit is lowest numbered
@@ -486,7 +486,7 @@ enum reg_class {
 #define CLASS_MAX_NREGS(CLASS, MODE)	\
   ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
 
-/* Any SI register to register move may need to be reloaded, 
+/* Any SI register-to-register move may need to be reloaded, 
    so define REGISTER_MOVE_COST to be > 2 so that reload never
    shortcuts.  */
 
@@ -554,7 +554,7 @@ enum reg_class {
    We have two registers that can be eliminated on the h8300.  First, the
    frame pointer register can often be eliminated in favor of the stack
    pointer register.  Secondly, the argument pointer register can always be
-   eliminated; it is replaced with either the stack or frame pointer. */
+   eliminated; it is replaced with either the stack or frame pointer.  */
 
 #define ELIMINABLE_REGS					\
 {{ ARG_POINTER_REGNUM, STACK_POINTER_REGNUM},		\
@@ -627,7 +627,7 @@ enum reg_class {
 
 /* When defined, the compiler allows registers explicitly used in the
    rtl to be used as spill registers but prevents the compiler from
-   extending the lifetime of these registers. */
+   extending the lifetime of these registers.  */
 
 #define SMALL_REGISTER_CLASSES 1
 
@@ -946,7 +946,7 @@ struct cum_arg
 /* Define as C expression which evaluates to nonzero if the tablejump
    instruction expects the table to contain offsets from the address of the
    table.
-   Do not define this if the table should contain absolute addresses. */
+   Do not define this if the table should contain absolute addresses.  */
 /*#define CASE_VECTOR_PC_RELATIVE 1 */
 
 /* Specify the tree operation to be used to convert reals to integers.  */
@@ -1227,7 +1227,7 @@ readonly_data ()							\
 #define ASM_DECLARE_FUNCTION_NAME(FILE, NAME, DECL) \
    ASM_OUTPUT_LABEL(FILE, NAME)
 
-/* The prefix to add to user-visible assembler symbols. */
+/* The prefix to add to user-visible assembler symbols.  */
 
 #define USER_LABEL_PREFIX "_"
 
@@ -1247,28 +1247,6 @@ readonly_data ()							\
 
 #define ASM_GENERATE_INTERNAL_LABEL(LABEL, PREFIX, NUM)	\
   sprintf (LABEL, "*.%s%d", PREFIX, NUM)
-
-/* This is how to output an assembler line defining a `double' constant.
-   It is .dfloat or .gfloat, depending.  */
-
-#define ASM_OUTPUT_DOUBLE(FILE, VALUE)				\
-  do								\
-    {								\
-      char dstr[30];						\
-      REAL_VALUE_TO_DECIMAL ((VALUE), "%.20e", dstr);		\
-      fprintf (FILE, "\t.double %s\n", dstr);			\
-    }								\
-  while (0)
-
-/* This is how to output an assembler line defining a `float' constant.  */
-#define ASM_OUTPUT_FLOAT(FILE, VALUE)				\
-  do								\
-    {								\
-      char dstr[30];						\
-      REAL_VALUE_TO_DECIMAL ((VALUE), "%.20e", dstr);		\
-      fprintf (FILE, "\t.float %s\n", dstr);			\
-    }								\
-  while (0)
 
 /* This is how to output an insn to push a register on the stack.
    It need not be very fast code.  */

@@ -277,6 +277,7 @@ static void reorder_fix_fragments PARAMS ((tree));
 static tree blocks_nreverse	PARAMS ((tree));
 static int all_blocks		PARAMS ((tree, tree *));
 static tree *get_block_vector   PARAMS ((tree, int *));
+extern tree debug_find_var_in_block_tree PARAMS ((tree, tree));
 /* We always define `record_insns' even if its not used so that we
    can always export `prologue_epilogue_contains'.  */
 static void record_insns	PARAMS ((rtx, varray_type *)) ATTRIBUTE_UNUSED;
@@ -2813,10 +2814,10 @@ static int cfa_offset;
 #define ARG_POINTER_CFA_OFFSET(FNDECL) FIRST_PARM_OFFSET (FNDECL)
 #endif
 
-/* Build up a (MEM (ADDRESSOF (REG))) rtx for a register REG that just had
-   its address taken.  DECL is the decl for the object stored in the
-   register, for later use if we do need to force REG into the stack.
-   REG is overwritten by the MEM like in put_reg_into_stack.  */
+/* Build up a (MEM (ADDRESSOF (REG))) rtx for a register REG that just had its
+   address taken.  DECL is the decl or SAVE_EXPR for the object stored in the
+   register, for later use if we do need to force REG into the stack.  REG is
+   overwritten by the MEM like in put_reg_into_stack.  */
 
 rtx
 gen_mem_addressof (reg, decl)
@@ -2842,24 +2843,24 @@ gen_mem_addressof (reg, decl)
     {
       tree type = TREE_TYPE (decl);
       enum machine_mode decl_mode
-	= (TREE_CODE (decl) == SAVE_EXPR ? TYPE_MODE (TREE_TYPE (decl))
-	   : DECL_MODE (decl));
-      rtx decl_rtl = decl ? DECL_RTL_IF_SET (decl) : 0;
+	= (DECL_P (decl) ? DECL_MODE (decl) : TYPE_MODE (TREE_TYPE (decl)));
+      rtx decl_rtl = (TREE_CODE (decl) == SAVE_EXPR ? SAVE_EXPR_RTL (decl)
+		      : DECL_RTL_IF_SET (decl));
 
       PUT_MODE (reg, decl_mode);
 
       /* Clear DECL_RTL momentarily so functions below will work
 	 properly, then set it again.  */
-      if (decl_rtl == reg)
+      if (DECL_P (decl) && decl_rtl == reg)
 	SET_DECL_RTL (decl, 0);
 
       set_mem_attributes (reg, decl, 1);
       set_mem_alias_set (reg, set);
 
-      if (decl_rtl == reg)
+      if (DECL_P (decl) && decl_rtl == reg)
 	SET_DECL_RTL (decl, reg);
 
-      if (TREE_USED (decl) || DECL_INITIAL (decl) != 0)
+      if (TREE_USED (decl) || (DECL_P (decl) && DECL_INITIAL (decl) != 0))
 	fixup_var_refs (reg, GET_MODE (reg), TREE_UNSIGNED (type), 0);
     }
   else
@@ -2904,8 +2905,7 @@ put_addressof_into_stack (r, ht)
       volatile_p = (TREE_CODE (decl) != SAVE_EXPR
 		    && TREE_THIS_VOLATILE (decl));
       used_p = (TREE_USED (decl)
-		|| (TREE_CODE (decl) != SAVE_EXPR
-		    && DECL_INITIAL (decl) != 0));
+		|| (DECL_P (decl) && DECL_INITIAL (decl) != 0));
     }
   else
     {
@@ -6052,6 +6052,29 @@ number_blocks (fn)
 
   return;
 }
+
+/* If VAR is present in a subblock of BLOCK, return the subblock.  */
+
+tree
+debug_find_var_in_block_tree (var, block)
+     tree var;
+     tree block;
+{
+  tree t;
+
+  for (t = BLOCK_VARS (block); t; t = TREE_CHAIN (t))
+    if (t == var)
+      return block;
+
+  for (t = BLOCK_SUBBLOCKS (block); t; t = TREE_CHAIN (t))
+    {
+      tree ret = debug_find_var_in_block_tree (var, t);
+      if (ret)
+	return ret;
+    }
+
+  return NULL_TREE;
+}
 
 /* Allocate a function structure and reset its contents to the defaults.  */
 
@@ -6279,8 +6302,9 @@ expand_main_function ()
   if (FORCE_PREFERRED_STACK_BOUNDARY_IN_MAIN)
     {
       int align = PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT;
-      rtx tmp;
+      rtx tmp, seq;
 
+      start_sequence ();
       /* Forcibly align the stack.  */
 #ifdef STACK_GROWS_DOWNWARD
       tmp = expand_simple_binop (Pmode, AND, stack_pointer_rtx, GEN_INT(-align),
@@ -6297,6 +6321,16 @@ expand_main_function ()
       /* Enlist allocate_dynamic_stack_space to pick up the pieces.  */
       tmp = force_reg (Pmode, const0_rtx);
       allocate_dynamic_stack_space (tmp, NULL_RTX, BIGGEST_ALIGNMENT);
+      seq = gen_sequence ();
+      end_sequence ();
+
+      for (tmp = get_last_insn (); tmp; tmp = PREV_INSN (tmp))
+	if (NOTE_P (tmp) && NOTE_LINE_NUMBER (tmp) == NOTE_INSN_FUNCTION_BEG)
+	  break;
+      if (tmp)
+	emit_insn_before (seq, tmp);
+      else
+	emit_insn (seq);
     }
 #endif
 

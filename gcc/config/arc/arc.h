@@ -397,7 +397,7 @@ if (GET_MODE_CLASS (MODE) == MODE_INT		\
 ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
 
 /* Value is 1 if hard register REGNO can hold a value of machine-mode MODE.  */
-extern unsigned int arc_hard_regno_mode_ok[];
+extern const unsigned int arc_hard_regno_mode_ok[];
 extern unsigned int arc_mode_class[];
 #define HARD_REGNO_MODE_OK(REGNO, MODE) \
 ((arc_hard_regno_mode_ok[REGNO] & arc_mode_class[MODE]) != 0)
@@ -464,7 +464,7 @@ enum reg_class {
    Return the class number of the smallest class containing
    reg number REGNO.  This could be a conditional expression
    or could index an array.  */
-extern enum reg_class arc_regno_reg_class[];
+extern enum reg_class arc_regno_reg_class[FIRST_PSEUDO_REGISTER];
 #define REGNO_REG_CLASS(REGNO) \
 (arc_regno_reg_class[REGNO])
 
@@ -1238,28 +1238,6 @@ do {							\
    no longer contain unusual constructs.  */
 #define ASM_APP_OFF ""
 
-/* This is how to output an assembler line defining a `float' constant.  */
-#define ASM_OUTPUT_FLOAT(FILE, VALUE) \
-{							\
-  long t;						\
-  char str[30];						\
-  REAL_VALUE_TO_TARGET_SINGLE ((VALUE), t);		\
-  REAL_VALUE_TO_DECIMAL ((VALUE), "%.20e", str);	\
-  fprintf (FILE, "\t.word\t0x%lx %s %s\n",		\
-	   t, ASM_COMMENT_START, str);			\
-}
-
-/* This is how to output an assembler line defining a `double' constant.  */
-#define ASM_OUTPUT_DOUBLE(FILE, VALUE) \
-{							\
-  long t[2];						\
-  char str[30];						\
-  REAL_VALUE_TO_TARGET_DOUBLE ((VALUE), t);		\
-  REAL_VALUE_TO_DECIMAL ((VALUE), "%.20e", str);	\
-  fprintf (FILE, "\t.word\t0x%lx %s %s\n\t.word\t0x%lx\n", \
-	   t[0], ASM_COMMENT_START, str, t[1]);		\
-}
-
 /* This is how to output the definition of a user-level label named NAME,
    such as the label on a static function or variable NAME.  */
 #define ASM_OUTPUT_LABEL(FILE, NAME) \
@@ -1354,7 +1332,7 @@ arc_final_prescan_insn (INSN, OPVEC, NOPERANDS)
 
 /* A C expression which evaluates to true if CODE is a valid
    punctuation character for use in the `PRINT_OPERAND' macro.  */
-extern char arc_punct_chars[];
+extern char arc_punct_chars[256];
 #define PRINT_OPERAND_PUNCT_VALID_P(CHAR) \
 arc_punct_chars[(unsigned char) (CHAR)]
 

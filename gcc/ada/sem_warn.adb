@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.3 $
+--                            $Revision: 1.5 $
 --                                                                          --
 --          Copyright (C) 1999-2001 Free Software Foundation, Inc.          --
 --                                                                          --
@@ -642,6 +642,15 @@ package body Sem_Warn is
          --  there can be with's in subunits that we will not see.
 
          if not In_Extended_Main_Source_Unit (Cnode) then
+            return;
+
+         --  In No_Run_Time_Mode, we remove the bodies of non-
+         --  inlined subprograms, which may lead to spurious
+         --  warnings, clearly undesirable.
+
+         elsif No_Run_Time
+           and then Is_Predefined_File_Name (Unit_File_Name (Unit))
+         then
             return;
          end if;
 

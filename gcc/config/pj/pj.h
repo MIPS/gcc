@@ -1184,22 +1184,6 @@ do { fputs (current_function_varargs || current_function_stdarg         \
 
 /* Output various types of constants.  */
 
-/* This is how to output an assembler line defining a `double'.  */
-
-#define ASM_OUTPUT_DOUBLE(FILE,VALUE)                   \
-do { char dstr[30];                                     \
-     REAL_VALUE_TO_DECIMAL ((VALUE), "%.20e", dstr);    \
-     fprintf ((FILE), "\t.double %s\n", dstr);          \
-   } while (0)
-
-/* This is how to output an assembler line defining a `float' constant.  */
-
-#define ASM_OUTPUT_FLOAT(FILE,VALUE)                    \
-do { char dstr[30];                                     \
-     REAL_VALUE_TO_DECIMAL ((VALUE), "%.20e", dstr);    \
-     fprintf ((FILE), "\t.float %s\n", dstr);           \
-   } while (0)
-
 /* This is how to output an assembler line
    that says to advance the location counter by SIZE bytes.  */
 
@@ -1269,7 +1253,7 @@ do { char dstr[30];                                     \
 #define CAN_DEBUG_WITHOUT_FP 
 
 /* How to renumber registers for dbx and gdb.  */
-extern short pj_debugreg_renumber_vec[];
+extern short pj_debugreg_renumber_vec[FIRST_PSEUDO_REGISTER];
 
 #define DBX_REGISTER_NUMBER(REG) (pj_debugreg_renumber_vec[REG])
 

@@ -1091,7 +1091,7 @@ while (0)
 
 /* Value is 1 if hard register REGNO can hold a value of machine-mode MODE.
    See sparc.c for how we initialize this.  */
-extern int *hard_regno_mode_classes;
+extern const int *hard_regno_mode_classes;
 extern int sparc_mode_class[];
 
 /* ??? Because of the funny way we pass parameters we should allow certain
@@ -1302,7 +1302,7 @@ enum reg_class { NO_REGS, FPCC_REGS, I64_REGS, GENERAL_REGS, FP_REGS,
    reg number REGNO.  This could be a conditional expression
    or could index an array.  */
 
-extern enum reg_class sparc_regno_reg_class[];
+extern enum reg_class sparc_regno_reg_class[FIRST_PSEUDO_REGISTER];
 
 #define REGNO_REG_CLASS(REGNO) sparc_regno_reg_class[(REGNO)]
 
@@ -1969,6 +1969,32 @@ do {									\
 #define EH_RETURN_DATA_REGNO(N) ((N) < 4 ? (N) + 24 : INVALID_REGNUM)
 #define EH_RETURN_STACKADJ_RTX	gen_rtx_REG (Pmode, 1)	/* %g1 */
 #define EH_RETURN_HANDLER_RTX	gen_rtx_REG (Pmode, 31)	/* %i7 */
+
+/* Select a format to encode pointers in exception handling data.  CODE
+   is 0 for data, 1 for code labels, 2 for function pointers.  GLOBAL is
+   true if the symbol may be affected by dynamic relocations.
+
+   If assembler and linker properly support .uaword %r_disp32(foo),
+   then use PC relative 32-bit relocations instead of absolute relocs
+   for shared libraries.  On sparc64, use pc relative 32-bit relocs even
+   for binaries, to save memory.  */
+#ifdef HAVE_AS_SPARC_UA_PCREL
+#define ASM_PREFERRED_EH_DATA_FORMAT(CODE,GLOBAL)			\
+  (flag_pic								\
+   ? (GLOBAL ? DW_EH_PE_indirect : 0) | DW_EH_PE_pcrel | DW_EH_PE_sdata4\
+   : ((TARGET_ARCH64 && ! GLOBAL)					\
+      ? (DW_EH_PE_pcrel | DW_EH_PE_sdata4)				\
+      : DW_EH_PE_absptr))
+
+/* Emit a PC-relative relocation.  */
+#define ASM_OUTPUT_DWARF_PCREL(FILE, SIZE, LABEL)	\
+  do {							\
+    fputs (integer_asm_op (SIZE, FALSE), FILE);		\
+    fprintf (FILE, "%%r_disp%d(", SIZE * 8);		\
+    assemble_name (FILE, LABEL);			\
+    fputc (')', FILE);					\
+  } while (0)
+#endif
 
 /* Addressing modes, and classification of registers for them.  */
 
@@ -2716,56 +2742,6 @@ do {									\
 
 #define ASM_GENERATE_INTERNAL_LABEL(LABEL,PREFIX,NUM)	\
   sprintf ((LABEL), "*%s%ld", (PREFIX), (long)(NUM))
-
-/* This is how to output an assembler line defining a `float' constant.
-   We always have to use a .long pseudo-op to do this because the native
-   SVR4 ELF assembler is buggy and it generates incorrect values when we
-   try to use the .float pseudo-op instead.  */
-
-#define ASM_OUTPUT_FLOAT(FILE,VALUE) \
-  {								\
-    long t;							\
-    char str[30];						\
-    REAL_VALUE_TO_TARGET_SINGLE ((VALUE), t);			\
-    REAL_VALUE_TO_DECIMAL ((VALUE), "%.20e", str);		\
-    fprintf (FILE, "\t%s\t0x%lx %s ~%s\n",			\
-	     integer_asm_op (4, TRUE), t,			\
-	     ASM_COMMENT_START, str);				\
-  }								\
-
-/* This is how to output an assembler line defining a `double' constant.
-   We always have to use a .long pseudo-op to do this because the native
-   SVR4 ELF assembler is buggy and it generates incorrect values when we
-   try to use the .float pseudo-op instead.  */
-
-#define ASM_OUTPUT_DOUBLE(FILE,VALUE) \
-  {								\
-    long t[2];							\
-    char str[30];						\
-    const char *long_op = integer_asm_op (4, TRUE);		\
-    REAL_VALUE_TO_TARGET_DOUBLE ((VALUE), t);			\
-    REAL_VALUE_TO_DECIMAL ((VALUE), "%.20e", str);		\
-    fprintf (FILE, "\t%s\t0x%lx %s ~%s\n", long_op, t[0],	\
-	     ASM_COMMENT_START, str);				\
-    fprintf (FILE, "\t%s\t0x%lx\n", long_op, t[1]);		\
-  }
-
-/* This is how to output an assembler line defining a `long double'
-   constant.  */
-
-#define ASM_OUTPUT_LONG_DOUBLE(FILE,VALUE) \
-  {								\
-    long t[4];							\
-    char str[30];						\
-    const char *long_op = integer_asm_op (4, TRUE);		\
-    REAL_VALUE_TO_TARGET_LONG_DOUBLE ((VALUE), t);		\
-    REAL_VALUE_TO_DECIMAL ((VALUE), "%.20e", str);		\
-    fprintf (FILE, "\t%s\t0x%lx %s ~%s\n", long_op, t[0],	\
-	     ASM_COMMENT_START, str);				\
-    fprintf (FILE, "\t%s\t0x%lx\n", long_op, t[1]);		\
-    fprintf (FILE, "\t%s\t0x%lx\n", long_op, t[2]);		\
-    fprintf (FILE, "\t%s\t0x%lx\n", long_op, t[3]);		\
-  }
 
 /* This is how we hook in and defer the case-vector until the end of
    the function.  */

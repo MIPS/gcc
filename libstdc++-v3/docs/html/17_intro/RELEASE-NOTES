@@ -1,15 +1,14 @@
-2001-04-06
+2001-12-18
 
 Release Notes   
 -------------
-The Standard C++ Library v3, or libstdc++-2.9x, is an ongoing
-project to implement the ISO 14882 Standard C++ library as described
-in chapters 17 through 27 and annex D, as a drop-in replacement
-for the current (ARM-conformant) library.
+The Standard C++ Library v3, or libstdc++-2.9x, is an ongoing project
+to fully implement the ISO 14882 Standard C++ library as described in
+chapters 17 through 27 and annex D.
 
-This is the eleventh snapshot of the libstdc++ rewrite.  It is still
-incomplet and incorrekt. It's a lot less incomplete and incorrect than
-some of the earlier snapshots though, and quite usable.
+This is the twelfth snapshot of the libstdc++ rewrite.  It is still
+has some incomplet and incorrekt parts, but it's a lot less incomplete
+and incorrect than some of the earlier snapshots, and quite usable.
 
 The Standard C++ Library v3, or libstdc++-2.9x, follows an open
 development model, attempting to be fully buzzword, bazaar, and GNU
@@ -23,27 +22,35 @@ found at the following URL:
 
 New: 
 --- 
-- preliminary doxygen documentation has been added. Running "make
-  doxygen" in the libstdc++-v3 build directory will generate HTML
-  documentation that can be used to cross-reference names and files in
-  the library.
-- a dejagnu based testing framework has been added
-- a new implementation of the concept checking code has been ported
-  from the boost libraries.
-- support for -fno-exceptions has been added
-- stdexcept was re-written
-- using deprecated or antiquated headers now gives a warning
-- the stdio interface to iostreams has been tweaked, and now works
-  with synchronized c/c++ io
-- new libsupc++ routines implementing the IA-64 C++ ABI.
-- HPUX configuration files
-- support for AIX added
-- a lot of bugs were fixed.
-- preliminary named locales implemented
-- portability improvements made to generation of <limits>
-- speedups to improve configuration time.
-- DJGPP support added.
-- support for dlopening shared libstdc++
+- add S390, m68k, x86-64 support.
+- doxygen documentation has been extended, including man pages.
+- verbose terminate handling has been added.
+- some libsupc++ tweaks
+- warnings for deprecated headers now active.
+- dejagnu testsuite preliminary documentation.
+- dejagnu testsuite default.
+- dejagnu testsuite cross compiler, multilib safe.
+- long long iostreams on by default, rework of ISO C99 support.
+- iterator re-write and testsuites.
+- container testsuites.
+- allocator revamp and testsuites.
+- more concept-checking work.
+- basic_string optimization and MT fixes.
+- new limits implementation.
+- update -fno-exceptions code, verify it works.
+- full named locale support fpr all facets, choice of gnu,
+  ieee_1003.1-200x (POSIX 2), or generic models. Full support depends
+  on target OS and underlying "C" library support.
+
+Bugs fixed:
+-----------
+2964, 2627, 2523, 2832, 2830, 2931, 2985, 2970, 2997, 2976, 3016,
+3018, 3034, 3035, 3036, 3017, 3045, 3082, 2767, 2989, 2992, 3113,
+3114, 2346, 3126, 3139, 3140, 3141, 3142, 2071, 3377, 3272, 2211,
+3284, 3599, 3988, 3349, 3740, 4143, 4536, 4545, 4542, 4503, 3647,
+4354, 4622, 4749, 3666, 4219, 4548, 3655, 3150, 4402, 282, 3720,
+5037, 5054, 3679, 5136, others.
+
 
 What doesn't:
 -------------
@@ -64,9 +71,8 @@ CVS access, and contribution information is now at:
 
   http://gcc.gnu.org/libstdc++/
 
-Please note that the mailing list has recently moved, and is now
-hosted on gcc.gnu.org. (The web site above has the most
-up-to-date info.)
+Please note that the mailing list has moved, and is now hosted on
+gcc.gnu.org. (The web site above has the most up-to-date info.)
    
 Obtain the library snapshot via ftp (including these release notes) from
 
@@ -85,7 +91,3 @@ recommended, which may introduce additional dependencies for
 up-to-date binutils. In addition, you may need up-to-date tools for
 modifying Makefiles and regenerating configure scripts: automake
 (version 1.4), autoconf (version 2.13 and higher), and libtool.
-
-
-
-

@@ -38,6 +38,7 @@
    (UNSPEC_LDGP2	10)
    (UNSPEC_LITERAL	11)
    (UNSPEC_LITUSE	12)
+   (UNSPEC_SIBCALL	13)
   ])
 
 ;; UNSPEC_VOLATILE:
@@ -4582,7 +4583,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi"
 (define_expand "sibcall"
   [(parallel [(call (mem:DI (match_operand 0 "" ""))
 			    (match_operand 1 "" ""))
-	      (use (reg:DI 29))])]
+	      (unspec [(reg:DI 29)] UNSPEC_SIBCALL)])]
   "TARGET_ABI_OSF"
 {
   if (GET_CODE (operands[0]) != MEM)
@@ -4602,11 +4603,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi"
 
   operands[0] = XEXP (operands[0], 0);
   if (! call_operand (operands[0], Pmode))
-    {
-      rtx pv = gen_rtx_REG (Pmode, 27);
-      emit_move_insn (pv, operands[0]);
-      operands[0] = pv;
-    }
+    operands[0] = copy_to_mode_reg (Pmode, operands[0]);
 })
 
 (define_expand "call_nt"
@@ -4714,7 +4711,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi"
   [(parallel [(set (match_operand 0 "" "")
 		   (call (mem:DI (match_operand 1 "" ""))
 		         (match_operand 2 "" "")))
-	      (use (reg:DI 29))])]
+	      (unspec [(reg:DI 29)] UNSPEC_SIBCALL)])]
   "TARGET_ABI_OSF"
 {
   if (GET_CODE (operands[1]) != MEM)
@@ -4735,11 +4732,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi"
 
   operands[1] = XEXP (operands[1], 0);
   if (! call_operand (operands[1], Pmode))
-    {
-      rtx pv = gen_rtx_REG (Pmode, 27);
-      emit_move_insn (pv, operands[1]);
-      operands[1] = pv;
-    }
+    operands[1] = copy_to_mode_reg (Pmode, operands[1]);
 })
 
 (define_expand "call_value_nt"
@@ -4928,7 +4921,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi"
 (define_insn "*sibcall_osf_1_er"
   [(call (mem:DI (match_operand:DI 0 "symbolic_operand" "R,s"))
 	 (match_operand 1 "" ""))
-   (use (reg:DI 29))]
+   (unspec [(reg:DI 29)] UNSPEC_SIBCALL)]
   "TARGET_EXPLICIT_RELOCS && TARGET_ABI_OSF"
   "@
    br $31,$%0..ng
@@ -4939,7 +4932,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi"
 (define_insn "*sibcall_osf_1"
   [(call (mem:DI (match_operand:DI 0 "symbolic_operand" "R,s"))
 	 (match_operand 1 "" ""))
-   (use (reg:DI 29))]
+   (unspec [(reg:DI 29)] UNSPEC_SIBCALL)]
   "! TARGET_EXPLICIT_RELOCS && TARGET_ABI_OSF"
   "@
    br $31,$%0..ng
@@ -6478,7 +6471,12 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi"
 (define_insn "prologue_mcount"
   [(unspec_volatile [(const_int 0)] UNSPECV_MCOUNT)]
   ""
-  "lda $28,_mcount\;jsr $28,($28),_mcount"
+{
+  if (TARGET_EXPLICIT_RELOCS)
+    return "ldq $28,_mcount($29)\t\t!literal!%#\;jsr $28,($28),_mcount\t\t!lituse_jsr!%#";
+  else
+    return "lda $28,_mcount\;jsr $28,($28),_mcount";
+}
   [(set_attr "type" "multi")
    (set_attr "length" "8")])
 
@@ -6793,7 +6791,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi"
 (define_insn "unop"
   [(const_int 2)]
   ""
-  "ldq_u $31,0($31)")
+  "ldq_u $31,0($30)")
 
 ;; On Unicos/Mk we use a macro for aligning code.
 
@@ -6935,7 +6933,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi"
   [(set (match_operand 0 "" "")
 	(call (mem:DI (match_operand:DI 1 "symbolic_operand" "R,s"))
 	      (match_operand 2 "" "")))
-   (use (reg:DI 29))]
+   (unspec [(reg:DI 29)] UNSPEC_SIBCALL)]
   "TARGET_EXPLICIT_RELOCS && TARGET_ABI_OSF"
   "@
    br $31,$%1..ng
@@ -6947,7 +6945,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi"
   [(set (match_operand 0 "" "")
 	(call (mem:DI (match_operand:DI 1 "symbolic_operand" "R,s"))
 	      (match_operand 2 "" "")))
-   (use (reg:DI 29))]
+   (unspec [(reg:DI 29)] UNSPEC_SIBCALL)]
   "! TARGET_EXPLICIT_RELOCS && TARGET_ABI_OSF"
   "@
    br $31,$%1..ng

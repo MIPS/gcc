@@ -122,7 +122,8 @@ class char_producer {
 // little like containers.
 
 template<class _Sequence, size_t _Buf_sz = 100>
-class sequence_buffer : public output_iterator {
+class sequence_buffer : public iterator<output_iterator_tag,void,void,void,void>
+{
     public:
         typedef typename _Sequence::value_type value_type;
     protected:
@@ -837,7 +838,8 @@ class _Rope_char_ptr_proxy {
 
 template<class _CharT, class _Alloc>
 class _Rope_iterator_base
-  : public random_access_iterator<_CharT, ptrdiff_t> {
+  : public iterator<random_access_iterator_tag, _CharT>
+{
     friend class rope<_CharT,_Alloc>;
   public:
     typedef _Alloc _allocator_type; // used in _Rope_rotate, VC++ workaround
@@ -1022,6 +1024,7 @@ template<class _CharT, class _Alloc>
 class _Rope_iterator : public _Rope_iterator_base<_CharT,_Alloc> {
     friend class rope<_CharT,_Alloc>;
   protected:
+    typedef typename _Rope_iterator_base<_CharT,_Alloc>::_RopeRep _RopeRep;
     rope<_CharT,_Alloc>* _M_root_rope;
         // root is treated as a cached version of this,
         // and is used to detect changes to the underlying
@@ -1055,8 +1058,7 @@ class _Rope_iterator : public _Rope_iterator_base<_CharT,_Alloc> {
         _RopeRep::_S_unref(_M_root);
     }
     _Rope_iterator& operator= (const _Rope_iterator& __x) {
-        typename
-	  _Rope_iterator_base<_CharT,_Alloc>::_RopeRep* __old = _M_root;
+        _RopeRep* __old = _M_root;
 
         _RopeRep::_S_ref(__x._M_root);
         if (0 != __x._M_buf_ptr) {

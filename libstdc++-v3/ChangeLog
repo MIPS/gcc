@@ -1,3 +1,182 @@
+2001-12-28  Richard Henderson  <rth@redhat.com>
+
+	* config/cpu/ia64/bits/cpu_limits.h: New file.
+	* config/os/osf/osf5.0/bits/cpu_limits.h: New file.
+	* configure.target (CPULIMITSH): Use them.
+
+2001-12-28  Phil Edwards  <pme@gcc.gnu.org>
+
+	* include/bits/c++config:  Move doxygen hook comment...
+	* docs/doxygen/doxygroups.cc:  ...to here.
+
+2001-12-28  Phil Edwards  <pme@gcc.gnu.org>
+
+	PR libstdc++/2054
+	* include/bits/stl_algo.h (lower_bound):  Relax concept checks.
+	* testsuite/ext/concept_checks.cc:  New file.
+
+2001-12-28  Paolo Carlini  <pcarlini@unitus.it>
+
+	* include/bits/stl_algo.h (count returning void,
+	count_if returning void, __random_sample, random_sample,
+	random_sample_n, __is_heap, is_heap, is_sorted):  Move to...
+	* include/ext/algorithm:  ...here, new file.
+	* include/Makefile.am (ext_headers):  Add new file.
+	* include/Makefile.in:  Regenerate.
+	* testsuite/ext/headers.cc:  Include <ext/algorithm>.
+
+2001-12-28  Paolo Carlini  <pcarlini@unitus.it>
+            Nathan Myers  <ncm@cantrip.org>
+
+	* include/bits/basic_string.h (insert(__pos, __s, __n)):
+	Optimize by avoiding temporaries and working in-place when possible.
+	(insert(__pos1, __str)): Call insert(__pos1, __str, __pos2, __n).
+	(insert(__pos1, __str, __pos2, __n)): Call insert(__pos, __s, __n).
+	* testsuite/21_strings/insert.cc (test02): New testcases.
+
+2001-12-27  Phil Edwards  <pme@gcc.gnu.org>
+
+	* testsuite/testsuite_hooks.h (gnu_counting_struct):  Add.
+	* testsuite/23_containers/deque_ctor.cc:  New file.
+
+2001-12-27  Paolo Carlini  <pcarlini@unitus.it>
+
+	* include/bits/locale_facets.tcc (collate::do_transform):
+	Adjust implicit typename.
+	* config/locale/messages_members_generic.h (messages::open,
+	messages::do_open, messages::do_get): Adjust implicit typename.
+	* config/locale/messages_members_gnu.h (messages::open,
+	messages::do_open, messages::do_get): Adjust Implicit typename.
+	* config/locale/messages_members_ieee_1003.1-200x.h (messages::open,
+	messages::do_open, messages::do_get): Adjust implicit typename.
+
+2001-12-27  Phil Edwards  <pme@gcc.gnu.org>
+
+	PR libstdc++/3829
+	* src/misc-inst.cc:  Many additional I/O-related instantiations.
+	* testsuite/27_io/instantiations.cc:  New file.
+
+2001-12-26  Benjamin Kosnik  <bkoz@waller.constant.com>
+
+	* testsuite/24_iterators/insert_iterator.cc (test02): Add.
+	* testsuite/24_iterators/front_insert_iterator.cc (test02): Add.
+	* testsuite/24_iterators/back_insert_iterator.cc (test02): Add.
+	* testsuite/24_iterators/reverse_iterator.cc (test02): Add.
+
+	* include/bits/stl_iterator.h (reverse_iterator): Uglify member
+	current to _M_current.
+	(back_insert_iterator): Uglify member container to _M_container.
+	(front_insert_iterator): Same.
+	(insert_iterator): Same.
+	
+2001-12-25  Gabriel Dos Reis  <gdr@merlin.codesourcery.com>
+
+	* include/bits/std_limits.h (__glibcpp_xxx_is_modulo): New
+	macros for signed types; default value is true.
+	(numeric_limits<>::is_modulo): Get value from corresponding
+	__glibcpp_xxx_is_modulo macro.
+
+2001-12-23  Jeffrey A Law  <law@redhat.com>
+
+	* config/os/hpux/bits/os_defines.h: Do not include <_sys/inttypes.h>.
+	Twiddle return types for strtoll and strtoull to avoid using
+	intmax_t and uintmax-t.
+
+2001-12-22  Richard Henderson  <rth@redhat.com>
+
+	* configure.target (CPULIMITSH): Fix typo in alpha case.
+
+2001-12-22  Jeffrey A Law  <law@redhat.com>
+
+	* config/os/hpux/bits/os_defines.h: Update to avoid #defines
+        for strtoll and strtoull.
+
+2001-12-21  Jeffrey A Law  <law@redhat.com>
+	
+	* config/os/hpux/bits/os_defines.h: Include <sys/_inttypes.h.
+	Define strtoll and strtoull.  Provide prototypes for
+	__strtoll and __strtoull.  Define _GLIBCPP_USE_LONG_LONG
+	unconditionally.
+
+	* src/locale-inst.cc: Include <bits/std_cstdlib.h>
+
+	* configure.target: Fix typo in hpux case.
+
+2001-12-21  Paolo Carlini  <pcarlini@unitus.it>
+
+	* include/ext/stl_rope.h (_Rope_iterator):
+	Add local typedef to fix implicit typename problems.
+
+2001-12-19  Phil Edwards  <pme@gcc.gnu.org>
+
+	* docs/doxygen/Intro.3:  New 'Allocators' module.
+	* docs/doxygen/TODO:  Update.
+	* docs/doxygen/doxygroups.cc:  Update.
+	* docs/doxygen/run_doxygen:  Update.
+
+	* include/bits/stl_alloc.h:  Tweak doxygen hooks in comments.
+	* include/bits/std_memory.h:  Doxygenate.
+	* include/bits/stl_iterator_base_types.h:  Likewise.
+	* include/bits/stl_raw_storage_iter.h:  Likewise.
+	* include/bits/stl_tempbuf.h:  Likewise.
+	(get_temporary_buffer):  Remove unused nonstandard overload.
+	* include/bits/stl_uninitialized.h:  Likewise.
+
+	* include/bits/stl_iterator_base_types.h (input_iterator,
+	output_iterator, forward_iterator, bidirectional_iterator,
+	random_access_iterator):  Move old names...
+	* include/backward/iterator.h:  ...to here.
+	* include/bits/stl_bvector.h:  Update.
+	* include/ext/stl_rope.h:  Update.
+
+2001-12-19  Phil Edwards  <pme@gcc.gnu.org>
+
+	* docs/html/configopts.html:  Describe recent options.
+	* docs/html/documentation.html:  Point to new doxygen tarballs.
+	* docs/html/install.html:  Brief updates.
+	* docs/html/17_intro/RELEASE-NOTES:  Remove weird control character.
+	* docs/html/ext/howto.html:  Fix typos, describe filebuf::fd().
+	* docs/html/faq/index.html:  Update for 3.0.95.
+	* docs/html/faq/index.txt:  Regenerate.
+
+2001-12-19  David Billinghurst <David.Billinghurst@riotinto.com>
+
+	libstdc++-v3/5148
+	* testsuite/lib/libstdc++-v3-dg.exp:  Append .exe to 
+	executable filenames
+
+2001-12-18  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* docs/html/17_intro/TODO: Update.
+	* docs/html/17_intro/RELEASE-NOTES: Edits, update.
+	* README: Edit for clarity, update to reflect current directory
+	structure.
+
+2001-12-18  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* acinclude.m4 (GLIBCPP_ENABLE_CLOCALE): Extended checking before
+	enabling gnu model.
+	* aclocal.m4: Rebuild.
+	* configure: Rebuild.
+	
+2001-12-18  Paolo Carlini  <pcarlini@unitus.it>
+            Nathan Myers  <ncm@cantrip.org>
+	
+	* include/bits/basic_string.h (assign(__str, __pos, __n)):
+	Call assign(__s, __n).
+	(assign(__s, __n)): Terminate the string with _S_terminal.
+
+2001-12-17  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/bits/std_limits.h (__glibcpp_long_double_is_bounded):
+	Set to true, like float and double.
+
+2001-12-17  David Billinghurst <David.Billinghurst@riotinto.com>
+
+	libstdc++/5136
+	* testsuite/lib/prune.exp: New file
+	* testsuite/lib/libstdc++-v3-dg.exp: Use it
+
 2001-12-17  Phil Edwards  <pme@gcc.gnu.org>
 
 	* include/bits/basic_file.h (__basic_file::fd):  New function.

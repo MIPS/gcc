@@ -1008,7 +1008,12 @@ call_operand (op, mode)
   if (GET_CODE (op) == REG)
     {
       if (TARGET_ABI_OSF)
-	return REGNO (op) == 27;
+	{
+	  /* Disallow virtual registers to cope with pathalogical test cases
+	     such as compile/930117-1.c in which the virtual reg decomposes
+	     to the frame pointer.  Which is a hard reg that is not $27.  */
+	  return (REGNO (op) == 27 || REGNO (op) > LAST_VIRTUAL_REGISTER);
+	}
       else
 	return 1;
     }
@@ -7586,7 +7591,7 @@ alpha_align_insns (insns, max_align, next_group, next_nop)
 
   if (align_functions < 4)
     align = 4;
-  else if (align_functions < max_align)
+  else if ((unsigned int) align_functions < max_align)
     align = align_functions;
   else
     align = max_align;

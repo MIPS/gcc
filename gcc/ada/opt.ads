@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---                            $Revision: 1.3 $
+--                            $Revision: 1.4 $
 --                                                                          --
 --          Copyright (C) 1992-2001, Free Software Foundation, Inc.         --
 --                                                                          --
@@ -469,6 +469,11 @@ package Opt is
    --  Set to False if a -I- was present on the command line.
    --  When True we are allowed to look in the primary directory to locate
    --  other source or library files.
+
+   Mapping_File_Name : String_Ptr := null;
+   --  GNAT
+   --  File name of mapping between unit names, file names and path names.
+   --  (given by switch -gnatem)
 
    Maximum_Errors : Int := 9999;
    --  GNAT, GNATBIND

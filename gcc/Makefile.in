@@ -155,9 +155,9 @@ INSTALL_HEADERS_DIR = @build_install_headers_dir@
 # Header files that are made available under the same name
 # to programs compiled with GCC.
 USER_H = $(srcdir)/ginclude/stdarg.h $(srcdir)/ginclude/stddef.h \
-    $(srcdir)/ginclude/varargs.h $(srcdir)/ginclude/proto.h \
+    $(srcdir)/ginclude/varargs.h \
     $(srcdir)/ginclude/stdbool.h $(srcdir)/ginclude/iso646.h \
-    $(EXTRA_HEADERS) $(LANG_EXTRA_HEADERS)
+    $(EXTRA_HEADERS)
 
 # The GCC to use for compiling libgcc.a, enquire, and crt*.o.
 # Usually the one we just built.
@@ -639,8 +639,6 @@ INCLUDES = -I. -I$(@D) -I$(srcdir) -I$(srcdir)/$(@D) \
 # These next lines are overridden by configure.
 LANG_MAKEFILES = @all_lang_makefiles@
 LANG_STAGESTUFF = @all_stagestuff@
-LANG_DIFF_EXCLUDES = @all_diff_excludes@
-LANG_EXTRA_HEADERS = @all_headers@
 
 # Flags to pass to recursive makes.
 # CC is set by configure.  Hosts without symlinks need special handling
@@ -690,7 +688,7 @@ PREPEND_DOTDOT_TO_RELATIVE_PATHS = sed \
 	-e 's|%||g'
 SUBDIR_FLAGS_TO_PASS = $(ORDINARY_FLAGS_TO_PASS) \
 	"CC=`echo @quoted_cc_set_by_configure@ | $(PREPEND_DOTDOT_TO_RELATIVE_PATHS)`" \
-	"STAGE_PREFIX=`echo @stage_prefix_set_by_configure@ | $(PREPEND_DOTDOT_TO_RELATIVE_PATHS)`"
+	"STAGE_PREFIX=`echo @quoted_stage_prefix_set_by_configure@ | $(PREPEND_DOTDOT_TO_RELATIVE_PATHS)`"
 #
 # Lists of files for various purposes.
 
@@ -1159,15 +1157,15 @@ c-decl.o : c-decl.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) $(C_TREE_H) \
 c-typeck.o : c-typeck.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(C_TREE_H) \
     $(TARGET_H) flags.h intl.h output.h $(EXPR_H) $(RTL_H) toplev.h $(TM_P_H)
 c-lang.o : c-lang.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(C_TREE_H) \
-    $(GGC_H) toplev.h function.h $(VARRAY_H) \
-    $(RTL_H) $(EXPR_H) langhooks.h langhooks-def.h
+    langhooks.h langhooks-def.h
 c-lex.o : c-lex.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) c-lex.h \
     debug.h $(C_TREE_H) \
     c-pragma.h input.h intl.h flags.h toplev.h output.h \
     mbchar.h $(CPPLIB_H) $(EXPR_H) $(TM_P_H)
 c-objc-common.o : c-objc-common.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) \
     $(C_TREE_H) $(RTL_H) insn-config.h integrate.h $(EXPR_H) $(C_TREE_H) \
-    flags.h toplev.h tree-inline.h diagnostic.h integrate.h
+    flags.h toplev.h tree-inline.h diagnostic.h integrate.h $(VARRAY_H) \
+    $(GGC_H)
 c-aux-info.o : c-aux-info.c  $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(C_TREE_H) \
     flags.h toplev.h
 c-convert.o : c-convert.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) flags.h toplev.h

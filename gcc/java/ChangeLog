@@ -1,3 +1,106 @@
+2001-12-28  Tom Tromey  <tromey@redhat.com>
+
+	* gen-table.pl: Don't process characters after \uffff.  Added
+	comment pointing to input file.
+
+2001-12-28  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gen-table.pl: Const-ify output.  Document the location of a
+	suitable unicode input file.
+
+	* chartables.h: Regenerate.
+
+2001-12-26  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* chartables.h: Const-ify.
+	* gjavah.c (options): Likewise.
+	* jcf-dump.c (options): Likewise.
+	* jv-scan.c (options): Likewise.
+	* lex.c (java_start_char_p, java_part_char_p): Likewise.
+	* parse.y (binop_lookup): Likewise.
+
+2001-12-23  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* Make-lang.in (keyword.h): Pass -C to gperf to const-ify
+	the static arrays that are output.
+	* jvspec.c (jvgenmain_spec): Make static.
+	* keyword.gperf (struct java_keyword, java_keyword): Const-ify.
+	* keyword.h: Regenerate.
+	* lang.c (string_option, process_option_with_no, lang_f_options,
+	lang_W_options): Const-ify.
+	* lex.c (java_lex): Likewise.
+
+2001-12-21  Richard Henderson  <rth@redhat.com>
+
+	* boehm.c (PROCEDURE_OBJECT_DESCRIPTOR): Merge into ..
+	(get_boehm_type_descriptor): ... here.  Arrange for the
+	TREE_TYPE to get set properly.
+
+2001-12-21  Richard Henderson  <rth@redhat.com>
+
+	* class.c (compile_resource_file): Set TREE_PUBLIC on the constructor
+	only if the target requires collect2.
+
+	* class.c (build_class_ref): Mark _Jv_fooClass DECL_EXTERNAL.
+
+2001-12-20  Tom Tromey  <tromey@redhat.com>
+
+	For PR java/4509:
+	* parse.y (java_complete_lhs) [COMPOUND_EXPR]: Correctly compute
+	CAN_COMPLETE_NORMALLY for the node.
+	* jcf-write.c (generate_bytecode_insns) [COMPOUND_EXPR]: Don't
+	generate code for second branch if first branch can't complete
+	normally.
+	(generate_bytecode_insns) [LOOP_EXPR]: Don't generate `goto' to
+	the loop head if the loop body can't complete normally.
+
+2001-12-20  Tom Tromey  <tromey@redhat.com>
+
+	For PR java/4766:
+	* jcf-write.c (generate_bytecode_insns) [TRY_FINALLY_EXPR]: Handle
+	case where `finally' clause can't complete normally.
+
+2001-12-20  Tom Tromey  <tromey@redhat.com>
+
+	Fixes PR java/5057:
+	* parse.y (analyze_clinit_body): Added this_class parameter.
+	Check for more cases where we must keep <clinit>.
+	(maybe_yank_clinit): Cleaned up flow control.
+
+2001-12-20  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* decl.c (java_init_decl_processing): Don't initialize 
+	finit_leg_identifier_node.
+	* java-tree.h (java_tree_index): Remove JTI_FINIT_LEG_IDENTIFIER_NODE.
+	(finit_leg_identifier_node): Remove.
+	(ID_FINIT_P): Don't check for JTI_FINIT_LEG_IDENTIFIER_NODE.
+
+2001-12-20  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* mangle.c (mangle_member_name): Don't special-case for 
+	NO_DOLLAR_IN_LABEL.
+	* mangle_name.c (unicode_mangling_length): Likewise.
+	(append_unicode_mangled_name): Likewise.
+	* parse.y (make_nested_class_name): Remove dead NO_DOLLAR_IN_LABEL
+	code.
+
+2001-12-20  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* expr.c (build_java_array_length_access): Don't force null pointer
+	check unless flag_check_references is set.
+
+2001-12-20  Tom Tromey  <tromey@redhat.com>
+
+	Fix for PR java/3417:
+	* parse.y (patch_assignment): Added special processing for
+	`return'.
+	(patch_return): Don't convert booleans to integers, and don't
+	special-case `null'.
+
+2001-12-20  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* config-lang.in (diff_excludes): Remove.
+
 2001-12-17  Joseph S. Myers  <jsm28@cam.ac.uk>
 
 	* gcj.texi: Update link to GCC manual.
@@ -709,7 +812,7 @@ Tue Oct 23 14:02:17 2001  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 2001-08-28  Per Bothner  <per@bothner.com>
 
 	* jcf-write.c  (generate_bytecode_insns):  For increments and
-        decrements just recurse to push constant.  Improvement on Mark's patch.
+	decrements just recurse to push constant.  Improvement on Mark's patch.
 
 2001-08-28  Mark Mitchell  <mark@codesourcery.com>
 
@@ -916,7 +1019,7 @@ Tue Oct 23 14:02:17 2001  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 
 2001-08-06  Richard Henderson  <rth@redhat.com>
 
-        * class.c (emit_register_classes): Pass a symbol_ref and priority
+	* class.c (emit_register_classes): Pass a symbol_ref and priority
 	to assemble_constructor.
 
 2001-08-02  Alexandre Petit-Bianco  <apbianco@redhat.com>
@@ -928,8 +1031,8 @@ Tue Oct 23 14:02:17 2001  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 
 2001-08-01  Jeff Sturm  <jsturm@one-point.com>
 
-        * java-tree.h (BUILD_FILENAME_IDENTIFIER_NODE):
-        Use ggc_add_tree_root to register roots.
+	* java-tree.h (BUILD_FILENAME_IDENTIFIER_NODE):
+	Use ggc_add_tree_root to register roots.
 
 2001-07-31  Alexandre Petit-Bianco  <apbianco@redhat.com>
 
@@ -1187,7 +1290,7 @@ Tue Oct 23 14:02:17 2001  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 2001-05-18  Per Bothner  <per@bothner.com>
 
 	* jvspec.c (lang_specific_pre_link):  Re-arrange the linker
-        command line so the jvgenmain-generated main program comes first.
+	command line so the jvgenmain-generated main program comes first.
 
 2001-05-15  Tom Tromey  <tromey@redhat.com>
 
@@ -1222,7 +1325,7 @@ Tue Oct 23 14:02:17 2001  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 
 2001-05-03  Mo DeJong  <mdejong@redhat.com>
 
-        * lex.c (java_new_lexer): Call iconv_close on temp handle used to
+	* lex.c (java_new_lexer): Call iconv_close on temp handle used to
 	check for byte swap.
 
 2000-05-02  Jeff Sturm  <jsturm@one-point.com>
@@ -1679,8 +1782,8 @@ Tue Oct 23 14:02:17 2001  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 
 2001-03-19  Andrew Haley  <aph@cambridge.redhat.com>
 
-        * class.c (build_static_field_ref): Call make_decl_rtl() after
-        setting the DECL_EXTERNAL flag.
+	* class.c (build_static_field_ref): Call make_decl_rtl() after
+	setting the DECL_EXTERNAL flag.
 
 2001-03-17  Per Bothner  <per@bothner.com>
 
@@ -1853,7 +1956,7 @@ Fri Feb 23 15:28:39 2001  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 	* Make-lang.in (jvspec.o): Modify rule to match that of cp/g++spec.o.
 
 2001-02-14  Tom Tromey  <tromey@redhat.com>
-            Alexandre Petit-Bianco  <apbianco@cygnus.com>
+	    Alexandre Petit-Bianco  <apbianco@cygnus.com>
 
 	Fix for PR java/1261.
 	* typeck.c (build_java_array_type): Add public `clone' method to
@@ -2480,7 +2583,7 @@ Sun Feb  4 15:52:44 2001  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 	* gen-table.pl: new file.
 
 2000-11-20  Tom Tromey  <tromey@cygnus.com>
-            Alexandre Petit-Bianco  <apbianco@cygnus.com>
+	    Alexandre Petit-Bianco  <apbianco@cygnus.com>
 
 	* parse.y (java_complete_lhs): Only allow compound assignment of
 	reference type if type is String.

@@ -1416,7 +1416,7 @@ literal_section ()						\
 
 /* How to renumber registers for dbx and gdb.  */
 
-extern int a29k_debug_reg_map[];
+extern int a29k_debug_reg_map[FIRST_PSEUDO_REGISTER];
 #define DBX_REGISTER_NUMBER(REGNO) a29k_debug_reg_map[REGNO]
 
 /* Switch into a generic section.  */
@@ -1459,16 +1459,6 @@ extern int a29k_debug_reg_map[];
 
 #define ASM_GENERATE_INTERNAL_LABEL(LABEL,PREFIX,NUM)	\
   sprintf (LABEL, "*%s%d", PREFIX, NUM)
-
-/* This is how to output an assembler line defining a `double' constant.  */
-
-#define ASM_OUTPUT_DOUBLE(FILE,VALUE)		\
-  fprintf (FILE, "\t.double %.20e\n", (VALUE))
-
-/* This is how to output an assembler line defining a `float' constant.  */
-
-#define ASM_OUTPUT_FLOAT(FILE,VALUE)		\
-  fprintf (FILE, "\t.float %.20e\n", (VALUE))
 
 /* This is how to output an insn to push a register on the stack.
    It need not be very fast code.  */

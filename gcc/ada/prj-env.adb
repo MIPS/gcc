@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.3 $
+--                            $Revision: 1.5 $
 --                                                                          --
 --             Copyright (C) 2001 Free Software Foundation, Inc.            --
 --                                                                          --
@@ -788,6 +788,104 @@ package body Prj.Env is
 
    end Create_Config_Pragmas_File;
 
+   -------------------------
+   -- Create_Mapping_File --
+   -------------------------
+
+   procedure Create_Mapping_File (Name : in out Temp_File_Name) is
+      File          : File_Descriptor := Invalid_FD;
+      The_Unit_Data : Unit_Data;
+      Data          : File_Name_Data;
+
+      procedure Put (S : String);
+      --  Put a line in the mapping file
+
+      procedure Put_Data (Spec : Boolean);
+      --  Put the mapping of the spec or body contained in Data in the file
+      --  (3 lines).
+
+      ---------
+      -- Put --
+      ---------
+
+      procedure Put (S : String) is
+         Last : Natural;
+
+      begin
+         Last := Write (File, S'Address, S'Length);
+
+         if Last /= S'Length then
+            Osint.Fail ("Disk full");
+         end if;
+      end Put;
+
+      --------------
+      -- Put_Data --
+      --------------
+
+      procedure Put_Data (Spec : Boolean) is
+      begin
+         Put (Get_Name_String (The_Unit_Data.Name));
+
+         if Spec then
+            Put ("%s");
+         else
+            Put ("%b");
+         end if;
+
+         Put (S => (1 => ASCII.LF));
+         Put (Get_Name_String (Data.Name));
+         Put (S => (1 => ASCII.LF));
+         Put (Get_Name_String (Data.Path));
+         Put (S => (1 => ASCII.LF));
+      end Put_Data;
+
+   --  Start of processing for Create_Mapping_File
+
+   begin
+      GNAT.OS_Lib.Create_Temp_File (File, Name => Name);
+
+      if File = Invalid_FD then
+         Osint.Fail
+           ("unable to create temporary mapping file");
+
+      elsif Opt.Verbose_Mode then
+         Write_Str ("Creating temp mapping file """);
+         Write_Str (Name);
+         Write_Line ("""");
+      end if;
+
+      --  For all units in table Units
+
+      for Unit in 1 .. Units.Last loop
+         The_Unit_Data := Units.Table (Unit);
+
+         --  If the unit has a valid name
+
+         if The_Unit_Data.Name /= No_Name then
+            Data := The_Unit_Data.File_Names (Specification);
+
+            --  If there is a spec, put it mapping in the file
+
+            if Data.Name /= No_Name then
+               Put_Data (Spec => True);
+            end if;
+
+            Data := The_Unit_Data.File_Names (Body_Part);
+
+            --  If there is a body (or subunit) put its mapping in the file
+
+            if Data.Name /= No_Name then
+               Put_Data (Spec => False);
+            end if;
+
+         end if;
+      end loop;
+
+      GNAT.OS_Lib.Close (File);
+
+   end Create_Mapping_File;
+
    ------------------------------------
    -- File_Name_Of_Library_Unit_Body --
    ------------------------------------
@@ -849,7 +947,7 @@ package body Prj.Env is
       for Current in reverse Units.First .. Units.Last loop
          Unit := Units.Table (Current);
 
-         --  If it is a unit of the same project
+         --  Case of unit of the same project
 
          if Unit.File_Names (Body_Part).Project = Project then
             declare
@@ -857,7 +955,7 @@ package body Prj.Env is
                                 Unit.File_Names (Body_Part).Name;
 
             begin
-               --  If there is a body
+               --  Case of a body present
 
                if Current_Name /= No_Name then
                   if Current_Verbosity = High then
@@ -898,7 +996,7 @@ package body Prj.Env is
             end;
          end if;
 
-         --  If it is a unit of the same project
+         --  Case of a unit of the same project
 
          if Units.Table (Current).File_Names (Specification).Project =
                                                                  Project
@@ -908,7 +1006,7 @@ package body Prj.Env is
                                 Unit.File_Names (Specification).Name;
 
             begin
-               --  If there is a spec
+               --  Case of spec present
 
                if Current_Name /= No_Name then
                   if Current_Verbosity = High then
@@ -918,8 +1016,7 @@ package body Prj.Env is
                      Write_Eol;
                   end if;
 
-                  --  If it has the same name as the original name,
-                  --  return the original name
+                  --  If name same as the original name, return original name
 
                   if Unit.Name = The_Original_Name
                     or else Current_Name = The_Original_Name
@@ -931,7 +1028,7 @@ package body Prj.Env is
                      return Get_Name_String (Current_Name);
 
                   --  If it has the same name as the extended spec name,
-                  --  return the extended spec name
+                  --  return the extended spec name.
 
                   elsif Current_Name = The_Spec_Name then
                      if Current_Verbosity = High then

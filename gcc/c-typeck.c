@@ -4495,6 +4495,33 @@ store_init_value (decl, init)
   /* ANSI wants warnings about out-of-range constant initializers.  */
   STRIP_TYPE_NOPS (value);
   constant_expression_warning (value);
+
+  /* Check if we need to set array size from compound literal size.  */
+  if (TREE_CODE (type) == ARRAY_TYPE
+      && TYPE_DOMAIN (type) == 0
+      && value != error_mark_node)
+    {
+      tree inside_init = init;
+
+      if (TREE_CODE (init) == NON_LVALUE_EXPR)
+	inside_init = TREE_OPERAND (init, 0);
+      inside_init = fold (inside_init);
+
+      if (TREE_CODE (inside_init) == COMPOUND_LITERAL_EXPR)
+	{
+	  tree decl = COMPOUND_LITERAL_EXPR_DECL (inside_init);
+
+	  if (TYPE_DOMAIN (TREE_TYPE (decl)))
+	    {
+	      /* For int foo[] = (int [3]){1}; we need to set array size
+		 now since later on array initializer will be just the
+		 brace enclosed list of the compound literal.  */
+	      TYPE_DOMAIN (type) = TYPE_DOMAIN (TREE_TYPE (decl));
+	      layout_type (type);
+	      layout_decl (decl, 0);
+	    }
+	}
+    }
 }
 
 /* Methods for storing and printing names for error messages.  */
@@ -7125,7 +7152,6 @@ c_start_case (exp)
 	}
       else
 	{
-	  tree index;
 	  type = TYPE_MAIN_VARIANT (TREE_TYPE (exp));
 
 	  if (warn_traditional && !in_system_header
@@ -7135,14 +7161,6 @@ c_start_case (exp)
 
 	  exp = default_conversion (exp);
 	  type = TREE_TYPE (exp);
-	  index = get_unwidened (exp, NULL_TREE);
-	  /* We can't strip a conversion from a signed type to an
-	     unsigned, because if we did, int_fits_type_p would do the
-	     wrong thing when checking case values for being in range,
-	     and it's too hard to do the right thing.  */
-	  if (TREE_UNSIGNED (TREE_TYPE (exp))
-	      == TREE_UNSIGNED (TREE_TYPE (index)))
-	    exp = index;
 	}
     }
 

@@ -66,6 +66,7 @@ Boston, MA 02111-1307, USA.  */
 %{mcpu=rsc1: -D_ARCH_PWR} \
 %{mcpu=401: -D_ARCH_PPC} \
 %{mcpu=403: -D_ARCH_PPC} \
+%{mcpu=405: -D_ARCH_PPC} \
 %{mcpu=505: -D_ARCH_PPC} \
 %{mcpu=601: -D_ARCH_PPC -D_ARCH_PWR} \
 %{mcpu=602: -D_ARCH_PPC} \
@@ -105,6 +106,7 @@ Boston, MA 02111-1307, USA.  */
 %{mcpu=rsc1: -mpwr} \
 %{mcpu=401: -mppc} \
 %{mcpu=403: -mppc} \
+%{mcpu=405: -mppc} \
 %{mcpu=505: -mppc} \
 %{mcpu=601: -m601} \
 %{mcpu=602: -mppc} \
@@ -639,8 +641,7 @@ extern int rs6000_altivec_abi;
    local store.  TYPE is the data type, and ALIGN is the alignment
    that the object would ordinarily have.  */
 #define LOCAL_ALIGNMENT(TYPE, ALIGN)				\
-	((TARGET_ALTIVEC		    			\
-	  && TREE_CODE (TYPE)) == VECTOR_TYPE ? 128 : ALIGN)
+  ((TARGET_ALTIVEC && TREE_CODE (TYPE) == VECTOR_TYPE) ? 128 : ALIGN)
 
 /* Handle #pragma pack.  */
 #define HANDLE_PRAGMA_PACK 1
@@ -1121,7 +1122,7 @@ enum reg_class
   { 0x00000000, 0x00000000, 0x00000002, 0x00000000 }, /* LINK_REGS */	     \
   { 0x00000000, 0x00000000, 0x00000004, 0x00000000 }, /* CTR_REGS */	     \
   { 0x00000000, 0x00000000, 0x00000006, 0x00000000 }, /* LINK_OR_CTR_REGS */ \
-  { 0x00000000, 0x00000000, 0x00000007, 0x00000000 }, /* SPECIAL_REGS */     \
+  { 0x00000000, 0x00000000, 0x00000007, 0x00002000 }, /* SPECIAL_REGS */     \
   { 0xffffffff, 0x00000000, 0x0000000f, 0x00000000 }, /* SPEC_OR_GEN_REGS */ \
   { 0x00000000, 0x00000000, 0x00000010, 0x00000000 }, /* CR0_REGS */	     \
   { 0x00000000, 0x00000000, 0x00000ff0, 0x00000000 }, /* CR_REGS */	     \
@@ -1788,7 +1789,7 @@ typedef struct rs6000_args
  ((DEFAULT_ABI == ABI_AIX						\
    || DEFAULT_ABI == ABI_DARWIN						\
    || DEFAULT_ABI == ABI_AIX_NODESC)	? (TARGET_32BIT ? 8 : 16) :	\
-  (DEFAULT_ABI == ABI_V4)		? (TARGET_32BIT ? 4 : 8) :	\
+  (DEFAULT_ABI == ABI_V4)		? 4 :				\
   (internal_error ("RETURN_ADDRESS_OFFSET not supported"), 0))
 
 /* The current return address is in link register (65).  The return address
@@ -2059,59 +2060,16 @@ typedef struct rs6000_args
    operand.  If we find one, push the reload and jump to WIN.  This
    macro is used in only one place: `find_reloads_address' in reload.c.
 
-   For RS/6000, we wish to handle large displacements off a base
-   register by splitting the addend across an addiu/addis and the mem insn.
-   This cuts number of extra insns needed from 3 to 1.  */
+   Implemented on rs6000 by rs6000_legitimize_reload_address.  
+   Note that (X) is evaluated twice; this is safe in current usage.  */
    
 #define LEGITIMIZE_RELOAD_ADDRESS(X,MODE,OPNUM,TYPE,IND_LEVELS,WIN)	     \
 do {									     \
-  /* We must recognize output that we have already generated ourselves.  */  \
-  if (GET_CODE (X) == PLUS						     \
-      && GET_CODE (XEXP (X, 0)) == PLUS					     \
-      && GET_CODE (XEXP (XEXP (X, 0), 0)) == REG			     \
-      && GET_CODE (XEXP (XEXP (X, 0), 1)) == CONST_INT			     \
-      && GET_CODE (XEXP (X, 1)) == CONST_INT)				     \
-    {									     \
-      push_reload (XEXP (X, 0), NULL_RTX, &XEXP (X, 0), NULL,		     \
-                   BASE_REG_CLASS, GET_MODE (X), VOIDmode, 0, 0,	     \
-                   OPNUM, TYPE);					     \
-      goto WIN; 							     \
-    }									     \
-  if (GET_CODE (X) == PLUS						     \
-      && GET_CODE (XEXP (X, 0)) == REG					     \
-      && REGNO (XEXP (X, 0)) < FIRST_PSEUDO_REGISTER			     \
-      && REG_MODE_OK_FOR_BASE_P (XEXP (X, 0), MODE)			     \
-      && GET_CODE (XEXP (X, 1)) == CONST_INT)				     \
-    {									     \
-      HOST_WIDE_INT val = INTVAL (XEXP (X, 1));				     \
-      HOST_WIDE_INT low = ((val & 0xffff) ^ 0x8000) - 0x8000;		     \
-      HOST_WIDE_INT high						     \
-        = (((val - low) & 0xffffffff) ^ 0x80000000) - 0x80000000;	     \
-									     \
-      /* Check for 32-bit overflow.  */					     \
-      if (high + low != val)						     \
-        break;								     \
-									     \
-      /* Reload the high part into a base reg; leave the low part	     \
-         in the mem directly.  */					     \
-									     \
-      X = gen_rtx_PLUS (GET_MODE (X),					     \
-                        gen_rtx_PLUS (GET_MODE (X), XEXP (X, 0),	     \
-                                      GEN_INT (high)),			     \
-                        GEN_INT (low));					     \
-									     \
-      push_reload (XEXP (X, 0), NULL_RTX, &XEXP (X, 0), NULL,		     \
-                   BASE_REG_CLASS, GET_MODE (X), VOIDmode, 0, 0,	     \
-                   OPNUM, TYPE);					     \
-      goto WIN;								     \
-    }									     \
-  else if (TARGET_TOC							     \
-	   && CONSTANT_POOL_EXPR_P (X)					     \
-	   && ASM_OUTPUT_SPECIAL_POOL_ENTRY_P (get_pool_constant (X), MODE)) \
-    {									     \
-      (X) = create_TOC_reference (X);					     \
-      goto WIN;								     \
-    }									     \
+  int win;								     \
+  (X) = rs6000_legitimize_reload_address ((X), (MODE), (OPNUM),		     \
+			(int)(TYPE), (IND_LEVELS), &win);		     \
+  if ( win )								     \
+    goto WIN;								     \
 } while (0)
 
 /* Go to LABEL if ADDR (a legitimate address expression)
@@ -2713,25 +2671,6 @@ extern char rs6000_reg_names[][8];	/* register names (0 vs. %r0).  */
    the loader.  This depends on the AIX version.  */
 #define RS6000_CALL_GLUE "cror 31,31,31"
 
-/* This is how to output an assembler line defining a `double' constant.  */
-
-#define ASM_OUTPUT_DOUBLE(FILE, VALUE)			\
-  {							\
-    long t[2];						\
-    REAL_VALUE_TO_TARGET_DOUBLE ((VALUE), t);		\
-    fprintf (FILE, "\t.long 0x%lx\n\t.long 0x%lx\n",	\
-	     t[0] & 0xffffffff, t[1] & 0xffffffff);	\
-  }
-
-/* This is how to output an assembler line defining a `float' constant.  */
-
-#define ASM_OUTPUT_FLOAT(FILE, VALUE)			\
-  {							\
-    long t;						\
-    REAL_VALUE_TO_TARGET_SINGLE ((VALUE), t);		\
-    fprintf (FILE, "\t.long 0x%lx\n", t & 0xffffffff);	\
-  }
-
 /* This is how to output an element of a case-vector that is relative.  */
 
 #define ASM_OUTPUT_ADDR_DIFF_ELT(FILE, BODY, VALUE, REL) \
@@ -3011,5 +2950,9 @@ enum rs6000_builtins
   ALTIVEC_BUILTIN_VSUM4SHS,
   ALTIVEC_BUILTIN_VSUM2SWS,
   ALTIVEC_BUILTIN_VSUMSWS,
-  ALTIVEC_BUILTIN_VXOR
+  ALTIVEC_BUILTIN_VXOR,
+  ALTIVEC_BUILTIN_VSLDOI_16QI,
+  ALTIVEC_BUILTIN_VSLDOI_8HI,
+  ALTIVEC_BUILTIN_VSLDOI_4SI,
+  ALTIVEC_BUILTIN_VSLDOI_4SF
 };

@@ -141,7 +141,7 @@ static tree obtain_incomplete_type PARAMS ((tree));
 static tree java_complete_lhs PARAMS ((tree));
 static tree java_complete_tree PARAMS ((tree));
 static tree maybe_generate_pre_expand_clinit PARAMS ((tree));
-static int analyze_clinit_body PARAMS ((tree));
+static int analyze_clinit_body PARAMS ((tree, tree));
 static int maybe_yank_clinit PARAMS ((tree));
 static void start_complete_expand_method PARAMS ((tree));
 static void java_complete_expand_method PARAMS ((tree));
@@ -357,7 +357,7 @@ struct parser_ctxt *ctxp_for_generation = NULL;
    covers both integral/floating point division. The code is changed
    once the type of both operator is worked out.  */
 
-static enum tree_code binop_lookup[19] = 
+static const enum tree_code binop_lookup[19] = 
   { 
     PLUS_EXPR, MINUS_EXPR, MULT_EXPR, RDIV_EXPR, TRUNC_MOD_EXPR,
     LSHIFT_EXPR, RSHIFT_EXPR, URSHIFT_EXPR, 
@@ -3511,12 +3511,6 @@ make_nested_class_name (cpc_list)
 	  TREE_PURPOSE (cpc_list) : DECL_NAME (TREE_VALUE (cpc_list)));
   obstack_grow (&temporary_obstack,
 		IDENTIFIER_POINTER (name), IDENTIFIER_LENGTH (name));
-  /* Why is NO_DOLLAR_IN_LABEL defined? */
-#if 0
-#ifdef NO_DOLLAR_IN_LABEL
-  internal_error ("Can't use '$' as a separator for inner classes");
-#endif
-#endif
   obstack_1grow (&temporary_obstack, '$');
 }
 
@@ -7799,8 +7793,8 @@ maybe_generate_pre_expand_clinit (class_type)
    MODIFY_EXPR with a constant value.  */
 
 static int
-analyze_clinit_body (bbody)
-     tree bbody;
+analyze_clinit_body (this_class, bbody)
+     tree this_class, bbody;
 {
   while (bbody)
     switch (TREE_CODE (bbody))
@@ -7814,7 +7808,7 @@ analyze_clinit_body (bbody)
 	break;
 	
       case COMPOUND_EXPR:
-	if (analyze_clinit_body (TREE_OPERAND (bbody, 0)))
+	if (analyze_clinit_body (this_class, TREE_OPERAND (bbody, 0)))
 	  return 1;
 	bbody = TREE_OPERAND (bbody, 1);
 	break;
@@ -7825,8 +7819,16 @@ analyze_clinit_body (bbody)
 	if (TREE_CODE (TREE_OPERAND (bbody, 1)) == NEW_ARRAY_INIT
 	    && flag_emit_class_files)
 	  return 1;
-	/* Return 0 if the operand is constant, 1 otherwise.  */
-	return ! TREE_CONSTANT (TREE_OPERAND (bbody, 1));
+
+	/* There are a few cases where we're required to keep
+	   <clinit>:
+	   - If this is an assignment whose operand is not constant,
+	   - If this is an assignment to a non-initialized field,
+	   - If this field is not a member of the current class.
+	*/
+	return (! TREE_CONSTANT (TREE_OPERAND (bbody, 1))
+		|| ! DECL_INITIAL (TREE_OPERAND (bbody, 0))
+		|| DECL_CONTEXT (TREE_OPERAND (bbody, 0)) != this_class);
 
       default:
 	return 1;
@@ -7845,7 +7847,6 @@ maybe_yank_clinit (mdecl)
 {
   tree type, current;
   tree fbody, bbody;
-  int found = 0;
   
   if (!DECL_CLINIT_P (mdecl))
     return 0;
@@ -7861,7 +7862,7 @@ maybe_yank_clinit (mdecl)
     return 0;
   if (bbody && ! flag_emit_class_files && bbody != empty_stmt_node)
     return 0;
-  
+
   type = DECL_CONTEXT (mdecl);
   current = TYPE_FIELDS (type);
 
@@ -7870,13 +7871,12 @@ maybe_yank_clinit (mdecl)
     {
       tree f_init;
 
-      /* We're not interested in non static field */
+      /* We're not interested in non-static fields.  */
       if (!FIELD_STATIC (current))
 	continue;
 
-      /* nor in fields with initializers. */
+      /* Nor in fields without initializers. */
       f_init = DECL_INITIAL (current);
-
       if (f_init == NULL_TREE)
 	continue;
 
@@ -7886,20 +7886,15 @@ maybe_yank_clinit (mdecl)
 	 correctly. */
       if (! JSTRING_TYPE_P (TREE_TYPE (current))
 	  && ! JNUMERIC_TYPE_P (TREE_TYPE (current)))
-	break;
+	return 0;
 
       if (! FIELD_FINAL (current) || ! TREE_CONSTANT (f_init))
-	break;
+	return 0;
     }
 
   /* Now we analyze the method body and look for something that
      isn't a MODIFY_EXPR */
-  if (bbody == empty_stmt_node)
-    found = 0;
-  else
-    found = analyze_clinit_body (bbody);
-
-  if (current || found)
+  if (bbody != empty_stmt_node && analyze_clinit_body (type, bbody))
     return 0;
 
   /* Get rid of <clinit> in the class' list of methods */
@@ -11781,8 +11776,12 @@ java_complete_lhs (node)
 	  TREE_OPERAND (node, 1) = java_complete_tree (TREE_OPERAND (node, 1));
 	  if (TREE_OPERAND (node, 1) == error_mark_node)
 	    return error_mark_node;
+	  /* Even though we might allow the case where the first
+	     operand doesn't return normally, we still should compute
+	     CAN_COMPLETE_NORMALLY correctly.  */
 	  CAN_COMPLETE_NORMALLY (node)
-	    = CAN_COMPLETE_NORMALLY (TREE_OPERAND (node, 1));
+	    = (CAN_COMPLETE_NORMALLY (TREE_OPERAND (node, 0))
+	       && CAN_COMPLETE_NORMALLY (TREE_OPERAND (node, 1)));
 	}
       TREE_TYPE (node) = TREE_TYPE (TREE_OPERAND (node, 1));
       break;
@@ -12526,6 +12525,7 @@ patch_assignment (node, wfl_op1)
   tree lhs_type = NULL_TREE, rhs_type, new_rhs = NULL_TREE;
   int error_found = 0;
   int lvalue_from_array = 0;
+  int is_return = 0;
 
   EXPR_WFL_LINECOL (wfl_operator) = EXPR_WFL_LINECOL (node);
 
@@ -12546,7 +12546,15 @@ patch_assignment (node, wfl_op1)
     lhs_type = TREE_TYPE (lvalue);
   /* Or a function return slot */
   else if (TREE_CODE (lvalue) == RESULT_DECL)
-    lhs_type = TREE_TYPE (lvalue);
+    {
+      /* If the return type is an integral type, then we create the
+	 RESULT_DECL with a promoted type, but we need to do these
+	 checks against the unpromoted type to ensure type safety.  So
+	 here we look at the real type, not the type of the decl we
+	 are modifying.  */
+      lhs_type = TREE_TYPE (TREE_TYPE (current_function_decl));
+      is_return = 1;
+    }
   /* Otherwise, we might want to try to write into an optimized static
      final, this is an of a different nature, reported further on. */
   else if (TREE_CODE (wfl_op1) == EXPR_WITH_FILE_LOCATION
@@ -12561,6 +12569,7 @@ patch_assignment (node, wfl_op1)
     }
 
   rhs_type = TREE_TYPE (rhs);
+
   /* 5.1 Try the assignment conversion for builtin type. */
   new_rhs = try_builtin_assignconv (wfl_op1, lhs_type, rhs);
 
@@ -12598,7 +12607,7 @@ patch_assignment (node, wfl_op1)
 	  wfl = wfl_operator;
 	  if (COMPOUND_ASSIGN_P (TREE_OPERAND (node, 1)))
 	    strcpy (operation, "assignment");
-	  else if (TREE_CODE (TREE_OPERAND (node, 0)) == RESULT_DECL)
+	  else if (is_return)
 	    strcpy (operation, "`return'");
 	  else
 	    strcpy (operation, "`='");
@@ -12617,6 +12626,11 @@ patch_assignment (node, wfl_op1)
 
   if (error_found)
     return error_mark_node;
+
+  /* If we're processing a `return' statement, promote the actual type
+     to the promoted type.  */
+  if (is_return)
+    new_rhs = convert (TREE_TYPE (lvalue), new_rhs);
 
   /* 10.10: Array Store Exception runtime check */
   if (!flag_emit_class_files
@@ -14645,18 +14659,6 @@ patch_return (node)
     {
       tree exp = java_complete_tree (return_exp);
       tree modify, patched;
-
-      /* If the function returned value and EXP are booleans, EXP has
-      to be converted into the type of DECL_RESULT, which is integer
-      (see complete_start_java_method) */
-      if (TREE_TYPE (exp) == boolean_type_node &&
-	  TREE_TYPE (TREE_TYPE (meth)) == boolean_type_node)
-	exp = convert_to_integer (TREE_TYPE (DECL_RESULT (meth)), exp);
-
-      /* `null' can be assigned to a function returning a reference */
-      if (JREFERENCE_TYPE_P (TREE_TYPE (TREE_TYPE (meth))) &&
-	  exp == null_pointer_node)
-	exp = build_null_of_type (TREE_TYPE (TREE_TYPE (meth)));
 
       if ((patched = patch_string (exp)))
 	exp = patched;

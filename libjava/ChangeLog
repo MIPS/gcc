@@ -1,3 +1,40 @@
+2001-12-21  Tom Tromey  <tromey@redhat.com>
+
+	* java/io/ObjectInputStream.java (enableResolveObject): Use
+	correct security check.
+	* java/io/ObjectOutputStream.java (enableReplaceObject): Use
+	correct security check.
+
+	Fix for PR java/5165:
+	* java/lang/natClassLoader.cc (_Jv_PrepareCompiledClass):
+	Convert any constant string field to a String; not just final
+	fields.
+
+	Fix for PR libgcj/2428:
+	* java/lang/natClass.cc: Include RuntimePermission.h.
+	(getClassLoader): Define.
+	* java/lang/Class.h (Class.getClassLoader): Only declare.
+
+2001-12-19  Tom Tromey  <tromey@redhat.com>
+
+	* java/awt/FlowLayout.java (FlowLayout(), FlowLayout(int)): Set
+	gaps to 5.
+	(FlowLayout(int,int,int)): Use methods to set fields.
+	(getSize): Skip invisible components.
+	(layoutContainer): Skip invisible components.
+
+2001-12-19  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* include/jvm.h (_Jv_BuildGCDescr): Declare unconditionally.
+	* nogc.cc (_Jv_BuildGCDescr): Define unconditionally.
+	* boehm.cc (_Jv_BuildGCDescr): Likewise.
+
+2001-12-18  Tom Tromey  <tromey@redhat.com>
+
+	* java/text/CollationElementIterator.java (secondaryOrder): Cast
+	result to `short'.
+	(tertiaryOrder): Likewise.
+
 2001-12-16  Tom Tromey  <tromey@redhat.com>
 
 	For PR libgcj/5103:

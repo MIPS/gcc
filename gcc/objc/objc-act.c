@@ -58,7 +58,6 @@ Boston, MA 02111-1307, USA.  */
 #include "cpplib.h"
 #include "debug.h"
 #include "target.h"
-#include "varray.h"
 
 /* This is the default way of generating a method name.  */
 /* I am not sure it is really correct.
@@ -364,11 +363,6 @@ static void ggc_mark_hash_table			PARAMS ((void *));
 #define UTAG_METHOD_PROTOTYPE	"_objc_method_prototype"
 #define UTAG_METHOD_PROTOTYPE_LIST "_objc__method_prototype_list"
 
-#ifdef NEXT_OBJC_RUNTIME
-#define STRING_OBJECT_CLASS_NAME "NSConstantString"
-#else
-#define STRING_OBJECT_CLASS_NAME "NXConstantString"
-#endif
 /* Note that the string object global name is only needed for the
    NeXT runtime.  */
 #define STRING_OBJECT_GLOBAL_NAME "_NSConstantStringClassReference"
@@ -382,8 +376,9 @@ static const char *TAG_GETMETACLASS;
 static const char *TAG_MSGSEND;
 static const char *TAG_MSGSENDSUPER;
 static const char *TAG_EXECCLASS;
+static const char *default_constant_string_class_name;
 
-/* The OCTI_... enumeration itself in in objc/objc-act.h.  */
+/* The OCTI_... enumeration itself is in objc/objc-act.h.  */
 tree objc_global_trees[OCTI_MAX];
 
 int objc_receiver_context;
@@ -438,22 +433,19 @@ int flag_warn_protocol = 1;
 /* Tells "encode_pointer/encode_aggregate" whether we are generating
    type descriptors for instance variables (as opposed to methods).
    Type descriptors for instance variables contain more information
-   than methods (for static typing and embedded structures). This
-   was added to support features being planned for dbkit2.  */
+   than methods (for static typing and embedded structures).  */
 
 static int generating_instance_variables = 0;
 
-/* Tells the compiler that this is a special run.  Do not perform
-   any compiling, instead we are to test some platform dependent
-   features and output a C header file with appropriate definitions. */
+/* Tells the compiler that this is a special run.  Do not perform any
+   compiling, instead we are to test some platform dependent features
+   and output a C header file with appropriate definitions.  */
 
 static int print_struct_values = 0;
 
-static varray_type deferred_fns;
-
-/* Some platforms pass small structures through registers versus through
-   an invisible pointer.  Determine at what size structure is the 
-   transition point between the two possibilities. */
+/* Some platforms pass small structures through registers versus
+   through an invisible pointer.  Determine at what size structure is
+   the transition point between the two possibilities.  */
 
 static void
 generate_struct_by_value_array ()
@@ -464,7 +456,7 @@ generate_struct_by_value_array ()
   int aggregate_in_mem[32];
   int found = 0;
 
-  /* Presumably no platform passes 32 byte structures in a register. */
+  /* Presumably no platform passes 32 byte structures in a register.  */
   for (i = 1; i < 32; i++)
     {
       char buffer[5];
@@ -494,7 +486,7 @@ generate_struct_by_value_array ()
     }
  
   /* We found some structures that are returned in registers instead of memory
-     so output the necessary data. */
+     so output the necessary data.  */
   if (found)
     {
       for (i = 31; i >= 0;  i--)
@@ -545,6 +537,7 @@ objc_init (filename)
       TAG_MSGSEND = "objc_msgSend";
       TAG_MSGSENDSUPER = "objc_msgSendSuper";
       TAG_EXECCLASS = "__objc_execClass";
+      default_constant_string_class_name = "NSConstantString";
     }
   else
     {
@@ -553,6 +546,7 @@ objc_init (filename)
       TAG_MSGSEND = "objc_msg_lookup";
       TAG_MSGSENDSUPER = "objc_msg_lookup_super";
       TAG_EXECCLASS = "__objc_exec_class";
+      default_constant_string_class_name = "NXConstantString";
       flag_typed_selectors = 1;
     }
 
@@ -565,36 +559,13 @@ objc_init (filename)
 
   objc_act_parse_init ();
 
-  VARRAY_TREE_INIT (deferred_fns, 32, "deferred_fns");
-  ggc_add_tree_varray_root (&deferred_fns, 1);
-
   return filename;
-}
-
-/* Register a function tree, so that its optimization and conversion
-   to RTL is only done at the end of the compilation.  */
-
-int
-defer_fn (fn)
-     tree fn;
-{
-  VARRAY_PUSH_TREE (deferred_fns, fn);
-
-  return 1;
 }
 
 void
 finish_file ()
 {
-  size_t i;
-
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (deferred_fns); i++)
-    /* Don't output the same function twice.  We may run into such
-       situations when an extern inline function is later given a
-       non-extern-inline definition.  */
-    if (! TREE_ASM_WRITTEN (VARRAY_TREE (deferred_fns, i)))
-      c_expand_deferred_function (VARRAY_TREE (deferred_fns, i));
-  VARRAY_FREE (deferred_fns);
+  c_objc_common_finish_file ();
 
   finish_objc ();		/* Objective-C finalization */
 
@@ -710,38 +681,38 @@ lookup_method_in_protocol_list (rproto_list, sel_name, class_meth)
 
 static tree
 lookup_protocol_in_reflist (rproto_list, lproto)
-   tree rproto_list;
-   tree lproto;
+     tree rproto_list;
+     tree lproto;
 {
-   tree rproto, p;
+  tree rproto, p;
 
-   /* Make sure the protocol is supported by the object on the rhs.  */
-   if (TREE_CODE (lproto) == PROTOCOL_INTERFACE_TYPE)
-     {
-       tree fnd = 0;
-       for (rproto = rproto_list; rproto; rproto = TREE_CHAIN (rproto))
-	 {
-	   p = TREE_VALUE (rproto);
+  /* Make sure the protocol is supported by the object on the rhs.  */
+  if (TREE_CODE (lproto) == PROTOCOL_INTERFACE_TYPE)
+    {
+      tree fnd = 0;
+      for (rproto = rproto_list; rproto; rproto = TREE_CHAIN (rproto))
+	{
+	  p = TREE_VALUE (rproto);
 
-	   if (TREE_CODE (p) == PROTOCOL_INTERFACE_TYPE)
-	     {
-	       if (lproto == p)
-		 fnd = lproto;
+	  if (TREE_CODE (p) == PROTOCOL_INTERFACE_TYPE)
+	    {
+	      if (lproto == p)
+		fnd = lproto;
 
-	       else if (PROTOCOL_LIST (p))
-		 fnd = lookup_protocol_in_reflist (PROTOCOL_LIST (p), lproto);
-	     }
+	      else if (PROTOCOL_LIST (p))
+		fnd = lookup_protocol_in_reflist (PROTOCOL_LIST (p), lproto);
+	    }
 
-	   if (fnd)
-	     return fnd;
-	 }
-     }
-   else
-     {
-       ; /* An identifier...if we could not find a protocol.  */
-     }
+	  if (fnd)
+	    return fnd;
+	}
+    }
+  else
+    {
+      ; /* An identifier...if we could not find a protocol.  */
+    }
 
-   return 0;
+  return 0;
 }
 
 /* Return 1 if LHS and RHS are compatible types for assignment
@@ -1231,7 +1202,7 @@ synth_module_prologue ()
 
   /* Forward declare constant_string_id and constant_string_type.  */
   if (!constant_string_class_name)
-    constant_string_class_name = STRING_OBJECT_CLASS_NAME;
+    constant_string_class_name = default_constant_string_class_name;
 
   constant_string_id = get_identifier (constant_string_class_name);
   constant_string_type = xref_tag (RECORD_TYPE, constant_string_id);
@@ -1589,8 +1560,8 @@ init_objc_symtab (type)
   return build_constructor (type, nreverse (initlist));
 }
 
-/* Push forward-declarations of all the categories
-   so that init_def_list can use them in a CONSTRUCTOR.  */
+/* Push forward-declarations of all the categories so that
+   init_def_list can use them in a CONSTRUCTOR.  */
 
 static void
 forward_declare_categories ()
@@ -1789,6 +1760,9 @@ build_module_descriptor ()
     init_function_decl = current_function_decl;
     TREE_PUBLIC (init_function_decl) = ! targetm.have_ctors_dtors;
     TREE_USED (init_function_decl) = 1;
+    /* Don't let this one be deferred.  */
+    DECL_INLINE (init_function_decl) = 0;
+    DECL_UNINLINABLE (init_function_decl) = 1;
     current_function_cannot_inline
       = "static constructors and destructors cannot be inlined";
 
@@ -2227,7 +2201,7 @@ add_class_reference (ident)
 
 tree
 get_class_reference (ident)
-    tree ident;
+     tree ident;
 {
   if (flag_next_runtime)
     {
@@ -2852,17 +2826,15 @@ generate_descriptor_table (type, name, size, list, proto)
 }
 
 static void
-generate_method_descriptors (protocol)	/* generate_dispatch_tables */
-  tree protocol;
+generate_method_descriptors (protocol)
+     tree protocol;
 {
   tree initlist, chain, method_list_template;
   tree cast, variable_length_type;
   int size;
 
   if (!objc_method_prototype_template)
-    {
-      objc_method_prototype_template = build_method_prototype_template ();
-    }
+    objc_method_prototype_template = build_method_prototype_template ();
 
   cast = build_tree_list (build_tree_list (NULL_TREE, xref_tag (RECORD_TYPE,
 				get_identifier (UTAG_METHOD_PROTOTYPE_LIST))),
@@ -3773,7 +3745,7 @@ build_ivar_list_initializer (type, field_decl)
 	   ivar);
       obstack_free (&util_obstack, util_firstobj);
 
-      /* Set offset. */
+      /* Set offset.  */
       ivar = tree_cons (NULL_TREE, byte_position (field_decl), ivar);
       initlist = tree_cons (NULL_TREE, 
 			    build_constructor (type, nreverse (ivar)),
@@ -3881,6 +3853,11 @@ build_dispatch_table_initializer (type, entries)
       elemlist = tree_cons (NULL_TREE,
 			    build_selector (METHOD_SEL_NAME (entries)),
 			    NULL_TREE);
+
+      /* Generate the method encoding if we don't have one already.  */
+      if (! METHOD_ENCODING (entries))
+	METHOD_ENCODING (entries) =
+	  encode_method_def (METHOD_DEFINITION (entries));
 
       elemlist = tree_cons (NULL_TREE,
 			    add_objc_string (METHOD_ENCODING (entries),
@@ -4873,7 +4850,7 @@ finish_message_expr (receiver, sel_name, method_params)
   tree selector, self_object, retval;
   int statically_typed = 0, statically_allocated = 0;
   
-  /* Determine receiver type. */
+  /* Determine receiver type.  */
   tree rtype = TREE_TYPE (receiver);
   int super = IS_SUPER (rtype);
 
@@ -4898,7 +4875,7 @@ finish_message_expr (receiver, sel_name, method_params)
       if (statically_allocated)
 	receiver = build_unary_op (ADDR_EXPR, receiver, 0);
 
-      /* Don't evaluate the receiver twice. */
+      /* Don't evaluate the receiver twice.  */
       receiver = save_expr (receiver);
       self_object = receiver;
     }
@@ -5941,7 +5918,7 @@ check_methods_accessible (chain, context, mtype)
 
       chain = TREE_CHAIN (chain); /* next method...  */
     }
-    return first;
+  return first;
 }
 
 /* Check whether the current interface (accessible via
@@ -5989,6 +5966,7 @@ check_protocol (p, type, name)
       tree subs = PROTOCOL_LIST (p);
       tree super_class =
 	lookup_interface (CLASS_SUPER_NAME (implementation_template));
+
       while (subs) 
 	{
 	  tree sub = TREE_VALUE (subs);
@@ -6333,10 +6311,8 @@ lookup_protocol (ident)
   tree chain;
 
   for (chain = protocol_chain; chain; chain = TREE_CHAIN (chain))
-    {
-      if (ident == PROTOCOL_NAME (chain))
-	return chain;
-    }
+    if (ident == PROTOCOL_NAME (chain))
+      return chain;
 
   return NULL_TREE;
 }
@@ -6413,7 +6389,7 @@ start_protocol (code, name, list)
 
 void
 finish_protocol (protocol)
-	tree protocol ATTRIBUTE_UNUSED;
+     tree protocol ATTRIBUTE_UNUSED;
 {
 }
 
@@ -6555,12 +6531,12 @@ encode_aggregate_within (type, curtype, format, left, right)
     {
       tree name = TYPE_NAME (type);
 
-      /* we have a reference; this is a NeXT extension. */
+      /* we have a reference; this is a NeXT extension.  */
 
       if (obstack_object_size (&util_obstack) - curtype == 1
 	  && format == OBJC_ENCODE_INLINE_DEFS)
 	{
-	  /* Output format of struct for first level only. */
+	  /* Output format of struct for first level only.  */
 	  tree fields = TYPE_FIELDS (type);
 
 	  if (name && TREE_CODE (name) == IDENTIFIER_NODE)
@@ -6594,7 +6570,7 @@ encode_aggregate_within (type, curtype, format, left, right)
 
       else
 	{
-	  /* We have an untagged structure or a typedef. */
+	  /* We have an untagged structure or a typedef.  */
 	  obstack_1grow (&util_obstack, left);
 	  obstack_1grow (&util_obstack, '?');
 	  obstack_1grow (&util_obstack, right);
@@ -6650,7 +6626,7 @@ encode_aggregate_within (type, curtype, format, left, right)
 			    IDENTIFIER_POINTER (name),
 			    strlen (IDENTIFIER_POINTER (name)));
 	  else
-	      /* We have an untagged structure or a typedef. */
+	      /* We have an untagged structure or a typedef.  */
 	      obstack_1grow (&util_obstack, '?');
 
 	  obstack_1grow (&util_obstack, right);
@@ -7211,7 +7187,7 @@ get_super_receiver ()
 	  tree super_name = CLASS_SUPER_NAME (implementation_template);
 	  tree super_class;
 
-	  /* Barf if super used in a category of Object. */
+	  /* Barf if super used in a category of Object.  */
 	  if (!super_name)
 	    {
 	      error ("no super class declared in interface for `%s'",
@@ -7988,7 +7964,7 @@ dump_interface (fp, chain)
      FILE *fp;
      tree chain;
 {
-  char *buf = (char *)xmalloc (256);
+  char *buf = (char *) xmalloc (256);
   const char *my_name = IDENTIFIER_POINTER (CLASS_NAME (chain));
   tree ivar_decls = CLASS_RAW_IVARS (chain);
   tree nst_methods = CLASS_NST_METHODS (chain);
@@ -8117,7 +8093,7 @@ init_objc ()
   gcc_obstack_init (&util_obstack);
   util_firstobj = (char *) obstack_finish (&util_obstack);
 
-  errbuf = (char *)xmalloc (BUFSIZE);
+  errbuf = (char *) xmalloc (BUFSIZE);
   hash_init ();
   synth_module_prologue ();
 }
@@ -8148,7 +8124,7 @@ finish_objc ()
 #endif
 
   /* Process the static instances here because initialization of objc_symtab
-     depends on them. */
+     depends on them.  */
   if (objc_static_instances)
     generate_static_references ();
 
@@ -8189,7 +8165,7 @@ finish_objc ()
   if (objc_implementation_context || class_names_chain || objc_static_instances
       || meth_var_names_chain || meth_var_types_chain || sel_ref_chain)
     {
-      /* Arrange for Objc data structures to be initialized at run time.  */
+      /* Arrange for ObjC data structures to be initialized at run time.  */
       rtx init_sym = build_module_descriptor ();
       if (init_sym && targetm.have_ctors_dtors)
 	(* targetm.asm_out.constructor) (init_sym, DEFAULT_INIT_PRIORITY);
@@ -8268,7 +8244,7 @@ finish_objc ()
 
 static void
 generate_classref_translation_entry (chain)
-    tree chain;
+     tree chain;
 {
   tree expr, name, decl_specs, decl, sc_spec;
   tree type;
@@ -8364,7 +8340,7 @@ handle_impent (impent)
 
       /* Do the same for categories.  Even though no references to
          these symbols are generated automatically by the compiler, it
-         gives you a handle to pull them into an archive by hand. */
+         gives you a handle to pull them into an archive by hand.  */
       sprintf (string, "*%sobjc_category_name_%s_%s",
                (flag_next_runtime ? "." : "__"), class_name, class_super_name);
     }
@@ -8389,7 +8365,7 @@ handle_impent (impent)
 
 static void
 ggc_mark_imp_list (arg)
-    void *arg;
+     void *arg;
 {
   struct imp_entry *impent;
 
@@ -8404,7 +8380,7 @@ ggc_mark_imp_list (arg)
 
 static void
 ggc_mark_hash_table (arg)
-    void *arg;
+     void *arg;
 {
   hash *hash_table = *(hash **)arg;
   hash hst;

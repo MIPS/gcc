@@ -43,4 +43,31 @@
 #define __glibcpp_long_bits 64
 #endif
 
+/* HP-UX, for reasons unknown choose to use a different name for
+   the string to [unsigned] long long conversion routines.
+
+   Furthermore, instead of having the prototypes in stdlib.h like
+   everyone else, they put them into a non-standard header
+   <inttypes.h>.  Ugh.
+
+   <inttypes.h> defines a variety of things, some of which we 
+   probably do not want.  So we don't want to include it here.
+
+   Luckily we can just declare strtoll and strtoull with the
+   __asm extension which effectively renames calls at the
+   source level without namespace pollution.
+
+   Also note that the compiler defines _INCLUDE_LONGLONG for C++
+   unconditionally, which makes intmax_t and uintmax_t long long
+   types.
+
+   We also force _GLIBCPP_USE_LONG_LONG here so that we don't have
+   to bastardize configure to deal with this sillyness.  */
+namespace std {
+  extern "C" long long strtoll (const char *, char **, int)
+    __asm  ("__strtoll");
+  extern "C" unsigned long long strtoull (const char *, char **, int)
+    __asm  ("__strtoull");
+}
+#define _GLIBCPP_USE_LONG_LONG 1
 #endif

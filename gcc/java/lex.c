@@ -738,7 +738,7 @@ java_start_char_p (c)
      unicode_t c;
 {
   unsigned int hi = c / 256;
-  char *page = type_table[hi];
+  const char *const page = type_table[hi];
   unsigned long val = (unsigned long) page;
   int flags;
 
@@ -758,7 +758,7 @@ java_part_char_p (c)
      unicode_t c;
 {
   unsigned int hi = c / 256;
-  char *page = type_table[hi];
+  const char *const page = type_table[hi];
   unsigned long val = (unsigned long) page;
   int flags;
 
@@ -1567,7 +1567,7 @@ java_lex (java_lval)
      this is an identifier (possibly not respecting formation rule).  */
   if (all_ascii)
     {
-      struct java_keyword *kw;
+      const struct java_keyword *kw;
       if ((kw=java_keyword (string, ascii_index)))
 	{
 	  JAVA_LEX_KW (string);

@@ -280,7 +280,7 @@ enum dump_file_index
 	"       H JK   OPQ  TUV  YZ"
 */
 
-struct dump_file_info dump_file[DFI_MAX] =
+static struct dump_file_info dump_file[DFI_MAX] =
 {
   { "rtl",	'r', 0, 0, 0 },
   { "sibling",  'i', 0, 0, 0 },
@@ -943,10 +943,10 @@ debug_args[] =
 
 typedef struct
 {
-  const char *string;
-  int *variable;
-  int on_value;
-  const char *description;
+  const char *const string;
+  int *const variable;
+  const int on_value;
+  const char *const description;
 }
 lang_independent_options;
 
@@ -977,7 +977,7 @@ static const param_info lang_independent_params[] = {
     if `-fSTRING' is seen as an option.
    (If `-fno-STRING' is seen as an option, the opposite value is stored.)  */
 
-lang_independent_options f_options[] =
+static const lang_independent_options f_options[] =
 {
   {"eliminate-dwarf2-dups", &flag_eliminate_dwarf2_dups, 1,
    N_("Perform DWARF2 duplicate elimination") },
@@ -1471,7 +1471,7 @@ int warn_missing_noreturn;
 
 /* Likewise for -W.  */
 
-lang_independent_options W_options[] =
+static const lang_independent_options W_options[] =
 {
   {"unused-function", &warn_unused_function, 1,
    N_("Warn when a function is unused") },
@@ -4238,6 +4238,30 @@ independent_decode_option (argc, argv)
 	}
       else
 	return decode_W_option (arg + 1);
+      break;
+
+    case 'a':
+      if (!strncmp (arg, "aux-info", 8))
+	{
+	  if (arg[8] == '\0')
+	    {
+	      if (argc == 1)
+		return 0;
+
+	      aux_info_file_name = argv[1];
+	      flag_gen_aux_info = 1;
+	      return 2;
+	    }
+	  else if (arg[8] == '=')
+	    {
+	      aux_info_file_name = arg + 9;
+	      flag_gen_aux_info = 1;
+	    }
+	  else
+	    return 0;
+	}
+      else
+	return 0;
       break;
 
     case 'o':

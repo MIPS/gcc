@@ -8401,7 +8401,8 @@
   ;;- Do not use operand 1 for most machines.
   "! TARGET_ARCH64 && GET_CODE (operands[2]) == CONST_INT && INTVAL (operands[2]) >= 0"
   "call\\t%a0, %1\\n\\tnop\\n\\tunimp\\t%2"
-  [(set_attr "type" "call_no_delay_slot")])
+  [(set_attr "type" "call_no_delay_slot")
+   (set_attr "length" "2")])
 
 ;; This is a call that wants a structure value.
 ;; There is no such critter for v9 (??? we may need one anyway).
@@ -8413,7 +8414,8 @@
   ;;- Do not use operand 1 for most machines.
   "! TARGET_ARCH64 && GET_CODE (operands[2]) == CONST_INT && INTVAL (operands[2]) >= 0"
   "call\\t%a0, %1\\n\\tnop\\n\\tunimp\\t%2"
-  [(set_attr "type" "call_no_delay_slot")])
+  [(set_attr "type" "call_no_delay_slot")
+   (set_attr "length" "2")])
 
 ;; This is a call that may want a structure value.  This is used for
 ;; untyped_calls.
@@ -8425,7 +8427,8 @@
   ;;- Do not use operand 1 for most machines.
   "! TARGET_ARCH64 && GET_CODE (operands[2]) == CONST_INT && INTVAL (operands[2]) < 0"
   "call\\t%a0, %1\\n\\tnop\\n\\tnop"
-  [(set_attr "type" "call_no_delay_slot")])
+  [(set_attr "type" "call_no_delay_slot")
+   (set_attr "length" "2")])
 
 ;; This is a call that wants a structure value.
 (define_insn "*call_symbolic_untyped_struct_value_sp32"
@@ -8436,7 +8439,8 @@
   ;;- Do not use operand 1 for most machines.
   "! TARGET_ARCH64 && GET_CODE (operands[2]) == CONST_INT && INTVAL (operands[2]) < 0"
   "call\\t%a0, %1\\n\\tnop\\n\\tnop"
-  [(set_attr "type" "call_no_delay_slot")])
+  [(set_attr "type" "call_no_delay_slot")
+   (set_attr "length" "2")])
 
 (define_expand "call_value"
   ;; Note that this expression is not used for generating RTL.
@@ -8923,9 +8927,7 @@
    (set (match_operand:SI 1 "memory_operand" "")
       (const_int 0))]
   "TARGET_V9
-   && ! MEM_VOLATILE_P (operands[0])
-   && ! MEM_VOLATILE_P (operands[1])
-   && mems_ok_for_ldd_peep (operands[0], operands[1])"
+   && mems_ok_for_ldd_peep (operands[0], operands[1], NULL_RTX)"
   [(set (match_dup 0)
        (const_int 0))]
   "operands[0] = change_address (operands[0], DImode, NULL);")
@@ -8936,9 +8938,7 @@
    (set (match_operand:SI 1 "memory_operand" "")
       (const_int 0))]
   "TARGET_V9
-   && ! MEM_VOLATILE_P (operands[0])
-   && ! MEM_VOLATILE_P (operands[1])
-   && mems_ok_for_ldd_peep (operands[1], operands[0])"
+   && mems_ok_for_ldd_peep (operands[1], operands[0], NULL_RTX)"
   [(set (match_dup 1)
        (const_int 0))]
   "operands[1] = change_address (operands[1], DImode, NULL);")
@@ -8949,9 +8949,7 @@
    (set (match_operand:SI 2 "register_operand" "")
         (match_operand:SI 3 "memory_operand" ""))]
   "registers_ok_for_ldd_peep (operands[0], operands[2]) 
-   && ! MEM_VOLATILE_P (operands[1])
-   && ! MEM_VOLATILE_P (operands[3])
-   && mems_ok_for_ldd_peep (operands[1], operands[3])" 
+   && mems_ok_for_ldd_peep (operands[1], operands[3], operands[0])" 
   [(set (match_dup 0)
 	(match_dup 1))]
   "operands[1] = change_address (operands[1], DImode, NULL);
@@ -8963,9 +8961,7 @@
    (set (match_operand:SI 2 "memory_operand" "")
         (match_operand:SI 3 "register_operand" ""))]
   "registers_ok_for_ldd_peep (operands[1], operands[3]) 
-   && ! MEM_VOLATILE_P (operands[0])
-   && ! MEM_VOLATILE_P (operands[2])
-   && mems_ok_for_ldd_peep (operands[0], operands[2])"
+   && mems_ok_for_ldd_peep (operands[0], operands[2], NULL_RTX)"
   [(set (match_dup 0)
 	(match_dup 1))]
   "operands[0] = change_address (operands[0], DImode, NULL);
@@ -8977,9 +8973,7 @@
    (set (match_operand:SF 2 "register_operand" "")
         (match_operand:SF 3 "memory_operand" ""))]
   "registers_ok_for_ldd_peep (operands[0], operands[2]) 
-   && ! MEM_VOLATILE_P (operands[1])
-   && ! MEM_VOLATILE_P (operands[3])
-   && mems_ok_for_ldd_peep (operands[1], operands[3])"
+   && mems_ok_for_ldd_peep (operands[1], operands[3], operands[0])"
   [(set (match_dup 0)
 	(match_dup 1))]
   "operands[1] = change_address (operands[1], DFmode, NULL);
@@ -8991,9 +8985,7 @@
    (set (match_operand:SF 2 "memory_operand" "")
         (match_operand:SF 3 "register_operand" ""))]
   "registers_ok_for_ldd_peep (operands[1], operands[3]) 
-  && ! MEM_VOLATILE_P (operands[0])
-  && ! MEM_VOLATILE_P (operands[2])
-  && mems_ok_for_ldd_peep (operands[0], operands[2])"
+  && mems_ok_for_ldd_peep (operands[0], operands[2], NULL_RTX)"
   [(set (match_dup 0)
 	(match_dup 1))]
   "operands[0] = change_address (operands[0], DFmode, NULL);
@@ -9005,9 +8997,7 @@
    (set (match_operand:SI 2 "register_operand" "")
         (match_operand:SI 3 "memory_operand" ""))]
   "registers_ok_for_ldd_peep (operands[2], operands[0]) 
-  && ! MEM_VOLATILE_P (operands[3])
-  && ! MEM_VOLATILE_P (operands[1])
-  && mems_ok_for_ldd_peep (operands[3], operands[1])"
+  && mems_ok_for_ldd_peep (operands[3], operands[1], operands[2])"
   [(set (match_dup 2)
 	(match_dup 3))]
    "operands[3] = change_address (operands[3], DImode, NULL);
@@ -9019,9 +9009,7 @@
    (set (match_operand:SI 2 "memory_operand" "")
         (match_operand:SI 3 "register_operand" ""))]
   "registers_ok_for_ldd_peep (operands[3], operands[1]) 
-  && ! MEM_VOLATILE_P (operands[2])
-  && ! MEM_VOLATILE_P (operands[0])
-  && mems_ok_for_ldd_peep (operands[2], operands[0])" 
+  && mems_ok_for_ldd_peep (operands[2], operands[0], NULL_RTX)" 
   [(set (match_dup 2)
 	(match_dup 3))]
   "operands[2] = change_address (operands[2], DImode, NULL);
@@ -9034,9 +9022,7 @@
    (set (match_operand:SF 2 "register_operand" "")
         (match_operand:SF 3 "memory_operand" ""))]
   "registers_ok_for_ldd_peep (operands[2], operands[0]) 
-  && ! MEM_VOLATILE_P (operands[3])
-  && ! MEM_VOLATILE_P (operands[1])
-  && mems_ok_for_ldd_peep (operands[3], operands[1])"
+  && mems_ok_for_ldd_peep (operands[3], operands[1], operands[2])"
   [(set (match_dup 2)
 	(match_dup 3))]
   "operands[3] = change_address (operands[3], DFmode, NULL);
@@ -9048,9 +9034,7 @@
    (set (match_operand:SF 2 "memory_operand" "")
         (match_operand:SF 3 "register_operand" ""))]
   "registers_ok_for_ldd_peep (operands[3], operands[1]) 
-  && ! MEM_VOLATILE_P (operands[2])
-  && ! MEM_VOLATILE_P (operands[0])
-  && mems_ok_for_ldd_peep (operands[2], operands[0])"
+  && mems_ok_for_ldd_peep (operands[2], operands[0], NULL_RTX)"
   [(set (match_dup 2)
 	(match_dup 3))]
   "operands[2] = change_address (operands[2], DFmode, NULL);

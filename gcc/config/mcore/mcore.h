@@ -530,7 +530,7 @@ enum reg_class
    reg number REGNO.  This could be a conditional expression
    or could index an array.  */
 
-extern int regno_reg_class[];
+extern int regno_reg_class[FIRST_PSEUDO_REGISTER];
 #define REGNO_REG_CLASS(REGNO) regno_reg_class[REGNO]
 
 /* When defined, the compiler allows registers explicitly used in the
@@ -544,7 +544,7 @@ extern int regno_reg_class[];
 
 /* Get reg_class from a letter such as appears in the machine 
    description.  */
-extern enum reg_class reg_class_from_letter[];
+extern const enum reg_class reg_class_from_letter[];
 
 #define REG_CLASS_FROM_LETTER(C) \
    ( ISLOWER (C) ? reg_class_from_letter[(C) - 'a'] : NO_REGS )
@@ -1244,27 +1244,6 @@ extern long mcore_current_compilation_timestamp;
     fprintf (STREAM, "\t.long\t.L%d\n", VALUE)
 
 /* Output various types of constants.  */
-
-/* This is how to output an assembler line defining a `double'.  */
-#define ASM_OUTPUT_DOUBLE(FILE,VALUE)			\
-  do							\
-    {							\
-      char dstr[30];					\
-      REAL_VALUE_TO_DECIMAL ((VALUE), "%.20e", dstr);	\
-      fprintf (FILE, "\t.double %s\n", dstr);		\
-    }							\
-  while (0)
-
-
-/* This is how to output an assembler line defining a `float' constant.  */
-#define ASM_OUTPUT_FLOAT(FILE,VALUE)			\
-  do							\
-    {							\
-      char dstr[30];					\
-      REAL_VALUE_TO_DECIMAL ((VALUE), "%.20e", dstr);	\
-      fprintf (FILE, "\t.float %s\n", dstr);		\
-    }							\
-  while (0)
 
 /* This is how to output an assembler line
    that says to advance the location counter by SIZE bytes.  */
