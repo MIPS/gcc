@@ -809,6 +809,20 @@ int flag_schedule_speculative = 1;
 int flag_schedule_speculative_load = 0;
 int flag_schedule_speculative_load_dangerous = 0;
 
+/* The following flags have an effect during scheduling after register
+   allocation:
+
+   flag_sched_stalled_insns means that insns can be moved prematurely from
+   the queue of stalled insns into the ready list.
+
+   flag_sched_stalled_insns_dep controls how many insn groups will be examined
+   for a dependency on a stalled insn that is candidate for premature removal
+   from the queue of stalled insns into the ready list (has an effect only if
+   the flag 'sched_stalled_insns' is set).  */
+
+int flag_sched_stalled_insns = 0;
+int flag_sched_stalled_insns_dep = 1;
+
 int flag_single_precision_constant;
 
 /* flag_branch_on_count_reg means try to replace add-1,compare,branch tupple
@@ -1151,6 +1165,8 @@ static const lang_independent_options f_options[] =
    N_("Allow speculative motion of some loads") },
   {"sched-spec-load-dangerous",&flag_schedule_speculative_load_dangerous, 1,
    N_("Allow speculative motion of more loads") },
+  {"sched-stalled-insns", &flag_sched_stalled_insns, 1,
+   N_("Allow scheduling stalled instructions ahead of time") },
   {"branch-count-reg",&flag_branch_on_count_reg, 1,
    N_("Replace add,compare,branch with branch on count reg") },
   {"pic", &flag_pic, 1,

@@ -2053,7 +2053,7 @@ static struct sched_info region_sched_info =
 
   NULL, NULL,
   NULL, NULL,
-  0, 0
+  0, 0, 0
 };
 
 /* Determine if PAT sets a CLASS_LIKELY_SPILLED_P register.  */

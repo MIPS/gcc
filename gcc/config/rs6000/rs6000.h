@@ -341,6 +341,7 @@ enum processor_type
    PROCESSOR_MPCCORE,
    PROCESSOR_PPC403,
    PROCESSOR_PPC405,
+   PROCESSOR_PPC440,
    PROCESSOR_PPC601,
    PROCESSOR_PPC603,
    PROCESSOR_PPC604,
@@ -372,6 +373,31 @@ extern enum processor_type rs6000_cpu;
 /* Specify the dialect of assembler to use.  New mnemonics is dialect one
    and the old mnemonics are dialect zero.  */
 #define ASSEMBLER_DIALECT (TARGET_NEW_MNEMONICS ? 1 : 0)
+
+/* Types of costly dependences.  */
+enum rs6000_dependence_cost
+  {
+    max_dep_latency = 1000,
+    no_dep_costly,
+    all_deps_costly,
+    true_store_to_load_dep_costly,
+   store_to_load_dep_costly
+  };
+
+/* Types of nop insertion schemes in sched target hook sched_finish.  */
+enum rs6000_nop_insertion
+  {
+    sched_finish_regroup_exact = 1000,
+    sched_finish_pad_groups,
+    sched_finish_none
+  };
+
+/* Dispatch group termination caused by an insn.  */
+enum group_termination
+  {
+    current_group,
+    previous_group
+  };
 
 /* This is meant to be overridden in target specific files.  */
 #define	SUBTARGET_OPTIONS
@@ -454,6 +480,19 @@ extern int rs6000_alignment_flags;
 #else
 #define TARGET_ALIGN_NATURAL 0
 #endif
+
+/* Set a default value for DEFAULT_SCHED_COSTLY_DEP used by target hook
+   is_costly_dependence.  */
+#define DEFAULT_SCHED_COSTLY_DEP                           \
+  (rs6000_cpu == PROCESSOR_POWER4 ? store_to_load_dep_costly : no_dep_costly)
+
+/* Define if the target has restricted dispatch slot instructions.  */
+#define DEFAULT_RESTRICTED_INSNS_PRIORITY (rs6000_cpu == PROCESSOR_POWER4 ? 1 : 0)
+
+/* Set a default value for post scheduling nop insertion scheme
+   (used by taget hook sched_finish).  */
+#define DEFAULT_SCHED_FINISH_NOP_INSERTION_SCHEME          \
+  (rs6000_cpu == PROCESSOR_POWER4 ? sched_finish_regroup_exact : sched_finish_none)
 
 #define TARGET_LONG_DOUBLE_128 (rs6000_long_double_type_size == 128)
 #define TARGET_ALTIVEC_ABI rs6000_altivec_abi
@@ -2376,6 +2415,9 @@ do {									     \
 		? COSTS_N_INSNS (5)					\
 		: INTVAL (XEXP (X, 1)) >= -256 && INTVAL (XEXP (X, 1)) <= 255 \
 		? COSTS_N_INSNS (3) : COSTS_N_INSNS (4));		\
+      case PROCESSOR_PPC440:						\
+        return (GET_CODE (XEXP (X, 1)) != CONST_INT			\
+		? COSTS_N_INSNS (3) : COSTS_N_INSNS (2));		\
       case PROCESSOR_RS64A:						\
         return (GET_CODE (XEXP (X, 1)) != CONST_INT			\
 		? GET_MODE (XEXP (X, 1)) != DImode			\
@@ -2440,6 +2482,8 @@ do {									     \
 	return COSTS_N_INSNS (33);					\
       case PROCESSOR_PPC405:						\
 	return COSTS_N_INSNS (35);					\
+      case PROCESSOR_PPC440:						\
+	return COSTS_N_INSNS (34);					\
       case PROCESSOR_PPC601:						\
 	return COSTS_N_INSNS (36);					\
       case PROCESSOR_PPC603:						\

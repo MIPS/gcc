@@ -48,6 +48,7 @@ Boston, MA 02111-1307, USA.  */
 #include "target-def.h"
 #include "langhooks.h"
 #include "reload.h"
+#include "sched-int.h"
 
 #ifndef TARGET_NO_PROTOTYPE
 #define TARGET_NO_PROTOTYPE 0
@@ -73,6 +74,19 @@ struct rs6000_cpu_select rs6000_select[3] =
   { (const char *)0,	"-mcpu=",		1,	1 },
   { (const char *)0,	"-mtune=",		1,	0 },
 };
+
+/* Support adjust_priority scheduler hook
+   and -mprioritize-restricted-insns= option.  */
+const char *rs6000_sched_restricted_insns_priority_str;
+int rs6000_sched_restricted_insns_priority;
+
+/* Support for -msched-costly-dep option.  */
+const char *rs6000_sched_costly_dep_str;
+enum rs6000_dependence_cost rs6000_sched_costly_dep;
+
+/* Support for -minsert-sched-nops option.  */
+const char *rs6000_sched_insert_nops_str;
+enum rs6000_nop_insertion rs6000_sched_insert_nops;
 
 /* Size of long double */
 const char *rs6000_long_double_size_string;
@@ -242,9 +256,24 @@ static void rs6000_xcoff_encode_section_info PARAMS ((tree, int))
 #if TARGET_MACHO
 static bool rs6000_binds_local_p PARAMS ((tree));
 #endif
+static int rs6000_use_dfa_pipeline_interface (void);
+static int rs6000_variable_issue (FILE *, int, rtx, int);
 static int rs6000_adjust_cost PARAMS ((rtx, rtx, rtx, int));
+static bool is_microcoded_insn (rtx);
+static int is_dispatch_slot_restricted (rtx);
+static bool is_cracked_insn (rtx);
+static bool is_branch_slot_insn (rtx);
 static int rs6000_adjust_priority PARAMS ((rtx, int));
 static int rs6000_issue_rate PARAMS ((void));
+static bool rs6000_is_costly_dependence (rtx, rtx, rtx, int, int);
+static rtx get_next_active_insn (rtx, rtx);
+static bool insn_terminates_group_p (rtx , enum group_termination);
+static bool is_costly_group (rtx *, rtx);
+static int force_new_group (int, FILE *, rtx *, rtx, bool *, int, int *);
+static int redefine_groups (FILE *, int, rtx, rtx);
+static int pad_groups (FILE *, int, rtx, rtx);
+static void rs6000_sched_finish (FILE *, int);
+static int rs6000_use_sched_lookahead (void);
 
 static void rs6000_init_builtins PARAMS ((void));
 static rtx rs6000_expand_unop_builtin PARAMS ((enum insn_code, tree, rtx));
@@ -400,12 +429,25 @@ static const char alt_reg_names[][8] =
 #undef TARGET_ASM_FUNCTION_EPILOGUE
 #define TARGET_ASM_FUNCTION_EPILOGUE rs6000_output_function_epilogue
 
+#undef  TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE
+#define TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE rs6000_use_dfa_pipeline_interface
+#undef  TARGET_SCHED_VARIABLE_ISSUE
+#define TARGET_SCHED_VARIABLE_ISSUE rs6000_variable_issue
+
+
 #undef TARGET_SCHED_ISSUE_RATE
 #define TARGET_SCHED_ISSUE_RATE rs6000_issue_rate
 #undef TARGET_SCHED_ADJUST_COST
 #define TARGET_SCHED_ADJUST_COST rs6000_adjust_cost
 #undef TARGET_SCHED_ADJUST_PRIORITY
 #define TARGET_SCHED_ADJUST_PRIORITY rs6000_adjust_priority
+#undef TARGET_SCHED_IS_COSTLY_DEPENDENCE
+#define TARGET_SCHED_IS_COSTLY_DEPENDENCE rs6000_is_costly_dependence
+#undef TARGET_SCHED_FINISH
+#define TARGET_SCHED_FINISH rs6000_sched_finish
+
+#undef TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD
+#define TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD rs6000_use_sched_lookahead
 
 #undef TARGET_INIT_BUILTINS
 #define TARGET_INIT_BUILTINS rs6000_init_builtins
@@ -502,6 +544,9 @@ rs6000_override_options (default_cpu)
 	 {"405", PROCESSOR_PPC405,
 	    MASK_POWERPC | MASK_SOFT_FLOAT | MASK_NEW_MNEMONICS,
 	    POWER_MASKS | POWERPC_OPT_MASKS | MASK_POWERPC64},
+	 {"440", PROCESSOR_PPC440,
+	    MASK_POWERPC | MASK_SOFT_FLOAT | MASK_NEW_MNEMONICS,
+	    POWER_MASKS | POWERPC_OPT_MASKS | MASK_POWERPC64},
 	 {"505", PROCESSOR_MPCCORE,
 	    MASK_POWERPC | MASK_NEW_MNEMONICS,
 	    POWER_MASKS | POWERPC_OPT_MASKS | MASK_POWERPC64},
@@ -558,7 +603,10 @@ rs6000_override_options (default_cpu)
 	    POWER_MASKS | POWERPC_OPT_MASKS | MASK_POWERPC64},
 	 {"860", PROCESSOR_MPCCORE,
 	    MASK_POWERPC | MASK_SOFT_FLOAT | MASK_NEW_MNEMONICS,
-	    POWER_MASKS | POWERPC_OPT_MASKS | MASK_POWERPC64}};
+	    POWER_MASKS | POWERPC_OPT_MASKS | MASK_POWERPC64},
+	 {"970", PROCESSOR_POWER4,
+	    MASK_POWERPC | MASK_PPC_GFXOPT | MASK_NEW_MNEMONICS,
+	    POWER_MASKS | MASK_PPC_GPOPT}};
 
   const size_t ptt_size = ARRAY_SIZE (processor_target_table);
 
@@ -715,6 +763,42 @@ rs6000_override_options (default_cpu)
       if (*rs6000_longcall_switch != '\0')
 	error ("invalid option `%s'", base);
       rs6000_default_long_calls = (base[0] != 'n');
+    }
+
+  /* Handle -mprioritize-restricted-insns option.  */
+  rs6000_sched_restricted_insns_priority = DEFAULT_RESTRICTED_INSNS_PRIORITY;
+  if (rs6000_sched_restricted_insns_priority_str)
+    rs6000_sched_restricted_insns_priority =
+      atoi (rs6000_sched_restricted_insns_priority_str);
+
+  /* Handle -msched-costly-dep option.  */
+  rs6000_sched_costly_dep = DEFAULT_SCHED_COSTLY_DEP;
+  if (rs6000_sched_costly_dep_str)
+    {
+      if (! strcmp (rs6000_sched_costly_dep_str, "no"))
+        rs6000_sched_costly_dep = no_dep_costly;
+      else if (! strcmp (rs6000_sched_costly_dep_str, "all"))
+        rs6000_sched_costly_dep = all_deps_costly;
+      else if (! strcmp (rs6000_sched_costly_dep_str, "true_store_to_load"))
+        rs6000_sched_costly_dep = true_store_to_load_dep_costly;
+      else if (! strcmp (rs6000_sched_costly_dep_str, "store_to_load"))
+        rs6000_sched_costly_dep = store_to_load_dep_costly;
+      else
+        rs6000_sched_costly_dep = atoi (rs6000_sched_costly_dep_str);
+    }
+
+  /* Handle -minsert-sched-nops option.  */
+  rs6000_sched_insert_nops = DEFAULT_SCHED_FINISH_NOP_INSERTION_SCHEME;
+  if (rs6000_sched_insert_nops_str)
+    {
+      if (! strcmp (rs6000_sched_insert_nops_str, "no"))
+        rs6000_sched_insert_nops = sched_finish_none;
+      else if (! strcmp (rs6000_sched_insert_nops_str, "pad"))
+        rs6000_sched_insert_nops = sched_finish_pad_groups;
+      else if (! strcmp (rs6000_sched_insert_nops_str, "regroup_exact"))
+        rs6000_sched_insert_nops = sched_finish_regroup_exact;
+      else
+        rs6000_sched_insert_nops = atoi (rs6000_sched_insert_nops_str);
     }
 
 #ifdef TARGET_REGNAMES
@@ -13147,15 +13231,45 @@ output_function_profiler (file, labelno)
     }
 }
 
+
+static int
+rs6000_use_dfa_pipeline_interface (void)
+{
+  return 1;
+}
+
+/* Power4 load update and store update instructions are cracked into a
+   load or store and an integer insn which are executed in the same cycle.
+   Branches have their own dispatch slot which does not count against the
+   GCC issue rate, but it changes the program flow so there are no other
+   instructions to issue in this cycle.  */
+
+static int
+rs6000_variable_issue (FILE *stream ATTRIBUTE_UNUSED, 
+		       int verbose ATTRIBUTE_UNUSED, 
+		       rtx insn, int more)
+{
+  if (GET_CODE (PATTERN (insn)) == USE
+      || GET_CODE (PATTERN (insn)) == CLOBBER)
+    return more;
+
+  if (rs6000_cpu == PROCESSOR_POWER4)
+    {
+      if (is_microcoded_insn (insn))
+        return 0;
+      else if (is_cracked_insn (insn))
+        return more > 2 ? more - 2 : 0;
+    }
+
+  return more - 1;
+}
+
 /* Adjust the cost of a scheduling dependency.  Return the new cost of
    a dependency LINK or INSN on DEP_INSN.  COST is the current cost.  */
 
 static int
-rs6000_adjust_cost (insn, link, dep_insn, cost)
-     rtx insn;
-     rtx link;
-     rtx dep_insn ATTRIBUTE_UNUSED;
-     int cost;
+rs6000_adjust_cost (rtx insn, rtx link, rtx dep_insn ATTRIBUTE_UNUSED, 
+		    int cost)
 {
   if (! recog_memoized (insn))
     return 0;
@@ -13190,10 +13304,14 @@ rs6000_adjust_cost (insn, link, dep_insn, cost)
 	       || rs6000_cpu_attr == CPU_POWER4)
 	      && recog_memoized (dep_insn)
 	      && (INSN_CODE (dep_insn) >= 0)
-	      && (get_attr_type (dep_insn) == TYPE_COMPARE
+	      && (get_attr_type (dep_insn) == TYPE_CMP
+		  || get_attr_type (dep_insn) == TYPE_COMPARE
 		  || get_attr_type (dep_insn) == TYPE_DELAYED_COMPARE
+		  || get_attr_type (dep_insn) == TYPE_IMUL_COMPARE
+		  || get_attr_type (dep_insn) == TYPE_LMUL_COMPARE
 		  || get_attr_type (dep_insn) == TYPE_FPCOMPARE
-		  || get_attr_type (dep_insn) == TYPE_CR_LOGICAL))
+		  || get_attr_type (dep_insn) == TYPE_CR_LOGICAL
+		  || get_attr_type (dep_insn) == TYPE_DELAYED_CR))
 	    return cost + 2;
 	default:
 	  break;
@@ -13204,16 +13322,129 @@ rs6000_adjust_cost (insn, link, dep_insn, cost)
   return cost;
 }
 
+/* The function returns a true if INSN is microcoded.
+   Return false otherwise.  */
+
+static bool
+is_microcoded_insn (rtx insn)
+{
+  if (!insn || !INSN_P (insn)
+      || GET_CODE (PATTERN (insn)) == USE
+      || GET_CODE (PATTERN (insn)) == CLOBBER)
+    return false;
+
+  if (rs6000_cpu == PROCESSOR_POWER4)
+    {
+      enum attr_type type = get_attr_type (insn);
+      if (type == TYPE_LOAD_EXT_U
+	  || type == TYPE_LOAD_EXT_UX
+	  || type == TYPE_LOAD_UX
+	  || type == TYPE_STORE_UX
+	  || type == TYPE_MFCR)
+        return true;
+    }
+
+  return false;
+}
+
+/* The function returns a nonzero value if INSN can be scheduled only
+   as the first insn in a dispatch group ("dispatch-slot restricted").
+   In this case, the returned value indicates how many dispatch slots
+   the insn occupies (at the beginning of the group).
+   Return 0 otherwise.  */
+
+static int
+is_dispatch_slot_restricted (rtx insn)
+{
+  enum attr_type type;
+
+  if (rs6000_cpu != PROCESSOR_POWER4)
+    return 0;
+
+  if (!insn
+      || insn == NULL_RTX
+      || GET_CODE (insn) == NOTE
+      || GET_CODE (PATTERN (insn)) == USE
+      || GET_CODE (PATTERN (insn)) == CLOBBER)
+    return 0;
+
+  type = get_attr_type (insn);
+
+  switch (type){
+  case TYPE_MFCR:
+  case TYPE_MFCRF:
+  case TYPE_MTCR:
+  case TYPE_DELAYED_CR:
+  case TYPE_CR_LOGICAL:
+  case TYPE_MTJMPR:
+  case TYPE_MFJMPR:
+    return 1;
+  case TYPE_IDIV:
+  case TYPE_LDIV:
+    return 2;
+  default:
+    return 0;
+  }
+}
+
+/* The function returns true if INSN is cracked into 2 instructions
+   by the processor (and therefore occupies 2 issue slots).  */
+
+static bool
+is_cracked_insn (rtx insn)
+{
+  if (!insn || !INSN_P (insn)
+      || GET_CODE (PATTERN (insn)) == USE
+      || GET_CODE (PATTERN (insn)) == CLOBBER)
+    return false;
+
+  if (rs6000_cpu == PROCESSOR_POWER4)
+    {
+      enum attr_type type = get_attr_type (insn);
+      if (type == TYPE_LOAD_U || type == TYPE_STORE_U
+	       || type == TYPE_FPLOAD_U || type == TYPE_FPSTORE_U
+	       || type == TYPE_FPLOAD_UX || type == TYPE_FPSTORE_UX
+	       || type == TYPE_LOAD_EXT || type == TYPE_DELAYED_CR
+	       || type == TYPE_COMPARE || type == TYPE_DELAYED_COMPARE
+	       || type == TYPE_IMUL_COMPARE || type == TYPE_LMUL_COMPARE
+	       || type == TYPE_IDIV || type == TYPE_LDIV
+	       || type == TYPE_INSERT_WORD)
+        return true;
+    }
+
+  return false;
+}
+
+/* The function returns true if INSN can be issued only from
+   the branch slot.  */
+
+static bool
+is_branch_slot_insn (rtx insn)
+{
+  if (!insn || !INSN_P (insn)
+      || GET_CODE (PATTERN (insn)) == USE
+      || GET_CODE (PATTERN (insn)) == CLOBBER)
+    return false;
+
+  if (rs6000_cpu == PROCESSOR_POWER4)
+    {
+      enum attr_type type = get_attr_type (insn);
+      if (type == TYPE_BRANCH || type == TYPE_JMPREG)
+	return true;	 
+      return false;
+    }
+
+  return false;
+}
+
 /* A C statement (sans semicolon) to update the integer scheduling
-   priority INSN_PRIORITY (INSN).  Reduce the priority to execute the
-   INSN earlier, increase the priority to execute INSN later.  Do not
+   priority INSN_PRIORITY (INSN). Increase the priority to execute the
+   INSN earlier, reduce the priority to execute INSN later.  Do not
    define this macro if you do not need to adjust the scheduling
    priorities of insns.  */
 
 static int
-rs6000_adjust_priority (insn, priority)
-     rtx insn ATTRIBUTE_UNUSED;
-     int priority;
+rs6000_adjust_priority (rtx insn ATTRIBUTE_UNUSED, int priority)
 {
   /* On machines (like the 750) which have asymmetric integer units,
      where one integer unit can do multiply and divides and the other
@@ -13245,36 +13476,631 @@ rs6000_adjust_priority (insn, priority)
   }
 #endif
 
+  if (is_dispatch_slot_restricted (insn)
+      && reload_completed
+      && current_sched_info->sched_max_insns_priority 
+      && rs6000_sched_restricted_insns_priority)
+    {
+
+      /* Prioritize insns that can be dispatched only in the first dispatch slot.  */
+      if (rs6000_sched_restricted_insns_priority == 1)
+	/* Attach highest priority to insn. This means that in 
+	   haifa-sched.c:ready_sort(), dispatch-slot restriction considerations 
+	   precede 'priority' (critical path) considerations.  */
+	return current_sched_info->sched_max_insns_priority; 
+      else if (rs6000_sched_restricted_insns_priority == 2)
+	/* Increase priority of insn by a minimal amount. This means that in 
+	   haifa-sched.c:ready_sort(), only 'priority' (critical path) considerations
+	   precede dispatch-slot restriction considerations.  */
+	return (priority + 1); 
+    } 
+
   return priority;
 }
 
 /* Return how many instructions the machine can issue per cycle.  */
 
 static int
-rs6000_issue_rate ()
+rs6000_issue_rate (void)
 {
+  /* Use issue rate of 1 for first scheduling pass to decrease degradation.  */
+  if (!reload_completed)
+    return 1;
+
   switch (rs6000_cpu_attr) {
   case CPU_RIOS1:  /* ? */
   case CPU_RS64A:
   case CPU_PPC601: /* ? */
   case CPU_PPC7450:
     return 3;
+  case CPU_PPC440:
   case CPU_PPC603:
   case CPU_PPC750:
   case CPU_PPC7400:
+  case CPU_PPC8540:
     return 2; 
   case CPU_RIOS2:
   case CPU_PPC604:
   case CPU_PPC604E:
   case CPU_PPC620:
   case CPU_PPC630:
-  case CPU_POWER4:
     return 4;
+  case CPU_POWER4:
+    return 5;
   default:
     return 1;
   }
 }
 
+/* Return how many instructions to look ahead for better insn
+   scheduling.  */
+
+static int
+rs6000_use_sched_lookahead (void)
+{
+  if (rs6000_cpu_attr == CPU_PPC8540)
+    return 4;
+  return 0;
+}
+
+/* Determine is PAT refers to memory.  */
+
+static bool
+is_mem_ref (rtx pat)
+{
+  const char * fmt;
+  int i, j;
+  bool ret = false;
+
+  if (GET_CODE (pat) == MEM)
+    return true;
+
+  /* Recursively process the pattern.  */
+  fmt = GET_RTX_FORMAT (GET_CODE (pat));
+
+  for (i = GET_RTX_LENGTH (GET_CODE (pat)) - 1; i >= 0 && !ret; i--)
+    {
+      if (fmt[i] == 'e')
+	ret |= is_mem_ref (XEXP (pat, i));
+      else if (fmt[i] == 'E')
+	for (j = XVECLEN (pat, i) - 1; j >= 0; j--)
+	  ret |= is_mem_ref (XVECEXP (pat, i, j));
+    }
+
+  return ret;
+}
+
+/* Determine if PAT is a PATTERN of a load insn.  */
+ 
+static bool
+is_load_insn1 (rtx pat)
+{
+  if (!pat || pat == NULL_RTX)
+    return false;
+
+  if (GET_CODE (pat) == SET)
+    return is_mem_ref (SET_SRC (pat));
+
+  if (GET_CODE (pat) == PARALLEL)
+    {
+      int i;
+
+      for (i = 0; i < XVECLEN (pat, 0); i++)
+	if (is_load_insn1 (XVECEXP (pat, 0, i)))
+	  return true;
+    }
+
+  return false;
+}
+
+/* Determine if INSN loads from memory.  */
+
+static bool
+is_load_insn (rtx insn)
+{
+  if (!insn || !INSN_P (insn))
+    return false;
+
+  if (GET_CODE (insn) == CALL_INSN)
+    return false;
+
+  return is_load_insn1 (PATTERN (insn));
+}
+
+/* Determine if PAT is a PATTERN of a store insn.  */
+
+static bool
+is_store_insn1 (rtx pat)
+{
+  if (!pat || pat == NULL_RTX)
+    return false;
+
+  if (GET_CODE (pat) == SET)
+    return is_mem_ref (SET_DEST (pat));
+
+  if (GET_CODE (pat) == PARALLEL)
+    {
+      int i;
+
+      for (i = 0; i < XVECLEN (pat, 0); i++)
+	if (is_store_insn1 (XVECEXP (pat, 0, i)))
+	  return true;
+    }
+
+  return false;
+}
+
+/* Determine if INSN stores to memory.  */
+
+static bool
+is_store_insn (rtx insn)
+{
+  if (!insn || !INSN_P (insn))
+    return false;
+
+  return is_store_insn1 (PATTERN (insn));
+}
+
+/* Returns whether the dependence between INSN and NEXT is considered
+   costly by the given target.  */
+
+static bool
+rs6000_is_costly_dependence (rtx insn, rtx next, rtx link, int cost, int distance)
+{      
+  /* If the flag is not enbled - no dependence is considered costly;
+     allow all dependent insns in the same group. 
+     This is the most aggressive option.  */
+  if (rs6000_sched_costly_dep == no_dep_costly)
+    return false;
+
+  /* If the flag is set to 1 - a dependence is always considered costly; 
+     do not allow dependent instructions in the same group.
+     This is the most conservative option.  */
+  if (rs6000_sched_costly_dep == all_deps_costly)
+    return true;       
+
+  if (rs6000_sched_costly_dep == store_to_load_dep_costly 
+      && is_load_insn (next) 
+      && is_store_insn (insn))
+    /* Prevent load after store in the same group.  */
+    return true;
+
+  if (rs6000_sched_costly_dep == true_store_to_load_dep_costly
+      && is_load_insn (next) 
+      && is_store_insn (insn)
+      && (!link || (int) REG_NOTE_KIND (link) == 0))
+     /* Prevent load after store in the same group if it is a true dependence.  */
+     return true;
+    
+  /* The flag is set to X; dependences with latency >= X are considered costly, 
+     and will not be scheduled in the same group.  */
+  if (rs6000_sched_costly_dep <= max_dep_latency
+      && ((cost - distance) >= (int)rs6000_sched_costly_dep))
+    return true;
+
+  return false;
+}
+
+/* Return the next insn after INSN that is found before TAIL is reached, 
+   skipping any "non-active" insns - insns that will not actually occupy
+   an issue slot.  Return NULL_RTX if such an insn is not found.  */
+
+static rtx
+get_next_active_insn (rtx insn, rtx tail)
+{
+  rtx next_insn;
+
+  if (!insn || insn == tail)
+    return NULL_RTX;
+
+  next_insn = NEXT_INSN (insn);
+
+  while (next_insn
+  	 && next_insn != tail
+	 && (GET_CODE(next_insn) == NOTE
+	     || GET_CODE (PATTERN (next_insn)) == USE
+	     || GET_CODE (PATTERN (next_insn)) == CLOBBER))
+    {
+      next_insn = NEXT_INSN (next_insn);
+    }
+
+  if (!next_insn || next_insn == tail)
+    return NULL_RTX;
+
+  return next_insn;
+}
+
+/* Return whether the presence of INSN causes a dispatch group termination
+   of group WHICH_GROUP.
+
+   If WHICH_GROUP == current_group, this function will return true if INSN
+   causes the termination of the current group (i.e, the dispatch group to
+   which INSN belongs). This means that INSN will be the last insn in the
+   group it belongs to.
+
+   If WHICH_GROUP == previous_group, this function will return true if INSN
+   causes the termination of the previous group (i.e, the dispatch group that
+   precedes the group to which INSN belongs).  This means that INSN will be
+   the first insn in the group it belongs to).  */
+
+static bool
+insn_terminates_group_p (rtx insn, enum group_termination which_group)
+{
+  enum attr_type type;
+
+  if (! insn)
+    return false;
+
+  type = get_attr_type (insn);
+
+  if (is_microcoded_insn (insn))
+    return true;
+
+  if (which_group == current_group)
+    {
+      if (is_branch_slot_insn (insn))
+        return true;
+      return false;
+    }
+  else if (which_group == previous_group)
+    {
+      if (is_dispatch_slot_restricted (insn))
+        return true;
+      return false;
+    }
+
+  return false;
+}
+
+/* Return true if it is recommended to keep NEXT_INSN "far" (in a separate
+   dispatch group) from the insns in GROUP_INSNS.  Return false otherwise.  */
+
+static bool
+is_costly_group (rtx *group_insns, rtx next_insn)
+{
+  int i;
+  rtx link;
+  int cost;
+  int issue_rate = rs6000_issue_rate ();
+
+  for (i = 0; i < issue_rate; i++)
+    {
+      rtx insn = group_insns[i];
+      if (!insn)
+        continue;
+      for (link = INSN_DEPEND (insn); link != 0; link = XEXP (link, 1))
+        {
+          rtx next = XEXP (link, 0);
+          if (next == next_insn)
+            {
+              cost = insn_cost (insn, link, next_insn);
+              if (rs6000_is_costly_dependence (insn, next_insn, link, cost, 0))
+                return true;
+            }
+        }
+    }
+
+  return false;
+}
+
+/* Utility of the function redefine_groups. 
+   Check if it is too costly to schedule NEXT_INSN together with GROUP_INSNS
+   in the same dispatch group.  If so, insert nops before NEXT_INSN, in order
+   to keep it "far" (in a separate group) from GROUP_INSNS, following
+   one of the following schemes, depending on the value of the flag
+   -minsert_sched_nops = X:
+   (1) X == sched_finish_regroup_exact: insert exactly as many nops as needed
+       in order to force NEXT_INSN into a separate group.
+   (2) X < sched_finish_regroup_exact: insert exactly X nops.  
+   GROUP_END, CAN_ISSUE_MORE and GROUP_COUNT record the state after nop 
+   insertion (has a group just ended, how many vacant issue slots remain in the
+   last group, and how many dispatch groups were encountered so far).  */
+
+static int 
+force_new_group (int sched_verbose, FILE *dump, rtx *group_insns, rtx next_insn,
+		 bool *group_end, int can_issue_more, int *group_count)
+{
+  rtx nop;
+  bool force;
+  int issue_rate = rs6000_issue_rate ();
+  bool end = *group_end;
+  int i;
+
+  if (next_insn == NULL_RTX)
+    return can_issue_more;
+
+  if (rs6000_sched_insert_nops > sched_finish_regroup_exact)
+    return can_issue_more;
+
+  force = is_costly_group (group_insns, next_insn);
+  if (!force)
+    return can_issue_more;
+
+  if (sched_verbose > 6)
+    fprintf (dump,"force: group count = %d, can_issue_more = %d\n",
+			*group_count ,can_issue_more);
+
+  if (rs6000_sched_insert_nops == sched_finish_regroup_exact)
+    {
+      if (*group_end)
+        can_issue_more = 0;
+
+      /* Since only a branch can be issued in the last issue_slot, it is
+	 sufficient to insert 'can_issue_more - 1' nops if next_insn is not
+	 a branch. If next_insn is a branch, we insert 'can_issue_more' nops;
+	 in this case the last nop will start a new group and the branch will be
+	 forced to the new group.  */
+      if (can_issue_more && !is_branch_slot_insn (next_insn))
+        can_issue_more--;
+
+      while (can_issue_more > 0)
+        {
+          nop = gen_nop();
+          emit_insn_before (nop, next_insn);
+          can_issue_more--;
+        }
+
+      *group_end = true;
+      return 0;
+    } 
+
+  if (rs6000_sched_insert_nops < sched_finish_regroup_exact)
+    {
+      int n_nops = rs6000_sched_insert_nops;
+
+      /* Nops can't be issued from the branch slot, so the effective 
+         issue_rate for nops is 'issue_rate - 1'.  */
+      if (can_issue_more == 0)
+        can_issue_more = issue_rate;
+      can_issue_more--;
+      if (can_issue_more == 0)
+        {
+          can_issue_more = issue_rate - 1;
+          (*group_count)++;
+          end = true;
+          for (i = 0; i < issue_rate; i++)
+            {
+              group_insns[i] = 0;
+            }
+        }
+
+      while (n_nops > 0)
+        {
+          nop = gen_nop ();
+          emit_insn_before (nop, next_insn);
+          if (can_issue_more == issue_rate - 1) /* new group begins */
+            end = false;
+          can_issue_more--;
+          if (can_issue_more == 0)
+            {
+              can_issue_more = issue_rate - 1;
+              (*group_count)++;
+              end = true;
+              for (i = 0; i < issue_rate; i++)
+                {
+                  group_insns[i] = 0;
+                } 
+            }	
+          n_nops--;
+        }
+
+      /* Scale back relative to 'issue_rate' (instead of 'issue_rate - 1').  */
+      can_issue_more++; 
+
+      *group_end = /* Is next_insn going to start a new group?  */
+	  (end 
+	   || (can_issue_more == 1 && !is_branch_slot_insn (next_insn))
+	   || (can_issue_more <= 2 && is_cracked_insn (next_insn))
+	   || (can_issue_more < issue_rate &&
+	      insn_terminates_group_p (next_insn, previous_group)));
+      if (*group_end && end)
+        (*group_count)--;
+
+      if (sched_verbose > 6)
+        fprintf (dump, "done force: group count = %d, can_issue_more = %d\n",
+			*group_count, can_issue_more);
+      return can_issue_more;	
+    } 
+
+  return can_issue_more;
+}
+
+/* This function tries to synch the dispatch groups that the compiler "sees"
+   with the dispatch groups that the processor dispatcher is expected to 
+   form in practice.  It tries to achieve this synchronization by forcing the
+   estimated processor grouping on the compiler (as opposed to the function
+   'pad_goups' which tries to force the scheduler's grouping on the processor).
+
+   The function scans the insn sequence between PREV_HEAD_INSN and TAIL and
+   examines the (estimated) dispatch groups that will be formed by the processor
+   dispatcher.  It marks these group boundaries to reflect the estimated
+   processor grouping, overriding the grouping that the scheduler had marked.
+   Depending on the value of the flag '-minsert-sched-nops' this function can
+   force certain insns into separate groups or force a certain distance between
+   them by inserting nops, for example, if there exists a "costly dependence"
+   between the insns.
+
+   The function estimates the group boundaries that the processor will form as
+   folllows:  It keeps track of how many vacant issue slots are available after
+   each insn.  A subsequent insn will start a new group if one of the following
+   4 cases applies:
+   - no more vacant issue slots remain in the current dispatch group.
+   - only the last issue slot, which is the branch slot, is vacant, but the next
+     insn is not a branch.
+   - only the last 2 or less issue slots, including the branch slot, are vacant,
+     which means that a cracked insn (which occupies two issue slots) can't be
+     issued in this group.
+   - less than 'issue_rate' slots are vacant, and the next insn always needs to 
+     start a new group.  */
+
+static int
+redefine_groups (FILE *dump, int sched_verbose, rtx prev_head_insn, rtx tail)
+{
+  rtx insn, next_insn;
+  int issue_rate;
+  int can_issue_more;
+  int slot, i;
+  bool group_end;
+  int group_count = 0;
+  rtx *group_insns;
+
+  /* Initialize.  */
+  issue_rate = rs6000_issue_rate ();
+  group_insns = alloca (issue_rate * sizeof (rtx));
+  for (i = 0; i < issue_rate; i++) 
+    {
+      group_insns[i] = 0;
+    }
+  can_issue_more = issue_rate;
+  slot = 0;
+  insn = get_next_active_insn (prev_head_insn, tail);
+  group_end = false;
+
+  while (insn != NULL_RTX)
+    {
+      slot = (issue_rate - can_issue_more);
+      group_insns[slot] = insn;
+      can_issue_more =
+        rs6000_variable_issue (dump, sched_verbose, insn, can_issue_more);
+      if (insn_terminates_group_p (insn, current_group))
+        can_issue_more = 0;
+
+      next_insn = get_next_active_insn (insn, tail);
+      if (next_insn == NULL_RTX)
+        return group_count + 1;
+
+      group_end = /* Is next_insn going to start a new group?  */
+        (can_issue_more == 0
+         || (can_issue_more == 1 && !is_branch_slot_insn (next_insn))
+         || (can_issue_more <= 2 && is_cracked_insn (next_insn))
+         || (can_issue_more < issue_rate &&
+             insn_terminates_group_p (next_insn, previous_group)));
+
+      can_issue_more = force_new_group (sched_verbose, dump, group_insns, 
+			next_insn, &group_end, can_issue_more, &group_count);
+
+      if (group_end)
+        {
+          group_count++;
+          can_issue_more = 0;
+          for (i = 0; i < issue_rate; i++)
+            {
+              group_insns[i] = 0;
+            }
+        }
+
+      if (GET_MODE (next_insn) == TImode && can_issue_more)
+        PUT_MODE(next_insn, VOIDmode);
+      else if (!can_issue_more && GET_MODE (next_insn) != TImode)
+        PUT_MODE (next_insn, TImode);
+
+      insn = next_insn;
+      if (can_issue_more == 0)
+        can_issue_more = issue_rate;
+   } /* while */
+
+  return group_count;
+}
+
+/* Scan the insn sequence between PREV_HEAD_INSN and TAIL and examine the
+   dispatch group boundaries that the scheduler had marked.  Pad with nops
+   any dispatch groups which have vacant issue slots, in order to force the
+   scheduler's grouping on the processor dispatcher.  The function
+   returns the number of dispatch groups found.  */
+
+static int
+pad_groups (FILE *dump, int sched_verbose, rtx prev_head_insn, rtx tail)
+{
+  rtx insn, next_insn;
+  rtx nop;
+  int issue_rate;
+  int can_issue_more;
+  int group_end;
+  int group_count = 0;
+
+  /* Initialize issue_rate.  */
+  issue_rate = rs6000_issue_rate ();
+  can_issue_more = issue_rate;
+
+  insn = get_next_active_insn (prev_head_insn, tail);
+  next_insn = get_next_active_insn (insn, tail);
+
+  while (insn != NULL_RTX)
+    {
+      can_issue_more =
+      	rs6000_variable_issue (dump, sched_verbose, insn, can_issue_more);
+
+      group_end = (next_insn == NULL_RTX || GET_MODE (next_insn) == TImode);
+
+      if (next_insn == NULL_RTX)
+        break;
+
+      if (group_end)
+        {
+          /* If the scheduler had marked group termination at this location
+             (between insn and next_indn), and neither insn nor next_insn will
+             force group termination, pad the group with nops to force group
+             termination.  */
+          if (can_issue_more
+              && (rs6000_sched_insert_nops == sched_finish_pad_groups)
+              && !insn_terminates_group_p (insn, current_group)
+              && !insn_terminates_group_p (next_insn, previous_group))
+            {
+              if (!is_branch_slot_insn(next_insn))
+                can_issue_more--;
+
+              while (can_issue_more)
+                {
+                  nop = gen_nop ();
+                  emit_insn_before (nop, next_insn);
+                  can_issue_more--;
+                }
+            }
+
+          can_issue_more = issue_rate;
+          group_count++;
+        }
+
+      insn = next_insn;
+      next_insn = get_next_active_insn (insn, tail);
+    }
+
+  return group_count;
+}
+
+/* The following function is called at the end of scheduling BB.
+   After reload, it inserts nops at insn group bundling.  */
+
+static void
+rs6000_sched_finish (FILE *dump, int sched_verbose)
+{
+  int n_groups;
+
+  if (sched_verbose)
+    fprintf (dump, "=== Finishing schedule.\n");
+
+  if (reload_completed && rs6000_cpu == PROCESSOR_POWER4)
+    {
+      if (rs6000_sched_insert_nops == sched_finish_none)
+        return;
+
+      if (rs6000_sched_insert_nops == sched_finish_pad_groups)
+        n_groups = pad_groups (dump, sched_verbose,
+				current_sched_info->prev_head,
+  			   	current_sched_info->next_tail);
+      else
+        n_groups = redefine_groups (dump, sched_verbose,
+				current_sched_info->prev_head,
+  				current_sched_info->next_tail);
+
+      if (sched_verbose >= 6)
+	{
+    	  fprintf (dump, "ngroups = %d\n", n_groups);
+	  print_rtl (dump, current_sched_info->prev_head);
+	  fprintf (dump, "Done finish_sched\n");
+	}
+    }
+}
 
 /* Length in units of the trampoline for entering a nested function.  */
 

@@ -206,7 +206,7 @@ static struct sched_info ebb_sched_info =
 
   NULL, NULL,
   NULL, NULL,
-  0, 1
+  0, 1, 0
 };
 
 /* Returns the earliest block in EBB currently being processed where a

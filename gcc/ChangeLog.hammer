@@ -1,3 +1,30 @@
+2004-02-02  David Edelsohn  <edelsohn@gnu.org>
+
+	Merge scheduler from mainline.
+	* flags.h: Add flag_sched_stalled_insns*.
+	* haifa-sched.c: Merge from mainline.
+	* sched-ebb.c: Initialize new sched_max_insns_priority field.
+	* sched-int.h: Add sched_info sched_max_insns_priority field.
+	* sched-rgn.c :Initialize new sched_max_insns_priority field.
+	* target-def.h: Add TARGET_SCHED_IS_COSTLY_DEPENDENCE.
+	* target.h: Add sched is_costly_dependence.
+	* toplev.c: Add flag_sched_stalled_insns*.
+	* config/rs6000/rs6000.c: Add DFA scheduler support.
+	* config/rs6000/rs6000.h: Add DFA scheduler support.
+	* config/rs6000/rs6000.md: Add DFA scheduler support.
+	* config/rs6000/40x.md: New file.
+	* config/rs6000/440.md: New file.
+	* config/rs6000/603.md: New file.
+	* config/rs6000/6xx.md: New file.
+	* config/rs6000/7450.md: New file.
+	* config/rs6000/7xx.md: New file.
+	* config/rs6000/8540.md: New file.
+	* config/rs6000/mpc.md: New file.
+	* config/rs6000/power4.md: New file.
+	* config/rs6000/rios1.md: New file.
+	* config/rs6000/rios2.md: New file.
+	* config/rs6000/rs64.md: New file.
+
 2004-02-02  Jan Hubicka  <jh@suse.cz>
 
 	* cgraph.c: Merge from mainline.
