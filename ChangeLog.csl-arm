@@ -1,6 +1,18 @@
+2004-09-24  Paul Brook  <paul@codesourcery.com>
+
+libstdc++-v3/testsuite
+	* 27_io/basic_filebuf/sgetn/char/1-in.cc: XFAIL more arm simulator
+	targets.
+	* 27_io/basic_filebuf/sgetn/char/1-io.cc: Ditto.
+	* 27_io/basic_filebuf/sgetn/char/2-in.cc: Ditto.
+	* 27_io/basic_filebuf/sgetn/char/2-io.cc: Ditto.
+	* 27_io/basic_istream/readsome/char/6746-2.cc: Ditto.
+	* ext/stdio_filebuf/char/10063-2.cc: Ditto.
+	* ext/stdio_filebuf/char/10063-3.cc: Ditto.
+
 2004-09-22  Paul Brook  <paul@codesourcery.com>
 
-libstdc++/
+libstdc++-v3/
 	Add support for ARM EABI unwinding library.
 	* libsupc++/Makefile.am (sources): Add eh_arm.cc and eh_call.cc.
 	* libsupc++/Makefile.in: Regenerate.
