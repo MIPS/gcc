@@ -1,3 +1,8 @@
+2003-04-20  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* df.c (hybrid_search_bitmap, hybrid_search_sbitmap,
+	iterative_dataflow_bitmap, iterative_dataflow_sbitmap): Speed up.
+
 2003-04-19  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* loop-iv.c (expr_mentions_iteration_p): New.
