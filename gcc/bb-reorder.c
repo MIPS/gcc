@@ -248,10 +248,15 @@ find_traces_1_round (branch_th, exec_th, traces, n_traces, round, heap,
 
 	      prob = e->probability;
 	      if (RBI (e->dest)->visited
-		  && RBI (e->dest)->visited != *n_traces)
+		  && RBI (e->dest)->visited != *n_traces
+		  && RBI (e->dest)->duplicated != *n_traces)
+		/* E->DEST has been visited but is not in current trace
+		   nor duplicated into current trace.  */
 		{
 		  if (!copy_bb_p (e->dest, *n_traces, size_can_grow))
 		    continue;
+		  /* E->DEST will be duplicated (if it will be selected)
+		     so get the new frequency.  */
 		  freq = EDGE_FREQUENCY (e);
 		}
 	      else
@@ -259,13 +264,13 @@ find_traces_1_round (branch_th, exec_th, traces, n_traces, round, heap,
 		  freq = e->dest->frequency;
 		}
 
-	      /* Edge that cannot be fallthru
-		 or improbable or infrequent successor.  */
+	      /* Edge that cannot be fallthru or improbable or infrequent
+		 successor (ie. it is unsuitable successor).  */
 	      if (!(e->flags & EDGE_CAN_FALLTHRU) || (e->flags & EDGE_COMPLEX)
 		  || prob < branch_th || freq < exec_th)
 		{
 		  if (!RBI (e->dest)->visited)
-		    /* This bb is not in any trace yet.  */
+		    /* This bb is not in any trace yet, add it to heap.  */
 		    {
 		      int key = bb_to_key (e->dest);
 		      if (round == N_ROUNDS - 1)
@@ -321,7 +326,15 @@ find_traces_1_round (branch_th, exec_th, traces, n_traces, round, heap,
 
 	  if (best_edge) /* Found suitable successor.  */
 	    {
-	      if (RBI (best_edge->dest)->visited == *n_traces)
+	      if (RBI (best_edge->dest)->duplicated == *n_traces)
+		/* Duplicate of BEST_EDGE->DEST is in current trace.  */
+		{
+		  /* Terminate the trace.  */
+		  trace->last = bb;
+		  break;
+		}
+	      else if (RBI (best_edge->dest)->visited == *n_traces)
+		/* BEST_EDGE->DEST is in current trace.  */
 		{
 		  if (bb != best_edge->dest)
 		    {
@@ -468,17 +481,17 @@ bb_to_key (bb)
     if (!(e->flags & EDGE_DFS_BACK) && !RBI (e->src)->visited)
       return -bb->frequency;
 
-  /* All edges to predecessors of BB are DFS back edges or the predecessors
+  /* All edges from predecessors of BB are DFS back edges or the predecessors
      of BB are visited.  I want such basic blocks first.  */
   return -100 * BB_FREQ_MAX - bb->frequency;
 }
 
 /* Return true when the edge E from basic block BB is better than the temporary
-   best edge (details are in function).  The (scaled) probability of edge E is
-   PROB. The frequency of the successor is FREQ. The *PROB_LOWER and
-   *PROB_HIGHER are the lower and higher bounds of interval which the PROB must
-   be in to be "equivalent" to the probability of the temporary best edge.
-   Similarly the *FREQ_LOWER and *FREQ_HIGHER.
+   best edge (details are in function).  The probability of edge E is PROB. The
+   frequency of the successor is FREQ. 
+   The *PROB_LOWER and *PROB_HIGHER are the lower and higher bounds which the
+   PROB must be between to be "equivalent" to the probability of the temporary
+   best edge.  Similarly the *FREQ_LOWER and *FREQ_HIGHER.
    If the edge is considered to be better it changes the values of *PROB_LOWER,
    *PROB_HIGHER, *FREQ_LOWER and *FREQ_HIGHER to appropriate values.  */
 
@@ -545,6 +558,10 @@ copy_bb_p (bb, trace, size_can_grow)
   int size = 0;
   int max_size;
   rtx insn;
+
+  /* I'm using IDs so that I don't have to clear the COPY_BB_P_VISITED array
+     every time, I just increase the ID. The basic block is visited (in current
+     call of COPY_BB_P) when COPY_BB_P_VISITED[block_number] == ID.  */
   static unsigned int id;
 
   if (id == UINT_MAX)
@@ -582,7 +599,9 @@ copy_bb_p (bb, trace, size_can_grow)
 
       copy_bb_p_visited[bb->index] = id;
 
-      if (RBI (bb)->visited == trace)
+      if (RBI (bb)->visited == trace
+	  || RBI (bb)->duplicated == trace)
+	/* BB or duplicate of BB is in trace with number TRACE.  */
 	return false;
       if (!cfg_layout_can_duplicate_bb_p (bb))
 	return false;
@@ -616,10 +635,12 @@ copy_bb_p (bb, trace, size_can_grow)
 	}
       if (!best_edge || !RBI (best_edge->dest)->visited
 	  || RBI (best_edge->dest)->visited == trace
+	  || RBI (best_edge->dest)->duplicated == trace
 	  || copy_bb_p_visited[best_edge->dest->index] == id)
 	/* All edges point to EXIT_BLOCK or to the same trace
 	   OR the selected successor has not been visited yet
 	   OR we have found a loop (so the trace will be terminated)
+	   OR the dest is duplicated into trace (trace will be terminated)
 	   OR we have reached the bb that was already visited
 	      in this run of copy_bb_p.  */
 	{
