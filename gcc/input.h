@@ -42,6 +42,9 @@ struct file_stack
    The line member is not accurate for the innermost file on the stack.  */
 extern struct file_stack *input_file_stack;
 
+/* Stack of EXPR_WITH_FILE_LOCATION nested expressions.  */
+extern struct file_stack *expr_wfl_stack;
+
 /* Incremented on each change to input_file_stack.  */
 extern int input_file_stack_tick;
 

@@ -1250,7 +1250,8 @@ tlink.o: tlink.c $(DEMANGLE_H) $(HASHTAB_H) $(CONFIG_H) $(SYSTEM_H) \
 c-common.o : c-common.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(OBSTACK_H) \
 	$(C_COMMON_H) flags.h toplev.h output.h c-pragma.h $(RTL_H) $(GGC_H) \
 	$(EXPR_H) $(TM_P_H) builtin-types.def builtin-attrs.def $(TARGET_H) \
-	diagnostic.h except.h gt-c-common.h real.h langhooks.h c-tree.h
+	diagnostic.h except.h gt-c-common.h real.h langhooks.h c-tree.h \
+	input.h
 c-pretty-print.o : c-pretty-print.c c-pretty-print.h pretty-print.h \
 	$(C_COMMON_H) $(CONFIG_H) $(SYSTEM_H) real.h
 
@@ -1448,7 +1449,7 @@ except.o : except.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h \
 expr.o : expr.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h function.h \
    $(REGS_H) $(EXPR_H) $(OPTABS_H) libfuncs.h insn-attr.h insn-config.h \
    $(RECOG_H) output.h typeclass.h hard-reg-set.h toplev.h hard-reg-set.h \
-   except.h reload.h $(GGC_H) langhooks.h intl.h $(TM_P_H) real.h
+   except.h reload.h $(GGC_H) langhooks.h intl.h $(TM_P_H) real.h input.h
 builtins.o : builtins.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h \
    $(TARGET_H) function.h $(REGS_H) $(EXPR_H) $(OPTABS_H) insn-config.h \
    $(RECOG_H) output.h typeclass.h hard-reg-set.h toplev.h hard-reg-set.h \

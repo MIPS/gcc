@@ -1202,6 +1202,9 @@ expand_call_inline (tp, walk_subtrees, data)
   expr = build1 (STMT_EXPR, TREE_TYPE (TREE_TYPE (fn)), make_node (COMPOUND_STMT));
   /* There is no scope associated with the statement-expression.  */
   STMT_EXPR_NO_SCOPE (expr) = 1;
+  if (lookup_attribute ("warn_unused_result",
+			TYPE_ATTRIBUTES (TREE_TYPE (fn))))
+    STMT_EXPR_WARN_UNUSED_RESULT (expr) = 1;
   stmt = STMT_EXPR_STMT (expr);
 #else /* INLINER_FOR_JAVA */
   /* Build a block containing code to initialize the arguments, the

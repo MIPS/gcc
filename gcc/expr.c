@@ -45,6 +45,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "langhooks.h"
 #include "intl.h"
 #include "tm_p.h"
+#include "input.h"
 
 /* Decide whether a function's arguments should be processed
    from first to last or from last to first.
@@ -189,6 +190,9 @@ static char direct_store[NUM_MACHINE_MODES];
 /* Record for each mode whether we can float-extend from memory.  */
 
 static bool float_extend_from_mem[NUM_MACHINE_MODES][NUM_MACHINE_MODES];
+
+/* Stack of EXPR_WITH_FILE_LOCATION nested expressions.  */
+struct file_stack *expr_wfl_stack;
 
 /* If a memory-to-memory move would take MOVE_RATIO or more simple
    move-instruction sequences, we will do a movstr or libcall instead.  */
@@ -6962,16 +6966,24 @@ expand_expr (exp, target, tmode, modifier)
     case EXPR_WITH_FILE_LOCATION:
       {
 	rtx to_return;
-	const char *saved_input_filename = input_filename;
-	int saved_lineno = lineno;
+	struct file_stack fs;
+	fs.name = input_filename;
+	fs.line = lineno;
+	fs.next = expr_wfl_stack;
+	expr_wfl_stack = &fs;
 	input_filename = EXPR_WFL_FILENAME (exp);
 	lineno = EXPR_WFL_LINENO (exp);
 	if (EXPR_WFL_EMIT_LINE_NOTE (exp))
 	  emit_line_note (input_filename, lineno);
 	/* Possibly avoid switching back and forth here.  */
-	to_return = expand_expr (EXPR_WFL_NODE (exp), target, tmode, modifier);
-	input_filename = saved_input_filename;
-	lineno = saved_lineno;
+	to_return = expand_expr (EXPR_WFL_NODE (exp),
+				 (ignore ? const0_rtx : target),
+				 tmode, modifier);
+	if (expr_wfl_stack != &fs)
+	  abort ();
+	input_filename = fs.name;
+	lineno = fs.line;
+	expr_wfl_stack = fs.next;
 	return to_return;
       }
 

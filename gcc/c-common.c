@@ -40,6 +40,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "except.h"		/* For USING_SJLJ_EXCEPTIONS.  */
 #include "tree-inline.h"
 #include "c-tree.h"
+#include "input.h"
 
 cpp_reader *parse_in;		/* Declared in c-pragma.h.  */
 
@@ -775,6 +776,8 @@ static tree handle_nothrow_attribute	PARAMS ((tree *, tree, tree, int,
 						 bool *));
 static tree handle_cleanup_attribute	PARAMS ((tree *, tree, tree, int,
 						 bool *));
+static tree handle_warn_unused_result_attribute  PARAMS ((tree *, tree, tree,
+							  int, bool *));
 static tree vector_size_helper PARAMS ((tree, tree));
 
 static void check_function_nonnull	PARAMS ((tree, tree));
@@ -865,6 +868,8 @@ const struct attribute_spec c_common_attribute_table[] =
   { "may_alias",	      0, 0, false, true, false, NULL },
   { "cleanup",		      1, 1, true, false, false,
 			      handle_cleanup_attribute },
+  { "warn_unused_result",     0, 0, false, true, true,
+			      handle_warn_unused_result_attribute },
   { NULL,                     0, 0, false, false, false, NULL }
 };
 
@@ -4250,6 +4255,26 @@ c_expand_expr (exp, target, tmode, modifier)
 	bool preserve_result = false;
 	bool return_target = false;
 
+	if (STMT_EXPR_WARN_UNUSED_RESULT (exp) && target == const0_rtx)
+	  {
+	    tree stmt = STMT_EXPR_STMT (exp);
+	    tree scope;
+
+	    for (scope = COMPOUND_BODY (stmt);
+		 scope && TREE_CODE (scope) != SCOPE_STMT;
+		 scope = TREE_CHAIN (scope));
+
+	    if (scope && SCOPE_STMT_BLOCK (scope))
+	      warning_with_file_and_line (expr_wfl_stack->name,
+					  expr_wfl_stack->line, "\
+ignoring return value of `%D', declared with attribute warn_unused_result",
+			BLOCK_ABSTRACT_ORIGIN (SCOPE_STMT_BLOCK (scope)));
+	    else
+	      warning_with_file_and_line (expr_wfl_stack->name,
+					  expr_wfl_stack->line, "\
+ignoring return value of function declared with attribute warn_unused_result");
+	  }
+
 	/* Since expand_expr_stmt calls free_temp_slots after every
 	   expression statement, we must call push_temp_slots here.
 	   Otherwise, any temporaries in use now would be considered
@@ -6189,6 +6214,26 @@ handle_deprecated_attribute (node, name, args, flags, no_add_attrs)
       else
 	warning ("`%s' attribute ignored", 
 		      IDENTIFIER_POINTER (name));
+    }
+
+  return NULL_TREE;
+}
+
+/* Handle a "warn_unused_result" attribute.  No special handling.  */
+
+static tree
+handle_warn_unused_result_attribute (node, name, args, flags, no_add_attrs)
+     tree *node;
+     tree name;
+     tree args ATTRIBUTE_UNUSED;
+     int flags ATTRIBUTE_UNUSED;
+     bool *no_add_attrs;
+{
+  /* Ignore the attribute for functions not returning any value.  */
+  if (VOID_TYPE_P (TREE_TYPE (*node)))
+    {
+      warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
     }
 
   return NULL_TREE;
