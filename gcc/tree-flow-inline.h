@@ -278,6 +278,17 @@ phi_nodes (basic_block bb)
   return VARRAY_TREE (tree_phi_root, bb->index);
 }
 
+/* Set list of phi nodes of a basic block BB to L.  */
+
+static inline void
+set_phi_nodes (basic_block bb, tree l)
+{
+  tree phi;
+
+  VARRAY_TREE (tree_phi_root, bb->index) = l;
+  for (phi = l; phi; phi = TREE_CHAIN (phi))
+    set_bb_for_stmt (phi, bb);
+}
 
 /* Return the phi index number for an edge.  */
 static inline int

@@ -325,6 +325,7 @@ typedef struct bb_ann_d *bb_ann_t;
 /* Accessors for basic block annotations.  */
 static inline bb_ann_t bb_ann (basic_block);
 static inline tree phi_nodes (basic_block);
+static inline void set_phi_nodes (basic_block, tree);
 static inline void add_dom_child (basic_block, basic_block);
 static inline bitmap dom_children (basic_block);
 
@@ -534,6 +535,8 @@ extern void propagate_copy (tree *, tree);
 /* In tree-ssa-dce.c  */
 void tree_ssa_dce (tree, enum tree_dump_index);
 
+/* In tree-ssa-loop.c  */
+void tree_ssa_loop_opt (tree, enum tree_dump_index);
 
 /* In tree-flow-inline.h  */
 static inline int phi_arg_from_edge (tree, edge);

@@ -1,3 +1,26 @@
+2003-12-06  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-ssa-loop.c: New.
+	* Makefile.in (tree-ssa-loop.o): New.
+	* common.opt (ftree-loop-optimize): Add.
+	* flags.h (flag_tree_loop): Declare.
+	* opts.c (decode_options): Enable flag_tree_loop at -O1.
+	(common_handle_option): Handle OPT_ftree_loop_optimize.
+	* timevar.def (TV_TREE_LOOP): New.
+	* toplev.c (flag_tree_loop): New.
+	(f_options): Add -ftree-loop-optimize.
+	* tree-cfg.c (build_tree_cfg): Remove disabled loop optimizer
+	initialization.
+	(tree_make_forwarder_block): Update phi nodes.
+	(tree_loop_optimizer_init): Don't call force_single_succ_latches.
+	(tree_try_redirect_by_replacing_jump): Comment fix.
+	* tree-dump.c (dump_files): Add .loop dump.
+	* tree-flow.h (tree_ssa_loop_opt, set_phi_nodes): Declare.
+	* tree-optimize.c (optimize_function_tree): Call tree_ssa_loop_opt.
+	* tree.h (enum tree_dump_index): Add TDI_loop.
+	* tree-flow-inline.h (set_phi_nodes): New.
+	* doc/invoke.texi (-fdump-tree-loop, -ftree-loop-optimize): Document.
+
 2003-12-05  Jeff Law  <law@redhat.com>
 
 	* tree-dfa.c (mark_new_vars_to_rename): Change VARS_TO_RENAME to be

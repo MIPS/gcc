@@ -186,22 +186,6 @@ build_tree_cfg (tree *fnbody)
       make_edges ();
     }
 
-#if 0
-  {
-    /* The loop analyzer should be initialized right after the CFG
-       construction because some loops will need latch blocks, and these
-       need to be added before we do anything else.  If you use this
-       structure you'll have to ensure that optimizers don't invalidate the
-       information gathered in the loops structure via modifications to the
-       underlying structure: the CFG.  */
-    struct loops *loops = loop_optimizer_init (NULL);
-
-    /* Once initialized, it's not really necessary to keep the loop data
-       structures around.  They may be rescanned using flow_loops_find.  */
-    loop_optimizer_finalize (loops, NULL);
-  }
-#endif
-
   timevar_pop (TV_TREE_CFG);
 
   /* Debugging dumps.  */
@@ -3217,10 +3201,12 @@ static basic_block
 tree_make_forwarder_block (basic_block bb, int redirect_latch,
                            int redirect_nonlatch, edge except, int conn_latch)
 {
-  edge e, next_e, fallthru;
+  edge e, next_e, new_e, fallthru;
   basic_block dummy;
+  tree phi, new_phi, var, label;
+  bool first;
+  block_stmt_iterator bsi, bsi_tgt;
 
-  /* Create the new basic block.  */
   dummy = create_bb (NULL, bb->prev_bb);
   create_block_annotation (dummy);
   dummy->count = bb->count;
@@ -3233,26 +3219,74 @@ tree_make_forwarder_block (basic_block bb, int redirect_latch,
   for (e = dummy->pred; e; e = e->pred_next)
     e->dest = dummy;
 
+  /* Move the phi nodes to the dummy block.  */
+  set_phi_nodes (dummy, phi_nodes (bb));
+  set_phi_nodes (bb, NULL_TREE);
+
+  /* Move the labels to the new basic block.  */
+  for (bsi = bsi_start (bb), bsi_tgt = bsi_start (dummy); !bsi_end_p (bsi); )
+    {
+      label = bsi_stmt (bsi);
+      if (TREE_CODE (label) != LABEL_EXPR)
+	break;
+
+      bsi_remove (&bsi);
+      bsi_insert_after (&bsi_tgt, label, BSI_NEW_STMT);
+    }
+
   fallthru = make_edge (dummy, bb, EDGE_FALLTHRU);
 
+  alloc_aux_for_block (dummy, sizeof (int));
   HEADER_BLOCK (dummy) = 0;
   HEADER_BLOCK (bb) = 1;
+
+  first = true;
 
   /* Redirect back edges we want to keep.  */
   for (e = dummy->pred; e; e = next_e)
     {
       next_e = e->pred_next;
-      if (e == except
-	  || !((redirect_latch && LATCH_EDGE (e))
-	       || (redirect_nonlatch && !LATCH_EDGE (e))))
+      if (e != except
+	  && ((redirect_latch && LATCH_EDGE (e))
+	      || (redirect_nonlatch && !LATCH_EDGE (e))))
+	continue;
+
+      dummy->frequency -= EDGE_FREQUENCY (e);
+      dummy->count -= e->count;
+      if (dummy->frequency < 0)
+	dummy->frequency = 0;
+      if (dummy->count < 0)
+	dummy->count = 0;
+
+      new_e = tree_redirect_edge_and_branch_1 (e, bb, true);
+
+      if (first)
 	{
-	  dummy->frequency -= EDGE_FREQUENCY (e);
-	  dummy->count -= e->count;
-	  if (dummy->frequency < 0)
-	    dummy->frequency = 0;
-	  if (dummy->count < 0)
-	    dummy->count = 0;
-	  redirect_edge_succ (e, bb);
+	  first = false;
+
+	  /* The first time we redirect a branch we must create new phi nodes
+	     on the start of bb.  */
+	  for (phi = phi_nodes (dummy); phi; phi = TREE_CHAIN (phi))
+	    {
+	      var = PHI_RESULT (phi);
+	      new_phi = create_phi_node (var, bb);
+	      SSA_NAME_DEF_STMT (var) = new_phi;
+	      PHI_RESULT (phi) = make_ssa_name (SSA_NAME_VAR (var), phi);
+	      add_phi_arg (&new_phi, PHI_RESULT (phi), fallthru);
+	    }
+
+	  /* Ensure that the phi node chains are in the same order.  */
+	  set_phi_nodes (bb, nreverse (phi_nodes (bb)));
+	}
+
+      /* Move the argument of the phi node.  */
+      for (phi = phi_nodes (dummy), new_phi = phi_nodes (bb);
+	   phi;
+	   phi = TREE_CHAIN (phi), new_phi = TREE_CHAIN (new_phi))
+	{
+	  var = PHI_ARG_DEF (phi, phi_arg_from_edge (phi, e));
+	  add_phi_arg (&new_phi, var, new_e);
+	  remove_phi_arg (phi, e->src);
 	}
     }
 
@@ -3292,8 +3326,12 @@ tree_loop_optimizer_init (FILE *dumpfile)
   free (loops->cfg.dfs_order);
   loops->cfg.dfs_order = NULL;
 
+#if 0
+  /* Does not work just now.  It will be easier to fix it in the no-gotos
+     form.  */
   /* Force all latches to have only single successor.  */
   force_single_succ_latches (loops);
+#endif
 
   /* Mark irreducible loops.  */
   mark_irreducible_loops (loops);
@@ -3580,7 +3618,7 @@ tree_try_redirect_by_replacing_jump (edge e, basic_block target)
 }
 
 /* Redirect E to DEST.  Return NULL on failure, edge representing redirected
-   branch otherwise  */
+   branch otherwise.  */
 
 static edge
 tree_redirect_edge_and_branch_1 (edge e, basic_block dest, bool splitting)

@@ -664,6 +664,7 @@ static struct dump_file_info dump_files[TDI_end] =
   {".dom1", "tree-dom1", 0, 0},
   {".ssa2", "tree-ssa2", 0, 0},
   {".dce1", "tree-dce1", 0, 0},
+  {".loop", "tree-loop", 0, 0},
   {".mustalias", "tree-mustalias", 0, 0},
   {".tail", "tree-tail", 0, 0},
   {".ssa3", "tree-ssa3", 0, 0},

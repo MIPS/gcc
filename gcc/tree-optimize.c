@@ -138,6 +138,9 @@ optimize_function_tree (tree fndecl, tree *chain)
       verify_ssa ();
 #endif
 
+      if (flag_tree_loop)
+	tree_ssa_loop_opt (fndecl, TDI_loop);
+
       /* The must-alias pass removes the aliasing and addressability bits
 	 from variables that used to have their address taken.  */
       if (flag_tree_must_alias)

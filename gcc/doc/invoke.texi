@@ -255,7 +255,7 @@ in the following sections.
 -fdump-tree-ccp@r{[}-@var{n}@r{]} -fdump-tree-dce@r{[}-@var{n}@r{]} @gol
 -fdump-tree-gimple@r{[}-raw@r{]} -fdump-tree-mudflap@r{[}-@var{n}@r{]} @gol
 -fdump-tree-must-alias@r{[}-@var{n}@r{]} -fdump-tree-dom@r{[}-@var{n}@r{]}@gol
--fdump-tree-sra@r{[}-@var{n}@r{]}
+-fdump-tree-loop@r{[}-@var{n}@r{]} -fdump-tree-sra@r{[}-@var{n}@r{]} @gol
 -feliminate-dwarf2-dups -feliminate-unused-debug-types @gol
 -feliminate-unused-debug-symbols -fmem-report -fprofile-arcs @gol
 -frandom-seed=@var{string} -fsched-verbose=@var{n} @gol
@@ -305,7 +305,7 @@ in the following sections.
 -funswitch-loops  -fold-unroll-loops  -fold-unroll-all-loops @gol
 -ftree-pre  -ftree-ccp  -ftree-dce  -ftree-copyprop  @gol
 -fdisable-tree-ssa -ftree-dominator-opts -ftree-must-alias @gol
--ftree-sra @gol
+-ftree-loop-optimize -ftree-sra @gol
 --param @var{name}=@var{value}
 -O  -O0  -O1  -O2  -O3  -Os}
 
@@ -3573,6 +3573,11 @@ file name is made by appending @file{.sra} to the source file name.
 Dump each function after applying dominator tree optimizations.  The file
 name is made by appending @file{.dom} to the source file name.
 
+@item loop
+@opindex fdump-tree-loop
+Dump each function after applying tree-level loop optimizations.  The file
+name is made by appending @file{.loop} to the source file name.
+
 @item all
 @opindex fdump-tree-all
 Enable all the available tree dumps with the flags provided in this option.
@@ -4321,6 +4326,10 @@ default at -O and higher.
 
 @item -ftree-dominator-opts
 Perform dead code elimination (DCE) on trees.  This flag is enabled by
+default at -O and higher.
+
+@item -ftree-loop-optimize
+Perform loop optimization on trees.  This flag is enabled by
 default at -O and higher.
 
 @item -ftree-must-alias

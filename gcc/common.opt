@@ -715,6 +715,10 @@ ftree-dominator-opts
 Common
 Enable dominator optimizations
 
+ftree-loop-optimize
+Common
+Enable loop optimizations on trees
+
 ftree-must-alias
 Common
 Detect must-alias relations to remove pointer de-references
