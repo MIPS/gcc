@@ -1,3 +1,7 @@
+2003-06-29  Jeff Sturm   <jsturm@one-point.com>
+
+	* fold-const.c (fold): Don't save_expr unless TREE_SIDE_EFFECTS.
+
 2003-06-26  Diego Novillo  <dnovillo@redhat.com>
 
 	* c-simplify.c (gimplify_stmt_expr): Handle statement-expressions

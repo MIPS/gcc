@@ -6609,7 +6609,16 @@ fold (expr)
 	      && (*lang_hooks.decls.global_bindings_p) () == 0
 	      && ! contains_placeholder_p (arg0))
 	    {
-	      tree arg = save_expr (arg0);
+	      tree arg;
+
+	      /* If we got here by way of rewrite_into_ssa, 
+		 we must not save_expr arg, which cannot have
+		 side effects anyhow.  */
+	      /* FIXME.  fold needs to know about GIMPLE trees.  */
+	      if (TREE_SIDE_EFFECTS (arg0))
+		 arg = save_expr (arg0);
+	      else
+		 arg = arg0;
 	      return fold (build (PLUS_EXPR, type, arg, arg));
 	    }
 
