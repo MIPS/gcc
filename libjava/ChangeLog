@@ -1,3 +1,8 @@
+2004-10-28  Jerry Quinn  <jlquinn@optonline.net>
+
+	* java/awt/image/ColorModel.java (cloneColorModel): Fix line
+	wrap.  Use Boolean.valueOf.
+	
 2004-10-28  Michael Koch  <konqueror@gmx.de>
 
 	* gnu/java/awt/peer/gtk/GdkGraphics2D.java

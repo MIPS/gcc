@@ -168,11 +168,15 @@ public abstract class ColorModel implements Transparency
     try {
       // This constructor will exist.
       Constructor ctor =
-        cls.getConstructor(new Class[]{int.class, int[].class, ColorSpace.class,
-          boolean.class, boolean.class, int.class, int.class});
-      cm = (ColorModel)ctor.newInstance(new Object[]{new Integer(pixel_bits), bits,
-          cspace, new Boolean(hasAlpha), new Boolean(isAlphaPremultiplied),
-          new Integer(transparency), new Integer(transferType)});
+        cls.getConstructor(new Class[]{int.class, int[].class,
+				       ColorSpace.class, boolean.class,
+				       boolean.class, int.class, int.class});
+      cm = (ColorModel)ctor.
+        newInstance(new Object[]{new Integer(pixel_bits),
+				 bits, cspace, Boolean.valueOf(hasAlpha),
+				 Boolean.valueOf(isAlphaPremultiplied),
+				 new Integer(transparency),
+				 new Integer(transferType)});
     }
     catch (Exception e)
     {
