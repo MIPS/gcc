@@ -5035,21 +5035,6 @@ is enabled by default at @option{-O} and higher.  It is not enabled
 for @option{-Os}, since it usually increases code size.
 
 @c APPLE LOCAL begin lno
-@item -ftree-vectorize
-Perform loop vectorization on trees.  This flag is disabled by
-default.
-
-@item -fscalar-evolutions
-Analyzes the scalar variables that determine the exit condition of a
-loop, and try to determine the number of iterations.  This pass is
-only used for verifying the correctness of the analyzer, and it is not
-enabled by default.
-
-@item -fall-data-deps
-Perform the data dependence analysis on all the data references.  This
-pass is only used for verifying the correctness of the analyzer, and
-it is not enabled by default.
-
 @item -ftree-elim-checks 
 Perform elimination of checks based on scalar evolution informations.
 This flag is disabled by default.  
@@ -5106,6 +5091,13 @@ optimization later.  This is enabled by default at @option{-O} and higher.
 
 @item -ftree-vectorize
 Perform loop vectorization on trees.
+
+@c APPLE LOCAL begin optimization
+In Apple's version of GCC, @option{-fstrict-aliasing} is enabled by default 
+when loop vectorization is enabled. See @option{-fstrict-aliasing} document
+for more information.
+@c APPLE LOCAL end optimization
+
 
 @item -ftracer
 @opindex ftracer

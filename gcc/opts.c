@@ -688,6 +688,13 @@ decode_options (unsigned int argc, const char **argv)
       flag_reorder_blocks_and_partition = 0;
       flag_reorder_blocks = 1;
     }
+
+  /* APPLE LOCAL begin AV 3846092 */
+  /* We have apple local patch to disable -fstrict-aliasing when -O2 is used.
+     Do not disable it when -ftree-vectorize is used.  */
+  if (optimize >= 2 && flag_tree_vectorize)
+    flag_strict_aliasing = 1;
+  /* APPLE LOCAL end AV 3846092 */
 }
 
 /* Handle target- and language-independent options.  Return zero to
