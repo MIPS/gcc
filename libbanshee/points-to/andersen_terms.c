@@ -306,8 +306,7 @@ switch(((setif_term)arg1)->type)
 {
 
 default:
-failure("Inconsistent system of constraints
-");
+failure("Inconsistent system of constraints\n");
 }
 
 return;
@@ -1289,8 +1288,7 @@ return ;
 break;
 
 default:
-failure("Inconsistent system of constraints
-");
+failure("Inconsistent system of constraints\n");
 }
 
 break;
@@ -1325,15 +1323,13 @@ return ;
 break;
 
 default:
-failure("Inconsistent system of constraints
-");
+failure("Inconsistent system of constraints\n");
 }
 
 break;
 
 default:
-failure("Inconsistent system of constraints
-");
+failure("Inconsistent system of constraints\n");
 }
 
 return;
