@@ -18,6 +18,27 @@
 	* arm.md (all ARM-mode load insns): Add neg_pool_range attribute
 	as appropriate.
 
+	Re-write constant pool code.
+	* arm.c (minipool_node, minipool_fix): New types.
+	(minifix): Delete type.
+	(arm_add_minipool_constant): Delete.
+	(arm_compute_minipool_offsets, arm_find_barrier, 
+	arm_find_minipool_constant, fixup_compare, sort_fixups): Likewise.
+	(get_jump_table_size): Now returns HOST_WIDE_INT.
+	(move_minipool_fix_forward_ref, add_minipool_forward_ref): New
+	functions.
+	(move_minipool_fix_backward_ref, add_minipool_backward_ref): Likewise.
+	(assign_minipool_offsets, arm_print_value): Likewise.
+	(dump_minipool): Rewrite.
+	(arm_barrier_cost): New function.
+	(create_fix_barrier): New function.
+	(push_minipool_barrier): New function.
+	(push_minipool_fix): Record additional information about the fixup 
+	required.
+	(note_invalid_constants): Remove push for (UNSPEC 3).  Don't
+	check the mode of what needs fixing.
+	(arm_reorg): Rewrite.
+
 2000-03-16  Nick Clifton  <nickc@cygnus.com>
 
 	* config/arm/arm.h (ASM_OUTPUT_MI_THUNK): Fix compile time
