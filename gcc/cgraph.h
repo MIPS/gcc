@@ -159,8 +159,6 @@ struct cgraph_node GTY((chain_next ("%h.next"), chain_prev ("%h.previous")))
   bool analyzed;
   /* Set when function is scheduled to be assembled.  */
   bool output;
-  /* Used only while constructing the callgraph.  */
-  basic_block current_basic_block;
 };
 
 struct cgraph_edge GTY((chain_next ("%h.next_caller")))
@@ -176,6 +174,8 @@ struct cgraph_edge GTY((chain_next ("%h.next_caller")))
   const char *inline_failed;
   /* Expected number of executions: calculated in profile.c.  */
   gcov_type count;
+  /* Depth of loop nest, 1 means no loop nest.  */
+  int loop_nest;
 };
 
 /* The cgraph_varpool data structure.
@@ -229,7 +229,7 @@ void cgraph_remove_edge (struct cgraph_edge *);
 void cgraph_remove_node (struct cgraph_node *);
 struct cgraph_edge *cgraph_create_edge (struct cgraph_node *,
 					struct cgraph_node *,
-				        tree);
+				        tree, gcov_type, int);
 struct cgraph_node *cgraph_node (tree);
 struct cgraph_node *cgraph_node_for_asm (tree asmname);
 struct cgraph_edge *cgraph_edge (struct cgraph_node *, tree);
@@ -238,8 +238,8 @@ struct cgraph_local_info *cgraph_local_info (tree);
 struct cgraph_global_info *cgraph_global_info (tree);
 struct cgraph_rtl_info *cgraph_rtl_info (tree);
 const char * cgraph_node_name (struct cgraph_node *);
-struct cgraph_edge * cgraph_clone_edge (struct cgraph_edge *, struct cgraph_node *, tree, int);
-struct cgraph_node * cgraph_clone_node (struct cgraph_node *, gcov_type);
+struct cgraph_edge * cgraph_clone_edge (struct cgraph_edge *, struct cgraph_node *, tree, int, int);
+struct cgraph_node * cgraph_clone_node (struct cgraph_node *, gcov_type, int);
 
 struct cgraph_varpool_node *cgraph_varpool_node (tree);
 struct cgraph_varpool_node *cgraph_varpool_node_for_asm (tree asmname);

@@ -1,3 +1,25 @@
+2005-01-15  Jan Hubicka  <jh@suse.cz>
+
+	* cgraph.c (cgrpah_edge): Take bb argument instead of
+	current_basic_block.
+	(dump_cgraph_node): Dump loop nest.
+	(cgraph_clone_edge): Maintain loop nest.
+	(cgraph_clone_node): Likewise.
+	* cgraph.h (cgraph_node): Remove current_basic_block field; add
+	loop_nest.
+	(cgraph_create_edge, cgraph_clone_edge, cgraph_clone_node): Modify
+	prototype.
+	* cgraphunit.c: Include cfgloop.h
+	(current_basic_block): New static.
+	(record_call): Update.
+	(cgraph_analyze_function): Build loop tree.
+	* ipa-inline.c (cgraph_clone_inlined_nodes): Maintain loop depth.
+	(cgraph_edge_baddness): Consider nest.
+	(cgraph_decide_recursive_inlining): Update call of cgraph_clone_node.
+	* tree-inline.c (copy_body_r): Update call of cgraph_clone_edge.
+	(expand_call_inline): Update call of cgraph_create_edge.
+	* tree-optimize.c (tree_rest_of_compilation): Update call of edge clonning.
+
 2005-01-09  Jan Hubicka  <jh@suse.cz>
 
 	* Merge from mainline (tree-profiling-merge-20050107)

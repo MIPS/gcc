@@ -126,7 +126,7 @@ cgraph_clone_inlined_nodes (struct cgraph_edge *e, bool duplicate)
     }
    else if (duplicate)
     {
-      n = cgraph_clone_node (e->callee, e->count);
+      n = cgraph_clone_node (e->callee, e->count, e->loop_nest);
       cgraph_redirect_edge_callee (e, n);
     }
 
@@ -349,13 +349,16 @@ cgraph_edge_badness (struct cgraph_edge *edge)
     }
   else
   {
-    int growth = cgraph_estimate_growth (edge->callee);
+    int nest = MIN (edge->loop_nest, 8);
+    int badness = cgraph_estimate_growth (edge->callee) * 256;
+		    
+    badness >>= nest;
 
     /* Make recursive inlining happen always after other inlining is done.  */
     if (cgraph_recursive_inlining_p (edge->caller, edge->callee, NULL))
-      return growth + 1;
+      return badness + 1;
     else
-      return growth;
+      return badness;
   }
 }
 
@@ -472,7 +475,7 @@ cgraph_decide_recursive_inlining (struct cgraph_node *node)
 	     cgraph_node_name (node));
 
   /* We need original clone to copy around.  */
-  master_clone = cgraph_clone_node (node, 0);
+  master_clone = cgraph_clone_node (node, 0, 1);
   master_clone->needed = true;
   for (e = master_clone->callees; e; e = e->next_callee)
     if (!e->inline_failed)
