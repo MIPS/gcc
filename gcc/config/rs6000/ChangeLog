@@ -1,3 +1,6 @@
+This branch has now been merged into the mainline; you should add any further 
+changes there.
+
 2000-03-15  Geoff Keating  <geoffk@cygnus.com>
 
 	* rs6000.c (toc_hash_table): Update for new hash table functions.
