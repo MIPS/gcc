@@ -107,6 +107,8 @@ do {									\
 	  error ("invalid option `%s'", base);				\
 	darwin_fix_and_continue = (base[0] != 'n');			\
       }									\
+    if (TARGET_64BIT)							\
+      rs6000_longcall_switch = (char *)0;				\
   }									\
   if (TARGET_64BIT && ! TARGET_POWERPC64)				\
     {									\
