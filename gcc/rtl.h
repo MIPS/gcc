@@ -2166,6 +2166,8 @@ extern int read_rtx_lineno;
 extern void clear_reg_alias_info (rtx);
 extern rtx canon_rtx (rtx);
 extern int true_dependence (rtx, enum machine_mode, rtx, int (*)(rtx, int));
+/* APPLE LOCAL nop on true-dependence. */
+extern int must_true_dependence (rtx, rtx);
 extern rtx get_addr (rtx);
 extern int canon_true_dependence (rtx, enum machine_mode, rtx, rtx,
 				  int (*)(rtx, int));

@@ -16716,10 +16716,24 @@ rs6000_is_costly_dependence (rtx insn, rtx next, rtx link, int cost, int distanc
       && is_load_insn (next)
       && is_store_insn (insn)
       && (!link || (int) REG_NOTE_KIND (link) == 0))
+    {
      /* Prevent load after store in the same group if it is a true dependence.  */
+     /* APPLE LOCAL begin nop on true-dependence. */
+     if (GET_CODE (PATTERN (next)) == SET && GET_CODE (PATTERN (insn)) == SET)
+       {
+         rtx load_mem = SET_SRC (PATTERN (next));
+	 rtx sto_mem = SET_DEST (PATTERN (insn));
+	 if (GET_CODE (load_mem) == MEM && GET_CODE (sto_mem) == MEM)
+	   /* Only consider those true-depenedence cases that memory conflict 
+	      can be determined. Exclude cases, where true-dependency was decided
+	      because memory conflict could not be determined from aliasing info. */
+	   return must_true_dependence (load_mem, sto_mem);
+       }
+     /* APPLE LOCAL end nop on true-dependence. */
      return true;
-
-  /* The flag is set to X; dependences with latency >= X are considered costly,
+    }
+    
+  /* The flag is set to X; dependences with latency >= X are considered costly, 
      and will not be scheduled in the same group.  */
   if (rs6000_sched_costly_dep <= max_dep_latency
       && ((cost - distance) >= (int)rs6000_sched_costly_dep))
