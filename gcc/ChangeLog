@@ -1,3 +1,23 @@
+2002-10-04  Geoffrey Keating  <geoffk@apple.com>
+
+	* gengtype.c (adjust_field_rtx_def): Don't pass size_t to printf.
+	(output_mangled_typename): Don't pass size_t to printf.
+
+	* tree.h (union tree_type_symtab): Add tag to `address' field.
+	(union tree_decl_u2): Add tag to 'i' field.
+	* varasm.c (union rtx_const_un): Add tags to all fields.
+	* gengtype.c (struct walk_type_data): New.
+	(output_escaped_param): Take struct walk_type_data parameter.
+	(write_gc_structure_fields): Delete.
+	(walk_type): New.
+	(write_gc_marker_routine_for_structure): Delete.
+	(write_func_for_structure): New.
+	(gc_mark_process_field): New.
+	(gc_mark_func_name): New.
+	(gc_counter): Delete.
+	(write_gc_types): Use write_func_for_structure.
+	(write_gc_roots): Use walk_type.
+
 2002-10-02  Geoffrey Keating  <geoffk@apple.com>
 
 	* ggc-common.c (ggc_mark_roots): Delete 'x'.

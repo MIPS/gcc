@@ -1712,11 +1712,11 @@ struct lang_decl_flags GTY(())
     tree GTY ((tag ("0"))) access;
 
     /* For VAR_DECL in function, this is DECL_DISCRIMINATOR.  */
-    int discriminator;
+    int GTY ((tag ("1"))) discriminator;
 
     /* In a namespace-scope FUNCTION_DECL, this is
        GLOBAL_INIT_PRIORITY.  */
-    int init_priority;
+    int GTY ((tag ("3"))) init_priority;
 
     /* In a FUNCTION_DECL for which DECL_THUNK_P holds, this is
        THUNK_VCALL_OFFSET.  */

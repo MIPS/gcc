@@ -1,5 +1,7 @@
 2002-10-04  Geoffrey Keating  <geoffk@apple.com>
 
+	* cp-tree.h (union lang_decl_u2): Add tags to all fields.
+
 	* g++spec.c (lang_specific_driver): Don't include standard
 	libraries in `added'.
 

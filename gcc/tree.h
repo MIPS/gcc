@@ -1251,7 +1251,7 @@ struct tree_type GTY(())
   tree pointer_to;
   tree reference_to;
   union tree_type_symtab {
-    int address; 
+    int GTY ((tag ("0"))) address; 
     char * GTY ((tag ("1"))) pointer; 
     struct die_struct * GTY ((tag ("2"))) die;
   } GTY ((desc ("debug_hooks == &sdb_debug_hooks ? 1 : debug_hooks == &dwarf2_debug_hooks ? 2 : 0"), 
@@ -1859,7 +1859,7 @@ struct tree_decl GTY(())
     struct function * GTY ((tag ("FUNCTION_DECL"))) f;
     rtx GTY ((tag ("PARM_DECL"))) r;
     tree GTY ((tag ("FIELD_DECL"))) t;
-    int i;
+    int GTY ((tag ("VAR_DECL"))) i;
   } GTY ((desc ("TREE_CODE((tree) &(%0))"))) u2;
 
   /* In a FUNCTION_DECL, this is DECL_SAVED_TREE.  */

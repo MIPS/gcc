@@ -2160,7 +2160,7 @@ struct rtx_const GTY(())
   ENUM_BITFIELD(kind) kind : 16;
   ENUM_BITFIELD(machine_mode) mode : 16;
   union rtx_const_un {
-    REAL_VALUE_TYPE du;
+    REAL_VALUE_TYPE GTY ((tag ("4"))) du;
     struct addr_const GTY ((tag ("1"))) addr;
     struct rtx_const_u_di {
       HOST_WIDE_INT high;
