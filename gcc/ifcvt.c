@@ -87,7 +87,7 @@ static int num_removed_blocks_double_test;
 static bool life_data_ok;
 
 /* The post-dominator relation on the original block numbers.  */
-static sbitmap *post_dominators;
+static dominance_info post_dominators;
 
 struct double_test_info
   {
@@ -2985,8 +2985,8 @@ find_if_case_2 (test_bb, then_edge, else_edge)
   if (note && INTVAL (XEXP (note, 0)) >= REG_BR_PROB_BASE / 2)
     ;
   else if (else_succ->dest->index < 0
-	   || TEST_BIT (post_dominators[then_bb->index], 
-			else_succ->dest->index))
+	   || dominated_by_p (post_dominators, then_bb, 
+			      else_succ->dest))
     ;
   else
     return FALSE;
@@ -3328,8 +3328,7 @@ if_convert (x_life_data_ok)
   post_dominators = NULL;
   if (HAVE_conditional_execution || life_data_ok)
     {
-      post_dominators = sbitmap_vector_alloc (last_basic_block, last_basic_block);
-      calculate_dominance_info (NULL, post_dominators, CDI_POST_DOMINATORS);
+      post_dominators = calculate_dominance_info (CDI_POST_DOMINATORS);
     }
   if (life_data_ok)
     clear_bb_flags ();
@@ -3340,7 +3339,7 @@ if_convert (x_life_data_ok)
       continue;
 
   if (post_dominators)
-    sbitmap_vector_free (post_dominators);
+    free_dominance_info (post_dominators);
 
   if (rtl_dump_file)
     fflush (rtl_dump_file);

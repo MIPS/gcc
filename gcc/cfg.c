@@ -101,7 +101,6 @@ struct basic_block_def entry_exit_blocks[2]
     EXIT_BLOCK_PTR,		/* next_bb */
     0,				/* loop_depth */
     NULL,                       /* loop_father */
-    NULL,                       /* dominator */
     0,				/* count */
     0,				/* frequency */
     0				/* flags */
@@ -123,7 +122,6 @@ struct basic_block_def entry_exit_blocks[2]
     NULL,			/* next_bb */
     0,				/* loop_depth */
     NULL,                       /* loop_father */
-    NULL,                       /* dominator */
     0,				/* count */
     0,				/* frequency */
     0				/* flags */
@@ -554,7 +552,6 @@ dump_flow_info (file)
   fprintf (file, "\n%d basic blocks, %d edges.\n", n_basic_blocks, n_edges);
   FOR_EACH_BB (bb)
     {
-      basic_block dom_bb;
       edge e;
       int sum;
       gcov_type lsum;
@@ -571,10 +568,6 @@ dump_flow_info (file)
       if (probably_never_executed_bb_p (bb))
 	fprintf (file, ", probably never executed");
       fprintf (file, ".\n");
-
-      dom_bb = get_immediate_dominator (NULL, bb);
-      if (dom_bb)
-	fprintf (file, "Dominated by %d.\n", dom_bb->index);
 
       fprintf (file, "Predecessors: ");
       for (e = bb->pred; e; e = e->pred_next)

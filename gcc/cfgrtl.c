@@ -2237,6 +2237,11 @@ purge_dead_edges (bb)
 	}
     }
 
+  /* Noreturn call insns have no outgoing edges.  */
+  if (!bb->succ
+      && GET_CODE (bb->end) == CALL_INSN)
+    return purged;
+
   if (!bb->succ || bb->succ->succ_next)
     abort ();
 

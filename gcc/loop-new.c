@@ -42,178 +42,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "loop.h"
 #include "params.h"
 #include "output.h"
-/* Stupid definitions of dominator manipulation.  */
-
-basic_block
-get_immediate_dominator (bmp, bb)
-     sbitmap *bmp __attribute__ ((__unused__));
-     basic_block bb;
-{
-  return bb->dominator;
-}
-
-void
-set_immediate_dominator (bmp, bb, dominated_by)
-     sbitmap *bmp __attribute__ ((__unused__));
-     basic_block bb;
-     basic_block dominated_by;
-{
-  bb->dominator = dominated_by;
-}
-
-int
-get_dominated_by (dom, bb, bbs)
-     sbitmap *dom __attribute__ ((__unused__));
-     basic_block bb;
-     basic_block **bbs;
-{
-  int n;
-  basic_block b;
-  n = 0;
-
-  FOR_EACH_BB (b)
-    if (b->dominator == bb)
-      n++;
-  *bbs = xcalloc (n, sizeof (basic_block));
-  n = 0;
-  FOR_EACH_BB (b)
-    if (b->dominator == bb)
-      (*bbs)[n++] = b;
-  return n;
-}
-
-void
-redirect_immediate_dominators (dom, bb, to)
-     sbitmap *dom __attribute__ ((__unused__));
-     basic_block bb;
-     basic_block to;
-{
-  basic_block b;
-
-  FOR_EACH_BB (b)
-    if (b->dominator == bb)
-      b->dominator = to;
-}
-
-basic_block
-nearest_common_dominator (bmp, bb1, bb2)
-     sbitmap *bmp __attribute__ ((__unused__));
-     basic_block bb1;
-     basic_block bb2;
-{
-  int l1, l2, l;
-  basic_block ab;
-
-  if (!bb1)
-    return bb2;
-  if (!bb2)
-    return bb1;
-
-  for (l1 = 0, ab = bb1; ab && ab != ab->dominator; ab = ab->dominator)
-    l1++;
-  if (ab)
-    return bb2;
-  for (l2 = 0, ab = bb2; ab && ab != ab->dominator; ab = ab->dominator)
-    l2++;
-  if (ab)
-    return bb1;
-
-  if (l1 > l2)
-    {
-      ab = bb1; bb1 = bb2; bb2= ab;
-      l = l1; l1 = l2; l2 = l;
-    }
-  while (l2 > l1)
-    {
-      bb2 = bb2->dominator;
-      l2--;
-    }
-  while (bb1 != bb2)
-    {
-      bb1 = bb1->dominator;
-      bb2 = bb2->dominator;
-    }
-  return bb1;
-}
-
-bool
-dominated_by_p (dom, bb1, bb2)
-     sbitmap *dom __attribute__ ((__unused__));
-     basic_block bb1;
-     basic_block bb2;
-{
-  while (bb1 && bb1 != bb2)
-    bb1 = bb1->dominator;
-  return bb1 != NULL;
-}
-
-void
-verify_dominators (void)
-{
-  int err = 0;
-  basic_block bb;
-
-  FOR_EACH_BB (bb)
-    {
-      basic_block dom_bb;
-
-      dom_bb = recount_dominator (NULL, bb);
-      if (dom_bb != bb->dominator)
-	{
-	  error ("dominator of %d should be %d, not %d",
-	   bb->index, dom_bb->index, bb->dominator->index);
-	  err = 1;
-	}
-    }
-  if (err)
-    abort ();
-}
-
-/* Recount dominator of BB.  */
-basic_block
-recount_dominator (dom, bb)
-     sbitmap *dom;
-     basic_block bb;
-{
-   basic_block dom_bb = NULL, old_dom_bb;
-   edge e;
-
-   old_dom_bb = get_immediate_dominator (dom, bb);
-   set_immediate_dominator (dom, bb, bb);
-   for (e = bb->pred; e; e = e->pred_next)
-     dom_bb = nearest_common_dominator (dom, dom_bb, e->src);
-   set_immediate_dominator (dom, bb, old_dom_bb);
-
-   return dom_bb;
-}
-
-/* Iteratively recount dominators of BBS. The change is supposed to be local
-   and not to grow further.  */
-void
-iterate_fix_dominators (doms, bbs, n)
-     sbitmap *doms;
-     basic_block *bbs;
-     int n;
-{
-  int i, changed = 1;
-  basic_block old_dom, new_dom;
-
-  while (changed)
-    {
-      changed = 0;
-      for (i = 0; i < n; i++)
-	{
-	  old_dom = get_immediate_dominator (doms, bbs[i]);
-	  new_dom = recount_dominator (doms, bbs[i]);
-	  if (old_dom != new_dom)
-	    {
-	      changed = 1;
-	      set_immediate_dominator (doms, bbs[i], new_dom);
-	    }
-	}
-    }
-}
-
 static struct loop * duplicate_loop PARAMS ((struct loops *, struct loop *, struct loop *));
 static void duplicate_subloops PARAMS ((struct loops *, struct loop *, struct loop *));
 static void copy_loops_to PARAMS ((struct loops *, struct loop **, int, struct loop *));
@@ -221,9 +49,9 @@ static void loop_redirect_edge PARAMS ((edge, basic_block));
 static bool loop_delete_branch_edge PARAMS ((edge));
 static void copy_bbs PARAMS ((basic_block *, int, edge, edge, basic_block **, struct loops *, edge *, edge *));
 static struct loop *unswitch_loop PARAMS ((struct loops *, struct loop *, basic_block));
-static void remove_bbs PARAMS ((basic_block *, int));
+static void remove_bbs PARAMS ((dominance_info, basic_block *, int));
 static bool rpe_enum_p PARAMS ((basic_block, void *));
-static int find_branch PARAMS ((edge, sbitmap *, basic_block **));
+static int find_branch PARAMS ((edge, dominance_info, basic_block **));
 static struct loop *loopify PARAMS ((struct loops *, edge, edge, basic_block));
 static bool alp_enum_p PARAMS ((basic_block, void *));
 static void add_loop PARAMS ((struct loops *, struct loop *));
@@ -276,7 +104,7 @@ loop_optimizer_init (dumpfile)
   flow_loops_dump (loops, dumpfile, NULL, 1);
 
 #ifdef ENABLE_CHECKING
-  verify_dominators ();
+  verify_dominators (loops->cfg.dom);
   verify_loop_structure (loops, VLS_FOR_LOOP_NEW);
 #endif
 
@@ -311,10 +139,6 @@ loop_optimizer_finalize (loops, dumpfile)
   /* Finalize changes.  */
   cfg_layout_finalize ();
 
-  /* Remove dominators.  */
-  FOR_EACH_BB (bb)
-    bb->dominator = NULL;
-
   /* Checking.  */
 #ifdef ENABLE_CHECKING
   verify_flow_info ();
@@ -344,7 +168,7 @@ unswitch_loops (loops)
 
       unswitch_single_loop (loops, loop, NULL_RTX, 0);
 #ifdef ENABLE_CHECKING
-      verify_dominators ();
+      verify_dominators (loops->cfg.dom);
       verify_loop_structure (loops, VLS_FOR_LOOP_NEW);
 #endif
     }
@@ -369,6 +193,7 @@ split_loop_bb (loops, bb, insn)
   add_bb_to_loop (e->dest, e->src->loop_father);
 
   /* Fix dominators.  */
+  add_to_dominance_info (loops->cfg.dom, e->dest);
   n_dom_bbs = get_dominated_by (loops->cfg.dom, e->src, &dom_bbs);
   for (i = 0; i < n_dom_bbs; i++)
     set_immediate_dominator (loops->cfg.dom, dom_bbs[i], e->dest);
@@ -597,7 +422,7 @@ unswitch_single_loop (loops, loop, cond_checked, num)
 struct rpe_data
  {
    basic_block dom;
-   sbitmap *doms;
+   dominance_info doms;
  };
 
 static bool
@@ -611,7 +436,8 @@ rpe_enum_p (bb, data)
 
 /* Remove BBS.  */
 static void
-remove_bbs (bbs, nbbs)
+remove_bbs (dom, bbs, nbbs)
+     dominance_info dom;
      basic_block *bbs;
      int nbbs;
 {
@@ -627,6 +453,7 @@ remove_bbs (bbs, nbbs)
 	  remove_edge (ae);
 	}
       remove_bb_from_loops (bbs[i]);
+      delete_from_dominance_info (dom, bbs[i]);
       flow_delete_block (bbs[i]);
     }
 }
@@ -635,7 +462,7 @@ remove_bbs (bbs, nbbs)
 static int
 find_branch (e, doms, bbs)
      edge e;
-     sbitmap *doms;
+     dominance_info doms;
      basic_block **bbs;
 {
   edge ae = NULL;
@@ -718,7 +545,7 @@ remove_path (loops, e)
     if (rem_bbs[i]->loop_father->header == rem_bbs[i])
       cancel_loop_tree (loops, rem_bbs[i]->loop_father);
 
-  remove_bbs (rem_bbs, nrem);
+  remove_bbs (loops->cfg.dom, rem_bbs, nrem);
   free (rem_bbs);
 
   /* Find blocks with affected dominators.  */
@@ -1019,6 +846,7 @@ unswitch_loop (loops, loop, unswitch_on)
 
   /* Make a copy of unswitched block.  */
   switch_bb = cfg_layout_duplicate_bb (unswitch_on, NULL);
+  add_to_dominance_info (loops->cfg.dom, switch_bb);
   RBI (unswitch_on)->copy = unswitch_on_alt;
 
   /* Loopify the copy.  */
@@ -1188,6 +1016,7 @@ copy_bbs (bbs, n, entry, latch_edge, new_bbs, loops, header_edge, copy_header_ed
       RBI (new_bb)->duplicated = 1;
       /* Add to loop.  */
       add_bb_to_loop (new_bb, bb->loop_father->copy);
+      add_to_dominance_info (loops->cfg.dom, new_bb);
       /* Possibly set header.  */
       if (bb->loop_father->header == bb && bb != header)
 	new_bb->loop_father->header = new_bb;

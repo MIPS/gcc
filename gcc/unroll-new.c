@@ -79,7 +79,7 @@ unroll_and_peel_loops (loops, flags)
 
       unroll_or_peel_loop (loops, loop, flags);
 #ifdef ENABLE_CHECKING
-      verify_dominators ();
+      verify_dominators (loops->cfg.dom);
       verify_loop_structure (loops, VLS_FOR_LOOP_NEW);
 #endif
       loop = next;
@@ -356,6 +356,7 @@ unroll_loop_runtime_iterations (loops, loop, max_unroll, desc)
 
   /* Fake block, to record edges we need to redirect.  */
   fake = create_basic_block (NULL, NULL, EXIT_BLOCK_PTR->prev_bb);
+  add_to_dominance_info (loops->cfg.dom, fake);
   loop_beg_label = block_label (fake);
 
   remove_edges = xcalloc (max_unroll + n_peel, sizeof (edge));
@@ -420,6 +421,7 @@ unroll_loop_runtime_iterations (loops, loop, max_unroll, desc)
   free (dom_bbs);
 
   /* Get rid of fake.  */
+  delete_from_dominance_info (loops->cfg.dom, fake);
   flow_delete_block (fake);
 
   /* And unroll loop.  */

@@ -654,6 +654,7 @@ cleanup_unconditional_jumps (loops)
 		      (loops->cfg.dom, bb->succ->dest, bb->pred->src);
 
 		  remove_bb_from_loops (bb);
+		  delete_from_dominance_info (loops->cfg.dom, bb);
 		}
 
 	      redirect_edge_succ (bb->pred, bb->succ->dest);

@@ -5799,7 +5799,7 @@ static sbitmap *hoist_vbeout;
 static sbitmap *hoist_exprs;
 
 /* Dominator bitmaps.  */
-static sbitmap *dominators;
+dominance_info dominators;
 
 /* ??? We could compute post dominators and run this algorithm in
    reverse to to perform tail merging, doing so would probably be
@@ -5822,8 +5822,6 @@ alloc_code_hoist_mem (n_blocks, n_exprs)
   hoist_vbeout = sbitmap_vector_alloc (n_blocks, n_exprs);
   hoist_exprs = sbitmap_vector_alloc (n_blocks, n_exprs);
   transpout = sbitmap_vector_alloc (n_blocks, n_exprs);
-
-  dominators = sbitmap_vector_alloc (n_blocks, n_blocks);
 }
 
 /* Free vars used for code hoisting analysis.  */
@@ -5840,7 +5838,7 @@ free_code_hoist_mem ()
   sbitmap_vector_free (hoist_exprs);
   sbitmap_vector_free (transpout);
 
-  sbitmap_vector_free (dominators);
+  free_dominance_info (dominators);
 }
 
 /* Compute the very busy expressions at entry/exit from each block.
@@ -5889,7 +5887,7 @@ compute_code_hoist_data ()
   compute_local_properties (transp, comp, antloc, 0);
   compute_transpout ();
   compute_code_hoist_vbeinout ();
-  calculate_dominance_info (NULL, dominators, CDI_DOMINATORS);
+  dominators = calculate_dominance_info (CDI_DOMINATORS);
   if (gcse_file)
     fprintf (gcse_file, "\n");
 }
@@ -5996,7 +5994,7 @@ hoist_code ()
 		{
 		  /* Ignore self dominance.  */
 		  if (bb == dominated
-		      || ! TEST_BIT (dominators[dominated->index], bb->index))
+		      || dominated_by_p (dominators, dominated, bb))
 		    continue;
 
 		  /* We've found a dominated block, now see if it computes
@@ -6053,7 +6051,7 @@ hoist_code ()
 		{
 		  /* Ignore self dominance.  */
 		  if (bb == dominated
-		      || ! TEST_BIT (dominators[dominated->index], bb->index))
+		      || ! dominated_by_p (dominators, dominated, bb))
 		    continue;
 
 		  /* We've found a dominated block, now see if it computes

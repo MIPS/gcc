@@ -38,6 +38,7 @@
 #include "rtl.h"
 #include "hard-reg-set.h"
 #include "basic-block.h"
+#include "error.h"
 
 
 /* We name our nodes with integers, beginning with 1.  Zero is reserved for
@@ -113,8 +114,9 @@ static TBB eval				PARAMS ((struct dom_info *, TBB));
 static void link_roots			PARAMS ((struct dom_info *, TBB, TBB));
 static void calc_idoms			PARAMS ((struct dom_info *,
 						 enum cdi_direction));
-static void idoms_to_doms		PARAMS ((struct dom_info *,
-						 sbitmap *));
+static hashval_t bb_hash_func PARAMS ((const et_forest_value));
+static int bb_eq_func PARAMS ((const et_forest_value, const et_forest_value));
+void debug_dominance_info		PARAMS ((dominance_info));
 
 /* Helper macro for allocating and initializing an array,
    for aesthetic reasons.  */
@@ -531,50 +533,6 @@ calc_idoms (di, reverse)
       di->dom[v] = di->dom[di->dom[v]];
 }
 
-/* Convert the information about immediate dominators (in DI) to sets of all
-   dominators (in DOMINATORS).  */
-
-static void
-idoms_to_doms (di, dominators)
-     struct dom_info *di;
-     sbitmap *dominators;
-{
-  TBB i, e_index;
-  int bb, bb_idom;
-  sbitmap_vector_zero (dominators, last_basic_block);
-  /* We have to be careful, to not include the ENTRY_BLOCK or EXIT_BLOCK
-     in the list of (post)-doms, so remember that in e_index.  */
-  e_index = di->dfs_order[last_basic_block];
-
-  for (i = 1; i <= di->nodes; i++)
-    {
-      if (i == e_index)
-	continue;
-      bb = di->dfs_to_bb[i]->index;
-
-      if (di->dom[i] && (di->dom[i] != e_index))
-	{
-	  bb_idom = di->dfs_to_bb[di->dom[i]]->index;
-	  sbitmap_copy (dominators[bb], dominators[bb_idom]);
-	}
-      else
-	{
-	  /* It has no immediate dom or only ENTRY_BLOCK or EXIT_BLOCK.
-	     If it is a child of ENTRY_BLOCK that's OK, and it's only
-	     dominated by itself; if it's _not_ a child of ENTRY_BLOCK, it
-	     means, it is unreachable.  That case has been disallowed in the
-	     building of the DFS tree, so we are save here.  For the reverse
-	     flow graph it means, it has no children, so, to be compatible
-	     with the old code, we set the post_dominators to all one.  */
-	  if (!di->dom[i])
-	    {
-	      sbitmap_ones (dominators[bb]);
-	    }
-	}
-      SET_BIT (dominators[bb], bb);
-    }
-}
-
 /* The main entry point into this module.  IDOM is an integer array with room
    for last_basic_block integers, DOMS is a preallocated sbitmap array having
    room for last_basic_block^2 bits, and POST is true if the caller wants to
@@ -587,37 +545,259 @@ idoms_to_doms (di, dominators)
    Either IDOM or DOMS may be NULL (meaning the caller is not interested in
    immediate resp. all dominators).  */
 
-void
-calculate_dominance_info (idom, doms, reverse)
-     int *idom;
-     sbitmap *doms;
+dominance_info
+calculate_dominance_info (reverse)
      enum cdi_direction reverse;
 {
   struct dom_info di;
+  dominance_info info;
+  basic_block b;
 
-  if (!doms && !idom)
-    return;
+  /* allocate structure for dominance information.  */
+  info = et_forest_create (n_basic_blocks * 4 / 3 + 10,
+			   bb_hash_func, bb_eq_func, NULL);
+  /* Add the two well-known basic blocks.  */
+  et_forest_add_vertex (info, ENTRY_BLOCK_PTR);
+  et_forest_add_vertex (info, EXIT_BLOCK_PTR);
+  FOR_EACH_BB (b)
+    et_forest_add_vertex (info, b);
+
   init_dom_info (&di);
   calc_dfs_tree (&di, reverse);
   calc_idoms (&di, reverse);
 
-  if (idom)
+
+  FOR_EACH_BB (b)
     {
-      basic_block b;
+      TBB d = di.dom[di.dfs_order[b->index]];
 
-      FOR_EACH_BB (b)
-	{
-	  TBB d = di.dom[di.dfs_order[b->index]];
-
-	  /* The old code didn't modify array elements of nodes having only
-	     itself as dominator (d==0) or only ENTRY_BLOCK (resp. EXIT_BLOCK)
-	     (d==1).  */
-	  if (d > 1)
-	    idom[b->index] = di.dfs_to_bb[d]->index;
-	}
+      set_immediate_dominator (info, b, di.dfs_to_bb[d]);
     }
-  if (doms)
-    idoms_to_doms (&di, doms);
 
   free_dom_info (&di);
+  return info;
+}
+
+/* Callback functions needed by et_forest_t.  */
+static hashval_t
+bb_hash_func (_bb)
+     const et_forest_value _bb;
+{
+  /* Basic block numbers are not stable - we can't use them as hash value.  */
+  int hash = (int) _bb;
+
+  hash >>= 4;
+
+  return hash;
+}
+
+static int
+bb_eq_func (_bb1, _bb2)
+     const et_forest_value _bb1;
+     const et_forest_value _bb2;
+{
+  return _bb1 == _bb2;
+}
+
+/* Free dominance information.  */
+void
+free_dominance_info (info)
+     dominance_info info;
+{
+  et_forest_delete (info);
+}
+
+/* Return the immediate dominator of basic block BB.  */
+basic_block
+get_immediate_dominator (dom, bb)
+     dominance_info dom;
+     basic_block bb;
+{
+  return et_forest_parent (dom, bb);
+}
+
+/* Set the immediate dominator of the block possibly removing
+   existing edge.  NULL can be used to remove any edge.  */
+void
+set_immediate_dominator (dom, bb, dominated_by)
+       dominance_info dom;
+       basic_block bb, dominated_by;
+{
+  basic_block aux_bb;
+
+  aux_bb = et_forest_parent (dom, bb);
+
+  if (aux_bb)
+    et_forest_remove_edge (dom, aux_bb, bb);
+
+  if (dominated_by != NULL)
+    {
+      /* Check for cycles in the structure.  */
+#ifdef ENABLE_CHECKING
+      if (bb == dominated_by
+	  || dominated_by_p (dom, dominated_by, bb))
+	abort ();
+#endif
+      et_forest_add_edge (dom, dominated_by, bb);
+    }
+}
+
+/* Store all basic blocks dominated by BB into BBS and return their number.  */
+int
+get_dominated_by (dom, bb, bbs)
+     dominance_info dom;
+     basic_block bb;
+     basic_block **bbs;
+{
+  int n;
+  basic_block b;
+  n = 0;
+
+  FOR_EACH_BB (b)
+    if (get_immediate_dominator (dom, b) == bb)
+      n++;
+  *bbs = xcalloc (n, sizeof (basic_block));
+  n = 0;
+  FOR_EACH_BB (b)
+    if (get_immediate_dominator (dom, b) == bb)
+      (*bbs)[n++] = b;
+  return n;
+}
+
+/* Redirect all edges pointing to BB to TO.  */
+void
+redirect_immediate_dominators (dom, bb, to)
+     dominance_info dom;
+     basic_block bb;
+     basic_block to;
+{
+  basic_block b;
+
+  FOR_EACH_BB (b)
+    if (get_immediate_dominator (dom, b) == bb)
+      set_immediate_dominator (dom, b, to);
+}
+
+/* Find first basic block in the tree dominating both BB1 and BB2.  */
+basic_block
+nearest_common_dominator (dom, bb1, bb2)
+     dominance_info dom;
+     basic_block bb1;
+     basic_block bb2;
+{
+  if (!bb1)
+    return bb2;
+  if (!bb2)
+    return bb1;
+  return et_forest_common_ancestor (dom, bb1, bb2);
+}
+
+/* Return TRUE in case BB1 is dominated by BB2.  */
+bool
+dominated_by_p (dom, bb1, bb2)
+     dominance_info dom;
+     basic_block bb1;
+     basic_block bb2;
+{
+  return  nearest_common_dominator (dom, bb1, bb2) == bb2;
+#if 0
+  while (bb1 && bb1 != bb2)
+    bb1 = get_immediate_dominator (dom, bb1);
+  return bb1 != NULL;
+#endif
+}
+
+/* Verify invariants of dominator structure.  */
+void
+verify_dominators (dom)
+     dominance_info dom;
+{
+  int err = 0;
+  basic_block bb;
+
+  FOR_EACH_BB (bb)
+    {
+      basic_block dom_bb;
+
+      dom_bb = recount_dominator (dom, bb);
+      if (dom_bb != get_immediate_dominator (dom, bb))
+	{
+	  error ("dominator of %d should be %d, not %d",
+	   bb->index, dom_bb->index, get_immediate_dominator(dom, bb)->index);
+	  err = 1;
+	}
+    }
+  if (err)
+    abort ();
+}
+
+/* Recount dominator of BB.  */
+basic_block
+recount_dominator (dom, bb)
+     dominance_info dom;
+     basic_block bb;
+{
+   basic_block dom_bb = NULL;
+   edge e;
+
+   for (e = bb->pred; e; e = e->pred_next)
+     {
+       if (!dominated_by_p (dom, e->src, bb))
+         dom_bb = nearest_common_dominator (dom, dom_bb, e->src);
+     }
+
+   return dom_bb;
+}
+
+/* Iteratively recount dominators of BBS. The change is supposed to be local
+   and not to grow further.  */
+void
+iterate_fix_dominators (dom, bbs, n)
+     dominance_info dom;
+     basic_block *bbs;
+     int n;
+{
+  int i, changed = 1;
+  basic_block old_dom, new_dom;
+
+  while (changed)
+    {
+      changed = 0;
+      for (i = 0; i < n; i++)
+	{
+	  old_dom = get_immediate_dominator (dom, bbs[i]);
+	  new_dom = recount_dominator (dom, bbs[i]);
+	  if (old_dom != new_dom)
+	    {
+	      changed = 1;
+	      set_immediate_dominator (dom, bbs[i], new_dom);
+	    }
+	}
+    }
+}
+
+void
+add_to_dominance_info (dom, bb)
+     dominance_info dom;
+     basic_block bb;
+{
+  et_forest_add_vertex (dom, bb);
+}
+
+void
+delete_from_dominance_info (dom, bb)
+     dominance_info dom;
+     basic_block bb;
+{
+  et_forest_remove_vertex (dom, bb);
+}
+
+void
+debug_dominance_info (dom)
+  dominance_info dom;
+{
+  basic_block bb, bb2;
+  FOR_EACH_BB (bb)
+    if ((bb2 = get_immediate_dominator (dom, bb)))
+      fprintf (stderr, "%i %i\n", bb->index, bb2->index);
 }

@@ -440,7 +440,7 @@ test_invariants (loops)
 basic_block
 create_preheader (loop, dom, flags)
      struct loop *loop;
-     sbitmap *dom;
+     dominance_info dom;
      int flags;
 {
   edge e, fallthru;
@@ -481,6 +481,7 @@ create_preheader (loop, dom, flags)
 
   if (flags & CP_INSIDE_CFGLAYOUT)
     alloc_aux_for_block (fallthru->dest, sizeof (struct reorder_block_def));
+  add_to_dominance_info (dom, fallthru->dest);
   
   /* Redirect edges. */
   for (e = dummy->pred; e; e = e->pred_next)
@@ -502,6 +503,7 @@ create_preheader (loop, dom, flags)
       jump = redirect_edge_and_branch_force (e, loop->header);
       if (jump)
 	{
+	  add_to_dominance_info (dom, jump);
 	  set_immediate_dominator (dom, jump, src);
 	  add_bb_to_loop (jump, loop);
 	}
@@ -1205,6 +1207,7 @@ loop_split_edge_with (e, insns, loops)
   /* Create basic block for it.  */
 
   new_bb = create_basic_block (NULL_RTX, NULL_RTX, EXIT_BLOCK_PTR->prev_bb);
+  add_to_dominance_info (loops->cfg.dom, new_bb);
   add_bb_to_loop (new_bb, loop_c);
   new_bb->flags = BB_SUPERBLOCK;
 

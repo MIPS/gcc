@@ -163,7 +163,7 @@ struct rename_context;
 static inline rtx * phi_alternative
   PARAMS ((rtx, int));
 static void compute_dominance_frontiers_1
-  PARAMS ((sbitmap *frontiers, int *idom, int bb, sbitmap done));
+  PARAMS ((sbitmap *frontiers, dominance_info idom, int bb, sbitmap done));
 static void find_evaluations_1
   PARAMS ((rtx dest, rtx set, void *data));
 static void find_evaluations
@@ -181,9 +181,9 @@ static void apply_delayed_renames
 static int rename_insn_1
   PARAMS ((rtx *ptr, void *data));
 static void rename_block
-  PARAMS ((int b, int *idom));
+  PARAMS ((int b, dominance_info dom));
 static void rename_registers
-  PARAMS ((int nregs, int *idom));
+  PARAMS ((int nregs, dominance_info idom));
 
 static inline int ephi_add_node
   PARAMS ((rtx reg, rtx *nodes, int *n_nodes));
@@ -514,7 +514,7 @@ find_evaluations (evals, nregs)
 static void
 compute_dominance_frontiers_1 (frontiers, idom, bb, done)
      sbitmap *frontiers;
-     int *idom;
+     dominance_info idom;
      int bb;
      sbitmap done;
 {
@@ -529,7 +529,8 @@ compute_dominance_frontiers_1 (frontiers, idom, bb, done)
      dominator tree (blocks dominated by this one) are children in the
      CFG, so check all blocks.  */
   FOR_EACH_BB (c)
-    if (idom[c->index] == bb && ! TEST_BIT (done, c->index))
+    if (get_immediate_dominator (idom, c)->index == bb
+	&& ! TEST_BIT (done, c->index))
       compute_dominance_frontiers_1 (frontiers, idom, c->index, done);
 
   /* Find blocks conforming to rule (1) above.  */
@@ -537,18 +538,18 @@ compute_dominance_frontiers_1 (frontiers, idom, bb, done)
     {
       if (e->dest == EXIT_BLOCK_PTR)
 	continue;
-      if (idom[e->dest->index] != bb)
+      if (get_immediate_dominator (idom, e->dest)->index != bb)
 	SET_BIT (frontiers[bb], e->dest->index);
     }
 
   /* Find blocks conforming to rule (2).  */
   FOR_EACH_BB (c)
-    if (idom[c->index] == bb)
+    if (get_immediate_dominator (idom, c)->index == bb)
       {
 	int x;
 	EXECUTE_IF_SET_IN_SBITMAP (frontiers[c->index], 0, x,
 	  {
-	    if (idom[x] != bb)
+	    if (get_immediate_dominator (idom, BASIC_BLOCK (x))->index != bb)
 	      SET_BIT (frontiers[bb], x);
 	  });
       }
@@ -557,7 +558,7 @@ compute_dominance_frontiers_1 (frontiers, idom, bb, done)
 void
 compute_dominance_frontiers (frontiers, idom)
      sbitmap *frontiers;
-     int *idom;
+     dominance_info idom;
 {
   sbitmap done = sbitmap_alloc (last_basic_block);
   sbitmap_zero (done);
@@ -977,7 +978,7 @@ rename_insn_1 (ptr, data)
 static void
 rename_block (bb, idom)
      int bb;
-     int *idom;
+     dominance_info idom;
 {
   basic_block b = BASIC_BLOCK (bb);
   edge e;
@@ -1087,7 +1088,7 @@ rename_block (bb, idom)
      dominator order.  */
 
   FOR_EACH_BB (c)
-    if (idom[c->index] == bb)
+    if (get_immediate_dominator (idom, c)->index == bb)
       rename_block (c->index, idom);
 
   /* Step Four: Update the sets to refer to their new register,
@@ -1113,7 +1114,7 @@ rename_block (bb, idom)
 static void
 rename_registers (nregs, idom)
      int nregs;
-     int *idom;
+     dominance_info idom;
 {
   VARRAY_RTX_INIT (ssa_definition, nregs * 3, "ssa_definition");
   ssa_rename_from_initialize ();
@@ -1144,7 +1145,7 @@ convert_to_ssa ()
   sbitmap *idfs;
 
   /* Element I is the immediate dominator of block I.  */
-  int *idom;
+  dominance_info idom;
 
   int nregs;
 
@@ -1158,15 +1159,14 @@ convert_to_ssa ()
      dead code.  We'll let the SSA optimizers do that.  */
   life_analysis (get_insns (), NULL, 0);
 
-  idom = (int *) alloca (last_basic_block * sizeof (int));
-  memset ((void *) idom, -1, (size_t) last_basic_block * sizeof (int));
-  calculate_dominance_info (idom, NULL, CDI_DOMINATORS);
+  idom = calculate_dominance_info (CDI_DOMINATORS);
 
   if (rtl_dump_file)
     {
       fputs (";; Immediate Dominators:\n", rtl_dump_file);
       FOR_EACH_BB (bb)
-	fprintf (rtl_dump_file, ";\t%3d = %3d\n", bb->index, idom[bb->index]);
+	fprintf (rtl_dump_file, ";\t%3d = %3d\n", bb->index,
+		 get_immediate_dominator (idom, bb)->index);
       fflush (rtl_dump_file);
     }
 
@@ -1217,6 +1217,7 @@ convert_to_ssa ()
   in_ssa_form = 1;
 
   reg_scan (get_insns (), max_reg_num (), 1);
+  free_dominance_info (idom);
 }
 
 /* REG is the representative temporary of its partition.  Add it to the

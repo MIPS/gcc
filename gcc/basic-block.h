@@ -26,6 +26,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "sbitmap.h"
 #include "varray.h"
 #include "partition.h"
+#include "et-forest.h"
 
 /* Head of register set linked list.  */
 typedef bitmap_head regset_head;
@@ -215,9 +216,6 @@ typedef struct basic_block_def {
   /* Outermost loop containing the block.  */
   struct loop *loop_father;
 
-  /* Immediate dominator.  This is just a stupid temporary implementation.  */
-  struct basic_block_def *dominator;
-
   /* Expected number of executions: calculated in profile.c.  */
   gcov_type count;
 
@@ -354,6 +352,10 @@ extern void dump_edge_info		PARAMS ((FILE *, edge, int));
 extern void clear_edges			PARAMS ((void));
 extern void mark_critical_edges		PARAMS ((void));
 extern rtx first_insn_after_basic_block_note	PARAMS ((basic_block));
+
+/* Dominator information for basic blocks.  */
+
+typedef et_forest_t dominance_info;
 
 /* Structure to hold information for each natural loop.  */
 struct loop
@@ -498,7 +500,7 @@ struct loops
   struct cfg
   {
     /* The bitmap vector of dominators or NULL if not computed.  */
-    sbitmap *dom;
+    dominance_info dom;
 
     /* The ordering of the basic blocks in a depth first search.  */
     int *dfs_order;
@@ -787,21 +789,23 @@ enum cdi_direction
   CDI_POST_DOMINATORS
 };
 
-extern void calculate_dominance_info	PARAMS ((int *, sbitmap *,
-						 enum cdi_direction));
-extern basic_block nearest_common_dominator	PARAMS ((sbitmap *,
+extern dominance_info calculate_dominance_info	PARAMS ((enum cdi_direction));
+extern void free_dominance_info			PARAMS ((dominance_info));
+extern basic_block nearest_common_dominator	PARAMS ((dominance_info,
 						 basic_block, basic_block));
-extern void set_immediate_dominator	PARAMS ((sbitmap *,
+extern void set_immediate_dominator	PARAMS ((dominance_info,
 						 basic_block, basic_block));
-extern basic_block get_immediate_dominator	PARAMS ((sbitmap *,
+extern basic_block get_immediate_dominator	PARAMS ((dominance_info,
 						 basic_block));
-extern bool dominated_by_p	PARAMS ((sbitmap *, basic_block, basic_block));
-extern int get_dominated_by PARAMS ((sbitmap *, basic_block, basic_block **));
-basic_block recount_dominator PARAMS ((sbitmap *, basic_block));
-extern void redirect_immediate_dominators PARAMS ((sbitmap *, basic_block,
+extern bool dominated_by_p	PARAMS ((dominance_info, basic_block, basic_block));
+extern int get_dominated_by PARAMS ((dominance_info, basic_block, basic_block **));
+extern void add_to_dominance_info PARAMS ((dominance_info, basic_block));
+extern void delete_from_dominance_info PARAMS ((dominance_info, basic_block));
+basic_block recount_dominator PARAMS ((dominance_info, basic_block));
+extern void redirect_immediate_dominators PARAMS ((dominance_info, basic_block,
 						 basic_block));
-void iterate_fix_dominators PARAMS ((sbitmap *, basic_block *, int));
-extern void verify_dominators PARAMS ((void));
+void iterate_fix_dominators PARAMS ((dominance_info, basic_block *, int));
+extern void verify_dominators PARAMS ((dominance_info));
 
 /* In cfgloopanal.c */
 struct loop_invariants *init_loop_invariants PARAMS ((struct loop *, struct df *));
@@ -820,6 +824,6 @@ bool control_flow_insn_p		PARAMS ((rtx));
 #define CP_FOR_LOOP_NEW		(CP_SIMPLE_PREHEADERS | CP_INSIDE_CFGLAYOUT)
 
 void create_preheaders		 PARAMS ((struct loops *, int));
-basic_block create_preheader	 PARAMS ((struct loop *, sbitmap *, int));
+basic_block create_preheader	 PARAMS ((struct loop *, dominance_info, int));
 
 #endif /* GCC_BASIC_BLOCK_H */
