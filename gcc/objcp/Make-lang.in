@@ -65,7 +65,7 @@ objcp/objcp-lang.o : objcp/objcp-lang.c \
 objcp/objcp-decl.o : objcp/objcp-decl.c \
    $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) $(C_TREE_H) \
    toplev.h $(GGC_H) c-pragma.h input.h flags.h output.h objc/objc-act.h \
-   objcp/objcp-decl.h gt-objcp-objcp-decl.h
+   objcp/objcp-decl.h
 
 # The following must be an explicit rule; please keep in sync with the implicit
 # one in Makefile.in.
@@ -79,7 +79,6 @@ objcp/objcp-act.o : objc/objc-act.c \
 po-generated:
 
 gtype-objcp.h : s-gtype ; @true
-gt-objcp-objcp-decl.h : s-gtype ; @true
 
 #
 # Build hooks:

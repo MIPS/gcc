@@ -11134,14 +11134,7 @@ rs6000_split_multireg_move (rtx dst, rtx src)
 	      dst = gen_rtx_MEM (mode, breg);
 	    }
 	  else if (! offsettable_memref_p (dst))
-	    {
-	      rtx newdst, basereg;
-	      basereg = gen_rtx_REG (Pmode, reg);
-	      emit_insn (gen_rtx_SET (VOIDmode, basereg, XEXP (dst, 0)));
-	      newdst = gen_rtx_MEM (GET_MODE (dst), basereg);
-	      MEM_COPY_ATTRIBUTES (newdst, dst);
-	      dst = newdst;
-	    }
+	    abort ();
 	}
 
       for (i = 0; i < nregs; i++)
@@ -16083,13 +16076,14 @@ machopic_output_stub (FILE *file, const char *symb, const char *stub)
     machopic_picsymbol_stub1_section ();
   else
     machopic_symbol_stub1_section ();
-  fprintf (file, "\t.align 2\n");
-
-  fprintf (file, "%s:\n", stub);
-  fprintf (file, "\t.indirect_symbol %s\n", symbol_name);
 
   if (flag_pic == 2)
     {
+      fprintf (file, "\t.align 5\n");
+
+      fprintf (file, "%s:\n", stub);
+      fprintf (file, "\t.indirect_symbol %s\n", symbol_name);
+
       label++;
       local_label_0 = alloca (sizeof("\"L0000000000$spb\""));
       sprintf (local_label_0, "\"L%011d$spb\"", label);
@@ -16106,12 +16100,17 @@ machopic_output_stub (FILE *file, const char *symb, const char *stub)
       fprintf (file, "\tbctr\n");
     }
   else
-   {
-     fprintf (file, "\tlis r11,ha16(%s)\n", lazy_ptr_name);
-     fprintf (file, "\tlwzu r12,lo16(%s)(r11)\n", lazy_ptr_name);
-     fprintf (file, "\tmtctr r12\n");
-     fprintf (file, "\tbctr\n");
-   }
+    {
+      fprintf (file, "\t.align 4\n");
+
+      fprintf (file, "%s:\n", stub);
+      fprintf (file, "\t.indirect_symbol %s\n", symbol_name);
+
+      fprintf (file, "\tlis r11,ha16(%s)\n", lazy_ptr_name);
+      fprintf (file, "\tlwzu r12,lo16(%s)(r11)\n", lazy_ptr_name);
+      fprintf (file, "\tmtctr r12\n");
+      fprintf (file, "\tbctr\n");
+    }
   
   machopic_lazy_symbol_ptr_section ();
   fprintf (file, "%s:\n", lazy_ptr_name);
@@ -16524,21 +16523,105 @@ rs6000_rtx_costs (rtx x, int code, int outer_code ATTRIBUTE_UNUSED,
       /* On the RS/6000, if it is valid in the insn, it is free.
 	 So this always returns 0.  */
     case CONST_INT:
+      if (((outer_code == SET
+	    || outer_code == PLUS
+	    || outer_code == MINUS)
+	   && (CONST_OK_FOR_LETTER_P (INTVAL (x), 'I')
+	       || CONST_OK_FOR_LETTER_P (INTVAL (x), 'L')))
+	  || ((outer_code == IOR || outer_code == XOR)
+	      && (CONST_OK_FOR_LETTER_P (INTVAL (x), 'K')
+		  || CONST_OK_FOR_LETTER_P (INTVAL (x), 'L')))
+	  || (outer_code == AND
+	      && (CONST_OK_FOR_LETTER_P (INTVAL (x), 'K')
+		  || CONST_OK_FOR_LETTER_P (INTVAL (x), 'L')
+		  || CONST_OK_FOR_LETTER_P (INTVAL (x), 'T')))
+	  || outer_code == ASHIFT
+	  || outer_code == ASHIFTRT
+	  || outer_code == LSHIFTRT
+	  || outer_code == ROTATE
+	  || outer_code == ROTATERT
+	  || (outer_code == MULT
+	      && CONST_OK_FOR_LETTER_P (INTVAL (x), 'I'))
+	  || (outer_code == COMPARE
+	      && (CONST_OK_FOR_LETTER_P (INTVAL (x), 'I')
+		  || CONST_OK_FOR_LETTER_P (INTVAL (x), 'K'))))
+	{
+	  *total = 0;
+	  return true;
+	}
+      else if ((outer_code == PLUS
+		&& reg_or_add_cint64_operand (x, VOIDmode))
+	       || (outer_code == MINUS
+		   && reg_or_sub_cint64_operand (x, VOIDmode))
+	       || ((outer_code == SET
+		    || outer_code == IOR
+		    || outer_code == XOR)
+		   && (INTVAL (x)
+		       & ~ (unsigned HOST_WIDE_INT) 0xffffffff) == 0))
+	{
+	  *total = COSTS_N_INSNS (1);
+	  return true;
+	}
+      /* FALLTHRU */
+
+    case CONST_DOUBLE:
+      if (mode == DImode
+	  && ((outer_code == AND
+	       && (CONST_OK_FOR_LETTER_P (INTVAL (x), 'K')
+		   || CONST_OK_FOR_LETTER_P (INTVAL (x), 'L')
+		   || CONST_OK_FOR_LETTER_P (INTVAL (x), 'S')))
+	      || ((outer_code == IOR || outer_code == XOR)
+		  && CONST_DOUBLE_HIGH (x) == 0
+		  && (CONST_DOUBLE_LOW (x)
+		      & ~ (unsigned HOST_WIDE_INT) 0xffff) == 0)))
+	{
+	  *total = 0;
+	  return true;
+	}
+      else if (mode == DImode
+	       && (outer_code == SET
+		   || outer_code == IOR
+		   || outer_code == XOR)
+	       && CONST_DOUBLE_HIGH (x) == 0)
+	{
+	  *total = COSTS_N_INSNS (1);
+	  return true;
+	}
+      /* FALLTHRU */
+
     case CONST:
+    case HIGH:
     case LABEL_REF:
     case SYMBOL_REF:
-    case CONST_DOUBLE:
-    case HIGH:
-      *total = 0;
+    case MEM:
+      /* When optimizing for size, MEM should be slightly more expensive
+	 than generating address, e.g., (plus (reg) (const)).
+	 L1 cache latecy is about two instructions.  */
+      *total = optimize_size ? COSTS_N_INSNS (1) + 1 : COSTS_N_INSNS (2);
       return true;
 
     case PLUS:
       if (mode == DFmode)
-	*total = GET_CODE (XEXP (x, 0)) == MULT
-		 ? rs6000_cost->dmul
-		 : rs6000_cost->fp;
+	{
+	  if (GET_CODE (XEXP (x, 0)) == MULT)
+	    {
+	      /* FNMA accounted in outer NEG.  */
+	      if (outer_code == NEG)
+		*total = rs6000_cost->dmul - rs6000_cost->fp;
+	      else
+		*total = rs6000_cost->dmul;
+	    }
+	  else
+	    *total = rs6000_cost->fp;
+	}
       else if (mode == SFmode)
-	*total = rs6000_cost->fp;
+	{
+	  /* FNMA accounted in outer NEG.  */
+	  if (outer_code == NEG && GET_CODE (XEXP (x, 0)) == MULT)
+	    *total = 0;
+	  else
+	    *total = rs6000_cost->fp;
+	}
       else if (GET_CODE (XEXP (x, 0)) == MULT)
 	{
 	  /* The rs6000 doesn't have shift-and-add instructions.  */
@@ -16546,21 +16629,31 @@ rs6000_rtx_costs (rtx x, int code, int outer_code ATTRIBUTE_UNUSED,
 	  *total += COSTS_N_INSNS (1);
 	}
       else
-	*total = ((GET_CODE (XEXP (x, 1)) == CONST_INT
-		  && ((unsigned HOST_WIDE_INT) (INTVAL (XEXP (x, 1))
-						+ 0x8000) >= 0x10000)
-		  && ((INTVAL (XEXP (x, 1)) & 0xffff) != 0))
-		 ? COSTS_N_INSNS (2)
-		 : COSTS_N_INSNS (1));
-      return true;
+	*total = COSTS_N_INSNS (1);
+      return false;
 
     case MINUS:
       if (mode == DFmode)
-	*total = GET_CODE (XEXP (x, 0)) == MULT
-		 ? rs6000_cost->dmul
-		 : rs6000_cost->fp;
+	{
+	  if (GET_CODE (XEXP (x, 0)) == MULT)
+	    {
+	      /* FNMA accounted in outer NEG.  */
+	      if (outer_code == NEG)
+		*total = 0;
+	      else
+		*total = rs6000_cost->dmul;
+	    }
+	  else
+	    *total = rs6000_cost->fp;
+	}
       else if (mode == SFmode)
-	*total = rs6000_cost->fp;
+	{
+	  /* FNMA accounted in outer NEG.  */
+	  if (outer_code == NEG && GET_CODE (XEXP (x, 0)) == MULT)
+	    *total = 0;
+	  else
+	    *total = rs6000_cost->fp;
+	}
       else if (GET_CODE (XEXP (x, 0)) == MULT)
 	{
 	  /* The rs6000 doesn't have shift-and-sub instructions.  */
@@ -16569,17 +16662,7 @@ rs6000_rtx_costs (rtx x, int code, int outer_code ATTRIBUTE_UNUSED,
 	}
       else
         *total = COSTS_N_INSNS (1);
-      return true;
-
-    case AND:
-    case IOR:
-    case XOR:
-      *total = ((GET_CODE (XEXP (x, 1)) == CONST_INT
-		 && (INTVAL (XEXP (x, 1)) & (~ (HOST_WIDE_INT) 0xffff)) != 0
-		 && ((INTVAL (XEXP (x, 1)) & 0xffff) != 0))
-		? COSTS_N_INSNS (2)
-		: COSTS_N_INSNS (1));
-      return true;
+      return false;
 
     case MULT:
       if (GET_CODE (XEXP (x, 1)) == CONST_INT)
@@ -16590,6 +16673,10 @@ rs6000_rtx_costs (rtx x, int code, int outer_code ATTRIBUTE_UNUSED,
 	  else
 	    *total = rs6000_cost->mulsi_const;
 	}
+      /* FMA accounted in outer PLUS/MINUS.  */
+      else if ((mode == DFmode || mode == SFmode)
+	       && (outer_code == PLUS || outer_code == MINUS))
+	*total = 0;
       else if (mode == DFmode)
 	*total = rs6000_cost->dmul;
       else if (mode == SFmode)
@@ -16598,7 +16685,7 @@ rs6000_rtx_costs (rtx x, int code, int outer_code ATTRIBUTE_UNUSED,
 	*total = rs6000_cost->muldi;
       else
 	*total = rs6000_cost->mulsi;
-      return true;
+      return false;
 
     case DIV:
     case MOD:
@@ -16606,13 +16693,13 @@ rs6000_rtx_costs (rtx x, int code, int outer_code ATTRIBUTE_UNUSED,
 	{
 	  *total = mode == DFmode ? rs6000_cost->ddiv
 				  : rs6000_cost->sdiv;
-	  return true;
+	  return false;
 	}
       if (GET_CODE (XEXP (x, 1)) == CONST_INT
 	  && exact_log2 (INTVAL (XEXP (x, 1))) >= 0)
 	{
 	  *total = COSTS_N_INSNS (2);
-	  return true;
+	  return false;
 	}
       /* FALLTHRU */
 
@@ -16622,35 +16709,60 @@ rs6000_rtx_costs (rtx x, int code, int outer_code ATTRIBUTE_UNUSED,
 	*total = rs6000_cost->divdi;
       else
 	*total = rs6000_cost->divsi;
-      return true;
+      return false;
 
     case FFS:
       *total = COSTS_N_INSNS (4);
-      return true;
-
-    case NEG:
-    case ABS:
-      if (FLOAT_MODE_P (mode))
-	*total = rs6000_cost->fp;
-      else
-	*total = COSTS_N_INSNS (1);
-      return true;
-
-    case MEM:
-      /* MEM should be slightly more expensive than (plus (reg) (const)).  */
-      *total = COSTS_N_INSNS (1) + 1;
-      return true;
+      return false;
 
     case NOT:
+      if (outer_code == AND || outer_code == IOR || outer_code == XOR)
+	{
+	  *total = 0;
+	  return false;
+	}
+      /* FALLTHRU */
+
+    case AND:
+    case IOR:
+    case XOR:
+    case ASHIFT:
+    case ASHIFTRT:
+    case LSHIFTRT:
+    case ROTATE:
+    case ROTATERT:
     case SIGN_EXTEND:
     case ZERO_EXTEND:
-    case COMPARE:
+      if (outer_code == TRUNCATE
+	  && GET_CODE (XEXP (x, 0)) == MULT)
+	{
+	  if (mode == DImode)
+	    *total = rs6000_cost->muldi;
+	  else
+	    *total = rs6000_cost->mulsi;
+	  return true;
+	}
       *total = COSTS_N_INSNS (1);
-      break;
+      return false;
 
+    case COMPARE:
+    case NEG:
+    case ABS:
+      if (!FLOAT_MODE_P (mode))
+	{
+	  *total = COSTS_N_INSNS (1);
+	  return false;
+	}
+      /* FALLTHRU */
+
+    case FLOAT:
+    case UNSIGNED_FLOAT:
+    case FIX:
+    case UNSIGNED_FIX:
+    case FLOAT_EXTEND:
     case FLOAT_TRUNCATE:
       *total = rs6000_cost->fp;
-      return true;
+      return false;
 
     case UNSPEC:
       switch (XINT (x, 1))
@@ -16671,6 +16783,13 @@ rs6000_rtx_costs (rtx x, int code, int outer_code ATTRIBUTE_UNUSED,
 	  *total = COSTS_N_INSNS (1);
 	  return true;
 	}
+      else if (FLOAT_MODE_P (mode)
+	       && TARGET_PPC_GFXOPT && TARGET_HARD_FLOAT && TARGET_FPRS)
+	{
+	  *total = rs6000_cost->fp;
+	  return false;
+	}
+
       break;
 
     default:

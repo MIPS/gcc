@@ -1,3 +1,42 @@
+2004-08-02  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/16707
+	* name-lookup.c (validate_nonmember_using_decl): Robustify.
+
+2004-08-01  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/16224
+	* name-lookup.c (decl_namespace): Remove.
+	(current_decl_namespace): Use decl_namespace_context instead of
+	decl_namespace.
+	(push_decl_namespace): Likewise.
+	(arg_assoc_class): Likewise.
+	(arg_assoc_type): Likewise.
+	* pt.c (check_specialization_namespace): New function.
+	(maybe_process_partial_specialization): Use it.
+	(register_specialization): Likewise.
+
+	PR c++/16489
+	* cp-tree.h (DECL_INTEGRAL_CONSTANT_VAR_P): New macro.
+	* call.c (null_ptr_cst_p): Handle variables with constant
+	initializers.
+	* pt.c (convert_nontype_argument): Use
+	DECL_INTEGRAL_CONSTANT_VAR_P.
+	* semantics.c (finish_id_expression): Likewise.
+
+	PR c++/16529
+	* decl.c (duplicate_decls): Reject duplicate namespace
+	declarations.
+
+	PR c++/16810
+	* typeck.c (build_ptrmemfunc): Loosen assertion.
+
+2004-08-01  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* call.c (z_candidate::template_decl): Rename from template.
+	(add_template_candidate_real): Adjust member reference.
+	(joust): Likewise.
+
 2004-07-29  Mark Mitchell  <mark@codesourcery.com>
 
 	* cp-tree.h (IDENTIFIER_REPO_CHOSEN): Define.
