@@ -1,3 +1,27 @@
+2004-11-29  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-data-ref.c (dependence_stats): New structure.
+	(analyze_indirect_ref): New function.
+	(analyze_ziv_subscript): Track ziv tests using dependence_stats.
+	(get_number_of_iters_for_loop): New function.
+	Replace repeated idiom to get number of real/estimated iterations
+	in loop with this function.
+	(analyze_siv_subscript_cst_affine): Track siv stats using
+	dependence_stats.
+	No dependence exists if first overlap is outside of the loop.
+	(analyze_subscript_affine_affine): No dependence exists if first
+	overlap of either variable is outside of the loop.
+	(analyze_siv_subscript): Track siv stats using dependence_stats.
+	(analyze_miv_subscript): Ditto for miv.
+	(analyze_overlapping_iterations): Track total number of tests
+	using dependence_stats.
+	(compute_affine_dependence): Print out failing reference if affine
+	test is unusable.
+	(find_data_references_in_loop): Rewrite to handle indirect_ref as
+	well using analyze_indirect_ref.
+	(compute_data_dependences_for_loop): Initialize stats structure,
+	print out stats if request.
+	
 2004-11-22  Daniel Berlin <dberlin@dberlin.org>
 
 	* tree-ssa-loop.c (pass_vectorize): Require PROP_align.

@@ -95,6 +95,25 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-scalar-evolution.h"
 #include "tree-pass.h"
 
+static struct datadep_stats
+{
+  int num_ziv;
+  int num_ziv_independent;
+  int num_ziv_dependent;
+  int num_ziv_unimplemented;
+  int num_siv;
+  int num_siv_independent;
+  int num_siv_dependent;
+  int num_siv_unimplemented;
+  int num_miv;
+  int num_miv_independent;
+  int num_miv_dependent;
+  int num_miv_unimplemented;
+  int num_tested;
+  int num_unimplemented;
+} dependence_stats;
+
+  
 /* This is the simplest data dependence test: determines whether the
    data references A and B access the same array/region.  Returns
    false when the property is not computable at compile time.
@@ -571,6 +590,28 @@ analyze_array_indexes (struct loop *loop,
     return opnd0;
 }
 
+/* Analyze an indirect memory reference, REF, that comes from STMT.
+   IS_READ is true if this is an indirect load, and false if it is
+   an indirect store.
+   Return a new data reference structure representing the indirect_ref, or
+   NULL if we cannot describe the access function.  */
+
+static struct data_reference *
+analyze_indirect_ref (tree stmt, tree ref, bool is_read)
+{
+  
+  struct loop *loop = loop_containing_stmt (stmt);
+  tree access_fn = instantiate_parameters 
+    (loop, analyze_scalar_evolution (loop, TREE_OPERAND (ref, 0)));
+  tree base = initial_condition (access_fn);
+  
+  STRIP_NOPS (base);
+  if (access_fn == chrec_dont_know || base == chrec_dont_know)
+    return NULL;
+  
+  return init_data_ref (stmt, ref, base, access_fn, is_read);
+}
+
 /* For a data reference REF contained in the statement STMT, initialize
    a DATA_REFERENCE structure, and return it.  IS_READ flag has to be
    set to true when REF is in the right hand side of an
@@ -861,6 +902,7 @@ analyze_ziv_subscript (tree chrec_a,
 		       tree *last_conflicts)
 {
   tree difference;
+  dependence_stats.num_ziv++;
   
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "(analyze_ziv_subscript \n");
@@ -877,6 +919,8 @@ analyze_ziv_subscript (tree chrec_a,
 	  *overlaps_a = integer_zero_node;
 	  *overlaps_b = integer_zero_node;
 	  *last_conflicts = chrec_dont_know;
+	  dependence_stats.num_ziv_dependent++;
+	  
 	}
       else
 	{
@@ -884,15 +928,19 @@ analyze_ziv_subscript (tree chrec_a,
 	  *overlaps_a = chrec_known;
 	  *overlaps_b = chrec_known;
 	  *last_conflicts = integer_zero_node;
+	  dependence_stats.num_ziv_independent++;
 	}
       break;
       
     default:
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file, "ziv test failed: difference is non-integer.\n");
       /* We're not sure whether the indexes overlap.  For the moment, 
 	 conservatively answer "don't know".  */
       *overlaps_a = chrec_dont_know;
       *overlaps_b = chrec_dont_know;
       *last_conflicts = chrec_dont_know;
+      dependence_stats.num_ziv_unimplemented++;
       break;
     }
   
@@ -900,6 +948,20 @@ analyze_ziv_subscript (tree chrec_a,
     fprintf (dump_file, ")\n");
 }
 
+/* Get the real or estimated number of iterations for LOOPNUM, whichever is
+   available. Return the number of iterations as a tree, or NULL_TREE if
+   we don't know */
+
+static tree
+get_number_of_iters_for_loop (int loopnum)
+{
+  tree numiter = number_of_iterations_in_loop (current_loops->parray[loopnum]);
+  if (TREE_CODE (numiter) != INTEGER_CST)
+    numiter = current_loops->parray[loopnum]->estimated_nb_iterations;
+  return numiter;
+}
+
+    
 /* Analyze a SIV (Single Index Variable) subscript where CHREC_A is a
    constant, and CHREC_B is an affine function.  *OVERLAPS_A and
    *OVERLAPS_B are initialized to the functions that describe the
@@ -921,6 +983,9 @@ analyze_siv_subscript_cst_affine (tree chrec_a,
   
   if (!chrec_is_positive (initial_condition (difference), &value0))
     {
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file, "siv test failed: chrec is not positive.\n"); 
+      dependence_stats.num_siv_unimplemented++;
       *overlaps_a = chrec_dont_know;
       *overlaps_b = chrec_dont_know;
       *last_conflicts = chrec_dont_know;
@@ -932,9 +997,12 @@ analyze_siv_subscript_cst_affine (tree chrec_a,
 	{
 	  if (!chrec_is_positive (CHREC_RIGHT (chrec_b), &value1))
 	    {
+	      if (dump_file && (dump_flags & TDF_DETAILS))
+		fprintf (dump_file, "siv test failed: chrec not positive.\n");
 	      *overlaps_a = chrec_dont_know;
 	      *overlaps_b = chrec_dont_know;      
 	      *last_conflicts = chrec_dont_know;
+	      dependence_stats.num_siv_unimplemented++;
 	      return;
 	    }
 	  else
@@ -949,12 +1017,33 @@ analyze_siv_subscript_cst_affine (tree chrec_a,
 		  if (tree_fold_divides_p 
 		      (integer_type_node, CHREC_RIGHT (chrec_b), difference))
 		    {
+		      tree numiter;
+		      int loopnum = CHREC_VARIABLE (chrec_b);
+
 		      *overlaps_a = integer_zero_node;
 		      *overlaps_b = fold 
 			(build (EXACT_DIV_EXPR, integer_type_node, 
 				fold (build1 (ABS_EXPR, integer_type_node, difference)), 
 				CHREC_RIGHT (chrec_b)));
+
 		      *last_conflicts = integer_one_node;
+		      
+
+		      /* Perform weak-zero siv test to see if overlap is
+			 outside the loop bounds.  */
+		      numiter = get_number_of_iters_for_loop (loopnum);
+
+		      if (numiter != NULL_TREE
+			  && TREE_CODE (*overlaps_b) == INTEGER_CST
+			  && tree_int_cst_lt (numiter, *overlaps_b))
+			{
+			  *overlaps_a = chrec_known;
+			  *overlaps_b = chrec_known;
+			  *last_conflicts = integer_zero_node;
+			  dependence_stats.num_siv_independent++;
+			  return;
+			}		
+		      dependence_stats.num_siv_dependent++;
 		      return;
 		    }
 		  
@@ -965,6 +1054,7 @@ analyze_siv_subscript_cst_affine (tree chrec_a,
 		      *overlaps_a = chrec_known;
 		      *overlaps_b = chrec_known;      
 		      *last_conflicts = integer_zero_node;
+		      dependence_stats.num_siv_independent++;
 		      return;
 		    }
 		}
@@ -979,6 +1069,7 @@ analyze_siv_subscript_cst_affine (tree chrec_a,
 		  *overlaps_a = chrec_known;
 		  *overlaps_b = chrec_known;
 		  *last_conflicts = integer_zero_node;
+		  dependence_stats.num_siv_independent++;
 		  return;
 		}
 	    }
@@ -987,9 +1078,12 @@ analyze_siv_subscript_cst_affine (tree chrec_a,
 	{
 	  if (!chrec_is_positive (CHREC_RIGHT (chrec_b), &value2))
 	    {
+	      if (dump_file && (dump_flags & TDF_DETAILS))
+		fprintf (dump_file, "siv test failed: chrec not positive.\n");
 	      *overlaps_a = chrec_dont_know;
 	      *overlaps_b = chrec_dont_know;      
 	      *last_conflicts = chrec_dont_know;
+	      dependence_stats.num_siv_unimplemented++;
 	      return;
 	    }
 	  else
@@ -1003,11 +1097,30 @@ analyze_siv_subscript_cst_affine (tree chrec_a,
 		  if (tree_fold_divides_p 
 		      (integer_type_node, CHREC_RIGHT (chrec_b), difference))
 		    {
+		      tree numiter;
+		      int loopnum = CHREC_VARIABLE (chrec_b);
+
 		      *overlaps_a = integer_zero_node;
 		      *overlaps_b = fold 
 			(build (EXACT_DIV_EXPR, integer_type_node, difference, 
 				CHREC_RIGHT (chrec_b)));
 		      *last_conflicts = integer_one_node;
+
+		      /* Perform weak-zero siv test to see if overlap is
+			 outside the loop bounds.  */
+		      numiter = get_number_of_iters_for_loop (loopnum);
+
+		      if (numiter != NULL_TREE
+			  && TREE_CODE (*overlaps_b) == INTEGER_CST
+			  && tree_int_cst_lt (numiter, *overlaps_b))
+			{
+			  *overlaps_a = chrec_known;
+			  *overlaps_b = chrec_known;
+			  *last_conflicts = integer_zero_node;
+			  dependence_stats.num_siv_independent++;
+			  return;
+			}	
+		      dependence_stats.num_siv_dependent++;
 		      return;
 		    }
 		  
@@ -1018,6 +1131,7 @@ analyze_siv_subscript_cst_affine (tree chrec_a,
 		      *overlaps_a = chrec_known;
 		      *overlaps_b = chrec_known;      
 		      *last_conflicts = integer_zero_node;
+		      dependence_stats.num_siv_independent++;
 		      return;
 		    }
 		}
@@ -1031,6 +1145,7 @@ analyze_siv_subscript_cst_affine (tree chrec_a,
 		  *overlaps_a = chrec_known;
 		  *overlaps_b = chrec_known;
 		  *last_conflicts = integer_zero_node;
+		  dependence_stats.num_siv_independent++;
 		  return;
 		}
 	    }
@@ -1131,26 +1246,16 @@ compute_overlap_steps_for_affine_1_2 (tree chrec_a, tree chrec_b,
   step_y = int_cst_value (CHREC_RIGHT (chrec_a));
   step_z = int_cst_value (CHREC_RIGHT (chrec_b));
 
-  numiter_x = number_of_iterations_in_loop 
-    (current_loops->parray[CHREC_VARIABLE (CHREC_LEFT (chrec_a))]);
-  numiter_y = number_of_iterations_in_loop 
-    (current_loops->parray[CHREC_VARIABLE (chrec_a)]);
-  numiter_z = number_of_iterations_in_loop 
-    (current_loops->parray[CHREC_VARIABLE (chrec_b)]);
-
-  if (TREE_CODE (numiter_x) != INTEGER_CST)
-    numiter_x = current_loops->parray[CHREC_VARIABLE (CHREC_LEFT (chrec_a))]
-      ->estimated_nb_iterations;
-  if (TREE_CODE (numiter_y) != INTEGER_CST)
-    numiter_y = current_loops->parray[CHREC_VARIABLE (chrec_a)]
-      ->estimated_nb_iterations;
-  if (TREE_CODE (numiter_z) != INTEGER_CST)
-    numiter_z = current_loops->parray[CHREC_VARIABLE (chrec_b)]
-      ->estimated_nb_iterations;
-
+  numiter_x = get_number_of_iters_for_loop (CHREC_VARIABLE (CHREC_LEFT (chrec_a)));
+  numiter_y = get_number_of_iters_for_loop (CHREC_VARIABLE (chrec_a));
+  numiter_z = get_number_of_iters_for_loop (CHREC_VARIABLE (chrec_b));
+  
   if (numiter_x == NULL_TREE || numiter_y == NULL_TREE 
       || numiter_z == NULL_TREE)
     {
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file, "overlap steps test failed: no iteration counts.\n");
+	   
       *overlaps_a = chrec_dont_know;
       *overlaps_b = chrec_dont_know;
       *last_conflicts = chrec_dont_know;
@@ -1286,19 +1391,12 @@ analyze_subscript_affine_affine (tree chrec_a,
 	  int niter, niter_a, niter_b;
 	  tree numiter_a, numiter_b;
 
-	  numiter_a = number_of_iterations_in_loop 
-	    (current_loops->parray[CHREC_VARIABLE (chrec_a)]);
-	  numiter_b = number_of_iterations_in_loop 
-	    (current_loops->parray[CHREC_VARIABLE (chrec_b)]);
-
-	  if (TREE_CODE (numiter_a) != INTEGER_CST)
-	    numiter_a = current_loops->parray[CHREC_VARIABLE (chrec_a)]
-	      ->estimated_nb_iterations;
-	  if (TREE_CODE (numiter_b) != INTEGER_CST)
-	    numiter_b = current_loops->parray[CHREC_VARIABLE (chrec_b)]
-	      ->estimated_nb_iterations;
+	  numiter_a = get_number_of_iters_for_loop (CHREC_VARIABLE (chrec_a));
+	  numiter_b = get_number_of_iters_for_loop (CHREC_VARIABLE (chrec_b));
 	  if (numiter_a == NULL_TREE || numiter_b == NULL_TREE)
 	    {
+	      if (dump_file && (dump_flags & TDF_DETAILS))
+		fprintf (dump_file, "affine-affine test failed: missing iteration counts.\n");
 	      *overlaps_a = chrec_dont_know;
 	      *overlaps_b = chrec_dont_know;
 	      *last_conflicts = chrec_dont_know;
@@ -1327,6 +1425,8 @@ analyze_subscript_affine_affine (tree chrec_a,
 
       else
 	{
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    fprintf (dump_file, "affine-affine test failed: too many variables.\n");
 	  *overlaps_a = chrec_dont_know;
 	  *overlaps_b = chrec_dont_know;
 	  *last_conflicts = chrec_dont_know;
@@ -1387,19 +1487,13 @@ analyze_subscript_affine_affine (tree chrec_a,
 	  int niter, niter_a, niter_b;
 	  tree numiter_a, numiter_b;
 
-	  numiter_a = number_of_iterations_in_loop 
-	    (current_loops->parray[CHREC_VARIABLE (chrec_a)]);
-	  numiter_b = number_of_iterations_in_loop 
-	    (current_loops->parray[CHREC_VARIABLE (chrec_b)]);
+	  numiter_a = get_number_of_iters_for_loop (CHREC_VARIABLE (chrec_a));
+	  numiter_b = get_number_of_iters_for_loop (CHREC_VARIABLE (chrec_b));
 
-	  if (TREE_CODE (numiter_a) != INTEGER_CST)
-	    numiter_a = current_loops->parray[CHREC_VARIABLE (chrec_a)]
-	      ->estimated_nb_iterations;
-	  if (TREE_CODE (numiter_b) != INTEGER_CST)
-	    numiter_b = current_loops->parray[CHREC_VARIABLE (chrec_b)]
-	      ->estimated_nb_iterations;
 	  if (numiter_a == NULL_TREE || numiter_b == NULL_TREE)
 	    {
+	      if (dump_file && (dump_flags & TDF_DETAILS))
+		fprintf (dump_file, "affine-affine test failed: missing iteration counts.\n");
 	      *overlaps_a = chrec_dont_know;
 	      *overlaps_b = chrec_dont_know;
 	      *last_conflicts = chrec_dont_know;
@@ -1454,20 +1548,33 @@ analyze_subscript_affine_affine (tree chrec_a,
 		      tau1 = (x0 - i0)/i1;
 		      last_conflict = tau2 - tau1;
 
-		      *overlaps_a = build_polynomial_chrec
-			(1,
-			 build_int_cst (NULL_TREE, x0),
-			 build_int_cst (NULL_TREE, i1));
-		      *overlaps_b = build_polynomial_chrec
-			(1,
-			 build_int_cst (NULL_TREE, y0),
-			 build_int_cst (NULL_TREE, j1));
-		      *last_conflicts = build_int_cst (NULL_TREE, last_conflict);
+		      /* If the overlap occurs outside of the bounds of the
+			 loop, there is no dependence.  */
+		      if (x0 > niter || y0  > niter)
+			{
+			  *overlaps_a = chrec_known;
+			  *overlaps_b = chrec_known;
+			  *last_conflicts = integer_zero_node;
+			}
+		      else
+			{
+			  *overlaps_a = build_polynomial_chrec
+			    (1,
+			     build_int_cst (NULL_TREE, x0),
+			     build_int_cst (NULL_TREE, i1));
+			  *overlaps_b = build_polynomial_chrec
+			    (1,
+			     build_int_cst (NULL_TREE, y0),
+			     build_int_cst (NULL_TREE, j1));
+			  *last_conflicts = build_int_cst (NULL_TREE, last_conflict);
+			}
 		    }
 		  else
 		    {
 		      /* FIXME: For the moment, the upper bound of the
 			 iteration domain for j is not checked.  */
+		      if (dump_file && (dump_flags & TDF_DETAILS))
+			fprintf (dump_file, "affine-affine test failed: unimplemented.\n");
 		      *overlaps_a = chrec_dont_know;
 		      *overlaps_b = chrec_dont_know;
 		      *last_conflicts = chrec_dont_know;
@@ -1478,6 +1585,8 @@ analyze_subscript_affine_affine (tree chrec_a,
 		{
 		  /* FIXME: For the moment, the upper bound of the
 		     iteration domain for i is not checked.  */
+		  if (dump_file && (dump_flags & TDF_DETAILS))
+		    fprintf (dump_file, "affine-affine test failed: unimplemented.\n");
 		  *overlaps_a = chrec_dont_know;
 		  *overlaps_b = chrec_dont_know;
 		  *last_conflicts = chrec_dont_know;
@@ -1486,6 +1595,8 @@ analyze_subscript_affine_affine (tree chrec_a,
 	}
       else
 	{
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    fprintf (dump_file, "affine-affine test failed: unimplemented.\n");
 	  *overlaps_a = chrec_dont_know;
 	  *overlaps_b = chrec_dont_know;
 	  *last_conflicts = chrec_dont_know;
@@ -1494,6 +1605,8 @@ analyze_subscript_affine_affine (tree chrec_a,
 
   else
     {
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file, "affine-affine test failed: unimplemented.\n");
       *overlaps_a = chrec_dont_know;
       *overlaps_b = chrec_dont_know;
       *last_conflicts = chrec_dont_know;
@@ -1527,6 +1640,8 @@ analyze_siv_subscript (tree chrec_a,
 		       tree *overlaps_b, 
 		       tree *last_conflicts)
 {
+  dependence_stats.num_siv++;
+  
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "(analyze_siv_subscript \n");
   
@@ -1546,9 +1661,12 @@ analyze_siv_subscript (tree chrec_a,
 				     overlaps_a, overlaps_b, last_conflicts);
   else
     {
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file, "siv test failed: unimplemented.\n");
       *overlaps_a = chrec_dont_know;
       *overlaps_b = chrec_dont_know;
       *last_conflicts = chrec_dont_know;
+      dependence_stats.num_siv_unimplemented++;
     }
   
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -1597,7 +1715,7 @@ analyze_miv_subscript (tree chrec_a,
      equation with 2*n variables (if the subscript uses n IVs).
   */
   tree difference;
-  
+  dependence_stats.num_miv++;
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "(analyze_miv_subscript \n");
   
@@ -1609,8 +1727,8 @@ analyze_miv_subscript (tree chrec_a,
 	 in the same order.  */
       *overlaps_a = integer_zero_node;
       *overlaps_b = integer_zero_node;
-      *last_conflicts = number_of_iterations_in_loop 
-	(current_loops->parray[CHREC_VARIABLE (chrec_a)]);
+      *last_conflicts = get_number_of_iters_for_loop (CHREC_VARIABLE (chrec_a));
+      dependence_stats.num_miv_dependent++;
     }
   
   else if (evolution_function_is_constant_p (difference)
@@ -1626,6 +1744,7 @@ analyze_miv_subscript (tree chrec_a,
       *overlaps_a = chrec_known;
       *overlaps_b = chrec_known;
       *last_conflicts = integer_zero_node;
+      dependence_stats.num_miv_independent++;
     }
   
   else if (evolution_function_is_affine_multivariate_p (chrec_a)
@@ -1651,10 +1770,13 @@ analyze_miv_subscript (tree chrec_a,
   
   else
     {
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file, "analyze_miv_subscript test failed: unimplemented.\n");
       /* When the analysis is too difficult, answer "don't know".  */
       *overlaps_a = chrec_dont_know;
       *overlaps_b = chrec_dont_know;
       *last_conflicts = chrec_dont_know;
+      dependence_stats.num_miv_unimplemented++;
     }
   
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -1678,6 +1800,8 @@ analyze_overlapping_iterations (tree chrec_a,
 				tree *overlap_iterations_b, 
 				tree *last_conflicts)
 {
+  dependence_stats.num_tested++;
+  
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "(analyze_overlapping_iterations \n");
@@ -1695,6 +1819,8 @@ analyze_overlapping_iterations (tree chrec_a,
       || chrec_contains_symbols (chrec_a)
       || chrec_contains_symbols (chrec_b))
     {
+      dependence_stats.num_unimplemented++;
+      
       *overlap_iterations_a = chrec_dont_know;
       *overlap_iterations_b = chrec_dont_know;
     }
@@ -2177,7 +2303,7 @@ compute_affine_dependence (struct data_dependence_relation *ddr)
       print_generic_expr (dump_file, DR_STMT (drb), 0);
       fprintf (dump_file, ")\n");
     }
-  
+  dependence_stats.num_tested++;
   /* Analyze only when the dependence relation is not yet known.  */
   if (DDR_ARE_DEPENDENT (ddr) == NULL_TREE)
     {
@@ -2189,7 +2315,19 @@ compute_affine_dependence (struct data_dependence_relation *ddr)
 	 the dependence is considered too difficult to determine, answer
 	 "don't know".  */
       else
-	finalize_ddr_dependent (ddr, chrec_dont_know);
+	{
+	  dependence_stats.num_unimplemented++;
+	  
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    {
+	      fprintf (dump_file, "Data ref a:\n");
+	      dump_data_reference (dump_file, dra);
+	      fprintf (dump_file, "Data ref b:\n");
+	      dump_data_reference (dump_file, drb);
+	      fprintf (dump_file, "affine dependence test not usable: access function not affine or constant.\n");
+	    }
+	  finalize_ddr_dependent (ddr, chrec_dont_know);
+	}
     }
   
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -2226,6 +2364,7 @@ compute_all_dependences (varray_type datarefs,
       }
 }
 
+
 /* Search the data references in LOOP, and record the information into
    DATAREFS.  Returns chrec_dont_know when failing to analyze a
    difficult case, returns NULL_TREE otherwise.
@@ -2249,6 +2388,7 @@ find_data_references_in_loop (struct loop *loop, varray_type *datarefs)
 
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
         {
+	  struct data_reference *res = NULL;
 	  tree stmt = bsi_stmt (bsi);
 	  stmt_ann_t ann = stmt_ann (stmt);
 
@@ -2259,46 +2399,56 @@ find_data_references_in_loop (struct loop *loop, varray_type *datarefs)
 	      && !V_MUST_DEF_OPS (ann)
 	      && !V_MAY_DEF_OPS (ann))
 	    continue;
-	  
-	  /* In the GIMPLE representation, a modify expression
-  	     contains a single load or store to memory.  */
+
 	  if (TREE_CODE (TREE_OPERAND (stmt, 0)) == ARRAY_REF)
-	    VARRAY_PUSH_GENERIC_PTR 
-		    (*datarefs, analyze_array (stmt, TREE_OPERAND (stmt, 0), 
-					       false));
-
-	  else if (TREE_CODE (TREE_OPERAND (stmt, 1)) == ARRAY_REF)
-	    VARRAY_PUSH_GENERIC_PTR 
-		    (*datarefs, analyze_array (stmt, TREE_OPERAND (stmt, 1), 
-					       true));
-  	  else
 	    {
-	      if (dont_know_node_not_inserted)
-		{
-		  struct data_reference *res;
-		  res = xmalloc (sizeof (struct data_reference));
-		  DR_STMT (res) = NULL_TREE;
-		  DR_REF (res) = NULL_TREE;
-		  DR_ACCESS_FNS (res) = NULL;
-		  DR_BASE_NAME (res) = NULL;
-		  DR_IS_READ (res) = false;
-		  VARRAY_PUSH_GENERIC_PTR (*datarefs, res);
-		  dont_know_node_not_inserted = false;
-		}
+	      res = analyze_array (stmt, TREE_OPERAND (stmt, 0), false);
 	    }
-
+	  else if (TREE_CODE (TREE_OPERAND (stmt, 0)) == INDIRECT_REF)
+	    {
+	      res = analyze_indirect_ref (stmt, TREE_OPERAND (stmt, 0),
+					  false);
+	    }
+	  
+	  else if (TREE_CODE (TREE_OPERAND (stmt, 1)) == ARRAY_REF)
+	    {
+	      res = analyze_array (stmt, TREE_OPERAND (stmt, 1), 
+				   true);
+	    }
+	  else if (TREE_CODE (TREE_OPERAND (stmt, 1)) == INDIRECT_REF)
+	    {
+	      res = analyze_indirect_ref (stmt, TREE_OPERAND (stmt, 1),
+					  true);
+	    }	  	  
+	  if (!res && dont_know_node_not_inserted)
+	    {
+	      struct data_reference *res;
+	      res = xmalloc (sizeof (struct data_reference));
+	      DR_STMT (res) = NULL_TREE;
+	      DR_REF (res) = NULL_TREE;
+	      DR_ACCESS_FNS (res) = NULL;
+	      DR_BASE_NAME (res) = NULL;
+	      DR_IS_READ (res) = false;
+	      VARRAY_PUSH_GENERIC_PTR (*datarefs, res);
+	      dont_know_node_not_inserted = false;
+	    }
+	  else if (res)
+	    {
+	      VARRAY_PUSH_GENERIC_PTR (*datarefs, res);
+	    }
+	  
 	  /* When there are no defs in the loop, the loop is parallel.  */
 	  if (NUM_V_MAY_DEFS (STMT_V_MAY_DEF_OPS (stmt)) > 0
 	      || NUM_V_MUST_DEFS (STMT_V_MUST_DEF_OPS (stmt)) > 0)
 	    bb->loop_father->parallel_p = false;
 	}
-
+      
       if (bb->loop_father->estimated_nb_iterations == NULL_TREE)
 	compute_estimated_nb_iterations (bb->loop_father);
     }
-
+  
   free (bbs);
-
+  
   return dont_know_node_not_inserted ? NULL_TREE : chrec_dont_know;
 }
 
@@ -2319,6 +2469,8 @@ compute_data_dependences_for_loop (unsigned nb_loops,
   unsigned int i;
   varray_type allrelations;
 
+  memset (&dependence_stats, 0, sizeof (dependence_stats));
+  
   /* If one of the data references is not computable, give up without
      spending time to compute other dependences.  */
   if (find_data_references_in_loop (loop, datarefs) == chrec_dont_know)
@@ -2347,6 +2499,39 @@ compute_data_dependences_for_loop (unsigned nb_loops,
 	  build_classic_dir_vector (ddr, nb_loops, loop->num);
 	}
     }
+  if (dump_file && (dump_flags & TDF_STATS))
+    {
+      fprintf (dump_file, "Dependence tester statistics:\n");
+      fprintf (dump_file, "Number of tests: %d\n", 
+	       dependence_stats.num_tested);
+      fprintf (dump_file, "Number of completely unimplemented tests: %d\n", 
+	       dependence_stats.num_unimplemented);
+
+      fprintf (dump_file, "Number of ziv tests: %d\n",
+	       dependence_stats.num_ziv);
+      fprintf (dump_file, "Number of ziv tests returning dependent: %d\n",
+	       dependence_stats.num_ziv_dependent);
+      fprintf (dump_file, "Number of ziv tests returning independent: %d\n",
+	       dependence_stats.num_ziv_independent);
+      fprintf (dump_file, "Number of ziv tests unimplemented: %d\n",
+	       dependence_stats.num_ziv_unimplemented);      
+      fprintf (dump_file, "Number of siv tests: %d\n", 
+	       dependence_stats.num_siv);
+      fprintf (dump_file, "Number of siv tests returning dependent: %d\n",
+	       dependence_stats.num_siv_dependent);
+      fprintf (dump_file, "Number of siv tests returning independent: %d\n",
+	       dependence_stats.num_siv_independent);
+      fprintf (dump_file, "Number of siv tests unimplemented: %d\n",
+	       dependence_stats.num_siv_unimplemented);
+      fprintf (dump_file, "Number of miv tests: %d\n", 
+	       dependence_stats.num_miv);
+      fprintf (dump_file, "Number of miv tests returning dependent: %d\n",
+	       dependence_stats.num_miv_dependent);
+      fprintf (dump_file, "Number of miv tests returning independent: %d\n",
+	       dependence_stats.num_miv_independent);
+      fprintf (dump_file, "Number of miv tests unimplemented: %d\n",
+	       dependence_stats.num_miv_unimplemented);
+    }    
 }
 
 /* Entry point (for testing only).  Analyze all the data references
