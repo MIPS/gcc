@@ -71,8 +71,8 @@ ALLOCA_FINISH = true
 # STAGE1_CFLAGS is set by configure on some targets.
 XCFLAGS =
 TCFLAGS =
-BOOT_CFLAGS =  
-STAGE1_CFLAGS = -g  @stage1_cflags@
+BOOT_CFLAGS =  -g
+STAGE1_CFLAGS = -g -O1 @stage1_cflags@
 CFLAGS = $(STAGE1_CFLAGS)
 
 # The warning flags are separate from BOOT_CFLAGS because people tend to
@@ -750,8 +750,8 @@ OBJS = diagnostic.o version.o tree.o print-tree.o stor-layout.o fold-const.o  \
  mbchar.o splay-tree.o graph.o sbitmap.o resource.o hash.o predict.o	      \
  lists.o ggc-common.o $(GGC) stringpool.o simplify-rtx.o ssa.o bb-reorder.o   \
  sibcall.o conflict.o timevar.o ifcvt.o dominance.o dependence.o dce.o \
- sched-vis.o sched-deps.o sched-rgn.o sched-ebb.o hashtab.o new-regalloc.o \
- df.o
+ sched-vis.o sched-deps.o sched-rgn.o sched-ebb.o hashtab.o ra.o \
+ df.o cbitmap.o
 
 BACKEND = toplev.o libbackend.a
 
@@ -1378,8 +1378,9 @@ builtins.o : builtins.c $(CONFIG_H) system.h $(RTL_H) $(TREE_H) flags.h \
    function.h $(REGS_H) insn-flags.h insn-codes.h $(EXPR_H) insn-config.h \
    $(RECOG_H) output.h typeclass.h hard-reg-set.h toplev.h hard-reg-set.h \
    except.h
-df.o : df.h $(CONFIG_H) $(RTL_H)
-new-regalloc.o : new-regalloc.h df.h $(CONFIG_H) $(RTL_H)
+cbitmap.o : cbitmap.c cbitmap.h $(CONFIG_H) $(RTL_H)
+df.o : df.c df.h $(CONFIG_H) $(RTL_H)
+ra.o : ra.c df.h $(CONFIG_H) $(RTL_H)  insn-config.h
 calls.o : calls.c $(CONFIG_H) system.h $(RTL_H) $(TREE_H) flags.h $(EXPR_H) \
    insn-flags.h $(REGS_H) toplev.h output.h function.h $(TIMEVAR_H)
 expmed.o : expmed.c $(CONFIG_H) system.h $(RTL_H) $(TREE_H) flags.h  \

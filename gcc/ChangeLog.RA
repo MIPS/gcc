@@ -1,3 +1,19 @@
+2001-02-09  Daniel Berlin  <dberlin@redhat.com>
+
+	* toplev.c: Add mm_reg_alloc prototype.
+	(rest_of_compilation): Add mm_reg_alloc, remove init_new_regalloc.
+
+	* ra.c: New file, replaces "old" new register allocator
+
+	* new-regalloc.[ch]: Removed.
+
+	* cbitmap.c: New file, compressed bitvectors.
+
+	* cbitmap.h: New file, compressed bitvectors.
+
+	* Makefile.in: Dependencies for new ra.c, cbitmap.c, add ra.o and
+	cbitmap.o to libbackend.a.
+
 2001-02-06  Daniel Berlin  <dberlin@redhat.com>
 
 	* basic-block.h: Add flow_depth_first_order_compute prototype.
