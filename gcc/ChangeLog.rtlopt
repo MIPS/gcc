@@ -1,3 +1,22 @@
+2003-01-28  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* cfgbuild.c (find_basic_blocks): Update structure statistics.
+	* cfgcleanup.c (cleanup_cfg): Ditto.
+	* flow.c (life_analysis, update_life_info, calculate_global_regs_live):
+	Ditto.
+	* toplev.c (print_structure_statistics): New static function.
+	(finalize): Call it.
+	(structure_statistics, cfg_builds, cfg_cleanups,
+	cfg_expensive_cleanups, liveness_builds, liveness_updates,
+	liveness_global_updates, liveness_global_targetted_updates,
+	liveness_update_failures, liveness_local_updates,
+	liveness_local_targetted_updates): New variables.
+	(lang_independent_options): Add -fstructures-report flag.
+	* toplev.h (cfg_builds, cfg_cleanups, cfg_expensive_cleanups,
+	liveness_builds, liveness_updates, liveness_global_updates,
+	liveness_global_targetted_updates, liveness_update_failures,
+	liveness_local_updates, liveness_local_targetted_updates): Declare. 
+
 Tue Jan 28 19:43:42 CET 2003  Jan Hubicka  <jh@suse.cz>
 
 	* pa.c (attr_length_millicode_call, attr_length_call): Do not crash

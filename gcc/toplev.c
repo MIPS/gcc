@@ -110,6 +110,7 @@ static void backend_init PARAMS ((void));
 static int lang_dependent_init PARAMS ((const char *));
 static void init_asm_output PARAMS ((const char *));
 static void finalize PARAMS ((void));
+static void print_structure_statistics PARAMS ((void));
 
 static void set_target_switch PARAMS ((const char *));
 
@@ -456,6 +457,24 @@ int mem_report = 0;
    and to print them when we are done.  */
 int flag_detailed_statistics = 0;
 
+/* Print structure computation & usage statistics.  */
+int structure_statistics = 0;
+
+/* The statistics:  */
+int cfg_builds = 0;			/* # of CFG builds.  */
+int cfg_cleanups = 0;			/* # of CFG cleanups.  */
+int cfg_expensive_cleanups = 0;		/* # of expensive CFG cleanups.  */
+int liveness_builds = 0;		/* # of times liveness analysis was done
+					   from scratch.  */
+int liveness_updates = 0;		/* # of times it was updated.  */
+int liveness_global_updates = 0;	/* # of global liveness updates.  */
+int liveness_global_targetted_updates = 0; /* # of g.l. updates with set
+					      of blocks specified.  */
+int liveness_update_failures = 0;	/* # of times failure strategy had
+					   to be used.  */
+int liveness_local_updates = 0;		/* # of local updates.  */
+int liveness_local_targetted_updates = 0; /* # of local updates with set
+					     of blocks specified.  */
 
 /* -f flags.  */
 
@@ -1255,6 +1274,8 @@ static const lang_independent_options f_options[] =
    N_("Report time taken by each compiler pass at end of run") },
   {"mem-report", &mem_report, 1,
    N_("Report on permanent memory allocation at end of run") },
+  {"structures-report", &structure_statistics, 1,
+   N_("Report on structures computation and usage") },
   { "trapv", &flag_trapv, 1,
    N_("Trap for signed overflow in addition / subtraction / multiplication") },
   { "new-ra", &flag_new_regalloc, 1,
@@ -5577,11 +5598,33 @@ finalize ()
       dump_tree_statistics ();
     }
 
+  if (structure_statistics)
+    print_structure_statistics ();
+
   /* Free up memory for the benefit of leak detectors.  */
   free_reg_info ();
 
   /* Language-specific end of compilation actions.  */
   (*lang_hooks.finish) ();
+}
+
+/* Print statistics on structures creation and usage.  */
+static void
+print_structure_statistics ()
+{
+  fprintf (stderr, "CFG:\n");
+  fprintf (stderr, "  builds: %d\n", cfg_builds);
+  fprintf (stderr, "  cleanups: %d (%d expensive)\n", cfg_cleanups, cfg_expensive_cleanups);
+  fprintf (stderr, "\n");
+  fprintf (stderr, "Liveness:\n");
+  fprintf (stderr, "  builds: %d\n", liveness_builds);
+  fprintf (stderr, "  updated: %d\n", liveness_updates);
+  fprintf (stderr, "    global: %d (%d targetted, %d failures)\n",
+	   liveness_global_updates, liveness_global_targetted_updates,
+	   liveness_update_failures);
+  fprintf (stderr, "    local: %d (%d targetted)\n",
+	   liveness_local_updates, liveness_local_targetted_updates);
+  fprintf (stderr, "\n\n");
 }
 
 /* Initialize the compiler, and compile the input file.  */

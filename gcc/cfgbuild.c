@@ -615,6 +615,8 @@ find_basic_blocks (f, nregs, file)
 
   timevar_push (TV_CFG);
 
+  cfg_builds++;
+
   /* Flush out existing data.  */
   if (basic_block_info != NULL)
     {

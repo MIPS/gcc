@@ -123,6 +123,18 @@ extern void set_fast_math_flags         PARAMS ((int));
 /* Return true iff flags are set as if -ffast-math.  */
 extern bool fast_math_flags_set_p	PARAMS ((void));
 
+/* For collecting statistics:  */
+extern int cfg_builds;
+extern int cfg_cleanups;
+extern int cfg_expensive_cleanups;
+extern int liveness_builds;
+extern int liveness_updates;
+extern int liveness_global_updates;
+extern int liveness_global_targetted_updates;
+extern int liveness_update_failures;
+extern int liveness_local_updates;
+extern int liveness_local_targetted_updates;
+
 /* The following functions accept a wide integer argument.  Rather
    than having to cast on every function call, we use a macro instead.  */
 

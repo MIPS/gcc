@@ -1823,6 +1823,10 @@ cleanup_cfg (mode)
 {
   bool changed = false;
 
+  cfg_cleanups++;
+  if (mode & (CLEANUP_EXPENSIVE | CLEANUP_CROSSJUMP | CLEANUP_THREADING))
+    cfg_expensive_cleanups++;
+
   timevar_push (TV_CLEANUP_CFG);
   if (delete_unreachable_blocks ())
     {

@@ -425,6 +425,11 @@ life_analysis (f, file, flags)
   static const struct {const int from, to; } eliminables[] = ELIMINABLE_REGS;
 #endif
 
+  liveness_builds++;
+  /* We do not want this to be counted as an update.  */
+  liveness_updates--;
+  liveness_global_updates--;
+  
   /* Record which registers will be eliminated.  We use this in
      mark_used_regs.  */
 
@@ -642,6 +647,20 @@ update_life_info (blocks, extent, prop_flags)
   int stabilized_prop_flags = prop_flags;
   basic_block bb;
 
+  liveness_updates++;
+  if (extent == UPDATE_LIFE_LOCAL)
+    {
+      liveness_local_updates++;
+      if (blocks)
+	liveness_local_targetted_updates++;
+    }
+  else
+    {
+      liveness_global_updates++;
+      if (blocks)
+	liveness_global_targetted_updates++;
+    }
+  
   tmp = INITIALIZE_REG_SET (tmp_head);
   ndead = 0;
 
@@ -1386,6 +1405,8 @@ calculate_global_regs_live (blocks_in, blocks_out, flags)
 				    new_live_at_end,
 		    		    BITMAP_AND_COMPL))
 		{
+		  liveness_update_failures++;
+
 		  /* It should not happen that one of registers we have
 		     removed last time is disappears again before any other
 		     register does.  */
