@@ -1524,7 +1524,7 @@ tree-ssa-pre.o : tree-ssa-pre.c $(TREE_FLOW_H) $(CONFIG_H) \
 tree-cfg.o : tree-cfg.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
    $(RTL_H) $(TREE_H) $(TM_P_H) $(EXPR_H) $(GGC_H) flags.h output.h \
    diagnostic.h errors.h function.h $(TIMEVAR_H) $(TM_H) coretypes.h \
-   $(TREE_DUMP_H)
+   $(TREE_DUMP_H) except.h
 tree-dfa.o : tree-dfa.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
    $(RTL_H) $(TREE_H) $(TM_P_H) $(EXPR_H) $(GGC_H) output.h diagnostic.h \
    errors.h tree-inline.h $(HASHTAB_H) flags.h function.h $(TIMEVAR_H) \
@@ -1539,7 +1539,8 @@ c-simplify.o : c-simplify.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) errors.h \
    $(TM_H) coretypes.h
 gimplify.o : gimplify.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) errors.h \
    diagnostic.h $(TREE_SIMPLE_H) tree-inline.h varray.h langhooks.h \
-   langhooks-def.h $(TREE_FLOW_H) $(TIMEVAR_H) $(TM_H) coretypes.h except.h
+   langhooks-def.h $(TREE_FLOW_H) $(TIMEVAR_H) $(TM_H) coretypes.h except.h \
+   flags.h
 tree-browser.o : tree-browser.c tree-browser.def $(CONFIG_H) $(SYSTEM_H) \
    $(TREE_H) errors.h tree-inline.h diagnostic.h $(HASHTAB_H) \
    $(TM_H) coretypes.h

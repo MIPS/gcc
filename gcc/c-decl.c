@@ -6588,7 +6588,7 @@ c_expand_body_1 (fndecl, nested_p)
 
   /* Simplify the function.  Don't try to optimize the function if
      simplification failed.  */
-  if (!flag_disable_simple && keep_function_tree_in_gimple_form (fndecl))
+  if (keep_function_tree_in_gimple_form (fndecl))
     {
       /* Debugging dump after simplification.  */
       dump_function (TDI_simple, fndecl);

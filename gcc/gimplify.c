@@ -37,6 +37,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-flow.h"
 #include "timevar.h"
 #include "except.h"
+#include "flags.h"
 
 static void simplify_constructor     PARAMS ((tree, tree *, tree *));
 static void simplify_array_ref       PARAMS ((tree *, tree *, tree *));
@@ -163,6 +164,10 @@ keep_function_tree_in_gimple_form (fndecl)
      tree fndecl;
 {
   tree fnbody;
+
+  /* If we were asked explicitly not to use gimple form, then return zero.  */
+  if (flag_disable_simple)
+    return 0;
 
   /* If the program has had errors, then keeping gimple form is not
      necessary.  */

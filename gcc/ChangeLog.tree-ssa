@@ -1,3 +1,13 @@
+2003-04-16  Jeff Law  <law@redhat.com>
+
+	* gimplify.c (keep_function_tree_in_gimple_form): Move check of
+	flag_disable_simple here.  Include flags.h.
+	* Makefile.in (gimplify.o): Depends on flags.h
+	* c-decl.c (c_expand_body_1): No longer check flag_disable_simple.
+	* tree-inline.c (copy_body_r): Avoid creating non-gimple code
+	when inlining a function where the RESULT_DECL's initialization
+	is not on the RETURN_EXPR.
+
 2003-04-15  Jeff Law  <law@redhat.com>
 
 	* tree-flow.h (struct var_ann_d): Renamed is_vla_decl field to

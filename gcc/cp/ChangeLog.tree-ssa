@@ -1,3 +1,8 @@
+2003-04-16  Jeff Law  <law@redhat.com>
+
+	* optimize.c (optimize_function): No longer check
+	flag_disable_simple.
+
 2003-04-15  Jeff Law  <law@redhat.com>
 
 	* pt.c (instantiate_decl): If CFUN is null, then we will
