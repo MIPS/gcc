@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler for IA-32.
    Copyright (C) 1988, 1992, 1994, 1995, 1996, 1996, 1997, 1998, 1999,
-   2000, 2001 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -41,6 +41,7 @@ extern int ix86_aligned_p PARAMS ((rtx));
 extern int standard_80387_constant_p PARAMS ((rtx));
 extern int standard_sse_constant_p PARAMS ((rtx));
 extern int symbolic_reference_mentioned_p PARAMS ((rtx));
+extern bool extended_reg_mentioned_p PARAMS ((rtx));
 extern bool x86_extended_QIreg_mentioned_p PARAMS ((rtx));
 extern bool x86_extended_reg_mentioned_p PARAMS ((rtx));
 
@@ -139,6 +140,7 @@ extern void ix86_expand_branch PARAMS ((enum rtx_code, rtx));
 extern int ix86_expand_setcc PARAMS ((enum rtx_code, rtx));
 extern int ix86_expand_int_movcc PARAMS ((rtx[]));
 extern int ix86_expand_fp_movcc PARAMS ((rtx[]));
+extern int ix86_expand_int_addcc PARAMS ((rtx[]));
 extern void ix86_expand_call PARAMS ((rtx, rtx, rtx, rtx, rtx));
 extern void x86_initialize_trampoline PARAMS ((rtx, rtx, rtx));
 extern rtx ix86_zero_extend_to_Pmode PARAMS ((rtx));
@@ -187,6 +189,7 @@ extern void emit_i387_cw_initialization PARAMS ((rtx, rtx));
 extern bool ix86_fp_jump_nontrivial_p PARAMS ((enum rtx_code));
 extern void x86_order_regs_for_local_alloc PARAMS ((void));
 extern void x86_function_profiler PARAMS ((FILE *, int));
+extern void x86_emit_floatuns PARAMS ((rtx [2]));
 
 
 #ifdef TREE_CODE

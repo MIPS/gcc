@@ -3036,20 +3036,6 @@ rest_of_compilation (decl)
     mark_constant_function ();
 
   close_dump_file (DFI_cfg, print_rtl_with_bb, insns);
-
-  if (flag_web)
-    {
-      open_dump_file (DFI_web, decl);
-      timevar_push (TV_WEB);
-      cleanup_cfg (CLEANUP_EXPENSIVE);
-      web_main ();
-      delete_trivially_dead_insns (get_insns (), max_reg_num ());
-
-      timevar_pop (TV_WEB);
-      close_dump_file (DFI_web, print_rtl_with_bb, get_insns ());
-      reg_scan (get_insns (), max_reg_num (), 0);
-    }
-
   /* Do branch profiling and static profile estimation passes.  */
   if (optimize > 0 || cfun->arc_profile || flag_branch_probabilities)
     {
@@ -3172,6 +3158,22 @@ rest_of_compilation (decl)
       timevar_pop (TV_LOOP);
       ggc_collect ();
     }
+
+  if (flag_web)
+    {
+      open_dump_file (DFI_web, decl);
+      timevar_push (TV_WEB);
+      cleanup_cfg (CLEANUP_EXPENSIVE);
+      web_main ();
+      delete_trivially_dead_insns (get_insns (), max_reg_num ());
+      cleanup_cfg (CLEANUP_EXPENSIVE);
+      reg_scan (insns, max_reg_num (), 0);
+
+      timevar_pop (TV_WEB);
+      close_dump_file (DFI_web, print_rtl_with_bb, get_insns ());
+      reg_scan (get_insns (), max_reg_num (), 0);
+    }
+
 
   if (flag_rerun_cse_after_loop)
     {
@@ -4986,7 +4988,6 @@ parse_options_and_default_flags (argc, argv)
       flag_reorder_functions = 1;
       flag_value_histograms = 1;
       flag_value_profile_transformations = 1;
-      flag_web = 1;
     }
 
   if (optimize >= 3)
@@ -4995,6 +4996,7 @@ parse_options_and_default_flags (argc, argv)
       flag_rename_registers = 1;
       flag_tracer = 1;
       flag_unit_at_time = 1;
+      flag_web = 1;
     }
 
   if (optimize < 2 || optimize_size)

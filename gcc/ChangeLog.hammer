@@ -1,3 +1,105 @@
+Fri Feb  7 12:59:54 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* toplev.c (rest_of_compilation): Move -fweb past new loop.
+	(parse_options_and_default_flags):  Enable -fweb only at -O3.
+
+	Merge from mainline
+
+	Thu Feb  6 00:18:38 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+		* i386.c (x86_inter_unit_moves): New variable.
+		(ix86_secondary_memory_needed): Fix 64bit case, honor
+		TARGET_INTER_UNIT_MOVES
+		* i386.h (x86_inter_unit_moves): Declare.
+		(TARGET_INTER_UNIT_MOVES): New macro.
+		* i386.md (movsi_1): Cleanup constraints; disable
+		when not doing inter-unit moves.
+		(movsi_1_nointernunit): New.
+		(movdi_1_rex64): Fix constraints; deal with SSE->GPR moves.
+		(movdi_1_rex64_nointerunit): New.
+		(mivsf_1): disable when not doing inter-unit moves.
+		(movsf_1_nointerunit): New.
+
+	Mon Feb  3 16:01:17 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+		* i386.c (ix86_expand_int_movcc):  Fix setcc sign bit case.
+
+	Tue Jan 28 12:15:13 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+		* i386.c (ix86_carry_flag_operator):  New predicate.
+		(fcmov_operator): Fix whitespace.
+		(ix86_expand_carry_flag_compare):  Deal with floating point.
+		(ix86_expand_int_movcc): Deal with fp; update insn expansion
+		(ix86_expand_int_addcc): Likewise.
+		(ix86_expand_strlensi_unroll_1): likewsie.
+		* i386.h (PREDICATE_CODES): Add ix86_carry_flag_operator.
+		* i386.md (add?i_carry_rex64): Use new predicate.
+		(sub?i3_carry_rex64): Likewise.
+		(x86_mov?icc_0_m1*): Likewise.
+
+	Thu Jan  9 00:57:15 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+		* i386.c  (ix86_expand_int_addcc): Fix thinko.
+
+	Sat Jan 25 15:55:08 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+		* i386.c (ix86_expand_movstr, ix86_expand_clrstr): Consistently
+		do libcall for large blocks.
+		* i386.md (comi patterns): Set type to ssecomi.
+		(sse2_unpck?pd): Fix mode of vec_select.
+
+	2003-01-26  Kazu Hirata  <kazu@cs.umass.edu>
+
+		* config/i386/i386-modes.def: Fix comment typos.
+		* config/i386/i386.c: Likewise.
+		* config/i386/i386.md: Likewise.
+
+	Wed Feb  5 23:12:57 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+		* i386-protos.h (x86_emit_floatuns):  Declare.
+		* i386.c (x86_emit_floatuns): New global function.
+		* i386.md (floatunssisf2, floatunsdisf2,
+		floatunsdidf2):  New patterns.
+
+	Wed Jan  8 12:10:57 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+		* i386.md (adddi3_carry_rex64, subdi3_carry_rex64): Name pattern.
+		(addhi3_carry, addqi3_carry, subhi3_carry, subqi3_carry): New patterns.
+		(add??cc): New expanders.
+		* i386.c (expand_int_addcc): New function.
+		* i386-protos.h (expand_int_addcc): Declare.
+
+	Sat Dec 14 20:43:41 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+		* i386.c (flags_reg_operand):  New function.
+		* i386.h (PREDICATE_CODES): Add flags_reg_operand.
+		* i386.md (cmov splitter, movqicc): Use new predicate.
+
+	Sat Dec 14 17:03:17 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+		* i386.md (movqicc splitter): Fix template.
+
+	Thu Dec  5 14:10:15 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+		* i386.c (ix86_expand_prologue):  Add comment, do not use
+		fast prologues for cold and normal functions.
+
+	Thu Dec  5 00:52:37 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+		* i386.c (x86_rep_movl_optimal): New variable.
+		(ix86_expand_movstr, ix86_expand_clrstr): Use TARGET_REP_MOVL_OPTIMAL
+		* i386.h (TARGET_REP_MOVL_OPTIMAL): New macro.
+
+		* i386.md (negsf2_ifs, negdf2_ifs, negdf2_ifs_rex64, abssf2_ifs,
+		absdf2_ifs, absdf2_ifs_rex64): Fix constraints.
+		neg?f2_ifs, abs?f2_ifs splitters): Refuse memory operand; do not
+		generate unnecesary subregs.
+
+	Wed Dec  4 11:53:07 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+		* i386.c (ix86_expand_int_movcc): Force operand into register for QImode
+		condtiional moves.
+
 Fri Feb  7 02:35:26 CET 2003  Jan Hubicka  <jh@suse.cz>
 
 	* Makefile.in (web.o): New.

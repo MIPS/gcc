@@ -17,7 +17,7 @@
 ;; The load/store queue unit is not attached to the schedulers but
 ;; communicates with all the execution units separately instead.
 
-(define_attr "athlon_decode" "direct,vector"
+(define_attr "athlon_decode" "direct,vector,double"
   (cond [(eq_attr "type" "call,imul,idiv,other,multi,fcmov,fpspc,str,pop,cld,leave")
 	   (const_string "vector")
          (and (eq_attr "type" "push")
@@ -53,7 +53,7 @@
 ;; is used (this is needed to allow troughput of 1.5 double decoded
 ;; instructions per cycle).
 ;;
-;; In order to avoid dependnece between reservation of decoder
+;; In order to avoid dependence between reservation of decoder
 ;; and other units, we model decoder as two stage fully pipelined unit
 ;; and only double decoded instruction may occupy unit in the first cycle.
 ;; With this scheme however two double instructions can be issued cycle0.
@@ -74,7 +74,7 @@
 				     | (nothing,(athlon-decode0 + athlon-decode1))
 				     | (nothing,(athlon-decode1 + athlon-decode2)))")
 
-;; Agu and ieu unit results in extremly large automatons and
+;; Agu and ieu unit results in extremely large automatons and
 ;; in our approximation they are hardly filled in.  Only ieu
 ;; unit can, as issue rate is 3 and agu unit is always used
 ;; first in the insn reservations.  Skip the models.
@@ -107,7 +107,7 @@
 (define_reservation "athlon-faddmul" "(athlon-fadd | athlon-fmul)")
 
 
-;; Jump instructions are executed in the branch unit compltetely transparent to us
+;; Jump instructions are executed in the branch unit completely transparent to us
 (define_insn_reservation "athlon_branch" 0
 			 (and (eq_attr "cpu" "athlon,k8")
 			      (eq_attr "type" "ibr"))
@@ -474,7 +474,7 @@
 			 (and (eq_attr "cpu" "athlon,k8")
 			      (eq_attr "unit" "mmx"))
 			 "athlon-direct,athlon-faddmul")
-;; SSE operations are handled by the i387 unit as well.  The latnecy
+;; SSE operations are handled by the i387 unit as well.  The latency
 ;; is same as for i387 operations for scalar operations
 (define_insn_reservation "athlon_sselog_load" 6
 			 (and (eq_attr "cpu" "athlon")
@@ -496,32 +496,32 @@
 			 "athlon-double,athlon-fmul")
 (define_insn_reservation "athlon_ssecmp_load" 5
 			 (and (eq_attr "cpu" "athlon,k8")
-			      (and (eq_attr "type" "ssecmp")
+			      (and (eq_attr "type" "ssecmp,ssecomi")
 				   (and (eq_attr "mode" "SF,DF")
 					(eq_attr "memory" "load"))))
 			 "athlon-vector,athlon-load,athlon-fadd")
 (define_insn_reservation "athlon_ssecmp" 2
 			 (and (eq_attr "cpu" "athlon,k8")
-			      (and (eq_attr "type" "ssecmp")
+			      (and (eq_attr "type" "ssecmp,ssecomi")
 				   (eq_attr "mode" "SF,DF")))
 			 "athlon-direct,athlon-fadd")
 (define_insn_reservation "athlon_ssecmpvector_load" 6
 			 (and (eq_attr "cpu" "athlon")
-			      (and (eq_attr "type" "ssecmp")
+			      (and (eq_attr "type" "ssecmp,ssecomi")
 				   (eq_attr "memory" "load")))
 			 "athlon-vector,athlon-fadd")
 (define_insn_reservation "athlon_ssecmpvector_load_k8" 5
 			 (and (eq_attr "cpu" "k8")
-			      (and (eq_attr "type" "ssecmp")
+			      (and (eq_attr "type" "ssecmp,ssecomi")
 				   (eq_attr "memory" "load")))
 			 "athlon-double,athlon-fadd")
 (define_insn_reservation "athlon_ssecmpvector" 3
 			 (and (eq_attr "cpu" "athlon")
-			      (eq_attr "type" "ssecmp"))
+			      (eq_attr "type" "ssecmp,ssecomi"))
 			 "athlon-vector,athlon-fadd")
 (define_insn_reservation "athlon_ssecmpvector_k8" 3
 			 (and (eq_attr "cpu" "k8")
-			      (eq_attr "type" "ssecmp"))
+			      (eq_attr "type" "ssecmp,ssecomi"))
 			 "athlon-double,athlon-fadd")
 (define_insn_reservation "athlon_sseadd_load" 7
 			 (and (eq_attr "cpu" "athlon")
