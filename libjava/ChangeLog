@@ -1,3 +1,11 @@
+2004-03-01  Olga Rodimina  <rodimina@redhat.com>
+
+	* gnu/java/awt/peer/gtk/GdkGraphics2D.java
+	(setPaint): Interpret correctly TexturePaint's
+	anchor rectangle.
+	(drawImage): Fixed scale factors of the affine
+	transform.
+
 2004-02-27  David Jee  <djee@redhat.com>
 
 	* gnu/java/awt/peer/gtk/GdkGraphics.java

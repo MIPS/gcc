@@ -555,11 +555,18 @@ public class GdkGraphics2D extends Graphics2D
       {
         TexturePaint tp = (TexturePaint) paint;
         BufferedImage img = tp.getImage ();
-        int pixels[] = img.getRGB(0, 0, img.getWidth (), 
-                                  img.getHeight (), null, 
-                                  0, img.getWidth ());
-        setTexturePixels (pixels, img.getWidth (), 
-                          img.getHeight (), img.getWidth ());
+	 
+        // map the image to the anchor rectangle  
+
+        int width = (int) tp.getAnchorRect ().getWidth ();
+        int height = (int) tp.getAnchorRect ().getHeight ();
+        GdkGraphics2D gr =  (GdkGraphics2D) img.createGraphics ();
+        gr.drawImage(img, 0, 0, width, height, 
+                     0, 0, img.getWidth (), img.getHeight (), null);
+	
+        int pixels[] = img.getRGB (0, 0, width, height, null, 0, width);
+        setTexturePixels (pixels, width, height, width);
+
       }
     else if (paint instanceof GradientPaint)
       {
@@ -1346,8 +1353,8 @@ public class GdkGraphics2D extends Graphics2D
     int destWidth = dx2 - dx1;
     int destHeight = dy2 - dy1;
     
-    double scaleX = destWidth / sourceWidth;
-    double scaleY = destHeight / sourceHeight;
+    double scaleX = destWidth / (double) sourceWidth;
+    double scaleY = destHeight / (double) sourceHeight;
 
     // Get the subimage of the source enclosed in the 
     // rectangle specified by sx1, sy1, sx2, sy2
