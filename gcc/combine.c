@@ -5118,8 +5118,16 @@ simplify_if_then_else (x)
       && false_rtx == const0_rtx && GET_CODE (true_rtx) == CONST_INT
       && (INTVAL (true_rtx) & GET_MODE_MASK (mode))
 	  == nonzero_bits (XEXP (cond, 0), mode)
+      && GET_MODE_BITSIZE (GET_MODE (x)) <= HOST_BITS_PER_WIDE_INT
       && (i = exact_log2 (INTVAL (true_rtx) & GET_MODE_MASK (mode))) >= 0)
-    return XEXP (cond, 0);
+    {
+      rtx new = XEXP (cond, 0);
+
+      if (GET_MODE_BITSIZE (GET_MODE (new)) >= GET_MODE_BITSIZE (GET_MODE (x)))
+	return gen_lowpart_for_combine (GET_MODE (x), new);
+      return simplify_gen_unary (ZERO_EXTEND,
+		      		 GET_MODE (x), new, GET_MODE (new));
+    }
 
   return x;
 }

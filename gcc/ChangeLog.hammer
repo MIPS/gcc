@@ -1,3 +1,8 @@
+Sat Jun 21 20:43:52 CEST 2003  Jan Hubicka  <jh@suse.cz>
+
+	* combine.c (simplify_if_then_else): Do proper casting in the last
+	transformation.
+
 Fri Jun 20 18:58:58 CEST 2003  Jan Hubicka  <jh@suse.cz>
 
 	* gcse.c (pre_insert_copy_insn): Deal nicely with parallels.
