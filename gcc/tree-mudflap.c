@@ -397,14 +397,15 @@ mf_file_function_line_tree (location_t *locus)
   tree result;
 
   /* Add FILENAME.  */
-  file = locus->file;
+  if (locus != NULL)
+    file = locus->file;
   if (file == NULL && current_function_decl != NULL_TREE)
     file = DECL_SOURCE_FILE (current_function_decl);
   if (file == NULL)
     file = "<unknown file>";
 
   /* Add :LINENUMBER.  */
-  if (locus->line > 0)
+  if (locus != NULL && locus->line > 0)
     {
       sprintf (linebuf, "%d", locus->line);
       colon = ":";
@@ -448,14 +449,16 @@ mf_build_check_statement_for (tree addr, tree size, tree_stmt_iterator *iter,
 
   /* Build: __mf_value = <address expression>.  */
   stmt = build (MODIFY_EXPR, void_type_node, mf_value, addr);
-  annotate_with_locus (stmt, *locus);
+  if (locus != NULL) 
+    annotate_with_locus (stmt, *locus);
   gimplify_stmt (&stmt);
   tsi_link_before (iter, stmt, TSI_SAME_STMT);
 
   /* Build: __mf_base = (uintptr_t)__mf_value.  */
   stmt = build (MODIFY_EXPR, void_type_node, mf_base,
 		build1 (NOP_EXPR, mf_uintptr_type, mf_value));
-  annotate_with_locus (stmt, *locus);
+  if (locus != NULL) 
+    annotate_with_locus (stmt, *locus);
   gimplify_stmt (&stmt);
   tsi_link_before (iter, stmt, TSI_SAME_STMT);
 
@@ -470,7 +473,8 @@ mf_build_check_statement_for (tree addr, tree size, tree_stmt_iterator *iter,
 	     mf_cache_array_decl, t);
   t = build1 (ADDR_EXPR, mf_cache_structptr_type, t);
   stmt = build (MODIFY_EXPR, void_type_node, mf_elem, t);
-  annotate_with_locus (stmt, *locus);
+  if (locus != NULL) 
+    annotate_with_locus (stmt, *locus);
   gimplify_stmt (&stmt);
   tsi_link_before (iter, stmt, TSI_SAME_STMT);
 
@@ -534,7 +538,8 @@ mf_build_check_statement_for (tree addr, tree size, tree_stmt_iterator *iter,
     }
 
   stmt = build (COND_EXPR, void_type_node, cond, stmt, build_empty_stmt ());
-  annotate_with_locus (stmt, *locus);
+  if (locus != NULL) 
+    annotate_with_locus (stmt, *locus);
   gimplify_to_stmt_list (&stmt);
   lower_stmt_body (stmt, NULL);
   tsi_link_before (iter, stmt, TSI_SAME_STMT);
