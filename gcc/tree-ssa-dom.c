@@ -222,6 +222,8 @@ static int true_false_expr_eq (const void *, const void *);
 static void htab_statistics (FILE *, htab_t);
 static void record_cond_is_false (tree, varray_type *);
 static void record_cond_is_true (tree, varray_type *);
+static void record_const_or_copy (tree, tree, varray_type *);
+static void record_equality (tree, tree, varray_type *);
 static tree update_rhs_and_lookup_avail_expr (tree, tree, varray_type *,
 					      stmt_ann_t, bool);
 static tree simplify_rhs_and_lookup_avail_expr (struct dom_walk_data *,
@@ -638,27 +640,12 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
     {
       tree src = PHI_ARG_DEF (phi, phi_arg_from_edge (phi, e));
       tree dst = PHI_RESULT (phi);
-      tree prev_value = get_value_for (dst, const_and_copies);
-
-      if (TREE_CODE (src) == SSA_NAME)
-	{
-	  tree tmp = get_value_for (src, const_and_copies);
-
-	  if (tmp)
-	    src = tmp;
-	}
-	  
-      set_value_for (dst, src, const_and_copies);
-
-      if (! bd->const_and_copies)
-        VARRAY_TREE_INIT (bd->const_and_copies, 2, "block_const_and_copies");
-      VARRAY_PUSH_TREE (bd->const_and_copies, dst);
-      VARRAY_PUSH_TREE (bd->const_and_copies, prev_value);
+      record_const_or_copy (dst, src, &bd->const_and_copies);
     }
 
   for (bsi = bsi_start (e->dest); ! bsi_end_p (bsi); bsi_next (&bsi))
     {
-      tree lhs, cached_lhs, prev_value;
+      tree lhs, cached_lhs;
 
       stmt = bsi_stmt (bsi);
 
@@ -767,22 +754,7 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
 	 We want to record an equivalence lhs = cache_lhs so that if
 	 the result of this statement is used later we can copy propagate
 	 suitably.  */
-      prev_value = get_value_for (lhs, const_and_copies);
-
-      if (TREE_CODE (cached_lhs) == SSA_NAME)
-	{
-	  tree tmp = get_value_for (cached_lhs, const_and_copies);
-
-	  if (tmp)
-	    cached_lhs = tmp;
-	}
-	  
-      set_value_for (lhs, cached_lhs, const_and_copies);
-
-      if (! bd->const_and_copies)
-	VARRAY_TREE_INIT (bd->const_and_copies, 2, "block_const_and_copies");
-      VARRAY_PUSH_TREE (bd->const_and_copies, lhs);
-      VARRAY_PUSH_TREE (bd->const_and_copies, prev_value);
+      record_const_or_copy (lhs, cached_lhs, &bd->const_and_copies);
     }
 
   /* If we stopped at a COND_EXPR or SWITCH_EXPR, then see if we know which
@@ -1097,20 +1069,16 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data,
 	   && ! bb->succ->succ_next->succ_next)
     {
       edge true_edge, false_edge;
-      tree cond = NULL, inverted = NULL;
-      tree var = NULL;
+      tree cond, inverted = NULL;
+      enum tree_code cond_code;
 
       extract_true_false_edges_from_block (bb, &true_edge, &false_edge);
 
-      if (TREE_CODE_CLASS (TREE_CODE (COND_EXPR_COND (last))) == '<')
-	{
-	  cond = COND_EXPR_COND (last);
-	  inverted = invert_truthvalue (cond);
-	}
-      else if (TREE_CODE (COND_EXPR_COND (last)) == SSA_NAME)
-	{
-	  var = COND_EXPR_COND (last);
-	}
+      cond = COND_EXPR_COND (last);
+      cond_code = TREE_CODE (cond);
+
+      if (TREE_CODE_CLASS (cond_code) == '<')
+	inverted = invert_truthvalue (cond);
 
       /* If the THEN arm is the end of a dominator tree or has PHI nodes,
 	 then try to thread through its edge.  */
@@ -1130,23 +1098,14 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data,
 				   : 0;
 
 	  /* Record any equivalences created by following this edge.  */
-	  if (cond || inverted)
+	  if (TREE_CODE_CLASS (cond_code) == '<')
 	    {
 	      record_cond_is_true (cond, &bd->true_exprs);
 	      record_cond_is_false (inverted, &bd->false_exprs);
 	    }
-	  else
-	    {
-	      tree prev_value = get_value_for (var, const_and_copies);
-
-	      set_value_for (var, boolean_true_node, const_and_copies);
-
-	      if (! bd->const_and_copies)
-		VARRAY_TREE_INIT (bd->const_and_copies, 2,
-				  "block_const_and_copies");
-	      VARRAY_PUSH_TREE (bd->const_and_copies, var);
-	      VARRAY_PUSH_TREE (bd->const_and_copies, prev_value);
-	    }
+	  else if (cond_code == SSA_NAME)
+	    record_const_or_copy (cond, boolean_true_node,
+				  &bd->const_and_copies);
 
 	  /* Now thread the edge.  */
 	  thread_across_edge (walk_data, true_edge);
@@ -1162,30 +1121,21 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data,
 	  restore_vars_to_original_value (bd->const_and_copies,
 					  const_and_copies_limit,
 					  const_and_copies);
-
 	}
+
       /* Similarly for the ELSE arm.  */
       if (get_immediate_dominator (CDI_DOMINATORS, false_edge->dest) != bb
 	  || phi_nodes (false_edge->dest))
 	{
 	  /* Record any equivalences created by following this edge.  */
-	  if (cond || inverted)
+	  if (TREE_CODE_CLASS (cond_code) == '<')
 	    {
 	      record_cond_is_false (cond, &bd->false_exprs);
 	      record_cond_is_true (inverted, &bd->true_exprs);
 	    }
-	  else
-	    {
-	      tree prev_value = get_value_for (var, const_and_copies);
-
-	      set_value_for (var, boolean_false_node, const_and_copies);
-
-	      if (! bd->const_and_copies)
-		VARRAY_TREE_INIT (bd->const_and_copies, 2,
-				  "block_const_and_copies");
-	      VARRAY_PUSH_TREE (bd->const_and_copies, var);
-	      VARRAY_PUSH_TREE (bd->const_and_copies, prev_value);
-	    }
+	  else if (cond_code == SSA_NAME)
+	    record_const_or_copy (cond, boolean_false_node,
+				  &bd->const_and_copies);
 
 	  thread_across_edge (walk_data, false_edge);
 
@@ -1418,32 +1368,12 @@ record_equivalences_from_incoming_edge (struct dom_walk_data *walk_data,
 	}
     }
 
-
   /* If EQ_EXPR_VALUE (VAR == VALUE) is given, register the VALUE as a
      new value for VAR, so that occurrences of VAR can be replaced with
      VALUE while re-writing the THEN arm of a COND_EXPR.  */
   if (eq_expr_value.src && eq_expr_value.dst)
-    {
-      tree dest = eq_expr_value.dst;
-      tree src = eq_expr_value.src;
-      tree prev_value = get_value_for (dest, const_and_copies);
-
-      /* For IEEE, -0.0 == 0.0, so we don't necessarily know the sign
-	 of a variable compared against zero.  If we're honoring signed
-	 zeros, then we cannot record this value unless we know that the
-	 value is non-zero.  */
-      if (!HONOR_SIGNED_ZEROS (TYPE_MODE (TREE_TYPE (src)))
-	  || (TREE_CODE (src) == REAL_CST
-	      && !REAL_VALUES_EQUAL (dconst0, TREE_REAL_CST (src))))
-	set_value_for (dest, src, const_and_copies);
-
-      /* Record the destination and its previous value so that we can
-	 reset them as we leave this block.  */
-      if (! bd->const_and_copies)
-	VARRAY_TREE_INIT (bd->const_and_copies, 2, "block_const_and_copies");
-      VARRAY_PUSH_TREE (bd->const_and_copies, dest);
-      VARRAY_PUSH_TREE (bd->const_and_copies, prev_value);
-    }
+    record_equality (eq_expr_value.dst, eq_expr_value.src,
+		     &bd->const_and_copies);
 }
 
 /* Perform a depth-first traversal of the dominator tree looking for
@@ -1613,6 +1543,80 @@ record_cond_is_false (tree cond, varray_type *block_false_exprs_p)
 	VARRAY_TREE_INIT (*block_false_exprs_p, 2, "block_false_exprs");
       VARRAY_PUSH_TREE (*block_false_exprs_p, cond);
     }
+}
+
+/* A helper function for record_const_or_copy and record_equality.
+   Do the work of recording the value and undo info.  */
+
+static void
+record_const_or_copy_1 (tree x, tree y, tree prev_x,
+			varray_type *block_const_and_copies_p)
+{
+  set_value_for (x, y, const_and_copies);
+
+  if (!*block_const_and_copies_p)
+    VARRAY_TREE_INIT (*block_const_and_copies_p, 2, "block_const_and_copies");
+  VARRAY_PUSH_TREE (*block_const_and_copies_p, x);
+  VARRAY_PUSH_TREE (*block_const_and_copies_p, prev_x);
+}
+
+/* Record that X is equal to Y in const_and_copies.  Record undo
+   information in the block-local varray.  */
+
+static void
+record_const_or_copy (tree x, tree y, varray_type *block_const_and_copies_p)
+{
+  tree prev_x = get_value_for (x, const_and_copies);
+
+  if (TREE_CODE (y) == SSA_NAME)
+    {
+      tree tmp = get_value_for (y, const_and_copies);
+      if (tmp)
+	y = tmp;
+    }
+
+  record_const_or_copy_1 (x, y, prev_x, block_const_and_copies_p);
+}
+
+/* Similarly, but assume that X and Y are the two operands of an EQ_EXPR.
+   This constrains the cases in which we may treat this as assignment.  */
+
+static void
+record_equality (tree x, tree y, varray_type *block_const_and_copies_p)
+{
+  tree prev_x = NULL, prev_y = NULL;
+
+  if (TREE_CODE (x) == SSA_NAME)
+    prev_x = get_value_for (x, const_and_copies);
+  if (TREE_CODE (y) == SSA_NAME)
+    prev_y = get_value_for (y, const_and_copies);
+
+  /* If one of the previous values is invariant, then use that.
+     Otherwise it doesn't matter which value we choose, just so
+     long as we canonicalize on one value.  */
+  if (TREE_INVARIANT (y))
+    ;
+  else if (TREE_INVARIANT (x))
+    prev_x = x, x = y, y = prev_x, prev_x = prev_y;
+  else if (prev_x && TREE_INVARIANT (prev_x))
+    x = y, y = prev_x, prev_x = prev_y;
+  else if (prev_y)
+    y = prev_y;
+
+  /* After the swapping, we must have one SSA_NAME.  */
+  if (TREE_CODE (x) != SSA_NAME)
+    return;
+
+  /* For IEEE, -0.0 == 0.0, so we don't necessarily know the sign of a
+     variable compared against zero.  If we're honoring signed zeros,
+     then we cannot record this value unless we know that the value is
+     non-zero.  */
+  if (HONOR_SIGNED_ZEROS (TYPE_MODE (TREE_TYPE (x)))
+      && (TREE_CODE (y) != REAL_CST
+	  || REAL_VALUES_EQUAL (dconst0, TREE_REAL_CST (y))))
+    return;
+
+  record_const_or_copy_1 (x, y, prev_x, block_const_and_copies_p);
 }
 
 /* STMT is a MODIFY_EXPR for which we were unable to find RHS in the

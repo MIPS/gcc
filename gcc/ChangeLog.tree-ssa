@@ -1,5 +1,14 @@
 2004-02-05  Richard Henderson  <rth@redhat.com>
 
+	* tree-ssa-dom.c (record_const_or_copy_1): New.
+	(record_const_or_copy): New.
+	(thread_across_edge): Use it.
+	(dom_opt_finalize_block): Likewise.  Tidy.
+	(record_equality): Split out from ...
+	(record_equivalences_from_incoming_edge): ... here.
+
+2004-02-05  Richard Henderson  <rth@redhat.com>
+
 	* tree-ssa-dom.c (simplify_rhs_and_lookup_avail_expr): Allow
 	mixing PLUS and MINUS when folding operations.
 
