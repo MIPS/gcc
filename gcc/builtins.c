@@ -3708,7 +3708,7 @@ expand_builtin_expect (arglist, target)
   target = expand_expr (exp, target, VOIDmode, EXPAND_NORMAL);
 
   /* Don't bother with expected value notes for integral constants.  */
-  if (GET_CODE (target) != CONST_INT)
+  if (flag_guess_branch_prob && GET_CODE (target) != CONST_INT)
     {
       /* We do need to force this into a register so that we can be
 	 moderately sure to be able to correctly interpret the branch
@@ -3879,6 +3879,9 @@ expand_builtin (exp, target, subtarget, mode, ignore)
   tree fndecl = TREE_OPERAND (TREE_OPERAND (exp, 0), 0);
   tree arglist = TREE_OPERAND (exp, 1);
   enum built_in_function fcode = DECL_FUNCTION_CODE (fndecl);
+
+  /* Perform postincrements before expanding builtin functions.  */
+  emit_queue ();
 
   if (DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_MD)
     return (*targetm.expand_builtin) (exp, target, subtarget, mode, ignore);

@@ -1,3 +1,63 @@
+2003-02-22  Hans-Peter Nilsson  <hp@axis.com>
+
+	* gcc.dg/asmreg-1.c: New test.
+
+2003-02-21  Richard Henderson  <rth@redhat.com>
+
+        * gcc.dg/attr-invalid.c: Allow __used__ on static data.
+
+2003-02-21  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/9749
+	* g++.dg/parse/varmod1.C: New test.
+
+	PR c++/9727
+	* g++.dg/template/op1.C: New test.
+
+2003-02-21  Zack Weinberg  <zack@codesourcery.com>
+
+	* gcc.dg/cpp/include3.c: New test.
+	* gcc.dg/cpp/inc/foo.h: New file.
+
+2003-02-21  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/8906
+	* g++.dg/template/nested2.C: New test.
+	
+	PR c++/8724
+	* g++.dg/expr/dtor1.C: New test.
+
+2003-02-21  Glen Nakamura  <glen@imodulo.com>
+
+	* gcc.c-torture/execute/20030221-1.c: New test.
+
+2003-02-20  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/9729
+	* g++.dg/abi/conv1.C: New test.
+
+Thu Feb 20 14:39:49 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* gcc.c-torture/execute/20020720-1.x: XFAIL for x86-64.
+
+2003-02-19  Daniel Jacobowitz  <drow@mvista.com>
+
+	* gcc.c-torture/compile/20030219-1.c: New test.
+
+2003-02-18  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* gcc.c-torture/execute/20030218-1.c: New.
+
+2003-02-18  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/9704
+	* g++.dg/init/copy5.C: New test.
+
+2003-02-18  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/9459
+	* g++.dg/ext/typeof4.C: New test.
+
 Wed Feb 12 17:18:27 CET 2003  Jan Hubicka  <jh@suse.cz>
 
 	* gcc.dg/i386-mmx-3.c: Change -march=k8 to -march=athlon.
@@ -21,7 +81,7 @@ Wed Feb 12 17:18:27 CET 2003  Jan Hubicka  <jh@suse.cz>
 	* g++.dg/parse/octal1.C: New file.
 
 2003-02-10  Eric Botcazou  <ebotcazou@libertysurf.fr>
-            Christian Ehrhardt  <ehrhardt@mathematik.uni-ulm.de>
+	    Christian Ehrhardt  <ehrhardt@mathematik.uni-ulm.de>
 
 	* gcc.dg/decl-2.c: New test.
 
@@ -105,7 +165,7 @@ Tue Feb  4 21:58:43 CET 2003  Jan Hubicka  <jh@suse.cz>
 
 	PR middle-end/7227
 	* gcc.dg/uninit-C.c: New test.
-	
+
 Sat Jan 25 21:06:49 CET 2003  Jan Hubicka  <jh@suse.cz>
 
 	PR opt/8492
@@ -206,14 +266,14 @@ Sat Jan 25 21:06:49 CET 2003  Jan Hubicka  <jh@suse.cz>
 	* g++.old-deja/g++.jason/synth10.C: Likewise.
 	* g++.old-deja/g++.mike/net31.C: Likewise.
 	* g++.old-deja/g++.mike/p8786.C: Likewise.
-	
+
 	* g++.dg/template/friend10.C: New test.
 	* g++.dg/template/conv5.C: New test.
 
 2002-12-24  Nathan Sidwell  <nathan@codesourcery.com>
-	
+
 	* g++.dg/lookup/scoped3.C: New test.
-	
+
 	* g++.dg/lookup/decl1.C: New test.
 	* g++.dg/lookup/decl2.C: New test.
 
@@ -236,7 +296,7 @@ Sat Jan 25 21:06:49 CET 2003  Jan Hubicka  <jh@suse.cz>
 2002-12-19  Devang Patel  <dpatel@apple.com>
 
 	* gcc.dg/darwin-ld-5.c: Rewrite test to test -dynamic.
-	
+
 2002-12-19  Eric Botcazou  <ebotcazou@libertysurf.fr>
 
 	* gcc.c-torture/execute/20021219-1.c: New test.
@@ -263,7 +323,7 @@ Sat Jan 25 21:06:49 CET 2003  Jan Hubicka  <jh@suse.cz>
 	* gcc.dg/darwin-ld-3.c: New test.
 	* gcc.dg/darwin-ld-4.c: New test.
 	* gcc.dg/darwin-ld-5.c: New test.
-	
+
 2002-12-12  Eric Botcazou  <ebotcazou@libertysurf.fr>
 
 	* gcc.c-torture/compile/20021212-1.c: New test.
@@ -341,7 +401,7 @@ Sat Jan 25 21:06:49 CET 2003  Jan Hubicka  <jh@suse.cz>
 
 	PR c++/8727
 	* g++.dg/inherit/typeinfo1.C: New test.
-	
+
 	PR c++/8663
 	* g++.dg/inherit/typedef1.C: New test.
 
@@ -490,7 +550,7 @@ Wed Nov 27 14:37:34 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	PR c/8439
 	* gcc.dg/20021110.c: New test.
-	
+
 2002-11-10  Mark Mitchell  <mark@codesourcery.com>
 
 	* g++.dg/abi/vthunk3.C: Run only on x86.

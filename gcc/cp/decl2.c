@@ -4034,7 +4034,7 @@ push_scope (t)
 {
   if (TREE_CODE (t) == NAMESPACE_DECL)
     push_decl_namespace (t);
-  else
+  else if (CLASS_TYPE_P (t))
     pushclass (t, 2);
 }
 
@@ -4046,7 +4046,7 @@ pop_scope (t)
 {
   if (TREE_CODE (t) == NAMESPACE_DECL)
     pop_decl_namespace ();
-  else
+  else if (CLASS_TYPE_P (t))
     popclass ();
 }
 
@@ -4891,6 +4891,9 @@ handle_class_head (tag_kind, scope, id, attributes, defn_p, new_type_p)
 	 before looking up any base classes etc. Only do so, if this
 	 is different to the current scope.  */
       tree context = CP_DECL_CONTEXT (decl);
+
+      if (IMPLICIT_TYPENAME_P (context))
+	context = TREE_TYPE (context);
 
       *new_type_p = (current != context
 		     && TREE_CODE (context) != TEMPLATE_TYPE_PARM

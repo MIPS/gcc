@@ -1,3 +1,75 @@
+2003-02-21  Mark Wielaard  <mark@klomp.org>
+
+	* java/util/zip/ZipEntry.java (setComment): Don't check length when
+	argument is null.
+
+2003-02-21  Mark Wielaard  <mark@klomp.org>
+
+	* java/util/zip/ZipEntry.java (ZipEntry(String)): When name is bigger
+	then 65535 chars throw IllegalArgumentException.
+
+2003-02-21  Mark Wielaard  <mark@klomp.org>
+
+	* java/util/zip/ZipFile.java (finalize): New method.
+
+2003-02-20  Alexandre Oliva  <aoliva@redhat.com>
+
+	* configure.in: Propagate ORIGINAL_LD_FOR_MULTILIBS to
+	config.status.
+	* configure: Rebuilt.
+
+2003-02-19  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* gnu/gcj/runtime/natStackTrace.cc: Include platform.h immediately
+	after config.h.  Use <> for consistency.
+	* java/lang/natObject.cc: Likewise.
+	* java/lang/natRuntime.cc: Likewise.
+	* java/lang/natSystem.cc: Likewise.
+	* java/util/natTimeZone.cc: Likewise.
+	* win32.cc: Likewise.
+	* include/posix.h (fcntl, socket, connect, close, bind, accept,
+	listen, write, read): Undef to avoid interference from OS macros.
+
+2003-02-18  Raif S. Naffah <raif@fl.net.au>
+
+	* java/math/BigInteger.java (euclidInv): Take result array as an
+	argument.  Updated all callers.
+	(modInverse): Removed unused variables.
+
+2003-02-17  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/DatagramSocket.java
+	(connect): Merged with classpath.
+	(disconnect): Merged documentation with classpath.
+	(receice): Merged documentation with classpath.
+	(send): Merged documentation with classpath.
+
+2003-02-17  Jesse Rosenstock  <jmr@ugcs.caltech.edu>
+
+	* java/nio/charset/Charset.java
+	(isRegistered): Fixed method args and implementation.
+	* java/nio/charset/CharsetEncoder.java
+	(unmappableCharacterAction): New method.
+
+2003-02-17  Raif S. Naffah <raif@fl.net.au>
+
+	* java/math/BigInteger.java (euclidInv): Return array of
+	`BigInteger's.  Changed all callers.
+
+2003-02-16  Ranjit Mathew  <rmathew@hotmail.com>
+
+	* java/util/Properties.java (store): Move the code formerly in
+	list(), into this method.
+	(list (PrintStream)): Just call list (PrintWriter) with a 
+	PrintWriter object constructed from the given PrintStream object.
+	(list (PrintWriter)): Emulate the output of Properties.list()
+	as found in JDK 1.3/1.4.
+
+2003-02-16  Tom Tromey  <tromey@redhat.com>
+
+	* verify.cc (_Jv_BytecodeVerifier::pop_jump): Removed unused
+	variable.
+
 2003-02-14  Michael Koch  <konqueror@gmx.de>
 
 	* gnu/java/nio/natServerSocketChannelImpl.cc: Removed.

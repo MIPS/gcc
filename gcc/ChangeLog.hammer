@@ -1,3 +1,7 @@
+Sat Feb 22 22:14:09 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* Merge from 3.3-branch (hammer-3_3-merge-20030222)
+
 Sat Feb 22 20:12:57 CET 2003  Jan Hubicka  <jh@suse.cz>
 
 	* expmed.c (expand_divmod): Undo sign extensions for unsigned operands

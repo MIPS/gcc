@@ -1,3 +1,57 @@
+2003-02-21  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/9749
+	* decl.c (grokdeclarator): Do not allow parameters with variably
+	modified types.
+
+	PR c++/9727
+	* decl2.c (push_scope): Don't pushclass for non-class types.
+	(pop_scope): Don't popclass either.
+
+	PR c++/8906
+	* decl.c (lookup_name_real): Use IMPLICIT_TYPENAME_P.
+	* decl2.c (handle_class_head): Check it.
+
+	PR c++/8724
+	* call.c (build_method_call): Make sure that the type destroyed in
+	an explicit destructor call is complete.
+
+2003-02-20  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/9729
+	* mangle.c (mangle_conv_op_name_for_type): Issue an error message
+	when the G++ 3.2 ABI prevents correct compilation.
+
+2003-02-18  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/9704
+	* class.c (layout_class_type): In the 3.2 ABI, take into account
+	trailing bit fields when computing CLASSTYPE_SIZE_UNIT.
+
+2003-02-18  Matt Austern <austern@apple.com>
+	
+	* cp/cp-lang.c: Change lang hooks so that final_write_globals does
+	nothing for C++.
+	* cp/decl.c (wrapup_globals_for_namespace): Remove special
+	handling of global namespace.
+	
+2003-02-18  Jason Merrill  <jason@redhat.com>
+
+	PR c++/9623
+	* decl.c (reshape_init): Don't mess with initializer labels.
+
+2003-02-18  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/9459
+	* error.c (dump_type_prefix): Handle TYPEOF_TYPE.
+	(dump_type_suffix): Likewise.
+
+2003-02-17  Michael Elizabeth Chastain <mec@shout.net>
+
+	PR debug/9717
+	* class.c (build_base_field): Mark fields for base classes with
+	DECL_IGNORED_P.
+
 2003-02-13  Andrew Pinski <pinskia@physics.uc.edu>
 
         * decl.c: (define_label): Fix warning for return 0 instead of NULL.

@@ -1925,10 +1925,6 @@ wrapup_globals_for_namespace (namespace, data)
   tree decl;
   int last_time = (data != 0);
 
-  if (last_time && namespace == global_namespace)
-    /* Let compile_file handle the global namespace.  */
-    return 0;
-
   /* Process the decls in reverse order--earliest first.
      Put them into VEC from back to front, then take out from front.  */       
   for (i = 0, decl = globals; i < len; i++, decl = TREE_CHAIN (decl))
@@ -6161,7 +6157,7 @@ lookup_name_real (name, prefer_type, nonclass, namespaces_only)
 	{
 	  if (type == error_mark_node)
 	    POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, error_mark_node);
-	  if (TREE_CODE (type) == TYPENAME_TYPE && TREE_TYPE (type))
+	  if (IMPLICIT_TYPENAME_P (type))
 	    type = TREE_TYPE (type);
 
 	  if (TYPE_P (type))
@@ -7991,6 +7987,7 @@ reshape_init (tree type, tree *initp)
 	    {
 	      /* Loop through the initializable fields, gathering
 		 initializers.  */
+              /* FIXME support non-trivial labeled initializers.  */
 	      while (*initp && field)
 		{
 		  tree field_init;
@@ -8005,8 +8002,6 @@ reshape_init (tree type, tree *initp)
 		     initializer for the first member of the union.  */
 		  if (TREE_CODE (type) == UNION_TYPE)
 		    break;
-		  if (TREE_PURPOSE (field_init))
-		    field = TREE_PURPOSE (field_init);
 		  field = next_initializable_field (TREE_CHAIN (field));
 		}
 	    }
@@ -11544,11 +11539,14 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
       type = error_mark_node;
     }
 
-  if (decl_context == FIELD 
+  if ((decl_context == FIELD || decl_context == PARM)
       && !processing_template_decl 
       && variably_modified_type_p (type))
     {
-      error ("data member may not have variably modified type `%T'", type);
+      if (decl_context == FIELD)
+	error ("data member may not have variably modified type `%T'", type);
+      else
+	error ("parameter may not have variably modified type `%T'", type);
       type = error_mark_node;
     }
 

@@ -1,10 +1,207 @@
+Sat Feb 22 19:34:29 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* config/linux.h (TARGET_HAS_F_SETLKW): Define.
+	* config/alpha/linux.h (TARGET_HAS_F_SETLKW): Likewise
+
+2003-02-22  Hans-Peter Nilsson  <hp@axis.com>
+
+	* regmove.c (optimize_reg_copy_1): Do not replace a hard register
+	in an asm.
+
+Sat Feb 22 03:24:06 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* i386.c (builtin_description): Add __builtin_ia32_paddq and
+	__builtin_ia32_psubq. Fix __builtin_ia32_paddq128
+	 and __builtin_ia32_psubq128.
+	* i386.h (IX86_BUILTIN_PADDQ, IX86_BUILTIN_PSUBQ): New.
+	* i386.md (addv*, mmx_ior*, mmx_xoe*, mmx_and*): Add missing '%'.
+	(mmx_adddi3, mmx_subdi3): New.
+	* mmintrin.h (_mm_add_si64, _mm_sub_si64): New.
+	* xmmintrin.h (_mm_movepi64_pi64): New.
+	(_mm_add_epi64, _mm_sub_epi64): fix.
+	(_mm_mul_pu16): Rename to...
+	(_mm_mul_su32): ... this one.
+
+	* i386.c (def_builtin):  Special case 64bit builtins.
+	(MASK_SSE164, MASK_SSE264): New constants.
+	(builtin_description): Add 64bit builtins.
+	(ix86_init_mmx_sse_builtins): Likewise.
+	* i386.h (enum ix86_builtins): Likewise.
+	* i386.md (cvtss2siq, cvttss2siq, cvtsd2siq, cvttsd2siq, cvtsi2sdq,
+	sse2_movq2dq_rex64, sse2_movsq2q_rex64): New.
+	(sse2_movq2dq, sse2_movsq2q): Disable for 64bit.
+	* mmintrin.h (_mm_cvtsi64x_si64, _mm_set_pi64x, _mm_cvtsi64_si64x): New.
+	* xmmintrin.h (_mm_cvtss_si64x, _mm_cvttss_si64x, _mm_cvtsi64x_ss,
+	_mm_set_epi64x, _mm_set1_epi64x, _mm_cvtsd_si64x, _mm_cvttsd_si64x,
+	_mm_cvtsi64x_sd, _mm_cvtsi64x_si128, _mm_cvtsi128_si64x): New.
+
+	* builtins.c (expand_builtin_expect):  Do not predict
+	flag_guess_branch_prob is not set.
+	* c-semantics.c (expand_stmt): Likewise.
+	* predict.c (predict_insn): Likewise.
+	* stmt.c (expand_continue_loop): Likewise.
+	* toplev.c (rest_of_compilation): Do not call
+	note_prediction_to_br_prob and note_prediction_to_br_prob
+	when not optimizing.
+
+	* basic-block.h (tidy_fallthru_edges): Kill.
+	* cfgrtl.c (tidy_fallthru_edges): Kill.
+	* cfgbuild.c (find_basic_blocks): Do not call tidy_fallthru_edges.
+	* cfgcleanup.c (delete_unreachable_blocks): Likewise.
+
+2003-02-22  Steven Bosscher  <s.bosscher@student.tudelft.nl>
+
+	PR other/3782
+	* toplev.c (process_options): If flag_detailed_statistics is set,
+	then set time_report as well.
+
+	PR c/8828
+	* jump.c (never_reached_warning): Don't fall through BARRRIER
+	insns.  Update comments to reflect what the function really does.
+
+2003-02-21  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* doc/invoke.texi (ggc-min-expand, ggc-min-heapsize): Update
+	documentation.
+	* ggc-common.c: Include params.h
+	(ggc_min_expand_heuristic, ggc_min_heapsize_heuristic,
+	init_ggc_heuristics): New functions.
+	* ggc.h (ggc_min_expand_heuristic, ggc_min_heapsize_heuristic,
+	init_ggc_heuristics): Prototype.
+	* toplev.c (print_version):  Output GGC heuristics.
+	(parse_options_and_default_flags): Call init_ggc_heuristics.
+
+Fri Feb 21 22:47:27 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* cfgrtl.c (commit_edge_insertions):  Call
+	find_many_sub_basic_block only when some code has been emitted.
+	(commit_edge_insertions_watch_calls): Bring into sync with
+	commit_edge_insertions
+
+2003-02-21  Zack Weinberg  <zack@codesourcery.com>
+
+	* cpphash.h (struct lexer_state): Add directive_wants_padding.
+	* cpplib.c (_cpp_handle_directive): Set directive_wants_padding
+	for directives of type INCL.
+	(glue_header_name, parse_include): Use get_token_no_padding.
+	* cppmacro.c (replace_args): If directive_wants_padding,
+	provide padding tokens.
+
+Fri Feb 21 11:02:29 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* cfgrtl.c (commit_one_edge_insertion): Only mark BB for splitting.
+	(commit_edge_insertions): Call find_many_sub_basic_blocks
+
+	* reg-stack.c (convert_regs): Cleax aux for blocks.
+
+2003-02-21  Glen Nakamura  <glen@imodulo.com>
+
+	PR optimization/8613
+	* builtins.c (expand_builtin): Emit postincrements before expanding
+	builtin functions.
+
+2003-02-21  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	PR fortran/9038
+	* c-opts.c (sanitize_cpp_opts): Add Fortran front end
+	options to be ignored.
+	(c_common_decode_option): Ignore them when preprocessing.
+
+2003-02-21  Ben Elliston  <bje@redhat.com>
+
+	PR other/5634
+	* doc/install.texi (Configuration): Explain using $HOME instead of
+	the ~ metacharacter when referring to home directories.
+
+2003-02-20  Richard Earnshaw  <rearnsha@arm.com>
+
+	* arm.c (arm_reload_in_hi): Ensure that the scratch register does
+	not overlap the final result register.
+
+2003-02-20  Josef Zlomek  <zlomekj@suse.cz>
+
+	* combine.c (distribute_notes): Kill REG_EXEC_COUNT.
+	* rtl.c (reg_note_name): Likewise.
+	* rtl.h (enum reg_note): Likewise.
+	* doc/invoke.texi: Likewise.
+	* doc/rtl.texi: Likewise.
+
+2003-01-30  Richard Henderson  <rth@redhat.com>
+
+	* tree-inline.c (walk_tree): Streamline duplicate hash table lookup.
+
+2003-02-19  Daniel Jacobowitz  <drow@mvista.com>
+
+	* expr.c (expand_expr): Use gen_int_mode for the argument
+	to gen_rtx_MULT.
+
+Wed Feb 19 14:22:14 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* i386.md (cosxf2):  Fix conditional.
+
+2003-02-18  Matt Austern <austern@apple.com>
+	* toplev.c, langhooks.c, langhooks-def.h: Move
+	write_global_declarations from toplev.c to langhooks.c.
+
+2003-02-18  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.c (general_operand_src): Always check
+	MODE.
+	(general_operand_dst): Likewise.
+
+2003-02-18  Richard Henderson  <rth@redhat.com>
+
+	* c-common.c (handle_used_attribute): Accept static data too.
+
+2003-02-18  Jim Wilson  <wilson@redhat.com>
+
+	* config/ia64/ia64.md (floatdidf2, floatdisf2): Add %, before second
+	instruction in output template.
+	(bsp_value): Change output template from string to C code, add %,
+	before actual instruction.
+	(flushrs): Mark as not predicable.
+
+2003-02-18  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.md (*zero_extendhisi2_h8300): Fix the
+	insn length.
+	(extendqisi2): Likewise.
+	(*extendhisi2_h8300): Likewise.
+
+2003-02-18  Matt Austern <austern@apple.com>
+
+	* langhooks.h, langhooks-def.h: introduce new langhook,
+	final_write_globals, with write_global_declarations as default.
+	* toplev.c: Move invocation of wrapup_global_declarations from
+	compile_file to new function, write_global_declarations.  Change
+	compile_file to use final_write_globals hook.  Change
+	wrapup_global_declarations so writing to DECL_DEFER_OUTPUT is
+	conditional.
+
+2003-02-18  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* pa.md: Correct and enhance comment.
+
+2003-02-16  Kai Henningsen  <kaih@khms.westfalen.de>
+	    Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* doc/install.texi (Specific): Fix link for m68k-att-sysv.
+	(Binaries): Ditto for Sinix/Reliant Unix.
+
+2003-02-16  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* config/i386/i386-protos.h (function_arg_pass_by_reference): Declare.
+	* config/i386/i386.h (FUNCTION_ARG_PASS_BY_REFERENCE): Use it.
+	* config/i386/i386.c (function_arg_pass_by_reference): New.
+	(ix86_va_arg): Support arguments passed by reference.
+
 2003-02-16 Arend Bayer <arend.bayer@web.de>
-           Richard Henderson  <rth@redhat.com>
+	   Richard Henderson  <rth@redhat.com>
 
 	PR c/8068
-        * fold-const.c (extract_muldiv_1): Rename from extract_muldiv;
-        rearrange mult arguments for less recursion.
-        (extract_muldiv): New.  Prevent runaway recursion.
+	* fold-const.c (extract_muldiv_1): Rename from extract_muldiv;
+	rearrange mult arguments for less recursion.
+	(extract_muldiv): New.  Prevent runaway recursion.
 
 2003-02-16  Danny Smith  <dannysmith@users.sourceforge.net>
 
@@ -13,29 +210,29 @@
 
 2003-02-15  Adam Nemet  <anemet@lnxw.com>
 
-        PR opt/2391 
-        * combine.c: Fix spelling in comment.
-        (cached_nonzero_bits): New function.
-        (cached_num_sign_bit_copies): New function.
+	PR opt/2391
+	* combine.c: Fix spelling in comment.
+	(cached_nonzero_bits): New function.
+	(cached_num_sign_bit_copies): New function.
 	(nonzero_bits_with_known): New macro.
 	(num_sign_bit_copies_with_known): New macro.
-        (nonzero_bits1): Rename from nonzero_bits.  Add three new
+	(nonzero_bits1): Rename from nonzero_bits.  Add three new
 	arguments.  Change calls from nonzero_bits to
 	nonzero_bits_with_known.
-        (num_sign_bit_copies1): Rename from num_sign_bit_copies.  Add
+	(num_sign_bit_copies1): Rename from num_sign_bit_copies.  Add
 	three new arguments.  Change calls from num_sign_bit_copies to
 	num_sign_bit_copies_with_known.
-        (nonzero_bits): New macro.
-        (num_sign_bit_copies): New macro.
-        (update_table_tick): Don't traverse identical subexpression more
+	(nonzero_bits): New macro.
+	(num_sign_bit_copies): New macro.
+	(update_table_tick): Don't traverse identical subexpression more
 	than once.
-        (get_last_value_validate): Likewise.
+	(get_last_value_validate): Likewise.
 
 2003-02-15  Falk Hueffner  <falk.hueffner@student.uni-tuebingen.de>
 
-        PR optimization/7702
-        * reload1.c (reload_cse_simplify_set): Honor
-        CANNOT_CHANGE_MODE_CLASS.
+	PR optimization/7702
+	* reload1.c (reload_cse_simplify_set): Honor
+	CANNOT_CHANGE_MODE_CLASS.
 
 2003-02-15  Jan Hubicka  <jh@suse.cz>
 
@@ -82,7 +279,7 @@
 	edge and block ends with a jump insn it must be simple jump.
 
 2003-02-13  Robert Lipe <robertlipe@usa.net>
-            Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+	    Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
 
 	* doc/install.texi (Specific): Update three SCO-related URLs.
 
@@ -137,13 +334,13 @@ Tue Feb 11 23:25:34 CET 2003  Jan Hubicka  <jh@suse.cz>
 2003-02-11  Richard Henderson  <rth@redhat.com>
 
 	2003-01-15  Richard Henderson  <rth@redhat.com>
-        * config/alpha/alpha.c (find_lo_sum_using_gp): Rename from find_lo_sum;
-        also check that GP is being used.
-        (alpha_find_lo_sum_using_gp): New.
-        (alpha_does_function_need_gp): Use get_attr_usegp.
-        * config/alpha/alpha-protos.h: Update.
-        * config/alpha/alpha.md (attr usegp): New.  Annotate patterns
-        as needed.
+	* config/alpha/alpha.c (find_lo_sum_using_gp): Rename from find_lo_sum;
+	also check that GP is being used.
+	(alpha_find_lo_sum_using_gp): New.
+	(alpha_does_function_need_gp): Use get_attr_usegp.
+	* config/alpha/alpha-protos.h: Update.
+	* config/alpha/alpha.md (attr usegp): New.  Annotate patterns
+	as needed.
 
 2003-02-11  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
 
@@ -160,8 +357,8 @@ Tue Feb 11 23:25:34 CET 2003  Jan Hubicka  <jh@suse.cz>
 
 2003-02-11  Falk Hueffner  <falk.hueffner@student.uni-tuebingen.de>
 
-        PR optimization/9651
-        * rtlanal.c (may_trap_p): Handle FIX.
+	PR optimization/9651
+	* rtlanal.c (may_trap_p): Handle FIX.
 
 Tue Feb 11 19:06:24 CET 2003  Jan Hubicka  <jh@suse.cz>
 
@@ -175,7 +372,7 @@ Tue Feb 11 19:06:24 CET 2003  Jan Hubicka  <jh@suse.cz>
 	(set_label_offsets, set_initial_label_offsets): Likewise.
 
 2003-02-10  Eric Botcazou  <ebotcazou@libertysurf.fr>
-            Christian Ehrhardt  <ehrhardt@mathematik.uni-ulm.de>
+	    Christian Ehrhardt  <ehrhardt@mathematik.uni-ulm.de>
 
 	PR c/7741
 	* c-decl.c (duplicate_decls): Discard the initializer of the
@@ -192,9 +389,9 @@ Tue Feb 11 19:06:24 CET 2003  Jan Hubicka  <jh@suse.cz>
 
 2003-02-07  Richard Henderson  <rth@redhat.com>
 
-        PR 9226
-        * gcse.c (local_cprop_find_used_regs): New.
-        (local_cprop_pass): Use it.
+	PR 9226
+	* gcse.c (local_cprop_find_used_regs): New.
+	(local_cprop_pass): Use it.
 
 Fri Feb  7 22:26:51 CET 2003  Jan Hubicka  <jh@suse.cz>
 
@@ -204,7 +401,7 @@ Fri Feb  7 22:26:51 CET 2003  Jan Hubicka  <jh@suse.cz>
 
 2003-02-07  Andrey Petrov <petrov@netbsd.org>
 
-        * optabs.c (expand_float): Search wider integer modes first.
+	* optabs.c (expand_float): Search wider integer modes first.
 
 2003-02-06  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
 
@@ -223,8 +420,8 @@ Fri Feb  7 22:26:51 CET 2003  Jan Hubicka  <jh@suse.cz>
 	true.  Use bve when TARGET_64BIT is true.
 
 2003-02-06  Eric Botcazou <ebotcazou@libertysurf.fr>
-            Richard Henderson <rth@redhat.com>
-    
+	    Richard Henderson <rth@redhat.com>
+
 	PR c/9530
 	* config/i386/i386.h (FUNCTION_OK_FOR_SIBCALL): Forbid sibcalls
 	from functions that return a float to functions that don't.
@@ -232,7 +429,7 @@ Fri Feb  7 22:26:51 CET 2003  Jan Hubicka  <jh@suse.cz>
 2003-02-04  Ulrich Weigand  <uweigand@de.ibm.com>
 
 	* reload.c (find_reloads): Do not use the mode specified in the insn
-	pattern as reload mode for address operands.  Do not generate optional 
+	pattern as reload mode for address operands.  Do not generate optional
 	reloads for operands where a mandatory reload was already pushed.
 
 Tue Feb  4 21:49:56 CET 2003  Jan Hubicka  <jh@suse.cz>
@@ -247,9 +444,9 @@ Tue Feb  4 21:49:56 CET 2003  Jan Hubicka  <jh@suse.cz>
 
 	* regclass.c (init_reg_autoinc): New function.
 	(regclass): Move initialization of forbidden_inc_dec_class from
- 	here...
+	here...
 	(init_regs): to here.  Avoids reinitialization for each function,
- 	saving compilation time.
+	saving compilation time.
 
 2003-02-04  Phil Edwards  <pme@gcc.gnu.org>
 
