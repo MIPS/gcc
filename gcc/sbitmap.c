@@ -553,27 +553,35 @@ dump_sbitmap (file, bmap)
 }
 
 void
-debug_sbitmap (bmap)
+dump_sbitmap_file (file, bmap)
+     FILE *file;
      sbitmap bmap;
 {
   unsigned int i, pos;
 
-  fprintf (stderr, "n_bits = %d, set = {", bmap->n_bits);
+  fprintf (file, "n_bits = %d, set = {", bmap->n_bits);
 
   for (pos = 30, i = 0; i < bmap->n_bits; i++)
     if (TEST_BIT (bmap, i))
       {
 	if (pos > 70)
 	  {
-	    fprintf (stderr, "\n");
+	    fprintf (file, "\n  ");
 	    pos = 0;
 	  }
 
-	fprintf (stderr, "%d ", i);
-	pos += 1 + (i >= 10) + (i >= 100);
+	fprintf (file, "%d ", i);
+	pos += 2 + (i >= 10) + (i >= 100) + (i >= 1000);
       }
 
-  fprintf (stderr, "}\n");
+  fprintf (file, "}\n");
+}
+
+void
+debug_sbitmap (bmap)
+     sbitmap bmap;
+{
+  dump_sbitmap_file (stderr, bmap);
 }
 
 void

@@ -119,6 +119,7 @@ do {									\
 struct int_list;
 
 extern void dump_sbitmap		PARAMS ((FILE *, sbitmap));
+extern void dump_sbitmap_file		PARAMS ((FILE *, sbitmap));
 extern void dump_sbitmap_vector 	PARAMS ((FILE *, const char *,
 						 const char *, sbitmap *,
 						 int));

@@ -79,6 +79,7 @@ typedef union varray_data_tag {
   struct elt_list       *te[1];
   struct dom_node       *dn[1];
   struct dom_edge       *de[1];
+  struct web		*web[1];
 } varray_data;
 
 /* Virtual array of pointers header.  */
@@ -164,6 +165,9 @@ extern varray_type varray_init	PARAMS ((size_t, size_t, const char *));
 #define VARRAY_DOM_EDGE_INIT(va, num, name) \
   va = varray_init (num, sizeof (struct dom_edge *), name)
 
+#define VARRAY_WEB_INIT(va, num, name) \
+  va = varray_init (num, sizeof (struct web *), name)
+
 /* Free up memory allocated by the virtual array, but do not free any of the
    elements involved.  */
 #define VARRAY_FREE(vp) \
@@ -236,6 +240,7 @@ extern void varray_check_failed PARAMS ((varray_type, size_t,
 #define VARRAY_ELT_LIST(VA, N)		VARRAY_CHECK (VA, N, te)
 #define VARRAY_DOM_NODE(VA, N)          VARRAY_CHECK (VA, N, dn)
 #define VARRAY_DOM_EDGE(VA, N)          VARRAY_CHECK (VA, N, de)
+#define VARRAY_WEB(VA, N)		VARRAY_CHECK (VA, N, web)
 
 /* Push a new element on the end of VA, extending it if necessary.  */
 #define VARRAY_PUSH_CHAR(VA, X)		VARRAY_PUSH (VA, c, X)
@@ -260,6 +265,7 @@ extern void varray_check_failed PARAMS ((varray_type, size_t,
 #define VARRAY_PUSH_BB(VA, X)		VARRAY_PUSH (VA, bb, X)
 #define VARRAY_PUSH_DOM_NODE(VA, X)     VARRAY_PUSH (VA, dn, X)
 #define VARRAY_PUSH_DOM_EDGE(VA, X)     VARRAY_PUSH (VA, de, X)
+#define VARRAY_PUSH_WEB(VA, X)		VARRAY_PUSH (VA, web, X)
 
 /* Return the last element of VA.  */
 #define VARRAY_TOP_CHAR(VA)		VARRAY_TOP (VA, c)
@@ -284,4 +290,5 @@ extern void varray_check_failed PARAMS ((varray_type, size_t,
 #define VARRAY_TOP_BB(VA)		VARRAY_TOP (VA, bb)
 #define VARRAY_TOP_DOM_NODE(VA)         VARRAY_TOP (VA, dn)
 #define VARRAY_TOP_DOM_EDGE(VA)         VARRAY_TOP (VA, de)
+#define VARRAY_TOP_WEB(VA)		VARRAY_TOP (VA, web)
 #endif /* ! GCC_VARRAY_H */

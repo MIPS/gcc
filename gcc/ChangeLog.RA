@@ -1,3 +1,239 @@
+2002-01-04  Michael Matz  <matzmich@cs.tu-berlin.de>
+
+	* df.c (df_ref_record): Correctly calculate SUBREGs of hardregs.
+	(df_bb_reg_def_chain_create, df_bb_reg_use_chain_create): Only
+	add new refs.
+	(df_bb_refs_update): Don't clear insns_modified here, ...
+	(df_analyse): ... but here.
+
+	* longlong.h (count_trailing_zeros): Fix macro multiline continuation.
+
+	* sbitmap.c (dump_sbitmap_file): New.
+	(debug_sbitmap): Use it.
+
+	* sbitmap.h (dump_sbitmap_file): Add prototype.
+
+	* toplev.c (rest_of_compilation): Do regclass() only when old-ra,
+	don't dump info when new-ra.
+
+	* varray.h (struct varray_data_tag): New member 'web'.
+	(VARRAY_INIT_WEB, VARRAY_WEB, VARRAY_PUSH_WEB, VARRAY_TOP_WEB): New.
+
+	* ra.c (enum node_type): New members 'FREE', 'SIMPLIFY_SPILL' and
+	'SIMPLIFY_FAT'.
+	(struct tagged_conflict): Add 'size_word', delete 'size' and 'word'.
+	(struct web_part): s/spanned_insns/spanned_deaths/.
+	(struct web.orig_spill_temp, span_deaths, orig_spill_temp,
+	orig_spill_cost, num_aliased, old_color, old_web, in_load, one_load,
+	target_of_spilled_move, have_orig_conflicts, parent_web,
+	orig_conflict_list, orig_usable_regs, bias_colors, prefer_colors,
+	last_use_insn, pattern, temp_refs): New members.
+	(struct web::span_insns, has_sub_conflicts): Remove members.
+	(struct conflict): Delete.
+	(ra_obstack): New static variable.
+	(rtx_to_bits): Return an unsigned int.
+
+	(set_undefined, free_all_lists, rematerializable,
+	only_one_reaching_def): Delete functions.
+	(unbrokengraph): Delete.
+	(insns_with_death, death_insns_max_uid, ra_pass, live_at_end): New.
+	(struct bb_begin_info): Rename to ra_bb_info, new members
+	'regnos_mentioned' and 'live_throughout'.
+	(all_defs_for_web, all_uses_for_web): Delete.
+	(web_lists[]): New.
+	(WEBS): Macro for accessing it.
+	(simplify_wl, freeze_wl, spill_wl, simplify_spilled_wl,
+	coalesced_nodes, colored_nodes, spilled_nodes, select_stack,
+	simplify_fat_wl): Delete, now in web_lists[].  All users changed.
+	(last_def_id, last_use_id, last_num_webs, last_max_uid,
+	last_check_uses, remember_conflicts): New.
+	(hardregs_for_mode[], byte2bitcount[]): New.
+	(ID2WEB): New.
+	(DUMP_*): New.
+	(flag_ra_dump_only_costs, flag_ra_biased, flag_ra_ir_spilling,
+	flag_ra_optimistic_coalescing, flag_ra_break_aliases,
+	flag_ra_merge_spill_costs, flag_ra_spill_every_use,
+	flag_ra_dump_notes): New.
+	(struct ra_insn_info): New.
+	(insn_df_max_uid, insn_df, refs_for_insn_df): New.
+	
+	(hard_regs_count, rtx_to_undefined, create_insn_info,
+	free_insn_info, undef_to_size_word, defuse_overlap_p_1,
+	find_web_for_subweb_1, copy_web, compare_and_free_webs,
+	init_webs_defs_uses, parts_to_webs_1, check_conflict_numbers,
+	free_all_mem, push_list_end, put_web_at_end, remove_web_from_list,
+	simplify_p, dump_igraph_machine, dump_cost, dump_graph_cost,
+	setup_renumber, check_df): Various new functions.
+
+	(debug_msg): Use a bitmap as debug level.  All callers changed
+	to use some level.
+	(find_sub_conflicts, get_sub_conflicts): Use a combined size
+	and word arguments.  Change callers.
+	(undef_table[]): According changes to above.
+	(undef_to_bitmap): Use undef_to_size_word.
+	(prune_hardregs_for_mode): Use hardregs_for_mode[].
+	(find_subweb): web->subreg_next is no circular list anymore.
+	(find_subweb_2): Dito and use one argument for size/word.
+	(find_web_for_subweb): Macro, plus use parent_web.
+	(add_subweb): Set parent_web.
+	(add_subweb_2): One size/word argument.
+	(remember_move): Move sanity checking for copy insns to here ...
+	(live_out_1): ... from here.  Use insn_df[] instead DF_INSN_DEFS().
+	Update spanned_deaths according to insns_with_deaths.  Don't
+	check defs of fixed registers.
+	(defuse_overlap_p): Now a macro calling ...
+	(defuse_overlap_p_1): ... this, when necessary.  Use rtx_to_undefined.
+
+	(ra_print_rtx_1op, ra_print_rtx_2op, ra_print_rtx_3op,
+	ra_print_rtx_object, ra_print_rtx, ra_print_rtx_top, ra_debug_rtx,
+	ra_debug_insns, ra_debug_bbi, ra_print_rtl_with_bb): My version of
+	pretty-printing RTL.  Use them in the various dumps.
+
+	(ra_alloc, ra_calloc): New.  Use the ra_obstack for allocating memory.
+	Use it everywhere, where small objects were allocated by xmalloc
+	or xcalloc.  At the same time never free that memory while working,
+	but simply forget it.  Instead it's freed once at the end of reg_alloc.
+
+	-- Optimisations for graph building --
+	(update_regnos_mentioned, livethrough_conflicts_bb, init_bb_info,
+	free_bb_info, live_in_edge): New.  Handle use-transparent blocks.
+	(live_in): Don't use prev_real_insn(), too many function calls.
+	Call live_in_edge() for handling basic block boundaries, which has
+	optimisations, when the entered block is transparent for the use in
+	question.
+	(build_web_parts_and_conflicts): Don't allocate copy_cache here,
+	nor the per basic block info.
+	Call update_regnos_mentioned() for conservative detection of
+	transparency.  Don't trace uses of fixed registers.  Only trace new
+	or marked uses.  Call livethrough_conflicts_bb for dealing with
+	transparent uses/blocks.
+
+	-- Incremental building of interference graph --
+	(init_one_web_common, reinit_one_web, reset_lists, reset_conflicts,
+	realloc_web_parts, detect_web_parts_to_rebuild): New.
+
+	(init_one_web_common): Old init_one_web.  Initialize also
+	dlink.  Put web directly in the correct list.
+	(init_one_web): Simply memset() everything, then call
+	init_one_web_common.
+	(reinit_one_web): Clears only necessary members.  Deal with
+	new members.
+	(init_web_parts): Sanity checks.  Sometimes clear web_parts[].ref
+	member (incremental building).
+	(parts_to_webs): Break out in parts_to_webs_1 and init_webs_defs_uses.
+	Generally deal with incremental building.  Reuse free webs.
+	Create artifical inverse webs.  use2web[] and def2web[] now contain
+	the subwebs instead of webs.  All users of those arrays changed.
+	(conflicts_between_webs): Use reset_conflicts() for later passes for
+	incremental building.  Cache already created conflicts. 
+	(alloc_mem): Use mostly realloc_web_parts.  Only allocate
+	move_handled and insn_df[] (per create_insn_info) each round.
+	(free_mem): Similar.  Don't free all memory here, but ...
+	(free_all_mem): ... here.
+
+	-- Interference region spilling --
+	(build_inverse_webs, spill_same_color_p, is_partly_live_1,
+	update_spill_colors, spill_is_free, emit_loads,
+	detect_bbs_for_rewrite, detect_deaths_in_bb, reloads_to_loads,
+	rewrite_program2): New.  Interference region spilling.
+	
+	(remember_slot, slots_overlap_p, delete_overlapping_slots,
+	slot_member_p, insert_stores): New.  Emit stores slightly more
+	clever than after each def.
+	
+	-- Rematerialisation --
+	(memref_is_stack_slot, contains_pseudo, want_to_remat,
+	detect_remat_webs):  New.  Detect rematerializable webs.
+	Set web->pattern to the source rtx.  Emit that instead of a reload
+	in emit_loads() later.
+	
+	(delete_useless_defs): New.  Delete insns which defined
+	rematerializable webs which got spilled, and are now useless.
+	(spill_coalescing): Don't coalesce rematerializable webs.  Update
+	savings due to insns deleting.
+
+	-- Local spill cost improvements --
+	(spill_prop_savings, spill_prop_insert, spill_propagation,
+	spill_coalprop): New.  Spill propagation and integration with
+	spill coalescing.
+	(try_recolor_web, recolor_spills): New.  Recoloring spilled
+	webs if neighbors can be colored differently or spilled and that's
+	cheaper.
+
+	(actual_spill): Use spill_coalprop(), choose_spill_colors(),
+	rewrite_program2(), insert_stores(), delete_useless_defs() and
+	detect_web_parts_to_rebuild().
+
+	-- Optimistic coalescing / coalesce breaking --
+	(insert_coalesced_conflicts, comp_webs_maxcost,
+	restore_conflicts_from_coalesce, unalias_web, copy_conflict_list,
+	init_web_pairs, add_web_pair_cost, comp_web_pairs,
+	sort_and_combine_web_pairs, aggressive_coalesce,
+	aggressive_coalesce_2, extended_coalesce, extended_coalesce_2,
+	check_uncoalesced_moves): New.  Optimistically coalesce
+	nonconflicting webs.
+	
+	(add_conflict_edge): Remember current conflict list when needed.
+	Update num_conflicts only when other web has correct type. (coalesce
+	breaking)
+	(moves_to_webs): Only fill web's moves list, when
+	!flag_ra_optimistic_coalescing.  Otherwise that member isn't needed.
+	This way no iterated coalescing is done at all when we want optimistic
+	coalescing.
+	(combine): Can combine webs with any type.  Merge spill cost
+	into coalesce target of requested.  Merge _all_ conflicts
+	into coalesce target (not only non-selected non-coalesced).
+	
+	-- Various stuff --
+	(remember_web_was_spilled): Use hard_regs_count.  Maintain
+	orig_usable_regs.  Web doesn't yet have any neighbors.
+	(detect_spill_temps): Better classification of when webs can't be
+	spilled, or are spill-temps but _can_ be spilled.
+	(determine_web_costs): New.  Broken out of parts_to_webs.  Correctly
+	calculate spill costs in terms of basic-block frequency (although
+	this seems wrong sometimes).
+	(make_webs): Use detect_remat_webs() and determine_web_costs().
+	(put_web): Use web_lists[] instead of a directly named list header.
+	(decrement_degree): Use remove_web_from_list.
+	(combine): In case of partial conflicts try to find a corresponding
+	part in the target.  Relax spill_temp flag when combining
+	constrained with less constrained webs.
+	(default_spill_heuristic): Coalesced webs are cheaper.  Prefer also
+	webs spanning more deaths.
+	(color_usable_p, get_biased_reg): New.  Checks if a certain color
+	is usable for a web, and get a available color for a web,
+	prefering biased colors.
+	(calculate_dont_begin): New.  Detect colors which are forbidden
+	as begin colors for a web according to already colored neighbors.
+	Broken out from ...
+	(colorize_one_web): ... here.  Use calculate_dont_begin.  Try to
+	use the color this web got the last round first.  Then try biased
+	colors.  Better and more methods to respill neighbors for
+	spill_temps or non-spills.  Maintain bias_colors for neighbors when
+	requested.  When optimistic coloring already break coalescings for
+	spilled webs here and recolor.
+	(rewrite_program): Maintain cost variables.  Swap order of
+	load and store emitting.  Emit uses here only if
+	flag_ra_spill_every_use.  Emit stores only when a stack-slot was
+	allocated.  Now not called anymore.  Stores are emitted by
+	insert_stores.
+	(one_pass): If requested call aggressive_coalesce() and
+	extended_coalesce_2().  Use dump_igraph_machine().  Check the
+	graph after coloring (check_colors()), break any remaining coalesces
+	to spills if reqeusted and try to recolor spilled
+	webs (recolor_spills).
+	(dump_constraints): Temporarily change final colors into pseudo
+	rtx's.  Call constrain_operands() to check if the insns already
+	strictly match, or not.
+	(init_ra): Don't add eliminable registers into never_use_colors.
+	Reload will fix this up, if it's finally not usable.
+	Initialize byte2bitcount[], hardregs_for_mode[], insns_with_deaths
+	and ra_obstack.
+	(setup_renumber): Free ra_reg_renumber only if necessary.
+	(reg_alloc): Initialize debug level to some usefull values.
+	Call regclass() here (instead in toplev.c).  Reset some global
+	vars.
+	
 Sun Dec 23 17:40:53 2001  Denis Chertykov  <denisc@overta.ru>
 
 	* ra.c (get_free_reg): Remove my wrong changes.

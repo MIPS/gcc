@@ -884,7 +884,11 @@ df_ref_record (df, reg, loc, bb, insn, ref_type)
 	 are really referenced.  E.g. a (subreg:SI (reg:DI 0) 0) does _not_
 	 reference the whole reg 0 in DI mode (which would also include
 	 reg 1, at least, if 0 and 1 are SImode registers).  */
-      endregno = regno + HARD_REGNO_NREGS (regno, GET_MODE (reg));
+      endregno = HARD_REGNO_NREGS (regno, GET_MODE (reg));
+      if (GET_CODE (reg) == SUBREG)
+        regno += subreg_regno_offset (regno, GET_MODE (SUBREG_REG (reg)),
+				      SUBREG_BYTE (reg), GET_MODE (reg));
+      endregno += regno;
 
       for (i = regno; i < endregno; i++)
 	df_ref_record_1 (df, gen_rtx_REG (reg_raw_mode[i], i),
@@ -1354,6 +1358,11 @@ df_bb_reg_def_chain_create (df, bb)
 	{
 	  struct ref *def = link->ref;
 	  unsigned int dregno = DF_REF_REGNO (def);
+	  /* Don't add ref's to the chain two times.  I.e. only add
+	     new refs.  XXX the same could be done by testing if the current
+	     insn is a modified (or a new) one.  This would be faster.  */
+	  if ((unsigned) DF_REF_ID (def) < df->def_id_save)
+	    continue;
 	  
 	  df->regs[dregno].defs
 	    = df_link_create (def, df->regs[dregno].defs);
@@ -1403,6 +1412,11 @@ df_bb_reg_use_chain_create (df, bb)
 	{
 	  struct ref *use = link->ref;
 	  unsigned int uregno = DF_REF_REGNO (use);
+	  /* Don't add ref's to the chain two times.  I.e. only add
+	     new refs.  XXX the same could be done by testing if the current
+	     insn is a modified (or a new) one.  This would be faster.  */
+	  if ((unsigned) DF_REF_ID (use) < df->use_id_save)
+	    continue;
 	  
 	  df->regs[uregno].uses
 	    = df_link_create (use, df->regs[uregno].uses);
@@ -2370,8 +2384,6 @@ df_bb_refs_update (df, bb)
 	  /* Scan the insn for refs.  */
 	  df_insn_refs_record (df, bb, insn);
 	  
-
-	  bitmap_clear_bit (df->insns_modified, uid);	  
 	  count++;
 	}
       if (insn == bb->end)
@@ -2467,6 +2479,7 @@ df_analyse (df, blocks, flags)
 
 	  df_analyse_1 (df, blocks, flags, 1);
 	  bitmap_zero (df->bbs_modified);
+	  bitmap_zero (df->insns_modified);
 	}
     }
   return update;

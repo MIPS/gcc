@@ -3395,7 +3395,6 @@ rest_of_compilation (decl)
      jump optimizer after register allocation and reloading are finished.  */
   if (! register_life_up_to_date)
     recompute_reg_usage (insns, ! optimize_size);
-  regclass (insns, max_reg_num (), rtl_dump_file);
   if (flag_new_regalloc)
     {
       delete_trivially_dead_insns (insns, max_reg_num (), 1);
@@ -3406,9 +3405,7 @@ rest_of_compilation (decl)
 	{
 	  timevar_push (TV_DUMP);
 
-	  dump_flow_info (rtl_dump_file);
-	  
-	  close_dump_file (DFI_lreg, print_rtl_with_bb, insns);
+	  close_dump_file (DFI_lreg, NULL, NULL);
 	  timevar_pop (TV_DUMP);
 	}
 
@@ -3438,6 +3435,7 @@ rest_of_compilation (decl)
     }
   else
     {
+      regclass (insns, max_reg_num (), rtl_dump_file);
       rebuild_label_notes_after_reload = local_alloc ();
 
       timevar_pop (TV_LOCAL_ALLOC);

@@ -764,7 +764,7 @@ UDItype __umulsidi3 (USItype, USItype);
 	     "g" ((USItype) (d)));					\
   (r) = __xx.__i.__l; (q) = __xx.__i.__h; })
 #define count_trailing_zeros(count,x) \
-  do {
+  do {									\
     __asm__ ("ffsd     %2,%0"                                          \
             : "=r" ((USItype) (count))                                 \
             : "0" ((USItype) 0),                                       \
