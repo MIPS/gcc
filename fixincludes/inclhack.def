@@ -994,6 +994,26 @@ fix = {
 };
 
 
+/* APPLE LOCAL begin deployment target */
+/*
+ *  GCC used to set MAC_OS_X_VERSION_MIN_REQUIRED directly, but that isn't
+ *  namespace-clean.
+ */
+fix = {
+  hackname  = darwin_macosx_deployment_target;
+  mach      = "*-*-darwin*";
+  files     = AvailabilityMacros.h;
+  bypass    = "__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__";
+  c_fix     = format;
+  c_fix_arg = "#if ! defined (MAC_OS_X_VERSION_MIN_REQUIRED) && defined (__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__)\n  #define MAC_OS_X_VERSION_MIN_REQUIRED __ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__\n#elif ! defined (MAC_OS_X_VERSION_MIN_REQUIRED)\n";
+  c_fix_arg = "#ifndef MAC_OS_X_VERSION_MIN_REQUIRED\n";
+  test_text = "__private_extern__ int _dyld_func_lookup(\n"
+	      "const char *dyld_func_name,\n"
+	      "unsigned long *address);\n";
+};
+/* APPLE LOCAL end deployment target */
+
+
 /*
  *  __private_extern__ doesn't exist in FSF GCC.  Even if it did,
  *  why would you ever put it in a system header file?
@@ -1010,6 +1030,7 @@ fix = {
 	      "const char *dyld_func_name,\n"
 	      "unsigned long *address);\n";
 };
+
 
 /* APPLE LOCAL begin stdint.h */
 /*
@@ -1055,6 +1076,7 @@ fix = {
   test_text = "typedef unsigned long int\tuintptr_t;\n";
 };
 /* APPLE LOCAL end stdint.h */
+
 
 /*
  *  Fix <c_asm.h> on Digital UNIX V4.0:

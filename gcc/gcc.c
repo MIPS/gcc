@@ -239,17 +239,19 @@ static const char *const spec_version = DEFAULT_TARGET_VERSION;
 
 static const char *spec_machine = DEFAULT_TARGET_MACHINE;
 
-/* APPLE LOCAL begin constant cfstrings */
+/* APPLE LOCAL begin CC_PRINT_OPTIONS (radar 3313335) */
+static char *cc_print_options = 0;
+static char *cc_print_options_filename;
+/* APPLE LOCAL end CC_PRINT_OPTIONS */
+
+/* APPLE LOCAL constant cfstrings */
 static int use_constant_cfstrings = 0;
+/* APPLE LOCAL begin deployment target */
 /* The deployment target (i.e., the minimum version of MacOS X that
    the binary is expected to be used on).  */
 static const char *macosx_deployment_target = 0;
 unsigned int macosx_version_min_required = 0;
 
-/* APPLE LOCAL begin CC_PRINT_OPTIONS (radar 3313335) */
-static char *cc_print_options = 0;
-static char *cc_print_options_filename;
-/* APPLE LOCAL end CC_PRINT_OPTIONS */
 /* The following table should be NULL-terminated and kept in 
    lexicographic order. */
    
@@ -264,7 +266,7 @@ static struct macosx_vers {
   { "10.4", 1040 },
   { NULL, 0 }
 };  
-/* APPLE LOCAL end constant cfstrings */
+/* APPLE LOCAL end deployment target */
    
 /* Nonzero if cross-compiling.
    When -b is used, the value comes from the `specs' file.  */
@@ -3507,7 +3509,7 @@ process_command (int argc, const char **argv)
 	}
     }
 
-  /* APPLE LOCAL begin constant cfstrings */
+  /* APPLE LOCAL begin deployment target */
   /* Retrieve the deployment target from the environment, and then decide
      whether to enable '-fconstant-cfstrings' by default.  */
   macosx_deployment_target = getenv ("MACOSX_DEPLOYMENT_TARGET");
@@ -3523,7 +3525,7 @@ process_command (int argc, const char **argv)
 	  use_constant_cfstrings = (macosx_version_min_required >= 1020);
 	}
     }
-  /* APPLE LOCAL end constant cfstrings */
+  /* APPLE LOCAL end deployment target */
 
   /* Convert new-style -- options to old-style.  */
   translate_options (&argc, (const char *const **) &argv);
@@ -4106,15 +4108,17 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	  use_constant_cfstrings = 0;
 	}
     }
+  /* APPLE LOCAL end constant cfstrings */
+  /* APPLE LOCAL begin deployment target */
   /* Synthesize the deployment target manifest constant.  */
   if (macosx_version_min_required)
     {
       char macro_def[40];
       
-      sprintf (macro_def, "-DMAC_OS_X_VERSION_MIN_REQUIRED=%d", macosx_version_min_required);
+      sprintf (macro_def, "-D__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__=%d", macosx_version_min_required);
       add_preprocessor_option (macro_def, strlen (macro_def));
     }    
-  /* APPLE LOCAL end constant cfstrings */
+  /* APPLE LOCAL end deployment target */
     
   /* Then create the space for the vectors and scan again.  */
 

@@ -1,3 +1,8 @@
+2004-11-08  Geoffrey Keating  <geoffk@apple.com>
+
+	* fixincludes/inclhack.def (darwin_macosx_deployment_target): New.
+	* fixincludes/fixincl.x: Regenerate.
+
 2004-11-05  Geoffrey Keating  <geoffk@apple.com>
 
 	* GNUmakefile: Say 'install' and 'clean' are phony targets.
