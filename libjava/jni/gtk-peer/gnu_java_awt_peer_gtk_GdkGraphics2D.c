@@ -45,7 +45,8 @@
 #include <gdk-pixbuf/gdk-pixbuf.h>
 #include <gdk-pixbuf/gdk-pixdata.h>
 
-#include <cairo.h>
+#include <cairo-ft.h>
+#include <cairo-xlib.h>
 
 #include <stdio.h>
 #include <stdlib.h>

@@ -1,5 +1,24 @@
 2005-02-10  Michael Koch  <konqueror@gmx.de>
 
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics2D.c:
+	 Fix includes for cairo 0.3.0 snappshot.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkListPeer.c:
+	Merged file header from classpath CVS HEAD.
+
+2005-02-10  Craig Black  <craig.black@aonix.com>
+
+	* native/jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics.c
+	(copyState): Pass a JNI global reference to signal handler.
+	(realize_cb): Use and free JNI global reference.
+	* native/jni/gtk-peer/gnu_java_awt_peer_gtk_GtkChoicePeer.c
+	(create): Pass a JNI global reference to signal handler.
+	(selection_changed): Match declaration.
+	* native/jni/gtk-peer/gnu_java_awt_peer_gtk_GtkGenericPeer.c
+	(dispose): Do not remove entries from state tables until after widget is
+	destroyed.
+
+2005-02-10  Michael Koch  <konqueror@gmx.de>
+
 	* java/awt/Container.javai (paramString):
 	If layoutMgr is null just return result of super.paramString().
 	* java/awt/Scrollbar.java: Reformatted.
