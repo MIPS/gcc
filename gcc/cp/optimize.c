@@ -34,6 +34,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "hashtab.h"
 #include "debug.h"
 #include "tree-inline.h"
+#include "tree-optimize.h"
+#include "flags.h"
+#include "langhooks.h"
 
 /* Prototypes.  */
 
@@ -74,7 +77,19 @@ optimize_function (fn)
   
   /* Undo the call to ggc_push_context above.  */
   --function_depth;
-  
+
+#if 0
+  /* Simplify the function.  Don't try to optimize the function if
+     simplification failed.  */
+  if (!flag_disable_simple
+      && (*lang_hooks.simplify_function_tree) (fn))
+    {
+      /* Invoke the SSA tree optimizer.  */
+      if (flag_tree_ssa)
+	optimize_function_tree (fn);
+    }
+#endif
+
   dump_function (TDI_optimized, fn);
 }
 
