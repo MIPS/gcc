@@ -40,29 +40,48 @@ typedef unsigned char ffewhereCol;
 #define FFEWHERE_colNONE 0
 #define FFEWHERE_colMAX UCHAR_MAX
 
-typedef unsigned long int ffewhere;
+/* Encapsulates all the info locating a given point in the source file(s)
+   being compiled -- the file name, the line number within the file,
+   and the column number within the line.  Currently implemented as an
+   unsigned long integer, with a global (cross-source-file) line number
+   starting in bit 8, and the column number in bits 7-0.  */
+typedef unsigned long int ffewherePt;
 
-typdef struct _ffewhere_file_
+/* Encapsulates information on a source file.  */
+typdef struct _ffewhere_file_ *ffewhereFile
+struct _ffewhere_file_
 {
+  /* Another file previous discovered.  */
+  ffewhereFile ffewhere_file_prev_;
+
+  /* Length of name of this file.  */
   size_t ffewhere_file_length_;
-  char ffewhere_file_text_[1];
-} *ffewhereFile;
 
-typedef struct _ffewhere_incl_
+  /* Name of this file.  */
+  char ffewhere_file_name_[1];
+};
+
+/* Encapsulates information on a particular inclusion of a source file.  */
+typedef struct _ffewhere_incl_ *ffewhereIncl;
+struct _ffewhere_incl_
 {
+  /* Previous inclusion.  */
+  ffewhereIncl ffewhere_incl_prev_;
+
   /* The file that was included.  (Might be included more than once,
      so track its name info separately.)  */
   ffewhereFile ffewhere_incl_file_;
 
-  /* ffelex_line_number() at time of creation.  */
+  /* Global line number at time of creation.  */
   ffewhereLine ffewhere_incl_line_;
 
-  /* User-desired offset (usually 1). */
+  /* User-desired offset for within-file line numbers.  Usually 1. */
   ffewhereLine ffewhere_incl_offset_;
-} *ffewhereIncl;
+};
 
-extern inline ffewhere
-ffewhere_new (ffewhereLine l, ffewhereCol c)
+/* Return a point encapsulation of global line and column numbers.  */
+static inline ffewherePt
+ffewhere_pt (ffewhereLine l, ffewhereCol c)
 {
   if (l > FFEWHERE_lineMAX)
     l = FFEWHERE_lineMAX;
@@ -71,24 +90,42 @@ ffewhere_new (ffewhereLine l, ffewhereCol c)
   return (l << CHAR_BIT) | c;
 }
 
-#define ffewhere_line(w) ((w) >> CHAR_BIT)
-#define ffewhere_col(w) ((w) & UCHAR_MAX)
+/* Return the global line number given a point encapsulation.  */
+#define ffewhere_line_pt(p) ((p) >> CHAR_BIT)
 
+/* Return the within-line column number given a point encapsulation.  */
+#define ffewhere_col_pt(p) ((p) & UCHAR_MAX)
+
+/* Return a file encapsulation for a given file name/length.  */
+ffewhereFile ffewhere_file (char *name, size_t length);
+
+/* Return the file name given a file encapsulation.  */
 #define ffewhere_file_name(f) ((f)->ffewhere_file_text_)
+
+/* Return the length of the file name given a file encapsulation.  */
 #define ffewhere_file_namelen(f) ((f)->ffewhere_file_length_)
-ffewhereFile ffewhere_file_new (char *name, size_t length);
-void ffewhere_file_set (ffewhereFile wf, bool have_num, ffewhereLineNumber ln);
 
-#define ffewhere_incl_file(i) ((i)->ffewhere_incl_file_)
-#define ffewhere_incl_line(i) ((i)->ffewhere_incl_line_)
+/* Return an inclusion encapsulation given the file and global line
+   number for the inclusion and, optionally, the line offset desired
+   for within-file line numbers.  */
+ffewhereIncl ffewhere_incl (ffewhereFile wf, ffewhereLine global_line,
+			    bool have_num, ffewhereLine line_offset);
 
+/* Find inclusion encapsulation given a global line number.  */
+ffewhereIncl ffewhere_incl_find (ffewhereLine wl);
+
+/* Return a file encapsulation given an inclusion encapsulation.  */
+#define ffewhere_file_incl(i) ((i)->ffewhere_incl_file_)
+
+/* Return the within-file line number of a global line number, given
+   the corresponding inclusion encapsulation.  */
+#define ffewhere_line_incl(i,l) \
+  ((l) - (i)->ffewhere_incl_line_ + (i)->ffewhere_incl_offset_)
+
+/* Initialize the module.  */
 void ffewhere_initialize (void);
 
-#define ffewhere_line_file(l) ffewhere_file_incl (ffewhere_incl_line ((l)))
-#define ffewhere_line_line(l) \
-  ffewhere_line_incl (ffewhere_incl_line ((l)))
-ffewhereIncl ffewhere_line_incl (ffewhereLine l);
-
+/* Terminate the module.  */
 #define ffewhere_terminate()
 
 #endif

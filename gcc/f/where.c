@@ -26,115 +26,82 @@ the Free Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 typedef struct _ffewhere_ll_ *ffewhereLL_;
 
-struct _ffewhere_ll_
-  {
-    ffewhereLL_ next;
-    ffewhereLL_ previous;
-    ffewhereFile wf;
-
-    /* ffelex_line_number() at time of creation.  */
-    ffewhereLine line_no;
-
-    /* User-desired offset (usually 1). */
-    ffewhereLine offset;
-  };
-
-struct _ffewhere_root_ll_
-  {
-    ffewhereLL_ first;
-    ffewhereLL_ last;
-  };
-
-static struct _ffewhere_root_ll_ ffewhere_root_ll_;
-
-static ffewhereLL_ ffewhere_ll_lookup_ (ffewhereLineNumber ln);
+static ffewhereFile ffewhere_last_file_ = NULL;
+static ffewhereIncl ffewhere_last_incl_ = NULL;
 
-/* Look up line-to-line object from absolute line num.  */
-
-static ffewhereLL_
-ffewhere_ll_lookup_ (ffewhereLineNumber ln)
-{
-  ffewhereLL_ ll;
-
-  if (ln == 0)
-    return ffewhere_root_ll_.first;
-
-  for (ll = ffewhere_root_ll_.last;
-       ll != (ffewhereLL_) &ffewhere_root_ll_.first;
-       ll = ll->previous)
-    {
-      if (ll->line_no <= ln)
-	return ll;
-    }
-
-  assert ("no line num" == NULL);
-  return NULL;
-}
-
-/* Kill file object.
-
-   Note that this object must not have been passed in a call
-   to any other ffewhere function except ffewhere_file_name and
-   ffewhere_file_namelen.  */
-
-void
-ffewhere_file_kill (ffewhereFile wf)
-{
-  malloc_kill_ks (ffe_pool_file (), wf,
-		  offsetof (struct _ffewhere_file_, text)
-		  + wf->length + 1);
-}
-
-/* Create file object.  */
+/* Obtain file object given name (and its length) of file.  */
 
 ffewhereFile
-ffewhere_file_new (char *name, size_t length)
+ffewhere_file (char *name, size_t length)
 {
   ffewhereFile wf;
 
-  wf = malloc_new_ks (ffe_pool_file (), "ffewhereFile",
-		      offsetof (struct _ffewhere_file_, text)
-		      + length + 1);
-  wf->length = length;
-  memcpy (&wf->text[0], name, length);
-  wf->text[length] = '\0';
+  /* It might be counterproductive to search for the file,
+     except that, in source code repeatedly including the same files
+     (in each program unit), it might end up saving Dcache misses
+     overall.  */
+  for (wf = ffewhere_last_file_;
+       wf;
+       wf = wf->ffewhere_file_prev_)
+    {
+      if (wf->ffewhere_file_length_ == length
+	  && ! memcmp (wf->ffewhere_file_name_, name, length))
+	return wf;
+    }
+
+  wf = xmalloc (offsetof (struct _ffewhere_file_, name) + length + 1);
+  wf->ffewhere_file_prev_ = ffewhere_file_last_;
+  ffewhere_file_last_ = wf;
+
+  wf->ffewhere_file_length_ = length;
+  memcpy (&wf->ffewhere_file_name_[0], name, length);
+
+  /* For convenience.  */
+  wf->ffewhere_file_name_[length] = '\0';
 
   return wf;
 }
 
-/* Set file and first line number.
+/* Obtain inclusion encapsulation for inclusion of a file corresponding
+   to a given global line number, along with first line number (none
+   if have_num is FALSE).  */
 
-   Pass FALSE if no line number is specified.  */
-
-void
-ffewhere_file_set (ffewhereFile wf, bool have_num, ffewhereLineNumber ln)
+ffewhereIncl
+ffewhere_incl (ffewhereFile wf, ffewhereLine global_line, bool have_num,
+	       ffewhereLine line_offset)
 {
-  ffewhereLL_ ll;
+  ffewhereIncl incl;
 
-  ll = malloc_new_kp (ffe_pool_file (), "ffewhereLL_", sizeof (*ll));
-  ll->next = (ffewhereLL_) &ffewhere_root_ll_.first;
-  ll->previous = ffewhere_root_ll_.last;
-  ll->next->previous = ll;
-  ll->previous->next = ll;
-  if (wf == NULL)
+  incl = xmalloc (sizeof (*incl));
+  incl->ffewhere_incl_prev_ = ffewhere_incl_latest_;
+  ffewhere_incl_latest_ = ll;
+
+  if (wf)
+    incl->ffewhere_incl_file_ = wf;
+  else
     {
-      if (ll->previous == ll->next)
+      /* Just adjust the line number for the current file.  */
+      if (incl->ffewhere_incl_prev_)
+	incl->ffewhere_incl_file_
+	  = incl->ffewhere_incl_prev_->ffewhere_incl_file_;
+      else
 	ll->wf = NULL;
-      else
-	ll->wf = ll->previous->wf;
     }
-  else
-    ll->wf = wf;
-  ll->line_no = ffelex_line_number ();
+
+  incl->ffewhere_incl_line_ = global_line;
+
   if (have_num)
-    ll->offset = ln;
+    incl->ffewhere_incl_offset_ = line_offset;
   else
     {
-      if (ll->previous == ll->next)
-	ll->offset = 1;
+      /* Just keep the current line numbering going.  */
+      if (incl->ffewhere_incl_prev_)
+	incl->ffewhere_incl_offset_
+	  = incl->ffewhere_incl_line_
+	  - incl->ffewhere_incl_prev_->ffewhere_incl_line_
+	  + incl->ffewhere_incl_prev_->ffewhere_incl_offset_;
       else
-	ll->offset
-	  = ll->line_no - ll->previous->line_no + ll->previous->offset;
+	incl->ffewhere_incl_offset_ = 1;
     }
 }
 
@@ -143,20 +110,32 @@ ffewhere_file_set (ffewhereFile wf, bool have_num, ffewhereLineNumber ln)
 void
 ffewhere_initialize ()
 {
-  ffewhere_root_ll_.first = ffewhere_root_ll_.last
-    = (ffewhereLL_) &ffewhere_root_ll_.first;
+  /* If these aren't true, we're being reinitialized.  If that's legit,
+     we should really free() the lists.  (Silly to do that on termination
+     at this point, since termination precedes the compiler exiting,
+     but comes after lots of other memory might be needed anyway.)  */
+
+  assert (ffewhere_last_file_ == NULL);
+  assert (ffewhere_last_incl_ == NULL);
 }
 
-/* Look up file object from line object.  */
+/* Find inclusion encapsulation given a global line number.  */
 
-ffewhereFile
-ffewhere_line_file (ffewhereLine wl)
+ffewhereIncl
+ffewhere_incl_find (ffewhereLine wl)
 {
-  ffewhereLL_ ll;
+  ffewhereIncl_ incl;
 
-  assert (wl != NULL);
-  ll = ffewhere_ll_lookup_ (wl->line_num);
-  return ll->wf;
+  for (incl = ffewhere_last_incl_;
+       incl;
+       incl = incl->prev)
+    {
+      if (incl->ffewhere_incl_line_ <= ln)
+	return incl;
+    }
+
+  assert ("cannot find global line number in list of inclusions" == NULL);
+  return NULL;
 }
 
 /* Lookup file object from line object, return line number.  */
