@@ -1595,31 +1595,6 @@ remove_useless_stmts_1 (tree *tp, struct rus_data *data)
 	data->may_throw = true;
       break;
 
-    case STATEMENT_LIST:
-      {
-	tree_stmt_iterator i = tsi_start (t);
-	while (!tsi_end_p (i))
-	  {
-	    t = tsi_stmt (i);
-	    if (IS_EMPTY_STMT (t))
-	      {
-		tsi_delink (&i);
-		continue;
-	      }
-	    
-	    remove_useless_stmts_1 (tsi_stmt_ptr (i), data);
-
-	    t = tsi_stmt (i);
-	    if (TREE_CODE (t) == STATEMENT_LIST)
-	      {
-		tsi_link_before (&i, t, TSI_SAME_STMT);
-		tsi_delink (&i);
-	      }
-	    else
-	      tsi_next (&i);
-	  }
-      }
-      break;
     case SWITCH_EXPR:
       fold_stmt (tp);
       data->last_goto = NULL;
@@ -1631,9 +1606,12 @@ remove_useless_stmts_1 (tree *tp, struct rus_data *data)
     }
 }
 
-/* This cleanup runs just after the inliner; it is not currently
-   CFG aware and thus does not do any removal of unneeded
-   control-flow statements, but could be made to do this.
+/* This cleanup runs just after the inliner; it does not
+   currently do any CFG optimizations, but could be made 
+   to do this.  It will, however, remove EH edges in the 
+   case where a statement that was believed to throw becomes 
+   known not to after fold_stmt is called; that is needed for
+   correctness.
    Tree has been gimplified and EH has been lowered.  */
 
 static void
@@ -1648,7 +1626,49 @@ remove_useless_stmts (void)
     {
       memset (&data, 0, sizeof (data));
       FOR_EACH_BB (bb)
-	remove_useless_stmts_1 (&bb->stmt_list, &data);
+	{
+	  block_stmt_iterator bsi = bsi_start (bb);
+	  tree last_t = last_stmt (bb);
+	  while (!bsi_end_p (bsi))
+	    {
+	      tree *tp = bsi_stmt_ptr (bsi);
+	      tree t = *tp;
+	      bool could_throw = false;
+	      if (IS_EMPTY_STMT (t))
+		{
+		  bsi_remove (&bsi);
+		  continue;
+		}
+
+	      if (t == last_t && tree_could_throw_p (t))
+		could_throw = true;
+
+	      remove_useless_stmts_1 (tp, &data);
+
+	      t = bsi_stmt (bsi);
+	      if (TREE_CODE (t) == STATEMENT_LIST)
+		/* Don't think this can happen... */
+		bsi_replace (&bsi, t, true);
+	      else
+		{
+		  /* If this tree used to throw and we have
+		     decided otherwise, remove the tree from its
+		     EH region and remove any EH edges.  */
+		  if (could_throw && !tree_could_throw_p (t))
+		    {
+		      edge e, e_next;
+		      for (e = bb->succ; e; e = e_next)
+			{
+			  e_next = e->succ_next;
+			  if (e->flags & EDGE_EH)
+			    remove_edge (e);
+			}
+		      remove_stmt_from_eh_region (t);
+		    }
+		  bsi_next (&bsi);
+		}
+	    }
+	}
     }
   while (data.repeat);
 }

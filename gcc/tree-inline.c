@@ -1006,8 +1006,12 @@ copy_cfg_body (inline_data *id)
 	     and there is a "current region,"
 	     then associate this tree with the current region,
 	     split the block after the tree,
-	     and add an abnormal edge to the handler.  */
-	  if (tree_could_throw_p (orig_stmt)
+	     and add an abnormal edge to the handler.
+	     We check whether the copy can throw, because the const
+	     propagation can change an INDIRECT_REF which throws
+	     into a COMPONENT_REF which doesn't.  If the copy
+	     can throw, the original could also throw.  */
+	  if (tree_could_throw_p (copy_stmt)
 	      && lookup_stmt_eh_region_fn (
 			    DECL_STRUCT_FUNCTION (VARRAY_TOP_TREE (id->fns)),
 			    orig_stmt) <= 0
@@ -1116,6 +1120,9 @@ setup_one_parameter (inline_data *id, tree p, tree value, tree fn,
   /* If the parameter is never assigned to, we may not need to
      create a new variable here at all.  Instead, we may be able
      to just use the argument value.  */
+  /* In theory this should not be necessary for correctness, but
+     in practice there are a lot of dejagnu failures (especially
+     in C++ library) if it is removed...  */
   if (TREE_READONLY (p)
       && !TREE_ADDRESSABLE (p)
       && value && !TREE_SIDE_EFFECTS (value))
@@ -1125,15 +1132,14 @@ setup_one_parameter (inline_data *id, tree p, tree value, tree fn,
 	 Theoretically, we could check the expression to see if
 	 all of the variables that determine its value are
 	 read-only, but we don't bother.  */
-      if ((TREE_CONSTANT (value) || TREE_READONLY_DECL_P (value))
+      if ((TREE_CONSTANT (value) || TREE_READONLY_DECL_P (value)
+	  || TREE_INVARIANT (value))
 	  /* We may produce non-gimple trees by adding NOPs or introduce
 	     invalid sharing when operand is not really constant.
 	     It is not big deal to prohibit constant propagation here as
 	     we will constant propagate in DOM1 pass anyway.  */
 	  && (!lang_hooks.gimple_before_inlining
 	      || (is_gimple_min_invariant (value)
-	          && (TREE_CODE_CLASS (TREE_CODE (value)) == 'c'
-		      || TREE_TYPE (value) == TREE_TYPE (p))
 		  && lang_hooks.types_compatible_p (TREE_TYPE (value), TREE_TYPE (p)))))
 	{
 	  /* If this is a declaration, wrap it in a NOP_EXPR so that 
@@ -1142,11 +1148,10 @@ setup_one_parameter (inline_data *id, tree p, tree value, tree fn,
 	    value = build1 (NOP_EXPR, TREE_TYPE (value), value);
 
 	  /* If this is a constant, make sure it has the right type. 
-	     We checked above to be sure this can only happen for
-	     constants.  Failure to do so causes problems when
-	     hanging a NOP_EXPR of pointer type over an ADDR_EXPR,
-	     because the NOP_EXPR is pointer-to-constant.  */
-	  else if (TREE_TYPE (value) != TREE_TYPE (p))
+	     Failure to do so causes problems when hanging a NOP_EXPR 
+	     of pointer type over an ADDR_EXPR, because the NOP_EXPR 
+	     is pointer-to-constant.  */
+	  else if (TREE_CODE_CLASS (TREE_CODE (value)) == 'c')
 	    value = fold (build1 (NOP_EXPR, TREE_TYPE (p), value));
 
 	  insert_decl_map (id, p, value);

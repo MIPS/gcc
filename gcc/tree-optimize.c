@@ -343,16 +343,10 @@ init_tree_optimization_passes (void)
 #define NEXT_PASS(PASS)  (p = next_pass_1 (p, &PASS))
 
   p = &all_passes;
-  /* NEXT_PASS (pass_gimple); */
   NEXT_PASS (pass_inline);
   NEXT_PASS (pass_remove_useless_stmts);
-  NEXT_PASS (pass_struct_reorg);
   NEXT_PASS (pass_mudflap_1);
-  /* NEXT_PASS (pass_lower_cf);  */
-  /* NEXT_PASS (pass_lower_eh);  */
-  /* NEXT_PASS (pass_build_cfg); */
   NEXT_PASS (pass_pre_expand);
-  /* NEXT_PASS (pass_tree_profile); */
   NEXT_PASS (pass_cleanup_cfg);
   NEXT_PASS (pass_init_datastructures);
   NEXT_PASS (pass_all_optimizations);
