@@ -713,13 +713,7 @@ namespace std
 
       // String operations:
       const _CharT*
-      c_str() const
-      {
-	// MT: This assumes concurrent writes are OK.
-	size_type __n = this->size();
-	traits_type::assign(_M_data()[__n], _Rep::_S_terminal);
-        return _M_data();
-      }
+      c_str() const { return _M_data(); }
 
       const _CharT*
       data() const { return _M_data(); }

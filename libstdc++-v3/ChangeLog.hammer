@@ -1,3 +1,8 @@
+2004-02-23  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/basic_string.h (c_str()): Simplify, due to 21.3.4
+	the internal representation is always kept null-terminated.
+
 2004-02-22  Neil Ferguson  <nferguso@eso.org>
             Paolo Carlini  <pcarlini@suse.de>
 
