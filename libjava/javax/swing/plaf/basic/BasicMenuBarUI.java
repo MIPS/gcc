@@ -101,9 +101,9 @@ public class BasicMenuBarUI extends MenuBarUI
   }
 
   /**
-   * DOCUMENT ME!
+   * Creates ChangeListener
    *
-   * @return DOCUMENT ME!
+   * @return The ChangeListener
    */
   protected ChangeListener createChangeListener()
   {
@@ -112,7 +112,7 @@ public class BasicMenuBarUI extends MenuBarUI
 
   /**
    * Creates ContainerListener() to listen for ContainerEvents
-   * fired by JMenuBar
+   * fired by JMenuBar.
    *
    * @return The ContainerListener
    */
@@ -242,7 +242,7 @@ public class BasicMenuBarUI extends MenuBarUI
   }
 
   /**
-   * DOCUMENT ME!
+   * Unregisters all the listeners that this UI delegate was using.
    */
   protected void uninstallListeners()
   {
@@ -273,7 +273,8 @@ public class BasicMenuBarUI extends MenuBarUI
   }
 
   /**
-   * This class handles ContainerEvents fired by JMenuBar
+   * This class handles ContainerEvents fired by JMenuBar. It revalidates
+   * and repaints menu bar whenever menu is added or removed from it.
    */
   protected class ContainerHandler implements ContainerListener
   {
@@ -314,6 +315,8 @@ public class BasicMenuBarUI extends MenuBarUI
     public void propertyChange(PropertyChangeEvent e)
     {
       if (e.getPropertyName().equals(JMenuBar.BORDER_PAINTED_CHANGED_PROPERTY))
+	menuBar.repaint();
+      if (e.getPropertyName().equals(JMenuBar.MARGIN_CHANGED_PROPERTY))
 	menuBar.repaint();
     }
   }

@@ -1,3 +1,28 @@
+2004-07-13  Olga Rodimina  <rodimina@redhat.com>
+
+	* javax/swing/JCheckBoxMenuItem.java: Fixed Javadocs.
+	* javax/swing/JMenu.java: Likewise.
+	* javax/swing/JMenuBar.java: Likewise.
+	(MARGIN_CHANGED_PROPERTY): New property.
+	(setMargin): Implemented.
+	* javax/swing/JMenuItem.java: Fixed javadocs.
+	* javax/swing/JPopupMenuUI.java: Fixed javadocs.
+	(LABEL_CHANGED_PROPERTY): New property.
+	(add): changed to use createActionComponent.
+	(createActionComponent): Implemented.	
+	(setLabel): Fire PropertyChangeEvent if label property
+	changes.
+	* javax/swing/JRadioButtonMenuItem.java: Fixed javadocs.
+	* javax/swing/plaf/basic/BasicMenuBarUI.java: Likewise.
+	(ContainerHandler): Repaint if margin property has changed.
+	* javax/swing/plaf/basic/BasicMenuItemUI.java:
+	(installUI): Call installComponents().
+	(uninstallUI): Call uinstallComponents().
+	* javax/swing/plaf/basic/BasicMenuUI.java:
+	Fixed javadocs.
+	* javax/swing/plaf/basic/BasicPopupMenuUI.java:
+	Likewise.
+
 2004-07-13  Kim Ho  <kho@redhat.com>
 
 	* javax/swing/plaf/basic/BasicToolBarUI.java:

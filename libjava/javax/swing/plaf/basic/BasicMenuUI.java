@@ -443,12 +443,12 @@ public class BasicMenuUI extends BasicMenuItemUI
   }
 
   /**
-   * This class handles mouse dragged events.
+   * This class handles mouse dragged events occuring in the menu.
    */
   protected class MenuDragMouseHandler implements MenuDragMouseListener
   {
     /**
-     * Tbis method is invoked when mouse is dragged over the menu item.
+     * This method is invoked when mouse is dragged over the menu item.
      *
      * @param e The MenuDragMouseEvent
      */
@@ -459,7 +459,7 @@ public class BasicMenuUI extends BasicMenuItemUI
     }
 
     /**
-     * Tbis method is invoked when mouse enters the menu item while it is
+     * This method is invoked when mouse enters the menu item while it is
      * being dragged.
      *
      * @param e The MenuDragMouseEvent
@@ -471,7 +471,7 @@ public class BasicMenuUI extends BasicMenuItemUI
     }
 
     /**
-     * Tbis method is invoked when mouse exits the menu item while
+     * This method is invoked when mouse exits the menu item while
      * it is being dragged
      *
      * @param e The MenuDragMouseEvent
@@ -481,7 +481,7 @@ public class BasicMenuUI extends BasicMenuItemUI
     }
 
     /**
-     * Tbis method is invoked when mouse was dragged and released
+     * This method is invoked when mouse was dragged and released
      * inside the menu item.
      *
      * @param e The MenuDragMouseEvent

@@ -264,11 +264,13 @@ public class BasicPopupMenuUI extends PopupMenuUI
   }
 
   /**
-   * DOCUMENT ME!
+   * Return true if given mouse event is a platform popup trigger,
+   * and false otherwise
    *
-   * @param e DOCUMENT ME!
+   * @param e MouseEvent that is to be checked for popup trigger event
    *
-   * @return DOCUMENT ME!
+   * @return true if given mouse event is a platform popup trigger,
+   * and false otherwise
    */
   public boolean isPopupTrigger(MouseEvent e)
   {
@@ -281,7 +283,7 @@ public class BasicPopupMenuUI extends PopupMenuUI
   private class PopupMenuHandler implements PopupMenuListener
   {
     /**
-     * This method is invoked when JPopupMenu is cancelled
+     * This method is invoked when JPopupMenu is cancelled.
      *
      * @param event the PopupMenuEvent
      */
@@ -299,7 +301,7 @@ public class BasicPopupMenuUI extends PopupMenuUI
     public void popupMenuWillBecomeInvisible(PopupMenuEvent event)
     {
       // remove listener that listens to component events fired 
-      // by the top - level window that this popup belongs to
+      // by the top - level window that this popup belongs to.
       Component invoker = popupMenu.getInvoker();
 
       Container rootContainer = (Container) SwingUtilities.getRoot(invoker);
@@ -314,7 +316,8 @@ public class BasicPopupMenuUI extends PopupMenuUI
     public void popupMenuWillBecomeVisible(PopupMenuEvent event)
     {
       // Adds topWindowListener to top-level window to listener to 
-      // ComponentEvents fired by it.
+      // ComponentEvents fired by it. We need to cancel this popup menu
+      // if topWindow to which this popup belongs was resized or moved.
       Component invoker = popupMenu.getInvoker();
       Container rootContainer = (Container) SwingUtilities.getRoot(invoker);
       rootContainer.addComponentListener(topWindowListener);
@@ -396,70 +399,32 @@ public class BasicPopupMenuUI extends PopupMenuUI
     }
   }
 
-  /**
-   * DOCUMENT ME!
-   */
   private class MouseInputHandler implements MouseInputListener
   {
-    /**
-     * DOCUMENT ME!
-     *
-     * @param e DOCUMENT ME!
-     */
     public void mouseClicked(MouseEvent e)
     {
     }
 
-    /**
-     * DOCUMENT ME!
-     *
-     * @param e DOCUMENT ME!
-     */
     public void mouseDragged(MouseEvent e)
     {
     }
 
-    /**
-     * DOCUMENT ME!
-     *
-     * @param e DOCUMENT ME!
-     */
     public void mouseEntered(MouseEvent e)
     {
     }
 
-    /**
-     * DOCUMENT ME!
-     *
-     * @param e DOCUMENT ME!
-     */
     public void mouseExited(MouseEvent e)
     {
     }
 
-    /**
-     * DOCUMENT ME!
-     *
-     * @param e DOCUMENT ME!
-     */
     public void mouseMoved(MouseEvent e)
     {
     }
 
-    /**
-     * DOCUMENT ME!
-     *
-     * @param e DOCUMENT ME!
-     */
     public void mousePressed(MouseEvent e)
     {
     }
 
-    /**
-     * DOCUMENT ME!
-     *
-     * @param e DOCUMENT ME!
-     */
     public void mouseReleased(MouseEvent e)
     {
     }

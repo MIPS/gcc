@@ -46,9 +46,13 @@ import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 
 
-
 /**
- * JRadioButtonMenuItem.
+ * This class represents JRadioButtonMenuItem. Its behaviour is very similar
+ * to JRadioButton. Just like JRadioButton, user can check and uncheck this
+ * menu item by clicking on it. JRadioButtonMenuItem uses ToggleButtonModel
+ * to keep track of its selection. If the JRadioButtonMenuItem is included in
+ * the button group, then only one JRadioButtonMenuItem can be selected at
+ * one time.
  */
 public class JRadioButtonMenuItem extends JMenuItem implements Accessible
 {

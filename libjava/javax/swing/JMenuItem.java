@@ -171,12 +171,10 @@ public class JMenuItem extends AbstractButton implements Accessible,
 
     // Initializes properties for this menu item, that are different
     // from Abstract button properties. 
-    
     /* NOTE: According to java specifications paint_border should be set to false,
       since menu item should not have a border. However running few java programs
       it seems that menu items and menues can have a border. Commenting
       out statement below for now. */
-      
     //borderPainted = false;
     focusPainted = false;
     horizontalAlignment = JButton.LEFT;
@@ -331,11 +329,11 @@ public class JMenuItem extends AbstractButton implements Accessible,
 	if (isRolloverEnabled())
 	  model.setRollover(false);
 
-        // for JMenu last element on the path is its popupMenu.
-        // JMenu shouldn't me disarmed.	
-        if (!(path[path.length-1] instanceof JPopupMenu)  && !dragged)
-          setArmed(false); 
-        break;
+	// for JMenu last element on the path is its popupMenu.
+	// JMenu shouldn't me disarmed.	
+	if (! (path[path.length - 1] instanceof JPopupMenu) && ! dragged)
+	  setArmed(false);
+	break;
       case MouseEvent.MOUSE_PRESSED:
 	if ((event.getModifiers() & InputEvent.BUTTON1_MASK) != 0)
 	  {
@@ -353,13 +351,14 @@ public class JMenuItem extends AbstractButton implements Accessible,
   }
 
   /**
-   * DOCUMENT ME!
+   * Creates MenuDragMouseEvent.
    *
-   * @param event DOCUMENT ME!
-   * @param path DOCUMENT ME!
-   * @param manager DOCUMENT ME!
+   * @param event MouseEvent that occured while mouse was pressed.
+   * @param path Path the the menu element where the dragging event was
+   *        originated
+   * @param manager MenuSelectionManager for the current menu hierarchy.
    *
-   * @return DOCUMENT ME!
+   * @return new MenuDragMouseEvent
    */
   private MenuDragMouseEvent createMenuDragMouseEvent(MouseEvent event,
                                                       MenuElement[] path,
@@ -373,16 +372,16 @@ public class JMenuItem extends AbstractButton implements Accessible,
   }
 
   /**
-   * DOCUMENT ME!
+   * Process key events forwarded from MenuSelectionManager.
    *
-   * @param event DOCUMENT ME!
-   * @param path DOCUMENT ME!
-   * @param manager DOCUMENT ME!
+   * @param event event forwarded from MenuSelectionManager
+   * @param path path to the menu element from which event was generated
+   * @param manager MenuSelectionManager for the current menu hierarchy
    */
   public void processKeyEvent(KeyEvent event, MenuElement[] path,
                               MenuSelectionManager manager)
   {
-    // TODO
+    // Need to implement.
   }
 
   /**
@@ -420,7 +419,7 @@ public class JMenuItem extends AbstractButton implements Accessible,
    */
   public void processMenuKeyEvent(MenuKeyEvent event)
   {
-    // TODO
+    // Need to implement.
   }
 
   /**
@@ -621,11 +620,6 @@ public class JMenuItem extends AbstractButton implements Accessible,
     return "JMenuItem";
   }
 
-  /**
-   * DOCUMENT ME!
-   *
-   * @return DOCUMENT ME!
-   */
   public AccessibleContext getAccessibleContext()
   {
     if (accessibleContext == null)

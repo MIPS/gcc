@@ -367,11 +367,6 @@ public class BasicMenuItemUI extends MenuItemUI
     return getPreferredMenuItemSize(c, checkIcon, arrowIcon, defaultTextIconGap);
   }
 
-  /**
-   * DOCUMENT ME!
-   *
-   * @return DOCUMENT ME!
-   */
   protected String getPropertyPrefix()
   {
     return null;
@@ -441,6 +436,7 @@ public class BasicMenuItemUI extends MenuItemUI
     super.installUI(c);
     menuItem = (JMenuItem) c;
     installDefaults();
+    installComponents(menuItem);
     installListeners();
   }
 
@@ -537,6 +533,7 @@ public class BasicMenuItemUI extends MenuItemUI
 	  }
       }
 
+    // If this menu item is a JCheckBoxMenuItem then paint check icon
     if (checkIcon != null)
       {
 	SwingUtilities.layoutCompoundLabel(m, fm, null, checkIcon, vertAlign,
@@ -551,6 +548,7 @@ public class BasicMenuItemUI extends MenuItemUI
 	vr.x = cr.x + cr.width + defaultTextIconGap;
       }
 
+    // if this is a submenu, then paint arrow icon to indicate it.
     if (arrowIcon != null && (c instanceof JMenu))
       {
 	if (! ((JMenu) c).isTopLevelMenu())
@@ -705,6 +703,7 @@ public class BasicMenuItemUI extends MenuItemUI
   {
     uninstallListeners();
     uninstallDefaults();
+    uninstallComponents(menuItem);
     menuItem = null;
   }
 

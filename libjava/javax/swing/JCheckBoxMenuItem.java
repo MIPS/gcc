@@ -45,7 +45,11 @@ import javax.accessibility.AccessibleRole;
 
 
 /**
- * JCheckBoxMenuItem
+ * This class represents JCheckBoxMenuItem. Its behaviour is very similar
+ * to JCheckBoxButton. Just like the JCheckBoxButton, user can check and
+ * uncheck this menu item by clicking on it. Also setSelected()/setState()
+ * can be use used for the same purpose. JCheckBoxMenuItem uses
+ * ToggleButtonModel to keep track of its selection.
  */
 public class JCheckBoxMenuItem extends JMenuItem implements SwingConstants,
                                                             Accessible
