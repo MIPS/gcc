@@ -4747,6 +4747,20 @@ bypass_block (bb, setcc, jump)
 	  else
 	    dest = NULL;
 
+	  /* Avoid unification of the edge with other edges from original
+	     branch.  We would end up emitting the instruction on "both"
+	     edges.  */
+	    
+	  if (dest && setcc && !CC0_P (SET_DEST (PATTERN (setcc))))
+	    {
+	      edge e2;
+	      for (e2 = e->src->succ; e2; e2 = e2->succ_next)
+		if (e2->dest == dest)
+		  break;
+	      if (e2)
+		dest = NULL;
+	    }
+
 	  /* Once basic block indices are stable, we should be able
 	     to use redirect_edge_and_branch_force instead.  */
 	  old_dest = e->dest;
