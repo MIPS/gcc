@@ -1,3 +1,8 @@
+2004-09-17  Jonathan Wakely  <redi@gcc.gnu.org>
+
+	* include/bits/stl_algo.h (remove): Remove too restrictive
+	concept-check.
+
 2004-08-29  Paolo Carlini  <pcarlini@suse.de>
 
 	* include/bits/locale_facets.tcc (time_get<>::_M_extract_via_format,
