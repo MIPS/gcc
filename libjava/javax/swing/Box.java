@@ -69,7 +69,7 @@ public class Box extends JComponent implements Accessible
   
   public static class Filler extends JComponent implements Accessible
   {
-    protected class AccessibleBoxFiller extends AccessibleAWTComponent
+    protected class AccessibleBoxFiller// extends AccessibleAWTComponent
     {
       protected AccessibleBoxFiller()
       {
