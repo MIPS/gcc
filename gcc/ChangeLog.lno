@@ -1,3 +1,9 @@
+2004-07-27  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-ssa-align.c (visit_phi_node):  Make sure our alignment
+	doesn't go to 0.
+	(evaluate_stmt): Ditto.
+
 2004-07-26  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-ssa-align.c: New file.

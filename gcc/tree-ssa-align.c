@@ -290,6 +290,8 @@ visit_phi_node (tree phi)
 	{
 	  rdef_val.lattice_val = KNOWN;
 	  rdef_val.alignment.n = TREE_INT_CST_LOW (rdef) * BITS_PER_UNIT;
+    if (rdef_val.alignment.n == 0)
+      rdef_val.alignment.n = 1;
 	  rdef_val.alignment.offset = 0;
 	}
       else  if (TREE_CODE (rdef) == SSA_NAME)
@@ -497,6 +499,8 @@ evaluate_stmt (tree stmt)
     {
       val.lattice_val = KNOWN;
       val.alignment.n = TREE_INT_CST_LOW (rhs) * BITS_PER_UNIT;
+      if (val.alignment.n == 0)
+        val.alignment.n = 1;
       val.alignment.offset = 0;
     }
   else if (TREE_CODE (rhs) == PLUS_EXPR || TREE_CODE (rhs) == MINUS_EXPR)
