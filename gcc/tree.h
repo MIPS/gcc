@@ -3004,7 +3004,6 @@ extern void expand_start_target_temps (void);
 extern void expand_end_target_temps (void);
 extern void expand_elseif (tree);
 extern void save_stack_pointer (void);
-extern bool stack_pointer_safe_for_alloca (void);
 extern void expand_decl (tree);
 extern int expand_decl_cleanup (tree, tree);
 extern int expand_decl_cleanup_eh (tree, tree, int);

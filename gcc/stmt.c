@@ -183,9 +183,6 @@ struct nesting GTY(())
 	  int block_start_count;
 	  /* Nonzero => value to restore stack to on exit.  */
 	  rtx stack_level;
-	  /* Whether this block, or a nested block, called alloca()
-	     when stack_level was 0.  */
-	  bool called_alloca;
 	  /* The NOTE that starts this contour.
 	     Used by expand_goto to check whether the destination
 	     is within each contour or not.  */
@@ -273,12 +270,7 @@ do { struct nesting *target = STACK;			\
 	  if (cond_stack == this)			\
 	    cond_stack = cond_stack->next;		\
 	  if (block_stack == this)			\
-	    {						\
-	      if (block_stack->next			\
-		  && block_stack->data.block.called_alloca) \
-		block_stack->next->data.block.called_alloca = true; \
-	      block_stack = block_stack->next;		\
-	    }						\
+	    block_stack = block_stack->next;		\
 	  if (stack_block_stack == this)		\
 	    stack_block_stack = stack_block_stack->next; \
 	  if (case_stack == this)			\
@@ -3437,7 +3429,6 @@ expand_start_bindings_and_block (int flags, tree block)
   thisblock->all = nesting_stack;
   thisblock->depth = ++nesting_depth;
   thisblock->data.block.stack_level = 0;
-  thisblock->data.block.called_alloca = false;
   thisblock->data.block.cleanups = 0;
   thisblock->data.block.exception_region = 0;
   thisblock->data.block.block_target_temp_slot_level = target_temp_slot_level;
@@ -3895,31 +3886,7 @@ save_stack_pointer (void)
 		       &thisblock->data.block.stack_level,
 		       thisblock->data.block.first_insn);
       stack_block_stack = thisblock;
-      if (thisblock->data.block.called_alloca)
-	warning ("dynamically-sized auto object causes alloca()ed objects to be released");
     }
-}
-
-/* Test whether the current automatic scope, or any enclosing scope,
-   will restore the stack pointer when it finishes.  If it is safe, we
-   mark the current scope as calling alloca(), such that we can warn
-   in case it or an enclosing scope causes the stack pointer to be
-   restored clobbering it.  */
-
-bool
-stack_pointer_safe_for_alloca (void)
-{
-  struct nesting *thisblock;
-
-  for (thisblock = stack_block_stack;
-       thisblock;
-       thisblock = thisblock->next)
-    if (thisblock->data.block.stack_level != 0)
-      return false;
-
-  block_stack->data.block.called_alloca = true;
-
-  return true;
 }
 
 /* Generate RTL for the automatic variable declaration DECL.

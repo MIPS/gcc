@@ -4298,9 +4298,6 @@ expand_builtin_alloca (tree arglist, rtx target)
   rtx op0;
   rtx result;
 
-  if (! stack_pointer_safe_for_alloca ())
-    warning ("alloca()ed storage released along with dynamically-sized auto objects");
-
   if (!validate_arglist (arglist, INTEGER_TYPE, VOID_TYPE))
     return 0;
 

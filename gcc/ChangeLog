@@ -1,3 +1,17 @@
+2005-02-22  Jakub Jelinek  <jakub@redhat.com>
+
+	Revert:
+	2004-02-23  Alexandre Oliva  <aoliva@redhat.com>
+	Fixed PR/14236
+	* stmt.c (nesting_block::called_alloca): New.
+	(expand_start_bindings_and_block): Initialize it.
+	(POPSTACK): Propagate it up block_stack.
+	(save_stack_pointer): Warn when called_alloca is set.
+	(stack_pointer_safe_for_alloca): New.
+	* tree.h (stack_pointer_safe_for_alloca): Declare it.
+	* builtins.c (expand_builtin_alloca): Call it.  Warn if
+	stack pointer saved.
+
 2005-02-17  Gerald Pfeifer  <gerald@pfeifer.com>
 
 	* doc/install.texi (Specific): Update link for Darwin-specific
