@@ -3105,7 +3105,7 @@ update_field_accesses (struct struct_list *data_struct_list,
 	    block_stmt_iterator bsi;
 	    bool is_indirect_ref = false;
 	    bool is_mem_ref = false;
-	    tree mem_ref_index;
+	    tree mem_ref_index = NULL_TREE;
 
 	    new_stmt_list = NULL_TREE;
 
