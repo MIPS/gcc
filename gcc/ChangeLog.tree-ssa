@@ -1,3 +1,8 @@
+2004-03-03  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-phiopt.c (conditional_replacement): Clear EDGE_TRUE_VALUE
+	and EDGE_FALSE_VALUE on the remaining edge after eliminating a PHI.
+
 2004-03-03  Andrew MacLeod  <amacleod@redhat.com>
 
 	* tree-ssa-copyrename.c (gate_copyrename): Really check it in.
