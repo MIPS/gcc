@@ -214,7 +214,7 @@ simplify_stmt (stmt_p)
 	case COMPOUND_STMT:
 	  simplify_stmt (&COMPOUND_BODY (stmt));
 	  stmt_p = &TREE_CHAIN (stmt);
-	  continue;
+	  goto cont;
 	  
 	case FOR_STMT:
 	  simplify_for_stmt (stmt, &pre);
@@ -263,12 +263,12 @@ simplify_stmt (stmt_p)
 	case BREAK_STMT:
 	case SCOPE_STMT:
 	  stmt_p = &TREE_CHAIN (stmt);
-	  continue;
+	  goto cont;
 
 	case FILE_STMT:
 	  input_filename = FILE_STMT_FILENAME (stmt);
 	  stmt_p = &TREE_CHAIN (stmt);
-	  continue;
+	  goto cont;
 
 	default:
 	  prep_stmt (stmt);
@@ -331,6 +331,11 @@ simplify_stmt (stmt_p)
 	  stmt_p = &TREE_CHAIN (stmt);
 	}
       *stmt_p = next;
+
+    cont:
+      /* Restore saved state.  */
+      current_stmt_tree ()->stmts_are_full_exprs_p
+	= saved_stmts_are_full_exprs_p;
     }
 }
 
@@ -1830,6 +1835,8 @@ simplify_expr_wfl (expr_p, pre_p, post_p, simple_test_f)
   const char *file;
   tree fstmt = NULL_TREE;
   int line, col;
+  tree pre = NULL_TREE;
+  tree post = NULL_TREE;
   
   if (TREE_CODE (*expr_p) != EXPR_WITH_FILE_LOCATION)
     abort ();
@@ -1842,25 +1849,22 @@ simplify_expr_wfl (expr_p, pre_p, post_p, simple_test_f)
 
   col = EXPR_WFL_COLNO (*expr_p);
 
-  simplify_expr (&EXPR_WFL_NODE (*expr_p), pre_p, post_p, simple_test_f,
+  simplify_expr (&EXPR_WFL_NODE (*expr_p), &pre, &post, simple_test_f,
 		 fb_rvalue);
 
-  for (op = *pre_p; op; op = TREE_CHAIN (op))
+  for (op = pre; op; op = TREE_CHAIN (op))
     {
       if (!statement_code_p (TREE_CODE (TREE_VALUE (op))))
 	TREE_VALUE (op) = build_expr_wfl (TREE_VALUE (op), file, line, col);
       else if (strcmp (file, input_filename) != 0)
 	{
 	  fstmt = build_stmt (FILE_STMT, get_identifier (input_filename));
-	  *pre_p = tree_cons (NULL_TREE, fstmt, *pre_p);
+	  pre = tree_cons (NULL_TREE, fstmt, pre);
 	}
     }
 
-  for (op = *post_p; op; op = TREE_CHAIN (op))
+  for (op = post; op; op = TREE_CHAIN (op))
     TREE_VALUE (op) = build_expr_wfl (TREE_VALUE (op), file, line, col);
-
-  if (EXPR_WFL_NODE (*expr_p) == NULL_TREE)
-    *expr_p = NULL_TREE;
 
   lineno = line;
   input_filename = file;
@@ -1868,8 +1872,11 @@ simplify_expr_wfl (expr_p, pre_p, post_p, simple_test_f)
   if (fstmt)
     {
       fstmt = build_stmt (FILE_STMT, get_identifier (input_filename));
-      add_tree (fstmt, post_p);
+      add_tree (fstmt, &post);
     }
+
+  add_tree (pre, pre_p);
+  add_tree (post, post_p);
 }
 
 /** Simplify a SAVE_EXPR node.  EXPR_P points to the expression to

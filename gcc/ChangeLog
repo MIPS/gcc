@@ -1,5 +1,9 @@
 2002-06-20  Jason Merrill  <jason@redhat.com>
 
+	* c-simplify.c (simplify_expr_wfl): Only wrap pre and post stuff
+	that came from our subexpression.
+	(simplify_stmt): Restore stmts_are_full_exprs_p.
+
 	* c-simplify.c (simplify_expr_wfl): Bracket substatements with
 	FILE_STMTs rather than wrapping them in EXPR_WITH_FILE_LOCATION.
 	(simplify_stmt): Update lineno and input_filename from stmts.
