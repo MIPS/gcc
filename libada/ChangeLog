@@ -1,3 +1,7 @@
+2005-02-10  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* Makefile.in: Use host_cc_for_libada, not cc_set_by_configure.
+
 2004-12-19  Nathanael Nerode  <neroden@gcc.gnu.org>
 
 	* Makefile.in: Set THREAD_KIND from configure.

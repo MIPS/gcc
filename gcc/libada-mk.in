@@ -28,6 +28,7 @@ NOCOMMON_FLAG=@nocommon_flag@
 WARN_CFLAGS=@warn_cflags@
 gcc_tmake_file=@tmake_file@
 gcc_xmake_file=@xmake_file@
+host_cc_set_by_libada=@host_cc_set_by_libada@
 
 # Needed for ada/Makefile.in, along with tmake_file and xmake_file
 # This is all hackery, of course

@@ -74,7 +74,7 @@ FLAGS_TO_PASS = \
         "objext=$(objext)" \
         "prefix=$(prefix)" \
         "STAGE_PREFIX=$(STAGE_PREFIX)" \
-	"CC=$(cc_set_by_configure)" \
+	"CC=$(host_cc_for_libada)" \
         "CFLAGS=$(CFLAGS) $(WARN_CFLAGS)"
 
 # Rule to configure ada/Makefile.in.

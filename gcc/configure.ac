@@ -1519,6 +1519,10 @@ case "$LN_S" in
 		;;
 esac
 
+# This is a terrible hack which will go away some day.
+host_cc_for_libada=${CC}
+AC_SUBST(host_cc_for_libada)
+
 out_object_file=`basename $out_file .c`.o
 
 tm_file_list=

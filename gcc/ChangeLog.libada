@@ -1,3 +1,9 @@
+2005-02-10  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* libada-mk.in: Introduce host_cc_for_libada.
+	* configure.ac: Set host_cc_for_libada.
+	* configure: Regenerate.
+
 2005-02-02  Nathanael Nerode  <neroden@gcc.gnu.org>
 
 	* libada-mk.in: Remove cc_set_by_configure, CC.
