@@ -1274,6 +1274,14 @@ typedef struct cp_parser GTY(())
      and then decide not to consume it.  */
   tree scope;
 
+  /* OBJECT_SCOPE and QUALIFYING_SCOPE give the scopes in which the
+     last lookup took place.  OBJECT_SCOPE is used if an expression
+     like "x->y" or "x.y" was used; it gives the type of "*x" or "x",
+     respectively.  QUALIFYING_SCOPE is used for an expression of the 
+     form "X::Y"; it refers to X.  */
+  tree object_scope;
+  tree qualifying_scope;
+
   /* A stack of parsing contexts.  All but the bottom entry on the
      stack will be tentative contexts.
 
@@ -3108,6 +3116,8 @@ cp_parser_id_expression (cp_parser *parser,
   if (nested_name_specifier_p)
     {
       tree saved_scope;
+      tree saved_object_scope;
+      tree saved_qualifying_scope;
       tree unqualified_id;
       bool is_template;
 
@@ -3118,11 +3128,15 @@ cp_parser_id_expression (cp_parser *parser,
       /* Name lookup we do during the processing of the
 	 unqualified-id might obliterate SCOPE.  */
       saved_scope = parser->scope;
+      saved_object_scope = parser->object_scope;
+      saved_qualifying_scope = parser->qualifying_scope;
       /* Process the final unqualified-id.  */
       unqualified_id = cp_parser_unqualified_id (parser, *template_p,
 						 check_dependency_p);
       /* Restore the SAVED_SCOPE for our caller.  */
       parser->scope = saved_scope;
+      parser->object_scope = saved_object_scope;
+      parser->qualifying_scope = saved_qualifying_scope;
 
       return unqualified_id;
     }
@@ -3225,6 +3239,8 @@ cp_parser_unqualified_id (parser, template_keyword_p,
     case CPP_COMPL:
       {
 	tree type_decl;
+	tree qualifying_scope;
+	tree object_scope;
 	tree scope;
 
 	/* Consume the `~' token.  */
@@ -3261,37 +3277,34 @@ cp_parser_unqualified_id (parser, template_keyword_p,
 	   should refer to the type `S' and not the data member
 	   `S::S'.  */
 
+	/* DR 244 says that we look up the name after the "~" in the
+	   same scope as we looked up the qualifying name.  */
 	scope = parser->scope;
-	/* Handle the `S::~S' case up front.  */
-	if (scope && TYPE_P (scope))
-	  {
-	    cp_token *second_token;
+	object_scope = parser->object_scope;
+	qualifying_scope = parser->qualifying_scope;
 
-	    second_token = cp_lexer_peek_nth_token (parser->lexer, 2);
-	    if (cp_lexer_next_token_is (parser->lexer, CPP_NAME)
-		&& (second_token->type != CPP_SCOPE
-		    && second_token->type != CPP_LESS))
-	      {
-		tree name = cp_lexer_consume_token (parser->lexer)->value;
-		
-		if (!constructor_name_p (name, scope))
-		  error ("destructor name `~%s' does not match type `%T'",
-			 IDENTIFIER_POINTER (name), scope);
-		return build_nt (BIT_NOT_EXPR, scope);
-	      }
-	  }
+	/* If there was an explicit qualification (S::~T), first look
+	   in the scope given by the qualification (i.e., S).  */
 	if (scope)
-	  cp_parser_parse_tentatively (parser);
-	type_decl = cp_parser_class_name (parser, 
-					  /*typename_keyword_p=*/false,
-					  /*template_keyword_p=*/false,
-					  /*type_p=*/false,
-					  /*check_access_p=*/true,
-					  /*check_dependency=*/false,
-					  /*class_head_p=*/false);
-	if (scope && !cp_parser_parse_definitely (parser))
 	  {
-	    parser->scope = NULL_TREE;
+	    cp_parser_parse_tentatively (parser);
+	    type_decl = cp_parser_class_name (parser, 
+					      /*typename_keyword_p=*/false,
+					      /*template_keyword_p=*/false,
+					      /*type_p=*/false,
+					      /*check_access_p=*/true,
+					      /*check_dependency=*/false,
+					      /*class_head_p=*/false);
+	    if (cp_parser_parse_definitely (parser))
+	      return build_nt (BIT_NOT_EXPR, TREE_TYPE (type_decl));
+	  }
+	/* In "N::S::~S", look in "N" as well.  */
+	if (scope && qualifying_scope)
+	  {
+	    cp_parser_parse_tentatively (parser);
+	    parser->scope = qualifying_scope;
+	    parser->object_scope = NULL_TREE;
+	    parser->qualifying_scope = NULL_TREE;
 	    type_decl 
 	      = cp_parser_class_name (parser, 
 				      /*typename_keyword_p=*/false,
@@ -3300,15 +3313,46 @@ cp_parser_unqualified_id (parser, template_keyword_p,
 				      /*check_access_p=*/true,
 				      /*check_dependency=*/false,
 				      /*class_head_p=*/false);
-	    /* If an error occurred, assume that the name of the
-	       destructor is the same as the name of the qualifying
-	       class.  That allows us to keep parsing after running
-	       into ill-formed destructor names.  */
-	    if (type_decl == error_mark_node && TYPE_P (scope))
-	      return build_nt (BIT_NOT_EXPR, scope);
+	    if (cp_parser_parse_definitely (parser))
+	      return build_nt (BIT_NOT_EXPR, TREE_TYPE (type_decl));
 	  }
-
-	if (type_decl == error_mark_node)
+	/* In "p->S::~T", look in the scope given by "*p" as well.  */
+	else if (object_scope)
+	  {
+	    cp_parser_parse_tentatively (parser);
+	    parser->scope = object_scope;
+	    parser->object_scope = NULL_TREE;
+	    parser->qualifying_scope = NULL_TREE;
+	    type_decl 
+	      = cp_parser_class_name (parser, 
+				      /*typename_keyword_p=*/false,
+				      /*template_keyword_p=*/false,
+				      /*type_p=*/false,
+				      /*check_access_p=*/true,
+				      /*check_dependency=*/false,
+				      /*class_head_p=*/false);
+	    if (cp_parser_parse_definitely (parser))
+	      return build_nt (BIT_NOT_EXPR, TREE_TYPE (type_decl));
+	  }
+	/* Look in the surrounding context.  */
+	parser->scope = NULL_TREE;
+	parser->object_scope = NULL_TREE;
+	parser->qualifying_scope = NULL_TREE;
+	type_decl 
+	  = cp_parser_class_name (parser, 
+				  /*typename_keyword_p=*/false,
+				  /*template_keyword_p=*/false,
+				  /*type_p=*/false,
+				  /*check_access_p=*/true,
+				  /*check_dependency=*/false,
+				  /*class_head_p=*/false);
+	/* If an error occurred, assume that the name of the
+	   destructor is the same as the name of the qualifying
+	   class.  That allows us to keep parsing after running
+	   into ill-formed destructor names.  */
+	if (type_decl == error_mark_node && scope && TYPE_P (scope))
+	  return build_nt (BIT_NOT_EXPR, scope);
+	else if (type_decl == error_mark_node)
 	  return error_mark_node;
 
 	return build_nt (BIT_NOT_EXPR, TREE_TYPE (type_decl));
@@ -3388,6 +3432,8 @@ cp_parser_nested_name_specifier_opt (cp_parser *parser,
 				      TREE_VALUE (check));
       /* Set the scope from the stored value.  */
       parser->scope = TREE_VALUE (value);
+      parser->qualifying_scope = TREE_TYPE (value);
+      parser->object_scope = NULL_TREE;
       return parser->scope;
     }
 
@@ -3408,6 +3454,7 @@ cp_parser_nested_name_specifier_opt (cp_parser *parser,
     {
       tree new_scope;
       tree old_scope;
+      tree saved_qualifying_scope;
       cp_token *token;
       bool template_keyword_p;
 
@@ -3449,6 +3496,7 @@ cp_parser_nested_name_specifier_opt (cp_parser *parser,
       /* Save the old scope since the name lookup we are about to do
 	 might destroy it.  */
       old_scope = parser->scope;
+      saved_qualifying_scope = parser->qualifying_scope;
       /* Parse the qualifying entity.  */
       new_scope 
 	= cp_parser_class_or_namespace_name (parser,
@@ -3467,6 +3515,7 @@ cp_parser_nested_name_specifier_opt (cp_parser *parser,
 	     failed attempt at finding the last
 	     class-or-namespace-name.  */
 	  parser->scope = old_scope;
+	  parser->qualifying_scope = saved_qualifying_scope;
 	  break;
 	}
 
@@ -3516,6 +3565,7 @@ cp_parser_nested_name_specifier_opt (cp_parser *parser,
       /* Reset the contents of the START token.  */
       token->type = CPP_NESTED_NAME_SPECIFIER;
       token->value = build_tree_list (access_check, parser->scope);
+      TREE_TYPE (token->value) = parser->qualifying_scope;
       token->keyword = RID_MAX;
       /* Purge all subsequent tokens.  */
       cp_lexer_purge_tokens_after (parser->lexer, token);
@@ -3578,12 +3628,16 @@ cp_parser_class_or_namespace_name (cp_parser *parser,
 				   bool type_p)
 {
   tree saved_scope;
+  tree saved_qualifying_scope;
+  tree saved_object_scope;
   tree scope;
 
   /* Before we try to parse the class-name, we must save away the
      current PARSER->SCOPE since cp_parser_class_name will destroy
      it.  */
   saved_scope = parser->scope;
+  saved_qualifying_scope = parser->qualifying_scope;
+  saved_object_scope = parser->object_scope;
   /* Try for a class-name first.  */
   cp_parser_parse_tentatively (parser);
   scope = cp_parser_class_name (parser, 
@@ -3598,6 +3652,8 @@ cp_parser_class_or_namespace_name (cp_parser *parser,
     {
       /* Restore the saved scope.  */
       parser->scope = saved_scope;
+      parser->qualifying_scope = saved_qualifying_scope;
+      parser->object_scope = saved_object_scope;
       /* Now look for a namespace-name.  */
       scope = cp_parser_namespace_name (parser);
     }
@@ -4105,6 +4161,8 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p)
 	    /* The identifier following the `->' or `.' is not
 	       qualified.  */
 	    parser->scope = NULL_TREE;
+	    parser->qualifying_scope = NULL_TREE;
+	    parser->object_scope = NULL_TREE;
 	    /* Enter the scope corresponding to the type of the object
 	       given by the POSTFIX_EXPRESSION.  */
 	    if (!dependent_p 
@@ -4175,6 +4233,8 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p)
 		  {
 		    name = build_nt (SCOPE_REF, parser->scope, name);
 		    parser->scope = NULL_TREE;
+		    parser->qualifying_scope = NULL_TREE;
+		    parser->object_scope = NULL_TREE;
 		  }
 		postfix_expression 
 		  = finish_class_member_access_expr (postfix_expression, name);
@@ -6986,6 +7046,8 @@ cp_parser_conversion_function_id (parser)
 {
   tree type;
   tree saved_scope;
+  tree saved_qualifying_scope;
+  tree saved_object_scope;
 
   /* Look for the `operator' token.  */
   if (!cp_parser_require_keyword (parser, RID_OPERATOR, "`operator'"))
@@ -6994,6 +7056,8 @@ cp_parser_conversion_function_id (parser)
      reset.  However, we need that information in able to look up the
      conversion function later, so we save it here.  */
   saved_scope = parser->scope;
+  saved_qualifying_scope = parser->qualifying_scope;
+  saved_object_scope = parser->object_scope;
   /* We must enter the scope of the class so that the names of
      entities declared within the class are available in the
      conversion-type-id.  For example, consider:
@@ -7016,6 +7080,8 @@ cp_parser_conversion_function_id (parser)
     pop_scope (saved_scope);
   /* Restore the saved scope.  */
   parser->scope = saved_scope;
+  parser->qualifying_scope = saved_qualifying_scope;
+  parser->object_scope = saved_object_scope;
   /* If the TYPE is invalid, indicate failure.  */
   if (type == error_mark_node)
     return error_mark_node;
@@ -7851,6 +7917,8 @@ cp_parser_template_id (parser, template_keyword_p, check_dependency_p)
   tree template;
   tree arguments;
   tree saved_scope;
+  tree saved_qualifying_scope;
+  tree saved_object_scope;
   tree template_id;
   bool saved_greater_than_is_operator_p;
   ptrdiff_t start_of_id;
@@ -7908,6 +7976,8 @@ cp_parser_template_id (parser, template_keyword_p, check_dependency_p)
   /* Parsing the argument list may modify SCOPE, so we save it
      here.  */
   saved_scope = parser->scope;
+  saved_qualifying_scope = parser->qualifying_scope;
+  saved_object_scope = parser->object_scope;
   /* Parse the template-argument-list itself.  */
   if (cp_lexer_next_token_is (parser->lexer, CPP_GREATER))
     arguments = NULL_TREE;
@@ -7920,6 +7990,8 @@ cp_parser_template_id (parser, template_keyword_p, check_dependency_p)
     = saved_greater_than_is_operator_p;
   /* Restore the SAVED_SCOPE.  */
   parser->scope = saved_scope;
+  parser->qualifying_scope = saved_qualifying_scope;
+  parser->object_scope = saved_object_scope;
 
   /* Build a representation of the specialization.  */
   if (TREE_CODE (template) == IDENTIFIER_NODE)
@@ -10172,6 +10244,8 @@ cp_parser_ptr_operator (parser, type, cv_qualifier_seq)
 	  *type = parser->scope;
 	  /* The next name will not be qualified.  */
 	  parser->scope = NULL_TREE;
+	  parser->qualifying_scope = NULL_TREE;
+	  parser->object_scope = NULL_TREE;
 	  /* Indicate that the `*' operator was used.  */
 	  code = INDIRECT_REF;
 	  /* Look for the optional cv-qualifier-seq.  */
@@ -12089,6 +12163,8 @@ cp_parser_member_declaration (parser)
 	  /* If there is any qualification still in effect, clear it
 	     now; we will be starting fresh with the next declarator.  */
 	  parser->scope = NULL_TREE;
+	  parser->qualifying_scope = NULL_TREE;
+	  parser->object_scope = NULL_TREE;
 	  /* If it's a `,', then there are more declarators.  */
 	  if (cp_lexer_next_token_is (parser->lexer, CPP_COMMA))
 	    cp_lexer_consume_token (parser->lexer);
@@ -12239,6 +12315,8 @@ cp_parser_base_clause (parser)
      base class had a qualified name.  However, the next name that
      appears is certainly not qualified.  */
   parser->scope = NULL_TREE;
+  parser->qualifying_scope = NULL_TREE;
+  parser->object_scope = NULL_TREE;
 
   return nreverse (bases);
 }
@@ -13173,6 +13251,8 @@ cp_parser_lookup_name (parser, name, check_access, is_type,
 	  if (dependent_type_p)
 	    pop_scope (parser->scope);
 	}
+      parser->qualifying_scope = parser->scope;
+      parser->object_scope = NULL_TREE;
     }
   else if (object_type)
     {
@@ -13191,13 +13271,19 @@ cp_parser_lookup_name (parser, name, check_access, is_type,
       decl = lookup_name_real (name, is_type, /*nonclass=*/0, 
 			       /*namespaces_only=*/0, 
 			       /*flags=*/0);
+      parser->object_scope = object_type;
+      parser->qualifying_scope = NULL_TREE;
       if (object_decl)
 	decl = object_decl;
     }
   else
-    decl = lookup_name_real (name, is_type, /*nonclass=*/0, 
-			     /*namespaces_only=*/0, 
-			     /*flags=*/0);
+    {
+      decl = lookup_name_real (name, is_type, /*nonclass=*/0, 
+			       /*namespaces_only=*/0, 
+			       /*flags=*/0);
+      parser->qualifying_scope = NULL_TREE;
+      parser->object_scope = NULL_TREE;
+    }
 
   /* If the lookup failed, let our caller know.  */
   if (!decl 
@@ -13571,12 +13657,18 @@ cp_parser_global_scope_opt (parser, current_scope_valid_p)
       cp_lexer_consume_token (parser->lexer);
       /* Set the SCOPE so that we know where to start the lookup.  */
       parser->scope = global_namespace;
+      parser->qualifying_scope = global_namespace;
+      parser->object_scope = NULL_TREE;
 
       return parser->scope;
     }
   else if (!current_scope_valid_p)
-    parser->scope = NULL_TREE;
-  
+    {
+      parser->scope = NULL_TREE;
+      parser->qualifying_scope = NULL_TREE;
+      parser->object_scope = NULL_TREE;
+    }
+
   return NULL_TREE;
 }
 
@@ -13968,6 +14060,8 @@ cp_parser_single_declaration (parser,
   /* Clear any current qualification; whatever comes next is the start
      of something new.  */
   parser->scope = NULL_TREE;
+  parser->qualifying_scope = NULL_TREE;
+  parser->object_scope = NULL_TREE;
   /* Look for a trailing `;' after the declaration.  */
   if (!cp_parser_require (parser, CPP_SEMICOLON, "expected `;'")
       && cp_parser_committed_to_tentative_parse (parser))
