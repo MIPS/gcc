@@ -49,6 +49,10 @@ Boston, MA 02111-1307, USA.  */
 #include "cgraph.h"
 #include "tree-gimple.h"
 
+/* APPLE LOCAL pascal strings */
+#include "../../libcpp/internal.h"
+extern struct cpp_reader* parse_in;
+
 #ifndef CHECK_STACK_LIMIT
 #define CHECK_STACK_LIMIT (-1)
 #endif

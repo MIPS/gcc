@@ -210,7 +210,6 @@ extern const char *darwin_fix_and_continue_switch;
       if (darwin_pascal_strings)			\
 	{						\
 	  builtin_define ("__PASCAL_STRINGS__");	\
-	  CPP_OPTION (pfile, pascal_strings) = 1;	\
 	}						\
       /* APPLE LOCAL end pascal strings */		\
     }							\
@@ -246,6 +245,8 @@ do {									\
       if (*darwin_pascal_strings_switch != '\0')			\
 	error ("invalid option `%s'", base);				\
       darwin_pascal_strings = (base[0] != 'n');				\
+      if (darwin_pascal_strings)					\
+        CPP_OPTION (parse_in, pascal_strings) = 1;			\
     }									\
   /* The c_dialect...() macros are not available to us here.  */	\
   darwin_running_cxx = (strstr (lang_hooks.name, "C++") != 0);		\

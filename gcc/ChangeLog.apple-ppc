@@ -1,3 +1,13 @@
+2005-01-27  Mike Stump  <mrs@apple.com>
+
+	Radar 3978098
+	* config/darwin.h (SUBTARGET_OS_CPP_BUILTINS): Move setting
+	pascal_string for cpp from here...
+	* config/darwin.h (SUBSUBTARGET_OVERRIDE_OPTIONS): ..to here.
+	* c-cppbuiltin.c: Remove includes for pascal strings.
+	* config/rs6000/rs6000.c (parse_in): Add.
+	* config/i386/i386.c (parse_in): Add.
+
 2005-01-26  Stuart Hastings  <stuart@apple.com>
 
 	Radar 3967989
