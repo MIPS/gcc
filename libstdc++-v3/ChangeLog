@@ -1,3 +1,149 @@
+2004-08-22  Matthias Klose  <doko@debian.org>
+
+        * config/abi/m68k-linux-gnu/baseline_symbols.txt: New.
+        * config/abi/sparc-linux-gnu/baseline_symbols.txt: Update to 3.4.0.
+
+2004-08-23  Paolo Carlini  <pcarlini@suse.de>
+
+	* configure.ac: Specify version 1.9.1 in AM_INIT_AUTOMAKE.
+	* aclocal.m4: Regenerate with automake-1.9.1.
+	* configure: Regenerate.
+	* Makefile.in: Likewise.
+	* include/Makefile.in: Likewise.
+	* libmath/Makefile.in: Likewise.
+	* libsupc++/Makefile.in: Likewise.
+	* po/Makefile.in: Likewise.
+	* src/Makefile.in: Likewise.
+	* testsuite/Makefile.in: Likewise.
+
+2004-08-22  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (num_put<>::do_put(bool)): Cast
+	to a signed type, long according to the resolution of DR 359.
+	* testsuite/22_locale/num_put/put/char/9.cc: New.
+	* testsuite/22_locale/num_put/put/wchar_t/9.cc: New.
+
+	* include/bits/locale_facets.tcc (num_put<>::do_put(const void*)):
+	Simplify a bit: no need to clear showpos.
+
+2004-08-21  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/char_traits.h (struct _Char_traits_match): Remove,
+	unused.
+
+2004-08-21  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/22_locale/money_put/put/wchar_t/1.cc: Use proper
+	wchar_t	type for the fill argument; minor formatting tweaks.
+	* testsuite/22_locale/money_put/put/wchar_t/12971.cc: Likewise.
+	* testsuite/22_locale/money_put/put/wchar_t/2.cc: Likewise.
+	* testsuite/22_locale/money_put/put/wchar_t/3.cc: Likewise.
+	* testsuite/22_locale/money_put/put/wchar_t/4.cc: Likewise.
+	* testsuite/22_locale/money_put/put/wchar_t/5.cc: Likewise.
+	* testsuite/22_locale/money_put/put/wchar_t/6.cc: Likewise.
+
+2004-08-21  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/basic_ios.tcc (basic_ios<>::copyfmt): Don't deal
+	with _M_word != _M_local_word two times, redundantly.
+
+2004-08-20  Jason Merrill  <jason@redhat.com>
+
+	* include/Makefile.am (${host_builddir}/gthr.h): Don't add
+	_GLIBCXX_ to #pragma lines.
+	* include/Makefile.in: Update.
+
+2004-08-20  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/7219 (continued)
+	* include/bits/ios_base.h (class ios_base): Expose Annex D.6
+	typedefs by default.
+	* testsuite/27_io/types/1.cc: Remove #if _GLIBCXX_DEPRECATED.
+	* testsuite/27_io/ios_base/cons/assign_neg.cc: Tweak dg-error
+	line number.
+	* testsuite/27_io/ios_base/cons/copy_neg.cc: Likewise.
+
+2004-08-20  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* cpu/hppa/atomicity.h (__exchange_and_add, __atomic_add): Add memory
+	barrier to locking asm.
+	
+2004-08-20  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/c_std/cmath.tcc (__cmath_power): Revert previous commit:
+	actually the warning is a front-end bug (c++/17120).
+
+2004-08-20  Matthias Klose  <doko@debian.org>
+
+	* config/abi/s390-linux-gnu/baseline_symbols.txt: New.
+
+2004-08-20  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/c_std/cmath.tcc (__cmath_power): Suppress assignment
+	used as truth value warning.
+
+2004-08-20  Paolo Carlini  <pcarlini@suse.de>
+
+	* config/abi/x86_64-linux-gnu/32/baseline_symbols.txt: Add 32 bit
+	baseline.
+
+2004-08-20  Paolo Carlini  <pcarlini@suse.de>
+
+	* config/abi/x86_64-linux-gnu/baseline_symbols.txt: Fix it.
+
+2004-08-19  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/22_locale/time_put/put/char/3.cc (test03): Don't check
+	timezone.
+	* testsuite/22_locale/time_put/put/wchar_t/3.cc (test03): Same.
+
+2004-08-19  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/performance/20_util/allocator/insert.cc: For std::map
+	instantiate the allocator for a correct pair type.
+	* testsuite/performance/20_util/allocator/insert_insert.cc: Likewise.
+	* testsuite/performance/20_util/allocator/map_thread.cc: Likewise.
+	* testsuite/performance/20_util/allocator/producer_consumer.cc:
+	Likewise.
+
+	* testsuite/performance/20_util/allocator/list_sort_search.cc: Very
+	minor formatting fixes.
+	* testsuite/performance/20_util/allocator/map_mt_find.cc: Likewise.
+
+2004-08-19  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/22_locale/time_put/put/char/1.cc: Add VERIFY on the
+	results.
+	* testsuite/22_locale/time_put/put/char/2.cc: Likewise.
+	* testsuite/22_locale/time_put/put/char/3.cc: Likewise.
+	* testsuite/22_locale/time_put/put/char/4.cc: Likewise.
+	* testsuite/22_locale/time_put/put/wchar_t/1.cc: Likewise.
+	* testsuite/22_locale/time_put/put/wchar_t/2.cc: Likewise.
+	* testsuite/22_locale/time_put/put/wchar_t/3.cc: Likewise.
+	* testsuite/22_locale/time_put/put/wchar_t/4.cc: Likewise.
+ 
+2004-08-19  Paolo Carlini  <pcarlini@suse.de>
+
+	* config/abi/x86_64-linux-gnu/baseline_symbols.txt: Update to 3.4.0.
+
+2004-08-18  Matthias Klose  <doko@debian.org>
+
+	* config/abi/hppa-linux-gnu/baseline_symbols.txt: Update to 3.4.0.
+	* config/abi/i386-linux-gnu/baseline_symbols.txt: New.
+	* config/abi/powerpc-linux-gnu/baseline_symbols.txt: New.
+
+2004-08-17  Paolo Carlini  <pcarlini@suse.de>
+
+	* config/abi/alpha-linux-gnu/baseline_symbols.txt: Update to 3.4.0.
+
+2004-08-17  Paolo Carlini  <pcarlini@suse.de>
+
+	* config/abi/ia64-linux-gnu/baseline_symbols.txt: Update to 3.4.0.
+
+2004-08-17  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* config/abi/i486-linux-gnu/baseline_symbols.txt: Update to 3.4.0.
+
 2004-08-16  Paolo Carlini  <pcarlini@suse.de>
 
 	* include/bits/indirect_array.h: Trivial formatting fixes.
