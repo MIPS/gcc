@@ -7244,6 +7244,7 @@ local_variable_p (struct ls_expr *ptr)
 {
   rtx base;
       
+  return 0;
   base = find_base_term (XEXP (ptr->pattern, 0));
   return (base
 	  && GET_CODE (base) == ADDRESS

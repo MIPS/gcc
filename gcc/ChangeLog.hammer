@@ -1,3 +1,7 @@
+Wed Jun 25 21:22:22 CEST 2003  Jan Hubicka  <jh@suse.cz>
+
+	* gcse.c (local_variable_p): Temporarily disable.
+
 2003-06-25  Josef Zlomek  <zlomekj@suse.cz>
 
 	* dwarf2out.c (gen_field_die): Return if type of decl is error mark.
