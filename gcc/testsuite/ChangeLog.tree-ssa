@@ -1,3 +1,7 @@
+2003-09-21  Lifang Zeng  <zlf605@hotmail.com>
+
+	* gfortran.fortran-torture/execute/data.f90: New test.
+
 2003-09-20  Kejia Zhao  <kejia_zh@yahoo.com.cn>
  
 	* gfortran.fortran-torture/execute/intrisic_si_kind.f90: New test.

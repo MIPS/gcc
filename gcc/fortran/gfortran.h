@@ -1250,13 +1250,35 @@ typedef struct gfc_constructor
   gfc_iterator *iterator;
   locus where;
   struct gfc_constructor *next;
+  struct
+  {
+    mpz_t offset; /* Record the offset of array element which appears in
+                     data statement like "data a(5)/4/".  */
+    gfc_component *component; /* Record the component being initialized.  */
+  }
+  n;
+  mpz_t repeat; /* Record the repeat number of initial values in data
+                 statement like "data a/5*10/".  */
 }
 gfc_constructor;
 
-#define gfc_get_constructor() gfc_getmem(sizeof(gfc_constructor))
 
+typedef struct iterator_stack
+{
+  gfc_symtree *variable;
+  mpz_t value;
+  struct iterator_stack *prev;
+}
+iterator_stack;
+extern iterator_stack *iter_stack;
 
 /************************ Function prototypes *************************/
+
+/* data.c  */
+void gfc_formalize_init_value (gfc_symbol *);
+void gfc_get_section_index (gfc_array_ref *, mpz_t *, mpz_t *);
+void gfc_assign_data_value (gfc_expr *, gfc_expr *, int, mpz_t);
+void gfc_modify_index_and_calculate_offset (mpz_t *, gfc_array_ref *, mpz_t *);
 
 /* scanner.c */
 void gfc_scanner_done_1 (void);
@@ -1567,6 +1589,10 @@ try gfc_array_size (gfc_expr *, mpz_t *);
 try gfc_array_dimen_size (gfc_expr *, int, mpz_t *);
 try gfc_array_ref_shape (gfc_array_ref *, mpz_t *);
 gfc_array_ref *gfc_find_array_ref (gfc_expr *);
+void gfc_insert_constructor (gfc_expr *, gfc_expr *);
+gfc_constructor *gfc_get_constructor (void);
+tree gfc_conv_array_initializer (tree type, gfc_expr * expr);
+try spec_size (gfc_array_spec *, mpz_t *);
 
 /* interface.c -- FIXME: some of these should be in symbol.c */
 void gfc_free_interface (gfc_interface *);

@@ -1,3 +1,29 @@
+2003-09-21  Lifang Zeng  <zlf605@hotmail.com>
+	Paul Brook  <paul@nowt.org>
+
+	* Make-lang.in (F95_OBJS): Add fortran/data.o.
+	* array.c (gfc_inser_constructor): New function.
+	(gfc_get_constructor): New function.
+	(gfc_free_constructor): Initialize offset and repeat.
+	(iterator_stack): Remove.
+	(expand_info): Add offset, component and repeat fields.
+	(expand_constructor): Set them.
+	(expand): Set new fields.
+	(gfc_copy_constructor): Ditto. Avoid recursion.
+	* gfortran.h: Add prototypes for new functions.
+	(gfc_constructor): Add offset, component and repeat.
+	(iteratio_stack): Move to here.
+	* resolve.c (check_data_variable): Convert data values into variable
+	initializers.
+	(traverse_data_list): Build implicit loop chain.
+	(gfc_resolve): Ditto.
+	* trans-array.c (gfc_conv_array_intializer): Handle repeat count.
+	* trans-decl.c (gfc_get_symbol_decl): Use gfc_conv_structure.
+	* trans-expr.c (gfc_conv_structure): Handle array initializers.
+	(gfc_conv_expr): Update to match.
+	* trans.h (gfc_conv_structure): Declare.
+	* data.c: New file.
+
 2003-09-20  Kejia Zhao  <kejia_zh@yahoo.com.cn>
  
 	* trans.h: Add declarations for gfor_fndecl_si_kind and

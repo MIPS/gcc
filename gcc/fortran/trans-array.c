@@ -2666,15 +2666,17 @@ gfc_array_deallocate (tree descriptor)
 /* Create an array constructor from an initialization expression.
    We assume the frontend already did any expansions and conversions.  */
 
-static tree
+tree
 gfc_conv_array_initializer (tree type, gfc_expr * expr)
 {
   gfc_constructor *c;
   tree list;
   tree tmp;
+  mpz_t maxval;
   gfc_se se;
   HOST_WIDE_INT hi;
   unsigned HOST_WIDE_INT lo;
+  tree index, range;
 
   list = NULL_TREE;
   switch (expr->expr_type)
@@ -2714,23 +2716,57 @@ gfc_conv_array_initializer (tree type, gfc_expr * expr)
               /* TODO: Unexpanded array initializers.  */
               internal_error
                 ("Possible frontend bug: array constructor not expanded");
+	    }
+          if (mpz_cmp_si (c->n.offset, 0) != 0)
+            index = gfc_conv_mpz_to_tree (c->n.offset, gfc_index_integer_kind);
+          else
+            index = NULL_TREE;
+	  mpz_init (maxval);
+          if (mpz_cmp_si (c->repeat, 0) != 0)
+            {
+              tree tmp1, tmp2;
+
+              mpz_set (maxval, c->repeat);
+              mpz_add (maxval, c->n.offset, maxval);
+              mpz_sub_ui (maxval, maxval, 1);
+              tmp2 = gfc_conv_mpz_to_tree (maxval, gfc_index_integer_kind);
+              if (mpz_cmp_si (c->n.offset, 0) != 0)
+                {
+                  mpz_add_ui (maxval, c->n.offset, 1);
+                  tmp1 = gfc_conv_mpz_to_tree (maxval, gfc_index_integer_kind);
+                }
+              else
+                tmp1 = gfc_conv_mpz_to_tree (c->n.offset, gfc_index_integer_kind);
+
+              range = build (RANGE_EXPR, integer_type_node, tmp1, tmp2);
             }
+          else
+            range = NULL;
+	  mpz_clear (maxval);
 
           gfc_init_se (&se, NULL);
 	  switch (c->expr->expr_type)
 	    {
 	    case EXPR_CONSTANT:
 	      gfc_conv_constant (&se, c->expr);
+              if (range == NULL_TREE)
+                list = tree_cons (index, se.expr, list);
+              else
+                {
+                  if (index != NULL_TREE)
+                    list = tree_cons (index, se.expr, list);
+                  list = tree_cons (range, se.expr, list);
+                }
 	      break;
 
 	    case EXPR_STRUCTURE:
-	      gfc_conv_expr (&se, c->expr);
+              gfc_conv_structure (&se, c->expr, 1);
+              list = tree_cons (index, se.expr, list);
 	      break;
 
 	    default:
 	      abort();
 	    }
-          list = tree_cons (NULL_TREE, se.expr, list);
         }
       /* We created the list in reverse order.  */
       list = nreverse (list);
