@@ -1,5 +1,9 @@
 2004-08-25  Ziemowit Laski  <zlaski@apple.com>
 
+	* c-common.h: Stop shouting.
+
+2004-08-25  Ziemowit Laski  <zlaski@apple.com>
+
 	* c-typeck.c: Sync ObjC changes with mainline.
 
 2004-08-21  Ziemowit Laski  <zlaski@apple.com>

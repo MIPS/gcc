@@ -889,7 +889,7 @@ extern void c_stddef_cpp_builtins (void);
 extern void fe_file_change (const struct line_map *);
 extern void c_parse_error (const char *, enum cpp_ttype, tree);
 
-/****** OBJECTIVE-C / OBJECTIVE-C++ ENTRY POINTS ******/
+/* Objective-C / Objective-C++ entry points.  */
 
 /* The following ObjC/ObjC++ functions are called by the C and/or C++
    front-ends; they all must have corresponding stubs in stub-objc.c.  */
