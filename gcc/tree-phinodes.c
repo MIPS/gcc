@@ -286,29 +286,38 @@ add_phi_arg (tree *phi, tree def, edge e)
 
   if (i >= PHI_ARG_CAPACITY (*phi))
     {
-      /* Resize the phi.  Unfortunately, this also relocates it...  */
       tree old_phi = *phi;
 
+      /* Resize the phi.  Unfortunately, this may also relocate it.  */
       resize_phi_node (phi, i + 4);
 
       /* The result of the phi is defined by this phi node.  */
       SSA_NAME_DEF_STMT (PHI_RESULT (*phi)) = *phi;
 
-      /* Update the list head if replacing the first listed phi.  */
-      if (phi_nodes (e->dest) == old_phi)
-	VARRAY_TREE (tree_phi_root, e->dest->index) = *phi;
-      else
+      /* If the PHI was relocated, update the PHI chains appropriately and
+	 release the old PHI node.  */
+      if (*phi != old_phi)
 	{
-          /* Traverse the list looking for the phi node to chain to.  */
-	  tree p;
-	  for (p = phi_nodes (e->dest);
-	       p && TREE_CHAIN (p) != old_phi;
-	       p = TREE_CHAIN (p));
+	  release_phi_node (old_phi);
 
-	  if (!p)
-	    abort ();
+	  /* Update the list head if replacing the first listed phi.  */
+	  if (phi_nodes (e->dest) == old_phi)
+	    VARRAY_TREE (tree_phi_root, e->dest->index) = *phi;
+	  else
+	    {
+	      /* Traverse the list looking for the phi node to chain to.  */
+	      tree p;
 
-	  TREE_CHAIN (p) = *phi;
+	      for (p = phi_nodes (e->dest);
+		   p && TREE_CHAIN (p) != old_phi;
+		   p = TREE_CHAIN (p))
+		;
+
+	      if (!p)
+		abort ();
+
+	      TREE_CHAIN (p) = *phi;
+	    }
 	}
     }
 

@@ -1,3 +1,9 @@
+2003-12-02  Jeff Law  <law@redhat.com>
+
+	* tree-phinodes.c (add_phi_arg): If we receive a new node from
+	resize_phi_node, then release the old node and update the PHI
+	chain.
+ 
 2003-12-02  Brian Booth  <bbooth@redhat.com>
 
 	* tree-pretty-print.c (dump_phi_nodes): Added code to always show phi 
