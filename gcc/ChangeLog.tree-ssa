@@ -1,5 +1,28 @@
 2004-04-21  Jeff Law  <law@redhat.com>
 
+	* tree-flow.h (var_ann_d): Add "current_def" field.
+	(register_new_def): Lose last argument (currdefs table).
+	* tree-into-ssa.c (currdefs): Remove.
+	(rewrite_into_ssa): Initialize current_def field on each variable's
+	annotation.  Remove initialization/clearing of currdefs.
+	(set_value_for, get_value_for): Kill.
+	(rewrite_initialize_block): Update call to register_new_def.
+	(rewrite_stmt): Similarly.
+	(rewrite_finalize_block): Get/set a _DECL node's current
+	definition from its annotation.
+	(get_reaching_def): Similarly.
+	(register_new_def): Similarly.  Lose last argument.
+	* tree-ssa-dom.c (currdefs): Remove.
+	(get_value_for, set_value_for): Simplify.
+	(tree_ssa_dominator_optimize): Initialize current_def on each
+	variable's annotation.  Remove initialization/clearing of currdefs.
+	(thread_across_edge): Lose unnecessary argument to register_new_def.
+	(record_equivalences_from_phis): Likewise.
+	(register_definitions_for_stmt): Likewise.
+	(restore_currdefs_to_original_value): Get/set a _DECL node's current
+	definition from its annotation.  Lose unnecessary "table" argument.
+	(dom_opt_finalize_block): Corresponding changes.
+
 	* tree-dfa.c (free_df_for_stmt): Release memory back to the GC
 	system immediately.
 

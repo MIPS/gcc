@@ -90,11 +90,6 @@ struct mark_def_sites_global_data
   sbitmap kills;
 };
 
-/* Table to store the current reaching definition for every variable in
-   the function.  Given a variable V, its entry will be its immediately
-   reaching SSA_NAME node.  */
-static varray_type currdefs;
-
 struct rewrite_block_data
 {
   varray_type block_defs;
@@ -121,8 +116,6 @@ static void rewrite_stmt (struct dom_walk_data *, basic_block,
 static inline void rewrite_operand (tree *);
 static void insert_phi_nodes_for (tree, bitmap *, varray_type *);
 static tree get_reaching_def (tree);
-static tree get_value_for (tree, varray_type);
-static void set_value_for (tree, tree, varray_type);
 static hashval_t def_blocks_hash (const void *);
 static int def_blocks_eq (const void *, const void *);
 static void def_blocks_free (void *);
@@ -130,24 +123,6 @@ static int debug_def_blocks_r (void **, void *);
 static inline struct def_blocks_d *get_def_blocks_for (tree);
 static inline struct def_blocks_d *find_def_blocks_for (tree);
 static void htab_statistics (FILE *, htab_t);
-
-/* Return the value associated with variable VAR in TABLE.  */
-
-static inline tree
-get_value_for (tree var, varray_type table)
-{
-  return VARRAY_TREE (table, var_ann (var)->uid);
-}
-
-
-/* Associate VALUE to variable VAR in TABLE.  */
-
-static inline void
-set_value_for (tree var, tree value, varray_type table)
-{
-  VARRAY_TREE (table, var_ann (var)->uid) = value;
-}
-
 
 /* Compute global livein information given the set of blockx where
    an object is locally live at the start of the block (LIVEIN)
@@ -519,7 +494,7 @@ rewrite_initialize_block (struct dom_walk_data *walk_data, basic_block bb)
     {
       tree result = PHI_RESULT (phi);
 
-      register_new_def (result, &bd->block_defs, currdefs);
+      register_new_def (result, &bd->block_defs);
     }
 }
 
@@ -584,7 +559,7 @@ rewrite_finalize_block (struct dom_walk_data *walk_data,
 	  var = tmp;
 	}
 
-      set_value_for (var, saved_def, currdefs);
+      var_ann (var)->current_def = saved_def;
     }
 }
 
@@ -780,7 +755,7 @@ rewrite_stmt (struct dom_walk_data *walk_data,
 
       /* FIXME: We shouldn't be registering new defs if the variable
 	 doesn't need to be renamed.  */
-      register_new_def (*def_p, &bd->block_defs, currdefs);
+      register_new_def (*def_p, &bd->block_defs);
     }
 
   /* Register new virtual definitions made by the statement.  */
@@ -794,7 +769,7 @@ rewrite_stmt (struct dom_walk_data *walk_data,
 
       /* FIXME: We shouldn't be registering new defs if the variable
 	 doesn't need to be renamed.  */
-      register_new_def (VDEF_RESULT (vdefs, i), &bd->block_defs, currdefs);
+      register_new_def (VDEF_RESULT (vdefs, i), &bd->block_defs);
     }
 }
 
@@ -815,7 +790,7 @@ rewrite_operand (tree *op_p)
    into the stack pointed by BLOCK_DEFS_P.  */
 
 void
-register_new_def (tree def, varray_type *block_defs_p, varray_type table)
+register_new_def (tree def, varray_type *block_defs_p)
 {
   tree var = SSA_NAME_VAR (def);
   tree currdef;
@@ -830,11 +805,11 @@ register_new_def (tree def, varray_type *block_defs_p, varray_type table)
      computed and available for us to use.  */
   if (var_ann (var)->need_phi_state == NEED_PHI_STATE_NO)
     {
-      set_value_for (var, def, table);
+      var_ann (var)->current_def = def;
       return;
     }
 
-  currdef = get_value_for (var, table);
+  currdef = var_ann (var)->current_def;
   if (! *block_defs_p)
     VARRAY_TREE_INIT (*block_defs_p, 20, "block_defs");
 
@@ -846,7 +821,7 @@ register_new_def (tree def, varray_type *block_defs_p, varray_type table)
   VARRAY_PUSH_TREE (*block_defs_p, currdef ? currdef : var);
 
   /* Set the current reaching definition for VAR to be DEF.  */
-  set_value_for (var, def, table);
+  var_ann (var)->current_def = def;
 }
 
 
@@ -863,7 +838,7 @@ get_reaching_def (tree var)
   
   /* Lookup the current reaching definition for VAR.  */
   default_d = NULL_TREE;
-  currdef_var = get_value_for (var, currdefs);
+  currdef_var = var_ann (var)->current_def;
 
   /* If there is no reaching definition for VAR, create and register a
      default definition for it (if needed).  */
@@ -875,7 +850,7 @@ get_reaching_def (tree var)
 	  default_d = make_ssa_name (var, build_empty_stmt ());
 	  set_default_def (var, default_d);
 	}
-      set_value_for (var, default_d, currdefs);
+      var_ann (var)->current_def = default_d;
     }
 
   /* Return the current reaching definition for VAR, or the default
@@ -1061,6 +1036,7 @@ rewrite_into_ssa (void)
   basic_block bb;
   struct dom_walk_data walk_data;
   struct mark_def_sites_global_data mark_def_sites_global_data;
+  unsigned int i;
   
   timevar_push (TV_TREE_SSA_OTHER);
 
@@ -1078,8 +1054,6 @@ rewrite_into_ssa (void)
   def_blocks = htab_create (VARRAY_ACTIVE_SIZE (referenced_vars),
 			    def_blocks_hash, def_blocks_eq, def_blocks_free);
 
-  VARRAY_TREE_INIT (currdefs, num_referenced_vars, "currdefs");
-
   /* Initialize dominance frontier and immediate dominator bitmaps. 
      Also count the number of predecessors for each block.  Doing so
      can save significant time during PHI insertion for large graphs.  */
@@ -1095,6 +1069,9 @@ rewrite_into_ssa (void)
       bb_ann (bb)->num_preds = count;
       dfs[bb->index] = BITMAP_XMALLOC ();
     }
+
+  for (i = 0; i < num_referenced_vars; i++)
+    var_ann (referenced_var (i))->current_def = NULL;
 
   /* Ensure that the dominance information is OK.  */
   calculate_dominance_info (CDI_DOMINATORS);
@@ -1179,7 +1156,6 @@ rewrite_into_ssa (void)
   free (dfs);
 
   htab_delete (def_blocks);
-  VARRAY_CLEAR (currdefs);
 
   timevar_pop (TV_TREE_SSA_OTHER);
 }
