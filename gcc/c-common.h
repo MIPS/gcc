@@ -479,12 +479,6 @@ extern int warn_sign_compare;
 
 extern int warn_long_long;
 
-/* APPLE LOCAL begin -Wlong-double */
-/* Nonzero means warn about usage of long double.  */
-
-extern int warn_long_double;
-/* APPLE LOCAL end -Wlong-double */
-
 /* Nonzero means warn about deprecated conversion from string constant to
    `char *'.  */
 
@@ -1309,9 +1303,6 @@ extern tree objc_message_selector		(void);
 extern int recognize_objc_keyword		(void);
 extern tree lookup_objc_ivar			(tree);
 /* APPLE LOCAL end Objective-C++  */
-
-/* APPLE LOCAL -Wlong-double  */
-extern void warn_about_long_double		(void);
 
 /* APPLE LOCAL begin Symbol Separation */
 extern void dbg_ss_init                         (void);

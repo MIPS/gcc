@@ -7023,8 +7023,6 @@ grokdeclarator (tree declarator,
       RIDBIT_RESET (RID_LONG, specbits);
       type = build_qualified_type (long_double_type_node,
 				   cp_type_quals (type));
-      /* APPLE LOCAL -Wlong-double --dpatel */
-      warn_about_long_double ();
     }
 
   /* Check all other uses of type modifiers.  */

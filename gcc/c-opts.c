@@ -561,12 +561,6 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       /* Silently ignore for now.  */
       break;
 
-      /* APPLE LOCAL begin -Wlong-double --dpatel */
-    case OPT_Wlong_double:
-      warn_long_double = value;
-      break;
-      /* APPLE LOCAL end -Wlong-double --dpatel */
-
       /* APPLE LOCAL begin Symbol Separation */
     case OPT_Winvalid_sr:
       cpp_opts->warn_invalid_sr = value;

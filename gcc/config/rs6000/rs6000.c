@@ -806,6 +806,13 @@ rs6000_init_hard_regno_mode_ok (void)
 	rs6000_hard_regno_mode_ok_p[m][r] = true;
 }
 
+/* If not otherwise specified by a target, make 'long double' equivalent to
+   'double'.  */
+
+#ifndef RS6000_DEFAULT_LONG_DOUBLE_SIZE
+#define RS6000_DEFAULT_LONG_DOUBLE_SIZE 64
+#endif
+
 /* Override command line options.  Mostly we process the processor
    type and sometimes adjust other TARGET_ options.  */
 
@@ -1099,7 +1106,7 @@ rs6000_override_options (const char *default_cpu)
     }
 
   /* Set size of long double */
-  rs6000_long_double_type_size = 64;
+  rs6000_long_double_type_size = RS6000_DEFAULT_LONG_DOUBLE_SIZE;
   if (rs6000_long_double_size_string)
     {
       char *tail;
@@ -1172,7 +1179,7 @@ rs6000_override_options (const char *default_cpu)
       if (rs6000_isel_string == 0)
 	rs6000_isel = 0;
       if (rs6000_long_double_size_string == 0)
-	rs6000_long_double_type_size = 64;
+	rs6000_long_double_type_size = RS6000_DEFAULT_LONG_DOUBLE_SIZE;
     }
 
   rs6000_always_hint = (rs6000_cpu != PROCESSOR_POWER4
@@ -3009,10 +3016,7 @@ legitimate_lo_sum_address_p (enum machine_mode mode, rtx x, int strict)
 	return false;
       if (GET_MODE_NUNITS (mode) != 1)
 	return false;
-      if (GET_MODE_BITSIZE (mode) > 32
-          && !(TARGET_HARD_FLOAT && TARGET_FPRS
-               && (mode == DFmode ||
-                   (TARGET_LONG_DOUBLE_128 && mode == DImode))))
+      if (GET_MODE_BITSIZE (mode) > 64)
 	return false;
 
       return CONSTANT_P (x);
@@ -11518,13 +11522,21 @@ rs6000_split_multireg_move (rtx dst, rtx src)
 			 : gen_adddi3 (breg, breg, delta_rtx));
 	      src = gen_rtx_MEM (mode, breg);
 	    }
+	  else if (! offsettable_memref_p (src))
+	    {
+	      rtx newsrc, basereg;
+	      basereg = gen_rtx_REG (Pmode, reg);
+	      emit_insn (gen_rtx_SET (VOIDmode, basereg, XEXP (src, 0)));
+	      newsrc = gen_rtx_MEM (GET_MODE (src), basereg);
+	      MEM_COPY_ATTRIBUTES (newsrc, src);
+	      src = newsrc;
+	    }
 
 	  /* We have now address involving an base register only.
 	     If we use one of the registers to address memory, 
 	     we have change that register last.  */
 
-	  breg = ((GET_CODE (XEXP (src, 0)) == PLUS 
-		  || GET_CODE (XEXP (src, 0)) == LO_SUM)
+	  breg = (GET_CODE (XEXP (src, 0)) == PLUS
 		  ? XEXP (XEXP (src, 0), 0)
 		  : XEXP (src, 0));
 
@@ -11566,6 +11578,8 @@ rs6000_split_multireg_move (rtx dst, rtx src)
 			   : gen_adddi3 (breg, breg, delta_rtx));
 	      dst = gen_rtx_MEM (mode, breg);
 	    }
+	  else if (! offsettable_memref_p (dst))
+	    abort ();
 	}
 
       for (i = 0; i < nregs; i++)

@@ -1,3 +1,13 @@
+2004-08-01  Geoffrey Keating  <geoffk@apple.com>
+
+	* c-common.c (warn_long_double): Remove.
+	(warn_about_long_double): Remove.
+	* c-common.h (warn_long_double): Remove.
+	(warn_about_long_double): Remove.
+	* c-decl.c (grokdeclarator): Don't call warn_long_double.
+	* c-opts.c (c_common_handle_option): Remove case for OPT_Wlong_double.
+	* doc/invoke.texi: Don't document -Wlong-double.
+
 2004-07-30  Matt Austern  <austern@apple.com>
 
         * config/darwin-c.c (darwin_pragma_call_on_load): Deprecate.

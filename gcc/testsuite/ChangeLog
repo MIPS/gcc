@@ -1,3 +1,7 @@
+2004-07-30  Geoffrey Keating  <geoffk@apple.com>
+
+	* gcc.dg/darwin-longdouble.c: New file.
+
 2004-05-25  Janis Johnson  <janis187@us.ibm.com>
 
 	* lib/compat.exp (compat-get-options-main): New.

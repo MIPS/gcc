@@ -753,11 +753,6 @@ void (*lang_expand_function_end) (void);
    This is a count, since unevaluated expressions can nest.  */
 int skip_evaluation;
 
-/* APPLE LOCAL begin -Wlong-double */
-/* Nonzero means warn about usage of long double.  */
-int warn_long_double = 0;
-/* APPLE LOCAL end -Wlong-double */
-
 /* Information about how a function name is generated.  */
 struct fname_var_t
 {
@@ -5817,31 +5812,6 @@ check_function_arguments_recurse (void (*callback)
 
   (*callback) (ctx, param, param_num);
 }
-
-/* APPLE LOCAL begin -Wlong-double --dpatel */
-void
-warn_about_long_double (void)
-{
-  /* Nonzero means we already warned about long doubles.  */
-  static int warned_about_long_double = 0;  
-
-  if (warn_long_double
-      && ! warned_about_long_double
-      /* Oh, the fromage of it all...  For hysterical reasons, the
-         preprocessor does not recognize things in the system
-         frameworks as "system headers", which confuses some types
-         of warnings.  So instead of hacking the preprocessors in
-         obscure ways, test for and ignore system headers here.  */
-      && ! in_system_header
-      && ! strstr (input_filename, "/System/Library/Frameworks/")
-      && ! strstr (input_filename, "/usr/include/"))
-    {       
-      warning ("use of `long double' type; its size may change due to -mlong-double-128/-mlong-double-64 or due to changing default sizes for long double between gcc 3.3 and gcc 3.5 on ppc");
-      warning ("(Long double usage is reported only once for each file.");
-      warned_about_long_double = 1;
-    }       
-}
-/* APPLE LOCAL end -Wlong-double --dpatel */
 
 /* APPLE LOCAL begin Symbol Separation */
 /* Call debugger hooks to restore state of debugging symbol generation.

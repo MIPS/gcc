@@ -3667,8 +3667,6 @@ grokdeclarator (tree declarator, tree declspecs,
     {
       specbits &= ~(1 << (int) RID_LONG);
       type = long_double_type_node;
-      /* APPLE LOCAL -Wlong-double --dpatel */
-      warn_about_long_double ();
     }
 
   /* Check all other uses of type modifiers.  */
