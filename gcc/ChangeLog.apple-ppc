@@ -1,5 +1,10 @@
 2004-05-21  Ziemowit Laski  <zlaski@apple.com>
 
+	* opts.c (common_handle_option): Do not const-qualify a char buffer
+	that has sprintf() and free() called on it.
+
+2004-05-21  Ziemowit Laski  <zlaski@apple.com>
+
 	Radar 3621323
 	* c-lex.c: Do not include target.h.
 	(C_LEX_BUFCAPACITY, C_LEX_OFFS_BOUND, c_lex_buf_beg, c_lex_buf_end,

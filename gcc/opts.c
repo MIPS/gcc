@@ -1491,7 +1491,7 @@ common_handle_option (size_t scode, const char *arg,
 
     case OPT_fpredictive_compilation_:
       {
-	const char* buf = xmalloc (strlen(arg) + 1);
+	char* buf = xmalloc (strlen(arg) + 1);
 	sprintf (buf, "%d", value);
 	if (strcmp(buf, arg))
 	  {
