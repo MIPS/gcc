@@ -1,3 +1,8 @@
+2004-11-23  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3883557
+	* obj-c++.dg/cxx-class-1.mm: New test.
+
 2004-11-17  Devang Patel  <dpatel@apple.com>
 
 	* gcc.apple/altivec-use.c: Remove.
