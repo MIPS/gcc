@@ -17,7 +17,7 @@
 ;; The load/store queue unit is not attached to the schedulers but
 ;; communicates with all the execution units separately instead.
 
-(define_attr "athlon_decode" "direct,vector"
+(define_attr "athlon_decode" "direct,vector,double"
   (cond [(eq_attr "type" "call,imul,idiv,other,multi,fcmov,fpspc,str,pop,cld,leave")
 	   (const_string "vector")
          (and (eq_attr "type" "push")
