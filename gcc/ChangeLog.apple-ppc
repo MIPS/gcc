@@ -1,3 +1,9 @@
+2005-01-10  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3943452
+	* config/rs6000/rs6000.c (altivec_convert_args): Clear any oveflows
+	caused by integer literal conversions.
+
 2005-01-09  Mike Stump  <mrs@apple.com>
 
 	Radar 3926955
