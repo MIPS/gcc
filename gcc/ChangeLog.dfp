@@ -1,5 +1,9 @@
 2005-02-17  Ben Elliston  <bje@au.ibm.com>
 
+	* version.c (version_string): Include the branch name.
+
+2005-02-17  Ben Elliston  <bje@au.ibm.com>	
+
 	* genmodes.c (make_complex_modes): Initialise q to allay warning.
 
 2005-02-14  David Edelsohn  <dje@watson.ibm.com>
