@@ -122,7 +122,7 @@ Boston, MA 02111-1307, USA.  */
 #define log(z)           __TGMATH_CPLX(z, log, clog)
 #define pow(z1,z2)       __TGMATH_CPLX_2(z1, z2, pow, cpow)
 #define sqrt(z)          __TGMATH_CPLX(z, sqrt, csqrt)
-#define fabs(z)          __TGMATH_CPLX(z, fabs, cfabs)
+#define fabs(z)          __TGMATH_CPLX(z, fabs, cabs)
 
 /* Functions defined in <math.h> only (7.22p5) */
 #define atan2(x,y)       __TGMATH_REAL_2(x, y, atan2)
