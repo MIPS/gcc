@@ -531,6 +531,11 @@ convert_move (to, from, unsignedp)
   if (to_real != from_real)
     abort ();
 
+  /* If the source and destination are already the same, then there's
+     nothing to do.  */
+  if (to == from)
+    return;
+
   /* If FROM is a SUBREG that indicates that we have already done at least
      the required extension, strip it.  We don't handle such SUBREGs as
      TO here.  */
