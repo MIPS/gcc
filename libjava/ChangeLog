@@ -1,5 +1,10 @@
 2004-05-18  Thomas Fitzsimmons  <fitzsim@redhat.com>
 
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMenuPeer.c: Remove calls
+	to _gtk_accel_group_attach.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkPopupMenuPeer.c:
+	Likewise.
+
 	* gnu/java/awt/peer/gtk/GtkButtonPeer.java: Give gtkSetFont
 	package access.  Don't override setFont.
 	* gnu/java/awt/peer/gtk/GtkCheckboxPeer.java: Likewise.
