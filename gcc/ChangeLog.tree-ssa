@@ -1,3 +1,9 @@
+2003-05-16  Frank Ch. Eigler  <fche@redhat.com>
+
+	* gcc.c (cc1_options): Correct "-fmudflapth" handling.
+	* tree-mudflap.c (mudflap_c_function, mf_build_check_statement_for):
+	Use locally cached mask/shift values only in single-threaded mode.
+
 2003-05-16  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-alias-common.c (ptr_may_alias_var): Fix DECL_CONTEXT

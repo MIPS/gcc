@@ -88,7 +88,9 @@ mudflap_c_function (t)
 
   mf_init_extern_trees ();
 
-  mf_decl_cache_locals (& DECL_SAVED_TREE (t));
+  /* In multithreaded mode, don't cache the lookup cache parameters.  */
+  if (! (flag_mudflap > 1))
+    mf_decl_cache_locals (& DECL_SAVED_TREE (t));
 
   mf_xform_decls (DECL_SAVED_TREE (t), DECL_ARGUMENTS (t));
   mf_xform_derefs (DECL_SAVED_TREE (t));
@@ -104,7 +106,8 @@ mudflap_c_function (t)
       dump_function (TDI_mudflap, t);
     }
 
-  mf_decl_clear_locals ();
+  if (! (flag_mudflap > 1))
+    mf_decl_clear_locals ();
 }
 
 
@@ -123,7 +126,7 @@ static GTY (()) tree mf_cache_array_decl;  /* extern struct __mf_cache __mf_look
 static GTY (()) tree mf_cache_shift_decl;  /* extern const unsigned char __mf_lc_shift; */
 static GTY (()) tree mf_cache_mask_decl;   /* extern const uintptr_t __mf_lc_mask; */
 
-/* Their function-scope local shadows */
+/* Their function-scope local shadows, used in single-threaded mode only. */
 static GTY (()) tree mf_cache_shift_decl_l; /* auto const unsigned char __mf_lc_shift_l; */
 static GTY (()) tree mf_cache_mask_decl_l;  /* auto const uintptr_t __mf_lc_mask_l; */
 
@@ -570,9 +573,10 @@ mf_build_check_statement_for (ptrvalue, chkbase, chksize, acctype,
 
     t0 = build (RSHIFT_EXPR, mf_uintptr_type,
 		convert (mf_uintptr_type, t1_2a_1),
-		mf_cache_shift_decl_l);
+		(flag_mudflap > 1 ? mf_cache_shift_decl : mf_cache_shift_decl_l));
 
-    t1 = build (BIT_AND_EXPR, mf_uintptr_type, t0, mf_cache_mask_decl_l);
+    t1 = build (BIT_AND_EXPR, mf_uintptr_type, t0, 
+		(flag_mudflap > 1 ? mf_cache_mask_decl : mf_cache_mask_decl_l));
 
     t2 = mx_flag (build (ARRAY_REF,
 			 TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (mf_cache_array_decl))),
@@ -593,7 +597,8 @@ mf_build_check_statement_for (ptrvalue, chkbase, chksize, acctype,
 			   0))
 	{
 	  __mf_check ();
-	  __mf_lookup_shift_1 = ...;
+          ... and only if single-threaded:
+	  __mf_lookup_shift_1 = f...;
 	  __mf_lookup_mask_l = ...;
 	}  */
   {
@@ -651,19 +656,22 @@ mf_build_check_statement_for (ptrvalue, chkbase, chksize, acctype,
 	              build_stmt (EXPR_STMT,
 				  build_function_call (mf_check_fndecl, t0)));
 
-    t1_4_2 = chainon (t1_4_2,
-		      build_stmt (EXPR_STMT,
-				  build (MODIFY_EXPR,
-					TREE_TYPE (mf_cache_shift_decl_l),
-					mf_cache_shift_decl_l,
-					mf_cache_shift_decl)));
-
-    t1_4_2 = chainon (t1_4_2,
-		      build_stmt (EXPR_STMT,
-				  build (MODIFY_EXPR,
-					TREE_TYPE (mf_cache_mask_decl_l),
-					mf_cache_mask_decl_l,
-					mf_cache_mask_decl)));
+    if (! (flag_mudflap > 1))
+      {
+	t1_4_2 = chainon (t1_4_2,
+			  build_stmt (EXPR_STMT,
+				      build (MODIFY_EXPR,
+					     TREE_TYPE (mf_cache_shift_decl_l),
+					     mf_cache_shift_decl_l,
+					     mf_cache_shift_decl)));
+	
+	t1_4_2 = chainon (t1_4_2,
+			  build_stmt (EXPR_STMT,
+				      build (MODIFY_EXPR,
+					     TREE_TYPE (mf_cache_mask_decl_l),
+					     mf_cache_mask_decl_l,
+					     mf_cache_mask_decl)));
+      }
 
     t0 = build_stmt (SCOPE_STMT, NULL_TREE);
     SCOPE_BEGIN_P (t0) = 1;
