@@ -1132,11 +1132,11 @@ elim_create (g, T)
       EXECUTE_IF_SET_IN_BITMAP (g->succ[T], 0, S,
 	{
 	  SET_BIT (g->visited, T);
-	  bitmap_clear_bit(g->succ[T], S);
 	  insert_copy_on_edge (g->e, 
 			       partition_to_var (g->map, T), 
 			       partition_to_var (g->map, S));
 	});
+      bitmap_clear (g->succ[T]);
     }
   
 }

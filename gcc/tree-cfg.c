@@ -3056,6 +3056,12 @@ bsi_start (bb)
     else
       i.tp = NULL;
 
+  /* If there are no stmts in the block, set the context to point to the
+     basic block in case we try to insert a stmt with this iterator.  */
+
+  if (i.tp == NULL)
+    i.context = (tree) bb;
+
   return i;
 }
 
@@ -3331,16 +3337,44 @@ bsi_insert_after (curr_bsi, t, mode)
   tree parent;
 
   curr_container = bsi_container (*curr_bsi);
-  curr_bb = bb_for_stmt (*curr_container);
-  curr_stmt = bsi_stmt (*curr_bsi);
-  parent = parent_stmt (curr_stmt);
-  inserted_tsi = tsi_from_bsi (*curr_bsi);
+  if (curr_container)
+    {
+      curr_stmt = bsi_stmt (*curr_bsi);
+      curr_bb = bb_for_stmt (*curr_container);
+      parent = parent_stmt (curr_stmt);
+    }
+  else
+    {
+      curr_stmt = NULL_TREE;
+      parent = NULL_TREE;
+      /* bsi_start () will initialize the context pointer to the basic block
+         if the the block is completely devoid of instructions, except
+	 for possibnly an empty_stmt_node.  */
+      if (curr_bsi->tp == NULL && curr_bsi->context != NULL)
+        curr_bb = (basic_block)(curr_bsi->context);
+      else
+        abort ();
+    }
 
   /* Some blocks are empty. The block iterator points to an empty_stmt_node
      in those cases only.  */
 
   if (curr_stmt == NULL_TREE)
     {
+      /* An empty block should have only one successor, so try to find the 
+         parent block from it.  */
+      edge succ;
+
+      succ = curr_bb->succ;
+      if (succ->succ_next != NULL)
+        abort ();
+      
+      if (curr_bb->head_tree_p == NULL)
+        abort ();
+      if (succ->dest != EXIT_BLOCK_PTR)
+	parent = parent_stmt (*(succ->dest->head_tree_p));
+      
+      inserted_tsi = tsi_start (curr_bb->head_tree_p);
       tsi_link_after (&inserted_tsi, t, TSI_NEW_STMT);
       append_stmt_to_bb (tsi_container (inserted_tsi), curr_bb, parent);
 
@@ -3350,6 +3384,8 @@ bsi_insert_after (curr_bsi, t, mode)
     }
   else
     {
+      inserted_tsi = tsi_from_bsi (*curr_bsi);
+
       same_tsi = bsi_link_after (&inserted_tsi, t, curr_bb, parent);
       bsi_update_from_tsi (curr_bsi, same_tsi);
       if (mode == BSI_NEW_STMT)
@@ -3382,41 +3418,31 @@ bsi_insert_before (curr_bsi, t, mode)
   tree parent;
 
   curr_container = bsi_container (*curr_bsi);
+
+  /* If this block is empty, let bsi_insert_after() handle it.  */
+  if (curr_container == NULL || bsi_stmt (*curr_bsi) == NULL_TREE)
+    bsi_insert_after (curr_bsi, t, mode);
+    
   curr_bb = bb_for_stmt (*curr_container);
   curr_stmt = bsi_stmt (*curr_bsi);
   parent = parent_stmt (curr_stmt);
   inserted_tsi = tsi_from_bsi (*curr_bsi);
 
-  /* Some blocks are empty. The block iterator points to an empty_stmt_node
-     in those cases only.  */
+  /* The only case that needs attention is when the insert is before
+     the last stmt in a block. In this case, we have to update the
+     container of the end pointer.  */
+  tsi_link_before (&inserted_tsi, t, TSI_NEW_STMT);
+  add_stmt_to_bb (tsi_container (inserted_tsi), curr_bb, parent);
 
-  if (curr_stmt == NULL_TREE)
-    {
-      tsi_link_after (&inserted_tsi, t, TSI_NEW_STMT);
-      append_stmt_to_bb (tsi_container (inserted_tsi), curr_bb, parent);
-
-      /* In this case, we will *always* return the new stmt since BSI_SAME_STMT
-         doesn't really exist.  */
-      *curr_bsi = bsi_from_tsi (inserted_tsi);
-    }
+  same_tsi = inserted_tsi;
+  tsi_next (&same_tsi);
+  if (curr_container == curr_bb->end_tree_p)
+    curr_bb->end_tree_p = tsi_container (same_tsi);
+    
+  if (mode == BSI_SAME_STMT)
+    bsi_update_from_tsi (curr_bsi, same_tsi);
   else
-    {
-      /* The only case that needs attention is when the insert is before
-	 the last stmt in a block. In this case, we have to update the
-	 container of the end pointer.  */
-      tsi_link_before (&inserted_tsi, t, TSI_NEW_STMT);
-      add_stmt_to_bb (tsi_container (inserted_tsi), curr_bb, parent);
-
-      same_tsi = inserted_tsi;
-      tsi_next (&same_tsi);
-      if (curr_container == curr_bb->end_tree_p)
-        curr_bb->end_tree_p = tsi_container (same_tsi);
-        
-      if (mode == BSI_SAME_STMT)
-        bsi_update_from_tsi (curr_bsi, same_tsi);
-      else
-        bsi_update_from_tsi (curr_bsi, inserted_tsi);
-    }
+    bsi_update_from_tsi (curr_bsi, inserted_tsi);
 
   inserted_stmt = tsi_stmt (inserted_tsi);
 

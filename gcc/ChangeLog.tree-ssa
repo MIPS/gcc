@@ -1,3 +1,12 @@
+2003-04-29  Andrew MacLeod  <amacleod@redhat.com>
+
+	* tree-cfg.c (bsi_start): If there are no stmts in a block, use the
+	context pointer to represent the basic block.
+	(bsi_insert_after): Handle inserting into empty blocks better.
+	(bsi_insert_before): Call bsi_insert_after to handle empty blocks.
+	* tree-ssa.c (elim_create): Clear bitmap after its been processed 
+	instead of during loop.
+
 2003-04-27  Diego Novillo  <dnovillo@redhat.com>
 
 	* Makefile.in (tree-mudflap.o): Add dependency on $(TREE_DUMP_H).
