@@ -1,3 +1,9 @@
+2003-10-20  Andrew MacLeod  <amacleod@redhat.com>
+
+	* tree-ssa-dce.c (processed): Change to an sbitmap.
+	(mark_necessary): Test bits in 'processed'.
+	(tree_ssa_dce): Initialize/free processed as an sbitmap.
+
 2003-10-20  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-cfg.c (bsi_prev): Also copy the context from the previous

@@ -95,7 +95,7 @@ static void remove_dead_phis (basic_block);
 
 /* vector indicating an SSA name has already been processed and marked 
    as necessary.  */
-static bool *processed;
+static sbitmap processed;
 
 /* Is a tree necessary?  */
 
@@ -126,9 +126,9 @@ mark_necessary (tree def, tree stmt)
   if (def)
     {
       ver = SSA_NAME_VERSION (def);
-      if (processed[ver])
+      if (TEST_BIT (processed, ver))
 	return;
-      processed[ver] = true;
+      SET_BIT (processed, ver);
       if (!stmt)
 	stmt = SSA_NAME_DEF_STMT (def);
     }
@@ -524,8 +524,8 @@ tree_ssa_dce (tree fndecl, enum tree_dump_index phase)
 
   VARRAY_TREE_INIT (worklist, 64, "work list");
 
-  processed = (bool *)xmalloc (sizeof (bool) * next_ssa_version);
-  memset (processed, 0, sizeof (bool) * next_ssa_version);
+  processed = sbitmap_alloc (next_ssa_version + 1);
+  sbitmap_zero (processed);
 
   /* Initialize dump_file for debugging dumps.  */
   dump_file = dump_begin (phase, &dump_flags);
@@ -540,7 +540,7 @@ tree_ssa_dce (tree fndecl, enum tree_dump_index phase)
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "\nEliminating unnecessary instructions:\n");
 
-  free (processed);
+  sbitmap_free (processed);
 
   remove_dead_stmts ();
   cleanup_tree_cfg ();
