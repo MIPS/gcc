@@ -1,3 +1,15 @@
+2005-01-12  Ira Rosen  <irar@il.ibm.com>
+	    Dorit Naishlos  <dorit@il.ibm.com>
+
+	Merged from mainline
+	* tree-vectorizer.c (vect_analyze_offset_expr): Use 
+	expr_invariant_in_loop_p.  Initialize outputs first thing in the 
+	function.
+	(vect_update_ivs_after_vectorizer): Call initial_condition_in_loop_num.
+	(vect_is_simple_iv_evolution): Call initial_condition_in_loop_num.
+	(vect_analyze_pointer_ref_access): Check that the initial condition of 
+	the access function is loop invariant.
+
 2005-01-11 Mostafa Hagog <mustafa@il.ibm.com>
 
 	* basic-block.h (extract_true_false_edges_from_block): Declare.
