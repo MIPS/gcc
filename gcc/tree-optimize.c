@@ -33,6 +33,7 @@ Boston, MA 02111-1307, USA.  */
 #include "flags.h"
 #include "tree-flow.h"
 #include "tree-dchain.h"
+#include "timevar.h"
 
 /* Shared functions with tree-cfg.c and tree-ssa.c.  */
 extern void delete_tree_ssa		PARAMS ((tree));
@@ -69,22 +70,32 @@ optimize_function_tree (fndecl)
 
   /* Initialize flow data.  */
   init_flow ();
-
+  
+  timevar_push (TV_TREE_CFG);
   build_tree_cfg (fnbody);
+  timevar_pop (TV_TREE_CFG);
 
   /* Begin analysis optimization passes.  */
   if (n_basic_blocks > 0 && ! (errorcount || sorrycount))
     {
+      timevar_push (TV_TREE_SSA);
       build_tree_ssa (fndecl);
-
+      timevar_pop (TV_TREE_SSA);
+      
+      timevar_push (TV_TREE_PRE);
       if (flag_tree_pre)
 	tree_perform_ssapre ();
+      timevar_pop (TV_TREE_PRE);
 
+      timevar_push (TV_TREE_CCP);
       if (flag_tree_ccp)
 	tree_ssa_ccp (fndecl);
-
+      timevar_pop (TV_TREE_CCP);
+      
+      timevar_push (TV_TREE_DCE);
       if (flag_tree_dce)
 	tree_ssa_eliminate_dead_code (fndecl);
+      timevar_pop(TV_TREE_DCE);
     }
 
 #if 0

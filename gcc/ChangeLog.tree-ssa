@@ -1,3 +1,10 @@
+2002-10-21  Daniel Berlin  <dberlin@dberlin.org>
+
+	* timevar.def: Add TV_TREE_{PRE,CCP,DCE,CFG,SSA}} timevars.
+
+	* tree-optimize.c (optimize_function_tree): Push and pop timevars
+	for the tree optimizers.
+
 2002-10-21  Diego Novillo  <dnovillo@redhat.com>
 
 	* Makefile.in (OBJS): Move tree-mudflap.o ...
@@ -25,6 +32,8 @@
 
 2002-10-20  Daniel Berlin  <dberlin@dberlin.org>
 
+	* tree-ssa-pre.c (repair_injury): DTRT, rather than abort.
+	
 	* tree-dfa.c (ref_type_name): E_* don't have these modifier
 	fields, but may have the same bits set, so don't print the
 	modifiers on them.
