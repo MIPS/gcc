@@ -146,6 +146,8 @@ record_in_finally_tree (tree child, tree parent)
 static void
 collect_finally_tree (tree t, tree region)
 {
+tailrecurse:
+
   switch (TREE_CODE (t))
     {
     case LABEL_EXPR:
@@ -168,8 +170,8 @@ collect_finally_tree (tree t, tree region)
     case COMPOUND_EXPR:
     case TRY_CATCH_EXPR:
       collect_finally_tree (TREE_OPERAND (t, 0), region);
-      collect_finally_tree (TREE_OPERAND (t, 1), region);
-      break;
+      t = TREE_OPERAND (t, 1);
+      goto tailrecurse;
     case CATCH_EXPR:
       collect_finally_tree (CATCH_BODY (t), region);
       break;

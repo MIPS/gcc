@@ -1887,8 +1887,18 @@ walk_tree (tree *tp, walk_tree_fn func, void *data, void *htab_)
 	--len;
       /* Go through the subtrees.  We need to do this in forward order so
          that the scope of a FOR_EXPR is handled properly.  */
-      for (i = 0; i < len; ++i)
+      for (i = 0; i < len - 1; ++i)
 	WALK_SUBTREE (TREE_OPERAND (*tp, i));
+
+      if (len)
+	{
+	  /* The common case is that we may tail recurse here.  */
+	  if (code != BIND_EXPR
+	      && !TREE_CHAIN (*tp))
+	    WALK_SUBTREE_TAIL (TREE_OPERAND (*tp, len - 1));
+	  else
+	    WALK_SUBTREE (TREE_OPERAND (*tp, len - 1));
+	}
 
       if (code == BIND_EXPR)
 	{
