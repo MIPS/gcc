@@ -1,5 +1,8 @@
 2002-10-21  Zack Weinberg  <zack@codesourcery.com>
 
+	* gcc.dg/noncompile/920923-1.c: Prevent spurious regressions with
+	bison 1.50 or later.
+
 	* gcc.dg/sibcall-5.c: Correct { dg-do run } line.
 
 2002-10-20  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
@@ -136,7 +139,7 @@ Thu Oct 17 19:12:58 CEST 2002  Jan Hubicka  <jh@suse.cz>
 2002-10-15  Mark Mitchell  <mark@codesourcery.com>
 
 	* g++.dg/init/array6.C: New test.
-	
+
 	* g++.dg/abi/mangle13.C: Likewise.
 	* g++.dg/abi/mangle14.C: Likewise.
 	* g++.dg/abi/mangle15.C: Likewise.
@@ -144,7 +147,7 @@ Thu Oct 17 19:12:58 CEST 2002  Jan Hubicka  <jh@suse.cz>
 2002-10-14  Mark Mitchell  <mark@codesourcery.com>
 
 	* g++.dg/abi/empty8.C: New test.
-	
+
 2002-10-15  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* g++.dg/init/ctor1.C: New test.
