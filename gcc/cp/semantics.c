@@ -1578,28 +1578,6 @@ finish_fname (id)
   return decl;
 }
 
-/* FIXME: Add prototype.  */
-
-/* LOOKUPS is a TREE_LIST representing name-lookups for which we have
-   deferred checking access controls.  The TREE_PURPOSE of each node
-   is the scope in which the name was found; the TREE_VALUE is the
-   DECL to which the name was resolved.  
-
-   Go through the list, issuing error messages if any of the names are
-   inaccessible in the current scope.  */
-
-void
-deferred_access_control (lookups)
-     tree lookups;
-{
-  while (lookups) 
-    {
-      enforce_access (TREE_PURPOSE (lookups),
-		      TREE_VALUE (lookups));
-      lookups = TREE_CHAIN (lookups);
-    }
-}
-
 /* Begin a function definition declared with DECL_SPECIFIERS,
    ATTRIBUTES, and DECLARATOR.  Returns non-zero if the
    function-declaration is legal.  */

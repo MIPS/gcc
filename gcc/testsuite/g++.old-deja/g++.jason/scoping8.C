@@ -1,3 +1,4 @@
+// Build don't link:
 // Bug: g++ allows two different meanings of a name in the same scope.
 
 typedef int foo;		// ERROR - 
