@@ -1,3 +1,9 @@
+2003-04-07  Tom Tromey  <tromey@redhat.com>
+
+	* include/private/gcconfig.h (LINUX_STACKBOTTOM): Define for
+	POWERPC.
+	(STACK_GRAN, HEURISTIC1): Don't define for POWERPC.
+
 2003-02-05  Release Manager
 
 	* GCC 3.2.2 Released.
