@@ -1,3 +1,9 @@
+2004-02-19  Loren J. Rittle  <ljrittle@acm.org>
+
+	* Make-lang.in ($(srcdir)/fortran/gfortran.info): Move...
+	(fortran/gfortran.info): ... to here.
+	(f95.srcinfo): New.
+
 2004-02-16  Richard Henderson  <rth@redhat.com>
 
 	* Make-lang.in (f95-lang.o, trans-decl.o): Depend on cgraph.h.
