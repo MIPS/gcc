@@ -447,18 +447,11 @@ is_gimple_reg (tree t)
 int
 is_gimple_val (tree t)
 {
-#if 0
   /* Make loads from volatiles and memory vars explicit.  */
   if (is_gimple_variable (t)
       && is_gimple_reg_type (TREE_TYPE (t))
       && !is_gimple_reg (t))
     return 0;
-#else
-  /* A volatile decl or _REF is not a valid operand, because we can't reuse
-     it as needed.  We need to copy it into a temp first.  */
-  if (TREE_THIS_VOLATILE (t))
-    return 0;
-#endif
 
   if (/* FIXME make this a decl.  */
       TREE_CODE (t) == EXC_PTR_EXPR
