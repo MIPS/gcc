@@ -1,3 +1,10 @@
+2004-02-11  Mark Mitchell  <mark@codesourcery.com>
+
+	* repo.c (IDENTIFIER_REPO_USED): Use tree flag 5.
+	(IDENTIFIER_REPO_CHOSEN): Use tree flag 6.
+	(extract_string): Use double quotes, rather than single quotes, on
+	Windows.
+
 2003-11-05  Mark Mitchell  <mark@codesourcery.com>
 
 	* decl.c (cxx_push_function_context): Do not set

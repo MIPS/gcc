@@ -1,3 +1,8 @@
+2004-02-11  Mark Mitchell  <mark@codesourcery.com>
+
+	* make-relative-prefix.c (make_relative_prefix): Do not throw out
+	the last component of PROG_DIRS if it is a directory name.
+
 2004-01-23  Mark Mitchell  <mark@codesourcery.com>
 
 	* pex-win32.c (pexec): Close duplicated handles in parent

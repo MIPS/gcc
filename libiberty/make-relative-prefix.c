@@ -306,8 +306,19 @@ make_relative_prefix (progname, bin_prefix, prefix)
   if (bin_dirs == NULL || prog_dirs == NULL)
     return NULL;
 
-  /* Remove the program name from comparison of directory names.  */
-  prog_num--;
+  /* If the last character in the last directory is not a directory
+     separator, then the last directory is the program basename.  The
+     program name is removed; it should not be involved in the
+     comparison of directory names.  */
+  if (prog_num > 0)
+    {
+      const char* last_dir;
+      int n;
+      last_dir = prog_dirs[prog_num - 1];
+      n = strlen(last_dir);
+      if (!IS_DIR_SEPARATOR (last_dir[n - 1]))
+	prog_num--;
+    }
 
   /* If we are still installed in the standard location, we don't need to
      specify relative directories.  Also, if argv[0] still doesn't contain

@@ -1,5 +1,11 @@
 2004-02-11  Mark Mitchell  <mark@codesourcery.com>
 
+	* gcc.c (set_collect_gcc_options): Use double quotes instead of
+	single quotes on Windows.
+	* tlink.c (recompile_files): Do not assume that "rename" can
+	overwrite an existing file.  Use "&&" as the command separator
+	rather than ";".
+
 	* collect2.c (collect_wait): Check return code from pwait.
 	(collect_execute): Pass third argument to open.  Check return code
 	from open.  Redirect both stdout and stderr when redirecting.

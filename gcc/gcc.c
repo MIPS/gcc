@@ -4095,29 +4095,41 @@ set_collect_gcc_options (void)
       if (switches[i].live_cond == SWITCH_IGNORE)
 	continue;
 
-      obstack_grow (&collect_obstack, "'-", 2);
+#if defined(_WIN32) && !defined(__CYGWIN__)
+#define QUOTE_STR "\""
+#define QUOTE_CHAR '"'
+#define QUOTED_QUOTE_STR "\"\\\"\""
+#else
+#define QUOTE_STR "\'"
+#define QUOTE_CHAR '\''
+#define QUOTED_QUOTE_STR "'\\''"
+#endif
+
+      obstack_grow (&collect_obstack, QUOTE_STR "-", 2);
       q = switches[i].part1;
-      while ((p = strchr (q, '\'')))
+      while ((p = strchr (q, QUOTE_CHAR)))
 	{
 	  obstack_grow (&collect_obstack, q, p - q);
-	  obstack_grow (&collect_obstack, "'\\''", 4);
+	  obstack_grow (&collect_obstack, QUOTED_QUOTE_STR, 
+			strlen (QUOTED_QUOTE_STR));
 	  q = ++p;
 	}
       obstack_grow (&collect_obstack, q, strlen (q));
-      obstack_grow (&collect_obstack, "'", 1);
+      obstack_grow (&collect_obstack, QUOTE_STR, 1);
 
       for (args = switches[i].args; args && *args; args++)
 	{
-	  obstack_grow (&collect_obstack, " '", 2);
+	  obstack_grow (&collect_obstack, " " QUOTE_STR, 2);
 	  q = *args;
-	  while ((p = strchr (q, '\'')))
+	  while ((p = strchr (q, QUOTE_CHAR)))
 	    {
 	      obstack_grow (&collect_obstack, q, p - q);
-	      obstack_grow (&collect_obstack, "'\\''", 4);
+	      obstack_grow (&collect_obstack, QUOTED_QUOTE_STR,
+			    strlen (QUOTED_QUOTE_STR));
 	      q = ++p;
 	    }
 	  obstack_grow (&collect_obstack, q, strlen (q));
-	  obstack_grow (&collect_obstack, "'", 1);
+	  obstack_grow (&collect_obstack, QUOTE_STR, 1);
 	}
     }
   obstack_grow (&collect_obstack, "\0", 1);
