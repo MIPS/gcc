@@ -1,5 +1,5 @@
 
-#rs6000/t-linuxbi
+#rs6000/t-linux64bi
 
 LIB2FUNCS_EXTRA = tramp.S $(srcdir)/config/rs6000/ppc64-fp.c \
 	$(srcdir)/config/rs6000/darwin-ldouble.c
@@ -38,5 +38,5 @@ fp-bit32.c: $(srcdir)/config/fp-bit.c
 mklibgcc: bispecs
 
 bispecs: specs
-	sed -e '/cc1_options/{ n; s/$$/ %{m64:-mlong-double-128}/; }' < specs > $@
+	sed -e '/cc1_options/{ n; s/$$/ %{!m32:-mlong-double-128}/; }' < specs > $@
 

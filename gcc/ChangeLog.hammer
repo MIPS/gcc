@@ -1,3 +1,10 @@
+2004-02-10  Alan Modra  <amodra@bigpond.net.au>
+
+	* config/rs6000/t-linux64bi: New file, copy of old t-linuxbi.
+	* config/rs6000/t-linuxbi (bispecs): Use -mlong-double-128 only
+	when -m64 passed.
+	* config.gcc: Use t-linux64bi for powerpc64-linux biarch.
+
 2004-02-09  Jan Hubicka  <jh@suse.cz>
 
 	* cselib.c: Include alloc-pool.h
@@ -146,8 +153,6 @@
 	(FPBIT, DPBIT): Define.
 	(dp-bit32.c, fp-bit32.c): Add rules.
 	* config/rs6000/libgcc-ppc64.ver: New file.
-	* config/rs6000/linux64.h (SUBSUBTARGET_OVERRIDE_OPTIONS): Default
-	to 128 bit long double.
 	* config/rs6000/ppc64-fp.c (__fixtfdi, __floatditf): New functions.
 	(__floatdidf, __floatdisf): Optimize multiply.
 	(__fixunstfdi): New function.

@@ -2031,7 +2031,7 @@ powerpc64-*-linux*)
 	  x|xpowerpc64|xdefault64) tm_file="${tm_file} rs6000/default64.h";;
 	  esac
 	  tm_file="rs6000/biarch64.h ${tm_file} rs6000/linux64.h"
-	  tmake_file="$tmake_file rs6000/t-ppccomm rs6000/t-linuxbi"
+	  tmake_file="$tmake_file rs6000/t-ppccomm rs6000/t-linux64bi"
 	else
 	  tm_file="${tm_file} rs6000/default64.h rs6000/linux64.h"
 	  tmake_file="$tmake_file rs6000/t-ppcos rs6000/t-linux64"
