@@ -1,5 +1,9 @@
 2002-05-06  Daniel Berlin  <dberlin@dberlin.org>
 
+	* c-simplify.c (deep_copy_node): Don't copy DECL_STMT_DECL's.
+
+2002-05-06  Daniel Berlin  <dberlin@dberlin.org>
+
 	* tree-simple.c (is_simple_compstmt): Don't post-initialize
 	statics or aggregate initializers. 
 

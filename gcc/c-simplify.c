@@ -2362,7 +2362,7 @@ deep_copy_node (node)
     case DECL_STMT:
       res = build_stmt (DECL_STMT,
 			(DECL_STMT_DECL (node) ? 
-			 copy_node (DECL_STMT_DECL (node)) : NULL_TREE));
+			 DECL_STMT_DECL (node) : NULL_TREE));
       break;
 
     case RETURN_STMT:
