@@ -1,3 +1,9 @@
+2003-04-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/rs6000/rs6000.h (EPILOGUE_USES): Use register 2,
+	instead of TOC_REGISTER in epilogue in
+	current_function_calls_eh_return functions.
+
 2002-09-08  Alan Modra  <amodra@bigpond.net.au>
 
 	* varasm.c (default_assemble_visibility): Rename from
