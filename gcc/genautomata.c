@@ -203,6 +203,7 @@ typedef struct state *state_t;
 typedef struct arc *arc_t;
 typedef struct ainsn *ainsn_t;
 typedef struct automaton *automaton_t;
+typedef struct automata_list_el *automata_list_el_t;
 typedef struct state_ainsn_table *state_ainsn_table_t;
 
 
@@ -328,6 +329,17 @@ static arc_t next_out_arc      PARAMS ((arc_t));
 static void initiate_arcs      PARAMS ((void));
 static void finish_arcs        PARAMS ((void));
 
+static automata_list_el_t get_free_automata_list_el PARAMS ((void));
+static void free_automata_list_el PARAMS ((automata_list_el_t));
+static void free_automata_list PARAMS ((automata_list_el_t));
+static unsigned automata_list_hash PARAMS ((const void *));
+static int automata_list_eq_p PARAMS ((const void *, const void *));
+static void initiate_automata_lists PARAMS ((void));
+static void automata_list_start PARAMS ((void));
+static void automata_list_add PARAMS ((automaton_t));
+static automata_list_el_t automata_list_finish PARAMS ((void));
+static void finish_automata_lists PARAMS ((void));
+
 static void initiate_excl_sets             PARAMS ((void));
 static reserv_sets_t get_excl_set          PARAMS ((reserv_sets_t));
 
@@ -444,12 +456,16 @@ static void output_dead_lock_vect        PARAMS ((automaton_t));
 static void output_reserved_units_table  PARAMS ((automaton_t));
 static void output_tables                PARAMS ((void));
 static void output_max_insn_queue_index_def PARAMS ((void));
+static void output_insn_code_cases   PARAMS ((void (*) (automata_list_el_t)));
+static void output_automata_list_min_issue_delay_code PARAMS ((automata_list_el_t));
 static void output_internal_min_issue_delay_func PARAMS ((void));
+static void output_automata_list_transition_code PARAMS ((automata_list_el_t));
 static void output_internal_trans_func   PARAMS ((void));
 static void output_internal_insn_code_evaluation PARAMS ((const char *,
 							  const char *, int));
 static void output_dfa_insn_code_func	        PARAMS ((void));
 static void output_trans_func                   PARAMS ((void));
+static void output_automata_list_state_alts_code PARAMS ((automata_list_el_t));
 static void output_internal_state_alts_func     PARAMS ((void));
 static void output_state_alts_func              PARAMS ((void));
 static void output_min_issue_delay_func         PARAMS ((void));
@@ -485,13 +501,15 @@ static void output_statistics              PARAMS ((FILE *));
 static void output_time_statistics         PARAMS ((FILE *));
 static void generate                       PARAMS ((void));
 
-static void make_insn_alts_attr               PARAMS ((void));
-static void make_internal_dfa_insn_code_attr  PARAMS ((void));
-static void make_default_insn_latency_attr    PARAMS ((void));
-static void make_bypass_attr                  PARAMS ((void));
-static const char *file_name_suffix           PARAMS ((const char *));
-static const char *base_file_name             PARAMS ((const char *));
-static void check_automata	              PARAMS ((void));
+static void make_insn_alts_attr                PARAMS ((void));
+static void make_internal_dfa_insn_code_attr   PARAMS ((void));
+static void make_default_insn_latency_attr     PARAMS ((void));
+static void make_bypass_attr                   PARAMS ((void));
+static const char *file_name_suffix            PARAMS ((const char *));
+static const char *base_file_name              PARAMS ((const char *));
+static void check_automata	               PARAMS ((void));
+static void add_automaton_state                PARAMS ((state_t));
+static void form_important_insn_automata_lists PARAMS ((void));
 
 /* Undefined position.  */
 static pos_t no_pos = 0;
@@ -828,6 +846,11 @@ struct insn_reserv_decl
      during an automaton minimization) and marked by given insn
      enters.  */
   int state_alts;
+  /* The following member value is the list to automata which can be
+     changed by the insn issue. */
+  automata_list_el_t important_automata_list;
+  /* The following member is used to process insn once for output.  */
+  int processed_p;
 };
 
 /* This contains a declaration mentioned above.  */
@@ -1121,6 +1144,10 @@ struct ainsn
      It is necessary because many insns may be equivalent with the
      point of view of pipeline hazards.  */
   int insn_equiv_class_num;
+  /* The following member value is TRUE if there is an arc in the
+     automaton marked by the insn into another state.  In other
+     words, the insn can change the state of the automaton.  */
+  int important_p;
 };
 
 /* The folowing describes an automaton for PHR.  */
@@ -1168,6 +1195,15 @@ struct automaton
      8) elements in one vector element.  So the compression factor can
      be 1 (no compression), 2, 4, 8.  */
   int min_issue_delay_table_compression_factor;
+};
+
+/* The following is the element of the list of automata.  */
+struct automata_list_el
+{
+  /* The automaton itself.  */
+  automaton_t automaton;
+  /* The next automata set element.  */
+  automata_list_el_t next_automata_list_el;
 };
 
 /* The following structure describes a table state X ainsn -> int(>= 0).  */
@@ -4008,6 +4044,160 @@ finish_arcs ()
 
 
 
+/* Abstract data `automata lists'.  */
+
+/* List of free states.  */
+static automata_list_el_t first_free_automata_list_el;
+
+/* The list being formed.  */
+static automata_list_el_t current_automata_list;
+
+/* Hash table of automata lists.  */
+static htab_t automata_list_table;
+
+/* The following function returns free automata list el.  It may be
+   new allocated node or node freed earlier.  */
+static automata_list_el_t 
+get_free_automata_list_el ()
+{
+  automata_list_el_t result;
+
+  if (first_free_automata_list_el != NULL)
+    {
+      result = first_free_automata_list_el;
+      first_free_automata_list_el
+	= first_free_automata_list_el->next_automata_list_el;
+    }
+  else
+    result = create_node (sizeof (struct automata_list_el));
+  result->automaton = NULL;
+  result->next_automata_list_el = NULL;
+  return result;
+}
+
+/* The function frees node AUTOMATA_LIST_EL.  */
+static void
+free_automata_list_el (automata_list_el)
+     automata_list_el_t automata_list_el;
+{
+  if (automata_list_el == NULL)
+    return;
+  automata_list_el->next_automata_list_el = first_free_automata_list_el;
+  first_free_automata_list_el = automata_list_el;
+}
+
+/* The function frees list AUTOMATA_LIST.  */
+static void
+free_automata_list (automata_list)
+     automata_list_el_t automata_list;
+{
+  automata_list_el_t curr_automata_list_el;
+  automata_list_el_t next_automata_list_el;
+
+  for (curr_automata_list_el = automata_list;
+       curr_automata_list_el != NULL;
+       curr_automata_list_el = next_automata_list_el)
+    {
+      next_automata_list_el = curr_automata_list_el->next_automata_list_el;
+      free_automata_list_el (curr_automata_list_el);
+    }
+}
+
+/* Hash value of AUTOMATA_LIST.  */
+static unsigned
+automata_list_hash (automata_list)
+     const void *automata_list;
+{
+  unsigned int hash_value;
+  automata_list_el_t curr_automata_list_el;
+
+  hash_value = 0;
+  for (curr_automata_list_el = (automata_list_el_t) automata_list;
+       curr_automata_list_el != NULL;
+       curr_automata_list_el = curr_automata_list_el->next_automata_list_el)
+    hash_value = (((hash_value >> (sizeof (unsigned) - 1) * CHAR_BIT)
+		   | (hash_value << CHAR_BIT))
+		  + curr_automata_list_el->automaton->automaton_order_num);
+  return hash_value;
+}
+
+/* Return nonzero value if the automata_lists are the same.  */
+static int
+automata_list_eq_p (automata_list_1, automata_list_2)
+     const void *automata_list_1;
+     const void *automata_list_2;
+{
+  automata_list_el_t automata_list_el_1;
+  automata_list_el_t automata_list_el_2;
+
+  for (automata_list_el_1 = (automata_list_el_t) automata_list_1,
+	 automata_list_el_2 = (automata_list_el_t) automata_list_2;
+       automata_list_el_1 != NULL && automata_list_el_2 != NULL;
+       automata_list_el_1 = automata_list_el_1->next_automata_list_el,
+	 automata_list_el_2 = automata_list_el_2->next_automata_list_el)
+    if (automata_list_el_1->automaton != automata_list_el_2->automaton)
+      return 0;
+  return automata_list_el_1 == automata_list_el_2;
+}
+
+/* Initialization of the abstract data.  */
+static void
+initiate_automata_lists ()
+{
+  first_free_automata_list_el = NULL;
+  automata_list_table = htab_create (1500, automata_list_hash,
+				     automata_list_eq_p, (htab_del) 0);
+}
+
+/* The following function starts new automata list and makes it the
+   current one.  */
+static void
+automata_list_start ()
+{
+  current_automata_list = NULL;
+}
+
+/* The following function adds AUTOMATON to the current list.  */
+static void
+automata_list_add (automaton)
+     automaton_t automaton;
+{
+  automata_list_el_t el;
+
+  el = get_free_automata_list_el ();
+  el->automaton = automaton;
+  el->next_automata_list_el = current_automata_list;
+  current_automata_list = el;
+}
+
+/* The following function finishes forming the current list, inserts
+   it into the table and returns it.  */
+static automata_list_el_t
+automata_list_finish ()
+{
+  void **entry_ptr;
+
+  if (current_automata_list == NULL)
+    return NULL;
+  entry_ptr = htab_find_slot (automata_list_table,
+			      (void *) current_automata_list, 1);
+  if (*entry_ptr == NULL)
+    *entry_ptr = (void *) current_automata_list;
+  else
+    free_automata_list (current_automata_list);
+  current_automata_list = NULL;
+  return (automata_list_el_t) *entry_ptr;
+}
+
+/* Finishing work with the abstract data.  */
+static void
+finish_automata_lists ()
+{
+  htab_delete (automata_list_table);
+}
+
+
+
 /* The page contains abstract data for work with exclusion sets (see
    exclusion_set in file rtl.def).  */
 
@@ -5811,6 +6001,7 @@ create_ainsns ()
 	{
 	  curr_ainsn = create_node (sizeof (struct ainsn));
 	  curr_ainsn->insn_reserv_decl = &decl->decl.insn_reserv;
+	  curr_ainsn->important_p = FALSE;
 	  curr_ainsn->next_ainsn = NULL;
 	  if (prev_ainsn == NULL)
 	    first_ainsn = curr_ainsn;
@@ -6139,7 +6330,7 @@ process_state_longest_path_length (state)
    global variable and outputs its declaration.  */
 
 static void
-output_dfa_max_issue_rate (void)
+output_dfa_max_issue_rate ()
 {
   automaton_t automaton;
 
@@ -7222,26 +7413,57 @@ output_max_insn_queue_index_def ()
 }
 
 
-/* Output function `internal_min_issue_delay'.  */
+/* ??? */
 static void
-output_internal_min_issue_delay_func ()
+output_insn_code_cases (output_automata_list_code)
+     void (*output_automata_list_code) (automata_list_el_t);
 {
+  decl_t decl, decl_2;
+  int i, j;
+
+  for (i = 0; i < description->decls_num; i++)
+    {
+      decl = description->decls [i];
+      if (decl->mode == dm_insn_reserv)
+	decl->decl.insn_reserv.processed_p = FALSE;
+    }
+  for (i = 0; i < description->decls_num; i++)
+    {
+      decl = description->decls [i];
+      if (decl->mode == dm_insn_reserv && !decl->decl.insn_reserv.processed_p)
+	{
+	  for (j = i; j < description->decls_num; j++)
+	    {
+	      decl_2 = description->decls [j];
+	      if (decl_2->mode == dm_insn_reserv
+		  && (decl_2->decl.insn_reserv.important_automata_list
+		      == decl->decl.insn_reserv.important_automata_list))
+		{
+		  decl_2->decl.insn_reserv.processed_p = TRUE;
+		  fprintf (output_file, "    case %d: /* %s */\n",
+			   decl_2->decl.insn_reserv.insn_num,
+			   decl_2->decl.insn_reserv.name);
+		}
+	    }
+	  (*output_automata_list_code)
+	    (decl->decl.insn_reserv.important_automata_list);
+	}
+    }
+}
+
+
+/* ??? */
+static void
+output_automata_list_min_issue_delay_code (automata_list)
+     automata_list_el_t automata_list;
+{
+  automata_list_el_t el;
   automaton_t automaton;
 
-  fprintf (output_file, "static int %s PARAMS ((int, struct %s *));\n",
-	   INTERNAL_MIN_ISSUE_DELAY_FUNC_NAME, CHIP_NAME);
-  fprintf (output_file,
-	   "static int\n%s (%s, %s)\n\tint %s;\n\tstruct %s *%s;\n",
-	   INTERNAL_MIN_ISSUE_DELAY_FUNC_NAME, INTERNAL_INSN_CODE_NAME,
-	   CHIP_PARAMETER_NAME, INTERNAL_INSN_CODE_NAME, CHIP_NAME,
-	   CHIP_PARAMETER_NAME);
-  fprintf (output_file, "{\n  int %s;\n  int %s;\n",
-	   TEMPORARY_VARIABLE_NAME, RESULT_VARIABLE_NAME);
-  for (automaton = description->first_automaton;
-       automaton != NULL;
-       automaton = automaton->next_automaton)
+  for (el = automata_list; el != NULL; el = el->next_automata_list_el)
     {
-      fprintf (output_file, "\n  %s = ", TEMPORARY_VARIABLE_NAME);
+      automaton = el->automaton;
+      fprintf (output_file, "\n      %s = ", TEMPORARY_VARIABLE_NAME);
       output_min_issue_delay_vect_name (output_file, automaton);
       fprintf (output_file,
 	       (automaton->min_issue_delay_table_compression_factor != 1
@@ -7257,7 +7479,7 @@ output_internal_min_issue_delay_func ()
 	{
 	  fprintf (output_file, ") / %d];\n",
 		   automaton->min_issue_delay_table_compression_factor);
-	  fprintf (output_file, "  %s = (%s >> (8 - (",
+	  fprintf (output_file, "      %s = (%s >> (8 - (",
 		   TEMPORARY_VARIABLE_NAME, TEMPORARY_VARIABLE_NAME);
 	  output_translate_vect_name (output_file, automaton);
 	  fprintf
@@ -7268,28 +7490,140 @@ output_internal_min_issue_delay_func ()
 	     (1 << (8 / automaton->min_issue_delay_table_compression_factor))
 	     - 1);
 	}
-      if (automaton == description->first_automaton)
-	fprintf (output_file, "  %s = %s;\n",
+      if (el == automata_list)
+	fprintf (output_file, "      %s = %s;\n",
 		 RESULT_VARIABLE_NAME, TEMPORARY_VARIABLE_NAME);
       else
 	{
-	  fprintf (output_file, "  if (%s > %s)\n",
+	  fprintf (output_file, "      if (%s > %s)\n",
 		   TEMPORARY_VARIABLE_NAME, RESULT_VARIABLE_NAME);
-	  fprintf (output_file, "    %s = %s;\n",
+	  fprintf (output_file, "        %s = %s;\n",
 		   RESULT_VARIABLE_NAME, TEMPORARY_VARIABLE_NAME);
 	}
     }
+  fprintf (output_file, "      break;\n\n");
+}
+
+/* Output function `internal_min_issue_delay'.  */
+static void
+output_internal_min_issue_delay_func ()
+{
+  fprintf (output_file, "static int %s PARAMS ((int, struct %s *));\n",
+	   INTERNAL_MIN_ISSUE_DELAY_FUNC_NAME, CHIP_NAME);
+  fprintf (output_file,
+	   "static int\n%s (%s, %s)\n\tint %s;\n\tstruct %s *%s;\n",
+	   INTERNAL_MIN_ISSUE_DELAY_FUNC_NAME, INTERNAL_INSN_CODE_NAME,
+	   CHIP_PARAMETER_NAME, INTERNAL_INSN_CODE_NAME, CHIP_NAME,
+	   CHIP_PARAMETER_NAME);
+  fprintf (output_file, "{\n  int %s;\n  int %s;\n",
+	   TEMPORARY_VARIABLE_NAME, RESULT_VARIABLE_NAME);
+  fprintf (output_file, "\n  switch (%s)\n    {\n", INTERNAL_INSN_CODE_NAME);
+  output_insn_code_cases (output_automata_list_min_issue_delay_code);
+  fprintf (output_file,
+	   "\n    default:\n      %s = -1;\n      break;\n    }\n",
+	   RESULT_VARIABLE_NAME);
   fprintf (output_file, "  return %s;\n", RESULT_VARIABLE_NAME);
   fprintf (output_file, "}\n\n");
+}
+
+/* ??? */
+static void
+output_automata_list_transition_code (automata_list)
+     automata_list_el_t automata_list;
+{
+  automata_list_el_t el, next_el;
+
+  fprintf (output_file, "      {\n");
+  if (automata_list->next_automata_list_el != NULL)
+    for (el = automata_list;; el = next_el)
+      {
+        next_el = el->next_automata_list_el;
+        if (next_el == NULL)
+          break;
+        fprintf (output_file, "        ");
+        output_state_member_type (output_file, el->automaton);
+	fprintf (output_file, " ");
+        output_temp_chip_member_name (output_file, el->automaton);
+        fprintf (output_file, ";\n");
+      }
+  for (el = automata_list; el != NULL; el = el->next_automata_list_el)
+    if (comb_vect_p (el->automaton->trans_table))
+      {
+	fprintf (output_file, "\n        %s = ", TEMPORARY_VARIABLE_NAME);
+	output_trans_base_vect_name (output_file, el->automaton);
+	fprintf (output_file, " [%s->", CHIP_PARAMETER_NAME);
+	output_chip_member_name (output_file, el->automaton);
+	fprintf (output_file, "] + ");
+	output_translate_vect_name (output_file, el->automaton);
+	fprintf (output_file, " [%s];\n", INTERNAL_INSN_CODE_NAME);
+	fprintf (output_file, "        if (");
+	output_trans_check_vect_name (output_file, el->automaton);
+	fprintf (output_file, " [%s] != %s->",
+		 TEMPORARY_VARIABLE_NAME, CHIP_PARAMETER_NAME);
+	output_chip_member_name (output_file, el->automaton);
+	fprintf (output_file, ")\n");
+	fprintf (output_file, "          return %s (%s, %s);\n",
+		 INTERNAL_MIN_ISSUE_DELAY_FUNC_NAME, INTERNAL_INSN_CODE_NAME,
+		 CHIP_PARAMETER_NAME);
+	fprintf (output_file, "        else\n");
+	fprintf (output_file, "          ");
+	if (el->next_automata_list_el != NULL)
+	  output_temp_chip_member_name (output_file, el->automaton);
+	else
+	  {
+	    fprintf (output_file, "%s->", CHIP_PARAMETER_NAME);
+	    output_chip_member_name (output_file, el->automaton);
+	  }
+	fprintf (output_file, " = ");
+	output_trans_comb_vect_name (output_file, el->automaton);
+	fprintf (output_file, " [%s];\n", TEMPORARY_VARIABLE_NAME);
+      }
+    else
+      {
+	fprintf (output_file, "\n        %s = ", TEMPORARY_VARIABLE_NAME);
+	output_trans_full_vect_name (output_file, el->automaton);
+	fprintf (output_file, " [");
+	output_translate_vect_name (output_file, el->automaton);
+	fprintf (output_file, " [%s] + ", INTERNAL_INSN_CODE_NAME);
+	fprintf (output_file, "%s->", CHIP_PARAMETER_NAME);
+	output_chip_member_name (output_file, el->automaton);
+	fprintf (output_file, " * %d];\n",
+		 el->automaton->insn_equiv_classes_num);
+	fprintf (output_file, "        if (%s >= %d)\n",
+		 TEMPORARY_VARIABLE_NAME, el->automaton->achieved_states_num);
+	fprintf (output_file, "          return %s (%s, %s);\n",
+		 INTERNAL_MIN_ISSUE_DELAY_FUNC_NAME, INTERNAL_INSN_CODE_NAME,
+		 CHIP_PARAMETER_NAME);
+	fprintf (output_file, "        else\n          ");
+	if (el->next_automata_list_el != NULL)
+	  output_temp_chip_member_name (output_file, el->automaton);
+	else
+	  {
+	    fprintf (output_file, "%s->", CHIP_PARAMETER_NAME);
+	    output_chip_member_name (output_file, el->automaton);
+	  }
+	fprintf (output_file, " = %s;\n", TEMPORARY_VARIABLE_NAME);
+      }
+  if (automata_list->next_automata_list_el != NULL)
+    for (el = automata_list;; el = next_el)
+      {
+        next_el = el->next_automata_list_el;
+        if (next_el == NULL)
+          break;
+        fprintf (output_file, "        %s->", CHIP_PARAMETER_NAME);
+        output_chip_member_name (output_file, el->automaton);
+        fprintf (output_file, " = ");
+        output_temp_chip_member_name (output_file, el->automaton);
+        fprintf (output_file, ";\n");
+      }
+  fprintf (output_file, "        return -1;\n");
+  fprintf (output_file, "      }\n");
 }
 
 /* Output function `internal_state_transition'.  */
 static void
 output_internal_trans_func ()
 {
-  automaton_t curr_automaton;
-  automaton_t next_automaton;
-
   fprintf (output_file, "static int %s PARAMS ((int, struct %s *));\n",
 	   INTERNAL_TRANSITION_FUNC_NAME, CHIP_NAME);
   fprintf (output_file,
@@ -7298,93 +7632,9 @@ output_internal_trans_func ()
 	   CHIP_PARAMETER_NAME, INTERNAL_INSN_CODE_NAME,
 	   CHIP_NAME, CHIP_PARAMETER_NAME);
   fprintf (output_file, "{\n  int %s;\n", TEMPORARY_VARIABLE_NAME);
-  if (description->first_automaton != NULL)
-    for (curr_automaton = description->first_automaton;;
-         curr_automaton = next_automaton)
-      {
-        next_automaton = curr_automaton->next_automaton;
-        if (next_automaton == NULL)
-          break;
-        fprintf (output_file, "  ");
-        output_state_member_type (output_file, curr_automaton);
-	fprintf (output_file, " ");
-        output_temp_chip_member_name (output_file, curr_automaton);
-        fprintf (output_file, ";\n");
-      }
-  for (curr_automaton = description->first_automaton;
-       curr_automaton != NULL;
-       curr_automaton = curr_automaton->next_automaton)
-    if (comb_vect_p (curr_automaton->trans_table))
-      {
-	fprintf (output_file, "\n  %s = ", TEMPORARY_VARIABLE_NAME);
-	output_trans_base_vect_name (output_file, curr_automaton);
-	fprintf (output_file, " [%s->", CHIP_PARAMETER_NAME);
-	output_chip_member_name (output_file, curr_automaton);
-	fprintf (output_file, "] + ");
-	output_translate_vect_name (output_file, curr_automaton);
-	fprintf (output_file, " [%s];\n", INTERNAL_INSN_CODE_NAME);
-	fprintf (output_file, "  if (");
-	output_trans_check_vect_name (output_file, curr_automaton);
-	fprintf (output_file, " [%s] != %s->",
-		 TEMPORARY_VARIABLE_NAME, CHIP_PARAMETER_NAME);
-	output_chip_member_name (output_file, curr_automaton);
-	fprintf (output_file, ")\n");
-	fprintf (output_file, "    return %s (%s, %s);\n",
-		 INTERNAL_MIN_ISSUE_DELAY_FUNC_NAME, INTERNAL_INSN_CODE_NAME,
-		 CHIP_PARAMETER_NAME);
-	fprintf (output_file, "  else\n");
-	fprintf (output_file, "    ");
-	if (curr_automaton->next_automaton != NULL)
-	  output_temp_chip_member_name (output_file, curr_automaton);
-	else
-	  {
-	    fprintf (output_file, "%s->", CHIP_PARAMETER_NAME);
-	    output_chip_member_name (output_file, curr_automaton);
-	  }
-	fprintf (output_file, " = ");
-	output_trans_comb_vect_name (output_file, curr_automaton);
-	fprintf (output_file, " [%s];\n", TEMPORARY_VARIABLE_NAME);
-      }
-    else
-      {
-	fprintf (output_file, "\n  %s = ", TEMPORARY_VARIABLE_NAME);
-	output_trans_full_vect_name (output_file, curr_automaton);
-	fprintf (output_file, " [");
-	output_translate_vect_name (output_file, curr_automaton);
-	fprintf (output_file, " [%s] + ", INTERNAL_INSN_CODE_NAME);
-	fprintf (output_file, "%s->", CHIP_PARAMETER_NAME);
-	output_chip_member_name (output_file, curr_automaton);
-	fprintf (output_file, " * %d];\n",
-		 curr_automaton->insn_equiv_classes_num);
-	fprintf (output_file, "  if (%s >= %d)\n", TEMPORARY_VARIABLE_NAME,
-		 curr_automaton->achieved_states_num);
-	fprintf (output_file, "    return %s (%s, %s);\n",
-		 INTERNAL_MIN_ISSUE_DELAY_FUNC_NAME, INTERNAL_INSN_CODE_NAME,
-		 CHIP_PARAMETER_NAME);
-	fprintf (output_file, "  else\n    ");
-	if (curr_automaton->next_automaton != NULL)
-	  output_temp_chip_member_name (output_file, curr_automaton);
-	else
-	  {
-	    fprintf (output_file, "%s->", CHIP_PARAMETER_NAME);
-	    output_chip_member_name (output_file, curr_automaton);
-	  }
-	fprintf (output_file, " = %s;\n", TEMPORARY_VARIABLE_NAME);
-      }
-  if (description->first_automaton != NULL)
-    for (curr_automaton = description->first_automaton;;
-         curr_automaton = next_automaton)
-      {
-        next_automaton = curr_automaton->next_automaton;
-        if (next_automaton == NULL)
-          break;
-        fprintf (output_file, "  %s->", CHIP_PARAMETER_NAME);
-        output_chip_member_name (output_file, curr_automaton);
-        fprintf (output_file, " = ");
-        output_temp_chip_member_name (output_file, curr_automaton);
-        fprintf (output_file, ";\n");
-      }
-  fprintf (output_file, "  return -1;\n");
+  fprintf (output_file, "\n  switch (%s)\n    {\n", INTERNAL_INSN_CODE_NAME);
+  output_insn_code_cases (output_automata_list_transition_code);
+  fprintf (output_file, "\n    default:\n      return -1;\n    }\n");
   fprintf (output_file, "}\n\n");
 }
 
@@ -7467,12 +7717,71 @@ output_trans_func ()
 	   INTERNAL_TRANSITION_FUNC_NAME, INTERNAL_INSN_CODE_NAME, STATE_NAME);
 }
 
+/* ??? */
+static void
+output_automata_list_state_alts_code (automata_list)
+     automata_list_el_t automata_list;
+{
+  automata_list_el_t el;
+  automaton_t automaton;
+
+  fprintf (output_file, "      {\n");
+  for (el = automata_list; el != NULL; el = el->next_automata_list_el)
+    if (comb_vect_p (el->automaton->state_alts_table))
+      {
+	fprintf (output_file, "        int %s;\n", TEMPORARY_VARIABLE_NAME);
+	break;
+      }
+  for (el = automata_list; el != NULL; el = el->next_automata_list_el)
+    {
+      automaton = el->automaton;
+      if (comb_vect_p (automaton->state_alts_table))
+	{
+	  fprintf (output_file, "\n        %s = ", TEMPORARY_VARIABLE_NAME);
+	  output_state_alts_base_vect_name (output_file, automaton);
+	  fprintf (output_file, " [%s->", CHIP_PARAMETER_NAME);
+	  output_chip_member_name (output_file, automaton);
+	  fprintf (output_file, "] + ");
+	  output_translate_vect_name (output_file, automaton);
+	  fprintf (output_file, " [%s];\n", INTERNAL_INSN_CODE_NAME);
+	  fprintf (output_file, "        if (");
+	  output_state_alts_check_vect_name (output_file, automaton);
+	  fprintf (output_file, " [%s] != %s->",
+		   TEMPORARY_VARIABLE_NAME, CHIP_PARAMETER_NAME);
+	  output_chip_member_name (output_file, automaton);
+	  fprintf (output_file, ")\n");
+	  fprintf (output_file, "          return 0;\n");
+	  fprintf (output_file, "        else\n");
+	  fprintf (output_file,
+		   (el == automata_list
+		    ? "          %s = " : "          %s += "),
+		   RESULT_VARIABLE_NAME);
+	  output_state_alts_comb_vect_name (output_file, automaton);
+	  fprintf (output_file, " [%s];\n", TEMPORARY_VARIABLE_NAME);
+	}
+      else
+	{
+	  fprintf (output_file,
+		   (el == automata_list
+		    ? "\n        %s = " : "        %s += "),
+		   RESULT_VARIABLE_NAME);
+	  output_state_alts_full_vect_name (output_file, automaton);
+	  fprintf (output_file, " [");
+	  output_translate_vect_name (output_file, automaton);
+	  fprintf (output_file, " [%s] + ", INTERNAL_INSN_CODE_NAME);
+	  fprintf (output_file, "%s->", CHIP_PARAMETER_NAME);
+	  output_chip_member_name (output_file, automaton);
+	  fprintf (output_file, " * %d];\n",
+		   automaton->insn_equiv_classes_num);
+	}
+    }
+  fprintf (output_file, "        break;\n      }\n\n");
+}
+
 /* Output function `internal_state_alts'.  */
 static void
 output_internal_state_alts_func ()
 {
-  automaton_t automaton;
-
   fprintf (output_file, "static int %s PARAMS ((int, struct %s *));\n",
 	   INTERNAL_STATE_ALTS_FUNC_NAME, CHIP_NAME);
   fprintf (output_file,
@@ -7481,53 +7790,11 @@ output_internal_state_alts_func ()
 	   CHIP_PARAMETER_NAME, INTERNAL_INSN_CODE_NAME, CHIP_NAME,
 	   CHIP_PARAMETER_NAME);
   fprintf (output_file, "{\n  int %s;\n", RESULT_VARIABLE_NAME);
-  for (automaton = description->first_automaton;
-       automaton != NULL;
-       automaton = automaton->next_automaton)
-    if (comb_vect_p (automaton->state_alts_table))
-      {
-	fprintf (output_file, "  int %s;\n", TEMPORARY_VARIABLE_NAME);
-	break;
-      }
-  for (automaton = description->first_automaton;
-       automaton != NULL;
-       automaton = automaton->next_automaton)
-    if (comb_vect_p (automaton->state_alts_table))
-      {
-	fprintf (output_file, "\n  %s = ", TEMPORARY_VARIABLE_NAME);
-	output_state_alts_base_vect_name (output_file, automaton);
-	fprintf (output_file, " [%s->", CHIP_PARAMETER_NAME);
-	output_chip_member_name (output_file, automaton);
-	fprintf (output_file, "] + ");
-	output_translate_vect_name (output_file, automaton);
-	fprintf (output_file, " [%s];\n", INTERNAL_INSN_CODE_NAME);
-	fprintf (output_file, "  if (");
-	output_state_alts_check_vect_name (output_file, automaton);
-	fprintf (output_file, " [%s] != %s->",
-		 TEMPORARY_VARIABLE_NAME, CHIP_PARAMETER_NAME);
-	output_chip_member_name (output_file, automaton);
-	fprintf (output_file, ")\n");
-	fprintf (output_file, "    return 0;\n");
-	fprintf (output_file, "  else\n");
-	fprintf (output_file,
-		 (automaton == description->first_automaton
-		  ? "    %s = " : "    %s += "), RESULT_VARIABLE_NAME);
-	output_state_alts_comb_vect_name (output_file, automaton);
-	fprintf (output_file, " [%s];\n", TEMPORARY_VARIABLE_NAME);
-      }
-    else
-      {
-	fprintf (output_file,
-		 (automaton == description->first_automaton
-		  ? "\n  %s = " : "  %s += "), RESULT_VARIABLE_NAME);
-	output_state_alts_full_vect_name (output_file, automaton);
-	fprintf (output_file, " [");
-	output_translate_vect_name (output_file, automaton);
-	fprintf (output_file, " [%s] + ", INTERNAL_INSN_CODE_NAME);
-	fprintf (output_file, "%s->", CHIP_PARAMETER_NAME);
-	output_chip_member_name (output_file, automaton);
-	fprintf (output_file, " * %d];\n", automaton->insn_equiv_classes_num);
-      }
+  fprintf (output_file, "\n  switch (%s)\n    {\n", INTERNAL_INSN_CODE_NAME);
+  output_insn_code_cases (output_automata_list_state_alts_code);
+  fprintf (output_file,
+	   "\n    default:\n      %s = 0;\n      break;\n    }\n",
+	   RESULT_VARIABLE_NAME);
   fprintf (output_file, "  return %s;\n", RESULT_VARIABLE_NAME);
   fprintf (output_file, "}\n\n");
 }
@@ -8353,6 +8620,7 @@ generate ()
     automata_num = description->units_num;
   initiate_states ();
   initiate_arcs ();
+  initiate_automata_lists ();
   initiate_pass_states ();
   initiate_excl_sets ();
   initiate_presence_absence_sets ();
@@ -8661,6 +8929,85 @@ check_automata ()
     }
 }
 
+/* The following vla is used for storing pointers to all achieved
+   states.  */
+static vla_ptr_t automaton_states;
+
+/* This function is called by function pass_states to add an achieved
+   STATE.  */
+static void
+add_automaton_state (state)
+     state_t state;
+{
+  VLA_PTR_ADD (automaton_states, state);
+}
+
+/* The following function forms list of important automata (whose
+   states may be changed after the insn issue) for each insn.  */
+static void
+form_important_insn_automata_lists ()
+{
+  automaton_t automaton;
+  state_t *state_ptr;
+  decl_t decl;
+  ainsn_t ainsn;
+  arc_t arc;
+  int i;
+
+  VLA_PTR_CREATE (automaton_states, 1500,
+		  "automaton states for forming important insn automata sets");
+  /* Mark important ainsns. */
+  for (automaton = description->first_automaton;
+       automaton != NULL;
+       automaton = automaton->next_automaton)
+    {
+      VLA_PTR_NULLIFY (automaton_states);
+      pass_states (automaton, add_automaton_state);
+      for (state_ptr = VLA_PTR_BEGIN (automaton_states);
+	   state_ptr <= (state_t *) VLA_PTR_LAST (automaton_states);
+	   state_ptr++)
+	{
+	  for (arc = first_out_arc (*state_ptr);
+	       arc != NULL;
+	       arc = next_out_arc (arc))
+	    if (arc->to_state != *state_ptr)
+	      {
+		if (!arc->insn->first_insn_with_same_reservs)
+		  abort ();
+		for (ainsn = arc->insn;
+		     ainsn != NULL;
+		     ainsn = ainsn->next_same_reservs_insn)
+		  ainsn->important_p = TRUE;
+	      }
+	}
+    }
+  VLA_PTR_DELETE (automaton_states);
+  /* Create automata sets for the insns. */
+  for (i = 0; i < description->decls_num; i++)
+    {
+      decl = description->decls [i];
+      if (decl->mode == dm_insn_reserv)
+	{
+	  automata_list_start ();
+	  for (automaton = description->first_automaton;
+	       automaton != NULL;
+	       automaton = automaton->next_automaton)
+	    for (ainsn = automaton->ainsn_list;
+		 ainsn != NULL;
+		 ainsn = ainsn->next_ainsn)
+	      if (ainsn->important_p
+		  && ainsn->insn_reserv_decl == &decl->decl.insn_reserv)
+		{
+		  automata_list_add (automaton);
+		  break;
+		}
+	  decl->decl.insn_reserv.important_automata_list
+	    = automata_list_finish ();
+	}
+    }
+}
+
+
 /* The following is top level function to generate automat(a,on) for
    fast recognition of pipeline hazards.  */
 void
@@ -8695,6 +9042,7 @@ expand_automata ()
       check_automata ();
       if (!have_error)
 	{
+	  form_important_insn_automata_lists ();
 	  fprintf (stderr, "Generation of attributes...");
 	  fflush (stderr);
 	  make_internal_dfa_insn_code_attr ();
@@ -8783,6 +9131,7 @@ write_automata ()
   output_time_statistics (stderr);
   finish_states ();
   finish_arcs ();
+  finish_automata_lists ();
   if (time_flag)
     {
       fprintf (stderr, "Summary:\n");

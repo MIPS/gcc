@@ -1,3 +1,30 @@
+2002-02-22  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* genautomata.c (automata_list_el_t): New typedef.
+	(get_free_automata_list_el,free_automata_list_el,
+	free_automata_list, automata_list_hash, automata_list_eq_p,
+	initiate_automata_lists, automata_list_start, automata_list_add,
+	automata_list_finish, finish_automata_lists,
+	output_insn_code_cases, output_automata_list_min_issue_delay_code,
+	output_automata_list_transition_code,
+	output_automata_list_state_alts_code, add_automaton_state,
+	form_important_insn_automata_lists): New functions and prototypes.
+	(insn_reserv_decl): Add members important_automata_list and
+	processed_p.
+	(ainsn): Add members important_p.
+	(automata_list_el): New structure.
+	(first_free_automata_list_el, current_automata_list,
+	automata_list_table): New global variables.
+	(create_ainsns): Initiate member important_p.
+	(output_internal_min_issue_delay_func): Generate the switch and
+	call output_insn_code_cases.
+	(output_internal_trans_func, output_internal_state_alts_func):
+	Ditto.
+	(generate): Call initiate_automata_lists.
+	(automaton_states): New global variable.
+	(expand_automata): Call form_important_insn_automata_lists.
+	(write_automata): Call finish_automata_lists.
+	
 2002-02-21  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* genautomata.c (add_excls): Check that cpu units in the sets
