@@ -688,6 +688,10 @@ enum reg_note
      block was executed.  */
   REG_EXEC_COUNT,
 
+  /* REG_VALUE_HISTOGRAM is attached to an insn before that the contained
+     histogram of a value is measured.  */
+  REG_VALUE_HISTOGRAM,
+
   /* Attached to a call insn; indicates that the call is malloc-like and
      that the pointer returned cannot alias anything else.  */
   REG_NOALIAS,

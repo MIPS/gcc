@@ -73,6 +73,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "cfglayout.h"
 #include "cfgloop.h"
 #include "gcse-globals.h"
+#include "vpt.h"
 
 #if defined (DWARF2_UNWIND_INFO) || defined (DWARF2_DEBUGGING_INFO)
 #include "dwarf2out.h"
@@ -234,6 +235,7 @@ enum dump_file_index
   DFI_loop,
   DFI_cfg,
   DFI_bp,
+  DFI_vpt,
   DFI_loop2,
   DFI_ce1,
   DFI_tracer,
@@ -284,6 +286,7 @@ static struct dump_file_info dump_file[DFI_MAX] =
   { "loop",	'L', 1, 0, 0 },
   { "cfg",	'f', 1, 0, 0 },
   { "bp",	'b', 1, 0, 0 },
+  { "vpt",	'v', 1, 0, 0 },
   { "loop2",	'L', 1, 0, 0 },
   { "ce1",	'C', 1, 0, 0 },
   { "tracer",	'T', 1, 0, 0 },
@@ -391,6 +394,12 @@ int flag_branch_probabilities = 0;
 
 /* Nonzero if generating or using histograms for loop iterations.  */
 int flag_loop_histograms = 0;
+
+/* Nonzero if generating or using value histograms.  */
+int flag_value_histograms = 0;
+
+/* Nonzero if value histograms should be used to optimize code.  */
+int flag_value_profile_transformations = 0;
 
 /* Nonzero if basic blocks should be reordered.  */
 
@@ -1125,6 +1134,10 @@ static const lang_independent_options f_options[] =
    N_("Use profiling information for branch probabilities") },
   {"loop-histograms", &flag_loop_histograms, 1,
    N_("Insert code to measure loop histograms and/or use them") },
+  {"value-histograms", &flag_value_histograms, 1,
+   N_("Insert code to measure value histograms and/or use them") },
+  {"value-profile-transformations", &flag_value_profile_transformations, 1,
+   N_("Use value histograms to optimize code") },
   {"profile", &profile_flag, 1,
    N_("Enable basic program profiling code") },
   {"reorder-blocks", &flag_reorder_blocks, 1,
@@ -3032,9 +3045,23 @@ rest_of_compilation (decl)
 	estimate_probability (&loops);
 
       flow_loops_free (&loops);
-      close_dump_file (DFI_bp, print_rtl_with_bb, insns);
+      close_dump_file (DFI_bp, print_rtl_with_bb, get_insns ());
       timevar_pop (TV_BRANCH_PROB);
     }
+
+  if (optimize > 0
+      && flag_branch_probabilities
+      && flag_value_histograms
+      && flag_value_profile_transformations)
+    {
+      open_dump_file (DFI_vpt, decl);
+
+      if (value_profile_transformations ())
+	cleanup_cfg (CLEANUP_EXPENSIVE);
+
+      close_dump_file (DFI_vpt, print_rtl_with_bb, get_insns ());
+    }
+
   if (optimize >= 0)
     {
       open_dump_file (DFI_ce1, decl);

@@ -201,6 +201,10 @@ extern int profile_arc_flag;
 
 extern int flag_loop_histograms;
 
+/* Nonzero if generating/using value histograms.  */
+
+extern int flag_value_histograms;
+
 /* Nonzero if generating info for gcov to calculate line test coverage.  */
 
 extern int flag_test_coverage;

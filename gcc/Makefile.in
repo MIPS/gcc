@@ -67,7 +67,7 @@ XCFLAGS =
 TCFLAGS =
 CFLAGS = -g
 STAGE1_CFLAGS = -g @stage1_cflags@
-BOOT_CFLAGS = -g -O2
+BOOT_CFLAGS = -g -O2 -funroll-all-loops -fpeel-loops
 
 # Flags to determine code coverage. When coverage is disabled, this will
 # contain the optimization flags, as you normally want code coverage
@@ -755,8 +755,8 @@ OBJS = alias.o bb-reorder.o bitmap.o builtins.o caller-save.o calls.o	   \
  sbitmap.o sched-deps.o sched-ebb.o sched-rgn.o sched-vis.o sdbout.o	   \
  sibcall.o simplify-rtx.o ssa.o ssa-ccp.o ssa-dce.o stmt.o		   \
  stor-layout.o stringpool.o timevar.o toplev.o tracer.o tree.o tree-dump.o \
- tree-inline.o unroll.o varasm.o varray.o version.o vmsdbgout.o xcoffout.o \
- et-forest.o $(GGC) $(out_object_file) $(EXTRA_OBJS)
+ tree-inline.o unroll.o varasm.o varray.o version.o vmsdbgout.o vpt.o	   \
+ xcoffout.o et-forest.o $(GGC) $(out_object_file) $(EXTRA_OBJS)
 
 BACKEND = main.o libbackend.a
 
@@ -1391,7 +1391,7 @@ toplev.o : toplev.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) function.h \
    debug.h insn-config.h intl.h $(RECOG_H) Makefile toplev.h \
    dwarf2out.h sdbout.h dbxout.h $(EXPR_H) hard-reg-set.h $(BASIC_BLOCK_H) \
    graph.h $(LOOP_H) except.h $(REGS_H) $(TIMEVAR_H) $(lang_options_files) \
-   ssa.h $(PARAMS_H) $(TM_P_H) reload.h dwarf2asm.h $(TARGET_H) \
+   ssa.h $(PARAMS_H) $(TM_P_H) reload.h dwarf2asm.h $(TARGET_H) vpt.h \
    langhooks.h insn-flags.h options.h cfglayout.h gcse-globals.h real.h
 	$(CC) $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) \
 	  -DTARGET_NAME=\"$(target_alias)\" \
@@ -1549,7 +1549,9 @@ profile.o : profile.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h \
    insn-config.h output.h $(REGS_H) $(EXPR_H) function.h \
    gcov-io.h gcov-iov.h toplev.h $(GGC_H) hard-reg-set.h $(BASIC_BLOCK_H) \
    $(TARGET_H) langhooks.h profile.h libfuncs.h gt-profile.h cfgloop.h \
-   params.h $(HASHTAB_H)
+   params.h $(HASHTAB_H) vpt.h
+vpt.o : vpt.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(BASIC_BLOCK_H) profile.h \
+   hard-reg-set.h vpt.h $(EXPR_H) output.h
 loop.o : loop.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) flags.h $(LOOP_H) \
    insn-config.h $(REGS_H) hard-reg-set.h $(RECOG_H) $(EXPR_H) \
    real.h $(PREDICT_H) $(BASIC_BLOCK_H) function.h \

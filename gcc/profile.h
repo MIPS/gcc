@@ -33,6 +33,11 @@ struct profile_info
 
     int count_histogram_counters;
 
+    /* Used by final, for allocating the proper amount of storage for the
+       value histogram counters.  */
+
+    int count_value_counters;
+
     /* Used by final, for writing correct # of instrumented edges
        in this function.  */
 
@@ -42,6 +47,11 @@ struct profile_info
        in this function.  */
 
     int count_histogram_counters_now;
+
+    /* Used by final, for writing correct # of value histogram counters
+       in this function.  */
+
+    int count_value_counters_now;
 
     /* Checksum of the cfg. Used for 'identification' of code.
        Used by final.  */
@@ -59,6 +69,9 @@ struct profile_info
 
     /* Do we also have loop histograms?  */
     int have_loop_histograms;
+
+    /* And value histograms?  */
+    int have_value_histograms;
   };
 
 extern struct profile_info profile_info;

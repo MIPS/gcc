@@ -1311,7 +1311,7 @@ gcov_exit (void)
       int merging = 0;
       long base;
       const struct function_info *fn_info;
-      gcov_type *count_ptr, *histograms_ptr;
+      gcov_type *count_ptr, *histograms_ptr, *values_ptr;
       gcov_type object_max_one = 0;
       gcov_type count;
       unsigned tag, length, flength, checksum;
@@ -1375,6 +1375,7 @@ gcov_exit (void)
 	  /* Merge execution counts for each function.  */
 	  count_ptr = ptr->arc_counts;
 	  histograms_ptr = ptr->histogram_counts;
+	  values_ptr = ptr->value_counts;
 	  for (ix = ptr->n_functions, fn_info = ptr->functions;
 	       ix--; fn_info++)
 	    {
@@ -1431,6 +1432,20 @@ gcov_exit (void)
 		  goto read_error;
 		else
 		  *histograms_ptr += count;
+
+	      /* Value histograms. */ 
+	      if (gcov_read_unsigned (da_file, &tag)
+		  || gcov_read_unsigned (da_file, &length))
+		goto read_error;
+	      if (tag != GCOV_TAG_VALUE_HISTOGRAMS
+		  || length / 8 != fn_info->n_value_histogram_counters)
+		goto read_mismatch;
+		
+      	      for (jx = fn_info->n_value_histogram_counters; jx--; values_ptr++)
+		if (gcov_read_counter (da_file, &count))
+		  goto read_error;
+		else
+		  *values_ptr += count;
 	    }
 
 	  /* Check object summary */
@@ -1511,6 +1526,7 @@ gcov_exit (void)
       /* Write execution counts for each function.  */
       count_ptr = ptr->arc_counts;
       histograms_ptr = ptr->histogram_counts;
+      values_ptr = ptr->value_counts;
       for (ix = ptr->n_functions, fn_info = ptr->functions; ix--; fn_info++)
 	{
 	  /* Announce function. */
@@ -1550,6 +1566,22 @@ gcov_exit (void)
 	  for (jx = fn_info->n_loop_histogram_counters; jx--;)
 	    {
 	      gcov_type count = *histograms_ptr++;
+	      
+	      object.arc_sum += count;
+	      if (gcov_write_counter (da_file, count))
+		goto write_error;
+	    }
+	  if (gcov_write_length (da_file, base))
+	    goto write_error;
+
+	  /* value histograms.  */
+	  if (gcov_write_unsigned (da_file, GCOV_TAG_VALUE_HISTOGRAMS)
+	      || !(base = gcov_reserve_length (da_file)))
+	    goto write_error;
+	  
+	  for (jx = fn_info->n_value_histogram_counters; jx--;)
+	    {
+	      gcov_type count = *values_ptr++;
 	      
 	      object.arc_sum += count;
 	      if (gcov_write_counter (da_file, count))
@@ -1698,6 +1730,8 @@ __gcov_flush (void)
 	ptr->arc_counts[i] = 0;
       for (i = ptr->n_histogram_counts; i--;)
 	ptr->histogram_counts[i] = 0;
+      for (i = ptr->n_value_counts; i--;)
+	ptr->value_counts[i] = 0;
     }
 }
 

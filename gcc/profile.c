@@ -70,6 +70,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "libfuncs.h"
 #include "langhooks.h"
 #include "hashtab.h"
+#include "vpt.h"
 
 /* Additional information about the edges we need.  */
 struct edge_info {
@@ -98,6 +99,7 @@ struct function_list
   unsigned cfg_checksum;	/* function checksum */
   unsigned count_edges;	        /* number of intrumented edges  */
   unsigned histogram_counters;	/* number of histogram counters  */
+  unsigned value_counters;	/* number of value histogram counters  */
 };
 
 static struct function_list *functions_head = 0;
@@ -132,6 +134,9 @@ static GTY(()) rtx profiler_label;
 /* The name of the loop histograms table.  */
 static GTY(()) rtx loop_histograms_label;
 
+/* The name of the value histograms table.  */
+static GTY(()) rtx value_histograms_label;
+
 /* Collect statistics on the performance of this pass for the entire source
    file.  */
 
@@ -149,18 +154,23 @@ static int total_num_branches;
 /* Forward declarations.  */
 static void find_spanning_tree PARAMS ((struct edge_list *));
 static rtx gen_edge_profiler PARAMS ((int));
-static rtx gen_loop_profiler PARAMS ((rtx, int, int));
+static rtx gen_interval_profiler PARAMS ((struct histogram_value *, rtx, int));
+static rtx gen_range_profiler PARAMS ((struct histogram_value *, rtx, int));
+static rtx gen_pow2_profiler PARAMS ((struct histogram_value *, rtx, int));
+static rtx gen_one_value_profiler PARAMS ((struct histogram_value *, rtx, int));
 static void instrument_edges PARAMS ((struct edge_list *));
 static void instrument_loops PARAMS ((struct loops *));
+static void instrument_values PARAMS ((unsigned, struct histogram_value *));
 static void compute_branch_probabilities PARAMS ((void));
 static void compute_loop_histograms PARAMS ((struct loops *));
+static void compute_value_histograms PARAMS ((unsigned, struct histogram_value *));
 static hashval_t htab_counts_index_hash PARAMS ((const void *));
 static int htab_counts_index_eq PARAMS ((const void *, const void *));
 static void htab_counts_index_del PARAMS ((void *));
 static void cleanup_counts_index PARAMS ((int));
 static int index_counts_file PARAMS ((void));
 static gcov_type * get_exec_counts PARAMS ((void));
-static gcov_type * get_histogram_counts PARAMS ((int, int));
+static gcov_type * get_histogram_counts PARAMS ((unsigned, unsigned));
 static unsigned compute_checksum PARAMS ((void));
 static basic_block find_group PARAMS ((basic_block));
 static void union_groups PARAMS ((basic_block, basic_block));
@@ -272,10 +282,22 @@ instrument_loops (loops)
 	  dest_loop = find_common_loop (src_loop, e->dest->loop_father);
 
 	  for (loop = src_loop; loop != dest_loop; loop = loop->outer)
-	    insert_insn_on_edge (gen_loop_profiler (loop_counters[loop->num],
-						    loop->num,
-						    histogram_steps),
-				 e);
+	    {
+	      struct histogram_value cdesc;
+
+	      cdesc.value = loop_counters[loop->num];
+	      cdesc.mode = mode;
+	      cdesc.seq = NULL_RTX;
+	      cdesc.hdata.intvl.int_start = 0;
+	      cdesc.hdata.intvl.steps = histogram_steps;
+	      cdesc.hdata.intvl.may_be_less = 0;
+	      cdesc.hdata.intvl.may_be_more = 1;
+	      insert_insn_on_edge (
+			gen_interval_profiler (&cdesc, loop_histograms_label,
+			profile_info.count_histogram_counters
+				+ (loop->num - 1) * (histogram_steps + 1)),
+			e);
+	    }
 	}
     }
   free (loop_counters);
@@ -283,6 +305,62 @@ instrument_loops (loops)
   n_histogram_counters = (loops->num - 1) * (histogram_steps + 1);
   profile_info.count_histogram_counters_now = n_histogram_counters;
   profile_info.count_histogram_counters += n_histogram_counters;
+}
+
+/* Add code to measure histograms of VALUES.  */
+static void
+instrument_values (n_values, values)
+     unsigned n_values;
+     struct histogram_value *values;
+{
+  rtx sequence;
+  unsigned i;
+  edge e;
+  int n_histogram_counters = 0;
+ 
+  /* Emit code to generate the histograms before the insns.  */
+
+  for (i = 0; i < n_values; i++)
+    {
+      e = split_block (BLOCK_FOR_INSN (values[i].insn),
+		       PREV_INSN (values[i].insn));
+
+      switch (values[i].type)
+	{
+	case HIST_TYPE_INTERVAL:
+	  sequence = 
+	      gen_interval_profiler (values + i, value_histograms_label,
+			profile_info.count_value_counters + n_histogram_counters);
+	  break;
+
+	case HIST_TYPE_RANGE:
+	  sequence = 
+	      gen_range_profiler (values + i, value_histograms_label,
+			profile_info.count_value_counters + n_histogram_counters);
+	  break;
+
+	case HIST_TYPE_POW2:
+	  sequence = 
+	      gen_pow2_profiler (values + i, value_histograms_label,
+			profile_info.count_value_counters + n_histogram_counters);
+	  break;
+
+	case HIST_TYPE_ONE_VALUE:
+	  sequence = 
+	      gen_one_value_profiler (values + i, value_histograms_label,
+			profile_info.count_value_counters + n_histogram_counters);
+	  break;
+
+	default:
+	  abort ();
+	}
+
+      insert_insn_on_edge (sequence, e);
+      n_histogram_counters += values[i].n_counters;
+    }
+
+  profile_info.count_value_counters_now = n_histogram_counters;
+  profile_info.count_value_counters += n_histogram_counters;
 }
 
 struct section_reference
@@ -430,9 +508,6 @@ index_counts_file ()
 	  if (length != GCOV_SUMMARY_LENGTH)
 	    goto corrupt;
 
-	  if (length != GCOV_SUMMARY_LENGTH)
-	    goto corrupt;
-
 	  if (summary)
 	    *summary = offset;
 	  summary = NULL;
@@ -456,7 +531,7 @@ index_counts_file ()
 		    }
 		  (*slot)->n_offsets++;
 		  (*slot)->offsets = xrealloc ((*slot)->offsets,
-					       sizeof (long) * (*slot)->n_offsets);
+					       sizeof (struct section_reference) * (*slot)->n_offsets);
 		}
 	      else
 		{
@@ -465,7 +540,7 @@ index_counts_file ()
 		  (*slot)->section = tag;
 		  (*slot)->checksum = checksum;
 		  (*slot)->n_offsets = 1;
-		  (*slot)->offsets = xmalloc (sizeof (long));
+		  (*slot)->offsets = xmalloc (sizeof (struct section_reference));
 		}
 	      (*slot)->offsets[(*slot)->n_offsets - 1].offset = offset;
 	      if (summary)
@@ -623,21 +698,16 @@ cleanup:;
 
 /* Get loop histogram counters.  */
 static gcov_type *
-get_histogram_counts (loops, steps)
-     int loops;
-     int steps;
+get_histogram_counts (section_tag, n_counters)
+     unsigned section_tag;
+     unsigned n_counters;
 {
   gcov_type *profile;
-  gcov_type max_count;
   unsigned ix, i, tag, length, num;
   const char *name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (current_function_decl));
   struct da_index_entry *entry, what;
   struct section_reference *act;
   gcov_type count;
-  unsigned n_counters;
-
-  profile_info.max_counter_in_program = 0;
-  profile_info.count_profiles_merged = 0;
 
   /* No .da file, no execution counts.  */
   if (!da_file)
@@ -647,14 +717,13 @@ get_histogram_counts (loops, steps)
 
   /* now read and combine all matching profiles.  */
 
-  n_counters = loops * (steps + 1);
   profile = xmalloc (sizeof (gcov_type) * n_counters);
 
   for (ix = 0; ix < n_counters; ix++)
     profile[ix] = 0;
 
   what.function_name = (char *) name;
-  what.section = GCOV_TAG_LOOP_HISTOGRAMS;
+  what.section = section_tag;
   entry = htab_find (counts_file_index, &what);
   if (!entry)
     {
@@ -673,12 +742,11 @@ get_histogram_counts (loops, steps)
       act = entry->offsets + i;
 
       /* Read arc counters.  */
-      max_count = 0;
       gcov_resync (da_file, act->offset, 0);
 
       if (gcov_read_unsigned (da_file, &tag)
 	  || gcov_read_unsigned (da_file, &length)
-	  || tag != GCOV_TAG_LOOP_HISTOGRAMS)
+	  || tag != section_tag)
 	{
 	  /* We have already passed through file, so any error means
 	     something is rotten.  */
@@ -696,8 +764,6 @@ get_histogram_counts (loops, steps)
 	{
 	  if (gcov_read_counter (da_file, &count))
 	    abort ();
-	  if (count > max_count)
-	    max_count = count;
 	  profile[ix] += count;
 	}
     }
@@ -723,7 +789,8 @@ compute_loop_histograms (loops)
   if (histogram_steps < (unsigned) PARAM_VALUE (PARAM_MAX_UNROLL_TIMES))
     histogram_steps = PARAM_VALUE (PARAM_MAX_UNROLL_TIMES);
 
-  histogram_counts = get_histogram_counts (loops->num - 1, histogram_steps);
+  histogram_counts = get_histogram_counts (GCOV_TAG_LOOP_HISTOGRAMS,
+					   (loops->num - 1) * (histogram_steps + 1));
   if (!histogram_counts)
     return;
 
@@ -744,6 +811,43 @@ compute_loop_histograms (loops)
   free (histogram_counts);
   loops->state |= LOOPS_HAVE_HISTOGRAMS_ON_EDGES;
   profile_info.have_loop_histograms = 1;
+}
+
+/* Load value histograms from .da file.  */
+static void
+compute_value_histograms (n_values, values)
+     unsigned n_values;
+     struct histogram_value *values;
+{
+  unsigned i, j, n_histogram_counters;
+  gcov_type *histogram_counts, *act_count;
+  
+  n_histogram_counters = 0;
+  for (i = 0; i < n_values; i++)
+    n_histogram_counters += values[i].n_counters;
+
+  histogram_counts = get_histogram_counts (GCOV_TAG_VALUE_HISTOGRAMS,
+					   n_histogram_counters);
+  if (!histogram_counts)
+    return;
+
+  act_count = histogram_counts;
+  for (i = 0; i < n_values; i++)
+    {
+      rtx hist_list = NULL_RTX;
+
+      for (j = values[i].n_counters; j > 0; j--)
+	hist_list = alloc_EXPR_LIST (0, GEN_INT (act_count[j - 1]), hist_list);
+      hist_list = alloc_EXPR_LIST (0, copy_rtx (values[i].value), hist_list);
+      hist_list = alloc_EXPR_LIST (0, GEN_INT (values[i].type), hist_list);
+      REG_NOTES (values[i].insn) =
+	      alloc_EXPR_LIST (REG_VALUE_HISTOGRAM, hist_list,
+			       REG_NOTES (values[i].insn));
+      act_count += values[i].n_counters;
+    }
+
+  free (histogram_counts);
+  profile_info.have_value_histograms = 1;
 }
 
 /* Compute the branch probabilities for the various branches.
@@ -1123,11 +1227,14 @@ branch_prob ()
   int num_edges, ignored_edges;
   struct edge_list *el;
   struct loops loops;
+  unsigned n_values;
+  struct histogram_value *values;
   const char *name = IDENTIFIER_POINTER
 		      (DECL_ASSEMBLER_NAME (current_function_decl));
 
   profile_info.current_function_cfg_checksum = compute_checksum ();
   profile_info.have_loop_histograms = 0;
+  profile_info.have_value_histograms = 0;
 
   if (rtl_dump_file)
     fprintf (rtl_dump_file, "CFG checksum is %u\n",
@@ -1428,11 +1535,16 @@ branch_prob ()
       }
     }
 
+  if (flag_value_histograms)
+    find_values_to_profile (&n_values, &values);
+
   if (flag_branch_probabilities)
     {
       compute_branch_probabilities ();
       if (flag_loop_histograms)
 	compute_loop_histograms (&loops);
+      if (flag_value_histograms)
+	compute_value_histograms (n_values, values);
     }
 
   /* For each edge not on the spanning tree, add counting code as rtl.  */
@@ -1445,7 +1557,10 @@ branch_prob ()
       if (flag_loop_histograms)
 	instrument_loops (&loops);
 
-      /* Commit changes done by instrument_edges and instrument_loops.  */
+      if (flag_value_histograms)
+	instrument_values (n_values, values);
+
+      /* Commit changes done by instrumentation.  */
       commit_edge_insertions_watch_calls ();
       allocate_reg_info (max_reg_num (), FALSE, FALSE);
 
@@ -1460,12 +1575,19 @@ branch_prob ()
       item->cfg_checksum = profile_info.current_function_cfg_checksum;
       item->count_edges = profile_info.count_edges_instrumented_now;
       item->histogram_counters = profile_info.count_histogram_counters_now;
+      item->value_counters = profile_info.count_value_counters_now;
     }
 
   if (flag_loop_histograms)
     {
       /* Free the loop datastructure.  */
       flow_loops_free (&loops);
+    }
+
+  if (flag_value_histograms)
+    {
+      /* Free list of interesting values.  */
+      free_profiled_values (n_values, values);
     }
 
   remove_fake_edges ();
@@ -1644,11 +1766,11 @@ init_branch_prob (filename)
       ASM_GENERATE_INTERNAL_LABEL (buf, "LPBX", 2);
       profiler_label = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (buf));
 
-      if (flag_loop_histograms)
-	{
-	  ASM_GENERATE_INTERNAL_LABEL (buf, "LPBX", 3);
-	  loop_histograms_label = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (buf));
-	}
+      ASM_GENERATE_INTERNAL_LABEL (buf, "LPBX", 3);
+      loop_histograms_label = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (buf));
+
+      ASM_GENERATE_INTERNAL_LABEL (buf, "LPBX", 4);
+      value_histograms_label = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (buf));
     }
   
   total_num_blocks = 0;
@@ -1752,7 +1874,8 @@ create_profiler ()
   int save_flag_inline_functions = flag_inline_functions;
 
   if (!profile_info.count_instrumented_edges
-      && !profile_info.count_histogram_counters)
+      && !profile_info.count_histogram_counters
+      && !profile_info.count_value_counters)
     return;
   
   string_type = build_pointer_type
@@ -1817,7 +1940,7 @@ create_profiler ()
     int num_nodes = 0;
     tree array_value = NULL_TREE;
     tree finfo_type, finfo_ptr_type;
-    tree name, checksum, arcs, histogram_counters;
+    tree name, checksum, arcs, histogram_counters, value_counters;
     
     finfo_type = (*lang_hooks.types.make_type) (RECORD_TYPE);
     name = build_decl (FIELD_DECL, NULL_TREE, string_type);
@@ -1827,8 +1950,10 @@ create_profiler ()
     TREE_CHAIN (arcs) = checksum;
     histogram_counters = build_decl (FIELD_DECL, NULL_TREE, unsigned_type_node);
     TREE_CHAIN (histogram_counters) = arcs;
+    value_counters = build_decl (FIELD_DECL, NULL_TREE, unsigned_type_node);
+    TREE_CHAIN (value_counters) = histogram_counters;
     finish_builtin_struct (finfo_type, "__function_info",
-			   histogram_counters, NULL_TREE);
+			   value_counters, NULL_TREE);
     finfo_ptr_type = build_pointer_type
       (build_qualified_type (finfo_type, TYPE_QUAL_CONST));
     
@@ -1854,6 +1979,10 @@ create_profiler ()
 	finfo_value = tree_cons (histogram_counters, convert
 				 (unsigned_type_node,
 				  build_int_2 (item->histogram_counters, 0)),
+				 finfo_value);
+	finfo_value = tree_cons (value_counters, convert
+				 (unsigned_type_node,
+				  build_int_2 (item->value_counters, 0)),
 				 finfo_value);
 	array_value = tree_cons (NULL_TREE, build
 				 (CONSTRUCTOR, finfo_type, NULL_TREE,
@@ -1957,7 +2086,42 @@ create_profiler ()
 		      build_int_2 (profile_info
 				   .count_histogram_counters, 0)),
 		     value);
+
+  /* value histogram counters table */
+  {
+    tree counts_table = null_pointer_node;
+    
+    if (profile_info.count_value_counters)
+      {
+	tree gcov_type_array_type
+	  = build_array_type (gcov_type, build_index_type
+			      (build_int_2 (profile_info.
+					    count_value_counters - 1, 0)));
+	/* No values.  */
+	counts_table
+	  = build (VAR_DECL, gcov_type_array_type, NULL_TREE, NULL_TREE);
+	TREE_STATIC (counts_table) = 1;
+	DECL_NAME (counts_table) = get_identifier (XSTR (value_histograms_label, 0));
+	assemble_variable (counts_table, 0, 0, 0);
+	counts_table = build1 (ADDR_EXPR, gcov_ptr_type, counts_table);
+      }
+    
+    field = build_decl (FIELD_DECL, NULL_TREE, gcov_ptr_type);
+    TREE_CHAIN (field) = fields;
+    fields = field;
+    value = tree_cons (fields, counts_table, value);
+  }
   
+  /* number of value histogram counters */
+  field = build_decl (FIELD_DECL, NULL_TREE, unsigned_type_node);
+  TREE_CHAIN (field) = fields;
+  fields = field;
+  value = tree_cons (fields, convert
+		     (unsigned_type_node,
+		      build_int_2 (profile_info
+				   .count_value_counters, 0)),
+		     value);
+
   finish_builtin_struct (ginfo_type, "__gcov_info", fields, NULL_TREE);
   structure = build (VAR_DECL, ginfo_type, NULL_TREE, NULL_TREE);
   DECL_INITIAL (structure)
@@ -2053,47 +2217,153 @@ gen_edge_profiler (edgeno)
   return sequence;
 }
 
-/* Output instructions as RTL to increment the loop histogram counter.  */
+/* Output instructions as RTL to increment the interval histogram counter.
+   VALUE is the expression whose value is profiled.  BASE_LABEL is the base
+   of histogram counters, BASE is offset from this position.  */
 
 static rtx
-gen_loop_profiler (iterations, loop, steps)
-     rtx iterations;
-     int loop;
-     int steps;
+gen_interval_profiler (value, base_label, base)
+     struct histogram_value *value;
+     rtx base_label;
+     int base;
 {
   enum machine_mode mode = mode_for_size (GCOV_TYPE_SIZE, MODE_INT, 0);
-  rtx mem_ref, tmp, tmp1, mr;
+  rtx mem_ref, tmp, tmp1, mr, val;
   rtx sequence;
-  int base = (loop - 1) * (steps + 1);
-  rtx in_range_label = gen_label_rtx ();
+  rtx more_label = gen_label_rtx ();
+  rtx less_label = gen_label_rtx ();
   rtx end_of_code_label = gen_label_rtx ();
   int per_counter = GCOV_TYPE_SIZE / BITS_PER_UNIT;
 
   start_sequence ();
 
+  if (value->seq)
+    emit_insn (value->seq);
+
   mr = gen_reg_rtx (Pmode);
 
-  tmp = force_reg (Pmode, loop_histograms_label);
-  tmp = plus_constant (tmp,
-		       per_counter * (base + profile_info.count_histogram_counters));
+  tmp = force_reg (Pmode, base_label);
+  tmp = plus_constant (tmp, per_counter * base);
 
-  do_compare_rtx_and_jump (iterations, GEN_INT (steps), GE, 0, mode, NULL_RTX,
-			   in_range_label, NULL_RTX);
+  val = expand_simple_binop (value->mode, MINUS,
+			     copy_rtx (value->value),
+			     GEN_INT (value->hdata.intvl.int_start),
+			     NULL_RTX, 0, OPTAB_WIDEN);
 
-  tmp1 = expand_simple_binop (Pmode, PLUS, tmp, GEN_INT (per_counter * steps), mr, 0, OPTAB_WIDEN);
-  if (tmp1 != mr)
-    emit_move_insn (mr, tmp1);
+  if (value->hdata.intvl.may_be_more)
+    do_compare_rtx_and_jump (copy_rtx (val), GEN_INT (value->hdata.intvl.steps),
+			     GE, 0, value->mode, NULL_RTX, NULL_RTX, more_label);
+  if (value->hdata.intvl.may_be_less)
+    do_compare_rtx_and_jump (copy_rtx (val), const0_rtx, LT, 0, value->mode,
+			     NULL_RTX, NULL_RTX, less_label);
 
-  emit_jump_insn (gen_jump (end_of_code_label));
-  emit_barrier ();
-
-  emit_label (in_range_label);
-
-  tmp1 = expand_simple_binop (mode, MULT, iterations, GEN_INT (per_counter),
+  /* We are in range.  */
+  tmp1 = expand_simple_binop (value->mode, MULT, copy_rtx (val), GEN_INT (per_counter),
 			      NULL_RTX, 0, OPTAB_WIDEN);
-  tmp1 = expand_simple_binop (Pmode, PLUS, tmp, tmp1, mr, 0, OPTAB_WIDEN);
+  tmp1 = expand_simple_binop (Pmode, PLUS, copy_rtx (tmp), tmp1, mr, 0, OPTAB_WIDEN);
   if (tmp1 != mr)
-    emit_move_insn (mr, tmp1);
+    emit_move_insn (copy_rtx (mr), tmp1);
+
+  if (value->hdata.intvl.may_be_more
+      || value->hdata.intvl.may_be_less)
+    {
+      emit_jump_insn (gen_jump (end_of_code_label));
+      emit_barrier ();
+    }
+
+  /* Above the interval.  */
+  if (value->hdata.intvl.may_be_more)
+    {
+      emit_label (more_label);
+      tmp1 = expand_simple_binop (Pmode, PLUS, copy_rtx (tmp),
+				  GEN_INT (per_counter * value->hdata.intvl.steps),
+    				  mr, 0, OPTAB_WIDEN);
+      if (tmp1 != mr)
+	emit_move_insn (copy_rtx (mr), tmp1);
+      if (value->hdata.intvl.may_be_less)
+	{
+	  emit_jump_insn (gen_jump (end_of_code_label));
+	  emit_barrier ();
+	}
+    }
+
+  /* Below the interval.  */
+  if (value->hdata.intvl.may_be_less)
+    {
+      emit_label (less_label);
+      tmp1 = expand_simple_binop (Pmode, PLUS, copy_rtx (tmp),
+		GEN_INT (per_counter * (value->hdata.intvl.steps
+					+ (value->hdata.intvl.may_be_more ? 1 : 0))),
+		mr, 0, OPTAB_WIDEN);
+      if (tmp1 != mr)
+	emit_move_insn (copy_rtx (mr), tmp1);
+    }
+
+  if (value->hdata.intvl.may_be_more
+      || value->hdata.intvl.may_be_less)
+    emit_label (end_of_code_label);
+
+  mem_ref = validize_mem (gen_rtx_MEM (mode, mr));
+
+  tmp = expand_simple_binop (mode, PLUS, copy_rtx (mem_ref), const1_rtx,
+			     mem_ref, 0, OPTAB_WIDEN);
+
+  if (tmp != mem_ref)
+    emit_move_insn (copy_rtx (mem_ref), tmp);
+
+  sequence = get_insns ();
+  end_sequence ();
+  rebuild_jump_labels (sequence);
+  return sequence;
+}
+
+/* Output instructions as RTL to increment the range histogram counter.
+   VALUE is the expression whose value is profiled.  BASE_LABEL is the base
+   of histogram counters, BASE is offset from this position.  */
+
+static rtx
+gen_range_profiler (value, base_label, base)
+     struct histogram_value *value;
+     rtx base_label;
+     int base;
+{
+  enum machine_mode mode = mode_for_size (GCOV_TYPE_SIZE, MODE_INT, 0);
+  rtx mem_ref, tmp, mr, uval;
+  rtx sequence;
+  rtx end_of_code_label = gen_label_rtx ();
+  int per_counter = GCOV_TYPE_SIZE / BITS_PER_UNIT, i;
+
+  start_sequence ();
+
+  if (value->seq)
+    emit_insn (value->seq);
+
+  mr = gen_reg_rtx (Pmode);
+
+  tmp = force_reg (Pmode, base_label);
+  tmp = plus_constant (tmp, per_counter * base);
+  emit_move_insn (mr, tmp);
+
+  if (REG_P (value->value))
+    {
+      uval = value->value;
+    }
+  else
+    {
+      uval = gen_reg_rtx (value->mode);
+      emit_move_insn (uval, copy_rtx (value->value));
+    }
+
+  for (i = 0; i < value->hdata.range.n_ranges; i++)
+    {
+      do_compare_rtx_and_jump (copy_rtx (uval), GEN_INT (value->hdata.range.ranges[i]),
+			       LT, 0, value->mode, NULL_RTX,
+    			       NULL_RTX, end_of_code_label);
+      tmp = expand_simple_binop (Pmode, PLUS, copy_rtx (mr),
+				 GEN_INT (per_counter), mr, 0, OPTAB_WIDEN);
+      if (tmp != mr)
+	emit_move_insn (copy_rtx (mr), tmp);
+    }
 
   emit_label (end_of_code_label);
 
@@ -2111,4 +2381,160 @@ gen_loop_profiler (iterations, loop, steps)
   return sequence;
 }
 
+/* Output instructions as RTL to increment the power of two histogram counter.
+   VALUE is the expression whose value is profiled.  BASE_LABEL is the base
+   of histogram counters, BASE is offset from this position.  */
+
+static rtx
+gen_pow2_profiler (value, base_label, base)
+     struct histogram_value *value;
+     rtx base_label;
+     int base;
+{
+  enum machine_mode mode = mode_for_size (GCOV_TYPE_SIZE, MODE_INT, 0);
+  rtx mem_ref, tmp, mr, uval;
+  rtx sequence;
+  rtx end_of_code_label = gen_label_rtx ();
+  rtx loop_label = gen_label_rtx ();
+  int per_counter = GCOV_TYPE_SIZE / BITS_PER_UNIT;
+
+  start_sequence ();
+
+  if (value->seq)
+    emit_insn (value->seq);
+
+  mr = gen_reg_rtx (Pmode);
+  tmp = force_reg (Pmode, base_label);
+  tmp = plus_constant (tmp, per_counter * base);
+  emit_move_insn (mr, tmp);
+
+  uval = gen_reg_rtx (value->mode);
+  emit_move_insn (uval, copy_rtx (value->value));
+
+  /* Check for non-power of 2.  */
+  if (value->hdata.pow2.may_be_other)
+    {
+      do_compare_rtx_and_jump (copy_rtx (uval), const0_rtx, LE, 0, value->mode,
+			       NULL_RTX, NULL_RTX, end_of_code_label);
+      tmp = expand_simple_binop (value->mode, PLUS, copy_rtx (uval),
+				 constm1_rtx, NULL_RTX, 0, OPTAB_WIDEN);
+      tmp = expand_simple_binop (value->mode, AND, copy_rtx (uval), tmp,
+				 NULL_RTX, 0, OPTAB_WIDEN);
+      do_compare_rtx_and_jump (tmp, const0_rtx, NE, 0, value->mode, NULL_RTX,
+    			       NULL_RTX, end_of_code_label);
+    }
+
+  /* Count log_2(value).  */
+  emit_label (loop_label);
+
+  tmp = expand_simple_binop (Pmode, PLUS, copy_rtx (mr), GEN_INT (per_counter), mr, 0, OPTAB_WIDEN);
+  if (tmp != mr)
+    emit_move_insn (copy_rtx (mr), tmp);
+
+  tmp = expand_simple_binop (value->mode, ASHIFTRT, copy_rtx (uval), const1_rtx,
+			     uval, 0, OPTAB_WIDEN);
+  if (tmp != uval)
+    emit_move_insn (copy_rtx (uval), tmp);
+
+  do_compare_rtx_and_jump (copy_rtx (uval), const0_rtx, NE, 0, value->mode,
+			   NULL_RTX, NULL_RTX, loop_label);
+
+  /* Increase the counter.  */
+  emit_label (end_of_code_label);
+
+  mem_ref = validize_mem (gen_rtx_MEM (mode, mr));
+
+  tmp = expand_simple_binop (mode, PLUS, copy_rtx (mem_ref), const1_rtx,
+			     mem_ref, 0, OPTAB_WIDEN);
+
+  if (tmp != mem_ref)
+    emit_move_insn (copy_rtx (mem_ref), tmp);
+
+  sequence = get_insns ();
+  end_sequence ();
+  rebuild_jump_labels (sequence);
+  return sequence;
+}
+
+/* Output instructions as RTL for code to find the most common value.
+   VALUE is the expression whose value is profiled.  BASE_LABEL is the base
+   of histogram counters, BASE is offset from this position.  */
+
+static rtx
+gen_one_value_profiler (value, base_label, base)
+     struct histogram_value *value;
+     rtx base_label;
+     int base;
+{
+  enum machine_mode mode = mode_for_size (GCOV_TYPE_SIZE, MODE_INT, 0);
+  rtx stored_value_ref, counter_ref, all_ref, stored_value, counter, all, tmp, uval;
+  rtx sequence;
+  rtx same_label = gen_label_rtx ();
+  rtx zero_label = gen_label_rtx ();
+  rtx end_of_code_label = gen_label_rtx ();
+  int per_counter = GCOV_TYPE_SIZE / BITS_PER_UNIT;
+
+  start_sequence ();
+
+  if (value->seq)
+    emit_insn (value->seq);
+
+  tmp = force_reg (Pmode, base_label);
+  stored_value = plus_constant (tmp, per_counter * base);
+  counter = plus_constant (stored_value, per_counter);
+  all = plus_constant (counter, per_counter);
+  stored_value_ref = validize_mem (gen_rtx_MEM (mode, stored_value));
+  counter_ref = validize_mem (gen_rtx_MEM (mode, counter));
+  all_ref = validize_mem (gen_rtx_MEM (mode, all));
+
+  uval = gen_reg_rtx (mode);
+  convert_move (uval, copy_rtx (value->value), 0);
+
+  /* Check if the stored value matches.  */
+  do_compare_rtx_and_jump (copy_rtx (uval), copy_rtx (stored_value_ref), EQ,
+			   0, mode, NULL_RTX, NULL_RTX, same_label);
+  
+  /* Does not match; check whether the counter is zero.  */
+  do_compare_rtx_and_jump (copy_rtx (counter_ref), const0_rtx, EQ, 0, mode,
+			   NULL_RTX, NULL_RTX, zero_label);
+
+  /* The counter is not zero yet.  */
+  tmp = expand_simple_binop (mode, PLUS, copy_rtx (counter_ref), constm1_rtx,
+			     counter_ref, 0, OPTAB_WIDEN);
+
+  if (tmp != counter_ref)
+    emit_move_insn (copy_rtx (counter_ref), tmp);
+
+  emit_jump_insn (gen_jump (end_of_code_label));
+  emit_barrier ();
+ 
+  emit_label (zero_label);
+  /* Set new value.  */
+  emit_move_insn (copy_rtx (stored_value_ref), copy_rtx (uval));
+
+  emit_label (same_label);
+  /* Increase the counter.  */
+  tmp = expand_simple_binop (mode, PLUS, copy_rtx (counter_ref), const1_rtx,
+			     counter_ref, 0, OPTAB_WIDEN);
+
+  if (tmp != counter_ref)
+    emit_move_insn (copy_rtx (counter_ref), tmp);
+  
+  emit_label (end_of_code_label);
+
+  /* Increase the counter of all executions; this seems redundant given
+     that ve have counts for edges in cfg, but it may happen that some
+     optimization will change the counts for the block (either because
+     it is unable to update them correctly, or because it will duplicate
+     the block or its part).  */
+  tmp = expand_simple_binop (mode, PLUS, copy_rtx (all_ref), const1_rtx,
+			     all_ref, 0, OPTAB_WIDEN);
+
+  if (tmp != all_ref)
+    emit_move_insn (copy_rtx (all_ref), tmp);
+  sequence = get_insns ();
+  end_sequence ();
+  rebuild_jump_labels (sequence);
+  return sequence;
+}
 #include "gt-profile.h"
