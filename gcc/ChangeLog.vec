@@ -1,3 +1,24 @@
+2004-07-26  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* bb-reorder.c (fix_up_fall_thru_edges): Fix up when there is no edge
+	and when only on exists.
+	(fix_crossing_conditional_branches): Likewise.
+	Use EDGE_COUNT.
+	* cfgcleanup.c (outgoing_edges_match): Speedup loop and use FOR_EACH_EDGE.
+	(try_crossjump_bb): Speed up by checking the EDGE_COUNT before loop and
+	remove the check in the loop.
+	* cfghooks.c (delete_basic_block): Do not use FOR_EACH_EDGE when remove
+	all edges but a loop of EDGE_COUNT.
+	(merge_blocks): Likewise.
+	(duplicate_block): Use EDGE_COUNT.
+	* cfgrtl.c (purge_dead_edges): Adjust the iterator
+	when removing an edge.
+	* dominance.c (calc_idoms): Do not initialize ix as
+	it is wrong.
+	* tree-ssa-dce.c (remove_dead_phis): Do not use FOR_EACH_EDGE when remove
+	all edges but a loop of EDGE_COUNT.
+	* tree-ssa-loop-ch.c (duplicate_blocks): Make sure we found the other edge.
+
 2004-07-26  Steven Bosscher  <stevenb@suse.de>
 
 	* cfgcleanup.c (outgoing_edges_match): Test for exactly two edges,

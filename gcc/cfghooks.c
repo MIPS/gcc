@@ -356,9 +356,6 @@ move_block_after (basic_block bb, basic_block after)
 void
 delete_basic_block (basic_block bb)
 {
-  edge e;
-  unsigned ix;
-
   if (!cfg_hooks->delete_basic_block)
     internal_error ("%s does not support delete_basic_block.", cfg_hooks->name);
 
@@ -366,16 +363,10 @@ delete_basic_block (basic_block bb)
 
   /* Remove the edges into and out of this block.  Note that there may
      indeed be edges in, if we are removing an unreachable loop.  */
-  FOR_EACH_EDGE (e, bb->pred, ix)
-    {
-      remove_edge (e);
-      ix--;
-    }
-  FOR_EACH_EDGE (e, bb->succ, ix)
-    {
-      remove_edge (e);
-      ix--;
-    }
+  while (EDGE_COUNT (bb->pred) != 0)
+    remove_edge (EDGE_0 (bb->pred));
+  while (EDGE_COUNT (bb->succ) != 0)
+    remove_edge (EDGE_0 (bb->succ));
 
   VEC_truncate (edge, bb->pred, 0);
   VEC_truncate (edge, bb->succ, 0);
@@ -525,11 +516,8 @@ merge_blocks (basic_block a, basic_block b)
      be merging a TEST block with THEN and ELSE successors.  Free the
      whole lot of them and hope the caller knows what they're doing.  */
 
-  FOR_EACH_EDGE (e, a->succ, ix)
-    {
-      remove_edge (e);
-      ix--;
-    }
+  while (EDGE_COUNT (a->succ) != 0)
+   remove_edge (EDGE_0 (a->succ));
 
   /* Adjust the edges out of B for the new owner.  */
   FOR_EACH_EDGE (e, b->succ, ix)
@@ -700,7 +688,7 @@ duplicate_block (basic_block bb, edge e)
 
   if (bb->count < new_count)
     new_count = bb->count;
-  if (!bb->pred)
+  if (EDGE_COUNT (bb->pred) == 0)
     abort ();
 #ifdef ENABLE_CHECKING
   if (!can_duplicate_block_p (bb))

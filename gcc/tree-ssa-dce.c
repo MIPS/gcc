@@ -691,7 +691,6 @@ remove_dead_phis (basic_block bb)
 static void
 remove_dead_stmt (block_stmt_iterator *i, basic_block bb)
 {
-  unsigned len, ix;
   tree t = bsi_stmt (*i);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -712,7 +711,6 @@ remove_dead_stmt (block_stmt_iterator *i, basic_block bb)
   if (is_ctrl_stmt (t))
     {
       basic_block post_dom_bb;
-      edge e;
 #ifdef ENABLE_CHECKING
       /* The post dominance info has to be up-to-date.  */
       if (dom_computed[CDI_POST_DOMINATORS] != DOM_OK)
@@ -746,11 +744,8 @@ remove_dead_stmt (block_stmt_iterator *i, basic_block bb)
 	EDGE_0 (bb->succ)->flags &= ~EDGE_FALLTHRU;
 
       /* Remove the remaining the outgoing edges.  */
-      len = EDGE_COUNT (bb->succ);
-      for (ix = len - 1; ix >= 1 && (e = EDGE_I (bb->succ, ix)); ix--)
-	{
-	  remove_edge (e);
-	} 
+      while (EDGE_COUNT (bb->succ) != 1)
+        remove_edge (EDGE_0 (bb->succ));
     }
 
   bsi_remove (i);

@@ -500,7 +500,7 @@ calc_idoms (struct dom_info *di, enum cdi_direction reverse)
     {
       basic_block bb = di->dfs_to_bb[v];
       edge e;
-      unsigned ix = 0;
+      unsigned ix;
 
       par = di->dfs_parent[v];
       k = v;

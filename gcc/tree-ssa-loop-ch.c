@@ -200,6 +200,8 @@ duplicate_blocks (varray_type bbs_to_duplicate)
 	  FOR_EACH_EDGE (e1, new_header->succ, ix1)
 	    if (e1->dest == e->dest)
 	      break;
+	  if (e1 == NULL || ix1 > EDGE_COUNT (new_header->succ))
+	    abort ();
 
 	  for (phi = phi_nodes (e->dest); phi; phi = TREE_CHAIN (phi))
 	    {

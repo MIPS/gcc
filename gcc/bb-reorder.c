@@ -1418,8 +1418,12 @@ fix_up_fall_thru_edges (void)
   FOR_EACH_BB (cur_bb)
     {
       fall_thru = NULL;
-      succ1 = EDGE_0 (cur_bb->succ);
-      if (succ1)
+      if (EDGE_COUNT (cur_bb->succ) > 0)
+	succ1 = EDGE_0 (cur_bb->succ);
+      else
+	succ1 = NULL;
+
+      if (EDGE_COUNT (cur_bb->succ) > 1)
   	succ2 = EDGE_1 (cur_bb->succ);
       else
   	succ2 = NULL;
@@ -1606,11 +1610,15 @@ fix_crossing_conditional_branches (void)
   FOR_EACH_BB (cur_bb)
     {
       crossing_edge = NULL;
-      succ1 = EDGE_0 (cur_bb->succ);
-      if (succ1)
- 	succ2 = EDGE_1 (cur_bb->succ);
+      if (EDGE_COUNT (cur_bb->succ) > 0)
+	succ1 = EDGE_0 (cur_bb->succ);
       else
- 	succ2 = NULL;
+	succ1 = NULL;
+    
+      if (EDGE_COUNT (cur_bb->succ) > 1)
+	succ2 = EDGE_1 (cur_bb->succ);
+      else
+	succ2 = NULL;
       
       /* We already took care of fall-through edges, so only one successor
 	 can be a crossing edge.  */
@@ -1725,7 +1733,7 @@ fix_crossing_conditional_branches (void)
 		 will be a successor for new_bb and a predecessor
 		 for 'dest'.  */
 	      
-	      if (!new_bb->succ)
+	      if (EDGE_COUNT (new_bb->succ) == 0)
 		new_edge = make_edge (new_bb, dest, 0);
 	      else
 		new_edge = EDGE_0 (new_bb->succ);

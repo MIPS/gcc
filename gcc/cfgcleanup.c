@@ -1393,9 +1393,11 @@ outgoing_edges_match (int mode, basic_block bb1, basic_block bb2)
   /* Search the outgoing edges, ensure that the counts do match, find possible
      fallthru and exception handling edges since these needs more
      validation.  */
-  for (ix = 0; ix < MIN (EDGE_COUNT (bb1->succ), EDGE_COUNT (bb2->succ)); ix++)
+  if (EDGE_COUNT (bb1->succ) != EDGE_COUNT (bb2->succ))
+    return false;
+
+  FOR_EACH_EDGE (e1, bb1->succ, ix)
     {
-      e1 = EDGE_I (bb1->succ, ix);
       e2 = EDGE_I (bb2->succ, ix);
 
       if (e1->flags & EDGE_EH)
@@ -1411,8 +1413,7 @@ outgoing_edges_match (int mode, basic_block bb1, basic_block bb2)
     }
 
   /* If number of edges of various types does not match, fail.  */
-  if (EDGE_COUNT (bb1->succ) != EDGE_COUNT (bb2->succ)
-      || nehedges1 != nehedges2
+  if (nehedges1 != nehedges2
       || (fallthru1 != 0) != (fallthru2 != 0))
     return false;
 
@@ -1667,12 +1668,14 @@ try_crossjump_bb (int mode, basic_block bb)
      program.  We'll try that combination first.  */
   fallthru = NULL;
   max = PARAM_VALUE (PARAM_MAX_CROSSJUMP_EDGES);
+
+  if (EDGE_COUNT (bb->pred) > max)
+    return false;
+
   FOR_EACH_EDGE (e, bb->pred, n)
     {
       if (e->flags & EDGE_FALLTHRU)
 	fallthru = e;
-      if (n > max)
-	return false;
     }
 
   changed = false;

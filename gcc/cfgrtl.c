@@ -2316,6 +2316,7 @@ purge_dead_edges (basic_block bb)
       remove_edge (e);
       bb->flags |= BB_DIRTY;
       purged = true;
+      ix --;
     }
 
   if (JUMP_P (insn))
