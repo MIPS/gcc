@@ -1,3 +1,10 @@
+2005-02-14  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4003603
+	PR 18109
+	(Same as 3838108/3876378 in 4.0.)
+	* config/i386/i386.md (movqi_1):  Don't use 4-byte load when unsafe.
+
 2005-01-25  Dale Johannesen  <dalej@apple.com>
 
 	Radar 3970057
