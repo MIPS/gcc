@@ -61,7 +61,7 @@ ZIP = $(MULTIBUILDTOP)../$(COMPPATH)/fastjar/jar$(EXEEXT)
 else
 ZIP = jar
 endif
-GCJH = $(GCJ)h
+GCJH = ${strip $(GCJ)}h
 else # CANADIAN
 GCJH = $(MULTIBUILDTOP)../$(COMPPATH)/gcc/gcjh$(EXEEXT)
 ZIP = $(MULTIBUILDTOP)../$(COMPPATH)/fastjar/jar$(EXEEXT)
