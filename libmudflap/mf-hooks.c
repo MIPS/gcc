@@ -33,12 +33,7 @@ XXX: libgcc license?
 #define MF_VALIDATE_EXTENT(value,size,acc,context)            \
  {                                                            \
   if (UNLIKELY (size > 0 && __MF_CACHE_MISS_P (value, size))) \
-    {                                                         \
-    enum __mf_state resume_state = old_state;                 \
-    __mf_state = old_state;                                   \
     __mf_check ((void *) (value), (size), acc, "(" context ")");       \
-    old_state = resume_state;                                 \
-    }                                                         \
  }
 
 
@@ -97,6 +92,7 @@ WRAPPER(void *, malloc, size_t c)
     {
       result += __mf_opts.crumple_zone;
       __mf_register (result, c, __MF_TYPE_HEAP, "malloc region");
+      /* XXX: register __MF_TYPE_NOACCESS for crumple zones.  */
     }
 
   return result;
@@ -139,6 +135,7 @@ WRAPPER(void *, calloc, size_t c, size_t n)
     {
       result += __mf_opts.crumple_zone;
       __mf_register (result, c*n /* XXX: clamp */, __MF_TYPE_HEAP_I, "calloc region");
+      /* XXX: register __MF_TYPE_NOACCESS for crumple zones.  */
     }
   
   return result;
@@ -188,6 +185,7 @@ WRAPPER(void *, realloc, void *buf, size_t c)
     {
       result += __mf_opts.crumple_zone;
       __mf_register (result, c, __MF_TYPE_HEAP_I, "realloc region");
+      /* XXX: register __MF_TYPE_NOACCESS for crumple zones.  */
     }
 
   /* Restore previous setting.  */
@@ -329,7 +327,7 @@ WRAPPER(void *, mmap,
       for (offset=0; offset<length; offset+=ps)
 	{
 	  /* XXX: We could map PROT_NONE to __MF_TYPE_NOACCESS. */
-	  /* XXX: Unaccassed HEAP pages are reported as leaks.  Is this
+	  /* XXX: Unaccessed HEAP pages are reported as leaks.  Is this
 	     appropriate for unaccessed mmap pages? */
 	  __mf_register ((void *) CLAMPADD (base, offset), ps,
 			 __MF_TYPE_HEAP_I, "mmap page");

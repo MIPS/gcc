@@ -109,7 +109,7 @@ __mf_set_default_options ()
   __mf_opts.adapt_cache = 1000003;
   __mf_opts.print_leaks = 0;
   __mf_opts.abbreviate = 1;
-  __mf_opts.check_initialization = 1;
+  __mf_opts.check_initialization = 0;
   __mf_opts.verbose_violations = 1;
   /* __mf_opts.multi_threaded = 0; */
   __mf_opts.free_queue_length = 4;
@@ -1674,7 +1674,7 @@ __mf_describe_object (__mf_object_t *obj)
 
   fprintf (stderr,
 	   "mudflap object %08lx: name=`%s'\n"
-	   "bounds=[%08lx,%08lx] size=%lu area=%s check=%ur/%uw liveness=%u watching=%d\n"
+	   "bounds=[%08lx,%08lx] size=%lu area=%s check=%ur/%uw liveness=%u%s\n"
 	   "alloc time=%lu.%06lu pc=%08lx\n",
 	   (uintptr_t) obj, (obj->name ? obj->name : ""), 
 	   obj->low, obj->high, (obj->high - obj->low + 1),
@@ -1685,7 +1685,8 @@ __mf_describe_object (__mf_object_t *obj)
 	    obj->type == __MF_TYPE_STATIC ? "static" :
 	    obj->type == __MF_TYPE_GUESS ? "guess" :
 	    "unknown"),
-	   obj->read_count, obj->write_count, obj->liveness, obj->watching_p,
+	   obj->read_count, obj->write_count, obj->liveness, 
+	   obj->watching_p ? " watching" : "",
 	   obj->alloc_time.tv_sec, obj->alloc_time.tv_usec, obj->alloc_pc);
 
   if (__mf_opts.backtrace > 0)
@@ -1942,7 +1943,7 @@ __mf_violation (void *ptr, size_t sz, uintptr_t pc,
     fprintf (stderr,
 	     "*******\n"
 	     "mudflap violation %u (%s): time=%lu.%06lu "
-	     "ptr=%08lx size=%lu pc=%08lx%s%s%s\n", 
+	     "ptr=%08lx size=%lu\npc=%08lx%s%s%s\n", 
 	     violation_number,
 	     ((type == __MF_VIOL_READ) ? "check/read" :
 	      (type == __MF_VIOL_WRITE) ? "check/write" :

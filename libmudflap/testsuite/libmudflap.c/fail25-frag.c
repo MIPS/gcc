@@ -5,6 +5,7 @@ int main ()
 {
 char *foo;
 char *bar;
+__mf_set_options ("-check-initialization");
 foo = (char *)malloc (10);
 bar = (char *)malloc (10);
 /* bar[2] = 'z'; */ /* don't touch memcpy source */
