@@ -2043,7 +2043,22 @@ init_cumulative_args (CUMULATIVE_ARGS *cum,  /* Argument info to initialize */
     }
   if ((!fntype && !libname)
       || (fntype && !TYPE_ARG_TYPES (fntype)))
-    cum->maybe_vaarg = 1;
+    cum->maybe_vaarg = true;
+
+  /* For local functions, pass SFmode (and DFmode for SSE2) arguments
+     in SSE registers even for 32-bit mode and not just 3, but up to
+     8 SSE arguments in registers.  */
+  if (!TARGET_64BIT && !cum->maybe_vaarg && !cum->fastcall
+      && cum->sse_nregs == SSE_REGPARM_MAX && fndecl
+      && TARGET_SSE_MATH && flag_unit_at_a_time && !profile_flag)
+    {
+      struct cgraph_local_info *i = cgraph_local_info (fndecl);
+      if (i && i->local)
+        {
+          cum->sse_nregs = 8;
+          cum->float_in_sse = true;
+        }
+    }
 
   if (TARGET_DEBUG_ARG)
     fprintf (stderr, ", nregs=%d )\n", cum->nregs);
@@ -2734,6 +2749,14 @@ function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 	    }
 	  break;
 
+        case DFmode:
+          if (!TARGET_SSE2)
+            break;
+        case SFmode:
+          if (!cum->float_in_sse)
+            break;
+          /* FALLTHRU */
+
 	case TImode:
 	case V16QImode:
 	case V8HImode:
@@ -2855,6 +2878,13 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode orig_mode,
 	    ret = gen_rtx_REG (mode, regno);
 	  }
 	break;
+      case DFmode:
+        if (!TARGET_SSE2)
+          break;
+      case SFmode:
+        if (!cum->float_in_sse)
+          break;
+        /* FALLTHRU */
       case TImode:
       case V16QImode:
       case V8HImode:
@@ -3185,7 +3215,8 @@ ix86_value_regno (enum machine_mode mode, tree func)
 
   /* Floating point return values in %st(0), except for local functions when
      SSE math is enabled.  */
-  if (func && SSE_FLOAT_MODE_P (mode) && TARGET_SSE_MATH)
+  if (func && SSE_FLOAT_MODE_P (mode) && TARGET_SSE_MATH
+      && flag_unit_at_a_time)
     {
       struct cgraph_local_info *i = cgraph_local_info (func);
       if (i && i->local)

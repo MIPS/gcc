@@ -1,3 +1,14 @@
+2005-01-27  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/i386.c (init_cumulative_args): For -m32 -mfpmath=sse
+	and local functions, set sse_nregs to 8 and float_in_sse.
+	(function_arg_advance, function_arg): If float_in_sse, pass
+	SFmode and DFmode arguments in SSE registers.
+	* config/i386/i386.h (CUMULATIVE_ARGS): Add float_in_sse field.
+
+	* config/i386/i386.c (ix86_value_regno): Only optimize local functions
+	of -funit-at-a-time.
+
 2005-01-25  Paolo Bonzini  <bonzini@gnu.org>
 
 	* config/i386/i386-protos.h (ix86_function_value): Accept two

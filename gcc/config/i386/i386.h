@@ -1736,6 +1736,8 @@ typedef struct ix86_args {
   int mmx_nregs;		/* # mmx registers available for passing */
   int mmx_regno;		/* next available mmx register number */
   int maybe_vaarg;		/* true for calls to possibly vardic fncts.  */
+  int float_in_sse;		/* true if in 32-bit mode SFmode/DFmode should
+				   be passed in SSE registers.  */
 } CUMULATIVE_ARGS;
 
 /* Initialize a variable CUM of type CUMULATIVE_ARGS
