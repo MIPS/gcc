@@ -21,6 +21,23 @@
 
 2003-11-16  Jason Merrill  <jason@redhat.com>
 
+	* gimplify.c (mostly_copy_tree_r): Don't walk into a BLOCK.
+
+	* tree-inline.c (walk_tree): Don't walk into the BIND_EXPR_VARS
+	of a BIND_EXPR.
+	* c-common.c (c_walk_subtrees): Don't walk into the decl of a
+	DECL_STMT.
+
+	PR optimization/11269
+	* dwarf2out.c (gen_subprogram_die): Generate a DIE for a named
+	return value.
+	(loc_descriptor_from_tree): Treat RESULT_DECL like VAR_DECL.
+	(add_location_or_const_value_attribute): Likewise.
+	(add_bound_info): Likewise.
+	(gen_decl_die): Likewise.
+
+2003-11-16  Jason Merrill  <jason@redhat.com>
+
 	* c-pretty-print.c (debug_c_tree): Restore removed fn.
 	* diagnostic.h: Declare it.
 

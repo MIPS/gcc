@@ -5844,6 +5844,8 @@ c_walk_subtrees (tree *tp, int *walk_subtrees_p ATTRIBUTE_UNUSED,
       WALK_SUBTREE (DECL_INITIAL (DECL_STMT_DECL (*tp)));
       WALK_SUBTREE (DECL_SIZE (DECL_STMT_DECL (*tp)));
       WALK_SUBTREE (DECL_SIZE_UNIT (DECL_STMT_DECL (*tp)));
+      WALK_SUBTREE (TREE_CHAIN (*tp));
+      *walk_subtrees_p = 0;
     }
 
   /* We didn't find what we were looking for.  */

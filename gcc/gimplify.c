@@ -594,7 +594,11 @@ mostly_copy_tree_r (tree *tp, int *walk_subtrees, void *data)
   /* Don't unshare types, constants and SAVE_EXPR nodes.  */
   if (TREE_CODE_CLASS (code) == 't'
       || TREE_CODE_CLASS (code) == 'c'
-      || code == SAVE_EXPR)
+      || code == SAVE_EXPR
+      /* We can't do anything sensible with a BLOCK used as an expression,
+	 but we also can't abort when we see it because of non-expression
+	 uses.  So just avert our eyes and cross our fingers.  Silly Java.  */
+      || code == BLOCK)
     *walk_subtrees = 0;
   else if (code == BIND_EXPR)
     abort ();

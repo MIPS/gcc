@@ -10743,10 +10743,8 @@ finish_function (int flags)
      of curly braces for a function.  */
   my_friendly_assert (stmts_are_full_exprs_p (), 19990831);
 
-  /* Set up the named return value optimization, if we can.  Here, we
-     eliminate the copy from the nrv into the RESULT_DECL and any cleanup
-     for the nrv.  genrtl_start_function and declare_return_variable
-     handle making the nrv and RESULT_DECL share space.  */
+  /* Set up the named return value optimization, if we can.  Candidate
+     variables are selected in check_return_value.  */
   if (current_function_return_value)
     {
       tree r = current_function_return_value;
@@ -10763,16 +10761,9 @@ finish_function (int flags)
 	  /* Skip the artificial function body block.  */
 	  && (outer = BLOCK_SUBBLOCKS (BLOCK_SUBBLOCKS (DECL_INITIAL (fndecl))),
 	      chain_member (r, BLOCK_VARS (outer))))
-	{
-	  set_has_hidden_use (r);
-	  DECL_ALIGN (r) = DECL_ALIGN (DECL_RESULT (fndecl));
-	  walk_tree_without_duplicates (&DECL_SAVED_TREE (fndecl),
-					nullify_returns_r, r);
-	}
-      else
-	/* Clear it so genrtl_start_function and declare_return_variable
-	   know we're not optimizing.  */
-	current_function_return_value = NULL_TREE;
+	finalize_nrv (&DECL_SAVED_TREE (fndecl), r, DECL_RESULT (fndecl));
+
+      current_function_return_value = NULL_TREE;
     }
 
   /* Remember that we were in class scope.  */

@@ -2117,11 +2117,10 @@ tree
 cp_copy_res_decl_for_inlining (tree result, 
                                tree fn, 
                                tree caller, 
-                               void* decl_map_,
+                               void* decl_map_ ATTRIBUTE_UNUSED,
                                int* need_decl, 
                                tree return_slot_addr)
 {
-  splay_tree decl_map = (splay_tree)decl_map_;
   tree var;
 
   /* If FN returns an aggregate then the caller will always pass the
@@ -2148,34 +2147,6 @@ cp_copy_res_decl_for_inlining (tree result,
   /* Otherwise, make an appropriate copy.  */
   else
     var = copy_decl_for_inlining (result, fn, caller);
-
-  if (DECL_SAVED_FUNCTION_DATA (fn))
-    {
-      tree nrv = DECL_SAVED_FUNCTION_DATA (fn)->x_return_value;
-      if (nrv)
-	{
-	  /* We have a named return value; copy the name and source
-	     position so we can get reasonable debugging information, and
-	     register the return variable as its equivalent.  */
-	  if (TREE_CODE (var) == VAR_DECL
-	      /* But not if we're initializing a variable from the
-		 enclosing function which already has its own name.  */
-	      && DECL_NAME (var) == NULL_TREE)
-	    {
-	      DECL_NAME (var) = DECL_NAME (nrv);
-	      DECL_SOURCE_LOCATION (var) = DECL_SOURCE_LOCATION (nrv);
-	      DECL_ABSTRACT_ORIGIN (var) = DECL_ORIGIN (nrv);
-	      /* Don't lose initialization info.  */
-	      DECL_INITIAL (var) = DECL_INITIAL (nrv);
-	      /* Don't forget that it needs to go in the stack.  */
-	      TREE_ADDRESSABLE (var) = TREE_ADDRESSABLE (nrv);
-	    }
-
-	  splay_tree_insert (decl_map,
-			     (splay_tree_key) nrv,
-			     (splay_tree_value) var);
-	}
-    }
 
   return var;
 }

@@ -4074,7 +4074,6 @@ extern void finish_decl_cleanup                 (tree, tree);
 extern void finish_eh_cleanup                   (tree);
 extern void expand_body                         (tree);
 extern void cxx_expand_function_start		(void);
-extern tree nullify_returns_r		      (tree *, int *, void *);
 extern void do_pushlevel                        (scope_kind);
 extern tree do_poplevel                         (void);
 extern void finish_mem_initializers             (tree);
@@ -4085,6 +4084,7 @@ extern void expand_or_defer_fn			(tree);
 extern void check_accessibility_of_qualified_id (tree, tree, tree);
 extern tree finish_qualified_id_expr            (tree, tree, bool, bool);
 extern void simplify_aggr_init_expr		(tree *);
+extern void finalize_nrv			(tree *, tree, tree);
 
 /* in tree.c */
 extern void lang_check_failed			(const char *, int,

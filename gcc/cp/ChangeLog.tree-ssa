@@ -1,3 +1,14 @@
+2003-11-16  Jason Merrill  <jason@redhat.com>
+
+	PR optimization/11269
+	* semantics.c (finalize_nrv_r): Rename from nullify_returns_r.
+	Also replace uses of the nrv with our RESULT_DECL.
+	(cxx_expand_function_start): Don't mess with the nrv.
+	(finalize_nrv): New fn.
+	* cp-tree.h: Declare it.
+	* decl.c (finish_function): Call it.
+	* tree.c (cp_copy_res_decl_for_inlining): Don't mess with the nrv.
+
 2003-11-10  Richard Henderson  <rth@redhat.com>
 
 	* cp-simplify.c (gimplify_must_not_throw_expr): Replace add_tree

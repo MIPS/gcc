@@ -1855,6 +1855,7 @@ walk_tree (tree *tp, walk_tree_fn func, void *data, void *htab_)
 
   if (code != EXIT_BLOCK_EXPR
       && code != SAVE_EXPR
+      && code != BIND_EXPR
       && IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (code)))
     {
       int i, len;
@@ -1868,6 +1869,10 @@ walk_tree (tree *tp, walk_tree_fn func, void *data, void *htab_)
 	--len;
       /* Go through the subtrees.  We need to do this in forward order so
          that the scope of a FOR_EXPR is handled properly.  */
+#ifdef DEBUG_WALK_TREE
+      for (i = 0; i < len; ++i)
+	WALK_SUBTREE (TREE_OPERAND (*tp, i));
+#else
       for (i = 0; i < len - 1; ++i)
 	WALK_SUBTREE (TREE_OPERAND (*tp, i));
 
@@ -1880,23 +1885,7 @@ walk_tree (tree *tp, walk_tree_fn func, void *data, void *htab_)
 	  else
 	    WALK_SUBTREE (TREE_OPERAND (*tp, len - 1));
 	}
-
-      if (code == BIND_EXPR)
-	{
-	  tree decl;
-	  for (decl = BIND_EXPR_VARS (*tp); decl; decl = TREE_CHAIN (decl))
-	    {
-	      /* Walk the DECL_INITIAL and DECL_SIZE.  We don't want to walk
-		 into declarations that are just mentioned, rather than
-		 declared; they don't really belong to this part of the tree.
-		 And, we can see cycles: the initializer for a declaration can
-		 refer to the declaration itself.  */
-	      WALK_SUBTREE (DECL_INITIAL (decl));
-	      WALK_SUBTREE (DECL_SIZE (decl));
-	      WALK_SUBTREE (DECL_SIZE_UNIT (decl));
-	      WALK_SUBTREE (TREE_TYPE (decl));
-	    }
-	}
+#endif
 
       if ((*lang_hooks.tree_inlining.tree_chain_matters_p) (*tp))
 	/* Check our siblings.  */
@@ -2005,6 +1994,24 @@ walk_tree (tree *tp, walk_tree_fn func, void *data, void *htab_)
 
 	case SAVE_EXPR:
 	  WALK_SUBTREE_TAIL (TREE_OPERAND (*tp, 0));
+
+	case BIND_EXPR:
+	  {
+	    tree decl;
+	    for (decl = BIND_EXPR_VARS (*tp); decl; decl = TREE_CHAIN (decl))
+	      {
+		/* Walk the DECL_INITIAL and DECL_SIZE.  We don't want to walk
+		   into declarations that are just mentioned, rather than
+		   declared; they don't really belong to this part of the tree.
+		   And, we can see cycles: the initializer for a declaration can
+		   refer to the declaration itself.  */
+		WALK_SUBTREE (DECL_INITIAL (decl));
+		WALK_SUBTREE (DECL_SIZE (decl));
+		WALK_SUBTREE (DECL_SIZE_UNIT (decl));
+		WALK_SUBTREE (TREE_TYPE (decl));
+	      }
+	    WALK_SUBTREE_TAIL (BIND_EXPR_BODY (*tp));
+	  }
 
 	case STATEMENT_LIST:
 	  {

@@ -8488,6 +8488,7 @@ loc_descriptor_from_tree (tree loc, int addressp)
       /* FALLTHRU */
 
     case PARM_DECL:
+    case RESULT_DECL:
       {
 	rtx rtl = rtl_for_decl_location (loc);
 
@@ -9400,7 +9401,8 @@ add_location_or_const_value_attribute (dw_die_ref die, tree decl)
 
   if (TREE_CODE (decl) == ERROR_MARK)
     return;
-  else if (TREE_CODE (decl) != VAR_DECL && TREE_CODE (decl) != PARM_DECL)
+  else if (TREE_CODE (decl) != VAR_DECL && TREE_CODE (decl) != PARM_DECL
+	   && TREE_CODE (decl) != RESULT_DECL)
     abort ();
 
   rtl = rtl_for_decl_location (decl);
@@ -9588,6 +9590,7 @@ add_bound_info (dw_die_ref subrange_die, enum dwarf_attribute bound_attr, tree b
 
     case VAR_DECL:
     case PARM_DECL:
+    case RESULT_DECL:
       {
 	dw_die_ref decl_die = lookup_decl_die (bound);
 
@@ -10807,6 +10810,10 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
      constructor function.  */
   if (! declaration && TREE_CODE (outer_scope) != ERROR_MARK)
     {
+      /* Emit a DW_TAG_variable DIE for a named return value.  */
+      if (DECL_NAME (DECL_RESULT (decl)))
+	gen_decl_die (DECL_RESULT (decl), subr_die);
+
       current_function_has_inlines = 0;
       decls_for_scope (outer_scope, subr_die, 0);
 
@@ -11871,6 +11878,7 @@ gen_decl_die (tree decl, dw_die_ref context_die)
       break;
 
     case VAR_DECL:
+    case RESULT_DECL:
       /* If we are in terse mode, don't generate any DIEs to represent any
 	 variable declarations or definitions.  */
       if (debug_info_level <= DINFO_LEVEL_TERSE)

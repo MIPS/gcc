@@ -61,6 +61,7 @@ static void genrtl_try_block (tree);
 static void genrtl_eh_spec_block (tree);
 static void genrtl_handler (tree);
 static void cp_expand_stmt (tree);
+static tree finalize_nrv_r (tree *, int *, void *);
 
 
 /* Finish processing the COND, the SUBSTMT condition for STMT.  */
@@ -2968,27 +2969,94 @@ expand_or_defer_fn (tree fn)
   function_depth--;
 }
 
-/* Helper function for walk_tree, used by finish_function to override all
-   the RETURN_STMTs and pertinent CLEANUP_STMTs for the named return
-   value optimization.  */
-
-tree
-nullify_returns_r (tree* tp, int* walk_subtrees, void* data)
+struct nrv_data
 {
-  tree nrv = (tree) data;
+  tree var;
+  tree result;
+  htab_t visited;
+};
+
+/* Helper function for walk_tree, used by finalize_nrv below.  */
+
+static tree
+finalize_nrv_r (tree* tp, int* walk_subtrees, void* data)
+{
+  struct nrv_data *dp = (struct nrv_data *)data;
+  void **slot;
 
   /* No need to walk into types.  There wouldn't be any need to walk into
      non-statements, except that we have to consider STMT_EXPRs.  */
   if (TYPE_P (*tp))
     *walk_subtrees = 0;
+  /* Change all returns to just refer to the RESULT_DECL; this is a nop,
+     but differs from using NULL_TREE in that it indicates that we care
+     about the value of the RESULT_DECL.  */
   else if (TREE_CODE (*tp) == RETURN_STMT)
-    RETURN_STMT_EXPR (*tp) = NULL_TREE;
+    RETURN_STMT_EXPR (*tp) = dp->result;
+  /* Change all cleanups for the NRV to only run when an exception is
+     thrown.  */
   else if (TREE_CODE (*tp) == CLEANUP_STMT
-	   && CLEANUP_DECL (*tp) == nrv)
+	   && CLEANUP_DECL (*tp) == dp->var)
     CLEANUP_EH_ONLY (*tp) = 1;
+  /* Replace the DECL_STMT for the NRV with an initialization of the
+     RESULT_DECL, if needed.  */
+  else if (TREE_CODE (*tp) == DECL_STMT
+	   && DECL_STMT_DECL (*tp) == dp->var)
+    {
+      tree init;
+      if (DECL_INITIAL (dp->var)
+	  && DECL_INITIAL (dp->var) != error_mark_node)
+	{
+	  init = build (INIT_EXPR, void_type_node, dp->result,
+			DECL_INITIAL (dp->var));
+	  DECL_INITIAL (dp->var) = error_mark_node;
+	}
+      else
+	init = NULL_TREE;
+      init = build_stmt (EXPR_STMT, init);
+      STMT_LINENO (init) = STMT_LINENO (*tp);
+      TREE_CHAIN (init) = TREE_CHAIN (*tp);
+      *tp = init;
+    }
+  /* And replace all uses of the NRV with the RESULT_DECL.  */
+  else if (*tp == dp->var)
+    *tp = dp->result;
+
+  /* Avoid walking into the same tree more than once.  Unfortunately, we
+     can't just use walk_tree_without duplicates because it would only call
+     us for the first occurrence of dp->var in the function body.  */
+  slot = htab_find_slot (dp->visited, *tp, INSERT);
+  if (*slot)
+    *walk_subtrees = 0;
+  else
+    *slot = *tp;
 
   /* Keep iterating.  */
   return NULL_TREE;
+}
+
+/* Called from finish_function to implement the named return value
+   optimization by overriding all the RETURN_STMTs and pertinent
+   CLEANUP_STMTs and replacing all occurrences of VAR with RESULT, the
+   RESULT_DECL for the function.  */
+
+void
+finalize_nrv (tree *tp, tree var, tree result)
+{
+  struct nrv_data data;
+
+  /* Copy debugging information from VAR to RESULT.  */
+  DECL_NAME (result) = DECL_NAME (var);
+  DECL_SOURCE_LOCATION (result) = DECL_SOURCE_LOCATION (var);
+  DECL_ABSTRACT_ORIGIN (result) = DECL_ABSTRACT_ORIGIN (var);
+  /* Don't forget that we take its address.  */
+  TREE_ADDRESSABLE (result) = TREE_ADDRESSABLE (var);
+
+  data.var = var;
+  data.result = result;
+  data.visited = htab_create (37, htab_hash_pointer, htab_eq_pointer, NULL);
+  walk_tree (tp, finalize_nrv_r, &data, 0);
+  htab_delete (data.visited);
 }
 
 /* Start generating the RTL for FN.  */
@@ -2996,9 +3064,6 @@ nullify_returns_r (tree* tp, int* walk_subtrees, void* data)
 void
 cxx_expand_function_start (void)
 {
-  /* Give our named return value the same RTL as our RESULT_DECL.  */
-  if (current_function_return_value)
-    COPY_DECL_RTL (DECL_RESULT (cfun->decl), current_function_return_value);
 }
 
 /* Perform initialization related to this module.  */
