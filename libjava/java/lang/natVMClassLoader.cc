@@ -24,6 +24,7 @@ details.  */
 #include <java/lang/VMClassLoader.h>
 #include <java/lang/VMCompiler.h>
 #include <gnu/gcj/runtime/VMClassLoader.h>
+#include <gnu/gcj/runtime/SystemClassLoader.h>
 #include <java/lang/ClassLoader.h>
 #include <java/lang/Class.h>
 #include <java/lang/Throwable.h>
@@ -56,13 +57,8 @@ java::lang::VMClassLoader::defineClass (java::lang::ClassLoader *loader,
   jclass klass = VMCompiler::compileClass(loader, name, data,
 					  offset, length, pd);
 
-  if (klass != NULL)
-    {
-      JvSynchronize sync (&java::lang::Class::class$);
-      _Jv_RegisterClass (klass);
-    }
 #ifdef INTERPRETER
-  else
+  if (klass == NULL)
     {
       klass = new java::lang::Class ();
 
@@ -95,7 +91,7 @@ java::lang::VMClassLoader::defineClass (java::lang::ClassLoader *loader,
 	  klass->state = JV_STATE_ERROR;
 	  klass->notifyAll ();
 
-	  _Jv_UnregisterClass (klass);
+	  _Jv_UnregisterInitiatingLoader (klass, klass->loader);
 
 	  // If EX is not a ClassNotFoundException, that's ok, because we
 	  // account for the possibility in defineClass().
@@ -114,7 +110,7 @@ java::lang::ClassLoader *
 java::lang::VMClassLoader::getSystemClassLoaderInternal()
 {
   _Jv_InitClass (&gnu::gcj::runtime::VMClassLoader::class$);
-  return gnu::gcj::runtime::VMClassLoader::instance;
+  return gnu::gcj::runtime::VMClassLoader::system_instance;
 }
 
 jclass

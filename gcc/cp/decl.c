@@ -1669,6 +1669,13 @@ duplicate_decls (tree newdecl, tree olddecl)
       DECL_COMDAT (newdecl) |= DECL_COMDAT (olddecl);
       DECL_TEMPLATE_INSTANTIATED (newdecl)
 	|= DECL_TEMPLATE_INSTANTIATED (olddecl);
+      /* If the OLDDECL is an implicit instantiation, then the NEWDECL
+	 must be too.  But, it may not yet be marked as such if the
+	 caller has created NEWDECL, but has not yet figured out that
+	 it is a redeclaration.  */
+      if (DECL_IMPLICIT_INSTANTIATION (olddecl)
+	  && !DECL_USE_TEMPLATE (newdecl))
+	SET_DECL_IMPLICIT_INSTANTIATION (newdecl);
       /* Don't really know how much of the language-specific
 	 values we should copy from old to new.  */
       DECL_IN_AGGR_P (newdecl) = DECL_IN_AGGR_P (olddecl);
@@ -3698,7 +3705,12 @@ start_decl (const cp_declarator *declarator,
       if ((DECL_LANG_SPECIFIC (decl) && DECL_USE_TEMPLATE (decl))
 	  || CLASSTYPE_TEMPLATE_INSTANTIATION (context))
 	{
-	  SET_DECL_TEMPLATE_SPECIALIZATION (decl);
+	  /* Do not mark DECL as an explicit specialization if it was
+	     not already marked as an instantiation; a declaration
+	     should never be marked as a specialization unless we know
+	     what template is being specialized.  */ 
+	  if (DECL_LANG_SPECIFIC (decl) && DECL_USE_TEMPLATE (decl))
+	    SET_DECL_TEMPLATE_SPECIALIZATION (decl);
 	  /* [temp.expl.spec] An explicit specialization of a static data
 	     member of a template is a definition if the declaration
 	     includes an initializer; otherwise, it is a declaration.
@@ -4340,10 +4352,15 @@ reshape_init (tree type, tree *initp)
 	new_init = build_tree_list (TREE_PURPOSE (old_init), new_init);
     }
 
-  /* If this was a brace-enclosed initializer and all of the
-     initializers were not used up, there is a problem.  */
-  if (brace_enclosed_p && *initp)
-    error ("too many initializers for %qT", type);
+  /* If there are more initializers than necessary, issue a
+     diagnostic.  */  
+  if (*initp)
+    {
+      if (brace_enclosed_p)
+	error ("too many initializers for %qT", type);
+      else if (warn_missing_braces)
+	warning ("missing braces around initializer");
+    }
 
   return new_init;
 }
@@ -6541,9 +6558,22 @@ grokdeclarator (const cp_declarator *declarator,
 	      {
 	      case BIT_NOT_EXPR:
 		{
-		  tree type = TREE_OPERAND (decl, 0);
-		  type = constructor_name (type);
-		  name = IDENTIFIER_POINTER (type);
+		  tree type;
+
+		  if (innermost_code != cdk_function)
+		    {
+		      error ("declaration of %qD as non-function", decl);
+		      return error_mark_node;
+		    }
+		  else if (!qualifying_scope 
+			   && !(current_class_type && at_class_scope_p ()))
+		    {
+		      error ("declaration of %qD as non-member", decl);
+		      return error_mark_node;
+		    }
+		  
+		  type = TREE_OPERAND (decl, 0);
+		  name = IDENTIFIER_POINTER (constructor_name (type));
 		}
 		break;
 
@@ -7524,18 +7554,14 @@ grokdeclarator (const cp_declarator *declarator,
 	TYPE_FOR_JAVA (type) = 1;
 
       if (decl_context == FIELD)
-	{
-	  if (constructor_name_p (unqualified_id, current_class_type))
-	    pedwarn ("ISO C++ forbids nested type %qD with same name "
-                     "as enclosing class",
-		     unqualified_id);
-	  decl = build_lang_decl (TYPE_DECL, unqualified_id, type);
-	}
+	decl = build_lang_decl (TYPE_DECL, unqualified_id, type);
       else
+	decl = build_decl (TYPE_DECL, unqualified_id, type);
+      if (id_declarator && declarator->u.id.qualifying_scope)
+	error ("%Jtypedef name may not be a nested-name-specifier", decl);
+
+      if (decl_context != FIELD)
 	{
-	  decl = build_decl (TYPE_DECL, unqualified_id, type);
-	  if (in_namespace || ctype)
-	    error ("%Jtypedef name may not be a nested-name-specifier", decl);
 	  if (!current_function_decl)
 	    DECL_CONTEXT (decl) = FROB_CONTEXT (current_namespace);
 	  else if (DECL_MAYBE_IN_CHARGE_CONSTRUCTOR_P (current_function_decl)
@@ -7547,6 +7573,10 @@ grokdeclarator (const cp_declarator *declarator,
 	       clones.  */
 	    DECL_ABSTRACT (decl) = 1;
 	}
+      else if (constructor_name_p (unqualified_id, current_class_type))
+	pedwarn ("ISO C++ forbids nested type %qD with same name "
+		 "as enclosing class",
+		 unqualified_id);
 
       /* If the user declares "typedef struct {...} foo" then the
 	 struct will have an anonymous name.  Fill that name in now.
@@ -7791,15 +7821,6 @@ grokdeclarator (const cp_declarator *declarator,
 	    int publicp = 0;
 	    tree function_context;
 
-	    /* We catch the others as conflicts with the builtin
-	       typedefs.  */
-	    if (friendp && unqualified_id == ridpointers[(int) RID_SIGNED])
-	      {
-		error ("function %qD cannot be declared friend",
-		       unqualified_id);
-		friendp = 0;
-	      }
-
 	    if (friendp == 0)
 	      {
 		if (ctype == NULL_TREE)
@@ -7835,6 +7856,18 @@ grokdeclarator (const cp_declarator *declarator,
 		  type = build_method_type_directly (ctype,
 						     TREE_TYPE (type),
 						     TYPE_ARG_TYPES (type));
+	      }
+
+	    /* Check that the name used for a destructor makes sense.  */
+	    if (sfk == sfk_destructor
+		&& !same_type_p (TREE_OPERAND 
+				 (id_declarator->u.id.unqualified_name, 0),
+				 ctype))
+	      {
+		error ("declaration of %qD as member of %qT", 
+		       id_declarator->u.id.unqualified_name,
+		       ctype);
+		return error_mark_node;
 	      }
 
 	    /* Tell grokfndecl if it needs to set TREE_PUBLIC on the node.  */
@@ -9670,6 +9703,11 @@ build_enumerator (tree name, tree value, tree enumtype)
   tree context;
   tree type;
 
+  /* If the VALUE was erroneous, pretend it wasn't there; that will
+     result in the enum being assigned the next value in sequence.  */
+  if (value == error_mark_node)
+    value = NULL_TREE;
+
   /* Remove no-op casts from the value.  */
   if (value)
     STRIP_TYPE_NOPS (value);
@@ -10911,9 +10949,6 @@ cxx_maybe_build_cleanup (tree decl)
 
       rval = build_delete (TREE_TYPE (rval), rval,
 			   sfk_complete_destructor, flags, 0);
-
-      if (has_vbases && !TYPE_HAS_DESTRUCTOR (type))
-	rval = build_compound_expr (rval, build_vbase_delete (type, decl));
 
       return rval;
     }

@@ -1,4 +1,4 @@
-@c Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+@c Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
@@ -919,17 +919,26 @@ DejaGnu directives, which know nothing about the GCC directives, so the
 DejaGnu directives must precede GCC directives.
 
 Several test directives include selectors which are usually preceded by
-the keyword @code{target} or @code{xfail}.  A selector is one or
-more target triplets, possibly including wildcard characters, or else a
-single effective-target keyword.  Depending on the context, the selector
-specifies whether a test is skipped and reported as unsupported or is
-expected to fail.  Use @samp{*-*-*} to match any target.
-
+the keyword @code{target} or @code{xfail}.  A selector is: one or more
+target triplets, possibly including wildcard characters; a single
+effective-target keyword; or a logical expression.  Depending on the
+context, the selector specifies whether a test is skipped and reported
+as unsupported or is expected to fail.  Use @samp{*-*-*} to match any
+target.
 Effective-target keywords are defined in @file{target-supports.exp} in
-the GCC testsuite or, in the case of unusual effective targets that are
-used only for a limited number of tests, in @file{.exp} files in the
-same directory as the tests.  There is no mechanism to combine or negate
-effective-target keywords.
+the GCC testsuite.
+
+A selector expression appears within curly braces and uses a single
+logical operator: one of @samp{!}, @samp{&&}, or @samp{||}.  An
+operand is another selector expression, an effective-target keyword,
+a single target triplet, or a list of target triplets within quotes or
+curly braces.  For example:
+
+@smallexample
+@{ target @{ ! "hppa*-*-* ia64*-*-*" @} @}
+@{ target @{ powerpc*-*-* && lp64 @} @}
+@{ xfail @{ lp64 || vect_no_align @} @}
+@end smallexample
 
 @table @code
 @item @{ dg-do @var{do-what-keyword} [@{ target/xfail @var{selector} @}] @}
@@ -1019,8 +1028,8 @@ targets.
 
 @item @{ dg-excess-errors @var{comment} [@{ target/xfail @var{selector} @}] @}
 This DejaGnu directive indicates that the test is expected to fail due
-to compiler messages that are not handled by @option{dg-error},
-@option{dg-warning} or @option{dg-bogus}.
+to compiler messages that are not handled by @samp{dg-error},
+@samp{dg-warning} or @samp{dg-bogus}.
 
 @item @{ dg-output @var{regexp} [@{ target/xfail @var{selector} @}] @}
 This DejaGnu directive compares @var{regexp} to the combined output
@@ -1040,7 +1049,7 @@ following the main test file.
 @item @{ dg-final @{ @var{local-directive} @} @}
 This DejaGnu directive is placed within a comment anywhere in the
 source file and is processed after the test has been compiled and run.
-Multiple @option{dg-final} commands are processed in the order in which
+Multiple @samp{dg-final} commands are processed in the order in which
 they appear in the source file.
 
 The GCC testsuite defines the following directives to be used within

@@ -1,4 +1,4 @@
-@c Copyright (C) 1988,1989,1992,1993,1994,1996,1998,1999,2000,2001,2002,2003,2004
+@c Copyright (C) 1988,1989,1992,1993,1994,1996,1998,1999,2000,2001,2002,2003,2004,2005
 @c Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
@@ -381,8 +381,8 @@ bar (int *array, int offset, int size)
 @end smallexample
 
 Nested function definitions are permitted within functions in the places
-where variable definitions are allowed; that is, in any block, before
-the first statement in the block.
+where variable definitions are allowed; that is, in any block, mixed
+with the other declarations and statements in the block.
 
 It is possible to call the nested function from outside the scope of its
 name by storing its address or passing the address to another function:
@@ -449,8 +449,8 @@ bar (int *array, int offset, int size)
 @end group
 @end smallexample
 
-A nested function always has internal linkage.  Declaring one with
-@code{extern} is erroneous.  If you need to declare the nested function
+A nested function always has no linkage.  Declaring one with
+@code{extern} or @code{static} is erroneous.  If you need to declare the nested function
 before its definition, use @code{auto} (which is otherwise meaningless
 for function declarations).
 
@@ -4507,6 +4507,9 @@ identifier, or a sequence of member accesses and array references.
 @findex __builtin_islessequal
 @findex __builtin_islessgreater
 @findex __builtin_isunordered
+@findex __builtin_powi
+@findex __builtin_powif
+@findex __builtin_powil
 @findex _Exit
 @findex _exit
 @findex abort
@@ -5366,6 +5369,21 @@ Similar to @code{__builtin_popcount}, except the argument type is
 @deftypefn {Built-in Function} int __builtin_parityll (unsigned long long)
 Similar to @code{__builtin_parity}, except the argument type is
 @code{unsigned long long}.
+@end deftypefn
+
+@deftypefn {Built-in Function} double __builtin_powi (double, int)
+Returns the first argument raised to the power of the second.  Unlike the
+@code{pow} function no guarantees about precision and rounding are made.
+@end deftypefn
+
+@deftypefn {Built-in Function} float __builtin_powif (float, int)
+Similar to @code{__builtin_powi}, except the argument and return types
+are @code{float}.
+@end deftypefn
+
+@deftypefn {Built-in Function} {long double} __builtin_powil (long double, int)
+Similar to @code{__builtin_powi}, except the argument and return types
+are @code{long double}.
 @end deftypefn
 
 
@@ -9798,6 +9816,16 @@ removed from G++.
 The use of default arguments in function pointers, function typedefs and
 and other places where they are not permitted by the standard is
 deprecated and will be removed from a future version of G++.
+
+G++ allows floating-point literals to appear in integral constant expressions,
+e.g. @samp{ enum E @{ e = int(2.2 * 3.7) @} }
+This extension is deprecated and will be removed from a future version.
+
+G++ allows static data members of const floating-point type to be declared
+with an initializer in a class definition. The standard only allows
+initializers for static members of const integral types and const
+enumeration types so this extension has been deprecated and will be removed
+from a future version.
 
 @node Backwards Compatibility
 @section Backwards Compatibility

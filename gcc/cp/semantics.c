@@ -1959,7 +1959,12 @@ finish_unary_op_expr (enum tree_code code, tree expr)
       && TREE_CODE (result) == INTEGER_CST
       && !TYPE_UNSIGNED (TREE_TYPE (result))
       && INT_CST_LT (result, integer_zero_node))
-    TREE_NEGATED_INT (result) = 1;
+    {
+      /* RESULT may be a cached INTEGER_CST, so we must copy it before
+	 setting TREE_NEGATED_INT.  */
+      result = copy_node (result);
+      TREE_NEGATED_INT (result) = 1;
+    }
   overflow_warning (result);
   return result;
 }
@@ -2658,7 +2663,8 @@ finish_id_expression (tree id_expression,
          expression.  Enumerators and template parameters have already
          been handled above.  */
       if (integral_constant_expression_p
-	  && !DECL_INTEGRAL_CONSTANT_VAR_P (decl))
+	  && ! DECL_INTEGRAL_CONSTANT_VAR_P (decl)
+	  && ! builtin_valid_in_constant_expr_p (decl))
 	{
 	  if (!allow_non_integral_constant_expression_p)
 	    {

@@ -235,6 +235,9 @@ enum optab_index
   /* Extract specified elements from vectors, for vector load.  */
   OTI_vec_realign_load,
 
+  /* Perform a raise to the power of integer.  */
+  OTI_powi,
+
   OTI_MAX
 };
 
@@ -339,6 +342,8 @@ extern GTY(()) optab optab_table[OTI_MAX];
 #define vec_extract_optab (optab_table[OTI_vec_extract])
 #define vec_init_optab (optab_table[OTI_vec_init])
 #define vec_realign_load_optab (optab_table[OTI_vec_realign_load])
+
+#define powi_optab (optab_table[OTI_powi])
 
 /* Conversion optabs have their own table and indexes.  */
 enum convert_optab_index
@@ -455,6 +460,7 @@ extern rtx expand_abs (enum machine_mode, rtx, rtx, int, int);
 
 /* Expand the copysign operation.  */
 extern rtx expand_copysign (rtx, rtx, rtx);
+extern rtx expand_copysign_absneg (enum machine_mode, rtx, rtx, rtx, int, bool);
 
 /* Generate an instruction with a given INSN_CODE with an output and
    an input.  */

@@ -163,7 +163,7 @@ basic block reordering	Jason Eckhardt		jle@rice.edu
 i18n			Philipp Thomas		pthomas@suse.de
 diagnostic messages	Gabriel Dos Reis	gdr@integrable-solutions.net
 libiberty		DJ Delorie		dj@redhat.com
-libiberty		Ian Lance Taylor	ian@wasabisystems.com
+libiberty		Ian Lance Taylor	ian@airs.com
 build machinery (*.in)	DJ Delorie		dj@redhat.com
 build machinery (*.in)	Nathanael Nerode	neroden@gcc.gnu.org
 build machinery (*.in)	Alexandre Oliva		aoliva@redhat.com
@@ -229,6 +229,7 @@ Brian Ford					ford@vss.fsi.com
 Kaveh Ghazi					ghazi@caip.rutgers.edu
 Matthew Gingell					gingell@gnat.com
 Anthony Green					green@redhat.com
+Richard Guenther				rguenth@gcc.gnu.org
 Laurent Guerby					laurent@guerby.net
 Mostafa Hagog					hagog@gcc.gnu.org
 Olivier Hainque					hainque@act-europe.fr

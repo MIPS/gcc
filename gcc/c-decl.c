@@ -149,6 +149,11 @@ static int warn_about_return_type;
 
 static int current_extern_inline;
 
+/* Nonzero when the current toplevel function contains a declaration
+   of a nested function which is never defined.  */
+
+static bool undef_nested_function;
+
 /* True means global_bindings_p should return false even if the scope stack
    says we are in file scope.  */
 bool c_override_global_bindings_to_false;
@@ -759,6 +764,12 @@ pop_scope (void)
 	      && DECL_ABSTRACT_ORIGIN (p) != 0
 	      && DECL_ABSTRACT_ORIGIN (p) != p)
 	    TREE_ADDRESSABLE (DECL_ABSTRACT_ORIGIN (p)) = 1;
+	  if (!DECL_EXTERNAL (p)
+	      && DECL_INITIAL (p) == 0)
+	    {
+	      error ("%Jnested function %qD declared but never defined", p, p);
+	      undef_nested_function = true;
+	    }
 	  goto common_symbol;
 
 	case VAR_DECL:
@@ -3039,11 +3050,6 @@ start_decl (struct c_declarator *declarator, struct c_declspecs *declspecs,
 	    error ("variable %qD has initializer but incomplete type", decl);
 	    initialized = 0;
 	  }
-	else if (!COMPLETE_TYPE_P (TREE_TYPE (TREE_TYPE (decl))))
-	  {
-	    error ("elements of array %qD have incomplete type", decl);
-	    initialized = 0;
-	  }
 	else if (C_DECL_VARIABLE_SIZE (decl))
 	  {
 	    /* Although C99 is unclear about whether incomplete arrays
@@ -4148,11 +4154,14 @@ grokdeclarator (const struct c_declarator *declarator,
 		itype = build_range_type (sizetype, size_zero_node, NULL_TREE);
 	      }
 
-	    /* If pedantic, complain about arrays of incomplete types.  */
-	    if (pedantic && !COMPLETE_TYPE_P (type))
-	      pedwarn ("array type has incomplete element type");
-
-	    type = build_array_type (type, itype);
+	     /* Complain about arrays of incomplete types.  */
+	    if (!COMPLETE_TYPE_P (type))
+	      {
+		error ("array type has incomplete element type");
+	        type = error_mark_node;
+	      }
+	    else
+	      type = build_array_type (type, itype);
 
 	    if (size_varies)
 	      C_TYPE_VARIABLE_SIZE (type) = 1;
@@ -6378,7 +6387,8 @@ finish_function (void)
      until their parent function is genericized.  Since finalizing
      requires GENERIC, delay that as well.  */
 
-  if (DECL_INITIAL (fndecl) && DECL_INITIAL (fndecl) != error_mark_node)
+  if (DECL_INITIAL (fndecl) && DECL_INITIAL (fndecl) != error_mark_node
+      && !undef_nested_function)
     {
       if (!decl_function_context (fndecl))
         {
@@ -6403,6 +6413,9 @@ finish_function (void)
           (void) cgraph_node (fndecl);
         }
     }
+
+  if (!decl_function_context (fndecl))
+    undef_nested_function = false;
 
   /* We're leaving the context of this function, so zap cfun.
      It's still in DECL_STRUCT_FUNCTION, and we'll restore it in

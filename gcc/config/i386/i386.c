@@ -1678,6 +1678,13 @@ ix86_function_ok_for_sibcall (tree decl, tree exp)
 	}
     }
 
+#if TARGET_DLLIMPORT_DECL_ATTRIBUTES
+  /* Dllimport'd functions are also called indirectly.  */
+  if (decl && lookup_attribute ("dllimport", DECL_ATTRIBUTES (decl))
+      && ix86_function_regparm (TREE_TYPE (decl), NULL) >= 3)
+    return false;
+#endif
+
   /* Otherwise okay.  That also includes certain types of indirect calls.  */
   return true;
 }
@@ -8117,10 +8124,92 @@ ix86_expand_fp_absneg_operator (enum rtx_code code, enum machine_mode mode,
     emit_move_insn (operands[0], dst);
 }
 
-/* Deconstruct a copysign operation into bit masks.  */
+/* Expand a copysign operation.  Special case operand 0 being a constant.  */
 
 void
-ix86_split_copysign (rtx operands[])
+ix86_expand_copysign (rtx operands[])
+{
+  enum machine_mode mode, vmode;
+  rtx dest, op0, op1, mask, nmask;
+
+  dest = operands[0];
+  op0 = operands[1];
+  op1 = operands[2];
+
+  mode = GET_MODE (dest);
+  vmode = mode == SFmode ? V4SFmode : V2DFmode;
+
+  if (GET_CODE (op0) == CONST_DOUBLE)
+    {
+      rtvec v;
+
+      if (real_isneg (CONST_DOUBLE_REAL_VALUE (op0)))
+	op0 = simplify_unary_operation (ABS, mode, op0, mode);
+
+      if (op0 == CONST0_RTX (mode))
+	op0 = CONST0_RTX (vmode);
+      else
+        {
+	  if (mode == SFmode)
+	    v = gen_rtvec (4, op0, CONST0_RTX (SFmode),
+                           CONST0_RTX (SFmode), CONST0_RTX (SFmode));
+	  else
+	    v = gen_rtvec (2, op0, CONST0_RTX (DFmode));
+          op0 = force_reg (vmode, gen_rtx_CONST_VECTOR (vmode, v));
+	}
+
+      mask = ix86_build_signbit_mask (mode, 0, 0);
+
+      if (mode == SFmode)
+	emit_insn (gen_copysignsf3_const (dest, op0, op1, mask));
+      else
+	emit_insn (gen_copysigndf3_const (dest, op0, op1, mask));
+    }
+  else
+    {
+      nmask = ix86_build_signbit_mask (mode, 0, 1);
+      mask = ix86_build_signbit_mask (mode, 0, 0);
+
+      if (mode == SFmode)
+	emit_insn (gen_copysignsf3_var (dest, NULL, op0, op1, nmask, mask));
+      else
+	emit_insn (gen_copysigndf3_var (dest, NULL, op0, op1, nmask, mask));
+    }
+}
+
+/* Deconstruct a copysign operation into bit masks.  Operand 0 is known to
+   be a constant, and so has already been expanded into a vector constant.  */
+
+void
+ix86_split_copysign_const (rtx operands[])
+{
+  enum machine_mode mode, vmode;
+  rtx dest, op0, op1, mask, x;
+
+  dest = operands[0];
+  op0 = operands[1];
+  op1 = operands[2];
+  mask = operands[3];
+
+  mode = GET_MODE (dest);
+  vmode = GET_MODE (mask);
+
+  dest = simplify_gen_subreg (vmode, dest, mode, 0);
+  x = gen_rtx_AND (vmode, dest, mask);
+  emit_insn (gen_rtx_SET (VOIDmode, dest, x));
+
+  if (op0 != CONST0_RTX (vmode))
+    {
+      x = gen_rtx_IOR (vmode, dest, op0);
+      emit_insn (gen_rtx_SET (VOIDmode, dest, x));
+    }
+}
+
+/* Deconstruct a copysign operation into bit masks.  Operand 0 is variable,
+   so we have to do two masks.  */
+
+void
+ix86_split_copysign_var (rtx operands[])
 {
   enum machine_mode mode, vmode;
   rtx dest, scratch, op0, op1, mask, nmask, x;
@@ -8128,8 +8217,8 @@ ix86_split_copysign (rtx operands[])
   dest = operands[0];
   scratch = operands[1];
   op0 = operands[2];
-  nmask = operands[3];
-  op1 = operands[4];
+  op1 = operands[3];
+  nmask = operands[4];
   mask = operands[5];
 
   mode = GET_MODE (dest);
@@ -14908,7 +14997,8 @@ ix86_register_move_cost (enum machine_mode mode, enum reg_class class1,
 }
 
 /* Return 1 if hard register REGNO can hold a value of machine-mode MODE.  */
-int
+
+bool
 ix86_hard_regno_mode_ok (int regno, enum machine_mode mode)
 {
   /* Flags and only flags can only hold CCmode values.  */
@@ -14947,6 +15037,67 @@ ix86_hard_regno_mode_ok (int regno, enum machine_mode mode)
   if (regno < 4 || mode != QImode || TARGET_64BIT)
     return 1;
   return reload_in_progress || reload_completed || !TARGET_PARTIAL_REG_STALL;
+}
+
+/* A subroutine of ix86_modes_tieable_p.  Return true if MODE is a 
+   tieable integer mode.  */
+
+static bool
+ix86_tieable_integer_mode_p (enum machine_mode mode)
+{
+  switch (mode)
+    {
+    case HImode:
+    case SImode:
+      return true;
+
+    case QImode:
+      return TARGET_64BIT || !TARGET_PARTIAL_REG_STALL;
+
+    case DImode:
+      return TARGET_64BIT;
+
+    default:
+      return false;
+    }
+}
+
+/* Return true if MODE1 is accessible in a register that can hold MODE2
+   without copying.  That is, all register classes that can hold MODE2
+   can also hold MODE1.  */
+
+bool
+ix86_modes_tieable_p (enum machine_mode mode1, enum machine_mode mode2)
+{
+  if (mode1 == mode2)
+    return true;
+
+  if (ix86_tieable_integer_mode_p (mode1)
+      && ix86_tieable_integer_mode_p (mode2))
+    return true;
+
+  /* MODE2 being XFmode implies fp stack or general regs, which means we
+     can tie any smaller floating point modes to it.  Note that we do not
+     tie this with TFmode.  */
+  if (mode2 == XFmode)
+    return mode1 == SFmode || mode1 == DFmode;
+
+  /* MODE2 being DFmode implies fp stack, general or sse regs, which means
+     that we can tie it with SFmode.  */
+  if (mode2 == DFmode)
+    return mode1 == SFmode;
+
+  /* If MODE2 is only appropriate for an SSE register, then tie with 
+     any other mode acceptable to SSE registers.  */
+  if (SSE_REG_MODE_P (mode2))
+    return ix86_hard_regno_mode_ok (FIRST_SSE_REG, mode1);
+
+  /* If MODE2 is appropriate for an MMX (or SSE) register, then tie
+     with any other mode acceptable to MMX registers.  */
+  if (MMX_REG_MODE_P (mode2))
+    return ix86_hard_regno_mode_ok (FIRST_MMX_REG, mode1);
+
+  return false;
 }
 
 /* Return the cost of moving data of mode M between a

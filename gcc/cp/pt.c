@@ -1932,7 +1932,7 @@ check_explicit_specialization (tree declarator,
 	      int is_constructor = DECL_CONSTRUCTOR_P (decl);
 	      
 	      if (is_constructor ? !TYPE_HAS_CONSTRUCTOR (ctype)
-		  : !TYPE_HAS_DESTRUCTOR (ctype))
+		  : !CLASSTYPE_DESTRUCTORS (ctype))
 		{
 		  /* From [temp.expl.spec]:
 		       
@@ -5541,7 +5541,6 @@ instantiate_class_template (tree type)
   input_location = DECL_SOURCE_LOCATION (TYPE_NAME (pattern));
 
   TYPE_HAS_CONSTRUCTOR (type) = TYPE_HAS_CONSTRUCTOR (pattern);
-  TYPE_HAS_DESTRUCTOR (type) = TYPE_HAS_DESTRUCTOR (pattern);
   TYPE_HAS_NEW_OPERATOR (type) = TYPE_HAS_NEW_OPERATOR (pattern);
   TYPE_HAS_ARRAY_NEW_OPERATOR (type) = TYPE_HAS_ARRAY_NEW_OPERATOR (pattern);
   TYPE_GETS_DELETE (type) = TYPE_GETS_DELETE (pattern);
@@ -8903,6 +8902,7 @@ check_instantiated_args (tree tmpl, tree args, tsubst_flags_t complain)
 {
   int ix, len = DECL_NTPARMS (tmpl);
   bool result = false;
+  bool error_p = complain & tf_error;
 
   for (ix = 0; ix != len; ix++)
     {
@@ -8920,10 +8920,11 @@ check_instantiated_args (tree tmpl, tree args, tsubst_flags_t complain)
 	  if (nt)
 	    {
 	      if (TYPE_ANONYMOUS_P (nt))
-		error ("%qT uses anonymous type", t);
+		error ("%qT is/uses anonymous type", t);
 	      else
 		error ("%qT uses local type %qT", t, nt);
 	      result = true;
+	      error_p = true;
 	    }
 	  /* In order to avoid all sorts of complications, we do not
 	     allow variably-modified types as template arguments.  */
@@ -8945,7 +8946,7 @@ check_instantiated_args (tree tmpl, tree args, tsubst_flags_t complain)
 	  result = true;
 	}
     }
-  if (result && complain & tf_error)
+  if (result && error_p)
     error ("  trying to instantiate %qD", tmpl);
   return result;
 }
@@ -9122,6 +9123,9 @@ fn_type_unification (tree fn,
       int i;
       tree converted_args;
       bool incomplete;
+
+      if (explicit_targs == error_mark_node)
+	return 1;
 
       converted_args
 	= (coerce_template_parms (DECL_INNERMOST_TEMPLATE_PARMS (fn), 
@@ -11689,7 +11693,7 @@ get_mostly_instantiated_function_type (tree decl)
     ;
   else
     {
-      int i;
+      int i, save_access_control;
       tree partial_args;
 
       /* Replace the innermost level of the TARGS with NULL_TREEs to
@@ -11702,12 +11706,10 @@ get_mostly_instantiated_function_type (tree decl)
 			   TMPL_ARGS_DEPTH (targs),
 			   make_tree_vec (DECL_NTPARMS (tmpl)));
 
-      /* Make sure that we can see identifiers, and compute access
-	 correctly.  We can just use the context of DECL for the
-	 partial substitution here.  It depends only on outer template
-	 parameters, regardless of whether the innermost level is
-	 specialized or not.  */
-      push_access_scope (decl);
+      /* Disable access control as this function is used only during
+	 name-mangling.  */
+      save_access_control = flag_access_control;
+      flag_access_control = 0;
 
       ++processing_template_decl;
       /* Now, do the (partial) substitution to figure out the
@@ -11722,7 +11724,7 @@ get_mostly_instantiated_function_type (tree decl)
       TREE_VEC_LENGTH (partial_args)--;
       tparms = tsubst_template_parms (tparms, partial_args, tf_error);
 
-      pop_access_scope (decl);
+      flag_access_control = save_access_control;
     }
 
   return fn_type;
@@ -12015,6 +12017,36 @@ value_dependent_expression_p (tree expression)
   if (TREE_CODE (expression) == COMPONENT_REF)
     return (value_dependent_expression_p (TREE_OPERAND (expression, 0))
 	    || value_dependent_expression_p (TREE_OPERAND (expression, 1)));
+
+  /* A CALL_EXPR is value-dependent if any argument is
+     value-dependent.  Why do we have to handle CALL_EXPRs in this
+     function at all?  First, some function calls, those for which
+     value_dependent_expression_p is true, man appear in constant
+     expressions.  Second, there appear to be bugs which result in
+     other CALL_EXPRs reaching this point. */
+  if (TREE_CODE (expression) == CALL_EXPR)
+    {
+      tree function = TREE_OPERAND (expression, 0);
+      tree args = TREE_OPERAND (expression, 1);
+
+      if (value_dependent_expression_p (function))
+	return true;
+      else if (! args)
+	return false;
+      else if (TREE_CODE (args) == TREE_LIST)
+	{
+	  do
+	    {
+	      if (value_dependent_expression_p (TREE_VALUE (args)))
+		return true;
+	      args = TREE_CHAIN (args);
+	    }
+	  while (args);
+	  return false;
+	}
+      else
+	return value_dependent_expression_p (args);
+    }
   /* A constant expression is value-dependent if any subexpression is
      value-dependent.  */
   if (EXPR_P (expression))
