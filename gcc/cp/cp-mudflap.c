@@ -45,24 +45,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 /* ------------------------------------------------------------------------ */
 
-static tree mx_flag PARAMS ((tree));
-
-/* XXX: copied from tree-mudflap.c */
-static tree
-mx_flag (t)
-     tree t;
-{
-  if (!t)
-    abort ();
-#define MARK_TREE_MUDFLAPPED(tree)  do { TREE_VISITED (tree) = 1; } while (0)
-  MARK_TREE_MUDFLAPPED(t);
-  return t;
-}
-
-
-
-/* ------------------------------------------------------------------------ */
-
 
 
 /* Initialize the global tree nodes that correspond to mf-runtime.h
@@ -105,7 +87,7 @@ mflang_register_call (label, regsize, regtype, regname)
 
   /* See gcc-checker's c-bounds.c (declare_private_statics)  */
   decltype = build_array_type (char_type_node, build_index_type (integer_zero_node));
-  decl = mx_flag (build_decl (VAR_DECL, get_identifier (label), decltype));
+  decl = mf_mark (build_decl (VAR_DECL, get_identifier (label), decltype));
 
   TREE_STATIC (decl) = 1;
   TREE_READONLY (decl) = 1;
@@ -122,7 +104,7 @@ mflang_register_call (label, regsize, regtype, regname)
 
   call_params = tree_cons (NULL_TREE,
 			   convert (ptr_type_node, 
-				    mx_flag (build1 (ADDR_EXPR, 
+				    mf_mark (build1 (ADDR_EXPR, 
 						     build_pointer_type (TREE_TYPE (decl)),
 						     decl))),
 			   tree_cons (NULL_TREE, 

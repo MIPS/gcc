@@ -55,7 +55,6 @@ static void mf_decl_clear_locals PARAMS ((void));
 static tree mf_varname_tree PARAMS ((tree));
 static tree mf_file_function_line_tree PARAMS ((const char *, int));
 static tree mf_mostly_copy_tree_r PARAMS ((tree *, int *, void *));
-static tree mx_flag PARAMS ((tree));
 static tree mx_xfn_indirect_ref PARAMS ((tree *, int *, void *));
 static tree mx_xfn_xform_decls PARAMS ((tree *, int *, void *));
 
@@ -65,13 +64,45 @@ static tree mf_build_check_statement_for PARAMS ((tree, tree, tree, tree, tree,
 static void mx_register_decls PARAMS ((tree, tree *));
 
 
-/* These macros are used to mark tree nodes, so that they are not
-   repeatedly transformed.  */
-
-#define MARK_TREE_MUDFLAPPED(tree)  do { TREE_VISITED (tree) = 1; } while (0)
-#define TREE_MUDFLAPPED_P(tree)  TREE_VISITED (tree)
-
 /* extern mudflap functions */
+
+
+
+
+static GTY ((param_is (union tree_node))) htab_t marked_trees = NULL;
+
+
+/* Mark and return the given tree node to prevent further mudflap
+   transforms.  */
+tree
+mf_mark (t)
+     tree t;
+{
+  void **slot;
+
+  if (marked_trees == NULL)
+    marked_trees = htab_create (31, htab_hash_pointer, htab_eq_pointer, NULL);
+
+  slot = htab_find_slot (marked_trees, t, INSERT);
+  *slot = t;
+  return t;
+}
+
+
+int
+mf_marked_p (t)
+     tree t;
+{
+  void *entry;
+
+  if (marked_trees == NULL)
+    return 0;
+
+  entry = htab_find (marked_trees, t);
+  return (entry != NULL);
+}
+
+
 
 /* Perform the mudflap tree transforms on the given function.  */
  
@@ -144,11 +175,11 @@ mf_init_extern_trees ()
   if (done) return;
 
   mf_uintptr_type = TREE_TYPE (mflang_lookup_decl ("uintptr_t"));
-  mf_cache_array_decl = mx_flag (mflang_lookup_decl ("__mf_lookup_cache"));
+  mf_cache_array_decl = mf_mark (mflang_lookup_decl ("__mf_lookup_cache"));
   mf_cache_struct_type = TREE_TYPE (TREE_TYPE (mf_cache_array_decl));
   mf_cache_structptr_type = build_pointer_type (mf_cache_struct_type);
-  mf_cache_shift_decl = mx_flag (mflang_lookup_decl ("__mf_lc_shift"));
-  mf_cache_mask_decl = mx_flag (mflang_lookup_decl ("__mf_lc_mask"));
+  mf_cache_shift_decl = mf_mark (mflang_lookup_decl ("__mf_lc_shift"));
+  mf_cache_mask_decl = mf_mark (mflang_lookup_decl ("__mf_lc_mask"));
   mf_check_fndecl = mflang_lookup_decl ("__mf_check");
   mf_register_fndecl = mflang_lookup_decl ("__mf_register");
   mf_unregister_fndecl = mflang_lookup_decl ("__mf_unregister");
@@ -169,13 +200,13 @@ mf_decl_cache_locals (body)
   tree init_exprs = NULL_TREE;
 
   /* Create the chain of VAR_DECL nodes.  */
-  mf_cache_shift_decl_l = mx_flag (build_decl (VAR_DECL,
+  mf_cache_shift_decl_l = mf_mark (build_decl (VAR_DECL,
 					       get_identifier ("__mf_lookup_shift_l"),
 					       TREE_TYPE (mf_cache_shift_decl)));
   DECL_ARTIFICIAL (mf_cache_shift_decl_l) = 1;
   DECL_CONTEXT (mf_cache_shift_decl_l) = current_function_decl;
 
-  mf_cache_mask_decl_l = mx_flag (build_decl (VAR_DECL,
+  mf_cache_mask_decl_l = mf_mark (build_decl (VAR_DECL,
 					      get_identifier ("__mf_lookup_mask_l"),
 					      TREE_TYPE (mf_cache_mask_decl)));
   DECL_ARTIFICIAL (mf_cache_mask_decl_l) = 1;
@@ -211,19 +242,6 @@ mf_decl_clear_locals ()
 
 
 
-/* Mark and return the given tree node to prevent further mudflap
-   transforms.  */
-static tree
-mx_flag (t)
-     tree t;
-{
-  if (!t)
-    abort ();
-  MARK_TREE_MUDFLAPPED (t);
-  return t;
-}
-
-
 
 /* A copy of c-simplify.c's mostly_copy_tree_r.  */
 static tree
@@ -232,10 +250,15 @@ mf_mostly_copy_tree_r (tp, walk_subtrees, data)
      int *walk_subtrees;
      void *data;
 {
+  /* Retain mudflap marked-ness across copy.  */
+  int was_marked = mf_marked_p (*tp);
+
   if (TREE_CODE (*tp) == SAVE_EXPR)
     *walk_subtrees = 0;
   else
     copy_tree_r (tp, walk_subtrees, data);
+
+  if (was_marked) mf_mark (*tp);
 
   return NULL_TREE;
 }
@@ -334,7 +357,7 @@ mf_varname_tree (decl)
   result = fix_string_type (build_string (strlen (buf_contents) + 1, buf_contents));
   output_clear_message_text (buf);
 
-  return mx_flag (result);
+  return mf_mark (result);
 }
 
 
@@ -390,7 +413,7 @@ mf_file_function_line_tree (file, line)
   buf_contents = output_finalize_message (buf);
   result = fix_string_type (build_string (strlen (buf_contents) + 1, buf_contents));
 
-  return mx_flag (result);
+  return mf_mark (result);
 }
 
 
@@ -459,7 +482,7 @@ mf_offset_expr_of_array_ref (t, offset, base, decls)
 				 TYPE_MAX_VALUE (TYPE_DOMAIN (TREE_TYPE (t)))));
 
       /* Mark this node to inhibit further transformation.  */
-      mx_flag (t);
+      mf_mark (t);
       
       return
 	fold (build (PLUS_EXPR, integer_type_node, *offset, 
@@ -576,12 +599,12 @@ mf_build_check_statement_for (ptrvalue, chkbase, chksize, acctype,
     t1 = build (BIT_AND_EXPR, mf_uintptr_type, t0, 
 		(flag_mudflap > 1 ? mf_cache_mask_decl : mf_cache_mask_decl_l));
 
-    t2 = mx_flag (build (ARRAY_REF,
+    t2 = mf_mark (build (ARRAY_REF,
 			 TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (mf_cache_array_decl))),
 			 mf_cache_array_decl,
 			 t1));
 
-    t3 = mx_flag (build1 (ADDR_EXPR, mf_cache_structptr_type, t2));
+    t3 = mf_mark (build1 (ADDR_EXPR, mf_cache_structptr_type, t2));
 
     bind_exprs = chainon (bind_exprs,
 			  build_stmt (EXPR_STMT,
@@ -603,14 +626,14 @@ mf_build_check_statement_for (ptrvalue, chkbase, chksize, acctype,
     tree t0, t1, t2;
 
     /* __mf_elem->low  */
-    t0 = mx_flag (build (COMPONENT_REF, mf_uintptr_type,
-			 mx_flag (build1 (INDIRECT_REF, mf_cache_struct_type,
+    t0 = mf_mark (build (COMPONENT_REF, mf_uintptr_type,
+			 mf_mark (build1 (INDIRECT_REF, mf_cache_struct_type,
 			                  t1_3_1)),
 			 TYPE_FIELDS (mf_cache_struct_type)));
 
     /* __mf_elem->high  */
-    t1 = mx_flag (build (COMPONENT_REF, mf_uintptr_type,
-			 mx_flag (build1 (INDIRECT_REF, mf_cache_struct_type,
+    t1 = mf_mark (build (COMPONENT_REF, mf_uintptr_type,
+			 mf_mark (build1 (INDIRECT_REF, mf_cache_struct_type,
 			                  t1_3_1)),
 		         TREE_CHAIN (TYPE_FIELDS (mf_cache_struct_type))));
 
@@ -801,7 +824,7 @@ mx_xfn_indirect_ref (t, continue_p, data)
      instrumentation code.  NB: This check is done second, in case the
      same node is marked verboten as well as mudflapped.  The former
      takes priority, and is meant to prevent further traversal.  */
-  if (TREE_MUDFLAPPED_P (*t))
+  if (mf_marked_p (*t))
     return NULL_TREE;
 
   /* Process some node types.  */
@@ -839,9 +862,9 @@ mx_xfn_indirect_ref (t, continue_p, data)
 	if (TREE_CODE (arg) == COMPONENT_REF
 	    && TREE_CODE (TREE_OPERAND (arg, 0)) == INDIRECT_REF)
 	  {
-	    mx_flag (TREE_OPERAND (arg, 0));
-	    mx_flag (arg);
-	    mx_flag (*t);
+	    mf_mark (TREE_OPERAND (arg, 0));
+	    mf_mark (arg);
+	    mf_mark (*t);
 	  }
       }
       break;
@@ -891,14 +914,14 @@ mx_xfn_indirect_ref (t, continue_p, data)
 								integer_one_node,
 								offset_expr))))));
 
-	    mx_flag (TREE_OPERAND (base_array, 0));
-	    mx_flag (base_array);
+	    mf_mark (TREE_OPERAND (base_array, 0));
+	    mf_mark (base_array);
 	  }
 	else /* default: possibly a VAR_DECL */
 	  {
-	    check_ptr = mx_flag (build1 (ADDR_EXPR, 
+	    check_ptr = mf_mark (build1 (ADDR_EXPR, 
 					 base_ptr_type, 
-					 mx_flag (build (ARRAY_REF, 
+					 mf_mark (build (ARRAY_REF, 
 							 base_obj_type, 
 							 base_array,
 							 integer_zero_node))));
@@ -911,9 +934,9 @@ mx_xfn_indirect_ref (t, continue_p, data)
 						   offset_expr))));
 	  }
 
-	value_ptr = mx_flag (build1 (ADDR_EXPR,
+	value_ptr = mf_mark (build1 (ADDR_EXPR,
 				     base_ptr_type,
-				     mx_flag (*t)));
+				     mf_mark (*t)));
 	walk_tree (& value_ptr, mf_mostly_copy_tree_r, NULL, NULL);
 
 	/* As an optimization, omit checking if the base object is
@@ -943,7 +966,7 @@ mx_xfn_indirect_ref (t, continue_p, data)
 	    tmp = mf_build_check_statement_for (value_ptr, check_ptr, check_size,
 						tree_role, check_decls,
 						last_filename, last_lineno);
-	    *t = mx_flag (build1 (INDIRECT_REF, base_obj_type, tmp));
+	    *t = mf_mark (build1 (INDIRECT_REF, base_obj_type, tmp));
 	  }
       }
       break;
@@ -966,7 +989,7 @@ mx_xfn_indirect_ref (t, continue_p, data)
 	/* Prevent this transform's reapplication to this tree node.
 	   Note that we do not prevent recusion in walk_tree toward
 	   subtrees of this node, in case of nested pointer expressions.  */
-      mx_flag (*t);
+      mf_mark (*t);
       break;
 
     case COMPONENT_REF:
@@ -994,8 +1017,8 @@ mx_xfn_indirect_ref (t, continue_p, data)
 					  last_filename, last_lineno);
 	  
 	  /* Don't instrument the nested INDIRECT_REF. */ 
-	  mx_flag (TREE_OPERAND (*t, 0));
-	  mx_flag (*t);
+	  mf_mark (TREE_OPERAND (*t, 0));
+	  mf_mark (*t);
 	}
       break;
 
@@ -1021,8 +1044,8 @@ mx_xfn_indirect_ref (t, continue_p, data)
 					  last_filename, last_lineno);
 	  
 	  /* Don't instrument the nested INDIRECT_REF. */ 
-	  mx_flag (TREE_OPERAND (*t, 0));
-	  mx_flag (*t);
+	  mf_mark (TREE_OPERAND (*t, 0));
+	  mf_mark (*t);
 	}
       break;
     }
@@ -1074,14 +1097,14 @@ mx_register_decls (decl, compound_expr)
 	  (! TREE_STATIC (decl)) && /* auto variable */
 	  (! DECL_EXTERNAL (decl)) && /* not extern variable */
 	  (COMPLETE_OR_VOID_TYPE_P (TREE_TYPE (decl))) && /* complete type */
-	  (! TREE_MUDFLAPPED_P (decl)) && /* not already processed */
+	  (! mf_marked_p (decl)) && /* not already processed */
 	  (TREE_ADDRESSABLE (decl))) /* has address taken */
 	{
 	  /* (& VARIABLE, sizeof (VARIABLE)) */
 	  tree unregister_fncall_params =
 	    tree_cons (NULL_TREE,
 		       convert (ptr_type_node, 
-				mx_flag (build1 (ADDR_EXPR, 
+				mf_mark (build1 (ADDR_EXPR, 
 						 build_pointer_type (TREE_TYPE (decl)),
 						 decl))),
 		       tree_cons (NULL_TREE, 
@@ -1098,7 +1121,7 @@ mx_register_decls (decl, compound_expr)
 	  tree register_fncall_params =
 	    tree_cons (NULL_TREE,
 		   convert (ptr_type_node, 
-			    mx_flag (build1 (ADDR_EXPR, 
+			    mf_mark (build1 (ADDR_EXPR, 
 					     build_pointer_type (TREE_TYPE (decl)),
 					     decl))),
 		       tree_cons (NULL_TREE, 
@@ -1119,7 +1142,7 @@ mx_register_decls (decl, compound_expr)
 	  add_tree (register_fncall, & initially_stmts);
 	  add_tree (unregister_fncall, & finally_stmts);
 	  
-	  mx_flag (decl);
+	  mf_mark (decl);
 	}
 
       decl = TREE_CHAIN (decl);
@@ -1232,7 +1255,7 @@ mudflap_enqueue_decl (obj, label)
      tree obj;
      const char *label;
 {
-  if (TREE_MUDFLAPPED_P (obj))
+  if (mf_marked_p (obj))
     return;
 
   /* We don't need to process variable decls that are internally
@@ -1317,7 +1340,7 @@ mudflap_enqueue_constant (obj, label)
   tree call_stmt;
   tree object_size;
 
-  if (TREE_MUDFLAPPED_P (obj))
+  if (mf_marked_p (obj))
     return;
 
   object_size = (TREE_CODE (obj) == STRING_CST)
@@ -1344,11 +1367,11 @@ mudflap_enqueue_constant (obj, label)
     (TREE_CODE (obj) == STRING_CST)
     ? mflang_register_call (label, object_size,
 			    build_int_2 (4, 0), /* __MF_TYPE_STATIC */
-			    mx_flag (fix_string_type
+			    mf_mark (fix_string_type
 				     (build_string (15, "string literal"))))
     : mflang_register_call (label, object_size,
 			    build_int_2 (4, 0), /* __MF_TYPE_STATIC */
-			    mx_flag (fix_string_type
+			    mf_mark (fix_string_type
 				     (build_string (9, "constant"))));
     
   /* Link this call into the chain. */

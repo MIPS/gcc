@@ -1,3 +1,13 @@
+2003-06-05  Frank Ch. Eigler  <fche@redhat.com>
+
+	* tree-mudflap.c (mx_flag): Remove.  Update callers to use mf_mark.
+	(TREE_MUDFLAPPED_P): Remove.  Update callers to use mf_marked_p.
+	(mf_mark, mf_marked_p): Replacement functions to replace old node
+	marking based on tree flag-bits.
+	(mf_mostly_copy_tree_r): Preserve markedness across copies.
+	* tree-mudflap.h: Add new decls
+	* c-mudflap.c (mx_flag): Remove.  Update callers to use mf_mark.
+
 2003-06-04  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-dfa.c (add_stmt_operand): Always consider non-scalar types

@@ -22,10 +22,15 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #ifndef TREE_MUDFLAP_H
 #define TREE_MUDFLAP_H
 
+/* Instrumentation. */
 extern void mudflap_c_function PARAMS ((tree));
 extern void mudflap_enqueue_decl PARAMS ((tree, const char *));
 extern void mudflap_enqueue_constant PARAMS ((tree, const char *));
 extern void mudflap_finish_file PARAMS ((void));
+
+/* Tree node marking. */
+extern int mf_marked_p PARAMS ((tree));
+extern tree mf_mark PARAMS ((tree));
 
 /* To be provided by a front-end interface module. */
 extern tree mflang_lookup_decl PARAMS ((const char *));
