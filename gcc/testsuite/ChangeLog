@@ -1,3 +1,11 @@
+2002-12-03  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/inherit/covariant2.C: New test.
+	* g++.dg/inherit/covariant3.C: New test.
+	* g++.dg/inherit/covariant4.C: New test.
+	* g++.dg/inherit/covariant1.C: Remove XFAIL.
+	* g++.old-deja/g++.robertl/eb17.C: Likewise.
+
 2002-12-02  Kazu Hirata  <kazu@cs.umass.edu>
 
 	* gcc.dg/20020210-1.c: Fix a comment typo.

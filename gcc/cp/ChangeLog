@@ -1,3 +1,34 @@
+2002-12-03  Nathan Sidwell  <nathan@codesourcery.com>
+
+	Implement covariant returns.
+	* cp-tree.h (IS_AGGR_TYPE_2): Remove.
+	(struct lang_decl_flags): Add this_thunk_p flag.
+	Rename vcall_offset to virtual_offset.
+	(struct lang_decl): Rename delta to fixed_offset.
+	(DECL_THIS_THUNK_P, DECL_RESULT_THUNK_P): New #defines.
+	(SET_DECL_THUNK_P): Add THIS_ADJUSTING arg.
+	(THUNK_DELTA, THUNK_VCALL_OFFSET): Rename to ...
+	(THUNK_FIXED_OFFSET, THUNK_VIRTUAL_OFFSET): ... here.
+	(make_thunk): Add this_adjusting arg.
+	(finish_thunk): Declare.
+	(mangle_thunk): Add this_adjusting arg.
+	* class.c (get_vcall_index): Use base function for lookup.
+	(update_vtable_entry_for_fn): Generate covariant thunk.
+	(finish_struct_1): Set DECL_VINDEX to NULL for thunks.
+	(build_vtbl_initializer): Use base function for lookup.
+	Finish covariant thunk here. Adjust thunk generation.
+	* dump.c (cp_dump_tree): Simplify DECL_GLOBAL_[CD]TOR_P handling.
+	Adjust thunk dumping.
+	* mangle.c (mangle_call_offset): New function.
+	(mangle_thunk): Adjust for covariant thunks.
+	* method.c (make_thunk): Adjust. Do not set name here.
+	(finish_thunk): New function. Set name here.
+	(use_thunk): Generate covariant thunks too.
+	(thunk_adjust): New function.
+	* search.c (covariant_return_p): Remove. Fold into ...
+	(check_final_overrider): ... here. Simplify.
+	* semantics.c (emit_associated_thunks): Walk covariant thunk lists.
+	
 2002-12-02  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
 
 	DR 180
