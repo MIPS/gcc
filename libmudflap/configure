@@ -2772,7 +2772,7 @@ test -z "$CONFIG_HEADERS" || echo timestamp > stamp-h
  echo '#ifndef __MF_RUNTIME_H'
  echo '#define __MF_RUNTIME_H'
  egrep 'HAVE_(STDINT|UINTPTR)' < config.h
- cat $top_srcdir/mf-runtime.h.in
+ cat ${top_srcdir-$ac_given_srcdir}/mf-runtime.h.in
  echo '#endif'
 ) > mf-runtime.h
 echo creating mf-runtime.h

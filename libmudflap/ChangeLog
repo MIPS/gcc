@@ -1,5 +1,11 @@
 2003-03-10  Frank Ch. Eigler  <fche@redhat.com>
 
+	* configure.in: Tweak generation of mf-runtime.h some more.  It
+	needs to work from both config.status and configure.
+	* configure: Regenerated.
+
+2003-03-10  Frank Ch. Eigler  <fche@redhat.com>
+
 	* Makefile.am: Reorganize hook file building.  Add auto dependencies.
 	* configure.in: Tweak generation of mf-runtime.h.
 	* mf-runtime.h.in: Add new __MF_TYPE_HEAP_I.
