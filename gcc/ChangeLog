@@ -1,3 +1,15 @@
+2002-12-14  Zack Weinberg  <zack@codesourcery.com>
+
+	* config/t-darwin, config/arm/t-pe, config/arm/t-strongarm-pe,
+	config/c4x/t-c4x, config/i370/t-i370, config/i386/t-cygwin,
+	config/i386/t-interix, config/i960/t-960bare, config/ia64/t-ia64,
+	config/rs6000/t-rs6000-c-rule, config/sparc/t-sol2,
+	config/v850/t-v850:  Correct dependencies and normalize
+	compilation commands for files that include coretypes.h and tm.h.
+
+	* config/sparc/gmon-sol2.c: Include tconfig.h and tsystem.h,
+	not config.h and system.h.
+
 Sat Dec 14 20:43:41 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* i386.c (flags_reg_operand):  New function.
@@ -17,7 +29,7 @@ Sat Dec 14 17:03:17 CET 2002  Jan Hubicka  <jh@suse.cz>
 	(expand_call_inline): Don't modify it.  Handle
 	CALL_EXPR_HAS_RETURN_SLOT_ADDR.
 	(declare_return_variable): Take return slot addr.
-	* langhooks.h (copy_res_decl_for_inlining): Change target_exprs parm 
+	* langhooks.h (copy_res_decl_for_inlining): Change target_exprs parm
 	to return_slot_addr.
 	* langhooks-def.h, langhooks.c: Adjust.
 	* explow.c (maybe_set_unchanging): Don't set RTX_UNCHANGING_P for
