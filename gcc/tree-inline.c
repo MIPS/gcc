@@ -934,7 +934,8 @@ limits_allow_inlining (tree fn, inline_data *id)
 	 instructions that will be produces when expanding this function.  */
       if (!DECL_ESTIMATED_INSNS (fn))
 	DECL_ESTIMATED_INSNS (fn)
-	  = (*lang_hooks.tree_inlining.estimate_num_insns) (fn);
+	  = (*lang_hooks.tree_inlining.estimate_num_insns)
+	    (DECL_SAVED_TREE (fn));
       estimated_insns = DECL_ESTIMATED_INSNS (fn);
 
       /* We may be here either because fn is declared inline or because

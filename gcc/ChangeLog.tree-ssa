@@ -1,3 +1,12 @@
+2003-09-18  Richard Henderson  <rth@redhat.com>
+
+	* tree-eh.c: Include langhooks.h, remove errors.h.
+	(decide_copy_try_finally): Use estimate_num_insns to choose
+	between copy and switch implementations.
+
+	* c-common.c (c_estimate_num_insns): Take an expr, not a decl.
+	* tree-inline.c (limits_allow_inlining): Pass it the body of the decl.
+
 2003-09-18  Jeff Law  <law@redhat.com>
 
 	* tree.h (commutative_tree_code, associative_tree_code): Declare

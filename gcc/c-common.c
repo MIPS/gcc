@@ -5789,12 +5789,12 @@ c_estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
   return NULL;
 }
 
-/*  Estimate number of instructions that will be created by expanding the body.  */
+/* Estimate number of instructions that will be created by expanding EXPR.  */
 int
-c_estimate_num_insns (tree decl)
+c_estimate_num_insns (tree expr)
 {
   int num = 0;
-  walk_tree_without_duplicates (&DECL_SAVED_TREE (decl), c_estimate_num_insns_1, &num);
+  walk_tree_without_duplicates (&expr, c_estimate_num_insns_1, &num);
   return num;
 }
 

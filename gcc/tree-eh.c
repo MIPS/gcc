@@ -32,7 +32,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-dump.h"
 #include "tree-inline.h"
 #include "timevar.h"
-#include "errors.h"
+#include "langhooks.h"
 
 
 /* HACK */
@@ -1160,17 +1160,29 @@ lower_try_finally_switch (struct leh_state *state, struct leh_tf_state *tf)
    the estimate of the size of the switch machinery we'd have to add.  */
 
 static bool
-decide_copy_try_finally (int ndests ATTRIBUTE_UNUSED,
-			 tree finally ATTRIBUTE_UNUSED)
+decide_copy_try_finally (int ndests, tree finally)
 {
+  int f_estimate, sw_estimate;
+
   if (!optimize)
     return false;
 
-  /* ??? Should actually estimate the size of the finally block here.  */
+  /* Finally estimate N times, plus N gotos.  */
+  f_estimate = (*lang_hooks.tree_inlining.estimate_num_insns) (finally);
+  f_estimate = (f_estimate + 1) * ndests;
 
-  /* ??? Arbitrarily say -O1 does switch and -O2 does copy, so that both
-     code paths get executed.  */
-  return optimize > 1;
+  /* Switch statement (cost 10), N variable assignments, N gotos.  */
+  sw_estimate = 10 + 2 * ndests;
+
+  /* Optimize for size clearly wants our best guess.  */
+  if (optimize_size)
+    return f_estimate < sw_estimate;
+
+  /* ??? These numbers are completely made up so far.  */
+  if (optimize > 1)
+    return f_estimate < 100 || f_estimate * 2 < sw_estimate;
+  else
+    return f_estimate < 40 || f_estimate * 3 < sw_estimate * 2;
 }
 
 /* A subroutine of lower_eh_constructs_1.  Lower a TRY_FINALLY_EXPR nodes
