@@ -1,3 +1,12 @@
+2002-12-14  Geoffrey Keating  <geoffk@apple.com>
+
+	* doc/gty.texi (GTY Options): Document chain_next, chain_prev,
+	reorder options.
+	(Type Information): Mention that the information is also
+	used to implement PCH.
+	* doc/passes.texi (Passes): Improve documentation of
+	language-specific files.
+
 2002-12-11  Geoffrey Keating  <geoffk@apple.com>
 
 	* gengtype.c (struct write_types_data): Add reorder_note_routine field.
