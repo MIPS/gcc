@@ -46,8 +46,8 @@ import java.awt.Insets;
 import java.awt.Point;
 import java.awt.Rectangle;
 
-import javax.swing.border.Border;
 import javax.accessibility.Accessible;
+import javax.swing.border.Border;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 import javax.swing.plaf.ScrollPaneUI;
@@ -78,20 +78,23 @@ public class JScrollPane
   extends JComponent 
   implements Accessible, ScrollPaneConstants
 {
-  JViewport columnHeader;
-  JViewport rowHeader;
+  private static final long serialVersionUID = 5203525440012340014L;
+  
+  protected JViewport columnHeader;
+  protected JViewport rowHeader;
 
-  Component lowerLeft;
-  Component lowerRight;
-  Component upperLeft;
-  Component upperRight;
+  protected Component lowerLeft;
+  protected Component lowerRight;
+  protected Component upperLeft;
+  protected Component upperRight;
 
-  JScrollBar horizontalScrollBar;
-  int horizontalScrollBarPolicy;
-  JScrollBar verticalScrollBar;
-  int verticalScrollBarPolicy;
+  protected JScrollBar horizontalScrollBar;
+  protected int horizontalScrollBarPolicy;
+  protected JScrollBar verticalScrollBar;
+  protected int verticalScrollBarPolicy;
 
-  JViewport viewport;
+  protected JViewport viewport;
+  
   Border viewportBorder;
   boolean wheelScrollingEnabled;
   ChangeListener scrollListener;  

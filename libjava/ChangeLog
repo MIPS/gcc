@@ -1,5 +1,21 @@
 2004-06-11  Michael Koch  <konqueror@gmx.de>
 
+	* javax/swing/JScrollPane.java
+	(serialVersionUID): New field.
+	(columnHeader): Made protected.
+	(rowHeader): Likewise.
+	(lowerLeft): Likewise.
+	(lowerRight): Likewise.
+	(upperLeft): Likewise.
+	(upperRight): Likewise.
+	(horizontalScrollBar): Likewise.
+	(horizontalScrollBarPolicy): Likewise.
+	(verticalScrollBar): Likewise.
+	(verticalScrollBarPolicy): Likewise.
+	(viewport): Likewise.
+
+2004-06-11  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/LookAndFeel.java: Fixed javadocs.
 
 2004-06-11  Michael Koch  <konqueror@gmx.de>
