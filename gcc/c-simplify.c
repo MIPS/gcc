@@ -574,10 +574,21 @@ build_bc_goto (bc)
   tree target_name = ctxp->bc_id[bc];
 
   /* Look for the appropriate type of label.  */
-  for (label = ctxp->current_bc_label; ;
+  for (label = ctxp->current_bc_label;
+       label;
        label = TREE_CHAIN (label))
     if (DECL_NAME (label) == target_name)
       break;
+
+  if (label == NULL_TREE)
+    {
+      if (bc == bc_break)
+	error ("break statement not within loop or switch");
+      else
+	error ("continue statement not within loop or switch");
+
+      return NULL_TREE;
+    }
 
   /* Mark the label used for finish_bc_block.  */
   TREE_USED (label) = 1;

@@ -1,3 +1,8 @@
+2003-04-26  Diego Novillo  <dnovillo@redhat.com>
+
+	* c-simplify.c (build_bc_goto): If the target label couldn't be
+	found, emit an error message.
+
 2003-04-25  Andrew MacLeod  <amacleod@redhat.com>
 
 	* tree-ssa-live.c (compact_var_map): Add parameter to exclude variables
