@@ -2541,7 +2541,7 @@ init_dynamic_asm_fprintf_info (void)
 static void
 init_dynamic_diag_info (void)
 {
-  static tree t, loc, hwi;
+  static tree t, loc, hwi, tmp;
       
   if (!loc || !t || !hwi)
     {
@@ -2555,20 +2555,23 @@ init_dynamic_diag_info (void)
 	 you shouldn't use the specifiers requiring these types.
 	 However we don't force a hard ICE because we may see only one
 	 or the other type.  */
-      if ((loc = maybe_get_identifier ("location_t")))
-	loc = TREE_TYPE (identifier_global_value (loc));
+      if ((tmp = maybe_get_identifier ("location_t"))
+	  && (tmp = identifier_global_value (tmp)))
+	loc = TREE_TYPE (tmp);
 
       /* We need to grab the underlying `union tree_node' so peek into
 	 an extra type level.  */
-      if ((t = maybe_get_identifier ("tree")))
-	t = TREE_TYPE (TREE_TYPE (identifier_global_value (t)));
+      if ((tmp = maybe_get_identifier ("tree"))
+	  && (tmp = identifier_global_value (tmp)))
+	t = TREE_TYPE (TREE_TYPE (tmp));
     
       /* Find the underlying type for HOST_WIDE_INT.  For the %w
 	 length modifier to work, one must have issued: "typedef
 	 HOST_WIDE_INT __gcc_host_wide_int__;" in one's source code
 	 prior to using that modifier.  */
-      if ((hwi = maybe_get_identifier ("__gcc_host_wide_int__")))
-	hwi = DECL_ORIGINAL_TYPE (identifier_global_value (hwi));
+      if ((tmp = maybe_get_identifier ("__gcc_host_wide_int__"))
+	  && (tmp = identifier_global_value (tmp)))
+	hwi = DECL_ORIGINAL_TYPE (tmp);
       
       /* Assign the new data for use.  */
 
