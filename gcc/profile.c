@@ -296,6 +296,7 @@ get_exec_counts ()
   int num_edges = 0;
   int i;
   int okay = 1;
+  int mismatch = 0;
   gcov_type *profile;
   char *function_name_buffer;
   int function_name_buffer_len;
@@ -388,8 +389,7 @@ get_exec_counts ()
 	    break;
 	  }
 
-	if (strcmp (function_name_buffer, current_function_name) != 0 || arc_count != num_edges 
-	    || chksum != profile_info.current_function_cfg_checksum)  
+	if (strcmp (function_name_buffer, current_function_name) != 0)
 	  {
 	    /* skip */
 	    if (fseek (da_file, arc_count * 8, SEEK_CUR) < 0) 
@@ -398,6 +398,9 @@ get_exec_counts ()
 		break;
 	      }
 	  } 
+	else if (arc_count != num_edges 
+		 || chksum != profile_info.current_function_cfg_checksum)  
+	  okay = 0, mismatch = 1;
 	else 
 	  {
 	    gcov_type tmp;
@@ -426,7 +429,10 @@ get_exec_counts ()
   free (function_name_buffer);
 
   if (!okay) {
-    fprintf (stderr,".da file corrupted!\n");
+    if (mismatch)
+      error ("Profile does not match flowgraph of function %s (out of date?)", current_function_name);
+    else
+      error (".da file corrupted");
     free (profile);
     return 0;
   }
