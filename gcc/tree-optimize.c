@@ -55,8 +55,6 @@ optimize_function_tree (fndecl)
     return;
   
   fnbody = DECL_SAVED_TREE (fndecl);
-  if (fnbody == NULL)
-    abort ();
 
 #if 0
   /* Build the doubly-linked lists so that we can delete nodes
@@ -80,7 +78,6 @@ optimize_function_tree (fndecl)
     {
       build_tree_ssa (fndecl);
 
-#if 0
       if (flag_tree_points_to)
 	create_alias_vars ();
 
@@ -92,7 +89,6 @@ optimize_function_tree (fndecl)
 
       if (flag_tree_dce)
 	tree_ssa_eliminate_dead_code (fndecl);
-#endif
     }
 
 #if 0

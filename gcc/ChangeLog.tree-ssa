@@ -1,3 +1,98 @@
+2002-10-14  Diego Novillo  <dnovillo@redhat.com>
+
+	* Makefile.in (c-decl.o): Add dependency on diagnostic.h.
+	* c-decl.c: Include diagnostic.h
+	(c_expand_body): Call get_name.
+
+	* basic-block.h (struct basic_block_def): Rename head_tree to
+	head_tree_p and end_tree to end_tree_p.  Change type to tree *.
+	Update all users.
+	(BLOCK_HEAD_TREE): Remove.  Update all users.
+	(BLOCK_END_TREE): Remove.  Update all users.
+	* tree-cfg.c (build_tree_cfg): Return if function body is empty.
+	(make_blocks): Change first argument to tree *.  Update all users.
+	(make_bind_expr_blocks): Likewise.
+	(make_loop_expr_blocks): Likewise.
+	(make_cond_expr_blocks): Likewise.
+	(make_switch_expr_blocks): Likewise.
+	(create_bb): Likewise.
+	(first_exec_block): Likewise.
+	(first_exec_stmt): Likewise.
+	(tree_delete_bb): Use a gimple statement iterator to unmap
+	statements.
+	(insert_stmt_before): Remove empty function.
+	(replace_expr_in_tree): Remove.  Update all users.
+	(find_expr_in_tree_helper): Likewise.
+	(find_expr_in_tree): Likewise.
+	(first_stmt): Call STRIP_NOPS.
+	(last_stmt): Call STRIP_NOPS.
+
+	* tree-dfa.c (struct clobber_data_d): Rename parent_stmt to
+	parent_stmt_p and parent_expr to parent_expr_p.  Change types to
+	tree *.  Update all users.
+	(find_refs_in_stmt): Change first argument type to tree *.  Update
+	all users.
+	(find_refs_in_expr): Chnage arguments parent_stmt and parent_expr
+	to tree *.  Update all users.
+	(create_ref): Don't add the same reference twice on the same list
+	when parent_stmt and parent_expr are the same node.
+	Don't set output_ref when the parent statement is not in GIMPLE
+	form.
+	(replace_ref_operand_with): Move from tree-flow-inline.h
+	(replace_ref_expr_with): New function.
+	(replace_ref_stmt_with): New function.
+	(create_tree_ann): Abort if trying to annotate certain nodes.
+	Don't create an empty ref list.
+	In the presence of WFL or NOPS wrappers, add the annotation to the
+	inner node.
+	(dump_ref): Don't call tree_annotation to access the tree
+	annotation.
+
+	* tree-flow.h (struct tree_ref_common): Rename field stmt to stmt_p
+	and field expr to expr_p.  Change types to tree *.  Update all
+	users.
+	(replace_ref_expr_with): Declare.
+	(replace_ref_stmt_with): Declare.
+	(insert_stmt_before, insert_stmt_after, replace_expr_in_tree,
+	find_expr_in_tree): Remove.
+	* tree-flow-inline.h (ref_expr): Return NULL_TREE if expr_p is
+	NULL.
+	(ref_stmt): Return NULL_TREE if stmt_p is NULL.
+	(tree_annotation): Call STRIP_WFL and STRIP_NOPS before returning
+	the annotation.
+	(add_tree_ref): Remove consistency checks.  Create an empty list
+	the first time.
+	(get_lineno): Return -1 on NULL_TREE.
+	(set_output_ref): Remove consistency.
+	(set_tree_flag): Likewise.
+	(clear_tree_flag): Likewise.
+	(reset_tree_flags): Likewise.
+	* tree-simple.h (gimple_stmt_iterator): Rename ptr to tp.  Change
+	type to tree *.  Update all users.
+	(gsi_start): Change argument type to tree *.  Update all users.
+	(gsi_stmt_ptr): New function.
+	(gsi_container): New function.
+
+	* tree-optimize.c (optimize_function_tree): Don't test fnbody for
+	NULL.
+	Re-enable optimizers.
+	* tree-ssa-ccp.c: Update documentation comments.
+	Don't include c-common.h and c-tree.h.
+	(tree_ssa_ccp): Don't call COMPOUND_BODY.
+	(ccp_fold): New private function.
+	(substitute_and_fold): Call it.
+	Call replace_ref_expr_with.
+	Set TF_FOLDED flag on the statement, not the expression.
+	(visit_assignment_for): Call STRIP_NOPS and STRIP_WFL.
+	(evaluate_expr): Call ccp_fold.  Only use the RHS of the simplified
+	value in the case of MODIFY_EXPR or INIT_EXPR.
+	(restore_expr):
+	* tree-ssa-dce.c (mark_control_parent_necessary): Use a gimple
+	iterator.
+	(tree_ssa_eliminate_dead_code): Likewise.
+	* tree-ssa-pre.c: Disable and add warning comments for out-of-date
+	calls to create_ref, find_refs_in_stmt and replace_expr_in_tree.
+
 2002-10-12  Daniel Berlin  <dberlin@dberlin.org>
 	
 	* tree-alias-type.h  (alias_typevar_def): Add struct aterm

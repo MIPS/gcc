@@ -192,12 +192,12 @@ struct tree_ref_common
 
   /* Statement containing the reference.  Maybe NULL for special references
      (e.g., default definitions inserted at the start of every function).  */
-  tree stmt;
+  tree *stmt_p;
 
   /* Expression tree containing the reference.  Maybe NULL for special
      references (e.g., default definitions inserted at the start of every
      function).  */
-  tree expr;
+  tree *expr_p;
 
   /* Pointer to operand of EXPR containing VAR.  Used when substituting the
      operand with some other value in transformations like constant
@@ -383,8 +383,10 @@ static inline tree ref_stmt			PARAMS ((tree_ref));
 static inline tree ref_expr			PARAMS ((tree_ref));
 static inline basic_block ref_bb		PARAMS ((tree_ref));
 static inline unsigned long ref_id		PARAMS ((tree_ref));
-static inline void replace_ref_operand_with	PARAMS ((tree_ref, tree));
 static inline void restore_ref_operand		PARAMS ((tree_ref));
+extern void replace_ref_operand_with		PARAMS ((tree_ref, tree));
+extern void replace_ref_expr_with		PARAMS ((tree_ref, tree));
+extern void replace_ref_stmt_with		PARAMS ((tree_ref, tree));
 
 
 /* For var_ref.  */
@@ -542,7 +544,7 @@ static inline bool
 bb_empty_p (b)
      basic_block b;
 {
-  return b->head_tree == empty_stmt_node;
+  return *(b->head_tree_p) == empty_stmt_node;
 }
 
 
@@ -617,10 +619,6 @@ extern void tree_dump_cfg		PARAMS ((FILE *));
 extern void tree_debug_cfg		PARAMS ((void));
 extern void tree_cfg2dot		PARAMS ((FILE *));
 extern void validate_loops		PARAMS ((struct loops *));
-extern void insert_stmt_before		PARAMS ((tree, tree, basic_block));
-extern void insert_stmt_after		PARAMS ((tree, tree, basic_block));
-extern void replace_expr_in_tree	PARAMS ((tree, tree, tree));
-extern tree *find_expr_in_tree		PARAMS ((tree, tree));
 extern void insert_bb_before		PARAMS ((basic_block, basic_block));
 extern void tree_cleanup_cfg		PARAMS ((void));
 extern tree first_stmt			PARAMS ((basic_block));
@@ -629,11 +627,11 @@ extern tree last_stmt			PARAMS ((basic_block));
 
 /* In tree-dfa.c  */
 extern void tree_find_refs		PARAMS ((void));
-extern void find_refs_in_stmt           PARAMS ((tree, basic_block));
+extern void find_refs_in_stmt           PARAMS ((tree *, basic_block));
 extern void remove_tree_ann		PARAMS ((tree));
 extern tree_ann create_tree_ann 	PARAMS ((tree));
 extern tree_ref create_ref		PARAMS ((tree, HOST_WIDE_INT,
-						 basic_block, tree, tree,
+						 basic_block, tree *, tree *,
 						 tree *, int));
 extern void debug_ref			PARAMS ((tree_ref));
 extern void dump_ref			PARAMS ((FILE *, const char *, tree_ref,

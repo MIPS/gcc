@@ -49,6 +49,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-dchain.h"
 #include "langhooks.h"
 #include "tree-mudflap.h"
+#include "diagnostic.h"
 
 /* In grokdeclarator, distinguish syntactic contexts of declarators.  */
 enum decl_context
@@ -6543,10 +6544,11 @@ c_expand_body (fndecl, nested_p, can_defer_p)
       dump_file = dump_begin (TDI_simple, &dump_flags);
       if (dump_file)
 	{
-	  fprintf (dump_file, "%s()\n", IDENTIFIER_POINTER (DECL_NAME (fndecl)));
+	  fprintf (dump_file, "%s()\n", get_name (fndecl));
 
 	  if (dump_flags & TDF_RAW)
-	    dump_node (DECL_SAVED_TREE (fndecl), TDF_SLIM | dump_flags, dump_file);
+	    dump_node (DECL_SAVED_TREE (fndecl), TDF_SLIM | dump_flags,
+		       dump_file);
 	  else
 	    print_c_tree (dump_file, DECL_SAVED_TREE (fndecl));
 	  fprintf (dump_file, "\n");

@@ -44,12 +44,12 @@ static FILE *dump_file;
 static int dump_flags;
 
 /* Basic blocks and flowgraphs.  */
-static void make_blocks			PARAMS ((tree, basic_block));
-static void make_bind_expr_blocks	PARAMS ((tree, basic_block));
-static void make_cond_expr_blocks	PARAMS ((tree, basic_block));
-static void make_loop_expr_blocks	PARAMS ((tree, basic_block));
-static void make_switch_expr_blocks	PARAMS ((tree, basic_block));
-static basic_block create_bb		PARAMS ((tree, basic_block));
+static void make_blocks			PARAMS ((tree *, basic_block));
+static void make_bind_expr_blocks	PARAMS ((tree *, basic_block));
+static void make_cond_expr_blocks	PARAMS ((tree *, basic_block));
+static void make_loop_expr_blocks	PARAMS ((tree *, basic_block));
+static void make_switch_expr_blocks	PARAMS ((tree *, basic_block));
+static basic_block create_bb		PARAMS ((tree *, basic_block));
 static void set_bb_for_stmt		PARAMS ((tree, basic_block));
 static void remove_unreachable_blocks	PARAMS ((void));
 static void tree_delete_bb		PARAMS ((basic_block));
@@ -66,11 +66,10 @@ static void make_case_label_edges	PARAMS ((basic_block));
 /* Various helpers.  */
 static basic_block successor_block	PARAMS ((basic_block));
 static basic_block latch_block		PARAMS ((basic_block));
-static basic_block first_exec_block	PARAMS ((tree));
-static tree first_exec_stmt		PARAMS ((tree));
+static basic_block first_exec_block	PARAMS ((tree *));
+static tree *first_exec_stmt		PARAMS ((tree *));
 static bool block_invalidates_loop	PARAMS ((basic_block, struct loop *));
 static void remove_bb_ann		PARAMS ((basic_block));
-static tree *find_expr_in_tree_helper	PARAMS ((tree, tree, int, int));
 static basic_block switch_parent	PARAMS ((basic_block));
 
 /* Remove any COMPOUND_EXPR and WFL container from NODE.  */
@@ -96,7 +95,7 @@ void
 build_tree_cfg (fnbody)
      tree fnbody;
 {
-  tree first;
+  tree *first_p;
 
   /* Initialize the basic block array.  */
   n_basic_blocks = 0;
@@ -113,10 +112,15 @@ build_tree_cfg (fnbody)
   /* Find the basic blocks for the flowgraph.  First skip any
      non-executable statements at the start of the function.  Otherwise
      we'll end up with an empty basic block 0, which is useless.  */
-  first = first_exec_stmt (fnbody);
-  if (first)
+  STRIP_WFL (fnbody);
+
+  if (fnbody == empty_stmt_node || TREE_CODE (fnbody) != BIND_EXPR)
+    return;
+
+  first_p = first_exec_stmt (&BIND_EXPR_BODY (fnbody));
+  if (first_p)
     {
-      make_blocks (first, NULL);
+      make_blocks (first_p, NULL);
 
       if (n_basic_blocks > 0)
 	{
@@ -146,34 +150,37 @@ build_tree_cfg (fnbody)
 }
 
 
-/* Build a flowgraph for the tree starting with BODY (assumed to be the
-   BIND_EXPR_BODY operand of a BIND_EXPR node).
+/* Build a flowgraph for the statements starting at the statement pointed
+   by FIRST_P.
    
    PARENT_BLOCK is the header block for the control structure
       immediately enclosing the new sub-graph.  */
 
 static void
-make_blocks (body, parent_block)
-     tree body;
+make_blocks (first_p, parent_block)
+     tree *first_p;
      basic_block parent_block;
 {
   basic_block bb;
   bool start_new_block;
   gimple_stmt_iterator i;
 
-  if (body == NULL_TREE || body == empty_stmt_node || body == error_mark_node)
+  if (first_p == NULL
+      || *first_p == empty_stmt_node
+      || *first_p == error_mark_node)
     return;
 
   bb = NULL;
   start_new_block = true;
-  for (i = gsi_start (body); !gsi_after_end (i); gsi_step (&i))
+  for (i = gsi_start (first_p); !gsi_after_end (i); gsi_step (&i))
     {
       tree stmt;
       enum tree_code code;
-      tree container = i.ptr;
+      tree *container = gsi_container (i);
 
       stmt = gsi_stmt (i);
       STRIP_WFL (stmt);
+      STRIP_NOPS (stmt);
 
       /* Ignore non-executable statements.  */
       if (stmt == empty_stmt_node)
@@ -212,42 +219,45 @@ make_blocks (body, parent_block)
 	  else
 	    {
 	      /* Add the statement to the existing basic block.  */
-	      set_bb_for_stmt (container, bb);
-	      bb->end_tree = container;
+	      set_bb_for_stmt (*container, bb);
+	      bb->end_tree_p = container;
 	    }
 	}
     }
 }
 
 
-/* Create the blocks for the BIND_EXPR node BIND.  PARENT_BLOCK is as in
+/* Create the blocks for the BIND_EXPR node *BIND_P.  PARENT_BLOCK is as in
    make_blocks.  */
 
 static void
-make_bind_expr_blocks (bind, parent_block)
-     tree bind;
+make_bind_expr_blocks (bind_p, parent_block)
+     tree *bind_p;
      basic_block parent_block;
 {
   basic_block entry;
+  tree bind = *bind_p;
 
-  entry = create_bb (bind, parent_block);
+  entry = create_bb (bind_p, parent_block);
   entry->flags |= BB_CONTROL_ENTRY;
+
   STRIP_CONTAINERS (bind);
-  make_blocks (BIND_EXPR_BODY (bind), entry);
+  make_blocks (&BIND_EXPR_BODY (bind), entry);
 }
 
 
-/* Create the blocks for the LOOP_EXPR node LOOP.  PARENT_BLOCK is as in
+/* Create the blocks for the LOOP_EXPR node *LOOP_P.  PARENT_BLOCK is as in
    make_blocks.  */
 
 static void
-make_loop_expr_blocks (loop, parent_block)
-     tree loop;
+make_loop_expr_blocks (loop_p, parent_block)
+     tree *loop_p;
      basic_block parent_block;
 {
   basic_block entry, latch;
+  tree loop = *loop_p;
   
-  entry = create_bb (loop, parent_block);
+  entry = create_bb (loop_p, parent_block);
   entry->flags |= BB_CONTROL_ENTRY | BB_CONTROL_EXPR | BB_LOOP_CONTROL_EXPR;
 
   /* Create an empty block to serve as latch to prevent flow_loops_find
@@ -256,27 +266,28 @@ make_loop_expr_blocks (loop, parent_block)
      
      ??? Note that latch_block assumes that the latch block is the
 	 successor of the entry block in the linked list of blocks.  */
-  latch = create_bb (empty_stmt_node, parent_block);
+  latch = create_bb (&empty_stmt_node, parent_block);
   latch->flags |= BB_CONTROL_EXPR | BB_LOOP_CONTROL_EXPR;
   
   STRIP_CONTAINERS (loop);
-  make_blocks (LOOP_EXPR_BODY (loop), entry);
+  make_blocks (&LOOP_EXPR_BODY (loop), entry);
 }
 
 
 /* Create the blocks for a COND_EXPR.  PARENT_BLOCK is as in make_blocks.  */
 
 static void
-make_cond_expr_blocks (cond, parent_block)
-     tree cond;
+make_cond_expr_blocks (cond_p, parent_block)
+     tree *cond_p;
      basic_block parent_block;
 {
-  basic_block entry = create_bb (cond, parent_block);
+  tree cond = *cond_p;
+  basic_block entry = create_bb (cond_p, parent_block);
   entry->flags |= BB_CONTROL_ENTRY | BB_CONTROL_EXPR;
 
   STRIP_CONTAINERS (cond);
-  make_blocks (COND_EXPR_THEN (cond), entry);
-  make_blocks (COND_EXPR_ELSE (cond), entry);
+  make_blocks (&COND_EXPR_THEN (cond), entry);
+  make_blocks (&COND_EXPR_ELSE (cond), entry);
 }
 
 
@@ -284,28 +295,29 @@ make_cond_expr_blocks (cond, parent_block)
    make_blocks.  */
 
 static void
-make_switch_expr_blocks (switch_e, parent_block)
-     tree switch_e;
+make_switch_expr_blocks (switch_e_p, parent_block)
+     tree *switch_e_p;
      basic_block parent_block;
 {
-  basic_block entry = create_bb (switch_e, parent_block);
+  tree switch_e = *switch_e_p;
+  basic_block entry = create_bb (switch_e_p, parent_block);
   entry->flags |= BB_CONTROL_ENTRY | BB_CONTROL_EXPR;
 
   STRIP_CONTAINERS (switch_e);
-  make_blocks (SWITCH_BODY (switch_e), entry);
+  make_blocks (&SWITCH_BODY (switch_e), entry);
 }
 
 
 /* Create and return a new basic block.
 
-   HEAD is the first statement in the block.
+   HEAD_P is a pointer to the first statement in the block.
 
    PARENT_BLOCK is the entry block for the control structure containing
       the new block.  */
 
 static basic_block
-create_bb (head, parent_block)
-     tree head;
+create_bb (head_p, parent_block)
+     tree *head_p;
      basic_block parent_block;
 {
   basic_block bb;
@@ -314,7 +326,7 @@ create_bb (head, parent_block)
   bb = (basic_block) ggc_alloc (sizeof (*bb));
   memset (bb, 0, sizeof (*bb));
 
-  bb->head_tree = bb->end_tree = head;
+  bb->head_tree_p = bb->end_tree_p = head_p;
   bb->index = last_basic_block;
   bb->flags = BB_NEW;
 
@@ -338,7 +350,7 @@ create_bb (head, parent_block)
   last_basic_block++;
 
   /* Associate the newly created block to the head tree.  */
-  set_bb_for_stmt (head, bb);
+  set_bb_for_stmt (*head_p, bb);
 
   return bb;
 }
@@ -444,7 +456,7 @@ make_edges ()
 	 BIND_EXPR_BODY.  */
       if (TREE_CODE (first) == BIND_EXPR)
 	{
-	  basic_block body_bb = first_exec_block (BIND_EXPR_BODY (first));
+	  basic_block body_bb = first_exec_block (&BIND_EXPR_BODY (first));
 	  if (body_bb)
 	    make_edge (bb, body_bb, EDGE_FALLTHRU);
 	}
@@ -545,7 +557,7 @@ make_loop_expr_edges (bb)
 
   /* Basic blocks for each component.  */
   end_bb = latch_block (bb);
-  body_bb = first_exec_block (LOOP_EXPR_BODY (entry));
+  body_bb = first_exec_block (&LOOP_EXPR_BODY (entry));
 
   /* Empty loop body?  Use the latch block.  */
   if (body_bb == NULL)
@@ -572,8 +584,8 @@ make_cond_expr_edges (bb)
 #endif
 
   /* Entry basic blocks for each component.  */
-  then_bb = first_exec_block (COND_EXPR_THEN (entry));
-  else_bb = first_exec_block (COND_EXPR_ELSE (entry));
+  then_bb = first_exec_block (&COND_EXPR_THEN (entry));
+  else_bb = first_exec_block (&COND_EXPR_ELSE (entry));
   successor_bb = successor_block (bb);
 
   /* Create the following edges.
@@ -724,7 +736,7 @@ static void
 tree_delete_bb (bb)
      basic_block bb;
 {
-  tree t;
+  gimple_stmt_iterator i;
 
   dump_file = dump_begin (TDI_cfg, &dump_flags);
   if (dump_file)
@@ -736,14 +748,8 @@ tree_delete_bb (bb)
     }
 
   /* Unmap all the instructions in the block.  */
-  t = first_stmt (bb);
-  while (t)
-    {
-      set_bb_for_stmt (t, NULL);
-      if (t == last_stmt (bb))
-	break;
-      t = TREE_CHAIN (t);
-    }
+  for (i = gsi_start_bb (bb); !gsi_after_end (i); gsi_step (&i))
+    set_bb_for_stmt (gsi_stmt (i), NULL);
 
   /* Remove the edges into and out of this block.  */
   while (bb->pred != NULL)
@@ -826,153 +832,6 @@ block_invalidates_loop (bb, loop)
 			 Code insertion and replacement
 ---------------------------------------------------------------------------*/
 
-/* Insert statement STMT before tree WHERE in basic block BB.  */
-
-void
-insert_stmt_before (stmt, where, bb)
-     tree stmt ATTRIBUTE_UNUSED;
-     tree where ATTRIBUTE_UNUSED;
-     basic_block bb ATTRIBUTE_UNUSED;
-{
-}
-
-
-/* Replace expression EXPR in tree T with NEW_EXPR.  */
-
-void
-replace_expr_in_tree (t, old_expr, new_expr)
-     tree t;
-     tree old_expr;
-     tree new_expr;
-{
-  tree *old_expr_p = find_expr_in_tree (t, old_expr);
-
-  dump_file = dump_begin (TDI_cfg, &dump_flags);
-  if (dump_file)
-    {
-      if (old_expr_p)
-	{
-	  fprintf (dump_file, "\nRequested expression: ");
-	  print_c_node_brief (dump_file, old_expr);
-
-	  fprintf (dump_file, "\nReplaced expression:  ");
-	  print_c_node_brief (dump_file, *old_expr_p);
-
-	  fprintf (dump_file, "\nWith expression:      ");
-	  print_c_node_brief (dump_file, new_expr);
-	}
-      else
-	{
-	  fprintf (dump_file, "\nCould not find expression: ");
-	  print_c_node_brief (dump_file, old_expr);
-	}
-
-      fprintf (dump_file, "\nIn statement:        ");
-      print_c_node_brief (dump_file, t);
-
-      fprintf (dump_file, "\nBasic block:         ");
-      fprintf (dump_file, "%d", bb_for_stmt (t)->index);
-
-      fprintf (dump_file, "\n");
-
-      dump_end (TDI_cfg, dump_file);
-    }
-
-  if (old_expr_p)
-    *old_expr_p = new_expr;
-}
-
-/* Returns the location of expression EXPR in T.  If SUBSTATE is
-   true, the search will search sub-statements.  If SUBSTATE is
-   false,  the search is guaranteed to not go outside statement
-   nodes, only their sub-expressions are searched.  LEVEL is an
-   internal parameter used to track the recursion level, external
-   users should pass 0.  */
-
-static tree *
-find_expr_in_tree_helper (t, expr, level, substate)
-     tree t;
-     tree expr;
-     int level;
-     int substate;
-{
-  int i;
-  tree *loc;
-
-  if (t == NULL || t == error_mark_node
-      || expr == NULL || expr == error_mark_node)
-    return NULL;
-
-  /* Deal with special trees first.  */
-  switch (TREE_CODE (t))
-    {
-      case COMPLEX_CST:
-      case INTEGER_CST:
-      case LABEL_DECL:
-      case REAL_CST:
-      case RESULT_DECL:
-      case STRING_CST:
-      case IDENTIFIER_NODE:
-	return NULL;
-
-      case TREE_LIST:
-	  {
-	    tree op;
-
-	    /* Try the list elements.  */
-	    for (op = t; op; op = TREE_CHAIN (op))
-	      if (TREE_VALUE (op) == expr)
-		return &(TREE_VALUE (op));
-
-	    /* Not there?  Recurse into each of the list elements.  */
-	    for (op = t; op; op = TREE_CHAIN (op))
-	      {
-		loc = find_expr_in_tree_helper (TREE_VALUE (op), expr, level++, substate);
-		if (loc)
-		  return loc;
-	      }
-
-	    return NULL;
-	  }
-
-      default:
-	break;
-    }
-
-  /* Try the immediate operands.  */
-  for (i = 0; i < TREE_CODE_LENGTH (TREE_CODE (t)); i++)
-    if (TREE_OPERAND (t, i) == expr)
-      return &(TREE_OPERAND (t, i));
-
-  /* If we still haven't found it, recurse into each sub-expression of T.  */
-  for (i = 0; i < TREE_CODE_LENGTH (TREE_CODE (t)); i++)
-    {
-      loc = find_expr_in_tree_helper (TREE_OPERAND (t, i), expr, level++, substate);
-      if (loc)
-	return loc;
-    }
-
-  /* Finally, recurse into its chain (this limits the search to a single
-     statement).  */
-  if (substate && level != 0)
-    {
-      loc = find_expr_in_tree_helper (TREE_CHAIN (t), expr, level, substate);
-      if (loc)
-	return loc;
-    }
-
-  return NULL;
-}
-
-tree *
-find_expr_in_tree (t, expr)
-	tree t;
-	tree expr;
-{
-	return find_expr_in_tree_helper (t, expr, 0, true);
-}
-
-
 /* Insert basic block NEW_BB before BB.  */
 
 void
@@ -1006,8 +865,8 @@ tree_dump_bb (outf, prefix, bb, indent)
      int indent;
 {
   edge e;
-  tree head = bb->head_tree;
-  tree end = bb->end_tree;
+  tree head = *(bb->head_tree_p);
+  tree end = *(bb->end_tree_p);
   char *s_indent;
   int lineno;
 
@@ -1145,10 +1004,8 @@ tree_cfg2dot (file)
       head_name = tree_code_name[head_code];
       end_name = tree_code_name[end_code];
 
-      /* Must access head_tree and end_tree directly to get line number
-	 information because first_stmt and last_stmt strip it out.  */
-      head_line = get_lineno (bb->head_tree);
-      end_line = get_lineno (bb->end_tree);
+      head_line = get_lineno (*(bb->head_tree_p));
+      end_line = get_lineno (*(bb->end_tree_p));
 
       fprintf (file, "\t%d [label=\"#%d\\n%s (%d)\\n%s (%d)\"];\n",
 	       bb->index, bb->index, head_name, head_line, end_name,
@@ -1227,9 +1084,9 @@ successor_block (bb)
      anything to the flowgraph, we don't want to create edges to them,
      leaving them unreachable.  The post-processing cleanup will remove
      them from the graph.  */
-  i = gsi_start (bb->end_tree);
+  i = gsi_start (bb->end_tree_p);
   gsi_step (&i);
-  succ_bb = first_exec_block (gsi_stmt (i));
+  succ_bb = first_exec_block (gsi_container (i));
   if (succ_bb)
     return succ_bb;
 
@@ -1246,9 +1103,9 @@ successor_block (bb)
 
       /* Otherwise, If BB's control parent has a successor, return its
          block.  */
-      i = gsi_start (parent_bb->end_tree);
+      i = gsi_start (parent_bb->end_tree_p);
       gsi_step (&i);
-      succ_bb = first_exec_block (gsi_stmt (i));
+      succ_bb = first_exec_block (gsi_container (i));
       if (succ_bb)
 	return succ_bb;
 
@@ -1389,8 +1246,8 @@ latch_block (loop_bb)
     abort ();
 
   if (loop_bb->next_bb == NULL
-      || loop_bb->next_bb->head_tree != empty_stmt_node
-      || loop_bb->next_bb->end_tree != empty_stmt_node)
+      || *(loop_bb->next_bb->head_tree_p) != empty_stmt_node
+      || *(loop_bb->next_bb->end_tree_p) != empty_stmt_node)
     abort ();
 #endif
 
@@ -1400,23 +1257,24 @@ latch_block (loop_bb)
 }
 
 
-/* Return the first executable statement starting at ENTRY.  */
+/* Return a pointer to the first executable statement starting at ENTRY_P.  */
 
-static tree
-first_exec_stmt (entry)
-     tree entry;
+static tree *
+first_exec_stmt (entry_p)
+     tree *entry_p;
 {
   gimple_stmt_iterator i;
   tree stmt;
-  
-  for (i = gsi_start (entry); !gsi_after_end (i); gsi_step (&i))
+
+  for (i = gsi_start (entry_p); !gsi_after_end (i); gsi_step (&i))
     {
       stmt = gsi_stmt (i);
       STRIP_WFL (stmt);
+      STRIP_NOPS (stmt);
 
       /* Dive into BIND_EXPR bodies.  */
       if (TREE_CODE (stmt) == BIND_EXPR)
-	return first_exec_stmt (BIND_EXPR_BODY (stmt));
+	return first_exec_stmt (&BIND_EXPR_BODY (stmt));
 
       /* Don't consider empty_stmt_node to be executable.  Note that we
 	 actually return the container for the executable statement, not
@@ -1426,24 +1284,24 @@ first_exec_stmt (entry)
 	return gsi_container (i);
     }
 
-  return NULL_TREE;
+  return NULL;
 }
 
 
 /* Return the first basic block with executable statements in it, starting
-   at ENTRY.  */
+   at ENTRY_P.  */
 
 static basic_block
-first_exec_block (entry)
-     tree entry;
+first_exec_block (entry_p)
+     tree *entry_p;
 {
-  tree exec;
+  tree *exec_p;
 
-  if (entry == empty_stmt_node || entry == NULL_TREE)
+  if (entry_p == NULL || *entry_p == empty_stmt_node)
     return NULL;
 
-  exec = first_exec_stmt (entry);
-  return (exec) ? bb_for_stmt (exec) : NULL;
+  exec_p = first_exec_stmt (entry_p);
+  return (exec_p) ? bb_for_stmt (*exec_p) : NULL;
 }
 
 
@@ -1462,7 +1320,8 @@ switch_parent (bb)
 }
 
 
-/* Return the first statement in basic block BB.  */
+/* Return the first statement in basic block BB, stripped of any WFL or NOP
+   containers.  */
 
 tree
 first_stmt (bb)
@@ -1474,11 +1333,13 @@ first_stmt (bb)
   i = gsi_start_bb (bb);
   t = gsi_stmt (i);
   STRIP_WFL (t);
+  STRIP_NOPS (t);
   return t;
 }
 
 
-/* Return the last statement in basic block BB.  */
+/* Return the last statement in basic block BB, stripped of any WFL or NOP
+   containers.  */
 
 tree
 last_stmt (bb)
@@ -1487,8 +1348,9 @@ last_stmt (bb)
   gimple_stmt_iterator i;
   tree t;
   
-  i = gsi_start (bb->end_tree);
+  i = gsi_start (bb->end_tree_p);
   t = gsi_stmt (i);
   STRIP_WFL (t);
+  STRIP_NOPS (t);
   return t;
 }

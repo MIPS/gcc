@@ -99,21 +99,22 @@ void unshare_all_trees			PARAMS ((tree));
 
 /* Iterator object for GIMPLE statements.  */
 typedef struct {
-  tree ptr;
+  tree *tp;
 } gimple_stmt_iterator;
 
-static inline gimple_stmt_iterator gsi_start PARAMS ((tree));
+static inline gimple_stmt_iterator gsi_start PARAMS ((tree *));
 static inline bool gsi_after_end	PARAMS ((gimple_stmt_iterator));
 static inline void gsi_step		PARAMS ((gimple_stmt_iterator *));
 static inline tree gsi_stmt		PARAMS ((gimple_stmt_iterator));
-static inline tree gsi_container	PARAMS ((gimple_stmt_iterator));
+static inline tree *gsi_stmt_ptr	PARAMS ((gimple_stmt_iterator));
+static inline tree *gsi_container	PARAMS ((gimple_stmt_iterator));
 
 static inline gimple_stmt_iterator
-gsi_start (t)
-     tree t;
+gsi_start (tp)
+     tree *tp;
 {
   gimple_stmt_iterator i;
-  i.ptr = t;
+  i.tp = tp;
   return i;
 }
 
@@ -121,45 +122,55 @@ static inline bool
 gsi_after_end (i)
      gimple_stmt_iterator i;
 {
-  return (i.ptr == NULL_TREE || i.ptr == error_mark_node);
+  return (i.tp == NULL || *(i.tp) == error_mark_node);
 }
 
 static inline void
 gsi_step (i)
      gimple_stmt_iterator *i;
 {
-  tree t = i->ptr;
+  tree t = *(i->tp);
   STRIP_WFL (t);
+  STRIP_NOPS (t);
   if (TREE_CODE (t) == COMPOUND_EXPR)
-    i->ptr = TREE_OPERAND (t, 1);
+    i->tp = &(TREE_OPERAND (t, 1));
   else
-    i->ptr = NULL_TREE;
+    i->tp = NULL;
+}
+
+static inline tree *
+gsi_stmt_ptr (i)
+     gimple_stmt_iterator i;
+{
+  tree t;
+
+#if defined ENABLE_CHECKING
+  if (i.tp == NULL || *i.tp == NULL_TREE)
+    abort ();
+#endif
+
+  t = *(i.tp);
+  STRIP_WFL (t);
+  STRIP_NOPS (t);
+
+  if (TREE_CODE (t) == COMPOUND_EXPR)
+    return &TREE_OPERAND (t, 0);
+  else
+    return i.tp;
 }
 
 static inline tree
 gsi_stmt (i)
      gimple_stmt_iterator i;
 {
-  tree t = i.ptr;
-
-  if (t)
-    {
-      STRIP_WFL (t);
-      if (TREE_CODE (t) == COMPOUND_EXPR)
-	t = TREE_OPERAND (t, 0);
-      else
-	/* Return the original i.ptr.  We don't want to lose WFL wrappers.  */
-	t = i.ptr;
-    }
-
-  return t;
+  return *(gsi_stmt_ptr (i));
 }
 
-static inline tree
+static inline tree *
 gsi_container (i)
      gimple_stmt_iterator i;
 {
-  return i.ptr;
+  return i.tp;
 }
 
 #endif /* _TREE_SIMPLE_H  */

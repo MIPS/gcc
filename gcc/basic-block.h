@@ -189,9 +189,9 @@ typedef struct basic_block_def {
   /* The first and last insns of the block.  */
   rtx head, end;
 
-  /* The first and last trees of the block.  */
-  tree head_tree;
-  tree end_tree;
+  /* Pointers to the first and last trees of the block.  */
+  tree *head_tree_p;
+  tree *end_tree_p;
 
   /* The edges into and out of the block.  */
   edge pred, succ;
@@ -316,9 +316,6 @@ extern struct obstack flow_obstack;
 
 #define BLOCK_HEAD(B)      (BASIC_BLOCK (B)->head)
 #define BLOCK_END(B)       (BASIC_BLOCK (B)->end)
-
-#define BLOCK_HEAD_TREE(B) (BASIC_BLOCK (B)->head_tree)
-#define BLOCK_END_TREE(B) (BASIC_BLOCK (B)->end_tree)
 
 /* Special block numbers [markers] for entry and exit.  */
 #define ENTRY_BLOCK (-1)

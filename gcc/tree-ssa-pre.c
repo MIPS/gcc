@@ -668,6 +668,9 @@ insert_occ_in_preorder_dt_order_1 (ei, fh, block)
         continue;
       if (TREE_CODE (VARRAY_TREE (ei->occurs, i)) == CALL_EXPR)
 	{
+	  /* FIXME: Hack.  Passing the address of local trees to create_ref
+		    is not correct.  We should keep statement and
+		    expression pointers here.  */
 	  newref = create_ref (VARRAY_TREE (ei->occurs, i),
 				  E_KILL, block, occurstmt,
 				  VARRAY_TREE (ei->occurs, i), NULL, true);
@@ -676,6 +679,9 @@ insert_occ_in_preorder_dt_order_1 (ei, fh, block)
 	}
       else
 	{
+	  /* FIXME: Hack.  Passing the address of local trees to create_ref
+		    is not correct.  We should keep statement and
+		    expression pointers here.  */
 	  newref = create_ref (VARRAY_TREE (ei->occurs, i), 
 				  E_USE, block, occurstmt, 
 				  VARRAY_TREE (ei->occurs, i), NULL, true);
@@ -1478,8 +1484,7 @@ finalize_1 (ei, temp)
 		      fprintf (dump_file, " to ");
 		      print_c_tree (dump_file, temp);
 		      fprintf (dump_file, " after ");
-		      print_c_node (dump_file, 
-				    BLOCK_END_TREE (ref_bb(X)->index));
+		      print_c_node (dump_file, last_stmt (ref_bb (X)));
 		      fprintf (dump_file, 
 			       " (at end of BB), because of ExprPhi");
 		      fprintf (dump_file, " in BB %d\n", 
@@ -1493,7 +1498,7 @@ finalize_1 (ei, temp)
 		  /* If it's a goto, we need to insert *before* it.
 		     This might not be necessary once goto elimination
 		     is functional.  */
-		  endtree = BLOCK_END_TREE (bb->index);
+		  endtree = last_stmt (bb);
 		  /* Update the SSA for the newly inserted definition.
 		     This is a phi operand occurrence insertion, so we know
 		     *something* caused one or more variables in our expression
@@ -1506,6 +1511,9 @@ finalize_1 (ei, temp)
 		     def or use of the variable in that bb, and getting it from
 		     that. 
 		  */
+		/* FIXME: Hack.  Passing the address of local trees to
+		   create_ref is not correct.  We should keep statement and
+		   expression pointers here.  */
 		  find_refs_in_stmt (stmt, bb);
 		  FOR_EACH_REF (tempref, tmp, tree_refs (stmt))
 		  {
@@ -1525,6 +1533,9 @@ finalize_1 (ei, temp)
 		    insert_stmt_tree_after (stmt, endtree, bb);
 #endif
 		  
+		/* FIXME: Hack.  Passing the address of local trees to
+		   create_ref is not correct.  We should keep statement and
+		   expression pointers here.  */
 		  set_expruse_def (X,create_ref (expr, E_USE, 
 						 ref_bb (X), stmt, expr,
 						 &TREE_OPERAND (stmt, 0), true));
@@ -1985,6 +1996,9 @@ repair_injury (ei, use, temp, orig_euse)
 		     3. Insert into new statement map the tuple (orig_euse,
 		     repair stmt).
 		  */
+		/* FIXME: Hack.  Passing the address of local trees to
+		   create_ref is not correct.  We should keep statement and
+		   expression pointers here.  */
 		  find_refs_in_stmt (stmt, bb);
 		  FOR_EACH_REF (tempref, tmp, tree_refs (stmt))
 		  {
@@ -2061,6 +2075,9 @@ repair_injury (ei, use, temp, orig_euse)
 		     3. Insert into new statement map the tuple (orig_euse,
 		     repair stmt).
 		  */
+		/* FIXME: Hack.  Passing the address of local trees to
+		   create_ref is not correct.  We should keep statement and
+		   expression pointers here.  */
 		  find_refs_in_stmt (stmt, bb);
 		  FOR_EACH_REF (tempref, tmp, tree_refs (stmt))
 		  {
@@ -2227,7 +2244,11 @@ update_ssa_for_new_use (temp, newuse, defby, bb)
     remove_tree_ref (ref_expr (use_orig_ref), tempref);
   }
   remove_tree_ann (ref_expr (use_orig_ref));
+#if 0
   replace_expr_in_tree (ref_stmt (use_orig_ref), newuse, temp);
+#endif
+  /* FIXME: Hack.  Passing the address of local trees to create_ref is not
+     correct.  We should keep statement and expression pointers here.  */
   newdefref = create_ref (TREE_OPERAND (ref_expr (use_orig_ref), 0),
 			  V_DEF, bb, ref_stmt (use_orig_ref), 
 			  ref_expr (use_orig_ref),
@@ -2239,10 +2260,14 @@ update_ssa_for_new_use (temp, newuse, defby, bb)
   update_phis_in_list (reached_uses (newdefref), olddefref, newdefref);
   update_phis_in_list (imm_uses (newdefref), olddefref, newdefref);
   
+  /* FIXME: Hack.  Passing the address of local trees to create_ref is not
+     correct.  We should keep statement and expression pointers here.  */
+#if 0
   newuseref = create_ref (temp, V_USE, bb, ref_stmt (use_orig_ref),
 			  ref_expr (use_orig_ref), 
 			  find_expr_in_tree (ref_expr (use_orig_ref), temp), 
 			  true);
+#endif
   if (! (ref_type (defby) & E_PHI))
     {
       /* For non-PHI's we created, the  map is euse expression -> new pretmp
@@ -2393,6 +2418,9 @@ code_motion (ei, temp)
 		 2. Copy the reaching def from the old uses (in the assignment 
 		 expression we are going to replace with the temporary next).
 	      */
+	      /* FIXME: Hack.  Passing the address of local trees to
+		 create_ref is not correct.  We should keep statement and
+		 expression pointers here.  */
 	      find_refs_in_stmt (newstmt, use_bb);
 	      
 	      FOR_EACH_REF (tempref, tmp, tree_refs (newexpr))
@@ -2461,8 +2489,11 @@ code_motion (ei, temp)
 	  size_t i;
 	  splay_tree_node phidefnode, defbynode;
 
+	  /* FIXME: Hack.  Passing the address of local trees to
+	     create_ref is not correct.  We should keep statement and
+	     expression pointers here.  */
 	  phi = create_ref (temp, V_PHI, ref_bb (use), 
-			    BLOCK_HEAD_TREE (ref_bb (use)->index),
+			    first_stmt (ref_bb (use)),
 			    NULL, NULL, false);
 	  add_ref_to_list_begin (bb_refs (ref_bb (use)), phi);
 	  splay_tree_insert (new_stmt_map, 

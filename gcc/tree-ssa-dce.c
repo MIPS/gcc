@@ -96,20 +96,19 @@ static void
 mark_control_parent_necessary (bb)
      basic_block bb;
 {
-  tree t;
+  gimple_stmt_iterator i;
 
-  if (bb)
+  if (bb == NULL)
+    return;
+
+  for (i = gsi_start_bb (bb); !gsi_after_end (i); gsi_step (&i))
     {
-      for (t = bb->head_tree; t;)
-	{
-	  mark_necessary (t);
-	  VARRAY_PUSH_TREE (worklist, t);
-	  if (t == bb->end_tree)
-	    break;
-	  t = TREE_CHAIN (t);
-	}
-      mark_control_parent_necessary (parent_block (bb));
+      tree t = gsi_stmt (i);
+      mark_necessary (t);
+      VARRAY_PUSH_TREE (worklist, t);
     }
+
+  mark_control_parent_necessary (parent_block (bb));
 }
 
 static void
@@ -169,12 +168,15 @@ tree_ssa_eliminate_dead_code (fndecl)
     {
       tree_ref ref;
       ref_list blockrefs;
+      gimple_stmt_iterator i;
 
       if (bb_empty_p (bb))
 	continue;
 	  
-      for (t = bb->head_tree; t;)
+      for (i = gsi_start_bb (bb); !gsi_after_end (i); gsi_step (&i))
 	{
+	  t = gsi_stmt (i);
+
 	  if (TREE_CODE (t) == ASM_STMT)
 	    {
 	      mark_necessary (t);
@@ -189,10 +191,7 @@ tree_ssa_eliminate_dead_code (fndecl)
 
 	  blockrefs = tree_refs (t);
 	  if (! blockrefs)
-	    { 
-	      t = TREE_CHAIN (t);
-	      continue;
-	    }
+	    continue;
 
 	  FOR_EACH_REF (ref, tmp, blockrefs)
 	    {
@@ -217,9 +216,6 @@ tree_ssa_eliminate_dead_code (fndecl)
 		    }
 		}
 	    }
-	  if (t == bb->end_tree)
-	    break;
-	  t = TREE_CHAIN (t);
 	}
     }
 
@@ -268,13 +264,15 @@ tree_ssa_eliminate_dead_code (fndecl)
   FOR_EACH_BB (bb)
     {
       tree prev;
+      gimple_stmt_iterator i;
 
       if (bb_empty_p (bb))
 	continue;
 
       prev = NULL_TREE;
-      for (t = bb->head_tree; t;)
+      for (i = gsi_start_bb (bb); !gsi_after_end (i); gsi_step (&i))
 	{
+	  t = gsi_stmt (i);
 	  stats.total++;
 
 	  /* If `i' is not in `necessary' then remove from B.  */
@@ -289,6 +287,8 @@ tree_ssa_eliminate_dead_code (fndecl)
 	      stats.removed++;
 
 	      /* Unlink `i'. Head and tail are special cases.  */
+	      /* FIXME: Call gsi_delete_stmt()  */
+#if 0
 	      if (t == bb->head_tree)
 		bb->head_tree = TREE_CHAIN (t);
 	      else 
@@ -297,13 +297,10 @@ tree_ssa_eliminate_dead_code (fndecl)
 		    bb->end_tree = prev;
 		  TREE_CHAIN (prev) = TREE_CHAIN (t);
 		}
+#endif
 	    }
 	  else
 	    prev = t;
-
-	  if (t == bb->end_tree)
-	    break;
-	  t = TREE_CHAIN (t);
 	}
     }
 

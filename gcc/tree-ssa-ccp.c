@@ -31,20 +31,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
      Robert Morgan, Butterworth-Heinemann, 1998, Section 8.9.
 
      Advanced Compiler Design and Implementation,
-     Steven Muchnick, Morgan Kaufmann, 1997, Section 12.6
-
-   The overall structure is as follows:
-
-	1. Run a simple SSA based DCE pass to remove any dead code.
-	2. Run CCP to compute what variables are known constants
-	   and what edges are not executable.  Remove unexecutable
-	   edges from the CFG and simplify PHI nodes.
-	3. Replace variables with constants where possible.
-	4. Remove unreachable blocks computed in step #2.
-	5. Another simple SSA DCE pass to remove dead code exposed
-	   by CCP.
-
-   When we exit, we are still in SSA form.  */
+     Steven Muchnick, Morgan Kaufmann, 1997, Section 12.6  */
 
 #include "config.h"
 #include "system.h"
@@ -58,12 +45,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "hard-reg-set.h"
 #include "basic-block.h"
 #include "diagnostic.h"
-
-/* This should be eventually be generalized to other languages, but
-   this would require a shared function-as-trees infrastructure.  */
-#include "c-common.h"
-#include "c-tree.h"
-
 #include "tree-flow.h"
 #include "tree-simple.h"
 
@@ -129,6 +110,7 @@ static void dump_lattice_value         PARAMS ((FILE *, const char *, value));
 static tree widen_bitfield             PARAMS ((tree, tree, tree));
 static void replace_uses_in            PARAMS ((tree));
 static void restore_expr               PARAMS ((tree));
+static tree ccp_fold                   PARAMS ((tree));
 
 
 /* Debugging dumps.  */
@@ -146,14 +128,7 @@ void
 tree_ssa_ccp (fndecl)
      tree fndecl;
 {
-  tree fnbody;
-
-  fnbody = COMPOUND_BODY (DECL_SAVED_TREE (fndecl));
-
-#if defined ENABLE_CHECKING
-  if (fnbody == NULL_TREE)
-    abort ();
-#endif
+  tree fnbody = DECL_SAVED_TREE (fndecl);
 
   initialize ();
 
@@ -366,55 +341,46 @@ substitute_and_fold ()
     {
       tree_ref ref;
       struct ref_list_node *tmp;
+      tree new_expr;
 
       FOR_EACH_REF (ref, tmp, bb_refs (bb))
 	{
-	  tree *expr_p;
-	  tree stmt = ref_stmt (ref);
 	  tree expr = ref_expr (ref);
+	  tree stmt = ref_stmt (ref);
 
 	  /* Skip references not attached to statements and expressions.  */
-	  if (stmt == NULL_TREE || expr == NULL_TREE)
+	  if (expr == NULL_TREE)
 	    continue;
 
-	  /* We are only interested in expressions that contain V_USE
-	     references.  */
-	  if (!(ref_type (ref) & V_USE))
+	  /* We are only interested in expressions that contain unmodified
+	     V_USE references.  */
+	  if (ref_type (ref) != V_USE)
 	    continue;
 
-	  /* Skip expressions that have been folded already.  */
-	  if (tree_flags (expr) & TF_FOLDED)
+	  /* Skip statements that have been folded already.  */
+	  if (tree_flags (stmt) & TF_FOLDED)
 	    continue;
 
-	  /* Replace V_USE references with their immediate reaching
-	     definition and mark the expression folded.  */
-	  replace_uses_in (expr);
-	  set_tree_flag (expr, TF_FOLDED);
-
-	  /* Replace the expression with its folded version in the
-	    statement. Note that in the case of assignment expressions, we
-	    fold their RHS (fold() does not handle assignments).  */
-	  if (TREE_CODE (expr) == MODIFY_EXPR || TREE_CODE (expr) == INIT_EXPR)
-	    expr = TREE_OPERAND (expr, 1);
-
-	  expr_p = find_expr_in_tree (stmt, expr);
-	  if (expr_p)
+	  /* Replace the expression with its folded version in the statement
+	     and mark it folded.  Note that in the case of assignment
+	     expressions, we fold their RHS (fold() does not handle
+	     assignments).  */
+	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
-	      if (dump_file && (dump_flags & TDF_DETAILS))
-		{
-		  fprintf (dump_file, "Line %d: substituing ",
-		           STMT_LINENO (stmt));
-		  print_c_node (dump_file, expr);
-		}
+	      fprintf (dump_file, "Line %d: replaced ", get_lineno (expr));
+	      print_c_node (dump_file, expr);
+	    }
 
-	      *expr_p = fold (expr);
+	  replace_uses_in (expr);
+	  new_expr = ccp_fold (expr);
+	  replace_ref_expr_with (ref, new_expr);
+	  set_tree_flag (stmt, TF_FOLDED);
 
-	      if (dump_file && (dump_flags & TDF_DETAILS))
-		{
-		  fprintf (dump_file, " with ");
-		  print_c_node (dump_file, *expr_p);
-		  fprintf (dump_file, "\n");
-		}
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    {
+	      fprintf (dump_file, " with ");
+	      print_c_node (dump_file, new_expr);
+	      fprintf (dump_file, "\n");
 	    }
 	}
     }
@@ -600,6 +566,8 @@ visit_assignment_for (ref)
   value val;
 
   expr = ref_expr (ref);
+  STRIP_WFL (expr);
+  STRIP_NOPS (expr);
 
 #if defined ENABLE_CHECKING
   if (TREE_CODE (expr) != MODIFY_EXPR
@@ -718,7 +686,12 @@ evaluate_expr (expr)
 {
   value val;
   tree simplified;
-  tree rhs;
+
+#if defined ENABLE_CHECKING
+  /* FIXME: This test is lame.  All expressions should be in GIMPLE form.  */
+  if (TREE_NOT_GIMPLE (expr))
+    abort ();
+#endif
 
   val.lattice_val = VARYING;
   val.const_value = NULL_TREE;
@@ -728,17 +701,15 @@ evaluate_expr (expr)
      reaching definition.  */
   replace_uses_in (expr);
 
-  /* Fold the expression and return its value.  Being a SIMPLE expression,
-     EXPR can only be an assignment, an RHS or a conditional expression.
-     In the case of an assignment, we are only interested in its RHS,
-     so we strip it off here.  */
-  if (TREE_CODE (expr) == MODIFY_EXPR || TREE_CODE (expr) == INIT_EXPR)
-    rhs = TREE_OPERAND (expr, 1);
-  else
-    rhs = expr;
-
   /* Fold the expression.  */
-  simplified = fold (deep_copy_node (rhs));
+  simplified = ccp_fold (deep_copy_node (expr));
+
+  STRIP_WFL (simplified);
+  STRIP_NOPS (simplified);
+  if (TREE_CODE (simplified) == INIT_EXPR
+      || TREE_CODE (simplified) == MODIFY_EXPR)
+    simplified = TREE_OPERAND (simplified, 1);
+
   if (simplified && really_constant_p (simplified))
     {
       val.lattice_val = CONSTANT;
@@ -749,7 +720,7 @@ evaluate_expr (expr)
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "Expression evaluates to ");
-      print_c_node (dump_file, rhs);
+      print_c_node (dump_file, expr);
       fprintf (dump_file, " which is ");
       if (val.lattice_val == CONSTANT)
 	{
@@ -1079,4 +1050,41 @@ restore_expr (expr)
       if (ref_type (use) == V_USE)
 	restore_ref_operand (use);
     }
+}
+
+
+/* Fold EXPR.  If EXPR is an assignment, fold its RHS and return a new
+   assignment with the folded RHS (fold does not handle assignment
+   expressions).  */
+
+static tree
+ccp_fold (expr)
+     tree expr;
+{
+  tree result, to_fold, w_expr;
+
+  /* If the expression is an assignment, get its RHS.  */
+  w_expr = expr;
+  STRIP_WFL (w_expr);
+  STRIP_NOPS (w_expr);
+  if (TREE_CODE (w_expr) == MODIFY_EXPR
+      || TREE_CODE (w_expr) == INIT_EXPR)
+    to_fold = TREE_OPERAND (w_expr, 1);
+  else
+    to_fold = expr;
+
+  result = fold (to_fold);
+
+  /* If we folded the RHS of the original expression, store the folded
+     expression there and return the original expression (which will have
+     the new folded RHS).  */
+  if (TREE_CODE (w_expr) == MODIFY_EXPR
+      || TREE_CODE (w_expr) == INIT_EXPR)
+    {
+      TREE_OPERAND (w_expr, 1) = result;
+      return expr;
+    }
+  else
+    /* Otherwise, return the folded expression.  */
+    return result;
 }

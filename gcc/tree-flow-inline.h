@@ -50,14 +50,14 @@ static inline tree
 ref_expr (ref)
      tree_ref ref;
 {
-  return ref->common.expr;
+  return ref->common.expr_p ? *(ref->common.expr_p) : NULL_TREE;
 }
 
 static inline tree
 ref_stmt (ref)
      tree_ref ref;
 {
-  return ref->common.stmt;
+  return ref->common.stmt_p ? *(ref->common.stmt_p) : NULL_TREE;
 }
 
 static inline tree
@@ -105,7 +105,6 @@ alias_imm_reaching_def (ref, i)
   if (i > num_may_alias (ref_var (ref)))
     abort ();
 #endif
-
   return ref->vref.alias_imm_rdefs[i];
 }
 
@@ -146,7 +145,6 @@ reaching_defs (use)
   return use->vuse.rdefs;
 }
 
-
 static inline varray_type
 phi_args (phi)
      tree_ref phi;
@@ -179,26 +177,19 @@ set_phi_arg (phi, i, arg)
 }
 
 static inline void
-replace_ref_operand_with (ref, op)
-     tree_ref ref;
-     tree op;
-{
-  if (ref->common.operand_p)
-    *(ref->common.operand_p) = op;
-}
-
-static inline void
 restore_ref_operand (ref)
      tree_ref ref;
 {
   if (ref->common.operand_p)
     *(ref->common.operand_p) = ref->common.orig_operand;
 }
-
+  
 static inline tree_ann
 tree_annotation (t)
      tree t;
 {
+  STRIP_WFL (t);
+  STRIP_NOPS (t);
   return (tree_ann)t->common.aux;
 }
 
@@ -247,12 +238,9 @@ add_tree_ref (t, ref)
      tree_ref ref;
 {
   tree_ann ann;
-#if defined ENABLE_CHECKING
-  if (TREE_CODE_CLASS (TREE_CODE (t)) == 'c'
-      || TREE_CODE_CLASS (TREE_CODE (t)) == 't')
-    abort ();
-#endif
   ann = tree_annotation (t) ? tree_annotation (t) : create_tree_ann (t);
+  if (ann->refs == NULL)
+    ann->refs = create_ref_list ();
   add_ref_to_list_end (ann->refs, ref);
 }
 
@@ -284,6 +272,9 @@ static inline int
 get_lineno (expr)
      tree expr;
 {
+  if (expr == NULL_TREE)
+    return -1;
+
   if (TREE_CODE (expr) == COMPOUND_EXPR)
     expr = TREE_OPERAND (expr, 0);
 
@@ -307,9 +298,13 @@ set_output_ref (t, def)
 {
   tree_ann ann;
 #if defined ENABLE_CHECKING
-  if (TREE_CODE (t) != MODIFY_EXPR
-      && TREE_CODE (t) != INIT_EXPR)
-    abort ();
+  {
+    tree w = t;
+    STRIP_WFL (w);
+    STRIP_NOPS (w);
+    if (TREE_CODE (w) != MODIFY_EXPR && TREE_CODE (w) != INIT_EXPR)
+      abort ();
+  }
 #endif
   ann = tree_annotation (t) ? tree_annotation (t) : create_tree_ann (t);
   ann->output_ref = def;
@@ -321,11 +316,6 @@ set_tree_flag (t, flag)
      enum tree_flags flag;
 {
   tree_ann  ann;
-#if defined ENABLE_CHECKING
-  if (TREE_CODE_CLASS (TREE_CODE (t)) == 'c'
-      || TREE_CODE_CLASS (TREE_CODE (t)) == 't')
-    abort ();
-#endif
   ann = tree_annotation (t) ? tree_annotation (t) : create_tree_ann (t);
   ann->flags |= flag;
 }
@@ -336,11 +326,6 @@ clear_tree_flag (t, flag)
      enum tree_flags flag;
 {
   tree_ann ann;
-#if defined ENABLE_CHECKING
-  if (TREE_CODE_CLASS (TREE_CODE (t)) == 'c'
-      || TREE_CODE_CLASS (TREE_CODE (t)) == 't')
-    abort ();
-#endif
   ann = tree_annotation (t) ? tree_annotation (t) : create_tree_ann (t);
   ann->flags &= ~flag;
 }
@@ -350,11 +335,6 @@ reset_tree_flags (t)
      tree t;
 {
   tree_ann ann;
-#if defined ENABLE_CHECKING
-  if (TREE_CODE_CLASS (TREE_CODE (t)) == 'c'
-      || TREE_CODE_CLASS (TREE_CODE (t)) == 't')
-    abort ();
-#endif
   ann = tree_annotation (t) ? tree_annotation (t) : create_tree_ann (t);
   ann->flags = 0;
 }
@@ -639,11 +619,11 @@ static inline void
 gsi_step_bb (i)
      gimple_stmt_iterator *i;
 {
-  basic_block bb = bb_for_stmt (i->ptr);
-  if (bb && i->ptr != bb->end_tree)
+  basic_block bb = bb_for_stmt (*(i->tp));
+  if (bb && i->tp != bb->end_tree_p)
     gsi_step (i);
   else
-    i->ptr = NULL_TREE;
+    i->tp = NULL;
 }
 
 /* Similar to gsi_start() but initializes the iterator at the first
@@ -652,8 +632,8 @@ static inline gimple_stmt_iterator
 gsi_start_bb (bb)
      basic_block bb;
 {
-  tree t = bb->head_tree;
-  return gsi_start (t);
+  tree *tp = bb->head_tree_p;
+  return gsi_start (tp);
 }
 
 #endif /* _TREE_FLOW_INLINE_H  */
