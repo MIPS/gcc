@@ -1,5 +1,13 @@
 2004-11-02  Fariborz Jahanian <fjahanian@apple.com>
 
+	Radar 3857727
+	* config/rs6000/rs6000-c.c (rs6000_cpu_cpp_builtins): Remove
+	setting of targetm.cast_expr_as_vector_init.
+	* config/rs6000/rs6000.c (rs6000_override_options): Set
+	targetm.cast_expr_as_vector_init.
+
+2004-11-02  Fariborz Jahanian <fjahanian@apple.com>
+
 	Radar 3846637
 	* config/rs6000/rs6000.md: Remove condition for
 	HONOR_SIGNED_ZEROS from fnmsub generation.

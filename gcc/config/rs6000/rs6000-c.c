@@ -255,8 +255,6 @@ rs6000_cpu_cpp_builtins (cpp_reader *pfile)
       builtin_define ("__APPLE_ALTIVEC__");
       /* Enable context-sensitive macros.  */
       cpp_get_callbacks (pfile)->macro_to_expand = rs6000_macro_to_expand;
-      /* Enable '(vector signed int)(a, b, c, d)' vector literal notation.  */
-      targetm.cast_expr_as_vector_init = true;
       /* APPLE LOCAL end AltiVec */
     }
   if (TARGET_SPE)
