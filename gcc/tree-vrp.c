@@ -186,8 +186,10 @@ expr_computes_nonnull (tree expr)
      guarantees that the value is non-NULL.  */
   return (alloca_call_p (expr)
           || (TREE_CODE (expr) == ADDR_EXPR
-               && DECL_P (TREE_OPERAND (expr, 0))
-	       && !DECL_WEAK (TREE_OPERAND (expr, 0))));
+              && DECL_P (TREE_OPERAND (expr, 0))
+	      && !DECL_WEAK (TREE_OPERAND (expr, 0)))
+	  || (TREE_CODE (expr) == ADDR_EXPR
+	      && REFERENCE_CLASS_P (TREE_OPERAND (expr, 0))));
 }
 
 
@@ -287,7 +289,7 @@ compare_values (tree val1, tree val2)
 static void
 extract_range_from_assert (value_range *vr_p, tree expr)
 {
-  tree var, cond, limit, one, type;
+  tree var, cond, limit, type;
 
   var = ASSERT_EXPR_VAR (expr);
   cond = ASSERT_EXPR_COND (expr);
@@ -297,7 +299,6 @@ extract_range_from_assert (value_range *vr_p, tree expr)
   /* Find VAR in the ASSERT_EXPR conditional.  */
   limit = get_opposite_operand (cond, var);
   type = TREE_TYPE (limit);
-  one = build_int_cst (type, 1);
 
   gcc_assert (limit != var);
 
@@ -316,14 +317,20 @@ extract_range_from_assert (value_range *vr_p, tree expr)
   else if (TREE_CODE (cond) == LE_EXPR)
     set_value_range (vr_p, VR_RANGE, TYPE_MIN_VALUE (type), limit);
   else if (TREE_CODE (cond) == LT_EXPR)
-    set_value_range (vr_p, VR_RANGE, TYPE_MIN_VALUE (type),
-		     fold (build (MINUS_EXPR, type, limit, one)));
+    {
+      tree one = build_int_cst (type, 1);
+      set_value_range (vr_p, VR_RANGE, TYPE_MIN_VALUE (type),
+		       fold (build (MINUS_EXPR, type, limit, one)));
+    }
   else if (TREE_CODE (cond) == GE_EXPR)
     set_value_range (vr_p, VR_RANGE, limit, TYPE_MAX_VALUE (type));
   else if (TREE_CODE (cond) == GT_EXPR)
-    set_value_range (vr_p, VR_RANGE,
-		     fold (build (PLUS_EXPR, type, limit, one)),
-		     TYPE_MAX_VALUE (type));
+    {
+      tree one = build_int_cst (type, 1);
+      set_value_range (vr_p, VR_RANGE,
+		       fold (build (PLUS_EXPR, type, limit, one)),
+		       TYPE_MAX_VALUE (type));
+    }
   else
     gcc_unreachable ();
 }
@@ -414,9 +421,10 @@ extract_range_from_binary_expr (value_range *vr, tree expr)
       || POINTER_TYPE_P (TREE_TYPE (op1)))
     {
       /* For pointer types, we are really only interested in asserting
-	 whether the expression evaluates to non-NULL.  */
-      gcc_assert (code == PLUS_EXPR || code == MINUS_EXPR);
-
+	 whether the expression evaluates to non-NULL.  FIXME.  We
+	 used to gcc_assert (code == PLUS_EXPR || code == MINUS_EXPR),
+	 but ivopts is generating expressions with pointer
+	 multiplication in them.  */
       if (code == PLUS_EXPR)
 	{
 	  /* Assume that pointers can never wrap around.  FIXME, Is
@@ -558,6 +566,20 @@ extract_range_from_unary_expr (value_range *vr, tree expr)
     }
   else if (TREE_CODE (expr) == NOP_EXPR || TREE_CODE (expr) == CONVERT_EXPR)
     {
+      /* If VR0 is an anti-range and the type of EXPR is of a
+	 different size than the type of VR0's operands, then set the
+	 resulting range to VARYING.  Things like sign extensions and
+	 precision loss may change the range.  For instance, if x_3 is
+	 of type 'long long int' and 'y_5 = (unsigned short) x_3', if
+	 x_3 is ~[0, 0], it is impossible to know at compile time
+	 whether y_5 will be ~[0, 0].  */
+      if (vr0.type == VR_ANTI_RANGE
+	  && TYPE_SIZE (TREE_TYPE (vr0.min)) != TYPE_SIZE (TREE_TYPE (expr)))
+	{
+	  set_value_range (vr, VR_VARYING, NULL_TREE, NULL_TREE);
+	  return;
+	}
+
       /* If this is a cast operation and either limit in VR0 is set to
 	 VR0's type min/max values, set the corresponding limits in VR
 	 to EXPR's type min/max values.  */
@@ -1003,14 +1025,14 @@ build_assert_expr_for (tree cond, tree v)
     }
   else if (TREE_CODE (cond) == TRUTH_NOT_EXPR)
     {
-      /* Given !V, build the assignment V = false.  */
+      /* Given !V, build the assignment N = false.  */
       tree op0 = TREE_OPERAND (cond, 0);
       gcc_assert (op0 == v);
       assertion = build (MODIFY_EXPR, TREE_TYPE (v), n, boolean_false_node);
     }
   else if (TREE_CODE (cond) == SSA_NAME)
     {
-      /* Given V, build the assignment V = true.  */
+      /* Given V, build the assignment N = true.  */
       gcc_assert (v == cond);
       assertion = build (MODIFY_EXPR, TREE_TYPE (v), n, boolean_true_node);
     }
@@ -1179,6 +1201,7 @@ maybe_add_assert_expr (basic_block bb)
   block_stmt_iterator si;
   tree last;
   bool added;
+  use_optype uses;
 
   /* Step 1.  Mark all the SSA names used in BB in bitmap FOUND.  */
   added = false;
@@ -1248,25 +1271,28 @@ maybe_add_assert_expr (basic_block bb)
 
   /* Step 3.  If BB's last statement is a conditional expression
      involving integer operands, recurse into each of the sub-graphs
-     rooted at BB to determine if we need to add ASSERT_EXPRs.  */
+     rooted at BB to determine if we need to add ASSERT_EXPRs.
+     Notice that we only care about the first operand of the
+     conditional.  Adding assertions for both operands may actually 
+     hinder VRP.  FIXME, add example.  */
   if (last
       && TREE_CODE (last) == COND_EXPR
-      && !fp_predicate (COND_EXPR_COND (last)))
+      && !fp_predicate (COND_EXPR_COND (last))
+      && NUM_USES (uses = STMT_USE_OPS (last)) > 0)
     {
       edge e;
       edge_iterator ei;
-      ssa_op_iter i;
       tree op, cond;
       
       cond = COND_EXPR_COND (last);
 
-      /* Remove the COND_EXPR operands from the FOUND bitmap.
+      /* Remove the COND_EXPR operand from the FOUND bitmap.
 	 Otherwise, when we finish traversing each of the sub-graphs,
 	 we won't know whether the variables were found in the
 	 sub-graphs or if they had been found in a block upstream from
 	 BB.  */
-      FOR_EACH_SSA_TREE_OPERAND (op, last, i, SSA_OP_USE)
-	RESET_BIT (found, SSA_NAME_VERSION (op));
+      op = USE_OP (uses, 0);
+      RESET_BIT (found, SSA_NAME_VERSION (op));
 
       /* Look for uses of the operands in each of the sub-graphs
 	 rooted at BB.  We need to check each of the outgoing edges
@@ -1283,32 +1309,28 @@ maybe_add_assert_expr (basic_block bb)
 	  /* Once we traversed the sub-graph, check if any block inside
 	     used either of the predicate's operands.  If so, add the
 	     appropriate ASSERT_EXPR.  */
-	  FOR_EACH_SSA_TREE_OPERAND (op, last, i, SSA_OP_USE)
+	  if (TEST_BIT (found, SSA_NAME_VERSION (op)))
 	    {
-	      if (TEST_BIT (found, SSA_NAME_VERSION (op)))
-		{
-		  /* We found a use of OP in the sub-graph rooted at
-		     E->DEST.  Add an ASSERT_EXPR according to whether
-		     E goes to THEN_CLAUSE or ELSE_CLAUSE.  */
-		  tree c, t;
+	      /* We found a use of OP in the sub-graph rooted at
+		 E->DEST.  Add an ASSERT_EXPR according to whether
+		 E goes to THEN_CLAUSE or ELSE_CLAUSE.  */
+	      tree c, t;
 
-		  if (e->flags & EDGE_TRUE_VALUE)
-		    c = unshare_expr (cond);
-		  else if (e->flags & EDGE_FALSE_VALUE)
-		    c = invert_truthvalue (cond);
-		  else
-		    gcc_unreachable ();
+	      if (e->flags & EDGE_TRUE_VALUE)
+		c = unshare_expr (cond);
+	      else if (e->flags & EDGE_FALSE_VALUE)
+		c = invert_truthvalue (cond);
+	      else
+		gcc_unreachable ();
 
-		  t = build_assert_expr_for (c, op);
-		  bsi_insert_on_edge (e, t);
-		  added = true;
-		}
+	      t = build_assert_expr_for (c, op);
+	      bsi_insert_on_edge (e, t);
+	      added = true;
 	    }
 	}
 
       /* Finally, mark all the COND_EXPR operands as found.  */
-      FOR_EACH_SSA_TREE_OPERAND (op, last, i, SSA_OP_USE)
-	SET_BIT (found, SSA_NAME_VERSION (op));
+      SET_BIT (found, SSA_NAME_VERSION (op));
     }
   else
     {
@@ -1940,6 +1962,7 @@ static void
 vrp_finalize (void)
 {
   basic_block bb;
+  int num_pred_folded = 0;
 
   if (dump_file)
     {
@@ -1965,10 +1988,15 @@ vrp_finalize (void)
 		  fprintf (dump_file, "\n");
 		}
 
+	      num_pred_folded++;
 	      COND_EXPR_COND (last) = val;
 	    }
 	}
     }
+
+  if (dump_file && (dump_flags & TDF_STATS))
+    fprintf (dump_file, "\nNumber of predicates folded: %d\n\n",
+	     num_pred_folded);
 }
 
 

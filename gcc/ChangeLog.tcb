@@ -1,3 +1,54 @@
+2005-02-14  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-into-ssa.c (REGISTER_DEFS_IN_STMT): Define.
+	(insert_phi_nodes_for): Mark with REGISTER_DEFS_IN_STMT.
+	(rewrite_update_init_block): Only register the LHS of PHI
+	nodes marked with REGISTER_DEFS_IN_STMT.
+	(rewrite_update_stmt): Likewise.
+	Do not update use operands of statements that are not marked
+	with REWRITE_THIS_STMT.
+	(prepare_block_for_update): Mark with REGISTER_DEFS_IN_STMT
+	statements that define new names.
+	Only mark statements with REWRITE_THIS_STMT if they reference
+	old names and do not define new names.
+	* tree-ssa-copy.c (get_last_copy_of): Limit the amount of
+	copy-of traversal.
+	(copy_prop_visit_assignment): Get the copy-of value from the
+	RHS to avoid creating long copy-of chains.
+	(copy_prop_visit_phi_node): Do the opposite.  Use the
+	arguments themselves as the initial link in the copy-of chain.
+	(fini_copy_prop): Fix comment.
+	* tree-ssa-dom.c (tree_ssa_dominator_optimize): Add getenv
+	hackery to allow disabling DOM at compile time.
+	(propagate_to_outgoing_edges): Likewise.
+	(simplify_cond_and_lookup_avail_expr): Guard for NULL low and
+	high.
+	* tree-ssa-pre.c (phi_translate): Handle tcc_comparison.
+	(valid_in_set): Likewise.
+	(find_or_generate_expression): Likewise.
+	(create_expression_by_pieces): Likewise.
+	(insert_into_preds_of_block): Likewise.
+	(insert_aux): Likewise.
+	(create_value_expr_from): Likewise.
+	(compute_avail): Likewise.
+	Handle TREE_INVARIANT values.  Re-order checks to check for
+	expressions first.
+	(execute_pre): Change formatting of stats messages.
+	* tree-vn.c (set_value_handle): Handle TREE_INVARIANT.
+	(get_value_handle): Likewise.
+	* tree-vrp.c (expr_computes_nonnull): Recognize address of
+	references.
+	(extract_range_from_assert): Don't build unnecessary
+	constants.
+	(extract_range_from_binary_expr): Pointer arithmetic may
+	include operations other than + or -.
+	(extract_range_from_unary_expr): Set cast operations of
+	anti-ranges to VARYING.
+	(build_assert_expr_for): Fix comments.
+	(maybe_add_assert_expr): When a predicate involves more than
+	one name, only add assertions for the first one.
+	(vrp_finalize): Support TDF_STATS.
+
 2005-02-02  Diego Novillo  <dnovillo@redhat.com>
 
 	Value Range Propagation

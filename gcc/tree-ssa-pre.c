@@ -871,6 +871,7 @@ phi_translate (tree expr, value_set_t set, basic_block pred,
       return NULL;
 
     case tcc_binary:
+    case tcc_comparison:
       {
 	tree oldop1 = TREE_OPERAND (expr, 0);
 	tree oldop2 = TREE_OPERAND (expr, 1);
@@ -1057,6 +1058,7 @@ valid_in_set (value_set_t set, tree expr)
   switch (TREE_CODE_CLASS (TREE_CODE (expr)))
     {
     case tcc_binary:
+    case tcc_comparison:
       {
 	tree op1 = TREE_OPERAND (expr, 0);
 	tree op2 = TREE_OPERAND (expr, 1);
@@ -1309,6 +1311,7 @@ find_or_generate_expression (basic_block block, tree expr, tree stmts)
       genop = VALUE_HANDLE_EXPR_SET (expr)->head->expr;
       gcc_assert (UNARY_CLASS_P (genop)
 		  || BINARY_CLASS_P (genop)
+		  || COMPARISON_CLASS_P (genop)
 		  || REFERENCE_CLASS_P (genop));
       genop = create_expression_by_pieces (block, genop, stmts);
     }
@@ -1340,6 +1343,7 @@ create_expression_by_pieces (basic_block block, tree expr, tree stmts)
   switch (TREE_CODE_CLASS (TREE_CODE (expr)))
     {
     case tcc_binary:
+    case tcc_comparison:
       {
 	tree_stmt_iterator tsi;
 	tree genop1, genop2;
@@ -1474,6 +1478,7 @@ insert_into_preds_of_block (basic_block block, value_set_node_t node,
       bprime = pred->src;
       eprime = avail[bprime->index];
       if (BINARY_CLASS_P (eprime)
+	  || COMPARISON_CLASS_P (eprime)
 	  || UNARY_CLASS_P (eprime))
 	{
 	  builtexpr = create_expression_by_pieces (bprime,
@@ -1587,6 +1592,7 @@ insert_aux (basic_block block)
 		   node = node->next)
 		{
 		  if (BINARY_CLASS_P (node->expr)
+		      || COMPARISON_CLASS_P (node->expr)
 		      || UNARY_CLASS_P (node->expr))
 		    {
 		      tree *avail;
@@ -1790,6 +1796,7 @@ create_value_expr_from (tree expr, basic_block block, vuse_optype vuses)
 
   gcc_assert (TREE_CODE_CLASS (code) == tcc_unary
 	      || TREE_CODE_CLASS (code) == tcc_binary
+	      || TREE_CODE_CLASS (code) == tcc_comparison
 	      || TREE_CODE_CLASS (code) == tcc_reference);
 
   if (TREE_CODE_CLASS (code) == tcc_unary)
@@ -1928,24 +1935,10 @@ compute_avail (void)
 	      vuse_optype vuses = STMT_VUSE_OPS (stmt);
 
 	      STRIP_USELESS_TYPE_CONVERSION (rhs);
-	      if (TREE_CODE (rhs) == SSA_NAME
-		  || is_gimple_min_invariant (rhs)
-		  || DECL_P (rhs))
-		{
-		  /* Compute a value number for the RHS of the statement
-		     and add its value to the AVAIL_OUT set for the block.
-		     Add the LHS to TMP_GEN.  */
-		  add_to_sets (lhs, rhs, vuses, TMP_GEN (block), 
-			       AVAIL_OUT (block));
-		  
-		  if (TREE_CODE (rhs) == SSA_NAME
-		      && !is_undefined_value (rhs))
-		    value_insert_into_set (EXP_GEN (block), rhs);
-		  continue;
-		}	   
-	      else if (UNARY_CLASS_P (rhs)
-		       || BINARY_CLASS_P (rhs)
-		       || TREE_CODE_CLASS (TREE_CODE (rhs)) == tcc_reference)
+	      if (UNARY_CLASS_P (rhs)
+		  || BINARY_CLASS_P (rhs)
+		  || COMPARISON_CLASS_P (rhs)
+		  || REFERENCE_CLASS_P (rhs))
 		{
 		  /* For binary, unary, and reference expressions,
 		     create a duplicate expression with the operands
@@ -1960,6 +1953,23 @@ compute_avail (void)
 		      continue;
 		    }
 		}
+	      else if (TREE_CODE (rhs) == SSA_NAME
+		       || is_gimple_min_invariant (rhs)
+		       || TREE_INVARIANT (rhs)
+		       || TREE_CODE (rhs) == ADDR_EXPR
+		       || DECL_P (rhs))
+		{
+		  /* Compute a value number for the RHS of the statement
+		     and add its value to the AVAIL_OUT set for the block.
+		     Add the LHS to TMP_GEN.  */
+		  add_to_sets (lhs, rhs, vuses, TMP_GEN (block), 
+			       AVAIL_OUT (block));
+		  
+		  if (TREE_CODE (rhs) == SSA_NAME
+		      && !is_undefined_value (rhs))
+		    value_insert_into_set (EXP_GEN (block), rhs);
+		  continue;
+		}	   
 	    }
 
 	  /* For any other statement that we don't recognize, simply
@@ -2320,10 +2330,10 @@ execute_pre (bool do_fre)
 
   if (dump_file && (dump_flags & TDF_STATS))
     {
-      fprintf (dump_file, "Insertions:%d\n", pre_stats.insertions);
-      fprintf (dump_file, "New PHIs:%d\n", pre_stats.phis);
-      fprintf (dump_file, "Eliminated:%d\n", pre_stats.eliminations);
-      fprintf (dump_file, "Constified:%d\n", pre_stats.constified);
+      fprintf (dump_file, "Insertions: %d\n", pre_stats.insertions);
+      fprintf (dump_file, "New PHIs: %d\n", pre_stats.phis);
+      fprintf (dump_file, "Eliminated: %d\n", pre_stats.eliminations);
+      fprintf (dump_file, "Constified: %d\n", pre_stats.constified);
     }
   
   bsi_commit_edge_inserts ();

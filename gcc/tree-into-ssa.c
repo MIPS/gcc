@@ -185,6 +185,15 @@ enum rewrite_mode {
    statements will be processed.  This is decided in mark_def_sites.  */
 #define REWRITE_THIS_STMT(T)	TREE_VISITED (T)
 
+/* Use TREE_ADDRESSABLE to keep track of which statements we want to
+   visit when marking new definition sites.  This is slightly
+   different than REWRITE_THIS_STMT: it's used by update_ssa to
+   distinguish statements that need to have both uses and defs
+   processed from those that only need to have their defs processed.
+   Statements that define new SSA names only need to have their defs
+   registered, but they don't need to have their uses renamed.  */
+#define REGISTER_DEFS_IN_THIS_STMT(T)	TREE_ADDRESSABLE (T)
+
 
 /* Get the information associated with NAME.  */
 
@@ -727,6 +736,7 @@ insert_phi_nodes_for (tree var, bitmap phi_insertion_points, bool update_p)
 
       /* Mark this PHI node as interesting for the rename process.  */
       REWRITE_THIS_STMT (phi) = 1;
+      REGISTER_DEFS_IN_THIS_STMT (phi) = 1;
     }
 }
 
@@ -1336,7 +1346,7 @@ rewrite_update_init_block (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
     {
       tree lhs;
 
-      if (!REWRITE_THIS_STMT (phi))
+      if (!REGISTER_DEFS_IN_THIS_STMT (phi))
 	continue;
       
       lhs = PHI_RESULT (phi);
@@ -1406,28 +1416,30 @@ rewrite_update_stmt (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
     }
 
   /* Only update marked statements.  */
-  if (!REWRITE_THIS_STMT (stmt))
+  if (!REWRITE_THIS_STMT (stmt) && !REGISTER_DEFS_IN_THIS_STMT (stmt))
     return;
 
   get_stmt_operands (stmt);
 
   /* Rewrite USES included in OLD_SSA_NAMES.  */
-  FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_ALL_USES)
-    {
-      tree use = USE_FROM_PTR (use_p);
-      if (pointer_set_contains (old_ssa_names, use))
-	SET_USE (use_p, get_reaching_def (use));
-    }
+  if (REWRITE_THIS_STMT (stmt))
+    FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_ALL_USES)
+      {
+	tree use = USE_FROM_PTR (use_p);
+	if (pointer_set_contains (old_ssa_names, use))
+	  SET_USE (use_p, get_reaching_def (use));
+      }
 
   /* Register definitions of names in NEW_SSA_NAMES and OLD_SSA_NAMES.  */
-  FOR_EACH_SSA_DEF_OPERAND (def_p, stmt, iter, SSA_OP_ALL_DEFS)
-    {
-      tree def = DEF_FROM_PTR (def_p);
-      if (pointer_set_contains (new_ssa_names, def))
-	register_new_update (name_replaced_by (def, new_to_old), def);
-      else if (pointer_set_contains (old_ssa_names, def))
-	register_new_update (def, def);
-    }
+  if (REGISTER_DEFS_IN_THIS_STMT (stmt))
+    FOR_EACH_SSA_DEF_OPERAND (def_p, stmt, iter, SSA_OP_ALL_DEFS)
+      {
+	tree def = DEF_FROM_PTR (def_p);
+	if (pointer_set_contains (new_ssa_names, def))
+	  register_new_update (name_replaced_by (def, new_to_old), def);
+	else if (pointer_set_contains (old_ssa_names, def))
+	  register_new_update (def, def);
+      }
 }
 
 
@@ -1767,6 +1779,7 @@ prepare_block_for_update (basic_block bb, sbitmap bb_visited)
       tree lhs = PHI_RESULT (phi);
 
       REWRITE_THIS_STMT (phi) = 0;
+      REGISTER_DEFS_IN_THIS_STMT (phi) = 0;
 
       /* If this PHI creates one of the names in OLD_SSA_NAMES, mark
 	 it as interesting to the renamer so that it can properly set
@@ -1774,7 +1787,7 @@ prepare_block_for_update (basic_block bb, sbitmap bb_visited)
       if (pointer_set_contains (old_ssa_names, lhs))
 	{
 	  set_def_block (lhs, bb, true, true);
-	  REWRITE_THIS_STMT (phi) = 1;
+	  REGISTER_DEFS_IN_THIS_STMT (phi) = 1;
 	}
 
       /* If any of the arguments uses one of the names in
@@ -1798,10 +1811,13 @@ prepare_block_for_update (basic_block bb, sbitmap bb_visited)
       ssa_op_iter i;
       use_operand_p use_p;
       def_operand_p def_p;
+      bool defines_new_name_p;
       
       stmt = bsi_stmt (si);
       get_stmt_operands (stmt);
       REWRITE_THIS_STMT (stmt) = 0;
+      REGISTER_DEFS_IN_THIS_STMT (stmt) = 0;
+      defines_new_name_p = false;
 
       FOR_EACH_SSA_DEF_OPERAND (def_p, stmt, i, SSA_OP_DEF)
 	{
@@ -1811,15 +1827,16 @@ prepare_block_for_update (basic_block bb, sbitmap bb_visited)
 	    {
 	      /* If DEF is a new name, then this is a definition site
 		 for the name replaced by DEF.  */
-	      REWRITE_THIS_STMT (stmt) = 1;
+	      REGISTER_DEFS_IN_THIS_STMT (stmt) = 1;
 	      set_def_block (name_replaced_by (def, new_to_old), bb, false,
 			     true);
+	      defines_new_name_p = true;
 	    }
 	  else if (pointer_set_contains (old_ssa_names, def))
 	    {
 	      /* If DEF is an old name, this is a definition site for
 		 DEF.  */
-	      REWRITE_THIS_STMT (stmt) = 1;
+	      REGISTER_DEFS_IN_THIS_STMT (stmt) = 1;
 	      set_def_block (def, bb, false, true);
 	    }
 	}
@@ -1827,7 +1844,13 @@ prepare_block_for_update (basic_block bb, sbitmap bb_visited)
       FOR_EACH_SSA_USE_OPERAND (use_p, stmt, i, SSA_OP_USE)
 	{
 	  tree use = USE_FROM_PTR (use_p);
-	  if (pointer_set_contains (old_ssa_names, use))
+
+	  /* If STMT is a definition site for one of the new names, we
+	     do not want to rewrite it because we assume that our
+	     caller has inserted the statements exactly as it wanted
+	     them to be.  */
+	  if (!defines_new_name_p
+	      && pointer_set_contains (old_ssa_names, use))
 	    {
 	      REWRITE_THIS_STMT (stmt) = 1;
 	      if (bb_for_stmt (stmt) != bb)

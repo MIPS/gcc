@@ -419,7 +419,10 @@ tree_ssa_dominator_optimize (void)
   walk_data.dom_direction = CDI_DOMINATORS;
   walk_data.initialize_block_local_data = NULL;
   walk_data.before_dom_children_before_stmts = dom_opt_initialize_block;
-  walk_data.before_dom_children_walk_stmts = optimize_stmt;
+  if (getenv ("DISABLE_DOM"))
+    walk_data.before_dom_children_walk_stmts = NULL;
+  else
+    walk_data.before_dom_children_walk_stmts = optimize_stmt;
   walk_data.before_dom_children_after_stmts = propagate_to_outgoing_edges;
   walk_data.after_dom_children_before_stmts = NULL;
   walk_data.after_dom_children_walk_stmts = NULL;
@@ -455,6 +458,8 @@ tree_ssa_dominator_optimize (void)
 	 duplication and CFG manipulation.  */
       if (!bitmap_empty_p (vars_to_rename))
 	{
+	  if (getenv ("DISABLE_DOM"))
+	    gcc_unreachable ();
 	  rewrite_into_ssa (false);
 	  bitmap_clear (vars_to_rename);
 	}
@@ -468,6 +473,8 @@ tree_ssa_dominator_optimize (void)
 	 such edges from the CFG as needed.  */
       if (!bitmap_empty_p (need_eh_cleanup))
 	{
+	  if (getenv ("DISABLE_DOM"))
+	    gcc_unreachable ();
 	  cfg_altered |= tree_purge_all_dead_eh_edges (need_eh_cleanup);
 	  bitmap_zero (need_eh_cleanup);
 	}
@@ -477,6 +484,9 @@ tree_ssa_dominator_optimize (void)
       calculate_dominance_info (CDI_DOMINATORS);
 
       rewrite_ssa_into_ssa ();
+
+      if (getenv ("DISABLE_DOM"))
+	continue;
 
       /* Reinitialize the various tables.  */
       bitmap_clear (nonzero_vars);
@@ -2156,9 +2166,9 @@ simplify_cond_and_lookup_avail_expr (tree stmt,
 		     Similarly the high value for the merged range is the
 		     minimum of the previous high value and the high value of
 		     this record.  */
-		  low = (tree_int_cst_compare (low, tmp_low) == 1
+		  low = (low && tree_int_cst_compare (low, tmp_low) == 1
 			 ? low : tmp_low);
-		  high = (tree_int_cst_compare (high, tmp_high) == -1
+		  high = (high && tree_int_cst_compare (high, tmp_high) == -1
 			  ? high : tmp_high);
 		}
 
@@ -2557,6 +2567,8 @@ propagate_to_outgoing_edges (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 {
   
   record_edge_info (bb);
+  if (getenv ("DISABLE_DOM"))
+    return;
   cprop_into_successor_phis (bb, nonzero_vars);
 }
 

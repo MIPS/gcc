@@ -404,15 +404,34 @@ static tree
 get_last_copy_of (tree var)
 {
   tree last;
+  int i;
 
   /* Traverse COPY_OF starting at VAR until we get to the last
-     link in the chain.  */
-  last = var;
-  while (copy_of[SSA_NAME_VERSION (last)].value
-         && copy_of[SSA_NAME_VERSION (last)].value != last)
-    last = copy_of[SSA_NAME_VERSION (last)].value;
+     link in the chain.  Since it is possible to have cycles in PHI
+     nodes, the copy-of chain may also contain cycles.
+     
+     To avoid infinite loops and to avoid traversing lengthy copy-of
+     chains, we artificially limit the maximum number of chains we are
+     willing to traverse.
 
-  return last;
+     The value 5 was taken from a compiler and runtime library
+     bootstrap and a mixture of C and C++ code from various sources.
+     More than 82% of all copy-of chains were shorter than 5 links.  */
+#define LIMIT	5
+
+  last = var;
+  for (i = 0; i < LIMIT; i++)
+    {
+      tree copy = copy_of[SSA_NAME_VERSION (last)].value;
+      if (copy == NULL_TREE || copy == last)
+	break;
+      last = copy;
+    }
+
+  /* If we have reached the limit, then we are either in a copy-of
+     cycle or the copy-of chain is too long.  In this case, just
+     return VAR so that it is not considered a copy of anything.  */
+  return (i < LIMIT ? last : var);
 }
 
 
@@ -504,21 +523,30 @@ static enum ssa_prop_result
 copy_prop_visit_assignment (tree stmt, tree *result_p)
 {
   tree lhs, rhs;
+  prop_value_t *rhs_val;
 
   lhs = TREE_OPERAND (stmt, 0);
   rhs = TREE_OPERAND (stmt, 1);
 
   gcc_assert (TREE_CODE (rhs) == SSA_NAME);
 
+  rhs_val = get_copy_of_val (rhs);
+
   if (TREE_CODE (lhs) == SSA_NAME)
     {
-      /* Straight copy between to SSA names.  First, make sure that we
-	 can propagate the RHS into uses of LHS.  */
+      /* Straight copy between two SSA names.  First, make sure that
+	 we can propagate the RHS into uses of LHS.  */
       if (!may_propagate_copy (lhs, rhs))
 	return SSA_PROP_VARYING;
 
+      /* Notice that in the case of assignments, we make the LHS be a
+	 copy of RHS's value, not of RHS itself.  This avoids keeping
+	 unnecessary copy-of chains (assignments cannot be in a cycle
+	 like PHI nodes), speeding up the propagation process.
+	 This is different from what we do in copy_prop_visit_phi_node. 
+	 In those cases, we are interested in the copy-of chains.  */
       *result_p = lhs;
-      if (set_copy_of_val (*result_p, rhs, NULL_TREE))
+      if (set_copy_of_val (*result_p, rhs_val->value, rhs_val->mem_ref))
 	return SSA_PROP_INTERESTING;
       else
 	return SSA_PROP_NOT_INTERESTING;
@@ -531,12 +559,13 @@ copy_prop_visit_assignment (tree stmt, tree *result_p)
       tree vdef;
       bool changed;
 
+      /* This should only be executed when doing store copy-prop.  */
       gcc_assert (do_store_copy_prop);
 
-      /* Set the value of every VDEF to VAL.  */
+      /* Set the value of every VDEF to RHS_VAL.  */
       changed = false;
       FOR_EACH_SSA_TREE_OPERAND (vdef, stmt, i, SSA_OP_VIRTUAL_DEFS)
-	changed |= set_copy_of_val (vdef, rhs, lhs);
+	changed |= set_copy_of_val (vdef, rhs_val->value, lhs);
       
       /* Note that for propagation purposes, we are only interested in
 	 visiting statements that load the exact same memory reference
@@ -711,11 +740,9 @@ copy_prop_visit_phi_node (tree phi)
       /* Constants in the argument list never generate a useful copy.
 	 Similarly, names that flow through abnormal edges cannot be
 	 used to derive copies.  */
-      if (TREE_CODE (arg) != SSA_NAME
-	  || SSA_NAME_OCCURS_IN_ABNORMAL_PHI (arg))
+      if (TREE_CODE (arg) != SSA_NAME || SSA_NAME_OCCURS_IN_ABNORMAL_PHI (arg))
 	{
 	  phi_val.value = lhs;
-	  phi_val.mem_ref = NULL_TREE;
 	  break;
 	}
 
@@ -734,10 +761,13 @@ copy_prop_visit_phi_node (tree phi)
       arg_val = get_copy_of_val (arg);
 
       /* If the LHS didn't have a value yet, make it a copy of the
-	 first argument we find.  */
+	 first argument we find.  Notice that while we make the LHS be
+	 a copy of the argument itself, we take the memory reference
+	 from the argument's value so that we can compare it to the
+	 memory reference of all the other arguments.  */
       if (phi_val.value == NULL_TREE)
 	{
-	  phi_val.value = arg_val->value;
+	  phi_val.value = arg;
 	  phi_val.mem_ref = arg_val->mem_ref;
 	  continue;
 	}
@@ -747,7 +777,7 @@ copy_prop_visit_phi_node (tree phi)
 	 copy propagating stores and these two arguments came from
 	 different memory references, they cannot be considered
 	 copies.  */
-      if (get_last_copy_of (phi_val.value) != get_last_copy_of (arg_val->value)
+      if (get_last_copy_of (phi_val.value) != get_last_copy_of (arg)
 	  || (do_store_copy_prop
 	      && phi_val.mem_ref
 	      && arg_val->mem_ref
@@ -935,25 +965,25 @@ fini_copy_prop (void)
    which variable that may be).
    
    Propagation would then proceed as follows (the notation a -> b
-   means that is a copy-of b):
+   means that a is a copy-of b):
 
    Visit #1: x_54 = PHI <x_53, x_52>
 		x_53 -> x_53
 		x_52 -> x_53
 		Result: x_54 -> x_53.  Value changed.  Add SSA edges.
 
-   Visit #2: x_53 = PHI <x_898, x_54>
+   Visit #1: x_53 = PHI <x_898, x_54>
    		x_898 -> x_898
 		x_54 -> x_53
 		Result: x_53 -> x_898.  Value changed.  Add SSA edges.
 
-   Visit #1: x_54 = PHI <x_53, x_52>
+   Visit #2: x_54 = PHI <x_53, x_52>
    		x_53 -> x_898
 		x_52 -> x_53 -> x_898
 		Result: x_54 -> x_898.  Value changed.  Add SSA edges.
 
    Visit #2: x_53 = PHI <x_898, x_54>
-   		x_53 -> x_898
+   		x_898 -> x_898
 		x_54 -> x_898
 		Result: x_53 -> x_898.  Value didn't change.  Stable state
 

@@ -1,3 +1,8 @@
+2005-02-14  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.dg/tree-ssa/20031022-1.c: Adjust dump file to scan.
+	* gcc.dg/tree-ssa/ssa-pre-1.c: Adjust expected pattern.
+
 2004-12-14  Diego Novillo  <dnovillo@redhat.com>
 
 	* gcc.dg/tree-ssa/cfgcleanup-1.c: Expect output at DCE2.

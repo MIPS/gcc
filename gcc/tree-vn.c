@@ -176,7 +176,7 @@ set_value_handle (tree e, tree v)
     get_tree_ann (e)->common.value_handle = v;
   else
     /* Do nothing.  Constants are their own value handles.  */
-    gcc_assert (is_gimple_min_invariant (e));
+    gcc_assert (TREE_INVARIANT (e) || is_gimple_min_invariant (e));
 }
 
 
@@ -281,7 +281,7 @@ get_value_handle (tree expr)
     }
   else
     {
-      gcc_assert (is_gimple_min_invariant (expr));
+      gcc_assert (TREE_INVARIANT (expr) || is_gimple_min_invariant (expr));
       return expr;
     }
 }
