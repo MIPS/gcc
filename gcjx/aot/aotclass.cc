@@ -266,7 +266,13 @@ aot_class::register_something (std::vector<model_element *> &the_map,
 int
 aot_class::register_indirect_call (model_method *m)
 {
-  return register_something (m->static_p () ? atable_map : otable_map, m);
+  assert (! m->get_declaring_class ()->interface_p ());
+  if (m->static_p () || m->constructor_p ()
+      || (m->get_modifiers () & ACC_PRIVATE) != 0
+      || (m->final_p ()
+	  && m->get_declaring_class () == global->get_compiler ()->java_lang_Object ()))
+    return register_something (atable_map, m);
+  return register_something (otable_map, m);
 }
 
 int

@@ -374,10 +374,8 @@ tree_generator::visit_assert (model_assert *element,
 
   model_method *init = find_method ("<init>", errclass, arg_type,
 				    primitive_void_type, element);
-  tree init_tree = gcc_builtins->map_method (init);
 
-  tree new_tree = gcc_builtins->map_new (class_wrapper, errclass,
-					 init_tree, args);
+  tree new_tree = gcc_builtins->map_new (class_wrapper, errclass, init, args);
 
   // Generate:
   //   if (! $assertionsDisabled && ! FIRST) throw new AssertionError (SECOND)
@@ -1262,10 +1260,9 @@ tree_generator::create_stringbuffer (model_class **sb_class_r,
   // FIXME: could call a different constructor if the LHS is a String.
   model_method *init = find_method ("<init>", sb_class, NULL,
 				    primitive_void_type, model);
-  tree init_tree = gcc_builtins->map_method (init);
 
   tree buffer_tree = gcc_builtins->map_new (class_wrapper, sb_class,
-					    init_tree, NULL_TREE);
+					    init, NULL_TREE);
   buffer_tree = save_expr (buffer_tree);
 
   *sb_class_r = sb_class;
@@ -2025,7 +2022,7 @@ tree_generator::visit_new (model_new *elt,
   gcc_builtins->lay_out_class (klassp);
   current
     = gcc_builtins->map_new (class_wrapper, klassp,
-			     gcc_builtins->map_method (const_cast<model_method *>(constructor)),
+			     const_cast<model_method *>(constructor),
 			     arg_tree);
   annotate (current, elt);
 }

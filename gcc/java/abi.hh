@@ -99,7 +99,7 @@ public:
   virtual tree build_new (tree_builtins *builtins,
 			  aot_class *current,
 			  model_class *klass,
-			  tree constructor, tree args) = 0;
+			  model_method *constructor, tree args) = 0;
 
   /// Return an expression representing the size of the class in
   /// bytes, or -1 if it can't be known until runtime.
@@ -142,7 +142,8 @@ public:
 			      aot_class *current,
 			      model_type *other);
 
-  tree build_new (tree_builtins *, aot_class *, model_class *, tree, tree);
+  tree build_new (tree_builtins *, aot_class *, model_class *,
+		  model_method *, tree);
 
   tree get_size_in_bytes (tree klass)
   {
@@ -182,7 +183,8 @@ public:
 			      aot_class *current,
 			      model_type *other);
 
-  tree build_new (tree_builtins *, aot_class *, model_class *, tree, tree);
+  tree build_new (tree_builtins *, aot_class *, model_class *,
+		  model_method *, tree);
 
   tree get_size_in_bytes (tree klass)
   {

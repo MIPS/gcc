@@ -396,7 +396,7 @@ tree_builtins::map_method_call (aot_class *wrapper,
 
 tree
 tree_builtins::map_new (aot_class *current, model_class *klass,
-			tree constructor, tree arguments)
+			model_method *constructor, tree arguments)
 {
   gcj_abi *abi = find_abi ();
   return abi->build_new (this, current, klass, constructor, arguments);
@@ -538,6 +538,36 @@ tree_builtins::get_constant_pool_decl (model_class *klass)
       cpool_map[klass] = decl;
     }
   return cpool_map[klass];
+}
+
+tree
+tree_builtins::get_atable_decl (model_class *klass)
+{
+  if (atable_map.find (klass) == atable_map.end ())
+    {
+      tree decl = build_decl (VAR_DECL, get_symbol (), type_atable);
+      TREE_STATIC (decl) = 1;
+      DECL_ARTIFICIAL (decl) = 1;
+      DECL_IGNORED_P (decl) = 1;
+      atable_map[klass] = decl;
+      pushdecl (decl);
+    }
+  return atable_map[klass];
+}
+
+tree
+tree_builtins::get_otable_decl (model_class *klass)
+{
+  if (otable_map.find (klass) == otable_map.end ())
+    {
+      tree decl = build_decl (VAR_DECL, get_symbol (), type_otable);
+      TREE_STATIC (decl) = 1;
+      DECL_ARTIFICIAL (decl) = 1;
+      DECL_IGNORED_P (decl) = 1;
+      otable_map[klass] = decl;
+      pushdecl (decl);
+    }
+  return otable_map[klass];
 }
 
 // FIXME: this whole method should probably migrate into the ABI or

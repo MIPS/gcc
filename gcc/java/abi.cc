@@ -63,6 +63,8 @@ cxx_abi::build_method_call (tree_builtins *builtins,
     }
   else if (meth->get_declaring_class ()->interface_p ())
     {
+      assert (obj != NULL_TREE);
+
       // FIXME: use _Jv_LookupInterfaceMethodIdx.
 
       tree klass_tree
@@ -97,7 +99,8 @@ cxx_abi::build_method_call (tree_builtins *builtins,
       // leave it to the optimizers to deduce that 'this != null' and
       // remove checks in this case.  We force a real check because in
       // the case of a final method, a SEGV will not be generated.
-      if (! meth->constructor_p ())
+      if (! meth->constructor_p ()
+	  && (meth->get_modifiers () & ACC_PRIVATE) == 0)
 	obj = builtins->check_reference (obj, true);
 
       args = tree_cons (NULL_TREE, obj, args);
@@ -210,7 +213,8 @@ cxx_abi::build_class_reference (tree_builtins *builtins,
 
 tree
 cxx_abi::build_new (tree_builtins *builtins, aot_class *current,
-		    model_class *klass, tree constructor, tree arguments)
+		    model_class *klass, model_method *constructor,
+		    tree arguments)
 {
   tree allocator = builtin_Jv_AllocObject;  // FIXME: finalizer
   tree klass_tree = builtins->map_type (klass);
@@ -228,11 +232,10 @@ cxx_abi::build_new (tree_builtins *builtins, aot_class *current,
   tree mem = save_expr (n);
 
   // Call the constructor.
-  n = build3 (CALL_EXPR, void_type_node, build_address_of (constructor),
-	      tree_cons (NULL_TREE, mem, arguments),
-	      NULL_TREE);
-  TREE_SIDE_EFFECTS (n) = 1;
+  n = build_method_call (builtins, current, mem, arguments, constructor,
+			 false);
 
+  // Yield the new object
   n = build2 (COMPOUND_EXPR, klass_tree, n, mem);
   TREE_SIDE_EFFECTS (n) = 1;
 
@@ -263,50 +266,164 @@ cxx_abi::get_vtable_index (aot_class *klass, model_method *method)
 
 
 tree
-bc_abi::build_method_call (tree_builtins *, aot_class *current, tree obj,
-			   tree args, model_method *meth, bool is_super)
+bc_abi::build_method_call (tree_builtins *builtins, aot_class *current,
+			   tree obj, tree args,
+			   model_method *meth, bool /*is_super*/)
 {
-  return NULL_TREE;
+  tree meth_tree = builtins->map_method (meth);
+  tree meth_ptr_type = build_pointer_type (TREE_TYPE (meth_tree));
+
+  tree func;
+
+  // FIXME: the tests here must be kept in sync with aotclass.  We
+  // should encapsulate this info in a single place.
+  if (meth->static_p ())
+    {
+      assert (obj == NULL_TREE);
+
+      int slot = current->register_indirect_call (meth);
+      tree atable = builtins->get_atable_decl (current->get ());
+
+      tree atable_ref = build4 (ARRAY_REF, ptr_type_node, atable,
+				build_int_cst (type_jint, slot),
+				NULL_TREE, NULL_TREE);
+      func = build1 (INDIRECT_REF, meth_ptr_type,
+		     convert (build_pointer_type (meth_ptr_type),
+			      atable_ref));
+    }
+  else if (meth->get_declaring_class ()->interface_p ())
+    {
+      assert (obj != NULL_TREE);
+
+//       int slot = current->register_interface_call (meth);
+//       tree itable = builtins->get_itable_decl (current->get ());
+      abort ();
+    }
+  // Note that, unlike the C++ ABI, we call final methods via the
+  // vtable.  This is because a final method can be made non-final and
+  // the call must still work properly.  Note however that we don't do
+  // this for final methods in Object, due to an old gcj peculiarity.
+  // We suspect that these methods will not be made non-final anyway.
+  else if (meth->constructor_p ()
+	   || (meth->get_modifiers () & ACC_PRIVATE) != 0
+	   || (meth->final_p ()
+	       && meth->get_declaring_class () == global->get_compiler ()->java_lang_Object ()))
+    {
+      assert (obj != NULL_TREE);
+
+      int slot = current->register_indirect_call (meth);
+      tree atable = builtins->get_atable_decl (current->get ());
+
+      // For final methods we have to do an explicit check.
+      if (! meth->constructor_p ()
+	  && (meth->get_modifiers () & ACC_PRIVATE) == 0)
+	obj = builtins->check_reference (obj, true);
+
+      tree atable_ref = build4 (ARRAY_REF, ptr_type_node, atable,
+				build_int_cst (type_jint, slot),
+				NULL_TREE, NULL_TREE);
+      func = build1 (INDIRECT_REF, meth_ptr_type,
+		     convert (build_pointer_type (meth_ptr_type),
+			      atable_ref));
+    }
+  else
+    {
+      // FIXME: 'super' invocations need special work.
+
+      // Virtual dispatch.
+      assert (obj != NULL_TREE);
+
+      int slot = current->register_indirect_call (meth);
+
+      tree otable = builtins->get_otable_decl (current->get ());
+      tree index = build4 (ARRAY_REF, type_jint, otable,
+			   build_int_cst (type_jint, slot),
+			   NULL_TREE, NULL_TREE);
+
+      // FIXME: we could do this at link time and have the otable hold
+      // a pure byte offset.
+      index = size_binop (MULT_EXPR, index,
+			  TYPE_SIZE_UNIT (type_nativecode_ptr_ptr));
+      if (TARGET_VTABLE_USES_DESCRIPTORS)
+	index = size_binop (MULT_EXPR, index,
+			    size_int (TARGET_VTABLE_USES_DESCRIPTORS));
+
+      // Dereference the object to find the table.  Check for a null
+      // reference if needed.
+      obj = builtins->check_reference (obj);
+
+      // Find the vtable by looking for the 'vtable' field.
+      tree dtable = build1 (INDIRECT_REF, type_object,
+			    build1 (NOP_EXPR, type_object_ptr, obj));
+      dtable = build3 (COMPONENT_REF, type_dtable_ptr,
+		       dtable,
+		       builtins->find_decl (type_object, "vtable"),
+		       NULL_TREE);
+
+      func = build2 (PLUS_EXPR, type_nativecode_ptr_ptr, dtable,
+		     convert (type_nativecode_ptr_ptr, index));
+      if (! TARGET_VTABLE_USES_DESCRIPTORS)
+	func = build1 (INDIRECT_REF, type_nativecode_ptr, func);
+      // Cast back to the correct type, not just 'void *'.
+      func = build1 (NOP_EXPR, meth_ptr_type, func);
+    }
+
+  // METH_TREE is a method decl, so we need one TREE_TYPE to get the
+  // method's type and one to get the method's return type.
+  tree call = build3 (CALL_EXPR, TREE_TYPE (TREE_TYPE (meth_tree)),
+		      func, args, NULL_TREE);
+  TREE_SIDE_EFFECTS (call) = 1;
+
+  // call = check_for_builtin (method, call);
+
+  return call;
 }
 
 tree
-bc_abi::build_field_reference (tree_builtins *builtins,
-			       aot_class *current,
+bc_abi::build_field_reference (tree_builtins *builtins, aot_class *current,
 			       tree obj, model_field *field)
 {
   tree result;
   int slot = current->register_field_reference (field);
+  tree field_type = builtins->map_type (field->type ());
   if (field->static_p ())
     {
       assert (obj == NULL_TREE);
-      // FIXME: find the class' atable and then build a reference to
-      // the appropriate part of it.
-      tree atable_ref = NULL_TREE;
+
+      tree atable = builtins->get_atable_decl (current->get ());
+      tree atable_ref = build4 (ARRAY_REF, ptr_type_node, atable,
+				build_int_cst (type_jint, slot),
+				NULL_TREE, NULL_TREE);
+
       result = build1 (INDIRECT_REF,
 		       // Note we don't need ARRAY_REF, we
 		       // just generate a direct reference.
-		       builtins->map_type (field->type ()),
-		       // FIXME find_atable_slot must cast to the
-		       // correct type!
-		       atable_ref);
+		       field_type,
+		       convert (build_pointer_type (field_type),
+				atable_ref));
     }
   else
     {
       assert (obj != NULL_TREE);
-      // FIXME: find the class' otable and then build a reference to
-      // the appropriate part of it.
-      tree otable_ref = NULL_TREE;
-      // FIXME  cast OBJ to pointer to field type -- this works
-      // due to structure layout rules ... ?
-      result = build4 (ARRAY_REF, builtins->map_type (field->type ()),
-		       obj, otable_ref, NULL_TREE, NULL_TREE);
+
+      tree otable = builtins->get_otable_decl (current->get ());
+      tree otable_ref = build4 (ARRAY_REF, type_jint, otable,
+				build_int_cst (type_jint, slot),
+				NULL_TREE, NULL_TREE);
+
+      obj = builtins->check_reference (obj);
+      // Generate *(TYPE *) ((char *) OBJ + OFFSET)
+      result = build1 (INDIRECT_REF, field_type,
+		       convert (build_pointer_type (field_type),
+				build2 (PLUS_EXPR, ptr_type_node,
+					convert (ptr_type_node, obj),
+					otable_ref)));
     }
   return result;
 }
 
 tree
-bc_abi::build_class_reference (tree_builtins *builtins,
-			       aot_class *current,
+bc_abi::build_class_reference (tree_builtins *builtins, aot_class *current,
 			       const std::string &classname)
 {
   // FIXME: handle primitive classes
@@ -318,11 +435,10 @@ bc_abi::build_class_reference (tree_builtins *builtins,
 }
 
 tree
-bc_abi::build_class_reference (tree_builtins *builtins,
-			       aot_class *current,
+bc_abi::build_class_reference (tree_builtins *builtins, aot_class *current,
 			       model_type *klass)
 {
-  // FIXME: handle primitive classes
+  assert (! klass->primitive_p () && klass != primitive_void_type);
   int index = current->add (assert_cast<model_class *> (klass));
   tree cpool = builtins->get_constant_pool_decl (current->get ());
   return build4 (ARRAY_REF, type_class_ptr,
@@ -332,7 +448,32 @@ bc_abi::build_class_reference (tree_builtins *builtins,
 
 tree
 bc_abi::build_new (tree_builtins *builtins, aot_class *current,
-		   model_class *klass, tree constructor, tree arguments)
+		   model_class *klass, model_method *constructor,
+		   tree arguments)
 {
-  abort ();
+  tree allocator = builtin_Jv_AllocObject;
+  tree klass_tree = build_class_reference (builtins, current, klass);
+  // Allocate the object.
+  tree n = build3 (CALL_EXPR, TREE_TYPE (TREE_TYPE (allocator)), allocator,
+		   build_tree_list (NULL_TREE,
+				    build_class_reference (builtins, current,
+							   klass)),
+		   NULL_TREE);
+  TREE_SIDE_EFFECTS (n) = 1;
+
+  n = build1 (NOP_EXPR, klass_tree, n);
+  TREE_SIDE_EFFECTS (n) = 1;
+
+  tree mem = save_expr (n);
+
+  // Call the constructor.
+  n = build_method_call (builtins, current, mem, arguments, constructor,
+			 false);
+  TREE_SIDE_EFFECTS (n) = 1;
+
+  // Yield the new object.
+  n = build2 (COMPOUND_EXPR, klass_tree, n, mem);
+  TREE_SIDE_EFFECTS (n) = 1;
+
+  return n;
 }

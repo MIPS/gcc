@@ -322,8 +322,7 @@ build_oa_table_types ()
   TYPE_NONALIASED_COMPONENT (type_atable) = 1;
   type_atable_ptr = build_pointer_type (type_atable);
 
-  type_otable = build_array_type (integer_type_node,
-				  one_elt_array_domain_type);
+  type_otable = build_array_type (type_jint, one_elt_array_domain_type);
   TYPE_NONALIASED_COMPONENT (type_otable) = 1;
   type_otable_ptr = build_pointer_type (type_otable);
 }

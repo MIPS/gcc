@@ -1,5 +1,29 @@
 2005-03-27  Tom Tromey  <tromey@redhat.com>
 
+	* tree.cc (visit_assert): Updated for change to map_new.
+	(create_stringbuffer): Likewise.
+	(visit_new): Likewise.
+	* decl.cc (build_oa_table_types): Elements of otable are of
+	type_jint.
+	* abi.hh (gcj_abi::build_new): Changed type of 'constructor'
+	argument.
+	(cxx_abi::build_new): Updated.
+	(bc_abi::build_new): Updated.
+	* builtins.hh (tree_builtins::get_atable_decl): Declare.
+	(tree_builtins::get_otable_decl): Likewise.
+	(tree_builtins::atable_map): New field.
+	(tree_builtins::otable_map): New field.
+	(tree_builtins::map_new): Updated.
+	* builtins.cc (get_atable_decl): New method.
+	(get_otable_decl): Likewise.
+	(map_new): Changed type of 'constructor'.
+	* abi.cc (build_class_reference): Added assertion.
+	(build_field_reference): Get otable and atable.
+	(build_new): Wrote.  Updated argument types.
+	(build_method_call): Wrote.
+
+2005-03-27  Tom Tromey  <tromey@redhat.com>
+
 	* lower.cc (visit_bytecode_block): Fix use of statement
 	iterators.
 

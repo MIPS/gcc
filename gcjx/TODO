@@ -296,6 +296,18 @@ X implement the write-to-temp file thing that bytecode uses?
 
 Tree generation
 
+things to do in a merge:
+- start using fold_buildN()
+- handle -fno-show-column
+
+things to document about trees:
+- you are *required* to set DECL_ARG_TYPE
+  though it seems like this could be an ABI setting, and GCC
+  could set it for the FE.  why must the FE handle promotion?
+- TRY_CATCH_EXPR cannot have an empty catch block
+- having a NULL type for a SWITCH_EXPR causes a crash,
+  despite what tree.def says
+
 we should use explicit temporaries instead of save_expr
 
 DECL_EXTERNAL stuff needs some work
@@ -378,6 +390,17 @@ various limitations.
 Another random thought: we could have a GDirect ("pinvoke") -like mode
 where we directly generate native code that calls functions in some C
 library.
+
+right now we put the vtable index into the otable
+but why not put the byte index in there?
+saves a multiply
+
+think about changing a private method to non-private
+does it affect the invocation mode?
+
+we have to handle super() calls differently in BC
+they need a special slot.
+there is a PR for this
 
 
 ================================================================

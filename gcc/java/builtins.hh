@@ -55,6 +55,10 @@ class tree_builtins : public aot_class_factory
   // Utf8Const.
   std::map<std::string, tree> utf8map;
 
+  // Registry of otable and atable decls.
+  std::map<model_class *, tree> atable_map;
+  std::map<model_class *, tree> otable_map;
+
   // Used when creating symbol names.
   int symbol_count;
 
@@ -94,7 +98,7 @@ public:
 		      const std::string &);
 
   tree map_method_call (aot_class *, tree, tree, model_method *, bool);
-  tree map_new (aot_class *, model_class *, tree, tree);
+  tree map_new (aot_class *, model_class *, model_method *, tree);
   tree map_class_object (model_class *);
 
   /// Memoize a utf8const.
@@ -131,6 +135,9 @@ public:
 
   /// Return some code to initialize a class.
   tree build_class_init (model_class *);
+
+  tree get_atable_decl (model_class *);
+  tree get_otable_decl (model_class *);
 };
 
 #endif // GCC_TREE_BUILTINS_HH
