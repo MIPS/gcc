@@ -30,6 +30,7 @@ Boston, MA 02111-1307, USA.  */
 #include "intl.h"
 #include "opts.h"
 #include "options.h"
+#include "tree-inline.h"
 
 #include "gfortran.h"
 
@@ -73,6 +74,40 @@ gfc_init_options (unsigned int argc ATTRIBUTE_UNUSED,
   gfc_option.d8 = 0;
 
   return CL_F95;
+}
+
+
+/* Finalize commandline options.  */
+
+bool
+gfc_post_options (const char **pfilename)
+{
+  const char *filename = *pfilename;
+
+  /* Verify the input file name.  */
+  if (!filename || strcmp (filename, "-") == 0)
+    {
+      filename = "";
+    }
+
+  gfc_option.source = filename;
+
+  flag_inline_trees = 1;
+
+  /* Use tree inlining if possible.  Function instrumentation is only
+     done in the RTL level, so we disable tree inlining.  */
+  if (! flag_instrument_function_entry_exit)
+    {
+      if (!flag_no_inline)
+	flag_no_inline = 1;
+      if (flag_inline_functions)
+	{
+	  flag_inline_trees = 2;
+	  flag_inline_functions = 0;
+	}
+    }
+  
+  return false;
 }
 
 

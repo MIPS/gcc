@@ -1333,6 +1333,7 @@ void gfc_done_2 (void);
 /* options.c */
 unsigned int gfc_init_options (unsigned int, const char **);
 int gfc_handle_option (size_t, const char *, int);
+bool gfc_post_options (const char **);
 
 /* iresolve.c */
 char * gfc_get_string (const char *, ...) ATTRIBUTE_PRINTF_1;

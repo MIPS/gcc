@@ -326,24 +326,6 @@ gfc_init (void)
 }
 
 
-/* Finalize commandline options.  */
-
-static bool
-gfc_post_options (const char **pfilename)
-{
-  const char *filename = *pfilename;
-
-  /* Verify the input file name.  */
-  if (!filename || strcmp (filename, "-") == 0)
-    {
-      filename = "";
-    }
-
-  gfc_option.source = filename;
-
-  return false;
-}
-
 static void
 gfc_finish (void)
 {
