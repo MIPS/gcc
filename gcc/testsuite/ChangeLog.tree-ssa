@@ -1,6 +1,7 @@
 2004-02-16  Jeff Law  <law@redhat.com>
 
 	* gcc.dg/tree-ssa/20040216-1.c: New test.
+	* gcc.dg/tree-ssa/20040211-1.c: New test.
 
 2004-02-15  Paul Brook  <paul@codesourcery.com>
 
