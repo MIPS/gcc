@@ -45,6 +45,7 @@ namespace std
   template class moneypunct_byname<char, true>;
   template class money_get<char, istreambuf_iterator<char> >;
   template class money_put<char, ostreambuf_iterator<char> >;
+  template class __locale_cache<numpunct<char> >;
 
 #ifdef _GLIBCPP_USE_WCHAR_T
   template class moneypunct<wchar_t, false>;
@@ -53,6 +54,7 @@ namespace std
   template class moneypunct_byname<wchar_t, true>;
   template class money_get<wchar_t, istreambuf_iterator<wchar_t> >;
   template class money_put<wchar_t, ostreambuf_iterator<wchar_t> >;
+  template class __locale_cache<numpunct<wchar_t> >;
 #endif
 
   // numpunct, numpunct_byname, num_get, and num_put
@@ -463,6 +465,17 @@ namespace std
     has_facet<messages<wchar_t> >(const locale&);
 #endif
 
+  // __use_cache
+  template
+    const __locale_cache<numpunct<char> >&
+    __use_cache<numpunct<char> >(const locale& __loc);
+
+#ifdef _GLIBCPP_USE_WCHAR_T
+   template
+    const __locale_cache<numpunct<wchar_t> >&
+    __use_cache<numpunct<wchar_t> >(const locale& __loc);
+#endif
+
   // locale
   template
     char*
@@ -544,14 +557,5 @@ namespace std
     __int_to_char(wchar_t*, const int, unsigned long long, const wchar_t*,
 		  ios_base::fmtflags, bool);
 #endif
-#endif
-
-  template<typename _CharT>
-    void
-    __locale_cache<_CharT>::_S_callback(ios_base::event __ev, ios_base& __io, int);
-
-  template class __locale_cache<char>;
-#ifdef _GLIBCPP_USE_WCHAR_T
-  template class __locale_cache<wchar_t>;
 #endif
 } // namespace std

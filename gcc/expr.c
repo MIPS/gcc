@@ -2673,6 +2673,9 @@ can_store_by_pieces (len, constfun, constfundata, align)
   int reverse;
   rtx cst;
 
+  if (len == 0)
+    return 1;
+
   if (! MOVE_BY_PIECES_P (len, align))
     return 0;
 
@@ -2748,6 +2751,9 @@ store_by_pieces (to, len, constfun, constfundata, align)
 {
   struct store_by_pieces data;
 
+  if (len == 0)
+    return;
+
   if (! MOVE_BY_PIECES_P (len, align))
     abort ();
   to = protect_from_queue (to, 1);
@@ -2769,6 +2775,9 @@ clear_by_pieces (to, len, align)
      unsigned int align;
 {
   struct store_by_pieces data;
+
+  if (len == 0)
+    return;
 
   data.constfun = clear_by_pieces_1;
   data.constfundata = NULL;
@@ -2940,7 +2949,9 @@ clear_storage (object, size)
       object = protect_from_queue (object, 1);
       size = protect_from_queue (size, 0);
 
-      if (GET_CODE (size) == CONST_INT
+      if (GET_CODE (size) == CONST_INT && INTVAL (size) == 0)
+	;
+      else if (GET_CODE (size) == CONST_INT
 	  && CLEAR_BY_PIECES_P (INTVAL (size), align))
 	clear_by_pieces (object, INTVAL (size), align);
       else if (clear_storage_via_clrstr (object, size, align))
@@ -4816,11 +4827,13 @@ store_constructor (exp, target, cleared, size)
     {
       tree elt;
 
+      /* If size is zero or the target is already cleared, do nothing.  */
+      if (size == 0 || cleared)
+	cleared = 1;
       /* We either clear the aggregate or indicate the value is dead.  */
-      if ((TREE_CODE (type) == UNION_TYPE
-	   || TREE_CODE (type) == QUAL_UNION_TYPE)
-	  && ! cleared
-	  && ! CONSTRUCTOR_ELTS (exp))
+      else if ((TREE_CODE (type) == UNION_TYPE
+		|| TREE_CODE (type) == QUAL_UNION_TYPE)
+	       && ! CONSTRUCTOR_ELTS (exp))
 	/* If the constructor is empty, clear the union.  */
 	{
 	  clear_storage (target, expr_size (exp));
@@ -4831,7 +4844,7 @@ store_constructor (exp, target, cleared, size)
 	 set the initial value as zero so we can fold the value into
 	 a constant.  But if more than one register is involved,
 	 this probably loses.  */
-      else if (! cleared && GET_CODE (target) == REG && TREE_STATIC (exp)
+      else if (GET_CODE (target) == REG && TREE_STATIC (exp)
 	       && GET_MODE_SIZE (GET_MODE (target)) <= UNITS_PER_WORD)
 	{
 	  emit_move_insn (target, CONST0_RTX (GET_MODE (target)));
@@ -4843,10 +4856,8 @@ store_constructor (exp, target, cleared, size)
 	 clear the whole structure first.  Don't do this if TARGET is a
 	 register whose mode size isn't equal to SIZE since clear_storage
 	 can't handle this case.  */
-      else if (! cleared && size > 0
-	       && ((list_length (CONSTRUCTOR_ELTS (exp))
-		    != fields_length (type))
-		   || mostly_zeros_p (exp))
+      else if (((list_length (CONSTRUCTOR_ELTS (exp)) != fields_length (type))
+		|| mostly_zeros_p (exp))
 	       && (GET_CODE (target) != REG
 		   || ((HOST_WIDE_INT) GET_MODE_SIZE (GET_MODE (target))
 		       == size)))
@@ -7177,7 +7188,9 @@ expand_expr (exp, target, tmode, modifier)
 	   Don't fold if this is for wide characters since it's too
 	   difficult to do correctly and this is a very rare case.  */
 
-	if (modifier != EXPAND_CONST_ADDRESS && modifier != EXPAND_INITIALIZER
+	if (modifier != EXPAND_CONST_ADDRESS
+	    && modifier != EXPAND_INITIALIZER
+	    && modifier != EXPAND_MEMORY
 	    && TREE_CODE (array) == STRING_CST
 	    && TREE_CODE (index) == INTEGER_CST
 	    && compare_tree_int (index, TREE_STRING_LENGTH (array)) < 0
@@ -7191,8 +7204,11 @@ expand_expr (exp, target, tmode, modifier)
 	   we have an explicit constructor and when our operand is a variable
 	   that was declared const.  */
 
-	if (modifier != EXPAND_CONST_ADDRESS && modifier != EXPAND_INITIALIZER
-	    && TREE_CODE (array) == CONSTRUCTOR && ! TREE_SIDE_EFFECTS (array)
+	if (modifier != EXPAND_CONST_ADDRESS
+	    && modifier != EXPAND_INITIALIZER
+	    && modifier != EXPAND_MEMORY
+	    && TREE_CODE (array) == CONSTRUCTOR
+	    && ! TREE_SIDE_EFFECTS (array)
 	    && TREE_CODE (index) == INTEGER_CST
 	    && 0 > compare_tree_int (index,
 				     list_length (CONSTRUCTOR_ELTS
@@ -7213,6 +7229,7 @@ expand_expr (exp, target, tmode, modifier)
 	else if (optimize >= 1
 		 && modifier != EXPAND_CONST_ADDRESS
 		 && modifier != EXPAND_INITIALIZER
+		 && modifier != EXPAND_MEMORY
 		 && TREE_READONLY (array) && ! TREE_SIDE_EFFECTS (array)
 		 && TREE_CODE (array) == VAR_DECL && DECL_INITIAL (array)
 		 && TREE_CODE (DECL_INITIAL (array)) != ERROR_MARK)
@@ -11173,6 +11190,7 @@ do_tablejump (index, mode, range, table_label, default_label)
   temp = gen_reg_rtx (CASE_VECTOR_MODE);
   vector = gen_rtx_MEM (CASE_VECTOR_MODE, index);
   RTX_UNCHANGING_P (vector) = 1;
+  MEM_NOTRAP_P (vector) = 1;
   convert_move (temp, vector, 0);
 
   emit_jump_insn (gen_tablejump (temp, table_label));

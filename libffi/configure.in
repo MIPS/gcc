@@ -48,6 +48,7 @@ TARGETDIR="unknown"
 case "$host" in
 mips-sgi-irix5.* | mips-sgi-irix6.*) TARGET=MIPS; TARGETDIR=mips;;
 i*86-*-linux*) TARGET=X86; TARGETDIR=x86;;
+i*86-*-sco3.2v5*) TARGET=X86; TARGETDIR=x86;;
 i*86-*-solaris*) TARGET=X86; TARGETDIR=x86;;
 i*86-*-beos*) TARGET=X86; TARGETDIR=x86;;
 i*86-*-freebsd*) TARGET=X86; TARGETDIR=x86;;
@@ -132,6 +133,19 @@ if test x$TARGET = xSPARC; then
     if test "x$libffi_cv_as_sparc_ua_pcrel" = xyes; then
 	AC_DEFINE(HAVE_AS_SPARC_UA_PCREL, 1,
 		  [Define if your assembler and linker support unaligned PC relative relocs.])
+    fi
+
+    AC_CACHE_CHECK([assembler .register pseudo-op support],
+       libffi_cv_as_register_pseudo_op, [
+       libffi_cv_as_register_pseudo_op=unknown
+       # Check if we have .register
+       AC_TRY_COMPILE([asm (".register %g2, #scratch");],,
+                       [libffi_cv_as_register_pseudo_op=yes],
+                       [libffi_cv_as_register_pseudo_op=no])
+    ])
+    if test "x$libffi_cv_as_register_pseudo_op" = xyes; then
+       AC_DEFINE(HAVE_AS_REGISTER_PSEUDO_OP, 1,
+               [Define if your assembler supports .register.])
     fi
 fi
 

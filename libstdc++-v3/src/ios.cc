@@ -173,10 +173,15 @@ namespace std
     new (&buf_cout) stdio_filebuf<char>(stdout, ios_base::out, __out_size);
     new (&buf_cin) stdio_filebuf<char>(stdin, ios_base::in, __in_size);
     new (&buf_cerr) stdio_filebuf<char>(stderr, ios_base::out, __out_size);
+
     new (&cout) ostream(&buf_cout);
     new (&cin) istream(&buf_cin);
     new (&cerr) ostream(&buf_cerr);
     new (&clog) ostream(&buf_cerr);
+    cout.init(&buf_cout);
+    cin.init(&buf_cin);
+    cerr.init(&buf_cerr);
+    clog.init(&buf_cerr);
     cin.tie(&cout);
     cerr.flags(ios_base::unitbuf);
     
@@ -188,6 +193,10 @@ namespace std
     new (&wcin) wistream(&buf_wcin);
     new (&wcerr) wostream(&buf_wcerr);
     new (&wclog) wostream(&buf_wcerr);
+    wcout.init(&buf_wcout);
+    wcin.init(&buf_wcin);
+    wcerr.init(&buf_wcerr);
+    wclog.init(&buf_wcerr);
     wcin.tie(&wcout);
     wcerr.flags(ios_base::unitbuf);
 #endif

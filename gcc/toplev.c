@@ -727,10 +727,6 @@ int flag_unwind_tables = 0;
 
 int flag_asynchronous_unwind_tables = 0;
 
-/* Nonzero means allow for forced unwinding.  */
-
-int flag_forced_unwind_exceptions;
-
 /* Nonzero means don't place uninitialized global data in common storage
    by default.  */
 
@@ -1094,8 +1090,6 @@ static const lang_independent_options f_options[] =
    N_("Generate unwind tables exact at each instruction boundary") },
   {"non-call-exceptions", &flag_non_call_exceptions, 1,
    N_("Support synchronous non-call exceptions") },
-  {"forced-unwind-exceptions", &flag_forced_unwind_exceptions, 1,
-   N_("Support forced unwinding, e.g. for thread cancellation") },
   {"profile-arcs", &profile_arc_flag, 1,
    N_("Insert arc based program profiling code") },
   {"test-coverage", &flag_test_coverage, 1,
@@ -1121,7 +1115,7 @@ static const lang_independent_options f_options[] =
   {"data-sections", &flag_data_sections, 1,
    N_("place data items into their own section") },
   {"verbose-asm", &flag_verbose_asm, 1,
-   N_("Add extra commentry to assembler output") },
+   N_("Add extra commentary to assembler output") },
   {"gnu-linker", &flag_gnu_linker, 1,
    N_("Output GNU ld formatted global initializers") },
   {"regmove", &flag_regmove, 1,
@@ -1149,7 +1143,7 @@ static const lang_independent_options f_options[] =
   {"align-functions", &align_functions, 0,
    N_("Align the start of functions") },
   {"merge-constants", &flag_merge_constants, 1,
-   N_("Attempt to merge identical constants accross compilation units") },
+   N_("Attempt to merge identical constants across compilation units") },
   {"merge-all-constants", &flag_merge_constants, 2,
    N_("Attempt to merge identical constants and constant variables") },
   {"dump-unnumbered", &flag_dump_unnumbered, 1,
@@ -2045,7 +2039,11 @@ check_global_declarations (vec, len)
 
       /* Warn about static fns or vars defined but not used.  */
       if (((warn_unused_function && TREE_CODE (decl) == FUNCTION_DECL)
-	   || (warn_unused_variable && TREE_CODE (decl) == VAR_DECL))
+	   /* We don't warn about "static const" variables because the
+	      "rcs_id" idiom uses that construction.  */
+	   || (warn_unused_variable
+	       && TREE_CODE (decl) == VAR_DECL && ! TREE_READONLY (decl)))
+	  && ! DECL_IN_SYSTEM_HEADER (decl)
 	  && ! TREE_USED (decl)
 	  /* The TREE_USED bit for file-scope decls is kept in the identifier,
 	     to handle multiple external decls in different scopes.  */
@@ -2849,8 +2847,8 @@ rest_of_compilation (decl)
   open_dump_file (DFI_addressof, decl);
 
   purge_addressof (insns);
-  if (optimize)
-    purge_all_dead_edges (0);
+  if (optimize && purge_all_dead_edges (0))
+    delete_unreachable_blocks ();
   reg_scan (insns, max_reg_num (), 1);
 
   close_dump_file (DFI_addressof, print_rtl, insns);
@@ -3083,8 +3081,6 @@ rest_of_compilation (decl)
 		 | (flag_thread_jumps ? CLEANUP_THREADING : 0));
   timevar_pop (TV_FLOW);
 
-  no_new_pseudos = 1;
-
   if (warn_uninitialized || extra_warnings)
     {
       uninitialized_vars_warning (DECL_INITIAL (decl));
@@ -3094,16 +3090,18 @@ rest_of_compilation (decl)
 
   if (optimize)
     {
-      clear_bb_flags ();
       if (!flag_new_regalloc && initialize_uninitialized_subregs ())
 	{
-	  /* Insns were inserted, so things might look a bit different.  */
+	  /* Insns were inserted, and possibly pseudos created, so
+	     things might look a bit different.  */
 	  insns = get_insns ();
-	  update_life_info_in_dirty_blocks (UPDATE_LIFE_GLOBAL_RM_NOTES,
-					    PROP_LOG_LINKS | PROP_REG_INFO
-					    | PROP_DEATH_NOTES);
+	  allocate_reg_life_data ();
+	  update_life_info (NULL, UPDATE_LIFE_GLOBAL_RM_NOTES,
+			    PROP_LOG_LINKS | PROP_REG_INFO | PROP_DEATH_NOTES);
 	}
     }
+
+  no_new_pseudos = 1;
 
   close_dump_file (DFI_life, print_rtl_with_bb, insns);
 
@@ -3685,6 +3683,10 @@ display_help ()
   printf (_("  -fmessage-length=<number> Limits diagnostics messages lengths to <number> characters per line.  0 suppresses line-wrapping\n"));
   printf (_("  -fdiagnostics-show-location=[once | every-line] Indicates how often source location information should be emitted, as prefix, at the beginning of diagnostics when line-wrapping\n"));
   printf (_("  -ftls-model=[global-dynamic | local-dynamic | initial-exec | local-exec] Indicates the default thread-local storage code generation model\n"));
+  printf (_("  -fstack-limit-register=<register>  Trap if the stack goes past <register>\n"));
+  printf (_("  -fstack-limit-symbol=<name>  Trap if the stack goes past symbol <name>\n"));
+  printf (_("  -frandom-seed=<string>  Make compile reproducible using <string>\n"));
+  
 
   for (i = ARRAY_SIZE (f_options); i--;)
     {
@@ -4040,6 +4042,10 @@ decode_f_option (arg)
     }
   else if (!strcmp (arg, "no-stack-limit"))
     stack_limit_rtx = NULL_RTX;
+  else if ((option_value = skip_leading_substring (arg, "random-seed=")))
+    flag_random_seed = option_value;
+  else if (!strcmp (arg, "no-random-seed"))
+    flag_random_seed = NULL;
   else if (!strcmp (arg, "preprocessed"))
     /* Recognize this switch but do nothing.  This prevents warnings
        about an unrecognized switch if cpplib has not been linked in.  */
@@ -4593,6 +4599,12 @@ print_switch_values (file, pos, max, indent, sep, term)
 {
   size_t j;
   char **p;
+
+  /* Fill in the -frandom-seed option, if the user didn't pass it, so
+     that it can be printed below.  This helps reproducibility.  Of
+     course, the string may never be used, but we can't tell that at
+     this point in the compile.  */
+  default_flag_random_seed ();
 
   /* Print the options as passed.  */
 

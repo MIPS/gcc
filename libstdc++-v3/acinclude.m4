@@ -743,7 +743,7 @@ dnl GLIBCPP_CHECK_STDLIB_SUPPORT
 AC_DEFUN(GLIBCPP_CHECK_STDLIB_SUPPORT, [
   ac_test_CXXFLAGS="${CXXFLAGS+set}"
   ac_save_CXXFLAGS="$CXXFLAGS"
-  CXXFLAGS='-fno-builtins -D_GNU_SOURCE'
+  CXXFLAGS='-fno-builtin -D_GNU_SOURCE'
 
   GLIBCPP_CHECK_STDLIB_DECL_AND_LINKAGE_2(strtold)
   GLIBCPP_CHECK_STDLIB_DECL_AND_LINKAGE_2(strtof)
@@ -785,7 +785,7 @@ dnl GLIBCPP_CHECK_MATH_SUPPORT
 AC_DEFUN(GLIBCPP_CHECK_MATH_SUPPORT, [
   ac_test_CXXFLAGS="${CXXFLAGS+set}"
   ac_save_CXXFLAGS="$CXXFLAGS"
-  CXXFLAGS='-fno-builtins -D_GNU_SOURCE'
+  CXXFLAGS='-fno-builtin -D_GNU_SOURCE'
 
   dnl Check libm
   AC_CHECK_LIB(m, sin, libm="-lm")
@@ -1887,7 +1887,7 @@ AC_DEFUN(GLIBCPP_EXPORT_FLAGS, [
   OPTIMIZE_CXXFLAGS=
   AC_SUBST(OPTIMIZE_CXXFLAGS)
 
-  WARN_FLAGS='-Wall -Wno-format -W -Wwrite-strings -Winline'
+  WARN_FLAGS='-Wall -Wno-format -W -Wwrite-strings'
   AC_SUBST(WARN_FLAGS)
 ])
 
@@ -2119,18 +2119,30 @@ dnl the testsuite_hooks.h header.
 dnl
 dnl GLIBCPP_CONFIGURE_TESTSUITE  [no args]
 AC_DEFUN(GLIBCPP_CONFIGURE_TESTSUITE, [
-  GLIBCPP_CHECK_SETRLIMIT
+  if test  x"$GLIBCPP_IS_CROSS_COMPILING" = xfalse; then
+    # Do checks for memory limit functions.
+    GLIBCPP_CHECK_SETRLIMIT
 
-  # Look for setenv, so that extended locale tests can be performed.
-  GLIBCPP_CHECK_STDLIB_DECL_AND_LINKAGE_3(setenv)
+    # Look for setenv, so that extended locale tests can be performed.
+    GLIBCPP_CHECK_STDLIB_DECL_AND_LINKAGE_3(setenv)
+  fi
 
   # Export file names for ABI checking.
-  baseline_file="${glibcpp_srcdir}/config/abi/${abi_baseline_triplet}/baseline_symbols.txt"
-  AC_SUBST(baseline_file)
+  baseline_dir="${glibcpp_srcdir}/config/abi/${abi_baseline_pair}\$(MULTISUBDIR)"
+  AC_SUBST(baseline_dir)
 
-  # Don't do ABI checking unless native.
-  AM_CONDITIONAL(GLIBCPP_BUILD_ABI_CHECK,
-                 test x"$build" = x"$host" && test -z "$with_cross_host")
+  # Determine if checking the ABI is desirable.
+  if test x$enable_symvers = xno; then
+    enable_abi_check=no
+  else
+    case "$host" in
+      *-*-cygwin*) 
+        enable_abi_check=no ;;
+      *) 
+        enable_abi_check=yes ;;
+    esac
+  fi
+  AM_CONDITIONAL(GLIBCPP_TEST_ABI, test "$enable_abi_check" = yes)
 ])
 
 
@@ -2144,6 +2156,45 @@ AC_DEFUN([AC_LIBTOOL_DLOPEN])
 AC_DEFUN([AC_PROG_LD])
 ])
 
+dnl
+dnl Check whether S_ISREG (Posix) or S_IFREG is available in <sys/stat.h>.
+dnl
+
+AC_DEFUN(GLIBCPP_CHECK_S_ISREG_OR_S_IFREG, [
+  AC_CACHE_VAL(glibcpp_cv_S_ISREG, [
+    AC_TRY_LINK([#include <sys/stat.h>],
+                [struct stat buffer; fstat(0, &buffer); S_ISREG(buffer.st_mode); ],
+                [glibcpp_cv_S_ISREG=yes],
+                [glibcpp_cv_S_ISREG=no])
+  ])
+  AC_CACHE_VAL(glibcpp_cv_S_IFREG, [
+    AC_TRY_LINK([#include <sys/stat.h>],
+                [struct stat buffer; fstat(0, &buffer); S_IFREG & buffer.st_mode; ],
+                [glibcpp_cv_S_IFREG=yes],
+                [glibcpp_cv_S_IFREG=no])
+  ])
+  if test x$glibcpp_cv_S_ISREG = xyes; then
+    AC_DEFINE(HAVE_S_ISREG)
+  elif test x$glibcpp_cv_S_IFREG = xyes; then
+    AC_DEFINE(HAVE_S_IFREG)
+  fi
+])
+
+dnl
+dnl Check whether poll is available in <poll.h>.
+dnl
+
+AC_DEFUN(GLIBCPP_CHECK_POLL, [
+  AC_CACHE_VAL(glibcpp_cv_POLL, [
+    AC_TRY_COMPILE([#include <poll.h>],
+                [struct pollfd pfd[1]; pfd[0].events = POLLIN; poll(pfd, 1, 0); ],
+                [glibcpp_cv_POLL=yes],
+                [glibcpp_cv_POLL=no])
+  ])
+  if test x$glibcpp_cv_POLL = xyes; then
+    AC_DEFINE(HAVE_POLL)
+  fi
+])
 
 # Check whether LC_MESSAGES is available in <locale.h>.
 # Ulrich Drepper <drepper@cygnus.com>, 1995.

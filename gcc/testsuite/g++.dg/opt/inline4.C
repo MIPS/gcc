@@ -7,7 +7,7 @@ template <>
 inline void g<0>() { int i; return; }
 
 void h() {
-  g<250>();
+  g<1000>();
 }
 
 // { dg-final { scan-assembler-not "_Z1g"  } }

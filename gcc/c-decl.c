@@ -46,6 +46,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "timevar.h"
 #include "c-common.h"
 #include "c-pragma.h"
+#include "libfuncs.h"
+#include "except.h"
 
 /* In grokdeclarator, distinguish syntactic contexts of declarators.  */
 enum decl_context
@@ -1576,6 +1578,15 @@ duplicate_decls (newdecl, olddecl, different_binding_level)
      Update OLDDECL to be the same.  */
   DECL_ATTRIBUTES (olddecl) = DECL_ATTRIBUTES (newdecl);
 
+ /* If OLDDECL had its DECL_RTL instantiated, re-invoke make_decl_rtl
+     so that encode_section_info has a chance to look at the new decl
+     flags and attributes.  */
+  if (DECL_RTL_SET_P (olddecl)
+      && (TREE_CODE (olddecl) == FUNCTION_DECL
+	  || (TREE_CODE (olddecl) == VAR_DECL
+	      && TREE_STATIC (olddecl))))
+    make_decl_rtl (olddecl, NULL);
+
   return 1;
 }
 
@@ -2000,8 +2011,10 @@ pushdecl (x)
 
 	  while (TREE_CODE (element) == ARRAY_TYPE)
 	    element = TREE_TYPE (element);
-	  if (TREE_CODE (element) == RECORD_TYPE
-	      || TREE_CODE (element) == UNION_TYPE)
+	  if ((TREE_CODE (element) == RECORD_TYPE
+	       || TREE_CODE (element) == UNION_TYPE)
+	      && (TREE_CODE (x) != TYPE_DECL
+		  || TREE_CODE (TREE_TYPE (x)) == ARRAY_TYPE))
 	    b->incomplete_list = tree_cons (NULL_TREE, x, b->incomplete_list);
 	}
     }
@@ -3168,6 +3181,41 @@ finish_decl (decl, init, asmspec_tree)
      computing them in the following function definition.  */
   if (current_binding_level == global_binding_level)
     get_pending_sizes ();
+
+  /* Install a cleanup (aka destructor) if one was given.  */
+  if (TREE_CODE (decl) == VAR_DECL && !TREE_STATIC (decl))
+    {
+      tree attr = lookup_attribute ("cleanup", DECL_ATTRIBUTES (decl));
+      if (attr)
+	{
+	  static bool eh_initialized_p;
+
+	  tree cleanup_id = TREE_VALUE (TREE_VALUE (attr));
+	  tree cleanup_decl = lookup_name (cleanup_id);
+	  tree cleanup;
+
+	  /* Build "cleanup(&decl)" for the destructor.  */
+	  cleanup = build_unary_op (ADDR_EXPR, decl, 0);
+	  cleanup = build_tree_list (NULL_TREE, cleanup);
+	  cleanup = build_function_call (cleanup_decl, cleanup);
+
+	  /* Don't warn about decl unused; the cleanup uses it.  */
+	  TREE_USED (decl) = 1;
+
+	  /* Initialize EH, if we've been told to do so.  */
+	  if (flag_exceptions && !eh_initialized_p)
+	    {
+	      eh_initialized_p = true;
+	      eh_personality_libfunc
+		= init_one_libfunc (USING_SJLJ_EXCEPTIONS
+				    ? "__gcc_personality_sj0"
+				    : "__gcc_personality_v0");
+	      using_eh_for_cleanups ();
+	    }
+
+	  add_stmt (build_stmt (CLEANUP_STMT, decl, cleanup));
+	}
+    }
 }
 
 /* Given a parsed parameter declaration,
@@ -5345,7 +5393,8 @@ finish_struct (t, fieldlist, attributes)
 	      && TREE_CODE (decl) != TYPE_DECL)
 	    {
 	      layout_decl (decl, 0);
-	      /* This is a no-op in c-lang.c or something real in objc-act.c.  */
+	      /* This is a no-op in c-lang.c or something real in
+		 objc-act.c.  */
 	      if (flag_objc)
 		objc_check_decl (decl);
 	      rest_of_decl_compilation (decl, NULL, toplevel, 0);
@@ -5381,7 +5430,11 @@ finish_struct (t, fieldlist, attributes)
 		  else
 		    current_binding_level->incomplete_list = TREE_CHAIN (x);
 		}
+	      else
+		prev = x;
 	    }
+	  else
+	    prev = x;
 	}
     }
 
@@ -6459,11 +6512,18 @@ c_expand_body (fndecl, nested_p, can_defer_p)
      int nested_p, can_defer_p;
 {
   int uninlinable = 1;
+  int saved_lineno;
+  const char *saved_input_filename;
 
   /* There's no reason to do any of the work here if we're only doing
      semantic analysis; this code just generates RTL.  */
   if (flag_syntax_only)
     return;
+
+  saved_lineno = lineno;
+  saved_input_filename = input_filename;
+  lineno = DECL_SOURCE_LINE (fndecl);
+  input_filename = DECL_SOURCE_FILE (fndecl);
 
   if (flag_inline_trees)
     {
@@ -6482,6 +6542,8 @@ c_expand_body (fndecl, nested_p, can_defer_p)
 	  /* Let the back-end know that this function exists.  */
 	  (*debug_hooks->deferred_inline_function) (fndecl);
           timevar_pop (TV_INTEGRATION);
+          lineno = saved_lineno;
+          input_filename = saved_input_filename;
 	  return;
 	}
       
@@ -6503,7 +6565,6 @@ c_expand_body (fndecl, nested_p, can_defer_p)
 
   /* Initialize the RTL code for the function.  */
   current_function_decl = fndecl;
-  input_filename = DECL_SOURCE_FILE (fndecl);
   init_function_start (fndecl, input_filename, DECL_SOURCE_LINE (fndecl));
 
   /* This function is being processed in whole-function mode.  */
@@ -6640,6 +6701,9 @@ c_expand_body (fndecl, nested_p, can_defer_p)
     /* Return to the enclosing function.  */
     pop_function_context ();
   timevar_pop (TV_EXPAND);
+
+  lineno = saved_lineno;
+  input_filename = saved_input_filename;
 }
 
 /* Check the declarations given in a for-loop for satisfying the C99

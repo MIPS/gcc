@@ -894,7 +894,7 @@ static tree
 find_alloca_call (exp)
      tree exp;
 {
-  return walk_tree (&exp, find_alloca_call_1, NULL, NULL);
+  return walk_tree_without_duplicates (&exp, find_alloca_call_1, NULL);
 }
 
 static tree
@@ -920,7 +920,7 @@ static tree
 find_builtin_longjmp_call (exp)
      tree exp;
 {
-  return walk_tree (&exp, find_builtin_longjmp_call_1, NULL, NULL);
+  return walk_tree_without_duplicates (&exp, find_builtin_longjmp_call_1, NULL);
 }
 
 /* Returns nonzero if FN is a function that can be inlined into the
@@ -1003,7 +1003,8 @@ inlinable_function_p (fn, id)
   /* In case we don't disregard the inlining limits and we basically
      can inline this function, investigate further.  */
   if (! (*lang_hooks.tree_inlining.disregard_inline_limits) (fn)
-      && inlinable)
+      && inlinable
+      && currfn_insns > MIN_INLINE_INSNS)
     {
       int sum_insns = (id ? id->inlined_stmts : 0) * INSNS_PER_STMT
 		     + currfn_insns;
@@ -1016,8 +1017,7 @@ inlinable_function_p (fn, id)
          with slope -1/MAX_INLINE_SLOPE to exceedingly decrease the
          allowable size. We always allow a size of MIN_INLINE_INSNS
          though.  */
-      else if ((sum_insns > MAX_INLINE_INSNS)
-	       && (currfn_insns > MIN_INLINE_INSNS))
+      else if (sum_insns > MAX_INLINE_INSNS)
 	{
 	  int max_curr = MAX_INLINE_INSNS_SINGLE
 			- (sum_insns - MAX_INLINE_INSNS) / MAX_INLINE_SLOPE;
@@ -1125,6 +1125,19 @@ expand_call_inline (tp, walk_subtrees, data)
       abort ();
 #endif /* INLINER_FOR_JAVA */
     }
+  else if (TREE_CODE (t) == EXPR_WITH_FILE_LOCATION)
+    {
+      /* We're walking the subtree directly.  */
+      *walk_subtrees = 0;
+      /* Update the source position.  */
+      push_srcloc (EXPR_WFL_FILENAME (t), EXPR_WFL_LINENO (t));
+      walk_tree (&EXPR_WFL_NODE (t), expand_call_inline, data, 
+		 id->tree_pruner);
+      /* Restore the original source position.  */
+      pop_srcloc ();
+
+      return NULL_TREE;
+    }
 
   if (TYPE_P (t))
     /* Because types were not copied in copy_body, CALL_EXPRs beneath
@@ -1157,7 +1170,15 @@ expand_call_inline (tp, walk_subtrees, data)
   /* Don't try to inline functions that are not well-suited to
      inlining.  */
   if (!inlinable_function_p (fn, id))
-    return NULL_TREE;
+    {
+      if (warn_inline && DECL_INLINE (fn) && !DID_INLINE_FUNC (fn)
+	  && !DECL_IN_SYSTEM_HEADER (fn))
+	{
+	  warning_with_decl (fn, "inlining failed in call to `%s'");
+	  warning ("called from here");
+	}
+      return NULL_TREE;
+    }
 
   if (! (*lang_hooks.tree_inlining.start_inlining) (fn))
     return NULL_TREE;

@@ -97,7 +97,8 @@ struct diagnostic_context;
       DECL_IMPLICIT_TYPEDEF_P (in a TYPE_DECL)
    3: DECL_IN_AGGR_P.
    4: DECL_C_BIT_FIELD (in a FIELD_DECL)
-      DECL_MAYBE_TEMPLATE (in a FUNCTION_DECL)
+      DECL_VAR_MARKED_P (in a VAR_DECL)
+      DECL_SELF_REFERENCE_P (in a TYPE_DECL)
    5: DECL_INTERFACE_KNOWN.
    6: DECL_THIS_STATIC (in VAR_DECL or FUNCTION_DECL).
    7: DECL_DEAD_FOR_LOCAL (in VAR_DECL).
@@ -249,6 +250,24 @@ struct cxx_binding GTY(())
   unsigned is_local : 1;
 };
 
+/* The type of dictionary used to map names to types declared at
+   a given scope.  */
+typedef struct binding_table_s *binding_table;
+typedef struct binding_entry_s *binding_entry;
+
+/* The type of a routine repeatedly called by binding_table_foreach.  */
+typedef void (*bt_foreach_proc) (binding_entry, void *);
+
+struct binding_entry_s GTY(())
+{
+  binding_entry chain;
+  tree name;
+  tree type;
+};
+
+extern void binding_table_foreach (binding_table, bt_foreach_proc, void *);
+extern binding_entry binding_table_find (binding_table, tree);
+extern void cxx_remember_type_decls (binding_table);
 
 /* Language-dependent contents of an identifier.  */
 
@@ -871,6 +890,9 @@ struct language_function GTY(())
   int in_base_initializer;
   int x_expanding_p;
 
+  /* True if this function can throw an exception.  */
+  bool can_throw : 1;
+
   struct named_label_use_list *x_named_label_uses;
   struct named_label_list *x_named_labels;
   struct cp_binding_level *bindings;
@@ -1077,18 +1099,19 @@ enum languages { lang_c, lang_cplusplus, lang_java };
 /* Nonzero iff TYPE is derived from PARENT. Ignores accessibility and
    ambiguity issues.  */
 #define DERIVED_FROM_P(PARENT, TYPE) \
-  lookup_base ((TYPE), PARENT, ba_any, NULL)
+  (lookup_base ((TYPE), PARENT, ba_any, NULL) != NULL_TREE)
 /* Nonzero iff TYPE is uniquely derived from PARENT. Ignores
    accessibility.  */
 #define UNIQUELY_DERIVED_FROM_P(PARENT, TYPE) \
-  lookup_base ((TYPE), (PARENT), ba_ignore | ba_quiet, NULL)
+  (lookup_base ((TYPE), (PARENT), ba_ignore | ba_quiet, NULL) != NULL_TREE)
 /* Nonzero iff TYPE is accessible in the current scope and uniquely
    derived from PARENT.  */
 #define ACCESSIBLY_UNIQUELY_DERIVED_P(PARENT, TYPE) \
-  lookup_base ((TYPE), (PARENT), ba_check | ba_quiet, NULL)
+  (lookup_base ((TYPE), (PARENT), ba_check | ba_quiet, NULL) != NULL_TREE)
 /* Nonzero iff TYPE is publicly & uniquely derived from PARENT.  */
 #define PUBLICLY_UNIQUELY_DERIVED_P(PARENT, TYPE) \
-  lookup_base ((TYPE), (PARENT),  ba_not_special | ba_quiet, NULL)
+  (lookup_base ((TYPE), (PARENT),  ba_not_special | ba_quiet, NULL) \
+   != NULL_TREE)
 
 /* This is a few header flags for 'struct lang_type'.  Actually,
    all but the first are used only for lang_type_class; they
@@ -1182,7 +1205,7 @@ struct lang_type_class GTY(())
   tree vtables;
   tree typeinfo_var;
   tree vbases;
-  tree tags;
+  binding_table nested_udts;
   tree as_base;
   tree pure_virtuals;
   tree friend_classes;
@@ -1394,11 +1417,12 @@ struct lang_type GTY(())
 #define SET_CLASSTYPE_MARKED6(NODE)   SET_CLASSTYPE_MARKED_N (NODE, 5)
 #define CLEAR_CLASSTYPE_MARKED6(NODE) CLEAR_CLASSTYPE_MARKED_N (NODE, 5)
 
-/* A list of the nested tag-types (class, struct, union, or enum)
-   found within this class.  The TREE_PURPOSE of each node is the name
-   of the type; the TREE_VALUE is the type itself.  This list includes
+/* A binding_table of the nested tag-types (class, struct, union, or enum)
+   found within this class.  The ENTRY->name of each node is the name
+   of the type; the ENTRY->type is the type itself.  This table includes
    nested member class templates.  */
-#define CLASSTYPE_TAGS(NODE)		(LANG_TYPE_CLASS_CHECK (NODE)->tags)
+#define CLASSTYPE_NESTED_UDTS(NODE)    \
+   (LANG_TYPE_CLASS_CHECK (NODE)->nested_udts)
 
 /* Nonzero if NODE has a primary base class, i.e., a base class with
    which it shares the virtual function table pointer.  */
@@ -1981,6 +2005,11 @@ struct lang_decl GTY(())
 #define DECL_CONV_FN_P(NODE) \
   (IDENTIFIER_TYPENAME_P (DECL_NAME (NODE)))
 
+/* If FN is a conversion operator, the type to which it converts.
+   Otherwise, NULL_TREE.  */
+#define DECL_CONV_FN_TYPE(FN) \
+  (DECL_CONV_FN_P (FN) ? TREE_TYPE (DECL_NAME (FN)) : NULL_TREE)
+
 /* Nonzero if NODE, which is a TEMPLATE_DECL, is a template
    conversion operator to a type dependent on the innermost template
    args.  */
@@ -2233,6 +2262,12 @@ struct lang_decl GTY(())
   (DECL_LANG_SPECIFIC (VAR_TEMPL_TYPE_OR_FUNCTION_DECL_CHECK (NODE)) \
    ->decl_flags.u.template_info)
 
+/* For a VAR_DECL, indicates that the variable has been processed.
+   This flag is set and unset throughout the code; it is always
+   used for a temporary purpose.  */
+#define DECL_VAR_MARKED_P(NODE) \
+  (DECL_LANG_FLAG_4 (VAR_DECL_CHECK (NODE)))
+
 /* Template information for a RECORD_TYPE or UNION_TYPE.  */
 #define CLASSTYPE_TEMPLATE_INFO(NODE) \
   (LANG_TYPE_CLASS_CHECK (RECORD_OR_UNION_TYPE_CHECK (NODE))->template_info)
@@ -2484,6 +2519,10 @@ struct lang_decl GTY(())
 #define CP_INTEGRAL_TYPE_P(TYPE)		\
   (TREE_CODE (TYPE) == BOOLEAN_TYPE		\
    || TREE_CODE (TYPE) == INTEGER_TYPE)
+
+/* Returns true if TYPE is an integral or enumeration name.  */
+#define INTEGRAL_OR_ENUMERATION_TYPE_P(TYPE) \
+  (CP_INTEGRAL_TYPE_P (TYPE) || TREE_CODE (TYPE) == ENUMERAL_TYPE)
 
 /* [basic.fundamental]
 
@@ -2840,16 +2879,20 @@ struct lang_decl GTY(())
   (TREE_CODE (NODE) == TYPE_DECL || DECL_CLASS_TEMPLATE_P (NODE))
 
 /* Nonzero if NODE is the typedef implicitly generated for a type when
-   the type is declared.  (In C++, `struct S {};' is roughly equivalent
-   to `struct S {}; typedef struct S S;' in C.  This macro will hold
-   for the typedef indicated in this example.  Note that in C++, there
-   is a second implicit typedef for each class, in the scope of `S'
-   itself, so that you can say `S::S'.  This macro does *not* hold for
-   those typedefs.  */
+   the type is declared.  In C++, `struct S {};' is roughly
+   equivalent to `struct S {}; typedef struct S S;' in C.
+   DECL_IMPLICIT_TYPEDEF_P will hold for the typedef indicated in this
+   example.  In C++, there is a second implicit typedef for each
+   class, in the scope of `S' itself, so that you can say `S::S'.
+   DECL_SELF_REFERENCE_P will hold for that second typedef.  */
 #define DECL_IMPLICIT_TYPEDEF_P(NODE) \
   (TREE_CODE (NODE) == TYPE_DECL && DECL_LANG_FLAG_2 (NODE))
 #define SET_DECL_IMPLICIT_TYPEDEF_P(NODE) \
   (DECL_LANG_FLAG_2 (NODE) = 1)
+#define DECL_SELF_REFERENCE_P(NODE) \
+  (TREE_CODE (NODE) == TYPE_DECL && DECL_LANG_FLAG_4 (NODE))
+#define SET_DECL_SELF_REFERENCE_P(NODE) \
+  (DECL_LANG_FLAG_4 (NODE) = 1)
 
 /* A `primary' template is one that has its own template header.  A
    member function of a class template is a template, but not primary.
@@ -2918,10 +2961,7 @@ struct lang_decl GTY(())
    entity with its own template parameter list, and which is not a
    full specialization.  */
 #define PROCESSING_REAL_TEMPLATE_DECL_P() \
-  (processing_template_decl > template_class_depth (current_class_type))
-
-/* This function may be a guiding decl for a template.  */
-#define DECL_MAYBE_TEMPLATE(NODE) DECL_LANG_FLAG_4 (NODE)
+  (processing_template_decl > template_class_depth (current_scope ()))
 
 /* Nonzero if this VAR_DECL or FUNCTION_DECL has already been
    instantiated, i.e. its definition has been generated from the
@@ -3320,6 +3360,12 @@ extern GTY(()) varray_type local_classes;
 
 extern int at_eof;
 
+/* A list of namespace-scope objects which have constructors or
+   destructors which reside in the global scope.  The decl is stored
+   in the TREE_VALUE slot and the initializer is stored in the
+   TREE_PURPOSE slot.  */
+extern GTY(()) tree static_aggregates;
+
 /* Functions called along with real static constructors and destructors.  */
 
 extern GTY(()) tree static_ctors;
@@ -3433,7 +3479,7 @@ enum overload_flags { NO_SPECIAL = 0, DTOR_FLAG, OP_FLAG, TYPENAME_FLAG };
 				   type is derived from the pointed to
 				   by the first.  */
 #define COMPARE_RELAXED       2 /* Like COMPARE_DERIVED, but in
-				   reverse.  Also treat enmeration
+				   reverse.  Also treat enumeration
 				   types as the same as integer types
 				   of the same width.  */
 #define COMPARE_REDECLARATION 4 /* The comparsion is being done when
@@ -3577,14 +3623,16 @@ extern tree type_passed_as                      PARAMS ((tree));
 extern tree convert_for_arg_passing             PARAMS ((tree, tree));
 extern tree cp_convert_parm_for_inlining        PARAMS ((tree, tree, tree));
 extern int is_properly_derived_from             PARAMS ((tree, tree));
-extern tree initialize_reference                PARAMS ((tree, tree, tree));
+extern tree initialize_reference                PARAMS ((tree, tree, tree, tree *));
 extern tree make_temporary_var_for_ref_to_temp  (tree, tree);
 extern tree strip_top_quals                     PARAMS ((tree));
 extern tree perform_implicit_conversion         PARAMS ((tree, tree));
+extern tree perform_direct_initialization_if_possible (tree, tree);
 
 /* in class.c */
 extern tree build_base_path			PARAMS ((enum tree_code, tree, tree, int));
 extern tree convert_to_base                     (tree, tree, bool);
+extern tree convert_to_base_statically          (tree, tree);
 extern tree build_vtbl_ref			PARAMS ((tree, tree));
 extern tree build_vfn_ref			PARAMS ((tree, tree));
 extern tree get_vtable_decl                     PARAMS ((tree, int));
@@ -3625,6 +3673,7 @@ extern void maybe_note_name_used_in_class       PARAMS ((tree, tree));
 extern void note_name_declared_in_class         PARAMS ((tree, tree));
 extern tree get_vtbl_decl_for_binfo             PARAMS ((tree));
 extern tree in_charge_arg_for_name              PARAMS ((tree));
+extern tree build_cxx_call                      PARAMS ((tree, tree, tree));
 extern tree get_vtt_name                        PARAMS ((tree));
 extern tree get_primary_binfo                   PARAMS ((tree));
 
@@ -3697,11 +3746,12 @@ extern void clear_anon_tags			PARAMS ((void));
 extern int decls_match				PARAMS ((tree, tree));
 extern int duplicate_decls			PARAMS ((tree, tree));
 extern tree pushdecl_top_level			PARAMS ((tree));
-extern void pushdecl_class_level		PARAMS ((tree));
+extern tree pushdecl_top_level_and_finish       (tree, tree);
+extern bool pushdecl_class_level		(tree);
 extern tree pushdecl_namespace_level            PARAMS ((tree));
 extern tree push_using_decl                     PARAMS ((tree, tree));
 extern tree push_using_directive                PARAMS ((tree));
-extern void push_class_level_binding		PARAMS ((tree, tree));
+extern bool push_class_level_binding		(tree, tree);
 extern tree implicitly_declare			PARAMS ((tree));
 extern tree declare_local_label                 PARAMS ((tree));
 extern tree define_label			PARAMS ((const char *, int, tree));
@@ -3861,6 +3911,7 @@ extern void do_using_directive			PARAMS ((tree));
 extern void check_default_args			PARAMS ((tree));
 extern void mark_used				PARAMS ((tree));
 extern tree handle_class_head			(enum tag_types, tree, tree, tree, int, int *);
+extern tree handle_class_head_apparent_template	(tree, int *);
 extern tree lookup_arg_dependent                PARAMS ((tree, tree, tree));
 extern void finish_static_data_member_decl      PARAMS ((tree, tree, tree, int));
 extern tree cp_build_parm_decl                  PARAMS ((tree, tree));
@@ -4036,7 +4087,7 @@ extern tree instantiate_decl			PARAMS ((tree, int));
 extern tree get_bindings			PARAMS ((tree, tree, tree));
 extern int push_tinst_level			PARAMS ((tree));
 extern void pop_tinst_level			PARAMS ((void));
-extern int more_specialized_class		PARAMS ((tree, tree));
+extern int more_specialized_class		PARAMS ((tree, tree, tree));
 extern int is_member_template                   PARAMS ((tree));
 extern int comp_template_parms                  PARAMS ((tree, tree));
 extern int template_class_depth                 PARAMS ((tree));
@@ -4072,12 +4123,14 @@ extern int unemitted_tinfo_decl_p    	        PARAMS((tree, void *));
 extern int emit_tinfo_decl                      PARAMS((tree *, void *));
 
 /* in search.c */
+extern bool accessible_base_p (tree, tree);
 extern tree lookup_base PARAMS ((tree, tree, base_access, base_kind *));
 extern int types_overlap_p			PARAMS ((tree, tree));
 extern tree get_vbase				PARAMS ((tree, tree));
 extern tree get_dynamic_cast_base_type          PARAMS ((tree, tree));
 extern void type_access_control			PARAMS ((tree, tree));
 extern int accessible_p                         PARAMS ((tree, tree));
+extern tree lookup_field_1                      (tree, tree, bool);
 extern tree lookup_field			PARAMS ((tree, tree, int, int));
 extern tree lookup_nested_field			PARAMS ((tree, int));
 extern int lookup_fnfields_1                    PARAMS ((tree, tree));
@@ -4352,7 +4405,7 @@ extern tree build_x_indirect_ref		PARAMS ((tree, const char *));
 extern tree build_indirect_ref			PARAMS ((tree, const char *));
 extern tree build_array_ref			PARAMS ((tree, tree));
 extern tree get_member_function_from_ptrfunc	PARAMS ((tree *, tree));
-extern tree build_function_call_real		PARAMS ((tree, tree, int, int));
+extern tree build_function_call_real		PARAMS ((tree, tree, int));
 extern tree build_function_call_maybe		PARAMS ((tree, tree));
 extern tree convert_arguments			PARAMS ((tree, tree, tree, int));
 extern tree build_x_binary_op			PARAMS ((enum tree_code, tree, tree));

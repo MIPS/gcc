@@ -35,6 +35,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "sbitmap.h"
 #include "langhooks.h"
 #include "target.h"
+#include "except.h"
 
 #if !defined FUNCTION_OK_FOR_SIBCALL
 #define FUNCTION_OK_FOR_SIBCALL(DECL) 1
@@ -617,6 +618,8 @@ emit_call_1 (funexp, fndecl, funtype, stack_size, rounded_stack_size,
   if (ecf_flags & ECF_NOTHROW)
     REG_NOTES (call_insn) = gen_rtx_EXPR_LIST (REG_EH_REGION, const0_rtx,
 					       REG_NOTES (call_insn));
+  else
+    note_eh_region_may_contain_throw ();
 
   if (ecf_flags & ECF_NORETURN)
     REG_NOTES (call_insn) = gen_rtx_EXPR_LIST (REG_NORETURN, const0_rtx,
@@ -637,6 +640,10 @@ emit_call_1 (funexp, fndecl, funtype, stack_size, rounded_stack_size,
   /* Restore this now, so that we do defer pops for this call's args
      if the context of the call as a whole permits.  */
   inhibit_defer_pop = old_inhibit_defer_pop;
+
+  /* Don't bother cleaning up after a noreturn function.  */
+  if (ecf_flags & (ECF_NORETURN | ECF_LONGJMP))
+    return;
 
   if (n_popped > 0)
     {
@@ -840,10 +847,13 @@ flags_from_decl_or_type (exp)
 
       if (TREE_NOTHROW (exp))
 	flags |= ECF_NOTHROW;
+
+      if (TREE_READONLY (exp) && ! TREE_THIS_VOLATILE (exp))
+	flags |= ECF_LIBCALL_BLOCK;
     }
 
   if (TREE_READONLY (exp) && ! TREE_THIS_VOLATILE (exp))
-    flags |= ECF_CONST | ECF_LIBCALL_BLOCK;
+    flags |= ECF_CONST;
 
   if (TREE_THIS_VOLATILE (exp))
     flags |= ECF_NORETURN;
@@ -2515,10 +2525,11 @@ expand_call (exp, target, ignore)
       || args_size.constant > current_function_args_size
       /* If the callee pops its own arguments, then it must pop exactly
 	 the same number of arguments as the current function.  */
-      || RETURN_POPS_ARGS (fndecl, funtype, args_size.constant)
-	 != RETURN_POPS_ARGS (current_function_decl,
-			      TREE_TYPE (current_function_decl),
-			      current_function_args_size))
+      || (RETURN_POPS_ARGS (fndecl, funtype, args_size.constant)
+	  != RETURN_POPS_ARGS (current_function_decl,
+			       TREE_TYPE (current_function_decl),
+			       current_function_args_size))
+      || !(*lang_hooks.decls.ok_for_sibcall) (fndecl))
     try_tail_call = 0;
 
   if (try_tail_call || try_tail_recursion)
@@ -3094,6 +3105,7 @@ expand_call (exp, target, ignore)
 
       /* Verify that we've deallocated all the stack we used.  */
       if (pass
+	  && ! (flags & (ECF_NORETURN | ECF_LONGJMP))
 	  && old_stack_allocated != stack_pointer_delta - pending_stack_adjust)
 	abort ();
 
@@ -3187,6 +3199,10 @@ expand_call (exp, target, ignore)
 	    }
 
 	  emit_barrier_after (last);
+
+	  /* Stack adjustments after a noreturn call are dead code.  */
+	  stack_pointer_delta = old_stack_allocated;
+	  pending_stack_adjust = 0;
 	}
 
       if (flags & ECF_LONGJMP)

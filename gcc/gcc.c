@@ -1556,6 +1556,9 @@ init_spec ()
 #else
 			    "-lgcc_s%M"
 #endif
+#ifdef USE_LIBUNWIND_EXCEPTIONS
+			    " -lunwind"
+#endif
 			    ,
 			    "-lgcc",
 			    "-lgcc_eh");
@@ -2917,7 +2920,7 @@ display_help ()
   fputs (_("  -o <file>                Place the output into <file>\n"), stdout);
   fputs (_("\
   -x <language>            Specify the language of the following input files\n\
-                           Permissable languages include: c c++ assembler none\n\
+                           Permissible languages include: c c++ assembler none\n\
                            'none' means revert to the default behavior of\n\
                            guessing the language based on the file's extension\n\
 "), stdout);
@@ -3257,7 +3260,7 @@ process_command (argc, argv)
 	{
 	  /* translate_options () has turned --version into -fversion.  */
 	  printf (_("%s (GCC) %s\n"), programname, version_string);
-	  fputs (_("Copyright (C) 2002 Free Software Foundation, Inc.\n"),
+	  fputs (_("Copyright (C) 2003 Free Software Foundation, Inc.\n"),
 		 stdout);
 	  fputs (_("This is free software; see the source for copying conditions.  There is NO\n\
 warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"),

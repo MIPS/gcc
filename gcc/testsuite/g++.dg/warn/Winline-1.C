@@ -1,4 +1,4 @@
-// { dg-options "-Winline -O2 -fno-unit-at-a-time" }
+// { dg-options "-Winline -O2" }
 
 static inline int foo(int x); // { dg-warning "" }
 

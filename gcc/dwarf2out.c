@@ -386,9 +386,9 @@ static void def_cfa_1		 	PARAMS ((const char *,
 /* Hook used by __throw.  */
 
 rtx
-expand_builtin_dwarf_fp_regnum ()
+expand_builtin_dwarf_sp_column ()
 {
-  return GEN_INT (DWARF_FRAME_REGNUM (HARD_FRAME_POINTER_REGNUM));
+  return GEN_INT (DWARF_FRAME_REGNUM (STACK_POINTER_REGNUM));
 }
 
 /* Return a pointer to a copy of the section string name S with all
@@ -10451,14 +10451,15 @@ gen_enumeration_type_die (type, context_die)
 	  add_name_attribute (enum_die,
 			      IDENTIFIER_POINTER (TREE_PURPOSE (link)));
 
-	  if (host_integerp (TREE_VALUE (link), 0))
+	  if (host_integerp (TREE_VALUE (link), 
+			     TREE_UNSIGNED (TREE_TYPE (TREE_VALUE (link)))))
 	    {
 	      if (tree_int_cst_sgn (TREE_VALUE (link)) < 0)
 		add_AT_int (enum_die, DW_AT_const_value,
 			    tree_low_cst (TREE_VALUE (link), 0));
 	      else
 		add_AT_unsigned (enum_die, DW_AT_const_value,
-				 tree_low_cst (TREE_VALUE (link), 0));
+				 tree_low_cst (TREE_VALUE (link), 1));
 	    }
 	}
     }
@@ -11161,8 +11162,12 @@ gen_field_die (decl, context_die)
      tree decl;
      dw_die_ref context_die;
 {
-  dw_die_ref decl_die = new_die (DW_TAG_member, context_die, decl);
+  dw_die_ref decl_die;
 
+  if (TREE_TYPE (decl) == error_mark_node)
+    return;
+    
+  decl_die = new_die (DW_TAG_member, context_die, decl);
   add_name_and_src_coords_attributes (decl_die, decl);
   add_type_attribute (decl_die, member_declared_type (decl),
 		      TREE_READONLY (decl), TREE_THIS_VOLATILE (decl),

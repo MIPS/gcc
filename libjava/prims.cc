@@ -90,6 +90,30 @@ property_pair *_Jv_Environment_Properties;
 const char **_Jv_argv;
 int _Jv_argc;
 
+// Argument support.
+int
+_Jv_GetNbArgs (void)
+{
+  // _Jv_argc is 0 if not explicitly initialized.
+  return _Jv_argc;
+}
+
+const char *
+_Jv_GetSafeArg (int index)
+{
+  if (index >=0 && index < _Jv_GetNbArgs ())
+    return _Jv_argv[index];
+  else
+    return "";
+}
+
+void
+_Jv_SetArgs (int argc, const char **argv)
+{
+  _Jv_argc = argc;
+  _Jv_argv = argv;
+}
+
 #ifdef ENABLE_JVMPI
 // Pointer to JVMPI notification functions.
 void (*_Jv_JVMPI_Notify_OBJECT_ALLOC) (JVMPI_Event *event);
@@ -97,6 +121,20 @@ void (*_Jv_JVMPI_Notify_THREAD_START) (JVMPI_Event *event);
 void (*_Jv_JVMPI_Notify_THREAD_END) (JVMPI_Event *event);
 #endif
 
+
+/* Unblock a signal.  Unless we do this, the signal may only be sent
+   once.  */
+static void 
+unblock_signal (int signum)
+{
+#ifdef _POSIX_VERSION
+  sigset_t sigs;
+
+  sigemptyset (&sigs);
+  sigaddset (&sigs, signum);
+  sigprocmask (SIG_UNBLOCK, &sigs, NULL);
+#endif
+}
 
 extern "C" void _Jv_ThrowSignal (jthrowable) __attribute ((noreturn));
 
@@ -115,6 +153,7 @@ static java::lang::NullPointerException *nullp;
 
 SIGNAL_HANDLER (catch_segv)
 {
+  unblock_signal (SIGFPE);
   MAKE_THROW_FRAME (nullp);
   _Jv_ThrowSignal (nullp);
 }
@@ -125,6 +164,7 @@ static java::lang::ArithmeticException *arithexception;
 #ifdef HANDLE_FPE
 SIGNAL_HANDLER (catch_fpe)
 {
+  unblock_signal (SIGSEGV);
 #ifdef HANDLE_DIVIDE_OVERFLOW
   HANDLE_DIVIDE_OVERFLOW;
 #else
@@ -936,8 +976,7 @@ void
 _Jv_RunMain (jclass klass, const char *name, int argc, const char **argv, 
 	     bool is_jar)
 {
-  _Jv_argv = argv;
-  _Jv_argc = argc;
+  _Jv_SetArgs (argc, argv);
 
   java::lang::Runtime *runtime = NULL;
 

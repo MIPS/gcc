@@ -46,11 +46,13 @@ static int joust PARAMS ((struct z_candidate *, struct z_candidate *, int));
 static int compare_ics PARAMS ((tree, tree));
 static tree build_over_call PARAMS ((struct z_candidate *, tree, int));
 static tree build_java_interface_fn_ref PARAMS ((tree, tree));
-#define convert_like(CONV, EXPR) \
-  convert_like_real ((CONV), (EXPR), NULL_TREE, 0, 0)
-#define convert_like_with_context(CONV, EXPR, FN, ARGNO) \
-  convert_like_real ((CONV), (EXPR), (FN), (ARGNO), 0)
-static tree convert_like_real PARAMS ((tree, tree, tree, int, int));
+#define convert_like(CONV, EXPR)				\
+  convert_like_real ((CONV), (EXPR), NULL_TREE, 0, 0, 		\
+		     /*issue_conversion_warnings=*/true)
+#define convert_like_with_context(CONV, EXPR, FN, ARGNO)	\
+  convert_like_real ((CONV), (EXPR), (FN), (ARGNO), 0, 		\
+		     /*issue_conversion_warnings=*/true)
+static tree convert_like_real (tree, tree, tree, int, int, bool);
 static void op_error PARAMS ((enum tree_code, enum tree_code, tree, tree,
 			    tree, const char *));
 static tree build_object_call PARAMS ((tree, tree));
@@ -2798,6 +2800,11 @@ resolve_scoped_fn_name (tree scope, tree name)
   
   if (TREE_CODE (scope) == NAMESPACE_DECL)
     fn = lookup_namespace_name (scope, name);
+  else if (!CLASS_TYPE_P (scope))
+    {
+      error ("`%T' is not a class type", scope);
+      return error_mark_node;
+    }
   else
     {
       if (!TYPE_BEING_DEFINED (scope)
@@ -3073,23 +3080,27 @@ op_error (code, code2, arg1, arg2, arg3, problem)
   switch (code)
     {
     case COND_EXPR:
-      error ("%s for `%T ? %T : %T' operator", problem,
-		error_type (arg1), error_type (arg2), error_type (arg3));
+      error ("%s for ternary 'operator?:' in '%E ? %E : %E'",
+             problem, arg1, arg2, arg3);
       break;
+      
     case POSTINCREMENT_EXPR:
     case POSTDECREMENT_EXPR:
-      error ("%s for `%T %s' operator", problem, error_type (arg1), opname);
+      error ("%s for 'operator%s' in '%E%s'", problem, opname, arg1, opname);
       break;
+      
     case ARRAY_REF:
-      error ("%s for `%T [%T]' operator", problem,
-		error_type (arg1), error_type (arg2));
+      error ("%s for 'operator[]' in '%E[%E]'", problem, arg1, arg2);
       break;
+      
     default:
       if (arg2)
-	error ("%s for `%T %s %T' operator", problem,
-		  error_type (arg1), opname, error_type (arg2));
+	error ("%s for 'operator%s' in '%E %s %E'",
+               problem, opname, arg1, opname, arg2);
       else
-	error ("%s for `%s %T' operator", problem, opname, error_type (arg1));
+	error ("%s for 'operator%s' in '%s%E'",
+               problem, opname, opname, arg1);
+      break;
     }
 }
 
@@ -3104,6 +3115,7 @@ conditional_conversion (e1, e2)
   tree t1 = non_reference (TREE_TYPE (e1));
   tree t2 = non_reference (TREE_TYPE (e2));
   tree conv;
+  bool good_base;
 
   /* [expr.cond]
 
@@ -3132,10 +3144,9 @@ conditional_conversion (e1, e2)
      changed to an rvalue of type T2 that still refers to the original
      source class object (or the appropriate subobject thereof).  */
   if (CLASS_TYPE_P (t1) && CLASS_TYPE_P (t2)
-      && same_or_base_type_p (TYPE_MAIN_VARIANT (t2), 
-			      TYPE_MAIN_VARIANT (t1)))
+      && ((good_base = DERIVED_FROM_P (t2, t1)) || DERIVED_FROM_P (t1, t2)))
     {
-      if (at_least_as_qualified_p (t2, t1))
+      if (good_base && at_least_as_qualified_p (t2, t1))
 	{
 	  conv = build1 (IDENTITY_CONV, t1, e1);
 	  if (!same_type_p (TYPE_MAIN_VARIANT (t1), 
@@ -3146,13 +3157,13 @@ conditional_conversion (e1, e2)
       else
 	return NULL_TREE;
     }
+  else
+    /* [expr.cond]
 
-  /* [expr.cond]
-
-     E1 can be converted to match E2 if E1 can be implicitly converted
-     to the type that expression E2 would have if E2 were converted to
-     an rvalue (or the type it has, if E2 is an rvalue).  */
-  return implicit_conversion (t2, t1, e1, LOOKUP_NORMAL);
+       Otherwise: E1 can be converted to match E2 if E1 can be implicitly
+       converted to the type that expression E2 would have if E2 were
+       converted to an rvalue (or the type it has, if E2 is an rvalue).  */
+    return implicit_conversion (t2, t1, e1, LOOKUP_NORMAL);
 }
 
 /* Implement [expr.cond].  ARG1, ARG2, and ARG3 are the three
@@ -4040,18 +4051,17 @@ enforce_access (basetype_path, decl)
   return 1;
 }
 
-/* Perform the conversions in CONVS on the expression EXPR. 
-   FN and ARGNUM are used for diagnostics.  ARGNUM is zero based, -1
+/* Perform the conversions in CONVS on the expression EXPR.  FN and
+   ARGNUM are used for diagnostics.  ARGNUM is zero based, -1
    indicates the `this' argument of a method.  INNER is nonzero when
    being called to continue a conversion chain. It is negative when a
-   reference binding will be applied, positive otherwise.  */
+   reference binding will be applied, positive otherwise.  If
+   ISSUE_CONVERSION_WARNINGS is true, warnings about suspicious
+   conversions will be emitted if appropriate.  */
 
 static tree
-convert_like_real (convs, expr, fn, argnum, inner)
-     tree convs, expr;
-     tree fn;
-     int argnum;
-     int inner;
+convert_like_real (tree convs, tree expr, tree fn, int argnum, int inner,
+		   bool issue_conversion_warnings)
 {
   int savew, savee;
 
@@ -4067,11 +4077,13 @@ convert_like_real (convs, expr, fn, argnum, inner)
 	{
 	  if (TREE_CODE (t) == USER_CONV || !ICS_BAD_FLAG (t))
 	    {
-	      expr = convert_like_real (t, expr, fn, argnum, 1);
+	      expr = convert_like_real (t, expr, fn, argnum, 1,
+					/*issue_conversion_warnings=*/false);
 	      break;
 	    }
 	  else if (TREE_CODE (t) == AMBIG_CONV)
-	    return convert_like_real (t, expr, fn, argnum, 1);
+	    return convert_like_real (t, expr, fn, argnum, 1,
+				      /*issue_conversion_warnings=*/false);
 	  else if (TREE_CODE (t) == IDENTITY_CONV)
 	    break;
 	}
@@ -4081,7 +4093,7 @@ convert_like_real (convs, expr, fn, argnum, inner)
       return cp_convert (totype, expr);
     }
   
-  if (!inner)
+  if (issue_conversion_warnings)
     expr = dubious_conversion_warnings
              (totype, expr, "argument", fn, argnum);
   switch (TREE_CODE (convs))
@@ -4173,7 +4185,8 @@ convert_like_real (convs, expr, fn, argnum, inner)
     };
 
   expr = convert_like_real (TREE_OPERAND (convs, 0), expr, fn, argnum,
-                            TREE_CODE (convs) == REF_BIND ? -1 : 1);
+                            TREE_CODE (convs) == REF_BIND ? -1 : 1,
+			    /*issue_conversion_warnings=*/false);
   if (expr == error_mark_node)
     return error_mark_node;
 
@@ -4525,12 +4538,17 @@ build_over_call (cand, args, flags)
 				       TREE_VALUE (arg),
 				       cand->conversion_path,
 				       1);
+      /* Check that the base class is accessible.  */
+      if (!accessible_base_p (TREE_TYPE (argtype), 
+			      BINFO_TYPE (cand->conversion_path)))
+	error ("`%T' is not an accessible base of `%T'",
+	       BINFO_TYPE (cand->conversion_path),
+	       TREE_TYPE (argtype));
       /* If fn was found by a using declaration, the conversion path
          will be to the derived class, not the base declaring fn. We
          must convert from derived to base.  */
       base_binfo = lookup_base (TREE_TYPE (TREE_TYPE (converted_arg)),
 				TREE_TYPE (parmtype), ba_ignore, NULL);
-      
       converted_arg = build_base_path (PLUS_EXPR, converted_arg,
 				       base_binfo, 1);
       
@@ -4678,10 +4696,22 @@ build_over_call (cand, args, flags)
   else
     fn = build_addr_func (fn);
 
+  return build_cxx_call (fn, args, converted_args);
+}
+
+/* Build and return a call to FN, using the the CONVERTED_ARGS.  ARGS
+   gives the original form of the arguments.  This function performs
+   no overload resolution, conversion, or other high-level
+   operations.  */
+
+tree
+build_cxx_call(tree fn, tree args, tree converted_args)
+{
+  tree fndecl;
+
   /* Recognize certain built-in functions so we can make tree-codes
      other than CALL_EXPR.  We do this when it enables fold-const.c
      to do something useful.  */
-
   if (TREE_CODE (fn) == ADDR_EXPR
       && TREE_CODE (TREE_OPERAND (fn, 0)) == FUNCTION_DECL
       && DECL_BUILT_IN (TREE_OPERAND (fn, 0)))
@@ -4692,14 +4722,26 @@ build_over_call (cand, args, flags)
 	return exp;
     }
 
-  /* Some built-in function calls will be evaluated at
-     compile-time in fold ().  */
-  fn = fold (build_call (fn, converted_args));
+  fn = build_call (fn, converted_args);
+
+  /* If this call might throw an exception, note that fact.  */
+  fndecl = get_callee_fndecl (fn);
+  if ((!fndecl || !TREE_NOTHROW (fndecl)) 
+      && at_function_scope_p ()
+      && cfun)
+    cp_function_chain->can_throw = 1;
+
+  /* Some built-in function calls will be evaluated at compile-time in
+     fold ().  */
+  fn = fold (fn);
+
   if (VOID_TYPE_P (TREE_TYPE (fn)))
     return fn;
+
   fn = require_complete_type (fn);
   if (fn == error_mark_node)
     return error_mark_node;
+
   if (IS_AGGR_TYPE (TREE_TYPE (fn)))
     fn = build_cplus_new (TREE_TYPE (fn), fn);
   return convert_from_reference (fn);
@@ -4831,11 +4873,23 @@ build_special_member_call (tree instance, tree name, tree args,
       TREE_TYPE (instance) = build_pointer_type (class_type);
       instance = build1 (INDIRECT_REF, class_type, instance);
     }
-  else if (name == complete_dtor_identifier 
-	   || name == base_dtor_identifier
-	   || name == deleting_dtor_identifier)
-    my_friendly_assert (args == NULL_TREE, 20020712);
+  else
+    {
+      if (name == complete_dtor_identifier 
+	  || name == base_dtor_identifier
+	  || name == deleting_dtor_identifier)
+	my_friendly_assert (args == NULL_TREE, 20020712);
 
+      /* We must perform the conversion here so that we do not
+	 subsequently check to see whether BINFO is an accessible
+	 base.  (It is OK for a constructor to call a constructor in
+	 an inaccessible base as long as the constructor being called
+	 is accessible.)  */
+      if (!same_type_ignoring_top_level_qualifiers_p 
+	  (TREE_TYPE (instance), BINFO_TYPE (binfo)))
+	instance = convert_to_base_statically (instance, binfo);
+    }
+  
   my_friendly_assert (instance != NULL_TREE, 20020712);
 
   /* Resolve the name.  */
@@ -4873,7 +4927,9 @@ build_special_member_call (tree instance, tree name, tree args,
       args = tree_cons (NULL_TREE, sub_vtt, args);
     }
 
-  return build_new_method_call (instance, fns, args, binfo, flags);
+  return build_new_method_call (instance, fns, args, 
+				TYPE_BINFO (BINFO_TYPE (binfo)), 
+				flags);
 }
 
 /* Build a call to "INSTANCE.FN (ARGS)".  */
@@ -5693,7 +5749,7 @@ joust (cand1, cand2, warn)
 	      && TREE_CODE (convn) == QUAL_CONV)
 	    /* Don't complain about `operator char *()' beating
 	       `operator const char *() const'.  */;
-	  else if (warn)
+	  else if (warn && warn_conversion)
 	    {
 	      tree source = source_type (TREE_VEC_ELT (w->convs, 0));
 	      if (! DECL_CONSTRUCTOR_P (w->fn))
@@ -5946,6 +6002,25 @@ perform_implicit_conversion (type, expr)
   return convert_like (conv, expr);
 }
 
+/* Convert EXPR to TYPE (as a direct-initialization) if that is
+   permitted.  If the conversion is valid, the converted expression is
+   returned.  Otherwise, NULL_TREE is returned.  */
+
+tree
+perform_direct_initialization_if_possible (tree type, tree expr)
+{
+  tree conv;
+  
+  if (type == error_mark_node || error_operand_p (expr))
+    return error_mark_node;
+  conv = implicit_conversion (type, TREE_TYPE (expr), expr,
+			      LOOKUP_NORMAL);
+  if (!conv || ICS_BAD_FLAG (conv))
+    return NULL_TREE;
+  return convert_like_real (conv, expr, NULL_TREE, 0, 0, 
+			    /*issue_conversion_warnings=*/false);
+}
+
 /* DECL is a VAR_DECL whose type is a REFERENCE_TYPE.  The reference
    is being bound to a temporary.  Create and return a new VAR_DECL
    with the indicated TYPE; this variable will store the value to
@@ -5984,18 +6059,23 @@ make_temporary_var_for_ref_to_temp (tree decl, tree type)
   return var;
 }
 
-/* Convert EXPR to the indicated reference TYPE, in a way suitable for
-   initializing a variable of that TYPE.   If DECL is non-NULL, it is
-   the VAR_DECL being initialized with the EXPR.  (In that case, the
-   type of DECL will be TYPE.)
+  /* Convert EXPR to the indicated reference TYPE, in a way suitable
+     for initializing a variable of that TYPE.  If DECL is non-NULL,
+     it is the VAR_DECL being initialized with the EXPR.  (In that
+     case, the type of DECL will be TYPE.)  If DECL is non-NULL, then
+     CLEANUP must also be non-NULL, and with *CLEANUP initialized to
+     NULL.  Upon return, if *CLEANUP is no longer NULL, it will be a
+     CLEANUP_STMT that should be inserted after the returned
+     expression is used to initialize DECL.
 
-   Return the converted expression.  */
+     Return the converted expression.  */
 
 tree
-initialize_reference (type, expr, decl)
+initialize_reference (type, expr, decl, cleanup)
      tree type;
      tree expr;
      tree decl;
+     tree *cleanup;
 {
   tree conv;
 
@@ -6005,7 +6085,13 @@ initialize_reference (type, expr, decl)
   conv = reference_binding (type, TREE_TYPE (expr), expr, LOOKUP_NORMAL);
   if (!conv || ICS_BAD_FLAG (conv))
     {
-      error ("could not convert `%E' to `%T'", expr, type);
+      if (!(TYPE_QUALS (TREE_TYPE (type)) & TYPE_QUAL_CONST)
+          && !real_lvalue_p (expr))
+        error ("invalid initialization of non-const reference of "
+               "type '%T' from a temporary of type '%T'",
+               type, TREE_TYPE (expr));
+      else
+        error ("could not convert `%E' to `%T'", expr, type);
       return error_mark_node;
     }
 
@@ -6041,7 +6127,7 @@ initialize_reference (type, expr, decl)
        T t;
        const S& s = t;
 
-    we can extend the lifetime of the returnn value of the conversion
+    we can extend the lifetime of the return value of the conversion
     operator.  */
   my_friendly_assert (TREE_CODE (conv) == REF_BIND, 20030302);
   if (decl)
@@ -6064,13 +6150,51 @@ initialize_reference (type, expr, decl)
       expr = convert_like (conv, expr);
       if (!real_non_cast_lvalue_p (expr))
 	{
+	  tree init;
+	  tree type;
+
 	  /* Create the temporary variable.  */
-	  var = make_temporary_var_for_ref_to_temp (decl, TREE_TYPE (expr));
-	  DECL_INITIAL (var) = expr;
-	  cp_finish_decl (var, expr, NULL_TREE, 
-		      LOOKUP_ONLYCONVERTING|DIRECT_BIND);
+	  type = TREE_TYPE (expr);
+	  var = make_temporary_var_for_ref_to_temp (decl, type);
+	  layout_decl (var, 0);
+	  /* Create the INIT_EXPR that will initialize the temporary
+	     variable.  */
+	  init = build (INIT_EXPR, type, var, expr);
+	  if (at_function_scope_p ())
+	    {
+	      add_decl_stmt (var);
+	      *cleanup = cxx_maybe_build_cleanup (var);
+	      if (*cleanup)
+		/* We must be careful to destroy the temporary only
+		   after its initialization has taken place.  If the
+		   initialization throws an exception, then the
+		   destructor should not be run.  We cannot simply
+		   transform INIT into something like:
+	     
+		     (INIT, ({ CLEANUP_STMT; }))
+
+		   because emit_local_var always treats the
+		   initializer as a full-expression.  Thus, the
+		   destructor would run too early; it would run at the
+		   end of initializing the reference variable, rather
+		   than at the end of the block enclosing the
+		   reference variable.
+
+		   The solution is to pass back a CLEANUP_STMT which
+		   the caller is responsible for attaching to the
+		   statement tree.  */
+		*cleanup = build_stmt (CLEANUP_STMT, var, *cleanup);
+	    }
+	  else
+	    {
+	      rest_of_decl_compilation (var, NULL, /*toplev=*/1, at_eof);
+	      if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (type))
+		static_aggregates = tree_cons (NULL_TREE, var,
+					       static_aggregates);
+	    }
 	  /* Use its address to initialize the reference variable.  */
 	  expr = build_address (var);
+	  expr = build (COMPOUND_EXPR, TREE_TYPE (expr), init, expr);
 	}
       else
 	/* Take the address of EXPR.  */

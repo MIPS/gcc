@@ -146,8 +146,6 @@ namespace std
 
   enum _Ios_Seekdir { _M_ios_seekdir_end = 1L << 16 };
 
-  class __locale_cache_base;
-
   // 27.4.2  Class ios_base
   /**
    *  @brief  The very top of the I/O class hierarchy.
@@ -606,7 +604,7 @@ namespace std
 
     /**
      *  @brief  Locale access
-     *  @return  The locale currently in effect.
+     *  @return  A copy of the current locale.
      *
      *  If @c imbue(loc) has previously been called, then this function
      *  returns @c loc.  Otherwise, it returns a copy of @c std::locale(),
@@ -614,6 +612,16 @@ namespace std
     */
     inline locale 
     getloc() const { return _M_ios_locale; }
+
+    /**
+     *  @brief  Locale access
+     *  @return  A reference to the current locale.
+     *
+     *  Like getloc above, but returns a reference instead of
+     *  generating a copy.
+    */
+    inline const locale& 
+    _M_getloc() const { return _M_ios_locale; }
 
     // [27.4.2.5] ios_base storage functions
     /**
@@ -643,11 +651,6 @@ namespace std
 			? _M_word[__ix] : _M_grow_words(__ix);
       return __word._M_pword;
     }
-
-    // Access to the cache.  Not safe to call until basic_ios::_M_init() has
-    // happened.
-    __locale_cache_base&
-    _M_cache() { return *static_cast<__locale_cache_base*>(pword(0)); }
 
     // Destructor
     /**

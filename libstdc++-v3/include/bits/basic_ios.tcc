@@ -187,12 +187,6 @@ namespace std
 	_M_fnumget = &use_facet<__numget_type>(__loc);
       else
 	_M_fnumget = 0;
-      typedef __locale_cache<_CharT> __cache_t;
-      if (!pword(0)) {
-	pword(0) = auto_ptr<__cache_t>(new __cache_t()).release();
-	register_callback(__cache_t::_S_callback, 0);
-      }
-      static_cast<__cache_t&>(_M_cache())._M_init(__loc);
     }
 
 #if 1

@@ -401,6 +401,33 @@ convert_to_base (tree object, tree type, bool check_access)
   return build_base_path (PLUS_EXPR, object, binfo, /*nonnull=*/1);
 }
 
+/* EXPR is an expression with class type.  BASE is a base class (a
+   BINFO) of that class type.  Returns EXPR, converted to the BASE
+   type.  This function assumes that EXPR is the most derived class;
+   therefore virtual bases can be found at their static offsets.  */
+
+tree
+convert_to_base_statically (tree expr, tree base)
+{
+  tree expr_type;
+
+  expr_type = TREE_TYPE (expr);
+  if (!same_type_p (expr_type, BINFO_TYPE (base)))
+    {
+      tree pointer_type;
+
+      pointer_type = build_pointer_type (expr_type);
+      expr = build_unary_op (ADDR_EXPR, expr, /*noconvert=*/1);
+      if (!integer_zerop (BINFO_OFFSET (base)))
+	  expr = build (PLUS_EXPR, pointer_type, expr, 
+			build_nop (pointer_type, BINFO_OFFSET (base)));
+      expr = build_nop (build_pointer_type (BINFO_TYPE (base)), expr);
+      expr = build1 (INDIRECT_REF, BINFO_TYPE (base), expr);
+    }
+
+  return expr;
+}
+
 
 /* Virtual function things.  */
 
@@ -1150,6 +1177,9 @@ handle_using_decl (using_decl, t)
   tree fdecl, binfo;
   tree flist = NULL_TREE;
   tree old_value;
+
+  if (ctype == error_mark_node)
+    return;
 
   binfo = lookup_base (t, ctype, ba_any, NULL);
   if (! binfo)
@@ -5006,12 +5036,19 @@ layout_class_type (tree t, tree *virtuals_p)
 	  DECL_SIZE (field) = TYPE_SIZE (integer_type);
 	  DECL_ALIGN (field) = TYPE_ALIGN (integer_type);
 	  DECL_USER_ALIGN (field) = TYPE_USER_ALIGN (integer_type);
+	  layout_nonempty_base_or_field (rli, field, NULL_TREE,
+					 empty_base_offsets);
+	  /* Now that layout has been performed, set the size of the
+	     field to the size of its declared type; the rest of the
+	     field is effectively invisible.  */
+	  DECL_SIZE (field) = TYPE_SIZE (type);
 	}
       else
-	padding = NULL_TREE;
-
-      layout_nonempty_base_or_field (rli, field, NULL_TREE,
-				     empty_base_offsets);
+	{
+	  padding = NULL_TREE;
+	  layout_nonempty_base_or_field (rli, field, NULL_TREE,
+					 empty_base_offsets);
+	}
 
       /* Remember the location of any empty classes in FIELD.  */
       if (abi_version_at_least (2))
@@ -5411,7 +5448,6 @@ unreverse_member_declarations (t)
   /* The following lists are all in reverse order.  Put them in
      declaration order now.  */
   TYPE_METHODS (t) = nreverse (TYPE_METHODS (t));
-  CLASSTYPE_TAGS (t) = nreverse (CLASSTYPE_TAGS (t));
   CLASSTYPE_DECL_LIST (t) = nreverse (CLASSTYPE_DECL_LIST (t));
 
   /* Actually, for the TYPE_FIELDS, only the non TYPE_DECLs are in
@@ -5581,11 +5617,21 @@ fixed_type_or_null (instance, nonnull, cdtorp)
           /* Reference variables should be references to objects.  */
           if (nonnull)
 	    *nonnull = 1;
-
-	  if (TREE_CODE (instance) == VAR_DECL
-	      && DECL_INITIAL (instance))
-	    return fixed_type_or_null (DECL_INITIAL (instance),
-				       nonnull, cdtorp);
+	  
+	  /* DECL_VAR_MARKED_P is used to prevent recursion; a
+	     variable's initializer may refer to the variable
+	     itself.  */
+	  if (TREE_CODE (instance) == VAR_DECL 
+	      && DECL_INITIAL (instance)
+	      && !DECL_VAR_MARKED_P (instance))
+	    {
+	      tree type;
+	      DECL_VAR_MARKED_P (instance) = 1;
+	      type = fixed_type_or_null (DECL_INITIAL (instance),
+					 nonnull, cdtorp);
+	      DECL_VAR_MARKED_P (instance) = 0;
+	      return type;
+	    }
 	}
       return NULL_TREE;
 
@@ -5763,7 +5809,7 @@ pushclass (type, modify)
 	  unuse_fields (type);
 	}
 
-      storetags (CLASSTYPE_TAGS (type));
+      cxx_remember_type_decls (CLASSTYPE_NESTED_UDTS (type));
     }
 }
 
@@ -6518,6 +6564,7 @@ build_self_reference ()
   DECL_NONLOCAL (value) = 1;
   DECL_CONTEXT (value) = current_class_type;
   DECL_ARTIFICIAL (value) = 1;
+  SET_DECL_SELF_REFERENCE_P (value);
 
   if (processing_template_decl)
     value = push_template_decl (value);

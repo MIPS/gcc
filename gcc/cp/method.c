@@ -441,6 +441,9 @@ use_thunk (thunk_fndecl, emit_p)
       assemble_end_function (thunk_fndecl, fnname);
       current_function_decl = 0;
       cfun = 0;
+      /* Because init_function_start increments this, we must
+	 decrement it.  */
+      immediate_size_expand--;
       TREE_ASM_WRITTEN (thunk_fndecl) = 1;
     }
   else
@@ -658,7 +661,7 @@ do_build_assign_ref (fndecl)
       int cvquals = cp_type_quals (TREE_TYPE (parm));
       int i;
 
-      /* Assign to each of thedirect base classes.  */
+      /* Assign to each of the direct base classes.  */
       for (i = 0; i < CLASSTYPE_N_BASECLASSES (current_class_type); ++i)
 	{
 	  tree binfo;

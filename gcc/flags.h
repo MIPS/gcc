@@ -485,10 +485,6 @@ extern int flag_unwind_tables;
 
 extern int flag_asynchronous_unwind_tables;
 
-/* Nonzero means allow for forced unwinding.  */
-
-extern int flag_forced_unwind_exceptions;
-
 /* Nonzero means don't place uninitialized global data in common storage
    by default.  */
 
@@ -662,6 +658,11 @@ extern int flag_zero_initialized_in_bss;
 
 /* Nonzero means disable transformations observable by signaling NaNs.  */
 extern int flag_signaling_nans;
+
+/* A string that's used when a random name is required.  NULL means
+   to make it really random.  */
+
+extern const char *flag_random_seed;
 
 /* True if the given mode has a NaN representation and the treatment of
    NaN operands is important.  Certain optimizations, such as folding

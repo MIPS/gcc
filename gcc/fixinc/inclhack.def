@@ -109,7 +109,7 @@ fix = {
      * the wrapper, this will follow the #include_next chain until
      * we arrive at the real <asm/posix_types.h>.
      */
-    replace  = <<-  _EOF_
+    replace  = <<-  _EndOfHeader_
 	/* This file fixes a bug in the __FD_ZERO macro
 	   for older versions of the Linux kernel. */
 	#ifndef _POSIX_TYPES_H_WRAPPER
@@ -130,7 +130,7 @@ fix = {
 	
 	#define _POSIX_TYPES_H_WRAPPER
 	#endif /* _POSIX_TYPES_H_WRAPPER */
-	_EOF_;
+	_EndOfHeader_;
 };
 
 
@@ -297,19 +297,10 @@ fix = {
 
 /*
  *  Completely replace <sys/byteorder.h>; with a file that implements gcc's
- *  optimized byteswapping.  Restricted to "SVR4" machines until either
- *  it is shown to be safe to replace this file always, or we get bolder ;-)
+ *  optimized byteswapping.
  */
 fix = {
     hackname = AAB_svr4_replace_byteorder;
-#ifndef SVR5
-    mach = "*-*-sysv4*";
-    mach = "i[34567]86-*-sysv5*";
-    mach = "i[34567]86-*-udk*";
-    mach = "i[34567]86-*-solaris2.[0-4]";
-    mach = "powerpcle-*-solaris2.[0-4]";
-    mach = "sparc-*-solaris2.[0-4]";
-#endif /* SVR5 */
     files    = sys/byteorder.h;
     replace  = '#ifndef _SYS_BYTEORDER_H
 \#define _SYS_BYTEORDER_H
@@ -360,9 +351,8 @@ htonl (unsigned long __arg)
 {
   register unsigned long __result;
 
-  __asm__ ("xchg%B0 %b0,%h0
-	ror%L0 $16,%0
-	xchg%B0 %b0,%h0" : "=q" (__result) : "0" (__arg));
+  __asm__ ("xchg%B0 %b0,%h0 ; ror%L0 $16,%0 ; xchg%B0 %b0,%h0" \
+    : "=q" (__result) : "0" (__arg));
   return __result;
 }
 
@@ -742,6 +732,7 @@ fix = {
     test_text = "# define bool\t char \n";
 };
 
+
 fix = {
     hackname = avoid_bool_type;
     files    = curses.h;
@@ -758,21 +749,30 @@ fix = {
     test_text = "typedef unsigned int\tbool \t; /* bool\n type */";
 };
 
+
 /*
  *  For C++, avoid any typedef definition of wchar_t,
  *  and use the built in type instead.
+ *  Don't do this for headers that are smart enough to do the right
+ *  thing (recent [n]curses.h and Xlib.h).
+ *  Don't do it for <linux/nls.h> which is never used from C++ anyway,
+ *  and will be broken by the edit.
  */
 
 fix = {
     hackname = avoid_wchar_t_type;
 
     select    = "^[ \t]*typedef[ \t].*[ \t]wchar_t[ \t]*;";
+    bypass    = "we must use the C\\+\\+ compiler's type";
+    bypass    = "_LINUX_NLS_H";
+    bypass    = "XFree86: xc/lib/X11/Xlib\\.h";
 
     c_fix     = format;
     c_fix_arg = "#ifndef __cplusplus\n%0\n#endif";
 
     test_text = "typedef unsigned short\twchar_t \t; /* wchar_t\n type */";
 };
+
 
 /*
  *  Fix #defines under Alpha OSF/1:
@@ -1003,6 +1003,7 @@ fix = {
     test_text = "#include <stddef.h>\n"
                 "extern __DJ_wint_t x;\n";
 };
+
 
 /*
  * Fix these Sun OS files to avoid an invalid identifier in an #ifdef.
@@ -1555,12 +1556,14 @@ fix = {
 };
 
 /*
- *  IRIX 5.x's stdio.h declares some functions that take a va_list as
+ *  IRIX 5.x's stdio.h and IRIX 6.5's internal/stdio_core.h declare
+ *  some functions that take a va_list as
  *  taking char *.  However, GCC uses void * for va_list, so
  *  calling vfprintf with a va_list fails in C++.  */
 fix = {
     hackname  = irix_stdio_va_list;
     files     = stdio.h;
+    files     = internal/stdio_core.h;
 
     select = '(printf\(.*), /\* va_list \*/ char \*';
     c_fix  = format;
@@ -1713,12 +1716,16 @@ fix = {
  *  comment.  Fortunately, HP/UX already uses #ifndefs in limits.h; if
  *  we find a #ifndef FLT_MIN we assume that all the required #ifndefs
  *  are there, and we do not add them ourselves.
+ *
+ *  QNX Software Systems also guards the defines, but doesn't define
+ *  FLT_MIN.  Therefore, bypass the fix for *either* guarded FLT_MIN
+ *  or guarded FLT_MAX.
  */
 fix = {
     hackname = limits_ifndefs;
     files  = "sys/limits.h";
     files  = "limits.h";
-    bypass = "ifndef[ \t]+FLT_MIN";
+    bypass = "ifndef[ \t]+FLT_(MIN|MAX)";
 
     c_fix     = format;
     c_fix_arg = "#ifndef %1\n%0\n#endif";
@@ -1980,6 +1987,7 @@ fix = {
                 "#define OPEN_MAX  20 /* Max, Max, ... */\n";
 };
 
+
 /*
  *  fix bogus recursive stdlib.h in NEWS-OS 4.0C
  */
@@ -2195,6 +2203,100 @@ fix = {
 
 
 /*
+ *  On OpenServer and on UnixWare 7, <math.h> uses the native compiler
+ *  __builtin_generic. We fix that usage to use the GCC equivalent.
+ * It also has a plethora of inline functions that conflict with libstdc++.
+ */
+fix = {
+    hackname = sco_math;
+    files    = math.h;
+    files    = posix/math.h;
+    files    = ansi/math.h;
+    files    = xpg4/math.h;
+    files    = xpg4v2/math.h;
+    files    = xpg4plus/math.h;
+    files    = ods_30_compat/math.h;
+    files    = oldstyle/math.h;
+    select   = "__builtin_generic";
+    sed      = "/#define.*__fp_class(a) \\\\/i\\\n"
+	       "#ifndef __GNUC__\n";
+    sed      =
+"/.*__builtin_generic/a\\\n"
+"#else\\\n"
+"#define __fp_class(a) \\\\\\\n"
+"  __builtin_choose_expr(__builtin_types_compatible_p(typeof(a),long double),\\\\\\\n"
+"   __fpclassifyl(a), \\\\\\\n"
+"    __builtin_choose_expr(__builtin_types_compatible_p(typeof(a), float), \\\\\\\n"
+"      __fpclassifyf(a),__fpclassify(a)))\\\n"
+"#endif";
+
+    sed      = "/extern \"C\\+\\+\"/N;"
+	       "/inline double abs/i\\\n"
+               "#ifndef __GNUC__\n";
+    sed      = "/inline long double trunc/N;"
+	       "/inline long double trunc.*}.*extern \"C\\+\\+\"/a\\\n"
+	       "#endif /* ! __GNUC__ */";
+
+    test_text =
+    "#define __fp_class(a) \\\\\n"
+    " __builtin_generic(a,\"ld:__fplcassifyl;f:__fpclassifyf;:__fpclassify\")\n";
+
+};
+
+
+/*
+ *  On SCO OpenServer prior to 5.0.7MP1, <sys/regset.h> and <ieeefp.h>
+ *  have a clash on struct _fpstate and struct fpstate.
+ */
+fix = {
+    hackname  = sco_regset;
+    files     = sys/regset.h;
+    mach      = "*-*-sco3.2v5*";
+    select    = "(struct[ \t]+_*)fpstate";
+    c_fix     = format;
+    c_fix_arg = "%1rsfpstate";
+
+    test_text =
+    "union u_fps { struct\tfpstate { int whatever; } };\n"
+    "union _u_fps { struct _fpstate { int whatever; } };\n";
+};
+
+
+/*
+ * The string.h header file on SCO Open Server has some inline C++ functions
+ * that confuse and upset libstdc++ horribly. Protect them from being defined
+ * when using GCC.
+ */
+fix = {
+    hackname = sco_string;
+    files    = ansi/string.h;
+    files    = posix/string.h;
+    files    = xpg4/string.h;
+    files    = xpg4v2/string.h;
+    files    = xpg4plus/string.h;
+    files    = ods_30_compat/string.h;
+    files    = oldstyle/string.h;
+    files    = string.h;
+    mach      = "*-*-sco3.2v5*";
+    select   = "inline char";
+    sed      = "/extern \"C\\+\\+\"/N;"
+               "/inline void.*memchr/i\\\n"
+	       "#ifndef __GNUC__\n";
+    sed      = "/return.*strstr/N;"
+               "/return.*strstr.*}/a\\\n"
+	       "#endif /* ! __GNUC__ */";
+
+    test_text =
+  "extern \"C++\" {\n"
+  "inline void *memchr(void *__1, int __2, size_t __3)\n"
+  "	{ return (void *)memchr((const void *)__1, __2, __3); }\n"
+  "inline char *strstr(char *__1, const char *__2)\n"
+  "	{ return (char *)strstr((const char *)__1, __2); }\n"
+  "}\n";
+};
+
+
+/*
  *  The static functions lstat() and fchmod() in <sys/stat.h>
  *  cause G++ grief since they're not wrapped in "if __cplusplus".
  *
@@ -2221,7 +2323,7 @@ fix = {
     "#ifdef __STDC__\n"
     "static int\tstat(const char *__f, struct stat *__p) {\n"
     "\treturn __stat32(__f, __p);\n"
-    "}\n\n#  else /* !__STDC__ */\n"
+    "}\n\n#  else /* !__STDC__ THIS FAILS ON BSD SYSTEMS */\n"
 
     "static int\tstat(__f, __p)\n"
     "\tchar *__f;\n"
@@ -2251,6 +2353,26 @@ fix = {
 
 
 /*
+ *  Sun Solaris 2.5.1, 2.6 defines PTHREAD_{MUTEX|COND}_INITIALIZER
+ *  incorrectly, so we replace them with versions that correspond to
+ *  the definition.  We also explicitly name this fix "1" and the next
+ *  fix "2" because this one does not deal with the last field.  This
+ *  fix needs to run before the next.
+ */
+fix = {
+    hackname = solaris_mutex_init_1;
+    select = '@\(#\)pthread.h' "[ \t]+1.1[0-9][ \t]+9[567]/[0-9/]+ SMI";
+    files = pthread.h;
+    sed   = "/define[ \t]*PTHREAD_MUTEX_INI/s/{0, 0,/{{{0}, 0}, {{{0}}},/\n"
+            "/define[ \t]*PTHREAD_COND_INI/s/{0,/{{{0},0},/";
+    test_text =
+    '#ident "@(#)pthread.h  1.16    97/05/05 SMI"'"\n"
+    "#define PTHREAD_MUTEX_INITIALIZER\t{0, 0, 0}\n"
+    "#define PTHREAD_COND_INITIALIZER\t{0, 0} /* */\n";
+};
+
+
+/*
  * Sun Solaris defines PTHREAD_MUTEX_INITIALIZER with a trailing
  * "0" for the last field of the pthread_mutex_t structure, which is
  * of type upad64_t, which itself is typedef'd to int64_t, but with
@@ -2258,7 +2380,7 @@ fix = {
  * initializer to "{0}" instead
  */
 fix = {
-    hackname = solaris_mutex_init;
+    hackname = solaris_mutex_init_2;
     select = '@\(#\)pthread.h' "[ \t]+1.[0-9]+[ \t]+[0-9/]+ SMI";
     files = pthread.h;
     c_fix = format;
@@ -2309,35 +2431,6 @@ fix = {
     c_fix_arg = "%0\n#include <wchar.h>";
     test_text = "#include <euc.h>";
 };
-
-/*
- *  Sony NEWSOS 5.0 does not support the complete ANSI C standard.
- */
-#ifdef SONY
-fix = {
-    hackname = sony_ctype;
-    files    = ctype.h;
-    test     = " -x /bin/sony";
-    test     = " ! -z \"`if /bin/sony ; then echo true ; fi`\"";
-    sed      = "s/__ctype/_ctype/g";
-};
-#endif
-
-
-/*
- *  Sony NEWSOS 5.0 does not support the complete ANSI C standard.
- */
-#ifdef SONY
-fix = {
-    hackname = sony_stdio;
-    files    = stdio.h;
-    test     = " -x /bin/sony";
-    test     = " ! -z \"`if /bin/sony ; then echo true ; fi`\"";
-    sed      = "s/__filbuf/_filbuf/g\n"
-               "s/__flsbuf/_flsbuf/g\n"
-               "s/__iob/_iob/g";
-};
-#endif
 
 
 /*
@@ -2392,13 +2485,18 @@ fix = {
 
 /*
  *  Don't use or define the name va_list in stdio.h.
- *  This is for ANSI and also to interoperate properly with gcc's varargs.h.
- *  Note _BSD_VA_LIST_ is dealt with elsewhere.
+ *  This is for ANSI and also to interoperate properly with gcc's
+ *  varargs.h.  Note _BSD_VA_LIST_ is dealt with elsewhere.  The
+ *  presence of __gnuc_va_list, __DJ_va_list, or _G_va_list is taken
+ *  to indicate that the header knows what it's doing -- under SUSv2,
+ *  stdio.h is required to define va_list, and we shouldn't break that.
  */
 fix = {
     hackname = stdio_va_list;
     files    = stdio.h;
-    bypass   = '__gnuc_va_list|_BSD_VA_LIST_|__DJ_va_list';
+    files    = internal/stdio_core.h;
+    files    = internal/wchar_core.h;
+    bypass   = '__gnuc_va_list|_BSD_VA_LIST_|__DJ_va_list|_G_va_list';
 
     /*
      * Use __gnuc_va_list in arg types in place of va_list.
@@ -2411,6 +2509,8 @@ fix = {
      */
     sed = "s@ va_list @ __gnuc_va_list @\n"
           "s@ va_list)@ __gnuc_va_list)@\n"
+    	  "s@va_list _ap;@__gnuc_va_list _ap;@\n"
+	  "s@(va_list)&@(__gnuc_va_list)\\&@\n"
           "s@ _VA_LIST_));@ __gnuc_va_list));@\n"
           "s@ __VA_LIST__));@ __gnuc_va_list));@\n"
           "s@ va_list@ __not_va_list__@\n"
@@ -2440,6 +2540,9 @@ fix = {
                "|__STDC__[ \t]*-[ \t]*0[ \t]*==[ \t]*0)";
     /* Tru64 UNIX V4.0F/V5.1 <standards.h> supports GCC usage of __STDC__. */
     bypass = 'GNU and MIPS C compilers define __STDC__ differently';
+    /* GNU gmp.h uses "__STDC__ != 1" only if __SCO_VERSION__, which
+       is not defined by GCC, so it is safe.  */
+    bypass = '__SCO_VERSION__.*__STDC__ != 1';
     c_test   = stdc_0_in_system_headers;
 
     c_fix     = format;
@@ -2706,14 +2809,13 @@ fix = {
  *  that is visible to any ANSI compiler using this include.  Simply
  *  delete the lines that #define some string functions to internal forms.
  */
-#ifdef SVR4
 fix = {
     hackname = svr4_disable_opt;
     files    = string.h;
     select   = '#define.*__std_hdr_';
     sed      = '/#define.*__std_hdr_/d';
+    test_text = "#define strlen __std_hdr_strlen\n";
 };
-#endif
 
 
 /*
@@ -2859,8 +2961,8 @@ fix = {
 fix = {
     hackname = svr4_mach_defines;
     files    = ieeefp.h;
-    select   = "#define[ \t]*__(i386|i860|mips|sparc|m88k|m68k)[ \t]";
-    sed      = "/#define[ \t]*__\\(i386|i860|mips|sparc|m88k|m68k\\)[ \t]/d";
+    select   = "#define[ \t]*__(i386|mips|sparc|m88k|m68k)[ \t]";
+    sed      = "/#define[ \t]*__\\(i386|mips|sparc|m88k|m68k\\)[ \t]/d";
 };
 #endif
 
@@ -3286,7 +3388,7 @@ fix = {
     test_text =
     "@(#)stat.h      6.1     (ULTRIX)\n"
     "#define S_IFPORT S_IFIFO\n"
-    "\tfstat(),\n";
+    "\tfstat(),\n/* THE INSERTION LINE FAILS ON BSD SYSTEMS */";
 };
 
 
@@ -3619,7 +3721,7 @@ fix = {
     sed      = "s/Widget new,/Widget c_new,/g";
     test_text =
     "struct wedge {\n"
-    "   Widget\told, new; /* fix the new */\n"
+    "   Widget\told, new; /* fixinc check FAILS ON BSD */\n"
     "};\nextern Wedged( Widget new, Widget old );";
 };
 

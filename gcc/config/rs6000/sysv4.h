@@ -257,7 +257,8 @@ do {									\
 	     rs6000_sdata_name);					\
     }									\
 									\
-  if (rs6000_sdata != SDATA_NONE && DEFAULT_ABI != ABI_V4)		\
+  if ((rs6000_sdata != SDATA_NONE && DEFAULT_ABI != ABI_V4)		\
+      || (rs6000_sdata == SDATA_EABI && !TARGET_EABI))			\
     {									\
       rs6000_sdata = SDATA_NONE;					\
       error ("-msdata=%s and -mcall-%s are incompatible",		\
@@ -328,7 +329,7 @@ do {									\
 
 /* Define this to set the endianness to use in libgcc2.c, which can
    not depend on target_flags.  */
-#if !defined(_LITTLE_ENDIAN) && !defined(__sun__)
+#if !defined(__LITTLE_ENDIAN__) && !defined(__sun__)
 #define LIBGCC2_WORDS_BIG_ENDIAN 1
 #else
 #define LIBGCC2_WORDS_BIG_ENDIAN 0
@@ -1094,7 +1095,7 @@ do {						\
 /* FreeBSD support.  */
 
 #define CPP_OS_FREEBSD_SPEC	"\
-  -D__PPC__ -D__ppc__ -D__PowerPC__ -D__powerpc__ \
+  -D__ELF__ -D__PPC__ -D__ppc__ -D__PowerPC__ -D__powerpc__ \
   -Acpu=powerpc -Amachine=powerpc"
 
 #define	STARTFILE_FREEBSD_SPEC	FBSD_STARTFILE_SPEC
@@ -1103,7 +1104,17 @@ do {						\
 #define LINK_START_FREEBSD_SPEC	""
 
 #define LINK_OS_FREEBSD_SPEC "\
-  %{symbolic:-Bsymbolic}"
+  %{p:%e`-p' not supported; use `-pg' and gprof(1)} \
+    %{Wl,*:%*} \
+    %{v:-V} \
+    %{assert*} %{R*} %{rpath*} %{defsym*} \
+    %{shared:-Bshareable %{h*} %{soname*}} \
+    %{!shared: \
+      %{!static: \
+	%{rdynamic: -export-dynamic} \
+	%{!dynamic-linker: -dynamic-linker /usr/libexec/ld-elf.so.1}} \
+      %{static:-Bstatic}} \
+    %{symbolic:-Bsymbolic}"
 
 /* GNU/Linux support.  */
 #ifdef USE_GNULIBC_1

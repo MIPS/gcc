@@ -615,6 +615,7 @@ static int cprop		PARAMS ((int));
 static int one_cprop_pass	PARAMS ((int, int));
 static bool constprop_register	PARAMS ((rtx, rtx, rtx, int));
 static struct expr *find_bypass_set PARAMS ((int, int));
+static bool reg_killed_on_edge	    PARAMS ((rtx, edge));
 static int bypass_block		    PARAMS ((basic_block, rtx, rtx));
 static int bypass_conditional_jumps PARAMS ((void));
 static void alloc_pre_mem	PARAMS ((int, int));
@@ -3933,6 +3934,15 @@ try_replace_reg (from, to, insn)
   if (num_changes_pending () && apply_change_group ())
     success = 1;
 
+  /* Try to simplify SET_SRC if we have substituted a constant.  */
+  if (success && set && CONSTANT_P (to))
+    {
+      src = simplify_rtx (SET_SRC (set));
+
+      if (src)
+	validate_change (insn, &SET_SRC (set), src, 0);
+    }
+
   if (!success && set && reg_mentioned_p (from, SET_SRC (set)))
     {
       /* If above failed and this is a single set, try to simplify the source of
@@ -3944,9 +3954,12 @@ try_replace_reg (from, to, insn)
 	  && validate_change (insn, &SET_SRC (set), src, 0))
 	success = 1;
 
-      /* If we've failed to do replacement, have a single SET, and don't already
-	 have a note, add a REG_EQUAL note to not lose information.  */
-      if (!success && note == 0 && set != 0)
+      /* If we've failed to do replacement, have a single SET, don't already
+	 have a note, and have no special SET, add a REG_EQUAL note to not
+	 lose information.  */
+      if (!success && note == 0 && set != 0
+	  && GET_CODE (XEXP (set, 0)) != ZERO_EXTRACT
+	  && GET_CODE (XEXP (set, 0)) != SIGN_EXTRACT)
 	note = set_unique_reg_note (insn, REG_EQUAL, copy_rtx (src));
     }
 
@@ -4617,11 +4630,35 @@ find_bypass_set (regno, bb)
 }
 
 
+/* Subroutine of bypass_block that checks whether a pseudo is killed by
+   any of the instructions inserted on an edge.  Jump bypassing places
+   condition code setters on CFG edges using insert_insn_on_edge.  This
+   function is required to check that our data flow analysis is still
+   valid prior to commit_edge_insertions.  */
+
+static bool
+reg_killed_on_edge (reg, e)
+     rtx reg;
+     edge e;
+{
+  rtx insn;
+
+  for (insn = e->insns; insn; insn = NEXT_INSN (insn))
+    if (INSN_P (insn) && reg_set_p (reg, insn))
+      return true;
+
+  return false;
+}
+
 /* Subroutine of bypass_conditional_jumps that attempts to bypass the given
    basic block BB which has more than one predecessor.  If not NULL, SETCC
    is the first instruction of BB, which is immediately followed by JUMP_INSN
    JUMP.  Otherwise, SETCC is NULL, and JUMP is the first insn of BB.
-   Returns nonzero if a change was made.  */
+   Returns nonzero if a change was made.
+
+   During the jump bypassing pass, we may place copies of SETCC instuctions
+   on CFG edges.  The following routine must be careful to pay attention to
+   these inserted insns when performing its transformations.  */
 
 static int
 bypass_block (bb, setcc, jump)
@@ -4629,7 +4666,7 @@ bypass_block (bb, setcc, jump)
      rtx setcc, jump;
 {
   rtx insn, note;
-  edge e, enext;
+  edge e, enext, edest;
   int i, change;
 
   insn = (setcc != NULL) ? setcc : jump;
@@ -4661,6 +4698,10 @@ bypass_block (bb, setcc, jump)
 	  if (! set)
 	    continue;
 
+	  /* Check the data flow is valid after edge insertions.  */
+	  if (e->insns && reg_killed_on_edge (reg_used->reg_rtx, e))
+	    continue;
+
 	  src = SET_SRC (pc_set (jump));
 
 	  if (setcc != NULL)
@@ -4671,10 +4712,27 @@ bypass_block (bb, setcc, jump)
 	  new = simplify_replace_rtx (src, reg_used->reg_rtx,
 				      SET_SRC (set->expr));
 
+	  /* Jump bypassing may have already placed instructions on 
+	     edges of the CFG.  We can't bypass an outgoing edge that
+	     has instructions associated with it, as these insns won't
+	     get executed if the incoming edge is redirected.  */
+
 	  if (new == pc_rtx)
-	    dest = FALLTHRU_EDGE (bb)->dest;
+	    {
+	      edest = FALLTHRU_EDGE (bb);
+	      dest = edest->insns ? NULL : edest->dest;
+	    }
 	  else if (GET_CODE (new) == LABEL_REF)
-	    dest = BRANCH_EDGE (bb)->dest;
+	    {
+	      dest = BLOCK_FOR_INSN (XEXP (new, 0));
+	      /* Don't bypass edges containing instructions.  */
+	      for (edest = bb->succ; edest; edest = edest->succ_next)
+		if (edest->dest == dest && edest->insns)
+		  {
+		    dest = NULL;
+		    break;
+		  }
+	    }
 	  else
 	    dest = NULL;
 

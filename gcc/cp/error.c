@@ -1008,7 +1008,7 @@ dump_decl (t, flags)
       output_add_string (scratch_buffer, "using ");
       dump_type (DECL_INITIAL (t), flags);
       print_scope_operator (scratch_buffer);
-      print_tree_identifier (scratch_buffer, DECL_NAME (t));
+      dump_decl (DECL_NAME (t), flags);
       break;
 
     case BASELINK:
@@ -1650,6 +1650,7 @@ dump_expr (t, flags)
     case NEW_EXPR:
       {
 	tree type = TREE_OPERAND (t, 1);
+	tree init = TREE_OPERAND (t, 2);
 	if (NEW_EXPR_USE_GLOBAL (t))
 	  print_scope_operator (scratch_buffer);
 	output_add_string (scratch_buffer, "new ");
@@ -1666,10 +1667,17 @@ dump_expr (t, flags)
 					    TREE_OPERAND (type, 1),
 					    integer_one_node))));
 	dump_type (type, flags);
-	if (TREE_OPERAND (t, 2))
+	if (init)
 	  {
 	    print_left_paren (scratch_buffer);
-	    dump_expr_list (TREE_OPERAND (t, 2), flags);
+	    if (TREE_CODE (init) == TREE_LIST)
+	      dump_expr_list (init, flags);
+	    else if (init == void_zero_node)
+	      /* This representation indicates an empty initializer,
+		 e.g.: "new int()".  */
+	      ;
+	    else
+	      dump_expr (init, flags);
 	    print_right_paren (scratch_buffer);
 	  }
       }
@@ -1891,9 +1899,19 @@ dump_expr (t, flags)
 		}
 	    }
 	}
-      output_add_character (scratch_buffer, '{');
-      dump_expr_list (CONSTRUCTOR_ELTS (t), flags);
-      output_add_character (scratch_buffer, '}');
+      /* We've gotten an rvalue of the form 'T()'.  */
+      else if (TREE_TYPE (t))
+        {
+          dump_type (TREE_TYPE (t), flags);
+          print_left_paren (scratch_buffer);
+          print_right_paren (scratch_buffer);
+        }
+      else
+        {
+          output_add_character (scratch_buffer, '{');
+          dump_expr_list (CONSTRUCTOR_ELTS (t), flags);
+          output_add_character (scratch_buffer, '}');
+        }
       break;
 
     case OFFSET_REF:
@@ -2236,7 +2254,7 @@ decl_to_string (decl, verbose)
       || TREE_CODE (decl) == UNION_TYPE || TREE_CODE (decl) == ENUMERAL_TYPE)
     flags = TFF_CLASS_KEY_OR_ENUM;
   if (verbose)
-    flags |= TFF_DECL_SPECIFIERS | TFF_FUNCTION_DEFAULT_ARGUMENTS;
+    flags |= TFF_DECL_SPECIFIERS;
   else if (TREE_CODE (decl) == FUNCTION_DECL)
     flags |= TFF_DECL_SPECIFIERS | TFF_RETURN_TYPE;
   flags |= TFF_TEMPLATE_HEADER;
