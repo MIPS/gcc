@@ -1,3 +1,8 @@
+2003-02-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* src/s390/ffi.c (ffi_closure_helper_SYSV): Add hidden visibility
+	attribute.
+
 2003-01-29  Franz Sirl  <Franz.Sirl-kernel@lauterbach.com>
 
 	* src/powerpc/ppc_closure.S: Recode to fit shared libs.
