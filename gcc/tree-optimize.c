@@ -117,8 +117,10 @@ optimize_function_tree (tree fndecl, tree *chain)
       if (flag_tree_dce)
 	tree_ssa_dce (fndecl, TDI_dce_1);
 
+#if 0
       /* Eliminate tail recursion calls.  */
       tree_optimize_tail_calls (false, TDI_tail1);
+#endif
 
       /* The must-alias pass removes the aliasing and addressability bits
 	 from variables that used to have their address taken.  */
@@ -166,8 +168,10 @@ optimize_function_tree (tree fndecl, tree *chain)
       if (flag_tree_dce)
 	tree_ssa_dce (fndecl, TDI_dce_2);
 
+#if 0
       /* Eliminate tail recursion calls and discover sibling calls.  */
       tree_optimize_tail_calls (true, TDI_tail2);
+#endif
 
 #ifdef ENABLE_CHECKING
       verify_flow_info ();

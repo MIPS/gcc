@@ -1,3 +1,8 @@
+2003-11-18  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-optimize.c (optimize_function_tree): Disable tail
+	call optimizations.
+
 2003-11-18  Jan Hubicka  <jh@suse.cz>
 
 	* Makefile.in (sibcall.o): Kill.
