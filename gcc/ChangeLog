@@ -1,3 +1,8 @@
+2001-10-31  Jakub Jelinek  <jakub@redhat.com>
+
+	* frame.c (fde_merge): Choose just one from FDEs for the
+	same function in erratic array.
+
 2001-10-12  Jakub Jelinek  <jakub@redhat.com>
 
 	* unwind-dw2.c (frame_state_296): New type.
