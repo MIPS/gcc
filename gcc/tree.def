@@ -908,10 +908,6 @@ DEFTREECODE (INTERVAL_CHREC, "interval_chrec", 'e', 2)
    Under the form: cr = {CHREC_LEFT (cr), +, CHREC_RIGHT (cr)}.  */
 DEFTREECODE (POLYNOMIAL_CHREC, "polynomial_chrec", 'e', 3)
 
-/* Peeled chains of recurrences.
-   Under the form: (CHREC_LEFT (cr), CHREC_RIGHT (cr)).  */
-DEFTREECODE (PEELED_CHREC, "peeled_chrec", 'e', 3)
-
 /* Used to chain children of container statements together.
    Use the interface in tree-iterator.h to access this node.  */
 DEFTREECODE (STATEMENT_LIST, "statement_list", 'x', 0)

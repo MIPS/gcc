@@ -1,3 +1,22 @@
+2004-06-21  Sebastian Pop  <pop@cri.ensmp.fr>
+
+	* tree.def (PEELED_CHREC): Removed.
+	* tree-chrec.c (is_not_constant_evolution, chrec_fold_plus_1, 
+	chrec_fold_multiply, chrec_replace_initial_condition, chrec_convert):
+	Don't handle PEELED_CHREC nodes.
+	(chrec_fold_plus_peel_cst, chrec_fold_plus_poly_peel, 
+	chrec_fold_plus_peel_poly, chrec_fold_plus_peel_peel, 
+	chrec_fold_multiply_peel_cst, chrec_fold_multiply_poly_peel, 
+	chrec_fold_multiply_peel_peel, simplify_peeled_chrec): Removed.
+	* tree-chrec.h (tree_is_chrec): Don't handle PEELED_CHREC nodes.
+	(build_peeled_chrec, evolution_function_is_peeled_affine_p): Removed.
+	* tree-pretty-print.c (dump_generic_node): Don't handle
+	PEELED_CHREC nodes.
+	* tree-scalar-evolution.c (analyze_evolution_in_loop,
+	instantiate_parameters_1): Same.
+	(chrec_stats, reset_chrecs_counters, dump_chrecs_stats, 
+	gather_chrec_stats): Don't count the number of PEELED_CHREC nodes.
+
 2004-06-18  Sebastian Pop  <pop@cri.ensmp.fr>
 
 	* Makefile.in (OBJS-common): Remove tree-elim-check.o.

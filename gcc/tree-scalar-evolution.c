@@ -1563,20 +1563,11 @@ analyze_evolution_in_loop (tree loop_phi_node,
 	 loop_phi_node by following the ssa edges, the
 	 evolution is represented by a peeled chrec, ie. the
 	 first iteration, EV_FN has the value INIT_COND, then
-	 all the other iterations it has the value of ARG.  */
+	 all the other iterations it has the value of ARG.  
+	 For the moment, PEELED_CHREC nodes are not built.  */
       if (!res)
-	{
-	  /* FIXME: when dealing with periodic scalars, the
-	     analysis of the scalar evolution of ARG would
-	     create an infinite recurrence.  Solution: don't
-	     try to simplify the peeled chrec at this time,
-	     but wait until having more information.   */
-	  ev_fn = build_peeled_chrec (loop->num, init_cond, arg);
-		  
-	  /* Try to simplify the peeled chrec.  */
-	  ev_fn = simplify_peeled_chrec (ev_fn);
-	}
-	      
+	ev_fn = chrec_top;
+      
       /* When there are multiple back edges of the loop (which in fact never
 	 happens currently, but nevertheless), merge their evolutions. */
       evolution_function = chrec_merge (evolution_function, ev_fn);
@@ -2029,13 +2020,6 @@ instantiate_parameters_1 (struct loop *loop, tree chrec,
 				      allow_superloop_chrecs);
       return build_polynomial_chrec (CHREC_VARIABLE (chrec), op0, op1);
 
-    case PEELED_CHREC:
-      op0 = instantiate_parameters_1 (loop, CHREC_LEFT (chrec),
-				      allow_superloop_chrecs);
-      op1 = instantiate_parameters_1 (loop, CHREC_RIGHT (chrec),
-				      allow_superloop_chrecs);
-      return build_peeled_chrec (CHREC_VARIABLE (chrec), op0, op1);
-
     case INTERVAL_CHREC:
       op0 = instantiate_parameters_1 (loop, CHREC_LOW (chrec),
 				      allow_superloop_chrecs);
@@ -2245,7 +2229,6 @@ number_of_iterations_for_all_loops (varray_type exit_conditions)
 struct chrec_stats 
 {
   unsigned nb_chrecs;
-  unsigned nb_peeled;
   unsigned nb_affine;
   unsigned nb_affine_multivar;
   unsigned nb_higher_poly;
@@ -2260,7 +2243,6 @@ static inline void
 reset_chrecs_counters (struct chrec_stats *stats)
 {
   stats->nb_chrecs = 0;
-  stats->nb_peeled = 0;
   stats->nb_affine = 0;
   stats->nb_affine_multivar = 0;
   stats->nb_higher_poly = 0;
@@ -2280,7 +2262,6 @@ dump_chrecs_stats (FILE *file, struct chrec_stats *stats)
   fprintf (file, "%d\taffine multivariate chrecs\n", stats->nb_affine_multivar);
   fprintf (file, "%d\tdegree greater than 2 polynomials\n", 
 	   stats->nb_higher_poly);
-  fprintf (file, "%d\taffine peeled chrecs\n", stats->nb_peeled);
   fprintf (file, "%d\tchrec_top chrecs\n", stats->nb_chrec_top);
   fprintf (file, "%d\tinterval chrecs\n", stats->nb_chrec_top);
   fprintf (file, "-----------------------------------------\n");
@@ -2355,12 +2336,6 @@ gather_chrec_stats (tree chrec, struct chrec_stats *stats)
 	}
       break;
 
-    case PEELED_CHREC:
-      if (dump_file && (dump_flags & TDF_STATS))
-	fprintf (dump_file, "  peeled chrec\n");
-      stats->nb_peeled++;
-      break;
-      
     default:
       break;
     }

@@ -57,8 +57,7 @@ static inline bool
 tree_is_chrec (tree expr)
 {
   if (TREE_CODE (expr) == INTERVAL_CHREC
-      || TREE_CODE (expr) == POLYNOMIAL_CHREC
-      || TREE_CODE (expr) == PEELED_CHREC)
+      || TREE_CODE (expr) == POLYNOMIAL_CHREC)
     return true;
   else
     return false;
@@ -75,7 +74,6 @@ extern tree count_ev_in_wider_type (tree, tree);
 extern tree chrec_type (tree);
 
 /* Operations.  */
-extern tree simplify_peeled_chrec (tree);
 extern tree chrec_apply (unsigned, tree, tree);
 extern tree chrec_replace_initial_condition (tree, tree);
 extern tree update_initial_condition_to_origin (tree);
@@ -126,17 +124,6 @@ build_polynomial_chrec (unsigned loop_num,
 			tree right)
 {
   return build (POLYNOMIAL_CHREC, TREE_TYPE (left), 
-		build_int_2 (loop_num, 0), left, right);
-}
-
-/* Build a peeled chain of recurrence.  */
-
-static inline tree 
-build_peeled_chrec (unsigned loop_num, 
-		    tree left, 
-		    tree right)
-{
-  return build (PEELED_CHREC, TREE_TYPE (left),
 		build_int_2 (loop_num, 0), left, right);
 }
 
@@ -247,21 +234,6 @@ static inline bool
 evolution_function_is_multivariate (tree chrec)
 {
   return !evolution_function_is_univariate_p (chrec);
-}
-
-/* Determine whether the given tree is an affine peeled chrec.  */
-
-static inline bool 
-evolution_function_is_peeled_affine_p (tree chrec)
-{
-  if (chrec == NULL_TREE)
-    return false;
-  
-  if (TREE_CODE (chrec) == PEELED_CHREC)
-    return (evolution_function_is_affine_or_constant_p (CHREC_LEFT (chrec)) 
-	    && evolution_function_is_affine_p (CHREC_RIGHT (chrec)));
-
-  return false;
 }
 
 /* Determines which expressions are simpler to be {handled | kept} in a 
