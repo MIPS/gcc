@@ -1,3 +1,8 @@
+2005-03-11  Jon Grimm  <jgrimm2@us.ibm.com>
+
+	* c-lex.c (interpret_float): Decode dfp types from cpplib provided
+	flags.
+
 2005-03-09  Jon Grimm  <jgrimm2@us.ibm.com>
 
 	* builtin-types.def: Add new type_nodes for decimal float.
