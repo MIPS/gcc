@@ -1,3 +1,29 @@
+2004-07-15  Kim Ho  <kho@redhat.com>
+
+	* javax/swing/DefaultDesktopManager.java:
+	(findMinimum): Removed.
+	(resizeFrame): Trust the UI to pass valid 
+	bounds.
+	* javax/swing/JOptionPane.java:
+	Implemented showInternalXXXDialog methods.
+	(startModal): New method.
+	* javax/swing/plaf/basic/BasicInternalFrameUI.java:
+	(BorderListener::mouseDragged): Verify that the new 
+	bounds are valid before passing them to the DesktopManager.
+	(preferredLayoutSize): Delegate
+	to getSize.
+	(minimumLayoutSize): Ditto.
+	(getSize): New method.
+	(GlassPaneDispatcher): Reimplemented by copying 
+	a stripped down LightweightDispatcher from Container.
+	(getMinimumSize): Call minimumLayoutSize.
+	* javax/swing/plaf/basic/BasicOptionPaneUI.java:
+	Ran Jalopy.
+	(mousePressed): Add ability to properly close 
+	JInternalFrames.
+	* javax/swing/plaf/basic/BasicToolBarUI.java:
+	(DragWindow): Set owner for DragWindow.
+
 2004-07-15  David Jee  <djee@redhat.com>
 
 	* gnu/java/awt/peer/gtk/GtkFileDialogPeer.java

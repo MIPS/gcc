@@ -86,6 +86,9 @@ import javax.swing.plaf.UIResource;
  */
 public class BasicToolBarUI extends ToolBarUI implements SwingConstants
 {
+  /** Static owner of all DragWindows. */
+  private static JFrame owner = new JFrame();
+
   /** The border used when the JToolBar is in nonrollover mode. */
   private static Border nonRolloverBorder;
 
@@ -1095,7 +1098,7 @@ public class BasicToolBarUI extends ToolBarUI implements SwingConstants
      */
     private DragWindow()
     {
-      super(null);
+      super(owner);
     }
 
     /**
