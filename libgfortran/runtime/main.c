@@ -57,6 +57,15 @@ determine_endianness (void)
 static int argc_save;
 static char **argv_save;
 
+/* Set the saved values of the command line arguments.  */
+
+void
+set_args (int argc, char **argv)
+{
+  argc_save = argc;
+  argv_save = argv;
+}
+
 /* Retrieve the saved values of the command line arguments.  */
 
 void
@@ -70,13 +79,9 @@ get_args (int *argc, char ***argv)
 
 /* Initialize the runtime library.  */
 
-void
-init (int argc, char *argv[])
+static void __attribute__((constructor))
+init (void)
 {
-  /* Save for access via intrinsic extensions */
-  argc_save = argc;
-  argv_save = argv;
-
   /* Figure out the machine endianness.  */
   determine_endianness ();
 
@@ -100,7 +105,7 @@ init (int argc, char *argv[])
 
 /* Cleanup the runtime library.  */
 
-void
+static void __attribute__((destructor))
 cleanup ()
 {
   close_units ();

@@ -228,17 +228,14 @@ extern char *filename;
 
 /* main.c */
 
-#define init prefix(init)
-void init (int, char **);
-
-#define cleanup prefix(cleanup)
-void cleanup (void);
-
 #define library_start prefix(library_start)
 void library_start (void);
 
 #define library_end prefix(library_end)
 void library_end (void);
+
+#define set_args prefix(set_args)
+void set_args (int, char **);
 
 #define get_args prefix(get_args)
 void get_args (int *, char ***);
