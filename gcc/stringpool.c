@@ -1,5 +1,5 @@
 /* String pool for GCC.
-   Copyright (C) 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -169,3 +169,71 @@ ggc_mark_stringpool ()
 {
   ht_forall (ident_hash, mark_ident, NULL);
 }
+
+/* Pointer-walking routine for strings (not very interesting, since
+   strings don't contain pointers).  */
+
+void
+gt_pch_p_S (obj, x, op, cookie)
+     void *obj ATTRIBUTE_UNUSED;
+     void *x ATTRIBUTE_UNUSED;
+     gt_pointer_operator op ATTRIBUTE_UNUSED;
+     void *cookie ATTRIBUTE_UNUSED;
+{
+}
+
+/* PCH pointer-walking routine for strings.  */
+
+void
+gt_pch_n_S (x)
+     const void *x;
+{
+  gt_pch_note_object ((void *)x, &gt_pch_p_S, (void *)x);
+}
+
+/* Handle saving and restoring the string pool for PCH.  */
+
+struct string_pool_data GTY(())
+{
+  tree * GTY((length ("%h.nslots"))) entries;
+  unsigned int nslots;
+  unsigned int nelements;
+};
+
+static GTY(()) struct string_pool_data * spd;
+
+void
+gt_pch_save_stringpool ()
+{
+  unsigned int i;
+  
+  spd = ggc_alloc (sizeof (*spd));
+  spd->nslots = ident_hash->nslots;
+  spd->nelements = ident_hash->nelements;
+  spd->entries = ggc_alloc (sizeof (tree *) * spd->nslots);
+  for (i = 0; i < spd->nslots; i++)
+    if (ident_hash->entries[i] != NULL)
+      spd->entries[i] = HT_IDENT_TO_GCC_IDENT (ident_hash->entries[i]);
+    else
+      spd->entries[i] = NULL;
+}
+
+void
+gt_pch_restore_stringpool ()
+{
+  unsigned int i;
+  
+  ident_hash->nslots = spd->nslots;
+  ident_hash->nelements = spd->nelements;
+  ident_hash->entries = xrealloc (ident_hash->entries,
+				  sizeof (hashnode) * spd->nslots);
+  for (i = 0; i < spd->nslots; i++)
+    if (spd->entries[i] != NULL)
+      ident_hash->entries[i] = GCC_IDENT_TO_HT_IDENT (spd->entries[i]);
+    else
+      ident_hash->entries[i] = NULL;
+
+  spd = NULL;
+}
+
+#include "gt-stringpool.h"

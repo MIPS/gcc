@@ -210,6 +210,15 @@ struct max_alignment {
 
 #define MAX_ALIGNMENT (offsetof (struct max_alignment, u))
 
+/* Compute the smallest nonnegative number which when added to X gives
+   a multiple of F.  */
+
+#define ROUND_UP_VALUE(x, f) ((f) - 1 - ((f) - 1 + (x)) % (f))
+
+/* Compute the smallest multiple of F that is >= X.  */
+
+#define ROUND_UP(x, f) (CEIL (x, f) * (f))
+
 /* The Ith entry is the number of objects on a page or order I.  */
 
 static unsigned objects_per_page_table[NUM_ORDERS];
@@ -265,6 +274,9 @@ typedef struct page_entry
 
   /* The lg of size of objects allocated from this page.  */
   unsigned char order;
+
+  /* Nonzero if the objects on this page never get freed.  */
+  unsigned char pch_page;
 
   /* A bit vector indicating whether or not objects are in use.  The
      Nth bit is one if the Nth object on this page is allocated.  This
@@ -1167,7 +1179,7 @@ init_ggc ()
 
       /* If S is not a multiple of the MAX_ALIGNMENT, then round it up
 	 so that we're sure of getting aligned memory.  */
-      s = CEIL (s, MAX_ALIGNMENT) * MAX_ALIGNMENT;
+      s = ROUND_UP (s, MAX_ALIGNMENT);
       object_size_table[order] = s;
     }
 
@@ -1580,4 +1592,193 @@ ggc_print_statistics ()
 	   SCALE (G.bytes_mapped), LABEL (G.bytes_mapped),
 	   SCALE (G.allocated), LABEL(G.allocated),
 	   SCALE (total_overhead), LABEL (total_overhead));
+}
+
+struct ggc_pch_data
+{
+  struct ggc_pch_ondisk 
+  {
+    unsigned totals[NUM_ORDERS];
+  } d;
+  size_t base[NUM_ORDERS];
+  size_t written[NUM_ORDERS];
+};
+
+struct ggc_pch_data *
+init_ggc_pch ()
+{
+  return xcalloc (sizeof (struct ggc_pch_data), 1);
+}
+
+void 
+ggc_pch_count_object (d, x, size)
+     struct ggc_pch_data *d;
+     void *x ATTRIBUTE_UNUSED;
+     size_t size;
+{
+  unsigned order;
+
+  if (size <= 256)
+    order = size_lookup[size];
+  else
+    {
+      order = 9;
+      while (size > OBJECT_SIZE (order))
+	order++;
+    }
+  
+  d->d.totals[order]++;
+}
+     
+size_t
+ggc_pch_total_size (d)
+     struct ggc_pch_data *d;
+{
+  size_t a = 0;
+  unsigned i;
+
+  for (i = 0; i < NUM_ORDERS; i++)
+    a += ROUND_UP (d->d.totals[i] * OBJECT_SIZE (i), G.pagesize);
+  return a;
+}
+
+void
+ggc_pch_this_base (d, base)
+     struct ggc_pch_data *d;
+     void *base;
+{
+  size_t a = (size_t) base;
+  unsigned i;
+  
+  for (i = 0; i < NUM_ORDERS; i++)
+    {
+      d->base[i] = a;
+      a += ROUND_UP (d->d.totals[i] * OBJECT_SIZE (i), G.pagesize);
+    }
+}
+
+
+char *
+ggc_pch_alloc_object (d, x, size)
+     struct ggc_pch_data *d;
+     void *x ATTRIBUTE_UNUSED;
+     size_t size;
+{
+  unsigned order;
+  char *result;
+  
+  if (size <= 256)
+    order = size_lookup[size];
+  else
+    {
+      order = 9;
+      while (size > OBJECT_SIZE (order))
+	order++;
+    }
+
+  result = (char *) d->base[order];
+  d->base[order] += OBJECT_SIZE (order);
+  return result;
+}
+
+void 
+ggc_pch_prepare_write (d, f)
+     struct ggc_pch_data * d ATTRIBUTE_UNUSED;
+     FILE * f ATTRIBUTE_UNUSED;
+{
+  /* Nothing to do.  */
+}
+
+void
+ggc_pch_write_object (d, f, x, newx, size)
+     struct ggc_pch_data * d ATTRIBUTE_UNUSED;
+     FILE *f;
+     void *x;
+     void *newx ATTRIBUTE_UNUSED;
+     size_t size;
+{
+  unsigned order;
+
+  if (size <= 256)
+    order = size_lookup[size];
+  else
+    {
+      order = 9;
+      while (size > OBJECT_SIZE (order))
+	order++;
+    }
+  
+  if (fwrite (x, size, 1, f) != 1)
+    fatal_io_error ("can't write PCH file");
+
+  /* In the current implementation, SIZE is always equal to
+     OBJECT_SIZE (order) and so the fseek is never executed.  */
+  if (size != OBJECT_SIZE (order)
+      && fseek (f, OBJECT_SIZE (order) - size, SEEK_CUR) != 0)
+    fatal_io_error ("can't write PCH file");
+
+  d->written[order]++;
+  if (d->written[order] == d->d.totals[order]
+      && fseek (f, ROUND_UP_VALUE (d->d.totals[order] * OBJECT_SIZE (order),
+				   G.pagesize),
+		SEEK_CUR) != 0)
+    fatal_io_error ("can't write PCH file");
+}
+
+void
+ggc_pch_finish (d, f)
+     struct ggc_pch_data * d;
+     FILE *f;
+{
+  if (fwrite (&d->d, sizeof (d->d), 1, f) != 1)
+    fatal_io_error ("can't write PCH file");
+  free (d);
+}
+
+void
+ggc_pch_read (f, addr)
+     FILE *f;
+     void *addr;
+{
+  struct ggc_pch_ondisk d;
+  unsigned i;
+  char *offs = addr;
+  
+  /* We've just read in a PCH file.  So, every object that used to be allocated
+     is now free.  */
+  clear_marks ();
+#ifdef GGC_POISON
+  poison_pages ();
+#endif
+
+  if (fread (&d, sizeof (d), 1, f) != 1)
+    fatal_io_error ("can't read PCH file");
+  
+  for (i = 0; i < NUM_ORDERS; i++)
+    {
+      struct page_entry *entry;
+      char *pte;
+      size_t bmap_size;
+      
+      if (d.totals[i] == 0)
+	continue;
+      
+      bmap_size = BITMAP_SIZE (d.totals[i] + 1);
+      entry = xcalloc (1, (sizeof (struct page_entry) 
+			   - sizeof (long)
+			   + bmap_size));
+      entry->bytes = ROUND_UP (d.totals[i] * OBJECT_SIZE (i), G.pagesize);
+      entry->page = offs;
+      offs += entry->bytes;
+      entry->num_free_objects = 0;
+      entry->order = i;
+      entry->pch_page = 1;
+
+      memset (entry->in_use_p, -1, bmap_size);
+
+      for (pte = entry->page; 
+	   pte < entry->page + entry->bytes; 
+	   pte += G.pagesize)
+	set_page_table_entry (pte, entry);
+    }
 }

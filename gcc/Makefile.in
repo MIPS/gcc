@@ -1249,7 +1249,7 @@ c-semantics.o : c-semantics.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(C_TREE_H) \
 c-dump.o : c-dump.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(C_TREE_H) tree-dump.h
 
 c-pch.o : c-pch.c $(CONFIG_H) $(SYSTEM_H) $(CPPLIB_H) $(TREE_H) c-common.h \
-	output.h toplev.h c-pragma.h
+	output.h toplev.h c-pragma.h $(GGC_H)
 
 # Language-independent files.
 
@@ -1328,7 +1328,8 @@ gtype-desc.o: gtype-desc.c $(CONFIG_H) $(SYSTEM_H) varray.h $(HASHTAB_H) \
 	libfuncs.h debug.h $(GGC_H) bitmap.h $(BASIC_BLOCK_H) hard-reg-set.h \
 	ssa.h cselib.h insn-addr.h
 
-ggc-common.o: ggc-common.c $(CONFIG_H) $(SYSTEM_H) $(GGC_H) $(HASHTAB_H)
+ggc-common.o: ggc-common.c $(CONFIG_H) $(SYSTEM_H) $(GGC_H) $(HASHTAB_H) \
+	toplev.h
 
 ggc-simple.o: ggc-simple.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h \
 	$(GGC_H) varray.h $(TIMEVAR_H) $(TM_P_H)
@@ -1337,7 +1338,7 @@ ggc-page.o: ggc-page.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h \
 	toplev.h $(GGC_H) varray.h $(TIMEVAR_H) $(TM_P_H)
 
 stringpool.o: stringpool.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(OBSTACK_H) \
-	flags.h toplev.h $(GGC_H)
+	$(GGC_H) gt-stringpool.h
 
 hashtable.o: hashtable.c hashtable.h $(CONFIG_H) $(SYSTEM_H) $(OBSTACK_H)
 
@@ -1850,7 +1851,7 @@ GTFILES = $(GCONFIG_H) \
   $(srcdir)/profile.c $(srcdir)/ra-build.c $(srcdir)/regclass.c \
   $(srcdir)/reg-stack.c \
   $(srcdir)/sdbout.c $(srcdir)/stmt.c $(srcdir)/stor-layout.c \
-  $(srcdir)/tree.c $(srcdir)/varasm.c \
+  $(srcdir)/stringpool.c $(srcdir)/tree.c $(srcdir)/varasm.c \
   $(out_file) \
   @all_gtfiles@
 
@@ -1866,7 +1867,7 @@ gt-alias.h gt-cselib.h gt-fold-const.h gt-gcse.h gt-profile.h : s-gtype; @true
 gt-expr.h gt-sdbout.h gt-optabs.h gt-bitmap.h gt-dwarf2out.h : s-gtype ; @true
 gt-ra-build.h gt-reg-stack.h gt-dependence.h gt-dwarf2asm.h : s-gtype ; @true
 gt-c-common.h gt-c-decl.h gt-c-parse.h gt-c-pragma.h : s-gtype; @true
-gt-c-objc-common.h gtype-c.h gt-location.h : s-gtype ; @true
+gt-c-objc-common.h gtype-c.h gt-location.h gt-stringpool.h : s-gtype ; @true
 
 gtyp-gen.h: Makefile
 	echo "/* This file is machine generated.  Do not edit.  */" > tmp-gtyp.h

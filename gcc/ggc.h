@@ -18,8 +18,6 @@ along with GCC; see the file COPYING.  If not, write to the Free
 Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
-#include "gtype-desc.h"
-
 /* Symbols are marked with `ggc' for `gcc gc' so as not to interfere with
    an external gc library that might be linked in.  */
 
@@ -28,8 +26,25 @@ extern const char empty_string[];	/* empty string */
 extern const char digit_vector[];	/* "0" .. "9" */
 #define digit_string(d) (digit_vector + ((d) * 2))
 
-/* Internal GGC functions and data structures used by the marking
+/* Internal functions and data structures used by the GTY
    machinery.  */
+
+/* The first parameter is a pointer to a pointer, the second a cookie.  */
+typedef void (*gt_pointer_operator) PARAMS ((void *, void *));
+
+#include "gtype-desc.h"
+
+/* One of these applies its third parameter (with cookie in the fourth
+   parameter) to each pointer in the object pointed to by the first
+   parameter, using the second parameter.  */
+typedef void (*gt_note_pointers) 
+     PARAMS ((void *, void *, gt_pointer_operator, void *));
+
+/* Used by the gt_pch_n_* routines.  */
+extern int gt_pch_note_object PARAMS ((void *, gt_note_pointers, void *));
+
+/* Mark the object in the first parameter and anything it points to.  */
+typedef void (*gt_pointer_walker) PARAMS ((void *));
 
 /* Structures for the easy way to mark roots.
    In an array, terminated by having base == NULL.*/
@@ -37,12 +52,15 @@ struct ggc_root_tab {
   void *base;
   size_t nelt;
   size_t stride;
-  void (*cb) PARAMS ((void *));
+  gt_pointer_walker cb;
+  gt_pointer_walker pchw;
 };
-#define LAST_GGC_ROOT_TAB { NULL, 0, 0, NULL }
+#define LAST_GGC_ROOT_TAB { NULL, 0, 0, NULL, NULL }
 /* Pointers to arrays of ggc_root_tab, terminated by NULL.  */
 extern const struct ggc_root_tab * const gt_ggc_rtab[];
 extern const struct ggc_root_tab * const gt_ggc_deletable_rtab[];
+extern const struct ggc_root_tab * const gt_pch_cache_rtab[];
+extern const struct ggc_root_tab * const gt_pch_scalar_rtab[];
 
 /* Structure for hash table cache marking.  */
 struct htab;
@@ -50,10 +68,11 @@ struct ggc_cache_tab {
   struct htab * *base;
   size_t nelt;
   size_t stride;
-  void (*cb) PARAMS ((void *));
+  gt_pointer_walker cb;
+  gt_pointer_walker pchw;
   int (*marked_p) PARAMS ((const void *));
 };
-#define LAST_GGC_CACHE_TAB { NULL, 0, 0, NULL, NULL }
+#define LAST_GGC_CACHE_TAB { NULL, 0, 0, NULL, NULL, NULL }
 /* Pointers to arrays of ggc_cache_tab, terminated by NULL.  */
 extern const struct ggc_cache_tab * const gt_ggc_cache_rtab[];
 
@@ -84,7 +103,21 @@ extern int ggc_marked_p			PARAMS ((const void *));
 /* Mark the entries in the string pool.  */
 extern void ggc_mark_stringpool		PARAMS ((void));
 
+/* Call ggc_set_mark on all the roots.  */
+
 extern void ggc_mark_roots		PARAMS ((void));
+
+/* Save and restore the string pool entries for PCH.  */
+
+extern void gt_pch_save_stringpool	PARAMS ((void));
+extern void gt_pch_restore_stringpool	PARAMS ((void));
+
+/* PCH handling for strings.  */
+
+extern void gt_pch_p_S			PARAMS ((void *, void *,
+						 gt_pointer_operator, void *));
+extern void gt_pch_n_S			PARAMS ((const void *));
+
 
 /* A GC implementation must provide these functions.  */
 
@@ -99,6 +132,27 @@ extern void ggc_push_context	PARAMS ((void));
 /* Finish a GC context.  Any uncollected memory in the new context
    will be merged with the old context.  */
 extern void ggc_pop_context 	PARAMS ((void));
+
+struct ggc_pch_data;
+
+extern struct ggc_pch_data *init_ggc_pch PARAMS ((void));
+extern void ggc_pch_count_object	PARAMS ((struct ggc_pch_data *,
+						 void *, size_t));
+extern size_t ggc_pch_total_size	PARAMS ((struct ggc_pch_data *));
+extern void ggc_pch_this_base		PARAMS ((struct ggc_pch_data *,
+						 void *));
+extern char *ggc_pch_alloc_object	PARAMS ((struct ggc_pch_data *,
+						 void *, size_t));
+extern void ggc_pch_prepare_write	PARAMS ((struct ggc_pch_data *,
+						 FILE *));
+extern void ggc_pch_write_object	PARAMS ((struct ggc_pch_data *,
+						 FILE *, void *, void *,
+						 size_t));
+extern void ggc_pch_finish		PARAMS ((struct ggc_pch_data *,
+						 FILE *));
+
+extern void ggc_pch_read		PARAMS ((FILE *, void *));
+
 
 /* Allocation.  */
 
@@ -146,6 +200,12 @@ extern void ggc_collect			PARAMS ((void));
 
 /* Return the number of bytes allocated at the indicated address.  */
 extern size_t ggc_get_size		PARAMS ((const void *));
+
+/* Write out all GCed objects to F.  */
+extern void gt_pch_save			PARAMS ((FILE *f));
+
+/* Read objects previously saved with gt_pch_save from F.  */
+extern void gt_pch_restore		PARAMS ((FILE *f));
 
 /* Statistics.  */
 

@@ -1,3 +1,8 @@
+2002-10-25  Geoffrey Keating  <geoffk@apple.com>
+
+	* lex.c  (init_reswords): Delete now-untrue comment.
+	Allocate ridpointers using GGC.
+
 2002-10-04  Geoffrey Keating  <geoffk@apple.com>
 
 	* cp-tree.h (union lang_decl_u2): Add tags to all fields.

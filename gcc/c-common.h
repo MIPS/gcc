@@ -121,7 +121,7 @@ enum rid
 
 /* The elements of `ridpointers' are identifier nodes for the reserved
    type names and storage classes.  It is indexed by a RID_... value.  */
-extern tree *ridpointers;
+extern GTY ((length ("(int)RID_MAX"))) tree *ridpointers;
 
 /* Standard named or nameless data types of the C compiler.  */
 

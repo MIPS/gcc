@@ -1,3 +1,108 @@
+2002-10-25  Geoffrey Keating  <geoffk@apple.com>
+
+	* gengtype.c (struct write_types_data): New.
+	(struct walk_type_data): Make `cookie' const; add extra
+	prev_val item; add `orig_s' field.
+	(walk_type): Update prev_val[3].
+	(write_types_process_field): New.
+	(write_func_for_structure): Take write_types_data structure.
+	(write_types): New.
+	(ggc_wtd): New.
+	(pch_wtd): New.
+	(write_types_local_process_field): New.
+	(gc_mark_process_field): Delete.
+	(write_local_func_for_structure): New.
+	(gc_mark_func_name): Delete.
+	(write_gc_types): Delete.
+	(write_local): New.
+	(finish_root_table): Don't include 'ggc_' in PFX.
+	(write_root): Rename from write_root.  Fill pchw field of structures.
+	(write_array): New.
+	(write_roots): Rename from write_gc_roots.  Split out to write_array.
+	Update to changes to other routines.  Write gt_pch_cache_rtab table.
+	(main): Write PCH walking routines.
+	* ggc-common.c: Include toplev.h, sys/mman.h.
+	(ggc_mark_roots): For cache hashtables, also mark the hash table
+	and the array of entries.
+	(saving_htab): New.
+	(struct ptr_data): New.
+	(POINTER_HASH): New.
+	(gt_pch_note_object): New.
+	(saving_htab_hash): New.
+	(saving_htab_eq): New.
+	(struct traversal_state): New.
+	(call_count): New.
+	(call_alloc): New.
+	(compare_ptr_data): New.
+	(relocate_ptrs): New.
+	(write_pch_globals): New.
+	(struct mmap_info): New.
+	(gt_pch_save): New.
+	(gt_pch_restore): New.
+	* ggc-page.c (ROUND_UP_VALUE): New.
+	(ROUND_UP): New.
+	(struct page_entry): Add field `pch_page'.
+	(init_ggc): Use ROUND_UP.
+	(struct ggc_pch_data): Declare.
+	(init_ggc_pch): New.
+	(ggc_pch_count_object): New.
+	(ggc_pch_total_size): New.
+	(ggc_pch_this_base): New.
+	(ggc_pch_alloc_object): New.
+	(ggc_pch_prepare_write): New.
+	(ggc_pch_write_object): New.
+	(ggc_pch_finish): New.
+	(ggc_pch_read): New.
+	* ggc.h (gt_pointer_operator): New.
+	(gt_note_pointers): New.
+	(gt_pch_note_object): New prototype.
+	(gt_pointer_walker): New.
+	(struct ggc_root_tab): Use gt_pointer_walker, add `pchw' field.
+	(LAST_GGC_ROOT_TAB): Update.
+	(gt_pch_cache_rtab): Declare.
+	(gt_pch_scalar_rtab): Declare.
+	(struct ggc_cache_tab): Use gt_pointer_walker, add `pchw' field.
+	(LAST_GGC_CACHE_TAB): Update.
+	(gt_pch_save_stringpool): Declare.
+	(gt_pch_restore_stringpool): Declare.
+	(gt_pch_p_S): Declare.
+	(gt_pch_n_S): Declare.
+	(struct ggc_pch_data): Forward-declare.
+	(init_ggc_pch): Declare.
+	(ggc_pch_count_object): Declare.
+	(ggc_pch_total_size): Declare.
+	(ggc_pch_this_base): Declare.
+	(ggc_pch_alloc_object): Declare.
+	(ggc_pch_prepare_write): Declare.
+	(ggc_pch_write_object): Declare.
+	(ggc_pch_finish): Declare.
+	(ggc_pch_read): Declare.
+	(gt_pch_save): Declare.
+	(gt_pch_restore): Declare.
+	* fold-const.c (size_int_type_wide): Allocate size_htab using GGC.
+	* emit-rtl.c (init_emit_once): Allocate const_int_htab,
+	const_double_htab, mem_attrs_htab using GGC.
+	* c-pch.c: Include ggc.h.
+	(pch_init): Allow reading PCH file back.
+	(c_common_write_pch): Call gt_pch_save.
+	(c_common_read_pch): Call gt_pch_restore.
+	* c-parse.in (init_reswords): Delete now-untrue comment.
+	Allocate ridpointers using GGC.
+	* c-objc-common.c (c_objc_common_finish_file): Write PCH before
+	calling expand_deferred_fns.
+	* c-common.h (ridpointers): Mark for GTY machinery.
+	* Makefile.in (stringpool.o): Update dependencies.
+	(c-pch.o): Update dependencies.
+	(ggc-common.o): Update dependencies.
+	* stringpool.c: Include gt-stringpool.h.
+	(gt_pch_p_S): New.
+	(gt_pch_n_S): New.
+	(struct string_pool_data): New.
+	(spd): New.
+	(gt_pch_save_stringpool): New.
+	(gt_pch_restore_stringpool): New.
+	* tree.c (init_ttree): Make type_hash_table allocated using GC.
+	
 2002-10-04  Geoffrey Keating  <geoffk@apple.com>
 
 	* gengtype.c (adjust_field_rtx_def): Don't pass size_t to printf.

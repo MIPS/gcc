@@ -26,6 +26,7 @@ Boston, MA 02111-1307, USA.  */
 #include "output.h"
 #include "toplev.h"
 #include "c-pragma.h"
+#include "ggc.h"
 
 struct c_pch_header 
 {
@@ -46,7 +47,7 @@ pch_init ()
   
   if (pch_file)
     {
-      f = fopen (pch_file, "wb");
+      f = fopen (pch_file, "w+b");
       if (f == NULL)
 	fatal_io_error ("can't open %s", pch_file);
       pch_outfile = f;
@@ -100,6 +101,8 @@ c_common_write_pch ()
       written += size;
     }
   free (buf);
+
+  gt_pch_save (pch_outfile);
 
   fclose (pch_outfile);
 }
@@ -200,6 +203,7 @@ c_common_read_pch (pfile, name, fd)
     }
   free (buf);
 
+  gt_pch_restore (f);
+
   fclose (f);
 }
-
