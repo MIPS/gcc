@@ -59,7 +59,7 @@ char *alloca ();
 /* Major control parameters.  */
 
 #define GFC_VERSION "0.23"
-#define GFC_MAX_SYMBOL_LEN 31
+#define GFC_MAX_SYMBOL_LEN 63
 #define GFC_REAL_BITS 100	/* Number of bits in g95's floating point numbers.  */
 #define GFC_MAX_LINE 132	/* Characters beyond this are not seen.  */
 #define GFC_MAX_DIMENSIONS 7	/* Maximum dimensions in an array.  */
@@ -1212,6 +1212,7 @@ typedef struct
   char *module_dir;
   gfc_source_form source_form;
   int fixed_line_length;
+  int max_identifier_length;
   int verbose;
 
   int warn_aliasing;

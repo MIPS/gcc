@@ -394,7 +394,7 @@ gfc_match_name (char *buffer)
     {
       buffer[i++] = c;
 
-      if (i > GFC_MAX_SYMBOL_LEN)
+      if (i > gfc_option.max_identifier_length)
 	{
 	  gfc_error ("Name at %C is too long");
 	  return MATCH_ERROR;

@@ -48,6 +48,7 @@ gfc_init_options (unsigned int argc ATTRIBUTE_UNUSED,
   gfc_option.module_dir = NULL;
   gfc_option.source_form = FORM_UNKNOWN;
   gfc_option.fixed_line_length = 72;
+  gfc_option.max_identifier_length = GFC_MAX_SYMBOL_LEN;
   gfc_option.verbose = 0;
 
   gfc_option.warn_aliasing = 0;
@@ -266,6 +267,13 @@ gfc_handle_option (size_t scode, const char *arg, int value)
       gfc_option.fixed_line_length = 132;
       break;
 
+    case OPT_fmax_identifier_length_:
+      if (value > GFC_MAX_SYMBOL_LEN)
+	gfc_fatal_error ("Maximum supported idenitifier length is %d",
+			 GFC_MAX_SYMBOL_LEN);
+      gfc_option.max_identifier_length = value;
+      break;
+
     case OPT_qkind_:
       if (gfc_validate_kind (BT_REAL, value) < 0)
 	gfc_fatal_error ("Argument to -fqkind isn't a valid real kind");
@@ -296,12 +304,14 @@ gfc_handle_option (size_t scode, const char *arg, int value)
       gfc_option.allow_std = GFC_STD_F95_OBS | GFC_STD_F2003_OBS
 	| GFC_STD_F2003_DEL;
       gfc_option.warn_std = GFC_STD_F95_OBS;
+      gfc_option.max_identifier_length = 31;
       break;
 
     case OPT_std_f2003:
       gfc_option.allow_std = GFC_STD_F95_OBS | GFC_STD_F2003_OBS
 	| GFC_STD_F2003;
       gfc_option.warn_std = GFC_STD_F95_OBS | GFC_STD_F2003_OBS;
+      gfc_option.max_identifier_length = 63;
       break;
 
     case OPT_std_gnu:

@@ -105,6 +105,10 @@ ffixed-line-length-132
 F95 RejectNegative
 Use 132 character line width in fixed mode
 
+fmax-identifier-length=
+F95 RejectNegative Joined UInteger
+-fmax-identifier-length=<n>	Maximum identifier length.
+
 fmax-stack-var-size=
 F95 RejectNegative Joined UInteger
 -fmax-stack-var-size=<n>	Size in bytes of the largest array that will be put on the stack

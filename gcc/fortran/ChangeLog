@@ -1,3 +1,12 @@
+2004-01-11  Erik Schnetter  <schnetter@uni-tuebingen.de>
+
+	* gfortran.h (GFC_MAX_SYMBOL_LEN): Increase.
+	(gfc_option_t): Add max_identifier_length.
+	* lang.opt: Add fmax-identifier-length.
+	* match.c (parse_name): Use limit.
+	* options.c (gfc_init_options): Set max_identifier_length.
+	(gfc_handle_option): Ditto.
+
 2004-01-11  Feng Wang  <fengwang@nudt.edu.cn>
 
 	* intrinsic.c (add_functions): Add resolve function to dcmplx.
