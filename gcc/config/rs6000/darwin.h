@@ -200,10 +200,13 @@ do {									\
 /* Define cutoff for using external functions to save floating point.
    For Darwin, use the function for more than a few registers.  */
 
+/* APPLE LOCAL begin 3414605 */
 #undef FP_SAVE_INLINE
 #define FP_SAVE_INLINE(FIRST_REG) \
-  (((FIRST_REG) > 60 && (FIRST_REG) < 64) \
-   || TARGET_LONG_BRANCH)
+(optimize >= 3   \
+|| ((FIRST_REG) > 60 && (FIRST_REG) < 64) \
+|| TARGET_LONG_BRANCH)
+/* APPLE LOCAL end 3414605 */
 
 /* Define cutoff for using external functions to save vector registers.  */
 
