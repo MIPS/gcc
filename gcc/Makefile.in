@@ -1405,7 +1405,8 @@ tree-dfa.o : tree-dfa.c tree-optimize.h tree-flow.h $(CONFIG_H) $(SYSTEM_H) \
    $(GGC_H) output.h diagnostic.h errors.h $(C_TREE_H)
 tree-optimize.o : tree-optimize.c tree-optimize.h tree-flow.h $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(BASIC_BLOCK_H) $(EXPR_H) \
-   $(GGC_H) output.h diagnostic.h ssa.h errors.h flags.h tree-alias-steen.h
+   $(GGC_H) output.h diagnostic.h ssa.h errors.h flags.h tree-alias-steen.h \
+   tree-dchain.h
 c-simplify.o : c-simplify.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) errors.h \
    $(C_TREE_H) $(C_COMMON_H) diagnostic.h tree-simple.h varray.h flags.h \
    langhooks.h toplev.h rtl.h tree-flow.h $(BASIC_BLOCK_H)

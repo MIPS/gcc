@@ -34,6 +34,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-optimize.h"
 #include "tree-flow.h"
 #include "tree-alias-steen.h"
+#include "tree-dchain.h"
 
 /* Local functions.  */
 static void init_tree_flow PARAMS ((void));
@@ -49,12 +50,14 @@ optimize_function_tree (fndecl)
   if (errorcount || sorrycount)
     return;
   
+  /* Build the doubly-linked lists so that we can delete nodes
+     efficiently.  */
+  double_chain_stmts (DECL_SAVED_TREE (fndecl));
+
 #if 0
   /* Transform BREAK_STMTs, CONTINUE_STMTs, SWITCH_STMTs and GOTO_STMTs.  */
-  double_chain_stmts (fn);
   break_continue_elimination (fndecl);
   goto_elimination (fndecl);
-  double_chain_free (fn);
 #endif
 
   /* Build the SSA representation for the function.  */
@@ -69,6 +72,9 @@ optimize_function_tree (fndecl)
       if (flag_tree_ssa_ccp)
 	tree_ssa_ccp (fndecl);
     }
+
+  /* Wipe out the back-pointes in the statement chain.  */
+  double_chain_free (DECL_SAVED_TREE (fndecl));
 
   /* Flush out flow graph and SSA data.  */
   delete_cfg ();
