@@ -1,3 +1,8 @@
+2003-10-16  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* gcc.dg/noreturn-1.c: Adjust expected error lines.
+	* gcc.dg/return-type-1.c: Likewise.
+
 2003-10-15  Steven Bosscher  <steven@gcc.gnu.org>
 
 	* gcc.dg/tree-ssa/20031015-1.c: New test.
