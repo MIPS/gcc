@@ -1,3 +1,9 @@
+2002-09-09  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* h8300.md: Fix signed/unsigned warnings.
+	* mcore.md: Likewise.
+	* mn10300.c (mask_ok_for_mem_btst): Likewise.
+
 2002-09-08  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* basic_block.h (gcov_type): Explain why it is signed.

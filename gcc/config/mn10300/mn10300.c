@@ -1141,7 +1141,7 @@ mask_ok_for_mem_btst (len, bit)
      int len;
      int bit;
 {
-  int mask = 0;
+  unsigned int mask = 0;
 
   while (len > 0)
     {
