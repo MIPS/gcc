@@ -2737,8 +2737,6 @@ build_unary_op (enum tree_code code, tree xarg, int flag)
       /* Same for the equivalent MEM_REF */
       if (TREE_CODE (arg) == MEM_REF)
 	{
-	  if (!c_mark_addressable (MEM_REF_SYMBOL (arg)))
-	    return error_mark_node;
 	  return build_binary_op (PLUS_EXPR, 
 				  MEM_REF_SYMBOL (arg),
 				  MEM_REF_INDEX (arg), 1);
