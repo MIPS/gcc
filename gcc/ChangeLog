@@ -1,3 +1,7 @@
+2001-12-21  Nathan Sidwell  <nathan@codesourcery.com>
+
+	Revert my patch of 2001-07-23 for the moment.
+	
 2001-10-15  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-dfa.c (create_varref): If the new reference is inside a

@@ -14003,6 +14003,18 @@ finish_function (flags)
   if (!processing_template_decl)
     save_function_data (fndecl);
 
+  /* If this function calls `setjmp' it cannot be inlined.  When
+     `longjmp' is called it is not guaranteed to restore the value of
+     local variables that have been modified since the call to
+     `setjmp'.  So, if were to inline this function into some caller
+     `c', then when we `longjmp', we might not restore all variables
+     in `c'.  (It might seem, at first blush, that there's no way for
+     this function to modify local variables in `c', but their
+     addresses may have been stored somewhere accessible to this
+     function.)  */
+  if (!processing_template_decl && calls_setjmp_p (fndecl))
+    DECL_UNINLINABLE (fndecl) = 1;
+
   /* Clear out memory we no longer need.  */
   free_after_parsing (cfun);
   /* Since we never call rest_of_compilation, we never clear
@@ -14463,6 +14475,7 @@ lang_mark_tree (t)
 	      ggc_mark_tree (ld->befriending_classes);
 	      ggc_mark_tree (ld->context);
 	      ggc_mark_tree (ld->cloned_function);
+	      ggc_mark_tree (ld->inlined_fns);
 	      if (TREE_CODE (t) == TYPE_DECL)
 		ggc_mark_tree (ld->u.sorted_fields);
 	      else if (TREE_CODE (t) == FUNCTION_DECL
