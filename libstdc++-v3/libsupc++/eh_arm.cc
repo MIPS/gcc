@@ -83,16 +83,69 @@ __cxa_type_match(_Unwind_Exception* ue_header,
   return ctm_failed;
 }
 
-extern "C" void
-__cxa_begin_cleanup(_Unwind_Exception* ue_header __attribute__((unused)))
+extern "C" bool
+__cxa_begin_cleanup(_Unwind_Exception* ue_header)
 {
+  __cxa_eh_globals *globals = __cxa_get_globals();
+  __cxa_exception *header = __get_exception_header_from_ue(ue_header);
+
+  if (!__is_gxx_exception_class(header->unwindHeader.exception_class))
+    {
+      // TODO: cleanups with foreign exceptions.
+      return false;
+    }
+  header->propagationCount++;
+  // Add it to the chain if this is the first time we've seen this exception.
+  if (header->propagationCount == 1)
+    {
+      header->nextPropagatingException = globals->propagatingExceptions;
+      globals->propagatingExceptions = header;
+    }
+  return true;
 }
 
-/* This needs to tailcall _Unwind_Resume without clobbering any registers,
-   or altering the stack.  */
-extern "C" void __attribute__((naked))
-__cxa_end_cleanup (_Unwind_Exception* ue_header)
+/* Do the work for __cxa_end_cleanup.  Returns the currently propagating
+   exception object.  */
+extern "C" _Unwind_Exception *
+__gnu_end_cleanup(void)
 {
-  _Unwind_Resume (ue_header);
+  __cxa_exception *header;
+  __cxa_eh_globals *globals = __cxa_get_globals();
+
+  header = globals->propagatingExceptions;
+
+  // Check something hasn't gone horribly wrong.
+  if (!header)
+    std::terminate();
+
+  header->propagationCount--;
+  if (header->propagationCount == 0)
+    {
+      // Remove exception from chain.
+      globals->propagatingExceptions = header->nextPropagatingException;
+      header->nextPropagatingException = NULL;
+    }
+  return &header->unwindHeader;
+}
+
+/* This needs to run the C++ semantics routine, then tailcall
+   _Unwind_Resume without clobbering any registers or altering the stack.  */
+extern "C" void __attribute__((naked))
+__cxa_end_cleanup(void)
+{
+  /* We only need to save r1-r3.  Push r4 to preserve stack alignment.  */
+#ifdef __thumb__
+  asm volatile ("push\t{r1, r2, r3, r4}\n"
+		"bl\t__gnu_end_cleanup\n"
+		"pop\t{r1, r2, r3, r4}\n"
+		"bl\t_Unwind_Resume\n"
+		::: "memory");
+#else
+  asm volatile ("stmfd\tsp!, {r1, r2, r3, r4}\n"
+		"bl\t__gnu_end_cleanup\n"
+		"ldmfd\tsp!, {r1, r2, r3, r4}\n"
+		"bl\t_Unwind_Resume\n"
+		::: "memory");
+#endif
 }
 #endif
