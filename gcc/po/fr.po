@@ -13122,11 +13122,11 @@ msgstr "%s pour l'opérateur «%T [%T]»"
 
 #: cp/call.c:2842
 msgid "%s for `%T %s %T' operator"
-msgstr "%s pour l'opérateur «%t [%T]»"
+msgstr "%s pour l'opérateur «%T %s %T»"
 
 #: cp/call.c:2845
 msgid "%s for `%s %T' operator"
-msgstr "%s pour l'opérateur «%t [%T]»"
+msgstr "%s pour l'opérateur «%s [%T]»"
 
 #: cp/call.c:2937
 msgid "ISO C++ forbids omitting the middle term of a ?: expression"

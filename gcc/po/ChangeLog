@@ -1,3 +1,7 @@
+2003-06-17  Jakub Jelinek  <jakub@redhat.com>
+
+	* fr.po: Fix translation.
+
 2003-04-22  Release Manager
 
 	* GCC 3.2.3 Released.
