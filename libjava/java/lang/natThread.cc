@@ -78,6 +78,7 @@ finalize_native (jobject ptr)
 {
   natThread *nt = (natThread *) ptr;
   _Jv_ThreadDestroyData (nt->thread);
+  _Jv_FreeJNIEnv(nt->jni_env);
 }
 
 jint
