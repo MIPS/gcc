@@ -1,3 +1,26 @@
+2004-05-18  Olga Rodimina  <rodimina@redhat.com>
+
+	* Makefile.am: Added new file.
+	* Makefile.in: Regenerate.
+	* javax/swing/JMenu.java: Started 
+	implementation.
+	* javax/swing/JPopupMenu.java:
+	(insert): If specified index is -1, then
+	add component at the end.
+	(isPopupTrigger): Reimplemented.
+	(JPopupMenu.LightWeightPopup): setBounds
+	of the lightWeightPopup before adding it 
+	to the layeredPane.
+	(javax/swing/plaf/basic/BasicIconFactory.java):
+	(getMenuArrowIcon): Implemented.
+	* javax/swing/plaf/basic/BasicMenuItemUI.java:
+	(getPreferredSize): Add size of the arrow icon 
+	if this menu item is instance of JMenu.
+	(paintMenuItem): Paint arrow icon if this 
+	menu item is a submenu.
+	* javax/swing/plaf/basic/BasicMenuUI.java:
+	New File. UI Delegate for JMenu.
+
 2004-05-17  Thomas Fitzsimmons  <fitzsim@redhat.com>
 
 	* gnu/java/awt/peer/gtk/GtkComponentPeer.java (postKeyEvent):

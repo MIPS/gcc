@@ -62,6 +62,7 @@ import javax.swing.ButtonModel;
 import javax.swing.Icon;
 import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JComponent;
+import javax.swing.JMenu;
 import javax.swing.JMenuItem;
 import javax.swing.JRadioButtonMenuItem;
 import javax.swing.KeyStroke;
@@ -85,7 +86,7 @@ import javax.swing.plaf.MenuItemUI;
  * DOCUMENT ME!
  *
  * @author $author$
- * @version $Revision: 1.1.2.6 $
+ * @version $Revision: 1.1.2.7 $
  */
 public class BasicMenuItemUI extends MenuItemUI
 {
@@ -172,7 +173,7 @@ public class BasicMenuItemUI extends MenuItemUI
    */
   private int defaultAcceleratorLabelGap = 4;
 
-  BasicMenuItemUI()
+  public BasicMenuItemUI()
   {
     mouseInputListener = createMouseInputListener(menuItem);
     menuDragMouseListener = createMenuDragMouseListener(menuItem);
@@ -240,7 +241,6 @@ public class BasicMenuItemUI extends MenuItemUI
    */
   public Dimension getMaximumSize(JComponent c)
   {
-    // TODO    
     return null;
   }
 
@@ -253,7 +253,6 @@ public class BasicMenuItemUI extends MenuItemUI
    */
   public Dimension getMinimumSize(JComponent c)
   {
-    // TODO
     return null;
   }
 
@@ -325,7 +324,15 @@ public class BasicMenuItemUI extends MenuItemUI
 	  d.height = checkIcon.getIconHeight();
       }
 
-    return d;
+     if (arrowIcon != null && (c instanceof JMenu))
+      {
+       d.width = d.width + arrowIcon.getIconWidth() + defaultTextIconGap;
+
+       if (arrowIcon.getIconHeight() > d.height)
+         d.height = arrowIcon.getIconHeight();
+       }
+
+     return d;
   }
 
   /**
@@ -364,7 +371,6 @@ public class BasicMenuItemUI extends MenuItemUI
     acceleratorFont = defaults.getFont("MenuItem.acceleratorFont");
     acceleratorForeground = defaults.getColor("MenuItem.acceleratorForeground");
     acceleratorSelectionForeground = defaults.getColor("MenuItem.acceleratorSelectionForeground");
-    arrowIcon = defaults.getIcon("MenuItem.arrowIcon");
     selectionBackground = defaults.getColor("MenuItem.selectionBackground");
     selectionForeground = defaults.getColor("MenuItem.selectionForeground");
     acceleratorDelimiter = defaults.getString("MenuItem.acceleratorDelimiter");
@@ -495,10 +501,16 @@ public class BasicMenuItemUI extends MenuItemUI
 	vr.x = cr.x + cr.width + defaultTextIconGap;
       }
 
-    if (arrowIcon != null)
+    if (arrowIcon != null && (c instanceof JMenu))
       {
-	// FIXME: if this menu contains a submenu, we need to draw arrow icon 
-	// here as well
+	if (! ((JMenu) c).isTopLevelMenu())
+	  {
+	    int width = arrowIcon.getIconWidth();
+	    int height = arrowIcon.getIconHeight();
+
+	    arrowIcon.paintIcon(c, g, vr.width - width + defaultTextIconGap,
+	                        vr.y + 2);
+	  }
       }
 
     // paint text and user menu icon if it exists	     
@@ -700,7 +712,7 @@ public class BasicMenuItemUI extends MenuItemUI
    * DOCUMENT ME!
    *
    * @author $author$
-   * @version $Revision: 1.1.2.6 $
+   * @version $Revision: 1.1.2.7 $
    */
   protected class MouseInputHandler implements MouseInputListener
   {
@@ -797,7 +809,7 @@ public class BasicMenuItemUI extends MenuItemUI
    * DOCUMENT ME!
    *
    * @author $author$
-   * @version $Revision: 1.1.2.6 $
+   * @version $Revision: 1.1.2.7 $
    */
   protected class MenuDragMouseHandler implements MenuDragMouseListener
   {
@@ -842,7 +854,7 @@ public class BasicMenuItemUI extends MenuItemUI
    * DOCUMENT ME!
    *
    * @author $author$
-   * @version $Revision: 1.1.2.6 $
+   * @version $Revision: 1.1.2.7 $
    */
   protected class MenuKeyHandler implements MenuKeyListener
   {
@@ -878,7 +890,7 @@ public class BasicMenuItemUI extends MenuItemUI
    * DOCUMENT ME!
    *
    * @author $author$
-   * @version $Revision: 1.1.2.6 $
+   * @version $Revision: 1.1.2.7 $
    */
   protected class PropertyChangeHandler
   {
