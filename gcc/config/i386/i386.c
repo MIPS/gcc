@@ -9562,6 +9562,14 @@ ix86_expand_carry_flag_compare (code, op0, op1, pop)
     default:
       return false;
     }
+
+  /* Swapping operands may cause constant to appear as first operand.  */
+  if (!nonimmediate_operand (op0, VOIDmode))
+    {
+      if (no_new_pseudos)
+	return false;
+      op0 = force_reg (mode, op0);
+    }
   ix86_compare_op0 = op0;
   ix86_compare_op1 = op1;
   *pop = ix86_expand_compare (code, NULL, NULL);
