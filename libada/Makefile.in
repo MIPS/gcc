@@ -1,0 +1,85 @@
+# Makefile for libada.
+#   Copyright 2003 Free Software Foundation, Inc.
+#
+# This file is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+# Default target; must be first.
+all: gnatlib gnattools
+
+# Standard autoconf-set variables.
+SHELL = @SHELL@
+srcdir = @srcdir@
+
+# Nonstandard autoconf-set variables.
+
+# Rules to build gnatlib.
+gnatlib:
+	exit 0
+
+# Rules to build gnattools.
+gnattools:
+	exit 0
+
+# Check uninstalled version.
+check:
+	exit 0
+
+# Check installed version.
+installcheck:
+	exit 0
+
+# Build info (none here).
+info:
+	exit 0
+
+# Build DVI (none here).
+dvi:
+	exit 0
+
+# Build TAGS (none here).
+TAGS:
+	exit 0
+
+# Installation rules.
+install:
+	exit 0
+
+install-info:
+	exit 0
+
+# Cleaning rules.
+mostlyclean:
+	exit 0
+
+clean:
+	exit 0
+
+distclean:
+	exit 0
+
+maintainer-clean:
+	exit 0
+
+# Rules for rebuilding this Makefile.
+Makefile: $(srcdir)/Makefile.in config.status
+	CONFIG_FILES=$@ ; \
+	CONFIG_HEADERS= ; \
+	$(SHELL) ./config.status
+
+config.status: $(srcdir)/configure
+	$(SHELL) ./config.status --recheck
+
+$(srcdir)/configure: @MAINT@ $(srcdir)/configure.in
+	cd $(srcdir) && autoconf
