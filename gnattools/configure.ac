@@ -194,7 +194,7 @@ case "${target}" in
     mlib-tgt.adb<mlib-tgt-vms-alpha.adb \
     symbols.adb<symbols-vms-alpha.adb"
 
-    EXTRA_GNATTOOLS='../../gnatlbr$(exeext) ,,/../gnatsym$(exeext)'
+    EXTRA_GNATTOOLS='../../gnatlbr$(exeext) ../../gnatsym$(exeext)'
     ;;
   ia64*-dec-vms* | ia64*-dec-openvms* | ia64*-dec-vms* \
   | ia64*-hp-vms* | ia64*-hp-openvms* | ia64*-hp-vms*)
@@ -202,7 +202,7 @@ case "${target}" in
     mlib-tgt.adb<mlib-tgt-vms-ia64.adb \
     symbols.adb<symbols-vms-ia64.adb"
 
-    EXTRA_GNATTOOLS='../../gnatlbr$(exeext) ,,/../gnatsym$(exeext)'
+    EXTRA_GNATTOOLS='../../gnatlbr$(exeext) ../../gnatsym$(exeext)'
     ;;
   *-*-cygwin32* | *-*-mingw32* | *-*-pe)
     TOOLS_TARGET_PAIRS="\
