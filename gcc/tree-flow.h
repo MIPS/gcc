@@ -226,7 +226,7 @@ struct tree_ref_common
   basic_block bb;
 
   /* Reference ID.  Unique within a single function.  */
-  HOST_WIDE_INT id;
+  unsigned long id;
 };
 
 /* Generic variable references.  */
@@ -390,7 +390,7 @@ static inline tree ref_var			PARAMS ((tree_ref));
 static inline tree ref_stmt			PARAMS ((tree_ref));
 static inline tree ref_expr			PARAMS ((tree_ref));
 static inline basic_block ref_bb		PARAMS ((tree_ref));
-static inline HOST_WIDE_INT ref_id		PARAMS ((tree_ref));
+static inline unsigned long ref_id		PARAMS ((tree_ref));
 static inline void replace_ref_operand_with	PARAMS ((tree_ref, tree));
 static inline void restore_ref_operand		PARAMS ((tree_ref));
 
@@ -499,7 +499,6 @@ struct tree_ann_d
 typedef struct tree_ann_d *tree_ann;
 
 static inline tree_ann tree_annotation	PARAMS ((tree));
-static inline bool has_annotation	PARAMS ((tree));
 static inline basic_block bb_for_stmt	PARAMS ((tree));
 static inline void set_bb_for_stmt	PARAMS ((tree, basic_block));
 static inline tree_ref currdef_for	PARAMS ((tree));
@@ -602,7 +601,7 @@ extern varray_type referenced_vars;
 extern ref_list call_sites;
 
 /* Next unique reference ID to be assigned by create_ref().  */
-extern HOST_WIDE_INT next_tree_ref_id;
+extern unsigned long next_tree_ref_id;
 
 /* Accessors for the referenced_vars array.  */
 extern unsigned long num_referenced_vars;
@@ -678,6 +677,8 @@ extern void dump_ref_array		PARAMS ((FILE *, const char *,
                                                  varray_type, int, int));
 extern void dump_phi_args		PARAMS ((FILE *, const char *,
       						 varray_type, int, int));
+extern void dump_dfa_stats		PARAMS ((FILE *));
+extern void debug_dfa_stats		PARAMS ((void));
 extern void debug_referenced_vars	PARAMS ((void));
 extern void dump_referenced_vars	PARAMS ((FILE *));
 extern int function_may_recurse_p	PARAMS ((void));
@@ -719,7 +720,7 @@ extern void create_alias_vars		PARAMS ((void));
 				Inline functions
 ---------------------------------------------------------------------------*/
 /* Return the reference ID.  */
-static inline HOST_WIDE_INT
+static inline unsigned long
 ref_id (ref)
      tree_ref ref;
 {
@@ -905,20 +906,7 @@ static inline tree_ann
 tree_annotation (t)
      tree t;
 {
-#if defined ENABLE_CHECKING
-  if (TREE_CODE_CLASS (TREE_CODE (t)) == 'c'
-      || TREE_CODE_CLASS (TREE_CODE (t)) == 't'
-      || TREE_CODE (t) == IDENTIFIER_NODE)
-    abort ();
-#endif
-  return ((t->common.aux) ? (tree_ann)t->common.aux : create_tree_ann (t));
-}
-
-static inline bool
-has_annotation (t)
-     tree t;
-{
-  return (t->common.aux != NULL);
+  return (tree_ann)t->common.aux;
 }
 
 /* Return the basic block containing statement T.  */
@@ -926,7 +914,7 @@ static inline basic_block
 bb_for_stmt (t)
      tree t;
 {
-  return tree_annotation (t)->bb;
+  return tree_annotation (t) ? tree_annotation (t)->bb : NULL;
 }
 
 /* Set the basic block containing statement T.  */
@@ -940,7 +928,7 @@ set_bb_for_stmt (t, bb)
   if (!statement_code_p (TREE_CODE (t)))
     abort ();
 #endif
-  ann = tree_annotation (t);
+  ann = tree_annotation (t) ? tree_annotation (t) : create_tree_ann (t);
   ann->bb = bb;
 }
 
@@ -950,27 +938,24 @@ static inline tree_ref
 currdef_for (decl)
      tree decl;
 {
-#if defined ENABLE_CHECKING
-  if (TREE_CODE_CLASS (TREE_CODE (decl)) != 'd')
-    abort ();
-#endif
-  return tree_annotation (decl)->currdef;
+  return tree_annotation (decl) ? tree_annotation (decl)->currdef : NULL;
 }
 
-/* Set the current definition for variable DECL to be DEF.  */
+/* Set the current definition for variable V to be DEF.  */
 static inline void
-set_currdef_for (decl, def)
-     tree decl;
+set_currdef_for (v, def)
+     tree v;
      tree_ref def;
 {
   tree_ann ann;
 #if defined ENABLE_CHECKING
-  if (TREE_CODE_CLASS (TREE_CODE (decl)) != 'd')
+  if (TREE_CODE_CLASS (TREE_CODE (v)) != 'd')
     abort ();
+
   if (def && !(def->common.type & (V_DEF | V_PHI)))
     abort ();
 #endif
-  ann = tree_annotation (decl);
+  ann = tree_annotation (v) ? tree_annotation (v) : create_tree_ann (v);
   ann->currdef = def;
 }
 
@@ -983,12 +968,7 @@ static inline ref_list
 tree_refs (t)
      tree t;
 {
-#if defined ENABLE_CHECKING
-  if (TREE_CODE_CLASS (TREE_CODE (t)) == 'c'
-      || TREE_CODE_CLASS (TREE_CODE (t)) == 't')
-    abort ();
-#endif
-  return tree_annotation (t)->refs;
+  return tree_annotation (t) ? tree_annotation (t)->refs : NULL;
 }
 
 /* Add REF to the list of referencs for T.  */
@@ -997,12 +977,14 @@ add_tree_ref (t, ref)
      tree t;
      tree_ref ref;
 {
+  tree_ann ann;
 #if defined ENABLE_CHECKING
   if (TREE_CODE_CLASS (TREE_CODE (t)) == 'c'
       || TREE_CODE_CLASS (TREE_CODE (t)) == 't')
     abort ();
 #endif
-  add_ref_to_list_end (tree_refs (t), ref);
+  ann = tree_annotation (t) ? tree_annotation (t) : create_tree_ann (t);
+  add_ref_to_list_end (ann->refs, ref);
 }
 
 /* Remove REF from the list of references for T.  */
@@ -1023,7 +1005,7 @@ compound_parent (t)
   if (!statement_code_p (TREE_CODE (t)))
     abort ();
 #endif
-  return tree_annotation (t)->compound_parent;
+  return tree_annotation (t) ? tree_annotation (t)->compound_parent : NULL;
 }
 
 /* Set PARENT to be the COMPOUND_STMT enclosing T.  */
@@ -1037,7 +1019,7 @@ set_compound_parent (t, parent)
   if (!statement_code_p (TREE_CODE (t)))
     abort ();
 #endif
-  ann = tree_annotation (t);
+  ann = tree_annotation (t) ? tree_annotation (t) : create_tree_ann (t);
   ann->compound_parent = parent;
 }
 
@@ -1048,7 +1030,7 @@ static inline tree_ref
 output_ref (t)
      tree t;
 {
-  return tree_annotation (t)->output_ref;
+  return tree_annotation (t) ? tree_annotation (t)->output_ref : NULL;
 }
 
 /* Set the output reference for EXPR to be DEF.  */
@@ -1057,7 +1039,13 @@ set_output_ref (t, def)
      tree t;
      tree_ref def;
 {
-  tree_ann ann = tree_annotation (t);
+  tree_ann ann;
+#if defined ENABLE_CHECKING
+  if (TREE_CODE (t) != MODIFY_EXPR
+      && TREE_CODE (t) != INIT_EXPR)
+    abort ();
+#endif
+  ann = tree_annotation (t) ? tree_annotation (t) : create_tree_ann (t);
   ann->output_ref = def;
 }
 
@@ -1073,7 +1061,7 @@ set_tree_flag (t, flag)
       || TREE_CODE_CLASS (TREE_CODE (t)) == 't')
     abort ();
 #endif
-  ann = tree_annotation (t);
+  ann = tree_annotation (t) ? tree_annotation (t) : create_tree_ann (t);
   ann->flags |= flag;
 }
 
@@ -1089,7 +1077,7 @@ clear_tree_flag (t, flag)
       || TREE_CODE_CLASS (TREE_CODE (t)) == 't')
     abort ();
 #endif
-  ann = tree_annotation (t);
+  ann = tree_annotation (t) ? tree_annotation (t) : create_tree_ann (t);
   ann->flags &= ~flag;
 }
 
@@ -1104,7 +1092,7 @@ reset_tree_flags (t)
       || TREE_CODE_CLASS (TREE_CODE (t)) == 't')
     abort ();
 #endif
-  ann = tree_annotation (t);
+  ann = tree_annotation (t) ? tree_annotation (t) : create_tree_ann (t);
   ann->flags = 0;
 }
 
@@ -1113,12 +1101,7 @@ static inline enum tree_flags
 tree_flags (t)
      tree t;
 {
-#if defined ENABLE_CHECKING
-  if (TREE_CODE_CLASS (TREE_CODE (t)) == 'c'
-      || TREE_CODE_CLASS (TREE_CODE (t)) == 't')
-    abort ();
-#endif
-  return tree_annotation (t)->flags;
+  return tree_annotation (t) ? tree_annotation (t)->flags : 0;
 }
 
 /* Return the annotation for basic block B.  Create a new one if necessary.  */

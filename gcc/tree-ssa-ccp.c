@@ -193,7 +193,7 @@ tree_ssa_ccp (fndecl)
   /* Debugging dumps.  */
   if (dump_file)
     {
-      fprintf (dump_file, "%s()\n", IDENTIFIER_POINTER (DECL_NAME (fndecl)));
+      fprintf (dump_file, "%s()\n", get_name (fndecl));
 
       if (dump_flags & TDF_RAW)
 	dump_node (fnbody, TDF_SLIM | dump_flags, dump_file);
@@ -366,7 +366,7 @@ ssa_ccp_substitute_constants ()
       FOR_EACH_REF (ref, tmp, bb_refs (bb))
 	{
 	  tree_ref rdef;
-	  unsigned int id;
+	  unsigned long id;
 	  
 	  /* Notice that we want an unmodified V_USE reference here.  We
 	     don't deal with modifiers like M_PARTIAL or M_VOLATILE.  */
@@ -748,7 +748,7 @@ evaluate_expr (expr)
      UNDEFINED, then the expression is not a constant.  */
   FOR_EACH_REF (r, tmp, refs)
     {
-      unsigned int id;
+      unsigned long id;
       tree_ref rdef;
 
       /* Notice that we want an unmodified V_USE reference here.  We don't
@@ -934,7 +934,7 @@ initialize ()
 
       FOR_EACH_REF (r, tmp, tree_refs (var))
 	{
-	  size_t id = ref_id (r);
+	  unsigned long id = ref_id (r);
 
 	  values[id].lattice_val = UNDEFINED;
 	  values[id].const_value = NULL_TREE;

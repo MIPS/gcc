@@ -85,7 +85,6 @@ static int  stmt_has_effect          PARAMS ((tree));
 static int  expr_has_effect          PARAMS ((tree));
 static tree mostly_copy_tree_r       PARAMS ((tree *, int *, void *));
 static inline void remove_suffix     PARAMS ((char *, int));
-static const char *get_name          PARAMS ((tree));
 static int is_last_stmt_of_scope     PARAMS ((tree));
 static tree tail_expression          PARAMS ((tree *, int));
 static tree mark_not_simple_r        PARAMS ((tree *, int *, void *));
@@ -2362,7 +2361,8 @@ create_tmp_alias_var (type, prefix)
 /*  Given a tree, try to return a useful variable name that we can use
     to prefix a temporary that is being assigned the value of the tree. 
     I.E. given  <temp> = &A, return A.  */
-static const char *
+
+const char *
 get_name (t)
      tree t;
 {
@@ -2384,6 +2384,7 @@ get_name (t)
 	}
     }
 }
+
 
 /*  Returns a new temporary variable, initialized with VAL.  PRE_P and STMT
     are as in simplify_expr.  */
@@ -2693,7 +2694,7 @@ mostly_copy_tree_r (tp, walk_subtrees, data)
     *walk_subtrees = 0;
   else
     {
-      enum tree_flags flags = (has_annotation (*tp)) ? tree_flags (*tp) : 0;
+      enum tree_flags flags = tree_flags (*tp);
       copy_tree_r (tp, walk_subtrees, data);
       if (flags)
 	set_tree_flag (*tp, flags);

@@ -1,3 +1,49 @@
+2002-09-22  Diego Novillo  <dnovillo@redhat.com>
+
+	* Makefile.in (tree-dfa.o): Depend on hashtab.h.
+	* c-simplify.c (get_name): Declare extern.
+	* tree-cfg.c (tree_dump_cfg): Call it.
+	(tree_cfg2dot): Call it.
+	* tree-ssa-ccp.c (tree_ssa_ccp): Call get_name.
+	* tree-ssa-dce.c (tree_ssa_eliminate_dead_code): Call get_name.
+	* tree-ssa-pre.c (tree_perform_ssapre): Call get_name.
+	* tree-ssa.c (analyze_rdefs): Call get_name.
+	(dump_reaching_defs): Call get_name.
+	(dump_tree_ssa): Call get_name.
+	* tree.h (get_name): Declare.
+
+	* tree-dfa.c: Include "hashtab.h"
+	(struct dfa_stats_d): New.
+	(collect_dfa_stats): New local function.
+	(collect_dfa_stats_r): New local function.
+	(count_tree_refs): New local function.
+	(count_ref_list_nodes): New local function.
+	(tree_find_refs): Call dump_begin on entry to the function.
+	(dump_referenced_vars): Call get_name.
+	(SCALE): Declare.
+	(LABEL): Declare.
+	(dump_dfa_stats): New function.
+	(debug_dfa_stats): New function.
+	* tree-dump.c (struct dump_option_value_info): Add entry for TDF_STATS.
+	* tree-flow.h (has_annotation): Remove.  Update all users.
+	(dump_dfa_stats): Declare.
+	(debug_dfa_stats): Declare.
+	(tree_annotation): Don't create one if the tree doesn't have one
+	already.  Update all users to new semantics.
+	* tree-ssa-dce.c (print_stats): Dump if dump_flags has TDF_STATS bit
+	set.
+	* tree-ssa.c (tree_build_ssa): Open dump file on entry.
+	Call dump_dfa_stats if dump_flags has TDF_STATS bit set.
+	Call dump_tree_ssa if dump_flags has TDF_DETAILS bit set.
+	* tree.h (TDF_STATS): Define.
+	* doc/invoke.texi: Document 'stats' flag for -fdump-tree.
+
+	* tree-dfa.c (next_tree_ref_id): Change type to unsigned long.
+	Update all users.
+	tree-flow.h (tree_ref_common): Change type of field 'id' to
+	unsigned long.  Update all users.
+	(ref_id): Change return type to unsigned long.  Update all users.
+
 2002-09-21  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-ssa-pre.c (struct expr_info): Add repaired member.

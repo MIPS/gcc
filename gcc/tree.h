@@ -3097,7 +3097,10 @@ enum tree_dump_index
 #define TDF_ADDRESS	(1 << 0)	/* dump node addresses */
 #define TDF_SLIM	(1 << 1)	/* don't go wild following links */
 #define TDF_RAW  	(1 << 2)	/* unparse the function */
-#define TDF_DETAILS	(1 << 3)	/* show how each statement is simplified */
+#define TDF_DETAILS	(1 << 3)	/* show how each statement is
+					   simplified */
+#define TDF_STATS	(1 << 4)	/* dump various statistics about
+					   each pass */
 #define TDF_REFS	(1 << 0)	/* dump ssa variable refs */
 #define TDF_RDEFS	(1 << 1)	/* dump reaching definitions */
 
@@ -3113,6 +3116,7 @@ extern void dump_enable_all_ssa         PARAMS ((void));
 const char *dump_flag_name	PARAMS ((enum tree_dump_index));
 
 extern int simplify_function_tree      PARAMS ((tree));
+extern const char *get_name            PARAMS ((tree));
 
 /* Redefine abort to report an internal error w/o coredump, and
    reporting the location of the error in the source file.  This logic

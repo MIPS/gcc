@@ -2500,8 +2500,7 @@ tree_dump_cfg (file)
   basic_block bb;
 
   fputc ('\n', file);
-  fprintf (file, ";; Function %s\n\n",
-	   IDENTIFIER_POINTER (DECL_NAME (current_function_decl)));
+  fprintf (file, ";; Function %s\n\n", get_name (current_function_decl));
 
   fprintf (file, "\n%d basic blocks, %d edges, last basic block %d.\n",
            n_basic_blocks, n_edges, last_basic_block);
@@ -2523,8 +2522,7 @@ tree_cfg2dot (file)
   basic_block bb;
 
   /* Write the file header.  */
-  fprintf (file, "digraph %s\n{\n",
-	   IDENTIFIER_POINTER (DECL_NAME (current_function_decl)));
+  fprintf (file, "digraph %s\n{\n", get_name (current_function_decl));
 
   /* Write blocks and edges.  */
   for (e = ENTRY_BLOCK_PTR->succ; e; e = e->succ_next)

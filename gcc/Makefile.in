@@ -1393,7 +1393,7 @@ tree-cfg.o : tree-cfg.c tree-optimize.h tree-flow.h $(CONFIG_H) $(SYSTEM_H) \
 tree-dfa.o : tree-dfa.c tree-optimize.h tree-flow.h $(CONFIG_H) $(SYSTEM_H) \
    $(RTL_H) $(TREE_H) $(TM_P_H) $(BASIC_BLOCK_H) $(EXPR_H) \
    $(GGC_H) output.h diagnostic.h errors.h $(C_TREE_H) tree-simple.h \
-   tree-inline.h
+   tree-inline.h $(HASHTAB_H)
 tree-optimize.o : tree-optimize.c tree-optimize.h tree-flow.h $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(BASIC_BLOCK_H) $(EXPR_H) \
    $(GGC_H) output.h diagnostic.h ssa.h errors.h flags.h tree-alias-common.h \

@@ -115,7 +115,7 @@ mark_control_parent_necessary (bb)
 static void
 print_stats ()
 {
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_STATS))
     {
       float percg;
       percg = ((float) stats.removed / (float) stats.total) * 100;
@@ -129,10 +129,7 @@ static inline bool
 necessary_p (t)
      tree t;
 {
-  if (tree_annotation (t))
-    return (tree_flags (t) & TF_NECESSARY);
-  else
-    return false;
+  return (tree_flags (t) & TF_NECESSARY);
 }
 
 void
@@ -155,8 +152,7 @@ tree_ssa_eliminate_dead_code (fndecl)
   dump_file = dump_begin (TDI_dce, &dump_flags);
   if (dump_file)
     {
-      fprintf (dump_file, "%s\n",
-	       IDENTIFIER_POINTER (DECL_NAME (fndecl)));
+      fprintf (dump_file, "%s\n", get_name (fndecl));
       
       if (dump_flags & TDF_RAW)
 	dump_node (fnbody, TDF_SLIM | dump_flags, dump_file);

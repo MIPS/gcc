@@ -2269,8 +2269,7 @@ tree_perform_ssapre ()
   /* Debugging dump after SSA PRE */
   if (dump_file)
     {
-      fprintf (dump_file, "%s()\n",
-               IDENTIFIER_POINTER (DECL_NAME (current_function_decl)));
+      fprintf (dump_file, "%s()\n", get_name (current_function_decl));
       
       if (dump_flags & TDF_RAW)
         dump_node (fn, TDF_SLIM | dump_flags, dump_file);

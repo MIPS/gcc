@@ -21,6 +21,7 @@ Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
+#include "hashtab.h"
 #include "tree.h"
 #include "rtl.h"
 #include "tm_p.h"
@@ -60,15 +61,37 @@ struct clobber_data_d
 };
 
 
+/* DFA Statistics.  */
+struct dfa_stats_d
+{
+  unsigned long num_tree_refs;
+  unsigned long num_tree_anns;
+  unsigned long num_ref_list_nodes;
+  unsigned long num_defs;
+  unsigned long num_uses;
+  unsigned long num_phis;
+  unsigned long num_phi_args;
+  unsigned long num_fcalls;
+  unsigned long num_ephis;
+  unsigned long num_euses;
+  unsigned long num_ekills;
+};
+
 /* Local functions.  */
-static void find_refs_in_stmt PARAMS ((tree, basic_block));
-static void find_refs_in_expr PARAMS ((tree *, HOST_WIDE_INT, basic_block, tree,
-                                       tree));
-static void add_referenced_var PARAMS ((tree));
-static tree clobber_vars_r PARAMS ((tree *, int *, void *));
-static void add_default_defs PARAMS ((void));
-static void add_call_site_clobbers PARAMS ((void));
-static void add_ptr_may_refs PARAMS ((void));
+static void find_refs_in_stmt		PARAMS ((tree, basic_block));
+static void find_refs_in_expr		PARAMS ((tree *, HOST_WIDE_INT,
+      						 basic_block, tree, tree));
+static void add_referenced_var		PARAMS ((tree));
+static void collect_dfa_stats		PARAMS ((struct dfa_stats_d *));
+static tree collect_dfa_stats_r		PARAMS ((tree *, int *, void *));
+static void count_tree_refs		PARAMS ((struct dfa_stats_d *,
+      						 ref_list));
+static void count_ref_list_nodes	PARAMS ((struct dfa_stats_d *,
+      						 ref_list));
+static tree clobber_vars_r		PARAMS ((tree *, int *, void *));
+static void add_default_defs		PARAMS ((void));
+static void add_call_site_clobbers	PARAMS ((void));
+static void add_ptr_may_refs		PARAMS ((void));
 
 
 /* Global declarations.  */
@@ -81,7 +104,7 @@ varray_type referenced_vars;
 ref_list call_sites;
 
 /* Next unique reference ID to be assigned by create_ref().  */
-HOST_WIDE_INT next_tree_ref_id;
+unsigned long next_tree_ref_id;
 
 /* Reference types.  */
 const HOST_WIDE_INT V_DEF	= 1 << 0;
@@ -109,6 +132,14 @@ void
 tree_find_refs ()
 {
   basic_block bb;
+
+  /* Debugging dumps.  */
+  dump_file = dump_begin (TDI_ssa, &dump_flags);
+  if (dump_file)
+    {
+      fputc ('\n', dump_file);
+      fprintf (dump_file, ";; Function %s\n\n", get_name (current_function_decl));
+    }
 
   next_tree_ref_id = 0;
   call_sites = create_ref_list ();
@@ -141,8 +172,6 @@ tree_find_refs ()
   add_call_site_clobbers ();
   add_ptr_may_refs ();
 
-  /* Debugging dumps.  */
-  dump_file = dump_begin (TDI_ssa, &dump_flags);
   if (dump_file)
     {
       if (dump_flags & TDF_REFS)
@@ -1080,9 +1109,7 @@ dump_ref (outf, prefix, ref, indent, details)
   else
     fprintf (outf, "nil");
 
-  fprintf (outf, "): line %d, bb %d, id ", lineno, bbix);
-  fprintf (outf, HOST_WIDE_INT_PRINT_DEC, ref_id (ref));
-  fprintf (outf, ", ");
+  fprintf (outf, "): line %d, bb %d, id %lu, ", lineno, bbix, ref_id (ref));
 
   if (ref_expr (ref))
     print_c_node (outf, ref_expr (ref));
@@ -1235,9 +1262,7 @@ dump_referenced_vars (file)
 {
   size_t i;
 
-  fprintf (file, "\n;; Function %s: %lu referenced variables\n\n", 
-	   IDENTIFIER_POINTER (DECL_NAME (current_function_decl)),
-	   num_referenced_vars);
+  fprintf (file, "\nReferenced variables: %lu\n\n", num_referenced_vars);
 
   for (i = 0; i < num_referenced_vars; i++)
     {
@@ -1292,6 +1317,218 @@ dump_phi_args (outf, prefix, args, indent, details)
   for (i = 0; i < VARRAY_SIZE (args); i++)
     dump_ref (outf, prefix, phi_arg_def (VARRAY_GENERIC_PTR (args, i)), indent,
 	      details);
+}
+
+
+/* Dump various DFA statistics to FILE.  */
+
+#define SCALE(x) ((unsigned long) ((x) < 1024*10 \
+		  ? (x) \
+		  : ((x) < 1024*1024*10 \
+		     ? (x) / 1024 \
+		     : (x) / (1024*1024))))
+#define LABEL(x) ((x) < 1024*10 ? 'b' : ((x) < 1024*1024*10 ? 'k' : 'M'))
+
+void
+dump_dfa_stats (file)
+     FILE *file;
+{
+  struct dfa_stats_d dfa_stats;
+  unsigned long size;
+  const char * const fmt_str   = "%-30s%-13s%12s\n";
+  const char * const fmt_str_1 = "%-30s%13lu%11lu%c\n";
+  const char * const fmt_str_2 = "%-30s%6lu (%3lu%%)\n";
+
+  collect_dfa_stats (&dfa_stats);
+
+  fprintf (file, "\nDFA Statistics for %s\n\n", get_name (current_function_decl));
+
+  fprintf (file, fmt_str, "", "  Number of  ", "Memory");
+  fprintf (file, fmt_str, "Object", "  instances  ", "used ");
+  fprintf (file, "----------------------------------------------------------\n");
+
+  size = num_referenced_vars * sizeof (tree);
+  fprintf (file, fmt_str_1, "Referenced variables", num_referenced_vars, 
+	   SCALE (size), LABEL (size));
+
+  size = dfa_stats.num_tree_anns * sizeof (struct tree_ann_d);
+  fprintf (file, fmt_str_1, "Trees annotated", dfa_stats.num_tree_anns,
+	   SCALE (size), LABEL (size));
+
+  size = dfa_stats.num_ref_list_nodes * sizeof (struct ref_list_node);
+  fprintf (file, fmt_str_1, "ref_list nodes", dfa_stats.num_ref_list_nodes,
+	   SCALE (size), LABEL (size));
+
+  size = dfa_stats.num_phi_args * sizeof (struct phi_node_arg_d);
+  fprintf (file, fmt_str_1, "PHI arguments", dfa_stats.num_phi_args,
+	   SCALE (size), LABEL (size));
+
+  size = dfa_stats.num_tree_refs * sizeof (union tree_ref_d);
+  fprintf (file, fmt_str_1, "Variable references", dfa_stats.num_tree_refs,
+	   SCALE (size), LABEL (size));
+
+  if (dfa_stats.num_tree_refs == 0)
+    dfa_stats.num_tree_refs = 1;
+
+  if (dfa_stats.num_defs)
+    fprintf (file, fmt_str_2, "    V_DEF", dfa_stats.num_defs,
+	    (dfa_stats.num_defs * 100 / dfa_stats.num_tree_refs));
+
+  if (dfa_stats.num_uses)
+    fprintf (file, fmt_str_2, "    V_USE", dfa_stats.num_uses,
+	    (dfa_stats.num_uses * 100 / dfa_stats.num_tree_refs));
+
+  if (dfa_stats.num_phis)
+    fprintf (file, fmt_str_2, "    V_PHI", dfa_stats.num_phis,
+	    (dfa_stats.num_phis * 100 / dfa_stats.num_tree_refs));
+
+  if (dfa_stats.num_fcalls)
+    fprintf (file, fmt_str_2, "    E_FCALL", dfa_stats.num_fcalls,
+	    (dfa_stats.num_fcalls * 100 / dfa_stats.num_tree_refs));
+
+  if (dfa_stats.num_ephis)
+    fprintf (file, fmt_str_2, "    E_PHI", dfa_stats.num_ephis,
+	    (dfa_stats.num_ephis * 100 / dfa_stats.num_tree_refs));
+
+  if (dfa_stats.num_euses)
+    fprintf (file, fmt_str_2, "    E_USE", dfa_stats.num_euses,
+	    (dfa_stats.num_euses * 100 / dfa_stats.num_tree_refs));
+
+  if (dfa_stats.num_ekills)
+    fprintf (file, fmt_str_2, "    E_KILL", dfa_stats.num_ekills,
+	    (dfa_stats.num_ekills * 100 / dfa_stats.num_tree_refs));
+
+  fprintf (file, "\n");
+
+  if (dfa_stats.num_phis)
+    fprintf (file, "Average number of PHI arguments per PHI node: %.1f\n",
+	    (float) (dfa_stats.num_phi_args) / (float) (dfa_stats.num_phis));
+
+  if (next_tree_ref_id != dfa_stats.num_tree_refs)
+    {
+      fprintf (file, "Number of unaccounted variable references: %ld\n",
+	       labs (next_tree_ref_id - dfa_stats.num_tree_refs));
+      fprintf (file, "\texpected: %lu\n", next_tree_ref_id);
+      fprintf (file, "\tcounted:  %lu\n", dfa_stats.num_tree_refs);
+    }
+
+  fprintf (file, "\n");
+}
+
+
+/* Dump DFA statistics on stderr.  */
+
+void
+debug_dfa_stats ()
+{
+  dump_dfa_stats (stderr);
+}
+
+
+/* Collect DFA statistics into *DFA_STATS_P.  */
+
+static void
+collect_dfa_stats (dfa_stats_p)
+     struct dfa_stats_d *dfa_stats_p;
+{
+  htab_t htab;
+  tree first_stmt;
+  basic_block bb;
+
+  if (dfa_stats_p == NULL)
+    abort ();
+
+  memset ((void *)dfa_stats_p, 0, sizeof (struct dfa_stats_d));
+
+  /* Walk all the trees in the function counting references.  */
+  first_stmt = BASIC_BLOCK (0)->head_tree;
+  htab = htab_create (30, htab_hash_pointer, htab_eq_pointer, NULL);
+  walk_tree (&first_stmt, collect_dfa_stats_r, (void *) dfa_stats_p,
+             (void *) htab);
+
+  FOR_EACH_BB (bb)
+    count_tree_refs (dfa_stats_p, bb_refs (bb));
+}
+
+
+/* Callback for walk_tree to collect DFA statistics for a tree and its
+   children.  */
+
+static tree
+collect_dfa_stats_r (tp, walk_subtrees, data)
+     tree *tp;
+     int *walk_subtrees ATTRIBUTE_UNUSED;
+     void *data;
+{
+  tree_ann ann;
+  tree t = *tp;
+  struct dfa_stats_d *dfa_stats_p = (struct dfa_stats_d *)data;
+
+  ann = tree_annotation (t);
+  if (ann)
+    {
+      dfa_stats_p->num_tree_anns++;
+      count_ref_list_nodes (dfa_stats_p, ann->refs);
+    }
+
+  return NULL;
+}
+
+
+/* Update DFA_STATS_P with the number of tree_ref objects in LIST.  */
+
+static void
+count_tree_refs (dfa_stats_p, list)
+     struct dfa_stats_d *dfa_stats_p;
+     ref_list list;
+{
+  tree_ref ref;
+  struct ref_list_node *tmp;
+
+  FOR_EACH_REF (ref, tmp, list)
+    {
+      dfa_stats_p->num_tree_refs++;
+
+      if (ref_type (ref) & V_DEF)
+	{
+	  dfa_stats_p->num_defs++;
+	  count_ref_list_nodes (dfa_stats_p, imm_uses (ref));
+	  count_ref_list_nodes (dfa_stats_p, reached_uses (ref));
+	}
+      else if (ref_type (ref) & V_USE)
+	{
+	  dfa_stats_p->num_uses++;
+	  count_ref_list_nodes (dfa_stats_p, reaching_defs (ref));
+	}
+      else if (ref_type (ref) & V_PHI)
+	{
+	  dfa_stats_p->num_phis++;
+	  dfa_stats_p->num_phi_args += num_phi_args (ref);
+	}
+      else if (ref_type (ref) & E_FCALL)
+	dfa_stats_p->num_fcalls++;
+      else if (ref_type (ref) & E_PHI)
+	dfa_stats_p->num_ephis++;
+      else if (ref_type (ref) & E_USE)
+	dfa_stats_p->num_euses++;
+      else if (ref_type (ref) & E_KILL)
+	dfa_stats_p->num_ekills++;
+    }
+}
+
+
+/* Count the number of nodes in a ref_list container.  */
+
+static void
+count_ref_list_nodes (dfa_stats_p, list)
+     struct dfa_stats_d *dfa_stats_p;
+     ref_list list;
+{
+  tree_ref ref;
+  struct ref_list_node *tmp;
+
+  FOR_EACH_REF (ref, tmp, list)
+    dfa_stats_p->num_ref_list_nodes++;
 }
 
 

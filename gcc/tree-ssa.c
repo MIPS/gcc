@@ -85,6 +85,9 @@ tree_build_ssa ()
   sbitmap *dfs;
   dominance_info idom;
   
+  /* Debugging dumps.  */
+  dump_file = dump_begin (TDI_ssa, &dump_flags);
+
   /* Compute immediate dominators.  */
   idom = calculate_dominance_info (CDI_DOMINATORS);
 
@@ -99,12 +102,17 @@ tree_build_ssa ()
   sbitmap_vector_free (dfs);
   free_dominance_info (idom);
 
-  /* Debugging dumps.  */
-  dump_file = dump_begin (TDI_ssa, &dump_flags);
-
   if (dump_file)
     {
-      dump_tree_ssa (dump_file);
+      /* FIXME  Default dump should be pretty-printed function with SSA
+	 indices.  */
+
+      if (dump_flags & (TDF_DETAILS))
+	dump_tree_ssa (dump_file);
+
+      if (dump_flags & TDF_STATS)
+	dump_dfa_stats (dump_file);
+
       dump_end (TDI_ssa, dump_file);
     }
 }
@@ -514,10 +522,10 @@ analyze_rdefs ()
 	      prep_stmt (ref_stmt (use));
 	      if (reaching_defs (use)->last == reaching_defs (use)->first)
 		warning ("`%s' is used uninitialized at this point",
-		         IDENTIFIER_POINTER (DECL_NAME (var)));
+		         get_name (var));
 	      else
 		warning ("`%s' may be used uninitialized at this point",
-		         IDENTIFIER_POINTER (DECL_NAME (var)));
+		         get_name (var));
 	    }
 	}
     }
@@ -661,10 +669,8 @@ dump_reaching_defs (dump_file)
 {
   size_t i;
 
-  fprintf (dump_file, ";; Function %s\n\n",
-      IDENTIFIER_POINTER (DECL_NAME (current_function_decl)));
-
-  fprintf (dump_file, "Reaching definitions:\n");
+  fprintf (dump_file, "Reaching definitions for %s\n", 
+	   get_name (current_function_decl));
 
   for (i = 0; i < num_referenced_vars; i++)
     {
@@ -707,11 +713,8 @@ dump_tree_ssa (dump_file)
 {
   basic_block bb;
 
-  fputc ('\n', dump_file);
-  fprintf (dump_file, ";; Function %s\n\n",
-      IDENTIFIER_POINTER (DECL_NAME (current_function_decl)));
-
-  fputs ("SSA information\n\n", dump_file);
+  fprintf (dump_file, "SSA information for %s\n\n",
+	   get_name (current_function_decl));
 
   FOR_EACH_BB (bb)
     {

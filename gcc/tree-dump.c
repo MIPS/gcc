@@ -688,6 +688,7 @@ static const struct dump_option_value_info dump_options[] =
   {"details", TDF_DETAILS},
   {"refs", TDF_REFS},
   {"rdefs", TDF_RDEFS},
+  {"stats", TDF_STATS},
   {"all", ~0},
   {NULL, 0}
 };
