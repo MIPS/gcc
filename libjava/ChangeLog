@@ -1,5 +1,23 @@
 2004-05-05  David Jee  <djee@redhat.com>
 
+	* gnu/java/awt/peer/gtk/GdkGraphics.java
+	(drawImage): When component is null, use SystemColor.window as
+	the default bgcolor.
+	* gnu/java/awt/peer/gtk/GtkImage.java
+	(setPixels): We can avoid iterating through the pixel rows only
+	when height is 1.
+	* java/awt/Image.java
+	(getScaledInstance): Partially implement.
+	* java/awt/image/CropImageFilter.java
+	(setProperties): Fix "filter" property.
+	(setPixels): Implement.
+	* java/awt/image/ReplicateScaleFilter.java
+	(setDimensions): Use scaled dimensions.
+	(setPixels): Implement.
+	(replicatePixels): New method.
+
+2004-05-05  David Jee  <djee@redhat.com>
+
 	* gnu/java/awt/peer/gtk/GtkImagePainter.java
 	(convertPixels): If either pixels or model is null, return null.
 	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkImagePainter.c
