@@ -1,3 +1,112 @@
+2004-08-30  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/opt/loop1.C: XFAIL.
+
+2004-08-29  Mark Mitchell  <mark@codesourcery.com>
+
+	PR rtl-optimization/16590
+	* g++.dg/opt/loop1.C: New test.
+
+2004-08-25  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/16693
+	PR tree-optimization/16372
+	* g++.dg/opt/pr16372-1.C: New test case.
+	* g++.dg/opt/pr16693-1.C: New test case.
+	* g++.dg/opt/pr16693-2.C: New test case.
+
+2004-08-24  Janis Johnson  <janis187@us.ibm.com>
+
+	Copy tests from mainline.
+
+	* gcc.dg/altivec-6.c: New test.
+	* gcc.dg/altivec-12.c: New test.
+	* gcc.dg/altivec-13.c: New test.
+	* gcc.dg/altivec-14.c: New test.
+	* gcc.dg/altivec-15.c: New test.
+	* gcc.dg/altivec-16.c: New test.
+	* gcc.dg/altivec-17.c: New test.
+	* gcc.dg/altivec_check.h: New test.
+	* g++.dg/ext/altivec-2.C: New test.
+	* g++.dg/ext/altivec-3.C: New test.
+	* g++.dg/ext/altivec-4.C: New test.
+	* g++.dg/ext/altivec-5.C: New test.
+	* g++.dg/ext/altivec-6.C: New test.
+	* g++.dg/ext/altivec-7.C: New test.
+	* g++.dg/ext/altivec-8.C: New test.
+	* g++.dg/ext/altivec-9.C: New test.
+	* g++.dg/ext/altivec-10.C: New test.
+	* g++.dg/ext/altivec-11.C: New test.
+	* g++.dg/ext/altivec-12.C: New test.
+	* g++.dg/ext/altivec_check.h: New file.
+
+2004-08-24  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/16889
+	* g++.dg/lookup/ambig[12].C: New.
+
+2004-08-24  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/16706
+	* g++.dg/template/crash21.C: New test.
+	* g++.dg/template/crash22.C: Likewise.
+
+2004-08-23  Roger Sayle  <roger@eyesopen.com>
+
+	PR rtl-optimization/17078
+	* gcc.c-torture/execute/pr17078-1.c: New test case.
+
+2004-08-23  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c/14492
+	* gcc.dg/debug/crash1.c: New test.
+
+	PR c/16180
+	* gcc.dg/loop-5.c: New test.
+
+2004-08-23  Janis Johnson  <janis187@us.ibm.com>
+
+	Backports from mainline, from several contributors.
+	* lib/target-supports.exp (check_vmx_hw_available): New.
+	* g++.dg/ext/altivec-1.C: XFAIL powerpc-ibm-aix. Correct dg syntax.
+	* gcc.dg/altivec-1.c: XFAIL powerpc-ibm-aix, powerpc-eabispe.
+	* gcc.dg/altivec-2.c: Generalize target.
+	* gcc.dg/altivec-3.c: XFAIL powerpc-ibm-aix, powerpc-eabispe.
+	Use vector_size attribute.  Do runtime check for VMX hardware.
+	* gcc.dg/altivec-4.c: XFAIL powerpc-ibm-aix, powerpc-eabispe.
+	Use vector size attribute.
+	* gcc.dg/altivec-5.c: Generalize target.
+	* gcc.dg/altivec-7.c: XFAIL powerpc-ibm-aix.  Replace long* with int*.
+	* gcc.dg/altivec-8.c: XFAIL powerpc-ibm-aix.
+	* gcc.dg/altivec-9.c: Generalize target.
+	* gcc.dg/altivec-10.c: XFAIL powerpc-ibm-aix and powerpc-eabispe.
+	* gcc.dg/altivec-11.c: Ditto.
+	* gcc.dg/altivec-varargs-1.c: Ditto.
+
+2004-08-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/16195
+	* gcc.dg/20040625-1.c: New test.
+
+2004-08-19  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/15890
+	* g++.dg/template/delete1.C: New test.
+
+2004-08-18  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/17068
+	* g++.dg/template/operator4.C: New test.
+
+2004-08-17  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/16246
+	* g++.dg/template/array7.C: New test.
+
+2004-08-17  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* gcc.dg/funcdef-attr-1.c: New test.
+
 2004-07-09  Jakub Jelinek  <jakub@redhat.com>
 
 	* gcc.c-torture/execute/20040709-1.c: New test.
@@ -17702,7 +17811,7 @@ Thu Apr 27 15:58:18 MET DST 2000  Jan Hubicka  <jh@suse.cz>
 
 	* gcc.c-torture/compile/labels-2.c: New test.
 
-1999-12-27  Martin von LÃ¶wis  <loewis@informatik.hu-berlin.de>
+1999-12-27  Martin von Löwis  <loewis@informatik.hu-berlin.de>
 
 	* gcc.c-torture/execute/991227-1.c: New test.
 
@@ -17710,7 +17819,7 @@ Thu Apr 27 15:58:18 MET DST 2000  Jan Hubicka  <jh@suse.cz>
 
 	* g++.old-deja/g++.pt/instantiate6.C: Remove excess errors XFAIL.
 
-1999-12-21  Martin von LÃ¶wis  <loewis@informatik.hu-berlin.de>
+1999-12-21  Martin von Löwis  <loewis@informatik.hu-berlin.de>
 
 	* gcc.c-torture/execute/991221-1.c: New test.
 
