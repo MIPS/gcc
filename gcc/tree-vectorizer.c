@@ -216,7 +216,7 @@ static bool vect_is_simple_use (tree , struct loop *, tree *);
 static bool vect_is_simple_cond (tree, struct loop *);
 static bool exist_non_indexing_operands_for_use_p (tree, tree);
 static bool vect_is_simple_iv_evolution (unsigned, tree, tree *, tree *, bool);
-static void vect_mark_relevant (varray_type, tree);
+static void vect_mark_relevant (varray_type *, tree);
 static bool vect_stmt_relevant_p (tree, loop_vec_info);
 static tree vect_get_loop_niters (struct loop *, tree *);
 static bool vect_compute_data_ref_alignment (struct data_reference *);
@@ -235,7 +235,7 @@ static tree vect_get_memtag_and_dr
 static bool vect_analyze_offset_expr 
   (tree, struct loop *, tree, tree *, tree *, tree *); 
 static void vect_pattern_recog_1 
-  (tree (* ) (tree, varray_type), block_stmt_iterator);
+  (tree (* ) (tree, varray_type *), block_stmt_iterator);
 static tree vect_strip_conversion (tree);
 
 /* Utility functions for the code transformation.  */
@@ -266,7 +266,7 @@ static void vect_do_peeling_for_loop_bound
   (loop_vec_info, tree *, struct loops *);
 
 /* Pattern recognition functions  */
-tree vect_recog_unsigned_subsat_pattern (tree, varray_type);
+tree vect_recog_unsigned_subsat_pattern (tree, varray_type *);
 
 /* Utilities for creation and deletion of vec_info structs.  */
 loop_vec_info new_loop_vec_info (struct loop *loop);
@@ -1280,7 +1280,7 @@ new_loop_vec_info (struct loop *loop)
   LOOP_VINFO_EXIT_COND (res) = NULL;
   LOOP_VINFO_NITERS (res) = NULL;
   LOOP_VINFO_VECTORIZABLE_P (res) = 0;
-  LOOP_PEELING_FOR_ALIGNMENT (res) = false;
+  LOOP_PEELING_FOR_ALIGNMENT (res) = 0;
   LOOP_VINFO_VECT_FACTOR (res) = 0;
   VARRAY_GENERIC_PTR_INIT (LOOP_VINFO_DATAREF_WRITES (res), 20,
 			   "loop_write_datarefs");
@@ -4822,7 +4822,7 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
 		 alignment, even if that alignment is unknown.  */
 
       datarefs = loop_write_datarefs;
-      for (j = 0; j < 2; j++) /* same treatment for both read and write datarefs */
+      for (j = 0; j < 2; j++) /* same treatment for read and write datarefs */
         {
           for (i = 0; i < VARRAY_ACTIVE_SIZE (datarefs); i++)
             {
@@ -4838,13 +4838,15 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
 		       && known_alignment_for_access_p (dr0))	
 	        {
 		  int mis, npeel;
+		  int drsize = 
+			GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (DR_REF (dr))));
 	
 		  gcc_assert (!aligned_access_p (dr0));
 		  mis = DR_MISALIGNMENT (dr0);
 		  mis /= GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (DR_REF (dr0))));
 		  npeel = LOOP_VINFO_VECT_FACTOR (loop_vinfo) - mis;
-	          DR_MISALIGNMENT (dr) += npeel;
-	          DR_MISALIGNMENT (dr) %= LOOP_VINFO_VECT_FACTOR (loop_vinfo); 
+	          DR_MISALIGNMENT (dr) += npeel * drsize;
+	          DR_MISALIGNMENT (dr) %= UNITS_PER_SIMD_WORD;
 	        }
 	      else
 	        DR_MISALIGNMENT (dr) = -1;
@@ -5430,7 +5432,7 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo)
    Mark STMT as "relevant for vectorization" and add it to WORKLIST.  */
 
 static void
-vect_mark_relevant (varray_type worklist, tree stmt)
+vect_mark_relevant (varray_type *worklist, tree stmt)
 {
   stmt_vec_info stmt_info;
 
@@ -5439,7 +5441,7 @@ vect_mark_relevant (varray_type worklist, tree stmt)
 
   if (TREE_CODE (stmt) == PHI_NODE)
     {
-      VARRAY_PUSH_TREE (worklist, stmt);
+      VARRAY_PUSH_TREE (*worklist, stmt);
       return;
     }
 
@@ -5467,12 +5469,12 @@ vect_mark_relevant (varray_type worklist, tree stmt)
       /* Leave as irrelevant, but add to worklist.  */
       if (dump_file && (dump_flags & TDF_DETAILS))
         fprintf (dump_file, "part of pattern.\n");
-      VARRAY_PUSH_TREE (worklist, stmt);
+      VARRAY_PUSH_TREE (*worklist, stmt);
       return;
     }
 
   STMT_VINFO_RELEVANT_P (stmt_info) = 1;
-  VARRAY_PUSH_TREE (worklist, stmt);
+  VARRAY_PUSH_TREE (*worklist, stmt);
 }
 
 
@@ -5584,7 +5586,7 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
 
 	  stmt_info = vinfo_for_stmt (stmt);
 	  if (vect_stmt_relevant_p (stmt, loop_vinfo))
-	    vect_mark_relevant (worklist, stmt);
+	    vect_mark_relevant (&worklist, stmt);
 	}
     }
 
@@ -5632,7 +5634,7 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
 
 	      bb = bb_for_stmt (def_stmt);
 	      if (flow_bb_inside_loop_p (loop, bb))
-	        vect_mark_relevant (worklist, def_stmt);
+	        vect_mark_relevant (&worklist, def_stmt);
 	    }
 	} 
 
@@ -5669,7 +5671,7 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
 
 	      bb = bb_for_stmt (def_stmt);
 	      if (flow_bb_inside_loop_p (loop, bb))
-		vect_mark_relevant (worklist, def_stmt);
+		vect_mark_relevant (&worklist, def_stmt);
 	    }
 	}
     }				/* while worklist */
@@ -5707,7 +5709,7 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
 */  
   
 tree
-vect_recog_unsigned_subsat_pattern (tree last_stmt, varray_type stmt_list)
+vect_recog_unsigned_subsat_pattern (tree last_stmt, varray_type *stmt_list)
 {
   tree stmt, expr;
   tree type;
@@ -5802,7 +5804,7 @@ vect_recog_unsigned_subsat_pattern (tree last_stmt, varray_type stmt_list)
   if (TREE_TYPE (a) != type)
     return NULL;
 
-  VARRAY_PUSH_TREE (stmt_list, last_stmt);
+  VARRAY_PUSH_TREE (*stmt_list, last_stmt);
   
   /* So far so good. Left to check that:
 	- a_minus_b == a - b
@@ -5832,7 +5834,7 @@ vect_recog_unsigned_subsat_pattern (tree last_stmt, varray_type stmt_list)
   if (!expressions_equal_p (b_minus_1, new))
     return NULL;
 
-  VARRAY_PUSH_TREE (stmt_list, stmt);
+  VARRAY_PUSH_TREE (*stmt_list, stmt);
   if (vect_debug_details (NULL))
     {
       fprintf (dump_file, "vect_recog_unsigned_subsat_pattern: ");
@@ -5860,7 +5862,7 @@ vect_recog_unsigned_subsat_pattern (tree last_stmt, varray_type stmt_list)
    documentation for vect_recog_pattern.  */
 
 static void
-vect_pattern_recog_1 (tree (* pattern_recog_func) (tree, varray_type),
+vect_pattern_recog_1 (tree (* pattern_recog_func) (tree, varray_type *),
 		      block_stmt_iterator si)
 {
   tree stmt = bsi_stmt (si);
@@ -5877,7 +5879,7 @@ vect_pattern_recog_1 (tree (* pattern_recog_func) (tree, varray_type),
 
 
   VARRAY_TREE_INIT (stmt_list, 10, "stmt list");
-  pattern_expr = (* pattern_recog_func) (stmt, stmt_list); 
+  pattern_expr = (* pattern_recog_func) (stmt, &stmt_list); 
   if (!pattern_expr)
     {
       varray_clear (stmt_list);
@@ -6017,7 +6019,7 @@ vect_pattern_recog (loop_vec_info loop_vinfo)
   block_stmt_iterator si;
   tree stmt;
   unsigned int i, j;
-  tree (* pattern_recog_func) (tree, varray_type);
+  tree (* pattern_recog_func) (tree, varray_type *);
 
   if (vect_debug_details (NULL))
     fprintf (dump_file, "\n<<vect_pattern_recog>>\n");

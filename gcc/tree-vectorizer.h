@@ -214,9 +214,9 @@ typedef struct _loop_vec_info {
   /* Unknown DRs according to which loop was peeled.  */
   struct data_reference *unaligned_dr;
 
-  /* do_peeling_for_alignment indicated whether peeling for aligmetn will take 
+  /* peeling_for_alignment indicates whether peeling for alignment will take 
      place, and what the peeling factor should be:
-     do_peeling_for_alignment = X means: 
+     peeling_for_alignment = X means: 
 	If X=0: Peeling for alignment will not be applied.
         If X>0: Peel first X iterations.
         If X=-1: Generate a runtime test to calculate the number of iterations 
@@ -262,9 +262,9 @@ extern void destroy_loop_vec_info (loop_vec_info);
 extern stmt_vec_info new_stmt_vec_info (tree stmt, struct loop *loop);
 
 /* Pattern recognition functions.  */
-tree vect_recog_unsigned_subsat_pattern (tree, varray_type);
+tree vect_recog_unsigned_subsat_pattern (tree, varray_type *);
 
-typedef tree (* _recog_func_ptr) (tree, varray_type);
+typedef tree (* _recog_func_ptr) (tree, varray_type *);
 
 /* Additional pattern recognition functions can (and will) be added
    in the future.  */

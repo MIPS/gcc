@@ -1,4 +1,33 @@
-2004-01-06  Ira Rosen  <irar@il.ibm.com>
+2005-01-06  Dorit Naishlos  <dorit@il.ibm.com>
+
+	* tree-vectorizer.h: (peeling_for_alignment): Fix spelling in comment
+	for this field.
+
+	(vect_recog_unsigned_subsat_pattern): Argument changed from varray_type
+	to varray_type*.
+	(_recog_func_ptr): Argument changed from varray_type to varray_type*.
+	* tree-vectorizer.c (vect_pattern_recog_1): Argument changed from
+	varray_type to varray_type*. Pass &stmt_list instead of stmt_list
+	when calling pattern_recog_func.
+	(vect_recog_unsigned_subsat_pattern): Argument changed from varray_type
+	to varray_type*.
+	(vect_pattern_recog): pattern_recog_func takes varray_type* instead of
+	varray_type.
+
+	(vect_enhance_data_refs_alignment): Fix DR_MISALIGNMENT setting to
+	value in bytes.
+
+	(new_loop_vec_info): Initialize LOOP_PEELING_FOR_ALIGNMENT with 0
+	instead of false.
+	(vect_enhance_data_refs_alignment): Avoid 80 column overflow.
+
+	Merged from mainline:
+	* tree-vectorizer.c (vect_mark_relevant) First argument changed from
+	varray_type to varray_type*. 
+	(vect_mark_stmts_to_be_vectorized): Pass &worklist instead of worklist
+	when calling vect_mark_relevant.
+
+2005-01-06  Ira Rosen  <irar@il.ibm.com>
 
 	* tree-vectorizer.c (vect_get_ptr_offset): Return value in bytes.
 	(vect_analyze_offset_expr): Use size arithmetics. Reorganize the code.
