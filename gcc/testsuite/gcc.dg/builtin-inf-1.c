@@ -1,5 +1,4 @@
 /* { dg-do compile } */
-/* { dg-options "-Wno-long-double" { target *-apple-darwin* } } */
 float fi = __builtin_inff();
 double di = __builtin_inf();
 long double li = __builtin_infl();

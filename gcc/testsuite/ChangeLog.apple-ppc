@@ -1,3 +1,25 @@
+2004-06-08  Jon Ziegler  <jonz@apple.com>
+
+	Radar 3667992
+	* g++.dg/altivec-4.C: Remove '-Wno-long-double' flag.
+	* g++.dg/abi/layout2.C: Likewise.
+	* gcc.apple/altivec-1.c: Likewise.
+	* gcc.apple/dg.exp: Likewise.
+	* gcc.dg/20020416-1.c: Likewise.
+	* gcc.dg/builtin-inf-1.c: Likewise.
+	* gcc.dg/c99-complex-1.c: Likewise.
+	* gcc.dg/dg.exp: Likewise.
+	* gcc.dg/typespec-1.c: Likewise.
+	* gcc.dg/wtr-conversion-1.c: Likewise.
+	* gcc.dg/cpp/sysmac2.c: Likewise.
+	* gcc.dg/debug/20020220-1.c: Likewise.
+	* gcc.dg/format/c90-printf-1.c: Likewise.
+	* gcc.dg/format/c90-scanf-1.c: Likewise.
+	* gcc.dg/format/strfmon-1.c: Likewise.
+	* gcc.dg/pch/apple-altivec-1.c: Likewise.
+	* gcc.dg/pch/apple-altivec-1.hs: Likewise.
+	* lib/g++.exp: Likewise.
+
 2004-05-28  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 3665286

@@ -310,9 +310,6 @@ proc g++_target_compile { source dest type options } {
 
     set options [concat "$ALWAYS_CXXFLAGS" $options];
 
-    # APPLE LOCAL long double warning
-    lappend options "additional_flags=-Wno-long-double"
-
     if { [regexp "(^| )-frepo( |$)" $options] && \
 	 [regexp "\.o(|bj)$" $dest] } then {
 	regsub "\.o(|bj)$" $dest ".rpo" rponame
