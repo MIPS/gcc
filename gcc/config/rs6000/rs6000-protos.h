@@ -60,7 +60,7 @@ extern int mask64_operand PARAMS ((rtx, enum machine_mode));
 extern int and64_operand PARAMS ((rtx, enum machine_mode));
 extern int and_operand PARAMS ((rtx, enum machine_mode));
 extern int count_register_operand PARAMS ((rtx, enum machine_mode));
-extern int fpmem_operand PARAMS ((rtx, enum machine_mode));
+extern int xer_operand PARAMS ((rtx, enum machine_mode));
 extern int reg_or_mem_operand PARAMS ((rtx, enum machine_mode));
 extern int lwa_operand PARAMS ((rtx, enum machine_mode));
 extern int call_operand PARAMS ((rtx, enum machine_mode));
