@@ -1,3 +1,8 @@
+2005-03-10  Devang Patel  <dpatel@apple.com>
+
+	Radar 4040918
+	* c-opts.c (set_std_c89): Do not set lang if it is already set as CLK_ASM.
+
 2005-03-09  Devang Patel  <dpatel@apple.com>
 
 	* tree-vectorizer.c (vect_analyze_loop): Reorder data refs alignment analysis.

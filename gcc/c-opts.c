@@ -1465,11 +1465,11 @@ cb_dir_change (cpp_reader * ARG_UNUSED (pfile), const char *dir)
 static void
 set_std_c89 (int c94, int iso)
 {
-  cpp_set_lang (parse_in, c94 ? CLK_STDC94: iso ? CLK_STDC89: CLK_GNUC89);
   /* APPLE LOCAL begin preprocess .s files (radar #3191171) */
   /* Do not override CLK_ASM if set */
   if (cpp_opts->lang != CLK_ASM)
-  /* APPLE LOCAL end */
+     cpp_set_lang (parse_in, c94 ? CLK_STDC94: iso ? CLK_STDC89: CLK_GNUC89);
+  /* APPLE LOCAL end preprocess .s files (radar #3191171) */
   flag_iso = iso;
   flag_no_asm = iso;
   flag_no_gnu_keywords = iso;
