@@ -296,6 +296,7 @@ try_replace (tree *tptr)
   while (!SSA_VAR_P (t) 
 	 && (!CONSTANT_CLASS_P (t)) 
 	 && TREE_CODE (t) != LABEL_DECL
+	 && TREE_CODE (t) != CONST_DECL
 	 && TREE_CODE (t) != FUNCTION_DECL)
     {
       if (TREE_CODE (t) == ARRAY_REF)

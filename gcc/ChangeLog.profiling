@@ -1,3 +1,6 @@
+2005-03-06  Kenneth Zadeck <zadeck@naturalbridge.com>
+	* tree-promote-statics.c (try-replace): Fixed missing CONST_DECL case.
+
 2005-03-05  Jan Hubicka  <jh@suse.cz>
 
 	* tree-flow.h (maybe_fold_stmt_indirect): Declare.
