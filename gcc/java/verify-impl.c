@@ -2346,6 +2346,10 @@ verify_instructions_0 (void)
 
   vfr->next_verify_state = NULL;
 
+  /* Other parts of the compiler assume that there is a label with a
+     type map at PC=0.  */
+  add_new_state (0, vfr->current_state);
+
   while (true)
     {
       /* If the PC was invalidated, get a new one from the work list.  */
@@ -3419,7 +3423,7 @@ int
 verify_method (vfy_method *meth)
 {
   printf ("verify_method (%s) %i\n", vfy_string_bytes (meth->name),
-    meth->code_length);
+	  meth->code_length);
   
   if (vfr != NULL)
     verify_fail ("verifier re-entered");
@@ -3429,5 +3433,5 @@ verify_method (vfy_method *meth)
   free_verifier_context ();
   vfr = NULL;
 
-  return 0;
+  return 1;
 }

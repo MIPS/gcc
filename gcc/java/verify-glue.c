@@ -382,7 +382,7 @@ void
 vfy_note_stack_depth (vfy_method *method, int pc, int depth)
 {
   tree label = lookup_label (pc);
-  LABEL_TYPE_STATE (label) = make_tree_vec (method->max_locals + depth);
+  LABEL_TYPE_STATE (label) = make_tree_vec (method->max_locals + depth + 1);
 }
 
 void
@@ -415,7 +415,8 @@ verify_jvm_instructions_new (JCF *jcf, const unsigned char *byte_ops,
   int i, result, eh_count;
   vfy_exception *exceptions;
 
-  /*method_init_exceptions ();*/
+  method_init_exceptions ();
+
   JCF_SEEK (jcf, DECL_CODE_OFFSET (current_function_decl) + length);
   eh_count = JCF_readu2 (jcf);
 
@@ -442,7 +443,14 @@ verify_jvm_instructions_new (JCF *jcf, const unsigned char *byte_ops,
       exceptions[i].start = start_pc;
       exceptions[i].end = end_pc;
       exceptions[i].type = catch_type;
+
+      add_handler (start_pc, end_pc,
+		   lookup_label (handler_pc),
+		   catch_type == 0 ? NULL_TREE
+		   : get_class_constant (jcf, catch_type));
     }
+
+  handle_nested_ranges ();
 
   method.method = current_function_decl;
   method.signature = build_java_signature (TREE_TYPE (current_function_decl));

@@ -1,5 +1,11 @@
 2004-10-19  Tom Tromey  <tromey@redhat.com>
 
+	* verify-glue.c (vfy_note_stack_depth): Fix off-by-one error.
+	(verify_jvm_instructions_new): Call method_init_exceptions,
+	add_handler, and handle_nested_ranges.
+	* verify-impl.c (verify_method): Return 1 on success.
+	(verify_instructions_0): Save the state at PC=0.
+
 	* verify-impl.c (init_type_from_class): Set is_resolved and
 	ref_next on new ref_intersection.
 	(init_type_from_string): Likewise.
