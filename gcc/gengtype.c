@@ -1,5 +1,5 @@
 /* Process source files and output type information.
-   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1216,7 +1216,8 @@ get_output_file_with_visibility (const char *input_file)
   len = strlen (basename);
   if ((len > 2 && memcmp (basename+len-2, ".c", 2) == 0)
       || (len > 2 && memcmp (basename+len-2, ".y", 2) == 0)
-      || (len > 3 && memcmp (basename+len-3, ".in", 3) == 0))
+      || (len > 3 && memcmp (basename+len-3, ".in", 3) == 0)
+      || (len > 3 && memcmp (basename+len-3, ".cc", 3) == 0))
     {
       char *s;
 

@@ -1,5 +1,9 @@
 2005-01-22  Tom Tromey  <tromey@redhat.com>
 
+	* gengtype.c (get_output_file_with_visibility): Recognize '.cc'.
+
+2005-01-22  Tom Tromey  <tromey@redhat.com>
+
 	* fold-const.c (fold_truthop): Don't use can_use_bit_fields_p.
 	(fold): Likewise.
 	* langhooks.c (lhd_can_use_bit_fields_p): Removed.
