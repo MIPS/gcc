@@ -433,6 +433,12 @@ static const char *default_constant_string_class_name;
 #define TAG_EXECCLASS			"__objc_exec_class"
 #define TAG_GNUINIT			"__objc_gnu_init"
 
+/* APPLE LOCAL begin Objective-C */
+/* Flags for lookup_method_static().  */
+#define OBJC_LOOKUP_CLASS	1	/* Look for class methods.  */
+#define OBJC_LOOKUP_NO_SUPER	2	/* Do not examine superclasses.  */
+/* APPLE LOCAL end Objective-C */
+
 /* The OCTI_... enumeration itself is in objc/objc-act.h.  */
 tree objc_global_trees[OCTI_MAX];
 
@@ -6285,11 +6291,27 @@ lookup_method (tree mchain, tree method)
   return NULL_TREE;
 }
 
+/* APPLE LOCAL begin Objective-C */
+/* Look up a class (if OBJC_LOOKUP_CLASS is set in FLAGS) or instance method
+   in INTERFACE, along with any categories and protocols attached thereto.
+   If method is not found, and the OBJC_LOOKUP_NO_SUPER is _not_ set in FLAGS,
+   recursively examine the INTERFACE's superclass.  If OBJC_LOOKUP_CLASS is 
+   set, OBJC_LOOKUP_NO_SUPER is cleared, and no suitable class method could
+   be found in INTERFACE or any of its superclasses, look for an _instance_
+   method of the same name in the root class as a last resort.
+
+   If a suitable method cannot be found, return NULL_TREE.  */
+   
 static tree
-lookup_method_static (tree interface, tree ident, int is_class)
+lookup_method_static (tree interface, tree ident, int flags)
+/* APPLE LOCAL end Objective-C */
 {
   tree meth = NULL_TREE, root_inter = NULL_TREE;
   tree inter = interface;
+  /* APPLE LOCAL begin Objective-C */
+  int is_class = (flags & OBJC_LOOKUP_CLASS);
+  int no_superclasses = (flags & OBJC_LOOKUP_NO_SUPER);
+  /* APPLE LOCAL end Objective-C */
 
   while (inter)
     {
@@ -6325,6 +6347,12 @@ lookup_method_static (tree interface, tree ident, int is_class)
 		       (CLASS_PROTOCOL_LIST (inter), ident, is_class))))
 	    return meth;
 	}
+
+      /* APPLE LOCAL begin Objective-C */
+      /* If we were instructed not to look in superclasses, don't.  */
+      if (no_superclasses)
+	return NULL_TREE;
+      /* APPLE LOCAL end Objective-C */
 
       /* Failing that, climb up the inheritance hierarchy.  */
       root_inter = inter;
@@ -7960,7 +7988,10 @@ really_start_method (tree method,
       tree proto
 	= lookup_method_static (implementation_template,
 				METHOD_SEL_NAME (method),
-				TREE_CODE (method) == CLASS_METHOD_DECL);
+				/* APPLE LOCAL begin Objective-C */
+				((TREE_CODE (method) == CLASS_METHOD_DECL)
+				 | OBJC_LOOKUP_NO_SUPER));
+				/* APPLE LOCAL end Objective-C */
 
       if (proto)
 	{

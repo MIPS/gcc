@@ -1,3 +1,13 @@
+2005-01-11  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3918079
+	* objc-act.c (OBJC_LOOKUP_CLASS, OBJC_LOOKUP_NO_SUPER): New
+	flags.
+	(lookup_method_static): Generalize third argument to indicate
+	whether to search superclasses for a method.
+	(really_start_method): When looking for matching method in
+	the @interface, do not look in superclasses.
+
 2005-01-06  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 3925982
