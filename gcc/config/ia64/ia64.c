@@ -371,6 +371,12 @@ static const struct attribute_spec ia64_attribute_table[] =
 #undef TARGET_ENCODE_SECTION_INFO
 #define TARGET_ENCODE_SECTION_INFO ia64_encode_section_info
 
+#if TARGET_HPUX
+/* On HPUX, virtual destructors behave as if they are declared last. */
+#undef TARGET_ABI_CXX_VIRTUAL_DTORS_POSITION
+#define TARGET_ABI_CXX_VIRTUAL_DTORS_POSITION abi_cxx_vdp_declared_last
+#endif
+
 struct gcc_target targetm = TARGET_INITIALIZER;
 
 /* Return 1 if OP is a valid operand for the MEM of a CALL insn.  */

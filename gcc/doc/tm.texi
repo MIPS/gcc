@@ -4502,6 +4502,22 @@ defined, then define this hook to return @code{true} if
 Otherwise, you should not define this hook.
 @end deftypefn
 
+@findex abi_cxx_vdp_default
+@findex abi_cxx_vdp_last_in_vtable
+@findex abi_cxx_vdp_declared_last
+@deftypevr {Target Hook} {enum cxx_virtual_dtors_position} TARGET_ABI_CXX_VIRTUAL_DTORS_POSITION
+Set this hook if the default placement of virtual destructors in the
+vtable is not correct for the platform C++ ABI.  The default is
+@code{abi_cxx_vdp_default}, which means they are placed in declaration
+order, just like other virtual functions.  If instead they should be
+treated for all purposes as if they had been declared last in the class,
+set the hook to @code{abi_cxx_vdp_declared_last}.  If they should appear
+last in the vtable, but not otherwise be treated as having been declared
+last in the class, use @code{abi_cxx_vdp_last_in_vtable}.  (At present,
+the difference is that @code{abi_cxx_vdp_declared_last} affects the
+choice of key function, but @code{abi_cxx_vdp_last_in_vtable} does not.)
+@end deftypevr
+
 @node Trampolines
 @section Trampolines for Nested Functions
 @cindex trampolines for nested functions

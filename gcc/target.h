@@ -439,6 +439,16 @@ struct gcc_target
        STRICT_ARGUMENT_NAMING.  */
     bool (*pretend_outgoing_varargs_named) (CUMULATIVE_ARGS *ca);
   } calls;
+
+  /* Hooks relating to ABI.  */
+  struct abi {
+    /* Placement of the virtual dtors.  */
+    enum abi_cxx_virtual_dtors_position {
+      abi_cxx_vdp_default,
+      abi_cxx_vdp_last_in_vtable,  /* Placed last in vtable. */
+      abi_cxx_vdp_declared_last    /* As if they are declared last. */
+    } cxx_virtual_dtors_position;
+  } abi;
 };
 
 extern struct gcc_target targetm;

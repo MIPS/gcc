@@ -349,6 +349,12 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
    TARGET_PRETEND_OUTGOING_VARARGS_NAMED,			\
    }
 
+#define TARGET_ABI_CXX_VIRTUAL_DTORS_POSITION abi_cxx_vdp_default
+
+#define TARGET_ABI {						\
+   TARGET_ABI_CXX_VIRTUAL_DTORS_POSITION,			\
+   }
+
 /* The whole shebang.  */
 #define TARGET_INITIALIZER			\
 {						\
@@ -395,6 +401,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   TARGET_ASM_FILE_START_APP_OFF,		\
   TARGET_ASM_FILE_START_FILE_DIRECTIVE,		\
   TARGET_CALLS,					\
+  TARGET_ABI,					\
 }
 
 #include "hooks.h"

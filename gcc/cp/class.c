@@ -3761,6 +3761,8 @@ static void
 check_methods (tree t)
 {
   tree x;
+  tree dtor = NULL_TREE;
+  tree *last_p = &TYPE_METHODS (t);
 
   for (x = TYPE_METHODS (t); x; x = TREE_CHAIN (x))
     {
@@ -3781,7 +3783,24 @@ check_methods (tree t)
 	  if (DECL_PURE_VIRTUAL_P (x))
 	    CLASSTYPE_PURE_VIRTUALS (t)
 	      = tree_cons (NULL_TREE, x, CLASSTYPE_PURE_VIRTUALS (t));
+	  if ((targetm.abi.cxx_virtual_dtors_position
+	       == abi_cxx_vdp_declared_last)
+	      && DECL_DESTRUCTOR_P (x))
+	    {
+	      my_friendly_assert (!dtor, 20031128);
+	      dtor = x;
+	      *last_p = TREE_CHAIN (x);
+	    }
+	  else
+	    last_p = &TREE_CHAIN (x);
 	}
+    }
+  /* Move the virtual destructor to the end of the method vector, if
+     we should.  */
+  if (dtor)
+    {
+      *last_p = dtor;
+      TREE_CHAIN (dtor) = NULL_TREE;
     }
 }
 
@@ -4250,8 +4269,10 @@ static tree
 create_vtable_ptr (tree t, tree* virtuals_p)
 {
   tree fn;
+  tree trailing_dtors = NULL_TREE;
+  tree first_dtor = NULL_TREE;
 
-  /* Collect the virtual functions declared in T.  */
+  /* Collect the newly declared virtual functions from T, in reverse order.  */
   for (fn = TYPE_METHODS (t); fn; fn = TREE_CHAIN (fn))
     if (DECL_VINDEX (fn) && !DECL_MAYBE_IN_CHARGE_DESTRUCTOR_P (fn)
 	&& TREE_CODE (DECL_VINDEX (fn)) != INTEGER_CST)
@@ -4261,9 +4282,28 @@ create_vtable_ptr (tree t, tree* virtuals_p)
 	BV_FN (new_virtual) = fn;
 	BV_DELTA (new_virtual) = integer_zero_node;
 
-	TREE_CHAIN (new_virtual) = *virtuals_p;
-	*virtuals_p = new_virtual;
+	if ((targetm.abi.cxx_virtual_dtors_position
+	     == abi_cxx_vdp_last_in_vtable)
+	    && DECL_DESTRUCTOR_P (fn))
+	  {
+	    if (!trailing_dtors)
+	      first_dtor = new_virtual;
+	    TREE_CHAIN (new_virtual) = trailing_dtors;
+	    trailing_dtors = new_virtual;
+	  }
+	else
+	  {
+	    TREE_CHAIN (new_virtual) = *virtuals_p;
+	    *virtuals_p = new_virtual;
+	  }
       }
+
+  /* If we saved any virtual dtors, prepend them now.  */
+  if (trailing_dtors)
+    {
+      TREE_CHAIN (first_dtor) = *virtuals_p;
+      *virtuals_p = trailing_dtors;
+    }
   
   /* If we couldn't find an appropriate base class, create a new field
      here.  Even if there weren't any new virtual functions, we might need a
