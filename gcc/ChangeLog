@@ -1,3 +1,10 @@
+2003-12-03  Andrew Haley  <aph@redhat.com>
+
+	* tree-eh.c (tree_could_trap_p): Add division instructions.
+	* expr.c (expand_expr): Check the EH region of an expression and
+	mark all the insns that result from its expansion with the
+	appropriate REG_EH_REGION.
+
 2003-12-04  Richard Henderson  <rth@redhat.com>
 
         * config/i386/i386.md (addqi3_carry): Use q not r constraints.

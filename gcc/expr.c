@@ -6282,12 +6282,24 @@ rtx
 expand_expr (tree exp, rtx target, enum machine_mode tmode,
 	     enum expand_modifier modifier)
 {
+  int rn = -1;
+  rtx ret, last;
+
   /* Handle ERROR_MARK before anybody tries to access its type.  */
   if (TREE_CODE (exp) == ERROR_MARK
       || TREE_CODE (TREE_TYPE (exp)) == ERROR_MARK)
     {
-      rtx ret = CONST0_RTX (tmode);
+      ret = CONST0_RTX (tmode);
       return ret ? ret : const0_rtx;
+    }
+
+  if (flag_non_call_exceptions)
+    {
+      rn = lookup_stmt_eh_region (exp);
+      /* If rn < 0, then either (1) tree-ssa not used or (2) doesn't
+	 throw.  */
+      if (rn >= 0)
+	last = get_last_insn ();
     }
 
   /* If this is an expression of some kind and it has an associated line
@@ -6300,13 +6312,10 @@ expand_expr (tree exp, rtx target, enum machine_mode tmode,
      than globals.  */
   if (cfun && EXPR_LOCUS (exp))
     {
-      location_t saved_location;
-      rtx ret;
-
-      saved_location = input_location;
+      location_t saved_location = input_location;
       input_location = *EXPR_LOCUS (exp);
       emit_line_note (input_location);
-
+      
       /* Record where the insns produced belong.  */
       if (cfun->dont_emit_block_notes)
 	record_block_change (TREE_BLOCK (exp));
@@ -6314,11 +6323,35 @@ expand_expr (tree exp, rtx target, enum machine_mode tmode,
       ret = expand_expr_1 (exp, target, tmode, modifier);
 
       input_location = saved_location;
-
-      return ret;
+    }
+  else
+    {
+      ret = expand_expr_1 (exp, target, tmode, modifier);
     }
 
-  return expand_expr_1 (exp, target, tmode, modifier);
+  /* If using non-call exceptions, mark all insns that may trap.
+     expand_call() will mark CALL_INSNs before we get to this code,
+     but it doesn't handle libcalls, and these may trap.  */
+  if (rn >= 0)
+    {	
+      rtx insn;
+      for (insn = next_real_insn (last); insn; 
+	   insn = next_real_insn (insn))
+	{
+	  if (! find_reg_note (insn, REG_EH_REGION, NULL_RTX)
+	      /* If we want exceptions for non-call insns, any
+		 may_trap_p instruction may throw.  */
+	      && GET_CODE (PATTERN (insn)) != CLOBBER
+	      && GET_CODE (PATTERN (insn)) != USE
+	      && (GET_CODE (insn) == CALL_INSN || may_trap_p (PATTERN (insn))))
+	    {
+	      REG_NOTES (insn) = alloc_EXPR_LIST (REG_EH_REGION, GEN_INT (rn),
+						  REG_NOTES (insn));
+	    }
+	}
+    }
+
+  return ret;
 }
 
 static rtx
