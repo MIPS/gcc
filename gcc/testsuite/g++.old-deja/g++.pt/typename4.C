@@ -1,3 +1,5 @@
+// Implicit typename is removed, this gives errors
+
 // Build don't link:
 // Special g++ Options:
 
@@ -17,11 +19,11 @@ struct B : public A<U>
 template <class U>
 struct C : public B<U>
 {
-  A_Type Func();
+  A_Type Func();	// ERROR - expected
 };
 
 
 template <class U>
-C<U>::A_Type C<U>::Func()
+C<U>::A_Type C<U>::Func()	// ERROR - expected
 {
 }

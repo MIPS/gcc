@@ -1,4 +1,5 @@
-// Test for implicit typename
+// Test for implicit typename, which is now removed, so this should
+// emit an error.
 // Build don't link:
 // Special g++ Options:
 
@@ -15,6 +16,6 @@ template <class T>
 struct D : public A <C <T> > {
   void f ()
     {
-      B* new_entries = (B *) 0;
+      B* new_entries = (B *) 0;	// ERROR - expected
     }
 };
