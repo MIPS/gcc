@@ -1,3 +1,12 @@
+2005-02-21  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4015820
+	* objc/objc-act.c (objc_gimplify_expr):  New.
+	* objc/objc-lang.c (LANG_HOOKS_GIMPLIFY_EXPR):  Use it.
+	* objc/objc-act.h:  Declare it.  Include tree-gimple.h.
+	* objc/Make-lang.in:  Add required tree-gimple.h's.
+	* objcp/Make-lang.in:  Ditto.
+
 2005-02-21  Stan Shebs  <shebs@apple.com>
 
 	* config/darwin-c.c (darwin_pragma_options): Warn about uses

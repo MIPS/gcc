@@ -22,6 +22,10 @@ Boston, MA 02111-1307, USA.  */
 #ifndef GCC_OBJC_ACT_H
 #define GCC_OBJC_ACT_H
 
+/* APPLE LOCAL begin Radar 4015820 FSF candidate */
+/* For enum gimplify_status */
+#include "tree-gimple.h"
+/* APPLE LOCAL end Radar 4015820 FSF candidate */
 /*** Language hooks ***/
 
 bool objc_init (void);
@@ -31,6 +35,8 @@ tree objc_get_callee_fndecl (tree);
 void objc_finish_file (void);
 tree objc_fold_obj_type_ref (tree, tree);
 int objc_types_compatible_p (tree, tree);
+/* APPLE LOCAL Radar 4015820 FSF candidate */
+enum gimplify_status objc_gimplify_expr (tree *, tree *, tree *);
 
 /* NB: The remaining public functions are prototyped in c-common.h, for the
    benefit of stub-objc.c and objc-act.c.  */
