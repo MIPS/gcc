@@ -1,3 +1,11 @@
+2003-07-15  Jakub Jelinek  <jakub@redhat.com>
+
+	* expr.c (emit_block_move): Don't move anything if size is const0_rtx.
+	(clear_storage): Test against const0_rtx instead of comparing INTVAL
+	against 0.
+	* config/s390/s390.md (movstrdi, movstrsi, clrstrdi, clrstrsi): Don't
+	do anything if length is const0_rtx.
+
 2003-07-13  Richard Henderson  <rth@redhat.com>
 
 	* libgcc-std.ver (GCC_3.3.1): Export __gcc_personality_sj0,
