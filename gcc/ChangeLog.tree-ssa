@@ -1,3 +1,7 @@
+2004-01-21  Dale Johannesen  <dalej@apple.com>
+	 
+	* tree-ssa-dfa.c:  Fix comment.
+
 2004-01-21  Richard Henderson  <rth@redhat.com>
 
 	PR opt/13681

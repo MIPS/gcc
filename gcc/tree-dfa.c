@@ -2083,9 +2083,7 @@ find_hidden_use_vars_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
 
 /* Create GLOBAL_VAR, an artificial global variable to act as a
    representative of all the variables that may be clobbered by function
-   calls.  Also create GLOBAL_CLOBBER_EXPR, an artificial expression that
-   is used as the originating definition of all clobbered SSA variables in
-   the program.  */
+   calls.  */
 
 void
 create_global_var (void)
