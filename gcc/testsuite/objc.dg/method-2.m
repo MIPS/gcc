@@ -23,6 +23,9 @@
     [MyIntermediate rootInstanceMethod];  /* with the same name.                       */
 
     [self instanceMethod];   /* { dg-warning ".MyDerived. may not respond to .\\+instanceMethod." } */
+       /* { dg-warning "Messages without a matching method signature" "" { target *-*-* } 25 } */
+       /* { dg-warning "will be assumed to return .id. and accept" "" { target *-*-* } 25 } */
+       /* { dg-warning ".\.\.\.. as arguments" "" { target *-*-* } 25 } */
     [MyDerived instanceMethod];   /* { dg-warning ".MyDerived. may not respond to .\\+instanceMethod." } */
 }
 @end

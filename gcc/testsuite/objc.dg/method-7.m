@@ -14,9 +14,17 @@
 
 id foo(void) {
   Object *obj = [[Object alloc] init];
+  id obj2 = obj;
   [obj setWindow:nil];  /* { dg-warning ".Object. may not respond to .\\-setWindow:." } */
-	/* { dg-warning "multiple declarations for method .setWindow:." "" { target *-*-* } 17 } */
-	/* { dg-warning "using .\\-\\(void\\)setWindow:\\(Object \\*\\)wdw." "" { target *-*-* } 8 } */
-	/* { dg-warning "also found .\\-\\(void\\)setWindow:\\(Class1 \\*\\)window." "" { target *-*-* } 12 } */
+       /* { dg-warning "Messages without a matching method signature" "" { target *-*-* } 18 } */
+       /* { dg-warning "will be assumed to return .id. and accept" "" { target *-*-* } 18 } */
+       /* { dg-warning ".\.\.\.. as arguments" "" { target *-*-* } 18 } */
+  [obj2 setWindow:nil]; /* { dg-warning "multiple methods named .\\-setWindow:. found" } */
+       /* { dg-warning "could be using .\\-\\(void\\)setWindow:\\(Object \\*\\)wdw." "" { target *-*-* } 8 } */
+       /* { dg-warning "or .\\-\\(void\\)setWindow:\\(Class1 \\*\\)window." "" { target *-*-* } 12 } */
+       /* { dg-warning "Messages matching multiple method signatures" "" { target *-*-* } 22 } */
+       /* { dg-warning "will be assumed to return .id. and accept" "" { target *-*-* } 22 } */
+       /* { dg-warning ".\.\.\.. as arguments" "" { target *-*-* } 22 } */
+
   return obj;
 }
