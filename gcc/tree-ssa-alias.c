@@ -1683,7 +1683,6 @@ may_alias_p (tree ptr, HOST_WIDE_INT mem_alias_set,
       alias_stats.tbaa_resolved++;
       return false;
     }
-
   alias_stats.alias_mayalias++;
   return true;
 }
@@ -2614,7 +2613,7 @@ may_be_aliased (tree var)
 typedef struct fieldoff
 {
   tree field;
-  unsigned HOST_WIDE_INT offset;  
+  HOST_WIDE_INT offset;  
 } *fieldoff_t;
 
 DEF_VEC_MALLOC_P(fieldoff_t);
@@ -2788,6 +2787,33 @@ get_subvars_for_var (tree var)
   return &new_pair->subvars;    
 }
 
+typedef struct used_part
+{
+  HOST_WIDE_INT minused;
+  HOST_WIDE_INT maxused;
+} *used_part_t;
+
+static used_part_t *used_portions;
+
+/* Given a variable uid, UID, get or create the entry in the used portions
+   table for the variable.  */
+static used_part_t
+get_or_create_used_part_for (size_t uid)
+{
+  used_part_t up;
+  if (used_portions[uid] == NULL)
+    {
+      up = xcalloc (1, sizeof (struct used_part));
+      up->minused = INT_MAX;
+      up->maxused = 0;
+    }
+  else
+    up = used_portions[uid];
+  return up;
+}
+
+	    
+  
 /* Given an aggregate VAR, create the fake variables that represent it's
    fields.  */
 
@@ -2795,6 +2821,12 @@ static void
 create_overlap_variables_for (tree var)
 {
   VEC(fieldoff_t) *fieldstack = NULL;
+  used_part_t up;
+  size_t uid = var_ann (var)->uid;
+  
+  if (used_portions[uid] == NULL)
+    return;
+
   push_fields_onto_fieldstack (TREE_TYPE (var), &fieldstack, 0);
   if (VEC_length (fieldoff_t, fieldstack) != 0)
     {
@@ -2827,14 +2859,28 @@ create_overlap_variables_for (tree var)
 	}
       /* Otherwise, create the variables.  */
       subvars = get_subvars_for_var (var);
+      up = used_portions[uid];
+      
       while (VEC_length (fieldoff_t, fieldstack) != 0)
 	{
 	  subvar_t sv = xmalloc (sizeof (struct subvar));
-	  char *name = alloca (512);
+	  char *name;
+	  HOST_WIDE_INT fosize;
 	  var_ann_t ann;
+
 	  fo = VEC_pop (fieldoff_t, fieldstack);	  
+	  fosize = TREE_INT_CST_LOW (DECL_SIZE (fo->field));
+
+	  if ((fo->offset <= up->minused
+	       && fo->offset + fosize <= up->minused)
+	      || fo->offset >= up->maxused)
+	    {
+	      free (fo);
+	      continue;
+	    }  
+	  name = alloca (512);
 	  sv->offset = fo->offset;
-	  sv->size = TREE_INT_CST_LOW (DECL_SIZE (fo->field));
+	  sv->size = fosize;
 	  sv->next = *subvars;
 	  sprintf (name, "fo:%s#" HOST_WIDE_INT_PRINT_DEC "#" HOST_WIDE_INT_PRINT_DEC, get_name (var), sv->offset, sv->size);
 	  sv->var = create_tmp_var_raw (TREE_TYPE (fo->field), name);
@@ -2846,6 +2892,8 @@ create_overlap_variables_for (tree var)
 	    DECL_EXTERNAL (sv->var) = 1;
 	  if (TREE_STATIC (var))
 	    TREE_STATIC (sv->var) = 1;
+	  if (TREE_READONLY (fo->field))
+	    TREE_READONLY (sv->var) = 1;
 	  TREE_ADDRESSABLE (sv->var) = 1;
 	  DECL_CONTEXT (sv->var) = current_function_decl;
 	  ann = get_var_ann (sv->var);
@@ -2861,20 +2909,132 @@ create_overlap_variables_for (tree var)
   VEC_free (fieldoff_t, fieldstack);
 }
 
+
+/* Find the conservative answer to the question of what portions of what 
+   structures are used by this statement.  We assume that if we have a
+   component ref with a known size + offset, that we only need that part
+   of the structure.  For unknown cases, or cases where we do something
+   to the whole structure, we assume we need to create fields for the 
+   entire structure.  */
+static tree
+find_used_portions (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
+{
+  switch (TREE_CODE (*tp))
+    {
+    case COMPONENT_REF:
+      {
+	HOST_WIDE_INT bitsize;
+	HOST_WIDE_INT bitpos;
+	tree offset;
+	enum machine_mode mode;
+	int unsignedp;
+	int volatilep;	
+	tree ref;
+	ref = get_inner_reference (*tp, &bitsize, &bitpos, &offset, &mode,
+				   &unsignedp, &volatilep);
+	if (DECL_P (ref) && offset == NULL && bitsize != -1)
+	  {	    
+	    size_t uid = var_ann (ref)->uid;
+	    used_part_t up;
+
+	    up = get_or_create_used_part_for (uid);	    
+
+	    if (bitpos <= up->minused)
+	      up->minused = bitpos;
+	    if ((bitpos + bitsize >= up->maxused))
+	      up->maxused = bitpos + bitsize;	    
+
+	    used_portions[uid] = up;
+
+	    *walk_subtrees = 0;
+	    return NULL_TREE;
+	  }
+	else if (DECL_P (ref))
+	  {
+	    if (DECL_SIZE (ref)
+		&& AGGREGATE_TYPE_P (TREE_TYPE (ref)) 
+		&& TREE_CODE (TREE_TYPE (ref)) != ARRAY_TYPE
+		&& TREE_CODE (DECL_SIZE (ref)) == INTEGER_CST)
+	      {
+		used_part_t up;
+		size_t uid = var_ann (ref)->uid;
+
+		up = get_or_create_used_part_for (uid);
+
+		up->minused = 0;
+		up->maxused = TREE_INT_CST_LOW (DECL_SIZE (ref));
+
+		used_portions[uid] = up;
+
+		*walk_subtrees = 0;
+		return NULL_TREE;
+	      }
+	  }
+      }
+      break;
+    case VAR_DECL:
+    case PARM_DECL:
+      {
+	tree var = *tp;
+	if (DECL_SIZE (var)
+	    && AGGREGATE_TYPE_P (TREE_TYPE (var)) 
+	    && TREE_CODE (TREE_TYPE (var)) != ARRAY_TYPE
+	    && TREE_CODE (DECL_SIZE (var)) == INTEGER_CST)
+	  {
+	    used_part_t up;
+	    size_t uid = var_ann (var)->uid;	    
+	    
+	    up = get_or_create_used_part_for (uid);
+ 
+	    up->minused = 0;
+	    up->maxused = TREE_INT_CST_LOW (DECL_SIZE (var));
+
+	    used_portions[uid] = up;
+	    *walk_subtrees = 0;
+	    return NULL_TREE;
+	  }
+      }
+      break;
+      
+    default:
+      break;
+      
+    }
+  return NULL_TREE;
+}
+/* We are about to create some new referenced variables, and we need the
+   before size.  */
+
+static size_t old_referenced_vars;
+
+
 /* Create structure field variables for structures used in this function.  */
 
 static void
 create_structure_vars (void)
 {
-
+  basic_block bb;
   size_t i;
+
+  old_referenced_vars = num_referenced_vars;
+  used_portions = xcalloc (num_referenced_vars, sizeof (used_part_t));
+  
   subvars_for_var = htab_create (10, var_subvar_hash, var_subvar_eq, 
 				 var_subvar_free);
-  for (i = 0; i < num_referenced_vars; i++)
+  FOR_EACH_BB (bb)
+    {
+      block_stmt_iterator bsi;
+      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+	{
+	  walk_tree_without_duplicates (bsi_stmt_ptr (bsi), 
+					find_used_portions,
+					NULL);
+	}
+    }
+  for (i = 0; i < old_referenced_vars; i++)
     {
       tree var = referenced_var (i);
       /* The C++ FE creates vars without DECL_SIZE set, for some reason.  */
-      
       if (var 	  
 	  && DECL_SIZE (var)
 	  && AGGREGATE_TYPE_P (TREE_TYPE (var)) 
@@ -2883,6 +3043,10 @@ create_structure_vars (void)
 	  && TREE_CODE (DECL_SIZE (var)) == INTEGER_CST)
 	create_overlap_variables_for (var);
     }
+  for (i = 0; i < old_referenced_vars; i++)
+    free (used_portions[i]);
+
+  free (used_portions);
 }
 
 /* Return true if REF, a component_ref, has an ARRAY_REF somewhere in it.  */
@@ -2925,7 +3089,8 @@ get_fake_vars_for_var (tree var)
 /* Given a REF, return the list of fake variables it can access.
    OKAY_FOR_KILLDEF is a boolean that will be set to true if we know exactly
    what variables this component_ref is going to touch.  This isn't true if we
-   have overlaps, or return the conservative answer of every fake variable.  */
+   have overlaps, or return the conservative answer of every fake
+   variable.  */
 
 VEC(tree_on_heap) *
 get_fake_vars_for_component_ref (tree ref, bool *okay_for_killdef)
@@ -2987,18 +3152,18 @@ get_fake_vars_for_component_ref (tree ref, bool *okay_for_killdef)
 
 struct tree_opt_pass pass_create_structure_vars = 
 {
-  "svars",		/* name */
-  NULL,					/* gate */
+  "svars",		 /* name */
+  NULL,			 /* gate */
   create_structure_vars, /* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  0,			/* tv_id */
-  PROP_cfg,				/* properties_required */
-  0,					/* properties_provided */
-  0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  TODO_dump_func,					/* todo_flags_finish */
-  0					/* letter */
+  NULL,			 /* sub */
+  NULL,			 /* next */
+  0,			 /* static_pass_number */
+  0,			 /* tv_id */
+  PROP_cfg,		 /* properties_required */
+  0,			 /* properties_provided */
+  0,			 /* properties_destroyed */
+  0,			 /* todo_flags_start */
+  TODO_dump_func,	 /* todo_flags_finish */
+  0			 /* letter */
 };
 

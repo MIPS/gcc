@@ -1,3 +1,16 @@
+2004-12-22 Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-ssa-alias.c (fieldoff_t): Make offset HOST_WIDE_INT.
+	(used_part_t): New structure.
+	(used_portions): New array.
+	(get_or_create_used_part_for): New function.
+	(create_overlap_variables_for): Use used_portions to decide
+	what fields we need fake variables for.
+	(find_used_portions): New function. 
+	(old_referenced_vars): New variable.
+	(create_structure_vars): Find used portions of structures
+	before creating overlap variables.
+
 2004-12-20 Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-flow.h (get_fake_vars_for_component_ref): Update prototype.
