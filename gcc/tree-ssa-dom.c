@@ -88,7 +88,7 @@ static void set_value_for (tree, tree, htab_t);
 static hashval_t var_value_hash (const void *);
 static int var_value_eq (const void *, const void *);
 static tree lookup_avail_expr (tree, varray_type *, htab_t);
-static tree get_eq_expr_value (tree, int);
+static tree get_eq_expr_value (tree, int, varray_type *, htab_t);
 static hashval_t avail_expr_hash (const void *);
 static int avail_expr_eq (const void *, const void *);
 static void htab_statistics (FILE *, htab_t);
@@ -186,7 +186,9 @@ optimize_block (basic_block bb, tree parent_block_last_stmt, int edge_flags)
       && TREE_CODE (parent_block_last_stmt) == COND_EXPR
       && (edge_flags & (EDGE_TRUE_VALUE | EDGE_FALSE_VALUE)))
     eq_expr_value = get_eq_expr_value (parent_block_last_stmt,
-				       (edge_flags & EDGE_TRUE_VALUE) != 0);
+				       (edge_flags & EDGE_TRUE_VALUE) != 0,
+				       &block_avail_exprs,
+				       const_and_copies);
                                                                                 
 
   /* If EQ_EXPR_VALUE (VAR == VALUE) is given, register the VALUE as a
@@ -409,14 +411,17 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p)
   /* Check for redundant computations.  Do this optimization only
      for assignments that make no calls and have no aliased stores
      nor volatile references and no side effects (i.e., no VDEFs).  */
-  may_optimize_p = !ann->makes_aliased_stores
-		   && !ann->has_volatile_ops
-		   && vdefs == NULL
-		   && def_p
-		   && ! TREE_SIDE_EFFECTS (TREE_OPERAND (stmt, 1));
+  may_optimize_p = (!ann->makes_aliased_stores
+		    && !ann->has_volatile_ops
+		    && vdefs == NULL
+		    && ((def_p
+			 && ! TREE_SIDE_EFFECTS (TREE_OPERAND (stmt, 1)))
+			|| TREE_CODE (stmt) == COND_EXPR));
 
   if (may_optimize_p)
     {
+      tree *expr_p;
+
       /* Check if the RHS of the assignment has been computed before.  If
 	 so, use the LHS of the previously computed statement as the
 	 reaching definition for the variable defined by this statement.  */
@@ -425,21 +430,27 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p)
 					   const_and_copies);
       opt_stats.num_exprs_considered++;
       if (cached_lhs
-	  && (TREE_TYPE (cached_lhs) == TREE_TYPE (*def_p)
+	  && (TREE_CODE (stmt) == COND_EXPR
+	      || TREE_TYPE (cached_lhs) == TREE_TYPE (*def_p)
 	      || (TYPE_MAIN_VARIANT (TREE_TYPE (cached_lhs))
 		  == TYPE_MAIN_VARIANT (TREE_TYPE (*def_p)))))
 	{
+	  if (TREE_CODE (stmt) == COND_EXPR)
+	    expr_p = &TREE_OPERAND (stmt, 0);
+	  else
+	    expr_p = &TREE_OPERAND (stmt, 1);
+
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
 	      fprintf (dump_file, "  Replaced redundant expr '");
-	      print_generic_expr (dump_file, TREE_OPERAND (stmt, 1), 0);
+	      print_generic_expr (dump_file, *expr_p, 0);
 	      fprintf (dump_file, "' with '");
 	      print_generic_expr (dump_file, cached_lhs, 0);
 	      fprintf (dump_file, "'\n");
 	    }
 
 	  opt_stats.num_re++;
-	  TREE_OPERAND (stmt, 1) = cached_lhs;
+	  *expr_p = cached_lhs;
 	  ann->modified = 1;
 	}
     }
@@ -544,17 +555,35 @@ lookup_avail_expr (tree stmt,
   tree rhs;
   tree lhs;
   tree temp;
+  int insert;
+
+  /* For a COND_EXPR, the expression we care about is in operand 0, not
+     operand 1.  Also note that for a COND_EXPR, we merely want to see if
+     we have the expression in the hash table, we do not want to create
+     a new entry in the hash table.  */
+  if (TREE_CODE (stmt) == COND_EXPR)
+    {
+      rhs = TREE_OPERAND (stmt, 0);
+      insert = 0;
+    }
+  else
+    {
+      rhs = TREE_OPERAND (stmt, 1);
+      insert = 1;
+    }
 
   /* Don't bother remembering constant assignments and copy operations.
      Constants and copy operations are handled by the constant/copy propagator
      in optimize_stmt.  */
-  rhs = TREE_OPERAND (stmt, 1);
   if (TREE_CODE (rhs) == SSA_NAME
       || is_unchanging_value (rhs)
       || is_optimizable_addr_expr (rhs))
     return NULL_TREE;
 
-  slot = htab_find_slot (avail_exprs, stmt, INSERT);
+  slot = htab_find_slot (avail_exprs, stmt, (insert ? INSERT : NO_INSERT));
+  if (slot == NULL)
+    return NULL_TREE;
+
   if (*slot == NULL)
     {
       *slot = (void *) stmt;
@@ -568,9 +597,12 @@ lookup_avail_expr (tree stmt,
 
   /* See if the LHS appears in the const_and_copies table.  If it does, then
      use the value from the const_and_copies table.  */
-  temp = get_value_for (lhs, const_and_copies);
-  if (temp)
-    lhs = temp;
+  if (SSA_VAR_P (lhs))
+    {
+      temp = get_value_for (lhs, const_and_copies);
+      if (temp)
+	lhs = temp;
+    }
 
   return lhs;
 }
@@ -580,14 +612,73 @@ lookup_avail_expr (tree stmt,
    known to be true depending on which arm of IF_STMT is taken.
 
    Not all conditional statements will result in a useful assignment.
-   Return NULL_TREE in that case.  */
+   Return NULL_TREE in that case.
+
+   Also enter into the available expression table statements of
+   the form:
+
+     TRUE ARM		FALSE ARM
+     1 = cond		1 = cond'
+     0 = cond'		0 = cond
+
+   This allows us to lookup the condition in a dominated block and
+   get back a constant indicating if the condition is true.  */
 
 static tree
-get_eq_expr_value (tree if_stmt, int true_arm)
+get_eq_expr_value (tree if_stmt, int true_arm,
+		   varray_type *block_avail_exprs_p, htab_t const_and_copies)
 {
   tree cond, value;
 
   cond = COND_EXPR_COND (if_stmt);
+
+  /* If we have a comparison expression, then record its result into
+     the available expression table.  */
+  if (TREE_CODE_CLASS (TREE_CODE (cond)) == '<')
+    {
+      tree temp;
+
+      /* When we find an available expression in the hash table, we replace
+	 the expression with the LHS of the statement in the hash table.
+
+	 So, we want to build statements such as "1 = <condition>" on the
+	 true arm and "0 = <condition>" on the false arm.  That way if we
+	 find the expression in the table, we will replace it with its
+	 known constant value.  Also insert inversions of the result and
+	 condition into the hash table.  */
+      if (true_arm)
+	{
+	  /* Insert 1 = cond into the available expression table.  */
+	  temp = build (MODIFY_EXPR, TREE_TYPE (cond),
+			integer_one_node, cond);
+	  temp = lookup_avail_expr (temp,
+				    block_avail_exprs_p,
+				    const_and_copies);
+
+	  /* Insert 0 = cond' into the hash table.  */
+	  temp = build (MODIFY_EXPR, TREE_TYPE (cond),
+			integer_zero_node, invert_truthvalue (cond));
+	  temp = lookup_avail_expr (temp,
+				    block_avail_exprs_p,
+				    const_and_copies);
+	}
+      else
+	{
+	  /* Insert 1 = cond' into the available expression table.  */
+	  temp = build (MODIFY_EXPR, TREE_TYPE (cond),
+			integer_one_node, invert_truthvalue (cond));
+	  temp = lookup_avail_expr (temp,
+				    block_avail_exprs_p,
+				    const_and_copies);
+
+	  /* Insert 0 = cond into the available expression table.  */
+	  temp = build (MODIFY_EXPR, TREE_TYPE (cond),
+			integer_zero_node, cond);
+	  temp = lookup_avail_expr (temp,
+				    block_avail_exprs_p,
+				    const_and_copies);
+	}
+    }
 
   /* If the conditional is a single variable 'X', return 'X = 1' for
      the true arm and 'X = 0' on the false arm.   */
@@ -640,10 +731,16 @@ avail_expr_hash (const void *p)
   varray_type ops;
   tree stmt = (tree) p;
 
+  /* If we're hashing a COND_EXPR, the expression we care about is
+     in operand position 0, not position 1.  */
+  if (TREE_CODE (stmt) == COND_EXPR)
+    rhs = TREE_OPERAND (stmt, 0);
+  else
+    rhs = TREE_OPERAND (stmt, 1);
+ 
   /* iterative_hash_expr knows how to deal with any expression and
      deals with commutative operators as well, so just use it instead
      of duplicating such complexities here.  */
-  rhs = TREE_OPERAND (stmt, 1);
   val = iterative_hash_expr (rhs, val);
 
   /* Add the SSA version numbers of every vuse operand.  This is important
@@ -664,10 +761,16 @@ avail_expr_eq (const void *p1, const void *p2)
   tree s1, s2, rhs1, rhs2;
 
   s1 = (tree) p1;
-  rhs1 = TREE_OPERAND (s1, 1);
+  if (TREE_CODE (s1) == COND_EXPR)
+    rhs1 = TREE_OPERAND (s1, 0);
+  else
+    rhs1 = TREE_OPERAND (s1, 1);
 
   s2 = (tree) p2;
-  rhs2 = TREE_OPERAND (s2, 1);
+  if (TREE_CODE (s2) == COND_EXPR)
+    rhs2 = TREE_OPERAND (s2, 0);
+  else
+    rhs2 = TREE_OPERAND (s2, 1);
 
   /* If they are the same physical statement, return true.  */
   if (s1 == s2)
@@ -692,6 +795,12 @@ avail_expr_eq (const void *p1, const void *p2)
 #endif
 	  return true;
 	}
+
+      /* If one has virtual operands and the other does not, then we
+	 consider them not equal.  */
+      if ((ops1 == NULL && ops2 != NULL)
+	  || (ops1 != NULL && ops2 == NULL))
+	return false;
 
       if (VARRAY_ACTIVE_SIZE (ops1) == VARRAY_ACTIVE_SIZE (ops2))
 	{
