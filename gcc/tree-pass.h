@@ -74,6 +74,7 @@ struct tree_opt_pass
 #define PROP_referenced_vars	(1 << 4)
 #define PROP_pta		(1 << 5)
 #define PROP_ssa		(1 << 6)
+#define PROP_no_crit_edges      (1 << 7)
 
 /* To-do flags.  */
 #define TODO_dump_func		(1 << 0)	/* pass doesn't dump itself */
@@ -107,6 +108,7 @@ extern struct tree_opt_pass pass_del_ssa;
 extern struct tree_opt_pass pass_dominator;
 extern struct tree_opt_pass pass_dce;
 extern struct tree_opt_pass pass_may_alias;
+extern struct tree_opt_pass pass_split_crit_edges;
 extern struct tree_opt_pass pass_pre;
 extern struct tree_opt_pass pass_profile;
 extern struct tree_opt_pass pass_lower_complex;

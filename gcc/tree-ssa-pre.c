@@ -238,7 +238,6 @@ static void compute_du_info (struct expr_info *);
 static void add_ephi_use (tree, tree, int);
 static void insert_one_operand (struct expr_info *, tree, int, tree, edge, 
 				tree **);
-static bool split_critical_edges (void);
 static void collect_expressions (basic_block, varray_type *);
 static int build_dfn_array (basic_block, int);
 static int eref_compare (const void *, const void *);
@@ -3013,27 +3012,6 @@ pre_expression (struct expr_info *slot, void *data, bitmap vars_to_rename)
   return 0;
 }
 
-/* Split all critical edges.  */
-
-static bool
-split_critical_edges (void)
-{
-  bool did_something = false;
-  basic_block bb;
-  edge e;
-
-  FOR_ALL_BB (bb)
-    {
-      for (e = bb->succ; e ; e = e->succ_next)
-	if (EDGE_CRITICAL_P (e) && !(e->flags & EDGE_ABNORMAL))
-	  {
-	    split_edge (e);
-	    did_something = true;
-	  }
-    }
-
-  return did_something;
-}
 
 /* Step 1 - Collect the expressions to perform PRE on.  */
 
@@ -3150,8 +3128,6 @@ execute_pre (void)
   size_t k;
   int i;
  
-  split_critical_edges ();  
-
   if (ENTRY_BLOCK_PTR->succ->dest->pred->pred_next)
     if (!(ENTRY_BLOCK_PTR->succ->flags & EDGE_ABNORMAL))
       split_edge (ENTRY_BLOCK_PTR->succ);
@@ -3239,7 +3215,7 @@ struct tree_opt_pass pass_pre =
   NULL,					/* next */
   0,					/* static_pass_number */
   TV_TREE_PRE,				/* tv_id */
-  PROP_cfg | PROP_ssa,			/* properties_required */
+  PROP_no_crit_edges | PROP_cfg | PROP_ssa,/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */

@@ -94,6 +94,8 @@ static void make_switch_expr_edges (basic_block);
 static void make_goto_expr_edges (basic_block);
 static edge tree_redirect_edge_and_branch (edge, basic_block);
 static edge tree_try_redirect_by_replacing_jump (edge, basic_block);
+static void split_critical_edges (void);
+
 
 /* Various helpers.  */
 static inline bool stmt_starts_bb_p (tree, tree);
@@ -113,6 +115,7 @@ static edge find_taken_edge_cond_expr (basic_block, tree);
 static edge find_taken_edge_switch_expr (basic_block, tree);
 static tree find_case_label_for_value (tree, tree);
 static int phi_alternatives_equal (basic_block, edge, edge);
+
 
 /*---------------------------------------------------------------------------
 			      Create basic blocks
@@ -3926,4 +3929,40 @@ struct cfg_hooks tree_cfg_hooks = {
   NULL				/* tidy_fallthru_edge  */
 };
 
+
+/* Split all critical edges.  */
+
+static void
+split_critical_edges (void)
+{
+  basic_block bb;
+  edge e;
+
+  FOR_ALL_BB (bb)
+    {
+      for (e = bb->succ; e ; e = e->succ_next)
+	if (EDGE_CRITICAL_P (e) && !(e->flags & EDGE_ABNORMAL))
+	  {
+	    split_edge (e);
+	  }
+    }
+
+}
+
+struct tree_opt_pass pass_split_crit_edges = 
+{
+  NULL,                          /* name */
+  NULL,                          /* gate */
+  split_critical_edges,          /* execute */
+  NULL,                          /* sub */
+  NULL,                          /* next */
+  0,                             /* static_pass_number */
+  TV_TREE_SPLIT_EDGES,           /* tv_id */
+  PROP_cfg,                      /* properties required */
+  PROP_no_crit_edges,            /* properties_provided */
+  0,                             /* properties_destroyed */
+  0,                             /* todo_flags_start */
+  0,                             /* todo_flags_finish */
+};
+  
 #include "gt-tree-cfg.h"

@@ -1,3 +1,15 @@
+2004-01-19  Daniel Berlin  <dberlin@dberlin.org>
+
+	* timevar.def (TV_TREE_SPLIT_EDGES): New timevar.
+	* tree-ssa-pre.c (split_critical_edges): Move from here
+	(pass_pre): Add PROP_no_crit_edges as required.
+	* tree-cfg.c (split_critical_edges): to here.
+	(pass_split_crit_edges): New pass.
+	* tree-optimize.c (tree_optimization_passes): Add NEXT_PASS
+	(split_crit_edges).
+	* tree-pass.h: Add PROP_no_crit_edges.
+	(pass_split_crit_edges): Declared.
+
 2004-01-19  Frank Ch. Eigler  <fche@redhat.com>
 
 	* tree-mudflap.c (mf_build_check_statement_for): Tolerate
