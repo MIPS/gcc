@@ -770,7 +770,7 @@ issue_prefetch_ref (struct loop *loop, struct mem_ref *ref, unsigned ahead)
   addr = ref->group->group_iv;
   if (delta)
     addr = build (PLUS_EXPR, ptr_type_node,
-		  addr, build_int_cst (ptr_type_node, delta));
+		  addr, build_int_cst (ptr_type_node, delta, 0));
 
   addr = force_gimple_operand (addr, &stmts, false,
 			       SSA_NAME_VAR (ref->group->group_iv));
@@ -815,7 +815,7 @@ issue_prefetches (struct loop *loop, struct mem_ref_group *groups,
 	base = fold_convert (ptr_type_node, TREE_OPERAND (groups->base, 0));
       else
 	base = build (ADDR_EXPR, ptr_type_node, groups->base);
-      step = build_int_cst (ptr_type_node, groups->step);
+      step = build_int_cst (ptr_type_node, groups->step, 0);
 
       standard_iv_increment_position (loop, &bsi, &after);
       create_iv (base, step, iv_var, loop, &bsi, after, &groups->group_iv,

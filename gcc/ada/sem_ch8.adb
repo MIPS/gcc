@@ -1918,6 +1918,11 @@ package body Sem_Ch8 is
       Rewrite (N, Body_Node);
       Analyze (N);
 
+      if Is_Compilation_Unit (New_S) then
+         Error_Msg_N
+           ("a library unit can only rename another library unit", N);
+      end if;
+
       Set_Etype (New_S, Base_Type (Etype (New_S)));
 
       --  We suppress elaboration warnings for the resulting entity, since
@@ -2048,6 +2053,14 @@ package body Sem_Ch8 is
 
       elsif Scope (Old_E) /= Standard_Standard
         and then not Is_Child_Unit (Old_E)
+      then
+         Error_Msg_N ("renamed unit must be a library unit", Name (N));
+
+      --  Entities defined in Standard (operators and boolean literals) cannot
+      --  be renamed as library units.
+
+      elsif Scope (Old_E) = Standard_Standard
+        and then Sloc (Old_E) = Standard_Location
       then
          Error_Msg_N ("renamed unit must be a library unit", Name (N));
 
@@ -3592,7 +3605,11 @@ package body Sem_Ch8 is
 
          begin
             while Present (H) loop
-               if Scope (H) = Scope (Id) then
+               if Scope (H) = Scope (Id)
+                 and then
+                   (not Is_Hidden (H)
+                      or else Is_Immediately_Visible (H))
+               then
                   Collect_Interps (N);
                   exit;
                end if;

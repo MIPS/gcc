@@ -51,14 +51,11 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #if !_SOFT_FLOAT && (defined (__MACH__) || defined (__powerpc64__))
 
 #define fabs(x) __builtin_fabs(x)
-/* APPLE LOCAL begin mainline */
 #define isless(x, y) __builtin_isless (x, y)
 #define inf() __builtin_inf()
-/* APPLE LOCAL end mainline */
 
 #define unlikely(x) __builtin_expect ((x), 0)
 
-/* APPLE LOCAL mainline */
 #define nonfinite(a) unlikely (! isless (fabs (a), inf ()))
 
 /* All these routines actually take two long doubles as parameters,
@@ -75,9 +72,6 @@ typedef union
   long double ldval;
   double dval[2];
 } longDblUnion;
-
-/* APPLE LOCAL begin mainline */
-/* static const double FPKINF = 1.0/0.0; */
 
 /* Add two 'long double' values and return the result.	*/
 long double
@@ -114,7 +108,6 @@ _xlqadd (double a, double aa, double c, double cc)
     }
   return x.ldval;
 }
-/* APPLE LOCAL end mainline */
 
 long double
 _xlqsub (double a, double b, double c, double d)
@@ -122,7 +115,6 @@ _xlqsub (double a, double b, double c, double d)
   return _xlqadd (a, b, -c, -d);
 }
 
-/* APPLE LOCAL begin mainline */
 long double
 _xlqmul (double a, double b, double c, double d)
 {
@@ -184,6 +176,5 @@ _xlqdiv (double a, double b, double c, double d)
   z.dval[1] = (t - u) + tau;
   return z.ldval;
 }
-/* APPLE LOCAL end mainline */
 
 #endif

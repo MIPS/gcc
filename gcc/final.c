@@ -1699,12 +1699,12 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	case NOTE_INSN_DELETED:
 	case NOTE_INSN_LOOP_BEG:
 	case NOTE_INSN_LOOP_END:
-	case NOTE_INSN_LOOP_END_TOP_COND:
 	case NOTE_INSN_LOOP_CONT:
 	case NOTE_INSN_LOOP_VTOP:
 	case NOTE_INSN_FUNCTION_END:
 	case NOTE_INSN_REPEATED_LINE_NUMBER:
 	case NOTE_INSN_EXPECTED_VALUE:
+	case NOTE_DISABLE_SCHED_OF_BLOCK:
 	  break;
 
 	/* APPLE LOCAL begin hot/cold partitioning  */
@@ -1967,7 +1967,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 		{
 		  int log_align;
 
-		  readonly_data_section ();
+		  targetm.asm_out.function_rodata_section (current_function_decl);
 
 #ifdef ADDR_VEC_ALIGN
 		  log_align = ADDR_VEC_ALIGN (NEXT_INSN (insn));
@@ -3666,8 +3666,8 @@ split_double (rtx value, rtx *first, rtx *second)
 	}
 #endif
 
-      *first = GEN_INT ((HOST_WIDE_INT) l[0]);
-      *second = GEN_INT ((HOST_WIDE_INT) l[1]);
+      *first = GEN_INT (l[0]);
+      *second = GEN_INT (l[1]);
     }
 }
 

@@ -291,6 +291,15 @@ Necessary to build the Fortran frontend. If you don't have it
 installed in your library search path, you will have to configure with
 the @option{--with-gmp} or @option{--with-gmp-dir} configure option.
 
+@item MPFR Library
+
+Necessary to build the Fortran frontend.  It can be downloaded from
+@uref{http://http://www.mpfr.org/}.  It is also included in the current GMP
+release (4.1.3) when configured with @option{--enable-mpfr}.
+
+The @option{--with-mpfr} or @option{--with-mpfr-dir} configure option should
+be used if your MPFR Library is not installed in your library search path.
+
 @end table
 
 
@@ -301,9 +310,8 @@ the @option{--with-gmp} or @option{--with-gmp-dir} configure option.
 
 Necessary when modifying @file{configure.ac}, @file{aclocal.m4}, etc.@:
 to regenerate @file{configure} and @file{config.in} files.  Most
-directories require autoconf 2.59 (exactly), but the toplevel and
-@file{libjava} (but not @file{libjava/libltdl}) still require autoconf
-2.13 (exactly).
+directories require autoconf 2.59 (exactly), but the toplevel
+still requires autoconf 2.13 (exactly).
 
 @item automake versions 1.4-gcj and 1.8.5
 
@@ -782,7 +790,6 @@ whether you use the GNU assembler.  On any other system,
 @item @samp{m68k-hp-hpux}
 @item @samp{m68000-hp-hpux}
 @item @samp{m68000-att-sysv}
-@item @samp{@var{any}-lynx-lynxos}
 @item @samp{mips-@var{any}}
 @item @samp{sparc-sun-solaris2.@var{any}}
 @item @samp{sparc64-@var{any}-solaris2.@var{any}}
@@ -1031,7 +1038,7 @@ grep language= */config-lang.in
 @end smallexample
 Currently, you can use any of the following:
 @code{ada}, @code{c}, @code{c++}, @code{f77}, @code{f95}, @code{java},
-@code{objc}.
+@code{objc}, @code{obj-c++}.
 Building the Ada compiler has special requirements, see below.@*
 If you do not pass this flag, all languages available in the @file{gcc}
 sub-tree will be configured.  Re-defining @code{LANGUAGES} when calling
@@ -1204,12 +1211,15 @@ The following options apply to the build of the Fortran front end.
 @table @code
 
 @item --with-gmp=@var{pathname}
+@itemx --with-mpfr=@var{pathname}
 @itemx --with-gmp-dir=@var{pathname}
-If you don't have GMP (the GNU Multiple Precision library) installed
-in a standard location and you want to build the Fortran front-end,
-you can explicitly specify the directory where GMP is installed
-(@samp{--with-gmp=gmpinstalldir}) or where you built the GMP library without
-installing (@samp{--with-gmp-dir=gmpbuilddir}).
+@itemx --with-mpfr-dir=@var{pathname}
+If you don't have GMP (the GNU Multiple Precision library) and the MPFR 
+Libraries installed in a standard location and you want to build the Fortran
+front-end, you can explicitly specify the directory where they are installed
+(@samp{--with-gmp=gmpinstalldir}, @samp{--with-mpfr=mpfrinstalldir}) or where
+you built them without installing (@samp{--with-gmp-dir=gmpbuilddir},
+@samp{--with-mpfr-dir=gmpbuilddir}).
 
 @end table
 
@@ -1371,16 +1381,6 @@ Do not try to compile and run a test libart program.
 
 Now that GCC is configured, you are ready to build the compiler and
 runtime libraries.
-
-We @strong{highly} recommend that GCC be built using GNU make;
-other versions may work, then again they might not.
-GNU make is required for compiling GNAT (the Ada compiler) and the Java
-runtime library.
-
-(For example, many broken versions of make will fail if you use the
-recommended setup where @var{objdir} is different from @var{srcdir}.
-Other broken versions may recompile parts of the compiler when
-installing the compiler.)
 
 Some commands executed when making the compiler may fail (return a
 nonzero status) and be ignored by @command{make}.  These failures, which
@@ -2607,9 +2607,8 @@ longer a multiple of 2 bytes.
 @heading @anchor{hppa*-hp-hpux*}hppa*-hp-hpux*
 Support for HP-UX version 9 and older was discontinued in GCC 3.4.
 
-We @emph{highly} recommend using gas/binutils 2.8 or newer on all hppa
-platforms; you may encounter a variety of problems when using the HP
-assembler.
+We @emph{highly} recommend using gas/binutils on all hppa platforms;
+you may encounter a variety of problems when using the HP assembler.
 
 Specifically, @option{-g} does not work on HP-UX (since that system
 uses a peculiar debugging format which GCC does not know about), unless you
@@ -2664,6 +2663,13 @@ the 3-stage comparison test to fail during a @samp{make bootstrap}.
 You should be able to continue by saying @samp{make all} after getting
 the failure from @samp{make bootstrap}.
 
+GCC 3.5 requires CVS binutils as of April 28, 2004 or later.  Earlier
+versions require binutils 2.8 or later.
+
+The C++ ABI has changed incompatibly in GCC 3.5.  COMDAT subspaces are
+used for one-only code and data.  This resolves many of the previous
+problems in using C++ on this target.  However, the ABI is not compatible
+with the one implemented under HP-UX 11 using secondary definitions.
 
 @html
 <hr />
@@ -2732,8 +2738,8 @@ result, it's not possible to switch linkers in the middle of a GCC build.
 This has been been reported to sometimes occur in unified builds of
 binutils and GCC.
 
-With GCC 3.0 through 3.2, you must use binutils 2.11 or above.  As of
-GCC 3.3, binutils 2.14 or later is required.
+GCC 3.0 through 3.2 require binutils 2.11 or above.  GCC 3.3 through
+GCC 3.5 require binutils 2.14 or later.
 
 Although the HP assembler can be used for an initial build, it shouldn't
 be used with any languages other than C and perhaps Fortran due to its
@@ -3300,17 +3306,11 @@ binaries are available at
 @uref{http://developer.apple.com/tools/compilers.html} (free
 registration required).
 
-The default stack limit of 512K is too small, which may cause compiles
-to fail with 'Bus error'.  Set the stack larger, for instance
-by doing @samp{limit stack 800}.  It's a good idea to use the GNU
-preprocessor instead of Apple's @file{cpp-precomp} during the first stage of
-bootstrapping; this is automatic when doing @samp{make bootstrap}, but
-to do it from the toplevel objdir you will need to say @samp{make
-CC='cc -no-cpp-precomp' bootstrap}.
+This version of GCC requires at least cctools-528.
 
 The version of GCC shipped by Apple typically includes a number of
 extensions not available in a standard GCC release.  These extensions
-are generally specific to Mac programming.
+are generally for backwards compatibility and best avoided.
 
 @html
 <hr />
@@ -3409,9 +3409,9 @@ install GCC:
    % export CONFIG_SHELL
 @end smallexample
 
-and then proceed as described in @uref{build.html,,the build instructions},
-where we strongly recommend using GNU make and specifying an absolute path
-to invoke @var{srcdir}/configure.
+and then proceed as described in @uref{build.html,,the build instructions}.
+In addition we strongly recommend specifying an absolute path to invoke
+@var{srcdir}/configure.
 
 Solaris 2 comes with a number of optional OS packages.  Some of these
 are needed to use GCC fully, namely @code{SUNWarc},

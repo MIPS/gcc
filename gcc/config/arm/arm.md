@@ -117,6 +117,8 @@
    (VUNSPEC_WCMP_EQ  11) ; Used by the iWMMXt WCMPEQ instructions
    (VUNSPEC_WCMP_GTU 12) ; Used by the iWMMXt WCMPGTU instructions
    (VUNSPEC_WCMP_GT  13) ; Used by the iwMMXT WCMPGT instructions
+   (VUNSPEC_EH_RETURN 20); Use to overrite the return address for exception
+			 ; handling.
   ]
 )
 
@@ -287,11 +289,8 @@
 ;;---------------------------------------------------------------------------
 ;; Pipeline descriptions
 
-;; Processor type.  This attribute must exactly match the table in 
-;; arm-cores.def.
-(define_attr "tune" 
-	     "arm2,arm250,arm3,arm6,arm60,arm600,arm610,arm620,arm7,arm7m,arm7d,arm7dm,arm7di,arm7dmi,arm70,arm700,arm700i,arm710,arm720,arm710c,arm7100,arm7500,arm7500fe,arm7tdmi,arm710t,arm720t,arm740t,arm8,arm810,arm9,arm920,arm920t,arm940t,arm9tdmi,arm9e,ep9312,strongarm,strongarm110,strongarm1100,strongarm1110,arm10tdmi,arm1020t,arm926ejs,arm1026ejs,xscale,iwmmxt,arm1136js,arm1136jfs"
-	     (const (symbol_ref "arm_tune")))
+;; Processor type.  This is created automatically from arm-cores.def.
+(include "arm-tune.md")
 
 ;; True if the generic scheduling description should be used.
 
@@ -4463,7 +4462,7 @@
   "flag_pic"
   "
 {
-  arm_finalize_pic (0);
+  arm_load_pic_register ();
   DONE;
 }")
 
@@ -9706,9 +9705,11 @@
 )
 
 (define_expand "epilogue"
-  [(unspec_volatile [(return)] VUNSPEC_EPILOGUE)]
+  [(clobber (const_int 0))]
   "TARGET_EITHER"
   "
+  if (current_function_calls_eh_return)
+    emit_insn (gen_prologue_use (gen_rtx_REG (Pmode, 2)));
   if (TARGET_THUMB)
     thumb_expand_epilogue ();
   else if (USE_RETURN_INSN (FALSE))
@@ -10225,6 +10226,53 @@
   [(unspec:SI [(match_operand:SI 0 "register_operand" "")] UNSPEC_PROLOGUE_USE)]
   ""
   "%@ %0 needed for prologue"
+)
+
+
+;; Patterns for exception handling
+
+(define_expand "eh_return"
+  [(use (match_operand 0 "general_operand" ""))]
+  "TARGET_EITHER"
+  "
+  {
+    if (TARGET_ARM)
+      emit_insn (gen_arm_eh_return (operands[0]));
+    else
+      emit_insn (gen_thumb_eh_return (operands[0]));
+    DONE;
+  }"
+)
+				   
+;; We can't expand this before we know where the link register is stored.
+(define_insn_and_split "arm_eh_return"
+  [(unspec_volatile [(match_operand:SI 0 "s_register_operand" "r")]
+		    VUNSPEC_EH_RETURN)
+   (clobber (match_scratch:SI 1 "=&r"))]
+  "TARGET_ARM"
+  "#"
+  "&& reload_completed"
+  [(const_int 0)]
+  "
+  {
+    arm_set_return_address (operands[0], operands[1]);
+    DONE;
+  }"
+)
+
+(define_insn_and_split "thumb_eh_return"
+  [(unspec_volatile [(match_operand:SI 0 "s_register_operand" "l")]
+		    VUNSPEC_EH_RETURN)
+   (clobber (match_scratch:SI 1 "=&l"))]
+  "TARGET_THUMB"
+  "#"
+  "&& reload_completed"
+  [(const_int 0)]
+  "
+  {
+    thumb_set_return_address (operands[0], operands[1]);
+    DONE;
+  }"
 )
 
 ;; Load the FPA co-processor patterns

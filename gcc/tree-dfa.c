@@ -139,8 +139,8 @@ struct tree_opt_pass pass_referenced_vars =
 };
 
 
-/* Compute immediate uses.  
-   
+/* Compute immediate uses.
+
    CALC_FOR is an optional function pointer which indicates whether
       immediate uses information should be calculated for a given SSA
       variable.  If NULL, then information is computed for all
@@ -253,7 +253,7 @@ compute_immediate_uses_for_phi (tree phi, bool (*calc_for)(tree))
       tree arg = PHI_ARG_DEF (phi, i);
 
       if (TREE_CODE (arg) == SSA_NAME && (!calc_for || calc_for (arg)))
-	{ 
+	{
 	  tree imm_rdef_stmt = SSA_NAME_DEF_STMT (PHI_ARG_DEF (phi, i));
 	  if (!IS_EMPTY_STMT (imm_rdef_stmt))
 	    add_immediate_use (imm_rdef_stmt, phi);
@@ -351,7 +351,7 @@ add_immediate_use (tree stmt, tree use_stmt)
 
 
 /* If the immediate use of USE points to OLD, then redirect it to NEW.  */
- 
+
 static void
 redirect_immediate_use (tree use, tree old, tree new)
 {
@@ -388,7 +388,7 @@ redirect_immediate_uses (tree old, tree new)
 
   /* Look at USE_OPS or VUSE_OPS according to FLAGS.  */
   for (i = 0; i < NUM_USES (uses); i++)
-    redirect_immediate_use (USE_OP (uses, i), old, new); 
+    redirect_immediate_use (USE_OP (uses, i), old, new);
 
   for (i = 0; i < NUM_VUSES (vuses); i++)
     redirect_immediate_use (VUSE_OP (vuses, i), old, new);
@@ -505,7 +505,7 @@ dump_referenced_vars (FILE *file)
 {
   size_t i;
 
-  fprintf (file, "\nReferenced variables in %s: %u\n\n", 
+  fprintf (file, "\nReferenced variables in %s: %u\n\n",
 	   get_name (current_function_decl), (unsigned) num_referenced_vars);
 
   for (i = 0; i < num_referenced_vars; i++)
@@ -533,7 +533,7 @@ void
 dump_variable (FILE *file, tree var)
 {
   var_ann_t ann;
-  
+
   if (TREE_CODE (var) == SSA_NAME)
     {
       if (POINTER_TYPE_P (TREE_TYPE (var)))
@@ -562,8 +562,11 @@ dump_variable (FILE *file, tree var)
   if (ann->is_alias_tag)
     fprintf (file, ", is an alias tag");
 
-  if (needs_to_live_in_memory (var))
-    fprintf (file, ", is %s", TREE_STATIC (var) ? "static" : "global");
+  if (TREE_ADDRESSABLE (var))
+    fprintf (file, ", is addressable");
+  
+  if (is_global_var (var))
+    fprintf (file, ", is global");
 
   if (is_call_clobbered (var))
     fprintf (file, ", call clobbered");
@@ -695,7 +698,7 @@ dump_dfa_stats (FILE *file)
 
   size = num_referenced_vars * sizeof (tree);
   total += size;
-  fprintf (file, fmt_str_1, "Referenced variables", num_referenced_vars, 
+  fprintf (file, fmt_str_1, "Referenced variables", num_referenced_vars,
 	   SCALE (size), LABEL (size));
 
   size = dfa_stats.num_stmt_anns * sizeof (struct stmt_ann_d);
@@ -727,7 +730,7 @@ dump_dfa_stats (FILE *file)
   total += size;
   fprintf (file, fmt_str_1, "V_MAY_DEF operands", dfa_stats.num_v_may_defs,
 	   SCALE (size), LABEL (size));
-	   
+
   size = dfa_stats.num_v_must_defs * sizeof (tree *);
   total += size;
   fprintf (file, fmt_str_1, "V_MUST_DEF operands", dfa_stats.num_v_must_defs,
@@ -826,10 +829,10 @@ collect_dfa_stats_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
 	    dfa_stats_p->num_stmt_anns++;
 	    dfa_stats_p->num_defs += NUM_DEFS (DEF_OPS (ann));
 	    dfa_stats_p->num_uses += NUM_USES (USE_OPS (ann));
-	    dfa_stats_p->num_v_may_defs += 
+	    dfa_stats_p->num_v_may_defs +=
 	                 NUM_V_MAY_DEFS (V_MAY_DEF_OPS (ann));
 	    dfa_stats_p->num_vuses += NUM_VUSES (VUSE_OPS (ann));
-	    dfa_stats_p->num_v_must_defs += 
+	    dfa_stats_p->num_v_must_defs +=
 	                 NUM_V_MUST_DEFS (V_MUST_DEF_OPS (ann));
 	    break;
 	  }
@@ -904,14 +907,19 @@ add_referenced_var (tree var, struct walk_state *walk_state)
       v_ann->uid = num_referenced_vars;
       VARRAY_PUSH_TREE (referenced_vars, var);
 
-      /* Global and static variables are call-clobbered, always.  */
+      /* Initially assume that all memory variables are
+	 call-clobbered.  This will be refined later by the alias
+	 analyzer.  */
       if (needs_to_live_in_memory (var))
 	mark_call_clobbered (var);
 
-      /* DECL_NONLOCAL variables should not be removed, as they are needed
-	 to emit nested functions.  */
-      if (DECL_NONLOCAL (var))
-	v_ann->used = 1;
+      /* If an initialized global variable then register the initializer
+	 as well.  */
+      if (POINTER_TYPE_P (TREE_TYPE (var))
+	  && TREE_READONLY (var)
+	  && DECL_INITIAL (var)
+	  && TREE_CODE (DECL_INITIAL (var)) == ADDR_EXPR)
+      	walk_tree (&DECL_INITIAL (var), find_vars_r, walk_state, 0);
     }
 }
 
@@ -929,7 +937,7 @@ get_virtual_var (tree var)
   while (TREE_CODE (var) == REALPART_EXPR || TREE_CODE (var) == IMAGPART_EXPR
 	 || handled_component_p (var))
     var = TREE_OPERAND (var, 0);
-    
+
 #ifdef ENABLE_CHECKING
   /* Treating GIMPLE registers as virtual variables makes no sense.
      Also complain if we couldn't extract a _DECL out of the original
@@ -954,42 +962,42 @@ add_referenced_tmp_var (tree var)
   add_referenced_var (var, NULL);
 }
 
-/* Return true if V_MAY_DEFS_AFTER contains fewer entries than 
-   V_MAY_DEFS_BEFORE. Note that this assumes that both varrays 
+/* Return true if V_MAY_DEFS_AFTER contains fewer entries than
+   V_MAY_DEFS_BEFORE. Note that this assumes that both varrays
    are V_MAY_DEF operands for the same statement.  */
 
 static inline bool
-v_may_defs_disappeared_p (v_may_def_optype v_may_defs_before, 
+v_may_defs_disappeared_p (v_may_def_optype v_may_defs_before,
                           v_may_def_optype v_may_defs_after)
 {
   /* If there was nothing before, nothing could've disappeared.  */
   if (v_may_defs_before == NULL)
     return false;
-     
+
   /* All/some of them gone.  */
   if (v_may_defs_after == NULL
-      || NUM_V_MAY_DEFS (v_may_defs_before) > 
+      || NUM_V_MAY_DEFS (v_may_defs_before) >
          NUM_V_MAY_DEFS (v_may_defs_after))
     return true;
 
   return false;
 }
 
-/* Return true if V_MUST_DEFS_AFTER contains fewer entries than 
-   V_MUST_DEFS_BEFORE. Note that this assumes that both varrays 
+/* Return true if V_MUST_DEFS_AFTER contains fewer entries than
+   V_MUST_DEFS_BEFORE. Note that this assumes that both varrays
    are V_MUST_DEF operands for the same statement.  */
 
 static inline bool
-v_must_defs_disappeared_p (v_must_def_optype v_must_defs_before, 
+v_must_defs_disappeared_p (v_must_def_optype v_must_defs_before,
                            v_must_def_optype v_must_defs_after)
 {
   /* If there was nothing before, nothing could've disappeared.  */
   if (v_must_defs_before == NULL)
     return false;
-     
+
   /* All/some of them gone.  */
   if (v_must_defs_after == NULL
-      || NUM_V_MUST_DEFS (v_must_defs_before) > 
+      || NUM_V_MUST_DEFS (v_must_defs_before) >
          NUM_V_MUST_DEFS (v_must_defs_after))
     return true;
 
@@ -1102,7 +1110,7 @@ mark_new_vars_to_rename (tree stmt, bitmap vars_to_rename)
 	  bitmap_set_bit (vars_to_rename, var_ann (var)->uid);
 	}
     }
-    
+
   v_must_defs_after = v_must_defs = V_MUST_DEF_OPS (ann);
   for (i = 0; i < NUM_V_MUST_DEFS (v_must_defs); i++)
     {
@@ -1112,7 +1120,7 @@ mark_new_vars_to_rename (tree stmt, bitmap vars_to_rename)
 	  found_exposed_symbol = true;
 	  bitmap_set_bit (vars_to_rename, var_ann (var)->uid);
 	}
-    }  
+    }
 
   /* If we found any newly exposed symbols, or if there are fewer VDEF
      operands in the statement, add the variables we had set in

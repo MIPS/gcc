@@ -1,4 +1,4 @@
-/* Lambda matrix interface.
+/* Lambda matrix and vector interface.
    Copyright (C) 2003, 2004 Free Software Foundation, Inc.
    Contributed by Daniel Berlin <dberlin@dberlin.org>
 
@@ -22,10 +22,16 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #ifndef LAMBDA_H
 #define LAMBDA_H
 
+/* An integer vector.  A vector formally consists of an element of a vector
+   space. A vector space is a set that is closed under vector addition
+   and scalar multiplication.  In this vector space, an element is a list of
+   integers.  */
 typedef int *lambda_vector;
-/* APPLE LOCAL begin lno */
+/* An integer matrix.  A matrix consists of m vectors of length n (IE
+   all vectors are the same length).  */
 typedef lambda_vector *lambda_matrix;
 
+/* APPLE LOCAL begin lno */
 /* A transformation matrix.  */
 typedef struct
 {
@@ -105,8 +111,6 @@ void print_lambda_loopnest (FILE *, lambda_loopnest, char);
 
 void print_lambda_loop (FILE *, lambda_loop, int, int, char);
 
-void print_lambda_vector (FILE *, lambda_vector, int);
-
 lambda_matrix lambda_matrix_new (int, int);
 
 void lambda_matrix_id (lambda_matrix, int);
@@ -130,6 +134,8 @@ void lambda_matrix_col_negate (lambda_matrix, int, int);
 void lambda_matrix_col_mc (lambda_matrix, int, int, int);
 int lambda_matrix_inverse (lambda_matrix, lambda_matrix, int);
 void lambda_matrix_hermite (lambda_matrix, int, lambda_matrix, lambda_matrix);
+void lambda_matrix_left_hermite (lambda_matrix, int, int, lambda_matrix, lambda_matrix);
+void lambda_matrix_right_hermite (lambda_matrix, int, int, lambda_matrix, lambda_matrix);
 int lambda_matrix_first_nz_vec (lambda_matrix, int, int, int);
 void lambda_matrix_project_to_null (lambda_matrix, int, int, int, 
 				    lambda_vector);
@@ -173,6 +179,7 @@ static inline bool lambda_vector_equal (lambda_vector, lambda_vector, int);
 static inline int lambda_vector_min_nz (lambda_vector, int, int);
 static inline int lambda_vector_first_nz (lambda_vector, int, int);
 /* APPLE LOCAL end lno */
+static inline void print_lambda_vector (FILE *, lambda_vector, int);
 
 /* Allocate a new vector of given SIZE.  */
 
@@ -180,20 +187,6 @@ static inline lambda_vector
 lambda_vector_new (int size)
 {
   return ggc_alloc_cleared (size * sizeof(int));
-}
-
-/* APPLE LOCAL begin lno */
-/* Negate vector VEC1 with length SIZE and store it in VEC2.  */
-
-static inline void 
-lambda_vector_negate (lambda_vector vec1, lambda_vector vec2,
-		      int size)
-{
-  int i;
-
-  for (i = 0; i < size; i++)
-    if (vec1[i] != 0)
-      vec2[i] = (-1) * vec1[i];
 }
 
 /* Multiply vector VEC1 of length SIZE by a constant CONST1,
@@ -210,6 +203,15 @@ lambda_vector_mult_const (lambda_vector vec1, lambda_vector vec2,
   else
     for (i = 0; i < size; i++)
       vec2[i] = const1 * vec1[i];
+}
+
+/* Negate vector VEC1 with length SIZE and store it in VEC2.  */
+
+static inline void 
+lambda_vector_negate (lambda_vector vec1, lambda_vector vec2,
+		      int size)
+{
+  lambda_vector_mult_const (vec1, vec2, size, -1);
 }
 
 /* VEC3 = VEC1+VEC2, where all three the vectors are of length SIZE.  */
@@ -241,7 +243,7 @@ static inline void
 lambda_vector_copy (lambda_vector vec1, lambda_vector vec2,
 		    int size)
 {
-  memcpy (vec2, vec1, size * sizeof (int));
+  memcpy (vec2, vec1, size * sizeof (*vec1));
 }
 
 /* Return true if vector VEC1 of length SIZE is the zero vector.  */
@@ -255,17 +257,15 @@ lambda_vector_zerop (lambda_vector vec1, int size)
       return false;
   return true;
 }
-/* APPLE LOCAL end lno */
 
 /* Clear out vector VEC1 of length SIZE.  */
 
 static inline void
 lambda_vector_clear (lambda_vector vec1, int size)
 {
-  memset (vec1, 0, size * sizeof (int));
+  memset (vec1, 0, size * sizeof (*vec1));
 }
 
-/* APPLE LOCAL begin lno */
 /* Return true if two vectors are equal.  */
  
 static inline bool
@@ -286,12 +286,15 @@ lambda_vector_min_nz (lambda_vector vec1, int n, int start)
 {
   int j;
   int min = -1;
-  
+#ifdef ENABLE_CHECKING 
+  if (start > n)
+    abort ();
+#endif
   for (j = start; j < n; j++)
     {
       if (vec1[j])
 	if (min < 0 || vec1[j] < vec1[min])
-	  min= j;
+	  min = j;
     }
 
   if (min < 0)
@@ -306,8 +309,9 @@ lambda_vector_min_nz (lambda_vector vec1, int n, int start)
 static inline int
 lambda_vector_first_nz (lambda_vector vec1, int n, int start)
 {
-  int j;
-  for (j = start; j < n && vec1[j] == 0; j++) /* Nothing.  */ ;
+  int j = start;
+  while (j < n && vec1[j] == 0)
+    j++;
   return j;
 }
 
@@ -319,13 +323,23 @@ lambda_vector_matrix_mult (lambda_vector vect, int m, lambda_matrix mat,
 			   int n, lambda_vector dest)
 {
   int i, j;
-  memset (dest, 0, n * sizeof (int));
+  lambda_vector_clear (dest, n);
   for (i = 0; i < n; i++)
     for (j = 0; j < m; j++)
       dest[i] += mat[j][i] * vect[j];
 }
-/* APPLE LOCAL end lno */
 
 
+/* Print out a vector VEC of length N to OUTFILE.  */
+
+static inline void
+print_lambda_vector (FILE * outfile, lambda_vector vector, int n)
+{
+  int i;
+
+  for (i = 0; i < n; i++)
+    fprintf (outfile, "%3d ", vector[i]);
+  fprintf (outfile, "\n");
+}
 #endif /* LAMBDA_H  */
 

@@ -405,10 +405,10 @@
      DEFINE_AUTOMATON).
 
      All define_reservations and define_cpu_units should have unique
-     names which can not be "nothing".
+     names which cannot be "nothing".
 
    o (exclusion_set string string) means that each CPU function unit
-     in the first string can not be reserved simultaneously with each
+     in the first string cannot be reserved simultaneously with each
      unit whose name is in the second string and vise versa.  CPU
      units in the string are separated by commas. For example, it is
      useful for description CPU with fully pipelined floating point
@@ -416,18 +416,18 @@
      floating point insns or only double floating point insns.
 
    o (presence_set string string) means that each CPU function unit in
-     the first string can not be reserved unless at least one of units
+     the first string cannot be reserved unless at least one of units
      whose names are in the second string is reserved.  This is an
      asymmetric relation.  CPU units in the string are separated by
      commas.  For example, it is useful for description that slot1 is
      reserved after slot0 reservation for a VLIW processor.
 
    o (absence_set string string) means that each CPU function unit in
-     the first string can not be reserved only if each unit whose name
+     the first string cannot be reserved only if each unit whose name
      is in the second string is not reserved.  This is an asymmetric
      relation (actually exclusion set is analogous to this one but it
      is symmetric).  CPU units in the string are separated by commas.
-     For example, it is useful for description that slot0 can not be
+     For example, it is useful for description that slot0 cannot be
      reserved after slot1 or slot2 reservation for a VLIW processor.
 
    o (define_bypass number out_insn_names in_insn_names) names bypass with
@@ -450,7 +450,7 @@
      case, you describe common part and use one its name (the 1st
      parameter) in regular expression in define_insn_reservation.  All
      define_reservations, define results and define_cpu_units should
-     have unique names which can not be "nothing".
+     have unique names which cannot be "nothing".
 
    o (define_insn_reservation name default_latency condition regexpr)
      describes reservation of cpu functional units (the 3nd operand)
@@ -1312,12 +1312,12 @@
    (set_attr "type" "gload,fload")])
 
 (define_insn "*movqi_internal"
-  [(set (match_operand:QI 0 "move_destination_operand" "=d,d,m,m,?f,?f,?d,?m,f")
-	(match_operand:QI 1 "move_source_operand"       "L,d,d,O, d, f, f, f,GO"))]
+  [(set (match_operand:QI 0 "move_destination_operand" "=d,d,m,m,?f,?f,?d,?m,f,d,f")
+	(match_operand:QI 1 "move_source_operand"       "L,d,d,O, d, f, f, f,GO,!m,!m"))]
   "register_operand(operands[0], QImode) || reg_or_0_operand (operands[1], QImode)"
   "* return output_move_single (operands, insn);"
   [(set_attr "length" "4")
-   (set_attr "type" "int,int,gstore,gstore,movgf,fsconv,movfg,fstore,movgf")])
+   (set_attr "type" "int,int,gstore,gstore,movgf,fsconv,movfg,fstore,movgf,gload,fload")])
 
 (define_expand "movhi"
   [(set (match_operand:HI 0 "general_operand" "")
@@ -1341,12 +1341,12 @@
    (set_attr "type" "gload,fload")])
 
 (define_insn "*movhi_internal"
-  [(set (match_operand:HI 0 "move_destination_operand" "=d,d,d,m,m,?f,?f,?d,?m,f")
-	(match_operand:HI 1 "move_source_operand"       "L,n,d,d,O, d, f, f, f,GO"))]
+  [(set (match_operand:HI 0 "move_destination_operand" "=d,d,d,m,m,?f,?f,?d,?m,f,d,f")
+	(match_operand:HI 1 "move_source_operand"       "L,n,d,d,O, d, f, f, f,GO,!m,!m"))]
   "register_operand(operands[0], HImode) || reg_or_0_operand (operands[1], HImode)"
   "* return output_move_single (operands, insn);"
-  [(set_attr "length" "4,8,4,4,4,4,4,4,4,4")
-   (set_attr "type" "int,multi,int,gstore,gstore,movgf,fsconv,movfg,fstore,movgf")])
+  [(set_attr "length" "4,8,4,4,4,4,4,4,4,4,4,4")
+   (set_attr "type" "int,multi,int,gstore,gstore,movgf,fsconv,movfg,fstore,movgf,gload,fload")])
 
 ;; Split 2 word load of constants into sethi/setlo instructions
 (define_split
@@ -1402,6 +1402,14 @@
 ;; The resulting sequences for loading constants into FPRs are preferable
 ;; even when we're not generating PIC code.
 
+;; However, if we don't accept input from memory at all in the generic
+;; movsi pattern, reloads for asm instructions that reference pseudos
+;; that end up assigned to memory will fail to match, because we
+;; recognize them right after they're emitted, and we don't
+;; re-recognize them again after the substitution for memory.  So keep
+;; a memory constraint available, just make sure reload won't be
+;; tempted to use it.
+
 (define_insn "*movsi_load"
   [(set (match_operand:SI 0 "register_operand" "=d,f")
 	(match_operand:SI 1 "frv_load_operand" "m,m"))]
@@ -1436,12 +1444,12 @@
    (set_attr "length" "4")])
 
 (define_insn "*movsi_internal"
-  [(set (match_operand:SI 0 "move_destination_operand" "=d,d,d,m,m,z,d,d,f,f,m,?f,?z")
-	(match_operand:SI 1 "move_source_operand"      "L,n,d,d,O,d,z,f,d,f,f,GO,GO"))]
+  [(set (match_operand:SI 0 "move_destination_operand" "=d,d,d,m,m,z,d,d,f,f,m,?f,?z,d,f")
+	(match_operand:SI 1 "move_source_operand"      "L,n,d,d,O,d,z,f,d,f,f,GO,GO,!m,!m"))]
   "register_operand (operands[0], SImode) || reg_or_0_operand (operands[1], SImode)"
   "* return output_move_single (operands, insn);"
-  [(set_attr "length" "4,8,4,4,4,4,4,4,4,4,4,4,4")
-   (set_attr "type" "int,multi,int,gstore,gstore,spr,spr,movfg,movgf,fsconv,fstore,movgf,spr")])
+  [(set_attr "length" "4,8,4,4,4,4,4,4,4,4,4,4,4,4,4")
+   (set_attr "type" "int,multi,int,gstore,gstore,spr,spr,movfg,movgf,fsconv,fstore,movgf,spr,gload,fload")])
 
 ;; Split 2 word load of constants into sethi/setlo instructions
 (define_insn_and_split "*movsi_2word"

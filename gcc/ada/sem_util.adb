@@ -467,6 +467,12 @@ package body Sem_Util is
       Decl : Node_Id;
 
    begin
+      --  Unchecked_Union components do not require component subtypes
+
+      if Is_Unchecked_Union (T) then
+         return Empty;
+      end if;
+
       Subt :=
         Make_Defining_Identifier (Loc,
           Chars => New_Internal_Name ('S'));
@@ -2394,7 +2400,7 @@ package body Sem_Util is
       --  because the discriminant is not available. The restrictions on
       --  Unchecked_Union are designed to make sure that this is OK.
 
-      elsif Is_Unchecked_Union (Utyp) then
+      elsif Is_Unchecked_Union (Base_Type (Utyp)) then
          return Typ;
 
       --  Here for the unconstrained case, we must find actual subtype
@@ -4042,6 +4048,9 @@ package body Sem_Util is
            and then Nkind (Original_Node (Expression (AV))) = N_Function_Call
          then
             return False;
+
+         elsif Nkind (Original_Node (AV)) = N_Type_Conversion then
+            return Is_OK_Variable_For_Out_Formal (Expression (AV));
 
          else
             return True;
@@ -5772,9 +5781,10 @@ package body Sem_Util is
          --  scope because the back end otherwise tries to allocate a
          --  variable length temporary for the particular variant.
 
-         if Opt.GCC_Version = 2
-           and then Has_Discriminants (Typ)
-         then
+         --  ??? With tree-ssa, the back-end does not (yet) support these
+         --  types either, so disable this optimization for now.
+
+         if Has_Discriminants (Typ) then
             return True;
 
          --  For GCC 3, or for a non-discriminated record in GCC 2, we are

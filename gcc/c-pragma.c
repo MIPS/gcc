@@ -158,7 +158,7 @@ pop_alignment (tree id)
    #pragma pack (pop)
    #pragma pack (pop, ID) */
 static void
-handle_pragma_pack (cpp_reader *dummy ATTRIBUTE_UNUSED)
+handle_pragma_pack (cpp_reader * ARG_UNUSED (dummy))
 {
   tree x, id = 0;
   int align = -1;
@@ -320,7 +320,7 @@ maybe_apply_pragma_weak (tree decl)
 
 /* #pragma weak name [= value] */
 static void
-handle_pragma_weak (cpp_reader *dummy ATTRIBUTE_UNUSED)
+handle_pragma_weak (cpp_reader * ARG_UNUSED (dummy))
 {
   tree name, value, x, decl;
   enum cpp_ttype t;
@@ -351,7 +351,7 @@ handle_pragma_weak (cpp_reader *dummy ATTRIBUTE_UNUSED)
 }
 #else
 void
-maybe_apply_pragma_weak (tree decl ATTRIBUTE_UNUSED)
+maybe_apply_pragma_weak (tree ARG_UNUSED (decl))
 {
 }
 #endif /* HANDLE_PRAGMA_WEAK */
@@ -394,7 +394,7 @@ static void handle_pragma_redefine_extname (cpp_reader *);
 
 /* #pragma redefine_extname oldname newname */
 static void
-handle_pragma_redefine_extname (cpp_reader *dummy ATTRIBUTE_UNUSED)
+handle_pragma_redefine_extname (cpp_reader * ARG_UNUSED (dummy))
 {
   tree oldname, newname, decl, x;
   enum cpp_ttype t;
@@ -463,7 +463,7 @@ static GTY(()) tree pragma_extern_prefix;
 
 /* #pragma extern_prefix "prefix" */
 static void
-handle_pragma_extern_prefix (cpp_reader *dummy ATTRIBUTE_UNUSED)
+handle_pragma_extern_prefix (cpp_reader * ARG_UNUSED (dummy))
 {
   tree prefix, x;
   enum cpp_ttype t;
@@ -559,7 +559,7 @@ maybe_apply_renaming_pragma (tree decl, tree asmname)
       const char *id = IDENTIFIER_POINTER (DECL_NAME (decl));
       size_t ilen = IDENTIFIER_LENGTH (DECL_NAME (decl));
 	
-      char *newname = alloca (plen + ilen + 1);
+      char *newname = (char *) alloca (plen + ilen + 1);
 
       memcpy (newname,        prefix, plen);
       memcpy (newname + plen, id, ilen + 1);
@@ -570,6 +570,86 @@ maybe_apply_renaming_pragma (tree decl, tree asmname)
   /* Nada.  */
   return 0;
 }
+
+
+#ifdef HANDLE_PRAGMA_VISIBILITY
+static void handle_pragma_visibility (cpp_reader *);
+
+/* Sets the default visibility for symbols to something other than that
+   specified on the command line.  */
+static void
+handle_pragma_visibility (cpp_reader *dummy ATTRIBUTE_UNUSED)
+{ /* Form is #pragma GCC visibility push(hidden)|pop */
+  static int visstack [16], visidx;
+  tree x;
+  enum cpp_ttype token;
+  enum { bad, push, pop } action = bad;
+ 
+  token = c_lex (&x);
+  if (token == CPP_NAME)
+    {
+      const char *op = IDENTIFIER_POINTER (x);
+      if (!strcmp (op, "push"))
+        action = push;
+      else if (!strcmp (op, "pop"))
+        action = pop;
+    }
+  if (bad == action)
+    GCC_BAD ("#pragma GCC visibility must be followed by push or pop");
+  else
+    {
+      if (pop == action)
+        {
+          if (!visidx)
+            {
+              GCC_BAD ("No matching push for '#pragma GCC visibility pop'");
+            }
+          else
+            {
+              default_visibility = visstack[--visidx];
+              visibility_options.inpragma = (visidx>0);
+            }
+        }
+      else
+        {
+          if (c_lex (&x) != CPP_OPEN_PAREN)
+            GCC_BAD ("missing '(' after '#pragma GCC visibility push' - ignored");
+          token = c_lex (&x);
+          if (token != CPP_NAME)
+            {
+              GCC_BAD ("malformed #pragma GCC visibility push");
+            }
+          else if (visidx >= 16)
+            {
+              GCC_BAD ("No more than sixteen #pragma GCC visibility pushes allowed at once");
+            }
+          else
+            {
+              const char *str = IDENTIFIER_POINTER (x);
+              visstack[visidx++] = default_visibility;
+              if (!strcmp (str, "default"))
+                default_visibility = VISIBILITY_DEFAULT;
+              else if (!strcmp (str, "internal"))
+                default_visibility = VISIBILITY_INTERNAL;
+              else if (!strcmp (str, "hidden"))
+                default_visibility = VISIBILITY_HIDDEN;  
+              else if (!strcmp (str, "protected"))
+                default_visibility = VISIBILITY_PROTECTED;
+              else
+                {
+                  GCC_BAD ("#pragma GCC visibility push() must specify default, internal, hidden or protected");
+                }
+              visibility_options.inpragma = 1;
+            }
+          if (c_lex (&x) != CPP_CLOSE_PAREN)
+            GCC_BAD ("missing '(' after '#pragma GCC visibility push' - ignored");
+        }
+    }
+  if (c_lex (&x) != CPP_EOF)
+    warning ("junk at end of '#pragma GCC visibility'");
+}
+
+#endif
 
 /* Front-end wrapper for pragma registration to avoid dragging
    cpplib.h in almost everywhere.  */
@@ -596,6 +676,9 @@ init_pragma (void)
 #endif /* 0 */
 #ifdef HANDLE_PRAGMA_WEAK
   c_register_pragma (0, "weak", handle_pragma_weak);
+#endif
+#ifdef HANDLE_PRAGMA_VISIBILITY
+  c_register_pragma ("GCC", "visibility", handle_pragma_visibility);
 #endif
 
   c_register_pragma (0, "redefine_extname", handle_pragma_redefine_extname);

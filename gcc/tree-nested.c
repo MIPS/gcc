@@ -373,7 +373,7 @@ init_tmp_var (struct nesting_info *info, tree exp, tree_stmt_iterator *tsi)
 /* Similarly, but only do so to force EXP to satisfy is_gimple_val.  */
 
 static tree
-gimplify_val (struct nesting_info *info, tree exp, tree_stmt_iterator *tsi)
+tsi_gimplify_val (struct nesting_info *info, tree exp, tree_stmt_iterator *tsi)
 {
   if (is_gimple_val (exp))
     return exp;
@@ -406,7 +406,7 @@ get_trampoline_type (void)
       align = STACK_BOUNDARY;
     }
 
-  t = build_index_type (build_int_2 (size - 1, 0));
+  t = build_index_type (build_int_cst (NULL_TREE, size - 1, 0));
   t = build_array_type (char_type_node, t);
   t = build_decl (FIELD_DECL, get_identifier ("__data"), t);
   DECL_ALIGN (t) = align;
@@ -489,7 +489,8 @@ get_nl_goto_field (struct nesting_info *info)
       size = size / GET_MODE_SIZE (Pmode);
       size = size + 1;
 
-      type = build_array_type (type, build_index_type (build_int_2 (size, 0)));
+      type = build_array_type
+	(type, build_index_type (build_int_cst (NULL_TREE, size, 0)));
 
       field = make_node (FIELD_DECL);
       DECL_NAME (field) = get_identifier ("__nl_goto_buf");
@@ -791,7 +792,7 @@ convert_nonlocal_reference (tree *tp, int *walk_subtrees, void *data)
 	       where we only accept variables (and min_invariant, presumably),
 	       then compute the address into a temporary.  */
 	    if (save_val_only)
-	      *tp = gimplify_val (wi->info, t, &wi->tsi);
+	      *tp = tsi_gimplify_val (wi->info, t, &wi->tsi);
 	  }
       }
       break;
@@ -856,7 +857,7 @@ convert_local_reference (tree *tp, int *walk_subtrees, void *data)
 {
   struct walk_stmt_info *wi = data;
   struct nesting_info *info = wi->info;
-  tree t = *tp, field, x, y;
+  tree t = *tp, field, x;
 
   switch (TREE_CODE (t))
     {
@@ -905,43 +906,9 @@ convert_local_reference (tree *tp, int *walk_subtrees, void *data)
 	    /* If we are in a context where we only accept values, then
 	       compute the address into a temporary.  */
 	    if (save_val_only)
-	      *tp = gimplify_val (wi->info, t, &wi->tsi);
+	      *tp = tsi_gimplify_val (wi->info, t, &wi->tsi);
 	  }
       }
-      break;
-
-    case CALL_EXPR:
-      *walk_subtrees = 1;
-
-      /* Ready for some fun?  We need to recognize
-	    __builtin_stack_alloc (&x, n)
-	 and insert
-	    FRAME.x = &x
-	 after that.  X should have use_pointer_in_frame set.  We can't
-	 do this any earlier, since we can't meaningfully evaluate &x.  */
-
-      x = get_callee_fndecl (t);
-      if (!x || DECL_BUILT_IN_CLASS (x) != BUILT_IN_NORMAL)
-	break;
-      if (DECL_FUNCTION_CODE (x) != BUILT_IN_STACK_ALLOC)
-	break;
-      t = TREE_VALUE (TREE_OPERAND (t, 1));
-      if (TREE_CODE (t) != ADDR_EXPR)
-	abort ();
-      t = TREE_OPERAND (t, 0);
-      if (TREE_CODE (t) != VAR_DECL)
-	abort ();
-      field = lookup_field_for_decl (info, t, NO_INSERT);
-      if (!field)
-	break;
-      if (!use_pointer_in_frame (t))
-	abort ();
-
-      x = build_addr (t);
-      y = get_frame_field (info, info->context, field, &wi->tsi);
-      x = build (MODIFY_EXPR, void_type_node, y, x);
-      SET_EXPR_LOCUS (x, EXPR_LOCUS (tsi_stmt (wi->tsi)));
-      tsi_link_after (&wi->tsi, x, TSI_SAME_STMT);
       break;
 
     case REALPART_EXPR:
@@ -1042,7 +1009,7 @@ convert_nl_goto_reference (tree *tp, int *walk_subtrees, void *data)
   field = get_nl_goto_field (i);
   x = get_frame_field (info, target_context, field, &wi->tsi);
   x = build_addr (x);
-  x = gimplify_val (info, x, &wi->tsi);
+  x = tsi_gimplify_val (info, x, &wi->tsi);
   arg = tree_cons (NULL, x, NULL);
   x = build_addr (new_label);
   arg = tree_cons (NULL, x, arg);
@@ -1140,7 +1107,7 @@ convert_tramp_reference (tree *tp, int *walk_subtrees, void *data)
       /* Compute the address of the field holding the trampoline.  */
       x = get_frame_field (info, target_context, x, &wi->tsi);
       x = build_addr (x);
-      x = gimplify_val (info, x, &wi->tsi);
+      x = tsi_gimplify_val (info, x, &wi->tsi);
       arg = tree_cons (NULL, x, NULL);
 
       /* Do machine-specific ugliness.  Normally this will involve

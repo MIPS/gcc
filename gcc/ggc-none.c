@@ -23,16 +23,16 @@
    need GC at all.  This prevents problems with pulling in all the
    tree stuff.  */
 
-#include "config.h"
+#include "bconfig.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
 #include "ggc.h"
+
 struct alloc_zone *rtl_zone = NULL;
 struct alloc_zone *garbage_zone = NULL;
 
 void *
-ggc_alloc_typed_stat (enum gt_types_enum gte ATTRIBUTE_UNUSED, size_t size
+ggc_alloc_typed_stat (enum gt_types_enum ARG_UNUSED (gte), size_t size
 		      MEM_STAT_DECL)
 {
   return xmalloc (size);
@@ -45,7 +45,7 @@ ggc_alloc_stat (size_t size MEM_STAT_DECL)
 }
 
 void *
-ggc_alloc_zone_stat (size_t size, struct alloc_zone *zone ATTRIBUTE_UNUSED
+ggc_alloc_zone_stat (size_t size, struct alloc_zone * ARG_UNUSED (zone)
 		     MEM_STAT_DECL)
 {
   return xmalloc (size);

@@ -1,4 +1,3 @@
-/* APPLE LOCAL file mainline */
 /* { dg-do run { target powerpc*-*-darwin* } } */
 /* { dg-options "" } */
 /* No options so 'long long' can be used.  */

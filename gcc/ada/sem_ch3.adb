@@ -950,6 +950,63 @@ package body Sem_Ch3 is
       T  : Entity_Id;
       P  : Entity_Id;
 
+      function Contains_POC (Constr : Node_Id) return Boolean;
+      --  Determines whether a constraint uses the discriminant of a record
+      --  type thus becoming a per-object constraint (POC).
+
+      ------------------
+      -- Contains_POC --
+      ------------------
+
+      function Contains_POC (Constr : Node_Id) return Boolean is
+      begin
+         case Nkind (Constr) is
+
+            when N_Attribute_Reference =>
+               return Attribute_Name (Constr) = Name_Access
+                        and
+                      Prefix (Constr) = Scope (Entity (Prefix (Constr)));
+
+            when N_Discriminant_Association =>
+               return Denotes_Discriminant (Expression (Constr));
+
+            when N_Identifier =>
+               return Denotes_Discriminant (Constr);
+
+            when N_Index_Or_Discriminant_Constraint =>
+               declare
+                  IDC : Node_Id := First (Constraints (Constr));
+               begin
+                  while Present (IDC) loop
+
+                     --  One per-object constraint is sufficent
+
+                     if Contains_POC (IDC) then
+                        return True;
+                     end if;
+
+                     Next (IDC);
+                  end loop;
+
+                  return False;
+               end;
+
+            when N_Range =>
+               return Denotes_Discriminant (Low_Bound (Constr))
+                        or
+                      Denotes_Discriminant (High_Bound (Constr));
+
+            when N_Range_Constraint =>
+               return Denotes_Discriminant (Range_Expression (Constr));
+
+            when others =>
+               return False;
+
+         end case;
+      end Contains_POC;
+
+   --  Start of processing for Analyze_Component_Declaration
+
    begin
       Generate_Definition (Id);
       Enter_Name (Id);
@@ -1041,6 +1098,24 @@ package body Sem_Ch3 is
 
       Set_Etype (Id, T);
       Set_Is_Aliased (Id, Aliased_Present (Component_Definition (N)));
+
+      --  The component declaration may have a per-object constraint, set the
+      --  appropriate flag in the defining identifier of the subtype.
+
+      if Present (Subtype_Indication (Component_Definition (N))) then
+         declare
+            Sindic : constant Node_Id :=
+               Subtype_Indication (Component_Definition (N));
+
+         begin
+            if Nkind (Sindic) = N_Subtype_Indication
+              and then Present (Constraint (Sindic))
+              and then Contains_POC (Constraint (Sindic))
+            then
+               Set_Has_Per_Object_Constraint (Id);
+            end if;
+         end;
+      end if;
 
       --  Ada 2005 (AI-231): Propagate the null-excluding attribute and carry
       --  out some static checks
@@ -6075,11 +6150,22 @@ package body Sem_Ch3 is
          Set_Ekind (Def_Id, E_Class_Wide_Subtype);
 
       else
-         --  Incomplete type. Attach subtype to list of dependents, to be
-         --  completed with full view of parent type.
+         --  Incomplete type.  attach subtype to list of dependents, to be
+         --  completed with full view of parent type,  unless is it the
+         --  designated subtype of a record component within an init_proc.
+         --  This last case arises for a component of an access type whose
+         --  designated type is incomplete (e.g. a Taft Amendment type).
+         --  The designated subtype is within an inner scope, and needs no
+         --  elaboration, because only the access type is needed in the
+         --  initialization procedure.
 
          Set_Ekind (Def_Id, Ekind (T));
-         Append_Elmt (Def_Id, Private_Dependents (T));
+
+         if For_Access and then Within_Init_Proc then
+            null;
+         else
+            Append_Elmt (Def_Id, Private_Dependents (T));
+         end if;
       end if;
 
       Set_Etype             (Def_Id, T);
@@ -6202,30 +6288,60 @@ package body Sem_Ch3 is
       C      : Node_Id;
       Id     : Node_Id;
 
+      procedure Set_Discriminant_Name (Id : Node_Id);
+      --  If the derived type has discriminants, they may rename discriminants
+      --  of the parent. When building the full view of the parent, we need to
+      --  recover the names of the original discriminants if the constraint is
+      --  given by named associations.
+
+      ---------------------------
+      -- Set_Discriminant_Name --
+      ---------------------------
+
+      procedure Set_Discriminant_Name (Id : Node_Id) is
+         Disc : Entity_Id;
+
+      begin
+         Set_Original_Discriminant (Id, Empty);
+
+         if Has_Discriminants (Typ) then
+            Disc := First_Discriminant (Typ);
+
+            while Present (Disc) loop
+               if Chars (Disc) = Chars (Id)
+                 and then Present (Corresponding_Discriminant (Disc))
+               then
+                  Set_Chars (Id, Chars (Corresponding_Discriminant (Disc)));
+               end if;
+               Next_Discriminant (Disc);
+            end loop;
+         end if;
+      end Set_Discriminant_Name;
+
+   --  Start of processing for Build_Underlying_Full_View
+
    begin
       if Nkind (N) = N_Full_Type_Declaration then
          Constr := Constraint (Subtype_Indication (Type_Definition (N)));
 
-      --  ??? ??? is this assert right, I assume so otherwise Constr
-      --  would not be defined below (this used to be an elsif)
-
-      else pragma Assert (Nkind (N) = N_Subtype_Declaration);
+      elsif Nkind (N) = N_Subtype_Declaration then
          Constr := New_Copy_Tree (Constraint (Subtype_Indication (N)));
+
+      elsif Nkind (N) = N_Component_Declaration then
+         Constr :=
+           New_Copy_Tree
+             (Constraint (Subtype_Indication (Component_Definition (N))));
+
+      else
+         raise Program_Error;
       end if;
 
-      --  If the constraint has discriminant associations, the discriminant
-      --  entity is already set, but it denotes a discriminant of the new
-      --  type, not the original parent, so it must be found anew.
-
       C := First (Constraints (Constr));
-
       while Present (C) loop
-
          if Nkind (C) = N_Discriminant_Association then
             Id := First (Selector_Names (C));
-
             while Present (Id) loop
-               Set_Original_Discriminant (Id, Empty);
+               Set_Discriminant_Name (Id);
                Next (Id);
             end loop;
          end if;
@@ -6233,14 +6349,27 @@ package body Sem_Ch3 is
          Next (C);
       end loop;
 
-      Indic := Make_Subtype_Declaration (Loc,
-         Defining_Identifier => Subt,
-         Subtype_Indication  =>
-           Make_Subtype_Indication (Loc,
-             Subtype_Mark => New_Reference_To (Par, Loc),
-             Constraint   => New_Copy_Tree (Constr)));
+      Indic :=
+        Make_Subtype_Declaration (Loc,
+          Defining_Identifier => Subt,
+          Subtype_Indication  =>
+            Make_Subtype_Indication (Loc,
+              Subtype_Mark => New_Reference_To (Par, Loc),
+              Constraint   => New_Copy_Tree (Constr)));
 
-      Insert_Before (N, Indic);
+      --  If this is a component subtype for an outer itype, it is not
+      --  a list member, so simply set the parent link for analysis: if
+      --  the enclosing type does not need to be in a declarative list,
+      --  neither do the components.
+
+      if Is_List_Member (N)
+        and then Nkind (N) /= N_Component_Declaration
+      then
+         Insert_Before (N, Indic);
+      else
+         Set_Parent (Indic, Parent (N));
+      end if;
+
       Analyze (Indic);
       Set_Underlying_Full_View (Typ, Full_View (Subt));
    end Build_Underlying_Full_View;
@@ -6831,6 +6960,12 @@ package body Sem_Ch3 is
          if Has_Discriminants (Full_Base) then
             Set_Discriminant_Constraint
               (Full, Discriminant_Constraint (Full_Base));
+
+            --  The partial view may have been indefinite, the full view
+            --  might not be.
+
+            Set_Has_Unknown_Discriminants
+              (Full, Has_Unknown_Discriminants (Full_Base));
          end if;
       end if;
 
@@ -6870,19 +7005,26 @@ package body Sem_Ch3 is
            (Full, Related_Nod, Full_Base, Discriminant_Constraint (Priv));
 
       --  If the full base is itself derived from private, build a congruent
-      --  subtype of its underlying type, for use by the back end. Do not
-      --  do this for a constrained record component, where the back-end has
-      --  the proper information and there is no place for the declaration.
+      --  subtype of its underlying type, for use by the back end. For a
+      --  constrained record component, the declaration cannot be placed on
+      --  the component list, but it must neverthess be built an analyzed, to
+      --  supply enough information for gigi to compute the size of component.
 
       elsif Ekind (Full_Base) in Private_Kind
         and then Is_Derived_Type (Full_Base)
         and then Has_Discriminants (Full_Base)
-        and then Nkind (Related_Nod) /= N_Component_Declaration
         and then (Ekind (Current_Scope) /= E_Record_Subtype)
-        and then
-          Nkind (Subtype_Indication (Parent (Priv))) = N_Subtype_Indication
       then
-         Build_Underlying_Full_View (Parent (Priv), Full, Etype (Full_Base));
+         if not Is_Itype (Priv)
+           and then
+             Nkind (Subtype_Indication (Parent (Priv))) = N_Subtype_Indication
+         then
+            Build_Underlying_Full_View
+              (Parent (Priv), Full, Etype (Full_Base));
+
+         elsif Nkind (Related_Nod) = N_Component_Declaration then
+            Build_Underlying_Full_View (Related_Nod, Full, Etype (Full_Base));
+         end if;
 
       elsif Is_Record_Type (Full_Base) then
 
@@ -9464,9 +9606,6 @@ package body Sem_Ch3 is
          end if;
 
          return;
-
-      elsif Is_Unchecked_Union (Parent_Type) then
-         Error_Msg_N ("cannot derive from Unchecked_Union type", N);
 
       --  Ada 2005 (AI-231): Static check
 
@@ -12553,13 +12692,6 @@ package body Sem_Ch3 is
 
          P := Parent (S);
          Subtype_Mark_Id := Entity (Subtype_Mark (S));
-
-         if Is_Unchecked_Union (Subtype_Mark_Id)
-           and then Comes_From_Source (Related_Nod)
-         then
-            Error_Msg_N
-              ("cannot create subtype of Unchecked_Union", Related_Nod);
-         end if;
 
          --  Explicit subtype declaration case
 

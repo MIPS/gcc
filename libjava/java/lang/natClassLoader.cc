@@ -48,6 +48,12 @@ _Jv_WaitForState (jclass klass, int state)
   
   _Jv_MonitorEnter (klass) ;
 
+  if (klass->state == JV_STATE_COMPILED)
+    {
+      klass->state = JV_STATE_LOADED;
+      if (gcj::verbose_class_flag)
+	fprintf (stderr, "[Loaded (pre-compiled) %s]\n", klass->name->chars());
+    }
   if (state == JV_STATE_LINKED)
     {
       // Must call _Jv_PrepareCompiledClass while holding the class
@@ -86,7 +92,8 @@ typedef unsigned int uaddr __attribute__ ((mode (pointer)));
 void
 _Jv_PrepareCompiledClass (jclass klass)
 {
-  if (klass->state >= JV_STATE_LINKED)
+  jint state = klass->state;
+  if (state >= JV_STATE_LINKED)
     return;
 
   // Short-circuit, so that mutually dependent classes are ok.
@@ -103,15 +110,15 @@ _Jv_PrepareCompiledClass (jclass klass)
 	  _Jv_Utf8Const *name = pool->data[index].utf8;
 	  
 	  jclass found;
-	  if (name->data[0] == '[')
-	    found = _Jv_FindClassFromSignature (&name->data[0],
+	  if (name->first() == '[')
+	    found = _Jv_FindClassFromSignature (name->chars(),
 						klass->loader);
 	  else
 	    found = _Jv_FindClass (name, klass->loader);
 		
 	  if (! found)
 	    {
-	      jstring str = _Jv_NewStringUTF (name->data);
+	      jstring str = name->toString();
 	      throw new java::lang::NoClassDefFoundError (str);
 	    }
 
@@ -173,6 +180,10 @@ _Jv_PrepareCompiledClass (jclass klass)
   if (klass->isInterface ())
     _Jv_LayoutInterfaceMethods (klass);
 
+  if (state == JV_STATE_COMPILED && gcj::verbose_class_flag)
+    fprintf (stderr, "[Loaded (pre-compiled) %s]\n",
+	     klass->name->chars());
+
   klass->notifyAll ();
 
   _Jv_PushClass (klass);
@@ -196,7 +207,7 @@ _Jv_PrepareCompiledClass (jclass klass)
 #define HASH_LEN 1013
 
 // Hash function for Utf8Consts.
-#define HASH_UTF(Utf) (((Utf)->hash) % HASH_LEN)
+#define HASH_UTF(Utf) ((Utf)->hash16() % HASH_LEN)
 
 struct _Jv_LoaderInfo
 {
@@ -337,7 +348,7 @@ _Jv_RegisterClassHookDefault (jclass klass)
 	  // We size-limit MESSAGE so that you can't trash the stack.
 	  char message[200];
 	  strcpy (message, TEXT);
-	  strncpy (message + sizeof (TEXT) - 1, klass->name->data,
+	  strncpy (message + sizeof (TEXT) - 1, klass->name->chars(),
 		   sizeof (message) - sizeof (TEXT));
 	  message[sizeof (message) - 1] = '\0';
 	  if (! gcj::runtimeInitialized)
@@ -379,7 +390,7 @@ _Jv_FindClass (_Jv_Utf8Const *name, java::lang::ClassLoader *loader)
 
   if (! klass)
     {
-      jstring sname = _Jv_NewStringUTF (name->data);
+      jstring sname = name->toString();
 
       java::lang::ClassLoader *sys
 	= java::lang::ClassLoader::getSystemClassLoader ();
@@ -459,7 +470,7 @@ _Jv_NewArrayClass (jclass element, java::lang::ClassLoader *loader,
       len = 3;
     }
   else
-    len = element->name->length + 5;
+    len = element->name->len() + 5;
 
   {
     char signature[len];
@@ -472,8 +483,8 @@ _Jv_NewArrayClass (jclass element, java::lang::ClassLoader *loader,
       }
     else
       {
-	size_t length = element->name->length;
-	const char *const name = element->name->data;
+	size_t length = element->name->len();
+	const char *const name = element->name->chars();
 	if (name[0] != '[')
 	  signature[index++] = 'L';
 	memcpy (&signature[index], name, length);

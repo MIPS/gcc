@@ -2160,6 +2160,12 @@ do {								\
 
 /* #define FIXUNS_TRUNC_LIKE_FIX_TRUNC */
 
+/* An integer expression for the size in bits of the largest integer machine
+   mode that should actually be used.  */
+
+/* Allow pairs of registers to be used, which is the intent of the default.  */
+#define MAX_FIXED_MODE_SIZE GET_MODE_BITSIZE (TARGET_POWERPC64 ? TImode : DImode)
+
 /* Max number of bytes we can move from memory to memory
    in one reasonably fast instruction.  */
 #define MOVE_MAX (! TARGET_POWERPC64 ? 4 : 8)
@@ -2583,7 +2589,8 @@ extern char rs6000_reg_names[][8];	/* register names (0 vs. %r0).  */
 
 #define PREDICATE_CODES							   \
   {"any_operand", {CONST_INT, CONST_DOUBLE, CONST, SYMBOL_REF,		   \
-		   LABEL_REF, SUBREG, REG, MEM, PARALLEL}},		   \
+		   LABEL_REF, SUBREG, REG, MEM}},			   \
+  {"any_parallel_operand", {PARALLEL}},					   \
   {"zero_constant", {CONST_INT, CONST_DOUBLE, CONST, SYMBOL_REF,	   \
 		    LABEL_REF, SUBREG, REG, MEM}},			   \
   {"short_cint_operand", {CONST_INT}},					   \
@@ -2634,7 +2641,11 @@ extern char rs6000_reg_names[][8];	/* register names (0 vs. %r0).  */
 		     CONST_DOUBLE, SYMBOL_REF}},			   \
   {"load_multiple_operation", {PARALLEL}},				   \
   {"store_multiple_operation", {PARALLEL}},				   \
+  {"lmw_operation", {PARALLEL}},					   \
+  {"stmw_operation", {PARALLEL}},					   \
   {"vrsave_operation", {PARALLEL}},					   \
+  {"mfcr_operation", {PARALLEL}},					   \
+  {"mtcrf_operation", {PARALLEL}},					   \
   {"branch_comparison_operator", {EQ, NE, LE, LT, GE,			   \
 				  GT, LEU, LTU, GEU, GTU,		   \
 				  UNORDERED, ORDERED,			   \

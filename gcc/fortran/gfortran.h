@@ -59,7 +59,6 @@ char *alloca ();
 /* Major control parameters.  */
 
 #define GFC_MAX_SYMBOL_LEN 63
-#define GFC_REAL_BITS 100	/* Number of bits in g95's floating point numbers.  */
 #define GFC_MAX_LINE 132	/* Characters beyond this are not seen.  */
 #define GFC_MAX_DIMENSIONS 7	/* Maximum dimensions in an array.  */
 #define GFC_LETTERS 26		/* Number of letters in the alphabet.  */
@@ -184,7 +183,7 @@ extern mstring intrinsic_operators[];
 
 /* Arithmetic results.  */
 typedef enum
-{ ARITH_OK = 1, ARITH_OVERFLOW, ARITH_UNDERFLOW,
+{ ARITH_OK = 1, ARITH_OVERFLOW, ARITH_UNDERFLOW, ARITH_NAN,
   ARITH_DIV0, ARITH_0TO0, ARITH_INCOMMENSURATE
 }
 arith;
@@ -529,7 +528,9 @@ gfc_component;
 /* Formal argument lists are lists of symbols.  */
 typedef struct gfc_formal_arglist
 {
+  /* Symbol representing the argument at this position in the arglist.  */
   struct gfc_symbol *sym;
+  /* Points to the next formal argument.  */
   struct gfc_formal_arglist *next;
 }
 gfc_formal_arglist;
@@ -713,18 +714,39 @@ gfc_symtree;
 
 typedef struct gfc_namespace
 {
-  /* Roots of the red/black symbol trees */
-  gfc_symtree *sym_root, *uop_root, *common_root;	
+  /* Tree containing all the symbols in this namespace.  */
+  gfc_symtree *sym_root;
+  /* Tree containing all the user-defined operators in the namespace.  */
+  gfc_symtree *uop_root;
+  /* Tree containing all the common blocks.  */
+  gfc_symtree *common_root;	
 
+  /* If set_flag[letter] is set, an implicit type has been set for letter.  */
   int set_flag[GFC_LETTERS];
-  gfc_typespec default_type[GFC_LETTERS];	/* IMPLICIT typespecs */
+  /* Keeps track of the implicit types associated with the letters.  */
+  gfc_typespec default_type[GFC_LETTERS];
 
+  /* If this is a namespace of a procedure, this points to the procedure.  */
   struct gfc_symbol *proc_name;
-  gfc_interface *operator[GFC_INTRINSIC_OPS];
-  struct gfc_namespace *parent, *contained, *sibling;
+  /* If this is the namespace of a unit which contains executable
+     code, this points to it.  */
   struct gfc_code *code;
-  gfc_common_head blank_common;
+
+  /* Points to the equivalences set up in this namespace.  */
   struct gfc_equiv *equiv;
+  gfc_interface *operator[GFC_INTRINSIC_OPS];
+
+  /* Points to the parent namespace, i.e. the namespace of a module or
+     procedure in which the procedure belonging to this namespace is
+     contained. The parent namespace points to this namespace either
+     directly via CONTAINED, or indirectly via the chain built by
+     SIBLING.  */
+  struct gfc_namespace *parent;
+  /* CONTAINED points to the first contained namespace. Sibling
+     namespaces are chained via SIBLING.  */
+  struct gfc_namespace  *contained, *sibling;
+
+  gfc_common_head blank_common;
   gfc_access default_access, operator_access[GFC_INTRINSIC_OPS];
 
   gfc_st_label *st_labels;
@@ -851,6 +873,13 @@ typedef struct gfc_intrinsic_arg
 gfc_intrinsic_arg;
 
 
+/* Specifies the various kinds of check functions used to verify the
+   argument lists of intrinsic functions. fX with X an integer refer
+   to check functions of intrinsics with X arguments. f1m is used for
+   the MAX and MIN intrinsics which can have an arbitrary number of
+   arguments, f3ml is used for the MINLOC and MAXLOC intrinsics as
+   these have special semantics.  */
+
 typedef union
 {
   try (*f1)(struct gfc_expr *);
@@ -865,6 +894,9 @@ typedef union
 }
 gfc_check_f;
 
+/* Like gfc_check_f, these specify the type of the simplification
+   function associated with an intrinsic. The fX are just like in
+   gfc_check_f. cc is used for type conversion functions.  */
 
 typedef union
 {
@@ -881,6 +913,10 @@ typedef union
 }
 gfc_simplify_f;
 
+/* Again like gfc_check_f, these specify the type of the resolution
+   function associated with an intrinsic. The fX are juse like in
+   gfc_check_f. f1m is used for MIN and MAX, s1 is used for abort().
+   */
 
 typedef union
 {
@@ -930,6 +966,8 @@ gfc_intrinsic_sym;
    EXPR_ARRAY      An array constructor.  */
 
 #include <gmp.h>
+#include <mpfr.h>
+#define GFC_RND_MODE GMP_RNDN
 
 typedef struct gfc_expr
 {
@@ -953,13 +991,14 @@ typedef struct gfc_expr
 
   union
   {
-    mpz_t integer;
-    mpf_t real;
     int logical;
+    mpz_t integer;
+
+    mpfr_t real;
 
     struct
     {
-      mpf_t r, i;
+      mpfr_t r, i;
     }
     complex;
 
@@ -987,7 +1026,7 @@ typedef struct gfc_expr
 gfc_expr;
 
 
-#define gfc_get_shape(rank) ((mpz_t *) gfc_getmem(rank*sizeof(mpz_t)))
+#define gfc_get_shape(rank) ((mpz_t *) gfc_getmem((rank)*sizeof(mpz_t)))
 
 /* Structures for information associated with different kinds of
    numbers.  The first set of integer parameters define all there is
@@ -1023,7 +1062,7 @@ typedef struct
   int kind, radix, digits, min_exponent, max_exponent;
 
   int range, precision;
-  mpf_t epsilon, huge, tiny;
+  mpfr_t epsilon, huge, tiny;
 }
 gfc_real_info;
 
@@ -1555,7 +1594,6 @@ match gfc_intrinsic_sub_interface (gfc_code *, int);
 
 /* simplify.c */
 void gfc_simplify_init_1 (void);
-void gfc_simplify_done_1 (void);
 
 /* match.c -- FIXME */
 void gfc_free_iterator (gfc_iterator *, int);
@@ -1583,6 +1621,7 @@ void gfc_replace_expr (gfc_expr *, gfc_expr *);
 gfc_expr *gfc_int_expr (int);
 gfc_expr *gfc_logical_expr (int, locus *);
 mpz_t *gfc_copy_shape (mpz_t *, int);
+mpz_t *gfc_copy_shape_excluding (mpz_t *, int, gfc_expr *);
 gfc_expr *gfc_copy_expr (gfc_expr *);
 
 try gfc_specification_expr (gfc_expr *);

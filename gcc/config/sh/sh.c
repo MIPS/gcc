@@ -227,7 +227,6 @@ static tree sh_handle_renesas_attribute (tree *, tree, tree, int, bool *);
 static void sh_output_function_epilogue (FILE *, HOST_WIDE_INT);
 static void sh_insert_attributes (tree, tree *);
 static int sh_adjust_cost (rtx, rtx, rtx, int);
-static int sh_use_dfa_interface (void);
 static int sh_issue_rate (void);
 static int sh_dfa_new_cycle (FILE *, int, rtx, int, int, int *sort_p);
 static short find_set_regmode_weight (rtx, enum machine_mode);
@@ -322,9 +321,6 @@ static bool sh_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode,
 #undef TARGET_SCHED_ADJUST_COST
 #define TARGET_SCHED_ADJUST_COST sh_adjust_cost
 
-#undef TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE 
-#define TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE \
-				sh_use_dfa_interface
 #undef TARGET_SCHED_ISSUE_RATE
 #define TARGET_SCHED_ISSUE_RATE sh_issue_rate
 
@@ -541,6 +537,7 @@ print_operand_address (FILE *stream, rtx x)
    'T'  print the next word of a dp value - same as 'R' in big endian mode.
    'M'  print an `x' if `m' will print `base,index'.
    'N'  print 'r63' if the operand is (const_int 0).
+   'd'  print a V2SF reg as dN instead of fpN.
    'm'  print a pair `base,offset' or `base,index', for LD and ST.
    'u'  prints the lowest 16 bits of CONST_INT, as an unsigned value.
    'o'  output an operator.  */
@@ -655,6 +652,13 @@ print_operand (FILE *stream, rtx x, int code)
 	}
       break;
 
+    case 'd':
+      if (GET_CODE (x) != REG || GET_MODE (x) != V2SFmode)
+	abort ();
+
+      fprintf ((stream), "d%s", reg_names[REGNO (x)] + 1);
+      break;
+      
     case 'N':
       if (x == CONST0_RTX (GET_MODE (x)))
 	{
@@ -776,9 +780,48 @@ expand_block_move (rtx *operands)
   int constp = (GET_CODE (operands[2]) == CONST_INT);
   int bytes = (constp ? INTVAL (operands[2]) : 0);
 
+  if (! constp)
+    return 0;
+
+  /* If we could use mov.l to move words and dest is word-aligned, we
+     can use movua.l for loads and still generate a relatively short
+     and efficient sequence.  */
+  if (TARGET_SH4A_ARCH && align < 4
+      && MEM_ALIGN (operands[0]) >= 32
+      && can_move_by_pieces (bytes, 32))
+    {
+      rtx dest = copy_rtx (operands[0]);
+      rtx src = copy_rtx (operands[1]);
+      /* We could use different pseudos for each copied word, but
+	 since movua can only load into r0, it's kind of
+	 pointless.  */
+      rtx temp = gen_reg_rtx (SImode);
+      rtx src_addr = copy_addr_to_reg (XEXP (src, 0));
+      int copied = 0;
+
+      while (copied + 4 <= bytes)
+	{
+	  rtx to = adjust_address (dest, SImode, copied);
+	  rtx from = adjust_automodify_address (src, SImode, src_addr, copied);
+
+	  emit_insn (gen_movua (temp, from));
+	  emit_move_insn (src_addr, plus_constant (src_addr, 4));
+	  emit_move_insn (to, temp);
+	  copied += 4;
+	}
+
+      if (copied < bytes)
+	move_by_pieces (adjust_address (dest, BLKmode, copied),
+			adjust_automodify_address (src, BLKmode,
+						   src_addr, copied),
+			bytes - copied, align, 0);
+
+      return 1;
+    }
+
   /* If it isn't a constant number of bytes, or if it doesn't have 4 byte
      alignment, or if it isn't a multiple of 4 bytes, then fail.  */
-  if (! constp || align < 4 || (bytes % 4 != 0))
+  if (align < 4 || (bytes % 4 != 0))
     return 0;
 
   if (TARGET_HARD_SH4)
@@ -1068,7 +1111,7 @@ prepare_scc_operands (enum rtx_code code)
       || (TARGET_SH2E && GET_MODE_CLASS (mode) == MODE_FLOAT))
     sh_compare_op1 = force_reg (mode, sh_compare_op1);
 
-  if (TARGET_SH4 && GET_MODE_CLASS (mode) == MODE_FLOAT)
+  if ((TARGET_SH4 || TARGET_SH2A) && GET_MODE_CLASS (mode) == MODE_FLOAT)
     (mode == SFmode ? emit_sf_insn : emit_df_insn)
      (gen_rtx_PARALLEL (VOIDmode, gen_rtvec (2,
 		gen_rtx_SET (VOIDmode, t_reg,
@@ -1113,7 +1156,7 @@ from_compare (rtx *operands, int code)
 			gen_rtx_REG (SImode, T_REG),
 			gen_rtx_fmt_ee (code, SImode,
 					sh_compare_op0, sh_compare_op1));
-  if (TARGET_SH4 && GET_MODE_CLASS (mode) == MODE_FLOAT)
+  if ((TARGET_SH4 || TARGET_SH2A) && GET_MODE_CLASS (mode) == MODE_FLOAT)
     {
       insn = gen_rtx_PARALLEL (VOIDmode,
 		      gen_rtvec (2, insn,
@@ -2243,9 +2286,6 @@ shl_and_scr_length (rtx insn)
   return len + shift_insns[INTVAL (XEXP (op, 1))];
 }
 
-/* Generating rtl? */
-extern int rtx_equal_function_value_matters;
-
 /* Generate rtl for instructions for which shl_and_kind advised a particular
    method of generating them, i.e. returned zero.  */
 
@@ -2316,7 +2356,7 @@ gen_shl_and (rtx dest, rtx left_rtx, rtx mask_rtx, rtx source)
     case 2:
       /* Don't expand fine-grained when combining, because that will
          make the pattern fail.  */
-      if (rtx_equal_function_value_matters
+      if (currently_expanding_to_rtl
 	  || reload_in_progress || reload_completed)
 	{
 	  rtx operands[3];
@@ -2513,7 +2553,7 @@ gen_shl_sext (rtx dest, rtx left_rtx, rtx size_rtx, rtx source)
 
 	/* Don't expand fine-grained when combining, because that will
 	   make the pattern fail.  */
-	if (! rtx_equal_function_value_matters
+	if (! currently_expanding_to_rtl
 	    && ! reload_in_progress && ! reload_completed)
 	  {
 	    emit_insn (gen_shl_sext_ext (dest, source, left_rtx, size_rtx));
@@ -2568,7 +2608,7 @@ gen_shl_sext (rtx dest, rtx left_rtx, rtx size_rtx, rtx source)
     case 5:
       {
 	int i = 16 - size;
-	if (! rtx_equal_function_value_matters
+	if (! currently_expanding_to_rtl
 	    && ! reload_in_progress && ! reload_completed)
 	  emit_insn (gen_shl_sext_ext (dest, source, left_rtx, size_rtx));
 	else
@@ -2587,7 +2627,7 @@ gen_shl_sext (rtx dest, rtx left_rtx, rtx size_rtx, rtx source)
     case 7:
       /* Don't expand fine-grained when combining, because that will
 	 make the pattern fail.  */
-      if (! rtx_equal_function_value_matters
+      if (! currently_expanding_to_rtl
 	  && ! reload_in_progress && ! reload_completed)
 	{
 	  emit_insn (gen_shl_sext_ext (dest, source, left_rtx, size_rtx));
@@ -3023,6 +3063,10 @@ broken_move (rtx insn)
 			== SCRATCH))
 		&& GET_CODE (SET_DEST (pat)) == REG
 		&& FP_REGISTER_P (REGNO (SET_DEST (pat))))
+	  && ! (TARGET_SH2A
+		&& GET_MODE (SET_DEST (pat)) == SImode
+		&& GET_CODE (SET_SRC (pat)) == CONST_INT
+		&& CONST_OK_FOR_I20 (INTVAL (SET_SRC (pat))))
 	  && (GET_CODE (SET_SRC (pat)) != CONST_INT
 	      || ! CONST_OK_FOR_I08 (INTVAL (SET_SRC (pat)))))
 	return 1;
@@ -3767,6 +3811,10 @@ fixup_addr_diff_vecs (rtx first)
 	  if (GET_CODE (x) == LABEL_REF && XEXP (x, 0) == vec_lab)
 	    break;
 	}
+      /* FIXME: This is a bug in the optimizer, but it seems harmless
+	 to just avoid panicing.  */
+      if (!prev)
+	continue;
 
       /* Emit the reference label of the braf where it belongs, right after
 	 the casesi_jump_2 (i.e. braf).  */
@@ -4743,8 +4791,12 @@ output_stack_adjust (int size, rtx reg, int epilogue_p,
     {
       HOST_WIDE_INT align = STACK_BOUNDARY / BITS_PER_UNIT;
 
+/* This test is bogus, as output_stack_adjust is used to re-align the
+   stack.  */
+#if 0
       if (size % align)
 	abort ();
+#endif
 
       if (CONST_OK_FOR_ADD (size))
 	emit_fn (GEN_ADD3 (reg, reg, GEN_INT (size)));
@@ -4905,7 +4957,7 @@ push (int rn)
     x = gen_push_fpul ();
   else if (rn == FPSCR_REG)
     x = gen_push_fpscr ();
-  else if (TARGET_SH4 && TARGET_FMOVD && ! TARGET_FPU_SINGLE
+  else if ((TARGET_SH4 || TARGET_SH2A_DOUBLE) && TARGET_FMOVD && ! TARGET_FPU_SINGLE
 	   && FP_OR_XD_REGISTER_P (rn))
     {
       if (FP_REGISTER_P (rn) && (rn - FIRST_FP_REG) & 1)
@@ -4934,7 +4986,7 @@ pop (int rn)
     x = gen_pop_fpul ();
   else if (rn == FPSCR_REG)
     x = gen_pop_fpscr ();
-  else if (TARGET_SH4 && TARGET_FMOVD && ! TARGET_FPU_SINGLE
+  else if ((TARGET_SH4 || TARGET_SH2A_DOUBLE) && TARGET_FMOVD && ! TARGET_FPU_SINGLE
 	   && FP_OR_XD_REGISTER_P (rn))
     {
       if (FP_REGISTER_P (rn) && (rn - FIRST_FP_REG) & 1)
@@ -5052,11 +5104,11 @@ calc_live_regs (HARD_REG_SET *live_regs_mask)
   interrupt_handler = sh_cfun_interrupt_handler_p ();
 
   CLEAR_HARD_REG_SET (*live_regs_mask);
-  if (TARGET_SH4 && TARGET_FMOVD && interrupt_handler
+  if ((TARGET_SH4 || TARGET_SH2A_DOUBLE) && TARGET_FMOVD && interrupt_handler
       && regs_ever_live[FPSCR_REG])
     target_flags &= ~FPU_SINGLE_BIT;
   /* If we can save a lot of saves by switching to double mode, do that.  */
-  else if (TARGET_SH4 && TARGET_FMOVD && TARGET_FPU_SINGLE)
+  else if ((TARGET_SH4 || TARGET_SH2A_DOUBLE) && TARGET_FMOVD && TARGET_FPU_SINGLE)
     for (count = 0, reg = FIRST_FP_REG; reg <= LAST_FP_REG; reg += 2)
       if (regs_ever_live[reg] && regs_ever_live[reg+1]
 	  && (! call_used_regs[reg] || (interrupt_handler && ! pragma_trapa))
@@ -5129,7 +5181,7 @@ calc_live_regs (HARD_REG_SET *live_regs_mask)
 	  SET_HARD_REG_BIT (*live_regs_mask, reg);
 	  count += GET_MODE_SIZE (REGISTER_NATURAL_MODE (reg));
 
-	  if ((TARGET_SH4 || TARGET_SH5) && TARGET_FMOVD
+	  if ((TARGET_SH4 || TARGET_SH2A_DOUBLE || TARGET_SH5) && TARGET_FMOVD
 	      && GET_MODE_CLASS (REGISTER_NATURAL_MODE (reg)) == MODE_FLOAT)
 	    {
 	      if (FP_REGISTER_P (reg))
@@ -6151,7 +6203,7 @@ sh_builtin_saveregs (void)
   emit_move_insn (fpregs, XEXP (regbuf, 0));
   emit_insn (gen_addsi3 (fpregs, fpregs,
 			 GEN_INT (n_floatregs * UNITS_PER_WORD)));
-  if (TARGET_SH4)
+  if (TARGET_SH4 || TARGET_SH2A_DOUBLE)
     {
       rtx mem;
       for (regno = NPARM_REGS (DFmode) - 2; regno >= first_floatreg; regno -= 2)
@@ -6287,7 +6339,7 @@ sh_va_start (tree valist, rtx nextarg)
   else
     nfp = 0;
   u = fold (build (PLUS_EXPR, ptr_type_node, u,
-		   build_int_2 (UNITS_PER_WORD * nfp, 0)));
+		   build_int_cst (NULL_TREE, UNITS_PER_WORD * nfp, 0)));
   t = build (MODIFY_EXPR, ptr_type_node, next_fp_limit, u);
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
@@ -6302,7 +6354,7 @@ sh_va_start (tree valist, rtx nextarg)
   else
     nint = 0;
   u = fold (build (PLUS_EXPR, ptr_type_node, u,
-		   build_int_2 (UNITS_PER_WORD * nint, 0)));
+		   build_int_cst (NULL_TREE, UNITS_PER_WORD * nint, 0)));
   t = build (MODIFY_EXPR, ptr_type_node, next_o_limit, u);
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
@@ -6795,7 +6847,7 @@ sh_function_arg_advance (CUMULATIVE_ARGS *ca, enum machine_mode mode,
 	}
     }
 
-  if (! (TARGET_SH4 || ca->renesas_abi)
+  if (! ((TARGET_SH4 || TARGET_SH2A) || ca->renesas_abi)
       || PASS_IN_REG_P (*ca, mode, type))
     (ca->arg_count[(int) GET_SH_ARG_CLASS (mode)]
      = (ROUND_REG (*ca, mode)
@@ -7522,7 +7574,10 @@ tertiary_reload_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 int
 fpscr_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 {
-  return (GET_CODE (op) == REG && REGNO (op) == FPSCR_REG
+  return (GET_CODE (op) == REG
+	  && (REGNO (op) == FPSCR_REG
+	      || (REGNO (op) >= FIRST_PSEUDO_REGISTER
+		  && !(reload_in_progress || reload_completed)))
 	  && GET_MODE (op) == PSImode);
 }
 
@@ -8551,19 +8606,6 @@ sh_pr_n_sets (void)
   return REG_N_SETS (TARGET_SHMEDIA ? PR_MEDIA_REG : PR_REG);
 }
 
-/* This Function returns nonzero if the DFA based scheduler interface
-   is to be used.  At present this is only supported properly for the SH4.
-   For the SH1 the current DFA model is just the converted form of the old
-   pipeline model description.  */
-static int
-sh_use_dfa_interface (void)
-{
-  if (TARGET_SH1)
-    return 1;
-  else
-    return 0;
-}
-
 /* This function returns "2" to indicate dual issue for the SH4
    processor.  To be used by the DFA pipeline description.  */
 static int
@@ -9414,6 +9456,11 @@ bool
 sh_cannot_change_mode_class (enum machine_mode from, enum machine_mode to,
 			     enum reg_class class)
 {
+  /* We want to enable the use of SUBREGs as a means to
+     VEC_SELECT a single element of a vector.  */
+  if (to == SFmode && VECTOR_MODE_P (from) && GET_MODE_INNER (from) == SFmode)
+    return (reg_classes_intersect_p (GENERAL_REGS, class));
+
   if (GET_MODE_SIZE (from) != GET_MODE_SIZE (to))
     {
       if (TARGET_LITTLE_ENDIAN)
@@ -9838,4 +9885,87 @@ check_use_sfunc_addr (rtx insn, rtx reg)
   abort ();
 }
 
+/* Returns 1 if OP is a MEM that can be source of a simple move operation.  */
+
+int
+unaligned_load_operand (rtx op, enum machine_mode mode)
+{
+  rtx inside;
+
+  if (GET_CODE (op) != MEM || GET_MODE (op) != mode)
+    return 0;
+
+  inside = XEXP (op, 0);
+
+  if (GET_CODE (inside) == POST_INC)
+    inside = XEXP (inside, 0);
+
+  if (GET_CODE (inside) == REG)
+    return 1;
+
+  return 0;
+}
+
+/* This function returns a constant rtx that represents pi / 2**15 in
+   SFmode.  it's used to scale SFmode angles, in radians, to a
+   fixed-point signed 16.16-bit fraction of a full circle, i.e., 2*pi
+   maps to 0x10000).  */
+
+static GTY(()) rtx sh_fsca_sf2int_rtx;
+
+rtx
+sh_fsca_sf2int (void)
+{
+  if (! sh_fsca_sf2int_rtx)
+    {
+      REAL_VALUE_TYPE rv;
+
+      real_from_string (&rv, "10430.378350470453");
+      sh_fsca_sf2int_rtx = const_double_from_real_value (rv, SFmode);
+    }
+
+  return sh_fsca_sf2int_rtx;
+}
+  
+/* This function returns a constant rtx that represents pi / 2**15 in
+   DFmode.  it's used to scale DFmode angles, in radians, to a
+   fixed-point signed 16.16-bit fraction of a full circle, i.e., 2*pi
+   maps to 0x10000).  */
+
+static GTY(()) rtx sh_fsca_df2int_rtx;
+
+rtx
+sh_fsca_df2int (void)
+{
+  if (! sh_fsca_df2int_rtx)
+    {
+      REAL_VALUE_TYPE rv;
+
+      real_from_string (&rv, "10430.378350470453");
+      sh_fsca_df2int_rtx = const_double_from_real_value (rv, DFmode);
+    }
+
+  return sh_fsca_df2int_rtx;
+}
+  
+/* This function returns a constant rtx that represents 2**15 / pi in
+   SFmode.  it's used to scale a fixed-point signed 16.16-bit fraction
+   of a full circle back to a SFmode value, i.e., 0x10000 maps to
+   2*pi).  */
+
+static GTY(()) rtx sh_fsca_int2sf_rtx;
+
+rtx
+sh_fsca_int2sf (void)
+{
+  if (! sh_fsca_int2sf_rtx)
+    {
+      REAL_VALUE_TYPE rv;
+
+      real_from_string (&rv, "9.587379924285257e-5");
+      sh_fsca_int2sf_rtx = const_double_from_real_value (rv, SFmode);
+    }
+
+  return sh_fsca_int2sf_rtx;
+}
 #include "gt-sh.h"

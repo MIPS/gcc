@@ -826,7 +826,7 @@ sra_walk_modify_expr (tree expr, block_stmt_iterator *bsi,
 	 The lvalue requirement prevents us from trying to directly scalarize
 	 the result of a function call.  Which would result in trying to call
 	 the function multiple times, and other evil things.  */
-      else if (!lhs_elt->is_scalar && is_gimple_addr_expr_arg (rhs))
+      else if (!lhs_elt->is_scalar && is_gimple_addressable (rhs))
 	fns->ldst (lhs_elt, rhs, bsi, true);
 	
       /* Otherwise we're being used in some context that requires the
@@ -2118,7 +2118,7 @@ struct tree_opt_pass pass_sra =
   NULL,					/* next */
   0,					/* static_pass_number */
   TV_TREE_SRA,				/* tv_id */
-  PROP_cfg | PROP_ssa,			/* properties_required */
+  PROP_cfg | PROP_ssa | PROP_alias,	/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */

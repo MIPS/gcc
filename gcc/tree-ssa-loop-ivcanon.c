@@ -119,7 +119,7 @@ try_unroll_loop_completely (struct loops *loops, struct loop *loop,
 			    edge exit, tree niter,
 			    bool completely_unroll)
 {
-  tree max_unroll = build_int_2 (PARAM_VALUE (PARAM_MAX_COMPLETELY_PEEL_TIMES),
+  tree max_unroll = build_int_cst (NULL_TREE, PARAM_VALUE (PARAM_MAX_COMPLETELY_PEEL_TIMES),
 				 0);
   unsigned n_unroll, ninsns;
   tree cond, dont_exit, do_exit;

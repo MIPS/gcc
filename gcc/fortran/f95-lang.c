@@ -684,7 +684,7 @@ builtin_function (const char *name,
   TREE_PUBLIC (decl) = 1;
   if (library_name)
     SET_DECL_ASSEMBLER_NAME (decl, get_identifier (library_name));
-  make_decl_rtl (decl, NULL);
+  make_decl_rtl (decl);
   pushdecl (decl);
   DECL_BUILT_IN_CLASS (decl) = class;
   DECL_FUNCTION_CODE (decl) = function_code;
@@ -750,9 +750,9 @@ gfc_init_builtin_functions (void)
 		      BUILT_IN_ROUNDF, "roundf", true);
 
   /* These are used to implement the ** operator.  */
-  gfc_define_builtin ("__builtin_pow", mfunc_double[0], 
+  gfc_define_builtin ("__builtin_pow", mfunc_double[1], 
 		      BUILT_IN_POW, "pow", true);
-  gfc_define_builtin ("__builtin_powf", mfunc_float[0], 
+  gfc_define_builtin ("__builtin_powf", mfunc_float[1], 
 		      BUILT_IN_POWF, "powf", true);
 
   /* Other builtin functions we use.  */
@@ -794,17 +794,14 @@ gfc_init_builtin_functions (void)
   gfc_define_builtin ("__builtin_adjust_trampoline", ftype,
 		      BUILT_IN_ADJUST_TRAMPOLINE, "adjust_trampoline", true);
 
-  tmp = tree_cons (NULL_TREE, pvoid_type_node, void_list_node);
-  tmp = tree_cons (NULL_TREE, size_type_node, void_list_node);
-  ftype = build_function_type (pvoid_type_node, tmp);
-  gfc_define_builtin ("__builtin_stack_alloc", ftype, BUILT_IN_STACK_ALLOC,
-		      "stack_alloc", false);
+  /* The stack_save, stack_restore, and alloca builtins aren't used directly.
+     They are inserted during gimplification to implement variable sized
+     stack allocation.  */
 
-  /* The stack_save and stack_restore builtins aren't used directly.  They
-     are inserted during gimplification to implement stack_alloc calls.  */
   ftype = build_function_type (pvoid_type_node, void_list_node);
   gfc_define_builtin ("__builtin_stack_save", ftype, BUILT_IN_STACK_SAVE,
 		      "stack_save", false);
+
   tmp = tree_cons (NULL_TREE, pvoid_type_node, void_list_node);
   ftype = build_function_type (void_type_node, tmp);
   gfc_define_builtin ("__builtin_stack_restore", ftype, BUILT_IN_STACK_RESTORE,
@@ -816,6 +813,11 @@ gfc_init_builtin_functions (void)
 		      BUILT_IN_MAYBE_INFINITE_LOOP, "maybe_infinite_loop",
 		      false);
   /* APPLE LOCAL end lno */
+
+  tmp = tree_cons (NULL_TREE, size_type_node, void_list_node);
+  ftype = build_function_type (pvoid_type_node, tmp);
+  gfc_define_builtin ("__builtin_alloca", ftype, BUILT_IN_ALLOCA,
+		      "alloca", false);
 }
 
 #undef DEFINE_MATH_BUILTIN

@@ -1184,7 +1184,8 @@ create_preheader (struct loop *loop, int flags)
     }
 
   if (dump_file)
-    fprintf (dump_file, "Created preheader block for loop %i\n", loop->num);
+    fprintf (dump_file, "Created preheader block for loop %i\n",
+	     loop->num);
 
   return dummy;
 }

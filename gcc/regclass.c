@@ -191,6 +191,10 @@ const char * reg_names[] = REGISTER_NAMES;
 
 enum machine_mode reg_raw_mode[FIRST_PSEUDO_REGISTER];
 
+/* 1 if there is a register of given mode.  */
+
+bool have_regs_of_mode [MAX_MACHINE_MODE];
+
 /* 1 if class does contain register of given mode.  */
 
 static char contains_reg_of_mode [N_REG_CLASSES] [MAX_MACHINE_MODE];
@@ -305,7 +309,6 @@ init_reg_sets_1 (void)
 {
   unsigned int i, j;
   unsigned int /* enum machine_mode */ m;
-  char allocatable_regs_of_mode [MAX_MACHINE_MODE];
 
   /* This macro allows the fixed or call-used registers
      and the register classes to depend on target flags.  */
@@ -469,8 +472,8 @@ init_reg_sets_1 (void)
 	SET_HARD_REG_BIT (regs_invalidated_by_call, i);
     }
 
+  memset (have_regs_of_mode, 0, sizeof (have_regs_of_mode));
   memset (contains_reg_of_mode, 0, sizeof (contains_reg_of_mode));
-  memset (allocatable_regs_of_mode, 0, sizeof (allocatable_regs_of_mode));
   for (m = 0; m < (unsigned int) MAX_MACHINE_MODE; m++)
     for (i = 0; i < N_REG_CLASSES; i++)
       if ((unsigned) CLASS_MAX_NREGS (i, m) <= reg_class_size[i])
@@ -479,7 +482,7 @@ init_reg_sets_1 (void)
 	      && HARD_REGNO_MODE_OK (j, m))
 	     {
 	       contains_reg_of_mode [i][m] = 1;
-	       allocatable_regs_of_mode [m] = 1;
+	       have_regs_of_mode [m] = 1;
 	       break;
 	     }
 
@@ -487,7 +490,7 @@ init_reg_sets_1 (void)
      and take the maximum cost of moving any subset to any other.  */
 
   for (m = 0; m < (unsigned int) MAX_MACHINE_MODE; m++)
-    if (allocatable_regs_of_mode [m])
+    if (have_regs_of_mode [m])
       {
 	for (i = 0; i < N_REG_CLASSES; i++)
 	  if (contains_reg_of_mode [i][m])
@@ -1611,10 +1614,7 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
 		    break;
 		case 'i':
 		  if (CONSTANT_P (op)
-#ifdef LEGITIMATE_PIC_OPERAND_P
-		      && (! flag_pic || LEGITIMATE_PIC_OPERAND_P (op))
-#endif
-		      )
+		      && (! flag_pic || LEGITIMATE_PIC_OPERAND_P (op)))
 		    win = 1;
 		  break;
 
@@ -1645,10 +1645,7 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
 		case 'g':
 		  if (MEM_P (op)
 		      || (CONSTANT_P (op)
-#ifdef LEGITIMATE_PIC_OPERAND_P
-			  && (! flag_pic || LEGITIMATE_PIC_OPERAND_P (op))
-#endif
-			  ))
+			  && (! flag_pic || LEGITIMATE_PIC_OPERAND_P (op))))
 		    win = 1;
 		  allows_mem[i] = 1;
 		case 'r':

@@ -4765,6 +4765,24 @@ comparison operators, so the default returns false always.  Most ports
 don't need to define this macro.
 @end defmac
 
+@defmac TARGET_LIBGCC_FUNCS
+This macro should evaluate to @code{true} if the standard GCC library
+names (like @code{__modsi3}) should be used for functions provided in
+@file{libgcc.a}.  If this macro evaluates to @code{false}, then the
+target must explictily set the names of all desired library functions
+itself using the @code{TARGET_INIT_LIBFUNCS} hook.
+@end defmac
+
+@defmac TARGET_LIB_INT_CMP_BIASED
+This macro should evaluate to @code{true} if the integer comparison
+functions (like @code{__cmpdi2}) return 0 to indicate that the first
+operand is smaller than the second, 1 to indicate that they are equal,
+and 2 to indicate that the first operand is greater than the second.
+If this macro evalutes to @code{false} the comparison functions return
+-1, 0, and 1 instead of 0, 1, and 2.  If the target uses the routines
+in @file{libgcc.a}, you do not need to define this macro.
+@end defmac
+
 @cindex US Software GOFAST, floating point emulation library
 @cindex floating point emulation library, US Software GOFAST
 @cindex GOFAST, floating point emulation library
@@ -5399,7 +5417,8 @@ used to set a chunk of memory to a constant value, or whether some other
 mechanism will be used.  Used by @code{__builtin_memset} when storing
 values other than constant zero and by @code{__builtin_strcpy} when
 when called with a constant source string.
-Defaults to @code{MOVE_BY_PIECES_P}.
+Defaults to to 1 if @code{move_by_pieces_ninsns} returns less
+than @code{MOVE_RATIO}.
 @end defmac
 
 @defmac USE_LOAD_POST_INCREMENT (@var{mode})
@@ -5542,8 +5561,8 @@ This value must be constant over the entire compilation.  If you need
 it to vary depending on what the instructions are, you must use
 @samp{TARGET_SCHED_VARIABLE_ISSUE}.
 
-For the automaton based pipeline interface, you could define this hook
-to return the value of the macro @code{MAX_DFA_ISSUE_RATE}.
+You could define this hook to return the value of the macro
+@code{MAX_DFA_ISSUE_RATE}.
 @end deftypefn
 
 @deftypefn {Target Hook} int TARGET_SCHED_VARIABLE_ISSUE (FILE *@var{file}, int @var{verbose}, rtx @var{insn}, int @var{more})
@@ -5572,7 +5591,7 @@ description, the cost of anti-dependence is zero and the cost of
 output-dependence is maximum of one and the difference of latency
 times of the first and the second insns.  If these values are not
 acceptable, you could use the hook to modify them too.  See also
-@pxref{Automaton pipeline description}.
+@pxref{Processor pipeline description}.
 @end deftypefn
 
 @deftypefn {Target Hook} int TARGET_SCHED_ADJUST_PRIORITY (rtx @var{insn}, int @var{priority})
@@ -5651,19 +5670,6 @@ This hook is executed by the scheduler after function level initializations.
 This is the cleanup hook corresponding to TARGET_SCHED_INIT_GLOBAL.
 @var{file} is either a null pointer, or a stdio stream to write any debug output to.
 @var{verbose} is the verbose level provided by @option{-fsched-verbose-@var{n}}.
-@end deftypefn
-
-@deftypefn {Target Hook} int TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE (void)
-This hook is called many times during insn scheduling.  If the hook
-returns nonzero, the automaton based pipeline description is used for
-insn scheduling.  Otherwise the traditional pipeline description is
-used.  The default is usage of the traditional pipeline description.
-
-You should also remember that to simplify the insn scheduler sources
-an empty traditional pipeline description interface is generated even
-if there is no a traditional pipeline description in the @file{.md}
-file.  The same is true for the automaton based pipeline description.
-That means that you should be accurate in defining the hook.
 @end deftypefn
 
 @deftypefn {Target Hook} int TARGET_SCHED_DFA_PRE_CYCLE_INSN (void)
@@ -5925,6 +5931,15 @@ The default version of this function appends the symbol name to the
 ELF section name that would normally be used for the symbol.  For
 example, the function @code{foo} would be placed in @code{.text.foo}.
 Whatever the actual target object format, this is often good enough.
+@end deftypefn
+
+@deftypefn {Target Hook} void TARGET_ASM_FUNCTION_RODATA_SECTION (tree @var{decl})
+Switches to a readonly data section associated with
+@samp{DECL_SECTION_NAME (@var{decl})}.
+The default version of this function switches to @code{.gnu.linkonce.r.name}
+section if function's section is @code{.gnu.linkonce.t.name}, to
+@code{.rodata.name} if function is in @code{.text.name} section
+and otherwise switches to the normal readonly data section.
 @end deftypefn
 
 @deftypefn {Target Hook} void TARGET_ASM_SELECT_RTX_SECTION (enum machine_mode @var{mode}, rtx @var{x}, unsigned HOST_WIDE_INT @var{align})
@@ -7560,12 +7575,13 @@ Otherwise, if your target supports this information (if it defines
 or @samp{OBJECT_FORMAT_ELF}), GCC will provide a default definition of
 1.
 
-If this macro is defined to 1, the DWARF 2 unwinder will be the default
-exception handling mechanism; otherwise, @code{setjmp}/@code{longjmp} will be used by
-default.
+If @code{TARGET_UNWIND_INFO} is defined, the target specific unwinder
+will be used in all cases.  Defining this macro will enable the generation
+of DWARF 2 frame debugging information.
 
-If this macro is defined to anything, the DWARF 2 unwinder will be used
-instead of inline unwinders and @code{__unwind_function} in the non-@code{setjmp} case.
+If @code{TARGET_UNWIND_INFO} is not defined, and this macro is defined to 1,
+the DWARF 2 unwinder will be the default exception handling mechanism;
+otherwise, @code{setjmp}/@code{longjmp} will be used by default.
 @end defmac
 
 @defmac TARGET_UNWIND_INFO
@@ -8359,13 +8375,26 @@ attribute is nullified by a subsequent definition.  This function may
 call @code{merge_attributes} to handle machine-independent merging.
 
 @findex TARGET_DLLIMPORT_DECL_ATTRIBUTES
-If the only target-specific handling you require is @samp{dllimport} for
-Microsoft Windows targets, you should define the macro
-@code{TARGET_DLLIMPORT_DECL_ATTRIBUTES}.  This links in a function
-called @code{merge_dllimport_decl_attributes} which can then be defined
-as the expansion of @code{TARGET_MERGE_DECL_ATTRIBUTES}.  This is done
-in @file{i386/cygwin.h} and @file{i386/i386.c}, for example.
+If the only target-specific handling you require is @samp{dllimport}
+for Microsoft Windows targets, you should define the macro
+@code{TARGET_DLLIMPORT_DECL_ATTRIBUTES} to @code{1}.  The compiler
+will then define a function called
+@code{merge_dllimport_decl_attributes} which can then be defined as
+the expansion of @code{TARGET_MERGE_DECL_ATTRIBUTES}.  You can also
+add @code{handle_dll_attribute} in the attribute table for your port
+to perform initial processing of the @samp{dllimport} and
+@samp{dllexport} attributes.  This is done in @file{i386/cygwin.h} and
+@file{i386/i386.c}, for example.
 @end deftypefn
+
+@defmac TARGET_DECLSPEC
+Define this macro to a non-zero value if you want to treat
+@code{__declspec(X)} as equivalent to @code{__attribute((X))}.  By
+default, this behavior is enabled only for targets that define
+@code{TARGET_DLLIMPORT_DECL_ATTRIBUTES}.  The current implementation
+of @code{__declspec} is via a built-in macro, but you should not rely
+on this implementation detail.
+@end defmac
 
 @deftypefn {Target Hook} void TARGET_INSERT_ATTRIBUTES (tree @var{node}, tree *@var{attr_ptr})
 Define this target hook if you want to be able to add attributes to a decl
@@ -8490,6 +8519,12 @@ modified value and perform any other actions necessary to support the
 backend's targeted operating system.
 @end deftypefn
 
+@deftypefn {Target Hook} bool TARGET_CXX_CDTOR_RETURNS_THIS (void)
+This hook should return @code{true} if constructors and destructors return
+the address of the object created/destroyed.  The default is to return
+@code{false}.
+@end deftypefn
+
 @node Misc
 @section Miscellaneous Parameters
 @cindex parameters, miscellaneous
@@ -8522,6 +8557,29 @@ patterns.
 
 For each predicate function named in @code{PREDICATE_CODES}, a
 declaration will be generated in @file{insn-codes.h}.
+
+Use of this macro is deprecated; use @code{define_predicate} instead.
+@xref{Defining Predicates}.
+@end defmac
+
+@defmac SPECIAL_MODE_PREDICATES
+Define this if you have special predicates that know special things
+about modes.  Genrecog will warn about certain forms of
+@code{match_operand} without a mode; if the operand predicate is
+listed in @code{SPECIAL_MODE_PREDICATES}, the warning will be
+suppressed.
+
+Here is an example from the IA-32 port (@code{ext_register_operand}
+specially checks for @code{HImode} or @code{SImode} in preparation
+for a byte extraction from @code{%ah} etc.).
+
+@smallexample
+#define SPECIAL_MODE_PREDICATES \
+  "ext_register_operand",
+@end smallexample
+
+Use of this macro is deprecated; use @code{define_special_predicate}
+instead.  @xref{Defining Predicates}.
 @end defmac
 
 @defmac HAS_LONG_COND_BRANCH
@@ -8540,23 +8598,6 @@ conjunction with an optimization that partitions hot and cold basic
 blocks into separate sections of the executable.  If this macro is
 set to false, gcc will convert any unconditional branches that attempt
 to cross between sections into indirect jumps.
-@end defmac
-
-@defmac SPECIAL_MODE_PREDICATES
-Define this if you have special predicates that know special things
-about modes.  Genrecog will warn about certain forms of
-@code{match_operand} without a mode; if the operand predicate is
-listed in @code{SPECIAL_MODE_PREDICATES}, the warning will be
-suppressed.
-
-Here is an example from the IA-32 port (@code{ext_register_operand}
-specially checks for @code{HImode} or @code{SImode} in preparation
-for a byte extraction from @code{%ah} etc.).
-
-@smallexample
-#define SPECIAL_MODE_PREDICATES \
-  "ext_register_operand",
-@end smallexample
 @end defmac
 
 @defmac CASE_VECTOR_MODE
@@ -9286,3 +9327,14 @@ for a virtual function @var{fndecl} when constructing thunks,
 functions, if a target supports aliases (ie. defines
 @code{ASM_OUTPUT_DEF}), @code{false} otherwise,
 @end deftypefn
+
+@defmac TARGET_FORMAT_TYPES
+If defined, this macro is the name of a global variable containing
+target-specific format checking information for the @option{-Wformat}
+option.  The default is to have no target-specific format checks.
+@end defmac
+
+@defmac TARGET_N_FORMAT_TYPES
+If defined, this macro is the number of entries in
+@code{TARGET_FORMAT_TYPES}.
+@end defmac

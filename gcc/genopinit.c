@@ -264,6 +264,7 @@ gen_insn (rtx insn)
                             || mode_class[i] == MODE_PARTIAL_INT
 			    || mode_class[i] == MODE_VECTOR_INT)
 			&& (! force_float || mode_class[i] == MODE_FLOAT 
+			    || mode_class[i] == MODE_COMPLEX_FLOAT
 			    || mode_class[i] == MODE_VECTOR_FLOAT))
 		      break;
 		  }
@@ -350,9 +351,6 @@ main (int argc, char **argv)
   rtx desc;
 
   progname = "genopinit";
-
-  if (argc <= 1)
-    fatal ("no input file name");
 
   if (init_md_reader_args (argc, argv) != SUCCESS_EXIT_CODE)
     return (FATAL_EXIT_CODE);

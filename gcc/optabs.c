@@ -628,6 +628,89 @@ expand_cmplxdiv_wide (rtx real0, rtx real1, rtx imag0, rtx imag1, rtx realr,
   return 1;
 }
 
+/* Return the optab used for computing the operation given by
+   the tree code, CODE.  This function is not always usable (for
+   example, it cannot give complete results for multiplication
+   or division) but probably ought to be relied on more widely
+   throughout the expander.  */
+optab
+optab_for_tree_code (enum tree_code code, tree type)
+{
+  bool trapv;
+  switch (code)
+    {
+    case BIT_AND_EXPR:
+      return and_optab;
+
+    case BIT_IOR_EXPR:
+      return ior_optab;
+
+    case BIT_NOT_EXPR:
+      return one_cmpl_optab;
+
+    case BIT_XOR_EXPR:
+      return xor_optab;
+
+    case TRUNC_MOD_EXPR:
+    case CEIL_MOD_EXPR:
+    case FLOOR_MOD_EXPR:
+    case ROUND_MOD_EXPR:
+      return TYPE_UNSIGNED (type) ? umod_optab : smod_optab;
+
+    case RDIV_EXPR:
+    case TRUNC_DIV_EXPR:
+    case CEIL_DIV_EXPR:
+    case FLOOR_DIV_EXPR:
+    case ROUND_DIV_EXPR:
+    case EXACT_DIV_EXPR:
+      return TYPE_UNSIGNED (type) ? udiv_optab : sdiv_optab;
+
+    case LSHIFT_EXPR:
+      return ashl_optab;
+
+    case RSHIFT_EXPR:
+      return TYPE_UNSIGNED (type) ? lshr_optab : ashr_optab;
+
+    case LROTATE_EXPR:
+      return rotl_optab;
+
+    case RROTATE_EXPR:
+      return rotr_optab;
+
+    case MAX_EXPR:
+      return TYPE_UNSIGNED (type) ? umax_optab : smax_optab;
+
+    case MIN_EXPR:
+      return TYPE_UNSIGNED (type) ? umin_optab : smin_optab;
+
+    default:
+      break;
+    }
+
+  trapv = flag_trapv && INTEGRAL_TYPE_P (type) && !TYPE_UNSIGNED (type);
+  switch (code)
+    {
+    case PLUS_EXPR:
+      return trapv ? addv_optab : add_optab;
+
+    case MINUS_EXPR:
+      return trapv ? subv_optab : sub_optab;
+
+    case MULT_EXPR:
+      return trapv ? smulv_optab : smul_optab;
+
+    case NEGATE_EXPR:
+      return trapv ? negv_optab : neg_optab;
+
+    case ABS_EXPR:
+      return trapv ? absv_optab : abs_optab;
+
+    default:
+      return NULL;
+    }
+}
+
+
 /* Wrapper around expand_binop which takes an rtx code to specify
    the operation to perform, not an optab pointer.  All other
    arguments are the same.  */
@@ -2365,6 +2448,55 @@ expand_twoval_binop (optab binoptab, rtx op0, rtx op1, rtx targ0, rtx targ1,
   delete_insns_since (entry_last);
   return 0;
 }
+
+/* Expand the two-valued library call indicated by BINOPTAB, but
+   preserve only one of the values.  If TARG0 is non-NULL, the first
+   value is placed into TARG0; otherwise the second value is placed
+   into TARG1.  Exactly one of TARG0 and TARG1 must be non-NULL.  The
+   value stored into TARG0 or TARG1 is equivalent to (CODE OP0 OP1).
+   This routine assumes that the value returned by the library call is
+   as if the return value was of an integral mode twice as wide as the
+   mode of OP0.  Returns 1 if the call was successful.  */
+
+bool
+expand_twoval_binop_libfunc (optab binoptab, rtx op0, rtx op1, 
+			     rtx targ0, rtx targ1, enum rtx_code code)
+{
+  enum machine_mode mode;
+  enum machine_mode libval_mode;
+  rtx libval;
+  rtx insns;
+  
+  /* Exactly one of TARG0 or TARG1 should be non-NULL.  */
+  if (!((targ0 != NULL_RTX) ^ (targ1 != NULL_RTX)))
+    abort ();
+
+  mode = GET_MODE (op0);
+  if (!binoptab->handlers[(int) mode].libfunc)
+    return false;
+
+  /* The value returned by the library function will have twice as
+     many bits as the nominal MODE.  */
+  libval_mode = smallest_mode_for_size (2 * GET_MODE_BITSIZE (mode), 
+					MODE_INT);
+  start_sequence ();
+  libval = emit_library_call_value (binoptab->handlers[(int) mode].libfunc,
+				    NULL_RTX, LCT_CONST, 
+				    libval_mode, 2,
+				    op0, mode, 
+				    op1, mode);
+  /* Get the part of VAL containing the value that we want.  */
+  libval = simplify_gen_subreg (mode, libval, libval_mode,
+				targ0 ? 0 : GET_MODE_SIZE (mode));
+  insns = get_insns ();
+  end_sequence ();
+  /* Move the into the desired location.  */
+  emit_libcall_block (insns, targ0 ? targ0 : targ1, libval, 
+		      gen_rtx_fmt_ee (code, mode, op0, op1));
+  
+  return true;
+}
+
 
 /* Wrapper around expand_unop which takes an rtx code to specify
    the operation to perform, not an optab pointer.  All other
@@ -2804,7 +2936,8 @@ expand_unop (enum machine_mode mode, optab unoptab, rtx op0, rtx target,
     }
 
   /* If there is no negate operation, try doing a subtract from zero.
-     The US Software GOFAST library needs this.  */
+     The US Software GOFAST library needs this.  FIXME: This is *wrong*
+     for floating-point operations due to negative zeros!  */
   if (unoptab->code == NEG)
     {
       rtx temp;
@@ -3528,23 +3661,6 @@ emit_libcall_block (rtx insns, rtx target, rtx result, rtx equiv)
     }
 }
 
-/* Generate code to store zero in X.  */
-
-void
-emit_clr_insn (rtx x)
-{
-  emit_move_insn (x, const0_rtx);
-}
-
-/* Generate code to store 1 in X
-   assuming it contains zero beforehand.  */
-
-void
-emit_0_to_1_insn (rtx x)
-{
-  emit_move_insn (x, const1_rtx);
-}
-
 /* Nonzero if we can perform a comparison of mode MODE straightforwardly.
    PURPOSE describes how this comparison will be used.  CODE is the rtx
    comparison code we will be using.
@@ -3750,12 +3866,19 @@ prepare_cmp_insn (rtx *px, rtx *py, enum rtx_code *pcomparison, rtx size,
       result = emit_library_call_value (libfunc, NULL_RTX, LCT_CONST_MAKE_BLOCK,
 					word_mode, 2, x, mode, y, mode);
 
-      /* Integer comparison returns a result that must be compared against 1,
-	 so that even if we do an unsigned compare afterward,
-	 there is still a value that can represent the result "less than".  */
       *px = result;
-      *py = const1_rtx;
       *pmode = word_mode;
+      if (TARGET_LIB_INT_CMP_BIASED)
+	/* Integer comparison returns a result that must be compared
+	   against 1, so that even if we do an unsigned compare
+	   afterward, there is still a value that can represent the
+	   result "less than".  */
+	*py = const1_rtx;
+      else
+	{
+	  *py = const0_rtx;
+	  *punsignedp = 1;
+	}
       return;
     }
 
@@ -3926,12 +4049,14 @@ prepare_float_lib_cmp (rtx *px, rtx *py, enum rtx_code *pcomparison,
 {
   enum rtx_code comparison = *pcomparison;
   enum rtx_code swapped = swap_condition (comparison);
+  enum rtx_code reversed = reverse_condition_maybe_unordered (comparison);
   rtx x = *px;
   rtx y = *py;
   enum machine_mode orig_mode = GET_MODE (x);
   enum machine_mode mode;
   rtx value, target, insns, equiv;
   rtx libfunc = 0;
+  bool reversed_p = false;
 
   for (mode = orig_mode; mode != VOIDmode; mode = GET_MODE_WIDER_MODE (mode))
     {
@@ -3945,8 +4070,16 @@ prepare_float_lib_cmp (rtx *px, rtx *py, enum rtx_code *pcomparison,
 	  comparison = swapped;
 	  break;
 	}
-    }
 
+      if ((libfunc = code_to_optab[reversed]->handlers[mode].libfunc)
+	  && FLOAT_LIB_COMPARE_RETURNS_BOOL (mode, reversed))
+	{
+	  comparison = reversed;
+	  reversed_p = true;
+	  break;
+	}
+    }
+ 
   if (mode == VOIDmode)
     abort ();
 
@@ -4022,10 +4155,9 @@ prepare_float_lib_cmp (rtx *px, rtx *py, enum rtx_code *pcomparison,
   target = gen_reg_rtx (word_mode);
   emit_libcall_block (insns, target, value, equiv);
 
-
   if (comparison == UNORDERED
       || FLOAT_LIB_COMPARE_RETURNS_BOOL (mode, comparison))
-    comparison = NE;
+    comparison = reversed_p ? EQ : NE;
 
   *px = target;
   *py = const0_rtx;
@@ -5351,72 +5483,79 @@ init_optabs (void)
   init_all_optabs ();
 
   /* Initialize the optabs with the names of the library functions.  */
-  init_integral_libfuncs (add_optab, "add", '3');
-  init_floating_libfuncs (add_optab, "add", '3');
-  init_integral_libfuncs (addv_optab, "addv", '3');
-  init_floating_libfuncs (addv_optab, "add", '3');
-  init_integral_libfuncs (sub_optab, "sub", '3');
-  init_floating_libfuncs (sub_optab, "sub", '3');
-  init_integral_libfuncs (subv_optab, "subv", '3');
-  init_floating_libfuncs (subv_optab, "sub", '3');
-  init_integral_libfuncs (smul_optab, "mul", '3');
-  init_floating_libfuncs (smul_optab, "mul", '3');
-  init_integral_libfuncs (smulv_optab, "mulv", '3');
-  init_floating_libfuncs (smulv_optab, "mul", '3');
-  init_integral_libfuncs (sdiv_optab, "div", '3');
-  init_floating_libfuncs (sdiv_optab, "div", '3');
-  init_integral_libfuncs (sdivv_optab, "divv", '3');
-  init_integral_libfuncs (udiv_optab, "udiv", '3');
-  init_integral_libfuncs (sdivmod_optab, "divmod", '4');
-  init_integral_libfuncs (udivmod_optab, "udivmod", '4');
-  init_integral_libfuncs (smod_optab, "mod", '3');
-  init_integral_libfuncs (umod_optab, "umod", '3');
-  init_floating_libfuncs (ftrunc_optab, "ftrunc", '2');
-  init_integral_libfuncs (and_optab, "and", '3');
-  init_integral_libfuncs (ior_optab, "ior", '3');
-  init_integral_libfuncs (xor_optab, "xor", '3');
-  init_integral_libfuncs (ashl_optab, "ashl", '3');
-  init_integral_libfuncs (ashr_optab, "ashr", '3');
-  init_integral_libfuncs (lshr_optab, "lshr", '3');
-  init_integral_libfuncs (smin_optab, "min", '3');
-  init_floating_libfuncs (smin_optab, "min", '3');
-  init_integral_libfuncs (smax_optab, "max", '3');
-  init_floating_libfuncs (smax_optab, "max", '3');
-  init_integral_libfuncs (umin_optab, "umin", '3');
-  init_integral_libfuncs (umax_optab, "umax", '3');
-  init_integral_libfuncs (neg_optab, "neg", '2');
-  init_floating_libfuncs (neg_optab, "neg", '2');
-  init_integral_libfuncs (negv_optab, "negv", '2');
-  init_floating_libfuncs (negv_optab, "neg", '2');
-  init_integral_libfuncs (one_cmpl_optab, "one_cmpl", '2');
-  init_integral_libfuncs (ffs_optab, "ffs", '2');
-  init_integral_libfuncs (clz_optab, "clz", '2');
-  init_integral_libfuncs (ctz_optab, "ctz", '2');
-  init_integral_libfuncs (popcount_optab, "popcount", '2');
-  init_integral_libfuncs (parity_optab, "parity", '2');
+  if (TARGET_LIBGCC_LIBFUNCS)
+    {
+      init_integral_libfuncs (add_optab, "add", '3');
+      init_floating_libfuncs (add_optab, "add", '3');
+      init_integral_libfuncs (addv_optab, "addv", '3');
+      init_floating_libfuncs (addv_optab, "add", '3');
+      init_integral_libfuncs (sub_optab, "sub", '3');
+      init_floating_libfuncs (sub_optab, "sub", '3');
+      init_integral_libfuncs (subv_optab, "subv", '3');
+      init_floating_libfuncs (subv_optab, "sub", '3');
+      init_integral_libfuncs (smul_optab, "mul", '3');
+      init_floating_libfuncs (smul_optab, "mul", '3');
+      init_integral_libfuncs (smulv_optab, "mulv", '3');
+      init_floating_libfuncs (smulv_optab, "mul", '3');
+      init_integral_libfuncs (sdiv_optab, "div", '3');
+      init_floating_libfuncs (sdiv_optab, "div", '3');
+      init_integral_libfuncs (sdivv_optab, "divv", '3');
+      init_integral_libfuncs (udiv_optab, "udiv", '3');
+      init_integral_libfuncs (sdivmod_optab, "divmod", '4');
+      init_integral_libfuncs (udivmod_optab, "udivmod", '4');
+      init_integral_libfuncs (smod_optab, "mod", '3');
+      init_integral_libfuncs (umod_optab, "umod", '3');
+      init_floating_libfuncs (ftrunc_optab, "ftrunc", '2');
+      init_integral_libfuncs (and_optab, "and", '3');
+      init_integral_libfuncs (ior_optab, "ior", '3');
+      init_integral_libfuncs (xor_optab, "xor", '3');
+      init_integral_libfuncs (ashl_optab, "ashl", '3');
+      init_integral_libfuncs (ashr_optab, "ashr", '3');
+      init_integral_libfuncs (lshr_optab, "lshr", '3');
+      init_integral_libfuncs (smin_optab, "min", '3');
+      init_floating_libfuncs (smin_optab, "min", '3');
+      init_integral_libfuncs (smax_optab, "max", '3');
+      init_floating_libfuncs (smax_optab, "max", '3');
+      init_integral_libfuncs (umin_optab, "umin", '3');
+      init_integral_libfuncs (umax_optab, "umax", '3');
+      init_integral_libfuncs (neg_optab, "neg", '2');
+      init_floating_libfuncs (neg_optab, "neg", '2');
+      init_integral_libfuncs (negv_optab, "negv", '2');
+      init_floating_libfuncs (negv_optab, "neg", '2');
+      init_integral_libfuncs (one_cmpl_optab, "one_cmpl", '2');
+      init_integral_libfuncs (ffs_optab, "ffs", '2');
+      init_integral_libfuncs (clz_optab, "clz", '2');
+      init_integral_libfuncs (ctz_optab, "ctz", '2');
+      init_integral_libfuncs (popcount_optab, "popcount", '2');
+      init_integral_libfuncs (parity_optab, "parity", '2');
 
-  /* Comparison libcalls for integers MUST come in pairs, signed/unsigned.  */
-  init_integral_libfuncs (cmp_optab, "cmp", '2');
-  init_integral_libfuncs (ucmp_optab, "ucmp", '2');
-  init_floating_libfuncs (cmp_optab, "cmp", '2');
+      /* Comparison libcalls for integers MUST come in pairs,
+	 signed/unsigned.  */
+      init_integral_libfuncs (cmp_optab, "cmp", '2');
+      init_integral_libfuncs (ucmp_optab, "ucmp", '2');
+      init_floating_libfuncs (cmp_optab, "cmp", '2');
 
-  /* EQ etc are floating point only.  */
-  init_floating_libfuncs (eq_optab, "eq", '2');
-  init_floating_libfuncs (ne_optab, "ne", '2');
-  init_floating_libfuncs (gt_optab, "gt", '2');
-  init_floating_libfuncs (ge_optab, "ge", '2');
-  init_floating_libfuncs (lt_optab, "lt", '2');
-  init_floating_libfuncs (le_optab, "le", '2');
-  init_floating_libfuncs (unord_optab, "unord", '2');
+      /* EQ etc are floating point only.  */
+      init_floating_libfuncs (eq_optab, "eq", '2');
+      init_floating_libfuncs (ne_optab, "ne", '2');
+      init_floating_libfuncs (gt_optab, "gt", '2');
+      init_floating_libfuncs (ge_optab, "ge", '2');
+      init_floating_libfuncs (lt_optab, "lt", '2');
+      init_floating_libfuncs (le_optab, "le", '2');
+      init_floating_libfuncs (unord_optab, "unord", '2');
 
-  /* Conversions.  */
-  init_interclass_conv_libfuncs (sfloat_optab, "float", MODE_INT, MODE_FLOAT);
-  init_interclass_conv_libfuncs (sfix_optab, "fix",     MODE_FLOAT, MODE_INT);
-  init_interclass_conv_libfuncs (ufix_optab, "fixuns",  MODE_FLOAT, MODE_INT);
+      /* Conversions.  */
+      init_interclass_conv_libfuncs (sfloat_optab, "float", 
+				     MODE_INT, MODE_FLOAT);
+      init_interclass_conv_libfuncs (sfix_optab, "fix",     
+				     MODE_FLOAT, MODE_INT);
+      init_interclass_conv_libfuncs (ufix_optab, "fixuns",  
+				     MODE_FLOAT, MODE_INT);
 
-  /* sext_optab is also used for FLOAT_EXTEND.  */
-  init_intraclass_conv_libfuncs (sext_optab, "extend", MODE_FLOAT, true);
-  init_intraclass_conv_libfuncs (trunc_optab, "trunc", MODE_FLOAT, false);
+      /* sext_optab is also used for FLOAT_EXTEND.  */
+      init_intraclass_conv_libfuncs (sext_optab, "extend", MODE_FLOAT, true);
+      init_intraclass_conv_libfuncs (trunc_optab, "trunc", MODE_FLOAT, false);
+    }
 
   /* Use cabs for double complex abs, since systems generally have cabs.
      Don't define any libcall for float complex, so that cabs will be used.  */
@@ -5463,6 +5602,64 @@ init_optabs (void)
   /* Allow the target to add more libcalls or rename some, etc.  */
   targetm.init_libfuncs ();
 }
+
+#ifdef DEBUG
+
+/* Print information about the current contents of the optabs on
+   STDERR.  */
+
+static void
+debug_optab_libfuncs (void)
+{
+  int i;
+  int j;
+  int k;
+
+  /* Dump the arithmetic optabs.  */
+  for (i = 0; i != (int) OTI_MAX; i++) 
+    for (j = 0; j < NUM_MACHINE_MODES; ++j)
+      {
+	optab o;
+	struct optab_handlers *h;
+
+	o = optab_table[i];
+	h = &o->handlers[j];
+	if (h->libfunc)
+	  {
+	    if (GET_CODE (h->libfunc) != SYMBOL_REF)
+	      abort ();
+	    fprintf (stderr, "%s\t%s:\t%s\n", 
+		     GET_RTX_NAME (o->code),
+		     GET_MODE_NAME (j),
+		     XSTR (h->libfunc, 0));
+	  }
+      }
+
+  /* Dump the conversion optabs.  */
+  for (i = 0; i < (int) CTI_MAX; ++i)
+    for (j = 0; j < NUM_MACHINE_MODES; ++j)
+      for (k = 0; k < NUM_MACHINE_MODES; ++k)
+	{
+	  convert_optab o;
+	  struct optab_handlers *h;
+
+	  o = &convert_optab_table[i];
+	  h = &o->handlers[j][k];
+	  if (h->libfunc)
+	    {
+	      if (GET_CODE (h->libfunc) != SYMBOL_REF)
+		abort ();
+	      fprintf (stderr, "%s\t%s\t%s:\t%s\n", 
+		       GET_RTX_NAME (o->code),
+		       GET_MODE_NAME (j),
+		       GET_MODE_NAME (k),
+		       XSTR (h->libfunc, 0));
+	    }
+	}
+}
+
+#endif /* DEBUG */
+
 
 /* Generate insns to trap with code TCODE if OP1 and OP2 satisfy condition
    CODE.  Return 0 on failure.  */

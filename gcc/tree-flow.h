@@ -265,14 +265,7 @@ struct stmt_ann_d GTY(())
   /* Basic block that contains this statement.  */
   basic_block GTY ((skip (""))) bb;
 
-  /* Statement operands.  */
-  struct def_optype_d * GTY (()) def_ops;
-  struct use_optype_d * GTY (()) use_ops;
-
-  /* Virtual operands (V_MAY_DEF, VUSE, and V_MUST_DEF).  */
-  struct v_may_def_optype_d * GTY (()) v_may_def_ops;
-  struct vuse_optype_d * GTY (()) vuse_ops;
-  struct v_must_def_optype_d * GTY (()) v_must_def_ops;
+  struct stmt_operands_d operands;
 
   /* Dataflow information.  */
   dataflow_t df;
@@ -324,7 +317,6 @@ static inline tree immediate_use (dataflow_t, int);
 static inline dataflow_t get_immediate_uses (tree);
 static inline void set_default_def (tree, tree);
 static inline tree default_def (tree);
-static inline bool may_be_aliased (tree);
 
 /*---------------------------------------------------------------------------
                   Structure representing predictions in tree level.
@@ -355,6 +347,10 @@ struct bb_ann_d GTY(())
 
   /* Nonzero if this block contains an escape point (see is_escape_site).  */
   unsigned has_escape_site : 1;
+
+  /* Nonzero if one or more incoming edges to this block should be threaded
+     to an outgoing edge of this block.  */
+  unsigned incoming_edge_threaded : 1;
 
   struct edge_prediction *predictions;
 };
@@ -479,7 +475,7 @@ extern void tree_debug_loops (void);
 extern void print_loop_ir (FILE *);
 extern void cleanup_dead_labels (void);
 extern void group_case_labels (void);
-extern void cleanup_tree_cfg (void);
+extern bool cleanup_tree_cfg (void);
 extern tree first_stmt (basic_block);
 extern tree last_stmt (basic_block);
 extern tree *last_stmt_ptr (basic_block);
@@ -506,6 +502,13 @@ extern bool tree_duplicate_sese_region (edge, edge, basic_block *, unsigned,
 /* APPLE LOCAL end lno */
 extern bool tree_purge_dead_eh_edges (basic_block);
 extern bool tree_purge_all_dead_eh_edges (bitmap);
+extern tree gimplify_val (block_stmt_iterator *, tree, tree);
+extern tree gimplify_build1 (block_stmt_iterator *, enum tree_code,
+			     tree, tree);
+extern tree gimplify_build2 (block_stmt_iterator *, enum tree_code,
+			     tree, tree, tree);
+extern tree gimplify_build3 (block_stmt_iterator *, enum tree_code,
+			     tree, tree, tree, tree);
 
 /* In tree-pretty-print.c.  */
 extern void dump_generic_bb (FILE *, basic_block, int, int);
@@ -545,7 +548,6 @@ extern tree make_rename_temp (tree, const char *);
 /* In gimple-low.c  */
 struct lower_data;
 extern void lower_stmt_body (tree, struct lower_data *);
-extern void expand_used_vars (void);
 extern void record_vars (tree);
 extern bool block_may_fallthru (tree block);
 
@@ -558,6 +560,7 @@ extern void dump_points_to_info (FILE *);
 extern void debug_points_to_info (void);
 extern void dump_points_to_info_for (FILE *, tree);
 extern void debug_points_to_info_for (tree);
+extern bool may_be_aliased (tree);
 
 /* Call-back function for walk_use_def_chains().  At each reaching
    definition, a function with this prototype is called.  */
@@ -565,7 +568,6 @@ typedef bool (*walk_use_def_chains_fn) (tree, tree, void *);
 
 /* In tree-ssa.c  */
 extern void init_tree_ssa (void);
-extern void rewrite_vars_out_of_ssa (bitmap);
 extern void dump_reaching_defs (FILE *);
 extern void debug_reaching_defs (void);
 extern void dump_tree_ssa (FILE *);
@@ -575,18 +577,17 @@ extern void dump_tree_ssa_stats (FILE *);
 extern void debug_tree_ssa_stats (void);
 extern void ssa_remove_edge (edge);
 extern edge ssa_redirect_edge (edge, basic_block);
-extern void set_is_used (tree);
 extern bool tree_ssa_useless_type_conversion (tree);
 extern bool tree_ssa_useless_type_conversion_1 (tree, tree);
 extern void verify_ssa (void);
 extern void delete_tree_ssa (void);
 extern void register_new_def (tree, varray_type *);
-extern void walk_use_def_chains (tree, walk_use_def_chains_fn, void *);
+extern void walk_use_def_chains (tree, walk_use_def_chains_fn, void *, bool);
 extern void kill_redundant_phi_nodes (void);
 
 /* In tree-into-ssa.c  */
 extern void rewrite_into_ssa (bool);
-extern void rewrite_ssa_into_ssa (bitmap);
+extern void rewrite_ssa_into_ssa (void);
 
 void compute_global_livein (bitmap, bitmap);
 tree duplicate_ssa_name (tree, tree);
@@ -650,6 +651,8 @@ tree find_loop_niter_by_eval (struct loop *, edge *);
 void estimate_numbers_of_iterations (struct loops *);
 tree can_count_iv_in_wider_type (struct loop *, tree, tree, tree, tree);
 void free_numbers_of_iterations_estimates (struct loops *);
+void rewrite_into_loop_closed_ssa (void);
+void verify_loop_closed_ssa (void);
 void loop_commit_inserts (void);
 bool for_each_index (tree *, bool (*) (tree, tree *, void *), void *);
 
@@ -709,6 +712,7 @@ bool tree_if_conversion (struct loop *, bool);
 static inline int phi_arg_from_edge (tree, edge);
 static inline bool is_call_clobbered (tree);
 static inline void mark_call_clobbered (tree);
+static inline void set_is_used (tree);
 
 /* In tree-eh.c  */
 extern void make_eh_edges (tree);
@@ -740,6 +744,10 @@ void vn_delete (void);
 
 /* In tree-sra.c  */
 void insert_edge_copies (tree stmt, basic_block bb);
+
+/* In tree-ssa-operands.c  */
+extern void build_ssa_operands (tree, stmt_ann_t, stmt_operands_p, 
+				stmt_operands_p);
 
 #include "tree-flow-inline.h"
 

@@ -56,7 +56,7 @@ extern int cw_asm_lineno;
       STMT_IS_FULL_EXPR_P (in _STMT)
       STATEMENT_LIST_STMT_EXPR (in STATEMENT_LIST)
    2: unused
-   3: unused
+   3: STATEMENT_LIST_HAS_LABEL (in STATEMENT_LIST)
    4: unused
 */
 
@@ -313,6 +313,10 @@ extern void (*lang_expand_function_end) (void);
 /* Callback that determines if it's ok for a function to have no
    noreturn attribute.  */
 extern int (*lang_missing_noreturn_ok_p) (tree);
+
+/* If non-NULL, this function is called after a precompile header file
+   is loaded.  */
+extern void (*lang_post_pch_load) (void);
 
 extern void push_file_scope (void);
 extern void pop_file_scope (void);
@@ -676,10 +680,6 @@ extern int skip_evaluation;
 #define C_TYPE_OBJECT_OR_INCOMPLETE_P(type) \
   (!C_TYPE_FUNCTION_P (type))
 
-/* Record in each node resulting from a binary operator
-   what operator was specified for it.  */
-#define C_EXP_ORIGINAL_CODE(exp) ((enum tree_code) TREE_COMPLEXITY (exp))
-
 /* Attribute table common to the C front ends.  */
 extern const struct attribute_spec c_common_attribute_table[];
 extern const struct attribute_spec c_common_format_attribute_table[];
@@ -726,14 +726,13 @@ extern void binary_op_error (enum tree_code);
 #define my_friendly_assert(EXP, N) (void) \
  (((EXP) == 0) ? (fancy_abort (__FILE__, __LINE__, __FUNCTION__), 0) : 0)
 
-/* Validate the expression after `case' and apply default promotions.  */
-extern tree check_case_value (tree);
 extern tree fix_string_type (tree);
 struct varray_head_tag;
 extern void constant_expression_warning (tree);
 extern tree convert_and_check (tree, tree);
 extern void overflow_warning (tree);
 extern void unsigned_conversion_warning (tree, tree);
+extern bool c_determine_visibility (tree);
 
 #define c_sizeof(T)  c_sizeof_or_alignof_type (T, SIZEOF_EXPR, 1)
 #define c_alignof(T) c_sizeof_or_alignof_type (T, ALIGNOF_EXPR, 1)
@@ -790,6 +789,10 @@ extern void finish_file	(void);
    if a statement expression.  */
 #define STATEMENT_LIST_STMT_EXPR(NODE) \
   TREE_LANG_FLAG_1 (STATEMENT_LIST_CHECK (NODE))
+
+/* Nonzero if a label has been added to the statement list.  */
+#define STATEMENT_LIST_HAS_LABEL(NODE) \
+  TREE_LANG_FLAG_3 (STATEMENT_LIST_CHECK (NODE))
 
 /* WHILE_STMT accessors. These give access to the condition of the
    while statement and the body of the while statement, respectively.  */
@@ -873,7 +876,6 @@ extern int anon_aggr_type_p (tree);
   (DECL_LANG_FLAG_4 (FIELD_DECL_CHECK (NODE)) = 0)
 
 extern void emit_local_var (tree);
-extern void make_rtl_for_local_static (tree);
 extern tree do_case (tree, tree);
 extern tree build_stmt (enum tree_code, ...);
 extern tree build_case_label (tree, tree, tree);
@@ -904,7 +906,7 @@ extern void extract_interface_info (void);
 
 extern int case_compare (splay_tree_key, splay_tree_key);
 
-extern tree c_add_case_label (splay_tree, tree, tree, tree);
+extern tree c_add_case_label (splay_tree, tree, tree, tree, tree);
 
 extern void c_do_switch_warnings (splay_tree, tree);
 
@@ -920,7 +922,7 @@ extern int vector_types_convertible_p (tree t1, tree t2);
 
 extern rtx c_expand_expr (tree, rtx, enum machine_mode, int, rtx *);
 
-extern int c_staticp (tree);
+extern bool c_staticp (tree);
 
 extern int c_common_unsafe_for_reeval (tree);
 

@@ -194,7 +194,7 @@ defer_opt (enum opt_code code, const char *arg)
 
 /* Common initialization before parsing options.  */
 unsigned int
-c_common_init_options (unsigned int argc, const char **argv ATTRIBUTE_UNUSED)
+c_common_init_options (unsigned int argc, const char ** ARG_UNUSED (argv))
 {
   static const unsigned int lang_flags[] = {CL_C, CL_ObjC, CL_CXX, CL_ObjCXX};
   unsigned int result;
@@ -233,7 +233,7 @@ c_common_init_options (unsigned int argc, const char **argv ATTRIBUTE_UNUSED)
   flag_exceptions = c_dialect_cxx ();
   warn_pointer_arith = c_dialect_cxx ();
 
-  deferred_opts = xmalloc (argc * sizeof (struct deferred_opt));
+  deferred_opts = XNEWVEC (struct deferred_opt, argc);
 
   result = lang_flags[c_language];
 
@@ -852,6 +852,10 @@ c_common_handle_option (size_t scode, const char *arg, int value)
     case OPT_fuse_cxa_atexit:
       flag_use_cxa_atexit = value;
       break;
+      
+    case OPT_fvisibility_inlines_hidden:
+      visibility_options.inlines_hidden = value;
+      break;
 
     case OPT_fweak:
       flag_weak = value;
@@ -1008,7 +1012,7 @@ c_common_post_options (const char **pfilename)
   /* Canonicalize the input and output filenames.  */
   if (in_fnames == NULL)
     {
-      in_fnames = xmalloc (sizeof (in_fnames[0]));
+      in_fnames = XNEWVEC (const char *, 1);
       in_fnames[0] = "";
     }
   /* APPLE LOCAL begin predictive compilation */
@@ -1055,10 +1059,12 @@ c_common_post_options (const char **pfilename)
   if (flag_objc_exceptions && !flag_objc_sjlj_exceptions)
     flag_exceptions = 1;
 
-  /* -Wextra implies -Wsign-compare, but not if explicitly
-      overridden.  */
+  /* -Wextra implies -Wsign-compare and -Wmissing-field-initializers,
+     but not if explicitly overridden.  */
   if (warn_sign_compare == -1)
     warn_sign_compare = extra_warnings;
+  if (warn_missing_field_initializers == -1)
+    warn_missing_field_initializers = extra_warnings;
 
   /* Special format checking options don't work without -Wformat; warn if
      they are used.  */
@@ -1357,7 +1363,7 @@ add_prefixed_path (const char *suffix, size_t chain)
   prefix     = iprefix ? iprefix : cpp_GCC_INCLUDE_DIR;
   prefix_len = iprefix ? strlen (iprefix) : cpp_GCC_INCLUDE_DIR_len;
 
-  path = xmalloc (prefix_len + suffix_len + 1);
+  path = (char *) xmalloc (prefix_len + suffix_len + 1);
   memcpy (path, prefix, prefix_len);
   memcpy (path + prefix_len, suffix, suffix_len);
   path[prefix_len + suffix_len] = '\0';
@@ -1455,7 +1461,7 @@ push_command_line_include (void)
 
 /* File change callback.  Has to handle -include files.  */
 static void
-cb_file_change (cpp_reader *pfile ATTRIBUTE_UNUSED,
+cb_file_change (cpp_reader * ARG_UNUSED (pfile),
 		const struct line_map *new_map)
 {
   if (flag_preprocess_only)
@@ -1468,7 +1474,7 @@ cb_file_change (cpp_reader *pfile ATTRIBUTE_UNUSED,
 }
 
 void
-cb_dir_change (cpp_reader *pfile ATTRIBUTE_UNUSED, const char *dir)
+cb_dir_change (cpp_reader * ARG_UNUSED (pfile), const char *dir)
 {
   if (! set_src_pwd (dir))
     warning ("too late for # directive to set debug directory");

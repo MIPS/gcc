@@ -17,7 +17,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA. 
+Boston, MA 02111-1307, USA.
 
 Java and all Java-based marks are trademarks or registered trademarks
 of Sun Microsystems, Inc. in the United States and other countries.
@@ -59,7 +59,6 @@ static void put_decl_node (tree);
 static void java_print_error_function (diagnostic_context *, const char *);
 static tree java_tree_inlining_walk_subtrees (tree *, int *, walk_tree_fn,
 					      void *, void *);
-static int java_unsafe_for_reeval (tree);
 static int merge_init_test_initialization (void * *, void *);
 static int inline_init_test_initialization (void * *, void *);
 static bool java_can_use_bit_fields_p (void);
@@ -118,12 +117,6 @@ int compiling_from_source;
 
 const char *resource_name;
 
-int flag_emit_class_files = 0;
-
-/* Nonzero if input file is a file with a list of filenames to compile. */
-
-int flag_filelist_file = 0;
-
 /* When nonzero, we emit xref strings. Values of the flag for xref
    backends are defined in xref_flag_table, xref.c.  */
 
@@ -132,56 +125,8 @@ int flag_emit_xref = 0;
 /* When nonzero, -Wall was turned on.  */
 int flag_wall = 0;
 
-/* When nonzero, check for redundant modifier uses.  */
-int flag_redundant = 0;
-
-/* When nonzero, call a library routine to do integer divisions. */
-int flag_use_divide_subroutine = 1;
-
-/* When nonzero, generate code for the Boehm GC.  */
-int flag_use_boehm_gc = 0;
-
-/* When nonzero, assume the runtime uses a hash table to map an
-   object to its synchronization structure.  */
-int flag_hash_synchronization;
-
-/* When nonzero, permit the use of the assert keyword.  */
-int flag_assert = 1;
-
-/* When nonzero, assume all native functions are implemented with
-   JNI, not CNI.  */
-int flag_jni = 0;
-
-/* When nonzero, warn when source file is newer than matching class
-   file.  */
-int flag_newer = 1;
-
-/* When nonzero, generate checks for references to NULL.  */
-int flag_check_references = 0;
-
 /* The encoding of the source file.  */
 const char *current_encoding = NULL;
-
-/* When nonzero, report the now deprecated empty statements.  */
-int flag_extraneous_semicolon;
-
-/* When nonzero, report use of deprecated classes, methods, or fields.  */
-int flag_deprecated = 1;
-
-/* When nonzero, always check for a non gcj generated classes archive.  */
-int flag_force_classes_archive_check;
-
-/* When zero, don't optimize static class initialization. This flag shouldn't
-   be tested alone, use STATIC_CLASS_INITIALIZATION_OPTIMIZATION_P instead.  */
-/* FIXME: Make this work with gimplify.  */
-int flag_optimize_sci = 0;
-
-/* When nonzero, use offset tables for virtual method calls
-   in order to improve binary compatibility. */
-int flag_indirect_dispatch = 0;
-
-/* When zero, don't generate runtime array store checks. */
-int flag_store_check = 1;
 
 /* When nonzero, print extra version information.  */
 static int v_flag = 0;
@@ -221,8 +166,6 @@ struct language_function GTY(())
 #define LANG_HOOKS_POST_OPTIONS java_post_options
 #undef LANG_HOOKS_PARSE_FILE
 #define LANG_HOOKS_PARSE_FILE java_parse_file
-#undef LANG_HOOKS_UNSAFE_FOR_REEVAL
-#define LANG_HOOKS_UNSAFE_FOR_REEVAL java_unsafe_for_reeval
 #undef LANG_HOOKS_MARK_ADDRESSABLE
 #define LANG_HOOKS_MARK_ADDRESSABLE java_mark_addressable
 #undef LANG_HOOKS_TRUTHVALUE_CONVERSION
@@ -282,9 +225,6 @@ java_handle_option (size_t scode, const char *arg, int value)
 
   switch (code)
     {
-    default:
-      abort();
-
     case OPT_I:
       jcf_path_include_arg (arg);
       break;
@@ -332,26 +272,6 @@ java_handle_option (size_t scode, const char *arg, int value)
       set_Wunused (value);
       break;
 
-    case OPT_Wdeprecated:
-      flag_deprecated = value;
-      break;
-
-    case OPT_Wextraneous_semicolon:
-      flag_extraneous_semicolon = value;
-      break;
-
-    case OPT_Wout_of_date:
-      flag_newer = value;
-      break;
-
-    case OPT_Wredundant_modifiers:
-      flag_redundant = value;
-      break;
-
-    case OPT_fassert:
-      flag_assert = value;
-      break;
-
     case OPT_fenable_assertions_:
       add_enable_assert (arg, value);
       break;
@@ -380,10 +300,6 @@ java_handle_option (size_t scode, const char *arg, int value)
       jcf_path_bootclasspath_arg (arg);
       break;
 
-    case OPT_fcheck_references:
-      flag_check_references = value;
-      break;
-
     case OPT_fclasspath_:
     case OPT_fCLASSPATH_:
       jcf_path_classpath_arg (arg);
@@ -398,11 +314,6 @@ java_handle_option (size_t scode, const char *arg, int value)
 	return 0;
       break;
 
-    case OPT_femit_class_file:
-    case OPT_femit_class_files:
-      flag_emit_class_files = value;
-      break;
-
     case OPT_fencoding_:
       current_encoding = arg;
       break;
@@ -411,54 +322,23 @@ java_handle_option (size_t scode, const char *arg, int value)
       jcf_path_extdirs_arg (arg);
       break;
 
-    case OPT_ffilelist_file:
-      flag_filelist_file = value;
-      break;
-
-    case OPT_fforce_classes_archive_check:
-      flag_force_classes_archive_check = value;
-      break;
-
-    case OPT_fhash_synchronization:
-      flag_hash_synchronization = value;
-      break;
-
-    case OPT_findirect_dispatch:
-      flag_indirect_dispatch = value;
-      break;
-
     case OPT_finline_functions:
       flag_inline_functions = value;
       flag_really_inline = value;
-      break;
-
-    case OPT_fjni:
-      flag_jni = value;
-      break;
-
-    case OPT_foptimize_static_class_initialization:
-      flag_optimize_sci = value;
       break;
 
     case OPT_foutput_class_dir_:
       jcf_write_base_directory = arg;
       break;
 
-    case OPT_fstore_check:
-      flag_store_check = value;
-      break;
-
-    case OPT_fuse_boehm_gc:
-      flag_use_boehm_gc = value;
-      break;
-
-    case OPT_fuse_divide_subroutine:
-      flag_use_divide_subroutine = value;
-      break;
-
     case OPT_version:
       v_flag = 1;
       break;
+      
+    default:
+      if (cl_options[code].flags & CL_Java)
+	break;
+      abort();
     }
 
   return 1;
@@ -672,7 +552,7 @@ java_print_error_function (diagnostic_context *context ATTRIBUTE_UNUSED,
 	{
 	  const char *name = lang_printable_name (current_function_decl, 2);
 	  fprintf (stderr, "In %s `%s':\n",
-		   (DECL_CONSTRUCTOR_P (current_function_decl) ? "constructor" 
+		   (DECL_CONSTRUCTOR_P (current_function_decl) ? "constructor"
 		    : "method"),
 		   name);
 	}
@@ -866,25 +746,6 @@ java_tree_inlining_walk_subtrees (tree *tp ATTRIBUTE_UNUSED,
   #undef WALK_SUBTREE
 }
 
-/* Called from unsafe_for_reeval.  */
-static int
-java_unsafe_for_reeval (tree t)
-{
-  switch (TREE_CODE (t))
-    {
-    case BLOCK:
-      /* Our expander tries to expand the variables twice.  Boom.  */
-      if (BLOCK_EXPR_DECLS (t) != NULL)
-	return 2;
-      return unsafe_for_reeval (BLOCK_EXPR_BODY (t));
-
-    default:
-      break;
-    }
-
-  return -1;
-}
-
 /* APPLE LOCAL begin AltiVec */
 /* Placeholders to make linking work, remove when altivec support is correct */
 
@@ -930,16 +791,16 @@ int disable_typechecking_for_spec_flag = 0;
 /* Every call to a static constructor has an associated boolean
    variable which is in the outermost scope of the calling method.
    This variable is used to avoid multiple calls to the static
-   constructor for each class.  
+   constructor for each class.
 
    It looks something like this:
 
    foo ()
    {
       boolean dummy = OtherClass.is_initialized;
-  
+
      ...
-  
+
      if (! dummy)
        OtherClass.initialize();
 
@@ -962,7 +823,7 @@ merge_init_test_initialization (void **entry, void *x)
   splay_tree decl_map = (splay_tree)x;
   splay_tree_node n;
   tree *init_test_decl;
-  
+
   /* See if we have remapped this declaration.  If we haven't there's
      a bug in the inliner.  */
   n = splay_tree_lookup (decl_map, (splay_tree_key) ite->value);
@@ -977,18 +838,18 @@ merge_init_test_initialization (void **entry, void *x)
   if (!*init_test_decl)
     *init_test_decl = (tree)n->value;
 
-  /* This fixes a weird case.  
+  /* This fixes a weird case.
 
   The front end assumes that once we have called a method that
   initializes some class, we can assume the class is initialized.  It
   does this by setting the DECL_INITIAL of the init_test_decl for that
   class, and no initializations are emitted for that class.
-  
+
   However, what if the method that is suppoed to do the initialization
   is itself inlined in the caller?  When expanding the called method
   we'll assume that the class initialization has already been done,
   because the DECL_INITIAL of the init_test_decl is set.
-  
+
   To fix this we remove the DECL_INITIAL (in the caller scope) of all
   the init_test_decls corresponding to classes initialized by the
   inlined method.  This makes the caller no longer assume that the
@@ -1004,7 +865,7 @@ merge_init_test_initialization (void **entry, void *x)
 void
 java_inlining_merge_static_initializers (tree fn, void *decl_map)
 {
-  htab_traverse 
+  htab_traverse
     (DECL_FUNCTION_INIT_TEST_TABLE (fn),
      merge_init_test_initialization, decl_map);
 }
@@ -1020,8 +881,8 @@ inline_init_test_initialization (void **entry, void *x)
 {
   struct treetreehash_entry *ite = (struct treetreehash_entry *) *entry;
   splay_tree decl_map = (splay_tree)x;
-  
-  tree h = java_treetreehash_find 
+
+  tree h = java_treetreehash_find
     (DECL_FUNCTION_INIT_TEST_TABLE (current_function_decl), ite->key);
   if (! h)
     return true;
@@ -1039,7 +900,7 @@ inline_init_test_initialization (void **entry, void *x)
 void
 java_inlining_map_static_initializers (tree fn, void *decl_map)
 {
-  htab_traverse 
+  htab_traverse
     (DECL_FUNCTION_INIT_TEST_TABLE (fn),
      inline_init_test_initialization, decl_map);
 }
@@ -1071,7 +932,7 @@ dump_compound_expr (dump_info_p di, tree t)
 	}
     }
 }
-  
+
 static bool
 java_dump_tree (void *dump_info, tree t)
 {
@@ -1129,7 +990,7 @@ java_dump_tree (void *dump_info, tree t)
 	      dump_child ("var", local);
 	      local = next;
 	    }
-	  
+
 	  {
 	    tree block = BLOCK_EXPR_BODY (t);
 	    dump_child ("body", block);
@@ -1137,7 +998,7 @@ java_dump_tree (void *dump_info, tree t)
 	  }
 	}
       return true;
-      
+
     case COMPOUND_EXPR:
       if (!dump_flag (di, TDF_SLIM, t))
 	return false;
@@ -1181,13 +1042,13 @@ java_get_callee_fndecl (tree call_expr)
     return NULL;
   table = TREE_OPERAND (method, 0);
   if (! DECL_LANG_SPECIFIC(table)
-      || !DECL_OWNER (table) 
+      || !DECL_OWNER (table)
       || TYPE_ATABLE_DECL (DECL_OWNER (table)) != table)
     return NULL;
 
   atable_methods = TYPE_ATABLE_METHODS (DECL_OWNER (table));
   index = TREE_INT_CST_LOW (TREE_OPERAND (method, 1));
-  
+
   /* FIXME: Replace this for loop with a hash table lookup.  */
   for (element = atable_methods; element; element = TREE_CHAIN (element))
     {

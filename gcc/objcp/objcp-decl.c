@@ -253,7 +253,7 @@ objcp_type_size (type)
       layout_type (type);
       size = TYPE_SIZE (type);
     }
-  return build_int_2 (TREE_INT_CST_LOW (size), 0);
+  return build_int_cst (NULL_TREE, TREE_INT_CST_LOW (size), 0);
 }
 
 /* C++'s version of 'builtin_function' winds up placing our precious

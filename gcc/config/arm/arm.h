@@ -296,6 +296,14 @@ extern GTY(()) rtx aof_pic_label;
 #define TARGET_AAPCS_BASED \
     (arm_abi != ARM_ABI_APCS && arm_abi != ARM_ABI_ATPCS)
 
+/* True iff the full BPABI is being used.  If TARGET_BPABI is true,
+   then TARGET_AAPCS_BASED must be true -- but the converse does not
+   hold.  TARGET_BPABI implies the use of the BPABI runtime library,
+   etc., in addition to just the AAPCS calling conventions.  */
+#ifndef TARGET_BPABI
+#define TARGET_BPABI false
+#endif 
+
 /* SUBTARGET_SWITCHES is used to add flags on a per-config basis.  */
 #ifndef SUBTARGET_SWITCHES
 #define SUBTARGET_SWITCHES
@@ -963,8 +971,17 @@ extern const char * structure_size_string;
 #define FIRST_HI_REGNUM		8
 #define LAST_HI_REGNUM		11
 
+/* We use sjlj exceptions for backwards compatibility.  */
+#define MUST_USE_SJLJ_EXCEPTIONS 1
+/* We can generate DWARF2 Unwind info, even though we don't use it.  */
+#define DWARF2_UNWIND_INFO 1
+			     
+/* Use r0 and r1 to pass exception handling information.  */
+#define EH_RETURN_DATA_REGNO(N) (((N) < 2) ? N : INVALID_REGNUM)
+
 /* The register that holds the return address in exception handlers.  */
-#define EXCEPTION_LR_REGNUM	2
+#define ARM_EH_STACKADJ_REGNUM	2
+#define EH_RETURN_STACKADJ_RTX	gen_rtx_REG (SImode, ARM_EH_STACKADJ_REGNUM)
 
 /* The native (Norcroft) Pascal compiler for the ARM passes the static chain
    as an invisible last argument (possible since varargs don't exist in
@@ -1592,7 +1609,6 @@ enum reg_class
 #define ARM_FT_UNKNOWN		 0 /* Type has not yet been determined.  */
 #define ARM_FT_NORMAL		 1 /* Your normal, straightforward function.  */
 #define ARM_FT_INTERWORKED	 2 /* A function that supports interworking.  */
-#define ARM_FT_EXCEPTION_HANDLER 3 /* A C++ exception handler.  */
 #define ARM_FT_ISR		 4 /* An interrupt service routine.  */
 #define ARM_FT_FIQ		 5 /* A fast interrupt service routine.  */
 #define ARM_FT_EXCEPTION	 6 /* An ARM exception handler (subcase of ISR).  */
@@ -1841,12 +1857,6 @@ typedef struct
    ((TO) == THUMB_HARD_FRAME_POINTER_REGNUM && TARGET_ARM) ? 0 :	\
    1)
 
-#define THUMB_REG_PUSHED_P(reg)					\
-  (regs_ever_live [reg]						\
-   && (! call_used_regs [reg]					\
-       || (flag_pic && (reg) == PIC_OFFSET_TABLE_REGNUM))	\
-   && !(TARGET_SINGLE_PIC_BASE && ((reg) == arm_pic_register)))
-     
 /* Define the offset between two registers, one to be eliminated, and the
    other its replacement, at the start of a routine.  */
 #define INITIAL_ELIMINATION_OFFSET(FROM, TO, OFFSET)			\
@@ -2048,8 +2058,14 @@ typedef struct
 #define ASM_OUTPUT_LABELREF(FILE, NAME)		\
    arm_asm_output_labelref (FILE, NAME)
 
+/* Set the short-call flag for any function compiled in the current
+   compilation unit.  We skip this for functions with the section
+   attirubte when long-calls are in effect as this tells the compiler
+   that the section might be placed a long way from the caller.
+   See arm_is_longcall_p() for more information.  */
 #define ARM_DECLARE_FUNCTION_SIZE(STREAM, NAME, DECL)	\
-  arm_encode_call_attribute (DECL, SHORT_CALL_FLAG_CHAR)
+  if (!TARGET_LONG_CALLS || ! DECL_SECTION_NAME (DECL)) \
+    arm_encode_call_attribute (DECL, SHORT_CALL_FLAG_CHAR)
 
 /* The macros REG_OK_FOR..._P assume that the arg is a REG rtx
    and check its validity for a certain class.
@@ -2260,8 +2276,6 @@ extern const char * arm_pic_register_string;
 /* The register number of the register used to address a table of static
    data addresses in memory.  */
 #define PIC_OFFSET_TABLE_REGNUM arm_pic_register
-
-#define FINALIZE_PIC arm_finalize_pic (1)
 
 /* We can't directly access anything that contains a symbol,
    nor can we indirect via the constant pool.  */

@@ -330,9 +330,9 @@ static void putenv_from_prefixes (struct path_prefix *, const char *);
 static int access_check (const char *, int);
 static char *find_a_file (struct path_prefix *, const char *, int, int);
 static void add_prefix (struct path_prefix *, const char *, const char *,
-			int, int, int *, int);
+			int, int, int);
 static void add_sysrooted_prefix (struct path_prefix *, const char *,
-				  const char *, int, int, int *, int);
+				  const char *, int, int, int);
 static void translate_options (int *, const char *const **);
 static char *skip_whitespace (char *);
 static void delete_if_ordinary (const char *);
@@ -1453,7 +1453,6 @@ struct prefix_list
   struct prefix_list *next;   /* Next in linked list.  */
   int require_machine_suffix; /* Don't use without machine_suffix.  */
   /* 2 means try both machine_suffix and just_machine_suffix.  */
-  int *used_flag_ptr;	      /* 1 if a file was found with this prefix.  */
   int priority;		      /* Sort key - priority within list.  */
   int os_multilib;	      /* 1 if OS multilib scheme should be used,
 				 0 for GCC multilib scheme.  */
@@ -2580,11 +2579,7 @@ find_a_file (struct path_prefix *pprefix, const char *name, int mode,
 		strcat (temp, multilib_name);
 		strcat (temp, file_suffix);
 		if (access_check (temp, mode) == 0)
-		  {
-		    if (pl->used_flag_ptr != 0)
-		      *pl->used_flag_ptr = 1;
-		    return temp;
-		  }
+		  return temp;
 	      }
 
 	    /* Now try just the multilib_name.  */
@@ -2592,11 +2587,7 @@ find_a_file (struct path_prefix *pprefix, const char *name, int mode,
 	    strcat (temp, machine_suffix);
 	    strcat (temp, multilib_name);
 	    if (access_check (temp, mode) == 0)
-	      {
-		if (pl->used_flag_ptr != 0)
-		  *pl->used_flag_ptr = 1;
-		return temp;
-	      }
+	      return temp;
 	  }
 
 	/* Certain prefixes are tried with just the machine type,
@@ -2612,22 +2603,14 @@ find_a_file (struct path_prefix *pprefix, const char *name, int mode,
 		strcat (temp, multilib_name);
 		strcat (temp, file_suffix);
 		if (access_check (temp, mode) == 0)
-		  {
-		    if (pl->used_flag_ptr != 0)
-		      *pl->used_flag_ptr = 1;
-		    return temp;
-		  }
+		  return temp;
 	      }
 
 	    strcpy (temp, pl->prefix);
 	    strcat (temp, just_machine_suffix);
 	    strcat (temp, multilib_name);
 	    if (access_check (temp, mode) == 0)
-	      {
-		if (pl->used_flag_ptr != 0)
-		  *pl->used_flag_ptr = 1;
-		return temp;
-	      }
+	      return temp;
 	  }
 
 	/* Certain prefixes can't be used without the machine suffix
@@ -2642,21 +2625,13 @@ find_a_file (struct path_prefix *pprefix, const char *name, int mode,
 		strcat (temp, this_name);
 		strcat (temp, file_suffix);
 		if (access_check (temp, mode) == 0)
-		  {
-		    if (pl->used_flag_ptr != 0)
-		      *pl->used_flag_ptr = 1;
-		    return temp;
-		  }
+		  return temp;
 	      }
 
 	    strcpy (temp, pl->prefix);
 	    strcat (temp, this_name);
 	    if (access_check (temp, mode) == 0)
-	      {
-		if (pl->used_flag_ptr != 0)
-		  *pl->used_flag_ptr = 1;
-		return temp;
-	      }
+	      return temp;
 	  }
       }
 
@@ -2690,7 +2665,7 @@ enum path_prefix_priority
 static void
 add_prefix (struct path_prefix *pprefix, const char *prefix,
 	    const char *component, /* enum prefix_priority */ int priority,
-	    int require_machine_suffix, int *warn, int os_multilib)
+	    int require_machine_suffix, int os_multilib)
 {
   struct prefix_list *pl, **prev;
   int len;
@@ -2710,11 +2685,8 @@ add_prefix (struct path_prefix *pprefix, const char *prefix,
   pl = xmalloc (sizeof (struct prefix_list));
   pl->prefix = prefix;
   pl->require_machine_suffix = require_machine_suffix;
-  pl->used_flag_ptr = warn;
   pl->priority = priority;
   pl->os_multilib = os_multilib;
-  if (warn)
-    *warn = 0;
 
   /* Insert after PREV.  */
   pl->next = (*prev);
@@ -2726,7 +2698,7 @@ static void
 add_sysrooted_prefix (struct path_prefix *pprefix, const char *prefix,
 		      const char *component,
 		      /* enum prefix_priority */ int priority,
-		      int require_machine_suffix, int *warn, int os_multilib)
+		      int require_machine_suffix, int os_multilib)
 {
   if (!IS_ABSOLUTE_PATH (prefix))
     abort ();
@@ -2743,7 +2715,7 @@ add_sysrooted_prefix (struct path_prefix *pprefix, const char *prefix,
     }
 
   add_prefix (pprefix, prefix, component, priority,
-	      require_machine_suffix, warn, os_multilib);
+	      require_machine_suffix, os_multilib);
 }
 
 /* Execute the command specified by the arguments on the current line of spec.
@@ -3124,12 +3096,6 @@ static int added_libraries;
 /* And a vector of corresponding output files is made up later.  */
 
 const char **outfiles;
-
-/* Used to track if none of the -B paths are used.  */
-static int warn_B;
-
-/* Gives value to pass as "warn" to add_prefix for standard prefixes.  */
-static int *warn_std_ptr = 0;
 
 #if defined(HAVE_TARGET_OBJECT_SUFFIX) || defined(HAVE_TARGET_EXECUTABLE_SUFFIX)
 
@@ -3431,9 +3397,9 @@ process_command (int argc, const char **argv)
 
       set_std_prefix (gcc_exec_prefix, len);
       add_prefix (&exec_prefixes, gcc_libexec_prefix, "GCC",
-		  PREFIX_PRIORITY_LAST, 0, NULL, 0);
+		  PREFIX_PRIORITY_LAST, 0, 0);
       add_prefix (&startfile_prefixes, gcc_exec_prefix, "GCC",
-		  PREFIX_PRIORITY_LAST, 0, NULL, 0);
+		  PREFIX_PRIORITY_LAST, 0, 0);
     }
 
   /* COMPILER_PATH and LIBRARY_PATH have values
@@ -3461,9 +3427,9 @@ process_command (int argc, const char **argv)
 	      else
 		nstore[endp - startp] = 0;
 	      add_prefix (&exec_prefixes, nstore, 0,
-			  PREFIX_PRIORITY_LAST, 0, NULL, 0);
+			  PREFIX_PRIORITY_LAST, 0, 0);
 	      add_prefix (&include_prefixes, nstore, 0,
-			  PREFIX_PRIORITY_LAST, 0, NULL, 0);
+			  PREFIX_PRIORITY_LAST, 0, 0);
 	      if (*endp == 0)
 		break;
 	      endp = startp = endp + 1;
@@ -3495,7 +3461,7 @@ process_command (int argc, const char **argv)
 	      else
 		nstore[endp - startp] = 0;
 	      add_prefix (&startfile_prefixes, nstore, NULL,
-			  PREFIX_PRIORITY_LAST, 0, NULL, 1);
+			  PREFIX_PRIORITY_LAST, 0, 1);
 	      if (*endp == 0)
 		break;
 	      endp = startp = endp + 1;
@@ -3528,7 +3494,7 @@ process_command (int argc, const char **argv)
 	      else
 		nstore[endp - startp] = 0;
 	      add_prefix (&startfile_prefixes, nstore, NULL,
-			  PREFIX_PRIORITY_LAST, 0, NULL, 1);
+			  PREFIX_PRIORITY_LAST, 0, 1);
 	      if (*endp == 0)
 		break;
 	      endp = startp = endp + 1;
@@ -3892,23 +3858,23 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 		  {
 		    if (len == 7)
 		      add_prefix (&include_prefixes, "./", NULL,
-				  PREFIX_PRIORITY_B_OPT, 0, NULL, 0);
+				  PREFIX_PRIORITY_B_OPT, 0, 0);
 		    else
 		      {
 		        char *string = xmalloc (len - 6);
 			memcpy (string, value, len - 7);
 			string[len - 7] = 0;
 		        add_prefix (&include_prefixes, string, NULL,
-				    PREFIX_PRIORITY_B_OPT, 0, NULL, 0);
+				    PREFIX_PRIORITY_B_OPT, 0, 0);
 		      }
 		  }
 
 		add_prefix (&exec_prefixes, value, NULL,
-			    PREFIX_PRIORITY_B_OPT, 0, &warn_B, 0);
+			    PREFIX_PRIORITY_B_OPT, 0, 0);
 		add_prefix (&startfile_prefixes, value, NULL,
-			    PREFIX_PRIORITY_B_OPT, 0, &warn_B, 0);
+			    PREFIX_PRIORITY_B_OPT, 0, 0);
 		add_prefix (&include_prefixes, value, NULL,
-			    PREFIX_PRIORITY_B_OPT, 0, NULL, 0);
+			    PREFIX_PRIORITY_B_OPT, 0, 0);
 		n_switches++;
 	      }
 	      break;
@@ -4046,21 +4012,21 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
      as well as trying the machine and the version.  */
 #ifndef OS2
   add_prefix (&exec_prefixes, standard_libexec_prefix, "GCC",
-	      PREFIX_PRIORITY_LAST, 1, warn_std_ptr, 0);
+	      PREFIX_PRIORITY_LAST, 1, 0);
   add_prefix (&exec_prefixes, standard_libexec_prefix, "BINUTILS",
-	      PREFIX_PRIORITY_LAST, 2, warn_std_ptr, 0);
+	      PREFIX_PRIORITY_LAST, 2, 0);
   add_prefix (&exec_prefixes, standard_exec_prefix, "BINUTILS",
-	      PREFIX_PRIORITY_LAST, 2, warn_std_ptr, 0);
+	      PREFIX_PRIORITY_LAST, 2, 0);
   add_prefix (&exec_prefixes, standard_exec_prefix_1, "BINUTILS",
-	      PREFIX_PRIORITY_LAST, 2, warn_std_ptr, 0);
+	      PREFIX_PRIORITY_LAST, 2, 0);
   add_prefix (&exec_prefixes, standard_exec_prefix_2, "BINUTILS",
-	      PREFIX_PRIORITY_LAST, 2, warn_std_ptr, 0);
+	      PREFIX_PRIORITY_LAST, 2, 0);
 #endif
 
   add_prefix (&startfile_prefixes, standard_exec_prefix, "BINUTILS",
-	      PREFIX_PRIORITY_LAST, 1, warn_std_ptr, 0);
+	      PREFIX_PRIORITY_LAST, 1, 0);
   add_prefix (&startfile_prefixes, standard_exec_prefix_2, "BINUTILS",
-	      PREFIX_PRIORITY_LAST, 1, warn_std_ptr, 0);
+	      PREFIX_PRIORITY_LAST, 1, 0);
 
   tooldir_prefix = concat (tooldir_base_prefix, spec_machine,
 			   dir_separator_str, NULL);
@@ -4083,11 +4049,11 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	  add_prefix (&exec_prefixes,
 		      concat (gcc_exec_tooldir_prefix, "bin",
 			      dir_separator_str, NULL),
-		      NULL, PREFIX_PRIORITY_LAST, 0, NULL, 0);
+		      NULL, PREFIX_PRIORITY_LAST, 0, 0);
 	  add_prefix (&startfile_prefixes,
 		      concat (gcc_exec_tooldir_prefix, "lib",
 			      dir_separator_str, NULL),
-		      NULL, PREFIX_PRIORITY_LAST, 0, NULL, 1);
+		      NULL, PREFIX_PRIORITY_LAST, 0, 1);
 	}
 
       tooldir_prefix = concat (standard_exec_prefix, spec_machine,
@@ -4097,10 +4063,10 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 
   add_prefix (&exec_prefixes,
 	      concat (tooldir_prefix, "bin", dir_separator_str, NULL),
-	      "BINUTILS", PREFIX_PRIORITY_LAST, 0, NULL, 0);
+	      "BINUTILS", PREFIX_PRIORITY_LAST, 0, 0);
   add_prefix (&startfile_prefixes,
 	      concat (tooldir_prefix, "lib", dir_separator_str, NULL),
-	      "BINUTILS", PREFIX_PRIORITY_LAST, 0, NULL, 1);
+	      "BINUTILS", PREFIX_PRIORITY_LAST, 0, 1);
 
 #if defined(TARGET_SYSTEM_ROOT_RELOCATABLE) && !defined(VMS)
   /* If the normal TARGET_SYSTEM_ROOT is inside of $exec_prefix,
@@ -6623,7 +6589,7 @@ main (int argc, const char **argv)
       if (*md_exec_prefix)
 	{
 	  add_prefix (&exec_prefixes, md_exec_prefix, "GCC",
-		      PREFIX_PRIORITY_LAST, 0, NULL, 0);
+		      PREFIX_PRIORITY_LAST, 0, 0);
 	}
     }
 
@@ -6655,7 +6621,7 @@ main (int argc, const char **argv)
       int ndx;
       for (ndx = 0; ndx < argbuf_index; ndx++)
 	add_sysrooted_prefix (&startfile_prefixes, argbuf[ndx], "BINUTILS",
-			      PREFIX_PRIORITY_LAST, 0, NULL, 1);
+			      PREFIX_PRIORITY_LAST, 0, 1);
     }
   /* We should eventually get rid of all these and stick to
      startfile_prefix_spec exclusively.  */
@@ -6663,15 +6629,15 @@ main (int argc, const char **argv)
     {
       if (*md_exec_prefix)
 	add_sysrooted_prefix (&startfile_prefixes, md_exec_prefix, "GCC",
-			      PREFIX_PRIORITY_LAST, 0, NULL, 1);
+			      PREFIX_PRIORITY_LAST, 0, 1);
 
       if (*md_startfile_prefix)
 	add_sysrooted_prefix (&startfile_prefixes, md_startfile_prefix,
-			      "GCC", PREFIX_PRIORITY_LAST, 0, NULL, 1);
+			      "GCC", PREFIX_PRIORITY_LAST, 0, 1);
 
       if (*md_startfile_prefix_1)
 	add_sysrooted_prefix (&startfile_prefixes, md_startfile_prefix_1,
-			      "GCC", PREFIX_PRIORITY_LAST, 0, NULL, 1);
+			      "GCC", PREFIX_PRIORITY_LAST, 0, 1);
 
       /* If standard_startfile_prefix is relative, base it on
 	 standard_exec_prefix.  This lets us move the installed tree
@@ -6683,33 +6649,29 @@ main (int argc, const char **argv)
       if (IS_ABSOLUTE_PATH (standard_startfile_prefix))
 	add_sysrooted_prefix (&startfile_prefixes,
 			      standard_startfile_prefix, "BINUTILS",
-			      PREFIX_PRIORITY_LAST, 0, NULL, 1);
+			      PREFIX_PRIORITY_LAST, 0, 1);
       else if (*cross_compile == '0')
 	{
 	  if (gcc_exec_prefix)
 	    add_prefix (&startfile_prefixes,
 			concat (gcc_exec_prefix, machine_suffix,
 				standard_startfile_prefix, NULL),
-			NULL, PREFIX_PRIORITY_LAST, 0, NULL, 1);
+			NULL, PREFIX_PRIORITY_LAST, 0, 1);
 	  add_prefix (&startfile_prefixes,
 		      concat (standard_exec_prefix,
 			      machine_suffix,
 			      standard_startfile_prefix, NULL),
-		      NULL, PREFIX_PRIORITY_LAST, 0, NULL, 1);
+		      NULL, PREFIX_PRIORITY_LAST, 0, 1);
 	}
 
       if (*standard_startfile_prefix_1)
  	add_sysrooted_prefix (&startfile_prefixes,
 			      standard_startfile_prefix_1, "BINUTILS",
-			      PREFIX_PRIORITY_LAST, 0, NULL, 1);
+			      PREFIX_PRIORITY_LAST, 0, 1);
       if (*standard_startfile_prefix_2)
 	add_sysrooted_prefix (&startfile_prefixes,
 			      standard_startfile_prefix_2, "BINUTILS",
-			      PREFIX_PRIORITY_LAST, 0, NULL, 1);
-#if 0 /* Can cause surprises, and one can use -B./ instead.  */
-      add_prefix (&startfile_prefixes, "./", NULL,
-		  PREFIX_PRIORITY_LAST, 1, NULL, 0);
-#endif
+			      PREFIX_PRIORITY_LAST, 0, 1);
     }
 
   /* Process any user specified specs in the order given on the command

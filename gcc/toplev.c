@@ -230,13 +230,6 @@ tree current_function_decl;
    if none.  */
 tree current_function_func_begin_label;
 
-/* APPLE LOCAL begin mainline */
-/* A DECL for the current file-scope context.  When using IMA, this heads a
-   chain of FILE_DECLs; currently only C uses it.  */
-
-tree current_file_decl;
-/* APPLE LOCAL end mainline */
-
 /* Temporarily suppress certain warnings.
    This is set while reading code from a system header file.  */
 
@@ -855,7 +848,7 @@ wrapup_global_declarations (tree *vec, int len)
 	      if (needed)
 		{
 		  reconsider = 1;
-		  rest_of_decl_compilation (decl, NULL, 1, 1);
+		  rest_of_decl_compilation (decl, 1, 1);
 		}
 	    }
 	}

@@ -354,7 +354,7 @@ extern int target_flags;
 
 /* target machine storage layout */
 
-#define LONG_DOUBLE_TYPE_SIZE 96
+#define LONG_DOUBLE_TYPE_SIZE 80
 
 /* Set the value of FLT_EVAL_METHOD in float.h.  When using 68040 fp
    instructions, we get proper intermediate rounding, otherwise we
@@ -1270,4 +1270,7 @@ extern int m68k_last_compare_had_fp_operands;
   {"const_sint32_operand", {CONST_INT}},				\
   {"valid_dbcc_comparison_p", {EQ, NE, GTU, LTU, GEU, LEU,		\
 			       GT, LT, GE, LE}},			\
-  {"extend_operator", {SIGN_EXTEND, ZERO_EXTEND}},
+  {"extend_operator", {SIGN_EXTEND, ZERO_EXTEND}},			\
+  {"symbolic_operand", {SYMBOL_REF, LABEL_REF, CONST}},			\
+  {"post_inc_operand", {MEM}},						\
+  {"pre_dec_operand", {MEM}},

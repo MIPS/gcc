@@ -45,9 +45,12 @@ extern int panic ();
 using std::new_handler;
 using std::bad_alloc;
 /* APPLE LOCAL libcc_kext */
-#ifndef LIBCC_KEXT
+#if _GLIBCXX_HOSTED && !defined(LIBCC_KEXT)
 using std::malloc;
-/* APPLE LOCAL libcc_kext */
+#else
+// A freestanding C runtime may not provide "malloc" -- but there is no
+// other reasonable way to implement "operator new".
+extern "C" void *malloc (std::size_t);
 #endif
 
 extern new_handler __new_handler;

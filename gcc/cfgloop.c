@@ -97,14 +97,12 @@ flow_loops_cfg_dump (const struct loops *loops, FILE *file)
 bool
 flow_loop_nested_p (const struct loop *outer, const struct loop *loop)
 {
-  return loop->depth > outer->depth
-	 && loop->pred[outer->depth] == outer;
+  return (loop->depth > outer->depth
+	 && loop->pred[outer->depth] == outer);
 }
 
-/* APPLE LOCAL begin lno */
 /* Returns the loop such that LOOP is nested DEPTH (indexed from zero)
    loops within LOOP.  */
-/* APPLE LOCAL end lno */
 
 struct loop *
 superloop_at_depth (struct loop *loop, unsigned depth)
@@ -581,7 +579,6 @@ update_latch_info (basic_block jump)
   HEADER_BLOCK (jump) = 0;
   alloc_aux_for_edge (jump->pred, sizeof (int));
   LATCH_EDGE (jump->pred) = 0;
-  /* APPLE LOCAL lno */
   set_immediate_dominator (CDI_DOMINATORS, jump, jump->pred->src);
 }
 
@@ -614,10 +611,6 @@ canonicalize_loop_headers (void)
   basic_block header;
   edge e;
 
-  /* APPLE LOCAL lno */
-  /* Compute the dominators */
-  /* calculate_dominance_info (CDI_DOMINATORS); */
-
   alloc_aux_for_blocks (sizeof (int));
   alloc_aux_for_edges (sizeof (int));
 
@@ -646,9 +639,6 @@ canonicalize_loop_headers (void)
       else
 	HEADER_BLOCK (header) = num_latches;
     }
-
-  /* APPLE LOCAL lno */
-  /* free_dominance_info (CDI_DOMINATORS); */
 
   if (HEADER_BLOCK (ENTRY_BLOCK_PTR->succ->dest))
     {
@@ -722,11 +712,9 @@ canonicalize_loop_headers (void)
   free_aux_for_blocks ();
   free_aux_for_edges ();
 
-/* APPLE LOCAL begin lno */
 #ifdef ENABLE_CHECKING
   verify_dominators (CDI_DOMINATORS);
 #endif
-/* APPLE LOCAL end lno */
 }
 
 /* Find all the natural loops in the function and save in LOOPS structure and
@@ -763,16 +751,11 @@ flow_loops_find (struct loops *loops, int flags)
   dfs_order = NULL;
   rc_order = NULL;
 
-  /* APPLE LOCAL begin lno */
   /* Ensure that the dominators are computed.  */
   calculate_dominance_info (CDI_DOMINATORS);
 
   /* Join loops with shared headers.  */
   canonicalize_loop_headers ();
-
-  /* Compute the dominators.  */
-  /* calculate_dominance_info (CDI_DOMINATORS); */
-  /* APPLE LOCAL end lno */
 
   /* Count the number of loop headers.  This should be the
      same as the number of natural loops.  */
@@ -1031,7 +1014,7 @@ fill_sons_in_loop (const struct loop *loop, basic_block bb,
 
 /* Gets body of a LOOP (that must be different from the outermost loop)
    sorted by dominance relation.  Additionally, if a basic block s dominates
-   the latch, then only blocks dominated by s are after it.  */
+   the latch, then only blocks dominated by s are be after it.  */
 
 basic_block *
 get_loop_body_in_dom_order (const struct loop *loop)

@@ -1,5 +1,5 @@
 /* Encoding of types for Objective C.
-   Copyright (C) 1993, 1997, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1993, 1997, 2002, 2004 Free Software Foundation, Inc.
 
 Author: Kresten Krab Thorup
 
@@ -29,8 +29,8 @@ Boston, MA 02111-1307, USA.  */
 #ifndef __encoding_INCLUDE_GNU
 #define __encoding_INCLUDE_GNU
 
+#include <objc/objc-api.h>
 #include <ctype.h>
-#include "objc/objc-api.h"
 
 #ifdef __cplusplus
 extern "C" {

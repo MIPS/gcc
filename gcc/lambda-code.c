@@ -1384,7 +1384,7 @@ lbv_to_gcc_expression (lambda_body_vector lbv,
 			fold (build (MULT_EXPR, integer_type_node,
 				     VARRAY_TREE (induction_vars, i), 
 				     build_int_cst (integer_type_node,
-						    LBV_COEFFICIENTS (lbv)[i]))));
+						    LBV_COEFFICIENTS (lbv)[i], 0))));
 	  newname = make_ssa_name (resvar, stmt);
 	  TREE_OPERAND (stmt, 0) = newname;
 	  tsi = tsi_last (stmts);
@@ -1409,13 +1409,13 @@ lbv_to_gcc_expression (lambda_body_vector lbv,
 	stmt = build (MODIFY_EXPR, void_type_node, resvar,
 		      build (CEIL_DIV_EXPR, integer_type_node,
 			     name, build_int_cst (integer_type_node,
-						  LBV_DENOMINATOR (lbv))));
+						  LBV_DENOMINATOR (lbv), 0)));
 #if 0
       else if (wrap == MIN_EXPR)
 	stmt = build (MODIFY_EXPR, void_type_node, resvar,
 		      build (FLOOR_DIV_EXPR, integer_type_node,
 			     name, build_int_cst (integer_type_node,
-						  LBV_DENOMINATOR (lbv))));
+						  LBV_DENOMINATOR (lbv), 0)));
       else
 	abort ();
 #endif
@@ -1477,7 +1477,7 @@ lle_to_gcc_expression (lambda_linear_expression lle,
 	      else
 		{
 		  coeff = build_int_cst (integer_type_node, 
-					 LLE_COEFFICIENTS (lle)[i]);
+					 LLE_COEFFICIENTS (lle)[i], 0);
 		  mult = fold (build (MULT_EXPR, integer_type_node,
 				      VARRAY_TREE (induction_vars, i), coeff));
 		}
@@ -1513,7 +1513,7 @@ lle_to_gcc_expression (lambda_linear_expression lle,
 	      else
 		{
 		  coeff = build_int_cst (integer_type_node, 
-					 LLE_INVARIANT_COEFFICIENTS (lle)[i]);
+					 LLE_INVARIANT_COEFFICIENTS (lle)[i], 0);
 		  mult = fold (build (MULT_EXPR, integer_type_node,
 				      VARRAY_TREE (invariants, i), coeff));
 		}
@@ -1541,7 +1541,7 @@ lle_to_gcc_expression (lambda_linear_expression lle,
 	  stmt = build (MODIFY_EXPR, void_type_node, resvar,
 			build (PLUS_EXPR, integer_type_node, 
 			       name, build_int_cst (integer_type_node,
-						    LLE_CONSTANT (lle))));
+						    LLE_CONSTANT (lle), 0)));
 	  name = make_ssa_name (resvar, stmt);
 	  TREE_OPERAND (stmt, 0) = name;
 	  tsi = tsi_last (stmts);
@@ -1555,7 +1555,7 @@ lle_to_gcc_expression (lambda_linear_expression lle,
 	  stmt = build (MODIFY_EXPR, void_type_node, resvar,
 			build (PLUS_EXPR, integer_type_node, 
 			       name, build_int_cst (integer_type_node,
-						    LLE_CONSTANT (offset))));
+						    LLE_CONSTANT (offset), 0)));
 	  name = make_ssa_name (resvar, stmt);
 	  TREE_OPERAND (stmt, 0) = name;
 	  tsi = tsi_last (stmts);
@@ -1569,12 +1569,12 @@ lle_to_gcc_expression (lambda_linear_expression lle,
 	    stmt = build (MODIFY_EXPR, void_type_node, resvar,
 			  build (CEIL_DIV_EXPR, integer_type_node,
 				 name, build_int_cst (integer_type_node,
-						      LLE_DENOMINATOR (lle))));
+						      LLE_DENOMINATOR (lle), 0)));
 	  else if (wrap == MIN_EXPR)
 	    stmt = build (MODIFY_EXPR, void_type_node, resvar,
 			  build (FLOOR_DIV_EXPR, integer_type_node,
 				 name, build_int_cst (integer_type_node,
-						      LLE_DENOMINATOR (lle))));
+						      LLE_DENOMINATOR (lle), 0)));
 	  else
 	    abort ();
 	  name = make_ssa_name (resvar, stmt);
@@ -1692,7 +1692,7 @@ lambda_loopnest_to_gcc_loopnest (struct loop *old_loopnest,
       bb = temp->latch->pred->src;
       bsi = bsi_last (bb);
       create_iv (newlowerbound,
-		 build_int_cst (integer_type_node, LL_STEP (newloop)), 
+		 build_int_cst (integer_type_node, LL_STEP (newloop), 0), 
 		 ivvar, temp, &bsi, false, &ivvar, &ivvarinced);
 
       /* Replace the exit condition with the new upper bound

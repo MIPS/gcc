@@ -547,6 +547,11 @@ tree_ssa_loop_done (void)
   free_numbers_of_iterations_estimates (current_loops);
   scev_finalize ();
   /* APPLE LOCAL end lno */
+
+#ifdef ENABLE_CHECKING
+  verify_loop_closed_ssa ();
+#endif
+
   loop_optimizer_finalize (current_loops,
 			   (dump_flags & TDF_DETAILS ? dump_file : NULL));
   current_loops = NULL;

@@ -110,7 +110,7 @@ static const struct {
   { sizeof (struct basic_block_def *), 1 },
   { sizeof (struct elt_list *), 1 },
   { sizeof (struct edge_def *), 1 },
-  { sizeof (tree *), 1 }
+  { sizeof (tree *), 1 },
 };
 
 /* Allocate a virtual array with NUM_ELEMENT elements, each of which is

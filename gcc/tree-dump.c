@@ -251,20 +251,18 @@ dequeue_and_dump (dump_info_p di)
   if (dni->binfo_p)
     {
       unsigned ix;
-      tree bases = BINFO_BASE_BINFOS (t);
-      unsigned n_bases = bases ? TREE_VEC_LENGTH (bases): 0;
-      tree accesses = BINFO_BASE_ACCESSES (t);
+      tree base;
+      VEC (tree) *accesses = BINFO_BASE_ACCESSES (t);
 
       dump_child ("type", BINFO_TYPE (t));
 
       if (BINFO_VIRTUAL_P (t))
 	dump_string (di, "virt");
 
-      dump_int (di, "bases", n_bases);
-      for (ix = 0; ix != n_bases; ix++)
+      dump_int (di, "bases", BINFO_N_BASE_BINFOS (t));
+      for (ix = 0; BINFO_BASE_ITERATE (t, ix, base); ix++)
 	{
-	  tree base = TREE_VEC_ELT (bases, ix);
-	  tree access = (accesses ? TREE_VEC_ELT (accesses, ix)
+	  tree access = (accesses ? VEC_index (tree, accesses, ix)
 			 : access_public_node);
 	  const char *string = NULL;
 

@@ -85,7 +85,7 @@ binding_entry_make (tree name, tree type)
       free_binding_entry = entry->chain;
     }
   else
-    entry = ggc_alloc (sizeof (struct binding_entry_s));
+    entry = GGC_NEW (struct binding_entry_s);
 
   entry->name = name;
   entry->type = type;
@@ -127,8 +127,7 @@ binding_table_construct (binding_table table, size_t chain_count)
 {
   table->chain_count = chain_count;
   table->entry_count = 0;
-  table->chain = ggc_alloc_cleared
-    (table->chain_count * sizeof (binding_entry));
+  table->chain = GGC_CNEWVEC (binding_entry, table->chain_count);
 }
 
 /* Make TABLE's entries ready for reuse.  */
@@ -161,7 +160,7 @@ binding_table_free (binding_table table)
 static inline binding_table
 binding_table_new (size_t chain_count)
 {
-  binding_table table = ggc_alloc (sizeof (struct binding_table_s));
+  binding_table table = GGC_NEW (struct binding_table_s);
   table->chain = NULL;
   binding_table_construct (table, chain_count);
   return table;
@@ -351,7 +350,7 @@ cxx_binding_make (tree value, tree type)
       free_bindings = binding->previous;
     }
   else
-    binding = ggc_alloc (sizeof (cxx_binding));
+    binding = GGC_NEW (cxx_binding);
 
   cxx_binding_init (binding, value, type);
 
@@ -387,7 +386,7 @@ new_class_binding (tree name, tree value, tree type, cxx_scope *scope)
 	  size_t i;
 	  
 	  for (i = 0;
-	       (cb = VEC_iterate (cp_class_binding, scope->class_shadowed, i));
+	       VEC_iterate (cp_class_binding, scope->class_shadowed, i, cb);
 	       i++)
 	    {
 	      cxx_binding **b;
@@ -1309,7 +1308,7 @@ begin_scope (scope_kind kind, tree entity)
       free_binding_level = scope->level_chain;
     }
   else
-    scope = ggc_alloc (sizeof (cxx_scope));
+    scope = GGC_NEW (cxx_scope);
   memset (scope, 0, sizeof (cxx_scope));
 
   scope->this_entity = entity;
@@ -1656,9 +1655,7 @@ print_binding_level (struct cp_binding_level* lvl)
       cp_class_binding *b;
       fprintf (stderr, " class-shadowed:");
       for (i = 0; 
-	   (b = VEC_iterate(cp_class_binding, 
-			    lvl->class_shadowed,
-			    i));
+	   VEC_iterate(cp_class_binding, lvl->class_shadowed, i, b);
 	   ++i) 
 	fprintf (stderr, " %s ", IDENTIFIER_POINTER (b->identifier));
       fprintf (stderr, "\n");
@@ -2118,6 +2115,17 @@ push_overloaded_decl (tree decl, int flags)
 static tree
 validate_nonmember_using_decl (tree decl, tree scope, tree name)
 {
+  /* [namespace.udecl]
+       A using-declaration for a class member shall be a
+       member-declaration.  */
+  if (TYPE_P (scope))
+    {
+      error ("`%T' is not a namespace", scope);
+      return NULL_TREE;
+    }
+  else if (scope == error_mark_node)
+    return NULL_TREE;
+
   if (TREE_CODE (decl) == TEMPLATE_ID_EXPR)
     {
       /* 7.3.3/5
@@ -2144,15 +2152,6 @@ validate_nonmember_using_decl (tree decl, tree scope, tree name)
     decl = get_first_fn (decl);
 
   my_friendly_assert (DECL_P (decl), 20020908);
-
-  /* [namespace.udecl]
-       A using-declaration for a class member shall be a
-       member-declaration.  */
-  if (TYPE_P (scope))
-    {
-      error ("`%T' is not a namespace", scope);
-      return NULL_TREE;
-    }
 
   /* Make a USING_DECL.  */
   return push_using_decl (scope, name);
@@ -2617,7 +2616,7 @@ poplevel_class (void)
   if (level->class_shadowed)
     {
       for (i = 0;
-	   (cb = VEC_iterate (cp_class_binding, level->class_shadowed, i));
+	   VEC_iterate (cp_class_binding, level->class_shadowed, i, cb);
 	   ++i)
 	IDENTIFIER_BINDING (cb->identifier) = cb->base.previous;
       ggc_free (level->class_shadowed);
@@ -2994,27 +2993,6 @@ set_namespace_binding (tree name, tree scope, tree val)
   timevar_pop (TV_NAME_LOOKUP);
 }
 
-/* Compute the namespace where a declaration is defined.  */
-
-static tree
-decl_namespace (tree decl)
-{
-  timevar_push (TV_NAME_LOOKUP);
-  if (TYPE_P (decl))
-    decl = TYPE_STUB_DECL (decl);
-  while (DECL_CONTEXT (decl))
-    {
-      decl = DECL_CONTEXT (decl);
-      if (TREE_CODE (decl) == NAMESPACE_DECL)
-	POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, decl);
-      if (TYPE_P (decl))
-	decl = TYPE_STUB_DECL (decl);
-      my_friendly_assert (DECL_P (decl), 390);
-    }
-
-  POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, global_namespace);
-}
-
 /* Set the context of a declaration to scope. Complain if we are not
    outside scope.  */
 
@@ -3083,9 +3061,9 @@ current_decl_namespace (void)
     return TREE_PURPOSE (decl_namespace_list);
 
   if (current_class_type)
-    result = decl_namespace (TYPE_STUB_DECL (current_class_type));
+    result = decl_namespace_context (current_class_type);
   else if (current_function_decl)
-    result = decl_namespace (current_function_decl);
+    result = decl_namespace_context (current_function_decl);
   else 
     result = current_namespace;
   return result;
@@ -3213,7 +3191,7 @@ void
 push_decl_namespace (tree decl)
 {
   if (TREE_CODE (decl) != NAMESPACE_DECL)
-    decl = decl_namespace (decl);
+    decl = decl_namespace_context (decl);
   decl_namespace_list = tree_cons (ORIGINAL_NAMESPACE (decl),
                                    NULL_TREE, decl_namespace_list);
 }
@@ -4397,16 +4375,20 @@ arg_assoc_class (struct arg_lookup *k, tree type)
     return false;
   k->classes = tree_cons (type, NULL_TREE, k->classes);
   
-  context = decl_namespace (TYPE_MAIN_DECL (type));
+  context = decl_namespace_context (type);
   if (arg_assoc_namespace (k, context))
     return true;
 
   if (TYPE_BINFO (type))
-    /* Process baseclasses.  */
-    for (i = 0; i < BINFO_N_BASE_BINFOS (TYPE_BINFO (type)); i++)
-      if (arg_assoc_class
-	  (k, BINFO_TYPE (BINFO_BASE_BINFO (TYPE_BINFO (type), i))))
-	return true;
+    {
+      /* Process baseclasses.  */
+      tree binfo, base_binfo;
+      
+      for (binfo = TYPE_BINFO (type), i = 0;
+	   BINFO_BASE_ITERATE (binfo, i, base_binfo); i++)
+	if (arg_assoc_class (k, BINFO_TYPE (base_binfo)))
+	  return true;
+    }
   
   /* Process friends.  */
   for (list = DECL_FRIENDLIST (TYPE_MAIN_DECL (type)); list; 
@@ -4482,7 +4464,7 @@ arg_assoc_type (struct arg_lookup *k, tree type)
       return arg_assoc_type (k, TREE_TYPE (type));
     case UNION_TYPE:
     case ENUMERAL_TYPE:
-      return arg_assoc_namespace (k, decl_namespace (TYPE_MAIN_DECL (type)));
+      return arg_assoc_namespace (k, decl_namespace_context (type));
     case METHOD_TYPE:
       /* The basetype is referenced in the first arg type, so just
 	 fall through.  */
@@ -4924,9 +4906,7 @@ store_class_bindings (VEC(cp_class_binding) *names,
   cp_class_binding *cb;
 
   timevar_push (TV_NAME_LOOKUP);
-  for (i = 0; 
-       (cb = VEC_iterate(cp_class_binding, names, i));
-       ++i)
+  for (i = 0; VEC_iterate(cp_class_binding, names, i, cb); ++i)
     store_binding (cb->identifier, old_bindings);
   timevar_pop (TV_NAME_LOOKUP);
 }
@@ -4941,7 +4921,7 @@ push_to_top_level (void)
   int need_pop;
 
   timevar_push (TV_NAME_LOOKUP);
-  s = ggc_alloc_cleared (sizeof (struct saved_scope));
+  s = GGC_CNEW (struct saved_scope);
 
   b = scope_chain ? current_binding_level : 0;
 
@@ -4982,9 +4962,7 @@ push_to_top_level (void)
 	SET_IDENTIFIER_TYPE_VALUE (TREE_PURPOSE (t), TREE_VALUE (t));
     }
 
-  for (i = 0;
-       (sb = VEC_iterate (cxx_saved_binding, s->old_bindings, i));
-       ++i)
+  for (i = 0; VEC_iterate (cxx_saved_binding, s->old_bindings, i, sb); ++i)
     IDENTIFIER_MARKED (sb->identifier) = 0;
 
   s->prev = scope_chain;
@@ -5015,9 +4993,7 @@ pop_from_top_level (void)
   current_lang_base = 0;
 
   scope_chain = s->prev;
-  for (i = 0; 
-       (saved = VEC_iterate (cxx_saved_binding, s->old_bindings, i));
-       ++i)
+  for (i = 0; VEC_iterate (cxx_saved_binding, s->old_bindings, i, saved); ++i)
     {
       tree id = saved->identifier;
 

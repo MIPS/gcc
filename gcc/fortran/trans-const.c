@@ -81,7 +81,7 @@ gfc_build_string_const (int length, const char *s)
   tree len;
 
   str = build_string (length, s);
-  len = build_int_2 (length, 0);
+  len = build_int_cst (NULL_TREE, length, 0);
   TREE_TYPE (str) =
     build_array_type (gfc_character1_type_node,
 		      build_range_type (gfc_strlen_type_node,
@@ -145,10 +145,7 @@ gfc_init_constants (void)
   int n;
 
   for (n = 0; n <= GFC_MAX_DIMENSIONS; n++)
-    {
-      gfc_rank_cst[n] = build_int_2 (n, 0);
-      TREE_TYPE (gfc_rank_cst[n]) = gfc_array_index_type;
-    }
+    gfc_rank_cst[n] = build_int_cst (gfc_array_index_type, n, 0);
 
   gfc_strconst_bounds = gfc_build_string_const (21, "Array bound mismatch");
 
@@ -182,8 +179,8 @@ gfc_conv_mpz_to_tree (mpz_t i, int kind)
   if (mpz_fits_slong_p (i))
     {
       val = mpz_get_si (i);
-      res = build_int_2 (val, (val < 0) ? (HOST_WIDE_INT)-1 : 0);
-      TREE_TYPE (res) = gfc_get_int_type (kind);
+      res = build_int_cst (gfc_get_int_type (kind),
+			   val, (val < 0) ? (HOST_WIDE_INT)-1 : 0);
       return (res);
     }
 
@@ -220,8 +217,7 @@ gfc_conv_mpz_to_tree (mpz_t i, int kind)
       high = (high << 4) + (low >> (BITS_PER_HOST_WIDE_INT - 4));
       low = (low << 4) + n;
     }
-  res = build_int_2 (low, high);
-  TREE_TYPE (res) = gfc_get_int_type (kind);
+  res = build_int_cst (gfc_get_int_type (kind), low, high);
   if (negate)
     res = fold (build1 (NEGATE_EXPR, TREE_TYPE (res), res));
 
@@ -234,7 +230,7 @@ gfc_conv_mpz_to_tree (mpz_t i, int kind)
 /* Converts a real constant into backend form.  Uses an intermediate string
    representation.  */
 tree
-gfc_conv_mpf_to_tree (mpf_t f, int kind)
+gfc_conv_mpfr_to_tree (mpfr_t f, int kind)
 {
   tree res;
   tree type;
@@ -251,13 +247,9 @@ gfc_conv_mpf_to_tree (mpf_t f, int kind)
     }
   assert (gfc_real_kinds[n].kind);
 
-  assert (gfc_real_kinds[n].radix == 2);
-
   n = MAX (abs (gfc_real_kinds[n].min_exponent),
 	   abs (gfc_real_kinds[n].max_exponent));
-#if 0
-  edigits = 2 + (int) (log (n) / log (gfc_real_kinds[n].radix));
-#endif
+
   edigits = 1;
   while (n > 0)
     {
@@ -265,8 +257,11 @@ gfc_conv_mpf_to_tree (mpf_t f, int kind)
       edigits += 3;
     }
 
+  if (kind == gfc_default_double_kind())
+    p = mpfr_get_str (NULL, &exp, 10, 17, f, GFC_RND_MODE);
+  else
+    p = mpfr_get_str (NULL, &exp, 10, 8, f, GFC_RND_MODE);
 
-  p = mpf_get_str (NULL, &exp, 10, 0, f);
 
   /* We also have one minus sign, "e", "." and a null terminator.  */
   q = (char *) gfc_getmem (strlen (p) + edigits + 4);
@@ -294,6 +289,7 @@ gfc_conv_mpf_to_tree (mpf_t f, int kind)
 
   type = gfc_get_real_type (kind);
   res = build_real (type, REAL_VALUE_ATOF (q, TYPE_MODE (type)));
+
   gfc_free (q);
   gfc_free (p);
 
@@ -321,16 +317,16 @@ gfc_conv_constant_to_tree (gfc_expr * expr)
       return gfc_conv_mpz_to_tree (expr->value.integer, expr->ts.kind);
 
     case BT_REAL:
-      return gfc_conv_mpf_to_tree (expr->value.real, expr->ts.kind);
+      return gfc_conv_mpfr_to_tree (expr->value.real, expr->ts.kind);
 
     case BT_LOGICAL:
-      return build_int_2 (expr->value.logical, 0);
+      return build_int_cst (NULL_TREE, expr->value.logical, 0);
 
     case BT_COMPLEX:
       {
-	tree real = gfc_conv_mpf_to_tree (expr->value.complex.r,
+	tree real = gfc_conv_mpfr_to_tree (expr->value.complex.r,
 					  expr->ts.kind);
-	tree imag = gfc_conv_mpf_to_tree (expr->value.complex.i,
+	tree imag = gfc_conv_mpfr_to_tree (expr->value.complex.i,
 					  expr->ts.kind);
 
 	return build_complex (NULL_TREE, real, imag);

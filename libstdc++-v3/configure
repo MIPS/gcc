@@ -4940,7 +4940,14 @@ if test "${enable_hosted_libstdcxx+set}" = set; then
   enableval="$enable_hosted_libstdcxx"
 
 else
-  enable_hosted_libstdcxx=yes
+  case "$host" in
+	arm*-*-symbianelf*)
+	    enable_hosted_libstdcxx=no
+	    ;;
+        *)
+	    enable_hosted_libstdcxx=yes
+	    ;;
+     esac
 fi;
   if test "$enable_hosted_libstdcxx" = no; then
     { echo "$as_me:$LINENO: Only freestanding libraries will be built" >&5
@@ -4996,7 +5003,7 @@ fi;
     #
     # Fake what AC_TRY_COMPILE does.  XXX Look at redoing this new-style.
     cat > conftest.$ac_ext << EOF
-#line 4999 "configure"
+#line 5006 "configure"
 struct S { ~S(); };
 void bar();
 void foo()
@@ -31060,6 +31067,10 @@ _ACEOF
 
 # Base decisions on target environment.
 case "${host}" in
+  arm*-*-symbianelf*)
+    # This is a freestanding configuration; there is nothing to do here.
+    ;;
+
   *-darwin*)
     # Darwin versions vary, but the linker should work in a cross environment,
     # so we just check for all the features here.

@@ -79,12 +79,6 @@ struct _Jv_VTable
 // to keep this up to date by hand.
 #define NUM_OBJECT_METHODS 5
 
-// This structure is the type of an array's vtable.
-struct _Jv_ArrayVTable : public _Jv_VTable
-{
-  vtable_elt extra_method[NUM_OBJECT_METHODS - 1];
-};
-
 union _Jv_word
 {
   jobject o;
@@ -358,7 +352,7 @@ static inline jboolean _Jv_isVirtualMethod (_Jv_Method *meth)
 {
   using namespace java::lang::reflect;
   return (((meth->accflags & (Modifier::STATIC | Modifier::PRIVATE)) == 0)
-          && meth->name->data[0] != '<');
+          && meth->name->first() != '<');
 }
 
 // This function is used to determine the hash code of an object.

@@ -154,7 +154,7 @@ free_expr0 (gfc_expr * e)
 	  break;
 
 	case BT_REAL:
-	  mpf_clear (e->value.real);
+	  mpfr_clear (e->value.real);
 	  break;
 
 	case BT_CHARACTER:
@@ -162,8 +162,8 @@ free_expr0 (gfc_expr * e)
 	  break;
 
 	case BT_COMPLEX:
-	  mpf_clear (e->value.complex.r);
-	  mpf_clear (e->value.complex.i);
+	  mpfr_clear (e->value.complex.r);
+	  mpfr_clear (e->value.complex.i);
 	  break;
 
 	default:
@@ -330,6 +330,50 @@ gfc_copy_shape (mpz_t * shape, int rank)
 }
 
 
+/* Copy a shape array excluding dimension N, where N is an integer
+   constant expression.  Dimensions are numbered in fortran style --
+   starting with ONE.
+
+   So, if the original shape array contains R elements
+      { s1 ... sN-1  sN  sN+1 ... sR-1 sR}
+   the result contains R-1 elements:
+      { s1 ... sN-1  sN+1    ...  sR-1}
+
+   If anything goes wrong -- N is not a constant, its value is out
+   of range -- or anything else, just returns NULL.
+*/
+
+mpz_t *
+gfc_copy_shape_excluding (mpz_t * shape, int rank, gfc_expr * dim)
+{
+  mpz_t *new_shape, *s;
+  int i, n;
+
+  if (shape == NULL 
+      || rank <= 1
+      || dim == NULL
+      || dim->expr_type != EXPR_CONSTANT 
+      || dim->ts.type != BT_INTEGER)
+    return NULL;
+
+  n = mpz_get_si (dim->value.integer);
+  n--; /* Convert to zero based index */
+  if (n < 0 && n >= rank)
+    return NULL;
+
+  s = new_shape = gfc_get_shape (rank-1);
+
+  for (i = 0; i < rank; i++)
+    {
+      if (i == n)
+        continue;
+      mpz_init_set (*s, shape[i]);
+      s++;
+    }
+
+  return new_shape;
+}
+
 /* Given an expression pointer, return a copy of the expression.  This
    subroutine is recursive.  */
 
@@ -365,12 +409,17 @@ gfc_copy_expr (gfc_expr * p)
 	  break;
 
 	case BT_REAL:
-	  mpf_init_set (q->value.real, p->value.real);
+          gfc_set_model_kind (q->ts.kind);
+          mpfr_init (q->value.real);
+	  mpfr_set (q->value.real, p->value.real, GFC_RND_MODE);
 	  break;
 
 	case BT_COMPLEX:
-	  mpf_init_set (q->value.complex.r, p->value.complex.r);
-	  mpf_init_set (q->value.complex.i, p->value.complex.i);
+          gfc_set_model_kind (q->ts.kind);
+          mpfr_init (q->value.complex.r);
+          mpfr_init (q->value.complex.i);
+	  mpfr_set (q->value.complex.r, p->value.complex.r, GFC_RND_MODE);
+	  mpfr_set (q->value.complex.i, p->value.complex.i, GFC_RND_MODE);
 	  break;
 
 	case BT_CHARACTER:

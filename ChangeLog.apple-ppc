@@ -1,3 +1,11 @@
+2004-08-18  Matthew Sachs  <msachs@apple.com>
+
+	* Merge apple-ppc-branch 2004-08-17\ 03:07:00Z
+	  with -j lno-merge-20040718 -j apple-ppc-mergepoint-20040816 .
+	  The first tag is the point on mainline which LNO merged from right
+	  before our last merge with lno-branch; the second point is
+	  HEAD:2004-08-15T17:16:16Z
+
 2004-08-16  Matthew Sachs  <msachs@apple.com>
 
 	* Mark unmarked APPLE LOCAL changes and remove some ancient cruft

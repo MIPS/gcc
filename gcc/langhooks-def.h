@@ -50,8 +50,7 @@ extern tree lhd_return_null_tree_v (void);
 extern tree lhd_return_null_tree (tree);
 extern tree lhd_do_nothing_iii_return_null_tree (int, int, int);
 extern int lhd_safe_from_p (rtx, tree);
-extern int lhd_staticp (tree);
-extern int lhd_unsafe_for_reeval (tree);
+extern bool lhd_staticp (tree);
 extern void lhd_print_tree_nothing (FILE *, tree, int);
 /* APPLE LOCAL begin new tree dump */
 extern void lhd_dump_tree_do_nothing (FILE *, tree, int, int);
@@ -114,7 +113,6 @@ extern int lhd_gimplify_expr (tree *, tree *, tree *);
 #define LANG_HOOKS_EXPAND_DECL		lhd_expand_decl
 #define LANG_HOOKS_SAFE_FROM_P		lhd_safe_from_p
 #define LANG_HOOKS_FINISH_INCOMPLETE_DECL lhd_do_nothing_t
-#define LANG_HOOKS_UNSAFE_FOR_REEVAL	lhd_unsafe_for_reeval
 #define LANG_HOOKS_STATICP		lhd_staticp
 #define LANG_HOOKS_DUP_LANG_SPECIFIC_DECL lhd_do_nothing_t
 #define LANG_HOOKS_UNSAVE_EXPR_NOW	lhd_unsave_expr_now
@@ -289,7 +287,6 @@ extern tree lhd_make_node (enum tree_code);
   LANG_HOOKS_TRUTHVALUE_CONVERSION, \
   LANG_HOOKS_SAFE_FROM_P, \
   LANG_HOOKS_FINISH_INCOMPLETE_DECL, \
-  LANG_HOOKS_UNSAFE_FOR_REEVAL, \
   LANG_HOOKS_MARK_ADDRESSABLE, \
   LANG_HOOKS_STATICP, \
   LANG_HOOKS_DUP_LANG_SPECIFIC_DECL, \

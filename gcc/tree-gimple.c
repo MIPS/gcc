@@ -118,16 +118,17 @@ Boston, MA 02111-1307, USA.  */
    addr-expr-arg: ID
 		| compref
 
-   with-size-arg: addr-expr-arg
+   addressable	: addr-expr-arg
 		| indirectref
+
+   with-size-arg: addressable
 		| call-stmt
 
    indirectref	: INDIRECT_REF
 			op0 -> val
 
-   lhs		: addr-expr-arg
+   lhs		: addressable
 		| bitfieldref
-		| indirectref
 		| WITH_SIZE_EXPR
 			op0 -> with-size-arg
 			op1 -> val
@@ -300,8 +301,7 @@ is_gimple_constructor_elt (tree t)
 bool
 is_gimple_lvalue (tree t)
 {
-  return (is_gimple_addr_expr_arg (t)
-	  || TREE_CODE (t) == INDIRECT_REF
+  return (is_gimple_addressable (t)
 	  || TREE_CODE (t) == WITH_SIZE_EXPR
 	  /* These are complex lvalues, but don't have addresses, so they
 	     go here.  */
@@ -317,15 +317,12 @@ is_gimple_condexpr (tree t)
 	  || TREE_CODE_CLASS (TREE_CODE (t)) == '<');
 }
 
-/*  Return true if T is a valid operand for ADDR_EXPR.  */
+/*  Return true if T is something whose address can be taken.  */
 
 bool
-is_gimple_addr_expr_arg (tree t)
+is_gimple_addressable (tree t)
 {
-  return (is_gimple_id (t)
-	  || TREE_CODE (t) == ARRAY_REF
-	  || TREE_CODE (t) == ARRAY_RANGE_REF
-	  || TREE_CODE (t) == COMPONENT_REF
+  return (is_gimple_id (t) || handled_component_p (t)
 	  || TREE_CODE (t) == REALPART_EXPR
 	  || TREE_CODE (t) == IMAGPART_EXPR
 	  || TREE_CODE (t) == INDIRECT_REF);
@@ -420,6 +417,7 @@ is_gimple_id (tree t)
   return (is_gimple_variable (t)
 	  || TREE_CODE (t) == FUNCTION_DECL
 	  || TREE_CODE (t) == LABEL_DECL
+	  || TREE_CODE (t) == CONST_DECL
 	  /* Allow string constants, since they are addressable.  */
 	  || TREE_CODE (t) == STRING_CST);
 }
@@ -447,8 +445,35 @@ is_gimple_reg (tree t)
 	  /* A volatile decl is not acceptable because we can't reuse it as
 	     needed.  We need to copy it into a temp first.  */
 	  && ! TREE_THIS_VOLATILE (t)
-	  && ! TREE_ADDRESSABLE (t)
 	  && ! needs_to_live_in_memory (t));
+}
+
+/* Returns true if T is a GIMPLE temporary variable, false otherwise.  */
+
+bool
+is_gimple_tmp_var (tree t)
+{
+  /* FIXME this could trigger for other local artificials, too.  */
+  return (TREE_CODE (t) == VAR_DECL && DECL_ARTIFICIAL (t)
+	  && !TREE_STATIC (t) && !DECL_EXTERNAL (t));
+}
+
+/* Returns true if T is a GIMPLE temporary register variable.  */
+
+bool
+is_gimple_tmp_reg (tree t)
+{
+  /* The intent of this is to get hold of a value that won't change.
+     An SSA_NAME qualifies no matter if its of a user variable or not.  */
+  if (TREE_CODE (t) == SSA_NAME)
+    return true;
+
+  /* We don't know the lifetime characteristics of user variables.  */
+  if (TREE_CODE (t) != VAR_DECL || !DECL_ARTIFICIAL (t))
+    return false;
+
+  /* Finally, it must be capable of being placed in a register.  */
+  return is_gimple_reg (t);
 }
 
 /* Return true if T is a GIMPLE variable whose address is not needed.  */
@@ -459,9 +484,7 @@ is_gimple_non_addressable (tree t)
   if (TREE_CODE (t) == SSA_NAME)
     t = SSA_NAME_VAR (t);
 
-  return (is_gimple_variable (t)
-	  && ! TREE_ADDRESSABLE (t)
-	  && ! needs_to_live_in_memory (t));
+  return (is_gimple_variable (t) && ! needs_to_live_in_memory (t));
 }
 
 /* Return true if T is a GIMPLE rvalue, i.e. an identifier or a constant.  */

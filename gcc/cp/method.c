@@ -368,6 +368,8 @@ use_thunk (tree thunk_fndecl, bool emit_p)
      rewrite.  */
   TREE_PUBLIC (thunk_fndecl) = TREE_PUBLIC (function);
   DECL_VISIBILITY (thunk_fndecl) = DECL_VISIBILITY (function);
+  DECL_VISIBILITY_SPECIFIED (thunk_fndecl) 
+    = DECL_VISIBILITY_SPECIFIED (function);
   if (flag_weak && TREE_PUBLIC (thunk_fndecl))
     comdat_linkage (thunk_fndecl);
 
@@ -515,21 +517,19 @@ do_build_copy_constructor (tree fndecl)
   else
     {
       tree fields = TYPE_FIELDS (current_class_type);
-      int n_bases = BINFO_N_BASE_BINFOS (TYPE_BINFO (current_class_type));
-      tree binfos = BINFO_BASE_BINFOS (TYPE_BINFO (current_class_type));
       tree member_init_list = NULL_TREE;
       int cvquals = cp_type_quals (TREE_TYPE (parm));
       int i;
-      tree binfo;
+      tree binfo, base_binfo;
+      VEC (tree) *vbases;
 
       /* Initialize all the base-classes with the parameter converted
 	 to their type so that we get their copy constructor and not
 	 another constructor that takes current_class_type.  We must
 	 deal with the binfo's directly as a direct base might be
 	 inaccessible due to ambiguity.  */
-      for (i = 0; (binfo = VEC_iterate
-		   (tree, CLASSTYPE_VBASECLASSES (current_class_type), i));
-	   i++)
+      for (vbases = CLASSTYPE_VBASECLASSES (current_class_type), i = 0;
+	   VEC_iterate (tree, vbases, i, binfo); i++)
 	{
 	  member_init_list 
 	    = tree_cons (binfo,
@@ -539,17 +539,17 @@ do_build_copy_constructor (tree fndecl)
 			 member_init_list);
 	}
 
-      for (i = 0; i < n_bases; ++i)
+      for (binfo = TYPE_BINFO (current_class_type), i = 0;
+	   BINFO_BASE_ITERATE (binfo, i, base_binfo); i++)
 	{
-	  tree binfo = TREE_VEC_ELT (binfos, i);
-	  if (BINFO_VIRTUAL_P (binfo))
+	  if (BINFO_VIRTUAL_P (base_binfo))
 	    continue; 
 
 	  member_init_list 
-	    = tree_cons (binfo,
+	    = tree_cons (base_binfo,
 			 build_tree_list (NULL_TREE,
 					  build_base_path (PLUS_EXPR, parm,
-							   binfo, 1)),
+							   base_binfo, 1)),
 			 member_init_list);
 	}
 
@@ -617,26 +617,24 @@ do_build_assign_ref (tree fndecl)
       tree fields;
       int cvquals = cp_type_quals (TREE_TYPE (parm));
       int i;
+      tree binfo, base_binfo;
 
       /* Assign to each of the direct base classes.  */
-      for (i = 0;
-	   i < BINFO_N_BASE_BINFOS (TYPE_BINFO (current_class_type));
-	   ++i)
+      for (binfo = TYPE_BINFO (current_class_type), i = 0;
+	   BINFO_BASE_ITERATE (binfo, i, base_binfo); i++)
 	{
-	  tree binfo;
 	  tree converted_parm;
 
-	  binfo = BINFO_BASE_BINFO (TYPE_BINFO (current_class_type), i);
 	  /* We must convert PARM directly to the base class
 	     explicitly since the base class may be ambiguous.  */
-	  converted_parm = build_base_path (PLUS_EXPR, parm, binfo, 1);
+	  converted_parm = build_base_path (PLUS_EXPR, parm, base_binfo, 1);
 	  /* Call the base class assignment operator.  */
 	  finish_expr_stmt 
 	    (build_special_member_call (current_class_ref, 
 					ansi_assopname (NOP_EXPR),
 					build_tree_list (NULL_TREE, 
 							 converted_parm),
-					binfo,
+					base_binfo,
 					LOOKUP_NORMAL | LOOKUP_NONVIRTUAL));
 	}
 
@@ -702,9 +700,6 @@ synthesize_method (tree fndecl)
   tree context = decl_function_context (fndecl);
   bool need_body = true;
   tree stmt;
-
-  if (at_eof)
-    import_export_decl (fndecl);
 
   /* If we've been asked to synthesize a clone, just synthesize the
      cloned function instead.  Doing so will automatically fill in the
@@ -783,13 +778,13 @@ synthesize_exception_spec (tree type, tree (*extractor) (tree, void*),
 {
   tree raises = empty_except_spec;
   tree fields = TYPE_FIELDS (type);
-  int i, n_bases = BINFO_N_BASE_BINFOS (TYPE_BINFO (type));
-  tree binfos = BINFO_BASE_BINFOS (TYPE_BINFO (type));
+  tree binfo, base_binfo;
+  int i;
 
-  for (i = 0; i != n_bases; i++)
+  for (binfo = TYPE_BINFO (type), i = 0;
+       BINFO_BASE_ITERATE (binfo, i, base_binfo); i++)
     {
-      tree base = BINFO_TYPE (TREE_VEC_ELT (binfos, i));
-      tree fn = (*extractor) (base, client);
+      tree fn = (*extractor) (BINFO_TYPE (base_binfo), client);
       if (fn)
         {
           tree fn_raises = TYPE_RAISES_EXCEPTIONS (TREE_TYPE (fn));
@@ -934,13 +929,24 @@ implicitly_declare_fn (special_function_kind kind, tree type, bool const_p)
 {
   tree fn;
   tree parameter_types = void_list_node;
-  tree return_type = void_type_node;
+  tree return_type;
   tree fn_type;
   tree raises = empty_except_spec;
   tree rhs_parm_type = NULL_TREE;
   tree name;
 
   type = TYPE_MAIN_VARIANT (type);
+
+  if (targetm.cxx.cdtor_returns_this () && !TYPE_FOR_JAVA (type))
+    {
+      if (kind == sfk_destructor)
+	/* See comment in check_special_function_return_type.  */
+	return_type = build_pointer_type (void_type_node);
+      else
+	return_type = build_pointer_type (type);
+    }
+  else
+    return_type = void_type_node;
 
   switch (kind)
     {
@@ -1017,9 +1023,8 @@ implicitly_declare_fn (special_function_kind kind, tree type, bool const_p)
   grokclassfn (type, fn, kind == sfk_destructor ? DTOR_FLAG : NO_SPECIAL,
 	       TYPE_UNQUALIFIED);
   grok_special_member_properties (fn);
-  TREE_PUBLIC (fn) = !decl_function_context (TYPE_MAIN_DECL (type));
-  rest_of_decl_compilation (fn, /*asmspec=*/NULL,
-			    toplevel_bindings_p (), at_eof);
+  set_linkage_according_to_type (type, fn);
+  rest_of_decl_compilation (fn, toplevel_bindings_p (), at_eof);
   DECL_IN_AGGR_P (fn) = 1;
   DECL_ARTIFICIAL (fn) = 1;
   DECL_NOT_REALLY_EXTERN (fn) = 1;
@@ -1068,6 +1073,8 @@ lazily_declare_fn (special_function_kind sfk, tree type)
       /* Create appropriate clones.  */
       clone_function_decl (fn, /*update_method_vec=*/true);
     }
+  else if (sfk == sfk_assignment_operator)
+    CLASSTYPE_LAZY_ASSIGNMENT_OP (type) = 0;
 
   return fn;
 }

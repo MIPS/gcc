@@ -66,7 +66,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #ifdef HAVE_doloop_end
 
 /* Return the loop termination condition for PATTERN or zero
- *    if it is not a decrement and branch jump insn.  */
+   if it is not a decrement and branch jump insn.  */
 
 static rtx
 doloop_condition_get (rtx pattern)
@@ -488,7 +488,7 @@ doloop_optimize (struct loop *loop)
     est_niter = desc->niter;
   /* If the estimate on number of iterations is reliable (comes from profile
      feedback), use it.  Do not use it normally, since the expected number
-     of iterations of unrolled loop is 2.  */
+     of iterations of an unrolled loop is 2.  */
   if (loop->header->count)
     est_niter = expected_loop_iterations (loop);
 
@@ -544,8 +544,7 @@ doloop_optimize (struct loop *loop)
       || ! (condition = doloop_condition_get (doloop_pat)))
     {
       if (dump_file)
-	fprintf (dump_file,
-		 "Doloop: Unrecognizable doloop pattern!\n");
+	fprintf (dump_file, "Doloop: Unrecognizable doloop pattern!\n");
       return false;
     }
 

@@ -106,20 +106,17 @@ tree last_assemble_variable_decl;
 
 bool unlikely_section_label_printed = false;
 
-/* APPLE LOCAL begin hot/cold partitioning  */
 /* The following global variable indicates the label name to be put at
    the start of the first cold section within each function, when
    partitioning basic blocks into hot and cold sections.  */
 
 char *unlikely_section_label = NULL;
-
+ 
 /* The following global variable indicates the section name to be used
    for the current cold section, when partitioning hot and cold basic
    blocks into separate sections.  */
 
 char *unlikely_text_section_name = NULL;
-
-/* APPLE LOCAL end hot/cold partitioning  */
 
 /* RTX_UNCHANGING_P in a MEM can mean it is stored into, for initialization.
    So giving constant the alias set for the type will allow such
@@ -221,8 +218,6 @@ text_section (void)
     {
       in_section = in_text;
       fprintf (asm_out_file, "%s\n", TEXT_SECTION_ASM_OP);
-      /* APPLE LOCAL mainline */
-      /* ASM_OUTPUT_ALIGN (asm_out_file, 2); */
     }
 }
 
@@ -595,6 +590,53 @@ function_section (tree decl)
     }
 }
 
+/* Switch to read-only data section associated with function DECL.  */
+
+void
+default_function_rodata_section (tree decl)
+{
+  if (decl != NULL_TREE && DECL_SECTION_NAME (decl))
+    {
+      const char *name = TREE_STRING_POINTER (DECL_SECTION_NAME (decl));
+
+      /* For .gnu.linkonce.t.foo we want to use .gnu.linkonce.r.foo.  */
+      if (DECL_ONE_ONLY (decl) && strncmp (name, ".gnu.linkonce.t.", 16) == 0)
+	{
+	  size_t len = strlen (name) + 1;
+	  char *rname = alloca (len);
+
+	  memcpy (rname, name, len);
+	  rname[14] = 'r';
+	  named_section_flags (rname, SECTION_LINKONCE);
+	  return;
+	}
+      /* For .text.foo we want to use .rodata.foo.  */
+      else if (flag_function_sections && flag_data_sections
+	       && strncmp (name, ".text.", 6) == 0)
+	{
+	  size_t len = strlen (name) + 1;
+	  char *rname = alloca (len + 2);
+
+	  memcpy (rname, ".rodata", 7);
+	  memcpy (rname + 7, name + 5, len - 5);
+	  named_section_flags (rname, 0);
+	  return;
+	}
+    }
+
+  readonly_data_section ();
+}
+
+/* Switch to read-only data section associated with function DECL
+   for targets where that section should be always the single
+   readonly data section.  */
+
+void
+default_no_function_rodata_section (tree decl ATTRIBUTE_UNUSED)
+{
+  readonly_data_section ();
+}
+
 /* Switch to section for variable DECL.  RELOC is the same as the
    argument to SELECT_SECTION.  */
 
@@ -722,6 +764,19 @@ strip_reg_name (const char *name)
   return name;
 }
 
+/* The user has asked for a DECL to have a particular name.  Set (or
+   change) it in such a way that we don't prefix an underscore to
+   it.  */
+void
+set_user_assembler_name (tree decl, const char *name)
+{
+  char *starred = alloca (strlen (name) + 2);
+  starred[0] = '*';
+  strcpy (starred + 1, name);
+  change_decl_assembler_name (decl, get_identifier (starred));
+  SET_DECL_RTL (decl, NULL_RTX);
+}
+
 /* Decode an `asm' spec for a declaration as a register name.
    Return the register number, or -1 if nothing specified,
    or -2 if the ASMSPEC is not `cc' or `memory' and is not recognized,
@@ -788,13 +843,10 @@ decode_reg_name (const char *asmspec)
    There is, however, one exception: this function handles variables
    explicitly placed in a particular register by the user.
 
-   ASMSPEC, if not 0, is the string which the user specified as the
-   assembler symbol name.
-
    This is never called for PARM_DECL nodes.  */
 
 void
-make_decl_rtl (tree decl, const char *asmspec)
+make_decl_rtl (tree decl)
 {
   const char *name = 0;
   int reg_number;
@@ -824,6 +876,9 @@ make_decl_rtl (tree decl, const char *asmspec)
 	SET_DECL_RTL (decl, adjust_address_nv (DECL_RTL (decl),
 					       DECL_MODE (decl), 0));
 
+      if (TREE_CODE (decl) != FUNCTION_DECL && DECL_REGISTER (decl))
+	return;
+
       /* ??? Another way to do this would be to maintain a hashed
 	 table of such critters.  Instead of adding stuff to a DECL
 	 to give certain attributes to it, we could use an external
@@ -841,18 +896,9 @@ make_decl_rtl (tree decl, const char *asmspec)
       return;
     }
 
-  reg_number = decode_reg_name (asmspec);
-  if (reg_number == -2)
-    {
-      /* ASMSPEC is given, and not the name of a register.  Mark the
-	 name with a star so assemble_name won't munge it.  */
-      char *starred = alloca (strlen (asmspec) + 2);
-      starred[0] = '*';
-      strcpy (starred + 1, asmspec);
-      change_decl_assembler_name (decl, get_identifier (starred));
-    }
-
   name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
+
+  reg_number = decode_reg_name (name);
 
   if (TREE_CODE (decl) != FUNCTION_DECL && DECL_REGISTER (decl))
     {
@@ -909,7 +955,7 @@ make_decl_rtl (tree decl, const char *asmspec)
   /* Now handle ordinary static variables and functions (in memory).
      Also handle vars declared register invalidly.  */
 
-  if (reg_number >= 0 || reg_number == -3)
+  if (name[0] == '*' && (reg_number >= 0 || reg_number == -3))
     error ("%Jregister name given for non-register variable '%D'", decl, decl);
 
   /* Specifying a section attribute on a variable forces it into a
@@ -1146,24 +1192,24 @@ assemble_start_function (tree decl, const char *fnname)
 {
   int align;
 
-  /* APPLE LOCAL begin mainlnie */
   if (unlikely_text_section_name)
     free (unlikely_text_section_name);
 
   unlikely_section_label_printed = false;
   unlikely_text_section_name = NULL;
-
+  
   if (unlikely_section_label)
     free (unlikely_section_label);
   unlikely_section_label = xmalloc ((strlen (fnname) + 18) * sizeof (char));
   sprintf (unlikely_section_label, "%s_unlikely_section", fnname);
-  /* APPLE LOCAL end mainline */
 
   /* The following code does not need preprocessing in the assembler.  */
 
   app_disable ();
 
-  /* APPLE LOCAL begin mainline */
+  if (CONSTANT_POOL_BEFORE_FUNCTION)
+    output_constant_pool (fnname, decl);
+
   /* Make sure the cold text (code) section is properly aligned.  This
      is necessary here in the case where the function has both hot and
      cold sections, because we don't want to re-set the alignment when the
@@ -1177,10 +1223,6 @@ assemble_start_function (tree decl, const char *fnname)
       unlikely_text_section ();
       assemble_align (FUNCTION_BOUNDARY);
     }
-  /* APPLE LOCAL end mainline */
-
-  if (CONSTANT_POOL_BEFORE_FUNCTION)
-    output_constant_pool (fnname, decl);
 
   resolve_unique_section (decl, 0, flag_function_sections);
   function_section (decl);
@@ -1238,14 +1280,12 @@ assemble_start_function (tree decl, const char *fnname)
   ASM_OUTPUT_LABEL (asm_out_file, fnname);
 #endif /* ASM_DECLARE_FUNCTION_NAME */
 
-  /* APPLE LOCAL begin mainline */
   if (in_unlikely_text_section ()
       && !unlikely_section_label_printed)
     {
       ASM_OUTPUT_LABEL (asm_out_file, unlikely_section_label);
       unlikely_section_label_printed = true;
     }
-  /* APPLE LOCAL end mainline */
 }
 
 /* Output assembler code associated with defining the size of the
@@ -2504,9 +2544,9 @@ copy_constant (tree exp)
 
     case PLUS_EXPR:
     case MINUS_EXPR:
-      return build (TREE_CODE (exp), TREE_TYPE (exp),
-		    copy_constant (TREE_OPERAND (exp, 0)),
-		    copy_constant (TREE_OPERAND (exp, 1)));
+      return build2 (TREE_CODE (exp), TREE_TYPE (exp),
+		     copy_constant (TREE_OPERAND (exp, 0)),
+		     copy_constant (TREE_OPERAND (exp, 1)));
 
     case NOP_EXPR:
     case CONVERT_EXPR:
@@ -3768,10 +3808,10 @@ output_constant (tree exp, unsigned HOST_WIDE_INT size, unsigned int align)
 	  unsigned int nalign;
 	  enum machine_mode inner;
 
-	  inner = GET_MODE_INNER (TYPE_MODE (TREE_TYPE (exp)));
+	  inner = TYPE_MODE (TREE_TYPE (TREE_TYPE (exp)));
 	  nalign = MIN (align, GET_MODE_ALIGNMENT (inner));
 
-	  elt_size = GET_MODE_UNIT_SIZE (TYPE_MODE (TREE_TYPE (exp)));
+	  elt_size = GET_MODE_SIZE (inner);
 
 	  link = TREE_VECTOR_CST_ELTS (exp);
 	  output_constant (TREE_VALUE (link), elt_size, align);
@@ -4354,7 +4394,7 @@ assemble_alias (tree decl, tree target ATTRIBUTE_UNUSED)
 
   /* We must force creation of DECL_RTL for debug info generation, even though
      we don't use it here.  */
-  make_decl_rtl (decl, NULL);
+  make_decl_rtl (decl);
 
   name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
 
@@ -5127,8 +5167,8 @@ default_binds_local_p_1 (tree exp, int shlib)
   /* Static variables are always local.  */
   else if (! TREE_PUBLIC (exp))
     local_p = true;
-  /* A variable is local if the user tells us so.  */
-  else if (DECL_VISIBILITY (exp) != VISIBILITY_DEFAULT)
+  /* A variable is local if the user explicitly tells us so.  */
+  else if (DECL_VISIBILITY_SPECIFIED (exp) && DECL_VISIBILITY (exp) != VISIBILITY_DEFAULT)
     local_p = true;
   /* Otherwise, variables defined outside this object may not be local.  */
   else if (DECL_EXTERNAL (exp))
@@ -5136,6 +5176,9 @@ default_binds_local_p_1 (tree exp, int shlib)
   /* Linkonce and weak data are never local.  */
   else if (DECL_ONE_ONLY (exp) || DECL_WEAK (exp))
     local_p = false;
+  /* If none of the above and visibility is not default, make local.  */
+  else if (DECL_VISIBILITY (exp) != VISIBILITY_DEFAULT)
+    local_p = true;
   /* If PIC, then assume that any global name can be overridden by
      symbols resolved from other modules.  */
   else if (shlib)

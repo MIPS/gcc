@@ -267,12 +267,38 @@ insn_locators_initialize (void)
 
   for (insn = get_insns (); insn; insn = next)
     {
+      int active = 0;
+      
       next = NEXT_INSN (insn);
 
-      if ((active_insn_p (insn)
-	   && GET_CODE (PATTERN (insn)) != ADDR_VEC
-	   && GET_CODE (PATTERN (insn)) != ADDR_DIFF_VEC)
-	  || !NEXT_INSN (insn)
+      if (NOTE_P (insn))
+	{
+	  switch (NOTE_LINE_NUMBER (insn))
+	    {
+	    case NOTE_INSN_BLOCK_BEG:
+	    case NOTE_INSN_BLOCK_END:
+	      abort ();
+	      
+	    default:
+	      if (NOTE_LINE_NUMBER (insn) > 0)
+		{
+		  expanded_location xloc;
+		  NOTE_EXPANDED_LOCATION (xloc, insn);
+		  line_number = xloc.line;
+		  file_name = xloc.file;
+		}
+	      break;
+	    }
+	}
+      else
+	active = (active_insn_p (insn)
+		  && GET_CODE (PATTERN (insn)) != ADDR_VEC
+		  && GET_CODE (PATTERN (insn)) != ADDR_DIFF_VEC);
+      
+      check_block_change (insn, &block);
+
+      if (active
+	  || !next
 	  || (!prologue_locator && file_name))
 	{
 	  if (last_block != block)
@@ -296,34 +322,13 @@ insn_locators_initialize (void)
 	      VARRAY_PUSH_CHAR_PTR (file_locators_files, (char *) file_name);
 	      last_file_name = file_name;
 	    }
+	  if (!prologue_locator && file_name)
+	    prologue_locator = loc;
+	  if (!next)
+	    epilogue_locator = loc;
+	  if (active)
+	    INSN_LOCATOR (insn) = loc;
 	}
-      if (!prologue_locator && file_name)
-	prologue_locator = loc;
-      if (!NEXT_INSN (insn))
-	epilogue_locator = loc;
-      if (active_insn_p (insn))
-        INSN_LOCATOR (insn) = loc;
-      else if (NOTE_P (insn))
-	{
-	  switch (NOTE_LINE_NUMBER (insn))
-	    {
-	    case NOTE_INSN_BLOCK_BEG:
-	    case NOTE_INSN_BLOCK_END:
-	      abort ();
-
-	    default:
-	      if (NOTE_LINE_NUMBER (insn) > 0)
-		{
-		  expanded_location xloc;
-		  NOTE_EXPANDED_LOCATION (xloc, insn);
-		  line_number = xloc.line;
-		  file_name = xloc.file;
-		}
-	      break;
-	    }
-	}
-
-      check_block_change (insn, &block);
     }
 
   /* Tag the blocks with a depth number so that change_scope can find
@@ -1138,11 +1143,15 @@ cfg_layout_duplicate_bb (basic_block bb)
   return new_bb;
 }
 
-/* Main entry point to this module - initialize the data structures for
-   CFG layout changes.  It keeps LOOPS up-to-date if not null.  */
+/* Main entry point to this module - initialize the datastructures for
+   CFG layout changes.  It keeps LOOPS up-to-date if not null.
+
+   FLAGS is a set of additional flags to pass to cleanup_cfg().  It should
+   include CLEANUP_UPDATE_LIFE if liveness information must be kept up
+   to date.  */
 
 void
-cfg_layout_initialize (void)
+cfg_layout_initialize (unsigned int flags)
 {
   basic_block bb;
 
@@ -1157,7 +1166,7 @@ cfg_layout_initialize (void)
 
   record_effective_endpoints ();
 
-  cleanup_cfg (CLEANUP_CFGLAYOUT);
+  cleanup_cfg (CLEANUP_CFGLAYOUT | flags);
 }
 
 /* Splits superblocks.  */

@@ -137,7 +137,8 @@ only one of these two forms, whichever one is not the default.
 * Invoking G++::	Compiling C++ programs.
 * C Dialect Options::   Controlling the variant of C language compiled.
 * C++ Dialect Options:: Variations on C++.
-* Objective-C Dialect Options:: Variations on Objective-C.
+* Objective-C and Objective-C++ Dialect Options:: Variations on Objective-C
+                        and Objective-C++.
 * Language Independent Options:: Controlling how diagnostics should be
                         formatted.
 * Warning Options::     How picky should the compiler be?
@@ -233,15 +234,17 @@ in the following sections.
 -fno-optional-diags  -fpermissive @gol
 -frepo  -fno-rtti  -fstats  -ftemplate-depth-@var{n} @gol
 -fuse-cxa-atexit  -fno-weak  -nostdinc++ @gol
--fno-default-inline  -Wabi  -Wctor-dtor-privacy @gol
+-fno-default-inline  -fvisibility-inlines-hidden @gol
+-Wabi  -Wctor-dtor-privacy @gol
 -Wnon-virtual-dtor  -Wreorder @gol
 -Weffc++  -Wno-deprecated @gol
 -Wno-non-template-friend  -Wold-style-cast @gol
 -Woverloaded-virtual  -Wno-pmf-conversions @gol
 -Wsign-promo  -Wsynth}
 
-@item Objective-C Language Options
-@xref{Objective-C Dialect Options,,Options Controlling Objective-C Dialect}.
+@item Objective-C and Objective-C++ Language Options
+@xref{Objective-C and Objective-C++ Dialect Options,,Options Controlling
+Objective-C and Objective-C++ Dialects}.
 @gccoptlist{
 -fconstant-string-class=@var{class-name} @gol
 -fgnu-runtime  -fnext-runtime @gol
@@ -272,7 +275,7 @@ in the following sections.
 -Wimport  -Wno-import  -Winit-self  -Winline @gol
 -Wno-invalid-offsetof  -Winvalid-pch @gol
 -Wlarger-than-@var{len}  -Wlong-long @gol
--Wmain  -Wmissing-braces @gol
+-Wmain  -Wmissing-braces  -Wmissing-field-initializers @gol
 -Wmissing-format-attribute  -Wmissing-include-dirs @gol
 -Wmissing-noreturn @gol
 @c APPLE LOCAL -Wmost
@@ -370,8 +373,8 @@ in the following sections.
 -fsched-spec-load-dangerous  @gol
 -fsched-stalled-insns=@var{n} -sched-stalled-insns-dep=@var{n} @gol
 -fsched2-use-superblocks @gol
--fsched2-use-traces  -fsignaling-nans @gol
--fsingle-precision-constant  @gol
+-fsched2-use-traces -freschedule-modulo-scheduled-loops @gol
+-fsignaling-nans -fsingle-precision-constant  @gol
 -fstrength-reduce  -fstrict-aliasing  -ftracer  -fthread-jumps @gol
 -funroll-all-loops  -funroll-loops  -fpeel-loops @gol
 -funswitch-loops  -fold-unroll-loops  -fold-unroll-all-loops @gol
@@ -481,7 +484,7 @@ in the following sections.
 @gccoptlist{-all_load  -allowable_client  -arch  -arch_errors_fatal @gol
 -arch_only  -bind_at_load  -bundle  -bundle_loader @gol
 -client_name  -compatibility_version  -current_version @gol
-@c APPLE LOCAL added in FSF mainline on Aug 12, 2004 
+@c APPLE LOCAL MERGE FIXME -- submit addition of '-no_dead_strip_inits_and_terms' to FSF
 -dead_strip -no_dead_strip_inits_and_terms @gol
 -dependency-file  -dylib_file  -dylinker_install_name @gol
 -dynamic  -dynamiclib  -exported_symbols_list @gol
@@ -489,7 +492,8 @@ in the following sections.
 -force_flat_namespace  -headerpad_max_install_names @gol
 -image_base  -init  -install_name  -keep_private_externs @gol
 -multi_module  -multiply_defined  -multiply_defined_unused @gol
--noall_load  -nofixprebinding -nomultidefs  -noprebind  -noseglinkedit @gol
+-noall_load   -no_dead_strip_inits_and_terms @gol
+-nofixprebinding -nomultidefs  -noprebind  -noseglinkedit @gol
 -pagezero_size  -prebind  -prebind_all_twolevel_modules @gol
 -private_bundle  -read_only_relocs  -sectalign @gol
 -sectobjectsymbols  -whyload  -seg1addr @gol
@@ -499,7 +503,6 @@ in the following sections.
 -single_module  -static  -sub_library  -sub_umbrella @gol
 -twolevel_namespace  -umbrella  -undefined @gol
 -unexported_symbols_list  -weak_reference_mismatches @gol
-@c APPLE LOCAL backport 3721776 from FSF mainline
 -whatsloaded -F -gused -gfull -mone-byte-bool}
 
 @c APPLE LOCAL prune man page
@@ -705,7 +708,7 @@ See RS/6000 and PowerPC Options.
 
 @emph{S/390 and zSeries Options}
 @gccoptlist{-mtune=@var{cpu-type}  -march=@var{cpu-type} @gol
--mhard-float  -msoft-float  -mbackchain  -mno-backchain @gol
+-mhard-float  -msoft-float  -mbackchain  -mno-backchain -mkernel-backchain @gol
 -msmall-exec  -mno-small-exec  -mmvcle -mno-mvcle @gol
 -m64  -m31  -mdebug  -mno-debug  -mesa  -mzarch @gol
 -mtpf-trace -mno-tpf-trace  -mfused-madd  -mno-fused-madd}
@@ -713,11 +716,12 @@ See RS/6000 and PowerPC Options.
 @emph{SH Options}
 @gccoptlist{-m1  -m2  -m2e  -m3  -m3e @gol
 -m4-nofpu  -m4-single-only  -m4-single  -m4 @gol
+-m4a-nofpu -m4a-single-only -m4a-single -m4a -m4al @gol
 -m5-64media  -m5-64media-nofpu @gol
 -m5-32media  -m5-32media-nofpu @gol
 -m5-compact  -m5-compact-nofpu @gol
 -mb  -ml  -mdalign  -mrelax @gol
--mbigtable  -mfmovd  -mhitachi  -mnomacsave @gol
+-mbigtable  -mfmovd  -mhitachi -mrenesas -mno-renesas -mnomacsave @gol
 -mieee  -misize  -mpadstruct  -mspace @gol
 -mprefergot  -musermode}
 
@@ -792,7 +796,8 @@ See S/390 and zSeries Options.
 -fargument-alias  -fargument-noalias @gol
 -fargument-noalias-global  -fleading-underscore @gol
 -ftls-model=@var{model} @gol
--ftrapv  -fwrapv  -fbounds-check}
+-ftrapv  -fwrapv  -fbounds-check @gol
+-fvisibility}
 @end table
 
 @menu
@@ -801,7 +806,8 @@ See S/390 and zSeries Options.
                         or preprocessed source.
 * C Dialect Options::   Controlling the variant of C language compiled.
 * C++ Dialect Options:: Variations on C++.
-* Objective-C Dialect Options:: Variations on Objective-C.
+* Objective-C and Objective-C++ Dialect Options:: Variations on Objective-C
+                        and Objective-C++.
 * Language Independent Options:: Controlling how diagnostics should be
                         formatted.
 * Warning Options::     How picky should the compiler be?
@@ -843,14 +849,24 @@ C source code which should not be preprocessed.
 C++ source code which should not be preprocessed.
 
 @item @var{file}.m
-Objective-C source code.  Note that you must link with the library
-@file{libobjc.a} to make an Objective-C program work.
+Objective-C source code.  Note that you must link with the @file{libobjc}
+library to make an Objective-C program work.
 
 @item @var{file}.mi
 Objective-C source code which should not be preprocessed.
 
+@item @var{file}.mm
+@itemx @var{file}.M
+Objective-C++ source code.  Note that you must link with the @file{libobjc}
+library to make an Objective-C++ program work.  Note that @samp{.M} refers
+to a literal capital M@.
+
+@item @var{file}.mii
+Objective-C++ source code which should not be preprocessed.
+
 @item @var{file}.h
-C or C++ header file to be turned into a precompiled header.
+C, C++, Objective-C or Objective-C++ header file to be turned into a
+precompiled header.
 
 @item @var{file}.cc
 @itemx @var{file}.cp
@@ -940,11 +956,10 @@ Specify explicitly the @var{language} for the following input files
 name suffix).  This option applies to all following input files until
 the next @option{-x} option.  Possible values for @var{language} are:
 @smallexample
-c  c-header  cpp-output
+c  c-header  c-cpp-output
 c++  c++-header  c++-cpp-output
-objective-c  objective-c-header  objc-cpp-output
-@c APPLE LOCAL Objective-C++
-objective-c++ (APPLE ONLY) objective-c++-header (APPLE ONLY)
+objective-c  objective-c-header  objective-c-cpp-output
+objective-c++ objective-c++-header objective-c++-cpp-output
 assembler  assembler-with-cpp
 ada
 f77  f77-cpp-input  ratfor
@@ -1136,7 +1151,8 @@ explanations of options that are meaningful only for C++ programs.
 @cindex options, dialect
 
 The following options control the dialect of C (or languages derived
-from C, such as C++ and Objective-C) that the compiler accepts:
+from C, such as C++, Objective-C and Objective-C++) that the compiler
+accepts:
 
 @table @gcctabopt
 @cindex ANSI support
@@ -1681,6 +1697,20 @@ destructors, but will only work if your C library supports
 @c APPLE LOCAL manual
 This option is not supported on Mac OS X.
 
+@item -fvisibility-inlines-hidden
+@opindex fvisibility-inlines-hidden
+Causes all inlined methods to be marked with
+@code{__attribute__ ((visibility ("hidden")))} so that they do not
+appear in the export table of a DSO and do not require a PLT indirection
+when used within the DSO. Enabling this option can have a dramatic effect
+on load and link times of a DSO as it massively reduces the size of the
+dynamic export table when the library makes heavy use of templates. While
+it can cause bloating through duplication of code within each DSO where
+it is used, often the wastage is less than the considerable space occupied
+by a long symbol name in the export table which is typical when using
+templates and namespaces. For even more savings, combine with the
+@code{-fvisibility=hidden} switch.
+
 @item -fno-weak
 @opindex fno-weak
 Do not use weak symbol support, even if it is provided by the linker.
@@ -1972,19 +2002,20 @@ In this example, G++ will synthesize a default @samp{A& operator =
 (const A&);}, while cfront will use the user-defined @samp{operator =}.
 @end table
 
-@node Objective-C Dialect Options
-@section Options Controlling Objective-C Dialect
+@node Objective-C and Objective-C++ Dialect Options
+@section Options Controlling Objective-C and Objective-C++ Dialects
 
-@cindex compiler options, Objective-C
-@cindex Objective-C options, command line
-@cindex options, Objective-C
-(NOTE: This manual does not describe the Objective-C language itself.  See
-@w{@uref{http://gcc.gnu.org/readings.html}} for references.)
+@cindex compiler options, Objective-C and Objective-C++
+@cindex Objective-C and Objective-C++ options, command line
+@cindex options, Objective-C and Objective-C++
+(NOTE: This manual does not describe the Objective-C and Objective-C++
+languages themselves.  See @xref{Standards,,Language Standards
+Supported by GCC}, for references.)
 
 This section describes the command-line options that are only meaningful
-for Objective-C programs, but you can also use most of the GNU compiler
-options regardless of what language your program is in.  For example,
-you might compile a file @code{some_class.m} like this:
+for Objective-C and Objective-C++ programs, but you can also use most of
+the language-independent GNU compiler options.
+For example, you might compile a file @code{some_class.m} like this:
 
 @smallexample
 gcc -g -fgnu-runtime -O -c some_class.m
@@ -1992,11 +2023,16 @@ gcc -g -fgnu-runtime -O -c some_class.m
 
 @noindent
 In this example, @option{-fgnu-runtime} is an option meant only for
-Objective-C programs; you can use the other options with any language
-supported by GCC@.
+Objective-C and Objective-C++ programs; you can use the other options with
+any language supported by GCC@.
+
+Note that since Objective-C is an extension of the C language, Objective-C
+compilations may also use options specific to the C front-end (e.g., 
+@option{-Wtraditional}).  Similarly, Objective-C++ compilations may use
+C++-specific options (e.g., @option{-Wabi}).
 
 Here is a list of options that are @emph{only} for compiling Objective-C
-programs:
+and Objective-C++ programs:
 
 @table @gcctabopt
 @item -fconstant-string-class=@var{class-name}
@@ -2025,8 +2061,8 @@ used.
 @opindex fno-nil-receivers
 Assume that all Objective-C message dispatches (e.g.,
 @code{[receiver message:arg]}) in this translation unit ensure that the receiver
-is not @code{nil}.  This allows for more efficient entry points in the runtime to be
-used.  Currently, this option is only available in conjunction with
+is not @code{nil}.  This allows for more efficient entry points in the runtime
+to be used.  Currently, this option is only available in conjunction with
 the NeXT runtime on Mac OS X 10.3 and later.
 
 @item -fobjc-exceptions
@@ -2250,7 +2286,8 @@ two forms, whichever is not the default.
 
 The following options control the amount and kinds of warnings produced
 by GCC; for further, language-specific options also refer to
-@ref{C++ Dialect Options} and @ref{Objective-C Dialect Options}.
+@ref{C++ Dialect Options} and @ref{Objective-C and Objective-C++ Dialect
+Options}.
 
 @table @gcctabopt
 @cindex syntax checking
@@ -2368,7 +2405,7 @@ specified, and that the conversions specified in the format string make
 sense.  This includes standard functions, and others specified by format
 attributes (@pxref{Function Attributes}), in the @code{printf},
 @code{scanf}, @code{strftime} and @code{strfmon} (an X/Open extension,
-not in the C standard) families.
+not in the C standard) families (or other target-specific families).
 
 The formats are checked against the format features supported by GNU
 libc version 2.2.  These include all ISO C90 and C99 features, as well
@@ -2446,7 +2483,7 @@ requiring a non-null value by the @code{nonnull} function attribute.
 @option{-Wnonnull} is included in @option{-Wall} and @option{-Wformat}.  It
 can be disabled with the @option{-Wno-nonnull} option.
 
-@item -Winit-self @r{(C, C++, and Objective-C only)}
+@item -Winit-self @r{(C, C++, Objective-C and Objective-C++ only)}
 @opindex Winit-self
 Warn about uninitialized variables which are initialized with themselves.
 Note this option can only be used with the @option{-Wuninitialized} option,
@@ -2496,7 +2533,7 @@ int a[2][2] = @{ 0, 1, 2, 3 @};
 int b[2][2] = @{ @{ 0, 1 @}, @{ 2, 3 @} @};
 @end smallexample
 
-@item -Wmissing-include-dirs @r{(C, C++, and Objective-C only)}
+@item -Wmissing-include-dirs @r{(C, C++, Objective-C and Objective-C++ only)}
 @opindex Wmissing-include-dirs
 Warn if a user-supplied include directory does not exist.
 
@@ -2603,6 +2640,12 @@ definitions, may be found on the GCC readings page, at
 Warn whenever a function is defined with a return-type that defaults to
 @code{int}.  Also warn about any @code{return} statement with no
 return-value in a function whose return-type is not @code{void}.
+
+For C, also warn if the return type of a function has a type qualifier
+such as @code{const}.  Such a type qualifier has no effect, since the
+value returned by a function is not an lvalue.  ISO C prohibits
+qualified @code{void} return types on function definitions, so such
+return types always receive a warning even without this option.
 
 For C++, a function without return type always produces a diagnostic
 message, even when @option{-Wno-return-type} is specified.  The only
@@ -2784,7 +2827,7 @@ warnings about constructions that some users consider questionable, and
 that are easy to avoid (or modify to prevent the warning), even in
 conjunction with macros.  This also enables some language-specific
 warnings described in @ref{C++ Dialect Options} and
-@ref{Objective-C Dialect Options}.
+@ref{Objective-C and Objective-C++ Dialect Options}.
 @c APPLE LOCAL -Wmost
 @item -Wmost
 @opindex Wmost
@@ -2838,13 +2881,6 @@ Storage-class specifiers like @code{static} are not the first things in
 a declaration.  According to the C Standard, this usage is obsolescent.
 
 @item
-The return type of a function has a type qualifier such as @code{const}.
-Such a type qualifier has no effect, since the value returned by a
-function is not an lvalue.  (But don't warn about the GNU extension of
-@code{volatile void} return types.  That extension will be warned about
-if @option{-pedantic} is specified.)
-
-@item
 If @option{-Wall} or @option{-Wunused} is also specified, warn about unused
 arguments.
 
@@ -2855,13 +2891,8 @@ incorrect result when the signed value is converted to unsigned.
 
 @item
 An aggregate has an initializer which does not initialize all members.
-For example, the following code would cause such a warning, because
-@code{x.h} would be implicitly initialized to zero:
-
-@smallexample
-struct s @{ int f, g, h; @};
-struct s x = @{ 3, 4 @};
-@end smallexample
+This warning can be independently controlled by
+@option{-Wmissing-field-initializers}.
 
 @item
 A function parameter is declared without a type specifier in K&R-style
@@ -3151,6 +3182,30 @@ Warn if a global function is defined without a previous declaration.
 Do so even if the definition itself provides a prototype.
 Use this option to detect global functions that are not declared in
 header files.
+
+@item -Wmissing-field-initializers
+@opindex Wmissing-field-initializers
+@opindex W
+@opindex Wextra
+Warn if a structure's initializer has some fields missing.  For
+example, the following code would cause such a warning, because
+@code{x.h} is implicitly zero:
+
+@smallexample
+struct s @{ int f, g, h; @};
+struct s x = @{ 3, 4 @};
+@end smallexample
+
+This option does not warn about designated initializers, so the following
+modification would not trigger a warning:
+
+@smallexample
+struct s @{ int f, g, h; @};
+struct s x = @{ .f = 3, .g = 4 @};
+@end smallexample
+
+This warning is included in @option{-Wextra}.  To get other @option{-Wextra}
+warnings without this one, use @samp{-Wextra -Wno-missing-field-initializers}.
 
 @item -Wmissing-noreturn
 @opindex Wmissing-noreturn
@@ -4733,6 +4788,12 @@ reality and hurt the performance.  This only makes
 sense when scheduling after register allocation, i.e.@: with
 @option{-fschedule-insns2} or at @option{-O2} or higher.
 
+@item -freschedule-modulo-scheduled-loops
+@opindex fscheduling-in-modulo-scheduled-loops
+The modulo scheduling comes before the traditional scheduling, if a loop was modulo scheduled
+we may want to prevent the later scheduling passes from changing its schedule, we use this
+option to control that.
+
 @item -fcaller-saves
 @opindex fcaller-saves
 Enable values to be allocated in registers that will be clobbered by
@@ -5455,6 +5516,12 @@ the number of edges incoming to each block.  Increasing values mean
 more aggressive optimization, making the compile time increase with
 probably small improvement in executable size.
 
+@item min-crossjump-insns
+The minimum number of instructions which must be matched at the end
+of two blocks before crossjumping will be performed on them.  This
+value is ignored in the case where all instructions in the block being
+crossjumped from are matched.  The default value is 5.
+
 @item max-delay-slot-insn-search
 The maximum number of instructions to consider when looking for an
 instruction to fill a delay slot.  If more than this arbitrary number of
@@ -5659,7 +5726,7 @@ generation.
 
 The default is 30% + 70% * (RAM/1GB) with an upper bound of 100% when
 RAM >= 1GB.  If @code{getrlimit} is available, the notion of "RAM" is
-the smallest of actual RAM, RLIMIT_RSS, RLIMIT_DATA and RLIMIT_AS.  If
+the smallest of actual RAM and RLIMIT_DATA or RLIMIT_AS.  If
 GCC is not able to calculate RAM on a particular platform, the lower
 bound of 30% is used.  Setting this parameter and
 @option{ggc-min-heapsize} to zero causes a full collection to occur at
@@ -5674,14 +5741,14 @@ by @option{ggc-min-expand}% beyond @option{ggc-min-heapsize}.  Again,
 tuning this may improve compilation speed, and has no effect on code
 generation.
 
-The default is RAM/8, with a lower bound of 4096 (four megabytes) and an
-upper bound of 131072 (128 megabytes).  If @code{getrlimit} is
-available, the notion of "RAM" is the smallest of actual RAM,
-RLIMIT_RSS, RLIMIT_DATA and RLIMIT_AS.  If GCC is not able to calculate
-RAM on a particular platform, the lower bound is used.  Setting this
-parameter very large effectively disables garbage collection.  Setting
-this parameter and @option{ggc-min-expand} to zero causes a full
-collection to occur at every opportunity.
+The default is the smaller of RAM/8, RLIMIT_RSS, or a limit which
+tries to ensure that RLIMIT_DATA or RLIMIT_AS are not exceeded, but
+with a lower bound of 4096 (four megabytes) and an upper bound of
+131072 (128 megabytes).  If GCC is not able to calculate RAM on a
+particular platform, the lower bound is used.  Setting this parameter
+very large effectively disables garbage collection.  Setting this
+parameter and @option{ggc-min-expand} to zero causes a full collection
+to occur at every opportunity.
 
 @item max-reload-search-insns
 The maximum number of instruction reload should look backward for equivalent
@@ -5847,7 +5914,7 @@ and searches several directories.
 @item -lobjc
 @opindex lobjc
 You need this special case of the @option{-l} option in order to
-link an Objective-C program.
+link an Objective-C or Objective-C++ program.
 
 @item -nostartfiles
 @opindex nostartfiles
@@ -6927,8 +6994,10 @@ assembly code.  Permissible names are: @samp{arm2}, @samp{arm250},
 @samp{arm7500}, @samp{arm7500fe}, @samp{arm7tdmi}, @samp{arm8},
 @samp{strongarm}, @samp{strongarm110}, @samp{strongarm1100},
 @samp{arm8}, @samp{arm810}, @samp{arm9}, @samp{arm9e}, @samp{arm920},
-@samp{arm920t}, @samp{arm926ejs}, @samp{arm940t}, @samp{arm9tdmi},
+@samp{arm920t}, @samp{arm922t}, @samp{arm946es}, @samp{arm966es},
+@samp{arm968es}, @samp{arm926ejs}, @samp{arm940t}, @samp{arm9tdmi},
 @samp{arm10tdmi}, @samp{arm1020t}, @samp{arm1026ejs},
+@samp{arm10e}, @samp{arm1020e}, @samp{arm1022e},
 @samp{arm1136js}, @samp{arm1136jfs} ,@samp{xscale}, @samp{iwmmxt},
 @samp{ep9312}.
 
@@ -7343,8 +7412,8 @@ framework.  A subframework should not have the same name as a
 framework, a warning will be issued if this is violated.  Currently a
 subframework cannot have subframeworks, in the future, the mechanism
 may be extended to support this.  The standard frameworks can be found
-in @samp{"/System/Library/Frameworks"}, @samp{"/Library/Frameworks"}
-and @samp{"/Local/Library/Frameworks"}.  An example include looks like
+in @samp{"/System/Library/Frameworks"} and
+@samp{"/Library/Frameworks"}.  An example include looks like
 @code{#include <Framework/header.h>}, where @samp{Framework} denotes
 the name of the framework and header.h is found in the
 @samp{"PrivateHeaders"} or @samp{"Headers"} directory.
@@ -7358,6 +7427,19 @@ This is by default ON.
 @item -gfull
 @opindex -gfull
 Emit debugging information for all symbols and types.
+
+@item -mone-byte-bool
+@opindex -mone-byte-bool
+Override the defaults for @samp{bool} so that @samp{sizeof(bool)==1}.
+By default @samp{sizeof(bool)} is @samp{4} when compiling for 
+Darwin/PowerPC and @samp{1} when compiling for Darwin/x86, so this
+option has no effect on x86.
+
+@strong{Warning:} The @option{-mone-byte-bool} switch causes GCC
+to generate code that is not binary compatible with code generated
+without that switch.  Using this switch may require recompiling all
+other modules in a program, including system libraries.  Use this 
+switch to conform to a non-default data model.
 
 @item -all_load
 @opindex all_load
@@ -7390,7 +7472,6 @@ output file being linked. See man ld(1) for more information.
 @itemx -client_name
 @itemx -compatibility_version
 @itemx -current_version
-@c APPLE LOCAL added in FSF mainline on Aug 12, 2004 
 @itemx -dead_strip
 @itemx -dependency-file
 @itemx -dylib_file
@@ -7411,7 +7492,6 @@ output file being linked. See man ld(1) for more information.
 @itemx -multiply_defined
 @itemx -multiply_defined_unused
 @itemx -noall_load
-@c APPLE LOCAL added in FSF mainline on Aug 12, 2004 
 @itemx -no_dead_strip_inits_and_terms
 @itemx -nofixprebinding
 @itemx -nomultidefs
@@ -7451,7 +7531,6 @@ output file being linked. See man ld(1) for more information.
 @opindex client_name
 @opindex compatibility_version
 @opindex current_version
-@c APPLE LOCAL added in FSF mainline on Aug 12, 2004 
 @opindex dead_strip
 @opindex dependency-file
 @opindex dylib_file
@@ -7472,7 +7551,6 @@ output file being linked. See man ld(1) for more information.
 @opindex multiply_defined
 @opindex multiply_defined_unused
 @opindex noall_load
-@c APPLE LOCAL added in FSF mainline on Aug 12, 2004 
 @opindex no_dead_strip_inits_and_terms
 @opindex nofixprebinding
 @opindex nomultidefs
@@ -8002,21 +8080,6 @@ Disable the use of conditional execution.
 
 This switch is mainly for debugging the compiler and will likely be removed
 in a future version.
-
-@c APPLE LOCAL begin backport 3721776 from FSF mainline
-@item -mone-byte-bool
-@opindex -mone-byte-bool
-Override the defaults for @samp{bool} so that @samp{sizeof(bool)==1}.
-By default @samp{sizeof(bool)} is @samp{4} when compiling for 
-Darwin/PowerPC and @samp{1} when compiling for Darwin/x86, so this
-option has no effect on x86.
-
-@strong{Warning:} The @option{-mone-byte-bool} switch causes GCC
-to generate code that is not binary compatible with code generated
-without that switch.  Using this switch may require recompiling all
-other modules in a program, including system libraries.  Use this 
-switch to conform to a non-default data model.
-@c APPLE LOCAL end backport 3721776 from FSF mainline
 
 @item -mvliw-branch
 @opindex mvliw-branch
@@ -9639,14 +9702,8 @@ Use (do not use) assembler relocation operators when dealing with symbolic
 addresses.  The alternative, selected by @option{-mno-explicit-relocs},
 is to use assembler macros instead.
 
-@option{-mexplicit-relocs} is usually the default if GCC was configured
-to use an assembler that supports relocation operators.  However, the
-combination of @option{-mabicalls} and @option{-fno-unit-at-a-time}
-implies @option{-mno-explicit-relocs} unless explicitly overridden.
-This is because, when generating abicalls, the choice of relocation
-depends on whether a symbol is local or global.  In some rare cases,
-GCC will not be able to decide this until the whole compilation unit
-has been read.
+@option{-mexplicit-relocs} is the default if GCC was configured
+to use an assembler that supports relocation operators.
 
 @item -mcheck-zero-division
 @itemx -mno-check-zero-division
@@ -10864,13 +10921,27 @@ generates IEEE floating-point instructions.  This is the default.
 
 @item -mbackchain
 @itemx -mno-backchain
+@itemx -mkernel-backchain
 @opindex mbackchain
 @opindex mno-backchain
-Generate (or do not generate) code which maintains an explicit
-backchain within the stack frame that points to the caller's frame.
-This may be needed to allow debugging using tools that do not understand
-DWARF-2 call frame information.  The default is not to generate the
-backchain.
+@opindex mkernel-backchain
+In order to provide a backchain the address of the caller's frame
+is stored within the callee's stack frame.
+A backchain may be needed to allow debugging using tools that do not understand
+DWARF-2 call frame information.
+For @option{-mno-backchain} no backchain is maintained at all which is the 
+default. 
+If one of the other options is present the backchain pointer is placed either 
+on top of the stack frame  (@option{-mkernel-backchain}) or on
+the bottom (@option{-mbackchain}).
+Beside the different backchain location @option{-mkernel-backchain}
+also changes stack frame layout breaking the ABI. This option
+is intended to be used for code which internally needs a backchain but has
+to get by with a limited stack size e.g. the linux kernel. 
+Internal unwinding code not using DWARF-2 info has to be able to locate the
+return address of a function. That will be eased be the fact that
+the return address of a function is placed two words below the backchain 
+pointer.
 
 @item -msmall-exec
 @itemx -mno-small-exec
@@ -10997,6 +11068,31 @@ single-precision mode by default.
 @opindex m4
 Generate code for the SH4.
 
+@item -m4a-nofpu
+@opindex m4a-nofpu
+Generate code for the SH4al-dsp, or for a SH4a in such a way that the
+floating-point unit is not used.
+
+@item -m4a-single-only
+@opindex m4a-single-only
+Generate code for the SH4a, in such a way that no double-precision
+floating point operations are used.
+
+@item -m4a-single
+@opindex m4a-single
+Generate code for the SH4a assuming the floating-point unit is in
+single-precision mode by default.
+
+@item -m4a
+@opindex m4a
+Generate code for the SH4a.
+
+@item -m4al
+@opindex m4al
+Same as @option{-m4a-nofpu}, except that it implicitly passes
+@option{-dsp} to the assembler.  GCC doesn't generate any DSP
+instructions at the moment.
+
 @item -mb
 @opindex mb
 Compile code for the processor in big endian mode.
@@ -11028,6 +11124,16 @@ Enable the use of the instruction @code{fmovd}.
 @item -mhitachi
 @opindex mhitachi
 Comply with the calling conventions defined by Renesas.
+
+@item -mrenesas
+@opindex mhitachi
+Comply with the calling conventions defined by Renesas.
+
+@item -mno-renesas
+@opindex mhitachi
+Comply with the calling conventions defined for GCC before the Renesas
+conventions were available.  This option is the default for all
+targets of the SH toolchain except for @samp{sh-symbianelf}.
 
 @item -mnomacsave
 @opindex mnomacsave
@@ -12134,6 +12240,54 @@ The @var{model} argument should be one of @code{global-dynamic},
 
 The default without @option{-fpic} is @code{initial-exec}; with
 @option{-fpic} the default is @code{global-dynamic}.
+
+@item -fvisibility=@var{default|internal|hidden|protected}
+@opindex fvisibility
+Set the default ELF image symbol visibility to the specified option - all
+symbols will be marked with this unless overrided within the code.
+Using this feature can very substantially improve linking and
+load times of shared object libraries, produce more optimised
+code, provide near-perfect API export and prevent symbol clashes.
+It is @strong{strongly} recommended that you use this in any shared objects
+you distribute.
+     
+Despite the nomenclature, @code{default} always means public ie;
+available to be linked against from outside the shared object.
+@code{protected} and @code{internal} are pretty useless in real-world
+usage so the only other commonly used option will be @code{hidden}.
+The default if -fvisibility isn't specified is @code{default} ie; make every
+symbol public - this causes the same behaviour as previous versions of
+GCC.
+     
+A good explanation of the benefits offered by ensuring ELF
+symbols have the correct visibility is given by ``How To Write
+Shared Libraries'' by Ulrich Drepper (which can be found at
+@w{@uref{http://people.redhat.com/~drepper/}}) - however a superior
+solution made possible by this option to marking things hidden when
+the default is public is to make the default hidden and mark things
+public. This is the norm with DLL's on Windows and with @option{-fvisibility=hidden}
+and @code{__attribute__ ((visibility("default")))} instead of
+@code{__declspec(dllexport)} you get almost identical semantics with
+identical syntax. This is a great boon to those working with
+cross-platform projects.
+
+For those adding visibility support to existing code, you may find
+@samp{#pragma GCC visibility} of use. This works by you enclosing
+the declarations you wish to set visibility for with (for example)
+@samp{#pragma GCC visibility push(hidden)} and
+@samp{#pragma GCC visibility pop}. These can be nested up to sixteen
+times. Bear in mind that symbol visibility should be viewed @strong{as
+part of the API interface contract} and thus all new code should
+always specify visibility when it is not the default ie; declarations
+only for use within the local DSO should @strong{always} be marked explicitly
+as hidden as so to avoid PLT indirection overheads - making this
+abundantly clear also aids readability and self-documentation of the code.
+Note that due to ISO C++ specification requirements, operator new and
+operator delete must always be of default visibility.
+
+An overview of these techniques, their benefits and how to use them
+is at @w{@uref{http://www.nedprod.com/programs/gccvisibility.html}}.
+
 @end table
 
 @c man end

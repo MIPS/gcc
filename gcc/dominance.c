@@ -122,7 +122,7 @@ static void link_roots (struct dom_info *, TBB, TBB);
 static void calc_idoms (struct dom_info *, enum cdi_direction);
 void debug_dominance_info (enum cdi_direction);
 
-/* Keeps track of the numbers of nodes in dominance trees.  */
+/* Keeps track of the*/
 static unsigned n_bbs_in_dom_tree[2];
 
 /* Helper macro for allocating and initializing an array,
@@ -825,7 +825,6 @@ verify_dominators (enum cdi_direction dir)
 	}
     }
 
-  /* APPLE LOCAL begin lno */
   if (dir == CDI_DOMINATORS
       && dom_computed[dir] >= DOM_NO_FAST_QUERY)
     {
@@ -838,7 +837,6 @@ verify_dominators (enum cdi_direction dir)
 	    }
 	}
     }
-  /* APPLE LOCAL end lno */
 
   if (err)
     abort ();
@@ -862,12 +860,10 @@ recount_dominator (enum cdi_direction dir, basic_block bb)
     {
       for (e = bb->pred; e; e = e->pred_next)
 	{
-	  /* APPLE LOCAL begin lno */
 	  /* Ignore the predecessors that either are not reachable from
 	     the entry block, or whose dominator was not determined yet.  */
 	  if (!dominated_by_p (dir, e->src, ENTRY_BLOCK_PTR))
 	    continue;
-	  /* APPLE LOCAL end lno */
 
 	  if (!dominated_by_p (dir, e->src, bb))
 	    dom_bb = nearest_common_dominator (dir, dom_bb, e->src);
@@ -896,10 +892,8 @@ iterate_fix_dominators (enum cdi_direction dir, basic_block *bbs, int n)
   if (!dom_computed[dir])
     abort ();
 
-  /* APPLE LOCAL begin lno */
   for (i = 0; i < n; i++)
     set_immediate_dominator (dir, bbs[i], NULL);
-  /* APPLE LOCAL end lno */
 
   while (changed)
     {
@@ -916,11 +910,9 @@ iterate_fix_dominators (enum cdi_direction dir, basic_block *bbs, int n)
 	}
     }
 
-  /* APPLE LOCAL begin lno */
   for (i = 0; i < n; i++)
     if (!get_immediate_dominator (dir, bbs[i]))
       abort ();
-  /* APPLE LOCAL end lno */
 }
 
 void

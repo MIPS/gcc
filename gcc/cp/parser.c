@@ -131,7 +131,7 @@ static void cp_token_cache_push_token
 static cp_token_cache *
 cp_token_cache_new (void)
 {
-  return ggc_alloc_cleared (sizeof (cp_token_cache));
+  return GGC_CNEW (cp_token_cache);
 }
 
 /* Add *TOKEN to *CACHE.  */
@@ -145,7 +145,7 @@ cp_token_cache_push_token (cp_token_cache *cache,
   /* See if we need to allocate a new token block.  */
   if (!b || b->num_tokens == CP_TOKEN_BLOCK_NUM_TOKENS)
     {
-      b = ggc_alloc_cleared (sizeof (cp_token_block));
+      b = GGC_CNEW (cp_token_block);
       b->prev = cache->last;
       if (cache->last)
 	{
@@ -311,7 +311,7 @@ cp_lexer_new_main (void)
   c_common_no_more_pch ();
 
   /* Allocate the memory.  */
-  lexer = ggc_alloc_cleared (sizeof (cp_lexer));
+  lexer = GGC_CNEW (cp_lexer);
 
   /* Create the circular buffer.  */
   lexer->buffer = ggc_calloc (CP_TOKEN_BUFFER_SIZE, sizeof (cp_token));
@@ -350,13 +350,13 @@ cp_lexer_new_from_tokens (cp_token_cache *tokens)
   ptrdiff_t num_tokens;
 
   /* Allocate the memory.  */
-  lexer = ggc_alloc_cleared (sizeof (cp_lexer));
+  lexer = GGC_CNEW (cp_lexer);
 
   /* Create a new buffer, appropriately sized.  */
   num_tokens = 0;
   for (block = tokens->first; block != NULL; block = block->next)
     num_tokens += block->num_tokens;
-  lexer->buffer = ggc_alloc (num_tokens * sizeof (cp_token));
+  lexer->buffer = GGC_NEWVEC (cp_token, num_tokens);
   lexer->buffer_end = lexer->buffer + num_tokens;
 
   /* Install the tokens.  */
@@ -1358,7 +1358,7 @@ cp_parser_context_new (cp_parser_context* next)
       memset (context, 0, sizeof (*context));
     }
   else
-    context = ggc_alloc_cleared (sizeof (cp_parser_context));
+    context = GGC_CNEW (cp_parser_context);
   /* No errors have occurred yet in this context.  */
   context->status = CP_PARSER_STATUS_KIND_NO_ERROR;
   /* If this is not the bottomost context, copy information that we
@@ -2570,7 +2570,7 @@ cp_parser_new (void)
      cp_lexer_new_main might load a PCH file.  */
   lexer = cp_lexer_new_main ();
 
-  parser = ggc_alloc_cleared (sizeof (cp_parser));
+  parser = GGC_CNEW (cp_parser);
   parser->lexer = lexer;
   parser->context = cp_parser_context_new (NULL);
 
@@ -5913,7 +5913,12 @@ cp_parser_builtin_offsetof (cp_parser *parser)
      we're just mirroring the traditional macro implementation.  Better
      would be to do the lowering of the ADDR_EXPR to flat pointer arithmetic
      here rather than in build_x_unary_op.  */
-  expr = build_reinterpret_cast (build_reference_type (char_type_node), expr);
+  
+  expr = (build_reinterpret_cast 
+	  (build_reference_type (cp_build_qualified_type 
+				 (char_type_node, 
+				  TYPE_QUAL_CONST | TYPE_QUAL_VOLATILE)), 
+	   expr));
   expr = build_x_unary_op (ADDR_EXPR, expr);
   expr = build_reinterpret_cast (size_type_node, expr);
 
@@ -6391,10 +6396,13 @@ cp_parser_condition (cp_parser* parser)
 	 for sure.  */
       if (cp_parser_parse_definitely (parser))
 	{
+	  bool pop_p;
+
 	  /* Create the declaration.  */
 	  decl = start_decl (declarator, &type_specifiers,
 			     /*initialized_p=*/true,
-			     attributes, /*prefix_attributes=*/NULL_TREE);
+			     attributes, /*prefix_attributes=*/NULL_TREE,
+			     &pop_p);
 	  /* Parse the assignment-expression.  */
 	  initializer = cp_parser_assignment_expression (parser);
 
@@ -6403,6 +6411,8 @@ cp_parser_condition (cp_parser* parser)
 			  initializer,
 			  asm_specification,
 			  LOOKUP_ONLYCONVERTING);
+	  if (pop_p)
+	    pop_scope (DECL_CONTEXT (decl));
 
 	  return convert_from_reference (decl);
 	}
@@ -9557,6 +9567,7 @@ cp_parser_simple_type_specifier (cp_parser* parser,
   if (!(flags & CP_PARSER_FLAGS_NO_USER_DEFINED_TYPES))
     {
       bool qualified_p;
+      bool global_p;
 
       /* Don't gobble tokens or issue error messages if this is an
 	 optional type-specifier.  */
@@ -9564,8 +9575,10 @@ cp_parser_simple_type_specifier (cp_parser* parser,
 	cp_parser_parse_tentatively (parser);
 
       /* Look for the optional `::' operator.  */
-      cp_parser_global_scope_opt (parser,
-				  /*current_scope_valid_p=*/false);
+      global_p
+	= (cp_parser_global_scope_opt (parser,
+				       /*current_scope_valid_p=*/false)
+	   != NULL_TREE);
       /* Look for the nested-name specifier.  */
       qualified_p
 	= (cp_parser_nested_name_specifier_opt (parser,
@@ -9597,6 +9610,7 @@ cp_parser_simple_type_specifier (cp_parser* parser,
 	type = cp_parser_type_name (parser);
       /* Keep track of all name-lookups performed in class scopes.  */
       if (type
+	  && !global_p
 	  && !qualified_p
 	  && TREE_CODE (type) == TYPE_DECL
 	  && TREE_CODE (DECL_NAME (type)) == IDENTIFIER_NODE)
@@ -10489,25 +10503,18 @@ cp_parser_asm_definition (cp_parser* parser)
       /* If the next token is `::', there are no outputs, and the
 	 next token is the beginning of the inputs.  */
       else if (cp_lexer_next_token_is (parser->lexer, CPP_SCOPE))
-	{
-	  /* Consume the `::' token.  */
-	  cp_lexer_consume_token (parser->lexer);
-	  /* The inputs are coming next.  */
-	  inputs_p = true;
-	}
+	/* The inputs are coming next.  */
+	inputs_p = true;
 
       /* Look for inputs.  */
       if (inputs_p
 	  || cp_lexer_next_token_is (parser->lexer, CPP_COLON))
 	{
-	  if (!inputs_p)
-	    /* Consume the `:'.  */
-	    cp_lexer_consume_token (parser->lexer);
+	  /* Consume the `:' or `::'.  */
+	  cp_lexer_consume_token (parser->lexer);
 	  /* Parse the output-operands.  */
 	  if (cp_lexer_next_token_is_not (parser->lexer,
 					  CPP_COLON)
-	      && cp_lexer_next_token_is_not (parser->lexer,
-					     CPP_SCOPE)
 	      && cp_lexer_next_token_is_not (parser->lexer,
 					     CPP_CLOSE_PAREN))
 	    inputs = cp_parser_asm_operand_list (parser);
@@ -10520,9 +10527,8 @@ cp_parser_asm_definition (cp_parser* parser)
       if (clobbers_p
 	  || cp_lexer_next_token_is (parser->lexer, CPP_COLON))
 	{
-	  if (!clobbers_p)
-	    /* Consume the `:'.  */
-	    cp_lexer_consume_token (parser->lexer);
+	  /* Consume the `:' or `::'.  */
+	  cp_lexer_consume_token (parser->lexer);
 	  /* Parse the clobbers.  */
 	  if (cp_lexer_next_token_is_not (parser->lexer,
 					  CPP_CLOSE_PAREN))
@@ -10762,12 +10768,12 @@ cp_parser_init_declarator (cp_parser* parser,
 	  have_extern_spec = false;
 	}
       decl = start_decl (declarator, decl_specifiers,
-			 is_initialized, attributes, prefix_attributes);
+			 is_initialized, attributes, prefix_attributes,
+			 &pop_p);
     }
-
-  /* Enter the SCOPE.  That way unqualified names appearing in the
-     initializer will be looked up in SCOPE.  */
-  if (scope)
+  else if (scope)
+    /* Enter the SCOPE.  That way unqualified names appearing in the
+       initializer will be looked up in SCOPE.  */
     pop_p = push_scope (scope);
 
   /* Perform deferred access control checks, now that we know in which
@@ -10814,17 +10820,12 @@ cp_parser_init_declarator (cp_parser* parser,
     if (cp_parser_attributes_opt (parser))
       warning ("attributes after parenthesized initializer ignored");
 
-  /* Leave the SCOPE, now that we have processed the initializer.  It
-     is important to do this before calling cp_finish_decl because it
-     makes decisions about whether to create DECL_EXPRs or not based
-     on the current scope.  */
-  if (pop_p)
-    pop_scope (scope);
-
   /* For an in-class declaration, use `grokfield' to create the
      declaration.  */
   if (member_p)
     {
+      if (pop_p)
+	pop_scope (scope);
       decl = grokfield (declarator, decl_specifiers,
 			initializer, /*asmspec=*/NULL_TREE,
 			/*attributes=*/NULL_TREE);
@@ -10834,16 +10835,20 @@ cp_parser_init_declarator (cp_parser* parser,
 
   /* Finish processing the declaration.  But, skip friend
      declarations.  */
-  if (!friend_p && decl)
-    cp_finish_decl (decl,
-		    initializer,
-		    asm_specification,
-		    /* If the initializer is in parentheses, then this is
-		       a direct-initialization, which means that an
-		       `explicit' constructor is OK.  Otherwise, an
-		       `explicit' constructor cannot be used.  */
-		    ((is_parenthesized_init || !is_initialized)
+  if (!friend_p && decl && decl != error_mark_node)
+    {
+      cp_finish_decl (decl,
+		      initializer,
+		      asm_specification,
+		      /* If the initializer is in parentheses, then this is
+			 a direct-initialization, which means that an
+			 `explicit' constructor is OK.  Otherwise, an
+			 `explicit' constructor cannot be used.  */
+		      ((is_parenthesized_init || !is_initialized)
 		     ? 0 : LOOKUP_ONLYCONVERTING));
+      if (pop_p)
+	pop_scope (DECL_CONTEXT (decl));
+    }
 
   /* Remember whether or not variables were initialized by
      constant-expressions.  */
@@ -12436,6 +12441,7 @@ cp_parser_class_specifier (cp_parser* parser)
   bool nested_name_specifier_p;
   unsigned saved_num_template_parameter_lists;
   bool pop_p = false;
+  tree scope = NULL_TREE;
 
   push_deferring_access_checks (dk_no_deferred);
 
@@ -12471,7 +12477,10 @@ cp_parser_class_specifier (cp_parser* parser)
 
   /* Start the class.  */
   if (nested_name_specifier_p)
-    pop_p = push_scope (CP_DECL_CONTEXT (TYPE_MAIN_DECL (type)));
+    {
+      scope = CP_DECL_CONTEXT (TYPE_MAIN_DECL (type));
+      pop_p = push_scope (scope);
+    }
   type = begin_class_definition (type);
 
   if (type == error_mark_node)
@@ -12496,7 +12505,7 @@ cp_parser_class_specifier (cp_parser* parser)
   if (type != error_mark_node)
     type = finish_struct (type, attributes);
   if (pop_p)
-    pop_scope (CP_DECL_CONTEXT (TYPE_MAIN_DECL (type)));
+    pop_scope (scope);
   /* If this class is not itself within the scope of another class,
      then we need to parse the bodies of all of the queued function
      definitions.  Note that the queued functions defined in a class

@@ -50,7 +50,7 @@ struct tree_opt_pass
   struct tree_opt_pass *next;
 
   /* Static pass number, used as a fragment of the dump file name.  */
-  unsigned int static_pass_number;
+  int static_pass_number;
 
   /* The timevar id associated with this pass.  */
   /* ??? Ideally would be dynamically assigned.  */
@@ -76,6 +76,7 @@ struct tree_opt_pass
 #define PROP_ssa		(1 << 6)
 #define PROP_no_crit_edges      (1 << 7)
 #define PROP_rtl		(1 << 8)
+#define PROP_alias		(1 << 9)
 
 #define PROP_trees \
   (PROP_gimple_any | PROP_gimple_lcf | PROP_gimple_leh)
@@ -137,7 +138,8 @@ extern struct tree_opt_pass pass_may_alias;
 extern struct tree_opt_pass pass_split_crit_edges;
 extern struct tree_opt_pass pass_pre;
 extern struct tree_opt_pass pass_profile;
-extern struct tree_opt_pass pass_lower_complex;
+extern struct tree_opt_pass pass_pre_expand;
+extern struct tree_opt_pass pass_lower_vector_ssa;
 extern struct tree_opt_pass pass_fold_builtins;
 extern struct tree_opt_pass pass_early_warn_uninitialized;
 extern struct tree_opt_pass pass_late_warn_uninitialized;

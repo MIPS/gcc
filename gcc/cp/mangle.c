@@ -1183,9 +1183,9 @@ write_integer_cst (const tree cst)
 	}
       
       type = c_common_signed_or_unsigned_type (1, TREE_TYPE (cst));
-      base = build_int_2 (chunk, 0);
-      n = build_int_2 (TREE_INT_CST_LOW (cst), TREE_INT_CST_HIGH (cst));
-      TREE_TYPE (n) = TREE_TYPE (base) = type;
+      base = build_int_cst (type, chunk, 0);
+      n = build_int_cst (type,
+			 TREE_INT_CST_LOW (cst), TREE_INT_CST_HIGH (cst));
 
       if (sign < 0)
 	{
@@ -2066,7 +2066,13 @@ write_expression (tree expr)
 
 	case CAST_EXPR:
 	  write_type (TREE_TYPE (expr));
-	  write_expression (TREE_VALUE (TREE_OPERAND (expr, 0)));
+	  /* There is no way to mangle a zero-operand cast like
+	     "T()".  */
+	  if (!TREE_OPERAND (expr, 0))
+	    sorry ("zero-operand casts cannot be mangled due to a defect "
+		   "in the C++ ABI");
+	  else
+	    write_expression (TREE_VALUE (TREE_OPERAND (expr, 0)));
 	  break;
 
 	case STATIC_CAST_EXPR:

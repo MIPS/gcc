@@ -255,7 +255,6 @@ case $host_os in
     esac
     output_verbose_link_cmd='echo'
 
-    # APPLE LOCAL mainline
     archive_cmds='$CXX -dynamiclib $allow_undefined_flag -o $lib $libobjs $deplibs $compiler_flags -install_name $rpath/$soname $verstring'
     module_cmds='$CC ${wl}-bind_at_load $allow_undefined_flag -o $lib -bundle $libobjs $deplibs$compiler_flags'
 
@@ -266,8 +265,6 @@ case $host_os in
     hardcode_direct=no
     hardcode_automatic=yes
     hardcode_shlibpath_var=unsupported
-    # APPLE LOCAL mainline
-    #whole_archive_flag_spec='-all_load $convenience'
     link_all_deplibs=yes
     ;;
 

@@ -2,6 +2,7 @@
 /* APPLE LOCAL lno */
 /* { dg-options "-O1 -fdump-tree-dom3 -ftree-loop-optimize" } */
  
+extern void abort (void);
 
 union tree_node;
 typedef union tree_node *tree;

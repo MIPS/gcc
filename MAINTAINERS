@@ -86,6 +86,7 @@ xtensa port		Bob Wilson		bob.wilson@acm.org
 			OS Port Maintainers	(OS alphabetical order)
 
 darwin port		Stan Shebs		shebs@apple.com
+darwin port		Dale Johannesen		dalej@apple.com
 DJGPP			DJ Delorie		dj@delorie.com
 freebsd			Loren J. Rittle		ljrittle@acm.org
 netbsd			Jason Thorpe		thorpej@wasabisystems.com
@@ -199,7 +200,6 @@ Phil Blundell					pb@futuretv.com
 Hans Boehm					hboehm@gcc.gnu.org
 Segher Boessenkool				segher@kernel.crashing.org
 Paolo Bonzini					bonzini@gnu.org
-Brian Booth					bbooth@redhat.com
 Robert Bowdidge                                 bowdidge@apple.com
 Joel Brobecker					brobecker@gnat.com
 Kevin Buettner					kevinb@redhat.com

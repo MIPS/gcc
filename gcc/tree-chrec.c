@@ -36,6 +36,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-chrec.h"
 #include "tree-pass.h"
 
+
+
 /* Extended folder for chrecs.  */
 
 /* Determines whether CST is not a constant evolution.  */
@@ -216,7 +218,7 @@ chrec_fold_multiply_poly_poly (tree type,
      
      /* "2*b*d".  */
      chrec_fold_multiply
-     (type, build_int_2 (2, 0),
+     (type, build_int_cst (NULL_TREE, 2, 0),
       chrec_fold_multiply (type, CHREC_RIGHT (poly0), CHREC_RIGHT (poly1))));
 }
 
@@ -643,7 +645,7 @@ reset_evolution_in_loop (unsigned loop_num,
       && CHREC_VARIABLE (chrec) > loop_num)
     return build 
       (TREE_CODE (chrec), 
-       build_int_2 (CHREC_VARIABLE (chrec), 0), 
+       build_int_cst (NULL_TREE, CHREC_VARIABLE (chrec), 0), 
        reset_evolution_in_loop (loop_num, CHREC_LEFT (chrec), new_evol), 
        reset_evolution_in_loop (loop_num, CHREC_RIGHT (chrec), new_evol));
   

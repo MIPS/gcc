@@ -93,8 +93,17 @@ signed_type_for (tree type)
 }
 
 /* Determine the number of iterations according to condition (for staying
-   inside loop) BASE0 + STEP0 * i (CODE) BASE1 + STEP1 * i, computed in TYPE.
-   Store the results to NITER.  */
+   inside loop) which compares two induction variables using comparison
+   operator CODE.  The induction variable on left side of the comparison
+   has base BASE0 and step STEP0. the right-hand side one has base
+   BASE1 and step STEP1.  Both induction variables must have type TYPE,
+   which must be an integer or pointer type.  STEP0 and STEP1 must be
+   constants (or NULL_TREE, which is interpreted as constant zero).
+   
+   The results (number of iterations and assumptions as described in
+   comments at struct tree_niter_desc in tree-flow.h) are stored to NITER.
+   In case we are unable to determine number of iterations, contents of
+   this structure is unchanged.  */
 
 void
 number_of_iterations_cond (tree type, tree base0, tree step0,
@@ -126,9 +135,9 @@ number_of_iterations_cond (tree type, tree base0, tree step0,
       code = swap_tree_comparison (code);
     }
 
-  /* We can take care of the case of two induction variables chasing each other
-     if the test is NE. I have never seen a loop using it, but still it is
-     cool.  */
+  /* We can handle the case when neither of the sides of the comparison is
+     invariant, provided that the test is NE_EXPR.  This rarely occurs in
+     practice, but it is simple enough to manage.  */
   if (!zero_p (step0) && !zero_p (step1))
     {
       if (code != NE_EXPR)
@@ -156,7 +165,7 @@ number_of_iterations_cond (tree type, tree base0, tree step0,
 
   if (TREE_CODE (type) == POINTER_TYPE)
     {
-      /* We assume pointer arithmetics never overflows.  */
+      /* We assume pointer arithmetic never overflows.  */
       mmin = mmax = NULL_TREE;
     }
   else
@@ -334,7 +343,7 @@ number_of_iterations_cond (tree type, tree base0, tree step0,
 	 (inverse(s/d) * (c/d)) mod (size of mode/d).  */
       s = step0;
       d = integer_one_node;
-      bound = convert (niter_type, build_int_2 (~0, ~0));
+      bound = convert (niter_type, build_int_cst (NULL_TREE, ~0, ~0));
       while (1)
 	{
 	  tmp = EXEC_BINARY (BIT_AND_EXPR, niter_type, s,
@@ -419,7 +428,8 @@ zero_iter:
 }
 
 /* Tries to simplify EXPR using the evolutions of the loop invariants
-   in the outer loops.  */
+   in the superloops of LOOP.  Returns the simplified expression
+   (or EXPR unchanged, if no simplification was possible).  */
 
 static tree
 simplify_using_outer_evolutions (struct loop *loop, tree expr)
@@ -473,7 +483,8 @@ simplify_using_outer_evolutions (struct loop *loop, tree expr)
   return expr;
 }
 
-/* Tries to simplify EXPR using the condition COND.  */
+/* Tries to simplify EXPR using the condition COND.  Returns the simplified
+   expression (or EXPR unchanged, if no simplification was possible).*/
 
 static tree
 tree_simplify_using_condition (tree cond, tree expr)
@@ -537,7 +548,9 @@ tree_simplify_using_condition (tree cond, tree expr)
 }
 
 /* Tries to simplify EXPR using the conditions on entry to LOOP.
-   Record the conditions used to CONDS_USED.  */
+   Record the conditions used for simplification to CONDS_USED.
+   Returns the simplified expression (or EXPR unchanged, if no
+   simplification was possible).*/
 
 static tree
 simplify_using_initial_conditions (struct loop *loop, tree expr,
@@ -578,8 +591,11 @@ simplify_using_initial_conditions (struct loop *loop, tree expr,
   return expr;
 }
 
-/* Stores description of number of iterations of LOOP derived from EXIT
-   in NITER.  */
+/* Stores description of number of iterations of LOOP derived from
+   EXIT (an exit edge of the LOOP) in NITER.  Returns true if some
+   useful information could be derived (and fields of NITER has
+   meaning described in comments at struct tree_niter_desc
+   declaration), false otherwise.  */
 
 bool
 number_of_iterations_exit (struct loop *loop, edge exit,
@@ -707,13 +723,16 @@ chain_of_csts_start (struct loop *loop, tree x)
   return chain_of_csts_start (loop, USE_OP (uses, 0));
 }
 
-/* Determines whether X is derived from a value of a phi node in LOOP
-   such that
+/* Determines whether the expression X is derived from a result of a phi node
+   in header of LOOP such that
 
-   * this derivation consists only from operations with constants
+   * the derivation of X consists only from operations with constants
    * the initial value of the phi node is constant
-   * its value in the next iteration can be derived from the current one
-     by a chain of operations with constants.  */
+   * the value of the phi node in the next iteration can be derived from the
+     value in the current iteration by a chain of operations with constants.
+   
+   If such phi node exists, it is returned.  If X is a constant, X is returned
+   unchanged.  Otherwise NULL_TREE is returned.  */
 
 static tree
 get_base_for (struct loop *loop, tree x)
@@ -742,9 +761,13 @@ get_base_for (struct loop *loop, tree x)
   return phi;
 }
 
-/* Evaluates value of X, provided that the value of the variable defined
-   in the loop phi node from that X is derived by operations with constants
-   is BASE.  */
+/* Given an expression X, then 
+ 
+   * if BASE is NULL_TREE, X must be a constant and we return X.
+   * otherwise X is a SSA name, whose value in the considered loop is derived
+     by a chain of operations with constant from a result of a phi node in
+     the header of the loop.  Then we return value of X when the value of the
+     result of this phi node is given by the constant BASE.  */
 
 static tree
 get_val_for (tree x, tree base)
@@ -773,7 +796,11 @@ get_val_for (tree x, tree base)
 }
 
 /* Tries to count the number of iterations of LOOP till it exits by EXIT
-   by brute force.  */
+   by brute force -- i.e. by determining the value of the operands of the
+   condition at EXIT in first few iterations of the loop (assuming that
+   these values are constant) and determining the first one in that the
+   condition is not satisfied.  Returns the constant giving the number
+   of the iterations of LOOP if successful, chrec_dont_know otherwise.  */
 
 tree
 loop_niter_by_eval (struct loop *loop, edge exit)
@@ -842,7 +869,7 @@ loop_niter_by_eval (struct loop *loop, edge exit)
 	    fprintf (dump_file,
 		     "Proved that loop %d iterates %d times using brute force.\n",
 		     loop->num, i);
-	  return build_int_2 (i, 0);
+	  return build_int_cst (NULL_TREE, i, 0);
 	}
 
       for (j = 0; j < 2; j++)
@@ -853,8 +880,11 @@ loop_niter_by_eval (struct loop *loop, edge exit)
 }
 
 /* Finds the exit of the LOOP by that the loop exits after a constant
-   number of iterations and stores it to *EXIT.  The iteration count
-   is returned.  */
+   number of iterations and stores the exit edge to *EXIT.  The constant
+   giving the number of iterations of LOOP is returned.  The number of
+   iterations is determined using loop_niter_by_eval (i.e. by brute force
+   evaluation).  If we are unable to find the exit for that loop_niter_by_eval
+   determines the number of iterations, chrec_dont_know is returned.  */
 
 tree
 find_loop_niter_by_eval (struct loop *loop, edge *exit)
@@ -1053,7 +1083,7 @@ upper_bound_in_type (tree outer, tree inner)
 
   return convert (outer,
 		  convert (inner,
-			   build_int_2 (lo, hi)));
+			   build_int_cst (NULL_TREE, lo, hi)));
 }
 
 /* Returns the smallest value obtainable by casting something in INNER type to
@@ -1080,7 +1110,7 @@ lower_bound_in_type (tree outer, tree inner)
 
   return convert (outer,
 		  convert (inner,
-			   build_int_2 (lo, hi)));
+			   build_int_cst (NULL_TREE, lo, hi)));
 }
 
 /* Returns true if statement S1 dominates statement S2.  */
@@ -1110,11 +1140,11 @@ stmt_dominates_stmt_p (tree s1, tree s2)
 
 /* Checks whether it is correct to count the induction variable BASE + STEP * I
    at AT_STMT in wider TYPE, using the fact that statement OF is executed at
-   most BOUND times in the loop.  If it is possible, return the value of step in
-   the TYPE, otherwise return NULL_TREE.
+   most BOUND times in the loop.  If it is possible, return the value of step
+   of the induction variable in the TYPE, otherwise return NULL_TREE.
    
-   ADDITIONAL is the additional information recorded for bound.  This is useful
-   in the following case, created by loop header copying:
+   ADDITIONAL is the additional condition recorded for operands of the bound.
+   This is useful in the following case, created by loop header copying:
 
    i = 0;
    if (n > 0)
@@ -1209,8 +1239,8 @@ can_count_iv_in_wider_type_bound (tree type, tree base, tree step,
 
 /* Checks whether it is correct to count the induction variable BASE + STEP * I
    at AT_STMT in wider TYPE, using the bounds on numbers of iterations of a
-   LOOP.  If it is possible, return the value of step in the TYPE, otherwise
-   return NULL_TREE.  */
+   LOOP.  If it is possible, return the value of step of the induction variable
+   in the TYPE, otherwise return NULL_TREE.  */
 
 tree
 can_count_iv_in_wider_type (struct loop *loop, tree type, tree base, tree step,

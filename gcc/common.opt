@@ -582,6 +582,10 @@ fnew-ra
 Common Report Var(flag_new_regalloc)
 Use graph-coloring register allocation
 
+freschedule-modulo-scheduled-loops
+Common Report Var(flag_resched_modulo_sched)
+Enable/Disable the traditional scheduling in loops that already passed modulo scheduling
+
 fnon-call-exceptions
 Common Report Var(flag_non_call_exceptions)
 Support synchronous non-call exceptions
@@ -991,6 +995,11 @@ Perform variable tracking
 fverbose-asm
 Common Report Var(flag_verbose_asm)
 Add extra commentary to assembler output
+
+fvisibility=
+Common Joined RejectNegative
+-fvisibility=[default|internal|hidden|protected]	Set the default symbol visibility
+
 
 fvpt
 Common Report Var(flag_value_profile_transformations)

@@ -167,7 +167,10 @@ dump_decl_name (pretty_printer *buffer, tree node, int flags)
 	pp_printf (buffer, "<L" HOST_WIDE_INT_PRINT_DEC ">",
 		   LABEL_DECL_UID (node));
       else
-	pp_printf (buffer, "<D%u>", DECL_UID (node));
+	{
+	  char c = TREE_CODE (node) == CONST_DECL ? 'C' : 'D';
+	  pp_printf (buffer, "<%c%u>", c, DECL_UID (node));
+	}
     }
 }
 
@@ -472,9 +475,10 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	  if (tree_int_cst_sgn (val) < 0)
 	    {
 	      pp_character (buffer, '-');
-	      val = build_int_2 (-TREE_INT_CST_LOW (val),
-				 ~TREE_INT_CST_HIGH (val)
-				 + !TREE_INT_CST_LOW (val));
+	      val = build_int_cst (NULL_TREE,
+				   -TREE_INT_CST_LOW (val),
+				   ~TREE_INT_CST_HIGH (val)
+				   + !TREE_INT_CST_LOW (val));
 	    }
 	  /* Would "%x%0*x" or "%x%*0x" get zero-padding on all
 	     systems?  */
@@ -756,7 +760,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       {
 	tree_stmt_iterator si;
 	bool first = true;
-  
+
 	if ((flags & TDF_SLIM) || !dumping_stmts)
 	  {
 	    pp_string (buffer, "<STATEMENT_LIST>");
@@ -900,6 +904,8 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	  pp_character (buffer, ']');
 	}
 
+      if (CALL_EXPR_HAS_RETURN_SLOT_ADDR (node))
+	pp_string (buffer, " [return slot addr]");
       if (CALL_EXPR_TAILCALL (node))
 	pp_string (buffer, " [tail call]");
       break;
@@ -1097,16 +1103,6 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       pp_string (buffer, "SAVE_EXPR <");
       dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
       pp_character (buffer, '>');
-      break;
-
-    case UNSAVE_EXPR:
-      pp_string (buffer, "UNSAVE_EXPR <");
-      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
-      pp_character (buffer, '>');
-      break;
-
-    case ENTRY_VALUE_EXPR:
-      NIY;
       break;
 
     case COMPLEX_EXPR:
@@ -2051,10 +2047,10 @@ dump_vops (pretty_printer *buffer, tree stmt, int spc, int flags)
   for (i = 0; i < NUM_V_MAY_DEFS (v_may_defs); i++)
     {
       pp_string (buffer, "#   ");
-      dump_generic_node (buffer, V_MAY_DEF_RESULT (v_may_defs, i), 
+      dump_generic_node (buffer, V_MAY_DEF_RESULT (v_may_defs, i),
                          spc + 2, flags, false);
       pp_string (buffer, " = V_MAY_DEF <");
-      dump_generic_node (buffer, V_MAY_DEF_OP (v_may_defs, i), 
+      dump_generic_node (buffer, V_MAY_DEF_OP (v_may_defs, i),
                          spc + 2, flags, false);
       pp_string (buffer, ">;");
       newline_and_indent (buffer, spc);
@@ -2147,6 +2143,8 @@ dump_bb_header (pretty_printer *buffer, basic_block bb, int indent, int flags)
 	  pp_newline (buffer);
 	}
     }
+  pp_write_text_to_stream (buffer);
+  check_bb_profile (bb, buffer->buffer->stream);
 }
 
 /* Dumps end of basic block BB to buffer BUFFER indented by INDENT
@@ -2283,7 +2281,7 @@ dump_generic_bb_buff (pretty_printer *buffer, basic_block bb,
 
   if (bb_ann (bb))
     dump_phi_nodes (buffer, bb, indent, flags);
-  
+
   for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
     {
       int curr_indent;

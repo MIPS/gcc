@@ -772,7 +772,8 @@ static int
 find_constant_wide (HOST_WIDE_INT lo, HOST_WIDE_INT hi,
 		    struct jcf_partial *state)
 {
-  HOST_WIDE_INT w1, w2;
+  unsigned HOST_WIDE_INT w1;
+  HOST_WIDE_INT w2;
   lshift_double (lo, hi, -32, 64, &w1, &w2, 1);
   return find_constant2 (&state->cpool, CONSTANT_Long,
 			 (jword)(w1 & 0xFFFFFFFF), (jword)(lo & 0xFFFFFFFF));
@@ -822,7 +823,8 @@ find_constant_index (tree value, struct jcf_partial *state)
 static void
 push_long_const (HOST_WIDE_INT lo, HOST_WIDE_INT hi, struct jcf_partial *state)
 {
-  HOST_WIDE_INT highpart, dummy;
+  unsigned HOST_WIDE_INT highpart;
+  HOST_WIDE_INT dummy;
   jint lowpart = WORD_TO_INT (lo);
 
   rshift_double (lo, hi, 32, 64, &highpart, &dummy, 1);
@@ -833,7 +835,8 @@ push_long_const (HOST_WIDE_INT lo, HOST_WIDE_INT hi, struct jcf_partial *state)
       OP1(OPCODE_lconst_0 + lowpart);
     }
   else if ((highpart == 0 && lowpart > 0 && lowpart < 32768) 
-	   || (highpart == -1 && lowpart < 0 && lowpart >= -32768))
+	   || (highpart == (unsigned HOST_WIDE_INT)-1
+	       && lowpart < 0 && lowpart >= -32768))
       {
         push_int_const (lowpart, state);
         RESERVE (1);
@@ -2067,8 +2070,8 @@ generate_bytecode_insns (tree exp, int target, struct jcf_partial *state)
 
 	    /* This function correctly handles the case where the LHS
 	       of a binary expression is NULL_TREE.  */
-	    rhs = build (TREE_CODE (rhs), TREE_TYPE (rhs),
-			 NULL_TREE, TREE_OPERAND (rhs, 1));
+	    rhs = build2 (TREE_CODE (rhs), TREE_TYPE (rhs),
+			  NULL_TREE, TREE_OPERAND (rhs, 1));
 	  }
 
 	generate_bytecode_insns (rhs, STACK_TARGET, state);
@@ -2490,9 +2493,9 @@ generate_bytecode_insns (tree exp, int target, struct jcf_partial *state)
 	tree x;
 	if (TREE_SIDE_EFFECTS (op0) || TREE_SIDE_EFFECTS (op1))
 	  abort ();
-	x = build (COND_EXPR, TREE_TYPE (exp), 
-		   build (code, boolean_type_node, op0, op1), 
-		   op0, op1);	  
+	x = build3 (COND_EXPR, TREE_TYPE (exp), 
+		    build2 (code, boolean_type_node, op0, op1), 
+		    op0, op1);	  
 	generate_bytecode_insns (x, target, state);
 	break;
       }					     
@@ -2929,11 +2932,11 @@ generate_classfile (tree clas, struct jcf_partial *state)
 {
   struct chunk *cpool_chunk;
   const char *source_file, *s;
-  char *ptr;
+  unsigned char *ptr;
   int i;
-  char *fields_count_ptr;
+  unsigned char *fields_count_ptr;
   int fields_count = 0;
-  char *methods_count_ptr;
+  unsigned char *methods_count_ptr;
   int methods_count = 0;
   tree part;
   int total_supers
@@ -2963,15 +2966,15 @@ generate_classfile (tree clas, struct jcf_partial *state)
     }
   else
     {
-      tree basetypes = BINFO_BASE_BINFOS (TYPE_BINFO (clas));
-      tree base = BINFO_TYPE (TREE_VEC_ELT (basetypes, 0));
-      int j = find_class_constant (&state->cpool, base);
+      tree binfo = TYPE_BINFO (clas);
+      tree base_binfo = BINFO_BASE_BINFO (binfo, 0);
+      int j = find_class_constant (&state->cpool, BINFO_TYPE (base_binfo));
+      
       PUT2 (j);  /* super_class */
       PUT2 (total_supers - 1);  /* interfaces_count */
-      for (i = 1;  i < total_supers;  i++)
+      for (i = 1; BINFO_BASE_ITERATE (binfo, i, base_binfo); i++)
 	{
-	  base = BINFO_TYPE (TREE_VEC_ELT (basetypes, i));
-	  j = find_class_constant (&state->cpool, base);
+	  j = find_class_constant (&state->cpool, BINFO_TYPE (base_binfo));
 	  PUT2 (j);
 	}
     }
@@ -3079,7 +3082,7 @@ generate_classfile (tree clas, struct jcf_partial *state)
 	  int code_attributes_count = 0;
 	  static tree Code_node = NULL_TREE;
 	  tree t;
-	  char *attr_len_ptr;
+	  unsigned char *attr_len_ptr;
 	  struct jcf_handler *handler;
 	  if (Code_node == NULL_TREE)
 	    Code_node = get_identifier ("Code");

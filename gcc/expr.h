@@ -338,11 +338,11 @@ extern rtx emit_store_flag_force (rtx, enum rtx_code, rtx, rtx,
 
 /* Given an insn and condition, return a canonical description of
    the test being made.  */
-extern rtx canonicalize_condition (rtx, rtx, int, rtx *, rtx, int);
+extern rtx canonicalize_condition (rtx, rtx, int, rtx *, rtx, int, int);
 
 /* Given a JUMP_INSN, return a canonical description of the test
    being made.  */
-extern rtx get_condition (rtx, rtx *, int);
+extern rtx get_condition (rtx, rtx *, int, int);
 
 /* Generate a conditional trap instruction.  */
 extern rtx gen_cond_trap (enum rtx_code, rtx, rtx, rtx);
@@ -555,10 +555,6 @@ extern rtx expr_size (tree);
 /* Return a wide integer for the size in bytes of the value of EXP, or -1
    if the size can vary or is larger than an integer.  */
 extern HOST_WIDE_INT int_expr_size (tree);
-
-/* Convert a stack slot address ADDR valid in function FNDECL
-   into an address valid in this function (using a static chain).  */
-extern rtx fix_lexical_addr (rtx, tree);
 
 /* Return the address of the trampoline for entering nested fn FUNCTION.  */
 extern rtx trampoline_address (tree);

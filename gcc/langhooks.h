@@ -297,25 +297,20 @@ struct lang_hooks
      compilation.  Default hook is does nothing.  */
   void (*finish_incomplete_decl) (tree);
 
-  /* Function used by unsafe_for_reeval.  A non-negative number is
-     returned directly from unsafe_for_reeval, a negative number falls
-     through.  The default hook returns a negative number.  */
-  int (*unsafe_for_reeval) (tree);
-
   /* Mark EXP saying that we need to be able to take the address of
      it; it should not be allocated in a register.  Return true if
      successful.  */
   bool (*mark_addressable) (tree);
 
   /* Hook called by staticp for language-specific tree codes.  */
-  int (*staticp) (tree);
+  bool (*staticp) (tree);
 
   /* Replace the DECL_LANG_SPECIFIC data, which may be NULL, of the
      DECL_NODE with a newly GC-allocated copy.  */
   void (*dup_lang_specific_decl) (tree);
 
-  /* Called before its argument, an UNSAVE_EXPR, is to be
-     unsaved.  Modify it in-place so that all the evaluate only once
+  /* Reset argument so that it can be expanded again.
+     Modify it in-place so that all the evaluate only once
      things are cleared out.  */
   tree (*unsave_expr_now) (tree);
 
@@ -433,7 +428,7 @@ struct lang_hooks
      the name to be called if we can't opencode the function.  If
      ATTRS is nonzero, use that for the function's attribute list.  */
   tree (*builtin_function) (const char *name, tree type, int function_code,
-			    enum built_in_class class,
+			    enum built_in_class bt_class,
 			    const char *library_name, tree attrs);
 
   /* Whenever you add entries here, make sure you adjust langhooks-def.h

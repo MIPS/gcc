@@ -43,7 +43,7 @@ Boston, MA 02111-1307, USA.  */
 #define LIBSTDCXX "-lstdc++"
 #endif
 #ifndef LIBSTDCXX_PROFILE
-#define LIBSTDCXX_PROFILE "-lstdc++"
+#define LIBSTDCXX_PROFILE LIBSTDCXX
 #endif
 
 /* APPLE LOCAL begin Handle static/shared libgcc correctly (radar 3554191, 3127145) */
@@ -168,7 +168,6 @@ lang_specific_driver (int *in_argc, const char *const **in_argv,
 		}
 	      saw_speclang = 1;
 	    }
-	  /* APPLE LOCAL begin mainline */
 	  /* Arguments that go directly to the linker might be .o files,
 	     or something, and so might cause libstdc++ to be needed.  */
 	  else if (strcmp (argv[i], "-Xlinker") == 0)
@@ -183,7 +182,6 @@ lang_specific_driver (int *in_argc, const char *const **in_argv,
 		     && strchr ("bBVDUoeTuIYmLiA", argv[i][1]) != NULL)
 		    || strcmp (argv[i], "-Tdata") == 0))
 	    quote = argv[i];
-	  /* APPLE LOCAL end mainline */
 	  else if ((argv[i][2] == '\0'
 		    && strchr ("cSEM", argv[i][1]) != NULL)
 		   || strcmp (argv[i], "-MM") == 0
@@ -319,15 +317,19 @@ lang_specific_driver (int *in_argc, const char *const **in_argv,
   /* Add `-lstdc++' if we haven't already done so.  */
   if (library > 0)
     {
-      arglist[j++] = saw_profile_flag ? LIBSTDCXX_PROFILE : LIBSTDCXX;
-      added_libraries++;
+      arglist[j] = saw_profile_flag ? LIBSTDCXX_PROFILE : LIBSTDCXX;
+      if (arglist[j][0] != '-' || arglist[j][1] == 'l')
+	added_libraries++;
+      j++;
     }
   if (saw_math)
     arglist[j++] = saw_math;
   else if (library > 0 && need_math)
     {
-      arglist[j++] = saw_profile_flag ? MATH_LIBRARY_PROFILE : MATH_LIBRARY;
-      added_libraries++;
+      arglist[j] = saw_profile_flag ? MATH_LIBRARY_PROFILE : MATH_LIBRARY;
+      if (arglist[j][0] != '-' || arglist[j][1] == 'l')
+	added_libraries++;
+      j++;
     }
   if (saw_libc)
     arglist[j++] = saw_libc;

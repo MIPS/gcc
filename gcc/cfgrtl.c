@@ -95,8 +95,7 @@ can_delete_note_p (rtx note)
 {
   return (NOTE_LINE_NUMBER (note) == NOTE_INSN_DELETED
 	  || NOTE_LINE_NUMBER (note) == NOTE_INSN_BASIC_BLOCK
-	  || NOTE_LINE_NUMBER (note) == NOTE_INSN_UNLIKELY_EXECUTED_CODE
-	  || NOTE_LINE_NUMBER (note) == NOTE_INSN_PREDICTION);
+	  || NOTE_LINE_NUMBER (note) == NOTE_INSN_UNLIKELY_EXECUTED_CODE);
 }
 
 /* True if a given label can be deleted.  */
@@ -378,15 +377,13 @@ rtl_delete_block (basic_block b)
      and remove the associated NOTE_INSN_EH_REGION_BEG and
      NOTE_INSN_EH_REGION_END notes.  */
 
-  /* Get rid of all NOTE_INSN_PREDICTIONs and NOTE_INSN_LOOP_CONTs
-     hanging before the block.  */
+  /* Get rid of all NOTE_INSN_LOOP_CONTs hanging before the block.  */
 
   for (insn = PREV_INSN (BB_HEAD (b)); insn; insn = PREV_INSN (insn))
     {
       if (!NOTE_P (insn))
 	break;
-      if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_PREDICTION
-	  || NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_CONT)
+      if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_CONT)
 	NOTE_LINE_NUMBER (insn) = NOTE_INSN_DELETED;
     }
 
@@ -2806,6 +2803,18 @@ cfg_layout_split_edge (edge e)
     create_basic_block (e->src != ENTRY_BLOCK_PTR
 			? NEXT_INSN (BB_END (e->src)) : get_insns (),
 			NULL_RTX, e->src);
+
+  /* ??? This info is likely going to be out of date very soon, but we must
+     create it to avoid getting an ICE later.  */
+  if (e->dest->global_live_at_start)
+    {
+      new_bb->global_live_at_start = OBSTACK_ALLOC_REG_SET (&flow_obstack);
+      new_bb->global_live_at_end = OBSTACK_ALLOC_REG_SET (&flow_obstack);
+      COPY_REG_SET (new_bb->global_live_at_start,
+		    e->dest->global_live_at_start);
+      COPY_REG_SET (new_bb->global_live_at_end,
+		    e->dest->global_live_at_start);
+    }
 
   new_e = make_edge (new_bb, e->dest, EDGE_FALLTHRU);
   redirect_edge_and_branch_force (e, new_bb);

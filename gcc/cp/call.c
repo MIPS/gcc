@@ -424,10 +424,13 @@ struct z_candidate {
      the `this' pointer must correspond to the most derived class
      indicated by the CONVERSION_PATH.  */
   tree conversion_path;
-  tree template;
+  tree template_decl;
   candidate_warning *warnings;
   z_candidate *next;
 };
+
+/* Returns true iff T is a null pointer constant in the sense of
+   [conv.ptr].  */
 
 bool
 null_ptr_cst_p (tree t)
@@ -436,12 +439,13 @@ null_ptr_cst_p (tree t)
 
      A null pointer constant is an integral constant expression
      (_expr.const_) rvalue of integer type that evaluates to zero.  */
+  if (DECL_INTEGRAL_CONSTANT_VAR_P (t))
+    t = decl_constant_value (t);
   if (t == null_node
       || (CP_INTEGRAL_TYPE_P (TREE_TYPE (t)) && integer_zerop (t)))
     return true;
   return false;
 }
-
 
 /* Returns nonzero if PARMLIST consists of only default parms and/or
    ellipsis.  */
@@ -712,6 +716,8 @@ standard_conversion (tree to, tree from, tree expr)
 					TYPE_PTRMEM_POINTED_TO_TYPE (from));
 	      conv = build_conv (ck_pmem, from, conv);
 	    }
+	  else if (!same_type_p (fbase, tbase))
+	    return NULL;
 	}
       else if (IS_AGGR_TYPE (TREE_TYPE (from))
 	       && IS_AGGR_TYPE (TREE_TYPE (to))
@@ -913,8 +919,7 @@ convert_class_to_reference (tree t, tree s, tree expr)
      error messages, which we should not issue now because we are just
      trying to find a conversion operator.  Therefore, we use NULL,
      cast to the appropriate type.  */
-  arglist = build_int_2 (0, 0);
-  TREE_TYPE (arglist) = build_pointer_type (s);
+  arglist = build_int_cst (build_pointer_type (s), 0, 0);
   arglist = build_tree_list (NULL_TREE, arglist);
 
   reference_type = build_reference_type (t);
@@ -2262,9 +2267,9 @@ add_template_candidate_real (struct z_candidate **candidates, tree tmpl,
        for this will point at template <class T> template <> S<T>::f(int),
        so that we can find the definition.  For the purposes of
        overload resolution, however, we want the original TMPL.  */
-    cand->template = tree_cons (tmpl, targs, NULL_TREE);
+    cand->template_decl = tree_cons (tmpl, targs, NULL_TREE);
   else
-    cand->template = DECL_TEMPLATE_INFO (fn);
+    cand->template_decl = DECL_TEMPLATE_INFO (fn);
 
   return cand;
 }
@@ -2514,8 +2519,7 @@ build_user_type_conversion_1 (tree totype, tree expr, int flags)
 
       ctors = BASELINK_FUNCTIONS (ctors);
 
-      t = build_int_2 (0, 0);
-      TREE_TYPE (t) = build_pointer_type (totype);
+      t = build_int_cst (build_pointer_type (totype), 0, 0);
       args = build_tree_list (NULL_TREE, expr);
       /* We should never try to call the abstract or base constructor
 	 from here.  */
@@ -4206,8 +4210,8 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 
 	if (DECL_CONSTRUCTOR_P (convfn))
 	  {
-	    tree t = build_int_2 (0, 0);
-	    TREE_TYPE (t) = build_pointer_type (DECL_CONTEXT (convfn));
+	    tree t = build_int_cst (build_pointer_type (DECL_CONTEXT (convfn)),
+				    0, 0);
 
 	    args = build_tree_list (NULL_TREE, expr);
 	    if (DECL_HAS_IN_CHARGE_PARM_P (convfn)
@@ -4535,7 +4539,11 @@ type_passed_as (tree type)
 {
   /* Pass classes with copy ctors by invisible reference.  */
   if (TREE_ADDRESSABLE (type))
-    type = build_reference_type (type);
+    {
+      type = build_reference_type (type);
+      /* There are no other pointers to this temporary.  */
+      type = build_qualified_type (type, TYPE_QUAL_RESTRICT);
+    }
   else if (targetm.calls.promote_prototypes (type)
 	   && INTEGRAL_TYPE_P (type)
 	   && COMPLETE_TYPE_P (type)
@@ -5014,7 +5022,7 @@ build_java_interface_fn_ref (tree fn, tree instance)
         break;
       i++;
     }
-  idx = build_int_2 (i, 0);
+  idx = build_int_cst (NULL_TREE, i, 0);
 
   lookup_args = tree_cons (NULL_TREE, klass_ref, 
 			   tree_cons (NULL_TREE, iface_ref,
@@ -5090,8 +5098,7 @@ build_special_member_call (tree instance, tree name, tree args,
   /* Handle the special case where INSTANCE is NULL_TREE.  */
   if (name == complete_ctor_identifier && !instance)
     {
-      instance = build_int_2 (0, 0);
-      TREE_TYPE (instance) = build_pointer_type (class_type);
+      instance = build_int_cst (build_pointer_type (class_type), 0, 0);
       instance = build1 (INDIRECT_REF, class_type, instance);
     }
   else
@@ -6082,9 +6089,9 @@ joust (struct z_candidate *cand1, struct z_candidate *cand2, bool warn)
      F1 is a non-template function and F2 is a template function
      specialization.  */
          
-  if (! cand1->template && cand2->template)
+  if (!cand1->template_decl && cand2->template_decl)
     return 1;
-  else if (cand1->template && ! cand2->template)
+  else if (cand1->template_decl && !cand2->template_decl)
     return -1;
   
   /* or, if not that,
@@ -6092,10 +6099,11 @@ joust (struct z_candidate *cand1, struct z_candidate *cand2, bool warn)
      more specialized than the template for F2 according to the partial
      ordering rules.  */
   
-  if (cand1->template && cand2->template)
+  if (cand1->template_decl && cand2->template_decl)
     {
       winner = more_specialized
-        (TI_TEMPLATE (cand1->template), TI_TEMPLATE (cand2->template),
+        (TI_TEMPLATE (cand1->template_decl),
+         TI_TEMPLATE (cand2->template_decl),
          DEDUCE_ORDER,
          /* Tell the deduction code how many real function arguments
 	    we saw, not counting the implicit 'this' argument.  But,
@@ -6570,7 +6578,7 @@ initialize_reference (tree type, tree expr, tree decl, tree *cleanup)
 	    }
 	  else
 	    {
-	      rest_of_decl_compilation (var, NULL, /*toplev=*/1, at_eof);
+	      rest_of_decl_compilation (var, /*toplev=*/1, at_eof);
 	      if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (type))
 		static_aggregates = tree_cons (NULL_TREE, var,
 					       static_aggregates);

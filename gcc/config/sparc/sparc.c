@@ -334,6 +334,9 @@ static bool sparc_strict_argument_naming (CUMULATIVE_ARGS *);
 static tree sparc_gimplify_va_arg (tree, tree, tree *, tree *);
 static bool sparc_pass_by_reference (CUMULATIVE_ARGS *,
 				     enum machine_mode, tree, bool);
+#ifdef SUBTARGET_ATTRIBUTE_TABLE
+const struct attribute_spec sparc_attribute_table[];
+#endif
 
 /* Option handling.  */
 
@@ -389,8 +392,6 @@ enum processor_type sparc_cpu;
 #define TARGET_SCHED_ISSUE_RATE sparc_issue_rate
 #undef TARGET_SCHED_INIT
 #define TARGET_SCHED_INIT sparc_sched_init
-#undef TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE
-#define TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE hook_int_void_1
 #undef TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD
 #define TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD sparc_use_sched_lookahead
 
@@ -451,6 +452,16 @@ enum processor_type sparc_cpu;
 
 #undef TARGET_LATE_RTL_PROLOGUE_EPILOGUE
 #define TARGET_LATE_RTL_PROLOGUE_EPILOGUE true
+
+#ifdef SUBTARGET_INSERT_ATTRIBUTES
+#undef TARGET_INSERT_ATTRIBUTES
+#define TARGET_INSERT_ATTRIBUTES SUBTARGET_INSERT_ATTRIBUTES
+#endif
+
+#ifdef SUBTARGET_ATTRIBUTE_TABLE
+#undef TARGET_ATTRIBUTE_TABLE
+#define TARGET_ATTRIBUTE_TABLE sparc_attribute_table
+#endif
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -687,6 +698,16 @@ sparc_override_options (void)
       break;
     };
 }
+
+#ifdef SUBTARGET_ATTRIBUTE_TABLE
+/* Table of valid machine attributes.  */
+const struct attribute_spec sparc_attribute_table[] =
+{
+  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */
+  SUBTARGET_ATTRIBUTE_TABLE,
+  { NULL,        0, 0, false, false, false, NULL }
+};
+#endif
 
 /* Miscellaneous utilities.  */
 
@@ -8385,6 +8406,8 @@ sparc_rtx_costs (rtx x, int code, int outer_code, int *total)
     case MULT:
       if (float_mode_p)
 	*total = sparc_costs->float_mul;
+      else if (! TARGET_HARD_MUL)
+	*total = COSTS_N_INSNS (25);
       else
 	{
 	  int bit_cost;

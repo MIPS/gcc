@@ -48,9 +48,6 @@ Boston, MA 02111-1307, USA.  */
 #include "target.h"
 #include "target-def.h"
 
-#undef TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE 
-#define TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE hook_int_void_1
-
 /* Return nonzero if there is a bypass for the output of 
    OUT_INSN and the fp store IN_INSN.  */
 int
@@ -146,6 +143,7 @@ static void pa_hpux_init_libfuncs (void);
 static rtx pa_struct_value_rtx (tree, int);
 static bool pa_pass_by_reference (CUMULATIVE_ARGS *ca, enum machine_mode,
 				  tree, bool);
+static struct machine_function * pa_init_machine_status (void);
 
 
 /* Save the operands last given to a compare for use when we
@@ -467,6 +465,8 @@ override_options (void)
       targetm.asm_out.unaligned_op.si = NULL;
       targetm.asm_out.unaligned_op.di = NULL;
     }
+
+  init_machine_status = pa_init_machine_status;
 }
 
 static void
@@ -476,6 +476,16 @@ pa_init_builtins (void)
   built_in_decls[(int) BUILT_IN_FPUTC_UNLOCKED] = NULL_TREE;
   implicit_built_in_decls[(int) BUILT_IN_FPUTC_UNLOCKED] = NULL_TREE;
 #endif
+}
+
+/* Function to init struct machine_function.
+   This will be called, via a pointer variable,
+   from push_function_context.  */
+
+static struct machine_function *
+pa_init_machine_status (void)
+{
+  return ggc_alloc_cleared (sizeof (machine_function));
 }
 
 /* If FROM is a probable pointer register, mark TO as a probable
@@ -1081,7 +1091,7 @@ legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 
    This is for CSE to find several similar references, and only use one Z.
 
-   X can either be a SYMBOL_REF or REG, but because combine can not
+   X can either be a SYMBOL_REF or REG, but because combine cannot
    perform a 4->2 combination we do nothing for SYMBOL_REF + D where
    D will not fit in 14 bits.
 
@@ -4213,6 +4223,14 @@ pa_output_function_epilogue (FILE *file, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
 
   fputs ("\t.EXIT\n\t.PROCEND\n", file);
 
+  if (TARGET_SOM && TARGET_GAS)
+    {
+      /* We done with this subspace except possibly for some additional
+	 debug information.  Forget that we are in this subspace to ensure
+	 that the next function is output in its own subspace.  */
+      forget_section ();
+    }
+
   if (INSN_ADDRESSES_SET_P ())
     {
       insn = get_last_nonnote_insn ();
@@ -6101,8 +6119,7 @@ hppa_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p, tree *post_p)
 
       /* Copied from va-pa.h, but we probably don't need to align to
 	 word size, since we generate and preserve that invariant.  */
-      u = build_int_2 ((size > 4 ? -8 : -4), -1);
-      u = fold_convert (valist_type, u);
+      u = build_int_cst (valist_type, (size > 4 ? -8 : -4), -1);
       t = build (BIT_AND_EXPR, valist_type, t, u);
 
       t = build (MODIFY_EXPR, valist_type, valist, t);
@@ -6933,7 +6950,7 @@ output_movb (rtx *operands, rtx insn, int which_alternative,
       if (get_attr_length (insn) == 8)
 	return "{comb|cmpb},%S2 %%r0,%1,%3\n\tmtsar %r1";
       else
-	return "{comclr|cmpclr},%B2 %%r0,%1,%%r0\n\tbl %3\n\tmtsar %r1";
+	return "{comclr|cmpclr},%B2 %%r0,%1,%%r0\n\tb %3\n\tmtsar %r1";
     }
 }
 
@@ -7998,8 +8015,9 @@ pa_asm_output_mi_thunk (FILE *file, tree thunk_fndecl, HOST_WIDE_INT delta,
       fprintf (file, "\t.align 4\n");
       ASM_OUTPUT_LABEL (file, label);
       fprintf (file, "\t.word P'%s\n", fname);
-      function_section (thunk_fndecl);
     }
+  else if (TARGET_SOM && TARGET_GAS)
+    forget_section ();
 
   current_thunk_number++;
   nbytes = ((nbytes + FUNCTION_BOUNDARY / BITS_PER_UNIT - 1)
@@ -8089,13 +8107,13 @@ fmpyaddoperands (rtx *operands)
       && ! rtx_equal_p (operands[3], operands[5]))
     return 0;
 
-  /* Inout operand of add can not conflict with any operands from multiply.  */
+  /* Inout operand of add cannot conflict with any operands from multiply.  */
   if (rtx_equal_p (operands[3], operands[0])
      || rtx_equal_p (operands[3], operands[1])
      || rtx_equal_p (operands[3], operands[2]))
     return 0;
 
-  /* multiply can not feed into addition operands.  */
+  /* multiply cannot feed into addition operands.  */
   if (rtx_equal_p (operands[4], operands[0])
       || rtx_equal_p (operands[5], operands[0]))
     return 0;
@@ -8150,6 +8168,79 @@ pa_asm_out_destructor (rtx symbol, int priority)
 }
 #endif
 
+/* This function places uninitialized global data in the bss section.
+   The ASM_OUTPUT_ALIGNED_BSS macro needs to be defined to call this
+   function on the SOM port to prevent uninitialized global data from
+   being placed in the data section.  */
+   
+void
+pa_asm_output_aligned_bss (FILE *stream,
+			   const char *name,
+			   unsigned HOST_WIDE_INT size,
+			   unsigned int align)
+{
+  bss_section ();
+  fprintf (stream, "\t.align %u\n", align / BITS_PER_UNIT);
+
+#ifdef ASM_OUTPUT_TYPE_DIRECTIVE
+  ASM_OUTPUT_TYPE_DIRECTIVE (stream, name, "object");
+#endif
+
+#ifdef ASM_OUTPUT_SIZE_DIRECTIVE
+  ASM_OUTPUT_SIZE_DIRECTIVE (stream, name, size);
+#endif
+
+  fprintf (stream, "\t.align %u\n", align / BITS_PER_UNIT);
+  ASM_OUTPUT_LABEL (stream, name);
+  fprintf (stream, "\t.block "HOST_WIDE_INT_PRINT_UNSIGNED"\n", size);
+}
+
+/* Both the HP and GNU assemblers under HP-UX provide a .comm directive
+   that doesn't allow the alignment of global common storage to be directly
+   specified.  The SOM linker aligns common storage based on the rounded
+   value of the NUM_BYTES parameter in the .comm directive.  It's not
+   possible to use the .align directive as it doesn't affect the alignment
+   of the label associated with a .comm directive.  */
+
+void
+pa_asm_output_aligned_common (FILE *stream,
+			      const char *name,
+			      unsigned HOST_WIDE_INT size,
+			      unsigned int align)
+{
+  bss_section ();
+
+  assemble_name (stream, name);
+  fprintf (stream, "\t.comm "HOST_WIDE_INT_PRINT_UNSIGNED"\n",
+           MAX (size, align / BITS_PER_UNIT));
+}
+
+/* We can't use .comm for local common storage as the SOM linker effectively
+   treats the symbol as universal and uses the same storage for local symbols
+   with the same name in different object files.  The .block directive
+   reserves an uninitialized block of storage.  However, it's not common
+   storage.  Fortunately, GCC never requests common storage with the same
+   name in any given translation unit.  */
+
+void
+pa_asm_output_aligned_local (FILE *stream,
+			     const char *name,
+			     unsigned HOST_WIDE_INT size,
+			     unsigned int align)
+{
+  bss_section ();
+  fprintf (stream, "\t.align %u\n", align / BITS_PER_UNIT);
+
+#ifdef LOCAL_ASM_OP
+  fprintf (stream, "%s", LOCAL_ASM_OP);
+  assemble_name (stream, name);
+  fprintf (stream, "\n");
+#endif
+
+  ASM_OUTPUT_LABEL (stream, name);
+  fprintf (stream, "\t.block "HOST_WIDE_INT_PRINT_UNSIGNED"\n", size);
+}
+
 /* Returns 1 if the 6 operands specified in OPERANDS are suitable for
    use in fmpysub instructions.  */
 int
@@ -8182,11 +8273,11 @@ fmpysuboperands (rtx *operands)
   if (! rtx_equal_p (operands[3], operands[4]))
     return 0;
 
-  /* multiply can not feed into subtraction.  */
+  /* multiply cannot feed into subtraction.  */
   if (rtx_equal_p (operands[5], operands[0]))
     return 0;
 
-  /* Inout operand of sub can not conflict with any operands from multiply.  */
+  /* Inout operand of sub cannot conflict with any operands from multiply.  */
   if (rtx_equal_p (operands[3], operands[0])
      || rtx_equal_p (operands[3], operands[1])
      || rtx_equal_p (operands[3], operands[2]))
@@ -8846,7 +8937,7 @@ pa_can_combine_p (rtx new, rtx anchor, rtx floater, int reversed, rtx dest,
    delay slot of the millicode call -- thus they act more like traditional
    CALL_INSNs.
 
-   Note we can not consider side effects of the insn to be delayed because
+   Note we cannot consider side effects of the insn to be delayed because
    the branch and link insn will clobber the return pointer.  If we happened
    to use the return pointer in the delay slot of the call, then we lose.
 
@@ -9147,6 +9238,58 @@ cmpib_comparison_operator (rtx op, enum machine_mode mode)
 	      || GET_CODE (op) == LEU));
 }
 
+#ifndef ONE_ONLY_TEXT_SECTION_ASM_OP
+#define ONE_ONLY_TEXT_SECTION_ASM_OP ""
+#endif
+
+#ifndef NEW_TEXT_SECTION_ASM_OP
+#define NEW_TEXT_SECTION_ASM_OP ""
+#endif
+
+#ifndef DEFAULT_TEXT_SECTION_ASM_OP
+#define DEFAULT_TEXT_SECTION_ASM_OP ""
+#endif
+
+/* Select and return a TEXT_SECTION_ASM_OP for the current function.
+
+   This function is only used with SOM.  Because we don't support
+   named subspaces, we can only create a new subspace or switch back
+   into the default text subspace.  */
+const char *
+som_text_section_asm_op (void)
+{
+  if (TARGET_SOM && TARGET_GAS)
+    {
+      if (cfun && !cfun->machine->in_nsubspa)
+	{
+	  /* We only want to emit a .nsubspa directive once at the
+	     start of the function.  */
+	  cfun->machine->in_nsubspa = 1;
+
+	  /* Create a new subspace for the text.  This provides
+	     better stub placement and one-only functions.  */
+	  if (cfun->decl
+	      && DECL_ONE_ONLY (cfun->decl)
+	      && !DECL_WEAK (cfun->decl))
+	    return ONE_ONLY_TEXT_SECTION_ASM_OP;
+
+	  return NEW_TEXT_SECTION_ASM_OP;
+	}
+      else
+	{
+	  /* There isn't a current function or the body of the current
+	     function has been completed.  So, we are changing to the
+	     text section to output debugging information.  Do this in
+	     the default text section.  We need to forget that we are
+	     in the text section so that text_section will call us the
+	     next time around.  */
+	  forget_section ();
+	}
+    }
+
+  return DEFAULT_TEXT_SECTION_ASM_OP;
+}
+
 /* On hpux10, the linker will give an error if we have a reference
    in the read-only data section to a symbol defined in a shared
    library.  Therefore, expressions that might require a reloc can
@@ -9163,10 +9306,23 @@ pa_select_section (tree exp, int reloc,
       && (DECL_INITIAL (exp) == error_mark_node
           || TREE_CONSTANT (DECL_INITIAL (exp)))
       && !reloc)
-    readonly_data_section ();
+    {
+      if (TARGET_SOM
+	  && DECL_ONE_ONLY (exp)
+	  && !DECL_WEAK (exp))
+	one_only_readonly_data_section ();
+      else
+	readonly_data_section ();
+    }
   else if (TREE_CODE_CLASS (TREE_CODE (exp)) == 'c'
 	   && !reloc)
     readonly_data_section ();
+  else if (TARGET_SOM
+	   && TREE_CODE (exp) == VAR_DECL
+	   && DECL_ONE_ONLY (exp)
+	   && !DECL_WEAK (exp)
+	   && DECL_INITIAL (exp))
+    one_only_data_section ();
   else
     data_section ();
 }

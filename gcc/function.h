@@ -162,7 +162,6 @@ struct expr_status GTY(())
 struct function GTY(())
 {
   struct eh_status *eh;
-  struct stmt_status *stmt;
   struct expr_status *expr;
   struct emit_status *emit;
   struct varasm_status *varasm;
@@ -173,6 +172,7 @@ struct function GTY(())
      inlining */
   tree saved_tree;
   tree saved_args;
+  tree saved_static_chain_decl;
 
   /* For function.c.  */
 
@@ -263,7 +263,7 @@ struct function GTY(())
      If stack grows up, this is the address for the next slot.  */
   HOST_WIDE_INT x_frame_offset;
 
-  /* A VAR_DECL that should contain the static chain for this function.
+  /* A PARM_DECL that should contain the static chain for this function.
      It will be initialized at the beginning of the function.  */
   tree static_chain_decl;
 
@@ -283,15 +283,6 @@ struct function GTY(())
 
   /* Current nesting level for temporaries.  */
   int x_temp_slot_level;
-
-  /* Current nesting level for variables in a block.  */
-  int x_var_temp_slot_level;
-
-  /* When temporaries are created by TARGET_EXPRs, they are created at
-     this level of temp_slot_level, so that they can remain allocated
-     until no longer needed.  CLEANUP_POINT_EXPRs define the lifetime
-     of TARGET_EXPRs.  */
-  int x_target_temp_slot_level;
 
   /* This slot is initialized as 0 and is added to
      during the nested function.  */
@@ -313,9 +304,9 @@ struct function GTY(())
   /* tm.h can use this to store whatever it likes.  */
   struct machine_function * GTY ((maybe_undef)) machine;
   /* The largest alignment of slot allocated on the stack.  */
-  int stack_alignment_needed;
+  unsigned int stack_alignment_needed;
   /* Preferred alignment of the end of stack frame.  */
-  int preferred_stack_boundary;
+  unsigned int preferred_stack_boundary;
   /* Set when the call to function itself has been emit.  */
   bool recursive_call_emit;
   /* Set when the tail call has been produced.  */
@@ -508,8 +499,6 @@ extern int trampolines_created;
 #define used_temp_slots (cfun->x_used_temp_slots)
 #define avail_temp_slots (cfun->x_avail_temp_slots)
 #define temp_slot_level (cfun->x_temp_slot_level)
-#define target_temp_slot_level (cfun->x_target_temp_slot_level)
-#define var_temp_slot_level (cfun->x_var_temp_slot_level)
 #define nonlocal_labels (cfun->x_nonlocal_labels)
 #define nonlocal_goto_handler_labels (cfun->x_nonlocal_goto_handler_labels)
 

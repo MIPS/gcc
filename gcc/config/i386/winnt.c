@@ -63,80 +63,6 @@ static void i386_pe_mark_dllimport (tree);
 #define DLL_EXPORT_PREFIX "#e."
 #endif
 
-/* Handle a "dllimport" or "dllexport" attribute;
-   arguments as in struct attribute_spec.handler.  */
-tree
-ix86_handle_dll_attribute (tree * pnode, tree name, tree args, int flags,
-			   bool *no_add_attrs)
-{
-  tree node = *pnode;
-
-  /* These attributes may apply to structure and union types being created,
-     but otherwise should pass to the declaration involved.  */
-  if (!DECL_P (node))
-    {
-      if (flags & ((int) ATTR_FLAG_DECL_NEXT | (int) ATTR_FLAG_FUNCTION_NEXT
-		   | (int) ATTR_FLAG_ARRAY_NEXT))
-	{
-	  *no_add_attrs = true;
-	  return tree_cons (name, args, NULL_TREE);
-	}
-      if (TREE_CODE (node) != RECORD_TYPE && TREE_CODE (node) != UNION_TYPE)
-	{
-	  warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
-	  *no_add_attrs = true;
-	}
-
-      return NULL_TREE;
-    }
-
-  /* Report error on dllimport ambiguities seen now before they cause
-     any damage.  */
-  else if (is_attribute_p ("dllimport", name))
-    {
-      /* Like MS, treat definition of dllimported variables and
-	 non-inlined functions on declaration as syntax errors.
-	 We allow the attribute for function definitions if declared
-	 inline, but just ignore it in i386_pe_dllimport_p.  */
-      if (TREE_CODE (node) == FUNCTION_DECL  && DECL_INITIAL (node)
-          && !DECL_INLINE (node))
-	{
-	  error ("%Jfunction `%D' definition is marked dllimport.", node, node);
-	  *no_add_attrs = true;
-	}
-
-      else if (TREE_CODE (node) == VAR_DECL)
-	{
-	  if (DECL_INITIAL (node))
-	    {
-	      error ("%Jvariable `%D' definition is marked dllimport.",
-		     node, node);
-	      *no_add_attrs = true;
-	    }
-
-	  /* `extern' needn't be specified with dllimport.
-	     Specify `extern' now and hope for the best.  Sigh.  */
-	  DECL_EXTERNAL (node) = 1;
-	  /* Also, implicitly give dllimport'd variables declared within
-	     a function global scope, unless declared static.  */
-	  if (current_function_decl != NULL_TREE && !TREE_STATIC (node))
-	    TREE_PUBLIC (node) = 1;
-	}
-    }
-
-  /*  Report error if symbol is not accessible at global scope.  */
-  if (!TREE_PUBLIC (node)
-      && (TREE_CODE (node) == VAR_DECL
-	  || TREE_CODE (node) == FUNCTION_DECL))
-    {
-      error ("%Jexternal linkage required for symbol '%D' because of "
-	     "'%s' attribute.", node, node, IDENTIFIER_POINTER (name));
-      *no_add_attrs = true;
-    }
-
-  return NULL_TREE;
-}
-
 /* Handle a "shared" attribute;
    arguments as in struct attribute_spec.handler.  */
 tree
@@ -315,6 +241,7 @@ i386_pe_mark_dllexport (tree decl)
   const char *oldname;
   char  *newname;
   rtx rtlname;
+  rtx symref;
   tree idp;
 
   rtlname = XEXP (DECL_RTL (decl), 0);
@@ -345,8 +272,9 @@ i386_pe_mark_dllexport (tree decl)
      identical.  */
   idp = get_identifier (newname);
 
-  XEXP (DECL_RTL (decl), 0) =
-    gen_rtx_SYMBOL_REF (Pmode, IDENTIFIER_POINTER (idp));
+  symref = gen_rtx_SYMBOL_REF (Pmode, IDENTIFIER_POINTER (idp));
+  SYMBOL_REF_DECL (symref) = decl;
+  XEXP (DECL_RTL (decl), 0) = symref;
 }
 
 /* Mark a DECL as being dllimport'd.  */
@@ -358,6 +286,7 @@ i386_pe_mark_dllimport (tree decl)
   char  *newname;
   tree idp;
   rtx rtlname, newrtl;
+  rtx symref;
 
   rtlname = XEXP (DECL_RTL (decl), 0);
   if (GET_CODE (rtlname) == SYMBOL_REF)
@@ -394,9 +323,9 @@ i386_pe_mark_dllimport (tree decl)
      identical.  */
   idp = get_identifier (newname);
 
-  newrtl = gen_rtx_MEM (Pmode,
-			gen_rtx_SYMBOL_REF (Pmode,
-					    IDENTIFIER_POINTER (idp)));
+  symref = gen_rtx_SYMBOL_REF (Pmode, IDENTIFIER_POINTER (idp));
+  SYMBOL_REF_DECL (symref) = decl;
+  newrtl = gen_rtx_MEM (Pmode,symref);
   XEXP (DECL_RTL (decl), 0) = newrtl;
 
   /* Can't treat a pointer to this as a constant address */
@@ -524,7 +453,13 @@ i386_pe_encode_section_info (tree decl, rtx rtl, int first)
 
       /* Remove DLL_IMPORT_PREFIX.  */
       tree idp = get_identifier (oldname + strlen (DLL_IMPORT_PREFIX));
-      rtx newrtl = gen_rtx_SYMBOL_REF (Pmode, IDENTIFIER_POINTER (idp));
+      rtx symref = gen_rtx_SYMBOL_REF (Pmode, IDENTIFIER_POINTER (idp));
+      SYMBOL_REF_DECL (symref) = decl;
+      XEXP (DECL_RTL (decl), 0) = symref;
+      DECL_NON_ADDR_CONST_P (decl) = 0;
+
+      /* We previously set TREE_PUBLIC and DECL_EXTERNAL.
+	 We leave these alone for now.  */
 
       if (DECL_INITIAL (decl) || !DECL_EXTERNAL (decl))
 	warning ("%J'%D' defined locally after being "
@@ -532,13 +467,6 @@ i386_pe_encode_section_info (tree decl, rtx rtl, int first)
       else
 	warning ("%J'%D' redeclared without dllimport attribute "
 		 "after being referenced with dllimport linkage", decl, decl);
-
-      XEXP (DECL_RTL (decl), 0) = newrtl;
-
-      DECL_NON_ADDR_CONST_P (decl) = 0;
-
-      /* We previously set TREE_PUBLIC and DECL_EXTERNAL.
-	 We leave these alone for now.  */
     }
 }
 

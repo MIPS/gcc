@@ -156,7 +156,7 @@ static bool       mcore_return_in_memory	(tree, tree);
 #undef  TARGET_ASM_EXTERNAL_LIBCALL
 #define TARGET_ASM_EXTERNAL_LIBCALL	mcore_external_libcall
 
-#ifdef TARGET_DLLIMPORT_DECL_ATTRIBUTES
+#if TARGET_DLLIMPORT_DECL_ATTRIBUTES
 #undef  TARGET_MERGE_DECL_ATTRIBUTES
 #define TARGET_MERGE_DECL_ATTRIBUTES	merge_dllimport_decl_attributes
 #endif
@@ -172,6 +172,8 @@ static bool       mcore_return_in_memory	(tree, tree);
 #define TARGET_ATTRIBUTE_TABLE 		mcore_attribute_table
 #undef  TARGET_ASM_UNIQUE_SECTION
 #define TARGET_ASM_UNIQUE_SECTION 	mcore_unique_section
+#undef  TARGET_ASM_FUNCTION_RODATA_SECTION
+#define TARGET_ASM_FUNCTION_RODATA_SECTION default_no_function_rodata_section
 #undef  TARGET_ENCODE_SECTION_INFO
 #define TARGET_ENCODE_SECTION_INFO 	mcore_encode_section_info
 #undef  TARGET_STRIP_NAME_ENCODING
@@ -199,9 +201,6 @@ static bool       mcore_return_in_memory	(tree, tree);
 
 #undef  TARGET_SETUP_INCOMING_VARARGS
 #define TARGET_SETUP_INCOMING_VARARGS	mcore_setup_incoming_varargs
-
-#undef TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE
-#define TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE hook_int_void_1
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -916,7 +915,7 @@ mcore_is_dead (rtx first, rtx reg)
 	}
     }
 
-  /* No conclusive evidence either way, we can not take the chance
+  /* No conclusive evidence either way, we cannot take the chance
      that control flow hid the use from us -- "I'm not dead yet".  */
   return 0;
 }

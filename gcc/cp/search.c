@@ -51,7 +51,10 @@ static base_kind lookup_base_r (tree, tree, base_access, bool, tree *);
 static int dynamic_cast_base_recurse (tree, tree, bool, tree *);
 static tree dfs_debug_unmarkedp (tree, int, void *);
 static tree dfs_debug_mark (tree, void *);
-static tree add_conversions (tree, void *);
+static int check_hidden_convs (tree, int, int, tree, tree, tree);
+static tree split_conversions (tree, tree, tree, tree);
+static int lookup_conversions_r (tree, int, int,
+				 tree, tree, tree, tree, tree *, tree *);
 static int look_for_overrides_r (tree, tree);
 static tree bfs_walk (tree, tree (*) (tree, void *),
 		      tree (*) (tree, int, void *), void *);
@@ -97,7 +100,7 @@ lookup_base_r (tree binfo, tree base, base_access access,
 	       tree *binfo_ptr)
 {
   int i;
-  tree bases, accesses;
+  tree base_binfo;
   base_kind found = bk_not_base;
   
   if (same_type_p (BINFO_TYPE (binfo), base))
@@ -123,14 +126,8 @@ lookup_base_r (tree binfo, tree base, base_access access,
       return found;
     }
   
-  bases = BINFO_BASE_BINFOS (binfo);
-  accesses = BINFO_BASE_ACCESSES (binfo);
-  if (!bases)
-    return bk_not_base;
-  
-  for (i = TREE_VEC_LENGTH (bases); i--;)
+  for (i = 0; BINFO_BASE_ITERATE (binfo, i, base_binfo); i++)
     {
-      tree base_binfo = TREE_VEC_ELT (bases, i);
       base_kind bk;
 
       bk = lookup_base_r (base_binfo, base,
@@ -290,8 +287,9 @@ static int
 dynamic_cast_base_recurse (tree subtype, tree binfo, bool is_via_virtual,
 			   tree *offset_ptr)
 {
-  tree binfos, accesses;
-  int i, n_baselinks;
+  VEC (tree) *accesses;
+  tree base_binfo;
+  int i;
   int worst = -2;
   
   if (BINFO_TYPE (binfo) == subtype)
@@ -305,13 +303,10 @@ dynamic_cast_base_recurse (tree subtype, tree binfo, bool is_via_virtual,
         }
     }
   
-  binfos = BINFO_BASE_BINFOS (binfo);
   accesses = BINFO_BASE_ACCESSES (binfo);
-  n_baselinks = binfos ? TREE_VEC_LENGTH (binfos) : 0;
-  for (i = 0; i < n_baselinks; i++)
+  for (i = 0; BINFO_BASE_ITERATE (binfo, i, base_binfo); i++)
     {
-      tree base_binfo = TREE_VEC_ELT (binfos, i);
-      tree base_access = TREE_VEC_ELT (accesses, i);
+      tree base_access = VEC_index (tree, accesses, i);
       int rval;
       
       if (base_access != access_public_node)
@@ -351,8 +346,7 @@ get_dynamic_cast_base_type (tree subtype, tree target)
   
   if (!boff)
     return offset;
-  offset = build_int_2 (boff, -1);
-  TREE_TYPE (offset) = ssizetype;
+  offset = build_int_cst (ssizetype, boff, -1);
   return offset;
 }
 
@@ -630,18 +624,15 @@ dfs_access_in_type (tree binfo, void *data)
       if (!access)
 	{
 	  int i;
-	  int n_baselinks;
-	  tree binfos, accesses;
+	  tree base_binfo;
+	  VEC (tree) *accesses;
 	  
 	  /* Otherwise, scan our baseclasses, and pick the most favorable
 	     access.  */
-	  binfos = BINFO_BASE_BINFOS (binfo);
 	  accesses = BINFO_BASE_ACCESSES (binfo);
-	  n_baselinks = binfos ? TREE_VEC_LENGTH (binfos) : 0;
-	  for (i = 0; i < n_baselinks; ++i)
+	  for (i = 0; BINFO_BASE_ITERATE (binfo, i, base_binfo); i++)
 	    {
-	      tree base_binfo = TREE_VEC_ELT (binfos, i);
-	      tree base_access = TREE_VEC_ELT (accesses, i);
+	      tree base_access = VEC_index (tree, accesses, i);
 	      access_kind base_access_now = BINFO_ACCESS (base_binfo);
 
 	      if (base_access_now == ak_none || base_access_now == ak_private)
@@ -1310,48 +1301,35 @@ lookup_fnfields (tree xbasetype, tree name, int protect)
 static int
 lookup_conversion_operator (tree class_type, tree type)
 {
-  int pass;
-  int i;
-  tree fn;
-  VEC(tree) *methods;
+  int tpl_slot = -1;
 
-  methods = CLASSTYPE_METHOD_VEC (class_type);
+  if (TYPE_HAS_CONVERSION (class_type))
+    {
+      int i;
+      tree fn;
+      VEC(tree) *methods = CLASSTYPE_METHOD_VEC (class_type);
+      
+      for (i = CLASSTYPE_FIRST_CONVERSION_SLOT;
+	   VEC_iterate (tree, methods, i, fn); ++i)
+	{
+	  /* All the conversion operators come near the beginning of
+	     the class.  Therefore, if FN is not a conversion
+	     operator, there is no matching conversion operator in
+	     CLASS_TYPE.  */
+	  fn = OVL_CURRENT (fn);
+	  if (!DECL_CONV_FN_P (fn))
+	    break;
+	  
+	  if (TREE_CODE (fn) == TEMPLATE_DECL)
+	    /* All the templated conversion functions are on the same
+	       slot, so remember it.  */
+	    tpl_slot = i;
+	  else if (same_type_p (DECL_CONV_FN_TYPE (fn), type))
+	    return i;
+	}
+    }
 
-  for (pass = 0; pass < 2; ++pass)
-    for (i = CLASSTYPE_FIRST_CONVERSION_SLOT; 
-	 (fn = VEC_iterate (tree, methods, i));
-	 ++i)
-      {
-	/* All the conversion operators come near the beginning of the
-	   class.  Therefore, if FN is not a conversion operator, there
-	   is no matching conversion operator in CLASS_TYPE.  */
-	fn = OVL_CURRENT (fn);
-	if (!DECL_CONV_FN_P (fn))
-	  break;
-	
-	if (pass == 0)
-	  {
-	    /* On the first pass we only consider exact matches.  If
-	       the types match, this slot is the one where the right
-	       conversion operators can be found.  */
-	    if (TREE_CODE (fn) != TEMPLATE_DECL
-		&& same_type_p (DECL_CONV_FN_TYPE (fn), type))
-	      return i;
-	  }
-	else
-	  {
-	    /* On the second pass we look for template conversion
-	       operators.  It may be possible to instantiate the
-	       template to get the type desired.  All of the template
-	       conversion operators share a slot.  By looking for
-	       templates second we ensure that specializations are
-	       preferred over templates.  */
-	    if (TREE_CODE (fn) == TEMPLATE_DECL)
-	      return i;
-	  }
-      }
-
-  return -1;
+  return tpl_slot;
 }
 
 /* TYPE is a class type. Return the index of the fields within
@@ -1380,8 +1358,7 @@ lookup_fnfields_1 (tree type, tree name)
 	    lazily_declare_fn (sfk_copy_constructor, type);
 	}
       else if (name == ansi_assopname(NOP_EXPR)
-	       && !TYPE_HAS_ASSIGN_REF (type)
-	       && !TYPE_FOR_JAVA (type))
+	       && CLASSTYPE_LAZY_ASSIGNMENT_OP (type))
 	lazily_declare_fn (sfk_assignment_operator, type);
     }
 
@@ -1410,7 +1387,7 @@ lookup_fnfields_1 (tree type, tree name)
 
   /* Skip the conversion operators.  */
   for (i = CLASSTYPE_FIRST_CONVERSION_SLOT;
-       (fn = VEC_iterate (tree, method_vec, i));
+       VEC_iterate (tree, method_vec, i, fn);
        ++i)
     if (!DECL_CONV_FN_P (OVL_CURRENT (fn)))
       break;
@@ -1442,9 +1419,7 @@ lookup_fnfields_1 (tree type, tree name)
 	}
     }
   else
-    for (; 
-	 (fn = VEC_iterate (tree, method_vec, i));
-	 ++i)
+    for (; VEC_iterate (tree, method_vec, i, fn); ++i)
       {
 #ifdef GATHER_STATISTICS
 	n_outer_fields_searched++;
@@ -1604,6 +1579,8 @@ dfs_walk_real (tree binfo,
 	       tree (*qfn) (tree, int, void *),
 	       void *data)
 {
+  int i;
+  tree base_binfo;
   tree rval = NULL_TREE;
 
   /* Call the pre-order walking function.  */
@@ -1615,25 +1592,17 @@ dfs_walk_real (tree binfo,
     }
 
   /* Process the basetypes.  */
-  if (BINFO_BASE_BINFOS (binfo))
+  for (i = 0; BINFO_BASE_ITERATE (binfo, i, base_binfo); i++)
     {
-      int i, n = TREE_VEC_LENGTH (BINFO_BASE_BINFOS (binfo));
-      for (i = 0; i != n; i++)
+      if (qfn)
 	{
-	  tree base_binfo;
-      
-	  if (qfn)
-	    base_binfo = (*qfn) (binfo, i, data);
-	  else
-	    base_binfo = BINFO_BASE_BINFO (binfo, i);
-	  
-	  if (base_binfo)
-	    {
-	      rval = dfs_walk_real (base_binfo, prefn, postfn, qfn, data);
-	      if (rval)
-		return rval;
-	    }
+	  base_binfo = (*qfn) (binfo, i, data);
+	  if (!base_binfo)
+	    continue;
 	}
+      rval = dfs_walk_real (base_binfo, prefn, postfn, qfn, data);
+      if (rval)
+	return rval;
     }
 
   /* Call the post-order walking function.  */
@@ -1764,14 +1733,13 @@ int
 look_for_overrides (tree type, tree fndecl)
 {
   tree binfo = TYPE_BINFO (type);
-  tree basebinfos = BINFO_BASE_BINFOS (binfo);
-  int nbasebinfos = basebinfos ? TREE_VEC_LENGTH (basebinfos) : 0;
+  tree base_binfo;
   int ix;
   int found = 0;
 
-  for (ix = 0; ix != nbasebinfos; ix++)
+  for (ix = 0; BINFO_BASE_ITERATE (binfo, ix, base_binfo); ix++)
     {
-      tree basetype = BINFO_TYPE (TREE_VEC_ELT (basebinfos, ix));
+      tree basetype = BINFO_TYPE (base_binfo);
       
       if (TYPE_POLYMORPHIC_P (basetype))
         found += look_for_overrides_r (basetype, fndecl);
@@ -1887,6 +1855,7 @@ get_pure_virtuals (tree type)
 {
   unsigned ix;
   tree binfo;
+  VEC (tree) *vbases;
 
   /* Clear the CLASSTYPE_PURE_VIRTUALS list; whatever is already there
      is going to be overridden.  */
@@ -1903,8 +1872,8 @@ get_pure_virtuals (tree type)
   /* Put the pure virtuals in dfs order.  */
   CLASSTYPE_PURE_VIRTUALS (type) = nreverse (CLASSTYPE_PURE_VIRTUALS (type));
 
-  for (ix = 0; (binfo = VEC_iterate
-		(tree, CLASSTYPE_VBASECLASSES (type), ix)); ix++)
+  for (vbases = CLASSTYPE_VBASECLASSES (type), ix = 0;
+       VEC_iterate (tree, vbases, ix, binfo); ix++)
     {
       tree virtuals;
       
@@ -2065,78 +2034,321 @@ reinit_search_statistics (void)
 #endif /* GATHER_STATISTICS */
 }
 
-static tree
-add_conversions (tree binfo, void *data)
+/* Helper for lookup_conversions_r.  TO_TYPE is the type converted to
+   by a conversion op in base BINFO.  VIRTUAL_DEPTH is non-zero if
+   BINFO is morally virtual, and VIRTUALNESS is non-zero if virtual
+   bases have been encountered already in the tree walk.  PARENT_CONVS
+   is the list of lists of conversion functions that could hide CONV
+   and OTHER_CONVS is the list of lists of conversion functions that
+   could hide or be hidden by CONV, should virtualness be involved in
+   the hierarchy.  Merely checking the conversion op's name is not
+   enough because two conversion operators to the same type can have
+   different names.  Return non-zero if we are visible.  */
+
+static int
+check_hidden_convs (tree binfo, int virtual_depth, int virtualness,
+		    tree to_type, tree parent_convs, tree other_convs)
 {
-  size_t i;
-  VEC(tree) *method_vec = CLASSTYPE_METHOD_VEC (BINFO_TYPE (binfo));
-  tree *conversions = (tree *) data;
-  tree tmp;
+  tree level, probe;
 
-  /* Some builtin types have no method vector, not even an empty one.  */
-  if (!method_vec)
-    return NULL_TREE;
+  /* See if we are hidden by a parent conversion.  */
+  for (level = parent_convs; level; level = TREE_CHAIN (level))
+    for (probe = TREE_VALUE (level); probe; probe = TREE_CHAIN (probe))
+      if (same_type_p (to_type, TREE_TYPE (probe)))
+	return 0;
 
-  for (i = CLASSTYPE_FIRST_CONVERSION_SLOT; 
-       (tmp = VEC_iterate (tree, method_vec, i));
-       ++i)
+  if (virtual_depth || virtualness)
     {
-      tree name;
-
-      if (!tmp || ! DECL_CONV_FN_P (OVL_CURRENT (tmp)))
-	break;
-
-      name = DECL_NAME (OVL_CURRENT (tmp));
-
-      /* Make sure we don't already have this conversion.  */
-      if (! IDENTIFIER_MARKED (name))
+     /* In a virtual hierarchy, we could be hidden, or could hide a
+        conversion function on the other_convs list.  */
+      for (level = other_convs; level; level = TREE_CHAIN (level))
 	{
-	  tree t;
+	  int we_hide_them;
+	  int they_hide_us;
+	  tree *prev, other;
+	  
+	  if (!(virtual_depth || TREE_STATIC (level)))
+	    /* Neither is morally virtual, so cannot hide each other. */
+	    continue;
+	  
+	  if (!TREE_VALUE (level))
+	    /* They evaporated away already.  */
+	    continue;
 
-	  /* Make sure that we do not already have a conversion
-	     operator for this type.  Merely checking the NAME is not
-	     enough because two conversion operators to the same type
-	     may not have the same NAME.  */
-	  for (t = *conversions; t; t = TREE_CHAIN (t))
+	  they_hide_us = (virtual_depth
+			  && original_binfo (binfo, TREE_PURPOSE (level)));
+	  we_hide_them = (!they_hide_us && TREE_STATIC (level)
+			  && original_binfo (TREE_PURPOSE (level), binfo));
+
+	  if (!(we_hide_them || they_hide_us))
+	    /* Neither is within the other, so no hiding can occur.  */
+	    continue;
+	  
+	  for (prev = &TREE_VALUE (level), other = *prev; other;)
 	    {
-	      tree fn;
-	      for (fn = TREE_VALUE (t); fn; fn = OVL_NEXT (fn))
-		if (same_type_p (TREE_TYPE (name),
-				 DECL_CONV_FN_TYPE (OVL_CURRENT (fn))))
-		  break;
-	      if (fn)
-		break;
-	    }
-	  if (!t)
-	    {
-	      *conversions = tree_cons (binfo, tmp, *conversions);
-	      IDENTIFIER_MARKED (name) = 1;
+	      if (same_type_p (to_type, TREE_TYPE (other)))
+		{
+		  if (they_hide_us)
+		    /* We are hidden. */
+		    return 0;
+
+		  if (we_hide_them)
+		    {
+		      /* We hide the other one.  */
+		      other = TREE_CHAIN (other);
+		      *prev = other;
+		      continue;
+		    }
+		}
+	      prev = &TREE_CHAIN (other);
+	      other = *prev;
 	    }
 	}
     }
-  return NULL_TREE;
+  return 1;
+}
+
+/* Helper for lookup_conversions_r.  PARENT_CONVS is a list of lists
+   of conversion functions, the first slot will be for the current
+   binfo, if MY_CONVS is non-NULL.  CHILD_CONVS is the list of lists
+   of conversion functions from childen of the current binfo,
+   concatenated with conversions from elsewhere in the heirarchy --
+   that list begins with OTHER_CONVS.  Return a single list of lists
+   containing only conversions from the current binfo and its
+   children.  */
+
+static tree
+split_conversions (tree my_convs, tree parent_convs,
+		   tree child_convs, tree other_convs)
+{
+  tree t;
+  tree prev;
+  
+  /* Remove the original other_convs portion from child_convs.  */
+  for (prev = NULL, t = child_convs;
+       t != other_convs; prev = t, t = TREE_CHAIN (t))
+    continue;
+  
+  if (prev)
+    TREE_CHAIN (prev) = NULL_TREE;
+  else
+    child_convs = NULL_TREE;
+
+  /* Attach the child convs to any we had at this level.  */
+  if (my_convs)
+    {
+      my_convs = parent_convs;
+      TREE_CHAIN (my_convs) = child_convs;
+    }
+  else
+    my_convs = child_convs;
+  
+  return my_convs;
+}
+
+/* Worker for lookup_conversions.  Lookup conversion functions in
+   BINFO and its children.  VIRTUAL_DEPTH is non-zero, if BINFO is in
+   a morally virtual base, and VIRTUALNESS is non-zero, if we've
+   encountered virtual bases already in the tree walk.  PARENT_CONVS &
+   PARENT_TPL_CONVS are lists of list of conversions within parent
+   binfos.  OTHER_CONVS and OTHER_TPL_CONVS are conversions found
+   elsewhere in the tree.  Return the conversions found within this
+   portion of the graph in CONVS and TPL_CONVS.  Return non-zero is we
+   encountered virtualness.  We keep template and non-template
+   conversions separate, to avoid unnecessary type comparisons.
+
+   The located conversion functions are held in lists of lists.  The
+   TREE_VALUE of the outer list is the list of conversion functions
+   found in a particular binfo.  The TREE_PURPOSE of both the outer
+   and inner lists is the binfo at which those conversions were
+   found.  TREE_STATIC is set for those lists within of morally
+   virtual binfos.  The TREE_VALUE of the inner list is the conversion
+   function or overload itself.  The TREE_TYPE of each inner list node
+   is the converted-to type.  */
+
+static int
+lookup_conversions_r (tree binfo,
+		      int virtual_depth, int virtualness,
+		      tree parent_convs, tree parent_tpl_convs,
+		      tree other_convs, tree other_tpl_convs,
+		      tree *convs, tree *tpl_convs)
+{
+  int my_virtualness = 0;
+  tree my_convs = NULL_TREE;
+  tree my_tpl_convs = NULL_TREE;
+  tree child_convs = NULL_TREE;
+  tree child_tpl_convs = NULL_TREE;
+  unsigned i;
+  tree base_binfo;
+  VEC(tree) *method_vec = CLASSTYPE_METHOD_VEC (BINFO_TYPE (binfo));
+  tree conv;
+
+  /* If we have no conversion operators, then don't look.  */
+  if (!TYPE_HAS_CONVERSION (BINFO_TYPE (binfo)))
+    {
+      *convs = *tpl_convs = NULL_TREE;
+      
+      return 0;
+    }
+  
+  if (BINFO_VIRTUAL_P (binfo))
+    virtual_depth++;
+  
+  /* First, locate the unhidden ones at this level.  */
+  for (i = CLASSTYPE_FIRST_CONVERSION_SLOT; 
+       VEC_iterate (tree, method_vec, i, conv);
+       ++i)
+    {
+      tree cur = OVL_CURRENT (conv);
+
+      if (!DECL_CONV_FN_P (cur))
+	break;
+
+      if (TREE_CODE (cur) == TEMPLATE_DECL)
+	{
+	  /* Only template conversions can be overloaded, and we must
+	     flatten them out and check each one individually.  */
+	  tree tpls;
+
+	  for (tpls = conv; tpls; tpls = OVL_NEXT (tpls))
+	    {
+	      tree tpl = OVL_CURRENT (tpls);
+	      tree type = DECL_CONV_FN_TYPE (tpl);
+	      
+	      if (check_hidden_convs (binfo, virtual_depth, virtualness,
+				      type, parent_tpl_convs, other_tpl_convs))
+		{
+		  my_tpl_convs = tree_cons (binfo, tpl, my_tpl_convs);
+		  TREE_TYPE (my_tpl_convs) = type;
+		  if (virtual_depth)
+		    {
+		      TREE_STATIC (my_tpl_convs) = 1;
+		      my_virtualness = 1;
+		    }
+		}
+	    }
+	}
+      else
+	{
+	  tree name = DECL_NAME (cur);
+
+	  if (!IDENTIFIER_MARKED (name))
+	    {
+	      tree type = DECL_CONV_FN_TYPE (cur);
+	      
+	      if (check_hidden_convs (binfo, virtual_depth, virtualness,
+				      type, parent_convs, other_convs))
+		{
+		  my_convs = tree_cons (binfo, conv, my_convs);
+		  TREE_TYPE (my_convs) = type;
+		  if (virtual_depth)
+		    {
+		      TREE_STATIC (my_convs) = 1;
+		      my_virtualness = 1;
+		    }
+		  IDENTIFIER_MARKED (name) = 1;
+		}
+	    }
+	}
+    }
+
+  if (my_convs)
+    {
+      parent_convs = tree_cons (binfo, my_convs, parent_convs);
+      if (virtual_depth)
+	TREE_STATIC (parent_convs) = 1;
+    }
+  
+  if (my_tpl_convs)
+    {
+      parent_tpl_convs = tree_cons (binfo, my_tpl_convs, parent_tpl_convs);
+      if (virtual_depth)
+	TREE_STATIC (parent_convs) = 1;
+    }
+
+  child_convs = other_convs;
+  child_tpl_convs = other_tpl_convs;
+  
+  /* Now iterate over each base, looking for more conversions.  */
+  for (i = 0; BINFO_BASE_ITERATE (binfo, i, base_binfo); i++)
+    {
+      tree base_convs, base_tpl_convs;
+      unsigned base_virtualness;
+
+      base_virtualness = lookup_conversions_r (base_binfo,
+					       virtual_depth, virtualness,
+					       parent_convs, parent_tpl_convs,
+					       child_convs, child_tpl_convs,
+					       &base_convs, &base_tpl_convs);
+      if (base_virtualness)
+	my_virtualness = virtualness = 1;
+      child_convs = chainon (base_convs, child_convs);
+      child_tpl_convs = chainon (base_tpl_convs, child_tpl_convs);
+    }
+
+  /* Unmark the conversions found at this level  */
+  for (conv = my_convs; conv; conv = TREE_CHAIN (conv))
+    IDENTIFIER_MARKED (DECL_NAME (OVL_CURRENT (TREE_VALUE (conv)))) = 0;
+
+  *convs = split_conversions (my_convs, parent_convs,
+			      child_convs, other_convs);
+  *tpl_convs = split_conversions (my_tpl_convs, parent_tpl_convs,
+				  child_tpl_convs, other_tpl_convs);
+  
+  return my_virtualness;
 }
 
 /* Return a TREE_LIST containing all the non-hidden user-defined
    conversion functions for TYPE (and its base-classes).  The
-   TREE_VALUE of each node is a FUNCTION_DECL or an OVERLOAD
-   containing the conversion functions.  The TREE_PURPOSE is the BINFO
-   from which the conversion functions in this node were selected.  */
+   TREE_VALUE of each node is the FUNCTION_DECL of the conversion
+   function.  The TREE_PURPOSE is the BINFO from which the conversion
+   functions in this node were selected.  This function is effectively
+   performing a set of member lookups as lookup_fnfield does, but
+   using the type being converted to as the unique key, rather than the
+   field name.  */
 
 tree
 lookup_conversions (tree type)
 {
-  tree t;
-  tree conversions = NULL_TREE;
-
+  tree convs, tpl_convs;
+  tree list = NULL_TREE;
+  
   complete_type (type);
-  if (TYPE_BINFO (type))
-    bfs_walk (TYPE_BINFO (type), add_conversions, 0, &conversions);
+  if (!TYPE_BINFO (type))
+    return NULL_TREE;
+  
+  lookup_conversions_r (TYPE_BINFO (type), 0, 0,
+			NULL_TREE, NULL_TREE, NULL_TREE, NULL_TREE,
+			&convs, &tpl_convs);
+  
+  /* Flatten the list-of-lists */
+  for (; convs; convs = TREE_CHAIN (convs))
+    {
+      tree probe, next;
 
-  for (t = conversions; t; t = TREE_CHAIN (t))
-    IDENTIFIER_MARKED (DECL_NAME (OVL_CURRENT (TREE_VALUE (t)))) = 0;
+      for (probe = TREE_VALUE (convs); probe; probe = next)
+	{
+	  next = TREE_CHAIN (probe);
 
-  return conversions;
+	  TREE_CHAIN (probe) = list;
+	  list = probe;
+	}
+    }
+  
+  for (; tpl_convs; tpl_convs = TREE_CHAIN (tpl_convs))
+    {
+      tree probe, next;
+
+      for (probe = TREE_VALUE (tpl_convs); probe; probe = next)
+	{
+	  next = TREE_CHAIN (probe);
+
+	  TREE_CHAIN (probe) = list;
+	  list = probe;
+	}
+    }
+  
+  return list;
 }
 
 struct overlap_info 
@@ -2153,6 +2365,7 @@ dfs_check_overlap (tree empty_binfo, void *data)
 {
   struct overlap_info *oi = (struct overlap_info *) data;
   tree binfo;
+  
   for (binfo = TYPE_BINFO (oi->compare_type); 
        ; 
        binfo = BINFO_BASE_BINFO (binfo, 0))
@@ -2162,7 +2375,7 @@ dfs_check_overlap (tree empty_binfo, void *data)
 	  oi->found_overlap = 1;
 	  break;
 	}
-      else if (BINFO_BASE_BINFOS (binfo) == NULL_TREE)
+      else if (!BINFO_N_BASE_BINFOS (binfo))
 	break;
     }
 
@@ -2195,34 +2408,6 @@ types_overlap_p (tree empty_type, tree next_type)
   dfs_walk (TYPE_BINFO (empty_type), dfs_check_overlap,
 	    dfs_no_overlap_yet, &oi);
   return oi.found_overlap;
-}
-
-/* Given a vtable VAR, determine which of the inherited classes the vtable
-   inherits (in a loose sense) functions from.
-
-   FIXME: This does not work with the new ABI.  */
-
-tree
-binfo_for_vtable (tree var)
-{
-  tree main_binfo = TYPE_BINFO (DECL_CONTEXT (var));
-  tree binfos = BINFO_BASE_BINFOS (TYPE_BINFO (BINFO_TYPE (main_binfo)));
-  int n_baseclasses = BINFO_N_BASE_BINFOS (TYPE_BINFO (BINFO_TYPE (main_binfo)));
-  int i;
-
-  for (i = 0; i < n_baseclasses; i++)
-    {
-      tree base_binfo = TREE_VEC_ELT (binfos, i);
-      if (base_binfo != NULL_TREE && BINFO_VTABLE (base_binfo) == var)
-	return base_binfo;
-    }
-
-  /* If no secondary base classes matched, return the primary base, if
-     there is one.  */
-  if (CLASSTYPE_HAS_PRIMARY_BASE_P (BINFO_TYPE (main_binfo)))
-    return get_primary_binfo (main_binfo);
-
-  return main_binfo;
 }
 
 /* Returns the binfo of the first direct or indirect virtual base derived
@@ -2276,22 +2461,17 @@ copied_binfo (tree binfo, tree here)
     }
   else if (BINFO_INHERITANCE_CHAIN (binfo))
     {
-      tree base_binfos;
-      int ix, n;
+      tree cbinfo;
+      tree base_binfo;
+      int ix;
       
-      base_binfos = copied_binfo (BINFO_INHERITANCE_CHAIN (binfo), here);
-      base_binfos = BINFO_BASE_BINFOS (base_binfos);
-      n = TREE_VEC_LENGTH (base_binfos);
-      for (ix = 0; ix != n; ix++)
-	{
-	  tree base = TREE_VEC_ELT (base_binfos, ix);
-	  
-	  if (BINFO_TYPE (base) == BINFO_TYPE (binfo))
-	    {
-	      result = base;
-	      break;
-	    }
-	}
+      cbinfo = copied_binfo (BINFO_INHERITANCE_CHAIN (binfo), here);
+      for (ix = 0; BINFO_BASE_ITERATE (cbinfo, ix, base_binfo); ix++)
+	if (BINFO_TYPE (base_binfo) == BINFO_TYPE (binfo))
+	  {
+	    result = base_binfo;
+	    break;
+	  }
     }
   else
     {
@@ -2308,9 +2488,10 @@ binfo_for_vbase (tree base, tree t)
 {
   unsigned ix;
   tree binfo;
+  VEC (tree) *vbases;
   
-  for (ix = 0; (binfo = VEC_iterate
-		(tree, CLASSTYPE_VBASECLASSES (t), ix)); ix++)
+  for (vbases = CLASSTYPE_VBASECLASSES (t), ix = 0;
+       VEC_iterate (tree, vbases, ix, binfo); ix++)
     if (BINFO_TYPE (binfo) == base)
       return binfo;
   return NULL;
@@ -2339,20 +2520,15 @@ original_binfo (tree binfo, tree here)
       base_binfos = original_binfo (BINFO_INHERITANCE_CHAIN (binfo), here);
       if (base_binfos)
 	{
-	  int ix, n;
+	  int ix;
+	  tree base_binfo;
 	  
-	  base_binfos = BINFO_BASE_BINFOS (base_binfos);
-	  n = TREE_VEC_LENGTH (base_binfos);
-	  for (ix = 0; ix != n; ix++)
-	    {
-	      tree base = TREE_VEC_ELT (base_binfos, ix);
-	      
-	      if (BINFO_TYPE (base) == BINFO_TYPE (binfo))
-		{
-		  result = base;
-		  break;
-		}
-	    }
+	  for (ix = 0; (base_binfo = BINFO_BASE_BINFO (base_binfos, ix)); ix++)
+	    if (BINFO_TYPE (base_binfo) == BINFO_TYPE (binfo))
+	      {
+		result = base_binfo;
+		break;
+	      }
 	}
     }
   

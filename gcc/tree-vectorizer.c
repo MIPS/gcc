@@ -679,7 +679,7 @@ vect_create_index_for_array_ref (tree stmt, block_stmt_iterator *bsi)
     abort ();
 #endif
   vec_init_val = (init_val - array_first_index)/vectorization_factor;
-  init = build_int_2 (vec_init_val, 0);
+  init = build_int_cst (NULL_TREE, vec_init_val, 0);
 
   /* Calculate the 'step' of the new index.
      FORNOW: always 1.  */
@@ -1662,7 +1662,7 @@ vect_transform_load (tree stmt, block_stmt_iterator *bsi)
   
       minus_stmt = build2 (MODIFY_EXPR, TREE_TYPE (ptr), vec_dest,
 		    build2 (MINUS_EXPR, TREE_TYPE (ptr),
-		           build_int_2 (16, 0), ptr));
+		           build_int_cst (NULL_TREE, 16, 0), ptr));
       ptr = make_ssa_name (vec_dest, minus_stmt);
       TREE_OPERAND (minus_stmt, 0) = ptr;
       vect_finish_stmt_generation_in_preheader (minus_stmt, loop);
@@ -1848,7 +1848,7 @@ vect_generate_tmps_on_preheader (loop_vec_info loop_vinfo, tree *ni_name_p,
 
   stmt = build (MODIFY_EXPR, void_type_node, ratio_mult_vf_name,
 		build (LSHIFT_EXPR, TREE_TYPE (ratio),
-		       ratio, build_int_2(i,0)));
+		       ratio, build_int_cst(NULL_TREE,i,0)));
 
   SSA_NAME_DEF_STMT (ratio_mult_vf_name) = stmt;
 
@@ -2011,7 +2011,7 @@ vect_build_symbl_bound (tree n, int vf, struct loop * loop)
 
   stmt = build (MODIFY_EXPR, void_type_node, var_name,
 		build (RSHIFT_EXPR, TREE_TYPE (n),
-		       n, build_int_2(i,0)));
+		       n, build_int_cst(NULL_TREE,i,0)));
 
   SSA_NAME_DEF_STMT (var_name) = stmt;
 
@@ -2259,7 +2259,7 @@ vect_transform_loop_bound (loop_vec_info loop_vinfo, tree niters)
 
   /* new loop exit test:  */
   if(!symbl_niters)
-    new_loop_bound = build_int_2 (old_N/vf, 0);
+    new_loop_bound = build_int_cst (NULL_TREE, old_N/vf, 0);
   else
     new_loop_bound = niters;
 
@@ -2288,7 +2288,8 @@ vect_transform_loop_bound (loop_vec_info loop_vinfo, tree niters)
    stmts in the loop, and update the loop exit condition.  */
 
 static void
-vect_transform_loop (loop_vec_info loop_vinfo, struct loops *loops)
+/* APPLE LOCAL MERGE FIXME mark unused */
+vect_transform_loop (loop_vec_info loop_vinfo, struct loops *loops __attribute((__unused__)))
 {
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   basic_block *bbs = LOOP_VINFO_BBS (loop_vinfo);
@@ -2328,7 +2329,14 @@ vect_transform_loop (loop_vec_info loop_vinfo, struct loops *loops)
 
       /* Duplicate loop. 
 	 New (epilog) loop is concatenated to the exit of original loop.  */
+      /* APPLE LOCAL begin MERGE FIXME - tree_duplicate_loop_to_exit no longer exists */
+      /* Related to unknown loop bound support */
+      #if 0
       tree_duplicate_loop_to_exit (loop, loops);
+      #else
+      abort();
+      #endif
+      /* APPLE LOCAL end MERGE FIXME - tree_duplicate_loop_to_exit no longer exists */
 
       new_loop_header = loop->exit_edges[0]->dest;
       
@@ -2363,7 +2371,7 @@ vect_transform_loop (loop_vec_info loop_vinfo, struct loops *loops)
 
       /* Build conditional expr before loop to be vectorized.  */
       vf = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
-      cond = build (LT_EXPR, boolean_type_node, ni_name, build_int_2 (vf,0));
+      cond = build (LT_EXPR, boolean_type_node, ni_name, build_int_cst (NULL_TREE,vf,0));
 
       /* Find preheader edge of epilog loop.  */
       phead_epilog = find_edge (inter_bb, new_loop_header);

@@ -29,11 +29,11 @@ target_noncanonical = @target_noncanonical@
 ##
 
 if XLIB_AWT
-cond_x_ltlibrary = lib-gnu-awt-xlib.la
+cond_xlib_ltlibrary = lib-gnu-awt-xlib.la
 ## We require libstdc++-v3 to be in the same build tree.
 xlib_includes = -I../libstdc++-v3/include -I../libstdc++-v3/include/$(target_noncanonical) -I$(srcdir)/../libstdc++-v3/libsupc++
 else
-cond_x_ltlibrary =
+cond_xlib_ltlibrary =
 xlib_includes =
 endif
 
@@ -44,7 +44,7 @@ cond_gtk_ltlibrary =
 endif
 
 toolexeclib_LTLIBRARIES = libgcj.la libgij.la lib-org-xml-sax.la lib-org-w3c-dom.la \
-    $(cond_gtk_ltlibrary) $(cond_x_ltlibrary)
+    $(cond_gtk_ltlibrary) $(cond_xlib_ltlibrary)
 toolexecmainlib_DATA = libgcj.spec
 
 pkgconfigdir = $(libdir)/pkgconfig
@@ -60,7 +60,7 @@ propdir = $(libdir)
 
 ## For now, only on native systems.  FIXME.
 if NATIVE
-bin_PROGRAMS = jv-convert gij rmic rmiregistry
+bin_PROGRAMS = jv-convert gij grmic grmiregistry
 endif
 
 bin_SCRIPTS = addr2name.awk
@@ -132,7 +132,7 @@ INCLUDES = -I$(top_srcdir) -Iinclude -I$(top_srcdir)/include \
 
 ## Objects from C++ sources in subdirs.
 nat_files = $(nat_source_files:.cc=.lo)
-x_nat_files = $(x_nat_source_files:.cc=.lo)
+xlib_nat_files = $(xlib_nat_source_files:.cc=.lo)
 ## Objects from C sources in subdirs.
 c_files = $(c_source_files:.c=.lo)
 extra_cc_files = $(extra_cc_source_files:.cc=.lo)
@@ -141,7 +141,7 @@ gtk_c_files = $(gtk_c_source_files:.c=.lo)
 ## Objects from Java sources in subdirs.
 javao_files = $(java_source_files:.java=.lo) \
 	$(built_java_source_files:.java=.lo)
-x_javao_files = $(x_java_source_files:.java=.lo)
+xlib_javao_files = $(xlib_java_source_files:.java=.lo)
 
 libgij_la_SOURCES = gij.cc
 
@@ -160,9 +160,9 @@ libgcj_la_LIBADD = $(javao_files) $(c_files) $(extra_cc_files) $(GCOBJS) \
 	$(THREADOBJS) $(PLATFORMOBJS) $(propertyo_files)
 # Include THREADLIBS here to ensure that the correct version of
 # certain linuxthread functions get linked:
+## The mysterious backslash in the grep pattern is consumed by make.
 libgcj_la_LDFLAGS = -rpath $(toolexeclibdir) $(THREADLDFLAGS) $(THREADLIBS) \
 	$(LIBLTDL) $(SYS_ZLIBS) \
-## The mysterious backslash is consumed by make.
 	-version-info `grep -v '^\#' $(srcdir)/libtool-version`
 libgcj_la_LINK = $(LIBLINK)
 
@@ -265,9 +265,9 @@ gnu/java/awt/peer/gtk/GtkTextFieldPeer.java \
 gnu/java/awt/peer/gtk/GtkToolkit.java \
 gnu/java/awt/peer/gtk/GtkWindowPeer.java
 
-gtk_c_headers = $(patsubst %.java,jniinclude/%.h,$(subst /,_,$(gtk_awt_peer_sources)))
+gtk_jni_headers = $(patsubst %.java,jniinclude/%.h,$(subst /,_,$(gtk_awt_peer_sources)))
 
-$(gtk_c_headers): $(gtk_awt_peer_sources)
+$(gtk_jni_headers): $(gtk_awt_peer_sources)
 	@input=`echo $@ | sed -e 's,jniinclude/,,' -e 's,_,.,g' -e 's,.h$$,,'`; \
 	echo "$(GCJH) -jni -d jniinclude -classpath '' -bootclasspath $(top_builddir) $$input"; \
 	$(GCJH) -jni -d jniinclude -classpath '' -bootclasspath $(top_builddir) $$input
@@ -283,8 +283,9 @@ jni/classpath/native_state.h \
 jni/classpath/primlib.h
 
 lib_gnu_java_awt_peer_gtk_la_LIBADD = $(GTK_LIBS) $(GLIB_LIBS) $(LIBART_LIBS) $(CAIRO_LIBS) $(PANGOFT2_LIBS)
+lib_gnu_java_awt_peer_gtk_la_DEPENDENCIES = $(gtk_jni_headers)
+## The mysterious backslash in the grep pattern is consumed by make.
 lib_gnu_java_awt_peer_gtk_la_LDFLAGS = \
-## The mysterious backslash is consumed by make.
         -version-info `grep -v '^\#' $(srcdir)/libtool-version`
 
 lib_org_w3c_dom_la_SOURCES = org/w3c/dom/Attr.java \
@@ -314,8 +315,8 @@ org/w3c/dom/traversal/NodeIterator.java \
 org/w3c/dom/traversal/TreeWalker.java
 ## See jv_convert_LDADD.
 lib_org_w3c_dom_la_LIBADD = -L$(here)/.libs libgcj.la
+## The mysterious backslash in the grep pattern is consumed by make.
 lib_org_w3c_dom_la_LDFLAGS = -rpath $(toolexeclibdir) \
-## The mysterious backslash is consumed by make.
         -version-info `grep -v '^\#' $(srcdir)/libtool-version`
 
 lib_org_xml_sax_la_SOURCES = org/xml/sax/ext/DeclHandler.java \
@@ -350,18 +351,18 @@ org/xml/sax/XMLFilter.java \
 org/xml/sax/XMLReader.java
 ## See jv_convert_LDADD.
 lib_org_xml_sax_la_LIBADD = -L$(here)/.libs libgcj.la
+## The mysterious backslash in the grep pattern is consumed by make.
 lib_org_xml_sax_la_LDFLAGS = -rpath $(toolexeclibdir) \
-## The mysterious backslash is consumed by make.
         -version-info `grep -v '^\#' $(srcdir)/libtool-version`
 
-lib_gnu_awt_xlib_la_SOURCES = $(x_nat_source_files)
-EXTRA_lib_gnu_awt_xlib_la_SOURCES = $(x_java_source_files)
-lib_gnu_awt_xlib_la_DEPENDENCIES = libgcj-@gcc_version@.jar $(x_javao_files)
-lib_gnu_awt_xlib_la_LIBADD = $(x_javao_files)
+lib_gnu_awt_xlib_la_SOURCES = $(xlib_nat_source_files)
+EXTRA_lib_gnu_awt_xlib_la_SOURCES = $(xlib_java_source_files)
+lib_gnu_awt_xlib_la_DEPENDENCIES = libgcj-@gcc_version@.jar $(xlib_javao_files)
+lib_gnu_awt_xlib_la_LIBADD = $(xlib_javao_files)
+## The mysterious backslash in the grep pattern is consumed by make.
 lib_gnu_awt_xlib_la_LDFLAGS = ../libstdc++-v3/src/libstdc++.la \
 	@X_PRE_LIBS@ @X_LIBS@ -lX11 @X_EXTRA_LIBS@ \
         -rpath $(toolexeclibdir) \
-## The mysterious backslash is consumed by make.
         -version-info `grep -v '^\#' $(srcdir)/libtool-version`
 lib_gnu_awt_xlib_la_LINK = $(LIBLINK)
 
@@ -371,7 +372,7 @@ all_java_source_files = \
     $(lib_org_xml_sax_la_SOURCES) \
     $(lib_org_w3c_dom_la_SOURCES) \
     $(gtk_awt_peer_sources) \
-    $(x_java_source_files)
+    $(xlib_java_source_files)
 
 all_java_class_files = $(all_java_source_files:.java=.class)
 
@@ -424,7 +425,7 @@ endif
 
 # Note: The libtool objects are removed by mostlyclean-local
 # because of command-line-length issues.
-MOSTLYCLEANFILES = $(nat_headers) $(x_nat_headers)
+MOSTLYCLEANFILES = $(nat_headers) $(xlib_nat_headers)
 
 CLEANFILES = libgcj-@gcc_version@.jar
 
@@ -442,7 +443,7 @@ distclean-local:
 
 # Just remove the objects from C++ sources, for testing the C++ compiler.
 clean-nat:
-	rm -f $(nat_files) $(x_nat_files)
+	rm -f $(nat_files) $(xlib_nat_files)
 
 SUFFIXES = .class .java .h .properties
 
@@ -455,7 +456,7 @@ SUFFIXES = .class .java .h .properties
 ## FIXME: For the .o files in subdirs, use a special rule.  The
 ## standard automake rule can't be overridden (this is a bug in
 ## automake), and it also won't put the .o files into subdirs.
-$(nat_files) $(x_nat_files): %.lo: %.cc
+$(nat_files) $(xlib_nat_files): %.lo: %.cc
 	@echo '$(LTCXXCOMPILE) -MD -MT $@ -MF $(@:.lo=.pp) -c -o $@ $<'; \
 	$(LTCXXCOMPILE) -MD -MT $@ -MF $(@:.lo=.pp) -c -o $@ $<
 	@-mv $(@:.lo=.pp) $(@:.lo=.d)
@@ -476,13 +477,13 @@ $(gtk_c_files): %.lo: %.c
 	$(PEDANTIC_CFLAGS) $(GTK_CFLAGS) $(LIBART_CFLAGS) \
 	$(CAIRO_LIBS) $(PANGOFT2_LIBS) -o $@ $<
 
-$(gtk_c_files): $(gtk_c_headers)
+$(gtk_c_files): $(gtk_jni_headers)
 
 ## FIXME: see above.
 
 ## Note: we omit StackTrace here, since it has an explicit rule a bit
 ## later, and GNU make will warn in this case.
-$(filter-out gnu/gcj/runtime/StackTrace.lo, $(javao_files)) $(x_javao_files) $(lib_org_w3c_dom_la_OBJECTS) $(lib_org_xml_sax_la_OBJECTS): %.lo: %.java
+$(filter-out gnu/gcj/runtime/StackTrace.lo, $(javao_files)) $(xlib_javao_files) $(lib_org_w3c_dom_la_OBJECTS) $(lib_org_xml_sax_la_OBJECTS): %.lo: %.java
 	$(GCJCOMPILE) -o $@ $<
 
 $(gtk_awt_peer_sources:.java=.lo): %.lo: %.java
@@ -531,14 +532,15 @@ inner_nat_headers = java/io/ObjectOutputStream$$PutField.h \
 	gnu/java/net/PlainSocketImpl$$SocketInputStream.h \
 	gnu/java/net/PlainSocketImpl$$SocketOutputStream.h \
 	gnu/java/nio/PipeImpl$$SinkChannelImpl.h \
-	gnu/java/nio/PipeImpl$$SourceChannelImpl.h
+	gnu/java/nio/PipeImpl$$SourceChannelImpl.h \
+	$(PLATFORM_INNER_NAT_HDRS)
 
 nat_headers = $(ordinary_nat_headers) $(inner_nat_headers)
 nat_headers_install = $(ordinary_nat_headers)
 
-x_nat_headers = $(x_java_source_files:.java=.h)
+xlib_nat_headers = $(xlib_java_source_files:.java=.h)
 
-$(ordinary_nat_headers) $(x_nat_headers): %.h: %.class
+$(ordinary_nat_headers) $(xlib_nat_headers): %.h: %.class
 
 java/lang/ClassLoader.h: java/lang/ClassLoader.class
 	$(GCJH) -classpath '' -bootclasspath $(top_builddir) \
@@ -640,6 +642,11 @@ gnu/java/nio/PipeImpl$$SinkChannelImpl.h: gnu/java/nio/PipeImpl.class
 gnu/java/nio/PipeImpl$$SourceChannelImpl.h: gnu/java/nio/PipeImpl.class
 	$(GCJH) -classpath '' -bootclasspath $(top_builddir) \
 	'gnu/java/nio/PipeImpl$$SourceChannelImpl'
+
+## Only used by PosixProcess.java
+java/lang/ConcreteProcess$$ProcessManager.h: java/lang/ConcreteProcess.class
+	$(GCJH) -classpath '' -bootclasspath $(top_builddir) \
+	'java/lang/ConcreteProcess$$ProcessManager'
 
 ## Headers we maintain by hand and which we want to install.
 extra_headers = java/lang/Object.h java/lang/Class.h
@@ -777,29 +784,29 @@ gij_LDADD = -L$(here)/.libs libgcj.la
 ## linking this program.
 gij_DEPENDENCIES = libgcj.la libgcj.spec
 
-rmic_SOURCES =
+grmic_SOURCES =
 ## This is a dummy definition.
-EXTRA_rmic_SOURCES = $(rmi_java_source_files)
-rmic_LDFLAGS = --main=gnu.java.rmi.rmic.RMIC \
+EXTRA_grmic_SOURCES = $(rmi_java_source_files)
+grmic_LDFLAGS = --main=gnu.java.rmi.rmic.RMIC \
 	-rpath $(toolexeclibdir) -shared-libgcc $(THREADLDFLAGS)
-rmic_LINK = $(GCJLINK)
+grmic_LINK = $(GCJLINK)
 ## See jv_convert_LDADD.
-rmic_LDADD = -L$(here)/.libs libgcj.la
+grmic_LDADD = -L$(here)/.libs libgcj.la
 ## Depend on the spec file to make sure it is up to date before
 ## linking this program.
-rmic_DEPENDENCIES = libgcj.la libgcj.spec
+grmic_DEPENDENCIES = libgcj.la libgcj.spec
 
-rmiregistry_SOURCES =
+grmiregistry_SOURCES =
 ## This is a dummy definition.
-EXTRA_rmiregistry_SOURCES = $(rmi_java_source_files)
-rmiregistry_LDFLAGS = --main=gnu.java.rmi.registry.RegistryImpl \
+EXTRA_grmiregistry_SOURCES = $(rmi_java_source_files)
+grmiregistry_LDFLAGS = --main=gnu.java.rmi.registry.RegistryImpl \
 	-rpath $(toolexeclibdir) -shared-libgcc $(THREADLDFLAGS)
-rmiregistry_LINK = $(GCJLINK)
+grmiregistry_LINK = $(GCJLINK)
 ## See jv_convert_LDADD.
-rmiregistry_LDADD = -L$(here)/.libs libgcj.la
+grmiregistry_LDADD = -L$(here)/.libs libgcj.la
 ## Depend on the spec file to make sure it is up to date before
 ## linking this program.
-rmiregistry_DEPENDENCIES = libgcj.la libgcj.spec
+grmiregistry_DEPENDENCIES = libgcj.la libgcj.spec
 
 # The Unicode consortium does not permit re-distributing the file JIS0201.TXT.
 # You can get it from ftp://ftp.unicode.org/Public/MAPPINGS/EASTASIA/JIS/.
@@ -1102,6 +1109,7 @@ java/awt/geom/GeneralPath.java \
 java/awt/geom/QuadCurve2D.java \
 java/awt/image/AffineTransformOp.java \
 java/awt/image/BufferedImage.java \
+java/awt/image/ByteLookupTable.java \
 java/awt/image/ColorModel.java \
 java/awt/image/ComponentColorModel.java \
 java/awt/image/ComponentSampleModel.java \
@@ -1117,11 +1125,14 @@ java/awt/image/ImageConsumer.java \
 java/awt/image/ImageObserver.java \
 java/awt/image/ImageProducer.java \
 java/awt/image/IndexColorModel.java \
+java/awt/image/Kernel.java \
+java/awt/image/LookupTable.java \
 java/awt/image/PackedColorModel.java \
 java/awt/image/PixelInterleavedSampleModel.java \
 java/awt/image/Raster.java \
 java/awt/image/RasterOp.java \
 java/awt/image/SampleModel.java \
+java/awt/image/ShortLookupTable.java \
 java/awt/image/SinglePixelPackedSampleModel.java \
 java/awt/image/WritableRaster.java \
 java/awt/image/AreaAveragingScaleFilter.java \
@@ -1344,8 +1355,10 @@ javax/swing/plaf/basic/BasicSliderUI.java \
 javax/swing/plaf/basic/BasicSplitPaneDivider.java \
 javax/swing/plaf/basic/BasicSplitPaneUI.java \
 javax/swing/plaf/basic/BasicTabbedPaneUI.java \
+javax/swing/plaf/basic/BasicTextFieldUI.java \
 javax/swing/plaf/basic/BasicTextUI.java \
 javax/swing/plaf/basic/BasicToggleButtonUI.java \
+javax/swing/plaf/basic/BasicToolBarSeparatorUI.java \
 javax/swing/plaf/basic/BasicToolBarUI.java \
 javax/swing/plaf/basic/BasicTreeUI.java \
 javax/swing/plaf/basic/BasicViewportUI.java \
@@ -1459,6 +1472,8 @@ javax/swing/ListModel.java \
 javax/swing/ListSelectionModel.java \
 javax/swing/LookAndFeel.java \
 javax/swing/Scrollable.java \
+javax/swing/Spring.java \
+javax/swing/SpringLayout.java \
 javax/swing/SwingConstants.java \
 javax/swing/SwingUtilities.java \
 javax/swing/Timer.java \
@@ -1513,29 +1528,34 @@ javax/swing/text/AbstractDocument.java \
 javax/swing/text/AttributeSet.java \
 javax/swing/text/BadLocationException.java \
 javax/swing/text/Caret.java \
-javax/swing/text/CharacterIterator.java \
 javax/swing/text/ComponentView.java \
 javax/swing/text/DefaultCaret.java \
 javax/swing/text/DefaultEditorKit.java \
+javax/swing/text/DefaultHighlighter.java \
 javax/swing/text/Document.java \
 javax/swing/text/DocumentFilter.java \
 javax/swing/text/EditorKit.java \
 javax/swing/text/Element.java \
+javax/swing/text/FieldView.java \
 javax/swing/text/GapContent.java \
+javax/swing/text/Highlighter.java \
 javax/swing/text/JTextComponent.java \
 javax/swing/text/Keymap.java \
+javax/swing/text/LayeredHighlighter.java \
+javax/swing/text/MutableAttributeSet.java \
+javax/swing/text/NavigationFilter.java \
 javax/swing/text/PlainDocument.java \
-javax/swing/text/PlainEditorKit.java \
+javax/swing/text/PlainView.java \
 javax/swing/text/Position.java \
 javax/swing/text/Segment.java \
 javax/swing/text/Style.java \
-javax/swing/text/View.java \
-javax/swing/text/ViewFactory.java \
-javax/swing/text/MutableAttributeSet.java \
-javax/swing/text/NavigationFilter.java \
 javax/swing/text/StyledDocument.java \
 javax/swing/text/StyledEditorKit.java \
+javax/swing/text/TabExpander.java \
+javax/swing/text/TabableView.java \
 javax/swing/text/TextAction.java \
+javax/swing/text/View.java \
+javax/swing/text/ViewFactory.java \
 javax/swing/text/html/HTML.java \
 javax/swing/text/html/parser/ParserDelegator.java \
 javax/swing/tree/TreeNode.java \
@@ -2423,6 +2443,7 @@ gnu/java/locale/LocaleInformation_zh_HK.java \
 gnu/java/locale/LocaleInformation_zh_SG.java \
 gnu/java/locale/LocaleInformation_zh_TW.java \
 gnu/java/math/MPN.java \
+gnu/java/net/DefaultContentHandlerFactory.java \
 gnu/java/net/HeaderFieldHelper.java \
 gnu/java/net/PlainDatagramSocketImpl.java \
 gnu/java/net/PlainSocketImpl.java \
@@ -2499,6 +2520,8 @@ gnu/java/security/der/DEREncodingException.java \
 gnu/java/security/der/DERReader.java \
 gnu/java/security/der/DERValue.java \
 gnu/java/security/der/DERWriter.java \
+gnu/java/security/action/GetPropertyAction.java \
+gnu/java/security/action/SetAccessibleAction.java \
 gnu/java/security/provider/DefaultPolicy.java \
 gnu/java/security/provider/DSAKeyFactory.java \
 gnu/java/security/provider/DSAKeyPairGenerator.java \
@@ -2985,7 +3008,7 @@ java/util/natTimeZone.cc \
 java/util/zip/natDeflater.cc \
 java/util/zip/natInflater.cc
 
-x_java_source_files = \
+xlib_java_source_files = \
 gnu/gcj/xlib/Clip.java \
 gnu/gcj/xlib/Colormap.java \
 gnu/gcj/xlib/Display.java \
@@ -3021,7 +3044,7 @@ gnu/awt/xlib/XPanelPeer.java \
 gnu/awt/xlib/XFontPeer.java \
 gnu/awt/xlib/XToolkit.java
 
-x_nat_source_files = \
+xlib_nat_source_files = \
 gnu/gcj/xlib/natClip.cc \
 gnu/gcj/xlib/natColormap.cc \
 gnu/gcj/xlib/natDisplay.cc \
@@ -3096,7 +3119,7 @@ texinfo: TexinfoDoclet.class
 ## the C++ code whenever any .java file is touched.
 ## Also force all the class files to build first. This makes them build in
 ## the right order to improve performance.
-all-recursive: libgcj-@gcc_version@.jar $(nat_headers) $(x_nat_headers)
+all-recursive: libgcj-@gcc_version@.jar $(nat_headers) $(xlib_nat_headers)
 
 ## ################################################################
 

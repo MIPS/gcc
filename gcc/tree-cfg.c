@@ -127,6 +127,7 @@ build_tree_cfg (tree *tp)
 
   /* Initialize the basic block array.  */
   init_flow ();
+  profile_status = PROFILE_ABSENT;
   n_basic_blocks = 0;
   last_basic_block = 0;
   VARRAY_BB_INIT (basic_block_info, initial_cfg_capacity, "basic_block_info");
@@ -461,16 +462,11 @@ static void
 make_ctrl_stmt_edges (basic_block bb)
 {
   tree last = last_stmt (bb);
-  tree first = first_stmt (bb);
 
 #if defined ENABLE_CHECKING
   if (last == NULL_TREE)
     abort();
 #endif
-
-  if (TREE_CODE (first) == LABEL_EXPR
-      && DECL_NONLOCAL (LABEL_EXPR_LABEL (first)))
-    make_edge (ENTRY_BLOCK_PTR, bb, EDGE_ABNORMAL);
 
   switch (TREE_CODE (last))
     {
@@ -723,10 +719,11 @@ make_goto_expr_edges (basic_block bb)
 
 /* Remove unreachable blocks and other miscellaneous clean up work.  */
 
-void
+bool
 cleanup_tree_cfg (void)
 {
   bool something_changed = true;
+  bool retval = false;
 
   timevar_push (TV_TREE_CLEANUP_CFG);
 
@@ -737,6 +734,7 @@ cleanup_tree_cfg (void)
       something_changed = cleanup_control_flow ();
       something_changed |= delete_unreachable_blocks ();
       something_changed |= thread_jumps ();
+      retval |= something_changed;
     }
 
   /* Merging the blocks creates no new opportunities for the other
@@ -749,6 +747,7 @@ cleanup_tree_cfg (void)
   verify_flow_info ();
 #endif
   timevar_pop (TV_TREE_CLEANUP_CFG);
+  return retval;
 }
 
 
@@ -2548,10 +2547,8 @@ computed_goto_p (tree t)
 bool
 simple_goto_p (tree expr)
 {
-  return  (TREE_CODE (expr) == GOTO_EXPR
-	   && TREE_CODE (GOTO_DESTINATION (expr)) == LABEL_DECL
-	   && (decl_function_context (GOTO_DESTINATION (expr))
-	       == current_function_decl));
+  return (TREE_CODE (expr) == GOTO_EXPR
+	  && TREE_CODE (GOTO_DESTINATION (expr)) == LABEL_DECL);
 }
 
 
@@ -2839,8 +2836,8 @@ void
 bsi_insert_before (block_stmt_iterator *i, tree t, enum bsi_iterator_update m)
 {
   set_bb_for_stmt (t, i->bb);
-  modify_stmt (t);
   tsi_link_before (&i->tsi, t, m);
+  modify_stmt (t);
 }
 
 
@@ -2852,8 +2849,8 @@ void
 bsi_insert_after (block_stmt_iterator *i, tree t, enum bsi_iterator_update m)
 {
   set_bb_for_stmt (t, i->bb);
-  modify_stmt (t);
   tsi_link_after (&i->tsi, t, m);
+  modify_stmt (t);
 }
 
 
@@ -2865,7 +2862,6 @@ bsi_remove (block_stmt_iterator *i)
 {
   tree t = bsi_stmt (*i);
   set_bb_for_stmt (t, NULL);
-  modify_stmt (t);
   tsi_delink (&i->tsi);
 }
 
@@ -4383,8 +4379,11 @@ tree_duplicate_bb (basic_block bb)
 {
   basic_block new_bb;
   block_stmt_iterator bsi, bsi_tgt;
-  /* APPLE LOCAL lno */
   tree phi;
+  def_optype defs;
+  v_may_def_optype v_may_defs;
+  v_must_def_optype v_must_defs;
+  unsigned j;
 
   new_bb = create_empty_bb (EXIT_BLOCK_PTR->prev_bb);
 
@@ -4393,7 +4392,10 @@ tree_duplicate_bb (basic_block bb)
      since the edges are not ready yet.  Keep the chain of phi nodes in
      the same order, so that we can add them later.  */
   for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
-    create_phi_node (PHI_RESULT (phi), new_bb);
+    {
+      mark_for_rewrite (PHI_RESULT (phi));
+      create_phi_node (PHI_RESULT (phi), new_bb);
+    }
   set_phi_nodes (new_bb, nreverse (phi_nodes (new_bb)));
   /* APPLE LOCAL end lno */
 
@@ -4405,6 +4407,21 @@ tree_duplicate_bb (basic_block bb)
 
       if (TREE_CODE (stmt) == LABEL_EXPR)
 	continue;
+
+      /* Record the definitions.  */
+      get_stmt_operands (stmt);
+
+      defs = STMT_DEF_OPS (stmt);
+      for (j = 0; j < NUM_DEFS (defs); j++)
+	mark_for_rewrite (DEF_OP (defs, j));
+
+      v_may_defs = STMT_V_MAY_DEF_OPS (stmt);
+      for (j = 0; j < NUM_V_MAY_DEFS (v_may_defs); j++)
+	mark_for_rewrite (V_MAY_DEF_RESULT (v_may_defs, j));
+
+      v_must_defs = STMT_V_MUST_DEF_OPS (stmt);
+      for (j = 0; j < NUM_V_MUST_DEFS (v_must_defs); j++)
+	mark_for_rewrite (V_MUST_DEF_OP (v_must_defs, j));
 
       copy = unshare_expr (stmt);
 
@@ -4894,6 +4911,7 @@ dump_function_to_file (tree fn, FILE *file, int flags)
   if (basic_block_info)
     {
       /* Make a CFG based dump.  */
+      check_bb_profile (ENTRY_BLOCK_PTR, file);
       if (!ignore_topmost_bind)
 	fprintf (file, "{\n");
 
@@ -4904,6 +4922,7 @@ dump_function_to_file (tree fn, FILE *file, int flags)
 	dump_generic_bb (file, bb, 2, flags);
 	
       fprintf (file, "}\n");
+      check_bb_profile (EXIT_BLOCK_PTR, file);
     }
   else
     {
@@ -5345,6 +5364,79 @@ struct tree_opt_pass pass_split_crit_edges =
   0,                             /* todo_flags_start */
   TODO_dump_func,                             /* todo_flags_finish */
 };
+
+
+/* Return EXP if it is a valid GIMPLE rvalue, else gimplify it into
+   a temporary, make sure and register it to be renamed if necessary,
+   and finally return the temporary.  Put the statements to compute
+   EXP before the current statement in BSI.  */
+
+tree
+gimplify_val (block_stmt_iterator *bsi, tree type, tree exp)
+{
+  tree t, new_stmt, orig_stmt;
+
+  if (is_gimple_val (exp))
+    return exp;
+
+  t = make_rename_temp (type, NULL);
+  new_stmt = build (MODIFY_EXPR, type, t, exp);
+
+  orig_stmt = bsi_stmt (*bsi);
+  SET_EXPR_LOCUS (new_stmt, EXPR_LOCUS (orig_stmt));
+  TREE_BLOCK (new_stmt) = TREE_BLOCK (orig_stmt);
+
+  bsi_insert_before (bsi, new_stmt, BSI_SAME_STMT);
+
+  return t;
+}
+
+/* Build a ternary operation and gimplify it.  Emit code before BSI.
+   Return the gimple_val holding the result.  */
+
+tree
+gimplify_build3 (block_stmt_iterator *bsi, enum tree_code code,
+		 tree type, tree a, tree b, tree c)
+{
+  tree ret;
+
+  ret = fold (build3 (code, type, a, b, c));
+  STRIP_NOPS (ret);
+
+  return gimplify_val (bsi, type, ret);
+}
+
+/* Build a binary operation and gimplify it.  Emit code before BSI.
+   Return the gimple_val holding the result.  */
+
+tree
+gimplify_build2 (block_stmt_iterator *bsi, enum tree_code code,
+		 tree type, tree a, tree b)
+{
+  tree ret;
+
+  ret = fold (build2 (code, type, a, b));
+  STRIP_NOPS (ret);
+
+  return gimplify_val (bsi, type, ret);
+}
+
+/* Build a unary operation and gimplify it.  Emit code before BSI.
+   Return the gimple_val holding the result.  */
+
+tree
+gimplify_build1 (block_stmt_iterator *bsi, enum tree_code code, tree type,
+		 tree a)
+{
+  tree ret;
+
+  ret = fold (build1 (code, type, a));
+  STRIP_NOPS (ret);
+
+  return gimplify_val (bsi, type, ret);
+}
+
+
 
 /* Emit return warnings.  */
 

@@ -102,11 +102,13 @@ do {									\
     if (rs6000_long_double_size_string == 0)				\
       rs6000_long_double_type_size = 128;				\
   }									\
+  /* APPLE LOCAL begin 64-bit */					\
   if (TARGET_64BIT && ! TARGET_POWERPC64)				\
     {									\
       target_flags |= MASK_POWERPC64;					\
       warning ("-m64 requires PowerPC64 architecture, enabling");	\
     }									\
+  /* APPLE LOCAL end 64-bit */						\
 } while(0)
 
 /* Darwin has 128-bit long double support in libc in 10.4 and later.
@@ -115,7 +117,6 @@ do {									\
    not available.  */
 
 #define RS6000_DEFAULT_LONG_DOUBLE_SIZE 128
-
 
 /* We want -fPIC by default, unless we're using -static to compile for
    the kernel or some such.  */
@@ -441,16 +442,11 @@ extern unsigned round_type_align (union tree_node*, unsigned, unsigned); /* rs60
 /* Address of indirect call must be computed here */
 #define MAGIC_INDIRECT_CALL_REG 12
 
-/* APPLE LOCAL begin backport 3721776 fix from FSF mainline. */
 /* For binary compatibility with 2.95; Darwin C APIs use bool from
    stdbool.h, which was an int-sized enum in 2.95.  Users can explicitly
    choose to have sizeof(bool)==1 with the -mone-byte-bool switch. */
 extern const char *darwin_one_byte_bool;
 #define BOOL_TYPE_SIZE (darwin_one_byte_bool ? CHAR_TYPE_SIZE : INT_TYPE_SIZE)
-/* APPLE LOCAL end backport 3721776 fix from FSF mainline. */
-
-/* APPLE LOCAL OS pragma hook */
-/* Register generic Darwin pragmas as "OS" pragmas.  */
 
 #undef REGISTER_TARGET_PRAGMAS
 #define REGISTER_TARGET_PRAGMAS DARWIN_REGISTER_TARGET_PRAGMAS

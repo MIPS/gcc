@@ -38,7 +38,7 @@ struct operand_alternative
   const char *constraint;
 
   /* The register class valid for this alternative (possibly NO_REGS).  */
-  enum reg_class class;
+  enum reg_class cl;
 
   /* "Badness" of this alternative, computed from number of '?' and '!'
      characters in the constraint string.  */
@@ -95,22 +95,6 @@ extern int next_insn_tests_no_inequality (rtx);
 #endif
 extern int reg_fits_class_p (rtx, enum reg_class, int, enum machine_mode);
 extern rtx *find_single_use (rtx, rtx, rtx *);
-
-extern int general_operand (rtx, enum machine_mode);
-extern int address_operand (rtx, enum machine_mode);
-extern int register_operand (rtx, enum machine_mode);
-extern int pmode_register_operand (rtx, enum machine_mode);
-extern int scratch_operand (rtx, enum machine_mode);
-extern int immediate_operand (rtx, enum machine_mode);
-extern int const_int_operand (rtx, enum machine_mode);
-extern int const_double_operand (rtx, enum machine_mode);
-extern int nonimmediate_operand (rtx, enum machine_mode);
-extern int nonmemory_operand (rtx, enum machine_mode);
-extern int push_operand (rtx, enum machine_mode);
-extern int pop_operand (rtx, enum machine_mode);
-extern int memory_operand (rtx, enum machine_mode);
-extern int indirect_operand (rtx, enum machine_mode);
-extern int comparison_operator (rtx, enum machine_mode);
 
 extern int offsettable_memref_p (rtx);
 extern int offsettable_nonstrict_memref_p (rtx);

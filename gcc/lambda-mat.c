@@ -535,20 +535,6 @@ lambda_matrix_vector_mult (lambda_matrix matrix, int m, int n,
       dest[i] += matrix[i][j] * vec[j];
 }
 
-/* Print out a vector VEC of length N to OUTFILE.  */
-
-void
-print_lambda_vector (FILE * outfile, lambda_vector vector, int n)
-{
-  int i;
-
-  for (i = 0; i < n; i++)
-    fprintf (outfile, "%3d ", vector[i]);
-  fprintf (outfile, "\n");
-}
-
-/* Print out an M x N matrix MAT to OUTFILE.  */
-
 void
 print_lambda_matrix (FILE * outfile, lambda_matrix matrix, int m, int n)
 {

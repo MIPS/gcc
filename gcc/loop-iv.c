@@ -104,17 +104,17 @@ dump_iv_info (FILE *file, struct rtx_iv *iv)
       return;
     }
 
-  if (iv->step == const0_rtx)
-    {
-      fprintf (file, "invariant ");
-      print_rtl (file, iv->base);
-      return;
-    }
+  if (iv->step == const0_rtx
+      && !iv->first_special)
+    fprintf (file, "invariant ");
 
   print_rtl (file, iv->base);
-  fprintf (file, " + ");
-  print_rtl (file, iv->step);
-  fprintf (file, " * iteration");
+  if (iv->step != const0_rtx)
+    {
+      fprintf (file, " + ");
+      print_rtl (file, iv->step);
+      fprintf (file, " * iteration");
+    }
   fprintf (file, " (in %s)", GET_MODE_NAME (iv->mode));
 
   if (iv->mode != iv->extend_mode)
@@ -440,6 +440,21 @@ iv_constant (struct rtx_iv *iv, rtx cst, enum machine_mode mode)
 static bool
 iv_subreg (struct rtx_iv *iv, enum machine_mode mode)
 {
+  /* If iv is invariant, just calculate the new value.  */
+  if (iv->step == const0_rtx
+      && !iv->first_special)
+    {
+      rtx val = get_iv_value (iv, const0_rtx);
+      val = lowpart_subreg (mode, val, iv->extend_mode);
+
+      iv->base = val;
+      iv->extend = NIL;
+      iv->mode = iv->extend_mode = mode;
+      iv->delta = const0_rtx;
+      iv->mult = const1_rtx;
+      return true;
+    }
+
   if (iv->extend_mode == mode)
     return true;
 
@@ -465,6 +480,21 @@ iv_subreg (struct rtx_iv *iv, enum machine_mode mode)
 static bool
 iv_extend (struct rtx_iv *iv, enum rtx_code extend, enum machine_mode mode)
 {
+  /* If iv is invariant, just calculate the new value.  */
+  if (iv->step == const0_rtx
+      && !iv->first_special)
+    {
+      rtx val = get_iv_value (iv, const0_rtx);
+      val = simplify_gen_unary (extend, mode, val, iv->extend_mode);
+
+      iv->base = val;
+      iv->extend = NIL;
+      iv->mode = iv->extend_mode = mode;
+      iv->delta = const0_rtx;
+      iv->mult = const1_rtx;
+      return true;
+    }
+
   if (mode != iv->extend_mode)
     return false;
 
@@ -1357,7 +1387,7 @@ static void
 simplify_using_assignment (rtx insn, rtx *expr, regset altered)
 {
   rtx set = single_set (insn);
-  rtx lhs, rhs;
+  rtx lhs = NULL_RTX, rhs;
   bool ret = false;
 
   if (set)
@@ -1737,9 +1767,7 @@ simplify_using_initial_values (struct loop *loop, enum rtx_code op, rtx *expr)
       insn = BB_END (e->src);
       if (any_condjump_p (insn))
 	{
-	  /* FIXME -- slightly wrong -- what if compared register
-	     gets altered between start of the condition and insn?  */
-	  rtx cond = get_condition (BB_END (e->src), NULL, false);
+	  rtx cond = get_condition (BB_END (e->src), NULL, false, true);
       
 	  if (cond && (e->flags & EDGE_FALLTHRU))
 	    cond = reversed_condition (cond);
@@ -2472,7 +2500,7 @@ check_simple_exit (struct loop *loop, edge e, struct niter_desc *desc)
   desc->in_edge = ei;
 
   /* Test whether the condition is suitable.  */
-  if (!(condition = get_condition (BB_END (ei->src), &at, false)))
+  if (!(condition = get_condition (BB_END (ei->src), &at, false, false)))
     return;
 
   if (ei->flags & EDGE_FALLTHRU)

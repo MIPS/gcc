@@ -2368,7 +2368,7 @@ get_computation_at (struct loop *loop,
     }
   else if (TREE_CODE (cbase) == INTEGER_CST)
     {
-      ratio = build_int_cst (utype, ratioi);
+      ratio = build_int_cst (utype, ratioi, 0);
       delta = fold (build (MULT_EXPR, utype, ratio, cbase));
       delta = fold (build (MINUS_EXPR, utype, ubase, delta));
       expr = fold (build (MULT_EXPR, utype, ratio, expr));
@@ -2377,7 +2377,7 @@ get_computation_at (struct loop *loop,
   else
     {
       expr = fold (build (MINUS_EXPR, utype, expr, cbase));
-      ratio = build_int_cst (utype, ratioi);
+      ratio = build_int_cst (utype, ratioi, 0);
       expr = fold (build (MULT_EXPR, utype, ratio, expr));
       expr = fold (build (PLUS_EXPR, utype, ubase, expr));
     }
@@ -2741,7 +2741,7 @@ force_var_cost (struct ivopts_data *data,
       tree type = build_pointer_type (integer_type_node);
 
       integer_cost = computation_cost (convert (integer_type_node,
-						build_int_2 (2000, 0)));
+						build_int_cst (NULL_TREE, 2000, 0)));
 
       SET_DECL_RTL (var, x);
       TREE_STATIC (var) = 1;
@@ -2751,7 +2751,7 @@ force_var_cost (struct ivopts_data *data,
       address_cost = computation_cost (build (PLUS_EXPR, type,
 					      addr,
 					      convert (type,
-						       build_int_2 (2000, 0))));
+						       build_int_cst (NULL_TREE, 2000, 0))));
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
 	  fprintf (dump_file, "force_var_cost:\n");

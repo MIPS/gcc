@@ -87,16 +87,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    alignment.  */
 #define CEIL_ROUND(VALUE,ALIGN)	(((VALUE) + (ALIGN) - 1) & ~((ALIGN)- 1))
 
-/* NEED_SEPARATE_AP means that we cannot derive ap from the value of fp
-   during rtl generation.  If they are different register numbers, this is
-   always true.  It may also be true if
-   FIRST_PARM_OFFSET - STARTING_FRAME_OFFSET is not a constant during rtl
-   generation.  See fix_lexical_addr for details.  */
-
-#if ARG_POINTER_REGNUM != FRAME_POINTER_REGNUM
-#define NEED_SEPARATE_AP
-#endif
-
 /* Nonzero if function being compiled doesn't contain any calls
    (ignoring the prologue and epilogue).  This is set prior to
    local register allocation and is valid for the remaining
@@ -216,7 +206,6 @@ static int contains (rtx, varray_type);
 #ifdef HAVE_return
 static void emit_return_into_block (basic_block, rtx);
 #endif
-static void purge_single_hard_subreg_set (rtx);
 #if defined(HAVE_epilogue) && defined(INCOMING_RETURN_ADDR_RTX)
 static rtx keep_stack_depressed (rtx);
 #endif
@@ -303,7 +292,6 @@ pop_function_context_from (tree context ATTRIBUTE_UNUSED)
   lang_hooks.function.leave_nested (p);
 
   /* Reset variables that have known state during rtx generation.  */
-  rtx_equal_function_value_matters = 1;
   virtuals_instantiated = 0;
   generating_concat_p = 1;
 }
@@ -327,7 +315,6 @@ free_after_parsing (struct function *f)
   /* f->eh->eh_return_stub_label is used by code generation.  */
 
   lang_hooks.function.final (f);
-  f->stmt = NULL;
 }
 
 /* Clear out all parts of the state in F that can safely be discarded
@@ -405,7 +392,7 @@ assign_stack_local_1 (enum machine_mode mode, HOST_WIDE_INT size, int align,
 {
   rtx x, addr;
   int bigend_correction = 0;
-  int alignment;
+  unsigned int alignment;
   int frame_off, frame_alignment, frame_phase;
 
   if (align == 0)
@@ -465,11 +452,13 @@ assign_stack_local_1 (enum machine_mode mode, HOST_WIDE_INT size, int align,
 	  use logical operations which are unambiguous.  */
 #ifdef FRAME_GROWS_DOWNWARD
       function->x_frame_offset
-	= (FLOOR_ROUND (function->x_frame_offset - frame_phase, alignment)
+	= (FLOOR_ROUND (function->x_frame_offset - frame_phase,
+			(unsigned HOST_WIDE_INT) alignment)
 	   + frame_phase);
 #else
       function->x_frame_offset
-	= (CEIL_ROUND (function->x_frame_offset - frame_phase, alignment)
+	= (CEIL_ROUND (function->x_frame_offset - frame_phase,
+		       (unsigned HOST_WIDE_INT) alignment)
 	   + frame_phase);
 #endif
     }
@@ -616,10 +605,9 @@ make_slot_available (struct temp_slot *temp)
 
    KEEP is 1 if this slot is to be retained after a call to
    free_temp_slots.  Automatic variables for a block are allocated
-   with this flag.  KEEP is 2 if we allocate a longer term temporary,
-   whose lifetime is controlled by CLEANUP_POINT_EXPRs.  KEEP is 3
-   if we are to allocate something at an inner level to be treated as
-   a variable in the block (e.g., a SAVE_EXPR).
+   with this flag.  KEEP values of 2 or 3 were needed respectively
+   for variables whose lifetime is controlled by CLEANUP_POINT_EXPRs
+   or for SAVE_EXPRs, but they are now unused and will abort.
 
    TYPE is the type that will be used for the stack slot.  */
 
@@ -634,6 +622,10 @@ assign_stack_temp_for_type (enum machine_mode mode, HOST_WIDE_INT size, int keep
   /* If SIZE is -1 it means that somebody tried to allocate a temporary
      of a variable size.  */
   if (size == -1)
+    abort ();
+
+  /* These are now unused.  */
+  if (keep > 1)
     abort ();
 
   if (mode == BLKmode)
@@ -760,22 +752,8 @@ assign_stack_temp_for_type (enum machine_mode mode, HOST_WIDE_INT size, int keep
   p->in_use = 1;
   p->addr_taken = 0;
   p->type = type;
-
-  if (keep == 2)
-    {
-      p->level = target_temp_slot_level;
-      p->keep = 1;
-    }
-  else if (keep == 3)
-    {
-      p->level = var_temp_slot_level;
-      p->keep = 0;
-    }
-  else
-    {
-      p->level = temp_slot_level;
-      p->keep = keep;
-    }
+  p->level = temp_slot_level;
+  p->keep = keep;
 
   pp = temp_slots_at_level (p->level);
   insert_slot_to_list (p, pp);
@@ -1217,8 +1195,6 @@ init_temp_slots (void)
   avail_temp_slots = 0;
   used_temp_slots = 0;
   temp_slot_level = 0;
-  var_temp_slot_level = 0;
-  target_temp_slot_level = 0;
 }
 
 /* These routines are responsible for converting virtual register references
@@ -1274,74 +1250,6 @@ static int cfa_offset;
 #define ARG_POINTER_CFA_OFFSET(FNDECL) FIRST_PARM_OFFSET (FNDECL)
 #endif
 
-
-/* Convert a SET of a hard subreg to a set of the appropriate hard
-   register.  A subroutine of purge_hard_subreg_sets.  */
-
-static void
-purge_single_hard_subreg_set (rtx pattern)
-{
-  rtx reg = SET_DEST (pattern);
-  enum machine_mode mode = GET_MODE (SET_DEST (pattern));
-  int offset = 0;
-
-  if (GET_CODE (reg) == SUBREG && REG_P (SUBREG_REG (reg))
-      && REGNO (SUBREG_REG (reg)) < FIRST_PSEUDO_REGISTER)
-    {
-      offset = subreg_regno_offset (REGNO (SUBREG_REG (reg)),
-				    GET_MODE (SUBREG_REG (reg)),
-				    SUBREG_BYTE (reg),
-				    GET_MODE (reg));
-      reg = SUBREG_REG (reg);
-    }
-
-
-  if (REG_P (reg) && REGNO (reg) < FIRST_PSEUDO_REGISTER)
-    {
-      reg = gen_rtx_REG (mode, REGNO (reg) + offset);
-      SET_DEST (pattern) = reg;
-    }
-}
-
-/* Eliminate all occurrences of SETs of hard subregs from INSNS.  The
-   only such SETs that we expect to see are those left in because
-   integrate can't handle sets of parts of a return value register.
-
-   We don't use alter_subreg because we only want to eliminate subregs
-   of hard registers.  */
-
-void
-purge_hard_subreg_sets (rtx insn)
-{
-  for (; insn; insn = NEXT_INSN (insn))
-    {
-      if (INSN_P (insn))
-	{
-	  rtx pattern = PATTERN (insn);
-	  switch (GET_CODE (pattern))
-	    {
-	    case SET:
-	      if (GET_CODE (SET_DEST (pattern)) == SUBREG)
-		purge_single_hard_subreg_set (pattern);
-	      break;
-	    case PARALLEL:
-	      {
-		int j;
-		for (j = XVECLEN (pattern, 0) - 1; j >= 0; j--)
-		  {
-		    rtx inner_pattern = XVECEXP (pattern, 0, j);
-		    if (GET_CODE (inner_pattern) == SET
-			&& GET_CODE (SET_DEST (inner_pattern)) == SUBREG)
-		      purge_single_hard_subreg_set (inner_pattern);
-		  }
-	      }
-	      break;
-	    default:
-	      break;
-	    }
-	}
-    }
-}
 
 /* Pass through the INSNS of function FNDECL and convert virtual register
    references to hard register references.  */
@@ -1978,6 +1886,11 @@ aggregate_value_p (tree exp, tree fntype)
 
   if (TREE_CODE (type) == VOID_TYPE)
     return 0;
+  /* If the front end has decided that this needs to be passed by
+     reference, do so.  */
+  if ((TREE_CODE (exp) == PARM_DECL || TREE_CODE (exp) == RESULT_DECL)
+      && DECL_BY_REFERENCE (exp))
+    return 1;
   if (targetm.calls.return_in_memory (type, fntype))
     return 1;
   /* Types that are TREE_ADDRESSABLE must be constructed in memory,
@@ -2280,15 +2193,6 @@ assign_parm_find_data_types (struct assign_parm_data_all *all, tree parm,
     {
       passed_type = nominal_type = build_pointer_type (passed_type);
       data->passed_pointer = true;
-      passed_mode = nominal_mode = Pmode;
-    }
-  /* See if the frontend wants to pass this by invisible reference.  */
-  else if (passed_type != nominal_type
-	   && POINTER_TYPE_P (passed_type)
-	   && TREE_TYPE (passed_type) == nominal_type)
-    {
-      nominal_type = passed_type;
-      data->passed_pointer = 1;
       passed_mode = nominal_mode = Pmode;
     }
 
@@ -2731,7 +2635,8 @@ assign_parm_setup_block (tree parm, struct assign_parm_data_one *data)
 	      rtx reg = gen_rtx_REG (word_mode, REGNO (data->entry_parm));
 
 	      x = expand_shift (LSHIFT_EXPR, word_mode, reg,
-				build_int_2 (by, 0), NULL_RTX, 1);
+				build_int_cst (NULL_TREE, by, 0),
+				NULL_RTX, 1);
 	      tem = change_address (mem, word_mode, 0);
 	      emit_move_insn (tem, x);
 	    }
@@ -3190,9 +3095,14 @@ assign_parms (tree fndecl)
       rtx addr = DECL_RTL (all.function_result_decl);
       rtx x;
 
-      addr = convert_memory_address (Pmode, addr);
-      x = gen_rtx_MEM (DECL_MODE (result), addr);
-      set_mem_attributes (x, result, 1);
+      if (DECL_BY_REFERENCE (result))
+	x = addr;
+      else
+	{
+	  addr = convert_memory_address (Pmode, addr);
+	  x = gen_rtx_MEM (DECL_MODE (result), addr);
+	  set_mem_attributes (x, result, 1);
+	}
       SET_DECL_RTL (result, x);
     }
 
@@ -3590,41 +3500,6 @@ setjmp_args_warning (void)
 }
 
 
-/* Convert a stack slot address ADDR for variable VAR
-   (from a containing function)
-   into an address valid in this function (using a static chain).  */
-
-rtx
-fix_lexical_addr (rtx addr, tree var)
-{
-  rtx basereg;
-  HOST_WIDE_INT displacement;
-  tree context = decl_function_context (var);
-  struct function *fp;
-  rtx base = 0;
-
-  /* If this is the present function, we need not do anything.  */
-  if (context == current_function_decl)
-    return addr;
-
-  fp = find_function_data (context);
-
-  /* Decode given address as base reg plus displacement.  */
-  if (REG_P (addr))
-    basereg = addr, displacement = 0;
-  else if (GET_CODE (addr) == PLUS && GET_CODE (XEXP (addr, 1)) == CONST_INT)
-    basereg = XEXP (addr, 0), displacement = INTVAL (XEXP (addr, 1));
-  else
-    abort ();
-
-  if (base == 0)
-    abort ();
-
-  /* Use same offset, relative to appropriate static chain or argument
-     pointer.  */
-  return plus_constant (base, displacement);
-}
-
 /* Identify BLOCKs referenced by more than one NOTE_INSN_BLOCK_{BEG,END},
    and create duplicate blocks.  */
 /* ??? Need an option to either create block fragments or to create
@@ -3915,7 +3790,6 @@ allocate_struct_function (tree fndecl)
 
   cfun->function_frequency = FUNCTION_FREQUENCY_NORMAL;
 
-  init_stmt_for_function ();
   init_eh_for_function ();
 
   lang_hooks.function.init (cfun);
@@ -3967,10 +3841,6 @@ prepare_function_start (tree fndecl)
 
   /* We haven't done register allocation yet.  */
   reg_renumber = 0;
-
-  /* Indicate that we need to distinguish between the return value of the
-     present function and the return value of a function being called.  */
-  rtx_equal_function_value_matters = 1;
 
   /* Indicate that we have not instantiated virtual registers yet.  */
   virtuals_instantiated = 0;
@@ -4155,8 +4025,12 @@ expand_function_start (tree subr)
 	}
       if (value_address)
 	{
-	  rtx x = gen_rtx_MEM (DECL_MODE (DECL_RESULT (subr)), value_address);
-	  set_mem_attributes (x, DECL_RESULT (subr), 1);
+	  rtx x = value_address;
+	  if (!DECL_BY_REFERENCE (DECL_RESULT (subr)))
+	    {
+	      x = gen_rtx_MEM (DECL_MODE (DECL_RESULT (subr)), x);
+	      set_mem_attributes (x, DECL_RESULT (subr), 1);
+	    }
 	  SET_DECL_RTL (DECL_RESULT (subr), x);
 	}
     }
@@ -4218,8 +4092,9 @@ expand_function_start (tree subr)
 	 before the frame variable gets declared.  Help out...  */
       expand_var (TREE_OPERAND (cfun->nonlocal_goto_save_area, 0));
 
-      t_save = build (ARRAY_REF, ptr_type_node, cfun->nonlocal_goto_save_area,
-		      integer_zero_node, NULL_TREE, NULL_TREE);
+      t_save = build4 (ARRAY_REF, ptr_type_node,
+		       cfun->nonlocal_goto_save_area,
+		       integer_zero_node, NULL_TREE, NULL_TREE);
       r_save = expand_expr (t_save, NULL_RTX, VOIDmode, EXPAND_WRITE);
       r_save = convert_memory_address (Pmode, r_save);
 
@@ -4520,17 +4395,22 @@ expand_function_end (void)
   if (current_function_returns_struct
       || current_function_returns_pcc_struct)
     {
-      rtx value_address
-	= XEXP (DECL_RTL (DECL_RESULT (current_function_decl)), 0);
+      rtx value_address = DECL_RTL (DECL_RESULT (current_function_decl));
       tree type = TREE_TYPE (DECL_RESULT (current_function_decl));
+      rtx outgoing;
+
+      if (DECL_BY_REFERENCE (DECL_RESULT (current_function_decl)))
+	type = TREE_TYPE (type);
+      else
+	value_address = XEXP (value_address, 0);
+
 #ifdef FUNCTION_OUTGOING_VALUE
-      rtx outgoing
-	= FUNCTION_OUTGOING_VALUE (build_pointer_type (type),
-				   current_function_decl);
+      outgoing = FUNCTION_OUTGOING_VALUE (build_pointer_type (type),
+					  current_function_decl);
 #else
-      rtx outgoing
-	= FUNCTION_VALUE (build_pointer_type (type), current_function_decl);
-#endif
+      outgoing = FUNCTION_VALUE (build_pointer_type (type),
+				 current_function_decl);
+#endif 
 
       /* Mark this as a function return value so integrate will delete the
 	 assignment and USE below when inlining this function.  */
@@ -5276,7 +5156,7 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
          use return.  Inserting a jump 'by hand' is extremely messy, so
 	 we take advantage of cfg_layout_finalize using
 	fixup_fallthru_exit_predecessor.  */
-      cfg_layout_initialize ();
+      cfg_layout_initialize (0);
       FOR_EACH_BB (cur_bb)
 	if (cur_bb->index >= 0 && cur_bb->next_bb->index >= 0)
 	  cur_bb->rbi->next = cur_bb->next_bb;

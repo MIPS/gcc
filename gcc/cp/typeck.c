@@ -2924,15 +2924,20 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
     case ROUND_DIV_EXPR:
     case EXACT_DIV_EXPR:
       if ((code0 == INTEGER_TYPE || code0 == REAL_TYPE
-	   || code0 == COMPLEX_TYPE)
+	   || code0 == COMPLEX_TYPE || code0 == VECTOR_TYPE)
 	  && (code1 == INTEGER_TYPE || code1 == REAL_TYPE
-	      || code1 == COMPLEX_TYPE))
+	      || code1 == COMPLEX_TYPE || code1 == VECTOR_TYPE))
 	{
 	  if (TREE_CODE (op1) == INTEGER_CST && integer_zerop (op1))
 	    warning ("division by zero in `%E / 0'", op0);
 	  else if (TREE_CODE (op1) == REAL_CST && real_zerop (op1))
 	    warning ("division by zero in `%E / 0.'", op0);
 	      
+	  if (code0 == COMPLEX_TYPE || code0 == VECTOR_TYPE)
+	    code0 = TREE_CODE (TREE_TYPE (TREE_TYPE (op0)));
+	  if (code1 == COMPLEX_TYPE || code1 == VECTOR_TYPE)
+	    code1 = TREE_CODE (TREE_TYPE (TREE_TYPE (op1)));
+
 	  if (!(code0 == INTEGER_TYPE && code1 == INTEGER_TYPE))
 	    resultcode = RDIV_EXPR;
 	  else
@@ -3592,6 +3597,24 @@ build_x_unary_op (enum tree_code code, tree xarg)
     {
       if (type_dependent_expression_p (xarg))
 	return build_min_nt (code, xarg, NULL_TREE);
+
+      /* For non-dependent pointer-to-member, the SCOPE_REF will be
+	 processed during template substitution.  Just compute the
+	 right type here and build an ADDR_EXPR around it for
+	 diagnostics.  */
+      if (code == ADDR_EXPR && TREE_CODE (xarg) == SCOPE_REF)
+	{
+	  tree type;
+	  if (TREE_TYPE (xarg) == unknown_type_node)
+	    type = unknown_type_node;
+	  else if (TREE_CODE (TREE_TYPE (xarg)) == FUNCTION_TYPE)
+	    type = build_pointer_type (TREE_TYPE (xarg));
+	  else
+	    type = build_ptrmem_type (TREE_OPERAND (xarg, 0),
+				      TREE_TYPE (xarg));
+	  return build_min (code, type, xarg, NULL_TREE);
+	}
+
       xarg = build_non_dependent_expr (xarg);
     }
 
@@ -5082,6 +5105,7 @@ build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs)
   tree lhstype = TREE_TYPE (lhs);
   tree olhstype = lhstype;
   tree olhs = NULL_TREE;
+  bool plain_assign = (modifycode == NOP_EXPR);
 
   /* Avoid duplicate error messages from operands that had errors.  */
   if (lhs == error_mark_node || rhs == error_mark_node)
@@ -5341,6 +5365,8 @@ build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs)
 		  lhstype, lhs, newrhs);
 
   TREE_SIDE_EFFECTS (result) = 1;
+  if (!plain_assign)
+    TREE_NO_WARNING (result) = 1;
 
   /* If we got the LHS in a different type for storing in,
      convert the result back to the nominal type of LHS
@@ -5372,7 +5398,10 @@ build_x_modify_expr (tree lhs, enum tree_code modifycode, tree rhs)
 				make_node (modifycode),
 				/*overloaded_p=*/NULL);
       if (rval)
-	return rval;
+	{
+	  TREE_NO_WARNING (rval) = 1;
+	  return rval;
+	}
     }
   return build_modify_expr (lhs, modifycode, rhs);
 }
@@ -5639,7 +5668,10 @@ build_ptrmemfunc (tree type, tree pfn, int force)
 	}
 
       /* Just adjust the DELTA field.  */
-      my_friendly_assert (TREE_TYPE (delta) == ptrdiff_type_node, 20030727);
+      my_friendly_assert 
+	(same_type_ignoring_top_level_qualifiers_p (TREE_TYPE (delta),
+						    ptrdiff_type_node), 
+	 20030727);
       if (TARGET_PTRMEMFUNC_VBIT_LOCATION == ptrmemfunc_vbit_in_delta)
 	n = cp_build_binary_op (LSHIFT_EXPR, n, integer_one_node);
       delta = cp_build_binary_op (PLUS_EXPR, delta, n);

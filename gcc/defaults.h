@@ -67,7 +67,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #ifndef ASM_FORMAT_PRIVATE_NAME
 # define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO) \
   do { const char *const name_ = (NAME); \
-       char *const output_ = (OUTPUT) = alloca (strlen (name_) + 32);\
+       char *const output_ = (OUTPUT) = \
+	 (char *) alloca (strlen (name_) + 32); \
        sprintf (output_, ASM_PN_FORMAT, name_, (unsigned long)(LABELNO)); \
   } while (0)
 #endif
@@ -414,6 +415,20 @@ do { fputs (integer_asm_op (POINTER_SIZE / BITS_PER_UNIT, TRUE), FILE); \
 #define PIC_OFFSET_TABLE_REGNUM INVALID_REGNUM
 #endif
 
+#ifndef TARGET_DLLIMPORT_DECL_ATTRIBUTES
+#define TARGET_DLLIMPORT_DECL_ATTRIBUTES 0
+#endif
+
+#ifndef TARGET_DECLSPEC
+#if TARGET_DLLIMPORT_DECL_ATTRIBUTES
+/* If the target supports the "dllimport" attribute, users are
+   probably used to the "__declspec" syntax.  */
+#define TARGET_DECLSPEC 1
+#else
+#define TARGET_DECLSPEC 0
+#endif
+#endif
+
 /* By default, the preprocessor should be invoked the same way in C++
    as in C.  */
 #ifndef CPLUSPLUS_CPP_SPEC
@@ -612,6 +627,19 @@ You Lose!  You must define PREFERRED_DEBUGGING_TYPE!
 #define FLOAT_LIB_COMPARE_RETURNS_BOOL(MODE, COMPARISON) false
 #endif
 
+/* True if the target should use the standard libgcc arithmetic
+   library functions, like __addsi3 and _fixdfdi.  */
+#ifndef TARGET_LIBGCC_LIBFUNCS
+#define TARGET_LIBGCC_LIBFUNCS (true)
+#endif
+
+/* True if the targets integer-comparision fucntions return { 0, 1, 2
+   } to indicate { <, ==, > }.  False if { -1, 0, 1 } is used
+   instead.  The libgcc routines are biased.  */
+#ifndef TARGET_LIB_INT_CMP_BIASED
+#define TARGET_LIB_INT_CMP_BIASED (true)
+#endif
+
 /* If FLOAT_WORDS_BIG_ENDIAN is not defined in the header files,
    then the word-endianness is the same as for integers.  */
 #ifndef FLOAT_WORDS_BIG_ENDIAN
@@ -769,6 +797,10 @@ You Lose!  You must define PREFERRED_DEBUGGING_TYPE!
 
 #ifndef LEGITIMIZE_ADDRESS
 #define LEGITIMIZE_ADDRESS(X, OLDX, MODE, WIN)
+#endif
+
+#ifndef LEGITIMATE_PIC_OPERAND_P
+#define LEGITIMATE_PIC_OPERAND_P(X) 1
 #endif
 
 #ifndef REVERSIBLE_CC_MODE

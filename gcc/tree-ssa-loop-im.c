@@ -258,8 +258,9 @@ add_dependency (tree def, struct lim_aux_data *data, struct loop *loop,
   return true;
 }
 
-/* Estimates a cost of statement STMT.  TODO -- the values here are just ad-hoc
-   constants.  The estimates should be based on target-specific values.  */
+/* Returns an estimate for a cost of statement STMT.  TODO -- the values here
+   are just ad-hoc constants.  The estimates should be based on target-specific
+   values.  */
 
 static unsigned
 stmt_cost (tree stmt)
@@ -278,7 +279,7 @@ stmt_cost (tree stmt)
   /* Hoisting memory references out should almost surely be a win.  */
   if (!is_gimple_variable (lhs))
     cost += 20;
-  if (is_gimple_addr_expr_arg (rhs) && !is_gimple_variable (rhs))
+  if (is_gimple_addressable (rhs) && !is_gimple_variable (rhs))
     cost += 20;
 
   switch (TREE_CODE (rhs))
@@ -318,9 +319,15 @@ stmt_cost (tree stmt)
   return cost;
 }
 
-/* Determine maximal level to that it is possible to move a statement STMT.
-   If MUST_PRESERVE_EXEC is true, we must preserve the fact whether the
-   statement is executed.  */
+/* Determine the outermost loop to that it is possible to hoist a statement
+   STMT and store it to LIM_DATA (STMT)->max_loop.  To do this we determine
+   the outermost loop in that the value computed by STMT is invariant.
+   If MUST_PRESERVE_EXEC is true, additionally choose such a loop that
+   we preserve the fact whether STMT is executed.  It also fills other related
+   information to LIM_DATA (STMT).
+   
+   The function returns false if STMT cannot be hoisted outside of the loop it
+   is defined in, and true otherwise.  */
 
 static bool
 determine_max_movement (tree stmt, bool must_preserve_exec)
@@ -361,8 +368,10 @@ determine_max_movement (tree stmt, bool must_preserve_exec)
   return true;
 }
 
-/* Sets a level to that the statement STMT is moved to LEVEL due to moving of
-   statement from ORIG_LOOP and update levels of all dependencies.  */
+/* Suppose that some statement in ORIG_LOOP is hoisted to the loop LEVEL,
+   and that one of the operands of this statement is computed by STMT.
+   Ensure that STMT (together with all the statements that define its
+   operands) is hoisted at least out of the loop LEVEL.  */
 
 static void
 set_level (tree stmt, struct loop *orig_loop, struct loop *level)
@@ -389,8 +398,9 @@ set_level (tree stmt, struct loop *orig_loop, struct loop *level)
     set_level (dep->stmt, orig_loop, level);
 }
 
-/* Determines a level to that really hoist the statement STMT.  TODO -- use
-   profiling information to set it more sanely.  */
+/* Determines an outermost loop from that we want to hoist the statement STMT.
+   For now we chose the outermost possible loop.  TODO -- use profiling
+   information to set it more sanely.  */
 
 static void
 set_profitable_level (tree stmt)
@@ -427,8 +437,9 @@ free_lim_aux_data (struct lim_aux_data *data)
   free (data);
 }
 
-/* Determine invariantness of statements in basic block BB.  Callback
-   for walk_dominator_tree.  */
+/* Determine the outermost loops in that statements in basic block BB are
+   invariant, and record them to the LIM_DATA associated with the statements.
+   Callback for walk_dominator_tree.  */
 
 static void
 determine_invariantness_stmt (struct dom_walk_data *dw_data ATTRIBUTE_UNUSED,
@@ -488,7 +499,9 @@ determine_invariantness_stmt (struct dom_walk_data *dw_data ATTRIBUTE_UNUSED,
 }
 
 /* For each statement determines the outermost loop in that it is invariant,
-   statements on whose motion it depends and the cost of the computation.  */
+   statements on whose motion it depends and the cost of the computation.
+   This information is stored to the LIM_DATA structure associated with
+   each statement.  */
 
 static void
 determine_invariantness (void)
@@ -503,7 +516,7 @@ determine_invariantness (void)
   fini_walk_dominator_tree (&walk_data);
 }
 
-/* Commits edge inserts and updates loop info.  */
+/* Commits edge insertions and updates loop structures.  */
 
 void
 loop_commit_inserts (void)
@@ -522,7 +535,8 @@ loop_commit_inserts (void)
     }
 }
 
-/* Moves the statements in basic block BB to the right place.  Callback
+/* Hoist the statements in basic block BB out of the loops prescribed by
+   data stored in LIM_DATA structres associated with each statement.  Callback
    for walk_dominator_tree.  */
 
 static void
@@ -575,7 +589,8 @@ move_computations_stmt (struct dom_walk_data *dw_data ATTRIBUTE_UNUSED,
     }
 }
 
-/* Moves the statements to the required level.  */
+/* Hoist the statements out of the loops prescribed by data stored in
+   LIM_DATA structres associated with each statement.*/
 
 static void
 move_computations (void)
@@ -591,7 +606,6 @@ move_computations (void)
 
   loop_commit_inserts ();
   rewrite_into_ssa (false);
-  /* APPLE LOCAL begin lno */
   if (bitmap_first_set_bit (vars_to_rename) >= 0)
     {
       /* The rewrite of ssa names may cause violation of loop closed ssa
@@ -599,8 +613,6 @@ move_computations (void)
 	 Information in virtual phi nodes is sufficient for it.  */
       rewrite_into_loop_closed_ssa ();
     }
-  /* APPLE LOCAL end lno */
-
   bitmap_clear (vars_to_rename);
 }
 
@@ -934,7 +946,19 @@ determine_lsm_reg (struct loop *loop, edge *exits, unsigned n_exits, tree reg)
 
 /* Checks whether LOOP with N_EXITS exits stored in EXITS is suitable for
    a store motion.  */
+
+/* Removed force_move_till_expr */
 /* APPLE LOCAL end lno */
+
+/* Forces statement defining invariants in REF (and *INDEX) to be moved out of
+   the LOOP.  The reference REF is used in the loop ORIG_LOOP.  Callback for
+   for_each_index.  */
+
+struct fmt_data
+{
+  struct loop *loop;
+  struct loop *orig_loop;
+};
 
 static bool
 loop_suitable_for_sm (struct loop *loop ATTRIBUTE_UNUSED, edge *exits, unsigned n_exits)
@@ -948,8 +972,8 @@ loop_suitable_for_sm (struct loop *loop ATTRIBUTE_UNUSED, edge *exits, unsigned 
   return true;
 }
 
-/* Determine for all memory references whether we can hoist them out of
-   the LOOP.  */
+/* Try to perform store motion for all memory references modified inside
+   LOOP.  */
 
 static void
 determine_lsm_loop (struct loop *loop)
@@ -970,8 +994,8 @@ determine_lsm_loop (struct loop *loop)
   free (exits);
 }
 
-/* Determine for all memory references inside LOOPS whether we can hoist them
-   out.  */
+/* Try to perform store motion for all memory references modified inside
+   any of LOOPS.  */
 
 static void
 determine_lsm (struct loops *loops)
@@ -1024,8 +1048,10 @@ determine_lsm (struct loops *loops)
     }
 }
 
-/* Fills ALWAYS_EXECUTED_IN for basic blocks in LOOP.  CONTAINS_CALL is
-   the bitmap of blocks that contain a call.  */
+/* Fills ALWAYS_EXECUTED_IN information for basic blocks of LOOP, i.e.
+   for each such basic block bb records the outermost loop for that execution
+   of its header implies execution of bb.  CONTAINS_CALL is the bitmap of
+   blocks that contain a nonpure call.  */
 
 static void
 fill_always_executed_in (struct loop *loop, sbitmap contains_call)
@@ -1089,7 +1115,8 @@ fill_always_executed_in (struct loop *loop, sbitmap contains_call)
     fill_always_executed_in (loop, contains_call);
 }
 
-/* Compute information needed by the pass.  LOOPS is the loop tree.  */
+/* Compute the global information needed by the loop invariant motion pass.
+   LOOPS is the loop tree.  */
 
 static void
 tree_ssa_lim_initialize (struct loops *loops)
@@ -1099,8 +1126,6 @@ tree_ssa_lim_initialize (struct loops *loops)
   struct loop *loop;
   basic_block bb;
 
-  /* Set ALWAYS_EXECUTED_IN.  Quadratic, can be improved.  */
-  
   sbitmap_zero (contains_call);
   FOR_EACH_BB (bb)
     {

@@ -168,6 +168,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "cselib.h"
 #include "intl.h"
 #include "obstack.h"
+#include "timevar.h"
 
 /* Propagate flow information through back edges and thus enable PRE's
    moving loop invariant calculations out of loops.
@@ -510,10 +511,14 @@ static int bytes_used;
 static int gcse_subst_count;
 /* Number of copy instructions created.  */
 static int gcse_create_count;
-/* Number of constants propagated.  */
-static int const_prop_count;
-/* Number of copys propagated.  */
-static int copy_prop_count;
+/* Number of local constants propagated.  */
+static int local_const_prop_count;
+/* Number of local copys propagated.  */
+static int local_copy_prop_count;
+/* Number of global constants propagated.  */
+static int global_const_prop_count;
+/* Number of global copys propagated.  */
+static int global_copy_prop_count;
 
 /* For available exprs */
 static sbitmap *ae_kill, *ae_gen;
@@ -746,7 +751,9 @@ gcse_main (rtx f, FILE *file)
 
       /* Don't allow constant propagation to modify jumps
 	 during this pass.  */
+      timevar_push (TV_CPROP1);
       changed = one_cprop_pass (pass + 1, 0, 0);
+      timevar_pop (TV_CPROP1);
 
       /* APPLE LOCAL begin div by const */
       /* div by const optimization can introduce new instructions.
@@ -763,6 +770,7 @@ gcse_main (rtx f, FILE *file)
 	/* Do nothing.  */ ;
       else
 	{
+	  timevar_push (TV_PRE);
 	  changed |= one_pre_gcse_pass (pass + 1);
 	  /* We may have just created new basic blocks.  Release and
 	     recompute various things which are sized on the number of
@@ -777,6 +785,7 @@ gcse_main (rtx f, FILE *file)
 	  alloc_reg_set_mem (max_reg_num ());
 	  compute_sets (f);
 	  run_jump_opt_after_gcse = 1;
+	  timevar_pop (TV_PRE);
 	}
 
       if (max_pass_bytes < bytes_used)
@@ -794,6 +803,7 @@ gcse_main (rtx f, FILE *file)
 	 for space, we don't run the partial redundancy algorithms).  */
       if (optimize_size)
 	{
+	  timevar_push (TV_HOIST);
 	  max_gcse_regno = max_reg_num ();
 	  alloc_gcse_mem (f);
 	  changed |= one_code_hoisting_pass ();
@@ -801,6 +811,7 @@ gcse_main (rtx f, FILE *file)
 
 	  if (max_pass_bytes < bytes_used)
 	    max_pass_bytes = bytes_used;
+	  timevar_pop (TV_HOIST);
 	}
 
       if (file)
@@ -819,7 +830,9 @@ gcse_main (rtx f, FILE *file)
   max_gcse_regno = max_reg_num ();
   alloc_gcse_mem (f);
   /* This time, go ahead and allow cprop to alter jumps.  */
+  timevar_push (TV_CPROP2);
   one_cprop_pass (pass + 1, 1, 0);
+  timevar_pop (TV_CPROP2);
   free_gcse_mem ();
 
   if (file)
@@ -838,7 +851,11 @@ gcse_main (rtx f, FILE *file)
   allocate_reg_info (max_reg_num (), FALSE, FALSE);
 
   if (!optimize_size && flag_gcse_sm)
-    store_motion ();
+    {
+      timevar_push (TV_LSM);
+      store_motion ();
+      timevar_pop (TV_LSM);
+    }
 
   /* Record where pseudo-registers are set.  */
   return run_jump_opt_after_gcse;
@@ -3271,11 +3288,11 @@ cprop_jump (basic_block bb, rtx setcc, rtx jump, rtx from, rtx src)
 
   run_jump_opt_after_gcse = 1;
 
-  const_prop_count++;
+  global_const_prop_count++;
   if (gcse_file != NULL)
     {
       fprintf (gcse_file,
-	       "CONST-PROP: Replacing reg %d in jump_insn %d with constant ",
+	       "GLOBAL CONST-PROP: Replacing reg %d in jump_insn %d with constant ",
 	       REGNO (from), INSN_UID (jump));
       print_rtl (gcse_file, src);
       fprintf (gcse_file, "\n");
@@ -3377,7 +3394,7 @@ cprop_insn (rtx insn, int alter_jumps)
           if (constprop_register (insn, reg_used->reg_rtx, src, alter_jumps))
 	    {
 	      changed = 1;
-	      const_prop_count++;
+	      global_const_prop_count++;
 	      if (gcse_file != NULL)
 		{
 		  fprintf (gcse_file, "GLOBAL CONST-PROP: Replacing reg %d in ", regno);
@@ -3454,7 +3471,7 @@ cprop_insn (rtx insn, int alter_jumps)
 	  if (try_replace_reg (reg_used->reg_rtx, src, insn))
 	    {
 	      changed = 1;
-	      copy_prop_count++;
+	      global_copy_prop_count++;
 	      if (gcse_file != NULL)
 		{
 		  fprintf (gcse_file, "GLOBAL COPY-PROP: Replacing reg %d in insn %d",
@@ -3577,7 +3594,7 @@ do_local_cprop (rtx x, rtx insn, int alter_jumps, rtx *libcall_sp)
 	      print_rtl (gcse_file, newcnst);
 	      fprintf (gcse_file, "\n");
 	    }
-	  const_prop_count++;
+	  local_const_prop_count++;
 	  return true;
 	}
       else if (newreg && newreg != x && try_replace_reg (x, newreg, insn))
@@ -3590,7 +3607,7 @@ do_local_cprop (rtx x, rtx insn, int alter_jumps, rtx *libcall_sp)
 		       REGNO (x), INSN_UID (insn));
 	      fprintf (gcse_file, " with reg %d\n", REGNO (newreg));
 	    }
-	  copy_prop_count++;
+	  local_copy_prop_count++;
 	  return true;
 	}
     }
@@ -3756,52 +3773,7 @@ cprop (int alter_jumps)
 rtx
 fis_get_condition (rtx jump)
 {
-  rtx cond, set, tmp, insn, earliest;
-  bool reverse;
-
-  if (! any_condjump_p (jump))
-    return NULL_RTX;
-
-  set = pc_set (jump);
-  cond = XEXP (SET_SRC (set), 0);
-
-  /* If this branches to JUMP_LABEL when the condition is false,
-     reverse the condition.  */
-  reverse = (GET_CODE (XEXP (SET_SRC (set), 2)) == LABEL_REF
-	     && XEXP (XEXP (SET_SRC (set), 2), 0) == JUMP_LABEL (jump));
-
-  /* Use canonicalize_condition to do the dirty work of manipulating
-     MODE_CC values and COMPARE rtx codes.  */
-  tmp = canonicalize_condition (jump, cond, reverse, &earliest, NULL_RTX,
-				false);
-  if (!tmp)
-    return NULL_RTX;
-
-  /* Verify that the given condition is valid at JUMP by virtue of not
-     having been modified since EARLIEST.  */
-  for (insn = earliest; insn != jump; insn = NEXT_INSN (insn))
-    if (INSN_P (insn) && modified_in_p (tmp, insn))
-      break;
-  if (insn == jump)
-    return tmp;
-
-  /* The condition was modified.  See if we can get a partial result
-     that doesn't follow all the reversals.  Perhaps combine can fold
-     them together later.  */
-  tmp = XEXP (tmp, 0);
-  if (!REG_P (tmp) || GET_MODE_CLASS (GET_MODE (tmp)) != MODE_INT)
-    return NULL_RTX;
-  tmp = canonicalize_condition (jump, cond, reverse, &earliest, tmp,
-				false);
-  if (!tmp)
-    return NULL_RTX;
-
-  /* For sanity's sake, re-validate the new result.  */
-  for (insn = earliest; insn != jump; insn = NEXT_INSN (insn))
-    if (INSN_P (insn) && modified_in_p (tmp, insn))
-      return NULL_RTX;
-
-  return tmp;
+  return get_condition (jump, NULL, false, true);
 }
 
 /* Check the comparison COND to see if we can safely form an implicit set from
@@ -3897,8 +3869,8 @@ one_cprop_pass (int pass, int cprop_jumps, int bypass_jumps)
 {
   int changed = 0;
 
-  const_prop_count = 0;
-  copy_prop_count = 0;
+  global_const_prop_count = local_const_prop_count = 0;
+  global_copy_prop_count = local_copy_prop_count = 0;
 
   local_cprop_pass (cprop_jumps);
 
@@ -3931,8 +3903,10 @@ one_cprop_pass (int pass, int cprop_jumps, int bypass_jumps)
     {
       fprintf (gcse_file, "CPROP of %s, pass %d: %d bytes needed, ",
 	       current_function_name (), pass, bytes_used);
-      fprintf (gcse_file, "%d const props, %d copy props\n\n",
-	       const_prop_count, copy_prop_count);
+      fprintf (gcse_file, "%d local const props, %d local copy props\n\n",
+	       local_const_prop_count, local_copy_prop_count);
+      fprintf (gcse_file, "%d global const props, %d global copy props\n\n",
+	       global_const_prop_count, global_copy_prop_count);
     }
   /* Global analysis may get into infinite loops for unreachable blocks.  */
   if (changed && cprop_jumps)
@@ -4148,7 +4122,8 @@ bypass_block (basic_block bb, rtx setcc, rtx jump)
 
 	      if (gcse_file != NULL)
 		{
-		  fprintf (gcse_file, "JUMP-BYPASS: Proved reg %d in jump_insn %d equals constant ",
+		  fprintf (gcse_file, "JUMP-BYPASS: Proved reg %d "
+				      "in jump_insn %d equals constant ",
 			   regno, INSN_UID (jump));
 		  print_rtl (gcse_file, SET_SRC (set->expr));
 		  fprintf (gcse_file, "\nBypass edge from %d->%d to %d\n",
@@ -6979,7 +6954,7 @@ bypass_jumps (FILE *file)
 
   max_gcse_regno = max_reg_num ();
   alloc_gcse_mem (get_insns ());
-  changed = one_cprop_pass (1, 1, 1);
+  changed = one_cprop_pass (MAX_GCSE_PASSES + 2, 1, 1);
   free_gcse_mem ();
 
   if (file)

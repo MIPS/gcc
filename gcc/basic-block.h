@@ -302,7 +302,7 @@ typedef struct reorder_block_def
 
   /* These fields are used by bb-reorder pass.  */
   int visited;
-} *reorder_block_def;
+} *reorder_block_def_p;
 
 #define BB_FREQ_MAX 10000
 
@@ -331,6 +331,14 @@ extern int last_basic_block;
 /* Number of edges in the current function.  */
 
 extern int n_edges;
+
+/* Signalize the status of profile information in the CFG.  */
+extern enum profile_status
+{
+  PROFILE_ABSENT,
+  PROFILE_GUESSED,
+  PROFILE_READ
+} profile_status;
 
 /* Index by basic block number, get basic block struct info.  */
 
@@ -597,7 +605,6 @@ extern rtx emit_block_insn_before (rtx, rtx, basic_block);
 
 /* In predict.c */
 extern void estimate_probability (struct loops *);
-extern void note_prediction_to_br_prob (void);
 extern void expected_value_to_br_prob (void);
 extern bool maybe_hot_bb_p (basic_block);
 extern bool probably_cold_bb_p (basic_block);
@@ -679,7 +686,7 @@ extern bool inside_basic_block_p (rtx);
 extern bool control_flow_insn_p (rtx);
 
 /* In bb-reorder.c */
-extern void reorder_basic_blocks (void);
+extern void reorder_basic_blocks (unsigned int);
 extern void partition_hot_cold_basic_blocks (void);
 
 /* In cfg.c */
@@ -726,6 +733,7 @@ extern basic_block first_dom_son (enum cdi_direction, basic_block);
 extern basic_block next_dom_son (enum cdi_direction, basic_block);
 extern edge try_redirect_by_replacing_jump (edge, basic_block, bool);
 extern void break_superblocks (void);
+extern void check_bb_profile (basic_block, FILE *);
 
 #include "cfghooks.h"
 
