@@ -1221,7 +1221,12 @@ get_rhs (stmt)
   else if (code == SWITCH_EXPR)
     return SWITCH_COND (stmt);
   else if (code == RETURN_EXPR)
-    return TREE_OPERAND (stmt, 0);
+    {
+      if (TREE_CODE (TREE_OPERAND (stmt, 0)) == MODIFY_EXPR)
+	return TREE_OPERAND (TREE_OPERAND (stmt, 0), 1);
+      else
+	return TREE_OPERAND (stmt, 0);
+    }
   else if (code == GOTO_EXPR)
     return GOTO_DESTINATION (stmt);
   else if (code == LABEL_EXPR)
@@ -1247,7 +1252,13 @@ set_rhs (stmt, expr)
   else if (code == SWITCH_EXPR)
     SWITCH_COND (stmt) = expr;
   else if (code == RETURN_EXPR)
-    TREE_OPERAND (stmt, 0) = expr;
+    {
+      if (TREE_OPERAND (stmt, 0)
+	  && TREE_CODE (TREE_OPERAND (stmt, 0)) == MODIFY_EXPR)
+	TREE_OPERAND (TREE_OPERAND (stmt, 0), 1) = expr;
+      else
+	TREE_OPERAND (stmt, 0) == expr;
+    }
   else if (code == GOTO_EXPR)
     GOTO_DESTINATION (stmt) = expr;
   else if (code == LABEL_EXPR)

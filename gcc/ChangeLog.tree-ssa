@@ -28,7 +28,7 @@
 	* tree-cfg.c (remove_useless_stmts_and_vars): Handle case where
 	both arms of an if-then-else simply jump to the same location.
  
-	* tree-cfg.c (get_rhs): Correctly handle MODIFY_EXPR embedded in
+	* tree-ssa-ccp.c (get_rhs): Correctly handle MODIFY_EXPR embedded in
 	a RETURN_EXPR.
 	(set_rhs): Likewise.
 
