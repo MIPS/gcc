@@ -1,5 +1,10 @@
 2004-10-09  Michael Koch  <konqueror@gmx.de>
 
+	* gnu/java/awt/peer/gtk/GtkToolkit.java:
+	Merged import statements.
+
+2004-10-09  Michael Koch  <konqueror@gmx.de>
+
 	* gnu/java/awt/peer/gtk/GdkGraphics2D.java
 	(isBufferedImageGraphics): Simplified.
 
