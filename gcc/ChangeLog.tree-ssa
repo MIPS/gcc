@@ -1,3 +1,9 @@
+2003-12-26  Sebastian Pop  <s.pop@laposte.net>
+
+	* tree-cfg.c (print_loop, print_pred_bbs, print_succ_bbs, 
+	debug_loop_ir, print_loop_ir): New.
+	* tree-flow.h (debug_loop_ir, print_loop_ir): Declare.
+	
 2003-12-23  Jeff Law  <law@redhat.com>
 
 	* tree-cfg.c (tree_find_edge_insert_loc): Do not use the target

@@ -3797,6 +3797,115 @@ dump_function_to_file (tree fn, FILE *file, int flags)
   fprintf (file, "\n\n");
 }
 
+/* Pretty print of the loops intermediate representation.  */
+
+static void print_loop (FILE *, struct loop *, int);
+static void print_pred_bbs (FILE *, edge);
+static void print_succ_bbs (FILE *, edge);
+
+/* Print the predecessors indexes.  */
+
+static void
+print_pred_bbs (FILE *file, 
+		edge e)
+{
+  if (e == NULL)
+    return;
+  
+  else if (e->pred_next == NULL)
+    fprintf (file, "bb_%d", e->src->index);
+  
+  else
+    {
+      fprintf (file, "bb_%d, ", e->src->index);
+      print_pred_bbs (file, e->pred_next);
+    }
+}
+
+/* Print the successors indexes.  */
+
+static void
+print_succ_bbs (FILE *file, 
+		edge e)
+{
+  if (e == NULL)
+    return;
+  
+  else if (e->succ_next == NULL)
+    fprintf (file, "bb_%d", e->dest->index);
+  
+  else
+    {
+      fprintf (file, "bb_%d, ", e->dest->index);
+      print_succ_bbs (file, e->succ_next);
+    }
+}
+
+/* Pretty print a loop on the given file.  */
+
+static void
+print_loop (FILE *file, 
+	    struct loop *loop, 
+	    int indent)
+{
+  char *s_indent;
+  basic_block bb;
+  
+  if (loop == NULL)
+    return;
+
+  s_indent = (char *) alloca ((size_t) indent + 1);
+  memset ((void *) s_indent, ' ', (size_t) indent);
+  s_indent[indent] = '\0';
+
+  
+  /* Print the loop's header.  */
+  fprintf (file, "%sloop_%d\n", s_indent, loop->num);
+  
+  /* Print the loop's body.  */
+  fprintf (file, "%s{\n", s_indent);
+  FOR_EACH_BB (bb)
+    if (bb->loop_father == loop)
+      {
+	/* Print the basic_block's header.  */
+	fprintf (file, "%s  bb_%d (preds = {", s_indent, bb->index);
+	print_pred_bbs (file, bb->pred);
+	fprintf (file, "}, succs = {");
+	print_succ_bbs (file, bb->succ);
+	fprintf (file, "})\n");
+	
+	/* Print the basic_block's body.  */
+	fprintf (file, "%s  {\n", s_indent);
+	tree_dump_bb (bb, file, indent + 4);
+	fprintf (file, "%s  }\n", s_indent);
+      }
+  
+  print_loop (file, loop->inner, indent + 2);
+  fprintf (file, "%s}\n", s_indent);
+  print_loop (file, loop->next, indent);
+}
+
+/* Follow a CFG edge from the entry point of the program, and on entry
+   of a loop, pretty print the loop structure.  */
+
+void 
+print_loop_ir (FILE *file)
+{
+  basic_block bb;
+  
+  bb = BASIC_BLOCK (0);
+  if (bb && bb->loop_father)
+    print_loop (file, bb->loop_father, 0);
+}
+
+/* Debugging loops structure at tree level.  */
+
+void 
+debug_loop_ir (void)
+{
+  print_loop_ir (stderr);
+}
+
 /* FIXME These need to be filled in with appropriate pointers.  But this
    implies an ABI change in some functions.  */
 struct cfg_hooks tree_cfg_hooks = {
