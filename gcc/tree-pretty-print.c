@@ -1479,16 +1479,6 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       dump_generic_node (buffer, CHREC_VAR (node), spc, flags, false);
       is_stmt = false;
       break;
-
-    case EXPONENTIAL_CHREC:
-      pp_string (buffer, "{");
-      dump_generic_node (buffer, CHREC_LEFT (node), spc, flags, false);
-      pp_string (buffer, ", *, ");
-      dump_generic_node (buffer, CHREC_RIGHT (node), spc, flags, false);
-      pp_string (buffer, "}_");
-      dump_generic_node (buffer, CHREC_VAR (node), spc, flags, false);
-      is_stmt = false;
-      break;
       
     case PEELED_CHREC:
       pp_string (buffer, "(");

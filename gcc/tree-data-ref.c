@@ -1,5 +1,5 @@
 /* Data references and dependences detectors.
-   Copyright (C) 2003 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
    Contributed by Sebastian Pop <s.pop@laposte.net>
 
 This file is part of GCC.
@@ -496,11 +496,9 @@ siv_subscript_p (tree chrec_a,
       switch (TREE_CODE (chrec_a))
 	{
 	case POLYNOMIAL_CHREC:
-	case EXPONENTIAL_CHREC:
 	  switch (TREE_CODE (chrec_b))
 	    {
 	    case POLYNOMIAL_CHREC:
-	    case EXPONENTIAL_CHREC:
 	      if (CHREC_VARIABLE (chrec_a) != CHREC_VARIABLE (chrec_b))
 		return false;
 	      

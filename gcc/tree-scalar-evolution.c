@@ -210,34 +210,12 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    updates the description of the algorithms to reflect the design
    choices used in this implementation.
      
-   A set of slides show a high level overview of the algorithm and
-   run an example through the scalar evolution analyzer:
+   A set of slides show a high level overview of the algorithm and run
+   an example through the scalar evolution analyzer:
    http://cri.ensmp.fr/~pop/gcc/mar04/slides.pdf
-     
-   Fixmes:
-   
-   FIXME taylor: This FIXME concerns all the cases where we have to
-   deal with additions of exponential functions: "exp + exp" or
-   "poly + exp" or "cst + exp".  This could be handled by a Taylor
-   decomposition of the exponential function, but this is still
-   under construction (not implemented yet, or chrec_top).
-     
-   The idea is to represent the exponential evolution functions
-   using infinite degree polynomials:
-     
-   | a -> {1, *, 2}_1 = {1, +, 1, +, 1, +, ...}_1 = {1, +, a}_1
-     
-   Proof:
-   \begin{eqnarray*}
-   \{1, *, t+1\} (x) &=& exp \left(log (1) + log (t+1) \binom{x}{1} \right) \\
-   &=& (t+1)^x \\
-   &=& \binom{x}{0} + \binom{x}{1}t + \binom{x}{2}t^2 + 
-   \ldots + \binom{x}{x}t^x \\
-   &=& \{1, +, t, +, t^2, +, \ldots, +, t^x\} \\
-   \end{eqnarray*}
-     
-   While this equality is simple to prove for exponentials of degree
-   1, it is still work in progress for higher degree exponentials.
+
+   The slides that I have presented at the GCC Summit'04 are available
+   at: http://cri.ensmp.fr/~pop/gcc/20040604/gccsummit-lno-spop.pdf
 */
 
 #include "config.h"
@@ -497,8 +475,9 @@ loop_phi_node_p (tree phi)
     
    | i_1 = i_0 + 20
    
-   This overall effect of the loop is obtained by passing in the
-   parameters: LOOP = 1, EVOLUTION_FN {i_0, +, 2}_1.
+   The overall effect of the loop, "i_0 + 20" in the previous example, 
+   is obtained by passing in the parameters: LOOP = 1, 
+   EVOLUTION_FN = {i_0, +, 2}_1.
 */
  
 static tree 
@@ -577,7 +556,6 @@ chrec_is_positive (tree chrec, bool *value)
       return value0 == value1;
 
     case POLYNOMIAL_CHREC:
-    case EXPONENTIAL_CHREC:
       if (!chrec_is_positive (CHREC_LEFT (chrec), &value0)
 	  || !chrec_is_positive (CHREC_RIGHT (chrec), &value1))
 	return false;
@@ -746,24 +724,6 @@ add_to_evolution_1 (unsigned loop_nb,
 	   add_to_evolution_1 (loop_nb, CHREC_LEFT (chrec_before), to_add),
 	   CHREC_RIGHT (chrec_before));
       
-    case EXPONENTIAL_CHREC:
-      if (CHREC_VARIABLE (chrec_before) == loop_nb)
-	/* We still don't know how to fold these operations that mix
-	   polynomial and exponential functions.  For the moment, give
-	   a rough approximation: [-oo, +oo].  */
-	return build_exponential_chrec (loop_nb, CHREC_LEFT (chrec_before),
-					chrec_top);
-
-      /* When there is no evolution part in this loop, build it.  */
-      else if (CHREC_VARIABLE (chrec_before) < loop_nb)
-	return build_polynomial_chrec (loop_nb, chrec_before, to_add);
-
-      else
-	return build_exponential_chrec 
-	  (CHREC_VARIABLE (chrec_before),
-	   add_to_evolution_1 (loop_nb, CHREC_LEFT (chrec_before), to_add),
-	   CHREC_RIGHT (chrec_before));
-      
     default:
       /* These nodes do not depend on a loop.  */
       if (chrec_before == chrec_top)
@@ -920,8 +880,7 @@ add_to_evolution (unsigned loop_nb,
   
   /* TO_ADD is either a scalar, or a parameter.  TO_ADD is not
      instantiated at this point.  */
-  if (TREE_CODE (to_add) == POLYNOMIAL_CHREC
-      || TREE_CODE (to_add) == EXPONENTIAL_CHREC)
+  if (TREE_CODE (to_add) == POLYNOMIAL_CHREC)
     /* This should not happen.  */
     return chrec_top;
   
@@ -949,109 +908,6 @@ add_to_evolution (unsigned loop_nb,
       fprintf (dump_file, "))\n");
     }
 
-  return res;
-}
-
-/* When CHREC_BEFORE has an evolution part in LOOP_NB, multiply its
-   evolution by the expression TO_MULT, otherwise construct an
-   evolution part for this loop.  */
-
-static tree
-multiply_evolution_1 (unsigned loop_nb, 
-		      tree chrec_before, 
-		      tree to_mult)
-{
-  if (chrec_before == chrec_not_analyzed_yet)
-    return chrec_not_analyzed_yet;
-  
-  switch (TREE_CODE (chrec_before))
-    {
-    case POLYNOMIAL_CHREC:
-      if (CHREC_VARIABLE (chrec_before) == loop_nb)
-	/* We still don't know how to fold these operations that mix
-	   polynomial and exponential functions.  For the moment, give
-	   a rough approximation: [-oo, +oo].  */
-	return build_polynomial_chrec (loop_nb, CHREC_LEFT (chrec_before),
-				       chrec_top);
-
-      /* When there is no evolution part in this loop, build it.  */
-      else if (CHREC_VARIABLE (chrec_before) < loop_nb)
-	return build_exponential_chrec (loop_nb, chrec_before, to_mult);
-
-      else
-	return build_polynomial_chrec 
-	  (CHREC_VARIABLE (chrec_before),
-	   multiply_evolution_1 (loop_nb, CHREC_LEFT (chrec_before), to_mult),
-	   CHREC_RIGHT (chrec_before));
-      
-    case EXPONENTIAL_CHREC:
-      if (CHREC_VARIABLE (chrec_before) == loop_nb
-	  /* The evolution has to be multiplied on the leftmost position for 
-	     loop_nb.  */
-	  && ((TREE_CODE (CHREC_LEFT (chrec_before)) != POLYNOMIAL_CHREC
-	       && TREE_CODE (CHREC_LEFT (chrec_before)) != EXPONENTIAL_CHREC)
-	      || (CHREC_VARIABLE (CHREC_LEFT (chrec_before)) != loop_nb)))
-	return build_exponential_chrec
-	  (loop_nb, 
-	   CHREC_LEFT (chrec_before),
-	   chrec_fold_multiply (chrec_type (to_mult), 
-				CHREC_RIGHT (chrec_before), to_mult));
-
-      else if (CHREC_VARIABLE (chrec_before) < loop_nb)
-	return build_exponential_chrec (loop_nb, chrec_before, to_mult);
-
-      else
-	return build_exponential_chrec 
-	  (CHREC_VARIABLE (chrec_before),
-	   multiply_evolution_1 (loop_nb, CHREC_LEFT (chrec_before), to_mult),
-	   CHREC_RIGHT (chrec_before));
-      
-    default:
-      /* These nodes do not depend on a loop.  */
-      return build_exponential_chrec (loop_nb, chrec_before, to_mult);
-    }
-}
-
-/* Add TO_MULT to the evolution part of CHREC_BEFORE in the dimension
-   of LOOP_NB.  */
-
-static tree 
-multiply_evolution (unsigned loop_nb, 
-		    tree chrec_before,
-		    tree to_mult)
-{
-  tree res = NULL_TREE;
-
-  if (to_mult == chrec_not_analyzed_yet)
-    return chrec_before;
-
-  /* TO_MULT is either a scalar, or a parameter.  TO_MULT is not
-     instantiated at this point.  */
-  if (TREE_CODE (to_mult) == POLYNOMIAL_CHREC
-      || TREE_CODE (to_mult) == EXPONENTIAL_CHREC)
-    /* This should not happen.  */
-    return chrec_top;
-  
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    {
-      fprintf (dump_file, "(multiply_evolution \n");
-      fprintf (dump_file, "  (loop_nb = %d)\n", loop_nb);
-      fprintf (dump_file, "  (chrec_before = ");
-      print_generic_expr (dump_file, chrec_before, 0);
-      fprintf (dump_file, ")\n  (to_mult = ");
-      print_generic_expr (dump_file, to_mult, 0);
-      fprintf (dump_file, ")\n");
-    }
-
-  res = multiply_evolution_1 (loop_nb, chrec_before, to_mult);
-
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    {
-      fprintf (dump_file, "  (res = ");
-      print_generic_expr (dump_file, res, 0);
-      fprintf (dump_file, "))\n");
-    }
-  
   return res;
 }
 
@@ -1174,7 +1030,7 @@ first_iteration_non_satisfying_ev_noev (enum tree_code code,
   if (!evolution_function_is_affine_p (ev_in_this_loop))
     /* For the moment handle only polynomials of degree 1.  */
     return chrec_top;
-  
+
   init0 = CHREC_LEFT (ev_in_this_loop);
   step0 = CHREC_RIGHT (ev_in_this_loop);
   init1 = initial_condition (chrec1);
@@ -1213,6 +1069,11 @@ first_iteration_non_satisfying_ev_ev (enum tree_code code,
   if (evolution_function_is_multivariate (chrec0)
       || evolution_function_is_multivariate (chrec1))
     /* For the moment, don't handle these quite difficult cases.  */
+    return chrec_top;
+
+  if (!evolution_function_is_affine_p (chrec0)
+      || !evolution_function_is_affine_p (chrec1))
+    /* For the moment handle only polynomials of degree 1.  */
     return chrec_top;
 
   init0 = CHREC_LEFT (chrec0);
@@ -1713,8 +1574,7 @@ follow_ssa_edge_in_rhs (struct loop *loop,
 		 evolution_of_loop);
 	      
 	      if (res)
-		*evolution_of_loop = multiply_evolution 
-		  (loop->num, *evolution_of_loop, rhs1);
+		*evolution_of_loop = chrec_top;
 	      
 	      else
 		{
@@ -1723,8 +1583,7 @@ follow_ssa_edge_in_rhs (struct loop *loop,
 		     evolution_of_loop);
 		  
 		  if (res)
-		    *evolution_of_loop = multiply_evolution 
-		      (loop->num, *evolution_of_loop, rhs0);
+		    *evolution_of_loop = chrec_top;
 		}
 	    }
 	  
@@ -1736,8 +1595,7 @@ follow_ssa_edge_in_rhs (struct loop *loop,
 		(loop, SSA_NAME_DEF_STMT (rhs0), halting_phi, 
 		 evolution_of_loop);
 	      if (res)
-		*evolution_of_loop = multiply_evolution 
-		  (loop->num, *evolution_of_loop, rhs1);
+		*evolution_of_loop = chrec_top;
 	    }
 	}
       
@@ -1749,8 +1607,7 @@ follow_ssa_edge_in_rhs (struct loop *loop,
 	    (loop, SSA_NAME_DEF_STMT (rhs1), halting_phi, 
 	     evolution_of_loop);
 	  if (res)
-	    *evolution_of_loop = multiply_evolution 
-	      (loop->num, *evolution_of_loop, rhs0);
+	    *evolution_of_loop = chrec_top;
 	}
       
       else
@@ -2477,13 +2334,6 @@ instantiate_parameters_1 (struct loop *loop, tree chrec,
 				      allow_superloop_chrecs);
       return build_polynomial_chrec (CHREC_VARIABLE (chrec), op0, op1);
 
-    case EXPONENTIAL_CHREC:
-      op0 = instantiate_parameters_1 (loop, CHREC_LEFT (chrec),
-				      allow_superloop_chrecs);
-      op1 = instantiate_parameters_1 (loop, CHREC_RIGHT (chrec),
-				      allow_superloop_chrecs);
-      return build_exponential_chrec (CHREC_VARIABLE (chrec), op0, op1);
-
     case PEELED_CHREC:
       op0 = instantiate_parameters_1 (loop, CHREC_LEFT (chrec),
 				      allow_superloop_chrecs);
@@ -2792,7 +2642,6 @@ struct chrec_stats
   unsigned nb_affine;
   unsigned nb_affine_multivar;
   unsigned nb_higher_poly;
-  unsigned nb_expo;
   unsigned nb_chrec_top;
   unsigned nb_interval_chrec;
   unsigned nb_undetermined;
@@ -2808,7 +2657,6 @@ reset_chrecs_counters (struct chrec_stats *stats)
   stats->nb_affine = 0;
   stats->nb_affine_multivar = 0;
   stats->nb_higher_poly = 0;
-  stats->nb_expo = 0;
   stats->nb_chrec_top = 0;
   stats->nb_interval_chrec = 0;
   stats->nb_undetermined = 0;
@@ -2826,7 +2674,6 @@ dump_chrecs_stats (FILE *file, struct chrec_stats *stats)
   fprintf (file, "%d\tdegree greater than 2 polynomials\n", 
 	   stats->nb_higher_poly);
   fprintf (file, "%d\taffine peeled chrecs\n", stats->nb_peeled);
-  fprintf (file, "%d\texponential chrecs\n", stats->nb_expo);
   fprintf (file, "%d\tchrec_top chrecs\n", stats->nb_chrec_top);
   fprintf (file, "%d\tinterval chrecs\n", stats->nb_chrec_top);
   fprintf (file, "-----------------------------------------\n");
@@ -2886,12 +2733,6 @@ gather_chrec_stats (tree chrec, struct chrec_stats *stats)
       
       break;
       
-    case EXPONENTIAL_CHREC:
-      if (dump_file && (dump_flags & TDF_STATS))
-	fprintf (dump_file, "  exponential\n");
-      stats->nb_expo++;
-      break;
-
     case INTERVAL_CHREC:
       if (chrec == chrec_top)
 	{

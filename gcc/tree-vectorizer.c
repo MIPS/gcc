@@ -2227,10 +2227,9 @@ vect_is_simple_iv_evolution (unsigned loop_nb, tree access_fn, tree * init,
   if (evolution_part == NULL_TREE)
     return false;
   
-  /* When the evolution is a polynomial of degree >= 2 or
-     exponential, the evolution function is not "simple".  */
-  if (TREE_CODE (evolution_part) == POLYNOMIAL_CHREC
-      || TREE_CODE (evolution_part) == EXPONENTIAL_CHREC)
+  /* When the evolution is a polynomial of degree >= 2
+     the evolution function is not "simple".  */
+  if (tree_is_chrec (evolution_part))
     return false;
   
   step_expr = evolution_part;
@@ -3481,11 +3480,9 @@ vect_analyze_loop_with_symbolic_num_of_iters (tree *symb_num_of_iters,
 	return false;
   
       /* FORNOW: We do not transform initial conditions of IVs 
-	 which evolution functions are a polynomial of degree >= 2 or
-	 exponential.  */
+	 which evolution functions are a polynomial of degree >= 2.  */
 
-      if (TREE_CODE (evolution_part) == POLYNOMIAL_CHREC
-	  || TREE_CODE (evolution_part) == EXPONENTIAL_CHREC)
+      if (tree_is_chrec (evolution_part))
 	return false;  
     }
 

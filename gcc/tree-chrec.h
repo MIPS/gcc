@@ -1,5 +1,5 @@
 /* Chains of recurrences.
-   Copyright (C) 2003 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
    Contributed by Sebastian Pop <s.pop@laposte.net>
 
 This file is part of GCC.
@@ -58,7 +58,6 @@ tree_is_chrec (tree expr)
 {
   if (TREE_CODE (expr) == INTERVAL_CHREC
       || TREE_CODE (expr) == POLYNOMIAL_CHREC
-      || TREE_CODE (expr) == EXPONENTIAL_CHREC
       || TREE_CODE (expr) == PEELED_CHREC)
     return true;
   else
@@ -90,7 +89,6 @@ extern tree chrec_fold_automatically_generated_operands (tree, tree);
 
 /* Observers.  */
 extern bool is_multivariate_chrec (tree);
-extern bool is_pure_sum_chrec (tree);
 extern bool chrec_is_positive (tree, bool *);
 extern bool chrec_contains_symbols (tree);
 extern bool chrec_contains_symbols_defined_in_loop (tree, unsigned);
@@ -128,17 +126,6 @@ build_polynomial_chrec (unsigned loop_num,
 			tree right)
 {
   return build (POLYNOMIAL_CHREC, TREE_TYPE (left), 
-		build_int_2 (loop_num, 0), left, right);
-}
-
-/* Build an exponential chain of recurrence.  */
-
-static inline tree 
-build_exponential_chrec (unsigned loop_num, 
-			 tree left, 
-			 tree right)
-{
-  return build (EXPONENTIAL_CHREC, TREE_TYPE (left), 
 		build_int_2 (loop_num, 0), left, right);
 }
 
@@ -238,7 +225,6 @@ evolution_function_is_affine_p (tree chrec)
       else
 	return false;
       
-    case EXPONENTIAL_CHREC:
     case INTERVAL_CHREC:
     default:
       return false;
@@ -313,8 +299,7 @@ no_evolution_in_loop_p (tree chrec, unsigned loop_num, bool *res)
     return false;
 
   scev = hide_evolution_in_other_loops_than_loop (chrec, loop_num);
-  *res = (TREE_CODE (scev) != POLYNOMIAL_CHREC
-	  && TREE_CODE (scev) != EXPONENTIAL_CHREC);
+  *res = !tree_is_chrec (scev);
   return true;
 }
 
