@@ -565,12 +565,6 @@ is_simple_unary_expr (t)
   if (is_simple_cast (t))
     return 1;
 
-  /* Additions to the original grammar.  FIXME:  Statement-expressions should
-     really be expanded.  */
-  if (TREE_CODE (t) == STMT_EXPR
-      && is_simple_stmt (STMT_EXPR_STMT (t)))
-    return 1;
-
   /* Addition to the original grammar.  Allow BIT_FIELD_REF nodes where
      operand 0 is a SIMPLE identifier and operands 1 and 2 are SIMPLE
      values.  */

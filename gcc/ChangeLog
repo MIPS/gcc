@@ -1,3 +1,15 @@
+2002-06-19  Jason Merrill  <jason@redhat.com>
+
+	* c-simplify.c (simplify_stmt_expr): New fn.
+	(simplify_expr): Call it.
+	(stmt_expr_level): Remove.
+	(stmt_has_effect, c_simplify_function_tree): Remove refs.
+	(expr_has_effect): Deal with null expression.
+	(simplify_expr_wfl): If the subexpression is simplified away, drop
+	this one, too.  Don't wrap statements.
+	* tree-simple.c (is_simple_unary_expr): Don't allow a STMT_EXPR.
+	* tree-inline.c (copy_tree_r): Clear the aux field in the copies.
+
 2002-06-18  Diego Novillo  <dnovillo@redhat.com>
 
 	* c-simplify.c (strip_off_ending): Rename to remove_suffix.

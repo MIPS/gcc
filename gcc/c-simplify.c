@@ -88,6 +88,7 @@ static void simplify_compound_expr   PARAMS ((tree *, tree *, tree *, tree));
 static void simplify_expr_wfl        PARAMS ((tree *, tree *, tree *,
                                               int (*) PARAMS ((tree)), tree));
 static void simplify_save_expr       PARAMS ((tree *, tree *, tree));
+static void simplify_stmt_expr       PARAMS ((tree *, tree *));
 static void make_type_writable       PARAMS ((tree));
 static tree add_tree                 PARAMS ((tree, tree *));
 static tree insert_before_continue   PARAMS ((tree, tree));
@@ -104,13 +105,6 @@ static int is_last_stmt_of_scope     PARAMS ((tree));
 /* Local variables.  */
 static FILE *dump_file;
 static int dump_flags;
-
-/* Used to keep track of statement expressions.  Incremented each time we
-   start processing a statement expression.  When simplifying statement
-   expressions, we need to keep some statements with no effect because they
-   might represent the return value of the statement expression.  */
-static int stmt_expr_level;
-
 
 /* Simplification of statement trees.  */
 
@@ -149,7 +143,6 @@ c_simplify_function_tree (fndecl)
   pushlevel (0);
 
   /* Simplify the function's body.  */
-  stmt_expr_level = 0;
   simplify_stmt (&fnbody);
 
   /* Declare the new temporary variables.  */
@@ -1122,9 +1115,7 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, stmt, fallback)
     /* The following are special cases that are not handled by the original
        SIMPLE grammar.  */
     case STMT_EXPR:
-      stmt_expr_level++;
-      simplify_stmt (&STMT_EXPR_STMT (*expr_p));
-      stmt_expr_level--;
+      simplify_stmt_expr (expr_p, pre_p);
       break;
 
     /* SAVE_EXPR nodes are converted into a SIMPLE identifier and
@@ -1865,10 +1856,15 @@ simplify_expr_wfl (expr_p, pre_p, post_p, simple_test_f, stmt)
   col = EXPR_WFL_COLNO (*expr_p);
 
   for (op = *pre_p; op; op = TREE_CHAIN (op))
-    TREE_VALUE (op) = build_expr_wfl (TREE_VALUE (op), file, line, col);
+    /* FIXME! deal with inline source position info.  */
+    if (!statement_code_p (TREE_CODE (TREE_VALUE (op))))
+      TREE_VALUE (op) = build_expr_wfl (TREE_VALUE (op), file, line, col);
 
   for (op = *post_p; op; op = TREE_CHAIN (op))
     TREE_VALUE (op) = build_expr_wfl (TREE_VALUE (op), file, line, col);
+
+  if (EXPR_WFL_NODE (*expr_p) == NULL_TREE)
+    *expr_p = NULL_TREE;
 }
 
 /** Simplify a SAVE_EXPR node.  EXPR_P points to the expression to
@@ -1903,6 +1899,45 @@ simplify_save_expr (expr_p, pre_p, stmt)
     }
 }
 
+/* Simplify a STMT_EXPR.  EXPR_P points to the expression to simplify.
+    After simplification, if the STMT_EXPR returns a value, EXPR_P will
+    point to a new temporary that holds that value; otherwise it will be
+    null.
+
+    PRE_P points to the list where side effects that must happen before
+      *EXPR_P should be stored.  */
+
+static void
+simplify_stmt_expr (expr_p, pre_p)
+     tree *expr_p;
+     tree *pre_p;
+{
+  tree body = STMT_EXPR_STMT (*expr_p);
+
+  if (VOID_TYPE_P (TREE_TYPE (*expr_p)))
+    *expr_p = NULL_TREE;
+  else
+    {
+      tree substmt, last_expr_stmt, last_expr, temp, mod;
+
+      last_expr_stmt = NULL_TREE;
+      for (substmt = COMPOUND_BODY (body); substmt;
+	   substmt = TREE_CHAIN (substmt))
+	{
+	  if (TREE_CODE (substmt) == EXPR_STMT)
+	    last_expr_stmt = substmt;
+	}
+
+      last_expr = EXPR_STMT_EXPR (last_expr_stmt);
+      temp = create_tmp_var (TREE_TYPE (last_expr), "retval");
+      mod = build_modify_expr (temp, NOP_EXPR, last_expr);
+      EXPR_STMT_EXPR (last_expr_stmt) = mod;
+      *expr_p = temp;
+    }
+
+  simplify_stmt (&body);
+  add_tree (body, pre_p);
+}
 
 /* Code generation.  */
 
@@ -2499,15 +2534,6 @@ stmt_has_effect (stmt)
     return 1;
   else if (expr_has_effect (EXPR_STMT_EXPR (stmt)))
     return 1;
-  else
-    {
-      /* The statement has no effect.  However, if we are simplifying a
-	 statement expression '({ ... })' and this statement may be the
-	 last statement in the statement expression body, then it may
-	 represent the return value of the statement expression.  */
-      if (stmt_expr_level > 0 && is_last_stmt_of_scope (stmt))
-	return 1;
-    }
 
   return 0;
 }
@@ -2520,6 +2546,8 @@ static int
 expr_has_effect (expr)
      tree expr;
 {
+  if (expr == NULL_TREE)
+    return 0;
   return (TREE_SIDE_EFFECTS (expr)
 	  || (TREE_CODE (expr) == CONVERT_EXPR
 	      && VOID_TYPE_P (TREE_TYPE (expr))));
