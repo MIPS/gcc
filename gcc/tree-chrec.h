@@ -100,6 +100,10 @@ build_polynomial_chrec (unsigned loop_num,
 			tree left, 
 			tree right)
 {
+  if (left == chrec_dont_know
+      || right == chrec_dont_know)
+    return chrec_dont_know;
+
   return build (POLYNOMIAL_CHREC, TREE_TYPE (left), 
 		build_int_2 (loop_num, 0), left, right);
 }

@@ -1,3 +1,15 @@
+2004-06-27  Sebastian Pop  <pop@cri.ensmp.fr>
+
+	* tree.def (INTERVAL_CHREC): Removed.
+	(SCEV_KNOWN, SCEV_NOT_KNOWN): New nodes.
+	* tree-pretty-print.c (dump_generic_node): Handle SCEV_KNOWN and 
+	SCEV_NOT_KNOWN nodes.
+	* tree-chrec.h (build_polynomial_chrec): When one of the
+	operands is chrec_dont_know, return directly chrec_dont_know.
+	* tree-scalar-evolution.c (instantiate_parameters_1): Same.
+	(initialize_scalar_evolutions_analyzer): Build chrec_dont_know using a  
+	SCEV_NOT_KNOWN node, and chrec_known with a SCEV_KNOWN node.
+	
 2004-06-24  Sebastian Pop  <pop@cri.ensmp.fr>
 
 	* tree-chrec.c (chrec_fold_automatically_generated_operands, 

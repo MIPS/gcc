@@ -2046,8 +2046,17 @@ instantiate_parameters_1 (struct loop *loop, tree chrec,
     case NON_LVALUE_EXPR:
       op0 = instantiate_parameters_1 (loop, TREE_OPERAND (chrec, 0),
 				      allow_superloop_chrecs);
+      if (op0 == chrec_dont_know)
+        return chrec_dont_know;
+
       return chrec_convert (TREE_TYPE (chrec), op0);
 
+    case SCEV_NOT_KNOWN:
+      return chrec_dont_know;
+
+    case SCEV_KNOWN:
+      return chrec_known;
+                                     
     default:
       break;
     }
@@ -2061,6 +2070,10 @@ instantiate_parameters_1 (struct loop *loop, tree chrec,
 				      allow_superloop_chrecs);
       op2 = instantiate_parameters_1 (loop, TREE_OPERAND (chrec, 2),
 				      allow_superloop_chrecs);
+      if (op0 == chrec_dont_know
+	  || op1 == chrec_dont_know
+	  || op2 == chrec_dont_know)
+        return chrec_dont_know;
       return fold (build (TREE_CODE (chrec),
 			  TREE_TYPE (chrec), op0, op1, op2));
 
@@ -2069,16 +2082,21 @@ instantiate_parameters_1 (struct loop *loop, tree chrec,
 				      allow_superloop_chrecs);
       op1 = instantiate_parameters_1 (loop, TREE_OPERAND (chrec, 1),
 				      allow_superloop_chrecs);
+      if (op0 == chrec_dont_know
+	  || op1 == chrec_dont_know)
+        return chrec_dont_know;
       return fold (build (TREE_CODE (chrec), TREE_TYPE (chrec), op0, op1));
 	    
     case 1:
       op0 = instantiate_parameters_1 (loop, TREE_OPERAND (chrec, 0),
 				      allow_superloop_chrecs);
+      if (op0 == chrec_dont_know)
+        return chrec_dont_know;
       return fold (build1 (TREE_CODE (chrec), TREE_TYPE (chrec), op0));
 
     case 0:
       return chrec;
-	    
+
     default:
       break;
     }
@@ -2414,9 +2432,10 @@ initialize_scalar_evolutions_analyzer (void)
   if (chrec_dont_know == NULL_TREE)
     {
       chrec_not_analyzed_yet = NULL_TREE;
-      chrec_dont_know = build (INTERVAL_CHREC, integer_type_node, 
-			       build_int_2 (2222, 0), build_int_2 (3222, 0));
-      chrec_known = build_int_2 (3333, 0);
+      chrec_dont_know = make_node (SCEV_NOT_KNOWN);
+      chrec_known = make_node (SCEV_KNOWN);
+      TREE_TYPE (chrec_dont_know) = NULL_TREE;
+      TREE_TYPE (chrec_known) = NULL_TREE;
     }
 }
 

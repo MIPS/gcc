@@ -1464,6 +1464,14 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       pp_decimal_int (buffer, SSA_NAME_VERSION (node));
       break;
 
+    case SCEV_KNOWN:
+      pp_string (buffer, "scev_known");
+      break;
+
+    case SCEV_NOT_KNOWN:
+      pp_string (buffer, "scev_not_known");
+      break;
+
     case POLYNOMIAL_CHREC:
       pp_string (buffer, "{");
       dump_generic_node (buffer, CHREC_LEFT (node), spc, flags, false);
