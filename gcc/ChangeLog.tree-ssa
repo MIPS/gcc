@@ -1,3 +1,10 @@
+2003-08-13  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-cfg.c (remove_stmt):  Add new argument saying whether to remove
+	annotations and invalidate defs.  Update all callers
+	(remove_bsi_from_block): Moved from bsi_remove, argument added.
+	(bsi_remove): Made into wrapper for remove_bsi_from_block.
+
 2003-08-13  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-ssa-dom.c (optimize_stmt): Call get_stmt_operands.

@@ -123,7 +123,7 @@ static void tree_loop_optimizer_finalize (struct loops *, FILE *);
 static void remove_unreachable_blocks (void);
 static void remove_unreachable_block (basic_block);
 static void remove_bb (basic_block, int);
-static void remove_stmt (tree *);
+static void remove_stmt (tree *, bool);
 static bool blocks_unreachable_p (varray_type);
 static void remove_blocks (varray_type);
 static varray_type find_subblocks (basic_block);
@@ -146,7 +146,7 @@ static tree *handle_switch_fallthru (tree, basic_block, basic_block);
 static enum eh_region_type get_eh_region_type (tree);
 
 /* Block iterator helpers.  */
-
+static void remove_bsi_from_block (block_stmt_iterator *, bool);
 static block_stmt_iterator bsi_init (tree *, basic_block);
 static inline void bsi_update_from_tsi
 		(block_stmt_iterator *, tree_stmt_iterator);
@@ -2029,16 +2029,15 @@ is_parent (basic_block bb, basic_block child_bb)
   return false;
 }
 
-
 /* Remove statement pointed by iterator I.
 
     Note that this function will wipe out control statements that
     may span multiple basic blocks.  Make sure that you really
     want to remove the whole control structure before calling this
-    function.  */
+    function.  Remove the annotations if REMOVE_ANNOTATIONS is true.  */
 
-void
-bsi_remove (block_stmt_iterator *i)
+static void
+remove_bsi_from_block (block_stmt_iterator *i, bool remove_annotations)
 {
   tree t = *(i->tp);
 
@@ -2049,7 +2048,7 @@ bsi_remove (block_stmt_iterator *i)
 	  basic_block op0_bb = bb_for_stmt (TREE_OPERAND (t, 0));
 	  basic_block op1_bb = bb_for_stmt (TREE_OPERAND (t, 1));
 
-	  remove_stmt (&TREE_OPERAND (t, 0));
+	  remove_stmt (&TREE_OPERAND (t, 0), remove_annotations);
 
 	  /* If both operands are empty and they are not associated
 	     with different basic blocks, then delete the whole
@@ -2058,13 +2057,19 @@ bsi_remove (block_stmt_iterator *i)
 	      && (op0_bb == NULL
 		  || op1_bb == NULL
 		  || op0_bb == op1_bb))
-	    remove_stmt (i->tp);
+	    remove_stmt (i->tp, remove_annotations);
 	}
       else
-	remove_stmt (i->tp);
+	remove_stmt (i->tp, remove_annotations);
     }
-
+  
   bsi_next (i);
+}
+
+void
+bsi_remove (block_stmt_iterator *i)
+{
+  remove_bsi_from_block (i, true);
 }
 
 
@@ -2088,10 +2093,11 @@ bsi_replace (block_stmt_iterator bsi, tree stmt)
    Update all references associated with it.  Note that this function will
    wipe out control statements that may span multiple basic blocks.  Make
    sure that you really want to remove the whole control structure before
-   calling this function.  */
+   calling this function.
+   Reset the annotations if REMOVE_ANNOTATIONS is true.  */
 
 static void
-remove_stmt (tree *stmt_p)
+remove_stmt (tree *stmt_p, bool remove_annotations)
 {
   varray_type vdefs;
   size_t i;
@@ -2116,30 +2122,34 @@ remove_stmt (tree *stmt_p)
   if (TREE_CODE (stmt) == LABEL_EXPR)
     remove_decl (LABEL_EXPR_LABEL (stmt), DECL_INITIAL (current_function_decl));
 
-  /* If the statement is already in SSA form, mark all the definitions made in
-     the statement invalid.
-
-     FIXME: We should probably traverse all the def-use edges originating at
-	    this statement to update each use of the definitions made here, but
-	    that is expensive and can easily be checked by every pass by
-	    checking if SSA_NAME_DEF_STMT is a nop.  */
-  defs = def_ops (stmt);
-  for (i = 0; defs && i < VARRAY_ACTIVE_SIZE (defs); i++)
+  if (remove_annotations)
     {
-      tree *def_p = VARRAY_GENERIC_PTR (defs, i);
-      if (TREE_CODE (*def_p) == SSA_NAME)
-	SSA_NAME_DEF_STMT (*def_p) = build_empty_stmt ();
+      /* If the statement is already in SSA form, mark all the
+	 definitions made in the statement invalid.
+	 
+	 FIXME: We should probably traverse all the def-use edges
+	 originating at this statement to update each use of the
+	 definitions made here, but that is expensive and can easily
+	 be checked by every pass by checking if SSA_NAME_DEF_STMT is
+	 a nop.  */ 
+      defs = def_ops (stmt);
+      for (i = 0; defs && i < VARRAY_ACTIVE_SIZE (defs); i++)
+	{
+	  tree *def_p = VARRAY_GENERIC_PTR (defs, i);
+	  if (TREE_CODE (*def_p) == SSA_NAME)
+	    SSA_NAME_DEF_STMT (*def_p) = build_empty_stmt ();
+	}
+      
+      vdefs = vdef_ops (stmt);
+      for (i = 0; vdefs && i < VARRAY_ACTIVE_SIZE (vdefs); i++)
+	{
+	  tree vdef = VDEF_RESULT (VARRAY_TREE (vdefs, i));
+	  if (TREE_CODE (vdef) == SSA_NAME)
+	    SSA_NAME_DEF_STMT (vdef) = build_empty_stmt ();
+	}
+      
+      stmt->common.ann = NULL;
     }
-
-  vdefs = vdef_ops (stmt);
-  for (i = 0; vdefs && i < VARRAY_ACTIVE_SIZE (vdefs); i++)
-    {
-      tree vdef = VDEF_RESULT (VARRAY_TREE (vdefs, i));
-      if (TREE_CODE (vdef) == SSA_NAME)
-	SSA_NAME_DEF_STMT (vdef) = build_empty_stmt ();
-    }
-
-  stmt->common.ann = NULL;
 
   /* The RHS of a MODIFY_EXPR has an annotation for the benefit of
      SSA-PRE.  Make sure to remove that annotation as well.
@@ -2586,7 +2596,7 @@ linearize_cond_expr (tree *entry_p, basic_block bb)
 	    remove_bb (else_block, 0);
 
 	  /* And finally remove the useless statement.  */
-	  remove_stmt (entry_p);
+	  remove_stmt (entry_p, true);
 	  return true;
 	}
     }
@@ -2602,7 +2612,7 @@ linearize_cond_expr (tree *entry_p, basic_block bb)
 	      move_outgoing_edges (bb, then_block);
 	      remove_bb (then_block, 0);
 	    }
-	  remove_stmt (entry_p);
+	  remove_stmt (entry_p, true);
 	}
       else
 	merge_tree_blocks (bb, bb_for_stmt (then_clause));
@@ -2621,7 +2631,7 @@ linearize_cond_expr (tree *entry_p, basic_block bb)
 	      move_outgoing_edges (bb, else_block);
 	      remove_bb (else_block, 0);
 	    }
-	  remove_stmt (entry_p);
+	  remove_stmt (entry_p, true);
 	}
       else
 	merge_tree_blocks (bb, bb_for_stmt (else_clause));
