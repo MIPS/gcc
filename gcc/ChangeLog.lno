@@ -1,5 +1,9 @@
 2004-07-08  Sebastian Pop  <pop@cri.ensmp.fr>
 
+	* varray.c (element): Don't include dependence_node_def.
+
+2004-07-08  Sebastian Pop  <pop@cri.ensmp.fr>
+
 	* Makefile.in (OBJS-common): Remove tree-dg.o.
 	(tree-dg.o): Removed.
 	(GTFILES): Remove tree-dg.h.
