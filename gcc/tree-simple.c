@@ -263,6 +263,11 @@ is_gimple_rhs (tree t)
   if (t == NULL_TREE)
     return 1;
 
+  if (TREE_CODE (t) == CONSTRUCTOR)
+    /* Accept any sort of CONSTRUCTOR for now; we'll reduce it further in
+       gimplify_init_constructor.  */
+    return 1;
+
   return (is_gimple_binary_expr (t)
           || is_gimple_unary_expr (t));
 }

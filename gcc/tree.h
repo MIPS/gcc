@@ -2795,6 +2795,8 @@ extern int fields_length (tree);
 
 extern bool initializer_zerop (tree);
 
+extern int mostly_zeros_p (tree);
+
 /* add_var_to_bind_expr (bind_expr, var) binds var to bind_expr.  */
 
 extern void add_var_to_bind_expr (tree, tree);

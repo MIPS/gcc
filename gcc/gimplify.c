@@ -350,20 +350,10 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
   /* Go ahead and strip type nops before we test our predicate.  */
   STRIP_MAIN_TYPE_NOPS (*expr_p);
 
-  /* Avoid gimplifying an expression that is already in gimple form
-     according to our predicate.
-
-     Unfortunately the predicate is_gimple_stmt always returns
-     true, regardless of the structure of the underlying tree, so
-     if that is our predicate, then we bypass this test and
-     force gimplification of the expression.  FIXME, someone
-     should fix is_gimple_stmt.
-
-     Actually, my (jason's) theory has been for gimplification to be
+  /* We used to check the predicate here and return immediately if it
+     succeeds.  This is wrong; the design is for gimplification to be
      idempotent, and for the predicates to only test for valid forms, not
-     whether they are fully simplified.  But we aren't there yet.  */
-  if (gimple_test_f != is_gimple_stmt && (*gimple_test_f) (*expr_p))
-    return 1;
+     whether they are fully simplified.  */
 
   saved_input_filename = NULL;	/* [GIMPLE] Avoid uninitialized use warning.  */
   saved_lineno = -1;		/* [GIMPLE] Avoid uninitialized use warning.  */
@@ -464,7 +454,7 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	case TRUTH_NOT_EXPR:
 	  tmp = gimple_boolify (TREE_OPERAND (*expr_p, 0));
 	  *expr_p = build (EQ_EXPR, TREE_TYPE (*expr_p), tmp,
-			   convert (boolean_type_node, integer_zero_node));
+			   boolean_false_node);
 	  recalculate_side_effects (*expr_p);
 	  break;
 
@@ -588,7 +578,10 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	  break;
 
 	case CONSTRUCTOR:
-	  gimplify_constructor (*expr_p, pre_p, post_p);
+	  if (gimple_test_f != is_gimple_rhs)
+	    /* Don't reduce this yet if we're on the rhs of an assignment.
+	       Let gimplify_init_constructor work its magic.  */
+	    gimplify_constructor (*expr_p, pre_p, post_p);
 	  break;
 
 	  /* The following are special cases that are not handled by the
@@ -788,7 +781,7 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
       /* An rvalue will do.  Assign the gimplified expression into a new
 	 temporary TMP and replace the original expression with TMP.  */
 
-      if (internal_post)
+      if (internal_post || (fallback & fb_lvalue))
 	/* The postqueue might change the value of the expression between
 	   the initialization and use of the temporary, so we can't use a
 	   formal temp.  FIXME do we care?  */
@@ -951,11 +944,15 @@ gimplify_return_expr (tree stmt, tree *pre_p)
 	 can replace it with something else.  */
       gimplify_stmt (&ret_expr);
 
-      /* If there's still a MODIFY_EXPR of the RESULT_DECL after
-	 gimplification, find it so we can put it in the RETURN_EXPR.  */
-      TREE_OPERAND (stmt, 0) = NULL_TREE;
-      if (result)
+      if (result == NULL_TREE)
+	TREE_OPERAND (stmt, 0) = NULL_TREE;
+      else if (ret_expr == TREE_OPERAND (stmt, 0))
+	/* It was already GIMPLE.  */
+	return;
+      else
 	{
+	  /* If there's still a MODIFY_EXPR of the RESULT_DECL after
+	     gimplification, find it so we can put it in the RETURN_EXPR.  */
 	  tree ret = NULL_TREE;
 
 	  for (si = tsi_start (&ret_expr); !tsi_end_p (si); tsi_next (&si))
@@ -1132,10 +1129,7 @@ gimplify_exit_expr (tree *expr_p)
   *expr_p = expr;
 }
 
-/* Gimplifies a CONSTRUCTOR node T.
-
-   FIXME: Should dynamic initializations from a CONSTRUCTOR be broken
-   up into multiple assignments?  */
+/* Gimplifies a CONSTRUCTOR node at *EXPR_P.  */
 
 static void
 gimplify_constructor (tree t, tree *pre_p, tree *post_p)
@@ -1146,6 +1140,94 @@ gimplify_constructor (tree t, tree *pre_p, tree *post_p)
        elt_list = TREE_CHAIN (elt_list))
     gimplify_expr (&TREE_VALUE (elt_list), pre_p, post_p,
 		   is_gimple_constructor_elt, fb_rvalue);
+}
+
+/* Break out elements of a constructor used as an initializer into separate
+   MODIFY_EXPRs.
+
+   Note that we still need to clear any elements that don't have explicit
+   initializers, so if not all elements are initialized we keep the
+   original MODIFY_EXPR, we just remove all of the constructor
+   elements.
+
+   FIXME should also handle vectors.  */
+
+static int
+gimplify_init_constructor (tree *expr_p, tree *pre_p, int want_value)
+{
+  tree object = TREE_OPERAND (*expr_p, 0);
+  tree ctor = TREE_OPERAND (*expr_p, 1);
+  tree type = TREE_TYPE (ctor);
+
+  if (TREE_CODE (ctor) != CONSTRUCTOR)
+    return 0;
+
+  if (TREE_CODE (type) == RECORD_TYPE || TREE_CODE (type) == UNION_TYPE
+      || TREE_CODE (type) == QUAL_UNION_TYPE
+      || TREE_CODE (type) == ARRAY_TYPE)
+    {
+      tree elt_list = CONSTRUCTOR_ELTS (ctor);
+
+      if (elt_list)
+	{
+	  int cleared = 0;
+	  int len = list_length (elt_list);
+	  int i;
+
+	  if (mostly_zeros_p (ctor))
+	    cleared = 1;
+	  else if (TREE_CODE (type) == ARRAY_TYPE)
+	    {
+	      tree nelts = array_type_nelts (type);
+	      if (TREE_CODE (nelts) != INTEGER_CST
+		  || (unsigned)len != TREE_INT_CST_LOW (nelts)+1)
+		cleared = 1;
+	    }
+	  else if (len != fields_length (type))
+	    cleared = 1;
+
+	  if (cleared)
+	    {
+	      CONSTRUCTOR_ELTS (ctor) = NULL_TREE;
+	      add_tree (*expr_p, pre_p);
+	    }
+
+	  for (i = 0; elt_list; i++, elt_list = TREE_CHAIN (elt_list))
+	    {
+	      tree purpose, value, cref, init;
+
+	      purpose = TREE_PURPOSE (elt_list);
+	      value = TREE_VALUE (elt_list);
+
+	      if (cleared && initializer_zerop (value))
+		continue;
+
+	      if (TREE_CODE (type) == ARRAY_TYPE)
+		{
+		  tree type = TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (object)));
+		  cref = build (ARRAY_REF, type, object, build_int_2 (i, 0));
+		}
+	      else
+		{
+		  cref = build (COMPONENT_REF, TREE_TYPE (purpose), object, purpose);
+		}
+
+	      init = build (MODIFY_EXPR, TREE_TYPE (purpose), cref, value);
+	      /* Each member initialization is a full-expression.  */
+	      gimplify_stmt (&init);
+	      add_tree (init, pre_p);
+	    }
+	  if (want_value)
+	    *expr_p = object;
+	  else
+	    *expr_p = build_empty_stmt ();
+
+	  return 1;
+	}
+    }
+  else
+    gimplify_constructor (ctor, pre_p, NULL);
+  return 0;
 }
 
 /*  Build an expression for the address of T.  Folds away INDIRECT_REF to
@@ -1468,7 +1550,7 @@ gimplify_call_expr (tree *expr_p, tree *pre_p, tree *post_p,
     }
 
   gimplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
-		 is_gimple_id, fb_rvalue);
+		 is_gimple_val, fb_rvalue);
 
   if (PUSH_ARGS_REVERSED)
     TREE_OPERAND (*expr_p, 1) = nreverse (TREE_OPERAND (*expr_p, 1));
@@ -1476,6 +1558,21 @@ gimplify_call_expr (tree *expr_p, tree *pre_p, tree *post_p,
 		 is_gimple_arglist, fb_rvalue);
   if (PUSH_ARGS_REVERSED)
     TREE_OPERAND (*expr_p, 1) = nreverse (TREE_OPERAND (*expr_p, 1));
+
+  /* Try this again in case gimplification exposed something.  */
+  if (decl && DECL_BUILT_IN (decl))
+    {
+      tree new = simplify_builtin (*expr_p, gimple_test_f == is_gimple_stmt);
+
+      if (new && new != *expr_p)
+	{
+	  /* There was a transformation of this call which computes the
+	     same value, but in a more efficient way.  Return and try
+	     again.  */
+	  *expr_p = new;
+	  return;
+	}
+    }
 
   /* If the function is "const", then clear TREE_SIDE_EFFECTS on its
      decl.  This allows us to eliminate redundant or useless
@@ -1766,15 +1863,6 @@ gimplify_cond_expr (tree *expr_p, tree *pre_p, tree target)
   /* Make sure the condition has BOOLEAN_TYPE.  */
   TREE_OPERAND (expr, 0) = gimple_boolify (TREE_OPERAND (expr, 0));
 
-  /* Rewrite "if (a); else b" to "if (!a) b"  */
-  if (!TREE_SIDE_EFFECTS (TREE_OPERAND (expr, 1)))
-    {
-      TREE_OPERAND (expr, 0) = invert_truthvalue (TREE_OPERAND (expr, 0));
-      tmp = TREE_OPERAND (expr, 1);
-      TREE_OPERAND (expr, 1) = TREE_OPERAND (expr, 2);
-      TREE_OPERAND (expr, 2) = tmp;
-    }
-
   /* Break apart && and || conditions.  */
   if (TREE_CODE (TREE_OPERAND (expr, 0)) == TRUTH_ANDIF_EXPR
       || TREE_CODE (TREE_OPERAND (expr, 0)) == TRUTH_ORIF_EXPR)
@@ -1801,6 +1889,23 @@ gimplify_cond_expr (tree *expr_p, tree *pre_p, tree target)
 
   gimple_pop_condition (pre_p);
 
+  if (TREE_SIDE_EFFECTS (TREE_OPERAND (expr, 1)))
+    /* OK */;
+  else if (TREE_SIDE_EFFECTS (TREE_OPERAND (expr, 2)))
+    /* Rewrite "if (a); else b" to "if (!a) b"  */
+    {
+      TREE_OPERAND (expr, 0) = invert_truthvalue (TREE_OPERAND (expr, 0));
+      gimplify_expr (&TREE_OPERAND (expr, 0), pre_p, NULL,
+		     is_gimple_condexpr, fb_rvalue);
+
+      tmp = TREE_OPERAND (expr, 1);
+      TREE_OPERAND (expr, 1) = TREE_OPERAND (expr, 2);
+      TREE_OPERAND (expr, 2) = tmp;
+    }
+  else
+    /* Both arms are empty; replace the COND_EXPR with its predicate.  */
+    *expr_p = TREE_OPERAND (expr, 0);
+
   *expr_p = expr;
 }
 
@@ -1820,8 +1925,6 @@ gimplify_modify_expr (tree *expr_p, tree *pre_p, tree *post_p, int want_value)
 {
   tree *from_p = &TREE_OPERAND (*expr_p, 1);
   tree *to_p = &TREE_OPERAND (*expr_p, 0);
-  tree type = TREE_TYPE (*to_p);
-  int (*pred) (tree);
 
 #if defined ENABLE_CHECKING
   if (TREE_CODE (*expr_p) != MODIFY_EXPR
@@ -1857,51 +1960,10 @@ gimplify_modify_expr (tree *expr_p, tree *pre_p, tree *post_p, int want_value)
   if (TREE_CODE (*expr_p) == INIT_EXPR)
     TREE_SET_CODE (*expr_p, MODIFY_EXPR);
 
-  /* Break out elements of a constructor into separate MODIFY_EXPRs.  FIXME
-     should also handle vectors.
+  gimplify_expr (from_p, pre_p, post_p, is_gimple_rhs, fb_rvalue);
 
-     Note that we still need to clear any elements that don't have explicit
-     initializers, so we keep the original MODIFY_EXPR, we just remove all
-     of the constructor elements.  FIXME should try to avoid clearing
-     initialized elts, a la store_constructor.  */
-  if (TREE_CODE (*from_p) == CONSTRUCTOR
-      && (TREE_CODE (type) == RECORD_TYPE || TREE_CODE (type) == UNION_TYPE
-	  || TREE_CODE (type) == QUAL_UNION_TYPE
-	  || TREE_CODE (type) == ARRAY_TYPE))
-    {
-      tree elt_list = CONSTRUCTOR_ELTS (*from_p);
-      int i;
-
-      CONSTRUCTOR_ELTS (*from_p) = NULL_TREE;
-      add_tree (*expr_p, pre_p);
-
-      for (i = 0; elt_list; i++, elt_list = TREE_CHAIN (elt_list))
-	{
-	  tree purpose, value, cref, init;
-
-	  purpose = TREE_PURPOSE (elt_list);
-	  value = TREE_VALUE (elt_list);
-
-	  if (TREE_CODE (type) == ARRAY_TYPE)
-	    {
-	      tree type = TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (*to_p)));
-	      cref = build (ARRAY_REF, type, *to_p, build_int_2 (i, 0));
-	    }
-	  else
-	    {
-	      cref = build (COMPONENT_REF, TREE_TYPE (purpose), *to_p, purpose);
-	    }
-
-	  init = build (MODIFY_EXPR, TREE_TYPE (purpose), cref, value);
-	  gimplify_stmt (&init);
-	  add_tree (init, pre_p);
-	}
-      if (want_value)
-	*expr_p = *to_p;
-      else
-	*expr_p = build_empty_stmt ();
-      return;
-    }
+  if (gimplify_init_constructor (expr_p, pre_p, want_value))
+    return;
 
   /* If the RHS of the MODIFY_EXPR may throw or make a nonlocal goto and
      the LHS is a user variable, then we need to introduce a temporary.
@@ -1916,11 +1978,7 @@ gimplify_modify_expr (tree *expr_p, tree *pre_p, tree *post_p, int want_value)
 	   && ((flag_exceptions && ! (call_expr_flags (*from_p) & ECF_NOTHROW))
 	       || FUNCTION_RECEIVES_NONLOCAL_GOTO (current_function_decl)))
 	  || (flag_non_call_exceptions && could_trap_p (*from_p))))
-    pred = is_gimple_val;
-  else
-    pred = is_gimple_rhs;
-
-  gimplify_expr (from_p, pre_p, post_p, pred, fb_rvalue);
+    gimplify_expr (from_p, pre_p, post_p, is_gimple_val, fb_rvalue);
 
   if (want_value)
     {
@@ -2205,9 +2263,12 @@ annotate_all_with_file_line (tree *stmt_p, const char *file, int line)
 static tree
 add_stmt_to_compound (tree existing, tree stmt)
 {
+  /* If we previously had nothing, allow an empty statement.  */
+  if (!existing && stmt && IS_EMPTY_STMT (stmt))
+    return stmt;
   if (!stmt || !TREE_SIDE_EFFECTS (stmt))
     return existing;
-  else if (existing)
+  else if (existing && TREE_SIDE_EFFECTS (existing))
     return build (COMPOUND_EXPR, void_type_node, existing, stmt);
   else
     return stmt;
@@ -2220,14 +2281,10 @@ add_stmt_to_compound (tree existing, tree stmt)
     Return the newly added list node or NULL_TREE if T was not added to
     LIST_P.  */
 
-tree
+void
 add_tree (tree t, tree *list_p)
 {
-  if (t == NULL_TREE || !TREE_SIDE_EFFECTS (t))
-    return NULL_TREE;
-
   *list_p = add_stmt_to_compound (*list_p, t);
-  return t;
 }
 
 
@@ -2474,6 +2531,8 @@ internal_get_tmp_var (tree val, tree *pre_p, bool is_formal)
     TREE_LOCUS (mod) = TREE_LOCUS (val);
   else
     annotate_with_file_line (mod, input_filename, input_line);
+  /* gimplify_modify_expr might want to reduce this further.  */
+  gimplify_stmt (&mod);
   add_tree (mod, pre_p);
 
   return t;
@@ -2778,9 +2837,9 @@ gimple_push_cleanup (tree cleanup, tree *pre_p)
 
       tree flag = create_tmp_var (boolean_type_node, "cleanup");
       tree ffalse = build (MODIFY_EXPR, void_type_node, flag,
-			   convert (boolean_type_node, integer_zero_node));
+			   boolean_false_node);
       tree ftrue = build (MODIFY_EXPR, void_type_node, flag,
-			  convert (boolean_type_node, integer_one_node));
+			  boolean_true_node);
       cleanup = build (COND_EXPR, void_type_node, flag, cleanup,
 		       build_empty_stmt ());
       wce = build (WITH_CLEANUP_EXPR, void_type_node, NULL_TREE,

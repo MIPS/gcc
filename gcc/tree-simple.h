@@ -77,7 +77,7 @@ typedef void foreach_stmt_fn (tree *);
 void foreach_stmt (tree *, foreach_stmt_fn *);
 
 /* FIXME this needs a better name.  */
-tree add_tree (tree, tree *);
+void add_tree (tree, tree *);
 
 /* FIXME we should deduce this from the predicate.  */
 typedef enum fallback_t {

@@ -1,3 +1,24 @@
+2003-07-30  Jason Merrill  <jason@redhat.com>
+
+	Don't modify code that is already GIMPLE.
+	* gimplify.c (gimplify_expr): Don't return early if the predicate 
+	matches.
+	Use a variable temp if the caller wants an lvalue.
+	Don't call gimplify_constructor if we're on the rhs of a MODIFY_EXPR.
+	(add_tree, add_stmt_to_compound): Do add an empty stmt if we 
+	previously had nothing at all.
+	(gimplify_return_expr): Don't mess with iterators if it was already
+	gimple.
+	(gimplify_cond_expr): Remove a COND_EXPR with two empty arms.
+	(gimplify_call_expr): Try to simplify a builtin again after 
+	gimplifying the args.
+	(internal_get_tmp_var): Gimplify the new MODIFY_EXPR.
+	(gimplify_expr, gimple_push_cleanup): Use boolean_false_node.
+	(gimplify_init_constructor): New fn, broken out from...
+	(gimplify_modify_expr): ...here.  Be smarter about zero-initialization.
+	* tree-simple.c (is_gimple_rhs): Accept any CONSTRUCTOR.
+	* tree-simple.h: Adjust add_tree prototype.
+
 2003-07-29  Daniel Berlin  <dberlin@dberlin.org>
 	
 	* tree-alias-common.c (create_alias_vars):  If we created global_var,
