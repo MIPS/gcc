@@ -566,12 +566,20 @@ static void
 andersen_op_assign (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
 		    alias_typevar lhs, varray_type operands, tree operation)
 {
-  size_t i;
+  aterm newvar = NULL;
+  
+  if (VARRAY_ACTIVE_SIZE (operands) == 0)
+    return;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "Op assignment %s = op(...)\n",
-	     alias_get_name (ALIAS_TVAR_DECL (lhs)));
-
+    {
+      fprintf (dump_file, "Op assignment %s = ",
+	       alias_get_name (ALIAS_TVAR_DECL (lhs)));
+      print_generic_stmt (dump_file, operation, 0);
+      fprintf (dump_file, "\n");
+    }
+  
+      
   /* Pointer destroying operations do not give us a valid pointer
      back, and thus, are assignment to pta_bottom. */
   if (pointer_destroying_op (operation))
@@ -579,18 +587,23 @@ andersen_op_assign (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
       pta_assignment (ALIAS_TVAR_ATERM (lhs), pta_rvalue (pta_bottom ()));
       return;
     }
-
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (operands); i++)
+  if (VARRAY_ACTIVE_SIZE (operands) > 2)
+    abort ();
+  if (VARRAY_ACTIVE_SIZE (operands) == 2)
     {
-      alias_typevar tv = VARRAY_GENERIC_PTR (operands, i);
-
-      if (tv == NULL)
-	continue;
-
-      /*      pta_assignment (ALIAS_TVAR_ATERM (lhs),
-	      pta_rvalue (ALIAS_TVAR_ATERM (tv)));*/
-      pta_join  (ALIAS_TVAR_ATERM (lhs), ALIAS_TVAR_ATERM (tv));
+      alias_typevar tv1 = VARRAY_GENERIC_PTR (operands, 0);
+      alias_typevar tv2 = VARRAY_GENERIC_PTR (operands, 1);
+      aterm t1 = ALIAS_TVAR_ATERM (tv1);
+      aterm t2 = ALIAS_TVAR_ATERM (tv2);
+      newvar = pta_join (t1, t2);
     }
+  else if (VARRAY_ACTIVE_SIZE (operands) == 1)
+    {
+      alias_typevar tv1 = VARRAY_GENERIC_PTR (operands, 0);
+      aterm t1 = ALIAS_TVAR_ATERM (tv1);
+      newvar = t1;
+    }
+  pta_assignment (ALIAS_TVAR_ATERM (lhs), pta_rvalue (newvar));
 }
 
 /* Inference for heap assignment (lhs = alloc) */

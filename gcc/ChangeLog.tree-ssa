@@ -4,6 +4,11 @@
 	with start of BIND_EXPR.
 
 2003-08-23  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-alias-ander.c (andersen_op_assign): Fix to join the operands,
+	the assign to the lhs. 
+
+2003-08-23  Daniel Berlin  <dberlin@dberlin.org>
 	 
 	* tree-alias-common.c (get_alias_var): Remove REFERENCE_EXPR.
 	(find_func_aliases): Fix some not quite right predicates, add ARRAY_REF
