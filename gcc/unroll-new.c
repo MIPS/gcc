@@ -47,7 +47,7 @@ static bool simple_condition_p PARAMS ((struct loop *, basic_block *, rtx, struc
 static basic_block simple_increment PARAMS ((struct loops *, struct loop *, basic_block *, struct loop_desc *));
 static rtx variable_initial_value PARAMS ((struct loop *, rtx));
 static bool simple_loop_p PARAMS ((struct loops *, struct loop *, struct loop_desc *));
-static int count_loop_iterations PARAMS ((struct loop_desc *, int *, rtx *));
+static int count_loop_iterations PARAMS ((struct loop_desc *, HOST_WIDE_INT *, rtx *));
 static int unroll_or_peel_loop PARAMS ((struct loops *, struct loop *, int));
 static int peel_loop_simple PARAMS ((struct loops *, struct loop *, int));
 static int peel_loop_completely PARAMS ((struct loops *, struct loop *, struct loop_desc *));
@@ -401,7 +401,7 @@ simple_loop_p (loops, loop, desc)
 static int
 count_loop_iterations (desc, niter, rniter)
      struct loop_desc *desc;
-     int *niter;
+     HOST_WIDE_INT *niter;
      rtx *rniter;
 {
   int delta;
@@ -499,7 +499,7 @@ peel_loop_completely (loops, loop, desc)
      struct loop_desc *desc;
 {
   sbitmap wont_exit;
-  int npeel;
+  HOST_WIDE_INT npeel;
 
   if (!count_loop_iterations (desc, &npeel, NULL))
     abort ();  /* Tested already.  */
@@ -529,7 +529,7 @@ unroll_loop_constant_iterations (loops, loop, max_unroll, desc)
      int max_unroll;
      struct loop_desc *desc;
 {
-  int niter, exit_mod;
+  HOST_WIDE_INT niter, exit_mod;
   sbitmap wont_exit;
 
   /* Normalization.  */
