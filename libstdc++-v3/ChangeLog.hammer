@@ -1,4 +1,16 @@
 2004-07-14  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/12653
+	* include/std/std_bitset.h (operator>>): Implement resolution
+	of DR 303 [WP]: use widen('0') and widen('1').
+
+	* include/std/std_bitset.h (operator>>): Implement the common
+	requirements of formatted input functions (27.6.1.2.1).
+
+	* include/std/std_bitset.h (operator>>): Set the failbit when
+	nothing was extracted and _Nb != 0.
+
+2004-07-14  Paolo Carlini  <pcarlini@suse.de>
 	    Andrew Pinski  <pinskia@physics.uc.edu>
 
 	* include/bits/basic_string.tcc (_M_mutate): Don't compute
