@@ -211,10 +211,6 @@ get_stmt_operands (tree stmt)
       break;
 
     case ASM_EXPR:
-      /* FIXME: We don't treat ASM_EXPR operands as real operands so that
-	 optimizations don't try to transform them.  In execute/20020107-1.c
-	 CCP tries to propagate constants into some __asm__ operands,
-	 causing an ICE during RTL expansion.  */
       get_expr_operands (stmt, &ASM_INPUTS (stmt), 0, prev_vops);
       get_expr_operands (stmt, &ASM_OUTPUTS (stmt), opf_is_def, prev_vops);
       get_expr_operands (stmt, &ASM_CLOBBERS (stmt), opf_is_def, prev_vops);

@@ -1,5 +1,10 @@
 2003-07-21  Diego Novillo  <dnovillo@redhat.com>
 
+	* tree-dfa.c (get_stmt_operands): Remove FIXME note
+	regarding virtual operands for ASM_EXPRs.
+
+2003-07-21  Diego Novillo  <dnovillo@redhat.com>
+
 	* tree-dfa.c (add_def): Renamed from set_def.  Update all users.
 	(get_stmt_operands): Don't force ASM_EXPR operands to be virtual.
 	(add_stmt_operand): Allow non-assignments to create new defs.
