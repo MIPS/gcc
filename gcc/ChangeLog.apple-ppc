@@ -1,3 +1,30 @@
+2005-02-16  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4006687
+	PR 17767 et al (fix from mainline)
+	* cse.c (fold_rtx) [RTX_COMPARE, RTX_COMM_COMPARE]: Don't attempt
+	any simplifications of vector mode comparison operators.
+	* simplify-rtx.c (simplify_relational_operation): Fix variable name.
+
+2005-02-15  Dale Johannesen  <dalej@apple.com>
+
+	Radar 3991611
+	Radar 3990578
+	PRs 19084 and 19348 (fix from mainline)
+	* recog.c (peephole2_optimize): Do global life update if some peephole
+	decides it doesn't need at least one of its inputs and that change
+	influences liveness at the start of the basic block.
+	* basic-block.h (EXECUTE_IF_AND_COMPL_IN_REG_SET): Needs 2 REGSET
+	arguments instead of 1.
+   
+2005-02-15  Dale Johannesen  <dalej@apple.com>
+
+	Radar 3876378
+	Radar 3838108
+	PR 18109 (fix from mainline)
+	* config/i386/i386.md (movhi_1):  Remove previous attempt at a fix.
+	(movqi_1):  Ditto.  Don't use 4-byte load when unsafe.
+
 2004-02-16  Devang Patel  <dpatel@apple.com>
 
         Radar 3964387
