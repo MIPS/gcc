@@ -23,7 +23,7 @@ int foo(void) {
 /* { dg-warning "Messages without a matching method signature" "" { target *-*-* } 22 } */
 /* { dg-warning "will be assumed to return .id. and accept" "" { target *-*-* } 22 } */
 /* { dg-warning ".\.\.\.. as arguments" "" { target *-*-* } 22 } */
-/* { dg-warning "assignment makes integer from pointer without a cast" } */
+/* { dg-warning "assignment makes integer from pointer without a cast" "" { target *-*-* } 22 } */
 
   receiver += [receiver anotherValue]; /* { dg-warning "invalid receiver type .int( )?." } */
 /* { dg-warning "assignment makes integer from pointer without a cast" "" { target *-*-* } 28 } */

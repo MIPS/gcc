@@ -1,5 +1,9 @@
 2004-08-25  Ziemowit Laski  <zlaski@apple.com>
 
+	* objc.dg/proto-lossage-4.m: Fix a 'dg-warning' spec.
+
+2004-08-25  Ziemowit Laski  <zlaski@apple.com>
+
 	* objc.dg/proto-lossage-4.m: Brought over from mainline.
 
 2004-08-21  Ziemowit Laski  <zlaski@apple.com>
