@@ -674,11 +674,7 @@ tree
 check_classfn (ctype, function)
      tree ctype, function;
 {
-  tree fn_name = DECL_NAME (function);
-  tree fndecl, fndecls;
-  tree method_vec = CLASSTYPE_METHOD_VEC (complete_type (ctype));
-  tree *methods = 0;
-  tree *end = 0;
+  int ix;
   
   if (DECL_USE_TEMPLATE (function)
       && !(TREE_CODE (function) == TEMPLATE_DECL
@@ -695,81 +691,90 @@ check_classfn (ctype, function)
        reason we should, either.  We let our callers know we didn't
        find the method, but we don't complain.  */
     return NULL_TREE;
-      
-  if (method_vec != 0)
+
+  ix = lookup_fnfields_1 (complete_type (ctype),
+			  DECL_CONSTRUCTOR_P (function) ? ctor_identifier :
+			  DECL_DESTRUCTOR_P (function) ? dtor_identifier :
+			  DECL_NAME (function));
+
+  if (ix >= 0)
     {
-      methods = &TREE_VEC_ELT (method_vec, 0);
-      end = TREE_VEC_END (method_vec);
-
-      /* First suss out ctors and dtors.  */
-      if (*methods && fn_name == DECL_NAME (OVL_CURRENT (*methods))
-	  && DECL_CONSTRUCTOR_P (function))
-	goto got_it;
-      if (*++methods && fn_name == DECL_NAME (OVL_CURRENT (*methods))
-	  && DECL_DESTRUCTOR_P (function))
-	goto got_it;
-
-      while (++methods != end && *methods)
+      tree methods = CLASSTYPE_METHOD_VEC (ctype);
+      tree fndecls, fndecl;
+      bool is_conv_op;
+      const char *format = NULL;
+      
+      for (fndecls = TREE_VEC_ELT (methods, ix);
+	   fndecls; fndecls = OVL_NEXT (fndecls))
 	{
-	  fndecl = *methods;
-	  if (fn_name == DECL_NAME (OVL_CURRENT (*methods)))
+	  tree p1, p2;
+	  
+	  fndecl = OVL_CURRENT (fndecls);
+	  p1 = TYPE_ARG_TYPES (TREE_TYPE (function));
+	  p2 = TYPE_ARG_TYPES (TREE_TYPE (fndecl));
+
+	  /* We cannot simply call decls_match because this doesn't
+	     work for static member functions that are pretending to
+	     be methods, and because the name may have been changed by
+	     asm("new_name").  */ 
+	      
+	   /* Get rid of the this parameter on functions that become
+	      static.  */
+	  if (DECL_STATIC_FUNCTION_P (fndecl)
+	      && TREE_CODE (TREE_TYPE (function)) == METHOD_TYPE)
+	    p1 = TREE_CHAIN (p1);
+	      
+	  if (same_type_p (TREE_TYPE (TREE_TYPE (function)),
+			   TREE_TYPE (TREE_TYPE (fndecl)))
+	      && compparms (p1, p2)
+	      && (DECL_TEMPLATE_SPECIALIZATION (function)
+		  == DECL_TEMPLATE_SPECIALIZATION (fndecl))
+	      && (!DECL_TEMPLATE_SPECIALIZATION (function)
+		  || (DECL_TI_TEMPLATE (function) 
+		      == DECL_TI_TEMPLATE (fndecl))))
+	    return fndecl;
+	}
+      error ("prototype for `%#D' does not match any in class `%T'",
+	     function, ctype);
+      is_conv_op = DECL_CONV_FN_P (fndecl);
+
+      if (is_conv_op)
+	ix = CLASSTYPE_FIRST_CONVERSION_SLOT;
+      fndecls = TREE_VEC_ELT (methods, ix);
+      while (fndecls)
+	{
+	  fndecl = OVL_CURRENT (fndecls);
+	  fndecls = OVL_NEXT (fndecls);
+
+	  if (!fndecls && is_conv_op)
 	    {
-	    got_it:
-	      for (fndecls = *methods; fndecls != NULL_TREE;
-		   fndecls = OVL_NEXT (fndecls))
+	      if (TREE_VEC_LENGTH (methods) > ix)
 		{
-		  fndecl = OVL_CURRENT (fndecls);
-
-		  /* We cannot simply call decls_match because this
-		     doesn't work for static member functions that are 
-                     pretending to be methods, and because the name
-		     may have been changed by asm("new_name").  */ 
-		  if (DECL_NAME (function) == DECL_NAME (fndecl))
+		  ix++;
+		  fndecls = TREE_VEC_ELT (methods, ix);
+		  if (!DECL_CONV_FN_P (OVL_CURRENT (fndecls)))
 		    {
-		      tree p1 = TYPE_ARG_TYPES (TREE_TYPE (function));
-		      tree p2 = TYPE_ARG_TYPES (TREE_TYPE (fndecl));
-
-		      /* Get rid of the this parameter on functions that become
-			 static.  */
-		      if (DECL_STATIC_FUNCTION_P (fndecl)
-			  && TREE_CODE (TREE_TYPE (function)) == METHOD_TYPE)
-			p1 = TREE_CHAIN (p1);
-
-		      if (same_type_p (TREE_TYPE (TREE_TYPE (function)),
-				       TREE_TYPE (TREE_TYPE (fndecl)))
-			  && compparms (p1, p2)
-			  && (DECL_TEMPLATE_SPECIALIZATION (function)
-			      == DECL_TEMPLATE_SPECIALIZATION (fndecl))
-			  && (!DECL_TEMPLATE_SPECIALIZATION (function)
-			      || (DECL_TI_TEMPLATE (function) 
-				  == DECL_TI_TEMPLATE (fndecl))))
-			return fndecl;
+		      fndecls = NULL_TREE;
+		      is_conv_op = false;
 		    }
 		}
-	      break;		/* loser */
+	      else
+		is_conv_op = false;
 	    }
+	  if (format)
+	    format = "                %#D";
+	  else if (fndecls)
+	    format = "candidates are: %#D";
+	  else
+	    format = "candidate is: %#D";
+	  cp_error_at (format, fndecl);
 	}
     }
-
-  if (methods != end && *methods)
-    {
-      tree fndecl = *methods;
-      error ("prototype for `%#D' does not match any in class `%T'",
-		function, ctype);
-      cp_error_at ("candidate%s: %+#D", OVL_NEXT (fndecl) ? "s are" : " is",
-		   OVL_CURRENT (fndecl));
-      while (fndecl = OVL_NEXT (fndecl), fndecl)
-	cp_error_at ("                %#D", OVL_CURRENT(fndecl));
-    }
+  else if (!COMPLETE_TYPE_P (ctype))
+    cxx_incomplete_type_error (function, ctype);
   else
-    {
-      methods = 0;
-      if (!COMPLETE_TYPE_P (ctype))
-        cxx_incomplete_type_error (function, ctype);
-      else
-        error ("no `%#D' member function declared in class `%T'",
-		  function, ctype);
-    }
+    error ("no `%#D' member function declared in class `%T'",
+	   function, ctype);
 
   /* If we did not find the method in the class, add it to avoid
      spurious errors (unless the CTYPE is not yet defined, in which
@@ -1118,11 +1123,29 @@ grokbitfield (declarator, declspecs, width)
   return value;
 }
 
+/* Convert a conversion operator name to an identifier. SCOPE is the
+   scope of the conversion operator, if explicit.  */
+
 tree
-grokoptypename (declspecs, declarator)
+grokoptypename (declspecs, declarator, scope)
      tree declspecs, declarator;
+     tree scope;
 {
   tree t = grokdeclarator (declarator, declspecs, TYPENAME, 0, NULL);
+
+  /* Resolve any TYPENAME_TYPEs that refer to SCOPE, before mangling
+     the name, so that we mangle the right thing.  */
+  if (scope && current_template_parms
+      && uses_template_parms (t)
+      && uses_template_parms (scope))
+    {
+      tree args = current_template_args ();
+      
+      push_scope (scope);
+      t = tsubst (t, args, tf_error | tf_warning, NULL_TREE);
+      pop_scope (scope);
+    }
+  
   return mangle_conv_op_name_for_type (t);
 }
 
@@ -2842,12 +2865,13 @@ finish_file ()
 	  reconsider = 1;
 	}
       
-      /* Go through the various inline functions, and see if any need
-	 synthesizing.  */
       for (i = 0; i < deferred_fns_used; ++i)
 	{
 	  tree decl = VARRAY_TREE (deferred_fns, i);
+	  
 	  import_export_decl (decl);
+	  
+	  /* Does it need synthesizing?  */
 	  if (DECL_ARTIFICIAL (decl) && ! DECL_INITIAL (decl)
 	      && TREE_USED (decl)
 	      && (! DECL_REALLY_EXTERN (decl) || DECL_INLINE (decl)))
@@ -2862,30 +2886,21 @@ finish_file ()
 	      pop_from_top_level ();
 	      reconsider = 1;
 	    }
-	}
 
-      /* We lie to the back-end, pretending that some functions are
-	 not defined when they really are.  This keeps these functions
-	 from being put out unnecessarily.  But, we must stop lying
-	 when the functions are referenced, or if they are not comdat
-	 since they need to be put out now.
-	 This is done in a separate for cycle, because if some deferred
-	 function is contained in another deferred function later in
-	 deferred_fns varray, rest_of_compilation would skip this
-	 function and we really cannot expand the same function twice.  */
-      for (i = 0; i < deferred_fns_used; ++i)
-	{
-	  tree decl = VARRAY_TREE (deferred_fns, i);
-      
+	  /* We lie to the back-end, pretending that some functions
+	     are not defined when they really are.  This keeps these
+	     functions from being put out unnecessarily.  But, we must
+	     stop lying when the functions are referenced, or if they
+	     are not comdat since they need to be put out now.  This
+	     is done in a separate for cycle, because if some deferred
+	     function is contained in another deferred function later
+	     in deferred_fns varray, rest_of_compilation would skip
+	     this function and we really cannot expand the same
+	     function twice.  */
 	  if (DECL_NOT_REALLY_EXTERN (decl)
 	      && DECL_INITIAL (decl)
 	      && DECL_NEEDED_P (decl))
 	    DECL_EXTERNAL (decl) = 0;
-	}
-
-      for (i = 0; i < deferred_fns_used; ++i)
-	{
-	  tree decl = VARRAY_TREE (deferred_fns, i);
 
 	  /* If we're going to need to write this function out, and
 	     there's already a body for it, create RTL for it now.
@@ -2941,6 +2956,16 @@ finish_file ()
     } 
   while (reconsider);
 
+  /* All used inline functions must have a definition at this point. */
+  for (i = 0; i < deferred_fns_used; ++i)
+    {
+      tree decl = VARRAY_TREE (deferred_fns, i);
+
+      if (TREE_USED (decl) && DECL_DECLARED_INLINE_P (decl)
+	  && !(TREE_ASM_WRITTEN (decl) || DECL_SAVED_TREE (decl)))
+	cp_warning_at ("inline function `%D' used but never defined", decl);
+    }
+  
   /* We give C linkage to static constructors and destructors.  */
   push_lang_context (lang_name_c);
 
@@ -3292,16 +3317,18 @@ build_expr_from_tree (t)
 	{
 	  tree ref = TREE_OPERAND (t, 0);
 	  tree name = TREE_OPERAND (ref, 1);
+	  tree fn, scope, args;
 	  
 	  if (TREE_CODE (name) == TEMPLATE_ID_EXPR)
 	    name = build_nt (TEMPLATE_ID_EXPR,
 	                     TREE_OPERAND (name, 0),
 	                     build_expr_from_tree (TREE_OPERAND (name, 1)));
-	    
-	  return build_member_call
-	    (build_expr_from_tree (TREE_OPERAND (ref, 0)),
-	     name,
-	     build_expr_from_tree (TREE_OPERAND (t, 1)));
+
+	  scope = build_expr_from_tree (TREE_OPERAND (ref, 0));
+	  args = build_expr_from_tree (TREE_OPERAND (t, 1));
+	  fn = resolve_scoped_fn_name (scope, name);
+	  
+	  return build_call_from_tree (fn, args, 1);
 	}
       else
 	{
@@ -4714,6 +4741,12 @@ mark_used (decl)
   TREE_USED (decl) = 1;
   if (processing_template_decl)
     return;
+
+  if (TREE_CODE (decl) == FUNCTION_DECL && DECL_DECLARED_INLINE_P (decl)
+      && !TREE_ASM_WRITTEN (decl))
+    /* Remember it, so we can check it was defined.  */
+    defer_fn (decl);
+  
   if (!skip_evaluation)
     assemble_external (decl);
 
@@ -4759,6 +4792,7 @@ handle_class_head (tag_kind, scope, id, attributes, defn_p, new_type_p)
      int *new_type_p;
 {
   tree decl = NULL_TREE;
+  tree type;
   tree current = current_scope ();
   bool xrefd_p = false;
   
@@ -4807,12 +4841,28 @@ handle_class_head (tag_kind, scope, id, attributes, defn_p, new_type_p)
       xrefd_p = true;
     }
 
-  if (!TYPE_BINFO (TREE_TYPE (decl)))
+  type = TREE_TYPE (decl);
+
+  if (!TYPE_BINFO (type))
     {
       error ("`%T' is not a class or union type", decl);
       return error_mark_node;
     }
-  
+
+  /* When `A' is a template class, using `class A' without template
+     argument is invalid unless
+     - we are inside the scope of the template class `A' or one of its
+       specialization.
+     - we are declaring the template class `A' itself.  */
+  if (TREE_CODE (type) == RECORD_TYPE
+      && CLASSTYPE_IS_TEMPLATE (type)
+      && processing_template_decl <= template_class_depth (current)
+      && ! is_base_of_enclosing_class (type, current_class_type))
+    {
+      error ("template argument is required for `%T'", type);
+      return error_mark_node;
+    }
+
   if (defn_p)
     {
       /* For a definition, we want to enter the containing scope

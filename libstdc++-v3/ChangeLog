@@ -1,3 +1,52 @@
+2002-12-29  Phil Edwards  <pme@gcc.gnu.org>
+
+	* include/std/std_bitset.h:  Better comments.
+
+2002-12-29  Phil Edwards  <pme@gcc.gnu.org>
+
+	* include/std/std_bitset.h (_Base_bitset::_M_do_left_shift,
+	_Base_bitset::_M_do_right_shift): Expect a non-zero shift.
+	(bitset::operator<<=, bitset::operator>>=):  When shifting more bits
+	than are in the bitset, zero memory rather than segfault.
+	(operator>>(basic_istream,bitset):  Only call setstate once, after
+	all work has been done.
+
+	* testsuite/23_containers/bitset_members.cc (test03):  New test.
+	* testsuite/23_containers/bitset_shift.cc (test02):  New test.
+
+2002-12-28  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* docs/html/17_intro/porting.texi: Use @copying.
+	* docs/html/17_intro/porting.html: Regenerate.
+
+2002-12-23  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* config/io/basic_file_stdio.cc (__basic_file::_M_open_mode):
+	Don't use O_NONBLOCK if it is not defined.
+	(__basic_file::open): Don't use fcntl either.
+
+2002-12-19  Paolo Carlini  <pcarlini@unitus.it>
+
+	PR libstdc++/8949
+	* include/std/std_limits.h
+	(struct numeric_limits<short>,
+	struct numeric_limits<unsigned short>,
+	struct numeric_limits<int>,
+	struct numeric_limits<unsigned int>,
+	struct numeric_limits<long>,
+	struct numeric_limits<unsigned long>,
+	struct numeric_limits<long long>,
+	struct numeric_limits<unsigned long long>): According
+	to 18.2.1.2,53 and 18.2.1.5,1 is_iec559 shall be false.
+	* testsuite/18_support/numeric_limits.cc: Add test04.
+
+2002-12-18  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* testsuite/23_containers/vector_capacity.cc (test03): Move ...
+	* testsuite/23_containers/vector_resize.cc: ...here as a new file.
+	Pass in -lmalloc for irix6.
+	* testsuite/27_io/ios_base_storage.cc: Pass in -lmalloc for irix6.
+
 2002-12-11  Paolo Carlini  <pcarlini@unitus.it>
 
 	PR libstdc++/8887

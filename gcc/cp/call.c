@@ -2659,6 +2659,69 @@ build_user_type_conversion (totype, expr, flags)
   return NULL_TREE;
 }
 
+/* Find the possibly overloaded set of functions corresponding to a
+   call of the form SCOPE::NAME (...). NAME might be a
+   TEMPLATE_ID_EXPR, OVERLOAD, _DECL, IDENTIFIER_NODE or LOOKUP_EXPR. */
+
+tree
+resolve_scoped_fn_name (tree scope, tree name)
+{
+  tree fn;
+  tree template_args = NULL_TREE;
+  bool is_template_id = TREE_CODE (name) == TEMPLATE_ID_EXPR;
+  
+  if (is_template_id)
+    {
+      template_args = TREE_OPERAND (name, 1);
+      name = TREE_OPERAND (name, 0);
+    }
+  if (TREE_CODE (name) == OVERLOAD)
+    name = DECL_NAME (get_first_fn (name));
+  else if (TREE_CODE (name) == LOOKUP_EXPR)
+    name = TREE_OPERAND (name, 0);
+  
+  if (TREE_CODE (scope) == NAMESPACE_DECL)
+    fn = lookup_namespace_name (scope, name);
+  else
+    {
+      if (!TYPE_BEING_DEFINED (scope)
+	  && !COMPLETE_TYPE_P (complete_type (scope)))
+	{
+	  error ("incomplete type '%T' cannot be used to name a scope",
+		 scope);
+	  return error_mark_node;
+	}
+      
+      if (BASELINK_P (name))
+	fn = name;
+      else
+	fn = lookup_member (scope, name, /*protect=*/1, /*prefer_type=*/0);
+      if (fn && current_class_type)
+	fn = (adjust_result_of_qualified_name_lookup 
+	      (fn, scope, current_class_type));
+    }
+  
+  if (!fn)
+    {
+      error ("'%D' has no member named '%E'", scope, name);
+      return error_mark_node;
+    }
+  if (is_template_id)
+    {
+      tree fns = fn;
+
+      if (BASELINK_P (fn))
+	fns = BASELINK_FUNCTIONS (fns);
+      fns = build_nt (TEMPLATE_ID_EXPR, fns, template_args);
+      if (BASELINK_P (fn))
+	BASELINK_FUNCTIONS (fn) = fns;
+      else
+	fn = fns;
+    }
+  
+  return fn;
+}
+
 /* Do any initial processing on the arguments to a function call.  */
 
 static tree
@@ -3355,6 +3418,10 @@ build_new_op (code, flags, arg1, arg2, arg3)
   if (TREE_CODE (arg1) == OFFSET_REF)
     arg1 = resolve_offset_ref (arg1);
   arg1 = convert_from_reference (arg1);
+  if (CLASS_TYPE_P (TREE_TYPE (arg1))
+      && CLASSTYPE_TEMPLATE_INSTANTIATION (TREE_TYPE (arg1)))
+    /* Make sure the template type is instantiated now.  */
+    instantiate_class_template (TYPE_MAIN_VARIANT (TREE_TYPE (arg1)));
   
   switch (code)
     {
@@ -3377,12 +3444,18 @@ build_new_op (code, flags, arg1, arg2, arg3)
       if (TREE_CODE (arg2) == OFFSET_REF)
 	arg2 = resolve_offset_ref (arg2);
       arg2 = convert_from_reference (arg2);
+      if (CLASS_TYPE_P (TREE_TYPE (arg2))
+	  && CLASSTYPE_TEMPLATE_INSTANTIATION (TREE_TYPE (arg2)))
+	instantiate_class_template (TYPE_MAIN_VARIANT (TREE_TYPE (arg2)));
     }
   if (arg3)
     {
       if (TREE_CODE (arg3) == OFFSET_REF)
 	arg3 = resolve_offset_ref (arg3);
       arg3 = convert_from_reference (arg3);
+      if (CLASS_TYPE_P (TREE_TYPE (arg3))
+	  && CLASSTYPE_TEMPLATE_INSTANTIATION (TREE_TYPE (arg3)))
+	instantiate_class_template (TYPE_MAIN_VARIANT (TREE_TYPE (arg3)));
     }
   
   if (code == COND_EXPR)

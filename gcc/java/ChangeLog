@@ -1,3 +1,37 @@
+2002-12-30  DJ Delorie  <dj@redhat.com>
+
+	* Make-lang.in: Protect against texi2pod/pod2man failing.
+
+2002-12-28  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* gcj.texi: Use @copying.
+
+2002-12-23  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* gcj.texi: Include Cover Texts in man page.
+
+2002-12-23  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* gcj.texi: Include gcc-common.texi.
+	* Make-lang.in ($(srcdir)/java/gcj.info, java/gcj.dvi): Depend on
+	$(srcdir)/doc/include/gcc-common.texi.
+
+2002-12-22  Anthony Green  <green@redhat.com>
+
+	* gcj.texi (Limitations): Add note about org.xml.sax and
+	org.w3c.dom.
+
+2002-12-20  Tom Tromey  <tromey@redhat.com>
+
+	* jcf-write.c (generate_bytecode_insns) [SWITCH_EXPR]: Handle case
+	where minimum case value is Integer.MIN_VALUE.
+	Fixes PR java/8955.
+
+2002-12-18  Andrew Haley  <aph@redhat.com>
+
+	* parse.y (patch_invoke): Force evaluation order when `check' is
+	set.  For PR libgcj/8945.
+
 2002-12-05  Ranjit Mathew <rmathew@hotmail.com>
         Andrew Haley <aph@redhat.com>
 

@@ -1,3 +1,160 @@
+2002-12-31  Jerry Quinn  <jlquinn@optonline.net>
+
+	* gcc/doc/invoke.texi (Optimization Options): Clean up -O flag
+	descriptions.
+
+2002-12-31  Jerry Quinn  <jlquinn@optonline.net>
+
+	* gcc/doc/invoke.texi (Optimization Options): List the options
+	enabled by each -O flag.
+
+2002-12-31  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/rs6000.h (WIDEST_HARDWARE_FP_SIZE): Define.
+
+2002-12-31  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* doc/install.texi (Configuration): Explicitly refer
+	gcc/config.gcc for a list of cpu models.
+
+2002-12-30  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* doc/gcc.texi, doc/gccint.texi: Update last modification dates.
+
+2002-12-30  Tom Tromey  <tromey@redhat.com>
+
+	* doc/install.texi (Testing): Mention Jacks.
+
+2002-12-30  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* doc/service.texi: Uncomment and update FAQ link.
+
+2002-12-28  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* doc/cpp.texi, doc/gcc.texi, doc/gccint.texi, doc/install.texi:
+	Use @copying.
+
+2002-12-28  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* configure.in: Increase makeinfo version requirement to 4.[2-9].
+	* configure: Regenerate.
+	* doc/install.texi: Update Texinfo version requirement.
+
+2002-12-27  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* doc/include/texinfo.tex: Update to version 2002-12-26.16.
+
+2002-12-26  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* doc/standards.texi, doc/invoke.texi: Point to 3.3 version of
+	c99status.html.
+
+2002-12-26  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.h (IDENT_ASM_OP): End with a tab.
+
+2002-12-23  Larin Hennessy  <larin@science.oregonstate.edu>
+
+	* doc/install.texi: Remove i386-*-isc, i860-*-bsd,
+	m68k-altos-sysv, m68k-isi-bsd, m68k-sony-bsd entries.
+	* doc/invoke.texi: Remove AMD 29K, ARM RISC/iX, Clipper, Convex,
+	DG/UX entries.
+	* doc/md.texi: Remove AMD 29K entries.
+	* doc/trouble.texi: Remove Alliant, DG/UX, Iris 4.0.5F, GAS
+	1.38.1, NewsOS, RT PC, WE32K entries.
+
+2002-12-23  Aldy Hernandez  <aldyh@redhat.com>
+
+	PR/8763
+	* config/rs6000/altivec.md (mulv4sf3): Rewrite to add -0.0 vector.
+	(altivec_vspltisw_v4sf): Name pattern.
+	(altivec_vslw_v4sf): New pattern.
+
+2002-12-23  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* doc/include/gcc-common.texi: Clear DEVELOPMENT.
+
+2002-12-23  David Edelsohn  <edelsohn@gnu.org>
+
+	PR middle-end/8784
+	* expr.c (expand_assignment): Apply special treatment to
+	ARRAY_TYPE.
+
+2002-12-21  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.md (zero_extendqisi2): Correct the
+	length.
+
+2002-12-19  Devang Patel <dpatel@apple.com>
+
+	* config/darwin.h (TARGET_OPTION_TRANSLATE_TABLE): Add support for -dynamic.
+	(CPP_SPEC): Define __STATIC__ and __DYNAMIC__ depending on -dynamic.
+	(LINK_SPEC): Pass -dynamic to linker.
+	* config/rs6000/darwin.h: Reject conflicting -static and -dynamic.
+	
+2002-12-19  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.md (pushqi_h8300): Don't push the stack
+	pointer.
+	(pushqi_h8300hs): Likewise.
+	(pushhi_h8300): Likewise.
+	(pushhi_h8300hs): Likewise.
+
+2002-12-19  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR optimization/8988
+	* loop.c (maybe_eliminate_biv): Kill REG_EQUAL notes mentioning
+	the biv when eliminating.
+
+2002-12-19  Aldy Hernandez  <aldyh@redhat.com>
+
+	PR 8553
+	* config/rs6000/altivec.md ("absv8hi2"): Add & to clobbered
+	registers.
+	("absv16qi2"): Same.
+	("absv4si2"): Same.
+	("absv4sf2"): Same.
+	("altivec_abss_v16qi"): Same.
+	("altivec_abss_v8hi"): Same.
+	("altivec_abss_v4si"): Same.
+
+2002-12-19  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* config/s390/s390.md ("*tsthiCCT", "*tsthiCCT_cconly",
+	"*tstqiCCT", "*tstqiCCT_cconly"): New insns.
+
+2002-12-18  Aldy Hernandez  <aldyh@redhat.com>
+
+	* config/rs6000/altivec.h (vec_cmplt macro): Reverse arguments in
+	macro.
+	(vec_cmplt C++ functions): Reverse arguments.
+
+2002-12-17  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* doc/c-tree.texi: Restore deliberate spelling mistakes.
+
+2002-12-17  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* doc/c-tree.texi: Fix typos and follow spelling conventions.
+	* doc/cpp.texi: Likewise.
+	* doc/extend.texi: Likewise.
+	* doc/gty.texi: Likewise.
+	* doc/install.texi: Likewise.
+	* doc/invoke.texi: Likewise.
+	* doc/md.texi: Likewise.
+	* doc/passes.texi: Likewise.
+	* doc/rtl.texi: Likewise.
+	* doc/sourcebuild.texi: Likewise.
+	* doc/tm.texi: Likewise.
+
+2002-12-17  Jerry Quinn  <jlquinn@optonline.net>
+
+	* doc/invoke.texi: Minor spelling and grammar fixes.
+
+2002-12-16  Mark Mitchell  <mark@codesourcery.com>
+
+	* version.c (version_string): Mark as prerelease.
+
 2002-12-13  John David Anglin  <dave@hiauly1.hia.nrc.ca>
 
 	* pa.c (output_millicode_call): Correct typo.

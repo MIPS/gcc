@@ -1,3 +1,83 @@
+2002-12-30  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/9054
+	* class.c (layout_class_type): Set DECL_CONTEXT of type for base.
+	* dump.c (cp_dump_tree, RECORD_TYPE): Deal with type for base types.
+
+2002-12-26  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/4803
+	* decl2.c (mark_used): Defer inline functions.
+	(finish_file): Merge deferred_fns loops. Check all used
+	inline functions have a definition.
+	* method.c (make_thunk): Thunks are not inline.
+
+	PR c++/5116, c++/764
+	* call.c (build_new_op): Make sure template class operands are
+	instantiated.
+
+2002-12-24  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR C++/7964
+	* cp-tree.h (resolve_scoped_fn_name): Prototype.
+	* call.c (resolve_scoped_fn_name): New function. Deal with
+	more template expansion. Broken out of ...
+	* parse.y (parse_finish_call_expr): ... here. Call it.
+	* decl2.c (build_expr_from_tree, CALL_EXPR): Use
+	resolve_scoped_fn_name and build_call_from_tree.
+
+	PR c++/9053
+	* decl.c (duplicate_decls): Templates may be disambiguated by
+	return type.
+	
+	PR c++/8702
+	* decl2.c (check_classfn): Use lookup_fnfield_1. List all
+	conversion operators on failure.
+
+2002-12-22  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/8572
+	* cp-tree.h (grokoptypename): Add SCOPE parameter.
+	* decl2.c (grokoptypename): Add SCOPE parameter. tsubst the type
+	if in a template scope.
+	* parse.y (unoperator): Return the scope.
+	(operator_name): Adjust grokoptypename call.
+
+2002-12-22  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	* cp-tree.h (make_unbound_class_template): Use tsubst_flags_t.
+	* decl.c (make_unbound_class_template): Adjust.  Check for tf_error.
+	* pt.c (tsubst) [OFFSET_TYPE]: Check for tf_error.
+
+2002-12-18  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/8099
+	* friend.c (make_friend_class): Allow partial specialization
+	when declaration is not a template friend.
+
+2002-12-18  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/3663
+	* pt.c (lookup_template_class): Copy TREE_PRIVATE and
+	TREE_PROTECTED to created decl nodes.
+
+2002-12-18  Mark Mitchell  <mark@codesourcery.com>
+
+	* class.c (build_base_field): Do not set DECL_PACKED on the
+	FIELD_DECL.
+
+2002-12-18  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	* parse.y (bad_parm): Add missing argument to error function call.
+
+2002-12-18  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/8442
+	* decl2.c (handle_class_head): Verify if the looked up name is a
+	type or template.
+	* pt.c (convert_template_argument): Fix type or template template
+	parameter decision logic.
+
 2002-12-13  Gabriel Dos Reis  <gdr@integrable-solutions.net>
 
 	PR C++/8031

@@ -1,3 +1,61 @@
+2002-12-26  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/warn/inline1.C: New test.
+	* g++.old-deja/g++.brendan/crash64.C: Remove spurious inlines.
+	* g++.old-deja/g++.jason/synth10.C: Likewise.
+	* g++.old-deja/g++.mike/net31.C: Likewise.
+	* g++.old-deja/g++.mike/p8786.C: Likewise.
+	
+	* g++.dg/template/friend10.C: New test.
+	* g++.dg/template/conv5.C: New test.
+
+2002-12-24  Nathan Sidwell  <nathan@codesourcery.com>
+	
+	* g++.dg/lookup/scoped3.C: New test.
+	
+	* g++.dg/lookup/decl1.C: New test.
+	* g++.dg/lookup/decl2.C: New test.
+
+2002-12-24  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* g++.dg/init/new1.C, g++.dg/template/alignof1.C,
+	gcc.c-torture/compile/20021015-1.c,
+	gcc.c-torture/compile/20021015-2.c,
+	gcc.c-torture/compile/20021123-1.c,
+	gcc.c-torture/compile/20021123-2.c,
+	gcc.c-torture/compile/20021123-3.c,
+	gcc.c-torture/compile/20021123-4.c,
+	gcc.c-torture/execute/20021024-1.c: Add tests previously added
+	only to 3.1 or 3.2 branch.
+
+2002-12-22  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/parse/conv_op1.C: New test.
+
+2002-12-19  Devang Patel  <dpatel@apple.com>
+
+	* gcc.dg/darwin-ld-5.c: Rewrite test to test -dynamic.
+	
+2002-12-19  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.c-torture/execute/20021219-1.c: New test.
+
+2002-12-18  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/8099
+	* g++.dg/template/friend9.C: New test.
+
+2002-12-18  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/3663
+	* g++.dg/template/access7.C: New test.
+
+2002-12-18  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/8442
+	* g++.dg/template/type2.C: New test.
+	* g++.dg/template/ttp3.C: Change expected error message.
+
 2002-12-12  Devang Patel <dpatel@apple.com>
 	* gcc.dg/darwin-ld-1.c: New test.
 	* gcc.dg/darwin-ld-2.c: New test.

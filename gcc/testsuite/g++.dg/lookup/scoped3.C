@@ -20,4 +20,4 @@ struct C : public B
 };
 
 
-template struct C<int>;
+template C<int>;
