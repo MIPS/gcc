@@ -475,6 +475,7 @@ java_init_decl_processing ()
   TREE_TYPE (null_pointer_node) = ptr_type_node;
 
   /* Used by the parser to represent empty statements and blocks. */
+  empty_stmt_node = build1 (CONVERT_EXPR, void_type_node, size_zero_node);
   CAN_COMPLETE_NORMALLY (empty_stmt_node) = 1;
 
 #if 0

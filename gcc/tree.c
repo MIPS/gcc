@@ -295,7 +295,6 @@ make_node (code)
     {
     case 's':
       TREE_SIDE_EFFECTS (t) = 1;
-      TREE_TYPE (t) = void_type_node;
       break;
 
     case 'd':
@@ -2360,7 +2359,6 @@ build1 (code, type, node)
   if (TREE_CODE_CLASS (code) == 's')
     {
       TREE_SIDE_EFFECTS (t) = 1;
-      TREE_TYPE (t) = void_type_node;
     }
   else switch (code)
     {

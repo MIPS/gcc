@@ -32,6 +32,7 @@ static HOST_WIDE_INT cxx_get_alias_set PARAMS ((tree));
 static bool ok_to_generate_alias_set_for_type PARAMS ((tree));
 static bool cxx_warn_unused_global_decl PARAMS ((tree));
 static tree cp_expr_size PARAMS ((tree));
+static void cp_expand_decl PARAMS ((tree));
 
 #undef LANG_HOOKS_NAME
 #define LANG_HOOKS_NAME "GNU C++"
@@ -53,6 +54,8 @@ static tree cp_expr_size PARAMS ((tree));
 #define LANG_HOOKS_EXPAND_CONSTANT cplus_expand_constant
 #undef LANG_HOOKS_EXPAND_EXPR
 #define LANG_HOOKS_EXPAND_EXPR cxx_expand_expr
+#undef LANG_HOOKS_EXPAND_DECL
+#define LANG_HOOKS_EXPAND_DECL cp_expand_decl
 #undef LANG_HOOKS_SAFE_FROM_P
 #define LANG_HOOKS_SAFE_FROM_P c_safe_from_p
 #undef LANG_HOOKS_PARSE_FILE
@@ -310,3 +313,16 @@ cp_expr_size (exp)
     /* Use the default code.  */
     return lhd_expr_size (exp);
 }
+
+/* Expand DECL if it declares an entity not handled by the
+   common code.  */
+
+static void
+cp_expand_decl (decl)
+     tree decl;
+{
+  if (TREE_CODE (decl) == LABEL_DECL 
+      && C_DECLARED_LABEL_FLAG (decl))
+    declare_nonlocal_label (decl);
+}
+

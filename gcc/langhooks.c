@@ -251,7 +251,7 @@ lhd_expand_expr (t, r, mm, em)
 
 void
 lhd_expand_decl (t)
-     tree t;
+     tree t ATTRIBUTE_UNUSED;
 {
   abort ();
 }

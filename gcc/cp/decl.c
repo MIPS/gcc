@@ -4414,6 +4414,7 @@ push_using_decl (scope, name)
   if (decl)
     return namespace_bindings_p () ? decl : NULL_TREE;
   decl = build_lang_decl (USING_DECL, name, void_type_node);
+  DECL_EXTERNAL (decl) = 1;
   DECL_INITIAL (decl) = scope;
   TREE_CHAIN (decl) = current_binding_level->usings;
   current_binding_level->usings = decl;

@@ -361,15 +361,15 @@ genrtl_decl_stmt (t)
   tree decl;
   emit_line_note (input_filename, lineno);
   decl = DECL_STMT_DECL (t);
+  if (DECL_EXTERNAL (decl))
+    /* Do nothing.  */;
   /* If this is a declaration for an automatic local
      variable, initialize it.  Note that we might also see a
      declaration for a namespace-scope object (declared with
      `extern').  We don't have to handle the initialization
      of those objects here; they can only be declarations,
      rather than definitions.  */
-  if (TREE_CODE (decl) == VAR_DECL 
-      && !TREE_STATIC (decl)
-      && !DECL_EXTERNAL (decl))
+  else if (TREE_CODE (decl) == VAR_DECL && !TREE_STATIC (decl))
     {
       /* Let the back-end know about this variable.  */
       if (!anon_aggr_type_p (TREE_TYPE (decl)))

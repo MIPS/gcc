@@ -4582,6 +4582,7 @@ do_local_using_decl (decl)
   if (decl == NULL_TREE)
     return;
 
+  /* What's this for?  --jason 2002-09-12  */
   if (building_stmt_tree ()
       && at_function_scope_p ())
     add_decl_stmt (decl);

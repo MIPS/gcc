@@ -1620,7 +1620,7 @@ switch_statement:
 switch_expression:
 	SWITCH_TK OP_TK expression CP_TK
 		{
-		  $$ = build (SWITCH_EXPR, NULL_TREE, $3, NULL_TREE);
+		  $$ = build (SWITCH_EXPR, NULL_TREE, $3, NULL_TREE, NULL_TREE);
 		  EXPR_WFL_LINECOL ($$) = $2.location;
 		}
 |	SWITCH_TK error

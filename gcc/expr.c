@@ -6745,14 +6745,34 @@ expand_expr (exp, target, tmode, modifier)
 	tree vars;
 	tree block = BIND_EXPR_BLOCK (exp);
 	int vars_need_expansion = 0;
+	int mark_ends;
 
-	/* Need to open a binding contour here because
-	   if there are any cleanups they must be contained here.  */
-	expand_start_bindings_and_block (block ? 0 : 2, block);
+	if (TREE_CODE (BIND_EXPR_BODY (exp)) != RTL_EXPR)
+	  {
+	    /* If we're in functions-as-trees mode, this BIND_EXPR represents
+	       the block, so we need to emit NOTE_INSN_BLOCK_* notes.  */
+	    mark_ends = (block != NULL_TREE);
+	    expand_start_bindings_and_block (mark_ends ? 0 : 2, block);
+	  }
+	else
+	  {
+	    /* If we're not in functions-as-trees mode, we've already emitted
+	       those notes into our RTL_EXPR, so we just want to splice our BLOCK
+	       into the enclosing one.  */
+	    mark_ends = 0;
 
-	/* Mark the corresponding BLOCK for output in its proper place.  */
-	if (block && ! TREE_USED (block))
-	  (*lang_hooks.decls.insert_block) (block);
+	    /* Need to open a binding contour here because
+	       if there are any cleanups they must be contained here.  */
+	    expand_start_bindings_and_block (2, NULL_TREE);
+
+	    /* Mark the corresponding BLOCK for output in its proper place.  */
+	    if (block)
+	      {
+		if (TREE_USED (block))
+		  abort ();
+		(*lang_hooks.decls.insert_block) (block);
+	      }
+	  }
 
 	/* If VARS have not yet been expanded, expand them now.  */
 	for (vars = BIND_EXPR_VARS (exp); vars; vars = TREE_CHAIN (vars))
@@ -6772,9 +6792,9 @@ expand_expr (exp, target, tmode, modifier)
 	    expand_decl_init (vars);
 	  }
 
-	temp = expand_expr (TREE_OPERAND (exp, 1), target, tmode, modifier);
+	temp = expand_expr (BIND_EXPR_BODY (exp), target, tmode, modifier);
 
-	expand_end_bindings (TREE_OPERAND (exp, 0), !!block, 0);
+	expand_end_bindings (BIND_EXPR_VARS (exp), mark_ends, 0);
 
 	/* If we're at the end of a scope that contains inlined nested
 	   functions, we have to decide whether or not to write them out.  */
