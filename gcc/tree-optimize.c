@@ -89,10 +89,7 @@ optimize_function_tree (fndecl)
 
       if (flag_tree_dce)
 	tree_ssa_dce (fndecl);
-    }
 
-  if (n_basic_blocks > 0 && ! (errorcount || sorrycount))
-    {
       /* Rewrite the function out of SSA form.  */
       rewrite_out_of_ssa (fndecl);
     }

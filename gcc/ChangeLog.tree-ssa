@@ -1,3 +1,7 @@
+2003-04-25  Jeff Law  <law@redhat.com>
+
+	* tree-optimize.c (optimize_function_tree): Simplify slightly.
+
 2003-04-25  Andrew MacLeod  <amacleod@redhat.com>
 
 	* tree-ssa.c (struct _elim_graph): Change type of fields
