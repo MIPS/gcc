@@ -7929,7 +7929,7 @@ has_apple_kext_compatibility_attr_p (tree class)
 
 /* Walk through a function body and return true if nothing in there
    would cause us to generate code.  */
-int
+static int
 compound_body_is_empty_p (tree t)
 {
   while (t && t != error_mark_node)
