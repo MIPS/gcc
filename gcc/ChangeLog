@@ -1,3 +1,10 @@
+2004-05-11  Ziemowit Laski  <zlaski@apple.com>
+
+	* gcc.c (process_command): Do not define __CONSTANT_CFSTRINGS__,
+	since config/darwin.h already does this.
+	(do_spec_1): Emit "-mconstant-cfstrings" instead of
+	"-fconstant-cfstrings".
+
 /* APPLE LOCAL IN FSF 2004-04-27 */
 2004-04-28  Stuart Hastings  <stuart@apple.com>
 	

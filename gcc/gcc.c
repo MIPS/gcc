@@ -476,7 +476,7 @@ or with constant text in a single argument.
  APPLE LOCAL framework headers
  %Q	Substitute -iframework default paths.
  APPLE LOCAL constant cfstrings
- %yC	Emit '-fconstant-cfstrings' option, if needed.
+ %yC	Emit '-mconstant-cfstrings' option, if needed.
  %s     current argument is the name of a library or startup file of some sort.
         Search for that file in a standard list of directories
 	and substitute the full name found.
@@ -4098,8 +4098,6 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 		 macosx_deployment_target);
 	  use_constant_cfstrings = 0;
 	}
-      else
-	add_preprocessor_option ("-D__CONSTANT_CFSTRINGS__", 24);
     }
   /* Synthesize the deployment target manifest constant.  */
   if (macosx_version_min_required)
@@ -5310,7 +5308,7 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 		  if (use_constant_cfstrings)
 		    {
 		      do_spec_1 (" ", 0, NULL);
-		      do_spec_1 ("-fconstant-cfstrings", 1, NULL);
+		      do_spec_1 ("-mconstant-cfstrings", 1, NULL);
 		      do_spec_1 (" ", 0, NULL);
 		    }
 		}
