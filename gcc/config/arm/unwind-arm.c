@@ -571,7 +571,7 @@ next_unwind_byte (__gnu_unwind_state * uws)
   return b;
 }
 
-_Unwind_Reason_Code
+static _Unwind_Reason_Code
 __gnu_unwind_execute (_Unwind_Context * context, __gnu_unwind_state * uws)
 {
   _uw op;

@@ -1,3 +1,27 @@
+2004-11-22  Mark Mitchell  <mark@codesourcery.com>
+
+	* crtsuff.c (IN_LIBGCC2): Define.  Handle targets that use
+	.init_array.
+	* function.c (HAS_INIT_SECTION): Do not define.  Instead, make
+	sure that INVOKE__main is set correctly.  
+	(expand_main_function): Test INVOKE__main.
+	* libgcc2.c: Do not define __main when using .init_array.
+	* unwind-arm.h: Do not declare __gnu_unwind_execute. 
+	* config/arm/arm.h (CTOR_LIST_BEGIN): Define specially when in
+	libgcc.
+	(CTOR_LIST_END): Likewise.
+	(DTOR_LIST_BEGIN): Likewise.
+	(DTOR_LIST_END): Likewise.
+	(CTOR_SECTION_ASM_OP): Likewise.
+	* config/arm/bpabi.h (INIT_SECTION_ASM_OP): Do not define it.
+	(FINI_SECTION_ASM_OP): Likewise.
+	(INIT_ARRAY_SECTION_ASM_OP): Define.
+	(FINI_ARRAY_SECTION_ASM_OP): Likewise.
+	* config/arm/libgcc-bpabi.ver: Add exception-handling symbols.
+	* config/arm/unwind-arm.c (__gnu_unwind_execute): Make it static. 
+	* doc/tm.texi (INIT_ARRAY_SECTION_ASM_OP): Document.
+	(FINI_ARRAY_SECTION_ASM_OP): Likewise.
+
 2004-11-19  Mark Mitchell  <mark@codesourcery.com>
 
 	* config.gcc (arm*-*-linux-gnueabi): Add it.

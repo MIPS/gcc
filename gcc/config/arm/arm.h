@@ -2118,35 +2118,39 @@ typedef struct
 
 /* The EABI specifies that constructors should go in .init_array.
    Other targets use .ctors for compatibility.  */
+#define ARM_EABI_CTORS_SECTION_OP \
+  "\t.section\t.init_array,\"aw\",%init_array"
+#define ARM_EABI_DTORS_SECTION_OP \
+  "\t.section\t.fini_array,\"aw\",%fini_array"
+#define ARM_CTORS_SECTION_OP \
+  "\t.section\t.ctors,\"aw\",%progbits"
+
+/* Define CTORS_SECTION_ASM_OP.  */
 #undef CTORS_SECTION_ASM_OP
-#define CTORS_SECTION_ASM_OP (TARGET_AAPCS_BASED \
-			      ? "\t.section\t.init_array,\"aw\",%init_array" \
-			      : "\t.section\t.ctors,\"aw\",%progbits")
-
-/* There macros are used in target files.  We need to define them here
-   because CTORS_SECTION_ASM_OP is not a constant.  The code is identical
-   to the code in crtstuff.c, but duplicated here to avoid depending on
-   TARGET_AAPCS_BASED.  */
-
-#ifdef __ARM_EABI__
-#define CTORS_SECTION_FOR_TARGET "\t.section\t.init_array,\"aw\",%init_array"
-#else
-#define CTORS_SECTION_FOR_TARGET "\t.section\t.ctors,\"aw\",%progbits"
-#endif
-
-#define CTOR_LIST_END \
-static func_ptr force_to_data[1] __attribute__ ((__unused__)) = { }; \
-asm (CTORS_SECTION_FOR_TARGET); \
-STATIC func_ptr __CTOR_END__[1] \
-  __attribute__((aligned(sizeof(func_ptr)))) \
-  = { (func_ptr) 0 };
-#define CTOR_LIST_BEGIN \
-static func_ptr force_to_data[1] __attribute__ ((__unused__)) = { }; \
-asm (CTORS_SECTION_FOR_TARGET); \
-STATIC func_ptr __CTOR_LIST__[1] \
-  __attribute__ ((__unused__, aligned(sizeof(func_ptr)))) \
-  = { (func_ptr) (-1) };
-
+#ifndef IN_LIBGCC2
+# define CTORS_SECTION_ASM_OP \
+   (TARGET_AAPCS_BASED ? ARM_EABI_CTORS_SECTION_OP : ARM_CTORS_SECTION_OP)
+#else /* !defined (IN_LIBGCC2) */
+  /* In libgcc, CTORS_SECTION_ASM_OP must be a compile-time constant,
+     so we cannot use the definition above.  */ 
+# ifdef __ARM_EABI__
+    /* The .ctors section is not part of the EABI, so we do not define
+       CTORS_SECTION_ASM_OP when in libgcc; that prevents crtstuff
+       from trying to use it.  We do define it when doing normal
+       compilation, as .init_array can be used instead of .ctors.  */
+    /* There is no need to emit begin or end markers when using
+       init_array; the dynamic linker will compute the size of the
+       array itself based on special symbols created by the static
+       linker.  However, we do need to arrange to set up
+       exception-handling here.  */
+#   define CTOR_LIST_BEGIN asm (ARM_EABI_CTORS_SECTION_OP)
+#   define CTOR_LIST_END /* empty */
+#   define DTOR_LIST_BEGIN asm (ARM_EABI_DTORS_SECTION_OP)
+#   define DTOR_LIST_END /* empty */
+# else /* !defined (__ARM_EABI__) */
+#   define CTORS_SECTION_ASM_OP ARM_CTORS_SECTION_OP
+# endif /* !defined (__ARM_EABI__) */
+#endif /* !defined (IN_LIBCC2) */
 
 #define ARM_DECLARE_FUNCTION_SIZE(STREAM, NAME, DECL)	\
   arm_encode_call_attribute (DECL, SHORT_CALL_FLAG_CHAR)

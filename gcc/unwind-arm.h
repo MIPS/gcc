@@ -203,8 +203,6 @@ extern "C" {
 
   _Unwind_Reason_Code __gnu_unwind_frame (_Unwind_Control_Block *,
 					  _Unwind_Context *);
-  _Unwind_Reason_Code __gnu_unwind_execute (_Unwind_Context *,
-					    __gnu_unwind_state *);
 
   /* Decode an R_ARM_TARGET2 relocation.  */
   static inline _Unwind_Word
