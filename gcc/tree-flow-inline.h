@@ -317,7 +317,7 @@ add_dom_child (basic_block bb, basic_block child_bb)
 {
   bb_ann_t ann = bb_ann (bb);
   if (ann->dom_children == NULL)
-    ann->dom_children = BITMAP_GGC_ALLOC ();
+    ann->dom_children = BITMAP_XMALLOC ();
   bitmap_set_bit (ann->dom_children, child_bb->index);
 }
 
@@ -337,44 +337,17 @@ remove_dom_child (basic_block bb, basic_block child_bb)
 static inline void
 clear_dom_children (basic_block bb)
 {
-  bb_ann (bb)->dom_children = NULL;
+  if (bb_ann (bb)->dom_children)
+    {
+      BITMAP_XFREE (bb_ann (bb)->dom_children);
+      bb_ann (bb)->dom_children = NULL;
+    }
 }
 
 static inline bitmap
 dom_children (basic_block bb)
 {
   return bb_ann (bb)->dom_children;
-}
-
-/*  -----------------------------------------------------------------------  */
-
-static inline struct block_tree *
-bti_start ()
-{
-  return block_tree;
-}
-
-static inline bool
-bti_end_p (struct block_tree *block)
-{
-  return !block;
-}
-
-static inline void
-bti_next (struct block_tree **block)
-{
-  struct block_tree *act = *block;
-
-  if (act->subtree)
-    {
-      *block = act->subtree;
-      return;
-    }
-
-  while (act->outer && !act->next)
-    act = act->outer;
-
-  *block = act->next;
 }
 
 static inline bool

@@ -45,9 +45,6 @@ static int dump_flags;
 static void copyprop_stmt (tree);
 static void copyprop_phi (tree);
 static inline tree get_original (tree);
-static struct block_tree *get_common_scope (struct block_tree *,
-					    struct block_tree *);
-static void move_var_to_scope (tree, struct block_tree *);
 
 /* Main entry point to the copy propagator.  The algorithm is a simple
    linear scan of the flowgraph.  For every variable X_i used in the
@@ -98,7 +95,6 @@ copyprop_stmt (tree stmt)
   varray_type uses;
   size_t i;
   bool modified;
-  basic_block bb = bb_for_stmt (stmt);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -128,7 +124,7 @@ copyprop_stmt (tree stmt)
 	      fprintf (dump_file, "\n");
 	    }
 
-	  propagate_copy (bb, use_p, orig);
+	  propagate_copy (use_p, orig);
 	  modified = true;
 	}
     }
@@ -214,7 +210,7 @@ get_original (tree var)
    The propagation occurs in basic block BB.  */
 
 void
-propagate_copy (basic_block bb, tree *op_p, tree var)
+propagate_copy (tree *op_p, tree var)
 {
 #if defined ENABLE_CHECKING
   if (!may_propagate_copy (*op_p, var))
@@ -237,84 +233,4 @@ propagate_copy (basic_block bb, tree *op_p, tree var)
     }
 
   *op_p = var;
-
-  fixup_var_scope (bb, var);
-}
-
-/* Moves variable VAR high enough in scope tree so that basic block BB is in
-   scope.  */
-void
-fixup_var_scope (basic_block bb, tree var)
-{
-  struct block_tree *scope, *old_scope;
-
-  /* Update scope of var.  */
-  old_scope = var_ann (SSA_NAME_VAR (var))->scope;
-  if (old_scope)
-    {
-      scope = get_common_scope (bb_ann (bb)->block, old_scope);
-      if (scope != old_scope)
-	move_var_to_scope (SSA_NAME_VAR (var), scope);
-    }
-}
-
-/* Finds common scope for S1 and S2.  */
-static struct block_tree *
-get_common_scope (struct block_tree *s1, struct block_tree *s2)
-{
-  struct block_tree *tmp;
-
-  if (s1->level > s2->level)
-    {
-      tmp = s1;
-      s1 = s2;
-      s2 = tmp;
-    }
-
-  while (s1->level < s2->level)
-    s2 = s2->outer;
-
-  while (s1 != s2)
-    {
-      s1 = s1->outer;
-      s2 = s2->outer;
-    }
-
-  return s1;
-}
-
-/* Moves variable VAR to a SCOPE.  */
-static void
-move_var_to_scope (tree var, struct block_tree *scope)
-{
-  struct block_tree *old_scope = var_ann (var)->scope;
-  tree avar, prev;
-  tree block = BIND_EXPR_BLOCK (old_scope->bind);
-
-  prev = NULL_TREE;
-  for (avar = BIND_EXPR_VARS (old_scope->bind);
-       avar;
-       prev = avar, avar = TREE_CHAIN (avar))
-    if (avar == var)
-      break;
-  if (!avar)
-    abort ();
-
-  if (block)
-    remove_decl (avar, block);
-  else
-    remove_decl (avar, DECL_INITIAL (current_function_decl));
-
-  if (prev)
-    TREE_CHAIN (prev) = TREE_CHAIN (avar);
-  else
-    BIND_EXPR_VARS (old_scope->bind) = TREE_CHAIN (avar);
-
-  TREE_CHAIN (var) = BIND_EXPR_VARS (scope->bind);
-  BIND_EXPR_VARS (scope->bind) = var;
-  var_ann (var)->scope = scope;
-
-  /* Dwarf2out ices (in add_abstract_origin_attribute) when it encounters
-     variable that is not declared, but has DECL_ABSTRACT_ORIGIN set.  */
-  DECL_ABSTRACT_ORIGIN (var) = NULL_TREE;
 }

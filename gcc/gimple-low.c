@@ -38,6 +38,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "hashtab.h"
 #include "flags.h"
 #include "function.h"
+#include "expr.h"
+#include "toplev.h"
 
 struct lower_data
 {
@@ -56,6 +58,7 @@ static void lower_cond_expr (tree_stmt_iterator *, struct lower_data *);
 static void lower_switch_expr (tree_stmt_iterator *, struct lower_data *);
 static void lower_case_label_expr (tree_stmt_iterator *, struct lower_data *);
 static bool simple_goto_p (tree);
+static void expand_vars (tree);
 
 /* Lowers the BODY.  */
 void
@@ -70,6 +73,7 @@ lower_function_body (tree *body)
   BLOCK_SUBBLOCKS (data.block) = NULL_TREE;
   BLOCK_CHAIN (data.block) = NULL_TREE;
 
+  expand_vars (BIND_EXPR_VARS (*body));
   lower_stmt_body (&BIND_EXPR_BODY (*body), &data);
 
   if (data.block != DECL_INITIAL (current_function_decl))
@@ -104,7 +108,9 @@ lower_stmt (tree_stmt_iterator *tsi, struct lower_data *data)
     {
     case BIND_EXPR:
       lower_bind_expr (tsi, data);
-      break;
+      /* Avoid moving the tsi -- it is moved by delinking the statement
+	 already.  */
+      return;
 
     case COMPOUND_EXPR:
       abort ();
@@ -142,6 +148,61 @@ lower_stmt (tree_stmt_iterator *tsi, struct lower_data *data)
   tsi_next (tsi);
 }
 
+/* Expands declarations of variables in list VARS.  */
+
+static void
+expand_vars (tree vars)
+{
+  /* Expand the variables.  Copied from expr.c.  Expanding initializers is
+     omitted, as it should be expressed explicitly in gimple.  */
+
+  for (; vars; vars = TREE_CHAIN (vars))
+    {
+      tree var = vars;
+
+      if (DECL_EXTERNAL (var))
+	continue;
+
+      if (TREE_STATIC (var))
+	/* If this is an inlined copy of a static local variable,
+	   look up the original decl.  */
+	var = DECL_ORIGIN (var);
+
+      if (TREE_STATIC (var)
+	  ? TREE_ASM_WRITTEN (var)
+	  : DECL_RTL_SET_P (var))
+	continue;
+
+      if (TREE_CODE (var) == VAR_DECL && DECL_DEFER_OUTPUT (var))
+	{
+	  /* Prepare a mem & address for the decl.  */
+	  rtx x;
+		    
+	  if (TREE_STATIC (var))
+	    abort ();
+
+	  x = gen_rtx_MEM (DECL_MODE (var),
+			   gen_reg_rtx (Pmode));
+
+	  set_mem_attributes (x, var, 1);
+	  SET_DECL_RTL (var, x);
+	}
+      else if ((*lang_hooks.expand_decl) (var))
+	/* OK.  */;
+      else if (TREE_CODE (var) == VAR_DECL && !TREE_STATIC (var))
+	expand_decl (var);
+      else if (TREE_CODE (var) == VAR_DECL && TREE_STATIC (var))
+	rest_of_decl_compilation (var, NULL, 0, 0);
+      else if (TREE_CODE (var) == TYPE_DECL
+	       || TREE_CODE (var) == CONST_DECL
+	       || TREE_CODE (var) == FUNCTION_DECL
+	       || TREE_CODE (var) == LABEL_DECL)
+	/* No expansion needed.  */;
+      else
+	abort ();
+    }
+}
+
 /* Lowers a bind_expr TSI.  DATA is passed through the recursion.  */
 
 static void
@@ -162,6 +223,9 @@ lower_bind_expr (tree_stmt_iterator *tsi, struct lower_data *data)
       BLOCK_SUBBLOCKS (data->block) = NULL_TREE;
       BLOCK_SUPERCONTEXT (data->block) = old_block;
     }
+
+  expand_vars (BIND_EXPR_VARS (stmt));
+  
   lower_stmt_body (&BIND_EXPR_BODY (stmt), data);
 
   if (BIND_EXPR_BLOCK (stmt))
@@ -173,6 +237,11 @@ lower_bind_expr (tree_stmt_iterator *tsi, struct lower_data *data)
 	      blocks_nreverse (BLOCK_SUBBLOCKS (data->block));
       data->block = old_block;
     }
+
+  /* The BIND_EXPR no longer carries any useful information, so get rid
+     of it.  */
+  tsi_link_chain_before (tsi, BIND_EXPR_BODY (stmt), TSI_SAME_STMT);
+  tsi_delink (tsi);
 }
 
 /* Checks whether EXPR is a simple local goto.  */

@@ -45,30 +45,29 @@ Boston, MA 02111-1307, USA.  */
 #include "except.h"
 #include "cfgloop.h"
 
-static void append (tree_cell *, tree, enum tree_container_note);
-static void recreate_block_constructs (struct block_tree *);
-static basic_block compact_to_block (struct block_tree *);
+static void append (tree_cell *, tree);
+static basic_block compact_to_block (void);
 static void link_consec_statements (basic_block, basic_block);
-static int dummy_verify_flow_info (void);
 
-/* Allocate a new tree_cell for tree T with NOTE.  */
+/* Allocate a new tree_cell for tree T.  */
 tree_cell
-tree_cell_alloc (tree t, enum tree_container_note note)
+tree_cell_alloc (tree t)
 {
   tree_cell nw = ggc_alloc (sizeof (struct tree_container));
 
   nw->stmt = t;
-  nw->note = note;
   nw->prev = nw->next = NULL;
+  nw->next_in_gc_chain = cfun->tree_containers_root;
+  cfun->tree_containers_root = nw;
 
   return nw;
 }
 
-/* Appends statement STMT with NOTE to the end of list AFTER.  */
+/* Appends statement STMT to the end of list AFTER.  */
 static void
-append (tree_cell *after, tree stmt, enum tree_container_note note)
+append (tree_cell *after, tree stmt)
 {
-  tree_cell nw = tree_cell_alloc (stmt, note);
+  tree_cell nw = tree_cell_alloc (stmt);
 
   nw->next = NULL;
   nw->prev = *after;
@@ -84,26 +83,6 @@ tree_flatten_statement (tree stmt, tree_cell *after, tree enclosing_switch)
 {
   switch (TREE_CODE (stmt))
     {
-    case BIND_EXPR:
-      {
-	/* Do not record empty BIND_EXPRs, unless they are top-level ones
-	   (or top-level ones of inlined functions).  */
-	tree block = BIND_EXPR_BLOCK (stmt);
-	int record = (BIND_EXPR_VARS (stmt)
-		      || stmt == DECL_SAVED_TREE (current_function_decl)
-		      || (block
-			  && BLOCK_ABSTRACT_ORIGIN (block)
-			  && (TREE_CODE (BLOCK_ABSTRACT_ORIGIN (block))
-			      == FUNCTION_DECL)));
-
-	if (record)
-	  append (after, stmt, TCN_BIND);
-	tree_flatten_statement (BIND_EXPR_BODY (stmt), after, enclosing_switch);
-	if (record)
-	  append (after, NULL_TREE, TCN_UNBIND);
-      }
-      break;
-
     case COMPOUND_EXPR:
       tree_flatten_statement (TREE_OPERAND (stmt, 0), after, enclosing_switch);
       tree_flatten_statement (TREE_OPERAND (stmt, 1), after, enclosing_switch);
@@ -122,7 +101,7 @@ tree_flatten_statement (tree stmt, tree_cell *after, tree enclosing_switch)
     case RESX_EXPR:
     case COND_EXPR:
     case SWITCH_EXPR:
-      append (after, stmt, TCN_STATEMENT);
+      append (after, stmt);
       break;
 
     default:
@@ -211,133 +190,27 @@ link_consec_statements (basic_block from, basic_block to)
   bsi_insert_after (&bsi, top, BSI_NEW_STMT);
 }
 
-/* Compacts the whole block corresponding to NODE to single basic block with
-   single statement. The basic block is returned.
+/* Compacts the whole chain to a single basic block with single statement. The
+   basic block is returned.
    
    TODO -- before compacting the blocks, we should sort them so that the
    number of jumps is decreased, and to remove those jumps.  Concretely
    if we have a basic ending with COND_EXPR, we should try to put the
    else branch bb immediately after the block.  */
 static basic_block
-compact_to_block (struct block_tree *node)
+compact_to_block ()
 {
-  basic_block entry, last, act, next;
+  basic_block entry, last;
 
-  if (!node->outer)
-    {
-      entry = ENTRY_BLOCK_PTR->next_bb;
-      last = EXIT_BLOCK_PTR->prev_bb;
-    }
-  else
-    {
-      /* Make the blocks of the node to be consecutive.  */
-      if (node->entry)
-	entry = node->entry;
-      else
-	{
-	  FOR_EACH_BB (entry)
-	    {
-	      if (bb_ann (entry)->block == node)
-		break;
-	    }
-	  if (entry == EXIT_BLOCK_PTR)
-	    return NULL;
-	}
-      last = entry;
-
-      for (act = ENTRY_BLOCK_PTR->next_bb; act != EXIT_BLOCK_PTR; act = next)
-	{
-	  next = act->next_bb;
-
-	  if (act == entry)
-	    {
-	      next = last->next_bb;
-	      continue;
-	    }
-
-	  if (bb_ann (act)->block != node)
-	    continue;
-
-	  tree_move_block_after (act, last, true);
-	  last = act;
-	}
-
-      /* Ensure that the block is entered through its entry edge as
-	 fallthru.  */
-      if (node->entry)
-	{
-	  edge e;
-
-	  for (e = node->entry->pred; e; e = e->pred_next)
-	    if (e->flags & EDGE_CONSTRUCT_ENTRY)
-	      break;
-	  if (e)
-	    {
-	      if (entry->prev_bb != e->src)
-		tree_move_block_after (e->src, entry->prev_bb, false);
-
-	      if (!(e->flags & EDGE_FALLTHRU))
-		{
-		  act = split_edge (e);
-		  tree_move_block_after (act, entry->prev_bb, false);
-	      
-		  if (!(act->succ->flags & EDGE_FALLTHRU))
-		    abort ();
-		}
-	    }
-	}
-    }
+  entry = ENTRY_BLOCK_PTR->next_bb;
+  last = EXIT_BLOCK_PTR->prev_bb;
 
   link_consec_statements (entry, last);
-  bb_ann (entry)->block = node->outer;
-  node->entry = NULL;
 
   return entry;
 }
 
-/* Recreates block structures for block tree NODE.  */
-static void
-recreate_block_constructs (struct block_tree *node)
-{
-  struct block_tree *son;
-  basic_block bb;
-  block_stmt_iterator bsi;
-  tree construct;
-  tree block;
-
-  for (son = node->subtree; son; son = son->next)
-    recreate_block_constructs (son);
-
-  bb = compact_to_block (node);
-
-  if (!bb)
-    return;
-
-  construct = node->bind;
-  /* Do not create useless bind_exprs.  */
-  if (construct
-      && (BIND_EXPR_VARS (construct)
-	  || !node->outer
-	  || ((block = BIND_EXPR_BLOCK (construct))
-	      && BLOCK_ABSTRACT_ORIGIN (block)
-	      && (TREE_CODE (BLOCK_ABSTRACT_ORIGIN (block))
-		  == FUNCTION_DECL))))
-    {
-      BIND_EXPR_BODY (construct) = last_stmt (bb);
-      TREE_SIDE_EFFECTS (construct) = 1;
-      bsi = bsi_last (bb);
-      bsi_replace (bsi, construct);
-    }
-}
-
-/* Dummy function for verify_flow_info.  */
-static int
-dummy_verify_flow_info ()
-{
-  return 0;
-}
-
-/* Recreate a simple block structure.  */
+/* Plug the statements back into toplevel BIND_EXPR.  */
 tree
 tree_unflatten_statements ()
 {
@@ -345,12 +218,6 @@ tree_unflatten_statements ()
   edge e, next;
   block_stmt_iterator bsi;
   tree stmts;
-  int (*old_cfgh_verify_flow_info) (void);
-
-  /* Cfg -- code correspondence is not going to work; still we would
-     like to be able to check consistency of cfg.  A bit hacky.  */
-  old_cfgh_verify_flow_info = cfg_hooks->cfgh_verify_flow_info;
-  cfg_hooks->cfgh_verify_flow_info = dummy_verify_flow_info;
 
   /* Remove abnormal edges; they are no longer needed nor used, and
      it is faster to remove them now than to handle them later.  */
@@ -394,15 +261,13 @@ tree_unflatten_statements ()
       tree_cleanup_block_edges (bb, true);
     }
 
-  recreate_block_constructs (block_tree);
+  compact_to_block ();
   if (n_basic_blocks != 1)
     abort ();
   stmts = last_stmt (ENTRY_BLOCK_PTR->next_bb);
   if (stmts != first_stmt (ENTRY_BLOCK_PTR->next_bb))
     abort ();
 
-  block_tree_free ();
-  cfg_hooks->cfgh_verify_flow_info = old_cfgh_verify_flow_info;
   delete_tree_cfg ();
 
   return stmts;

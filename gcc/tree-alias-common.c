@@ -960,8 +960,8 @@ create_alias_vars (tree fndecl)
 #endif
   size_t i;
   basic_block bb;
+  tree block;
   block_stmt_iterator bsi;
-  struct block_tree *block;
   we_created_global_var = false;
   currptadecl = fndecl;
 
@@ -1008,9 +1008,26 @@ create_alias_vars (tree fndecl)
 					find_func_aliases, NULL);
 	}
     }
-  for (block = bti_start (); !bti_end_p (block); bti_next (&block))
-    walk_tree_without_duplicates (&BIND_EXPR_VARS (block->bind),
-				  find_func_aliases, NULL);
+
+  block = DECL_INITIAL (fndecl);
+  while (1)
+    {
+      walk_tree_without_duplicates (&BLOCK_VARS (block),
+				    find_func_aliases, NULL);
+
+      if (BLOCK_SUBBLOCKS (block))
+	{
+	  block = BLOCK_SUBBLOCKS (block);
+	  continue;
+	}
+      while (block && !BLOCK_CHAIN (block))
+	block = BLOCK_SUPERCONTEXT (block);
+      
+      if (!block)
+	break;
+
+      block = BLOCK_CHAIN (block);
+    }
 
   if (we_created_global_var)
     {  

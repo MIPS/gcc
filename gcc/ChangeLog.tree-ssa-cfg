@@ -1,3 +1,59 @@
+2003-10-06  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* Makefile.in (gimple-low.o): Add EXPR_H and toplev.h dependency.
+	* basic-block.h (EDGE_CONSTRUCT_ENTRY): Remove.
+	* cfg.c (dump_edge_info): Remove EDGE_CONSTRUCT_ENTRY reference.
+	* function.h (struct function): Add tree_containers_root field.
+	* gimple-low.c: Include expr.h and toplev.h.
+	(expand_vars): New.
+	(lower_function_body, lower_bind_expr): Use it.
+	* tree-alias-common.c (create_alias_vars): Iterate over block tree
+	instead of bti.
+	* tree-cfg.c (block_tree, block_tree_curr, block_tree_obstack,
+	* block_tree_alloc, dump_block_tree_id, assign_vars_to_scope,
+	block_tree_free, assign_vars_to_scopes): Removed.
+	(build_tree_cfg, make_blocks, make_edges): Remove block_tree
+	initialization.
+	(remove_bb, tree_merge_blocks, dump_cfg_function_to_file,
+	tree_split_edge, tree_split_block, tree_verify_flow_info,
+	debug_tree_chain, tree_forwarder_block_p, thread_jumps,
+	merge_seq_blocks): Remove block_tree handling.
+	(bsi_insert_after, bsi_insert_before): Use tree_cell_alloc.
+	(remove_useless_stmts_and_vars, remove_useless_stmts_and_vars_1,
+	remove_useless_stmts_and_vars_cond, remove_useless_stmts_and_vars_tf,
+	remove_useless_stmts_and_vars_tc, remove_useless_stmts_and_vars_bind):
+	Readded from mainline.
+	* tree-flatten.c (recreate_block_constructs): Remove.
+	(append, compact_to_block, tree_flatten_statement,
+	tree_unflatten_statements): Simplify.
+	(dummy_verify_flow_info): Remove.
+	(tree_cell_alloc): Add cell to gc list.
+	* tree-flow-inline.h (add_dom_child, clear_dom_children): Don't use gc
+	for dom_children.
+	(bti_start, bti_end_p, bti_next): Remove.
+	* tree-flow.h (enum tree_container_note): Removed.
+	(struct tree_container): Note field removed, next_in_gc_chain added.
+	(struct block_tree, block_tree): Removed.
+	(struct var_ann_d): Remove scope field.
+	(struct bb_ann_d): Remove block field.
+	(bti_start, bti_end_p, bti_next, dump_block_tree, block_tree_free,
+	assign_vars_to_scopes, fixup_var_scope): Declaration removed.
+	(propagate_copy, tree_cell_alloc): Declaration changed.
+	* tree-optimize.c (tree_rest_of_compilation): Add
+	remove_useless_stmts_and_vars calls.  Reorganize due to earlier
+	declaration expanding.
+	* tree-ssa-copyprop.c (get_common_scope, move_var_to_scope,
+	fixup_var_scope): Removed.
+	(copyprop_stmt): Don't pass bb to propagate_copy.
+	(propagate_copy): Don't take bb argument. Don't call fixup_var_scope.
+	* tree-ssa-dom.c (optimize_stmt): Don't pass bb to propagate_copy.
+	Don't call fixup_var_scope.
+	* tree-ssa-pre.c (tree_perform_ssapre): Don't call ggc_collect.
+	* tree-ssa.c (rewrite_out_of_ssa): Remove call to
+	remove_useless_stmts_and_vars.
+	* tree.c (tsi_link_after, tsi_link_chain_after): Remove parts
+	concerning updating bb boundaries.
+
 2003-10-05  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* gimple-low.c (struct lower_data): New field encl_switch_body.

@@ -36,35 +36,15 @@ struct basic_block_def;
 typedef struct basic_block_def *basic_block;
 #endif
 
-/* A list of containers in that statements are stored.  */
-enum tree_container_note
-{
-  TCN_STATEMENT,
-  TCN_BIND,
-  TCN_UNBIND
-};
-
 struct tree_container GTY (())
 {
   struct tree_container *prev;
   struct tree_container *next;
+  struct tree_container *next_in_gc_chain;
   tree stmt;
-  enum tree_container_note note;
 };
 
 typedef struct tree_container *tree_cell;
-
-extern struct block_tree
-{
-  basic_block entry;
-
-  tree bind;			/* The corresponding bindings.  */
- 
-  int level;
-  struct block_tree *outer;
-  struct block_tree *subtree;
-  struct block_tree *next;
-} *block_tree;
 
 /*---------------------------------------------------------------------------
 		   Tree annotations stored in tree_common.ann
@@ -150,9 +130,6 @@ struct var_ann_d GTY(())
 
   /* Used by the root-var object in tree-ssa-live.[ch].  */
   unsigned root_index;
-
-  /* Scope in that the variable is defined.  */
-  struct block_tree * GTY ((skip (""))) scope;
 
   /* Default definition for this symbol.  If this field is not NULL, it
      means that the first reference to this variable in the function is a
@@ -332,9 +309,6 @@ struct bb_ann_d
 
   /* Set of blocks immediately dominated by this node.  */
   bitmap dom_children;
-
-  /* Block it belongs to.  */
-  struct block_tree *block;
 };
 
 typedef struct bb_ann_d *bb_ann_t;
@@ -344,11 +318,6 @@ static inline bb_ann_t bb_ann (basic_block);
 static inline tree phi_nodes (basic_block);
 static inline void add_dom_child (basic_block, basic_block);
 static inline bitmap dom_children (basic_block);
-
-/* Iterator for traversing block tree.  */
-static inline struct block_tree *bti_start (void);
-static inline bool bti_end_p (struct block_tree *);
-static inline void bti_next (struct block_tree **);
 
 /*---------------------------------------------------------------------------
 		 Iterators for statements inside a basic block
@@ -437,7 +406,6 @@ extern GTY(()) varray_type call_clobbered_vars;
 ---------------------------------------------------------------------------*/
 /* In tree-cfg.c  */
 extern void build_tree_cfg (tree_cell);
-extern void dump_block_tree (FILE *, int, struct block_tree *);
 extern void delete_tree_cfg (void);
 extern bool is_ctrl_stmt (tree);
 extern bool is_ctrl_altering_stmt (tree);
@@ -452,7 +420,6 @@ extern void dump_cfg_stats (FILE *);
 extern void debug_cfg_stats (void);
 extern void tree_cfg2dot (FILE *);
 extern void cleanup_tree_cfg (int);
-extern void remove_useless_stmts_and_vars (void);
 extern void remove_phi_nodes_and_edges_for_unreachable_block (basic_block);
 extern tree first_stmt (basic_block);
 extern tree last_stmt (basic_block);
@@ -460,16 +427,15 @@ extern tree *last_stmt_ptr (basic_block);
 extern edge find_taken_edge (basic_block, tree);
 extern int call_expr_flags (tree);
 extern basic_block tree_split_edge (edge);
-extern void block_tree_free (void);
 extern void tree_move_block_after (basic_block, basic_block, int);
 extern edge tree_split_block (basic_block, block_stmt_iterator);
 extern void tree_cleanup_block_edges (basic_block, int);
-extern void assign_vars_to_scopes (void);
 extern tree build_new_label (void);
 extern void bsi_move_before (block_stmt_iterator, block_stmt_iterator);
 extern void bsi_move_after (block_stmt_iterator, block_stmt_iterator);
 extern void bsi_move_to_bb_end (block_stmt_iterator, basic_block);
 extern basic_block label_to_block (tree);
+extern void remove_useless_stmts_and_vars (tree *, bool);
 
 /* In tree-dfa.c  */
 void find_referenced_vars (tree);
@@ -553,8 +519,7 @@ void tree_ssa_dce (tree, enum tree_dump_index);
 
 /* In tree-ssa-copyprop.c  */
 void tree_ssa_copyprop (tree, enum tree_dump_index);
-void propagate_copy (basic_block, tree *, tree);
-void fixup_var_scope (basic_block, tree);
+void propagate_copy (tree *, tree);
 
 /* In tree-flow-inline.h  */
 static inline int phi_arg_from_edge (tree, edge);
@@ -566,7 +531,7 @@ static inline bool may_propagate_copy (tree, tree);
 void tree_compute_must_alias (tree, sbitmap, enum tree_dump_index);
 
 /* In tree-flatten.c.  */
-tree_cell tree_cell_alloc (tree, enum tree_container_note);
+tree_cell tree_cell_alloc (tree);
 void tree_flatten_statement (tree, tree_cell *, tree);
 tree tree_unflatten_statements (void);
 

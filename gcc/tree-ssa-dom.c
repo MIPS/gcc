@@ -1408,7 +1408,7 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p,
 	      may_have_exposed_new_symbols = true;
 
 	    if (TREE_CODE (val) == SSA_NAME)
-	      propagate_copy (bb_for_stmt (stmt), op_p, val);
+	      propagate_copy (op_p, val);
 	    else
 	      *op_p = val;
 
@@ -1524,11 +1524,9 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p,
 	    abort ();
 #endif
 
-	  if (TREE_CODE (cached_lhs) == SSA_NAME)
-	    fixup_var_scope (bb_for_stmt (stmt), cached_lhs);
-	  else if (TREE_CODE (cached_lhs) == ADDR_EXPR
-		   || (POINTER_TYPE_P (TREE_TYPE (*expr_p))
-		       && is_unchanging_value (cached_lhs)))
+	  if (TREE_CODE (cached_lhs) == ADDR_EXPR
+	      || (POINTER_TYPE_P (TREE_TYPE (*expr_p))
+		  && is_unchanging_value (cached_lhs)))
 	    may_have_exposed_new_symbols = true;
 
 	  *expr_p = cached_lhs;

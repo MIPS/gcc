@@ -159,8 +159,7 @@ typedef struct edge_def {
 					   predicate is zero.  */
 #define EDGE_EXECUTABLE		4096	/* Edge is executable.  Only
 					   valid during SSA-CCP.  */
-#define EDGE_CONSTRUCT_ENTRY	8192	/* An entry of block.  */
-#define EDGE_ALL_FLAGS		16383
+#define EDGE_ALL_FLAGS		8191
 
 #define EDGE_COMPLEX	(EDGE_ABNORMAL | EDGE_ABNORMAL_CALL | EDGE_EH)
 

@@ -71,7 +71,7 @@ optimize_function_tree (tree fndecl)
   /* Flatten the trees.  */
   head.prev = head.next = NULL;
   last = &head;
-  tree_flatten_statement (fnbody, &last, NULL_TREE);
+  tree_flatten_statement (BIND_EXPR_BODY (fnbody), &last, NULL_TREE);
   first = head.next;
 
   if (!first)
@@ -82,6 +82,9 @@ optimize_function_tree (tree fndecl)
     }
 
   first->prev = NULL;
+
+  /* Let the garbage collector release now unnecesary containers.  */
+  BIND_EXPR_BODY (fnbody) = NULL_TREE;
 
   /* Build the flowgraph.  */
   init_flow ();
@@ -101,7 +104,6 @@ optimize_function_tree (tree fndecl)
 
       /* Find all the variables referenced in the function.  */
       find_referenced_vars (fndecl);
-      assign_vars_to_scopes ();
 
       /* Compute aliasing information for all the variables referenced in
 	 the function.  */
@@ -198,7 +200,7 @@ optimize_function_tree (tree fndecl)
     }
 
   fnbody = tree_unflatten_statements ();
-  DECL_SAVED_TREE (fndecl) = fnbody;
+  BIND_EXPR_BODY (DECL_SAVED_TREE (fndecl)) = fnbody;
 
   /* Debugging dump after optimization.  */
   dump_function (TDI_optimized, fndecl);
@@ -269,6 +271,7 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
 {
   location_t saved_loc;
   tree saved_tree = NULL;
+  bool do_optimize;
 
   /* Don't bother doing anything if there are errors.  */
   if (errorcount || sorrycount)
@@ -310,13 +313,34 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
 
   /* Gimplify the function.  Don't try to optimize the function if
      gimplification failed.  */
-  if (!flag_disable_gimple
-      && (keep_function_tree_in_gimple_form (fndecl)
-          || gimplify_function_tree (fndecl)))
+  do_optimize = (!flag_disable_gimple
+		 && (keep_function_tree_in_gimple_form (fndecl)
+		     || gimplify_function_tree (fndecl)));
+
+
+  /* Do these start-of-function steps now, so that declare_nonlocal_label
+     (called from gimple-low.c during variable expansion) is happy.  */
+  
+  /* If the function has a variably modified type, there may be
+     SAVE_EXPRs in the parameter types.  Their context must be set to
+     refer to this function; they cannot be expanded in the containing
+     function.  */
+  if (decl_function_context (fndecl)
+      && variably_modified_type_p (TREE_TYPE (fndecl)))
+    walk_tree (&TREE_TYPE (fndecl), set_save_expr_context, fndecl,
+	       NULL);
+
+  /* Set up parameters and prepare for return, for the function.  */
+  expand_function_start (fndecl, 0);
+
+  if (do_optimize)
     {
       /* Debugging dump after gimplification.  */
       dump_function (TDI_gimple, fndecl);
 
+      /* Run a pass over the statements deleting any obviously useless
+	 statements before we build the CFG.  */
+      remove_useless_stmts_and_vars (&DECL_SAVED_TREE (fndecl), false);
       {
 	int flags;
 	FILE *file = dump_begin (TDI_useless, &flags);
@@ -334,19 +358,11 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
       /* Invoke the SSA tree optimizer.  */
       if (optimize >= 1 && !flag_disable_tree_ssa)
         optimize_function_tree (fndecl);
+  
+      /* Do some cleanups which reduce the amount of data the
+	 tree->rtl expanders deal with.  */
+      remove_useless_stmts_and_vars (&DECL_SAVED_TREE (fndecl), true);
     }
-
-  /* If the function has a variably modified type, there may be
-     SAVE_EXPRs in the parameter types.  Their context must be set to
-     refer to this function; they cannot be expanded in the containing
-     function.  */
-  if (decl_function_context (fndecl)
-      && variably_modified_type_p (TREE_TYPE (fndecl)))
-    walk_tree (&TREE_TYPE (fndecl), set_save_expr_context, fndecl,
-	       NULL);
-
-  /* Set up parameters and prepare for return, for the function.  */
-  expand_function_start (fndecl, 0);
 
   /* Allow language dialects to perform special processing.  */
   (*lang_hooks.rtl_expand.start) ();

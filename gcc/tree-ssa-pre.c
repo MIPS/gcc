@@ -257,7 +257,7 @@ static void split_critical_edges (void);
 static bitmap created_phi_preds;
 
 /* PRE dominance info.  */
-static dominance_info pre_idom;
+static struct dominance_info *pre_idom;
 
 /* PRE dominance frontiers.  */
 static bitmap *pre_dfs;
@@ -3001,7 +3001,7 @@ tree_perform_ssapre (tree fndecl, enum tree_dump_index phase)
 	  htab_delete (ephi_pindex_htab);
 	  ephi_pindex_htab = NULL;
 	}
-      ggc_collect (); 
+/*      ggc_collect ();  */ /* This causes whole lot of trouble with temporary structures.  */
       if (redo_dominators)
 	{
 	  redo_dominators = false;

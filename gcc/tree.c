@@ -5242,24 +5242,6 @@ tsi_link_after (tree_stmt_iterator *i, tree t, enum tsi_iterator_update mode)
       /* Create a new node with the same 'next' link as the current one.  */
       ce = build (COMPOUND_EXPR, void_type_node, t, next);
 
-#if 0
-      /* bsi_... iterators should be used for this!!!  */
-      /* If the 'next' statement is a COMPOUND_EXPR and was the first
-	 statement of a basic block, we need to adjust the 'head_tree_p'
-	 field of that block because we are about to move the statement one
-	 position down in the CE chain.  */
-      {
-	basic_block bb = bb_for_stmt (next);
-	if (bb && bb->head_tree_p == &TREE_OPERAND (cur, 1))
-	  {
-	    /* We may also need to update end_tree_p.  */
-	    if (bb->head_tree_p == bb->end_tree_p)
-	      bb->end_tree_p = &TREE_OPERAND (ce, 1);
-	    bb->head_tree_p = &TREE_OPERAND (ce, 1);
-	  }
-      }
-#endif
-
       /* Make the current one's 'next' link point to our new stmt.  */
       TREE_OPERAND (cur, 1) = ce;
 
@@ -5373,24 +5355,6 @@ tsi_link_chain_after (tree_stmt_iterator *i, tree t,
 
       /* Create a new node with the same 'next' link as the current one.  */
       ce = build (COMPOUND_EXPR, void_type_node, *last, next);
-
-#if 0
-      /* bsi_... iterators should be used for this!!!  */
-      /* If the 'next' statement is a COMPOUND_EXPR and was the first
-	 statement of a basic block, we need to adjust the 'head_tree_p'
-	 field of that block because we are about to move the statement one
-	 position down in the CE chain.  */
-      {
-	basic_block bb = bb_for_stmt (next);
-	if (bb && bb->head_tree_p == nextp)
-	  {
-	    /* We may also need to update end_tree_p.  */
-	    if (bb->head_tree_p == bb->end_tree_p)
-	      bb->end_tree_p = &TREE_OPERAND (ce, 1);
-	    bb->head_tree_p = &TREE_OPERAND (ce, 1);
-	  }
-      }
-#endif
 
       *last = ce;
       TREE_OPERAND (cur, 1) = t;

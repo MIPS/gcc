@@ -75,15 +75,7 @@ Boston, MA 02111-1307, USA.  */
    New blocks may be created on fallthru edges, and edges may be removed
    when they become unreachable.  The function tree_cleanup_edges fixes
    these issues (but it is ugly too.  The optimizations should be fixed
-   to keep the state consistent.)
-   
-   To handle bind_exprs and eh handling, there is kept a tree of blocks
-   (block_tree).  Some basic blocks are entry blocks of such constructs.
-   They must be kept unless the whole construct is to be removed.  One of
-   the entry edges may be marked with EDGE_CONSTRUCT_ENTRY flag; it then
-   is assumed to be the entry and it will be turned into fallthru when
-   the constructs are recreated.  All other edges should come from
-   inside of the construct.  */
+   to keep the state consistent.)  */
 
 /* Local declarations.  */
 
@@ -113,11 +105,6 @@ static dominance_info pdom_info = NULL;
 
 static struct cfg_stats_d cfg_stats;
 
-struct block_tree *block_tree;
-static struct block_tree *block_tree_curr;
-
-static struct obstack block_tree_obstack;
-
 static struct obstack block_ann_obstack;
 static void *first_block_ann_obj = 0;
 
@@ -140,7 +127,6 @@ static void make_switch_expr_edges (basic_block);
 static bool tree_redirect_edge_and_branch (edge, basic_block);
 
 /* Various helpers.  */
-static struct block_tree *block_tree_alloc (struct block_tree *);
 static inline bool stmt_starts_bb_p (tree, tree);
 static inline bool stmt_ends_bb_p (tree);
 static int tree_verify_flow_info (void);
@@ -158,8 +144,6 @@ static edge find_taken_edge_switch_expr (basic_block, tree);
 static tree find_edge_goto (tree, edge);
 static bool value_matches_label (edge, tree, tree, edge *);
 static void tree_cleanup_edges (void);
-static void dump_block_tree_id (FILE *, struct block_tree *);
-static void assign_vars_to_scope (struct block_tree *);
 static void remove_superfluous_labels (void);
 static void thread_jumps (void);
 static bool tree_forwarder_block_p (basic_block);
@@ -185,7 +169,7 @@ CASE_GOTO (tree_stmt_iterator tsi)
 #define CASE_DESTINATION(TSI) (GOTO_DESTINATION (CASE_GOTO (TSI)))
 #define CASE_CASE(TSI) (tsi_stmt(TSI))
 #define CASE_EDGE(TSI) (get_stmt_ann (CASE_CASE (TSI))->case_edge)
-     
+
 /* FIXME These need to be filled in with appropriate pointers.  But this
    implies an ABI change in some functions.  */
 struct cfg_hooks tree_cfg_hooks = {
@@ -241,16 +225,10 @@ build_tree_cfg (tree_cell fnbody)
       return;
     }
 
-  gcc_obstack_init (&block_tree_obstack);
-  block_tree = NULL;
-  block_tree_curr = NULL;
-
   /* Create block annotations.  */
   create_blocks_annotations ();
 
   make_blocks (fnbody);
-  if (block_tree_curr)
-    abort ();
 
   if (n_basic_blocks > 0)
     {
@@ -370,7 +348,6 @@ make_blocks (tree_cell stmt)
   tree_cell act, next;
   basic_block bb = NULL;
   tree prev_stmt;
-  struct block_tree *eht;
 
   if (stmt == NULL
       || stmt->stmt == error_mark_node)
@@ -380,36 +357,6 @@ make_blocks (tree_cell stmt)
     {
       next = act->next;
 
-      if (act->note != TCN_STATEMENT)
-	{
-	  if (bb && bb->end_tree)
-	    bb->end_tree->next = NULL;
-	  if (act->next)
-	    act->next->prev = NULL;
-	  bb = create_bb ();
-
-	  switch (act->note)
-	    {
-	    case TCN_BIND:
-	      eht = block_tree_alloc (block_tree_curr);
-	      eht->entry = bb;
-	      eht->bind = act->stmt;
-	      block_tree_curr = eht;
-	      bb_ann (bb)->block = block_tree_curr;
-	      break;
-
-	    case TCN_UNBIND:
-	      bb_ann (bb)->block = block_tree_curr;
-	      block_tree_curr = block_tree_curr->outer;
-	      break;
-
-	    default:
-	      abort ();
-	    }
-	  bb = NULL;
-	  continue;
-	}
-
       prev_stmt = act->prev ? act->prev->stmt : NULL_TREE;
       if (!bb || stmt_starts_bb_p (act->stmt, prev_stmt))
 	{
@@ -417,7 +364,6 @@ make_blocks (tree_cell stmt)
 	    act->prev->next = NULL;
 	  act->prev = NULL;
 	  bb = create_bb ();
-	  bb_ann (bb)->block = block_tree_curr;
 	}
 
       append_stmt_to_bb (act, bb);
@@ -485,8 +431,6 @@ static void
 make_edges (void)
 {
   basic_block bb;
-  struct block_tree *bti;
-  edge e;
 
   /* Create an edge from entry to the first block with executable
      statements in it.  */
@@ -518,18 +462,6 @@ make_edges (void)
   /* We do not care about fake edges, so remove any that the CFG
      builder inserted for completeness.  */
   remove_fake_edges ();
-
-  /* Mark special edges of constructs.  */
-  for (bti = bti_start (); !bti_end_p (bti); bti_next (&bti))
-    if (bti->entry)
-      {
-	for (e = bti->entry->pred; e; e = e->pred_next)
-	  if (e->flags & EDGE_FALLTHRU)
-	    break;
-
-	if (e)
-	  e->flags |= EDGE_CONSTRUCT_ENTRY;
-      }
 }
 
 /* Create edges for control statement at basic block BB.  */
@@ -981,11 +913,6 @@ remove_bb (basic_block bb)
   if (pdom_info)
     delete_from_dominance_info (pdom_info, bb);
 
-  /* If it is a special block of a block structure, remove the
-     reference.  */
-  if (bb_ann (bb)->block->entry == bb)
-    bb_ann (bb)->block->entry = NULL;
-
   /* Remove the basic block from the array.  */
   expunge_block (bb);
 }
@@ -1065,9 +992,6 @@ tree_merge_blocks (basic_block a, basic_block b)
   b->succ = NULL;
   for (e = a->succ; e; e = e->succ_next)
     e->src = a;
-
-  if (bb_ann (b)->block->entry == b)
-    abort ();
 
   /* Remove B.  */
   delete_basic_block (b);
@@ -1480,13 +1404,6 @@ dump_cfg_function_to_file (tree fn, FILE *file, int flags)
 	    IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (fn)));
   fprintf (file, "\n");
 
-  if (show_bb_headers)
-    {
-      fprintf (file, "\n# Block tree:\n");
-      dump_block_tree (file, 3, block_tree);
-      fprintf (file, "\n");
-    }
-
   fprintf (file, "%s (", (*lang_hooks.decl_printable_name) (fn, 2));
 
   arg = DECL_ARGUMENTS (fn);
@@ -1503,11 +1420,8 @@ dump_cfg_function_to_file (tree fn, FILE *file, int flags)
     {
       if (show_bb_headers)
 	{
-	  fprintf (file, "# BLOCK %d\n# CONSTRUCT ", bb->index);
-	  dump_block_tree_id (file, bb_ann (bb)->block);
-	  if (bb_ann (bb)->block->entry == bb)
-	    fprintf (file, "(entry)");
-	  fprintf (file, "\n# PRED");
+	  fprintf (file, "# BLOCK %d\n ", bb->index);
+	  fprintf (file, "# PRED");
 	  for (e = bb->pred; e; e = e->pred_next)
 	    dump_edge_info (file, e, 0);
 	  putc ('\n', file);
@@ -1787,41 +1701,6 @@ is_computed_goto (tree t)
           && TREE_CODE (GOTO_DESTINATION (t)) != LABEL_DECL);
 }
 
-/* Allocates a block_tree node with outer node OUTER.  */
-static struct block_tree *
-block_tree_alloc (struct block_tree *outer)
-{
-  struct block_tree *nw = obstack_alloc (&block_tree_obstack,
-					 sizeof (struct block_tree));
-
-  nw->outer = outer;
-  nw->subtree = NULL;
-  nw->entry = NULL;
-  nw->bind = NULL_TREE;
-
-  if (outer)
-    {
-      nw->next = outer->subtree;
-      outer->subtree = nw;
-      nw->level = outer->level + 1;
-    }
-  else
-    {
-      block_tree = nw;
-      nw->next = NULL;
-      nw->level = 0;
-    }
-
-  return nw;
-}
-
-/* Releases the block_tree obstack.  */
-void
-block_tree_free ()
-{
-  obstack_free (&block_tree_obstack, NULL);
-}
-
 /* Return true if T should start a new basic block.  PREV_T is the
    statement preceding T.  It is used when T is a label or a case label.
    Labels should only start a new basic block if their previous statement
@@ -2029,11 +1908,10 @@ bsi_insert_after (block_stmt_iterator *curr_bsi, tree t,
 		  enum bsi_iterator_update mode)
 {
   basic_block bb = curr_bsi->bb;
-  tree_cell curr, nw = ggc_alloc (sizeof (struct tree_container));
+  tree_cell curr, nw = tree_cell_alloc (t);
 
   set_bb_for_stmt (t, bb);
   curr = bsi_cell (*curr_bsi);
-  nw->stmt = t;
 
   if (!curr)
     {
@@ -2074,11 +1952,10 @@ bsi_insert_before (block_stmt_iterator *curr_bsi, tree t,
 		   enum bsi_iterator_update mode)
 {
   basic_block bb = curr_bsi->bb;
-  tree_cell curr, nw = xmalloc (sizeof (struct tree_container));
+  tree_cell curr, nw = tree_cell_alloc (t);
 
   set_bb_for_stmt (t, bb);
   curr = bsi_cell (*curr_bsi);
-  nw->stmt = t;
 
   if (!curr)
     {
@@ -2370,7 +2247,6 @@ tree_split_edge (edge edge_in)
 
   dest = edge_in->dest;
   new_bb = create_bb ();
-  bb_ann (new_bb)->block = bb_ann (edge_in->src)->block;
 
   new_edge = make_edge (new_bb, dest, EDGE_FALLTHRU);
   /* Find all the PHI arguments on the original edge, and change them to
@@ -2444,8 +2320,6 @@ tree_split_block (basic_block bb, block_stmt_iterator bsi)
   for (e = new_bb->pred; e; e = e->pred_next)
     e->dest = new_bb;
 
-  bb_ann (new_bb)->block = bb_ann (bb)->block;
-
   return make_edge (new_bb, bb, EDGE_FALLTHRU);
 }
 
@@ -2478,7 +2352,6 @@ tree_verify_flow_info (void)
   tree t, l, label, phi;
   block_stmt_iterator si;
   edge e, le, te, fe;
-  struct block_tree *bti;
   int err = 0, degree;
 
   FOR_EACH_BB (bb)
@@ -2694,15 +2567,6 @@ tree_verify_flow_info (void)
       degree = 0;
       for (e = bb->pred; e; e = e->pred_next)
 	{
-	  if (bb != bb_ann (bb)->block->entry
-	      && (e->flags & EDGE_CONSTRUCT_ENTRY))
-	    {
-	      fprintf (stderr,
-		       "Construct entry edge not entering construct entry: %d\n",
-		       bb->index);
-	      err = 1;
-	    }
-
 	  for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
 	    if (phi_arg_from_edge (phi, e) < 0)
 	      {
@@ -2747,25 +2611,6 @@ tree_verify_flow_info (void)
 	    break;
 	  }
 	le = e;
-      }
-
-  /* Check special edges of constructs.  */
-  for (bti = bti_start (); !bti_end_p (bti); bti_next (&bti))
-    if (bti->entry)
-      {
-	le = NULL;
-	for (e = bti->entry->pred; e; e = e->pred_next)
-	  if (e->flags & EDGE_CONSTRUCT_ENTRY)
-	    {
-	      if (le)
-		{
-		  fprintf (stderr, "More than one construct %p entry\n",
-			   (void *) bti);
-		  err = 1;
-		  break;
-		}
-	      le = e;
-	    }
       }
 
   return err;
@@ -2996,63 +2841,8 @@ tree_register_cfg_hooks ()
 void
 debug_tree_chain (tree_cell start)
 {
-  tree op;
-
   for (; start; start = start->next)
-    {
-      switch (start->note)
-	{
-	case TCN_STATEMENT:
-	  debug_generic_stmt (start->stmt);
-	  break;
-
-	case TCN_BIND:
-	  fprintf (stderr, "{\n");
-	  for (op = BIND_EXPR_VARS (start->stmt); op; op = TREE_CHAIN (op))
-	    debug_generic_stmt (op);
-	  break;
-
-	case TCN_UNBIND:
-	  fprintf (stderr, "}\n");
-	  break;
-
-	default:
-	  abort ();
-	}
-    }
-}
-
-/* Dumps identification of BLOCK to FILE.  */
-static void
-dump_block_tree_id (FILE *file, struct block_tree *block)
-{
-  fprintf (file, "BIND %p", (void *) block);
-}
-
-/* Dumps information about block tree BLOCK to FILE, indenting INDENT spaces.  */
-void
-dump_block_tree (FILE *file, int indent, struct block_tree *block)
-{
-  int i;
-  tree var;
-
-  for (i = 0; i < indent; i++)
-    fprintf (file, " ");
-  dump_block_tree_id (file, block);
-
-  fprintf (file, " vars");
-  for (var = BIND_EXPR_VARS (block->bind); var; var = TREE_CHAIN (var))
-    {
-      fprintf (file, " ");
-      print_generic_stmt (file, var, 0);
-    }
-
-  if (block->entry)
-    fprintf (file, " entry %d", block->entry->index);
-
-  fprintf (file, "\n");
-  for (block = block->subtree; block; block = block->next)
-    dump_block_tree (file, indent + 2, block);
+    debug_generic_stmt (start->stmt);
 }
 
 /* Initialize loop optimizer.  */
@@ -3112,26 +2902,6 @@ tree_loop_optimizer_finalize (struct loops *loops, FILE *dumpfile)
 #ifdef ENABLE_CHECKING
   verify_flow_info ();
 #endif
-}
-
-/* Assigns a scope to variables defined in block SCOPE.  */
-static void
-assign_vars_to_scope (struct block_tree *scope)
-{
-  tree var;
-
-  for (var = BIND_EXPR_VARS (scope->bind); var; var = TREE_CHAIN (var))
-    get_var_ann (var)->scope = scope;
-}
-
-/* Assigns a scope in that it is defined to each variable.  */
-void
-assign_vars_to_scopes ()
-{
-  struct block_tree *act;
-
-  for (act = bti_start (); !bti_end_p (act); bti_next (&act))
-    assign_vars_to_scope (act);
 }
 
 /* Ensures that there are not useless labels.  It makes all jumps to
@@ -3231,7 +3001,6 @@ tree_forwarder_block_p (basic_block bb)
   if (!bb->succ
       || bb->succ->succ_next
       || (bb->succ->flags & EDGE_ABNORMAL)
-      || (bb->succ->flags & EDGE_CONSTRUCT_ENTRY)
       || bb == ENTRY_BLOCK_PTR)
     return false; 
 
@@ -3278,7 +3047,6 @@ thread_jumps ()
 	  next = e->succ_next;
 
 	  if ((e->flags & EDGE_ABNORMAL)
-	      || (e->flags & EDGE_CONSTRUCT_ENTRY)
 	      || e->dest == EXIT_BLOCK_PTR
 	      || !tree_forwarder_block_p (e->dest)
 	      || e->dest->succ->dest == EXIT_BLOCK_PTR)
@@ -3377,26 +3145,288 @@ find_edge_goto (tree stmt, edge e)
     }
 }
 
-/* Removes unneccesary variables.  */
-void 
-remove_useless_stmts_and_vars ()
+/* Merges blocks if possible.  */
+static void
+merge_seq_blocks ()
 {
-  struct block_tree *bti;
-  tree vars, prev;
-  struct var_ann_d *ann;
+  basic_block bb;
 
-  for (bti = bti_start (); !bti_end_p (bti); bti_next (&bti))
+  for (bb = ENTRY_BLOCK_PTR->next_bb; bb != EXIT_BLOCK_PTR; )
     {
-      prev = NULL_TREE;
-      for (vars = BIND_EXPR_VARS (bti->bind);
+      if (
+	  /* It must have a single succesor.  */
+	  bb->succ
+	  && !bb->succ->succ_next
+	  && !(bb->succ->flags & EDGE_ABNORMAL)
+	  && bb->succ->dest != EXIT_BLOCK_PTR
+	  && bb->succ->dest != bb
+	  /* That has a single predecessor.  */
+	  && !bb->succ->dest->pred->pred_next)
+	{
+	  /* Merge the blocks and retry.  */
+	  merge_blocks (bb, bb->succ->dest);
+	  continue;
+	}
+
+      bb = bb->next_bb;
+    }
+}
+
+/* Non-cfg cleanup.  */
+
+/* Walk the function tree removing unnecessary statements and
+   variables.
+
+     * Empty statement nodes are removed
+
+     * Unnecessary TRY_FINALLY and TRY_CATCH blocks are removed
+
+     * Unnecessary COND_EXPRs are removed
+
+     * Some unnecessary BIND_EXPRs are removed
+
+   Clearly more work could be done.  The trick is doing the analysis
+   and removal fast enough to be a net improvement in compile times.
+
+   Note that when we remove a control structure such as a COND_EXPR
+   BIND_EXPR, or TRY block, we will need to repeat this optimization pass
+   to ensure we eliminate all the useless code.  */
+
+struct rusv_data
+{
+  bool repeat;
+  bool remove_unused_vars;
+  bool may_throw;
+  bool may_branch;
+};
+
+static void remove_useless_stmts_and_vars_1 (tree *, struct rusv_data *);
+
+static void
+remove_useless_stmts_and_vars_cond (tree *stmt_p, struct rusv_data *data)
+{
+  tree then_clause, else_clause, cond;
+
+  remove_useless_stmts_and_vars_1 (&COND_EXPR_THEN (*stmt_p), data);
+  remove_useless_stmts_and_vars_1 (&COND_EXPR_ELSE (*stmt_p), data);
+
+  then_clause = COND_EXPR_THEN (*stmt_p);
+  else_clause = COND_EXPR_ELSE (*stmt_p);
+  cond = COND_EXPR_COND (*stmt_p);
+
+  /* We may not have been able to completely optimize away the condition
+     previously due to the existence of a label in one arm.  If the label
+     has since become unreachable then we may be able to zap the entire
+     conditional here.  If so, replace the COND_EXPR and set up to repeat
+     this optimization pass.  */
+  if (integer_nonzerop (cond) && IS_EMPTY_STMT (else_clause))
+    {
+      *stmt_p = then_clause;
+       data->repeat = true;
+    }
+  else if (integer_zerop (cond) && IS_EMPTY_STMT (then_clause))
+    {
+      *stmt_p = else_clause;
+      data->repeat = true;
+    }
+
+  /* Notice branches to a common destination.  */
+  else if (TREE_CODE (then_clause) == GOTO_EXPR
+	   && TREE_CODE (else_clause) == GOTO_EXPR
+	   && (GOTO_DESTINATION (then_clause)
+	       == GOTO_DESTINATION (else_clause)))
+    {
+      *stmt_p = then_clause;
+      data->repeat = true;
+    }
+
+  /* If the THEN/ELSE clause merely assigns a value to a variable/parameter
+     which is already known to contain that value, then remove the useless
+     THEN/ELSE clause.  */
+  else if (TREE_CODE (cond) == VAR_DECL || TREE_CODE (cond) == PARM_DECL)
+    {
+      if (TREE_CODE (else_clause) == MODIFY_EXPR
+	  && TREE_OPERAND (else_clause, 0) == cond
+	  && integer_zerop (TREE_OPERAND (else_clause, 1)))
+	COND_EXPR_ELSE (*stmt_p) = build_empty_stmt ();
+    }
+  else if ((TREE_CODE (cond) == EQ_EXPR || TREE_CODE (cond) == NE_EXPR)
+	   && (TREE_CODE (TREE_OPERAND (cond, 0)) == VAR_DECL
+	       || TREE_CODE (TREE_OPERAND (cond, 0)) == PARM_DECL)
+	   && TREE_CONSTANT (TREE_OPERAND (cond, 1)))
+    {
+      tree clause = (TREE_CODE (cond) == EQ_EXPR
+		     ? then_clause : else_clause);
+      tree *location = (TREE_CODE (cond) == EQ_EXPR
+			? &COND_EXPR_THEN (*stmt_p)
+			: &COND_EXPR_ELSE (*stmt_p));
+
+      if (TREE_CODE (clause) == MODIFY_EXPR
+	  && TREE_OPERAND (clause, 0) == TREE_OPERAND (cond, 0)
+	  && TREE_OPERAND (clause, 1) == TREE_OPERAND (cond, 1))
+	*location = build_empty_stmt ();
+    }
+}
+
+static void
+remove_useless_stmts_and_vars_tf (tree *stmt_p, struct rusv_data *data)
+{
+  bool save_may_branch, save_may_throw;
+  bool this_may_branch, this_may_throw;
+
+  /* Collect may_branch and may_throw information for the body only.  */
+  save_may_branch = data->may_branch;
+  save_may_throw = data->may_throw;
+  data->may_branch = false;
+  data->may_throw = false;
+
+  remove_useless_stmts_and_vars_1 (&TREE_OPERAND (*stmt_p, 0), data);
+
+  this_may_branch = data->may_branch;
+  this_may_throw = data->may_throw;
+  data->may_branch |= save_may_branch;
+  data->may_throw |= save_may_throw;
+
+  remove_useless_stmts_and_vars_1 (&TREE_OPERAND (*stmt_p, 1), data);
+
+  /* If the body is empty, then we can emit the FINALLY block without
+     the enclosing TRY_FINALLY_EXPR.  */
+  if (IS_EMPTY_STMT (TREE_OPERAND (*stmt_p, 0)))
+    {
+      *stmt_p = TREE_OPERAND (*stmt_p, 1);
+      data->repeat = true;
+    }
+
+  /* If the handler is empty, then we can emit the TRY block without
+     the enclosing TRY_FINALLY_EXPR.  */
+  else if (IS_EMPTY_STMT (TREE_OPERAND (*stmt_p, 1)))
+    {
+      *stmt_p = TREE_OPERAND (*stmt_p, 0);
+      data->repeat = true;
+    }
+
+  /* If the body neither throws, nor branches, then we can safely string
+     the TRY and FINALLY blocks together.  We'll reassociate this in the
+     main body of remove_useless_stmts_and_vars.  */
+  else if (!this_may_branch && !this_may_throw)
+    TREE_SET_CODE (*stmt_p, COMPOUND_EXPR);
+}
+
+static void
+remove_useless_stmts_and_vars_tc (tree *stmt_p, struct rusv_data *data)
+{
+  bool save_may_throw, this_may_throw;
+  tree_stmt_iterator i;
+  tree stmt;
+
+  /* Collect may_throw information for the body only.  */
+  save_may_throw = data->may_throw;
+  data->may_throw = false;
+
+  remove_useless_stmts_and_vars_1 (&TREE_OPERAND (*stmt_p, 0), data);
+
+  this_may_throw = data->may_throw;
+  data->may_throw = save_may_throw;
+
+  /* If the body cannot throw, then we can drop the entire TRY_CATCH_EXPR.  */
+  if (!this_may_throw)
+    {
+      *stmt_p = TREE_OPERAND (*stmt_p, 0);
+      data->repeat = true;
+      return;
+    }
+
+  /* Process the catch clause specially.  We may be able to tell that
+     no exceptions propagate past this point.  */
+
+  this_may_throw = true;
+  i = tsi_start (&TREE_OPERAND (*stmt_p, 1));
+  stmt = tsi_stmt (i);
+
+  switch (TREE_CODE (stmt))
+    {
+    case CATCH_EXPR:
+      for (; !tsi_end_p (i); tsi_next (&i))
+	{
+	  stmt = tsi_stmt (i);
+	  /* If we catch all exceptions, then the body does not
+	     propagate exceptions past this point.  */
+	  if (CATCH_TYPES (stmt) == NULL)
+	    this_may_throw = false;
+	  remove_useless_stmts_and_vars_1 (&CATCH_BODY (stmt), data);
+	}
+      break;
+
+    case EH_FILTER_EXPR:
+      if (EH_FILTER_MUST_NOT_THROW (stmt))
+	this_may_throw = false;
+      else if (EH_FILTER_TYPES (stmt) == NULL)
+	this_may_throw = false;
+      remove_useless_stmts_and_vars_1 (&EH_FILTER_FAILURE (stmt), data);
+      break;
+
+    default:
+      /* Otherwise this is a cleanup.  */
+      remove_useless_stmts_and_vars_1 (&TREE_OPERAND (*stmt_p, 1), data);
+
+      /* If the cleanup is empty, then we can emit the TRY block without
+	 the enclosing TRY_CATCH_EXPR.  */
+      if (IS_EMPTY_STMT (TREE_OPERAND (*stmt_p, 1)))
+	{
+	  *stmt_p = TREE_OPERAND (*stmt_p, 0);
+	  data->repeat = true;
+	}
+      break;
+    }
+  data->may_throw |= this_may_throw;
+}
+
+static void
+remove_useless_stmts_and_vars_bind (tree *stmt_p, struct rusv_data *data)
+{
+  tree block;
+
+  /* First remove anything underneath the BIND_EXPR.  */
+  remove_useless_stmts_and_vars_1 (&BIND_EXPR_BODY (*stmt_p), data);
+
+  /* If the BIND_EXPR has no variables, then we can pull everything
+     up one level and remove the BIND_EXPR, unless this is the toplevel
+     BIND_EXPR for the current function or an inlined function.
+
+     When this situation occurs we will want to apply this
+     optimization again.  */
+  block = BIND_EXPR_BLOCK (*stmt_p);
+  if (BIND_EXPR_VARS (*stmt_p) == NULL_TREE
+      && *stmt_p != DECL_SAVED_TREE (current_function_decl)
+      && (! block
+	  || ! BLOCK_ABSTRACT_ORIGIN (block)
+	  || (TREE_CODE (BLOCK_ABSTRACT_ORIGIN (block))
+	      != FUNCTION_DECL)))
+    {
+      *stmt_p = BIND_EXPR_BODY (*stmt_p);
+      data->repeat = true;
+    }
+  else if (data->remove_unused_vars)
+    {
+      /* If we were unable to completely eliminate the BIND_EXPR,
+	 go ahead and prune out any unused variables.  We do not
+	 want to expand them as that is a waste of time.  If we
+	 happen to remove all the variables, then we may be able
+	 to eliminate the BIND_EXPR as well.  */
+      tree vars, prev_var;
+
+      /* Walk all the variables associated with the BIND_EXPR.  */
+      for (prev_var = NULL, vars = BIND_EXPR_VARS (*stmt_p);
 	   vars;
 	   vars = TREE_CHAIN (vars))
 	{
+	  struct var_ann_d *ann;
+
 	  /* We could have function declarations and the like
 	     on this list.  Ignore them.  */
 	  if (TREE_CODE (vars) != VAR_DECL)
 	    {
-	      prev = vars;
+	      prev_var = vars;
 	      continue;
 	    }
 
@@ -3411,50 +3441,143 @@ remove_useless_stmts_and_vars ()
 	      && ! TREE_ADDRESSABLE (vars)
 	      && (DECL_ARTIFICIAL (vars) || optimize >= 2))
 	    {
-	      tree block = BIND_EXPR_BLOCK (bti->bind);
-
+	      /* Remove the variable from the BLOCK structures.  */
 	      if (block)
-		remove_decl (vars, block);
-	      else
-		remove_decl (vars, DECL_INITIAL (current_function_decl));
+		remove_decl (vars,
+			     (block
+			      ? block
+			      : DECL_INITIAL (current_function_decl)));
 
-	      if (prev)
-		TREE_CHAIN (prev) = TREE_CHAIN (vars);
+	      /* And splice the variable out of BIND_EXPR_VARS.  */
+	      if (prev_var)
+		TREE_CHAIN (prev_var) = TREE_CHAIN (vars);
 	      else
-		BIND_EXPR_VARS (bti->bind) = TREE_CHAIN (vars);
+		BIND_EXPR_VARS (*stmt_p) = TREE_CHAIN (vars);
 	    }
 	  else
-	    prev = vars;
+	    prev_var = vars;
+	}
+
+      /* If there are no variables left after removing unused
+	 variables, then go ahead and remove this BIND_EXPR.  */
+      if (BIND_EXPR_VARS (*stmt_p) == NULL_TREE
+	  && *stmt_p != DECL_SAVED_TREE (current_function_decl)
+	  && (! block
+	      || ! BLOCK_ABSTRACT_ORIGIN (block)
+	      || (TREE_CODE (BLOCK_ABSTRACT_ORIGIN (block))
+		  != FUNCTION_DECL)))
+	{
+	  *stmt_p = BIND_EXPR_BODY (*stmt_p);
+	  data->repeat = true;
 	}
     }
 }
 
-/* Merges blocks if possible.  */
 static void
-merge_seq_blocks ()
+remove_useless_stmts_and_vars_goto (tree_stmt_iterator i, tree *stmt_p,
+				    struct rusv_data *data)
 {
-  basic_block bb;
+  tree_stmt_iterator tsi = i;
 
-  for (bb = ENTRY_BLOCK_PTR->next_bb; bb != EXIT_BLOCK_PTR; )
+  /* Step past the GOTO_EXPR statement.  */
+  tsi_next (&tsi);
+  if (! tsi_end_p (tsi))
     {
-      if (
-	  /* It must have a single succesor.  */
-	  bb->succ
-	  && !bb->succ->succ_next
-	  && !(bb->succ->flags & EDGE_ABNORMAL)
-	  && !(bb->succ->flags & EDGE_CONSTRUCT_ENTRY)
-	  && bb->succ->dest != EXIT_BLOCK_PTR
-	  && bb->succ->dest != bb
-	  /* That has a single predecessor.  */
-	  && !bb->succ->dest->pred->pred_next
-	  /* Don't merge blocks from different contexts.  */
-	  && bb_ann (bb)->block == bb_ann (bb->succ->dest)->block)
+      /* If we are not at the end of this tree, then see if
+	 we are at the target label.  If so, then this jump
+	 is not needed.  */
+      tree label;
+
+      label = tsi_stmt (tsi);
+      if (TREE_CODE (label) == LABEL_EXPR
+	  && LABEL_EXPR_LABEL (label) == GOTO_DESTINATION (*stmt_p))
 	{
-	  /* Merge the blocks and retry.  */
-	  merge_blocks (bb, bb->succ->dest);
-	  continue;
+	  data->repeat = true;
+	  *stmt_p = build_empty_stmt ();
+	  return;
+	}
+    }
+
+  data->may_branch = true;
+}
+
+static void
+remove_useless_stmts_and_vars_1 (tree *first_p, struct rusv_data *data)
+{
+  tree_stmt_iterator i;
+
+  for (i = tsi_start (first_p); !tsi_end_p (i); tsi_next (&i))
+    {
+      tree *container_p = tsi_container (i);
+      tree *stmt_p;
+      enum tree_code code;
+
+      while (TREE_CODE (*container_p) == COMPOUND_EXPR)
+	{
+	  /* If either operand of a COMPOUND_EXPR is an empty statement,
+	     then remove the empty statement and the COMPOUND_EXPR itself.  */
+	  if (IS_EMPTY_STMT (TREE_OPERAND (*container_p, 1)))
+	    *container_p = TREE_OPERAND (*container_p, 0);
+	  else if (IS_EMPTY_STMT (TREE_OPERAND (*container_p, 0)))
+	    *container_p = TREE_OPERAND (*container_p, 1);
+	  else
+	    break;
 	}
 
-      bb = bb->next_bb;
+      /* Dive into control structures.  */
+      stmt_p = tsi_stmt_ptr (i);
+      code = TREE_CODE (*stmt_p);
+      switch (code)
+	{
+	case COND_EXPR:
+	  remove_useless_stmts_and_vars_cond (stmt_p, data);
+	  break;
+	case SWITCH_EXPR:
+	  remove_useless_stmts_and_vars_1 (&SWITCH_BODY (*stmt_p), data);
+	  break;
+	case TRY_FINALLY_EXPR:
+	  remove_useless_stmts_and_vars_tf (stmt_p, data);
+	  break;
+	case TRY_CATCH_EXPR:
+	  remove_useless_stmts_and_vars_tc (stmt_p, data);
+	  break;
+	case BIND_EXPR:
+	  remove_useless_stmts_and_vars_bind (stmt_p, data);
+	  break;
+	case GOTO_EXPR:
+	  remove_useless_stmts_and_vars_goto (i, stmt_p, data);
+	  break;
+	case RETURN_EXPR:
+	  data->may_branch = true;
+	  break;
+	case MODIFY_EXPR:
+	case CALL_EXPR:
+	  if (tree_could_throw_p (*stmt_p))
+	    data->may_throw = true;
+	  break;
+	default:
+	  break;
+	}
+
+      /* We need to keep the tree in gimple form, so we may have to
+	 re-rationalize COMPOUND_EXPRs.  */
+      if (TREE_CODE (*container_p) == COMPOUND_EXPR
+	  && TREE_CODE (TREE_OPERAND (*container_p, 0)) == COMPOUND_EXPR)
+	*container_p = rationalize_compound_expr (*container_p);
     }
+}
+
+void
+remove_useless_stmts_and_vars (tree *first_p, bool remove_unused_vars)
+{
+  struct rusv_data data;
+  do
+    {
+      memset (&data, 0, sizeof (data));
+      data.remove_unused_vars = remove_unused_vars;
+      remove_unused_vars = false;
+
+      remove_useless_stmts_and_vars_1 (first_p, &data);
+    }
+  while (data.repeat);
 }
