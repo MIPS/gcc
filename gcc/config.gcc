@@ -2743,6 +2743,9 @@ i586-*-*)
 	;;
 i686-*-* | i786-*-*)
 	case $target_alias in
+		k8-*)
+			target_cpu_default2=TARGET_CPU_DEFAULT_k8
+			;;
 		athlon_xp-*|athlon_mp-*|athlon_4-*)
 			target_cpu_default2=TARGET_CPU_DEFAULT_athlon_sse
 			;;
@@ -2767,7 +2770,7 @@ x86_64-*-*)
 	# We should have hammer chip here, but it does not exist yet and
 	# thus it is not supported.  Athlon_SSE is probably equivalent feature
 	# wise to hammer from our point of view except for 64bit mode.
-	target_cpu_default2=TARGET_CPU_DEFAULT_athlon_sse
+	target_cpu_default2=TARGET_CPU_DEFAULT_k8
 	;;
 alpha*-*-*)
 	case $machine in
