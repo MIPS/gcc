@@ -1,6 +1,97 @@
 2004-08-16  Mark Mitchell  <mark@codesourcery.com>
 
 	Backport:
+	2004-08-05  Mark Mitchell  <mark@codesourcery.com>
+	* tree.c (handle_dll_attribute): Move here from i383/winnt.c.
+	Replace use of DECL_INLINE with DECL_DECLARED_INLINE_P.  Set
+	DECL_VISIBLITY.  Test TARGET_DLLIMPORT_DECL_ATTRIBUTES with #if.
+	* tree.h (handle_dll_attribute): Declare.  Test
+	TARGET_DLLIMPORT_DECL_ATTRIBUTES with #if.
+	* c-common.h (c_determine_visibility): Declare.
+	* c-common.c (c_determine_visibility): New function.
+	* c-decl.c (finish_decl): Use it.
+	(finish_function): Likewise.
+	* defaults.h (TARGET_DLLIMPORT_DECL_ATTRIBUTES): Define it to
+	zero, by default.  Use #if, not	#ifdef, to test it.
+	* config/arm/arm.c (arm_attribute_table): Use
+	handle_dll_attribute.  Test TARGET_DLLIMPORT_DECL_ATTRIBUTES with
+	#if.
+	* config/arm/pe.h (TARGET_DLLIMPORT_DECL_ATTRIBUTES): Define to 1.
+	* config/i386/cygming.h (TARGET_DLLIMPORT_DECL_ATTRIBUTES): Define
+	to 1.
+	* config/i386/i386-protos.h (ix86_handle_dll_attribute): Remove.
+	* config/i386/i386.c (ix86_attribute_table): Use
+	handle_dll_attribute for dllimport/dllexport.  Test
+	TARGET_DLLIMPORT_DECL_ATTRIBUTES with #if.
+	* config/i386/winnt.c (ix86_handle_dll_attribute): Remove.
+	* config/mcore/mcore.h (TARGET_DLLIMPORT_DECL_ATTRIBUTES): Define
+	it to 1.
+	* config/mcore/mcore.c (TARGET_DLLIMPORT_DECL_ATTRIBUTES): Test it
+	with #if.
+	* config/sh/symbian-pre.h (TARGET_DLLIMPORT_DECL_ATTRIBUTES): Define
+	it to 1.
+	* doc/extend.texi (dllexport): Clarify and correct documentation.
+	(dllimport): Likewise.
+	* doc/tm.texi (TARGET_DLLIMPORT_DECL_ATTRIBUTES): Mention
+	handle_dll_attribute.
+
+	2004-08-05  Mark Mitchell  <mark@codesourcery.com>
+	* decl.c (start_preparsed_function): Move determine_visibility
+	call.
+	* decl2.c (determine_visibility): Incorporate dllexport testing.
+
+	2004-08-05  Mark Mitchell  <mark@codesourcery.com>
+	* g++.dg/ext/visibility/assign1.C: Use scan-hidden and
+	dg-require-visiblity.
+	* g++.dg/ext/visibility/fvisibility-inlines-hidden.C: Likewise.
+	* g++.dg/ext/visibility/fvisibility.C: Likewise.
+	* g++.dg/ext/visibility/memfuncts.C: Likewise.
+	* g++.dg/ext/visibility/new1.C: Likewise.
+	* g++.dg/ext/visibility/pragma.C: Likewise.
+	* g++.dg/ext/visibility/staticmemfuncts.C: Likewise.
+	* g++.dg/ext/visibility/virtual.C: Likewise.
+	* g++/dg/ext/visibility/visibility-1.C: Likewise.
+	* g++/dg/ext/visibility/visibility-2.C: Likewise.
+	* g++/dg/ext/visibility/visibility-3.C: Likewise.
+	* g++/dg/ext/visibility/visibility-4.C: Likewise.
+	* g++/dg/ext/visibility/visibility-5.C: Likewise.
+	* g++/dg/ext/visibility/visibility-6.C: Likewise.
+	* g++/dg/ext/visibility/visibility-7.C: Likewise.
+	* g++/dg/ext/visibility/visibility-8.C: New test.
+	* gcc.c-torture/compile/dll.x: Remove.
+	* gcc.dg/dll-2.c: Use dg-require-dll
+	* gcc.dg/visibility-10.c: New test.
+	* lib/gcc-dg.exp (dg-require-dll): Add Symbian to list of targets
+	supporting DLLs.
+	* testsuite/lib/scanasm.exp (scan_hidden): New function.
+	(scan_not_hidden): Likewise.
+
+	2004-08-05  Mark Mitchell  <mark@codesourcery.com>
+	* g++.dg/ext/visibility/visibility-8.C: Add constructor and
+	destructor tests.
+
+	Backport:
+	* defaults.h (TARGET_DECLSPEC): New macro.
+	* c-cppbuiltin.c (c_cpp_builtins): Handle TARGET_DECLSPEC.
+	* config/arm/pe.h (SUBTARGET_CPP_SPEC): Remove __declspec support.
+	* config/arm/symbian.h (TARGET_DLLIMPORT_DECL_ATTRIBUTES): Define.
+	* config/i386/beof-elf.h (TARGET_OS_CPP_BUILTINS): Remove
+	__declspec support.
+	(TARGET_DECLSPEC): Define.
+	* config/i386/cygming.h (TARGET_OS_CPP_BUILTINS): Remove
+	__declspec support.
+	* config/i386/i386-interix.h (TARGET_OS_CPP_BUILTINS): Remove
+	__declspec support.
+	(TARGET_DECLSPEC): Define.
+	* config/mcore/mcore.h (TARGET_CPU_CPP_BUILTINS): Remove
+	__declspec support.
+	* config/sh/symbian-pre.h (SUBTARGET_CPP_SPEC): Remove __declspec
+	support.
+	* doc/tm.texi (TARGET_DECLSPEC): Document.
+
+2004-08-16  Mark Mitchell  <mark@codesourcery.com>
+
+	Backport:
 	2004-08-03  Mark Mitchell  <mark@codesourcery.com>
 	* class.c (build_vtable): Do not set DECL_VISIBILITY here.
 	(check_field_decls): Or here.

@@ -915,6 +915,7 @@ extern void constant_expression_warning (tree);
 extern tree convert_and_check (tree, tree);
 extern void overflow_warning (tree);
 extern void unsigned_conversion_warning (tree, tree);
+extern bool c_determine_visibility (tree);
 
 /* Read the rest of the current #-directive line.  */
 extern char *get_directive_line (void);

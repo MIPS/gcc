@@ -2831,6 +2831,12 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
   if (current_scope == global_scope)
     maybe_apply_pragma_weak (decl);
 
+  /* If this is a variable definition, determine its ELF visibility.  */
+  if (TREE_CODE (decl) == VAR_DECL 
+      && TREE_STATIC (decl) 
+      && !DECL_EXTERNAL (decl))
+    c_determine_visibility (decl);
+
   /* Output the assembler code and/or RTL code for variables and functions,
      unless the type is an undefined structure or union.
      If not, it will get done when the type is completed.  */
@@ -6157,6 +6163,9 @@ c_expand_body_1 (tree fndecl, int nested_p)
       push_function_context ();
     }
     
+  /* Finalize the ELF visibility for the function.  */
+  c_determine_visibility (fndecl);
+
   tree_rest_of_compilation (fndecl, nested_p);
 
   if (nested_p)
