@@ -26,22 +26,9 @@ Boston, MA 02111-1307, USA.  */
 
 /* {{{ Grammar for SIMPLE trees.  */
 
-/** The simplification pass converts the language-dependent trees
-    (ld-trees) emitted by the parser into language-independent trees
-    (li-trees) that are the target of SSA analysis and transformations.  
+/** Original grammar available at:
 
-    Language-independent trees are based on the SIMPLE intermediate
-    representation used in the McCAT compiler framework:
-
-    "Designing the McCAT Compiler Based on a Family of Structured
-    Intermediate Representations,"
-    L. Hendren, C. Donawa, M. Emami, G. Gao, Justiani, and B. Sridharan,
-    Proceedings of the 5th International Workshop on Languages and
-    Compilers for Parallel Computing, no. 757 in Lecture Notes in
-    Computer Science, New Haven, Connecticut, pp. 406-420,
-    Springer-Verlag, August 3-5, 1992.
-
-    http://www-acaps.cs.mcgill.ca/info/McCAT/McCAT.html
+	      http://www-acaps.cs.mcgill.ca/info/McCAT/McCAT.html
 
                                 SIMPLE C Grammar
 
@@ -175,7 +162,12 @@ Boston, MA 02111-1307, USA.  */
 	      | ID
 
       arrayref
-	      : ID reflist
+	      : varname reflist		=> Original grammar only allowed
+	                                   'ID reflist'.  This causes weird
+					   splits like k.d[2][3] into
+					   
+					   	t1 = &(k.d[2])
+  						t2 = *(&t1[3])
 
       reflist
 	      : '[' val ']'
@@ -187,6 +179,8 @@ Boston, MA 02111-1307, USA.  */
 
       compref
 	      : '(' '*' ID ')' '.' idlist
+	      : '&' ID '.' idlist	=> Original grammar does not allow
+					   this.
 	      | idlist
 
      ----------------------------------------------------------------------  */
@@ -325,15 +319,14 @@ int
 is_simple_unary_expr (t)
      tree t;
 {
-  enum tree_code code;
-
   if (t == NULL_TREE)
     abort ();
 
-  code = TREE_CODE (t);
-
-  /* NOTE: is_simple_varname() will also return true for '*' ID.  */
   if (is_simple_varname (t) || is_simple_const (t))
+    return 1;
+
+  if (TREE_CODE (t) == INDIRECT_REF
+      && is_simple_id (TREE_OPERAND (t, 0)))
     return 1;
 
   if (TREE_CODE (t) == ADDR_EXPR
@@ -395,22 +388,8 @@ is_simple_call_expr (t)
       varname
 	      : arrayref
 	      | compref
-	      | ID
+	      | ID     */
 
-      arrayref
-	      : ID reflist
-
-      reflist
-	      : '[' val ']'
-	      | reflist '[' val ']'
-
-      idlist
-	      : idlist '.' ID
-	      | ID
-
-      compref
-	      : '(' '*' ID ')' '.' idlist
-	      | idlist  */
 int
 is_simple_varname (t)
      tree t;
@@ -442,8 +421,7 @@ is_simple_const (t)
 
 /** {{{ is_simple_id ()
 
-    Return non-zero if T is an identifier or an indirect reference to an
-    identifier.  */
+    Return non-zero if T is a SIMPLE identifier.  */
 
 int
 is_simple_id (t)
@@ -452,9 +430,7 @@ is_simple_id (t)
   return (TREE_CODE (t) == VAR_DECL
 	  || TREE_CODE (t) == FUNCTION_DECL
 	  || TREE_CODE (t) == PARM_DECL
-	  || TREE_CODE (t) == FIELD_DECL
-	  || (TREE_CODE (t) == INDIRECT_REF
-	      && is_simple_id (TREE_OPERAND (t, 0))));
+	  || TREE_CODE (t) == FIELD_DECL);
 }
 
 /* }}} */
@@ -477,7 +453,7 @@ is_simple_val (t)
     Return non-zero if T is an array reference of the form:
 
       arrayref
-	      : ID reflist
+	      : varname reflist
 
       reflist
 	      : '[' val ']'
@@ -488,8 +464,7 @@ is_simple_arrayref (t)
      tree t;
 {
   return (TREE_CODE (t) == ARRAY_REF
-	  && (is_simple_id (TREE_OPERAND (t, 0))
-	      || is_simple_arrayref (TREE_OPERAND (t, 0)))
+	  && is_simple_varname (TREE_OPERAND (t, 0))
           && is_simple_val (TREE_OPERAND (t, 1)));
 }
 
@@ -497,10 +472,11 @@ is_simple_arrayref (t)
 
 /** {{{ is_simple_compref ()
 
-    Return non-zero if T is a reference of the form:
+    Return non-zero if T is a component reference of the form:
 
       compref
 	      : '(' '*' ID ')' '.' idlist
+	      : '&' ID '.' idlist
 	      | idlist
 
       idlist
@@ -512,8 +488,28 @@ is_simple_compref (t)
      tree t;
 {
   return (TREE_CODE (t) == COMPONENT_REF
-          && is_simple_id (TREE_OPERAND (t, 0))
+	  && is_simple_compref_lhs (TREE_OPERAND (t, 0))
 	  && is_simple_id (TREE_OPERAND (t, 1)));
+}
+
+/* }}} */
+
+/** {{{ is_simple_compref_lhs ()
+
+    Return non-zero if T is allowed on the left side of a component
+    reference.  */
+
+int
+is_simple_compref_lhs (t)
+     tree t;
+{
+  /* Allow ID, *ID or an idlist on the left side.  */
+  return (is_simple_id (t)
+	  || (TREE_CODE (t) == INDIRECT_REF
+	      && is_simple_id (TREE_OPERAND (t, 0)))
+	  || (TREE_CODE (t) == ADDR_EXPR
+	      && is_simple_id (TREE_OPERAND (t, 0)))
+	  || is_simple_compref (t));
 }
 
 /* }}} */

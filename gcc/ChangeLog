@@ -1,3 +1,30 @@
+2002-03-21  Diego Novillo  <dnovillo@redhat.com>
+
+	* Makefile.in (c-simplify.o): Add dependency on varray.h.
+	* c-simplify.c: Include varray.h.
+	Remove comments with SIMPLE grammar.
+	(simplify_array_ref): New.
+	(simplify_self_mod_expr): New.
+	(simplify_component_ref): New.
+	(add_assignment_tree): New.
+	(simplify_expr): Call simplify_array_ref to simplify array
+	references.
+	Call simplify_self_mod_expr to simplify ++, --, += and -=
+	expressions.
+	Call simplify_component_ref to simplify references to structures.
+	(simplify_binary_expr): Do not check whether the expression is
+	already in SIMPLE form.
+	* tree-simple.c: Document changes from original SIMPLE grammar.
+	(is_simple_unary_expr): Add check for *ID.
+	(is_simple_call_expr): Update comments.
+	(is_simple_const): Ditto.
+	(is_simple_id): Do not accept *ID expressions.
+	(is_simple_val): Update comments.
+	(is_simple_arrayref): Accept any variable name as the base address.
+	(is_simple_compref_lhs): New.
+	(is_simple_compref): Call it.
+	* tree-simple.h (is_simple_compref_lhs): Declare.
+
 2002-03-18  Diego Novillo  <dnovillo@redhat.com>
 
 	* Makefile.in (C_AND_OBJC_OBJS): Add tree-simple.o

@@ -46,6 +46,7 @@ int  is_simple_varname                 PARAMS ((tree));
 int  is_simple_val                     PARAMS ((tree));
 int  is_simple_arrayref                PARAMS ((tree));
 int  is_simple_compref                 PARAMS ((tree));
+int  is_simple_compref_lhs             PARAMS ((tree));
 int  is_simple_cast                    PARAMS ((tree));
 
 #endif /* _TREE_SIMPLE_H */
