@@ -510,6 +510,7 @@ create_expr_ref (struct expr_info *ei, tree expr, enum tree_code type,
 	len++;
 
       EREF_TEMP (ret) = make_phi_node (ei->temp, len);
+      SSA_NAME_HAS_REAL_REFS (PHI_RESULT (EREF_TEMP (ret))) = true;
     }
   else
     ret = make_node (type);
@@ -1938,6 +1939,7 @@ finalize_1 (struct expr_info *ei)
 		  expr = build (MODIFY_EXPR, TREE_TYPE  (ei->expr),
 				temp, copy);
 		  newtemp = make_ssa_name (temp, expr);
+		  SSA_NAME_HAS_REAL_REFS (newtemp) = true;
 		  TREE_OPERAND (expr, 0) = newtemp;
 		  EREF_TEMP (x) = newtemp;
 		  if (TREE_OPERAND (copy, 0)
@@ -2422,6 +2424,7 @@ repair_use_injury (struct expr_info *ei, tree use, tree temp)
 	  continue;
       expr = build (MODIFY_EXPR, TREE_TYPE (temp), temp, expr);
       newtemp = make_ssa_name (temp, expr);
+      SSA_NAME_HAS_REAL_REFS (newtemp) = true;
       modify_stmt (expr);
       TREE_OPERAND (expr, 0) = newtemp;
       set_bb_for_stmt (expr, bb_for_stmt (injury));
@@ -2562,6 +2565,7 @@ code_motion (struct expr_info *ei)
 	  walk_tree (&copy, copy_tree_r, NULL, NULL);
 	  newexpr = build (MODIFY_EXPR, TREE_TYPE (temp), temp, copy);
 	  newtemp = make_ssa_name (temp, newexpr);
+	  SSA_NAME_HAS_REAL_REFS (newtemp) = true;
 	  EREF_TEMP (use) = newtemp;
 	  TREE_OPERAND (newexpr, 0) = newtemp;
 	  TREE_OPERAND (*use_stmt_p, 1) = newtemp;
@@ -3258,13 +3262,16 @@ tree_perform_ssapre (tree fndecl)
 	tree expr = bsi_stmt (j);
 	tree orig_expr = bsi_stmt (j);
 	tree stmt = bsi_stmt (j);
+	stmt_ann_t ann;
 	struct expr_info *slot = NULL;
+	ann = stmt_ann (expr);
   	if (use_ops (expr) == NULL)
 	  continue;
 	if (TREE_CODE (expr) == MODIFY_EXPR)
 	  expr = TREE_OPERAND (expr, 1);
-	if (TREE_CODE_CLASS (TREE_CODE (expr)) == '2'
-	    || TREE_CODE_CLASS (TREE_CODE (expr)) == '<'
+	if ((TREE_CODE_CLASS (TREE_CODE (expr)) == '2'
+	     || TREE_CODE_CLASS (TREE_CODE (expr)) == '<')
+	    && !ann->makes_aliased_loads && !ann->has_volatile_ops
 	    /*|| TREE_CODE_CLASS (TREE_CODE (expr)) == '1'*/)
 	  {
 	    if (!DECL_P (TREE_OPERAND (expr, 0))
