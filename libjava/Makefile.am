@@ -1139,6 +1139,7 @@ java/awt/image/DataBufferInt.java \
 java/awt/image/DataBufferShort.java \
 java/awt/image/DataBufferUShort.java \
 java/awt/image/DirectColorModel.java \
+java/awt/image/Kernel.java \
 java/awt/image/ImageConsumer.java \
 java/awt/image/ImageObserver.java \
 java/awt/image/ImageProducer.java \

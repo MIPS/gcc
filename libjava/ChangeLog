@@ -1,3 +1,9 @@
+2004-07-14  Jerry Quinn  <jlquinn@optonline.net>
+
+	* java/awt/image/Kernel.java: New file.
+	* Makefile.am: Added new file.
+	* Makefile.in: Regenerated.
+
 2004-07-13  Kim Ho  <kho@redhat.com>
 
 	* javax/swing/JRootPane.java:
