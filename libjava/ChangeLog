@@ -1,3 +1,8 @@
+2005-01-13  Michael Koch  <konqueror@gmx.de>
+
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMainThread.c,
+	gnu/java/awt/peer/gtk/GtkMainThread.java: Removed.
+
 2005-01-13  Graydon Hoare  <graydon@redhat.com>
 
 	* include/jni.h (_Jv_JNIEnv::bottom_locals): New field.
