@@ -392,14 +392,6 @@ use_thunk (tree thunk_fndecl, bool emit_p)
       return;
     }
 
-  /* APPLE LOCAL begin coalescing */
-  /* coalesce thunks */
-#if defined(COALESCE_STATIC_THUNK)
-  if (DECL_VISIBILITY (function) == VISIBILITY_HIDDEN || !TREE_PUBLIC (function) || DECL_INLINE (function))
-    COALESCE_STATIC_THUNK (thunk_fndecl, /* public*/ 0);
-#endif /* COALESCE_STATIC_THUNK */
-  /* APPLE LOCAL end coalescing */
-
   push_to_top_level ();
 
   if (TARGET_USE_LOCAL_THUNK_ALIAS_P (function)

@@ -4120,14 +4120,6 @@ maybe_commonize_var (tree decl)
 	}
       else
 	{
-	  /* APPLE LOCAL begin coalescing  */
-#ifdef MAKE_DECL_COALESCED
-	  if (DECL_INTERFACE_KNOWN (current_function_decl))
-	    DECL_EXTERNAL (decl) = DECL_EXTERNAL (current_function_decl);
-	  TREE_PUBLIC (decl) = 1;
-	  MAKE_DECL_COALESCED (decl);
-#else
-	  /* APPLE LOCAL end coalescing */
 	  if (DECL_INITIAL (decl) == NULL_TREE
 	      || DECL_INITIAL (decl) == error_mark_node)
 	    {
@@ -4147,8 +4139,6 @@ maybe_commonize_var (tree decl)
 	      warning ("%J  you can work around this by removing the initializer",
 		       decl);
 	    }
-/* APPLE LOCAL coalescing */
-#endif
 	}
     }
   else if (DECL_LANG_SPECIFIC (decl) && DECL_COMDAT (decl))

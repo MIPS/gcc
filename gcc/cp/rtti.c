@@ -760,13 +760,6 @@ tinfo_base_init (tree desc, tree target)
     DECL_EXTERNAL (name_decl) = 0;
     TREE_PUBLIC (name_decl) = 1;
     comdat_linkage (name_decl);
-    /* APPLE LOCAL begin coalescing */
-    /* coalesce typeinfo */
-#ifdef MAKE_DECL_COALESCED
-    if (!typeinfo_in_lib_p (target))
-      MAKE_DECL_COALESCED (name_decl);
-#endif /* MAKE_DECL_COALESCED */
-    /* APPLE LOCAL end coalescing */
 
     import_export_tinfo (name_decl, target, typeinfo_in_lib_p (target));
     /* External name of the string containing the type's name has a
