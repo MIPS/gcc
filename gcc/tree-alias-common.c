@@ -1133,6 +1133,8 @@ ptr_may_alias_var (ptr, var)
   
 }
 
+#define MASK_POINTER(P)	((unsigned)((unsigned long)(P) & 0xffff))
+
 const char *
 alias_get_name (t)
      tree t;
@@ -1172,7 +1174,16 @@ alias_get_name (t)
     }
 
   if (!name)
-    return name;
+    {
+      char *namep;
+      /* 2 = UF
+	 4 = the masked pointer
+	 2 = the <> around it
+	 1 = the terminator. */
+      namep = ggc_alloc (2 + 4 + 2 + 1);
+      sprintf (namep, "<UV%x>", MASK_POINTER (t));
+      return namep;
+    }
 
   return name;
 }

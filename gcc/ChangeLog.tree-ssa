@@ -1,3 +1,8 @@
+2003-05-19  Daniel Berlin  <dberlin@dberlin.org>
+	
+	* tree-alias-common.c (alias_get_name): Handle unnamed variables once
+	and for all.
+
 2003-05-19  Jeff Law <law@redhat.com>
 
 	* tree-ssa-dce.c (remove_conditional): If the conditional's block
@@ -5,6 +10,10 @@
 	Avoid unnecessary check of bb->succ.
 
 2003-05-17  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-pretty-print.c (MASK_POINTER): Parameter is P, not node.
+	
+2003-05-17  Daniel Berlin  <dberlin@dberlin.org>	
 
 	* tree-alias-common.c (get_alias_var): Handle REFERENCE_EXPR.
 	(find_func_aliases): Ditto.

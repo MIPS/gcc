@@ -56,7 +56,7 @@ static void dump_vops			PARAMS ((output_buffer *, tree, int));
    (*lang_hooks.decl_printable_name) (TREE_OPERAND (NODE, 0), 1) : \
    (*lang_hooks.decl_printable_name) (NODE, 1))
 
-#define MASK_POINTER(P)	((unsigned)((unsigned long)node & 0xffff))
+#define MASK_POINTER(P)	((unsigned)((unsigned long)(P) & 0xffff))
 
 static output_buffer buffer;
 static int initialized = 0;
