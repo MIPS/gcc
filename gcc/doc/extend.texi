@@ -4251,12 +4251,12 @@ This extension must be explicitly enabled with the
 @option{-fasm-blocks} option.
 
 The block syntax consists of @code{asm} followed by braces, with the
-assembly instructions on separate lines.  (However, ';' may be used to
-put several instructions on one line.)  You write labels with either a
-preceding '@' or a trailing ':' (or both, if you prefer); labels are
-always local to the asm block, and there is no way for a label in one
-block to refer to a label in another block.  Comments and lexical
-rules are as for standard C/C++.
+assembly instructions on separate lines.  (However, @code{';'} may be
+used to put several instructions on one line.)  You write labels with
+either a preceding @code{'@@'} or a trailing @code{':'} (or both, if
+you prefer); labels are always local to the asm block, and there is no
+way for a label in one block to refer to a label in another block.
+Comments and lexical rules are as for standard C/C++.
 
 @verbatim
 int foo (int arg) {
