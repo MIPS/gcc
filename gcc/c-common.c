@@ -4026,6 +4026,148 @@ c_add_case_label (splay_tree cases, tree cond, tree low_value,
   return error_mark_node;
 }
 
+/* Subroutines of c_do_switch_warnings, called via splay_tree_foreach.
+   Used to verify that case values match up with enumerator values.  */
+
+static void
+match_case_to_enum_1 (tree key, tree type, tree label)
+{
+  char buf[2 + 2*HOST_BITS_PER_WIDE_INT/4 + 1];
+
+  /* ??? Not working too hard to print the double-word value.
+     Should perhaps be done with %lwd in the diagnostic routines?  */
+  if (TREE_INT_CST_HIGH (key) == 0)
+    snprintf (buf, sizeof (buf), HOST_WIDE_INT_PRINT_UNSIGNED,
+	      TREE_INT_CST_LOW (key));
+  else if (!TREE_UNSIGNED (type)
+	   && TREE_INT_CST_HIGH (key) == -1
+	   && TREE_INT_CST_LOW (key) != 0)
+    snprintf (buf, sizeof (buf), "-" HOST_WIDE_INT_PRINT_UNSIGNED,
+	      -TREE_INT_CST_LOW (key));
+  else
+    snprintf (buf, sizeof (buf), HOST_WIDE_INT_PRINT_DOUBLE_HEX,
+	      TREE_INT_CST_HIGH (key), TREE_INT_CST_LOW (key));
+
+  if (TYPE_NAME (type) == 0)
+    warning ("%Jcase value `%s' not in enumerated type",
+	     CASE_LABEL_DECL (label), buf);
+  else
+    warning ("%Jcase value `%s' not in enumerated type `%T'",
+	     CASE_LABEL_DECL (label), buf, type);
+}
+
+static int
+match_case_to_enum (splay_tree_node node, void *data)
+{
+  tree label = (tree) node->value;
+  tree type = data;
+
+  /* Skip default case.  */
+  if (!CASE_LOW (label))
+    return 0;
+
+  /* If TREE_ADDRESSABLE is not set, that means CASE_LOW did not appear
+     when we did our enum->case scan.  Reset our scratch bit after.  */
+  if (!TREE_ADDRESSABLE (label))
+    match_case_to_enum_1 (CASE_LOW (label), type, label);
+  else
+    TREE_ADDRESSABLE (label) = 0;
+
+  /* If CASE_HIGH is non-null, we have a range.  Here we must search.
+     Note that the old code in stmt.c did not check for the values in
+     the range either, just the endpoints.  */
+  if (CASE_HIGH (label))
+    {
+      tree chain, key = CASE_HIGH (label);
+
+      for (chain = TYPE_VALUES (type);
+	   chain && !tree_int_cst_equal (key, TREE_VALUE (chain));
+	   chain = TREE_CHAIN (chain))
+	continue;
+      if (!chain)
+	match_case_to_enum_1 (key, type, label);
+    }
+
+  return 0;
+}
+
+/* Handle -Wswitch*.  Called from the front end after parsing the switch
+   construct.  */
+/* ??? Should probably be somewhere generic, since other languages besides
+   C and C++ would want this.  We'd want to agree on the datastructure,
+   however, which is a problem.  Alternately, we operate on gimplified
+   switch_exprs, which I don't especially like.  At the moment, however,
+   C/C++ are the only tree-ssa languages that support enumerations at all,
+   so the point is moot.  */
+
+void
+c_do_switch_warnings (splay_tree cases, tree switch_stmt)
+{
+  splay_tree_node default_node;  
+  location_t switch_locus;
+  tree type;
+
+  if (!warn_switch && !warn_switch_enum && !warn_switch_default)
+    return;
+
+  switch_locus.file = input_filename;
+  switch_locus.line = STMT_LINENO (switch_stmt);
+  type = SWITCH_TYPE (switch_stmt);
+
+  default_node = splay_tree_lookup (cases, (splay_tree_key) NULL);
+  if (warn_switch_default && !default_node)
+    warning ("%Hswitch missing default case", &switch_locus);
+
+  /* If the switch expression was an enumerated type, check that
+     exactly all enumeration literals are covered by the cases.
+     The check is made when -Wswitch was specified and there is no
+     default case, or when -Wswitch-enum was specified.  */
+  if (((warn_switch && !default_node) || warn_switch_enum)
+      && type && TREE_CODE (type) == ENUMERAL_TYPE
+      && TREE_CODE (SWITCH_COND (switch_stmt)) != INTEGER_CST)
+    {
+      tree chain;
+
+      /* The time complexity here is O(N*lg(N)) worst case, but for the
+	 common case of monotonically increasing enumerators, it is 
+	 O(N), since the nature of the splay tree will keep the next
+	 element adjacent to the root at all times.  */
+
+      for (chain = TYPE_VALUES (type); chain; chain = TREE_CHAIN (chain))
+	{
+	  splay_tree_node node
+	    = splay_tree_lookup (cases, (splay_tree_key) TREE_VALUE (chain));
+
+	  if (node)
+	    {
+	      /* Mark the CASE_LOW part of the case entry as seen, so
+		 that we save time later.  Choose TREE_ADDRESSABLE 
+		 randomly as a bit that won't have been set to-date.  */
+	      tree label = (tree) node->value;
+	      TREE_ADDRESSABLE (label) = 1;
+	    }
+	  else
+	    {
+	      /* Warn if there are enumerators that don't correspond to
+		 case expressions.  */
+	      warning ("%Henumeration value `%E' not handled in switch",
+		       &switch_locus, TREE_PURPOSE (chain));
+	    }
+	}
+
+      /* Warn if there are case expressions that don't correspond to
+	 enumerators.  This can occur since C and C++ don't enforce
+	 type-checking of assignments to enumeration variables.
+
+	 The time complexity here is O(N**2) worst case, since we've
+	 not sorted the enumeration values.  However, in the absence
+	 of case ranges this is O(N), since all single cases that 
+	 corresponded to enumerations have been marked above.  */
+
+      splay_tree_foreach (cases, match_case_to_enum, type);
+    }
+}
+
 /* Finish an expression taking the address of LABEL (an
    IDENTIFIER_NODE).  Returns an expression for the address.  */
 

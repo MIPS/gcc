@@ -46,11 +46,11 @@ foo (int i, int j, enum e ei, enum e ej, enum e ek, enum e el,
     case e2: return 2;
     default: break;
     }
-  switch (eo) /* { dg-warning "case value `3' not in enumerated type `e'" "excess 3" } */
+  switch (eo)
     {
     case e1: return 1;
     case e2: return 2;
-    case 3: return 3;
+    case 3: return 3; /* { dg-warning "case value `3' not in enumerated type `e'" "excess 3" } */
     }
   switch (ep)
     {

@@ -1,5 +1,18 @@
 2003-10-30  Richard Henderson  <rth@redhat.com>
 
+	* c-common.c (match_case_to_enum_1, match_case_to_enum): New.
+	(c_do_switch_warnings): New.
+	* c-common.h (c_do_switch_warnings): Declare.
+	* c-typeck.c (c_finish_case): Call it.
+	* stmt.c (all_cases_count, BITARRAY_TEST, BITARRAY_SET,
+	mark_seen_cases, check_for_full_enumeration_handling): Remove.
+	(expand_end_case_type): Don't do warn_switch handling.
+	* expr.h, tree.h: Remove dead decls.
+
+	* c-simplify.c (gimplify_switch_stmt): Force switch body non-null.
+
+2003-10-30  Richard Henderson  <rth@redhat.com>
+
 	* tree-cfg.c (thread_jumps): Allow SWITCH_EXPR.
 	(thread_edge): Handle it.  Tidy surrounding code.
 

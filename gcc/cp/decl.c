@@ -2408,9 +2408,11 @@ push_switch (tree switch_stmt)
 void
 pop_switch (void)
 {
-  struct cp_switch *cs;
+  struct cp_switch *cs = switch_stack;
 
-  cs = switch_stack;
+  /* Emit warnings as needed.  */
+  c_do_switch_warnings (cs->cases, cs->switch_stmt);
+
   splay_tree_delete (cs->cases);
   switch_stack = switch_stack->next;
   free (cs);

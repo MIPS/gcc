@@ -1242,6 +1242,8 @@ extern int case_compare (splay_tree_key, splay_tree_key);
 
 extern tree c_add_case_label (splay_tree, tree, tree, tree);
 
+extern void c_do_switch_warnings (splay_tree, tree);
+
 extern tree build_function_call (tree, tree);
 
 extern tree finish_label_address_expr (tree);

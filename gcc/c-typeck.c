@@ -6469,6 +6469,9 @@ c_finish_case (void)
 {
   struct c_switch *cs = switch_stack;
 
+  /* Emit warnings as needed.  */
+  c_do_switch_warnings (cs->cases, cs->switch_stmt);
+
   /* Rechain the next statements to the SWITCH_STMT.  */
   last_tree = cs->switch_stmt;
 

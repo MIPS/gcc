@@ -1,3 +1,10 @@
+2003-10-30  Richard Henderson  <rth@redhat.com>
+
+	* g++.dg/warn/Wswitch-1.C: Move "case value not in enumerated type"
+	warning to the proper line.
+	* gcc.dg/Wswitch-enum.c: Likewise.
+	* gcc.dg/Wswitch.c: Likewise.
+
 2003-10-22  Jeff Law  <law@redhat.com>
 
 	* gcc.dg/tree-ssa/20031022-1.c: New test.

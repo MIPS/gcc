@@ -783,8 +783,6 @@ extern void do_jump_by_parts_equality_rtx (rtx, rtx, rtx);
 extern void do_jump_by_parts_greater_rtx (enum machine_mode, int, rtx, rtx,
 					  rtx, rtx);
 
-extern void mark_seen_cases (tree, unsigned char *, HOST_WIDE_INT, int);
-
 extern int vector_mode_valid_p (enum machine_mode);
 
 extern tree placeholder_list;
