@@ -52,8 +52,7 @@ static basic_block simple_increment PARAMS ((struct loops *, struct loop *,
 static rtx variable_initial_value PARAMS ((struct loop *, rtx));
 static bool simple_loop_p PARAMS ((struct loops *, struct loop *,
 				   struct loop_desc *));
-static bool count_loop_iterations PARAMS ((struct loop_desc *,
-					   unsigned HOST_WIDE_INT *, rtx *));
+static rtx count_loop_iterations PARAMS ((struct loop_desc *));
 static void unroll_or_peel_loop PARAMS ((struct loops *, struct loop *, int));
 static bool peel_loop_simple PARAMS ((struct loops *, struct loop *, int));
 static bool peel_loop_completely PARAMS ((struct loops *, struct loop *,
@@ -65,6 +64,8 @@ static bool unroll_loop_constant_iterations PARAMS ((struct loops *,
 static bool unroll_loop_runtime_iterations PARAMS ((struct loops *,
 						    struct loop *, int,
 						    struct loop_desc *));
+static rtx test_for_iteration PARAMS ((struct loop_desc *desc,
+				       unsigned HOST_WIDE_INT));
 
 /* Unroll and peel (depending on FLAGS) LOOPS.  */
 void
@@ -223,7 +224,7 @@ simple_increment (loops, loop, body, desc)
      struct loop_desc *desc;
 {
   rtx mod_insn, insn, set, set_src, set_add;
-  basic_block mod_bb;
+  basic_block mod_bb = NULL;
   int i;
 
   /* Find insn that modifies var.  */
@@ -275,8 +276,7 @@ simple_increment (loops, loop, body, desc)
   return mod_bb;
 }
 
-/* Tries to find initial value of VAR in LOOP (not exactly -- it only works
-   if it is constant expression.  */
+/* Tries to find initial value of VAR in LOOP.  */
 static rtx
 variable_initial_value (loop, var)
      struct loop *loop;
@@ -300,13 +300,28 @@ variable_initial_value (loop, var)
 	{
 	  /* We found place where var is set.  */
 	  rtx set_dest;
+	  basic_block b;
+	  rtx val;
+	  rtx note;
+
 	  set = single_set (insn);
 	  if (!set)
 	    return NULL;
 	  set_dest = SET_DEST (set);
 	  if (!rtx_equal_p (set_dest, var))
 	    return NULL;
-	  return SET_SRC (set);
+
+	  note = find_reg_equal_equiv_note (insn);
+	  if (note)
+	    val = XEXP (note, 0);
+	  else
+	    val = SET_SRC (set);
+	  if (modified_between_p (val, insn, bb->end))
+	    return NULL;
+	  for (b = e->src; b != bb; b = b->pred->src)
+	    if (modified_between_p (val, b->head, b->end))
+	      return NULL;
+	  return val;
 	}
       if (bb->pred->pred_next)
 	return NULL;
@@ -419,149 +434,130 @@ simple_loop_p (loops, loop, desc)
   return false;
 }
 
-/* Counts number of iterations described by DESC and store it into NITER
-   or emit sequence to count it at runtime and store to register RNITER.
-   Return true if it is possible to determine number of iterations.  */
-static bool
-count_loop_iterations (desc, niter, rniter)
+/* Return RTX expression representing number of iterations of loop as bounded
+   by test described by DESC (in the case loop really has multiple exit
+   edges, fewer iterations may happen in the practice).  
+
+   Return NULL if it is unknown.  Additionally the value may be invalid for
+   paradoxical loop (lets define paradoxical loops as loops whose test is
+   failing at -1th iteration, for instance "for (i=5;i<1;i++);").
+   
+   These cases needs to be eighter cared by copying the loop test in the front
+   of loop or keeping the test in first iteration of loop.  */
+static rtx
+count_loop_iterations (desc)
      struct loop_desc *desc;
-     unsigned HOST_WIDE_INT *niter;
-     rtx *rniter;
 {
   int delta;
-  unsigned HOST_WIDE_INT abs_diff = 0;
   enum rtx_code cond = desc->cond;
+  rtx exp = desc->init ? copy_rtx (desc->init) : desc->var;
+
+  /* Give up on floating point modes and friends.  It can be possible to do
+     the job for constant loop bounds, but it is probably not worthwhile.  */
+  if (!INTEGRAL_MODE_P (GET_MODE (desc->var)))
+    return NULL;
 
   /* Ensure that we always handle the condition to stay inside loop.  */
   if (desc->neg)
-    {
-      cond = reverse_condition (cond);
-      if (cond == UNKNOWN)
-	return false;
-    }
+    cond = reverse_condition (cond);
 
+  /* Compute absolute value of the difference of initial and final value.  */
   if (desc->grow)
     {
       /* Bypass nonsential tests.  */
-      if (cond == EQ || cond == GE || cond == GT || cond == GEU || cond == GTU)
-	return false;
-      if (rniter)
-	{
-	  *rniter = expand_simple_binop (GET_MODE (desc->var), MINUS,
-			  copy_rtx (desc->lim), copy_rtx (desc->var),
-			  NULL_RTX, 0, OPTAB_LIB_WIDEN);
-	}
-      if (niter)
-	{
-          abs_diff = desc->lim_n - desc->init_n;
-	}
+      if (cond == EQ || cond == GE || cond == GT || cond == GEU
+	  || cond == GTU)
+	return NULL;
+      exp = simplify_gen_binary (MINUS, GET_MODE (desc->var),
+				 copy_rtx (desc->lim), exp);
     }
   else
     {
       /* Bypass nonsential tests.  */
-      if (cond == EQ || cond == LE || cond == LT || cond == LEU || cond == LTU)
-	return false;
-      if (rniter)
-	*rniter = expand_simple_binop (GET_MODE (desc->var), MINUS,
-			copy_rtx (desc->var), copy_rtx (desc->lim),
-			NULL_RTX, 0, OPTAB_LIB_WIDEN);
-      if (niter)
-	{
-	  abs_diff = desc->init_n - desc->lim_n;
-	}
+      if (cond == EQ || cond == LE || cond == LT || cond == LEU
+	  || cond == LTU)
+	return NULL;
+      exp = simplify_gen_binary (MINUS, GET_MODE (desc->var),
+				 exp, copy_rtx (desc->lim));
     }
 
-  /* Given that iteration_var is going to iterate over its own mode,
-     not HOST_WIDE_INT, disregard higher bits that might have come
-     into the picture due to sign extension of initial and final
-     values.  */
-  if (GET_MODE_BITSIZE (GET_MODE (desc->var)) < HOST_BITS_PER_WIDE_INT)
-    abs_diff &= ((unsigned HOST_WIDE_INT) 1
-		 << (GET_MODE_BITSIZE (GET_MODE (desc->var)) - 1)
-		 << 1) - 1;
-      
   delta = 0;
   if (!desc->postincr)
     delta--;
 
-  /* Determine delta caused by exit condition.
-     Also handle properly paradoxical loops iterating 0 times.  For runtime
-     cases this is handled later similar way.  */
+  /* Determine delta caused by exit condition.  */
   switch (cond)
     {
-      case NE:
-	if (desc->const_iter
-	    && (GET_MODE_BITSIZE (GET_MODE (desc->var))
-	        >= HOST_BITS_PER_WIDE_INT))
-	  {
-	    /* We would need HOST_BITS_PER_WIDE_INT + 1 bits.  */
-	    if (abs_diff == 0 && delta < 0)
-	      return false;
-	    /* Similary we would overflow for loops wrapping around in wide
-	       mode.  */
-	    if (GET_MODE_BITSIZE (GET_MODE (desc->var))
-	        > HOST_BITS_PER_WIDE_INT
-		&& ((desc->init_n >= desc->lim_n && desc->grow)
-		    || (desc->init_n <= desc->lim_n && !desc->grow)))
-	      return false;
-	  }
-	break;
-      case LT:
-	if (desc->init_n + !desc->postincr >= desc->lim_n)
-	  abs_diff = 0;
-	break;
-      case LE:
-	if (desc->init_n + !desc->postincr > desc->lim_n)
-	  abs_diff = -1;
-	delta++;
-	break;
-      case GE:
-	if (desc->init_n - !desc->postincr <= desc->lim_n)
-	  abs_diff = 0;
-	delta++;
-      case GT:
-	if (desc->init_n - !desc->postincr < desc->lim_n)
-	  abs_diff = -1;
-	break;
-      case LTU:
-	if ((unsigned HOST_WIDE_INT)(desc->init_n + !desc->postincr)
-	    >= (unsigned HOST_WIDE_INT)desc->lim_n)
-	  abs_diff = 0;
-	break;
-      case LEU:
-	if ((unsigned HOST_WIDE_INT)(desc->init_n + !desc->postincr)
-	    > desc->lim_n)
-	  abs_diff = -1;
-	delta++;
-	break;
-      case GEU:
-	if ((unsigned HOST_WIDE_INT)(desc->init_n - !desc->postincr)
-	    <= (unsigned HOST_WIDE_INT)desc->lim_n)
-	  abs_diff = 0;
-	delta++;
-      case GTU:
-	if ((unsigned HOST_WIDE_INT)(desc->init_n - !desc->postincr)
-	    < (unsigned HOST_WIDE_INT)desc->lim_n)
-	  abs_diff = -1;
-	break;
-      default:
-	abort ();
+    case NE:
+    case LT:
+    case GT:
+    case LTU:
+    case GTU:
+      break;
+    case LE:
+    case GE:
+    case LEU:
+    case GEU:
+      delta++;
+      break;
+    default:
+      abort ();
     }
 
-  if (niter)
+  if (delta)
+    exp = simplify_gen_binary (PLUS, GET_MODE (desc->var),
+			       exp, GEN_INT (delta));
+
+  if (rtl_dump_file)
     {
-      *niter = abs_diff + delta;
-      if (rtl_dump_file)
-	fprintf (rtl_dump_file, ";  Number of iterations: %i\n", (int) *niter);
+      fprintf (rtl_dump_file, ";  Number of iterations: ");
+      print_simple_rtl (rtl_dump_file, exp);
+      fprintf (rtl_dump_file, "\n");
     }
 
-  if (rniter && delta)
-    *rniter = expand_simple_binop (GET_MODE (desc->var), PLUS,
-		*rniter,
-		GEN_INT (delta),
-		NULL_RTX, 0, OPTAB_LIB_WIDEN);
+  return exp;
+}
 
-  return true;
+/* Return simplified RTX expression representing the value of test
+   described of DESC at given iteration of loop.  */
+
+static rtx
+test_for_iteration (desc, iter)
+     struct loop_desc *desc;
+     unsigned HOST_WIDE_INT iter;
+{
+  enum rtx_code cond = desc->cond;
+  rtx exp = desc->init ? copy_rtx (desc->init) : desc->var;
+  rtx addval;
+
+  /* Give up on floating point modes and friends.  It can be possible to do
+     the job for constant loop bounds, but it is probably not worthwhile.  */
+  if (!INTEGRAL_MODE_P (GET_MODE (desc->var)))
+    return NULL;
+
+  /* Ensure that we always handle the condition to stay inside loop.  */
+  if (desc->neg)
+    cond = reverse_condition (cond);
+
+  /* Compute the value of induction variable.  */
+  addval = simplify_gen_binary (MULT, GET_MODE (desc->var),
+				desc->grow ? const1_rtx : constm1_rtx,
+				gen_int_mode (desc->postincr
+					      ? iter : iter + 1,
+					      GET_MODE (desc->var)));
+  exp = simplify_gen_binary (PLUS, GET_MODE (desc->var), exp, addval);
+  /* Test at given condtion.  */
+  exp = simplify_gen_relational (cond, SImode,
+				 GET_MODE (desc->var), exp, desc->lim);
+
+  if (rtl_dump_file)
+    {
+      fprintf (rtl_dump_file,
+	       ";  Conditional to continue loop at %i th iteration: ", iter);
+      print_simple_rtl (rtl_dump_file, exp);
+      fprintf (rtl_dump_file, "\n");
+    }
+  return exp;
 }
 
 /* Peel NPEEL iterations from LOOP, remove exit edges (and cancel the loop
@@ -575,9 +571,12 @@ peel_loop_completely (loops, loop, desc)
   sbitmap wont_exit;
   unsigned HOST_WIDE_INT npeel;
   edge e;
+  rtx exp;
 
-  if (!count_loop_iterations (desc, &npeel, NULL))
-    abort ();  /* Tested already.  */
+  exp = count_loop_iterations (desc);
+  if (!exp || GET_CODE (exp) != CONST_INT)
+    abort ();
+  npeel = INTVAL (exp);
 
   wont_exit = sbitmap_alloc (npeel + 2);
   sbitmap_ones (wont_exit);
@@ -614,10 +613,13 @@ unroll_loop_constant_iterations (loops, loop, max_unroll, desc)
 {
   unsigned HOST_WIDE_INT niter, exit_mod;
   sbitmap wont_exit;
+  rtx exp;
 
   /* Normalization.  */
-  if (!count_loop_iterations (desc, &niter, NULL))
-    abort ();  /* Tested already.  */
+  exp = count_loop_iterations (desc);
+  if (!exp || GET_CODE (exp) != CONST_INT)
+    abort ();
+  niter = INTVAL (exp);
 
   if (niter <= (unsigned) max_unroll)
     abort ();  /* Should get into peeling instead.  */
@@ -702,8 +704,10 @@ unroll_loop_runtime_iterations (loops, loop, max_unroll, desc)
 
   /* Normalization.  */
   start_sequence ();
-  if (!count_loop_iterations (desc, NULL, &niter))
-    abort ();			/* Tested already.  */
+  niter = count_loop_iterations (desc);
+  if (!niter)
+    abort ();
+  niter = force_operand (niter, NULL);
 
   /* Count modulo by ANDing it with max_unroll.  */
   niter = expand_simple_binop (GET_MODE (desc->var), AND,
@@ -894,7 +898,7 @@ unroll_or_peel_loop (loops, loop, flags)
      int flags;
 {
   int ninsns;
-  unsigned HOST_WIDE_INT nunroll, npeel, niter;
+  unsigned HOST_WIDE_INT nunroll, npeel, niter = 0;
   struct loop_desc desc;
   bool simple, exact;
 
@@ -969,11 +973,27 @@ unroll_or_peel_loop (loops, loop, flags)
   exact = false;
   if (simple)
     {
+      rtx exp = count_loop_iterations (&desc);
+      rtx test = test_for_iteration (&desc, 0);
+
+      /* Bypass loops iterating 0 times.  These should really be
+         elliminated earlier, but we may create them by other transformations.
+         CSE will kill them later.  */
+
+      if (test && test == const0_rtx)
+	{
+	  if ((flags & UAP_UNROLL) && rtl_dump_file)
+	    fprintf (rtl_dump_file, ";;  Not unrolling nor peeling loop, iterates 0 times\n");
+	}
+
       /* Loop with constant number of iterations?  */
-      if (count_loop_iterations (&desc, &niter, NULL))
-	exact = desc.const_iter;
-      else
+      if (!exp)
 	simple = false;
+      else if (GET_CODE (exp) == CONST_INT
+	       && test && test == const_true_rtx)
+	exact = true, niter = INTVAL (exp);
+      else
+	exact = false;
     }
 
   if (!exact)
