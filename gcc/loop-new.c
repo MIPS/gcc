@@ -180,8 +180,7 @@ loop_optimizer_init (dumpfile)
     }
 
   /* Create pre-headers.  */
-  for (i = 1; i < loops->num; i++)
-    create_preheader (loops->parray[i], loops->cfg.dom);
+  create_preheaders ();
 #ifdef ENABLE_CHECKING
   verify_dominators ();
 #endif
