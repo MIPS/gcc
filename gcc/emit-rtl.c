@@ -837,9 +837,11 @@ set_decl_rtl (t, x)
       = get_reg_attrs (t, -SUBREG_BYTE (x));
   if (GET_CODE (x) == CONCAT)
     {
-      REG_ATTRS (XEXP (x, 0)) = get_reg_attrs (t, 0);
-      REG_ATTRS (XEXP (x, 1))
-        = get_reg_attrs (t, GET_MODE_UNIT_SIZE (GET_MODE (XEXP (x, 0))));
+      if (REG_P (XEXP (x, 0)))
+        REG_ATTRS (XEXP (x, 0)) = get_reg_attrs (t, 0);
+      if (REG_P (XEXP (x, 1)))
+	REG_ATTRS (XEXP (x, 1))
+	  = get_reg_attrs (t, GET_MODE_UNIT_SIZE (GET_MODE (XEXP (x, 0))));
     }
   if (GET_CODE (x) == PARALLEL)
     {
@@ -2138,7 +2140,7 @@ widen_memory_access (memref, mode, offset)
 
   /* If we don't know what offset we were at within the expression, then
      we can't know if we've overstepped the bounds.  */
-  if (! memoffset && offset != 0)
+  if (! memoffset)
     expr = NULL_TREE;
 
   while (expr)
@@ -3075,7 +3077,8 @@ mark_label_nuses(x)
   const char *fmt;
 
   code = GET_CODE (x);
-  if (code == LABEL_REF)
+  /* Bypass NOTE_INSN_DELETED_LABEL to keep RTL consistenty checks happy.  */
+  if (code == LABEL_REF && GET_CODE (XEXP (x, 0)) == CODE_LABEL)
     LABEL_NUSES (XEXP (x, 0))++;
 
   fmt = GET_RTX_FORMAT (code);

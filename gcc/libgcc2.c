@@ -1326,11 +1326,10 @@ static gcov_type *arc_counters = (gcov_type *) 0;
 
 #endif
 
-static void __attribute__ ((__no_profile__))
+void __attribute__ ((__no_profile__))
 __bb_exit_func (void)
 {
   FILE *da_file;
-  int i;
   struct bb *ptr;
   long n_counters_p = 0;
   gcov_type max_counter_p = 0;

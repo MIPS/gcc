@@ -33,7 +33,6 @@ Boston, MA 02111-1307, USA.  */
 	  fputs ("\t.intel_syntax\n", FILE);				\
   } while (0)
 
-#undef TARGET_VERSION
 #define TARGET_VERSION fprintf (stderr, " (i386 Linux/ELF)");
 
 /* The svr4 ABI for the i386 says that records and unions are returned
@@ -85,7 +84,7 @@ Boston, MA 02111-1307, USA.  */
 #define WCHAR_TYPE_SIZE BITS_PER_WORD
     
 #undef CPP_PREDEFINES
-#define CPP_PREDEFINES "-D__ELF__ -Dunix -Dlinux -Asystem=posix"
+#define CPP_PREDEFINES "-D__ELF__ -Dunix -Dgnu_linux -Dlinux -Asystem=posix"
 
 #undef CPP_SPEC
 #ifdef USE_GNULIBC_1

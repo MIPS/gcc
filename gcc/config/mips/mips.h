@@ -634,17 +634,16 @@ extern void		sbss_section PARAMS ((void));
 /* Disable branchlikely for tx39 until compare rewrite.  They haven't
    been generated up to this point.  */
 #define ISA_HAS_BRANCHLIKELY	(mips_isa != 1                          \
-				 /* || TARGET_MIPS3900 */)
+				 && ! TARGET_MIPS16)
 
 /* ISA has the conditional move instructions introduced in mips4.  */
-#define ISA_HAS_CONDMOVE        (mips_isa == 4				\
-				 || mips_isa == 32                      \
-				 || mips_isa == 64)
+#define ISA_HAS_CONDMOVE        ((mips_isa == 4				\
+				  || mips_isa == 32                     \
+				  || mips_isa == 64)			\
+				 && ! TARGET_MIPS16)
 
 /* ISA has just the integer condition move instructions (movn,movz) */
 #define ISA_HAS_INT_CONDMOVE     0
-
-
 
 /* ISA has the mips4 FP condition code instructions: FP-compare to CC,
    branch on CC, and move (both FP and non-FP) on CC.  */
@@ -652,34 +651,34 @@ extern void		sbss_section PARAMS ((void));
                          	 || mips_isa == 32                      \
 				 || mips_isa == 64)
 
-
 /* This is a catch all for the other new mips4 instructions: indexed load and
    indexed prefetch instructions, the FP madd,msub,nmadd, and nmsub instructions,
    and the FP recip and recip sqrt instructions */
 #define ISA_HAS_FP4             (mips_isa == 4				\
-				)
+ 				 && ! TARGET_MIPS16)
 
 /* ISA has conditional trap instructions.  */
-#define ISA_HAS_COND_TRAP	(mips_isa >= 2 && ! TARGET_MIPS16)
+#define ISA_HAS_COND_TRAP	(mips_isa >= 2				\
+				 && ! TARGET_MIPS16)
 
 /* ISA has multiply-accumulate instructions, madd and msub.  */
-#define ISA_HAS_MADD_MSUB       (mips_isa == 32                         \
-                                || mips_isa == 64                       \
-                                )
+#define ISA_HAS_MADD_MSUB       ((mips_isa == 32			\
+				  || mips_isa == 64			\
+				  ) && ! TARGET_MIPS16)
 
 /* ISA has nmadd and nmsub instructions.  */
 #define ISA_HAS_NMADD_NMSUB	(mips_isa == 4				\
-				)
+				 && ! TARGET_MIPS16)
 
 /* ISA has count leading zeroes/ones instruction (not implemented).  */
-#define ISA_HAS_CLZ_CLO         (mips_isa == 32                         \
-                                || mips_isa == 64                       \
-                                )
+#define ISA_HAS_CLZ_CLO         ((mips_isa == 32			\
+                                  || mips_isa == 64			\
+                                 ) && ! TARGET_MIPS16)
 
 /* ISA has double-word count leading zeroes/ones instruction (not
    implemented).  */
-#define ISA_HAS_DCLZ_DCLO       (mips_isa == 64)
-
+#define ISA_HAS_DCLZ_DCLO       (mips_isa == 64				\
+				 && ! TARGET_MIPS16)
 
 /* CC1_SPEC causes -mips3 and -mips4 to set -mfp64 and -mgp64; -mips1 or
    -mips2 sets -mfp32 and -mgp32.  This can be overridden by an explicit
@@ -2312,7 +2311,7 @@ extern enum reg_class mips_char_to_class[256];
    memory and loading that memory location into a register of CLASS2.
 
    Do not define this macro if its value would always be zero.  */
-
+#if 0
 #define SECONDARY_MEMORY_NEEDED(CLASS1, CLASS2, MODE)			\
   ((!TARGET_DEBUG_H_MODE						\
     && GET_MODE_CLASS (MODE) == MODE_INT				\
@@ -2321,7 +2320,7 @@ extern enum reg_class mips_char_to_class[256];
    || (TARGET_FLOAT64 && !TARGET_64BIT && (MODE) == DFmode		\
        && ((GR_REG_CLASS_P (CLASS1) && CLASS2 == FP_REGS)		\
 	   || (GR_REG_CLASS_P (CLASS2) && CLASS1 == FP_REGS))))
-
+#endif
 /* The HI and LO registers can only be reloaded via the general
    registers.  Condition code registers can only be loaded to the
    general registers, and from the floating point registers.  */
@@ -2794,10 +2793,10 @@ typedef struct mips_args {
   /* For EABI, the number of integer registers used so far.  For other
      ABIs, the number of words passed in registers (whether integer
      or floating-point).  */
-  unsigned int gp_regs;
+  unsigned int num_gprs;
 
   /* For EABI, the number of floating-point registers used so far.  */
-  unsigned int fp_regs;
+  unsigned int num_fprs;
 
   /* The number of words passed on the stack.  */
   unsigned int stack_words;
@@ -4486,8 +4485,11 @@ while (0)
 	    (SIZE));							\
       }									\
     else								\
-      mips_declare_object (STREAM, NAME, "\n\t.comm\t", ",%u\n",	\
+      {									\
+	mips_declare_object (STREAM, NAME, "\n\t.comm\t", ",%u",	\
 	  (SIZE));							\
+	fprintf ((STREAM), "%u\n", ((unsigned)(ALIGN) / BITS_PER_UNIT));\
+      }									\
   } while (0)
 
 

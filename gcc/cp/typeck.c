@@ -381,6 +381,10 @@ type_after_usual_arithmetic_conversions (t1, t2)
   else if (TYPE_PRECISION (t2) > TYPE_PRECISION (t1))
     return build_type_attribute_variant (t2, attributes);
 
+  /* The types are the same; no need to do anything fancy.  */
+  if (TYPE_MAIN_VARIANT (t1) == TYPE_MAIN_VARIANT (t2))
+    return build_type_attribute_variant (t1, attributes);
+
   if (code1 != REAL_TYPE)
     {
       /* If one is a sizetype, use it so size_binop doesn't blow up.  */
@@ -442,9 +446,17 @@ type_after_usual_arithmetic_conversions (t1, t2)
 	  || same_type_p (TYPE_MAIN_VARIANT (t2), double_type_node))
 	return build_type_attribute_variant (double_type_node,
 					     attributes);
-      else 
+      if (same_type_p (TYPE_MAIN_VARIANT (t1), float_type_node)
+	  || same_type_p (TYPE_MAIN_VARIANT (t2), float_type_node))
 	return build_type_attribute_variant (float_type_node,
 					     attributes);
+      
+      /* Two floating-point types whose TYPE_MAIN_VARIANTs are none of
+         the standard C++ floating-point types.  Logic earlier in this
+         function has already eliminated the possibility that
+         TYPE_PRECISION (t2) != TYPE_PRECISION (t1), so there's no
+         compelling reason to choose one or the other.  */
+      return build_type_attribute_variant (t1, attributes);
     }
 }
 
@@ -763,7 +775,7 @@ comp_except_types (a, b, exact)
 }
 
 /* Return 1 if TYPE1 and TYPE2 are equivalent exception specifiers.
-   If EXACT is 0, T2 can be a subset of T1 (according to 15.4/7),
+   If EXACT is 0, T2 can be stricter than T1 (according to 15.4/7),
    otherwise it must be exact. Exception lists are unordered, but
    we've already filtered out duplicates. Most lists will be in order,
    we should try to make use of that.  */
@@ -786,7 +798,7 @@ comp_except_specs (t1, t2, exact)
     return t2 != NULL_TREE && !TREE_VALUE (t2);
   if (t2 == NULL_TREE)              /* T2 is ... */
     return 0;
-  if (TREE_VALUE(t1) && !TREE_VALUE (t2)) /* T2 is EMPTY, T1 is not */
+  if (TREE_VALUE (t1) && !TREE_VALUE (t2)) /* T2 is EMPTY, T1 is not */
     return !exact;
   
   /* Neither set is ... or EMPTY, make sure each part of T2 is in T1.
@@ -987,20 +999,6 @@ comptypes (t1, t2, strict)
 	     && comptypes (TREE_TYPE (t1), TREE_TYPE (t2), strict));
       break;
 
-    case METHOD_TYPE:
-      if (! comp_except_specs (TYPE_RAISES_EXCEPTIONS (t1),
-			       TYPE_RAISES_EXCEPTIONS (t2), 1))
-	return 0;
-
-      /* This case is anti-symmetrical!
-	 One can pass a base member (or member function)
-	 to something expecting a derived member (or member function),
-	 but not vice-versa!  */
-
-      val = (comptypes (TREE_TYPE (t1), TREE_TYPE (t2), strict)
-	     && compparms (TYPE_ARG_TYPES (t1), TYPE_ARG_TYPES (t2)));
-      break;
-
     case POINTER_TYPE:
     case REFERENCE_TYPE:
       t1 = TREE_TYPE (t1);
@@ -1015,11 +1013,8 @@ comptypes (t1, t2, strict)
 	goto look_hard;
       break;
 
+    case METHOD_TYPE:
     case FUNCTION_TYPE:
-      if (! comp_except_specs (TYPE_RAISES_EXCEPTIONS (t1),
-			       TYPE_RAISES_EXCEPTIONS (t2), 1))
-	return 0;
-
       val = ((TREE_TYPE (t1) == TREE_TYPE (t2)
 	      || comptypes (TREE_TYPE (t1), TREE_TYPE (t2), strict))
 	     && compparms (TYPE_ARG_TYPES (t1), TYPE_ARG_TYPES (t2)));
@@ -1843,10 +1838,9 @@ build_object_ref (datum, basetype, field)
     }
   else if (is_aggr_type (basetype, 1))
     {
-      tree binfo = binfo_or_else (basetype, dtype);
-      if (binfo)
-	return build_x_component_ref (build_scoped_ref (datum, basetype),
-				      field, binfo, 1);
+      tree binfo = NULL_TREE;
+      datum = build_scoped_ref (datum, basetype, &binfo);
+      return build_x_component_ref (datum, field, binfo, 1);
     }
   return error_mark_node;
 }
@@ -2839,6 +2833,7 @@ get_member_function_from_ptrfunc (instance_ptrptr, function)
     {
       tree fntype, idx, e1, delta, delta2, e2, e3, vtbl;
       tree instance, basetype;
+      tree mask;
 
       tree instance_ptr = *instance_ptrptr;
 
@@ -2870,7 +2865,7 @@ get_member_function_from_ptrfunc (instance_ptrptr, function)
 	return instance;
 
       e3 = PFN_FROM_PTRMEMFUNC (function);
-      
+
       vtbl = build1 (NOP_EXPR, build_pointer_type (ptr_type_node), instance);
       TREE_CONSTANT (vtbl) = TREE_CONSTANT (instance);
       
@@ -2885,20 +2880,14 @@ get_member_function_from_ptrfunc (instance_ptrptr, function)
 	 to pointer-to-base-member, as long as the dynamic object
 	 later has the right member. */
 
-      /* Promoting idx before saving it improves performance on RISC
-	 targets.  Without promoting, the first compare used
-	 load-with-sign-extend, while the second used normal load then
-	 shift to sign-extend.  An optimizer flaw, perhaps, but it's
-	 easier to make this change.  */
-      idx = cp_build_binary_op (TRUNC_DIV_EXPR, 
-				build1 (NOP_EXPR, vtable_index_type, e3),
-				TYPE_SIZE_UNIT (vtable_entry_type));
+      idx = build1 (NOP_EXPR, vtable_index_type, e3);
       switch (TARGET_PTRMEMFUNC_VBIT_LOCATION)
 	{
 	case ptrmemfunc_vbit_in_pfn:
-	  e1 = cp_build_binary_op (BIT_AND_EXPR,
-				   build1 (NOP_EXPR, vtable_index_type, e3),
-				   integer_one_node);
+	  /* Mask out the virtual bit from the index.  */
+	  e1 = cp_build_binary_op (BIT_AND_EXPR, idx, integer_one_node);
+	  mask = build1 (NOP_EXPR, vtable_index_type, build_int_2 (~1, ~0));
+	  idx = cp_build_binary_op (BIT_AND_EXPR, idx, mask);
 	  break;
 
 	case ptrmemfunc_vbit_in_delta:
@@ -2922,7 +2911,9 @@ get_member_function_from_ptrfunc (instance_ptrptr, function)
 	 build_pointer_type (build_pointer_type (vtable_entry_type)),
 	 vtbl, cp_convert (ptrdiff_type_node, delta2));
       vtbl = build_indirect_ref (vtbl, NULL);
-      e2 = build_array_ref (vtbl, idx);
+
+      e2 = fold (build (PLUS_EXPR, TREE_TYPE (vtbl), vtbl, idx));
+      e2 = build_indirect_ref (e2, NULL);
 
       /* When using function descriptors, the address of the
 	 vtable entry is treated as a function pointer.  */
@@ -4208,8 +4199,9 @@ build_x_unary_op (code, xarg)
   return exp;
 }
 
-/* Like truthvalue_conversion, but handle pointer-to-member constants, where
-   a null value is represented by an INTEGER_CST of -1.  */
+/* Like c_common_truthvalue_conversion, but handle pointer-to-member
+   constants, where a null value is represented by an INTEGER_CST of
+   -1.  */
 
 tree
 cp_truthvalue_conversion (expr)
@@ -4219,7 +4211,7 @@ cp_truthvalue_conversion (expr)
   if (TYPE_PTRMEM_P (type))
     return build_binary_op (NE_EXPR, expr, integer_zero_node, 1);
   else
-    return truthvalue_conversion (expr);
+    return c_common_truthvalue_conversion (expr);
 }
 
 /* Just like cp_truthvalue_conversion, but we want a CLEANUP_POINT_EXPR.  */

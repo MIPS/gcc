@@ -55,6 +55,8 @@ extern void lhd_set_yydebug PARAMS ((int));
 extern rtx lhd_expand_expr PARAMS ((tree, rtx, enum machine_mode, int));
 extern void lhd_print_error_function PARAMS ((struct diagnostic_context *,
 					      const char *));
+extern void lhd_set_decl_assembler_name PARAMS ((tree));
+extern bool lhd_warn_unused_global_decl PARAMS ((tree));
 
 /* Declarations of default tree inlining hooks.  */
 tree lhd_tree_inlining_walk_subtrees		PARAMS ((tree *, int *,
@@ -94,6 +96,7 @@ tree lhd_tree_inlining_convert_parm_for_inlining PARAMS ((tree, tree, tree));
 #define LANG_HOOKS_UNSAVE_EXPR_NOW	lhd_unsave_expr_now
 #define LANG_HOOKS_MAYBE_BUILD_CLEANUP	lhd_return_null_tree
 #define LANG_HOOKS_MARK_TREE		lhd_do_nothing_t
+#define LANG_HOOKS_SET_DECL_ASSEMBLER_NAME lhd_set_decl_assembler_name
 #define LANG_HOOKS_HONOR_READONLY	false
 #define LANG_HOOKS_PRINT_STATISTICS	lhd_do_nothing
 #define LANG_HOOKS_PRINT_XNODE		lhd_print_tree_nothing
@@ -174,6 +177,7 @@ int lhd_tree_dump_type_quals			PARAMS ((tree));
 #define LANG_HOOKS_SET_BLOCK	set_block
 #define LANG_HOOKS_PUSHDECL	pushdecl
 #define LANG_HOOKS_GETDECLS	getdecls
+#define LANG_HOOKS_WARN_UNUSED_GLOBAL_DECL lhd_warn_unused_global_decl
 
 #define LANG_HOOKS_DECLS { \
   LANG_HOOKS_PUSHLEVEL, \
@@ -182,7 +186,8 @@ int lhd_tree_dump_type_quals			PARAMS ((tree));
   LANG_HOOKS_INSERT_BLOCK, \
   LANG_HOOKS_SET_BLOCK, \
   LANG_HOOKS_PUSHDECL, \
-  LANG_HOOKS_GETDECLS \
+  LANG_HOOKS_GETDECLS, \
+  LANG_HOOKS_WARN_UNUSED_GLOBAL_DECL \
 }
 
 /* The whole thing.  The structure is defined in langhooks.h.  */
@@ -199,6 +204,7 @@ int lhd_tree_dump_type_quals			PARAMS ((tree));
   LANG_HOOKS_GET_ALIAS_SET, \
   LANG_HOOKS_EXPAND_CONSTANT, \
   LANG_HOOKS_EXPAND_EXPR, \
+  LANG_HOOKS_TRUTHVALUE_CONVERSION, \
   LANG_HOOKS_INSERT_DEFAULT_ATTRIBUTES, \
   LANG_HOOKS_SAFE_FROM_P, \
   LANG_HOOKS_FINISH_INCOMPLETE_DECL, \
@@ -209,6 +215,7 @@ int lhd_tree_dump_type_quals			PARAMS ((tree));
   LANG_HOOKS_UNSAVE_EXPR_NOW, \
   LANG_HOOKS_MAYBE_BUILD_CLEANUP, \
   LANG_HOOKS_MARK_TREE, \
+  LANG_HOOKS_SET_DECL_ASSEMBLER_NAME, \
   LANG_HOOKS_HONOR_READONLY, \
   LANG_HOOKS_PRINT_STATISTICS, \
   LANG_HOOKS_PRINT_XNODE, \

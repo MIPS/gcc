@@ -56,8 +56,6 @@ static void emit_associated_thunks PARAMS ((tree));
 static void genrtl_try_block PARAMS ((tree));
 static void genrtl_eh_spec_block PARAMS ((tree));
 static void genrtl_handler PARAMS ((tree));
-static void genrtl_ctor_stmt PARAMS ((tree));
-static void genrtl_subobject PARAMS ((tree));
 static void genrtl_named_return_value PARAMS ((void));
 static void cp_expand_stmt PARAMS ((tree));
 static void genrtl_start_function PARAMS ((tree));
@@ -205,6 +203,7 @@ finish_expr_stmt (expr)
      tree expr;
 {
   tree r = NULL_TREE;
+  tree expr_type = NULL_TREE;;
 
   if (expr != NULL_TREE)
     {
@@ -215,6 +214,9 @@ finish_expr_stmt (expr)
 	      || TREE_CODE (TREE_TYPE (expr)) == FUNCTION_TYPE))
 	expr = default_conversion (expr);
       
+      /* Remember the type of the expression.  */
+      expr_type = TREE_TYPE (expr);
+
       if (stmts_are_full_exprs_p ())
 	expr = convert_to_void (expr, "statement");
       
@@ -225,7 +227,7 @@ finish_expr_stmt (expr)
 
   /* This was an expression-statement, so we save the type of the
      expression.  */
-  last_expr_type = expr ? TREE_TYPE (expr) : NULL_TREE;
+  last_expr_type = expr_type;
 
   return r;
 }
@@ -777,21 +779,6 @@ finish_handler (handler)
   RECHAIN_STMTS (handler, HANDLER_BODY (handler));
 }
 
-/* Generate the RTL for T, which is a CTOR_STMT. */
-
-static void
-genrtl_ctor_stmt (t)
-     tree t;
-{
-  if (CTOR_BEGIN_P (t))
-    begin_protect_partials ();
-  else
-    /* After this point, any exceptions will cause the
-       destructor to be executed, so we no longer need to worry
-       about destroying the various subobjects ourselves.  */
-    end_protect_partials ();
-}
-
 /* Begin a compound-statement.  If HAS_NO_SCOPE is non-zero, the
    compound-statement does not define a scope.  Returns a new
    COMPOUND_STMT if appropriate.  */
@@ -976,27 +963,6 @@ finish_label_decl (name)
   add_decl_stmt (decl);
 }
 
-/* Generate the RTL for a SUBOBJECT. */
-
-static void 
-genrtl_subobject (cleanup)
-     tree cleanup;
-{
-  add_partial_entry (cleanup);
-}
-
-/* We're in a constructor, and have just constructed a a subobject of
-   *THIS.  CLEANUP is code to run if an exception is thrown before the
-   end of the current function is reached.   */
-
-void 
-finish_subobject (cleanup)
-     tree cleanup;
-{
-  tree r = build_stmt (SUBOBJECT, cleanup);
-  add_stmt (r);
-}
-
 /* When DECL goes out of scope, make sure that CLEANUP is executed.  */
 
 void 
@@ -1005,6 +971,17 @@ finish_decl_cleanup (decl, cleanup)
      tree cleanup;
 {
   add_stmt (build_stmt (CLEANUP_STMT, decl, cleanup));
+}
+
+/* If the current scope exits with an exception, run CLEANUP.  */
+
+void
+finish_eh_cleanup (cleanup)
+     tree cleanup;
+{
+  tree r = build_stmt (CLEANUP_STMT, NULL_TREE, cleanup);
+  CLEANUP_EH_ONLY (r) = 1;
+  add_stmt (r);
 }
 
 /* Generate the RTL for a RETURN_INIT. */
@@ -1167,7 +1144,7 @@ finish_parenthesized_expr (expr)
      tree expr;
 {
   if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (expr))))
-    /* This inhibits warnings in truthvalue_conversion.  */
+    /* This inhibits warnings in c_common_truthvalue_conversion.  */
     C_SET_EXP_ORIGINAL_CODE (expr, ERROR_MARK); 
 
   if (TREE_CODE (expr) == OFFSET_REF)
@@ -2130,10 +2107,6 @@ cp_expand_stmt (t)
 {
   switch (TREE_CODE (t))
     {
-    case CTOR_STMT:
-      genrtl_ctor_stmt (t);
-      break;
-
     case TRY_BLOCK:
       genrtl_try_block (t);
       break;
@@ -2144,10 +2117,6 @@ cp_expand_stmt (t)
 
     case HANDLER:
       genrtl_handler (t);
-      break;
-
-    case SUBOBJECT:
-      genrtl_subobject (SUBOBJECT_CLEANUP (t));
       break;
 
     case RETURN_INIT:
@@ -2458,7 +2427,7 @@ nullify_returns_r (tp, walk_subtrees, data)
     RETURN_EXPR (*tp) = NULL_TREE;
   else if (TREE_CODE (*tp) == CLEANUP_STMT
 	   && CLEANUP_DECL (*tp) == nrv)
-    CLEANUP_EXPR (*tp) = NULL_TREE;
+    CLEANUP_EH_ONLY (*tp) = 1;
 
   /* Keep iterating.  */
   return NULL_TREE;
@@ -2505,9 +2474,14 @@ genrtl_start_function (fn)
       if (!current_function_cannot_inline)
 	current_function_cannot_inline = cp_function_chain->cannot_inline;
 
-      /* We don't need the saved data anymore.  */
-      free (DECL_SAVED_FUNCTION_DATA (fn));
-      DECL_SAVED_FUNCTION_DATA (fn) = NULL;
+      /* We don't need the saved data anymore.  Unless this is an inline
+         function; we need the named return value info for
+         cp_copy_res_decl_for_inlining.  */
+      if (! DECL_INLINE (fn))
+	{
+	  free (DECL_SAVED_FUNCTION_DATA (fn));
+	  DECL_SAVED_FUNCTION_DATA (fn) = NULL;
+	}
     }
 
   /* Keep track of how many functions we're presently expanding.  */

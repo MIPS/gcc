@@ -296,7 +296,7 @@ perform_member_init (member, init, explicit)
 			   LOOKUP_NONVIRTUAL|LOOKUP_DESTRUCTOR, 0);
 
       if (expr != error_mark_node)
-	finish_subobject (expr);
+	finish_eh_cleanup (expr);
     }
 }
 
@@ -841,10 +841,10 @@ expand_cleanup_for_base (binfo, flag)
 	  (current_class_ref, binfo, base_dtor_identifier, NULL_TREE));
   if (flag)
     expr = fold (build (COND_EXPR, void_type_node,
-			truthvalue_conversion (flag),
+			c_common_truthvalue_conversion (flag),
 			expr, integer_zero_node));
 
-  finish_subobject (expr);
+  finish_eh_cleanup (expr);
 }
 
 /* Subroutine of `expand_aggr_vbase_init'.
@@ -1496,20 +1496,17 @@ build_member_call (type, name, parmlist)
   decl = maybe_dummy_object (type, &basetype_path);
 
   /* Convert 'this' to the specified type to disambiguate conversion
-     to the function's context.  Apparently Standard C++ says that we
-     shouldn't do this.  */
+     to the function's context.  */
   if (decl == current_class_ref
-      && ! pedantic
+      /* ??? this is wrong, but if this conversion is invalid we need to
+	 defer it until we know whether we are calling a static or
+	 non-static member function.  Be conservative for now.  */
       && ACCESSIBLY_UNIQUELY_DERIVED_P (type, current_class_type))
     {
-      tree olddecl = current_class_ptr;
-      tree oldtype = TREE_TYPE (TREE_TYPE (olddecl));
-      if (oldtype != type)
-	{
-	  tree newtype = build_qualified_type (type, TYPE_QUALS (oldtype));
-	  decl = convert_force (build_pointer_type (newtype), olddecl, 0);
-	  decl = build_indirect_ref (decl, NULL);
-	}
+      basetype_path = NULL_TREE;
+      decl = build_scoped_ref (decl, type, &basetype_path);
+      if (decl == error_mark_node)
+	return error_mark_node;
     }
 
   if (method_name == constructor_name (type)
@@ -1819,7 +1816,7 @@ resolve_offset_ref (exp)
   if (TREE_CODE (member) == FIELD_DECL
       && (base == current_class_ref || is_dummy_object (base)))
     {
-      tree binfo = TYPE_BINFO (current_class_type);
+      tree binfo = NULL_TREE;
 
       /* Try to get to basetype from 'this'; if that doesn't work,
          nothing will.  */
@@ -1827,13 +1824,7 @@ resolve_offset_ref (exp)
 
       /* First convert to the intermediate base specified, if appropriate.  */
       if (TREE_CODE (exp) == OFFSET_REF && TREE_CODE (type) == OFFSET_TYPE)
-	{
-	  binfo = binfo_or_else (TYPE_OFFSET_BASETYPE (type),
-				 current_class_type);
-	  if (!binfo)
-	    return error_mark_node;
-	  base = build_base_path (PLUS_EXPR, base, binfo, 1);
-	}
+	base = build_scoped_ref (base, TYPE_OFFSET_BASETYPE (type), &binfo);
 
       return build_component_ref (base, member, binfo, 1);
     }
@@ -2498,9 +2489,11 @@ build_new_1 (exp)
 	      tree end, sentry, begin;
 
 	      begin = get_target_expr (boolean_true_node);
-	      sentry = TREE_OPERAND (begin, 0);
+	      CLEANUP_EH_ONLY (begin) = 1;
 
-	      TREE_OPERAND (begin, 2)
+	      sentry = TARGET_EXPR_SLOT (begin);
+
+	      TARGET_EXPR_CLEANUP (begin)
 		= build (COND_EXPR, void_type_node, sentry,
 			 cleanup, void_zero_node);
 
@@ -3223,7 +3216,7 @@ build_delete (type, addr, auto_delete, flags, use_global_delete)
 /* At the beginning of a destructor, push cleanups that will call the
    destructors for our base classes and members.
 
-   Called from setup_vtbl_ptr.  */
+   Called from begin_destructor_body.  */
 
 void
 push_base_cleanups ()
@@ -3253,21 +3246,9 @@ push_base_cleanups ()
 
 	  if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (base_type))
 	    {
-	      tree base_ptr_type = build_pointer_type (base_type);
-	      expr = current_class_ptr;
-	          
-	      /* Convert to the basetype here, as we know the layout is
-		 fixed. What is more, if we let build_method_call do it,
-		 it will use the vtable, which may have been clobbered
-		 by the deletion of our primary base.  */
-                  
-	      expr = build1 (NOP_EXPR, base_ptr_type, expr);
-	      expr = build (PLUS_EXPR, base_ptr_type, expr,
-			    BINFO_OFFSET (vbase));
-	      expr = build_indirect_ref (expr, NULL);
-	      expr = build_method_call (expr, base_dtor_identifier,
-					NULL_TREE, vbase,
-					LOOKUP_NORMAL);
+	      expr = build_scoped_method_call (current_class_ref, vbase,
+					       base_dtor_identifier,
+					       NULL_TREE);
 	      expr = build (COND_EXPR, void_type_node, cond,
 			    expr, void_zero_node);
 	      finish_decl_cleanup (NULL_TREE, expr);

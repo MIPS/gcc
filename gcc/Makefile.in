@@ -1038,14 +1038,18 @@ libgcc.a: $(LIBGCC_DEPS)
 # switches.
 multilib.h: s-mlib; @true
 s-mlib: $(srcdir)/genmultilib Makefile
-	$(SHELL) $(srcdir)/genmultilib \
-	  "`test @enable_multilib@ != yes || echo $(MULTILIB_OPTIONS)`" \
-	  "`test @enable_multilib@ != yes || echo $(MULTILIB_DIRNAMES)`" \
-	  "`test @enable_multilib@ != yes || echo $(MULTILIB_MATCHES)`" \
-	  "`test @enable_multilib@ != yes || echo $(MULTILIB_EXCEPTIONS)`" \
-	  "`test @enable_multilib@ != yes || echo $(MULTILIB_EXTRA_OPTS)`" \
-	  "`test @enable_multilib@ != yes || echo $(MULTILIB_EXCLUSIONS)`" \
-		> tmp-mlib.h
+	if test @enable_multilib@ = yes; then \
+	  $(SHELL) $(srcdir)/genmultilib \
+	    "$(MULTILIB_OPTIONS)" \
+	    "$(MULTILIB_DIRNAMES)" \
+	    "$(MULTILIB_MATCHES)" \
+	    "$(MULTILIB_EXCEPTIONS)" \
+	    "$(MULTILIB_EXTRA_OPTS)" \
+	    "$(MULTILIB_EXCLUSIONS)" \
+	    > tmp-mlib.h; \
+	else \
+	  $(SHELL) $(srcdir)/genmultilib '' '' '' '' '' '' > tmp-mlib.h; \
+	fi
 	$(SHELL) $(srcdir)/move-if-change tmp-mlib.h multilib.h
 	$(STAMP) s-mlib
 
@@ -1163,7 +1167,8 @@ c-objc-common.o : c-objc-common.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) \
     langhooks.h $(GGC_H)
 c-aux-info.o : c-aux-info.c  $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(C_TREE_H) \
     flags.h toplev.h
-c-convert.o : c-convert.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) flags.h toplev.h
+c-convert.o : c-convert.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) flags.h toplev.h \
+    $(C_COMMON_H)
 c-pragma.o: c-pragma.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) function.h \
     c-pragma.h toplev.h output.h $(GGC_H) $(TM_P_H) $(C_COMMON_H)
 mbchar.o: mbchar.c $(CONFIG_H) $(SYSTEM_H) mbchar.h
@@ -2499,7 +2504,7 @@ distclean: clean $(INTL_DISTCLEAN) lang.distclean
 	-rm -f testsuite/{gcc,g++}.{log,sum}
 	-rm -f intl/libintl.h libintl.h
 	-rm -f cxxmain.c
-	-rm -f mklibgcc libgcc.map gccbug .gdbinit configargs.h
+	-rm -f mklibgcc gccbug .gdbinit configargs.h
 	-rm -f gcov.pod
 	-rm -f fixinc/Makefile
 	-rmdir ada cp f java objc fixinc intl po 2>/dev/null

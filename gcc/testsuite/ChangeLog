@@ -1,3 +1,160 @@
+2002-04-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/other/big-struct.C: New test.
+
+2002-04-14  David Billinghurst <David.Billinghurst@riotinto.com>
+
+	* g77.dg/f77-edit-i-in.f: Use internal buffer in place
+	of scratch file.
+
+2002-04-13  David Billinghurst <David.Billinghurst@riotinto.com>
+
+	PR c/6277
+	* gcc.dg/i386-387-1.c:  Allow optional leading underscore
+	in scan-assembler function name
+
+2002-04-13  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* g77.f-torture/execute/980628-4.x,
+	g77.f-torture/execute/980628-5.x,
+	g77.f-torture/execute/980628-6.x, g77.f-torture/execute/alpha2.x,
+	g77.f-torture/execute/auto0.x, g77.f-torture/execute/auto1.x,
+	g77.f-torture/compile/alpha1.x: xfail powerpc-*-* hosted on
+	i[34567]86-*-*.
+
+2002-04-13  David S. Miller  <davem@redhat.com>
+
+	* gcc.c-torture/execute/20020413-1.c: New test.
+
+2002-04-13  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.dg/asm-6.c,
+	* g++.dg/ext/asm1.C: New tests.
+
+2002-04-12  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++ 5373.
+	* g++.dg/parse/stmtexpr1.C: New test.
+
+	PR c++/5189.
+	* g++.dg/template/copy1.C: New test.
+
+2002-04-12  Richard Henderson  <rth@redhat.com>
+
+	* gcc.c-torture/execute/20020406-1.c (DUPFFnew): Use calloc.
+
+2002-04-12  Geoffrey Keating  <geoffk@redhat.com>
+
+	* gcc.c-torture/execute/20020412-1.c: New file, renamed from
+	gcc.c-torture/execute/20020307-2.c.
+
+2002-04-12  Richard Sandiford  <rsandifo@redhat.com>
+
+	* g++.dg/ext/attrib5.C,
+	* g++.dg/lookup/struct1.C: New tests.
+
+2002-04-11  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/20020411-1.c: New test.
+
+	* gcc.c-torture/execute/20020411-1.c: New test.
+
+2002-04-10  Janis Johnson  <janis187@us.ibm.com>
+
+	* g77.f-torture/execute/6177.f: New test.
+
+2002-04-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/6247
+	* g++.dg/opt/cleanup1.C: New test.
+
+	* g++.dg/opt/const1.C: New test.
+
+2002-04-10  Lars Brinkhoff  <lars@nocrew.org>
+ 
+	* gcc.c-torture/execute/20020406-1.c: Declare malloc.
+
+2002-04-10  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/5507
+	* g++.dg/template/typename2.C: New test.
+
+2002-04-10  Alan Modra  <amodra@bigpond.net.au>
+
+	* gcc.c-torture/execute/loop-12.c: New.
+
+2002-04-08  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* g77.f-torture/execute/980628-4.x,
+	g77.f-torture/execute/980628-5.x,
+	g77.f-torture/execute/980628-6.x, g77.f-torture/execute/alpha2.x,
+	g77.f-torture/execute/auto0.x, g77.f-torture/execute/auto1.x,
+	g77.f-torture/compile/alpha1.x: New, xfail cross-endian tests.
+
+2002-04-07  Franz Sirl  <Franz.Sirl-kernel@lauterbach.com>
+
+	PR optimization/6086
+	* g++.dg/opt/preinc1.C: New test.
+
+2002-04-06  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/5571
+	* g++.dg/opt/static2.C: New test.
+
+2002-04-06  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c/5120
+	* gcc.dg/20020406-1.c: New test.
+
+2002-04-04  David S. Miller  <davem@redhat.com>
+
+	* gcc.c-torture/execute/20020404-1.c: New test.
+
+2002-04-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/6123
+	* gcc.dg/20020312-2.c: Do not declare global register variable
+	if __PIC__ or __pic__ is defined.
+
+2002-04-04  Richard Earnshaw  <rearnsha@arm.com>
+
+	* gcc.dg/arm-asm.c: Run this test on ARM chips, not SPARC.  Use
+	__asm__ so that it works correctly even if -ansi -pedantic-errors.
+
+2002-04-03  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.misc-tests/linkage.exp: Update last change to handle
+	sparc*-, not just sparc-.
+
+2002-04-03  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/cpp/ucs.c: Improved long UCS test.
+
+2002-04-03  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* gcc.dg/wchar_t-1.c, gcc.dg/wchar_t-1.c: Fix typo last change.
+
+2002-04-02  David S. Miller  <davem@redhat.com>
+
+	* gcc.c-torture/execute/20020402-3.c: New test.
+
+2002-04-03  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* g77.dg/bprob/bprob.exp: Skip for mmix-*-* and cris-*-*.
+	* g++.dg/bprob/bprob.exp, gcc.misc-tests/bprob.exp: Ditto.
+
+	* g77.dg/f77-edit-i-in.f: xfail for mmix-knuth-mmixware.
+	* g77.f-torture/execute/io0.x, g77.f-torture/execute/io1.x,
+	g77.f-torture/execute/20001201.x,
+	g77.f-torture/execute/u77-test.x: New files.
+
+	* gcc.dg/wint_t-1.c: Mark excess errors for mmix-knuth-mmixware.
+	* gcc.dg/wchar_t-1.c: Ditto.
+
+2002-04-02  Franz Sirl  <Franz.Sirl-kernel@lauterbach.com>
+
+	* gcc.c-torture/execute/20020402-1.c: New test.
+
 2002-04-01  Richard Henderson  <rth@redhat.com>
 
 	* gcc.c-torture/compile/920625-1.x: XFAIL -O1.

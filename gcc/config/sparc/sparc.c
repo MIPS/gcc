@@ -1861,7 +1861,7 @@ const64_is_2insns (high_bits, low_bits)
   int highest_bit_set, lowest_bit_set, all_bits_between_are_set;
 
   if (high_bits == 0
-      || high_bits == -1)
+      || high_bits == 0xffffffff)
     return 1;
 
   analyze_64bit_constant (high_bits, low_bits,
@@ -2989,7 +2989,7 @@ load_pic_register ()
 }
 
 /* Return 1 if RTX is a MEM which is known to be aligned to at
-   least an 8 byte boundary.  */
+   least a DESIRED byte boundary.  */
 
 int
 mem_min_alignment (mem, desired)
@@ -3647,7 +3647,7 @@ sparc_nonflat_function_prologue (file, size, leaf_function)
 static void
 output_restore_regs (file, leaf_function)
      FILE *file;
-     int leaf_function;
+     int leaf_function ATTRIBUTE_UNUSED;
 {
   int offset, n_regs;
   const char *base;
@@ -3702,12 +3702,22 @@ sparc_nonflat_function_epilogue (file, size, leaf_function)
   if (current_function_epilogue_delay_list == 0)
     {
       /* If code does not drop into the epilogue, we need
-	 do nothing except output pending case vectors.  */
-      rtx insn = get_last_insn ();                               
-      if (GET_CODE (insn) == NOTE)                               
-      insn = prev_nonnote_insn (insn);                           
-      if (insn && GET_CODE (insn) == BARRIER)                    
-      goto output_vectors;                                                    
+	 do nothing except output pending case vectors.
+
+	 We have to still output a dummy nop for the sake of
+	 sane backtraces.  Otherwise, if the last two instructions
+	 of a function were call foo; dslot; this can make the return
+	 PC of foo (ie. address of call instruction plus 8) point to
+	 the first instruction in the next function.  */
+      rtx insn;
+
+      fputs("\tnop\n", file);
+
+      insn = get_last_insn ();
+      if (GET_CODE (insn) == NOTE)
+	      insn = prev_nonnote_insn (insn);
+      if (insn && GET_CODE (insn) == BARRIER)
+	      goto output_vectors;
     }
 
   if (num_gfregs)
@@ -4950,6 +4960,10 @@ sparc_va_arg (valist, type)
 	      indirect = 1;
 	      size = rsize = UNITS_PER_WORD;
 	    }
+	  /* SPARC v9 ABI states that structures up to 8 bytes in size are
+	     given one 8 byte slot.  */
+	  else if (size == 0)
+	    size = rsize = UNITS_PER_WORD;
 	  else
 	    size = rsize;
 	}
@@ -5360,7 +5374,7 @@ sparc_emit_float_lib_cmp (x, y, comparison)
       else
 	slot1 = y;
 
-      emit_library_call (gen_rtx_SYMBOL_REF (Pmode, qpfunc), 1,
+      emit_library_call (gen_rtx_SYMBOL_REF (Pmode, qpfunc), LCT_NORMAL,
 			 DImode, 2,
 			 XEXP (slot0, 0), Pmode,
 			 XEXP (slot1, 0), Pmode);
@@ -5369,7 +5383,7 @@ sparc_emit_float_lib_cmp (x, y, comparison)
     }
   else
     {
-      emit_library_call (gen_rtx_SYMBOL_REF (Pmode, qpfunc), 1,
+      emit_library_call (gen_rtx_SYMBOL_REF (Pmode, qpfunc), LCT_NORMAL,
 			 SImode, 2,
 			 x, TFmode, y, TFmode);
 
@@ -5798,6 +5812,20 @@ registers_ok_for_ldd_peep (reg1, reg2)
 	ld [%o0 + 4], %o1
    to
    	ldd [%o0], %o0
+   nor:
+	ld [%g3 + 4], %g3
+	ld [%g3], %g2
+   to
+        ldd [%g3], %g2
+
+   But, note that the transformation from:
+	ld [%g2 + 4], %g3
+        ld [%g2], %g2
+   to
+	ldd [%g2], %g2
+   is perfectly fine.  Thus, the peephole2 patterns always pass us
+   the destination register of the first load, never the second one.
+
    For stores we don't have a similar problem, so dependent_reg_rtx is
    NULL_RTX.  */
 
@@ -6363,7 +6391,7 @@ sparc_initialize_trampoline (tramp, fnaddr, cxt)
    */
 #ifdef TRANSFER_FROM_TRAMPOLINE
   emit_library_call (gen_rtx (SYMBOL_REF, Pmode, "__enable_execute_stack"),
-                     0, VOIDmode, 1, tramp, Pmode);
+                     LCT_NORMAL, VOIDmode, 1, tramp, Pmode);
 #endif
 
   emit_move_insn
@@ -6414,7 +6442,7 @@ sparc64_initialize_trampoline (tramp, fnaddr, cxt)
 {
 #ifdef TRANSFER_FROM_TRAMPOLINE
   emit_library_call (gen_rtx (SYMBOL_REF, Pmode, "__enable_execute_stack"),
-                     0, VOIDmode, 1, tramp, Pmode);
+                     LCT_NORMAL, VOIDmode, 1, tramp, Pmode);
 #endif
 
   /*
@@ -8519,7 +8547,7 @@ sparc_profile_hook (labelno)
   lab = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (buf));
   fun = gen_rtx_SYMBOL_REF (Pmode, MCOUNT_FUNCTION);
 
-  emit_library_call (fun, 0, VOIDmode, 1, lab, Pmode);
+  emit_library_call (fun, LCT_NORMAL, VOIDmode, 1, lab, Pmode);
 }
 
 /* Mark ARG, which is really a struct ultrasparc_pipline_state *, for
@@ -8581,3 +8609,65 @@ sparc_elf_asm_named_section (name, flags)
   fputc ('\n', asm_out_file);
 }
 #endif /* OBJECT_FORMAT_ELF */
+
+int
+sparc_extra_constraint_check (op, c, strict)
+     rtx op;
+     int c;
+     int strict;
+{
+  int reload_ok_mem;
+
+  if (TARGET_ARCH64
+      && (c == 'T' || c == 'U'))
+    return 0;
+
+  switch (c)
+    {
+    case 'Q':
+      return fp_sethi_p (op);
+
+    case 'R':
+      return fp_mov_p (op);
+
+    case 'S':
+      return fp_high_losum_p (op);
+
+    case 'U':
+      if (! strict
+	  || (GET_CODE (op) == REG
+	      && (REGNO (op) < FIRST_PSEUDO_REGISTER
+		  || reg_renumber[REGNO (op)] >= 0)))
+	return register_ok_for_ldd (op);
+
+      return 0;
+
+    case 'W':
+    case 'T':
+      break;
+
+    default:
+      return 0;
+    }
+
+  /* Our memory extra constraints have to emulate the
+     behavior of 'm' and 'o' in order for reload to work
+     correctly.  */
+  if (GET_CODE (op) == MEM)
+    {
+      reload_ok_mem = 0;
+      if ((TARGET_ARCH64 || mem_min_alignment (op, 8))
+	  && (! strict
+	      || strict_memory_address_p (Pmode, XEXP (op, 0))))
+	reload_ok_mem = 1;
+    }
+  else
+    {
+      reload_ok_mem = (reload_in_progress
+		       && GET_CODE (op) == REG
+		       && REGNO (op) >= FIRST_PSEUDO_REGISTER
+		       && reg_renumber [REGNO (op)] < 0);
+    }
+
+  return reload_ok_mem;
+}

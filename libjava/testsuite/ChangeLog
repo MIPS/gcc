@@ -1,3 +1,41 @@
+2002-04-14  Mark Wielaard  <mark@klomp.org>
+
+        * libjava.mauve/xfails: Expect failures for PR libgcj/6302 and
+        libgcj/6298.
+
+2002-04-14  Mark Wielaard  <mark@klomp.org>
+
+	* libjava.mauve/xfails: Expect failures for PR libgcj/6293,
+	libgcj/6295, libgcj/6296 and libgcj/6297.
+
+2002-04-12  Anthony Green  <green@redhat.com>
+
+	* lib/libjava.exp: Use libgcj-VERSION.jar, not libgcj.jar.
+
+2002-04-12  Loren J. Rittle <ljrittle@acm.org>
+
+	* libjava.lang/SyncGlobal.java, libjava.lang/SyncGlobal.out:
+	New test case.
+
+2002-04-09  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* libjava.lang/PR6204.java, libjava.lang/PR6204.out: New test case.
+	* libjava.lang/PR6085.java, libjava.lang/PR6085.out: Likewise.
+
+2002-04-07  Mark Wielaard  <mark@klomp.org>
+
+	* libjava.mauve/xfails: Add CASE_INSENSITIVE_ORDER, result was
+	unspecified and test should be updated to match latest spec.
+	Add AcuniaPropertiesTest, known bug #6219. Add test_getClassLoader,
+	what we do seems to be not really right or wrong.
+
+2002-04-06  Mark Wielaard  <mark@klomp.org>
+
+	* libjava.mauve/mauve.exp: Use libgcj.jar not libgcj.zip.
+	* libjava.mauve/xfails: add Character.classify12 (number 1),
+	Character.getType (number 11), Character.getType (number 20) and
+	Character.getType (number 22). We implement 1.4 Character.
+
 2002-03-28  Andrew Haley  <aph@redhat.com>
 
 	* libjava.lang/Throw_2.java: New.

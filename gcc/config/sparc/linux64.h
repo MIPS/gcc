@@ -60,8 +60,8 @@ Boston, MA 02111-1307, USA.  */
 
 #define STARTFILE_SPEC32 \
   "%{!shared: \
-     %{pg:gcrt1.o%s} %{!pg:%{p:gcrt1.o%s} %{!p:crt1.o%s}}}\
-   crti.o%s %{static:crtbeginT.o%s}\
+     %{pg:/usr/lib/gcrt1.o%s} %{!pg:%{/usr/lib/p:gcrt1.o%s} %{!p:/usr/lib/crt1.o%s}}}\
+   /usr/lib/crti.o%s %{static:crtbeginT.o%s}\
    %{!static:%{!shared:crtbegin.o%s} %{shared:crtbeginS.o%s}}"
 
 #define STARTFILE_SPEC64 \
@@ -99,28 +99,33 @@ Boston, MA 02111-1307, USA.  */
 #undef  ENDFILE_SPEC
 
 #define ENDFILE_SPEC32 \
-  "%{!shared:crtend.o%s} %{shared:crtendS.o%s} crtn.o%s"
+  "%{!shared:crtend.o%s} %{shared:crtendS.o%s} /usr/lib/crtn.o%s"
 
 #define ENDFILE_SPEC64 \
   "%{!shared:crtend.o%s} %{shared:crtendS.o%s} /usr/lib64/crtn.o%s"
   
+#define ENDFILE_SPEC_COMMON \
+  "%{ffast-math|funsafe-math-optimizations:crtfastmath.o%s}"
+
 #ifdef SPARC_BI_ARCH
 
 #if DEFAULT_ARCH32_P
 #define ENDFILE_SPEC "\
 %{m32:" ENDFILE_SPEC32 "} \
 %{m64:" ENDFILE_SPEC64 "} \
-%{!m32:%{!m64:" ENDFILE_SPEC32 "}}"
+%{!m32:%{!m64:" ENDFILE_SPEC32 "}} " \
+ENDFILE_SPEC_COMMON
 #else
 #define ENDFILE_SPEC "\
 %{m32:" ENDFILE_SPEC32 "} \
 %{m64:" ENDFILE_SPEC64 "} \
-%{!m32:%{!m64:" ENDFILE_SPEC64 "}}"
+%{!m32:%{!m64:" ENDFILE_SPEC64 "}} " \
+ENDFILE_SPEC_COMMON
 #endif
 
 #else
 
-#define ENDFILE_SPEC ENDFILE_SPEC64
+#define ENDFILE_SPEC ENDFILE_SPEC64 " " ENDFILE_SPEC_COMMON
 
 #endif
 
@@ -164,7 +169,7 @@ Boston, MA 02111-1307, USA.  */
 #endif
 
 #undef CPP_PREDEFINES
-#define CPP_PREDEFINES "-D__ELF__ -Dunix -D_LONGLONG -D__sparc__ -Dlinux -Asystem=unix -Asystem=posix"
+#define CPP_PREDEFINES "-D__ELF__ -Dunix -D_LONGLONG -D__sparc__ -Dgnu_linux -Dlinux -Asystem=unix -Asystem=posix"
 
 #undef CPP_SUBTARGET_SPEC
 #define CPP_SUBTARGET_SPEC "\
@@ -366,3 +371,7 @@ do {									\
 
 /* Don't be different from other Linux platforms in this regard.  */
 #define HANDLE_PRAGMA_PACK_PUSH_POP
+
+/* We use GNU ld so undefine this so that attribute((init_priority)) works.  */
+#undef CTORS_SECTION_ASM_OP
+#undef DTORS_SECTION_ASM_OP

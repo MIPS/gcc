@@ -133,6 +133,10 @@ struct lang_hooks_for_decls
 
   /* Returns the chain of decls so far in the current scope level.  */
   tree (*getdecls) PARAMS ((void));
+
+  /* Returns true when we should warn for an unused global DECL.
+     We will already have checked that it has static binding.  */
+  bool (*warn_unused_global) PARAMS ((tree));
 };
 
 /* Language-specific hooks.  See langhooks-def.h for defaults.  */
@@ -196,6 +200,19 @@ struct lang_hooks
      Fourth argument is actually an enum expand_modifier.  */
   rtx (*expand_expr) PARAMS ((tree, rtx, enum machine_mode, int));
 
+  /* Prepare expr to be an argument of a TRUTH_NOT_EXPR or other logical
+     operation.
+
+     This preparation consists of taking the ordinary representation
+     of an expression expr and producing a valid tree boolean
+     expression describing whether expr is nonzero.  We could simply
+     always do build_binary_op (NE_EXPR, expr, integer_zero_node, 1),
+     but we optimize comparisons, &&, ||, and !.
+
+     The result should be an expression of boolean type (if not an
+     error_mark_node).  */
+  tree (*truthvalue_conversion) PARAMS ((tree));
+
   /* Possibly apply default attributes to a function (represented by
      a FUNCTION_DECL).  */
   void (*insert_default_attributes) PARAMS ((tree));
@@ -241,6 +258,13 @@ struct lang_hooks
 
   /* Mark nodes held through the lang_specific hooks in the tree.  */
   void (*mark_tree) PARAMS ((tree));
+
+  /* Set the DECL_ASSEMBLER_NAME for a node.  If it is the sort of
+     thing that the assembler should talk about, set
+     DECL_ASSEMBLER_NAME to an appropriate IDENTIFIER_NODE.
+     Otherwise, set it to the ERROR_MARK_NODE to ensure that the
+     assembler does not talk about it.  */
+  void (*set_decl_assembler_name) PARAMS ((tree));
 
   /* Nonzero if TYPE_READONLY and TREE_READONLY should always be honored.  */
   bool honor_readonly;

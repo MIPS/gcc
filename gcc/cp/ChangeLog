@@ -1,3 +1,169 @@
+2002-04-15  Gabriel Dos Reis  <gdr@merlin.codesourcery.com>
+
+	* error.c (cxx_print_error_function): Adjust call to macros.
+
+2002-04-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* class.c (layout_virtual_bases): Do all dsize computation on trees.
+
+2002-04-14  Jason Merrill  <jason@redhat.com>
+
+	* typeck.c (get_member_function_from_ptrfunc): Don't do
+	gratuitious division and multiplication on
+	ptrmemfunc_vbit_in_delta targets.
+
+2002-04-12  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/5373.
+	* semantics.c (finish_expr_stmt): Remember the type of the
+	expression before any conversions are performed.
+
+2002-04-12  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/5189.
+	* call.c (add_template_candidate_real): Do not treat member
+	templates as copy constructors.
+
+2002-04-12  Mark Mitchell  <mark@codesourcery.com>
+
+	* decl.c (duplicate_decls): Do not copy the RTL for a variable
+	declaration if the old variable had an incomplete type and the new
+	variable does not.
+	(complete_vars): Do not call layout_decl for completed variables.
+
+2002-04-12  Richard Sandiford  <rsandifo@redhat.com>
+
+	* decl.c (duplicate_decls): Don't try to unify an implicit typedef
+	with an explicit one.
+	(follow_tag_typedef): New.
+	(lookup_tag): Use it to extract the tag of an explicit typedef.
+	(xref_tag): Likewise.
+
+2002-04-11  Andrew Haley  <aph@redhat.com>
+
+	* typeck.c (type_after_usual_arithmetic_conversions):
+	If two types have the same variant, return immediately.
+	When two floating-point operands are the same precision: 
+	  convert to float if one of the operands is float;
+	  if neither operand is one of the standard types, return the type
+	  of the first operand.
+ 
+2002-04-10  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/5507
+	* decl.c (make_typename_type): Remove implicit typenameness.
+
+2002-04-09  Jason Merrill  <jason@redhat.com>
+
+	PR optimization/6189
+	* semantics.c (genrtl_start_function): Don't free
+	DECL_SAVED_FUNCTION_DATA for inline functions.
+
+	* init.c (build_member_call): For now, don't convert to
+	intermediate base if it would cause an error.
+
+2002-04-08  Paolo Carlini  <pcarlini@unitus.it>
+
+	* parse.y (namespace_qualifier, maybe_identifier,
+	begin_explicit_instantiation, end_explicit_instantiation,
+	apparent_template_type, .finish_template_type,
+	do_id, maybe_init, defarg_again, component_decl_1):
+	Add ending ';', in accordance with POSIX.
+
+2002-04-06  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/5571
+	* class.c (layout_class_type): Remember incomplete static
+	variables.
+	(finish_struct_1): Call complete_vars, not
+	hack_incomplete_structures.
+	* cp-tree.h (hack_incomplete_structures): Rename to ...
+	(complete_vars): ... this.
+	(struct saved_scope): Remove incomplete.
+	(namespace_scope_incomplete): Remove.
+	* decl.c (struct binding_level): Remove incomplete.
+	(incomplete_vars): New variable.
+	(mark_binding_level): Don't mark incomplete.
+	(print_binding_level): Don't print it.
+	(mark_saved_scope): Don't mark incomplete.
+	(pushdecl): Use maybe_register_incopmlete_var.
+	(cxx_init_decl_processing): Register incomplete_vars for GC.
+	(start_decl_1): Clarify error message.
+	(hack_incomplete_vars): Remove.
+	(maybe_register_incomplete_var): New function.
+	(complete_vars): Likewise.
+
+2002-04-06  Jason Merrill  <jason@redhat.com>
+
+	PR c++/4934
+	* error.c (dump_expr) [CONVERT_EXPR]: Make sure TREE_TYPE (t) is
+	set before checking it.
+
+	PR c++/525
+	* init.c (build_member_call): Use build_scoped_ref.
+	(resolve_offset_ref): Likewise.
+	* call.c (build_scoped_method_call): Likewise.
+	* tree.c (maybe_dummy_object): Kludge around current_class_type being 
+	wrong.
+	* typeck2.c (build_scoped_ref): Return the binfo via binfo_p parm.
+	* cp-tree.h: Adjust.
+	
+	* init.c (push_base_cleanups): Just use build_scoped_method_call.
+
+	PR c++/6179
+	* method.c (implicitly_declare_fn): Pass unqualified type to 
+	synthesize_exception_spec.
+
+2002-04-04  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* cp-lang.c (LANG_HOOKS_TRUTHVALUE_CONVERSION): Redefine.
+	* cvt.c: Update comment.
+	* init.c (expand_cleanup_for_base): Update.
+	* semantics.c (finish_parenthesized_expr): Update.
+	* typeck.c (cp_truthvalue_conversion): Update.
+
+2002-04-04  Jason Merrill  <jason@redhat.com>
+
+	* semantics.c (finish_eh_cleanup): New fn.
+	* cp-tree.h: Add prototype.
+	* init.c (perform_member_init, expand_cleanup_for_base): Use 
+	finish_eh_cleanup.
+	* cp-tree.def (SUBOBJECT, CTOR_STMT): Remove.
+	* cp-tree.h: Remove references.
+	* decl.c (begin_constructor_body, end_constructor_body): Likewise.
+	* dump.c (cp_dump_tree): Likewise.
+	* pt.c (tsubst_expr): Likewise.
+	* semantics.c (genrtl_ctor_stmt, genrtl_subobject): Remove.
+	(cp_expand_stmt): Remove handling of CTOR_STMT and SUBOBJECT.
+	* tree.c (cp_statement_code_p): Likewise.
+
+	* init.c (build_new_1): Set CLEANUP_EH_ONLY on deleting cleanup.
+
+	PR c++/5636
+	* semantics.c (nullify_returns_r): Just set CLEANUP_EH_ONLY on
+	cleanup for nrv.
+
+	PR c++/5104
+	* typeck.c (comptypes) [FUNCTION_TYPE]: Don't compare exception
+	specifiers.
+	[METHOD_TYPE]: Use same code as FUNCTION_TYPE.
+
+2002-04-03  Richard Henderson  <rth@redhat.com>
+
+	* cp-lang.c (cxx_warn_unused_global_decl): New.
+	(LANG_HOOKS_WARN_UNUSED_GLOBAL_DECL): New.
+
+2002-04-03  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* cp-lang.c (LANG_HOOKS_SET_DECL_ASSEMBLER_NAME): Redefine.
+	* tree.c (init_tree): Don't set hook.
+
+2002-04-03  Roger Sayle  <roger@eyesopen.com>
+
+	PR c++/5998:
+	* decl.c (duplicate_decls): Don't mess with assembler names when
+	redeclaring builtin functions as static.
+
 2002-04-01  Neil Booth  <neil@daikokuya.demon.co.uk>
 
 	* call.c (build_addr_func): Update.
@@ -174,8 +340,8 @@
 
 2002-03-22  Jeff Knaggs  <jknaggs@redhat.com>
 
-	* typeck.c (expand_ptrmemfunc_cst): Scale idx down to an index
-	into the vtable_entry array regardless of
+	* typeck.c (get_member_function_from_ptrfunc): Scale idx down to
+	an index into the vtable_entry array regardless of
 	TARGET_PTRMEMFUNC_VBIT_LOCATION.
 
 2002-03-21  Aldy Hernandez  <aldyh@redhat.com>

@@ -907,6 +907,13 @@ unroll_loop_new (loops, loop, unroll_all)
       return 1;
     }
 
+  if (!can_duplicate_loop_p (loop))
+    {
+      if (rtl_dump_file)
+	fprintf (rtl_dump_file, ";; Not unrolling loop, can't duplicate\n");
+      return 0;
+    }
+
   ninsns = num_loop_insns (loop);
 
   nunroll = PARAM_VALUE (PARAM_MAX_UNROLLED_INSNS) / ninsns - 1;

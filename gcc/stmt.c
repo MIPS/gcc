@@ -2036,7 +2036,7 @@ check_unique_operand_names (outputs, inputs)
 	continue;
 
       for (j = TREE_CHAIN (i); j ; j = TREE_CHAIN (j))
-	if (i_name == TREE_PURPOSE (TREE_PURPOSE (j)))
+	if (simple_cst_equal (i_name, TREE_PURPOSE (TREE_PURPOSE (j))))
 	  goto failure;
     }
 
@@ -2047,10 +2047,10 @@ check_unique_operand_names (outputs, inputs)
 	continue;
 
       for (j = TREE_CHAIN (i); j ; j = TREE_CHAIN (j))
-	if (i_name == TREE_PURPOSE (TREE_PURPOSE (j)))
+	if (simple_cst_equal (i_name, TREE_PURPOSE (TREE_PURPOSE (j))))
 	  goto failure;
       for (j = outputs; j ; j = TREE_CHAIN (j))
-	if (i_name == TREE_PURPOSE (TREE_PURPOSE (j)))
+	if (simple_cst_equal (i_name, TREE_PURPOSE (TREE_PURPOSE (j))))
 	  goto failure;
     }
 
@@ -2058,7 +2058,7 @@ check_unique_operand_names (outputs, inputs)
 
  failure:
   error ("duplicate asm operand name '%s'",
-	 IDENTIFIER_POINTER (TREE_PURPOSE (TREE_PURPOSE (i))));
+	 TREE_STRING_POINTER (TREE_PURPOSE (TREE_PURPOSE (i))));
   return false;
 }
 
@@ -2152,20 +2152,20 @@ resolve_operand_name_1 (p, outputs, inputs)
   /* Resolve the name to a number.  */
   for (op = 0, t = outputs; t ; t = TREE_CHAIN (t), op++)
     {
-      tree id = TREE_PURPOSE (TREE_PURPOSE (t));
-      if (id)
+      tree name = TREE_PURPOSE (TREE_PURPOSE (t));
+      if (name)
 	{
-	  const char *c = IDENTIFIER_POINTER (id);
+	  const char *c = TREE_STRING_POINTER (name);
 	  if (strncmp (c, p + 1, len) == 0 && c[len] == '\0')
 	    goto found;
 	}
     }
   for (t = inputs; t ; t = TREE_CHAIN (t), op++)
     {
-      tree id = TREE_PURPOSE (TREE_PURPOSE (t));
-      if (id)
+      tree name = TREE_PURPOSE (TREE_PURPOSE (t));
+      if (name)
 	{
-	  const char *c = IDENTIFIER_POINTER (id);
+	  const char *c = TREE_STRING_POINTER (name);
 	  if (strncmp (c, p + 1, len) == 0 && c[len] == '\0')
 	    goto found;
 	}
@@ -4017,7 +4017,7 @@ expand_decl (decl)
 			   : GET_MODE_BITSIZE (DECL_MODE (decl)));
       DECL_USER_ALIGN (decl) = 0;
 
-      x = assign_temp (TREE_TYPE (decl), 1, 1, 1);
+      x = assign_temp (decl, 1, 1, 1);
       set_mem_attributes (x, decl, 1);
       SET_DECL_RTL (decl, x);
 
@@ -4167,7 +4167,7 @@ expand_decl_cleanup (decl, cleanup)
 
 	  /* Conditionalize the cleanup.  */
 	  cleanup = build (COND_EXPR, void_type_node,
-			   truthvalue_conversion (cond),
+			   (*lang_hooks.truthvalue_conversion) (cond),
 			   cleanup, integer_zero_node);
 	  cleanup = fold (cleanup);
 
@@ -4216,6 +4216,23 @@ expand_decl_cleanup (decl, cleanup)
 	}
     }
   return 1;
+}
+
+/* Like expand_decl_cleanup, but maybe only run the cleanup if an exception
+   is thrown.  */
+
+int
+expand_decl_cleanup_eh (decl, cleanup, eh_only)
+     tree decl, cleanup;
+     int eh_only;
+{
+  int ret = expand_decl_cleanup (decl, cleanup);
+  if (cleanup && ret)
+    {
+      tree node = block_stack->data.block.cleanups;
+      CLEANUP_EH_ONLY (node) = eh_only;
+    }
+  return ret;
 }
 
 /* DECL is an anonymous union.  CLEANUP is a cleanup for DECL.
@@ -4325,7 +4342,7 @@ expand_cleanups (list, dont_do, in_fixup, reachable)
 	    if (! in_fixup && using_eh_for_cleanups_p)
 	      expand_eh_region_end_cleanup (TREE_VALUE (tail));
 
-	    if (reachable)
+	    if (reachable && !CLEANUP_EH_ONLY (tail))
 	      {
 		/* Cleanups may be run multiple times.  For example,
 		   when exiting a binding contour, we expand the

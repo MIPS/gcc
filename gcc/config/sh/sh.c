@@ -2507,9 +2507,16 @@ broken_move (insn)
 		&& GET_CODE (SET_SRC (pat)) == CONST_DOUBLE
 		&& (fp_zero_operand (SET_SRC (pat))
 		    || fp_one_operand (SET_SRC (pat)))
-		/* ??? If this is a -m4 or -m4-single compilation, we don't
-		   know the current setting of fpscr, so disable fldi.  */
-		&& (! TARGET_SH4 || TARGET_FMOVD)
+		/* ??? If this is a -m4 or -m4-single compilation, in general
+		   we don't know the current setting of fpscr, so disable fldi.
+		   There is an exception if this was a register-register move
+		   before reload - and hence it was ascertained that we have
+		   single precision setting - and in a post-reload optimization
+		   we changed this to do a constant load.  In that case
+		   we don't have an r0 clobber, hence we must use fldi.  */
+		&& (! TARGET_SH4 || TARGET_FMOVD
+		    || (GET_CODE (XEXP (XVECEXP (PATTERN (insn), 0, 2), 0))
+			== SCRATCH))
 		&& GET_CODE (SET_DEST (pat)) == REG
 		&& FP_REGISTER_P (REGNO (SET_DEST (pat))))
 	  && (GET_CODE (SET_SRC (pat)) != CONST_INT
@@ -4343,10 +4350,12 @@ calc_live_regs (count_ptr, live_regs_mask)
 	  target_flags &= ~FPU_SINGLE_BIT;
 	  break;
 	}
-  pr_initial = has_hard_reg_initial_val (Pmode, PR_REG);
+  pr_initial = has_hard_reg_initial_val (Pmode,
+					 TARGET_SHMEDIA
+					 ? PR_MEDIA_REG : PR_REG);
   pr_live = (pr_initial
-	     ? REGNO (pr_initial) != PR_REG
-	     : regs_ever_live[PR_REG]);
+	     ? REGNO (pr_initial) != (TARGET_SHMEDIA ? PR_MEDIA_REG : PR_REG)
+	     : regs_ever_live[TARGET_SHMEDIA ? PR_MEDIA_REG : PR_REG]);
   /* Force PR to be live if the prologue has to call the SHmedia
      argument decoder or register saver.  */
   if (TARGET_SHCOMPACT
@@ -4356,7 +4365,7 @@ calc_live_regs (count_ptr, live_regs_mask)
     pr_live = 1;
   for (count = 0, reg = FIRST_PSEUDO_REGISTER - 1; reg >= 0; reg--)
     {
-      if (reg == PR_REG
+      if (reg == (TARGET_SHMEDIA ? PR_MEDIA_REG : PR_REG)
 	  ? pr_live
 	  : (interrupt_handler && ! pragma_trapa)
 	  ? (/* Need to save all the regs ever live.  */
@@ -6697,7 +6706,7 @@ sh_adjust_cost (insn, link, dep_insn, cost)
 int
 sh_pr_n_sets ()
 {
-  return REG_N_SETS (PR_REG);
+  return REG_N_SETS (TARGET_SHMEDIA ? PR_MEDIA_REG : PR_REG);
 }
 
 /* SHmedia requires registers for branches, so we can't generate new

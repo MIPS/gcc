@@ -1,3 +1,34 @@
+2002-04-09  Loren J. Rittle  <ljrittle@acm.org>
+
+	* include/private/gcconfig.h (DATAEND): Update comment example
+	to match reality.
+
+2002-04-08  Loren J. Rittle  <ljrittle@acm.org>
+
+	* include/private/gcconfig.h (DATAEND): Clarify comment.
+
+2002-04-08  Hans Boehm  <Hans_Boehm@hp.com>
+	
+	* include/private/gc_priv.h (WARN macro): Add "GC warning:" prefix.
+	(GC_large_alloc_warn_interval, GC_large_alloc_warn_suppressed):
+	declare.
+	* allchblk.c (GC_allchblk_nth): Change text and support reduced
+	frequency for blacklist warning message.
+	* misc.c (GC_large_alloc_warn_interval,
+	GC_large_alloc_warn_suppressed): define.
+	(GC_init_inner): Check GC_NO_BLACKLIST_WARNING and 
+	GC_LARGE_ALLOC_WARN_INTERVAL environment variables.
+	* doc/README.environment (GC_NO_BLACKLIST_WARNING): Deprecate.
+	(GC_LARGE_ALLOC_WARN_INTERVAL): Add documentation.
+
+	* dyn_load.c (_DYNAMIC): Move declaration to file scope.
+
+2002-04-04  Loren J. Rittle  <ljrittle@acm.org>
+
+	* include/private/gcconfig.h: Add support for an unmapped
+	memory hole between the end of the initialized data segment
+	and the start of the BSS on FreeBSD/i386.
+
 2002-03-30  Krister Walfridsson  <cato@df.lth.se>
 
 	* include/private/gcconfig.h: define DYNAMIC_LOADING for ELF

@@ -1,3 +1,178 @@
+2002-04-14  Mark Wielaard <mark@klomp.org>
+
+	* java/net/natPlainDatagramSocketImpl.cc (close): Set timeout to 0.
+	* java/net/natSocketImpl.cc (close): Likewise.
+
+2002-04-14  Mark Wielaard <mark@klomp.org>
+
+	* gnu/gcj/protocol/http/Connection.java (usingProxy): return false.
+
+2002-04-13  Adam King <aking@dreammechanics.com>
+
+	* java/lang/natDouble.cc (parseDouble): Allow a number to end with
+	the f/F/d/D modifiers.
+
+2002-04-12  Anthony Green  <green@redhat.com>
+
+	* Makefile.am (jardir, jar_DATA): Define (for libgcj.jar).
+	Create libgcj-@gcc_version@.jar instead of libgcj.jar.
+	* Makefile.in: Rebuilt.
+	* configure.in: Substitute gcc_version.
+	* configure: Rebuilt.
+
+2002-04-11  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* configure.host: Set can_unwind_signal on hosts which support it.
+	Don't set CHECKREFSPEC and DIVIDESPEC for FreeBSD.
+	* configure.in: Set CHECKREFSPEC and DIVIDESPEC if not using SJLJ
+	exceptions and can_unwind_signal isn't set.
+	* configure: Rebuilt.
+
+2002-04-11  Tom Tromey  <tromey@redhat.com>
+
+	* win32.cc (_Jv_platform_initProperties): Fix spelling of _Jv_Free.
+
+2002-04-11  Adam King <aking@dreammechanics.com>
+	    Tom Tromey  <tromey@redhat.com>
+
+	* include/jvm.h (_Jv_ThrowBadArrayIndex,
+	_Jv_ThrowNullPointerException): Mark as noreturn.
+	* win32.cc (_Jv_platform_initProperties): Use _Jv_MallocUnchecked
+	and _Jv_free.  Correctly invoke GetTempPath().  Indentation
+	fixes.
+
+2002-04-10  Tom Tromey  <tromey@redhat.com>
+
+	* Makefile.in: Rebuilt.
+	* Makefile.am (java/lang/Thread.h): Mark
+	_Jv_AttachCurrentThreadAsDaemon as friend.
+	* gcj/javaprims.h (_Jv_AttachCurrentThreadAsDaemon): Declare.
+	* gcj/cni.h (JvAttachCurrentThreadAsDaemon): New function.
+	* java/lang/natThread.cc (_Jv_AttachCurrentThreadAsDaemon): New
+	function.
+	* java/lang/natRuntime.cc (_load): Recognize JNI_VERSION_1_4.
+	* jni.cc (_Jv_JNI_GetVersion): Return JNI_VERSION_1_4.
+	(_Jv_JNI_InvokeFunctions): Added
+	_Jv_JNI_AttachCurrentThreadAsDaemon.
+	(_Jv_JNI_GetEnv): Handle JNI_VERSION_1_4.
+	(JNI_GetDefaultJavaVMInitArgs): Likewise.
+	(JNI_CreateJavaVM): Likewise.
+	(_Jv_JNI_AttachCurrentThread): Likewise.
+	(_Jv_JNI_AttachCurrentThread): Added `is_daemon' argument.
+	(_Jv_JNI_AttachCurrentThreadAsDaemon): New method.
+	(_Jv_JNIFunctions): Initialize new fields.
+	(_Jv_JNI_NewDirectByteBuffer): New function.
+	(_Jv_JNI_GetDirectBufferAddress): Likewise.
+	(_Jv_JNI_GetDirectBufferCapacity): Likewise.
+	* include/jni.h (JNI_VERSION_1_4): New macro.
+	(JNIInvokeInterface::AttachCurrentThreadAsDaemon): New field.
+	(_Jv_JavaVM::AttachCurrentThreadAsDaemon): New method.
+	(JNINativeInterface::NewDirectByteBuffer): New field.
+	(JNINativeInterface::GetDirectBufferAddress): New field.
+	(JNINativeInterface::GetDirectBufferCapacity): New field.
+	(_Jv_JNIEnv::NewDirectByteBuffer): New method.
+	(_Jv_JNIEnv::GetDirectBufferAddress): New method.
+	(_Jv_JNIEnv::GetDirectBufferCapacity): New method.
+
+2002-04-09  Tom Tromey  <tromey@redhat.com>
+
+	* win32.cc (_Jv_platform_initProperties): Use GetTempPath.
+
+2002-04-08  Alberto Biancardi  <alberto.biancardi@unipv.it>
+
+	Fix for PR libgcj/6187:
+	* java/awt/geom/Point2D.java (distance): Call distanceSq, not
+	distance.
+
+2002-04-07  Mark Wielaard <mark@klomp.org>
+
+        * java/util/AbstractMap.java (putAll): Use entrySet size.
+        (toString): Explicitly use getKey() and getValue().
+
+2002-04-07  Mark Wielaard <mark@klomp.org>
+
+	* java/util/Hashtable.java (contains): Remove NullPointer check.
+	(containsValue): Add NullPointer check.
+	(remove): Always throw NullPointerException when key
+	is null.
+
+2002-04-07  Adam King <aking@dreammechanics.com>
+
+	* java/lang/natSystem.cc (init_properties): Call new function
+	_Jv_platform_initProperties.
+	* win32.cc (_Jv_platform_initProperties): New function that adds Win32 
+	support for the System properties os.name, os.arch, os.version, 
+	user.name, user.home, and user.dir.
+	* include/posix.h, include/win32.h, posix.cc: New function
+	_Jv_platform_initProperties.
+
+2002-04-06  Mark Wielaard <mark@klomp.org>
+
+	* java/lang/Character,java (isDefined): getType() != UNASSIGNED.
+
+2002-04-06  Mark Wielaard <mark@klomp.org>
+
+	* java/util/ArrayList.java (addAll(int,Collection)): System.arraycopy
+	all of the remaining elements.
+	* java/util/Vector.java (addAll(int,Collection)): Likewise.
+	(removeRange): If toIndex == fromIndex do
+	nothing, if toIndex < fromIndex throw IndexOutIfBoundsException.
+	(removeAll): Always throw NullPointerException when collection is
+	null.
+	(retrainAll): Likewise.
+
+2002-04-05  Mark Wielaard <mark@klomp.org>
+
+	* java/util/ArrayList.java (removeRange): If toIndex == fromIndex do
+	nothing, if toIndex < fromIndex throw IndexOutIfBoundsException.
+
+2002-04-05  Adam Megacz <adam@xwt.org>
+
+        * exception.cc (abort): added static modifier
+
+2002-04-04  Adam Megacz <adam@xwt.org>
+
+	* include/win32.h (_Jv_platform_close_on_exec): added inline
+	modifier.
+
+2002-04-04  Loren J. Rittle  <ljrittle@acm.org>
+
+	* configure.host: Add case statement to support generic port
+	properties.  Add *-*-freebsd* section.
+
+2002-04-04  Mark Wielaard  <mark@klomp.org>
+
+	* mauve-libgcj: Add JLS1.0 and JLS1.1 tags, ignore Character.unicode
+	test.
+	* testsuite/libjava.mauve/xfails: Remove working tests DoubleTest,
+	FloatTest and ObjectStreamClass. Add FAIL for Introspector.jdk11 tests
+	that depend on awt code and BufferedByteOutputStream.interrupt.
+
+2002-04-04  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* java/util/Arrays.java (qsort): Fix off-by-one errors and use of
+	incorrect "hi" value when count > 40.
+
+2002-04-03  Mark Wielaard  <mark@klomp.org>
+
+	* java/lang/reflect/Modifier.java (toString(int,StringBuffer)): Fix
+	ordering.
+
+2002-04-02  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/natClassLoader.cc (findClass): Compare against `3',
+	not `0'.
+
+2002-04-02  Mark Wielaard  <mark@klomp.org>
+
+	* mauve-libgcj: add java.net.DatagramSocket.DatagramSocketTest2 to
+	list of testsuite crashers.
+
+2002-04-02  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* java/util/IdentityHashMap.java (put): Set new threshold correctly
+	when resizing table.
+
 2002-04-01  Mark Wielaard  <mark@klomp.org>
 
         * java/util/BitSet.java (BitSet(int)): if nbits < 0 throw

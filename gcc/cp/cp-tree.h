@@ -47,7 +47,6 @@ struct diagnostic_context;
       ICS_USER_FLAG (in _CONV)
       CLEANUP_P (in TRY_BLOCK)
       AGGR_INIT_VIA_CTOR_P (in AGGR_INIT_EXPR)
-      CTOR_BEGIN_P (in CTOR_STMT)
       BV_USE_VCALL_INDEX_P (in the BINFO_VIRTUALS TREE_LIST)
       PTRMEM_OK_P (in ADDR_EXPR, OFFSET_REF)
       PARMLIST_ELLIPSIS_P (in PARMLIST)
@@ -731,7 +730,6 @@ struct saved_scope
   tree x_previous_class_type;
   tree x_previous_class_values;
   tree x_saved_tree;
-  tree incomplete;
   tree lookups;
   tree last_parms;
 
@@ -795,10 +793,6 @@ struct saved_scope
    cache miss).  */
 
 #define previous_class_values scope_chain->x_previous_class_values
-
-/* A list of the declarations with incomplete type at namespace scope.  */
-
-#define namespace_scope_incomplete scope_chain->incomplete
 
 /* A list of private types mentioned, for deferred access checking.  */
 
@@ -2969,15 +2963,6 @@ enum ptrmemfunc_vbit_where_t
 #define HANDLER_PARMS(NODE)     TREE_OPERAND (HANDLER_CHECK (NODE), 0)
 #define HANDLER_BODY(NODE)      TREE_OPERAND (HANDLER_CHECK (NODE), 1)
 #define HANDLER_TYPE(NODE)	TREE_TYPE (HANDLER_CHECK (NODE))
-#define SUBOBJECT_CLEANUP(NODE) TREE_OPERAND (SUBOBJECT_CHECK (NODE), 0)
-
-/* Nonzero if this CTOR_STMT is for the beginning of a constructor.  */
-#define CTOR_BEGIN_P(NODE) \
-  (TREE_LANG_FLAG_0 (CTOR_STMT_CHECK (NODE)))
-
-/* Nonzero if this CTOR_STMT is for the end of a constructor.  */
-#define CTOR_END_P(NODE) \
-  (!CTOR_BEGIN_P (NODE))
 
 /* The parameters for a call-declarator.  */
 #define CALL_DECLARATOR_PARMS(NODE) \
@@ -3776,7 +3761,8 @@ extern void finish_function_body		PARAMS ((tree));
 extern tree finish_function			PARAMS ((int));
 extern tree start_method			PARAMS ((tree, tree, tree));
 extern tree finish_method			PARAMS ((tree));
-extern void hack_incomplete_structures		PARAMS ((tree));
+extern void maybe_register_incomplete_var       PARAMS ((tree));
+extern void complete_vars			PARAMS ((tree));
 extern void finish_stmt				PARAMS ((void));
 extern void print_other_binding_stack		PARAMS ((struct binding_level *));
 extern void revert_static_member_fn             PARAMS ((tree));
@@ -4217,6 +4203,7 @@ extern tree finish_typeof			PARAMS ((tree));
 extern tree finish_sizeof			PARAMS ((tree));
 extern tree finish_alignof			PARAMS ((tree));
 extern void finish_decl_cleanup                 PARAMS ((tree, tree));
+extern void finish_eh_cleanup                   PARAMS ((tree));
 extern void finish_named_return_value           PARAMS ((tree, tree));
 extern void expand_body                         PARAMS ((tree));
 extern tree nullify_returns_r		      PARAMS ((tree *, int *, void *));
@@ -4396,7 +4383,7 @@ extern int abstract_virtuals_error		PARAMS ((tree, tree));
 
 extern tree store_init_value			PARAMS ((tree, tree));
 extern tree digest_init				PARAMS ((tree, tree, tree *));
-extern tree build_scoped_ref			PARAMS ((tree, tree));
+extern tree build_scoped_ref			PARAMS ((tree, tree, tree *));
 extern tree build_x_arrow			PARAMS ((tree));
 extern tree build_m_component_ref		PARAMS ((tree, tree));
 extern tree build_functional_cast		PARAMS ((tree, tree));

@@ -513,6 +513,7 @@ extern tree c_common_type_for_size		PARAMS ((unsigned int, int));
 extern tree c_common_unsigned_type		PARAMS ((tree));
 extern tree c_common_signed_type		PARAMS ((tree));
 extern tree c_common_signed_or_unsigned_type	PARAMS ((int, tree));
+extern tree c_common_truthvalue_conversion	PARAMS ((tree));
 extern void c_apply_type_quals_to_decl		PARAMS ((int, tree));
 extern tree c_sizeof				PARAMS ((tree));
 extern tree c_alignof				PARAMS ((tree));
@@ -765,7 +766,7 @@ extern void genrtl_compound_stmt                PARAMS ((tree));
 extern void genrtl_asm_stmt                     PARAMS ((tree, tree,
 							 tree, tree,
 							 tree, int));
-extern void genrtl_decl_cleanup                 PARAMS ((tree, tree));
+extern void genrtl_decl_cleanup                 PARAMS ((tree));
 extern int stmts_are_full_exprs_p               PARAMS ((void));
 extern int anon_aggr_type_p                     PARAMS ((tree));
 
