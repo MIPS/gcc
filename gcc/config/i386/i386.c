@@ -9648,7 +9648,7 @@ ix86_expand_int_movcc (operands)
       optab op;
       rtx var, orig_out, out, tmp;
 
-      if (BRANCH_COST >= 2)
+      if (BRANCH_COST <= 2)
 	return 0; /* FAIL */
 
       /* If one of the two operands is an interesting constant, load a
@@ -9657,9 +9657,9 @@ ix86_expand_int_movcc (operands)
       if (GET_CODE (operands[2]) == CONST_INT)
 	{
 	  var = operands[3];
-	  if (INTVAL (operands[2]) == 0)
+	  if (INTVAL (operands[2]) == 0 && operands[3] != constm1_rtx)
 	    operands[3] = constm1_rtx, op = and_optab;
-	  else if (INTVAL (operands[2]) == -1)
+	  else if (INTVAL (operands[2]) == -1 && operands[3] != const0_rtx)
 	    operands[3] = const0_rtx, op = ior_optab;
 	  else
 	    return 0; /* FAIL */
@@ -9667,9 +9667,9 @@ ix86_expand_int_movcc (operands)
       else if (GET_CODE (operands[3]) == CONST_INT)
 	{
 	  var = operands[2];
-	  if (INTVAL (operands[3]) == 0)
+	  if (INTVAL (operands[3]) == 0 && operands[2] != constm1_rtx)
 	    operands[2] = constm1_rtx, op = and_optab;
-	  else if (INTVAL (operands[3]) == -1)
+	  else if (INTVAL (operands[3]) == -1 && operands[3] != const0_rtx)
 	    operands[2] = const0_rtx, op = ior_optab;
 	  else
 	    return 0; /* FAIL */

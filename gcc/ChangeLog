@@ -1,3 +1,8 @@
+Sun Dec  1 16:50:47 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.c (ix86_expand_int_movcc): fix
+	reversed BRANCH_COST test; be curefull about infinite recursion.
+
 2002-11-30  Zack Weinberg  <zack@codesourcery.com>
 
 	* configure.in: Don't put ${tm_file} into host_xm_file,
