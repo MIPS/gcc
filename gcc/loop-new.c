@@ -41,8 +41,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "cfglayout.h"
 #include "loop.h"
 
-static basic_block recount_dominator PARAMS ((sbitmap *, basic_block));
-
 /* Stupid definitions of dominator manipulation.  */
 
 basic_block
@@ -81,6 +79,19 @@ get_dominated_by (dom, bb, bbs)
   return n;
 }
 
+void
+redirect_immediate_dominators (dom, bb, to)
+     sbitmap *dom __attribute__ ((__unused__));
+     basic_block bb;
+     basic_block to;
+{
+  int i;
+
+  for (i = 0; i < n_basic_blocks; i++)
+    if (BASIC_BLOCK (i)->dominator == bb)
+      BASIC_BLOCK (i)->dominator = to;
+}
+
 basic_block
 nearest_common_dominator (bmp, bb1, bb2)
      sbitmap *bmp __attribute__ ((__unused__));
@@ -90,13 +101,20 @@ nearest_common_dominator (bmp, bb1, bb2)
   int l1, l2, l;
   basic_block ab;
 
-  if (!bb1) return bb2;
-  if (!bb2) return bb1;
+  if (!bb1)
+    return bb2;
+  if (!bb2)
+    return bb1;
 
-  for (l1 = 0, ab = bb1; ab; ab = ab->dominator)
+  for (l1 = 0, ab = bb1; ab && ab != ab->dominator; ab = ab->dominator)
     l1++;
-  for (l2 = 0, ab = bb2; ab; ab = ab->dominator)
+  if (ab)
+    return bb2;
+  for (l2 = 0, ab = bb2; ab && ab != ab->dominator; ab = ab->dominator)
     l2++;
+  if (ab)
+    return bb1;
+
   if (l1 > l2)
     {
       ab = bb1; bb1 = bb2; bb2= ab;
@@ -136,28 +154,80 @@ verify_dominators (void)
       bb = BASIC_BLOCK (i);
       dom_bb = recount_dominator (NULL, bb);
       if (dom_bb != bb->dominator)
-        {
+	{
 	  error ("dominator of %d should be %d, not %d",
 	   bb->index, dom_bb->index, bb->dominator->index);
-          err = 1;
-        }
+	  err = 1;
+	}
     }
   if (err)
     abort ();
 }
 
 /* Recount dominator of BB.  */
-static basic_block
+basic_block
 recount_dominator (dom, bb)
      sbitmap *dom;
      basic_block bb;
 {
-   basic_block dom_bb = bb;
+   basic_block dom_bb = NULL, old_dom_bb;
    edge e;
 
+   old_dom_bb = get_immediate_dominator (dom, bb);
+   set_immediate_dominator (dom, bb, bb);
    for (e = bb->pred; e; e = e->pred_next)
      dom_bb = nearest_common_dominator (dom, dom_bb, e->src);
+   set_immediate_dominator (dom, bb, old_dom_bb);
+
    return dom_bb;
+}
+
+/* Iteratively recount dominators of BBS. If LOCAL is set, the change is
+   supposed to be local and not to grow further.  Otherwise BBS is supposed
+   to be able to hold all affected blocks (i.e. n_basic_blocks worst case).  */
+void
+iterate_fix_dominators (doms, bbs, n, local)
+     sbitmap *doms;
+     basic_block *bbs;
+     int n;
+     int local;
+{
+  sbitmap affected;
+  int i, changed = 1;
+  basic_block old_dom, new_dom;
+  edge e;
+
+  if (!local)
+    affected = sbitmap_alloc (n_basic_blocks);
+  while (changed)
+    {
+      changed = 0;
+      if (!local)
+	sbitmap_zero (affected);
+      for (i = 0; i < n; i++)
+	{
+	  old_dom = get_immediate_dominator (doms, bbs[i]);
+	  new_dom = recount_dominator (doms, bbs[i]);
+	  if (old_dom != new_dom)
+	    {
+	      changed = 1;
+	      set_immediate_dominator (doms, bbs[i], new_dom);
+	      if (!local)
+		for (e = bbs[i]->pred; e; e = e->pred_next)
+		  SET_BIT (affected, e->src->index);
+	    }
+	}
+      if (changed && !local)
+	{
+	  n = 0;
+	  EXECUTE_IF_SET_IN_SBITMAP (affected, 0, i,
+	    {
+	      bbs[n++] = BASIC_BLOCK (i);
+	    });
+	}
+    }
+  if (!local)
+    sbitmap_free (affected);
 }
 
 /* Initialize loop optimizer.  */
@@ -166,7 +236,6 @@ struct loops *
 loop_optimizer_init (dumpfile)
      FILE *dumpfile;
 {
-  int i;
   struct loops *loops = xcalloc (1, sizeof (struct loops));
 
   /* Find the loops.  */
@@ -181,15 +250,20 @@ loop_optimizer_init (dumpfile)
 
   /* Create pre-headers.  */
   create_preheaders (loops);
-#ifdef ENABLE_CHECKING
-  verify_dominators ();
-#endif
 
   /* Dump loops.  */
   flow_loops_dump (loops, dumpfile, NULL, 1);
 
   /* Initialize structures for layout changes.  */
   cfg_layout_initialize (loops);
+
+  /* Force all latches to have only single successor.  */
+  force_single_succ_latches (loops);
+
+#ifdef ENABLE_CHECKING
+  verify_dominators ();
+  verify_loop_structure (loops, VLS_FOR_LOOP_NEW);
+#endif
 
   return loops;
 }

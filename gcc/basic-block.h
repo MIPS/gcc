@@ -690,15 +690,20 @@ extern void free_aux_for_edges		PARAMS ((void));
 extern void verify_flow_info		PARAMS ((void));
 
 extern bool flow_loop_outside_edge_p	PARAMS ((const struct loop *, edge));
-extern bool flow_bb_inside_loop_p PARAMS ((const struct loop *, basic_block));
-extern basic_block *get_loop_body PARAMS ((const struct loop *));
-extern int dfs_enumerate_from PARAMS ((basic_block, int,
-				       bool (*)(basic_block), basic_block *,
-				       int));
+extern bool flow_bb_inside_loop_p       PARAMS ((const struct loop *, basic_block));
+extern basic_block *get_loop_body       PARAMS ((const struct loop *));
+extern int dfs_enumerate_from           PARAMS ((basic_block, int,
+				         bool (*)(basic_block, void *),
+					 basic_block *, int, void *));
 
 extern void add_bb_to_loop PARAMS ((basic_block, struct loop *));
 extern void remove_bb_from_loops PARAMS ((basic_block));
 struct loop * find_common_loop PARAMS ((struct loop *, struct loop *));
+
+void verify_loop_structure PARAMS ((struct loops *, int));
+#define VLS_EXPECT_PREHEADERS 1
+#define VLS_EXPECT_SIMPLE_LATCHES 2
+#define VLS_FOR_LOOP_NEW (VLS_EXPECT_PREHEADERS | VLS_EXPECT_SIMPLE_LATCHES)
 
 typedef struct conflict_graph_def *conflict_graph;
 
@@ -750,9 +755,11 @@ extern void set_immediate_dominator	PARAMS ((sbitmap *,
 extern basic_block get_immediate_dominator	PARAMS ((sbitmap *,
 						 basic_block));
 extern bool dominated_by_p	PARAMS ((sbitmap *, basic_block, basic_block));
-
 extern int get_dominated_by PARAMS ((sbitmap *, basic_block, basic_block **));
-
+basic_block recount_dominator PARAMS ((sbitmap *, basic_block));
+extern void redirect_immediate_dominators PARAMS ((sbitmap *, basic_block,
+						 basic_block));
+void iterate_fix_dominators PARAMS ((sbitmap *, basic_block *, int, int));
 extern void verify_dominators PARAMS ((void));
 
 /* In cfgloopanal.c */
@@ -760,7 +767,11 @@ struct loop_invariants *init_loop_invariants PARAMS ((struct loop *, struct df *
 void free_loop_invariants	 PARAMS ((struct loop_invariants *inv));
 void test_invariants		 PARAMS ((struct loops *));
 bool loop_invariant_rtx_p	 PARAMS ((struct loop_invariants *, rtx, rtx));
+basic_block loop_split_edge_with PARAMS ((edge, rtx, struct loops *));
+void force_single_succ_latches   PARAMS ((struct loops *));
 void create_preheaders		 PARAMS ((struct loops *));
-basic_block create_preheader	 PARAMS ((struct loop *, sbitmap *));
+basic_block create_preheader	 PARAMS ((struct loop *, sbitmap *, int));
+bool just_once_each_iteration_p  PARAMS ((struct loops *,struct loop *, basic_block));
+int num_loop_insns PARAMS ((struct loop *));
 
 #endif /* GCC_BASIC_BLOCK_H */

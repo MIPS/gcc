@@ -6,6 +6,7 @@
 #include "df.h"
 #include "output.h"
 #include "function.h"
+#include "cfglayout.h"
 
 typedef int (*loop_function)	 PARAMS ((rtx insn, void *data));
 static int for_each_insn_in_loop PARAMS ((struct loop *, loop_function, void *));
@@ -15,6 +16,7 @@ static void note_mem_store	 PARAMS ((rtx, rtx, void *));
 static int discover_invariant	 PARAMS ((rtx insn, void *data));
 static int not_invariant_rtx	 PARAMS ((rtx *rtxp, void *data));
 static bool mark_maybe_invariant_set PARAMS ((rtx, rtx, rtx, struct loop_invariants *));
+static bool cbp_enum_p PARAMS ((basic_block, void *));
 
 static int
 for_each_insn_in_loop (loop, fun, data)
@@ -413,11 +415,14 @@ test_invariants (loops)
     }
 }
 
-/* Creates a pre-header for a LOOP.  Returns newly created block.  */
+/* Creates a pre-header for a LOOP.  Returns newly created block.  Unless
+   SIMPLE_PREHEADER is set, we only force LOOP to have single entry; otherwise
+   we also force preheader block to have only one successor.  */
 basic_block
-create_preheader (loop, dom)
+create_preheader (loop, dom, simple_preheader)
      struct loop *loop;
      sbitmap *dom;
+     int simple_preheader;
 {
   edge e, fallthru;
   basic_block dummy;
@@ -426,17 +431,23 @@ create_preheader (loop, dom)
   int nentry = 0;
   rtx insn;
 
+  cloop = loop->outer;
+
   for (e = loop->header->pred; e; e = e->pred_next)
     {
       if (e->src == loop->latch)
 	continue;
-      cloop = find_common_loop (cloop, e->src->loop_father);
       nentry++;
     }
   if (!nentry)
     abort ();
   if (nentry == 1)
-    return NULL;
+    {
+      for (e = loop->header->pred; e->src == loop->latch; e = e->pred_next);
+      if (!simple_preheader
+	  || !e->src->succ->succ_next)
+	return NULL;
+    }
 
   insn = PREV_INSN (first_insn_after_basic_block_note (loop->header));
   fallthru = split_block (loop->header, insn);
@@ -464,6 +475,7 @@ create_preheader (loop, dom)
     }
 
   /* Update structures.  */
+  redirect_immediate_dominators (dom, dummy, loop->header);
   set_immediate_dominator (dom, loop->header, dummy);
   loop->header->loop_father = loop;
   add_bb_to_loop (dummy, cloop);
@@ -474,12 +486,167 @@ create_preheader (loop, dom)
   return dummy;
 }
 
-/* Create preheader each loop.  */
+/* Create preheaders for each loop.  */
 void
 create_preheaders (loops)
      struct loops *loops;
 {
   int i;
   for (i = 1; i < loops->num; i++)
-    create_preheader (loops->parray[i], loops->cfg.dom);
+    create_preheader (loops->parray[i], loops->cfg.dom, 0);
 }
+
+/* Enumeration predicate for just_once_each_iteration_p.  */
+static bool
+cbp_enum_p (bb, data)
+     basic_block bb;
+     void *data;
+{
+  struct loop *loop = data;
+  return bb != loop->header
+	 && flow_bb_inside_loop_p (loop, bb);
+}
+
+/* Checks whether BB is executed exactly once in each LOOP iteration.  */
+bool
+just_once_each_iteration_p (loops, loop, bb)
+     struct loops *loops;
+     struct loop *loop;
+     basic_block bb;
+{
+  basic_block *bbs;
+  int i, n;
+  edge e;
+
+  /* It must be executed at least once each iteration.  */
+  if (!dominated_by_p (loops->cfg.dom, loop->latch, bb))
+    return false;
+
+  /* And just once.  */
+  if (bb->loop_father != loop)
+    return false;
+
+  /* But this was not enough.  We might have some irreducible loop here.  */
+  if (bb == loop->header)
+    return true;
+
+  bbs = xcalloc (loop->num_nodes, sizeof (basic_block));
+  n = dfs_enumerate_from (bb, 0, cbp_enum_p, bbs, loop->num_nodes,
+			  (void *) loop);
+  for (i = 0; i < n; i++)
+    for (e = bbs[i]->succ; e; e = e->succ_next)
+      if (e->dest == bb)
+	{
+	  free (bbs);
+	  return false;
+	}
+
+  free (bbs);
+  return true;
+}
+
+/* Counts number of insns inside LOOP.  */
+int
+num_loop_insns (loop)
+     struct loop *loop;
+{
+  basic_block *bbs, bb;
+  int i, ninsns = 0;
+  rtx insn;
+
+  bbs = get_loop_body (loop);
+  for (i = 0; i < loop->num_nodes; i++)
+    {
+      bb = bbs[i];
+      ninsns++;
+      for (insn = bb->head; insn != bb->end; insn = NEXT_INSN (insn))
+	ninsns++;
+    }
+  free(bbs);
+  
+  return ninsns;
+}
+
+/* Functions below are expected to be called between
+   cfg_layout_initialize and cfg_layout_finalize.  */
+
+/* A quite stupid function to put INSNS on E. They are supposed to form
+   just one basic block. Jumps out are not handled, so cfg do not have to
+   be ok after this function.  */
+basic_block
+loop_split_edge_with (e, insns, loops)
+     edge e;
+     rtx insns;
+     struct loops *loops;
+{
+  basic_block src, dest, new_bb;
+  struct loop *loop_c;
+  edge new_e;
+  
+  src = e->src;
+  dest = e->dest;
+
+  loop_c = find_common_loop (src->loop_father, dest->loop_father);
+
+  /* Create basic block for it.  */
+
+  new_bb = create_basic_block (n_basic_blocks, NULL, NULL);
+  add_bb_to_loop (new_bb, loop_c);
+  new_bb->flags = 0;
+
+  new_e = make_edge (new_bb, dest, EDGE_FALLTHRU);
+  new_e->probability = REG_BR_PROB_BASE;
+  new_e->count = e->count;
+
+  new_bb->count = e->count;
+
+  /* Avoid redirect_edge_and_branch from overactive optimizing.  */
+  new_bb->index = n_basic_blocks + 1;
+  new_bb->frequency = EDGE_FREQUENCY (e);
+
+  if (e->flags & EDGE_FALLTHRU)
+    redirect_edge_succ (e, new_bb);
+  else
+    redirect_edge_and_branch (e, new_bb);
+  new_bb->index = n_basic_blocks - 1;
+
+  alloc_aux_for_block (new_bb, sizeof (struct reorder_block_def));
+  if (insns)
+    {
+      start_sequence ();
+      emit_insn (insns);
+      insns = get_insns ();
+      end_sequence ();
+      emit_insns_after (insns, new_bb->end);
+    }
+
+  set_immediate_dominator (loops->cfg.dom, new_bb, src);
+  set_immediate_dominator (loops->cfg.dom, dest,
+    recount_dominator (loops->cfg.dom, dest));
+
+  if (dest->loop_father->latch == src)
+    dest->loop_father->latch = new_bb;
+  
+  return new_bb;
+}
+
+/* Forces all loop latches to have only single successor.  */
+void
+force_single_succ_latches (loops)
+     struct loops *loops;
+{
+  int i;
+  struct loop *loop;
+  edge e;
+
+  for (i = 1; i < loops->num; i++)
+    {
+      loop = loops->parray[i];
+      if (!loop->latch->succ->succ_next)
+	continue;
+ 
+      for (e = loop->header->pred; e->src != loop->latch; e = e->pred_next);
+      loop_split_edge_with (e, NULL_RTX, loops);
+    }
+}
+

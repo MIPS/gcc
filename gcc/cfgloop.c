@@ -23,6 +23,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "rtl.h"
 #include "hard-reg-set.h"
 #include "basic-block.h"
+#include "toplev.h"
 
 /* Ratio of frequencies of edges so that one of more latch edges is
    considered to belong to inner loop with same header.  */
@@ -42,7 +43,7 @@ static int flow_loops_level_compute	PARAMS ((struct loops *));
 static basic_block make_forwarder_block PARAMS ((basic_block, int, int,
 						 edge, int));
 static void canonicalize_loop_headers   PARAMS ((void));
-static bool glb_enum_p PARAMS ((basic_block));
+static bool glb_enum_p PARAMS ((basic_block, void *));
 static void redirect_edge_with_latch_update PARAMS ((edge, basic_block));
 
 
@@ -345,13 +346,13 @@ flow_loop_nodes_find (header, loop)
 	      basic_block ancestor = e->src;
 
 	      if (ancestor != ENTRY_BLOCK_PTR
-	          && ancestor->loop_father != loop)
-	        {
-	          ancestor->loop_father = loop;
-	          ancestor->loop_depth = loop->depth;
-	          num_nodes++;
-	          stack[sp++] = ancestor;
-	        }
+		  && ancestor->loop_father != loop)
+		{
+		  ancestor->loop_father = loop;
+		  ancestor->loop_depth = loop->depth;
+		  num_nodes++;
+		  stack[sp++] = ancestor;
+		}
 	    }
 	}
       free (stack);
@@ -648,7 +649,7 @@ canonicalize_loop_headers ()
       edge fallthru, next_e;
       basic_block bb;
       /* We could not redirect edges freely here. On the other hand,
-         we know that no abnormal edge enters this block, so we can simply
+	 we know that no abnormal edge enters this block, so we can simply
 	 split it into two...  */
       bb = ENTRY_BLOCK_PTR->succ->dest;
       insn = PREV_INSN (first_insn_after_basic_block_note (bb));
@@ -656,7 +657,7 @@ canonicalize_loop_headers ()
  
       /* And redirect all edges to second part.  */
       for (e = fallthru->src->pred; e; e = next_e)
-        {
+	{
 	  next_e = e->pred_next;
 	  if (e->src == ENTRY_BLOCK_PTR)
 	    continue;
@@ -679,7 +680,7 @@ canonicalize_loop_headers ()
 
       header = BASIC_BLOCK (b);
       if (!HEADER_BLOCK (header))
-        {
+	{
 	  b++;
 	  continue;
 	}
@@ -689,7 +690,7 @@ canonicalize_loop_headers ()
       want_join_latch = (num_latch > 1);
 
       if (!want_join_latch)
-        {
+	{
 	  b++;
 	  continue;
 	}
@@ -708,8 +709,8 @@ canonicalize_loop_headers ()
 	  {
 	    if (heavy)
 	      {
-	        is_heavy = 0;
-	        break;
+		is_heavy = 0;
+		break;
 	      }
 	    else
 	      heavy = e;
@@ -802,10 +803,10 @@ flow_loops_find (loops, flags)
 	  if (e->flags & EDGE_ABNORMAL)
 	    {
 	      if (more_latches)
-	        {
+		{
 		  RESET_BIT (headers, b);
 		  num_loops--;
-	        }
+		}
 	      break;
 	    }
 
@@ -818,7 +819,7 @@ flow_loops_find (loops, flags)
 	    {
 	      /* Shared headers should be eliminated by now.  */
 	      if (more_latches)
-	        abort ();
+		abort ();
 	      more_latches = 1;
 	      SET_BIT (headers, b);
 	      num_loops++;
@@ -965,12 +966,12 @@ flow_loop_outside_edge_p (loop, e)
 }
 
 /* Enumeration predicate for get_loop_body.  */
-static basic_block glb_header;
 static bool
-glb_enum_p (bb)
+glb_enum_p (bb, glb_header)
      basic_block bb;
+     void *glb_header;
 {
-  return bb != glb_header;
+  return bb != (basic_block) glb_header;
 }
 
 /* Gets basic blocks of a loop.  */
@@ -995,9 +996,9 @@ get_loop_body (loop)
     }
   else if (loop->latch != loop->header)
     {
-      glb_header = loop->header;
       tv = dfs_enumerate_from (loop->latch, 1, glb_enum_p,
-			       tovisit + 1, loop->num_nodes - 1) + 1;
+			       tovisit + 1, loop->num_nodes - 1,
+			       loop->header) + 1;
     }
   if (tv != loop->num_nodes)
     abort ();
@@ -1052,3 +1053,100 @@ find_common_loop (loop_s, loop_d)
   return loop_s;
 }
 
+/* Checks that LOOPS are allright:
+     -- sizes of loops are allright
+     -- results of get_loop_body really belong to the loop
+     -- loop header have just single entry edge and single latch edge
+     -- loop latches have only single successor that is header of their loop
+     -- sanity of frequencies  */
+void verify_loop_structure (loops, flags)
+     struct loops *loops;
+     int flags;
+{
+  int *sizes, i, j;
+  basic_block *bbs;
+  struct loop *loop;
+  int err = 0;
+
+  /* Check sizes.  */
+  sizes = xcalloc (loops->num, sizeof (int));
+  sizes[0] = 2;
+
+  for (i = 0; i < n_basic_blocks; i++)
+    for (loop = BASIC_BLOCK (i)->loop_father; loop; loop = loop->outer)
+      sizes[loop->num]++;
+
+  for (i = 0; i < loops->num; i++)
+    if (loops->parray[i]->num_nodes != sizes[i])
+      {
+	error ("Size of loop %d should be %d, not %d.",
+		 i, sizes[i], loops->parray[i]->num_nodes);
+	err = 1;
+      }
+
+  free (sizes);
+
+  /* Check get_loop_body.  */
+  for (i = 1; i < loops->num; i++)
+    {
+      loop = loops->parray[i];
+      bbs = get_loop_body (loop);
+
+      for (j = 0; j < loop->num_nodes; j++)
+	if (!flow_bb_inside_loop_p (loop, bbs[j]))
+	  {
+	    error ("Bb %d do not belong to loop %d.",
+		    bbs[j]->index, i);
+	    err = 1;
+	  }
+      free (bbs);
+    }
+
+  /* Check headers and latches.  */
+  for (i = 1; i < loops->num; i++)
+    {
+      loop = loops->parray[i];
+      if ((flags & VLS_EXPECT_PREHEADERS)
+	  && (!loop->header->pred->pred_next
+	      || loop->header->pred->pred_next->pred_next))
+	{
+	  error ("Loop %d's header does not have exactly 2 entries.", i);
+	  err = 1;
+	}
+      if (flags & VLS_EXPECT_SIMPLE_LATCHES)
+	{
+	  if (!loop->latch->succ
+	      || loop->latch->succ->succ_next)
+	    {
+	      error ("Loop %d's latch does not have exactly 1 successor.", i);
+	      err = 1;
+	    }
+	  if (loop->latch->succ->dest != loop->header)
+	    {
+	      error ("Loop %d's latch does not have header as successor.", i);
+	      err = 1;
+	    }
+	  if (loop->latch->loop_father != loop)
+	    {
+	      error ("Loop %d's latch does not belong directly to it.", i);
+	      err = 1;
+	    }
+	}
+      if (loop->header->loop_father != loop)
+	{
+	  error ("Loop %d's header does not belong directly to it.", i);
+	  err = 1;
+	}
+    }
+
+  /* Check frequencies.  */
+  for (i = 0; i < n_basic_blocks; i++)
+    if (BASIC_BLOCK(i)->frequency < 0)
+      {
+	error ("Basic block %d has negative frequency.", i);
+	err = 1;
+      }
+
+  if (err)
+    abort ();
+}
