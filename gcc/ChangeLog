@@ -1,3 +1,33 @@
+2002-05-07  Diego Novillo  <dnovillo@redhat.com>
+
+	* c-pretty-print.c (op_prio): Handle ABS_EXPR.
+	Don't abort when the operand is not recognized.
+	(op_symbol): Don't abort when the operand is not recognized.
+	* c-simplify.c (simplify_expr): Remove 'const' qualifier from first
+	argument.
+	Do not copy incoming expression.
+	Exclude handling of MODIFY_EXPR, INIT_EXPR, SAVE_EXPR and binary
+	expression nodes.
+	(simplify_array_ref): Remove 'const' qualifier from first argument.
+	Do not copy the incoming expression.
+	(simplify_self_mod_expr): Ditto.
+	Do not simplify the first operand twice.
+	(simplify_component_ref): Remove 'const' qualifier from first
+	argument.  Do not copy the incoming expression.
+	(simplify_call_expr): Ditto.
+	(simplify_tree_list): Ditto.
+	(simplify_cond_expr): Ditto.
+	(simplify_modify_expr): Ditto.
+	(simplify_boolean_expr): Ditto.
+	(simplify_compound_expr): Ditto.
+	(simplify_save_expr): Ditto.
+	(simplify_expr_wfl): Ditto.
+	(tree_build_scope): Re-write.  Do nothing if block already contains
+	a scope.  Use chainon to chain the body with the scope closing
+	node.
+	(deep_copy_node): Do not check for NULL nodes.  Do not deep copy
+	declarations, types and constants.
+
 2002-05-06  Daniel Berlin  <dberlin@dberlin.org>
 
 	* c-simplify.c (deep_copy_node): Don't copy DECL_STMT_DECL's.

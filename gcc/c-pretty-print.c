@@ -1296,6 +1296,7 @@ op_prio (op)
     case STMT_EXPR:
     case MIN_EXPR:
     case MAX_EXPR:
+    case ABS_EXPR:
       return 16;
 
     case SAVE_EXPR:
@@ -1315,10 +1316,11 @@ op_prio (op)
 	  || TREE_CODE_CLASS (TREE_CODE (op)) == '2'
 	  || TREE_CODE_CLASS (TREE_CODE (op)) == 'e')
 	{
-	  error ("unhandled expression in op_prio():");
-	  debug_tree (op);
 	  fputs ("\n", stderr);
-	  abort ();
+	  fprintf (stderr, "unhandled expression in op_prio(): ");
+	  print_node_brief (stderr, "", op, 0);
+	  fputs ("\n", stderr);
+	  return -1;
 	}
       else
 	return 9999;
@@ -1435,12 +1437,7 @@ op_symbol (op)
       return "";
       
     default:
-      {
-	error ("unhandled expression in op_symbol():");
-	debug_tree (op);
-	fputs ("\n", stderr);
-	abort ();
-      }
+      return "<<< ??? >>>";
     }
 }
 

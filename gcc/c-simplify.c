@@ -60,20 +60,20 @@ static tree simplify_do_stmt         PARAMS ((tree));
 static tree simplify_switch_stmt     PARAMS ((tree, tree *));
 static tree simplify_decl_stmt       PARAMS ((tree, tree *));
 static tree simplify_if_stmt         PARAMS ((tree, tree *));
-static tree simplify_expr            PARAMS ((const tree, tree *, tree *,
+static tree simplify_expr            PARAMS ((tree, tree *, tree *,
                                               int (*) PARAMS ((tree)), int));
-static tree simplify_array_ref       PARAMS ((const tree, tree *, tree *));
-static tree simplify_self_mod_expr   PARAMS ((const tree, tree *, tree *));
-static tree simplify_component_ref   PARAMS ((const tree, tree *, tree *));
-static tree simplify_call_expr       PARAMS ((const tree, tree *, tree *));
-static tree simplify_tree_list       PARAMS ((const tree, tree *, tree *));
-static tree simplify_cond_expr       PARAMS ((const tree, tree *, tree *));
-static tree simplify_modify_expr     PARAMS ((const tree, tree *, tree *));
-static tree simplify_boolean_expr    PARAMS ((const tree, tree *, tree *));
-static tree simplify_compound_expr   PARAMS ((const tree, tree *, tree *));
-static tree simplify_save_expr       PARAMS ((const tree, tree *, tree *,
+static tree simplify_array_ref       PARAMS ((tree, tree *, tree *));
+static tree simplify_self_mod_expr   PARAMS ((tree, tree *, tree *));
+static tree simplify_component_ref   PARAMS ((tree, tree *, tree *));
+static tree simplify_call_expr       PARAMS ((tree, tree *, tree *));
+static tree simplify_tree_list       PARAMS ((tree, tree *, tree *));
+static tree simplify_cond_expr       PARAMS ((tree, tree *, tree *));
+static tree simplify_modify_expr     PARAMS ((tree, tree *, tree *));
+static tree simplify_boolean_expr    PARAMS ((tree, tree *, tree *));
+static tree simplify_compound_expr   PARAMS ((tree, tree *, tree *));
+static tree simplify_save_expr       PARAMS ((tree, tree *, tree *,
                                               int (*) PARAMS ((tree)), int));
-static tree simplify_expr_wfl        PARAMS ((const tree, tree *, tree *,
+static tree simplify_expr_wfl        PARAMS ((tree, tree *, tree *,
                                               int (*) PARAMS ((tree)), int));
 static void make_type_writable       PARAMS ((tree));
 static tree add_tree                 PARAMS ((tree, tree *));
@@ -927,7 +927,7 @@ simplify_decl_stmt (t, post_p)
 
 static tree
 simplify_expr (expr, pre_p, post_p, simple_test_f, needs_lvalue)
-     const tree expr;
+     tree expr;
      tree *pre_p;
      tree *post_p;
      int (*simple_test_f) PARAMS ((tree));
@@ -948,6 +948,7 @@ simplify_expr (expr, pre_p, post_p, simple_test_f, needs_lvalue)
   code = TREE_CODE (expr);
 
   /* First deal with the special cases.  */
+  expr_s = expr;
   switch (code)
     {
     case POSTINCREMENT_EXPR:
@@ -981,6 +982,8 @@ simplify_expr (expr, pre_p, post_p, simple_test_f, needs_lvalue)
       expr_s = simplify_compound_expr (expr, pre_p, post_p);
       break;
 
+#if 0
+    /* FIXME: This is definitely broken.  */
     case MODIFY_EXPR:
     case INIT_EXPR:
       expr_s = simplify_modify_expr (expr, pre_p, post_p);
@@ -994,6 +997,7 @@ simplify_expr (expr, pre_p, post_p, simple_test_f, needs_lvalue)
 	  expr_s = TREE_OPERAND (expr_s, 0);
 	}
       break;
+#endif
 
     case TRUTH_ANDIF_EXPR:
     case TRUTH_ORIF_EXPR:
@@ -1004,13 +1008,13 @@ simplify_expr (expr, pre_p, post_p, simple_test_f, needs_lvalue)
        end up taking the address of a temporary, instead of the address
        of the original object.  */
     case ADDR_EXPR:
-      expr_s = copy_node (expr);
+      expr_s = expr;
       break;
 
     /* va_arg expressions should also be left alone to avoid confusing the
        vararg code.  FIXME: Is this really necessary?  */
     case VA_ARG_EXPR:
-      expr_s = copy_node (expr);
+      expr_s = expr;
       break;
 
     case NOP_EXPR:
@@ -1019,7 +1023,7 @@ simplify_expr (expr, pre_p, post_p, simple_test_f, needs_lvalue)
     case FIX_CEIL_EXPR:
     case FIX_FLOOR_EXPR:
     case FIX_ROUND_EXPR:
-      expr_s = copy_node (expr);
+      expr_s = expr;
       TREE_OPERAND (expr_s, 0) = simplify_expr (TREE_OPERAND (expr_s, 0),
 	                                        pre_p, post_p,
 						is_simple_varname,
@@ -1027,14 +1031,14 @@ simplify_expr (expr, pre_p, post_p, simple_test_f, needs_lvalue)
       break;
 
     case INDIRECT_REF:
-      expr_s = copy_node (expr);
+      expr_s = expr;
       TREE_OPERAND (expr_s, 0) = simplify_expr (TREE_OPERAND (expr_s, 0),
 	                                        pre_p, post_p, is_simple_id,
 						needs_lvalue);
       break;
 
     case NEGATE_EXPR:
-      expr_s = copy_node (expr);
+      expr_s = expr;
       TREE_OPERAND (expr_s, 0) = simplify_expr (TREE_OPERAND (expr_s, 0),
 	                                        pre_p, post_p, is_simple_val,
 						needs_lvalue);
@@ -1065,10 +1069,13 @@ simplify_expr (expr, pre_p, post_p, simple_test_f, needs_lvalue)
       simplify_stmt (STMT_EXPR_STMT (expr));
       break;
 
+#if 0
+    /* FIXME: This is definitely broken.  */
     case SAVE_EXPR:
       expr_s = simplify_save_expr (expr, pre_p, post_p, simple_test_f,
 	                           needs_lvalue);
       break;
+#endif
 
     case EXPR_WITH_FILE_LOCATION:
       expr_s = simplify_expr_wfl (expr, pre_p, post_p, simple_test_f,
@@ -1076,7 +1083,7 @@ simplify_expr (expr, pre_p, post_p, simple_test_f, needs_lvalue)
       break;
 
     case BIT_FIELD_REF:
-      expr_s = copy_node (expr);
+      expr_s = expr;
       TREE_OPERAND (expr_s, 0) = simplify_expr (TREE_OPERAND (expr_s, 0),
 	                                        pre_p, post_p, is_simple_id,
 						needs_lvalue);
@@ -1091,7 +1098,7 @@ simplify_expr (expr, pre_p, post_p, simple_test_f, needs_lvalue)
       break;
 
     case NON_LVALUE_EXPR:
-      expr_s = copy_node (expr);
+      expr_s = expr;
       TREE_OPERAND (expr_s, 0) = simplify_expr (TREE_OPERAND (expr_s, 0),
 	                                        pre_p, post_p, simple_test_f,
 						0);
@@ -1101,12 +1108,15 @@ simplify_expr (expr, pre_p, post_p, simple_test_f, needs_lvalue)
        its class.  */
     default:
       {
-	expr_s = copy_node (expr);
+	expr_s = expr;
 
 	if (TREE_CODE_CLASS (TREE_CODE (expr_s)) == '1')
 	  TREE_OPERAND (expr_s, 0) = simplify_expr (TREE_OPERAND (expr_s, 0),
 						    pre_p, post_p,
-						    is_simple_val, 0);
+						    is_simple_val,
+						    needs_lvalue);
+#if 0
+	/* FIXME: This is definitely broken.  */
 	else if (TREE_CODE_CLASS (TREE_CODE (expr_s)) == '2'
 	         || TREE_CODE_CLASS (TREE_CODE (expr_s)) == '<'
 		 || TREE_CODE (expr_s) == TRUTH_AND_EXPR
@@ -1116,20 +1126,23 @@ simplify_expr (expr, pre_p, post_p, simple_test_f, needs_lvalue)
 	    tree lhs, rhs;
 
 	    lhs = simplify_expr (TREE_OPERAND (expr_s, 0), pre_p, post_p,
-			         is_simple_val, 0);
+			         is_simple_val, needs_lvalue);
 
 	    rhs = simplify_expr (TREE_OPERAND (expr_s, 1), pre_p, post_p,
-				 is_simple_val, 0);
+				 is_simple_val, needs_lvalue);
 
 	    TREE_OPERAND (expr_s, 0) = lhs;
 	    TREE_OPERAND (expr_s, 1) = rhs;
 	  }
+#endif
+#if 0
 	else
 	  {
 	    fprintf (stderr, "unhandled expression in simplify_expr ():\n");
 	    debug_tree (expr);
 	    abort ();
 	  }
+#endif
       }
     }
 
@@ -1138,6 +1151,7 @@ simplify_expr (expr, pre_p, post_p, simple_test_f, needs_lvalue)
   if ((*simple_test_f) (expr_s))
     return expr_s;
   
+#if 0
   /* Otherwise, we need to create a new temporary to hold the simplified
      expression.  At this point, the expression should be simple enough to
      qualify as a SIMPLE RHS.  Otherwise, simplification has failed.  */
@@ -1148,6 +1162,12 @@ simplify_expr (expr, pre_p, post_p, simple_test_f, needs_lvalue)
       fprintf (stderr, "\n");
       abort ();
     }
+#endif
+
+  if (TREE_TYPE (expr_s) == NULL_TREE
+      || VOID_TYPE_P (TREE_TYPE (expr_s))
+      || AGGREGATE_TYPE_P (TREE_TYPE (expr_s)))
+    return expr_s;
 
   if (!needs_lvalue)
     {
@@ -1164,6 +1184,8 @@ simplify_expr (expr, pre_p, post_p, simple_test_f, needs_lvalue)
 	 T, get the address of the simplified expression (T = &EXPR_S) and
 	 return a reference to T (*T).  */
       type = TREE_TYPE (expr_s);
+#if 0
+      /* FIXME: This is definitely broken.  */
       if (POINTER_TYPE_P (type))
 	{
 	  /* If the expression is a pointer already, there is no need to
@@ -1183,6 +1205,7 @@ simplify_expr (expr, pre_p, post_p, simple_test_f, needs_lvalue)
 	  TREE_OPERAND (expr_s, 0) = tmp;
 	}
       else
+#endif
 	{
 	  /* Take the address of the simplified expression and return a
 	     reference to it.  */
@@ -1220,7 +1243,7 @@ simplify_expr (expr, pre_p, post_p, simple_test_f, needs_lvalue)
 
 static tree
 simplify_array_ref (expr, pre_p, post_p)
-     const tree expr;
+     tree expr;
      tree *pre_p;
      tree *post_p;
 {
@@ -1230,7 +1253,7 @@ simplify_array_ref (expr, pre_p, post_p)
   if (TREE_CODE (expr) != ARRAY_REF)
     abort ();
 
-  expr_s = copy_node (expr);
+  expr_s = expr;
   VARRAY_GENERIC_PTR_INIT (dim_stack, 10, "dim_stack");
 
   /* Create a stack with all the dimensions of the array so that they can
@@ -1277,12 +1300,12 @@ simplify_array_ref (expr, pre_p, post_p)
 
 static tree
 simplify_self_mod_expr (expr, pre_p, post_p)
-     const tree expr;
+     tree expr;
      tree *pre_p;
      tree *post_p;
 {
   enum tree_code code;
-  tree lhs, lhs_val, rhs, t1;
+  tree lhs, rhs, t1;
 
   code = TREE_CODE (expr);
 
@@ -1292,25 +1315,14 @@ simplify_self_mod_expr (expr, pre_p, post_p)
       && code != PREDECREMENT_EXPR)
     abort ();
 
-  /* The first operand needs to be simplified twice.  The first time to
-     produce an lvalue suitable for the assignment and the second time to
-     produce a SIMPLE value suitable for a binary expression.  */
-  lhs = TREE_OPERAND (expr, 0);
-  if (is_simple_val (lhs))
-    lhs_val = lhs;
-  else
-    {
-      lhs = simplify_expr (lhs, pre_p, post_p, is_simple_modify_expr_lhs, 1);
-      lhs_val = simplify_expr (lhs, pre_p, post_p, is_simple_val, 0);
-    }
-
+  lhs = simplify_expr (TREE_OPERAND (expr, 0), pre_p, post_p, is_simple_val, 1);
   rhs = simplify_expr (TREE_OPERAND (expr, 1), pre_p, post_p, is_simple_val, 0);
 
   /* Determine whether we need to create a PLUS or a MINUS operation.  */
   if (code == PREINCREMENT_EXPR || code == POSTINCREMENT_EXPR)
-    t1 = build (PLUS_EXPR, TREE_TYPE (expr), lhs_val, rhs);
+    t1 = build (PLUS_EXPR, TREE_TYPE (expr), lhs, rhs);
   else
-    t1 = build (MINUS_EXPR, TREE_TYPE (expr), lhs_val, rhs);
+    t1 = build (MINUS_EXPR, TREE_TYPE (expr), lhs, rhs);
 
   /* Determine whether the new assignment should go before or after
      the simplified expression.  */
@@ -1345,7 +1357,7 @@ simplify_self_mod_expr (expr, pre_p, post_p)
 
 static tree
 simplify_component_ref (expr, pre_p, post_p)
-     const tree expr;
+     tree expr;
      tree *pre_p;
      tree *post_p;
 {
@@ -1361,7 +1373,7 @@ simplify_component_ref (expr, pre_p, post_p)
 
   rhs = simplify_expr (TREE_OPERAND (expr, 1), pre_p, post_p, is_simple_id, 0);
 
-  expr_s = copy_node (expr);
+  expr_s = expr;
   TREE_OPERAND (expr_s, 0) = lhs;
   TREE_OPERAND (expr_s, 1) = rhs;
 
@@ -1389,7 +1401,7 @@ simplify_component_ref (expr, pre_p, post_p)
 
 static tree
 simplify_call_expr (expr, pre_p, post_p)
-     const tree expr;
+     tree expr;
      tree *pre_p;
      tree *post_p;
 {
@@ -1411,7 +1423,7 @@ simplify_call_expr (expr, pre_p, post_p)
     arglist = simplify_expr (TREE_OPERAND (expr, 1), pre_p, post_p,
   			     is_simple_arglist, 0);
   
-  expr_s = copy_node (expr);
+  expr_s = expr;
   TREE_OPERAND (expr_s, 0) = id;
   if (TREE_OPERAND (expr_s, 1))
     TREE_OPERAND (expr_s, 1) = arglist;
@@ -1437,7 +1449,7 @@ simplify_call_expr (expr, pre_p, post_p)
 
 static tree
 simplify_tree_list (expr, pre_p, post_p)
-     const tree expr;
+     tree expr;
      tree *pre_p;
      tree *post_p;
 {
@@ -1480,7 +1492,7 @@ simplify_tree_list (expr, pre_p, post_p)
 
 static tree
 simplify_cond_expr (expr, pre_p, post_p)
-     const tree expr;
+     tree expr;
      tree *pre_p;
      tree *post_p;
 {
@@ -1539,7 +1551,7 @@ simplify_cond_expr (expr, pre_p, post_p)
 
 static tree
 simplify_modify_expr (expr, pre_p, post_p)
-     const tree expr;
+     tree expr;
      tree *pre_p;
      tree *post_p;
 {
@@ -1551,7 +1563,7 @@ simplify_modify_expr (expr, pre_p, post_p)
 
   /* Break assignment chains (i.e., a = b = c = ...) into individual
      assignment expressions.  */
-  expr_s = copy_node (expr);
+  expr_s = expr;
   rhs = TREE_OPERAND (expr_s, 1);
   if (TREE_CODE (rhs) == MODIFY_EXPR)
     {
@@ -1608,7 +1620,7 @@ simplify_modify_expr (expr, pre_p, post_p)
 
 static tree
 simplify_boolean_expr (expr, pre_p, post_p)
-     const tree expr;
+     tree expr;
      tree *pre_p;
      tree *post_p;
 {
@@ -1667,7 +1679,7 @@ simplify_boolean_expr (expr, pre_p, post_p)
 
 static tree
 simplify_compound_expr (expr, pre_p, post_p)
-     const tree expr;
+     tree expr;
      tree *pre_p;
      tree *post_p;
 {
@@ -1766,7 +1778,7 @@ simplify_compound_expr (expr, pre_p, post_p)
 
 static tree
 simplify_save_expr (expr, pre_p, post_p, simple_test_f, needs_lvalue)
-     const tree expr;
+     tree expr;
      tree *pre_p;
      tree *post_p;
      int (*simple_test_f) PARAMS ((tree));
@@ -1823,7 +1835,7 @@ simplify_save_expr (expr, pre_p, post_p, simple_test_f, needs_lvalue)
 
 static tree
 simplify_expr_wfl (expr, pre_p, post_p, simple_test_f, needs_lvalue)
-     const tree expr;
+     tree expr;
      tree *pre_p;
      tree *post_p;
      int (*simple_test_f) PARAMS ((tree));
@@ -1865,56 +1877,42 @@ void
 tree_build_scope (t)
      tree *t;
 {
-  if (*t == NULL_TREE)
-    {
-      /* Construct a compound statement and a scope.  */
-      tree body, start_scope, end_scope;
+  tree comp_stmt, start_scope, end_scope;
 
-      body = make_node (COMPOUND_STMT);
-      start_scope = make_node (SCOPE_STMT);
-      end_scope = make_node (SCOPE_STMT);
-      SCOPE_BEGIN_P (start_scope) = 1;
-      SCOPE_BEGIN_P (end_scope) = 0;
-      COMPOUND_BODY (body) = start_scope;
-      /* Construct an empty body.  */
-      TREE_CHAIN (start_scope) = end_scope;
-      /* Replace the node by the constructed body.  */
-      *t = body;
-      return;
-    }
+  /* If T already has a proper scope, do nothing.  */
+  if (*t
+      && TREE_CODE (*t) == COMPOUND_STMT
+      && COMPOUND_BODY (*t))
+    return;
 
-  if (TREE_CODE (*t) == COMPOUND_STMT)
+  /* Create a new empty scope.  */
+  comp_stmt = make_node (COMPOUND_STMT);
+
+  start_scope = make_node (SCOPE_STMT);
+  SCOPE_BEGIN_P (start_scope) = 1;
+
+  end_scope = make_node (SCOPE_STMT);
+  SCOPE_BEGIN_P (end_scope) = 0;
+
+  COMPOUND_BODY (comp_stmt) = start_scope;
+
+  if (*t)
     {
-      if (COMPOUND_BODY (*t) == NULL_TREE)
-	{
-	  /* There's a compound statement, but no scope.  */
-	  tree start_scope, end_scope;
-	  start_scope = make_node (SCOPE_STMT);
-	  end_scope = make_node (SCOPE_STMT);
-	  SCOPE_BEGIN_P (start_scope) = 1;
-	  SCOPE_BEGIN_P (end_scope) = 0;
-	  COMPOUND_BODY (*t) = start_scope;
-	  TREE_CHAIN (start_scope) = end_scope;
-	}
-      else
-	/* The given NODE is actually a scope.  */
-	return;
+      /* If T is not empty, insert it inside the newly created scope.  Note
+	 that we can't just join TREE_CHAIN(*T) to the closing scope
+	 because even if T wasn't inside a scope, it might be a list of
+	 statements.  */
+      TREE_CHAIN (start_scope) = *t;
+      chainon (*t, end_scope);
     }
   else
     {
-      /* Construct a compound statement and a scope.  */
-      tree body, start_scope, end_scope;
-
-      body = make_node (COMPOUND_STMT);
-      start_scope = make_node (SCOPE_STMT);
-      end_scope = make_node (SCOPE_STMT);
-      SCOPE_BEGIN_P (start_scope) = 1;
-      SCOPE_BEGIN_P (end_scope) = 0;
-      COMPOUND_BODY (body) = start_scope;
-      TREE_CHAIN (start_scope) = *t;
-      TREE_CHAIN (*t) = end_scope;
-      *t = body;
+      /* T is empty.  Simply join the start/end nodes.  */
+      TREE_CHAIN (start_scope) = end_scope;
     }
+
+  /* Set T to the newly constructed scope.  */
+  *t = comp_stmt;
 }
 
 /* }}} */
@@ -2265,7 +2263,7 @@ tree_last_decl (scope)
 
 /** {{{ deep_copy_list ()
     
-    Copy every statement from the chain CHAIN by calling deep_copy_node.
+    Copy every statement from the chain CHAIN by calling deep_copy_node().
     Return the new chain.  */
 
 tree
@@ -2295,8 +2293,8 @@ deep_copy_list (chain)
 
 /** {{{ deep_copy_node ()
 
-    Copy a statement by using copy_node when needed, but ensuring that we copy 
-    enough information in order to have distinct statements.  */
+    Create a deep copy of NODE.  The only nodes that are not deep copied
+    are declarations, constants and types.  */
 
 tree 
 deep_copy_node (node)
@@ -2310,81 +2308,52 @@ deep_copy_node (node)
   switch (TREE_CODE (node))
     {
     case COMPOUND_STMT:
-      res = build_stmt (COMPOUND_STMT, 
-			deep_copy_list (COMPOUND_BODY (node)));
+      res = build_stmt (COMPOUND_STMT, deep_copy_list (COMPOUND_BODY (node)));
       break;
 
     case FOR_STMT:
       res = build_stmt (FOR_STMT, 
 			deep_copy_node (FOR_INIT_STMT (node)),
-			(FOR_COND (node) ? 
-			 copy_node (FOR_COND (node)) : NULL_TREE),
-			(FOR_EXPR (node) ? 
-			 copy_node (FOR_EXPR (node)) : NULL_TREE),
+			deep_copy_node (FOR_COND (node)),
+			deep_copy_node (FOR_EXPR (node)),
 			deep_copy_node (FOR_BODY (node)));
       break;
 
     case WHILE_STMT:
       res = build_stmt (WHILE_STMT, 
-			(WHILE_COND (node) ? 
-			 copy_node (WHILE_COND (node)) : NULL_TREE),
+			deep_copy_node (WHILE_COND (node)),
 			deep_copy_node (WHILE_BODY (node)));
       break;
 
     case DO_STMT:
       res = build_stmt (DO_STMT, 
-			(DO_COND (node) ? 
-			 copy_node (DO_COND (node)) : NULL_TREE),
+			deep_copy_node (DO_COND (node)),
 			deep_copy_node (DO_BODY (node)));
       break;
 
     case IF_STMT:
       res = build_stmt (IF_STMT, 
-			(IF_COND (node) ? 
-			 copy_node (IF_COND (node)) : NULL_TREE),
+			deep_copy_node (IF_COND (node)),
 			deep_copy_node (THEN_CLAUSE (node)),
 			deep_copy_node (ELSE_CLAUSE (node)));
       break;
 
     case SWITCH_STMT:
       res = build_stmt (SWITCH_STMT,
-			(SWITCH_COND (node) ? 
-			 copy_node (SWITCH_COND (node)) : NULL_TREE),
+			deep_copy_node (SWITCH_COND (node)),
 			deep_copy_node (SWITCH_BODY (node)));
       break;
 
     case EXPR_STMT:
-      res = build_stmt (EXPR_STMT,
-			(EXPR_STMT_EXPR (node) ? 
-			 copy_node (EXPR_STMT_EXPR (node)) : NULL_TREE));
+      res = build_stmt (EXPR_STMT, deep_copy_node (EXPR_STMT_EXPR (node)));
       break;
 
     case DECL_STMT:
-      res = build_stmt (DECL_STMT,
-			(DECL_STMT_DECL (node) ? 
-			 DECL_STMT_DECL (node) : NULL_TREE));
+      res = build_stmt (DECL_STMT, DECL_STMT_DECL (node));
       break;
 
     case RETURN_STMT:
-      res = build_stmt (RETURN_STMT,
-			(RETURN_EXPR (node) ? 
-			 copy_node (RETURN_EXPR (node)) : NULL_TREE));
-      break;
-
-    case SCOPE_STMT:
-      if (SCOPE_BEGIN_P (node))
-	{
-	  res = build_stmt (SCOPE_STMT,
-			    (SCOPE_STMT_BLOCK (node) ? 
-			     copy_list (SCOPE_STMT_BLOCK (node)) : 
-			     NULL_TREE));
-	  TREE_LANG_FLAG_0 (res) = 1;
-	}
-      else 
-	{
-	  res = build_stmt (SCOPE_STMT, NULL_TREE);
-	  TREE_LANG_FLAG_0 (res) = 0;
-	}
+      res = build_stmt (RETURN_STMT, deep_copy_node (RETURN_EXPR (node)));
       break;
 
     case TREE_LIST:
@@ -2392,15 +2361,30 @@ deep_copy_node (node)
 	                     deep_copy_node (TREE_VALUE (node)));
       break;
 
-    case FILE_STMT:
-    case LABEL_STMT:
-    case GOTO_STMT:
-    case ASM_STMT:
-    case CASE_LABEL:
-    case CONTINUE_STMT:
-    case BREAK_STMT:
+    case SCOPE_STMT:
+      if (SCOPE_BEGIN_P (node))
+	{
+	  /* ??? The sub-blocks and supercontext for the scope's BLOCK_VARS
+		 should be re-computed after copying.  */
+	  res = build_stmt (SCOPE_STMT,
+			    deep_copy_list (SCOPE_STMT_BLOCK (node)));
+	  SCOPE_BEGIN_P (res) = 1;
+	}
+      else 
+	{
+	  res = build_stmt (SCOPE_STMT, NULL_TREE);
+	  SCOPE_BEGIN_P (res) = 0;
+	}
+      break;
+
     default:
-      res = copy_node (node);
+      /* Don't do deep copies of types, constants and declarations.  */
+      if (TREE_CODE_CLASS (TREE_CODE (node)) == 't'
+	  || TREE_CODE_CLASS (TREE_CODE (node)) == 'c'
+	  || TREE_CODE_CLASS (TREE_CODE (node)) == 'd')
+	res = node;
+      else
+	res = copy_node (node);
       break;
     }
   
