@@ -1,6 +1,7 @@
 2004-06-17  J"orn Rennecke <joern.rennecke@superh.com>
 
 	* config.gcc: Properly set sh_multilibs for sh64*.  Merge
+	(supported_defaults): sh[56]-*-* support "cpu".
 	sh*-*-netbsd* configurations into sh-elf configurations.
 	* config/sh/elf.h (SUBTARGET_ASM_ISA_SPEC): Use ASM_ISA_DEFAULT_SPEC.
 	* config/sh/netbsd-elf.h: Update code which sets TARGET_VERSION_CPU.
