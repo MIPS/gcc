@@ -1,3 +1,9 @@
+2005-01-27  Matt Austern  <austern@apple.com>
+
+	Radar 3971445
+	* objc-act.c (objc_finish_file): In Objective-C++ mode, set at_eof
+	before calling instantiate_pending_templates. 
+
 2005-01-17  Ziemowit Laski  <zlaski@apple.com>
 
 	* objc-act.c (objc_get_class_reference): Move stray 
